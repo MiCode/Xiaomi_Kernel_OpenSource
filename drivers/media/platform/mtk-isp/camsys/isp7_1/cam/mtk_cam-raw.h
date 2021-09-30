@@ -412,6 +412,13 @@ mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 			     struct mtk_cam_resource *res_user,
 			     struct v4l2_mbus_framefmt *src);
 
+#ifdef CAMSYS_TF_DUMP_71_1
+int
+mtk_cam_translation_fault_callback(int port,
+				dma_addr_t mva,
+				void *data);
+#endif
+
 extern struct platform_driver mtk_cam_raw_driver;
 extern struct platform_driver mtk_cam_yuv_driver;
 

@@ -39,6 +39,9 @@
 #include "mtk_cam-hsf.h"
 
 #include "mtk_cam-trace.h"
+#ifdef CAMSYS_TF_DUMP_71_1
+#include <dt-bindings/memory/mt6983-larb-port.h>
+#endif
 
 static unsigned int debug_raw;
 module_param(debug_raw, uint, 0644);
@@ -5893,6 +5896,156 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 
 	return 0;
 }
+
+#ifdef CAMSYS_TF_DUMP_71_1
+int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
+{
+	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
+	struct device *dev = raw_dev->dev;
+
+	unsigned int dequeued_frame_seq_no_inner;
+
+	dequeued_frame_seq_no_inner =
+		readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
+
+	dev_info(dev, "=================== [CAMSYS M4U] Dump Begin ==================\n");
+
+	dev_info(dev, "M4U TF port %d iova %pad frame_seq_no %d raw id %d vf %d\n",
+		port, &mva, dequeued_frame_seq_no_inner, raw_dev->id, raw_dev->vf_en);
+
+	mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
+
+	dev_info(raw_dev->dev,
+		 "[Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		 readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
+		 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),
+		 readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST_R),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_PXL),
+		 readl_relaxed(raw_dev->base + REG_TG_SEN_GRAB_LIN));
+	dev_info(raw_dev->dev,
+		 "[Inner] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+		 readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_FRMSIZE_ST_R),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_PXL),
+		 readl_relaxed(raw_dev->base_inner + REG_TG_SEN_GRAB_LIN));
+	dev_info(raw_dev->dev,
+		 "REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_REQ_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_REQ_STAT));
+	dev_info(raw_dev->dev,
+		 "RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_RDY_STAT),
+		 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_RDY_STAT));
+	dev_info(raw_dev->dev,
+		 "REQ YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_REQ_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_REQ_STAT));
+	dev_info(raw_dev->dev,
+		 "RDY YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_RDY_STAT),
+		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
+
+	switch (port) {
+	case M4U_PORT_L17_CAM3_YUVO_R1:
+	case M4U_PORT_L29_CAM3_YUVO_R1:
+	case M4U_PORT_L30_CAM3_YUVO_R1:
+		// M4U_PORT CAM3_YUVO_R1 : yuvo_r1 + yuvbo_r1
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"YUVO_R1", dbg_YUVO_R1, ARRAY_SIZE(dbg_YUVO_R1));
+		break;
+	case M4U_PORT_L17_CAM3_YUVO_R3:
+	case M4U_PORT_L29_CAM3_YUVO_R3:
+	case M4U_PORT_L30_CAM3_YUVO_R3:
+		// M4U_PORT CAM3_YUVO_R3 : yuvo_r3 + yuvbo_r3
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"YUVO_R3", dbg_YUVO_R3, ARRAY_SIZE(dbg_YUVO_R3));
+		break;
+	case M4U_PORT_L17_CAM3_YUVCO_R1:
+	case M4U_PORT_L29_CAM3_YUVCO_R1:
+	case M4U_PORT_L30_CAM3_YUVCO_R1:
+		// M4U_PORT CAM3_YUVCO_R1 : yuvco_r1 + yuvdo_r1 + yuvco_r3 + yuvdo_r3
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"YUVCO_R1", dbg_YUVCO_R1, ARRAY_SIZE(dbg_YUVCO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"YUVCO_R3", dbg_YUVCO_R3, ARRAY_SIZE(dbg_YUVCO_R3));
+		break;
+	case M4U_PORT_L17_CAM3_YUVO_R2:
+	case M4U_PORT_L29_CAM3_YUVO_R2:
+	case M4U_PORT_L30_CAM3_YUVO_R2:
+		// M4U_PORT CAM3_YUVO_R2 : yuvo_r2 + yuvbo_r2 + yuvo_r4 + yuvbo_r4
+		//                           + yuvo_r5 + yuvbo_r5
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"YUVO_R2", dbg_YUVO_R2, ARRAY_SIZE(dbg_YUVO_R2));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"YUVO_R4", dbg_YUVO_R4, ARRAY_SIZE(dbg_YUVO_R4));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"YUVO_R5", dbg_YUVO_R5, ARRAY_SIZE(dbg_YUVO_R5));
+		break;
+	case M4U_PORT_L17_CAM3_RZH1N2TO_R1:
+	case M4U_PORT_L29_CAM3_RZH1N2TO_R1:
+	case M4U_PORT_L30_CAM3_RZH1N2TO_R1:
+		// M4U_PORT CAM3_RZH1N2TO_R1 : rzh1n2to_r1 + rzh1n2tbo_r1 + rzh1n2to_r2
+		//                               + rzh1n2to_r3 + rzh1n2tbo_r3
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"RZH1N2TO_R1", dbg_RZH1N2TO_R1, ARRAY_SIZE(dbg_RZH1N2TO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"RZH1N2TO_R2", dbg_RZH1N2TO_R2, ARRAY_SIZE(dbg_RZH1N2TO_R2));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"RZH1N2TO_R3", dbg_RZH1N2TO_R3, ARRAY_SIZE(dbg_RZH1N2TO_R3));
+		break;
+	case M4U_PORT_L17_CAM3_DRZS4NO_R1:
+	case M4U_PORT_L29_CAM3_DRZS4NO_R1:
+	case M4U_PORT_L30_CAM3_DRZS4NO_R1:
+		// M4U_PORT CAM3_DRZS4NO_R1 : drzs4no_r1 + drzs4no_r2 + drzs4no_r3
+		//                               + lmvo_r1 + actso_r1
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"DRZS4NO_R1", dbg_DRZS4NO_R1, ARRAY_SIZE(dbg_DRZS4NO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"DRZS4NO_R2", dbg_DRZS4NO_R2, ARRAY_SIZE(dbg_DRZS4NO_R2));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"DRZS4NO_R3", dbg_DRZS4NO_R3, ARRAY_SIZE(dbg_DRZS4NO_R3));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"LMVO_R1", dbg_LMVO_R1, ARRAY_SIZE(dbg_LMVO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"ACTSO_R1", dbg_ACTSO_R1, ARRAY_SIZE(dbg_ACTSO_R1));
+		break;
+	case M4U_PORT_L17_CAM3_TNCSO_R1:
+	case M4U_PORT_L29_CAM3_TNCSO_R1:
+	case M4U_PORT_L30_CAM3_TNCSO_R1:
+		// M4U_PORT CAM3_TNCSO_R1 : tncso_r1 + tncsbo_r1 + tncsho_r1 + tncsyo_r1
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"TNCSO_R1", dbg_TNCSO_R1, ARRAY_SIZE(dbg_TNCSO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"TNCSBO_R1", dbg_TNCSBO_R1, ARRAY_SIZE(dbg_TNCSBO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"TNCSHO_R1", dbg_TNCSHO_R1, ARRAY_SIZE(dbg_TNCSHO_R1));
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
+				"TNCSYO_R1", dbg_TNCSYO_R1, ARRAY_SIZE(dbg_TNCSYO_R1));
+		break;
+	default:
+		break;
+	}
+	// TODO: trigger camsys dump via dequeued_frame_seq_no_inner
+
+	dev_info(dev, "=================== [CAMSYS M4U] Dump End ====================\n");
+	return 0;
+}
+#endif
 
 static const struct dev_pm_ops mtk_yuv_pm_ops = {
 	SET_RUNTIME_PM_OPS(mtk_yuv_runtime_suspend, mtk_yuv_runtime_resume,

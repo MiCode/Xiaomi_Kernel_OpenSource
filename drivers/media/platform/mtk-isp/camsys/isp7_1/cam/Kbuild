@@ -10,7 +10,13 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/misc/mediatek/imgsensor/src-v4l2/frame-sync/ \
 	     -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/ \
 	     -I$(srctree)/drivers/dma-buf/heaps/ \
+	     -I$(srctree)/drivers/misc/mediatek/iommu/ \
 	     -I$(src)
+
+
+ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
+  subdir-ccflags-y += -DCAMSYS_TF_DUMP_71_1
+endif
 
 # MTEE part
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public

@@ -45,6 +45,10 @@
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
+#ifdef CAMSYS_TF_DUMP_71_1
+#include <dt-bindings/memory/mt6983-larb-port.h>
+#include "iommu_debug.h"
+#endif
 
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
@@ -63,6 +67,123 @@ static const struct of_device_id mtk_cam_of_ids[] = {
 };
 
 MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
+
+static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
+{
+#ifdef CAMSYS_TF_DUMP_71_1
+	dev_dbg(raw->dev, "%s : raw->id:%d\n", __func__, raw->id);
+
+	if (raw->id == RAW_A) {
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_IMGP_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_FHO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_AAO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_TSFSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_FLKO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVO_R3,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVCO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVO_R2,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_RZH1N2TO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_DRZS4NO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_TNCSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+	} else if (raw->id == RAW_B) {
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_IMGP_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_FHO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_AAO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_TSFSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_FLKO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVO_R3,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVCO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVO_R2,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_RZH1N2TO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_DRZS4NO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_TNCSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+	} else if (raw->id == RAW_C) {
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_IMGP_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_FHO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_AAO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_TSFSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_FLKO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVO_R3,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVCO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVO_R2,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_RZH1N2TO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_DRZS4NO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_TNCSO_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+	}
+#endif
+}
 
 /**
  * All member of mtk_cam_request which may be used after
@@ -4290,6 +4411,10 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 	dev_dbg(cam->dev, "streamed on camsys ctx:%d\n", ctx->stream_id);
+
+	if (raw_dev)
+		mtk_cam_register_iommu_tf_callback(raw_dev);
+
 	return 0;
 
 fail_pipe_off:

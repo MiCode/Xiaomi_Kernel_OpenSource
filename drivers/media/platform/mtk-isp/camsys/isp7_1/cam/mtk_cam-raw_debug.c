@@ -316,13 +316,15 @@ void mtk_cam_dump_dma_debug(struct device *dev,
 			    const char *dma_name,
 			    struct dma_debug_item *items, int n)
 {
+#define MAX_DEBUG_SIZE (32)
+
 	void __iomem *dbg_sel = dmatop_base + 0x70;
 	void __iomem *dbg_port = dmatop_base + 0x74;
 	int i = 0;
-	unsigned int vals[16];
+	unsigned int vals[MAX_DEBUG_SIZE];
 
-	if (n >= 16) {
-		dev_dbg(dev, "%s: should enlarge array size for n(%d)\n",
+	if (n >= MAX_DEBUG_SIZE) {
+		dev_info(dev, "%s: should enlarge array size for n(%d)\n",
 			__func__, n);
 		return;
 	}
@@ -330,15 +332,15 @@ void mtk_cam_dump_dma_debug(struct device *dev,
 	for (i = 0; i < n; i++) {
 		writel(items[i].debug_sel, dbg_sel);
 		if (readl(dbg_sel) != items[i].debug_sel)
-			dev_dbg(dev, "failed to write dbg_sel %08x\n",
+			dev_info(dev, "failed to write dbg_sel %08x\n",
 				items[i].debug_sel);
 
 		vals[i] = readl(dbg_port);
 	};
 
-	dev_dbg(dev, "%s: %s, n = %d", __func__, dma_name, n);
+	dev_info(dev, "%s: %s, n = %d", __func__, dma_name, n);
 	for (i = 0; i < n; i++)
-		dev_dbg(dev, "%08x: %08x [%s]\n",
+		dev_info(dev, "%08x: %08x [%s]\n",
 			items[i].debug_sel, vals[i], items[i].msg);
 }
 
