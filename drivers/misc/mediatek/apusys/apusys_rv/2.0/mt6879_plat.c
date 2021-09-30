@@ -619,6 +619,11 @@ static const struct regdump_region_info mt6879_apu_regdump[] = {
 	{"APU_MD32_SYSCTRL", 0x19001000, 0x848},
 	{"APU_RCX_AO_CTRL",  0x190f2000, 0x314},
 	{"APU_MD32_WDT",     0x19002000, 0x10},
+	{"APU0_IOMMU_BANK0", 0x19010000, 0xB88},
+	{"APU0_IOMMU_BANK1", 0x19011000, 0x158},
+	{"APU0_IOMMU_BANK2", 0x19012000, 0x158},
+	{"APU0_IOMMU_BANK3", 0x19013000, 0x158},
+	{"APU0_IOMMU_BANK4", 0x19014000, 0xF14},
 };
 
 const struct mtk_apu_platdata mt6879_platdata = {
