@@ -464,13 +464,9 @@ void scp_init_vcore_request(void)
 		scp_vcore_request(dvfs.opp[0].freq);
 }
 
-/* scp_request_freq
- * return :-1 means the scp request freq. error
- * return :0  means the request freq. finished
- */
-int scp_request_freq(void)
+int scp_request_freq_vcore(void)
 {
-	int timeout = 250;
+	int timeout = 50;
 	int ret = 0;
 	unsigned long spin_flags;
 	int is_increasing_freq = 0;
@@ -552,6 +548,99 @@ int scp_request_freq(void)
 	pr_debug("[SCP] succeed to set freq, expect=%d, cur=%d\n",
 			scp_expected_freq, scp_current_freq);
 	return 0;
+}
+
+int scp_request_freq_vlp(void)
+{
+	int timeout = 50;
+	int ret = 0;
+	unsigned long spin_flags;
+
+	if (scp_dvfs_flag != 1) {
+		pr_debug("[%s]: warning: SCP DVFS is OFF\n", __func__);
+		return 0;
+	}
+
+	if (!dvfs.vlp_support) {
+		pr_notice("[%s]: should not end here: vlp not supported!\n", __func__);
+		return 0;
+	}
+
+	/*
+	 * In order to prevent sending the same freq request from kernel repeatedly,
+	 * we used last_scp_expected_freq to record last freq request.
+	 */
+	if (last_scp_expected_freq == scp_expected_freq) {
+		pr_debug("[SCP] Skip DFS: resending the same freq request: %dMhz\n",
+			last_scp_expected_freq);
+		return 0;
+	}
+
+	/* because we are waiting for scp to update register:scp_current_freq
+	 * use wake lock to prevent AP from entering suspend state
+	 */
+	__pm_stay_awake(scp_suspend_lock);
+
+	if (scp_current_freq != scp_expected_freq) {
+
+		scp_awake_lock((void *)SCP_A_ID);
+
+		/* Request SPM not to turn off mainpll/26M/infra */
+		/* because SCP may park in it during DFS process */
+		scp_resource_req(SCP_REQ_26M |
+				SCP_REQ_INFRA |
+				SCP_REQ_SYSPLL);
+
+		do {
+			ret = mtk_ipi_send(&scp_ipidev,
+				IPI_OUT_DVFS_SET_FREQ_0,
+				IPI_SEND_WAIT, &scp_expected_freq,
+				PIN_OUT_SIZE_DVFS_SET_FREQ_0, 0);
+			mdelay(2);
+			if (ret != IPI_ACTION_DONE) {
+				pr_notice("SCP send IPI fail - %d\n", ret);
+			} else {
+				last_scp_expected_freq = scp_expected_freq;
+				break;
+			}
+
+			timeout -= 1; /*try 50 times, total about 100ms*/
+		} while (timeout > 0);
+
+		/* if ipi send fail 50(=timeout) times */
+		if (timeout <= 0) {
+			/* to check scp_current_freq */
+			spin_lock_irqsave(&scp_awake_spinlock, spin_flags);
+			scp_current_freq = readl(CURRENT_FREQ_REG);
+			spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
+			pr_notice("set expected_freq(%d) fail, current is %d\n",
+				scp_expected_freq, scp_current_freq);
+			__pm_relax(scp_suspend_lock);
+			WARN_ON(1);
+			return -ESCP_DVFS_IPI_FAILED;
+		}
+
+		scp_awake_unlock((void *)SCP_A_ID);
+
+		scp_resource_req(SCP_REQ_RELEASE);
+	}
+
+	__pm_relax(scp_suspend_lock);
+	pr_debug("[SCP] succeed to set freq, expect=%d, cur=%d\n",
+			scp_expected_freq, scp_current_freq);
+	return 0;
+}
+
+/* scp_request_freq
+ * return :-1 means the scp request freq. error
+ * return :0  means the request freq. finished
+ */
+int scp_request_freq(void)
+{
+	if (dvfs.vlp_support)
+		return scp_request_freq_vlp();
+	else
+		return scp_request_freq_vcore();
 }
 
 void wait_scp_dvfs_init_done(void)

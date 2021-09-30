@@ -269,6 +269,7 @@ extern int __init scp_dvfs_init(void);
 extern void __exit scp_dvfs_exit(void);
 
 /* scp dvfs variable*/
+extern unsigned int last_scp_expected_freq;
 extern unsigned int scp_expected_freq;
 extern unsigned int scp_current_freq;
 extern spinlock_t scp_awake_spinlock;

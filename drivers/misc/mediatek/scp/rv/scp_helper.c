@@ -72,6 +72,7 @@ unsigned int scp_ready[SCP_CORE_TOTAL];
 unsigned int scp_enable[SCP_CORE_TOTAL];
 
 /* scp dvfs variable*/
+unsigned int last_scp_expected_freq;
 unsigned int scp_expected_freq;
 unsigned int scp_current_freq;
 unsigned int scp_dvfs_cali_ready;
