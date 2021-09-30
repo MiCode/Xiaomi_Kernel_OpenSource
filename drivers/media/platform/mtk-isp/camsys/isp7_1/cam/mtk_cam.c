@@ -2305,9 +2305,9 @@ static void mtk_cam_req_queue(struct media_request *req)
 	list_add_tail(&cam_req->list, &cam->pending_job_list);
 	spin_unlock(&cam->pending_job_lock);
 
-	mutex_lock(&cam->op_lock);
+	mutex_lock(&cam->queue_lock);
 	mtk_cam_dev_req_try_queue(cam);
-	mutex_unlock(&cam->op_lock);
+	mutex_unlock(&cam->queue_lock);
 
 	MTK_CAM_TRACE_END();
 }
@@ -4399,7 +4399,9 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		cam->streaming_ctx &= ~(1 << ctx->stream_id);
 		goto fail_pipe_off;
 	}
+	mutex_lock(&cam->queue_lock);
 	mtk_cam_dev_req_try_queue(cam);
+	mutex_unlock(&cam->queue_lock);
 	/* raw off, no cq done, so sv on after enque */
 	if (ctx->used_raw_num == 0) {
 		for (i = 0 ; i < ctx->used_sv_num ; i++) {
@@ -5195,6 +5197,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&cam_dev->running_job_list);
 
 	mutex_init(&cam_dev->op_lock);
+	mutex_init(&cam_dev->queue_lock);
 
 	pm_runtime_enable(dev);
 
@@ -5231,6 +5234,7 @@ fail_match_remove:
 
 fail_destroy_mutex:
 	mutex_destroy(&cam_dev->op_lock);
+	mutex_destroy(&cam_dev->queue_lock);
 
 	return ret;
 }
@@ -5246,6 +5250,7 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	mtk_cam_match_remove(dev);
 
 	mutex_destroy(&cam_dev->op_lock);
+	mutex_destroy(&cam_dev->queue_lock);
 	mtk_cam_debug_fs_deinit(cam_dev);
 
 	destroy_workqueue(cam_dev->link_change_wq);

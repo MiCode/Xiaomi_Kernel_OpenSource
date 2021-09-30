@@ -2018,9 +2018,9 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	}
 
 	if (dequeue_cnt) {
-		mutex_lock(&ctx->cam->op_lock);
+		mutex_lock(&ctx->cam->queue_lock);
 		mtk_cam_dev_req_try_queue(ctx->cam);
-		mutex_unlock(&ctx->cam->op_lock);
+		mutex_unlock(&ctx->cam->queue_lock);
 	}
 }
 
@@ -2748,9 +2748,9 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 	dev_info(ctx->cam->dev, "[%s] job done ctx-%d:pipe-%d:req(%d)\n",
 		 __func__, ctx->stream_id, pipe_id, frame_seq_no);
 	if (mtk_cam_dequeue_req_frame(ctx, frame_seq_no, pipe_id)) {
-		mutex_lock(&ctx->cam->op_lock);
+		mutex_lock(&ctx->cam->queue_lock);
 		mtk_cam_dev_req_try_queue(ctx->cam);
-		mutex_unlock(&ctx->cam->op_lock);
+		mutex_unlock(&ctx->cam->queue_lock);
 		if (is_raw_subdev(pipe_id))
 			mtk_camsys_raw_change_pipeline(raw_dev, ctx,
 						       &ctx->sensor_ctrl,

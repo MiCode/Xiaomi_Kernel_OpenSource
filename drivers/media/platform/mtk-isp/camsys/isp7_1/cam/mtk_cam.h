@@ -432,6 +432,7 @@ struct mtk_cam_device {
 
 	/* To protect topology-related operations & ctx */
 	struct mutex op_lock;
+	struct mutex queue_lock;
 
 	unsigned int max_stream_num;
 	unsigned int streaming_ctx;
