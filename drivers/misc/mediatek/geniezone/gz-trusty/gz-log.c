@@ -131,7 +131,7 @@ static struct gz_log_context glctx = {
 #if IS_BUILTIN(CONFIG_MTK_GZ_LOG)
 static int __init gz_log_context_init(struct reserved_mem *rmem)
 {
-	unsigned long node = rmem->fdt_node;
+	unsigned long node;
 
 	if (!rmem) {
 		pr_info("[%s] ERROR: invalid reserved memory\n", __func__);
@@ -139,6 +139,8 @@ static int __init gz_log_context_init(struct reserved_mem *rmem)
 	}
 	glctx.paddr = rmem->base;
 	glctx.size = rmem->size;
+
+	node = rmem->fdt_node;
 	if (!of_get_flat_dt_prop(node, "no-map", NULL))
 		glctx.flag = STATIC_MAP;
 	else
