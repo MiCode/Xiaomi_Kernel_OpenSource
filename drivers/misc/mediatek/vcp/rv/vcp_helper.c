@@ -739,11 +739,20 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
+		mutex_lock(&vcp_pw_clk_mutex);
 		enable_status = pwclkcnt;
 		pr_debug("[VCP] PM_SUSPEND_PREPARE entered %d\n", enable_status);
 		if (enable_status) {
 			vcp_disable_irqs();
 
+			flush_workqueue(vcp_workqueue);
+#if VCP_LOGGER_ENABLE
+			vcp_logger_uninit();
+			flush_workqueue(vcp_logger_workqueue);
+#endif
+#if VCP_RECOVERY_SUPPORT
+			flush_workqueue(vcp_reset_workqueue);
+#endif
 			/* trigger halt isr, force vcp enter wfi */
 			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
 			wait_vcp_wdt_irq_done();
@@ -794,6 +803,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			cpuidle_resume_and_unlock();
 #endif
 		}
+		mutex_unlock(&vcp_pw_clk_mutex);
 
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
@@ -1506,8 +1516,10 @@ void vcp_register_feature(enum feature_id id)
 			feature_table[i].enable = 1;
 	}
 
+	/*
 	vcp_current_freq = readl(CURRENT_FREQ_REG);
 	writel(vcp_expected_freq, EXPECTED_FREQ_REG);
+	*/
 
 	/* send request only when vcp is not down */
 	if (vcp_ready[VCP_A_ID]) {
