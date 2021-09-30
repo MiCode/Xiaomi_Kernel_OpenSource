@@ -92,6 +92,13 @@ enum IOMMU_BANK {
 	IOMMU_BK_NUM
 };
 
+enum iommu_tab_type {
+	NS_TAB,
+	PROT_TAB,
+	SEC_TAB,
+	TAB_TYPE_NUM
+};
+
 struct mtk_iommu_iova_region;
 
 struct mau_config_info {
@@ -186,6 +193,8 @@ int dev_is_normal_region(struct device *dev);
 
 void mtk_dump_reg_for_hang_issue(uint32_t type);
 
+uint64_t mtee_iova_to_phys(unsigned long iova, u32 *sr_info, u64 *pa, u32 *type, u32 *lvl);
+
 #else
 
 int dev_is_normal_region(struct device *dev)
@@ -195,6 +204,11 @@ int dev_is_normal_region(struct device *dev)
 
 void mtk_dump_reg_for_hang_issue(uint32_t type)
 {
+}
+
+uint64_t mtee_iova_to_phys(unsigned long iova, u32 *sr_info, u64 *pa, u32 *type, u32 *lvl)
+{
+	return 0;
 }
 
 #endif

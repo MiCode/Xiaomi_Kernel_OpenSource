@@ -236,6 +236,9 @@
 /* hyp-pmm fastcalls */
 #define HYP_PMM_SHARE_IOVA			(0XBB00FFA2)
 #define HYP_PMM_UNSHARE_IOVA			(0XBB00FFA3)
+#define HYP_PMM_GET_HYPMMU_TYPE2_EN		(0XBB00FFA4)
+#define HYP_PMM_REG_HYPMMU_SHARE_REGION		(0XBB00FFA5)
+#define HYP_PMM_IOVA_TO_PHYS			(0XBB00FFA6)
 
 struct mtk_iommu_domain {
 	struct io_pgtable_cfg		cfg;
@@ -250,6 +253,7 @@ static const struct iommu_ops mtk_iommu_ops;
 static bool pd_sta[MM_IOMMU_NUM];
 static spinlock_t tlb_locks[MM_IOMMU_NUM];
 static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
+static bool hypmmu_type2_en;
 
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 
@@ -418,6 +422,39 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom[] = {
 	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 10,VDO_UP_256MB_1 */
 };
 
+uint64_t mtee_iova_to_phys(unsigned long iova, u32 *sr_info, u64 *pa, u32 *type, u32 *lvl)
+{
+	struct arm_smccc_res smc_res;
+	uint32_t ns_res, prot_res;
+
+	arm_smccc_smc(HYP_PMM_IOVA_TO_PHYS, lower_32_bits(iova),
+		      upper_32_bits(iova), 0, 0, 0, 0, 0, &smc_res);
+
+	/*
+	 * ns_table: a0[31:0], prot_table: a0[63:32]
+	 * smc_res.a0: include PA + SR_INFO + TYPE
+	 * smc_res.a0[2:0] = PA[34:32]
+	 * smc_res.a0[7:3] = SR_INFO
+	 * smc_res.a0[9:8] = TYPE
+	 * smc_res.a0[11:10] = lvl
+	 */
+	ns_res = smc_res.a0 & 0xffffffff;
+	prot_res = (smc_res.a0 >> 32) & 0xffffffff;
+
+	sr_info[NS_TAB] = FIELD_GET(GENMASK(7, 3), ns_res);
+	pa[NS_TAB] = (FIELD_GET(GENMASK(2, 0), ns_res) << 32) | (ns_res & (~(PAGE_SIZE - 1)));
+	type[NS_TAB] = FIELD_GET(GENMASK(9, 8), ns_res);
+	lvl[NS_TAB] = FIELD_GET(GENMASK(11, 10), ns_res);
+
+	sr_info[PROT_TAB] = FIELD_GET(GENMASK(7, 3), prot_res);
+	pa[PROT_TAB] = (FIELD_GET(GENMASK(2, 0), prot_res) << 32) | (prot_res & (~(PAGE_SIZE - 1)));
+	type[PROT_TAB] = FIELD_GET(GENMASK(9, 8), prot_res);
+	lvl[PROT_TAB] = FIELD_GET(GENMASK(11, 10), prot_res);
+
+	return pa[NS_TAB];
+}
+EXPORT_SYMBOL_GPL(mtee_iova_to_phys);
+
 static int mtee_share_iova(uint64_t iova_start, uint32_t size)
 {
 	struct arm_smccc_res smc_res;
@@ -440,6 +477,35 @@ static int mtee_unshare_iova(uint64_t iova_start, uint32_t size)
 
 	if (smc_res.a0)
 		return -EINVAL;
+
+	return 0;
+}
+
+static bool mtee_hypmmu_type2_enabled(void)
+{
+	struct arm_smccc_res smc_res;
+
+	arm_smccc_smc(HYP_PMM_GET_HYPMMU_TYPE2_EN, 0, 0, 0, 0, 0, 0, 0, &smc_res);
+	pr_info("%s, hyp-mmu ret:%lu\n", __func__, smc_res.a0);
+	if (smc_res.a0 == 1) {
+		hypmmu_type2_en = true;
+		return true;
+	}
+	return false;
+}
+
+static int mtee_hypmmu_reg_share_region(u32 base_page_no, u32 size_in_pages, u32 reserved)
+{
+	struct arm_smccc_res smc_res;
+
+	arm_smccc_smc(HYP_PMM_REG_HYPMMU_SHARE_REGION, base_page_no, size_in_pages,
+		reserved, 0, 0, 0, 0, &smc_res);
+
+	if (smc_res.a0) {
+		pr_err("%s err ret:%lu", __func__, smc_res.a0);
+		WARN_ON_ONCE(smc_res.a0 != 0);
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -691,9 +757,11 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 {
 	int iommu_ids = 0;
+	int iommu_cnt = 0;
 
 	for_each_m4u(data) {
 		bool has_pm = !!data->dev->pm_domain;
+		u32 reg_val = F_ALL_INVLD;
 
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
 			if ((data->plat_data->iommu_type == MM_IOMMU &&
@@ -709,7 +777,10 @@ static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
-		writel_relaxed(F_ALL_INVLD, data->base + REG_MMU_INVALIDATE);
+		if (hypmmu_type2_en == true && iommu_cnt++ == 0)
+			reg_val |= 0x8;
+
+		writel_relaxed(reg_val, data->base + REG_MMU_INVALIDATE);
 		wmb(); /* Make sure the tlb flush all done */
 
 		if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN)) {
@@ -752,10 +823,12 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 	unsigned long flags;
 	int iommu_ids = 0;
 	int ret;
+	int iommu_cnt = 0;
 	u32 tmp;
 
 	for_each_m4u(data) {
 		bool has_pm = !!data->dev->pm_domain;
+		u32 reg_val = F_MMU_INV_RANGE;
 
 		spin_lock_irqsave(&data->tlb_lock, flags);
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
@@ -778,8 +851,9 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 			       data->base + REG_MMU_INVLD_START_A);
 		writel_relaxed(MTK_IOMMU_TLB_ADDR(iova + size - 1),
 			       data->base + REG_MMU_INVLD_END_A);
-		writel_relaxed(F_MMU_INV_RANGE,
-			       data->base + REG_MMU_INVALIDATE);
+		if (hypmmu_type2_en == true && iommu_cnt++ == 0)
+			reg_val |= 0x8;
+		writel_relaxed(reg_val, data->base + REG_MMU_INVALIDATE);
 
 		/* tlb sync */
 		ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
@@ -1102,8 +1176,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	int i;
 	int id = data->plat_data->iommu_id;
 	enum mtk_iommu_type type = data->plat_data->iommu_type;
-	u64 tf_iova_tmp;
-	phys_addr_t fault_pgpa;
+	u64 tf_iova_tmp, hw_pa[TAB_TYPE_NUM] = { 0 };
+	phys_addr_t fake_pa;
+	u32 sr_info[TAB_TYPE_NUM] = { 0 }, pg_type[TAB_TYPE_NUM] = { 0 }, lvl[TAB_TYPE_NUM] = { 0 };
 	#define TF_IOVA_DUMP_NUM	5
 #else
 	struct mtk_iommu_domain *dom = data->m4u_dom;
@@ -1158,10 +1233,14 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
 			if (i > 0)
 				tf_iova_tmp -= SZ_4K;
-			fault_pgpa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
-			pr_err("[iommu_debug] error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
-				i, tf_iova_tmp, &fault_pgpa);
-			if (!fault_pgpa && i > 0)
+			fake_pa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
+			if (hypmmu_type2_en == true)
+				hw_pa[NS_TAB] = mtee_iova_to_phys(tf_iova_tmp, sr_info,
+							hw_pa, pg_type, lvl);
+			pr_err("error, type2_en:%d, index:%d, lvl:%u, pg_type:0x%x, falut_iova:0x%lx, fault_pa:0x%llx ~ 0x%llx\n",
+			       hypmmu_type2_en, i, lvl[NS_TAB], pg_type[NS_TAB], tf_iova_tmp,
+			       (u64)fake_pa, hw_pa[NS_TAB]);
+			if (!fake_pa && i > 0)
 				break;
 		}
 		if (fault_iova) /* skip dump when fault iova = 0 */
@@ -1309,6 +1388,25 @@ static void mtk_iommu_config(struct mtk_iommu_data *data, struct device *dev,
 	}
 }
 
+static void register_share_region(const struct mtk_iommu_plat_data *plat_data)
+{
+	int i;
+	const struct mtk_iommu_iova_region *region;
+	u32 base_page_no;
+	u32 size_in_pages;
+
+	for (i = 0; i < plat_data->iova_region_nr; i++) {
+		region = &plat_data->iova_region[i];
+		if (region->type == PROTECTED) {
+			base_page_no = region->iova_base >> PAGE_SHIFT;
+			size_in_pages = region->size >> PAGE_SHIFT;
+			pr_info("%s: reg base=0x%x size=0x%x\n", __func__,
+				base_page_no, size_in_pages);
+			mtee_hypmmu_reg_share_region(base_page_no, size_in_pages, 0);
+		}
+	}
+}
+
 static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 				     struct mtk_iommu_data *data,
 				     unsigned int domid)
@@ -1339,6 +1437,12 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 		dom->cfg.oas = data->enable_4GB ? 33 : 32;
 	else
 		dom->cfg.oas = 35;
+
+	if (mtee_hypmmu_type2_enabled()) {
+		pr_info("hyp-mmu type2 enabled. turn on coherent_walk\n");
+		dom->cfg.coherent_walk = true;
+		register_share_region(data->plat_data);
+	}
 
 	dom->iop = alloc_io_pgtable_ops(ARM_V7S, &dom->cfg, data);
 	if (!dom->iop) {
@@ -1510,9 +1614,11 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 		mtk_iova_unmap(gather->start, length);
 #endif
 
-	ret = iova_secure_map(dom->data, gather->start, length, false); /* clean bank1 */
-	if (ret)
-		pr_warn("%s failed\n", __func__);
+	if (!hypmmu_type2_en) {
+		ret = iova_secure_map(dom->data, gather->start, length, false); /* clean bank1 */
+		if (ret)
+			pr_warn("%s failed\n", __func__);
+	}
 
 	mtk_iommu_tlb_flush_range_sync(gather->start, length, gather->pgsize,
 				       dom->data);
@@ -1535,9 +1641,11 @@ static void mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 		mtk_iova_map(iova, size);
 #endif
 
-	ret = iova_secure_map(dom->data, iova, size, true);
-	if (ret)
-		pr_warn("%s failed\n", __func__);
+	if (!hypmmu_type2_en) {
+		ret = iova_secure_map(dom->data, iova, size, true);
+		if (ret)
+			pr_warn("%s failed\n", __func__);
+	}
 
 	mtk_iommu_tlb_flush_range_sync(iova, size, size, dom->data);
 }
