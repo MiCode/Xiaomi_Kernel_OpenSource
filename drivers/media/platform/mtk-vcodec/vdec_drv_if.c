@@ -38,7 +38,6 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	case V4L2_PIX_FMT_MPEG2:
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
-	case V4L2_PIX_FMT_S263:
 	case V4L2_PIX_FMT_VP8:
 	case V4L2_PIX_FMT_VP9:
 	case V4L2_PIX_FMT_WMV1:

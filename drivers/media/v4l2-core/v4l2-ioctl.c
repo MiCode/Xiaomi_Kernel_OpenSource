@@ -1346,22 +1346,10 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_JPGL:		descr = "JPEG Lite"; break;
 		case V4L2_PIX_FMT_SE401:	descr = "GSPCA SE401"; break;
 		case V4L2_PIX_FMT_S5C_UYVY_JPG:	descr = "S5C73MX interleaved UYVY/JPEG"; break;
-		case V4L2_PIX_FMT_DIVX:
-			descr = "DIVX"; break;
-		case V4L2_PIX_FMT_DIVX3:
-			descr = "DIVX3"; break;
-		case V4L2_PIX_FMT_DIVX4:
-			descr = "DIVX4"; break;
-		case V4L2_PIX_FMT_DIVX5:
-			descr = "DIVX5"; break;
-		case V4L2_PIX_FMT_DIVX6:
-			descr = "DIVX6"; break;
 		case V4L2_PIX_FMT_H265:
 			descr = "H.265"; break;
 		case V4L2_PIX_FMT_HEIF:
 			descr = "HEIF"; break;
-		case V4L2_PIX_FMT_S263:
-			descr = "S.263"; break;
 		case V4L2_PIX_FMT_WMV1:
 			descr = "WMV1"; break;
 		case V4L2_PIX_FMT_WMV2:
