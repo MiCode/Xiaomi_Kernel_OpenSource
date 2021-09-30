@@ -71,7 +71,6 @@ enum MTK_CAMSYS_IRQ_EVENT {
 };
 
 struct mtk_camsys_irq_normal_data {
-	bool slave_engine;
 };
 
 struct mtk_camsys_irq_error_data {

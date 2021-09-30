@@ -1514,7 +1514,7 @@ void subsample_enable(struct mtk_raw_device *dev)
 			readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
 }
 
-void initialize(struct mtk_raw_device *dev)
+void initialize(struct mtk_raw_device *dev, int is_slave)
 {
 #if USINGSCQ
 	u32 val;
@@ -1533,6 +1533,7 @@ void initialize(struct mtk_raw_device *dev)
 	writel_relaxed(CAMCTL_CQ_THR0_DONE_ST, dev->base + REG_CTL_RAW_INT6_EN);
 	writel_relaxed(BIT(10), dev->base + REG_CTL_RAW_INT7_EN);
 
+	dev->is_slave = is_slave;
 	dev->sof_count = 0;
 	dev->sub_sensor_ctrl_en = 0;
 	dev->time_shared_busy = 0;
@@ -1932,35 +1933,6 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	return res_found;
 }
 
-bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev)
-{
-	struct device *dev_slave;
-	struct mtk_raw_device *raw_dev_slave;
-	struct device *dev_slave2;
-	struct mtk_raw_device *raw_dev_slave2;
-	unsigned int i;
-
-	if (raw_dev->pipeline->res_config.raw_num_used == 2) {
-		for (i = 0; i < raw_dev->cam->num_raw_drivers - 1; i++) {
-			if (raw_dev->pipeline->enabled_raw & (1 << i)) {
-				dev_slave = raw_dev->cam->raw.devs[i + 1];
-				break;
-			}
-		}
-		raw_dev_slave = dev_get_drvdata(dev_slave);
-		return (raw_dev_slave == raw_dev);
-	}
-	if (raw_dev->pipeline->res_config.raw_num_used == 3) {
-		dev_slave = raw_dev->cam->raw.devs[RAW_B];
-		dev_slave2 = raw_dev->cam->raw.devs[RAW_C];
-		raw_dev_slave = dev_get_drvdata(dev_slave);
-		raw_dev_slave2 = dev_get_drvdata(dev_slave2);
-		return (raw_dev_slave == raw_dev) || (raw_dev_slave2 == raw_dev);
-	}
-
-	return false;
-}
-
 static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 				       int dequeued_frame_seq_no);
 static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev);
@@ -2050,7 +2022,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = frame_idx;
 	irq_info.frame_idx_inner = frame_idx_inner;
-	irq_info.n.slave_engine = mtk_raw_dev_is_slave(raw_dev);
 	/* CQ done */
 	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
@@ -2079,8 +2050,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 			irq_info.irq_type |= 1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET;
 	}
 
-	if (irq_info.irq_type && push_msgfifo(raw_dev, &irq_info) == 0)
-		wake_thread = 1;
+	if (irq_info.irq_type && !raw_dev->is_slave) {
+		if (push_msgfifo(raw_dev, &irq_info) == 0)
+			wake_thread = 1;
+	}
 
 	/* Check ISP error status */
 	if (err_status) {

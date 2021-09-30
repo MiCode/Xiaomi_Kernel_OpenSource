@@ -1955,7 +1955,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
-	irq_info.n.slave_engine = 0;
+
 	if ((irq_status & MRAWCTL_SOF_INT_ST) &&
 		(irq_status & MRAWCTL_PASS1_DONE_ST))
 		dev_dbg(dev, "sof_done block cnt:%d\n", mraw_dev->sof_count);

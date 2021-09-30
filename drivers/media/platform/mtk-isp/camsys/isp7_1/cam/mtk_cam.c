@@ -4165,7 +4165,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		raw_dev = dev_get_drvdata(dev);
 
 		if (mtk_cam_is_hsf(ctx)) {
-			initialize(raw_dev);
+			initialize(raw_dev, 0);
 			/* Stagger */
 			if (mtk_cam_is_stagger(ctx))
 				stagger_enable(raw_dev);
@@ -4176,11 +4176,11 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			if (ctx->pipe->res_config.raw_num_used != 1) {
 				struct mtk_raw_device *raw_dev_slave =
 							get_slave_raw_dev(cam, ctx->pipe);
-				initialize(raw_dev_slave);
+				initialize(raw_dev_slave, 1);
 				if (ctx->pipe->res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
-					initialize(raw_dev_slave2);
+					initialize(raw_dev_slave2, 1);
 				}
 			}
 		}
@@ -4357,7 +4357,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	}
 	if (ctx->used_raw_num) {
 		if (!mtk_cam_is_hsf(ctx)) {
-			initialize(raw_dev);
+			initialize(raw_dev, 0);
 			/* Stagger */
 			if (mtk_cam_is_stagger(ctx))
 				stagger_enable(raw_dev);
@@ -4368,11 +4368,11 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			if (ctx->pipe->res_config.raw_num_used != 1) {
 				struct mtk_raw_device *raw_dev_slave =
 				get_slave_raw_dev(cam, ctx->pipe);
-				initialize(raw_dev_slave);
+				initialize(raw_dev_slave, 1);
 				if (ctx->pipe->res_config.raw_num_used == 3) {
 					struct mtk_raw_device *raw_dev_slave2 =
 						get_slave2_raw_dev(cam, ctx->pipe);
-					initialize(raw_dev_slave2);
+					initialize(raw_dev_slave2, 1);
 				}
 			}
 		}

@@ -1832,7 +1832,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
-	irq_info.n.slave_engine = 0;
+
 	if ((irq_status & CAMSV_INT_TG_SOF_INT_ST) &&
 		(irq_status & CAMSV_INT_PASS1_DON_ST))
 		dev_dbg(dev, "sof_done block cnt:%d\n", camsv_dev->sof_count);

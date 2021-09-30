@@ -291,6 +291,7 @@ struct mtk_raw_device {
 	atomic_t	is_fifo_overflow;
 
 	struct mtk_raw_pipeline *pipeline;
+	bool is_slave;
 
 	u64 sof_count;
 	int write_cnt;
@@ -344,8 +345,6 @@ void mtk_raw_unregister_entities(struct mtk_raw *raw);
 int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
 
-bool mtk_raw_dev_is_slave(struct mtk_raw_device *raw_dev);
-
 int mtk_cam_get_subsample_ratio(int raw_feature);
 
 void subsample_enable(struct mtk_raw_device *dev);
@@ -358,7 +357,7 @@ void toggle_db(struct mtk_raw_device *dev);
 
 void enable_tg_db(struct mtk_raw_device *dev, int en);
 
-void initialize(struct mtk_raw_device *dev);
+void initialize(struct mtk_raw_device *dev, int is_slave);
 
 void stream_on(struct mtk_raw_device *dev, int on);
 
