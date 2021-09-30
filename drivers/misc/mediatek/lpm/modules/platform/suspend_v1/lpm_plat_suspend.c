@@ -336,9 +336,12 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			mtk_lpm_ac[i].ts = kthread_create(mtk_lpm_monitor_thread,
 					&mtk_lpm_ac[i], "LPM-%d", i);
 			mtk_lpm_ac[i].cpu = i;
-			if (mtk_lpm_ac[i].ts) {
+			if (!IS_ERR(mtk_lpm_ac[i].ts)) {
 				kthread_bind(mtk_lpm_ac[i].ts, i);
 				wake_up_process(mtk_lpm_ac[i].ts);
+			} else {
+				pr_info("[name:spm&][SPM] create LPM monitor thread fail\n");
+				return NOTIFY_BAD;
 			}
 		}
 		return NOTIFY_DONE;
