@@ -92,6 +92,10 @@
 		compatible = "simple-bus";
 	};
 
+	disable_unused: disable_unused {
+		compatible = "simple-bus";
+	};
+
 	clocks {
 		clk32k: clk32k {
 			compatible = "fixed-clock";
@@ -2943,6 +2947,43 @@
 			compatible = "mediatek,mt6895-scpsys", "syscon";
 			reg = <0 0x1c001000 0 0x1000>;
 			#power-domain-cells = <1>;
+			clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
+				<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
+				<&topckgen_clk CLK_TOP_CAM_SEL>,
+				<&topckgen_clk CLK_TOP_CCUSYS_SEL>,
+				<&topckgen_clk CLK_TOP_CCU_AHB_SEL>,
+				<&topckgen_clk CLK_TOP_DISP0_SEL>,
+				<&topckgen_clk CLK_TOP_DISP1_SEL>,
+				<&topckgen_clk CLK_TOP_MDP0_SEL>,
+				<&topckgen_clk CLK_TOP_MDP1_SEL>,
+				<&topckgen_clk CLK_TOP_MMINFRA_SEL>,
+				<&topckgen_clk CLK_TOP_MMUP_SEL>,
+				<&topckgen_clk CLK_TOP_IMG1_SEL>,
+				<&topckgen_clk CLK_TOP_IPE_SEL>,
+				<&topckgen_clk CLK_TOP_VDEC_SEL>,
+				<&topckgen_clk CLK_TOP_VENC_SEL>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_LARB13_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_LARB14_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2SYS_GALS_CON>,
+				<&mmsys0_config_clk CLK_MM0_SMI_COMMON>,
+				<&mmsys1_config_clk CLK_MM1_SMI_COMMON>,
+				<&mdpsys_config_clk CLK_MDP_SMI0>,
+				<&mdpsys1_config_clk CLK_MDP1_SMI0>,
+				<&imgsys_main_clk CLK_IMG_LARB9>,
+				<&imgsys_main_clk CLK_IMG_VCORE_GALS>,
+				<&imgsys_main_clk CLK_IMG_GALS>,
+				<&vdec_soc_gcon_base_clk CLK_VDE1_LARB1_CKEN>,
+				<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>;
+			clock-names = "adsp", "audio", "cam", "ccu", "ccu_ahb",
+				"disp", "disp1", "mdp", "mdp1", "mm_infra", "mmup",
+				"isp", "ipe", "vde", "ven",
+				"cam-0", "cam-1", "cam_lp-0", "cam_lp-1",
+				"cam_lp-2", "dis0-0", "dis1-0",
+				"mdp0-0", "mdp1-0",
+				"isp-0", "isp-1", "isp-2",
+				"vde0-0", "vde1-0";
 			infracfg = <&infracfg_ao_clk>;
 			vlpcfg = <&vlpcfg_bus_clk>;
 		};
@@ -9173,3 +9214,5 @@
 
 #include "mediatek/bat_setting/mt6895_battery_prop.dtsi"
 #include "mediatek/mt6895-clkitg.dtsi"
+#include "mediatek/mt6895-disable-unused.dtsi"
+
