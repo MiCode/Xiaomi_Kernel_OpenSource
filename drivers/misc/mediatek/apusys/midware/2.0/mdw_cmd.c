@@ -234,25 +234,25 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 			c->subcmds[i].num_cmdbufs, c->subcmds[i].cmdbufs);
 
 		/* kva for oroginal buffer */
-		c->ksubcmds[i].ori_cbs = kvzalloc(c->subcmds[i].num_cmdbufs *
+		c->ksubcmds[i].ori_cbs = kcalloc(c->subcmds[i].num_cmdbufs,
 			sizeof(c->ksubcmds[i].ori_cbs), GFP_KERNEL);
 		if (!c->ksubcmds[i].ori_cbs)
 			goto free_cmdbufs;
 
 		/* record kva for duplicate */
-		c->ksubcmds[i].kvaddrs = kvzalloc(c->subcmds[i].num_cmdbufs *
+		c->ksubcmds[i].kvaddrs = kcalloc(c->subcmds[i].num_cmdbufs,
 			sizeof(*c->ksubcmds[i].kvaddrs), GFP_KERNEL);
 		if (!c->ksubcmds[i].kvaddrs)
 			goto free_cmdbufs;
 
 		/* record dva for cmdbufs */
-		c->ksubcmds[i].daddrs = kvzalloc(c->subcmds[i].num_cmdbufs *
+		c->ksubcmds[i].daddrs = kcalloc(c->subcmds[i].num_cmdbufs,
 			sizeof(*c->ksubcmds[i].daddrs), GFP_KERNEL);
 		if (!c->ksubcmds[i].daddrs)
 			goto free_cmdbufs;
 
 		/* allocate for subcmd cmdbuf */
-		c->ksubcmds[i].cmdbufs = kvzalloc(c->subcmds[i].num_cmdbufs *
+		c->ksubcmds[i].cmdbufs = kcalloc(c->subcmds[i].num_cmdbufs,
 			sizeof(*c->ksubcmds[i].cmdbufs), GFP_KERNEL);
 		if (!c->ksubcmds[i].cmdbufs)
 			goto free_cmdbufs;
@@ -293,25 +293,20 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 free_cmdbufs:
 	for (i = 0; i < c->num_subcmds; i++) {
 		/* free dvaddrs */
-		if (c->ksubcmds[i].daddrs) {
-			kvfree(c->ksubcmds[i].daddrs);
-			c->ksubcmds[i].daddrs = NULL;
-		}
+		kfree(c->ksubcmds[i].daddrs);
+		c->ksubcmds[i].daddrs = NULL;
+
 		/* free kvaddrs */
-		if (c->ksubcmds[i].kvaddrs) {
-			kvfree(c->ksubcmds[i].kvaddrs);
-			c->ksubcmds[i].kvaddrs = NULL;
-		}
+		kfree(c->ksubcmds[i].kvaddrs);
+		c->ksubcmds[i].kvaddrs = NULL;
+
 		/* free ori kvas */
-		if (c->ksubcmds[i].ori_cbs) {
-			kvfree(c->ksubcmds[i].ori_cbs);
-			c->ksubcmds[i].ori_cbs = NULL;
-		}
+		kfree(c->ksubcmds[i].ori_cbs);
+		c->ksubcmds[i].ori_cbs = NULL;
+
 		/* free cmdbufs */
-		if (c->ksubcmds[i].cmdbufs) {
-			kvfree(c->ksubcmds[i].cmdbufs);
-			c->ksubcmds[i].cmdbufs = NULL;
-		}
+		kfree(c->ksubcmds[i].cmdbufs);
+		c->ksubcmds[i].cmdbufs = NULL;
 	}
 
 out:
@@ -326,25 +321,20 @@ static void mdw_cmd_delete_infos(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 	for (i = 0; i < c->num_subcmds; i++) {
 		/* free dvaddrs */
-		if (c->ksubcmds[i].daddrs) {
-			kvfree(c->ksubcmds[i].daddrs);
-			c->ksubcmds[i].daddrs = NULL;
-		}
+		kfree(c->ksubcmds[i].daddrs);
+		c->ksubcmds[i].daddrs = NULL;
+
 		/* free kvaddrs */
-		if (c->ksubcmds[i].kvaddrs) {
-			kvfree(c->ksubcmds[i].kvaddrs);
-			c->ksubcmds[i].kvaddrs = NULL;
-		}
+		kfree(c->ksubcmds[i].kvaddrs);
+		c->ksubcmds[i].kvaddrs = NULL;
+
 		/* free ori kvas */
-		if (c->ksubcmds[i].ori_cbs) {
-			kvfree(c->ksubcmds[i].ori_cbs);
-			c->ksubcmds[i].ori_cbs = NULL;
-		}
+		kfree(c->ksubcmds[i].ori_cbs);
+		c->ksubcmds[i].ori_cbs = NULL;
+
 		/* free cmdbufs */
-		if (c->ksubcmds[i].cmdbufs) {
-			kvfree(c->ksubcmds[i].cmdbufs);
-			c->ksubcmds[i].cmdbufs = NULL;
-		}
+		kfree(c->ksubcmds[i].cmdbufs);
+		c->ksubcmds[i].cmdbufs = NULL;
 	}
 }
 
@@ -373,7 +363,7 @@ static void mdw_fence_release(struct dma_fence *fence)
 		container_of(fence, struct mdw_fence, base_fence);
 
 	mdw_drv_debug("fence release\n");
-	kvfree(mf);
+	kfree(mf);
 }
 
 static const struct dma_fence_ops mdw_fence_ops = {
@@ -389,7 +379,7 @@ static int mdw_fence_init(struct mdw_cmd *c)
 {
 	int ret = 0;
 
-	c->fence = kvzalloc(sizeof(*c->fence), GFP_KERNEL);
+	c->fence = kzalloc(sizeof(*c->fence), GFP_KERNEL);
 	if (!c->fence)
 		return -ENOMEM;
 
@@ -432,13 +422,13 @@ static void mdw_cmd_delete(struct mdw_cmd *c)
 
 	mdw_cmd_delete_infos(c->mpriv, c);
 	mdw_cmd_put_mem(c->mpriv, c->exec_infos);
-	kvfree(c->adj_matrix);
-	kvfree(c->ksubcmds);
-	kvfree(c->subcmds);
+	kfree(c->adj_matrix);
+	kfree(c->ksubcmds);
+	kfree(c->subcmds);
 	mutex_lock(&mpriv->mtx);
 	list_del(&c->u_item);
 	mutex_unlock(&mpriv->mtx);
-	kvfree(c);
+	kfree(c);
 
 	mpriv->put(mpriv);
 }
@@ -566,7 +556,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	}
 
 	/* alloc mdw cmd */
-	c = kvzalloc(sizeof(*c), GFP_KERNEL);
+	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
 		goto out;
 
@@ -599,7 +589,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	}
 
 	/* subcmds/ksubcmds */
-	c->subcmds = kvzalloc(c->num_subcmds * sizeof(*c->subcmds), GFP_KERNEL);
+	c->subcmds = kzalloc(c->num_subcmds * sizeof(*c->subcmds), GFP_KERNEL);
 	if (!c->subcmds)
 		goto put_execinfos;
 	if (copy_from_user(c->subcmds, (void __user *)in->exec.subcmd_infos,
@@ -612,13 +602,13 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 		goto free_subcmds;
 	}
 
-	c->ksubcmds = kvzalloc(c->num_subcmds * sizeof(*c->ksubcmds),
+	c->ksubcmds = kzalloc(c->num_subcmds * sizeof(*c->ksubcmds),
 		GFP_KERNEL);
 	if (!c->ksubcmds)
 		goto free_subcmds;
 
 	/* adj matrix */
-	c->adj_matrix = kvzalloc(c->num_subcmds *
+	c->adj_matrix = kzalloc(c->num_subcmds *
 		c->num_subcmds * sizeof(uint8_t), GFP_KERNEL);
 	if (!c->adj_matrix)
 		goto free_ksubcmds;
@@ -657,15 +647,15 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 delete_infos:
 	mdw_cmd_delete_infos(mpriv, c);
 free_adj:
-	kvfree(c->adj_matrix);
+	kfree(c->adj_matrix);
 free_ksubcmds:
-	kvfree(c->ksubcmds);
+	kfree(c->ksubcmds);
 free_subcmds:
-	kvfree(c->subcmds);
+	kfree(c->subcmds);
 put_execinfos:
 	mdw_cmd_put_mem(mpriv, c->exec_infos);
 free_cmd:
-	kvfree(c);
+	kfree(c);
 	c = NULL;
 out:
 	mdw_trace_end("%s", __func__);

@@ -74,7 +74,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		goto out;
 	}
 
-	rc = vzalloc(sizeof(*rc));
+	rc = kzalloc(sizeof(*rc), GFP_KERNEL);
 	if (!rc)
 		goto out;
 
@@ -190,7 +190,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 free_mem:
 	mdw_mem_free(mpriv, rc->cb);
 free_rc:
-	vfree(rc);
+	kfree(rc);
 	rc = NULL;
 out:
 	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
@@ -215,7 +215,7 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 
 	mdw_mem_unmap(rc->c->mpriv, rc->cb);
 	mdw_mem_free(rc->c->mpriv, rc->cb);
-	vfree(rc);
+	kfree(rc);
 
 	return 0;
 }

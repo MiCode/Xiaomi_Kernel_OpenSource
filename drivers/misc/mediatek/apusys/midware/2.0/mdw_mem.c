@@ -86,7 +86,7 @@ static void mdw_mem_delete(struct mdw_mem *m)
 		mdw_drv_err("unknown mem(0x%llx) op(%d)\n", (uint64_t)m, m->op);
 	}
 
-	vfree(m);
+	kfree(m);
 	mpriv->put(mpriv);
 }
 
@@ -94,7 +94,7 @@ static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 {
 	struct mdw_mem *m = NULL;
 
-	m = vzalloc(sizeof(*m));
+	m = kzalloc(sizeof(*m), GFP_KERNEL);
 	if (m) {
 		m->mpriv = mpriv;
 		m->release = mdw_mem_delete;

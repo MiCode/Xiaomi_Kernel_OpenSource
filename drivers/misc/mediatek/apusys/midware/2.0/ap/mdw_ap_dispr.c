@@ -47,7 +47,7 @@ static int mdw_dispr_item_put(struct mdw_disp_item *di)
 	mdw_flw_debug("di(%p) destroy\n", di);
 	mutex_lock(&c->mtx);
 	list_del(&di->c_item);
-	vfree(di);
+	kfree(di);
 	mutex_unlock(&c->mtx);
 
 	return 0;
@@ -76,7 +76,7 @@ static struct mdw_disp_item *mdw_dispr_item_get(
 		goto out;
 
 	/* alloc new pack item */
-	di = vzalloc(sizeof(*di));
+	di = kzalloc(sizeof(*di), GFP_KERNEL);
 	if (!di)
 		goto out;
 

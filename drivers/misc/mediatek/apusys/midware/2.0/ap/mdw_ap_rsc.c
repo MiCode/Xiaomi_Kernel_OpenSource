@@ -141,7 +141,7 @@ static int mdw_rsc_get_name(int type, char *name)
 static void mdw_rsc_delete_tab(struct mdw_rsc_tab *tab)
 {
 	mdw_queue_destroy(&tab->q);
-	vfree(tab);
+	kfree(tab);
 }
 
 static struct mdw_rsc_tab *mdw_rsc_add_tab(int type)
@@ -149,7 +149,7 @@ static struct mdw_rsc_tab *mdw_rsc_add_tab(int type)
 	struct mdw_rsc_tab *tab = NULL;
 	char name[32];
 
-	tab = vzalloc(sizeof(*tab));
+	tab = kzalloc(sizeof(*tab), GFP_KERNEL);
 	if (!tab)
 		return NULL;
 
@@ -598,7 +598,7 @@ static int mdw_rsc_add_dev(struct apusys_device *dev)
 	mutex_lock(&tab->mtx);
 
 	/* new dev info */
-	d = vzalloc(sizeof(*d));
+	d = kzalloc(sizeof(*d), GFP_KERNEL);
 	if (!d) {
 		ret = -ENOMEM;
 		goto out;
@@ -652,7 +652,7 @@ static int mdw_rsc_add_dev(struct apusys_device *dev)
 
 fail_set_name:
 fail_check_idx:
-	vfree(d);
+	kfree(d);
 out:
 	mutex_unlock(&tab->mtx);
 	mdw_rsc_update_avl_bmp(dev->dev_type);
@@ -681,7 +681,7 @@ static int mdw_rsc_delete_dev(struct mdw_dev_info *d)
 	tab->dev_num--;
 	list_del(&d->t_item);
 	mdw_flw_debug("delete dev(%s%d) done\n", d->name, d->idx);
-	vfree(d);
+	kfree(d);
 
 	return 0;
 }
@@ -1127,8 +1127,8 @@ int mdw_rsc_init(void)
 	int ret = 0;
 
 	memset(&rsc_mgr, 0, sizeof(rsc_mgr));
-	rsc_mgr.tabs = vzalloc
-		(sizeof(struct mdw_rsc_tab *) * MDW_DEV_MAX);
+	rsc_mgr.tabs = kzalloc
+		(sizeof(struct mdw_rsc_tab *) * MDW_DEV_MAX, GFP_KERNEL);
 
 	bitmap_zero(rsc_mgr.cmd_avl_bmp, MDW_DEV_MAX);
 	bitmap_zero(rsc_mgr.dev_avl_bmp, MDW_DEV_MAX);
@@ -1169,7 +1169,7 @@ void mdw_rsc_deinit(void)
 	}
 
 	mdw_rsc_ws_destroy();
-	vfree(rsc_mgr.tabs);
+	kfree(rsc_mgr.tabs);
 	rsc_mgr.is_inited = false;
 	mdw_flw_debug("\n");
 }

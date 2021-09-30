@@ -120,7 +120,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 		c->kid, c->num_subcmds);
 
 	/* alloc ap cmd */
-	ac = vzalloc(sizeof(*ac));
+	ac = kzalloc(sizeof(*ac), GFP_KERNEL);
 	if (!ac)
 		goto out;
 
@@ -140,8 +140,8 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	memset(ac->ctx_repo, MDW_CMD_EMPTY_NUM, sizeof(ac->ctx_repo));
 
 	/* alloc adjacency matrix */
-	ac->adj_matrix = vzalloc(c->num_subcmds *
-		c->num_subcmds * sizeof(uint8_t));
+	ac->adj_matrix = kzalloc(c->num_subcmds *
+		c->num_subcmds * sizeof(uint8_t), GFP_KERNEL);
 	if (!ac->adj_matrix)
 		goto free_ac;
 
@@ -155,7 +155,7 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	mdw_ap_cmd_print(ac);
 
 	/* alloc ap subcmds */
-	ac->sc_arr = vzalloc(c->num_subcmds * sizeof(*ac->sc_arr));
+	ac->sc_arr = kcalloc(c->num_subcmds, sizeof(*ac->sc_arr), GFP_KERNEL);
 	if (!ac->sc_arr)
 		goto free_adj;
 
@@ -190,9 +190,9 @@ static struct mdw_ap_cmd *mdw_ap_cmd_create(struct mdw_cmd *c)
 	goto out;
 
 free_adj:
-	vfree(ac->adj_matrix);
+	kfree(ac->adj_matrix);
 free_ac:
-	vfree(ac);
+	kfree(ac);
 	ac = NULL;
 out:
 	mdw_trace_end("ap cmd create|c(0x%llx) num_subcmds(%u)",
@@ -209,11 +209,11 @@ static void mdw_ap_cmd_delete(struct mdw_ap_cmd *ac)
 
 	mutex_lock(&c->mtx);
 	/* free ap subcmds */
-	vfree(ac->sc_arr);
+	kfree(ac->sc_arr);
 	/* free adj matrix */
-	vfree(ac->adj_matrix);
+	kfree(ac->adj_matrix);
 	/* free ap cmd */
-	vfree(ac);
+	kfree(ac);
 	mutex_unlock(&c->mtx);
 }
 
@@ -370,7 +370,8 @@ static int mdw_ap_cmd_set_hnd(struct mdw_ap_sc *sc, int d_idx, void *h)
 	unsigned int i = 0;
 
 	hnd->num_cmdbufs = hdr->info->num_cmdbufs;
-	hnd->cmdbufs = vzalloc(sizeof(*hnd->cmdbufs) * hnd->num_cmdbufs);
+	hnd->cmdbufs = kcalloc(hnd->num_cmdbufs, sizeof(*hnd->cmdbufs),
+		GFP_KERNEL);
 	if (!hnd->cmdbufs)
 		return -ENOMEM;
 
@@ -394,7 +395,7 @@ static void mdw_ap_cmd_clear_hnd(void *h)
 {
 	struct apusys_cmd_handle *hnd = (struct apusys_cmd_handle *)h;
 
-	vfree(hnd->cmdbufs);
+	kfree(hnd->cmdbufs);
 	memset(hnd, 0, sizeof(*hnd));
 }
 
