@@ -31,6 +31,7 @@ static const char *const chg_alg_notify_evt_name[EVT_MAX] = {
 	[EVT_VDROVP] = "EVT_VDROVP",
 	[EVT_VBATOVP_ALARM] = "EVT_VBATOVP_ALARM",
 	[EVT_VBUSOVP_ALARM] = "EVT_VBUSOVP_ALARM",
+	[EVT_BATPRO_DONE] = "EVT_BATPRO_DONE",
 	[EVT_ALGO_STOP] = "EVT_ALGO_STOP",
 };
 

@@ -1741,6 +1741,10 @@ static int _pe4_notifier_call(struct chg_alg_device *alg,
 		pe4->stop_6pin_re_en = 1;
 		ret_value = pe4_full_evt(alg);
 		break;
+	case EVT_BATPRO_DONE:
+		pe4->pe4_6pin_en = 0;
+		ret_value = 0;
+		break;
 	default:
 		ret_value = -EINVAL;
 	}

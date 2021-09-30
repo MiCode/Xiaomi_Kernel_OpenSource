@@ -1127,6 +1127,10 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 		pd->stop_6pin_re_en = 1;
 		ret_value = pd_full_evt(alg);
 		break;
+	case EVT_BATPRO_DONE:
+		pd->pd_6pin_en = 0;
+		ret_value = 0;
+		break;
 	default:
 		ret_value = -EINVAL;
 	}

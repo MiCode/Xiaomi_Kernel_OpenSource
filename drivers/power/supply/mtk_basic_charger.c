@@ -570,6 +570,13 @@ static int charger_dev_event(struct notifier_block *nb, unsigned long event,
 		break;
 	case CHARGER_DEV_NOTIFY_BATPRO_DONE:
 		info->batpro_done = true;
+		info->setting.vbat_mon_en = 0;
+		notify.evt = EVT_BATPRO_DONE;
+		notify.value = 0;
+		for (i = 0; i < 10; i++) {
+			alg = info->alg[i];
+			chg_alg_notifier_call(alg, &notify);
+		}
 		pr_info("%s: batpro_done = %d\n", __func__, info->batpro_done);
 		break;
 	default:
