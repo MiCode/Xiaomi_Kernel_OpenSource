@@ -176,8 +176,7 @@ struct ufs_mtk_host {
 	bool qos_allowed;
 	bool qos_enabled;
 	bool boot_device;
-	struct ufs_vreg *vcc1;
-	struct ufs_vreg *vcc2;
+	struct ufs_vreg *vcc;
 
 	struct mutex rpmb_lock;
 #if defined(CONFIG_UFSFEATURE)

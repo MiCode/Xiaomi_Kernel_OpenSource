@@ -1513,6 +1513,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	const struct of_device_id *id;
 	struct device *dev = hba->dev;
 	struct ufs_mtk_host *host;
+	struct arm_smccc_res res;
 	int err = 0;
 
 	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
@@ -1569,19 +1570,19 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
 	/* Get vcc-opt */
-	err = ufs_mtk_populate_vreg(dev, "vcc-opt1", &host->vcc1);
+	ufs_mtk_get_vcc_info(res);
+	if (res.a1 == VCC_1)
+		err = ufs_mtk_populate_vreg(dev, "vcc-opt1", &host->vcc);
+	else if (res.a1 == VCC_2)
+		err = ufs_mtk_populate_vreg(dev, "vcc-opt2", &host->vcc);
+	else
+		goto skip_vcc;
 	if (err)
 		goto out_variant_clear;
-	err = ufs_mtk_get_vreg(dev, host->vcc1);
+	err = ufs_mtk_get_vreg(dev, host->vcc);
 	if (err)
 		goto out_variant_clear;
-
-	err = ufs_mtk_populate_vreg(dev, "vcc-opt2", &host->vcc2);
-	if (err)
-		goto out_variant_clear;
-	err = ufs_mtk_get_vreg(dev, host->vcc2);
-	if (err)
-		goto out_variant_clear;
+skip_vcc:
 
 	cpu_latency_qos_add_request(&host->pm_qos_req,
 	     	   PM_QOS_DEFAULT_VALUE);
@@ -1972,38 +1973,16 @@ static int ufs_mtk_setup_regulators(struct ufs_hba *hba, bool on)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct ufs_vreg_info *vreg_info = &hba->vreg_info;
-	struct arm_smccc_res res;
 	int ret = 0;
 
-	/* Check which VCC is used in fact */
-	ufs_mtk_get_vcc_info(res);
-
-	if (res.a1 == VCC_1 && host->vcc1) {
-		vreg_info->vcc = host->vcc1;
+	if (host->vcc) {
+		vreg_info->vcc = host->vcc;
 		if (on)
-			ret = regulator_enable(host->vcc1->reg);
+			ret = regulator_enable(host->vcc->reg);
 		else
-			ret = regulator_disable(host->vcc1->reg);
+			ret = regulator_disable(host->vcc->reg);
 		if (!ret)
-			host->vcc1->enabled = on;
-
-		if (host->vcc2) {
-			devm_kfree(hba->dev, host->vcc2);
-			host->vcc2 = NULL;
-		}
-	} else if (res.a1 == VCC_2 && host->vcc2) {
-		vreg_info->vcc = host->vcc2;
-		if (on)
-			ret = regulator_enable(host->vcc2->reg);
-		else
-			ret = regulator_disable(host->vcc2->reg);
-		if (!ret)
-			host->vcc2->enabled = on;
-
-		if (host->vcc1) {
-			devm_kfree(hba->dev, host->vcc1);
-			host->vcc1 = NULL;
-		}
+			host->vcc->enabled = on;
 	}
 
 	return ret;
