@@ -12,6 +12,11 @@
 #include <linux/spmi.h>
 #include <linux/irq.h>
 
+#include "spmi-mtk.h"
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
+
 #define SWINF_IDLE	0x00
 #define SWINF_WFVLDCLR	0x06
 
@@ -41,60 +46,12 @@ enum {
 	SPMI_MASTER_2,
 };
 
-struct ch_reg {
-	u32 ch_sta;
-	u32 wdata;
-	u32 rdata;
-	u32 ch_send;
-	u32 ch_rdy;
-};
-
 struct pmif_irq_desc {
 	const char *name;
 	irq_handler_t irq_handler;
 	int irq;
 };
 
-struct pmif {
-	void __iomem	*base;
-	const u32	*regs;
-	void __iomem	*spmimst_base;
-	const u32	*spmimst_regs;
-	const u32	*dbgregs;
-	u32		dbgver;
-	u32		soc_chan;
-	int     mstid;
-	int     pmifid;
-	int		irq;
-	int		grpid;
-	raw_spinlock_t	lock;
-	struct wakeup_source *pmifThread_lock;
-	struct mutex pmif_mutex;
-	struct spmi_controller  *spmic;
-	struct clk	*pmif_sys_ck;
-	struct clk	*pmif_tmr_ck;
-	struct clk	*spmimst_clk_mux;
-	struct ch_reg chan;
-	struct clk *pmif_clk_mux;
-	struct clk *spmimst_m_clk_mux;
-	struct clk *spmimst_p_clk_mux;
-	struct clk *vlp_pmif_clk_mux;
-	struct clk *vlp_spmimst_m_clk_mux;
-	struct clk *vlp_spmimst_p_clk_mux;
-	struct irq_domain	*domain;
-	struct irq_chip		irq_chip;
-	int			rcs_irq;
-	struct mutex		rcs_irqlock;
-	bool	   *rcs_enable_hwirq;
-	struct clk *spmimst_clk26m;
-	struct clk *spmimst_clk_osc_d10;
-	int (*cmd)(struct spmi_controller *ctrl, unsigned int opcode);
-	int (*read_cmd)(struct spmi_controller *ctrl, u8 opc, u8 sid,
-			u16 addr, u8 *buf, size_t len);
-	int (*write_cmd)(struct spmi_controller *ctrl, u8 opc, u8 sid,
-			u16 addr, const u8 *buf, size_t len);
-	u32 caps;
-};
 
 enum pmif_regs {
 	PMIF_INIT_DONE,
@@ -285,30 +242,6 @@ static const u32 mt6873_regs[] = {
 	[PMIF_SWINF_3_RDATA_31_0] =	0x0CD4,
 	[PMIF_SWINF_3_VLD_CLR] =	0x0CE4,
 	[PMIF_SWINF_3_STA] =	0x0CE8,
-};
-
-enum spmi_regs {
-	SPMI_OP_ST_CTRL,
-	SPMI_GRP_ID_EN,
-	SPMI_OP_ST_STA,
-	SPMI_MST_SAMPL,
-	SPMI_MST_REQ_EN,
-	SPMI_REC_CTRL,
-	SPMI_REC0,
-	SPMI_REC1,
-	SPMI_REC2,
-	SPMI_REC3,
-	SPMI_REC4,
-	SPMI_MST_DBG,
-
-	/* MT6853 spmi regs */
-	SPMI_MST_RCS_CTRL,
-	SPMI_SLV_3_0_EINT,
-	SPMI_SLV_7_4_EINT,
-	SPMI_SLV_B_8_EINT,
-	SPMI_SLV_F_C_EINT,
-	SPMI_REC_CMD_DEC,
-	SPMI_DEC_DBG,
 };
 
 static const u32 mt6853_spmi_regs[] = {
@@ -572,6 +505,8 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	return 0;
 }
 
+static struct platform_driver mtk_spmi_driver;
+
 static struct pmif mt6853_pmif_arb[] = {
 	{
 		.regs = mt6853_regs,
@@ -614,6 +549,50 @@ static struct pmif mt6xxx_pmif_arb[] = {
 	},
 };
 
+/* PMIF Exception IRQ Handler */
+static void pmif_cmd_err_parity_err_irq_handler(int irq, void *data)
+{
+	spmi_dump_spmimst_all_reg();
+	spmi_dump_pmif_record_reg();
+	if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
+		aee_kernel_warning("PMIF", "PMIF:parity error");
+}
+
+static void pmif_pmif_acc_vio_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_record_reg();
+	spmi_dump_pmif_acc_vio_reg();
+	if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
+		aee_kernel_warning("PMIF", "PMIF:pmif_acc_vio");
+}
+
+static void pmif_pmic_acc_vio_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmic_acc_vio_reg();
+	if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
+		aee_kernel_warning("PMIF", "PMIF:pmic_acc_vio");
+}
+
+static void pmif_lat_limit_reached_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_busy_reg();
+	spmi_dump_pmif_record_reg();
+}
+
+static void pmif_hw_monitor_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_record_reg();
+	if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
+		aee_kernel_warning("PMIF", "PMIF:pmif_hw_monitor_match");
+}
+
+static void pmif_wdt_irq_handler(int irq, void *data)
+{
+	spmi_dump_pmif_busy_reg();
+	spmi_dump_pmif_record_reg();
+	spmi_dump_wdt_reg();
+}
+
 static irqreturn_t pmif_event_0_irq_handler(int irq, void *data)
 {
 	struct pmif *arb = data;
@@ -628,16 +607,19 @@ static irqreturn_t pmif_event_0_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	for (idx = 0; idx < 31; idx++) {
+	for (idx = 0; idx < 32; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
 			case IRQ_WDT_V4:
-//				pmif_wdt_irq_handler(irq, data);
+				pmif_wdt_irq_handler(irq, data);
+			break;
+			case IRQ_ALL_PMIC_MPU_VIO_V4:
+				pmif_pmif_acc_vio_irq_handler(irq, data);
 			break;
 			default:
 				pr_notice("%s IRQ[%d] triggered\n",
 					__func__, idx);
-//				spmi_dump_pmif_record_reg();
+				spmi_dump_pmif_record_reg();
 			break;
 			}
 			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_0);
@@ -664,13 +646,13 @@ static irqreturn_t pmif_event_1_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	for (idx = 0; idx < 31; idx++) {
+	for (idx = 0; idx < 32; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
 			default:
 				pr_notice("%s IRQ[%d] triggered\n",
 					__func__, idx);
-//				spmi_dump_pmif_record_reg();
+				spmi_dump_pmif_record_reg();
 			break;
 			}
 			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_1);
@@ -697,23 +679,23 @@ static irqreturn_t pmif_event_2_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	for (idx = 0; idx < 31; idx++) {
+	for (idx = 0; idx < 32; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
 			case IRQ_PMIC_CMD_ERR_PARITY_ERR:
-//				pmif_cmd_err_parity_err_irq_handler(irq, data);
+				pmif_cmd_err_parity_err_irq_handler(irq, data);
 			break;
 			case IRQ_PMIF_ACC_VIO:
 			case IRQ_PMIF_ACC_VIO_V2:
-//				pmif_pmif_acc_vio_irq_handler(irq, data);
+				pmif_pmif_acc_vio_irq_handler(irq, data);
 			break;
 			case IRQ_PMIC_ACC_VIO:
-//				pmif_pmic_acc_vio_irq_handler(irq, data);
+				pmif_pmic_acc_vio_irq_handler(irq, data);
 			break;
 			default:
 				pr_notice("%s IRQ[%d] triggered\n",
 					__func__, idx);
-//				spmi_dump_pmif_record_reg();
+				spmi_dump_pmif_record_reg();
 			break;
 			}
 			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_2);
@@ -740,33 +722,33 @@ static irqreturn_t pmif_event_3_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	for (idx = 0; idx < 31; idx++) {
+	for (idx = 0; idx < 32; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
 			case IRQ_LAT_LIMIT_REACHED:
-//				pmif_lat_limit_reached_irq_handler(irq, data);
+				pmif_lat_limit_reached_irq_handler(irq, data);
 			break;
 			case IRQ_HW_MONITOR:
 			case IRQ_HW_MONITOR_V2:
 			case IRQ_HW_MONITOR_V3:
-//				pmif_hw_monitor_irq_handler(irq, data);
+				pmif_hw_monitor_irq_handler(irq, data);
 			break;
 			case IRQ_WDT:
 			case IRQ_WDT_V2:
 			case IRQ_WDT_V3:
-//				pmif_wdt_irq_handler(irq, data);
+				pmif_wdt_irq_handler(irq, data);
 			break;
 			case IRQ_PMIC_ACC_VIO_V2:
-//				pmif_pmic_acc_vio_irq_handler(irq, data);
+				pmif_pmic_acc_vio_irq_handler(irq, data);
 			break;
 			case IRQ_ALL_PMIC_MPU_VIO_V2:
 			case IRQ_ALL_PMIC_MPU_VIO_V3:
-//				pmif_pmif_acc_vio_irq_handler(irq, data);
+				pmif_pmif_acc_vio_irq_handler(irq, data);
 			break;
 			default:
 				pr_notice("%s IRQ[%d] triggered\n",
 					__func__, idx);
-//				spmi_dump_pmif_record_reg();
+				spmi_dump_pmif_record_reg();
 			break;
 			}
 			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_3);
@@ -793,13 +775,13 @@ static irqreturn_t pmif_event_4_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	for (idx = 0; idx < 31; idx++) {
+	for (idx = 0; idx < 32; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
 			default:
 				pr_notice("%s IRQ[%d] triggered\n",
 					__func__, idx);
-//				spmi_dump_pmif_record_reg();
+				spmi_dump_pmif_record_reg();
 			break;
 			}
 			pmif_writel(arb, irq_f, PMIF_IRQ_CLR_4);
@@ -1106,8 +1088,8 @@ static int mtk_spmi_probe(struct platform_device *pdev)
 	mutex_init(&arb->pmif_mutex);
 
 	/* enable debugger */
-	//spmi_pmif_dbg_init(ctrl);
-	//spmi_pmif_create_attr(&pmif_driver.driver);
+	spmi_pmif_dbg_init(ctrl);
+	spmi_pmif_create_attr(&mtk_spmi_driver.driver);
 
 	if (arb->caps == 2) {
 		arb->irq = platform_get_irq_byname(pdev, "pmif_irq");
