@@ -1138,25 +1138,29 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
 		submit_pq = mtk_alloc_mml_submit();
 
-		submit_kernel->info.dest[0].crop.r.height =
-			(mtk_crtc->mml_force_height) ? mtk_crtc->mml_force_height : 64;
-		submit_kernel->info.dest[0].crop.r.width =
-			(mtk_crtc->mml_force_width) ? mtk_crtc->mml_force_width : 512;
-		submit_kernel->info.dest[0].crop.r.left = 0;
-		submit_kernel->info.dest[0].crop.r.top = 0;
-		submit_kernel->info.dest[0].crop.h_sub_px = 0;
-		submit_kernel->info.dest[0].crop.w_sub_px = 0;
-		submit_kernel->info.dest[0].crop.x_sub_px = 0;
-		submit_kernel->info.dest[0].crop.y_sub_px = 0;
+		{
+			bool is_rotate =
+				(submit_kernel->info.dest[0].rotate & MML_ROT_90) == MML_ROT_90;
+			uint32_t min_w = min(submit_kernel->info.src.width,
+				(is_rotate) ? submit_kernel->info.dest[0].data.height :
+					submit_kernel->info.dest[0].data.width);
+			uint32_t min_h = min(submit_kernel->info.src.height,
+				(is_rotate) ? submit_kernel->info.dest[0].data.width :
+					submit_kernel->info.dest[0].data.height);
+
+			submit_kernel->info.dest[0].crop.r.width =
+				(is_rotate) ? (min_w / 64) * 64 : min_w;
+			submit_kernel->info.dest[0].crop.r.height =
+				(is_rotate) ? min_h : (min_h / 64) * 64;
+			submit_kernel->info.dest[0].crop.r.left = 0;
+			submit_kernel->info.dest[0].crop.r.top = 0;
+			submit_kernel->info.dest[0].crop.h_sub_px = 0;
+			submit_kernel->info.dest[0].crop.w_sub_px = 0;
+			submit_kernel->info.dest[0].crop.x_sub_px = 0;
+			submit_kernel->info.dest[0].crop.y_sub_px = 0;
+		}
 
 		mml_drm_split_info(submit_kernel, submit_pq);
-
-		submit_kernel->info.dest[0].compose.height =
-			(mtk_crtc->mml_force_height) ? mtk_crtc->mml_force_height : 64;
-		submit_kernel->info.dest[0].compose.width =
-			(mtk_crtc->mml_force_width) ? mtk_crtc->mml_force_width : 512;
-		submit_kernel->info.dest[0].compose.left = 0;
-		submit_kernel->info.dest[0].compose.top = 0;
 
 		if (mml_ctx != NULL) {
 			ret = mml_drm_submit(mml_ctx, submit_kernel, &(mtk_crtc->mml_cb));
