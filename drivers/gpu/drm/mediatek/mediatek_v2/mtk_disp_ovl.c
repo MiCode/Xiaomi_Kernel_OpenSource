@@ -37,8 +37,6 @@
 #include "../mml/mtk-mml.h"
 #include <soc/mediatek/smi.h>
 
-extern bool g_disp_drm;
-
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 
 #define REG_FLD(width, shift)                                                  \
@@ -1527,8 +1525,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					0, BIT(sec_bit));
 		}
 
-		if (pending->mml_mode == MML_MODE_RACING
-			&& !g_disp_drm) {
+		if (pending->mml_mode == MML_MODE_RACING) {
 			dma_addr_t sram_addr = pending->addr;
 
 			// enable

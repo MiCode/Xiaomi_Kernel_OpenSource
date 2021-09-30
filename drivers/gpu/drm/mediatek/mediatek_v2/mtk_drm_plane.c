@@ -19,8 +19,6 @@
 #include "slbc_ops.h"
 #include "../mml/mtk-mml.h"
 
-extern bool g_disp_drm;
-
 #define MTK_DRM_PLANE_SCALING_MIN 16
 #define MTK_DRM_PLANE_SCALING_MAX (1 << 16)
 
@@ -406,19 +404,16 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		struct mml_submit *cfg = state->pending.mml_cfg;
 		uint32_t width, height, pitch;
 
-		width = (g_disp_drm) ? 1080 :
-			cfg->info.src.width;
-		height = (g_disp_drm) ? 1920 :
-			cfg->info.src.height;
+		width = cfg->info.src.width;
+		height = cfg->info.src.height;
 		pitch = cfg->info.src.y_stride;
 
 		state->pending.enable = plane->state->visible;
 		state->pending.pitch = pitch;
-		state->pending.format = DRM_FORMAT_ABGR8888;
-		state->pending.addr = (g_disp_drm) ?
-			mtk_fb_get_dma(fb) : (dma_addr_t)(mtk_crtc->mml_ir_sram.paddr);
+		state->pending.format = fb->format->format;
+		state->pending.addr = (dma_addr_t)(mtk_crtc->mml_ir_sram.paddr);
 		state->pending.modifier = MTK_FMT_NONE;
-		state->pending.size = width  * height * 4;
+		state->pending.size = pitch  * height;
 		state->pending.src_x = 0;
 		state->pending.src_y = 0;
 		state->pending.dst_x = 0;

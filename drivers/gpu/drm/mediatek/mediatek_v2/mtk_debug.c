@@ -85,8 +85,6 @@ unsigned int disp_cm_bypass;
 static unsigned int m_old_pq_persist_property[32];
 unsigned int m_new_pq_persist_property[32];
 
-bool g_disp_drm;
-bool g_force_write_done;
 unsigned int g_mml_mode;
 
 int gCaptureOVLEn;
@@ -2681,19 +2679,7 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 16, "-1", 2) == 0)
 			g_mml_mode = MML_MODE_NOT_SUPPORT;
 		DDPMSG("mml_mode:%d", g_mml_mode);
-	} else if (strncmp(opt, "display_dram:", 13) == 0) {
-		if (strncmp(opt + 13, "1", 1) == 0)
-			g_disp_drm = true;
-		else if (strncmp(opt + 13, "0", 1) == 0)
-			g_disp_drm = false;
-		DDPMSG("g_disp_drm:%d", g_disp_drm);
-	} else if (strncmp(opt, "force_wdone:", 12) == 0) {
-		if (strncmp(opt + 12, "1", 1) == 0)
-			g_force_write_done = true;
-		else if (strncmp(opt + 12, "0", 1) == 0)
-			g_force_write_done = false;
-		DDPMSG("g_disp_drm:%d", g_force_write_done);
-	}  else if (strncmp(opt, "mml_sram_height:", 16) == 0) {
+	} else if (strncmp(opt, "mml_sram_height:", 16) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
 		unsigned int height;
