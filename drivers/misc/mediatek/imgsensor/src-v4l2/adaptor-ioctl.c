@@ -1046,6 +1046,28 @@ static int g_max_exposure_ioctl(struct adaptor_ctx *ctx, void *arg)
 	return g_max_exposure(ctx, target->scenario_id, target);
 }
 
+static int g_output_format_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_sensor_value *target = arg;
+	int ret = 0;
+	union feature_para para;
+	u32 len = 0;
+
+	if (!ctx || !target)
+		return -EINVAL;
+
+	para.u64[0] = target->scenario_id;
+	para.u64[1] = 0;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_OUTPUT_FORMAT_BY_SCENARIO,
+		para.u8, &len);
+
+	target->value = para.u64[1];
+	dev_info(ctx->dev, "[%s]scenario %u outputformat = %u\n", __func__,
+		target->scenario_id, target->value);
+	return ret;
+}
+
 static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_seamless_target_scenarios *target = arg;
@@ -1298,6 +1320,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_CUSTOM_READOUT_BY_SCENARIO, g_custom_readout},
 	{VIDIOC_MTK_G_STAGGER_SCENARIO, g_stagger_scenario_ioctl},
 	{VIDIOC_MTK_G_MAX_EXPOSURE, g_max_exposure_ioctl},
+	{VIDIOC_MTK_G_OUTPUT_FORMAT_BY_SCENARIO, g_output_format_by_scenario},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

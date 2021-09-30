@@ -1251,6 +1251,24 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 
 	LOG_INF("feature_id = %d\n", feature_id);
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_OUTPUT_FORMAT_BY_SCENARIO:
+		switch (*feature_data) {
+		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+		case SENSOR_SCENARIO_ID_CUSTOM1:
+		case SENSOR_SCENARIO_ID_CUSTOM2:
+		case SENSOR_SCENARIO_ID_CUSTOM3:
+		case SENSOR_SCENARIO_ID_CUSTOM4:
+		case SENSOR_SCENARIO_ID_CUSTOM5:
+			*(feature_data + 1)
+			= (enum ACDK_SENSOR_OUTPUT_DATA_FORMAT_ENUM)
+				imgsensor_info.sensor_output_dataformat;
+			break;
+		}
+	break;
 	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
 		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
 			*(feature_data + 0) =

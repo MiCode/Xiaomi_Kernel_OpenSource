@@ -480,6 +480,9 @@ struct mtk_test_pattern_data {
 #define VIDIOC_MTK_G_PRELOAD_EEPROM_DATA \
 	_IOR('M', BASE_VIDIOC_PRIVATE + 36, unsigned int)
 
+#define VIDIOC_MTK_G_OUTPUT_FORMAT_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 37, struct mtk_sensor_value)
+
 /* SET */
 
 #define VIDIOC_MTK_S_VIDEO_FRAMERATE \
