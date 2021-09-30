@@ -41,6 +41,7 @@ struct therm_intf_info {
 	struct device *dev;
 	struct mutex lock;
 	struct dentry *debug_dir;
+	struct ttj_info tj_info;
 };
 
 static struct therm_intf_info tm_data;
@@ -160,15 +161,95 @@ static ssize_t headroom_info_show(struct kobject *kobj,
 	return len;
 }
 
-static void write_ttj(unsigned int cpu_ttj, unsigned int gpu_ttj,
+static void write_ttj(int user, unsigned int cpu_ttj, unsigned int gpu_ttj,
 	unsigned int apu_ttj)
 {
-	therm_intf_write_csram(cpu_ttj, TTJ_OFFSET);
-	therm_intf_write_csram(gpu_ttj, TTJ_OFFSET + 4);
-	therm_intf_write_csram(apu_ttj, TTJ_OFFSET + 8);
 
-	therm_intf_write_apu_mbox(apu_ttj, APU_MBOX_TTJ_OFFSET);
+	pr_info("%s %d %d\n", __func__, user, cpu_ttj);
+	mutex_lock(&tm_data.lock);
+
+	if (user == JATM_ON)
+		tm_data.tj_info.jatm_on = 1;
+	else if (user == JATM_OFF)
+		tm_data.tj_info.jatm_on = 0;
+	else if (user == CATM) {
+		tm_data.tj_info.catm_cpu_ttj = cpu_ttj;
+		tm_data.tj_info.catm_gpu_ttj = gpu_ttj;
+		tm_data.tj_info.catm_apu_ttj = apu_ttj;
+	}
+
+	if (tm_data.tj_info.jatm_on == 1) {
+		therm_intf_write_csram(cpu_ttj, TTJ_OFFSET);
+		therm_intf_write_csram(gpu_ttj, TTJ_OFFSET + 4);
+		therm_intf_write_csram(apu_ttj, TTJ_OFFSET + 8);
+		therm_intf_write_apu_mbox(apu_ttj, APU_MBOX_TTJ_OFFSET);
+	} else {
+		therm_intf_write_csram(tm_data.tj_info.catm_cpu_ttj, TTJ_OFFSET);
+		therm_intf_write_csram(tm_data.tj_info.catm_gpu_ttj, TTJ_OFFSET + 4);
+		therm_intf_write_csram(tm_data.tj_info.catm_apu_ttj, TTJ_OFFSET + 8);
+		therm_intf_write_apu_mbox(tm_data.tj_info.catm_apu_ttj, APU_MBOX_TTJ_OFFSET);
+	}
+	mutex_unlock(&tm_data.lock);
 }
+
+static void write_max_ttj(unsigned int cpu_max_ttj,
+	unsigned int gpu_max_ttj, unsigned int apu_max_ttj)
+{
+	tm_data.tj_info.cpu_max_ttj = cpu_max_ttj;
+	tm_data.tj_info.gpu_max_ttj = gpu_max_ttj;
+	tm_data.tj_info.apu_max_ttj = apu_max_ttj;
+}
+
+static void write_min_ttj(unsigned int min_ttj)
+{
+	tm_data.tj_info.min_ttj = min_ttj;
+}
+
+int get_catm_min_ttj(void)
+{
+	return tm_data.tj_info.min_ttj;
+}
+EXPORT_SYMBOL(get_catm_min_ttj);
+
+void set_ttj(int user)
+{
+	write_ttj(user, tm_data.tj_info.cpu_max_ttj,
+		tm_data.tj_info.gpu_max_ttj, tm_data.tj_info.apu_max_ttj);
+}
+EXPORT_SYMBOL(set_ttj);
+
+void write_jatm_suspend(int jatm_suspend)
+{
+	therm_intf_write_csram(jatm_suspend, CPU_JATM_SUSPEND_OFFSET);
+	therm_intf_write_csram(jatm_suspend, GPU_JATM_SUSPEND_OFFSET);
+}
+EXPORT_SYMBOL(write_jatm_suspend);
+
+int get_jatm_suspend(void)
+{
+	int cpu_jatm_suspend;
+	int gpu_jatm_suspend;
+
+	cpu_jatm_suspend = therm_intf_read_csram_s32(CPU_JATM_SUSPEND_OFFSET);
+	gpu_jatm_suspend = therm_intf_read_csram_s32(GPU_JATM_SUSPEND_OFFSET);
+
+	return (cpu_jatm_suspend || gpu_jatm_suspend);
+}
+EXPORT_SYMBOL(get_jatm_suspend);
+
+int get_catm_ttj(void)
+{
+	int min_ttj = tm_data.tj_info.catm_cpu_ttj;
+
+	if (min_ttj > tm_data.tj_info.catm_gpu_ttj)
+		min_ttj = tm_data.tj_info.catm_gpu_ttj;
+	if (min_ttj > tm_data.tj_info.catm_apu_ttj)
+		min_ttj = tm_data.tj_info.catm_apu_ttj;
+
+	return min_ttj;
+}
+EXPORT_SYMBOL(get_catm_ttj);
+
 
 static ssize_t ttj_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
@@ -192,7 +273,71 @@ static ssize_t ttj_store(struct kobject *kobj,
 	if (sscanf(buf, "%4s %u %u %u", cmd, &cpu_ttj, &gpu_ttj, &apu_ttj)
 		== 4) {
 		if (strncmp(cmd, "TTJ", 3) == 0) {
-			write_ttj(cpu_ttj, gpu_ttj, apu_ttj);
+			write_ttj(CATM, cpu_ttj, gpu_ttj, apu_ttj);
+
+			return count;
+		}
+	}
+
+	pr_info("[thermal_ttj] invalid input\n");
+
+	return -EINVAL;
+}
+
+static ssize_t max_ttj_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%u, %u, %u\n",
+		tm_data.tj_info.cpu_max_ttj,
+		tm_data.tj_info.gpu_max_ttj,
+		tm_data.tj_info.apu_max_ttj);
+
+	return len;
+}
+
+static ssize_t max_ttj_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char cmd[10];
+	unsigned int cpu_max_ttj, gpu_max_ttj, apu_max_ttj;
+
+	if (sscanf(buf, "%8s %u %u %u", cmd, &cpu_max_ttj, &gpu_max_ttj, &apu_max_ttj)
+		== 4) {
+		if (strncmp(cmd, "MAX_TTJ", 7) == 0) {
+			write_max_ttj(cpu_max_ttj, gpu_max_ttj, apu_max_ttj);
+
+			return count;
+		}
+	}
+
+	pr_info("[thermal_ttj] invalid input\n");
+
+	return -EINVAL;
+}
+
+static ssize_t min_ttj_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%u\n",
+		tm_data.tj_info.min_ttj);
+
+	return len;
+}
+
+static ssize_t min_ttj_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char cmd[10];
+	unsigned int min_ttj;
+
+	if (sscanf(buf, "%8s %u", cmd, &min_ttj)
+		== 2) {
+		if (strncmp(cmd, "MIN_TTJ", 7) == 0) {
+			write_min_ttj(min_ttj);
 
 			return count;
 		}
@@ -633,6 +778,9 @@ static struct kobj_attribute atc_attr = __ATTR_RO(atc);
 static struct kobj_attribute target_tpcb_attr = __ATTR_RW(target_tpcb);
 static struct kobj_attribute md_sensor_info_attr = __ATTR_RW(md_sensor_info);
 static struct kobj_attribute md_actuator_info_attr = __ATTR_RW(md_actuator_info);
+static struct kobj_attribute max_ttj_attr = __ATTR_RW(max_ttj);
+static struct kobj_attribute min_ttj_attr = __ATTR_RW(min_ttj);
+
 
 static struct attribute *thermal_attrs[] = {
 	&ttj_attr.attr,
@@ -650,6 +798,8 @@ static struct attribute *thermal_attrs[] = {
 	&target_tpcb_attr.attr,
 	&md_sensor_info_attr.attr,
 	&md_actuator_info_attr.attr,
+	&max_ttj_attr.attr,
+	&min_ttj_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {
@@ -810,7 +960,7 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 	ret = sysfs_create_group(kernel_kobj, &thermal_attr_group);
 	if (ret) {
-		dev_info(&pdev->dev, "failed to create thermal sysfs, ret=%d!\n", ret);
+		dev_err(&pdev->dev, "failed to create thermal sysfs, ret=%d!\n", ret);
 		return ret;
 	}
 
@@ -819,6 +969,13 @@ static int therm_intf_probe(struct platform_device *pdev)
 	mutex_init(&tm_data.lock);
 
 	tm_data.sw_ready = 1;
+	tm_data.tj_info.catm_cpu_ttj = 95000;
+	tm_data.tj_info.catm_gpu_ttj = 95000;
+	tm_data.tj_info.catm_apu_ttj = 95000;
+	tm_data.tj_info.cpu_max_ttj = 95000;
+	tm_data.tj_info.gpu_max_ttj = 95000;
+	tm_data.tj_info.apu_max_ttj = 95000;
+	tm_data.tj_info.min_ttj = 63000;
 
 	return 0;
 }

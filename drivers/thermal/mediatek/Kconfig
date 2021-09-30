@@ -106,4 +106,14 @@ config MTK_THERMAL_INTERFACE
 	  2.thermal setting or policy from userspace daemon(ex:thermal policy and TTJ)
 	  This driver also offer API to get cpu theraml headroom for other kernel module.
 
+config MTK_THERMAL_JATM
+	tristate "Mediatek jank aware thermal management driver"
+	depends on MTK_THERMAL_INTERFACE
+	help
+	  This driver provides a algorithm to fine tune:
+	  1. TTJ
+	  2. CPU freq
+	  to optimize game UX under a proper Tskin control.
+	  It will take care of both better user experience and Tskin control.
+
 endif

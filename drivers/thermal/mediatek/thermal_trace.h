@@ -370,6 +370,88 @@ TRACE_EVENT(fps_cooler,
 		__entry->tpcb_slope, __entry->ap_headroom, __entry->n_sec_to_ttpcb)
 );
 
+#if IS_ENABLED(CONFIG_MTK_THERMAL_JATM)
+TRACE_EVENT(jatm_enable,
+
+	TP_PROTO(int jatm_budget),
+
+	TP_ARGS(jatm_budget),
+
+	TP_STRUCT__entry(
+		__field(int, jatm_budget)
+	),
+
+	TP_fast_assign(
+		__entry->jatm_budget = jatm_budget;
+	),
+
+	TP_printk("jatm enabled and remaining budget=%d", __entry->jatm_budget)
+);
+
+TRACE_EVENT(jatm_disable,
+
+	TP_PROTO(int reason, int frame_length, int real_usage, int jatm_budget),
+
+	TP_ARGS(reason, frame_length, real_usage, jatm_budget),
+
+	TP_STRUCT__entry(
+		__field(int, reason)
+		__field(int, frame_length)
+		__field(int, real_usage)
+		__field(int, jatm_budget)
+	),
+
+	TP_fast_assign(
+		__entry->reason = reason;
+		__entry->frame_length = frame_length;
+		__entry->real_usage = real_usage;
+		__entry->jatm_budget = jatm_budget;
+	),
+
+	TP_printk("stop reason=%d, frame_length=%d, real_usage=%d, remaining=%d",
+		__entry->reason, __entry->frame_length, __entry->real_usage, __entry->jatm_budget)
+);
+
+TRACE_EVENT(not_start_reason,
+
+	TP_PROTO(int reason),
+
+	TP_ARGS(reason),
+
+	TP_STRUCT__entry(
+		__field(int, reason)
+	),
+
+	TP_fast_assign(
+		__entry->reason = reason;
+	),
+
+	TP_printk("jatm not start reason=%d", __entry->reason)
+);
+
+TRACE_EVENT(try_enable_jatm,
+
+	TP_PROTO(int elapsed, int delay),
+
+	TP_ARGS(elapsed, delay),
+
+	TP_STRUCT__entry(
+		__field(int, elapsed)
+		__field(int, delay)
+	),
+
+	TP_fast_assign(
+		__entry->elapsed = elapsed;
+		__entry->delay = delay;
+	),
+
+	TP_printk("Try to enable JATM after %d ms and delay start %d ms",
+		__entry->elapsed, __entry->delay)
+);
+
+#endif
+
+
 #endif /* _TRACE_MTK_THERMAL_H */
 
 /* This part must be outside protection */

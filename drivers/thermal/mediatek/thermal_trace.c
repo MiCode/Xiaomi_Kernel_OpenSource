@@ -29,6 +29,13 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(network_tput);
 EXPORT_TRACEPOINT_SYMBOL_GPL(cpu_hr_info_0);
 EXPORT_TRACEPOINT_SYMBOL_GPL(cpu_hr_info_1);
 #endif
+#if IS_ENABLED(CONFIG_MTK_THERMAL_JATM)
+EXPORT_TRACEPOINT_SYMBOL_GPL(jatm_enable);
+EXPORT_TRACEPOINT_SYMBOL_GPL(jatm_disable);
+EXPORT_TRACEPOINT_SYMBOL_GPL(not_start_reason);
+EXPORT_TRACEPOINT_SYMBOL_GPL(try_enable_jatm);
+#endif
+
 /*==================================================
  * Throughput calculator data
  *==================================================

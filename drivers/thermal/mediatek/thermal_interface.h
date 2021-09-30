@@ -17,6 +17,8 @@
 #define POWER_BUDGET_OFFSET        (0x110)
 #define CPU_MIN_OPP_HINT_OFFSET    (0x120)
 #define CPU_ACTIVE_BITMASK_OFFSET  (0x130)
+#define CPU_JATM_SUSPEND_OFFSET    (0x140)
+#define GPU_JATM_SUSPEND_OFFSET    (0x144)
 #define GPU_TEMP_OFFSET            (0x180)
 #define APU_TEMP_OFFSET            (0x190)
 #define EMUL_TEMP_OFFSET           (0x1B0)
@@ -54,6 +56,24 @@ enum headroom_id {
 	PCB_AP,
 
 	NR_HEADROOM_ID
+};
+
+enum ttj_user {
+	JATM_OFF = -1,
+	CATM,
+	JATM_ON,
+	NR_TTJ_USER
+};
+
+struct ttj_info {
+	int jatm_on;
+	unsigned int catm_cpu_ttj;
+	unsigned int catm_gpu_ttj;
+	unsigned int catm_apu_ttj;
+	unsigned int cpu_max_ttj;
+	unsigned int gpu_max_ttj;
+	unsigned int apu_max_ttj;
+	unsigned int min_ttj;
 };
 
 struct fps_cooler_info {
@@ -96,6 +116,12 @@ extern int get_thermal_headroom(enum headroom_id id);
 extern int set_cpu_min_opp(int gear, int opp);
 extern int set_cpu_active_bitmask(int mask);
 extern int get_cpu_temp(int cpu_id);
+extern void set_ttj(int user);
+extern void write_jatm_suspend(int jatm_suspend);
+extern int get_jatm_suspend(void);
+extern int get_catm_ttj(void);
+extern int get_catm_min_ttj(void);
+
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 extern void __iomem *thermal_csram_base;
 extern void __iomem *thermal_apu_mbox_base;
