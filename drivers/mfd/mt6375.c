@@ -15,6 +15,7 @@
 #include <linux/mutex.h>
 #include <linux/of_platform.h>
 #include <linux/regmap.h>
+#include <linux/atomic.h>
 
 #define MT6375_SLAVEID_TCPC	0x4E
 #define MT6375_SLAVEID_PMU	0x34
@@ -59,6 +60,7 @@ struct mt6375_data {
 	struct mutex irq_lock;
 	u8 mask_buf[MT6375_IRQ_REGS];
 	u8 chip_rev;
+	atomic_t in_sleep;
 };
 
 static const u8 mt6375_slave_addr[MT6375_SLAVE_MAX] = {
@@ -85,6 +87,11 @@ static int mt6375_regmap_write(void *context, const void *data, size_t count)
 	struct i2c_client *i2c;
 	const u8 *_data = data;
 
+	if (atomic_read(&ddata->in_sleep)) {
+		dev_info(ddata->dev, "%s in sleep\n", __func__);
+		return -EHOSTDOWN;
+	}
+
 	i2c = bank_to_i2c(ddata, _data[0]);
 	if (!i2c)
 		return -EINVAL;
@@ -108,6 +115,11 @@ static int mt6375_regmap_read(void *context, const void *reg_buf,
 	struct mt6375_data *ddata = context;
 	struct i2c_client *i2c;
 	const u8 *_reg_buf = reg_buf;
+
+	if (atomic_read(&ddata->in_sleep)) {
+		dev_info(ddata->dev, "%s in sleep\n", __func__);
+		return -EHOSTDOWN;
+	}
 
 	i2c = bank_to_i2c(ddata, _reg_buf[0]);
 	if (!i2c)
@@ -359,6 +371,7 @@ static int mt6375_probe(struct i2c_client *client)
 	ddata->dev = &client->dev;
 	mutex_init(&ddata->irq_lock);
 	i2c_set_clientdata(client, ddata);
+	atomic_set(&ddata->in_sleep, 0);
 
 	for (i = 0; i < MT6375_SLAVE_MAX; i++) {
 		if (i == MT6375_SLAVE_PMU) {
@@ -429,7 +442,29 @@ static int __maybe_unused mt6375_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(mt6375_pm_ops, mt6375_suspend, mt6375_resume);
+static int mt6375_suspend_noirq(struct device *dev)
+{
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct mt6375_data *data = i2c_get_clientdata(i2c);
+
+	atomic_set(&data->in_sleep, 1);
+	return 0;
+}
+
+static int mt6375_resume_noirq(struct device *dev)
+{
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct mt6375_data *data = i2c_get_clientdata(i2c);
+
+	atomic_set(&data->in_sleep, 0);
+	return 0;
+}
+
+static const struct dev_pm_ops mt6375_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mt6375_suspend, mt6375_resume)
+		SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mt6375_suspend_noirq,
+					      mt6375_resume_noirq)
+};
 
 static const struct of_device_id __maybe_unused mt6375_of_match[] = {
 	{ .compatible = "mediatek,mt6375", },

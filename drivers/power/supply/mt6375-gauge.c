@@ -530,8 +530,14 @@ static void pre_gauge_update(struct mtk_gauge *gauge)
 {
 	int m = 0;
 	unsigned int reg_val = 0;
+	int ret = 0;
 
-	regmap_update_bits(gauge->regmap, RG_FGADC_CON3, FG_SW_READ_PRE_MASK, FG_SW_READ_PRE_MASK);
+	ret = regmap_update_bits(gauge->regmap, RG_FGADC_CON3,
+				 FG_SW_READ_PRE_MASK, FG_SW_READ_PRE_MASK);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return;
+	}
 	do {
 		m++;
 		if (m > 1000) {
@@ -540,7 +546,11 @@ static void pre_gauge_update(struct mtk_gauge *gauge)
 			break;
 		}
 
-		regmap_read(gauge->regmap, RG_FGADC_CON2, &reg_val);
+		ret = regmap_read(gauge->regmap, RG_FGADC_CON2, &reg_val);
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return;
+		}
 	} while (!(reg_val & FG_LATCHDATA_ST_MASK));
 }
 
@@ -564,9 +574,15 @@ static void post_gauge_update(struct mtk_gauge *gauge)
 {
 	int m = 0;
 	unsigned int regval;
+	int ret = 0;
 
-	regmap_update_bits(gauge->regmap, RG_FGADC_CON3, FG_SW_CLEAR_MASK | FG_SW_READ_PRE_MASK,
-			   FG_SW_CLEAR_MASK);
+	ret = regmap_update_bits(gauge->regmap, RG_FGADC_CON3,
+				 FG_SW_CLEAR_MASK | FG_SW_READ_PRE_MASK,
+				 FG_SW_CLEAR_MASK);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return;
+	}
 	do {
 		m++;
 		if (m > 1000) {
@@ -574,10 +590,19 @@ static void post_gauge_update(struct mtk_gauge *gauge)
 				__func__);
 			break;
 		}
-		regmap_read(gauge->regmap, RG_FGADC_CON2, &regval);
+		ret = regmap_read(gauge->regmap, RG_FGADC_CON2, &regval);
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return;
+		}
 	} while (regval & FG_LATCHDATA_ST_MASK);
 
-	regmap_update_bits(gauge->regmap, RG_FGADC_CON3, FG_SW_CLEAR_MASK, 0);
+	ret = regmap_update_bits(gauge->regmap, RG_FGADC_CON3,
+				 FG_SW_CLEAR_MASK, 0);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return;
+	}
 }
 
 static int mv_to_reg_12_value(struct mtk_gauge *gauge,
@@ -850,10 +875,16 @@ static int fgauge_get_info(struct mtk_gauge *gauge, enum gauge_property ginfo, i
 static unsigned int instant_current_for_car_tune(struct mtk_gauge *gauge)
 {
 	u16 reg_value = 0;
+	int ret = 0;
 
 	pre_gauge_update(gauge);
 
-	regmap_raw_read(gauge->regmap, RG_FGADC_CUR_CON0, &reg_value, sizeof(reg_value));
+	ret = regmap_raw_read(gauge->regmap, RG_FGADC_CUR_CON0, &reg_value,
+			      sizeof(reg_value));
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 
 	post_gauge_update(gauge);
 
@@ -1005,20 +1036,26 @@ static int info_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *
 	return ret;
 }
 
-static int instant_current(struct mtk_gauge *gauge)
+static int instant_current(struct mtk_gauge *gauge, int *val)
 {
 	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
 	u16 reg_value = 0;
-	int dvalue;
-	int r_fg_value;
-	int car_tune_value;
+	int dvalue = 0;
+	int r_fg_value = 0;
+	int car_tune_value = 0;
+	int ret = 0;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
 	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 
 	pre_gauge_update(gauge);
 
-	regmap_raw_read(gauge->regmap, RG_FGADC_CUR_CON0, &reg_value, sizeof(reg_value));
+	ret = regmap_raw_read(gauge->regmap, RG_FGADC_CUR_CON0, &reg_value,
+			      sizeof(reg_value));
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 
 	post_gauge_update(gauge);
 
@@ -1030,7 +1067,8 @@ static int instant_current(struct mtk_gauge *gauge)
 
 	dvalue = ((dvalue * car_tune_value) / 1000);
 
-	return dvalue;
+	*val = dvalue;
+	return ret;
 }
 
 static int read_hw_ocv_6375_plug_in(struct mtk_gauge *gauge)
@@ -1271,9 +1309,16 @@ static void fgauge_set_zcv_intr_internal(struct mtk_gauge *gauge_dev, int fg_zcv
 		fg_zcv_car_th_regval);
 }
 
-static void read_fg_hw_info_current_1(struct mtk_gauge *gauge_dev)
+static int read_fg_hw_info_current_1(struct mtk_gauge *gauge_dev, int *curr)
 {
-	gauge_dev->fg_hw_info.current_1 = instant_current(gauge_dev);
+	int ret = 0;
+
+	ret = instant_current(gauge_dev, curr);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
+	return 0;
 }
 
 static void read_fg_hw_info_current_2(struct mtk_gauge *gauge_dev)
@@ -1459,12 +1504,18 @@ static int coulomb_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	long long temp_value = 0;
 	int r_fg_value;
 	int car_tune_value;
+	int ret = 0;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
 	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 	pre_gauge_update(gauge);
 
-	regmap_raw_read(gauge->regmap, RG_FGADC_CAR_CON0, &temp_car, sizeof(temp_car));
+	ret = regmap_raw_read(gauge->regmap, RG_FGADC_CAR_CON0, &temp_car,
+			      sizeof(temp_car));
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 
 	post_gauge_update(gauge);
 
@@ -1547,22 +1598,37 @@ static int average_current_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sys
 	int is_bat_charging;
 	int iavg_vld = 0;
 	int r_fg_value, car_tune_value;
+	int ret = 0;
 
 	r_fg_value = gauge_dev->hw_status.r_fg_value;
 	car_tune_value = gauge_dev->gm->fg_cust_data.car_tune_value;
 
 	pre_gauge_update(gauge_dev);
 
-	regmap_read(gauge_dev->regmap, RG_FGADC_IAVG_CON1, &iavg_vld);
+	ret = regmap_read(gauge_dev->regmap, RG_FGADC_IAVG_CON1, &iavg_vld);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 	iavg_vld = iavg_vld & FG_IAVG_VLD_MASK;
 
 	if (iavg_vld) {
-		regmap_raw_read(gauge_dev->regmap, RG_FGADC_IAVG_CON2, &fg_iavg_reg_27_16,
-				sizeof(fg_iavg_reg_27_16));
+		ret = regmap_raw_read(gauge_dev->regmap, RG_FGADC_IAVG_CON2,
+				      &fg_iavg_reg_27_16,
+				      sizeof(fg_iavg_reg_27_16));
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		fg_iavg_reg_27_16 &= FG_IAVG_27_16_MASK;
 
-		regmap_raw_read(gauge_dev->regmap, RG_FGADC_IAVG_CON0, &fg_iavg_reg_15_00,
-				sizeof(fg_iavg_reg_15_00));
+		ret = regmap_raw_read(gauge_dev->regmap, RG_FGADC_IAVG_CON0,
+				      &fg_iavg_reg_15_00,
+				      sizeof(fg_iavg_reg_15_00));
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		fg_iavg_reg_15_00 &= FG_IAVG_15_00_MASK;
 
 		fg_iavg_reg = fg_iavg_reg_27_16;
@@ -1620,7 +1686,12 @@ static int average_current_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sys
 		gauge_dev->fg_hw_info.current_avg_sign = sign_bit;
 		bm_debug("[fg_get_current_iavg] PMIC_FG_IAVG_VLD == 1\n");
 	} else {
-		read_fg_hw_info_current_1(gauge_dev);
+		ret = read_fg_hw_info_current_1(gauge_dev,
+			&gauge_dev->fg_hw_info.current_1);
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		gauge_dev->fg_hw_info.current_avg = gauge_dev->fg_hw_info.current_1;
 
 		if (gauge_dev->fg_hw_info.current_1 < 0)
@@ -1766,8 +1837,13 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 	int fg_iavg_lth_28_16, fg_iavg_lth_15_00;
 	int fg_iavg_hth_28_16, fg_iavg_hth_15_00;
 	u32 regval;
+	int ret = 0;
 
-	average_current_get(gauge_dev, NULL, &iavg);
+	ret = average_current_get(gauge_dev, NULL, &iavg);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 
 	iavg_ht = abs(iavg) + iavg_gap;
 	iavg_lt = abs(iavg) - iavg_gap;
@@ -1859,7 +1935,7 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 static int hw_info_set(struct mtk_gauge *gauge_dev, struct mtk_gauge_sysfs_field_info *attr, int en)
 {
-	int ret;
+	int ret = 0;
 	int is_iavg_valid;
 	int avg_current;
 	int iavg_th;
@@ -1871,7 +1947,7 @@ static int hw_info_set(struct mtk_gauge *gauge_dev, struct mtk_gauge_sysfs_field
 	post_gauge_update(gauge_dev);
 
 	/* Current_1 */
-	read_fg_hw_info_current_1(gauge_dev);
+	read_fg_hw_info_current_1(gauge_dev, &gauge_dev->fg_hw_info.current_1);
 
 	/* Current_2 */
 	read_fg_hw_info_current_2(gauge_dev);
@@ -1880,7 +1956,11 @@ static int hw_info_set(struct mtk_gauge *gauge_dev, struct mtk_gauge_sysfs_field
 	/* fg_offset = pmic_get_register_value(PMIC_FG_OFFSET); */
 
 	/* Iavg */
-	average_current_get(gauge_dev, NULL, &avg_current);
+	ret = average_current_get(gauge_dev, NULL, &avg_current);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 	is_iavg_valid = gauge_dev->fg_hw_info.current_avg_valid;
 	if ((is_iavg_valid == 1) && (gauge_status->iavg_intr_flag == 0)) {
 		bm_debug("[read_fg_hw_info]set first fg_set_iavg_intr %d %d\n",
@@ -2380,7 +2460,7 @@ static int boot_zcv_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sysfs_fiel
 
 	/* if preloader records charge in, need to using subpmic as hwocv */
 	fgauge_get_info(gauge_dev, GAUGE_PROP_PL_CHARGING_STATUS, &zcvinfo->pl_charging_status);
-	fgauge_set_info( gauge_dev, GAUGE_PROP_PL_CHARGING_STATUS, 0);
+	fgauge_set_info(gauge_dev, GAUGE_PROP_PL_CHARGING_STATUS, 0);
 	fgauge_get_info(gauge_dev, GAUGE_PROP_MONITER_PLCHG_STATUS, &zcvinfo->moniter_plchg_bit);
 	fgauge_set_info(gauge_dev, GAUGE_PROP_MONITER_PLCHG_STATUS, 0);
 
@@ -2759,20 +2839,25 @@ static int battery_voltage_cali(struct mtk_gauge *gauge,
 				int *val)
 {
 	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
-	int ret;
+	int ret = 0;
 	int chg_vbat, auxadc_vbat, vbat_diff, vbat_diff_sum = 0, vbat_diff_avg;
 	int chg_vbat_min = INT_MAX, auxadc_vbat_min = INT_MAX;
 	int chg_vbat_max = 0, auxadc_vbat_max = 0;
 	int cnt = 0, max_cnt = 5;
+	int value = 0;
 	u16 gain_err = priv->gain_err, gain_err_diff;
-	u16 data;
+	u16 data = 0;
 
 	dev_info(priv->dev, "%s\n", __func__);
 	while (abs(cnt) < max_cnt) {
-		ret = instant_current(gauge);
-		bm_err("%s: cic1 = %d\n", __func__, ret);
-		if (abs(ret) > 500) {
-			bm_err("%s: cic1 out of range(%d)\n", __func__, ret);
+		ret = instant_current(gauge, &value);
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return ret;
+		}
+		bm_err("%s: cic1 = %d\n", __func__, value);
+		if (abs(value) > 500) {
+			bm_err("%s: cic1 out of range(%d)\n", __func__, value);
 			return -EINVAL;
 		}
 
@@ -2923,7 +3008,7 @@ static int battery_temperature_adc_get(struct mtk_gauge *gauge,
 
 static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
-	int i, ret;
+	int i = 0, ret = 0;
 	u32 data = 0;
 
 	if (IS_ERR(gauge->chan_bat_voltage)) {
@@ -2958,23 +3043,37 @@ static int battery_exist_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_fie
 			     int *val)
 {
 	unsigned int regval = 0;
+	int ret = 0;
 
 #if defined(CONFIG_FPGA_EARLY_PORTING)
 	*val = 0;
 	return 0;
 #endif
 
-	regmap_read(gauge->regmap, RG_BATON_ANA_MON0, &regval);
+	ret = regmap_read(gauge->regmap, RG_BATON_ANA_MON0, &regval);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 	regval = regval & AD_BATON_UNDET_MASK;
 
 	*val = !regval ? 1 : 0;
 
 	if (regval) {
-		regmap_update_bits(gauge->regmap, RG_AUXADC_CON42, AUXADC_ADC_RDY_PWRON_CLR_MASK,
-				   AUXADC_ADC_RDY_PWRON_CLR_MASK);
+		ret = regmap_update_bits(gauge->regmap, RG_AUXADC_CON42,
+					 AUXADC_ADC_RDY_PWRON_CLR_MASK,
+					 AUXADC_ADC_RDY_PWRON_CLR_MASK);
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		mdelay(1);
-		regmap_update_bits(gauge->regmap, RG_AUXADC_CON42, AUXADC_ADC_RDY_PWRON_CLR_MASK,
-				   0);
+		ret = regmap_update_bits(gauge->regmap, RG_AUXADC_CON42,
+					 AUXADC_ADC_RDY_PWRON_CLR_MASK, 0);
+		if (ret) {
+			pr_notice("%s error, ret = %d\n", __func__, ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -3171,7 +3270,13 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 static int battery_current_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr,
 			       int *val)
 {
-	*val = instant_current(gauge);
+	int ret = 0;
+
+	ret = instant_current(gauge, val);
+	if (ret) {
+		pr_notice("%s error, ret = %d\n", __func__, ret);
+		return ret;
+	}
 	return 0;
 }
 
