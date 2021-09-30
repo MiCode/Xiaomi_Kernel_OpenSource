@@ -6357,9 +6357,9 @@
 					&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL1_2L_0)
 					&mmqos SLAVE_COMMON(0)>;
-		interconnect-names = "DDP_COMPONENT_OVL1_2L_qos",
-					"DDP_COMPONENT_OVL1_2L_fbdc_qos",
-					"DDP_COMPONENT_OVL1_2L_hrt_qos";
+		interconnect-names = "DDP_COMPONENT_OVL0_2L_qos",
+					"DDP_COMPONENT_OVL0_2L_fbdc_qos",
+					"DDP_COMPONENT_OVL0_2L_hrt_qos";
 	};
 
 	disp_ovl1_2l@14004000 {
@@ -7113,11 +7113,11 @@
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL1_2L_0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL1_2L_HDR>;
 		interconnects =
-			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL0_2L_0)
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL1_2L_0)
 					&mmqos SLAVE_COMMON(1)>,
-			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL0_2L_0)
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL1_2L_0)
 					&mmqos SLAVE_COMMON(1)>,
-			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL0_2L_0)
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL1_2L_0)
 					&mmqos SLAVE_COMMON(1)>;
 		interconnect-names = "DDP_COMPONENT_OVL2_2L_qos",
 					"DDP_COMPONENT_OVL2_2L_fbdc_qos",
