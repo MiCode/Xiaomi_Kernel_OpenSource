@@ -13368,20 +13368,19 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"MMSYS_0",
 					"MMSYS_1",
 					"MMSYS_2",
-					"MDPSYS_2";
+					"MDPSYS_0";
 			};
 			spm_cond_pll: spm_cond_pll {
 				pll-name = "UNIVPLL",
 					"MFGPLL",
+					"MFGSCPLL",
 					"MSDCPLL",
 					"TVPLL",
 					"MMPLL",
 					"USBPLL",
 					"ADSPPLL",
 					"APLL1",
-					"APLL2",
-					"APUPLL",
-					"NPUPLL";
+					"APLL2";
 			};
 		};
 
