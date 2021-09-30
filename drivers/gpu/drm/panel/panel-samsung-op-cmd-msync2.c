@@ -576,7 +576,7 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 static struct mtk_panel_params ext_params = {
 	.data_rate = PLL_CLOCK * 2,
 	.pll_clk = PLL_CLOCK,
-	.cust_esd_check = 1,
+	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
@@ -1569,9 +1569,9 @@ static int msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 		DDPINFO("%s:%d switch to 120fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_120, ARRAY_SIZE(msync_level_120));
 	} else if (fps_level == MTE_OFF) { /*close multi te */
-		DDPINFO("%s:%d Close MTE\n", __func__, __LINE__);
-		cb(dsi, handle, msync_close_mte, ARRAY_SIZE(msync_close_mte));
-		cb(dsi, handle, msync_default, ARRAY_SIZE(msync_default));
+		DDPINFO("%s:%d Close MTE done\n", __func__, __LINE__);
+		/*cb(dsi, handle, msync_close_mte, ARRAY_SIZE(msync_close_mte));*/
+		/*cb(dsi, handle, msync_default, ARRAY_SIZE(msync_default));*/
 	} else
 		ret = 1;
 
@@ -1590,7 +1590,14 @@ int msync_cmd_set_min_fps(void *dsi, dcs_write_gce cb,
 
 	DDPINFO("%s:%d flag:0x%08x, fps_level:%u min_fps:%u\n",
 			__func__, __LINE__, flag, fps_level, min_fps);
+
+	/* When MTE off, min fps need set to vrefresh*/
+	if (fps_level == MTE_OFF)
+		fps_level = min_fps;
+
 	if (fps_level <= MODE_0_FPS) { /*switch to 60 */
+		DDPINFO("%s:%d fps_level:%u min_fps:%u\n",
+			__func__, __LINE__, fps_level, min_fps);
 		if (min_fps >= 60) {
 			cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
 			bl_tb1[1] = 0x0C;
@@ -1649,6 +1656,8 @@ int msync_cmd_set_min_fps(void *dsi, dcs_write_gce cb,
 		}
 
 	} else if (fps_level <= MODE_1_FPS) { /*switch to 72 */
+		DDPINFO("%s:%d fps_level:%u min_fps:%u\n",
+			__func__, __LINE__, fps_level, min_fps);
 		if (min_fps >= 72) {
 			cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
 			bl_tb1[1] = 0x08;
@@ -1707,6 +1716,8 @@ int msync_cmd_set_min_fps(void *dsi, dcs_write_gce cb,
 		}
 
 	} else if (fps_level <= MODE_2_FPS) { /*switch to 90 */
+		DDPINFO("%s:%d fps_level:%u min_fps:%u\n",
+			__func__, __LINE__, fps_level, min_fps);
 		if (min_fps >= 90) {
 			cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
 			bl_tb1[1] = 0x04;
@@ -1765,6 +1776,8 @@ int msync_cmd_set_min_fps(void *dsi, dcs_write_gce cb,
 		}
 
 	} else if (fps_level <= MODE_3_FPS) { /*switch to 120 */
+		DDPINFO("%s:%d fps_level:%u min_fps:%u\n",
+			__func__, __LINE__, fps_level, min_fps);
 		if (min_fps >= 120) {
 			cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
 			bl_tb1[1] = 0x00;

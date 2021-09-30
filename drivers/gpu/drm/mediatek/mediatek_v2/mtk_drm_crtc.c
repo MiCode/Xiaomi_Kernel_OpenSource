@@ -6681,7 +6681,8 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		}
 
 		/* Set min fps */
-		if (msync_cmd_level_tb_dirty && (min_fps != min_fps_old)) {
+		if ((msync_cmd_level_tb_dirty && (min_fps != min_fps_old))
+			|| (fps_level == 0xFFFF)) {
 			unsigned int flag = 0;
 
 			flag = (fps_level << 16) | min_fps;
