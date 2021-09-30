@@ -173,42 +173,33 @@ void
 mtk_cam_working_buf_put(struct mtk_cam_working_buf_entry *buf_entry)
 {
 	struct mtk_cam_ctx *ctx = buf_entry->ctx;
-	unsigned long flags;
+	int cnt;
 
-	spin_lock_irqsave(&ctx->buf_pool.cam_freelist.lock, flags);
-
-	if (!buf_entry) {
-		dev_dbg(ctx->cam->dev, "%s: buf_entry can' be null, free cnt%d\n",
-			__func__, ctx->buf_pool.cam_freelist.cnt);
-		spin_unlock_irqrestore(&ctx->buf_pool.cam_freelist.lock, flags);
-		return;
-	}
+	spin_lock(&ctx->buf_pool.cam_freelist.lock);
 
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->buf_pool.cam_freelist.list);
-	ctx->buf_pool.cam_freelist.cnt++;
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(%pad), free cnt(%d)\n",
-		__func__, ctx->stream_id, &buf_entry->buffer.iova,
-		ctx->buf_pool.cam_freelist.cnt);
+	cnt = ++ctx->buf_pool.cam_freelist.cnt;
 
-	spin_unlock_irqrestore(&ctx->buf_pool.cam_freelist.lock, flags);
+	spin_unlock(&ctx->buf_pool.cam_freelist.lock);
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(%pad), free cnt(%d)\n",
+		__func__, ctx->stream_id, &buf_entry->buffer.iova, cnt);
 }
 
 struct mtk_cam_working_buf_entry*
 mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_working_buf_entry *buf_entry;
-	unsigned long flags;
+	int cnt;
 
 	/* get from free list */
-	spin_lock_irqsave(&ctx->buf_pool.cam_freelist.lock, flags);
+	spin_lock(&ctx->buf_pool.cam_freelist.lock);
 	if (list_empty(&ctx->buf_pool.cam_freelist.list)) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):no free buf, free cnt(%d)\n",
-			 __func__, ctx->stream_id,
-			 ctx->buf_pool.cam_freelist.cnt);
-		spin_unlock_irqrestore(&ctx->buf_pool.cam_freelist.lock, flags);
+		spin_unlock(&ctx->buf_pool.cam_freelist.lock);
 
+		dev_info(ctx->cam->dev, "%s:ctx(%d):no free buf\n",
+			 __func__, ctx->stream_id);
 		return NULL;
 	}
 
@@ -216,13 +207,13 @@ mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx)
 				     struct mtk_cam_working_buf_entry,
 				     list_entry);
 	list_del(&buf_entry->list_entry);
-	ctx->buf_pool.cam_freelist.cnt--;
+	cnt = --ctx->buf_pool.cam_freelist.cnt;
 	buf_entry->ctx = ctx;
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(%pad), free cnt(%d)\n",
-		__func__, ctx->stream_id, &buf_entry->buffer.iova,
-		ctx->buf_pool.cam_freelist.cnt);
 
-	spin_unlock_irqrestore(&ctx->buf_pool.cam_freelist.lock, flags);
+	spin_unlock(&ctx->buf_pool.cam_freelist.lock);
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(%pad), free cnt(%d)\n",
+		__func__, ctx->stream_id, &buf_entry->buffer.iova, cnt);
 
 	return buf_entry;
 }
@@ -311,43 +302,34 @@ void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 
 void mtk_cam_img_working_buf_put(struct mtk_cam_img_working_buf_entry *buf_entry)
 {
-	unsigned long flags;
 	struct mtk_cam_ctx *ctx = buf_entry->ctx;
+	int cnt;
 
-	spin_lock_irqsave(&ctx->img_buf_pool.cam_freeimglist.lock, flags);
-
-	if (!buf_entry) {
-		dev_dbg(ctx->cam->dev, "%s: buf_entry can' be null, free cnt%d\n",
-			__func__, ctx->img_buf_pool.cam_freeimglist.cnt);
-		spin_unlock_irqrestore(&ctx->img_buf_pool.cam_freeimglist.lock, flags);
-		return;
-	}
+	spin_lock(&ctx->img_buf_pool.cam_freeimglist.lock);
 
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->img_buf_pool.cam_freeimglist.list);
-	ctx->img_buf_pool.cam_freeimglist.cnt++;
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(0x%x), free cnt(%d)\n",
-		__func__, ctx->stream_id, buf_entry->img_buffer.iova,
-		ctx->img_buf_pool.cam_freeimglist.cnt);
+	cnt = ++ctx->img_buf_pool.cam_freeimglist.cnt;
 
-	spin_unlock_irqrestore(&ctx->img_buf_pool.cam_freeimglist.lock, flags);
+	spin_unlock(&ctx->img_buf_pool.cam_freeimglist.lock);
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(0x%x), free cnt(%d)\n",
+		__func__, ctx->stream_id, buf_entry->img_buffer.iova, cnt);
 }
 
 struct mtk_cam_img_working_buf_entry*
 mtk_cam_img_working_buf_get(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_img_working_buf_entry *buf_entry;
-	unsigned long flags;
+	int cnt;
 
 	/* get from free list */
-	spin_lock_irqsave(&ctx->img_buf_pool.cam_freeimglist.lock, flags);
+	spin_lock(&ctx->img_buf_pool.cam_freeimglist.lock);
 	if (list_empty(&ctx->img_buf_pool.cam_freeimglist.list)) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):no free buf, free cnt(%d)\n",
-			 __func__, ctx->stream_id,
-			 ctx->img_buf_pool.cam_freeimglist.cnt);
-		spin_unlock_irqrestore(&ctx->img_buf_pool.cam_freeimglist.lock, flags);
+		spin_unlock(&ctx->img_buf_pool.cam_freeimglist.lock);
 
+		dev_info(ctx->cam->dev, "%s:ctx(%d):no free buf\n",
+			 __func__, ctx->stream_id);
 		return NULL;
 	}
 
@@ -355,12 +337,12 @@ mtk_cam_img_working_buf_get(struct mtk_cam_ctx *ctx)
 				     struct mtk_cam_img_working_buf_entry,
 				     list_entry);
 	list_del(&buf_entry->list_entry);
-	ctx->img_buf_pool.cam_freeimglist.cnt--;
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(0x%x), free cnt(%d)\n",
-		__func__, ctx->stream_id, buf_entry->img_buffer.iova,
-		ctx->img_buf_pool.cam_freeimglist.cnt);
+	cnt = --ctx->img_buf_pool.cam_freeimglist.cnt;
 
-	spin_unlock_irqrestore(&ctx->img_buf_pool.cam_freeimglist.lock, flags);
+	spin_unlock(&ctx->img_buf_pool.cam_freeimglist.lock);
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(0x%x), free cnt(%d)\n",
+		__func__, ctx->stream_id, buf_entry->img_buffer.iova, cnt);
 
 	return buf_entry;
 }
@@ -390,7 +372,6 @@ int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 void
 mtk_cam_sv_working_buf_put(struct mtk_camsv_working_buf_entry *buf_entry)
 {
-	unsigned long flags;
 	struct mtk_cam_ctx *ctx = buf_entry->ctx;
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
@@ -398,11 +379,11 @@ mtk_cam_sv_working_buf_put(struct mtk_camsv_working_buf_entry *buf_entry)
 	if (!buf_entry)
 		return;
 
-	spin_lock_irqsave(&ctx->buf_pool.sv_freelist.lock, flags);
+	spin_lock(&ctx->buf_pool.sv_freelist.lock);
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->buf_pool.sv_freelist.list);
 	ctx->buf_pool.sv_freelist.cnt++;
-	spin_unlock_irqrestore(&ctx->buf_pool.sv_freelist.lock, flags);
+	spin_unlock(&ctx->buf_pool.sv_freelist.lock);
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
 }
@@ -411,13 +392,12 @@ struct mtk_camsv_working_buf_entry*
 mtk_cam_sv_working_buf_get(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_camsv_working_buf_entry *buf_entry;
-	unsigned long flags;
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
 
-	spin_lock_irqsave(&ctx->buf_pool.sv_freelist.lock, flags);
+	spin_lock(&ctx->buf_pool.sv_freelist.lock);
 	if (list_empty(&ctx->buf_pool.sv_freelist.list)) {
-		spin_unlock_irqrestore(&ctx->buf_pool.sv_freelist.lock, flags);
+		spin_unlock(&ctx->buf_pool.sv_freelist.lock);
 		return NULL;
 	}
 
@@ -426,7 +406,7 @@ mtk_cam_sv_working_buf_get(struct mtk_cam_ctx *ctx)
 				     list_entry);
 	list_del(&buf_entry->list_entry);
 	ctx->buf_pool.sv_freelist.cnt--;
-	spin_unlock_irqrestore(&ctx->buf_pool.sv_freelist.lock, flags);
+	spin_unlock(&ctx->buf_pool.sv_freelist.lock);
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
 	return buf_entry;
@@ -469,18 +449,16 @@ int mtk_cam_mraw_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 void mtk_cam_mraw_working_buf_put(struct mtk_cam_ctx *ctx,
 			     struct mtk_mraw_working_buf_entry *buf_entry)
 {
-	unsigned long flags;
-
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
 
 	if (!buf_entry)
 		return;
 
-	spin_lock_irqsave(&ctx->buf_pool.mraw_freelist.lock, flags);
+	spin_lock(&ctx->buf_pool.mraw_freelist.lock);
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->buf_pool.mraw_freelist.list);
 	ctx->buf_pool.mraw_freelist.cnt++;
-	spin_unlock_irqrestore(&ctx->buf_pool.mraw_freelist.lock, flags);
+	spin_unlock(&ctx->buf_pool.mraw_freelist.lock);
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
 }
@@ -489,13 +467,12 @@ struct mtk_mraw_working_buf_entry*
 mtk_cam_mraw_working_buf_get(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_mraw_working_buf_entry *buf_entry;
-	unsigned long flags;
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
 
-	spin_lock_irqsave(&ctx->buf_pool.mraw_freelist.lock, flags);
+	spin_lock(&ctx->buf_pool.mraw_freelist.lock);
 	if (list_empty(&ctx->buf_pool.mraw_freelist.list)) {
-		spin_unlock_irqrestore(&ctx->buf_pool.mraw_freelist.lock, flags);
+		spin_unlock(&ctx->buf_pool.mraw_freelist.lock);
 		return NULL;
 	}
 
@@ -504,7 +481,7 @@ mtk_cam_mraw_working_buf_get(struct mtk_cam_ctx *ctx)
 				     list_entry);
 	list_del(&buf_entry->list_entry);
 	ctx->buf_pool.mraw_freelist.cnt--;
-	spin_unlock_irqrestore(&ctx->buf_pool.mraw_freelist.lock, flags);
+	spin_unlock(&ctx->buf_pool.mraw_freelist.lock);
 
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
 	return buf_entry;

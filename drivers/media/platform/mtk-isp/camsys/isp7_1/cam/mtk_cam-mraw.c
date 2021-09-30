@@ -1968,14 +1968,13 @@ mtk_cam_mraw_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 	bool result = false;
 	struct mtk_mraw_working_buf_entry *mraw_buf_entry, *mraw_buf_entry_prev;
 	struct mtk_cam_ctx *ctx = req_stream_data->ctx;
-	unsigned long flags;
 	int i;
 
 	if (!ctx->used_mraw_num)
 		return false;
 
 	for (i = 0; i < ctx->used_mraw_num; i++) {
-		spin_lock_irqsave(&ctx->mraw_processing_buffer_list[i].lock, flags);
+		spin_lock(&ctx->mraw_processing_buffer_list[i].lock);
 		list_for_each_entry_safe(mraw_buf_entry, mraw_buf_entry_prev,
 					 &ctx->mraw_processing_buffer_list[i].list,
 					 list_entry) {
@@ -1989,7 +1988,7 @@ mtk_cam_mraw_finish_buf(struct mtk_cam_request_stream_data *req_stream_data)
 				break;
 			}
 		}
-		spin_unlock_irqrestore(&ctx->mraw_processing_buffer_list[i].lock, flags);
+		spin_unlock(&ctx->mraw_processing_buffer_list[i].lock);
 	}
 
 	return result;

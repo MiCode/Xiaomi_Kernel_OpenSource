@@ -2004,6 +2004,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		goto ctx_not_found;
 	}
 
+	irq_info.ts_ns = local_clock();
 	irq_info.engine_id = CAMSYS_ENGINE_RAW_BEGIN + raw_dev->id;
 	irq_info.frame_idx = dequeued_frame_seq_no;
 	irq_info.frame_inner_idx = dequeued_frame_seq_no_inner;
@@ -2122,6 +2123,12 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		int len = kfifo_out(&raw_dev->msg_fifo, &irq_info, sizeof(irq_info));
 
 		WARN_ON(len != sizeof(irq_info));
+
+		dev_dbg(raw_dev->dev, "ts=%lu irq_type %d, req:%d/%d\n",
+			irq_info.ts_ns / 1000,
+			irq_info.irq_type,
+			irq_info.frame_inner_idx,
+			irq_info.frame_idx);
 
 		/* inform interrupt information to camsys controller */
 		mtk_camsys_isr_event(raw_dev->cam, &irq_info);

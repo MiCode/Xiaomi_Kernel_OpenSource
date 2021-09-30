@@ -66,6 +66,7 @@ enum MTK_CAMSYS_IRQ_EVENT {
 };
 
 struct mtk_camsys_irq_info {
+	u64 ts_ns;
 	enum MTK_CAMSYS_IRQ_EVENT irq_type;
 	enum MTK_CAMSYS_ENGINE_IDX engine_id;
 	int frame_idx;

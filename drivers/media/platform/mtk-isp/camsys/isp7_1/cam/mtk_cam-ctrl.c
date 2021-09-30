@@ -113,8 +113,10 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		/* Match by the en-queued request number */
 		if (req->ctx_used & (1 << ctx->stream_id) && req_stream_data)
-			if (req_stream_data->frame_seq_no == sensor_seq_no_next)
+			if (req_stream_data->frame_seq_no == sensor_seq_no_next) {
 				res = 1;
+				break;
+			}
 	}
 	spin_unlock_irqrestore(&cam->running_job_lock, flags);
 
@@ -143,8 +145,10 @@ static void mtk_cam_sv_request_drained(struct mtk_camsv_device *camsv_dev,
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		/* Match by the en-queued request number */
 		if (req->ctx_used & (1 << ctx->stream_id) &&
-			req_stream_data->frame_seq_no == sensor_seq_no_next)
+			req_stream_data->frame_seq_no == sensor_seq_no_next) {
 			res = 1;
+			break;
+		}
 	}
 	spin_unlock_irqrestore(&cam->running_job_lock, flags);
 	/* Send V4L2_EVENT_REQUEST_DRAINED event */
@@ -162,7 +166,6 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_ctx *sync_ctx[MTKCAM_SUBDEV_MAX];
 	int i, ctx_cnt = 0;
-	unsigned long flags;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (!(1 << i & req->ctx_used))
@@ -175,14 +178,14 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 			continue;
 		}
 
-		spin_lock_irqsave(&ctx->streaming_lock, flags);
+		spin_lock(&ctx->streaming_lock);
 		if (!ctx->streaming) {
-			spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+			spin_unlock(&ctx->streaming_lock);
 			dev_info(cam->dev, "%s: ctx(%d): is streamed off\n",
 				 __func__, ctx->stream_id);
 			continue;
 		}
-		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+		spin_unlock(&ctx->streaming_lock);
 
 		sync_ctx[ctx_cnt] = ctx;
 		ctx_cnt++;
@@ -243,7 +246,6 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
 	struct mtk_cam_ctx *ctx;
 	int i, ctx_cnt = 0;
-	unsigned long flags;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (!(1 << i & req->ctx_used))
@@ -256,14 +258,14 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 			continue;
 		}
 
-		spin_lock_irqsave(&ctx->streaming_lock, flags);
+		spin_lock(&ctx->streaming_lock);
 		if (!ctx->streaming) {
-			spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+			spin_unlock(&ctx->streaming_lock);
 			dev_info(cam->dev, "%s: ctx(%d): is streamed off\n",
 				 __func__, ctx->stream_id);
 			continue;
 		}
-		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+		spin_unlock(&ctx->streaming_lock);
 
 		ctx_cnt++;
 	}
@@ -1117,8 +1119,8 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 				state_entry->estate = E_STATE_CQ_SCQ_DELAY;
 				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 				dev_dbg(ctx->cam->dev,
-					 "[TimerIRQ] SCQ DELAY STATE at SOF+%dms\n",
-					 time_after_sof);
+					"[TimerIRQ] req:%d  SCQ DELAY STATE at SOF+%dms\n",
+					req_stream_data->frame_seq_no, time_after_sof);
 				return HRTIMER_NORESTART;
 			} else if (state_entry->estate == E_STATE_CAMMUX_OUTER_CFG) {
 				state_entry->estate = E_STATE_CAMMUX_OUTER_CFG_DELAY;
@@ -1130,8 +1132,8 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 			} else if (state_entry->estate <= E_STATE_SENSOR) {
 				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 				dev_dbg(ctx->cam->dev,
-					 "[TimerIRQ] wrong state:%d (sensor workqueue delay)\n",
-					 state_entry->estate);
+					"[TimerIRQ] req:%d wrong state:%d (sensor workqueue delay)\n",
+					req_stream_data->frame_seq_no, state_entry->estate);
 				return HRTIMER_NORESTART;
 			}
 		} else if (req_stream_data->frame_seq_no ==
@@ -1139,8 +1141,8 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 			if (state_entry->estate < E_STATE_INNER) {
 				spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 				dev_dbg(ctx->cam->dev,
-					 "[TimerIRQ] req:%d isn't arrive inner at SOF+%dms\n",
-					 req_stream_data->frame_seq_no, time_after_sof);
+					"[TimerIRQ] req:%d isn't arrive inner at SOF+%dms\n",
+					req_stream_data->frame_seq_no, time_after_sof);
 				return HRTIMER_NORESTART;
 			}
 		}
@@ -1816,15 +1818,15 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	u64 time_mono = ktime_get_ns();
 	int dequeue_cnt;
 
-	spin_lock_irqsave(&ctx->streaming_lock, flags);
+	spin_lock(&ctx->streaming_lock);
 	if (!ctx->streaming) {
 		dev_dbg(ctx->cam->dev,
 			 "%s: skip frame done for stream off ctx:%d\n",
 			 __func__, ctx->stream_id);
-		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+		spin_unlock(&ctx->streaming_lock);
 		return;
 	}
-	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+	spin_unlock(&ctx->streaming_lock);
 
 	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 
@@ -1888,7 +1890,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	complete(&ctx->m2m_complete);
 
 	/* apply next composed buffer */
-	spin_lock_irqsave(&ctx->composed_buffer_list.lock, flags);
+	spin_lock(&ctx->composed_buffer_list.lock);
 	dev_dbg(raw_dev->dev,
 		"[M2M check next action] que_cnt:%d composed_buffer_list.cnt:%d\n",
 		que_cnt, ctx->composed_buffer_list.cnt);
@@ -1898,15 +1900,15 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 			"[M2M] no buffer, cq_num:%d, frame_seq:%d, composed_buffer_list.cnt :%d\n",
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no,
 			ctx->composed_buffer_list.cnt);
-		spin_unlock_irqrestore(&ctx->composed_buffer_list.lock, flags);
+		spin_unlock(&ctx->composed_buffer_list.lock);
 	} else {
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
 					     list_entry);
 		list_del(&buf_entry->list_entry);
 		ctx->composed_buffer_list.cnt--;
-		spin_unlock_irqrestore(&ctx->composed_buffer_list.lock, flags);
-		spin_lock_irqsave(&ctx->processing_buffer_list.lock, flags);
+		spin_unlock(&ctx->composed_buffer_list.lock);
+		spin_lock(&ctx->processing_buffer_list.lock);
 		list_add_tail(&buf_entry->list_entry,
 			      &ctx->processing_buffer_list.list);
 		ctx->processing_buffer_list.cnt++;
@@ -1915,7 +1917,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 			"[M2M P1 Don] ctx->processing_buffer_list.cnt:%d\n",
 			ctx->processing_buffer_list.cnt);
 
-		spin_unlock_irqrestore(&ctx->processing_buffer_list.lock, flags);
+		spin_unlock(&ctx->processing_buffer_list.lock);
 
 		base_addr = buf_entry->buffer.iova;
 
@@ -2656,22 +2658,21 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 {
 	struct mtk_raw_device *raw_dev = NULL;
 	bool need_dequeue;
-	unsigned long flags;
 
 	/**
 	 * If ctx is already off, just return; mtk_cam_dev_req_cleanup()
 	 * triggered by mtk_cam_vb2_stop_streaming() puts the all media
 	 * requests back.
 	 */
-	spin_lock_irqsave(&ctx->streaming_lock, flags);
+	spin_lock(&ctx->streaming_lock);
 	if (!ctx->streaming) {
 		dev_dbg(ctx->cam->dev,
 			 "%s: skip frame done for stream off ctx:%d\n",
 			 __func__, ctx->stream_id);
-		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+		spin_unlock(&ctx->streaming_lock);
 		return;
 	}
-	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+	spin_unlock(&ctx->streaming_lock);
 
 	if (is_camsv_subdev(pipe_id) || is_mraw_subdev(pipe_id)) {
 		need_dequeue = true;
@@ -2709,7 +2710,6 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	struct mtk_cam_video_device *node;
 	struct mtk_cam_uapi_meta_raw_stats_1 *meta_stats_1;
 	void *vaddr;
-	unsigned long flags;
 
 	s_data = mtk_cam_req_work_get_s_data(meta1_done_work);
 	ctx = mtk_cam_s_data_get_ctx(s_data);
@@ -2718,14 +2718,14 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 
 	dev_dbg(ctx->cam->dev, "%s: ctx:%d\n", __func__, ctx->stream_id);
 
-	spin_lock_irqsave(&ctx->streaming_lock, flags);
+	spin_lock(&ctx->streaming_lock);
 	if (!ctx->streaming) {
-		spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+		spin_unlock(&ctx->streaming_lock);
 		dev_info(ctx->cam->dev, "%s: skip for stream off ctx:%d\n",
 			 __func__, ctx->stream_id);
 		return;
 	}
-	spin_unlock_irqrestore(&ctx->streaming_lock, flags);
+	spin_unlock(&ctx->streaming_lock);
 
 	if (!s_data) {
 		dev_info(ctx->cam->dev,

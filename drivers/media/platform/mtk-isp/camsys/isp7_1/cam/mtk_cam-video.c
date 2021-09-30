@@ -197,14 +197,13 @@ static void mtk_cam_vb2_return_all_buffers(struct mtk_cam_device *cam,
 					   enum vb2_buffer_state state)
 {
 	struct mtk_cam_buffer *buf, *buf_prev;
-	unsigned long flags;
 
-	spin_lock_irqsave(&node->buf_list_lock, flags);
+	spin_lock(&node->buf_list_lock);
 	list_for_each_entry_safe(buf, buf_prev, &node->buf_list, list) {
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
-	spin_unlock_irqrestore(&node->buf_list_lock, flags);
+	spin_unlock(&node->buf_list_lock);
 }
 
 static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
@@ -1114,7 +1113,6 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct mtk_raw_pde_config *pde_cfg;
 	struct device *dev = cam->dev;
-	unsigned long flags;
 	unsigned int desc_id;
 	unsigned int dma_port;
 	unsigned int width, height, stride;
@@ -1189,9 +1187,9 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	}
 
 	/* added the buffer into the tracking list */
-	spin_lock_irqsave(&node->buf_list_lock, flags);
+	spin_lock(&node->buf_list_lock);
 	list_add_tail(&buf->list, &node->buf_list);
-	spin_unlock_irqrestore(&node->buf_list_lock, flags);
+	spin_unlock(&node->buf_list_lock);
 
 	/* update buffer internal address */
 	switch (dma_port) {
