@@ -4858,7 +4858,7 @@
 			compatible = "mediatek,mt6895-disp";
 			reg = <0 0x14000000 0 0x1000>;
 
-//			iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL1_2L_0>;
+			iommus = <&disp_iommu M4U_LARB0_PORT9>; /* M4U_PORT_L0_DISP_OVL1_2L_0 */
 			mediatek,larb = <&smi_larb0>;
 //			fake-engine = <&smi_larb0 M4U_PORT_L0_DISP_FAKE0>,
 //					<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
@@ -4998,7 +4998,7 @@
 
 			helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
-				<0>, /*MTK_DRM_OPT_USE_M4U*/
+				<1>, /*MTK_DRM_OPT_USE_M4U*/
 				<0>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
 				<0>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
 				<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
@@ -5062,9 +5062,10 @@
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_OVL0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
+
+			iommus = <&disp_iommu M4U_LARB0_PORT7>, /* M4U_PORT_L0_DISP_OVL0_0_DISP */
+				 <&disp_iommu M4U_LARB0_PORT2>;	/* M4U_PORT_L0_DISP_OVL0_HDR */
 #if 0
-			iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_0_DISP>,
-				 <&disp_iommu M4U_PORT_L0_DISP_OVL0_HDR>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL0_0_DISP)
 						&mmqos SLAVE_COMMON(0)>,
@@ -5086,9 +5087,10 @@
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_OVL0_2L>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
+
+			iommus = <&disp_iommu M4U_LARB0_PORT8>,	/* M4U_PORT_L0_DISP_OVL0_2L_0 */
+				 <&disp_iommu M4U_LARB0_PORT3>;	/* M4U_PORT_L0_DISP_OVL0_2L_HDR */
 #if 0
-			iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_0>,
-				 <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_HDR>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL0_2L_0)
 						&mmqos SLAVE_COMMON(0)>,
@@ -5110,9 +5112,10 @@
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_OVL1_2L>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
+
+			iommus = <&disp_iommu M4U_LARB0_PORT9>, /* M4U_PORT_L0_DISP_OVL1_2L_0 */
+				 <&disp_iommu M4U_LARB0_PORT4>; /* M4U_PORT_L0_DISP_OVL1_2L_HDR */
 #if 0
-			iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL1_2L_0>,
-				 <&disp_iommu M4U_PORT_L0_DISP_OVL1_2L_HDR>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL1_2L_0)
 						&mmqos SLAVE_COMMON(0)>,
@@ -5142,8 +5145,9 @@
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_RDMA0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
+
+			iommus = <&disp_iommu M4U_LARB0_PORT12>; /* M4U_PORT_L0_DISP_RDMA0 */
 #if 0
-			iommus = <&disp_iommu M4U_PORT_L0_DISP_RDMA0>;
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
 						&mmqos SLAVE_COMMON(0)>,
@@ -5332,7 +5336,7 @@
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_WDMA0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
-//			iommus = <&disp_iommu M4U_PORT_L0_DISP_WDMA0>;
+			iommus = <&disp_iommu M4U_LARB0_PORT13>; /* M4U_PORT_L0_DISP_WDMA0 */
 		};
 
 		disp_rdma1@1401c000 {
@@ -5348,7 +5352,7 @@
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_WDMA1>;
 			mediatek,larb = <&smi_larb1>;
 			mediatek,smi-id = <1>;
-//			iommus = <&disp_iommu M4U_PORT_L1_DISP_WDMA1>;
+			iommus = <&disp_iommu M4U_LARB1_PORT6>; /* M4U_PORT_L1_DISP_WDMA1 */
 		};
 
 		inlinerot0: inlinerot@14020000 {
