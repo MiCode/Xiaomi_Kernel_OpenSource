@@ -33,6 +33,8 @@
 
 static DEFINE_MUTEX(xgf_main_lock);
 static int xgf_enable;
+static int xgf_trace_enable;
+static int xgf_log_trace_enable;
 static int xgf_ko_ready;
 static struct kobject *xgf_kobj;
 static unsigned long long last_check2recycle_ts;
@@ -178,6 +180,8 @@ void xgf_trace(const char *fmt, ...)
 	va_list args;
 	int len;
 
+	if (!xgf_trace_enable)
+		return;
 
 	va_start(args, fmt);
 	len = vsnprintf(log, sizeof(log), fmt, args);
@@ -541,6 +545,86 @@ err:
 }
 
 static KOBJ_ATTR_RW(xgf_spid_list);
+
+static ssize_t xgf_trace_enable_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%d\n", xgf_trace_enable);
+	pos += length;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static ssize_t xgf_trace_enable_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer,
+				FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	if (val < 0 || val > 1)
+		return count;
+	xgf_trace_enable = val;
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(xgf_trace_enable);
+
+static ssize_t xgf_log_trace_enable_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%d\n", xgf_log_trace_enable);
+	pos += length;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static ssize_t xgf_log_trace_enable_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer,
+				FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	if (val < 0 || val > 1)
+		return count;
+	xgf_log_trace_enable = val;
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(xgf_log_trace_enable);
 
 static void xgf_reset_wspid_list(void)
 {
@@ -2019,6 +2103,9 @@ static void xgf_log_trace(const char *fmt, ...)
 	char log[1024];
 	va_list args;
 	int len;
+
+	if (!xgf_log_trace_enable)
+		return;
 
 	va_start(args, fmt);
 	len = vsnprintf(log, sizeof(log), fmt, args);
@@ -3878,6 +3965,10 @@ int __init init_xgf(void)
 	if (!fpsgo_sysfs_create_dir(NULL, "xgf", &xgf_kobj)) {
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_deplist);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_spid_list);
+		fpsgo_sysfs_create_file(xgf_kobj,
+			&kobj_attr_xgf_trace_enable);
+		fpsgo_sysfs_create_file(xgf_kobj,
+			&kobj_attr_xgf_log_trace_enable);
 	}
 
 	xgff_frame_startend_fp = xgff_frame_startend;
