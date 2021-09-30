@@ -559,6 +559,16 @@
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
 	};
 
+	/* Microtrust SW IRQ number 156(188 - 32) ~ 157(189 - 32) */
+	utos: utos {
+		compatible = "microtrust,utos";
+		interrupts = <GIC_SPI 157 IRQ_TYPE_EDGE_RISING 0>;
+	};
+
+	utos_tester {
+		compatible = "microtrust,tester-v1";
+	};
+
 	ssram1@1C350000 {
 		compatible = "mmio-sram_1";
 		reg = <0x0 0x1C350000 0x0 0x80>;
