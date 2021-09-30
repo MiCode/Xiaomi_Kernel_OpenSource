@@ -21,6 +21,15 @@ config MTK_CACHE_PARITY_CHECK
 	  Enable this to get the report on detection or correction
 	  of errors.
 
+config MTK_BUS_PARITY_CHECK
+	tristate "MediaTek BUS PARITY CHECK"
+	help
+	  This selects the device driver for the bus parity-check
+	  module. The module detects errors of bus in the Mediatek SoC.
+
+	  Enable this to get the report on detection or correction
+	  of errors.
+
 config MTK_IRQ_DBG
 	tristate "MediaTek IRQ dbg driver"
 	help
