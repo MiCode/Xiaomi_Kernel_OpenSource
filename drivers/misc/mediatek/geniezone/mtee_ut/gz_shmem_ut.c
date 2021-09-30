@@ -91,10 +91,10 @@ TZ_RESULT shmem_test_continuous(void)
 {
 	int sz = 4272; /*can update for test*/
 
-	char *buf;
+	char *buf = NULL;
 	int num_PA = 0;
 	uint64_t pa = 0;
-	KREE_SESSION_HANDLE mem_sn;
+	KREE_SESSION_HANDLE mem_sn = 0;
 	KREE_SHAREDMEM_HANDLE mem_hd;
 	KREE_SHAREDMEM_PARAM shm_param;
 	TZ_RESULT ret = TZ_RESULT_SUCCESS;
@@ -179,7 +179,7 @@ out_create_mem_sn:
 
 out_free_buf:
 	/*free test shmem region */
-	if (!buf)
+	if (buf)
 		kfree(buf);
 
 out:
@@ -194,11 +194,14 @@ TZ_RESULT shmem_test_discontinuous(void)
 {
 	int sz1 = 8192, sz2 = 12288; /*can update for test*/
 
-	char *buf1, *buf2;
+	char *buf1 = NULL, *buf2 = NULL;
 	int num_PA1 = 0, num_PA2 = 0, num_PA;
+	int num_PA1_div = 0, num_PA2_div = 0;
+	int num_PA1_mod = 0, num_PA2_mod = 0;
+
 	uint64_t pa1 = 0, pa2 = 0;
-	uint64_t *paAry;
-	KREE_SESSION_HANDLE mem_sn;
+	uint64_t *paAry = NULL;
+	KREE_SESSION_HANDLE mem_sn = 0;
 	KREE_SHAREDMEM_HANDLE mem_hd;
 	KREE_SHAREDMEM_PARAM shm_param;
 	TZ_RESULT ret = TZ_RESULT_SUCCESS;
@@ -207,13 +210,13 @@ TZ_RESULT shmem_test_discontinuous(void)
 	TEST_BEGIN("==> shmem test discontinuous case");
 	RESET_UNITTESTS;
 
-	num_PA1 = sz1 / PAGE_SIZE;
-	if ((sz1 % PAGE_SIZE) != 0)
-		num_PA1++;
+	num_PA1_div = sz1 / ((int) PAGE_SIZE);
+	num_PA1_mod = sz1 % ((int) PAGE_SIZE);
+	num_PA1 = (num_PA1_mod != 0) ? (num_PA1_div + 1) : num_PA1_div;
 
-	num_PA2 = sz2 / PAGE_SIZE;
-	if ((sz2 % PAGE_SIZE) != 0)
-		num_PA2++;
+	num_PA2_div = sz2 / ((int) PAGE_SIZE);
+	num_PA2_mod = sz2 % ((int) PAGE_SIZE);
+	num_PA2 = (num_PA2_mod != 0) ? (num_PA2_div + 1) : num_PA2_div;
 
 	num_PA = (num_PA1 + num_PA2);
 
@@ -332,17 +335,17 @@ out_create_mem_sn:
 		KREE_ERR("mem_sn close fail\n");
 
 out_free_paAry:
-	if (!paAry)
+	if (paAry)
 		kfree(paAry);
 
 out_free_buf2:
 	/*free test shmem region */
-	if (!buf2)
+	if (buf2)
 		kfree(buf2);
 
 out_free_buf1:
 	/*free test shmem region */
-	if (!buf1)
+	if (buf1)
 		kfree(buf1);
 
 out:
