@@ -5288,6 +5288,10 @@
 			    "apu_mbox";
 	};
 
+	therm_jatm: therm_jatm {
+		compatible = "mediatek,therm_jatm";
+	};
+
 	thermal_zones: thermal-zones {
 		soc_max {
 			polling-delay = <0>; /* milliseconds */
