@@ -2617,7 +2617,8 @@ int battery_update_routine(void *arg)
 	battery_update_psd(gm);
 	while (1) {
 		bm_err("%s\n", __func__);
-		ret = wait_event_interruptible(gm->wait_que, (gm->fg_update_flag > 0));
+		ret = wait_event_interruptible(gm->wait_que,
+			(gm->fg_update_flag > 0) && !gm->in_sleep);
 		mutex_lock(&gm->fg_update_lock);
 		if (gm->in_sleep)
 			goto in_sleep;
@@ -2633,11 +2634,15 @@ static int system_pm_notify(struct notifier_block *nb,
 {
 	struct mtk_battery *gm =
 			container_of(nb, struct mtk_battery, pm_nb);
+	struct battery_data *bat_data = &gm->bs_data;
+	struct power_supply *bat_psy = bat_data->psy;
 
 	switch (mode) {
 	case PM_HIBERNATION_PREPARE:
 	case PM_RESTORE_PREPARE:
 	case PM_SUSPEND_PREPARE:
+		if (bat_psy->changed)
+			return NOTIFY_STOP;
 		if (!mutex_trylock(&gm->fg_update_lock))
 			return NOTIFY_STOP;
 		gm->in_sleep = true;
