@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/completion.h>
 #include <linux/string.h>
 #include <linux/err.h>
@@ -179,13 +180,17 @@ struct cdsprm {
 	bool				b_rpmsg_register;
 	bool				b_qosinitdone;
 	bool				b_applyingNpuLimit;
-	int				latency_request;
+	bool				b_silver_en;
+	int					latency_request;
 	struct dentry			*debugfs_dir;
 	struct dentry			*debugfs_file;
 	int (*set_l3_freq)(unsigned int freq_khz);
 	int (*set_l3_freq_cached)(unsigned int freq_khz);
 	int (*set_corner_limit)(enum cdsprm_npu_corner);
 	int (*set_corner_limit_cached)(enum cdsprm_npu_corner);
+	u32 *coreno;
+	u32 corecount;
+	struct dev_pm_qos_request *dev_pm_qos_req;
 };
 
 static struct cdsprm gcdsprm;
@@ -454,15 +459,92 @@ void cdsprm_unregister_cdspl3gov(void)
 }
 EXPORT_SYMBOL(cdsprm_unregister_cdspl3gov);
 
+static void qos_cores_init(struct device *dev)
+{
+	int i, err = 0;
+	u32 *cpucores = NULL;
+
+	of_find_property(dev->of_node,
+					"qcom,qos-cores", &gcdsprm.corecount);
+
+	if (gcdsprm.corecount) {
+		gcdsprm.corecount /= sizeof(u32);
+
+		cpucores = kcalloc(gcdsprm.corecount,
+					sizeof(u32), GFP_KERNEL);
+
+		if (cpucores == NULL) {
+			dev_err(dev,
+					"kcalloc failed for cpucores\n");
+			gcdsprm.b_silver_en = false;
+		} else {
+			for (i = 0; i < gcdsprm.corecount; i++) {
+				err = of_property_read_u32_index(dev->of_node,
+					"qcom,qos-cores", i, &cpucores[i]);
+				if (err) {
+					dev_err(dev,
+						"%s: failed to read QOS coree for core:%d\n",
+							__func__, i);
+					gcdsprm.b_silver_en = false;
+				}
+			}
+
+			gcdsprm.coreno = cpucores;
+
+			gcdsprm.dev_pm_qos_req = kcalloc(gcdsprm.corecount,
+				sizeof(struct dev_pm_qos_request), GFP_KERNEL);
+
+			if (gcdsprm.dev_pm_qos_req == NULL) {
+				dev_err(dev,
+						"kcalloc failed for dev_pm_qos_req\n");
+				gcdsprm.b_silver_en = false;
+			}
+		}
+	}
+}
+
 static void set_qos_latency(int latency)
 {
-	if (!gcdsprm.qos_request) {
-		pm_qos_add_request(&gcdsprm.pm_qos_req,
-			PM_QOS_CPU_DMA_LATENCY, latency);
-		gcdsprm.qos_request = true;
+	int err = 0;
+	u32 ii = 0;
+	int cpu;
+
+	if (gcdsprm.b_silver_en) {
+
+		for (ii = 0; ii < gcdsprm.corecount; ii++) {
+			cpu = gcdsprm.coreno[ii];
+
+			if (!gcdsprm.qos_request) {
+				err = dev_pm_qos_add_request(
+						get_cpu_device(cpu),
+						&gcdsprm.dev_pm_qos_req[ii],
+						DEV_PM_QOS_RESUME_LATENCY,
+						latency);
+			} else {
+				err = dev_pm_qos_update_request(
+						&gcdsprm.dev_pm_qos_req[ii],
+						latency);
+			}
+
+			if (err < 0) {
+				pr_err("%s: %s: PM voting cpu:%d fail,err %d,QoS update %d\n",
+					current->comm, __func__, cpu,
+					err, gcdsprm.qos_request);
+				break;
+			}
+		}
+
+		if (err >= 0)
+			gcdsprm.qos_request = true;
 	} else {
-		pm_qos_update_request(&gcdsprm.pm_qos_req,
+		if (!gcdsprm.qos_request) {
+			pm_qos_add_request(&gcdsprm.pm_qos_req,
+			PM_QOS_CPU_DMA_LATENCY, latency);
+			gcdsprm.qos_request = true;
+		} else {
+			pm_qos_update_request(&gcdsprm.pm_qos_req,
 			latency);
+		}
 	}
 }
 
@@ -506,9 +588,10 @@ static void process_rm_request(struct sysmon_msg *msg)
 		} else if ((rm_msg->b_qos_flag ==
 					SYSMON_CDSP_QOS_FLAG_DISABLE) &&
 				(gcdsprm.latency_request !=
-					QOS_LATENCY_DISABLE_VALUE)) {
-			set_qos_latency(QOS_LATENCY_DISABLE_VALUE);
-			gcdsprm.latency_request = QOS_LATENCY_DISABLE_VALUE;
+					PM_QOS_RESUME_LATENCY_DEFAULT_VALUE)) {
+			set_qos_latency(PM_QOS_RESUME_LATENCY_DEFAULT_VALUE);
+			gcdsprm.latency_request =
+					PM_QOS_RESUME_LATENCY_DEFAULT_VALUE;
 			pr_debug("Set qos latency to %d\n",
 					gcdsprm.latency_request);
 		}
@@ -549,8 +632,8 @@ static void process_delayed_rm_request(struct work_struct *work)
 		curr_timestamp = arch_counter_get_cntvct();
 	}
 
-	set_qos_latency(QOS_LATENCY_DISABLE_VALUE);
-	gcdsprm.latency_request = QOS_LATENCY_DISABLE_VALUE;
+	set_qos_latency(PM_QOS_RESUME_LATENCY_DEFAULT_VALUE);
+	gcdsprm.latency_request = PM_QOS_RESUME_LATENCY_DEFAULT_VALUE;
 	pr_debug("Set qos latency to %d\n", gcdsprm.latency_request);
 	gcdsprm.dt_state = CDSP_DELAY_THREAD_EXITING;
 
@@ -640,16 +723,22 @@ static int process_cdsp_request_thread(void *data)
 		result = wait_event_interruptible(cdsprm_wq,
 						(req = get_next_request()));
 
+		if (kthread_should_stop())
+			break;
+
 		if (result)
 			continue;
 
+		if (!req)
+			break;
+
 		msg = &req->msg;
 
-		if ((msg->feature_id == SYSMON_CDSP_FEATURE_RM_RX) &&
+		if (msg && (msg->feature_id == SYSMON_CDSP_FEATURE_RM_RX) &&
 			gcdsprm.b_qosinitdone) {
 			process_rm_request(msg);
-		} else if (msg->feature_id ==
-			SYSMON_CDSP_FEATURE_L3_RX) {
+		} else if (msg && (msg->feature_id ==
+			SYSMON_CDSP_FEATURE_L3_RX)) {
 			l3_clock_khz = msg->fs.l3_struct.l3_clock_khz;
 
 			spin_lock_irqsave(&gcdsprm.l3_lock, flags);
@@ -661,8 +750,8 @@ static int process_cdsp_request_thread(void *data)
 				pr_debug("Set L3 clock %d done\n",
 					l3_clock_khz);
 			}
-		} else if (msg->feature_id ==
-				SYSMON_CDSP_FEATURE_NPU_LIMIT_RX) {
+		} else if (msg && (msg->feature_id ==
+				SYSMON_CDSP_FEATURE_NPU_LIMIT_RX)) {
 			mutex_lock(&gcdsprm.npu_activity_lock);
 
 			gcdsprm.set_corner_limit_cached =
@@ -706,8 +795,8 @@ static int process_cdsp_request_thread(void *data)
 				pr_err("rpmsg send failed %d\n", result);
 			else
 				pr_debug("NPU limit ack sent\n");
-		} else if (msg->feature_id ==
-				SYSMON_CDSP_FEATURE_VERSION_RX) {
+		} else if (msg && (msg->feature_id ==
+				SYSMON_CDSP_FEATURE_VERSION_RX)) {
 			cdsprm_rpmsg_send_details();
 			pr_debug("Sent preserved data to DSP\n");
 		}
@@ -928,6 +1017,12 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 	struct thermal_cooling_device *tcdev = 0;
 	unsigned int cooling_cells = 0;
 
+	gcdsprm.b_silver_en = of_property_read_bool(dev->of_node,
+					"qcom,qos-cores");
+
+	if (gcdsprm.b_silver_en)
+		qos_cores_init(dev);
+
 	if (of_property_read_u32(dev->of_node,
 			"qcom,qos-latency-us", &gcdsprm.qos_latency_us)) {
 		return -EINVAL;
@@ -1100,6 +1195,7 @@ static int __init cdsprm_init(void)
 				err);
 		goto bail;
 	}
+
 
 	err = platform_driver_register(&hvx_rm);
 
