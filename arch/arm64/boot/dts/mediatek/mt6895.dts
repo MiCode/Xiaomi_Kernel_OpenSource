@@ -24,6 +24,7 @@
 #include <dt-bindings/gce/mt6895-gce.h>
 #include <dt-bindings/mml/mml-mt6895.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/interconnect/mtk,mmqos.h>
 
 / {
 	model = "MT6895";
@@ -4206,6 +4207,34 @@
 					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 1:ufshci */
 					>;
 			};
+		};
+
+		mmqos_wrapper {
+			compatible = "mediatek,mt6895-mmqos-wrapper";
+		};
+
+		mmqos: interconnect {
+			compatible = "mediatek,mt6895-mmqos";
+			#mtk-interconnect-cells = <1>;
+			mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2
+							&smi_larb3 &smi_larb4 &smi_larb5
+							&smi_larb6 &smi_larb7 &smi_larb8
+							&smi_larb9 &smi_larb10 &smi_larb11
+							&smi_larb12 &smi_larb13 &smi_larb14
+							&smi_larb15 &smi_larb16 &smi_larb17
+							&smi_larb18 &smi_larb19 &smi_larb20
+							&smi_larb21 &smi_larb22 &smi_larb23
+							&smi_larb25 &smi_larb26 &smi_larb27
+							&smi_larb28 &smi_larb29 &smi_larb30>;
+			mediatek,commons = <&smi_disp_common>, <&smi_mdp_common>;
+			disable-mmqos;
+			clocks = <&topckgen_clk CLK_TOP_MMINFRA_SEL>,
+					<&topckgen_clk CLK_TOP_MMINFRA_SEL>;
+			clock-names = "mm", "mdp";
+			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_HRT_MMSYS
+					&dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-hrt-bw";
 		};
 
 		mmdvfs-debug {
