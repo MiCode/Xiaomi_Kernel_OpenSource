@@ -532,8 +532,6 @@
 						<3 0x51 0x7 0xFF>,/*data count, data mask or value*/
 					<MTK_LCM_TYPE_END>;
 
-				set_backlight_grp_cmdq_table;
-
 				set_aod_light_mask = <0xff>;
 				set_aod_light_table;
 
@@ -558,19 +556,25 @@
 					<MTK_LCM_TYPE_END>;
 
 				doze_enable_start_table =
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 3 0xf0 0x5a 0x5a>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x24>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 3 0xf0 0xa5 0xa5>,
+					<MTK_LCM_CB_TYPE_RUNTIME 3>,
+							<0xf0 0x5a 0x5a>,
+					<MTK_LCM_CB_TYPE_RUNTIME 2>,
+							<0x53 0x24>,
+					<MTK_LCM_CB_TYPE_RUNTIME 3>,
+							<0xf0 0xa5 0xa5>,
 					<MTK_LCM_UTIL_TYPE_MDELAY 1 80>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x29>,
+					<MTK_LCM_CB_TYPE_RUNTIME 1 0x29>,
 					<MTK_LCM_TYPE_END>;
 
 				doze_enable_table;
 
 				doze_disable_table =
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 3 0xf0 0x5a 0x5a>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x28>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 3 0xf0 0xa5 0xa5>,
+					<MTK_LCM_CB_TYPE_RUNTIME 3>,
+							<0xf0 0x5a 0x5a>,
+					<MTK_LCM_CB_TYPE_RUNTIME 2>,
+							<0x53 0x28>,
+					<MTK_LCM_CB_TYPE_RUNTIME 3>,
+							<0xf0 0xa5 0xa5>,
 					<MTK_LCM_TYPE_END>;
 
 				doze_area_table;

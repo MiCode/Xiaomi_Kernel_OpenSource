@@ -833,8 +833,6 @@
 						<3 0x51 0xF 0xFF>,/*data count, data mask or value*/
 					<MTK_LCM_TYPE_END>;
 
-				set_backlight_grp_cmdq_table;
-
 				set_aod_light_mask = <0xfff>;
 				set_aod_light_table;
 

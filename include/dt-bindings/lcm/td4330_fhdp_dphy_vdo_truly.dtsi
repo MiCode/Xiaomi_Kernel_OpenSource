@@ -626,9 +626,6 @@
 					<MTK_LCM_CB_TYPE_RUNTIME_INPUT 3 1 0x51 0xFF>,
 					<MTK_LCM_TYPE_END>;
 
-				set_backlight_grp_cmdq_size = <0>;
-				set_backlight_grp_cmdq_table;
-
 				set_aod_light_mask = <0xff>;
 				set_aod_light_size = <0>;
 				set_aod_light_table;
