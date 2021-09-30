@@ -16,12 +16,9 @@
 
 #include "gate_i2c.h"
 
-#ifdef CONFIG_LEDS_MTK_PWM
-#include <leds-mtk-pwm.h>
+#if IS_ENABLED(CONFIG_LEDS_MTK)
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
-#elif defined CONFIG_LEDS_MTK_I2C
-#include <leds-mtk-i2c.h>
-#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+#include <linux/leds-mtk.h>
 #endif
 
 /*****************************************************************************
@@ -113,12 +110,10 @@ int _backlight_changed_event(struct notifier_block *nb, unsigned long event,
 	struct led_conf_info *led_conf;
 	struct gate_ic_client *gate_client = i2c_get_clientdata(_gate_ic_i2c_client);
 
-	pr_info("%s+\n", __func__);
-
 	led_conf = (struct led_conf_info *)v;
 
 	switch (event) {
-	case 1:
+	case LED_BRIGHTNESS_CHANGED:
 		if (led_conf->cdev.brightness > 0)
 			atomic_set(&gate_client->backlight_status, 1);
 		else
