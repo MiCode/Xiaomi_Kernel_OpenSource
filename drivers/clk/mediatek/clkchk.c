@@ -151,7 +151,7 @@ struct provider_clk *get_all_provider_clks(void)
 		if (cells != 0U)  {
 			unsigned int i;
 
-			for (i = 0; i < 256; i++) {
+			for (i = 0; i < MAX_CLK_NUM; i++) {
 				struct of_phandle_args pa;
 				struct clk *ck;
 
@@ -290,6 +290,9 @@ bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck)
 		hw = __clk_get_hw(pvdck->ck);
 
 		if (IS_ERR_OR_NULL(hw))
+			return false;
+
+		if (IS_ERR_OR_NULL(clk_hw_get_parent(hw)))
 			return false;
 
 		if (!clk_hw_is_enabled(clk_hw_get_parent(hw)))

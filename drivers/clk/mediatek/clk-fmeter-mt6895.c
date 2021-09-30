@@ -212,55 +212,37 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK3(ABIST, FM_MSDCPLL_CKDIV_CK, "fm_msdcpll_ckdiv_ck", 0x0364, 1, 8),
 	FMCLK(ABIST, FM_PLLGP_MON_FM_CK, "fm_pllgp_mon_fm_ck", 1),
 	/* ABIST_2 Part */
-	FMCLK(ABIST_2, FM_APLL_I2S0_M_CK, "fm_apll_i2s0_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S1_M_CK, "fm_apll_i2s1_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S2_M_CK, "fm_apll_i2s2_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S3_M_CK, "fm_apll_i2s3_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S4_M_CK, "fm_apll_i2s4_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S4_B_CK, "fm_apll_i2s4_b_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S5_M_CK, "fm_apll_i2s5_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S6_M_CK, "fm_apll_i2s6_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S7_M_CK, "fm_apll_i2s7_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S8_M_CK, "fm_apll_i2s8_m_ck", 1),
-	FMCLK(ABIST_2, FM_APLL_I2S9_M_CK, "fm_apll_i2s9_m_ck", 1),
-	FMCLK2(ABIST_2, FM_MEM_SUB_CK_2, "fm_mem_sub_ck_2", 0x0120, 31, 1),
-	FMCLK(ABIST_2, FM_AES_MSDCFDE_CK_2, "fm_aes_msdcfde_ck_2", 1),
-	FMCLK2(ABIST_2, FM_EMI_N_CK_2, "fm_emi_n_ck_2", 0x0130, 31, 1),
-	FMCLK2(ABIST_2, FM_DSI_OCC_CK_2, "fm_dsi_occ_ck_2", 0x0140, 15, 1),
-	FMCLK(ABIST_2, FM_U_MBIST_CK_2, "fm_u_mbist_ck_2", 1),
-	FMCLK(ABIST_2, FM_AP2CONN_HOST_CK_2, "fm_ap2conn_host_ck_2", 1),
-	FMCLK(ABIST_2, FM_MSDC_NEW_RX_CK, "fm_msdc_new_rx_ck", 1),
-	FMCLK(ABIST_2, FM_UNIPLL_SES_CK, "fm_unipll_ses_ck", 1),
-	FMCLK(ABIST_2, FM_ULPOSC_CK, "fm_ulposc_ck", 1),
-	FMCLK(ABIST_2, FM_ULPOSC_CORE_CK, "fm_ulposc_core_ck", 1),
-	FMCLK(ABIST_2, FM_SRCK_CK, "fm_srck_ck", 1),
-	FMCLK(ABIST_2, FM_SPMI_MST_32K_CK, "fm_spmi_mst_32k_ck", 1),
-	FMCLK(ABIST_2, FM_MAIN_H728M_CK, "fm_main_h728m_ck", 1),
-	FMCLK(ABIST_2, FM_MAIN_H546M_CK, "fm_main_h546m_ck", 1),
-	FMCLK(ABIST_2, FM_MAIN_H436P8M_CK, "fm_main_h436p8m_ck", 1),
-	FMCLK(ABIST_2, FM_MAIN_H364M_CK, "fm_main_h364m_ck", 1),
-	FMCLK(ABIST_2, FM_MAIN_H312M_CK, "fm_main_h312m_ck", 1),
-	FMCLK(ABIST_2, FM_UNIV_1248M_CK, "fm_univ_1248m_ck", 1),
-	FMCLK(ABIST_2, FM_UNIV_832M_CK, "fm_univ_832m_ck", 1),
-	FMCLK(ABIST_2, FM_UNIV_624M_CK, "fm_univ_624m_ck", 1),
-	FMCLK(ABIST_2, FM_UNIV_499M_CK, "fm_univ_499m_ck", 1),
-	FMCLK(ABIST_2, FM_UNIV_416M_CK, "fm_univ_416m_ck", 1),
-	FMCLK(ABIST_2, FM_UNIV_356P6M_CK, "fm_univ_356p6m_ck", 1),
-	FMCLK(ABIST_2, FM_MMPLL_D3_CK_2, "fm_mmpll_d3_ck_2", 1),
-	FMCLK(ABIST_2, FM_MMPLL_D4_CK, "fm_mmpll_d4_ck", 1),
-	FMCLK(ABIST_2, FM_MMPLL_D5_CK, "fm_mmpll_d5_ck", 1),
-	FMCLK(ABIST_2, FM_MMPLL_D6_CK, "fm_mmpll_d6_ck", 1),
-	FMCLK(ABIST_2, FM_MMPLL_D7_CK, "fm_mmpll_d7_ck", 1),
-	FMCLK(ABIST_2, FM_MMPLL_D9_CK, "fm_mmpll_d9_ck", 1),
 	FMCLK(ABIST_2, FM_ROSC_OUT_FREQ, "fm_rosc_out_freq", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L1, "fm_alvts_to_pllgp_mon_l1", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L2, "fm_alvts_to_pllgp_mon_l2", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L3, "fm_alvts_to_pllgp_mon_l3", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L4, "fm_alvts_to_pllgp_mon_l4", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L5, "fm_alvts_to_pllgp_mon_l5", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L6, "fm_alvts_to_pllgp_mon_l6", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L7, "fm_alvts_to_pllgp_mon_l7", 1),
-	FMCLK(ABIST_2, FM_ALVTS_TO_PLLGP_MON_L8, "fm_alvts_to_pllgp_mon_l8", 1),
+	FMCLK(ABIST_2, FM_MMPLL_D4_CK, "fm_mmpll_d4_ck", 1),
+	FMCLK(ABIST_2, FM_MMPLL_D3_CK_2, "fm_mmpll_d3_ck_2", 1),
+	FMCLK(ABIST_2, FM_UNIV_499M_CK, "fm_univ_499m_ck", 1),
+	FMCLK(ABIST_2, FM_UNIV_624M_CK, "fm_univ_624m_ck", 1),
+	FMCLK(ABIST_2, FM_UNIV_832M_CK, "fm_univ_832m_ck", 1),
+	FMCLK(ABIST_2, FM_MAIN_H436P8M_CK, "fm_main_h436p8m_ck", 1),
+	FMCLK(ABIST_2, FM_MAIN_H546M_CK, "fm_main_h546m_ck", 1),
+	FMCLK(ABIST_2, FM_MAIN_H728M_CK, "fm_main_h728m_ck", 1),
+	FMCLK(ABIST_2, FM_SPMI_MST_32K_CK, "fm_spmi_mst_32k_ck", 1),
+	FMCLK(ABIST_2, FM_SRCK_CK, "fm_srck_ck", 1),
+	FMCLK(ABIST_2, FM_ULPOSC_CORE_CK, "fm_ulposc_core_ck", 1),
+	FMCLK(ABIST_2, FM_ULPOSC_CK, "fm_ulposc_ck", 1),
+	FMCLK(ABIST_2, FM_UNIPLL_SES_CK, "fm_unipll_ses_ck", 1),
+	FMCLK(ABIST_2, FM_AUD_EDTM_OUT1_M_CK, "fm_aud_edtm_out1_m_ck", 1),
+	FMCLK(ABIST_2, FM_AUD_EDTM_IN1_M_CK, "fm_aud_edtm_in1_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S9_M_CK, "fm_apll_i2s9_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S8_M_CK, "fm_apll_i2s8_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S7_M_CK, "fm_apll_i2s7_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S6_M_CK, "fm_apll_i2s6_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S5_M_CK, "fm_apll_i2s5_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S4_B_CK, "fm_apll_i2s4_b_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S4_M_CK, "fm_apll_i2s4_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S3_M_CK, "fm_apll_i2s3_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S2_M_CK, "fm_apll_i2s2_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S1_M_CK, "fm_apll_i2s1_m_ck", 1),
+	FMCLK(ABIST_2, FM_APLL_I2S0_M_CK, "fm_apll_i2s0_m_ck", 1),
+	FMCLK(ABIST_2, FM_CKMON4_CK, "fm_ckmon4_ck", 1),
+	FMCLK(ABIST_2, FM_CKMON3_CK, "fm_ckmon3_ck", 1),
+	FMCLK(ABIST_2, FM_CKMON2_CK, "fm_ckmon2_ck", 1),
+	FMCLK(ABIST_2, FM_CKMON1_CK, "fm_ckmon1_ck", 1),
 	/* VLPCK Part */
 	FMCLK2(VLPCK, FM_SCP_CK, "fm_scp_ck", 0x0008, 7, 1),
 	FMCLK(VLPCK, FM_SPM_CK, "fm_spm_ck", 1),
@@ -294,12 +276,10 @@ static const struct fmeter_clk fclks[] = {
 };
 
 #define _CKGEN(x)		(topck_base + (x))
-#define CLK_MISC_CFG_0		_CKGEN(0x140)
-#define CLK_DBG_CFG		_CKGEN(0x17C)
+#define CLK_MISC_CFG_0		_CKGEN(0x240)
+#define CLK_DBG_CFG		_CKGEN(0x28C)
 #define CLK26CALI_0		_CKGEN(0x220)
 #define CLK26CALI_1		_CKGEN(0x224)
-#define _APMIXED(x)		(apmixed_base + (x))
-#define AP_PLLGP1_CON0		_APMIXED(0x200)
 #define _VLP_CK(x)		(vlp_ck_base + (x))
 #define VLP_CK_CON0		_VLP_CK(0x230)
 #define VLP_CK_CON1		_VLP_CK(0x234)
@@ -347,7 +327,7 @@ static unsigned int get_post_div(unsigned int type, unsigned int ID)
 	unsigned int post_div = 1;
 	int i;
 
-	if ((ID <= 0) || (ID >= 64))
+	if ((ID <= 0) || (ID >= 128))
 		return post_div;
 
 	for (i = 0; i < ARRAY_SIZE(fclks) - 1; i++) {
@@ -367,7 +347,7 @@ static unsigned int get_clk_div(unsigned int type, unsigned int ID)
 	unsigned int clk_div = 1;
 	int i;
 
-	if ((ID <= 0) || (ID >= 64))
+	if ((ID <= 0) || (ID >= 128))
 		return clk_div;
 
 	for (i = 0; i < ARRAY_SIZE(fclks) - 1; i++)
@@ -378,9 +358,7 @@ static unsigned int get_clk_div(unsigned int type, unsigned int ID)
 		return clk_div;
 
 	if (fclks[i].grp == 1)
-		clk_div = (clk_readl(AP_PLLGP1_CON0) >> 24) & 0xF;
-	else if (fclks[i].grp == 2)
-		clk_div = (clk_readl(AP_PLLGP1_CON0) >> 28) & 0xF;
+		clk_div = 8;
 	else
 		clk_div = 1;
 
@@ -689,6 +667,8 @@ static struct fmeter_ops fm_ops = {
 
 static int clk_fmeter_mt6895_probe(struct platform_device *pdev)
 {
+	int i;
+
 	topck_base = get_base_from_comp("mediatek,mt6895-topckgen");
 	if (IS_ERR(topck_base))
 		goto ERR;
@@ -709,6 +689,11 @@ static int clk_fmeter_mt6895_probe(struct platform_device *pdev)
 			sizeof(*fm_all_clks), GFP_KERNEL);
 	if (!fm_all_clks)
 		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(fclks) - 1; i++) {
+		fm_all_clks[i] = fclks[i];
+		fm_clk_cnt++;
+	}
 
 	fmeter_set_ops(&fm_ops);
 
