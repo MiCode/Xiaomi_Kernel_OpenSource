@@ -28,7 +28,7 @@ do {								\
 
 #else
 
-#define _MTK_CAM_TRACE_ENABLED(category)
+#define _MTK_CAM_TRACE_ENABLED(category)	0
 #define _MTK_CAM_TRACE(category, fmt, args...)
 
 #endif
@@ -37,6 +37,7 @@ enum trace_category {
 	TRACE_BASIC,
 	TRACE_HW_IRQ,
 	TRACE_BUFFER,
+	TRACE_FBC,
 };
 
 #define _TRACE_CAT(cat)		TRACE_ ## cat

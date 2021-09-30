@@ -2079,6 +2079,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 			      dev_name(dev),
 			      irq_status, dmao_done_status, dmai_done_status,
 			      !!err_status);
+
+	if (MTK_CAM_TRACE_ENABLED(FBC) && (irq_status & SOF_INT_ST))
+		mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
+
 	if (drop_status)
 		MTK_CAM_TRACE(HW_IRQ, "%s: drop=0x%08x",
 			      dev_name(dev), drop_status);

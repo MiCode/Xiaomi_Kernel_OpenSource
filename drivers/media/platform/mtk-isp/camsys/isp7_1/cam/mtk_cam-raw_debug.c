@@ -7,6 +7,7 @@
 
 #include "mtk_cam-regs.h"
 #include "mtk_cam-raw_debug.h"
+#include "mtk_cam-trace.h"
 
 #define ADD_FBC_DMA(name)	 #name
 static const char * const fbc_r1_list[] = {
@@ -78,6 +79,9 @@ struct buffered_logger {
 #define INIT_LOGGER_LIMITED(logger, dev)	\
 	_INIT_LOGGER(logger, dev, mtk_cam_log_handle_limited)
 
+#define INIT_LOGGER_FTRACE_FBC(logger, dev)		\
+	_INIT_LOGGER(logger, dev, mtk_cam_log_handle_trace_fbc)
+
 static __printf(2, 3)
 void mtk_cam_log_set_prefix(struct buffered_logger *log, const char *fmt, ...)
 {
@@ -99,6 +103,13 @@ static void mtk_cam_log_handle_info(struct buffered_logger *log)
 {
 	dev_info(log->dev, "%s: %.*s\n",
 		 log->prefix, log->size, log->buf);
+	log->size = 0;
+}
+
+static void mtk_cam_log_handle_trace_fbc(struct buffered_logger *log)
+{
+	MTK_CAM_TRACE(FBC, "%s: %s: %.*s\n",
+		 dev_name(log->dev), log->prefix, log->size, log->buf);
 	log->size = 0;
 }
 
@@ -151,7 +162,10 @@ void mtk_cam_raw_dump_fbc(struct device *dev,
 	for (i = 0; i < ARRAY_SIZE(fbc_r2_list); i++)
 		fbc_r2_ctl2[i] = readl(yuvbase + REG_FBC_CTL2(FBC_R2A_BASE, i));
 
-	INIT_LOGGER_ALWAYS(&log, dev);
+	if (MTK_CAM_TRACE_ENABLED(FBC))
+		INIT_LOGGER_FTRACE_FBC(&log, dev);
+	else
+		INIT_LOGGER_ALWAYS(&log, dev);
 
 	mtk_cam_log_set_prefix(&log, "%s", "RAW FBC");
 	for (i = 0; i < ARRAY_SIZE(fbc_r1_list); i++)
