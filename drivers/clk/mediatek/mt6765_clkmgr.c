@@ -533,7 +533,7 @@ void iomap(void)
 	struct device_node *node;
 
 /*apmixed*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-apmixedsys");
 	if (!node)
 		pr_info("[CLK_APMIXED] find node failed\n");
 	clk_apmixed_base = of_iomap(node, 0);
