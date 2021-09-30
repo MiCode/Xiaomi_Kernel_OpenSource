@@ -11,6 +11,7 @@
 #include <linux/sched.h>
 #include <linux/percpu-defs.h>
 #include <trace/events/task.h>
+#include <linux/platform_device.h>
 
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/cgroup.h>
@@ -43,6 +44,8 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jing-Ting Wu");
 
 static int cpuqos_subsys_id = cpu_cgrp_id;
+static struct device_node *node;
+static int plat_enable;
 
 /*
  * cgroup path -> PARTID map
@@ -337,7 +340,7 @@ int set_ct_group(int group_id, bool set)
 	int new_partid;
 
 	if ((group_id >= ARRAY_SIZE(mpam_path_partid_map)) || (group_id < 0) ||
-		(cpuqos_perf_mode == DISABLE))
+		(cpuqos_perf_mode == DISABLE) || (plat_enable == 0))
 		return -1;
 
 	css_id = mpam_group_css_map[group_id];
@@ -385,7 +388,7 @@ int set_ct_task(int pid, bool set)
 	int old_partid;
 	int new_partid;
 
-	if (cpuqos_perf_mode == DISABLE)
+	if (cpuqos_perf_mode == DISABLE || (plat_enable == 0))
 		return -1;
 
 	rcu_read_lock();
@@ -430,7 +433,7 @@ EXPORT_SYMBOL_GPL(set_ct_task);
 
 int set_cpuqos_mode(int mode)
 {
-	if (mode > DISABLE || mode < AGGRESSIVE)
+	if (mode > DISABLE || mode < AGGRESSIVE || (plat_enable == 0))
 		return -1;
 
 	switch (mode) {
@@ -665,9 +668,64 @@ out_unlock:
 	return ret;
 }
 
+static int platform_cpuqos_v3_probe(struct platform_device *pdev)
+{
+	int ret = 0, retval = 0;
+
+	node = pdev->dev.of_node;
+
+	ret = of_property_read_u32(node,
+			"enable", &retval);
+	if (!ret)
+		plat_enable = retval;
+	else
+		pr_info("%s unable to get plat_enable\n", __func__);
+
+	pr_info("cpuqos_v3 plat_enable=%d\n", plat_enable);
+
+	return 0;
+}
+
+static const struct of_device_id platform_cpuqos_v3_of_match[] = {
+	{ .compatible = "mediatek,cpuqos_v3", },
+	{},
+};
+
+static const struct platform_device_id platform_cpuqos_v3_id_table[] = {
+	{ "cpuqos_v3", 0},
+	{ },
+};
+
+static struct platform_driver mtk_platform_cpuqos_v3_driver = {
+	.probe = platform_cpuqos_v3_probe,
+	.driver = {
+		.name = "cpuqos_v3",
+		.owner = THIS_MODULE,
+		.of_match_table = platform_cpuqos_v3_of_match,
+	},
+	.id_table = platform_cpuqos_v3_id_table,
+};
+
+void init_cpuqos_v3_platform(void)
+{
+	platform_driver_register(&mtk_platform_cpuqos_v3_driver);
+}
+
+void exit_cpuqos_v3_platform(void)
+{
+	plat_enable = 0;
+	platform_driver_unregister(&mtk_platform_cpuqos_v3_driver);
+}
+
 static int __init mpam_proto_init(void)
 {
-	int ret;
+	int ret = 0;
+
+	init_cpuqos_v3_platform();
+	if (!plat_enable) {
+		pr_info("cpuqos_v3 is disable at this platform\n");
+		goto out;
+	}
 
 	ret = init_cpuqos_common_sysfs();
 	if (ret) {
@@ -734,6 +792,7 @@ static void __init mpam_proto_exit(void)
 
 	smp_call_function(mpam_reset_partid, NULL, 1);
 	cleanup_cpuqos_common_sysfs();
+	exit_cpuqos_v3_platform();
 }
 
 module_init(mpam_proto_init);
