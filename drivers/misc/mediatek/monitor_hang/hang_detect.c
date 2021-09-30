@@ -1198,6 +1198,10 @@ static void show_status(int flag)
 #endif
 #endif
 
+
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+	show_mem(0, NULL);
+#endif
 	show_task_backtrace();
 
 	if (Hang_first_done)	{ /* the last dump */
