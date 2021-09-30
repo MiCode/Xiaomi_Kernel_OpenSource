@@ -10340,6 +10340,11 @@
 		clock-names = "MDP_MUTEX0";
 	};
 
+	mml-ait {
+		compatible = "mediatek,mml-ait";
+		mediatek,mml = <&mmlsys_config>;
+	};
+
 	smi_test {
 		compatible = "mediatek,smi-testcase";
 		mediatek,larbs = <&smi_larb2>;
