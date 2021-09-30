@@ -763,6 +763,17 @@ static ssize_t md_actuator_info_show(struct kobject *kobj, struct kobj_attribute
 	return len;
 }
 
+static ssize_t utc_count_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+		therm_intf_read_csram_s32(UTC_COUNT_OFFSET));
+
+	return len;
+}
+
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
@@ -778,6 +789,7 @@ static struct kobj_attribute atc_attr = __ATTR_RO(atc);
 static struct kobj_attribute target_tpcb_attr = __ATTR_RW(target_tpcb);
 static struct kobj_attribute md_sensor_info_attr = __ATTR_RW(md_sensor_info);
 static struct kobj_attribute md_actuator_info_attr = __ATTR_RW(md_actuator_info);
+static struct kobj_attribute utc_count_attr = __ATTR_RO(utc_count);
 static struct kobj_attribute max_ttj_attr = __ATTR_RW(max_ttj);
 static struct kobj_attribute min_ttj_attr = __ATTR_RW(min_ttj);
 
@@ -800,6 +812,7 @@ static struct attribute *thermal_attrs[] = {
 	&md_actuator_info_attr.attr,
 	&max_ttj_attr.attr,
 	&min_ttj_attr.attr,
+	&utc_count_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {

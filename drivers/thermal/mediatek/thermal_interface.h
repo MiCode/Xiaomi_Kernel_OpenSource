@@ -28,6 +28,7 @@
 #define CPU_LIMIT_OPP_OFFSET       (0x260)
 #define ATC_OFFSET                 (0x280)
 #define ATC_NUM                    (16)
+#define UTC_COUNT_OFFSET           (0x27C)
 
 #define APU_MBOX_TTJ_OFFSET        (0x700)
 #define APU_MBOX_PB_OFFSET         (0x704)
