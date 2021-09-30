@@ -2035,6 +2035,9 @@ int layering_rule_start(struct disp_layer_info *disp_info_user, int debug_mode)
 
 	ret = dispatch_ovl_id(&layering_info);
 
+	if (l_rule_ops->clear_layer)
+		l_rule_ops->clear_layer(&layering_info);
+
 	check_layering_result(&layering_info);
 
 	layering_info.hrt_idx = l_rule_info->hrt_idx;

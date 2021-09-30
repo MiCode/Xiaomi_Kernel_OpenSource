@@ -17,6 +17,7 @@
 #include "disp_event.h"
 #include "graphics-base-v1.0.h"
 #include "graphics-base-v1.1.h"
+#include <ion.h>
 
 /**
  * bit  25  24  17    16  15     10        9       8  0
@@ -234,6 +235,7 @@ struct OVL_CONFIG_STRUCT {
 	int ext_layer;
 	int phy_layer;
 	unsigned char compress;
+	struct ion_handle *hnd;
 };
 
 struct OVL_BASIC_STRUCT {
@@ -321,6 +323,7 @@ struct WDMA_CONFIG_STRUCT {
 	unsigned int useSpecifiedAlpha;
 	unsigned char alpha;
 	enum DISP_BUFFER_TYPE security;
+	struct ion_handle *hnd;
 };
 
 struct golden_setting_context {

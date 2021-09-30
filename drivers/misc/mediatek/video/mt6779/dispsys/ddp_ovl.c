@@ -19,6 +19,8 @@
 #include "debug.h"
 #include "disp_drv_platform.h"
 #include "ddp_ovl_wcg.h"
+#include <ion.h>
+#include <ion_sec_heap.h>
 
 #define OVL_REG_BACK_MAX	(40)
 #define OVL_LAYER_OFFSET	(0x20)
@@ -696,6 +698,7 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 
 		size = (dst_h - 1) * cfg->src_pitch + dst_w * Bpp;
 		m4u_port = module_to_m4u_port(module);
+
 		if (cfg->security != DISP_SECURE_BUFFER) {
 			/* use layer secure bit */
 			DISP_REG_SET(handle, DISP_REG_OVL_L0_ADDR +
@@ -716,11 +719,28 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 			 * cmdq sec driver will help to convert handle to
 			 * correct address
 			 */
-			cmdqRecWriteSecure(handle,
-					disp_addr_convert(DISP_REG_OVL_L0_ADDR +
-							  Lx_addr_base),
-					CMDQ_SAM_H_2_MVA, cfg->addr, offset,
-					size, m4u_port);
+			enum TRUSTED_MEM_REQ_TYPE mem_type;
+			int sec = -1, sec_id = -1;
+			ion_phys_addr_t sec_hdl = 0;
+
+			if (unlikely(!cfg->hnd)) {
+				DISP_LOG_E("NULL handle for secure layer, L%u/idx%u\n",
+					   cfg->layer, cfg->buff_idx);
+				return 0;
+			}
+
+			mem_type = ion_hdl2sec_type(cfg->hnd, &sec, &sec_id, &sec_hdl);
+			if (unlikely(mem_type < 0)) {
+				DISP_LOG_E("normal memory set as secure, L%u/idx%u\n",
+					   cfg->layer, cfg->buff_idx);
+				return 0;
+			}
+
+			cmdqRecWriteSecureMetaData(handle,
+						   disp_addr_convert(DISP_REG_OVL_L0_ADDR +
+							Lx_addr_base),
+						   CMDQ_SAM_H_2_MVA, cfg->addr, offset,
+						   size, m4u_port, mem_type);
 			if (is_ext_layer)
 				DISP_REG_SET_FIELD(handle,
 					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
@@ -1022,12 +1042,29 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 			 * cmdq sec driver will help to convert handle to
 			 * correct address
 			 */
-			cmdqRecWriteSecure(handle,
+			enum TRUSTED_MEM_REQ_TYPE mem_type;
+			int sec = -1, sec_id = -1;
+			ion_phys_addr_t sec_hdl = 0;
+
+			if (unlikely(!cfg->hnd)) {
+				DISP_LOG_E("NULL handle for secure layer, L%u/idx%u\n",
+					   cfg->layer, cfg->buff_idx);
+				return 0;
+			}
+
+			mem_type = ion_hdl2sec_type(cfg->hnd, &sec, &sec_id, &sec_hdl);
+			if (unlikely(mem_type < 0)) {
+				DISP_LOG_E("normal memory set as secure, L%u/idx%u\n",
+					   cfg->layer, cfg->buff_idx);
+				return 0;
+			}
+
+			cmdqRecWriteSecureMetaData(handle,
 				disp_addr_convert(DISP_REG_OVL_L0_ADDR +
 						  Lx_addr_base),
 				CMDQ_SAM_H_2_MVA,
 				buf_addr + tile_offset * 256,
-				0, size, m4u_port);
+				0, size, m4u_port, mem_type);
 			if (is_ext_layer)
 				DISP_REG_SET_FIELD(handle,
 					REG_FLD_MSB_LSB(cfg->ext_layer + 4,

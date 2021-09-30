@@ -134,4 +134,7 @@ endif
 ifeq ($(CONFIG_MACH_MT6779), y)
     ccflags-y += -DCONFIG_MACH_MT6779
 endif
+ifeq ($(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
+endif
 # EOF

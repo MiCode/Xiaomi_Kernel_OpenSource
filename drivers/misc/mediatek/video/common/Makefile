@@ -133,3 +133,9 @@ endif
 ifeq ($(CONFIG_MACH_MT6779), y)
     ccflags-y += -DCONFIG_MACH_MT6779
 endif
+
+ifeq ($(CONFIG_MTK_ION),y)
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion
+else
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/aosp_ion
+endif

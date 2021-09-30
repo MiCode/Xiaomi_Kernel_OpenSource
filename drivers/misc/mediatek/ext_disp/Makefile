@@ -30,3 +30,9 @@ obj-y += common/
 else
 obj-y += dummy/
 endif
+
+ifeq ($(CONFIG_MTK_ION),y)
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion
+else
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/aosp_ion
+endif
