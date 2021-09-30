@@ -314,6 +314,7 @@ static void slbc_scmi_handler(u32 r_feature_id, scmi_tinysys_report *report)
 int slbc_scmi_set(void *buffer, int slot)
 {
 	int ret;
+	int i;
 	struct slbc_ipi_data *slbc_ipi_d = buffer;
 
 	if (!slbc_enable) {
@@ -330,13 +331,22 @@ int slbc_scmi_set(void *buffer, int slot)
 			__func__, __LINE__,
 			scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg);
 
-	ret = scmi_tinysys_common_set(_tinfo->ph, scmi_slbc_id,
-			slbc_ipi_d->cmd, slbc_ipi_d->arg, 0, 0, 0);
-	if (ret) {
-		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
-				slbc_ipi_d->cmd, ret);
+	for (i = 0 ; i < 3; i++) {
+		ret = scmi_tinysys_common_set(_tinfo->ph, scmi_slbc_id,
+				slbc_ipi_d->cmd, slbc_ipi_d->arg, 0, 0, 0);
 
-		goto error;
+		if (ret == -ETIMEDOUT) {
+			pr_info("slbc scmi cmd %d send fail, -ETIMEDOUT\n",
+					slbc_ipi_d->cmd);
+			continue;
+		}
+
+		if (ret) {
+			pr_info("slbc scmi cmd %d send fail, ret = %d\n",
+					slbc_ipi_d->cmd, ret);
+
+			goto error;
+		}
 	}
 
 	return ret;
@@ -347,6 +357,7 @@ error:
 int slbc_scmi_get(void *buffer, int slot, void *ptr)
 {
 	int ret;
+	int i;
 	struct slbc_ipi_data *slbc_ipi_d = buffer;
 	struct scmi_tinysys_status *rvalue = ptr;
 
@@ -364,13 +375,22 @@ int slbc_scmi_get(void *buffer, int slot, void *ptr)
 			__func__, __LINE__,
 			scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg);
 
-	ret = scmi_tinysys_common_get(_tinfo->ph, scmi_slbc_id,
-			slbc_ipi_d->cmd, rvalue);
-	if (ret) {
-		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
-				slbc_ipi_d->cmd, ret);
+	for (i = 0 ; i < 3; i++) {
+		ret = scmi_tinysys_common_get(_tinfo->ph, scmi_slbc_id,
+				slbc_ipi_d->cmd, rvalue);
 
-		goto error;
+		if (ret == -ETIMEDOUT) {
+			pr_info("slbc scmi cmd %d send fail, -ETIMEDOUT\n",
+					slbc_ipi_d->cmd);
+			continue;
+		}
+
+		if (ret) {
+			pr_info("slbc scmi cmd %d send fail, ret = %d\n",
+					slbc_ipi_d->cmd, ret);
+
+			goto error;
+		}
 	}
 
 	return ret;
