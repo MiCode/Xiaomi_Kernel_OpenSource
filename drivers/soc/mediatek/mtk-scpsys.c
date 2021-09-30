@@ -583,10 +583,10 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	/* wait until PWR_ACK = 1 */
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
 		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	else
 		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
 
@@ -656,6 +656,7 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
 	u32 val;
 	int ret, tmp;
+	int i;
 
 	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
 	if (ret)
@@ -668,6 +669,11 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	ret = scpsys_bus_protect_enable(scpd);
 	if (ret < 0)
 		goto out;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_CHILD_OFF)) {
+		for (i = 0; i < MAX_CHILDREN; i++)
+			scpsys_power_off(&scp->domains[scpd->data->child[i]].genpd);
+	}
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
 		ret = scpsys_sram_table_disable(scpd);
@@ -710,10 +716,10 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	/* wait until PWR_ACK = 0 */
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
 		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp == 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	else
 		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp == 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
 
@@ -1220,6 +1226,8 @@ struct scp *init_scp(struct platform_device *pdev,
 		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_HWV_OPS)) {
 			genpd->power_on = scpsys_hwv_power_on;
 			genpd->power_off = scpsys_hwv_power_off;
+		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CHILD)) {
+			genpd->power_on = scpsys_power_on;
 		} else {
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;

@@ -25,11 +25,14 @@
 #define MTK_SCPD_BYPASS_CLK		BIT(10)
 #define MTK_SCPD_L2SRAM			BIT(11)
 #define MTK_SCPD_HWV_OPS		BIT(12)
+#define MTK_SCPD_BYPASS_CHILD		BIT(13)
+#define MTK_SCPD_CHILD_OFF		BIT(14)
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
 #define MAX_STEPS		10
 #define MAX_SRAM_STEPS	4
+#define MAX_CHILDREN	2
 
 struct sram_ctl {
 	u32 offs;
@@ -75,6 +78,7 @@ struct scp_domain_data {
 	u16 caps;
 	struct bus_prot bp_table[MAX_STEPS];
 	struct sram_ctl sram_table[MAX_SRAM_STEPS];
+	u32 child[MAX_CHILDREN];
 };
 
 struct scp;
