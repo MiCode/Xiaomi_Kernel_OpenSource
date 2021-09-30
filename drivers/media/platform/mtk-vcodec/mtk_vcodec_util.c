@@ -350,8 +350,6 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 	    descr = "H.265"; break;
 	case V4L2_PIX_FMT_HEIF:
 	    descr = "HEIF"; break;
-	case V4L2_PIX_FMT_S263:
-	    descr = "S.263"; break;
 	case V4L2_PIX_FMT_WMV1:
 	    descr = "WMV1"; break;
 	case V4L2_PIX_FMT_WMV2:
