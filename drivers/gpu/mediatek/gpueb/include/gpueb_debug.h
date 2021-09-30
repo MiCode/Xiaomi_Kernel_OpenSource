@@ -64,7 +64,8 @@
 /**************************************************
  * Function
  **************************************************/
-void gpueb_debug_init(void);
+void gpueb_debug_init(struct platform_device *pdev);
 void gpueb_trigger_wdt(const char *name);
+void gpueb_dump_ipi_status(void);
 
 #endif /* __GPUEB_DEBUG_H__ */

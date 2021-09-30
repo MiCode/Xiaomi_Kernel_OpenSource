@@ -161,7 +161,7 @@ static int __mt_gpueb_pdrv_probe(struct platform_device *pdev)
 	gpueb_hw_voter_dbg_init();
 
 	/* init gpufreq debug */
-	gpueb_debug_init();
+	gpueb_debug_init(pdev);
 
 	ret = gpueb_timesync_init();
 	if (ret) {

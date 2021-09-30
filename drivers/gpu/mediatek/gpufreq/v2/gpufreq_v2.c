@@ -1723,6 +1723,7 @@ static void gpufreq_dump_dvfs_status(void)
  ***********************************************************************************/
 static void gpufreq_abort(void)
 {
+	gpueb_dump_ipi_status();
 	gpufreq_dump_infra_status();
 
 	BUG_ON(1);
