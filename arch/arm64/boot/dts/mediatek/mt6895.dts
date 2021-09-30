@@ -2698,7 +2698,7 @@
 
 		mfgpll_pll_ctrl_clk: syscon@13fa0000 {
 			compatible = "mediatek,mt6895-mfgpll_pll_ctrl", "syscon";
-			reg = <0 0x13fa0000 0 0x1000>;
+			reg = <0 0x13fa0000 0 0x400>;
 			#clock-cells = <1>;
 		};
 
@@ -2714,7 +2714,7 @@
 
 		gpuebpll_pll_ctrl_clk: syscon@13fa0800 {
 			compatible = "mediatek,mt6895-gpuebpll_pll_ctrl", "syscon";
-			reg = <0 0x13fa0800 0 0x1000>;
+			reg = <0 0x13fa0800 0 0x400>;
 			#clock-cells = <1>;
 		};
 
@@ -2725,7 +2725,7 @@
 
 		mfgscpll_pll_ctrl_clk: syscon@13fa0c00 {
 			compatible = "mediatek,mt6895-mfgscpll_pll_ctrl", "syscon";
-			reg = <0 0x13fa0c00 0 0x1000>;
+			reg = <0 0x13fa0c00 0 0x400>;
 			#clock-cells = <1>;
 		};
 
@@ -2826,13 +2826,13 @@
 		};
 
 		mmsys0_config_clk: syscon@14000000 {
-			compatible = "mediatek,mt6895-mmsys0_config", "syscon";
+			compatible = "mediatek,mt6895-mmsys0", "syscon";
 			reg = <0 0x14000000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
 		mmsys1_config_clk: syscon@14400000 {
-			compatible = "mediatek,mt6895-mmsys1_config", "syscon";
+			compatible = "mediatek,mt6895-mmsys1", "syscon";
 			reg = <0 0x14400000 0 0x1000>;
 			#clock-cells = <1>;
 		};
@@ -2898,7 +2898,7 @@
 		};
 
 		venc_gcon_core1_clk: syscon@17800000 {
-			compatible = "mediatek,mt6895-venc_gcon_core1", "syscon";
+			compatible = "mediatek,mt6895-vencsys_c1", "syscon";
 			reg = <0 0x17800000 0 0x1000>;
 			#clock-cells = <1>;
 		};
@@ -2909,19 +2909,19 @@
 
 		apupll_pll_ctrl_clk: syscon@190f3000 {
 			compatible = "mediatek,mt6895-apupll_pll_ctrl", "syscon";
-			reg = <0 0x190f3000 0 0x1000>;
+			reg = <0 0x190f3000 0 0x400>;
 			#clock-cells = <1>;
 		};
 
 		npupll_pll_ctrl_clk: syscon@190f3400 {
 			compatible = "mediatek,mt6895-npupll_pll_ctrl", "syscon";
-			reg = <0 0x190f3400 0 0x1000>;
+			reg = <0 0x190f3400 0 0x400>;
 			#clock-cells = <1>;
 		};
 
 		apupll1_pll_ctrl_clk: syscon@190f3800 {
 			compatible = "mediatek,mt6895-apupll1_pll_ctrl", "syscon";
-			reg = <0 0x190f3800 0 0x1000>;
+			reg = <0 0x190f3800 0 0x400>;
 			#clock-cells = <1>;
 		};
 
@@ -6185,7 +6185,7 @@
 		};
 
 		mdpsys1_config_clk: syscon@1f800000 {
-			compatible = "mediatek,mt6895-mdpsys1_config", "syscon";
+			compatible = "mediatek,mt6895-mdpsys1", "syscon";
 			reg = <0 0x1f800000 0 0x1000>;
 			#clock-cells = <1>;
 		};
