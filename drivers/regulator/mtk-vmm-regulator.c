@@ -2,12 +2,6 @@
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
-
-#include "mtk-vmm-regulator.h"
-
-#define CREATE_TRACE_POINTS
-#include "mtk-vmm-trace.h"
-
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -23,11 +17,17 @@
 #include <linux/debugfs.h>
 #include <linux/remoteproc/mtk_ccu.h>
 
+#define CREATE_TRACE_POINTS
+#include "mtk-vmm-trace.h"
+#include "internal.h"
+#include "mtk-vmm-regulator.h"
+
 static struct dentry *ispdvfs_debugfs_dir;
 static struct regulator *vmm_reg;
 
 #define REGULATOR_ID_VMM 0
 #define AGING_MARGIN_MICROVOLT 12500
+#define PM_QOS_VMM_ID 0x21
 
 int mtk_ispdvfs_dbg_level;
 EXPORT_SYMBOL(mtk_ispdvfs_dbg_level);
@@ -108,6 +108,23 @@ struct ispdvfs_dbg_data {
 	struct regulator *reg;
 	int max_voltage;
 };
+
+static int regulator_trace_consumers(struct regulator_dev *rdev)
+{
+	struct regulator *regulator;
+	struct regulator_voltage *voltage;
+	const char *devname;
+
+	list_for_each_entry(regulator, &rdev->consumer_list, list) {
+		voltage = &regulator->voltage[PM_SUSPEND_ON];
+		devname = regulator->dev ?
+				dev_name(regulator->dev) : "deviceless";
+		trace_mtk_pm_qos_update_request(PM_QOS_VMM_ID,
+				voltage->min_uV, devname);
+	}
+
+	return 0;
+}
 
 static int force_dvfs_set(void *data, u64 val)
 {
@@ -328,8 +345,6 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	struct dvfs_ipc_info dvfs_ipi;
 	struct dvfs_ipc_init dvfs_ipi_init;
 
-	trace_vmm__update_voltage(min_uV);
-
 	regulator = rdev_get_drvdata(rdev);
 	if (!regulator) {
 		ISP_LOGE("rdev_get_drvdata ptr is null");
@@ -347,6 +362,11 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 
 	current_info = &(drv_data->current_dvfs);
 	mutex_lock(&current_info->voltage_mutex);
+
+	if (current_info->voltage_target == min_uV) {
+		mutex_unlock(&current_info->voltage_mutex);
+		return 0;
+	}
 
 	if (!drv_data->mux_is_enable) {
 		/* Enable mux so that we could keep mux life cycle */
@@ -398,6 +418,9 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 
 	current_info->voltage_target = min_uV;
 	mutex_unlock(&current_info->voltage_mutex);
+
+	trace_vmm__update_voltage(min_uV);
+	regulator_trace_consumers(rdev);
 
 	ISP_LOGD("CCU VMM set voltage (%d) max level(%d)",
 			min_uV, dvfs_ipi.maxOppIdx);

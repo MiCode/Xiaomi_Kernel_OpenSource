@@ -10,6 +10,38 @@
 #define _TRACE_ISPDVFS_EVENTS_H
 
 #include <linux/tracepoint.h>
+#include <linux/trace_events.h>
+
+DECLARE_EVENT_CLASS(mtk_pm_qos_request,
+
+	TP_PROTO(int mtk_pm_qos_class, s32 value, const char *owner),
+
+	TP_ARGS(mtk_pm_qos_class, value, owner),
+
+	TP_STRUCT__entry(
+		__field(int, mtk_pm_qos_class)
+		__field(s32, value)
+		__array(char, owner, 40)
+	),
+
+	TP_fast_assign(
+		__entry->mtk_pm_qos_class = mtk_pm_qos_class;
+		__entry->value = value;
+		strncpy(__entry->owner, owner, 39);
+	),
+
+	TP_printk("pm_qos_class=%d value=%d owner=%s",
+		  __entry->mtk_pm_qos_class,
+		  __entry->value,
+		   __entry->owner)
+);
+
+DEFINE_EVENT(mtk_pm_qos_request, mtk_pm_qos_update_request,
+
+	TP_PROTO(int mtk_pm_qos_class, s32 value, const char *owner),
+
+	TP_ARGS(mtk_pm_qos_class, value, owner)
+);
 
 TRACE_EVENT(vmm__update_voltage,
 	TP_PROTO(int voltage),
