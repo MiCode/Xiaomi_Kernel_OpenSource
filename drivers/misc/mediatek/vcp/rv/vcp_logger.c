@@ -25,7 +25,7 @@
 #define VCP_TIMER_TIMEOUT	        (1 * HZ) /* 1 seconds*/
 #define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
 #define PLT_LOG_ENABLE              0x504C5402 /*magic*/
-#define VCP_IPI_RETRY_TIMES         (5000)
+#define VCP_IPI_RETRY_TIMES         (1000)
 
 /* bit0 = 1, logger is on, else off*/
 #define VCP_LOGGER_ON_BIT       (1<<0)
@@ -352,7 +352,7 @@ static unsigned int vcp_A_log_enable_set(unsigned int enable)
 				break;
 			retrytimes--;
 			udelay(100);
-		} while (retrytimes > 0);
+		} while (retrytimes > 0 && vcp_A_logger_inited);
 		/*
 		 *disable/enable logger flag
 		 */
@@ -398,7 +398,7 @@ static unsigned int vcp_A_log_wakeup_set(unsigned int enable)
 				break;
 			retrytimes--;
 			udelay(100);
-		} while (retrytimes > 0);
+		} while (retrytimes > 0 && vcp_A_logger_inited);
 		/*
 		 *disable/enable logger flag
 		 */
@@ -709,7 +709,7 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 		if (ret == IPI_ACTION_DONE)
 			break;
 		retrytimes--;
-		udelay(2000);
+		udelay(100);
 	} while (retrytimes > 0 && vcp_A_logger_inited);
 
 	/*enable logger flag*/
