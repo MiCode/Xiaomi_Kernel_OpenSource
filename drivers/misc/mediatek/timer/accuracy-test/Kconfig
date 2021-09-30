@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_TIMER_ACCURACY_TEST
+	tristate "mtk timer gpt and systimer accurancy UT test"
+	help
+	  MTK_TIMER_ACCURANCY_TEST which is used to test gpt and systimer
+	  accurancy, this config only open in UT test.
+	  Normally we do not open this config, when this config is enabled,
+	  rtc driver need to patch to support RTC_INT_CNT_L.
