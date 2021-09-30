@@ -119,16 +119,15 @@ struct msync_parameter_table {
 	unsigned int msync_level_num;
 	struct msync_level_table *level_tb;
 };
-
 /* PQ */
 #define C_TUN_IDX 19 /* COLOR_TUNING_INDEX */
 #define COLOR_TUNING_INDEX 19
-#define THSHP_TUNING_INDEX 12
+#define THSHP_TUNING_INDEX 24
 #define THSHP_PARAM_MAX 146 /* TDSHP_3_0 */
-#define PARTIAL_Y_INDEX 10
-#define GLOBAL_SAT_SIZE 10
-#define CONTRAST_SIZE 10
-#define BRIGHTNESS_SIZE 10
+#define PARTIAL_Y_INDEX 11
+#define GLOBAL_SAT_SIZE 11
+#define CONTRAST_SIZE 11
+#define BRIGHTNESS_SIZE 11
 #define PARTIAL_Y_SIZE 16
 #define PQ_HUE_ADJ_PHASE_CNT 4
 #define PQ_SAT_ADJ_PHASE_CNT 4
