@@ -128,6 +128,42 @@ static void check_fence(int32_t fd, const char *func)
 	put_unused_fd(fd);
 }
 
+static void fillin_info_data(u32 format, u32 width, u32 height,
+	struct mml_frame_data *data)
+{
+	data->format = format;
+	data->width = width;
+	data->height = height;
+	data->plane_cnt = MML_FMT_PLANE(data->format);
+	data->y_stride = mml_color_get_min_y_stride(data->format, data->width);
+	if (data->plane_cnt >= 2)
+		data->uv_stride = mml_color_get_min_uv_stride(
+			data->format, data->width);
+	data->vert_stride = 0;
+	data->profile = 0;
+	data->secure = false;
+}
+
+static void fillin_buf(struct mml_frame_data *data, s32 fd_out, u32 fd_size,
+	struct mml_buffer *buf)
+{
+	buf->cnt = MML_FMT_PLANE(data->format);
+	buf->fd[0] = fd_out;
+	buf->size[0] = fd_size;
+	if (buf->cnt >= 2) {
+		buf->size[0] = mml_color_get_min_y_size(
+			data->format, data->width, data->height);
+		buf->fd[1] = fd_out;
+		buf->size[1] = mml_color_get_min_uv_size(
+			data->format, data->width, data->height);
+	}
+	if (buf->cnt >= 3) {
+		buf->fd[2] = fd_out;
+		buf->size[2] = mml_color_get_min_uv_size(
+			data->format, data->width, data->height);
+	}
+}
+
 static void case_general_submit(struct mml_test *test,
 	struct mml_test_case *cur,
 	void (*setup)(struct mml_submit *task, struct mml_test_case *cur))
@@ -137,10 +173,6 @@ static void case_general_submit(struct mml_test *test,
 	struct mml_job job = {};
 	struct mml_pq_param pq_param = {};
 	struct mml_submit task = {.job = &job};
-	const u32 src_fmt = the_case.cfg_src_format;
-	const u32 dest_fmt = the_case.cfg_dest_format;
-	const u32 src_w = the_case.cfg_src_w;
-	const u32 src_h = the_case.cfg_src_h;
 	u32 run_cnt = mml_test_round <= 0 ? 1 : (u32)mml_test_round;
 	struct mml_drm_param disp = {
 		.vdo_mode = true,
@@ -165,38 +197,22 @@ static void case_general_submit(struct mml_test *test,
 		return;
 	}
 
-	task.info.src.format = src_fmt;
-	task.info.src.width = src_w;
-	task.info.src.height = src_h;
-	task.info.src.y_stride =
-		mml_color_get_min_y_stride(src_fmt, task.info.src.width);
-	task.info.src.uv_stride = 0;
-	task.info.src.vert_stride = 0;
-	task.info.src.profile = 0;
-	task.info.src.plane_cnt = MML_FMT_PLANE(task.info.src.format);
-	task.info.src.secure = false;
+	/* srouce info and buffer */
+	fillin_info_data(the_case.cfg_src_format,
+		the_case.cfg_src_w, the_case.cfg_src_h,
+		&task.info.src);
+	fillin_buf(&task.info.src, cur->fd_in, cur->size_in, &task.buffer.src);
+
+	/* destination info and buffer */
+	fillin_info_data(the_case.cfg_dest_format,
+		the_case.cfg_dest_w, the_case.cfg_dest_h,
+		&task.info.dest[0].data);
+	fillin_buf(&task.info.dest[0].data, cur->fd_out, cur->size_out,
+		&task.buffer.dest[0]);
+
 	task.info.dest_cnt = 1;
-	task.info.dest[0].data.format = dest_fmt;
-	task.info.dest[0].data.width = the_case.cfg_dest_w;
-	task.info.dest[0].data.height = the_case.cfg_dest_h;
-	task.info.dest[0].data.y_stride =
-		mml_color_get_min_y_stride(task.info.dest[0].data.format,
-			task.info.dest[0].data.width);
-	task.info.dest[0].data.uv_stride = 0;
-	task.info.dest[0].data.vert_stride = 0;
-	task.info.dest[0].data.profile = 0;
-	task.info.dest[0].data.plane_cnt =
-		MML_FMT_PLANE(task.info.dest[0].data.format);
-	task.info.dest[0].data.secure = false;
 	task.info.mode = MML_MODE_MML_DECOUPLE;
 	task.info.layer_id = 0;
-	task.buffer.src.fd[0] = cur->fd_in;
-	task.buffer.src.size[0] = cur->size_in;
-	task.buffer.src.cnt = MML_FMT_PLANE(task.info.src.format);
-	task.buffer.dest[0].fd[0] = cur->fd_out;
-	task.buffer.dest[0].size[0] = cur->size_out;
-	task.buffer.dest[0].cnt =
-		MML_FMT_PLANE(task.info.dest[0].data.format);
 	task.buffer.dest_cnt = 1;
 
 	/* trigger all invalid/flush */
@@ -428,39 +444,14 @@ static void case_config_nv12(void)
 
 static void setup_nv12(struct mml_submit *task, struct mml_test_case *cur)
 {
-	task->info.src.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_src_format, the_case.cfg_src_w);
-
-	task->buffer.src.fd[0] = cur->fd_in;
-	task->buffer.src.size[0] = mml_color_get_min_y_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	task->buffer.src.fd[1] = cur->fd_in;
-	task->buffer.src.size[1] = mml_color_get_min_uv_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
+	/* check src with 2 plane size */
 	if (task->buffer.src.size[0] + task->buffer.src.size[1] !=
 		cur->size_in)
 		mml_err("%s case %d src size total %u plane %u %u",
 			__func__, mml_case, cur->size_in,
 			task->buffer.src.size[0] + task->buffer.src.size[1]);
 
-	/* setup dest 0 with 2 plane */
-	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_dest_format, the_case.cfg_dest_w);
-
-	task->buffer.dest[0].fd[0] = cur->fd_out;
-	task->buffer.dest[0].size[0] = mml_color_get_min_y_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
-	task->buffer.dest[0].fd[1] = cur->fd_out;
-	task->buffer.dest[0].size[1] = mml_color_get_min_uv_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
+	/* check dest 0 with 2 plane size */
 	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
 		cur->size_out)
 		mml_err("%s case %d dest size total %u plane %u %u",
@@ -508,33 +499,7 @@ static void case_config_block_to_nv12(void)
 static void setup_block_to_nv12(struct mml_submit *task,
 	struct mml_test_case *cur)
 {
-	task->info.src.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_src_format, the_case.cfg_src_w);
-
-	task->buffer.src.fd[0] = cur->fd_in;
-	task->buffer.src.size[0] = mml_color_get_min_y_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	task->buffer.src.fd[1] = cur->fd_in;
-	task->buffer.src.size[1] = mml_color_get_min_uv_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	/* setup dest 0 with 2 plane */
-	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_dest_format, the_case.cfg_dest_w);
-
-	task->buffer.dest[0].fd[0] = cur->fd_out;
-	task->buffer.dest[0].size[0] = mml_color_get_min_y_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
-	task->buffer.dest[0].fd[1] = cur->fd_out;
-	task->buffer.dest[0].size[1] = mml_color_get_min_uv_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
+	/* check dest 0 with 2 plane size */
 	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
 		cur->size_out)
 		mml_err("%s case %d dest size total %u plane %u %u",
@@ -629,35 +594,19 @@ static void case_config_2out(void)
 	the_case.cfg_dest_w = mml_test_w;
 	the_case.cfg_dest_h = mml_test_h;
 	the_case.cfg_dest1_format = MML_FMT_RGB888;
-	the_case.cfg_dest1_w = mml_test_w / 2;
-	the_case.cfg_dest1_h = mml_test_h / 2;
+	the_case.cfg_dest1_w = 256;
+	the_case.cfg_dest1_h = 256;
 }
 
 static void setup_2out(struct mml_submit *task, struct mml_test_case *cur)
 {
-	/* config dest[0] uv plane nv12 */
-	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_dest_format, the_case.cfg_dest_w);
-
-	/* config dest[1] */
+	/* config dest[1] info data and buf */
 	task->info.dest_cnt = 2;
-	task->info.dest[1].data.format = the_case.cfg_dest1_format;
-	task->info.dest[1].data.width = the_case.cfg_dest1_w;
-	task->info.dest[1].data.height = the_case.cfg_dest1_h;
-	task->info.dest[1].data.y_stride =
-		mml_color_get_min_y_stride(the_case.cfg_dest1_format,
-			task->info.dest[1].data.width);
-	task->info.dest[1].data.uv_stride = 0;
-	task->info.dest[1].data.vert_stride = 0;
-	task->info.dest[1].data.profile = 0;
-	task->info.dest[1].data.secure = false;
-	task->info.mode = MML_MODE_MML_DECOUPLE;
-	task->info.layer_id = 0;
-	task->buffer.dest[1].fd[0] = cur->fd_out1;
-	task->buffer.dest[1].size[0] = cur->size_out1;
-	task->buffer.dest[1].cnt =
-		MML_FMT_PLANE(task->info.dest[1].data.format);
-	task->buffer.dest_cnt = 2;
+	fillin_info_data(the_case.cfg_dest1_format,
+		the_case.cfg_dest1_w, the_case.cfg_dest1_h,
+		&task->info.dest[1].data);
+	fillin_buf(&task->info.dest[1].data, cur->fd_out1, cur->size_out1,
+		&task->buffer.dest[1]);
 }
 
 static void case_run_2out(struct mml_test *test, struct mml_test_case *cur)
@@ -687,31 +636,7 @@ static void case_config_2out_crop(void)
 
 static void setup_2out_crop(struct mml_submit *task, struct mml_test_case *cur)
 {
-	/* config dest[0] uv plane nv12 */
-	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_dest_format, the_case.cfg_dest_w);
-
-	/* config dest[1] */
-	task->info.dest_cnt = 2;
-	task->info.dest[1].data.format = the_case.cfg_dest1_format;
-	task->info.dest[1].data.width = the_case.cfg_dest1_w;
-	task->info.dest[1].data.height = the_case.cfg_dest1_h;
-	task->info.dest[1].data.y_stride =
-		mml_color_get_min_y_stride(the_case.cfg_dest1_format,
-			task->info.dest[1].data.width);
-	task->info.dest[1].data.uv_stride = 0;
-	task->info.dest[1].data.vert_stride = 0;
-	task->info.dest[1].data.profile = 0;
-	task->info.dest[1].data.plane_cnt =
-		MML_FMT_PLANE(task->info.dest[1].data.format);;
-	task->info.dest[1].data.secure = false;
-	task->info.mode = MML_MODE_MML_DECOUPLE;
-	task->info.layer_id = 0;
-	task->buffer.dest[1].fd[0] = cur->fd_out1;
-	task->buffer.dest[1].size[0] = cur->size_out1;
-	task->buffer.dest[1].cnt =
-		MML_FMT_PLANE(task->info.dest[1].data.format);
-	task->buffer.dest_cnt = 2;
+	setup_2out(task, cur);
 
 	/* config dest[1] crop */
 	task->info.dest[1].crop.r.left = mml_test_w / 4;
@@ -754,31 +679,7 @@ static void case_config_2out_crop_compose(void)
 static void setup_2out_crop_compose(struct mml_submit *task,
 	struct mml_test_case *cur)
 {
-	/* config dest[0] uv plane nv12 */
-	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_dest_format, the_case.cfg_dest_w);
-
-	/* config dest[1] */
-	task->info.dest_cnt = 2;
-	task->info.dest[1].data.format = the_case.cfg_dest1_format;
-	task->info.dest[1].data.width = CASE_CROP_W;
-	task->info.dest[1].data.height = CASE_CROP_H;
-	task->info.dest[1].data.y_stride =
-		mml_color_get_min_y_stride(the_case.cfg_dest1_format,
-			task->info.dest[1].data.width);
-	task->info.dest[1].data.uv_stride = 0;
-	task->info.dest[1].data.vert_stride = 0;
-	task->info.dest[1].data.profile = 0;
-	task->info.dest[1].data.plane_cnt =
-		MML_FMT_PLANE(task->info.dest[1].data.format);;
-	task->info.dest[1].data.secure = false;
-	task->info.mode = MML_MODE_MML_DECOUPLE;
-	task->info.layer_id = 0;
-	task->buffer.dest[1].fd[0] = cur->fd_out1;
-	task->buffer.dest[1].size[0] = cur->size_out1;
-	task->buffer.dest[1].cnt =
-		MML_FMT_PLANE(task->info.dest[1].data.format);
-	task->buffer.dest_cnt = 2;
+	setup_2out(task, cur);
 
 	/* config dest[1] crop */
 	task->info.dest[1].crop.r.left = central(mml_test_w, CASE_CROP_W);
@@ -845,30 +746,6 @@ static void case_config_yv12_yuyv(void)
 
 static void setup_yv12_yuyv(struct mml_submit *task, struct mml_test_case *cur)
 {
-	task->info.src.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_src_format, the_case.cfg_src_w);
-
-	task->buffer.src.fd[0] = cur->fd_in;
-	task->buffer.src.size[0] = mml_color_get_min_y_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	task->buffer.src.fd[1] = cur->fd_in;
-	task->buffer.src.size[1] = mml_color_get_min_uv_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	if (task->buffer.src.size[0] + task->buffer.src.size[1] !=
-		cur->size_in)
-		mml_err("%s case %d src size total %u plane %u %u",
-			__func__, mml_case, cur->size_in,
-			task->buffer.src.size[0] + task->buffer.src.size[1]);
-
-	task->buffer.src.fd[2] = cur->fd_in;
-	task->buffer.src.size[2] = mml_color_get_min_uv_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
 	if (task->buffer.src.size[0] + task->buffer.src.size[1]
 		+ task->buffer.src.size[2] !=
 		cur->size_in)
@@ -1077,33 +954,7 @@ static void setup_crop_manual(struct mml_submit *task, struct mml_test_case *cur
 	task->info.dest[0].crop.r.width = mml_test_crop_width;
 	task->info.dest[0].crop.r.height = mml_test_crop_height;
 
-	task->info.src.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_src_format, the_case.cfg_src_w);
-
-	task->buffer.src.fd[0] = cur->fd_in;
-	task->buffer.src.size[0] = mml_color_get_min_y_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	task->buffer.src.fd[1] = cur->fd_in;
-	task->buffer.src.size[1] = mml_color_get_min_uv_size(
-		the_case.cfg_src_format,
-		the_case.cfg_src_w, the_case.cfg_src_h);
-
-	/* setup dest 0 with 2 plane */
-	task->info.dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		the_case.cfg_dest_format, the_case.cfg_dest_w);
-
-	task->buffer.dest[0].fd[0] = cur->fd_out;
-	task->buffer.dest[0].size[0] = mml_color_get_min_y_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
-	task->buffer.dest[0].fd[1] = cur->fd_out;
-	task->buffer.dest[0].size[1] = mml_color_get_min_uv_size(
-		the_case.cfg_dest_format,
-		the_case.cfg_dest_w, the_case.cfg_dest_h);
-
+	/* check dest 0 with 2 plane size */
 	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
 		cur->size_out)
 		mml_err("%s case %d dest size total %u plane %u %u",
