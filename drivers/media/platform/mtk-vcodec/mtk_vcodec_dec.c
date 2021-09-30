@@ -552,9 +552,13 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 		ret = vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
 	} else {
 		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
-			vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, NULL);
+			ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, NULL);
+			if (ret == -EIO) {
+				ctx->state = MTK_STATE_ABORT;
+				mtk_vdec_queue_error_event(ctx);
+			}
 		}
-	ret = vdec_if_decode(ctx, NULL, NULL, &src_chg);
+		ret = vdec_if_decode(ctx, NULL, NULL, &src_chg);
 	}
 
 	q = &ctx->m2m_ctx->cap_q_ctx.q;
@@ -2287,7 +2291,11 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			wake_up(&ctx->fm_wq);
 
 		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
-			vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
+			ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
+			if (ret == -EIO) {
+				ctx->state = MTK_STATE_ABORT;
+				mtk_vdec_queue_error_event(ctx);
+			}
 		}
 
 		return;

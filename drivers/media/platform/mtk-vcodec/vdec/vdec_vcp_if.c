@@ -1105,7 +1105,7 @@ static int vdec_vcp_set_param(unsigned long h_vdec,
 
 	switch (type) {
 	case SET_PARAM_FRAME_BUFFER:
-		vdec_vcp_set_frame_buffer(inst, in);
+		ret = vdec_vcp_set_frame_buffer(inst, in);
 		break;
 	case SET_PARAM_FRAME_SIZE:
 	case SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER:

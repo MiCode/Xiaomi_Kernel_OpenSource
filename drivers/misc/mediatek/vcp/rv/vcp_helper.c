@@ -694,8 +694,13 @@ void vcp_disable_pm_clk(void)
 	mutex_lock(&vcp_pw_clk_mutex);
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
+		flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
+		flush_workqueue(vcp_logger_workqueue);
 		vcp_logger_uninit();
+#endif
+#if VCP_RECOVERY_SUPPORT
+		flush_workqueue(vcp_reset_workqueue);
 #endif
 		while (!is_vcp_ready(VCP_A_ID)) {
 			pr_info("[VCP] wait ready\n");
