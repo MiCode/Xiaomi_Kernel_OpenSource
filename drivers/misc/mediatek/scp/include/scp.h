@@ -106,6 +106,7 @@ enum scp_ipi_status {
 enum SCP_NOTIFY_EVENT {
 	SCP_EVENT_READY = 0,
 	SCP_EVENT_STOP,
+	SCP_EVENT_NOTIFYING,
 };
 /* the order of ipi_id should be consistent with IPI_LEGACY_GROUP */
 enum ipi_id {
