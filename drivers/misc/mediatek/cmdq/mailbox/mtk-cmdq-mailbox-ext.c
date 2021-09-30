@@ -959,7 +959,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		cmdq_util_prebuilt_dump(
 			cmdq->hwid, CMDQ_TOKEN_PREBUILT_DISP_WAIT); // set iova
 		set_bit(thread->idx, &cmdq->err_irq_idx);
-		wake_up_interruptible(&cmdq->err_irq_wq);
+		// wake_up_interruptible(&cmdq->err_irq_wq);
 	}
 
 	cmdq_log("task status %pa~%pa err:%d",
