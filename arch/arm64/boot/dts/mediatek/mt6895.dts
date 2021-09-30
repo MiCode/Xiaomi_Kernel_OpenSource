@@ -5341,7 +5341,7 @@
 			iommus = <&mdp_iommu M4U_LARB15_PORT0>;
 		};
 
-		imgsys_fw@15000000 {
+		imgsys_fw: imgsys_fw@15000000 {
 			compatible = "mediatek,imgsys";
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			reg = <0 0x15000000 0 0x4000>,	/* 0 IMGSYS_TOP */
@@ -6341,9 +6341,8 @@
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>,
 					<&gce_m 20 0 CMDQ_THR_PRIO_1>;
-	#if 0
 			mediatek,larb = <&smi_larb12>;
-	#endif
+			mediatek,imgsys_fw = <&imgsys_fw>;
 			fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_IPE>;
 			iommus = <&disp_iommu M4U_LARB12_PORT0>,
