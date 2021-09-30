@@ -434,8 +434,6 @@ struct mtk_cam_device {
 	//int mraw_num;
 	//struct mraw_device mraw;
 
-	/* To protect topology-related operations & ctx */
-	struct mutex op_lock;
 	struct mutex queue_lock;
 
 	unsigned int max_stream_num;

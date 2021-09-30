@@ -1960,7 +1960,6 @@ immediate_link_update_chk(struct mtk_cam_device *cam, int pipe_id,
 	}
 }
 
-/* Please hold mtk_cam_device's op_lock when calling this function */
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
 	struct mtk_cam_ctx *ctx;
@@ -5197,7 +5196,6 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&cam_dev->pending_job_list);
 	INIT_LIST_HEAD(&cam_dev->running_job_list);
 
-	mutex_init(&cam_dev->op_lock);
 	mutex_init(&cam_dev->queue_lock);
 
 	pm_runtime_enable(dev);
@@ -5234,7 +5232,6 @@ fail_match_remove:
 	mtk_cam_match_remove(dev);
 
 fail_destroy_mutex:
-	mutex_destroy(&cam_dev->op_lock);
 	mutex_destroy(&cam_dev->queue_lock);
 
 	return ret;
@@ -5250,7 +5247,6 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	component_master_del(dev, &mtk_cam_master_ops);
 	mtk_cam_match_remove(dev);
 
-	mutex_destroy(&cam_dev->op_lock);
 	mutex_destroy(&cam_dev->queue_lock);
 	mtk_cam_debug_fs_deinit(cam_dev);
 

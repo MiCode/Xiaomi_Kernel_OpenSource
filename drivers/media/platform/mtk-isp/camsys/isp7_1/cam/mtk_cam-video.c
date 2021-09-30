@@ -216,28 +216,26 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	struct device *dev = cam->dev;
 	int ret;
 
-	mutex_lock(&cam->op_lock);
-
 	/* check entity is linked */
 	if (!node->enabled) {
 		dev_info(cam->dev,
 			"%s: stream on failed, node is not enabled\n",
 			node->desc.name);
 		ret = -ENOLINK;
-		goto fail_unlock;
+		goto fail_return_buffer;
 	}
 
 	if (!entity->pipe) {
 		ctx = mtk_cam_start_ctx(cam, node);
 		if (!ctx) {
 			ret = -ENOLINK;
-			goto fail_unlock;
+			goto fail_return_buffer;
 		}
 	} else {
 		ctx = mtk_cam_find_ctx(cam, entity);
 		if (WARN_ON(!ctx)) {
 			ret = -ENOLINK;
-			goto fail_unlock;
+			goto fail_return_buffer;
 		}
 	}
 
@@ -261,10 +259,8 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
 		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
-	if (ctx->streaming_node_cnt < ctx->enabled_node_cnt) {
-		mutex_unlock(&cam->op_lock);
+	if (ctx->streaming_node_cnt < ctx->enabled_node_cnt)
 		return 0;
-	}
 
 	/* all enabled nodes are streaming, enable all subdevs */
 	MTK_CAM_TRACE_BEGIN(BASIC, "ctx_stream_on");
@@ -274,7 +270,6 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	if (ret)
 		goto fail_destroy_session;
 
-	mutex_unlock(&cam->op_lock);
 	return 0;
 
 fail_destroy_session:
@@ -286,8 +281,7 @@ fail_stop_ctx:
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
 	mtk_cam_stop_ctx(ctx, entity);
-fail_unlock:
-	mutex_unlock(&cam->op_lock);
+fail_return_buffer:
 	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_QUEUED);
 
 	return ret;
@@ -300,13 +294,9 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	struct device *dev = cam->dev;
 	struct mtk_cam_ctx *ctx;
 
-	mutex_lock(&cam->op_lock);
-
 	ctx = mtk_cam_find_ctx(cam, &node->vdev.entity);
-	if (WARN_ON(!ctx)) {
-		mutex_unlock(&cam->op_lock);
+	if (WARN_ON(!ctx))
 		return;
-	}
 
 	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
 		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
@@ -330,13 +320,10 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	/* NOTE: take multi-pipelines case into consideration */
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	ctx->streaming_node_cnt--;
-	if (ctx->streaming_node_cnt) {
-		mutex_unlock(&cam->op_lock);
+	if (ctx->streaming_node_cnt)
 		return;
-	}
 
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
-	mutex_unlock(&cam->op_lock);
 }
 
 static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
