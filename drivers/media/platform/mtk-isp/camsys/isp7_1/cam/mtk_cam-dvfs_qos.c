@@ -757,7 +757,9 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			if (dvfs_info->qos_req[i])
 				mtk_icc_set_bw(dvfs_info->qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
-						dvfs_info->qos_bw_avg[i])), 0);
+						dvfs_info->qos_bw_avg[i])),
+					kBps_to_icc(BW_B2KB_WITH_RATIO(
+						dvfs_info->qos_bw_avg[i])));
 		}
 	}
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
@@ -768,7 +770,9 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			if (dvfs_info->sv_qos_req[i])
 				mtk_icc_set_bw(dvfs_info->sv_qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
-						dvfs_info->sv_qos_bw_avg[i])), 0);
+						dvfs_info->sv_qos_bw_avg[i])),
+					kBps_to_icc(BW_B2KB_WITH_RATIO(
+						dvfs_info->sv_qos_bw_avg[i])));
 		}
 	}
 	for (i = 0; i < MTK_CAM_MRAW_PORT_NUM; i++) {
@@ -779,7 +783,9 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			if (dvfs_info->mraw_qos_req[i])
 				mtk_icc_set_bw(dvfs_info->mraw_qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
-						dvfs_info->mraw_qos_bw_avg[i])), 0);
+						dvfs_info->mraw_qos_bw_avg[i])),
+					kBps_to_icc(BW_B2KB_WITH_RATIO(
+						dvfs_info->mraw_qos_bw_avg[i])));
 		}
 	}
 }
