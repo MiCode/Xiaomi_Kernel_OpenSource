@@ -21,7 +21,6 @@ struct mtk_raw_device;
 #define MTK_CAMSYS_ENGINE_SENINF_TAG	0x40
 #define MTK_CAM_INITIAL_REQ_SYNC 1
 
-
 enum MTK_CAMSYS_ENGINE_IDX {
 	CAMSYS_ENGINE_RAW_BEGIN = MTK_CAMSYS_ENGINE_RAW_TAG,
 	CAMSYS_ENGINE_RAW_A = CAMSYS_ENGINE_RAW_BEGIN,
@@ -124,7 +123,6 @@ struct mtk_camsys_link_ctrl {
 struct mtk_camsys_sensor_ctrl {
 	struct mtk_cam_ctx *ctx;
 	struct kthread_worker *sensorsetting_wq;
-	struct kthread_work work;
 	struct hrtimer sensor_deadline_timer;
 	u64 sof_time;
 	int timer_req_sensor;
