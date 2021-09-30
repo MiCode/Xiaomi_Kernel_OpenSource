@@ -3036,6 +3036,11 @@ static int _xgff_frame_start(
 	mutex_lock(&xgff_frames_lock);
 	rframe = &r;
 
+	if (!xgff_update_start_prev_index_fp) {
+		ret = XGF_PARAM_ERR;
+		goto qudeq_notify_err;
+	}
+
 	if (xgff_find_frame(tid, queueid, frameid, rframe) == 0) {
 		ret = XGF_PARAM_ERR;
 		goto qudeq_notify_err;
