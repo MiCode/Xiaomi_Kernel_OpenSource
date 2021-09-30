@@ -11,26 +11,26 @@
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6893)
 
 struct conap_scp_shm_config g_adp_shm_mt6893 = {
-	.scp_shm_offset = 0x1F9000,
-	.scp_shm_size = 0x1E000,
 	.conap_scp_shm_offset = 0x1E0000,
 	.conap_scp_shm_size = 0x50000,
-	.conap_scp_shm_master_rbf_size = 51200,
-	.conap_scp_shm_slave_rbf_size = 51200,
 	.conap_scp_ipi_mbox_size = 40,
 };
 #endif
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6983)
 struct conap_scp_shm_config g_adp_shm_mt6983 = {
-	.scp_shm_offset = 0x0,
-	.scp_shm_size = 0x0,
 	.conap_scp_shm_offset = 0x7E0000,
 	.conap_scp_shm_size = 0x20000,
-	.conap_scp_shm_master_rbf_size = 0x0,
-	.conap_scp_shm_slave_rbf_size = 0x0,
 	.conap_scp_ipi_mbox_size = 64,
 };
 #endif
+#if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6895)
+struct conap_scp_shm_config g_adp_shm_mt6895 = {
+	.conap_scp_shm_offset = 0x7E0000,
+	.conap_scp_shm_size = 0x20000,
+	.conap_scp_ipi_mbox_size = 64,
+};
+#endif
+
 
 uint32_t g_plt_chip_info;
 phys_addr_t g_emi_phy_base;
@@ -80,8 +80,15 @@ int connsys_scp_platform_data_init(unsigned int chip_info, phys_addr_t emi_phy_a
 		g_adp_shm_ptr = &g_adp_shm_mt6983;
 		return 0;
 	}
+#endif
+#if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6895)
+	if (chip_info == 0x6895) {
+		g_adp_shm_ptr = &g_adp_shm_mt6895;
+		return 0;
+	}
 
 #endif
+
 	pr_info("[%s] chip=[%x] not support", __func__, chip_info);
 	return -1;
 }
