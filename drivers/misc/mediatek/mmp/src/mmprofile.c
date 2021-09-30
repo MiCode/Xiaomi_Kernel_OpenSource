@@ -56,7 +56,7 @@
 #define MMPROFILE_DEFAULT_BUFFER_SIZE 0x18000
 /* max buffer size is 0x100000*32byte = 32MB */
 #define MMPROFILE_MAX_BUFFER_SIZE 0x100000
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 /* min meta buffer size is 0x10000byte = 64KB */
 #define MMPROFILE_MIN_META_BUFFER_SIZE 0x10000
 /* default meta buffer size is 0x800000byte = 8MB */
@@ -133,7 +133,7 @@ static DEFINE_MUTEX(mmprofile_buffer_init_mutex);
 static DEFINE_MUTEX(mmprofile_regtable_mutex);
 static DEFINE_MUTEX(mmprofile_meta_buffer_mutex);
 static struct mmprofile_event_t *p_mmprofile_ring_buffer;
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 static unsigned char *p_mmprofile_meta_buffer;
 #endif
 
@@ -337,7 +337,7 @@ void mmprofile_get_dump_buffer(unsigned int start, unsigned long *p_addr,
 static void mmprofile_init_buffer(void)
 {
 	unsigned int b_reset_ring_buffer = 0;
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 	unsigned int b_reset_meta_buffer = 0;
 #endif
 
@@ -393,7 +393,7 @@ static void mmprofile_init_buffer(void)
 	MMP_LOG(ANDROID_LOG_DEBUG, "p_mmprofile_ring_buffer=0x%08lx",
 		(unsigned long)p_mmprofile_ring_buffer);
 
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 	if (!p_mmprofile_meta_buffer) {
 		mmprofile_globals.meta_buffer_size =
 			mmprofile_globals.new_meta_buffer_size;
@@ -446,7 +446,7 @@ static void mmprofile_init_buffer(void)
 	if (b_reset_ring_buffer)
 		memset((void *)(p_mmprofile_ring_buffer), 0,
 		       mmprofile_globals.buffer_size_bytes);
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 	if (b_reset_meta_buffer) {
 		struct mmprofile_meta_datablock_t *p_block;
 
@@ -468,7 +468,7 @@ static void mmprofile_init_buffer(void)
 
 static void mmprofile_reset_buffer(void)
 {
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 
 	if (!mmprofile_globals.enable ||
 		(mmprofile_globals.buffer_size_record !=
@@ -934,7 +934,7 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 static long mmprofile_log_meta_int(mmp_event event, enum mmp_log_type type,
 	struct mmp_metadata_t *p_meta_data, long b_from_user)
 {
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 	unsigned long retn;
 	void __user *p_data;
 	struct mmprofile_meta_datablock_t *p_node = NULL;
@@ -1861,7 +1861,7 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd,
 	break;
 	case MMP_IOC_DUMPMETADATA:
 	{
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 
 		unsigned int meta_data_count = 0;
 		unsigned int offset = 0;
@@ -2169,7 +2169,7 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd,
 	break;
 	case COMPAT_MMP_IOC_DUMPMETADATA:
 	{
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 
 		unsigned int meta_data_count = 0;
 		unsigned int offset = 0;

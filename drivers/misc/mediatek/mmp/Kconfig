@@ -17,3 +17,12 @@ config MTK_MMPROFILE_SUPPORT
 	  will be used.
 	  Otherwise mmp/dummy/ is used to provide empty functions. In this
 	  situation, the profiling mechanism will not work.
+
+config MTK_MMPROFILE_DEBUG
+	bool "MMProfile function debug"
+	depends on MTK_MMPROFILE_SUPPORT
+	help
+	  Multimedia profiling mechanism function debug feature.
+	  By enable this config, the actual implementation under mmp/src/
+	  will be used. This is to make the profiling mechanism driver can
+	  dump input/output buffer.
