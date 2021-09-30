@@ -1965,7 +1965,7 @@ static int mt6362_enable_chg_type_det(struct charger_device *chg_dev, bool en)
 	return 0;
 }
 
-static int mt6362_get_adc(struct charger_device *chg_dev, u32 chan,
+static int mt6362_get_adc(struct charger_device *chg_dev, enum adc_channel chan,
 			  int *min, int *max)
 {
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
