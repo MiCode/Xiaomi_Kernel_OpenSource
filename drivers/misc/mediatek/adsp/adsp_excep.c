@@ -258,20 +258,18 @@ void adsp_aed_worker(struct work_struct *ws)
 		pr_info("%s, reset retry.... (%d)", __func__, retry);
 		msleep(20);
 	}
-	adsp_disable_clock();
-
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (ret) {
 		pr_info("%s, adsp dead, wait dump dead body", __func__);
-		aee_kernel_exception_api(__FILE__,
-					 __LINE__,
-					 DB_OPT_DEFAULT,
-					 "[ADSP]",
-					 "ASSERT: ADSP DEAD! Recovery Fail");
-
-		/* BUG_ON(1); */
+		if (is_infrabus_timeout())
+			BUG(); /* reboot for bus dump */
+		else
+			aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
+						 "[ADSP]",
+						 "ASSERT: ADSP DEAD! Recovery Fail");
 	}
 #endif
+	adsp_disable_clock();
 	adsp_extern_notify_chain(ADSP_EVENT_READY);
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 #if IS_ENABLED(CONFIG_PM_WAKELOCKS)

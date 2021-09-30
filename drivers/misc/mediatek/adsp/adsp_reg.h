@@ -19,6 +19,7 @@
 
 #define ADSP_A_INTR_STATUS          (ADSP_BASE + 0x0010)
 #define ADSP_B_INTR_STATUS          (ADSP_BASE + 0x0014)
+#define INFRABUS_TIMEOUT_IRQ        (1 << 24)
 
 #define ADSP_SW_INT_SET             (ADSP_BASE + 0x0018)
 #define ADSP_SW_INT_CLR             (ADSP_BASE + 0x001C)

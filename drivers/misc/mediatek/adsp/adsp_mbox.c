@@ -98,6 +98,12 @@ void unhook_ipi_queue_recv_msg_hanlder(void)
 }
 EXPORT_SYMBOL(unhook_ipi_queue_recv_msg_hanlder);
 
+void adsp_mbox_dump(void)
+{
+	mtk_mbox_dump_recv_pin(&adsp_mboxdev, &adsp_mbox_pin_recv[0]);
+	mtk_mbox_dump_recv_pin(&adsp_mboxdev, &adsp_mbox_pin_recv[1]);
+}
+
 int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 		unsigned int wait)
 {

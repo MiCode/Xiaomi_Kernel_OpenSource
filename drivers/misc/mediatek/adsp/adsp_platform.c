@@ -102,6 +102,11 @@ bool is_adsp_axibus_idle(void)
 	return (readl(ADSP_DBG_PEND_CNT) == axibus_idle_val);
 }
 
+bool is_infrabus_timeout(void)
+{
+	return readl(ADSP_A_INTR_STATUS) & INFRABUS_TIMEOUT_IRQ;
+}
+
 void adsp_mt_toggle_semaphore(u32 bit)
 {
 	writel((1 << bit), ADSP_SEMAPHORE);

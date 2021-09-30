@@ -160,6 +160,7 @@ int adsp_core0_suspend(void)
 	return 0;
 ERROR:
 	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
+	adsp_mbox_dump();
 	adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 	return ret;
 }
@@ -178,6 +179,7 @@ int adsp_core0_resume(void)
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);
+			adsp_mbox_dump();
 			adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 			return -ETIME;
 		}
@@ -232,6 +234,7 @@ int adsp_core1_suspend(void)
 	return 0;
 ERROR:
 	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
+	adsp_mbox_dump();
 	adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 	return ret;
 }
@@ -252,6 +255,7 @@ int adsp_core1_resume(void)
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);
+			adsp_mbox_dump();
 			adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 			return -ETIME;
 		}
