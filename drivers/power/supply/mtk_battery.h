@@ -919,7 +919,7 @@ struct mtk_battery {
 	bool disableGM30;
 	bool ntc_disable_nafg;
 	bool cmd_disable_nafg;
-//timotodo
+
 	/*battery plug in out*/
 	int chr_type;
 	bool disable_plug_int;
@@ -929,6 +929,7 @@ struct mtk_battery {
 	int charge_power_sel;
 
 	/*battery status*/
+	int present;
 	int imix;
 	int baton;
 	int vbat;

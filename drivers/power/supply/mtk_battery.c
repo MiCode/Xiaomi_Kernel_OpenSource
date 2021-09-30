@@ -286,6 +286,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 	union power_supply_propval *val)
 {
 	int ret = 0;
+	int curr_now = 0, curr_avg = 0;
 	struct mtk_battery *gm;
 	struct battery_data *bs_data;
 
@@ -295,6 +296,9 @@ static int battery_psy_get_property(struct power_supply *psy,
 	if (gm->algo.active == true)
 		bs_data->bat_capacity = gm->ui_soc;
 
+	/* gauge_get_property should check return value */
+	/* to avoid i2c suspend but query by other module */
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = bs_data->bat_status;
@@ -303,9 +307,17 @@ static int battery_psy_get_property(struct power_supply *psy,
 		val->intval = bs_data->bat_health;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		bs_data->bat_present =
-			gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
-		val->intval = bs_data->bat_present;
+
+		ret = gauge_get_property(GAUGE_PROP_BATTERY_EXIST,
+			&bs_data->bat_present);
+
+		if (ret == -EHOSTDOWN)
+			val->intval = gm->present;
+		else {
+			val->intval = bs_data->bat_present;
+			gm->present = bs_data->bat_present;
+		}
+		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = bs_data->bat_technology;
@@ -328,14 +340,28 @@ static int battery_psy_get_property(struct power_supply *psy,
 			val->intval = bs_data->bat_capacity;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval =
-			gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT)
-			* 100;
+		ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
+			&curr_now);
+
+		if (ret == -EHOSTDOWN)
+			val->intval = gm->ibat * 100;
+		else {
+			val->intval = curr_now * 100;
+			gm->ibat = curr_now;
+		}
+
+		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
-		val->intval =
-			gauge_get_int_property(GAUGE_PROP_AVERAGE_CURRENT)
-			* 100;
+		ret = gauge_get_property(GAUGE_PROP_AVERAGE_CURRENT,
+			&curr_avg);
+
+		if (ret == -EHOSTDOWN)
+			val->intval = gm->ibat * 100;
+		else
+			val->intval = curr_avg * 100;
+
+		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		val->intval =
@@ -356,10 +382,15 @@ static int battery_psy_get_property(struct power_supply *psy,
 			break;
 		}
 
-		gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
+		ret = gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
 			&bs_data->bat_batt_vol);
-		gm->vbat = bs_data->bat_batt_vol;
-		val->intval = bs_data->bat_batt_vol * 1000;
+		if (ret == -EHOSTDOWN)
+			val->intval = gm->vbat;
+		else {
+			gm->vbat = bs_data->bat_batt_vol;
+			val->intval = bs_data->bat_batt_vol * 1000;
+		}
+		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = force_get_tbat(gm, true) * 10;
@@ -378,10 +409,14 @@ static int battery_psy_get_property(struct power_supply *psy,
 						gm->battery_id].q_max;
 			int remain_ui = 100 - bs_data->bat_capacity;
 			int remain_mah = remain_ui * q_max_now / 10;
-			int current_now =
-			gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
-
+			int current_now = 0;
 			int time_to_full = 0;
+
+			ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
+				&current_now);
+
+			if (ret == -EHOSTDOWN)
+				current_now = gm->ibat;
 
 			if (current_now != 0)
 				time_to_full = remain_mah * 3600 / current_now;
@@ -702,11 +737,15 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 	static int pre_bat_temperature_val2;
 	ktime_t ctime = 0, dtime = 0, pre_time = 0;
 	struct timespec64 tmp_time;
+	int ret = 0;
 
 	if (update == true || pre_bat_temperature_val == -1) {
 		/* Get V_BAT_Temperature */
-		gauge_get_property(GAUGE_PROP_BATTERY_TEMPERATURE_ADC,
+		ret = gauge_get_property(GAUGE_PROP_BATTERY_TEMPERATURE_ADC,
 			&bat_temperature_volt);
+
+		if (ret == -EHOSTDOWN)
+			return ret;
 
 		gm->baton = bat_temperature_volt;
 
@@ -846,6 +885,10 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 	}
 
 	bat_temperature_val = force_get_tbat_internal(gm, true);
+
+	if (bat_temperature_val == -EHOSTDOWN)
+		return gm->cur_bat_temp;
+
 	gm->cur_bat_temp = bat_temperature_val;
 
 	return bat_temperature_val;
@@ -860,6 +903,7 @@ int gauge_get_property(enum gauge_property gp,
 	struct mtk_gauge *gauge;
 	struct power_supply *psy;
 	struct mtk_gauge_sysfs_field_info *attr;
+	int ret = 0;
 
 	psy = power_supply_get_by_name("mtk-gauge");
 	if (psy == NULL)
@@ -874,14 +918,15 @@ int gauge_get_property(enum gauge_property gp,
 	}
 	if (attr[gp].prop == gp) {
 		mutex_lock(&gauge->ops_lock);
-		attr[gp].get(gauge, &attr[gp], val);
+		ret = attr[gp].get(gauge, &attr[gp], val);
+
 		mutex_unlock(&gauge->ops_lock);
 	} else {
 		bm_err("%s gp:%d idx error\n", __func__, gp);
 		return -ENOTSUPP;
 	}
 
-	return 0;
+	return ret;
 }
 
 int gauge_get_int_property(enum gauge_property gp)
