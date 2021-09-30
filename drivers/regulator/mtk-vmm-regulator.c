@@ -291,21 +291,22 @@ static int power_on_ccu(struct ccu_handle_info *ccu_handle)
 	if (rproc_np) {
 		ccu_handle->ccu_pdev = of_find_device_by_node(rproc_np);
 		if (ccu_handle->ccu_pdev == NULL) {
-			ISP_LOGE("find ccu rproc pdev fail\n");
-			ccu_handle->ccu_pdev = NULL;
-			return ret;
+			ISP_LOGF("find ccu rproc pdev fail\n");
+			ret = PTR_ERR(ccu_handle->ccu_pdev);
+			goto error_handle;
 		}
 
 		ccu_rproc = rproc_get_by_phandle(handle);
 		if (ccu_rproc == NULL) {
-			ISP_LOGE("rproc_get_by_phandle fail\n");
-			return PTR_ERR(ccu_rproc);
+			ISP_LOGF("rproc_get_by_phandle fail\n");
+			ret = PTR_ERR(ccu_rproc);
+			goto error_handle;
 		}
 
 		ret = rproc_boot(ccu_rproc);
 		if (ret != 0) {
-			ISP_LOGE("boot ccu rproc fail\n");
-			return ret;
+			ISP_LOGF("boot ccu rproc fail\n");
+			goto error_handle;
 		}
 		ccu_handle->proc = ccu_rproc;
 
@@ -319,6 +320,12 @@ static int power_on_ccu(struct ccu_handle_info *ccu_handle)
 		ISP_LOGD("get ccu proc pdev successfully\n");
 	}
 
+	return ret;
+
+error_handle:
+	ccu_handle->proc = NULL;
+	ccu_handle->ccu_pdev = NULL;
+	WARN_ON(ret);
 	return ret;
 }
 
