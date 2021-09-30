@@ -552,12 +552,11 @@
 				"cfgreg",
 				"mbox_share";
 
-		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH 0>;
 
 		interrupt-names = "ipc";
 		sspm_res_ram_start = <0x0>;
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
-		mediatek,fake_sspm = <1>;
 	};
 
 	ssram1@1C350000 {
@@ -594,8 +593,8 @@
 			  <0 0x1C361000 0 0x1000>;
 		/* for profiling */
 		shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
-		interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH 0>;
 		#mbox-cells = <1>;
 	};
 
