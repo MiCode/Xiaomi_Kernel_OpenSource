@@ -151,6 +151,7 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst->vcu.ctx = ctx;
 	inst->vcu.handler = vcu_dec_ipi_handler;
+	*h_vdec = (unsigned long)inst;
 
 	err = vcu_dec_init(&inst->vcu);
 	if (err != 0) {
@@ -168,10 +169,8 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;
 
-
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 
-	*h_vdec = (unsigned long)inst;
 	return 0;
 
 error_free_inst:

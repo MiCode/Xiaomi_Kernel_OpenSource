@@ -694,14 +694,6 @@ void vcp_disable_pm_clk(void)
 	mutex_lock(&vcp_pw_clk_mutex);
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
-		flush_workqueue(vcp_workqueue);
-#if VCP_LOGGER_ENABLE
-		flush_workqueue(vcp_logger_workqueue);
-		vcp_logger_uninit();
-#endif
-#if VCP_RECOVERY_SUPPORT
-		flush_workqueue(vcp_reset_workqueue);
-#endif
 		while (!is_vcp_ready(VCP_A_ID)) {
 			pr_info("[VCP] wait ready\n");
 			i += 5;
@@ -713,6 +705,14 @@ void vcp_disable_pm_clk(void)
 		}
 		vcp_disable_irqs();
 
+		flush_workqueue(vcp_workqueue);
+#if VCP_LOGGER_ENABLE
+		vcp_logger_uninit();
+		flush_workqueue(vcp_logger_workqueue);
+#endif
+#if VCP_RECOVERY_SUPPORT
+		flush_workqueue(vcp_reset_workqueue);
+#endif
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
 		wait_vcp_wdt_irq_done();
