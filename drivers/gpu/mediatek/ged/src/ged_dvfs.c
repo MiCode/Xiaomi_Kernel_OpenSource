@@ -1608,9 +1608,7 @@ static void ged_set_fastdvfs_mode(unsigned int u32ModeValue)
 
 static unsigned int ged_get_fastdvfs_mode(void)
 {
-	mutex_lock(&gsDVFSLock);
 	mtk_gpueb_dvfs_get_mode(&g_fastdvfs_mode);
-	mutex_unlock(&gsDVFSLock);
 
 	return g_fastdvfs_mode;
 }
