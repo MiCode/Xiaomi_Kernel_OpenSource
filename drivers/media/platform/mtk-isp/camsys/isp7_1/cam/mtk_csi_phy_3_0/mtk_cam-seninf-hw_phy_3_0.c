@@ -20,9 +20,12 @@
 
 #include "imgsensor-user.h"
 #define __SMT 0
-#define _CDR 1
 #define SENINF_CK 273000000
+#define CYCLE_MARGIN 1
+#define RESYNC_DMY_CNT 4
+#define FIX_DPHY_SETTLE 1
 
+//#define SCAN_SETTLE
 
 static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
 
@@ -1169,6 +1172,43 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 }
 
 #ifdef SCAN_SETTLE
+static int set_trail(struct seninf_ctx *ctx, u16 hs_trail)
+{
+	void *base = ctx->reg_ana_dphy_top[ctx->port];
+	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
+
+
+	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+		    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, hs_trail);
+	SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+		    RG_DPHY_RX_LD1_HS_TRAIL_PARAMETER, hs_trail);
+	SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+		    RG_DPHY_RX_LD2_HS_TRAIL_PARAMETER, hs_trail);
+	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+		    RG_DPHY_RX_LD3_HS_TRAIL_PARAMETER, hs_trail);
+	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+
+			    RG_DPHY_RX_LD0_HS_TRAIL_EN, 1);
+	SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LD1_HS_TRAIL_EN, 1);
+	SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+			    RG_DPHY_RX_LD2_HS_TRAIL_EN, 1);
+	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+			    RG_DPHY_RX_LD3_HS_TRAIL_EN, 1);
+
+
+	SENINF_BITS(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_CTRL,
+			RG_SENINF_CAM_MUX_GCSR_SW_RST, 1);
+	udelay(1);
+	SENINF_BITS(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_CTRL,
+			RG_SENINF_CAM_MUX_GCSR_SW_RST, 0);
+
+	return 0;
+
+}
+
+
+
 static int set_settle(struct seninf_ctx *ctx, u16 settle, bool hs_trail_en)
 {
 
@@ -1205,11 +1245,11 @@ static int set_settle(struct seninf_ctx *ctx, u16 settle, bool hs_trail_en)
 		    settle_delay_ck);
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_DPHY_RX_LD0_HS_TRAIL_EN, hs_trail_en);
-		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+	SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
 			    RG_DPHY_RX_LD1_HS_TRAIL_EN, hs_trail_en);
-		SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+	SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
 			    RG_DPHY_RX_LD2_HS_TRAIL_EN, hs_trail_en);
-		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_DPHY_RX_LD3_HS_TRAIL_EN, hs_trail_en);
 
 
@@ -1236,10 +1276,21 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		settle_delay_dt = ctx->csi_param.cphy_settle
 			? ctx->csi_param.cphy_settle
 			: ctx->cphy_settle_delay_dt;
+		settle_delay_ck = settle_delay_dt;
 	} else {
+
+#if FIX_DPHY_SETTLE
+		settle_delay_dt = settle_delay_ck = 0x1c;
+			// 0x1c = 100ns/(1/csi_ck)
+#else
+
 		settle_delay_dt = ctx->csi_param.dphy_data_settle
 			? ctx->csi_param.dphy_data_settle
 			: ctx->dphy_settle_delay_dt;
+		settle_delay_ck = ctx->csi_param.dphy_clk_settle
+				? ctx->csi_param.dphy_clk_settle
+				: ctx->settle_delay_ck;
+#endif
 	}
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
@@ -1254,10 +1305,6 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 		    RG_CDPHY_RX_LD3_TRIO3_HS_SETTLE_PARAMETER,
 		    settle_delay_dt);
-
-	settle_delay_ck = ctx->csi_param.dphy_clk_settle
-				? ctx->csi_param.dphy_clk_settle
-				: ctx->settle_delay_ck;
 
 
 	SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
@@ -1366,6 +1413,7 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		cycles *= SENINF_CK;
 		do_div(data_rate, ctx->num_data_lanes);
 		do_div(cycles, data_rate);
+		cycles += CYCLE_MARGIN;
 
 		dev_info(ctx->dev,
 		"%s data_rate %lld bps cycles %lld\n",
@@ -1377,12 +1425,15 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 			    RG_CSI2_HEADER_MODE, 0);
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_HDR_MODE_0,
 			    RG_CSI2_HEADER_LEN, 0);
-#if _CDR
 		SENINF_WRITE_REG(pSeninf_csi2,
 			SENINF_CSI2_RESYNC_MERGE_CTRL, 0x2020f106);
-#else
+#if __SMT == 0
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
-			   RG_CSI2_RESYNC_DMY_CYCLE, cycles);
+				RG_CSI2_RESYNC_DMY_CYCLE, cycles);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_CNT,
+				RESYNC_DMY_CNT);
+
 #endif
 	} else { //Cphy
 		u8 map_hdr_len[] = {0, 1, 2, 4, 5};
@@ -1394,6 +1445,7 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		data_rate *= 7;
 		do_div(data_rate, ctx->num_data_lanes*16);
 		do_div(cycles, data_rate);
+		cycles += CYCLE_MARGIN;
 			dev_info(ctx->dev,
 		"%s data_rate %lld pps cycles %lld\n",
 		__func__, data_rate, cycles);
@@ -1406,13 +1458,16 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_HDR_MODE_0,
 			    RG_CSI2_HEADER_LEN,
 			    map_hdr_len[ctx->num_data_lanes]);
-#if _CDR
 		SENINF_WRITE_REG(pSeninf_csi2,
 			SENINF_CSI2_RESYNC_MERGE_CTRL, 0x20207106);
-#else
+#if __SMT == 0
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
 				RG_CSI2_RESYNC_DMY_CYCLE,
 				cycles);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_CNT,
+				RESYNC_DMY_CNT);
+
 #endif
 	}
 
@@ -3016,37 +3071,60 @@ static int mtk_cam_seninf_disable_all_cam_mux_vsync_irq(struct seninf_ctx *ctx)
 #ifdef SCAN_SETTLE
 static int mtk_cam_scan_settle(struct seninf_ctx *ctx)
 {
-	u16 settle = 0;
-	int ret = 0;
+	u16 settle = 0, trail = 0;
+	int ret = 0, ret_old = -1;
 
 	if (!ctx->is_cphy) {
+		for (trail = 0; trail <= 0xff; trail++) {
+			set_trail(ctx, trail);
+			msleep(30);
+			ret = mtk_cam_seninf_debug(ctx);
+			if (ret == 0) {
+				if (ret != ret_old)
+					dev_info(ctx->dev,
+							"%s valid trail = 0x%x ret = %d ret_old = %d trail enbled\n",
+							__func__, trail, ret, ret_old);
+
+				dev_info(ctx->dev,
+					"%s valid trail = 0x%x ret_detail = %dtrail enbled\n",
+					__func__, trail, ret);
+
+			} else {
+				if (ret != ret_old)
+					dev_info(ctx->dev,
+						"%s invalid trail = 0x%x ret = %d ret_old = %d trail enbled\n",
+						__func__, trail, ret, ret_old);
+				dev_info(ctx->dev,
+					"%s invalid trail = 0x%x ret_detail = %d trail enbled\n",
+					__func__, trail, ret);
+			}
+			ret_old = ret;
+		}
+	} else {
+		ret = 0;
+		ret_old = -1;
 		for (settle = 0; settle <= 0xff; settle++) {
 			set_settle(ctx, settle, false);
 			msleep(30);
 			ret = mtk_cam_seninf_debug(ctx);
 			if (ret == 0) {
-				dev_info(ctx->dev,
-						"%s valid settle = 0x%x ret = %d trail disabled\n",
+				if (ret != ret_old)
+					dev_info(ctx->dev,
+							"%s valid settle = 0x%x ret = %d ret_old = %d\n",
+							__func__, settle, ret, ret_old);
+					dev_info(ctx->dev,
+						"%s valid settle = 0x%x ret_detail = %d\n",
 						__func__, settle, ret);
 			} else {
+				if (ret != ret_old)
+					dev_info(ctx->dev,
+							"%s invalid settle = 0x%x ret = %d ret_old = %d\n",
+							__func__, settle, ret, ret_old);
 				dev_info(ctx->dev,
-						"%s invalid settle = 0x%x ret = %d trail disabled\n",
+						"%s invalid settle = 0x%x ret_detail = %d\n",
 						__func__, settle, ret);
 			}
-		}
-	}
-	for (settle = 0; settle <= 0xff; settle++) {
-		set_settle(ctx, settle, true);
-		msleep(30);
-		ret = mtk_cam_seninf_debug(ctx);
-		if (ret == 0) {
-			dev_info(ctx->dev,
-					"%s valid settle = 0x%x ret = %d\n",
-					__func__, settle, ret);
-		} else {
-			dev_info(ctx->dev,
-					"%s invalid settle = 0x%x ret = %d\n",
-					__func__, settle, ret);
+			ret_old = ret;
 		}
 	}
 

@@ -16,6 +16,7 @@
 #define SENINF_VC_ROUTING
 
 #define CSI_EFUSE_SET
+//#define SENINF_UT_DUMP
 
 struct seninf_ctx;
 

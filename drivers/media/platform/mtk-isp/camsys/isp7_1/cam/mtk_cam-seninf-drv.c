@@ -250,7 +250,7 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 {
 	int i;
 	if (core->pm_domain_cnt == 1)
-		pm_runtime_put(core->dev);
+		pm_runtime_put_sync(core->dev);
 	else {
 		if (!core->pm_domain_devs && core->pm_domain_cnt < 1)
 			return -EINVAL;
@@ -1055,7 +1055,10 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev, "sensor stream-on ret %d\n", ret);
 			return  ret;
 		}
-		//g_seninf_ops->_debug(ctx);
+#ifdef SENINF_UT_DUMP
+		g_seninf_ops->_debug(ctx);
+#endif
+
 	} else {
 		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, 0);
 		if (ret) {
