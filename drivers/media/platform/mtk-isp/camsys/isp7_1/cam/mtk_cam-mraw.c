@@ -994,6 +994,7 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx)
 }
 static int reset_msgfifo(struct mtk_mraw_device *dev)
 {
+	atomic_set(&dev->is_fifo_overflow, 0);
 	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
 }
 
@@ -1945,7 +1946,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		int len;
 
 		if (unlikely(kfifo_avail(&mraw_dev->msg_fifo) < sizeof(irq_info))) {
-			dev_info_ratelimited(dev, "msg fifo is full\n");
+			atomic_set(&mraw_dev->is_fifo_overflow, 1);
 			goto no_msgfifo;
 		}
 
@@ -1981,6 +1982,9 @@ static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
 {
 	struct mtk_mraw_device *mraw_dev = (struct mtk_mraw_device *)data;
 	struct mtk_camsys_irq_info irq_info;
+
+	if (unlikely(atomic_cmpxchg(&mraw_dev->is_fifo_overflow, 1, 0)))
+		dev_info(mraw_dev->dev, "msg fifo overflow\n");
 
 	while (kfifo_len(&mraw_dev->msg_fifo) >= sizeof(irq_info)) {
 		int len = kfifo_out(&mraw_dev->msg_fifo, &irq_info, sizeof(irq_info));

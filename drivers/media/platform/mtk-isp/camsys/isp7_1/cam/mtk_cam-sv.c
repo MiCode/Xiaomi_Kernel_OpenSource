@@ -547,6 +547,7 @@ static const char *sv_capture_queue_names[CAMSV_PIPELINE_NUM][MTK_CAMSV_TOTAL_CA
 
 static int reset_msgfifo(struct mtk_camsv_device *dev)
 {
+	atomic_set(&dev->is_fifo_overflow, 0);
 	return kfifo_init(&dev->msg_fifo, dev->msg_buffer, dev->fifo_size);
 }
 
@@ -1831,7 +1832,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		int len;
 
 		if (unlikely(kfifo_avail(&camsv_dev->msg_fifo) < sizeof(irq_info))) {
-			dev_info_ratelimited(dev, "msg fifo is full\n");
+			atomic_set(&camsv_dev->is_fifo_overflow, 1);
 			goto no_msgfifo;
 		}
 
@@ -1862,6 +1863,9 @@ static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
 {
 	struct mtk_camsv_device *camsv_dev = (struct mtk_camsv_device *)data;
 	struct mtk_camsys_irq_info irq_info;
+
+	if (unlikely(atomic_cmpxchg(&camsv_dev->is_fifo_overflow, 1, 0)))
+		dev_info(camsv_dev->dev, "msg fifo overflow\n");
 
 	while (kfifo_len(&camsv_dev->msg_fifo) >= sizeof(irq_info)) {
 		int len = kfifo_out(&camsv_dev->msg_fifo, &irq_info, sizeof(irq_info));

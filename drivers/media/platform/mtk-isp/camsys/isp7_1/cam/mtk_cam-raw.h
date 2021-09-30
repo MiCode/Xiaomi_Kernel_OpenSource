@@ -289,6 +289,7 @@ struct mtk_raw_device {
 	int		fifo_size;
 	void		*msg_buffer;
 	struct kfifo	msg_fifo;
+	atomic_t	is_fifo_overflow;
 
 	u64 sof_count;
 	u64 setting_count;

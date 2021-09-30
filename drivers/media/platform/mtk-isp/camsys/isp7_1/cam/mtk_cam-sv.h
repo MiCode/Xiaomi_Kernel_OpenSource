@@ -198,6 +198,7 @@ struct mtk_camsv_device {
 	int fifo_size;
 	void *msg_buffer;
 	struct kfifo msg_fifo;
+	atomic_t is_fifo_overflow;
 
 	unsigned int sof_count;
 	unsigned int frame_wait_to_process;
