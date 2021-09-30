@@ -794,7 +794,8 @@ static int __init mtk_smi_dbg_init(void)
 	if (IS_ERR(smi->fs))
 		return PTR_ERR(smi->fs);
 
-	mtk_smi_dbg_probe(smi);
+	if (!mtk_smi_dbg_probe(smi))
+		smi->probe = true;
 	//mtk_smi_dbg_hang_detect(DRV_NAME);
 	pr_debug("%s: smi:%p fs:%p\n", __func__, smi, smi->fs);
 	return 0;
