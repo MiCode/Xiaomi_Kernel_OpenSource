@@ -4905,6 +4905,13 @@ static int __mtk_check_trigger(struct mtk_drm_crtc *mtk_crtc)
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	CRTC_MMP_EVENT_START(index, check_trigger, 0, 0);
 
+	if (!mtk_crtc->enabled) {
+		CRTC_MMP_EVENT_END(index, check_trigger, 0, 1);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		return 0;
+	}
+
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
 	mtk_state = to_mtk_crtc_state(crtc->state);
