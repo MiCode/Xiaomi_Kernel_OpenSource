@@ -494,7 +494,7 @@ initcall_debug=1 ";
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "jdi,nt36672e,vdo,60hz";
+		compatible = "jdi,nt36672e,vdo,120hz";
 		reg = <0>;
 		pm-enable-gpios = <&pio 215 0>;
 		reset-gpios = <&pio 41 0>;
@@ -502,6 +502,19 @@ initcall_debug=1 ";
 		pinctrl-names = "default";
 		port {
 			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "truly,td4330,cmd";
+		reg = <1>;
+		pm-enable-gpios = <&pio 215 0>;
+		reset-gpios = <&pio 41 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
 				remote-endpoint = <&dsi_out>;
 			};
 		};
