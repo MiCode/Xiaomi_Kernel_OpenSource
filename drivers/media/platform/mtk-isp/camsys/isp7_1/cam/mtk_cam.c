@@ -1849,6 +1849,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	struct list_head equeue_list;
 	struct v4l2_ctrl_handler *hdl;
 	struct media_request_object *sensor_hdl_obj, *raw_hdl_obj, *obj;
+	unsigned long flags;
 
 	if (!cam->streaming_ctx) {
 		dev_dbg(cam->dev, "streams are off\n");
@@ -1913,7 +1914,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				if (!(req->ctx_link_update & (1 << i)))
 					s_data->sensor = ctx->sensor;
 
-				spin_lock(&req->req.lock);
+				spin_lock_irqsave(&req->req.lock, flags);
 				list_for_each_entry(obj, &req->req.objects, list) {
 					if (vb2_request_object_is_buffer(obj))
 						continue;
@@ -1924,7 +1925,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 					else if (hdl == ctx->sensor->ctrl_handler)
 						sensor_hdl_obj = obj;
 				}
-				spin_unlock(&req->req.lock);
+				spin_unlock_irqrestore(&req->req.lock, flags);
 
 				if (raw_hdl_obj) {
 					s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN;
