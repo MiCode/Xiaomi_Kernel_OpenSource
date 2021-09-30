@@ -679,19 +679,24 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	LOG_DBG("pmem_base va: 0x%lx\n", (uint64_t)ccu->pmem_base);
 
 	/* get Clock control from device tree.  */
+	/*
+	 * SMI definition is usually not ready at bring-up stage of new platform.
+	 * Continue initialization if SMI is not defined.
+	 */
 	smi_node = of_parse_phandle(node, "mediatek,larbs", 0);
 	if (!smi_node) {
 		dev_err(ccu->dev, "get smi larb from DTS fail!\n");
-		return -ENODEV;
-	}
-	smi_pdev = of_find_device_by_node(smi_node);
-	if (WARN_ON(!smi_pdev)) {
+		/* return -ENODEV; */
+	} else {
+		smi_pdev = of_find_device_by_node(smi_node);
+		if (WARN_ON(!smi_pdev)) {
+			of_node_put(smi_node);
+			return -ENODEV;
+		}
 		of_node_put(smi_node);
-		return -ENODEV;
-	}
-	of_node_put(smi_node);
 
-	mtk_smi_add_device_link(ccu->dev, &smi_pdev->dev);
+		mtk_smi_add_device_link(ccu->dev, &smi_pdev->dev);
+	}
 	pm_runtime_enable(ccu->dev);
 
 	ccu->ccu_clk_pwr_ctrl[0] = devm_clk_get(ccu->dev,
