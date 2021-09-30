@@ -11,6 +11,7 @@
 #include "apu_ipi.h"
 #include "apu_config.h"
 #include "apu_regdump.h"
+#include "apu_mbox.h"
 
 
 struct mtk_apu;
@@ -155,6 +156,8 @@ struct mtk_apu {
 	bool ipi_id_ack[APU_IPI_MAX]; /* per-ipi ack */
 	bool ipi_inbound_locked;
 	wait_queue_head_t ack_wq; /* for waiting for ipi ack */
+	struct timespec64 intr_ts;
+	struct apu_mbox_hdr hdr;
 
 	/* ipi share buffer */
 	dma_addr_t recv_buf_da;

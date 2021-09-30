@@ -27,6 +27,7 @@ static struct lock_class_key ipi_lock_key[APU_IPI_MAX];
 
 static unsigned int tx_serial_no;
 static unsigned int rx_serial_no;
+unsigned int temp_buf[APU_SHARE_BUFFER_SIZE / 4];
 
 static inline void dump_msg_buf(struct mtk_apu *apu, void *data, uint32_t len)
 {
@@ -217,8 +218,10 @@ int apu_ipi_lock(struct mtk_apu *apu)
 		if (ipi_attrs[i].ack == IPI_WITH_ACK &&
 		    ipi->usage_cnt != 0 &&
 		    !bypass_check(i)) {
+			spin_unlock(&apu->usage_cnt_lock);
 			dev_info(apu->dev, "%s: ipi %d is still in use %d\n",
 				 __func__, i, ipi->usage_cnt);
+			spin_lock(&apu->usage_cnt_lock);
 			ready_to_lock = false;
 		}
 
@@ -305,71 +308,30 @@ static void apu_init_ipi_handler(void *data, unsigned int len, void *priv)
 
 static irqreturn_t apu_ipi_handler(int irq, void *priv)
 {
-	struct timespec64 ts, te;
+	struct timespec64 ts, te, tl;
 	struct mtk_apu *apu = priv;
 	struct device *dev = apu->dev;
-	struct apu_mbox_hdr hdr;
-	struct mtk_share_obj *recv_obj = apu->recv_buf;
 	ipi_handler_t handler;
-	u32 id, len, calc_csum;
-	u32 temp_buf[APU_SHARE_BUFFER_SIZE / 4] = {0};
+	u32 id, len;
 
-	hdr.id = 0;
-	hdr.len = 0;
-	hdr.serial_no = 0;
-	hdr.csum = 0;
+	id = apu->hdr.id;
+	len = apu->hdr.len;
 
+	/* get the latency of threaded irq */
 	ktime_get_ts64(&ts);
-
-	apu_mbox_read_outbox(apu, &hdr);
-	id = hdr.id;
-	len = hdr.len;
+	tl = timespec64_sub(ts, apu->intr_ts);
 
 	dev_info(dev,
-		 "%s: ipi_id=%d, len=%d, serial_no=%d ++\n",
-		 __func__, id, len, hdr.serial_no);
-
-	if (id >= APU_IPI_MAX) {
-		dev_info(dev, "no such IPI id = %d", id);
-		goto ack_irq;
-	}
-
-	if (hdr.serial_no != rx_serial_no) {
-		dev_info(dev, "unmatched serial_no: curr=%u, recv=%u\n",
-			rx_serial_no, hdr.serial_no);
-		dev_info(dev, "outbox irq=%x\n", ioread32(apu->apu_mbox + 0xc4));
-		if (ioread32(apu->apu_mbox + 0xc4) == 0) {
-			dev_info(dev, "abnormal isr call, skip\n");
-			goto ack_irq;
-		}
-		/* correct the serial no. */
-		rx_serial_no = hdr.serial_no;
-		apusys_rv_aee_warn("APUSYS_RV", "IPI rx_serial_no unmatch");
-	}
-	rx_serial_no++;
-
-	if (len > APU_SHARE_BUFFER_SIZE) {
-		dev_info(dev, "IPI message too long(len %d, max %d)",
-			len, APU_SHARE_BUFFER_SIZE);
-		goto ack_irq;
-	}
+		 "%s: ipi_id=%d, len=%d, serial_no=%d, latency=%lld++\n",
+		 __func__, id, len, apu->hdr.serial_no, timespec64_to_ns(&tl));
 
 	mutex_lock(&apu->ipi_desc[id].lock);
+
 	handler = apu->ipi_desc[id].handler;
 	if (!handler) {
 		dev_info(dev, "IPI id=%d is not registered", id);
 		mutex_unlock(&apu->ipi_desc[id].lock);
-		goto ack_irq;
-	}
-
-	memcpy_fromio(temp_buf, &recv_obj->share_buf, len);
-
-	calc_csum = calculate_csum(temp_buf, len);
-	if (calc_csum != hdr.csum) {
-		dev_info(dev, "csum error: recv=0x%08x, calc=0x%08x\n",
-			hdr.csum, calc_csum);
-		dump_msg_buf(apu, temp_buf, hdr.len);
-		apusys_rv_aee_warn("APUSYS_RV", "IPI rx csum error");
+		goto out;
 	}
 
 	handler(temp_buf, len, apu->ipi_desc[id].priv);
@@ -381,16 +343,77 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	apu->ipi_id_ack[id] = true;
 	wake_up(&apu->ack_wq);
 
-ack_irq:
-	apu_mbox_ack_outbox(apu);
-
+out:
 	ktime_get_ts64(&te);
 	ts = timespec64_sub(te, ts);
 
 	dev_info(dev,
 		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld --\n",
-		 __func__, id, len, hdr.csum, hdr.serial_no,
+		 __func__, id, len, apu->hdr.csum, apu->hdr.serial_no,
 		 timespec64_to_ns(&ts));
+
+	return IRQ_HANDLED;
+}
+
+irqreturn_t apu_ipi_int_handler(int irq, void *priv)
+{
+	struct mtk_apu *apu = priv;
+	struct device *dev = apu->dev;
+	struct mtk_share_obj *recv_obj = apu->recv_buf;
+	u32 id, len, calc_csum;
+	bool finish = false;
+
+	apu_mbox_read_outbox(apu, &apu->hdr);
+	id = apu->hdr.id;
+	len = apu->hdr.len;
+
+	if (id >= APU_IPI_MAX) {
+		dev_info(dev, "no such IPI id = %d", id);
+		finish = true;
+	}
+
+	if (len > APU_SHARE_BUFFER_SIZE) {
+		dev_info(dev, "IPI message too long(len %d, max %d)",
+			len, APU_SHARE_BUFFER_SIZE);
+		finish = true;
+	}
+
+	if (apu->hdr.serial_no != rx_serial_no) {
+		dev_info(dev, "unmatched serial_no: curr=%u, recv=%u\n",
+			rx_serial_no, apu->hdr.serial_no);
+		dev_info(dev, "outbox irq=%x\n", ioread32(apu->apu_mbox + 0xc4));
+		if (ioread32(apu->apu_mbox + 0xc4) == 0) {
+			dev_info(dev, "abnormal isr call, skip\n");
+			goto done;
+		}
+		/* correct the serial no. */
+		rx_serial_no = apu->hdr.serial_no;
+		apusys_rv_aee_warn("APUSYS_RV", "IPI rx_serial_no unmatch");
+	}
+	rx_serial_no++;
+
+	if (finish)
+		goto done;
+
+	memcpy_fromio(temp_buf, &recv_obj->share_buf, len);
+
+	/* ack after data copied */
+	apu_mbox_ack_outbox(apu);
+
+	calc_csum = calculate_csum(temp_buf, len);
+	if (calc_csum != apu->hdr.csum) {
+		dev_info(dev, "csum error: recv=0x%08x, calc=0x%08x\n",
+			apu->hdr.csum, calc_csum);
+		dump_msg_buf(apu, temp_buf, apu->hdr.len);
+		apusys_rv_aee_warn("APUSYS_RV", "IPI rx csum error");
+	}
+
+	ktime_get_ts64(&apu->intr_ts);
+
+	return IRQ_WAKE_THREAD;
+
+done:
+	apu_mbox_ack_outbox(apu);
 
 	return IRQ_HANDLED;
 }
@@ -656,7 +679,7 @@ int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 		 apu->mbox0_irq_number);
 
 	ret = devm_request_threaded_irq(&pdev->dev, apu->mbox0_irq_number,
-				NULL, apu_ipi_handler, IRQF_ONESHOT,
+				apu_ipi_int_handler, apu_ipi_handler, IRQF_ONESHOT,
 				"apu_ipi", apu);
 	if (ret < 0) {
 		dev_info(&pdev->dev, "%s: failed to request irq %d, ret=%d\n",
