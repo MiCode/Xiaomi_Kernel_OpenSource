@@ -22,7 +22,7 @@
 #endif
 
 #undef MTK_M4U_ID
-#include <dt-bindings/memory/mt6983-larb-port.h>
+#include <dt-bindings/memory/mt6895-larb-port.h>
 //#include <linux/interconnect-provider.h>
 #include "mtk-interconnect.h"
 #include <soc/mediatek/smi.h>
@@ -492,16 +492,16 @@ int cmdq_TranslationFault_callback(
 	cmdq_core_dump_tasks_info();
 
 	switch (port) {
-	case M4U_PORT_L2_MDP_RDMA0:
+	case M4U_LARB2_PORT0:
 		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
 		break;
-	case M4U_PORT_L2_MDP_RDMA2:
+	case M4U_LARB2_PORT1:
 		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
 		break;
-	case M4U_PORT_L2_MDP_WROT0:
+	case M4U_LARB2_PORT2:
 		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
 		break;
-	case M4U_PORT_L2_MDP_WROT2:
+	case M4U_LARB2_PORT3:
 		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
 		break;
 	default:
@@ -1505,13 +1505,13 @@ void cmdqMdpInitialSetting(struct platform_device *pdev)
 	CMDQ_LOG("[MDP] %s\n", __func__);
 
 	/* Register ION Translation Fault function */
-	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA0,
+	mtk_iommu_register_fault_callback(M4U_LARB2_PORT1,
 		cmdq_TranslationFault_callback, (void *)data, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA2,
+	mtk_iommu_register_fault_callback(M4U_LARB2_PORT2,
 		cmdq_TranslationFault_callback, (void *)data, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT0,
+	mtk_iommu_register_fault_callback(M4U_LARB2_PORT3,
 		cmdq_TranslationFault_callback, (void *)data, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT2,
+	mtk_iommu_register_fault_callback(M4U_LARB2_PORT4,
 		cmdq_TranslationFault_callback, (void *)data, false);
 #endif
 
@@ -1629,13 +1629,13 @@ static u32 cmdq_mdp_qos_translate_port(u32 engine_id)
 {
 	switch (engine_id) {
 	case CMDQ_ENG_MDP_RDMA0:
-		return M4U_PORT_L2_MDP_RDMA0;
+		return M4U_LARB2_PORT0;
 	case CMDQ_ENG_MDP_RDMA1:
-		return M4U_PORT_L2_MDP_RDMA2;
+		return M4U_LARB2_PORT1;
 	case CMDQ_ENG_MDP_WROT0:
-		return M4U_PORT_L2_MDP_WROT0;
+		return M4U_LARB2_PORT2;
 	case CMDQ_ENG_MDP_WROT1:
-		return M4U_PORT_L2_MDP_WROT2;
+		return M4U_LARB2_PORT3;
 	}
 
 	return 0;
@@ -1666,13 +1666,13 @@ static void *mdp_qos_get_path(u32 thread_id, u32 port)
 
 	switch (port) {
 	/* mdp part */
-	case M4U_PORT_L2_MDP_RDMA0:
+	case M4U_LARB2_PORT1:
 		return path_mdp_rdma0[thread_id];
-	case M4U_PORT_L2_MDP_RDMA2:
+	case M4U_LARB2_PORT2:
 		return path_mdp_rdma1[thread_id];
-	case M4U_PORT_L2_MDP_WROT0:
+	case M4U_LARB2_PORT3:
 		return path_mdp_wrot0[thread_id];
-	case M4U_PORT_L2_MDP_WROT2:
+	case M4U_LARB2_PORT4:
 		return path_mdp_wrot1[thread_id];
 	}
 
