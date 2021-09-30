@@ -744,21 +744,14 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 	fd->rs_pym_out_size[2] = fd->rs_pym_out_size[0] / 16;
 
 	/* FDMODE Dram Buffer Size */
-	for (i = 0; i < fd_loop_num; i++) {
+	for (i = rpn1_loop_num + 1 ; i < rpn0_loop_num - 1; i++) {
 		for (j = 0; j < output_WDMA_WRA_num; j++) {
-			if (fd_wdma_en[i][j]) {
-				if ((i == rpn2_loop_num ||
-				     i == rpn1_loop_num ||
-				     i == rpn0_loop_num) && (j == 0)) {
-					fd->fd_dma_rst_max_size +=
-						pstv->fd_wdma_size[i][j];
-				} else {
-					fd->fd_dma_max_size +=
-						pstv->fd_wdma_size[i][j];
-				}
-			}
+			fd->fd_dma_max_size += pstv->fd_wdma_size[i][j];
 		}
 	}
+	fd->fd_dma_rst_max_size = pstv->fd_wdma_size[rpn2_loop_num][0] +
+					pstv->fd_wdma_size[rpn1_loop_num][0] +
+					pstv->fd_wdma_size[rpn0_loop_num][0];
 
 	for (i = 0; i < fd_loop_num; i++) {
 		for (j = 0; j < kernel_RDMA_RA_num; j++) {
@@ -1217,7 +1210,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 
 	fd->fld_tree_13_hw.dmabuf = ret_buf;
 	fd->fld_tree_13_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_tree_02_hw);
+	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_tree_13_hw);
 	if (!iova)
 		return -1;
 
@@ -1257,10 +1250,8 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 #endif
 static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 {
-	void *currentVA = NULL;
 	dma_addr_t currentPA;
 	struct aie_static_info *pstv;
-	u8 i, j;
 
 	pstv = &fd->st_info;
 
@@ -1316,13 +1307,14 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 	fd->dma_para->fd_out_hw_pa[27][0] = fd->dma_para->fd_out_hw_pa[25][0] +
 					    4 * pstv->out_xsize_plus_1[27];
 
-	/* 29~47 */
+	fd->dma_para->fd_out_hw_pa[29][0] = fd->fd_dma_hw.pa;
+#if CHECK_SERVICE_0
 	fd->dma_para->fd_out_hw_pa[29][0] =
 		fd->dma_para->fd_out_hw_pa[25][0] + pstv->fd_wdma_size[25][0] +
 		pstv->fd_wdma_size[25][1] + pstv->fd_wdma_size[26][0] +
 		pstv->fd_wdma_size[26][1] + pstv->fd_wdma_size[27][0];
+#endif
 	aie_alloc_normal(fd, 30, 47);
-
 	/* 48~56 */
 	fd->dma_para->fd_out_hw_pa[48][0] =
 		fd->dma_para->fd_out_hw_pa[47][1] + pstv->fd_wdma_size[47][1];
@@ -1372,10 +1364,13 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 					    4 * pstv->out_xsize_plus_1[56];
 
 	/* 58~76 */
+	fd->dma_para->fd_out_hw_pa[58][0] = fd->fd_dma_hw.pa;
+#if CHECK_SERVICE_0
 	fd->dma_para->fd_out_hw_pa[58][0] =
 		fd->dma_para->fd_out_hw_pa[54][0] + pstv->fd_wdma_size[54][0] +
 		pstv->fd_wdma_size[54][1] + pstv->fd_wdma_size[55][0] +
 		pstv->fd_wdma_size[55][1] + pstv->fd_wdma_size[56][0];
+#endif
 	aie_alloc_normal(fd, 59, 76);
 
 	/* 77~85 */
@@ -1425,7 +1420,7 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 					    3 * pstv->out_xsize_plus_1[84];
 	fd->dma_para->fd_out_hw_pa[85][0] = fd->dma_para->fd_out_hw_pa[83][0] +
 					    4 * pstv->out_xsize_plus_1[85];
-
+#if CHECK_SERVICE_0
 	/* VA : except 28, 57, 86 */
 	/* 0~86 */
 	fd->dma_para->fd_out_hw_va[0][0] = fd->fd_dma_hw.va;
@@ -1442,16 +1437,18 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 			}
 		}
 	}
-
+#endif
 	currentPA = fd->dma_para->fd_out_hw_pa[83][0] +
 		    pstv->fd_wdma_size[83][0] + pstv->fd_wdma_size[83][1] +
 		    pstv->fd_wdma_size[84][0] + pstv->fd_wdma_size[84][1] +
 		    pstv->fd_wdma_size[85][0];
+
+#if CHECK_SERVICE_0
 	currentVA = fd->dma_para->fd_out_hw_va[83][0] +
 		    pstv->fd_wdma_size[83][0] + pstv->fd_wdma_size[83][1] +
 		    pstv->fd_wdma_size[84][0] + pstv->fd_wdma_size[84][1] +
 		    pstv->fd_wdma_size[85][0];
-
+#endif
 }
 
 static void aie_arrange_kernel_buf(struct mtk_aie_dev *fd)
@@ -1795,7 +1792,6 @@ static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
 static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 {
 	struct aie_static_info *pstv;
-	u8 i, j;
 
 	pstv = &fd->st_info;
 
@@ -1944,6 +1940,7 @@ static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 
 	/* VA : except 28, 57, 86 */
 	/* 0~86 */
+#if CHECK_SERVICE_0
 	fd->dma_para->fd_out_hw_va[0][0] = fd->fd_dma_hw.va;
 	for (i = 1; i < fd_loop_num; i++) {
 		if (i == rpn2_loop_num || i == rpn1_loop_num ||
@@ -1958,6 +1955,7 @@ static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 			}
 		}
 	}
+#endif
 }
 static void aie_free_sec_buf(struct mtk_aie_dev *fd)
 {
