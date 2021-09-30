@@ -96,19 +96,21 @@ static void mmqos_update_setting(struct mtk_mmqos *mmqos)
 
 	list_for_each_entry(comm_node, &mmqos->comm_list, list) {
 		comm_node->freq = clk_get_rate(comm_node->clk)/1000000;
-		list_for_each_entry(comm_port,
-				    &comm_node->comm_port_list, list) {
-			mutex_lock(&comm_port->bw_lock);
-			if (comm_port->latest_mix_bw
-				|| comm_port->latest_peak_bw) {
-				mmqos_update_comm_bw(comm_port->larb_dev,
-					MASK_8(comm_port->base->icc_node->id),
-					comm_port->common->freq,
-					icc_to_MBps(comm_port->latest_mix_bw),
-					icc_to_MBps(comm_port->latest_peak_bw),
-					mmqos->qos_bound);
+		if (mmqos_state & BWL_ENABLE) {
+			list_for_each_entry(comm_port,
+						&comm_node->comm_port_list, list) {
+				mutex_lock(&comm_port->bw_lock);
+				if (comm_port->latest_mix_bw
+					|| comm_port->latest_peak_bw) {
+					mmqos_update_comm_bw(comm_port->larb_dev,
+						MASK_8(comm_port->base->icc_node->id),
+						comm_port->common->freq,
+						icc_to_MBps(comm_port->latest_mix_bw),
+						icc_to_MBps(comm_port->latest_peak_bw),
+						mmqos->qos_bound);
+				}
+				mutex_unlock(&comm_port->bw_lock);
 			}
-			mutex_unlock(&comm_port->bw_lock);
 		}
 	}
 }
