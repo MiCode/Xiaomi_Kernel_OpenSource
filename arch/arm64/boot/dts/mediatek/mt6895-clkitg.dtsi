@@ -219,7 +219,6 @@
 			<&apupll_pll_ctrl_clk CLK_APU0_AO_APUPLL>,
 			<&npupll_pll_ctrl_clk CLK_NPU_AO_NPUPLL>,
 			<&apupll1_pll_ctrl_clk CLK_APU1_AO_APUPLL1>,
-			<&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_GPT_BCLK_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_PWM_VLP_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_SYSTIMER_26M_SEL>,

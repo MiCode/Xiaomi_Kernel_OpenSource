@@ -11,7 +11,6 @@
 		clocks = <&clk26m>,
 			<&vlp_cksys_clk CLK_VLP_CKSYS_APXGPT66M_BCLK_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CKSYS_DXCC_VLP_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CKSYS_SCP_SEL>,
 			<&topckgen_clk CLK_TOP_PERI_HD_FAXI_SEL>,
 			<&topckgen_clk CLK_TOP_UFS_HD_HAXI_SEL>,
 			<&topckgen_clk CLK_TOP_BUS_AXIMEM_SEL>,
