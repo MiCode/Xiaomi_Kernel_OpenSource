@@ -82,6 +82,10 @@ obj-y += cmdq_sec.o
 ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
 endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
 
+ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
+ccflags-y += -DCMDQ_GP_SUPPORT
+endif
+
 ifeq ($(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT)),y)
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
 ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
