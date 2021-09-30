@@ -76,9 +76,11 @@
 #define SMI_LARB_OSTD_MON_PORT(p)	(0x280 + ((p) << 2))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 #define INT_SMI_LARB_OSTDL_PORTx(id)	(0x500 + SMI_LARB_OSTDL_PORT + ((id) << 2))
+#define SMI_LARB_STAT			(0x0)
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
 #define SMI_BUS_LARB_SHIFT(larbid)	((larbid) << 1)
+#define SMI_DEBUG_MISC		(0x440)
 /* All are MMU0 defaultly. Only specialize mmu1 here. */
 #define F_MMU1_LARB(larbid)		(0x1 << SMI_BUS_LARB_SHIFT(larbid))
 #define SMI_L1LEN			0x100
@@ -1510,6 +1512,19 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 	return 0;
 }
 
+static RAW_NOTIFIER_HEAD(smi_driver_notifier_list);
+int mtk_smi_driver_register_notifier(struct notifier_block *nb)
+{
+	return raw_notifier_chain_register(&smi_driver_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(mtk_smi_driver_register_notifier);
+
+int mtk_smi_driver_unregister_notifier(struct notifier_block *nb)
+{
+	return raw_notifier_chain_unregister(&smi_driver_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(mtk_smi_driver_unregister_notifier);
+
 static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
@@ -1525,6 +1540,8 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 		//WARN_ON(1);
 	}
 
+	if (readl_relaxed(larb->base + SMI_LARB_STAT))
+		raw_notifier_call_chain(&smi_driver_notifier_list, 0, NULL);
 	if (larb_gen->sleep_ctrl)
 		larb_gen->sleep_ctrl(dev, true);
 
@@ -2119,6 +2136,8 @@ static int __maybe_unused mtk_smi_common_suspend(struct device *dev)
 {
 	struct mtk_smi *common = dev_get_drvdata(dev);
 
+	if (!(readl_relaxed(common->base + SMI_DEBUG_MISC) & 0x1))
+		raw_notifier_call_chain(&smi_driver_notifier_list, 0, NULL);
 	mtk_smi_clk_disable(common);
 	atomic_dec(&common->ref_count);
 	return 0;

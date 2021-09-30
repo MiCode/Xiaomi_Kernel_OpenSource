@@ -78,6 +78,14 @@
 #define INT_SMI_LARB_DBG_CON		(0x500 + (SMI_LARB_DBG_CON))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 
+struct smi_dbg {
+	void __iomem *ctrl_base;
+	ssize_t ctrl_size;
+	struct device *comm_dev;
+	struct notifier_block nb;
+};
+static struct smi_dbg *dbg;
+
 #define SMI_LARB_REGS_NR		(194)
 static u32	smi_larb_regs[SMI_LARB_REGS_NR] = {
 	SMI_LARB_STAT, SMI_LARB_IRQ_EN, SMI_LARB_IRQ_STATUS, SMI_LARB_SLP_CON,
@@ -573,6 +581,13 @@ static char	*mtk_smi_dbg_comp[] = {
 	"mediatek,smi-larb", "mediatek,smi-common"
 };
 
+static int smi_dbg_cb(struct notifier_block *nb,
+		unsigned long value, void *v)
+{
+	mtk_smi_dbg_hang_detect("smi driver");
+	return 0;
+}
+
 static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 {
 	//struct device_node	*node = NULL, *comm;
@@ -580,6 +595,9 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 	struct platform_device	*pdev;
 	s32			larb_nr = 0, comm_nr = 0, id, ret;
 
+	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
+	if (!dbg)
+		return -ENOMEM;
 
 	pr_info("%s: comp[%d]:%s\n", __func__, 0, mtk_smi_dbg_comp[0]);
 
@@ -619,6 +637,8 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 		if (ret)
 			return ret;
 	}
+	dbg->nb.notifier_call = smi_dbg_cb;
+	mtk_smi_driver_register_notifier(&dbg->nb);
 	return 0;
 }
 
