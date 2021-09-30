@@ -143,9 +143,13 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		1. for 8k, feedback channel
 		2. 44.1k, 88.2k rxports
 	*/
-	if (((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
+	if ((((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
 		(rxport == 1 && (rates == 44100 || rates == 88200))) &&
-		btfm_slim_is_sb_reset_needed(chipset_ver)) {
+		btfm_slim_is_sb_reset_needed(chipset_ver)) ||
+		chipset_ver == QCA_HSP_SOC_ID_0200 ||
+		chipset_ver == QCA_HSP_SOC_ID_0210 ||
+		chipset_ver == QCA_HSP_SOC_ID_1201 ||
+		chipset_ver == QCA_HSP_SOC_ID_1211) {
 
 		BTFMSLIM_INFO("btfm_is_port_opening_delayed %d",
 					btfm_is_port_opening_delayed);
