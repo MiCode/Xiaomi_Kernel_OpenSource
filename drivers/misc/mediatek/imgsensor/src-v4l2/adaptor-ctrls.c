@@ -717,6 +717,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u8, &len);
 		break;
 	case V4L2_CID_TEST_PATTERN:
+		dev_dbg(dev, "V4L2_SET_TEST_PATTERN (mode:%d)", ctrl->val);
 		para.u8[0] = ctrl->val;
 		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_TEST_PATTERN,
@@ -944,6 +945,21 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			notify_fsync_mgr_n_1_en(ctx, info->n, info->en);
 		}
 		break;
+
+	case V4L2_CID_MTK_SENSOR_TEST_PATTERN_DATA:
+		{
+			struct mtk_test_pattern_data *info = ctrl->p_new.p;
+
+			dev_dbg(dev, "V4L2_SET_TEST_PATTERN_DATA R(%x),Gr(%x),Gb(%x),B(%x)",
+				info->Channel_R,
+				info->Channel_Gr,
+				info->Channel_Gb,
+				info->Channel_B);
+			subdrv_call(ctx, feature_control,
+				SENSOR_FEATURE_SET_TEST_PATTERN_DATA,
+				ctrl->p_new.p, &len);
+		}
+		break;
 	}
 
 	pm_runtime_put(dev);
@@ -959,6 +975,7 @@ static const struct v4l2_ctrl_ops ctrl_ops = {
 
 static const char * const test_pattern_menu[] = {
 	"Disabled",
+	"Solid Color",
 	"Colour Bars",
 };
 
@@ -1280,6 +1297,17 @@ static const struct v4l2_ctrl_config cfg_start_seamless_switch = {
 	.dims = {sizeof_u32(struct mtk_seamless_switch_param)},
 };
 
+static const struct v4l2_ctrl_config cfg_test_pattern_data = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_TEST_PATTERN_DATA,
+	.name = "test_pattern_data",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = {sizeof_u32(struct mtk_test_pattern_data)},
+};
+
 #ifdef IMGSENSOR_DEBUG
 static const struct v4l2_ctrl_config cfg_debug_cmd = {
 	.ops = &ctrl_ops,
@@ -1549,6 +1577,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_seamless_scenario, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_fd_ctrl, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_csi_param_ctrl, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_test_pattern_data, NULL);
 
 #ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);

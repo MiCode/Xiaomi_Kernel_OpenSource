@@ -369,6 +369,12 @@ struct mtk_n_1_mode {
 	__u8 en;
 };
 
+struct mtk_test_pattern_data {
+	__u32 Channel_R;
+	__u32 Channel_Gr;
+	__u32 Channel_Gb;
+	__u32 Channel_B;
+};
 
 /* GET */
 
