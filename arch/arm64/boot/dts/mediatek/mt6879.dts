@@ -8118,6 +8118,9 @@
 
 		mcupm_rts_header:mcupm-rts-header {
 			node_0 = "MCUPM_MET_UNIT_TEST", "test";
+
+			node_1 = "__MCUPM_MET_L3CTL__", "op_policy,ct_portion,nct_portion,\
+cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		};
 
 		sspm_rts_header:sspm-rts-header {
@@ -8332,6 +8335,18 @@
 				"APU_0_R,APU_0_W,GPU_0_R,GPU_0_W,",
 				"APU_1_R,APU_1_W,GPU_1_R,",
 				"GPU_1_W";
+			node_61 = "SSPM_SLBC_SLOT",
+				"enable,force,done,buffer_used,f_buffer,cached_used,force_size";
+			node_62 = "SSPM_SLBC_REF",
+				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp";
+			node_63 = "SSPM_SLBC_BW",
+				"mm,apu,mm_est";
+			node_64 = "SSPM_SLBC_PMU",
+				"hit,miss";
+			node_65 = "SSPM_SLBC_WAY",
+				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc,left";
+			node_66 = "SSPM_SWPM_CPU__CORE_PMU_L3DC_REFILL",
+				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7";
 		};
 	};
 	seninf_top: seninf_top@1a010000 {
