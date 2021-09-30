@@ -1716,7 +1716,7 @@ static void gpufreq_dump_dvfs_status(void)
  ***********************************************************************************/
 static void gpufreq_abort(void)
 {
-	gpueb_dump_ipi_status();
+	gpueb_dump_status();
 	gpufreq_dump_infra_status();
 
 #if GPUFREQ_FORCE_WDT_ENABLE

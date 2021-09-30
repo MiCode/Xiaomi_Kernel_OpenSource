@@ -44,9 +44,9 @@ static void __iomem *g_gpueb_mbox_sw_int;
  * Function Definition
  * ===============================================
  */
-void gpueb_dump_ipi_status(void)
+void gpueb_dump_status(void)
 {
-	gpueb_pr_info("@%s: == [GPUEB IPI STATUS] ==\n", __func__);
+	gpueb_pr_info("@%s: == [GPUEB STATUS] ==\n", __func__);
 
 	if (g_gpueb_base) {
 		/* 0x13C60300 */
@@ -58,6 +58,18 @@ void gpueb_dump_ipi_status(void)
 		/* 0x13C6033C */
 		gpueb_pr_info("@%s: GPUEB_INTC_IRQ_RAW_STA (0x%x): 0x%08x\n", __func__,
 			(0x13C40000 + 0x2033C), readl(g_gpueb_base + 0x2033C));
+		/* 0x13C60610 */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_AXI_STA (0x%x): 0x%08x\n", __func__,
+			(0x13C40000 + 0x20610), readl(g_gpueb_base + 0x20610));
+		/* 0x13C60618 */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_WDT_CON (0x%x): 0x%08x\n", __func__,
+			(0x13C40000 + 0x20618), readl(g_gpueb_base + 0x20618));
+		/* 0x13C6061C */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_WDT_KICK (0x%x): 0x%08x\n", __func__,
+			(0x13C40000 + 0x2061C), readl(g_gpueb_base + 0x2061C));
+		/* 0x13C60634 */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_MDSP_CFG (0x%x): 0x%08x\n", __func__,
+			(0x13C40000 + 0x20634), readl(g_gpueb_base + 0x20634));
 	} else
 		gpueb_pr_info("@%s: skip null g_gpueb_base\n", __func__);
 
@@ -75,7 +87,7 @@ void gpueb_dump_ipi_status(void)
 	else
 		gpueb_pr_info("@%s: skip null g_gpueb_mbox_sw_int\n", __func__);
 }
-EXPORT_SYMBOL(gpueb_dump_ipi_status);
+EXPORT_SYMBOL(gpueb_dump_status);
 
 void gpueb_trigger_wdt(const char *name)
 {
@@ -91,10 +103,10 @@ void gpueb_trigger_wdt(const char *name)
 EXPORT_SYMBOL(gpueb_trigger_wdt);
 
 #if defined(CONFIG_PROC_FS)
-/* PROCFS: show current ipi status */
-static int ipi_status_proc_show(struct seq_file *m, void *v)
+/* PROCFS: show current gpueb status */
+static int gpueb_status_proc_show(struct seq_file *m, void *v)
 {
-	seq_puts(m, "[GPUEB-DEBUG] Current Status of IPI\n");
+	seq_puts(m, "[GPUEB-DEBUG] Current Status of GPUEB\n");
 	if (g_gpueb_base) {
 		/* 0x13C60300 */
 		seq_printf(m, "GPUEB_INTC_IRQ_EN (0x%x): 0x%08x\n",
@@ -105,6 +117,18 @@ static int ipi_status_proc_show(struct seq_file *m, void *v)
 		/* 0x13C6033C */
 		seq_printf(m, "GPUEB_INTC_IRQ_RAW_STA (0x%x): 0x%08x\n",
 			(0x13C40000 + 0x2033C), readl(g_gpueb_base + 0x2033C));
+		/* 0x13C60610 */
+		seq_printf(m, "GPUEB_CFGREG_AXI_STA (0x%x): 0x%08x\n",
+			(0x13C40000 + 0x20610), readl(g_gpueb_base + 0x20610));
+		/* 0x13C60618 */
+		seq_printf(m, "GPUEB_CFGREG_WDT_CON (0x%x): 0x%08x\n",
+			(0x13C40000 + 0x20618), readl(g_gpueb_base + 0x20618));
+		/* 0x13C6061C */
+		seq_printf(m, "GPUEB_CFGREG_WDT_KICK (0x%x): 0x%08x\n",
+			(0x13C40000 + 0x2061C), readl(g_gpueb_base + 0x2061C));
+		/* 0x13C60634 */
+		seq_printf(m, "GPUEB_CFGREG_MDSP_CFG (0x%x): 0x%08x\n",
+			(0x13C40000 + 0x20634), readl(g_gpueb_base + 0x20634));
 	}
 	if (g_gpueb_mbox_ipi)
 		/* 0x13C62000 */
@@ -147,7 +171,7 @@ done:
 }
 
 /* PROCFS : initialization */
-PROC_FOPS_RO(ipi_status);
+PROC_FOPS_RO(gpueb_status);
 PROC_FOPS_RW(force_trigger_wdt);
 
 static int gpueb_create_procfs(void)
@@ -161,7 +185,7 @@ static int gpueb_create_procfs(void)
 	};
 
 	const struct pentry default_entries[] = {
-		PROC_ENTRY(ipi_status),
+		PROC_ENTRY(gpueb_status),
 		PROC_ENTRY(force_trigger_wdt),
 	};
 
