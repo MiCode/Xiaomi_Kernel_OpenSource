@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/*TOUCH begin*/
+&spi2 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "pmx_ts_int_active", "pmx_ts_rst_active",
+		"pmx_ts_int_suspend", "pmx_ts_rst_suspend",
+		"pmx_ts_release", "ft3518u_spi_mode";
+	pinctrl-0 = <&ts_int_active>;
+	pinctrl-1 = <&ts_reset_active>;
+	pinctrl-2 = <&ts_int_suspend>;
+	pinctrl-3 = <&ts_reset_suspend>;
+	pinctrl-4 = <&ts_release>;
+	pinctrl-5 = <&ts_spi_mode>;
+
+	focaltech@0 {
+		status = "okay";
+		compatible = "focaltech,fts";
+		reg = <0>;
+		spi-max-frequency = <6000000>;
+		vtouch-supply = <&mt6368_vtp>;
+		focaltech,reset-gpio = <&pio 3 0x0>;
+		focaltech,irq-gpio = <&pio 135 0x0>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords = <0 0 1080 2400>;
+	};
+
+};
+
+&pio {
+	ts_int_active: ts_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			input-enable;
+		};
+	};
+
+	ts_reset_active: ts_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-high;
+		};
+	};
+
+	ts_int_suspend: ts_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			output-low;
+		};
+	};
+
+	ts_reset_suspend: ts_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-low;
+		};
+	};
+
+	ts_release: ts_release {
+	};
+
+	ts_spi_mode: spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_SPI2_A_MI>,
+				<PINMUX_GPIO110__FUNC_SPI2_A_CSB>,
+				<PINMUX_GPIO111__FUNC_SPI2_A_MO>,
+				<PINMUX_GPIO112__FUNC_SPI2_A_CLK>;
+			drive-strength = <2>;
+		};
+	};
+
+};
+/*TOUCH end*/
