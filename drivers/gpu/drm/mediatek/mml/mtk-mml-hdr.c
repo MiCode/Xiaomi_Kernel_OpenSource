@@ -144,6 +144,7 @@
 #define HDR_HLG_SG				(0x000001E0)
 
 #define HDR_WAIT_TIMEOUT_MS (50)
+#define HDR_REG_NUM (70)
 
 struct hdr_data {
 	u32 min_tile_width;
@@ -164,7 +165,7 @@ struct mml_comp_hdr {
 struct hdr_frame_data {
 	u8 out_idx;
 	u32 out_hist_xs;
-	u16 labels[HDR_CURVE_NUM];
+	u16 labels[HDR_CURVE_NUM+HDR_REG_NUM];
 	bool is_hdr_need_readback;
 };
 
@@ -264,7 +265,7 @@ static u32 hdr_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_hdr)
 		return 0;
 
-	return HDR_CURVE_NUM;
+	return HDR_CURVE_NUM+HDR_REG_NUM;
 }
 
 static void hdr_start_config(struct cmdq_pkt *pkt, const phys_addr_t base_pa,
@@ -335,23 +336,25 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 		result = get_hdr_comp_config_result(task);
 		if (result) {
 			s32 i;
+			s32 curve_idx = 0;
 			struct mml_pq_reg *regs = result->hdr_regs;
 			u32 *curve = result->hdr_curve;
 			//TODO: use different regs
 			mml_pq_msg("%s:config hdr regs, count: %d", __func__, result->hdr_reg_cnt);
 			for (i = 0; i < result->hdr_reg_cnt; i++) {
-				cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
-					regs[i].value, regs[i].mask);
+				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
+					regs[i].mask, reuse, cache,
+					&hdr_frm->labels[i]);
 				mml_pq_msg("[hdr][config][%x] = %#x mask(%#x)",
 					regs[i].offset, regs[i].value, regs[i].mask);
 			}
-			i = 0;
-			while (i < HDR_CURVE_NUM) {
-				mml_write(pkt, base_pa + HDR_GAIN_TABLE_1, curve[i], U32_MAX,
-					reuse, cache, &hdr_frm->labels[i]);
-				mml_write(pkt, base_pa + HDR_GAIN_TABLE_2, curve[i+1], U32_MAX,
-					reuse, cache, &hdr_frm->labels[i+1]);
+			while (i < HDR_CURVE_NUM + result->hdr_reg_cnt) {
+				mml_write(pkt, base_pa + HDR_GAIN_TABLE_1, curve[curve_idx],
+					U32_MAX, reuse, cache, &hdr_frm->labels[i]);
+				mml_write(pkt, base_pa + HDR_GAIN_TABLE_2, curve[curve_idx+1],
+					U32_MAX, reuse, cache, &hdr_frm->labels[i+1]);
 				i = i+2;
+				curve_idx = curve_idx+2;
 			}
 			cmdq_pkt_write(pkt, NULL, base_pa + HDR_GAIN_TABLE_0,
 					1 << 11, 1 << 11);
@@ -486,12 +489,18 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		result = get_hdr_comp_config_result(task);
 		if (result) {
 			s32 i = 0;
+			s32 curve_idx = 0;
+			struct mml_pq_reg *regs = result->hdr_regs;
 			u32 *curve = result->hdr_curve;
 
-			while (i < HDR_CURVE_NUM) {
-				mml_update(reuse, hdr_frm->labels[i], curve[i]);
-				mml_update(reuse, hdr_frm->labels[i+1], curve[i+1]);
-				i = i+2;
+			for (i = 0; i < result->hdr_reg_cnt; i++)
+				mml_update(reuse, hdr_frm->labels[i], regs[i].value);
+
+			while (i < HDR_CURVE_NUM + result->hdr_reg_cnt) {
+				mml_update(reuse, hdr_frm->labels[i], curve[curve_idx]);
+				mml_update(reuse, hdr_frm->labels[i+1], curve[curve_idx+1]);
+				i = i + 2;
+				curve_idx = curve_idx + 2;
 			}
 			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
 				result->is_hdr_need_readback);
