@@ -822,7 +822,7 @@ void md_dump_reg(unsigned int md_index)
 	if (buf_addr <= 0 || buf_size <= 0)
 		return;
 	/* get read buffer, remap */
-	buff_src = ioremap_cache(buf_addr, buf_size);
+	buff_src = ioremap_wt(buf_addr, buf_size);
 	if (buff_src == NULL) {
 		CCCI_ERROR_LOG(md_index, TAG,
 			"Dump MD failed to ioremap 0x%llx bytes from 0x%llx\n",
