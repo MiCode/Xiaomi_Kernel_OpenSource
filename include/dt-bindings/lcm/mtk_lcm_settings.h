@@ -85,6 +85,12 @@
 /* disable EOF BLLP area */
 #define MTK_MIPI_DSI_MODE_VIDEO_EOF_BLLP	(1U << 13)
 
+/* redefine enum TE_TYPE to macro for dts settings*/
+#define MTK_LCM_NORMAL_TE (0)
+#define MTK_LCM_REQUEST_TE (1)
+#define MTK_LCM_MULTI_TE (2)
+#define MTK_LCM_TRIGGER_LEVEL_TE (4)
+
 /* LCM_FUNC used for common operation */
 #define MTK_LCM_FUNC_DBI (0)
 #define MTK_LCM_FUNC_DPI (1)
