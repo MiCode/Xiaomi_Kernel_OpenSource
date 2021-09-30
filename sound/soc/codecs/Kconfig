@@ -207,6 +207,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_TAS6424
 	imply SND_SOC_TDA7419
 	imply SND_SOC_TFA9874
+        imply SND_SOC_AA006
 	imply SND_SOC_TFA9879
 	imply SND_SOC_TLV320ADCX140
 	imply SND_SOC_TLV320AIC23_I2C
@@ -1364,6 +1365,15 @@ config SND_SOC_TFA9874
 	  amplifier which contain speaker protection,
 	  multi-band DRC, equalizer function. It would
 	  be set to yes if device with TFA9874 on it.
+
+config SND_SOC_AA006
+	tristate "Support AA006 driver"
+	depends on I2C
+	help
+	  This option enables support for AA006 boards.
+	  Speaker amp use NXP TFA9874 codec,
+	  USB headset use fsa44xx codec,
+	  This only using on special project phone.
 
 config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
