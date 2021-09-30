@@ -500,9 +500,9 @@ static bool drm_mode_equal_res(const struct drm_display_mode *mode1,
 	ret = mode1->hdisplay == mode2->hdisplay &&
 		mode1->vdisplay == mode2->vdisplay;
 
-	DDPMSG("resolution switch:%dx%d->%dx%d,fps:%d->%d\n", mode1->hdisplay,
-		mode1->vdisplay, mode2->hdisplay, mode2->vdisplay,
-		drm_mode_vrefresh(mode1), drm_mode_vrefresh(mode2));
+	DDPMSG("resolution switch:%dx%d->%dx%d,fps:%d->%d\n", mode2->hdisplay,
+		mode2->vdisplay, mode1->hdisplay, mode1->vdisplay,
+		drm_mode_vrefresh(mode2), drm_mode_vrefresh(mode1));
 
 	return ret;
 }
