@@ -12,34 +12,54 @@
 #include <linux/sched.h>
 #include <linux/kernel.h>
 
-bool mtk_cam_trace_enabled(void);
+int mtk_cam_trace_enabled_tags(void);
+
+#define _MTK_CAM_TRACE_ENABLED(category)	\
+	(mtk_cam_trace_enabled_tags() & (1UL << category))
 
 __printf(1, 2)
 void mtk_cam_trace(const char *fmt, ...);
 
-#define MTK_CAM_TRACE_BEGIN(fmt, args...)			\
+#define _MTK_CAM_TRACE(category, fmt, args...)			\
 do {								\
-	if (unlikely(mtk_cam_trace_enabled()))			\
-		mtk_cam_trace("B|%d|camsys:" fmt "\n",		\
-			      task_tgid_nr(current), ##args);	\
+	if (unlikely(_MTK_CAM_TRACE_ENABLED(category)))		\
+		mtk_cam_trace(fmt "\n",	##args);		\
 } while (0)
-
-#define MTK_CAM_TRACE_END()					\
-do {								\
-	if (unlikely(mtk_cam_trace_enabled()))			\
-		mtk_cam_trace("E|%d\n",				\
-			      task_tgid_nr(current));		\
-} while (0)
-
-#define MTK_CAM_TRACE_FUNC_BEGIN()		\
-	MTK_CAM_TRACE_BEGIN("%s", __func__)
 
 #else
 
-#define MTK_CAM_TRACE_BEGIN(fmt, args...)
-#define MTK_CAM_TRACE_END()
-#define MTK_CAM_TRACE_FUNC_BEGIN()
+#define _MTK_CAM_TRACE_ENABLED(category)
+#define _MTK_CAM_TRACE(category, fmt, args...)
 
 #endif
+
+enum trace_category {
+	TRACE_BASIC,
+	TRACE_HW_IRQ,
+	TRACE_BUFFER,
+};
+
+#define _TRACE_CAT(cat)		TRACE_ ## cat
+
+#define MTK_CAM_TRACE_ENABLED(category)	\
+	_MTK_CAM_TRACE_ENABLED(_TRACE_CAT(category))
+
+#define MTK_CAM_TRACE(category, fmt, args...)				\
+	_MTK_CAM_TRACE(_TRACE_CAT(category), "camsys:" fmt, ##args)
+
+/*
+ * systrace format
+ */
+
+#define MTK_CAM_TRACE_BEGIN(category, fmt, args...)			\
+	_MTK_CAM_TRACE(_TRACE_CAT(category), "B|%d|camsys:" fmt,	\
+		      task_tgid_nr(current), ##args)			\
+
+#define MTK_CAM_TRACE_END(category)					\
+	_MTK_CAM_TRACE(_TRACE_CAT(category), "E|%d",			\
+		      task_tgid_nr(current))				\
+
+#define MTK_CAM_TRACE_FUNC_BEGIN(category)				\
+	MTK_CAM_TRACE_BEGIN(category, "%s", __func__)
 
 #endif /* __MTK_CAM_TRACE_H */

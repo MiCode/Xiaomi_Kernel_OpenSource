@@ -7,13 +7,13 @@
 
 #include <linux/module.h>
 
-static int ftrace_enable;
-module_param(ftrace_enable, int, 0644);
-MODULE_PARM_DESC(ftrace_enable, "enable/disable ftrace log");
+static int ftrace_tags;
+module_param(ftrace_tags, int, 0644);
+MODULE_PARM_DESC(ftrace_tags, "enable ftrace tags (bitmask)");
 
-bool mtk_cam_trace_enabled(void)
+int mtk_cam_trace_enabled_tags(void)
 {
-	return ftrace_enable;
+	return ftrace_tags;
 }
 
 static noinline

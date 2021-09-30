@@ -73,12 +73,12 @@ static void *mtk_cam_vb2_vaddr(void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
 
-	MTK_CAM_TRACE_FUNC_BEGIN();
+	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	if (!buf->vaddr && buf->db_attach)
 		buf->vaddr = dma_buf_vmap(buf->db_attach->dmabuf);
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BUFFER);
 	return buf->vaddr;
 }
 
@@ -131,7 +131,7 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 		return 0;
 	}
 
-	MTK_CAM_TRACE_FUNC_BEGIN();
+	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	/* get the associated scatterlist for this buffer */
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
@@ -153,7 +153,7 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 	buf->dma_sgt = sgt;
 	buf->vaddr = NULL;
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BUFFER);
 	return 0;
 }
 
@@ -172,7 +172,7 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 		return;
 	}
 
-	MTK_CAM_TRACE_FUNC_BEGIN();
+	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	if (buf->vaddr) {
 		dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
@@ -183,7 +183,7 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BUFFER);
 }
 
 static void mtk_cam_vb2_detach_dmabuf(void *mem_priv)

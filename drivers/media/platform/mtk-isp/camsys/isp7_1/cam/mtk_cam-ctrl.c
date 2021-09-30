@@ -1029,11 +1029,11 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	dev_dbg(cam->dev, "%s:%s:ctx(%d) req(%d):sensor try set start\n",
 		__func__, req->req.debug_str, ctx->stream_id, s_data->frame_seq_no);
 
-	MTK_CAM_TRACE_BEGIN("frame_sync_start");
+	MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_start");
 	if (mtk_cam_req_frame_sync_start(req))
 		dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
 			__func__, req->req.debug_str, ctx->stream_id);
-	MTK_CAM_TRACE_END(); /* frame_sync_start */
+	MTK_CAM_TRACE_END(BASIC); /* frame_sync_start */
 
 	if (mtk_cam_is_mstream(ctx))
 		is_mstream_last_exposure =
@@ -1067,11 +1067,11 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		state_transition(&s_data->state,
 		E_STATE_READY, E_STATE_SENSOR);
 
-	MTK_CAM_TRACE_BEGIN("frame_sync_end");
+	MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_end");
 	if (mtk_cam_req_frame_sync_end(req))
 		dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
 			__func__, ctx->stream_id);
-	MTK_CAM_TRACE_END(); /* frame_sync_end */
+	MTK_CAM_TRACE_END(BASIC); /* frame_sync_end */
 
 	if (ctx->used_raw_num) {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
@@ -2827,10 +2827,10 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 		return;
 	}
 
-	MTK_CAM_TRACE_BEGIN("meta_copy");
+	MTK_CAM_TRACE_BEGIN(BASIC, "meta_copy");
 	memcpy(vaddr, s_data->working_buf->meta_buffer.va,
 	       s_data->working_buf->meta_buffer.size);
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BASIC);
 
 	spin_lock(&node->buf_list_lock);
 	list_del(&buf->list);
@@ -2965,7 +2965,7 @@ void mtk_cam_frame_done_work(struct work_struct *work)
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_ctx *ctx;
 
-	MTK_CAM_TRACE_BEGIN("frame_done");
+	MTK_CAM_TRACE_BEGIN(BASIC, "frame_done");
 
 	req_stream_data = mtk_cam_req_work_get_s_data(frame_done_work);
 	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
@@ -2979,7 +2979,7 @@ void mtk_cam_frame_done_work(struct work_struct *work)
 				  req_stream_data->frame_seq_no,
 				  req_stream_data->pipe_id);
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BASIC);
 }
 
 void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
@@ -3488,7 +3488,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 	int sub_engine_type = irq_info->engine_id & MTK_CAMSYS_ENGINE_IDXMASK;
 	int ret = 0;
 
-	MTK_CAM_TRACE_BEGIN("irq_type %d, inner %d",
+	MTK_CAM_TRACE_BEGIN(BASIC, "irq_type %d, inner %d",
 			    irq_info->irq_type, irq_info->frame_inner_idx);
 	/**
 	 * Here it will be implemented dispatch rules for some scenarios
@@ -3526,7 +3526,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 		break;
 	}
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BASIC);
 
 	return ret;
 }

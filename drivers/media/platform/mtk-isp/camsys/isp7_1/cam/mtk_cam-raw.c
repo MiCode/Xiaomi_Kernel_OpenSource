@@ -1085,7 +1085,7 @@ void apply_cq(struct mtk_raw_device *dev,
 	int trigger = USINGSCQ || initial;
 	dma_addr_t main, sub;
 
-	MTK_CAM_TRACE_FUNC_BEGIN();
+	MTK_CAM_TRACE_FUNC_BEGIN(BASIC);
 
 	dev_dbg(dev->dev,
 		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
@@ -1117,7 +1117,7 @@ void apply_cq(struct mtk_raw_device *dev,
 		ccu_apply_cq(dev, cq_addr, cq_size, initial, cq_offset, sub_cq_size, sub_cq_offset);
 	}
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BASIC);
 }
 
 void reset(struct mtk_raw_device *dev)
@@ -2131,6 +2131,21 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	/* enable to debug fbc related */
 	if (debug_raw && debug_dump_fbc && (irq_status & SOF_INT_ST))
 		mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
+
+	/* trace */
+	if (irq_status || dmao_done_status || dmai_done_status)
+		MTK_CAM_TRACE(HW_IRQ,
+			      "%s: irq=0x%08x dmao=0x%08x dmai=0x%08x has_err=%d",
+			      dev_name(dev),
+			      irq_status, dmao_done_status, dmai_done_status,
+			      !!err_status);
+	if (drop_status)
+		MTK_CAM_TRACE(HW_IRQ, "%s: drop=0x%08x",
+			      dev_name(dev), drop_status);
+
+	if (cq_done_status || cq2_done_status)
+		MTK_CAM_TRACE(HW_IRQ, "%s: cq=0x%08x 0x%08x",
+			      dev_name(dev), cq_done_status, cq2_done_status);
 
 ctx_not_found:
 
@@ -5678,6 +5693,16 @@ static irqreturn_t mtk_irq_yuv(int irq, void *data)
 	dev_dbg(dev, "YUV-INT:0x%x(err:0x%x) INT2/4/5 0x%x/0x%x/0x%x\n",
 		irq_status, err_status,
 		dma_done_status, drop_status, dma_ofl_status);
+
+	/* trace */
+	if (irq_status || dma_done_status)
+		MTK_CAM_TRACE(HW_IRQ, "%s: irq=0x%08x dmao=0x%08x has_err=%d",
+			      dev_name(dev),
+			      irq_status, dma_done_status, !!err_status);
+
+	if (drop_status)
+		MTK_CAM_TRACE(HW_IRQ, "%s: drop=0x%08x",
+			      dev_name(dev), drop_status);
 
 	return IRQ_HANDLED;
 }

@@ -2280,12 +2280,12 @@ static void mtk_cam_req_queue(struct media_request *req)
 	cam_req->flags = 0;
 	cam_req->ctx_used = 0;
 
-	MTK_CAM_TRACE_BEGIN("vb2_request_queue");
+	MTK_CAM_TRACE_BEGIN(BASIC, "vb2_request_queue");
 
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BASIC);
 
 	/* add to pending job list */
 	spin_lock(&cam->pending_job_lock);
@@ -2296,7 +2296,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 		return;
 	}
 
-	MTK_CAM_TRACE_BEGIN("req_try_queue");
+	MTK_CAM_TRACE_BEGIN(BASIC, "req_try_queue");
 	/**
 	 * Add req's ref cnt since it is used by pending_job_list and running
 	 * pending_job_list.
@@ -2309,7 +2309,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 	mtk_cam_dev_req_try_queue(cam);
 	mutex_unlock(&cam->queue_lock);
 
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BASIC);
 }
 
 static int mtk_cam_link_notify(struct media_link *link, u32 flags,
@@ -2957,9 +2957,12 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 	if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FRAME) {
 		int ret;
 
-		MTK_CAM_TRACE_BEGIN("ipi_frame_ack:%d", ipi_msg->cookie.frame_no);
+		MTK_CAM_TRACE_BEGIN(BASIC, "ipi_frame_ack:%d",
+				    ipi_msg->cookie.frame_no);
+
 		ret = isp_composer_handle_ack(cam, ipi_msg);
-		MTK_CAM_TRACE_END();
+
+		MTK_CAM_TRACE_END(BASIC);
 		return ret;
 
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
@@ -3159,9 +3162,12 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		mtk_cam_dev_config(ctx, true, false);
 
 	if (ctx->rpmsg_dev) {
-		MTK_CAM_TRACE_BEGIN("ipi_cmd_frame:%d", req_stream_data->frame_seq_no);
+		MTK_CAM_TRACE_BEGIN(BASIC, "ipi_cmd_frame:%d",
+				    req_stream_data->frame_seq_no);
+
 		rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-		MTK_CAM_TRACE_END();
+
+		MTK_CAM_TRACE_END(BASIC);
 
 		dev_dbg(cam->dev,
 			 "%s: rpmsg_send id: %d, ctx:%d, seq:%d, bin:(0x%x)\n",

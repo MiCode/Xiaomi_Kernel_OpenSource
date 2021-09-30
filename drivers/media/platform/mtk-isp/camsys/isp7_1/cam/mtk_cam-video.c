@@ -267,9 +267,9 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	}
 
 	/* all enabled nodes are streaming, enable all subdevs */
-	MTK_CAM_TRACE_BEGIN("ctx_stream_on");
+	MTK_CAM_TRACE_BEGIN(BASIC, "ctx_stream_on");
 	ret = mtk_cam_ctx_stream_on(ctx);
-	MTK_CAM_TRACE_END();
+	MTK_CAM_TRACE_END(BASIC);
 
 	if (ret)
 		goto fail_destroy_session;
@@ -312,9 +312,9 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
 	if (ctx->streaming_node_cnt == ctx->enabled_node_cnt) {
-		MTK_CAM_TRACE_BEGIN("ctx_stream_off");
+		MTK_CAM_TRACE_BEGIN(BASIC, "ctx_stream_off");
 		mtk_cam_ctx_stream_off(ctx);
-		MTK_CAM_TRACE_END();
+		MTK_CAM_TRACE_END(BASIC);
 	}
 
 	if (cam->streaming_pipe & (1 << node->uid.pipe_id)) {
