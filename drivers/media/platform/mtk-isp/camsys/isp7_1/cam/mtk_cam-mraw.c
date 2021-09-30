@@ -12,7 +12,6 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
-#include <linux/jiffies.h>
 
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -1000,34 +999,40 @@ static int reset_msgfifo(struct mtk_mraw_device *dev)
 
 void mraw_reset(struct mtk_mraw_device *dev)
 {
-	unsigned long end = jiffies + msecs_to_jiffies(100);
+	int sw_ctl;
+	int ret;
 
 	dev_dbg(dev->dev, "%s\n", __func__);
 
-	writel_relaxed(0, dev->base + REG_MRAW_CTL_SW_CTL);
-	writel_relaxed(1, dev->base + REG_MRAW_CTL_SW_CTL);
-	wmb(); /* TBC */
+	writel(0, dev->base + REG_MRAW_CTL_SW_CTL);
+	writel(1, dev->base + REG_MRAW_CTL_SW_CTL);
+	wmb(); /* make sure committed */
 
-	while (time_before(jiffies, end)) {
-		if (readl(dev->base + REG_MRAW_CTL_SW_CTL) & 0x2) {
-			// do hw rst
-			writel_relaxed(4, dev->base + REG_MRAW_CTL_SW_CTL);
-			writel_relaxed(0, dev->base + REG_MRAW_CTL_SW_CTL);
-			wmb(); /* TBC */
-			return;
-		}
+	ret = readx_poll_timeout(readl, dev->base + REG_MRAW_CTL_SW_CTL, sw_ctl,
+				 sw_ctl & 0x2,
+				 1 /* delay, us */,
+				 100000 /* timeout, us */);
+	if (ret < 0) {
+		dev_info(dev->dev, "%s: timeout\n", __func__);
 
 		dev_info(dev->dev,
-			"tg_sen_mode: 0x%x, ctl_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x\n",
-			readl(dev->base + REG_MRAW_TG_SEN_MODE),
-			readl(dev->base + REG_MRAW_CTL_MOD_EN),
-			readl(dev->base + REG_MRAW_CTL_SW_CTL),
-			readl(dev->base + REG_MRAW_FRAME_SEQ_NUM)
+			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x\n",
+			 readl(dev->base + REG_MRAW_TG_SEN_MODE),
+			 readl(dev->base + REG_MRAW_CTL_MOD_EN),
+			 readl(dev->base + REG_MRAW_CTL_SW_CTL),
+			 readl(dev->base + REG_MRAW_FRAME_SEQ_NUM)
 			);
-		usleep_range(10, 20);
+
+		goto RESET_FAILURE;
 	}
 
-	dev_dbg(dev->dev, "reset hw timeout\n");
+	// do hw rst
+	writel(4, dev->base + REG_MRAW_CTL_SW_CTL);
+	writel(0, dev->base + REG_MRAW_CTL_SW_CTL);
+	wmb(); /* make sure committed */
+
+RESET_FAILURE:
+	return;
 }
 
 struct mtk_mraw_pipeline*

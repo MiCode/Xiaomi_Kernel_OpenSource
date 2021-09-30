@@ -12,7 +12,6 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
-#include <linux/jiffies.h>
 #include <linux/suspend.h>
 #include <linux/rtc.h>
 
@@ -1135,6 +1134,7 @@ void reset(struct mtk_raw_device *dev)
 	       dev->base + REG_CTL_MOD6_EN);
 	toggle_db(dev);
 
+	writel(0, dev->base + REG_CTL_SW_CTL);
 	writel(1, dev->base + REG_CTL_SW_CTL);
 	wmb(); /* make sure committed */
 
@@ -1143,7 +1143,7 @@ void reset(struct mtk_raw_device *dev)
 				 1 /* delay, us */,
 				 100000 /* timeout, us */);
 	if (ret < 0) {
-		dev_info(dev->dev, "%s: hw timeout\n", __func__);
+		dev_info(dev->dev, "%s: timeout\n", __func__);
 
 		dev_info(dev->dev,
 			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
@@ -1516,7 +1516,6 @@ void stream_on(struct mtk_raw_device *dev, int on)
 	u32 val;
 	u32 chk_val;
 	u32 cfg_val;
-	unsigned long end;
 	struct mtk_raw_pipeline *pipe;
 	u32 fps_ratio = 1;
 	int feature;
@@ -1586,20 +1585,21 @@ void stream_on(struct mtk_raw_device *dev, int on)
 
 		//writel_relaxed(val, dev->base_inner + REG_CTL_EN);
 		//writel_relaxed(val, dev->base_inner + REG_CTL_EN2);
-		wmb(); /* TBC */
-		/* reset hw after vf off */
-		end = jiffies + msecs_to_jiffies(10);
-		while (time_before(jiffies, end)) {
-			chk_val = readl_relaxed(dev->base + REG_TG_VF_CON);
-			if (chk_val == val) {
-				//writel_relaxed(0x0, dev->base + REG_TG_SEN_MODE);
-				//wmb(); /* TBC */
-				reset(dev);
-				reset_reg(dev);
-				break;
-			}
-			usleep_range(10, 20);
+
+		wmb(); /* make sure committed */
+
+		if (readx_poll_timeout(readl, dev->base_inner + REG_TG_VF_CON,
+				       chk_val, chk_val == val,
+				       1 /* sleep, us */,
+				       10000 /* timeout, us*/) < 0) {
+
+			dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
+				 __func__, chk_val);
 		}
+
+		reset(dev);
+		reset_reg(dev);
+
 		dev->vf_en = 0;
 	}
 }
