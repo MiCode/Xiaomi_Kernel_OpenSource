@@ -1511,11 +1511,6 @@ static void mtk_aie_device_run(void *priv)
 		fd->aie_cfg->fld_face_num = g_user_param.user_param.fld_face_num;
 		memcpy(fd->aie_cfg->fld_input, g_user_param.user_param.fld_input,
 		sizeof(struct FLD_CROP_RIP_ROP)*g_user_param.user_param.fld_face_num);
-		dev_info(fd->dev, "FLD num: %x\n", fd->aie_cfg->fld_face_num);
-		dev_info(fd->dev, "crop: %x %x %x %x\n", fd->aie_cfg->fld_input[0].fld_in_crop.x1,
-				fd->aie_cfg->fld_input[0].fld_in_crop.y1,
-				fd->aie_cfg->fld_input[0].fld_in_crop.x2,
-				fd->aie_cfg->fld_input[0].fld_in_crop.y2);
 	}
 	if (!(fd->aie_cfg->sel_mode == 3) & (fd->aie_cfg->src_img_fmt == FMT_YUV420_1P)) {
 		/*FLD Just have Y*/
@@ -1539,10 +1534,8 @@ static void mtk_aie_device_run(void *priv)
 		set_msb_bit = img_msb | img_msb << 4 | img_msb << 8 | img_msb << 12;
 		set_msb_bit = set_msb_bit | set_msb_bit << 16;
 
-		dev_info(fd->dev, "Y: %llx, set_msb_bit: %llx\n", img_y, set_msb_bit);
 		writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
 		set_msb_bit = set_msb_bit & 0xfffffff;
-		dev_info(fd->dev, "Y: %llx, set_msb_bit: %llx\n", img_y, set_msb_bit);
 		writel(set_msb_bit, fd->fd_base + FLD_BASE_ADDR_FACE_8_14_MSB);
 		//for UT
 		//writel(0x33333333, fd->fd_base + FLD_BASE_ADDR_FACE_0_7_MSB);
@@ -1910,16 +1903,18 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	if (!img_node) {
 		dev_info(dev,
 			"%s: img node not found\n", __func__);
+		return -EINVAL;
 	}
 	img_pdev = of_find_device_by_node(img_node);
 	if (!img_pdev) {
 		of_node_put(img_node);
 		dev_info(dev,
 			"%s: img device not found\n", __func__);
+		return -EINVAL;
 	}
 	of_node_put(img_node);
 	fd->img_pdev = img_pdev;
-	dev_info(dev, "AIE : Success to %s >W\n", __func__);
+	dev_info(dev, "AIE : Success to %s >W<\n", __func__);
 
 	return 0;
 

@@ -4113,6 +4113,7 @@ output_fail:
 
 dram_fail:
 	kfree(fd->dma_para);
+	fd->dma_para = NULL;
 	err_tag++;
 
 	dev_info(fd->dev, "Failed to alloc aie buf: %d\n", err_tag);
@@ -4166,14 +4167,17 @@ int aie_init(struct mtk_aie_dev *fd)
 
 dma_para_fail:
 	kfree(fd->attr_para);
+	fd->attr_para = NULL;
 	err_tag++;
 #ifdef FLD
 fld_para_fail:
 	kfree(fd->fld_para);
+	fd->fld_para = NULL;
 	err_tag++;
 #endif
 attr_para_fail:
 	kfree(fd->base_para);
+	fd->base_para = NULL;
 	err_tag++;
 
 	dev_info(fd->dev, "Failed to init aie: %d\n", err_tag);
