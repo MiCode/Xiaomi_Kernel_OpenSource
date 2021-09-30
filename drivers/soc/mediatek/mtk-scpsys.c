@@ -560,6 +560,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
 	u32 val;
 	int ret, tmp;
+	int i;
 
 	ret = scpsys_regulator_enable(scpd);
 	if (ret < 0)
@@ -624,6 +625,11 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	ret = scpsys_sram_enable(scpd, ctl_addr, true);
 	if (ret < 0)
 		goto err_sram;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_CHILD_OFF)) {
+		for (i = 0; i < MAX_CHILDREN; i++)
+			scpsys_power_on(&scp->domains[scpd->data->child[i]].genpd);
+	}
 
 	ret = scpsys_bus_protect_disable(scpd);
 	if (ret < 0)
