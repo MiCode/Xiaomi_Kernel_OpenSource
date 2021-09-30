@@ -3538,6 +3538,7 @@ void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *initial_req,
 	struct mtk_cam_request_stream_data *req_stream_data =
 		mtk_cam_req_get_s_data(initial_req, ctx->stream_id, 1);
 	sensor_ctrl->ctx = ctx;
+	req_stream_data->ctx = ctx;
 	mtk_cam_set_sensor_full(req_stream_data, &ctx->sensor_ctrl);
 	dev_info(ctx->cam->dev, "[mstream] Initial sensor timer setup, seq_no(%d)\n",
 				req_stream_data->frame_seq_no);
@@ -3553,6 +3554,7 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *initial_req,
 
 	sensor_ctrl->ctx = ctx;
 	req_stream_data = mtk_cam_req_get_s_data(initial_req, ctx->stream_id, 0);
+	req_stream_data->ctx = ctx;
 	mtk_cam_set_sensor_full(req_stream_data, &ctx->sensor_ctrl);
 	if (mtk_cam_is_subsample(ctx))
 		state_transition(&req_stream_data->state,
