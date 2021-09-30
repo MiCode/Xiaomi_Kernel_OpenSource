@@ -9,9 +9,9 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/misc/mediatek/mtk-interconnect \
 	     -I$(srctree)/drivers/misc/mediatek/imgsensor/src-v4l2/frame-sync/ \
 	     -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/ \
-	     -I$(srctree)/drivers/dma-buf/heaps/
+	     -I$(srctree)/drivers/dma-buf/heaps/ \
+	     -I$(src)
 
-MTK_CAMSYS_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_1/cam
 # MTEE part
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/iommu/
@@ -48,7 +48,7 @@ endif
 mtk-cam-isp-objs +=  mtk_cam-hsf.o
 #mtk-cam-isp-objs += mtk_cam-procdbg.o
 
-include $(MTK_CAMSYS_DRIVER_PATH)/mtk_csi_phy_2_0/sub_drv.mk
-include $(MTK_CAMSYS_DRIVER_PATH)/mtk_csi_phy_3_0/sub_drv.mk
+include $(src)/mtk_csi_phy_2_0/sub_drv.mk
+include $(src)/mtk_csi_phy_3_0/sub_drv.mk
 
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-isp.o
