@@ -7720,6 +7720,13 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	hdr_en = (bool)state->prop_val[CRTC_PROP_HDR_ENABLE];
 
+	if (mtk_crtc->fake_layer.fake_layer_mask)
+		mtk_drm_crtc_enable_fake_layer(crtc, old_crtc_state);
+	else if (mtk_crtc->fake_layer.first_dis) {
+		mtk_drm_crtc_disable_fake_layer(crtc, old_crtc_state);
+		mtk_crtc->fake_layer.first_dis = false;
+	}
+
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		if (crtc->state->color_mgmt_changed)
 			mtk_ddp_gamma_set(comp, crtc->state, cmdq_handle);
@@ -7744,13 +7751,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		mtk_disp_mutex_acquire(mtk_crtc->mutex[0]);
 		mtk_crtc_ddp_config(crtc);
 		mtk_disp_mutex_release(mtk_crtc->mutex[0]);
-	}
-
-	if (mtk_crtc->fake_layer.fake_layer_mask)
-		mtk_drm_crtc_enable_fake_layer(crtc, old_crtc_state);
-	else if (mtk_crtc->fake_layer.first_dis) {
-		mtk_drm_crtc_disable_fake_layer(crtc, old_crtc_state);
-		mtk_crtc->fake_layer.first_dis = false;
 	}
 
 	/* backup present fence */
