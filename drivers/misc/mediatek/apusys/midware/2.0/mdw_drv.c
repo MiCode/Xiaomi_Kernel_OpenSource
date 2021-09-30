@@ -90,7 +90,6 @@ static int mdw_drv_close(struct inode *inode, struct file *filp)
 	mpriv = filp->private_data;
 	mdw_flw_debug("mpriv(%llx)\n", (uint64_t) mpriv);
 	mutex_lock(&mpriv->mtx);
-	mdw_cmd_mpriv_release(mpriv);
 	mdw_mem_mpriv_release(mpriv);
 	mutex_unlock(&mpriv->mtx);
 	mpriv->put(mpriv);

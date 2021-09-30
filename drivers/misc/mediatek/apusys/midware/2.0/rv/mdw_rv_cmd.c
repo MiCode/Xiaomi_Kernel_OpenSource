@@ -26,7 +26,7 @@ static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 	mdw_cmd_debug(" num_cmdbufs = %u\n", rc->num_cmdbufs);
 	mdw_cmd_debug(" cmdbuf_infos_offset = 0x%x\n", rc->cmdbuf_infos_offset);
 	mdw_cmd_debug(" adj_matrix_offset = 0x%x\n", rc->adj_matrix_offset);
-	mdw_cmd_debug(" exec_infos = 0x%llx\n", rc->exec_infos);
+	mdw_cmd_debug(" exec_infos_offset = 0x%x\n", rc->exec_infos_offset);
 	mdw_cmd_debug("-------------------------\n");
 }
 
@@ -59,6 +59,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_cmd *rc = NULL;
 	uint32_t cb_size = 0, acc_cb = 0, i = 0, j = 0;
 	uint32_t subcmds_ofs = 0, cmdbuf_infos_ofs = 0, adj_matrix_ofs = 0;
+	uint32_t exec_infos_ofs = 0;
 	struct mdw_rv_msg_cmd *rmc = NULL;
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
@@ -94,6 +95,8 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
 	cmdbuf_infos_ofs = cb_size;
 	cb_size += (c->num_cmdbufs * sizeof(struct mdw_rv_msg_cb));
+	exec_infos_ofs = cb_size;
+	cb_size += c->exec_infos->size;
 
 	/* allocate communicate buffer */
 	rc->cb = mdw_mem_alloc(mpriv, cb_size, MDW_DEFAULT_ALIGN,
@@ -118,8 +121,6 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rmc->cmd_id = c->kid;
 	rmc->pid = (uint32_t)c->pid;
 	rmc->tgid = (uint32_t)c->tgid;
-	rmc->exec_infos = c->exec_infos->device_va;
-	rmc->exec_size = c->exec_infos->size;
 	rmc->priority = c->priority;
 	rmc->hardlimit = c->hardlimit;
 	rmc->softlimit = c->softlimit;
@@ -132,6 +133,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rmc->subcmds_offset = subcmds_ofs;
 	rmc->cmdbuf_infos_offset = cmdbuf_infos_ofs;
 	rmc->adj_matrix_offset = adj_matrix_ofs;
+	rmc->exec_infos_offset = exec_infos_ofs;
 	mdw_rv_cmd_print(rmc);
 
 	/* copy adj matrix */
@@ -181,10 +183,6 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		mdw_drv_warn("s(0x%llx) c(0x%llx) flush rv cbs(%u) fail\n",
 			(uint64_t)c->mpriv, c->kid, rc->cb->size);
 
-	if (mdw_mem_flush(mpriv, c->exec_infos))
-		mdw_drv_warn("s(0x%llx) c(0x%llx) flush exec infos(%u) fail\n",
-			(uint64_t)c->mpriv, c->kid, c->exec_infos->size);
-
 	goto out;
 
 free_mem:
@@ -200,6 +198,7 @@ out:
 int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 {
 	struct mdw_cmd *c = rc->c;
+	struct mdw_rv_msg_cmd *rmc = NULL;
 
 	if (!rc)
 		return -EINVAL;
@@ -209,9 +208,17 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 		mdw_drv_warn("s(0x%llx) c(0x%llx) invalidate rcbs(%u) fail\n",
 			(uint64_t)c->mpriv, c->kid, rc->cb->size);
 
-	if (mdw_mem_invalidate(c->mpriv, c->exec_infos))
-		mdw_drv_warn("s(0x%llx) c(0x%llx) invalidate einfos(%u) fail\n",
-			(uint64_t)c->mpriv, c->kid, c->exec_infos->size);
+	/* copy exec infos */
+	rmc = (struct mdw_rv_msg_cmd *)rc->cb->vaddr;
+	if (rmc->exec_infos_offset + c->exec_infos->size != rc->cb->size) {
+		mdw_drv_warn("c(0x%llx) execinfos size(%u/%u) not matched\n",
+			rmc->exec_infos_offset + c->exec_infos->size,
+			rc->cb->size);
+	} else {
+		memcpy(c->exec_infos->vaddr,
+			rc->cb->vaddr + rmc->exec_infos_offset,
+			c->exec_infos->size);
+	}
 
 	mdw_mem_unmap(rc->c->mpriv, rc->cb);
 	mdw_mem_free(rc->c->mpriv, rc->cb);

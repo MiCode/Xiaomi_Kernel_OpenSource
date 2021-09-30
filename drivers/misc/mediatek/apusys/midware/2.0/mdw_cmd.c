@@ -221,6 +221,9 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 	if (!c->einfos) {
 		mdw_drv_err("invalid exec info addr\n");
 		return -EINVAL;
+	} else {
+		/* clear run infos for return */
+		memset(c->exec_infos->vaddr, 0, c->exec_infos->size);
 	}
 	sc_einfo = &c->einfos->sc;
 
@@ -383,118 +386,14 @@ static int mdw_fence_init(struct mdw_cmd *c)
 	if (!c->fence)
 		return -ENOMEM;
 
+	mdw_drv_debug("fence init\n");
+
 	c->fence->mdev = c->mpriv->mdev;
+	spin_lock_init(&c->fence->lock);
 	dma_fence_init(&c->fence->base_fence, &mdw_fence_ops,
 		&c->fence->lock, 0, 0);
-	spin_lock_init(&c->fence->lock);
 
 	return ret;
-}
-
-static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
-{
-	struct mdw_device *mdev = mpriv->mdev;
-	int ret = 0;
-
-	mdw_cmd_show(c, mdw_cmd_debug);
-	ktime_get_ts64(&c->start_ts);
-	ret = mdev->dev_funcs->run_cmd(mpriv, c);
-	if (ret) {
-		mdw_drv_err("run cmd(0x%llx/0x%llx) fail(%d)\n",
-			(uint64_t) c->mpriv, c->kid, ret);
-
-		dma_fence_set_error(&c->fence->base_fence, ret);
-		dma_fence_signal(&c->fence->base_fence);
-		dma_fence_put(&c->fence->base_fence);
-	} else {
-		mdw_flw_debug("cmd(0x%llx/0x%llx) run\n",
-			(uint64_t) c->mpriv, c->kid);
-	}
-
-	return ret;
-}
-
-static void mdw_cmd_delete(struct mdw_cmd *c)
-{
-	struct mdw_fpriv *mpriv = c->mpriv;
-
-	mdw_cmd_show(c, mdw_drv_debug);
-
-	mdw_cmd_delete_infos(c->mpriv, c);
-	mdw_cmd_put_mem(c->mpriv, c->exec_infos);
-	kfree(c->adj_matrix);
-	kfree(c->ksubcmds);
-	kfree(c->subcmds);
-	mutex_lock(&mpriv->mtx);
-	list_del(&c->u_item);
-	mutex_unlock(&mpriv->mtx);
-	kfree(c);
-
-	mpriv->put(mpriv);
-}
-
-static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
-{
-	struct dma_fence *f = &c->fence->base_fence;
-
-	ktime_get_ts64(&c->end_ts);
-	c->einfos->c.total_us =
-		(c->end_ts.tv_sec - c->start_ts.tv_sec) * 1000000;
-	c->einfos->c.total_us +=
-		((c->end_ts.tv_nsec - c->start_ts.tv_nsec) / 1000);
-	mdw_flw_debug("cmd(0x%llx/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
-		(uint64_t) c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
-		c->pid, c->tgid, current->pid);
-
-	/* check subcmds return value */
-	if (c->einfos->c.sc_rets) {
-		mdw_exception("pid(%d/%d) cmd(0x%llx/0x%llx) fail(%d/0x%llx)\n",
-			c->pid, c->tgid, (uint64_t) c->mpriv,
-			c->kid, ret, c->einfos->c.sc_rets);
-
-		if (!ret)
-			ret = -EIO;
-	}
-	c->einfos->c.ret = ret;
-
-	if (ret) {
-		mdw_drv_err("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
-			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
-			c->einfos->c.total_us, c->pid, c->tgid);
-	} else {
-		mdw_flw_debug("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
-			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
-			c->einfos->c.total_us, c->pid, c->tgid);
-	}
-
-	mdw_cmd_put_cmdbufs(c->mpriv, c);
-	if (ret)
-		dma_fence_set_error(&c->fence->base_fence, ret);
-
-	dma_fence_signal(f);
-	mdw_cmd_delete(c);
-	dma_fence_put(f);
-
-	return 0;
-}
-
-static void mdw_cmd_trigger_func(struct work_struct *wk)
-{
-	struct mdw_cmd *c =
-		container_of(wk, struct mdw_cmd, t_wk);
-
-	if (c->wait_fence) {
-		dma_fence_wait(c->wait_fence, false);
-		dma_fence_put(c->wait_fence);
-	}
-
-	mdw_flw_debug("cmd(0x%llx/0x%llx) wait fence done, start run\n",
-		(uint64_t) c->mpriv, c->kid);
-	mdw_cmd_run(c->mpriv, c);
-}
-
-void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
-{
 }
 
 static int mdw_cmd_sanity_check(struct mdw_cmd *c)
@@ -539,6 +438,112 @@ static int mdw_cmd_sc_sanity_check(struct mdw_cmd *c)
 	}
 
 	return 0;
+}
+
+static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
+{
+	struct mdw_device *mdev = mpriv->mdev;
+	int ret = 0;
+
+	mdw_cmd_show(c, mdw_cmd_debug);
+	mutex_lock(&c->mtx);
+
+	ktime_get_ts64(&c->start_ts);
+	ret = mdev->dev_funcs->run_cmd(mpriv, c);
+	if (ret) {
+		mdw_drv_err("run cmd(0x%llx/0x%llx) fail(%d)\n",
+			(uint64_t) c->mpriv, c->kid, ret);
+
+		dma_fence_set_error(&c->fence->base_fence, ret);
+	} else {
+		mdw_flw_debug("cmd(0x%llx/0x%llx) run\n",
+			(uint64_t) c->mpriv, c->kid);
+	}
+
+	mutex_unlock(&c->mtx);
+
+	return ret;
+}
+
+static void mdw_cmd_delete(struct mdw_cmd *c)
+{
+	struct mdw_fpriv *mpriv = c->mpriv;
+	struct dma_fence *f = &c->fence->base_fence;
+
+	mdw_cmd_show(c, mdw_drv_debug);
+
+	dma_fence_signal(f);
+	mdw_cmd_delete_infos(c->mpriv, c);
+	mdw_cmd_put_mem(c->mpriv, c->exec_infos);
+	kfree(c->adj_matrix);
+	kfree(c->ksubcmds);
+	kfree(c->subcmds);
+	mutex_lock(&mpriv->mtx);
+	list_del(&c->u_item);
+	mutex_unlock(&mpriv->mtx);
+	dma_fence_put(f);
+	kfree(c);
+
+	mpriv->put(mpriv);
+}
+
+static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
+{
+	mutex_lock(&c->mtx);
+
+	ktime_get_ts64(&c->end_ts);
+	c->einfos->c.total_us =
+		(c->end_ts.tv_sec - c->start_ts.tv_sec) * 1000000;
+	c->einfos->c.total_us +=
+		((c->end_ts.tv_nsec - c->start_ts.tv_nsec) / 1000);
+	mdw_flw_debug("cmd(0x%llx/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
+		(uint64_t) c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+		c->pid, c->tgid, current->pid);
+
+	/* check subcmds return value */
+	if (c->einfos->c.sc_rets) {
+		mdw_exception("pid(%d/%d) cmd(0x%llx/0x%llx) fail(%d/0x%llx)\n",
+			c->pid, c->tgid, (uint64_t) c->mpriv,
+			c->kid, ret, c->einfos->c.sc_rets);
+
+		if (!ret)
+			ret = -EIO;
+	}
+	c->einfos->c.ret = ret;
+
+	if (ret) {
+		mdw_drv_err("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
+			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+			c->einfos->c.total_us, c->pid, c->tgid);
+	} else {
+		mdw_flw_debug("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
+			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
+			c->einfos->c.total_us, c->pid, c->tgid);
+	}
+
+	mdw_cmd_put_cmdbufs(c->mpriv, c);
+	if (ret)
+		dma_fence_set_error(&c->fence->base_fence, ret);
+
+	mutex_unlock(&c->mtx);
+	mdw_cmd_delete(c);
+
+	return 0;
+}
+
+static void mdw_cmd_trigger_func(struct work_struct *wk)
+{
+	struct mdw_cmd *c =
+		container_of(wk, struct mdw_cmd, t_wk);
+
+	if (c->wait_fence) {
+		dma_fence_wait(c->wait_fence, false);
+		dma_fence_put(c->wait_fence);
+	}
+
+	mdw_flw_debug("cmd(0x%llx/0x%llx) wait fence done, start run\n",
+		(uint64_t) c->mpriv, c->kid);
+	mdw_cmd_run(c->mpriv, c);
 }
 
 static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
@@ -716,12 +721,11 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	mdw_flw_debug("async fd(%d)\n", fd);
 	goto out;
 
-delete_cmd:
-	mdw_cmd_delete(c);
 put_file:
 	put_unused_fd(fd);
+delete_cmd:
+	mdw_cmd_delete(c);
 out:
-
 	return ret;
 }
 

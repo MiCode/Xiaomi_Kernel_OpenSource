@@ -45,9 +45,6 @@ struct mdw_rv_msg_cmd {
 	uint64_t cmd_id;
 	uint32_t pid;
 	uint32_t tgid;
-	/* exec infos */
-	uint64_t exec_infos;
-	uint32_t exec_size;
 	/* params */
 	uint32_t priority;
 	uint32_t hardlimit;
@@ -61,6 +58,7 @@ struct mdw_rv_msg_cmd {
 	uint32_t num_cmdbufs;
 	uint32_t cmdbuf_infos_offset;
 	uint32_t adj_matrix_offset;
+	uint32_t exec_infos_offset;
 } __attribute__((__packed__));
 
 struct mdw_rv_msg_sc {
