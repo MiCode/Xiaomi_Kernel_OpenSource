@@ -4874,6 +4874,11 @@
 				compatible = "mediatek,mt6879-iommu-debug";
 		};
 
+		mtk_sec_dmaheap {
+			compatible = "mediatek,dmaheap-region-base";
+			iommus = <&disp_iommu M4U_LARB0_PORT0>;
+		};
+
 		mml-test {
 			compatible = "mediatek,mml-test";
 			mediatek,mml = <&mmlsys_config>;
