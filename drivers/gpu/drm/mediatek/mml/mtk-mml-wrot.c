@@ -1707,8 +1707,6 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-/* #define WROT_SET_H */
-
 static inline void mml_ir_done_2to1(struct mml_comp_wrot *wrot,
 	struct cmdq_pkt *pkt, u32 pipe, u32 sram, u32 irot_h_off, u32 height)
 {
@@ -1733,10 +1731,15 @@ static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-
+	struct mml_frame_dest *dest = &task->config->info.dest[wrot_frm->out_idx];
 	struct mml_tile_engine *tile = config_get_tile(task->config, ccfg, idx);
-	u32 height = tile->out.ye - tile->out.ys + 1;
+	u32 height;
 	u32 irot_h_off;
+
+	if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180)
+		height = tile->out.ye - tile->out.ys + 1;
+	else
+		height = tile->out.xe - tile->out.xs + 1;
 
 	/* config height for current sram buf
 	 * INLINEROT_HEIGHT0 for buf a and
@@ -1767,11 +1770,9 @@ static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
 		 * 2 wrot to 2 disp: trigger 2 wdone (by pipe)
 		 * both case set disp wdone for current pipe
 		 */
-#ifdef WROT_SET_H
 		cmdq_pkt_write(pkt, NULL,
 			wrot->irot_base[wrot_frm->sram_side] + irot_h_off,
 			height, U32_MAX);
-#endif
 		cmdq_pkt_write(pkt, NULL,
 			wrot->irot_base[wrot_frm->sram_side] + INLINEROT_WDONE,
 			1 << wrot_frm->wdone[idx].sram, U32_MAX);
