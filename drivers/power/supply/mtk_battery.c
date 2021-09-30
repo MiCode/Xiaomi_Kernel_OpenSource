@@ -2665,7 +2665,7 @@ static int system_pm_notify(struct notifier_block *nb,
 
 void fg_update_routine_wakeup(struct mtk_battery *gm)
 {
-	bm_err("%s\n", __func__);
+	bm_debug("%s\n", __func__);
 	gm->fg_update_flag = 1;
 	wake_up(&gm->wait_que);
 }
@@ -2674,7 +2674,7 @@ enum hrtimer_restart fg_drv_thread_hrtimer_func(struct hrtimer *timer)
 {
 	struct mtk_battery *gm;
 
-	bm_err("%s\n", __func__);
+	bm_debug("%s\n", __func__);
 	gm = container_of(timer,
 		struct mtk_battery, fg_hrtimer);
 	fg_update_routine_wakeup(gm);
