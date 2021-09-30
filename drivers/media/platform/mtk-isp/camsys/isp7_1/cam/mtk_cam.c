@@ -244,22 +244,21 @@ mtk_cam_get_req_s_data(struct mtk_cam_ctx *ctx, unsigned int pipe_id,
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *req_stream_data;
-	unsigned long flags;
 	int i;
 
-	spin_lock_irqsave(&cam->running_job_lock, flags);
+	spin_lock(&cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, &cam->running_job_list, list) {
 		if (req->pipe_used & (1 << pipe_id)) {
 			for (i = 0; i < req->p_data[pipe_id].s_data_num; i++) {
 				req_stream_data = &req->p_data[pipe_id].s_data[i];
 				if (req_stream_data->frame_seq_no == frame_seq_no) {
-					spin_unlock_irqrestore(&cam->running_job_lock, flags);
+					spin_unlock(&cam->running_job_lock);
 					return req_stream_data;
 				}
 			}
 		}
 	}
-	spin_unlock_irqrestore(&cam->running_job_lock, flags);
+	spin_unlock(&cam->running_job_lock);
 
 	return NULL;
 }
@@ -411,7 +410,6 @@ static void mtk_cam_del_req_from_running(struct mtk_cam_ctx *ctx,
 					 struct mtk_cam_request *req, int pipe_id)
 {
 	struct mtk_cam_request_stream_data *s_data;
-	unsigned long flags;
 
 	s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 	dev_dbg(ctx->cam->dev,
@@ -421,9 +419,9 @@ static void mtk_cam_del_req_from_running(struct mtk_cam_ctx *ctx,
 		pipe_id, req->pipe_used, ctx->cam->streaming_pipe,
 		req->done_status);
 
-	spin_lock_irqsave(&ctx->cam->running_job_lock, flags);
+	spin_lock(&ctx->cam->running_job_lock);
 	list_del(&req->list);
-	spin_unlock_irqrestore(&ctx->cam->running_job_lock, flags);
+	spin_unlock(&ctx->cam->running_job_lock);
 
 	ctx->cam->running_job_count--;
 	atomic_dec(&ctx->running_s_data_cnt);
@@ -453,14 +451,13 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
-	unsigned long flags;
 	int feature;
 	int dequeue_cnt = 0;
 	bool del_job, del_req;
 
 	INIT_LIST_HEAD(&dequeue_list);
 
-	spin_lock_irqsave(&ctx->cam->running_job_lock, flags);
+	spin_lock(&ctx->cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
 		if (!(req->pipe_used & (1 << pipe_id)))
 			continue;
@@ -480,7 +477,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	}
 
 STOP_SCAN:
-	spin_unlock_irqrestore(&ctx->cam->running_job_lock, flags);
+	spin_unlock(&ctx->cam->running_job_lock);
 
 	list_for_each_entry(s_data, &dequeue_list, list) {
 		del_req = false;
@@ -589,7 +586,6 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 	struct list_head *running = &cam->running_job_list;
 	struct list_head s_data_clean_list;
 	int i, num_s_data;
-	unsigned long flags;
 	bool need_clean_s_data, need_clean_req;
 
 	INIT_LIST_HEAD(&s_data_clean_list);
@@ -605,7 +601,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 	}
 	spin_unlock(&cam->pending_job_lock);
 
-	spin_lock_irqsave(&cam->running_job_lock, flags);
+	spin_lock(&cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, running, list) {
 		/* only handle requests belong to current ctx */
 		if (!(req->pipe_used & ctx->streaming_pipe))
@@ -621,7 +617,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		}
 
 	}
-	spin_unlock_irqrestore(&cam->running_job_lock, flags);
+	spin_unlock(&cam->running_job_lock);
 
 	list_for_each_entry_safe(s_data, s_data_prev, &s_data_clean_list,
 				 list) {
@@ -737,11 +733,11 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				 "%s:%s:pipe(%d):seq(%d): remove req from running list\n",
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no);
-			spin_lock_irqsave(&cam->running_job_lock, flags);
+			spin_lock(&cam->running_job_lock);
 			list_del(&req->list);
 			media_request_put(&req->req); /* for leave running list*/
 			mtk_cam_req_clean(req);
-			spin_unlock_irqrestore(&cam->running_job_lock, flags);
+			spin_unlock(&cam->running_job_lock);
 		} else {
 			dev_info(cam->dev,
 				 "%s:%s:pipe(%d):seq(%d): skip s_data clean, should already be done frame_done_work\n",
@@ -1695,7 +1691,7 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 	req_stream_data_mstream->flags |= req_stream_data->flags &
 					  MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN;
 
-	ctx->enqueued_frame_seq_no = req_stream_data->frame_seq_no;
+	atomic_set(&ctx->enqueued_frame_seq_no, req_stream_data->frame_seq_no);
 
 	pr_info("%s: frame_seq:%d, frame_mstream_seq:%d\n",
 		__func__, req_stream_data->frame_seq_no,
@@ -1741,7 +1737,7 @@ static void fill_sv_mstream_s_data(struct mtk_cam_device *cam,
 	req_stream_data_mstream->frame_seq_no = req_stream_data->frame_seq_no;
 	req_stream_data->frame_seq_no =
 		req_stream_data_mstream->frame_seq_no + 1;
-	cam->ctxs[pipe_id].enqueued_frame_seq_no = req_stream_data->frame_seq_no;
+	atomic_set(&cam->ctxs[pipe_id].enqueued_frame_seq_no, req_stream_data->frame_seq_no);
 
 	/* frame done work */
 	atomic_set(&req_stream_data_mstream->frame_done_work.is_queued, 0);
@@ -1777,7 +1773,7 @@ static void fill_mraw_mstream_s_data(struct mtk_cam_device *cam,
 	req_stream_data_mstream->frame_seq_no = req_stream_data->frame_seq_no;
 	req_stream_data->frame_seq_no =
 		req_stream_data_mstream->frame_seq_no + 1;
-	cam->ctxs[pipe_id].enqueued_frame_seq_no = req_stream_data->frame_seq_no;
+	atomic_set(&cam->ctxs[pipe_id].enqueued_frame_seq_no, req_stream_data->frame_seq_no);
 
 	/* frame done work */
 	atomic_set(&req_stream_data_mstream->frame_done_work.is_queued, 0);
@@ -1847,7 +1843,6 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data;
-	unsigned long flags;
 	int i, s_data_flags;
 	int feature_change, previous_feature;
 	int enqueue_req_cnt, job_count, s_data_cnt;
@@ -1862,9 +1857,9 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 	INIT_LIST_HEAD(&equeue_list);
 
-	spin_lock_irqsave(&cam->running_job_lock, flags);
+	spin_lock(&cam->running_job_lock);
 	job_count = cam->running_job_count;
-	spin_unlock_irqrestore(&cam->running_job_lock, flags);
+	spin_unlock(&cam->running_job_lock);
 
 	/* Pick up requests which are runnable */
 	enqueue_req_cnt = 0;
@@ -1903,7 +1898,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 			/* Update frame_seq_no */
 			s_data = mtk_cam_req_get_s_data(req, i, 0);
-			s_data->frame_seq_no = ++(ctx->enqueued_frame_seq_no);
+			s_data->frame_seq_no = atomic_inc_return(&ctx->enqueued_frame_seq_no);
 			mtk_cam_req_update_seq(ctx, req,
 					       ++(ctx->enqueued_request_cnt));
 			if (is_raw_subdev(i)) {
@@ -1993,11 +1988,11 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 			return;
 		}
 
-		spin_lock_irqsave(&cam->running_job_lock, flags);
+		spin_lock(&cam->running_job_lock);
 		cam->running_job_count++;
 		list_del(&req->list);
 		list_add_tail(&req->list, &cam->running_job_list);
-		spin_unlock_irqrestore(&cam->running_job_lock, flags);
+		spin_unlock(&cam->running_job_lock);
 
 		mtk_cam_dev_req_enqueue(cam, req);
 	}
@@ -3623,7 +3618,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	dev_info(cam->dev, "%s:ctx(%d): triggered by %s\n",
 		 __func__, ctx->stream_id, entity->name);
 
-	ctx->enqueued_frame_seq_no = 0;
+	atomic_set(&ctx->enqueued_frame_seq_no, 0);
 	ctx->composed_frame_seq_no = 0;
 	ctx->dequeued_frame_seq_no = 0;
 	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++)
@@ -3875,7 +3870,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		for (j = 0 ; j < cam->max_stream_num ; j++) {
 			if (ctx->sv_pipe[i]->id == cam->ctxs[j].stream_id) {
-				cam->ctxs[j].enqueued_frame_seq_no = 0;
+				atomic_set(&cam->ctxs[j].enqueued_frame_seq_no, 0);
 				break;
 			}
 		}
@@ -3884,7 +3879,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
 		for (j = 0 ; j < cam->max_stream_num ; j++) {
 			if (ctx->mraw_pipe[i]->id == cam->ctxs[j].stream_id) {
-				cam->ctxs[j].enqueued_frame_seq_no = 0;
+				atomic_set(&cam->ctxs[j].enqueued_frame_seq_no, 0);
 				break;
 			}
 		}
@@ -3898,7 +3893,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->prev_sensor = NULL;
 	ctx->seninf = NULL;
 	ctx->prev_seninf = NULL;
-	ctx->enqueued_frame_seq_no = 0;
+	atomic_set(&ctx->enqueued_frame_seq_no, 0);
 	ctx->enqueued_request_cnt = 0;
 	ctx->next_sof_mask_frame_seq_no = 0;
 	ctx->working_request_seq = 0;
