@@ -265,13 +265,6 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 		}
 	}
 
-	while (!list_empty(&cfg->done_tasks)) {
-		task = list_first_entry(&cfg->done_tasks, typeof(*task),
-			entry);
-		list_del_init(&task->entry);
-		mml_core_destroy_task(task);
-	}
-
 	mml_core_deinit_config(cfg);
 	kfree(cfg);
 
@@ -411,9 +404,18 @@ static void task_submit_done(struct mml_task *task)
 
 	mutex_lock(&ctx->config_mutex);
 	task_move_to_running(task);
-	mutex_unlock(&ctx->config_mutex);
-
 	kref_put(&task->ref, task_move_to_destroy);
+	mutex_unlock(&ctx->config_mutex);
+}
+
+static void task_put_idles(struct mml_frame_config *cfg)
+{
+	struct mml_task *task, *task_tmp;
+
+	list_for_each_entry_safe(task, task_tmp, &cfg->done_tasks, entry) {
+		list_del_init(&task->entry);
+		kref_put(&task->ref, task_move_to_destroy);
+	}
 }
 
 static void task_frame_done(struct mml_task *task)
@@ -484,6 +486,7 @@ static void task_frame_done(struct mml_task *task)
 		if (!list_empty(&cfg->tasks) || !list_empty(&cfg->await_tasks))
 			continue;
 		list_del_init(&cfg->entry);
+		task_put_idles(cfg);
 		queue_work(ctx->wq_destroy, &cfg->work_destroy);
 		ctx->config_cnt--;
 		mml_msg("[drm]config %p send destroy remain %u",
