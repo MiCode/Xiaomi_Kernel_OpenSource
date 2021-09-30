@@ -78,6 +78,9 @@
 	#define SODI_HRT_FIFO_SEL_DISP1_PD_MODE       REG_FLD_MSB_LSB(2, 2)
 	#define SODI_HRT_FIFO_SEL_DISP1_CG_MODE       REG_FLD_MSB_LSB(3, 3)
 
+#define SODI_REQ_SEL_APSRC				          REG_FLD_MSB_LSB(0, 0)
+#define SODI_REQ_SEL_DDREN				          REG_FLD_MSB_LSB(1, 1)
+
 #define SODI_REQ_SEL_ALL                          REG_FLD_MSB_LSB(11, 8)
 	#define SODI_REQ_SEL_RDMA0_PD_MODE            REG_FLD_MSB_LSB(8, 8)
 	#define SODI_REQ_SEL_RDMA0_CG_MODE            REG_FLD_MSB_LSB(9, 9)
@@ -1504,57 +1507,48 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 					0, SODI_REQ_SEL_ALL);
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
 					0, SODI_REQ_VAL_ALL);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_SEL_RDMA0_PD_MODE);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_VAL_RDMA0_PD_MODE);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_SEL_RDMA1_PD_MODE);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_VAL_RDMA1_PD_MODE);
 
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0xFF, HRT_URGENT_CTL_SEL_ALL);
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0, HRT_URGENT_CTL_VAL_ALL);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, DVFS_HALT_MASK_SEL_ALL);
 	} else if (id == DDP_COMPONENT_RDMA0) {
+		/* Select ddren smi req source from rdma/dsi */
+		/* Todo: judge by dsi_buf on/off */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 1,
+					SODI_REQ_SEL_DDREN);
+
+		/* apsrc */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 1,
+					SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, ((unsigned int)en),
+					SODI_REQ_VAL_RDMA0_PD_MODE);
+
+		/* ddren */
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
 					SODI_REQ_SEL_RDMA0_CG_MODE);
 
 		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 				HRT_URGENT_CTL_SEL_RDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-				DVFS_HALT_MASK_SEL_RDMA0);
 	} else if (id == DDP_COMPONENT_RDMA1) {
+		/* apsrc */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 1,
+					SODI_REQ_SEL_RDMA1_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, ((unsigned int)en),
+					SODI_REQ_VAL_RDMA1_PD_MODE);
+
+		/* ddren */
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
 					SODI_REQ_SEL_RDMA1_CG_MODE);
 
 		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_RDMA1);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-					DVFS_HALT_MASK_SEL_RDMA1);
-	} else if (id == DDP_COMPONENT_RDMA4) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
-					HRT_URGENT_CTL_SEL_RDMA4);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-					DVFS_HALT_MASK_SEL_RDMA4);
-	} else if (id == DDP_COMPONENT_RDMA5) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
-					HRT_URGENT_CTL_SEL_RDMA5);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-					DVFS_HALT_MASK_SEL_RDMA5);
 	} else if (id == DDP_COMPONENT_WDMA0) {
 		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_WDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-					DVFS_HALT_MASK_SEL_WDMA0);
 	} else if (id == DDP_COMPONENT_WDMA1) {
 		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_WDMA1);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
-					DVFS_HALT_MASK_SEL_WDMA1);
 	} else
 		return;
 
@@ -1564,11 +1558,9 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
 			& (~sodi_req_mask));
 		v += (sodi_req_val & sodi_req_mask);
-		/* TODO: HARD CODE for RDMA0 scenario */
-		v = 0xF502;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
 		if (priv->side_config_regs)
-			writel_relaxed(v, priv->side_config_regs + MMSYS_SODI_REQ_MASK);
+			writel_relaxed(v, priv->side_config_regs +  MMSYS_SODI_REQ_MASK);
 
 		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
 			& (~emi_req_mask));
@@ -1577,16 +1569,13 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
 	} else {
-		/* TODO: HARD CODE for RDMA0 scenario */
-		// cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-		//	MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, 0xf502, ~0);
+			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_SODI_REQ_MASK, 0xf502, ~0);
+				MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
 		}
