@@ -97,9 +97,9 @@ static void ipi_usage_cnt_update(struct mtk_apu *apu, u32 id, int diff)
 
 	spin_lock(&apu->usage_cnt_lock);
 	ipi->usage_cnt += diff;
+	spin_unlock(&apu->usage_cnt_lock);
 	dev_info(apu->dev, "%s: ipi %d usage_cnt=%d (%d)\n",
 		 __func__, id, ipi->usage_cnt, diff);
-	spin_unlock(&apu->usage_cnt_lock);
 }
 
 extern void apu_deepidle_power_on_aputop(struct mtk_apu *apu);
