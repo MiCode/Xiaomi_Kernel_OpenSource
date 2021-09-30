@@ -152,7 +152,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	//			work, struct common_node, work);
 	struct common_port_node *comm_port_node;
 	u32 avg_bw = 0, peak_bw = 0, max_bw = 0;
-	u32 normalize_peak_bw, i;
+	u64 normalize_peak_bw, i;
 	u32 chn_hrt_bw[MMQOS_COMM_CHANNEL_NUM] = {0};
 	u32 chn_srt_bw[MMQOS_COMM_CHANNEL_NUM] = {0};
 	struct dev_pm_opp *opp;
