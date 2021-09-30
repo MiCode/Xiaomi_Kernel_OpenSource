@@ -669,8 +669,9 @@ static int gt1x_ts_power_init(void)
 	tpd->reg = devm_regulator_get(tpd->tpd_dev, "vtouch");
 	if (IS_ERR(tpd->reg)) {
 		GTP_ERROR("regulator_get() failed!\n");
+		ret = PTR_ERR(tpd->reg);
 		tpd->reg = NULL;
-		return PTR_ERR(tpd->reg);
+		return ret;
 	}
 
 	/*set 2.8v*/
@@ -1184,10 +1185,10 @@ touch_probe_err:
 	i2c_del_driver(&tpd_i2c_driver);
 regulator_out:
 	regulator_put(tpd->reg);
+power_init_err:
 	gpio_free(tpd_dts_data.rst_gpio_num);
 	gpio_free(tpd_dts_data.eint_gpio_num);
 gpio_err:
-power_init_err:
 	return ret;
 }
 
