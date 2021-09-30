@@ -456,7 +456,7 @@ static int system_pm_notify(struct notifier_block *nb,
 	case PM_RESTORE_PREPARE:
 	case PM_SUSPEND_PREPARE:
 		if (!mutex_trylock(&cs->coulomb_lock))
-			return NOTIFY_STOP;
+			return NOTIFY_BAD;
 		atomic_set(&cs->in_sleep, 1);
 		mutex_unlock(&cs->coulomb_lock);
 		break;
