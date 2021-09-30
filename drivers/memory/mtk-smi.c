@@ -19,6 +19,8 @@
 #include <dt-bindings/memory/mt2701-larb-port.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
 #include <../misc/mediatek/include/mt-plat/aee.h>
+#include <linux/scmi_protocol.h>
+#include "../misc/mediatek/tinysys_scmi/tinysys-scmi.h"
 
 #include <linux/kthread.h>
 
@@ -172,6 +174,9 @@ enum smi_log_level {
 #define MAX_INIT_POWER_ON_DEV	(5)
 static struct mtk_smi *init_power_on_dev[MAX_INIT_POWER_ON_DEV];
 static unsigned int init_power_on_num;
+static u32 smi_subsys_on;
+static struct scmi_tinysys_info_st *tinfo;
+static int feature_id;
 
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 {
@@ -1486,6 +1491,48 @@ static int mtk_smi_larb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static bool smi_check_scmi_status(void)
+{
+	if (tinfo)
+		return true;
+
+	tinfo = get_scmi_tinysys_info();
+
+	if (IS_ERR_OR_NULL(tinfo)) {
+		pr_notice("%s: tinfo is wrong!!\n", __func__);
+		tinfo = NULL;
+		return false;
+	}
+
+	if (IS_ERR_OR_NULL(tinfo->ph)) {
+		pr_notice("%s: tinfo->ph is wrong!!\n", __func__);
+		tinfo = NULL;
+		return false;
+	}
+
+	of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_smi", &feature_id);
+	pr_notice("%s: get scmi_smi succeed id=%d!!\n", __func__, feature_id);
+	return true;
+}
+
+static void do_smi_bkrs(bool ena, int larbid)
+{
+	int err;
+	u32 subsys;
+
+	subsys = (1 << larbid);
+	smi_subsys_on = ena ?
+		(smi_subsys_on | subsys) : (smi_subsys_on & ~subsys);
+
+	if (smi_check_scmi_status()) {
+		err = scmi_tinysys_common_set(tinfo->ph, feature_id,
+				0, smi_subsys_on, 0, 0, 0);
+		if (err)
+			pr_notice("%s: call scmi_tinysys_common_set(%#x) ena=%d err=%d\n",
+				__func__, smi_subsys_on, ena, err);
+	}
+}
+
 static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
@@ -1509,6 +1556,7 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 	/* Configure the basic setting for this larb */
 	larb_gen->config_port(dev);
 
+	do_smi_bkrs(true, larb->larbid);
 	return 0;
 }
 
@@ -1530,6 +1578,7 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
 
+	do_smi_bkrs(false, larb->larbid);
 	atomic_dec(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d callback put ref_count:%d\n",
