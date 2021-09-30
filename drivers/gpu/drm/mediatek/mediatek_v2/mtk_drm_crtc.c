@@ -3753,12 +3753,13 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		}
 	}
 
-#ifdef IF_ZERO /* not ready for dummy register method */
 	/* for wfd latency debug */
-	if (id == 0 || id == 2) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		unsigned int ovl_dsi_seq = *(unsigned int *)(cmdq_buf->va_base +
-				DISP_SLOT_OVL_DSI_SEQ(id));
+	if ((id == 0 || id == 2) && (priv->power_state)) {
+		unsigned int ovl_dsi_seq = 0;
+		unsigned int slot = (id == 0) ? DISP_SLOT_OVL_DSI_SEQ :
+							DISP_SLOT_OVL_WDMA_SEQ;
+
+		ovl_dsi_seq = readl(mtk_get_gce_backup_slot_va(mtk_crtc, slot));
 
 		if (ovl_dsi_seq) {
 			if (id == 0)
@@ -3767,7 +3768,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 				mtk_drm_trace_async_end("OVL2-WDMA|%d", ovl_dsi_seq);
 		}
 	}
-#endif
+
 	if (!mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
@@ -7772,12 +7773,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/* for wfd latency debug */
-#ifdef IF_ZERO /* not ready for dummy register method */
 	if (index == 0 || index == 2) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		dma_addr_t addr =
-			cmdq_buf->pa_base +
-			DISP_SLOT_OVL_DSI_SEQ(index);
+		dma_addr_t addr = (index == 0) ?
+			mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_OVL_DSI_SEQ) :
+			mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_OVL_WDMA_SEQ);
 
 		cmdq_pkt_write(cmdq_handle,
 			mtk_crtc->gce_obj.base, addr,
@@ -7792,7 +7791,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
 		}
 	}
-#endif
+
 	atomic_set(&mtk_crtc->delayed_trig, 1);
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;

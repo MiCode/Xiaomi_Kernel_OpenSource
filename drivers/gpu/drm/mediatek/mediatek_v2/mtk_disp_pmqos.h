@@ -16,7 +16,7 @@ enum DISP_QOS_BW_MODE {
 	DISP_BW_HRT_MODE,
 };
 
-#define NO_PENDING_HRT (0xFFFFFFFF)
+#define NO_PENDING_HRT (0xFFFF)
 #define OVL_REQ_HRT (0x1)
 #define RDMA_REQ_HRT (0x2)
 
