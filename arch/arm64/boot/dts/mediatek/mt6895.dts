@@ -1510,6 +1510,10 @@
 			interconnect-names = "icc-bw", "icc-hrt-bw";
 			compatible = "mediatek,dvfsrc-met";
 		};
+
+		goodix_fp: fingerprint {
+			compatible = "mediatek,goodix-fp";
+		};
 	};
 
 		keypad: kp@1c00e000 {
