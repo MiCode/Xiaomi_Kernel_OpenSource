@@ -34,7 +34,11 @@ endef
 define FILTER_DRV
 ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_project/$(MTK_SENSOR_PROJECT)/$(1)),)
 ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/$(1)),)
+ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/$(1)),)
+unknown_drv += $(1)
+else
 common_drv += $(1)
+endif
 else
 platform_drv += $(1)
 endif
@@ -44,6 +48,10 @@ endif
 endef
 
 $(foreach drv,$(subst $\",,$(CONFIG_CUSTOM_KERNEL_IMGSENSOR)),$(eval $(call FILTER_DRV,$(drv))))
+
+ifneq ($(unknown_drv),)
+$(info unknown_drv: $(unknown_drv))
+endif
 
 ifneq ($(common_drv),)
 $(info common_drv : $(common_drv))
