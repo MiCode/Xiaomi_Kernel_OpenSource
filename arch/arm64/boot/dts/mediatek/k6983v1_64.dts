@@ -254,6 +254,21 @@
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO52__FUNC_GPIO52>;
 			input-enable;
+			bias-disable;
+		};
+		pins_cmd2_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd3_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			input-enable;
+			bias-disable;
+		};
+		pins_cmd4_dat {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			input-enable;
 			bias-pull-down;
 		};
 	};
@@ -268,7 +283,7 @@
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO53__FUNC_GPIO53>;
 			input-enable;
-			bias-pull-down;
+			bias-disable;
 		};
 	};
 	aud_dat_mosi_ch34_on: aud_dat_mosi_ch34_on {
@@ -296,7 +311,7 @@
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
 			input-enable;
-			bias-pull-down;
+			bias-disable;
 		};
 	};
 	aud_dat_miso2_on: aud_dat_miso2_on {
@@ -324,7 +339,7 @@
 		pins_cmd3_dat {
 			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
 			input-enable;
-			bias-pull-down;
+			bias-disable;
 		};
 	};
 	vow_clk_miso_on: vow_clk_miso_on {
