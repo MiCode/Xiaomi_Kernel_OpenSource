@@ -82,7 +82,7 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 	uint32_t write_cnt = 0;
 	uint32_t read_cnt = 0;
 
-	LOG_DBG_IPI("+, ftype(%d), msg_id(%d)", msg->feature_type, msg->msg_id);
+	/* LOG_DBG_IPI("+, ftype(%d), msg_id(%d)", msg->feature_type, msg->msg_id); */
 
 	if (ccu->ccu_ipc.is_initialized == false) {
 		dev_err(ccu->dev, "IPC not initialized, invalid operation.");
@@ -126,8 +126,11 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 		return -ETIMEDOUT;
 	}
 
-	LOG_DBG_IPI("-, ftype(%d), msg_id(%d), loop_cnt(%d), ackValue(%d)",
-		msg->feature_type, msg->msg_id, loop_cnt, ackValue);
+	/*
+	 * LOG_DBG_IPI("-, ftype(%d), msg_id(%d), loop_cnt(%d), ackValue(%d)",
+	 *	msg->feature_type, msg->msg_id, loop_cnt, ackValue);
+	 */
+
 	return 0;
 }
 
@@ -348,7 +351,7 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 
 	spin_unlock(&ccu->ipc_send_lock);
 
-	LOG_DBG_IPI("-");
+	/* LOG_DBG_IPI("-"); */
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_ccu_rproc_ipc_send);
