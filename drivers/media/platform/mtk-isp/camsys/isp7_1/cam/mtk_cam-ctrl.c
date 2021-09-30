@@ -234,6 +234,27 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 
 		mutex_unlock(&req->fs_op_lock);
 		return true;
+	} else if (ctx_cnt == 1) { /* single sensor case */
+		ctx = sync_ctx[0];
+		if (ctx->synced) {
+			struct v4l2_ctrl *ctrl = NULL;
+
+			ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler,
+					      V4L2_CID_FRAME_SYNC);
+			if (ctrl) {
+				v4l2_ctrl_s_ctrl(ctrl, 0);
+				ctx->synced = 0;
+				dev_info(cam->dev,
+					 "%s: ctx(%d): apply V4L2_CID_FRAME_SYNC(0)\n",
+					 __func__, ctx->stream_id);
+			} else {
+				dev_info(cam->dev,
+					 "%s: ctx(%d): failed to find V4L2_CID_FRAME_SYNC\n",
+					 __func__, ctx->stream_id);
+			}
+		}
+		mutex_unlock(&req->fs_op_lock);
+		return false;
 	}
 	mutex_unlock(&req->fs_op_lock);
 	return false;
