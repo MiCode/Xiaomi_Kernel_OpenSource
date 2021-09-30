@@ -283,7 +283,7 @@ static void print_vio_mask_sta(bool debug)
 	int slave_type, i;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == slave_type_num - 1 &&
+		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 
@@ -733,7 +733,7 @@ static void start_devapc(void)
 	device_info = mtk_devapc_ctx->soc->device_info;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == slave_type_num - 1 &&
+		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 
@@ -910,7 +910,7 @@ static void devapc_dump_info(void)
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == slave_type_num - 1 &&
+		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 
@@ -1016,7 +1016,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == slave_type_num - 1 &&
+		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 
@@ -1530,7 +1530,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		irq_type_num = mtk_devapc_ctx->soc->irq_type_num;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == slave_type_num - 1 &&
+		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 		mtk_devapc_ctx->devapc_pd_base[slave_type] = of_iomap(node,
@@ -1573,7 +1573,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	}
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == slave_type_num - 1 &&
+		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 		pr_debug(PFX "%s:0x%x %s:%pa\n",

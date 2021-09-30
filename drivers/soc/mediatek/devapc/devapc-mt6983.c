@@ -16,9 +16,15 @@ static const struct mtk_device_num mtk6983_devices_num[] = {
 	{SLAVE_TYPE_INFRA1, VIO_SLAVE_NUM_INFRA1, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_PERI_PAR, VIO_SLAVE_NUM_PERI_PAR, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_VLP, VIO_SLAVE_NUM_VLP, IRQ_TYPE_VLP},
+#if ENABLE_DEVAPC_ADSP
 	{SLAVE_TYPE_ADSP, VIO_SLAVE_NUM_ADSP, IRQ_TYPE_ADSP},
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	{SLAVE_TYPE_MMINFRA, VIO_SLAVE_NUM_MMINFRA, IRQ_TYPE_MMINFRA},
+#endif
+#if ENABLE_DEVAPC_MMUP
 	{SLAVE_TYPE_MMUP, VIO_SLAVE_NUM_MMUP, IRQ_TYPE_MMUP},
+#endif
 };
 
 static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
@@ -182,21 +188,27 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 			if (vio_index == mt6983_devices_vlp[i].vio_index)
 				return mt6983_devices_vlp[i].device;
 		}
+#if ENABLE_DEVAPC_ADSP
 	} else if (slave_type == SLAVE_TYPE_ADSP) {
 		for (i = 0; i < VIO_SLAVE_NUM_ADSP; i++) {
 			if (vio_index == mt6983_devices_adsp[i].vio_index)
 				return mt6983_devices_adsp[i].device;
 		}
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
 		for (i = 0; i < VIO_SLAVE_NUM_MMINFRA; i++) {
 			if (vio_index == mt6983_devices_mminfra[i].vio_index)
 				return mt6983_devices_mminfra[i].device;
 		}
+#endif
+#if ENABLE_DEVAPC_MMUP
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
 		for (i = 0; i < VIO_SLAVE_NUM_MMUP; i++) {
 			if (vio_index == mt6983_devices_mmup[i].vio_index)
 				return mt6983_devices_mmup[i].device;
 		}
+#endif
 	}
 
 	return "OUT_OF_BOUND";
@@ -317,9 +329,15 @@ static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_INFRA1",
 	"SLAVE_TYPE_PERI_PAR",
 	"SLAVE_TYPE_VLP",
+#if ENABLE_DEVAPC_ADSP
 	"SLAVE_TYPE_ADSP",
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	"SLAVE_TYPE_MMINFRA",
+#endif
+#if ENABLE_DEVAPC_MMUP
 	"SLAVE_TYPE_MMUP",
+#endif
 	"WRONG_SLAVE_TYPE",
 };
 
@@ -328,9 +346,15 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_INFRA1,
 	VIO_MASK_STA_NUM_PERI_PAR,
 	VIO_MASK_STA_NUM_VLP,
+#if ENABLE_DEVAPC_ADSP
 	VIO_MASK_STA_NUM_ADSP,
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	VIO_MASK_STA_NUM_MMINFRA,
+#endif
+#if ENABLE_DEVAPC_MMUP
 	VIO_MASK_STA_NUM_MMUP,
+#endif
 };
 
 static struct mtk_devapc_vio_info mt6983_devapc_vio_info = {
@@ -386,9 +410,15 @@ static struct mtk_devapc_soc mt6983_data = {
 	.device_info[SLAVE_TYPE_INFRA1] = mt6983_devices_infra1,
 	.device_info[SLAVE_TYPE_PERI_PAR] = mt6983_devices_peri_par,
 	.device_info[SLAVE_TYPE_VLP] = mt6983_devices_vlp,
+#if ENABLE_DEVAPC_ADSP
 	.device_info[SLAVE_TYPE_ADSP] = mt6983_devices_adsp,
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	.device_info[SLAVE_TYPE_MMINFRA] = mt6983_devices_mminfra,
+#endif
+#if ENABLE_DEVAPC_MMUP
 	.device_info[SLAVE_TYPE_MMUP] = mt6983_devices_mmup,
+#endif
 	.ndevices = mtk6983_devices_num,
 	.vio_info = &mt6983_devapc_vio_info,
 	.vio_dbgs = &mt6983_vio_dbgs,

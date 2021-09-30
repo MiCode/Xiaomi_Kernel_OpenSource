@@ -94,6 +94,16 @@ enum DEVAPC_SWP_CON_BIT {
 };
 #endif
 
+enum DEVAPC_TYPE {
+	DEVAPC_TYPE_INFRA = 0,
+	DEVAPC_TYPE_INFRA1,
+	DEVAPC_TYPE_PERI_PAR,
+	DEVAPC_TYPE_VLP,
+	DEVAPC_TYPE_ADSP,
+	DEVAPC_TYPE_MMINFRA,
+	DEVAPC_TYPE_MMUP,
+};
+
 struct mtk_devapc_dbg_status {
 	bool enable_ut;
 	bool enable_KE;

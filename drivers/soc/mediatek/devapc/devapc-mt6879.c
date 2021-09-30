@@ -16,8 +16,12 @@ static const struct mtk_device_num mtk6879_devices_num[] = {
 	{SLAVE_TYPE_INFRA1, VIO_SLAVE_NUM_INFRA1, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_PERI_PAR, VIO_SLAVE_NUM_PERI_PAR, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_VLP, VIO_SLAVE_NUM_VLP, IRQ_TYPE_VLP},
+#if ENABLE_DEVAPC_ADSP
 	{SLAVE_TYPE_ADSP, VIO_SLAVE_NUM_ADSP, IRQ_TYPE_ADSP},
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	{SLAVE_TYPE_MMINFRA, VIO_SLAVE_NUM_MMINFRA, IRQ_TYPE_MMINFRA},
+#endif
 };
 
 static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
@@ -121,18 +125,22 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 			if (vio_index == mt6879_devices_vlp[i].vio_index)
 				return mt6879_devices_vlp[i].device;
 		}
+#if ENABLE_DEVAPC_ADSP
 	} else if (slave_type == SLAVE_TYPE_ADSP &&
 			vio_index < VIO_SLAVE_NUM_ADSP) {
 		for (i = 0; i < VIO_SLAVE_NUM_ADSP; i++) {
 			if (vio_index == mt6879_devices_adsp[i].vio_index)
 				return mt6879_devices_adsp[i].device;
 		}
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	} else if (slave_type == SLAVE_TYPE_MMINFRA &&
 			vio_index < VIO_SLAVE_NUM_MMINFRA) {
 		for (i = 0; i < VIO_SLAVE_NUM_MMINFRA; i++) {
 			if (vio_index == mt6879_devices_mminfra[i].vio_index)
 				return mt6879_devices_mminfra[i].device;
 		}
+#endif
 	}
 
 	return "OUT_OF_BOUND";
@@ -253,8 +261,12 @@ static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_INFRA1",
 	"SLAVE_TYPE_PERI_PAR",
 	"SLAVE_TYPE_VLP",
+#if ENABLE_DEVAPC_ADSP
 	"SLAVE_TYPE_ADSP",
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	"SLAVE_TYPE_MMINFRA",
+#endif
 	"WRONG_SLAVE_TYPE",
 };
 
@@ -263,8 +275,12 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_INFRA1,
 	VIO_MASK_STA_NUM_PERI_PAR,
 	VIO_MASK_STA_NUM_VLP,
+#if ENABLE_DEVAPC_ADSP
 	VIO_MASK_STA_NUM_ADSP,
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	VIO_MASK_STA_NUM_MMINFRA,
+#endif
 };
 
 static struct mtk_devapc_vio_info mt6879_devapc_vio_info = {
@@ -320,8 +336,12 @@ static struct mtk_devapc_soc mt6879_data = {
 	.device_info[SLAVE_TYPE_INFRA1] = mt6879_devices_infra1,
 	.device_info[SLAVE_TYPE_PERI_PAR] = mt6879_devices_peri_par,
 	.device_info[SLAVE_TYPE_VLP] = mt6879_devices_vlp,
+#if ENABLE_DEVAPC_ADSP
 	.device_info[SLAVE_TYPE_ADSP] = mt6879_devices_adsp,
+#endif
+#if ENABLE_DEVAPC_MMINFRA
 	.device_info[SLAVE_TYPE_MMINFRA] = mt6879_devices_mminfra,
+#endif
 	.ndevices = mtk6879_devices_num,
 	.vio_info = &mt6879_devapc_vio_info,
 	.vio_dbgs = &mt6879_vio_dbgs,
