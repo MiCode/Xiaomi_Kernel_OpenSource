@@ -136,6 +136,7 @@ int pe2_hal_get_uisoc(struct chg_alg_device *alg)
 		pr_notice("%s retry to get pe2->bat_psy\n", __func__);
 		bat_psy = devm_power_supply_get_by_phandle(&pe2->pdev->dev, "gauge");
 		pe2->bat_psy = bat_psy;
+		return ret;
 	}
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
