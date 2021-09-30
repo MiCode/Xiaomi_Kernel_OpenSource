@@ -100,9 +100,13 @@ static void apu_deepidle_pwron_dbg_fn(struct work_struct *work)
 void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 {
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
+	struct device *dev = apu->dev;
 	int ret;
 
 	if (pm_runtime_suspended(apu->dev)) {
+
+		init_waitqueue_head(&apu->run.wq);
+		apu->run.signaled = 0;
 
 		if (!(apu->platdata->flags & F_SECURE_BOOT))
 			dev_info(apu->dev,
@@ -120,6 +124,24 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 
 		if (!(apu->platdata->flags & F_SECURE_BOOT))
 			schedule_work(&pwron_dbg_wk);
+
+		/* wait for remote warm boot done */
+		ret = wait_event_interruptible_timeout(apu->run.wq,
+						       apu->run.signaled,
+						       msecs_to_jiffies(10000));
+		if (ret == 0) {
+			dev_info(dev, "APU warm boot timeout!!\n");
+			apusys_rv_aee_warn("APUSYS_RV",
+					   "APUSYS_RV_WARMBOOT_TIMEOUT");
+			return;
+		}
+		if (ret == -ERESTARTSYS) {
+			dev_info(dev, "wait APU interrupted by a signal!!\n");
+			apusys_rv_aee_warn("APUSYS_RV", "APUSYS_WARM_BOOT_INTERRUPT");
+			return;
+		}
+
+		dev_info(apu->dev, "%s: warm boot done\n", __func__);
 	}
 }
 
