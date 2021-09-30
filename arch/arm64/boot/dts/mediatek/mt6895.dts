@@ -135,6 +135,9 @@
 			clock-frequency = <1701000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -146,6 +149,9 @@
 			clock-frequency = <1701000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -157,6 +163,9 @@
 			clock-frequency = <1701000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -168,6 +177,9 @@
 			clock-frequency = <1701000000>;
 			capacity-dmips-mhz = <485>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu4: cpu@100 {
@@ -179,6 +191,9 @@
 			clock-frequency = <2171000000>;
 			capacity-dmips-mhz = <943>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu5: cpu@101 {
@@ -190,6 +205,9 @@
 			clock-frequency = <2171000000>;
 			capacity-dmips-mhz = <943>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu6: cpu@102 {
@@ -201,6 +219,9 @@
 			clock-frequency = <2171000000>;
 			capacity-dmips-mhz = <943>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu7: cpu@200 {
@@ -212,54 +233,119 @@
 			clock-frequency = <2171000000>;
 			capacity-dmips-mhz = <943>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
+		cpu-map {
 
-	};
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+				core1 {
+					cpu = <&cpu1>;
+				};
+				core2 {
+					cpu = <&cpu2>;
+				};
+				core3 {
+					cpu = <&cpu3>;
+				};
 
-	cpu-map {
-
-		cluster0 {
-
-			core0 {
-				cpu = <&cpu0>;
 			};
-
-			core1 {
-				cpu = <&cpu1>;
+			cluster1 {
+				core0 {
+					cpu = <&cpu4>;
+				};
+				core1 {
+					cpu = <&cpu5>;
+				};
+				core2 {
+					cpu = <&cpu6>;
+				};
 			};
+			cluster2 {
+				core0 {
+					cpu = <&cpu7>;
+				};
 
-			core2 {
-				cpu = <&cpu2>;
 			};
-
-			core3 {
-				cpu = <&cpu3>;
-			};
-
 		};
-
-		cluster1 {
-
-			core0 {
-				cpu = <&cpu4>;
+		idle-states {
+			entry-method = "arm,psci";
+				cpuoff_l: cpuoff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010001>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1600>;
 			};
-
-			core1 {
-				cpu = <&cpu5>;
+			cpuoff_b: cpuoff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010002>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1400>;
 			};
-
-			core2 {
-				cpu = <&cpu6>;
+			clusteroff_l: clusteroff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010101>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <2100>;
 			};
-
-		};
-
-		cluster2 {
-
-			core0 {
-				cpu = <&cpu7>;
+			clusteroff_b: clusteroff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010102>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <1900>;
 			};
-
+			mcusysoff: mcusysoff {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010701>;
+				local-timer-stop;
+				entry-latency-us = <450>;
+				exit-latency-us = <600>;
+				min-residency-us = <4000>;
+			};
+			system_mem: system_mem {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f01>;
+				local-timer-stop;
+				entry-latency-us = <700>;
+				exit-latency-us = <850>;
+				min-residency-us = <4000>;
+			};
+			system_pll: system_pll {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f02>;
+				local-timer-stop;
+				entry-latency-us = <800>;
+				exit-latency-us = <950>;
+				min-residency-us = <4000>;
+			};
+			system_bus: system_bus {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f03>;
+				local-timer-stop;
+				entry-latency-us = <1300>;
+				exit-latency-us = <2800>;
+				min-residency-us = <4000>;
+			};
+			s2idle: s2idle {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01011f01>;
+				local-timer-stop;
+				entry-latency-us = <10000>;
+				exit-latency-us = <10000>;
+				min-residency-us = <4294967295>;
+			};
 		};
 
 	};
@@ -591,6 +677,11 @@
 		iommus = <&disp_iommu M4U_LARB19_PORT3>,
 			<&disp_iommu M4U_LARB19_PORT2>;
 #endif
+	};
+
+	sleep: sleep@1C001000 {
+		compatible = "mediatek,sleep";
+		reg = <0 0x1C001000 0 0x1000>;
 	};
 
 	soc {
@@ -7631,7 +7722,7 @@
 			rc_cpu_buck_ldo: rc_cpu_buck_ldo{
 				rc-name = "cpu-buck-ldo";
 				id = <0x00000003>;
-				value = <0>;
+				value = <1>;
 				cond-info = <0>;
 			};
 		};
