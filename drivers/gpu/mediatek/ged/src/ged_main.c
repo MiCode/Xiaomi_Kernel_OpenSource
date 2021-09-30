@@ -418,14 +418,14 @@ unlock_and_return:
 }
 #endif
 
-unsigned int ged_is_gpueb_support(void)
+unsigned int ged_is_fdvfs_support(void)
 {
 	// Todo: Check more conditions
 	GED_LOGD("@%s: gpueb_support: %d, fdvfs_support: %d, kpi_enable: %d\n",
 		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, ged_kpi_enabled());
 	return (g_ged_gpueb_support && g_ged_fdvfs_support && ged_kpi_enabled());
 }
-EXPORT_SYMBOL(ged_is_gpueb_support);
+EXPORT_SYMBOL(ged_is_fdvfs_support);
 
 
 GED_ERROR check_eb_config(void)
@@ -503,7 +503,7 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
-	if (ged_is_gpueb_support()) {
+	if (g_ged_gpueb_support) {
 		fastdvfs_proc_init();
 		fdvfs_init();
 		GED_LOGI("@%s: fdvfs init done\n", __func__);
@@ -638,8 +638,10 @@ static int ged_pdrv_remove(struct platform_device *pdev)
 	ghLogBuf_DVFS = 0;
 #endif
 
-	if (ged_is_gpueb_support())
+	if (g_ged_gpueb_support) {
 		fastdvfs_proc_exit();
+		fdvfs_exit();
+	}
 
 	ged_log_buf_free(ghLogBuf_ftrace);
 	ghLogBuf_ftrace = 0;

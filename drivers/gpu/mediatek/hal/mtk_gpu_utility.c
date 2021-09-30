@@ -586,12 +586,17 @@ EXPORT_SYMBOL(mtk_get_fastdvfs_mode_fp);
 
 bool mtk_get_fastdvfs_mode(unsigned int *pui32Mode)
 {
+	if (pui32Mode == NULL)
+		return false;
+
 	if ((mtk_get_fastdvfs_mode_fp != NULL) &&
 		(pui32Mode != NULL)) {
 
 		*pui32Mode = mtk_get_fastdvfs_mode_fp();
 		return true;
 	}
+
+	*pui32Mode = 0;
 	return false;
 }
 EXPORT_SYMBOL(mtk_get_fastdvfs_mode);

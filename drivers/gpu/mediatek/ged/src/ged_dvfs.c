@@ -350,7 +350,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 
 	/* Delegate to DCS */
 #ifdef DIRECT_EB_COMMIT
-	if (ged_is_gpueb_support() &&
+	if (ged_is_fdvfs_support() &&
 		ged_dvfs_gpu_freq_commit_fp != mtk_gpueb_dvfs_commit) {
 		ged_dvfs_gpu_freq_commit_fp = mtk_gpueb_dvfs_commit;
 		GED_LOGI("%s @ %d. GPUEB version commit\n", __func__, __LINE__);
@@ -401,7 +401,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			}
 		}
 
-		if (ged_is_gpueb_support() && is_fb_dvfs_triggered && g_fastdvfs_mode) {
+		if (ged_is_fdvfs_support() && is_fb_dvfs_triggered && g_fastdvfs_mode) {
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
 
@@ -880,7 +880,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	gpu_freq_pre = ged_get_cur_freq() >> 10;
 
-	if (ged_is_gpueb_support() && is_fb_dvfs_triggered && g_fastdvfs_mode)
+	if (ged_is_fdvfs_support() && is_fb_dvfs_triggered && g_fastdvfs_mode)
 		busy_cycle_cur = g_eb_workload / 100;
 	else
 		busy_cycle_cur = t_gpu * gpu_freq_pre;
@@ -902,7 +902,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		gpu_freq_tar = gpu_freq_pre;
 
 	// Hint target frame time
-	if (ged_is_gpueb_support())
+	if (ged_is_fdvfs_support())
 		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target);
 
 	if (gpu_freq_tar * 100
@@ -1930,7 +1930,7 @@ GED_ERROR ged_dvfs_system_init(void)
 	mtk_dvfs_loading_mode_fp = ged_dvfs_loading_mode;
 	mtk_get_dvfs_loading_mode_fp = ged_get_dvfs_loading_mode;
 
-	if (ged_is_gpueb_support()) {
+	if (ged_is_fdvfs_support()) {
 		mtk_set_fastdvfs_mode_fp = ged_set_fastdvfs_mode;
 		mtk_get_fastdvfs_mode_fp = ged_get_fastdvfs_mode;
 	}

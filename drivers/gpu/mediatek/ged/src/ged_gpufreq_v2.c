@@ -11,6 +11,7 @@
 #include <ged_dvfs.h>
 #include <ged_global.h>
 #include <ged_eb.h>
+#include <mt-plat/mtk_gpu_utility.h>
 
 static int g_max_core_num;             /* core_num */
 static int g_avail_mask_num;           /* mask_num */
@@ -318,7 +319,7 @@ int ged_gpufreq_commit(int oppidx)
 	int fdvfs_enable = 0;
 	int dvfs_state = 0;
 
-	mtk_gpueb_dvfs_get_mode(&fdvfs_enable);
+	mtk_get_fastdvfs_mode(&fdvfs_enable);
 
 	/* DCS policy enabled */
 	if (is_dcs_enable()) {
@@ -346,7 +347,7 @@ int ged_gpufreq_commit(int oppidx)
 		}
 
 		/* scaling freq first than scaling shader cores*/
-		if (ged_is_gpueb_support() && fdvfs_enable)
+		if (ged_is_fdvfs_support() && fdvfs_enable)
 			mtk_gpueb_dvfs_dcs_commit(oppidx_tar, GED_DVFS_DEFAULT_COMMIT,
 				 g_virtual_table[oppidx].freq);
 		else
@@ -360,7 +361,7 @@ int ged_gpufreq_commit(int oppidx)
 			gpufreq_get_freq_by_idx(TARGET_DEFAULT, oppidx)
 			: g_working_table[oppidx].freq;
 
-		if (ged_is_gpueb_support() && fdvfs_enable)
+		if (ged_is_fdvfs_support() && fdvfs_enable)
 			mtk_gpueb_dvfs_dcs_commit(oppidx, GED_DVFS_DEFAULT_COMMIT, freq);
 		else
 			gpufreq_commit(TARGET_DEFAULT, oppidx);
