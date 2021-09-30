@@ -436,7 +436,7 @@ int vcp_dec_ipi_handler(void *arg)
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			temp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
 			inst = (struct vdec_inst *)temp_ctx->drv_handle;
-			if (vcu == &inst->vcu) {
+			if (inst == NULL || vcu == &inst->vcu) {
 				msg_valid = 1;
 				break;
 			}
@@ -730,8 +730,11 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	return 0;
 
 error_free_inst:
+	mutex_lock(&ctx->dev->ctx_mutex);
+	kfree(inst->vcu.ctx_ipi_lock);
 	kfree(inst);
 	*h_vdec = (unsigned long)NULL;
+	mutex_unlock(&ctx->dev->ctx_mutex);
 
 	return err;
 }
