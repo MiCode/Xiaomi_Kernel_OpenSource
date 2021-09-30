@@ -305,6 +305,7 @@ static int apu_probe(struct platform_device *pdev)
 		g_apu_log = 0;
 
 	apu = (struct mtk_apu *)rproc->priv;
+	g_apu_struct = apu;
 	dev_info(dev, "%s: apu=%p\n", __func__, apu);
 	apu->rproc = rproc;
 	apu->pdev = pdev;

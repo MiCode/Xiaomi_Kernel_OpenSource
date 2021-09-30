@@ -7,7 +7,9 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/sched/clock.h>
+#include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
+#include <linux/kernel.h>
 
 #include "mt-plat/aee.h"
 
@@ -23,6 +25,9 @@ static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
 	uint32_t a2)
 {
 	struct arm_smccc_res res;
+
+	dev_info(dev, "%s: smc call %d\n",
+			__func__, smc_id);
 
 	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL, smc_id,
 				a2, 0, 0, 0, 0, 0, &res);
@@ -268,10 +273,96 @@ static int mt6895_rproc_stop(struct mtk_apu *apu)
 	return 0;
 }
 
+static int mt6895_apu_power_init(struct mtk_apu *apu)
+{
+	struct device *dev = apu->dev;
+	struct device_node *np;
+	struct platform_device *pdev;
+
+	/* power dev */
+	np = of_parse_phandle(dev->of_node, "mediatek,apusys_power", 0);
+	if (!np) {
+		dev_info(dev, "failed to parse apusys_power node\n");
+		return -EINVAL;
+	}
+
+	if (!of_device_is_available(np)) {
+		dev_info(dev, "unable to find apusys_power node\n");
+		of_node_put(np);
+		return -ENODEV;
+	}
+
+	pdev = of_find_device_by_node(np);
+	if (!pdev) {
+		dev_info(dev, "apusys_power is not ready yet\n");
+		of_node_put(np);
+		return -EPROBE_DEFER;
+	}
+
+	dev_info(dev, "%s: get power_dev, name=%s\n", __func__, pdev->name);
+
+	apu->power_dev = &pdev->dev;
+	of_node_put(np);
+
+
+	/* apu iommu 0 */
+	np = of_parse_phandle(dev->of_node, "apu_iommu0", 0);
+	if (!np) {
+		dev_info(dev, "failed to parse apu_iommu0 node\n");
+		return -EINVAL;
+	}
+
+	if (!of_device_is_available(np)) {
+		dev_info(dev, "unable to find apu_iommu0 node\n");
+		of_node_put(np);
+		return -ENODEV;
+	}
+
+	pdev = of_find_device_by_node(np);
+	if (!pdev) {
+		dev_info(dev, "apu_iommu0 is not ready yet\n");
+		of_node_put(np);
+		return -EPROBE_DEFER;
+	}
+
+	dev_info(dev, "%s: get apu_iommu0 device, name=%s\n", __func__, pdev->name);
+
+	apu->apu_iommu0 = &pdev->dev;
+	of_node_put(np);
+
+
+	/* apu iommu 1 */
+	np = of_parse_phandle(dev->of_node, "apu_iommu1", 0);
+	if (!np) {
+		dev_info(dev, "failed to parse apu_iommu1 node\n");
+		return -EINVAL;
+	}
+
+	if (!of_device_is_available(np)) {
+		dev_info(dev, "unable to find apu_iommu1 node\n");
+		of_node_put(np);
+		return -ENODEV;
+	}
+
+	pdev = of_find_device_by_node(np);
+	if (!pdev) {
+		dev_info(dev, "apu_iommu1 is not ready yet\n");
+		of_node_put(np);
+		return -EPROBE_DEFER;
+	}
+
+	dev_info(dev, "%s: get apu_iommu1 device, name=%s\n", __func__, pdev->name);
+
+	apu->apu_iommu1 = &pdev->dev;
+	of_node_put(np);
+
+	return 0;
+}
+
 static int mt6895_apu_power_on(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
-	int ret;
+	int ret, timeout;
 
 	/* to force apu top power on synchronously */
 	ret = pm_runtime_get_sync(apu->power_dev);
@@ -284,25 +375,65 @@ static int mt6895_apu_power_on(struct mtk_apu *apu)
 	}
 
 	/* to notify IOMMU power on */
+	ret = pm_runtime_get_sync(apu->apu_iommu0);
+	if (ret < 0)
+		goto iommu_get_error;
+
+	ret = pm_runtime_get_sync(apu->apu_iommu1);
+	if (ret < 0)
+		pm_runtime_put_sync(apu->apu_iommu0);
+
+iommu_get_error:
+	if (ret < 0) {
+		dev_info(apu->dev,
+			 "%s: call to get_sync(iommu) failed, ret=%d\n",
+			 __func__, ret);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_IOMMU_RPM_GET_ERROR");
+		goto error_put_power_dev;
+	}
+
+	/* polling IOMMU rpm state till active */
+	dev_info(apu->dev, "start polling iommu on\n");
+	timeout = 5000;
+	while ((!pm_runtime_active(apu->apu_iommu0) ||
+	       !pm_runtime_active(apu->apu_iommu1)) && timeout-- > 0)
+		msleep(20);
+	if (timeout <= 0) {
+		dev_info(apu->dev, "%s: polling iommu on timeout!!\n",
+			 __func__);
+		WARN_ON(0);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_IOMMU_ON_TIMEOUT");
+		ret = -ETIMEDOUT;
+		goto error_put_iommu_dev;
+	}
+	dev_info(apu->dev, "polling iommu on done\n");
+
 	ret = pm_runtime_get_sync(apu->dev);
 	if (ret < 0) {
 		dev_info(apu->dev,
 			 "%s: call to get_sync(dev) failed, ret=%d\n",
 			 __func__, ret);
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_ERROR");
-		pm_runtime_put_sync(apu->power_dev);
-		return ret;
+		goto error_put_iommu_dev;
 	}
 
 	return 0;
+
+error_put_iommu_dev:
+	pm_runtime_put_sync(apu->apu_iommu1);
+	pm_runtime_put_sync(apu->apu_iommu0);
+
+error_put_power_dev:
+	pm_runtime_put_sync(apu->power_dev);
+
+	return ret;
 }
 
 static int mt6895_apu_power_off(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
-	int ret;
+	int ret, timeout;
 
-	/* to notify IOMMU power off */
 	ret = pm_runtime_put_sync(apu->dev);
 	if (ret) {
 		dev_info(apu->dev,
@@ -312,6 +443,44 @@ static int mt6895_apu_power_off(struct mtk_apu *apu)
 		return ret;
 	}
 
+
+	/* to notify IOMMU power off */
+	ret = pm_runtime_put_sync(apu->apu_iommu1);
+	if (ret < 0)
+		goto iommu_put_error;
+
+	ret = pm_runtime_put_sync(apu->apu_iommu0);
+	if (ret < 0)
+		pm_runtime_get_sync(apu->apu_iommu1);
+
+iommu_put_error:
+	if (ret < 0) {
+		dev_info(apu->dev,
+			 "%s: call to put_sync(iommu) failed, ret=%d\n",
+			 __func__, ret);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_IOMMU_RPM_PUT_ERROR");
+		goto error_get_rv_dev;
+	}
+
+	/* polling IOMMU rpm state till suspended */
+	dev_info(apu->dev, "start polling iommu off\n");
+	timeout = 5000;
+	while ((!pm_runtime_suspended(apu->apu_iommu0) ||
+	       !pm_runtime_suspended(apu->apu_iommu1)) && timeout-- > 0)
+		msleep(20);
+	if (timeout <= 0) {
+		dev_info(apu->dev, "%s: polling iommu off timeout!!\n",
+			 __func__);
+		apu_ipi_unlock(apu);
+		WARN_ON(0);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_IOMMU_OFF_TIMEOUT");
+		ret = -ETIMEDOUT;
+		goto error_get_iommu_dev;
+	}
+
+	dev_info(apu->dev, "polling iommu off done\n");
+
+
 	/* to force apu top power off synchronously */
 	ret = pm_runtime_put_sync(apu->power_dev);
 	if (ret) {
@@ -319,11 +488,37 @@ static int mt6895_apu_power_off(struct mtk_apu *apu)
 			 "%s: call to put_sync(power_dev) failed, ret=%d\n",
 			 __func__, ret);
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_PWR_ERROR");
-		pm_runtime_get_sync(apu->dev);
-		return ret;
+		goto error_get_iommu_dev;
 	}
 
+	/* polling APU TOP rpm state till suspended */
+	dev_info(apu->dev, "start polling power off\n");
+	timeout = 500;
+	while (!pm_runtime_suspended(apu->power_dev) && timeout-- > 0)
+		msleep(20);
+	if (timeout <= 0) {
+		dev_info(apu->dev, "%s: polling power off timeout!!\n",
+			 __func__);
+		apu_ipi_unlock(apu);
+		WARN_ON(0);
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_PWRDN_TIMEOUT");
+		ret = -ETIMEDOUT;
+		goto error_get_power_dev;
+	}
+
+	dev_info(apu->dev, "polling power done\n");
+
 	return 0;
+
+error_get_power_dev:
+	pm_runtime_get_sync(apu->power_dev);
+error_get_iommu_dev:
+	pm_runtime_get_sync(apu->apu_iommu0);
+	pm_runtime_get_sync(apu->apu_iommu1);
+error_get_rv_dev:
+	pm_runtime_get_sync(apu->dev);
+
+	return ret;
 }
 
 static int mt6895_apu_memmap_init(struct mtk_apu *apu)
@@ -465,8 +660,24 @@ static void mt6895_rv_cachedump(struct mtk_apu *apu)
 	spin_unlock_irqrestore(&apu->reg_lock, flags);
 }
 
+static const struct regdump_region_info mt6895_apu_regdump[] = {
+	{"APU_MD32_SYSCTRL", 0x19001000, 0x848},
+	{"APU_RCX_AO_CTRL",  0x190f2000, 0x314},
+	{"APU_MD32_WDT",     0x19002000, 0x10},
+	{"APU0_IOMMU_BANK0", 0x19010000, 0xB88},
+	{"APU0_IOMMU_BANK1", 0x19011000, 0x158},
+	{"APU0_IOMMU_BANK2", 0x19012000, 0x158},
+	{"APU0_IOMMU_BANK3", 0x19013000, 0x158},
+	{"APU0_IOMMU_BANK4", 0x19014000, 0xF14},
+	{"APU1_IOMMU_BANK0", 0x19015000, 0xB88},
+	{"APU1_IOMMU_BANK1", 0x19016000, 0x158},
+	{"APU1_IOMMU_BANK2", 0x19017000, 0x158},
+	{"APU1_IOMMU_BANK3", 0x19018000, 0x158},
+	{"APU1_IOMMU_BANK4", 0x19019000, 0xF14},
+};
+
 const struct mtk_apu_platdata mt6895_platdata = {
-	.flags		= F_AUTO_BOOT | F_DEBUG_LOG_ON,
+	.flags		=  F_AUTO_BOOT | F_DEBUG_LOG_ON,
 	.ops		= {
 		.init	= mt6895_rproc_init,
 		.exit	= mt6895_rproc_exit,
@@ -477,13 +688,14 @@ const struct mtk_apu_platdata mt6895_platdata = {
 		.cg_gating = mt6895_rv_cg_gating,
 		.cg_ungating = mt6895_rv_cg_ungating,
 		.rv_cachedump = mt6895_rv_cachedump,
+		.power_init = mt6895_apu_power_init,
 		.power_on = mt6895_apu_power_on,
 		.power_off = mt6895_apu_power_off,
 	},
-	.configs        = {
+	.configs	= {
 		.apu_regdump = {
-			.region_info = NULL,
-			.region_num = 0,
+			.region_info = mt6895_apu_regdump,
+			.region_num = ARRAY_SIZE(mt6895_apu_regdump),
 		},
 	},
 };
