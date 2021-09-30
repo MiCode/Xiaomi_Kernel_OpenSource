@@ -277,10 +277,10 @@ int mtk_cam_mraw_dev_config(
 int mtk_cam_mraw_dev_stream_on(
 	struct mtk_cam_ctx *ctx, unsigned int idx,
 	unsigned int streaming, unsigned int stag_en);
-int mtk_cam_mraw_dmao_config(
-	struct mtk_mraw_device *top_dev, struct mtk_mraw_device *sub_dev);
-int mtk_cam_mraw_fbc_config(
-	struct mtk_mraw_device *dev);
+int mtk_cam_mraw_tg_config(struct mtk_mraw_device *dev, unsigned int pixel_mode);
+int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev);
+int mtk_cam_mraw_dma_config(struct mtk_mraw_device *dev);
+int mtk_cam_mraw_fbc_config(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_top_enable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_dmao_enable(
 	struct mtk_mraw_device *dev);

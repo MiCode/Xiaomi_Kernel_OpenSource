@@ -1097,6 +1097,33 @@ struct device *mtk_cam_find_mraw_dev(struct mtk_cam_device *cam
 	return NULL;
 }
 
+int mtk_cam_mraw_tg_config(struct mtk_mraw_device *dev,
+	unsigned int pixel_mode)
+{
+	int ret = 0;
+
+	switch (pixel_mode) {
+	case 1:
+		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
+			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 0);
+		break;
+	case 2:
+		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
+			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 1);
+		break;
+	case 4:
+		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
+			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 2);
+		break;
+	case 8:
+		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_SEN_MODE,
+			MRAW_TG_SEN_MODE, TG_DBL_DATA_BUS, 3);
+		break;
+	}
+
+	return ret;
+}
+
 int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev)
 {
 	int ret = 0;
@@ -1505,6 +1532,7 @@ int mtk_cam_mraw_dev_config(
 	mraw_dev->is_enqueued = 0;
 	reset_msgfifo(mraw_dev);
 
+	mtk_cam_mraw_tg_config(mraw_dev, ctx->mraw_pipe[idx]->res_config.pixel_mode);
 	mtk_cam_mraw_top_config(mraw_dev);
 	mtk_cam_mraw_dma_config(mraw_dev);
 	mtk_cam_mraw_fbc_config(mraw_dev);

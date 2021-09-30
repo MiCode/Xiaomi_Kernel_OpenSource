@@ -1756,6 +1756,10 @@ static void fill_sv_mstream_s_data(struct mtk_cam_device *cam,
 
 	/* sv parameters */
 	req_stream_data_mstream->sv_frame_params = req_stream_data->sv_frame_params;
+
+	dev_dbg(cam->dev, "%s: pipe_id:%d, frame_seq:%d frame_mstream_seq:%d\n",
+		__func__, pipe_id, req_stream_data->frame_seq_no,
+		req_stream_data_mstream->frame_seq_no);
 }
 
 static void fill_mraw_mstream_s_data(struct mtk_cam_device *cam,
@@ -1780,6 +1784,14 @@ static void fill_mraw_mstream_s_data(struct mtk_cam_device *cam,
 	frame_done_work = &req_stream_data_mstream->frame_done_work;
 	mtk_cam_req_work_init(frame_done_work, req_stream_data_mstream);
 	INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
+
+	/* mraw parameters */
+	req_stream_data_mstream->frame_params.mraw_param[0] =
+		req_stream_data->frame_params.mraw_param[0];
+
+	dev_dbg(cam->dev, "%s: pipe_id:%d, frame_seq:%d frame_mstream_seq:%d\n",
+		__func__, pipe_id, req_stream_data->frame_seq_no,
+		req_stream_data_mstream->frame_seq_no);
 }
 
 static void mtk_cam_link_change_worker(struct work_struct *work)
@@ -2972,13 +2984,15 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		}
 
 		/* convert mraw's setting */
-		req_stream_data->frame_params.mraw_param[i]
-			= req_stream_data_mraw->frame_params.mraw_param[0];
-		req_stream_data->frame_params.mraw_param[i].pixel_mode
-			= ctx->mraw_pipe[i]->res_config.pixel_mode;
+		if (req->pipe_used & (1 << ctx->mraw_pipe[i]->id)) {
+			req_stream_data->frame_params.mraw_param[i]
+				= req_stream_data_mraw->frame_params.mraw_param[0];
+			req_stream_data->frame_params.mraw_param[i].pixel_mode
+				= ctx->mraw_pipe[i]->res_config.pixel_mode;
+		}
 
-		dev_dbg(cam->dev, "%s: mraw pipe id:%d tg_w:%d tg_h:%d pixel_mode:%d\n",
-			__func__, ctx->mraw_pipe[i]->id,
+		dev_dbg(cam->dev, "%s: idx:%d mraw pipe id:%d tg_w:%d tg_h:%d pixel_mode:%d\n",
+			__func__, req_stream_data->index, ctx->mraw_pipe[i]->id,
 			req_stream_data->frame_params.mraw_param[i].tg_size_w,
 			req_stream_data->frame_params.mraw_param[i].tg_size_h,
 			req_stream_data->frame_params.mraw_param[i].pixel_mode);
