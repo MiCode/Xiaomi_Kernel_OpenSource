@@ -126,6 +126,8 @@ int is_in_suspend(void)
 {
 	struct mt_cpu_dvfs *p = id_to_cpu_dvfs(0);
 
+	if (p  == NULL)
+		return 0;
 	return p->dvfs_disable_by_suspend;
 }
 EXPORT_SYMBOL(is_in_suspend);
