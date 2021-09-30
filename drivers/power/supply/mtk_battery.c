@@ -421,10 +421,15 @@ static int battery_psy_get_property(struct power_supply *psy,
 				&gm->gauge->pdev->dev, "charger");
 			bm_err("%s retry to get chg_psy\n", __func__);
 		}
-		ret = power_supply_get_property(bs_data->chg_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, val);
-		if (ret < 0)
-			bm_err("get CV property fail\n");
+		if (IS_ERR_OR_NULL(bs_data->chg_psy)) {
+			bm_err("%s Couldn't get chg_psy\n", __func__);
+			ret = 4350;
+		} else {
+			ret = power_supply_get_property(bs_data->chg_psy,
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE, val);
+			if (ret < 0)
+				bm_err("get CV property fail\n");
+		}
 		break;
 
 
