@@ -325,7 +325,7 @@ void hw_logger_ipi_remove(struct mtk_apu *apu)
 }
 
 static int __apu_logtop_copy_buf(unsigned int w_ofs,
-	unsigned int r_ofs, unsigned int t_size)
+	unsigned int r_ofs, unsigned int t_size, unsigned int st_addr)
 {
 	unsigned long flags;
 	unsigned int r_size;
@@ -425,18 +425,27 @@ static int __apu_logtop_copy_buf(unsigned int w_ofs,
 	/* set read pointer */
 	set_r_ptr(get_st_addr() + r_ofs);
 
+	/*
+	 * restore local read pointer if power down
+	 */
+	if (get_st_addr() == 0)
+		set_r_ptr(((unsigned long long)st_addr << 2) + r_ofs);
 out:
 	return ret;
 }
 
 static void __get_r_w_sz(unsigned int *w_ofs,
-	unsigned int *r_ofs, unsigned int *t_size)
+	unsigned int *r_ofs, unsigned int *t_size, unsigned int *st_addr)
 {
 	HWLOGR_DBG("get_w_ptr() = 0x%llx, get_r_ptr() = 0x%llx\n",
 		get_w_ptr(), get_r_ptr());
 	HWLOGR_DBG("get_st_addr() = 0x%llx, get_t_size() = 0x%x\n",
 		get_st_addr(), get_t_size());
 
+	/*
+	 * r_ptr may clear in deep idle
+	 * read again if it had been clear
+	 */
 	if (get_r_ptr() == 0)
 		set_r_ptr(get_st_addr());
 
@@ -444,32 +453,36 @@ static void __get_r_w_sz(unsigned int *w_ofs,
 	*w_ofs = get_w_ptr() - get_st_addr();
 	*r_ofs = get_r_ptr() - get_st_addr();
 	*t_size = get_t_size();
+	if (st_addr)
+		*st_addr = (get_st_addr() >> 2);
 }
 
 static void __get_r_w_sz_mbox(unsigned int *w_ofs,
-	unsigned int *r_ofs, unsigned int *t_size)
+	unsigned int *r_ofs, unsigned int *t_size, unsigned int *st_addr)
 {
-	unsigned long long st_addr;
+	unsigned long long l_st_addr;
 
 	HWLOGR_DBG("ST_ADDR() = 0x%x, W_OFS = 0x%x, T_SIZE = 0x%x\n",
 		ioread32(LOG_ST_ADDR), ioread32(LOG_W_OFS), ioread32(LOG_T_SIZE));
 
-	st_addr = (unsigned long long)ioread32(LOG_ST_ADDR) << 2;
+	l_st_addr = (unsigned long long)ioread32(LOG_ST_ADDR) << 2;
 
 	/* offset,size is only 32bit width */
 	*w_ofs = ioread32(LOG_W_OFS);
-	*r_ofs = get_r_ptr() - st_addr;
+	*r_ofs = get_r_ptr() - l_st_addr;
 	*t_size = ioread32(LOG_T_SIZE);
+	if (st_addr)
+		*st_addr = (get_st_addr() >> 2);
 }
 
 static int apu_logtop_copy_buf(void)
 {
-	unsigned int w_ofs, r_ofs, t_size;
+	unsigned int w_ofs, r_ofs, t_size, st_addr;
 	int ret = 0;
 
 	mutex_lock(&hw_logger_mutex);
 
-	__get_r_w_sz(&w_ofs, &r_ofs, &t_size);
+	__get_r_w_sz(&w_ofs, &r_ofs, &t_size, &st_addr);
 
 	/*
 	 * Check again here. If deep idle is
@@ -480,7 +493,7 @@ static int apu_logtop_copy_buf(void)
 		goto out;
 
 	ret = __apu_logtop_copy_buf(w_ofs,
-			r_ofs, t_size);
+			r_ofs, t_size, st_addr);
 out:
 	mutex_unlock(&hw_logger_mutex);
 
@@ -494,9 +507,9 @@ static void apu_logtop_copy_buf_wq(struct work_struct *work)
 	mutex_lock(&hw_logger_mutex);
 
 	if (apu_mbox)
-		__get_r_w_sz_mbox(&wq_w_ofs, &wq_r_ofs, &wq_t_size);
+		__get_r_w_sz_mbox(&wq_w_ofs, &wq_r_ofs, &wq_t_size, NULL);
 
-	__apu_logtop_copy_buf(wq_w_ofs, wq_r_ofs, wq_t_size);
+	__apu_logtop_copy_buf(wq_w_ofs, wq_r_ofs, wq_t_size, 0);
 
 	/* force set 0 here to prevent racing between power up */
 	set_r_ptr(0);
@@ -534,7 +547,7 @@ int hw_logger_deep_idle_enter_pre(void)
 
 	atomic_set(&apu_toplog_deep_idle, 1);
 
-	__get_r_w_sz(&wq_w_ofs, &wq_r_ofs, &wq_t_size);
+	__get_r_w_sz(&wq_w_ofs, &wq_r_ofs, &wq_t_size, NULL);
 
 	return 0;
 }
