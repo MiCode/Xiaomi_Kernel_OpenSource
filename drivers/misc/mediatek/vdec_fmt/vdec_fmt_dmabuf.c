@@ -20,7 +20,7 @@ int fmt_dmabuf_get_iova(struct dma_buf *dbuf, u64 *iova,
 	if (!cache_sync)
 		(*attach)->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-	*sgt = dma_buf_map_attachment(*attach, DMA_TO_DEVICE);
+	*sgt = dma_buf_map_attachment(*attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(*sgt)) {
 		fmt_debug(0, "map failed, detach and return\n");
 		dma_buf_detach(dbuf, *attach);
@@ -41,7 +41,7 @@ void fmt_dmabuf_free_iova(struct dma_buf *dbuf,
 		return;
 	}
 	fmt_debug(1, "dbuf %p attach %p sgt %p\n", dbuf, attach, sgt);
-	dma_buf_unmap_attachment(attach, sgt, DMA_TO_DEVICE);
+	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(dbuf, attach);
 }
 
