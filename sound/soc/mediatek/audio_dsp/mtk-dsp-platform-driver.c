@@ -639,6 +639,18 @@ static void mtk_dsp_ul_handler(struct mtk_base_dsp *dsp,
 			 dsp->dsp_mem[id].substream->runtime->status->state);
 		goto DSP_IRQ_HANDLER_ERR;
 	}
+
+	if (ipi_msg && ipi_msg->param2 == ADSP_UL_READ_RESET) {
+		spin_lock_irqsave(ringbuf_lock, flags);
+		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+		/* set buf size full to trigger pcm_read */
+		dsp->dsp_mem[id].ring_buf.datacount = dsp->dsp_mem[id].ring_buf.bufLen;
+		spin_unlock_irqrestore(ringbuf_lock, flags);
+		pr_info("%s reset UL\n", __func__);
+		snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
+		goto DSP_IRQ_HANDLER_ERR;
+	}
+
 	/* upadte for write index*/
 	ipi_audio_buf = (void *)dsp_mem->msg_dtoa_share_buf.va_addr;
 
@@ -1285,7 +1297,9 @@ static int audio_send_reset_event(void)
 		if ((i == TASK_SCENE_DEEPBUFFER) ||
 			(i == TASK_SCENE_VOIP) ||
 			(i == TASK_SCENE_PRIMARY) ||
-			(i == TASK_SCENE_FAST)) {
+			(i == TASK_SCENE_FAST) ||
+			(i == TASK_SCENE_CAPTURE_UL1) ||
+			(i == TASK_SCENE_CAPTURE_RAW)) {
 			ret = mtk_scp_ipi_send(i, AUDIO_IPI_MSG_ONLY,
 			AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_RESET,
 			ADSP_EVENT_READY, 0, NULL);
