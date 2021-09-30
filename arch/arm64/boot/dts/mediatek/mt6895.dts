@@ -2408,9 +2408,25 @@
 
 		mmc1: mmc@11240000 {
 			compatible = "mediatek,common-mmc";
-			reg = <0 0x11240000 0 0x10000>,
+			reg = <0 0x11240000 0 0x1000>,
 				  <0 0x11e70000 0 0x1000>;
 			interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
+				 <&pericfg_ao_clk CLK_PERAOP_1_MSDC1_HCLK>,
+				 <&pericfg_ao_clk CLK_PERAOP_1_MSDC1>;
+			clock-names = "source", "hclk", "source_cg";
+			status = "disabled";
+		};
+
+		mmc2: mmc@11242000 {
+			compatible = "mediatek,common-mmc";
+			reg = <0 0x11242000 0 0x1000>,
+				  <0 0x11f60000 0 0x1000>;
+			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MSDC30_2_SEL>,
+				 <&pericfg_ao_clk CLK_PERAOP_1_MSDC2_HCLK>,
+				 <&pericfg_ao_clk CLK_PERAOP_1_MSDC2>;
+			clock-names = "source", "hclk", "source_cg";
 			status = "disabled";
 		};
 
