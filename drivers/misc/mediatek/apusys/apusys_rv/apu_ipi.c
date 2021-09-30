@@ -308,7 +308,6 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	struct timespec64 ts, te;
 	struct mtk_apu *apu = priv;
 	struct device *dev = apu->dev;
-	struct apu_ipi_desc *ipi;
 	struct apu_mbox_hdr hdr;
 	struct mtk_share_obj *recv_obj = apu->recv_buf;
 	ipi_handler_t handler;
@@ -330,7 +329,10 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 		 "%s: ipi_id=%d, len=%d, serial_no=%d ++\n",
 		 __func__, id, len, hdr.serial_no);
 
-	ipi = &apu->ipi_desc[id];
+	if (id >= APU_IPI_MAX) {
+		dev_info(dev, "no such IPI id = %d", id);
+		goto ack_irq;
+	}
 
 	if (hdr.serial_no != rx_serial_no) {
 		dev_info(dev, "unmatched serial_no: curr=%u, recv=%u\n",
@@ -349,11 +351,6 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	if (len > APU_SHARE_BUFFER_SIZE) {
 		dev_info(dev, "IPI message too long(len %d, max %d)",
 			len, APU_SHARE_BUFFER_SIZE);
-		goto ack_irq;
-	}
-
-	if (id >= APU_IPI_MAX) {
-		dev_info(dev, "no such IPI id = %d", id);
 		goto ack_irq;
 	}
 
