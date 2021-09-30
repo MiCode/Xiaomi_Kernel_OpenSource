@@ -90,8 +90,9 @@ static int __apu_run(struct rproc *rproc)
 	}
 
 	delta = timespec64_sub(end, begin);
-	dev_info(dev, "APU uP boot success. boot time: %llu s, %llu ns\n",
-		  (uint64_t) delta.tv_sec, (uint64_t) delta.tv_nsec);
+	dev_info(dev,
+		 "APU uP boot done. boot time: %llu s, %llu ns. fw_ver: %s\n",
+		 (uint64_t)delta.tv_sec, (uint64_t)delta.tv_nsec, run->fw_ver);
 
 	return 0;
 

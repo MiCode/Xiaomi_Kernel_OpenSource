@@ -99,8 +99,6 @@ static void ipi_usage_cnt_update(struct mtk_apu *apu, u32 id, int diff)
 	spin_lock(&apu->usage_cnt_lock);
 	ipi->usage_cnt += diff;
 	spin_unlock(&apu->usage_cnt_lock);
-	dev_info(apu->dev, "%s: ipi %d usage_cnt=%d (%d)\n",
-		 __func__, id, ipi->usage_cnt, diff);
 }
 
 extern void apu_deepidle_power_on_aputop(struct mtk_apu *apu);
@@ -126,10 +124,6 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 	ipi = &apu->ipi_desc[id];
 
 	mutex_lock(&apu->send_lock);
-
-	dev_info(dev,
-		 "%s: ipi_id=%d, len=%d, serial_no=%d ++\n",
-		 __func__, id, len, tx_serial_no);
 
 	if (ipi_attrs[id].direction == IPI_HOST_INITIATE &&
 	    apu->ipi_inbound_locked == IPI_LOCKED && !bypass_check(id)) {
@@ -189,7 +183,7 @@ unlock_mutex:
 	ts = timespec64_sub(te, ts);
 
 	dev_info(dev,
-		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld --\n",
+		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld\n",
 		 __func__, id, len, hdr.csum, hdr.serial_no,
 		 timespec64_to_ns(&ts));
 
@@ -294,16 +288,12 @@ void apu_ipi_unregister(struct mtk_apu *apu, u32 id)
 static void apu_init_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_apu *apu = priv;
-	struct apu_run *run = data;
-	struct device *dev = apu->dev;
 
 	strscpy(apu->run.fw_ver, data, APU_FW_VER_LEN);
 
 	apu->run.signaled = 1;
 	//apu->run.signaled = run->signaled; // signaled com from remote proc
 	wake_up_interruptible(&apu->run.wq);
-
-	dev_info(dev, "fw_ver: %s\n", run->fw_ver);
 }
 
 static irqreturn_t apu_ipi_handler(int irq, void *priv)
@@ -320,10 +310,6 @@ static irqreturn_t apu_ipi_handler(int irq, void *priv)
 	/* get the latency of threaded irq */
 	ktime_get_ts64(&ts);
 	tl = timespec64_sub(ts, apu->intr_ts);
-
-	dev_info(dev,
-		 "%s: ipi_id=%d, len=%d, serial_no=%d, latency=%lld++\n",
-		 __func__, id, len, apu->hdr.serial_no, timespec64_to_ns(&tl));
 
 	mutex_lock(&apu->ipi_desc[id].lock);
 
@@ -348,7 +334,7 @@ out:
 	ts = timespec64_sub(te, ts);
 
 	dev_info(dev,
-		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld --\n",
+		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld\n",
 		 __func__, id, len, apu->hdr.csum, apu->hdr.serial_no,
 		 timespec64_to_ns(&ts));
 

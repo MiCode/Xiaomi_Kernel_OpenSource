@@ -115,7 +115,6 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 				 ioread32(apu->md32_sysctrl + 0x838),
 				 ioread32(apu->md32_sysctrl + 0x840));
 
-		dev_info(apu->dev, "%s: power on apu top\n", __func__);
 		apu->conf_buf->time_offset = sched_clock();
 		ret = hw_ops->power_on(apu);
 
@@ -159,8 +158,6 @@ static int apu_deepidle_send_ack(struct mtk_apu *apu, uint32_t cmd, uint32_t ack
 			 "%s: failed to send ack msg, ack=%d, ret=%d\n",
 			 __func__, ack, ret);
 
-	dev_info(apu->dev, "%s: deepidle cmd=%x, ack=%d\n", __func__, cmd, ack);
-
 	return ret;
 }
 
@@ -173,10 +170,9 @@ static void apu_deepidle_work_func(struct work_struct *work)
 
 	switch (msg->cmd) {
 	case DPIDLE_CMD_LOCK_IPI:
-		dev_info(apu->dev, "%s: lock IPI req ++\n", __func__);
 		ret = apu_ipi_lock(apu);
 		if (ret) {
-			dev_info(apu->dev, "%s: failed to lock IPI, ret=%d\n",
+			dev_info(apu->dev, "%s: IPI busy, ret=%d\n",
 				 __func__, ret);
 			apu_deepidle_send_ack(apu, DPIDLE_CMD_LOCK_IPI,
 					      DPIDLE_ACK_LOCK_BUSY);
@@ -184,19 +180,15 @@ static void apu_deepidle_work_func(struct work_struct *work)
 		}
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_LOCK_IPI,
 				      DPIDLE_ACK_OK);
-		dev_info(apu->dev, "%s: lock IPI req --\n", __func__);
 		break;
 
 	case DPIDLE_CMD_UNLOCK_IPI:
-		dev_info(apu->dev, "unlock IPI req ++\n");
 		apu_ipi_unlock(apu);
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_UNLOCK_IPI,
 				      DPIDLE_ACK_OK);
-		dev_info(apu->dev, "unlock IPI req --\n");
 		break;
 
 	case DPIDLE_CMD_PDN_UNLOCK:
-		dev_info(apu->dev, "power down req ++\n");
 		hw_logger_deep_idle_enter_pre();
 
 		apu_deepidle_send_ack(apu, DPIDLE_CMD_PDN_UNLOCK,
@@ -212,7 +204,7 @@ static void apu_deepidle_work_func(struct work_struct *work)
 
 		hw_logger_deep_idle_enter_post();
 		apu_ipi_unlock(apu);
-		dev_info(apu->dev, "power down req --\n");
+		dev_info(apu->dev, "power off done\n");
 		break;
 
 	default:
