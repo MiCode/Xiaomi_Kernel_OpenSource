@@ -1743,10 +1743,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
 			comp->id, temp_bw, vtotal, vact);
 
+#ifdef IF_ZERO
 		if (pending->prop_val[PLANE_PROP_COMPRESS])
 			comp->fbdc_bw += temp_bw;
 		else
 			comp->qos_bw += temp_bw;
+#else
+		/* so far only report one qos BW, no need to separate FBDC or normal BW */
+		comp->qos_bw += temp_bw;
+#endif
 
 		mtk_dprec_mmp_dump_ovl_layer(state);
 
@@ -2768,8 +2773,9 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		crtc = &mtk_crtc->base;
 
 		/* process FBDC */
-		__mtk_disp_set_module_bw(comp->fbdc_qos_req, comp->id, comp->fbdc_bw,
-					    DISP_BW_FBDC_MODE);
+		/* qos BW only has one port for one device, no need to separate */
+		//__mtk_disp_set_module_bw(comp->fbdc_qos_req, comp->id, comp->fbdc_bw,
+		//			    DISP_BW_FBDC_MODE);
 
 		/* process normal */
 		__mtk_disp_set_module_bw(comp->qos_req, comp->id, comp->qos_bw,
