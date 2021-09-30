@@ -175,25 +175,31 @@ void mtk_ddp_write_relaxed(struct mtk_ddp_comp *comp, unsigned int value,
 			   unsigned int offset, void *handle)
 {
 #ifndef DRM_CMDQ_DISABLE
-	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
+	if (handle) {
+		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
 		       comp->regs_pa + offset, value, ~0);
-#else
-	writel_relaxed(value, comp->regs + offset);
+		return;
+	}
 #endif
+	writel_relaxed(value, comp->regs + offset);
+
 }
 
 void mtk_ddp_write_mask(struct mtk_ddp_comp *comp, unsigned int value,
 			unsigned int offset, unsigned int mask, void *handle)
 {
-#ifndef DRM_CMDQ_DISABLE
-	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-		       comp->regs_pa + offset, value, mask);
-#else
-	unsigned int tmp = readl(comp->regs + offset);
+	unsigned int tmp;
 
+#ifndef DRM_CMDQ_DISABLE
+	if (handle) {
+		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
+		       comp->regs_pa + offset, value, mask);
+		return;
+	}
+#endif
+	tmp = readl(comp->regs + offset);
 	tmp = (tmp & ~mask) | (value & mask);
 	writel(tmp, comp->regs + offset);
-#endif
 }
 
 void mtk_ddp_write_mask_cpu(struct mtk_ddp_comp *comp,

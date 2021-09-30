@@ -16,7 +16,7 @@
 #define MAX_RX_CMD_NUM 20
 #define READ_DDIC_SLOT_NUM 4
 #define MAX_DYN_CMD_NUM 20
-
+#define MAX_TX_CMD_NUM_PACK 64
 
 struct mtk_dsi;
 struct cmdq_pkt;
@@ -74,8 +74,24 @@ struct DSI_RX_DATA_REG {
 	unsigned char byte3;
 };
 
+struct mtk_ddic_cmd {
+	unsigned int cmd_num;
+	unsigned char *para_list;
+};
+
+
+struct mtk_ddic_dsi_cmd {
+	unsigned int is_package;
+	unsigned int is_hs;
+	unsigned int cmd_count;
+	struct mtk_ddic_cmd mtk_ddic_cmd_table[MAX_TX_CMD_NUM_PACK];
+};
+
+
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				const void *data, size_t len);
+typedef void (*dcs_write_gce_pack) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				struct mtk_ddic_dsi_cmd *para_table);
 typedef void (*dcs_grp_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				struct mtk_panel_para_table *para_table,
 				unsigned int para_size);
@@ -361,6 +377,7 @@ struct mtk_panel_params {
 	unsigned int vfp_low_power;
 	struct dynamic_mipi_params dyn;
 	struct dynamic_fps_params dyn_fps;
+	struct mtk_ddic_dsi_cmd send_cmd_to_ddic;
 	unsigned int cust_esd_check;
 	unsigned int esd_check_enable;
 	struct esd_check_item lcm_esd_check_table[ESD_CHECK_NUM];
@@ -512,6 +529,9 @@ struct mtk_panel_funcs {
 
 	void (*lcm_dump)(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag);
 	enum mtk_lcm_version (*get_lcm_version)(void);
+
+	int (*send_ddic_cmd_pack)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce_pack cb, void *handle);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

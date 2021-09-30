@@ -2089,6 +2089,9 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
 static void mipi_dsi_dcs_write_gce2(struct mtk_dsi *dsi, struct cmdq_pkt *dummy,
 					  const void *data, size_t len);
 
+static void mtk_dsi_cmdq_pack_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+					struct mtk_ddic_dsi_cmd *para_table);
+
 static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 {
 	bool doze_enabled = mtk_dsi_doze_state(dsi);
@@ -2297,7 +2300,6 @@ static void mtk_dsi_disable_vfp_early_stop(struct mtk_dsi *dsi, struct cmdq_pkt 
 
 
 /***********************Msync 2.0 function end************************/
-
 static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	int force_lcm_update)
 {
@@ -3998,6 +4000,145 @@ static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				DSI_CMDQ_SIZE, CMDQ_SIZE_SEL, handle);
 	DDPINFO("set cmdqaddr %u, val:%x, mask %x\n", DSI_CMDQ_SIZE, cmdq_size,
 			CMDQ_SIZE);
+}
+static void mtk_dsi_cmdq_pack_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				struct mtk_ddic_dsi_cmd *para_table)
+{
+	struct mipi_dsi_msg msg;
+	const char *tx_buf;
+	u32 config, cmdq_off, type;
+	u32 cmdq_size, total_cmdq_size = 0;
+	u32 start_off = 0;
+	u32 reg_val, cmdq_val;
+	u32 cmdq_mask, i, j;
+	unsigned int base_addr;
+
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	const u32 reg_cmdq_ofs = dsi->driver_data->reg_cmdq0_ofs;
+
+	DDPINFO("%s +,\n", __func__);
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+	if (para_table->is_hs == 1)
+		mtk_ddp_write_mask(comp, DIS_EOT, DSI_TXRX_CTRL, DIS_EOT,
+				handle);
+
+	if (para_table->is_package == 1) {
+
+		for (j = 0; j < para_table->cmd_count; j++) {
+			msg.tx_buf = para_table->mtk_ddic_cmd_table[j].para_list;
+			msg.tx_len = para_table->mtk_ddic_cmd_table[j].cmd_num;
+
+			switch (msg.tx_len) {
+			case 0:
+				continue;
+
+			case 1:
+				msg.type = MIPI_DSI_DCS_SHORT_WRITE;
+				break;
+
+			case 2:
+				msg.type = MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+				break;
+
+			default:
+				msg.type = MIPI_DSI_DCS_LONG_WRITE;
+				break;
+			}
+
+			tx_buf = msg.tx_buf;
+			type = msg.type;
+
+			if (MTK_DSI_HOST_IS_READ(type))
+				config = BTA;
+			else
+				config = (msg.tx_len > 2) ? LONG_PACKET : SHORT_PACKET;
+
+			if (para_table->is_hs == 1)
+				config |= HSTX;
+
+			if (msg.tx_len > 2) {
+				cmdq_off = 4;
+				cmdq_mask = CONFIG | DATA_ID | DATA_0 | DATA_1;
+				reg_val = (msg.tx_len << 16) | (type << 8) | config;
+
+				mtk_ddp_write_relaxed(comp, reg_val,
+							reg_cmdq_ofs + start_off,
+							handle);
+				DDPINFO("pack set cmdq addr %x, val:%x\n",
+						reg_cmdq_ofs + start_off,
+						reg_val);
+
+				reg_val = 0;
+				for (i = 0; i < msg.tx_len; i++) {
+					cmdq_val = tx_buf[i] << ((i & 0x3u) * 8);
+					cmdq_mask = (0xFFu << ((i & 0x3u) * 8));
+					reg_val = reg_val | (cmdq_val & cmdq_mask);
+
+					if (((i & 0x3) == 0x3) ||
+						(i == (msg.tx_len - 1))) {
+						base_addr = reg_cmdq_ofs + start_off +
+							cmdq_off + ((i / 4) * 4);
+						mtk_ddp_write_relaxed(comp,
+							reg_val,
+							base_addr,
+							handle);
+
+						DDPINFO("pack set cmdq addr %x, val:%x\n",
+							base_addr,
+							reg_val);
+						reg_val = 0;
+					}
+				}
+			} else {
+				reg_val = (tx_buf[1] << 24) | (tx_buf[0] << 16)
+				| (type << 8) | config;
+
+				base_addr = reg_cmdq_ofs + start_off;
+				mtk_ddp_write_relaxed(comp,
+					reg_val,
+					base_addr,
+					handle);
+
+				DDPINFO("pack set cmdq addr %x, val:%x\n",
+					base_addr,
+					reg_val);
+
+				reg_val = 0;
+			}
+
+			if (msg.tx_len > 2)
+				cmdq_size = 1 + ((msg.tx_len + 3) / 4);
+			else
+				cmdq_size = 1;
+
+			start_off += (cmdq_size * 4);
+			total_cmdq_size += cmdq_size;
+			DDPINFO("pack offset:%d, size:%d\n", start_off, cmdq_size);
+
+			if (total_cmdq_size > 128) {
+				DDPINFO("%s out of dsi cmdq size\n", __func__);
+
+				return;
+			}
+		}
+	}
+	mtk_ddp_write_mask(comp, total_cmdq_size,
+				DSI_CMDQ_SIZE, CMDQ_SIZE, handle);
+	mtk_ddp_write_mask(comp, 1,
+				DSI_CMDQ_SIZE, CMDQ_SIZE_SEL, handle);
+	DDPINFO("total_cmdq_size = %d,DSI_CMDQ_SIZE=0x%x\n",
+		total_cmdq_size, readl(dsi->regs + DSI_CMDQ_SIZE));
+
+	mtk_ddp_write_relaxed(comp, 0x0, DSI_START, handle);
+	mtk_ddp_write_relaxed(comp, 0x1, DSI_START, handle);
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+	if (para_table->is_hs == 1)
+		mtk_ddp_write_mask(comp, 0, DSI_TXRX_CTRL, DIS_EOT,
+				handle);
+
+	DDPINFO("%s -,\n", __func__);
 }
 
 static void mtk_dsi_cmdq_grp_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -5942,6 +6083,18 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		if (panel_ext && panel_ext->funcs
 			&& panel_ext->funcs->reset)
 			panel_ext->funcs->reset(dsi->panel, *(int *)params);
+	}
+		break;
+	case DSI_SEND_DDIC_CMD_PACK:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs &&
+			panel_ext->funcs->send_ddic_cmd_pack)
+			panel_ext->funcs->send_ddic_cmd_pack(dsi->panel, dsi,
+				mtk_dsi_cmdq_pack_gce, handle);
 	}
 		break;
 	case DSI_SET_BL:
