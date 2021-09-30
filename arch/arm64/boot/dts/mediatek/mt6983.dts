@@ -7069,7 +7069,8 @@
 			<0 0>;
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_UFS0>;
-		vcc-supply = <&mt6373_vbuck4>;
+		vcc-opt1-supply = <&mt6373_vbuck4>;
+		vcc-opt2-supply = <&mt6363_vemc>;
 
 		resets = <&ufsaocfg_rst 0>, <&ufspdncfg_rst 0>,
 			   <&ufspdncfg_rst 1>;
