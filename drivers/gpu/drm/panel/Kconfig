@@ -230,6 +230,17 @@ config DRM_PANEL_SAMSUNG_OP_CMD
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
 
+config DRM_PANEL_SAMSUNG_OP_CMD_MSYNC2
+	tristate "ANA6705 OP WQHD cmd msync2 mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA6705 DPHY
+	  cmd mode WQHD panel. The panel has a 1440x3216
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_NOVATEK_NT36672A_VDO
 	tristate "Novatek NT36672A FHD+ video mode panel"
 	depends on OF
