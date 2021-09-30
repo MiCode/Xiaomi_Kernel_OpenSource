@@ -2151,11 +2151,13 @@ static kal_uint32 get_sensor_temperature(struct subdrv_ctx *ctx)
 {
 	UINT32 temperature = 0;
 	INT32 temperature_convert = 0;
-
+	INT32 read_sensor_temperature = 0;
 	/*TEMP_SEN_CTL */
 	write_cmos_sensor_8(ctx, 0x4d12, 0x01);
-	temperature = (read_cmos_sensor_8(ctx, 0x4d13) << 8) |
-		read_cmos_sensor_8(ctx, 0x4d13);
+	read_sensor_temperature = read_cmos_sensor_8(ctx, 0x4d13);
+
+	temperature = (read_sensor_temperature << 8) |
+		read_sensor_temperature;
 	if (temperature < 0xc000)
 		temperature_convert = temperature / 256;
 	else
