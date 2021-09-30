@@ -1257,6 +1257,27 @@
 			iommus = <&apu_iommu1 M4U_LARB34_APU_CODE>;
 		};
 
+
+		mtk_apu_mem_code: mtk_apu_mem_code {
+			compatible = "mediatek, apu_mem_code";
+
+			status = "okay";
+			type = <1>;
+			mask = /bits/ 64 <0x00000003ffffffff>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+			iommus = <&apu_iommu0 M4U_LARB34_APU_CODE>;
+		};
+
+		mtk_apu_mem_data: mtk_apu_mem_data {
+			compatible = "mediatek, apu_mem_data";
+
+			status = "okay";
+			type = <2>;
+			mask = /bits/ 64 <0x00000003ffffffff>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&apu_iommu1 M4U_LARB34_APU_DATA>;
+		};
+
 		toprgu@10007000 {
 			compatible = "mediatek,toprgu";
 			reg = <0 0x10007000 0 0x1000>;
