@@ -1343,7 +1343,7 @@
 
 			map0 {
 				domain = "top";
-				method = "fhctl-ap";
+				method = "fhctl-mcupm";
 				armpll_ll {
 					fh-id = <0>;
 					pll-id = <999>;
@@ -1358,10 +1358,6 @@
 				};
 				ccipll {
 					fh-id = <3>;
-					pll-id = <999>;
-				};
-				mpll {
-					fh-id = <6>;
 					pll-id = <999>;
 				};
 				mmpll {
