@@ -6813,6 +6813,14 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
 	}
+	if (!mtk_crtc->is_dual_pipe)
+		goto end;
+
+	for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+		comp->qos_bw = 0;
+		comp->fbdc_bw = 0;
+		comp->hrt_bw = 0;
+	}
 
 end:
 	CRTC_MMP_EVENT_END(index, atomic_begin,
