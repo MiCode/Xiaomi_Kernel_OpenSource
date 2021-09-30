@@ -5272,6 +5272,14 @@
 			reg = <0 0x14420000 0 0x1000>;
 		};
 
+		dp_tx: dp_tx@14800000 {
+			compatible = "mediatek,mt6895-dp_tx",
+						"mediatek,dp_tx";
+			reg = <0 0x14800000 0 0x800000>;
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_DP_TX>;
+			interrupts = <GIC_SPI 697 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		hcp: hcp@0 {
 			compatible = "mediatek,hcp";
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
