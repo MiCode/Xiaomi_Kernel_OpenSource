@@ -96,6 +96,10 @@ int mml_test_crop_height = 1088;
 EXPORT_SYMBOL(mml_test_crop_height);
 module_param(mml_test_crop_height, int, 0644);
 
+int mml_test_pq;
+EXPORT_SYMBOL(mml_test_pq);
+module_param(mml_test_pq, int, 0644);
+
 struct mml_test {
 	struct platform_device *pdev;
 	struct device *dev;
@@ -131,6 +135,7 @@ static void case_general_submit(struct mml_test *test,
 	struct platform_device *mml_pdev;
 	struct mml_drm_ctx *mml_ctx;
 	struct mml_job job = {};
+	struct mml_pq_param pq_param = {};
 	struct mml_submit task = {.job = &job};
 	const u32 src_fmt = the_case.cfg_src_format;
 	const u32 dest_fmt = the_case.cfg_dest_format;
@@ -204,6 +209,12 @@ static void case_general_submit(struct mml_test *test,
 	task.buffer.dest[1].flush = true;
 	task.buffer.dest[1].invalid = true;
 	task.buffer.dest[1].fence = -1;
+
+	if (mml_test_pq == 1) {
+		pq_param.enable = 1;
+		pq_param.scenario = MML_PQ_MEDIA_VIDEO;
+		task.pq_param[0] = &pq_param;
+	}
 
 	if (setup)
 		setup(&task, cur);
