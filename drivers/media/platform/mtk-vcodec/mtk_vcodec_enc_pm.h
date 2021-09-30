@@ -17,4 +17,6 @@ void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id);
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id);
 
+void mtk_venc_translation_fault_callback_setting(struct mtk_vcodec_dev *dev);
+
 #endif /* _MTK_VCODEC_ENC_PM_H_ */

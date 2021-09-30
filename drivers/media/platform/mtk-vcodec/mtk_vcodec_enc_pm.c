@@ -26,6 +26,10 @@
 #include "smi_port.h"
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+#include "iommu_debug.h"
+#endif
+
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->sram_data.uid = UID_MM_VENC;
@@ -36,15 +40,16 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	if (slbc_request(&ctx->sram_data) >= 0) {
 		ctx->use_slbc = 1;
 		ctx->slbc_addr = (unsigned int)(unsigned long)ctx->sram_data.paddr;
-	} else
+	} else {
+		pr_info("slbc_request fail\n");
 		ctx->use_slbc = 0;
-
+	}
 	if (ctx->slbc_addr % 256 != 0 || ctx->slbc_addr == 0) {
 		pr_info("slbc_addr error 0x%x\n", ctx->slbc_addr);
 		ctx->use_slbc = 0;
 	}
 
-	pr_info("slbc_request %p, 0x%x, 0x%llx\n",
+	pr_info("slbc_request %d, 0x%x, 0x%llx\n",
 	ctx->use_slbc, ctx->slbc_addr, ctx->sram_data.paddr);
 }
 
@@ -254,6 +259,66 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
 		if (pm->larbvencs[larb_index])
 			mtk_smi_larb_put(pm->larbvencs[larb_index]);
+	}
+#endif
+}
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+static int mtk_venc_translation_fault_callback(
+	int port, dma_addr_t mva, void *data)
+{
+	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
+	int larb_id = port >> 5;
+	void __iomem *reg_base = NULL;
+
+	mtk_v4l2_err("larb port %d of m4u port %d", larb_id, port & 0x1F);
+
+	if (larb_id == 7)
+		reg_base = dev->enc_reg_base[VENC_SYS];
+	else if (larb_id == 8)
+		reg_base = dev->enc_reg_base[VENC_C1_SYS];
+
+	if (reg_base != NULL) {
+		mtk_v4l2_err("venc tf callback =>");
+		mtk_v4l2_err("0x0: 0x%x, 0x14: 0x%x, 0x28: 0x%x, 0x2C: 0x%x, 0x64: 0x%x, 0x6C: 0x%x",
+			readl(reg_base), readl(reg_base + 0x14),
+			readl(reg_base + 0x28), readl(reg_base + 0x2C),
+			readl(reg_base + 0x64), readl(reg_base + 0x6C));
+		mtk_v4l2_err("0x70: 0x%x, 0x74: 0x%x, 0x78: 0x%x, 0x7C: 0x%x, 0x80: 0x%x, 0x84: 0x%x",
+			readl(reg_base + 0x70), readl(reg_base + 0x74),
+			readl(reg_base + 0x78), readl(reg_base + 0x7C),
+			readl(reg_base + 0x80), readl(reg_base + 0x84));
+		mtk_v4l2_err("0x88: 0x%x, 0x8C: 0x%x, 0x90: 0x%x, 0x94: 0x%x",
+			readl(reg_base + 0x88), readl(reg_base + 0x8C),
+			readl(reg_base + 0x90), readl(reg_base + 0x94));
+		mtk_v4l2_err("0xE0: 0x%x, 0x1B0: 0x%x, 0x1B4: 0x%x, 0x1170: 0x%x",
+			readl(reg_base + 0xE0), readl(reg_base + 0x1B0),
+			readl(reg_base + 0x1B4), readl(reg_base + 0x1170));
+		mtk_v4l2_err("0x11B8: 0x%x 0x11BC: 0x%x, 0x1280: 0x%x, 0x1284: 0x%x, 0x1288: 0x%x",
+			readl(reg_base + 0x11B8), readl(reg_base + 0x11BC),
+			readl(reg_base + 0x1280), readl(reg_base + 0x1284),
+			readl(reg_base + 0x1288));
+		mtk_v4l2_err("0x1420: 0x%x, 0x1424: 0x%x", readl(reg_base + 0x1420),
+			readl(reg_base + 0x1424));
+	}
+
+	return 0;
+}
+#endif
+
+void mtk_venc_translation_fault_callback_setting(
+	struct mtk_vcodec_dev *dev)
+{
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	int i;
+
+	for (i = 0; i < dev->venc_ports[0].total_port_num; i++) {
+		mtk_iommu_register_fault_callback(MTK_M4U_ID(7, i),
+			mtk_venc_translation_fault_callback, (void *)dev, false);
+	}
+	for (i = 0; i < dev->venc_ports[1].total_port_num; i++) {
+		mtk_iommu_register_fault_callback(MTK_M4U_ID(8, i),
+			mtk_venc_translation_fault_callback, (void *)dev, false);
 	}
 #endif
 }

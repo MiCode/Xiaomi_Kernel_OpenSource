@@ -479,6 +479,10 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	mtk_v4l2_debug(0, "encoder registered as /dev/video%d",
 				   vfd_enc->num);
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
+	mtk_venc_translation_fault_callback_setting(dev);
+#endif
+
 	mtk_prepare_venc_dvfs(dev);
 	mtk_prepare_venc_emi_bw(dev);
 	dev->pm_notifier.notifier_call = mtk_vcodec_enc_suspend_notifier;
