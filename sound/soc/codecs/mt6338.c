@@ -336,7 +336,6 @@ EXPORT_SYMBOL_GPL(mt6338_set_mtkaif_protocol);
 static void mt6338_set_playback_gpio(struct mt6338_priv *priv)
 {
 	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_SET, 0x30);
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x3);
 #if defined(MTKAIFV4_SUPPORT)
 
 	/* set gpio mosi mode, clk / data mosi */
@@ -372,15 +371,12 @@ static void mt6338_set_playback_gpio(struct mt6338_priv *priv)
 static void mt6338_reset_playback_gpio(struct mt6338_priv *priv)
 {
 	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_CLR, 0x30);
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x3);
-
 	/* set pad_aud_*_mosi to GPIO mode and dir input
 	 * reason:
 	 * pad_aud_dat_mosi*, because the pin is used as boot strap
 	 * don't clean clk/sync, for mtkaif protocol 2
 	 */
 	regmap_write(priv->regmap, MT6338_GPIO_MODE2_CLR, 0xff);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf0);
 	/*
 	 * [4]: PAD_AUD_DAT_MOSI1 [5]: PAD_AUD_DAT_MOSI0 [6]: PAD_AUD_DAT_MISO0
 	 * [7]: PAD_AUD_CLK_MOSI
@@ -390,8 +386,6 @@ static void mt6338_reset_playback_gpio(struct mt6338_priv *priv)
 
 static void mt6338_set_capture_gpio(struct mt6338_priv *priv)
 {
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_SET, 0x30);
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x3);
 
 	/* set gpio miso mode */
 #if defined(MTKAIFV4_SUPPORT)
@@ -399,10 +393,8 @@ static void mt6338_set_capture_gpio(struct mt6338_priv *priv)
 	 * [3:0] 1: AUD_DAT_MISO0 (O)	2: TDMOUT_DATA0 (O)
 	 * [6:4] 1: AUD_CLK_MOSI (I) 2: TDMOUT_BCK (I)
 	 */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0x0f);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x01);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE4_CLR, 0xf0);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE4_SET, 0x20);
+	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
+	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x11);
 #else
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x22);
@@ -423,12 +415,9 @@ static void mt6338_reset_capture_gpio(struct mt6338_priv *priv)
 	 * will also have 26m, so will have power leak
 	 * pad_aud_dat_miso*, because the pin is used as boot strap
 	 */
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_CLR, 0x30);
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x3);
 
 #if defined(MTKAIFV4_SUPPORT)
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE4_CLR, 0xf0);
 #else
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
 	regmap_write(priv->regmap, MT6338_GPIO_MODE4_CLR, 0xf0);
@@ -439,13 +428,12 @@ static void mt6338_reset_capture_gpio(struct mt6338_priv *priv)
 
 static void  mt6338_set_vow_gpio(struct mt6338_priv *priv)
 {
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_SET, 0x30);
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x3);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_SET, 0x1);
 
 	/* vow gpio set (data) */
 	/* [3:0] 4: VOW_DAT_MISO (O) */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf);
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x4);
+	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
+	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x14);
 
 	/* vow gpio set (clock) */
 	/* [3:0] 4: VOW_CLK_MISO (O)) */
@@ -456,8 +444,7 @@ static void  mt6338_set_vow_gpio(struct mt6338_priv *priv)
 static void mt6338_reset_vow_gpio(struct mt6338_priv *priv)
 {
 	/* vow gpio clear (data) */
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN0_CLR, 0x30);
-	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x3);
+	regmap_write(priv->regmap, MT6338_GPIO_PULLEN1_CLR, 0x1);
 
 	/* [3:0] 4: VOW_DAT_MISO (O) */
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xf);
