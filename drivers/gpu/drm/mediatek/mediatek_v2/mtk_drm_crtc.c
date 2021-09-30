@@ -772,6 +772,9 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
 	int ret = 0;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_panel_params *params =
+			mtk_drm_get_lcm_ext_params(crtc);
 
 	CRTC_MMP_EVENT_START(index, backlight, (unsigned long)crtc,
 			level);
@@ -830,8 +833,17 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 		cmdq_pkt_wfe(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_clear_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+
+		/*
+		 * When Msync 2.0 on,
+		 * BL set dirty will easily cause re-fresh old frame
+		 * Which influence Msync 2.0's latency gain
+		 */
+		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_MSYNC2_0) &&
+			params->msync2_enable))
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 	}
 
 	/* set backlight */
@@ -839,8 +851,16 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL, &level);
 
 	if (is_frame_mode) {
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		/*
+		 * When Msync 2.0 on,
+		 * BL set dirty will easily cause re-fresh old frame
+		 * Which influence Msync 2.0's latency gain
+		 */
+		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_MSYNC2_0) &&
+			params->msync2_enable))
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 		cmdq_pkt_set_event(cmdq_handle,
