@@ -782,6 +782,9 @@
 		quality = /bits/ 16 <900>;
 	};
 
+	touch: touch {
+			compatible = "goodix,touch";
+		};
 	touch_panel: touch_panel {
 			compatible = "mediatek,touch_panel";
 		};
