@@ -16,12 +16,12 @@
 #include <soc/mediatek/mmqos.h>
 
 
+#define CRTC_NUM		2
 static struct drm_crtc *dev_crtc;
-
 /* add for mm qos */
 static struct regulator *mm_freq_request;
 static u32 *g_freq_steps;
-static int g_freq_level = -1;
+static int g_freq_level[CRTC_NUM];
 static int step_size = 1;
 
 void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
@@ -260,6 +260,7 @@ static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 		dev_pm_opp_put(opp);
 	}
 }
+
 void mtk_drm_mmdvfs_init(struct device *dev)
 {
 	dev_pm_opp_of_add_table(dev);
@@ -273,25 +274,39 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 {
 	struct dev_pm_opp *opp;
 	unsigned long freq;
-	int volt, ret;
+	int volt, ret, idx, i;
 
-	if (drm_crtc_index(crtc) != 0)
+	idx = drm_crtc_index(crtc);
+
+	DDPINFO("%s[%d] g_freq_level[idx=%d]: %d\n",
+		__func__, __LINE__, idx, level);
+
+	if (idx > (CRTC_NUM - 1))
 		return;
 
 	if (level < 0 || level > (step_size - 1))
 		level = -1;
 
-	if (level == g_freq_level)
+	if (level == g_freq_level[idx])
 		return;
 
-	g_freq_level = level;
+	g_freq_level[idx] = level;
 
-	DDPINFO("%s set mmclk level: %d\n", caller, g_freq_level);
+	for (i = 0 ; i < CRTC_NUM; i++) {
+		if (g_freq_level[i] > g_freq_level[idx]) {
+			DDPINFO("%s[%d] g_freq_level[i=%d]=%d > g_freq_level[idx=%d]=%d\n",
+				__func__, __LINE__, i, g_freq_level[i], idx, g_freq_level[idx]);
+			return;
+		}
+	}
 
-	if (g_freq_level >= 0)
-		freq = g_freq_steps[g_freq_level];
+	if (g_freq_level[idx] >= 0)
+		freq = g_freq_steps[g_freq_level[idx]];
 	else
 		freq = g_freq_steps[0];
+
+	DDPINFO("%s[%d] g_freq_level[idx=%d](freq=%d)\n",
+		__func__, __LINE__, idx, g_freq_level[idx], freq);
 
 	opp = dev_pm_opp_find_freq_ceil(crtc->dev->dev, &freq);
 	volt = dev_pm_opp_get_voltage(opp);
@@ -300,6 +315,7 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 
 	if (ret)
 		DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
+
 }
 
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
