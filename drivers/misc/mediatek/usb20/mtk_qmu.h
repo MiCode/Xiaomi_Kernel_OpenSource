@@ -22,7 +22,7 @@
  */
 #define GPD_EXT_LEN (48)
 #define GPD_SZ (16)
-#define DFT_MAX_GPD_NUM 36
+#define DFT_MAX_GPD_NUM 144
 #ifndef MUSB_QMU_LIMIT_SUPPORT
 #define RXQ_NUM 8
 #define TXQ_NUM 8

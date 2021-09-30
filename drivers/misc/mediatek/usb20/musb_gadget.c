@@ -97,6 +97,9 @@ static inline void map_dma_buffer(struct musb_request *request,
 
 	unsigned int length;
 
+	if (request->request.length == 0)
+		return;
+
 	length = ALIGN(request->request.length, dma_get_cache_alignment());
 
 
@@ -148,6 +151,9 @@ static inline void
 unmap_dma_buffer(struct musb_request *request, struct musb *musb)
 {
 	unsigned int length;
+
+	if (request->request.length == 0)
+		return;
 
 	length = ALIGN(request->request.length, dma_get_cache_alignment());
 
@@ -204,7 +210,8 @@ void musb_g_giveback(struct musb_ep *ep,
 		goto lock;
 	}
 
-	if (!dma_mapping_error(musb->controller, request->dma))
+	if (!dma_mapping_error(musb->controller, request->dma) &&
+			req->request.length != 0)
 		unmap_dma_buffer(req, musb);
 	else if (req->epnum != 0)
 		DBG(0, "%s dma_mapping_error\n", ep->end_point.name);
@@ -1756,7 +1763,8 @@ static int musb_gadget_queue
 	/* add request to the list */
 	list_add_tail(&request->list, &musb_ep->req_list);
 #ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
-	if (request->request.dma != DMA_ADDR_INVALID) {
+	if (request->request.dma != DMA_ADDR_INVALID ||
+		request->request.length == 0) {
 		/* TX case */
 		if (request->tx) {
 			/* TX QMU don't have info
