@@ -113,6 +113,7 @@
 #define TXRX_CTRL_FLD_REG_HSTX_CKLP_EN REG_FLD_MSB_LSB(16, 16)
 
 #define DSI_PSCTRL 0x1c
+#define CMD_HS_HFP_BLANKING_HS_EN BIT(16)
 #define DSI_PS_WC	REG_FLD_MSB_LSB(14, 0)
 #define DSI_PS_SEL	REG_FLD_MSB_LSB(19, 16)
 #define RG_XY_SWAP  REG_FLD_MSB_LSB(21, 21)
@@ -3403,10 +3404,19 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 				   enum mtk_ddp_comp_trigger_flag flag)
 {
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_panel_ext *ext = dsi->ext;
 
 	switch (flag) {
 	case MTK_TRIG_FLAG_TRIGGER:
 		/* TODO: avoid hardcode: 0xF0 register offset  */
+		if (!ext->params->lp_perline_en &&
+			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
+				       0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMD_TYPE1_HS,
+					CMD_HS_HFP_BLANKING_HS_EN, CMD_HS_HFP_BLANKING_HS_EN);
+		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
 
@@ -3425,6 +3435,10 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		break;
 	case MTK_TRIG_FLAG_EOF:
 		mtk_dsi_poll_for_idle(dsi, handle);
+
+		if (!ext->params->lp_perline_en && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMD_TYPE1_HS, 0,
+					CMD_HS_HFP_BLANKING_HS_EN);
 		break;
 	default:
 		break;
