@@ -589,6 +589,64 @@
 		method = "smc";
 	};
 
+	lastbus: lastbus {
+		compatible = "mediatek,lastbus";
+		enabled = <1>;
+		sw_version = <1>;
+		timeout_ms = <200>;
+		timeout_type = <0>;
+		monitors {
+			monitor1 {
+				monitor_name = "debug_ctrl_ao_INFRA_AO";
+				base = <0x10023000>;
+				num_ports = <58>;
+				idle_masks = <0x08 0x08000004>,
+					     <0x14 0x03fe0000>,
+					     <0x18 0xc0000000>,
+					     <0x1c 0x0000ffff>;
+				bus_freq_mhz = <78>;
+			};
+			monitor2 {
+				monitor_name = "debug_ctrl_ao_INFRA_AO1";
+				base = <0x1002b000>;
+				num_ports = <18>;
+				bus_freq_mhz = <78>;
+			};
+			monitor3 {
+				monitor_name = "debug_ctrl_ao_EMI_AO";
+				base = <0x10042000>;
+				num_ports = <12>;
+				idle_masks = <0x08 0xf8000000>,
+					     <0x0c 0x001fffff>;
+				bus_freq_mhz = <688>;
+			};
+			monitor4 {
+				monitor_name = "debug_ctrl_ao_PERI_PAR_AO";
+				base = <0x11037000>;
+				num_ports = <20>;
+				bus_freq_mhz = <78>;
+			};
+			monitor5 {
+				monitor_name = "debug_ctrl_ao_VLP_AO";
+				base = <0x1c01d000>;
+				num_ports = <12>;
+				bus_freq_mhz = <156>;
+			};
+			monitor6 {
+				monitor_name = "debug_ctrl_ao_AUD_BUS_AO_PDN";
+				base = <0x1e015000>;
+				num_ports = <62>;
+				bus_freq_mhz = <750>;
+			};
+			monitor7 {
+				monitor_name = "debug_ctrl_ao_MM_AO";
+				base = <0x1e825000>;
+				num_ports = <25>;
+				bus_freq_mhz = <624>;
+			};
+		};
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0 0x40000000 0 0x3e605000>;
