@@ -168,14 +168,14 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			if (msg_len < MTK_EMI_MAX_CMD_LEN)
 				msg_len += scnprintf(mpu->vio_msg + msg_len,
 					MTK_EMI_MAX_CMD_LEN - msg_len,
-					"[MIUMPU]emiid%d", emi_id);
+					"\n[MIUMPU]emiid%d\n", emi_id);
 			for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
 				miumpu_dump_reg[i].value = readl(
 					miu_mpu_base + miumpu_dump_reg[i].offset);
 				if (msg_len < MTK_EMI_MAX_CMD_LEN)
 					msg_len += scnprintf(mpu->vio_msg + msg_len,
 						MTK_EMI_MAX_CMD_LEN - msg_len,
-						"[%x]0x%x;",
+						"[%x]%x;",
 						miumpu_dump_reg[i].offset,
 						miumpu_dump_reg[i].value);
 			}
@@ -184,7 +184,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			if (msg_len < MTK_EMI_MAX_CMD_LEN)
 				msg_len += scnprintf(mpu->vio_msg + msg_len,
 						MTK_EMI_MAX_CMD_LEN - msg_len,
-						"\n[EMIMPU]emiid%d", emi_id);
+						"\n[EMIMPU]emiid%d\n", emi_id);
 			for (i = 0; i < mpu->dump_cnt; i++)
 				if (msg_len < MTK_EMI_MAX_CMD_LEN)
 					msg_len += scnprintf(mpu->vio_msg + msg_len,
