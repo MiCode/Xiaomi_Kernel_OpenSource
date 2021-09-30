@@ -434,6 +434,14 @@ struct singlenode_desc_norm {
 	/* YUV-10bit AFBC packed 4:2:0 2plane, (Y)(UV) */
 #define V4L2_PIX_FMT_AFBC_YVU_2P010P v4l2_fourcc('A', 'F', 'V', 'A')
 	/* YUV-10bit AFBC packed 4:2:0 2plane, (Y)(VU) */
+#define V4L2_PIX_FMT_MTISP_SBGGRM10 v4l2_fourcc('M', 'M', 'B', 'A')
+	/* MIPI-10bit-Packed, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRGM10 v4l2_fourcc('M', 'M', 'G', 'A')
+	/* MIPI-10bit-Packed, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBGM10 v4l2_fourcc('M', 'M', 'g', 'A')
+	/* MIPI-10bit-Packed, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGBM10 v4l2_fourcc('M', 'M', 'R', 'A')
+	/* MIPI-10bit-Packed, (R)(G)(G)(B) */
 
 /* Vendor specific - Mediatek ISP parameters for firmware */
 #define V4L2_META_FMT_MTISP_PARAMS v4l2_fourcc('M', 'T', 'f', 'p')
