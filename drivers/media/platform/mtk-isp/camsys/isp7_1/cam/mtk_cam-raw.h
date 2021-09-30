@@ -88,6 +88,7 @@ enum hdr_scenario_id {
 	STAGGER_DCIF		= (1 << 2),
 	STAGGER_M2M		= (1 << 3),
 	MSTREAM			= (1 << 4),
+	MSTREAM_M2M		= (1 << 5),
 };
 
 #define RAW_STATS_CFG_SIZE \
@@ -361,7 +362,8 @@ void apply_cq(struct mtk_raw_device *dev,
 	      unsigned int cq_size, unsigned int cq_offset,
 	      unsigned int sub_cq_size, unsigned int sub_cq_offset);
 
-void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx);
+void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
+		signed int hw_scene);
 
 void reset(struct mtk_raw_device *dev);
 

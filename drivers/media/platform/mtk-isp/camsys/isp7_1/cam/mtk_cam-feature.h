@@ -9,10 +9,29 @@
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
 
+static inline bool mtk_cam_feature_is_mstream_m2m(int feature)
+{
+	int raw_feature;
+
+	if (!(feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK))
+		return false;
+
+	raw_feature = feature & MTK_CAM_FEATURE_HDR_MASK;
+	if (raw_feature == MSTREAM_NE_SE ||
+			raw_feature == MSTREAM_SE_NE)
+		return true;
+
+	return false;
+}
+
 static inline bool mtk_cam_feature_is_mstream(int feature)
 {
-	int raw_feature = feature & MTK_CAM_FEATURE_HDR_MASK;
+	int raw_feature;
 
+	if (feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)
+		return false;
+
+	raw_feature = feature & MTK_CAM_FEATURE_HDR_MASK;
 	if (raw_feature == MSTREAM_NE_SE || raw_feature == MSTREAM_SE_NE)
 		return true;
 
@@ -102,6 +121,7 @@ bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_mstream(struct mtk_cam_ctx *ctx);
+bool mtk_cam_is_mstream_m2m(struct mtk_cam_ctx *ctx);
 bool mtk_cam_feature_is_mstream(int feature);
 bool mtk_cam_feature_change_is_mstream(int feature_change);
 bool mtk_cam_is_subsample(struct mtk_cam_ctx *ctx);

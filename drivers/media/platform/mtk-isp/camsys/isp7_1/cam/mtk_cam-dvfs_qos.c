@@ -622,7 +622,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			break;
 		}
 	}
-
+	// TODO(mstream-odt): rawi_r6 ?
 	if (mtk_cam_is_mstream(ctx)) {
 		qos_port_id = engine_id * raw_qos_port_num + rawi_r2;
 		vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];

@@ -56,6 +56,14 @@ bool mtk_cam_is_stagger(struct mtk_cam_ctx *ctx)
 	return mtk_cam_feature_is_stagger(ctx->pipe->feature_active);
 }
 
+bool mtk_cam_is_mstream_m2m(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return mtk_cam_feature_is_mstream_m2m(ctx->pipe->feature_pending);
+}
+
 bool mtk_cam_is_mstream(struct mtk_cam_ctx *ctx)
 {
 	if (!ctx->used_raw_num) {
