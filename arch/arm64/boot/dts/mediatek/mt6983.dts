@@ -2101,6 +2101,11 @@
 		fbt_cpu_mask = <255 128 15 127>;
 	};
 
+	cpuqos_v3: cpuqos_v3 {
+		compatible = "mediatek,cpuqos_v3";
+		enable = <1>;
+	};
+
 	hwv: syscon@10320000 {
 		compatible = "mediatek,mt6983-hwv", "syscon";
 		reg = <0 0x10320000 0 0x2000>;
