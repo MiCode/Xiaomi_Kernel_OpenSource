@@ -2117,7 +2117,8 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 		list_del(&req->list);
 		list_add_tail(&req->list, &cam->running_job_list);
 		spin_unlock(&cam->running_job_lock);
-
+		atomic_set(&ctx->sensor_ctrl.sensor_enq_seq_no,
+			atomic_read(&ctx->enqueued_frame_seq_no));
 		mtk_cam_dev_req_enqueue(cam, req);
 	}
 }

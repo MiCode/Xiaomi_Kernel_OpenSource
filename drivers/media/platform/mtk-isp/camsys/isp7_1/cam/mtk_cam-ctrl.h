@@ -107,10 +107,11 @@ struct mtk_camsys_sensor_ctrl {
 	u64 sof_time;
 	int timer_req_sensor;
 	int timer_req_event;
-	int sensor_request_seq_no;
-	int isp_request_seq_no;
+	atomic_t sensor_enq_seq_no;
+	atomic_t sensor_request_seq_no;
+	atomic_t isp_request_seq_no;
 	int initial_cq_done;
-	int initial_drop_frame_cnt;
+	atomic_t initial_drop_frame_cnt;
 	struct list_head camsys_state_list;
 	spinlock_t camsys_state_lock;
 	/* link change ctrl */
