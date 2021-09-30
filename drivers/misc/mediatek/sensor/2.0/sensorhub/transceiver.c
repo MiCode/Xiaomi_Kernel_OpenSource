@@ -101,7 +101,7 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 	spin_unlock(&transceiver_fifo_lock);
 	end_time = ktime_get_boottime_ns();
 	if (end_time - start_time > timeout_ns)
-		pr_err("%s time monitor:%llu, %llu, %llu, %llu, %llu\n",
+		pr_err("time monitor:%llu, %llu, %llu, %llu, %llu\n",
 			start_time, wait_spin_lock_end_time, kfifo_end_time,
 			complete_end_time, end_time);
 }
