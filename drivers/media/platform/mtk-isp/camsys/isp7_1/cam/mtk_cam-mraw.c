@@ -1954,7 +1954,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	irq_info.engine_id = CAMSYS_ENGINE_MRAW_BEGIN + mraw_dev->id;
 	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
 	irq_info.frame_idx = dequeued_imgo_seq_no;
-	irq_info.frame_inner_idx = dequeued_imgo_seq_no_inner;
+	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
 	irq_info.n.slave_engine = 0;
 	if ((irq_status & MRAWCTL_SOF_INT_ST) &&
 		(irq_status & MRAWCTL_PASS1_DONE_ST))
@@ -1987,7 +1987,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		err_info.engine_id = irq_info.engine_id;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
-		err_info.frame_inner_idx = irq_info.frame_inner_idx;
+		err_info.frame_idx_inner = irq_info.frame_idx_inner;
 		err_info.e.err_status = err_status;
 
 		if (push_msgfifo(mraw_dev, &err_info) == 0)

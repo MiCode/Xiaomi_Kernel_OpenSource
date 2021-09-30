@@ -1315,7 +1315,7 @@ mtk_cam_set_timestamp(struct mtk_cam_request_stream_data *stream_data,
 int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				   struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 		struct mtk_camsys_ctrl_state **current_state,
-		int frame_inner_idx)
+		int frame_idx_inner)
 {
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
@@ -1368,8 +1368,8 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	if (state_outer && sensor_ctrl->sensorsetting_wq) {
 		req = mtk_cam_ctrl_state_get_req(state_outer);
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		if (req_stream_data->frame_seq_no == frame_inner_idx) {
-			if (frame_inner_idx > sensor_ctrl->isp_request_seq_no) {
+		if (req_stream_data->frame_seq_no == frame_idx_inner) {
+			if (frame_idx_inner > sensor_ctrl->isp_request_seq_no) {
 				if (state_outer->estate == E_STATE_SUBSPL_OUTER) {
 					mtk_cam_submit_kwork_in_sensorctrl(
 						sensor_ctrl->sensorsetting_wq, sensor_ctrl);
@@ -1378,7 +1378,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				state_transition(state_outer, E_STATE_SUBSPL_SENSOR,
 						 E_STATE_SUBSPL_INNER);
 				sensor_ctrl->isp_request_seq_no =
-					frame_inner_idx;
+					frame_idx_inner;
 				dev_dbg(raw_dev->dev,
 					"[SOF-subsample] frame_seq_no:%d, SENSOR/OUTER->INNER state:0x%x\n",
 					req_stream_data->frame_seq_no, state_outer->estate);
@@ -1388,7 +1388,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	/* Initial request case */
 	if (sensor_ctrl->sensor_request_seq_no <
 		INITIAL_DROP_FRAME_CNT) {
-		sensor_ctrl->isp_request_seq_no = frame_inner_idx;
+		sensor_ctrl->isp_request_seq_no = frame_idx_inner;
 		dev_dbg(raw_dev->dev, "[SOF-subsample] INIT STATE cnt:%d\n", que_cnt);
 		if (que_cnt > 0 && state_ready)
 			state_transition(state_ready, E_STATE_SUBSPL_READY,
@@ -1415,7 +1415,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				   struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 		struct mtk_camsys_ctrl_state **current_state,
-		int frame_inner_idx)
+		int frame_idx_inner)
 {
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
@@ -1472,7 +1472,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	if (state_inner) {
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_inner);
 		write_cnt = (sensor_ctrl->isp_request_seq_no / 256) * 256 + raw_dev->write_cnt;
-		if (frame_inner_idx > sensor_ctrl->isp_request_seq_no ||
+		if (frame_idx_inner > sensor_ctrl->isp_request_seq_no ||
 			atomic_read(&req_stream_data->frame_done_work.is_queued) == 1) {
 			dev_dbg(raw_dev->dev, "[SOF] frame done work too late\n");
 		} else if (write_cnt >= req_stream_data->frame_seq_no) {
@@ -1482,7 +1482,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 						      time_boot - 1000, time_mono - 1000);
 			mtk_camsys_frame_done(ctx, write_cnt, ctx->stream_id);
 		} else if (mtk_cam_is_stagger(ctx)) {
-			dev_dbg(raw_dev->dev, "[SOF:%d] HDR SWD over SOF case\n", frame_inner_idx);
+			dev_dbg(raw_dev->dev, "[SOF:%d] HDR SWD over SOF case\n", frame_idx_inner);
 		} else {
 			state_transition(state_inner, E_STATE_INNER,
 				 E_STATE_INNER_HW_DELAY);
@@ -1502,8 +1502,8 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	if (state_outer && sensor_ctrl->sensorsetting_wq) {
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_outer);
 		if (sensor_ctrl->initial_drop_frame_cnt == 0 &&
-			req_stream_data->frame_seq_no == frame_inner_idx) {
-			if (frame_inner_idx > sensor_ctrl->isp_request_seq_no) {
+			req_stream_data->frame_seq_no == frame_idx_inner) {
+			if (frame_idx_inner > sensor_ctrl->isp_request_seq_no) {
 				state_transition(state_outer,
 						 E_STATE_OUTER_HW_DELAY,
 						 E_STATE_INNER_HW_DELAY);
@@ -1512,7 +1512,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				state_transition(state_outer, E_STATE_CAMMUX_OUTER,
 						 E_STATE_INNER);
 				sensor_ctrl->isp_request_seq_no =
-					frame_inner_idx;
+					frame_idx_inner;
 				dev_dbg(raw_dev->dev,
 					"[SOF-DBLOAD] frame_seq_no:%d, OUTER->INNER state:%d\n",
 					req_stream_data->frame_seq_no, state_outer->estate);
@@ -1672,7 +1672,7 @@ static void mtk_camsys_ts_raw_try_set(struct mtk_raw_device *raw_dev,
 static int mtk_camsys_ts_state_handle(
 		struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 		struct mtk_camsys_ctrl_state **current_state,
-		int frame_inner_idx)
+		int frame_idx_inner)
 {
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp = NULL;
@@ -3119,7 +3119,7 @@ static int mtk_camsys_camsv_state_handle(
 		struct mtk_camsv_device *camsv_dev,
 		struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 		struct mtk_camsys_ctrl_state **current_state,
-		int frame_inner_idx)
+		int frame_idx_inner)
 {
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
@@ -3169,12 +3169,12 @@ static int mtk_camsys_camsv_state_handle(
 	if (state_outer != NULL) {
 		req = mtk_cam_ctrl_state_get_req(state_outer);
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		if (req_stream_data->frame_seq_no == frame_inner_idx) {
-			if (frame_inner_idx == (sensor_ctrl->isp_request_seq_no + 1)) {
+		if (req_stream_data->frame_seq_no == frame_idx_inner) {
+			if (frame_idx_inner == (sensor_ctrl->isp_request_seq_no + 1)) {
 				state_transition(state_outer,
 					E_STATE_OUTER_HW_DELAY, E_STATE_INNER_HW_DELAY);
 				state_transition(state_outer, E_STATE_OUTER, E_STATE_INNER);
-				sensor_ctrl->isp_request_seq_no = frame_inner_idx;
+				sensor_ctrl->isp_request_seq_no = frame_idx_inner;
 				dev_dbg(camsv_dev->dev, "[SOF-DBLOAD] req:%d, OUTER->INNER state:%d\n",
 						req_stream_data->frame_seq_no, state_outer->estate);
 			}
@@ -3336,7 +3336,7 @@ static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
 
 		if (mtk_cam_is_m2m(ctx)) {
-			mtk_camsys_m2m_frame_done(ctx, irq_info->frame_inner_idx,
+			mtk_camsys_m2m_frame_done(ctx, irq_info->frame_idx_inner,
 						  ctx->stream_id);
 		} else
 			mtk_camsys_frame_done(ctx, ctx->dequeued_frame_seq_no,
@@ -3348,10 +3348,10 @@ static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 		if (mtk_cam_is_stagger(ctx)) {
 			dev_dbg(raw_dev->dev, "[stagger] last frame_start\n");
 			mtk_cam_hdr_last_frame_start(raw_dev, ctx,
-						     irq_info->frame_inner_idx);
+						     irq_info->frame_idx_inner);
 		} else {
 			mtk_camsys_raw_frame_start(raw_dev, ctx,
-						   irq_info->frame_inner_idx);
+						   irq_info->frame_idx_inner);
 		}
 	}
 
@@ -3391,7 +3391,7 @@ static mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 	/* mraw's SOF */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
 		mtk_camsys_mraw_frame_start(mraw_dev, ctx,
-					    irq_info->frame_inner_idx);
+					    irq_info->frame_idx_inner);
 	/* mraw's CQ done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 		if (mtk_camsys_is_all_cq_done(ctx, stream_id)) {
@@ -3437,22 +3437,22 @@ static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 
 			if (camsv_dev->pipeline->exp_order == 0)
 				mtk_camsys_raw_frame_start(raw_dev, ctx,
-							   irq_info->frame_inner_idx);
+							   irq_info->frame_idx_inner);
 			else if (camsv_dev->pipeline->exp_order == 2)
 				mtk_cam_hdr_last_frame_start(raw_dev, ctx,
-							     irq_info->frame_inner_idx);
+							     irq_info->frame_idx_inner);
 		}
 		// time sharing - camsv write DRAM mode
 		if (camsv_dev->pipeline->hw_scen &
 		    (1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M)) {
 			if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) {
 
-				mtk_camsys_ts_sv_done(ctx, irq_info->frame_inner_idx);
+				mtk_camsys_ts_sv_done(ctx, irq_info->frame_idx_inner);
 				mtk_camsys_ts_raw_try_set(raw_dev, ctx,
 							  ctx->dequeued_frame_seq_no + 1);
 			}
 			if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START))
-				mtk_camsys_ts_frame_start(ctx, irq_info->frame_inner_idx);
+				mtk_camsys_ts_frame_start(ctx, irq_info->frame_idx_inner);
 		}
 	} else {
 		ctx = mtk_cam_find_ctx(cam, &camsv_dev->pipeline->subdev.entity);
@@ -3476,7 +3476,7 @@ static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		/* camsv's SOF */
 		if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START))
 			mtk_camsys_camsv_frame_start(camsv_dev, ctx,
-						     irq_info->frame_inner_idx);
+						     irq_info->frame_idx_inner);
 	}
 
 	return 0;
@@ -3489,7 +3489,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 	int ret = 0;
 
 	MTK_CAM_TRACE_BEGIN(BASIC, "irq_type %d, inner %d",
-			    irq_info->irq_type, irq_info->frame_inner_idx);
+			    irq_info->irq_type, irq_info->frame_idx_inner);
 	/**
 	 * Here it will be implemented dispatch rules for some scenarios
 	 * like twin/stagger/m-stream,

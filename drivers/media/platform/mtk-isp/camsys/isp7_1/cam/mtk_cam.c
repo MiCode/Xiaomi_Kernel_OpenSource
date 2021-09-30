@@ -2271,8 +2271,6 @@ static void mtk_cam_req_queue(struct media_request *req)
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 
-	cam_req->time_syscall_enque = ktime_get_boottime_ns() / 1000;
-
 	/* reset done status */
 	cam_req->done_status = 0;
 	cam_req->pipe_used = mtk_cam_req_get_pipe_used(req);

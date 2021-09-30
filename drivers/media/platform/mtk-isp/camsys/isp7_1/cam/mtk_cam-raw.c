@@ -1945,7 +1945,7 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 			     struct mtk_camsys_irq_info *data)
 {
 	int err_status = data->e.err_status;
-	int frame_inner_idx = data->frame_inner_idx;
+	int frame_idx_inner = data->frame_idx_inner;
 
 	/* Show DMA errors in detail */
 	if (err_status & DMA_ERR_ST) {
@@ -1970,10 +1970,10 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 	}
 	/* Show TG register for more error detail*/
 	if (err_status & TG_GBERR_ST)
-		raw_irq_handle_tg_grab_err(raw_dev, frame_inner_idx);
+		raw_irq_handle_tg_grab_err(raw_dev, frame_idx_inner);
 
 	if (err_status & TG_OVRUN_ST)
-		raw_irq_handle_tg_overrun_err(raw_dev, frame_inner_idx);
+		raw_irq_handle_tg_overrun_err(raw_dev, frame_idx_inner);
 }
 
 static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
@@ -2013,10 +2013,9 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
 	struct device *dev = raw_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
-	unsigned int dequeued_frame_seq_no, dequeued_frame_seq_no_inner, fbc_fho_r1_ctl2;
+	unsigned int frame_idx, frame_idx_inner, fbc_fho_ctl2;
 	unsigned int irq_status, err_status, dmao_done_status, dmai_done_status;
 	unsigned int drop_status, dma_ofl_status, cq_done_status, cq2_done_status;
-	unsigned int tg_cfg, cq_en, val_dcif_ctl, val_tg_sen;
 	bool wake_thread = 0;
 
 	irq_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
@@ -2026,22 +2025,11 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	dma_ofl_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT5_STAT);
 	cq_done_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT6_STAT);
 	cq2_done_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT7_STAT);
-	tg_cfg		 = readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG);
-	cq_en		 = readl_relaxed(raw_dev->base_inner + REG_CQ_EN);
-	val_dcif_ctl	 = readl_relaxed(raw_dev->base_inner + REG_TG_DCIF_CTL);
-	val_tg_sen	 = readl_relaxed(raw_dev->base_inner + REG_TG_SEN_MODE);
 
-	/**
-	 * TODO: read seq number from outer register.
-	 * This value may be wrong, since
-	 * @sw p1 done: legacy cq is triggered, overwriting this value
-	 * Should replace with the frame-header implementation.
-	 */
-	dequeued_frame_seq_no =
-		readl_relaxed(raw_dev->base + REG_FRAME_SEQ_NUM);
-	dequeued_frame_seq_no_inner =
-		readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
-	fbc_fho_r1_ctl2 =
+	frame_idx	= readl_relaxed(raw_dev->base + REG_FRAME_SEQ_NUM);
+	frame_idx_inner	= readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
+
+	fbc_fho_ctl2 =
 		readl_relaxed(REG_FBC_CTL2(raw_dev->base + FBC_R1A_BASE, 1));
 
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
@@ -2050,11 +2038,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_status, err_status,
 		dmao_done_status, dmai_done_status, drop_status,
 		dma_ofl_status, cq_done_status, cq2_done_status,
-		dequeued_frame_seq_no_inner);
+		frame_idx_inner);
 
 	if (unlikely(!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw)) {
-		dev_dbg(dev,
-			"%s: %i: raw pipeline is disabled\n",
+		dev_dbg(dev, "%s: %i: raw pipeline is disabled\n",
 			__func__, raw_dev->id);
 		goto ctx_not_found;
 	}
@@ -2062,8 +2049,8 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	irq_info.irq_type = 0;
 	irq_info.engine_id = CAMSYS_ENGINE_RAW_BEGIN + raw_dev->id;
 	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
-	irq_info.frame_idx = dequeued_frame_seq_no;
-	irq_info.frame_inner_idx = dequeued_frame_seq_no_inner;
+	irq_info.frame_idx = frame_idx;
+	irq_info.frame_idx_inner = frame_idx_inner;
 	irq_info.n.slave_engine = mtk_raw_dev_is_slave(raw_dev);
 	/* CQ done */
 	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST) {
@@ -2084,8 +2071,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	if (irq_status & SOF_INT_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 		raw_dev->sof_time = ktime_get_boottime_ns() / 1000;
-		raw_dev->write_cnt =
-			((fbc_fho_r1_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
+		raw_dev->write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		dev_dbg(dev, "[SOF] fho wcnt:%d\n", raw_dev->write_cnt);
 		raw_dev->sof_count++;
 		raw_dev->vsync_ori_count = 0;
@@ -2104,6 +2090,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		if (is_sub_sample_sensor_timing(raw_dev))
 			irq_info.irq_type |= 1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET;
 	}
+
 	if (err_status & DMA_ERR_ST &&
 		irq_status & SOF_INT_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DROP;
@@ -2121,7 +2108,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		err_info.engine_id = irq_info.engine_id;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
-		err_info.frame_inner_idx = irq_info.frame_inner_idx;
+		err_info.frame_idx_inner = irq_info.frame_idx_inner;
 		err_info.e.err_status = err_status;
 
 		if (push_msgfifo(raw_dev, &err_info) == 0)
@@ -2168,7 +2155,7 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		dev_dbg(raw_dev->dev, "ts=%lu irq_type %d, req:%d/%d\n",
 			irq_info.ts_ns / 1000,
 			irq_info.irq_type,
-			irq_info.frame_inner_idx,
+			irq_info.frame_idx_inner,
 			irq_info.frame_idx);
 
 		/* error case */

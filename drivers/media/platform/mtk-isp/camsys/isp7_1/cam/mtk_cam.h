@@ -254,7 +254,6 @@ struct mtk_cam_req_pipe {
  * @frame_work: work queue entry for frame transmission to SCP.
  * @list: List entry of the object for @struct mtk_cam_device:
  *        pending_job_list or running_job_list.
- * @time_syscall_enque: log the request enqueue time
  * @mtk_cam_request_stream_data: stream context related to the request
  *
  */
@@ -270,7 +269,6 @@ struct mtk_cam_request {
 	struct mutex fs_op_lock;
 	struct list_head list;
 	struct work_struct link_work;
-	u64 time_syscall_enque;
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
 	struct mtk_cam_resource raw_res[MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
 	s64 sync_id;

@@ -83,7 +83,7 @@ struct mtk_camsys_irq_info {
 	enum MTK_CAMSYS_ENGINE_IDX engine_id;
 	u64 ts_ns;
 	int frame_idx;
-	int frame_inner_idx;
+	int frame_idx_inner;
 	union {
 		struct mtk_camsys_irq_normal_data	n;
 		struct mtk_camsys_irq_error_data	e;

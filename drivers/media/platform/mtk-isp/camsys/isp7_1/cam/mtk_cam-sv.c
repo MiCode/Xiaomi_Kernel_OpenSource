@@ -1831,7 +1831,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	irq_info.engine_id = CAMSYS_ENGINE_CAMSV_BEGIN + camsv_dev->id;
 	irq_info.ts_ns = local_clock(); /* to be consistent with log time */
 	irq_info.frame_idx = dequeued_imgo_seq_no;
-	irq_info.frame_inner_idx = dequeued_imgo_seq_no_inner;
+	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
 	irq_info.n.slave_engine = 0;
 	if ((irq_status & CAMSV_INT_TG_SOF_INT_ST) &&
 		(irq_status & CAMSV_INT_PASS1_DON_ST))
@@ -1856,7 +1856,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		err_info.engine_id = irq_info.engine_id;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
-		err_info.frame_inner_idx = irq_info.frame_inner_idx;
+		err_info.frame_idx_inner = irq_info.frame_idx_inner;
 		err_info.e.err_status = err_status;
 
 		if (push_msgfifo(camsv_dev, &err_info) == 0)
@@ -1889,9 +1889,9 @@ static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
 
 		/* error case */
 		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
-			int frame_inner_idx = irq_info.frame_inner_idx;
+			int frame_idx_inner = irq_info.frame_idx_inner;
 
-			camsv_irq_handle_err(camsv_dev, frame_inner_idx);
+			camsv_irq_handle_err(camsv_dev, frame_idx_inner);
 			continue;
 		}
 
