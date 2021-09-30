@@ -3122,6 +3122,7 @@ static int dpmaif_start(unsigned char hif_id)
 		cpumask_set_cpu(0, &tmask);
 		cpumask_set_cpu(2, &tmask);
 		cpumask_set_cpu(3, &tmask);
+		cpumask_set_cpu(4, &tmask);
 		set_cpus_allowed_ptr(txq->tx_done_thread, &tmask);
 	}
 
