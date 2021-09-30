@@ -2018,10 +2018,15 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		(debug[3] >> 1) & 0x1, (debug[3] >> 2) & 0x1,
 		(debug[3] >> 3) & 0x1);
 
-	value[0] = readl(wrot->irot_va[0] + INLINEROT_OVLSEL);
-	value[1] = readl(wrot->irot_va[1] + INLINEROT_OVLSEL);
-	mml_err("INLINEROT0 INLINEROT_OVLSEL %#x", value[0]);
-	mml_err("INLINEROT1 INLINEROT_OVLSEL %#x", value[1]);
+	if (wrot->irot_va[0]) {
+		value[0] = readl(wrot->irot_va[0] + INLINEROT_OVLSEL);
+		mml_err("INLINEROT0 INLINEROT_OVLSEL %#x", value[0]);
+	}
+
+	if (wrot->irot_va[1]) {
+		value[1] = readl(wrot->irot_va[1] + INLINEROT_OVLSEL);
+		mml_err("INLINEROT1 INLINEROT_OVLSEL %#x", value[1]);
+	}
 }
 
 static const struct mml_comp_debug_ops wrot_debug_ops = {
