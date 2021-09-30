@@ -336,7 +336,7 @@
 			reg = <0>;
 			type = <0>;
 			ct = <0>;
-			part = <0>;
+			part = <1>;
 			port@0 {
 				fl_core_0: endpoint {
 					remote-endpoint = <&flashlight_0>;
