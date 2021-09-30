@@ -3017,6 +3017,11 @@ static int dpmaif_late_init(unsigned char hif_id)
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 		INFRA_DPMAIF_CTRL_REG, reg_val);
 
+	if (DPMAIF_RXQ_NUM > 0)
+		mtk_ccci_spd_qos_set_task(
+			dpmaif_ctrl->rxq[0].rx_thread,
+			dpmaif_ctrl->bat_alloc_thread);
+
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
 #else
@@ -3143,7 +3148,7 @@ static int dpmaif_start(unsigned char hif_id)
 
 	atomic_set(&s_tx_busy_assert_on, 0);
 
-	dpmaif_affinity_rta(0x02, 0x10, 8);
+	dpmaif_affinity_rta(0x02, 0x04, 8);
 
 	return 0;
 }

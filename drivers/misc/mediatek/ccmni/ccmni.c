@@ -494,7 +494,7 @@ static int ccmni_open(struct net_device *dev)
 		dev->features, gro_flush_timer, ccmni->flt_cnt);
 
 	if (s_call_times == 0)
-		set_ccmni_rps(0x20);
+		set_ccmni_rps(0x08);
 	s_call_times++;
 
 	return 0;
