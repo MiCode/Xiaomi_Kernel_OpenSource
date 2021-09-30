@@ -3,11 +3,13 @@
 # Copyright (c) 2021 MediaTek Inc.
 #
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+ccflags-y += -I$(srctree)/drivers/iommu \
+             -I$(srctree)/drivers/misc/mediatek/iommu/ \
              -I$(srctree)/drivers/misc/mediatek/include \
-             -I$(srctree)/drivers/misc/mediatek/smi/ \
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
              -I$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM) \
-             -I$(srctree)/drivers/misc/mediatek/mmp/
+             -I$(srctree)/drivers/misc/mediatek/mmp/ \
+             -I$(srctree)/drivers/misc/mediatek/smi/
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
 include $(srctree)/drivers/tee/teei/Makefile.include

@@ -25,6 +25,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
 
+#include <iommu_debug.h>
+
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
 struct cmdq_util_controller_fp *cmdq_util_controller;
@@ -884,25 +886,23 @@ static void cmdq_task_handle_error(struct cmdq_task *task)
 	cmdq_thread_resume(thread);
 }
 
-static void cmdq_thread_dump_pkt_by_pc(struct cmdq_thread *thread, const u64 pc)
+static void cmdq_thread_dump_pkt_by_pc(struct cmdq_thread *thread, const u64 pc,
+	const bool prev)
 {
 	struct cmdq_task *task;
 	struct cmdq_pkt_buffer *buf;
 
 	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
+		if (prev)
+			cmdq_dump_pkt(task->pkt, pc, true);
 		list_for_each_entry(buf, &task->pkt->buf, list_entry) {
 			if ((pc >= (CMDQ_BUF_ADDR(buf) & UINT_MAX)) &&
 				(pc < ((CMDQ_BUF_ADDR(buf) +
 				CMDQ_CMD_BUFFER_SIZE) & UINT_MAX))) {
-				cmdq_dump_pkt(task->pkt, 0, true);
+				if (!prev)
+					cmdq_dump_pkt(task->pkt, pc, true);
 				return;
 			}
-		}
-	}
-
-	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
-		list_for_each_entry(buf, &task->pkt->buf, list_entry) {
-			cmdq_dump_pkt(task->pkt, 0, true);
 		}
 	}
 }
@@ -953,7 +953,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		cmdq_err("pc:%pa end:%pa err:%d gce base:%lx thread:%u",
 			&curr_pa, &task_end_pa, err,
 			(unsigned long)cmdq->base_pa, thread->idx);
-		cmdq_thread_dump_pkt_by_pc(thread, curr_pa);
+		cmdq_thread_dump_pkt_by_pc(thread, curr_pa, false);
 	}
 
 	cmdq_log("task status %pa~%pa err:%d",
@@ -1938,6 +1938,26 @@ static void cmdq_config_init_buf(struct device *dev, struct cmdq *cmdq)
 		va[cmdq->tokens[i] * 2] = 0x80010000;
 }
 
+int cmdq_iommu_fault_callback(int port, dma_addr_t mva, void *cb_data)
+{
+	struct cmdq *cmdq = (struct cmdq *)cb_data;
+	s32 i;
+
+	cmdq_msg("%s: port:%d mva:%pa cmdq hwid:%hu",
+		__func__, port, &mva, cmdq->hwid);
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+		if (!cmdq->thread[i].occupied || !cmdq->thread[i].chan)
+			continue;
+
+		cmdq_dump_core(cmdq->thread[i].chan);
+		break;
+	}
+
+	cmdq_thread_dump_all(cmdq, true, true, true);
+	return 0;
+}
+
 static int cmdq_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
@@ -1945,6 +1965,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	struct device_link *link;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+	struct of_phandle_args args;
 	struct cmdq *cmdq;
 	int err, i;
 	struct gce_plat *plat_data;
@@ -2094,6 +2115,12 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
+
+	if (!of_parse_phandle_with_args(
+		dev->of_node, "iommus", "#iommu-cells", 0, &args)) {
+		mtk_iommu_register_fault_callback(
+			args.args[0], cmdq_iommu_fault_callback, cmdq, false);
+	}
 	return 0;
 }
 
