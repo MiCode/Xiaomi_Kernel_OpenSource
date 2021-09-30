@@ -3,6 +3,14 @@
 # Makefile for the linux memory manager.
 #
 
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek
+#endif
+
+ifdef CONFIG_MTK_ION
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion
+endif
+
 KASAN_SANITIZE_slab_common.o := n
 KASAN_SANITIZE_slab.o := n
 KASAN_SANITIZE_slub.o := n
