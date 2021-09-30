@@ -41,6 +41,11 @@ static ssize_t type_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
 	struct flashlight_device *flashlight_dev = to_flashlight_device(dev);
+	int size = ARRAY_SIZE(flashlight_type_string);
+
+	if ((flashlight_dev->props.type < 0) ||
+				(flashlight_dev->props.type >= size))
+		return -EINVAL;
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n",
 		       flashlight_type_string[flashlight_dev->props.type]);
@@ -50,6 +55,11 @@ static ssize_t mode_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
 	struct flashlight_device *flashlight_dev = to_flashlight_device(dev);
+	int size = ARRAY_SIZE(flashlight_mode_string);
+
+	if ((flashlight_dev->props.mode < 0) ||
+				(flashlight_dev->props.mode >= size))
+		return -EINVAL;
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n",
 		       flashlight_mode_string[flashlight_dev->props.mode]);
