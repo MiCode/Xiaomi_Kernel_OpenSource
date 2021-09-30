@@ -62,6 +62,8 @@
 #endif
 #include <linux/nvmem-consumer.h>
 
+#include "mtk-soc-speaker-amp.h"
+
 /* Use analog setting to do dc compensation */
 #define ANALOG_HPTRIM
 //#define ANALOG_HPTRIM_FOR_CUST
@@ -2502,10 +2504,14 @@ static void get_hp_lr_trim_offset(void)
 {
 #ifdef ANALOG_HPTRIM
 	set_lr_trim_code();
-	set_l_trim_code_spk();
+	if (mtk_spk_get_type() == 0)
+		set_l_trim_code_spk();
 #else
 	get_hp_trim_offset();
-	spkl_dc_offset = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
+	if (mtk_spk_get_type() == 0)
+		spkl_dc_offset = get_spk_trim_offset(AUDIO_OFFSET_TRIM_MUX_HPL);
+	else
+		spkl_dc_offset = 0;
 #endif
 	udelay(1000);
 	dctrim_calibrated = 2;
