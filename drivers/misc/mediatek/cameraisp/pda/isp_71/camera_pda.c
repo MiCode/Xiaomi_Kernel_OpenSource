@@ -75,8 +75,6 @@ struct device *g_dev1, *g_dev2;
 struct device *larb13, *larb25;
 struct device *larb14, *larb26;
 
-//static int g_porbe_count;
-
 static spinlock_t g_PDA_SpinLock;
 
 wait_queue_head_t g_wait_queue_head;
@@ -300,7 +298,7 @@ static void pda_reset(int PDA_Index)
 			// clear hardware reset signal
 			PDA_WR32(PDA_devs[PDA_Index].m_pda_base + PDA_PDA_TOP_CTL_REG,
 				PDA_CLEAR_REG);
-			LOG_INF("reset PDA%d hw success\n", PDA_Index);
+			// LOG_INF("reset PDA%d hw success\n", PDA_Index);
 			return;
 		}
 
@@ -599,7 +597,9 @@ static void HWDMASettings(struct PDA_Data_t *pda_PdaConfig)
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_DMA_RST_REG, 0x1);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_DMA_TOP_REG, 0x407);
 
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_DCM_DIS_REG, 0x00000000);
+		// DCM all off: 0x0000007F
+		// DCM all on:  0x00000000
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_DCM_DIS_REG, 0x0000007F);
 
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_ERR_STAT_REG,
 			0xffff0000);
@@ -1062,6 +1062,8 @@ static void LOGHWRegister(int i)
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_CON3_REG));
 	LOG_INF("PDA_PDATI_P2_CON4_REG = 0x%x\n",
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_CON4_REG));
+	LOG_INF("PDA_PDAO_P1_BASE_ADDR_REG = 0x%x\n",
+		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG));
 	LOG_INF("PDA_PDAO_P1_XSIZE_REG = 0x%x\n",
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_XSIZE_REG));
 	LOG_INF("PDA_PDAO_P1_CON0_REG = 0x%x\n",
@@ -1096,6 +1098,8 @@ static void LOGHWRegister(int i)
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_ERR_STAT_REG));
 	LOG_INF("PDA_PDAO_P1_ERR_STAT_REG = 0x%x\n",
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_ERR_STAT_REG));
+	LOG_INF("PDA_PDA_ERR_STAT_REG = 0x%x\n",
+		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_REG));
 	LOG_INF("PDA_PDA_TOP_CTL_REG = 0x%x\n",
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_TOP_CTL_REG));
 	LOG_INF("PDA_PDA_DEBUG_SEL_REG = 0x%x\n",
@@ -1167,6 +1171,10 @@ static void TimeoutHandler(void)
 		LOGHWRegister(i);
 		LOG_INF("PDA_%d register LOG -----\n", i);
 	}
+
+	// reset flow
+	for (i = 0; i < g_PDA_quantity; i++)
+		pda_reset(i);
 }
 
 static void pda_execute(void)
