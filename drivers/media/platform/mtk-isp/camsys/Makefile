@@ -67,7 +67,7 @@ endef
 all: check-env build install
 build:
 	$(kernel-make) modules
-install:
+install: build
 	$(kernel-make) modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$(OUT_DIR)
 clean:
 	$(kernel-make) clean
