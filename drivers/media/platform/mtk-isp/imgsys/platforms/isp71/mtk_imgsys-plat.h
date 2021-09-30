@@ -70,6 +70,14 @@ struct clk_bulk_data imgsys_isp7_clks[] = {
 		.id = "ME_CG"
 	},
 	{
+		.id = "IPE_FDVT"
+	},
+#ifdef USE_FDVT1
+	{
+		.id = "IPE_FDVT1"
+	}
+#endif
+	{
 		.id = "ME_CG_LARB12"
 	}
 };

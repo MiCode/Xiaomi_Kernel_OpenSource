@@ -32,6 +32,8 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 #include "mtk_aie.h"
+#include "mtk_imgsys-cmdq.h"
+
 #define FLD
 #define AIE_QOS_MAX 4
 #define AIE_QOS_RA_IDX 0
@@ -506,8 +508,9 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
 
-	pm_runtime_get_sync((fd->dev));
-	mtk_aie_ccf_enable((fd->dev));
+	//pm_runtime_get_sync((fd->dev));
+	//mtk_aie_ccf_enable((fd->dev));
+	mtk_imgsys_pwr(fd->img_pdev, true);
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
@@ -530,8 +533,10 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 		aie_disable_secure_domain(fd);
 		config_aie_cmdq_secure_end(fd);
 	}
-	mtk_aie_ccf_disable(fd->dev);
-	pm_runtime_put_sync(fd->dev);
+	//mtk_aie_ccf_disable(fd->dev);
+	//pm_runtime_put_sync(fd->dev);
+	mtk_imgsys_pwr(fd->img_pdev, false);
+
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) {
 		mtk_aie_mmqos_set(fd, 0);
@@ -1750,6 +1755,9 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	struct resource *res;
 	//int irq;
 	int ret;
+	struct device_node *img_node;
+	struct platform_device *img_pdev;
+
 	dev_info(dev, "probe start\n");
 
 	fd = devm_kzalloc(&pdev->dev, sizeof(*fd), GFP_KERNEL);
@@ -1897,7 +1905,21 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		return ret;
 	}
 #endif
-	dev_info(dev, "AIE : Success to %s >W<\n", __func__);
+
+	img_node = of_parse_phandle(pdev->dev.of_node, "mediatek,imgsys_fw", 0);
+	if (!img_node) {
+		dev_info(dev,
+			"%s: img node not found\n", __func__);
+	}
+	img_pdev = of_find_device_by_node(img_node);
+	if (!img_pdev) {
+		of_node_put(img_node);
+		dev_info(dev,
+			"%s: img device not found\n", __func__);
+	}
+	of_node_put(img_node);
+	fd->img_pdev = img_pdev;
+	dev_info(dev, "AIE : Success to %s >W\n", __func__);
 
 	return 0;
 
@@ -1931,13 +1953,15 @@ static int mtk_aie_runtime_suspend(struct device *dev)
 {
 
 	dev_info(dev, "%s: runtime suspend aie job)\n", __func__);
-
+	mtk_aie_ccf_disable(dev);
 	return 0;
 }
 
 static int mtk_aie_runtime_resume(struct device *dev)
 {
 	dev_info(dev, "%s: empty runtime resume aie job)\n", __func__);
+	mtk_aie_ccf_enable(dev);
+
 	return 0;
 }
 

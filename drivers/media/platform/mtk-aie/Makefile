@@ -3,6 +3,7 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 ccflags-y += -I$(srctree)/drivers/dma-buf/heaps/
+ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/
 
 mtk_aie-objs := \
 mtk_aie_53.o\

@@ -16,6 +16,7 @@
 #include <media/videobuf2-v4l2.h>
 
 #include "mtk-interconnect.h"
+#include "mtk_imgsys-dev.h"
 
 #define V4L2_META_FMT_MTFD_RESULT  v4l2_fourcc('M', 'T', 'f', 'd')
 
@@ -1149,6 +1150,7 @@ struct ipesys_aie_clocks {
 
 struct mtk_aie_dev {
 	struct device *dev;
+	struct platform_device *img_pdev;
 	struct ipesys_aie_clocks aie_clk;
 	struct cmdq_client *fdvt_clt;
 	struct cmdq_client *fdvt_secure_clt;

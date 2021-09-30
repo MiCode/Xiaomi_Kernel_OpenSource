@@ -241,9 +241,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
 
-	mutex_lock(&(imgsys_dev->power_ctrl_lock));
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
-	mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 
 	if (imgsys_cmdq_ts_enabled()) {
 		/* Calculating task timestamp */
@@ -637,9 +635,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			#endif
 			IMGSYS_SYSTRACE_END();
 
-			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 			mtk_imgsys_power_ctrl(imgsys_dev, true);
-			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 
 			/* Prepare cb param */
 			cb_param =
@@ -1498,6 +1494,8 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	u32 user_cnt = 0;
 
+
+	mutex_lock(&(imgsys_dev->power_ctrl_lock));
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 1) {
@@ -1517,7 +1515,7 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 			dev_info(dvfs_info->dev,
 				"[%s] isPowerOn(%d) user(%d)\n",
 				__func__, isPowerOn, user_cnt);
-			/* pm_runtime_put_sync(imgsys_dev->dev); */
+			/* pm_runtime_put_sync(imgsys_dev->dev);*/
 			pm_runtime_mark_last_busy(imgsys_dev->dev);
 			pm_runtime_put_autosuspend(imgsys_dev->dev);
 			if (IS_ERR_OR_NULL(dvfs_info->reg))
@@ -1527,8 +1525,18 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 				regulator_disable(dvfs_info->reg);
 		}
 	}
-
+	mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 }
+
+void mtk_imgsys_pwr(struct platform_device *pdev, bool on)
+{
+	struct mtk_imgsys_dev *imgsys_dev;
+
+	imgsys_dev = platform_get_drvdata(pdev);
+	mtk_imgsys_power_ctrl(imgsys_dev, on);
+}
+EXPORT_SYMBOL(mtk_imgsys_pwr);
+
 #endif
 
 bool imgsys_cmdq_ts_enabled(void)
