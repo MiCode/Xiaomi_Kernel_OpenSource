@@ -620,8 +620,8 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 				media_request_get(&req->req); /* for s_data_clean_list */
 				list_add_tail(&s_data->list, &s_data_clean_list);
 			}
-
 		}
+
 	}
 	spin_unlock_irqrestore(&cam->running_job_lock, flags);
 
@@ -632,6 +632,19 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 			pr_info("ERR can't be recovered: invalid req found in s_data_clean_list\n");
 			continue;
 		}
+
+		if (s_data->index > 0)
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):seq(%d): clean s_data_%d, raw_feature(%d)\n",
+				 __func__, req->req.debug_str, pipe_id,
+				 s_data->frame_seq_no, s_data->index,
+				 ctx->pipe->feature_pending);
+		else
+			dev_dbg(cam->dev,
+				"%s:%s:pipe(%d):seq(%d): clean s_data_%d, raw_feature(%d)\n",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no, s_data->index,
+				ctx->pipe->feature_pending);
 
 		 /* Cancel s_data's works before we clean up the data */
 		if (atomic_read(&s_data->sensor_work.is_queued)) {
@@ -1946,6 +1959,11 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				/* copy s_data content */
 				if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx))
 					fill_mstream_s_data(ctx, req);
+				else if (req->p_data[i].s_data_num == 2)
+					dev_info(cam->dev,
+						 "%s:req(%s): undefined s_data_1, raw_feature(%d)\n",
+						 __func__, req->req.debug_str,
+						 ctx->pipe->feature_pending);
 			} else if (is_camsv_subdev(i)) {
 				/* copy s_data content for mstream case */
 				if (req->p_data[i].s_data_num == 2)
