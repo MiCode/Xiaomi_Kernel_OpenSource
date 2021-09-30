@@ -20,6 +20,19 @@ struct clk_onecell_data;
 
 #define MHZ (1000 * 1000)
 
+enum clk_evt_type {
+	CLK_EVT_HWV_CG_TIMEOUT = 0,
+	CLK_EVT_NUM,
+};
+
+struct clk_event_data {
+	struct regmap *regmap;
+	int event_type;
+	const char *name;
+	u32 ofs;
+	u32 shift;
+};
+
 struct mtk_fixed_clk {
 	int id;
 	const char *name;
@@ -272,5 +285,9 @@ struct mtk_clk_desc {
 };
 
 int mtk_clk_simple_probe(struct platform_device *pdev);
+extern int register_mtk_clk_notifier(struct notifier_block *nb);
+extern int unregister_mtk_clk_notifier(struct notifier_block *nb);
+extern int mtk_clk_notify(struct regmap *regmap, const char *name, u32 ofs,
+		u32 shift, int event_type);
 
 #endif /* __DRV_CLK_MTK_H */

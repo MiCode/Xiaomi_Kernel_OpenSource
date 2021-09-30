@@ -4,6 +4,7 @@
  * Author: Owen Chen <owen.chen@mediatek.com>
  */
 #include <linux/pm_domain.h>
+#include <linux/regmap.h>
 
 #define CLK_NULL		0
 #define PD_NULL		-1
@@ -86,12 +87,14 @@ struct clkchk_ops {
 	int (*get_vcore_opp)(void);
 	bool (*is_pwr_on)(struct provider_clk *pvdck);
 	void (*devapc_dump)(void);
+	void (*dump_hwv_history)(struct regmap *regmap);
 };
 
 int clkchk_pvdck_is_on(struct provider_clk *pvdck);
 bool clkchk_pvdck_is_prepared(struct provider_clk *pvdck);
 bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck);
 bool is_valid_reg(void __iomem *addr);
+int set_clkchk_notify(void);
 void set_clkchk_ops(const struct clkchk_ops *ops);
 
 extern bool pdchk_get_bug_on_stat(void);

@@ -26,6 +26,11 @@
 #define BUG_ON_CHK_ENABLE		0
 #define CHECK_VCORE_FREQ		0
 
+#define HWV_ADDR_HISTORY_0		0x1F04
+#define HWV_DATA_HISTORY_0		0x1F44
+#define HWV_IDX_POINTER			0x1F84
+#define HWV_DOMAIN_KEY			0x155C
+#define HWV_SECURE_KEY			0x10907
 /*
  * clkchk dump_regs
  */
@@ -624,6 +629,23 @@ static bool is_pll_chk_bug_on(void)
 	return false;
 }
 
+static void dump_hwv_history(struct regmap *regmap)
+{
+	u32 val, val2;
+	int i;
+
+	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+	for (i = 0; i < 16; i++) {
+		regmap_read(regmap, HWV_ADDR_HISTORY_0 + (0x4 * i), &val);
+		regmap_read(regmap, HWV_DATA_HISTORY_0 + (0x4 * i), &val2);
+		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, val, val2);
+	}
+	regmap_read(regmap, HWV_IDX_POINTER, &val);
+	pr_notice("idx: 0x%x\n", val);
+
+	BUG_ON(1);
+}
+
 /*
  * init functions
  */
@@ -638,11 +660,14 @@ static struct clkchk_ops clkchk_mt6879_ops = {
 	.get_vf_table = get_vf_table,
 	.get_vcore_opp = get_vcore_opp,
 	.devapc_dump = devapc_dump,
+	.dump_hwv_history = dump_hwv_history,
 };
 
 static int clk_chk_mt6879_probe(struct platform_device *pdev)
 {
 	init_regbase();
+
+	set_clkchk_notify();
 
 	set_clkchk_ops(&clkchk_mt6879_ops);
 

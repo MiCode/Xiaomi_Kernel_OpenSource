@@ -4,6 +4,7 @@
  * Author: James Liao <jamesjj.liao@mediatek.com>
  */
 
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/err.h>
@@ -18,6 +19,37 @@
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
+
+static BLOCKING_NOTIFIER_HEAD(mtk_clk_notifier_list);
+
+int register_mtk_clk_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&mtk_clk_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(register_mtk_clk_notifier);
+
+int unregister_mtk_clk_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&mtk_clk_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_mtk_clk_notifier);
+
+int mtk_clk_notify(struct regmap *regmap, const char *name, u32 ofs,
+		u32 shift, int event_type)
+{
+	struct clk_event_data clke;
+
+	clke.event_type = event_type;
+	clke.regmap = regmap;
+	clke.name = name;
+	clke.ofs = ofs;
+	clke.shift = shift;
+
+	blocking_notifier_call_chain(&mtk_clk_notifier_list, 0, &clke);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_clk_notify);
 
 struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num)
 {

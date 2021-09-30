@@ -5,6 +5,7 @@
 
 #define pr_fmt(fmt) "[clkchk] " fmt
 
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -22,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/module.h>
 
+#include "clk-mtk.h"
 #include "clkchk.h"
 #include "mt-plat/aee.h"
 
@@ -34,12 +36,55 @@ void __attribute__((weak)) clkchk_set_cfg(void)
 }
 
 static const struct clkchk_ops *clkchk_ops;
+static struct notifier_block mtk_clkchk_notifier;
 
 void set_clkchk_ops(const struct clkchk_ops *ops)
 {
 	clkchk_ops = ops;
 }
 EXPORT_SYMBOL(set_clkchk_ops);
+
+/*
+ * for clock exception event handling
+ */
+
+static void clkchk_dump_hwv_history(struct regmap *regmap)
+{
+	if (clkchk_ops == NULL || clkchk_ops->dump_hwv_history == NULL)
+		return;
+
+	clkchk_ops->dump_hwv_history(regmap);
+}
+
+static int clkchk_evt_handling(struct notifier_block *nb,
+			unsigned long flags, void *data)
+{
+	struct clk_event_data *clkd = (struct clk_event_data *)data;
+
+	switch (clkd->event_type) {
+	case CLK_EVT_HWV_CG_TIMEOUT:
+		clkchk_dump_hwv_history(clkd->regmap);
+		break;
+	default:
+		pr_notice("cannot get flags identify\n");
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+int set_clkchk_notify(void)
+{
+	int r = 0;
+
+	mtk_clkchk_notifier.notifier_call = clkchk_evt_handling;
+	r = register_mtk_clk_notifier(&mtk_clkchk_notifier);
+	if (r)
+		pr_err("clk-chk notifier register err(%d)\n", r);
+
+	return r;
+}
+EXPORT_SYMBOL(set_clkchk_notify);
 
 /*
  * for mtcmos debug

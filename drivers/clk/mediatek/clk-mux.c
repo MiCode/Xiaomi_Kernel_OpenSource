@@ -91,15 +91,19 @@ static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 			BIT(mux->data->gate_shift));
 
 	while (!mtk_clk_mux_is_enabled(hw)) {
-		if (i < 10)
+		if (i < 50)
 			udelay(10);
 		else
 			break;
 		i++;
 	}
 
-	if (i >= 10) {
+	if (i >= 20) {
 		pr_err("%s mux enable timeout(%dus)(0x%x)\n", clk_hw_get_name(hw), i * 10);
+
+		mtk_clk_notify(mux->hwv_regmap, clk_hw_get_name(hw), mux->data->mux_ofs,
+				mux->data->gate_shift, CLK_EVT_HWV_CG_TIMEOUT);
+
 		return -EBUSY;
 	}
 
