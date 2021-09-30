@@ -233,6 +233,7 @@ static int mtk_mmlsys_bypass_remove(struct platform_device *pdev)
 
 static const struct of_device_id mtk_mmlsys_bypass_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6983-mmlsys-bypass",},
+	{.compatible = "mediatek,mt6895-mmlsys-bypass",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_mmlsys_bypass_driver_dt_match);

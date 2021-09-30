@@ -207,6 +207,7 @@ static int mtk_disp_inlinerotate_remove(struct platform_device *pdev)
 
 static const struct of_device_id mtk_disp_inlinerotate_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6983-disp-inlinerotate",},
+	{.compatible = "mediatek,mt6895-disp-inlinerotate",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_inlinerotate_driver_dt_match);

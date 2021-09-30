@@ -2086,6 +2086,10 @@ static const unsigned int mt6895_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_DLI_ASYNC7] = MT6895_MUTEX_MOD1_DLI_ASYNC3,
 
 		[DDP_COMPONENT_PWM0] = MT6895_MUTEX_MOD1_DISP_PWM0,
+		[DDP_COMPONENT_Y2R0] = MT6895_MUTEX_MOD0_DISP_Y2R0,
+		[DDP_COMPONENT_DLO_ASYNC] = MT6895_MUTEX_MOD1_DLO_ASYNC3,
+		[DDP_COMPONENT_DLI_ASYNC] = MT6895_MUTEX_MOD1_DLI_ASYNC3,
+		[DDP_COMPONENT_INLINE_ROTATE] = MT6895_MUTEX_MOD1_INLINEROT0,
 };
 
 static const unsigned int mt8173_mutex_mod[DDP_COMPONENT_ID_MAX] = {
@@ -2640,7 +2644,7 @@ const struct mtk_mmsys_reg_data mt6983_mmsys_reg_data = {
 
 const struct mtk_mmsys_reg_data mt6895_mmsys_reg_data = {
 	// To-Do
-	.rdma0_sout_sel_in = MT6983_DISP_RDMA0_SEL_IN,
+	.rdma0_sout_sel_in = MT6895_DISP_RDMA0_SEL_IN,
 	.dispsys_map = mt6895_dispsys_map,
 };
 
@@ -6350,6 +6354,21 @@ char *mtk_ddp_get_mutex_sof_name_mt6983(unsigned int regval)
 		return "dpi0";
 	case MT6983_MUTEX_SOF_DPI1:
 		return "dpi1";
+	default:
+		DDPDUMP("%s, unknown reg=%d\n", __func__, regval);
+		return "unknown";
+	}
+}
+
+char *mtk_ddp_get_mutex_sof_name_mt6895(unsigned int regval)
+{
+	switch (regval) {
+	case MT6895_MUTEX_SOF_SINGLE_MODE:
+		return "single";
+	case MT6895_MUTEX_SOF_DSI0:
+		return "dsi0";
+	case MT6895_MUTEX_SOF_DPI0:
+		return "dpi0";
 	default:
 		DDPDUMP("%s, unknown reg=%d\n", __func__, regval);
 		return "unknown";
@@ -12116,7 +12135,7 @@ void mutex_dump_analysis_mt6895(struct mtk_disp_mutex *mutex)
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	unsigned int i = 0;
 	unsigned int j = 0;
-	char mutex_module[512] = {'\0'};
+	char mutex_module[1024] = {'\0'};
 	void __iomem *module_base = ddp->regs;
 	char *p = NULL;
 	int len = 0, cnt = 0;
@@ -12134,14 +12153,14 @@ REDUMP:
 			continue;
 
 		val = readl_relaxed(module_base +
-					DISP_REG_MUTEX_SOF(ddp->data, i));
+				    DISP_REG_MUTEX_SOF(ddp->data, i));
 
 		len = sprintf(p, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(", i,
-				  mtk_ddp_get_mutex_sof_name(
-					  REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF, val)),
-				  mtk_ddp_get_mutex_sof_name(
-					  REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
-				  REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
+			      mtk_ddp_get_mutex_sof_name_mt6895(
+				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF, val)),
+			      mtk_ddp_get_mutex_sof_name_mt6895(
+				      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
+			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
 
 		if (len < 0) {
 			/* Handle sprintf() error */

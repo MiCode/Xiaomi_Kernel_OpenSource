@@ -197,6 +197,7 @@ static int mtk_disp_y2r_remove(struct platform_device *pdev)
 
 static const struct of_device_id mtk_disp_y2r_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6983-disp-y2r",},
+	{.compatible = "mediatek,mt6895-disp-y2r",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_y2r_driver_dt_match);

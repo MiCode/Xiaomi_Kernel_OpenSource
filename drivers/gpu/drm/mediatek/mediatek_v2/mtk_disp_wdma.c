@@ -139,6 +139,9 @@
 #define MT6983_WDMA0_AID_SEL	(0xB1CUL)
 #define MT6983_WDMA1_AID_SEL	(0xB20UL)
 
+#define MT6895_WDMA0_AID_SEL	(0xB1CUL)
+#define MT6895_WDMA1_AID_SEL	(0xB20UL)
+
 enum GS_WDMA_FLD {
 	GS_WDMA_SMI_CON = 0, /* whole reg */
 	GS_WDMA_BUF_CON1,    /* whole reg */
@@ -296,6 +299,16 @@ unsigned int mtk_wdma_aid_sel_MT6983(struct mtk_ddp_comp *comp)
 	switch (comp->id) {
 	case DDP_COMPONENT_WDMA1:
 		return MT6983_WDMA1_AID_SEL;
+	default:
+		return 0;
+	}
+}
+
+unsigned int mtk_wdma_aid_sel_MT6895(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA1:
+		return MT6895_WDMA1_AID_SEL;
 	default:
 		return 0;
 	}
@@ -1639,6 +1652,7 @@ static const struct mtk_disp_wdma_data mt6895_wdma_driver_data = {
 	.fifo_size_3plane = 596,
 	.fifo_size_uv_3plane = 148,
 	.sodi_config = mt6895_mtk_sodi_config,
+	.aid_sel = &mtk_wdma_aid_sel_MT6895,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = false,
