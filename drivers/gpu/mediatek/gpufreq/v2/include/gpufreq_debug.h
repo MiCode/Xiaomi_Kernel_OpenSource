@@ -86,6 +86,7 @@ struct gpufreq_debug_opp_info {
 	unsigned int dvfs_state;
 	unsigned int shader_present;
 	unsigned int aging_enable;
+	unsigned int avs_enable;
 	unsigned int gpm_enable;
 };
 

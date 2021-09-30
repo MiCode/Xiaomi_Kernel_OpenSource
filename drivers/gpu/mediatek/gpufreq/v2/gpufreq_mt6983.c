@@ -198,6 +198,7 @@ static struct gpufreq_asensor_info g_asensor_info;
 static unsigned int g_shader_present;
 static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
+static unsigned int g_avs_enable;
 static unsigned int g_aging_load;
 static unsigned int g_mcl50_load;
 static unsigned int g_gpm_enable;
@@ -468,6 +469,7 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
+	opp_info.avs_enable = g_avs_enable;
 	opp_info.gpm_enable = g_gpm_enable;
 	if (__gpufreq_get_power_state()) {
 		opp_info.fmeter_freq = __gpufreq_get_fmeter_fgpu();
@@ -505,7 +507,7 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_stack(void)
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
 	opp_info.aging_enable = g_aging_enable;
-	opp_info.gpm_enable = g_gpm_enable;
+	opp_info.avs_enable = g_avs_enable;
 	opp_info.gpm_enable = g_gpm_enable;
 	if (__gpufreq_get_power_state()) {
 		opp_info.fmeter_freq = __gpufreq_get_fmeter_fstack();

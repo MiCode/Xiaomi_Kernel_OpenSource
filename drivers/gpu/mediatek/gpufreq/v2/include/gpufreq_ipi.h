@@ -134,10 +134,9 @@ struct gpufreq_shared_status {
 	unsigned int shader_present;
 	int power_count;
 	unsigned int aging_enable;
-	struct gpufreq_debug_opp_info opp_info_gpu;
-	struct gpufreq_debug_opp_info opp_info_stack;
-	struct gpufreq_debug_limit_info limit_info_gpu;
-	struct gpufreq_debug_limit_info limit_info_stack;
+	unsigned int avs_enable;
+	struct gpufreq_debug_opp_info opp_info;
+	struct gpufreq_debug_limit_info limit_info;
 	struct gpufreq_asensor_info asensor_info;
 };
 

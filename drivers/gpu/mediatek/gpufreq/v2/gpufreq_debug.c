@@ -158,9 +158,10 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		gpu_opp_info.dvfs_state,
 		gpu_opp_info.shader_present);
 	seq_printf(m,
-		"%-15s Aging: %s, StressTest: %s, GPM1.0: %s\n",
+		"%-15s Aging: %s, AVS: %s, StressTest: %s, GPM1.0: %s\n",
 		"[Common-Status]",
 		gpu_opp_info.aging_enable ? "Enable" : "Disable",
+		gpu_opp_info.avs_enable ? "Enable" : "Disable",
 		g_stress_test_enable ? "Enable" : "Disable",
 		gpu_opp_info.gpm_enable ? "Enable" : "Disable");
 

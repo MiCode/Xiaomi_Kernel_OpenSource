@@ -1199,12 +1199,8 @@ struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target tar
 		send_msg.cmd_id = CMD_GET_DEBUG_OPP_INFO;
 		send_msg.target = target;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg)) {
-			if (target == TARGET_STACK && shared_status)
-				opp_info = shared_status->opp_info_stack;
-			else if (target == TARGET_GPU && shared_status)
-				opp_info = shared_status->opp_info_gpu;
-		}
+		if (!gpufreq_ipi_to_gpueb(send_msg) && shared_status)
+			opp_info = shared_status->opp_info;
 		goto done;
 	}
 
@@ -1239,12 +1235,8 @@ struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target
 		send_msg.cmd_id = CMD_GET_DEBUG_LIMIT_INFO;
 		send_msg.target = target;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg)) {
-			if (target == TARGET_STACK && shared_status)
-				limit_info = shared_status->limit_info_stack;
-			else if (target == TARGET_GPU && shared_status)
-				limit_info = shared_status->limit_info_gpu;
-		}
+		if (!gpufreq_ipi_to_gpueb(send_msg) && shared_status)
+			limit_info = shared_status->limit_info;
 		goto done;
 	}
 
@@ -1712,8 +1704,9 @@ static void gpufreq_dump_dvfs_status(void)
 		GPUFREQ_LOGI("STACK Ceiling/Floor: %d/%d, Limiter: %d/%d",
 			shared_status->cur_ceiling_stack, shared_status->cur_floor_stack,
 			shared_status->cur_c_limiter_stack, shared_status->cur_f_limiter_stack);
-		GPUFREQ_LOGI("Power Count: %d, Aging Enable: %d",
-			shared_status->power_count, shared_status->aging_enable);
+		GPUFREQ_LOGI("Power Count: %d, Aging Enable: %d, AVS Enable: %d",
+			shared_status->power_count, shared_status->aging_enable,
+			shared_status->avs_enable);
 	}
 }
 
