@@ -218,6 +218,49 @@ TRACE_EVENT(adreno_cmdbatch_sync,
 	)
 );
 
+TRACE_EVENT(adreno_cmdbatch_ready,
+	TP_PROTO(unsigned int ctx_id, unsigned int ctx_prio,
+		unsigned int timestamp, unsigned int requeue_cnt),
+	TP_ARGS(ctx_id, ctx_prio, timestamp, requeue_cnt),
+	TP_STRUCT__entry(
+		__field(unsigned int, id)
+		__field(int, prio)
+		__field(unsigned int, timestamp)
+		__field(unsigned int, requeue_cnt)
+	),
+	TP_fast_assign(
+		__entry->id = ctx_id;
+		__entry->prio = ctx_prio;
+		__entry->timestamp = timestamp;
+		__entry->requeue_cnt = requeue_cnt;
+	),
+	TP_printk(
+		"ctx=%u ctx_prio=%d ts=%u requeue_cnt=%u",
+			__entry->id, __entry->prio, __entry->timestamp,
+			__entry->requeue_cnt
+	)
+);
+
+TRACE_EVENT(adreno_cmdbatch_done,
+	TP_PROTO(unsigned int ctx_id, unsigned int ctx_prio,
+		unsigned int timestamp),
+	TP_ARGS(ctx_id, ctx_prio, timestamp),
+	TP_STRUCT__entry(
+		__field(unsigned int, id)
+		__field(unsigned int, prio)
+		__field(unsigned int, timestamp)
+	),
+	TP_fast_assign(
+		__entry->id = ctx_id;
+		__entry->prio = ctx_prio;
+		__entry->timestamp = timestamp;
+	),
+	TP_printk(
+		"ctx=%u ctx_prio=%u ts=%u",
+			__entry->id, __entry->prio, __entry->timestamp
+	)
+);
+
 TRACE_EVENT(adreno_cmdbatch_fault,
 	TP_PROTO(struct kgsl_drawobj_cmd *cmdobj, unsigned int fault),
 	TP_ARGS(cmdobj, fault),

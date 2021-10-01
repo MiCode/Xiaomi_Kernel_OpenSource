@@ -85,6 +85,8 @@ struct kgsl_drawobj_cmd {
 	uint64_t submit_ticks;
 	/* @numibs: Number of ibs in this cmdobj */
 	u32 numibs;
+	/* @requeue_cnt: Number of times cmdobj was requeued before submission to dq succeeded */
+	u32 requeue_cnt;
 };
 
 /**

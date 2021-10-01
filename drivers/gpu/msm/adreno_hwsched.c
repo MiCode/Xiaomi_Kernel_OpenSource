@@ -455,6 +455,7 @@ static int hwsched_sendcmds(struct adreno_device *adreno_dev,
 	while (1) {
 		struct kgsl_drawobj *drawobj;
 		struct kgsl_drawobj_cmd *cmdobj;
+		struct kgsl_context *context;
 
 		spin_lock(&drawctxt->lock);
 		drawobj = _process_drawqueue_get_next_drawobj(adreno_dev,
@@ -478,6 +479,9 @@ static int hwsched_sendcmds(struct adreno_device *adreno_dev,
 
 		timestamp = drawobj->timestamp;
 		cmdobj = CMDOBJ(drawobj);
+		context = drawobj->context;
+		trace_adreno_cmdbatch_ready(context->id, context->priority,
+			drawobj->timestamp, cmdobj->requeue_cnt);
 		ret = hwsched_sendcmd(adreno_dev, cmdobj);
 
 		/*
@@ -498,6 +502,7 @@ static int hwsched_sendcmds(struct adreno_device *adreno_dev,
 					drawctxt, cmdobj);
 				if (r)
 					ret = r;
+				cmdobj->requeue_cnt++;
 			}
 
 			break;
@@ -1026,25 +1031,27 @@ static int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 static void retire_cmdobj(struct adreno_hwsched *hwsched,
 	struct kgsl_drawobj_cmd *cmdobj)
 {
-	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+	struct kgsl_drawobj *drawobj;
 	struct kgsl_mem_entry *entry;
 	struct kgsl_drawobj_profiling_buffer *profile_buffer;
 
-	if (cmdobj != NULL) {
-		if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
-			atomic64_inc(&drawobj->context->proc_priv->frame_count);
+	drawobj = DRAWOBJ(cmdobj);
+	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
+		atomic64_inc(&drawobj->context->proc_priv->frame_count);
 
-		entry = cmdobj->profiling_buf_entry;
-		if (entry) {
-			profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
-					cmdobj->profiling_buffer_gpuaddr);
+	entry = cmdobj->profiling_buf_entry;
+	if (entry) {
+		profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
+			cmdobj->profiling_buffer_gpuaddr);
 
-			if (profile_buffer == NULL)
-				return;
+		if (profile_buffer == NULL)
+			return;
 
-			kgsl_memdesc_unmap(&entry->memdesc);
-		}
+		kgsl_memdesc_unmap(&entry->memdesc);
 	}
+
+	trace_adreno_cmdbatch_done(drawobj->context->id,
+		drawobj->context->priority, drawobj->timestamp);
 
 	if (hwsched->big_cmdobj == cmdobj) {
 		hwsched->big_cmdobj = NULL;
