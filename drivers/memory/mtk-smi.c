@@ -68,6 +68,7 @@
 #define SMI_BUS_LARB_SHIFT(larbid)	((larbid) << 1)
 /* All are MMU0 defaultly. Only specialize mmu1 here. */
 #define F_MMU1_LARB(larbid)		(0x1 << SMI_BUS_LARB_SHIFT(larbid))
+
 #define SMI_L1LEN			0x100
 #define SMI_L1ARB0			0x104
 #define SMI_L1ARB(id)			(SMI_L1ARB0 + ((id) << 2))
@@ -84,11 +85,6 @@ struct mtk_smi_reg_pair {
 	u16	offset;
 	u32	value;
 };
-
-
-#define SMI_L1LEN			0x100
-#define SMI_L1ARB0			0x104
-#define SMI_L1ARB(id)			(SMI_L1ARB0 + ((id) << 2))
 
 enum mtk_smi_gen {
 	MTK_SMI_GEN1,
