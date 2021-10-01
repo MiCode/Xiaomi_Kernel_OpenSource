@@ -512,6 +512,19 @@
 		qcom,gpios-reserved = <32 33 34 35>;
 	};
 
+	tlmm-vm-mem-access {
+		compatible = "qcom,tlmm-vm-mem-access";
+		qcom,master;
+		tlmm-vm-gpio-list = <>;
+	};
+
+	wdog: qcom,wdt@17410000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17410000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	arch_timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
