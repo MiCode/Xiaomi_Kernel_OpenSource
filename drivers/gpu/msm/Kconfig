@@ -30,6 +30,15 @@ config DEVFREQ_GOV_QCOM_GPUBW_MON
 	  This governor will not be useful for non-Adreno based
 	  targets.
 
+config QCOM_KGSL_FENCE_TRACE
+	bool "Enable built-in tracing for adreno fence timeouts"
+	depends on QCOM_KGSL
+	help
+	  A boolean flag used to create a KGSL-specific tracing instance
+	  under <tracefs>/tracing/instances/kgsl-fence that can be used
+	  for debugging timeouts for fences between KGSL-contexts and
+	  sync-point blocks. If unsure, say 'N' here.
+
 config QCOM_ADRENO_DEFAULT_GOVERNOR
 	string "devfreq governor for the adreno core"
 	default "msm-adreno-tz"
