@@ -2265,7 +2265,7 @@ int __weak arch_prctl_spec_ctrl_set(struct task_struct *t, unsigned long which,
 
 #ifdef CONFIG_ANON_VMA_NAME
 
-#define ANON_VMA_NAME_MAX_LEN		80
+#define ANON_VMA_NAME_MAX_LEN		256
 #define ANON_VMA_NAME_INVALID_CHARS	"\\`$[]"
 
 static inline bool is_valid_name_char(char ch)
