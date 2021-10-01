@@ -793,7 +793,6 @@ config COMMON_CLK_MT8192_MDPSYS
 
 config COMMON_CLK_MT8192_MFGCFG
 	tristate "Clock driver for MediaTek MT8192 mfgcfg"
-	tristate "Clock driver for MediaTek MT8192 mfgcfg"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 mfgcfg clocks.
