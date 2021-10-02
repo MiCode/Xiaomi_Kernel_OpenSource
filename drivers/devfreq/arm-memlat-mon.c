@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "arm-memlat-mon: " fmt
@@ -174,11 +174,13 @@ static inline void read_event(struct event_data *event)
 		return;
 
 	if (!per_cpu(cpu_is_idle, event->pevent->cpu) &&
-			!per_cpu(cpu_is_hp, event->pevent->cpu))
+			!per_cpu(cpu_is_hp, event->pevent->cpu)) {
 		total = perf_event_read_value(event->pevent, &enabled,
 								&running);
-	else
+		event->cached_total_count = total;
+	} else {
 		total = event->cached_total_count;
+	}
 	event->last_delta = total - event->prev_count;
 	event->prev_count = total;
 }
