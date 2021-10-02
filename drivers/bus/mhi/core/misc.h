@@ -186,6 +186,7 @@ struct mhi_private {
 	struct mhi_timesync *timesync;
 
 	/* reg write offload */
+	struct workqueue_struct *offload_wq;
 	struct work_struct reg_write_work;
 	struct reg_write_info *reg_write_q;
 	atomic_t write_idx;
