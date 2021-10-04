@@ -1435,11 +1435,11 @@ struct tracepoints_table {
 
 static struct tracepoints_table interests[] = {
 	{
-		.name = "block_rq_insert",
+		.name = "disabled_block_rq_insert",
 		.func = btag_trace_block_rq_insert
 	},
 	{
-		.name = "block_rq_issue",
+		.name = "disabled_block_rq_issue",
 		.func = btag_trace_block_rq_issue
 	},
 	{
