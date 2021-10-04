@@ -1335,8 +1335,7 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 	struct iommu_iotlb_gather *gather = &smmu_domain->iotlb_gather;
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	gather->start = min(iova, gather->start);
-	gather->end = max(iova + granule - 1, gather->end);
+	iommu_iotlb_gather_add_range(gather, iova, granule);
 	list_add(&page->lru, &smmu_domain->iotlb_gather_freelist);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 
