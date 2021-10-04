@@ -153,6 +153,7 @@ struct arm_lpae_io_pgtable {
 
 	void			*pgd;
 	const struct qcom_iommu_pgtable_ops *iommu_pgtbl_ops;
+	const struct qcom_iommu_flush_ops *iommu_tlb_ops;
 	/* Protects table refcounts */
 	spinlock_t		lock;
 };
@@ -961,7 +962,7 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			 */
 			__arm_lpae_set_pte(ptep, 0, 1, &iop->cfg);
 
-			qcom_io_pgtable_tlb_add_walk(data->iommu_pgtbl_ops,
+			qcom_io_pgtable_tlb_add_walk(data->iommu_tlb_ops,
 				data->iop.cookie, table,
 				iova & ~(block_size - 1),
 				block_size);
@@ -1139,8 +1140,9 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 		.iova_to_phys	= arm_lpae_iova_to_phys,
 	};
 
-	data->iommu_pgtbl_ops = pgtbl_info->iommu_pgtbl_ops;
 	spin_lock_init(&data->lock);
+	data->iommu_pgtbl_ops = pgtbl_info->iommu_pgtbl_ops;
+	data->iommu_tlb_ops = pgtbl_info->iommu_tlb_ops;
 
 	return data;
 }
