@@ -1846,7 +1846,9 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		if (err < 0)
 			return err;
 
-		/* Setting state to resuming */
+		/* setting state to resuming */
+		hw->resume_sample_tick_ns = 80000000ull;
+		hw->resume_sample_in_packet = 1;
 		hw->resuming = true;
 	} else {
 		if (st_asm330lhhx_is_fifo_enabled(hw)) {

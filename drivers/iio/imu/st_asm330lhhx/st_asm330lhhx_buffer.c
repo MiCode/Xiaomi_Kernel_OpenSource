@@ -204,7 +204,7 @@ int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 	u8 buf[32 * ST_ASM330LHHX_FIFO_SAMPLE_SIZE], tag, *ptr;
 	struct iio_dev *iio_dev, *iio_dev_mlc_fifo_acc;
 	int i, err, word_len, fifo_len, read_len;
-	s64 ts_irq, hw_ts_old;
+	s64 ts_irq, hw_ts_old, ts_offset_resume;
 	__le16 fifo_status;
 	u16 fifo_depth;
 	s16 drdymask;
@@ -218,8 +218,6 @@ int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 		return 0;
 	}
 
-	ts_irq = hw->ts - hw->delta_ts;
-
 	err = st_asm330lhhx_read_locked(hw, ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR,
 				       &fifo_status, sizeof(fifo_status));
 	if (err < 0)
@@ -231,6 +229,13 @@ int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 
 	fifo_len = fifo_depth * ST_ASM330LHHX_FIFO_SAMPLE_SIZE;
 	read_len = 0;
+	ts_irq = hw->ts - hw->delta_ts;
+
+	if (hw->resuming) {
+		ts_offset_resume = iio_get_time_ns(hw->iio_devs[0]) -
+				   ((fifo_depth >>  hw->resume_sample_in_packet) *
+				    hw->resume_sample_tick_ns);
+	}
 
 	delta = div_s64(hw->delta_ts, fifo_depth);
 
@@ -286,7 +291,8 @@ int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw)
 				if (hw->resuming) {
 					iio_dev_mlc_fifo_acc = hw->iio_devs[ST_ASM330LHHX_ID_FIFO_MLC];
 					iio_push_to_buffers_with_timestamp(iio_dev_mlc_fifo_acc,
-								iio_buf, ts);
+								iio_buf, ts_offset_resume);
+					ts_offset_resume += hw->resume_sample_tick_ns;
 				} else {
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */
 					/* decimation for ODR < 12.5 Hz on SHUB */

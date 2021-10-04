@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.15"
+#define ST_ASM330LHHX_DRV_VERSION			"1.16"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -484,17 +484,21 @@ struct st_asm330lhhx_ext_dev_info {
  * @hw: Pointer to instance of struct st_asm330lhhx_hw.
  * @gain: Configured sensor sensitivity.
  * @offset: Sensor data offset.
- * decimator: Sensor decimator
- * dec_counter: Sensor decimator counter
+ * @decimator: Sensor decimator
+ * @dec_counter: Sensor decimator counter
  * @odr: Output data rate of the sensor [Hz].
  * @uodr: Output data rate of the sensor [uHz].
  * @old_data: Used by Temperature sensor for data comtinuity.
  * @max_watermark: Max supported watermark level.
  * @watermark: Sensor watermark level.
  * @pm: sensor power mode (HP, LP).
+ * @last_fifo_timestamp: Save last FIFO event timestamp.
  * @selftest_status: Last status of self test output.
  * @min_st, @max_st: Min/Max acc/gyro data values during self test procedure.
-  */
+ * @status_reg: MLC/FSM status register.
+ * @outreg_addr: MLC/FSM output register.
+ * @status: MLC/FSM enable status.
+ */
 struct st_asm330lhhx_sensor {
 	char name[32];
 	enum st_asm330lhhx_sensor_id id;
@@ -539,9 +543,11 @@ struct st_asm330lhhx_sensor {
  * @enable_mask: Enabled sensor bitmask.
  * @requested_mask: Sensor requesting bitmask.
  * @ext_data_len: Number of i2c slave devices connected to I2C master.
- * @ts_delta_ns: Calibrated delta timestamp.
  * @ts_offset: Hw timestamp offset.
+ * @ts_delta_ns: Calibrated delta timestamp.
  * @hw_ts: Latest hw timestamp from the sensor.
+ * @val_ts_old: Store old ts for rollover.
+ * @hw_ts_high: Store high ts bit for rollover.
  * @tsample: Sample timestamp.
  * @delta_ts: Delta time between two consecutive interrupts.
  * @ts: Latest timestamp from irq handler.
@@ -551,6 +557,8 @@ struct st_asm330lhhx_sensor {
  * @odr_table_entry: Sensors ODR table.
  * @preload_mlc: Preloaded MLC flag.
  * @resuming: System resuming flag.
+ * @resume_sample_tick_ns: Timestamp sample tick time in ns during suspend.
+ * @resume_sample_in_packet: Number of samples for each timestamp tag in FIFO.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  */
 struct st_asm330lhhx_hw {
@@ -566,8 +574,9 @@ struct st_asm330lhhx_hw {
 	u32 enable_mask;
 	u32 requested_mask;
 
-	s64 ts_offset;
 	u8 ext_data_len;
+
+	s64 ts_offset;
 	u64 ts_delta_ns;
 	s64 hw_ts;
 	u32 val_ts_old;
@@ -575,6 +584,7 @@ struct st_asm330lhhx_hw {
 	s64 tsample;
 	s64 delta_ts;
 	s64 ts;
+
 	u8 i2c_master_pu;
 	u8 int_pin;
 
@@ -583,6 +593,8 @@ struct st_asm330lhhx_hw {
 
 	bool preload_mlc;
 	bool resuming;
+	u64 resume_sample_tick_ns;
+	u8 resume_sample_in_packet;
 
 	struct iio_dev *iio_devs[ST_ASM330LHHX_ID_MAX];
 };
