@@ -52,7 +52,7 @@ static struct pll_vco lucid_evo_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config gpu_cc_pll0_config = {
+static struct alpha_pll_config gpu_cc_pll0_config = {
 	.l = 0x24,
 	.cal_l = 0x44,
 	.alpha = 0x7555,
@@ -63,7 +63,7 @@ static const struct alpha_pll_config gpu_cc_pll0_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
-static const struct alpha_pll_config gpu_cc_pll0_config_waipio_v2 = {
+static struct alpha_pll_config gpu_cc_pll0_config_waipio_v2 = {
 	.l = 0x1D,
 	.cal_l = 0x44,
 	.alpha = 0xB000,
@@ -74,11 +74,21 @@ static const struct alpha_pll_config gpu_cc_pll0_config_waipio_v2 = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data gpu_cc_pll0_cape_init = {
+	.name = "gpu_cc_pll0",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll gpu_cc_pll0 = {
 	.offset = 0x0,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &gpu_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_pll0",
@@ -102,7 +112,7 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 	},
 };
 
-static const struct alpha_pll_config gpu_cc_pll1_config = {
+static struct alpha_pll_config gpu_cc_pll1_config = {
 	.l = 0x34,
 	.cal_l = 0x44,
 	.alpha = 0x1555,
@@ -113,11 +123,21 @@ static const struct alpha_pll_config gpu_cc_pll1_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data gpu_cc_pll1_cape_init = {
+	.name = "gpu_cc_pll1",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll gpu_cc_pll1 = {
 	.offset = 0x1000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &gpu_cc_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_pll1",
@@ -784,13 +804,71 @@ static const struct qcom_cc_desc gpu_cc_waipio_desc = {
 static const struct of_device_id gpu_cc_waipio_match_table[] = {
 	{ .compatible = "qcom,waipio-gpucc" },
 	{ .compatible = "qcom,waipio-gpucc-v2" },
+	{ .compatible = "qcom,cape-gpucc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_waipio_match_table);
 
+static void gpu_cc_cape_fixup(struct regmap *regmap)
+{
+	/* Update GPUCC PLL0 Config */
+	gpu_cc_pll0_config.l = 0x1D;
+	gpu_cc_pll0_config.cal_l = 0x44;
+	gpu_cc_pll0_config.cal_l_ringosc = 0x44;
+	gpu_cc_pll0_config.alpha = 0xB000;
+	gpu_cc_pll0_config.config_ctl_val = 0x20485699;
+	gpu_cc_pll0_config.config_ctl_hi_val = 0x00182261;
+	gpu_cc_pll0_config.config_ctl_hi1_val = 0x82AA299C;
+	gpu_cc_pll0_config.test_ctl_val = 0x00000000;
+	gpu_cc_pll0_config.test_ctl_hi_val = 0x00000003;
+	gpu_cc_pll0_config.test_ctl_hi1_val = 0x00009000;
+	gpu_cc_pll0_config.test_ctl_hi2_val = 0x00000034;
+	gpu_cc_pll0_config.user_ctl_val = 0x00000000;
+	gpu_cc_pll0_config.user_ctl_hi_val = 0x00000005;
+
+	gpu_cc_pll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	gpu_cc_pll0.clkr.hw.init = &gpu_cc_pll0_cape_init;
+	gpu_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	gpu_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	gpu_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	gpu_cc_pll0.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	gpu_cc_pll0.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	/* Update GPUCC PLL1 Config */
+	gpu_cc_pll1_config.l = 0x34;
+	gpu_cc_pll1_config.cal_l = 0x44;
+	gpu_cc_pll1_config.cal_l_ringosc = 0x44;
+	gpu_cc_pll1_config.alpha = 0x1555;
+	gpu_cc_pll1_config.config_ctl_val = 0x20485699;
+	gpu_cc_pll1_config.config_ctl_hi_val = 0x00182261;
+	gpu_cc_pll1_config.config_ctl_hi1_val = 0x82AA299C;
+	gpu_cc_pll1_config.test_ctl_val = 0x00000000;
+	gpu_cc_pll1_config.test_ctl_hi_val = 0x00000003;
+	gpu_cc_pll1_config.test_ctl_hi1_val = 0x00009000;
+	gpu_cc_pll1_config.test_ctl_hi2_val = 0x00000034;
+	gpu_cc_pll1_config.user_ctl_val = 0x00000000;
+	gpu_cc_pll1_config.user_ctl_hi_val = 0x00000005;
+
+	gpu_cc_pll1.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	gpu_cc_pll1.clkr.hw.init = &gpu_cc_pll1_cape_init;
+	gpu_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	gpu_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	gpu_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	gpu_cc_pll1.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	gpu_cc_pll1.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	gpu_cc_ff_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
+	gpu_cc_gmu_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
+	gpu_cc_hub_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 150000000;
+	gpu_cc_hub_clk_src.clkr.vdd_data.rate_max[VDD_LOW] = 300000000;
+	gpu_cc_hub_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 0;
+	gpu_cc_xo_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 19200000;
+}
+
 static void gpu_cc_waipio_fixup_waipiov2(struct regmap *regmap)
 {
-	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config_waipio_v2);
+	gpu_cc_pll0.config = &gpu_cc_pll0_config_waipio_v2;
+
 	gpu_cc_ff_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
 	gpu_cc_gmu_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
 	gpu_cc_hub_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 150000000;
@@ -810,6 +888,9 @@ static int gpu_cc_waipio_fixup(struct platform_device *pdev, struct regmap *regm
 	if (!strcmp(compat, "qcom,waipio-gpucc-v2"))
 		gpu_cc_waipio_fixup_waipiov2(regmap);
 
+	if (!strcmp(compat, "qcom,cape-gpucc"))
+		gpu_cc_cape_fixup(regmap);
+
 	return 0;
 }
 
@@ -822,12 +903,12 @@ static int gpu_cc_waipio_probe(struct platform_device *pdev)
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
-	clk_lucid_evo_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
-
 	ret = gpu_cc_waipio_fixup(pdev, regmap);
 	if (ret)
 		return ret;
+
+	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, gpu_cc_pll0.config);
+	clk_lucid_evo_pll_configure(&gpu_cc_pll1, regmap, gpu_cc_pll1.config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_waipio_desc, regmap);
 	if (ret) {
