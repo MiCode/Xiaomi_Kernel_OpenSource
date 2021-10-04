@@ -25,6 +25,9 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
 
+#define SE_GENI_TEST_BUS_CTRL	0x44 //GENI_TEST_BUS_CTRL
+#define SE_NUM_FOR_TEST_BUS	5  //for SE4
+
 #define SE_GENI_CFG_REG68		(0x210)
 #define SE_I2C_TX_TRANS_LEN		(0x26C)
 #define SE_I2C_RX_TRANS_LEN		(0x270)
@@ -171,6 +174,7 @@ struct geni_i2c_dev {
 	struct notifier_block panic_nb; //panic notfier call back
 	bool panic_dump_collect; //panic dumps collection with dt based flag
 	bool clocks_on; //To check whether clocks were on/off
+	bool i2c_test_dev; //Set this DT flag to enable test bus dump for an SE
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -262,6 +266,21 @@ static inline void qcom_geni_i2c_calc_timeout(struct geni_i2c_dev *gi2c)
 
 	gi2c->xfer_timeout = usecs_to_jiffies(xfer_max_usec);
 
+}
+
+/*
+ * geni_se_select_test_bus: Selects the test bus as required
+ *
+ * @gi2c_dev:		Geni I2C device handle
+ * test_bus_num:	Test bus number to select (1 to 16)
+ *
+ * Return:	None
+ */
+static void geni_se_select_test_bus(struct geni_i2c_dev *gi2c, u8 test_bus_num)
+{
+	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: test_bus:%d\n", __func__, test_bus_num);
+	writel_relaxed(test_bus_num, gi2c->base + SE_GENI_TEST_BUS_CTRL); //0x44
 }
 
 static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
@@ -419,6 +438,33 @@ static int geni_i2c_bus_recovery(struct geni_i2c_dev *gi2c)
 	return 0;
 }
 
+/*
+ * geni_i2c_test_bus_dump(): Dumps or reads test bus for selected SE test bus.
+ *
+ * gi2c_i2c_dev:	Handle to SE device
+ * se_num:		SE number, which start from 0.
+ *
+ * Return:		None
+ *
+ * Note:		This function has added extra test buses for refrences.
+ */
+static void geni_i2c_test_bus_dump(struct geni_i2c_dev *gi2c, u8 se_num)
+{
+	//Select test bus number and test bus, then read test bus.
+
+	//geni_m_comp_sig_test_bus
+	geni_se_select_test_bus(gi2c, 8);
+	test_bus_select_per_qupv3(gi2c->wrapper_dev, se_num);
+	test_bus_read_per_qupv3(gi2c->wrapper_dev);
+
+	//geni_m_branch_cond_1_test_bus
+	geni_se_select_test_bus(gi2c, 5);
+	test_bus_select_per_qupv3(gi2c->wrapper_dev, se_num);
+	test_bus_read_per_qupv3(gi2c->wrapper_dev);
+
+	//Can Add more here based on debug ask.
+}
+
 static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 {
 	int timeout = 0;
@@ -452,6 +498,12 @@ static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 		gi2c->cfg_sent = 0;
 	} else {
 		reinit_completion(&gi2c->xfer);
+
+		// Issue point for e.g.: dump test bus/read test bus
+		if (gi2c->i2c_test_dev)
+			//For se4, its 5 as SE num starts from 0
+			geni_i2c_test_bus_dump(gi2c, SE_NUM_FOR_TEST_BUS);
+
 		geni_cancel_m_cmd(gi2c->base);
 		timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 		if (!timeout) {
@@ -1788,6 +1840,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,panic-dump-collect"))
 		gi2c->panic_dump_collect = true;
 
+	gi2c->i2c_test_dev = false;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,i2c-test-dev")) {
+		gi2c->i2c_test_dev = true;
+		dev_info(&pdev->dev, " This is I2C device under test\n");
+	}
+
 	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
 	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
 
@@ -1924,6 +1982,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		atomic_notifier_chain_register(&panic_notifier_list,
 					       &gi2c->panic_nb);
 	}
+
+	if (gi2c->i2c_test_dev) {
+		/* configure Test bus to dump test bus later, only once */
+		test_bus_enable_per_qupv3(gi2c->wrapper_dev);
+	}
+
 	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;
 }
