@@ -474,31 +474,6 @@ void qcom_free_io_pgtable_ops(struct io_pgtable_ops *ops)
 }
 EXPORT_SYMBOL(qcom_free_io_pgtable_ops);
 
-void *qcom_io_pgtable_alloc_pages(const struct qcom_iommu_pgtable_ops *ops,
-				  struct io_pgtable_cfg *cfg,
-				  void *cookie, gfp_t gfp, int order)
-{
-	struct device *dev;
-	struct page *p;
-
-	if (ops)
-		return ops->alloc(cookie, gfp, order);
-
-	dev = cfg->iommu_dev;
-	p = alloc_pages_node(dev ? dev_to_node(dev) : NUMA_NO_NODE, gfp, order);
-
-	return p ? page_address(p) : NULL;
-}
-
-void qcom_io_pgtable_free_pages(const struct qcom_iommu_pgtable_ops *ops,
-				void *cookie, void *virt, int order)
-{
-	if (ops)
-		ops->free(cookie, virt, order);
-	else
-		free_pages((unsigned long)virt, order);
-}
-
 /*
  * These tables must have the same length.
  * It is allowed to have a NULL exitcall corresponding to a non-NULL initcall.
