@@ -23,6 +23,7 @@
 
 #include <asm/barrier.h>
 #include "qcom-io-pgtable.h"
+#include "qcom-io-pgtable-alloc.h"
 
 #include "io-pgtable-arm.h"
 
@@ -152,7 +153,7 @@ struct arm_lpae_io_pgtable {
 	int			bits_per_level;
 
 	void			*pgd;
-	const struct qcom_iommu_pgtable_ops *iommu_pgtbl_ops;
+	u32			vmid;
 	const struct qcom_iommu_flush_ops *iommu_tlb_ops;
 	/* Protects table refcounts */
 	spinlock_t		lock;
@@ -265,16 +266,16 @@ static void *__arm_lpae_alloc_pages(struct arm_lpae_io_pgtable *data,
 				    struct io_pgtable_cfg *cfg, void *cookie)
 {
 	struct device *dev = cfg->iommu_dev;
-	int order = get_order(size);
 	dma_addr_t dma;
+	struct page *p;
 	void *pages;
 
 	VM_BUG_ON((gfp & __GFP_HIGHMEM));
-	pages = qcom_io_pgtable_alloc_pages(data->iommu_pgtbl_ops, cfg, cookie,
-					    gfp | __GFP_ZERO, order);
-	if (!pages)
+	p = qcom_io_pgtable_alloc_page(data->vmid, gfp | __GFP_ZERO);
+	if (!p)
 		return NULL;
 
+	pages = page_address(p);
 	if (!cfg->coherent_walk) {
 		dma = dma_map_single(dev, pages, size, DMA_TO_DEVICE);
 		if (dma_mapping_error(dev, dma))
@@ -294,7 +295,7 @@ out_unmap:
 	dev_err(dev, "Cannot accommodate DMA translation for IOMMU page tables\n");
 	dma_unmap_single(dev, dma, size, DMA_TO_DEVICE);
 out_free:
-	qcom_io_pgtable_free_pages(data->iommu_pgtbl_ops, cookie, pages, order);
+	qcom_io_pgtable_free_page(p);
 	return NULL;
 }
 
@@ -305,8 +306,7 @@ static void __arm_lpae_free_pages(struct arm_lpae_io_pgtable *data,
 	if (!cfg->coherent_walk)
 		dma_unmap_single(cfg->iommu_dev, __arm_lpae_dma_addr(pages),
 				 size, DMA_TO_DEVICE);
-	qcom_io_pgtable_free_pages(data->iommu_pgtbl_ops, cookie, pages,
-				   get_order(size));
+	qcom_io_pgtable_free_page(virt_to_page(pages));
 }
 
 static void __arm_lpae_sync_pte(arm_lpae_iopte *ptep, int num_entries,
@@ -828,6 +828,7 @@ static void arm_lpae_free_pgtable(struct io_pgtable *iop)
 	struct arm_lpae_io_pgtable *data = io_pgtable_to_data(iop);
 
 	__arm_lpae_free_pgtable(data, data->start_level, data->pgd);
+	qcom_io_pgtable_allocator_unregister(data->vmid);
 	kfree(data);
 }
 
@@ -1141,8 +1142,12 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 	};
 
 	spin_lock_init(&data->lock);
-	data->iommu_pgtbl_ops = pgtbl_info->iommu_pgtbl_ops;
 	data->iommu_tlb_ops = pgtbl_info->iommu_tlb_ops;
+	data->vmid = pgtbl_info->vmid;
+	if (qcom_io_pgtable_allocator_register(data->vmid)) {
+		kfree(data);
+		return NULL;
+	}
 
 	return data;
 }
@@ -1253,6 +1258,7 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	return &data->iop;
 
 out_free_data:
+	qcom_io_pgtable_allocator_unregister(data->vmid);
 	kfree(data);
 	return NULL;
 }
@@ -1355,6 +1361,7 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
 	return &data->iop;
 
 out_free_data:
+	qcom_io_pgtable_allocator_unregister(data->vmid);
 	kfree(data);
 	return NULL;
 }
@@ -1431,6 +1438,7 @@ arm_mali_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 	return &data->iop;
 
 out_free_data:
+	qcom_io_pgtable_allocator_unregister(data->vmid);
 	kfree(data);
 	return NULL;
 }
