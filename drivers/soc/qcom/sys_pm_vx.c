@@ -84,7 +84,6 @@ static const char * const drv_names_waipio[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
 	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
-	"ARC_DEP", "BCM",
 	""
 };
 
