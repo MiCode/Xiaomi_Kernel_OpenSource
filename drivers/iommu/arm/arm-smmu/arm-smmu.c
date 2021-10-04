@@ -1370,7 +1370,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
 	struct io_pgtable_ops *pgtbl_ops;
-	struct qcom_io_pgtable_info pgtbl_info;
+	struct qcom_io_pgtable_info pgtbl_info = {};
 	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info.cfg;
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -1500,6 +1500,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					&pgtbl_info.iova_end);
 		if (ret < 0)
 			goto out_unlock;
+	} else if (arm_smmu_has_secure_vmid(smmu_domain)) {
+		pgtbl_info.vmid = smmu_domain->secure_vmid;
 	}
 
 	ret = arm_smmu_alloc_context_bank(smmu_domain, smmu, dev, start);

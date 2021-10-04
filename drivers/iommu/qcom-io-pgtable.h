@@ -20,6 +20,8 @@ struct qcom_io_pgtable_info {
 	struct io_pgtable_cfg cfg;
 	const struct qcom_iommu_pgtable_ops *iommu_pgtbl_ops;
 	const struct qcom_iommu_flush_ops *iommu_tlb_ops;
+	/* When set to 0, all page table memory is treated as non-secure. */
+	u32 vmid;
 	dma_addr_t iova_base;
 	dma_addr_t iova_end;
 };
