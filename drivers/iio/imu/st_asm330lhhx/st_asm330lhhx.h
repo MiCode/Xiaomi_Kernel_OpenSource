@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.16"
+#define ST_ASM330LHHX_DRV_VERSION			"1.17"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -539,10 +539,14 @@ struct st_asm330lhhx_sensor {
  * @regmap: Register map of the device.
  * @fifo_lock: Mutex to prevent concurrent access to the hw FIFO.
  * @fifo_mode: FIFO operating mode supported by the device.
+ * @handler_lock: Lock for irq handler used by suspend/resume functions.
  * @state: hw operational state.
  * @enable_mask: Enabled sensor bitmask.
  * @requested_mask: Sensor requesting bitmask.
  * @ext_data_len: Number of i2c slave devices connected to I2C master.
+ * @suspend_fifo_watermark: Hold FIFO watermark before suspend.
+ * @hw_timestamp_enabled: Enabled status of hw timestamp on FIFO.
+ * @fifo_watermark: Hw FIFO watmernark.
  * @ts_offset: Hw timestamp offset.
  * @ts_delta_ns: Calibrated delta timestamp.
  * @hw_ts: Latest hw timestamp from the sensor.
@@ -559,6 +563,7 @@ struct st_asm330lhhx_sensor {
  * @resuming: System resuming flag.
  * @resume_sample_tick_ns: Timestamp sample tick time in ns during suspend.
  * @resume_sample_in_packet: Number of samples for each timestamp tag in FIFO.
+ * @ts_offset_resume: Reference for sample timestamp in FIFO during resume.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  */
 struct st_asm330lhhx_hw {
@@ -568,6 +573,7 @@ struct st_asm330lhhx_hw {
 	struct regmap *regmap;
 	struct mutex fifo_lock;
 	struct mutex page_lock;
+	struct mutex handler_lock;
 
 	enum st_asm330lhhx_fifo_mode fifo_mode;
 	unsigned long state;
@@ -575,6 +581,10 @@ struct st_asm330lhhx_hw {
 	u32 requested_mask;
 
 	u8 ext_data_len;
+
+	u16 suspend_fifo_watermark;
+	bool hw_timestamp_enabled;
+	u16 fifo_watermark;
 
 	s64 ts_offset;
 	u64 ts_delta_ns;
@@ -595,6 +605,7 @@ struct st_asm330lhhx_hw {
 	bool resuming;
 	u64 resume_sample_tick_ns;
 	u8 resume_sample_in_packet;
+	s64 ts_offset_resume;
 
 	struct iio_dev *iio_devs[ST_ASM330LHHX_ID_MAX];
 };
@@ -691,6 +702,52 @@ static inline int st_asm330lhhx_set_page_access(struct st_asm330lhhx_hw *hw,
 	return err;
 }
 
+static inline int
+st_asm330lhhx_read_page_locked(struct st_asm330lhhx_hw *hw, unsigned int addr,
+			       void *val, unsigned int len)
+{
+	int err;
+
+	mutex_lock(&hw->page_lock);
+	st_asm330lhhx_set_page_access(hw, true, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	err = regmap_bulk_read(hw->regmap, addr, val, len);
+	st_asm330lhhx_set_page_access(hw, false, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	mutex_unlock(&hw->page_lock);
+
+	return err;
+}
+
+static inline int
+st_asm330lhhx_write_page_locked(struct st_asm330lhhx_hw *hw, unsigned int addr,
+				unsigned int *val, unsigned int len)
+{
+	int err;
+
+	mutex_lock(&hw->page_lock);
+	st_asm330lhhx_set_page_access(hw, true, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	err = regmap_bulk_write(hw->regmap, addr, val, len);
+	st_asm330lhhx_set_page_access(hw, false, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	mutex_unlock(&hw->page_lock);
+
+	return err;
+}
+
+static inline int
+st_asm330lhhx_update_page_bits_locked(struct st_asm330lhhx_hw *hw,
+				      unsigned int addr, unsigned int mask,
+				      unsigned int val)
+{
+	int err;
+
+	mutex_lock(&hw->page_lock);
+	st_asm330lhhx_set_page_access(hw, true, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	err = regmap_update_bits(hw->regmap, addr, mask, val);
+	st_asm330lhhx_set_page_access(hw, false, ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	mutex_unlock(&hw->page_lock);
+
+	return err;
+}
+
 int st_asm330lhhx_probe(struct device *dev, int irq,
 		        struct regmap *regmap);
 int st_asm330lhhx_sensor_set_enable(struct st_asm330lhhx_sensor *sensor,
@@ -728,7 +785,7 @@ int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_mlc_remove(struct device *dev);
 int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw);
 int st_asm330lhhx_mlc_init_preload(struct st_asm330lhhx_hw *hw);
-int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw);
+int st_asm330lhhx_read_fifo(struct st_asm330lhhx_hw *hw, int notify);
 int st_asm330lhhx_get_odr_from_reg(enum st_asm330lhhx_sensor_id id, u8 reg_val,
 				   u16 *podr, u32 *puodr);
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC */

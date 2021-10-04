@@ -1544,11 +1544,17 @@ static int st_asm330lhhx_init_timestamp_engine(struct st_asm330lhhx_hw *hw,
 	if (err < 0)
 		return err;
 
-	/* Enable timestamp rollover interrupt on INT2. */
-	return regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_MD2_CFG_ADDR,
+	/* enable timestamp rollover interrupt on INT2 */
+	err = regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_MD2_CFG_ADDR,
 				 ST_ASM330LHHX_REG_INT2_TIMESTAMP_MASK,
 				 ST_ASM330LHHX_SHIFT_VAL(enable,
 					ST_ASM330LHHX_REG_INT2_TIMESTAMP_MASK));
+	if (err < 0)
+		return err;
+
+	hw->hw_timestamp_enabled = enable;
+
+	return 0;
 }
 
 static int st_asm330lhhx_init_device(struct st_asm330lhhx_hw *hw)
@@ -1687,10 +1693,12 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 
 	mutex_init(&hw->fifo_lock);
 	mutex_init(&hw->page_lock);
+	mutex_init(&hw->handler_lock);
 
 	hw->regmap = regmap;
 	hw->dev = dev;
 	hw->irq = irq;
+	hw->resuming = false;
 	hw->odr_table_entry = st_asm330lhhx_odr_table;
 
 	err = st_asm330lhhx_set_page_0(hw);
@@ -1805,6 +1813,9 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		if (err < 0)
 			return err;
 
+		hw->resume_sample_tick_ns = 80000000ull;
+		hw->resume_sample_in_packet = 1;
+
 		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
 		err = regmap_update_bits(hw->regmap,
 				  st_asm330lhhx_odr_table[id_acc].reg.addr,
@@ -1831,11 +1842,13 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		/* remove interrupt from FIFO watermark */
 		err = regmap_update_bits(hw->regmap, drdy_reg,
 					 ST_ASM330LHHX_REG_FIFO_TH_MASK,
-					 FIELD_PREP(ST_ASM330LHHX_REG_FIFO_TH_MASK, 0));
+					 FIELD_PREP(
+					    ST_ASM330LHHX_REG_FIFO_TH_MASK, 0));
 		if (err < 0)
 			return err;
 
 		/* set FIFO watermark to max level */
+		hw->suspend_fifo_watermark = hw->fifo_watermark;
 		err = st_asm330lhhx_update_watermark(sensor_acc,
 						ST_ASM330LHHX_MAX_FIFO_DEPTH);
 		if (err < 0)
@@ -1847,8 +1860,6 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 			return err;
 
 		/* setting state to resuming */
-		hw->resume_sample_tick_ns = 80000000ull;
-		hw->resume_sample_in_packet = 1;
 		hw->resuming = true;
 	} else {
 		if (st_asm330lhhx_is_fifo_enabled(hw)) {
@@ -1880,6 +1891,8 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 
 	dev_info(dev, "Suspending device\n");
 
+	mutex_lock(&hw->handler_lock);
+
 	return err < 0 ? err : 0;
 }
 
@@ -1887,15 +1900,34 @@ static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
 	int i, err, id_acc;
+	int notify;
 
 	if (hw->resuming) {
+		notify = st_asm330lhhx_mlc_check_status(hw);
+		if (notify) {
+			st_asm330lhhx_read_fifo(hw, notify);
+		}
+
+		hw->resuming = false;
+
 		/* stop acc */
 		id_acc = ST_ASM330LHHX_ID_ACC;
 		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
 		err = st_asm330lhhx_set_odr(sensor_acc, 0, 0);
 		if (err < 0)
 			return err;
+
+		hw->hw_timestamp_enabled = true;
+		hw->resume_sample_in_packet = 1;
+
+		/* restore FIFO watermark */
+		err = st_asm330lhhx_update_watermark(sensor_acc,
+						     hw->suspend_fifo_watermark);
+		if (err < 0)
+			return err;
 	}
+
+	mutex_unlock(&hw->handler_lock);
 
 	err = st_asm330lhhx_restore_regs(hw);
 	if (err < 0)
