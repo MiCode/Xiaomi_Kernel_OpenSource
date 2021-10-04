@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.14"
+#define ST_ASM330LHHX_DRV_VERSION			"1.15"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -55,8 +55,8 @@
 #define ST_ASM330LHHX_CTRL1_XL_FS_XL_MASK		GENMASK(3, 2)
 
 #define ST_ASM330LHHX_CTRL2_G_ADDR			0x11
-#define ST_ASM330LHHX_CTRL1_XL_ODR_G_MASK		GENMASK(7, 4)
-#define ST_ASM330LHHX_CTRL1_XL_FS_G_MASK		GENMASK(3, 0)
+#define ST_ASM330LHHX_CTRL2_G_ODR_G_MASK		GENMASK(7, 4)
+#define ST_ASM330LHHX_CTRL2_G_FS_G_MASK			GENMASK(3, 0)
 
 #define ST_ASM330LHHX_REG_CTRL3_C_ADDR			0x12
 #define ST_ASM330LHHX_REG_SW_RESET_MASK			BIT(0)
@@ -389,7 +389,7 @@ struct st_asm330lhhx_fs {
  */
 struct st_asm330lhhx_fs_table_entry {
 	u8 size;
-	struct st_asm330lhhx_fs fs_avl[5];
+	struct st_asm330lhhx_fs fs_avl[6];
 };
 
 enum st_asm330lhhx_sensor_id {

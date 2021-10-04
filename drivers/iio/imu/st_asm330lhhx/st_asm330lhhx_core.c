@@ -195,7 +195,7 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 		.size = 7,
 		.reg = {
 			.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-			.mask = ST_ASM330LHHX_CTRL1_XL_ODR_G_MASK,
+			.mask = ST_ASM330LHHX_CTRL2_G_ODR_G_MASK,
 		},
 		.pm = {
 			.addr = ST_ASM330LHHX_REG_CTRL7_G_ADDR,
@@ -263,43 +263,51 @@ static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 		},
 	},
 	[ST_ASM330LHHX_ID_GYRO] = {
-		.size = 5,
+		.size = 6,
 		.fs_avl[0] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
+				.mask = ST_ASM330LHHX_CTRL2_G_FS_G_MASK,
 			},
-			.gain = IIO_DEGREE_TO_RAD(8750),
-			.val = 0x0,
+			.gain = IIO_DEGREE_TO_RAD(4370),
+			.val = 0x2,
 		},
 		.fs_avl[1] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
+				.mask = ST_ASM330LHHX_CTRL2_G_FS_G_MASK,
 			},
-			.gain = IIO_DEGREE_TO_RAD(17500),
-			.val = 0x4,
+			.gain = IIO_DEGREE_TO_RAD(8750),
+			.val = 0x0,
 		},
 		.fs_avl[2] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
+				.mask = ST_ASM330LHHX_CTRL2_G_FS_G_MASK,
 			},
-			.gain = IIO_DEGREE_TO_RAD(35000),
-			.val = 0x8,
+			.gain = IIO_DEGREE_TO_RAD(17500),
+			.val = 0x4,
 		},
 		.fs_avl[3] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
+				.mask = ST_ASM330LHHX_CTRL2_G_FS_G_MASK,
 			},
-			.gain = IIO_DEGREE_TO_RAD(70000),
-			.val = 0x0C,
+			.gain = IIO_DEGREE_TO_RAD(35000),
+			.val = 0x8,
 		},
 		.fs_avl[4] = {
 			.reg = {
 				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
-				.mask = ST_ASM330LHHX_CTRL1_XL_FS_G_MASK,
+				.mask = ST_ASM330LHHX_CTRL2_G_FS_G_MASK,
+			},
+			.gain = IIO_DEGREE_TO_RAD(70000),
+			.val = 0x0C,
+		},
+		.fs_avl[5] = {
+			.reg = {
+				.addr = ST_ASM330LHHX_CTRL2_G_ADDR,
+				.mask = ST_ASM330LHHX_CTRL2_G_FS_G_MASK,
 			},
 			.gain = IIO_DEGREE_TO_RAD(140000),
 			.val = 0x1,
@@ -1860,6 +1868,9 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 	err = _st_asm330lhhx_suspend(hw);
 	mutex_unlock(&hw->fifo_lock);
 
+	if (err < 0)
+		return -EAGAIN;
+
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MAY_WAKEUP
 	if (device_may_wakeup(dev))
 		enable_irq_wake(hw->irq);
@@ -1873,13 +1884,15 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
-	int i, err = 0, id_acc;
+	int i, err, id_acc;
 
 	if (hw->resuming) {
 		/* stop acc */
 		id_acc = ST_ASM330LHHX_ID_ACC;
 		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
 		err = st_asm330lhhx_set_odr(sensor_acc, 0, 0);
+		if (err < 0)
+			return err;
 	}
 
 	err = st_asm330lhhx_restore_regs(hw);
