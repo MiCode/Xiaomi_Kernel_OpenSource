@@ -7,7 +7,7 @@
 ## Variant setup
 HERMETIC_TOOLCHAIN=0
 MSM_ARCH=neo
-VARIANTS=(defconfig)
+VARIANTS=(defconfig debug_defconfig)
 [ -z "${VARIANT}" ] && VARIANT=defconfig
 
 BASE_ADDRESS=0x80000000
@@ -31,4 +31,5 @@ DUMMY_IMG_SIZE=4096
 ## Variant branch setup
 BRANCH=neo
 
-. ${KERNEL_DIR}/build.config.msm.vm
+## Inheriting sxr common configs
+. ${KERNEL_DIR}/build.config.sxr.common
