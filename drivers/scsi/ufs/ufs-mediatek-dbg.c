@@ -355,9 +355,9 @@ struct tracepoints_table {
 };
 
 static struct tracepoints_table interests[] = {
-	{.name = "ufshcd_command", .func = probe_ufshcd_command},
-	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
-	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
+	{.name = "disabled_ufshcd_command", .func = probe_ufshcd_command},
+	{.name = "disabled_ufshcd_uic_command", .func = probe_ufshcd_uic_command},
+	{.name = "disabled_ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
 };
 
 #define FOR_EACH_INTEREST(i) \
