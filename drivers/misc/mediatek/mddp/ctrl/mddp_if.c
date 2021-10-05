@@ -284,21 +284,24 @@ static int __init mddp_init(void)
 
 	ret = mddp_ipc_init();
 	if (ret < 0)
-		goto _init_fail;
+		goto _init_fail2;
 
 	ret = mddp_dev_init();
 	if (ret < 0)
-		goto _init_fail;
+		goto _init_fail3;
 
 	ret = mddp_filter_init();
 	if (ret < 0)
-		goto _init_fail;
+		goto _init_fail4;
 
-	ret = mddp_usage_init();
-	if (ret < 0)
-		goto _init_fail;
+	return 0;
 
-
+_init_fail4:
+	mddp_dev_uninit();
+_init_fail3:
+	mddp_ipc_uninit();
+_init_fail2:
+	mddp_sm_uninit();
 _init_fail:
 	return ret;
 }
@@ -307,7 +310,6 @@ static void __exit mddp_exit(void)
 {
 	synchronize_net();
 
-	mddp_usage_uninit();
 	mddp_filter_uninit();
 	mddp_dev_uninit();
 	mddp_ipc_uninit();

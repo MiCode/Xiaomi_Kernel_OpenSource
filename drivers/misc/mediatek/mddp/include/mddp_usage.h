@@ -56,8 +56,6 @@ struct mddp_u_iquota_ind_t {
 //------------------------------------------------------------------------------
 // Public functions.
 // -----------------------------------------------------------------------------
-int32_t mddp_usage_init(void);
-void mddp_usage_uninit(void);
 void mddp_u_set_wan_iface(uint8_t *devname);
 void mddp_u_get_data_stats(void *buf, uint32_t *buf_len);
 int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len);

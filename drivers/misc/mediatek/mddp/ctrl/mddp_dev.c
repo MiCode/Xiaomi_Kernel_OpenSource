@@ -5,8 +5,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/cdev.h>
 #include <linux/fs.h>
+#include <linux/miscdevice.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/rtc.h>
@@ -20,9 +20,6 @@
 //------------------------------------------------------------------------------
 // Struct definition.
 // -----------------------------------------------------------------------------
-#define MDDP_DEV_MINOR_BASE             0
-#define MDDP_DEV_MINOR_CNT              16
-#define MDDP_CLASS_NAME                 "md_direct"
 #define MDDP_DEV_NAME                   "mddp"
 
 struct mddp_dev_rb_t {
@@ -117,9 +114,6 @@ mddp_dev_rsp_status_mapping_s[MDDP_CMCMD_RSP_CNT][2] =  {
 };
 #undef MDDP_CMCMD_RSP_CNT
 
-static uint32_t mddp_dev_major_s;
-static struct cdev mddp_cdev_s;
-struct class *mddp_dev_class_s;
 uint32_t mddp_debug_log_class_s = MDDP_LC_ALL;
 uint32_t mddp_debug_log_level_s = MDDP_LL_DEFAULT;
 static bool mddp_dstate_activated_s;
@@ -493,77 +487,6 @@ static bool mddp_dev_rb_queue_empty(struct mddp_dev_rb_head_t *list)
 	return list->next == (struct mddp_dev_rb_t *)list;
 }
 
-static char *__mddp_dev_devnode(struct device *dev, umode_t *mode)
-{
-	if (!mode)
-		return NULL;
-
-	MDDP_C_LOG(MDDP_LL_INFO,
-			"%s: Set permission of dev node(%s).\n",
-			__func__, MDDP_DEV_NAME);
-	*mode =	0666;
-
-	return NULL;
-}
-
-static void _mddp_dev_create_dev_node(void)
-{
-	dev_t                   dev;
-	int32_t                 alloc_err = 0;
-	int32_t                 cd_err = 0;
-
-	mddp_dev_class_s = class_create(THIS_MODULE, MDDP_CLASS_NAME);
-	if (IS_ERR(mddp_dev_class_s))
-		goto create_class_error;
-
-	mddp_dev_class_s->devnode = __mddp_dev_devnode;
-	mddp_dev_class_s->dev_groups = mddp_groups;
-
-	alloc_err = alloc_chrdev_region(&dev,
-			MDDP_DEV_MINOR_BASE,
-			MDDP_DEV_MINOR_CNT,
-			MDDP_DEV_NAME);
-	if (alloc_err)
-		goto alloc_cd_error;
-
-	mddp_dev_major_s = MAJOR(dev);
-
-	cdev_init(&mddp_cdev_s, &mddp_dev_fops);
-	mddp_cdev_s.owner = THIS_MODULE;
-	cd_err = cdev_add(&mddp_cdev_s, dev, 1);
-	if (cd_err < 0)
-		goto cdev_add_error;
-
-	device_create(mddp_dev_class_s,
-			NULL,
-			MKDEV(mddp_dev_major_s, 0),
-			NULL,
-			MDDP_DEV_NAME);
-
-	return;
-
-cdev_add_error:
-	cdev_del(&mddp_cdev_s);
-	unregister_chrdev_region(dev, MDDP_DEV_MINOR_CNT);
-alloc_cd_error:
-create_class_error:
-	MDDP_C_LOG(MDDP_LL_ERR,
-			"%s: Failed to create node, alloc_err(%d), cd_err(%d)!\n",
-			__func__, alloc_err, cd_err);
-}
-
-static void _mddp_dev_release_dev_node(void)
-{
-	dev_t                   dev;
-
-	dev = MKDEV(mddp_dev_major_s, 0);
-
-	device_destroy(mddp_dev_class_s, dev);
-	class_destroy(mddp_dev_class_s);
-	cdev_del(&mddp_cdev_s);
-	unregister_chrdev_region(dev, MDDP_DEV_MINOR_CNT);
-}
-
 static struct mddp_dev_rb_t *mddp_query_dstate(
 		struct mddp_dev_rb_head_t *list, uint32_t seq)
 {
@@ -602,6 +525,14 @@ void mddp_dev_list_init(struct mddp_dev_rb_head_t *list)
 	init_waitqueue_head(&list->read_wq);
 }
 
+struct miscdevice mddp_dev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = MDDP_DEV_NAME,
+	.fops = &mddp_dev_fops,
+	.groups = mddp_groups,
+};
+
+
 int32_t mddp_dev_init(void)
 {
 	atomic_set(&mddp_dev_open_ref_cnt_s, 0);
@@ -615,7 +546,8 @@ int32_t mddp_dev_init(void)
 	/*
 	 * Create device node.
 	 */
-	_mddp_dev_create_dev_node();
+	if (misc_register(&mddp_dev) < 0)
+		return -1;
 
 	/*
 	 * Detailed state init.
@@ -630,7 +562,7 @@ void mddp_dev_uninit(void)
 	/*
 	 * Release CHAR device node.
 	 */
-	_mddp_dev_release_dev_node();
+	misc_deregister(&mddp_dev);
 
 	mddp_clear_dstate(&mddp_hidl_rb_head_s);
 	mddp_clear_dstate(&mddp_dstate_rb_head_s);

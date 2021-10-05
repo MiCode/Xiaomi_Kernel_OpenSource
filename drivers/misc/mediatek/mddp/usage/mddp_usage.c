@@ -49,16 +49,6 @@ static int8_t wan_id;
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
-int32_t mddp_usage_init(void)
-{
-	return 0;
-}
-
-void mddp_usage_uninit(void)
-{
-
-}
-
 void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 {
 	static struct mddp_u_data_stats_t       cur_stats = {0};

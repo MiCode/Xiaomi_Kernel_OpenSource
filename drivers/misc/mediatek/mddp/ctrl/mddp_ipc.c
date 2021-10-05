@@ -260,6 +260,7 @@ int32_t mddp_ipc_init(void)
 
 		rx_task = NULL;
 		ret = -ECHILD;
+		mtk_ccci_release_port(mddp_ipc_tty_port_s);
 	}
 
 	return ret;

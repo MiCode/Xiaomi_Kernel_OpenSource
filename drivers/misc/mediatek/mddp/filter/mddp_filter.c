@@ -546,6 +546,7 @@ int32_t mddp_filter_init(void)
 
 	ret = mddp_f_init_router_tuple();
 	if (ret < 0) {
+		mddp_f_uninit_nat_tuple();
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 				"%s: Cannot init router tuple(%d)!\n",
 				__func__, ret);
