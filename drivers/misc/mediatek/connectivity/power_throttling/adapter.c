@@ -253,7 +253,7 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 
 	if (type == CONN_PRW_DRV_ALL) {
 		for (i = 0; i < CONN_PWR_DRV_MAX; i++) {
-			if (type == CONN_PWR_DRV_GPS)
+			if (i == CONN_PWR_DRV_GPS)
 				inactive_time = CONN_PWR_SWITCH_LEVEL_GPS_MIN_SEC;
 			else
 				inactive_time = CONN_PWR_SWITCH_LEVEL_MIN_SEC;
