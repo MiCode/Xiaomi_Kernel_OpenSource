@@ -101,13 +101,17 @@ static int g_PDA1_IRQCount;
 static struct PDA_device PDA_devs[PDA_MAX_QUANTITY];
 
 // clock relate
-#define PDA_CLK_NUM 5
+#define PDA_CLK_NUM 9
 static const char * const clk_names[PDA_CLK_NUM] = {
-	"PDA_TOP_MUX",
-	"PDA2_TOP_MUX",
-	"PDA0_CAM_MAIN",
-	"PDA1_CAM_MAIN",
-	"PDA2_CAM_MAIN"
+	"camsys_mraw_pda0",
+	"camsys_mraw_pda1",
+	"mraw_larbx",
+	"cam_main_cam2mm0_gals_cg_con",
+	"cam_main_cam2mm1_gals_cg_con",
+	"cam_main_cam_cg_con",
+	"cam_main_pda0",
+	"cam_main_pda1",
+	"cam_main_pda2"
 };
 struct PDA_CLK_STRUCT pda_clk[PDA_CLK_NUM];
 
