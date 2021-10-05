@@ -290,7 +290,7 @@ static void print_vio_mask_sta(bool debug)
 			continue;
 
 		if (slave_type == DEVAPC_TYPE_MMUP &&
-			!mtk_devapc_ctx->mmup_enabled)
+			(!mtk_devapc_ctx->mmup_enabled || !mmup_enable_count()))
 			continue;
 
 		if (slave_type == DEVAPC_TYPE_ADSP &&
@@ -921,7 +921,7 @@ static void devapc_dump_info(void)
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 		if (slave_type == DEVAPC_TYPE_MMUP &&
-			!mtk_devapc_ctx->mmup_enabled)
+			(!mtk_devapc_ctx->mmup_enabled || !mmup_enable_count()))
 			continue;
 
 		if (slave_type == DEVAPC_TYPE_ADSP &&
@@ -1037,7 +1037,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			continue;
 
 		if (slave_type == DEVAPC_TYPE_MMUP &&
-			!mtk_devapc_ctx->mmup_enabled)
+			(!mtk_devapc_ctx->mmup_enabled || !mmup_enable_count()))
 			continue;
 
 		if (slave_type == DEVAPC_TYPE_ADSP &&
