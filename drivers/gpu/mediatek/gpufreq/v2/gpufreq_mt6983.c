@@ -180,6 +180,8 @@ static void __iomem *g_mfg_top_base;
 static void __iomem *g_sleep;
 static void __iomem *g_nth_emicfg_base;
 static void __iomem *g_sth_emicfg_base;
+static void __iomem *g_nth_emicfg_ao_mem_base;
+static void __iomem *g_sth_emicfg_ao_mem_base;
 static void __iomem *g_infracfg_ao_base;
 static void __iomem *g_infra_ao_debug_ctrl;
 static void __iomem *g_infra_ao1_debug_ctrl;
@@ -1280,95 +1282,123 @@ void __gpufreq_dump_infra_status(void)
 	/* 0x13FBF000 */
 	if (g_mfg_top_base) {
 		/* MFG_DEBUG_SEL */
-		GPUFREQ_LOGI("mfg status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("MFG_TOP_CFG (0x%x): 0x%08x",
 			(0x13FBF000 + 0x170), readl(g_mfg_top_base + 0x170));
-		GPUFREQ_LOGI("mfg status (0x%x): 0x%08x",
+		/* MFG_DEBUG_TOP */
+		GPUFREQ_LOGI("MFG_TOP_CFG (0x%x): 0x%08x",
 			(0x13FBF000 + 0x178), readl(g_mfg_top_base + 0x178));
 	}
 
 	/* 0x1021C000 */
 	if (g_nth_emicfg_base) {
 		/* NTH_EMICFG_REG_MFG_EMI1_GALS_SLV_DBG */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("NTH_EMICFG_REG (0x%x): 0x%08x",
 			(0x1021C000 + 0x82C), readl(g_nth_emicfg_base + 0x82C));
 		/* NTH_EMICFG_REG_MFG_EMI1_GALS_SLV_DBG */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("NTH_EMICFG_REG (0x%x): 0x%08x",
 			(0x1021C000 + 0x830), readl(g_nth_emicfg_base + 0x830));
 	}
 
 	/* 0x1021E000 */
 	if (g_sth_emicfg_base) {
 		/* STH_EMICFG_REG_MFG_EMI1_GALS_SLV_DBG */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("STH_EMICFG_REG (0x%x): 0x%08x",
 			(0x1021E000 + 0x82C), readl(g_sth_emicfg_base + 0x82C));
 		/* STH_EMICFG_REG_MFG_EMI0_GALS_SLV_DBG */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("STH_EMICFG_REG (0x%x): 0x%08x",
 			(0x1021E000 + 0x830), readl(g_sth_emicfg_base + 0x830));
+	}
+
+	/* 0x10270000 */
+	if (g_nth_emicfg_ao_mem_base) {
+		/* NTH_EMICFG_AO_MEM_REG_M6M7_IDLE_BIT_EN_1 */
+		GPUFREQ_LOGI("NTH_EMICFG_AO_MEM_REG (0x%x): 0x%08x",
+			(0x10270000 + 0x228), readl(g_nth_emicfg_ao_mem_base + 0x228));
+		/* NTH_EMICFG_AO_MEM_REG_M6M7_IDLE_BIT_EN_0 */
+		GPUFREQ_LOGI("NTH_EMICFG_AO_MEM_REG (0x%x): 0x%08x",
+			(0x10270000 + 0x22C), readl(g_nth_emicfg_ao_mem_base + 0x22C));
+	}
+
+	/* 0x1030E000 */
+	if (g_sth_emicfg_ao_mem_base) {
+		/* STH_EMICFG_AO_MEM_REG_M6M7_IDLE_BIT_EN_1 */
+		GPUFREQ_LOGI("STH_EMICFG_AO_MEM_REG (0x%x): 0x%08x",
+			(0x1030E000 + 0x228), readl(g_sth_emicfg_ao_mem_base + 0x228));
+		/* STH_EMICFG_AO_MEM_REG_M6M7_IDLE_BIT_EN_0 */
+		GPUFREQ_LOGI("STH_EMICFG_AO_MEM_REG (0x%x): 0x%08x",
+			(0x1030E000 + 0x22C), readl(g_sth_emicfg_ao_mem_base + 0x22C));
 	}
 
 	/* 0x10001000 */
 	if (g_infracfg_ao_base) {
 		/* MD_MFGSYS_PROTECT_EN_STA_0 */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("INFRACFG_AO (0x%x): 0x%08x",
 			(0x10001000 + 0xCA0), readl(g_infracfg_ao_base + 0xCA0));
 		/* MD_MFGSYS_PROTECT_RDY_STA_0 */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("INFRACFG_AO (0x%x): 0x%08x",
 			(0x10001000 + 0xCAC), readl(g_infracfg_ao_base + 0xCAC));
 	}
 
 	/* 0x10023000 */
 	if (g_infra_ao_debug_ctrl) {
 		/* INFRA_AO_BUS_U_DEBUG_CTRL_AO_INFRA_AO_CTRL0 */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("INFRA_AO_DEBUG_CTRL (0x%x): 0x%08x",
 			(0x10023000 + 0x000), readl(g_infra_ao_debug_ctrl + 0x000));
 	}
 
 	/* 0x1002B000 */
 	if (g_infra_ao1_debug_ctrl) {
-		/* INFRA_AO1_DEBUG_CTRL_BASE */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		/* INFRA_QAXI_AO_BUS_SUB1_U_DEBUG_CTRL_AO_INFRA_AO1_CTRL0 */
+		GPUFREQ_LOGI("INFRA_AO1_DEBUG_CTRL (0x%x): 0x%08x",
 			(0x1002B000 + 0x000), readl(g_infra_ao1_debug_ctrl + 0x000));
 	}
 
 	/* 0x10042000 */
 	if (g_nth_emi_ao_debug_ctrl) {
 		/* NTH_EMI_AO_DEBUG_CTRL_EMI_AO_BUS_U_DEBUG_CTRL_AO_EMI_AO_CTRL0 */
-		GPUFREQ_LOGI("infra status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("NTH_EMI_AO_DEBUG_CTRL (0x%x): 0x%08x",
 			(0x10042000 + 0x000), readl(g_nth_emi_ao_debug_ctrl + 0x000));
+	}
+
+	/* 0x13F90000 */
+	if (g_mfg_rpc_base) {
+		/* MFG_GPU_EB_SPM_RPC_SLP_PROT_EN_STA */
+		GPUFREQ_LOGI("GPUEB_RPC (0x%x): 0x%08x",
+			(0x13F90000 + 0x1048), readl(g_mfg_rpc_base + 0x1048));
 	}
 
 	/* 0x1C001000 */
 	if (g_sleep) {
 		/* MFG0_PWR_CON - MFG3_PWR_CON */
-		GPUFREQ_LOGI("pwr status (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
+		GPUFREQ_LOGI("SLEEP (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
 			(0x1C001000 + 0xEB8), 0xEC4,
 			readl(g_sleep + 0xEB8), readl(g_sleep + 0xEBC),
 			readl(g_sleep + 0xEC0), readl(g_sleep + 0xEC4));
 		/* MFG4_PWR_CON - MFG7_PWR_CON */
-		GPUFREQ_LOGI("pwr status (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
+		GPUFREQ_LOGI("SLEEP (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
 			(0x1C001000 + 0xEC8), 0xED4,
 			readl(g_sleep + 0xEC8), readl(g_sleep + 0xECC),
 			readl(g_sleep + 0xED0), readl(g_sleep + 0xED4));
 		/* MFG8_PWR_CON - MFG11_PWR_CON */
-		GPUFREQ_LOGI("pwr status (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
+		GPUFREQ_LOGI("SLEEP (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
 			(0x1C001000 + 0xED8), 0xEE4,
 			readl(g_sleep + 0xED8), readl(g_sleep + 0xEDC),
 			readl(g_sleep + 0xEE0), readl(g_sleep + 0xEE4));
 		/* MFG12_PWR_CON - MFG15_PWR_CON */
-		GPUFREQ_LOGI("pwr status (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
+		GPUFREQ_LOGI("SLEEP (0x%x-%x): 0x%08x 0x%08x 0x%08x 0x%08x",
 			(0x1C001000 + 0xEE8), 0xEF4,
 			readl(g_sleep + 0xEE8), readl(g_sleep + 0xEEC),
 			readl(g_sleep + 0xEF0), readl(g_sleep + 0xEF4));
 		/* MFG16_PWR_CON - MFG18_PWR_CON */
-		GPUFREQ_LOGI("pwr status (0x%x-%x): 0x%08x 0x%08x 0x%08x",
+		GPUFREQ_LOGI("SLEEP (0x%x-%x): 0x%08x 0x%08x 0x%08x",
 			(0x1C001000 + 0xEF8), 0xF00,
 			readl(g_sleep + 0xEF8), readl(g_sleep + 0xEFC),
 			readl(g_sleep + 0xF00));
 		/* XPU_PWR_STATUS */
-		GPUFREQ_LOGI("pwr status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("SLEEP (0x%x): 0x%08x",
 			(0x1C001000 + PWR_STATUS_OFS), readl(g_sleep + PWR_STATUS_OFS));
 		/* XPU_PWR_STATUS_2ND */
-		GPUFREQ_LOGI("pwr status (0x%x): 0x%08x",
+		GPUFREQ_LOGI("SLEEP (0x%x): 0x%08x",
 			(0x1C001000 + PWR_STATUS_2ND_OFS), readl(g_sleep + PWR_STATUS_2ND_OFS));
 	}
 }
@@ -4900,6 +4930,30 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	g_sth_emicfg_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_sth_emicfg_base)) {
 		GPUFREQ_LOGE("fail to ioremap STH_EMICFG_REG: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x10270000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nth_emicfg_ao_mem_reg");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource NTH_EMICFG_AO_MEM_REG");
+		goto done;
+	}
+	g_nth_emicfg_ao_mem_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_nth_emicfg_ao_mem_base)) {
+		GPUFREQ_LOGE("fail to ioremap NTH_EMICFG_AO_MEM_REG: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x1030E000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sth_emicfg_ao_mem_reg");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource STH_EMICFG_AO_MEM_REG");
+		goto done;
+	}
+	g_sth_emicfg_ao_mem_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_sth_emicfg_ao_mem_base)) {
+		GPUFREQ_LOGE("fail to ioremap STH_EMICFG_AO_MEM_REG: 0x%llx", res->start);
 		goto done;
 	}
 
