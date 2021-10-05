@@ -604,6 +604,7 @@ static void hf_manager_find_best_param(struct hf_core *core,
 	spin_unlock_irqrestore(&core->client_lock, flags);
 	*action = tmp_enable;
 	*delay = tmp_delay > 0 ? tmp_delay : 0;
+	tmp_latency = tmp_latency > 0 ? tmp_latency : 0;
 	*latency = tmp_latency < max_latency_ns ? tmp_latency : max_latency_ns;
 
 #ifdef HF_MANAGER_DEBUG
