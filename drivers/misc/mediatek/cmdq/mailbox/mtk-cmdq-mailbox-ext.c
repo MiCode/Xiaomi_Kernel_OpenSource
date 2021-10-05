@@ -970,7 +970,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 			cmdq_err("cannot get dev:%p domain", cmdq->mbox.dev);
 
 		set_bit(thread->idx, &cmdq->err_irq_idx);
-		// wake_up_interruptible(&cmdq->err_irq_wq);
+		wake_up_interruptible(&cmdq->err_irq_wq);
 	}
 
 	cmdq_log("task status %pa~%pa err:%d",
@@ -1138,7 +1138,7 @@ static int cmdq_irq_handler_thread(void *data)
 
 			cmdq_err("%s: hwid:%hu irq:%#lx idx:%u pc:%pa",
 				__func__, cmdq->hwid, cmdq->err_irq_idx,
-				thread->idx, pc);
+				thread->idx, &pc);
 
 			spin_lock_irqsave(&thread->chan->lock, flags);
 			cmdq_thread_dump_pkt_by_pc(thread, pc, false);
