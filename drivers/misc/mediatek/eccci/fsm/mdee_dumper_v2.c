@@ -265,7 +265,7 @@ static void mdee_info_dump_v2(struct ccci_fsm_ee *mdee)
 			"Fail alloc Mem for ex_info_buf!\n");
 		goto err_exit;
 	}
-	ktime_get_ts64(&time_spec64); /* ktime_get_ts64 maybe we should use */
+	ktime_get_real_ts64(&time_spec64);
 	tv.tv_sec = time_spec64.tv_sec;
 	tv.tv_nsec = time_spec64.tv_nsec;
 	tv_android = tv;

@@ -127,7 +127,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
-	ktime_get_ts64(&time_spec64); /* ktime_get_ts64 maybe we should use */
+	ktime_get_real_ts64(&time_spec64);
 	tv.tv_sec = time_spec64.tv_sec;
 	tv.tv_nsec = time_spec64.tv_nsec;
 	tv_android = tv;

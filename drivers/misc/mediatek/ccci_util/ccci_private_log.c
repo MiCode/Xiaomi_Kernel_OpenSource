@@ -1114,7 +1114,7 @@ int ccci_event_log(const char *fmt, ...)
 	preempt_enable();
 
 	/* prepare andorid time info */
-	ktime_get_ts64(&tv); /* ktime_get_ts64 maybe we should use */
+	ktime_get_real_ts64(&tv);
 	tv_android.tv_sec = tv.tv_sec;
 	tv_android.tv_nsec = tv.tv_nsec;
 

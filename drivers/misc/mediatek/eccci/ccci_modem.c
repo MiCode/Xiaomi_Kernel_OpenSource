@@ -2011,7 +2011,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 			case MISC_INFO_CLIB_TIME:
 				rt_feature.data_len =
 				sizeof(struct ccci_misc_info_element);
-				ktime_get_ts64(&t);
+				ktime_get_real_ts64(&t);
 				/*set seconds information */
 				rt_f_element.feature[0] =
 				((unsigned int *)&t.tv_sec)[0];
