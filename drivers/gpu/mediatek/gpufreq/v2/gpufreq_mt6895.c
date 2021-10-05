@@ -811,11 +811,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			__gpufreq_gpm_control();
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0A);
 
-		/* config SLC policy */
-		__gpufreq_slc_control();
+		/* TODO: config SLC policy */
+		//__gpufreq_slc_control();
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0B);
 
-		/* control DFD */
+		/* TODO: control DFD */
 		//__gpudfd_config_dfd(true);
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0C);
 
@@ -1828,8 +1828,6 @@ done:
 	return ret;
 }
 
-//TODO
-
 /*
  * API: calculate pcw for setting CON1
  * Fin is 26 MHz
@@ -2383,11 +2381,10 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	mfg_ref_sel = readl(g_topckgen_base + 0x50) & MFG_REF_SEL_MASK;
 	/* CLK_CFG_5 0x10000060 [1:0] MFGSC_REF_SEL */
 	mfgsc_ref_sel = readl(g_topckgen_base + 0x60) & MFGSC_REF_SEL_MASK;
-	//TODO power on
 	/*
 	 * [SPM] pwr_status    : 0x10006F3C
 	 * [SPM] pwr_status_2nd: 0x10006F40
-	 * Power ON: 0001 1111 1111 1110 (0x3FFE)
+	 * Power ON: 0011 1111 1111 1110 (0x3FFE)
 	 * [13:1]: MFG0-12
 	 */
 	GPUFREQ_LOGI("[GPU]     MALI_ID:    0x%08x, MFG_TOP_CONFIG: 0x%08x",
@@ -2526,7 +2523,6 @@ static unsigned int __gpufreq_get_fmeter_sub_fstack(void)
 	return freq;
 }
 
-//TODO
 /*
  * API: get real current frequency from CON1 (khz)
  * Freq = ((PLL_CON1[21:0] * 26M) / 2^14) / 2^PLL_CON1[26:24]
@@ -3122,7 +3118,7 @@ static void __gpufreq_pdc_control(void)
 	val |= (1UL << 31);
 	writel(val, g_mfg_top_base + 0x4DC);
 }
-//TODO
+
 /* ACP: GPU can access CPU cache directly */
 static void __gpufreq_acp_control(void)
 {
@@ -3288,7 +3284,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 				goto done;
 			}
 		}
-		if (g_shader_present & MFG5_SHADER_STACK4) {
+		if (g_shader_present & MFG5_SHADER_STACK2) {
 			ret = pm_runtime_get_sync(g_mtcmos->mfg10_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3302,7 +3298,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 				goto done;
 			}
 		}
-		if (g_shader_present & MFG6_SHADER_STACK5) {
+		if (g_shader_present & MFG6_SHADER_STACK4) {
 			ret = pm_runtime_get_sync(g_mtcmos->mfg11_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3310,7 +3306,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 				goto done;
 			}
 		}
-//TODO
+
 #if GPUFREQ_CHECK_MTCMOS_PWR_STATUS
 		/* CCF contorl, check MFG0-12 power status */
 		if (g_sleep) {
@@ -3329,7 +3325,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 	} else {
 #if !GPUFREQ_PDCv2_ENABLE
 		/* manually control MFG2-12 if PDC is disabled */
-		if (g_shader_present & MFG6_SHADER_STACK5) {
+		if (g_shader_present & MFG6_SHADER_STACK4) {
 			ret = pm_runtime_put_sync(g_mtcmos->mfg11_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -3337,17 +3333,17 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 				goto done;
 			}
 		}
-		if (g_shader_present & MFG5_SHADER_STACK4) {
-			ret = pm_runtime_put_sync(g_mtcmos->mfg10_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg10_dev (%d)", ret);
-				goto done;
-			}
+		if (g_shader_present & MFG5_SHADER_STACK2) {
 			ret = pm_runtime_put_sync(g_mtcmos->mfg12_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
 					"fail to disable mfg12_dev (%d)", ret);
+				goto done;
+			}
+			ret = pm_runtime_put_sync(g_mtcmos->mfg10_dev);
+			if (unlikely(ret < 0)) {
+				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+					"fail to disable mfg10_dev (%d)", ret);
 				goto done;
 			}
 		}
@@ -3360,16 +3356,16 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 			}
 		}
 		if (g_shader_present & MFG3_SHADER_STACK0) {
-			ret = pm_runtime_put_sync(g_mtcmos->mfg7_dev);
-			if (unlikely(ret < 0)) {
-				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-					"fail to disable mfg7_dev (%d)", ret);
-				goto done;
-			}
 			ret = pm_runtime_put_sync(g_mtcmos->mfg9_dev);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
 					"fail to disable mfg9_dev (%d)", ret);
+				goto done;
+			}
+			ret = pm_runtime_put_sync(g_mtcmos->mfg7_dev);
+			if (unlikely(ret < 0)) {
+				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+					"fail to disable mfg7_dev (%d)", ret);
 				goto done;
 			}
 		}
@@ -3416,7 +3412,6 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 		g_gpu.mtcmos_count--;
 		g_stack.mtcmos_count--;
 
-//TODO
 #if GPUFREQ_CHECK_MTCMOS_PWR_STATUS
 		/* no matter who control, check MFG1-12 power status, MFG0 is off in ATF */
 		if (g_sleep && !g_stack.mtcmos_count) {
