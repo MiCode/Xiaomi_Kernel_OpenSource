@@ -1,0 +1,27 @@
+QCT Gunyah Hypervisor irq Lending Test Driver
+
+The Gunyah Hypervisor Test Driver is used to validate gunyah hypervisor
+functionality. It includes test node for gunyah irq lending between vms.
+Qtime timer and irq will be lended between vms.
+
+Required properties:
+- compatible:	"qcom,gh-qtmr"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are: "qtmr-base"
+- interrupts:		Lists the threshold IRQ.
+- interrupt-names:  Names of the interrupts.
+- qcom,primary or qcom,secondary: primary is for PVM / secondary is for SVM
+
+Example:
+
+	qcom,gh-qtimer@17425000{
+		compatible = "qcom,gh-qtmr";
+		reg = <0x17425000 0x1000>;
+		reg-names = "qtmr-base";
+		interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "qcom,qtmr-intr";
+		qcom,primary;
+	};
+
