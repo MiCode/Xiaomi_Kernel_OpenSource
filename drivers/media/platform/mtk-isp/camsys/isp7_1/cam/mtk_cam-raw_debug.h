@@ -25,6 +25,10 @@ void mtk_cam_dump_dma_debug(struct device *dev,
 			    const char *dma_name,
 			    struct dma_debug_item *items, int n);
 
+void mtk_cam_sw_reset_check(struct device *dev,
+			    void __iomem *dmatop_base,
+			    struct dma_debug_item *items, int n);
+
 enum topdebug_event {
 	ALL_THE_TIME	= 1 << 0,
 	TG_OVERRUN	= 1 << 1,

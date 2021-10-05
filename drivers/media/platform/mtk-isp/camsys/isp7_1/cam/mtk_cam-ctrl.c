@@ -977,7 +977,7 @@ mtk_cam_set_sensor_subspl(struct mtk_cam_request_stream_data *s_data,
 
 	if (ctx->used_raw_num) {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-		if (raw_dev->vf_en == 0 &&
+		if (atomic_read(&raw_dev->vf_en) == 0 &&
 			ctx->sensor_ctrl.initial_cq_done == 1 &&
 			s_data->frame_seq_no == 1)
 			mtk_cam_stream_on(raw_dev, ctx);
@@ -1084,7 +1084,7 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 
 	if (ctx->used_raw_num) {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-		if (raw_dev->vf_en == 0 &&
+		if (atomic_read(&raw_dev->vf_en) == 0 &&
 			ctx->sensor_ctrl.initial_cq_done == 1 &&
 			s_data->frame_seq_no == 1)
 			mtk_cam_stream_on(raw_dev, ctx);
@@ -3367,6 +3367,10 @@ static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 	}
 	/* raw's SOF */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+		if (atomic_read(&raw_dev->vf_en) == 0) {
+			dev_info(raw_dev->dev, "skip sof event when vf off\n");
+			return 0;
+		}
 
 		if (mtk_cam_is_stagger(ctx)) {
 			dev_dbg(raw_dev->dev, "[stagger] last frame_start\n");

@@ -305,7 +305,7 @@ struct mtk_raw_device {
 
 	u8 time_shared_busy;
 	u8 time_shared_busy_ctx_id;
-	u32 vf_en;
+	atomic_t vf_en;
 	u32 stagger_en;
 };
 

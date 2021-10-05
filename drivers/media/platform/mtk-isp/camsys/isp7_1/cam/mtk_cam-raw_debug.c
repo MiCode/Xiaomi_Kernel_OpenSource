@@ -8,6 +8,9 @@
 #include "mtk_cam-regs.h"
 #include "mtk_cam-raw_debug.h"
 #include "mtk_cam-trace.h"
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
 
 #define ADD_FBC_DMA(name)	 #name
 static const char * const fbc_r1_list[] = {
@@ -356,6 +359,49 @@ void mtk_cam_dump_dma_debug(struct device *dev,
 	for (i = 0; i < n; i++)
 		dev_info(dev, "%08x: %08x [%s]\n",
 			items[i].debug_sel, vals[i], items[i].msg);
+}
+
+void mtk_cam_sw_reset_check(struct device *dev,
+			    void __iomem *dmatop_base,
+			    struct dma_debug_item *items, int n)
+{
+#define MAX_DEBUG_SIZE (32)
+
+	void __iomem *dbg_sel = dmatop_base + 0x70;
+	void __iomem *dbg_port = dmatop_base + 0x74;
+	int i = 0;
+	unsigned int vals[MAX_DEBUG_SIZE];
+	bool bPrint = false;
+
+	if (n >= MAX_DEBUG_SIZE) {
+		dev_info(dev, "%s: should enlarge array size for n(%d)\n",
+			__func__, n);
+		return;
+	}
+
+	for (i = 0; i < n; i++) {
+		writel(items[i].debug_sel, dbg_sel);
+		if (readl(dbg_sel) != items[i].debug_sel)
+			dev_info(dev, "failed to write dbg_sel %08x\n",
+				items[i].debug_sel);
+
+		vals[i] = readl(dbg_port);
+		if ((vals[i] >> 16) != (vals[i] & 0xffff))
+			bPrint = true;
+	};
+
+	if (bPrint) {
+		dev_info(dev, "%s:, n = %d", __func__, n);
+		for (i = 0; i < n; i++)
+			dev_info(dev, "%08x: %08x [%s]\n",
+				items[i].debug_sel, vals[i], items[i].msg);
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_warning_api(
+				__FILE__, __LINE__, DB_OPT_DEFAULT,
+				"Camsys", "sw reset fail");
+#endif
+	}
 }
 
 void mtk_cam_set_topdebug_rdyreq(struct device *dev,

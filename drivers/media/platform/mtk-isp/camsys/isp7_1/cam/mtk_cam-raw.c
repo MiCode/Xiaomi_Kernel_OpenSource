@@ -1181,6 +1181,12 @@ void reset(struct mtk_raw_device *dev)
 		goto RESET_FAILURE;
 	}
 
+	/* check dma cmd cnt before hw rst */
+	mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
+			dbg_ulc_cmd_cnt, ARRAY_SIZE(dbg_ulc_cmd_cnt));
+	mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
+			dbg_ori_cmd_cnt, ARRAY_SIZE(dbg_ori_cmd_cnt));
+
 	/* do hw rst */
 	writel(4, dev->base + REG_CTL_SW_CTL);
 	writel(0, dev->base + REG_CTL_SW_CTL);
@@ -1556,7 +1562,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 	dev->sof_count = 0;
 	dev->sub_sensor_ctrl_en = 0;
 	dev->time_shared_busy = 0;
-	dev->vf_en = 0;
+	atomic_set(&dev->vf_en, 0);
 	dev->stagger_en = 0;
 	reset_msgfifo(dev);
 
@@ -1625,7 +1631,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		} else {
 			ccu_stream_on(dev);
 		}
-		dev->vf_en = 1;
+		atomic_set(&dev->vf_en, 1);
 		dev_dbg(dev->dev,
 			"%s - CQ_EN:0x%x, CQ_THR0_CTL:0x%8x, TG_VF_CON:0x%8x, SCQ_START_PERIOD:%lld\n",
 			__func__,
@@ -1634,6 +1640,8 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			readl_relaxed(dev->base + REG_TG_VF_CON),
 			readl_relaxed(dev->base + REG_SCQ_START_PERIOD));
 	} else {
+		atomic_set(&dev->vf_en, 0);
+
 		writel_relaxed(~CQ_THR0_EN, dev->base + REG_CQ_THR0_CTL);
 		wmb(); /* TBC */
 
@@ -1663,10 +1671,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 				 __func__, chk_val);
 		}
 
-		reset(dev);
 		reset_reg(dev);
-
-		dev->vf_en = 0;
 	}
 }
 
@@ -5548,10 +5553,12 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
+	disable_irq(drvdata->irq);
+
+	reset(drvdata);
+
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
-
-	disable_irq(drvdata->irq);
 
 	return 0;
 }
@@ -5930,7 +5937,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	dev_info(dev, "=================== [CAMSYS M4U] Dump Begin ==================\n");
 
 	dev_info(dev, "M4U TF port %d iova %pad frame_seq_no %d raw id %d vf %d\n",
-		port, &mva, dequeued_frame_seq_no_inner, raw_dev->id, raw_dev->vf_en);
+		port, &mva, dequeued_frame_seq_no_inner, raw_dev->id, atomic_read(&raw_dev->vf_en));
 
 	mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
 
