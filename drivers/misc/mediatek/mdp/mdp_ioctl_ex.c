@@ -457,7 +457,7 @@ static s32 translate_meta(struct op_meta *meta,
 		if (!reg_addr || !dram_addr)
 			return -EINVAL;
 		status = cmdq_op_read_reg_to_mem_ex(handle, cmd_buf,
-						dram_addr, offset, reg_addr);
+						dram_addr + gce_mminfra, offset, reg_addr);
 		break;
 	}
 	case CMDQ_MOP_READBACK:
