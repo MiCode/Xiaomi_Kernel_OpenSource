@@ -366,10 +366,19 @@ void mtk_cam_dump_dma_debug(struct device *dev,
 		vals[i] = readl(dbg_port);
 	};
 
-	dev_info(dev, "%s: %s, n = %d", __func__, dma_name, n);
-	for (i = 0; i < n; i++)
-		dev_info(dev, "%08x: %08x [%s]\n",
-			items[i].debug_sel, vals[i], items[i].msg);
+
+	if (MTK_CAM_TRACE_ENABLED(HW_IRQ)) {
+		MTK_CAM_TRACE(HW_IRQ, "%s: %s", dev_name(dev), dma_name);
+		for (i = 0; i < n; i++)
+			MTK_CAM_TRACE(HW_IRQ, "%s: %08x: %08x [%s]",
+				dev_name(dev),
+				items[i].debug_sel, vals[i], items[i].msg);
+	} else {
+		dev_info(dev, "%s: %s\n", __func__, dma_name);
+		for (i = 0; i < n; i++)
+			dev_info(dev, "%08x: %08x [%s]\n",
+				 items[i].debug_sel, vals[i], items[i].msg);
+	}
 }
 
 void mtk_cam_sw_reset_check(struct device *dev,
