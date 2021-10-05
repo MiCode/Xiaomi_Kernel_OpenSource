@@ -14,6 +14,9 @@
 #include <linux/slab.h>
 #include "mtk-smi-dbg.h"
 #include "tinysys-scmi.h"
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
 
 #define MMINFRA_MAX_CLK_NUM	(4)
 
@@ -102,11 +105,25 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
 	int count;
+	void __iomem *test_base;
+	u32 val;
 
 	if (flags == GENPD_NOTIFY_ON) {
 		mminfra_clk_set(true);
 		count = atomic_inc_return(&clk_ref_cnt);
 		do_mminfra_bkrs(true);
+		test_base = ioremap(0x1e800280, 4);
+		val = readl_relaxed(test_base);
+		if (val != 0xfff) {
+			pr_notice("%s: HRE restore failed 0x1e800280=%x\n",
+				__func__, val);
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			aee_kernel_warning("mminfra",
+				"HRE restore failed 0x1e800280=%x\n", val);
+#endif
+
+		}
+		iounmap(test_base);
 		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
 		do_mminfra_bkrs(false);
