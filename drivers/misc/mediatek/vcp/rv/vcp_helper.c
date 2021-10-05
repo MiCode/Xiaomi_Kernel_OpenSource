@@ -42,6 +42,7 @@
 #include "vcp_helper.h"
 #include "vcp_excep.h"
 #include "vcp_vcpctl.h"
+#include "vcp_status.h"
 #include "vcp.h"
 
 #if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
@@ -137,7 +138,6 @@ static struct vcp_work_struct vcp_A_notify_work;
 static unsigned int vcp_timeout_times;
 #endif
 
-int pwclkcnt;
 static DEFINE_MUTEX(vcp_pw_clk_mutex);
 static DEFINE_MUTEX(vcp_A_notify_mutex);
 static DEFINE_MUTEX(vcp_feature_mutex);
@@ -646,7 +646,6 @@ int reset_vcp(int reset)
 
 	return 0;
 }
-
 
 void vcp_enable_pm_clk(void)
 {
