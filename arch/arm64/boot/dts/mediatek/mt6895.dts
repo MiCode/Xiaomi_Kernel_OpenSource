@@ -11206,4 +11206,4 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 #include "mediatek/bat_setting/mt6895_battery_prop.dtsi"
 #include "mediatek/mt6895-clkitg.dtsi"
 #include "mediatek/mt6895-disable-unused.dtsi"
-
+#include "mediatek/trusty.dtsi"
