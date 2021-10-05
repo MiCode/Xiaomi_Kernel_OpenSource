@@ -383,6 +383,7 @@ static void irq_count_tracer_work(struct work_struct *work)
 	} while (!done);
 }
 
+extern bool b_default_enabled;
 static DECLARE_WORK(tracer_work, irq_count_tracer_work);
 int irq_count_tracer_init(void)
 {
@@ -398,10 +399,10 @@ int irq_count_tracer_init(void)
 	for (i = 0; i < REC_NUM; i++)
 		spin_lock_init(&irq_cpus[i].lock);
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
-	irq_count_tracer = 1;
-	schedule_work(&tracer_work);
-#endif
+	if (b_default_enabled) {
+		irq_count_tracer = 1;
+		schedule_work(&tracer_work);
+	}
 	return 0;
 }
 
