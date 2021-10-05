@@ -814,7 +814,6 @@ static void frec_notify_setting_frame_record_st_data(unsigned int idx)
 }
 
 
-#ifdef FS_SENSOR_CCU_IT
 /*
  * description:
  *     update / record fs_alg_solve_framelength results for next calculation
@@ -858,10 +857,8 @@ static void frec_set_framelength_lc(unsigned int idx, unsigned int fl_lc)
 
 
 	/* set the results to fs algo and frame monitor */
-	/* move to fs_set_framelength_lc() calling bellow function */
-	// frec_notify_setting_frame_record_st_data(idx);
+	frec_notify_setting_frame_record_st_data(idx);
 }
-#endif // FS_SENSOR_CCU_IT
 
 
 static inline void frec_push_def_shutter_fl_lc(
@@ -1506,11 +1503,11 @@ static void fs_set_sensor_driver_framelength_lc(
  */
 static inline void fs_set_framelength_lc(unsigned int idx, unsigned int fl_lc)
 {
-#ifdef FS_SENSOR_CCU_IT
+#if !defined(TWO_STAGE_FS)
 	/* 0. update frame recorder data */
 	/*    frec data in normal process will be update by fs algo */
 	frec_set_framelength_lc(idx, fl_lc);
-#endif // FS_SENSOR_CCU_IT
+#endif // TWO_STAGE_FS
 
 
 #ifndef REDUCE_FS_DRV_LOG
@@ -2642,6 +2639,9 @@ void fs_update_shutter(struct fs_perframe_st (*frameCtrl))
 
 	fs_mgr.pf_ctrl[idx] = *frameCtrl;
 
+
+	/* update frame recorder data */
+	frec_set_framelength_lc(idx, frameCtrl->out_fl_lc);
 }
 
 

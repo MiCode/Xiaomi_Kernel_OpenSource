@@ -369,7 +369,7 @@ static inline void set_fl_us(unsigned int idx, unsigned int us)
 
 
 	/* 3. update result to frame recorder for predicted fl used */
-	*fs_inst[idx].recs[0].framelength_lc = fs_inst[idx].output_fl_lc;
+	// *fs_inst[idx].recs[0].framelength_lc = fs_inst[idx].output_fl_lc;
 
 
 #ifdef FS_UT
@@ -1340,9 +1340,9 @@ static inline unsigned int fs_alg_sa_calc_sync_delay(
 
 	return (fs_inst[idx].fl_active_delay == 3)
 		? (p_para->pred_fl_us[1] + (p_para->stable_fl_us * f_cell
-			+ adjust_diff) + p_para->tag_bias_us)
+			+ adjust_diff))
 		: ((p_para->stable_fl_us * f_cell
-			+ adjust_diff) + p_para->tag_bias_us);
+			+ adjust_diff));
 }
 
 
@@ -1385,7 +1385,8 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 
 
 	/* check situation for changing master and adjusting this diff or not */
-	if ((adjust_diff_s > FS_TOLERANCE) && (adjust_diff_m > 0) && (sync_delay_m < sync_delay_s))
+	if ((adjust_diff_s > FS_TOLERANCE) && (adjust_diff_m > 0)
+		&& (sync_delay_m < sync_delay_s))
 		request_switch_master = 1;
 
 	if (check_timing_critical_section(
@@ -1471,6 +1472,7 @@ static inline void fs_alg_sa_update_dynamic_para(
 {
 	FS_MUTEX_LOCK(&fs_algo_sa_proc_mutex_lock);
 
+	fs_alg_sa_update_pred_fl_and_ts_bias(idx, p_para);
 	fs_sa_inst.dynamic_paras[idx] = *p_para;
 
 	FS_MUTEX_UNLOCK(&fs_algo_sa_proc_mutex_lock);
