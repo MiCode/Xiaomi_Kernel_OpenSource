@@ -199,7 +199,7 @@ static inline struct mtk_aie_ctx *fh_to_ctx(struct v4l2_fh *fh)
 {
 	return container_of(fh, struct mtk_aie_ctx, fh);
 }
-
+#if CHECK_SERVICE_0
 static void mtk_aie_mmdvfs_init(struct mtk_aie_dev *fd)
 {
 	struct mtk_aie_dvfs *dvfs_info = &fd->dvfs_info;
@@ -293,7 +293,7 @@ static void mtk_aie_mmdvfs_set(struct mtk_aie_dev *fd,
 		dvfs_info->cur_volt = volt;
 	}
 }
-
+#endif
 static void mtk_aie_mmqos_init(struct mtk_aie_dev *fd)
 {
 	struct mtk_aie_qos *qos_info = &fd->qos_info;
@@ -353,14 +353,14 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 
 	for (idx = 0; idx < AIE_QOS_MAX; idx++) {
 		if (qos_info->qos_path[idx].path == NULL) {
-			dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
+			dev_info(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 				 __func__, idx);
 			continue;
 		}
 
 		if (idx == AIE_QOS_RA_IDX &&
 		    qos_info->qos_path[idx].bw != r_bw) {
-			dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
+			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
 				__func__, idx,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, r_bw);
@@ -372,7 +372,7 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 
 		if (idx == AIE_QOS_WA_IDX &&
 		    qos_info->qos_path[idx].bw != w_bw) {
-			dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
+			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
 				__func__, idx,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, w_bw);
@@ -518,7 +518,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 		ret = mtk_aie_hw_enable(fd);
 		if (ret)
 			return -EINVAL;
-		mtk_aie_mmdvfs_set(fd, 1, 0);
+		//mtk_aie_mmdvfs_set(fd, 1, 0);
 		mtk_aie_mmqos_set(fd, 1);
 
 		fd->map_count = 0;
@@ -536,12 +536,14 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	//mtk_aie_ccf_disable(fd->dev);
 	//pm_runtime_put_sync(fd->dev);
 	mtk_imgsys_pwr(fd->img_pdev, false);
+	dev_info(fd->dev, "[%s] fd_stream_count:%d\n", __func__, fd->fd_stream_count);
 
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) {
 		mtk_aie_mmqos_set(fd, 0);
-		mtk_aie_mmdvfs_set(fd, 0, 0);
-		cmdq_mbox_disable(fd->fdvt_clt->chan);
+		//mtk_aie_mmdvfs_set(fd, 0, 0);
+		if (fd->fdvt_clt != NULL)
+			cmdq_mbox_disable(fd->fdvt_clt->chan);
 		if (fd->dmabuf->vmap_ptr != NULL) {
 			dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
 			dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
@@ -1551,7 +1553,7 @@ static void mtk_aie_device_run(void *priv)
 	}
 
 	/* mmdvfs */
-	mtk_aie_mmdvfs_set(fd, 1, fd->aie_cfg->freq_level);
+	//mtk_aie_mmdvfs_set(fd, 1, fd->aie_cfg->freq_level);
 
 	/* Complete request controls if any */
 	v4l2_ctrl_request_complete(src_buf->vb2_buf.req_obj.req, &ctx->hdl);
@@ -1881,7 +1883,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	INIT_WORK(&fd->req_work.work, mtk_aie_frame_done_worker);
 	fd->req_work.fd_dev = fd;
 
-	mtk_aie_mmdvfs_init(fd);
+	//mtk_aie_mmdvfs_init(fd);
 	mtk_aie_mmqos_init(fd);
 	pm_runtime_enable(dev);
 	ret = mtk_aie_dev_v4l2_init(fd);
@@ -1920,7 +1922,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 
 err_destroy_mutex:
 	pm_runtime_disable(fd->dev);
-	mtk_aie_mmdvfs_uninit(fd);
+	//mtk_aie_mmdvfs_uninit(fd);
 	mtk_aie_mmqos_uninit(fd);
 	destroy_workqueue(fd->frame_done_wq);
 	mutex_destroy(&fd->vfd_lock);
@@ -1934,7 +1936,7 @@ static int mtk_aie_remove(struct platform_device *pdev)
 
 	mtk_aie_dev_v4l2_release(fd);
 	pm_runtime_disable(&pdev->dev);
-	mtk_aie_mmdvfs_uninit(fd);
+	//mtk_aie_mmdvfs_uninit(fd);
 	mtk_aie_mmqos_uninit(fd);
 	destroy_workqueue(fd->frame_done_wq);
 	fd->frame_done_wq = NULL;
