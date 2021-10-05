@@ -5455,7 +5455,6 @@
 			      <0 0x15110000 0 0x00100>,	/* 16 IMGSYS_DIP_TOP */
 			      <0 0x15130000 0 0x00100>;	/* 17 IMGSYS_DIP_TOP_NR */
 			mediatek,hcp = <&hcp>;
-#if 0
 			mediatek,larbs = <&smi_larb9>,
 					 <&smi_larb10>,
 					 <&smi_larb11>,
@@ -5464,7 +5463,6 @@
 					 <&smi_larb23>,
 					 <&smi_larb18>,
 					 <&smi_larb12>;
-#endif
 			iommus = <&disp_iommu M4U_LARB9_PORT0>,
 				 <&disp_iommu M4U_LARB10_PORT10>,
 				 <&disp_iommu M4U_LARB11_PORT0>;
@@ -5889,7 +5887,6 @@
 			sw_sync_token_tzmp_isp_set =
 				/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_SET>;
 	#if 0
-	#if 0
 			sw_sync_token_camsys_pool_1 =
 				/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_1>;
 			sw_sync_token_camsys_pool_2 =
@@ -5911,26 +5908,27 @@
 			sw_sync_token_camsys_pool_10 =
 				/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_10>;
 	#endif
-			clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_TRAW0>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_TRAW1>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_VCORE_GALS>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_DIP0>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE0>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE1>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_WPE2>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_LARB>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP0>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_TOP1>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_GALS>,
+			clocks = <&imgsys_main_clk CLK_IMG_TRAW0>,
+				 <&imgsys_main_clk CLK_IMG_TRAW1>,
+				 <&imgsys_main_clk CLK_IMG_VCORE_GALS>,
+				 <&imgsys_main_clk CLK_IMG_DIP0>,
+				 <&imgsys_main_clk CLK_IMG_WPE0>,
+				 <&imgsys_main_clk CLK_IMG_WPE1>,
+				 <&imgsys_main_clk CLK_IMG_WPE2>,
+				 <&imgsys_main_clk CLK_IMG_ADL_LARB>,
+				 <&imgsys_main_clk CLK_IMG_ADL_TOP0>,
+				 <&imgsys_main_clk CLK_IMG_ADL_TOP1>,
+				 <&imgsys_main_clk CLK_IMG_GALS>,
 				 <&dip_top_dip1_clk CLK_DIP_TOP_DIP1_DIP_TOP>,
 				 <&dip_nr_dip1_clk CLK_DIP_NR_DIP1_DIP_NR>,
 				 <&wpe1_dip1_clk CLK_WPE1_DIP1_WPE>,
 				 <&wpe2_dip1_clk CLK_WPE2_DIP1_WPE>,
 				 <&wpe3_dip1_clk CLK_WPE3_DIP1_WPE>,
-				 <&imgsys_main_clk CLK_IMGSYS_MAIN_IPE>,
-				 <&ipesys_clk CLK_IPESYS_IPESYS_TOP>,
-				 <&ipesys_clk CLK_IPESYS_ME>,
-				 <&ipesys_clk CLK_IPESYS_SMI_LARB12>;
+				 <&imgsys_main_clk CLK_IMG_IPE>,
+				 <&ipesys_clk CLK_IPESYS_TOP>,
+				 <&ipesys_clk CLK_IPE_ME>,
+				 <&ipesys_clk CLK_IPE_FDVT>,
+				 <&ipesys_clk CLK_IPE_SMI_LARB12>;
 			clock-names = "IMGSYS_CG_IMG_TRAW0",
 				      "IMGSYS_CG_IMG_TRAW1",
 				      "IMGSYS_CG_IMG_VCORE_GALS",
@@ -5950,7 +5948,9 @@
 				      "ME_CG_IPE",
 				      "ME_CG_IPE_TOP",
 				      "ME_CG",
+				      "IPE_FDVT",
 				      "ME_CG_LARB12";
+	#if 0
 			operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 			dvfsrc-vmm-supply = <&vmm_proxy_label>;
 			interconnects =
@@ -6423,7 +6423,7 @@
 					"l23_smto_t4_c",
 					"l23_smto_t6_c",
 					"l23_dbgo_t1_c";
-#endif
+	#endif
 		};
 
 		aie: aie@15310000 {
