@@ -10,8 +10,6 @@
 		compatible = "mediatek,clk-bring-up";
 		clocks =
 			<&topckgen_clk CLK_TOP_BUS_AXIMEM_SEL>,
-			<&topckgen_clk CLK_TOP_DISP0_SEL>,
-			<&topckgen_clk CLK_TOP_DISP1_SEL>,
 			<&topckgen_clk CLK_TOP_MDP0_SEL>,
 			<&topckgen_clk CLK_TOP_MDP1_SEL>,
 			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,
@@ -66,7 +64,6 @@
 			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
-			<&topckgen_clk CLK_TOP_DSI_OCC_SEL>,
 			<&topckgen_clk CLK_TOP_CCU_AHB_SEL>,
 			<&topckgen_clk CLK_TOP_IMG1_SEL>,
 			<&topckgen_clk CLK_TOP_IPE_SEL>,
@@ -298,53 +295,6 @@
 			<&wpe2_dip1_clk CLK_WPE2_DIP1_WPE>,
 			<&wpe3_dip1_clk CLK_WPE3_DIP1_LARB11>,
 			<&wpe3_dip1_clk CLK_WPE3_DIP1_WPE>,
-			<&mmsys0_config_clk CLK_MM0_DISP_MUTEX0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_OVL0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_MERGE0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_FAKE_ENG0>,
-			<&mmsys0_config_clk CLK_MM0_INLINEROT0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_WDMA0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_FAKE_ENG1>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DPI0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_OVL0_2L_NW>,
-			<&mmsys0_config_clk CLK_MM0_DISP_RDMA0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_RDMA1>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLI_ASYNC0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLI_ASYNC1>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLI_ASYNC2>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLO_ASYNC0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLO_ASYNC1>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLO_ASYNC2>,
-			<&mmsys0_config_clk CLK_MM0_DISP_RSZ0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_COLOR0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_CCORR0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_CCORR1>,
-			<&mmsys0_config_clk CLK_MM0_DISP_AAL0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_GAMMA0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_POSTMASK0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DITHER0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_CM0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_SPR0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DSC_WRAP0>,
-			<&mmsys0_config_clk CLK_MM0_FMM_DISP_DSI0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_UFBC_WDMA0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_WDMA1>,
-			<&mmsys0_config_clk CLK_MM0_FMM_DISP_DP_INTF0>,
-			<&mmsys0_config_clk CLK_MM0_APB_BUS>,
-			<&mmsys0_config_clk CLK_MM0_DISP_TDSHP0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_C3D0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_Y2R0>,
-			<&mmsys0_config_clk CLK_MM0_MDP_AAL0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_CHIST0>,
-			<&mmsys0_config_clk CLK_MM0_DISP_CHIST1>,
-			<&mmsys0_config_clk CLK_MM0_DISP_OVL0_2L>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLI_ASYNC3>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DLO_ASYNC3>,
-			<&mmsys0_config_clk CLK_MM0_DISP_OVL1_2L>,
-			<&mmsys0_config_clk CLK_MM0_DISP_OVL1_2L_NW>,
-			<&mmsys0_config_clk CLK_MM0_SMI_COMMON>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DSI>,
-			<&mmsys0_config_clk CLK_MM0_DISP_DP_INTF0>,
 			<&mdpsys_config_clk CLK_MDP_MUTEX0>,
 			<&mdpsys_config_clk CLK_MDP_APB_BUS>,
 			<&mdpsys_config_clk CLK_MDP_SMI0>,
@@ -462,53 +412,6 @@
 			<&camsys_yuvc_clk CLK_CAM_YC_LARBX>,
 			<&camsys_yuvc_clk CLK_CAM_YC_CAM>,
 			<&camsys_yuvc_clk CLK_CAM_YC_CAMTG>,
-			<&mmsys1_config_clk CLK_MM1_DISP_MUTEX0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_OVL0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_MERGE0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_FAKE_ENG0>,
-			<&mmsys1_config_clk CLK_MM1_INLINEROT0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_WDMA0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_FAKE_ENG1>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DPI0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_OVL0_2L_NW>,
-			<&mmsys1_config_clk CLK_MM1_DISP_RDMA0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_RDMA1>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLI_ASYNC0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLI_ASYNC1>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLI_ASYNC2>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLO_ASYNC0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLO_ASYNC1>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLO_ASYNC2>,
-			<&mmsys1_config_clk CLK_MM1_DISP_RSZ0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_COLOR0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_CCORR0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_CCORR1>,
-			<&mmsys1_config_clk CLK_MM1_DISP_AAL0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_GAMMA0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_POSTMASK0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DITHER0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_CM0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_SPR0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DSC_WRAP0>,
-			<&mmsys1_config_clk CLK_MM1_FMM_DISP_DSI0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_UFBC_WDMA0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_WDMA1>,
-			<&mmsys1_config_clk CLK_MM1_FMM_DISP_DP_INTF0>,
-			<&mmsys1_config_clk CLK_MM1_APB_BUS>,
-			<&mmsys1_config_clk CLK_MM1_DISP_TDSHP0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_C3D0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_Y2R0>,
-			<&mmsys1_config_clk CLK_MM1_MDP_AAL0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_CHIST0>,
-			<&mmsys1_config_clk CLK_MM1_DISP_CHIST1>,
-			<&mmsys1_config_clk CLK_MM1_DISP_OVL0_2L>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLI_ASYNC3>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DLO_ASYNC3>,
-			<&mmsys1_config_clk CLK_MM1_DISP_OVL1_2L>,
-			<&mmsys1_config_clk CLK_MM1_DISP_OVL1_2L_NW>,
-			<&mmsys1_config_clk CLK_MM1_SMI_COMMON>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DSI>,
-			<&mmsys1_config_clk CLK_MM1_DISP_DP_INTF0>,
 			<&mdpsys1_config_clk CLK_MDP1_MDP_MUTEX0>,
 			<&mdpsys1_config_clk CLK_MDP1_APB_BUS>,
 			<&mdpsys1_config_clk CLK_MDP1_SMI0>,
@@ -640,16 +543,6 @@
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MDP1>;
 	};
 
-	bring-up-pd-disp {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_DISP>;
-	};
-
-	bring-up-pd-disp1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_DISP1>;
-	};
-
 	bring-up-pd-mm_infra {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_INFRA>;
@@ -658,11 +551,6 @@
 	bring-up-pd-mm_proc_dormant {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
-	};
-
-	bring-up-pd-dp_tx {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_DP_TX>;
 	};
 
 	bring-up-pd-mfg1 {
