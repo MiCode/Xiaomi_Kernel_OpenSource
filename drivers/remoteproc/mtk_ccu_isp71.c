@@ -318,7 +318,7 @@ static int mtk_ccu_start(struct rproc *rproc)
 		ccu->log_info[1].mva, readl(ccu_base + MTK_CCU_SPARE_REG03));
 	LOG_DBG("LogBuf_mva[2](0x%lx)(0x%x << 8)\n",
 		ccu->log_info[2].mva, readl(ccu_base + MTK_CCU_SPARE_REG07));
-	ccu->g_LogBufIdx = -1;
+	ccu->g_LogBufIdx = 0;
 
 	spin_lock(&ccu->ccu_poweron_lock);
 	ccu->poweron = true;
