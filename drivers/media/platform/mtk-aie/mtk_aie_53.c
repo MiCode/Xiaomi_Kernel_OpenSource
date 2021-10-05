@@ -508,9 +508,9 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
 
-	//pm_runtime_get_sync((fd->dev));
+	pm_runtime_get_sync((fd->dev));
 	//mtk_aie_ccf_enable((fd->dev));
-	mtk_imgsys_pwr(fd->img_pdev, true);
+	//mtk_imgsys_pwr(fd->img_pdev, true);
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
@@ -534,8 +534,8 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 		config_aie_cmdq_secure_end(fd);
 	}
 	//mtk_aie_ccf_disable(fd->dev);
-	//pm_runtime_put_sync(fd->dev);
-	mtk_imgsys_pwr(fd->img_pdev, false);
+	pm_runtime_put_sync(fd->dev);
+	//mtk_imgsys_pwr(fd->img_pdev, false);
 	dev_info(fd->dev, "[%s] fd_stream_count:%d\n", __func__, fd->fd_stream_count);
 
 	fd->fd_stream_count--;
