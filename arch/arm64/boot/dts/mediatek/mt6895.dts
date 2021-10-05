@@ -123,6 +123,11 @@
 		};
 	};
 
+	/* ATF logger */
+	atf_logger: atf_logger {
+		compatible = "mediatek,tfa_debug";
+	};
+
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
