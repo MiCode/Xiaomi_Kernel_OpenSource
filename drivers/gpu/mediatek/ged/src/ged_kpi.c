@@ -1185,8 +1185,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 							psHead->t_gpu_latest =
 							time_spent;
 					if (ged_is_fdvfs_support())
-						mtk_gpueb_dvfs_set_frag_done_interval(
-							psKPI->gpu_done_interval);
+						mtk_gpueb_dvfs_set_feedback_info(
+							psKPI->gpu_done_interval, util_ex,
+							ged_kpi_get_cur_fps());
 
 				} else {
 					psKPI->t_gpu

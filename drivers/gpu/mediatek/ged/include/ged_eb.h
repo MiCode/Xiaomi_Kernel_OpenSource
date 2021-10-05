@@ -149,7 +149,7 @@ enum {
 	GPUFDVFS_IPI_PMU_START              = 5,
 	GPUFDVFS_IPI_SET_FRAME_BASE_DVFS    = 6,
 	GPUFDVFS_IPI_SET_TARGET_FRAME_TIME  = 7,
-	GPUFDVFS_IPI_SET_FRAG_DONE_INTERVAL = 8,
+	GPUFDVFS_IPI_SET_FEEDBACK_INFO      = 8,
 	GPUFDVFS_IPI_SET_MODE               = 9,
 	GPUFDVFS_IPI_GET_MODE               = 10,
 
@@ -226,7 +226,8 @@ extern unsigned int mtk_gpueb_dvfs_set_frame_base_dvfs(unsigned int enable);
 extern int
 	mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time);
 extern unsigned int
-	mtk_gpueb_dvfs_set_frag_done_interval(int frag_done_interval_in_ns);
+	mtk_gpueb_dvfs_set_feedback_info(int frag_done_interval_in_ns,
+	struct GpuUtilization_Ex util_ex, unsigned int curr_fps);
 extern unsigned int mtk_gpueb_dvfs_get_mode(unsigned int *pAction);
 extern unsigned int mtk_gpueb_dvfs_set_mode(unsigned int action);
 extern unsigned int is_fdvfs_enable(void);

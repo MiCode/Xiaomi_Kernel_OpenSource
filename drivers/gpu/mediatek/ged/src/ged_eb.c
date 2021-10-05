@@ -131,7 +131,7 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 	case GPUFDVFS_IPI_SET_NEW_FREQ:
 	case GPUFDVFS_IPI_SET_FRAME_BASE_DVFS:
 	case GPUFDVFS_IPI_SET_TARGET_FRAME_TIME:
-	case GPUFDVFS_IPI_SET_FRAG_DONE_INTERVAL:
+	case GPUFDVFS_IPI_SET_FEEDBACK_INFO:
 	case GPUFDVFS_IPI_SET_MODE:
 		ret = mtk_ipi_send_compl(get_gpueb_ipidev(),
 			g_fast_dvfs_ipi_channel,
@@ -271,19 +271,27 @@ int mtk_gpueb_dvfs_set_frame_done(void)
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_set_frame_done);
 
-unsigned int mtk_gpueb_dvfs_set_frag_done_interval(int frag_done_interval_in_ns)
+unsigned int mtk_gpueb_dvfs_set_feedback_info(int frag_done_interval_in_ns,
+	struct GpuUtilization_Ex util_ex, unsigned int curr_fps)
 {
 	int ret = 0;
 	struct fdvfs_ipi_data ipi_data;
 
 	ipi_data.u.set_para.arg[0] = (unsigned int)frag_done_interval_in_ns;
+	ipi_data.u.set_para.arg[1] =
+		(util_ex.util_active&0xff)|
+		((util_ex.util_3d&0xff)<<8)|
+		((util_ex.util_ta&0xff)<<16)|
+		((util_ex.util_compute&0xff)<<24);
 
-	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_FRAG_DONE_INTERVAL,
+	ipi_data.u.set_para.arg[2] = (unsigned int)curr_fps;
+
+	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_FEEDBACK_INFO,
 		&ipi_data);
 
 	return (ret > 0) ? ret:0xFFFFFFFF;
 }
-EXPORT_SYMBOL(mtk_gpueb_dvfs_set_frag_done_interval);
+EXPORT_SYMBOL(mtk_gpueb_dvfs_set_feedback_info);
 
 
 unsigned int mtk_gpueb_dvfs_set_frame_base_dvfs(unsigned int enable)
