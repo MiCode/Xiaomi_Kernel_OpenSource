@@ -805,7 +805,7 @@ static void write_frame_len(struct subdrv_ctx *ctx, kal_uint32 fll)
 	ctx->frame_length = round_up(fll / exp_cnt, 4) * exp_cnt;
 
 	if (ctx->extend_frame_length_en == KAL_FALSE) {
-		LOG_INF("fll %d exp_cnt %d\n", ctx->frame_length, exp_cnt);
+		// LOG_INF("fll %d exp_cnt %d\n", ctx->frame_length, exp_cnt);
 		set_cmos_sensor_8(ctx, 0x0340, ctx->frame_length / exp_cnt >> 8);
 		set_cmos_sensor_8(ctx, 0x0341, ctx->frame_length / exp_cnt & 0xFF);
 	}
@@ -819,8 +819,8 @@ static void write_frame_len(struct subdrv_ctx *ctx, kal_uint32 fll)
 static void set_dummy(struct subdrv_ctx *ctx)
 {
 
-	LOG_INF("dummyline = %d, dummypixels = %d\n",
-		ctx->dummy_line, ctx->dummy_pixel);
+	// LOG_INF("dummyline = %d, dummypixels = %d\n",
+	// ctx->dummy_line, ctx->dummy_pixel);
 
 	/* return;*/ /* for test */
 	set_cmos_sensor_8(ctx, 0x0104, 0x01);
@@ -986,8 +986,8 @@ static void set_shutter_w_gph(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bo
 }
 static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 {
-	LOG_INF("Fine Integ Time = %d",
-		(read_cmos_sensor_8(ctx, 0x0200) << 8) | read_cmos_sensor_8(ctx, 0x0201));
+	//LOG_INF("Fine Integ Time = %d",
+	//	(read_cmos_sensor_8(ctx, 0x0200) << 8) | read_cmos_sensor_8(ctx, 0x0201));
 	set_shutter_w_gph(ctx, shutter, KAL_TRUE);
 } /* set_shutter */
 
@@ -1005,9 +1005,8 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 	set_cmos_sensor_8(ctx, 0x0104, 0x00);
 	commit_write_sensor(ctx);
 
-	LOG_INF("Framelength: set=%d/input=%d/min=%d, auto_extend=%d\n",
-		ctx->frame_length, frame_length, ctx->min_frame_length,
-		read_cmos_sensor_8(ctx, 0x0350));
+	LOG_INF("Framelength: set=%d/input=%d/min=%d\n",
+		ctx->frame_length, frame_length, ctx->min_frame_length);
 }
 
 static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
@@ -1027,26 +1026,14 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	}
 
 	/* previous se + previous me + current le */
-	switch (previous_exp_cnt) {
-	case 3:
-		calc_fl += previous_exp[2];
-		fallthrough;
-	case 2:
-		calc_fl += previous_exp[1];
-		break;
-	}
-	calc_fl += shutters[0];
+	calc_fl = shutters[0];
+	for (i = 1; i < previous_exp_cnt; i++)
+		calc_fl += previous_exp[i];
 
 	/* current se + current me + current le */
-	switch (shutter_cnt) {
-	case 3:
-		calc_fl2 += shutters[2];
-		fallthrough;
-	case 2:
-		calc_fl2 += shutters[1];
-		break;
-	}
-	calc_fl2 += shutters[0];
+	calc_fl2 = shutters[0];
+	for (i = 1; i < shutter_cnt; i++)
+		calc_fl2 += shutters[i];
 
 	/* using max fl of above value */
 	calc_fl = max(calc_fl, calc_fl2);
@@ -1101,7 +1088,8 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 
 	commit_write_sensor(ctx);
 
-	LOG_INF("L! le:0x%x, me:0x%x, se:0x%x\n", le, me, se);
+	LOG_INF("L! le:0x%x, me:0x%x, se:0x%x, fl:0x%x\n", le, me, se,
+		ctx->frame_length);
 }
 
 static void set_shutter_frame_length(struct subdrv_ctx *ctx,
@@ -1167,10 +1155,9 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 	commit_write_sensor(ctx);
 
 	LOG_INF(
-		"Exit! shutter =%d, framelength =%d/%d, dummy_line=%d, auto_extend=%d\n",
+		"Exit! shutter =%d, framelength =%d/%d, dummy_line=%d\n",
 		shutter, ctx->frame_length,
-		frame_length, dummy_line,
-		read_cmos_sensor_8(ctx, 0x0350));
+		frame_length, dummy_line);
 }	/* set_shutter_frame_length */
 
 static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
@@ -1620,8 +1607,8 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 static void hdr_write_tri_shutter(struct subdrv_ctx *ctx,
 		kal_uint16 le, kal_uint16 me, kal_uint16 se)
 {
-	LOG_INF("Fine Integ Time = %d",
-		(read_cmos_sensor_8(ctx, 0x0200) << 8) | read_cmos_sensor_8(ctx, 0x0201));
+	// LOG_INF("Fine Integ Time = %d",
+	// (read_cmos_sensor_8(ctx, 0x0200) << 8) | read_cmos_sensor_8(ctx, 0x0201));
 	hdr_write_tri_shutter_w_gph(ctx, le, me, se, KAL_TRUE);
 }
 

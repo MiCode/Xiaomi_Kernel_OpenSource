@@ -223,6 +223,12 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 					u32 ae_exp_cnt, u32 *ae_exp_arr)
 {
 	struct fs_perframe_st pf_ctrl = {0};
+#if defined(TWO_STAGE_FS)
+	u16 fsync_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
+	union feature_para para;
+	u32 len = 0;
+	int i;
+#endif // TWO_STAGE_FS
 
 	pf_ctrl.sensor_id = ctx->subdrv->id;
 	pf_ctrl.sensor_idx = ctx->idx;
@@ -246,6 +252,23 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 	pf_ctrl.cmd_id = (unsigned int)cmd;
 
+#if defined(TWO_STAGE_FS)
+	for (i = 0; (i < ae_exp_cnt) && (i < IMGSENSOR_STAGGER_EXPOSURE_CNT); i++)
+		fsync_exp[i] = (u16)(*(ae_exp_arr + i));
+
+	para.u64[0] = (u64)fsync_exp;
+	para.u64[1] = min_t(u32, ae_exp_cnt, (u32)IMGSENSOR_STAGGER_EXPOSURE_CNT);
+	para.u64[2] = ctx->fsync_out_fl;
+
+	/* frame-sync no set sync (disable frame-sync) */
+	if (ctx->fsync_mgr && ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+		subdrv_call(ctx, feature_control,
+				SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME,
+				para.u8, &len);
+
+		pf_ctrl.out_fl_lc = ctx->subctx.frame_length; // sensor current fl_lc
+	}
+#endif // TWO_STAGE_FS
 
 	/* call frame-sync fs_set_shutter() */
 	if (ctx->fsync_mgr != NULL)
@@ -273,9 +296,16 @@ static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure
 	para.u64[0] = info->le_exposure;
 	para.u64[1] = info->me_exposure;
 	para.u64[2] = info->se_exposure;
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_SET_HDR_TRI_SHUTTER,
-		para.u8, &len);
+#if defined(TWO_STAGE_FS)
+	/* frame-sync no set sync (disable frame-sync) */
+	if (!ctx->fsync_mgr || !ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+#endif // TWO_STAGE_FS
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_SET_HDR_TRI_SHUTTER,
+			para.u8, &len);
+#if defined(TWO_STAGE_FS)
+	}
+#endif // TWO_STAGE_FS
 
 	notify_fsync_mgr_set_shutter(ctx,
 		SENSOR_FEATURE_SET_FRAMELENGTH,
@@ -306,9 +336,16 @@ static int set_hdr_exposure_dual(struct adaptor_ctx *ctx, struct mtk_hdr_exposur
 
 	para.u64[0] = info->le_exposure;
 	para.u64[1] = info->me_exposure; // temporailly workaround, 2 exp should be NE/SE
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_SET_HDR_SHUTTER,
-		para.u8, &len);
+#if defined(TWO_STAGE_FS)
+	/* frame-sync no set sync (disable frame-sync) */
+	if (!ctx->fsync_mgr || !ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+#endif // TWO_STAGE_FS
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_SET_HDR_SHUTTER,
+			para.u8, &len);
+#if defined(TWO_STAGE_FS)
+	}
+#endif // TWO_STAGE_FS
 
 	notify_fsync_mgr_set_shutter(ctx,
 		SENSOR_FEATURE_SET_FRAMELENGTH,
@@ -380,22 +417,13 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 
 #if defined(TWO_STAGE_FS)
 		/* frame-sync no set sync (disable frame-sync) */
-		if (!ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+		if (!ctx->fsync_mgr || !ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
 #endif // TWO_STAGE_FS
 			para.u64[0] = ae_ctrl->exposure.le_exposure;
 			subdrv_call(ctx, feature_control,
 						SENSOR_FEATURE_SET_ESHUTTER,
 						para.u8, &len);
 #if defined(TWO_STAGE_FS)
-		} else {
-			fsync_exp[0] = ae_ctrl->exposure.le_exposure;
-
-			para.u64[0] = (u64)fsync_exp;
-			para.u64[1] = 1; // single exposure
-			para.u64[2] = ctx->fsync_out_fl;
-			subdrv_call(ctx, feature_control,
-					SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME,
-					para.u8, &len);
 		}
 #endif // TWO_STAGE_FS
 
@@ -718,9 +746,16 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
 
 			para.u64[0] = ctrl->val;
-			subdrv_call(ctx, feature_control,
-				SENSOR_FEATURE_SET_ESHUTTER,
-				para.u8, &len);
+#if defined(TWO_STAGE_FS)
+			/* frame-sync no set sync (disable frame-sync) */
+			if (!ctx->fsync_mgr || !ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+#endif // TWO_STAGE_FS
+				subdrv_call(ctx, feature_control,
+					SENSOR_FEATURE_SET_ESHUTTER,
+					para.u8, &len);
+#if defined(TWO_STAGE_FS)
+			}
+#endif // TWO_STAGE_FS
 
 			fsync_exp[0] = (u32)para.u64[0];
 			notify_fsync_mgr_set_shutter(ctx,
@@ -737,9 +772,16 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			para.u64[0] = ctrl->val * 100000;
 			do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
-			subdrv_call(ctx, feature_control,
-				SENSOR_FEATURE_SET_ESHUTTER,
-				para.u8, &len);
+#if defined(TWO_STAGE_FS)
+			/* frame-sync no set sync (disable frame-sync) */
+			if (!ctx->fsync_mgr || !ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+#endif // TWO_STAGE_FS
+				subdrv_call(ctx, feature_control,
+					SENSOR_FEATURE_SET_ESHUTTER,
+					para.u8, &len);
+#if defined(TWO_STAGE_FS)
+			}
+#endif // TWO_STAGE_FS
 
 			fsync_exp[0] = (u32)para.u64[0];
 			notify_fsync_mgr_set_shutter(ctx,
@@ -804,9 +846,16 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
 
 			para.u64[0] = info->shutter;
-			subdrv_call(ctx, feature_control,
-				SENSOR_FEATURE_SET_ESHUTTER,
-				para.u8, &len);
+#if defined(TWO_STAGE_FS)
+			/* frame-sync no set sync (disable frame-sync) */
+			if (!ctx->fsync_mgr || !ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {
+#endif // TWO_STAGE_FS
+				subdrv_call(ctx, feature_control,
+					SENSOR_FEATURE_SET_ESHUTTER,
+					para.u8, &len);
+#if defined(TWO_STAGE_FS)
+			}
+#endif // TWO_STAGE_FS
 
 			fsync_exp[0] = (u32)para.u64[0];
 			notify_fsync_mgr_set_shutter(ctx,
