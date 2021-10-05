@@ -315,16 +315,17 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 	}
 
 	if (!ccu->ccu_ipc.is_initialized) {
-		dev_err(ccu->dev, "sendCcuCommnadIpc failed, msgId(%d)", msgId);
-		return -EINVAL;
-	}
-
-	if (!inDataPtr) {
-		dev_err(ccu->dev, "inDataPtr is NULL\n");
+		dev_err(ccu->dev, "sendCcuCommnadIpc failed, ft (%d) msgId(%d)",
+			featureType, msgId);
 		return -EINVAL;
 	}
 
 	LOG_DBG_IPI("ft(%d), msgId(%d)\n", featureType, msgId);
+
+	if ((inDataSize) && (!inDataPtr)) {
+		dev_err(ccu->dev, "inDataPtr is NULL\n");
+		return -EINVAL;
+	}
 
 	spin_lock(&ccu->ipc_send_lock);
 
