@@ -2,6 +2,7 @@
 
 ccflags-y := -I$(srctree)/drivers/usb/gadget/
 ccflags-y += -I$(srctree)/drivers/usb/gadget/udc/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/rps/
 
 mtk_u_ether-y			:= u_ether.o
 mtk_usb_f_rndis-y		:= f_rndis.o rndis.o
