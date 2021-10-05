@@ -190,9 +190,6 @@ void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 		common->plat->bwl[port] = val;
 	if (atomic_read(&common->ref_count)) {
 		writel(val, common->base + SMI_L1ARB(port));
-	} else {
-		dev_notice(dev, "set common set bwl fail reg:%#x, port:%d, val:%u\n",
-			common->base + SMI_L1ARB(port), port, val);
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_common_bw_set);
@@ -211,9 +208,6 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 		if (atomic_read(&larb->smi.ref_count)) {
 			writel(val, larb->base + SMI_LARB_OSTDL_PORTx(port));
 			//writel(val, larb->base + INT_SMI_LARB_OSTDL_PORTx(port));
-		} else {
-			dev_notice(dev, "set larb bw fail larb:%d, port:%d, val:%u\n",
-				larb->larbid, port, val);
 		}
 	}
 }
