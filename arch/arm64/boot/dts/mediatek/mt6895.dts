@@ -1773,8 +1773,24 @@
 		};
 
 		devapc@10207000 {
-			compatible = "mediatek,devapc";
-			reg = <0 0x10207000 0 0x1000>;
+			compatible = "mediatek,mt6895-devapc";
+			reg = <0 0x10207000 0 0x1000>,   /* Infra pdn */
+				<0 0x10274000 0 0x1000>, /* Infra1 pdn */
+				<0 0x11020000 0 0x1000>, /* Peri pdn */
+				<0 0x1c01c000 0 0x1000>, /* vlp pdn */
+				<0 0x1e019000 0 0x1000>, /* adsp pdn */
+				<0 0x1e826000 0 0x1000>, /* mminfra pdn */
+				<0 0x10030000 0 0x1000>, /* Infra ao */
+				<0 0x1c018000 0 0x1000>, /* vlp ao */
+				<0 0x1e01c000 0 0x1000>, /* adsp ao */
+				<0 0x1e820000 0 0x1000>, /* mminfra ao*/
+				<0 0x1020e000 0 0x1000>, /* Infra cfg pdn*/
+				<0 0x10033000 0 0x1000>, /* swp */
+				<0 0x0010c000 0 0x1000>; /* Sramrom */
+			interrupts = <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH 0>, /* infra,peri */
+				<GIC_SPI 775 IRQ_TYPE_LEVEL_HIGH 0>, /* vlp */
+				<GIC_SPI 653 IRQ_TYPE_LEVEL_HIGH 0>, /* adsp */
+				<GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH 0>; /* mminfra */
 		};
 
 		md1_sim1_hot_plug_eint:MD1_SIM1_HOT_PLUG_EINT {
