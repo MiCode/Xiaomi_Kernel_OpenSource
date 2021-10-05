@@ -1902,6 +1902,8 @@
 				<0 0x10000000 0 0x1000>,  /* TOPCKGEN */
 				<0 0x1021c000 0 0x1000>,  /* NTH_EMICFG_REG */
 				<0 0x1021e000 0 0x1000>,  /* STH_EMICFG_REG */
+				<0 0x10270000 0 0x1000>,  /* NTH_EMICFG_AO_MEM_REG */
+				<0 0x1030e000 0 0x1000>,  /* STH_EMICFG_AO_MEM_REG */
 				<0 0x10001000 0 0x1000>,  /* INFRACFG_AO */
 				<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
 				<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
@@ -1918,6 +1920,8 @@
 				"topckgen",
 				"nth_emicfg_reg",
 				"sth_emicfg_reg",
+				"nth_emicfg_ao_mem_reg",
+				"sth_emicfg_ao_mem_reg",
 				"infracfg_ao",
 				"infra_ao_debug_ctrl",
 				"infra_ao1_debug_ctrl",
