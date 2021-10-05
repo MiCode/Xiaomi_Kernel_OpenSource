@@ -10,7 +10,7 @@
 #include <linux/timer.h>
 #include "mtk_cam-dvfs_qos.h"
 
-#define MTK_CAM_INITIAL_REQ_SYNC 1
+#define MTK_CAM_INITIAL_REQ_SYNC 0
 
 struct mtk_cam_device;
 struct mtk_raw_device;
