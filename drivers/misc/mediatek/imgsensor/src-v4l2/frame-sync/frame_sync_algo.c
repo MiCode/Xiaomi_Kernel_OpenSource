@@ -311,12 +311,15 @@ static inline unsigned int check_vsync_valid(
 		if (fs_inst[idx].last_vts == 0) {
 			ret = 0;
 
+#if !defined(REDUCE_FS_ALGO_LOG)
 			LOG_PR_ERR(
 				"ERROR: [%u] ID:%#x(sidx:%u), last vts:%u\n",
 				idx,
 				fs_inst[idx].sensor_id,
 				fs_inst[idx].sensor_idx,
 				fs_inst[idx].last_vts);
+#endif // REDUCE_FS_ALGO_LOG
+
 		}
 	}
 
@@ -941,7 +944,7 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 	/* check if last timestamp equal to zero */
 	if (check_vsync_valid(query_ts_idx, 2) == 0) {
 		LOG_INF(
-			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), incorrect vsync timestamp detected, ts(s:%u/m:%u)\n",
+			"WARNING: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), incorrect vsync timestamp detected, ts(s:%u/m:%u)\n",
 			s_idx,
 			fs_inst[s_idx].sensor_id,
 			fs_inst[s_idx].sensor_idx,

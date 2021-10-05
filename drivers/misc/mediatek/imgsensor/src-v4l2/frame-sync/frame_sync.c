@@ -1016,6 +1016,33 @@ static inline void fs_init(void)
 }
 
 
+#ifdef SUPPORT_FS_NEW_METHOD
+void fs_sa_set_sa_method(enum FS_SA_METHOD method)
+{
+	FS_ATOMIC_SET((int)method, &fs_mgr.sa_method);
+}
+
+
+/*
+ * Support user/custom setting for using FrameSync StandAlone(SA) mode
+ */
+void fs_set_using_sa_mode(unsigned int en)
+{
+	fs_mgr.user_set_sa = (en > 0) ? 1 : 0;
+}
+
+
+static inline unsigned int fs_user_sa_config(void)
+{
+#ifdef FORCE_USING_SA_MODE
+	return 1;
+#else
+	return fs_mgr.user_set_sa;
+#endif // FORCE_USING_SA_MODE
+}
+#endif // SUPPORT_FS_NEW_METHOD
+
+
 #ifndef ALL_USING_ATOMIC
 static unsigned int fs_update_status(unsigned int idx, unsigned int flag)
 {
@@ -1049,7 +1076,7 @@ static unsigned int fs_update_status(unsigned int idx, unsigned int flag)
 
 #ifndef USING_CCU
 	LOG_INF(
-		"stat:%u, ready:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u, setup_complete:%u [idx:%u, en:%u]\n",
+		"stat:%u, ready:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u, setup_complete:%u, ft_mode:%u [idx:%u, en:%u]\n",
 		status,
 		cnt,
 		fs_mgr.streaming_bits,
@@ -1057,11 +1084,12 @@ static unsigned int fs_update_status(unsigned int idx, unsigned int flag)
 		fs_mgr.validSync_bits,
 		fs_mgr.pf_ctrl_bits,
 		fs_mgr.setup_complete_bits,
+		fs_mgr.ft_mode[idx],
 		idx,
 		flag);
 #else
 	LOG_INF(
-		"stat:%u, ready:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u, setup_complete:%u, pw_ccu:%u [idx:%u, en:%u]\n",
+		"stat:%u, ready:%u, streaming:%u, enSync:%u, validSync:%u, pf_ctrl:%u, setup_complete:%u, ft_mode:%u, pw_ccu:%u(cnt:%u) [idx:%u, en:%u]\n",
 		status,
 		cnt,
 		fs_mgr.streaming_bits,
@@ -1069,7 +1097,9 @@ static unsigned int fs_update_status(unsigned int idx, unsigned int flag)
 		fs_mgr.validSync_bits,
 		fs_mgr.pf_ctrl_bits,
 		fs_mgr.setup_complete_bits,
+		fs_mgr.ft_mode[idx],
 		fs_mgr.power_on_ccu_bits,
+		frm_get_ccu_pwn_cnt(),
 		idx,
 		flag);
 #endif // USING_CCU
@@ -1129,12 +1159,12 @@ static void fs_update_status(unsigned int idx, unsigned int flag)
 
 
 	/* only 'on' stage print the log */
-	if (!flag)
-		return;
+	// if (!flag)
+	//	return;
 
 #ifndef USING_CCU
 	LOG_INF(
-		"stat:%u, ready:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d, setup_complete:%d [idx:%u, en:%u]\n",
+		"stat:%u, ready:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d, setup_complete:%d, ft_mode:%u, SA(%u/%u/%u) [idx:%u, en:%u]\n",
 		status,
 		cnt,
 		FS_ATOMIC_READ(&fs_mgr.streaming_bits),
@@ -1142,11 +1172,15 @@ static void fs_update_status(unsigned int idx, unsigned int flag)
 		FS_ATOMIC_READ(&fs_mgr.validSync_bits),
 		FS_ATOMIC_READ(&fs_mgr.pf_ctrl_bits),
 		FS_ATOMIC_READ(&fs_mgr.setup_complete_bits),
+		fs_mgr.ft_mode[idx],
+		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
+		fs_user_sa_config(),
+		FS_ATOMIC_READ(&fs_mgr.sa_bits),
 		idx,
 		flag);
 #else
 	LOG_MUST(
-		"stat:%u, ready:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d, setup_complete:%d, pw_ccu:%d [idx:%u, en:%u]\n",
+		"stat:%u, ready:%u, streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d, setup_complete:%d, ft_mode:%u, SA(%u/%u/%u), pw_ccu:%d(cnt:%u) [idx:%u, en:%u]\n",
 		status,
 		cnt,
 		FS_ATOMIC_READ(&fs_mgr.streaming_bits),
@@ -1154,7 +1188,12 @@ static void fs_update_status(unsigned int idx, unsigned int flag)
 		FS_ATOMIC_READ(&fs_mgr.validSync_bits),
 		FS_ATOMIC_READ(&fs_mgr.pf_ctrl_bits),
 		FS_ATOMIC_READ(&fs_mgr.setup_complete_bits),
+		fs_mgr.ft_mode[idx],
+		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
+		fs_user_sa_config(),
+		FS_ATOMIC_READ(&fs_mgr.sa_bits),
 		FS_ATOMIC_READ(&fs_mgr.power_on_ccu_bits),
+		frm_get_ccu_pwn_cnt(),
 		idx,
 		flag);
 #endif // USING_CCU
@@ -1170,7 +1209,7 @@ static inline void fs_set_status_bits(
 	else
 		write_bit_atomic(idx, 0, bits);
 
-	fs_update_status(idx, flag);
+	// fs_update_status(idx, flag);
 	// TODO: add a unlock to keep atomic op consistency.
 }
 #endif // ALL_USING_ATOMIC
@@ -1194,31 +1233,6 @@ static inline void fs_reset_ft_mode_data(unsigned int idx, unsigned int flag)
 
 
 #ifdef SUPPORT_FS_NEW_METHOD
-void fs_sa_set_sa_method(enum FS_SA_METHOD method)
-{
-	FS_ATOMIC_SET((int)method, &fs_mgr.sa_method);
-}
-
-
-/*
- * Support user/custom setting for using FrameSync StandAlone(SA) mode
- */
-void fs_set_using_sa_mode(unsigned int en)
-{
-	fs_mgr.user_set_sa = (en > 0) ? 1 : 0;
-}
-
-
-static inline unsigned int fs_user_sa_config(void)
-{
-#ifdef FORCE_USING_SA_MODE
-	return 1;
-#else
-	return fs_mgr.user_set_sa;
-#endif // FORCE_USING_SA_MODE
-}
-
-
 static inline void fs_check_sync_need_sa_mode(
 	unsigned int idx, enum FS_FEATURE_MODE flag)
 {
@@ -1282,7 +1296,7 @@ static inline void fs_decision_maker(unsigned int idx)
 		FS_ATOMIC_SET(0, &fs_mgr.using_sa_ver);
 
 
-// #if !defined(FORCE_USING_SA_MODE) || !defined(REDUCE_FS_DRV_LOG)
+#if !defined(FORCE_USING_SA_MODE) || !defined(REDUCE_FS_DRV_LOG)
 	LOG_MUST(
 		"using_sa:%d (user_sa_en:%u), ft_mode:%u, sa_bits:%d [idx:%u]\n",
 		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
@@ -1290,7 +1304,7 @@ static inline void fs_decision_maker(unsigned int idx)
 		fs_mgr.ft_mode[idx],
 		FS_ATOMIC_READ(&fs_mgr.sa_bits),
 		idx);
-// #endif
+#endif
 }
 
 
@@ -1392,11 +1406,15 @@ static inline void fs_set_sync_idx(unsigned int idx, unsigned int flag)
 
 	fs_alg_set_sync_type(idx, flag);
 
+#if defined(FS_UT)
 	fs_reset_ft_mode_data(idx, flag);
+#endif // FS_UT
 
 	fs_sa_try_reset_master_idx(idx);
 
 	fs_decision_maker(idx);
+
+	fs_update_status(idx, flag);
 }
 
 
@@ -1437,8 +1455,11 @@ unsigned int fs_is_set_sync(unsigned int ident)
 	idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		LOG_MUST("WARNING: [%u] %s is not register, ident:%u, return\n",
 			idx, REG_INFO, ident);
+#endif // REDUCE_FS_DRV_LOG
 
 		return 0;
 	}
@@ -1649,9 +1670,11 @@ static inline int fs_get_valid_master_instance_idx(void)
 
 		FS_ATOMIC_SET(i, &fs_mgr.master_idx);
 
+#if !defined(REDUCE_FS_DRV_LOG)
 		LOG_INF(
 			"WARNING: current master_idx:%d is not valid for doing frame-sync, validSync_bits:%d, auto set to idx:%d\n",
 			m_idx, valid, i);
+#endif // REDUCE_FS_DRV_LOG
 
 		return i;
 	}
@@ -1735,6 +1758,14 @@ static int fs_try_trigger_frame_sync_sa(unsigned int idx)
 	}
 
 	return 1;
+}
+
+
+static void fs_reset_frame_tag(unsigned int idx)
+{
+	fs_mgr.frame_tag[idx] = 0;
+
+	fs_alg_set_frame_tag(idx, fs_mgr.frame_tag[idx]);
 }
 
 
@@ -1866,7 +1897,8 @@ void fs_n_1_en(unsigned int ident, unsigned int n, unsigned int en)
 
 
 	/* reset frame tag cnt */
-	fs_set_frame_tag(idx, 0);
+	// fs_set_frame_tag(idx, 0);
+	fs_reset_frame_tag(idx);
 
 
 	/* notify frame-sync algo at ON/OFF case for setting correct FL */
@@ -1972,8 +2004,11 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		LOG_MUST("WARNING: [%u] %s is not register, ident:%u, return\n",
 			idx, REG_INFO, ident);
+#endif // REDUCE_FS_DRV_LOG
 
 		return;
 	}
@@ -1990,6 +2025,8 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 
 	fs_get_reg_sensor_info(idx, &info);
 
+
+#if !defined(REDUCE_FS_DRV_LOG)
 	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), updated tg:%u (fs_alg, frm)\n",
 		idx,
@@ -1997,6 +2034,7 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 		info.sensor_idx,
 		tg
 	);
+#endif // REDUCE_FS_DRV_LOG
 
 
 #ifdef USING_CCU
@@ -2137,6 +2175,9 @@ unsigned int fs_streaming(
 
 		/* reset fs act cnt */
 		fs_mgr.act_cnt = 0;
+
+
+		fs_reset_ft_mode_data(idx, flag);
 
 
 #if defined(USING_CCU) && !defined(DELAY_CCU_OP)
@@ -2288,8 +2329,11 @@ void fs_update_min_framelength_lc(unsigned int ident, unsigned int min_fl_lc)
 
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_PR_WARN("ERROR: [%u] %s is not register, ident:%u\n",
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		LOG_MUST("WARNING: [%u] %s is not register, ident:%u, return\n",
 			idx, REG_INFO, ident);
+#endif // REDUCE_FS_DRV_LOG
 
 		return;
 	}
@@ -2511,8 +2555,11 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 	idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_INF("WARNING: [%u] %s is not register, ident:%u, return\n",
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		LOG_MUST("WARNING: [%u] %s is not register, ident:%u, return\n",
 			idx, REG_INFO, ident);
+#endif // REDUCE_FS_DRV_LOG
 
 		return;
 	}
@@ -2612,8 +2659,11 @@ void fs_update_shutter(struct fs_perframe_st (*frameCtrl))
 	idx = fs_get_reg_sensor_pos(ident);
 
 	if (check_idx_valid(idx) == 0) {
-		LOG_INF("WARNING: [%u] %s is not register, ident:%u, return\n",
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		LOG_MUST("WARNING: [%u] %s is not register, ident:%u, return\n",
 			idx, REG_INFO, ident);
+#endif // REDUCE_FS_DRV_LOG
 
 		return;
 	}
@@ -2706,6 +2756,30 @@ unsigned int fs_sync_frame(unsigned int flag)
 #endif // FS_UT
 
 
+#ifdef SUPPORT_FS_NEW_METHOD
+	/* check using FS standalone mode => do nothing here */
+	if (FS_ATOMIC_READ(&fs_mgr.using_sa_ver) != 0) {
+
+#if !defined(REDUCE_FS_DRV_LOG)
+		/* (LOG) show new status and pf_ctrl_bits value */
+		LOG_MUST(
+			"[Start:%u] streaming:%d, enSync:%d, validSync:%d, pf_ctrl:%d(last:%d), setup_complete:%d(last:%d) [FS SA mode]\n",
+			flag,
+			status,
+			FS_READ_BITS(&fs_mgr.streaming_bits),
+			FS_READ_BITS(&fs_mgr.enSync_bits),
+			FS_READ_BITS(&fs_mgr.validSync_bits),
+			FS_READ_BITS(&fs_mgr.pf_ctrl_bits),
+			FS_READ_BITS(&fs_mgr.last_pf_ctrl_bits),
+			FS_READ_BITS(&fs_mgr.setup_complete_bits),
+			FS_READ_BITS(&fs_mgr.last_setup_complete_bits));
+#endif // REDUCE_FS_DRV_LOG
+
+		return 0;
+	}
+#endif // SUPPORT_FS_NEW_METHOD
+
+
 	/* check sync frame start/end */
 	/*     flag > 0  : start sync frame */
 	/*     flag == 0 : end sync frame */
@@ -2731,7 +2805,6 @@ unsigned int fs_sync_frame(unsigned int flag)
 		change_fs_status(FS_START_TO_GET_PERFRAME_CTRL);
 
 
-#if !defined(SUPPORT_FS_NEW_METHOD)
 		/* log --- show new status and all bits value */
 		status = get_fs_status();
 
@@ -2746,7 +2819,6 @@ unsigned int fs_sync_frame(unsigned int flag)
 			FS_READ_BITS(&fs_mgr.last_pf_ctrl_bits),
 			FS_READ_BITS(&fs_mgr.setup_complete_bits),
 			FS_READ_BITS(&fs_mgr.last_setup_complete_bits));
-#endif // SUPPORT_FS_NEW_METHOD
 
 
 		/* return the number of valid sync sensors */
@@ -2775,25 +2847,6 @@ unsigned int fs_sync_frame(unsigned int flag)
 
 			return 0;
 		}
-
-#ifdef SUPPORT_FS_NEW_METHOD
-		/* 1.1 check FS standalone mode => do nothing here */
-		if (FS_ATOMIC_READ(&fs_mgr.using_sa_ver) != 0) {
-			change_fs_status(FS_WAIT_FOR_SYNCFRAME_START);
-
-#if !defined(REDUCE_FS_DRV_LOG)
-			/* (LOG) show new status and pf_ctrl_bits value */
-			LOG_INF(
-				"[Start:%u] stat:%u, pf_ctrl:%d, ctrl_setup_complete:%d [FS SA mode]\n",
-				flag,
-				get_fs_status(),
-				FS_READ_BITS(&fs_mgr.pf_ctrl_bits),
-				FS_READ_BITS(&fs_mgr.setup_complete_bits));
-#endif // REDUCE_FS_DRV_LOG
-
-			return 0;
-		}
-#endif // SUPPORT_FS_NEW_METHOD
 
 
 		/* 2. check for running frame sync processing or not */

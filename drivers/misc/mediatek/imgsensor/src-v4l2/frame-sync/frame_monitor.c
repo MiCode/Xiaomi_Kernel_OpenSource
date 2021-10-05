@@ -134,6 +134,22 @@ static struct FrameMonitorInst frm_inst;
 
 
 /******************************************************************************/
+// vsync timestamp utility functions
+/******************************************************************************/
+/*
+ * return: (0/1) for (non-valid/valid)
+ */
+static inline unsigned int check_tg_vsync_rec_pos_valid(unsigned int tg)
+{
+	return ((tg < 1) || (tg > FM_TG_CNT)) ? 0 : 1;
+}
+/******************************************************************************/
+
+
+
+
+
+/******************************************************************************/
 // Dump function
 /******************************************************************************/
 static inline void dump_vsync_rec(struct vsync_rec (*pData))
@@ -733,19 +749,24 @@ void frm_power_on_ccu(unsigned int flag)
 
 		frm_inst.power_on_cnt++;
 
+#if !defined(REDUCE_FRM_LOG)
 		LOG_MUST("framesync power on ccu, cnt:%d\n",
 			frm_inst.power_on_cnt);
+#endif // REDUCE_FRM_LOG
+
 	} else {
 		/* shutdown ccu */
 		rproc_shutdown(ccu_rproc);
 
 		frm_inst.power_on_cnt--;
 
+#if !defined(REDUCE_FRM_LOG)
 		LOG_MUST("framesync power off ccu, cnt:%d\n",
 			frm_inst.power_on_cnt);
+#endif // REDUCE_FRM_LOG
 	}
 
-#endif
+#endif // FS_UT
 }
 
 
@@ -785,6 +806,16 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx)
 	else
 		LOG_MUST("called CCU reset tg:%u (selbits:%u) vsync data\n",
 			tg, selbits);
+}
+
+
+unsigned int frm_get_ccu_pwn_cnt(void)
+{
+#if !defined(FS_UT)
+	return frm_inst.power_on_cnt;
+#else
+	return 0;
+#endif // FS_UT
 }
 #endif // USING_CCU
 
@@ -1068,9 +1099,18 @@ static unsigned int frm_detect_repeat_ts_check(
 	unsigned int m_tg, unsigned int s_tg,
 	unsigned int m_ts_select, unsigned int s_ts_select)
 {
-	unsigned int m_tg_idx = m_tg-1, s_tg_idx = s_tg-1;
+	unsigned int m_tg_idx, s_tg_idx;
 	unsigned int m_last_ts, s_last_ts;
 	unsigned int m_ts_repeat = 0, s_ts_repeat = 0;
+
+
+	/* recs[] array boundary check */
+	if ((!check_tg_vsync_rec_pos_valid(m_tg))
+		|| (!check_tg_vsync_rec_pos_valid(s_tg)))
+		return -1;
+
+	m_tg_idx = m_tg - 1;
+	s_tg_idx = s_tg - 1;
 
 	m_last_ts = frm_inst.recs[m_tg_idx].timestamps[m_ts_select];
 	s_last_ts = frm_inst.recs[s_tg_idx].timestamps[s_ts_select];
@@ -1118,10 +1158,19 @@ int frm_timestamp_checker(unsigned int m_tg, unsigned int s_tg)
 {
 	int result;
 	unsigned int i;
-	unsigned int m_tg_idx = m_tg-1, s_tg_idx = s_tg-1;
+	unsigned int m_tg_idx, s_tg_idx;
 	unsigned int m_last_ts, s_last_ts, diff;
 	unsigned int m_min_idx = 0, s_min_idx = 0, min_diff = (0-1);
-	unsigned int m_ts_updated, s_ts_updated;
+	unsigned int m_ts_updated = 0, s_ts_updated = 0;
+
+
+	/* recs[] array boundary check */
+	if ((!check_tg_vsync_rec_pos_valid(m_tg))
+		|| (!check_tg_vsync_rec_pos_valid(s_tg)))
+		return -1;
+
+	m_tg_idx = m_tg - 1;
+	s_tg_idx = s_tg - 1;
 
 	m_last_ts = frm_inst.recs[m_tg_idx].timestamps[0];
 	s_last_ts = frm_inst.recs[s_tg_idx].timestamps[0];

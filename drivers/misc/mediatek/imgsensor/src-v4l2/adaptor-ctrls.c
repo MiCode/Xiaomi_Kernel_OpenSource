@@ -121,11 +121,9 @@ static void notify_fsync_mgr_update_tg(struct adaptor_ctx *ctx, u64 val)
 static void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en)
 {
 	/* call frame-sync fs_set_sync() */
-	if (ctx->fsync_mgr != NULL) {
-		ctx->fsync_mgr->fs_update_tg(ctx->idx,
-					ctx->fsync_map_id->val + 1);
+	if (ctx->fsync_mgr != NULL)
 		ctx->fsync_mgr->fs_set_sync(ctx->idx, en);
-	} else
+	else
 		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
@@ -208,7 +206,7 @@ static void notify_fsync_mgr_subsample_tag(struct adaptor_ctx *ctx, u64 sub_tag)
 		return;
 	}
 
-	dev_info(ctx->dev, "sub_tag %u\n", sub_tag);
+	// dev_info(ctx->dev, "sub_tag %u\n", sub_tag);
 
 	/* call frame-sync fs_set_frame_tag() */
 	if (sub_tag > 0 && ctx->fsync_mgr != NULL)
@@ -378,17 +376,19 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
 
-	dev_info(ctx->dev, "exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d\n",
-			 ae_ctrl->exposure.le_exposure,
-			 ae_ctrl->exposure.me_exposure,
-			 ae_ctrl->exposure.se_exposure,
-			 ae_ctrl->exposure.sse_exposure,
-			 ae_ctrl->exposure.ssse_exposure,
-			 ae_ctrl->gain.le_gain,
-			 ae_ctrl->gain.me_gain,
-			 ae_ctrl->gain.se_gain,
-			 ae_ctrl->gain.sse_gain,
-			 ae_ctrl->gain.ssse_gain);
+	dev_info(ctx->dev,
+			"exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u\n",
+			ae_ctrl->exposure.le_exposure,
+			ae_ctrl->exposure.me_exposure,
+			ae_ctrl->exposure.se_exposure,
+			ae_ctrl->exposure.sse_exposure,
+			ae_ctrl->exposure.ssse_exposure,
+			ae_ctrl->gain.le_gain,
+			ae_ctrl->gain.me_gain,
+			ae_ctrl->gain.se_gain,
+			ae_ctrl->gain.sse_gain,
+			ae_ctrl->gain.ssse_gain,
+			ae_ctrl->subsample_tags);
 
 
 	switch (exp_count) {

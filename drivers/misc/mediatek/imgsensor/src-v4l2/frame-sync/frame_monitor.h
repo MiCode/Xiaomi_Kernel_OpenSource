@@ -57,6 +57,8 @@ struct vsync_rec {
 void frm_power_on_ccu(unsigned int flag);
 
 void frm_reset_ccu_vsync_timestamp(unsigned int idx);
+
+unsigned int frm_get_ccu_pwn_cnt(void);
 #endif
 
 
