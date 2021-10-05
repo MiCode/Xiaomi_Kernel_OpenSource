@@ -283,10 +283,10 @@
 #define HWV_PLL_CLR				0x194
 #define HWV_PLL_EN				0x1400
 #define HWV_PLL_DONE				0x140C
-#define HWV_CLK_CFG_1_STA			0x1908
-#define HWV_CLK_CFG_12_STA			0x1928
-#define HWV_CLK_CFG_16_STA			0x1940
-#define HWV_CLK_CFG_17_STA			0x1948
+#define HWV_CLK_CFG_1_DONE			0x1C08
+#define HWV_CLK_CFG_12_DONE			0x1C28
+#define HWV_CLK_CFG_16_DONE			0x1C40
+#define HWV_CLK_CFG_17_DONE			0x1C48
 
 enum subsys_id {
 	APMIXEDSYS = 0,
@@ -1805,21 +1805,21 @@ static const struct mtk_mux top_muxes[] = {
 	MUX_HWV(CLK_TOP_DISP0_SEL/* dts */, "disp0_sel",
 		disp0_parents/* parent */, CLK_CFG_1, CLK_CFG_1_SET,
 		CLK_CFG_1_CLR/* set parent */,
-		HWV_CLK_CFG_1_STA, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_1_DONE, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
 		0/* lsb */, 4/* width */,
 		7/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_DISP0_SHIFT/* upd shift */),
 	MUX_HWV(CLK_TOP_MDP0_SEL/* dts */, "mdp0_sel",
 		mdp0_parents/* parent */, CLK_CFG_1, CLK_CFG_1_SET,
 		CLK_CFG_1_CLR/* set parent */,
-		HWV_CLK_CFG_1_STA, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_1_DONE, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
 		8/* lsb */, 4/* width */,
 		15/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_MDP0_SHIFT/* upd shift */),
 	MUX_HWV(CLK_TOP_MMINFRA_SEL/* dts */, "mminfra_sel",
 		mminfra_parents/* parent */, CLK_CFG_1, CLK_CFG_1_SET,
 		CLK_CFG_1_CLR/* set parent */,
-		HWV_CLK_CFG_1_STA, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_1_DONE, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
 		16/* lsb */, 4/* width */,
 		23/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_MMINFRA_SHIFT/* upd shift */),
@@ -2034,14 +2034,14 @@ static const struct mtk_mux top_muxes[] = {
 	MUX_HWV(CLK_TOP_VENC_SEL/* dts */, "venc_sel",
 		venc_parents/* parent */, CLK_CFG_12, CLK_CFG_12_SET,
 		CLK_CFG_12_CLR/* set parent */,
-		HWV_CLK_CFG_12_STA, HWV_CLK_CFG_12_SET, HWV_CLK_CFG_12_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_12_DONE, HWV_CLK_CFG_12_SET, HWV_CLK_CFG_12_CLR, /* sta/set/clr */
 		8/* lsb */, 4/* width */,
 		15/* pdn */, CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_VENC_SHIFT/* upd shift */),
 	MUX_HWV(CLK_TOP_VDEC_SEL/* dts */, "vdec_sel",
 		vdec_parents/* parent */, CLK_CFG_12, CLK_CFG_12_SET,
 		CLK_CFG_12_CLR/* set parent */,
-		HWV_CLK_CFG_12_STA, HWV_CLK_CFG_12_SET, HWV_CLK_CFG_12_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_12_DONE, HWV_CLK_CFG_12_SET, HWV_CLK_CFG_12_CLR, /* sta/set/clr */
 		16/* lsb */, 4/* width */,
 		23/* pdn */, CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_VDEC_SHIFT/* upd shift */),
@@ -2105,7 +2105,7 @@ static const struct mtk_mux top_muxes[] = {
 	MUX_HWV(CLK_TOP_IMG1_SEL/* dts */, "img1_sel",
 		img1_parents/* parent */, CLK_CFG_16, CLK_CFG_16_SET,
 		CLK_CFG_16_CLR/* set parent */,
-		HWV_CLK_CFG_16_STA, HWV_CLK_CFG_16_SET, HWV_CLK_CFG_16_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_16_DONE, HWV_CLK_CFG_16_SET, HWV_CLK_CFG_16_CLR, /* sta/set/clr */
 		24/* lsb */, 4/* width */,
 		31/* pdn */, CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_IMG1_SHIFT/* upd shift */),
@@ -2113,21 +2113,21 @@ static const struct mtk_mux top_muxes[] = {
 	MUX_HWV(CLK_TOP_IPE_SEL/* dts */, "ipe_sel",
 		ipe_parents/* parent */, CLK_CFG_17, CLK_CFG_17_SET,
 		CLK_CFG_17_CLR/* set parent */,
-		HWV_CLK_CFG_17_STA, HWV_CLK_CFG_17_SET, HWV_CLK_CFG_17_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_17_DONE, HWV_CLK_CFG_17_SET, HWV_CLK_CFG_17_CLR, /* sta/set/clr */
 		0/* lsb */, 4/* width */,
 		7/* pdn */, CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_IPE_SHIFT/* upd shift */),
 	MUX_HWV(CLK_TOP_CAM_SEL/* dts */, "cam_sel",
 		cam_parents/* parent */, CLK_CFG_17, CLK_CFG_17_SET,
 		CLK_CFG_17_CLR/* set parent */,
-		HWV_CLK_CFG_17_STA, HWV_CLK_CFG_17_SET, HWV_CLK_CFG_17_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_17_DONE, HWV_CLK_CFG_17_SET, HWV_CLK_CFG_17_CLR, /* sta/set/clr */
 		8/* lsb */, 4/* width */,
 		15/* pdn */, CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_CAM_SHIFT/* upd shift */),
 	MUX_HWV(CLK_TOP_CCUSYS_SEL/* dts */, "ccusys_sel",
 		ccusys_parents/* parent */, CLK_CFG_17, CLK_CFG_17_SET,
 		CLK_CFG_17_CLR/* set parent */,
-		HWV_CLK_CFG_17_STA, HWV_CLK_CFG_17_SET, HWV_CLK_CFG_17_CLR, /* sta/set/clr */
+		HWV_CLK_CFG_17_DONE, HWV_CLK_CFG_17_SET, HWV_CLK_CFG_17_CLR, /* sta/set/clr */
 		16/* lsb */, 3/* width */,
 		23/* pdn */, CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_CCUSYS_SHIFT/* upd shift */),

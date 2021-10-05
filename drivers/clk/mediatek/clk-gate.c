@@ -116,6 +116,8 @@ static int mtk_cg_enable_hwv(struct clk_hw *hw)
 
 	mtk_cg_set_bit(hw);
 
+	/* delay 1us to prevent false ack check */
+	udelay(1);
 	while (!mtk_cg_bit_is_set(hw)) {
 		if (i < 10)
 			udelay(10);

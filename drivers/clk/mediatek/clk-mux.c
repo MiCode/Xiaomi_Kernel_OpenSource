@@ -90,6 +90,8 @@ static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 	regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
 			BIT(mux->data->gate_shift));
 
+	/* delay 1us to prevent false ack check */
+	udelay(1);
 	while (!mtk_clk_mux_is_enabled(hw)) {
 		if (i < 50)
 			udelay(10);

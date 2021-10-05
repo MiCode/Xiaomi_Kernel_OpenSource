@@ -319,8 +319,20 @@ static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 	u32 val;
 	int i = 0;
 
+	/* wait for irq idle */
+	do {
+		regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
+		if (i < 10)
+			udelay(10);
+		else
+			break;
+		i++;
+	} while ((val & BIT(pll->data->hwv_shift)) == 0);
+
 	regmap_write(pll->hwv_regmap, pll->data->hwv_set_ofs, BIT(pll->data->hwv_shift));
 
+	/* delay 1us to prevent false ack check */
+	udelay(1);
 	do {
 		regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
 		if (i < 200)
@@ -346,6 +358,8 @@ static void mtk_hwv_pll_unprepare(struct clk_hw *hw)
 
 	regmap_write(pll->hwv_regmap, pll->data->hwv_clr_ofs, BIT(pll->data->hwv_shift));
 
+	/* delay 1us to prevent false ack check */
+	udelay(1);
 	do {
 		regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
 		if (i < 200)
