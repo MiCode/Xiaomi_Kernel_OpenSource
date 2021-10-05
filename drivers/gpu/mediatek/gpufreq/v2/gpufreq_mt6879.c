@@ -954,11 +954,16 @@ void __gpufreq_check_bus_idle(void)
 {
 	u32 val = 0;
 
-	/* MFG_QCHANNEL_CON 0x13FBF0B4 [1:0] MFG_ACTIVE_SEL = 0x1 */
-	writel(0x00000001, g_mfg_top_base + 0xB4);
+	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
+	val = readl(g_mfg_top_base + 0xB4);
+	val |= (1UL << 0);
+	writel(val, g_mfg_top_base + 0xB4);
 
-	/* MFG_DEBUG_SEL 0x13FBF170 [7:0] MFG_DEBUG_TOP_SEL = 0x3 */
-	writel(0x00000003, g_mfg_top_base + 0x170);
+	/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
+	val = readl(g_mfg_top_base + 0x170);
+	val |= (1UL << 0);
+	val |= (1UL << 1);
+	writel(val, g_mfg_top_base + 0x170);
 
 	/*
 	 * polling MFG_DEBUG_TOP 0x13FBF178 [0] MFG_DEBUG_TOP
@@ -972,6 +977,8 @@ void __gpufreq_check_bus_idle(void)
 
 void __gpufreq_dump_infra_status(void)
 {
+	u32 val = 0;
+
 	GPUFREQ_LOGI("== [GPUFREQ INFRA STATUS] ==");
 	if (g_gpueb_support) {
 		GPUFREQ_LOGI("[Regulator] Vgpu: %d, Vsram: %d",
@@ -982,6 +989,26 @@ void __gpufreq_dump_infra_status(void)
 		GPUFREQ_LOGI("GPU[%d] Freq: %d, Vgpu: %d, Vsram: %d",
 			g_gpu.cur_oppidx, g_gpu.cur_freq,
 			g_gpu.cur_volt, g_gpu.cur_vsram);
+	}
+
+	/* 0x13FBF000 */
+	if (g_mfg_top_base) {
+		/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
+		val = readl(g_mfg_top_base + 0xB4);
+		val |= (1UL << 0);
+		writel(val, g_mfg_top_base + 0xB4);
+		/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
+		val = readl(g_mfg_top_base + 0x170);
+		val |= (1UL << 0);
+		val |= (1UL << 1);
+		writel(val, g_mfg_top_base + 0x170);
+
+		/* MFG_DEBUG_SEL */
+		GPUFREQ_LOGI("MFG_TOP_CFG (0x%x): 0x%08x",
+			(0x13FBF000 + 0x170), readl(g_mfg_top_base + 0x170));
+		/* MFG_DEBUG_TOP */
+		GPUFREQ_LOGI("MFG_TOP_CFG (0x%x): 0x%08x",
+			(0x13FBF000 + 0x178), readl(g_mfg_top_base + 0x178));
 	}
 
 	/* 0x1021C000 */
