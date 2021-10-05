@@ -1616,17 +1616,19 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
-		//DVP_mmu = kzalloc(sizeof(struct tee_mmu) * 10, GFP_KERNEL);
-		SrcImg_Y_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		SrcImg_C_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		InBuf_OCC_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		OutBuf_CRM_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		ASF_RD_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		ASF_HF_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		WMF_FILT_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		InBuf_OCC_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		ASF_RD_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-		ASF_HF_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+		if ((DVP_only_en == 0) && (DVP_Num == 0)) {
+			//DVP_mmu = kzalloc(sizeof(struct tee_mmu) * 10, GFP_KERNEL);
+			SrcImg_Y_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			SrcImg_C_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			InBuf_OCC_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			OutBuf_CRM_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			ASF_RD_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			ASF_HF_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			WMF_FILT_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			InBuf_OCC_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			ASF_RD_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			ASF_HF_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		if (!SrcImg_Y_mmu)
@@ -2115,7 +2117,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	dvs_put = 0;
 	//spin_lock(&(DPEInfo.SpinLockFD));
 
-		//LOG_INF("put fd DVS_only_en =%d DVP_only_en =%d\n",DVS_only_en,DVP_only_en);
+		LOG_INF("put fd DVS_only_en =%d DVP_only_en =%d\n", DVS_only_en, DVP_only_en);
 		//LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n",DVS_Num,DVP_Num);
 		//LOG_INF("[dpe_deque_cb] Dpe_engineSelect %d\n",pDpeConfig->Dpe_engineSelect);
 
@@ -2123,7 +2125,10 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		(pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
 		LOG_INF("dpe_deque DVS put fd\n");
 		mutex_lock(&gFDMutex);
-		i = DVS_Num - DVS_only_en;
+
+		if (DVS_only_en > 0)
+			i = DVS_only_en - 1;
+
 		mutex_unlock(&gFDMutex);
 
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -2259,7 +2264,10 @@ LOG_INF("dpe_deque SrcImg_Y_R_mmu put fd\n");
 	if ((pDpeConfig->Dpe_engineSelect == MODE_DVP_ONLY) ||
 		(pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
 		mutex_lock(&gFDMutex);
-		i = DVP_Num - DVP_only_en;
+
+		if (DVP_only_en > 0)
+			i = DVP_only_en - 1;
+
 		mutex_unlock(&gFDMutex);
 
 		if (get_dvp_iova[0] >= 1) {
@@ -2268,6 +2276,7 @@ LOG_INF("dpe_deque SrcImg_Y_R_mmu put fd\n");
 			memcpy(&temp_dvp, &SrcImg_Y_mmu[i], sizeof(struct tee_mmu));
 			mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 0);
+			LOG_INF("dpe_deque SrcImg_Y_mmu put fd\n");
 			//mmu_release(&SrcImg_Y_mmu[i], 0);
 			//get_dvp_iova[0]--;
 			dvp_cnt++;
@@ -5727,7 +5736,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//unsigned int m_real_ReqNum;
 
 	//struct DPE_Config *pDpeConfig;
-	LOG_INF("DPE_DumpReg  star\n");
+	//LOG_INF("DPE_DumpReg  star\n");
 	//DPE_DumpReg();//!test
 	//LOG_INF("DPE_DumpReg end\n");
 	//LOG_INF("[%s]buf address/len = 0x%lx/0x%x, ureq =0x%x\n",
