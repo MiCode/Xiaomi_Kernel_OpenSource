@@ -16,12 +16,12 @@
 #include <soc/mediatek/mmqos.h>
 
 
-#define CRTC_NUM		2
+#define CRTC_NUM		3
 static struct drm_crtc *dev_crtc;
 /* add for mm qos */
 static struct regulator *mm_freq_request;
 static u32 *g_freq_steps;
-static int g_freq_level[CRTC_NUM];
+static int g_freq_level[CRTC_NUM] = {-1};
 static int step_size = 1;
 
 void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
@@ -281,7 +281,8 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	DDPINFO("%s[%d] g_freq_level[idx=%d]: %d\n",
 		__func__, __LINE__, idx, level);
 
-	if (idx > (CRTC_NUM - 1))
+	/* only for crtc = 0, 1 */
+	if (idx > 2)
 		return;
 
 	if (level < 0 || level > (step_size - 1))
