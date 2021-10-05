@@ -144,5 +144,6 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
 void mtk_imgsys_pwr(struct platform_device *pdev, bool on);
 #endif
 
-bool imgsys_cmdq_ts_enabled(void);
+bool imgsys_cmdq_ts_enable(void);
+bool imgsys_wpe_bwlog_enable(void);
 

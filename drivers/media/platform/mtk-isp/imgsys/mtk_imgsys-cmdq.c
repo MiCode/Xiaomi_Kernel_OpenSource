@@ -22,8 +22,13 @@
 #include "cmdq-sec-iwc-common.h"
 #endif
 
+#define WPE_BWLOG_HW_COMB	(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
+
 int imgsys_cmdq_ts_en;
 module_param(imgsys_cmdq_ts_en, int, 0644);
+
+int imgsys_wpe_bwlog_en;
+module_param(imgsys_wpe_bwlog_en, int, 0644);
 
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
@@ -248,7 +253,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
 
-	if (imgsys_cmdq_ts_enabled()) {
+	if (imgsys_cmdq_ts_enable()) {
 		/* Calculating task timestamp */
 		tsSwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1]
 				- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0];
@@ -293,6 +298,23 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	req_no = cb_param->frm_info->request_no;
 	frm_no = cb_param->frm_info->frame_no;
 
+	if (imgsys_wpe_bwlog_enable())
+		if ((hw_comb & WPE_BWLOG_HW_COMB) == WPE_BWLOG_HW_COMB) {
+			dev_info(imgsys_dev->dev,
+				"%s: wpe_bwlog req fd/no(%d/%d)frameNo(%d)cb(%p)err(%d)frm(%d/%d/%d)hw_comb(0x%x)read_num(%d)-value(%d/%d/%d/%d)\n",
+				__func__, cb_param->frm_info->request_fd,
+				cb_param->frm_info->request_no,
+				cb_param->frm_info->frame_no,
+				cb_param, cb_param->err, cb_param->frm_idx,
+				cb_param->frm_num, cb_frm_cnt, hw_comb,
+				cb_param->taskTs.num,
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0],
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1],
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2],
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
+				);
+		}
+
 	if (cb_param->isBlkLast) {
 		cb_param->frm_info->cb_frmcnt++;
 		cb_frm_cnt = cb_param->frm_info->cb_frmcnt;
@@ -327,7 +349,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			#endif
 			#endif
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
-			if (imgsys_cmdq_ts_enabled())
+			if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable())
 				cmdq_mbox_buf_free(cb_param->clt,
 					cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
 			isLastTaskInReq = 1;
@@ -521,7 +543,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	#endif
 
 	/* Allocate cmdq buffer for task timestamp */
-	if (imgsys_cmdq_ts_enabled())
+	if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable())
 		pkt_ts_va = cmdq_mbox_buf_alloc(imgsys_clt[0], &pkt_ts_pa);
 
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
@@ -671,7 +693,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			cb_param->imgsys_dev = imgsys_dev;
 			cb_param->thd_idx = thd_idx;
 			cb_param->clt = clt;
-			if (imgsys_cmdq_ts_enabled()) {
+			if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable()) {
 				cb_param->taskTs.dma_pa = pkt_ts_pa;
 				cb_param->taskTs.dma_va = pkt_ts_va;
 				cb_param->taskTs.num = pkt_ts_num;
@@ -726,8 +748,14 @@ IMGSYS_CMD_READ:
 		pr_debug(
 			"%s: READ with source(0x%08lx) target(0x%08lx) mask(0x%08x)\n",
 			__func__, cmd->u.source, cmd->u.target, cmd->u.mask);
-		cmdq_pkt_mem_move(pkt, NULL, (dma_addr_t)cmd->u.source,
-			(dma_addr_t)cmd->u.target, CMDQ_THR_SPR_IDX3);
+		if (imgsys_wpe_bwlog_enable()) {
+			cmdq_pkt_mem_move(pkt, NULL, (dma_addr_t)cmd->u.source,
+				dma_pa + (4*(*num)), CMDQ_THR_SPR_IDX3);
+			(*num)++;
+		} else
+			pr_info(
+				"%s: [ERROR]Not enable imgsys read cmd!!\n",
+				__func__);
 		cmd++;
 		goto *op_labels[cmd->opcode & 0x0F];
 IMGSYS_CMD_WRITE:
@@ -791,7 +819,7 @@ IMGSYS_CMD_TIME:
 		pr_debug(
 			"%s: TIME with addr(0x%08lx) num(0x%08x)\n",
 			__func__, dma_pa, *num);
-		if (imgsys_cmdq_ts_enabled()) {
+		if (imgsys_cmdq_ts_enable()) {
 			cmdq_pkt_write_indriect(pkt, NULL, dma_pa + (4*(*num)),
 				CMDQ_TPR_ID, ~0);
 			(*num)++;
@@ -1582,8 +1610,13 @@ EXPORT_SYMBOL(mtk_imgsys_pwr);
 
 #endif
 
-bool imgsys_cmdq_ts_enabled(void)
+bool imgsys_cmdq_ts_enable(void)
 {
 	return imgsys_cmdq_ts_en;
+}
+
+bool imgsys_wpe_bwlog_enable(void)
+{
+	return imgsys_wpe_bwlog_en;
 }
 
