@@ -173,7 +173,6 @@ int set_audiobuffer_audio_memiftype(struct audio_hw_buffer *audio_hwbuf,
 				    int audio_memtype);
 int set_audiobuffer_audio_irq_num(struct audio_hw_buffer *audio_hwbuf,
 				  int irq_num);
-
 int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
 		    struct ringbuf_bridge *buf_bridge);
 int sync_ringbuf_writeidx(struct RingBuf *task_ring_buf,

@@ -1034,7 +1034,8 @@ int sync_ringbuf_writeidx(struct RingBuf *task_ring_buf,
 	/* buffer full */
 	if (task_ring_buf->pRead == task_ring_buf->pWrite &&
 		task_ring_buf->datacount == task_ring_buf->bufLen) {
-		AUD_LOG_D("%s task_ring_buf full", __func__);
+		AUD_LOG_D("%s task_ring_buf full datacount[%d]\n",
+			  __func__, task_ring_buf->datacount);
 	}
 
 	writeidx = task_ring_buf->pBufBase +
@@ -1133,14 +1134,14 @@ void dump_rbuf_bridge_s(const char *appendingstring,
 	if (ring_buffer_bridge == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s %s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = 0x%llx writeidx = 0x%llx\n",
+	pr_info("%s %s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = 0x%llx writeidx = 0x%llx datacount= %llu\n",
 		appendingstring, __func__, ring_buffer_bridge->pBufBase,
 		ring_buffer_bridge->pBufEnd, ring_buffer_bridge->pRead,
 		ring_buffer_bridge->pWrite, ring_buffer_bridge->bufLen,
 		(ring_buffer_bridge->pRead - ring_buffer_bridge->pBufBase),
-		(ring_buffer_bridge->pWrite - ring_buffer_bridge->pBufBase)
+		(ring_buffer_bridge->pWrite - ring_buffer_bridge->pBufBase),
+		ring_buffer_bridge->datacount
 		);
-
 #else
 	AUD_LOG_D("%s %s Base = 0x%llx End = 0x%llx bufLen=%llu\n",
 		  appendingstring, __func__, ring_buffer_bridge->pBufBase,
