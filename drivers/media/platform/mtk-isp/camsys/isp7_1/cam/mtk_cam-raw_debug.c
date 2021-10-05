@@ -84,6 +84,8 @@ struct buffered_logger {
 
 #define INIT_LOGGER_FTRACE_FBC(logger, dev)		\
 	_INIT_LOGGER(logger, dev, mtk_cam_log_handle_trace_fbc)
+#define INIT_LOGGER_FTRACE_HW_IRQ(logger, dev)		\
+	_INIT_LOGGER(logger, dev, mtk_cam_log_handle_trace_hw_irq)
 
 static __printf(2, 3)
 void mtk_cam_log_set_prefix(struct buffered_logger *log, const char *fmt, ...)
@@ -112,6 +114,13 @@ static void mtk_cam_log_handle_info(struct buffered_logger *log)
 static void mtk_cam_log_handle_trace_fbc(struct buffered_logger *log)
 {
 	MTK_CAM_TRACE(FBC, "%s: %s: %.*s",
+		 dev_name(log->dev), log->prefix, log->size, log->buf);
+	log->size = 0;
+}
+
+static void mtk_cam_log_handle_trace_hw_irq(struct buffered_logger *log)
+{
+	MTK_CAM_TRACE(HW_IRQ, "%s: %s: %.*s",
 		 dev_name(log->dev), log->prefix, log->size, log->buf);
 	log->size = 0;
 }
@@ -193,7 +202,6 @@ struct reg_to_dump {
 #define ADD_DMA(name)	{ #name, REG_ ## name ## _BASE + DMA_OFFSET_ERR_STAT }
 static const struct reg_to_dump raw_dma_list[] = {
 	ADD_DMA(IMGO_R1),
-	ADD_DMA(IMGO_R1),
 	ADD_DMA(UFEO_R1),
 	ADD_DMA(PDO_R1),
 	ADD_DMA(FLKO_R1),
@@ -218,16 +226,16 @@ static const struct reg_to_dump raw_dma_list[] = {
 	ADD_DMA(BPCI_R3),
 	/* ADD_DMA(RAWI_R4), */
 	/* ADD_DMA(BPCI_R4), */
-	/* ADD_DMA(RAWI_R5), */
+	ADD_DMA(RAWI_R5),
 	ADD_DMA(RAWI_R6),
 	ADD_DMA(CACI_R1),
 };
 
 static const struct reg_to_dump yuv_dma_list[] = {
 	ADD_DMA(ACTSO_R1),
-	ADD_DMA(TNCSO_R1),
-	ADD_DMA(TNCSBO_R1),
-	ADD_DMA(TNCSHO_R1),
+	//ADD_DMA(TNCSO_R1), /* not supported in 7.1 */
+	//ADD_DMA(TNCSBO_R1), /* not supported in 7.1 */
+	//ADD_DMA(TNCSHO_R1), /* not supported in 7.1 */
 	ADD_DMA(TNCSYO_R1),
 	ADD_DMA(DRZS4NO_R1),
 	ADD_DMA(DRZS4NO_R2),
@@ -262,9 +270,12 @@ static void mtk_cam_dump_dma_err_st(struct device *dev, void __iomem *base,
 	int err_found = 0;
 	int err_st;
 
-	INIT_LOGGER_LIMITED(&log, dev);
-	mtk_cam_log_set_prefix(&log, "%s", prefix);
+	if (MTK_CAM_TRACE_ENABLED(HW_IRQ))
+		INIT_LOGGER_FTRACE_HW_IRQ(&log, dev);
+	else
+		INIT_LOGGER_LIMITED(&log, dev);
 
+	mtk_cam_log_set_prefix(&log, "%s", prefix);
 	while (from < to) {
 		err_st = readl_relaxed(base + from->reg);
 

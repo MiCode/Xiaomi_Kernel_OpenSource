@@ -303,8 +303,8 @@
 #define REG_CQI_R4_BASE        0x4560
 #define REG_LSCI_R1_BASE       0x45d0
 #define REG_BPCI_R1_BASE       0x4640
-#define REG_BPCI_R2_BASE       0x4660
-#define REG_BPCI_R3_BASE       0x46b0
+#define REG_BPCI_R2_BASE       0x4680
+#define REG_BPCI_R3_BASE       0x46c0
 #define REG_PDI_R1_BASE        0x4700
 #define REG_AAI_R1_BASE        0x4780
 #define REG_CACI_R1_BASE       0x47c0
