@@ -1420,17 +1420,40 @@ static void aputop_dump_pwr_reg(struct device *dev)
 {
 	char buf[32];
 
+	// reg dump for RPC
 	memset(buf, 0, sizeof(buf));
 	snprintf(buf, 32, "phys 0x%08x: ",
 			(u32)(apupw.phy_addr[apu_rpc]));
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			apupw.regs[apu_rpc], 0x300, true);
 
+	// reg dump for PCU
 	memset(buf, 0, sizeof(buf));
 	snprintf(buf, 32, "phys 0x%08x: ",
 			(u32)(apupw.phy_addr[apu_pcu]));
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			apupw.regs[apu_pcu], 0x100, true);
+
+	// reg dump for S.ARE0
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "phys 0x%08x: ",
+			(u32)(apupw.phy_addr[apu_are0]));
+	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			apupw.regs[apu_pcu], 0x50, true);
+
+	// reg dump for N.ARE
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "phys 0x%08x: ",
+			(u32)(apupw.phy_addr[apu_are1]));
+	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			apupw.regs[apu_pcu], 0x50, true);
+
+	// reg dump for S.ARE1
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "phys 0x%08x: ",
+			(u32)(apupw.phy_addr[apu_are2]));
+	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			apupw.regs[apu_pcu], 0x50, true);
 
 	apusys_pwr_smc_call(dev, MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP, 0);
 }
