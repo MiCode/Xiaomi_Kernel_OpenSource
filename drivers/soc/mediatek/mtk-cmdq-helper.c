@@ -1196,7 +1196,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	/* instruction may hit boundary case,
 	 * check if op code is jump and get next instruction if necessary
 	 */
-	if (inst->op == CMDQ_CODE_JUMP)
+	if (inst && inst->op == CMDQ_CODE_JUMP)
 		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
 			pkt, end_addr_mark + CMDQ_INST_SIZE);
 	if (absolute)
@@ -1204,9 +1204,10 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	else
 		shift_pa = CMDQ_REG_SHIFT_ADDR(
 			pkt->cmd_buf_size - end_addr_mark - CMDQ_INST_SIZE);
-	inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
-	inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
-
+	if (inst) {
+		inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
+		inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+	}
 	/* relative case the counter have different offset */
 	if (cnt_end_addr_mark) {
 		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
