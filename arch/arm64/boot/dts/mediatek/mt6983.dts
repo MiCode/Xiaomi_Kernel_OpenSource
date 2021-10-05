@@ -2852,14 +2852,22 @@
 		interrupts = <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&camsys_mraw_clk CLK_CAMSYS_MRAW_PDA0_CGPDN>,
 			<&camsys_mraw_clk CLK_CAMSYS_MRAW_PDA1_CGPDN>,
+			<&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>,
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA0_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA1_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA2_CG_CON>;
-		clock-names = "PDA_TOP_MUX",
-				"PDA2_TOP_MUX",
-				"PDA0_CAM_MAIN",
-				"PDA1_CAM_MAIN",
-				"PDA2_CAM_MAIN";
+		clock-names = "camsys_mraw_pda0",
+				"camsys_mraw_pda1",
+				"mraw_larbx",
+				"cam_main_cam2mm0_gals_cg_con",
+				"cam_main_cam2mm1_gals_cg_con",
+				"cam_main_cam_cg_con",
+				"cam_main_pda0",
+				"cam_main_pda1",
+				"cam_main_pda2";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 		mediatek,pda2 = <&pda2>;
 		mediatek,larbs = <&smi_larb13 &smi_larb25>;
@@ -2919,14 +2927,22 @@
 		interrupts = <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&camsys_mraw_clk CLK_CAMSYS_MRAW_PDA0_CGPDN>,
 			<&camsys_mraw_clk CLK_CAMSYS_MRAW_PDA1_CGPDN>,
+			<&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>,
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA0_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA1_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA2_CG_CON>;
-		clock-names = "PDA_TOP_MUX",
-				"PDA2_TOP_MUX",
-				"PDA0_CAM_MAIN",
-				"PDA1_CAM_MAIN",
-				"PDA2_CAM_MAIN";
+		clock-names = "camsys_mraw_pda0",
+				"camsys_mraw_pda1",
+				"mraw_larbx",
+				"cam_main_cam2mm0_gals_cg_con",
+				"cam_main_cam2mm1_gals_cg_con",
+				"cam_main_cam_cg_con",
+				"cam_main_pda0",
+				"cam_main_pda1",
+				"cam_main_pda2";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 		mediatek,larbs = <&smi_larb14 &smi_larb26>;
 		iommus = <&mdp_iommu M4U_PORT_L14_CAM1_PDAI_B_0>,
