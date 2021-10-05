@@ -499,6 +499,9 @@ int gen7_gmu_oob_set(struct kgsl_device *device,
 	int ret = 0;
 	int set, check;
 
+	if (req == oob_perfcntr && gmu->num_oob_perfcntr++)
+		return 0;
+
 	if (req >= oob_boot_slumber) {
 		dev_err(&gmu->pdev->dev,
 			"Unsupported OOB request %s\n",
@@ -513,6 +516,8 @@ int gen7_gmu_oob_set(struct kgsl_device *device,
 
 	if (gmu_core_timed_poll_check(device, GEN7_GMU_GMU2HOST_INTR_INFO, check,
 				100, check)) {
+		if (req == oob_perfcntr)
+			gmu->num_oob_perfcntr--;
 		gmu_core_fault_snapshot(device);
 		ret = -ETIMEDOUT;
 		WARN(1, "OOB request %s timed out\n", oob_to_str(req));
@@ -531,6 +536,9 @@ void gen7_gmu_oob_clear(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	int clear = BIT(31 - req * 2);
+
+	if (req == oob_perfcntr && --gmu->num_oob_perfcntr)
+		return;
 
 	if (req >= oob_boot_slumber) {
 		dev_err(&gmu->pdev->dev, "Unsupported OOB clear %s\n",
