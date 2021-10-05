@@ -65,7 +65,7 @@ static DEFINE_MUTEX(slbc_ops_lock);
 /* 1 in bit is from request done to relase done */
 static unsigned long slbc_uid_used;
 /* 1 in bit is for mask */
-static unsigned long slbc_uid_mask;
+static unsigned long slbc_sid_mask;
 /* 1 in bit is under request flow */
 static unsigned long slbc_sid_req_q;
 /* 1 int bit is under release flow */
@@ -520,7 +520,7 @@ static int slbc_debug_all(void)
 
 	pr_info("slbc_enable %x\n", slbc_enable);
 	pr_info("slbc_uid_used %lx\n", slbc_uid_used);
-	pr_info("slbc_uid_mask %lx\n", slbc_uid_mask);
+	pr_info("slbc_sid_mask %lx\n", slbc_sid_mask);
 	pr_info("slbc_sid_req_q %lx\n", slbc_sid_req_q);
 	pr_info("slbc_sid_rel_q %lx\n", slbc_sid_rel_q);
 	pr_info("slbc_slot_used %lx\n", slbc_slot_used);
@@ -663,8 +663,8 @@ int slbc_request(struct slbc_data *d)
 #endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-	slbc_debug_log("%s: slbc_uid_mask %lx", __func__, slbc_uid_mask);
-	if (test_bit(uid, &slbc_uid_mask)) {
+	slbc_debug_log("%s: slbc_sid_mask %lx", __func__, slbc_sid_mask);
+	if (test_bit(uid, &slbc_sid_mask)) {
 		ret = -EREQ_MASKED;
 		goto error;
 	}
@@ -875,8 +875,8 @@ int slbc_release(struct slbc_data *d)
 #endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-	slbc_debug_log("%s: slbc_uid_mask %lx", __func__, slbc_uid_mask);
-	if (test_bit(uid, &slbc_uid_mask)) {
+	slbc_debug_log("%s: slbc_sid_mask %lx", __func__, slbc_sid_mask);
+	if (test_bit(uid, &slbc_sid_mask)) {
 		ret = -EREQ_MASKED;
 		goto error;
 	}
@@ -1111,7 +1111,7 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 
 	seq_printf(m, "slbc_enable %x\n", slbc_enable);
 	seq_printf(m, "slbc_uid_used 0x%lx\n", slbc_uid_used);
-	seq_printf(m, "slbc_uid_mask 0x%lx\n", slbc_uid_mask);
+	seq_printf(m, "slbc_sid_mask 0x%lx\n", slbc_sid_mask);
 	seq_printf(m, "slbc_sid_req_q 0x%lx\n", slbc_sid_req_q);
 	seq_printf(m, "slbc_sid_rel_q 0x%lx\n", slbc_sid_rel_q);
 	seq_printf(m, "slbc_slot_used 0x%lx\n", slbc_slot_used);
@@ -1187,8 +1187,8 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 		}
 	} else if (!strcmp(cmd, "slbc_uid_used"))
 		slbc_uid_used = val_1;
-	else if (!strcmp(cmd, "slbc_uid_mask"))
-		slbc_uid_mask = val_1;
+	else if (!strcmp(cmd, "slbc_sid_mask"))
+		slbc_sid_mask = val_1;
 	else if (!strcmp(cmd, "slbc_sid_req_q"))
 		slbc_sid_req_q = val_1;
 	else if (!strcmp(cmd, "slbc_sid_rel_q"))
