@@ -1834,10 +1834,8 @@ static inline int get_scale_cnt(struct drm_mtk_layering_info *disp_info)
 		/* check exist clear layer */
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 			c = &disp_info->input_config[disp_idx][i];
-			if (mtk_has_layer_cap(c, MTK_DISP_RSZ_LAYER)) {
+			if (mtk_has_layer_cap(c, MTK_DISP_RSZ_LAYER))
 				scale_cnt++;
-				break;
-			}
 		}
 	}
 
@@ -2904,7 +2902,6 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	/* adjust scenario after dispatch gles range */
 	scale_num = get_scale_cnt(&layering_info);
 	l_rule_ops->scenario_decision(scn_decision_flag, scale_num);
-
 	ret = dispatch_ovl_id(&layering_info, lyeblob_ids, dev);
 
 	check_layering_result(&layering_info);
