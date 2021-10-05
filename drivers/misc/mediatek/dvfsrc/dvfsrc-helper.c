@@ -398,6 +398,13 @@ static void dvfsrc_dump(struct mtk_dvfsrc *dvfsrc)
 		config->dump_spm_info(dvfsrc, p, dump_size);
 		pr_info("%s", dvfsrc->dump_buf);
 	}
+
+	if (config->dump_spm_timer_latch && dvfsrc->spm_regs && dvfsrc->dvd->spm_stamp_en) {
+		p = dvfsrc->dump_buf;
+		config->dump_spm_timer_latch(dvfsrc, p, dump_size);
+		pr_info("%s", dvfsrc->dump_buf);
+	}
+
 	mutex_unlock(&dvfsrc->dump_lock);
 }
 
@@ -817,6 +824,7 @@ static const struct dvfsrc_debug_data mt6983_data = {
 	.config = &mt6983_dvfsrc_config,
 	.opps_desc = dvfsrc_opp_mt6983_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6983_desc),
+	.spm_stamp_en = true,
 };
 
 static const struct dvfsrc_debug_data mt6895_data = {

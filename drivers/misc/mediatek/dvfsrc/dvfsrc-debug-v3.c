@@ -125,6 +125,7 @@ enum dvfsrc_spm_regs {
 	SPM_DVFS_CMD2,
 	SPM_DVFS_CMD3,
 	SPM_DVFS_CMD4,
+	SPM_TIMER_LATCH,
 };
 static const int mt6873_spm_regs[] = {
 	[POWERON_CONFIG_EN] = 0x0,
@@ -165,6 +166,7 @@ static const int mt6877_spm_regs[] = {
 	[SPM_DVFS_CMD2] = 0x0318,
 	[SPM_DVFS_CMD3] = 0x031C,
 	[SPM_DVFS_CMD4] = 0x0320,
+	[SPM_TIMER_LATCH] = 0x514,
 };
 
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
@@ -623,7 +625,7 @@ static char *dvfsrc_dump_mt6873_spm_info(struct mtk_dvfsrc *dvfsrc,
 	return p;
 }
 
-static char *dvfsrc_dump_mt6983_spm_info(struct mtk_dvfsrc *dvfsrc,
+static char *dvfsrc_dump_mt6983_spm_cmd(struct mtk_dvfsrc *dvfsrc,
 	char *p, u32 size)
 {
 	char *buff_end = p + size;
@@ -635,6 +637,33 @@ static char *dvfsrc_dump_mt6983_spm_info(struct mtk_dvfsrc *dvfsrc,
 	for (i = 0; i < 24; i++) {
 		p += snprintf(p, buff_end - p, "CMD%d: 0x%08x\n", i,
 			spm_read_offset(dvfsrc, SPM_DVFS_CMD0, i * 4));
+	}
+
+	return p;
+}
+
+static char *dvfsrc_dump_mt6983_spm_timer_latch(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
+{
+	char *buff_end = p + size;
+	int i;
+	unsigned int offset;
+
+	if (!dvfsrc->spm_regs)
+		return p;
+
+	if (!dvfsrc->dvd->spm_stamp_en) {
+		p += snprintf(p, buff_end - p, "stamp not support\n");
+	} else {
+		for (i = 0; i < 8; i++) {
+			offset = i * 0x10;
+			p += snprintf(p, buff_end - p, "T[%d] :%08x,%08x,%08x,%08x\n",
+				i,
+				spm_read_offset(dvfsrc, SPM_TIMER_LATCH, offset + 0x0),
+				spm_read_offset(dvfsrc, SPM_TIMER_LATCH, offset + 0x4),
+				spm_read_offset(dvfsrc, SPM_TIMER_LATCH, offset + 0x8),
+				spm_read_offset(dvfsrc, SPM_TIMER_LATCH, offset + 0xC));
+		}
 	}
 
 	return p;
@@ -784,6 +813,7 @@ const struct dvfsrc_config mt6983_dvfsrc_config = {
 	.dump_vmode_info = dvfsrc_dump_mt6873_vmode_info,
 	.query_request = dvfsrc_query_request_status,
 	.query_dvfs_time = dvfsrc_query_dvfs_time,
-	.dump_spm_cmd = dvfsrc_dump_mt6983_spm_info,
+	.dump_spm_cmd = dvfsrc_dump_mt6983_spm_cmd,
+	.dump_spm_timer_latch = dvfsrc_dump_mt6983_spm_timer_latch,
 };
 
