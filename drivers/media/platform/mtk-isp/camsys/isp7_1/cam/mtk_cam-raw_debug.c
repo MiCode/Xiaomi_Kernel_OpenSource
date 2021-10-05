@@ -111,7 +111,7 @@ static void mtk_cam_log_handle_info(struct buffered_logger *log)
 
 static void mtk_cam_log_handle_trace_fbc(struct buffered_logger *log)
 {
-	MTK_CAM_TRACE(FBC, "%s: %s: %.*s\n",
+	MTK_CAM_TRACE(FBC, "%s: %s: %.*s",
 		 dev_name(log->dev), log->prefix, log->size, log->buf);
 	log->size = 0;
 }

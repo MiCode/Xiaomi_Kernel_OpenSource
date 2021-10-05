@@ -2092,8 +2092,15 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 			      irq_status, dmao_done_status, dmai_done_status,
 			      !!err_status);
 
-	if (MTK_CAM_TRACE_ENABLED(FBC) && (irq_status & SOF_INT_ST))
+	if (MTK_CAM_TRACE_ENABLED(FBC) && (irq_status & TG_VS_INT_ORG_ST)) {
+#ifdef DUMP_FBC_SEL_OUTER
+		MTK_CAM_TRACE(FBC, "frame %d FBC_SEL 0x% 8x/0x% 8x (outer)",
+			irq_info.frame_idx_inner,
+			readl_relaxed(raw_dev->base + REG_CAMCTL_FBC_SEL),
+			readl_relaxed(raw_dev->yuv_base + REG_CAMCTL_FBC_SEL));
+#endif
 		mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
+	}
 
 	if (drop_status)
 		MTK_CAM_TRACE(HW_IRQ, "%s: drop=0x%08x",

@@ -222,6 +222,7 @@
 
 #define REG_FRAME_SEQ_NUM					0x4994
 
+#define REG_CAMCTL_FBC_SEL				0x00A0
 #define REG_CAMCTL_FBC_RCNT_INC				0x00A4
 
 #define CAMCTL_IMGO_R1_RCNT_INC				BIT(0)
