@@ -87,6 +87,8 @@ static void mtk_cam_event_request_drained(struct mtk_raw_pipeline *pipeline)
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_REQUEST_DRAINED,
 	};
+	MTK_CAM_TRACE(BASIC, "raw drained event id:%d",
+		pipeline->id);
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
 
@@ -95,6 +97,8 @@ static void mtk_cam_sv_event_request_drained(struct mtk_camsv_device *camsv_dev)
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_REQUEST_DRAINED,
 	};
+	MTK_CAM_TRACE(BASIC, "sv drained event id:%d",
+		camsv_dev->id);
 	v4l2_event_queue(camsv_dev->pipeline->subdev.devnode, &event);
 }
 
@@ -104,6 +108,9 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	int sensor_seq_no_next =
 			atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
 	int res = 0;
+
+	if (mtk_cam_is_subsample(ctx))
+		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
 
 	if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no))
 		res = 1;
@@ -123,6 +130,9 @@ static void mtk_cam_sv_request_drained(struct mtk_camsv_device *camsv_dev,
 	int sensor_seq_no_next =
 			atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
 	int res = 0;
+
+	if (mtk_cam_is_subsample(ctx))
+		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
 
 	if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no))
 		res = 1;
@@ -916,7 +926,7 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int sensor_seq_no_next =
-			atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
+			atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
 
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 	if (req_stream_data) {
@@ -1306,13 +1316,17 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 		/* handle V4L2_EVENT_REQUEST_DRAINED event */
 		mtk_cam_sv_request_drained(camsv_dev, sensor_ctrl);
 	}
+	if (mtk_cam_is_subsample(ctx)) {
+		dev_dbg(cam->dev,
+			"[TimerIRQ [SOF+%dms]] ctx:%d, isp_enq_seq_no:%d\n",
+			time_after_sof, ctx->stream_id,
+			atomic_read(&sensor_ctrl->isp_enq_seq_no));
+		return HRTIMER_NORESTART;
+	}
 	dev_dbg(cam->dev,
 			"[TimerIRQ [SOF+%dms]] ctx:%d, sensor_req_seq_no:%d\n",
 			time_after_sof, ctx->stream_id,
 			atomic_read(&sensor_ctrl->sensor_request_seq_no));
-	if (mtk_cam_is_subsample(ctx))
-		return HRTIMER_NORESTART;
-
 	if (drained_res == 0) {
 		if (atomic_read(&ctx->enqueued_frame_seq_no) ==
 			atomic_read(&sensor_ctrl->sensor_enq_seq_no)) {
@@ -1384,7 +1398,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 			    state_element) {
 		req = mtk_cam_ctrl_state_get_req(state_temp);
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		stateidx = (atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1) -
+		stateidx = atomic_read(&sensor_ctrl->isp_enq_seq_no) + 1 -
 			   req_stream_data->frame_seq_no;
 		if (stateidx < STATE_NUM_AT_SOF && stateidx > -1) {
 			state_rec[stateidx] = state_temp;
@@ -2506,16 +2520,21 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_entry);
 		req = req_stream_data->req;
 		if (mtk_cam_is_subsample(ctx)) {
-			state_transition(state_entry, E_STATE_SUBSPL_SCQ,
-						E_STATE_SUBSPL_OUTER);
-			state_transition(state_entry, E_STATE_SUBSPL_SCQ_DELAY,
-						E_STATE_SUBSPL_OUTER);
 			if (raw_dev->sof_count == 0)
 				state_transition(state_entry, E_STATE_SUBSPL_READY,
 						E_STATE_SUBSPL_OUTER);
-			dev_dbg(raw_dev->dev,
-					"[CQD-subsample] req:%d, CQ->OUTER state:0x%x\n",
-					req_stream_data->frame_seq_no, state_entry->estate);
+			if (state_entry->estate >= E_STATE_SUBSPL_SCQ &&
+				state_entry->estate < E_STATE_SUBSPL_INNER) {
+				state_transition(state_entry, E_STATE_SUBSPL_SCQ,
+							E_STATE_SUBSPL_OUTER);
+				state_transition(state_entry, E_STATE_SUBSPL_SCQ_DELAY,
+							E_STATE_SUBSPL_OUTER);
+				atomic_set(&sensor_ctrl->isp_enq_seq_no,
+							req_stream_data->frame_seq_no);
+				dev_dbg(raw_dev->dev,
+						"[CQD-subsample] req:%d, CQ->OUTER state:0x%x\n",
+						req_stream_data->frame_seq_no, state_entry->estate);
+			}
 		} else if (mtk_cam_is_time_shared(ctx)) {
 			if (req_stream_data->frame_seq_no == frame_seq_no_outer &&
 				frame_seq_no_outer >
@@ -3770,6 +3789,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	atomic_set(&camsys_sensor_ctrl->sensor_enq_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->sensor_request_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_request_seq_no, 0);
+	atomic_set(&camsys_sensor_ctrl->isp_enq_seq_no, 0);
 	camsys_sensor_ctrl->initial_cq_done = 0;
 	camsys_sensor_ctrl->sof_time = 0;
 	if (ctx->used_raw_num) {
