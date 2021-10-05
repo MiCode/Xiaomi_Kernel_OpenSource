@@ -181,6 +181,20 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_PDAF1;
 		vc->group = 0;
+	} else if (ctx->is_test_model == 5) {
+		vc = &vcinfo->vc[vcinfo->cnt++];
+		vc->vc = 0;
+		vc->dt = 0x2b;
+		vc->feature = VC_RAW_DATA;
+		vc->out_pad = PAD_SRC_RAW0;
+		vc->group = 0;
+
+		vc = &vcinfo->vc[vcinfo->cnt++];
+		vc->vc = 0;
+		vc->dt = 0x2b;
+		vc->feature = VC_RAW_W_DATA;
+		vc->out_pad = PAD_SRC_RAW_W0;
+		vc->group = 0;
 	}
 }
 

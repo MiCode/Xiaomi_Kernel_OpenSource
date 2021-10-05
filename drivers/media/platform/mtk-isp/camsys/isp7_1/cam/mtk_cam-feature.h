@@ -145,6 +145,7 @@ bool mtk_cam_feature_change_is_mstream(int feature_change);
 bool mtk_cam_is_subsample(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_2_exposure(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_3_exposure(struct mtk_cam_ctx *ctx);
+bool mtk_cam_is_with_w_channel(struct mtk_cam_ctx *ctx);
 int mtk_cam_get_sensor_exposure_num(u32 raw_feature);
 int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 			       int prev);

@@ -81,6 +81,7 @@ enum raw_function_id {
 	OFFLINE_M2M			= (1 << 8),
 	PURE_OFFLINE_M2M		= (2 << 8),
 	TIMESHARE_1_GROUP		= (1 << 12),
+	WITH_W_CHANNEL			= (1  << 16),
 	RAW_FUNCTION_END		= 0xF0000000,
 };
 

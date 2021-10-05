@@ -110,6 +110,14 @@ bool mtk_cam_is_3_exposure(struct mtk_cam_ctx *ctx)
 	return mtk_cam_feature_is_3_exposure(ctx->pipe->feature_pending);
 }
 
+bool mtk_cam_is_with_w_channel(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return (ctx->pipe->feature_pending & WITH_W_CHANNEL) != 0;
+}
+
 int mtk_cam_get_sensor_exposure_num(u32 raw_feature)
 {
 	int result = 1;

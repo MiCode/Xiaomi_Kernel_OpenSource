@@ -745,6 +745,9 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW2);
 		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF0);
 		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF1);
+	} else if (ctx->is_test_model == 5) {
+		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_W0);
 	} else {
 		dev_info(ctx->dev, "testmodel %d invalid\n", ctx->is_test_model);
 		return -1;
@@ -1303,6 +1306,7 @@ static int seninf_test_pattern(struct seninf_ctx *ctx, u32 pattern)
 	case 2:// Stagger: 3 expo
 	case 3:// 1 RAW + 1 PD
 	case 4:// 3 RAW + 2 PD
+	case 5:// 1 RAW + 1 W channel
 		if (ctx->streaming)
 			return -EBUSY;
 		ctx->is_test_model = pattern;
@@ -1421,6 +1425,7 @@ static const char * const seninf_test_pattern_menu[] = {
 	"generate_test_pattern_stagger",
 	"generate_test_pattern_pd",
 	"generate_test_pattern_5_src_pad",
+	"generate_test_pattern_raw_and_w",
 };
 
 #ifdef SENINF_DEBUG

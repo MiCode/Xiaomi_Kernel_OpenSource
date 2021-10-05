@@ -2027,7 +2027,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 			s_data->frame_seq_no = atomic_inc_return(&ctx->enqueued_frame_seq_no);
 			mtk_cam_req_update_seq(ctx, req,
 					       ++(ctx->enqueued_request_cnt));
-			if (is_raw_subdev(i)) {
+			if (is_raw_subdev(i) && ctx->sensor) {
 				previous_feature = ctx->pipe->feature_pending;
 
 				s_data_cnt =
@@ -3590,6 +3590,22 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 
 		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
 		req_amount = (mtk_cam_is_3_exposure(ctx)) ? 3 : 2;
+	} else if (mtk_cam_is_with_w_channel(ctx)) {
+		int master, hw_scen, req_amount, idle_pipes;
+
+		master = (ctx->pipe->enabled_raw & (1 << MTKCAM_SUBDEV_RAW_0)) ?
+			(1 << MTKCAM_SUBDEV_RAW_0) : (1 << MTKCAM_SUBDEV_RAW_1);
+		hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
+		req_amount = 1;
+
+		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
+		/* cached used sv pipes */
+		ctx->pipe->enabled_raw |= idle_pipes;
+		if (idle_pipes == 0) {
+			dev_info(cam->dev, "no available sv pipes(scen:%d/req_amount:%d)",
+				hw_scen, req_amount);
+			return -EINVAL;
+		}
 	}
 
 	update_hw_mapping(ctx, &config_param);
@@ -4273,6 +4289,30 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					src_pad_idx++;
 					dev_info(cam->dev, "[TS] scen:0x%x/enabled_raw:0x%x/i(%d)",
 					hw_scen, ctx->pipe->enabled_raw, i);
+				}
+			}
+		} else if (mtk_cam_is_with_w_channel(ctx)) {
+			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
+				if (ctx->pipe->enabled_raw & 1 << i) {
+					int hw_scen =
+						(1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
+
+					mtk_cam_call_seninf_set_pixelmode(ctx, ctx->seninf,
+						PAD_SRC_RAW_W0, tgo_pxl_mode);
+					mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW_W0,
+						cam->sv.pipelines[
+							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
+					dev_info(cam->dev,
+						"seninf_set_camtg(src_pad:%d/i:%d/camtg:%d)",
+						PAD_SRC_RAW_W0, i,
+						cam->sv.pipelines[
+							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
+					ret = mtk_cam_sv_dev_config(ctx,
+							i - MTKCAM_SUBDEV_CAMSV_START,
+							hw_scen, 0);
+					if (ret)
+						goto fail_pipe_off;
+					break;
 				}
 			}
 		}

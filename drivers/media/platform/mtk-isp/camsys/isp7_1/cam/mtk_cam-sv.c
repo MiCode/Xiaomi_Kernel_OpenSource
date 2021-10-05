@@ -1506,6 +1506,7 @@ int mtk_cam_sv_dev_config(
 	unsigned int i;
 	int ret, pad_idx, pixel_mode = 0;
 
+	// TODO: correct w channel
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
 			.active_fmt;
@@ -2136,6 +2137,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-hwcap",
 						       &sv->hw_cap);
+	sv->hw_cap |= (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
 	if (ret) {
 		dev_dbg(dev, "missing hardware capability property\n");
 		return ret;

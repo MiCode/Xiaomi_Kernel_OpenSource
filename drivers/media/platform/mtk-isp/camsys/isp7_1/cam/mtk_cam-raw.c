@@ -395,9 +395,18 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 	    !res_user->sensor_res.interval.denominator ||
 	    !res_user->sensor_res.interval.numerator)) {
 		dev_info(dev,
-			 "%s:pipe(%d): sensor info MUST be provided\n",
+			 "%s:pipe(%d): sensor info MUST be provided (TEST_PATTERN case)\n",
 			 __func__, pipeline->id);
-		return -EINVAL;
+		/*test pattern case resource default copy*/
+		pipeline->res_config.raw_num_used = 1;
+		pipeline->res_config.bin_enable = 0;
+		pipeline->res_config.tgo_pxl_mode = 1;
+		pipeline->res_config.raw_path = 0;
+		pipeline->res_config.hwn_limit_min = 1;
+		pipeline->res_config.raw_feature = res_user->raw_res.feature;
+		pipeline->feature_pending = res_user->raw_res.feature;
+		pipeline->feature_active = res_user->raw_res.feature;
+		return 0;
 	}
 
 	/* check user value of raw input parameters */
