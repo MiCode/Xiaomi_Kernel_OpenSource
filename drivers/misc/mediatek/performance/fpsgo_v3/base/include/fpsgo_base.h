@@ -59,6 +59,7 @@ struct fbt_frame_info {
 struct fbt_thread_loading {
 	int pid;
 	unsigned long long buffer_id;
+	int hwui;
 	atomic_t loading;
 	atomic_t *loading_cl;
 	atomic_t last_cb_ts;
