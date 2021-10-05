@@ -13,6 +13,8 @@
 #define _MTK_DMABUFHEAP_H
 #include <linux/dma-buf.h>
 
+extern atomic64_t dma_heap_normal_total;
+
 /* return 0 means error */
 u32 dmabuf_to_secure_handle(const struct dma_buf *dmabuf);
 
