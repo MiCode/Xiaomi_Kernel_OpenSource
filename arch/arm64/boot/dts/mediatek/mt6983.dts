@@ -3459,6 +3459,7 @@
 		pmif = <&spmi 0>;
 		srclken_rc = <&srclken_rc>;
 		consys = <&consys>;
+		pcie = <&pcie_ckm_xtal_ck>;
 	};
 
 	keypad: kp@1c00e000 {
