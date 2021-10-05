@@ -293,6 +293,10 @@ static void print_vio_mask_sta(bool debug)
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 
+		if (slave_type == DEVAPC_TYPE_ADSP &&
+			!is_adsp_feature_in_active())
+			continue;
+
 		pd_vio_shift_sta_reg = mtk_devapc_pd_get(slave_type,
 				VIO_SHIFT_STA, 0);
 
@@ -743,6 +747,10 @@ static void start_devapc(void)
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 
+		/* bypass adsp check since adsp power on after lk.
+		 * todo: add image status check from smc
+		 */
+
 		pd_apc_con_reg = mtk_devapc_pd_get(slave_type, APC_CON, 0);
 		pd_vio_shift_sta_reg = mtk_devapc_pd_get(
 				slave_type, VIO_SHIFT_STA, 0);
@@ -916,6 +924,10 @@ static void devapc_dump_info(void)
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
 
+		if (slave_type == DEVAPC_TYPE_ADSP &&
+			!is_adsp_feature_in_active())
+			continue;
+
 		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
 			if (!mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
 						&index))
@@ -1026,6 +1038,10 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
+			continue;
+
+		if (slave_type == DEVAPC_TYPE_ADSP &&
+			!is_adsp_feature_in_active())
 			continue;
 
 		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
