@@ -7394,6 +7394,16 @@
 		mediatek,smi-id = <1>;
 		iommus = <&disp_iommu M4U_LARB1_PORT3>,
 			 <&disp_iommu M4U_LARB1_PORT2>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB1_PORT3)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB1_PORT3)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB1_PORT3)
+					&mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "DDP_COMPONENT_OVL0_2L_NWCG_qos",
+					"DDP_COMPONENT_OVL0_2L_NWCG_fbdc_qos",
+					"DDP_COMPONENT_OVL0_2L_NWCG_hrt_qos";
 	};
 
 	disp_rdma1: disp_rdma1@1401c000 {
