@@ -8246,8 +8246,9 @@
 			phys = <&u2port0 PHY_TYPE_USB2>,
 				 <&u3port0 PHY_TYPE_USB3>;
 			clocks = <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
-				<&topckgen_clk CLK_TOP_USB_XHCI_SEL>;
-			clock-names = "sys_ck", "host_ck";
+				<&topckgen_clk CLK_TOP_USB_XHCI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_1_USB_FRMC>;
+			clock-names = "sys_ck", "host_ck", "frmcnt_ck";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
@@ -8288,8 +8289,9 @@
 			phy-cells = <1>;
 			phys = <&u2port1 PHY_TYPE_USB2>;
 			clocks = <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
-				<&topckgen_clk CLK_TOP_USB_XHCI_SEL>;
-			clock-names = "sys_ck", "host_ck";
+				<&topckgen_clk CLK_TOP_USB_XHCI_SEL>,
+				<&pericfg_ao_clk CLK_PERAOP_1_USB1P_FRMC>;
+			clock-names = "sys_ck", "host_ck", "frmcnt_ck";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
