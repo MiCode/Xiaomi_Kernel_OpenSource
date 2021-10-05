@@ -1187,6 +1187,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		g_seninf_ops->_set_idle(ctx);
 		mtk_cam_seninf_release_mux(ctx);
 		seninf_dfs_set(ctx, 0);
+		g_seninf_ops->_poweroff(ctx);
 		pm_runtime_put_sync(ctx->dev);
 	}
 
