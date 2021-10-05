@@ -2236,6 +2236,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	struct vb2_queue *dst_vq;
 	dma_addr_t new_dma_addr;
 	bool new_dma = false;
+	char debug_bs[50] = "";
 
 	mtk_v4l2_debug(4, "[%d] (%d) id=%d, vb=%p",
 				   ctx->id, vb->vb2_queue->type,
@@ -2337,17 +2338,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		src_mem->dmabuf);
 
 	if (src_mem->va != NULL) {
-		mtk_v4l2_debug(0, "[%d] %x %x %x %x %x %x %x %x %x\n",
-					   ctx->id,
-					   ((char *)src_mem->va)[0],
-					   ((char *)src_mem->va)[1],
-					   ((char *)src_mem->va)[2],
-					   ((char *)src_mem->va)[3],
-					   ((char *)src_mem->va)[4],
-					   ((char *)src_mem->va)[5],
-					   ((char *)src_mem->va)[6],
-					   ((char *)src_mem->va)[7],
-					   ((char *)src_mem->va)[8]);
+		sprintf(debug_bs, "%02x %02x %02x %02x %02x %02x %02x %02x %02x",
+		  ((char *)src_mem->va)[0], ((char *)src_mem->va)[1], ((char *)src_mem->va)[2],
+		  ((char *)src_mem->va)[3], ((char *)src_mem->va)[4], ((char *)src_mem->va)[5],
+		  ((char *)src_mem->va)[6], ((char *)src_mem->va)[7], ((char *)src_mem->va)[8]);
 	}
 
 	frame_size[0] = ctx->dec_params.frame_size_width;
@@ -2393,10 +2387,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		v4l2_m2m_buf_done(src_vb2_v4l2,
 						  VB2_BUF_STATE_DONE);
 		mtk_v4l2_debug(ret ? 0 : 1,
-			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d",
+			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d, BS %s",
 			ctx->id, src_buf->index,
 			src_mem->size, ret, res_chg,
-			mtk_vcodec_unsupport);
+			mtk_vcodec_unsupport, debug_bs);
 
 		/* If not support the source, eg: w/h,
 		 * bitdepth, level, we need to stop to play it
@@ -2802,7 +2796,7 @@ static int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 		if (ctx->state >= MTK_STATE_HEADER)
 			ctrl->val = ctx->dpb_size;
 		else {
-			mtk_v4l2_debug(0, "Seqinfo not ready");
+			mtk_v4l2_debug(1, "Seqinfo not ready");
 			ctrl->val = 0;
 		}
 		break;
