@@ -12,6 +12,7 @@
 #define MAX_MUX_NUM (10)
 #define MAX_OPP_STEP 7
 #define DEFAULT_VOLTAGE 650000
+#define DEFAULT_VOLTAGE_LEVEL 3
 
 enum dvfs_apmcu_task_id {
 	DVFS_CCU_NO_NEED_CB = -1,

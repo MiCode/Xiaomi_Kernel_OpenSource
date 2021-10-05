@@ -372,6 +372,10 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	if (drv_data->disable_dvfs)
 		return 0;
 
+	/* record vmm & related consumer traces */
+	trace_vmm__update_voltage(min_uV);
+	regulator_trace_consumers(rdev);
+
 	current_info = &(drv_data->current_dvfs);
 	mutex_lock(&current_info->voltage_mutex);
 
@@ -430,9 +434,6 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 
 	current_info->voltage_target = min_uV;
 	mutex_unlock(&current_info->voltage_mutex);
-
-	trace_vmm__update_voltage(min_uV);
-	regulator_trace_consumers(rdev);
 
 	ISP_LOGD("CCU VMM set voltage (%d) max level(%d)",
 			min_uV, dvfs_ipi.maxOppIdx);
@@ -677,7 +678,7 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	char prop_name[32];
 	struct dentry *dentry;
 	struct ispdvfs_dbg_data *dbg_data;
-	u32 opp_level = 0;
+	u32 opp_level = DEFAULT_VOLTAGE_LEVEL;
 	u32 disable_dvfs = 0;
 
 	match = of_match_node(mtk_vmm_regulator_match, dev->of_node);
