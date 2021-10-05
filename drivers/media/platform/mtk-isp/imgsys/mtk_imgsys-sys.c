@@ -529,7 +529,7 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 	mtk_imgsys_pipe_remove_job(req);
 
 	req->tstate.time_unmapiovaEnd = ktime_get_boottime_ns()/1000;
-	dev_info(imgsys_dev->dev,
+	dev_dbg(imgsys_dev->dev,
 			"[K]%s:%d:%s:%6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld\n",
 			__func__, req->tstate.req_fd, ((char *)(&frm_owner)),
 			(req->tstate.time_qreq-req->tstate.time_qbuf),
@@ -1660,7 +1660,7 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 	}
 	mutex_unlock(&imgsys_dev->hw_op_lock);
 
-	dev_info(imgsys_dev->dev, "%s:(reqfd-%d) sent\n", __func__,
+	dev_dbg(imgsys_dev->dev, "%s:(reqfd-%d) sent\n", __func__,
 							req->tstate.req_fd);
 
 	IMGSYS_SYSTRACE_END();
