@@ -86,7 +86,7 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 {
 	int retry = 0, ret = 0;
 	const int max_retry = 10;
-	const int64_t timeout = 2000000000LL;
+	const int64_t timeout = 10000000000LL;
 	int64_t start_time = 0, duration = 0;
 
 	start_time = ktime_get_boottime_ns();
@@ -102,7 +102,7 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 
 	duration = ktime_get_boottime_ns() - start_time;
 	if (duration > timeout) {
-		pr_notice("running time %lld\n", duration);
+		pr_notice("running time %lld, retry:%d\n", duration, retry);
 		WARN_ON(1);
 	}
 	return ret;
