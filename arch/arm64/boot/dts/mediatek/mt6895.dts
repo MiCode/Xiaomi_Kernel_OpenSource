@@ -1372,6 +1372,14 @@
 			iommus = <&apu_iommu0 M4U_LARB34_APU_CODE>;
 		};
 
+		mdla {
+			compatible = "mediatek, mdla-rv";
+			core_num = <2>;
+			version = <0x68950300>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+			iommus = <&apu_iommu0 M4U_LARB34_APU_CODE>;
+		};
+
 		toprgu@10007000 {
 			compatible = "mediatek,toprgu";
 			reg = <0 0x10007000 0 0x1000>;
