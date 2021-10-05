@@ -6699,7 +6699,7 @@ static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
-	.dsi_buffer = false,
+	.dsi_buffer = true,
 	.max_vfp = 0xffe,
 };
 
