@@ -87,7 +87,7 @@ void ccif_disable_irq(struct ccci_modem *md)
 
 	if (atomic_cmpxchg(&md_info->ccif_irq_enabled, 1, 0) == 1) {
 		disable_irq_nosync(md_info->ap_ccif_irq_id);
-		CCCI_NORMAL_LOG(md->index, TAG, "disable ccif irq\n");
+		/*CCCI_NORMAL_LOG(md->index, TAG, "disable ccif irq\n");*/
 	}
 }
 
@@ -107,7 +107,7 @@ void wdt_disable_irq(struct ccci_modem *md)
 		 * if use disable_irq in isr, system will hang
 		 */
 		disable_irq_nosync(md->md_wdt_irq_id);
-		CCCI_NORMAL_LOG(md->index, TAG, "disable wdt irq\n");
+		/*CCCI_NORMAL_LOG(md->index, TAG, "disable wdt irq\n");*/
 	}
 }
 
@@ -115,31 +115,12 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 {
 	struct ccci_modem *md = (struct ccci_modem *)data;
 
-	CCCI_ERROR_LOG(md->index, TAG, "MD WDT IRQ\n");
-
+	//CCCI_ERROR_LOG(md->index, TAG, "MD WDT IRQ\n");
+	//ccci_event_log("md%d: MD WDT IRQ\n", md->index);
 	ccif_disable_irq(md);
 	wdt_disable_irq(md);
-
-	ccci_event_log("md%d: MD WDT IRQ\n", md->index);
-#ifndef DISABLE_MD_WDT_PROCESS
-	/* 1. disable MD WDT */
-#ifdef ENABLE_MD_WDT_DBG
-	unsigned int state;
-
-	state = ccci_read32(md->md_rgu_base, WDT_MD_STA);
-	ccci_write32(md->md_rgu_base, WDT_MD_MODE, WDT_MD_MODE_KEY);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"WDT IRQ disabled for debug, state=%X\n", state);
-#ifdef L1_BASE_ADDR_L1RGU
-	state = ccci_read32(md->l1_rgu_base, REG_L1RSTCTL_WDT_STA);
-	ccci_write32(md->l1_rgu_base,
-		REG_L1RSTCTL_WDT_MODE, L1_WDT_MD_MODE_KEY);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"WDT IRQ disabled for debug, L1 state=%X\n", state);
-#endif
-#endif
-#endif
 	ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_WDT);
+
 	return IRQ_HANDLED;
 }
 
@@ -270,7 +251,7 @@ int md_fsm_exp_info(int md_id, unsigned int channel_id)
 	struct ccci_modem *md;
 	struct md_sys1_info *md_info;
 
-	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
+	/*CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);*/
 	md = ccci_md_get_modem_by_id(md_id);
 	if (!md)
 		return 0;

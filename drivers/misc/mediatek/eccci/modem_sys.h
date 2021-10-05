@@ -98,7 +98,6 @@ struct md_sys1_info {
 		unsigned long ap_ccif_irq_flags;
 
 		void __iomem *md_rgu_base;
-		void __iomem *l1_rgu_base;
 		void __iomem *md_global_con0;
 
 #ifdef MD_PEER_WAKEUP

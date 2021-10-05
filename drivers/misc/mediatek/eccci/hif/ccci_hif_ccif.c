@@ -1872,8 +1872,8 @@ static irqreturn_t md_cd_ccif_isr(int irq, void *data)
 	/* must ack first, otherwise IRQ will rush in */
 	channel_id = ccif_read32(ccif_ctrl->ccif_ap_base,
 		APCCIF_RCHNUM);
-	CCCI_DEBUG_LOG(ccif_ctrl->md_id, TAG,
-		"MD CCIF IRQ 0x%X\n", channel_id);
+	//CCCI_DEBUG_LOG(ccif_ctrl->md_id, TAG,
+	//	"MD CCIF IRQ 0x%X\n", channel_id);
 	/*don't ack data queue to avoid missing rx intr*/
 	ccif_write32(ccif_ctrl->ccif_ap_base, APCCIF_ACK,
 		channel_id & (0xFFFF << RINGQ_EXP_BASE));
