@@ -2920,7 +2920,6 @@ static int vow_scp_recover_event(struct notifier_block *this,
 	case SCP_EVENT_READY: {
 		int I;
 
-		msleep(500);
 		vowserv.vow_recovering = true;
 		vowserv.scp_recovering = false;
 		VOWDRV_DEBUG("%s(), SCP_EVENT_READY\n", __func__);
