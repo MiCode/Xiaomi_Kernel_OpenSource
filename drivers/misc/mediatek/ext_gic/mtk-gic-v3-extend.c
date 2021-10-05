@@ -324,6 +324,21 @@ u32 mt_irq_get_en_hw(unsigned int hwirq)
 	return (readl_relaxed(base + (hwirq/32)*4) & bit) ?
 		1 : 0;
 }
+
+unsigned int mt_irq_get_sens(unsigned int irq)
+{
+	unsigned int config;
+
+	/*
+	 * 2'b10 edge
+	 * 2'b00 level
+	 */
+	config = readl_relaxed(GIC_DIST_BASE + GIC_DIST_CONFIG + (irq / 16) * 4);
+	config = (config >> (irq % 16) * 2) & 0x3;
+
+	return config;
+
+}
 #endif
 
 void mt_irq_set_pending_hw(unsigned int hwirq)

@@ -339,9 +339,7 @@ void mt_cirq_enable(void)
 	mt_cirq_ack_all();
 
 	st = readl(IOMEM(CIRQ_CON));
-	st |=
-	    (CIRQ_CON_EN << CIRQ_CON_EN_BITS) | (CIRQ_CON_EDGE_ONLY <<
-						 CIRQ_CON_EDGE_ONLY_BITS);
+	st |= (CIRQ_CON_EN << CIRQ_CON_EN_BITS);
 	mt_reg_sync_writel((st & CIRQ_CON_BITS_MASK), CIRQ_CON);
 }
 EXPORT_SYMBOL(mt_cirq_enable);
@@ -686,10 +684,13 @@ static void collect_all_wakeup_events(void)
 					& irq_mask;
 			if (pol_mask == 0)
 				cirq_all_events.table[cirq_reg].pol |= mask;
+
 			/*
-			 * CIRQ only monitor edge trigger
+			 * CIRQ could monitor edge/level trigger
+			 * cirq register (0: edge, 1: level)
 			 */
-			cirq_all_events.table[cirq_reg].sen |= mask;
+			if (mt_irq_get_sens(gic_irq) == SENS_EDGE)
+				cirq_all_events.table[cirq_reg].sen |= mask;
 
 			if (!cirq_all_events.table[cirq_reg].used) {
 				list_add(
