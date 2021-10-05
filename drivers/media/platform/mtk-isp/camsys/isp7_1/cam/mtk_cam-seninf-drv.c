@@ -34,6 +34,7 @@
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"
 
+#define ESD_RESET_SUPPORT 0
 #define V4L2_CID_MTK_SENINF_BASE	(V4L2_CID_USER_BASE | 0xf000)
 #define V4L2_CID_MTK_TEST_STREAMON	(V4L2_CID_MTK_SENINF_BASE + 1)
 
@@ -1872,7 +1873,17 @@ int mtk_cam_seninf_get_pixelrate(struct v4l2_subdev *sd, s64 *p_pixel_rate)
 
 int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
 {
-	return g_seninf_ops->_debug(sd_to_ctx(sd));
+	int ret = 0;
+
+	ret = g_seninf_ops->_debug(sd_to_ctx(sd));
+#if ESD_RESET_SUPPORT
+	if (ret != 0)
+#else
+	if (0)
+#endif
+		reset_sensor(sd_to_ctx(sd));
+
+	return ret;
 }
 
 void mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, unsigned int SecInfo_addr)

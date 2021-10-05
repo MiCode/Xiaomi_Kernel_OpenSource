@@ -462,10 +462,10 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 	struct adaptor_ctx *ctx = ctrl_to_ctx(ctrl);
 	struct mtk_hdr_ae *ae_ctrl = ctrl->p_new.p;
 
+	memcpy(&ctx->ae_memento, ae_ctrl,
+		   sizeof(ctx->ae_memento));
 	if (!ctx->is_streaming) {
-		memcpy(&ctx->ae_memento, ae_ctrl,
-			   sizeof(ctx->ae_memento));
-		dev_info(ctx->dev, "streaming off, store ae_ctrl\n");
+		dev_info(ctx->dev, "%s streaming off, retore ae_ctrl later\n", __func__);
 		return 0;
 	}
 
@@ -1010,6 +1010,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				para.u8, &len);
 
 			notify_fsync_mgr_seamless_switch(ctx);
+
+			/*store ae ctrl for ESD reset*/
+			memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
+			memcpy(&ctx->ae_memento, &info->ae_ctrl[0],  sizeof(ctx->ae_memento));
+
 		}
 		break;
 #ifdef IMGSENSOR_DEBUG
@@ -1049,6 +1054,31 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_TEST_PATTERN_DATA,
 			ctrl->p_new.p, &len);
+		break;
+	case V4L2_CID_MTK_SENSOR_RESET:
+		{
+			u64 data[4];
+			u32 len;
+			MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
+			MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
+
+			//dev_info(dev, "V4L2_CID_MTK_SENSOR_RESET\n");
+			adaptor_hw_sensor_reset(ctx);
+
+			subdrv_call(ctx, open);
+			subdrv_call(ctx, control,
+					ctx->cur_mode->id,
+					&image_window,
+					&sensor_config_data);
+
+			restore_ae_ctrl(ctx);
+
+			data[0] = 0; // shutter
+			subdrv_call(ctx, feature_control,
+				SENSOR_FEATURE_SET_STREAMING_RESUME,
+				(u8 *)data, &len);
+			//dev_info(dev, "exit V4L2_CID_MTK_SENSOR_RESET\n");
+		}
 		break;
 	}
 
@@ -1420,6 +1450,17 @@ static const struct v4l2_ctrl_config cfg_sensor_power = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_sensor_reset = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_RESET,
+	.name = "sensor_reset",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 1,
+	.step = 1,
+};
+
+
 static const struct v4l2_ctrl_config cfg_mstream_mode = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_MTK_MSTREAM_MODE,
@@ -1452,7 +1493,6 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx)
 	dev_info(ctx->dev, "%s\n", __func__);
 
 	do_set_ae_ctrl(ctx, &ctx->ae_memento);
-	memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
 }
 
 int adaptor_init_ctrls(struct adaptor_ctx *ctx)
@@ -1676,6 +1716,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_power, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_mstream_mode, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_n_1_mode, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_reset, NULL);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;

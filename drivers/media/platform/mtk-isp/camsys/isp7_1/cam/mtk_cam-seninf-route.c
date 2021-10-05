@@ -943,6 +943,24 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 		}
 	}
 }
+int reset_sensor(struct seninf_ctx *ctx)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+			V4L2_CID_MTK_SENSOR_RESET);
+	if (!ctrl) {
+		dev_info(ctx->dev, "V4L2_CID_MTK_SENSOR_RESET %s\n",
+			sensor_sd->name);
+		return -EINVAL;
+	}
+
+	v4l2_ctrl_s_ctrl(ctrl, 1);
+
+	return 0;
+}
+
 
 int notify_fsync_cammux_usage(struct seninf_ctx *ctx)
 {

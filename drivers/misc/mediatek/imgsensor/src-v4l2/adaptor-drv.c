@@ -207,7 +207,6 @@ static void control_sensor(struct adaptor_ctx *ctx)
 				&sensor_config_data);
 		ctx->is_sensor_scenario_inited = 1;
 	}
-
 	restore_ae_ctrl(ctx);
 }
 
@@ -695,6 +694,8 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	/* notify frame-sync streaming OFF */
 	notify_fsync_mgr_streaming(ctx, 0);
 
+	memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
+
 	return 0;
 }
 
@@ -1021,6 +1022,105 @@ static int notify_fsync_mgr(struct adaptor_ctx *ctx, int on)
 	return 0;
 }
 
+
+#define SHOW(buf, len, fmt, ...) { \
+	len += snprintf(buf + len, PAGE_SIZE - len, fmt, ##__VA_ARGS__); \
+}
+
+static ssize_t debug_i2c_ops_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+
+
+	SHOW(buf, len, "%s i2c read 0x%08x = 0x%08x\n",
+			ctx->subdrv->name,
+			ctx->sensorReg.RegAddr,
+			ctx->sensorReg.RegData);
+	return len;
+}
+
+enum DBG_ARG_IDX {
+	DBG_ARG_IDX_I2C_ADDR,
+	DBG_ARG_IDX_I2C_DATA,
+	DBG_ARG_IDX_MAX_NUM,
+};
+
+static ssize_t debug_i2c_ops_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	char delim[] = " ";
+	char *token = NULL;
+	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
+	char *s = sbuf;
+	int ret, num_para = 0;
+	char *arg[DBG_ARG_IDX_MAX_NUM];
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+	u32 val;
+	u32 reg;
+
+	ctx->sensorReg.RegAddr = 0;
+	ctx->sensorReg.RegData = 0;
+
+	if (!sbuf)
+		goto ERR_DEBUG_OPS_STORE;
+
+	memcpy(sbuf, buf, count);
+
+	token = strsep(&s, delim);
+	while (token != NULL && num_para < DBG_ARG_IDX_MAX_NUM) {
+		if (strlen(token)) {
+			arg[num_para] = token;
+			num_para++;
+		}
+
+		token = strsep(&s, delim);
+	}
+
+	if (num_para > DBG_ARG_IDX_MAX_NUM) {
+		dev_info(dev, "Wrong command parameter number %d\n", num_para);
+		goto ERR_DEBUG_OPS_STORE;
+	}
+	ret = kstrtouint(arg[DBG_ARG_IDX_I2C_ADDR], 0, &reg);
+	if (ret)
+		goto ERR_DEBUG_OPS_STORE;
+	ctx->sensorReg.RegAddr = reg;
+
+	if (num_para == DBG_ARG_IDX_MAX_NUM) {
+		ret = kstrtouint(arg[DBG_ARG_IDX_I2C_DATA], 0, &val);
+		if (ret)
+			goto ERR_DEBUG_OPS_STORE;
+		ctx->sensorReg.RegData = val;
+
+		ret = subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_REGISTER,
+					(MUINT8 *) &ctx->sensorReg,
+					(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		dev_info(dev, "%s i2c write 0x%08x = 0x%08x ret = %d\n",
+			__func__,
+			ctx->sensorReg.RegAddr, ctx->sensorReg.RegData, ret);
+	}
+
+	ret = subdrv_call(ctx, feature_control, SENSOR_FEATURE_GET_REGISTER,
+				(MUINT8 *) &ctx->sensorReg,
+				(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		dev_info(dev, "%s i2c read 0x%08x = 0x%08x  ret = %d\n",
+			__func__,
+			ctx->sensorReg.RegAddr, ctx->sensorReg.RegData, ret);
+
+
+ERR_DEBUG_OPS_STORE:
+
+	kfree(sbuf);
+	dev_dbg(dev, "exit %s\n", __func__);
+
+	return count;
+}
+
+
+static DEVICE_ATTR_RW(debug_i2c_ops);
+
 static int imgsensor_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -1081,6 +1181,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->sd.dev = &client->dev;
 	ctx->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 
+
 	/* init subdev name */
 	snprintf(ctx->sd.name, V4L2_SUBDEV_NAME_SIZE, "%s",
 		dev->of_node->name);
@@ -1126,6 +1227,10 @@ static int imgsensor_probe(struct i2c_client *client)
 
 	notify_fsync_mgr(ctx, 1);
 
+	ret = device_create_file(dev, &dev_attr_debug_i2c_ops);
+	if (ret)
+		dev_info(dev, "failed to create sysfs debug_i2c_ops\n");
+
 	return 0;
 
 free_entity:
@@ -1154,6 +1259,7 @@ static int imgsensor_remove(struct i2c_client *client)
 #else
 	// TODO
 #endif
+	device_remove_file(ctx->dev, &dev_attr_debug_i2c_ops);
 
 	mutex_destroy(&ctx->mutex);
 

@@ -207,21 +207,11 @@ static int reinit_pinctrl(struct adaptor_ctx *ctx)
 
 	return 0;
 }
-
-int adaptor_hw_power_on(struct adaptor_ctx *ctx)
+int do_hw_power_on(struct adaptor_ctx *ctx)
 {
 	int i;
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
-
-#ifndef IMGSENSOR_USE_PM_FRAMEWORK
-	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
-	ctx->power_refcnt++;
-	if (ctx->power_refcnt > 1) {
-		dev_dbg(ctx->dev, "%s already powered, cnt = %d\n", __func__, ctx->power_refcnt);
-		return 0;
-	}
-#endif
 
 	/* may be released for mipi switch */
 	if (!ctx->pinctrl)
@@ -244,34 +234,30 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 			mdelay(ent->delay);
 	}
 
-	dev_dbg(ctx->dev, "%s\n", __func__);
+	//dev_dbg(ctx->dev, "%s\n", __func__);
 
 	return 0;
 }
 
-int adaptor_hw_power_off(struct adaptor_ctx *ctx)
+int adaptor_hw_power_on(struct adaptor_ctx *ctx)
+{
+
+#ifndef IMGSENSOR_USE_PM_FRAMEWORK
+	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
+	ctx->power_refcnt++;
+	if (ctx->power_refcnt > 1) {
+		dev_dbg(ctx->dev, "%s already powered, cnt = %d\n", __func__, ctx->power_refcnt);
+		return 0;
+	}
+#endif
+	return do_hw_power_on(ctx);
+}
+
+int do_hw_power_off(struct adaptor_ctx *ctx)
 {
 	int i;
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
-
-#ifndef IMGSENSOR_USE_PM_FRAMEWORK
-
-	if (!ctx->power_refcnt) {
-		dev_dbg(ctx->dev, "%s power ref cnt = %d, skip due to not power on yet\n",
-			__func__, ctx->power_refcnt);
-		return 0;
-	}
-	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
-	ctx->power_refcnt--;
-	if (ctx->power_refcnt > 0) {
-		dev_dbg(ctx->dev, "%s skip due to cnt = %d\n", __func__, ctx->power_refcnt);
-		return 0;
-	}
-	ctx->power_refcnt = 0;
-	ctx->is_sensor_inited = 0;
-	ctx->is_sensor_scenario_inited = 0;
-#endif
 
 	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
 		ent = &ctx->subdrv->pw_seq[i];
@@ -293,9 +279,31 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 		ctx->pinctrl = NULL;
 	}
 
-	dev_dbg(ctx->dev, "%s\n", __func__);
-
+	//dev_dbg(ctx->dev, "%s\n", __func__);
 	return 0;
+
+}
+int adaptor_hw_power_off(struct adaptor_ctx *ctx)
+{
+
+#ifndef IMGSENSOR_USE_PM_FRAMEWORK
+
+	if (!ctx->power_refcnt) {
+		dev_dbg(ctx->dev, "%s power ref cnt = %d, skip due to not power on yet\n",
+			__func__, ctx->power_refcnt);
+		return 0;
+	}
+	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
+	ctx->power_refcnt--;
+	if (ctx->power_refcnt > 0) {
+		dev_dbg(ctx->dev, "%s skip due to cnt = %d\n", __func__, ctx->power_refcnt);
+		return 0;
+	}
+	ctx->power_refcnt = 0;
+	ctx->is_sensor_inited = 0;
+	ctx->is_sensor_scenario_inited = 0;
+#endif
+	return do_hw_power_off(ctx);
 }
 
 int adaptor_hw_init(struct adaptor_ctx *ctx)
@@ -397,4 +405,22 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 
 	return 0;
 }
+
+int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
+{
+
+
+	dev_info(ctx->dev, "%s %d|%d|%d|%d\n",
+		__func__,
+		ctx->is_streaming,
+		ctx->is_sensor_inited,
+		ctx->is_sensor_inited,
+		ctx->power_refcnt);
+
+	do_hw_power_off(ctx);
+	do_hw_power_on(ctx);
+
+	return 0;
+}
+
 
