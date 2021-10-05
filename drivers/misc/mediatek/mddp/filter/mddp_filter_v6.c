@@ -615,11 +615,11 @@ static void mddp_nfhook_postrouting_v6(struct sk_buff *skb)
 		return;
 	}
 
+	memset(&cb, 0, sizeof(cb));
 	cb.is_uplink = true;
 	cb.wan = skb->dev;
-	cb.lan = dev_get_by_index(&init_net, skb->skb_iif);
-	dev_put(cb.lan);
-	if (mddp_f_is_support_lan_dev(cb.lan->name) == false)
+	cb.lan = mddp_f_is_support_lan_dev(skb->skb_iif);
+	if (!cb.lan)
 		return;
 
 	if (mddp_f_in_nf_v6(skb))

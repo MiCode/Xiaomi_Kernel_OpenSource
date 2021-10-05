@@ -162,7 +162,7 @@ static int mddp_f_e_tag_packet(
 	skb_tag->version = __MDDP_VERSION__;
 	skb_tag->tag_len = tag_len + etag_len;
 	skb_tag->v2.tag_info = MDDP_RULE_TAG_FAKE_DL_NAT_PACKET;
-	skb_tag->v2.lan_netif_id = mddp_f_dev_name_to_netif_id(cb->lan->name);
+	skb_tag->v2.lan_netif_id = mddp_f_dev_to_netif_id(cb->lan);
 	if (cb->is_uplink == true) {
 		skb_tag->v2.port = cb->sport;
 		skb_tag->v2.ip = cb->src[0];  /* Don't care IPv6 IP */
@@ -360,58 +360,6 @@ static int32_t mddp_ct_update(void *buf, uint32_t buf_len)
 void mddp_f_wan_netdev_set(struct net_device *netdev)
 {
 	mddp_wan_netdev = netdev;
-}
-
-int32_t mddp_f_suspend_tag(void)
-{
-	struct mddp_md_msg_t           *md_msg;
-	struct mddp_app_t              *app;
-
-	MDDP_F_LOG(MDDP_LL_NOTICE, "%s: MDDP suspend tag.\n", __func__);
-	mddp_netfilter_unhook();
-
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
-	if (unlikely(!md_msg)) {
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: failed to alloc md_msg bug!\n", __func__);
-		return 0;
-	}
-
-	md_msg->msg_id = IPC_MSG_ID_MDFPM_SUSPEND_TAG_ACK;
-	md_msg->data_len = 0;
-
-	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
-	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
-
-	mddp_enqueue_dstate(MDDP_DSTATE_ID_SUSPEND_TAG);
-
-	return 0;
-}
-
-int32_t mddp_f_resume_tag(void)
-{
-	struct mddp_md_msg_t           *md_msg;
-	struct mddp_app_t              *app;
-
-	MDDP_F_LOG(MDDP_LL_NOTICE, "%s: MDDP resume tag.\n", __func__);
-	mddp_netfilter_hook();
-
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
-	if (unlikely(!md_msg)) {
-		MDDP_F_LOG(MDDP_LL_NOTICE,
-				"%s: failed to alloc md_msg bug!\n", __func__);
-		return 0;
-	}
-
-	md_msg->msg_id = IPC_MSG_ID_MDFPM_RESUME_TAG_ACK;
-	md_msg->data_len = 0;
-
-	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
-	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
-
-	mddp_enqueue_dstate(MDDP_DSTATE_ID_RESUME_TAG);
-
-	return 0;
 }
 
 int32_t mddp_f_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)

@@ -92,17 +92,6 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 	int32_t                 ret = 0;
 
 	switch (msg_id) {
-	case IPC_MSG_ID_MDFPM_SUSPEND_TAG_IND:
-		MDDP_S_LOG(MDDP_LL_NOTICE,
-				"%s: MDDP suspend indication.\n", __func__);
-		ret = mddp_f_suspend_tag();
-		break;
-
-	case IPC_MSG_ID_MDFPM_RESUME_TAG_IND:
-		MDDP_S_LOG(MDDP_LL_NOTICE,
-				"%s: MDDP resume indication.\n", __func__);
-		ret = mddp_f_resume_tag();
-		break;
 	case IPC_MSG_ID_MDFPM_CHECK_FEATURE_RSP:
 		mddp_handshake_done(*(uint32_t *)buf);
 		break;

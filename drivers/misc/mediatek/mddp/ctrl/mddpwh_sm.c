@@ -36,8 +36,6 @@ static struct mddp_md_cfg_t mddpw_md_cfg_s = {
 
 static uint8_t mddpw_reset_ongoing;
 
-#define MDDP_WIFI_NETIF_ID 0x500 /* copy from MD IPC_NETIF_ID_MCIF_BEGIN */
-
 //------------------------------------------------------------------------------
 // Private helper macro.
 //------------------------------------------------------------------------------
@@ -162,10 +160,6 @@ static void mddpwh_sm_act(struct mddp_app_t *app)
 	struct mddp_md_msg_t                 *md_msg;
 	struct wfpm_activate_md_func_req_t   *act_req;
 
-	// 1. Register filter model
-	mddp_f_dev_add_wan_dev(app->ap_cfg.ul_dev_name);
-	mddp_f_dev_add_lan_dev(app->ap_cfg.dl_dev_name, MDDP_WIFI_NETIF_ID);
-
 	// 2. Send ACTIVATING to WiFi
 	if (app->drv_hdlr.change_state != NULL)
 		app->drv_hdlr.change_state(MDDP_STATE_ACTIVATING, NULL, NULL);
@@ -236,14 +230,15 @@ static void mddpwh_sm_deact(struct mddp_app_t *app)
 
 	md_msg->msg_id = IPC_MSG_ID_WFPM_DEACTIVATE_MD_FAST_PATH_REQ;
 	md_msg->data_len = sizeof(struct wfpm_activate_md_func_req_t);
-	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
+	if (mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) < 0)
+		mddp_sm_on_event(app, MDDP_EVT_MD_RSP_FAIL);
 }
 
 static void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_deact_t     deact;
 
-	// 1. Register filter model
+	mddp_netfilter_unhook();
 	mddp_f_dev_del_wan_dev(app->ap_cfg.ul_dev_name);
 	mddp_f_dev_del_lan_dev(app->ap_cfg.dl_dev_name);
 
@@ -254,8 +249,6 @@ static void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
 	// 3. Send RSP to upper module.
 	mddp_dev_response(app->type, MDDP_CMCMD_DEACT_RSP,
 			true, (uint8_t *)&deact, sizeof(deact));
-
-	mddp_netfilter_unhook();
 }
 
 static void mddpwh_sm_md_reset(struct mddp_app_t *app)
@@ -334,6 +327,7 @@ static struct mddp_sm_entry_t mddpwh_deactivating_state_machine_s[] = {
 /* event                  new_state                action */
 {MDDP_EVT_MD_RESET,       MDDP_STATE_DEACTIVATED,  mddpwh_sm_md_reset},
 {MDDP_EVT_FUNC_ACT,       MDDP_STATE_ACTIVATING,   mddpwh_sm_act},
+{MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DEACTIVATING, NULL},
 {MDDP_EVT_MD_RSP_OK,      MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
 {MDDP_EVT_MD_RSP_FAIL,    MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
 {MDDP_EVT_DUMMY,          MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */

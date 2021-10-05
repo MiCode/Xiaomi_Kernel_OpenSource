@@ -15,13 +15,13 @@ int32_t mddp_filter_init(void);
 void mddp_filter_uninit(void);
 
 int mddp_f_data_usage_wan_dev_name_to_id(char *dev_name);
-void mddp_f_dev_add_lan_dev(char *dev_name, int netif_id);
-void mddp_f_dev_add_wan_dev(char *dev_name);
+bool mddp_f_dev_add_lan_dev(char *dev_name, int netif_id);
+bool mddp_f_dev_add_wan_dev(char *dev_name);
 void mddp_f_dev_del_lan_dev(char *dev_name);
 void mddp_f_dev_del_wan_dev(char *dev_name);
+struct net_device *mddp_f_is_support_lan_dev(int ifindex);
+struct net_device *mddp_f_is_support_wan_dev(int ifindex);
 
-int32_t mddp_f_suspend_tag(void);
-int32_t mddp_f_resume_tag(void);
 int32_t mddp_f_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len);
 int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len);
 void mddp_netfilter_hook(void);

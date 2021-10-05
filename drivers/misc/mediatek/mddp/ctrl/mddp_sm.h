@@ -154,4 +154,5 @@ int32_t mddp_sm_reg_callback(
 void mddp_sm_dereg_callback(
 	struct mddp_drv_conf_t *conf,
 	struct mddp_drv_handle_t *handle);
+void mddp_netdev_notifier_exit(void);
 #endif /* __MDDP_SM_H */

@@ -3,6 +3,7 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+
 #include <linux/errno.h>
 #include <linux/netdevice.h>
 #include <linux/string.h>
@@ -58,22 +59,22 @@ static struct mddp_f_dev_netif mddp_f_lan_dev[MDDP_MAX_LAN_DEV_NUM];
 static int mddp_f_wan_dev_cnt_g;
 static struct mddp_f_dev_netif mddp_f_wan_dev[MDDP_MAX_WAN_DEV_NUM];
 
-bool mddp_f_is_support_lan_dev(char *dev_name)
+struct net_device *mddp_f_is_support_lan_dev(int ifindex)
 {
 	int i;
 	int active_dev_cnt = mddp_f_lan_dev_cnt_g;
 
 	for (i = 0; (i < MDDP_MAX_LAN_DEV_NUM) && (active_dev_cnt > 0); i++) {
-		if (strcmp(mddp_f_lan_dev[i].dev_name, dev_name) == 0) {
+		if (mddp_f_lan_dev[i].ifindex == ifindex) {
 			/* Matched! */
-			return true;
+			return mddp_f_lan_dev[i].netdev;
 		}
 	}
 
-	return false;
+	return NULL;
 }
 
-bool mddp_f_is_support_wan_dev(char *dev_name)
+struct net_device *mddp_f_is_support_wan_dev(int ifindex)
 {
 	int i;
 	int active_dev_cnt = mddp_f_wan_dev_cnt_g;
@@ -81,13 +82,13 @@ bool mddp_f_is_support_wan_dev(char *dev_name)
 	for (i = 0; (i < MDDP_MAX_WAN_DEV_NUM) && (active_dev_cnt > 0); i++) {
 		active_dev_cnt--;
 
-		if (strcmp(mddp_f_wan_dev[i].dev_name, dev_name) == 0) {
+		if (mddp_f_wan_dev[i].ifindex == ifindex) {
 			/* Matched! */
-			return true;
+			return mddp_f_wan_dev[i].netdev;
 		}
 	}
 
-	return false;
+	return NULL;
 }
 
 static int mddp_f_dev_get_netif_id(char *dev_name)
@@ -108,14 +109,14 @@ static int mddp_f_dev_get_netif_id(char *dev_name)
 	return -1;
 }
 
-int mddp_f_dev_name_to_netif_id(char *dev_name)
+int mddp_f_dev_to_netif_id(struct net_device *netdev)
 {
 	int i;
 	int active_dev_cnt;
 
 	active_dev_cnt = mddp_f_lan_dev_cnt_g;
 	for (i = 0; (i < MDDP_MAX_LAN_DEV_NUM) && (active_dev_cnt > 0); i++) {
-		if (strcmp(mddp_f_lan_dev[i].dev_name, dev_name) == 0) {
+		if (mddp_f_lan_dev[i].netdev == netdev) {
 			/* Matched! */
 			return mddp_f_lan_dev[i].netif_id;
 		}
@@ -123,7 +124,7 @@ int mddp_f_dev_name_to_netif_id(char *dev_name)
 
 	active_dev_cnt = mddp_f_wan_dev_cnt_g;
 	for (i = 0; (i < MDDP_MAX_WAN_DEV_NUM) && (active_dev_cnt > 0); i++) {
-		if (strcmp(mddp_f_wan_dev[i].dev_name, dev_name) == 0) {
+		if (mddp_f_wan_dev[i].netdev == netdev) {
 			/* Matched! */
 			return mddp_f_wan_dev[i].netif_id;
 		}
@@ -146,8 +147,9 @@ int mddp_f_data_usage_wan_dev_name_to_id(char *dev_name)
 	return -1;
 }
 
-void mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
+bool mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 {
+	struct net_device *dev;
 	int i;
 
 	/* Find unused id */
@@ -159,13 +161,18 @@ void mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 	if (i >= MDDP_MAX_LAN_DEV_NUM) {
 		MDDP_F_LOG(MDDP_LL_ERR,
 				"%s: LAN device is full[%d].\n", __func__, i);
-		return;
+		return false;
 	}
+
+	dev = dev_get_by_name(&init_net, dev_name);
+	if (unlikely(!dev))
+		return false;
 
 	/* Set LAN device entry */
 	strlcpy(mddp_f_lan_dev[i].dev_name, dev_name, IFNAMSIZ);
+	mddp_f_lan_dev[i].netdev = dev;
+	mddp_f_lan_dev[i].ifindex = dev->ifindex;
 	mddp_f_lan_dev[i].netif_id = netif_id;
-
 	mddp_f_lan_dev[i].is_valid = true;
 
 	mddp_f_lan_dev_cnt_g++;
@@ -174,9 +181,11 @@ void mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 			"%s: Add LAN device[%s], netif_id[%x], lan_dev_id[%d], total_device_num[%d].\n",
 			__func__, dev_name, netif_id,
 			i, mddp_f_lan_dev_cnt_g);
+
+	return true;
 }
 
-void mddp_f_dev_add_wan_dev(char *dev_name)
+bool mddp_f_dev_add_wan_dev(char *dev_name)
 {
 	struct net_device *dev;
 	int i;
@@ -190,15 +199,23 @@ void mddp_f_dev_add_wan_dev(char *dev_name)
 	if (i >= MDDP_MAX_WAN_DEV_NUM) {
 		MDDP_F_LOG(MDDP_LL_ERR,
 				"%s: WAN device is full[%d].\n", __func__, i);
-		return;
+		return false;
 	}
+
+	dev = dev_get_by_name(&init_net, dev_name);
+	if (unlikely(!dev))
+		return false;
+	mddp_f_wan_netdev_set(dev);
 
 	/* Set WAN device entry */
 	strlcpy(mddp_f_wan_dev[i].dev_name, dev_name, IFNAMSIZ);
+	mddp_f_wan_dev[i].netdev = dev;
+	mddp_f_wan_dev[i].ifindex = dev->ifindex;
 	mddp_f_wan_dev[i].netif_id = mddp_f_dev_get_netif_id(dev_name);
-	dev = dev_get_by_name(&init_net, dev_name);
-	dev_put(dev);
-	mddp_f_wan_netdev_set(dev);
+	if (mddp_f_wan_dev[i].netif_id < 0) {
+		dev_put(dev);
+		return false;
+	}
 	mddp_f_wan_dev[i].is_valid = true;
 
 	mddp_f_wan_dev_cnt_g++;
@@ -207,6 +224,8 @@ void mddp_f_dev_add_wan_dev(char *dev_name)
 			"%s: Add WAN device[%s], wan_dev_id[%d], total_device_num[%d].\n",
 			__func__, dev_name, i,
 			mddp_f_wan_dev_cnt_g);
+
+	return true;
 }
 
 void mddp_f_dev_del_lan_dev(char *dev_name)
@@ -230,6 +249,7 @@ void mddp_f_dev_del_lan_dev(char *dev_name)
 	mddp_f_lan_dev[i].is_valid = false;
 	memset(mddp_f_lan_dev[i].dev_name, 0, sizeof(char) * IFNAMSIZ);
 	mddp_f_lan_dev[i].netif_id = -1;
+	dev_put(mddp_f_lan_dev[i].netdev);
 
 	mddp_f_lan_dev_cnt_g--;
 	MDDP_F_LOG(MDDP_LL_NOTICE,
@@ -259,11 +279,11 @@ void mddp_f_dev_del_wan_dev(char *dev_name)
 	mddp_f_wan_dev[i].is_valid = false;
 	memset(mddp_f_wan_dev[i].dev_name, 0, sizeof(char) * IFNAMSIZ);
 	mddp_f_wan_dev[i].netif_id = -1;
+	dev_put(mddp_f_wan_dev[i].netdev);
 
 	mddp_f_wan_dev_cnt_g--;
 	MDDP_F_LOG(MDDP_LL_NOTICE,
 			"%s: Delete WAN device[%s], wan_dev_id[%d], remaining_device_num[%d].\n",
 			__func__, dev_name, i,
-			mddp_f_lan_dev_cnt_g);
+			mddp_f_wan_dev_cnt_g);
 }
-
