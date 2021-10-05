@@ -64,6 +64,8 @@ struct board_ntc_info {
 	int *lookup_table;
 	int lookup_table_num;
 	void __iomem *data_reg;
+	void __iomem *dbg_reg;
+	void __iomem *en_reg;
 	struct pmic_auxadc_data *adc_data;
 };
 
@@ -172,7 +174,7 @@ static int board_ntc_get_temp(void *data, int *temp)
 	struct board_ntc_info *ntc_info = (struct board_ntc_info *)data;
 	struct pmic_auxadc_data *adc_data = ntc_info->adc_data;
 	struct tia_data *tia_param = ntc_info->adc_data->tia_param;
-	unsigned int val, r_type, r_ntc;
+	unsigned int val, r_type, r_ntc, dbg_reg, en_reg;
 	unsigned long long v_in;
 
 	val = readl(ntc_info->data_reg);
@@ -183,7 +185,14 @@ static int board_ntc_get_temp(void *data, int *temp)
 	}
 
 	if (!is_adc_data_valid(val, tia_param->valid_bit)) {
-		dev_err(ntc_info->dev, "TIA data is invalid now\n");
+		if (ntc_info->dbg_reg && ntc_info->en_reg) {
+			dbg_reg = readl(ntc_info->dbg_reg);
+			en_reg = readl(ntc_info->en_reg);
+			dev_err(ntc_info->dev, "TIA data invalid, 0x%x, dbg=0x%x, en=0x%x\n",
+				val, dbg_reg, en_reg);
+		} else
+			dev_err(ntc_info->dev, "TIA data invalid, 0x%x\n", val);
+
 		return -EAGAIN;
 	}
 
@@ -327,6 +336,16 @@ static int board_ntc_probe(struct platform_device *pdev)
 		return PTR_ERR(tia_reg);
 
 	ntc_info->data_reg = tia_reg;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	tia_reg = devm_ioremap_resource(&pdev->dev, res);
+	if (!IS_ERR(tia_reg))
+		ntc_info->en_reg = tia_reg;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	tia_reg = devm_ioremap_resource(&pdev->dev, res);
+	if (!IS_ERR(tia_reg))
+		ntc_info->dbg_reg = tia_reg;
 
 	tz_dev = devm_thermal_zone_of_sensor_register(
 			&pdev->dev, 0, ntc_info, &board_ntc_ops);
