@@ -3389,7 +3389,7 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 			mtk_camsys_raw_m2m_cq_done(raw_dev, ctx, irq_info->frame_idx);
 			mtk_camsys_raw_m2m_trigger(raw_dev, ctx, irq_info->frame_idx);
 		} else {
-			if (mtk_camsys_is_all_cq_done(ctx, raw_dev->id))
+			if (mtk_camsys_is_all_cq_done(ctx, ctx->pipe->id))
 				mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
 		}
 	}
