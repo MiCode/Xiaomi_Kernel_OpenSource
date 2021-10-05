@@ -61,6 +61,8 @@ struct transceiver_device {
 	int64_t comp_ts_reverse_debug[SENSOR_TYPE_SENSOR_MAX];
 
 	atomic_t first_bootup;
+	atomic_t normal_wp_dropped;
+	atomic_t super_wp_dropped;
 	struct task_struct *task;
 };
 
@@ -92,8 +94,8 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	timesync_end_time = ktime_get_boottime_ns();
 	if (kfifo_is_full(&transceiver_fifo)) {
-		if (kfifo_out(&transceiver_fifo, &wp, 1) && __ratelimit(&ratelimit))
-			printk_deferred("drop normal write position\n");
+		if (kfifo_out(&transceiver_fifo, &wp, 1))
+			atomic_inc(&dev->normal_wp_dropped);
 	}
 	wp = dnotify->write_position;
 	kfifo_in(&transceiver_fifo, &wp, 1);
@@ -124,7 +126,7 @@ static void transceiver_super_notify_func(struct sensor_comm_notify *n,
 		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	if (kfifo_is_full(&transceiver_super_fifo)) {
 		if (kfifo_out(&transceiver_super_fifo, &wp, 1))
-			pr_err_ratelimited("drop super write position\n");
+			atomic_inc(&dev->super_wp_dropped);
 	}
 	wp = dnotify->write_position;
 	kfifo_in(&transceiver_super_fifo, &wp, 1);
@@ -489,11 +491,21 @@ static int transceiver_thread(void *data)
 {
 	int ret = 0;
 	struct transceiver_device *dev = data;
+	int32_t normal_wp_dropped = 0, super_wp_dropped = 0;
 
 	while (!kthread_should_stop()) {
 		ret = wait_for_completion_interruptible(&transceiver_done);
 		if (ret)
 			continue;
+
+		normal_wp_dropped = atomic_xchg(&dev->normal_wp_dropped, 0);
+		super_wp_dropped = atomic_xchg(&dev->super_wp_dropped, 0);
+		if (unlikely(normal_wp_dropped))
+			pr_err_ratelimited("drop normal write position:%u\n",
+				normal_wp_dropped);
+		if (unlikely(super_wp_dropped))
+			pr_err_ratelimited("drop super write position:%u\n",
+				super_wp_dropped);
 		transceiver_process(dev);
 		transceiver_process_super(dev);
 	}
@@ -844,6 +856,8 @@ static int __init transceiver_init(void)
 	}
 
 	atomic_set(&dev->first_bootup, true);
+	atomic_set(&dev->normal_wp_dropped, 0);
+	atomic_set(&dev->super_wp_dropped, 0);
 
 	memset(&dev->hf_dev, 0, sizeof(dev->hf_dev));
 	dev->hf_dev.dev_name = "transceiver";
