@@ -730,7 +730,7 @@ release_work:
 
 /* Maybe in IRQ context of cmdq */
 static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
-					unsigned int subfidx)
+					unsigned int subfidx, bool isLastTaskInReq)
 {
 	struct mtk_imgsys_pipe *pipe;
 	struct mtk_imgsys_request *req;
@@ -857,14 +857,14 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	if (swfrminfo_cb->fail_isHWhang >= 0) {
 		req->img_fparam.frameparam.state = FRAME_STATE_HW_TIMEOUT;
 		if (swfrminfo_cb->group_id >= 0) {
-			if (swfrminfo_cb->user_info[subfidx].is_lastingroup) {
+			if (isLastTaskInReq) {
 				if (swfrminfo_cb->is_lastfrm)
 					lastfrmInMWReq = true;
 				lastin_errcase = true;
 			}
 
 			dev_info(imgsys_dev->dev,
-			"%s:%s:req fd/no(%d/%d)frame no(%d)timeout, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d)->%d\n",
+			"%s:%s:req fd/no(%d/%d)frame no(%d)timeout, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d)->%d/%d\n",
 			__func__, (char *)(&(swfrminfo_cb->frm_owner)), swfrminfo_cb->request_fd,
 			swfrminfo_cb->request_no,
 			swfrminfo_cb->frame_no,
@@ -876,7 +876,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			swfrminfo_cb->total_frmnum,
 			swfrminfo_cb->is_earlycb,
 			swfrminfo_cb->is_lastfrm,
-			lastfrmInMWReq);
+			isLastTaskInReq, lastfrmInMWReq);
 		} else {
 			if (swfrminfo_cb->is_lastfrm)
 				lastfrmInMWReq = true;
@@ -904,7 +904,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
 	} else {
 		if (swfrminfo_cb->is_lastfrm || swfrminfo_cb->is_earlycb ||
-			swfrminfo_cb->user_info[subfidx].is_lastingroup)
+			isLastTaskInReq)
 			dev_dbg(imgsys_dev->dev,
 			"%s:%s:req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)lst(%d)e_cb(%d/%d)sidx(%d)tfrm(%d)\n",
 			__func__, (char *)(&(swfrminfo_cb->frm_owner)), swfrminfo_cb->request_fd,
@@ -918,7 +918,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			swfrminfo_cb->total_frmnum);
 		if (swfrminfo_cb->group_id >= 0) {
 			dev_dbg(imgsys_dev->dev,
-			"%s:%s:req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d)\n",
+			"%s:%s:req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d):%d\n",
 			__func__, (char *)(&(swfrminfo_cb->frm_owner)), swfrminfo_cb->request_fd,
 			swfrminfo_cb->request_no,
 			swfrminfo_cb->frame_no,
@@ -929,7 +929,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			swfrminfo_cb->user_info[subfidx].is_earlycb,
 			swfrminfo_cb->total_frmnum,
 			swfrminfo_cb->is_earlycb,
-			swfrminfo_cb->is_lastfrm);
+			swfrminfo_cb->is_lastfrm,
+			isLastTaskInReq);
 
 			if (swfrminfo_cb->user_info[subfidx].is_earlycb) {
 				ev.req_fd = swfrminfo_cb->request_fd;
@@ -937,7 +938,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 				mtk_imgsys_early_notify(req, &ev);
 			}
 
-			if (swfrminfo_cb->user_info[subfidx].is_lastingroup) {
+			if (isLastTaskInReq) {
 				need_notify_daemon = true;
 				if (swfrminfo_cb->is_lastfrm)
 					lastfrmInMWReq = true;

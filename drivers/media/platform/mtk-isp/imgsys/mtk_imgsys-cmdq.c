@@ -238,6 +238,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
 	int req_fd = 0, req_no = 0, frm_no = 0;
 	u32 tsSwEvent = 0, tsHwEvent = 0, tsHw = 0, tsTaskPending = 0;
+	bool isLastTaskInReq = 0;
 
 	pr_debug("%s: +\n", __func__);
 
@@ -329,6 +330,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			if (imgsys_cmdq_ts_enabled())
 				cmdq_mbox_buf_free(cb_param->clt,
 					cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
+			isLastTaskInReq = 1;
 		}
 		IMGSYS_SYSTRACE_END();
 		tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
@@ -341,7 +343,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			__func__, "user_cb", cb_param->frm_info->frame_no,
 			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 			cb_param->frm_info->frm_owner);
-		cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx);
+		cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx, isLastTaskInReq);
 		IMGSYS_SYSTRACE_END();
 		cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
 	}
@@ -463,7 +465,7 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				void (*cmdq_cb)(struct cmdq_cb_data data,
-					uint32_t subfidx),
+					uint32_t subfidx, bool isLastTaskInReq),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 					uint32_t fail_subfidx, bool isHWhang))
 {

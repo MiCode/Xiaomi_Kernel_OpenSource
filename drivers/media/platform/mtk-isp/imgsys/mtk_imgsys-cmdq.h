@@ -43,7 +43,7 @@ struct mtk_imgsys_cb_param {
 	struct mtk_imgsys_dev *imgsys_dev;
 	struct cmdq_client *clt;
 	struct task_timestamp taskTs;
-	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx);
+	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx, bool isLastTaskInReq);
 	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx, bool isHWhang);
 	s32 err;
 	u32 frm_idx;
@@ -117,7 +117,7 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev);
 int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				void (*cmdq_cb)(struct cmdq_cb_data data,
-					uint32_t uinfo_idx),
+					uint32_t uinfo_idx, bool isLastTaskInReq),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 					uint32_t fail_uinfo_idx, bool isHWhang));
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
