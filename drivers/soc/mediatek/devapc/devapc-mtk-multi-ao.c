@@ -29,6 +29,7 @@
 static struct mtk_devapc_context {
 	struct clk *devapc_infra_clk;
 	uint32_t devapc_irq[IRQ_TYPE_NUM_MAX];
+	int current_irq_type;
 
 	/* HW reg mapped addr */
 	void __iomem *devapc_pd_base[SLAVE_TYPE_NUM_MAX];
@@ -71,6 +72,18 @@ static struct devapc_vio_callbacks devapc_test_handle = {
 	.debug_dump = devapc_test_cb,
 	.debug_dump_adv = devapc_test_adv_cb,
 };
+
+static bool is_matched_devapc_type(int slave_type)
+{
+	const struct mtk_device_num *ndevices = mtk_devapc_ctx->soc->ndevices;
+	int current_irq_type = mtk_devapc_ctx->current_irq_type;
+	bool ret = false;
+
+	if (ndevices[slave_type].irq_type == current_irq_type)
+		ret = true;
+
+	return ret;
+}
 
 /*
  * mtk_devapc_pd_get - get devapc pd_types of register address.
@@ -283,6 +296,10 @@ static void print_vio_mask_sta(bool debug)
 	int slave_type, i;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		/* Only dump the info of subsystem which got violation */
+		if (!is_matched_devapc_type(slave_type))
+			continue;
+
 		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
@@ -996,8 +1013,10 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 		irq_type_num = mtk_devapc_ctx->soc->irq_type_num;
 
 	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
-		if (irq_number == mtk_devapc_ctx->devapc_irq[irq_type])
+		if (irq_number == mtk_devapc_ctx->devapc_irq[irq_type]) {
 			pr_info(PFX "irq_type: %d\n", irq_type);
+			mtk_devapc_ctx->current_irq_type = irq_type;
+		}
 	}
 
 #ifdef CONFIG_MTK_SERROR_HOOK
@@ -1016,6 +1035,10 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		/* Only dump the info of subsystem which got violation */
+		if (!is_matched_devapc_type(slave_type))
+			continue;
+
 		if (slave_type == DEVAPC_TYPE_MMUP &&
 			!mtk_devapc_ctx->mmup_enabled)
 			continue;
