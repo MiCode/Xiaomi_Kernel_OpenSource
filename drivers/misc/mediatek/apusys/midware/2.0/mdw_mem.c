@@ -150,6 +150,8 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 	m->op = op;
 	m->type = type;
 
+	mdw_mem_debug("%u/%u/0x%x/%u/%u\n", size, align, flags, op, type);
+
 	switch (type) {
 	case MDW_MEM_TYPE_MAIN:
 		ret = mdw_mem_dma_alloc(m);
@@ -167,15 +169,19 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 
 	if (ret) {
 		mdw_drv_err("alloc mem(%d/%d) fail (%d)\n", type, op, ret);
-		goto free_mem;
+		/* TODO */
+		mutex_lock(&mdw_dev->m_mtx);
+		list_del(&m->d_node);
+		mutex_unlock(&mdw_dev->m_mtx);
+		kfree(m);
+		m = NULL;
+		mpriv->put(mpriv);
+
+		goto out;
 	}
 
 	mdw_mem_show(m);
-	goto out;
 
-free_mem:
-	mdw_mem_delete(m);
-	m = NULL;
 out:
 	mdw_trace_end("%s|size(%u) align(%u)",
 		__func__, size, align);
@@ -365,13 +371,13 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 
 	memset(args, 0, sizeof(*args));
 
-	mutex_lock(&mpriv->mtx);
-
 	dbuf = dma_buf_get(handle);
-	if (!dbuf) {
+	if (IS_ERR_OR_NULL(dbuf)) {
 		mdw_drv_err("handle(%d) not dmabuf\n", handle);
-		goto out;
+		return -EINVAL;
 	}
+
+	mutex_lock(&mpriv->mtx);
 
 	m = mdw_mem_get(mpriv, handle);
 	if (!m) {
@@ -390,8 +396,15 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 
 	ret = mdw_mem_map(mpriv, m);
 	if (ret) {
+		/* TODO */
 		mdw_drv_err("map fail\n");
-		goto delete_mem;
+		mutex_lock(&mdw_dev->m_mtx);
+		list_del(&m->d_node);
+		mutex_unlock(&mdw_dev->m_mtx);
+		kfree(m);
+		m = NULL;
+		mpriv->put(mpriv);
+		goto out;
 	}
 
 	if (is_new == true)
@@ -400,9 +413,6 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	mdw_mem_show(m);
 	goto out;
 
-delete_mem:
-	mdw_mem_delete(m);
-	m = NULL;
 out:
 	if (m) {
 		args->out.map.device_va = m->device_va;
