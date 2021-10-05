@@ -8380,6 +8380,9 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			<0 0x11c80000 0 0x10000>;
 		reg-names = "base", "ana-rx";
 		mtk_csi_phy_ver = "mtk_csi_phy_2_0";
+		seninf_num = <8>;
+		mux_num = <13>;
+		cam_mux_num = <16>;
 
 		interrupts = <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH 0>;
 
