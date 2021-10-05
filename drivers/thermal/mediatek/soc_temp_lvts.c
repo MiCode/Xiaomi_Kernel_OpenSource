@@ -3785,7 +3785,7 @@ static struct lvts_data mt6879_lvts_data = {
 		.check_cal_data = check_cal_data_v1,
 	},
 	.feature_bitmap = 0,
-	.num_efuse_addr = 23,
+	.num_efuse_addr = 24,
 	.num_efuse_block = 2,
 	.cal_data = {
 		.default_golden_temp = 50,
