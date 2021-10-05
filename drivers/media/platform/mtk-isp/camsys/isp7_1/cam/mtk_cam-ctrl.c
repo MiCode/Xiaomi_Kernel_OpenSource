@@ -3318,9 +3318,9 @@ EXIT:
 	return ret;
 }
 
-static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
-				   unsigned int engine_id,
-				   struct mtk_camsys_irq_info *irq_info)
+static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
+				       unsigned int engine_id,
+				       struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_raw_device *raw_dev;
 	struct mtk_cam_ctx *ctx;
@@ -3385,9 +3385,9 @@ static mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 	return 0;
 }
 
-static mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
-				    unsigned int engine_id,
-				    struct mtk_camsys_irq_info *irq_info)
+static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
+					unsigned int engine_id,
+					struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_mraw_device *mraw_dev;
 	struct mtk_raw_device *raw_dev;
@@ -3434,9 +3434,9 @@ static mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 	return 0;
 }
 
-static mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
-				     unsigned int engine_id,
-				     struct mtk_camsys_irq_info *irq_info)
+static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
+					 unsigned int engine_id,
+					 struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_camsv_device *camsv_dev;
 	struct mtk_cam_ctx *ctx;
