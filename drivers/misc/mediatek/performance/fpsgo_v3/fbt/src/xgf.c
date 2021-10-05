@@ -1248,7 +1248,6 @@ static void xgf_ema2_free(struct xgf_ema2_predictor *pt)
 static struct xgf_ema2_predictor *xgf_ema2_get_pred(void)
 {
 	struct xgf_ema2_predictor *pt = kzalloc(sizeof(*pt), GFP_KERNEL);
-	WARN_ON(!xgf_ema2_init_fp);
 	if (xgf_ema2_init_fp)
 		xgf_ema2_init_fp(pt);
 	else {
@@ -1986,7 +1985,6 @@ static void xgf_enter_state_xchg(int enable)
 		goto out;
 	}
 
-	WARN_ON(!xgf_stat_xchg_fp);
 
 	if (xgf_stat_xchg_fp)
 		ret = xgf_stat_xchg_fp(enable);
@@ -2182,7 +2180,6 @@ static int xgf_enter_est_runtime(int rpid, struct xgf_render *render,
 {
 	int ret;
 
-	WARN_ON(!xgf_est_runtime_fp);
 
 	if (xgf_est_runtime_fp)
 		ret = xgf_est_runtime_fp(rpid, render, runtime, ts);
@@ -2200,7 +2197,6 @@ int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
 
 	mutex_lock(&fstb_ko_lock);
 
-	WARN_ON(!fpsgo_xgf2ko_calculate_target_fps_fp);
 	if (fpsgo_xgf2ko_calculate_target_fps_fp)
 		target_fps = fpsgo_xgf2ko_calculate_target_fps_fp(pid, bufID,
 			target_fps_margin, cur_dequeue_start_ts, cur_queue_end_ts);
@@ -2218,7 +2214,6 @@ int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID)
 
 	mutex_lock(&fstb_ko_lock);
 
-	WARN_ON(!fpsgo_xgf2ko_do_recycle_fp);
 	if (fpsgo_xgf2ko_do_recycle_fp)
 		fpsgo_xgf2ko_do_recycle_fp(pid, bufID);
 	else
@@ -2572,7 +2567,6 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 				//predict next frame
 				r->ema_runtime = xgf_ema_cal(raw_runtime, r->ema_runtime);
-				WARN_ON(!xgf_ema2_predict_fp);
 				if (xgf_ema2_predict_fp && r->ema2_pt) {
 					tmp_runtime =
 						xgf_ema2_predict_fp(r->ema2_pt,
@@ -3159,7 +3153,6 @@ static int xgff_enter_est_runtime(int rpid, struct xgf_render *render,
 {
 	int ret;
 
-	WARN_ON(!xgff_est_runtime_fp);
 	if (xgff_est_runtime_fp)
 		ret = xgff_est_runtime_fp(rpid, render, runtime, ts);
 	else
