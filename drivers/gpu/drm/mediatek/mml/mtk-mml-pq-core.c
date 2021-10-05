@@ -750,6 +750,7 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 	ret = copy_from_user(job, user_job, sizeof(*job));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d", ret);
+		kfree(job);
 		return -EINVAL;
 	}
 	mml_pq_msg("%s result_job_id[%d]", __func__, job->result_job_id);
@@ -1002,6 +1003,7 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 	ret = copy_from_user(job, user_job, sizeof(*job));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d", ret);
+		kfree(job);
 		return -EINVAL;
 	}
 	mml_pq_msg("%s new_job_id[%d] result_job_id[%d]", __func__,
@@ -1077,16 +1079,20 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 	ret = copy_from_user(job, user_job, sizeof(*job));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d", ret);
+		kfree(job);
 		return -EINVAL;
 	}
 
 	readback = kmalloc(sizeof(*readback), GFP_KERNEL);
-	if (unlikely(!readback))
+	if (unlikely(!readback)) {
+		kfree(job);
 		return -ENOMEM;
+	}
 
 	ret = copy_from_user(readback, job->result, sizeof(*readback));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d\n", ret);
+		kfree(job);
 		return -EINVAL;
 	}
 
@@ -1167,6 +1173,7 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 	return 0;
 
 wake_up_aal_readback_task:
+	kfree(job);
 	cancel_sub_task(new_sub_task);
 	mml_pq_msg("%s end %d", __func__, ret);
 	return ret;
@@ -1196,17 +1203,21 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 	ret = copy_from_user(job, user_job, sizeof(*job));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d\n", ret);
+		kfree(job);
 		return -EINVAL;
 	}
 
 	readback = kmalloc(sizeof(*readback), GFP_KERNEL);
-	if (unlikely(!readback))
+	if (unlikely(!readback)) {
+		kfree(job);
 		return -ENOMEM;
+	}
 
 	ret = copy_from_user(readback, job->result, sizeof(*readback));
 
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d\n", ret);
+		kfree(job);
 		return -EINVAL;
 	}
 
@@ -1288,6 +1299,7 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 	return 0;
 
 wake_up_hdr_readback_task:
+	kfree(job);
 	cancel_sub_task(new_sub_task);
 	mml_pq_msg("%s end %d\n", __func__, ret);
 	return ret;
@@ -1316,6 +1328,7 @@ static int mml_pq_rsz_callback_ioctl(unsigned long data)
 	ret = copy_from_user(job, user_job, sizeof(*job));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d\n", ret);
+		kfree(job);
 		return -EINVAL;
 	}
 
@@ -1354,6 +1367,7 @@ static int mml_pq_rsz_callback_ioctl(unsigned long data)
 	return 0;
 
 wake_up_rsz_callback_task:
+	kfree(job);
 	cancel_sub_task(new_sub_task);
 	mml_pq_msg("%s end %d\n", __func__, ret);
 	return ret;
