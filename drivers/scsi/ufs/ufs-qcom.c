@@ -58,7 +58,6 @@
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
 
 static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
-static bool no_defer;
 
 enum {
 	TSTBUS_UAWM,
@@ -4031,6 +4030,28 @@ static void ufs_qcom_register_hooks(void)
 				ufs_qcom_hook_check_int_errors, NULL);
 }
 
+#ifdef CONFIG_ARM_QCOM_CPUFREQ_HW
+static int ufs_cpufreq_status(void)
+{
+	struct cpufreq_policy *policy;
+
+	policy = cpufreq_cpu_get(0);
+	if (!policy) {
+		dev_warn(dev, "cpufreq not probed yet, defer once\n");
+		return -EPROBE_DEFER;
+	}
+
+	cpufreq_cpu_put(policy);
+
+	return 0;
+}
+#else
+static int ufs_cpufreq_status(void)
+{
+	return 0;
+}
+#endif
+
 
 /**
  * ufs_qcom_probe - probe routine of the driver
@@ -4040,7 +4061,7 @@ static void ufs_qcom_register_hooks(void)
  */
 static int ufs_qcom_probe(struct platform_device *pdev)
 {
-	int err;
+	int err = 0;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct cpufreq_policy *policy;
@@ -4052,16 +4073,10 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	 * policy later on, cpufreq would be disabled and performance would be
 	 * impacted adversly.
 	 */
-	policy = cpufreq_cpu_get(0);
-	if (!policy && !no_defer) {
-		no_defer = true;
-		dev_warn(dev, "cpufreq not probed yet, defer once\n");
-		return -EPROBE_DEFER;
-	} else if (policy) {
-		cpufreq_cpu_put(policy);
-	} else {
-		dev_warn(dev, "cpufreq enable may fail\n");
-	}
+	err = ufs_cpufreq_status();
+	if (err)
+		return err;
+
 	/*
 	 * On qcom platforms, bootdevice is the primary storage
 	 * device. This device can either be eMMC or UFS.
