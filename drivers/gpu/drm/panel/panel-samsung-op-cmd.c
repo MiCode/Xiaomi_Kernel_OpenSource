@@ -124,18 +124,18 @@ static int get_mode_enum(struct drm_display_mode *m)
 	if (m->hdisplay == HAC_WQHD && m->vdisplay == VAC_WQHD) {
 		if (m_vrefresh == 60 && m->hskew == SDC_MFR)
 			ret = WQHD_SDC60;
-		else if (m_vrefresh == 120 && m->hskew == SDC_ADFR)
+		else if (m_vrefresh == 120 && m->hskew == SDC_MFR)
 			ret = WQHD_SDC120;
-		else if (m_vrefresh == 90 && m->hskew == SDC_ADFR)
+		else if (m_vrefresh == 90 && m->hskew == SDC_MFR)
 			ret = WQHD_SDC90;
 		else
 			DDPMSG("Invalid display mode\n");
 	} else if (m->hdisplay == HAC_FHD && m->vdisplay == VAC_FHD) {
 		if (m_vrefresh == 60 && m->hskew == SDC_MFR)
 			ret = FHD_SDC60;
-		else if (m_vrefresh == 120 && m->hskew == SDC_ADFR)
+		else if (m_vrefresh == 120 && m->hskew == SDC_MFR)
 			ret = FHD_SDC120;
-		else if (m_vrefresh == 90 && m->hskew == SDC_ADFR)
+		else if (m_vrefresh == 90 && m->hskew == SDC_MFR)
 			ret = FHD_SDC90;
 		else
 			DDPMSG("Invalid display mode\n");
@@ -442,33 +442,7 @@ static int lcm_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode display_mode[MODE_NUM] = {
-	//WQHD_SDC120
-	{
-		.clock = 584646,
-		.hdisplay = HAC_WQHD,
-		.hsync_start = HAC_WQHD + HFP,
-		.hsync_end = HAC_WQHD + HFP + HSA,
-		.htotal = HAC_WQHD + HFP + HSA + HBP,
-		.vdisplay = VAC_WQHD,
-		.vsync_start = VAC_WQHD + VFP,
-		.vsync_end = VAC_WQHD + VFP + VSA,
-		.vtotal = VAC_WQHD + VFP + VSA + VBP,
-		.hskew = SDC_ADFR,
-	},
-	//WQHD_SDC90
-	{
-		.clock = 438460,
-		.hdisplay = HAC_WQHD,
-		.hsync_start = HAC_WQHD + HFP,
-		.hsync_end = HAC_WQHD + HFP + HSA,
-		.htotal = HAC_WQHD + HFP + HSA + HBP + 2,
-		.vdisplay = VAC_WQHD,
-		.vsync_start = VAC_WQHD + VFP,
-		.vsync_end = VAC_WQHD + VFP + VSA,
-		.vtotal = VAC_WQHD + VFP + VSA + VBP,
-		.hskew = SDC_ADFR,
-	},
-	//WQHD_SDC60
+	//wqhd_sdc_60_mode
 	{
 		.clock = 292321,
 		.hdisplay = HAC_WQHD,
@@ -481,7 +455,33 @@ static const struct drm_display_mode display_mode[MODE_NUM] = {
 		.vtotal = VAC_WQHD + VFP + VSA + VBP,
 		.hskew = SDC_MFR,
 	},
-	//FHD_SDC60
+	//wqhd_sdc_120_mode
+	{
+		.clock = 584646,
+		.hdisplay = HAC_WQHD,
+		.hsync_start = HAC_WQHD + HFP,
+		.hsync_end = HAC_WQHD + HFP + HSA,
+		.htotal = HAC_WQHD + HFP + HSA + HBP,
+		.vdisplay = VAC_WQHD,
+		.vsync_start = VAC_WQHD + VFP,
+		.vsync_end = VAC_WQHD + VFP + VSA,
+		.vtotal = VAC_WQHD + VFP + VSA + VBP,
+		.hskew = SDC_MFR,
+	},
+	//wqhd_sdc_90_mode
+	{
+		.clock = 438460,
+		.hdisplay = HAC_WQHD,
+		.hsync_start = HAC_WQHD + HFP,
+		.hsync_end = HAC_WQHD + HFP + HSA,
+		.htotal = HAC_WQHD + HFP + HSA + HBP + 2,
+		.vdisplay = VAC_WQHD,
+		.vsync_start = VAC_WQHD + VFP,
+		.vsync_end = VAC_WQHD + VFP + VSA,
+		.vtotal = VAC_WQHD + VFP + VSA + VBP,
+		.hskew = SDC_ADFR,
+	},
+	//fhd_sdc_60_mode
 	{
 		.clock = 168084,
 		.hdisplay = HAC_FHD,
@@ -505,7 +505,7 @@ static const struct drm_display_mode display_mode[MODE_NUM] = {
 		.vsync_start = VAC_FHD + VFP,
 		.vsync_end = VAC_FHD + VFP + VSA,
 		.vtotal = VAC_FHD + VFP + VSA + VBP,
-		.hskew = SDC_ADFR,
+		.hskew = SDC_MFR,
 	},
 	//FHD_SDC90
 	{
@@ -518,7 +518,7 @@ static const struct drm_display_mode display_mode[MODE_NUM] = {
 		.vsync_start = VAC_FHD + VFP,
 		.vsync_end = VAC_FHD + VFP + VSA,
 		.vtotal = VAC_FHD + VFP + VSA + VBP,
-		.hskew = SDC_ADFR,
+		.hskew = SDC_MFR,
 	},
 };
 
@@ -565,6 +565,30 @@ static int panel_ata_check(struct drm_panel *panel)
 			id[0], id[1], id[2]);
 
 	return 1;
+}
+
+static int panel_send_pack_hs_cmd(void *dsi, struct LCM_setting_table *table,
+			unsigned int lcm_cmd_count, dcs_write_gce_pack cb, void *handle)
+{
+	unsigned int i = 0;
+	struct mtk_ddic_dsi_cmd send_cmd_to_ddic;
+
+	if (lcm_cmd_count > MAX_TX_CMD_NUM_PACK) {
+		pr_info("debug for lcm %s,out of mtk_ddic_dsi_cmd\n", __func__);
+		return 0;
+	}
+
+	for (i = 0; i < lcm_cmd_count; i++) {
+		send_cmd_to_ddic.mtk_ddic_cmd_table[i].cmd_num = table[i].count;
+		send_cmd_to_ddic.mtk_ddic_cmd_table[i].para_list = table[i].para_list;
+	}
+	send_cmd_to_ddic.is_hs = 1;
+	send_cmd_to_ddic.is_package = 1;
+	send_cmd_to_ddic.cmd_count = lcm_cmd_count;
+
+	cb(dsi, handle, &send_cmd_to_ddic);
+
+	return 0;
 }
 
 static int panel_doze_enable_start(struct drm_panel *panel, void *dsi, dcs_write_gce cb,
@@ -623,6 +647,56 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	return 0;
 }
 static struct mtk_panel_params ext_params[MODE_NUM] = {
+	//WQHD_SDC60
+	{
+		.data_rate = 1372,
+		.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
+		.dsc_params = {
+			.enable = 1,
+			.ver = 17,
+			.slice_mode = 1,
+			.rgb_swap = 0,
+			.dsc_cfg = 2088,
+			.rct_on = 1,
+			.bit_per_channel = 10,
+			.dsc_line_buf_depth = 11,
+			.bp_enable = 1,
+			.bit_per_pixel = 128,
+			.pic_height = 3216,
+			.pic_width = 1440,
+			.slice_height = 24,
+			.slice_width = 720,
+			.chunk_size = 720,
+			.xmit_delay = 512,
+			.dec_delay = 646,
+			.scale_value = 32,
+			.increment_interval = 643,
+			.decrement_interval = 10,
+			.line_bpg_offset = 13,
+			.nfl_bpg_offset = 1158,
+			.slice_bpg_offset = 814,
+			.initial_offset = 6144,
+			.final_offset = 4336,
+			.flatness_minqp = 7,
+			.flatness_maxqp = 16,
+			.rc_model_size = 8192,
+			.rc_edge_factor = 6,
+			.rc_quant_incr_limit0 = 15,
+			.rc_quant_incr_limit1 = 15,
+			.rc_tgt_offset_hi = 3,
+			.rc_tgt_offset_lo = 3,
+		},
+		.dyn_fps = {
+			.switch_en = 1, .vact_timing_fps = 60,
+		},
+		.cust_esd_check = 0,
+		.esd_check_enable = 0,
+		.lcm_esd_check_table[0] = {
+			.cmd = 0x0a,
+			.count = 1,
+			.para_list[0] = 0x1c,
+		},
+	},
 	//WQHD_SDC120
 	{
 		.data_rate = 1372,
@@ -714,56 +788,6 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 		},
 		.dyn_fps = {
 			.switch_en = 1, .vact_timing_fps = 90,
-		},
-		.cust_esd_check = 0,
-		.esd_check_enable = 0,
-		.lcm_esd_check_table[0] = {
-			.cmd = 0x0a,
-			.count = 1,
-			.para_list[0] = 0x1c,
-		},
-	},
-	//WQHD_SDC60
-	{
-		.data_rate = 1372,
-		.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
-		.dsc_params = {
-			.enable = 1,
-			.ver = 17,
-			.slice_mode = 1,
-			.rgb_swap = 0,
-			.dsc_cfg = 2088,
-			.rct_on = 1,
-			.bit_per_channel = 10,
-			.dsc_line_buf_depth = 11,
-			.bp_enable = 1,
-			.bit_per_pixel = 128,
-			.pic_height = 3216,
-			.pic_width = 1440,
-			.slice_height = 24,
-			.slice_width = 720,
-			.chunk_size = 720,
-			.xmit_delay = 512,
-			.dec_delay = 646,
-			.scale_value = 32,
-			.increment_interval = 643,
-			.decrement_interval = 10,
-			.line_bpg_offset = 13,
-			.nfl_bpg_offset = 1158,
-			.slice_bpg_offset = 814,
-			.initial_offset = 6144,
-			.final_offset = 4336,
-			.flatness_minqp = 7,
-			.flatness_maxqp = 16,
-			.rc_model_size = 8192,
-			.rc_edge_factor = 6,
-			.rc_quant_incr_limit0 = 15,
-			.rc_quant_incr_limit1 = 15,
-			.rc_tgt_offset_hi = 3,
-			.rc_tgt_offset_lo = 3,
-		},
-		.dyn_fps = {
-			.switch_en = 1, .vact_timing_fps = 60,
 		},
 		.cust_esd_check = 0,
 		.esd_check_enable = 0,
@@ -981,9 +1005,9 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	return 0;
 }
 
-static int mode_switch(struct drm_panel *panel,
-		struct drm_connector *connector, unsigned int cur_mode,
-		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
+static int mode_switch_hs(struct drm_panel *panel, struct drm_connector *connector,
+		void *dsi_drv, unsigned int cur_mode, unsigned int dst_mode,
+		enum MTK_PANEL_MODE_SWITCH_STAGE stage, dcs_write_gce_pack cb)
 {
 	int ret = 1;
 	unsigned int lcm_cmd_count = 0;
@@ -1019,55 +1043,59 @@ static int mode_switch(struct drm_panel *panel,
 		//3.switch TE signal to TPV/TE according Mode
 		lcm_cmd_count = sizeof(pre_switch_cmd)
 			/ sizeof(struct LCM_setting_table);
-		push_table(ctx, pre_switch_cmd, lcm_cmd_count);
+		panel_send_pack_hs_cmd(dsi_drv, pre_switch_cmd, lcm_cmd_count, cb, NULL);
 
 		//4.send timing switch cmd
 		switch (mode_id) {
 		case WQHD_SDC60:
 			lcm_cmd_count = sizeof(wqhd_timing_switch_1_cmd_sdc60)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				wqhd_timing_switch_1_cmd_sdc60, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, wqhd_timing_switch_1_cmd_sdc60,
+				lcm_cmd_count, cb, NULL);
 			lcm_cmd_count = sizeof(wqhd_timing_switch_2_cmd_sdc60)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				wqhd_timing_switch_2_cmd_sdc60, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, wqhd_timing_switch_2_cmd_sdc60,
+				lcm_cmd_count, cb, NULL);
+
 			break;
 		case WQHD_SDC120:
 			lcm_cmd_count = sizeof(wqhd_timing_switch_1_cmd_sdc120)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				wqhd_timing_switch_1_cmd_sdc120, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, wqhd_timing_switch_1_cmd_sdc120,
+				lcm_cmd_count, cb, NULL);
 			lcm_cmd_count = sizeof(wqhd_timing_switch_2_cmd_sdc120)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				wqhd_timing_switch_2_cmd_sdc120, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, wqhd_timing_switch_2_cmd_sdc120,
+				lcm_cmd_count, cb, NULL);
+
 			break;
 		case WQHD_SDC90:
 			lcm_cmd_count = sizeof(wqhd_timing_switch_1_cmd_sdc90)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				wqhd_timing_switch_1_cmd_sdc90, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, wqhd_timing_switch_1_cmd_sdc90,
+				lcm_cmd_count, cb, NULL);
 			lcm_cmd_count = sizeof(wqhd_timing_switch_2_cmd_sdc90)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				wqhd_timing_switch_2_cmd_sdc90, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, wqhd_timing_switch_2_cmd_sdc90,
+				lcm_cmd_count, cb, NULL);
+
 			break;
 		case FHD_SDC60:
 			lcm_cmd_count = sizeof(fhd_timing_switch_1_cmd_sdc60)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				fhd_timing_switch_1_cmd_sdc60, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, fhd_timing_switch_1_cmd_sdc60,
+				lcm_cmd_count, cb, NULL);
 			lcm_cmd_count = sizeof(fhd_timing_switch_2_cmd_sdc60)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				fhd_timing_switch_2_cmd_sdc60, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, fhd_timing_switch_2_cmd_sdc60,
+				lcm_cmd_count, cb, NULL);
+
 			break;
 		case FHD_SDC120:
 			lcm_cmd_count = sizeof(fhd_timing_switch_1_cmd_sdc120)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				fhd_timing_switch_1_cmd_sdc120, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, fhd_timing_switch_1_cmd_sdc120,
+				lcm_cmd_count, cb, NULL);
 			lcm_cmd_count = sizeof(fhd_timing_switch_2_cmd_sdc120)
 				/ sizeof(struct LCM_setting_table);
 			push_table(ctx,
@@ -1076,12 +1104,12 @@ static int mode_switch(struct drm_panel *panel,
 		case FHD_SDC90:
 			lcm_cmd_count = sizeof(fhd_timing_switch_1_cmd_sdc90)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				fhd_timing_switch_1_cmd_sdc90, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, fhd_timing_switch_1_cmd_sdc90,
+				lcm_cmd_count, cb, NULL);
 			lcm_cmd_count = sizeof(fhd_timing_switch_2_cmd_sdc90)
 				/ sizeof(struct LCM_setting_table);
-			push_table(ctx,
-				fhd_timing_switch_2_cmd_sdc90, lcm_cmd_count);
+			panel_send_pack_hs_cmd(dsi_drv, fhd_timing_switch_2_cmd_sdc90,
+				lcm_cmd_count, cb, NULL);
 			break;
 		default:
 			DDPMSG("%s: error mode_id %d\n", __func__, mode_id);
@@ -1093,6 +1121,7 @@ static int mode_switch(struct drm_panel *panel,
 
 	return ret;
 }
+
 static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
@@ -1101,7 +1130,8 @@ static struct mtk_panel_funcs ext_funcs = {
 	.doze_enable_start = panel_doze_enable_start,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.ext_param_get = mtk_panel_ext_param_get,
-	.mode_switch = mode_switch,
+	//.mode_switch = mode_switch,
+	.mode_switch_hs = mode_switch_hs,
 };
 #endif
 

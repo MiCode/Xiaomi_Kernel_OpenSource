@@ -461,6 +461,9 @@ struct mtk_panel_funcs {
 	int (*mode_switch)(struct drm_panel *panel,
 		struct drm_connector *connector, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
+	int (*mode_switch_hs)(struct drm_panel *panel, struct drm_connector *connector,
+		void *dsi_drv, unsigned int cur_mode, unsigned int dst_mode,
+		enum MTK_PANEL_MODE_SWITCH_STAGE stage, dcs_write_gce_pack cb);
 	int (*msync_te_level_switch)(void *dsi, dcs_write_gce cb,
 		void *handle, unsigned int fps_level);
 	int (*msync_te_level_switch_grp)(void *dsi, dcs_grp_write_gce cb,
