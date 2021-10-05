@@ -2206,6 +2206,12 @@ static int nafg_cnt_get(struct mtk_gauge *gauge,
 	return 0;
 }
 
+static int battery_voltage_cali(struct mtk_gauge *gauge,
+	struct mtk_gauge_sysfs_field_info *attr, int *val)
+{
+	return 0;
+}
+
 static int nafg_dltv_get(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int *nag_dltv)
 {
@@ -3380,6 +3386,7 @@ static struct mtk_gauge_sysfs_field_info mt6359_sysfs_field_tbl[] = {
 		vbat2_detect_counter, GAUGE_PROP_VBAT2_DETECT_COUNTER),
 	GAUGE_SYSFS_FIELD_WO(
 		bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
+	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC),
 };
 
 static struct attribute *
