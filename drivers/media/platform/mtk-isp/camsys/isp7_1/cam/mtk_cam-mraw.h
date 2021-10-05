@@ -272,7 +272,8 @@ mtk_cam_dev_get_mraw_pipeline(struct mtk_cam_device *cam,
 int mtk_cam_mraw_pipeline_config(struct mtk_cam_ctx *ctx, unsigned int idx);
 struct device *mtk_cam_find_mraw_dev(
 	struct mtk_cam_device *cam, unsigned int mraw_mask);
-int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx);
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns);
+int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx, unsigned int pipe_id, u64 ts_ns);
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx, unsigned int stag_en);
 int mtk_cam_mraw_dev_stream_on(
@@ -292,6 +293,7 @@ int mtk_cam_mraw_top_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_dmao_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_fbc_disable(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_vf_on(struct mtk_mraw_device *dev, unsigned int is_on);
+int mtk_cam_mraw_is_vf_on(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_toggle_tg_db(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_toggle_db(struct mtk_mraw_device *dev);
 bool mtk_cam_mraw_finish_buf(struct mtk_cam_request_stream_data *s_data);

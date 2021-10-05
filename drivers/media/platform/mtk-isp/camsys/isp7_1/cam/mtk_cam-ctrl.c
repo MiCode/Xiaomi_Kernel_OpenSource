@@ -2136,11 +2136,11 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		}
 	}
 	if (ctx->used_sv_num && is_apply) {
-		if (mtk_cam_sv_apply_next_buffer(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, ktime_get_boottime_ns()) == 0)
 			dev_info(raw_dev->dev, "sv apply next buffer failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_next_buffer(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, ktime_get_boottime_ns()) == 0)
 			dev_info(raw_dev->dev, "mraw apply next buffer failed");
 	}
 }
@@ -3252,13 +3252,17 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	/* apply next buffer */
 	if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
 		ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
-		if (mtk_cam_sv_apply_next_buffer(ctx)) {
+		if (mtk_cam_sv_apply_next_buffer(ctx,
+			camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, ktime_get_boottime_ns())) {
 			/* Transit state from Sensor -> Outer */
 			if (ctx->sensor)
 				state_transition(current_state, E_STATE_SENSOR, E_STATE_OUTER);
 		} else {
 			dev_info(camsv_dev->dev, "sv apply next buffer failed");
 		}
+	} else {
+		mtk_cam_sv_apply_next_buffer(ctx,
+			camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, ktime_get_boottime_ns());
 	}
 }
 
@@ -3274,6 +3278,9 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 		return;
 	}
 	ctx->mraw_dequeued_frame_seq_no[mraw_dev_index] = dequeued_frame_seq_no;
+
+	mtk_cam_mraw_apply_next_buffer(ctx,
+		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, ktime_get_boottime_ns());
 }
 
 static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,

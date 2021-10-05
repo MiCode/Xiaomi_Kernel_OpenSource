@@ -130,6 +130,8 @@ struct mtk_camsv_working_buf_entry {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
 	struct list_head list_entry;
+	u64 ts_raw;
+	u64 ts_sv;
 };
 
 struct mtk_camsv_working_buf_list {
@@ -152,6 +154,8 @@ struct mtk_mraw_working_buf_entry {
 	int mraw_cq_desc_offset;
 	int mraw_cq_desc_size;
 	struct mtk_cam_ctx *ctx;
+	u64 ts_raw;
+	u64 ts_mraw;
 };
 
 struct mtk_mraw_working_buf_list {

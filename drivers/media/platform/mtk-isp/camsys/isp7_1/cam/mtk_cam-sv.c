@@ -1217,6 +1217,15 @@ int mtk_cam_sv_vf_on(struct mtk_camsv_device *dev, unsigned int is_on)
 	return ret;
 }
 
+int mtk_cam_sv_is_vf_on(struct mtk_camsv_device *dev)
+{
+	if (CAMSV_READ_BITS(dev->base + REG_CAMSV_TG_VF_CON,
+			CAMSV_TG_VF_CON, VFDATA_EN) == 1)
+		return 1;
+	else
+		return 0;
+}
+
 int mtk_cam_sv_enquehwbuf(
 	struct mtk_camsv_device *dev,
 	dma_addr_t ba,
@@ -1342,16 +1351,17 @@ int mtk_cam_find_sv_dev_index(
 	return -1;
 }
 
-int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
+int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 {
-	unsigned int seq_no, pipe_id;
+	unsigned int seq_no;
 	dma_addr_t base_addr;
 	struct mtk_camsv_working_buf_entry *buf_entry;
-	struct device *dev_sv;
 	struct mtk_camsv_device *camsv_dev;
 	int i;
 
 	for (i = 0; i < ctx->used_sv_num; i++) {
+		camsv_dev = get_camsv_dev(ctx->cam, ctx->sv_pipe[i]);
+
 		spin_lock(&ctx->sv_using_buffer_list[i].lock);
 		if (list_empty(&ctx->sv_using_buffer_list[i].list)) {
 			spin_unlock(&ctx->sv_using_buffer_list[i].lock);
@@ -1359,6 +1369,19 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 		}
 		buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
 				struct mtk_camsv_working_buf_entry, list_entry);
+		buf_entry->ts_raw = ts_ns;
+		if (mtk_cam_sv_is_vf_on(camsv_dev) &&
+			(ctx->used_raw_num != 0)) {
+			if ((buf_entry->ts_sv == 0) ||
+				((buf_entry->ts_sv < buf_entry->ts_raw) &&
+				((buf_entry->ts_raw - buf_entry->ts_sv) > 5000000))) {
+				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
+					__func__, ctx->sv_pipe[i]->id,
+					buf_entry->ts_raw, buf_entry->ts_sv);
+				spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+				continue;
+			}
+		}
 		list_del(&buf_entry->list_entry);
 		ctx->sv_using_buffer_list[i].cnt--;
 		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
@@ -1368,21 +1391,18 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 		ctx->sv_processing_buffer_list[i].cnt++;
 		spin_unlock(&ctx->sv_processing_buffer_list[i].lock);
 
-		pipe_id = ctx->sv_pipe[i]->id;
-		if (buf_entry->s_data->req->pipe_used & (1 << pipe_id)) {
+		if (buf_entry->s_data->req->pipe_used & (1 << ctx->sv_pipe[i]->id)) {
 			if (buf_entry->s_data->frame_seq_no == 1) {
 				seq_no = buf_entry->s_data->frame_seq_no;
 				base_addr =
 					buf_entry->s_data->sv_frame_params.img_out.buf[0][0].iova;
-				dev_sv = ctx->cam->sv.devs[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
-				camsv_dev = dev_get_drvdata(dev_sv);
 				camsv_dev->is_enqueued = 1;
 				mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
 				/* initial request readout will be delayed 1 frame */
 				if (ctx->used_raw_num && !mtk_cam_is_subsample(ctx) &&
 					!mtk_cam_is_stagger(ctx) && !mtk_cam_is_stagger_m2m(ctx) &&
 					!mtk_cam_is_time_shared(ctx) && !mtk_cam_is_mstream(ctx))
-					mtk_cam_sv_write_rcnt(ctx, pipe_id);
+					mtk_cam_sv_write_rcnt(ctx, ctx->sv_pipe[i]->id);
 			} else {
 				if (ctx->sv_wq)
 					queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
@@ -1391,6 +1411,79 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx)
 			/* under seamless/sat case, to turn off vf */
 			if (ctx->sv_wq)
 				queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
+		}
+	}
+
+	return 1;
+}
+
+int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx,
+	unsigned int pipe_id, u64 ts_ns)
+{
+	unsigned int seq_no;
+	dma_addr_t base_addr;
+	struct mtk_camsv_working_buf_entry *buf_entry;
+	struct mtk_camsv_device *camsv_dev;
+	struct mtk_cam_request_stream_data *s_data;
+	int i;
+
+	for (i = 0; i < ctx->used_sv_num; i++) {
+		if (ctx->sv_pipe[i]->id == pipe_id) {
+			camsv_dev = get_camsv_dev(ctx->cam, ctx->sv_pipe[i]);
+
+			spin_lock(&ctx->sv_using_buffer_list[i].lock);
+			if (list_empty(&ctx->sv_using_buffer_list[i].list)) {
+				spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+				return 0;
+			}
+			buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
+					struct mtk_camsv_working_buf_entry, list_entry);
+			buf_entry->ts_sv = ts_ns;
+			if (((buf_entry->ts_raw == 0) && (ctx->used_raw_num != 0)) ||
+				((buf_entry->ts_sv < buf_entry->ts_raw) &&
+				((buf_entry->ts_raw - buf_entry->ts_sv) > 5000000))) {
+				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
+					__func__, ctx->sv_pipe[i]->id,
+					buf_entry->ts_raw, buf_entry->ts_sv);
+				spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+				return 1;
+			}
+			list_del(&buf_entry->list_entry);
+			ctx->sv_using_buffer_list[i].cnt--;
+			spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+			spin_lock(&ctx->sv_processing_buffer_list[i].lock);
+			list_add_tail(&buf_entry->list_entry,
+					&ctx->sv_processing_buffer_list[i].list);
+			ctx->sv_processing_buffer_list[i].cnt++;
+			spin_unlock(&ctx->sv_processing_buffer_list[i].lock);
+
+			if (buf_entry->s_data->req->pipe_used & (1 << ctx->sv_pipe[i]->id)) {
+				if (buf_entry->s_data->frame_seq_no == 1) {
+					s_data = buf_entry->s_data;
+					seq_no = s_data->frame_seq_no;
+					base_addr =
+						s_data->sv_frame_params.img_out.buf[0][0].iova;
+					camsv_dev->is_enqueued = 1;
+					mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+					/* initial request readout will be delayed 1 frame */
+					if (ctx->used_raw_num && !mtk_cam_is_subsample(ctx) &&
+						!mtk_cam_is_stagger(ctx) &&
+						!mtk_cam_is_stagger_m2m(ctx) &&
+						!mtk_cam_is_time_shared(ctx) &&
+						!mtk_cam_is_mstream(ctx))
+						mtk_cam_sv_write_rcnt(ctx, ctx->sv_pipe[i]->id);
+				} else {
+					if (ctx->sv_wq)
+						queue_work(ctx->sv_wq,
+							&buf_entry->s_data->sv_work.work);
+				}
+			} else {
+				/* under seamless/sat case, to turn off vf */
+				if (ctx->sv_wq)
+					queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
+			}
+
+			break;
 		}
 	}
 
