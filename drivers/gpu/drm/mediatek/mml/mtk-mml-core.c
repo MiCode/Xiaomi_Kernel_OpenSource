@@ -936,17 +936,14 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 {
 	int ret;
 
-	if (task->state == MML_TASK_REUSE ||
-	    task->state == MML_TASK_DUPLICATE) {
-		if (task->state == MML_TASK_DUPLICATE) {
-			/* task need duplcicate before reuse */
-			mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
-			ret = task->config->task_ops->dup_task(task, pipe);
-			mml_trace_ex_end();
-			if (ret < 0) {
-				task->state = MML_TASK_INITIAL;
-				mml_err("dup task fail %d", ret);
-			}
+	if (task->state == MML_TASK_DUPLICATE) {
+		/* task need duplcicate before reuse */
+		mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
+		ret = task->config->task_ops->dup_task(task, pipe);
+		mml_trace_ex_end();
+		if (ret < 0) {
+			task->state = MML_TASK_INITIAL;
+			mml_err("dup task fail %d", ret);
 		}
 	}
 

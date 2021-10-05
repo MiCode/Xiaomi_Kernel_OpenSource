@@ -344,6 +344,14 @@ static void task_move_to_running(struct mml_task *task)
 
 	list_del_init(&task->entry);
 	task->config->await_task_cnt--;
+
+	/* if each of pkts is not exist, do not move to running */
+	if (!task->pkts[0] || (task->config->dual && !task->pkts[1])) {
+		mml_err("[drm]%s task %p keep state %u",
+			__func__, task, task->state);
+		return;
+	}
+
 	task->state = MML_TASK_RUNNING;
 	list_add_tail(&task->entry, &task->config->tasks);
 	task->config->run_task_cnt++;
