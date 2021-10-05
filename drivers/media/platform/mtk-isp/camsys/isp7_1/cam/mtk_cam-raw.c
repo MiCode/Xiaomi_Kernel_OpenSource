@@ -2021,12 +2021,14 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		readl_relaxed(REG_FBC_CTL2(raw_dev->base + FBC_R1A_BASE, 1));
 
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
-	dev_dbg(dev,
-		"INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:%d)\n",
-		irq_status, err_status,
-		dmao_done_status, dmai_done_status, drop_status,
-		dma_ofl_status, cq_done_status, cq2_done_status,
-		frame_idx_inner);
+
+	if (unlikely(debug_raw))
+		dev_dbg(dev,
+			"INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:%d)\n",
+			irq_status, err_status,
+			dmao_done_status, dmai_done_status, drop_status,
+			dma_ofl_status, cq_done_status, cq2_done_status,
+			frame_idx_inner);
 
 	if (unlikely(!raw_dev->pipeline || !raw_dev->pipeline->enabled_raw)) {
 		dev_dbg(dev, "%s: %i: raw pipeline is disabled\n",
@@ -2058,8 +2060,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->cur_vsync_idx = 0;
 		raw_dev->write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		raw_dev->fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 12;
-		dev_dbg(dev, "[SOF] fho wcnt:%d fbc cnt:%d\n",
-				raw_dev->write_cnt, raw_dev->fbc_cnt);
 		raw_dev->sof_count++;
 	}
 
@@ -2078,7 +2078,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	}
 
 	/* Check ISP error status */
-	if (err_status) {
+	if (unlikely(err_status)) {
 		struct mtk_camsys_irq_info err_info;
 
 		err_info.irq_type = CAMSYS_IRQ_ERROR;
@@ -5670,9 +5670,10 @@ static irqreturn_t mtk_irq_yuv(int irq, void *data)
 
 	err_status = irq_status & 0x4; // bit2: DMA_ERR
 
-	dev_dbg(dev, "YUV-INT:0x%x(err:0x%x) INT2/4/5 0x%x/0x%x/0x%x\n",
-		irq_status, err_status,
-		dma_done_status, drop_status, dma_ofl_status);
+	if (unlikely(debug_raw))
+		dev_dbg(dev, "YUV-INT:0x%x(err:0x%x) INT2/4/5 0x%x/0x%x/0x%x\n",
+			irq_status, err_status,
+			dma_done_status, drop_status, dma_ofl_status);
 
 	/* trace */
 	if (irq_status || dma_done_status)
