@@ -3447,7 +3447,7 @@ static const struct snd_soc_dapm_widget mt6368_dapm_widgets[] = {
 
 	/* DC trim : trigger dc trim flow because set the reg when init_reg */
 	/* this must be at the last widget */
-	SND_SOC_DAPM_SUPPLY("DC Trim", MT6368_AUDDEC_ANA_CON8,
+	SND_SOC_DAPM_SUPPLY("DC Trim", MT6368_AUDDEC_ANA_CON16,
 			    RG_AUDTRIMBUF_EN_VAUDP32_SFT, 0,
 			    mt_dc_trim_event, SND_SOC_DAPM_POST_PMD),
 };
