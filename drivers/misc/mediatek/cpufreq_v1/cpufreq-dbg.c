@@ -81,6 +81,7 @@ struct pll_addr pll_addr[MAX_CLUSTER_NRS];//domain + cci
 unsigned int cluster_off[MAX_CLUSTER_NRS];//domain + cci
 
 static struct regulator *vprocs[MAX_CLUSTER_NRS];
+static unsigned int vprocs_step[MAX_CLUSTER_NRS];
 
 static enum mcucfg_ver g_mcucfg_ver = MCUCFG_V0;
 static unsigned int (*pll_to_clk_wrapper)(unsigned int, unsigned int);
@@ -500,10 +501,12 @@ static int phyvolt_proc_show(struct seq_file *m, void *v)
 	static const char * const name_arr[] = {"C0", "C1", "C2", "C3"};
 
 	for (i = 0; i < g_num_cluster; i++) {
-		if (!IS_ERR(vprocs[i]) && vprocs[i])
+		if (!IS_ERR(vprocs[i]) && vprocs[i]) {
 			cur_uv = regulator_get_voltage(vprocs[i]);
-		else
+			cur_uv += vprocs_step[i];
+		} else {
 			cur_uv = -ENODEV;
+		}
 		seq_printf(m, "old cluster: %s, volt = %d\n", name_arr[i], cur_uv);
 	}
 	return 0;
@@ -699,6 +702,11 @@ static int mtk_cpuhvfs_init(void)
 			pr_info("regulator used for %s was found\n", vproc_names[i]);
 		else
 			pr_info("regulator used for %s was not found\n", vproc_names[i]);
+
+		/* if we need to add some step */
+		ret = of_property_read_u32(hvfs_node, vproc_names[i], vprocs_step + i);
+		if (ret != 0)
+			vprocs_step[i] = 0; /* default value */
 	}
 
 	create_cpufreq_debug_fs();
