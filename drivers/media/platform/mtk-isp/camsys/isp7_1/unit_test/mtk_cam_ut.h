@@ -13,7 +13,7 @@
 #include <cam/mtk_cam-ipi.h>
 #include "mtk_cam_ut-event.h"
 
-#define IPI_FRAME_BUF_SIZE		0x8000
+#define IPI_FRAME_BUF_SIZE		ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
 #define IPI_FRAME_BUF_NUM		3
 #define IPI_FRAME_BUF_TOTAL_SIZE	(IPI_FRAME_BUF_SIZE * IPI_FRAME_BUF_NUM)
 
