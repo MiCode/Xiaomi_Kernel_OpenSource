@@ -601,3 +601,29 @@ void hook_scheduler_tick(void *data, struct rq *rq)
 	if (rq->curr->policy == SCHED_NORMAL)
 		check_for_migration(rq->curr);
 }
+
+void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
+				struct task_struct *p)
+{
+	struct update_util_data *fdata;
+	bool should_update = false;
+
+#if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
+	rotat_after_enqueue_task(data, rq, p);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+	if (rq->nr_running != 1)
+		return;
+
+	fdata = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
+							  cpu_of(rq)));
+
+	if (fdata) {
+		should_update = !check_freq_update_for_time(fdata, rq_clock(rq));
+		if (should_update)
+			fdata->func(fdata, rq_clock(rq), 0);
+	}
+#endif
+}
+

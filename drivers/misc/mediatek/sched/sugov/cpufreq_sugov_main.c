@@ -698,6 +698,14 @@ static void sugov_work(struct kthread_work *work)
 	mutex_unlock(&sg_policy->work_lock);
 }
 
+bool check_freq_update_for_time(struct update_util_data *hook, u64 time)
+{
+	struct sugov_cpu *sg_cpu = container_of(hook, struct sugov_cpu, update_util);
+
+	return sg_cpu->last_update == time;
+}
+EXPORT_SYMBOL(check_freq_update_for_time);
+
 static void sugov_irq_work(struct irq_work *irq_work)
 {
 	struct sugov_policy *sg_policy;

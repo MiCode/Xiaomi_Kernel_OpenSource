@@ -66,4 +66,7 @@ extern void rotat_task_stats(void *data, struct task_struct *p);
 extern void rotat_task_newtask(void __always_unused *data, struct task_struct *p,
 				unsigned long clone_flags);
 #endif
+extern void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
+				struct task_struct *p);
+extern bool check_freq_update_for_time(struct update_util_data *hook, u64 time);
 #endif
