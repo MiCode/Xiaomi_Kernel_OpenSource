@@ -31,7 +31,7 @@
 
 #define MTK_POLL_DELAY_US   10
 #define MTK_POLL_TIMEOUT    USEC_PER_SEC
-#define MTK_POLL_IRQ_TIMEOUT    10
+#define MTK_POLL_IRQ_TIMEOUT    50
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
