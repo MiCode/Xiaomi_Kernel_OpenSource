@@ -525,6 +525,9 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	/* 7. disable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, false);
 
+	/* 8. CMDQ power off */
+	cmdq_mbox_disable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
+
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
 }
 
@@ -546,6 +549,9 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 		DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
 		return;
 	}
+
+	/* 0. CMDQ power on */
+	cmdq_mbox_enable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
 
 	/* 1. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
