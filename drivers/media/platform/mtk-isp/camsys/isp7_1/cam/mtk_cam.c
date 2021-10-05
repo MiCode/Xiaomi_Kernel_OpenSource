@@ -448,10 +448,13 @@ static bool finish_img_buf(struct mtk_cam_request_stream_data *req_stream_data)
 
 	if (!ctx->used_raw_num)
 		return false;
-	if (ctx->processing_img_buffer_list.cnt == 0)
-		return false;
 
 	spin_lock(&ctx->processing_img_buffer_list.lock);
+	if (ctx->processing_img_buffer_list.cnt == 0) {
+		spin_unlock(&ctx->processing_img_buffer_list.lock);
+		return false;
+	}
+
 	list_for_each_entry_safe(buf_entry, buf_entry_prev,
 				 &ctx->processing_img_buffer_list.list,
 				 list_entry) {
