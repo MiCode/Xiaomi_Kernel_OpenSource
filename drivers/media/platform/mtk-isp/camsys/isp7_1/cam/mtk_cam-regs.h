@@ -242,6 +242,7 @@
 #define REG_FBC_CTL1(base, idx)    (base + idx * 8)
 #define REG_FBC_CTL2(base, idx)    (base + idx * 8 + 4)
 #define WCNT_BIT_MASK				0xFF00
+#define CNT_BIT_MASK				0xFF0000
 /* ORIDMA */
 /* CAMSYS_RAW 0x1a03 */
 #define REG_IMGO_R1_BASE       0x4880

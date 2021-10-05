@@ -1530,6 +1530,12 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			mtk_cam_set_timestamp(req_stream_data,
 						      time_boot - 1000, time_mono - 1000);
 			mtk_camsys_frame_done(ctx, write_cnt, ctx->stream_id);
+		} else if ((write_cnt >= req_stream_data->frame_seq_no - 1)
+			&& raw_dev->fbc_cnt == 0) {
+			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost frames\n");
+			mtk_cam_set_timestamp(req_stream_data,
+						      time_boot - 1000, time_mono - 1000);
+			mtk_camsys_frame_done(ctx, write_cnt + 1, ctx->stream_id);
 		} else if (mtk_cam_is_stagger(ctx)) {
 			dev_dbg(raw_dev->dev, "[SOF:%d] HDR SWD over SOF case\n", frame_idx_inner);
 		} else {
@@ -1541,12 +1547,12 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				state_transition(state_outer, E_STATE_CAMMUX_OUTER,
 				 E_STATE_OUTER_HW_DELAY);
 			}
-			dev_info_ratelimited(raw_dev->dev, "[SOF] HW_IMCOMPLETE state\n");
+			dev_info_ratelimited(raw_dev->dev,
+				"[SOF] HW_IMCOMPLETE state cnt(%d,%d),req(%d)\n",
+				write_cnt, raw_dev->write_cnt, req_stream_data->frame_seq_no);
 			return STATE_RESULT_PASS_CQ_HW_DELAY;
 		}
 	}
-	/* Trigger high resolution timer to try sensor setting */
-	mtk_cam_sof_timer_setup(ctx);
 	/* Transit outer state to inner state */
 	if (state_outer && sensor_ctrl->sensorsetting_wq) {
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_outer);
@@ -1564,9 +1570,17 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				dev_dbg(raw_dev->dev,
 					"[SOF-DBLOAD] frame_seq_no:%d, OUTER->INNER state:%d\n",
 					req_stream_data->frame_seq_no, state_outer->estate);
+			} else {
+				dev_info(raw_dev->dev,
+					"[SOF-noDBLOAD] HW delay outer_no:%d, inner_idx:%d <= processing_idx:%d\n",
+					req_stream_data->frame_seq_no, frame_idx_inner,
+					atomic_read(&sensor_ctrl->isp_request_seq_no));
+				return STATE_RESULT_PASS_CQ_HW_DELAY;
 			}
 		}
 	}
+	/* Trigger high resolution timer to try sensor setting */
+	mtk_cam_sof_timer_setup(ctx);
 	/* Initial request case - 1st sensor wasn't set yet or initial drop wasn't finished*/
 	if (MTK_CAM_INITIAL_REQ_SYNC) {
 		if (atomic_read(&sensor_ctrl->sensor_request_seq_no)
@@ -3338,7 +3352,7 @@ static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
 
 	// check cq done status
 	if (ctx->used_raw_num)
-		all_subdevs |= (1 << ctx->pipe->id);
+		all_subdevs |= (1 << pipe_id);
 	for (i = 0; i < ctx->used_mraw_num; i++)
 		all_subdevs |= (1 << ctx->mraw_pipe[i]->id);
 	if ((ctx->cq_done_status & all_subdevs) == all_subdevs) {

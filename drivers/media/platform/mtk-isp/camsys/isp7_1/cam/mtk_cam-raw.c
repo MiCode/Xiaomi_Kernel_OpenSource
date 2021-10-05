@@ -2057,7 +2057,9 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 
 		raw_dev->cur_vsync_idx = 0;
 		raw_dev->write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
-		dev_dbg(dev, "[SOF] fho wcnt:%d\n", raw_dev->write_cnt);
+		raw_dev->fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 12;
+		dev_dbg(dev, "[SOF] fho wcnt:%d fbc cnt:%d\n",
+				raw_dev->write_cnt, raw_dev->fbc_cnt);
 		raw_dev->sof_count++;
 	}
 

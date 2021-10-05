@@ -287,7 +287,7 @@ static void mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
 		}
 	}
 	dvfs->clklv_target = clk_streaming_max;
-	dev_dbg(cam->dev, "[%s] dvfs->clk=%d", __func__, dvfs->clklv_target);
+	dev_info(cam->dev, "[%s] dvfs->clk=%d", __func__, dvfs->clklv_target);
 }
 
 static void mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam)
