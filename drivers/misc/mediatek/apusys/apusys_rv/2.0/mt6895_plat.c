@@ -677,7 +677,7 @@ static const struct regdump_region_info mt6895_apu_regdump[] = {
 };
 
 const struct mtk_apu_platdata mt6895_platdata = {
-	.flags		=  F_AUTO_BOOT | F_DEBUG_LOG_ON,
+	.flags		=  F_PRELOAD_FIRMWARE | F_AUTO_BOOT | F_DEBUG_LOG_ON,
 	.ops		= {
 		.init	= mt6895_rproc_init,
 		.exit	= mt6895_rproc_exit,
