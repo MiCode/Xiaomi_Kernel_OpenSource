@@ -96,12 +96,13 @@ enum mml_pq_user_info{
 	MML_PQ_USER_GPU = 2,
 };
 
-enum mml_pq_hdr_video_mode
+enum mml_pq_video_mode
 {
-	MML_PQ_NON_HDR = 0,
+	MML_PQ_NORMAL = 0,
 	MML_PQ_HDR10,
 	MML_PQ_HDR10P,
 	MML_PQ_HDRVIVID,
+	MML_PQ_AISPQ,
 	MML_PQ_AISDR2HDR,
 };
 
