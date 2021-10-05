@@ -539,4 +539,29 @@ int hrtimers_dead_cpu(unsigned int cpu);
 #define hrtimers_dead_cpu	NULL
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+struct tick_broadcast_history_struct {
+	unsigned long long time_enter;
+	unsigned long long time_exit;
+	int ret_enter;
+	int affin_enter_cpu;
+	int affin_handle_cpu;
+	unsigned long long handle_time;
+};
+
+extern struct tick_broadcast_history_struct tick_broadcast_history[NR_CPUS];
+
+#define BC_LOG_BUF_LEN         1024
+struct tick_broadcast_dump_buf {
+	char buf[BC_LOG_BUF_LEN];
+	char *p_idx;
+};
+
+extern struct tick_broadcast_dump_buf bc_dump_buf;
+extern unsigned long long systimer_set_affin_time;
+extern struct cpumask *bc_tick_get_broadcast_oneshot_mask(void);
+extern struct cpumask *bc_tick_get_broadcast_pending_mask(void);
+extern struct cpumask *bc_tick_get_broadcast_force_mask(void);
+#endif
+
 #endif

@@ -173,5 +173,15 @@ config HIGH_RES_TIMERS
 	  hardware is not capable then this option only increases
 	  the size of the kernel image.
 
+config MTK_TICK_BROADCAST_DEBUG
+	bool "Tick Broadcast Issue Debug"
+	help
+	  To prevent abi violation, we introduce MTK_TICK_BROADCAST_DEBUG
+	  config for those debug function enabled only in eng/userdebug
+	  build and this config is used to debug tick broadcast issue that
+	  makes all cpu stuck in idle loop.
+	  Say Y in eng/userdebug build.
+	  If unsure, say N.
+
 endmenu
 endif

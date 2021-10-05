@@ -5,6 +5,9 @@
 
 #include <linux/cpu.h>
 #include <linux/delay.h>
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+#include <linux/hrtimer.h>
+#endif
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -17,10 +20,17 @@
 #include <linux/sysrq.h>
 #include <sched/sched.h>
 #include <uapi/linux/sched/types.h>
-
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+#include "../../../../../kernel/time/tick-internal.h"
+#include <linux/of_irq.h>
+#endif
 #include <mt-plat/mboot_params.h>
 #include <mt-plat/mrdump.h>
 #include "mrdump_helper.h"
+
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+extern void mt_irq_dump_status(unsigned int irq);
+#endif
 
 /*************************************************************************
  * Feature configure region
@@ -70,8 +80,16 @@ static int g_hang_detected;
 static int g_change_tmo;
 static void __iomem *toprgu_base;
 static void __iomem *systimer_base;
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+static unsigned int systimer_irq;
+#endif
 static unsigned int cpus_kick_bit;
 static atomic_t plug_mask = ATOMIC_INIT(0xFF);
+
+__weak void mt_irq_dump_status(unsigned int irq)
+{
+	pr_info("empty gic dump\n");
+};
 
 static unsigned int get_check_bit(void)
 {
@@ -103,6 +121,77 @@ void wk_start_kick_cpu(int cpu)
 		wake_up_process(wk_tsk[cpu]);
 	}
 }
+
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+static char tick_broadcast_mtk_aee_dump_buf[128];
+
+void tick_broadcast_mtk_aee_dump(void)
+{
+	int i, ret = -1;
+
+	pr_info("[name:bc&]%s\n", bc_dump_buf.buf);
+
+	/* tick_broadcast_oneshot_mask */
+
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] oneshot_mask: %*pbl\n",
+		cpumask_pr_args(bc_tick_get_broadcast_oneshot_mask()));
+	if (ret >= 0)
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	/* tick_broadcast_pending_mask */
+
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] pending_mask: %*pbl\n",
+		cpumask_pr_args(bc_tick_get_broadcast_pending_mask()));
+	if (ret >= 0)
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	/* tick_broadcast_force_mask */
+
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] force_mask: %*pbl\n",
+		cpumask_pr_args(bc_tick_get_broadcast_force_mask()));
+	if (ret >= 0)
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	memset(tick_broadcast_mtk_aee_dump_buf, 0,
+		sizeof(tick_broadcast_mtk_aee_dump_buf));
+	ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
+		sizeof(tick_broadcast_mtk_aee_dump_buf),
+		"[TICK] affin_e cpu: %d affin_h cpu: %d last_handle %lld\n",
+		tick_broadcast_history[0].affin_enter_cpu,
+		tick_broadcast_history[0].affin_handle_cpu,
+		tick_broadcast_history[0].handle_time);
+	if (ret >= 0)
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+
+	for_each_possible_cpu(i) {
+		/* to avoid unexpected overrun */
+		if (i >= num_possible_cpus())
+			break;
+		memset(tick_broadcast_mtk_aee_dump_buf, 0,
+			sizeof(tick_broadcast_mtk_aee_dump_buf));
+		ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
+			sizeof(tick_broadcast_mtk_aee_dump_buf),
+			"[TICK] cpu %d, %llu, %d, %llu\n",
+			i, tick_broadcast_history[i].time_enter,
+			tick_broadcast_history[i].ret_enter,
+			tick_broadcast_history[i].time_exit);
+		if (ret >= 0)
+			aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+	}
+}
+#endif
 
 void dump_wdk_bind_info(void)
 {
@@ -276,10 +365,25 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		if (toprgu_base)
 			tmo_len = ioread32(toprgu_base + WDT_LENGTH);
 
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+		tick_broadcast_mtk_aee_dump();
+		if (systimer_irq)
+			mt_irq_dump_status(systimer_irq);
+#endif
+		dump_wdk_bind_info();
+		sysrq_sched_debug_show_at_AEE();
+
 		if (systimer_base)
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+			pr_info("SYST0 CON%x VAL%x affin time %lld\n",
+				ioread32(systimer_base + SYST0_CON),
+				ioread32(systimer_base + SYST0_VAL),
+				systimer_set_affin_time);
+#else
 			pr_info("SYST0 CON%x VAL%x\n",
 				ioread32(systimer_base + SYST0_CON),
 				ioread32(systimer_base + SYST0_VAL));
+#endif
 
 		pr_info("WDT_COUNTER %d\n", r_counter);
 
@@ -552,6 +656,9 @@ static const struct of_device_id systimer_of_match[] = {
 static int __init hangdet_init(void)
 {
 	int res = 0;
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+	unsigned int systirq = 0;
+#endif
 	struct device_node *np_toprgu, *np_systimer;
 
 	for_each_matching_node(np_toprgu, toprgu_of_match) {
@@ -576,6 +683,13 @@ static int __init hangdet_init(void)
 	if (!systimer_base)
 		pr_debug("systimer iomap failed\n");
 
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+	systirq = irq_of_parse_and_map(np_systimer, 0);
+	if (systirq <= 0)
+		systimer_irq = 0;
+	else
+		systimer_irq = systirq;
+#endif
 	init_wk_check_bit();
 
 	wdk_workqueue = create_singlethread_workqueue("mt-wdk");
