@@ -422,7 +422,7 @@ struct hfi_dcvstable_cmd {
 } __packed;
 
 #define MAX_ACD_STRIDE 2
-#define MAX_ACD_NUM_LEVELS 6
+#define MAX_ACD_NUM_LEVELS KGSL_MAX_PWRLEVELS
 
 /* H2F */
 struct hfi_acd_table_cmd {
