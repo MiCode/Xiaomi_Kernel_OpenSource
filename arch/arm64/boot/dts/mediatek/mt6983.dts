@@ -2858,7 +2858,7 @@
 				"PDA0_CAM_MAIN",
 				"PDA1_CAM_MAIN",
 				"PDA2_CAM_MAIN";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 		mediatek,pda2 = <&pda2>;
 		mediatek,larbs = <&smi_larb13 &smi_larb25>;
 		iommus = <&disp_iommu M4U_PORT_L13_CAM1_PDAI_A_0>,
@@ -2868,6 +2868,46 @@
 			<&disp_iommu M4U_PORT_L25_CAM_PDAI_A0>,
 			<&disp_iommu M4U_PORT_L25_CAM_PDAI_A1>,
 			<&disp_iommu M4U_PORT_L25_CAM_PDAO_A>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM1_PDAI_A_0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM1_PDAI_A_1)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM1_PDAO_A)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM1_PDAO_C)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_CAM_PDAI_A0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_CAM_PDAI_A1)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L25_CAM_PDAO_A)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CAM1_PDAI_B_0)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CAM1_PDAI_B_1)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CAM1_PDAO_B)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_CAM_PDAI_B0)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_CAM_PDAI_B1)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_CAM_PDAO_B)
+					&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "l13_pdai_a_0",
+					"l13_pdai_a_1",
+					"l13_pdao_a",
+					"l13_pdao_c",
+					"l25_pdai_a0",
+					"l25_pdai_a1",
+					"l25_pdao_a",
+					"l14_pdai_b_0",
+					"l14_pdai_b_1",
+					"l14_pdao_b",
+					"l26_pdai_b0",
+					"l26_pdai_b1",
+					"l26_pdao_b";
 	};
 
 	pda2: pda2@1a103000 {
@@ -2885,7 +2925,7 @@
 				"PDA0_CAM_MAIN",
 				"PDA1_CAM_MAIN",
 				"PDA2_CAM_MAIN";
-		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
+		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 		mediatek,larbs = <&smi_larb14 &smi_larb26>;
 		iommus = <&mdp_iommu M4U_PORT_L14_CAM1_PDAI_B_0>,
 			<&mdp_iommu M4U_PORT_L14_CAM1_PDAI_B_1>,
