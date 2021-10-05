@@ -2978,6 +2978,43 @@ static int _map_usermem_dma_buf(struct kgsl_device *device,
 #endif
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
+static int verify_secure_access(struct kgsl_device *device,
+	struct kgsl_mem_entry *entry, struct dma_buf *dmabuf)
+{
+	bool secure = entry->memdesc.priv & KGSL_MEMDESC_SECURE;
+	uint32_t *vmid_list = NULL, *perms_list = NULL;
+	uint32_t nelems = 0;
+	int i;
+
+	if (mem_buf_dma_buf_copy_vmperm(dmabuf, (int **)&vmid_list,
+		(int **)&perms_list, (int *)&nelems)) {
+		dev_info(device->dev, "Skipped access check\n");
+		return 0;
+	}
+
+	/* Check if secure buffer is accessible to CP_PIXEL */
+	for (i = 0; i < nelems; i++) {
+		if  (vmid_list[i] == VMID_CP_PIXEL)
+			break;
+	}
+
+	kfree(vmid_list);
+	kfree(perms_list);
+
+	/*
+	 * Do not import a buffer if it is accessible to CP_PIXEL but is being imported as
+	 * a buffer accessible to non-secure GPU. Also, make sure if buffer is to be made
+	 * accessible to secure GPU, it must be accessible to CP_PIXEL
+	 */
+	if (!(secure ^ (i == nelems)))
+		return -EPERM;
+
+	if (secure && mem_buf_dma_buf_exclusive_owner(dmabuf))
+		return -EPERM;
+
+	return 0;
+}
+
 static int kgsl_setup_dma_buf(struct kgsl_device *device,
 				struct kgsl_pagetable *pagetable,
 				struct kgsl_mem_entry *entry,
@@ -3033,44 +3070,10 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	entry->priv_data = meta;
 	entry->memdesc.sgt = sg_table;
 
-	if (entry->memdesc.priv & KGSL_MEMDESC_SECURE) {
-		uint32_t *vmid_list = NULL, *perms_list = NULL;
-		uint32_t nelems = 0;
-		int i;
+	ret = verify_secure_access(device, entry, dmabuf);
+	if (ret)
+		goto out;
 
-		if (mem_buf_dma_buf_exclusive_owner(dmabuf)) {
-			ret = -EPERM;
-			goto out;
-		}
-
-		ret = mem_buf_dma_buf_copy_vmperm(dmabuf, (int **)&vmid_list,
-				(int **)&perms_list, (int *)&nelems);
-		if (ret) {
-			ret = 0;
-			dev_info(device->dev, "Skipped access check\n");
-			goto skip_access_check;
-		}
-
-		/* Check if secure buffer is accessible to CP_PIXEL */
-		for (i = 0; i < nelems; i++) {
-			if  (vmid_list[i] == VMID_CP_PIXEL)
-				break;
-		}
-
-		kfree(vmid_list);
-		kfree(perms_list);
-
-		if (i == nelems) {
-			/*
-			 * Secure buffer is not accessible to CP_PIXEL, there is no point
-			 * in importing this buffer.
-			 */
-			ret = -EPERM;
-			goto out;
-		}
-	}
-
-skip_access_check:
 	/* Calculate the size of the memdesc from the sglist */
 	for (s = entry->memdesc.sgt->sgl; s != NULL; s = sg_next(s))
 		entry->memdesc.size += (uint64_t) s->length;
