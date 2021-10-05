@@ -4089,7 +4089,6 @@ void mtk_drm_mmlsys_submit_done_cb(void *cb_param)
 	struct mtk_mml_cb_para *cb_para = (struct mtk_mml_cb_para *)cb_param;
 
 	if (cb_para == NULL) {
-		DDPPR_ERR("%s\n", __func__);
 		return;
 	}
 
@@ -4126,7 +4125,6 @@ struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev)
 	struct mml_drm_param disp_param = {};
 
 	if (priv->mml_ctx != NULL) {
-		DDPPR_ERR("%s 1 priv->mml_ctx:0x%x\n", __func__, priv->mml_ctx);
 		return priv->mml_ctx;
 	}
 
