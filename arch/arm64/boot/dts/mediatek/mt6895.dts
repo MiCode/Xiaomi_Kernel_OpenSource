@@ -11747,6 +11747,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			clkbuf_ctl = <&clock_buffer_ctrl>;
 		};
 	};
+
+	mtee_svp: mtee_svp {
+		compatible = "medaitek,svp";
+	};
 };
 
 #include "mediatek/cust_mt6895_msdc.dtsi"
