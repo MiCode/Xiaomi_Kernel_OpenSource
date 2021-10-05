@@ -798,7 +798,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u8, &len);
 		break;
 	case V4L2_CID_TEST_PATTERN:
-		dev_dbg(dev, "V4L2_SET_TEST_PATTERN (mode:%d)", ctrl->val);
+		// dev_dbg(dev, "V4L2_SET_TEST_PATTERN (mode:%d)", ctrl->val);
 		para.u8[0] = ctrl->val;
 		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_TEST_PATTERN,
@@ -1039,18 +1039,16 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 
 	case V4L2_CID_MTK_SENSOR_TEST_PATTERN_DATA:
-		{
-			struct mtk_test_pattern_data *info = ctrl->p_new.p;
+		//struct mtk_test_pattern_data *info = ctrl->p_new.p;
 
-			dev_dbg(dev, "V4L2_SET_TEST_PATTERN_DATA R(%x),Gr(%x),Gb(%x),B(%x)",
-				info->Channel_R,
-				info->Channel_Gr,
-				info->Channel_Gb,
-				info->Channel_B);
-			subdrv_call(ctx, feature_control,
-				SENSOR_FEATURE_SET_TEST_PATTERN_DATA,
-				ctrl->p_new.p, &len);
-		}
+		// dev_dbg(dev, "V4L2_SET_TEST_PATTERN_DATA R(%x),Gr(%x),Gb(%x),B(%x)",
+			// info->Channel_R,
+			// info->Channel_Gr,
+			// info->Channel_Gb,
+			// info->Channel_B);
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_SET_TEST_PATTERN_DATA,
+			ctrl->p_new.p, &len);
 		break;
 	}
 

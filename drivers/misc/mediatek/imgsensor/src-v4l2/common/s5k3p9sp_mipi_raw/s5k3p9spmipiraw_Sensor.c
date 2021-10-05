@@ -1222,12 +1222,14 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	LOG_INF("enable: %d\n", enable);
-
 	if (enable)
 		write_cmos_sensor_16(ctx, 0x0600, 0x0002);
-	else
+	else if (ctx->test_pattern)
 		write_cmos_sensor_16(ctx, 0x0600, 0x0000);
+	else
+		return ERROR_NONE;
+
+	LOG_INF("enable: %d\n", enable);
 	ctx->test_pattern = enable;
 	return ERROR_NONE;
 }
@@ -1249,7 +1251,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data =
 		(MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
-	LOG_INF("feature_id = %d\n", feature_id);
+	// LOG_INF("feature_id = %d\n", feature_id);
 	switch (feature_id) {
 	case SENSOR_FEATURE_GET_OUTPUT_FORMAT_BY_SCENARIO:
 		switch (*feature_data) {
