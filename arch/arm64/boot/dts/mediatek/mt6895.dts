@@ -82,6 +82,10 @@
 		mml_rsz3 = &mml_rsz3;
 		mml_wrot2 = &mml_wrot2;
 		mml_wrot3 = &mml_wrot3;
+		mtksmmu0 = &disp_iommu;
+		mtksmmu1 = &mdp_iommu;
+		mtksmmu2 = &apu_iommu0;
+		mtksmmu3 = &apu_iommu1;
 	};
 
 	clk_ao: clk_ao {
