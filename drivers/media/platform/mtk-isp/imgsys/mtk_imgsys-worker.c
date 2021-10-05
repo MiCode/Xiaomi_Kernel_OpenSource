@@ -10,6 +10,7 @@
 #include <linux/sched/task.h>
 #include <uapi/linux/sched/types.h>
 #include "mtk_imgsys-worker.h"
+
 int imgsys_queue_init(struct imgsys_queue *que, struct device *dev, char *name)
 {
 	int ret = 0;
@@ -26,6 +27,7 @@ int imgsys_queue_init(struct imgsys_queue *que, struct device *dev, char *name)
 	init_waitqueue_head(&que->dis_wq);
 	spin_lock_init(&que->lock);
 	atomic_set(&que->nr, 0);
+	que->peak = 0;
 	mutex_init(&que->task_lock);
 EXIT:
 	return ret;
@@ -45,8 +47,8 @@ static int worker_func(void *data)
 								head->name);
 		wait_event_interruptible(head->wq,
 			atomic_read(&head->nr) || atomic_read(&head->disable));
-		dev_dbg(head->dev, "%s: %s kthread wakes dis(%d)\n", __func__,
-				head->name, atomic_read(&head->disable));
+		dev_dbg(head->dev, "%s: %s kthread wakes dis/nr(%d/%d)\n", __func__,
+				head->name, atomic_read(&head->disable), atomic_read(&head->nr));
 
 		spin_lock(&head->lock);
 		if (atomic_read(&head->disable) || !atomic_read(&head->nr)) {
@@ -114,13 +116,19 @@ int imgsys_queue_disable(struct imgsys_queue *que)
 		dev_info(que->dev, "%s: signal interrupt", __func__);
 
 	mutex_lock(&que->task_lock);
+
 	atomic_set(&que->disable, 1);
 	ret = kthread_stop(que->task);
 	if (ret)
 		dev_info(que->dev, "%s: kthread_stop failed %d\n",
 						__func__, ret);
+
 	put_task_struct(que->task);
 	que->task = NULL;
+
+	dev_info(que->dev, "%s: kthread(%s) queue peak(%d)\n",
+		__func__, que->name, que->peak);
+
 	mutex_unlock(&que->task_lock);
 
 	mutex_destroy(&que->task_lock);
@@ -130,6 +138,8 @@ int imgsys_queue_disable(struct imgsys_queue *que)
 
 int imgsys_queue_add(struct imgsys_queue *que, struct imgsys_work *work)
 {
+	int size;
+
 	if ((!que) || (!work) || (!que->task))
 		return -1;
 
@@ -143,10 +153,17 @@ int imgsys_queue_add(struct imgsys_queue *que, struct imgsys_work *work)
 
 	spin_lock(&que->lock);
 	list_add_tail(&work->entry, &que->queue);
-	atomic_inc(&que->nr);
+	size = atomic_inc_return(&que->nr);
+	if (size > que->peak)
+		que->peak = size;
 	spin_unlock(&que->lock);
 
-	wake_up(&que->wq);
+	if (size == 1) {
+		dev_dbg(que->dev, "%s try wakeup dis/nr(%d/%d)\n", __func__,
+			atomic_read(&que->disable), atomic_read(&que->nr));
+		wake_up(&que->wq);
+	}
+
 	dev_dbg(que->dev, "%s: raising %s\n", __func__, que->name);
 
 	return 0;

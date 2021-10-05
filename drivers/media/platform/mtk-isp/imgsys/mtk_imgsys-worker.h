@@ -18,6 +18,7 @@ struct imgsys_queue {
 	struct device *dev;
 	struct list_head queue;
 	atomic_t nr;
+	int peak;
 	atomic_t disable;
 	spinlock_t lock;
 	wait_queue_head_t wq;
