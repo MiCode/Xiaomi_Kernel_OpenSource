@@ -19,6 +19,9 @@
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
 #endif
+#ifdef CONFIG_MTK_SCMI_TIMEOUT_HOOK
+#include <trace/hooks/scmi.h>
+#endif
 
 #ifdef MBOX_TIMESTAMP
 #include <asm/arch_timer.h>
@@ -111,7 +114,13 @@ static int tinysys_mbox_send_data(struct mbox_chan *chan, void *data)
 
 	return 0;
 }
-
+#ifdef CONFIG_MTK_SCMI_TIMEOUT_HOOK
+static void scmi_timeout_set(void *ignore, int *timeout)
+{
+	int rx_timeout = msecs_to_jiffies(2000);
+	*timeout = rx_timeout;
+}
+#endif
 static int tinysys_mbox_startup(struct mbox_chan *chan)
 {
 	struct mhu_link *mlink = chan->con_priv;
@@ -153,14 +162,22 @@ static int tinysys_mbox_probe(struct platform_device *pdev)
 	struct resource shmem_res;
 	resource_size_t size;
 #endif
+#ifdef CONFIG_MTK_SCMI_TIMEOUT_HOOK
+	int ret;
+#endif
 
 	/* Allocate memory for device */
 	mbu = devm_kzalloc(dev, sizeof(*mbu), GFP_KERNEL);
 	if (!mbu)
 		return -ENOMEM;
-
-
-
+#ifdef CONFIG_MTK_SCMI_TIMEOUT_HOOK
+	/* register tracepoint of scmi mailbox rx timeout */
+	ret = register_trace_android_vh_scmi_timeout_sync(scmi_timeout_set, NULL);
+	if (ret) {
+		dev_notice(dev, "scmi register hooks fail");
+		return ret;
+	}
+#endif
 	for (i = 0; i < MBOX_CHANS; i++) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
 		mbu->base = devm_ioremap_resource(dev, res);
@@ -231,8 +248,17 @@ static const struct of_device_id tinysys_mbox_of_ids[] = {
 	{}
 };
 
+static int tinysys_mbox_remove(struct platform_device *pdev)
+{
+#ifdef CONFIG_MTK_SCMI_TIMEOUT_HOOK
+	unregister_trace_android_vh_scmi_timeout_sync(scmi_timeout_set, NULL);
+#endif
+	return 0;
+}
+
 static struct platform_driver tinysys_mbox_drv = {
 	.probe = tinysys_mbox_probe,
+	.remove = tinysys_mbox_remove,
 	.driver = {
 		.name = "mtk_tinysys_mbox",
 		.of_match_table = tinysys_mbox_of_ids,
