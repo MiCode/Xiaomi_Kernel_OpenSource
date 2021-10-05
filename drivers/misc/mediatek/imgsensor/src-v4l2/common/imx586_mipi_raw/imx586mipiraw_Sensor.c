@@ -890,7 +890,8 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	max_gain = imgsensor_info.max_gain;//setuphere for mode use
 	min_gain = imgsensor_info.min_gain;//setuphere for mode use
 
-	if (ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM3 ||//16x for full mode
+	if (ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM3 ||//16x for full size mode
+			ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM4 ||
 			ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM6) {
 		/* 8K6K */
 		max_gain = 16 * BASEGAIN;
@@ -3358,11 +3359,17 @@ static void custom3_setting(struct subdrv_ctx *ctx)
 			sizeof(imx586_custom3_setting));
 		_size_to_write += _length;
 	}
-
 	if (otp_flag == OTP_QSC_NONE) {
 		pr_info("OTP no QSC Data, close qsc register");
-		write_cmos_sensor_8(ctx, 0x3621, 0x00);
+		if (!_is_seamless)
+			write_cmos_sensor_8(ctx, 0x3621, 0x00);
+		else {
+			_i2c_data[_size_to_write++] = 0x3621;
+			_i2c_data[_size_to_write++] = 0x00;
+		}
 	}
+
+
 
 	LOG_INF("%s 30 fpsX\n", __func__);
 }
@@ -3388,6 +3395,16 @@ static void custom4_setting(struct subdrv_ctx *ctx)
 			imx586_custom4_setting,
 			sizeof(imx586_custom4_setting));
 		_size_to_write += _length;
+
+	}
+	if (otp_flag == OTP_QSC_NONE) {
+		pr_info("OTP no QSC Data, close qsc register");
+		if (!_is_seamless)
+			write_cmos_sensor_8(ctx, 0x3621, 0x00);
+		else {
+			_i2c_data[_size_to_write++] = 0x3621;
+			_i2c_data[_size_to_write++] = 0x00;
+		}
 	}
 
 	LOG_INF("X\n");
@@ -3813,7 +3830,7 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s. 720P@240FPS\n", __func__);
+	pr_debug("%s. Fullsize center crop 4K@30FPS\n", __func__);
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM4;
 	ctx->pclk = imgsensor_info.custom4.pclk;
@@ -3821,6 +3838,12 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom4.framelength;
 	ctx->min_frame_length = imgsensor_info.custom4.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
+	if (!qsc_flag) {
+		pr_debug("write_sensor_QSC Start\n");
+		write_sensor_QSC(ctx);
+		pr_debug("write_sensor_QSC End\n");
+		qsc_flag = 1;
+	}
 	custom4_setting(ctx);
 	set_mirror_flip(ctx, ctx->mirror);
 
@@ -5336,7 +5359,7 @@ break;
 			switch (*feature_data) {
 			case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 				//416(clk)*2(pixel)*0.95
-				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 790400000;
+				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1037400000;
 				break;
 			case SENSOR_SCENARIO_ID_CUSTOM3:
 				//416(clk)*4(pixel)*.95
