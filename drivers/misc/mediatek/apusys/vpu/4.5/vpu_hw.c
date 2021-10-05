@@ -1027,6 +1027,8 @@ int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 	if (ret) {
 		pr_info("%s: %s: fail to init commands: %d\n",
 			__func__, vd->name, ret);
+		vpu_cmd_exit(vd);
+		free_irq(vd->irq_num, vd);
 		goto out;
 	}
 

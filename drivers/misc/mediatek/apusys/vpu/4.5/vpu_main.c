@@ -752,24 +752,24 @@ static int vpu_probe(struct platform_device *pdev)
 	/* power initialization */
 	ret = vpu_init_dev_pwr(pdev, vd);
 	if (ret)
-		goto free;
+		goto hw_free;
 
 	/* device algo initialization */
 	ret = vpu_init_dev_algo(pdev, vd);
 	if (ret)
-		goto free;
+		goto hw_free;
 
 	/* register device to APUSYS */
 	ret = vpu_init_adev(vd, &vd->adev,
 		APUSYS_DEVICE_VPU, vpu_send_cmd);
 	if (ret)
-		goto free;
+		goto hw_free;
 
 	if (xos_type(vd) == VPU_XOS) {
 		ret = vpu_init_adev(vd, &vd->adev_rt,
 			APUSYS_DEVICE_VPU_RT, vpu_send_cmd_rt);
 		if (ret)
-			goto free;
+			goto hw_free;
 	}
 
 	vpu_init_dev_debug(pdev, vd);
@@ -780,6 +780,8 @@ static int vpu_probe(struct platform_device *pdev)
 	return 0;
 
 	// TODO: add error handling free algo
+hw_free:
+	vpu_exit_dev_hw(pdev, vd);
 free:
 	vpu_exit_dev_mem(pdev, vd);
 out:
