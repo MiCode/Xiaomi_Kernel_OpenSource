@@ -389,10 +389,11 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 		 res_user->raw_res.throughput);
 
 	/* check user value of sensor input parameters */
-	if (!res_user->sensor_res.pixel_rate || !res_user->sensor_res.hblank ||
+	if (!mtk_cam_feature_is_pure_m2m(res_user->raw_res.feature) &&
+		 (!res_user->sensor_res.pixel_rate || !res_user->sensor_res.hblank ||
 	    !res_user->sensor_res.vblank ||
 	    !res_user->sensor_res.interval.denominator ||
-	    !res_user->sensor_res.interval.numerator) {
+	    !res_user->sensor_res.interval.numerator)) {
 		dev_info(dev,
 			 "%s:pipe(%d): sensor info MUST be provided\n",
 			 __func__, pipeline->id);
@@ -433,6 +434,22 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 	return 0;
 }
 
+static s64 mtk_cam_calc_pure_m2m_pixelrate(s64 width, s64 height,
+					struct v4l2_fract *interval)
+{
+/* process + r/wdma margin = (1 + 5%) x (1 + 10%) */
+#define PURE_M2M_PROCESS_MARGIN_N 11550
+#define PURE_M2M_PROCESS_MARGIN_D 10000
+	s64 prate = 0;
+	int fps_n = interval->numerator;
+	int fps_d = interval->denominator;
+
+	prate = width * height * fps_n * PURE_M2M_PROCESS_MARGIN_N;
+	do_div(prate, fps_d * PURE_M2M_PROCESS_MARGIN_D);
+
+	return prate;
+}
+
 int
 mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 struct mtk_cam_resource *res_user,
@@ -456,6 +473,9 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 
 	if (res_user->sensor_res.cust_pixel_rate)
 		prate = res_user->sensor_res.cust_pixel_rate;
+	else if (mtk_cam_feature_is_pure_m2m(res_cfg->raw_feature))
+		prate = mtk_cam_calc_pure_m2m_pixelrate(
+			sink_fmt->width, sink_fmt->height, &res_cfg->interval);
 	else
 		prate = mtk_cam_seninf_calc_pixelrate
 					(pipeline->raw->cam_dev, sink_fmt->width,
@@ -465,7 +485,6 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 					 res_user->sensor_res.interval.denominator,
 					 res_user->sensor_res.interval.numerator,
 					 res_user->sensor_res.pixel_rate);
-
 	mtk_raw_resource_calc(dev_get_drvdata(pipeline->raw->cam_dev),
 			      res_cfg, prate,
 			      res_cfg->res_plan, sink_fmt->width,
@@ -3307,7 +3326,9 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 	}
 
 
-	if (!mtk_raw_try_fmt(sd, fmt)) {
+	if (!mtk_raw_try_fmt(sd, fmt) &&
+			!mtk_cam_feature_is_pure_m2m(
+			pipe->feature_pending)) {
 		mf = mtk_raw_pipeline_get_fmt(pipe, cfg, fmt->pad, fmt->which);
 		fmt->format = *mf;
 		dev_info(raw->cam_dev,

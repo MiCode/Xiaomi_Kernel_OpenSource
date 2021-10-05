@@ -59,6 +59,23 @@ static inline bool mtk_cam_feature_is_stagger_m2m(int feature)
 	return false;
 }
 
+static inline bool mtk_cam_feature_is_m2m(int feature)
+{
+	if (feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK ||
+			feature & MTK_CAM_FEATURE_PURE_OFFLINE_M2M_MASK)
+		return true;
+
+	return false;
+}
+
+static inline bool mtk_cam_feature_is_pure_m2m(int feature)
+{
+	if (feature & MTK_CAM_FEATURE_PURE_OFFLINE_M2M_MASK)
+		return true;
+
+	return false;
+}
+
 static inline bool mtk_cam_feature_is_stagger(int feature)
 {
 	int is_hdr;
@@ -118,6 +135,7 @@ static inline bool mtk_cam_feature_change_is_mstream(int feature_change)
 bool mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx);
+bool mtk_cam_is_pure_m2m(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_stagger(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_mstream(struct mtk_cam_ctx *ctx);

@@ -29,12 +29,24 @@ bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx)
 		return false;
 }
 
+bool mtk_cam_is_pure_m2m(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	if (ctx->pipe->feature_pending & MTK_CAM_FEATURE_PURE_OFFLINE_M2M_MASK)
+		return true;
+	else
+		return false;
+}
+
 bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx)
 {
 	if (!ctx->used_raw_num)
 		return false;
 
-	if (ctx->pipe->feature_pending & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)
+	if (ctx->pipe->feature_pending & MTK_CAM_FEATURE_OFFLINE_M2M_MASK ||
+			ctx->pipe->feature_pending & MTK_CAM_FEATURE_PURE_OFFLINE_M2M_MASK)
 		return true;
 	else
 		return false;

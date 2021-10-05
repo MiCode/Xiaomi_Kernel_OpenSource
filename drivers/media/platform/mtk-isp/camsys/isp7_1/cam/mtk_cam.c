@@ -4504,11 +4504,14 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		}
 		ctx->synced = 0;
 	}
-	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
-	if (ret) {
-		dev_dbg(cam->dev, "failed to stream off %s:%d\n",
-			ctx->seninf->name, ret);
-		return -EPERM;
+
+	if (!mtk_cam_is_m2m(ctx)) {
+		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
+		if (ret) {
+			dev_dbg(cam->dev, "failed to stream off %s:%d\n",
+				ctx->seninf->name, ret);
+			return -EPERM;
+		}
 	}
 
 	if (ctx->used_raw_num) {

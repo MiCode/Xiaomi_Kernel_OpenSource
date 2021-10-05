@@ -180,9 +180,9 @@ struct mtk_cam_resource_sensor {
  *	      pass MTK_CAM_RESOURCE_DEFAULT if you want camsys driver to
  *	      determine it.
  * @pixel_mode: the pixel mode driver used in the raw pipeline. It is written by
- *		drive only.
+ *		driver only.
  * @throughput: the throughput be used in the raw pipeline. It is written by
- *		drive only.
+ *		driver only.
  *
  */
 struct mtk_cam_resource_raw {

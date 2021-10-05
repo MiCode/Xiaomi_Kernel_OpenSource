@@ -2526,8 +2526,7 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request_stream_data *req_stream_data;
 	bool triggered;
 
-	if (!(raw_dev->pipeline->feature_active &
-			MTK_CAM_FEATURE_OFFLINE_M2M_MASK))
+	if (!mtk_cam_feature_is_m2m(raw_dev->pipeline->feature_active))
 		return;
 
 	if (!mtk_cam_is_mstream_m2m(ctx))
