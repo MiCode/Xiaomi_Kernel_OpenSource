@@ -229,6 +229,7 @@ extern unsigned int
 	mtk_gpueb_dvfs_set_frag_done_interval(int frag_done_interval_in_ns);
 extern unsigned int mtk_gpueb_dvfs_get_mode(unsigned int *pAction);
 extern unsigned int mtk_gpueb_dvfs_set_mode(unsigned int action);
+extern unsigned int is_fdvfs_enable(void);
 
 extern int fastdvfs_proc_init(void);
 extern void fastdvfs_proc_exit(void);

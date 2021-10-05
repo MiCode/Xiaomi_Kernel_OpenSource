@@ -364,6 +364,11 @@ unsigned int mtk_gpueb_dvfs_get_mode(unsigned int *pAction)
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_get_mode);
 
+unsigned int is_fdvfs_enable(void)
+{
+	return fastdvfs_mode & 0x1;
+}
+
 
 unsigned int mtk_gpueb_dvfs_get_cur_freq(void)
 {
