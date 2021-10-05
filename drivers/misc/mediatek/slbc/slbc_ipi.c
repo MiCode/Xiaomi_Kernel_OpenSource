@@ -14,12 +14,15 @@
 
 #include "slbc_ipi.h"
 #include "slbc_ops.h"
+#include "slbc.h"
+#include <mtk_slbc_sram.h>
 
 static int slbc_sspm_ready;
 static int slbc_scmi_enable;
 static int scmi_slbc_id;
 static struct scmi_tinysys_info_st *_tinfo;
 static struct slbc_ipi_ops *ipi_ops;
+static unsigned int scmi_id;
 
 int slbc_get_scmi_enable(void)
 {
@@ -330,8 +333,18 @@ int slbc_scmi_set(void *buffer, int slot)
 			__func__, __LINE__,
 			scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg);
 
+	slbc_sram_write(SLBC_SCMI_AP, ++scmi_id);
+
 	ret = scmi_tinysys_common_set(_tinfo->ph, scmi_slbc_id,
 			slbc_ipi_d->cmd, slbc_ipi_d->arg, 0, 0, 0);
+
+	if (ret == -ETIMEDOUT) {
+		if (scmi_id == slbc_sram_read(SLBC_SCMI_SSPM)) {
+			ret = 0;
+			pr_info("slbc scmi timed out!\n");
+		}
+	}
+
 	if (ret) {
 		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
 				slbc_ipi_d->cmd, ret);
@@ -364,8 +377,24 @@ int slbc_scmi_get(void *buffer, int slot, void *ptr)
 			__func__, __LINE__,
 			scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg);
 
+	slbc_sram_write(SLBC_SCMI_AP, ++scmi_id);
+
 	ret = scmi_tinysys_common_get(_tinfo->ph, scmi_slbc_id,
 			slbc_ipi_d->cmd, rvalue);
+
+	if (ret == -ETIMEDOUT) {
+		if (scmi_id == slbc_sram_read(SLBC_SCMI_SSPM)) {
+			ret = 0;
+			rvalue->r1 = slbc_sram_read(SLBC_SCMI_RET1);
+			rvalue->r2 = slbc_sram_read(SLBC_SCMI_RET2);
+			rvalue->r3 = slbc_sram_read(SLBC_SCMI_RET3);
+			pr_info("slbc scmi timed out! return 0x%x 0x%x 0x%x\n",
+					rvalue->r1,
+					rvalue->r2,
+					rvalue->r3);
+		}
+	}
+
 	if (ret) {
 		pr_info("slbc scmi cmd %d send fail, ret = %d\n",
 				slbc_ipi_d->cmd, ret);

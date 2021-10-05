@@ -87,7 +87,7 @@ static DEFINE_MUTEX(slbc_ops_lock);
 /* 1 in bit is from request done to relase done */
 static unsigned long slbc_uid_used;
 /* 1 in bit is for mask */
-static unsigned long slbc_uid_mask;
+static unsigned long slbc_sid_mask;
 /* 1 in bit is under request flow */
 static unsigned long slbc_sid_req_q;
 /* 1 int bit is under release flow */
@@ -627,7 +627,7 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
 	slbc_uid_used = slbc_sram_read(SLBC_UID_USED);
-	slbc_uid_mask = slbc_sram_read(SLBC_UID_MASK);
+	slbc_sid_mask = slbc_sram_read(SLBC_SID_MASK);
 	slbc_sid_req_q = slbc_sram_read(SLBC_SID_REQ_Q);
 	slbc_sid_rel_q = slbc_sram_read(SLBC_SID_REL_Q);
 	slbc_slot_used = slbc_sram_read(SLBC_SLOT_USED);
@@ -661,7 +661,7 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "slbc_sram_enable %x\n", slbc_sram_enable);
 	seq_printf(m, "slbc_scmi_enable %x\n", slbc_get_scmi_enable());
 	seq_printf(m, "slbc_uid_used 0x%lx\n", slbc_uid_used);
-	seq_printf(m, "slbc_uid_mask 0x%lx\n", slbc_uid_mask);
+	seq_printf(m, "slbc_sid_mask 0x%lx\n", slbc_sid_mask);
 	seq_printf(m, "slbc_sid_req_q 0x%lx\n", slbc_sid_req_q);
 	seq_printf(m, "slbc_sid_rel_q 0x%lx\n", slbc_sid_rel_q);
 	seq_printf(m, "slbc_slot_used 0x%lx\n", slbc_slot_used);
@@ -775,9 +775,9 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "slbc_uid_used")) {
 		slbc_uid_used = val_1;
 		slbc_sram_write(SLBC_UID_USED, slbc_uid_used);
-	} else if (!strcmp(cmd, "slbc_uid_mask")) {
-		slbc_uid_mask = val_1;
-		slbc_sram_write(SLBC_UID_MASK, slbc_uid_mask);
+	} else if (!strcmp(cmd, "slbc_sid_mask")) {
+		slbc_sid_mask = val_1;
+		slbc_sram_write(SLBC_SID_MASK, slbc_sid_mask);
 	} else if (!strcmp(cmd, "slbc_sid_req_q")) {
 		slbc_sid_req_q = val_1;
 		slbc_sram_write(SLBC_SID_REQ_Q, slbc_sid_req_q);

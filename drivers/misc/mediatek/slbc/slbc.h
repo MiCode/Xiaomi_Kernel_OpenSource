@@ -93,6 +93,8 @@ struct slbc_common_ops {
 	void (*slbc_update_mic_num)(unsigned int num);
 };
 
+extern u32 slbc_sram_read(u32 offset);
+extern void slbc_sram_write(u32 offset, u32 val);
 extern void slbc_register_common_ops(struct slbc_common_ops *ops);
 extern void slbc_unregister_common_ops(struct slbc_common_ops *ops);
 
