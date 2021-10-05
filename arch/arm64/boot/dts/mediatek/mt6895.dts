@@ -4157,6 +4157,17 @@
 			mediatek,apu_power = <&apusys_rv>;
 			#iommu-cells = <1>;
 		};
+		apusys_reviser@1903c000 {
+			compatible = "mediatek, rv-reviser";
+			reg = <0 0x1903c000 0 0x1000>,          /* apu_sctrl_reviser  */
+				<0 0x02000000 0 0xC00000>,    /* VLM          */
+				<0 0x1D900000 0 0x200000>,    /* TCM          */
+				<0 0x19001000 0 0x1000>;              /* apusys int */
+			default-dram = <0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+			boundary = <0x0>;
+			iommus = <&apu_iommu0 M4U_LARB34_APU_CODE>;
+		};
 
 		mm_m0_rsi@1e807000 {
 			compatible = "mediatek,mm_m0_rsi";
