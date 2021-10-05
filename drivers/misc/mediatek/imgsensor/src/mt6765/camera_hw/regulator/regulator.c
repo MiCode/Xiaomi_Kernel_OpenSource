@@ -80,10 +80,13 @@ static int regulator_oc_notify(
 
 #define OC_MODULE "camera"
 enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
-	enum IMGSENSOR_SENSOR_IDX sensor_idx, bool enable)
+	enum IMGSENSOR_SENSOR_IDX sensor_idxU, bool enable)
 {
 	int i = 0;
 	int ret = 0;
+	unsigned int sensor_idx = 0;
+
+	sensor_idx = sensor_idxU;
 
 	mutex_lock(&oc_mutex);
 	if (enable) {

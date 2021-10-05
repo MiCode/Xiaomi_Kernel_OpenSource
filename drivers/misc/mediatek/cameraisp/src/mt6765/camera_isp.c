@@ -5309,7 +5309,7 @@ static int ISP_SetPMQOS(unsigned int cmd, unsigned int module)
  * update current idnex to working frame
  *****************************************************************************/
 static signed int ISP_P2_BufQue_Update_ListCIdx(
-	enum ISP_P2_BUFQUE_PROPERTY property,
+	enum ISP_P2_BUFQUE_PROPERTY propertyU,
 	enum ISP_P2_BUFQUE_LIST_TAG listTag)
 {
 	signed int ret = 0;
@@ -5317,7 +5317,9 @@ static signed int ISP_P2_BufQue_Update_ListCIdx(
 	signed int cnt = 0;
 	bool stop = false;
 	int i = 0;
+	unsigned int property = 0;
 	enum ISP_P2_BUF_STATE_ENUM cIdxSts = ISP_P2_BUF_STATE_NONE;
+	property = propertyU;
 
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
@@ -5418,7 +5420,7 @@ static signed int ISP_P2_BufQue_Update_ListCIdx(
 /******************************************************************************
  *
  *****************************************************************************/
-static signed int ISP_P2_BufQue_Erase(enum ISP_P2_BUFQUE_PROPERTY property,
+static signed int ISP_P2_BufQue_Erase(enum ISP_P2_BUFQUE_PROPERTY propertyU,
 enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 {
 	signed int ret =  -1;
@@ -5426,6 +5428,9 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 	int i = 0;
 	signed int cnt = 0;
 	int tmpIdx = 0;
+	unsigned int property = 0;
+
+	property = propertyU;
 
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_PACKAGE:
@@ -5545,7 +5550,7 @@ static signed int ISP_P2_BufQue_GetMatchIdx(struct ISP_P2_BUFQUE_STRUCT param,
 {
 	int idx = -1;
 	int i = 0;
-	int property;
+	unsigned int property;
 
 	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		pr_err("property err(%d)\n", param.property);
@@ -5762,7 +5767,7 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 {
 	unsigned int ret = MFALSE;
 	signed int index = -1;
-	enum ISP_P2_BUFQUE_PROPERTY property;
+	unsigned int property;
 
 	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		pr_err("property err(%d)\n", param.property);
@@ -5831,7 +5836,7 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 	int i = 0, q = 0;
 	int idx =  -1, idx2 =  -1;
 	signed int restTime = 0;
-	int property;
+	unsigned int property;
 
 	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		pr_err("property err(%d)\n", param.property);
