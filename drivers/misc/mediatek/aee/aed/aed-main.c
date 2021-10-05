@@ -1134,7 +1134,7 @@ static int aed_ke_open(struct inode *inode, struct file *filp)
 	int minor;
 	unsigned char *devname;
 
-	if (strncmp(current->comm, "aee_aed", 7))
+	if (strncmp(current->comm, "aee_aed", 7) || is_compat_task())
 		return -1;
 
 	major = MAJOR(inode->i_rdev);
