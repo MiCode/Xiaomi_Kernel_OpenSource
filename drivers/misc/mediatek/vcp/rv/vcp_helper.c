@@ -433,8 +433,6 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 	pr_debug("[VCP] clear vcp reset flag and unlock\n");
 
 	__pm_relax(vcp_reset_lock);
-	vcp_register_feature(RTOS_FEATURE_ID);
-
 }
 
 
@@ -723,9 +721,9 @@ void vcp_disable_pm_clk(void)
 		clk_disable_unprepare(vcppll);
 		clk_disable_unprepare(vcpclk);
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
+		if (ret)
+			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
 	}
-	if (ret)
-		pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
 	mutex_unlock(&vcp_pw_clk_mutex);
 
 }
@@ -1490,50 +1488,16 @@ void set_vcp_mpu(void)
 void vcp_register_feature(enum feature_id id)
 {
 	uint32_t i;
-	int ret = 0;
-
-	/*prevent from access when vcp is down*/
-	if (!vcp_ready[VCP_A_ID]) {
-		pr_debug("[VCP] %s: not ready, vcp=%u\n", __func__,
-			vcp_ready[VCP_A_ID]);
-		return;
-	}
-
-	/* prevent from access when vcp dvfs cali isn't done */
-	if (!vcp_dvfs_cali_ready) {
-		pr_debug("[VCP] %s: dvfs cali not ready, vcp_dvfs_cali=%u\n",
-		__func__, vcp_dvfs_cali_ready);
-		return;
-	}
 
 	/* because feature_table is a global variable,
 	 * use mutex lock to protect it from accessing in the same time
 	 */
 	mutex_lock(&vcp_feature_mutex);
-
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (feature_table[i].feature == id)
 			feature_table[i].enable = 1;
 	}
-
-	/*
-	vcp_current_freq = readl(CURRENT_FREQ_REG);
-	writel(vcp_expected_freq, EXPECTED_FREQ_REG);
-	*/
-
-	/* send request only when vcp is not down */
-	if (vcp_ready[VCP_A_ID]) {
-		if (vcp_current_freq != vcp_expected_freq) {
-			if (ret == -1) {
-				pr_notice("[VCP]%s request_freq fail\n", __func__);
-				WARN_ON(1);
-			}
-		}
-	} else {
-		pr_notice("[VCP]Not send VCP DVFS request because VCP is down\n");
-		WARN_ON(1);
-	}
-
+	vcp_enable_pm_clk();
 	mutex_unlock(&vcp_feature_mutex);
 }
 EXPORT_SYMBOL_GPL(vcp_register_feature);
@@ -1541,45 +1505,13 @@ EXPORT_SYMBOL_GPL(vcp_register_feature);
 void vcp_deregister_feature(enum feature_id id)
 {
 	uint32_t i;
-	int ret = 0;
-
-	/* prevent from access when vcp is down */
-	if (!vcp_ready[VCP_A_ID]) {
-		pr_debug("[VCP] %s:not ready, vcp=%u\n", __func__,
-			vcp_ready[VCP_A_ID]);
-		return;
-	}
-
-	/* prevent from access when vcp dvfs cali isn't done */
-	if (!vcp_dvfs_cali_ready) {
-		pr_debug("[VCP] %s: dvfs cali not ready, vcp_dvfs_cali=%u\n",
-		__func__, vcp_dvfs_cali_ready);
-		return;
-	}
 
 	mutex_lock(&vcp_feature_mutex);
-
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (feature_table[i].feature == id)
 			feature_table[i].enable = 0;
 	}
-	vcp_current_freq = readl(CURRENT_FREQ_REG);
-	writel(vcp_expected_freq, EXPECTED_FREQ_REG);
-
-	/* send request only when vcp is not down */
-	if (vcp_ready[VCP_A_ID]) {
-		if (vcp_current_freq != vcp_expected_freq) {
-
-			if (ret == -1) {
-				pr_notice("[VCP] %s: req_freq fail\n", __func__);
-				WARN_ON(1);
-			}
-		}
-	} else {
-		pr_notice("[VCP]Not send VCP DVFS request because VCP is down\n");
-		WARN_ON(1);
-	}
-
+	vcp_disable_pm_clk();
 	mutex_unlock(&vcp_feature_mutex);
 }
 EXPORT_SYMBOL_GPL(vcp_deregister_feature);
@@ -1612,6 +1544,7 @@ void vcp_register_sensor(enum feature_id id, enum vcp_sensor_id sensor_id)
 	mutex_unlock(&vcp_register_sensor_mutex);
 
 }
+
 /*vcp sensor type deregister*/
 void vcp_deregister_sensor(enum feature_id id, enum vcp_sensor_id sensor_id)
 {

@@ -56,7 +56,7 @@ static int fops_vcodec_open(struct file *file)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	vcp_enable_pm_clk();
+	vcp_register_feature(VCODEC_FEATURE_ID);
 #endif
 
 	mutex_lock(&dev->dev_mutex);
@@ -188,7 +188,7 @@ static int fops_vcodec_release(struct file *file)
 	mutex_unlock(&dev->ctx_mutex);
 	mutex_unlock(&dev->dev_mutex);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	vcp_disable_pm_clk();
+	vcp_deregister_feature(VCODEC_FEATURE_ID);
 #endif
 
 	return 0;

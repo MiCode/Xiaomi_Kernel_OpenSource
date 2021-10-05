@@ -153,7 +153,8 @@ enum vcp_reserve_mem_id_t {
 enum feature_id {
 	SENS_FEATURE_ID,
 	RTOS_FEATURE_ID,
-	VCORE_TEST_FEATURE_ID,
+	VCODEC_FEATURE_ID,
+	GCE_FEATURE_ID,
 	NUM_FEATURE_ID,
 };
 

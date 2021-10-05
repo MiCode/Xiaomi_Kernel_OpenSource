@@ -24,9 +24,9 @@
 #include "mtk_vcodec_intr.h"
 
 #ifdef CONFIG_MTK_ENG_BUILD
-#define IPI_TIMEOUT_MS          16000U
+#define IPI_TIMEOUT_MS          (2000U)
 #else
-#define IPI_TIMEOUT_MS          500U
+#define IPI_TIMEOUT_MS          (1000U + ((mtk_vcodec_dbg | mtk_v4l2_dbg_level) ? 1000U : 0U))
 #endif
 
 struct vcp_enc_mem_list {
@@ -103,6 +103,9 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	struct share_obj obj;
 	unsigned int suspend_block_cnt = 0;
 
+	if (inst->vcu_inst.abort)
+		return -EIO;
+
 	while (!is_vcp_ready(VCP_A_ID)) {
 		mtk_v4l2_debug(0, "[VCP] wait ready");
 		mdelay(1);
@@ -115,6 +118,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 
 	if (len > sizeof(struct share_obj)) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
+		inst->vcu_inst.abort = 1;
 		return -EIO;
 	}
 
@@ -149,6 +153,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		mtk_vcodec_err(inst, "mtk_ipi_send fail %d", ret);
 		mutex_unlock(&inst->ctx->dev->ipi_mutex);
 		inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
+		inst->vcu_inst.abort = 1;
 		tirgger_vcp_halt(VCP_A_ID);
 		return -EIO;
 	}
@@ -163,6 +168,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 				*(u32 *)msg, ret, inst->vcu_inst.failure);
 			mutex_unlock(&inst->ctx->dev->ipi_mutex);
 			inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
+			inst->vcu_inst.abort = 1;
 			tirgger_vcp_halt(VCP_A_ID);
 			return -EIO;
 		}
@@ -370,7 +376,7 @@ int vcp_enc_ipi_handler(void *arg)
 			continue;
 		}
 		if (vcu->abort) {
-			mtk_v4l2_err(" msg vcu abort\n");
+			mtk_v4l2_err(" [%d] msg vcu abort\n", vcu->ctx->id);
 			mutex_unlock(&dev->ctx_mutex);
 			kfree(mq_node);
 			continue;

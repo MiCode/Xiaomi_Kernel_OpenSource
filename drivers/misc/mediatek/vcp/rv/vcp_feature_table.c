@@ -13,7 +13,7 @@ struct vcp_feature_tb feature_table[NUM_FEATURE_ID] = {
 /* VFFP:20 + default:5 */
 	{
 		.feature	= SENS_FEATURE_ID,
-		.freq		= 29,
+		.freq		= 0,
 		.enable		= 0,
 		.sys_id		= VCPSYS_CORE0,
 	},
@@ -24,8 +24,14 @@ struct vcp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.sys_id		= VCPSYS_CORE0,
 	},
 	{
-		.feature	= VCORE_TEST_FEATURE_ID,
-		.freq		= 77,
+		.feature	= VCODEC_FEATURE_ID,
+		.freq		= 0,
+		.enable		= 0,
+		.sys_id		= VCPSYS_CORE0,
+	},
+	{
+		.feature	= GCE_FEATURE_ID,
+		.freq		= 0,
 		.enable		= 0,
 		.sys_id		= VCPSYS_CORE0,
 	},

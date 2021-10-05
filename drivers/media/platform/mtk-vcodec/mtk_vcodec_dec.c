@@ -1731,7 +1731,7 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	struct mtk_q_data *q_data;
 	int ret = 0;
 	struct mtk_video_fmt *fmt;
-	uint64_t size[2];
+	unsigned long size[2];
 
 	mtk_v4l2_debug(4, "[%d] type %d", ctx->id, f->type);
 
