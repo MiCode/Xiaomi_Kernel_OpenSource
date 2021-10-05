@@ -753,49 +753,54 @@ void internal_md_dump_debug_register(unsigned int md_index)
 
 #define MD_REG_DUMP_MAGIC   (0x44554D50) /* DUMP */
 
-int md_dump_mem_once(unsigned int md_id, void *buff_src,
-		unsigned long long dump_len)
+static int md_dump_mem_once(unsigned int md_id, const void *buff_src,
+		unsigned long dump_len)
 {
 	int ret;
-	unsigned long long i = 0;
-	unsigned long long dump_size = dump_len, dump_limit;
+	unsigned long i;
+	unsigned long dump_limit;
+	unsigned int tmp_idx;
 	char temp_buf[132] = { 0 };
 
-	if (!buff_src || !dump_size) {
-		CCCI_ERROR_LOG(md_id, TAG, "%s: buff_src or dump_size == 0\n",
-			__func__);
+	if (!buff_src || !dump_len) {
+		CCCI_ERROR_LOG(md_id, TAG, "%s: buff_src = NULL or dump_len = 0x%lx\n",
+			__func__, dump_len);
 		return -1;
 	}
 
-	for (i = 0; i < dump_size;) {
-		dump_limit = ((dump_size - i) < 128)?(dump_size - i):128;
+	for (i = 0; i < dump_len;) {
+		dump_limit = ((dump_len - i) < 128) ? (dump_len - i) : 128;
 		memcpy(temp_buf, (buff_src + i), dump_limit);
 		temp_buf[dump_limit] = 0;
-		if (strlen(temp_buf) == 0) {
-			if (dump_limit > 6 && i > 0)
-				CCCI_ERROR_LOG(md_id, TAG,
-					"%s: strlen return 0: %d, 0x%llx, %d, 0x%llx(%d, %d, %d ~ %d)\n",
-					__func__, ret, dump_limit, strlen(temp_buf), i,
-					temp_buf[0], temp_buf[1], temp_buf[2],
-					*((char *)buff_src + i - 1));
-			else
-				CCCI_ERROR_LOG(md_id, TAG,
-					"%s: strlen return 0: %d, 0x%llx, %d, 0x%llx\n",
-					__func__, ret, dump_limit, strlen(temp_buf), i);
+		tmp_idx = 0;
+
+		while (unlikely(strlen(temp_buf + tmp_idx) == 0) && (tmp_idx < dump_limit)) {
+			CCCI_ERROR_LOG(md_id, TAG,
+				"%s: strlen return 0, dump_limit:0x%lx, i:0x%lx, temp_buf[%d]:%d\n",
+				__func__, dump_limit, i, tmp_idx, temp_buf[tmp_idx]);
 			i++;
+			tmp_idx++;
+		}
+
+		if (tmp_idx < dump_limit)
+			ret = ccci_dump_write(md_id, CCCI_DUMP_MEM_DUMP, 0, "%s",
+				(temp_buf + tmp_idx));
+		else {
+			CCCI_ERROR_LOG(md_id, TAG,
+				"%s: dump_limit:0x%lx, i:0x%lx, temp_buf[0->%d] are all 0\n",
+				__func__, dump_limit, i, tmp_idx);
 			continue;
 		}
-		ret = ccci_dump_write(md_id, CCCI_DUMP_MEM_DUMP, 0,
-			"%s", temp_buf);
+
 		if (ret < 0) {
 			CCCI_ERROR_LOG(md_id, TAG,
 				"%s: ccci_dump_write fail %d, 0x%llx, %d, 0x%llx\n",
-				__func__, ret, dump_limit, strlen(temp_buf), i);
+				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
 			return -2;
 		} else if (!ret) {
 			CCCI_ERROR_LOG(md_id, TAG,
-				"%s: ccci_dump_write return 0: %d, 0x%llx, %d, 0x%llx\n",
-				__func__, ret, dump_limit, strlen(temp_buf), i);
+				"%s: ccci_dump_write return 0: %d, 0x%lx, %d, 0x%lx\n",
+				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
 			i++;
 		}
 		i += ret;
