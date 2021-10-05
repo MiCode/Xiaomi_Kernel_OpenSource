@@ -7,9 +7,6 @@
 #include <linux/clk.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
-#if defined(CONFIG_MTK_SERROR_HOOK) || defined(CONFIG_MTK_SABORT_HOOK)
-#include <linux/io.h>
-#endif
 #include <linux/module.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
@@ -42,14 +39,6 @@ static struct mtk_devapc_context {
 
 	unsigned long mmup_enabled;
 } mtk_devapc_ctx[1];
-
-#if defined(CONFIG_MTK_SERROR_HOOK) || defined(CONFIG_MTK_SABORT_HOOK)
-/* For debug slave error, will be removed later */
-phys_addr_t dump_base1 = 0x10001000;
-phys_addr_t dump_base2 = 0x10215000;
-void __iomem *dump_virt1;
-void __iomem *dump_virt2;
-#endif
 
 static LIST_HEAD(viocb_list);
 static DEFINE_SPINLOCK(devapc_lock);
@@ -915,10 +904,6 @@ static void devapc_dump_info(void)
 	const char *vio_master;
 	uint8_t perm;
 
-	/* For debug slave error, will be removed later */
-	pr_info(PFX "dump_virt1 (infra2mfg): 0x%x\n", readl(dump_virt1));
-	pr_info(PFX "dump_virt2 (way_en): 0x%x\n", readl(dump_virt2));
-
 	print_vio_mask_sta(true);
 
 	device_info = mtk_devapc_ctx->soc->device_info;
@@ -1516,12 +1501,6 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	int ret;
 
 	pr_info(PFX "driver registered\n");
-
-#if defined(CONFIG_MTK_SERROR_HOOK) || defined(CONFIG_MTK_SABORT_HOOK)
-	/* For debug slave error, will be removed later */
-	dump_virt1 = ioremap(dump_base1, 4096);
-	dump_virt2 = ioremap(dump_base2, 4096);
-#endif
 
 #ifdef CONFIG_MTK_SERROR_HOOK
 	ret = register_trace_android_rvh_arm64_serror_panic(
