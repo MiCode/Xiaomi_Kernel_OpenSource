@@ -2431,31 +2431,36 @@ static int __init vcp_init(void)
 		vcp_ready[i] = 0;
 	}
 	vcp_dvfs_cali_ready = 0;
+	vcp_support = 1;
 
 	/* vco io device initialise */
 	for (i = 0; i < VCP_IOMMU_DEV_NUM; i++)
 		vcp_io_devs[i] = NULL;
-	vcp_support = 1;
+
 	if (platform_driver_register(&mtk_vcp_device)) {
 		pr_info("[VCP] vcp probe fail\n");
-		return -1;
+		goto err_vcp;
 	}
 
-	if (platform_driver_register(&mtk_vcp_io_ube_lat))
+	if (platform_driver_register(&mtk_vcp_io_ube_lat)) {
 		pr_info("[VCP] mtk_vcp_io_ube_lat  not exist\n");
-	if (platform_driver_register(&mtk_vcp_io_ube_core))
+		goto err_io_ube_lat;
+	}
+	if (platform_driver_register(&mtk_vcp_io_ube_core)) {
 		pr_info("[VCP] mtk_vcp_io_ube_core not exist\n");
+		goto err_io_ube_core;
+	}
 	if (platform_driver_register(&mtk_vcp_io_vdec)) {
 		pr_info("[VCP] mtk_vcp_io_vdec probe fail\n");
-		return -1;
+		goto err_io_vdec;
 	}
 	if (platform_driver_register(&mtk_vcp_io_venc)) {
 		pr_info("[VCP] mtk_vcp_io_venc probe fail\n");
-		return -1;
+		goto err_io_venc;
 	}
 	if (platform_driver_register(&mtk_vcp_io_work)) {
 		pr_info("[VCP] mtk_vcp_io_work probe fail\n");
-		return -1;
+		goto err_io_work;
 	}
 
 	if (!vcp_support) {
@@ -2537,6 +2542,18 @@ static int __init vcp_init(void)
 
 	return ret;
 err:
+	platform_driver_unregister(&mtk_vcp_io_work);
+err_io_work:
+	platform_driver_unregister(&mtk_vcp_io_venc);
+err_io_venc:
+	platform_driver_unregister(&mtk_vcp_io_vdec);
+err_io_vdec:
+	platform_driver_unregister(&mtk_vcp_io_ube_core);
+err_io_ube_core:
+	platform_driver_unregister(&mtk_vcp_io_ube_lat);
+err_io_ube_lat:
+	platform_driver_unregister(&mtk_vcp_device);
+err_vcp:
 	return -1;
 }
 
@@ -2574,6 +2591,12 @@ static void __exit vcp_exit(void)
 	for (i = 0; i < VCP_CORE_TOTAL ; i++)
 		del_timer(&vcp_ready_timer[i].tl);
 #endif
+	platform_driver_unregister(&mtk_vcp_io_work);
+	platform_driver_unregister(&mtk_vcp_io_venc);
+	platform_driver_unregister(&mtk_vcp_io_vdec);
+	platform_driver_unregister(&mtk_vcp_io_ube_core);
+	platform_driver_unregister(&mtk_vcp_io_ube_lat);
+	platform_driver_unregister(&mtk_vcp_device);
 }
 
 device_initcall_sync(vcp_init);
