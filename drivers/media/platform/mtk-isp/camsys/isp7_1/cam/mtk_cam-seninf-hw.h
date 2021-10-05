@@ -96,9 +96,9 @@ struct mtk_cam_seninf_ops {
 	int (*_disable_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx);
 	int (*_debug)(struct seninf_ctx *ctx);
 	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u32 val);
-	unsigned char seninf_num;
-	unsigned char mux_num;
-	unsigned char cam_mux_num;
+	unsigned int seninf_num;
+	unsigned int mux_num;
+	unsigned int cam_mux_num;
 
 };
 

@@ -379,6 +379,18 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 	ret = of_property_read_string(dev->of_node, "mtk_csi_phy_ver", &ver);
 	if (ret) {
 		g_seninf_ops = &mtk_csi_phy_3_0;
+		of_property_read_u32(dev->of_node, "seninf_num",
+			&g_seninf_ops->seninf_num);
+		of_property_read_u32(dev->of_node, "mux_num",
+			&g_seninf_ops->mux_num);
+		of_property_read_u32(dev->of_node, "cam_mux_num",
+			&g_seninf_ops->cam_mux_num);
+
+		dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d\n",
+			__func__,
+			g_seninf_ops->seninf_num,
+			g_seninf_ops->mux_num,
+			g_seninf_ops->cam_mux_num);
 		return 0;
 	}
 	for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
@@ -395,6 +407,19 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			dev_info(dev, "%s: mtk_csi_phy_ver = %s i = %d 0x%x ret = %d\n",
 			__func__,
 			csi_phy_versions[i], i, g_seninf_ops, ret);
+
+			of_property_read_u32(dev->of_node, "seninf_num",
+				&g_seninf_ops->seninf_num);
+			of_property_read_u32(dev->of_node, "mux_num",
+				&g_seninf_ops->mux_num);
+			of_property_read_u32(dev->of_node, "cam_mux_num",
+				&g_seninf_ops->cam_mux_num);
+
+			dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d\n",
+				__func__,
+				g_seninf_ops->seninf_num,
+				g_seninf_ops->mux_num,
+				g_seninf_ops->cam_mux_num);
 			return 0;
 		}
 	}
