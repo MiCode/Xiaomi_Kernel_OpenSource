@@ -1500,19 +1500,17 @@ struct device *mdp_init_larb(struct platform_device *pdev, u8 idx)
 void cmdqMdpInitialSetting(struct platform_device *pdev)
 {
 #ifdef MDP_IOMMU_DEBUG
-	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
-
 	CMDQ_LOG("[MDP] %s\n", __func__);
 
 	/* Register ION Translation Fault function */
+	mtk_iommu_register_fault_callback(M4U_LARB2_PORT0,
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_LARB2_PORT1,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_LARB2_PORT2,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_LARB2_PORT3,
-		cmdq_TranslationFault_callback, (void *)data, false);
-	mtk_iommu_register_fault_callback(M4U_LARB2_PORT4,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 #endif
 
 	/* must porting in dts */
@@ -1666,13 +1664,13 @@ static void *mdp_qos_get_path(u32 thread_id, u32 port)
 
 	switch (port) {
 	/* mdp part */
-	case M4U_LARB2_PORT1:
+	case M4U_LARB2_PORT0:
 		return path_mdp_rdma0[thread_id];
-	case M4U_LARB2_PORT2:
+	case M4U_LARB2_PORT1:
 		return path_mdp_rdma1[thread_id];
-	case M4U_LARB2_PORT3:
+	case M4U_LARB2_PORT2:
 		return path_mdp_wrot0[thread_id];
-	case M4U_LARB2_PORT4:
+	case M4U_LARB2_PORT3:
 		return path_mdp_wrot1[thread_id];
 	}
 
