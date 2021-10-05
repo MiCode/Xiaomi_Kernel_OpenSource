@@ -130,7 +130,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 2328,
-		.grabwindow_height = 1746,
+		.grabwindow_height = 1748,
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 734400000,
 		.max_framerate = 300,
@@ -142,7 +142,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.startx = 0,
 		.starty = 2,
 		.grabwindow_width = 4656,
-		.grabwindow_height = 3492,
+		.grabwindow_height = 3496,
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 734400000,
 		.max_framerate = 300,
@@ -244,9 +244,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	{4656, 3496, 0, 0, 4656, 3496, 2328, 1748,
-	0000, 0000, 2328, 1748, 0, 0, 2328, 1746},	/*Preview*/
+	0000, 0000, 2328, 1748, 0, 0, 2328, 1748},	/*Preview*/
 	{4656, 3496, 0, 0, 4656, 3496, 4656, 3496,
-	0000, 0000, 4656, 3496, 0, 2, 4656, 3492},	/*Capture*/
+	0000, 0000, 4656, 3496, 0, 0, 4656, 3496},	/*Capture*/
 	{4656, 3496, 0, 444, 4656, 2608, 4656, 2608,
 	328, 179, 4000, 2250, 0, 0, 4000, 2250},	/*Video*/
 	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
@@ -2318,7 +2318,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 			.channel = 0,
 			.data_type = 0x2b,
 			.hsize = 0x0918,
-			.vsize = 0x06d2,
+			.vsize = 0x06d4,
 		},
 	},
 };
@@ -2329,7 +2329,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 			.channel = 0,
 			.data_type = 0x2b,
 			.hsize = 0x1230,
-			.vsize = 0x0da4,
+			.vsize = 0x0da8,
 		},
 	},
 };
