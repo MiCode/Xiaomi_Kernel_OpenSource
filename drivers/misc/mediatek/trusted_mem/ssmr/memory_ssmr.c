@@ -283,7 +283,8 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 
 	do {
 		feature->virt_addr = dma_alloc_attrs(ssmr_dev, alloc_size,
-					     &feature->phy_addr, GFP_KERNEL, 0);
+					     &feature->phy_addr, GFP_KERNEL,
+					     DMA_ATTR_NO_KERNEL_MAPPING);
 
 #if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 		if (!feature->phy_addr) {
@@ -387,7 +388,7 @@ static int memory_region_online(struct SSMR_Feature *feature)
 
 	if (feature->phy_addr) {
 		dma_free_attrs(ssmr_dev, alloc_size, feature->virt_addr,
-			       feature->phy_addr, 0);
+			       feature->phy_addr, DMA_ATTR_NO_KERNEL_MAPPING);
 		feature->alloc_size = 0;
 		feature->phy_addr = 0;
 	}
