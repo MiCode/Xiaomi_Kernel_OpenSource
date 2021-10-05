@@ -10184,7 +10184,6 @@
 		compatible = "mediatek,snd_scp_ultra";
 		scp_ultra_dl_memif_id = <0x7>;
 		scp_ultra_ul_memif_id = <0xf>;
-		status = "disabled";
 	};
 
 	sound: sound {
