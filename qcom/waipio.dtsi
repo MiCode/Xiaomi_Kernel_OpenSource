@@ -3071,7 +3071,6 @@
 
 	ddr_freq_table: ddr-freq-table {
 		qcom,freq-tbl =
-			<  200000 >,
 			<  547000 >,
 			<  768000 >,
 			< 1555000 >,
@@ -3185,7 +3184,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  200000 >,
 					< 1190400  547000 >,
 					< 1459200  768000 >,
 					< 1900800 1555000 >;
@@ -3196,7 +3194,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  200000 >,
 					<  902400  547000 >,
 					< 1017600  768000 >,
 					< 1305600 1555000 >,
@@ -3210,7 +3207,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  200000 >,
 					<  902400  547000 >,
 					< 1017600  768000 >,
 					< 1305600 1555000 >,
@@ -3224,7 +3220,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					< 1804800  200000 >,
+					< 1804800  547000 >,
 					< 2400000 1555000 >;
 				qcom,sampling-enabled;
 				qcom,compute-mon;
@@ -3234,7 +3230,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					< 2304000  200000 >,
+					< 2304000  547000 >,
 					< 2400000 3196000 >;
 				qcom,sampling-enabled;
 			};
