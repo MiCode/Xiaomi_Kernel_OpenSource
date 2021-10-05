@@ -8125,6 +8125,22 @@
 			slc_pmu_reg_size = <0x1000>;
 		};
 
+		met_res_ram {
+			compatible = "mediatek,met_res_ram";
+
+			met_res_ram_sspm {
+				size = <0x400000>; /* 4M: only reserve on userdebug/eng load */
+				start = <0x0>; /* start addr of reserved ram*/
+				force_res = <0>; /* force reserve even in user load */
+			};
+
+			met_res_ram_mcupm {
+				size = <0x400000>; /* 4M: only reserve on userdebug/eng load */
+				start = <0x0>; /* start addr of reserved ram*/
+				force_res = <0>; /* force reserve even in user load */
+			};
+		};
+
 		mcupm_rts_header:mcupm-rts-header {
 			node_0 = "MCUPM_MET_UNIT_TEST", "test";
 
