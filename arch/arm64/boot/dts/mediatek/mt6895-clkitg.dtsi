@@ -541,9 +541,4 @@
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
 	};
 
-	bring-up-pd-mfg1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_MFG1>;
-	};
-
 };
