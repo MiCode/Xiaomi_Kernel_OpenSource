@@ -117,6 +117,8 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
 	is_stream_off = 0;
 
+	cmdq_mbox_enable(imgsys_clt[0]->chan);
+
 	for (idx = IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_START;
 		idx <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END; idx++)
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[idx].event);
@@ -147,6 +149,8 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 		is_sec_task_create = 0;
 	}
 	#endif
+
+	cmdq_mbox_disable(imgsys_clt[0]->chan);
 }
 
 static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
@@ -181,11 +185,11 @@ static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
 		switch (cmd[cmd_idx].opcode) {
 		case IMGSYS_CMD_READ:
 			pr_info(
-			"%s: READ with source(0x%08lx) target(0x%08x) mask(0x%08x)\n", __func__,
+			"%s: READ with source(0x%08lx) target(0x%08lx) mask(0x%08x)\n", __func__,
 				cmd[cmd_idx].u.source, cmd[cmd_idx].u.target, cmd[cmd_idx].u.mask);
 			break;
 		case IMGSYS_CMD_WRITE:
-			pr_info(
+			pr_debug(
 			"%s: WRITE with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n", __func__,
 				cmd[cmd_idx].u.address, cmd[cmd_idx].u.value, cmd[cmd_idx].u.mask);
 			break;
@@ -406,10 +410,10 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 		pr_info("%s: [ERROR] cb(%p) error(%d) for frm(%d/%d)",
 			__func__, cb_param, cb_param->err, cb_param->frm_idx, cb_param->frm_num);
 		if (is_stream_off == 1)
-			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
+			pr_info("%s: [ERROR] cb(%p) pipe had been turned off(%d)!\n",
 				__func__, cb_param, is_stream_off);
 		pipe = (struct mtk_imgsys_pipe *)cb_param->frm_info->pipe;
-		if (pipe->streaming) {
+		if (!pipe->streaming) {
 			is_stream_off = 1;
 			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)\n",
 				__func__, cb_param, is_stream_off);
@@ -610,24 +614,19 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			if (frm_info->user_info[frm_idx].is_secFrm)
 				imgsys_cmdq_sec_cmd(pkt);
 			#endif
-			do {
-				pr_debug(
-				"%s: parsing idx(%d) with cmd(%d)\n", __func__, cmd_idx,
-					cmd[cmd_idx].opcode);
-				ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx], hw_comb,
-						(pkt_ts_pa+4*pkt_ts_ofst), &pkt_ts_num);
-				cmd_idx++;
-				if (ret == IMGSYS_CMD_STOP)
-					break;
-				else if (ret < 0) {
-					pr_info(
-						"%s: [ERROR] parsing idx(%d) with cmd(%d) in block(%d) for frm(%d/%d) fail\n",
-						__func__, cmd_idx, cmd[cmd_idx].opcode,
-						blk_idx, frm_idx, frm_num);
-					cmdq_pkt_destroy(pkt);
-					goto sendtask_done;
-				}
-			} while (cmd_idx < cmd_num);
+
+			ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx], hw_comb,
+				(pkt_ts_pa + 4 * pkt_ts_ofst), &pkt_ts_num);
+			if (ret < 0) {
+				pr_info(
+					"%s: [ERROR] parsing idx(%d) with cmd(%d) in block(%d) for frm(%d/%d) fail\n",
+					__func__, cmd_idx, cmd[cmd_idx].opcode,
+					blk_idx, frm_idx, frm_num);
+				cmdq_pkt_destroy(pkt);
+				goto sendtask_done;
+			}
+			cmd_idx += ret;
+
 			// Add secure token end
 			#if IMGSYS_SECURE_ENABLE
 			if (frm_info->user_info[frm_idx].is_secFrm)
@@ -708,84 +707,108 @@ sendtask_done:
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
 						dma_addr_t dma_pa, uint32_t *num)
 {
+	static void *op_labels[] = {
+		&&IMGSYS_CMD_ERROR, &&IMGSYS_CMD_ERROR, &&IMGSYS_CMD_READ, &&IMGSYS_CMD_WRITE,
+		&&IMGSYS_CMD_POLL, &&IMGSYS_CMD_WAIT, &&IMGSYS_CMD_UPDATE, &&IMGSYS_CMD_ACQUIRE,
+		&&IMGSYS_CMD_TIME, &&IMGSYS_CMD_STOP, &&IMGSYS_CMD_ERROR, &&IMGSYS_CMD_ERROR,
+		&&IMGSYS_CMD_ERROR, &&IMGSYS_CMD_ERROR, &&IMGSYS_CMD_ERROR, &&IMGSYS_CMD_ERROR };
+
+	struct Command *base = cmd;
+
 	pr_debug("%s: +, cmd(%d)\n", __func__, cmd->opcode);
 
-	switch (cmd->opcode) {
-	case IMGSYS_CMD_READ:
+	goto *op_labels[cmd->opcode & 0x0F];
+
+	do {
+IMGSYS_CMD_READ:
 		pr_debug(
-		"%s: READ with source(0x%08lx) target(0x%08x) mask(0x%08x)\n", __func__,
-						cmd->u.source, cmd->u.target, cmd->u.mask);
+			"%s: READ with source(0x%08lx) target(0x%08lx) mask(0x%08x)\n",
+			__func__, cmd->u.source, cmd->u.target, cmd->u.mask);
 		cmdq_pkt_mem_move(pkt, NULL, (dma_addr_t)cmd->u.source,
 			(dma_addr_t)cmd->u.target, CMDQ_THR_SPR_IDX3);
-		break;
-	case IMGSYS_CMD_WRITE:
+		cmd++;
+		goto *op_labels[cmd->opcode & 0x0F];
+IMGSYS_CMD_WRITE:
 		pr_debug(
-		"%s: WRITE with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n", __func__,
-						cmd->u.address, cmd->u.value, cmd->u.mask);
+			"%s: WRITE with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n",
+			__func__, cmd->u.address, cmd->u.value, cmd->u.mask);
 		cmdq_pkt_write(pkt, NULL, (dma_addr_t)cmd->u.address,
-						cmd->u.value, cmd->u.mask);
-		break;
-	case IMGSYS_CMD_POLL:
+				cmd->u.value, cmd->u.mask);
+		cmd++;
+		goto *op_labels[cmd->opcode & 0x0F];
+IMGSYS_CMD_POLL:
 		pr_info(
-		"%s: POLL with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n", __func__,
-						cmd->u.address, cmd->u.value, cmd->u.mask);
+			"%s: POLL with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n",
+			__func__, cmd->u.address, cmd->u.value, cmd->u.mask);
 		/* cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, */
 		/* cmd->u.mask, CMDQ_GPR_R15); */
 		if (hw_comb & REG_MAP_E_PQDIP_A)
-			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT, cmd->u.address,
-				cmd->u.mask, 0xFFFF, CMDQ_GPR_R03);
+			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
+				cmd->u.address, cmd->u.mask, 0xFFFF, CMDQ_GPR_R03);
 		else
-			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT, cmd->u.address,
-				cmd->u.mask, 0xFFFF, CMDQ_GPR_R02);
-		break;
-	case IMGSYS_CMD_WAIT:
+			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
+				cmd->u.address, cmd->u.mask, 0xFFFF, CMDQ_GPR_R02);
+		cmd++;
+		goto *op_labels[cmd->opcode & 0x0F];
+IMGSYS_CMD_WAIT:
 		pr_debug(
-		"%s: WAIT event(%d/%d) action(%d)\n", __func__,
-			cmd->u.event, imgsys_event[cmd->u.event].event,	cmd->u.action);
+			"%s: WAIT event(%d/%d) action(%d)\n",
+			__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
+			cmd->u.action);
 		if (cmd->u.action == 1)
 			cmdq_pkt_wfe(pkt, imgsys_event[cmd->u.event].event);
 		else if (cmd->u.action == 0)
 			cmdq_pkt_wait_no_clear(pkt, imgsys_event[cmd->u.event].event);
 		else
-			pr_info("%s: [ERROR]Not Support wait action(%d)!\n", __func__, cmd->u.action);
-		break;
-	case IMGSYS_CMD_UPDATE:
+			pr_info("%s: [ERROR]Not Support wait action(%d)!\n",
+				__func__, cmd->u.action);
+		cmd++;
+		goto *op_labels[cmd->opcode & 0x0F];
+IMGSYS_CMD_UPDATE:
 		pr_debug(
-		"%s: UPDATE event(%d/%d) action(%d)\n", __func__,
-			cmd->u.event, imgsys_event[cmd->u.event].event, cmd->u.action);
+			"%s: UPDATE event(%d/%d) action(%d)\n",
+			__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
+			cmd->u.action);
 		if (cmd->u.action == 1)
 			cmdq_pkt_set_event(pkt, imgsys_event[cmd->u.event].event);
 		else if (cmd->u.action == 0)
 			cmdq_pkt_clear_event(pkt, imgsys_event[cmd->u.event].event);
 		else
-			pr_info("%s: [ERROR]Not Support update action(%d)!\n", __func__, cmd->u.action);
-		break;
-	case IMGSYS_CMD_ACQUIRE:
+			pr_info("%s: [ERROR]Not Support update action(%d)!\n",
+				__func__, cmd->u.action);
+		cmd++;
+		goto *op_labels[cmd->opcode & 0x0F];
+IMGSYS_CMD_ACQUIRE:
 		pr_debug(
-		"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
+			"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
 			cmd->u.event, imgsys_event[cmd->u.event].event, cmd->u.action);
-		cmdq_pkt_acquire_event(pkt, imgsys_event[cmd->u.event].event);
-		break;
-	case IMGSYS_CMD_TIME:
+			cmdq_pkt_acquire_event(pkt, imgsys_event[cmd->u.event].event);
+		cmd++;
+		goto *op_labels[cmd->opcode & 0x0F];
+IMGSYS_CMD_TIME:
 		pr_debug(
-		"%s: TIME with addr(0x%08lx) num(0x%08x)\n", __func__,
-			dma_pa, *num);
+			"%s: TIME with addr(0x%08lx) num(0x%08x)\n",
+			__func__, dma_pa, *num);
 		if (imgsys_cmdq_ts_enabled()) {
-			cmdq_pkt_write_indriect(pkt, NULL, dma_pa + (4*(*num)), CMDQ_TPR_ID, ~0);
+			cmdq_pkt_write_indriect(pkt, NULL, dma_pa + (4*(*num)),
+				CMDQ_TPR_ID, ~0);
 			(*num)++;
 		} else
 			pr_info(
-			"%s: [ERROR]Not enable imgsys cmdq ts function!!\n", __func__);
-		break;
-	case IMGSYS_CMD_STOP:
+				"%s: [ERROR]Not enable imgsys cmdq ts function!!\n",
+				__func__);
+		cmd++;
+		goto *op_labels[cmd->opcode & 0x0F];
+IMGSYS_CMD_STOP:
 		pr_debug("%s: End Of Cmd!\n", __func__);
-		return IMGSYS_CMD_STOP;
-	default:
+		cmd++;
+		break;
+IMGSYS_CMD_ERROR:
 		pr_info("%s: [ERROR]Not Support Cmd(%d)!\n", __func__, cmd->opcode);
 		return -1;
-	}
+	} while (1);
 
-	return 0;
+	return (cmd - base);
 }
 
 int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev)
@@ -1515,8 +1538,6 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 			for (i = 0; i < (imgsys_dev->num_mods); i++)
 				imgsys_dev->modules[i].init(imgsys_dev);
 
-			cmdq_mbox_enable(imgsys_clt[0]->chan);
-
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
 	} else {
@@ -1527,8 +1548,6 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 				__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
-
-			cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 			/*set default value for hw module*/
 			for (i = 0; i < (imgsys_dev->num_mods); i++) {
