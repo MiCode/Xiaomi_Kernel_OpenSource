@@ -1,5 +1,6 @@
 /*
  * Copyright 2017-2018 Sean Wang <sean.wang@mediatek.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
  */
@@ -192,6 +193,7 @@
 					fixed-link {
 						speed = <1000>;
 						full-duplex;
+						pause;
 					};
 				};
 			};

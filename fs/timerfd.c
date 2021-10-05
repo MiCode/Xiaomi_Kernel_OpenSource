@@ -3,6 +3,7 @@
  *  fs/timerfd.c
  *
  *  Copyright (C) 2007  Davide Libenzi <davidel@xmailserver.org>
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  *
  *  Thanks to Thomas Gleixner for code reviews and useful comments.
@@ -238,6 +239,7 @@ static __poll_t timerfd_poll(struct file *file, poll_table *wait)
 	spin_lock_irqsave(&ctx->wqh.lock, flags);
 	if (ctx->ticks)
 		events |= EPOLLIN;
+
 	spin_unlock_irqrestore(&ctx->wqh.lock, flags);
 
 	return events;

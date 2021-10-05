@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright 2019 Linaro, Ltd, Rob Herring <robh@kernel.org> */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef __PANFROST_GEM_H__
 #define __PANFROST_GEM_H__
@@ -82,7 +83,7 @@ struct panfrost_gem_mapping *
 panfrost_gem_mapping_get(struct panfrost_gem_object *bo,
 			 struct panfrost_file_priv *priv);
 void panfrost_gem_mapping_put(struct panfrost_gem_mapping *mapping);
-void panfrost_gem_teardown_mappings(struct panfrost_gem_object *bo);
+void panfrost_gem_teardown_mappings_locked(struct panfrost_gem_object *bo);
 
 void panfrost_gem_shrinker_init(struct drm_device *dev);
 void panfrost_gem_shrinker_cleanup(struct drm_device *dev);

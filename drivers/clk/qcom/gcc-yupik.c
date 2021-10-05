@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/clk-provider.h>
@@ -294,7 +295,7 @@ static const struct parent_map gcc_parent_map_6[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_6[] = {
-	{ .fw_name = "pcie_0_pipe_clk", .name = "pcie_0_pipe_clk" },
+	{ .fw_name = "pcie_0_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -304,7 +305,7 @@ static const struct parent_map gcc_parent_map_7[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_7[] = {
-	{ .fw_name = "pcie_1_pipe_clk", .name = "pcie_1_pipe_clk" },
+	{ .fw_name = "pcie_1_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -348,8 +349,7 @@ static const struct parent_map gcc_parent_map_10[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_10[] = {
-	{ .fw_name = "ufs_phy_rx_symbol_0_clk", .name =
-		"ufs_phy_rx_symbol_0_clk"},
+	{ .fw_name = "ufs_phy_rx_symbol_0_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -359,8 +359,7 @@ static const struct parent_map gcc_parent_map_11[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_11[] = {
-	{ .fw_name = "ufs_phy_rx_symbol_1_clk", .name =
-		"ufs_phy_rx_symbol_1_clk" },
+	{ .fw_name = "ufs_phy_rx_symbol_1_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -370,8 +369,7 @@ static const struct parent_map gcc_parent_map_12[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_12[] = {
-	{ .fw_name = "ufs_phy_tx_symbol_0_clk", .name =
-		"ufs_phy_tx_symbol_0_clk" },
+	{ .fw_name = "ufs_phy_tx_symbol_0_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -381,8 +379,7 @@ static const struct parent_map gcc_parent_map_13[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_13[] = {
-	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk", .name =
-		"usb3_phy_wrapper_gcc_usb30_pipe_clk" },
+	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -392,8 +389,7 @@ static const struct parent_map gcc_parent_map_14[] = {
 };
 
 static const struct clk_parent_data gcc_parent_data_14[] = {
-	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk", .name =
-		"usb3_phy_wrapper_gcc_usb30_pipe_clk" },
+	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
 };
 
@@ -1144,7 +1140,7 @@ static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
 		.name = "gcc_sdcc1_apps_clk_src",
 		.parent_data = gcc_parent_data_8,
 		.num_parents = ARRAY_SIZE(gcc_parent_data_8),
-		.ops = &clk_rcg2_ops,
+		.ops = &clk_rcg2_floor_ops,
 	},
 	.clkr.vdd_data = {
 		.vdd_class = &vdd_cx,
@@ -1173,7 +1169,7 @@ static struct clk_rcg2 gcc_sdcc1_ice_core_clk_src = {
 		.name = "gcc_sdcc1_ice_core_clk_src",
 		.parent_data = gcc_parent_data_1,
 		.num_parents = ARRAY_SIZE(gcc_parent_data_1),
-		.ops = &clk_rcg2_ops,
+		.ops = &clk_rcg2_floor_ops,
 	},
 	.clkr.vdd_data = {
 		.vdd_class = &vdd_cx,
@@ -1206,7 +1202,7 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 		.name = "gcc_sdcc2_apps_clk_src",
 		.parent_data = gcc_parent_data_9,
 		.num_parents = ARRAY_SIZE(gcc_parent_data_9),
-		.ops = &clk_rcg2_ops,
+		.ops = &clk_rcg2_floor_ops,
 	},
 	.clkr.vdd_data = {
 		.vdd_class = &vdd_cx,
@@ -1237,7 +1233,7 @@ static struct clk_rcg2 gcc_sdcc4_apps_clk_src = {
 		.name = "gcc_sdcc4_apps_clk_src",
 		.parent_data = gcc_parent_data_1,
 		.num_parents = ARRAY_SIZE(gcc_parent_data_1),
-		.ops = &clk_rcg2_ops,
+		.ops = &clk_rcg2_floor_ops,
 	},
 	.clkr.vdd_data = {
 		.vdd_class = &vdd_cx,
@@ -1556,6 +1552,36 @@ static struct clk_branch gcc_aggre_noc_pcie_1_axi_clk = {
 		.enable_mask = BIT(11),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_aggre_noc_pcie_1_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_aggre_noc_pcie_center_sf_axi_clk = {
+	.halt_reg = 0x8d088,
+	.halt_check = BRANCH_HALT_SKIP,
+	.hwcg_reg = 0x8d088,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x52008,
+		.enable_mask = BIT(28),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_noc_pcie_center_sf_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_aggre_noc_pcie_tbu_clk = {
+	.halt_reg = 0x90010,
+	.halt_check = BRANCH_HALT_VOTED,
+	.hwcg_reg = 0x90010,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(18),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_noc_pcie_tbu_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2130,6 +2156,19 @@ static struct clk_branch gcc_pcie_1_slv_q2a_axi_clk = {
 		.enable_mask = BIT(25),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcie_1_slv_q2a_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_pcie_clkref_en = {
+	.halt_reg = 0x8c004,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c004,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_pcie_clkref_en",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3297,6 +3336,9 @@ static struct clk_branch gcc_video_mvp_throttle_core_clk = {
 static struct clk_regmap *gcc_yupik_clocks[] = {
 	[GCC_AGGRE_NOC_PCIE_0_AXI_CLK] = &gcc_aggre_noc_pcie_0_axi_clk.clkr,
 	[GCC_AGGRE_NOC_PCIE_1_AXI_CLK] = &gcc_aggre_noc_pcie_1_axi_clk.clkr,
+	[GCC_AGGRE_NOC_PCIE_CENTER_SF_AXI_CLK] =
+		&gcc_aggre_noc_pcie_center_sf_axi_clk.clkr,
+	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.clkr,
 	[GCC_AGGRE_UFS_PHY_AXI_CLK] = &gcc_aggre_ufs_phy_axi_clk.clkr,
 	[GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK] =
 		&gcc_aggre_ufs_phy_axi_hw_ctl_clk.clkr,
@@ -3349,6 +3391,7 @@ static struct clk_regmap *gcc_yupik_clocks[] = {
 	[GCC_PCIE_1_PIPE_CLK_SRC] = &gcc_pcie_1_pipe_clk_src.clkr,
 	[GCC_PCIE_1_SLV_AXI_CLK] = &gcc_pcie_1_slv_axi_clk.clkr,
 	[GCC_PCIE_1_SLV_Q2A_AXI_CLK] = &gcc_pcie_1_slv_q2a_axi_clk.clkr,
+	[GCC_PCIE_CLKREF_EN] = &gcc_pcie_clkref_en.clkr,
 	[GCC_PCIE_THROTTLE_CORE_CLK] = &gcc_pcie_throttle_core_clk.clkr,
 	[GCC_PDM2_CLK] = &gcc_pdm2_clk.clkr,
 	[GCC_PDM2_CLK_SRC] = &gcc_pdm2_clk_src.clkr,

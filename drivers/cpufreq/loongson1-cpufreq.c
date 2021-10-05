@@ -2,6 +2,7 @@
  * CPU Frequency Scaling for Loongson 1 SoC
  *
  * Copyright (C) 2014-2016 Zhang, Keguang <keguang.zhang@gmail.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is licensed under the terms of the GNU General Public
  * License version 2. This program is licensed "as is" without any
@@ -216,6 +217,7 @@ static struct platform_driver ls1x_cpufreq_platdrv = {
 
 module_platform_driver(ls1x_cpufreq_platdrv);
 
+MODULE_ALIAS("platform:ls1x-cpufreq");
 MODULE_AUTHOR("Kelvin Cheung <keguang.zhang@gmail.com>");
 MODULE_DESCRIPTION("Loongson1 CPUFreq driver");
 MODULE_LICENSE("GPL");

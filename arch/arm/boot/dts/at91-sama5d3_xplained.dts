@@ -3,6 +3,7 @@
  * at91-sama5d3_xplained.dts - Device Tree file for the SAMA5D3 Xplained board
  *
  *  Copyright (C) 2014 Atmel,
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *		  2014 Nicolas Ferre <nicolas.ferre@atmel.com>
  */
 /dts-v1/;
@@ -242,6 +243,11 @@
 						atmel,pins =
 							<AT91_PIOE 9 AT91_PERIPH_GPIO AT91_PINCTRL_DEGLITCH>;	/* PE9, conflicts with A9 */
 					};
+					pinctrl_usb_default: usb_default {
+						atmel,pins =
+							<AT91_PIOE 3 AT91_PERIPH_GPIO AT91_PINCTRL_NONE
+							 AT91_PIOE 4 AT91_PERIPH_GPIO AT91_PINCTRL_NONE>;
+					};
 				};
 			};
 		};
@@ -259,6 +265,8 @@
 					   &pioE 3 GPIO_ACTIVE_LOW
 					   &pioE 4 GPIO_ACTIVE_LOW
 					  >;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_usb_default>;
 			status = "okay";
 		};
 

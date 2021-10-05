@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _RMNET_IPA_FD_IOCTL_H
@@ -36,6 +37,7 @@
 #define WAN_IOCTL_ADD_OFFLOAD_CONNECTION     18
 #define WAN_IOCTL_RMV_OFFLOAD_CONNECTION     19
 #define WAN_IOCTL_GET_WAN_MTU                20
+#define WAN_IOCTL_NOTIFY_NAT_MOVE_RES        21
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -157,6 +159,10 @@ struct wan_ioctl_lan_client_info {
 	uint8_t hdr_len;
 	/* Source pipe of the lan client. */
 	enum ipa_client_type ul_src_pipe;
+	/* Counter indices for h/w fnr stats */
+#define IPA_HW_FNR_STATS
+	uint8_t ul_cnt_idx;
+	uint8_t dl_cnt_idx;
 };
 
 struct wan_ioctl_per_client_info {
@@ -269,4 +275,8 @@ struct wan_ioctl_query_per_client_stats {
 #define WAN_IOC_GET_WAN_MTU _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_GET_WAN_MTU, \
 		struct ipa_mtu_info *)
+
+#define WAN_IOC_NOTIFY_NAT_MOVE_RES _IOWR(WAN_IOC_MAGIC, \
+	WAN_IOCTL_NOTIFY_NAT_MOVE_RES, \
+	bool)
 #endif /* _RMNET_IPA_FD_IOCTL_H */

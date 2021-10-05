@@ -1,5 +1,6 @@
 /*
  * Copyright 2012 Stefan Roese
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Stefan Roese <sr@denx.de>
  *
  * This file is dual-licensed: you can use it either under the terms
@@ -143,7 +144,7 @@
 			trips {
 				cpu_alert0: cpu-alert0 {
 					/* milliCelsius */
-					temperature = <850000>;
+					temperature = <85000>;
 					hysteresis = <2000>;
 					type = "passive";
 				};

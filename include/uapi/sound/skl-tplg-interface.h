@@ -3,6 +3,7 @@
  * skl-tplg-interface.h - Intel DSP FW private data interface
  *
  * Copyright (C) 2015 Intel Corp
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Jeeja KP <jeeja.kp@intel.com>
  *	    Nilofer, Samreen <samreen.nilofer@intel.com>
  */
@@ -18,6 +19,8 @@
  */
 #define SKL_CONTROL_TYPE_BYTE_TLV	0x100
 #define SKL_CONTROL_TYPE_MIC_SELECT	0x102
+#define SKL_CONTROL_TYPE_MULTI_IO_SELECT	0x103
+#define SKL_CONTROL_TYPE_MULTI_IO_SELECT_DMIC	0x104
 
 #define HDA_SST_CFG_MAX	900 /* size of copier cfg*/
 #define MAX_IN_QUEUE 8

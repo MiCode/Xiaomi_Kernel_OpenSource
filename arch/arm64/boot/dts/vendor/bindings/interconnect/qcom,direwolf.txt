@@ -1,0 +1,31 @@
+Qualcomm Technologies, Inc. Direwolf Network-On-Chip interconnect driver binding
+------------------------------------------------------------------------------
+Direwolf interconnect providers support system bandwidth requirements through
+RPMh hardware accelerators known as Bus Clock Manager (BCM). The provider is
+able to communicate with the BCM through the Resource State Coordinator (RSC)
+associated with each execution environment. Provider nodes must point to at
+least one RPMh device child node pertaining to their RSC and each provider
+can map to multiple RPMh resources.
+
+Required properties :
+- compatible : shall contain only one of the following:
+		"qcom,direwolf-aggre1_noc";
+		"qcom,direwolf-aggre2_noc";
+		"qcom,direwolf-clk_virt";
+		"qcom,direwolf-config_noc";
+		"qcom,direwolf-dc_noc";
+		"qcom,direwolf-gem_noc";
+		"qcom,direwolf-lpass_ag_noc";
+		"qcom,direwolf-mc_virt";
+		"qcom,direwolf-mmss_noc";
+		"qcom,direwolf-nspa_noc";
+		"qcom,direwolf-nspb_noc";
+		"qcom,direwolf-system_noc_main";
+- #interconnect-cells : should contain 1
+
+Examples:
+
+aggre1_noc: interconnect@16c0000 {
+	"qcom,direwolf-aggre1_noc";
+	interconnect-cells = <1>;
+};

@@ -3,6 +3,7 @@
  * xHCI host controller driver for HiSilicon STB SoCs
  *
  * Copyright (C) 2017-2018 HiSilicon Co., Ltd. http://www.hisilicon.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Jianguo Sun <sunjianguo1@huawei.com>
  */
@@ -241,7 +242,7 @@ static int xhci_histb_probe(struct platform_device *pdev)
 	/* Initialize dma_mask and coherent_dma_mask to 32-bits */
 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 	if (ret)
-		return ret;
+		goto disable_pm;
 
 	hcd = usb_create_hcd(driver, dev, dev_name(dev));
 	if (!hcd) {

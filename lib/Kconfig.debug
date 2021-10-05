@@ -283,6 +283,21 @@ config ENABLE_MUST_CHECK
 	  suppress the "warning: ignoring return value of 'foo', declared with
 	  attribute warn_unused_result" messages.
 
+config FIRE_WATCHDOG
+	bool "Provide watchdog trigger"
+	default n
+	depends on PRINTK && QCOM_WDT_CORE
+	help
+	  Provide a way to trigger watchdog for debugging purpose.
+
+config DUMP_ALL_STACKS
+	bool "Show all task stack information in logbuf on panic"
+	default n
+	depends on PRINTK && QCOM_WDT_CORE
+	help
+	  Selecting this option for debugging purpose to dump all task stack
+	  under watchdog disable condition.
+
 config FRAME_WARN
 	int "Warn for stack frames larger than (needs gcc 4.4)"
 	range 0 8192
@@ -2011,6 +2026,17 @@ config TEST_SYSCTL
 	  This builds the "test_sysctl" module. This driver enables to test the
 	  proc sysctl interfaces available to drivers safely without affecting
 	  production knobs which might alter system functionality.
+
+	  If unsure, say N.
+
+config SYSCTL_KUNIT_TEST
+	bool "KUnit test for sysctl"
+	depends on KUNIT
+	help
+	  This builds the proc sysctl unit test, which runs on boot.
+	  Tests the API contract and implementation correctness of sysctl.
+	  For more information on KUnit and unit tests in general please refer
+	  to the KUnit documentation in Documentation/dev-tools/kunit/.
 
 	  If unsure, say N.
 

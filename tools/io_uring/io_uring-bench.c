@@ -6,6 +6,7 @@
  * below. This uses the raw io_uring interface.
  *
  * Copyright (C) 2018-2019 Jens Axboe
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <stdio.h>
 #include <errno.h>
@@ -130,7 +131,7 @@ static int io_uring_register_files(struct submitter *s)
 					s->nr_files);
 }
 
-static int gettid(void)
+static int lk_gettid(void)
 {
 	return syscall(__NR_gettid);
 }
@@ -281,7 +282,7 @@ static void *submitter_fn(void *data)
 	struct io_sq_ring *ring = &s->sq_ring;
 	int ret, prepped;
 
-	printf("submitter=%d\n", gettid());
+	printf("submitter=%d\n", lk_gettid());
 
 	srand48_r(pthread_self(), &s->rand);
 

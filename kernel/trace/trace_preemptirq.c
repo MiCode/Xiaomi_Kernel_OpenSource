@@ -3,6 +3,7 @@
  * preemptoff and irqoff tracepoints
  *
  * Copyright (C) Joel Fernandes (Google) <joel@joelfernandes.org>
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/kallsyms.h>
@@ -70,6 +71,8 @@ NOKPROBE_SYMBOL(trace_hardirqs_on_caller);
 
 __visible void trace_hardirqs_off_caller(unsigned long caller_addr)
 {
+	lockdep_hardirqs_off(CALLER_ADDR0);
+
 	if (!this_cpu_read(tracing_irq_cpu)) {
 		this_cpu_write(tracing_irq_cpu, 1);
 		tracer_hardirqs_off(CALLER_ADDR0, caller_addr);
@@ -78,8 +81,6 @@ __visible void trace_hardirqs_off_caller(unsigned long caller_addr)
 			trace_restricted_irq_disable(CALLER_ADDR0, caller_addr);
 		}
 	}
-
-	lockdep_hardirqs_off(CALLER_ADDR0);
 }
 EXPORT_SYMBOL(trace_hardirqs_off_caller);
 NOKPROBE_SYMBOL(trace_hardirqs_off_caller);

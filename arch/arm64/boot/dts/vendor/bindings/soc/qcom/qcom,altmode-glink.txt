@@ -1,0 +1,51 @@
+* QTI Type-C Alternate Mode over GLINK bindings
+
+The Qualcomm Technologies, Inc. Type-C Alternate (alt) Mode GLINK device
+provides an interface for Type-C alternate mode clients to receive data such as
+Pin Assignment Notifications from the Type-C stack running on a remote
+subsystem (e.g. DSP) via the PMIC GLINK interface.
+
+Please refer to Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.txt
+for information on the "qcom,pmic_glink" device used in the example below.
+
+REQUIRED PROPERTIES:
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,altmode-glink"
+
+- #altmode-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: must be <1>
+
+EXAMPLE of altmode node definition:
+
+&soc {
+	qcom,pmic_glink {
+		...
+		altmode: qcom,altmode {
+			compatible = "qcom,altmode-glink";
+			#altmode-cells = <1>;
+		};
+		...
+	};
+};
+
+Altmode client bindings:
+
+REQUIRED PROPERTIES:
+
+- qcom,altmode-dev:
+	Usage: required
+	Value type: <phandle>
+	Definition: must be <phandle_to_altmode_node, N> where N is port index
+
+EXAMPLE of altmode client node definition:
+
+altmode-client {
+	...
+	qcom,altmode-dev = <&altmode 0>;
+	...
+}

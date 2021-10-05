@@ -4,6 +4,7 @@
  *  Originally from the 'accel_*' routines in drivers/video/console/fbcon.c
  *
  *      Copyright (C) 2004 Antonino Daplas <adaplas @pol.net>
+ *      Copyright (C) 2021 XiaoMi, Inc.
  *
  *  This file is subject to the terms and conditions of the GNU General Public
  *  License.  See the file COPYING in the main directory of this archive for
@@ -234,7 +235,7 @@ static void bit_clear_margins(struct vc_data *vc, struct fb_info *info,
 }
 
 static void bit_cursor(struct vc_data *vc, struct fb_info *info, int mode,
-		       int softback_lines, int fg, int bg)
+		       int fg, int bg)
 {
 	struct fb_cursor cursor;
 	struct fbcon_ops *ops = info->fbcon_par;
@@ -246,15 +247,6 @@ static void bit_cursor(struct vc_data *vc, struct fb_info *info, int mode,
 	char *src;
 
 	cursor.set = 0;
-
-	if (softback_lines) {
-		if (y + softback_lines >= vc->vc_rows) {
-			mode = CM_ERASE;
-			ops->cursor_flash = 0;
-			return;
-		} else
-			y += softback_lines;
-	}
 
  	c = scr_readw((u16 *) vc->vc_pos);
 	attribute = get_attribute(info, c);

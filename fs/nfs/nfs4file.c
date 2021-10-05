@@ -3,6 +3,7 @@
  *  linux/fs/nfs/file.c
  *
  *  Copyright (C) 1992  Rick Sladkey
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/fs.h>
 #include <linux/file.h>
@@ -138,7 +139,8 @@ static ssize_t __nfs4_copy_file_range(struct file *file_in, loff_t pos_in,
 	/* Only offload copy if superblock is the same */
 	if (file_inode(file_in)->i_sb != file_inode(file_out)->i_sb)
 		return -EXDEV;
-	if (!nfs_server_capable(file_inode(file_out), NFS_CAP_COPY))
+	if (!nfs_server_capable(file_inode(file_out), NFS_CAP_COPY) ||
+	    !nfs_server_capable(file_inode(file_in), NFS_CAP_COPY))
 		return -EOPNOTSUPP;
 	if (file_inode(file_in) == file_inode(file_out))
 		return -EOPNOTSUPP;

@@ -3,6 +3,7 @@
 #
 # This code is based on drivers/scsi/ufs/Kconfig
 # Copyright (C) 2011-2013 Samsung India Software Operations
+# Copyright (C) 2021 XiaoMi, Inc.
 #
 # Authors:
 #	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -196,3 +197,13 @@ config SCSI_UFS_CRYPTO_QTI
 	 Enable Vendor Crypto Engine Support in UFS
 	 Enabling this allows kernel to use UFS crypto operations defined
 	 and implemented by QTI.
+
+config MI_UFS_FFU
+	tristate "Xiaomi Universal Flash Storage Upgrade Driver"
+	depends on SCSI_UFSHCD
+	default n
+	---help---
+	  This selects for xiaomi ufs ffu driver.
+
+	  Select this if you need ufs ffu function.
+	  If unsure, say N.

@@ -379,10 +379,12 @@ gen_headers_out_arm64 = [
     "linux/msdos_fs.h",
     "linux/msg.h",
     "linux/msm_dsps.h",
+    "linux/msm_geni_serial.h",
     "linux/msm_ion.h",
     "linux/msm_ion_ids.h",
     "linux/msm_ipa.h",
     "linux/msm_kgsl.h",
+    "linux/msm_npu.h",
     "linux/msm_rmnet.h",
     "linux/mtio.h",
     "linux/n_r3964.h",
@@ -589,6 +591,7 @@ gen_headers_out_arm64 = [
     "linux/v4l2-dv-timings.h",
     "linux/v4l2-mediabus.h",
     "linux/v4l2-subdev.h",
+    "linux/ispv2_ioparam.h",
     "linux/vbox_err.h",
     "linux/vbox_vmmdev_types.h",
     "linux/vboxguest.h",
@@ -636,6 +639,9 @@ gen_headers_out_arm64 = [
     "linux/xilinx-v4l2-controls.h",
     "linux/zorro.h",
     "linux/zorro_ids.h",
+    "linux/hab_ioctl.h",
+    "linux/habmmid.h",
+    "linux/hgsl.h",
     "media/msm_cvp_private.h",
     "media/radio-iris-commands.h",
     "media/radio-iris.h",
@@ -976,6 +982,7 @@ gen_headers_out_arm64 = [
     "audio/linux/msm_audio_wmapro.h",
     "audio/linux/wcd-spi-ac-params.h",
     "audio/sound/audio_effects.h",
+    "audio/sound/msm-cirrus-playback.h",
     "audio/sound/audio_slimslave.h",
     "audio/sound/devdep_params.h",
     "audio/sound/lsm_params.h",
@@ -1001,6 +1008,7 @@ gen_headers_out_arm64 = [
     "camera/media/cam_sensor.h",
     "camera/media/cam_sync.h",
     "camera/media/cam_tfe.h",
+    "display/drm/mi_disp.h",
     "display/drm/msm_drm_pp.h",
     "display/drm/sde_drm.h",
     "display/media/mmm_color_fmt.h",
@@ -1034,7 +1042,10 @@ genrule {
 
 genrule {
     name: "qti_generate_kernel_headers_arm64",
-    tools: ["headers_install.sh"],
+    tools: [
+        "headers_install.sh",
+        "unifdef",
+    ],
     tool_files: [
         "kernel_headers.py",
     ],
@@ -1056,6 +1067,7 @@ genrule {
         "--new_gen_headers_bp $(location :qti_generate_gen_headers_arm64) " +
         "--version_makefile $(location Makefile) " +
         "--headers_install $(location headers_install.sh) " +
+        "--unifdef $(location unifdef) " +
         "--include_uapi $(locations include/uapi/**/*.h)",
     out: ["linux/version.h"] + gen_headers_out_arm64,
 }

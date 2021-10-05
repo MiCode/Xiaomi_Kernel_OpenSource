@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2006 Benjamin Herrenschmidt, IBM Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Provide default implementations of the DMA mapping callbacks for
  * busses using the iommu infrastructure
@@ -160,7 +161,8 @@ u64 dma_iommu_get_required_mask(struct device *dev)
 			return bypass_mask;
 	}
 
-	mask = 1ULL < (fls_long(tbl->it_offset + tbl->it_size) - 1);
+	mask = 1ULL << (fls_long(tbl->it_offset + tbl->it_size) +
+			tbl->it_page_shift - 1);
 	mask += mask - 1;
 
 	return mask;

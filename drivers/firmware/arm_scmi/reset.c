@@ -3,6 +3,7 @@
  * System Control and Management Interface (SCMI) Reset Protocol
  *
  * Copyright (C) 2019 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "common.h"
@@ -35,9 +36,7 @@ struct scmi_msg_reset_domain_reset {
 #define EXPLICIT_RESET_ASSERT	BIT(1)
 #define ASYNCHRONOUS_RESET	BIT(2)
 	__le32 reset_state;
-#define ARCH_RESET_TYPE		BIT(31)
-#define COLD_RESET_STATE	BIT(0)
-#define ARCH_COLD_RESET		(ARCH_RESET_TYPE | COLD_RESET_STATE)
+#define ARCH_COLD_RESET		0
 };
 
 struct reset_dom_info {

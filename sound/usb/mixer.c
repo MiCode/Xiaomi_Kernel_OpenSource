@@ -5,6 +5,7 @@
  *   Mixer control part
  *
  *   Copyright (c) 2002 by Takashi Iwai <tiwai@suse.de>
+ *   Copyright (C) 2021 XiaoMi, Inc.
  *
  *   Many codes borrowed from audio.c by
  *	    Alan Cox (alan@lxorguk.ukuu.org.uk)
@@ -1683,6 +1684,16 @@ static void __build_feature_ctl(struct usb_mixer_interface *mixer,
 
 	/* get min/max values */
 	get_min_max_with_quirks(cval, 0, kctl);
+
+	/* skip a bogus volume range */
+	if (cval->max <= cval->min) {
+		usb_audio_dbg(mixer->chip,
+			      "[%d] FU [%s] skipped due to invalid volume\n",
+			      cval->head.id, kctl->id.name);
+		snd_ctl_free_one(kctl);
+		return;
+	}
+
 
 	if (control == UAC_FU_VOLUME) {
 		check_mapped_dB(map, cval);

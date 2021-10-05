@@ -3,6 +3,7 @@
  * This file is part of UBIFS.
  *
  * Copyright (C) 2018 Pengutronix, Sascha Hauer <s.hauer@pengutronix.de>
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -352,8 +353,10 @@ int ubifs_init_authentication(struct ubifs_info *c)
 	c->authenticated = true;
 
 	c->log_hash = ubifs_hash_get_desc(c);
-	if (IS_ERR(c->log_hash))
+	if (IS_ERR(c->log_hash)) {
+		err = PTR_ERR(c->log_hash);
 		goto out_free_hmac;
+	}
 
 	err = 0;
 

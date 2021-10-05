@@ -4,6 +4,7 @@
  * It provides necessary ops to arm_big_little cpufreq driver.
  *
  * Copyright (C) 2015 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Sudeep Holla <sudeep.holla@arm.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -239,6 +240,7 @@ static struct platform_driver scpi_cpufreq_platdrv = {
 };
 module_platform_driver(scpi_cpufreq_platdrv);
 
+MODULE_ALIAS("platform:scpi-cpufreq");
 MODULE_AUTHOR("Sudeep Holla <sudeep.holla@arm.com>");
 MODULE_DESCRIPTION("ARM SCPI CPUFreq interface driver");
 MODULE_LICENSE("GPL v2");

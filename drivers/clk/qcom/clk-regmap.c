@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2014, 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/device.h>
@@ -269,6 +270,7 @@ EXPORT_SYMBOL(clk_is_regmap_clk);
  */
 int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk)
 {
+	const struct clk_ops *ops;
 	int ret;
 
 	rclk->dev = dev;
@@ -278,6 +280,14 @@ int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk)
 	else if (dev && dev->parent)
 		rclk->regmap = dev_get_regmap(dev->parent, NULL);
 
+	if (rclk->flags & QCOM_CLK_IS_CRITICAL) {
+		ops = rclk->hw.init->ops;
+		if (ops && ops->enable)
+			ops->enable(&rclk->hw);
+
+		return 0;
+	}
+
 	ret = devm_clk_hw_register(dev, &rclk->hw);
 	if (!ret)
 		list_add(&rclk->list_node, &clk_regmap_list);
@@ -285,6 +295,19 @@ int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(devm_clk_register_regmap);
+
+/**
+ * devm_clk_regmap_list_node - Add a clk-regmap clock list for providers
+ *
+ * @rclk: clk to operate on
+ *
+ * Maintain clk-regmap clks list for providers use.
+ */
+void devm_clk_regmap_list_node(struct device *dev, struct clk_regmap *rclk)
+{
+	list_add(&rclk->list_node, &clk_regmap_list);
+}
+EXPORT_SYMBOL(devm_clk_regmap_list_node);
 
 int clk_runtime_get_regmap(struct clk_regmap *rclk)
 {

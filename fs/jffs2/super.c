@@ -2,6 +2,7 @@
  * JFFS2 -- Journalling Flash File System, Version 2.
  *
  * Copyright © 2001-2007 Red Hat, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Created by David Woodhouse <dwmw2@infradead.org>
  *
@@ -221,11 +222,28 @@ static int jffs2_parse_param(struct fs_context *fc, struct fs_parameter *param)
 	return 0;
 }
 
+static inline void jffs2_update_mount_opts(struct fs_context *fc)
+{
+	struct jffs2_sb_info *new_c = fc->s_fs_info;
+	struct jffs2_sb_info *c = JFFS2_SB_INFO(fc->root->d_sb);
+
+	mutex_lock(&c->alloc_sem);
+	if (new_c->mount_opts.override_compr) {
+		c->mount_opts.override_compr = new_c->mount_opts.override_compr;
+		c->mount_opts.compr = new_c->mount_opts.compr;
+	}
+	if (new_c->mount_opts.rp_size)
+		c->mount_opts.rp_size = new_c->mount_opts.rp_size;
+	mutex_unlock(&c->alloc_sem);
+}
+
 static int jffs2_reconfigure(struct fs_context *fc)
 {
 	struct super_block *sb = fc->root->d_sb;
 
 	sync_filesystem(sb);
+	jffs2_update_mount_opts(fc);
+
 	return jffs2_do_remount_fs(sb, fc);
 }
 

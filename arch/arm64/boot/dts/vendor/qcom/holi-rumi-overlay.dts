@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "holi-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi RUMI";
+	compatible = "qcom,holi-rumi", "qcom,holi", "qcom,rumi";
+	qcom,msm-id = <454 0x10000>;
+	qcom,board-id = <15 0>;
+};

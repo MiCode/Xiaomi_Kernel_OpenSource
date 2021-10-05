@@ -5,6 +5,7 @@
  *
  * This assembly file is re-written from memmove_64.c file.
  *	- Copyright 2011 Fenghua Yu <fenghua.yu@intel.com>
+ *	- Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/linkage.h>
 #include <asm/cpufeatures.h>
@@ -24,9 +25,7 @@
  * Output:
  * rax: dest
  */
-.weak memmove
-
-ENTRY(memmove)
+SYM_FUNC_START_WEAK(memmove)
 ENTRY(__memmove)
 
 	/* Handle more 32 bytes in loop */

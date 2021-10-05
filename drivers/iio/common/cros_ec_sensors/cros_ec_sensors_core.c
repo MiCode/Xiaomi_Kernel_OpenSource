@@ -3,6 +3,7 @@
  * cros_ec_sensors_core - Common function for Chrome OS EC sensor driver.
  *
  * Copyright (C) 2016 Google, Inc
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -57,8 +58,11 @@ static void get_default_min_max_freq(enum motionsensor_type type,
 {
 	switch (type) {
 	case MOTIONSENSE_TYPE_ACCEL:
-	case MOTIONSENSE_TYPE_GYRO:
 		*min_freq = 12500;
+		*max_freq = 100000;
+		break;
+	case MOTIONSENSE_TYPE_GYRO:
+		*min_freq = 25000;
 		*max_freq = 100000;
 		break;
 	case MOTIONSENSE_TYPE_MAG:

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef __PINCTRL_MSM_H__
 #define __PINCTRL_MSM_H__
@@ -147,6 +148,8 @@ struct msm_gpio_wakeirq_map {
  * @pull_no_keeper: The SoC does not support keeper bias.
  * @wakeirq_map:    The map of wakeup capable GPIOs and the pin at PDC/MPM
  * @nwakeirq_map:   The number of entries in @hierarchy_map
+ * @no_wake_gpios:  The list of non-wakeup capable GPIOs
+ * @n_no_wake_gpios:The number of entries in non-wakeup capable gpios
  * @dir_conn:       An array describing all the pins directly connected to GIC.
  */
 struct msm_pinctrl_soc_data {
@@ -163,6 +166,8 @@ struct msm_pinctrl_soc_data {
 	const int *reserved_gpios;
 	const struct msm_gpio_wakeirq_map *wakeirq_map;
 	unsigned int nwakeirq_map;
+	unsigned int *no_wake_gpios;
+	unsigned int n_no_wake_gpios;
 	struct pinctrl_qup *qup_regs;
 	unsigned int nqup_regs;
 	struct msm_dir_conn *dir_conn;

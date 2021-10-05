@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -447,7 +448,7 @@ void msm_mpm_enter_sleep(struct cpumask *cpumask)
 	if (!irq_data)
 		return;
 
-	if (cpumask)
+	if (cpumask && irq_chip->irq_set_affinity)
 		irq_chip->irq_set_affinity(irq_data, cpumask, true);
 }
 
@@ -559,6 +560,14 @@ static const struct of_device_id mpm_gic_chip_data_table[] = {
 	{
 		.compatible = "qcom,mpm-gic-holi",
 		.data = mpm_holi_gic_chip_data,
+	},
+	{
+		.compatible = "qcom,mpm-gic-sdxnightjar",
+		.data = mpm_sdxnightjar_gic_chip_data,
+	},
+	{
+		.compatible = "qcom,mpm-gic-monaco",
+		.data = mpm_monaco_gic_chip_data,
 	},
 	{}
 };

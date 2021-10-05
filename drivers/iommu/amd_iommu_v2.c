@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2010-2012 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Joerg Roedel <jroedel@suse.de>
  */
 
@@ -740,6 +741,13 @@ int amd_iommu_init_device(struct pci_dev *pdev, int pasids)
 	u16 devid;
 
 	might_sleep();
+
+	/*
+	 * When memory encryption is active the device is likely not in a
+	 * direct-mapped domain. Forbid using IOMMUv2 functionality for now.
+	 */
+	if (mem_encrypt_active())
+		return -ENODEV;
 
 	if (!amd_iommu_v2_supported())
 		return -ENODEV;

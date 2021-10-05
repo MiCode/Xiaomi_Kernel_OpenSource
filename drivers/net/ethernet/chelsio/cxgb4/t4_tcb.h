@@ -2,6 +2,7 @@
  * This file is part of the Chelsio T4/T5/T6 Ethernet driver for Linux.
  *
  * Copyright (c) 2017 Chelsio Communications, Inc. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -49,6 +50,10 @@
 #define TCB_RQ_START_S		0
 #define TCB_RQ_START_M		0x3ffffffULL
 #define TCB_RQ_START_V(x)	((x) << TCB_RQ_START_S)
+
+#define TF_DROP_S		22
+#define TF_DIRECT_STEER_S	23
+#define TF_LPBK_S		59
 
 #define TF_CCTRL_ECE_S		60
 #define TF_CCTRL_CWR_S		61

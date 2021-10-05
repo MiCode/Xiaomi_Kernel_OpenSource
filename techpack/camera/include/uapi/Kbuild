@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+
+# Legacy file used for kernel 4.19.x build system to install
+# UAPI headers.
+
+header-y += camera/media/cam_cpas.h
+header-y += camera/media/cam_custom.h
+header-y += camera/media/cam_defs.h
+header-y += camera/media/cam_fd.h
+header-y += camera/media/cam_icp.h
+header-y += camera/media/cam_isp_ife.h
+header-y += camera/media/cam_isp_vfe.h
+header-y += camera/media/cam_isp.h
+header-y += camera/media/cam_jpeg.h
+header-y += camera/media/cam_lrme.h
+header-y += camera/media/cam_req_mgr.h
+header-y += camera/media/cam_sensor.h
+header-y += camera/media/cam_sync.h
+header-y += camera/media/cam_ope.h
+header-y += camera/media/cam_isp_tfe.h
+header-y += camera/media/cam_tfe.h
+header-y += camera/media/cam_isp_sfe.h

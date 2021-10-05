@@ -389,6 +389,9 @@ int atl_init_macsec(struct atl_hw *hw)
 	int index = 0, tbl_idx;
 	int ret;
 
+	if (hw->chip_id == ATL_ANTIGUA)
+		return 0;
+
 	rtnl_lock();
 	memset(&msg, 0, sizeof(msg));
 	memset(&resp, 0, sizeof(resp));

@@ -462,6 +462,17 @@ config ENABLE_SFE
 	  Changes to support Shortcut Forward Engine.
 	  Add bridge API to access the bridge slave port.
 
+#Generic-Software-Bridge
+config ENABLE_GSB
+        bool "Enable generic-software-bridge"
+        depends on QGKI
+        help
+          ENABLE_GSB enables software acceleration on the target via gsb.
+          The change supports generic software bridge.
+          Helps to include gsb hook on the kernel.
+          Fulfills requirement of GSB network stack receive.
+          Change is supposed to go only on targets supporting gsb.
+
 endif   # if NET
 
 # Used by archs to tell that they support BPF JIT compiler plus which flavour.

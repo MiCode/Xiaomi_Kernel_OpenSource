@@ -1,0 +1,13 @@
+/dts-v1/;
+
+#include "sdxlemur.dtsi"
+#include "sdxlemur-mtp-mbb-emmc.dtsi"
+#include "sdxlemur-1024mb.dtsi"
+#include "sdxlemur-bluetooth.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR MTP MBB eMMC";
+	compatible = "qcom,sdxlemur-mtp",
+		"qcom,sdxlemur", "qcom,mtp";
+	qcom,board-id = <0x2010108 0x302>;
+};

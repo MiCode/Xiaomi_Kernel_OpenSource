@@ -8,6 +8,7 @@
  *  Determine device and port characteristics for these IB devices.
  *
  *  Copyright IBM Corp. 2016
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  *  Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
  */
@@ -191,9 +192,9 @@ int smc_ib_determine_gid(struct smc_ib_device *smcibdev, u8 ibport,
 		rcu_read_lock();
 		ndev = rdma_read_gid_attr_ndev_rcu(attr);
 		if (!IS_ERR(ndev) &&
-		    ((!vlan_id && !is_vlan_dev(attr->ndev)) ||
-		     (vlan_id && is_vlan_dev(attr->ndev) &&
-		      vlan_dev_vlan_id(attr->ndev) == vlan_id)) &&
+		    ((!vlan_id && !is_vlan_dev(ndev)) ||
+		     (vlan_id && is_vlan_dev(ndev) &&
+		      vlan_dev_vlan_id(ndev) == vlan_id)) &&
 		    attr->gid_type == IB_GID_TYPE_ROCE) {
 			rcu_read_unlock();
 			if (gid)

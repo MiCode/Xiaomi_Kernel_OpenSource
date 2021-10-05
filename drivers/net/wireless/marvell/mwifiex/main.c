@@ -2,6 +2,7 @@
  * Marvell Wireless LAN device driver: major functions
  *
  * Copyright (C) 2011-2014, Marvell International Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -1468,6 +1469,8 @@ int mwifiex_shutdown_sw(struct mwifiex_adapter *adapter)
 
 	priv = mwifiex_get_priv(adapter, MWIFIEX_BSS_ROLE_ANY);
 	mwifiex_deauthenticate(priv, NULL);
+
+	mwifiex_init_shutdown_fw(priv, MWIFIEX_FUNC_SHUTDOWN);
 
 	mwifiex_uninit_sw(adapter);
 	adapter->is_up = false;

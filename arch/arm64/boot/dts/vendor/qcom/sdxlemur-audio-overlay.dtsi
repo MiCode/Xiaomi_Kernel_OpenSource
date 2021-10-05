@@ -1,0 +1,131 @@
+#include "sdxlemur-wcd.dtsi"
+#include "sdx-wsa881x.dtsi"
+#include <dt-bindings/clock/qcom,audio-ext-clk.h>
+
+&snd_934x {
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"AMIC2", "Headset Mic",
+		"Headset Mic", "MIC BIAS2",
+		"AMIC3", "ANCRight Headset Mic",
+		"ANCRight Headset Mic", "MIC BIAS2",
+		"AMIC4", "ANCLeft Headset Mic",
+		"ANCLeft Headset Mic", "MIC BIAS2",
+		"AMIC5", "Handset Mic",
+		"Handset Mic", "MIC BIAS3",
+		"DMIC1", "Digital Mic1",
+		"DMIC1", "MIC BIAS1",
+		"DMIC2", "Digital Mic2",
+		"DMIC2", "MIC BIAS3",
+		"DMIC3", "Digital Mic3",
+		"DMIC3", "MIC BIAS3",
+		"DMIC4", "Digital Mic4",
+		"DMIC4", "MIC BIAS4",
+		"DMIC5", "Digital Mic5",
+		"DMIC5", "MIC BIAS4",
+		"SpkrLeft IN", "SPK1 OUT";
+
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	qcom,msm-mbhc-hs-mic-max-threshold-mv = <1700>;
+	qcom,msm-mbhc-hs-mic-min-threshold-mv = <50>;
+	qcom,cdc-ext-clk-rate = <9600000>;
+	qcom,tavil-mclk-clk-freq = <9600000>;
+
+	asoc-codec = <&stub_codec>, <&wsa881x_0214>;
+	asoc-codec-names = "msm-stub-codec.1", "wsa-codec.1";
+
+	qcom,wsa-max-devs = <1>;
+	qcom,swr-num-dev = <1>;
+	qcom,wsa-devs = <&wsa881x_0214>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft";
+	qcom,msm_audio_ssr_devs = <&audio_gpr>, <&wcd934x_cdc>;
+};
+
+&soc {
+	wcd9xxx_intc: wcd9xxx-irq {
+		status = "ok";
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&tlmm>;
+		qcom,gpio-connect = <&tlmm 48 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
+	};
+
+	clock_audio_up: audio_ext_clk_up {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_3>;
+		qcom,codec-lpass-clk-id = <0x302>;
+		qcom,codec-lpass-ext-clk-freq = <9600000>;
+		qcom,use-pinctrl = <1>;
+		pinctrl-names = "sleep", "active";
+		pinctrl-0 = <&i2s_mclk_sleep>;
+		pinctrl-1 = <&i2s_mclk_active>;
+		#clock-cells = <1>;
+	};
+
+	wcd_rst_gpio: msm_cdc_pinctrl@49 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm 49 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+};
+
+&i2c_3 {
+	status = "ok";
+	wcd934x_cdc: tavil_codec {
+		compatible = "qcom,tavil-i2c";
+		reg = <0x0d>;
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+			      17 18 19 20 21 22 23 24 25 26 27 28 29
+			      30 31>;
+
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
+		clock-names = "wcd_clk";
+		clocks = <&clock_audio_up 0>;
+
+		cdc-vdd-buck-supply = <&pmx65_l6>;
+		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-buck-current = <650000>;
+
+		cdc-buck-sido-supply = <&pmx65_l6>;
+		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
+		qcom,cdc-buck-sido-current = <250000>;
+
+		cdc-vdd-tx-h-supply = <&pmx65_l6>;
+		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-tx-h-current = <25000>;
+
+		cdc-vdd-rx-h-supply = <&pmx65_l6>;
+		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-rx-h-current = <25000>;
+
+		cdc-vddpx-1-supply = <&pmx65_l6>;
+		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+		qcom,cdc-vddpx-1-current = <10000>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-buck",
+					   "cdc-buck-sido",
+					   "cdc-vdd-tx-h",
+					   "cdc-vdd-rx-h",
+					   "cdc-vddpx-1";
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+		qcom,cdc-dmic-sample-rate = <4800000>;
+
+		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
+	};
+};

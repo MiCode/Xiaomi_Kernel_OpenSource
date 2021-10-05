@@ -6,6 +6,7 @@
  *
  * Authors :	Jean Tourrilhes - HPL - <jt@hpl.hp.com>
  * Copyright (c) 1997-2007 Jean Tourrilhes, All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _UAPI_LINUX_WIRELESS_H
@@ -74,7 +75,11 @@
 #include <linux/socket.h>		/* for "struct sockaddr" et al	*/
 #include <linux/if.h>			/* for IFNAMSIZ and co... */
 
-#include <stddef.h>                     /* for offsetof */
+#ifdef __KERNEL__
+#	include <linux/stddef.h>	/* for offsetof */
+#else
+#	include <stddef.h>		/* for offsetof */
+#endif
 
 /***************************** VERSION *****************************/
 /*

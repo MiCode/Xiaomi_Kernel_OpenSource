@@ -2,6 +2,7 @@
 /* ECDH key-agreement protocol
  *
  * Copyright (c) 2016, Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: Salvator Benedetto <salvatore.benedetto@intel.com>
  */
 
@@ -53,12 +54,13 @@ static int ecdh_set_secret(struct crypto_kpp *tfm, const void *buf,
 		return ecc_gen_privkey(ctx->curve_id, ctx->ndigits,
 				       ctx->private_key);
 
-	if (ecc_is_key_valid(ctx->curve_id, ctx->ndigits,
-			     (const u64 *)params.key, params.key_size) < 0)
-		return -EINVAL;
-
 	memcpy(ctx->private_key, params.key, params.key_size);
 
+	if (ecc_is_key_valid(ctx->curve_id, ctx->ndigits,
+			     ctx->private_key, params.key_size) < 0) {
+		memzero_explicit(ctx->private_key, params.key_size);
+		return -EINVAL;
+	}
 	return 0;
 }
 

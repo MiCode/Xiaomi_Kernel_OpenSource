@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lahaina-v2.dtsi"
+#include "lahaina-qrd-module.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina V2 QRD Module";
+	compatible = "qcom,lahaina-qrd-module", "qcom,lahaina", "qcom,qrd";
+	qcom,board-id = <0x1000B 0x8>;
+};

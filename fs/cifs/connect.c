@@ -2,6 +2,7 @@
  *   fs/cifs/connect.c
  *
  *   Copyright (C) International Business Machines  Corp., 2002,2011
+ *   Copyright (C) 2021 XiaoMi, Inc.
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *
  *   This library is free software; you can redistribute it and/or modify
@@ -974,6 +975,8 @@ static void clean_demultiplex_info(struct TCP_Server_Info *server)
 	spin_lock(&cifs_tcp_ses_lock);
 	list_del_init(&server->tcp_ses_list);
 	spin_unlock(&cifs_tcp_ses_lock);
+
+	cancel_delayed_work_sync(&server->echo);
 
 	spin_lock(&GlobalMid_Lock);
 	server->tcpStatus = CifsExiting;

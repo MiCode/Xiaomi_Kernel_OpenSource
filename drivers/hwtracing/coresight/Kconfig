@@ -221,6 +221,14 @@ config CORESIGHT_TGU
 	  provide a trigger point for centering data around a specific event
 	  within the trace data buffer.
 
+config CORESIGHT_DBGUI
+        bool "CoreSight DebugUI driver"
+        help
+          This driver provides support for DebugUI that helps to capture
+          the value at a specified address. It allows configuring DebugUI
+          to select specified address and trigger mode based on user
+          input.
+
 config CORESIGHT_OST
 	bool "CoreSight OST framework"
 	depends on CORESIGHT_STM && CORESIGHT_QGKI
@@ -229,4 +237,13 @@ config CORESIGHT_OST
 	  This is primarily intended to be used as a layer on top of underlying
 	  physical byte transport mechanisms.The additional header can be used
 	  to provide more information.
+
+config CORESIGHT_FUSE
+	bool "CoreSight FUSE framework"
+	help
+	  This driver provides support for CoreSight Fuse state checks that
+	  other CoreSight drivers can query to determine existence of
+	  Hardware functionality they support. Drivers can then take necessary
+	  actions like failing the probe if the Hardware they manage is
+	  functionally disabled.
 endif

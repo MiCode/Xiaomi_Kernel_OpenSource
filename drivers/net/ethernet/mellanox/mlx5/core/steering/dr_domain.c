@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB
 /* Copyright (c) 2019 Mellanox Technologies. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/mlx5/eswitch.h>
 #include "dr_types.h"
@@ -222,6 +223,11 @@ static int dr_domain_caps_init(struct mlx5_core_dev *mdev,
 	ret = mlx5dr_cmd_query_device(mdev, &dmn->info.caps);
 	if (ret)
 		return ret;
+
+	if (dmn->info.caps.sw_format_ver != MLX5_STEERING_FORMAT_CONNECTX_5) {
+		mlx5dr_err(dmn, "SW steering is not supported on this device\n");
+		return -EOPNOTSUPP;
+	}
 
 	ret = dr_domain_query_fdb_caps(mdev, dmn);
 	if (ret)

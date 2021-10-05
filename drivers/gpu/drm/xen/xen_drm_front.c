@@ -4,6 +4,7 @@
  *  Xen para-virtual DRM device
  *
  * Copyright (C) 2016-2018 EPAM Systems Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Oleksandr Andrushchenko <oleksandr_andrushchenko@epam.com>
  */
@@ -400,7 +401,7 @@ static int xen_drm_drv_dumb_create(struct drm_file *filp,
 	args->size = args->pitch * args->height;
 
 	obj = xen_drm_front_gem_create(dev, args->size);
-	if (IS_ERR_OR_NULL(obj)) {
+	if (IS_ERR(obj)) {
 		ret = PTR_ERR(obj);
 		goto fail;
 	}

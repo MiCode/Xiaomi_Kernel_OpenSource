@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -2046,7 +2047,7 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[79] = PINGROUP(79, EAST, NA, GRFC13, NA, NA, NA, NA, NA, NA, NA),
 	[80] = PINGROUP(80, EAST, NA, GRFC14, NA, NA, NA, NA, NA, NA, NA),
 	[81] = PINGROUP(81, EAST, NA, GRFC15, GPS_TX, NAV_PPS, NAV_PPS,
-			qdss_cti, NA, emac_pps, NA),
+			emac_pps, qdss_cti, NA, NA),
 	[82] = PINGROUP(82, EAST, NA, GRFC16, GPS_TX, NAV_PPS, NAV_PPS,
 			mdp_vsync, qdss_cti, NA, NA),
 	[83] = PINGROUP(83, EAST, qup12, qup16, NA, NA, NA, NA, NA, NA, NA),
@@ -2237,6 +2238,30 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[194] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
 };
 
+static const struct msm_gpio_wakeirq_map sdmshrike_pdc_map[] = {
+	{ 3, 31 }, { 5, 32 }, { 8, 33 }, { 9, 34 }, { 10, 100 },
+	{ 12, 104 }, { 24, 37 }, { 26, 38 }, { 27, 41 }, { 28, 42 },
+	{ 30, 39 }, { 36, 43 }, { 37, 44 }, { 38, 45 }, { 39, 118 },
+	{ 41, 47 }, { 42, 48 }, { 46, 50 }, { 47, 49 }, { 48, 51 },
+	{ 49, 53 }, { 50, 52 }, { 51, 116 }, { 53, 54 }, { 54, 55 },
+	{ 55, 56 }, { 56, 57 }, { 58, 58 }, { 60, 60 }, { 61, 61 },
+	{ 68, 62 }, { 70, 63 }, { 76, 86 }, { 77, 66 }, { 81, 64 },
+	{ 83, 65 }, { 86, 67 }, { 87, 84 }, { 88, 117 }, { 90, 69 },
+	{ 91, 70 }, {93, 75 }, { 95, 72 }, { 96, 73 }, { 97, 74 },
+	{ 101, 76 }, { 103, 77 }, { 104, 78 }, { 108, 79 }, { 112, 80 },
+	{ 113, 81 }, { 114, 82 }, { 117, 85 }, { 118, 101 }, { 119, 87 },
+	{ 120, 88 }, { 121, 89 }, { 122, 90 }, { 123, 91 }, { 124, 92 },
+	{ 125, 93 }, { 129, 94 }, { 132, 105 }, { 133, 35 }, { 134, 36 },
+	{ 136, 97 }, { 142, 103 }, { 144, 115 }, { 147, 106 }, { 150, 107 },
+	{ 152, 108 }, { 153, 109 }, { 177, 111 }, { 180, 112 }, { 184, 113 },
+	{ 189, 114 },
+};
+
+static struct msm_dir_conn sdmshrike_dir_conn[] = {
+	  {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0},
+	  {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}
+};
+
 static struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.pins = sdmshrike_pins,
 	.npins = ARRAY_SIZE(sdmshrike_pins),
@@ -2245,10 +2270,60 @@ static struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.groups = sdmshrike_groups,
 	.ngroups = ARRAY_SIZE(sdmshrike_groups),
 	.ngpios = 192,
+	.wakeirq_map = sdmshrike_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(sdmshrike_pdc_map),
+	.dir_conn = sdmshrike_dir_conn,
 };
+
+static int sdmshrike_pinctrl_gpio_irq_map_probe(struct platform_device *pdev)
+{
+	int ret, n, gpio_irq_map_count;
+	struct device_node *np = pdev->dev.of_node;
+	struct msm_gpio_wakeirq_map *gpio_irq_map;
+
+	n = of_property_count_elems_of_size(np, "qcom,gpio-irq-map",
+					sizeof(u32));
+	if (n <= 0 || n % 2)
+		return -EINVAL;
+
+	gpio_irq_map_count = n / 2;
+	gpio_irq_map = devm_kcalloc(&pdev->dev, gpio_irq_map_count,
+				sizeof(*gpio_irq_map), GFP_KERNEL);
+	if (!gpio_irq_map)
+		return -ENOMEM;
+
+	for (n = 0; n < gpio_irq_map_count; n++) {
+		ret = of_property_read_u32_index(np, "qcom,gpio-irq-map",
+						n * 2 + 0,
+						&gpio_irq_map[n].gpio);
+		if (ret)
+			return ret;
+		ret = of_property_read_u32_index(np, "qcom,gpio-irq-map",
+						n * 2 + 1,
+						&gpio_irq_map[n].wakeirq);
+		if (ret)
+			return ret;
+	}
+
+	sdmshrike_pinctrl.wakeirq_map = gpio_irq_map;
+	sdmshrike_pinctrl.nwakeirq_map = gpio_irq_map_count;
+
+	return 0;
+}
 
 static int sdmshrike_pinctrl_probe(struct platform_device *pdev)
 {
+	int len, ret;
+
+	if (of_find_property(pdev->dev.of_node, "qcom,gpio-irq-map", &len)) {
+		ret = sdmshrike_pinctrl_gpio_irq_map_probe(pdev);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Unable to parse GPIO IRQ map\n");
+			return ret;
+		}
+	}
+
 	return msm_pinctrl_probe(pdev, &sdmshrike_pinctrl);
 }
 

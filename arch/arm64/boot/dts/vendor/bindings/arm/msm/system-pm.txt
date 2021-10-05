@@ -1,0 +1,20 @@
+SYSTEM PM
+
+System PM device is a virtual device that handles all CPU subsystem low power
+mode activties. When entering core shutdown, resource state that were
+requested
+from the processor may be relinquished and set to idle and restored when the
+cores are brought out of sleep.
+
+PROPERTIES
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: must be "qcom,system-pm".
+
+EXAMPLE
+
+	system_pm {
+		compatible = "qcom,system-pm";
+	};

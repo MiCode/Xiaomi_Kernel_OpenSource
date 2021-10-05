@@ -1,0 +1,8 @@
+#include "lahaina-cdp.dtsi"
+
+&qupv3_se4_i2c {
+	 st_fts@49 {
+		st,x-flip = <1>;
+		st,y-flip = <1>;
+	 };
+};

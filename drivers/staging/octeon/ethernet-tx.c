@@ -3,6 +3,7 @@
  * This file is based on code from OCTEON SDK by Cavium Networks.
  *
  * Copyright (c) 2003-2010 Cavium Networks
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -352,10 +353,10 @@ int cvm_oct_xmit(struct sk_buff *skb, struct net_device *dev)
 	skb_dst_set(skb, NULL);
 	skb_ext_reset(skb);
 	nf_reset_ct(skb);
+	skb_reset_redirect(skb);
 
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
-	skb_reset_tc(skb);
 #endif /* CONFIG_NET_SCHED */
 #endif /* REUSE_SKBUFFS_WITHOUT_FREE */
 

@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+
+#include "sa8155-adp-common.dtsi"
+#include "display/sa8155-adp-star-display.dtsi"
+#include "display/sa8155-v2-adp-air-display-lxc-shd.dtsi"
+
+/ {
+	model = "ADP-AIR";
+	compatible = "qcom,sa8155-v2-adp-air", "qcom,sa8155",
+		"qcom,adp-air";
+	qcom,board-id = <0X01000019 0>;
+};

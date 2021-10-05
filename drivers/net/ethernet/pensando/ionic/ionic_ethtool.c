@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright(c) 2017 - 2019 Pensando Systems, Inc */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/module.h>
 #include <linux/netdevice.h>
@@ -124,6 +125,11 @@ static int ionic_get_link_ksettings(struct net_device *netdev,
 	int copper_seen = 0;
 
 	ethtool_link_ksettings_zero_link_mode(ks, supported);
+
+	if (!idev->port_info) {
+		netdev_err(netdev, "port_info not initialized\n");
+		return -EOPNOTSUPP;
+	}
 
 	/* The port_info data is found in a DMA space that the NIC keeps
 	 * up-to-date, so there's no need to request the data from the

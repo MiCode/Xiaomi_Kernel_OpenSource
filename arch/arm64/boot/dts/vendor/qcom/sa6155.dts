@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "sa6155.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA6155 SoC";
+	compatible = "qcom,sa6155";
+	qcom,board-id = <0 0>;
+};

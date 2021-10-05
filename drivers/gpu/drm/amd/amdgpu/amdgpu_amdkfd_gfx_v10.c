@@ -1,5 +1,6 @@
 /*
  * Copyright 2019 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -643,6 +644,9 @@ static int kgd_hqd_destroy(struct kgd_dev *kgd, void *mqd,
 	unsigned long end_jiffies;
 	uint32_t temp;
 	struct v10_compute_mqd *m = get_mqd(mqd);
+
+	if (amdgpu_sriov_vf(adev) && adev->in_gpu_reset)
+		return 0;
 
 #if 0
 	unsigned long flags;

@@ -1,0 +1,244 @@
+/*for renoir pinctrl */
+
+&sde_dsi_active {
+	mux {
+		pins = "gpio16";
+		function = "gpio";
+	};
+
+    config {
+		pins = "gpio16";
+		drive-strength = <8>;   /* 8 mA */
+		bias-disable = <0>;     /* no pull */
+	};
+};
+
+&sde_dsi_suspend {
+	mux {
+		pins = "gpio16";
+		function = "gpio";
+	};
+
+    config {
+		pins = "gpio16";
+		drive-strength = <2>;   /* 2 mA */
+		bias-pull-down;         /* PULL DOWN */
+	};
+};
+
+&tlmm {
+	sbu_uart_en_ctrl {
+		sbu_uart_en_idle: uart_audio_en_idle {
+			mux {
+				pins = "gpio6";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio6";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		sbu_uart_en_active: uart_audio_en_active {
+			mux {
+				pins = "gpio6";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio6";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+
+	/* WCD reset pin */
+	wcd938x_reset_pin_active: wcd938x_reset_active {
+		mux {
+			pins = "gpio132";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio132";
+			drive-strength = <16>;
+			output-high;
+		};
+	};
+
+	wcd938x_reset_pin_sleep: wcd938x_reset_sleep {
+		mux {
+			pins = "gpio132";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio132";
+			drive-strength = <16>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	smartpa_enable_active: smartpa_enable_active {
+		/* active state */
+		mux {
+		/* GPIO 15 rst pin */
+			pins = "gpio15";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio15";
+			drive-strength = <2>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+	smartpa_enable_suspend: smartpa_enable_suspend {
+		/* sleep state */
+		mux {
+			/* GPIO 15 rst pin */
+			pins = "gpio15";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio15";
+			drive-strength = <2>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+	smartpa_top_int_active: smartpa_top_int_active {
+		/* active state */
+		mux {
+		/* GPIO 47 Interrupt */
+			pins = "gpio47";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio47";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	smartpa_top_int_suspend: smartpa_top_int_suspend {
+		/* sleep state */
+		mux {
+		/* GPIO 47 Interrupt */
+			pins = "gpio47";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio47";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	smartpa_bot_int_active: smartpa_bot_int_active {
+		/* active state */
+		mux {
+		/* GPIO 84 Interrupt */
+			pins = "gpio84";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio84";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	smartpa_bot_int_suspend: smartpa_bot_int_suspend {
+		/* sleep state */
+		mux {
+		/* GPIO 84 Interrupt */
+			pins = "gpio84";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio84";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	/* speaker switch */
+	spk_sw_active: spk_sw_active {
+		mux {
+			pins = "gpio24";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio24";
+			drive-strength = <2>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+	spk_sw_inactive: spk_sw_inactive {
+		mux {
+			pins = "gpio24";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio24";
+			drive-strength = <2>;
+			bias-disable;
+			bias-pull-down;
+			output-low;
+		};
+	};
+
+	md_mode_ctrl_irq {
+		ant2_ctrl_irq: ant2_ctrl_irq {
+			mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+
+		ant5_ctrl_irq: ant5_ctrl_irq {
+			mux {
+				pins = "gpio14";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio14";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+};

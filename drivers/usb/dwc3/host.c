@@ -3,6 +3,7 @@
  * host.c - DesignWare USB3 DRD Controller Host Glue
  *
  * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  */
@@ -114,10 +115,6 @@ int dwc3_host_init(struct dwc3 *dwc)
 	 */
 	if (dwc->revision <= DWC3_REVISION_300A)
 		props[prop_idx++] = PROPERTY_ENTRY_BOOL("quirk-broken-port-ped");
-
-	if (dwc->host_poweroff_in_pm_suspend)
-		props[prop_idx++] =
-			PROPERTY_ENTRY_BOOL("host-poweroff-in-pm-suspend");
 
 	if (prop_idx) {
 		ret = platform_device_add_properties(xhci, props);

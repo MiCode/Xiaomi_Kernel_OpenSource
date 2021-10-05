@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2016-2017 Micron Technology, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Peter Pan <peterpandong@micron.com>
@@ -316,6 +317,10 @@ static int spinand_write_to_cache_op(struct spinand_device *spinand,
 		column += ret;
 		buf += ret;
 	}
+
+	if (req->ooblen)
+		memcpy(req->oobbuf.in, spinand->oobbuf + req->ooboffs,
+		       req->ooblen);
 
 	return 0;
 }

@@ -3,6 +3,7 @@
  * Generic Event Device for ACPI.
  *
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Generic Event Device allows platforms to handle interrupts in ACPI
  * ASL statements. It follows very similar to  _EVT method approach
@@ -101,7 +102,7 @@ static acpi_status acpi_ged_request_interrupt(struct acpi_resource *ares,
 
 	switch (gsi) {
 	case 0 ... 255:
-		sprintf(ev_name, "_%c%02hhX",
+		sprintf(ev_name, "_%c%02X",
 			trigger == ACPI_EDGE_SENSITIVE ? 'E' : 'L', gsi);
 
 		if (ACPI_SUCCESS(acpi_get_handle(handle, ev_name, &evt_handle)))

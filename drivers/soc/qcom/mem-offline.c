@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/memory.h>
@@ -22,6 +23,7 @@
 #include <linux/vmstat.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
+#include <linux/page-isolation.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/rpm-smd.h>
@@ -47,6 +49,7 @@ static u32 offline_granule;
 static bool is_rpm_controller;
 static bool has_pend_offline_req;
 static atomic_long_t totalram_pages_with_offline = ATOMIC_INIT(0);
+static struct workqueue_struct *migrate_wq;
 
 #define MODULE_CLASS_NAME	"mem-offline"
 #define MIGRATE_TIMEOUT_SEC	(20)
@@ -460,6 +463,12 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 			continue;
 		}
 
+		if (!(start_pfn % pageblock_nr_pages) &&
+			is_migrate_isolate_page(page)) {
+			start_pfn += pageblock_nr_pages - 1;
+			continue;
+		}
+
 		if (!PageBuddy(page))
 			continue;
 
@@ -476,8 +485,9 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 		 * returning once we have SWAP_CLUSTER_MAX pages in the
 		 * free list for migration.
 		 */
-		if (fc->nr_free_pages >= SWAP_CLUSTER_MAX ||
-			has_pend_offline_req)
+		if (!((start_pfn + 1) % pageblock_nr_pages) &&
+			(fc->nr_free_pages >= SWAP_CLUSTER_MAX ||
+			has_pend_offline_req))
 			break;
 	}
 	fc->start_pfn = start_pfn + 1;
@@ -963,6 +973,13 @@ static ssize_t show_mem_stats(struct kobject *kobj,
 static struct kobj_attribute stats_attr =
 		__ATTR(stats, 0444, show_mem_stats, NULL);
 
+static ssize_t show_anon_migrate(struct kobject *kobj,
+					struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%lu\n",
+				atomic_read(&target_migrate_pages));
+}
+
 static ssize_t store_anon_migrate(struct kobject *kobj,
 				struct kobj_attribute *attr, const char *buf,
 				size_t size)
@@ -976,7 +993,7 @@ static ssize_t store_anon_migrate(struct kobject *kobj,
 	atomic_add(val, &target_migrate_pages);
 
 	if (!work_pending(&fill_movable_zone_work))
-		queue_work(system_unbound_wq, &fill_movable_zone_work);
+		queue_work(migrate_wq, &fill_movable_zone_work);
 
 	return size;
 }
@@ -985,7 +1002,7 @@ static struct kobj_attribute offline_granule_attr =
 		__ATTR(offline_granule, 0444, show_mem_offline_granule, NULL);
 
 static struct kobj_attribute anon_migration_size_attr =
-		__ATTR(anon_migrate, 0220, NULL, store_anon_migrate);
+		__ATTR(anon_migrate, 0644, show_anon_migrate, store_anon_migrate);
 
 static struct attribute *mem_root_attrs[] = {
 		&stats_attr.attr,
@@ -1115,6 +1132,14 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 
 	if (bypass_send_msg)
 		pr_info("mem-offline: bypass mode\n");
+
+	migrate_wq = alloc_workqueue("reverse_migrate_wq",
+					WQ_UNBOUND | WQ_FREEZABLE, 0);
+	if (!migrate_wq) {
+		pr_err("Failed to create the worker for reverse migration\n");
+		ret = -ENOMEM;
+		goto err_sysfs_remove_group;
+	}
 
 	return 0;
 

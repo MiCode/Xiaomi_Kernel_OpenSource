@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/idr.h>
@@ -23,6 +23,7 @@
 #include <linux/kthread.h>
 #include <linux/mailbox_client.h>
 #include <linux/ipc_logging.h>
+#include <linux/suspend.h>
 #include <soc/qcom/subsystem_notif.h>
 
 #include "rpmsg_internal.h"
@@ -53,6 +54,8 @@ do {									     \
 
 #define RPM_GLINK_CID_MIN	1
 #define RPM_GLINK_CID_MAX	65536
+
+static int should_wake;
 
 struct glink_msg {
 	__le16 cmd;
@@ -137,8 +140,8 @@ struct qcom_glink {
 	struct qcom_glink_pipe *tx_pipe;
 
 	int irq;
-	char irqname[GLINK_NAME_SIZE];
-
+      char irqname[GLINK_NAME_SIZE];
+	  
 	struct kthread_worker kworker;
 	struct task_struct *task;
 
@@ -161,6 +164,7 @@ struct qcom_glink {
 	bool sent_read_notify;
 
 	void *ilc;
+	struct cpumask cpu_mask;
 };
 
 enum {
@@ -305,6 +309,8 @@ static void qcom_glink_channel_release(struct kref *ref)
 	int iid;
 
 	CH_INFO(channel, "\n");
+	channel->intent_req_result = false;
+	atomic_inc(&channel->intent_req_comp);
 	wake_up(&channel->intent_req_event);
 
 	/* cancel pending rx_done work */
@@ -1240,6 +1246,8 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 	unsigned int cmd;
 	int ret = 0;
 
+	if (should_wake)
+		pm_system_wakeup();
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
 
@@ -1999,17 +2007,16 @@ static int qcom_glink_create_chrdev(struct qcom_glink *glink)
 static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
 				    size_t size)
 {
-	struct cpumask cpumask;
 	int i;
 
-	cpumask_clear(&cpumask);
+	cpumask_clear(&glink->cpu_mask);
 	for (i = 0; i < size; i++) {
 		if (arr[i] < num_possible_cpus())
-			cpumask_set_cpu(arr[i], &cpumask);
+			cpumask_set_cpu(arr[i], &glink->cpu_mask);
 	}
-	if (irq_set_affinity_hint(glink->irq, &cpumask))
+	if (irq_set_affinity_hint(glink->irq, &glink->cpu_mask))
 		dev_err(glink->dev, "failed to set irq affinity\n");
-	if (set_cpus_allowed_ptr(current, &cpumask))
+	if (set_cpus_allowed_ptr(glink->task, &glink->cpu_mask))
 		dev_err(glink->dev, "failed to set task affinity\n");
 }
 
@@ -2110,8 +2117,8 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		dev_err(dev, "failed to register early notif %d\n", ret);
 
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
-
 	irq = of_irq_get(dev->of_node, 0);
+
 	ret = devm_request_irq(dev, irq,
 			       qcom_glink_native_intr,
 			       IRQF_NO_SUSPEND | IRQF_SHARED,
@@ -2210,6 +2217,26 @@ void qcom_glink_native_unregister(struct qcom_glink *glink)
 	device_unregister(glink->dev);
 }
 EXPORT_SYMBOL_GPL(qcom_glink_native_unregister);
+
+static int qcom_glink_suspend_no_irq(struct device *dev)
+{
+	should_wake = true;
+
+	return 0;
+}
+
+static int qcom_glink_resume_no_irq(struct device *dev)
+{
+	should_wake = false;
+
+	return 0;
+}
+
+const struct dev_pm_ops glink_native_pm_ops = {
+	.suspend_noirq = qcom_glink_suspend_no_irq,
+	.resume_noirq = qcom_glink_resume_no_irq,
+};
+EXPORT_SYMBOL(glink_native_pm_ops);
 
 MODULE_DESCRIPTION("Qualcomm GLINK driver");
 MODULE_LICENSE("GPL v2");

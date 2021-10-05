@@ -3,6 +3,7 @@
  * Virtio memory mapped device driver
  *
  * Copyright 2011-2014, ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This module allows virtio devices to be used over a virtual, memory mapped
  * platform device.
@@ -475,6 +476,9 @@ static int vm_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 			dev_name(&vdev->dev), vm_dev);
 	if (err)
 		return err;
+
+	if (of_property_read_bool(vm_dev->pdev->dev.of_node, "virtio,wakeup"))
+		enable_irq_wake(irq);
 
 	for (i = 0; i < nvqs; ++i) {
 		if (!names[i]) {

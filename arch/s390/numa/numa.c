@@ -5,6 +5,7 @@
  * Implement NUMA core code.
  *
  * Copyright IBM Corp. 2015
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define KMSG_COMPONENT "numa"
@@ -48,12 +49,6 @@ void numa_update_cpu_topology(void)
 	if (mode->update_cpu_topology)
 		mode->update_cpu_topology();
 }
-
-int __node_distance(int a, int b)
-{
-	return mode->distance ? mode->distance(a, b) : 0;
-}
-EXPORT_SYMBOL(__node_distance);
 
 int numa_debug_enabled;
 

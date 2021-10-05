@@ -3,6 +3,7 @@
  * net/sched/act_skbmod.c  skb data modifier
  *
  * Copyright (c) 2016 Jamal Hadi Salim <jhs@mojatatu.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
 */
 
 #include <linux/module.h>
@@ -190,8 +191,6 @@ static int tcf_skbmod_init(struct net *net, struct nlattr *nla,
 	if (goto_ch)
 		tcf_chain_put_by_act(goto_ch);
 
-	if (ret == ACT_P_CREATED)
-		tcf_idr_insert(tn, *a);
 	return ret;
 put_chain:
 	if (goto_ch)

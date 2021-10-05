@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2010-2015,2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015,2020-2021 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef __QCOM_SCM_INT_H
 #define __QCOM_SCM_INT_H
@@ -15,12 +16,17 @@
 #define QCOM_SCM_BOOT_SPIN_CPU			0x0d
 #define QCOM_SCM_BOOT_SWITCH_MODE		0x0f
 #define QCOM_SCM_BOOT_SET_DLOAD_MODE		0x10
+#define QCOM_SCM_BOOT_SET_ADDR_MC		0x11
 #define QCOM_SCM_BOOT_CONFIG_CPU_ERRATA		0x12
+#define QCOM_SCM_QUSB2PHY_LVL_SHIFTER_CMD_ID	0x1B
 extern int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
 extern int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
+extern int __qcom_scm_set_warm_boot_addr_mc(struct device *dev, void *entry,
+		u32 aff0, u32 aff1, u32 aff2, u32 flags);
 extern void __qcom_scm_cpu_power_down(struct device *dev, u32 flags);
+extern void __qcom_scm_cpu_hp(struct device *dev, u32 flags);
 extern int __qcom_scm_sec_wdog_deactivate(struct device *dev);
 extern int __qcom_scm_sec_wdog_trigger(struct device *dev);
 extern void __qcom_scm_disable_sdi(struct device *dev);
@@ -29,6 +35,7 @@ extern int __qcom_scm_spin_cpu(struct device *dev);
 extern int __qcom_scm_set_dload_mode(struct device *dev,
 				     enum qcom_download_mode mode);
 extern int __qcom_scm_config_cpu_errata(struct device *dev);
+extern void __qcom_scm_phy_update_scm_level_shifter(struct device *dev, u32 val);
 #define QCOM_SCM_FLUSH_FLAG_MASK	0x3
 
 #define QCOM_SCM_SVC_PIL			0x02
@@ -258,8 +265,12 @@ extern int __qcom_scm_request_encrypted_log(struct device *dev, phys_addr_t buf,
 extern int __qcom_scm_ice_restore_cfg(struct device *dev);
 
 #define QCOM_SCM_SVC_SMCINVOKE		0x06
+#define QCOM_SCM_SMCINVOKE_INVOKE_LEGACY   0x00
 #define QCOM_SCM_SMCINVOKE_INVOKE	0x02
 #define QCOM_SCM_SMCINVOKE_CB_RSP	0x01
+extern int __qcom_scm_invoke_smc_legacy(struct device *dev, phys_addr_t in_buf,
+		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
+		int32_t *result, u64 *response_type, unsigned int *data);
 extern int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
 		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
 		int32_t *result, u64 *response_type, unsigned int *data);
@@ -268,6 +279,8 @@ extern int __qcom_scm_invoke_callback_response(struct device *dev,
 		u64 *response_type, unsigned int *data);
 
 extern void __qcom_scm_init(void);
+extern int __qcom_scm_mem_protect_audio(struct device *dev, phys_addr_t paddr,
+					size_t size);
 
 #ifdef CONFIG_QCOM_RTIC
 
@@ -275,6 +288,10 @@ extern void __qcom_scm_init(void);
 extern int __init scm_mem_protection_init_do(struct device *dev);
 
 #endif
+
+#define TZ_SVC_BW_PROF_ID		0x07 /* ddr profiler */
+extern int __qcom_scm_ddrbw_profiler(struct device *dev, phys_addr_t in_buf,
+	size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size);
 
 /* common error codes */
 #define QCOM_SCM_V2_EBUSY	-12

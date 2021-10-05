@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __ICNSS_QMI_H__
 #define __ICNSS_QMI_H__
 
+#include "device_management_service_v01.h"
+
 #define QDSS_TRACE_SEG_LEN_MAX 32
 #define QDSS_TRACE_FILE_NAME_MAX 16
+#define M3_SEGMENTS_SIZE_MAX 10
+#define M3_SEGMENT_NAME_LEN_MAX 16
 
 struct icnss_mem_seg {
 	u64 addr;
@@ -18,6 +23,24 @@ struct icnss_qmi_event_qdss_trace_save_data {
 	u32 total_size;
 	u32 mem_seg_len;
 	struct icnss_mem_seg mem_seg[QDSS_TRACE_SEG_LEN_MAX];
+	char file_name[QDSS_TRACE_FILE_NAME_MAX + 1];
+};
+
+struct icnss_m3_segment {
+	u32 type;
+	u64 addr;
+	u64 size;
+	char name[M3_SEGMENT_NAME_LEN_MAX + 1];
+};
+
+struct icnss_m3_upload_segments_req_data {
+	u32 pdev_id;
+	u32 no_of_valid_segments;
+	struct icnss_m3_segment m3_segment[M3_SEGMENTS_SIZE_MAX];
+};
+
+struct icnss_qmi_event_qdss_trace_req_data {
+	u32 total_size;
 	char file_name[QDSS_TRACE_FILE_NAME_MAX + 1];
 };
 
@@ -146,6 +169,33 @@ int wlfw_send_soc_wake_msg(struct icnss_priv *priv,
 {
 	return 0;
 }
+
+int icnss_wlfw_m3_dump_upload_done_send_sync(struct icnss_priv *priv,
+					     u32 pdev_id, int status)
+{
+	return 0;
+}
+
+int icnss_qmi_get_dms_mac(struct icnss_priv *priv)
+{
+	return 0;
+}
+
+int icnss_wlfw_wlan_mac_req_send_sync(struct icnss_priv *priv,
+				      u8 *mac, u32 mac_len)
+{
+	return 0;
+}
+
+int icnss_dms_init(struct icns_priv *priv)
+{
+	return 0;
+}
+
+void icnss_dms_deinit(struct icnss_priv *priv)
+{
+}
+
 #else
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv);
 int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data);
@@ -180,6 +230,11 @@ int wlfw_device_info_send_msg(struct icnss_priv *priv);
 int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 				 enum wlfw_driver_mode_enum_v01 mode);
 int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type);
+int icnss_wlfw_qdss_dnld_send_sync(struct icnss_priv *priv);
+int icnss_wlfw_qdss_data_send_sync(struct icnss_priv *priv, char *file_name,
+				   u32 total_size);
+int wlfw_qdss_trace_start(struct icnss_priv *priv);
+int wlfw_qdss_trace_stop(struct icnss_priv *priv, unsigned long long option);
 int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv);
 int wlfw_power_save_send_msg(struct icnss_priv *priv,
 			     enum wlfw_power_save_mode_v01 mode);
@@ -187,6 +242,13 @@ int icnss_wlfw_get_info_send_sync(struct icnss_priv *priv, int type,
 				  void *cmd, int cmd_len);
 int wlfw_send_soc_wake_msg(struct icnss_priv *priv,
 			   enum wlfw_soc_wake_enum_v01 type);
+int icnss_wlfw_m3_dump_upload_done_send_sync(struct icnss_priv *priv,
+					     u32 pdev_id, int status);
+int icnss_qmi_get_dms_mac(struct icnss_priv *priv);
+int icnss_wlfw_wlan_mac_req_send_sync(struct icnss_priv *priv,
+				      u8 *mac, u32 mac_len);
+int icnss_dms_init(struct icnss_priv *priv);
+void icnss_dms_deinit(struct icnss_priv *priv);
 #endif
 
 #endif /* __ICNSS_QMI_H__*/

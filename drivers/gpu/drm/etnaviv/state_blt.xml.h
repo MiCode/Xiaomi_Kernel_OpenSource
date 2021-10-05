@@ -19,6 +19,7 @@ The rules-ng-ng source files this header was generated from are:
 - state_vg.xml  (   5975 bytes, from 2016-12-08 16:37:56)
 
 Copyright (C) 2012-2017 by the following authors:
+Copyright (C) 2021 XiaoMi, Inc.
 - Wladimir J. van der Laan <laanwj@gmail.com>
 - Christian Gmeiner <christian.gmeiner@gmail.com>
 - Lucas Stach <l.stach@pengutronix.de>
@@ -45,6 +46,8 @@ DEALINGS IN THE SOFTWARE.
 */
 
 /* This is a cut-down version of the state_blt.xml.h file */
+
+#define VIVS_BLT_SET_COMMAND					0x000140ac
 
 #define VIVS_BLT_ENABLE						0x000140b8
 #define VIVS_BLT_ENABLE_ENABLE					0x00000001

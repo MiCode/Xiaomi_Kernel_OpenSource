@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "smcinvoke: %s: " fmt, __func__
@@ -21,11 +22,14 @@
 #include <linux/kref.h>
 #include <linux/signal.h>
 #include <linux/msm_ion.h>
+#include <linux/of_platform.h>
 
 #include <linux/qcom_scm.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
+
+#include <linux/ipc_logging.h>
 
 #include "smcinvoke_object.h"
 #include "../../misc/qseecom_kernel.h"
@@ -50,6 +54,7 @@
 /* TZ defined values - Start */
 #define SMCINVOKE_INVOKE_PARAM_ID       0x224
 #define SMCINVOKE_CB_RSP_PARAM_ID       0x22
+#define SMCINVOKE_INVOKE_CMD_LEGACY     0x32000600
 #define SMCINVOKE_INVOKE_CMD            0x32000602
 #define SMCINVOKE_CB_RSP_CMD            0x32000601
 #define SMCINVOKE_RESULT_INBOUND_REQ_NEEDED 3
@@ -61,6 +66,7 @@
  */
 #define SMCINVOKE_SERVER_STATE_DEFUNCT  1
 
+#define CBOBJ_MAX_RETRIES 5
 #define FOR_ARGS(ndxvar, counts, section) \
 	for (ndxvar = OBJECT_COUNTS_INDEX_##section(counts); \
 		ndxvar < (OBJECT_COUNTS_INDEX_##section(counts) \
@@ -143,6 +149,8 @@ static uint16_t g_last_cb_server_id = CBOBJ_SERVER_ID_START;
 static uint16_t g_last_mem_rgn_id, g_last_mem_map_obj_id;
 static size_t g_max_cb_buf_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 static unsigned int cb_reqs_inflight;
+static bool legacy_smc_call;
+static int invoke_cmd;
 
 static long smcinvoke_ioctl(struct file *, unsigned int, unsigned long);
 static int smcinvoke_open(struct inode *, struct file *);
@@ -253,6 +261,14 @@ struct smcinvoke_mem_obj {
 	bool bridge_created_by_others;
 	uint64_t shmbridge_handle;
 };
+
+#define IPC_LOG_PAGE_COUNT 50
+static void *ipc_logging_context;
+#define IPC_LOG(fmt, args...) \
+	ipc_log_string(ipc_logging_context, \
+	"[%04x:%04x] %s:%d  " fmt, \
+	current->pid, current->tgid, __func__, __LINE__, \
+	## args)
 
 static void destroy_cb_server(struct kref *kref)
 {
@@ -486,6 +502,8 @@ static int put_pending_cbobj_locked(uint16_t srvr_id, int16_t obj_id)
 		pr_err("%s, server id : %u not found\n", __func__, srvr_id);
 		return ret;
 	}
+
+	IPC_LOG("srvr_id=0x%x obj_id=0x%x", srvr_id, obj_id);
 
 	head = &srvr_info->pending_cbobjs;
 	list_for_each_entry(cbobj, head, list)
@@ -878,6 +896,8 @@ static int32_t smcinvoke_release_mem_obj_locked(void *buf, size_t buf_len)
 		return OBJECT_ERROR_INVALID;
 	}
 
+	IPC_LOG("tzhandle=0x%08x", msg->hdr.tzhandle);
+
 	return release_tzhandle_locked(msg->hdr.tzhandle);
 }
 
@@ -995,6 +1015,41 @@ static void process_mem_obj(void *buf, size_t buf_len)
 	mutex_unlock(&g_smcinvoke_lock);
 }
 
+static int invoke_cmd_handler(int cmd, phys_addr_t in_paddr, size_t in_buf_len,
+			uint8_t *out_buf, phys_addr_t out_paddr,
+			size_t out_buf_len, int32_t *result, u64 *response_type,
+			unsigned int *data, struct qtee_shm *in_shm,
+			struct qtee_shm *out_shm)
+{
+	int ret = 0;
+
+	switch (cmd) {
+	case SMCINVOKE_INVOKE_CMD_LEGACY:
+		qtee_shmbridge_flush_shm_buf(in_shm);
+		qtee_shmbridge_flush_shm_buf(out_shm);
+		ret = qcom_scm_invoke_smc_legacy(in_paddr, in_buf_len, out_paddr, out_buf_len,
+			result, response_type, data);
+		qtee_shmbridge_inv_shm_buf(in_shm);
+		qtee_shmbridge_inv_shm_buf(out_shm);
+		break;
+
+	case SMCINVOKE_INVOKE_CMD:
+		ret = qcom_scm_invoke_smc(in_paddr, in_buf_len, out_paddr, out_buf_len,
+			result, response_type, data);
+		break;
+
+	case SMCINVOKE_CB_RSP_CMD:
+		ret = qcom_scm_invoke_callback_response(virt_to_phys(out_buf), out_buf_len,
+			result, response_type, data);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
 /*
  * Buf should be aligned to struct smcinvoke_tzcb_req
  */
@@ -1002,6 +1057,8 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 {
 	/* ret is going to TZ. Provide values from OBJECT_ERROR_<> */
 	int ret = OBJECT_ERROR_DEFUNCT;
+	int cbobj_retries = 0;
+	long timeout_jiff;
 	struct smcinvoke_cb_txn *cb_txn = NULL;
 	struct smcinvoke_tzcb_req *cb_req = NULL, *tmp_cb_req = NULL;
 	struct smcinvoke_server_info *srvr_info = NULL;
@@ -1049,6 +1106,9 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	/* no need for memcpy as we did kmemdup() above */
 	cb_req  = tmp_cb_req;
 
+	IPC_LOG("tzhandle=0x%08x op=0x%02x counts=0x%04x",
+					cb_req->hdr.tzhandle, cb_req->hdr.op, cb_req->hdr.counts);
+
 	cb_txn->state = SMCINVOKE_REQ_PLACED;
 	cb_txn->cb_req = cb_req;
 	cb_txn->cb_req_bytes = buf_len;
@@ -1074,14 +1134,35 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	cb_txn->txn_id = ++srvr_info->txn_id;
 	hash_add(srvr_info->reqs_table, &cb_txn->hash, cb_txn->txn_id);
 	mutex_unlock(&g_smcinvoke_lock);
+
+	IPC_LOG("txn_id=%d, server_id=0x%x, cb_reqs_inflight=%d",
+					cb_txn->txn_id, srvr_info->server_id, cb_reqs_inflight);
+
 	/*
 	 * we need not worry that server_info will be deleted because as long
 	 * as this CBObj is served by this server, srvr_info will be valid.
 	 */
 	wake_up_interruptible_all(&srvr_info->req_wait_q);
-	ret = wait_event_interruptible(srvr_info->rsp_wait_q,
-		(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
-		(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT));
+	/* timeout before 1s otherwise tzbusy would come */
+	timeout_jiff = msecs_to_jiffies(1000);
+
+	while (cbobj_retries < CBOBJ_MAX_RETRIES) {
+		ret = wait_event_interruptible_timeout(srvr_info->rsp_wait_q,
+			(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
+			(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT),
+			timeout_jiff);
+
+		if (ret == 0) {
+			pr_err("CBobj timed out cb-tzhandle:%d, retry:%d, op:%d counts :%d\n",
+			cb_req->hdr.tzhandle, cbobj_retries, cb_req->hdr.op, cb_req->hdr.counts);
+			pr_err("CBobj %d timedout pid %x,tid %x, srvr state=%d, srvr id:%u\n",
+			cb_req->hdr.tzhandle, current->pid, current->tgid, srvr_info->state,
+			srvr_info->server_id);
+		} else {
+			break;
+		}
+		cbobj_retries++;
+	}
 
 out:
 	/*
@@ -1091,25 +1172,38 @@ out:
 	 */
 	mutex_lock(&g_smcinvoke_lock);
 	hash_del(&cb_txn->hash);
-	if (cb_txn->state == SMCINVOKE_REQ_PROCESSED) {
-		/*
-		 * it is possible that server was killed immediately
-		 * after CB Req was processed but who cares now!
-		 */
-	} else if (!srvr_info ||
-		srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT) {
-		cb_req->result = OBJECT_ERROR_DEFUNCT;
-		pr_err("server invalid, res: %d\n", cb_req->result);
-	} else {
-		pr_debug("%s wait_event interrupted ret = %d\n", __func__, ret);
+	if (ret == 0) {
+		pr_err("CBObj timed out! No more retries\n");
+		cb_req->result = Object_ERROR_TIMEOUT;
+	} else if (ret == -ERESTARTSYS) {
+		pr_err("wait event interruped, ret: %d\n", ret);
 		cb_req->result = OBJECT_ERROR_ABORT;
+	} else {
+		if (cb_txn->state == SMCINVOKE_REQ_PROCESSED) {
+			/*
+			 * it is possible that server was killed immediately
+			 * after CB Req was processed but who cares now!
+			 */
+		} else if (!srvr_info ||
+			srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT) {
+			cb_req->result = OBJECT_ERROR_DEFUNCT;
+			pr_err("server invalid, res: %d\n", cb_req->result);
+		} else {
+			pr_err("%s: unexpected event happened, ret:%d\n", __func__, ret);
+			cb_req->result = OBJECT_ERROR_ABORT;
+		}
 	}
 	--cb_reqs_inflight;
 	memcpy(buf, cb_req, buf_len);
+	IPC_LOG("result=%d tzhandle=0x%08x op=0x%02x counts=0x%04x, cb_reqs_inflight=%d",
+			cb_req->result,
+			cb_req->hdr.tzhandle, cb_req->hdr.op, cb_req->hdr.counts,
+			cb_reqs_inflight);
 	kref_put(&cb_txn->ref_cnt, delete_cb_txn);
 	if (srvr_info)
 		kref_put(&srvr_info->ref_cnt, destroy_cb_server);
 	mutex_unlock(&g_smcinvoke_lock);
+
 }
 
 static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
@@ -1168,6 +1262,10 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 
 		if (ret)
 			goto out;
+		IPC_LOG("OO[%d]: tzhandle=0x%x server=0x%x fd=0x%x",
+					i, tz_args->handle,
+					TZHANDLE_GET_SERVER(tz_args->handle), temp_fd);
+
 		tz_args++;
 	}
 	ret = 0;
@@ -1188,7 +1286,8 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 				size_t out_buf_len,
 				struct smcinvoke_cmd_req *req,
 				union smcinvoke_arg *args_buf,
-				bool *tz_acked)
+				bool *tz_acked,
+				struct qtee_shm *in_shm, struct  qtee_shm *out_shm)
 {
 	int ret = 0, cmd;
 	u64 response_type;
@@ -1200,7 +1299,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	if ((in_buf_len % PAGE_SIZE) != 0 || (out_buf_len % PAGE_SIZE) != 0)
 		return -EINVAL;
 
-	cmd = SMCINVOKE_INVOKE_CMD;
+	cmd = invoke_cmd;
 	/*
 	 * purpose of lock here is to ensure that any CB obj that may be going
 	 * to user as OO is not released by piggyback message on another invoke
@@ -1213,15 +1312,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	while (1) {
 		mutex_lock(&g_smcinvoke_lock);
 
-		if (cmd == SMCINVOKE_INVOKE_CMD)
-			ret = qcom_scm_invoke_smc(in_paddr, in_buf_len,
-						out_paddr, out_buf_len,
-						&req->result, &response_type,
-						&data);
-		else
-			ret = qcom_scm_invoke_callback_response(
-					virt_to_phys(out_buf), out_buf_len,
-					&req->result, &response_type, &data);
+		ret = invoke_cmd_handler(cmd, in_paddr, in_buf_len, out_buf,
+			out_paddr, out_buf_len, &req->result, &response_type,
+			&data, in_shm, out_shm);
 
 		if (!ret && !is_inbound_req(response_type)) {
 			/* dont marshal if Obj returns an error */
@@ -1245,13 +1338,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 		    response_type == QSEOS_RESULT_BLOCKED_ON_LISTENER) {
 			ret = qseecom_process_listener_from_smcinvoke(
 					&req->result, &response_type, &data);
-			/*
-			 * new scm APIs do not provide complete response i.e. res[0-2],
-			 * we loose some values returned from QSEECom APIs. so we need to
-			 * populate result from response type i.e. res[1]
-			 */
-			req->result = response_type;
-			if (!req->result) {
+
+			if (!req->result &&
+			response_type != SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
 				ret = marshal_out_invoke_req(in_buf,
 						in_buf_len, req, args_buf);
 			}
@@ -1357,6 +1446,9 @@ static int marshal_in_invoke_req(const struct smcinvoke_cmd_req *req,
 							&(tz_args[i].handle));
 		if (ret)
 			goto out;
+		IPC_LOG("OI[%d]: fd=0x%x cb_server_fd=0x%x tzhandle=0x%x",
+					i, args_buf[i].o.fd, args_buf[i].o.cb_server_fd,
+					tz_args[i].handle);
 		tzhandles_to_release[k++] = tz_args[i].handle;
 	}
 	ret = 0;
@@ -1391,6 +1483,9 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 	user_req->op = tzcb_req->hdr.op;
 	user_req->counts = tzcb_req->hdr.counts;
 	user_req->argsize = sizeof(union smcinvoke_arg);
+	IPC_LOG("tzhandle=0x%x srvr_id=0x%x cbobj_id=0x%08x op=0x%02x counts=0x%04x",
+					tzcb_req->hdr.tzhandle, srvr_id, user_req->cbobj_id,
+					user_req->op, user_req->counts);
 
 	FOR_ARGS(i, tzcb_req->hdr.counts, BI) {
 		user_req_buf_offset = size_align(user_req_buf_offset,
@@ -1462,6 +1557,8 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 			ret = -EFAULT;
 			goto out;
 		}
+		IPC_LOG("OI[%d]: tzhandle=0x%x srvr_id=0x%x fd=0x%x",
+					i, tz_args[i].handle, srvr_id, temp_fd);
 	}
 out:
 	return ret;
@@ -1512,6 +1609,8 @@ static int marshal_out_tzcb_req(const struct smcinvoke_accept *user_req,
 		if (ret)
 			goto out;
 		tzhandles_to_release[i] = tz_args[i].handle;
+		IPC_LOG("OO[%d]: fd=0x%x cb_server_fd=0x%x tzhandle=0x%x",
+					i, tmp_arg.o.fd, tmp_arg.o.cb_server_fd, tz_args[i].handle);
 	}
 	FOR_ARGS(i, tzcb_req->hdr.counts, OI) {
 		if (TZHANDLE_IS_CB_OBJ(tz_args[i].handle))
@@ -1838,6 +1937,9 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	}
 	out_msg = out_shm.vaddr;
 
+	IPC_LOG("tzhandle=0x%08x op=0x%02x counts=0x%04x",
+					tzobj->tzhandle, req.op, req.counts);
+
 	ret = marshal_in_invoke_req(&req, args_buf, tzobj->tzhandle, in_msg,
 			inmsg_size, filp_to_release, tzhandles_to_release);
 	if (ret) {
@@ -1847,7 +1949,7 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 
 	ret = prepare_send_scm_msg(in_msg, in_shm.paddr, inmsg_size,
 					out_msg, out_shm.paddr, outmsg_size,
-					&req, args_buf, &tz_acked);
+					&req, args_buf, &tz_acked, &in_shm, &out_shm);
 
 	/*
 	 * If scm_call is success, TZ owns responsibility to release
@@ -1881,6 +1983,10 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	/* Outbuf could be carrying local objs to be released. */
 	process_piggyback_data(out_msg, outmsg_size);
 out:
+	IPC_LOG("ret=%d result=%d tzhandle=0x%08x op=0x%02x counts=0x%04x",
+					ret, req.result,
+					tzobj->tzhandle, req.op, req.counts);
+
 	release_filp(filp_to_release, OBJECT_COUNTS_MAX_OO);
 	if (ret)
 		release_tzhandles(tzhandles_to_release, OBJECT_COUNTS_MAX_OO);
@@ -1894,6 +2000,24 @@ out:
 	return ret;
 }
 
+static long process_log_info(struct file *filp, unsigned int cmd,
+					unsigned long arg)
+{
+	int ret = 0;
+	char buf[SMCINVOKE_LOG_BUF_SIZE];
+	struct smcinvoke_file_data *tzobj = filp->private_data;
+
+	ret = copy_from_user(buf, (void __user *)arg, SMCINVOKE_LOG_BUF_SIZE);
+	if (ret) {
+		pr_err("logging HLOS info copy failed\n");
+		return -EFAULT;
+	}
+	buf[SMCINVOKE_LOG_BUF_SIZE - 1] = '\0';
+	IPC_LOG("%s context_type=%d tzhandle=0x%08x", buf, tzobj->context_type,
+					tzobj->tzhandle);
+	return ret;
+}
+
 static long smcinvoke_ioctl(struct file *filp, unsigned int cmd,
 						unsigned long arg)
 {
@@ -1902,20 +2026,35 @@ static long smcinvoke_ioctl(struct file *filp, unsigned int cmd,
 	switch (cmd) {
 	case SMCINVOKE_IOCTL_INVOKE_REQ:
 		ret = process_invoke_req(filp, cmd, arg);
+		if (ret)
+			IPC_LOG("cmd=SMCINVOKE_IOCTL_INVOKE_REQ ret=%ld", ret);
 		break;
 	case SMCINVOKE_IOCTL_ACCEPT_REQ:
 		ret = process_accept_req(filp, cmd, arg);
+		if (ret)
+			IPC_LOG("cmd=SMCINVOKE_IOCTL_ACCEPT_REQ ret=%ld", ret);
 		break;
 	case SMCINVOKE_IOCTL_SERVER_REQ:
 		ret = process_server_req(filp, cmd, arg);
+		if (ret)
+			IPC_LOG("cmd=SMCINVOKE_IOCTL_SERVER_REQ ret=%ld", ret);
 		break;
 	case SMCINVOKE_IOCTL_ACK_LOCAL_OBJ:
 		ret = process_ack_local_obj(filp, cmd, arg);
+		if (ret)
+			IPC_LOG("cmd=SMCINVOKE_IOCTL_ACK_LOCAL_OBJ ret=%ld", ret);
+		break;
+	case SMCINVOKE_IOCTL_LOG:
+	    ret = process_log_info(filp, cmd, arg);
+		if (ret)
+			IPC_LOG("cmd=SMCINVOKE_IOCTL_LOG ret=%ld", ret);
 		break;
 	default:
 		ret = -ENOIOCTLCMD;
+		IPC_LOG("invalid cmd=%x ret=%ld", cmd, ret);
 		break;
 	}
+
 	return ret;
 }
 
@@ -1991,7 +2130,8 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 
 	ret = prepare_send_scm_msg(in_buf, in_shm.paddr,
 		SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf, out_shm.paddr,
-		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles);
+		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles,
+		&in_shm, &out_shm);
 
 	process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
 out:
@@ -2043,6 +2183,9 @@ static int smcinvoke_probe(struct platform_device *pdev)
 		pr_err("dma_set_mask_and_coherent failed %d\n", rc);
 		goto exit_destroy_device;
 	}
+	legacy_smc_call = of_property_read_bool((&pdev->dev)->of_node,
+			"qcom,support-legacy_smc");
+	invoke_cmd = legacy_smc_call ? SMCINVOKE_INVOKE_CMD_LEGACY : SMCINVOKE_INVOKE_CMD;
 
 	return  0;
 
@@ -2105,11 +2248,14 @@ static struct platform_driver smcinvoke_plat_driver = {
 
 static int smcinvoke_init(void)
 {
+	ipc_logging_context = ipc_log_context_create(IPC_LOG_PAGE_COUNT,
+					"smcinvoke", 0);
 	return platform_driver_register(&smcinvoke_plat_driver);
 }
 
 static void smcinvoke_exit(void)
 {
+	ipc_log_context_destroy(ipc_logging_context);
 	platform_driver_unregister(&smcinvoke_plat_driver);
 }
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 // Copyright (c) 2018 Facebook Inc.
+// Copyright (C) 2021 XiaoMi, Inc.
 // Author: Vijay Khemka <vijaykhemka@fb.com>
 /dts-v1/;
 
@@ -78,11 +79,6 @@
 
 &lpc_ctrl {
 	// Enable lpc clock
-	status = "okay";
-};
-
-&vuart {
-	// VUART Host Console
 	status = "okay";
 };
 

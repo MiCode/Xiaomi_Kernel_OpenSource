@@ -3,6 +3,7 @@
  * arch/arm/include/asm/pgtable-3level.h
  *
  * Copyright (C) 2011 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Catalin Marinas <catalin.marinas@arm.com>
  */
 #ifndef _ASM_PGTABLE_3LEVEL_H
@@ -24,6 +25,8 @@
 #define PTE_HWTABLE_PTRS	(0)
 #define PTE_HWTABLE_OFF		(0)
 #define PTE_HWTABLE_SIZE	(PTRS_PER_PTE * sizeof(u64))
+
+#define MAX_POSSIBLE_PHYSMEM_BITS 40
 
 /*
  * PGDIR_SHIFT determines the size a top-level page table entry can map.

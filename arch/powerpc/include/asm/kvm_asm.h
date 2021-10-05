@@ -2,6 +2,7 @@
 /*
  *
  * Copyright IBM Corp. 2008
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Hollis Blanchard <hollisb@us.ibm.com>
  */
@@ -149,5 +150,8 @@
 #define KVM_GUEST_MODE_HOST_HV	4
 
 #define KVM_INST_FETCH_FAILED	-1
+
+/* Extract PO and XOP opcode fields */
+#define PO_XOP_OPCODE_MASK 0xfc0007fe
 
 #endif /* __POWERPC_KVM_ASM_H__ */

@@ -186,7 +186,7 @@ do {								\
 	u64_stats_update_end(&_ring->syncp);			\
 } while (0)
 
-int atl_init_rx_ring(struct atl_desc_ring *rx);
+int atl_init_rx_ring(struct atl_desc_ring *rx, enum atl_queue_type type);
 int atl_init_tx_ring(struct atl_desc_ring *tx);
 
 netdev_tx_t atl_map_skb(struct sk_buff *skb, struct atl_desc_ring *ring);

@@ -1,0 +1,52 @@
+Qualcomm SDM845 Network-On-Chip interconnect driver binding
+-----------------------------------------------------------
+
+SDM845 interconnect providers support system bandwidth requirements through
+RPMh hardware accelerators known as Bus Clock Manager (BCM). The provider is
+able to communicate with the BCM through the Resource State Coordinator (RSC)
+associated with each execution environment. Provider nodes must point to at
+least one RPMh device child node pertaining to their RSC and each provider
+can map to multiple RPMh resources.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,sdm845-aggre1-noc",
+			"qcom,sdm845-aggre2-noc",
+			"qcom,sdm845-config-noc",
+			"qcom,sdm845-dc-noc",
+			"qcom,sdm845-gladiator-noc",
+			"qcom,sdm845-mem-noc",
+			"qcom,sdm845-mmss-noc",
+			"qcom,sdm845-system-noc",
+- #interconnect-cells : should contain 1
+- reg : shall contain base register location and length
+- qcom,bcm-voters : shall contain phandles to bcm voters
+
+Optional properties:
+qcom,bcm-voter-names : List of bcm-voter name strings sorted in the same
+		  order as the qcom,bcm-voters property. The names will
+		  be used to differentiate the specific RSC being targeted.
+
+Examples:
+
+mem_noc: interconnect@1380000 {
+	compatible = "qcom,sdm845-mem-noc";
+	reg = <0 0x01380000 0 0x27200>;
+	#interconnect-cells = <1>;
+	qcom,bcm-voter-names = "apps_rsc", "disp_rsc";
+	qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+};
+aggre1_noc: interconnect@16e0000 {
+	compatible = "qcom,sdm845-aggre1-noc";
+	reg = <0x016e0000 0xd080>;
+	interconnect-cells = <1>;
+	qcom,bcm-voters = <&apps_bcm_voter>;
+};
+
+mmss_noc: interconnect@1740000 {
+	compatible = "qcom,sdm845-mmss-noc";
+	reg = <0x01740000 0x1c1000>;
+	interconnect-cells = <1>;
+	qcom,bcm-voter-names = "apps_rsc", "disp_rsc";
+	qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
+};

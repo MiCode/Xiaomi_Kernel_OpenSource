@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1
 /*
  * Copyright (c) 2012 Taobao.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by Tao Ma <boyu.mt@taobao.com>
  */
 
@@ -1937,6 +1938,7 @@ int ext4_inline_data_truncate(struct inode *inode, int *has_inline)
 
 	ext4_write_lock_xattr(inode, &no_expand);
 	if (!ext4_has_inline_data(inode)) {
+		ext4_write_unlock_xattr(inode, &no_expand);
 		*has_inline = 0;
 		ext4_journal_stop(handle);
 		return 0;

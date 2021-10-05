@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "adreno.h"
@@ -183,7 +184,17 @@ void adreno_parse_ib(struct kgsl_device *device,
 	 * then push it into the static blob otherwise put it in the dynamic
 	 * list
 	 */
-	if (gpuaddr == snapshot->ib1base) {
+	if (kgsl_addr_range_overlap(gpuaddr, dwords,
+		snapshot->ib1base, snapshot->ib1size)) {
+		/*
+		 * During restore after preemption, ib1base in the register
+		 * can be updated by CP. In such scenarios, to dump complete
+		 * IB1 in snapshot, we should consider ib1base from ringbuffer.
+		 */
+		if (gpuaddr != snapshot->ib1base) {
+			snapshot->ib1base = gpuaddr;
+			snapshot->ib1size = dwords;
+		}
 		kgsl_snapshot_push_object(device, process, gpuaddr, dwords);
 		return;
 	}
@@ -287,16 +298,29 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 		}
 
 		if (adreno_cmd_is_ib(adreno_dev, rbptr[index])) {
-			if (ADRENO_LEGACY_PM4(adreno_dev)) {
-				if (rbptr[index + 1] == snapshot->ib1base)
-					break;
-			} else {
-				uint64_t ibaddr;
+			uint64_t ibaddr;
+			uint64_t ibsize;
 
+			if (ADRENO_LEGACY_PM4(adreno_dev)) {
+				ibaddr = rbptr[index + 1];
+				ibsize = rbptr[index + 2];
+			} else {
 				ibaddr = rbptr[index + 2];
 				ibaddr = ibaddr << 32 | rbptr[index + 1];
-				if (ibaddr == snapshot->ib1base)
-					break;
+				ibsize = rbptr[index + 3];
+			}
+
+			if (kgsl_addr_range_overlap(ibaddr, ibsize,
+				snapshot->ib1base, snapshot->ib1size)) {
+				/*
+				 * During restore after preemption, ib1base in
+				 * the register can be updated by CP. In such
+				 * scenario, to dump complete IB1 in snapshot,
+				 * we should consider ib1base from ringbuffer.
+				 */
+				snapshot->ib1base = ibaddr;
+				snapshot->ib1size = ibsize;
+				break;
 			}
 		}
 	} while (index != rb->wptr);
@@ -718,7 +742,7 @@ static void setup_fault_process(struct kgsl_device *device,
 	if (kgsl_mmu_is_perprocess(&device->mmu)) {
 		struct kgsl_process_private *tmp;
 
-		spin_lock(&kgsl_driver.proclist_lock);
+		read_lock(&kgsl_driver.proclist_lock);
 		list_for_each_entry(tmp, &kgsl_driver.process_list, list) {
 			u64 pt_ttbr0;
 
@@ -729,7 +753,7 @@ static void setup_fault_process(struct kgsl_device *device,
 				break;
 			}
 		}
-		spin_unlock(&kgsl_driver.proclist_lock);
+		read_unlock(&kgsl_driver.proclist_lock);
 	}
 done:
 	snapshot->process = process;
@@ -746,7 +770,7 @@ size_t adreno_snapshot_global(struct kgsl_device *device, u8 *buf,
 
 	u8 *ptr = buf + sizeof(*header);
 
-	if (!memdesc || memdesc->size == 0)
+	if (IS_ERR_OR_NULL(memdesc) || memdesc->size == 0)
 		return 0;
 
 	if (remain < (memdesc->size + sizeof(*header))) {
@@ -846,6 +870,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		adreno_snapshot_ringbuffer(device, snapshot,
 			adreno_dev->next_rb);
 
+	if (device->snapshot_atomic)
+		return;
+
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, adreno_snapshot_global, device->memstore);
@@ -881,8 +908,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * figure how often this really happens.
 	 */
 
-	if (-ENOENT == find_object(snapshot->ib1base, snapshot->process) &&
-			snapshot->ib1size) {
+	if (-ENOENT == find_object(snapshot->ib1base, snapshot->process)) {
 		struct kgsl_mem_entry *entry;
 		u64 ibsize;
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -603,7 +604,7 @@ static int dcc_valid_list(struct dcc_drvdata *drvdata, int curr_list)
 		return -EINVAL;
 	}
 
-	dev_err(drvdata->dev, "DCC list passed %d\n", curr_list);
+	dev_info(drvdata->dev, "DCC list passed %d\n", curr_list);
 	return 0;
 }
 

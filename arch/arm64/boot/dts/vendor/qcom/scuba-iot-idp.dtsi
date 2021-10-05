@@ -1,0 +1,42 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include "scuba-ion.dtsi"
+#include "scuba-audio-overlay.dtsi"
+
+&soc {
+	scuba_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "qg-batterydata-alium-3600mah.dtsi"
+		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+	};
+};
+
+&pm2250_qg {
+	qcom,battery-data = <&scuba_batterydata>;
+	qcom,qg-iterm-ma = <150>;
+	qcom,hold-soc-while-full;
+	qcom,linearize-soc;
+	qcom,cl-feedback-on;
+	qcom,tcss-enable;
+	qcom,fvss-enable;
+	qcom,fvss-vbatt-mv = <3500>;
+	qcom,bass-enable;
+};
+
+&pm2250_charger {
+	interrupts-extended = <&tlmm 89 0>;
+	interrupt-names = "usb_id_irq";
+	qcom,usb-id-gpio = <&tlmm 89 0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb_id_interrupt>;
+
+	qcom,auto-recharge-soc = <98>;
+	qcom,suspend-input-on-debug-batt;
+	qcom,battery-data = <&scuba_batterydata>;
+	io-channels = <&pm2250_vadc ADC5_USB_IN_V_16>,
+			<&pm2250_vadc ADC5_CHG_TEMP>;
+	io-channel-names = "usb_in_voltage",
+			"chg_temp";
+	qcom,thermal-mitigation = <2000000 1500000 1000000 500000>;
+};

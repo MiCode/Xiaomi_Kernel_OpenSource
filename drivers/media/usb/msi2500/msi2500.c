@@ -4,6 +4,7 @@
  * Mirics MSi3101 SDR Dongle driver
  *
  * Copyright (C) 2013 Antti Palosaari <crope@iki.fi>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * That driver is somehow based of pwc driver:
  *  (C) 1999-2004 Nemosoft Unv.
@@ -1230,7 +1231,7 @@ static int msi2500_probe(struct usb_interface *intf,
 	}
 
 	dev->master = master;
-	master->bus_num = 0;
+	master->bus_num = -1;
 	master->num_chipselect = 1;
 	master->transfer_one_message = msi2500_transfer_one_message;
 	spi_master_set_devdata(master, dev);

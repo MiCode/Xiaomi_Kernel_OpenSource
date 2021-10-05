@@ -5,6 +5,7 @@
  *  Basic Transport Functions exploiting Infiniband API
  *
  *  Copyright IBM Corp. 2016
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  *  Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
  */
@@ -795,7 +796,7 @@ static struct smc_buf_desc *smcr_new_buf_create(struct smc_link_group *lgr,
 	return buf_desc;
 }
 
-#define SMCD_DMBE_SIZES		7 /* 0 -> 16KB, 1 -> 32KB, .. 6 -> 1MB */
+#define SMCD_DMBE_SIZES		6 /* 0 -> 16KB, 1 -> 32KB, .. 6 -> 1MB */
 
 static struct smc_buf_desc *smcd_new_buf_create(struct smc_link_group *lgr,
 						bool is_dmb, int bufsize)

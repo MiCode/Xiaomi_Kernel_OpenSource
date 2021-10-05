@@ -1,0 +1,40 @@
+headers_src = [
+    "include/uapi/*/**/*.h",
+]
+
+display_headers_out = [
+    "display/drm/msm_drm_pp.h",
+    "display/drm/sde_drm.h",
+    "display/hdcp/msm_hdmi_hdcp_mgr.h",
+    "display/media/mmm_color_fmt.h",
+    "display/media/msm_sde_rotator.h",
+]
+
+display_kernel_headers_verbose = "--verbose "
+genrule {
+    name: "qti_generate_display_kernel_headers",
+    tools: [
+        "headers_install.sh",
+        "unifdef"
+    ],
+    tool_files: [
+        "display_kernel_headers.py",
+    ],
+    srcs: headers_src,
+    cmd: "python3 $(location display_kernel_headers.py) " +
+          display_kernel_headers_verbose +
+         "--header_arch arm64 " +
+         "--gen_dir $(genDir) " +
+         "--display_include_uapi $(locations include/uapi/*/**/*.h) " +
+         "--unifdef $(location unifdef) " +
+         "--headers_install $(location headers_install.sh)",
+    out: display_headers_out,
+}
+
+cc_library_headers {
+    name: "qti_display_kernel_headers",
+    generated_headers: ["qti_generate_display_kernel_headers"],
+    export_generated_headers: ["qti_generate_display_kernel_headers"],
+    vendor: true,
+    recovery_available: true
+}

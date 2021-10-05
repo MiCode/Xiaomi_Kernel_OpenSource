@@ -3,6 +3,7 @@
  * Mediatek 8250 driver.
  *
  * Copyright (c) 2014 MundoReader S.L.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Matthias Brugger <matthias.bgg@gmail.com>
  */
 #include <linux/clk.h>
@@ -316,7 +317,7 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	 */
 	baud = tty_termios_baud_rate(termios);
 
-	serial8250_do_set_termios(port, termios, old);
+	serial8250_do_set_termios(port, termios, NULL);
 
 	tty_termios_encode_baud_rate(termios, baud, baud);
 

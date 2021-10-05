@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -22,6 +23,7 @@
 #define USB_SG_NUM (USB_BLK_SIZE / PAGE_SIZE)
 #define USB_BUF_NUM 255
 #define USB_TIME_OUT (5 * HZ)
+#define PCIE_BLK_SIZE 32768
 
 static struct tmc_drvdata *tmcdrvdata;
 
@@ -54,6 +56,9 @@ static irqreturn_t etr_handler(int irq, void *data)
 	} else if (tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
 		atomic_inc(&byte_cntr_data->irq_cnt);
 		wake_up(&byte_cntr_data->wq);
+	} else if (tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_PCIE) {
+		atomic_inc(&byte_cntr_data->irq_cnt);
+		wake_up(&byte_cntr_data->pcie_wait_wq);
 	}
 	return IRQ_HANDLED;
 
@@ -176,6 +181,49 @@ void tmc_etr_byte_cntr_stop(struct byte_cntr *byte_cntr_data)
 }
 EXPORT_SYMBOL(tmc_etr_byte_cntr_stop);
 
+static void etr_pcie_close_channel(struct byte_cntr *byte_cntr_data)
+{
+	if (!byte_cntr_data)
+		return;
+
+	mutex_lock(&byte_cntr_data->byte_cntr_lock);
+	mhi_dev_close_channel(byte_cntr_data->out_handle);
+	byte_cntr_data->pcie_chan_opened = false;
+	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
+}
+
+int etr_pcie_start(struct byte_cntr *byte_cntr_data)
+{
+	if (!byte_cntr_data)
+		return -ENOMEM;
+
+	mutex_lock(&byte_cntr_data->byte_cntr_lock);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr, PCIE_BLK_SIZE / 8);
+	atomic_set(&byte_cntr_data->irq_cnt, 0);
+	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
+
+	if (!byte_cntr_data->pcie_chan_opened)
+		queue_work(byte_cntr_data->pcie_wq,
+				&byte_cntr_data->pcie_open_work);
+
+	queue_work(byte_cntr_data->pcie_wq, &byte_cntr_data->pcie_write_work);
+	return 0;
+}
+EXPORT_SYMBOL(etr_pcie_start);
+
+void etr_pcie_stop(struct byte_cntr *byte_cntr_data)
+{
+	if (!byte_cntr_data)
+		return;
+
+	etr_pcie_close_channel(byte_cntr_data);
+	wake_up(&byte_cntr_data->pcie_wait_wq);
+
+	mutex_lock(&byte_cntr_data->byte_cntr_lock);
+	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
+	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
+}
+EXPORT_SYMBOL(etr_pcie_stop);
 
 static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 {
@@ -184,7 +232,10 @@ static int tmc_etr_byte_cntr_release(struct inode *in, struct file *fp)
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	byte_cntr_data->read_active = false;
 
-	coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
+	if (byte_cntr_data->enable)
+		coresight_csr_set_byte_cntr(byte_cntr_data->csr, 0);
+
+	disable_irq_wake(byte_cntr_data->byte_cntr_irq);
 	mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 
 	return 0;
@@ -207,6 +258,24 @@ static int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 		return -EINVAL;
 	}
 
+	/*Ensure usbch is ready*/
+	if (!tmcdrvdata->usbch) {
+		int i;
+
+		for (i = TIMEOUT_US; i > 0; i--) {
+			if (tmcdrvdata->usbch)
+				break;
+
+			if (i - 1)
+				udelay(1);
+			else {
+				dev_err(&tmcdrvdata->csdev->dev,
+					"timeout while waiting usbch to be ready\n");
+				mutex_unlock(&byte_cntr_data->usb_bypass_lock);
+				return -EAGAIN;
+			}
+		}
+	}
 	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
 
 	offset = tmc_sg_get_rwp_offset(tmcdrvdata);
@@ -263,6 +332,7 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 		return -EINVAL;
 	}
 
+	enable_irq_wake(byte_cntr_data->byte_cntr_irq);
 	/* IRQ is a '8- byte' counter and to observe interrupt at
 	 * 'block_size' bytes of data
 	 */
@@ -590,6 +660,167 @@ void usb_bypass_notifier(void *priv, unsigned int event,
 }
 EXPORT_SYMBOL(usb_bypass_notifier);
 
+static void etr_pcie_client_cb(struct mhi_dev_client_cb_data *cb_data)
+{
+	struct byte_cntr *byte_cntr_data = NULL;
+
+	if (!cb_data)
+		return;
+
+	byte_cntr_data = cb_data->user_data;
+	if (!byte_cntr_data)
+		return;
+
+	switch (cb_data->ctrl_info) {
+	case  MHI_STATE_CONNECTED:
+		if (cb_data->channel == byte_cntr_data->pcie_out_chan) {
+			dev_dbg(&tmcdrvdata->csdev->dev, "PCIE out channel connected.\n");
+			queue_work(byte_cntr_data->pcie_wq,
+					&byte_cntr_data->pcie_open_work);
+		}
+
+		break;
+	case MHI_STATE_DISCONNECTED:
+		if (cb_data->channel == byte_cntr_data->pcie_out_chan) {
+			dev_dbg(&tmcdrvdata->csdev->dev,
+				"PCIE out channel disconnected.\n");
+			etr_pcie_close_channel(byte_cntr_data);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void etr_pcie_write_complete_cb(void *req)
+{
+	struct mhi_req *mreq = req;
+
+	if (!mreq)
+		return;
+	kfree(req);
+}
+
+static void etr_pcie_open_work_fn(struct work_struct *work)
+{
+	int ret = 0;
+	struct byte_cntr *byte_cntr_data = container_of(work,
+					      struct byte_cntr,
+					      pcie_open_work);
+
+	if (!byte_cntr_data)
+		return;
+
+	/* Open write channel*/
+	ret = mhi_dev_open_channel(byte_cntr_data->pcie_out_chan,
+			&byte_cntr_data->out_handle,
+			NULL);
+	if (ret < 0) {
+		dev_err(&tmcdrvdata->csdev->dev, "%s: open pcie out channel fail %d\n",
+						__func__, ret);
+	} else {
+		dev_dbg(&tmcdrvdata->csdev->dev,
+				"Open pcie out channel successfully\n");
+		mutex_lock(&byte_cntr_data->byte_cntr_lock);
+		byte_cntr_data->pcie_chan_opened = true;
+		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
+	}
+
+}
+
+static void etr_pcie_write_work_fn(struct work_struct *work)
+{
+	int ret = 0;
+	struct mhi_req *req;
+	size_t actual;
+	int bytes_to_write;
+	char *buf;
+
+	struct byte_cntr *byte_cntr_data = container_of(work,
+						struct byte_cntr,
+						pcie_write_work);
+
+	while (tmcdrvdata->enable
+		&& tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_PCIE) {
+		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
+			ret =  wait_event_interruptible(
+				byte_cntr_data->pcie_wait_wq,
+				atomic_read(&byte_cntr_data->irq_cnt) > 0
+				|| !tmcdrvdata->enable
+				|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_PCIE
+				|| !byte_cntr_data->pcie_chan_opened);
+			if (ret == -ERESTARTSYS || !tmcdrvdata->enable
+			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_PCIE
+			|| !byte_cntr_data->pcie_chan_opened)
+				break;
+		}
+
+		actual = PCIE_BLK_SIZE;
+		buf = (char *)(tmcdrvdata->buf + byte_cntr_data->offset);
+		req = kzalloc(sizeof(*req), GFP_KERNEL);
+		if (!req)
+			break;
+
+		tmc_etr_read_bytes(byte_cntr_data, (loff_t *)&byte_cntr_data->offset,
+					PCIE_BLK_SIZE, &actual, &buf);
+
+		if (actual <= 0) {
+			kfree(req);
+			req = NULL;
+			break;
+		}
+
+		req->buf = buf;
+		req->client = byte_cntr_data->out_handle;
+		req->context = byte_cntr_data;
+		req->len = actual;
+		req->chan = byte_cntr_data->pcie_out_chan;
+		req->mode = DMA_ASYNC;
+		req->client_cb = etr_pcie_write_complete_cb;
+		req->snd_cmpl = 1;
+
+		bytes_to_write = mhi_dev_write_channel(req);
+		if (bytes_to_write != PCIE_BLK_SIZE) {
+			dev_err(&tmcdrvdata->csdev->dev, "Write error %d\n",
+							bytes_to_write);
+
+			kfree(req);
+			req = NULL;
+			break;
+		}
+
+		mutex_lock(&byte_cntr_data->byte_cntr_lock);
+		if (byte_cntr_data->offset + actual >= tmcdrvdata->size)
+			byte_cntr_data->offset = 0;
+		else
+			byte_cntr_data->offset += actual;
+		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
+	}
+}
+
+int etr_register_pcie_channel(struct byte_cntr *byte_cntr_data)
+{
+	return mhi_register_state_cb(etr_pcie_client_cb, byte_cntr_data,
+					byte_cntr_data->pcie_out_chan);
+}
+
+static int etr_pcie_init(struct byte_cntr *byte_cntr_data)
+{
+	if (!byte_cntr_data)
+		return -EIO;
+
+	byte_cntr_data->pcie_out_chan = MHI_CLIENT_QDSS_IN;
+	byte_cntr_data->offset = 0;
+	byte_cntr_data->pcie_chan_opened = false;
+	INIT_WORK(&byte_cntr_data->pcie_open_work, etr_pcie_open_work_fn);
+	INIT_WORK(&byte_cntr_data->pcie_write_work, etr_pcie_write_work_fn);
+	init_waitqueue_head(&byte_cntr_data->pcie_wait_wq);
+	byte_cntr_data->pcie_wq = create_singlethread_workqueue("etr_pcie");
+	if (!byte_cntr_data->pcie_wq)
+		return -ENOMEM;
+
+	return etr_register_pcie_channel(byte_cntr_data);
+}
 
 static int usb_bypass_init(struct byte_cntr *byte_cntr_data)
 {
@@ -654,6 +885,7 @@ struct byte_cntr *byte_cntr_init(struct amba_device *adev,
 	init_waitqueue_head(&byte_cntr_data->wq);
 	mutex_init(&byte_cntr_data->byte_cntr_lock);
 
+	etr_pcie_init(byte_cntr_data);
 	return byte_cntr_data;
 }
 EXPORT_SYMBOL(byte_cntr_init);

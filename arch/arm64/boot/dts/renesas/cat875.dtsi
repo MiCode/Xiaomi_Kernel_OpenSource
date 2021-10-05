@@ -3,6 +3,7 @@
  * Device Tree Source for the Silicon Linux sub board for CAT874 (CAT875)
  *
  * Copyright (C) 2019 Renesas Electronics Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 / {
@@ -22,7 +23,6 @@
 	status = "okay";
 
 	phy0: ethernet-phy@0 {
-		rxc-skew-ps = <1500>;
 		reg = <0>;
 		interrupt-parent = <&gpio2>;
 		interrupts = <21 IRQ_TYPE_LEVEL_LOW>;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  *  Copyright (c) 2008-2014 STMicroelectronics Limited
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  *  Author: Angus Clark <Angus.Clark@st.com>
  *          Patrice Chotard <patrice.chotard@st.com>
@@ -375,13 +376,14 @@ static int spi_st_probe(struct platform_device *pdev)
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register master\n");
-		goto clk_disable;
+		goto rpm_disable;
 	}
 
 	return 0;
 
-clk_disable:
+rpm_disable:
 	pm_runtime_disable(&pdev->dev);
+clk_disable:
 	clk_disable_unprepare(spi_st->clk);
 put_master:
 	spi_master_put(master);

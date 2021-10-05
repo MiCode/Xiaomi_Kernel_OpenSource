@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -370,51 +371,6 @@ static void msm_ssphy_qmp_setmode(struct msm_ssphy_qmp *phy, u32 mode)
 	readl_relaxed(phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
 }
 
-static void usb_qmp_update_hw_portselect(struct msm_ssphy_qmp *phy)
-{
-	struct pinctrl		*portselect_pinctrl;
-	struct pinctrl_state	*portselect_state;
-	u32 status;
-
-	if (phy->phy.dev->pins) {
-		portselect_pinctrl = phy->phy.dev->pins->p;
-		portselect_state = phy->phy.dev->pins->default_state;
-	} else {
-		portselect_pinctrl = pinctrl_get(phy->phy.dev);
-		if (IS_ERR_OR_NULL(portselect_pinctrl)) {
-			dev_dbg(phy->phy.dev, "failed to get pinctrl\n");
-			return;
-		}
-
-		portselect_state =
-			pinctrl_lookup_state(portselect_pinctrl, "portselect");
-		if (IS_ERR_OR_NULL(portselect_state)) {
-			dev_dbg(phy->phy.dev,
-				"failed to find portselect state\n");
-			pinctrl_put(portselect_pinctrl);
-			return;
-		}
-	}
-
-	writel_relaxed(0x01,
-		phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
-
-	pinctrl_select_state(portselect_pinctrl, portselect_state);
-
-	writel_relaxed(0x00,
-		phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
-
-	if (!phy->phy.dev->pins)
-		pinctrl_put(portselect_pinctrl);
-
-	if (phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]) {
-		status = readl_relaxed(phy->base +
-				phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]);
-		dev_dbg(phy->phy.dev, "hw port select %s\n",
-			status & PORTSELECT_RAW ? "CC2" : "CC1");
-	}
-}
-
 static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 {
 	int val;
@@ -431,12 +387,30 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 
 	switch (phy->phy_type) {
 	case USB3_AND_DP:
-		usb_qmp_update_hw_portselect(phy);
+		if (phy->phy.dev->pins) {
+			writel_relaxed(0x01,
+				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+
+			pinctrl_select_state(phy->phy.dev->pins->p,
+					phy->phy.dev->pins->default_state);
+
+			writel_relaxed(0x00,
+				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+
+			if (phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]) {
+				u32 status = readl_relaxed(phy->base +
+				       phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]);
+				dev_dbg(phy->phy.dev, "hw port select %s\n",
+				       status & PORTSELECT_RAW ? "CC2" : "CC1");
+			}
+		}
 
 		/* override hardware control for reset of qmp phy */
-		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
-			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
-			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
+			writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
+				SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
+				phy->base +
+				phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
 
 		/* update port select */
 		if (val > 0) {
@@ -446,11 +420,13 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 		}
 
-		msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
+		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
+			msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
 
-		/* bring both USB and DP PHYs PCS block out of reset */
-		writel_relaxed(0x00, phy->base +
-			phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+			/* bring both USB and DP PHYs PCS block out of reset */
+			writel_relaxed(0x00, phy->base +
+				phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		}
 		break;
 	case  USB3_OR_DP:
 		if (val > 0) {
@@ -542,6 +518,12 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		goto fail;
 	}
 
+	/* perform software reset of PHY common logic */
+	if (phy->phy_type == USB3_AND_DP &&
+				!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+
 	/* perform software reset of PCS/Serdes */
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);
 	/* start PCS/Serdes to operation mode */
@@ -584,6 +566,25 @@ static int msm_ssphy_qmp_dp_combo_reset(struct usb_phy *uphy)
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
 	int ret = 0;
+
+	if (phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE) {
+		dev_dbg(uphy->dev, "Resetting USB part of QMP phy\n");
+
+		/* Assert USB3 PHY CSR reset */
+		ret = reset_control_assert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset assert failed\n");
+			goto exit;
+		}
+
+		/* Deassert USB3 PHY CSR reset */
+		ret = reset_control_deassert(phy->phy_reset);
+		if (ret) {
+			dev_err(uphy->dev, "phy_reset deassert failed\n");
+			goto exit;
+		}
+		return 0;
+	}
 
 	dev_dbg(uphy->dev, "Global reset of QMP DP combo phy\n");
 	/* Assert global PHY reset */

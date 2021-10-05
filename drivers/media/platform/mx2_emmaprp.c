@@ -10,6 +10,7 @@
  * Based on mem2mem_testdev.c by Pawel Osciak.
  *
  * Copyright (c) 2011 Vista Silicon S.L.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Javier Martin <javier.martin@vista-silicon.com>
  */
 #include <linux/module.h>
@@ -852,8 +853,11 @@ static int emmaprp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pcdev);
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
+	if (irq < 0) {
+		ret = irq;
+		goto rel_vdev;
+	}
+
 	ret = devm_request_irq(&pdev->dev, irq, emmaprp_irq, 0,
 			       dev_name(&pdev->dev), pcdev);
 	if (ret)

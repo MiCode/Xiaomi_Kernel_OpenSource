@@ -3,6 +3,7 @@
  * SDM845 SoC device tree source
  *
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <dt-bindings/clock/qcom,dispcc-sdm845.h>
@@ -3301,6 +3302,12 @@
 			reg-names = "cc", "qdsp6ss";
 			#clock-cells = <1>;
 			status = "disabled";
+		};
+
+		watchdog@17980000 {
+			compatible = "qcom,apss-wdt-sdm845", "qcom,kpss-wdt";
+			reg = <0 0x17980000 0 0x1000>;
+			clocks = <&sleep_clk>;
 		};
 
 		apss_shared: mailbox@17990000 {

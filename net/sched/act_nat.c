@@ -3,6 +3,7 @@
  * Stateless NAT actions
  *
  * Copyright (c) 2007 Herbert Xu <herbert@gondor.apana.org.au>
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/errno.h>
@@ -92,9 +93,6 @@ static int tcf_nat_init(struct net *net, struct nlattr *nla, struct nlattr *est,
 	spin_unlock_bh(&p->tcf_lock);
 	if (goto_ch)
 		tcf_chain_put_by_act(goto_ch);
-
-	if (ret == ACT_P_CREATED)
-		tcf_idr_insert(tn, *a);
 
 	return ret;
 release_idr:

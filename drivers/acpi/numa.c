@@ -3,6 +3,7 @@
  *  acpi_numa.c - ACPI NUMA support
  *
  *  Copyright (C) 2002 Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "ACPI: " fmt
@@ -31,7 +32,7 @@ int acpi_numa __initdata;
 
 int pxm_to_node(int pxm)
 {
-	if (pxm < 0)
+	if (pxm < 0 || pxm >= MAX_PXM_DOMAINS || numa_off)
 		return NUMA_NO_NODE;
 	return pxm_to_node_map[pxm];
 }

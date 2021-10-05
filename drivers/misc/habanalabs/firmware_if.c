@@ -2,6 +2,7 @@
 
 /*
  * Copyright 2016-2019 HabanaLabs, Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All Rights Reserved.
  */
 
@@ -11,6 +12,7 @@
 #include <linux/genalloc.h>
 #include <linux/io-64-nonatomic-lo-hi.h>
 
+#define FW_FILE_MAX_SIZE	0x1400000 /* maximum size of 20MB */
 /**
  * hl_fw_push_fw_to_device() - Push FW code to device.
  * @hdev: pointer to hl_device structure.
@@ -42,6 +44,14 @@ int hl_fw_push_fw_to_device(struct hl_device *hdev, const char *fw_name,
 	}
 
 	dev_dbg(hdev->dev, "%s firmware size == %zu\n", fw_name, fw_size);
+
+	if (fw_size > FW_FILE_MAX_SIZE) {
+		dev_err(hdev->dev,
+			"FW file size %zu exceeds maximum of %u bytes\n",
+			fw_size, FW_FILE_MAX_SIZE);
+		rc = -EINVAL;
+		goto out;
+	}
 
 	fw_data = (const u64 *) fw->data;
 

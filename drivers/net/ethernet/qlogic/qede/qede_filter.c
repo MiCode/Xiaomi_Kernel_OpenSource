@@ -1,5 +1,6 @@
 /* QLogic qede NIC Driver
  * Copyright (c) 2015-2017  QLogic Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -335,6 +336,9 @@ void qede_poll_for_freeing_arfs_filters(struct qede_dev *edev)
 int qede_alloc_arfs(struct qede_dev *edev)
 {
 	int i;
+
+	if (!edev->dev_info.common.b_arfs_capable)
+		return -EINVAL;
 
 	edev->arfs = vzalloc(sizeof(*edev->arfs));
 	if (!edev->arfs)

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -23,6 +24,7 @@
 #include <linux/ioctl.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
+#include <soc/qcom/boot_stats.h>
 
 #define SE_I2C_TX_TRANS_LEN		(0x26C)
 #define SE_I2C_RX_TRANS_LEN		(0x270)
@@ -132,6 +134,7 @@ struct geni_i2c_dev {
 	bool req_chan;
 	bool first_resume;
 	bool gpi_reset;
+	bool disable_dma_mode;
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -695,11 +698,11 @@ static int geni_i2c_lock_bus(struct geni_i2c_dev *gi2c)
 		goto geni_i2c_err_lock_bus;
 	}
 
+	reinit_completion(&gi2c->xfer);
 	/* Issue TX */
 	tx_cookie = dmaengine_submit(gi2c->tx_desc);
 	dma_async_issue_pending(gi2c->tx_c);
 
-	reinit_completion(&gi2c->xfer);
 	timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 	if (!timeout) {
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -740,11 +743,11 @@ static void geni_i2c_unlock_bus(struct geni_i2c_dev *gi2c)
 		goto geni_i2c_err_unlock_bus;
 	}
 
+	reinit_completion(&gi2c->xfer);
 	/* Issue TX */
 	tx_cookie = dmaengine_submit(gi2c->tx_desc);
 	dma_async_issue_pending(gi2c->tx_c);
 
-	reinit_completion(&gi2c->xfer);
 	timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 	if (!timeout) {
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -1030,6 +1033,14 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		qcom_geni_i2c_calc_timeout(gi2c);
 		mode = msgs[i].len > 32 ? SE_DMA : FIFO_MODE;
 
+		/* Complete the transfer in FIFO mode if DMA mode
+		 * is not supported for some Automotive platform.
+		 */
+		if (gi2c->disable_dma_mode) {
+			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+					"Disable DMA mode\n");
+			mode = FIFO_MODE;
+		}
 		ret = geni_se_select_mode(gi2c->base, mode);
 		if (ret) {
 			dev_err(gi2c->dev, "%s: Error mode init %d:%d:%d\n",
@@ -1181,6 +1192,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	struct platform_device *wrapper_pdev;
 	struct device_node *wrapper_ph_node;
 	int ret;
+	char boot_marker[40];
 
 	gi2c = devm_kzalloc(&pdev->dev, sizeof(*gi2c), GFP_KERNEL);
 	if (!gi2c)
@@ -1191,6 +1203,10 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		gi2c_dev_dbg[arr_idx++] = gi2c;
 
 	gi2c->dev = &pdev->dev;
+
+	snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_I2C Init");
+	place_marker(boot_marker);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
@@ -1222,6 +1238,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 
+	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
+	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
+
 	/*
 	 * For LE, clocks, gpio and icb voting will be provided by
 	 * by LA. The I2C operates in GSI mode only for LE usecase,
@@ -1229,8 +1248,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	 * in I2C LE dt.
 	 */
 	if (!gi2c->is_le_vm) {
-		gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
-		gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
 		gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
 		if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
 			ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
@@ -1282,6 +1299,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_sleep);
 			return ret;
 		}
+
+		gi2c->disable_dma_mode = of_property_read_bool(pdev->dev.of_node,
+						"qcom,disable-dma");
 
 		gi2c->irq = platform_get_irq(pdev, 0);
 		if (gi2c->irq < 0)
@@ -1343,6 +1363,10 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		dev_err(gi2c->dev, "Add adapter failed, ret=%d\n", ret);
 		return ret;
 	}
+
+	snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_I2C_%d Ready", gi2c->adap.nr);
+	place_marker(boot_marker);
 
 	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;

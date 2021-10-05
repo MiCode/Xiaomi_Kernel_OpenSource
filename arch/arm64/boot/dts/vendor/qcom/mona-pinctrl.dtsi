@@ -1,0 +1,97 @@
+/*for mona pinctrl */
+&tlmm {
+/*
+	sbu_uart_en_ctrl {
+		sbu_uart_en_idle: uart_audio_en_idle {
+			mux {
+				pins = "gpio6";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio6";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		sbu_uart_en_active: uart_audio_en_active {
+			mux {
+				pins = "gpio6";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio9";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+	};
+*/
+
+	top_smartpa_int_active: top_smartpa_int_active {
+		/* active state */
+		mux {
+			/* GPIO 102 Interrupt */
+			pins = "gpio102";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio102";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	top_smartpa_int_suspend: top_smartpa_int_suspend {
+		/* sleep state */
+		mux {
+			/* GPIO 102 Interrupt */
+			pins = "gpio102";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio102";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	bot_smartpa_int_active: bot_smartpa_int_active {
+		/* active state */
+		mux {
+			/* GPIO 24 Interrupt */
+			pins = "gpio24";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio24";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	bot_smartpa_int_suspend: bot_smartpa_int_suspend {
+		/* sleep state */
+		mux {
+			/* GPIO 24 Interrupt */
+			pins = "gpio24";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio24";
+			drive-strength = <2>; /* 2 MA */
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+};

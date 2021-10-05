@@ -3,6 +3,7 @@
  * include/asm-xtensa/pgtable.h
  *
  * Copyright (C) 2001 - 2013 Tensilica Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _XTENSA_PGTABLE_H
@@ -70,7 +71,7 @@
  */
 #define VMALLOC_START		(XCHAL_KSEG_CACHED_VADDR - 0x10000000)
 #define VMALLOC_END		(VMALLOC_START + 0x07FEFFFF)
-#define TLBTEMP_BASE_1		(VMALLOC_END + 1)
+#define TLBTEMP_BASE_1		(VMALLOC_START + 0x08000000)
 #define TLBTEMP_BASE_2		(TLBTEMP_BASE_1 + DCACHE_WAY_SIZE)
 #if 2 * DCACHE_WAY_SIZE > ICACHE_WAY_SIZE
 #define TLBTEMP_SIZE		(2 * DCACHE_WAY_SIZE)

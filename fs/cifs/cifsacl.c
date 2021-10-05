@@ -2,6 +2,7 @@
  *   fs/cifs/cifsacl.c
  *
  *   Copyright (C) International Business Machines  Corp., 2007,2008
+ *   Copyright (C) 2021 XiaoMi, Inc.
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *
  *   Contains the routines for mapping CIFS/NTFS ACLs
@@ -1198,6 +1199,7 @@ cifs_acl_to_fattr(struct cifs_sb_info *cifs_sb, struct cifs_fattr *fattr,
 		cifs_dbg(VFS, "%s: error %d getting sec desc\n", __func__, rc);
 	} else if (mode_from_special_sid) {
 		rc = parse_sec_desc(cifs_sb, pntsd, acllen, fattr, true);
+		kfree(pntsd);
 	} else {
 		/* get approximated mode from ACL */
 		rc = parse_sec_desc(cifs_sb, pntsd, acllen, fattr, false);

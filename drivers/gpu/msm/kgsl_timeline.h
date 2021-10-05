@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __KGSL_TIMELINE_H
@@ -16,7 +17,9 @@ struct kgsl_timeline {
 	int id;
 	/** @value: Current value of the timeline */
 	u64 value;
-	/** @lock: Lock to protect @fences */
+	/** @fence_lock: Lock to protect @fences */
+	spinlock_t fence_lock;
+	/** @lock: Lock to use for locking each fence in @fences */
 	spinlock_t lock;
 	/** @ref: Reference count for the struct */
 	struct kref ref;
@@ -24,6 +27,8 @@ struct kgsl_timeline {
 	struct list_head fences;
 	/** @name: Name of the timeline for debugging */
 	const char name[32];
+	/** @dev_priv: pointer to the owning device instance */
+	struct kgsl_device_private *dev_priv;
 };
 
 /**
@@ -106,6 +111,6 @@ static inline void kgsl_timeline_put(struct kgsl_timeline *timeline)
  * encapsulated timeline fences to expire.
  */
 struct dma_fence *kgsl_timelines_to_fence_array(struct kgsl_device *device,
-		u64 timelines, u64 count, u64 usize, bool any);
+		u64 timelines, u32 count, u64 usize, bool any);
 
 #endif

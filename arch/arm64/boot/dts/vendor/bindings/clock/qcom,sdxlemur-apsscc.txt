@@ -1,0 +1,46 @@
+Qualcomm Technologies, Inc. SDXLEMUR CPU clock driver
+-----------------------------------------------------
+
+It is the clock controller driver which provides higher frequency
+clocks and allows CPU frequency scaling on qcs405 based platforms.
+
+Required properties:
+- compatible:	Shall contain following:
+		"qcom,sdxlemur-apsscc"
+		"qcom,sdxnightjar-apsscc"
+- clocks:	Phandle to the clock device.
+- clock-names:	Names of the used clocks. Shall contain following:
+		"xo_ao", "gpll0_ao"
+- reg:	Shall contain base register offset and size.
+- reg-names:	Names of the bases for the above registers. Shall contain following:
+		"apcs_cmd", "apcs_pll"
+- vdd-pll-supply:	The regulator(active only) powering the Analog logic of APSS PLL.
+- cpu-vdd-supply:	The regulator(active only) powering the APSS RCG.
+- qcom,speedX-bin-vZ:	A table of CPU frequency (Hz) to regulator voltage (uV) mapping.
+			Format: <freq uV>
+			This represents the max frequency possible for each possible
+			power configuration for a CPU that's binned as speed bin X,
+			speed bin revision Z. Version can be between [0-3].
+- #clock-cells:	Shall contain 1.
+
+Optional properties:
+- reg-names:	"efuse"
+
+Example:
+	clock_cpu: qcom,clock-cpu@17808100 {
+		compatible = "qcom,sdxlemur-apsscc";
+		clocks = <&rpmhcc RPMH_CXO_CLK>>;
+			  <&gcc GPLL0_AO_OUT_MAIN>;;
+		clock-names = "xo_ao", "gpll0_ao" ;
+		reg = <0x17810008 0x8>, <0x17808100 0x44>;
+		reg-names = "apcs_cmd" , "apcs_pll";
+		vdd-pll-supply = <&VDD_CX_LEVEL_AO>;
+		cpu-vdd-supply = <&VDD_CX_LEVEL_AO>;
+		qcom,speed0-bin-v0 =
+			<          0 RPMH_REGULATOR_LEVEL_OFF>,
+			<  345600000 RPMH_REGULATOR_LEVEL_LOW_SVS>,
+			<  576000000 RPMH_REGULATOR_LEVEL_SVS>,
+			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
+			< 1555200000 RPMH_REGULATOR_LEVEL_TURBO>;
+		#clock-cells = <1>;
+	};

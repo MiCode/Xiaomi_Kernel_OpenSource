@@ -3,6 +3,7 @@
  * ACPI AML interfacing support
  *
  * Copyright (C) 2015, Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: Lv Zheng <lv.zheng@intel.com>
  */
 
@@ -748,6 +749,9 @@ static const struct acpi_debugger_ops acpi_aml_debugger = {
 int __init acpi_aml_init(void)
 {
 	int ret;
+
+	if (acpi_disabled)
+		return -ENODEV;
 
 	/* Initialize AML IO interface */
 	mutex_init(&acpi_aml_io.lock);

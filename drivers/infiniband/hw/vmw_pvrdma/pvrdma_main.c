@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2016 VMware, Inc.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of EITHER the GNU General Public License
@@ -266,7 +267,7 @@ static int pvrdma_register_device(struct pvrdma_dev *dev)
 	}
 	ret = ib_device_set_netdev(&dev->ib_dev, dev->netdev, 1);
 	if (ret)
-		return ret;
+		goto err_srq_free;
 	spin_lock_init(&dev->srq_tbl_lock);
 	rdma_set_device_sysfs_group(&dev->ib_dev, &pvrdma_attr_group);
 

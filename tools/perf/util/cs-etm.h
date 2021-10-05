@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright(C) 2015 Linaro Limited. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Mathieu Poirier <mathieu.poirier@linaro.org>
  */
 
@@ -113,9 +114,6 @@ enum cs_etm_isa {
 	CS_ETM_ISA_A32,
 	CS_ETM_ISA_T32,
 };
-
-/* RB tree for quick conversion between traceID and metadata pointers */
-struct intlist *traceid_list;
 
 struct cs_etm_queue;
 

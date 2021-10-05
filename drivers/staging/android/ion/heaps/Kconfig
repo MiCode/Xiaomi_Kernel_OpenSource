@@ -77,3 +77,11 @@ config ION_POOL_FILL_MARK
 	help
 	  Set the fillmark of the pool in terms of mega bytes and the lowmark is
 	  ION_POOL_LOW_MARK_PERCENT of fillmark value.
+
+config PANIC_ON_MSM_ION_HEAPS_FAILURE
+	bool "Trigger kernel panic when msm ion heap probe fails"
+	help
+	This is a debug feature where a kernel panic is triggered when
+	msm ion heap probe fails. This can happen when any invalid heap id,
+	heap types are added in device tree. Panic ensures early detection
+	of such changes.

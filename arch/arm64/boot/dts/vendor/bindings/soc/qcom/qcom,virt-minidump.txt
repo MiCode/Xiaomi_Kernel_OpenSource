@@ -1,0 +1,14 @@
+Qualcomm Technologies, Inc. Virtual Minidump
+
+Virtual minidump allows various clients on virtual machine to register memory
+regions that need to be collected at system bad state.
+
+Required properties:
+- compatible:		Must be "qcom,virt-minidump".
+- reg:			Must contain register address and length.
+
+Example:
+	virt_minidump@1cb00000 {
+		compatible = "qcom,virt-minidump";
+		reg = <0x1cb00000 0x1000>;
+	}

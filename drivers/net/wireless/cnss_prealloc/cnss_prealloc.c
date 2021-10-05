@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2012,2014-2017,2019,2020 The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -85,6 +86,7 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 64 * 1024, NULL},
 	{0, 64 * 1024, NULL},
 	{0, 64 * 1024, NULL},
+	{0, 128 * 1024, NULL},
 	{0, 128 * 1024, NULL},
 };
 

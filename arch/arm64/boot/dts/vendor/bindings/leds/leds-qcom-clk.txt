@@ -1,0 +1,69 @@
+Qualcomm Technologies, Inc. clock controller based PWM driver
+-------------------------------------------------------------
+
+Qualcomm Technologies, Inc. provides clock controller to be connected to LED
+to generate PWM. This driver can configure duty-cycle of clock to get the
+required brightness. The complete clock duty-cycle is 100 and brightness is
+denoted by the period in which signal is active or high.
+
+Required properties:
+- compatible: Should be "qcom,clk-led-pwm".
+- clock_names: Should be "core".
+- clocks: Should contain the phandle of the source clock.
+- assgined-clocks: Phandle of the source clock.
+- assinged-clock-rates: Desired frequency of the source clock.
+- qcom,max_duty: Maximum duty cycle that can be set on the clock.
+		   Should be less than 100.
+- pinctrl-names: Property should contain "active" and "sleep" for the
+		   pin configurations during the usecase and during idle.
+- pinctrl-x: phandle to the default/sleep pin configurations.
+
+Optional properties:
+- qcom,label: Label for the sysfs node.
+- qcom,default-clk-trigger: This parameter, if present, is a string
+			defining the trigger assigned to the LED.
+
+Example:
+
+qcom_clk_led {
+	compatible = "qcom,clk-led-pwm";
+	qcom,label = "led_clk_pwm";
+	qcom,default-clk-trigger = "led_clk_pwm";
+	qcom,max_duty = <80>;
+	clocks = <&clock_gcc GCC_GP2_CLK>;
+	clock-names = "core";
+	assigned-clocks = <&clock_gcc GCC_GP2_CLK>;
+	assigned-clock-rates = <80000>;
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&qcom_clk_led_gp2_active>;
+	pinctrl-1 = <&qcom_clk_led_gp2_sleep>;
+};
+
+== Pinctrl configurations ==
+qcom_clk_led_gp2_pins: qcom_clk_led_gp2_pins {
+	qcom_clk_led_gp2_active: qcom_clk_led_gp2_active {
+		mux {
+			pins = "gpio21";
+			function = "gcc_gp2";
+		};
+
+		config {
+			pins = "gpio21";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	qcom_clk_led_gp2_sleep: qqcom_clk_led_gp2_sleep {
+		mux {
+			pins = "gpio21";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio21";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};

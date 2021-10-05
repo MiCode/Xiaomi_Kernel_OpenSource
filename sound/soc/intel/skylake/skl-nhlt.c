@@ -3,6 +3,7 @@
  *  skl-nhlt.c - Intel SKL Platform NHLT parsing
  *
  *  Copyright (C) 2015 Intel Corp
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *  Author: Sanjiv Kumar <sanjiv.kumar@intel.com>
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -182,7 +183,8 @@ void skl_nhlt_remove_sysfs(struct skl_dev *skl)
 {
 	struct device *dev = &skl->pci->dev;
 
-	sysfs_remove_file(&dev->kobj, &dev_attr_platform_id.attr);
+	if (skl->nhlt)
+		sysfs_remove_file(&dev->kobj, &dev_attr_platform_id.attr);
 }
 
 /*

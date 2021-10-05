@@ -1,0 +1,47 @@
+Binding for SIRF GNSS receiver control driver
+GPIO pins are toggled to control GNSS receiver power states either to
+wake it from sleep or put receiver into sleep mode
+
+Required properties:
+- compatible: must be "gnss_sirf"
+- #gpio-pins:
+      0: GPIO 18
+      1: GPIO 87
+
+Example:
+	ss5_pwr_ctrl0 {
+		compatible = "qcom,gnss_sirf";
+		pinctrl-0 = <&ss5_pwr_ctrl_rst_on>;
+		ssVreset-gpio = <&tlmm 87 1>;
+		ssVonoff-gpio = <&tlmm 18 1>;
+	};
+
+	ss5_pwr_ctrl_pins: ss5_pwr_ctrl_pins {
+		ss5_pwr_ctrl_rst_on: ss5_pwr_ctrl_rst_on {
+			mux {
+				pins = "gpio87", "gpio18";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio87", "gpio18";
+				drive-strength = <16>; /* 16 mA */
+				bias-pull-up;
+				output-high;
+			};
+		};
+
+		ss5_pwr_ctrl_rst_off: ss5_pwr_ctrl_off {
+			mux {
+				pins = "gpio87", "gpio18";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio87", "gpio18";
+				drive-strength = <16>; /* 16 mA */
+				bias-pull-up;
+				output-high;
+			};
+		};
+	};

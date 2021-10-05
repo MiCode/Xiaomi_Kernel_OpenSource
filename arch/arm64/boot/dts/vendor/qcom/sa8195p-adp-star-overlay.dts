@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+
+#include "sa8195p-adp-star.dtsi"
+#include "display/sa8195p-adp-star-display-shd.dtsi"
+
+/ {
+	model = "ADP-STAR";
+	compatible = "qcom,sa8195p-adp-star", "qcom,sa8195p",
+		"qcom,adp-star";
+	qcom,msm-id = <405 0x20000>;
+	qcom,board-id = <0x010019 0>;
+};

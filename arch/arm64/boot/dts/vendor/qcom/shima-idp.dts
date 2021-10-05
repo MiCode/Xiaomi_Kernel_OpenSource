@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "shima.dtsi"
+#include "shima-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima IDP";
+	compatible = "qcom,shima-idp", "qcom,shima", "qcom,idp";
+	qcom,board-id = <34 0>;
+};

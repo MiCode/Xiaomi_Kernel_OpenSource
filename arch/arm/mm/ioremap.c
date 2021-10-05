@@ -5,6 +5,7 @@
  * Re-map IO memory to kernel address space so that we can access it.
  *
  * (C) Copyright 1995 1996 Linus Torvalds
+ * (C) Copyright (C) 2021 XiaoMi, Inc.
  *
  * Hacked for ARM by Phil Blundell <philb@gnu.org>
  * Hacked to allow all architectures to build, and various cleanups
@@ -120,10 +121,17 @@ void __check_vmalloc_seq(struct mm_struct *mm)
 
 	do {
 		seq = init_mm.context.vmalloc_seq;
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+		memcpy(pgd_offset(mm, PAGE_OFFSET),
+				pgd_offset_k(PAGE_OFFSET),
+				sizeof(pgd_t) * (pgd_index(VMALLOC_END) -
+					pgd_index(PAGE_OFFSET)));
+#else
 		memcpy(pgd_offset(mm, VMALLOC_START),
 		       pgd_offset_k(VMALLOC_START),
 		       sizeof(pgd_t) * (pgd_index(VMALLOC_END) -
 					pgd_index(VMALLOC_START)));
+#endif
 		mm->context.vmalloc_seq = seq;
 	} while (seq != init_mm.context.vmalloc_seq);
 }

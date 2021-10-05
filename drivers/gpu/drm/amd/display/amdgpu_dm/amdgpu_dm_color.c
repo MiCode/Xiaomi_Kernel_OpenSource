@@ -1,5 +1,6 @@
 /*
  * Copyright 2018 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -209,6 +210,8 @@ static int __set_legacy_tf(struct dc_transfer_func *func,
 
 	res = mod_color_calculate_regamma_params(func, gamma, true, has_rom,
 						 NULL);
+
+	dc_gamma_release(&gamma);
 
 	return res ? 0 : -ENOMEM;
 }

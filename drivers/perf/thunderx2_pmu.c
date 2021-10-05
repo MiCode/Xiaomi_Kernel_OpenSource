@@ -2,6 +2,7 @@
 /*
  * CAVIUM THUNDERX2 SoC PMU UNCORE
  * Copyright (C) 2018 Cavium Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Ganapatrao Kulkarni <gkulkarni@cavium.com>
  */
 
@@ -627,14 +628,17 @@ static struct tx2_uncore_pmu *tx2_uncore_pmu_init_dev(struct device *dev,
 	list_for_each_entry(rentry, &list, node) {
 		if (resource_type(rentry->res) == IORESOURCE_MEM) {
 			res = *rentry->res;
+			rentry = NULL;
 			break;
 		}
 	}
-
-	if (!rentry->res)
-		return NULL;
-
 	acpi_dev_free_resource_list(&list);
+
+	if (rentry) {
+		dev_err(dev, "PMU type %d: Fail to find resource\n", type);
+		return NULL;
+	}
+
 	base = devm_ioremap_resource(dev, &res);
 	if (IS_ERR(base)) {
 		dev_err(dev, "PMU type %d: Fail to map resource\n", type);

@@ -1,0 +1,31 @@
+&soc {
+	timer {
+		clock-frequency = <5000000>;
+	};
+
+	timer@f120000 {
+		clock-frequency = <5000000>;
+	};
+
+	wdog: qcom,wdt@f017000 {
+		status = "disabled";
+	};
+
+};
+
+&sdhc_1 {
+	status = "ok";
+
+	cap-mmc-highspeed;
+	max-frequency = <50000000>;
+
+	vdd-supply = <&L25A>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 270000>;
+
+	vdd-io-supply = <&L15A>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 250000>;
+};

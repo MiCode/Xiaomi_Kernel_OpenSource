@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
@@ -17,7 +18,7 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
-#define KGSL_MAX_CLKS 17
+#define KGSL_MAX_CLKS 18
 
 #define KGSL_MAX_PWRLEVELS 16
 
@@ -89,7 +90,9 @@ struct kgsl_pwrlevel {
  * @nb - Notifier block to receive GPU OPP change event
  * @active_pwrlevel - The currently active power level
  * @previous_pwrlevel - The power level before transition
- * @thermal_pwrlevel - maximum powerlevel constraint from thermal
+ * @thermal_pwrlevel - consolidated maximum thermal powerlevel constraint
+ * @sysfs_thermal_pwrlevel - maximum powerlevel constraint from sysfs
+ * @cooling_thermal_pwrlevel - maximum pwrlevel constraint from devfreq cooling fw
  * @thermal_pwrlevel_floor - minimum powerlevel constraint from thermal
  * @default_pwrlevel - device wake up power level
  * @max_pwrlevel - maximum allowable powerlevel per the user
@@ -133,6 +136,8 @@ struct kgsl_pwrctrl {
 	unsigned int active_pwrlevel;
 	unsigned int previous_pwrlevel;
 	unsigned int thermal_pwrlevel;
+	unsigned int sysfs_thermal_pwrlevel;
+	unsigned int cooling_thermal_pwrlevel;
 	unsigned int thermal_pwrlevel_floor;
 	unsigned int default_pwrlevel;
 	unsigned int wakeup_maxpwrlevel;
@@ -169,6 +174,8 @@ struct kgsl_pwrctrl {
 	struct timer_list minbw_timer;
 	/** @minbw_timeout - Timeout for entering minimum bandwidth state */
 	u32 minbw_timeout;
+	/** @ddr_qos_devfreq: Devfreq device for setting DDR qos policy */
+	struct devfreq *ddr_qos_devfreq;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
@@ -251,4 +258,11 @@ void kgsl_idle_check(struct work_struct *work);
  *
  */
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
+/**
+ * kgsl_pwrctrl_clear_l3_vote - Relinquish l3 vote
+ * @device: Handle to the kgsl device
+ *
+ * Clear the l3 vote when going into slumber
+ */
+void kgsl_pwrctrl_clear_l3_vote(struct kgsl_device *device);
 #endif /* __KGSL_PWRCTRL_H */

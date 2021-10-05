@@ -1,0 +1,20 @@
+* Slate Events Bridge RPMSG Driver
+
+slate_events_bridge_rpmsg driver provides functionality
+to send and receive data over Glink from slate co processor.
+
+Required properties:
+- compatible:	      Must be "qcom,slate-events-bridge-rpmsg"
+- qcom,glink-channels	specifies the glink channel name
+- qcom,glinkpkt-edge	specifies the glink edge to match
+
+Optional properties:
+- intents		specifies the size and count of intents to glink
+
+Example:
+	qcom,slate-events-bridge-rpmsg {
+		compatible = "qcom,slate-events-bridge-rpmsg";
+		qcom,glink-channels = "slate_events";
+		qcom,glinkpkt-edge = "slate";
+		intents = <0x200 5>;
+	};

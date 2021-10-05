@@ -1,6 +1,7 @@
 /*******************************************************************************
 *
 * Copyright (c) 2015-2016 Intel Corporation.  All rights reserved.
+* Copyright (C) 2021 XiaoMi, Inc.
 *
 * This software is available to you under a choice of one of two
 * licenses.  You may choose to be licensed under the terms of the GNU
@@ -313,7 +314,7 @@ void i40iw_process_aeq(struct i40iw_device *iwdev)
 					    __func__, info->qp_cq_id);
 				continue;
 			}
-			i40iw_add_ref(&iwqp->ibqp);
+			i40iw_qp_add_ref(&iwqp->ibqp);
 			spin_unlock_irqrestore(&iwdev->qptable_lock, flags);
 			qp = &iwqp->sc_qp;
 			spin_lock_irqsave(&iwqp->lock, flags);
@@ -427,7 +428,7 @@ void i40iw_process_aeq(struct i40iw_device *iwdev)
 			break;
 		}
 		if (info->qp)
-			i40iw_rem_ref(&iwqp->ibqp);
+			i40iw_qp_rem_ref(&iwqp->ibqp);
 	} while (1);
 
 	if (aeqcnt)

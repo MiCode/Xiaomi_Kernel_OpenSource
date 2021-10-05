@@ -5,6 +5,7 @@
  * Authors:	Olaf Kirch (okir@monad.swb.de)
  *
  * Copyright (C) 1995, 1996, 1997 Olaf Kirch <okir@monad.swb.de>
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/sched/signal.h>
@@ -516,8 +517,7 @@ static void nfsd_last_thread(struct svc_serv *serv, struct net *net)
 		return;
 
 	nfsd_shutdown_net(net);
-	printk(KERN_WARNING "nfsd: last server has exited, flushing export "
-			    "cache\n");
+	pr_info("nfsd: last server has exited, flushing export cache\n");
 	nfsd_export_flush(net);
 }
 

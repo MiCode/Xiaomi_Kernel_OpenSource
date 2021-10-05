@@ -2,6 +2,7 @@
  * Device Tree support for Allwinner A1X SoCs
  *
  * Copyright (C) 2012 Maxime Ripard
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Maxime Ripard <maxime.ripard@free-electrons.com>
  *
@@ -66,6 +67,7 @@ static const char * const sun8i_board_dt_compat[] = {
 	"allwinner,sun8i-h2-plus",
 	"allwinner,sun8i-h3",
 	"allwinner,sun8i-r40",
+	"allwinner,sun8i-v3",
 	"allwinner,sun8i-v3s",
 	NULL,
 };

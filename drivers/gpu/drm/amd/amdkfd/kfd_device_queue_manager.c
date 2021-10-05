@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -1074,6 +1075,8 @@ static int stop_cpsch(struct device_queue_manager *dqm)
 	dqm_lock(dqm);
 	unmap_queues_cpsch(dqm, KFD_UNMAP_QUEUES_FILTER_ALL_QUEUES, 0);
 	dqm_unlock(dqm);
+
+	pm_release_ib(&dqm->packets);
 
 	kfd_gtt_sa_free(dqm->dev, dqm->fence_mem);
 	pm_uninit(&dqm->packets);

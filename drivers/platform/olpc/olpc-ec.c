@@ -5,6 +5,7 @@
  * Author: Andres Salomon <dilinger@queued.net>
  *
  * Copyright (C) 2011-2012 One Laptop per Child Foundation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/completion.h>
 #include <linux/debugfs.h>
@@ -439,7 +440,9 @@ static int olpc_ec_probe(struct platform_device *pdev)
 								&config);
 	if (IS_ERR(ec->dcon_rdev)) {
 		dev_err(&pdev->dev, "failed to register DCON regulator\n");
-		return PTR_ERR(ec->dcon_rdev);
+		err = PTR_ERR(ec->dcon_rdev);
+		kfree(ec);
+		return err;
 	}
 
 	ec->dbgfs_dir = olpc_ec_setup_debugfs();

@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 Maxime Ripard
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Maxime Ripard <maxime.ripard@free-electrons.com>
  *
@@ -154,7 +155,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&gmac_rgmii_pins>;
 	phy-handle = <&phy1>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	status = "okay";
 };
 

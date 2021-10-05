@@ -2,6 +2,7 @@
  * Bus driver for MIPS Common Device Memory Map (CDMM).
  *
  * Copyright (C) 2014-2015 Imagination Technologies Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -544,10 +545,8 @@ static void mips_cdmm_bus_discover(struct mips_cdmm_bus *bus)
 		dev_set_name(&dev->dev, "cdmm%u-%u", cpu, id);
 		++id;
 		ret = device_register(&dev->dev);
-		if (ret) {
+		if (ret)
 			put_device(&dev->dev);
-			kfree(dev);
-		}
 	}
 }
 

@@ -3,6 +3,7 @@
  * A virtual codec example device.
  *
  * Copyright 2018 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This is a virtual codec device driver for testing the codec framework.
  * It simulates a device that uses memory buffers for both source and
@@ -2052,6 +2053,7 @@ static int vicodec_request_validate(struct media_request *req)
 	}
 	ctrl = v4l2_ctrl_request_hdl_ctrl_find(hdl,
 					       vicodec_ctrl_stateless_state.id);
+	v4l2_ctrl_request_hdl_put(hdl);
 	if (!ctrl) {
 		v4l2_info(&ctx->dev->v4l2_dev,
 			  "Missing required codec control\n");

@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 Tyler Baker
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Tyler Baker <tyler.baker@linaro.org>
  * Chen-Yu Tsai <wens@csie.org>
@@ -129,7 +130,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&gmac_rgmii_pins>;
 	phy-handle = <&phy1>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-supply = <&reg_cldo1>;
 	status = "okay";
 };

@@ -3,6 +3,7 @@
  * HDMI driver for OMAP5
  *
  * Copyright (C) 2014 Texas Instruments Incorporated
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Yong Zhi
@@ -43,9 +44,10 @@ static int hdmi_runtime_get(void)
 	DSSDBG("hdmi_runtime_get\n");
 
 	r = pm_runtime_get_sync(&hdmi.pdev->dev);
-	WARN_ON(r < 0);
-	if (r < 0)
+	if (WARN_ON(r < 0)) {
+		pm_runtime_put_sync(&hdmi.pdev->dev);
 		return r;
+	}
 
 	return 0;
 }

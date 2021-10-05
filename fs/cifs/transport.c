@@ -2,6 +2,7 @@
  *   fs/cifs/transport.c
  *
  *   Copyright (C) International Business Machines  Corp., 2002,2008
+ *   Copyright (C) 2021 XiaoMi, Inc.
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *   Jeremy Allison (jra@samba.org) 2006.
  *
@@ -340,8 +341,8 @@ __smb_send_rqst(struct TCP_Server_Info *server, int num_rqst,
 		return -EAGAIN;
 
 	if (signal_pending(current)) {
-		cifs_dbg(FYI, "signal is pending before sending any data\n");
-		return -EINTR;
+		cifs_dbg(FYI, "signal pending before send request\n");
+		return -ERESTARTSYS;
 	}
 
 	/* cork the socket */

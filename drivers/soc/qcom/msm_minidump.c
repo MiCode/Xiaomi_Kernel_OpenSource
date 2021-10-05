@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "Minidump: " fmt
@@ -252,6 +253,7 @@ EXPORT_SYMBOL(msm_minidump_update_region);
 int msm_minidump_add_region(const struct md_region *entry)
 {
 	u32 entries;
+	u32 toc_init;
 	struct md_region *mdr;
 	unsigned long flags;
 
@@ -272,6 +274,18 @@ int msm_minidump_add_region(const struct md_region *entry)
 		return -ENOMEM;
 	}
 
+	toc_init = 0;
+	if (minidump_table.md_ss_toc &&
+		(minidump_table.md_ss_toc->md_ss_enable_status ==
+		MD_SS_ENABLED)) {
+		toc_init = 1;
+		if (minidump_table.md_ss_toc->ss_region_count >= MAX_NUM_ENTRIES) {
+			spin_unlock_irqrestore(&mdt_lock, flags);
+			pr_err("Maximum regions in minidump table reached.\n");
+			return -ENOMEM;
+		}
+	}
+
 	mdr = &minidump_table.entry[entries];
 	strlcpy(mdr->name, entry->name, sizeof(mdr->name));
 	mdr->virt_addr = entry->virt_addr;
@@ -281,9 +295,7 @@ int msm_minidump_add_region(const struct md_region *entry)
 
 	minidump_table.num_regions = entries + 1;
 
-	if (minidump_table.md_ss_toc &&
-		(minidump_table.md_ss_toc->md_ss_enable_status ==
-		MD_SS_ENABLED))
+	if (toc_init)
 		md_update_ss_toc(entry);
 	else
 		pendings++;
@@ -371,7 +383,7 @@ int msm_minidump_clear_headers(const struct md_region *entry)
 
 int msm_minidump_remove_region(const struct md_region *entry)
 {
-	int rcount, ecount, seq = 0, rgno, ret;
+	int rcount, ecount, seq = 0, rgno, entryno, ret;
 	unsigned long flags;
 
 	if (!entry || !minidump_table.md_ss_toc ||
@@ -381,29 +393,27 @@ int msm_minidump_remove_region(const struct md_region *entry)
 
 	spin_lock_irqsave(&mdt_lock, flags);
 	write_lock(&mdt_remove_lock);
+	entryno = md_entry_num(entry);
+	rgno = md_region_num(entry->name, &seq);
+	if (entryno < 0 || rgno < 0) {
+		write_unlock(&mdt_remove_lock);
+		spin_unlock_irqrestore(&mdt_lock, flags);
+		pr_err("Not able to find the entry %s (%d,%d) in table\n",
+			entry->name, entryno, rgno);
+		return -EINVAL;
+	}
 	ecount = minidump_table.num_regions;
 	rcount = minidump_table.md_ss_toc->ss_region_count;
-	rgno = md_entry_num(entry);
-	if (rgno < 0) {
-		pr_err("Not able to find the entry in table\n");
-		goto out;
-	}
-
-	if (first_removed_entry > rgno)
-		first_removed_entry = rgno;
+	if (first_removed_entry > entryno)
+		first_removed_entry = entryno;
 	minidump_table.md_ss_toc->md_ss_toc_init = 0;
 
 	/* Remove entry from: entry list, ss region list and elf header */
-	memmove(&minidump_table.entry[rgno], &minidump_table.entry[rgno + 1],
-		((ecount - rgno - 1) * sizeof(struct md_region)));
+	memmove(&minidump_table.entry[entryno],
+		&minidump_table.entry[entryno + 1],
+		((ecount - entryno - 1) * sizeof(struct md_region)));
 	memset(&minidump_table.entry[ecount - 1], 0, sizeof(struct md_region));
 
-
-	rgno = md_region_num(entry->name, &seq);
-	if (rgno < 0) {
-		pr_err("Not able to find region in table\n");
-		goto out;
-	}
 
 	memmove(&minidump_table.md_regions[rgno],
 		&minidump_table.md_regions[rgno + 1],

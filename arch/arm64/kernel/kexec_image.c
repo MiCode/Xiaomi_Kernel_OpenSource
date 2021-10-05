@@ -3,6 +3,7 @@
  * Kexec image loader
 
  * Copyright (C) 2018 Linaro Limited
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: AKASHI Takahiro <takahiro.akashi@linaro.org>
  */
 
@@ -46,10 +47,6 @@ static void *image_load(struct kimage *image,
 	unsigned long text_offset;
 	struct kexec_segment *kernel_segment;
 	int ret;
-
-	/* We don't support crash kernels yet. */
-	if (image->type == KEXEC_TYPE_CRASH)
-		return ERR_PTR(-EOPNOTSUPP);
 
 	/*
 	 * We require a kernel with an unambiguous Image header. Per

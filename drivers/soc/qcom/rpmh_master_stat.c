@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
@@ -35,6 +36,7 @@ enum master_smem_id {
 	GPU,
 	DISPLAY,
 	SLPI_ISLAND = 613,
+	APSS = 631,
 };
 
 enum master_pid {
@@ -43,6 +45,7 @@ enum master_pid {
 	PID_ADSP = 2,
 	PID_SLPI = 3,
 	PID_CDSP = 5,
+	PID_WPSS = 13,
 	PID_GPU = PID_APSS,
 	PID_DISPLAY = PID_APSS,
 };
@@ -62,7 +65,9 @@ struct msm_rpmh_master_data {
 };
 
 static const struct msm_rpmh_master_data rpmh_masters[] = {
+	{"APSS", APSS, QCOM_SMEM_HOST_ANY},
 	{"MPSS", MPSS, PID_MPSS},
+	{"WPSS", MPSS, PID_WPSS},
 	{"ADSP", ADSP, PID_ADSP},
 	{"ADSP_ISLAND", SLPI_ISLAND, PID_ADSP},
 	{"CDSP", CDSP, PID_CDSP},
@@ -100,44 +105,55 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 				const char *name)
 {
 	uint64_t accumulated_duration = record->accumulated_duration;
+	bool is_sleep = false;
 	/*
 	 * If a master is in sleep when reading the sleep stats from SMEM
 	 * adjust the accumulated sleep duration to show actual sleep time.
 	 * This ensures that the displayed stats are real when used for
 	 * the purpose of computing battery utilization.
 	 */
-	if (record->last_entered > record->last_exited)
+	if (record->last_entered > record->last_exited) {
 		accumulated_duration +=
 				(__arch_counter_get_cntvct()
 				- record->last_entered);
+		is_sleep = true;
+	}
 
 	return scnprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
 			"\tSleep Count:0x%x\n"
 			"\tSleep Last Entered At:0x%llx\n"
 			"\tSleep Last Exited At:0x%llx\n"
-			"\tSleep Accumulated Duration:0x%llx\n\n",
+			"\tSleep Accumulated Duration:0x%llx\n"
+			"\tSleeping: %d\n\n",
 			name, record->version_id, record->counts,
 			record->last_entered, record->last_exited,
-			accumulated_duration);
+			accumulated_duration, is_sleep?1:0);
 }
 
 static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
-	ssize_t length;
+	ssize_t length = 0;
 	int i = 0;
 	struct msm_rpmh_master_stats *record = NULL;
+	bool skip_apss = false;
 
 	mutex_lock(&rpmh_stats_mutex);
 
 	/* First Read APSS master stats */
 
-	length = msm_rpmh_master_stats_print_data(buf, PAGE_SIZE,
-						&apss_master_stats, "APSS");
-
+	if (rpmh_unit_base) {
+		length = msm_rpmh_master_stats_print_data(buf, PAGE_SIZE,
+							  &apss_master_stats,
+							  "APSS");
+		skip_apss = true;
+	}
 	/* Read SMEM data written by other masters */
 
 	for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
+		if (skip_apss && i == 0)
+			continue;
+
 		record = (struct msm_rpmh_master_stats *) qcom_smem_get(
 					rpmh_masters[i].pid,
 					rpmh_masters[i].smem_id, NULL);
@@ -227,17 +243,15 @@ static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 
 	rpmh_unit_base = of_iomap(pdev->dev.of_node, 0);
 	if (!rpmh_unit_base) {
-		pr_err("Failed to get rpmh_unit_base\n");
-		ret = -ENOMEM;
-		goto fail_iomap;
+		pr_err("Failed to get rpmh_unit_base or rpm based target\n");
+		rpmh_unit_base = NULL;
 	}
 
 	apss_master_stats.version_id = 0x1;
 	platform_set_drvdata(pdev, prvdata);
+
 	return ret;
 
-fail_iomap:
-	sysfs_remove_file(prvdata->kobj, &prvdata->ka.attr);
 fail_sysfs:
 	kobject_put(prvdata->kobj);
 	return ret;
@@ -253,7 +267,8 @@ static int msm_rpmh_master_stats_remove(struct platform_device *pdev)
 	sysfs_remove_file(prvdata->kobj, &prvdata->ka.attr);
 	kobject_put(prvdata->kobj);
 	platform_set_drvdata(pdev, NULL);
-	iounmap(rpmh_unit_base);
+	if (rpmh_unit_base)
+		iounmap(rpmh_unit_base);
 	rpmh_unit_base = NULL;
 
 	return 0;

@@ -9,6 +9,7 @@
 # for more details.
 #
 # Copyright (C) 1998-2004 by David Mosberger-Tang <davidm@hpl.hp.com>
+# Copyright (C) 2021 XiaoMi, Inc.
 #
 
 KBUILD_DEFCONFIG := generic_defconfig
@@ -40,7 +41,7 @@ $(error Sorry, you need a newer version of the assember, one that is built from	
 endif
 
 quiet_cmd_gzip = GZIP    $@
-cmd_gzip = cat $(real-prereqs) | gzip -n -f -9 > $@
+cmd_gzip = cat $(real-prereqs) | $(KGZIP) -n -f -9 > $@
 
 quiet_cmd_objcopy = OBJCOPY $@
 cmd_objcopy = $(OBJCOPY) $(OBJCOPYFLAGS) $(OBJCOPYFLAGS_$(@F)) $< $@

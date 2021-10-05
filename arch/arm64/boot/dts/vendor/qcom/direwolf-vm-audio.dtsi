@@ -1,0 +1,1248 @@
+#include "msm-audio-lpass.dtsi"
+
+&msm_audio_ion {
+	/delete-property/ iommus;
+	/delete-property/ qcom,iommu-dma-addr-pool;
+};
+
+&soc {
+	tdm_pri_rx: qcom,msm-dai-tdm-pri-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37120>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36864 36866 36868 36870>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		dai_pri_tdm_rx_0: qcom,msm-dai-q6-tdm-pri-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36864>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_rx_1: qcom,msm-dai-q6-tdm-pri-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36866>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_rx_2: qcom,msm-dai-q6-tdm-pri-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36868>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_rx_3: qcom,msm-dai-q6-tdm-pri-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36870>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_pri_tx: qcom,msm-dai-tdm-pri-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37121>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36865 36867 36869 36871>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		dai_pri_tdm_tx_0: qcom,msm-dai-q6-tdm-pri-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36865>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_tx_1: qcom,msm-dai-q6-tdm-pri-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36867>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_tx_2: qcom,msm-dai-q6-tdm-pri-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36869>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_pri_tdm_tx_3: qcom,msm-dai-q6-tdm-pri-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36871>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sec_rx: qcom,msm-dai-tdm-sec-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37136>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36880 36882 36884
+							36886 36894>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <0>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <0>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_sec_tdm_rx_0: qcom,msm-dai-q6-tdm-sec-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36880>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_rx_1: qcom,msm-dai-q6-tdm-sec-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36882>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_rx_2: qcom,msm-dai-q6-tdm-sec-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36884>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_rx_3: qcom,msm-dai-q6-tdm-sec-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36886>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_rx_7: qcom,msm-dai-q6-tdm-sec-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36894>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sec_tx: qcom,msm-dai-tdm-sec-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37137>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36881 36883 36885 36887>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <0>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <0>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_sec_tdm_tx_0: qcom,msm-dai-q6-tdm-sec-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36881>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_tx_1: qcom,msm-dai-q6-tdm-sec-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36883>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_tx_2: qcom,msm-dai-q6-tdm-sec-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36885>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_tx_3: qcom,msm-dai-q6-tdm-sec-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36887>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_tert_rx: qcom,msm-dai-tdm-tert-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37152>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36896 36898 36900
+							36902 36904>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_tert_tdm_rx_0: qcom,msm-dai-q6-tdm-tert-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36896>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_rx_1: qcom,msm-dai-q6-tdm-tert-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36898>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_rx_2: qcom,msm-dai-q6-tdm-tert-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36900>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_rx_3: qcom,msm-dai-q6-tdm-tert-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36902>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_rx_4: qcom,msm-dai-q6-tdm-tert-rx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36904>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_tert_tx: qcom,msm-dai-tdm-tert-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37153>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36897 36899 36901
+							36903 36911>;
+		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_tert_tdm_tx_0: qcom,msm-dai-q6-tdm-tert-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36897>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_tx_1: qcom,msm-dai-q6-tdm-tert-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36899>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_tx_2: qcom,msm-dai-q6-tdm-tert-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36901>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_tx_3: qcom,msm-dai-q6-tdm-tert-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36903>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_tert_tdm_tx_7: qcom,msm-dai-q6-tdm-tert-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36911>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_quat_rx: qcom,msm-dai-tdm-quat-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37168>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36912 36914 36916
+							36918 36926>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <10>;
+		dai_quat_tdm_rx_0: qcom,msm-dai-q6-tdm-quat-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36912>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_rx_1: qcom,msm-dai-q6-tdm-quat-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36914>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_rx_2: qcom,msm-dai-q6-tdm-quat-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36916>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_rx_3: qcom,msm-dai-q6-tdm-quat-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36918>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_rx_7: qcom,msm-dai-q6-tdm-quat-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36926>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_quat_tx: qcom,msm-dai-tdm-quat-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37169>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36913 36915 36917
+							36919 36927>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <5>;
+		dai_quat_tdm_tx_0: qcom,msm-dai-q6-tdm-quat-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36913>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_tx_1: qcom,msm-dai-q6-tdm-quat-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36915>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_tx_2: qcom,msm-dai-q6-tdm-quat-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36917>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_tx_3: qcom,msm-dai-q6-tdm-quat-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36919>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quat_tdm_tx_7: qcom,msm-dai-q6-tdm-quat-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36927>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_quin_rx: qcom,msm-dai-tdm-quin-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37184>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36928 36930 36932
+							36934 36942>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_quin_tdm_rx_0: qcom,msm-dai-q6-tdm-quin-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36928>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_rx_1: qcom,msm-dai-q6-tdm-quin-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36930>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_rx_2: qcom,msm-dai-q6-tdm-quin-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36932>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_rx_3: qcom,msm-dai-q6-tdm-quin-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36934>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_rx_7: qcom,msm-dai-q6-tdm-quin-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36942>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_quin_tx: qcom,msm-dai-tdm-quin-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37185>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id = <36929 36931 36933
+							36935 36943>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_quin_tdm_tx_0: qcom,msm-dai-q6-tdm-quin-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36929>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_tx_1: qcom,msm-dai-q6-tdm-quin-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36931>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_tx_2: qcom,msm-dai-q6-tdm-quin-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36933>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_tx_3: qcom,msm-dai-q6-tdm-quin-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36935>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_quin_tdm_tx_7: qcom,msm-dai-q6-tdm-quin-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36943>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sen_rx: qcom,msm-dai-tdm-sen-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37200>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36944 36946 36948
+							36950 36952 36954 36956 36958>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_sen_tdm_rx_0: qcom,msm-dai-q6-tdm-sen-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36944>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_rx_1: qcom,msm-dai-q6-tdm-sen-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36946>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_rx_2: qcom,msm-dai-q6-tdm-sen-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36948>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_rx_3: qcom,msm-dai-q6-tdm-sen-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36950>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_rx_4: qcom,msm-dai-q6-tdm-sen-rx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36952>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_rx_5: qcom,msm-dai-q6-tdm-sen-rx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36954>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_rx_6: qcom,msm-dai-q6-tdm-sen-rx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36956>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_rx_7: qcom,msm-dai-q6-tdm-sen-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36958>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sen_tx: qcom,msm-dai-tdm-sen-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37201>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36945 36947 36949
+							36951 36953 36955 36957 36959>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_sen_tdm_tx_0: qcom,msm-dai-q6-tdm-sen-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36945>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_tx_1: qcom,msm-dai-q6-tdm-sen-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36947>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_tx_2: qcom,msm-dai-q6-tdm-sen-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36949>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_tx_3: qcom,msm-dai-q6-tdm-sen-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36951>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_tx_4: qcom,msm-dai-q6-tdm-sen-tx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36953>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_tx_5: qcom,msm-dai-q6-tdm-sen-tx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36955>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_tx_6: qcom,msm-dai-q6-tdm-sen-tx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36957>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sen_tdm_tx_7: qcom,msm-dai-q6-tdm-sen-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36959>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sep_rx: qcom,msm-dai-tdm-sep-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37216>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36960 36962 36964
+							36966 36968 36970 36972 36974>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_sep_tdm_rx_0: qcom,msm-dai-q6-tdm-sep-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36960>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_rx_1: qcom,msm-dai-q6-tdm-sep-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36962>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_rx_2: qcom,msm-dai-q6-tdm-sep-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36964>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_rx_3: qcom,msm-dai-q6-tdm-sep-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36966>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_rx_4: qcom,msm-dai-q6-tdm-sep-rx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36968>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_rx_5: qcom,msm-dai-q6-tdm-sep-rx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36970>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_rx_6: qcom,msm-dai-q6-tdm-sep-rx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36972>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_rx_7: qcom,msm-dai-q6-tdm-sep-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36974>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_sep_tx: qcom,msm-dai-tdm-sep-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37217>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36961 36963 36965
+							36967 36969 36971 36973 36975>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_sep_tdm_tx_0: qcom,msm-dai-q6-tdm-sep-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36961>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_tx_1: qcom,msm-dai-q6-tdm-sep-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36963>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_tx_2: qcom,msm-dai-q6-tdm-sep-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36965>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_tx_3: qcom,msm-dai-q6-tdm-sep-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36967>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_tx_4: qcom,msm-dai-q6-tdm-sep-tx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36969>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_tx_5: qcom,msm-dai-q6-tdm-sep-tx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36971>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_tx_6: qcom,msm-dai-q6-tdm-sep-tx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36973>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sep_tdm_tx_7: qcom,msm-dai-q6-tdm-sep-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36975>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_hsif0_rx: qcom,msm-dai-tdm-hsif0-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37232>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36976 36978 36980
+							36982 36984 36986 36988 36990>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_hsif0_tdm_rx_0: qcom,msm-dai-q6-tdm-hsif0-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36976>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_rx_1: qcom,msm-dai-q6-tdm-hsif0-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36978>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_rx_2: qcom,msm-dai-q6-tdm-hsif0-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36980>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_rx_3: qcom,msm-dai-q6-tdm-hsif0-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36982>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_rx_4: qcom,msm-dai-q6-tdm-hsif0-rx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36984>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_rx_5: qcom,msm-dai-q6-tdm-hsif0-rx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36986>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_rx_6: qcom,msm-dai-q6-tdm-hsif0-rx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36988>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_rx_7: qcom,msm-dai-q6-tdm-hsif0-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36990>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_hsif0_tx: qcom,msm-dai-tdm-hsif0-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37233>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36977 36979 36981
+							36983 36985 36987 36989 36991>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_hsif0_tdm_tx_0: qcom,msm-dai-q6-tdm-hsif0-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36977>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_tx_1: qcom,msm-dai-q6-tdm-hsif0-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36979>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_tx_2: qcom,msm-dai-q6-tdm-hsif0-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36981>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_tx_3: qcom,msm-dai-q6-tdm-hsif0-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36983>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_tx_4: qcom,msm-dai-q6-tdm-hsif0-tx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36985>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_tx_5: qcom,msm-dai-q6-tdm-hsif0-tx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36987>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_tx_6: qcom,msm-dai-q6-tdm-hsif0-tx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36989>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif0_tdm_tx_7: qcom,msm-dai-q6-tdm-hsif0-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36991>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_hsif1_rx: qcom,msm-dai-tdm-hsif1-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37248>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36992 36994 36996
+							36998 37000 37002 37004 37006>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_hsif1_tdm_rx_0: qcom,msm-dai-q6-tdm-hsif1-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36992>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_rx_1: qcom,msm-dai-q6-tdm-hsif1-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36994>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_rx_2: qcom,msm-dai-q6-tdm-hsif1-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36996>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_rx_3: qcom,msm-dai-q6-tdm-hsif1-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36998>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_rx_4: qcom,msm-dai-q6-tdm-hsif1-rx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37000>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_rx_5: qcom,msm-dai-q6-tdm-hsif1-rx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37002>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_rx_6: qcom,msm-dai-q6-tdm-hsif1-rx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37004>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_rx_7: qcom,msm-dai-q6-tdm-hsif1-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37006>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_hsif1_tx: qcom,msm-dai-tdm-hsif1-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37249>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <36993 36995 36997
+							36999 37001 37003 37005 37007>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_hsif1_tdm_tx_0: qcom,msm-dai-q6-tdm-hsif1-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36993>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_tx_1: qcom,msm-dai-q6-tdm-hsif1-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36995>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_tx_2: qcom,msm-dai-q6-tdm-hsif1-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36997>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_tx_3: qcom,msm-dai-q6-tdm-hsif1-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36999>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_tx_4: qcom,msm-dai-q6-tdm-hsif1-tx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37001>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_tx_5: qcom,msm-dai-q6-tdm-hsif1-tx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37003>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_tx_6: qcom,msm-dai-q6-tdm-hsif1-tx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37005>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif1_tdm_tx_7: qcom,msm-dai-q6-tdm-hsif1-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37007>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_hsif2_rx: qcom,msm-dai-tdm-hsif2-rx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37264>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <37008 37010 37012
+							37014 37016 37018 37020 37022>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_hsif2_tdm_rx_0: qcom,msm-dai-q6-tdm-hsif2-rx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37008>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_rx_1: qcom,msm-dai-q6-tdm-hsif2-rx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37010>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_rx_2: qcom,msm-dai-q6-tdm-hsif2-rx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37012>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_rx_3: qcom,msm-dai-q6-tdm-hsif2-rx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37014>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_rx_4: qcom,msm-dai-q6-tdm-hsif2-rx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37016>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_rx_5: qcom,msm-dai-q6-tdm-hsif2-rx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37018>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_rx_6: qcom,msm-dai-q6-tdm-hsif2-rx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37020>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_rx_7: qcom,msm-dai-q6-tdm-hsif2-rx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37022>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	tdm_hsif2_tx: qcom,msm-dai-tdm-hsif2-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37265>;
+		qcom,msm-cpudai-tdm-group-num-ports = <8>;
+		qcom,msm-cpudai-tdm-group-port-id = <37009 37011 37013
+							37015 37017 37019 37021 37023>;
+		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
+		qcom,msm-cpudai-tdm-clk-internal = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-src = <1>;
+		qcom,msm-cpudai-tdm-data-out = <0>;
+		qcom,msm-cpudai-tdm-invert-sync = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <0>;
+		dai_hsif2_tdm_tx_0: qcom,msm-dai-q6-tdm-hsif2-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37009>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_tx_1: qcom,msm-dai-q6-tdm-hsif2-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37011>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_tx_2: qcom,msm-dai-q6-tdm-hsif2-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37013>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_tx_3: qcom,msm-dai-q6-tdm-hsif2-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37015>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_tx_4: qcom,msm-dai-q6-tdm-hsif2-tx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37017>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_tx_5: qcom,msm-dai-q6-tdm-hsif2-tx-5 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37019>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_tx_6: qcom,msm-dai-q6-tdm-hsif2-tx-6 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37021>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_hsif2_tdm_tx_7: qcom,msm-dai-q6-tdm-hsif2-tx-7 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <37023>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+
+		afe_pcm_rx_1: qcom,msm-dai-q6-be-afe-pcm-rx-1 {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <226>;
+		};
+
+		afe_proxy_tx_1: qcom,msm-dai-q6-afe-proxy-tx-1 {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <242>;
+		};
+	};
+};
+
+&audio_apr {
+	q6core: qcom,q6core-audio {
+		compatible = "qcom,q6core-audio";
+	};
+};
+
+&q6core {
+	snd_8295: sound-adp-star {
+		compatible = "qcom,sa8295-asoc-snd-adp-star";
+		qcom,model = "sa8295-adp-star-snd-card";
+		qcom,mi2s-audio-intf;
+		qcom,auxpcm-audio-intf;
+		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&pcm_noirq>, <&loopback1>, <&pcm_dtmf>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-dsp-noirq", "msm-pcm-loopback.1",
+				"msm-pcm-dtmf";
+		asoc-cpu = <&dai_hdmi>, <&dai_dp>,
+				<&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>,
+				<&dai_mi2s4>, <&dai_pri_auxpcm>,
+				<&dai_sec_auxpcm>, <&dai_tert_auxpcm>,
+				<&dai_quat_auxpcm>, <&dai_quin_auxpcm>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>,
+				<&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&afe_pcm_rx_1>, <&afe_proxy_tx_1>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music_2_rx>,
+				<&usb_audio_rx>, <&usb_audio_tx>,
+				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_rx_1>,
+				<&dai_pri_tdm_rx_2>, <&dai_pri_tdm_rx_3>,
+				<&dai_pri_tdm_tx_0>, <&dai_pri_tdm_tx_1>,
+				<&dai_pri_tdm_tx_2>, <&dai_pri_tdm_tx_3>,
+				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_rx_1>,
+				<&dai_sec_tdm_rx_2>, <&dai_sec_tdm_rx_3>,
+				<&dai_sec_tdm_rx_7>, <&dai_sec_tdm_tx_0>,
+				<&dai_sec_tdm_tx_1>, <&dai_sec_tdm_tx_2>,
+				<&dai_sec_tdm_tx_3>, <&dai_tert_tdm_rx_0>,
+				<&dai_tert_tdm_rx_1>, <&dai_tert_tdm_rx_2>,
+				<&dai_tert_tdm_rx_3>, <&dai_tert_tdm_rx_4>,
+				<&dai_tert_tdm_tx_0>, <&dai_tert_tdm_tx_1>,
+				<&dai_tert_tdm_tx_2>, <&dai_tert_tdm_tx_3>,
+				<&dai_tert_tdm_tx_7>, <&dai_quat_tdm_rx_0>,
+				<&dai_quat_tdm_rx_1>, <&dai_quat_tdm_rx_2>,
+				<&dai_quat_tdm_rx_3>, <&dai_quat_tdm_rx_7>,
+				<&dai_quat_tdm_tx_0>, <&dai_quat_tdm_tx_1>,
+				<&dai_quat_tdm_tx_2>, <&dai_quat_tdm_tx_3>,
+				<&dai_quat_tdm_tx_7>, <&dai_quin_tdm_rx_0>,
+				<&dai_quin_tdm_rx_1>, <&dai_quin_tdm_rx_2>,
+				<&dai_quin_tdm_rx_3>, <&dai_quin_tdm_rx_7>,
+				<&dai_quin_tdm_tx_0>, <&dai_quin_tdm_tx_1>,
+				<&dai_quin_tdm_tx_2>, <&dai_quin_tdm_tx_3>,
+				<&dai_quin_tdm_tx_7>, <&dai_sen_tdm_rx_0>,
+				<&dai_sen_tdm_rx_1>, <&dai_sen_tdm_rx_2>,
+				<&dai_sen_tdm_rx_3>, <&dai_sen_tdm_rx_4>,
+				<&dai_sen_tdm_rx_5>, <&dai_sen_tdm_rx_6>,
+				<&dai_sen_tdm_rx_7>, <&dai_sen_tdm_tx_0>,
+				<&dai_sen_tdm_tx_1>, <&dai_sen_tdm_tx_2>,
+				<&dai_sen_tdm_tx_3>, <&dai_sen_tdm_tx_4>,
+				<&dai_sen_tdm_tx_5>, <&dai_sen_tdm_tx_6>,
+				<&dai_sen_tdm_tx_7>, <&dai_sep_tdm_rx_0>,
+				<&dai_sep_tdm_rx_1>, <&dai_sep_tdm_rx_2>,
+				<&dai_sep_tdm_rx_3>, <&dai_sep_tdm_rx_4>,
+				<&dai_sep_tdm_rx_5>, <&dai_sep_tdm_rx_6>,
+				<&dai_sep_tdm_rx_7>, <&dai_sep_tdm_tx_0>,
+				<&dai_sep_tdm_tx_1>, <&dai_sep_tdm_tx_2>,
+				<&dai_sep_tdm_tx_3>, <&dai_sep_tdm_tx_4>,
+				<&dai_sep_tdm_tx_5>, <&dai_sep_tdm_tx_6>,
+				<&dai_sep_tdm_tx_7>, <&dai_hsif0_tdm_rx_0>,
+				<&dai_hsif0_tdm_rx_1>, <&dai_hsif0_tdm_rx_2>,
+				<&dai_hsif0_tdm_rx_3>, <&dai_hsif0_tdm_rx_4>,
+				<&dai_hsif0_tdm_rx_5>, <&dai_hsif0_tdm_rx_6>,
+				<&dai_hsif0_tdm_rx_7>, <&dai_hsif0_tdm_tx_0>,
+				<&dai_hsif0_tdm_tx_1>, <&dai_hsif0_tdm_tx_2>,
+				<&dai_hsif0_tdm_tx_3>, <&dai_hsif0_tdm_tx_4>,
+				<&dai_hsif0_tdm_tx_5>, <&dai_hsif0_tdm_tx_6>,
+				<&dai_hsif1_tdm_tx_7>, <&dai_hsif1_tdm_rx_0>,
+				<&dai_hsif1_tdm_rx_1>, <&dai_hsif1_tdm_rx_2>,
+				<&dai_hsif1_tdm_rx_3>, <&dai_hsif1_tdm_rx_4>,
+				<&dai_hsif1_tdm_rx_5>, <&dai_hsif1_tdm_rx_6>,
+				<&dai_hsif1_tdm_rx_7>, <&dai_hsif1_tdm_tx_0>,
+				<&dai_hsif1_tdm_tx_1>, <&dai_hsif1_tdm_tx_2>,
+				<&dai_hsif1_tdm_tx_3>, <&dai_hsif1_tdm_tx_4>,
+				<&dai_hsif1_tdm_tx_5>, <&dai_hsif1_tdm_tx_6>,
+				<&dai_hsif1_tdm_tx_7>, <&dai_hsif2_tdm_rx_0>,
+				<&dai_hsif2_tdm_rx_1>, <&dai_hsif2_tdm_rx_2>,
+				<&dai_hsif2_tdm_rx_3>, <&dai_hsif2_tdm_rx_4>,
+				<&dai_hsif2_tdm_rx_5>, <&dai_hsif2_tdm_rx_6>,
+				<&dai_hsif2_tdm_rx_7>, <&dai_hsif2_tdm_tx_0>,
+				<&dai_hsif2_tdm_tx_1>, <&dai_hsif2_tdm_tx_2>,
+				<&dai_hsif2_tdm_tx_3>, <&dai_hsif2_tdm_tx_4>,
+				<&dai_hsif2_tdm_tx_5>, <&dai_hsif2_tdm_tx_6>,
+				<&dai_hsif2_tdm_tx_7>;
+		asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.0",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-mi2s.4", "msm-dai-q6-auxpcm.1",
+				"msm-dai-q6-auxpcm.2", "msm-dai-q6-auxpcm.3",
+				"msm-dai-q6-auxpcm.4", "msm-dai-q6-auxpcm.5",
+				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.226", "msm-dai-q6-dev.242",
+				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36866",
+				"msm-dai-q6-tdm.36868", "msm-dai-q6-tdm.36870",
+				"msm-dai-q6-tdm.36865", "msm-dai-q6-tdm.36867",
+				"msm-dai-q6-tdm.36869", "msm-dai-q6-tdm.36871",
+				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36882",
+				"msm-dai-q6-tdm.36884", "msm-dai-q6-tdm.36886",
+				"msm-dai-q6-tdm.36894", "msm-dai-q6-tdm.36881",
+				"msm-dai-q6-tdm.36883", "msm-dai-q6-tdm.36885",
+				"msm-dai-q6-tdm.36887", "msm-dai-q6-tdm.36896",
+				"msm-dai-q6-tdm.36898", "msm-dai-q6-tdm.36900",
+				"msm-dai-q6-tdm.36902", "msm-dai-q6-tdm.36904",
+				"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36899",
+				"msm-dai-q6-tdm.36901", "msm-dai-q6-tdm.36903",
+				"msm-dai-q6-tdm.36911", "msm-dai-q6-tdm.36912",
+				"msm-dai-q6-tdm.36914", "msm-dai-q6-tdm.36916",
+				"msm-dai-q6-tdm.36918", "msm-dai-q6-tdm.36926",
+				"msm-dai-q6-tdm.36913", "msm-dai-q6-tdm.36915",
+				"msm-dai-q6-tdm.36917", "msm-dai-q6-tdm.36919",
+				"msm-dai-q6-tdm.36927", "msm-dai-q6-tdm.36928",
+				"msm-dai-q6-tdm.36930", "msm-dai-q6-tdm.36932",
+				"msm-dai-q6-tdm.36934", "msm-dai-q6-tdm.36942",
+				"msm-dai-q6-tdm.36929", "msm-dai-q6-tdm.36931",
+				"msm-dai-q6-tdm.36933", "msm-dai-q6-tdm.36935",
+				"msm-dai-q6-tdm.36943", "msm-dai-q6-tdm.36944",
+				"msm-dai-q6-tdm.36946", "msm-dai-q6-tdm.36948",
+				"msm-dai-q6-tdm.36950", "msm-dai-q6-tdm.36952",
+				"msm-dai-q6-tdm.36954", "msm-dai-q6-tdm.36956",
+				"msm-dai-q6-tdm.36958", "msm-dai-q6-tdm.36945",
+				"msm-dai-q6-tdm.36947", "msm-dai-q6-tdm.36949",
+				"msm-dai-q6-tdm.36951", "msm-dai-q6-tdm.36953",
+				"msm-dai-q6-tdm.36955", "msm-dai-q6-tdm.36957",
+				"msm-dai-q6-tdm.36959", "msm-dai-q6-tdm.36960",
+				"msm-dai-q6-tdm.36962", "msm-dai-q6-tdm.36964",
+				"msm-dai-q6-tdm.36966", "msm-dai-q6-tdm.36968",
+				"msm-dai-q6-tdm.36970", "msm-dai-q6-tdm.36972",
+				"msm-dai-q6-tdm.36974", "msm-dai-q6-tdm.36961",
+				"msm-dai-q6-tdm.36963", "msm-dai-q6-tdm.36965",
+				"msm-dai-q6-tdm.36967", "msm-dai-q6-tdm.36969",
+				"msm-dai-q6-tdm.36971", "msm-dai-q6-tdm.36973",
+				"msm-dai-q6-tdm.36975", "msm-dai-q6-tdm.36976",
+				"msm-dai-q6-tdm.36978", "msm-dai-q6-tdm.36980",
+				"msm-dai-q6-tdm.36982", "msm-dai-q6-tdm.36984",
+				"msm-dai-q6-tdm.36986", "msm-dai-q6-tdm.36988",
+				"msm-dai-q6-tdm.36990", "msm-dai-q6-tdm.36977",
+				"msm-dai-q6-tdm.36979", "msm-dai-q6-tdm.36981",
+				"msm-dai-q6-tdm.36983", "msm-dai-q6-tdm.36985",
+				"msm-dai-q6-tdm.36987", "msm-dai-q6-tdm.36989",
+				"msm-dai-q6-tdm.36991", "msm-dai-q6-tdm.36992",
+				"msm-dai-q6-tdm.36994", "msm-dai-q6-tdm.36996",
+				"msm-dai-q6-tdm.36998", "msm-dai-q6-tdm.37000",
+				"msm-dai-q6-tdm.37002", "msm-dai-q6-tdm.37004",
+				"msm-dai-q6-tdm.37006", "msm-dai-q6-tdm.36993",
+				"msm-dai-q6-tdm.36995", "msm-dai-q6-tdm.36997",
+				"msm-dai-q6-tdm.36999", "msm-dai-q6-tdm.37001",
+				"msm-dai-q6-tdm.37003", "msm-dai-q6-tdm.37005",
+				"msm-dai-q6-tdm.37007", "msm-dai-q6-tdm.37008",
+				"msm-dai-q6-tdm.37010", "msm-dai-q6-tdm.37012",
+				"msm-dai-q6-tdm.37014", "msm-dai-q6-tdm.37016",
+				"msm-dai-q6-tdm.37018", "msm-dai-q6-tdm.37020",
+				"msm-dai-q6-tdm.37022", "msm-dai-q6-tdm.37009",
+				"msm-dai-q6-tdm.37011", "msm-dai-q6-tdm.37013",
+				"msm-dai-q6-tdm.37015", "msm-dai-q6-tdm.37017",
+				"msm-dai-q6-tdm.37019", "msm-dai-q6-tdm.37021",
+				"msm-dai-q6-tdm.37023";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
+	};
+};
+

@@ -1,0 +1,22 @@
+* Cx iPeak driver to handle requests from various multimedia clients.
+
+Cx ipeak HW module is used to limit the current drawn by various subsystem
+blocks on Cx power rail. Each client needs to set their bit in tcsr register
+if it is going to cross its own threshold. If all clients are going to cross
+their thresholds then Cx ipeak hw module will raise an interrupt to cDSP block
+to throttle cDSP's fmax.
+
+Required properties:
+
+- compatible : name of the component used for driver matching, should be one
+	       "qcom,cx-ipeak-v1", "qcom,cx-ipeak-v2"
+
+- reg : physical base address and length of the register set(s), SRAM and XPU
+	of the component.
+
+Example:
+
+	cx_ipeak_lm: cx_ipeak@1fe5040 {
+		compatible = "qcom,cx-ipeak-v1";
+		reg = <0x01fe5040 0x28>;
+	};

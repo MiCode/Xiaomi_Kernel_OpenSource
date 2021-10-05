@@ -1,0 +1,44 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/power/reset/qcom-reboot-reason.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. reboot reason binding
+
+maintainers:
+  - Elliot Berman <eberman@quicinc.com>
+
+description: |
+  Qualcomm Technologies, Inc. SoCs support booting to special download
+  modes after a restart. These modes could be a normal restart,
+  restarting into a ramdump collection mode (CrashDump), or restarting
+  into "emergency download mode".
+
+properties:
+  compatible:
+    items:
+      - const: qcom,reboot-mode
+
+  allOf:
+    - $ref: /schemas/nvmem/nvmem-consumer.yaml#/properties
+    - items:
+      nvmem-cell-names:
+        items:
+          - const: restart_reason
+
+required:
+  - compatible
+  - nvmem-cells-names
+
+dependencies:
+  allOf:
+    - $ref: /schemas/nvmem/nvmem-consumer.yaml#/dependencies
+
+
+examples:
+  - |
+    reboot-reason {
+      compatible = "qcom,reboot-reason";
+      nvmem-cells = <&restart_reason>;
+      nvmem-cell-names = "restart_reason";
+    };

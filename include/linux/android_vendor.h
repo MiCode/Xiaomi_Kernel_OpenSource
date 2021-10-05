@@ -3,6 +3,7 @@
  * android_vendor.h - Android vendor data
  *
  * Copyright 2020 Google LLC
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * These macros are to be used to reserve space in kernel data structures
  * for use by vendor modules.
@@ -28,5 +29,8 @@
  */
 #define ANDROID_VENDOR_DATA(n)		u64 android_vendor_data##n
 #define ANDROID_VENDOR_DATA_ARRAY(n, s)	u64 android_vendor_data##n[s]
+
+#define ANDROID_OEM_DATA(n)		u64 android_oem_data##n
+#define ANDROID_OEM_DATA_ARRAY(n, s)	u64 android_oem_data##n[s]
 
 #endif /* _ANDROID_VENDOR_H */

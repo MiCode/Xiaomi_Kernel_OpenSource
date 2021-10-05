@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2011-2012, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CORESIGHT_PRIV_H
@@ -87,6 +88,7 @@ enum cs_mode {
  * struct cs_buffer - keep track of a recording session' specifics
  * @cur:	index of the current buffer
  * @nr_pages:	max number of pages granted to us
+ * @pid:	PID this cs_buffer belongs to
  * @offset:	offset within the current buffer
  * @data_size:	how much we collected in this run
  * @snapshot:	is this run in snapshot mode
@@ -95,6 +97,7 @@ enum cs_mode {
 struct cs_buffers {
 	unsigned int		cur;
 	unsigned int		nr_pages;
+	pid_t			pid;
 	unsigned long		offset;
 	local_t			data_size;
 	bool			snapshot;
@@ -162,6 +165,17 @@ static inline int etm_readl_cp14(u32 off, unsigned int *val) { return 0; }
 static inline int etm_writel_cp14(u32 off, u32 val) { return 0; }
 #endif
 
+#ifdef CONFIG_CORESIGHT_FUSE
+extern bool coresight_fuse_access_disabled(void);
+extern bool coresight_fuse_apps_access_disabled(void);
+extern bool coresight_fuse_qpdi_access_disabled(void);
+extern bool coresight_fuse_nidnt_access_disabled(void);
+#else
+static inline bool coresight_fuse_access_disabled(void) { return false; }
+static inline bool coresight_fuse_apps_access_disabled(void) { return false; }
+static inline bool coresight_fuse_qpdi_access_disabled(void) { return false; }
+static inline bool coresight_fuse_nidnt_access_disabled(void) { return false; }
+#endif
 /*
  * Macros and inline functions to handle CoreSight UCI data and driver
  * private data in AMBA ID table entries, and extract data values.

@@ -3,6 +3,7 @@
  *  Kernel Probes (KProbes)
  *
  * Copyright (C) IBM Corporation, 2002, 2004
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * 2002-Oct	Created by Vamsi Krishna S <vamsi_krishna@in.ibm.com> Kernel
  *		Probes initial implementation ( includes contributions from
@@ -1019,6 +1020,11 @@ int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
 		 * So clear it by resetting the current kprobe:
 		 */
 		regs->flags &= ~X86_EFLAGS_TF;
+		/*
+		 * Since the single step (trap) has been cancelled,
+		 * we need to restore BTF here.
+		 */
+		restore_btf();
 
 		/*
 		 * If the TF flag was set before the kprobe hit,

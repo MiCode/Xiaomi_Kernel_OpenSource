@@ -1,0 +1,7 @@
+#include "holi-mtp-pm6125.dtsi"
+/ {
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-yupik";
+};

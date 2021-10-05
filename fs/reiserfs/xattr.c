@@ -3,6 +3,7 @@
  * linux/fs/reiserfs/xattr.c
  *
  * Copyright (c) 2002 by Jeff Mahoney, <jeffm@suse.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 
@@ -673,6 +674,13 @@ reiserfs_xattr_get(struct inode *inode, const char *name, void *buffer,
 	 */
 	if (get_inode_sd_version(inode) == STAT_DATA_V1)
 		return -EOPNOTSUPP;
+
+	/*
+	 * priv_root needn't be initialized during mount so allow initial
+	 * lookups to succeed.
+	 */
+	if (!REISERFS_SB(inode->i_sb)->priv_root)
+		return 0;
 
 	dentry = xattr_lookup(inode, name, XATTR_REPLACE);
 	if (IS_ERR(dentry)) {

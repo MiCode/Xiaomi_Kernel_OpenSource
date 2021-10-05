@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __SOC_QCOM_LPM_LEVEL_H__
@@ -19,7 +20,7 @@ struct system_pm_ops {
 	bool (*sleep_allowed)(void);
 };
 
-#ifdef CONFIG_MSM_PM
+#if defined(CONFIG_MSM_PM) || defined(CONFIG_MSM_PM_LEGACY)
 uint32_t register_system_pm_ops(struct system_pm_ops *pm_ops);
 void update_ipi_history(int cpu);
 #else

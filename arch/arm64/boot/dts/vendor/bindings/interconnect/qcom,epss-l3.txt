@@ -1,0 +1,39 @@
+Qualcomm Technologies, Inc. EPSS L3 interconnect driver binding
+-----------------------------------------------------------
+
+The EPSS L3 Interconnect provider supports the scaling of L3 cache
+performance states of the CPU subsystem.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,lahaina-epss-l3-shared",
+			"qcom,lahaina-epss-l3-cpu",
+			"qcom,shima-epss-l3-cpu",
+			"qcom,shima-epss-l3-shared",
+			"qcom,yupik-epss-l3-cpu",
+			"qcom,direwolf-epss-l3-cpu";
+- reg : Address and length of the register set for the device
+- clock-names: should contain "xo", "alternate"
+- clocks: list of phandle and clock specifier pairs corresponding to
+          entries in the clock-names property.
+- #interconnect-cells : should contain 1
+
+Examples:
+
+epss_l3_shared: l3_shared@18590000 {
+	reg = <0x18590000 0x1000>;
+	compatible = "qcom,lahaina-epss-l3-shared";
+	#interconnect-cells = <1>;
+	clock-names = "xo", "alternate";
+	clocks = <&clock_rpmh RPMH_CXO_CLK>,
+		<&clock_gcc GCC_GPLL0>;
+};
+
+epss_l3_cpu: l3_cpu@18590000{
+	reg = <0x18590000 0x4000>;
+	compatible = "qcom,lahaina-epss-l3-cpu";
+	#interconnect-cells = <1>;
+	clock-names = "xo", "alternate";
+	clocks = <&clock_rpmh RPMH_CXO_CLK>,
+		<&clock_gcc GCC_GPLL0>;
+};

@@ -4,6 +4,7 @@
  * Written by: Matthew Dobson, IBM Corporation
  *
  * Copyright (C) 2002, IBM Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * All rights reserved.
  *
@@ -213,9 +214,6 @@ static inline int cpu_to_mem(int cpu)
 #endif
 #ifndef topology_die_cpumask
 #define topology_die_cpumask(cpu)		cpumask_of(cpu)
-#endif
-#ifndef topology_possible_sibling_cpumask
-#define topology_possible_sibling_cpumask(cpu)	cpumask_of(cpu)
 #endif
 
 #ifdef CONFIG_SCHED_SMT

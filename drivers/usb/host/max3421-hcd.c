@@ -5,6 +5,7 @@
  * Author: David Mosberger-Tang <davidm@egauge.net>
  *
  * (C) Copyright 2014 David Mosberger-Tang <davidm@egauge.net>
+ * (C) Copyright (C) 2021 XiaoMi, Inc.
  *
  * MAX3421 is a chip implementing a USB 2.0 Full-/Low-Speed host
  * controller on a SPI bus.
@@ -1847,7 +1848,7 @@ max3421_probe(struct spi_device *spi)
 	struct max3421_hcd *max3421_hcd;
 	struct usb_hcd *hcd = NULL;
 	struct max3421_hcd_platform_data *pdata = NULL;
-	int retval = -ENOMEM;
+	int retval;
 
 	if (spi_setup(spi) < 0) {
 		dev_err(&spi->dev, "Unable to setup SPI bus");
@@ -1889,6 +1890,7 @@ max3421_probe(struct spi_device *spi)
 		goto error;
 	}
 
+	retval = -ENOMEM;
 	hcd = usb_create_hcd(&max3421_hcd_desc, &spi->dev,
 			     dev_name(&spi->dev));
 	if (!hcd) {

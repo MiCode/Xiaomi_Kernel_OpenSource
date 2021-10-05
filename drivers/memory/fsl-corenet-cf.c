@@ -3,6 +3,7 @@
  * CoreNet Coherency Fabric error reporting
  *
  * Copyright 2014 Freescale Semiconductor Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/interrupt.h>
@@ -211,10 +212,8 @@ static int ccf_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, ccf);
 
 	irq = platform_get_irq(pdev, 0);
-	if (!irq) {
-		dev_err(&pdev->dev, "%s: no irq\n", __func__);
-		return -ENXIO;
-	}
+	if (irq < 0)
+		return irq;
 
 	ret = devm_request_irq(&pdev->dev, irq, ccf_irq, 0, pdev->name, ccf);
 	if (ret) {

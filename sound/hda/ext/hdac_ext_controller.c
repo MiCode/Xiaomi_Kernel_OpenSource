@@ -3,6 +3,7 @@
  *  hdac-ext-controller.c - HD-audio extended controller functions.
  *
  *  Copyright (C) 2014-2015 Intel Corp
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *  Author: Jeeja KP <jeeja.kp@intel.com>
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -147,6 +148,8 @@ struct hdac_ext_link *snd_hdac_ext_bus_get_link(struct hdac_bus *bus,
 	if (sscanf(codec_name, "ehdaudio%dD%d", &bus_idx, &addr) != 2)
 		return NULL;
 	if (bus->idx != bus_idx)
+		return NULL;
+	if (addr < 0 || addr > 31)
 		return NULL;
 
 	list_for_each_entry(hlink, &bus->hlink_list, list) {

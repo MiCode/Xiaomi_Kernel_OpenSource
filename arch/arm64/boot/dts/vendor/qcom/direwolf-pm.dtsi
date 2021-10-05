@@ -1,0 +1,185 @@
+&soc {
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			idle-state-name = "L3";
+			qcom,clstr-tmr-add = <1000>;
+			qcom,psci-mode-shift = <4>;
+			qcom,psci-mode-mask = <0xfff>;
+
+			CLUSTER_WFI: qcom,pm-cluster-level@0 { /* D1 */
+				reg = <0>;
+				compatible = "arm,idle-state";
+				idle-state-name = "l3-wfi";
+				entry-latency-us = <660>;
+				exit-latency-us = <600>;
+				min-residency-us = <1260>;
+				arm,psci-suspend-param = <0x10>;
+				qcom,psci-mode = <0x1>;
+			};
+
+			CLUSTER_OFF: qcom,pm-cluster-level@1 { /* D4 */
+				reg = <1>;
+				compatible = "arm,idle-state";
+				idle-state-name = "l3-pc";
+				entry-latency-us = <2752>;
+				exit-latency-us = <3048>;
+				min-residency-us = <6118>;
+				arm,psci-suspend-param = <0x40>;
+				qcom,psci-mode = <0x4>;
+				qcom,is-reset;
+				qcom,min-child-idx = <2>;
+			};
+
+			CX_OFF: qcom,pm-cluster-level@2 { /* Cx Off */
+				reg = <2>;
+				compatible = "arm,idle-state";
+				idle-state-name = "cx-off";
+				entry-latency-us = <3263>;
+				exit-latency-us = <4562>;
+				min-residency-us = <8467>;
+				arm,psci-suspend-param = <0x2340>;
+				qcom,psci-mode = <0x234>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+				qcom,min-child-idx = <2>;
+			};
+
+			LLCC_OFF: qcom,pm-cluster-level@3 { /* AOSS sleep */
+				reg = <3>;
+				compatible = "arm,idle-state";
+				idle-state-name = "llcc-off";
+				entry-latency-us = <3638>;
+				exit-latency-us = <6562>;
+				min-residency-us = <9826>;
+				arm,psci-suspend-param = <0xc340>;
+				qcom,psci-mode = <0xc34>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+				qcom,min-child-idx = <2>;
+			};
+
+			qcom,pm-cpu@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,ref-stddev = <500>;
+				qcom,tmr-add = <1000>;
+				qcom,ref-premature-cnt = <1>;
+				qcom,disable-ipi-prediction;
+				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
+
+				SLVR_WFI: qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					compatible = "arm,idle-state";
+					idle-state-name = "wfi";
+					entry-latency-us = <61>;
+					exit-latency-us = <60>;
+					min-residency-us = <121>;
+					arm,psci-suspend-param = <0x1>;
+					qcom,psci-cpu-mode = <0x1>;
+				};
+
+				SLVR_OFF: qcom,pm-cpu-level@1 {  /* C3 */
+					reg = <1>;
+					compatible = "arm,idle-state";
+					idle-state-name = "pc";
+					entry-latency-us = <549>;
+					exit-latency-us = <901>;
+					min-residency-us = <1774>;
+					arm,psci-suspend-param = <0x40000003>;
+					qcom,psci-cpu-mode = <0x3>;
+					local-timer-stop;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+
+				SLVR_RAIL_OFF: qcom,pm-cpu-level@2 {  /* C4 */
+					reg = <2>;
+					compatible = "arm,idle-state";
+					idle-state-name = "rail-pc";
+					entry-latency-us = <702>;
+					exit-latency-us = <915>;
+					min-residency-us = <4001>;
+					arm,psci-suspend-param = <0x40000004>;
+					qcom,psci-cpu-mode = <0x4>;
+					local-timer-stop;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+			};
+
+			qcom,pm-cpu@1 {
+				reg = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
+
+				GOLD_WFI: qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					compatible = "arm,idle-state";
+					idle-state-name = "wfi";
+					entry-latency-us = <55>;
+					exit-latency-us = <66>;
+					min-residency-us = <121>;
+					arm,psci-suspend-param = <0x1>;
+					qcom,psci-cpu-mode = <0x1>;
+				};
+
+				GOLD_OFF: qcom,pm-cpu-level@1 {  /* C3 */
+					reg = <1>;
+					compatible = "arm,idle-state";
+					idle-state-name = "pc";
+					entry-latency-us = <523>;
+					exit-latency-us = <1244>;
+					min-residency-us = <2207>;
+					arm,psci-suspend-param = <0x40000003>;
+					qcom,psci-cpu-mode = <0x3>;
+					local-timer-stop;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+
+				GOLD_RAIL_OFF: qcom,pm-cpu-level@2 {  /* C4 */
+					reg = <2>;
+					compatible = "arm,idle-state";
+					idle-state-name = "rail-pc";
+					entry-latency-us = <526>;
+					exit-latency-us = <1854>;
+					min-residency-us = <5555>;
+					arm,psci-suspend-param = <0x40000004>;
+					qcom,psci-cpu-mode = <0x4>;
+					local-timer-stop;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+			};
+		};
+	};
+
+	rpmh-master-stats@b221200 {
+		compatible = "qcom,rpmh-master-stats-v1";
+		reg = <0xb221200 0x60>;
+	};
+
+	soc-sleep-stats@c3f0000 {
+		compatible = "qcom,rpmh-sleep-stats";
+		reg = <0xc3f0000 0x400>;
+	};
+
+	ddr-stats@c300000 {
+		compatible = "qcom,ddr-stats";
+		reg = <0xc300000 0x1000>, <0xc3f001c 0x4>;
+		reg-names = "phys_addr_base", "offset_addr";
+	};
+};

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2007 Mellanox Technologies. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -941,6 +942,9 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
 	struct mlx4_en_cq *xdp_tx_cq = NULL;
 	bool clean_complete = true;
 	int done;
+
+	if (!budget)
+		return 0;
 
 	if (priv->tx_ring_num[TX_XDP]) {
 		xdp_tx_cq = priv->tx_cq[TX_XDP][cq->ring];

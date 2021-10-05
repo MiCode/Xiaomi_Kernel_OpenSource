@@ -7,6 +7,7 @@
  * and Westmere-EP.
  *
  * Copyright (c) 2009-2010 by:
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	 Mauro Carvalho Chehab
  *
  * Red Hat Inc. http://www.redhat.com
@@ -1711,9 +1712,9 @@ static void i7core_mce_output_error(struct mem_ctl_info *mci,
 	if (uncorrected_error) {
 		core_err_cnt = 1;
 		if (ripv)
-			tp_event = HW_EVENT_ERR_FATAL;
-		else
 			tp_event = HW_EVENT_ERR_UNCORRECTED;
+		else
+			tp_event = HW_EVENT_ERR_FATAL;
 	} else {
 		tp_event = HW_EVENT_ERR_CORRECTED;
 	}

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef _MHI_H_
 #define _MHI_H_
@@ -132,11 +133,13 @@ enum mhi_dev_state {
  * target_link_speed - as defined by TLS bits in LinkControl reg
  * target_link_width - as defined by NLW bits in LinkStatus reg
  * sequence_num - used by device to track bw requests sent to host
+ * last_response - used by host to cache response to the last bw switch request
  */
 struct mhi_link_info {
 	unsigned int target_link_speed;
 	unsigned int target_link_width;
 	int sequence_num;
+	u32 last_response;
 };
 
 /**
@@ -303,6 +306,7 @@ struct mhi_controller {
 	size_t seg_len;
 	u32 session_id;
 	u32 sequence_id;
+	u32 bhie_offset;
 
 	bool img_pre_alloc;
 	struct image_info *fbc_image;

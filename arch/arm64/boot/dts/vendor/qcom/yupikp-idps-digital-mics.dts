@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "yupikp.dtsi"
+#include "yupikp-idps-digital-mics.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YupikP IDPS + DIGITAL MICS";
+	compatible = "qcom,yupikp-idp", "qcom,yupikp", "qcom,idp";
+	qcom,board-id = <34 1>;
+};

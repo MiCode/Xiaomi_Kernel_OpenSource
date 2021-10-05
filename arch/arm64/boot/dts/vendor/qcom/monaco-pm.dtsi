@@ -1,0 +1,90 @@
+&soc {
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			idle-state-name = "L2";
+			qcom,psci-mode-shift = <4>;
+			qcom,psci-mode-mask = <0xf>;
+
+			CLUSTER_WFI: qcom,pm-cluster-level@0 { /* D1 */
+				reg = <0>;
+				compatible = "arm,idle-state";
+				idle-state-name = "l2-wfi";
+				entry-latency-us = <38>;
+				exit-latency-us = <51>;
+				min-residency-us = <89>;
+				arm,psci-suspend-param = <0x10>;
+				qcom,psci-mode = <0x1>;
+			};
+
+			CLUSTER_OFF: qcom,pm-cluster-level@1 { /* D4 */
+				reg = <1>;
+				compatible = "arm,idle-state";
+				idle-state-name = "l2-rail-pc";
+				entry-latency-us = <800>;
+				exit-latency-us = <2118>;
+				min-residency-us = <7376>;
+				arm,psci-suspend-param = <0x40>;
+				qcom,psci-mode = <0x4>;
+				qcom,notify-rpm;
+				qcom,min-child-idx = <1>;
+				qcom,is-reset;
+			};
+
+			qcom,pm-cpu@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				label = "pwr";
+				qcom,disable-ipi-prediction;
+				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
+
+				CORE_WFI: qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					compatible = "arm,idle-state";
+					idle-state-name = "wfi";
+					entry-latency-us = <49>;
+					exit-latency-us = <42>;
+					min-residency-us = <91>;
+					arm,psci-suspend-param = <0x1>;
+					qcom,psci-cpu-mode = <0x1>;
+				};
+
+				CORE_PC: qcom,pm-cpu-level@1 {  /* C3 */
+					reg = <1>;
+					compatible = "arm,idle-state";
+					idle-state-name = "pc";
+					entry-latency-us = <290>;
+					exit-latency-us = <376>;
+					min-residency-us = <1182>;
+					qcom,psci-cpu-mode = <0x3>;
+					arm,psci-suspend-param = <0x40000003>;
+					local-timer-stop;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+			};
+		};
+	};
+
+	rpm_sleep_stats: soc-sleep-stats@4690000 {
+		compatible = "qcom,rpm-sleep-stats";
+		reg = <0x04690000 0x400>;
+	};
+
+	subsystem-sleep-stats {
+		compatible = "qcom,subsystem-sleep-stats";
+	};
+
+	rpmh-master-stats {
+		compatible = "qcom,rpmh-master-stats-v1";
+	};
+};

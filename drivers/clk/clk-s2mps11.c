@@ -3,6 +3,7 @@
 // clk-s2mps11.c - Clock driver for S2MPS11.
 //
 // Copyright (C) 2013,2014 Samsung Electornics
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/module.h>
 #include <linux/err.h>
@@ -195,6 +196,7 @@ static int s2mps11_clk_probe(struct platform_device *pdev)
 	return ret;
 
 err_reg:
+	of_node_put(s2mps11_clks[0].clk_np);
 	while (--i >= 0)
 		clkdev_drop(s2mps11_clks[i].lookup);
 

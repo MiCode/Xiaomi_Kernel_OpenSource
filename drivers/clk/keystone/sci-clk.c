@@ -2,6 +2,7 @@
  * SCI Clock driver for keystone based devices
  *
  * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	Tero Kristo <t-kristo@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -522,7 +523,7 @@ static int ti_sci_scan_clocks_from_dt(struct sci_clk_provider *provider)
 		np = of_find_node_with_property(np, *clk_name);
 		if (!np) {
 			clk_name++;
-			break;
+			continue;
 		}
 
 		if (!of_device_is_available(np))

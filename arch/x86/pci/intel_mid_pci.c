@@ -2,6 +2,7 @@
 /*
  * Intel MID PCI support
  *   Copyright (c) 2008 Intel Corporation
+ *   Copyright (C) 2021 XiaoMi, Inc.
  *     Jesse Barnes <jesse.barnes@intel.com>
  *
  * Moorestown has an interesting PCI implementation:
@@ -33,6 +34,7 @@
 #include <asm/hw_irq.h>
 #include <asm/io_apic.h>
 #include <asm/intel-mid.h>
+#include <asm/acpi.h>
 
 #define PCIE_CAP_OFFSET	0x100
 

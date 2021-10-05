@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# SIRF GNSS receiver configuration
+#
+
+menu "GNSS SIRF controls"
+
+config GNSS_SIRF
+	tristate "GNSS SIRF"
+	help
+	  The GNSS SIRF driver enables SiRFStarV GNSS chipset.
+
+	  The purpose of the driver to provide location information over UART.
+	  The location information contains position reports and Satellite info.
+	  The Chipset is interface over UART and controlled using Power enable
+	  and reset GPIO. To compile this driver as a module, choose M here:
+	  the module will be called GNSS SIRF.
+
+endmenu

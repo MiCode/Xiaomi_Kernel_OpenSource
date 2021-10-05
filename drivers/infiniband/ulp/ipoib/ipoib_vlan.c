@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2004 Topspin Communications.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -191,6 +192,8 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
 		goto out;
 	}
 	priv = ipoib_priv(ndev);
+
+	ndev->rtnl_link_ops = ipoib_get_link_ops();
 
 	result = __ipoib_vlan_add(ppriv, priv, pkey, IPOIB_LEGACY_CHILD);
 

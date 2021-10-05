@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __LINUX_BLUETOOTH_POWER_H
@@ -16,6 +17,14 @@ enum bt_power_modes {
 	BT_POWER_DISABLE = 0,
 	BT_POWER_ENABLE,
 	BT_POWER_RETENTION
+};
+
+/* Hasting chipset version information */
+enum {
+	HASTINGS_SOC_ID_0100 = 0x400A0100,
+	HASTINGS_SOC_ID_0101 = 0x400A0101,
+	HASTINGS_SOC_ID_0110 = 0x400A0110,
+	HASTINGS_SOC_ID_0200 = 0x400A0200,
 };
 
 struct log_index {
@@ -58,6 +67,7 @@ struct bluetooth_power_platform_data {
 	int wl_gpio_sys_rst;                   /* Wlan reset gpio */
 	int bt_gpio_sw_ctrl;                   /* Bluetooth sw_ctrl gpio */
 	int bt_gpio_debug;                     /* Bluetooth debug gpio */
+	int xo_gpio_sys_rst;                    /* XO reset gpio*/
 	struct device *slim_dev;
 	struct bt_power_vreg_data *vreg_info;  /* VDDIO voltage regulator */
 	struct bt_power_clk_data *bt_chip_clk; /* bluetooth reference clock */
@@ -81,6 +91,6 @@ int btpower_get_chipset_version(void);
 #define TCS_CMD_IO_ADDR_OFFSET 0x4
 
 /* total number of power src */
-#define BT_POWER_SRC_SIZE           28
+#define BT_POWER_SRC_SIZE           30
 
 #endif /* __LINUX_BLUETOOTH_POWER_H */

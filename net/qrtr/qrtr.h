@@ -4,6 +4,9 @@
 
 #include <linux/types.h>
 
+#ifdef CONFIG_DEBUG_POWER_MI
+extern int qrtr_first_msg;
+#endif
 struct sk_buff;
 
 /* endpoint node id auto assignment */

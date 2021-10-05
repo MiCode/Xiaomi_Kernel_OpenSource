@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef __EP_PCIE_COM_H
 #define __EP_PCIE_COM_H
@@ -105,8 +106,8 @@
 #define PCIE20_CAP_LINKCTRLSTATUS      0x80
 #define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
 #define PCIE20_LINK_CONTROL2_LINK_STATUS2 0xA0
-#define PCIE20_L1SUB_CAPABILITY        0x154
-#define PCIE20_L1SUB_CONTROL1          0x158
+#define PCIE20_L1SUB_CAPABILITY        0x234
+#define PCIE20_L1SUB_CONTROL1          0x238
 #define PCIE20_BUS_DISCONNECT_STATUS   0x68c
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
 #define PCIE20_MASK_ACK_N_FTS          0xff00
@@ -176,8 +177,8 @@
 #define MAX_IATU_ENTRY_NUM 2
 
 #define EP_PCIE_LOG_PAGES 50
-#define EP_PCIE_MAX_VREG 3
-#define EP_PCIE_MAX_CLK 9
+#define EP_PCIE_MAX_VREG 4
+#define EP_PCIE_MAX_CLK 10
 #define EP_PCIE_MAX_PIPE_CLK 1
 #define EP_PCIE_MAX_RESET 2
 
@@ -187,6 +188,7 @@
 #define EP_PCIE_OATU_INDEX_MSI 1
 #define EP_PCIE_OATU_INDEX_CTRL 2
 #define EP_PCIE_OATU_INDEX_DATA 3
+#define EP_PCIE_OATU_INDEX_IPA_MSI 4
 
 #define EP_PCIE_OATU_UPPER 0x100
 
@@ -315,7 +317,6 @@ struct ep_pcie_phy_info_t {
 	u32	offset;
 	u32	val;
 	u32	delay;
-	u32	direction;
 };
 
 /* pcie endpoint device structure */
@@ -330,7 +331,6 @@ struct ep_pcie_dev_t {
 	struct ep_pcie_irq_info_t    irq[EP_PCIE_MAX_IRQ];
 	struct ep_pcie_res_info_t    res[EP_PCIE_MAX_RES];
 
-	u32			     mmio_res_size;
 	void __iomem                 *parf;
 	void __iomem                 *phy;
 	void __iomem                 *mmio;
@@ -367,6 +367,7 @@ struct ep_pcie_dev_t {
 
 	u32                          rev;
 	u32                          phy_rev;
+	u32			     aux_clk_val;
 	void                         *ipc_log_sel;
 	void                         *ipc_log_ful;
 	void                         *ipc_log_dump;
@@ -402,6 +403,9 @@ struct ep_pcie_dev_t {
 	bool                         client_ready;
 	atomic_t		     ep_pcie_dev_wake;
 	atomic_t                     perst_deast;
+	int                          perst_irq;
+	atomic_t                     host_wake_pending;
+	bool			     conf_ipa_msi_iatu;
 
 	struct ep_pcie_register_event *event_reg;
 	struct work_struct	     handle_perst_work;

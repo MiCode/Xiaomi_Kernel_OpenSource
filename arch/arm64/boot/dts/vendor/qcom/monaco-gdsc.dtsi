@@ -1,0 +1,91 @@
+&soc {
+	/* GDSCs in GCC */
+	gcc_camss_top_gdsc: qcom,gdsc@1458004 {
+		compatible = "qcom,gdsc";
+		reg = <0x1458004 0x4>;
+		regulator-name = "gcc_camss_top_gdsc";
+		status = "disabled";
+	};
+
+	gcc_usb20_prim_gdsc: qcom,gdsc@141c004 {
+		compatible = "qcom,gdsc";
+		reg = <0x141c004 0x4>;
+		regulator-name = "gcc_usb20_prim_gdsc";
+		status = "disabled";
+	};
+
+	gcc_vcodec0_gdsc: qcom,gdsc@14580ac {
+		compatible = "qcom,gdsc";
+		reg = <0x14580ac 0x4>;
+		regulator-name = "gcc_vcodec0_gdsc";
+		status = "disabled";
+	};
+
+	gcc_venus_gdsc: qcom,gdsc@1458088 {
+		compatible = "qcom,gdsc";
+		reg = <0x1458088 0x4>;
+		regulator-name = "gcc_venus_gdsc";
+		status = "disabled";
+	};
+
+	hlos1_vote_mm_snoc_mmu_tbu_nrt_gdsc: qcom,gdsc@147d078 {
+		compatible = "qcom,gdsc";
+		reg = <0x147d078 0x4>;
+		regulator-name = "hlos1_vote_mm_snoc_mmu_tbu_nrt_gdsc";
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_mm_snoc_mmu_tbu_rt_gdsc: qcom,gdsc@147d074 {
+		compatible = "qcom,gdsc";
+		reg = <0x147d074 0x4>;
+		regulator-name = "hlos1_vote_mm_snoc_mmu_tbu_rt_gdsc";
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	/* GDSCs in DISPCC */
+	mdss_core_gdsc: qcom,gdsc@5f03000 {
+		compatible = "qcom,gdsc";
+		reg = <0x5f03000 0x4>;
+		regulator-name = "mdss_core_gdsc";
+		proxy-supply = <&mdss_core_gdsc>;
+		qcom,proxy-consumer-enable;
+		status = "disabled";
+	};
+
+	/* GDSCs in GPUCC */
+	gpu_gx_sw_reset: syscon@5994008 {
+		compatible = "syscon";
+		reg = <0x5994008 0x4>;
+	};
+
+	gpu_cx_hw_ctrl: syscon@5994540 {
+		compatible = "syscon";
+		reg = <0x5994540 0x4>;
+	};
+
+	gpu_gx_domain_addr: syscon@5994508 {
+		compatible = "syscon";
+		reg = <0x5994508 0x4>;
+	};
+
+	gpu_cx_gdsc: qcom,gdsc@5994064 {
+		compatible = "qcom,gdsc";
+		reg = <0x5994064 0x4>;
+		regulator-name = "gpu_cx_gdsc";
+		hw-ctl-addr = <&gpu_cx_hw_ctrl>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	gpu_gx_gdsc: qcom,gdsc@599400c {
+		compatible = "qcom,gdsc";
+		reg = <0x599400c 0x4>;
+		regulator-name = "gpu_gx_gdsc";
+		sw-reset = <&gpu_gx_sw_reset>;
+		domain-addr = <&gpu_gx_domain_addr>;
+		qcom,reset-aon-logic;
+		status = "disabled";
+	};
+};

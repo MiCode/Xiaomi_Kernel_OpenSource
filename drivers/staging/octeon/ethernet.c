@@ -3,6 +3,7 @@
  * This file is based on code from OCTEON SDK by Cavium Networks.
  *
  * Copyright (c) 2003-2007 Cavium Networks
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/platform_device.h>
@@ -13,6 +14,7 @@
 #include <linux/phy.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/of_mdio.h>
 #include <linux/of_net.h>
 #include <linux/if_ether.h>
 #include <linux/if_vlan.h>
@@ -892,6 +894,14 @@ static int cvm_oct_probe(struct platform_device *pdev)
 				cvm_set_rgmii_delay(priv, interface,
 						    port_index);
 				break;
+			}
+
+			if (priv->of_node && of_phy_is_fixed_link(priv->of_node)) {
+				if (of_phy_register_fixed_link(priv->of_node)) {
+					netdev_err(dev, "Failed to register fixed link for interface %d, port %d\n",
+						   interface, priv->port);
+					dev->netdev_ops = NULL;
+				}
 			}
 
 			if (!dev->netdev_ops) {

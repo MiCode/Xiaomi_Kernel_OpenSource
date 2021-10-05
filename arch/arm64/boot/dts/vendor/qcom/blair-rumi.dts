@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x50000000 0x00000100;
+
+#include "blair.dtsi"
+#include "blair-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Blair RUMI";
+	compatible = "qcom,blair-rumi", "qcom,blair", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};

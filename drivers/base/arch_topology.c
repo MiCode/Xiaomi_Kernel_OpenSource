@@ -3,6 +3,7 @@
  * Arch specific cpu topology information
  *
  * Copyright (C) 2016, ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by: Juri Lelli, ARM Ltd.
  */
 
@@ -300,7 +301,7 @@ static int __init get_cpu_for_node(struct device_node *node)
 static int __init parse_core(struct device_node *core, int package_id,
 			     int core_id)
 {
-	char name[10];
+	char name[20];
 	bool leaf = true;
 	int i = 0;
 	int cpu;
@@ -347,7 +348,7 @@ static int __init parse_core(struct device_node *core, int package_id,
 
 static int __init parse_cluster(struct device_node *cluster, int depth)
 {
-	char name[10];
+	char name[20];
 	bool leaf = true;
 	bool has_cores = false;
 	struct device_node *c;
@@ -478,26 +479,6 @@ const struct cpumask *cpu_coregroup_mask(int cpu)
 	return core_mask;
 }
 
-#ifdef CONFIG_SCHED_WALT
-void update_possible_siblings_masks(unsigned int cpuid)
-{
-	struct cpu_topology *cpu_topo, *cpuid_topo = &cpu_topology[cpuid];
-	int cpu;
-
-	if (cpuid_topo->package_id == -1)
-		return;
-
-	for_each_possible_cpu(cpu) {
-		cpu_topo = &cpu_topology[cpu];
-
-		if (cpuid_topo->package_id != cpu_topo->package_id)
-			continue;
-		cpumask_set_cpu(cpuid, &cpu_topo->core_possible_sibling);
-		cpumask_set_cpu(cpu, &cpuid_topo->core_possible_sibling);
-	}
-}
-#endif
-
 void update_siblings_masks(unsigned int cpuid)
 {
 	struct cpu_topology *cpu_topo, *cpuid_topo = &cpu_topology[cpuid];
@@ -577,9 +558,6 @@ __weak int __init parse_acpi_topology(void)
 #if defined(CONFIG_ARM64) || defined(CONFIG_RISCV)
 void __init init_cpu_topology(void)
 {
-#ifdef CONFIG_SCHED_WALT
-	int cpu;
-#endif
 	reset_cpu_topology();
 
 	/*
@@ -590,11 +568,5 @@ void __init init_cpu_topology(void)
 		reset_cpu_topology();
 	else if (of_have_populated_dt() && parse_dt_topology())
 		reset_cpu_topology();
-#ifdef CONFIG_SCHED_WALT
-	else {
-		for_each_possible_cpu(cpu)
-			update_possible_siblings_masks(cpu);
-	}
-#endif
 }
 #endif

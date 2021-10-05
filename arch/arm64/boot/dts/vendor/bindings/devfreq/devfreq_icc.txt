@@ -1,0 +1,89 @@
+MSM devfreq icc device
+
+devfreq icc is a device that represents a MSM device's BW requirements from its
+master port(s) to a different device's slave port(s) in a MSM SoC. This
+device is typically used to vote for BW requirements from a device's (Eg:
+CPU, GPU) master port(s) to the slave (Eg: DDR) port(s).
+
+Required properties:
+- compatible:		Must be "qcom,devfreq-icc" or "qcom,devfreq-icc-ddr"
+			or "qcom,devfreq-icc-llcc" or "qcom,devfreq-icc-l3"
+			or "qcom,devfreq-icc-l3bw"
+- interconnects:	Pairs of phandles and interconnect provider specificers
+			to denote the edge source and destination ports of the
+			desired interconnect path.
+- operating-points-v2:	A phandle to the OPP v2 table that holds meaningful
+			instantaneous bandwidth values (in MB/s) that can be
+			requested from the device master port to the slave port.
+			The list of values depend on the supported bus/slave
+			frequencies and the bus width. Required for all devices
+			except those compatible with "qcom,devfreq-icc-l3" or
+			"qcom,devfreq-icc-l3bw".
+- reg:			Physical base address and region size of the memory
+			mapped registers containing the device's frequency
+			table. Required for "qcom,devfreq-icc-l3" and
+			"qcom,devfreq-icc-l3bw" devices.
+- reg-names:		Name used for the above registers. Expected name is
+			"ftbl-base". Required for "qcom,devfreq-icc-l3"
+			and "qcom,devfreq-icc-l3bw" devices.
+- qcom,bus-width:	Bus width of the interconnect path. Only required for
+			"qcom,devfreq-icc-l3bw" devices.
+Optional properties:
+- qcom,active-only:	Indicates that the bandwidth votes need to be
+			enforced only when the CPU subsystem is active.
+- governor:		Initial governor to use for the device.
+			Default: "performance"
+
+- opp-supported-hw:	For the devices that are compatible with "qcom,devfreq-icc-ddr",
+			the OPP node can have opp-supported-hw property. This is a
+			single 32 bit bitmap value, representing compatible DDR-Type in HW.
+Example:
+		    Value:
+			0x80:	Frequency Compatible for LPDDR4X only
+			0x100:	Frequency Compatible for LPDDR5 only
+			0x180:	Frequency Compatible for both LPDDR4X and LPDDR5
+
+
+Example:
+
+	bw_opp_table: bw-opp-table {
+		compatible = "operating-points-v2";
+		opp-75  {
+			opp-hz = /bits/ 64 <  572 >; /*  75 MHz */
+			opp-supported-hw = <0x80>;
+		};
+		opp-150 {
+			opp-hz = /bits/ 64 < 1144 >; /* 150 MHz */
+			opp-supported-hw = <0x80>;
+		};
+		opp-200 {
+			opp-hz = /bits/ 64 < 1525 >; /* 200 MHz */
+			opp-supported-hw = <0x180>;
+		};
+		opp-307 {
+			opp-hz = /bits/ 64 < 2342 >; /* 307 MHz */
+			opp-supported-hw = <0x80>;
+		};
+		opp-460 {
+			opp-hz = /bits/ 64 < 3509 >; /* 460 MHz */
+			opp-supported-hw = <0x80>;
+		};
+		opp-614 {
+			opp-hz = /bits/ 64 < 4684 >; /* 614 MHz */
+			opp-supported-hw = <0x80>;
+		};
+		opp-800 {
+			opp-hz = /bits/ 64 < 6103 >; /* 800 MHz */
+			opp-supported-hw = <0x80>;
+		};
+		opp-931 {
+			opp-hz = /bits/ 64 < 7102 >; /* 931 MHz */
+			opp-supported-hw = <0x80>;
+		};
+	};
+	qcom,cpubw {
+		compatible = "qcom,devfreq-icc-ddr";
+		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
+		qcom,active-only;
+		operating-points-v2 = <&bw_opp_table>;
+	};

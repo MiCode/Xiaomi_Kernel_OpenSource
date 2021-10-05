@@ -3,6 +3,7 @@
  * This file is part of wl1271
  *
  * Copyright (C) 2009 Nokia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Contact: Luciano Coelho <luciano.coelho@nokia.com>
  */
@@ -863,6 +864,7 @@ void wl1271_tx_work(struct work_struct *work)
 
 	ret = wlcore_tx_work_locked(wl);
 	if (ret < 0) {
+		pm_runtime_put_noidle(wl->dev);
 		wl12xx_queue_recovery_work(wl);
 		goto out;
 	}

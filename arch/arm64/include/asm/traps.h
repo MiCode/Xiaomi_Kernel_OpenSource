@@ -3,6 +3,7 @@
  * Based on arch/arm/include/asm/traps.h
  *
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef __ASM_TRAP_H
 #define __ASM_TRAP_H
@@ -110,4 +111,6 @@ static inline u32 arm64_ras_serror_get_severity(u32 esr)
 
 bool arm64_is_fatal_ras_serror(struct pt_regs *regs, unsigned int esr);
 void __noreturn arm64_serror_panic(struct pt_regs *regs, u32 esr);
+static inline void get_timer_count_hook_init(void) {}
+static inline void get_timer_freq_hook_init(void) {}
 #endif

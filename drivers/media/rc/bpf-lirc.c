@@ -2,6 +2,7 @@
 // bpf-lirc.c - handles bpf
 //
 // Copyright (C) 2018 Sean Young <sean@mess.org>
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/bpf.h>
 #include <linux/filter.h>
@@ -108,6 +109,8 @@ lirc_mode2_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_map_peek_elem_proto;
 	case BPF_FUNC_ktime_get_ns:
 		return &bpf_ktime_get_ns_proto;
+	case BPF_FUNC_ktime_get_boot_ns:
+		return &bpf_ktime_get_boot_ns_proto;
 	case BPF_FUNC_tail_call:
 		return &bpf_tail_call_proto;
 	case BPF_FUNC_get_prandom_u32:

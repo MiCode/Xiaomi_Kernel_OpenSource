@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright (C) 2017 Synopsys, Inc. (www.synopsys.com)
+# Copyright (C) 2021 XiaoMi, Inc.
 #
 
 menuconfig ARC_SOC_HSDK
@@ -8,5 +9,6 @@ menuconfig ARC_SOC_HSDK
 	select ARC_HAS_ACCL_REGS
 	select ARC_IRQ_NO_AUTOSAVE
 	select CLK_HSDK
+	select RESET_CONTROLLER
 	select RESET_HSDK
 	select HAVE_PCI

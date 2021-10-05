@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "lahainap-v2.1.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. LahianaP v2.1 SoC";
+	compatible = "qcom,lahainap";
+	qcom,board-id = <0 0>;
+};

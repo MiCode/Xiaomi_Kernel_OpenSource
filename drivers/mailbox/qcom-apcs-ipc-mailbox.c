@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017, Linaro Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -131,6 +132,7 @@ static const struct of_device_id qcom_apcs_ipc_of_match[] = {
 	{ .compatible = "qcom,scuba-apcs-hmss-global", .data = (void *)8 },
 	{ .compatible = "qcom,monaco-apcs-hmss-global", .data = (void *)8 },
 	{ .compatible = "qcom,sm8150-spcs-global", .data = (void *)0 },
+	{ .compatible = "qcom,sdxnightjar-apcs-gcc", .data = (void *)0 },
 	{}
 };
 MODULE_DEVICE_TABLE(of, qcom_apcs_ipc_of_match);

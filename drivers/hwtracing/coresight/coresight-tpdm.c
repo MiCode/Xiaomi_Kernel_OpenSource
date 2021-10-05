@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -4151,6 +4152,9 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	static int traceid = TPDM_TRACE_ID_START;
 	uint32_t version;
 	u32 dump_state = 0;
+
+	if (coresight_fuse_access_disabled())
+		return -EPERM;
 
 	desc.name = coresight_alloc_device_name(&tpdm_devs, dev);
 	if (!desc.name)

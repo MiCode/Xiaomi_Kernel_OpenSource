@@ -10,6 +10,7 @@ menu "Serial drivers"
 
 config SERIAL_EARLYCON
 	bool
+	depends on SERIAL_CORE
 	help
 	  Support for early consoles with the earlycon parameter. This enables
 	  the console before standard serial driver is probed. The console is
@@ -1592,6 +1593,14 @@ config SERIAL_MILBEAUT_USIO_CONSOLE
 	  SoCs as the system console (the system console is the device which
 	  receives all kernel messages and warnings and which allows logins in
 	  single user mode).
+
+config FASTBOOT_CMD_CTRL_UART
+	bool "support fastboot oem uart-enable cmd"
+	depends on SERIAL_EARLYCON && SERIAL_MSM_GENI_CONSOLE && !CONSOLE_POLL
+	default n
+	help
+	  Say 'Y' here if you wish to use 'fastboot oem uart-enable' cmd to
+	  enable console in user build
 
 endmenu
 

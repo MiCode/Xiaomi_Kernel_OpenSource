@@ -4,6 +4,7 @@
 # Generate C file mapping errno codes to errno names.
 #
 # Copyright IBM Corp. 2018
+# Copyright (C) 2021 XiaoMi, Inc.
 # Author(s):  Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
 
 gcc="$1"
@@ -91,7 +92,7 @@ EoHEADER
 # in tools/perf/arch
 archlist=""
 for arch in $(find $toolsdir/arch -maxdepth 1 -mindepth 1 -type d -printf "%f\n" | grep -v x86 | sort); do
-	test -d arch/$arch && archlist="$archlist $arch"
+	test -d $toolsdir/perf/arch/$arch && archlist="$archlist $arch"
 done
 
 for arch in x86 $archlist generic; do

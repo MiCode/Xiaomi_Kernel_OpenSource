@@ -2,6 +2,7 @@
 // ChromeOS EC keyboard driver
 //
 // Copyright (C) 2012 Google, Inc.
+// Copyright (C) 2021 XiaoMi, Inc.
 //
 // This driver uses the ChromeOS EC byte-level message-based protocol for
 // communicating the keyboard state (which keys are pressed) from a keyboard EC
@@ -183,6 +184,7 @@ static void cros_ec_keyb_process(struct cros_ec_keyb *ckdev,
 					"changed: [r%d c%d]: byte %02x\n",
 					row, col, new_state);
 
+				input_event(idev, EV_MSC, MSC_SCAN, pos);
 				input_report_key(idev, keycodes[pos],
 						 new_state);
 			}

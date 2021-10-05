@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2014, 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef __QCOM_CLK_COMMON_H__
 #define __QCOM_CLK_COMMON_H__
@@ -83,5 +84,10 @@ int qcom_cc_runtime_init(struct platform_device *pdev,
 			 struct qcom_cc_desc *desc);
 int qcom_cc_runtime_suspend(struct device *dev);
 int qcom_cc_runtime_resume(struct device *dev);
+
+static inline const char *qcom_clk_hw_get_name(const struct clk_hw *hw)
+{
+	return hw->init ? hw->init->name : clk_hw_get_name(hw);
+}
 
 #endif

@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "yupikp-iot.dtsi"
+#include "yupikp-iot-hsp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YupikP IoT HSP";
+	compatible = "qcom,yupikp-iot-idp", "qcom,yupikp-iot", "qcom,idp";
+	qcom,board-id = <34 1>;
+};

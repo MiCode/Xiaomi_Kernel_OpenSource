@@ -2,6 +2,7 @@
  * Marvell Wireless LAN device driver: Firmware specific macros & structures
  *
  * Copyright (C) 2011-2014, Marvell International Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software file (the "File") is distributed by Marvell International
  * Ltd. under the terms of the GNU General Public License Version 2, June 1991
@@ -953,7 +954,7 @@ struct mwifiex_tkip_param {
 struct mwifiex_aes_param {
 	u8 pn[WPA_PN_SIZE];
 	__le16 key_len;
-	u8 key[WLAN_KEY_LEN_CCMP];
+	u8 key[WLAN_KEY_LEN_CCMP_256];
 } __packed;
 
 struct mwifiex_wapi_param {

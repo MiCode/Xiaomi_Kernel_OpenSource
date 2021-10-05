@@ -1,5 +1,6 @@
 /*
  * Copyright 2016 Luo Yi <luoyi.ly@gmail.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Thanks to the original work by Hans de Goede <hdegoede@redhat.com>
  *
@@ -130,7 +131,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&gmac_rgmii_pins>;
 	phy-handle = <&phy1>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-supply = <&reg_gmac_3v3>;
 	status = "okay";
 };

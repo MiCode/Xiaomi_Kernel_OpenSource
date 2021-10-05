@@ -3,6 +3,7 @@
   __alloc_disk_node
   __alloc_pages_nodemask
   __alloc_percpu
+  __alloc_percpu_gfp
   __alloc_skb
   __arch_clear_user
   __arch_copy_from_user
@@ -133,6 +134,7 @@
   __request_module
   __request_percpu_irq
   __request_region
+  __sbitmap_queue_get
   __scsi_device_lookup_by_target
   __scsi_execute
   __scsi_print_sense
@@ -144,8 +146,11 @@
   __spi_alloc_controller
   __spi_register_driver
   __spmi_driver_register
+  __srcu_read_lock
+  __srcu_read_unlock
   __stack_chk_fail
   __stack_chk_guard
+  __sw_hweight8
   __sw_hweight32
   __sw_hweight64
   __sync_dirty_buffer
@@ -158,6 +163,7 @@
   __tracepoint_android_vh_is_fpsimd_save
   __tracepoint_android_vh_kfree_skb
   __tracepoint_android_vh_ptype_head
+  __tracepoint_android_vh_wq_lockup_pool
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
   __tracepoint_gpu_mem_total
@@ -177,6 +183,7 @@
   __wake_up
   __wake_up_locked
   __warn_printk
+  __xa_alloc
   _bcd2bin
   _bin2bcd
   _copy_from_iter_full
@@ -262,7 +269,13 @@
   blk_execute_rq_nowait
   blk_get_request
   blk_lookup_devt
+  blk_mq_bio_list_merge
   blk_mq_rq_cpu
+  blk_mq_run_hw_queue
+  blk_mq_sched_mark_restart_hctx
+  blk_mq_sched_request_inserted
+  blk_mq_sched_try_insert_merge
+  blk_mq_sched_try_merge
   blk_put_request
   blk_queue_bounce_limit
   blk_queue_max_hw_sectors
@@ -270,6 +283,7 @@
   blk_rq_map_user
   blk_rq_map_user_iov
   blk_rq_unmap_user
+  blk_stat_enable_accounting
   blk_verify_command
   blkdev_get_by_dev
   blkdev_get_by_path
@@ -332,6 +346,7 @@
   cfg80211_scan_done
   cfg80211_sched_scan_results
   cfg80211_sched_scan_stopped
+  cfg80211_sched_scan_stopped_rtnl
   cfg80211_unlink_bss
   cfg80211_unregister_wdev
   cfg80211_vendor_cmd_reply
@@ -441,6 +456,7 @@
   cpufreq_table_index_unsorted
   cpufreq_unregister_driver
   cpufreq_unregister_notifier
+  cpufreq_update_policy
   cpuhp_tasks_frozen
   cpuidle_pause_and_lock
   cpuidle_resume_and_unlock
@@ -457,6 +473,8 @@
   crypto_destroy_tfm
   crypto_register_rngs
   crypto_shash_digest
+  crypto_shash_final
+  crypto_shash_update
   crypto_unregister_rngs
   csum_partial
   d_add
@@ -575,6 +593,7 @@
   devm_gpio_request_one
   devm_gpiochip_add_data
   devm_gpiod_get
+  devm_gpiod_get_index
   devm_gpiod_get_optional
   devm_iio_channel_get
   devm_iio_device_alloc
@@ -678,6 +697,7 @@
   dma_fence_context_alloc
   dma_fence_default_wait
   dma_fence_enable_sw_signaling
+  dma_fence_free
   dma_fence_get_status
   dma_fence_init
   dma_fence_release
@@ -944,6 +964,17 @@
   dw_pcie_read
   dw_pcie_setup_rc
   dw_pcie_write
+  elevator_alloc
+  elv_bio_merge_ok
+  elv_rb_add
+  elv_rb_del
+  elv_rb_find
+  elv_rb_former_request
+  elv_rb_latter_request
+  elv_register
+  elv_rqhash_add
+  elv_rqhash_del
+  elv_unregister
   emergency_restart
   enable_irq
   enable_percpu_irq
@@ -1079,6 +1110,7 @@
   gpiod_direction_input
   gpiod_direction_output
   gpiod_direction_output_raw
+  gpiod_cansleep
   gpiod_get_optional
   gpiod_get_raw_value
   gpiod_get_raw_value_cansleep
@@ -1115,6 +1147,7 @@
   hrtimer_try_to_cancel
   hvc_alloc
   hvc_kick
+  hvc_poll
   hvc_remove
   hwrng_register
   hwrng_unregister
@@ -1192,6 +1225,7 @@
   in6_pton
   init_dummy_netdev
   init_net
+  init_srcu_struct
   init_task
   init_timer_key
   init_uts_ns
@@ -1219,6 +1253,7 @@
   int_sqrt
   int_to_scsilun
   invalidate_mapping_pages
+  ioc_lookup_icq
   iomem_resource
   iommu_alloc_resv_region
   iommu_attach_device
@@ -1336,6 +1371,7 @@
   kernel_kobj
   kernel_read
   kernel_recvmsg
+  kernel_restart
   kernel_sendmsg
   kernel_setsockopt
   kernel_write
@@ -1373,9 +1409,11 @@
   krealloc
   kset_create_and_add
   kset_unregister
+  ksize
   kstat
   kstrdup
   kstrdup_quotable
+  kstrdup_quotable_cmdline
   kstrndup
   kstrtobool
   kstrtobool_from_user
@@ -1389,6 +1427,7 @@
   kstrtoull
   kstrtoull_from_user
   kthread_bind
+  kthread_blkcg
   kthread_cancel_delayed_work_sync
   kthread_cancel_work_sync
   kthread_create_on_node
@@ -1812,6 +1851,7 @@
   power_supply_unregister
   preempt_schedule
   preempt_schedule_notrace
+  prepare_to_wait
   prepare_to_wait_event
   print_hex_dump
   printk
@@ -1913,6 +1953,7 @@
   regulator_enable
   regulator_force_disable
   regulator_get
+  regulator_get_current_limit
   regulator_get_mode
   regulator_get_optional
   regulator_get_voltage
@@ -1933,6 +1974,7 @@
   regulatory_hint
   release_firmware
   release_sock
+  regmap_mmio_detach_clk
   remap_pfn_range
   remap_vmalloc_range
   remove_proc_entry
@@ -1988,8 +2030,17 @@
   rtnl_unlock
   rt_mutex_lock
   rt_mutex_unlock
+  runqueues
   save_stack_trace
   save_stack_trace_tsk
+  sbitmap_add_wait_queue
+  sbitmap_any_bit_set
+  sbitmap_del_wait_queue
+  sbitmap_init_node
+  sbitmap_queue_clear
+  sbitmap_queue_init_node
+  sbitmap_queue_min_shallow_depth
+  sbitmap_queue_resize
   sched_clock
   sched_setscheduler
   sched_setscheduler_nocheck
@@ -2113,6 +2164,7 @@
   smp_call_function_single
   smp_call_function_single_async
   smp_call_on_cpu
+  smpboot_register_percpu_thread
   smpboot_unregister_percpu_thread
   snd_card_free
   snd_card_new
@@ -2321,6 +2373,7 @@
   sync_filesystem
   synchronize_irq
   synchronize_rcu
+  synchronize_srcu
   sys_tz
   syscon_node_to_regmap
   syscon_regmap_lookup_by_phandle
@@ -2363,6 +2416,7 @@
   thermal_zone_of_sensor_register
   thermal_zone_of_sensor_unregister
   time64_to_tm
+  timer_reduce
   timespec64_to_jiffies
   touch_softlockup_watchdog
   trace_define_field
@@ -2379,6 +2433,8 @@
   trace_raw_output_prep
   trace_seq_printf
   tracepoint_probe_register
+  tracepoint_probe_unregister
+  tracing_off
   truncate_inode_pages
   try_module_get
   try_wait_for_completion

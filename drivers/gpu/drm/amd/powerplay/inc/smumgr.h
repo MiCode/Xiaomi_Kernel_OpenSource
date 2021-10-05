@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 Advanced Micro Devices, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -113,5 +114,7 @@ extern bool smum_is_hw_avfs_present(struct pp_hwmgr *hwmgr);
 extern int smum_update_dpm_settings(struct pp_hwmgr *hwmgr, void *profile_setting);
 
 extern int smum_smc_table_manager(struct pp_hwmgr *hwmgr, uint8_t *table, uint16_t table_id, bool rw);
+
+extern int smum_stop_smc(struct pp_hwmgr *hwmgr);
 
 #endif

@@ -2,6 +2,7 @@
 
 /*
  * Copyright 2016-2019 HabanaLabs, Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All Rights Reserved.
  */
 
@@ -422,7 +423,7 @@ int hl_mmu_init(struct hl_device *hdev)
 	hdev->mmu_shadow_hop0 = kvmalloc_array(prop->max_asid,
 					prop->mmu_hop_table_size,
 					GFP_KERNEL | __GFP_ZERO);
-	if (!hdev->mmu_shadow_hop0) {
+	if (ZERO_OR_NULL_PTR(hdev->mmu_shadow_hop0)) {
 		rc = -ENOMEM;
 		goto err_pool_add;
 	}

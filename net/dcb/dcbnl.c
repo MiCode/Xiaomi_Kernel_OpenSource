@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2011, Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Description: Data Center Bridging netlink interface
  * Author: Lucy Liu <lucy.liu@intel.com>
@@ -1426,6 +1427,7 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlmsghdr *nlh,
 {
 	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
 	struct nlattr *ieee[DCB_ATTR_IEEE_MAX + 1];
+	int prio;
 	int err;
 
 	if (!ops)
@@ -1474,6 +1476,13 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlmsghdr *nlh,
 	if (ieee[DCB_ATTR_DCB_BUFFER] && ops->dcbnl_setbuffer) {
 		struct dcbnl_buffer *buffer =
 			nla_data(ieee[DCB_ATTR_DCB_BUFFER]);
+
+		for (prio = 0; prio < ARRAY_SIZE(buffer->prio2buffer); prio++) {
+			if (buffer->prio2buffer[prio] >= DCBX_MAX_BUFFERS) {
+				err = -EINVAL;
+				goto err;
+			}
+		}
 
 		err = ops->dcbnl_setbuffer(netdev, buffer);
 		if (err)

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /* Copyright (C) 2018 Microchip Technology Inc. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef _LAN743X_H
 #define _LAN743X_H
@@ -705,9 +706,6 @@ struct lan743x_adapter {
 	struct pci_dev		*pdev;
 	struct lan743x_csr      csr;
 	struct lan743x_intr     intr;
-
-	/* lock, used to prevent concurrent access to data port */
-	struct mutex		dp_lock;
 
 	struct lan743x_gpio	gpio;
 	struct lan743x_ptp	ptp;

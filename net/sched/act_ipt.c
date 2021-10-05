@@ -5,6 +5,7 @@
  *TODO: Add other tables. For now we only support the ipv4 table targets
  *
  * Copyright:	Jamal Hadi Salim (2002-13)
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/types.h>
@@ -189,8 +190,6 @@ static int __tcf_ipt_init(struct net *net, unsigned int id, struct nlattr *nla,
 	ipt->tcfi_t     = t;
 	ipt->tcfi_hook  = hook;
 	spin_unlock_bh(&ipt->tcf_lock);
-	if (ret == ACT_P_CREATED)
-		tcf_idr_insert(tn, *a);
 	return ret;
 
 err3:

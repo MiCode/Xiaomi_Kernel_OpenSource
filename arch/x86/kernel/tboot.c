@@ -4,6 +4,7 @@
  *          runtime support of Intel(R) Trusted Execution Technology
  *
  * Copyright (c) 2006-2009, Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/intel-iommu.h>
@@ -511,9 +512,6 @@ int tboot_force_iommu(void)
 {
 	if (!tboot_enabled())
 		return 0;
-
-	if (intel_iommu_tboot_noforce)
-		return 1;
 
 	if (no_iommu || swiotlb || dmar_disabled)
 		pr_warning("Forcing Intel-IOMMU to enabled\n");

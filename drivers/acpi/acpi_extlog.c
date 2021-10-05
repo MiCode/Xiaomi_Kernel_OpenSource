@@ -3,6 +3,7 @@
  * Extended Error Log driver
  *
  * Copyright (C) 2013 Intel Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Chen, Gong <gong.chen@intel.com>
  */
 
@@ -223,9 +224,9 @@ static int __init extlog_init(void)
 	u64 cap;
 	int rc;
 
-	rdmsrl(MSR_IA32_MCG_CAP, cap);
-
-	if (!(cap & MCG_ELOG_P) || !extlog_get_l1addr())
+	if (rdmsrl_safe(MSR_IA32_MCG_CAP, &cap) ||
+	    !(cap & MCG_ELOG_P) ||
+	    !extlog_get_l1addr())
 		return -ENODEV;
 
 	if (edac_get_report_status() == EDAC_REPORTING_FORCE) {

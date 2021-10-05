@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "msm_cvp_common.h"
@@ -382,7 +383,11 @@ static struct msm_cvp_smem *msm_cvp_session_get_smem(struct msm_cvp_inst *inst,
 		rc = msm_cvp_map_smem(inst, smem, "map cpu");
 		if (rc)
 			goto exit;
-
+		if (buf->size > smem->size || buf->size > smem->size - buf->offset) {
+			dprintk(CVP_ERR, "%s: invalid offset %d or size %d for a new entry\n",
+				__func__, buf->offset, buf->size);
+			goto exit2;
+		}
 		rc = msm_cvp_session_add_smem(inst, smem);
 		if (rc && rc != -ENOMEM)
 			goto exit2;
@@ -397,7 +402,20 @@ static struct msm_cvp_smem *msm_cvp_session_get_smem(struct msm_cvp_inst *inst,
 			mutex_unlock(&inst->dma_cache.lock);
 			return NULL;
 		}
-		goto exit2;
+
+		dprintk(CVP_ERR, "%s: invalid offset %d or size %d and smem is new %d\n",
+			__func__, buf->offset, buf->size, !found);
+
+		mutex_lock(&inst->dma_cache.lock);
+		if (atomic_dec_and_test(&smem->refcount)) {
+			// deinit it in msm_cvp_session_add_smem
+			CLEAR_USE_BITMAP(smem->bitmap_index, inst);
+			print_smem(CVP_MEM, "Map dereference",
+				inst, smem);
+		}
+		mutex_unlock(&inst->dma_cache.lock);
+
+		smem = NULL;
 	}
 
 	return smem;

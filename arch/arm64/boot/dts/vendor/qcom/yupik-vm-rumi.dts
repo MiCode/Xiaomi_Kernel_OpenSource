@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00000100;
+
+#include "yupik-vm.dtsi"
+#include "yupik-vm-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Yupik SVM RUMI";
+	compatible = "qcom,yupik-rumi", "qcom,yupik", "qcom,rumi";
+	qcom,board-id = <0x1000f 0>;
+};

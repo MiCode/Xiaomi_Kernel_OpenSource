@@ -3,6 +3,7 @@
  * Thunderbolt XDomain discovery protocol support
  *
  * Copyright (C) 2017, Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: Michael Jamet <michael.jamet@intel.com>
  *          Mika Westerberg <mika.westerberg@linux.intel.com>
  */
@@ -830,6 +831,7 @@ static void enumerate_services(struct tb_xdomain *xd)
 
 		id = ida_simple_get(&xd->service_ids, 0, 0, GFP_KERNEL);
 		if (id < 0) {
+			kfree(svc->key);
 			kfree(svc);
 			break;
 		}

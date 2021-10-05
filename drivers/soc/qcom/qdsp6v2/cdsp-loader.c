@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2014, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/init.h>
@@ -264,5 +265,6 @@ static void __exit cdsp_loader_exit(void)
 }
 module_exit(cdsp_loader_exit);
 
+MODULE_SOFTDEP("pre: subsys-pil-tz");
 MODULE_DESCRIPTION("CDSP Loader module");
 MODULE_LICENSE("GPL v2");

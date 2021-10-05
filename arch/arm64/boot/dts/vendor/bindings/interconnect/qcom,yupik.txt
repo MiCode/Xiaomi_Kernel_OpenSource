@@ -1,0 +1,33 @@
+Qualcomm Technologies, Inc. Yupik Network-On-Chip interconnect driver binding
+-----------------------------------------------------------
+
+Yupik interconnect providers support system bandwidth requirements through
+RPMh hardware accelerators known as Bus Clock Manager (BCM). The provider is
+able to communicate with the BCM through the Resource State Coordinator (RSC)
+associated with each execution environment. Provider nodes must point to at
+least one RPMh device child node pertaining to their RSC and each provider
+can map to multiple RPMh resources.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,yupik-aggre1_noc",
+			"qcom,yupik-aggre2_noc",
+			"qcom,yupik-clk_virt",
+			"qcom,yupik-config_noc",
+			"qcom,yupik-cnoc2",
+			"qcom,yupik-cnoc3",
+			"qcom,yupik-dc_noc",
+			"qcom,yupik-gem_noc",
+			"qcom,yupik-lpass_ag_noc",
+			"qcom,yupik-mc_virt",
+			"qcom,yupik-mmss_noc",
+			"qcom,yupik-nsp_noc",
+			"qcom,yupik-system_noc",
+- #interconnect-cells : should contain 1
+
+Examples:
+
+aggre1_noc: interconnect@16e0000 {
+	compatible = "qcom,yupik-aggre1_noc";
+	interconnect-cells = <1>;
+};

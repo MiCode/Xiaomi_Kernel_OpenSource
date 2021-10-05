@@ -3,6 +3,7 @@
  * mm/kmemleak.c
  *
  * Copyright (C) 2008 ARM Limited
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Written by Catalin Marinas <catalin.marinas@arm.com>
  *
  * For more information on the algorithm and kmemleak usage, please see
@@ -1947,7 +1948,7 @@ void __init kmemleak_init(void)
 	create_object((unsigned long)__bss_start, __bss_stop - __bss_start,
 		      KMEMLEAK_GREY, GFP_ATOMIC);
 	/* only register .data..ro_after_init if not within .data */
-	if (__start_ro_after_init < _sdata || __end_ro_after_init > _edata)
+	if (&__start_ro_after_init < &_sdata || &__end_ro_after_init > &_edata)
 		create_object((unsigned long)__start_ro_after_init,
 			      __end_ro_after_init - __start_ro_after_init,
 			      KMEMLEAK_GREY, GFP_ATOMIC);

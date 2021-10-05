@@ -1,0 +1,10 @@
+#include "yupikp-idp.dtsi"
+#include "qcx6490-cnss.dtsi"
+
+&pcie0 {
+	status = "ok";
+};
+
+&pcie0_msi {
+	status = "ok";
+};

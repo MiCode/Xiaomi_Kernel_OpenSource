@@ -1,0 +1,155 @@
+&reserved_memory {
+	pmem_shared: pmem_shared_region {
+		reg = <0x1 0x6a500000 0x0 0x51400000>;
+		label = "pmem_shared_mem";
+	};
+
+	pil_ipa_fw_mem: pil_ipa_fw_region {
+		no-map;
+		reg = <0x0 0x98700000 0x0 0x10000>;
+	};
+
+	pil_ipa_gsi_mem: pil_ipa_gsi_region {
+		no-map;
+		reg = <0x0 0x98710000 0x0 0x7000>;
+	};
+};
+
+/ {
+	rename_blk: rename_blk {
+		compatible = "qcom,blkdev-rename";
+		actual-dev = "vda", "vdb", "vdc",
+				"vdd", "vde", "vdf",
+				"vdg", "vdh";
+		rename-dev = "system", "userdata", "vendor",
+				"persist", "modem", "bluetooth",
+				"misc", "vbmeta";
+	};
+};
+&usb0 {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "ok";
+};
+
+&sdhc_2 {
+	status = "ok";
+};
+
+&soc {
+	pil_scm_pas {
+		compatible = "qcom,pil-tz-scm-pas";
+	};
+
+	qcom,msm_gsi {
+		compatible = "qcom,msm_gsi";
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		compatible = "qcom,ipa";
+		reg = <0x1e00000 0x34000>,
+			  <0x1e04000 0x28000>;
+		reg-names = "ipa-base", "gsi-base";
+		interrupts =
+			<GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ipa-irq", "gsi-irq";
+		qcom,ipa-hw-ver = <15>; /* IPA core version = IPAv4.1 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,platform-type = <2>; /* APQ platform */
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,use-64-bit-dma-mask;
+		qcom,ipa-wdi3-over-gsi;
+		qcom,arm-smmu;
+		qcom,use-ipa-pm;
+		qcom,ipa-config-is-auto;
+		qcom,bandwidth-vote-for-ipa;
+		qcom,lan-rx-napi;
+		qcom,tx-wrapper-cache-max-size = <400>;
+		qcom,tx-napi;
+		qcom,max_num_smmu_cb = <3>;
+		qcom,register-collection-on-crash;
+		qcom,testbus-collection-on-crash;
+		qcom,non-tn-collection-on-crash;
+		qcom,interconnect,num-cases = <5>;
+		qcom,interconnect,num-paths = <0>;
+		interconnects = <>;
+		/* No vote */
+		qcom,no-vote = <>;
+
+		/* SVS2 */
+		qcom,svs2 = <>;
+
+		/* SVS */
+		qcom,svs = <>;
+
+		/* NOMINAL */
+		qcom,nominal = <>;
+
+		/* TURBO */
+		qcom,turbo = <>;
+
+		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
+		"TURBO";
+		qcom,throughput-threshold = <310 600 1000>;
+		qcom,scaling-exceptions = <>;
+	};
+
+	ipa_smmu_ap: ipa_smmu_ap {
+		compatible = "qcom,ipa-smmu-ap-cb";
+		iommus = <&apps_smmu 0x520 0x0>;
+		qcom,iommu-dma-addr-pool = <0x20000000 0x40000000>;
+		qcom,iommu-dma = "fastmap";
+	};
+
+	ipa_smmu_wlan: ipa_smmu_wlan {
+		compatible = "qcom,ipa-smmu-wlan-cb";
+		iommus = <&apps_smmu 0x521 0x0>;
+		qcom,iommu-dma = "atomic";
+		qcom,additional-mapping =
+		/* ipa-uc ram */
+		<0x1E60000 0x1E60000 0x80000>;
+	};
+
+	ipa_smmu_uc: ipa_smmu_uc {
+		compatible = "qcom,ipa-smmu-uc-cb";
+		iommus = <&apps_smmu 0x522 0x0>;
+		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma-addr-pool = <0x40400000 0x1FC00000>;
+	};
+
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_gsi_mem>;
+	};
+
+	qcom,ipa_uc {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0x1B>;
+		qcom,firmware-name = "ipa_uc";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_fw_mem>;
+	};
+
+	qcom,veth-ipa {
+		compatible = "qcom,veth-ipa";
+	};
+};

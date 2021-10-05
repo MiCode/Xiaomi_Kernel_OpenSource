@@ -1,0 +1,36 @@
+&pmd9650_gpios {
+	bt_en {
+		bt_en_default: bt_en_default {
+			pins = "gpio8";
+			function = "normal";
+			output-low;
+			bias-pull-down;
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+		};
+	};
+};
+
+&soc {
+	bluetooth: bt_qca6174 {
+		compatible = "qcom,qca6174";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_default>;
+		qcom,bt-reset-gpio = <&pmd9650_gpios 8 0>; /* BT_EN */
+
+		qcom,bt-vdd-aon-supply = <&L4A>;
+		qcom,bt-vdd-aon-config = <928000 928000 0 0>;
+		qcom,bt-vdd-io-supply = <&L5A>;
+		qcom,bt-vdd-io-config = <1800000 1800000 0 0>;
+		qcom,bt-vdd-core-supply = <&rome_vreg>;
+		qcom,bt-vdd-core-config = <0 0 0 0>;
+	};
+};
+
+&blsp1_uart2_hs {
+	status = "okay";
+};
+
+&spi_2 {
+	status = "disabled";
+};

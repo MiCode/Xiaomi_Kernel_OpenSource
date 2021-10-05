@@ -1,6 +1,7 @@
 /*
  *  Mu-Law conversion Plug-In Interface
  *  Copyright (c) 1999 by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *                        Uros Bizjak <uros@kss-loka.si>
  *
  *  Based on reference implementation by Sun Microsystems, Inc.
@@ -329,8 +330,8 @@ int snd_pcm_plugin_build_mulaw(struct snd_pcm_substream *plug,
 		snd_BUG();
 		return -EINVAL;
 	}
-	if (snd_BUG_ON(!snd_pcm_format_linear(format->format)))
-		return -ENXIO;
+	if (!snd_pcm_format_linear(format->format))
+		return -EINVAL;
 
 	err = snd_pcm_plugin_build(plug, "Mu-Law<->linear conversion",
 				   src_format, dst_format,

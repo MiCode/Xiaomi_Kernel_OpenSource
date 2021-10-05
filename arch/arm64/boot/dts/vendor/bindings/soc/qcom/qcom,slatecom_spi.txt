@@ -1,0 +1,22 @@
+* Slate Coprocessor Communication Driver
+
+slatecom_spi driver provides a set of apis to perform
+register, fifo, ahb read and write operations with slate
+over spi interface. It also reads slate status and
+sends events to the registered clients.
+
+Required properties:
+- compatible:	      Must be "qcom,slate-spi"
+
+Optional properties:
+- qcom,irq-gpio: IRQ used by the slate to inturrupt MSM.
+
+Example:
+	qcom,slate-spi {
+		compatible = "qcom,slate-spi";
+			compatible = "qcom,slate-spi";
+			interrupt-parent = <&tlmm>;
+			/* IRQ from slate */
+			qcom,irq-gpio = <&tlmm 104 1>;
+		};
+

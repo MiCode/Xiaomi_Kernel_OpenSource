@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013 - 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013 - 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "rimps-memlat: " fmt
@@ -102,7 +103,8 @@ struct core_dev_map {
 struct cpu_pmu_ctrs {
 	uint32_t ccntr_lo;
 	uint32_t ccntr_hi;
-	uint32_t evcntr[MAX_EVCNTRS];
+	uint32_t evcntr[CONFIG_QTI_HW_NUM_PMU];
+	uint32_t amu_evcntr[CONFIG_QTI_HW_NUM_AMU * 2];
 	uint32_t valid;
 	uint32_t unused0;
 };
@@ -206,7 +208,12 @@ static ssize_t store_##name(struct kobject *kobj,			\
 	unsigned int val;						\
 	struct memlat_mon *mon = to_memlat_mon(kobj);			\
 	struct memlat_cpu_grp *cpu_grp = mon->cpu_grp;			\
-	struct scmi_memlat_vendor_ops *ops = cpu_grp->handle->memlat_ops;	\
+	struct scmi_memlat_vendor_ops *ops = NULL;			\
+	if (cpu_grp && cpu_grp->handle &&				\
+			cpu_grp->handle->memlat_ops)			\
+		ops = cpu_grp->handle->memlat_ops;			\
+	else								\
+		return -ENODEV;						\
 	ret = kstrtouint(buf, 10, &val);				\
 	if (ret < 0)							\
 		return ret;						\
@@ -247,9 +254,15 @@ static ssize_t store_min_freq(struct kobject *kobj,
 	unsigned int val;
 	struct memlat_mon *mon = to_memlat_mon(kobj);
 	struct memlat_cpu_grp *cpu_grp = mon->cpu_grp;
-	struct scmi_memlat_vendor_ops *ops = cpu_grp->handle->memlat_ops;
+	struct scmi_memlat_vendor_ops *ops = NULL;
 	unsigned int min_freq;
 	unsigned int max_freq;
+
+	if (cpu_grp && cpu_grp->handle &&
+			cpu_grp->handle->memlat_ops)
+		ops = cpu_grp->handle->memlat_ops;
+	else
+		return -ENODEV;
 
 	if (mon->mon_type == L3_MEMLAT) {
 		min_freq = l3_freqs[0];
@@ -286,9 +299,15 @@ static ssize_t store_max_freq(struct kobject *kobj,
 	unsigned int val;
 	struct memlat_mon *mon = to_memlat_mon(kobj);
 	struct memlat_cpu_grp *cpu_grp = mon->cpu_grp;
-	struct scmi_memlat_vendor_ops *ops = cpu_grp->handle->memlat_ops;
+	struct scmi_memlat_vendor_ops *ops = NULL;
 	unsigned int min_freq;
 	unsigned int max_freq;
+
+	if (cpu_grp && cpu_grp->handle &&
+			cpu_grp->handle->memlat_ops)
+		ops = cpu_grp->handle->memlat_ops;
+	else
+		return -ENODEV;
 
 	if (mon->mon_type == L3_MEMLAT) {
 		min_freq = l3_freqs[0];
@@ -331,7 +350,7 @@ static ssize_t show_cur_freq(struct kobject *kobj, char *buf)
 	return count;
 }
 
-static ssize_t show_available_freq(struct kobject *kobj, char *buf)
+static ssize_t show_available_frequencies(struct kobject *kobj, char *buf)
 {
 	struct memlat_mon *mon = to_memlat_mon(kobj);
 	u32 i = 0;
@@ -339,7 +358,9 @@ static ssize_t show_available_freq(struct kobject *kobj, char *buf)
 
 	if (mon->mon_type == L3_MEMLAT) {
 		for (i = 0; i <= l3_pstates; i++)
-			tmp += scnprintf(tmp, PAGE_SIZE, "%u\n", l3_freqs[i]);
+			tmp += scnprintf(tmp, PAGE_SIZE, "%u ", l3_freqs[i]);
+
+		tmp += scnprintf(tmp, PAGE_SIZE, "\n");
 	}
 	return (tmp - buf);
 }
@@ -421,7 +442,7 @@ memlat_mon_attr_rw(l2wb_pct);
 memlat_mon_attr_rw(l2wb_filter);
 memlat_mon_attr_rw(log_level);
 memlat_mon_attr_ro(cur_freq);
-memlat_mon_attr_ro(available_freq);
+memlat_mon_attr_ro(available_frequencies);
 
 static struct attribute *mon_dev_attr[] = {
 	&ratio_ceil.attr,
@@ -432,7 +453,7 @@ static struct attribute *mon_dev_attr[] = {
 	&l2wb_pct.attr,
 	&l2wb_filter.attr,
 	&cur_freq.attr,
-	&available_freq.attr,
+	&available_frequencies.attr,
 	NULL,
 };
 
@@ -534,6 +555,7 @@ static int setup_common_pmu_events(struct memlat_cpu_grp *cpu_grp,
 			pmu[STALL_IDX].hw_cntr_idx = INVALID_PMU_HW_IDX;
 		}
 	}
+	kfree(attr);
 	return 0;
 }
 
@@ -602,6 +624,7 @@ static int setup_mon_pmu_events(struct memlat_mon *mon,
 			pmu[L3_ACCESS_IDX].hw_cntr_idx = INVALID_PMU_HW_IDX;
 		}
 	}
+	kfree(attr);
 	return 0;
 }
 
@@ -844,6 +867,8 @@ static int memlat_idle_notif(struct notifier_block *nb,
 			save_cpugrp_pmu_events(cpu_grp, cpu);
 			for (i = 0; i < cpu_grp->num_mons; i++) {
 				mon = &cpu_grp->mons[i];
+				if (!cpumask_test_cpu(cpu, &mon->cpus))
+					continue;
 				save_mon_pmu_events(mon, cpu);
 			}
 			set_pmu_cache_flag(PMU_CACHE_VALID, cpu);

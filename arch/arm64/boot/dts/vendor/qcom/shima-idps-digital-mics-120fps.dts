@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "shima.dtsi"
+#include "shima-idps-digital-mics-120fps.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima IDPS DIGITAL MICS + 120fps";
+	compatible = "qcom,shima-idp", "qcom,shima", "qcom,idp";
+	qcom,board-id = <34 3>;
+};

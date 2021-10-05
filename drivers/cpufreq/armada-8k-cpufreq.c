@@ -3,6 +3,7 @@
  * CPUFreq support for Armada 8K
  *
  * Copyright (C) 2018 Marvell
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Omri Itach <omrii@marvell.com>
  * Gregory Clement <gregory.clement@bootlin.com>
@@ -203,6 +204,12 @@ static void __exit armada_8k_cpufreq_exit(void)
 	armada_8k_cpufreq_free_table(freq_tables);
 }
 module_exit(armada_8k_cpufreq_exit);
+
+static const struct of_device_id __maybe_unused armada_8k_cpufreq_of_match[] = {
+	{ .compatible = "marvell,ap806-cpu-clock" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, armada_8k_cpufreq_of_match);
 
 MODULE_AUTHOR("Gregory Clement <gregory.clement@bootlin.com>");
 MODULE_DESCRIPTION("Armada 8K cpufreq driver");

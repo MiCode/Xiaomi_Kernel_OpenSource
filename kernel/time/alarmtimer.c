@@ -9,6 +9,7 @@
  * interface.
  *
  * Copyright (C) 2010 IBM Corperation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: John Stultz <john.stultz@linaro.org>
  */
@@ -26,7 +27,6 @@
 #include <linux/freezer.h>
 #include <linux/compat.h>
 #include <linux/module.h>
-
 #include "posix-timers.h"
 
 #define CREATE_TRACE_POINTS

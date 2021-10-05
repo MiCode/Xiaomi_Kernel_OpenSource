@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2017 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _LINUX_BINDER_ALLOC_H
@@ -23,6 +24,7 @@ struct binder_transaction;
  * @entry:              entry alloc->buffers
  * @rb_node:            node for allocated_buffers/free_buffers rb trees
  * @free:               %true if buffer is free
+ * @clear_on_free:      %true if buffer must be zeroed after use
  * @allow_user_free:    %true if user is allowed to free buffer
  * @async_transaction:  %true if buffer is in use for an async txn
  * @debug_id:           unique ID for debugging
@@ -41,9 +43,10 @@ struct binder_buffer {
 	struct rb_node rb_node; /* free entry by size or allocated entry */
 				/* by address */
 	unsigned free:1;
+	unsigned clear_on_free:1;
 	unsigned allow_user_free:1;
 	unsigned async_transaction:1;
-	unsigned debug_id:29;
+	unsigned debug_id:28;
 
 	struct binder_transaction *transaction;
 
@@ -154,6 +157,16 @@ binder_alloc_get_free_async_space(struct binder_alloc *alloc)
 	mutex_unlock(&alloc->mutex);
 	return free_async_space;
 }
+
+//MIUI ADD:
+/**
+ * binder_alloc_get_free_space() - get free space available
+ * @alloc:      binder_alloc for this proc
+ *
+ * Return:      the bytes remaining in the address-space
+*/
+size_t binder_alloc_get_free_space(struct binder_alloc *alloc);
+//END
 
 unsigned long
 binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc,

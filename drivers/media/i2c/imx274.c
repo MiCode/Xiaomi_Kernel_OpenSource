@@ -3,6 +3,7 @@
  * imx274.c - IMX274 CMOS Image Sensor driver
  *
  * Copyright (C) 2017, Leopard Imaging, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Leon Luo <leonl@leopardimaging.com>
  * Edwin Zou <edwinz@leopardimaging.com>
@@ -1235,6 +1236,8 @@ static int imx274_s_frame_interval(struct v4l2_subdev *sd,
 	ret = imx274_set_frame_interval(imx274, fi->interval);
 
 	if (!ret) {
+		fi->interval = imx274->frame_interval;
+
 		/*
 		 * exposure time range is decided by frame interval
 		 * need to update it after frame interval changes
@@ -1730,9 +1733,9 @@ static int imx274_set_frame_interval(struct stimx274 *priv,
 		__func__, frame_interval.numerator,
 		frame_interval.denominator);
 
-	if (frame_interval.numerator == 0) {
-		err = -EINVAL;
-		goto fail;
+	if (frame_interval.numerator == 0 || frame_interval.denominator == 0) {
+		frame_interval.denominator = IMX274_DEF_FRAME_RATE;
+		frame_interval.numerator = 1;
 	}
 
 	req_frame_rate = (u32)(frame_interval.denominator

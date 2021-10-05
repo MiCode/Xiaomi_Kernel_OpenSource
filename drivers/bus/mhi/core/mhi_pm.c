@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -376,6 +377,9 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 		if (mhi_cmd->ring.rp != mhi_cmd->ring.wp)
 			mhi_ring_cmd_db(mhi_cntrl, mhi_cmd);
 		spin_unlock_irq(&mhi_cmd->lock);
+
+		/* ring special doorbells for controllers in legacy mode */
+		mhi_special_dbs_pending(mhi_cntrl);
 	}
 
 	/* ring channel db registers */
@@ -981,24 +985,24 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->bhi = mhi_cntrl->regs + val;
 
 	/* setup bhie offset if not set */
-	if (mhi_cntrl->fbc_download && !mhi_cntrl->bhie) {
-		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF, &val);
+	if (mhi_cntrl->fbc_download && !mhi_cntrl->bhie_offset) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF,
+				&mhi_cntrl->bhie_offset);
 		if (ret) {
 			write_unlock_irq(&mhi_cntrl->pm_lock);
 			MHI_CNTRL_ERR("Error getting bhie offset\n");
 			goto error_bhi_offset;
 		}
 
-		if (val >= mhi_cntrl->len) {
+		if (mhi_cntrl->bhie_offset >= mhi_cntrl->len) {
 			ret = -ENODEV;
 			write_unlock_irq(&mhi_cntrl->pm_lock);
-			MHI_ERR("Invalid bhie offset:%x\n", val);
+			MHI_ERR("Invalid bhie offset:%x\n", mhi_cntrl->bhie_offset);
 			goto error_bhi_offset;
 		}
-
-		mhi_cntrl->bhie = mhi_cntrl->regs + val;
 	}
 
+	mhi_cntrl->bhie = mhi_cntrl->regs + mhi_cntrl->bhie_offset;
 	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
 	mhi_cntrl->power_down = false;
 	mhi_cntrl->pm_state = MHI_PM_POR;
@@ -1059,9 +1063,8 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl)
 		MHI_CNTRL_ERR("mhi:%s sfr: %s\n", mhi_cntrl->name,
 				sfr_info->buf_addr);
 	}
-
-	/* link is not down if device is in RDDM */
-	transition_state = (mhi_cntrl->ee == MHI_EE_RDDM) ?
+	/* link is not down if device supports RDDM */
+	transition_state = (mhi_cntrl->rddm_supported) ?
 		MHI_PM_DEVICE_ERR_DETECT : MHI_PM_LD_ERR_FATAL_DETECT;
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -1514,6 +1517,13 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	}
 
 	if (mhi_cntrl->rddm_supported) {
+
+		/* check EP is in proper state */
+		if (mhi_cntrl->link_status(mhi_cntrl, mhi_cntrl->priv_data)) {
+			MHI_ERR("Unable to access EP Config space\n");
+			return -EIO;
+		}
+
 		if (mhi_get_exec_env(mhi_cntrl) == MHI_EE_RDDM &&
 		    !mhi_cntrl->power_down) {
 			mhi_cntrl->ee = MHI_EE_RDDM;

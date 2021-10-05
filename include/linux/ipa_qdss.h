@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _IPA_QDSS_H_
@@ -57,7 +58,7 @@ struct ipa_qdss_conn_out_params {
 	phys_addr_t ipa_rx_db_pa;
 };
 
-#if defined CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 /**
  * ipa_qdss_conn_pipes - Client should call this

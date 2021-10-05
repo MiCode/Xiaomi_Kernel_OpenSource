@@ -4,6 +4,7 @@
 Siano Mobile Silicon, Inc.
 MDTV receiver kernel modules.
 Copyright (C) 2006-2008, Uri Shkolnik
+Copyright (C) 2021 XiaoMi, Inc.
 
 
 ****************************************************************/
@@ -1169,11 +1170,14 @@ static int smsdvb_hotplug(struct smscore_device_t *coredev,
 	rc = dvb_create_media_graph(&client->adapter, true);
 	if (rc < 0) {
 		pr_err("dvb_create_media_graph failed %d\n", rc);
-		goto client_error;
+		goto media_graph_error;
 	}
 
 	pr_info("DVB interface registered.\n");
 	return 0;
+
+media_graph_error:
+	smsdvb_debugfs_release(client);
 
 client_error:
 	dvb_unregister_frontend(&client->frontend);

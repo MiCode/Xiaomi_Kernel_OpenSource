@@ -22,6 +22,8 @@
    standalone connection tracking module, and the compatibility layer's use
    of connection tracking. */
 
+extern unsigned int nf_conntrack_hash_rnd;
+
 unsigned int nf_conntrack_in(struct sk_buff *skb,
 			     const struct nf_hook_state *state);
 
@@ -89,5 +91,12 @@ extern spinlock_t nf_conntrack_locks[CONNTRACK_LOCKS];
 void nf_conntrack_lock(spinlock_t *lock);
 
 extern spinlock_t nf_conntrack_expect_lock;
+
+#ifdef CONFIG_NF_CONNTRACK_SIP_SEGMENTATION
+struct sip_list {
+	struct nf_queue_entry *entry;
+	struct list_head list;
+};
+#endif
 
 #endif /* _NF_CONNTRACK_CORE_H */

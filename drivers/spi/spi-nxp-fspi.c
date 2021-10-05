@@ -4,6 +4,7 @@
  * NXP FlexSPI(FSPI) controller driver.
  *
  * Copyright 2019 NXP.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * FlexSPI is a flexsible SPI host controller which supports two SPI
  * channels and up to 4 external devices. Each channel supports
@@ -948,6 +949,7 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct nxp_fspi *f;
 	int ret;
+	u32 reg;
 
 	ctlr = spi_alloc_master(&pdev->dev, sizeof(*f));
 	if (!ctlr)
@@ -973,6 +975,12 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 		ret = PTR_ERR(f->iobase);
 		goto err_put_ctrl;
 	}
+
+	/* Clear potential interrupts */
+	reg = fspi_readl(f, f->iobase + FSPI_INTR);
+	if (reg)
+		fspi_writel(f, reg, f->iobase + FSPI_INTR);
+
 
 	/* find the resources - controller memory mapped space */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "fspi_mmap");

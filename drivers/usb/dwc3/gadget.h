@@ -3,6 +3,7 @@
  * gadget.h - DesignWare USB3 DRD Gadget Header
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -95,13 +96,19 @@ static inline void dwc3_gadget_move_started_request(struct dwc3_request *req)
  * Caller should take care of locking. This function will move @req from its
  * current list to the endpoint's cancelled_list.
  */
-static inline void dwc3_gadget_move_cancelled_request(struct dwc3_request *req)
+static inline void dwc3_gadget_move_cancelled_request(struct dwc3_request *req, unsigned int reason)
 {
 	struct dwc3_ep		*dep = req->dep;
 
 	req->status = DWC3_REQUEST_STATUS_CANCELLED;
+	req->status = reason;
 	list_move_tail(&req->list, &dep->cancelled_list);
 }
+
+#ifndef CONFIG_FACTORY_BUILD
+void dwc3_check_cmd(struct dwc3 *dwc);
+void dwc3_check_cmd_work(struct work_struct *w);
+#endif
 
 void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		int status);
@@ -116,7 +123,7 @@ int dwc3_gadget_ep0_set_halt(struct usb_ep *ep, int value);
 int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 		gfp_t gfp_flags);
 int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
-void dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt);
+int dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt);
 
 static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 		struct dwc3_trb *trb)
@@ -125,6 +132,7 @@ static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 
 	return dep->trb_pool_dma + offset;
 }
+void dwc3_ep0_send_delayed_status(struct dwc3 *dwc);
 
 /**
  * dwc3_gadget_ep_get_transfer_index - Gets transfer index from HW

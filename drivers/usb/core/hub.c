@@ -2198,7 +2198,14 @@ void usb_disconnect(struct usb_device **pdev)
 	usb_set_device_state(udev, USB_STATE_NOTATTACHED);
 	dev_info(&udev->dev, "USB disconnect, device number %d\n",
 			udev->devnum);
-
+	if(udev->parent){
+		hub = usb_hub_to_struct_hub(udev->parent);
+		if(hub->ibasso && hub->temp_dev_number == udev->devnum){
+			hub->ibasso = 0;
+			hub->temp_dev_number = 0;
+			dev_info(&udev->dev,"usb_disconnect reset ibasso and dev_number\n");
+		}
+	}
 	/*
 	 * Ensure that the pm runtime code knows that the USB device
 	 * is in the process of being disconnected.
@@ -2500,6 +2507,7 @@ static void set_usb_port_removable(struct usb_device *udev)
 int usb_new_device(struct usb_device *udev)
 {
 	int err;
+        struct usb_hub *temp_hub = NULL;
 
 	if (udev->parent) {
 		/* Initialize non-root-hub device wakeup to disabled;
@@ -2533,6 +2541,13 @@ int usb_new_device(struct usb_device *udev)
 	/* Tell the world! */
 	announce_device(udev);
 
+	if (udev->parent){
+		temp_hub = usb_hub_to_struct_hub(udev->parent);
+		if(le16_to_cpu(udev->descriptor.idVendor) == 0x262a && 0x9302 == le16_to_cpu(udev->descriptor.idProduct)){
+			temp_hub->ibasso = 1;
+			temp_hub->temp_dev_number = udev->devnum;
+		}
+	}
 	if (udev->serial)
 		add_device_randomness(udev->serial, strlen(udev->serial));
 	if (udev->product)
@@ -3568,7 +3583,8 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 		/* drive resume for USB_RESUME_TIMEOUT msec */
 		dev_dbg(&udev->dev, "usb %sresume\n",
 				(PMSG_IS_AUTO(msg) ? "auto-" : ""));
-		msleep(USB_RESUME_TIMEOUT);
+		usleep_range(USB_RESUME_TIMEOUT * 1000,
+				(USB_RESUME_TIMEOUT + 1) * 1000);
 
 		/* Virtual root hubs can trigger on GET_PORT_STATUS to
 		 * stop resume signaling.  Then finish the resume
@@ -3577,7 +3593,7 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 		status = hub_port_status(hub, port1, &portstatus, &portchange);
 
 		/* TRSMRCY = 10 msec */
-		msleep(10);
+		usleep_range(10000, 10500);
 	}
 
  SuspendCleared:

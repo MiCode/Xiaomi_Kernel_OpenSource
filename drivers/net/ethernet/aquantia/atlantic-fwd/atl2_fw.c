@@ -19,11 +19,21 @@
 #define ATL2_FW_READ_TRY_MAX 1000
 
 #define atl2_shared_buffer_write(HW, ITEM, VARIABLE) \
+	BUILD_BUG_ON_MSG((offsetof(struct fw_interface_in, ITEM) % \
+			 sizeof(u32)) != 0,\
+			 "Unaligned write " # ITEM);\
+	BUILD_BUG_ON_MSG((sizeof(VARIABLE) %  sizeof(u32)) != 0,\
+			 "Unaligned write length " # ITEM);\
 	atl2_mif_shared_buf_write(HW,\
 		(offsetof(struct fw_interface_in, ITEM) / sizeof(u32)),\
 		(u32 *)&VARIABLE, sizeof(VARIABLE) / sizeof(u32))
 
 #define atl2_shared_buffer_get(HW, ITEM, VARIABLE) \
+	BUILD_BUG_ON_MSG((offsetof(struct fw_interface_in, ITEM) % \
+			 sizeof(u32)) != 0,\
+			 "Unaligned get " # ITEM);\
+	BUILD_BUG_ON_MSG((sizeof(VARIABLE) %  sizeof(u32)) != 0,\
+			 "Unaligned get length " # ITEM);\
 	atl2_mif_shared_buf_get(HW, \
 		(offsetof(struct fw_interface_in, ITEM) / sizeof(u32)),\
 		(u32 *)&VARIABLE, \
@@ -36,7 +46,9 @@
 {\
 	BUILD_BUG_ON_MSG((offsetof(struct fw_interface_out, ITEM) % \
 			 sizeof(u32)) != 0,\
-			 "Non aligned read " # ITEM);\
+			 "Unaligned read " # ITEM);\
+	BUILD_BUG_ON_MSG((sizeof(VARIABLE) %  sizeof(u32)) != 0,\
+			 "Unaligned read length " # ITEM);\
 	BUILD_BUG_ON_MSG(sizeof(VARIABLE) > sizeof(u32),\
 			 "Non atomic read " # ITEM);\
 	atl2_mif_shared_buf_read(HW, \
@@ -214,7 +226,7 @@ static int __atl2_fw_wait_init(struct atl_hw *hw)
 			 "pauseQuanta invalid size");
 	BUILD_BUG_ON_MSG(sizeof(struct cable_diag_control_s) != 0x4,
 			 "cableDiagControl invalid size");
-	BUILD_BUG_ON_MSG(sizeof(struct statistics_s) != 0x70,
+	BUILD_BUG_ON_MSG(sizeof(struct statistics_s) != 0x74,
 			 "statistics_s invalid size");
 
 
@@ -666,12 +678,12 @@ static int atl2_fw_get_phy_temperature(struct atl_hw *hw, int *temp)
 
 static int atl2_fw_get_mac_addr(struct atl_hw *hw, uint8_t *mac)
 {
-	struct mac_address_s mac_address;
+	struct mac_address_aligned_s mac_address;
 	int err = 0;
 
 	atl2_shared_buffer_get(hw, mac_address, mac_address);
 
-	ether_addr_copy(mac, (u8 *)mac_address.mac_address);
+	ether_addr_copy(mac, (u8 *)mac_address.aligned.mac_address);
 
 	return err;
 }
@@ -735,7 +747,7 @@ static int atl2_fw_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 	struct link_options_s link_options;
 	struct link_control_s link_control;
 	struct wake_on_lan_s wake_on_lan;
-	struct mac_address_s mac_address;
+	struct mac_address_aligned_s mac_address;
 	int ret = 0;
 
 	atl_lock_fw(hw);
@@ -758,7 +770,7 @@ static int atl2_fw_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 			wake_on_lan.restore_link_before_wake = 1;
 	}
 
-	ether_addr_copy(mac_address.mac_address, hw->mac_addr);
+	ether_addr_copy(mac_address.aligned.mac_address, hw->mac_addr);
 
 	atl2_shared_buffer_write(hw, mac_address, mac_address);
 	atl2_shared_buffer_write(hw, sleep_proxy, wake_on_lan);
@@ -901,19 +913,34 @@ static int atl2_fw_set_mediadetect(struct atl_hw *hw, bool on)
 	return  atl2_shared_buffer_finish_ack(hw);
 }
 
+static int atl2_fw_set_downshift(struct atl_hw *hw, bool on)
+{
+	struct link_options_s link_options;
+
+	atl2_shared_buffer_get(hw, link_options, link_options);
+
+	link_options.downshift = on;
+
+	atl2_shared_buffer_write(hw, link_options, link_options);
+
+	return  atl2_shared_buffer_finish_ack(hw);
+}
+
 static int atl2_fw_unsupported(struct atl_hw *hw)
 {
 	return -EOPNOTSUPP;
 }
 
-int atl2_get_fw_version(struct atl_hw *hw, u32 *fw_version)
+int atl2_get_fw_version(struct atl_hw *hw)
 {
-	struct mac_version_t mac_version;
+	struct atl_mcp *mcp = &hw->mcp;
+	struct version_s version;
 
-	atl2_shared_buffer_read(hw, version.mac, mac_version);
-	*fw_version = mac_version.major << 24 | mac_version.minor << 16 |
-		      mac_version.build;
+	atl2_shared_buffer_read_safe(hw, version, &version);
+	mcp->fw_rev = version.bundle.major << 24 | version.bundle.minor << 16 |
+		      version.bundle.build;
 
+	mcp->interface_ver = version.drv_iface_ver;
 	return 0;
 }
 
@@ -927,6 +954,7 @@ static struct atl_fw_ops atl2_fw_ops = {
 		.set_default_link = atl2_fw_set_default_link,
 		.get_phy_temperature = atl2_fw_get_phy_temperature,
 		.set_mediadetect = atl2_fw_set_mediadetect,
+		.set_downshift = atl2_fw_set_downshift,
 		.send_macsec_req = (void *)atl2_fw_unsupported,
 		.set_pad_stripping = atl2_fw_set_pad_stripping,
 		.get_mac_addr = atl2_fw_get_mac_addr,
@@ -943,7 +971,7 @@ int atl2_fw_init(struct atl_hw *hw)
 	struct atl_mcp *mcp = &hw->mcp;
 	int ret;
 
-	atl2_get_fw_version(hw, &mcp->fw_rev);
+	atl2_get_fw_version(hw);
 
 	mcp->ops = &atl2_fw_ops;
 	atl_dev_dbg("Detect ATL2FW %x\n", mcp->fw_rev);

@@ -1,0 +1,141 @@
+/* Remove regulator nodes specific to SM6150 */
+&apps_rsc {
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-smpc1;
+	/delete-node/ rpmh-regulator-smpc2;
+	/delete-node/ rpmh-regulator-modemlvl;
+	/delete-node/ rpmh-regulator-smpc8;
+	/delete-node/ rpmh-regulator-ldoa1;
+	/delete-node/ rpmh-regulator-ldoa2;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa4;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa10;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa14;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa17;
+	/delete-node/ rpmh-regulator-ldoa18;
+	/delete-node/ rpmh-regulator-ldoa19;
+	/delete-node/ rpmh-regulator-ldoc1;
+	/delete-node/ rpmh-regulator-ldoc2;
+	/delete-node/ rpmh-regulator-ldoc3;
+	/delete-node/ rpmh-regulator-ldoc4;
+	/delete-node/ rpmh-regulator-ldoc5;
+	/delete-node/ rpmh-regulator-ldoc6;
+	/delete-node/ rpmh-regulator-ldoc7;
+	/delete-node/ rpmh-regulator-ldoc8;
+	/delete-node/ rpmh-regulator-ldoc9;
+	/delete-node/ rpmh-regulator-ldoc10;
+	/delete-node/ rpmh-regulator-ldoc11;
+	/delete-node/ rpmh-regulator-bobc1;
+};
+
+&cam_csiphy0 {
+	mipi-csi-vdd-supply = <&pm6155_1_l11>;
+	regulator-names = "gdscr", "mipi-csi-vdd";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 1232000>;
+	rgltr-max-voltage = <0 1232000>;
+	rgltr-load-current = <0 21800>;
+};
+
+&cam_csiphy1 {
+	mipi-csi-vdd-supply = <&pm6155_1_l11>;
+	regulator-names = "gdscr", "mipi-csi-vdd";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 1232000>;
+	rgltr-max-voltage = <0 1232000>;
+	rgltr-load-current = <0 21800>;
+};
+
+&cam_csiphy2 {
+	mipi-csi-vdd-supply = <&pm6155_1_l11>;
+	regulator-names = "gdscr", "mipi-csi-vdd";
+	rgltr-cntrl-support;
+	rgltr-min-voltage = <0 1232000>;
+	rgltr-max-voltage = <0 1232000>;
+	rgltr-load-current = <0 21800>;
+};
+
+&soc {
+		qcom,lpass@62400000 {
+			vdd_cx-supply = <&VDD_CX_LEVEL>;
+		};
+};
+
+#include "sa6155-regulator.dtsi"
+#include "pm6155.dtsi"
+
+&mdss_dsi0 {
+	vdda-1p2-supply = <&pm6155_1_l11>;
+};
+
+&sde_dp {
+	vdda-1p2-supply = <&pm6155_1_l11>;
+	vdda-0p9-supply = <&pm6155_1_l5>;
+};
+
+&mdss_dsi_phy0 {
+	vdda-0p9-supply = <&pm6155_1_l5>;
+};
+
+&thermal_zones {
+	pm6155-1-tz {
+		cooling-maps {
+			trip0_cpu0 {
+				trip = <&pm6155_trip0>;
+				cooling-device =
+					<&CPU0 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip0_cpu1 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&cpu1_isolate 1 1>;
+			};
+
+			trip0_cpu2 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&cpu2_isolate 1 1>;
+			};
+
+			trip0_cpu3 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&cpu3_isolate 1 1>;
+			};
+
+			trip0_cpu4 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&cpu4_isolate 1 1>;
+			};
+
+			trip0_cpu5 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&cpu5_isolate 1 1>;
+			};
+
+			trip0_cpu6 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&cpu6_isolate 1 1>;
+			};
+
+			trip0_cpu7 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&cpu7_isolate 1 1>;
+			};
+		};
+	};
+};
+
+&pm6155_1_rtc {
+	disable-alarm-wakeup;
+};

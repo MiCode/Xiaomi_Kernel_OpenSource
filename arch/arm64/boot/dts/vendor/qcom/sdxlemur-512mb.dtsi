@@ -1,0 +1,63 @@
+&reserved_memory {
+	mpss_adsp_mem: mpss_adsp_region@90800000 {
+		no-map;
+		reg = <0x90800000 0xF800000>;
+	};
+
+	tz_apps_mem: tz_apps_mem_region@90000000 {
+		no-map;
+		reg = <0x90000000 0x500000>;
+	};
+
+	tz_mem: tz_mem_region@8ff00000 {
+		no-map;
+		reg = <0x8ff00000 0x100000>;
+	};
+
+	cmd_db: reserved-memory@8fee0000 {
+		compatible = "qcom,cmd-db";
+		no-map;
+		reg = <0x8fee0000 0x20000>;
+	};
+
+	smem_mem: smem_region@8fe20000 {
+		no-map;
+		reg = <0x8fe20000 0xc0000>;
+		label = "smem_mem";
+	};
+
+	aop_mem: aop_regions@0x8fe00000 {
+		no-map;
+		reg = <0x8fe00000 0x20000>;
+	};
+
+	access_control_mem: access_control_region@8fd80000 {
+		no-map;
+		reg = <0x8fd80000 0x40000>;
+	};
+
+	hyp_mem: hyp_region@8fd00000 {
+		no-map;
+		reg = <0x8fd00000 0x80000>;
+	};
+
+	secdata_mem: secdata_region@0x8fcfd000 {
+		no-map;
+		reg = <0x8fcfd000 0x1000>;
+	};
+
+	ipa_fw_mem: ipa_fw_region@0x8fced000 {
+		no-map;
+		reg = <0x8fced000 0x10000>;
+	};
+
+	tz_heap_mem: tz_heap_region@8fcad000 {
+		no-map;
+		reg = <0x8fcad000 0x40000>;
+	};
+
+	mpss_dsm: mpss_dsm_region@8c400000 {
+		no-map;
+		reg = <0x8c400000 0x3200000>;
+	};
+};

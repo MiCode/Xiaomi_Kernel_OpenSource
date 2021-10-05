@@ -2,6 +2,7 @@
  *  arch/m68k/q40/config.c
  *
  *  Copyright (C) 1999 Richard Zidlicky
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  * originally based on:
  *
@@ -264,6 +265,7 @@ static int q40_get_rtc_pll(struct rtc_pll_info *pll)
 {
 	int tmp = Q40_RTC_CTRL;
 
+	pll->pll_ctrl = 0;
 	pll->pll_value = tmp & Q40_RTC_PLL_MASK;
 	if (tmp & Q40_RTC_PLL_SIGN)
 		pll->pll_value = -pll->pll_value;

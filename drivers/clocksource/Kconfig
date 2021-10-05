@@ -127,7 +127,7 @@ config RDA_TIMER
 	  Enables the support for the RDA Micro timer driver.
 
 config SUN4I_TIMER
-	bool "Sun4i timer driver" if COMPILE_TEST
+	bool "Sun4i timer driver"
 	depends on HAS_IOMEM
 	select CLKSRC_MMIO
 	select TIMER_OF
@@ -384,6 +384,14 @@ config SUN50I_ERRATUM_UNKNOWN1
 	  This option enables a workaround for instability in the timer on
 	  the Allwinner A64 SoC. The workaround will only be active if the
 	  allwinner,erratum-unknown1 property is found in the timer node.
+
+config ARM_ARCH_TIMER_VCT_ACCESS
+	bool "Support for ARM architected timer virtual counter access in userspace"
+	default n
+	depends on ARM_ARCH_TIMER
+	help
+	  This option enables support for reading the ARM architected timer's
+	  virtual counter in userspace.
 
 config ARM_GLOBAL_TIMER
 	bool "Support for the ARM global timer" if COMPILE_TEST

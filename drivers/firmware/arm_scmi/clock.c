@@ -3,6 +3,7 @@
  * System Control and Management Interface (SCMI) Clock Protocol
  *
  * Copyright (C) 2018 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "common.h"
@@ -177,6 +178,8 @@ scmi_clock_describe_rates_get(const struct scmi_handle *handle, u32 clk_id,
 		}
 
 		tot_rate_cnt += num_returned;
+
+		scmi_reset_rx_to_maxsz(handle, t);
 		/*
 		 * check for both returned and remaining to avoid infinite
 		 * loop due to buggy firmware

@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_QCOM_COMMAND_DB)
 #include <soc/qcom/cmd-db.h>
-#include <linux/of_gpio.h>
+#endif
 
 #include "main.h"
 #include "debug.h"
 #include "bus.h"
 
+#if IS_ENABLED(CONFIG_ARCH_QCOM)
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
 	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
 	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0},
@@ -34,6 +38,13 @@ static struct cnss_vreg_cfg cnss_vreg_list[] = {
 static struct cnss_clk_cfg cnss_clk_list[] = {
 	{"rf_clk", 0, 0},
 };
+#else
+static struct cnss_vreg_cfg cnss_vreg_list[] = {
+};
+
+static struct cnss_clk_cfg cnss_clk_list[] = {
+};
+#endif
 
 #define CNSS_VREG_INFO_SIZE		ARRAY_SIZE(cnss_vreg_list)
 #define CNSS_CLK_INFO_SIZE		ARRAY_SIZE(cnss_clk_list)
@@ -43,8 +54,11 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define BOOTSTRAP_ACTIVE		"bootstrap_active"
 #define WLAN_EN_GPIO			"wlan-en-gpio"
 #define BT_EN_GPIO			"qcom,bt-en-gpio"
+#define XO_CLK_GPIO			"qcom,xo-clk-gpio"
+#define SW_CTRL_GPIO			"qcom,sw-ctrl-gpio"
 #define WLAN_EN_ACTIVE			"wlan_en_active"
 #define WLAN_EN_SLEEP			"wlan_en_sleep"
+#define WLAN_VREGS_PROP			"wlan_vregs"
 
 #define BOOTSTRAP_DELAY			1000
 #define WLAN_ENABLE_DELAY		1000
@@ -86,7 +100,7 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 	snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-config",
 		 vreg->cfg.name);
 
-	prop = of_get_property(dev->of_node, prop_name, &len);
+	prop = of_get_property(plat_priv->dev_node, prop_name, &len);
 	if (!prop || len != (5 * sizeof(__be32))) {
 		cnss_pr_dbg("Property %s %s, use default\n", prop_name,
 			    prop ? "invalid format" : "doesn't exist");
@@ -258,18 +272,51 @@ static int cnss_get_vreg(struct cnss_plat_data *plat_priv,
 	int i;
 	struct cnss_vreg_info *vreg;
 	struct device *dev = &plat_priv->plat_dev->dev;
+	int id_n;
 
-	if (!list_empty(vreg_list)) {
+	if (!list_empty(&plat_priv->vreg_list) &&
+	    !plat_priv->is_converged_dt) {
 		cnss_pr_dbg("Vregs have already been updated\n");
 		return 0;
 	}
 
-	for (i = 0; i < vreg_list_size; i++) {
+	if (plat_priv->is_converged_dt) {
+		id_n = of_property_count_strings(plat_priv->dev_node,
+						 WLAN_VREGS_PROP);
+		if (id_n <= 0) {
+			if (id_n == -ENODATA) {
+				cnss_pr_dbg("No additional vregs for: %s:%lx\n",
+					    plat_priv->dev_node->name,
+					    plat_priv->device_id);
+				return 0;
+			}
+
+			cnss_pr_err("property %s is invalid or missed: %s:%lx\n",
+				    WLAN_VREGS_PROP, plat_priv->dev_node->name,
+				    plat_priv->device_id);
+			return -EINVAL;
+		}
+	} else {
+		id_n = vreg_list_size;
+	}
+
+	for (i = 0; i < id_n; i++) {
 		vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
 		if (!vreg)
 			return -ENOMEM;
 
-		memcpy(&vreg->cfg, &vreg_cfg[i], sizeof(vreg->cfg));
+		if (plat_priv->is_converged_dt) {
+			ret = of_property_read_string_index(plat_priv->dev_node,
+							    WLAN_VREGS_PROP, i,
+							    &vreg->cfg.name);
+			if (ret) {
+				cnss_pr_err("Failed to read vreg ids\n");
+				return ret;
+			}
+		} else {
+			memcpy(&vreg->cfg, &vreg_cfg[i], sizeof(vreg->cfg));
+		}
+
 		ret = cnss_get_vreg_single(plat_priv, vreg);
 		if (ret != 0) {
 			if (ret == -ENODEV) {
@@ -444,6 +491,27 @@ int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
 	}
 
 	return ret;
+}
+
+void cnss_disable_redundant_vreg(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_vreg_info *vreg, *vreg_tmp;
+	struct list_head *vreg_list = &plat_priv->vreg_list;
+
+	list_for_each_entry_safe(vreg, vreg_tmp, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+
+		if ((!strcmp("wlan-ant-switch", vreg->cfg.name) ||
+		     !strcmp("vdd-wlan-aon", vreg->cfg.name)) &&
+		    vreg->enabled) {
+			cnss_pr_dbg("Disable Regulator %s\n", vreg->cfg.name);
+
+			list_del(&vreg->list);
+			cnss_vreg_off_single(vreg);
+			cnss_put_vreg_single(plat_priv, vreg);
+		}
+	}
 }
 
 static int cnss_get_clk_single(struct cnss_plat_data *plat_priv,
@@ -711,9 +779,67 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 		pinctrl_info->bt_en_gpio = -EINVAL;
 	}
 
+	/* Added for QCA6490 to minimize XO CLK selection leakage prevention */
+	if (of_find_property(dev->of_node, XO_CLK_GPIO, NULL)) {
+		pinctrl_info->xo_clk_gpio = of_get_named_gpio(dev->of_node,
+							      XO_CLK_GPIO, 0);
+		cnss_pr_dbg("QCA6490 XO_CLK GPIO: %d\n",
+			    pinctrl_info->xo_clk_gpio);
+		cnss_set_feature_list(plat_priv, BOOTSTRAP_CLOCK_SELECT_V01);
+	} else {
+		pinctrl_info->xo_clk_gpio = -EINVAL;
+	}
+
+	if (of_find_property(dev->of_node, SW_CTRL_GPIO, NULL)) {
+		pinctrl_info->sw_ctrl_gpio = of_get_named_gpio(dev->of_node,
+							       SW_CTRL_GPIO,
+							       0);
+		cnss_pr_dbg("Switch control GPIO: %d\n",
+			    pinctrl_info->sw_ctrl_gpio);
+	} else {
+		pinctrl_info->sw_ctrl_gpio = -EINVAL;
+	}
+
 	return 0;
 out:
 	return ret;
+}
+
+#define CNSS_XO_CLK_RETRY_COUNT_MAX 5
+static void cnss_set_xo_clk_gpio_state(struct cnss_plat_data *plat_priv,
+				       bool enable)
+{
+	int xo_clk_gpio = plat_priv->pinctrl_info.xo_clk_gpio, retry = 0, ret;
+
+	if (xo_clk_gpio < 0 || plat_priv->device_id != QCA6490_DEVICE_ID)
+		return;
+
+retry_gpio_req:
+	ret = gpio_request(xo_clk_gpio, "XO_CLK_GPIO");
+	if (ret) {
+		if (retry++ < CNSS_XO_CLK_RETRY_COUNT_MAX) {
+			/* wait for ~(10 - 20) ms */
+			usleep_range(10000, 20000);
+			goto retry_gpio_req;
+		}
+	}
+
+	if (ret) {
+		cnss_pr_err("QCA6490 XO CLK Gpio request failed\n");
+		return;
+	}
+
+	if (enable) {
+		gpio_direction_output(xo_clk_gpio, 1);
+		/*XO CLK must be asserted for some time before WLAN_EN */
+		usleep_range(100, 200);
+	} else {
+		/* Assert XO CLK ~(2-5)ms before off for valid latch in HW */
+		usleep_range(2000, 5000);
+		gpio_direction_output(xo_clk_gpio, 0);
+	}
+
+	gpio_free(xo_clk_gpio);
 }
 
 static int cnss_select_pinctrl_state(struct cnss_plat_data *plat_priv,
@@ -742,7 +868,7 @@ static int cnss_select_pinctrl_state(struct cnss_plat_data *plat_priv,
 			}
 			udelay(BOOTSTRAP_DELAY);
 		}
-
+		cnss_set_xo_clk_gpio_state(plat_priv, true);
 		if (!IS_ERR_OR_NULL(pinctrl_info->wlan_en_active)) {
 			ret = pinctrl_select_state
 				(pinctrl_info->pinctrl,
@@ -754,6 +880,7 @@ static int cnss_select_pinctrl_state(struct cnss_plat_data *plat_priv,
 			}
 			udelay(WLAN_ENABLE_DELAY);
 		}
+		cnss_set_xo_clk_gpio_state(plat_priv, false);
 	} else {
 		if (!IS_ERR_OR_NULL(pinctrl_info->wlan_en_sleep)) {
 			ret = pinctrl_select_state(pinctrl_info->pinctrl,
@@ -778,7 +905,7 @@ out:
  * cnss_select_pinctrl_enable - select WLAN_GPIO for Active pinctrl status
  * @plat_priv: Platform private data structure pointer
  *
- * For QCA6490, PMU requires minimum 100ms delay between BT_EN_GPIO off and
+ * For QCA6390/QCA6490, PMU requires minimum 100ms delay between BT_EN_GPIO off and
  * WLAN_EN_GPIO on. This is done to avoid power up issues.
  *
  * Return: Status of pinctrl select operation. 0 - Success.
@@ -788,8 +915,16 @@ static int cnss_select_pinctrl_enable(struct cnss_plat_data *plat_priv)
 	int ret = 0, bt_en_gpio = plat_priv->pinctrl_info.bt_en_gpio;
 	u8 wlan_en_state = 0;
 
-	if (bt_en_gpio < 0 || plat_priv->device_id != QCA6490_DEVICE_ID)
+	if (bt_en_gpio < 0)
 		goto set_wlan_en;
+
+	switch (plat_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+	case QCA6490_DEVICE_ID:
+		break;
+	default:
+		goto set_wlan_en;
+	}
 
 	if (gpio_get_value(bt_en_gpio)) {
 		cnss_pr_dbg("BT_EN_GPIO State: On\n");
@@ -806,13 +941,30 @@ static int cnss_select_pinctrl_enable(struct cnss_plat_data *plat_priv)
 			cnss_select_pinctrl_state(plat_priv, false);
 			wlan_en_state = 0;
 		}
-		/* 100 ms delay for BT_EN and WLAN_EN QCA6490 PMU sequencing */
+		/* 100 ms delay for BT_EN and WLAN_EN QCA6490/QCA6390 PMU sequencing */
 		msleep(100);
 	}
 set_wlan_en:
 	if (!wlan_en_state)
 		ret = cnss_select_pinctrl_state(plat_priv, true);
 	return ret;
+}
+
+int cnss_gpio_get_value(struct cnss_plat_data *plat_priv, int gpio_num)
+{
+	int ret;
+
+	if (gpio_num < 0)
+		return -EINVAL;
+
+	ret = gpio_direction_input(gpio_num);
+	if (ret) {
+		cnss_pr_err("Failed to set direction of GPIO(%d), err = %d",
+			    gpio_num, ret);
+		return -EINVAL;
+	}
+
+	return gpio_get_value(gpio_num);
 }
 
 int cnss_power_on_device(struct cnss_plat_data *plat_priv)
@@ -888,6 +1040,30 @@ void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
 	plat_priv->pin_result.host_pin_result = pin_status;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_COMMAND_DB)
+static int cnss_cmd_db_ready(struct cnss_plat_data *plat_priv)
+{
+	return cmd_db_ready();
+}
+
+static u32 cnss_cmd_db_read_addr(struct cnss_plat_data *plat_priv,
+				 const char *res_id)
+{
+	return cmd_db_read_addr(res_id);
+}
+#else
+static int cnss_cmd_db_ready(struct cnss_plat_data *plat_priv)
+{
+	return -EOPNOTSUPP;
+}
+
+static u32 cnss_cmd_db_read_addr(struct cnss_plat_data *plat_priv,
+				 const char *res_id)
+{
+	return 0;
+}
+#endif
+
 int cnss_get_tcs_info(struct cnss_plat_data *plat_priv)
 {
 	struct platform_device *plat_dev = plat_priv->plat_dev;
@@ -940,13 +1116,13 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	ret = cmd_db_ready();
+	ret = cnss_cmd_db_ready(plat_priv);
 	if (ret) {
-		cnss_pr_err("CommandDB is not ready\n");
+		cnss_pr_err("CommandDB is not ready, err = %d\n", ret);
 		goto out;
 	}
 
-	cpr_pmic_addr = cmd_db_read_addr(cmd_db_name);
+	cpr_pmic_addr = cnss_cmd_db_read_addr(plat_priv, cmd_db_name);
 	if (cpr_pmic_addr > 0) {
 		cpr_info->cpr_pmic_addr = cpr_pmic_addr;
 		cnss_pr_dbg("Get CPR PMIC address 0x%x from %s\n",
@@ -1055,4 +1231,19 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
 	data_val = readl_relaxed(tcs_cmd);
 	cnss_pr_dbg("Setup S3E TCS Addr: %x Data: %d\n", addr_val, data_val);
 	return 0;
+}
+
+int cnss_dev_specific_power_on(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+
+	if (!plat_priv->is_converged_dt)
+		return 0;
+
+	ret = cnss_get_vreg_type(plat_priv, CNSS_VREG_PRIM);
+	if (ret)
+		return ret;
+
+	plat_priv->powered_on = false;
+	return cnss_power_on_device(plat_priv);
 }

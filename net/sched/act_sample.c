@@ -2,6 +2,7 @@
 /*
  * net/sched/act_sample.c - Packet sampling tc action
  * Copyright (c) 2017 Yotam Gigi <yotamg@mellanox.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/types.h>
@@ -116,8 +117,6 @@ static int tcf_sample_init(struct net *net, struct nlattr *nla,
 	if (goto_ch)
 		tcf_chain_put_by_act(goto_ch);
 
-	if (ret == ACT_P_CREATED)
-		tcf_idr_insert(tn, *a);
 	return ret;
 put_chain:
 	if (goto_ch)

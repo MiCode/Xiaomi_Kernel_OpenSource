@@ -3,6 +3,7 @@
  * Ingenic SoC CGU driver
  *
  * Copyright (c) 2013-2015 Imagination Technologies
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Paul Burton <paul.burton@mips.com>
  */
 
@@ -393,15 +394,21 @@ static unsigned int
 ingenic_clk_calc_hw_div(const struct ingenic_cgu_clk_info *clk_info,
 			unsigned int div)
 {
-	unsigned int i;
+	unsigned int i, best_i = 0, best = (unsigned int)-1;
 
 	for (i = 0; i < (1 << clk_info->div.bits)
 				&& clk_info->div.div_table[i]; i++) {
-		if (clk_info->div.div_table[i] >= div)
-			return i;
+		if (clk_info->div.div_table[i] >= div &&
+		    clk_info->div.div_table[i] < best) {
+			best = clk_info->div.div_table[i];
+			best_i = i;
+
+			if (div == best)
+				break;
+		}
 	}
 
-	return i - 1;
+	return best_i;
 }
 
 static unsigned

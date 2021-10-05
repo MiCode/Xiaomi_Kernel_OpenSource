@@ -521,7 +521,37 @@ config DEVPORT
 
 source "drivers/s390/char/Kconfig"
 
+config MSM_SMD_PKT
+	bool "Enable device interface for some SMD packet ports"
+	default n
+	depends on RPMSG_QCOM_SMD
+	help
+	 smd_pkt driver provides the interface for the userspace clients
+	 to communicate over smd via device nodes. This enable the
+	 usersapce clients to read and write to some smd packets channel
+	 for MSM chipset.
+
+config TILE_SROM
+	tristate "Character-device access via hypervisor to the Tilera SPI ROM"
+	depends on TILE
+	default y
+	help
+	  This device provides character-level read-write access
+	  to the SROM, typically via the "0", "1", and "2" devices
+	  in /dev/srom/.  The Tilera hypervisor makes the flash
+	  device appear much like a simple EEPROM, and knows
+	  how to partition a single ROM for multiple purposes.
+
 source "drivers/char/xillybus/Kconfig"
+
+config MSM_FASTCVPD
+	bool "QTI FASTCVP driver"
+	depends on QCOM_GLINK
+	help
+		This driver exposes APIs to video driver to share
+		HFI command queue address to CDSP and handle errors
+		to exit gracefully in case video and cdsp subsystems crash.
+		Say M if you want to enable this module.
 
 config MSM_ADSPRPC
 	tristate "QTI FastRPC driver"
@@ -541,6 +571,25 @@ config ADSPRPC_QGKI
 		config is used in the driver to detect whether it is being compiled
 		in a GKI kernel or not.
 		Say Y if the driver is being compiled in a QGKI kernel.
+
+config VIRTIO_EAVB
+	tristate "Virtio eavb driver"
+	depends on VIRTIO
+	help
+	  This the virtual eavb frontend driver based on virtio. Eavb
+	  means ethernet Audio Video Bridging. It provides unified ioctl
+	  interface for userspace. Say Y if you want to support virtual
+	  eavb.
+
+config VIRTIO_FASTRPC
+	tristate "Virtio fastrpc driver"
+	depends on VIRTIO
+	help
+	  This is the virtual fastrpc frontend driver based on virtio. It
+	  provides a communication mechanism that allows for clients to
+	  make remote method invocations across processor boundary to
+	  applications DSP processor. Say Y if you want to support virtual
+	  fastrpc.
 
 config MSM_RDBG
 	tristate "QTI Remote debug driver"

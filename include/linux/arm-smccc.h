@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015, Linaro Limited
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef __LINUX_ARM_SMCCC_H
 #define __LINUX_ARM_SMCCC_H
@@ -77,6 +78,8 @@
 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,				\
 			   ARM_SMCCC_SMC_32,				\
 			   0, 0x7fff)
+
+#define SMCCC_ARCH_WORKAROUND_RET_UNAFFECTED	1
 
 #ifndef __ASSEMBLY__
 

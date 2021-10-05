@@ -15,6 +15,9 @@
   blk_queue_write_cache
   bpf_trace_run2
   bpf_trace_run3
+  bt_err
+  bt_info
+  build_skb
   cancel_delayed_work_sync
   cancel_work_sync
   __cfi_slowpath
@@ -37,6 +40,7 @@
   _dev_err
   device_add_disk
   device_create
+  device_init_wakeup
   device_unregister
   _dev_info
   __dev_kfree_skb_any
@@ -70,8 +74,23 @@
   __get_free_pages
   get_random_bytes
   get_unused_fd_flags
+  __hci_cmd_sync
+  hrtimer_cancel
+  hrtimer_init
+  hrtimer_start_range_ns
   ida_alloc_range
   ida_free
+  ieee80211_alloc_hw_nm
+  ieee80211_beacon_get_tim
+  ieee80211_csa_finish
+  ieee80211_csa_is_complete
+  ieee80211_free_hw
+  ieee80211_free_txskb
+  ieee80211_get_tx_rates
+  ieee80211_iterate_active_interfaces_atomic
+  ieee80211_register_hw
+  ieee80211_start_tx_ba_cb_irqsafe
+  ieee80211_stop_tx_ba_cb_irqsafe
   init_timer_key
   init_wait_entry
   __init_waitqueue_head
@@ -84,6 +103,7 @@
   jiffies
   jiffies_to_msecs
   kfree
+  kfree_skb
   kimage_voffset
   __kmalloc
   kmalloc_caches
@@ -100,6 +120,7 @@
   kobject_put
   kobject_uevent
   kstrdup
+  ktime_get
   ktime_get_mono_fast_ns
   ktime_get_raw_ts64
   ktime_get_real_seconds
@@ -123,11 +144,18 @@
   mutex_lock_interruptible
   mutex_trylock
   mutex_unlock
+  napi_complete_done
+  napi_disable
+  __napi_schedule
+  napi_schedule_prep
   netdev_err
   netdev_info
   netif_carrier_off
   netif_carrier_on
   netif_device_detach
+  netif_napi_add
+  netif_set_real_num_rx_queues
+  netif_set_real_num_tx_queues
   netif_tx_stop_all_queues
   netif_tx_wake_queue
   nf_conntrack_destroy
@@ -153,7 +181,6 @@
   platform_driver_unregister
   platform_get_irq
   platform_get_resource
-  pm_runtime_allow
   __pm_runtime_suspend
   __pm_runtime_use_autosuspend
   preempt_schedule
@@ -184,7 +211,10 @@
   register_netdev
   register_virtio_device
   register_virtio_driver
+  __regmap_init
+  release_firmware
   remap_pfn_range
+  request_firmware
   __request_module
   request_threaded_irq
   revalidate_disk
@@ -198,7 +228,9 @@
   sg_init_one
   sg_init_table
   skb_add_rx_frag
+  skb_page_frag_refill
   skb_put
+  skb_to_sgvec
   snd_card_register
   snd_ctl_enum_info
   snd_ctl_sync_vmaster
@@ -207,6 +239,7 @@
   snd_pcm_add_chmap_ctls
   snd_pcm_period_elapsed
   snprintf
+  softnet_data
   sort
   sprintf
   __stack_chk_fail
@@ -248,6 +281,7 @@
   virtqueue_detach_unused_buf
   virtqueue_disable_cb
   virtqueue_enable_cb
+  virtqueue_enable_cb_prepare
   virtqueue_get_avail_addr
   virtqueue_get_buf
   virtqueue_get_desc_addr
@@ -257,6 +291,7 @@
   virtqueue_kick
   virtqueue_kick_prepare
   virtqueue_notify
+  virtqueue_poll
   vmemmap
   vring_create_virtqueue
   vring_del_virtqueue
@@ -265,6 +300,63 @@
   wait_for_completion
   __wake_up
   __warn_printk
+
+# required by btintel.ko
+  bt_to_errno
+  hci_cmd_sync
+  request_firmware_direct
+
+# required by btrtl.ko
+  bt_warn
+
+# required by btusb.ko
+  bit_wait_timeout
+  btbcm_set_bdaddr
+  btbcm_setup_apple
+  btbcm_setup_patchram
+  device_wakeup_disable
+  disable_irq
+  disable_irq_nosync
+  enable_irq
+  gpiod_get_optional
+  gpiod_put
+  gpiod_set_value_cansleep
+  hci_alloc_dev
+  __hci_cmd_sync_ev
+  hci_free_dev
+  hci_recv_diag
+  hci_recv_frame
+  hci_register_dev
+  hci_unregister_dev
+  irq_modify_status
+  irq_set_irq_wake
+  of_irq_get_byname
+  of_match_device
+  of_property_read_variable_u16_array
+  out_of_line_wait_on_bit_timeout
+  pm_system_wakeup
+  pm_wakeup_dev_event
+  usb_alloc_urb
+  usb_anchor_urb
+  usb_autopm_get_interface
+  usb_autopm_put_interface
+  usb_bulk_msg
+  usb_control_msg
+  usb_deregister
+  usb_driver_claim_interface
+  usb_driver_release_interface
+  usb_enable_autosuspend
+  usb_free_urb
+  usb_get_from_anchor
+  usb_ifnum_to_if
+  usb_kill_anchored_urbs
+  usb_match_id
+  usb_register_driver
+  usb_scuttle_anchored_urbs
+  usb_set_interface
+  usb_submit_urb
+  usb_unanchor_urb
+  wake_up_bit
 
 # required by dummy-cpufreq.ko
   cpufreq_generic_attr
@@ -283,7 +375,6 @@
 # required by goldfish_address_space.ko
   __ioremap
   kimage_vaddr
-  kzfree
   memremap
   memunmap
 
@@ -341,7 +432,6 @@
   kernel_read
   kernel_write
   kern_path
-  ktime_get
   lockref_get
   lock_rename
   lookup_one_len
@@ -398,31 +488,16 @@
   genl_notify
   genl_register_family
   genl_unregister_family
-  hrtimer_cancel
   hrtimer_forward
-  hrtimer_init
-  hrtimer_start_range_ns
-  ieee80211_alloc_hw_nm
-  ieee80211_beacon_get_tim
-  ieee80211_csa_finish
-  ieee80211_csa_is_complete
-  ieee80211_free_hw
-  ieee80211_free_txskb
-  ieee80211_get_tx_rates
-  ieee80211_iterate_active_interfaces_atomic
   ieee80211_probereq_get
   ieee80211_queue_delayed_work
   ieee80211_ready_on_channel
-  ieee80211_register_hw
   ieee80211_remain_on_channel_expired
   ieee80211_rx_irqsafe
   ieee80211_scan_completed
-  ieee80211_start_tx_ba_cb_irqsafe
-  ieee80211_stop_tx_ba_cb_irqsafe
   ieee80211_tx_status_irqsafe
   ieee80211_unregister_hw
   init_net
-  kfree_skb
   kstrndup
   __netdev_alloc_skb
   netif_rx
@@ -580,7 +655,6 @@
 # required by rtc-test.ko
   add_timer
   del_timer
-  device_init_wakeup
   devm_rtc_allocate_device
   platform_device_add
   platform_device_alloc
@@ -606,6 +680,7 @@
   get_device_system_crosststamp
   kvasprintf
   ns_to_timespec
+  pm_runtime_allow
   __pm_runtime_disable
   pm_runtime_enable
   pm_runtime_forbid
@@ -664,7 +739,6 @@
   regcache_cache_only
   regcache_sync
   regmap_exit
-  __regmap_init
   regmap_read
   regmap_update_bits_base
   regmap_write
@@ -708,6 +782,7 @@
   vmalloc
 
 # required by virtio-gpu.ko
+  dma_buf_get_uuid
   dma_direct_map_sg
   dma_direct_sync_sg_for_device
   dma_direct_unmap_sg
@@ -769,6 +844,7 @@
   drm_gem_object_lookup
   drm_gem_object_put_unlocked
   drm_gem_object_release
+  drm_gem_prime_export
   drm_gem_prime_fd_to_handle
   drm_gem_prime_handle_to_fd
   drm_gem_prime_mmap
@@ -809,6 +885,7 @@
   ttm_bo_init_mm
   ttm_bo_kmap
   ttm_bo_kunmap
+  ttm_bo_manager_func
   ttm_bo_mmap
   ttm_bo_move_to_lru_tail
   ttm_bo_put
@@ -819,6 +896,7 @@
   ttm_eu_backoff_reservation
   ttm_eu_fence_buffer_objects
   ttm_eu_reserve_buffers
+  ttm_tt_init
   ww_mutex_lock_interruptible
   ww_mutex_unlock
 
@@ -907,7 +985,6 @@
   bpf_prog_sub
   bpf_stats_enabled_key
   bpf_warn_invalid_xdp_action
-  build_skb
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_state_add_instance
@@ -922,21 +999,14 @@
   find_next_bit
   flow_keys_basic_dissector
   __napi_alloc_skb
-  napi_complete_done
   napi_consume_skb
-  napi_disable
   napi_gro_receive
   napi_hash_del
-  __napi_schedule
-  napi_schedule_prep
   netdev_notify_peers
   netdev_warn
   netif_device_attach
-  netif_napi_add
   netif_napi_del
   netif_schedule_queue
-  netif_set_real_num_rx_queues
-  netif_set_real_num_tx_queues
   __netif_set_xps_queue
   net_ratelimit
   __num_online_cpus
@@ -944,18 +1014,13 @@
   sched_clock
   skb_coalesce_rx_frag
   __skb_flow_dissect
-  skb_page_frag_refill
   skb_partial_csum_set
-  skb_to_sgvec
   skb_tstamp_tx
-  softnet_data
   synchronize_net
   __tracepoint_xdp_exception
   virtqueue_add_inbuf_ctx
   virtqueue_enable_cb_delayed
-  virtqueue_enable_cb_prepare
   virtqueue_get_buf_ctx
-  virtqueue_poll
   xdp_convert_zc_to_xdp_frame
   xdp_do_flush_map
   xdp_do_redirect
@@ -985,3 +1050,10 @@
   nvdimm_bus_register
   nvdimm_bus_unregister
   nvdimm_pmem_region_create
+
+# required by virtio_wifi.ko
+  ieee80211_rx_napi
+  ieee80211_stop_queues
+  ieee80211_tx_status_ext
+  ieee80211_wake_queues
+  init_dummy_netdev

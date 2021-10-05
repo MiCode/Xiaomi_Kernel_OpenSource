@@ -2,6 +2,7 @@
  *  linux/drivers/video/console/fbcon_rotate.c -- Software Rotation
  *
  *      Copyright (C) 2005 Antonino Daplas <adaplas @pol.net>
+ *      Copyright (C) 2021 XiaoMi, Inc.
  *
  *  This file is subject to the terms and conditions of the GNU General Public
  *  License.  See the file COPYING in the main directory of this archive for
@@ -14,6 +15,7 @@
 #include <linux/fb.h>
 #include <linux/vt_kern.h>
 #include <linux/console.h>
+#include <linux/font.h>
 #include <asm/types.h>
 #include "fbcon.h"
 #include "fbcon_rotate.h"

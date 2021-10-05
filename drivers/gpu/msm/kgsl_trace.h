@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #if !defined(_KGSL_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -28,7 +29,9 @@
 #define show_constraint(type) \
 	__print_symbolic(type, \
 		{ KGSL_CONSTRAINT_NONE, "None" }, \
-		{ KGSL_CONSTRAINT_PWRLEVEL, "Pwrlevel" })
+		{ KGSL_CONSTRAINT_PWRLEVEL, "Pwrlevel" }, \
+		{ KGSL_CONSTRAINT_L3_NONE, "L3_none" }, \
+		{ KGSL_CONSTRAINT_L3_PWRLEVEL, "L3_pwrlevel" })
 
 struct kgsl_ringbuffer_issueibcmds;
 struct kgsl_device_waittimestamp;
@@ -456,9 +459,9 @@ TRACE_EVENT(kgsl_mem_alloc,
 
 TRACE_EVENT(kgsl_mem_mmap,
 
-	TP_PROTO(struct kgsl_mem_entry *mem_entry),
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned long useraddr),
 
-	TP_ARGS(mem_entry),
+	TP_ARGS(mem_entry, useraddr),
 
 	TP_STRUCT__entry(
 		__field(unsigned long, useraddr)
@@ -470,7 +473,7 @@ TRACE_EVENT(kgsl_mem_mmap,
 	),
 
 	TP_fast_assign(
-		__entry->useraddr = mem_entry->memdesc.useraddr;
+		__entry->useraddr = useraddr;
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),

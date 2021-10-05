@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_VIDEO_CC_YUPIK_H
@@ -8,18 +9,17 @@
 
 /* VIDEO_CC clocks */
 #define VIDEO_PLL0						0
-#define VIDEO_CC_APB_CLK					1
-#define VIDEO_CC_IRIS_AHB_CLK					2
-#define VIDEO_CC_IRIS_CLK_SRC					3
-#define VIDEO_CC_MVS0_AXI_CLK					4
-#define VIDEO_CC_MVS0_CORE_CLK					5
-#define VIDEO_CC_MVSC_CORE_CLK					6
-#define VIDEO_CC_MVSC_CTL_AXI_CLK				7
-#define VIDEO_CC_SLEEP_CLK					8
-#define VIDEO_CC_SLEEP_CLK_SRC					9
-#define VIDEO_CC_VENUS_AHB_CLK					10
-#define VIDEO_CC_XO_CLK						11
-#define VIDEO_CC_XO_CLK_SRC					12
+#define VIDEO_CC_IRIS_AHB_CLK					1
+#define VIDEO_CC_IRIS_CLK_SRC					2
+#define VIDEO_CC_MVS0_AXI_CLK					3
+#define VIDEO_CC_MVS0_CORE_CLK					4
+#define VIDEO_CC_MVSC_CORE_CLK					5
+#define VIDEO_CC_MVSC_CTL_AXI_CLK				6
+#define VIDEO_CC_SLEEP_CLK					7
+#define VIDEO_CC_SLEEP_CLK_SRC					8
+#define VIDEO_CC_VENUS_AHB_CLK					9
+#define VIDEO_CC_XO_CLK						10
+#define VIDEO_CC_XO_CLK_SRC					11
 
 /* VIDEO_CC power domains */
 #define VIDEO_CC_MVS0_GDSC					0

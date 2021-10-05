@@ -1,5 +1,6 @@
 /*
  * Copyright 2012 Red Hat Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -101,9 +102,13 @@ platform_init(struct nvkm_bios *bios, const char *name)
 	else
 		return ERR_PTR(-ENODEV);
 
+	if (!pdev->rom || pdev->romlen == 0)
+		return ERR_PTR(-ENODEV);
+
 	if ((priv = kmalloc(sizeof(*priv), GFP_KERNEL))) {
+		priv->size = pdev->romlen;
 		if (ret = -ENODEV,
-		    (priv->rom = pci_platform_rom(pdev, &priv->size)))
+		    (priv->rom = ioremap(pdev->rom, pdev->romlen)))
 			return priv;
 		kfree(priv);
 	}
@@ -111,11 +116,20 @@ platform_init(struct nvkm_bios *bios, const char *name)
 	return ERR_PTR(ret);
 }
 
+static void
+platform_fini(void *data)
+{
+	struct priv *priv = data;
+
+	iounmap(priv->rom);
+	kfree(priv);
+}
+
 const struct nvbios_source
 nvbios_platform = {
 	.name = "PLATFORM",
 	.init = platform_init,
-	.fini = (void(*)(void *))kfree,
+	.fini = platform_fini,
 	.read = pcirom_read,
 	.rw = true,
 };

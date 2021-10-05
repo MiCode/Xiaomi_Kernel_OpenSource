@@ -1,0 +1,340 @@
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+#include <dt-bindings/iio/qcom,spmi-adc7-smb139x.h>
+
+#include "pmk8350.dtsi"
+#include "pm8350.dtsi"
+#include "pm8350c.dtsi"
+#include "pm8350b.dtsi"
+#include "pmr735a.dtsi"
+#include "pmr735b.dtsi"
+
+&pm8350_gpios {
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio8";
+			function = "normal";
+			output-low;
+			power-source = <0>;	/* 1.8V input supply */
+		};
+	};
+
+	usb2_vbus_det {
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			pins = "gpio9";
+			function = "normal";
+			input-enable;
+			bias-disable;
+			power-source = <0>;	/* 1.8V input supply */
+		};
+	};
+};
+
+&pm8350c_gpios {
+	lcd_backlight_ctrl {
+		lcd_backlight_ctrl_default: lcd_backlight_ctrl_default {
+			pins = "gpio9";
+			function = "func1";
+			input-disable;
+			output-enable;
+			bias-disable;
+			power-source = <1>;	/* 1.8V */
+			qcom,drive-strength = <2>;
+		};
+	};
+};
+
+&qupv3_se13_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "ok";
+
+	pm8008i@8 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x8>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pm8008i_active>;
+
+		pm8008-chip@900 {
+			compatible = "qcom,pm8008-chip";
+			reg = <0x900>;
+
+			PM8008I_EN: qcom,pm8008-chip-en {
+				regulator-name = "pm8008i-chip-en";
+			};
+		};
+
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100>;
+		};
+	};
+
+	pm8008i@9 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x9>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		PM8008I: qcom,pm8008i-regulator {
+			compatible = "qcom,pm8008-regulator";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pm8008_en-supply = <&PM8008I_EN>;
+			vdd_l1_l2-supply = <&S12B>;
+			vdd_l3_l4-supply = <&BOB>;
+			vdd_l5-supply = <&S1C>;
+			vdd_l6-supply = <&BOB>;
+			vdd_l7-supply = <&BOB>;
+
+			L1I: pm8008i_l1: regulator@4000 {
+				reg = <0x4000>;
+				regulator-name = "pm8008i_l1";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1104000>;
+				qcom,min-dropout-voltage = <224000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L2I: pm8008i_l2: regulator@4100 {
+				reg = <0x4100>;
+				regulator-name = "pm8008i_l2";
+				regulator-min-microvolt = <944000>;
+				regulator-max-microvolt = <1152000>;
+				qcom,min-dropout-voltage = <150000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L3I: pm8008i_l3: regulator@4200 {
+				reg = <0x4200>;
+				regulator-name = "pm8008i_l3";
+				regulator-min-microvolt = <2696000>;
+				regulator-max-microvolt = <3000000>;
+				qcom,min-dropout-voltage = <200000>;
+			};
+
+			L4I: pm8008i_l4: regulator@4300 {
+				reg = <0x4300>;
+				regulator-name = "pm8008i_l4";
+				regulator-min-microvolt = <2696000>;
+				regulator-max-microvolt = <2904000>;
+				qcom,min-dropout-voltage = <200000>;
+			};
+
+			L5I: pm8008i_l5: regulator@4400 {
+				reg = <0x4400>;
+				regulator-name = "pm8008i_l5";
+				regulator-min-microvolt = <1696000>;
+				regulator-max-microvolt = <1800000>;
+				qcom,min-dropout-voltage = <70000>;
+			};
+
+			L6I: pm8008i_l6: regulator@4500 {
+				reg = <0x4500>;
+				regulator-name = "pm8008i_l6";
+				regulator-min-microvolt = <2696000>;
+				regulator-max-microvolt = <2904000>;
+				qcom,min-dropout-voltage = <200000>;
+			};
+
+			L7I: pm8008i_l7: regulator@4600 {
+				reg = <0x4600>;
+				regulator-name = "pm8008i_l7";
+				regulator-min-microvolt = <2696000>;
+				regulator-max-microvolt = <3000000>;
+				qcom,min-dropout-voltage = <200000>;
+			};
+		};
+	};
+
+	pm8008j@c {
+		compatible = "qcom,i2c-pmic";
+		reg = <0xc>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pm8008j_active>;
+
+		pm8008-chip@900 {
+			compatible = "qcom,pm8008-chip";
+			reg = <0x900>;
+
+			PM8008J_EN: qcom,pm8008-chip-en {
+				regulator-name = "pm8008j-chip-en";
+			};
+		};
+
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100>;
+		};
+	};
+
+	pm8008j@d {
+		compatible = "qcom,i2c-pmic";
+		reg = <0xd>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		PM8008J: qcom,pm8008j-regulator {
+			compatible = "qcom,pm8008-regulator";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pm8008_en-supply = <&PM8008J_EN>;
+			vdd_l1_l2-supply = <&S12B>;
+			vdd_l3_l4-supply = <&S1C>;
+			vdd_l5-supply = <&BOB>;
+			vdd_l6-supply = <&BOB>;
+			vdd_l7-supply = <&BOB>;
+
+			L1J: pm8008j_l1: regulator@4000 {
+				reg = <0x4000>;
+				regulator-name = "pm8008j_l1";
+				regulator-min-microvolt = <944000>;
+				regulator-max-microvolt = <1152000>;
+				qcom,min-dropout-voltage = <100000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L2J: pm8008j_l2: regulator@4100 {
+				reg = <0x4100>;
+				regulator-name = "pm8008j_l2";
+				regulator-min-microvolt = <944000>;
+				regulator-max-microvolt = <1056000>;
+				qcom,min-dropout-voltage = <225000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L3J: pm8008j_l3: regulator@4200 {
+				reg = <0x4200>;
+				regulator-name = "pm8008j_l3";
+				regulator-min-microvolt = <1728000>;
+				regulator-max-microvolt = <1800000>;
+				qcom,min-dropout-voltage = <70000>;
+			};
+
+			L4J: pm8008j_l4: regulator@4300 {
+				reg = <0x4300>;
+				regulator-name = "pm8008j_l4";
+				regulator-min-microvolt = <1728000>;
+				regulator-max-microvolt = <1800000>;
+				qcom,min-dropout-voltage = <70000>;
+			};
+
+			L5J: pm8008j_l5: regulator@4400 {
+				reg = <0x4400>;
+				regulator-name = "pm8008j_l5";
+				regulator-min-microvolt = <2696000>;
+				regulator-max-microvolt = <2904000>;
+				qcom,min-dropout-voltage = <200000>;
+			};
+
+			L6J: pm8008j_l6: regulator@4500 {
+				reg = <0x4500>;
+				regulator-name = "pm8008j_l6";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+				qcom,min-dropout-voltage = <200000>;
+			};
+
+			L7J: pm8008j_l7: regulator@4600 {
+				reg = <0x4600>;
+				regulator-name = "pm8008j_l7";
+				regulator-min-microvolt = <2808000>;
+				regulator-max-microvolt = <3600000>;
+				qcom,min-dropout-voltage = <200000>;
+			};
+		};
+	};
+};
+
+&pm8350_tz {
+	io-channels = <&pmk8350_vadc PM8350_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
+&pm8350b_tz {
+	io-channels = <&pmk8350_vadc PM8350B_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
+&pmk8350_sdam_2 {
+	hap_cl_brake: cl_brake@7c {
+		reg = <0x7c 0x1>;
+		bits = <0 8>;
+	};
+};
+
+&pm8350b_haptics {
+	nvmem-cell-names = "hap_cl_brake";
+	nvmem-cells = <&hap_cl_brake>;
+	nvmem-names = "hap_cfg_sdam";
+	nvmem = <&pmk8350_sdam_46>;
+	qcom,pbs-client = <&pm8350b_pbs2>;
+	qcom,lra-f0-min = <160>;
+	qcom,lra-f0-max = <180>;
+	qcom,lra-f0-default = <170>;
+	qcom,lra-f0-cal-count = <592>;
+};
+
+&pmr735a_tz {
+	io-channels = <&pmk8350_vadc PMR735A_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
+&pmr735b_tz {
+	io-channels = <&pmk8350_vadc PMR735B_ADC7_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+&thermal_zones {
+	xo-therm-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pmk8350_adc_tm PMK8350_ADC7_AMUX_THM1_100K_PU>;
+
+		trips {
+			xo_config0: active-config0 {
+				temperature = <78000>;
+				hysteresis = <8000>;
+				type = "passive";
+			};
+
+			xo_config1: active-config1 {
+				temperature = <80000>;
+				hysteresis = <10000>;
+				type = "passive";
+			};
+		};
+	};
+};
+&soc {
+	reboot_reason {
+		compatible = "qcom,reboot-reason";
+		nvmem-cells = <&restart_reason>;
+		nvmem-cell-names = "restart_reason";
+	};
+};
+
+&soc {
+	pmic-pon-log {
+		compatible = "qcom,pmic-pon-log";
+		nvmem = <&pmk8350_sdam_5>;
+		nvmem-names = "pon_log";
+	};
+};

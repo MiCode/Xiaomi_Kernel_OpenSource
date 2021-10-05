@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "sm8150p.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SM8150P v1 SoC";
+	compatible = "qcom,sm8150p";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0 0>;
+};

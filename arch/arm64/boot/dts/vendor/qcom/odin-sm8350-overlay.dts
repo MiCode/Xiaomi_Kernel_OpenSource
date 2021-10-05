@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "odin-sm8350.dtsi"
+
+/ {
+	model = "Odin based on Qualcomm Technologies, Inc SM8350";
+	compatible = "qcom,lahaina-mtp", "qcom,lahaina", "qcom,mtp";
+	qcom,board-id = <0x10008 0>;
+	xiaomi,board-id = <0x7 0>;
+};

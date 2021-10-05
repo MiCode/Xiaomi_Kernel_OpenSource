@@ -3,6 +3,7 @@
  * Device Tree Include file for NXP Layerscape-1028A family SoC.
  *
  * Copyright 2018 NXP
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Harninder Rai <harninder.rai@nxp.com>
  *
@@ -673,7 +674,7 @@
 			ethernet@0,4 {
 				compatible = "fsl,enetc-ptp";
 				reg = <0x000400 0 0 0 0>;
-				clocks = <&clockgen 4 0>;
+				clocks = <&clockgen 2 3>;
 				little-endian;
 			};
 		};

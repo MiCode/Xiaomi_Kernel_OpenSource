@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxlemur.dtsi"
+#include "sdxlemur-atp.dtsi"
+#include "sdxlemur-512mb.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR ATP";
+	compatible = "qcom,sdxlemur-atp",
+		"qcom,sdxlemur", "qcom,atp";
+	qcom,board-id = <0x010021 0x200>;
+};

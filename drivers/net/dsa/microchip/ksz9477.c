@@ -3,6 +3,7 @@
  * Microchip KSZ9477 switch driver main logic
  *
  * Copyright (C) 2017-2019 Microchip Technology Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -514,9 +515,6 @@ static int ksz9477_port_vlan_filtering(struct dsa_switch *ds, int port,
 		ksz_port_cfg(dev, port, REG_PORT_LUE_CTRL,
 			     PORT_VLAN_LOOKUP_VID_0, false);
 	}
-
-	/* set the real number of ports */
-	dev->ds->num_ports = dev->port_cnt;
 
 	return 0;
 }

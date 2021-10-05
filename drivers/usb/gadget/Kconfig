@@ -97,8 +97,8 @@ config USB_GADGET_DEBUG_FS
 	   to conserve kernel memory, say "N".
 
 config USB_GADGET_VBUS_DRAW
-	int "Maximum VBUS Power usage (2-500 mA)"
-	range 2 500
+	int "Maximum VBUS Power usage (2-900 mA)"
+	range 2 900
 	default 2
 	help
 	   Some devices need to draw power from USB when they are
@@ -107,7 +107,9 @@ config USB_GADGET_VBUS_DRAW
 	   such as an AC adapter or batteries.
 
 	   Enter the maximum power your device draws through USB, in
-	   milliAmperes.  The permitted range of values is 2 - 500 mA;
+	   milliAmperes.  The permitted range of values depends on the
+	   connected speed: for SuperSpeed and up it is 2 - 900 mA, but
+	   connections at High Speed or slower will be capped at 500 mA;
 	   0 mA would be legal, but can make some hosts misbehave.
 
 	   This value will be used except for system-specific gadget
@@ -594,6 +596,16 @@ config USB_CONFIGFS_F_GSI
 	  over GSI. This driver provides USB RMNET/RNDIS/ECM/MBIM/DPL
 	  related functionalities using GSI hardware accelerated data
 	  path and control path.
+
+config USB_F_DTP
+	tristate "Usb DTP"
+	depends on USB_CONFIGFS
+	default n
+	help
+	  The XiaoMi File/Data Transfer Protocol (DTP) function mounts USB gadget
+	  as a file/data device but unlike Mass Storage Gadget, DTP operates
+	  at the file/data level. Thus exposing the relevant content but hiding
+	  the system/restricted files.
 
 config USB_LOW_MEM_VARIANT
 	bool "USB Memory optimization"

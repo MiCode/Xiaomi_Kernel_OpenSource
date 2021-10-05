@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef _CNSS_QMI_H
 #define _CNSS_QMI_H
@@ -77,6 +78,11 @@ int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 				     u8 *mac, u32 mac_len);
 int cnss_dms_init(struct cnss_plat_data *plat_priv);
 void cnss_dms_deinit(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_name,
+				  u32 total_size);
+int wlfw_qdss_trace_send_start(struct cnss_plat_data *plat_priv);
+int wlfw_qdss_trace_send_stop(struct cnss_plat_data *plat_priv, unsigned long long option);
 #else
 #define QMI_WLFW_TIMEOUT_MS		10000
 
@@ -260,7 +266,26 @@ static inline int cnss_dms_init(struct cnss_plat_data *plat_priv)
 	return 0;
 }
 
+int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_name,
+				  u32 total_size)
+{
+	return 0;
+}
 static inline void cnss_dms_deinit(struct cnss_plat_data *plat_priv) {}
+int wlfw_qdss_trace_send_start(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+int wlfw_qdss_trace_send_stop(struct cnss_plat_data *plat_priv, unsigned long long option)
+{
+	return 0;
+}
 #endif /* CONFIG_CNSS2_QMI */
 
 #ifdef CONFIG_CNSS2_DEBUG

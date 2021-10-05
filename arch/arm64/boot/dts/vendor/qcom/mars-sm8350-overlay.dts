@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "mars-sm8350.dtsi"
+
+/ {
+	model = "Mars based on Qualcomm Technologies, Inc SM8350";
+	compatible = "qcom,lahaina-mtp", "qcom,lahaina", "qcom,mtp";
+	qcom,board-id = <0x10008 0>;
+	xiaomi,board-id = <0x5 0>;
+};

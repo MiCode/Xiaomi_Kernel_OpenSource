@@ -2,6 +2,7 @@
 /*
  * Rockchip Successive Approximation Register (SAR) A/D Converter
  * Copyright (C) 2014 ROCKCHIP, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -372,7 +373,7 @@ static int rockchip_saradc_resume(struct device *dev)
 
 	ret = clk_prepare_enable(info->clk);
 	if (ret)
-		return ret;
+		clk_disable_unprepare(info->pclk);
 
 	return ret;
 }

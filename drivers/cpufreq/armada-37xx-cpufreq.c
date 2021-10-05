@@ -3,6 +3,7 @@
  * CPU frequency scaling support for Armada 37xx platform.
  *
  * Copyright (C) 2017 Marvell
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Gregory CLEMENT <gregory.clement@free-electrons.com>
  */
@@ -483,6 +484,12 @@ remove_opp:
 }
 /* late_initcall, to guarantee the driver is loaded after A37xx clock driver */
 late_initcall(armada37xx_cpufreq_driver_init);
+
+static const struct of_device_id __maybe_unused armada37xx_cpufreq_of_match[] = {
+	{ .compatible = "marvell,armada-3700-nb-pm" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, armada37xx_cpufreq_of_match);
 
 MODULE_AUTHOR("Gregory CLEMENT <gregory.clement@free-electrons.com>");
 MODULE_DESCRIPTION("Armada 37xx cpufreq driver");

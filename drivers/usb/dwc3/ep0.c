@@ -3,6 +3,7 @@
  * ep0.c - DesignWare USB3 DRD Controller Endpoint 0 Handling
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -30,6 +31,8 @@
 static void __dwc3_ep0_do_control_status(struct dwc3 *dwc, struct dwc3_ep *dep);
 static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		struct dwc3_ep *dep, struct dwc3_request *req);
+static int dwc3_ep0_delegate_req(struct dwc3 *dwc,
+		struct usb_ctrlrequest *ctrl);
 
 static void dwc3_ep0_prepare_one_trb(struct dwc3_ep *dep,
 		dma_addr_t buf_dma, u32 len, u32 type, bool chain)
@@ -340,6 +343,9 @@ static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 				usb_status |= 1 << USB_DEV_STAT_U1_ENABLED;
 			if (reg & DWC3_DCTL_INITU2ENA)
 				usb_status |= 1 << USB_DEV_STAT_U2_ENABLED;
+		} else {
+			usb_status |= dwc->is_remote_wakeup_enabled <<
+						USB_DEVICE_REMOTE_WAKEUP;
 		}
 
 		break;
@@ -349,7 +355,7 @@ static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 		 * Function Remote Wake Capable	D0
 		 * Function Remote Wakeup	D1
 		 */
-		break;
+		return dwc3_ep0_delegate_req(dwc, ctrl);
 
 	case USB_RECIP_ENDPOINT:
 		dep = dwc3_wIndex_to_dep(dwc, ctrl->wIndex);
@@ -460,6 +466,9 @@ static int dwc3_ep0_handle_device(struct dwc3 *dwc,
 
 	switch (wValue) {
 	case USB_DEVICE_REMOTE_WAKEUP:
+		dbg_log_string("remote wakeup :%s",
+				(set ? "enabled" : "disabled"));
+		dwc->is_remote_wakeup_enabled = set;
 		break;
 	/*
 	 * 9.4.1 says only only for SS, in AddressState only for
@@ -501,6 +510,9 @@ static int dwc3_ep0_handle_intf(struct dwc3 *dwc,
 		 * For now, we're not doing anything, just making sure we return
 		 * 0 so USB Command Verifier tests pass without any errors.
 		 */
+		ret = dwc3_ep0_delegate_req(dwc, ctrl);
+		if (ret)
+			return ret;
 		break;
 	default:
 		ret = -EINVAL;
@@ -530,6 +542,11 @@ static int dwc3_ep0_handle_endpoint(struct dwc3 *dwc,
 		ret = __dwc3_gadget_ep_set_halt(dep, set, true);
 		if (ret)
 			return -EINVAL;
+
+		/* ClearFeature(Halt) may need delayed status */
+		if (!set && (!dep->gsi && (dep->flags & DWC3_EP_END_TRANSFER_PENDING)))
+			return USB_GADGET_DELAYED_STATUS;
+
 		break;
 	default:
 		return -EINVAL;
@@ -853,7 +870,12 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 		ret = dwc3_ep0_std_request(dwc, ctrl);
 	else
 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
-
+#ifndef CONFIG_FACTORY_BUILD
+	if((ctrl->bRequest == 0x67) && (le16_to_cpu(ctrl->wLength) != 0)){
+		dwc->gs_cmd_status = 1;
+		dwc3_check_cmd(dwc);
+	}
+#endif
 	if (ret == USB_GADGET_DELAYED_STATUS)
 		dwc->delayed_status = true;
 
@@ -966,6 +988,9 @@ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
 
 	dbg_print(dep->number, "DONE", status, "STATUS");
 	dwc->ep0state = EP0_SETUP_PHASE;
+#ifndef CONFIG_FACTORY_BUILD
+	dwc->gs_cmd_status = 0;
+#endif
 	dwc3_ep0_out_start(dwc);
 }
 
@@ -998,12 +1023,16 @@ static void dwc3_ep0_xfer_complete(struct dwc3 *dwc,
 static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		struct dwc3_ep *dep, struct dwc3_request *req)
 {
+	unsigned int		trb_length = 0;
 	int			ret;
 
 	req->direction = !!dep->number;
 
 	if (req->request.length == 0) {
-		dwc3_ep0_prepare_one_trb(dep, dwc->ep0_trb_addr, 0,
+		if (!req->direction)
+			trb_length = dep->endpoint.maxpacket;
+
+		dwc3_ep0_prepare_one_trb(dep, dwc->bounce_addr, trb_length,
 				DWC3_TRBCTL_CONTROL_DATA, false);
 		ret = dwc3_ep0_start_trans(dep);
 	} else if (!IS_ALIGNED(req->request.length, dep->endpoint.maxpacket)
@@ -1052,9 +1081,12 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		req->trb = &dwc->ep0_trb[dep->trb_enqueue - 1];
 		dbg_ep_map(dep->number, req);
 
+		if (!req->direction)
+			trb_length = dep->endpoint.maxpacket;
+
 		/* Now prepare one extra TRB to align transfer size */
 		dwc3_ep0_prepare_one_trb(dep, dwc->bounce_addr,
-					 0, DWC3_TRBCTL_CONTROL_DATA,
+					 trb_length, DWC3_TRBCTL_CONTROL_DATA,
 					 false);
 		ret = dwc3_ep0_start_trans(dep);
 	} else {
@@ -1106,6 +1138,18 @@ static void dwc3_ep0_do_control_status(struct dwc3 *dwc,
 	__dwc3_ep0_do_control_status(dwc, dep);
 }
 
+void dwc3_ep0_send_delayed_status(struct dwc3 *dwc)
+{
+	unsigned int direction = !dwc->ep0_expect_in;
+
+	dwc->delayed_status = false;
+
+	if (dwc->ep0state != EP0_STATUS_PHASE)
+		return;
+
+	__dwc3_ep0_do_control_status(dwc, dwc->eps[direction]);
+}
+
 void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
 	struct dwc3_gadget_ep_cmd_params params;
@@ -1129,7 +1173,14 @@ void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
 		dev_dbg(dwc->dev, "%s: send ep cmd ENDTRANSFER failed",
 			dep->name);
 		dbg_event(dep->number, "EENDXFER", ret);
+
+		/* Skip clearing DWC3_EP_TRANSFER_STARTED
+		 * if ENDTRANSFER cmd failed.
+		 */
+		goto out;
 	}
+	dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
+out:
 	dep->resource_index = 0;
 }
 

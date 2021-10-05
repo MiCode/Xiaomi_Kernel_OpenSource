@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Novatek NT36xxx touchscreen driver configuration
+#
+config TOUCHSCREEN_NT36XXX
+	tristate "Novatek NT36xxx"
+	help
+	  Say Y here if you have a Novatek NT36xxx touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+config NOVATEK_TRUSTED_TOUCH
+	bool "Novatek Trusted Touch"
+	depends on TOUCHSCREEN_NT36XXX
+	help
+	  Say Y here to enable Novatek Trusted Touch.
+	  If unsure, say N.

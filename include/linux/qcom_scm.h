@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2010-2015, 2018-2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, 2018-2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
 #ifndef __QCOM_SCM_H
@@ -81,7 +81,9 @@ static inline void qcom_scm_populate_mem_map_info(
 #if IS_ENABLED(CONFIG_QCOM_SCM)
 extern int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus);
 extern int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus);
+extern int qcom_scm_set_warm_boot_addr_mc(void *entry, u32 aff0, u32 aff1, u32 aff2, u32 flags);
 extern void qcom_scm_cpu_power_down(u32 flags);
+extern void qcom_scm_cpu_hp(u32 flags);
 extern int qcom_scm_sec_wdog_deactivate(void);
 extern int qcom_scm_sec_wdog_trigger(void);
 extern void qcom_scm_disable_sdi(void);
@@ -90,11 +92,13 @@ extern int qcom_scm_spin_cpu(void);
 extern void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 				       phys_addr_t tcsr_boot_misc);
 extern int qcom_scm_config_cpu_errata(void);
+extern void qcom_scm_phy_update_scm_level_shifter(u32 val);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 				   size_t size);
 extern int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
 				  phys_addr_t size);
+extern int qcom_scm_pas_mss_reset(bool reset);
 extern int qcom_scm_pas_auth_and_reset(u32 peripheral);
 extern int qcom_scm_pas_shutdown(u32 peripheral);
 extern int qcom_scm_get_sec_dump_state(u32 *dump_state);
@@ -190,6 +194,9 @@ extern int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len);
 extern int qcom_scm_query_encrypted_log_feature(u64 *enabled);
 extern int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 						uint32_t log_id);
+extern int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *response_type, unsigned int *data);
 extern int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *response_type, unsigned int *data);
@@ -197,6 +204,9 @@ extern int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 		size_t out_buf_size, int32_t *result, u64 *response_type,
 		unsigned int *data);
 extern bool qcom_scm_is_available(void);
+extern int qcom_scm_mem_protect_audio(phys_addr_t paddr, size_t size);
+extern int qcom_scm_ddrbw_profiler(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size);
 #else
 
 #include <linux/errno.h>
@@ -207,7 +217,14 @@ int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus)
 static inline
 int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus)
 		{ return -ENODEV; }
+static inline
+int qcom_scm_set_warm_boot_addr_mc(void *entry, u32 aff0, u32 aff1, u32 aff2,
+				   u32 flags)
+{
+	return -ENODEV;
+}
 static inline void qcom_scm_cpu_power_down(u32 flags) {}
+static inline void qcom_scm_cpu_hp(u32 flags) {}
 static inline int qcom_scm_sec_wdog_deactivate(void) { return -ENODEV; }
 static inline int qcom_scm_sec_wdog_trigger(void) { return -ENODEV; }
 static inline void qcom_scm_disable_sdi(void) {}
@@ -218,11 +235,13 @@ static inline void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 		phys_addr_t tcsr_boot_misc) {}
 static inline int qcom_scm_config_cpu_errata(void)
 		{ return -ENODEV; }
+static inline void qcom_scm_phy_update_scm_level_shifter(u32 val) {}
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }
 static inline int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
 					  size_t size) { return -ENODEV; }
 static inline int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
 					 phys_addr_t size) { return -ENODEV; }
+static inline int qcom_scm_pas_mss_reset(bool reset) { return -ENODEV; }
 static inline int qcom_scm_pas_auth_and_reset(u32 peripheral)
 		{ return -ENODEV; }
 static inline int qcom_scm_pas_shutdown(u32 peripheral) { return -ENODEV; }
@@ -361,6 +380,9 @@ static inline int qcom_scm_query_encrypted_log_feature(u64 *enabled)
 static inline int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
 						uint32_t log_id)
 		{ return -ENODEV; }
+static inline int qcom_scm_invoke_smc_legacy(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *request_type, unsigned int *data)  { return -ENODEV; }
 static inline int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
 		u64 *request_type, unsigned int *data)	{ return -ENODEV; }
@@ -368,5 +390,10 @@ static inline int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 		size_t out_buf_size, int32_t *result, u64 *request_type,
 		unsigned int *data)	{ return -ENODEV; }
 static inline bool qcom_scm_is_available(void) { return false; }
+static inline int qcom_scm_mem_protect_audio(phys_addr_t paddr, size_t size)
+				{ return -ENODEV; }
+static inline int qcom_scm_ddrbw_profiler(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size)
+		{ return -ENODEV; }
 #endif
 #endif

@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxlemur-v2.dtsi"
+#include "sdxlemur-mtp-mbb-pcie-rc-ep.dtsi"
+#include "sdxlemur-512mb.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR MTP MBB RC PCIE-EP V2";
+	compatible = "qcom,sdxlemur-mtp",
+		"qcom,sdxlemur", "qcom,mtp";
+	qcom,board-id = <0x3020008 0x203>;
+};

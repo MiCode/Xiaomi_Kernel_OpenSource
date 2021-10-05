@@ -149,7 +149,3 @@ x509.genkey
 
 # generated defconfigs
 arch/*/configs/vendor/*_defconfig
-
-# vendor device tree directories
-arch/arm64/boot/dts/vendor
-arch/arm/boot/dts/vendor

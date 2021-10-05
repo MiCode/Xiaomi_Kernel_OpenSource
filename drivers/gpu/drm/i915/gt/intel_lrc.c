@@ -1,5 +1,6 @@
 /*
  * Copyright © 2014 Intel Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -1573,6 +1574,9 @@ static void process_csb(struct intel_engine_cs *engine)
 
 			if (!inject_preempt_hang(execlists))
 				ring_set_paused(engine, 0);
+
+			/* XXX Magic delay for tgl */
+			ENGINE_POSTING_READ(engine, RING_CONTEXT_STATUS_PTR);
 
 			WRITE_ONCE(execlists->pending[0], NULL);
 			break;

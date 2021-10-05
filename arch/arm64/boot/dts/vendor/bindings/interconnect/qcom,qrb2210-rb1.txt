@@ -1,0 +1,46 @@
+QTI SCUBA Network-On-Chip interconnect driver binding
+-----------------------------------------------------------
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,scuba-bimc",
+			"qcom,scuba-system_noc",
+			"qcom,scuba-config_noc",
+			"qcom,scuba-clk_virt",
+			"qcom,scuba-mmnrt_virt",
+			"qcom,scuba-mmrt_virt",
+- #interconnect-cells : should contain 1
+
+reg : specifies the physical base address and size of registers
+clocks : list of phandles and specifiers to all interconnect bus clocks
+clock-names : clock names should include both "bus" and "bus_a"
+
+The following are optional properties:
+
+qcom,util-factor : Parameter that represents the DDR utilization factor
+		to be used in aggregation scheme. It is represented as
+		actual util-factor * 100.
+
+Examples:
+
+soc {
+	...
+	system_noc: interconnect@1880000 {
+		reg = <0x1880000 0x60200>;
+		compatible = "qcom,scuba-system_noc";
+		qcom,util-factor = <142>;
+		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_SNOC_CLK>,
+			<&rpmcc RPM_SMD_SNOC_A_CLK>;
+	};
+
+	config_noc: interconnect@1900000 {
+		reg = <0x1900000 0x8200>;
+		compatible = "qcom,scuba-config_noc";
+		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_CNOC_CLK>,
+			<&rpmcc RPM_SMD_CNOC_A_CLK>;
+	};
+};

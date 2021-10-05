@@ -3,6 +3,7 @@
   This contains the functions to handle the platform driver.
 
   Copyright (C) 2007-2011  STMicroelectronics Ltd
+  Copyright (C) 2021 XiaoMi, Inc.
 
 
   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
@@ -212,12 +213,13 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 
 		queue++;
 	}
+#ifndef CONFIG_DWMAC_QCOM_ETHQOS
 	if (queue != plat->rx_queues_to_use) {
 		ret = -EINVAL;
 		dev_err(&pdev->dev, "Not all RX queues were configured\n");
 		goto out;
 	}
-
+#endif
 	/* Processing TX queues common config */
 	if (of_property_read_u32(tx_node, "snps,tx-queues-to-use",
 				 &plat->tx_queues_to_use))
@@ -278,6 +280,7 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 
 		queue++;
 	}
+#ifndef CONFIG_DWMAC_QCOM_ETHQOS
 	if (queue != plat->tx_queues_to_use) {
 		ret = -EINVAL;
 		dev_err(&pdev->dev, "Not all TX queues were configured\n");
@@ -285,6 +288,7 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 	}
 
 out:
+#endif
 	of_node_put(rx_node);
 	of_node_put(tx_node);
 	of_node_put(q_node);
@@ -593,6 +597,12 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
 		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
 	}
+
+	of_property_read_u32(np,
+			     "snps,ptp-ref-clk-rate", &plat->clk_ptp_rate);
+
+	of_property_read_u32(np,
+			     "snps,ptp-req-clk-rate", &plat->clk_ptp_req_rate);
 
 	plat->stmmac_rst = devm_reset_control_get(&pdev->dev,
 						  STMMAC_RESOURCE_NAME);

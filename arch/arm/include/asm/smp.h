@@ -3,10 +3,12 @@
  *  arch/arm/include/asm/smp.h
  *
  *  Copyright (C) 2004-2005 ARM Ltd.
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef __ASM_ARM_SMP_H
 #define __ASM_ARM_SMP_H
 
+#include <asm/percpu.h>
 #include <linux/threads.h>
 #include <linux/cpumask.h>
 #include <linux/thread_info.h>

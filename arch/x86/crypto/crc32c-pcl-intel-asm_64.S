@@ -7,6 +7,7 @@
  * http://www.intel.com/content/dam/www/public/us/en/documents/white-papers/fast-crc-computation-paper.pdf
  *
  * Copyright (C) 2012 Intel Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Wajdi Feghali <wajdi.k.feghali@intel.com>
@@ -170,7 +171,7 @@ continue_block:
 
 	## branch into array
 	lea	jump_table(%rip), bufp
-	movzxw  (bufp, %rax, 2), len
+	movzwq  (bufp, %rax, 2), len
 	lea	crc_array(%rip), bufp
 	lea     (bufp, len, 1), bufp
 	JMP_NOSPEC bufp

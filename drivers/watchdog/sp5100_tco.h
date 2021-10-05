@@ -3,6 +3,7 @@
  *	sp5100_tco:	TCO timer driver for sp5100 chipsets.
  *
  *	(c) Copyright 2009 Google Inc., All Rights Reserved.
+ *	(c) Copyright (C) 2021 XiaoMi, Inc.
  *
  *	TCO timer driver for sp5100 chipsets
  */
@@ -70,7 +71,7 @@
 #define EFCH_PM_DECODEEN_WDT_TMREN	BIT(7)
 
 
-#define EFCH_PM_DECODEEN3		0x00
+#define EFCH_PM_DECODEEN3		0x03
 #define EFCH_PM_DECODEEN_SECOND_RES	GENMASK(1, 0)
 #define EFCH_PM_WATCHDOG_DISABLE	((u8)GENMASK(3, 2))
 

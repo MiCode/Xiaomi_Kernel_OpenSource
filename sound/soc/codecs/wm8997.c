@@ -3,6 +3,7 @@
  * wm8997.c  --  WM8997 ALSA SoC Audio driver
  *
  * Copyright 2012 Wolfson Microelectronics plc
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
  */
@@ -1176,6 +1177,8 @@ static int wm8997_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register component: %d\n", ret);
 		goto err_spk_irqs;
 	}
+
+	return ret;
 
 err_spk_irqs:
 	arizona_free_spk_irqs(arizona);

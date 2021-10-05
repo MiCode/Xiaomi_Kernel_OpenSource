@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2019 Nuvoton Technology corporation.
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -680,7 +681,7 @@ static int npcm_fiu_probe(struct platform_device *pdev)
 	int ret;
 	int id;
 
-	ctrl = spi_alloc_master(dev, sizeof(*fiu));
+	ctrl = devm_spi_alloc_master(dev, sizeof(*fiu));
 	if (!ctrl)
 		return -ENOMEM;
 

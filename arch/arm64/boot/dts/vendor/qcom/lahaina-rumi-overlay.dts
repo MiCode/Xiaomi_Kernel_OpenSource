@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+
+#include "lahaina-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina RUMI";
+	compatible = "qcom,lahaina-rumi", "qcom,lahaina", "qcom,rumi";
+	qcom,board-id = <0x1000F 0>;
+};

@@ -1,6 +1,7 @@
 /*******************************************************************************
 *
 * Copyright (c) 2015-2016 Intel Corporation.  All rights reserved.
+* Copyright (C) 2021 XiaoMi, Inc.
 *
 * This software is available to you under a choice of one of two
 * licenses.  You may choose to be licensed under the terms of the GNU
@@ -140,7 +141,7 @@ struct i40iw_qp {
 	struct i40iw_qp_host_ctx_info ctx_info;
 	struct i40iwarp_offload_info iwarp_info;
 	void *allocated_buffer;
-	atomic_t refcount;
+	refcount_t refcount;
 	struct iw_cm_id *cm_id;
 	void *cm_node;
 	struct ib_mr *lsmm_mr;
@@ -175,5 +176,6 @@ struct i40iw_qp {
 	struct i40iw_dma_mem ietf_mem;
 	struct completion sq_drained;
 	struct completion rq_drained;
+	struct completion free_qp;
 };
 #endif

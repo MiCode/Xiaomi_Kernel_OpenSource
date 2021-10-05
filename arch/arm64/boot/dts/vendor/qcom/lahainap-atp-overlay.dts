@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+
+#include "lahainap-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. LahainaP ATP";
+	compatible = "qcom,lahainap-atp", "qcom,lahainap", "qcom,atp";
+	qcom,board-id = <0x10021 0>;
+};

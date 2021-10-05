@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config QTI_TZ_LOG
         tristate "QTI Trust Zone (TZ) Log Driver"
-        depends on DEBUG_FS
         help
           This option enables a driver with a debugfs interface for messages
           produced by the Secure code (Trust zone). These messages provide

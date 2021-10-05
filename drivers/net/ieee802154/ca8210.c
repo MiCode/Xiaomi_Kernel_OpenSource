@@ -1,6 +1,7 @@
 /*
  * http://www.cascoda.com/products/ca-821x/
  * Copyright (c) 2016, Cascoda, Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All rights reserved.
  *
  * This code is dual-licensed under both GPLv2 and 3-clause BSD. What follows is
@@ -2924,6 +2925,7 @@ static int ca8210_dev_com_init(struct ca8210_priv *priv)
 	);
 	if (!priv->irq_workqueue) {
 		dev_crit(&priv->spi->dev, "alloc of irq_workqueue failed!\n");
+		destroy_workqueue(priv->mlme_workqueue);
 		return -ENOMEM;
 	}
 

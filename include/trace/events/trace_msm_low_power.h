@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #undef TRACE_SYSTEM
@@ -242,6 +243,42 @@ TRACE_EVENT(cluster_pred_hist,
 	TP_printk("name:%s idx:%d resi:%u sample:%u tmr:%u",
 		__get_str(name), __entry->idx, __entry->resi,
 		__entry->sample, __entry->tmr)
+);
+
+TRACE_EVENT(ipi_wakeup_time,
+
+	TP_PROTO(u64 wakeup),
+
+	TP_ARGS(wakeup),
+
+	TP_STRUCT__entry(
+		__field(u64, wakeup)
+	),
+
+	TP_fast_assign(
+		__entry->wakeup = wakeup;
+	),
+
+	TP_printk("wakeup:%llu", __entry->wakeup)
+);
+
+TRACE_EVENT(pre_pc_cb,
+
+	TP_PROTO(int tzflag),
+
+	TP_ARGS(tzflag),
+
+	TP_STRUCT__entry(
+		__field(int, tzflag)
+	),
+
+	TP_fast_assign(
+		__entry->tzflag = tzflag;
+	),
+
+	TP_printk("tzflag:%d",
+		__entry->tzflag
+	)
 );
 
 #endif

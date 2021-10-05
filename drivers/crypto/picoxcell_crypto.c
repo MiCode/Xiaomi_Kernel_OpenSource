@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2010-2011 Picochip Ltd., Jamie Iles
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <crypto/internal/aead.h>
 #include <crypto/aes.h>
@@ -1697,17 +1698,16 @@ static int spacc_probe(struct platform_device *pdev)
 		goto err_clk_put;
 	}
 
-	ret = device_create_file(&pdev->dev, &dev_attr_stat_irq_thresh);
-	if (ret)
-		goto err_clk_disable;
-
-
 	/*
 	 * Use an IRQ threshold of 50% as a default. This seems to be a
 	 * reasonable trade off of latency against throughput but can be
 	 * changed at runtime.
 	 */
 	engine->stat_irq_thresh = (engine->fifo_sz / 2);
+
+	ret = device_create_file(&pdev->dev, &dev_attr_stat_irq_thresh);
+	if (ret)
+		goto err_clk_disable;
 
 	/*
 	 * Configure the interrupts. We only use the STAT_CNT interrupt as we

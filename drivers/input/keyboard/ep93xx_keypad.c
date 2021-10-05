@@ -3,6 +3,7 @@
  * Driver for the Cirrus EP93xx matrix keypad controller.
  *
  * Copyright (c) 2008 H Hartley Sweeten <hsweeten@visionengravers.com>
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Based on the pxa27x matrix keypad controller by Rodolfo Giometti.
  *
@@ -250,8 +251,8 @@ static int ep93xx_keypad_probe(struct platform_device *pdev)
 	}
 
 	keypad->irq = platform_get_irq(pdev, 0);
-	if (!keypad->irq) {
-		err = -ENXIO;
+	if (keypad->irq < 0) {
+		err = keypad->irq;
 		goto failed_free;
 	}
 

@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxnightjar.dtsi"
+#include "sdxnightjar-mtp.dtsi"
+#include "sdxnightjar-bluetooth.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDX NIGHTJAR 512MB MTP";
+	compatible = "qcom,sdxnightjar-mtp",
+		   "qcom,sdxnightjar", "qcom,mtp";
+	qcom,board-id = <8 0x100>;
+};

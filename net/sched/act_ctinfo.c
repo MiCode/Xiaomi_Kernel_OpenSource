@@ -2,6 +2,7 @@
 /* net/sched/act_ctinfo.c  netfilter ctinfo connmark actions
  *
  * Copyright (c) 2019 Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -268,9 +269,6 @@ static int tcf_ctinfo_init(struct net *net, struct nlattr *nla,
 		tcf_chain_put_by_act(goto_ch);
 	if (cp_new)
 		kfree_rcu(cp_new, rcu);
-
-	if (ret == ACT_P_CREATED)
-		tcf_idr_insert(tn, *a);
 
 	return ret;
 

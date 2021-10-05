@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright (c) 2008 Ramax Lo <ramaxlo@gmail.com>
+// Copyright (C) 2021 XiaoMi, Inc.
 //      Based on mach-anubis.c by Ben Dooks <ben@simtec.co.uk>
 //      and modifications by SBZ <sbz@spgui.org> and
 //      Weibing <http://weibing.blogbus.com> and
@@ -244,9 +245,9 @@ static struct gpiod_lookup_table mini2440_mmc_gpio_table = {
 	.dev_id = "s3c2410-sdi",
 	.table = {
 		/* Card detect S3C2410_GPG(8) */
-		GPIO_LOOKUP("GPG", 8, "cd", GPIO_ACTIVE_LOW),
+		GPIO_LOOKUP("GPIOG", 8, "cd", GPIO_ACTIVE_LOW),
 		/* Write protect S3C2410_GPH(8) */
-		GPIO_LOOKUP("GPH", 8, "wp", GPIO_ACTIVE_HIGH),
+		GPIO_LOOKUP("GPIOH", 8, "wp", GPIO_ACTIVE_HIGH),
 		{ },
 	},
 };

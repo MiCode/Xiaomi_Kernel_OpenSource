@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __MSM_CAMERA_H
@@ -88,6 +89,10 @@
 #define CAM_CPAS_MP_LIMIT_FUSE 3
 #define CAM_CPAS_ISP_FUSE      4
 #define CAM_CPAS_ISP_PIX_FUSE  5
-#define CAM_CPAS_FUSE_FEATURE_MAX 6
+#define CAM_CPAS_ISP_LITE_FUSE 6
+#define CAM_CPAS_SHDR_FUSE     7
+#define CAM_CPAS_CSIPHY_FUSE   8
+#define CAM_CPAS_RT_OT_FUSE    9
+#define CAM_CPAS_FUSE_FEATURE_MAX 10
 
 #endif

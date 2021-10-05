@@ -3,6 +3,7 @@
 /*
  *
  * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -32,6 +33,8 @@
 
 #include <uapi/drm/i915_drm.h>
 #include <uapi/drm/drm_fourcc.h>
+
+#include <asm/hypervisor.h>
 
 #include <linux/io-mapping.h>
 #include <linux/i2c.h>
@@ -2197,7 +2200,9 @@ static inline bool intel_vtd_active(void)
 	if (intel_iommu_gfx_mapped)
 		return true;
 #endif
-	return false;
+
+	/* Running as a guest, we assume the host is enforcing VT'd */
+	return !hypervisor_is_type(X86_HYPER_NATIVE);
 }
 
 static inline bool intel_scanout_needs_vtd_wa(struct drm_i915_private *dev_priv)

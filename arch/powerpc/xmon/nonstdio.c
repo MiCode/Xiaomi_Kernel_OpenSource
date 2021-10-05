@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 1996-2005 Paul Mackerras.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/string.h>
 #include <asm/udbg.h>
@@ -178,7 +179,7 @@ void xmon_printf(const char *format, ...)
 
 	if (n && rc == 0) {
 		/* No udbg hooks, fallback to printk() - dangerous */
-		printk("%s", xmon_outbuf);
+		pr_cont("%s", xmon_outbuf);
 	}
 }
 

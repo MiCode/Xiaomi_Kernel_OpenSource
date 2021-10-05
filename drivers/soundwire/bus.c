@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0 OR BSD-3-Clause)
 // Copyright(c) 2015-17 Intel Corporation.
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/acpi.h>
 #include <linux/mod_devicetable.h>
@@ -112,6 +113,8 @@ static int sdw_delete_slave(struct device *dev, void *data)
 {
 	struct sdw_slave *slave = dev_to_sdw_dev(dev);
 	struct sdw_bus *bus = slave->bus;
+
+	pm_runtime_disable(dev);
 
 	sdw_slave_debugfs_exit(slave);
 

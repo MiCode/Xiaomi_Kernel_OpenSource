@@ -11,7 +11,7 @@
 
 #include <trace/events/sched.h>
 
-#include "walt.h"
+#include "walt/walt.h"
 
 #include <trace/hooks/sched.h>
 
@@ -1652,6 +1652,55 @@ static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
 	resched_curr(rq);
 }
 
+#ifdef CONFIG_SCHED_WALT
+#define WALT_RT_PULL_THRESHOLD_NS	250000
+static struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu);
+static void try_pull_rt_task(struct rq *this_rq)
+{
+	int i, this_cpu = this_rq->cpu, src_cpu = this_cpu;
+	struct rq *src_rq;
+	struct task_struct *p;
+
+	if (sched_rt_runnable(this_rq))
+		return;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (!has_pushable_tasks(rq))
+			continue;
+
+		src_cpu = i;
+		break;
+	}
+
+	if (src_cpu == this_cpu)
+		return;
+
+	src_rq = cpu_rq(src_cpu);
+	double_lock_balance(this_rq, src_rq);
+
+	/* lock is dropped, so check again */
+	if (sched_rt_runnable(this_rq))
+		goto unlock;
+
+	p = pick_highest_pushable_task(src_rq, this_cpu);
+
+	if (!p)
+		goto unlock;
+
+	if (sched_ktime_clock() - p->wts.last_wake_ts <
+				WALT_RT_PULL_THRESHOLD_NS)
+		goto unlock;
+
+	deactivate_task(src_rq, p, 0);
+	set_task_cpu(p, this_cpu);
+	activate_task(this_rq, p, 0);
+unlock:
+	double_unlock_balance(this_rq, src_rq);
+}
+#endif
+
 static int balance_rt(struct rq *rq, struct task_struct *p, struct rq_flags *rf)
 {
 	if (!on_rt_rq(&p->rt) && need_pull_rt_task(rq, p)) {
@@ -1662,7 +1711,14 @@ static int balance_rt(struct rq *rq, struct task_struct *p, struct rq_flags *rf)
 		 * not yet started the picking loop.
 		 */
 		rq_unpin_lock(rq, rf);
+#ifndef CONFIG_SCHED_WALT
 		pull_rt_task(rq);
+#else
+		if (rt_overloaded(rq))
+			pull_rt_task(rq);
+		else
+			try_pull_rt_task(rq);
+#endif
 		rq_repin_lock(rq, rf);
 	}
 
@@ -1830,6 +1886,7 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
 	bool boost_on_big = rt_boost_on_big();
+	bool best_cpu_lt = true;
 
 	rcu_read_lock();
 
@@ -1856,6 +1913,7 @@ retry:
 		}
 
 		for_each_cpu_and(cpu, lowest_mask, sched_group_span(sg)) {
+			bool lt;
 
 			trace_sched_cpu_util(cpu);
 
@@ -1870,8 +1928,20 @@ retry:
 
 			util = cpu_util(cpu);
 
-			/* Find the least loaded CPU */
-			if (util > best_cpu_util)
+			lt = (walt_low_latency_task(cpu_rq(cpu)->curr) ||
+				walt_nr_rtg_high_prio(cpu));
+
+			/*
+			 * When the best is suitable and the current is not,
+			 * skip it
+			 */
+			if (lt && !best_cpu_lt)
+				continue;
+			/*
+			 * Either both are sutilable or unsuitable, load takes
+			 * precedence.
+			 */
+			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util))
 				continue;
 
 			/*
@@ -1905,6 +1975,7 @@ retry:
 			best_cpu_util = util;
 			best_cpu = cpu;
 			best_capacity = capacity_orig;
+			best_cpu_lt = lt;
 		}
 
 	} while (sg = sg->next, sg != sd->groups);

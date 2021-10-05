@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/completion.h>
@@ -745,6 +746,13 @@ static void ath10k_qmi_event_server_arrive(struct ath10k_qmi *qmi)
 	ret = ath10k_qmi_msa_mem_info_send_sync_msg(qmi);
 	if (ret)
 		return;
+
+	/*
+	 * HACK: sleep for a while inbetween receiving the msa info response
+	 * and the XPU update to prevent SDM845 from crashing due to a security
+	 * violation, when running MPSS.AT.4.0.c2-01184-SDM845_GEN_PACK-1.
+	 */
+	msleep(20);
 
 	ret = ath10k_qmi_setup_msa_permissions(qmi);
 	if (ret)

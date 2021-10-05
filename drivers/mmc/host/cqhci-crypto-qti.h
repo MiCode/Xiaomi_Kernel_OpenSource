@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _UFSHCD_CRYPTO_QTI_H
@@ -19,7 +20,12 @@ int cqhci_crypto_qti_init_crypto(struct cqhci_host *host,
 
 int cqhci_crypto_qti_debug(struct cqhci_host *host);
 
+#if IS_ENABLED(CONFIG_MMC_CQHCI_CRYPTO_QTI)
 void cqhci_crypto_qti_set_vops(struct cqhci_host *host);
+#else
+void cqhci_crypto_qti_set_vops(struct cqhci_host *host)
+{}
+#endif /* CONFIG_MMC_CQHCI_CRYPTO_QTI) */
 
 int cqhci_crypto_qti_resume(struct cqhci_host *host);
 

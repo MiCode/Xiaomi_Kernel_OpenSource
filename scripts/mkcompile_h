@@ -22,6 +22,10 @@ if [ -r $TARGET -a ! -O include/generated/autoconf.h ]; then
   exit 0
 fi
 
+echo $PWD
+F2FS_HASH=$(sha1sum source/fs/f2fs/[[:lower:]]* source/include/linux/f2fs_fs.h\
+	| awk '{print $1}' | sha1sum | awk '{print $1}')
+echo "f2fs-hash:"$F2FS_HASH
 # Do not expand names
 set -f
 
@@ -56,7 +60,7 @@ CONFIG_FLAGS=""
 if [ -n "$SMP" ] ; then CONFIG_FLAGS="SMP"; fi
 if [ -n "$PREEMPT" ] ; then CONFIG_FLAGS="$CONFIG_FLAGS PREEMPT"; fi
 if [ -n "$PREEMPT_RT" ] ; then CONFIG_FLAGS="$CONFIG_FLAGS PREEMPT_RT"; fi
-UTS_VERSION="$UTS_VERSION $CONFIG_FLAGS $TIMESTAMP"
+UTS_VERSION="$UTS_VERSION $CONFIG_FLAGS $TIMESTAMP "f2fs-hash:"$F2FS_HASH"
 
 # Truncate to maximum length
 

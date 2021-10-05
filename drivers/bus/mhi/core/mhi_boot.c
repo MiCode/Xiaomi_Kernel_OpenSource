@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -212,7 +213,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	enum mhi_ee ee;
 	const u32 delayms = 5;
 	u32 retry = (mhi_cntrl->timeout_ms) / delayms;
-	const u32 rddm_timeout_ms = 200;
+	const u32 rddm_timeout_ms = 250;
 	int rddm_retry = rddm_timeout_ms / delayms; /* time to enter rddm */
 	void __iomem *base = mhi_cntrl->bhie;
 
@@ -220,6 +221,12 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 			to_mhi_pm_state_str(mhi_cntrl->pm_state),
 			TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 			TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	if (mhi_cntrl->ee == MHI_EE_PBL) {
+		MHI_CNTRL_LOG("Aborting RDDM dumps as device is in %s state\n",
+				 TO_MHI_EXEC_STR(mhi_cntrl->ee));
+		return -EACCES;
+	}
 
 	/*
 	 * This should only be executing during a kernel panic, we expect all
@@ -524,7 +531,7 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 		if (!mhi_buf->buf)
 			goto error_alloc_segment;
 
-		MHI_CNTRL_LOG("Entry:%d Address:0x%llx size:%lu\n", i,
+		MHI_CNTRL_LOG("Entry:%d Address:0x%llx size:%zu\n", i,
 			mhi_buf->dma_addr, mhi_buf->len);
 	}
 

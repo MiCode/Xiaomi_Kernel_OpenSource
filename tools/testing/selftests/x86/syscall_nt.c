@@ -2,6 +2,7 @@
 /*
  * syscall_nt.c - checks syscalls with NT set
  * Copyright (c) 2014-2015 Andrew Lutomirski
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Some obscure user-space code requires the ability to make system calls
  * with FLAGS.NT set.  Make sure it works.
@@ -59,6 +60,7 @@ static void do_it(unsigned long extraflags)
 	set_eflags(get_eflags() | extraflags);
 	syscall(SYS_getpid);
 	flags = get_eflags();
+	set_eflags(X86_EFLAGS_IF | X86_EFLAGS_FIXED);
 	if ((flags & extraflags) == extraflags) {
 		printf("[OK]\tThe syscall worked and flags are still set\n");
 	} else {

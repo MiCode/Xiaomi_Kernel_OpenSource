@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB */
 /* Copyright (c) 2019, Mellanox Technologies */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef	_DR_TYPES_
 #define	_DR_TYPES_
@@ -613,6 +614,7 @@ struct mlx5dr_cmd_caps {
 	u8 max_ft_level;
 	u16 roce_min_src_udp;
 	u8 num_esw_ports;
+	u8 sw_format_ver;
 	bool eswitch_manager;
 	bool rx_sw_owner;
 	bool tx_sw_owner;

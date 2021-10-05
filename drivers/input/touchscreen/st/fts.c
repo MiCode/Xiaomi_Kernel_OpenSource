@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: AMG(Analog Mems Group)
  *
  *		marco.cali@st.com
@@ -121,6 +122,7 @@ static void fts_interrupt_disable(struct fts_ts_info *info);
 static void fts_interrupt_enable(struct fts_ts_info *info);
 static irqreturn_t fts_interrupt_handler(int irq, void *handle);
 static int fts_probe_delayed(struct fts_ts_info *info);
+static int fts_enable_reg(struct fts_ts_info *info, bool enable);
 
 #ifdef CONFIG_ST_TRUSTED_TOUCH
 
@@ -604,6 +606,9 @@ static void fts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_info *info)
 
 	flushFIFO();
 	release_all_touches(info);
+	pm_runtime_put_sync(info->client->adapter->dev.parent);
+	fts_trusted_touch_set_tvm_driver_state(info,
+					TVM_I2C_SESSION_RELEASED);
 	rc = fts_vm_mem_release(info);
 	if (rc) {
 		pr_err("Failed to release mem rc:%d\n", rc);
@@ -612,9 +617,6 @@ static void fts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_info *info)
 		fts_trusted_touch_set_tvm_driver_state(info,
 					TVM_IOMEM_RELEASED);
 	}
-	pm_runtime_put_sync(info->client->adapter->dev.parent);
-	fts_trusted_touch_set_tvm_driver_state(info,
-					TVM_I2C_SESSION_RELEASED);
 	fts_trusted_touch_set_tvm_driver_state(info, TRUSTED_TOUCH_TVM_INIT);
 	atomic_set(&info->trusted_touch_enabled, 0);
 	pr_info("trusted touch disabled\n");
@@ -692,16 +694,16 @@ static void fts_trusted_touch_abort_tvm(struct fts_ts_info *info)
 	case TVM_IRQ_RELEASED:
 		flushFIFO();
 		release_all_touches(info);
+		pm_runtime_put_sync(info->client->adapter->dev.parent);
+	case TVM_I2C_SESSION_RELEASED:
 		rc = fts_vm_mem_release(info);
 		if (rc)
 			pr_err("Failed to release mem rc:%d\n", rc);
 	case TVM_IOMEM_RELEASED:
-		pm_runtime_put_sync(info->client->adapter->dev.parent);
-	case TVM_I2C_SESSION_RELEASED:
-	case TVM_IOMEM_LENT_NOTIFIED:
-	case TVM_IRQ_LENT_NOTIFIED:
 	case TVM_ALL_RESOURCES_LENT_NOTIFIED:
 	case TRUSTED_TOUCH_TVM_INIT:
+	case TVM_IRQ_LENT_NOTIFIED:
+	case TVM_IOMEM_LENT_NOTIFIED:
 		atomic_set(&info->trusted_touch_enabled, 0);
 	}
 
@@ -765,10 +767,10 @@ static void fts_trusted_touch_abort_pvm(struct fts_ts_info *info)
 	case PVM_I2C_RESOURCE_ACQUIRED:
 	case PVM_INTERRUPT_ENABLED:
 		fts_bus_put(info);
-		complete(&info->trusted_touch_powerdown);
 	case TRUSTED_TOUCH_PVM_INIT:
 	case PVM_I2C_RESOURCE_RELEASED:
 		atomic_set(&info->trusted_touch_enabled, 0);
+		atomic_set(&info->trusted_touch_underway, 0);
 	}
 
 	atomic_set(&info->trusted_touch_abort_status, 0);
@@ -807,6 +809,10 @@ static int fts_bus_get(struct fts_ts_info *info)
 {
 	int rc = 0;
 
+	cancel_work_sync(&info->suspend_work);
+	cancel_work_sync(&info->resume_work);
+	reinit_completion(&info->trusted_touch_powerdown);
+	fts_enable_reg(info, true);
 	mutex_lock(&info->fts_clk_io_ctrl_mutex);
 	rc = pm_runtime_get_sync(info->client->adapter->dev.parent);
 	if (rc >= 0 &&  info->core_clk != NULL && info->iface_clk != NULL) {
@@ -825,6 +831,8 @@ static void fts_bus_put(struct fts_ts_info *info)
 		fts_clk_disable_unprepare(info);
 	pm_runtime_put_sync(info->client->adapter->dev.parent);
 	mutex_unlock(&info->fts_clk_io_ctrl_mutex);
+	complete(&info->trusted_touch_powerdown);
+	fts_enable_reg(info, false);
 }
 
 static struct hh_notify_vmid_desc *fts_vm_get_vmid(hh_vmid_t vmid)
@@ -876,10 +884,10 @@ static void fts_trusted_touch_pvm_vm_mode_disable(struct fts_ts_info *info)
 	fts_bus_put(info);
 	fts_trusted_touch_set_pvm_driver_state(info,
 						PVM_I2C_RESOURCE_RELEASED);
-	complete(&info->trusted_touch_powerdown);
 	fts_trusted_touch_set_pvm_driver_state(info,
 						TRUSTED_TOUCH_PVM_INIT);
 	atomic_set(&info->trusted_touch_enabled, 0);
+	atomic_set(&info->trusted_touch_underway, 0);
 	return;
 error:
 	fts_trusted_touch_abort_handler(info,
@@ -1014,6 +1022,8 @@ static int fts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_info *info)
 	int rc = 0;
 	struct trusted_touch_vm_info *vm_info = info->vm_info;
 
+	atomic_set(&info->trusted_touch_underway, 1);
+
 	/* i2c session start and resource acquire */
 	if (fts_bus_get(info) < 0) {
 		dev_err(&info->client->dev, "fts_bus_get failed\n");
@@ -1051,7 +1061,6 @@ static int fts_trusted_touch_pvm_vm_mode_enable(struct fts_ts_info *info)
 	}
 	fts_trusted_touch_set_pvm_driver_state(info, PVM_IRQ_LENT_NOTIFIED);
 
-	reinit_completion(&info->trusted_touch_powerdown);
 	atomic_set(&info->trusted_touch_enabled, 1);
 	pr_debug("trusted touch enabled\n");
 	return rc;
@@ -1381,7 +1390,6 @@ static int fts_init_afterProbe(struct fts_ts_info *info);
 static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_command(struct fts_ts_info *info, unsigned char cmd);
 static int fts_chip_initialization(struct fts_ts_info *info);
-static int fts_enable_reg(struct fts_ts_info *info, bool enable);
 
 static struct drm_panel *active_panel;
 
@@ -5347,6 +5355,11 @@ static void fts_resume_work(struct work_struct *work)
 
 	info = container_of(work, struct fts_ts_info, resume_work);
 
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+	if (atomic_read(&info->trusted_touch_underway))
+		wait_for_completion_interruptible(
+				&info->trusted_touch_powerdown);
+#endif
 	__pm_wakeup_event(info->wakeup_source, HZ);
 
 	fts_chip_power_switch(info, true);
@@ -5378,7 +5391,7 @@ static void fts_suspend_work(struct work_struct *work)
 	info = container_of(work, struct fts_ts_info, suspend_work);
 
 #ifdef CONFIG_ST_TRUSTED_TOUCH
-	if (atomic_read(&info->trusted_touch_enabled))
+	if (atomic_read(&info->trusted_touch_underway))
 		wait_for_completion_interruptible(
 				&info->trusted_touch_powerdown);
 #endif

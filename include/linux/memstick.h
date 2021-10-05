@@ -3,6 +3,7 @@
  *  Sony MemoryStick support
  *
  *  Copyright (C) 2007 Alex Dubov <oakad@yahoo.com>
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _MEMSTICK_H
@@ -281,6 +282,7 @@ struct memstick_host {
 
 	struct memstick_dev *card;
 	unsigned int        retries;
+	bool removing;
 
 	/* Notify the host that some requests are pending. */
 	void                (*request)(struct memstick_host *host);

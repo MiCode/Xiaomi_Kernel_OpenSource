@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2017-2018 HUAWEI, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.huawei.com/
  * Created by Gao Xiang <gaoxiang25@huawei.com>
  */
@@ -57,6 +58,9 @@ struct erofs_sb_info {
 
 	/* threshold for decompression synchronously */
 	unsigned int max_sync_decompress_pages;
+
+	/* strategy of sync decompression (false - auto, true - force on) */
+	bool readahead_sync_decompress;
 
 	unsigned int shrinker_run_no;
 

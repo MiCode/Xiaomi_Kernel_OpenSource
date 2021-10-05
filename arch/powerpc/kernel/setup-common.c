@@ -4,6 +4,7 @@
  * Extracted from arch/powerpc/kernel/setup_64.c.
  *
  * Copyright (C) 2001 PPC64 Team, IBM Corp
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #undef DEBUG
@@ -903,8 +904,6 @@ void __init setup_arch(char **cmdline_p)
 
 	/* On BookE, setup per-core TLB data structures. */
 	setup_tlb_core_data();
-
-	smp_release_cpus();
 #endif
 
 	/* Print various info about the machine that has been gathered so far. */
@@ -924,6 +923,8 @@ void __init setup_arch(char **cmdline_p)
 	irqstack_early_init();
 	exc_lvl_early_init();
 	emergency_stack_init();
+
+	smp_release_cpus();
 
 	initmem_init();
 

@@ -5,6 +5,7 @@
  *  Declarations for the RPC transport interface.
  *
  *  Copyright (C) 1995, 1996 Olaf Kirch <okir@monad.swb.de>
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _LINUX_SUNRPC_XPRT_H
@@ -330,6 +331,7 @@ struct xprt_class {
 	struct rpc_xprt *	(*setup)(struct xprt_create *);
 	struct module		*owner;
 	char			name[32];
+	const char *		netid[];
 };
 
 /*

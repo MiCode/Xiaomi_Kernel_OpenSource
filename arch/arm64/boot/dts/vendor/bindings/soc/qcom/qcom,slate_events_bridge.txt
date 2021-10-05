@@ -1,0 +1,14 @@
+* Slate Events Bridge Driver
+
+slate_events_bridge driver provides a set of apis for clients
+to receive events from slate co processor. The events are
+received over Glink.
+
+Required properties:
+- compatible:	      Must be "qcom,slate-events-bridge"
+
+Example:
+	qcom,slate-events-bridge {
+		compatible = "qcom,slate-events-bridge";
+		};
+

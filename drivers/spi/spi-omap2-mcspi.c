@@ -3,6 +3,7 @@
  * OMAP2 McSPI controller driver
  *
  * Copyright (C) 2005, 2006 Nokia Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author:	Samuel Ortiz <samuel.ortiz@nokia.com> and
  *		Juha Yrj�l� <juha.yrjola@nokia.com>
  */
@@ -24,7 +25,6 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/gcd.h>
-#include <linux/iopoll.h>
 
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
@@ -348,9 +348,19 @@ disable_fifo:
 
 static int mcspi_wait_for_reg_bit(void __iomem *reg, unsigned long bit)
 {
-	u32 val;
+	unsigned long timeout;
 
-	return readl_poll_timeout(reg, val, val & bit, 1, MSEC_PER_SEC);
+	timeout = jiffies + msecs_to_jiffies(1000);
+	while (!(readl_relaxed(reg) & bit)) {
+		if (time_after(jiffies, timeout)) {
+			if (!(readl_relaxed(reg) & bit))
+				return -ETIMEDOUT;
+			else
+				return 0;
+		}
+		cpu_relax();
+	}
+	return 0;
 }
 
 static int mcspi_wait_for_completion(struct  omap2_mcspi *mcspi,

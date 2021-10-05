@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018 - 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018 - 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _IPA_FMWK_H_
@@ -12,6 +13,7 @@
 #include <linux/ipa_mhi.h>
 #include <linux/ipa_wigig.h>
 #include <linux/ipa_wdi3.h>
+#include <linux/ipa_qdss.h>
 #include <linux/ipa_usb.h>
 #include <linux/ipa_odu_bridge.h>
 #include <linux/ipa_qmi_service_v01.h>
@@ -105,6 +107,35 @@ struct ipa_core_data {
 		void *user_data3);
 
 	int (*ipa_unregister_rmnet_ctl_cb)(void);
+	int (*ipa_get_default_aggr_time_limit)(enum ipa_client_type client,
+		u32 *default_aggr_time_limit);
+	int (*ipa_add_hdr)(struct ipa_ioc_add_hdr *hdrs);
+	int (*ipa_del_hdr)(struct ipa_ioc_del_hdr *hdls);
+	int (*ipa_get_hdr)(struct ipa_ioc_get_hdr *lookup);
+	int (*ipa_deregister_intf)(const char *name);
+
+	int (*ipa_enable_wdi_pipe)(u32 clnt_hdl);
+	int (*ipa_disable_wdi_pipe)(u32 clnt_hdl);
+	int (*ipa_resume_wdi_pipe)(u32 clnt_hdl);
+	int (*ipa_suspend_wdi_pipe)(u32 clnt_hdl);
+	int (*ipa_connect_wdi_pipe)(struct ipa_wdi_in_params *in,
+			struct ipa_wdi_out_params *out);
+	int (*ipa_disconnect_wdi_pipe)(u32 clnt_hdl);
+	int (*ipa_uc_reg_rdyCB)(struct ipa_wdi_uc_ready_params *param);
+	int (*ipa_uc_dereg_rdyCB)(void);
+
+	int (*ipa_rmnet_ll_xmit)(struct sk_buff *skb);
+
+	int (*ipa_register_rmnet_ll_cb)(
+		void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+		void *user_data1,
+		void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+		void *user_data2,
+		void (*ipa_rmnet_ll_rx_notify_cb)(
+			void *user_data3, void *rx_data),
+		void *user_data3);
+
+	int (*ipa_unregister_rmnet_ll_cb)(void);
 };
 
 struct ipa_usb_data {
@@ -169,6 +200,13 @@ struct ipa_wdi3_data {
 	int (*ipa_wdi_sw_stats)(struct ipa_wdi_tx_info *info);
 
 	int (*ipa_get_wdi_version)(void);
+};
+
+struct ipa_qdss_data {
+	int (*ipa_qdss_conn_pipes)(struct ipa_qdss_conn_in_params *in,
+		struct ipa_qdss_conn_out_params *out);
+
+	int (*ipa_qdss_disconn_pipes)(void);
 };
 
 struct ipa_gsb_data {
@@ -310,6 +348,11 @@ int ipa_fmwk_register_ipa_wigig(const struct ipa_wigig_data *in);
 
 int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in);
 
+int ipa_fmwk_register_ipa_qdss(const struct ipa_qdss_data *in);
+
+int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
+	u32 *default_aggr_time_limit);
+
 #else /* IS_ENABLED(CONFIG_IPA3) */
 
 int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
@@ -323,6 +366,11 @@ int ipa_fmwk_register_ipa_usb(const struct ipa_usb_data *in)
 }
 
 int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
+{
+	return -EPERM;
+}
+
+int ipa_fmwk_register_ipa_qdss(const struct ipa3_qdss_data *in)
 {
 	return -EPERM;
 }
@@ -348,6 +396,12 @@ int ipa_fmwk_register_ipa_wigig(const struct ipa_wigig_data *in)
 }
 
 int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
+{
+	return -EPERM;
+}
+
+static inline int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
+	u32 *default_aggr_time_limit)
 {
 	return -EPERM;
 }

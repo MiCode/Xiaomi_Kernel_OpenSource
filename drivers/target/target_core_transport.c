@@ -5,6 +5,7 @@
  * This file contains the Generic Target Engine Core.
  *
  * (c) Copyright 2002-2013 Datera, Inc.
+ * (c) Copyright (C) 2021 XiaoMi, Inc.
  *
  * Nicholas A. Bellinger <nab@kernel.org>
  *
@@ -235,6 +236,11 @@ int transport_init_session(struct se_session *se_sess)
 			       target_release_sess_cmd_refcnt, 0, GFP_KERNEL);
 }
 EXPORT_SYMBOL(transport_init_session);
+
+void transport_uninit_session(struct se_session *se_sess)
+{
+	percpu_ref_exit(&se_sess->cmd_count);
+}
 
 /**
  * transport_alloc_session - allocate a session object and initialize it
@@ -579,7 +585,7 @@ void transport_free_session(struct se_session *se_sess)
 		sbitmap_queue_free(&se_sess->sess_tag_pool);
 		kvfree(se_sess->sess_cmd_map);
 	}
-	percpu_ref_exit(&se_sess->cmd_count);
+	transport_uninit_session(se_sess);
 	kmem_cache_free(se_sess_cache, se_sess);
 }
 EXPORT_SYMBOL(transport_free_session);

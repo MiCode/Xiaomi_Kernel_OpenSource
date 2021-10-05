@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _NFC_COMMON_H_
@@ -86,6 +87,7 @@
 #define ESE_SET_PWR		_IOW(NFC_MAGIC, 0x02, unsigned int)
 #define ESE_GET_PWR		_IOR(NFC_MAGIC, 0x03, unsigned int)
 #define NFC_GET_PLATFORM_TYPE	_IO(NFC_MAGIC, 0x04)
+#define NFC_GET_IRQ_STATE	_IOW(NFC_MAGIC, 0x05, unsigned int)
 
 #define DTS_IRQ_GPIO_STR	"qcom,sn-irq"
 #define DTS_VEN_GPIO_STR	"qcom,sn-ven"

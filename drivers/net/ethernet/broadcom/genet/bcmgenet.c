@@ -3,6 +3,7 @@
  * Broadcom GENET (Gigabit Ethernet) controller driver
  *
  * Copyright (c) 2014-2017 Broadcom
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)				"bcmgenet: " fmt
@@ -3584,8 +3585,10 @@ static int bcmgenet_probe(struct platform_device *pdev)
 	clk_disable_unprepare(priv->clk);
 
 	err = register_netdev(dev);
-	if (err)
+	if (err) {
+		bcmgenet_mii_exit(dev);
 		goto err;
+	}
 
 	return err;
 

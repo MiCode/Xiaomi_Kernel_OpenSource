@@ -11,6 +11,7 @@
  * for more details.
  *
  * Copyright (C) 2001 - 2005 Tensilica Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _XTENSA_UACCESS_H
@@ -300,7 +301,7 @@ strncpy_from_user(char *dst, const char *src, long count)
 	return -EFAULT;
 }
 #else
-long strncpy_from_user(char *dst, const char *src, long count);
+long strncpy_from_user(char *dst, const char __user *src, long count);
 #endif
 
 /*

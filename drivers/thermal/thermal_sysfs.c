@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/jiffies.h>
+#include <linux/vmalloc.h>
 
 #include "thermal_core.h"
 
@@ -107,12 +108,16 @@ config_show(struct device *dev, struct device_attribute *attr, char *buf)
 	buf_offset = 0;
 	buf1_offset = 0;
 	buf2_offset = 0;
+
+	mutex_lock(&tz->lock);
 	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
 		if (instance->cdev)
 			buf_size++;
 	}
-	if (!buf_size)
+	if (!buf_size) {
+		mutex_unlock(&tz->lock);
 		goto config_exit;
+	}
 	buf_size *= THERMAL_NAME_LENGTH;
 	buf_cdev =  kzalloc(buf_size, GFP_KERNEL);
 	buf_cdev_upper = kzalloc(buf_size, GFP_KERNEL);
@@ -153,6 +158,8 @@ config_show(struct device *dev, struct device_attribute *attr, char *buf)
 			}
 		}
 	}
+	mutex_unlock(&tz->lock);
+
 	offset += scnprintf(buf + offset, PAGE_SIZE - offset,
 				"device %s\n", buf_cdev);
 	offset += scnprintf(buf + offset, PAGE_SIZE - offset,
@@ -980,10 +987,8 @@ void thermal_cooling_device_stats_update(struct thermal_cooling_device *cdev,
 {
 	struct cooling_dev_stats *stats = cdev->stats;
 
-#ifdef CONFIG_QTI_THERMAL
 	if (!stats)
 		return;
-#endif
 
 	spin_lock(&stats->lock);
 
@@ -1158,7 +1163,7 @@ static void cooling_device_stats_setup(struct thermal_cooling_device *cdev)
 	var += sizeof(*stats->time_in_state) * states;
 	var += sizeof(*stats->trans_table) * states * states;
 
-	stats = kzalloc(var, GFP_KERNEL);
+	stats = vzalloc(var);
 	if (!stats)
 		return;
 
@@ -1177,7 +1182,7 @@ static void cooling_device_stats_setup(struct thermal_cooling_device *cdev)
 
 static void cooling_device_stats_destroy(struct thermal_cooling_device *cdev)
 {
-	kfree(cdev->stats);
+	vfree(cdev->stats);
 	cdev->stats = NULL;
 }
 

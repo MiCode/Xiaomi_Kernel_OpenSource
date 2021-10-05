@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <soc/qcom/secure_buffer.h>
 #include "msm_ion_priv.h"
@@ -9,10 +10,10 @@
 #define _ION_MSM_SYSTEM_HEAP_H
 
 #ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
-#if defined(CONFIG_IOMMU_IO_PGTABLE_ARMV7S)
+#if defined(CONFIG_IOMMU_IO_PGTABLE_ARMV7S) && !defined(CONFIG_64BIT) && !defined(CONFIG_ARM_LPAE)
 static const unsigned int orders[] = {8, 4, 0};
 #else
-static const unsigned int orders[] = {9, 4, 0};
+static const unsigned int orders[] = {4, 0};
 #endif
 #else
 static const unsigned int orders[] = {0};

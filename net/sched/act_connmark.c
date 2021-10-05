@@ -4,6 +4,7 @@
  * skb mark is over-written
  *
  * Copyright (c) 2011 Felix Fietkau <nbd@openwrt.org>
+ * Copyright (C) 2021 XiaoMi, Inc.
 */
 
 #include <linux/module.h>
@@ -139,7 +140,6 @@ static int tcf_connmark_init(struct net *net, struct nlattr *nla,
 		ci->net = net;
 		ci->zone = parm->zone;
 
-		tcf_idr_insert(tn, *a);
 		ret = ACT_P_CREATED;
 	} else if (ret > 0) {
 		ci = to_connmark(*a);

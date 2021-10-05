@@ -1,0 +1,47 @@
+#include "sm8150-gdsc.dtsi"
+
+&soc {
+	/* GDSCs in Global CC */
+	pcie_2_gdsc: qcom,gdsc@19d004 {
+		compatible = "qcom,gdsc";
+		reg = <0x19d004 0x4>;
+		regulator-name = "pcie_2_gdsc";
+		status = "disabled";
+	};
+
+	pcie_3_gdsc: qcom,gdsc@1a3004 {
+		compatible = "qcom,gdsc";
+		reg = <0x1a3004 0x4>;
+		regulator-name = "pcie_3_gdsc";
+		status = "disabled";
+	};
+
+	ufs_card_2_gdsc: qcom,gdsc@1a2004 {
+		compatible = "qcom,gdsc";
+		reg = <0x1a2004 0x4>;
+		regulator-name = "ufs_card_2_gdsc";
+		status = "disabled";
+	};
+
+	usb30_mp_gdsc: qcom,gdsc@1a6004 {
+		compatible = "qcom,gdsc";
+		reg = <0x1a6004 0x4>;
+		regulator-name = "usb30_mp_gdsc";
+		status = "disabled";
+	};
+
+	/* GDSCs in Camera CC */
+	ife_2_gdsc: qcom,gdsc@ad0f004 {
+		compatible = "qcom,gdsc";
+		reg = <0xad0f004 0x4>;
+		regulator-name = "ife_2_gdsc";
+		status = "disabled";
+	};
+
+	ife_3_gdsc: qcom,gdsc@ad0f070 {
+		compatible = "qcom,gdsc";
+		reg = <0xad0f070 0x4>;
+		regulator-name = "ife_3_gdsc";
+		status = "disabled";
+	};
+};

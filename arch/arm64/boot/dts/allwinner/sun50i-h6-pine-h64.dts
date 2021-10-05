@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ or MIT)
 /*
  * Copyright (c) 2017 Icenowy Zheng <icenowy@aosc.io>
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /dts-v1/;
@@ -66,7 +67,7 @@
 &emac {
 	pinctrl-names = "default";
 	pinctrl-0 = <&ext_rgmii_pins>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&ext_rgmii_phy>;
 	phy-supply = <&reg_aldo2>;
 	allwinner,rx-delay-ps = <200>;

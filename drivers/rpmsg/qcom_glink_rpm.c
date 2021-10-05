@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/idr.h>
@@ -331,6 +332,7 @@ static struct platform_driver glink_rpm_driver = {
 	.driver = {
 		.name = "qcom_glink_rpm",
 		.of_match_table = glink_rpm_of_match,
+		.pm = &glink_native_pm_ops,
 	},
 };
 

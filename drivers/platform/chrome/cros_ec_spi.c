@@ -2,6 +2,7 @@
 // SPI interface for ChromeOS Embedded Controller
 //
 // Copyright (C) 2012 Google, Inc
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/delay.h>
 #include <linux/kernel.h>
@@ -739,7 +740,6 @@ static int cros_ec_spi_probe(struct spi_device *spi)
 	int err;
 
 	spi->bits_per_word = 8;
-	spi->mode = SPI_MODE_0;
 	spi->rt = true;
 	err = spi_setup(spi);
 	if (err < 0)

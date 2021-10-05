@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lahaina-v2.1.dtsi"
+#include "lahaina-hhg.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina HHG";
+	compatible = "qcom,lahaina-hdk", "qcom,lahaina", "qcom,hdk";
+	qcom,board-id = <0x1001f 0x01>;
+};

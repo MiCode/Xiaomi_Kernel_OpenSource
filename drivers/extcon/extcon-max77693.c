@@ -3,6 +3,7 @@
 // extcon-max77693.c - MAX77693 extcon driver to support MAX77693 MUIC
 //
 // Copyright (C) 2012 Samsung Electrnoics
+// Copyright (C) 2021 XiaoMi, Inc.
 // Chanwoo Choi <cw00.choi@samsung.com>
 
 #include <linux/kernel.h>
@@ -1277,4 +1278,4 @@ module_platform_driver(max77693_muic_driver);
 MODULE_DESCRIPTION("Maxim MAX77693 Extcon driver");
 MODULE_AUTHOR("Chanwoo Choi <cw00.choi@samsung.com>");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:extcon-max77693");
+MODULE_ALIAS("platform:max77693-muic");

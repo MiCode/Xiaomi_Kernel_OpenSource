@@ -3,6 +3,7 @@
   STMMAC Ethtool support
 
   Copyright (C) 2007-2009  STMicroelectronics Ltd
+  Copyright (C) 2021 XiaoMi, Inc.
 
 
   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
@@ -82,7 +83,16 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
 	STMMAC_STAT(rx_early_irq),
 	STMMAC_STAT(threshold),
 	STMMAC_STAT(tx_pkt_n),
+	STMMAC_STAT(q_tx_pkt_n[0]),
+	STMMAC_STAT(q_tx_pkt_n[1]),
+	STMMAC_STAT(q_tx_pkt_n[2]),
+	STMMAC_STAT(q_tx_pkt_n[3]),
+	STMMAC_STAT(q_tx_pkt_n[4]),
 	STMMAC_STAT(rx_pkt_n),
+	STMMAC_STAT(q_rx_pkt_n[0]),
+	STMMAC_STAT(q_rx_pkt_n[1]),
+	STMMAC_STAT(q_rx_pkt_n[2]),
+	STMMAC_STAT(q_rx_pkt_n[3]),
 	STMMAC_STAT(normal_irq_n),
 	STMMAC_STAT(rx_normal_irq_n),
 	STMMAC_STAT(napi_poll),
@@ -662,23 +672,16 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
 	struct stmmac_priv *priv = netdev_priv(dev);
 	int ret;
 
-	if (!edata->eee_enabled) {
+	if (!priv->dma_cap.eee)
+		return -EOPNOTSUPP;
+
+	if (!edata->eee_enabled)
 		stmmac_disable_eee_mode(priv);
-	} else {
-		/* We are asking for enabling the EEE but it is safe
-		 * to verify all by invoking the eee_init function.
-		 * In case of failure it will return an error.
-		 */
-		edata->eee_enabled = stmmac_eee_init(priv);
-		if (!edata->eee_enabled)
-			return -EOPNOTSUPP;
-	}
 
 	ret = phylink_ethtool_set_eee(priv->phylink, edata);
 	if (ret)
 		return ret;
 
-	priv->eee_enabled = edata->eee_enabled;
 	priv->tx_lpi_timer = edata->tx_lpi_timer;
 	return 0;
 }

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /* Copyright (c) 2018-2019 Hisilicon Limited. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef __HCLGE_DEBUGFS_H
 #define __HCLGE_DEBUGFS_H
@@ -34,8 +35,6 @@
 #define HCLGE_DBG_DFX_TQP_OFFSET   11
 
 #define HCLGE_DBG_DFX_SSU_2_OFFSET 12
-
-#pragma pack(1)
 
 struct hclge_qos_pri_map_cmd {
 	u8 pri0_tc  : 4,
@@ -84,8 +83,6 @@ struct hclge_dbg_reg_type_info {
 	struct hclge_dbg_dfx_message *dfx_msg;
 	struct hclge_dbg_reg_common_msg reg_msg;
 };
-
-#pragma pack()
 
 static struct hclge_dbg_dfx_message hclge_dbg_bios_common_reg[] = {
 	{false, "Reserved"},

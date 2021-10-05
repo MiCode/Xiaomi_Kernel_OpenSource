@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /* Copyright(c) 2018-2019  Realtek Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/debugfs.h>
@@ -145,6 +146,8 @@ static int rtw_debugfs_copy_from_user(char tmp[], int size,
 				      int num)
 {
 	int tmp_len;
+
+	memset(tmp, 0, size);
 
 	if (count < num)
 		return -EFAULT;

@@ -1,0 +1,135 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/arm/msm/imem.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: QTI IMEM
+
+maintainers:
+  - Raghavendra Rao Ananta <rananta@quicinc.com>
+
+description: |
+  IMEM is fast on-chip memory used for various debug features and dma transactions.
+
+properties:
+  compatible:
+    const: qcom,msm-imem
+
+  reg:
+    description: start address and size of imem memory
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 1
+
+  ranges: true
+    description:
+      Includes the child address, parent address, & ength.  The child address is
+      assumed to be 0.
+
+patternProperties:
+  "[a-zA-Z0-9]@[a-z0-9]"
+  type: object
+
+  properties:
+    compatible:
+      oneOf:
+        - const: qcom,msm-imem-pil
+          description: Peripheral Image Loader (PIL)
+
+        - const: qcom,msm-imem-boot_stats
+          description: Bootloader Stats
+
+        - const: qcom,msm-imem-cache_erp
+          description: Cache error reporting
+
+        - const: qcom,msm-imem-mem_dump_table
+          desciption: Memory Dump table
+
+        - const: qcom,msm-imem-restart_reason
+          description: Device restart reason
+
+        - const: qcom,msm-imem-dload-type
+          description: Download Mode Type
+
+        - const: qcom,msm-imem-download_mode
+          description: Download Mode
+
+        - const: qcom,msm-imem-emergency_download_mode
+          description: Emergency Download Mode
+
+        - const: qcom,msm-imem-kaslr_offset
+          description: Kernel Address Space Layout Randomization (KASLR) offset
+
+        - const: qcom,msm-imem-minidump
+          description: Subsystem Restart's (SSR) Minidump Offset
+
+        - const: qcom,msm-imem-diag-dload
+          description: USB Diag download mode region
+
+        - const: qcom,msm-imem-pil-disable-timeout
+          description: Offset to set PIL debug cookie
+
+    reg:
+      description: Start address and the size of the region
+
+    required:
+      - compatible
+      - reg
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    qcom,msm-imem {
+      compatible = "qcom,msm-imem";
+      reg = <0xdeadbeef 0x1000>; /* < start_address size > */
+      ranges = <0x0 0xdeadbeef 0x1000>;
+      #address-cells = <1>;
+      #size-cells = <1>;
+
+      download_mode@0 {
+        compatible = "qcom,msm-imem-download_mode";
+        reg = <0x0 8>;
+      };
+
+      restart_reason@65c {
+        compatible = "qcom,msm-imem-restart_reason";
+        reg = <0x65c 4>;
+      };
+
+      imem_cache_erp: cache_erp@6a4 {
+        compatible = "qcom,msm-imem-cache_erp";
+        reg = <0x6a4 4>;
+      };
+
+      boot_stats@6b0 {
+        compatible = "qcom,msm-imem-boot_stats";
+        reg = <0x6b0 32>;
+      };
+
+      kaslr_offset@6d0 {
+        compatible = "qcom,msm-imem-kaslr_offset";
+        reg = <0x6d0 12>;
+      };
+
+
+      pil@94c {
+        compatible = "qcom,msm-imem-pil";
+        reg = <0x94c 200>;
+      };
+
+      emergency_download_mode@fe0 {
+        compatible = "qcom,msm-imem-emergency_download_mode";
+        reg = <0xfe0 12>;
+      };
+
+      ss_mdump@b88 {
+        compatible = "qcom,msm-imem-minidump";
+        reg = <0xb88 28>;
+      };
+    };

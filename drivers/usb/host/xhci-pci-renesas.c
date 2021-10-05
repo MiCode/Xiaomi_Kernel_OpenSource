@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2019-2020 Linaro Limited */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/acpi.h>
 #include <linux/debugfs.h>
@@ -7,7 +8,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
-#include <linux/unaligned/access_ok.h>
+#include <asm/unaligned.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"

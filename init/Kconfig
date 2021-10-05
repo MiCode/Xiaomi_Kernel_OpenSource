@@ -633,7 +633,8 @@ config IKHEADERS
 
 config LOG_BUF_SHIFT
 	int "Kernel log buffer size (16 => 64KB, 17 => 128KB)"
-	range 12 25
+	range 12 25 if !H8300
+	range 12 19 if H8300
 	default 17
 	depends on PRINTK
 	help
@@ -1090,6 +1091,12 @@ config SOCK_CGROUP_DATA
 	default n
 
 endif # CGROUPS
+
+config PERF_HUMANTASK
+	bool "enable feature humantask"
+	default n
+	help
+	  support switch on/off of sched humantask.
 
 menuconfig NAMESPACES
 	bool "Namespaces support" if EXPERT

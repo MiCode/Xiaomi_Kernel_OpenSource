@@ -3,6 +3,7 @@
  * Microchip KSZ8795 switch driver
  *
  * Copyright (C) 2017 Microchip Technology Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *	Tristram Ha <Tristram.Ha@microchip.com>
  */
 
@@ -1266,9 +1267,6 @@ static int ksz8795_switch_init(struct ksz_device *dev)
 		if (!dev->ports[i].mib.counters)
 			return -ENOMEM;
 	}
-
-	/* set the real number of ports */
-	dev->ds->num_ports = dev->port_cnt;
 
 	/* set the real number of ports */
 	dev->ds->num_ports = dev->port_cnt;

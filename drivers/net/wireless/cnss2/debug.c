@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/err.h>
 #include <linux/seq_file.h>
@@ -11,8 +12,10 @@
 
 #define MMIO_REG_ACCESS_MEM_TYPE		0xFF
 
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
 void *cnss_ipc_log_context;
 void *cnss_ipc_log_long_context;
+#endif
 
 static int cnss_pin_connect_show(struct seq_file *s, void *data)
 {
@@ -171,10 +174,6 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 	if (!plat_priv)
 		return -ENODEV;
 
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv)
-		return -ENODEV;
-
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, user_buf, len))
 		return -EFAULT;
@@ -189,13 +188,6 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		cnss_power_off_device(plat_priv);
 	} else if (sysfs_streq(cmd, "enumerate")) {
 		ret = cnss_pci_init(plat_priv);
-	} else if (sysfs_streq(cmd, "download")) {
-		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
-		ret = cnss_pci_start_mhi(pci_priv);
-	} else if (sysfs_streq(cmd, "linkup")) {
-		ret = cnss_resume_pci_link(pci_priv);
-	} else if (sysfs_streq(cmd, "linkdown")) {
-		ret = cnss_suspend_pci_link(pci_priv);
 	} else if (sysfs_streq(cmd, "powerup")) {
 		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 		ret = cnss_driver_event_post(plat_priv,
@@ -206,15 +198,29 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 					     CNSS_DRIVER_EVENT_POWER_DOWN,
 					     0, NULL);
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
-	} else if (sysfs_streq(cmd, "assert")) {
-		cnss_pr_info("FW Assert triggered for debug\n");
-		ret = cnss_force_fw_assert(&pci_priv->pci_dev->dev);
-	} else if (sysfs_streq(cmd, "set_cbc_done")) {
-		cnss_pr_dbg("Force set cold boot cal done status\n");
-		set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);
 	} else {
-		cnss_pr_err("Device boot debugfs command is invalid\n");
-		ret = -EINVAL;
+		pci_priv = plat_priv->bus_priv;
+		if (!pci_priv)
+			return -ENODEV;
+
+		if (sysfs_streq(cmd, "download")) {
+			set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
+			ret = cnss_pci_start_mhi(pci_priv);
+		} else if (sysfs_streq(cmd, "linkup")) {
+			ret = cnss_resume_pci_link(pci_priv);
+		} else if (sysfs_streq(cmd, "linkdown")) {
+			ret = cnss_suspend_pci_link(pci_priv);
+		} else if (sysfs_streq(cmd, "assert")) {
+			cnss_pr_info("FW Assert triggered for debug\n");
+			ret = cnss_force_fw_assert(&pci_priv->pci_dev->dev);
+		} else if (sysfs_streq(cmd, "set_cbc_done")) {
+			cnss_pr_dbg("Force set cold boot cal done status\n");
+			set_bit(CNSS_COLD_BOOT_CAL_DONE,
+				&plat_priv->driver_state);
+		} else {
+			cnss_pr_err("Device boot debugfs command is invalid\n");
+			ret = -EINVAL;
+		}
 	}
 
 	if (ret < 0)
@@ -705,6 +711,8 @@ static int cnss_show_quirks_state(struct seq_file *s,
 			continue;
 		case IGNORE_PCI_LINK_FAILURE:
 			seq_puts(s, "IGNORE_PCI_LINK_FAILURE");
+		case DISABLE_TIME_SYNC:
+			seq_puts(s, "DISABLE_TIME_SYNC");
 			continue;
 		}
 
@@ -868,7 +876,8 @@ void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 }
 #endif
 
-int cnss_debug_init(void)
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
+static int cnss_ipc_logging_init(void)
 {
 	cnss_ipc_log_context = ipc_log_context_create(CNSS_IPC_LOG_PAGES,
 						      "cnss", 0);
@@ -888,7 +897,7 @@ int cnss_debug_init(void)
 	return 0;
 }
 
-void cnss_debug_deinit(void)
+static void cnss_ipc_logging_deinit(void)
 {
 	if (cnss_ipc_log_long_context) {
 		ipc_log_context_destroy(cnss_ipc_log_long_context);
@@ -899,4 +908,18 @@ void cnss_debug_deinit(void)
 		ipc_log_context_destroy(cnss_ipc_log_context);
 		cnss_ipc_log_context = NULL;
 	}
+}
+#else
+static int cnss_ipc_logging_init(void) { return 0; }
+static void cnss_ipc_logging_deinit(void) {}
+#endif
+
+int cnss_debug_init(void)
+{
+	return cnss_ipc_logging_init();
+}
+
+void cnss_debug_deinit(void)
+{
+	cnss_ipc_logging_deinit();
 }

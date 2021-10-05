@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "shima-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima QRD";
+	compatible = "qcom,shima-qrd", "qcom,shima", "qcom,qrd";
+	qcom,msm-id = <450 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+};

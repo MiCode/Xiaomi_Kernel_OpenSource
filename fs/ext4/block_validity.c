@@ -3,6 +3,7 @@
  *  linux/fs/ext4/block_validity.c
  *
  * Copyright (C) 2009
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Theodore Ts'o (tytso@mit.edu)
  *
  * Track which blocks in the filesystem are metadata blocks that
@@ -249,14 +250,6 @@ int ext4_setup_system_zone(struct super_block *sb)
 	ext4_group_t i;
 	int flex_size = ext4_flex_bg_size(sbi);
 	int ret;
-
-	if (!test_opt(sb, BLOCK_VALIDITY)) {
-		if (sbi->system_blks)
-			ext4_release_system_zone(sb);
-		return 0;
-	}
-	if (sbi->system_blks)
-		return 0;
 
 	system_blks = kzalloc(sizeof(*system_blks), GFP_KERNEL);
 	if (!system_blks)

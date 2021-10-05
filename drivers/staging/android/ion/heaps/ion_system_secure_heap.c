@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
@@ -29,6 +30,7 @@ struct ion_system_secure_heap {
 	bool destroy_heap;
 	struct list_head prefetch_list;
 	struct delayed_work prefetch_work;
+	struct workqueue_struct *prefetch_wq;
 };
 
 struct prefetch_info {
@@ -68,6 +70,12 @@ static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 
 	buffer->heap = secure_heap->sys_heap;
 	secure_heap->sys_heap->ops->free(buffer);
+	/*
+	 * Restore buffer's heap pointer to the system secure heap, so that
+	 * the ION memory accounting code uses the system secure heap's stats
+	 * instead of the system heap stats.
+	 */
+	buffer->heap = heap;
 }
 
 static int ion_system_secure_heap_allocate(struct ion_heap *heap,
@@ -264,7 +272,8 @@ static int __ion_system_secure_heap_resize(struct ion_heap *heap,
 		goto out_free;
 	}
 	list_splice_tail_init(&items, &secure_heap->prefetch_list);
-	queue_delayed_work(system_unbound_wq, &secure_heap->prefetch_work,
+	queue_delayed_work(secure_heap->prefetch_wq,
+			   &secure_heap->prefetch_work,
 			   shrink ?  msecs_to_jiffies(SHRINK_DELAY) : 0);
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
@@ -339,6 +348,15 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	INIT_LIST_HEAD(&heap->prefetch_list);
 	INIT_DELAYED_WORK(&heap->prefetch_work,
 			  ion_system_secure_heap_prefetch_work);
+
+	heap->prefetch_wq = alloc_workqueue("system_secure_prefetch_wq",
+					    WQ_UNBOUND | WQ_FREEZABLE, 0);
+	if (!heap->prefetch_wq) {
+		pr_err("Failed to create system secure prefetch workqueue\n");
+		kfree(heap);
+		return ERR_PTR(-ENOMEM);
+	}
+
 	return &heap->heap.ion_heap;
 }
 

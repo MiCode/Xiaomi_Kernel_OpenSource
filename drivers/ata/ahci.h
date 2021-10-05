@@ -7,6 +7,7 @@
  *		    on emails.
  *
  *  Copyright 2004-2005 Red Hat, Inc.
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  * libata documentation is available via 'make {ps|pdf}docs',
  * as Documentation/driver-api/libata.rst
@@ -240,6 +241,8 @@ enum {
 							as default lpm_policy */
 	AHCI_HFLAG_SUSPEND_PHYS		= (1 << 26), /* handle PHYs during
 							suspend/resume */
+	AHCI_HFLAG_IGN_NOTSUPP_POWER_ON	= (1 << 27), /* ignore -EOPNOTSUPP
+							from phy_power_on() */
 
 	/* ap->flags bits */
 

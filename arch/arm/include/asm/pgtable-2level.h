@@ -3,6 +3,7 @@
  *  arch/arm/include/asm/pgtable-2level.h
  *
  *  Copyright (C) 1995-2002 Russell King
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef _ASM_PGTABLE_2LEVEL_H
 #define _ASM_PGTABLE_2LEVEL_H
@@ -74,6 +75,8 @@
 #define PTE_HWTABLE_PTRS	(PTRS_PER_PTE)
 #define PTE_HWTABLE_OFF		(PTE_HWTABLE_PTRS * sizeof(pte_t))
 #define PTE_HWTABLE_SIZE	(PTRS_PER_PTE * sizeof(u32))
+
+#define MAX_POSSIBLE_PHYSMEM_BITS	32
 
 /*
  * PMD_SHIFT determines the size of the area a second-level page table can map

@@ -1,0 +1,14 @@
+#include "sdxlemur-audio-overlay.dtsi"
+
+&soc {
+	sound-tavil {
+		qcom,wsa-max-devs = <1>;
+		qcom,wsa-devs = <&wsa881x_0214>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft";
+	};
+};
+
+&wsa_spkr_wcd_sd2 {
+	pinctrl-0 = <&spkr_1_wcd_en_active>;
+	pinctrl-1 = <&spkr_1_wcd_en_sleep>;
+};

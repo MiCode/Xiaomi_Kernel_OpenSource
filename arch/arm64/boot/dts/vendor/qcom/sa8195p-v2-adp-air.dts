@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "sa8195p.dtsi"
+#include "sa8195p-v2-adp-air.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8195P V2 ADP AIR";
+	compatible = "qcom,sa8195p-v2-adp-air", "qcom,sa8195p", "qcom,adp-air";
+	qcom,board-id = <0x02010019 0>;
+};

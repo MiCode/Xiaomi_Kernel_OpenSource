@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 // SPI to CAN driver for the Texas Instruments TCAN4x5x
 // Copyright (C) 2018-19 Texas Instruments Incorporated - http://www.ti.com/
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -467,6 +468,10 @@ static int tcan4x5x_can_probe(struct spi_device *spi)
 
 	priv->regmap = devm_regmap_init(&spi->dev, &tcan4x5x_bus,
 					&spi->dev, &tcan4x5x_regmap);
+	if (IS_ERR(priv->regmap)) {
+		ret = PTR_ERR(priv->regmap);
+		goto out_clk;
+	}
 
 	tcan4x5x_power_enable(priv->power, 1);
 
@@ -497,9 +502,9 @@ static int tcan4x5x_can_remove(struct spi_device *spi)
 {
 	struct tcan4x5x_priv *priv = spi_get_drvdata(spi);
 
-	tcan4x5x_power_enable(priv->power, 0);
-
 	m_can_class_unregister(priv->mcan_dev);
+
+	tcan4x5x_power_enable(priv->power, 0);
 
 	return 0;
 }

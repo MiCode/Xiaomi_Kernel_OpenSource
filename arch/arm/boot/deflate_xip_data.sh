@@ -5,6 +5,7 @@
 #
 # Created by:	Nicolas Pitre, August 2017
 # Copyright:	(C) 2017  Linaro Limited
+# Copyright (C) 2021 XiaoMi, Inc.
 #
 
 # This script locates the start of the .data section in xipImage and
@@ -56,7 +57,7 @@ trap 'rm -f "$XIPIMAGE.tmp"; exit 1' 1 2 3
 # substitute the data section by a compressed version
 $DD if="$XIPIMAGE" count=$data_start iflag=count_bytes of="$XIPIMAGE.tmp"
 $DD if="$XIPIMAGE"  skip=$data_start iflag=skip_bytes |
-gzip -9 >> "$XIPIMAGE.tmp"
+$KGZIP -9 >> "$XIPIMAGE.tmp"
 
 # replace kernel binary
 mv -f "$XIPIMAGE.tmp" "$XIPIMAGE"

@@ -1,0 +1,28 @@
+Qualcomm Technologies, Inc. PMIC PON Log
+
+Certain Qualcomm Technologies, Inc. PMIC devices capture power-on, power-off,
+and fault information in a binary log found within SDAM peripherals.  The PMIC
+PON Log device accesses this log and parses it into a human readable format.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,pmic-pon-log"
+
+- nvmem:
+	Usage: required
+	Value type: <phandle-list>
+	Definition: phandle of the PMIC nvmem device containing the PON log
+
+- nvmem-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "pon_log"
+
+Example:
+
+pmic-pon-log {
+	compatible = "qcom,pmic-pon-log";
+	nvmem = <&pmk8350_sdam_5>;
+	nvmem-names = "pon_log";
+};

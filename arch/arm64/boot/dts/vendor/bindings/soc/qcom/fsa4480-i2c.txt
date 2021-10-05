@@ -1,0 +1,18 @@
+Qualcomm Technologies, Inc.
+
+Fairchild FSA4480 Device
+
+This device is used for switching orientation of USB-C analog
+and for display. It uses I2C communication to set the registers
+to configure the switches inside the FSA4480 chip to change
+orientation and also to set SBU1/SBU2 connections of USB-C.
+
+Required properties:
+ - compatible:          Should be "qcom,fsa4480-i2c".
+ - reg:                 I2C device address of the device
+
+Example:
+	fsa4480: fsa4480@43 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x43>;
+	};

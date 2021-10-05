@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/interrupt.h>
 #include <linux/iommu.h>
@@ -63,6 +64,7 @@ struct msm_msi {
 	phys_addr_t msi_addr;
 	u32 msi_addr_size;
 	enum msi_type type;
+	bool msi_mask_disable;
 	spinlock_t cfg_lock; /* lock for configuring Synopsys MSI registers */
 	bool cfg_access; /* control access to MSI registers */
 	void __iomem *pcie_cfg;
@@ -162,7 +164,7 @@ static void msm_msi_mask_irq(struct irq_data *data)
 	msi = msi_irq->client->msi;
 
 	spin_lock_irqsave(&msi->cfg_lock, flags);
-	if (msi->cfg_access)
+	if (!msi->msi_mask_disable && msi->cfg_access)
 		pci_msi_mask_irq(data);
 	spin_unlock_irqrestore(&msi->cfg_lock, flags);
 
@@ -213,7 +215,7 @@ static void msm_msi_unmask_irq(struct irq_data *data)
 	msi->unmask_irq(parent_data);
 
 	spin_lock_irqsave(&msi->cfg_lock, flags);
-	if (msi->cfg_access)
+	if (!msi->msi_mask_disable && msi->cfg_access)
 		pci_msi_unmask_irq(data);
 	spin_unlock_irqrestore(&msi->cfg_lock, flags);
 }
@@ -480,6 +482,14 @@ static int msm_msi_snps_irq_setup(struct msm_msi *msi)
 			goto free_irqs;
 		}
 
+		ret = enable_irq_wake(irq);
+		if (ret) {
+			dev_err(msi->dev,
+				"MSI: Unable to set enable_irq_wake for interrupt: %d: %d\n",
+				i, irq);
+			goto free_irq;
+		}
+
 		msi_grp = &msi->grps[i];
 		msi_grp->int_en_reg = msi->pcie_cfg +
 				PCIE_MSI_CTRL_INT_N_EN_OFFS(i);
@@ -503,11 +513,14 @@ static int msm_msi_snps_irq_setup(struct msm_msi *msi)
 
 	return 0;
 
+free_irq:
+	irq_dispose_mapping(irq);
 free_irqs:
 	for (--i; i >= 0; i--) {
 		irq = msi->grps[i].irqs[0].hwirq;
 
 		irq_set_chained_handler_and_data(irq, NULL, NULL);
+		disable_irq_wake(irq);
 		irq_dispose_mapping(irq);
 	}
 
@@ -531,6 +544,14 @@ static int msm_msi_qgic_irq_setup(struct msm_msi *msi)
 			goto free_irqs;
 		}
 
+		ret = enable_irq_wake(irq);
+		if (ret) {
+			dev_err(msi->dev,
+				"MSI: Unable to set enable_irq_wake for interrupt: %d: %d\n",
+				i, irq);
+			goto free_irq;
+		}
+
 		grp = i / MSI_IRQ_PER_GRP;
 		index = i % MSI_IRQ_PER_GRP;
 		msi_grp = &msi->grps[grp];
@@ -547,6 +568,8 @@ static int msm_msi_qgic_irq_setup(struct msm_msi *msi)
 
 	return 0;
 
+free_irq:
+	irq_dispose_mapping(irq);
 free_irqs:
 	for (--i; i >= 0; i--) {
 		grp = i / MSI_IRQ_PER_GRP;
@@ -554,6 +577,7 @@ free_irqs:
 		irq = msi->grps[grp].irqs[index].hwirq;
 
 		irq_set_chained_handler_and_data(irq, NULL, NULL);
+		disable_irq_wake(irq);
 		irq_dispose_mapping(irq);
 	}
 
@@ -643,6 +667,12 @@ int msm_msi_init(struct device *dev)
 	mutex_init(&msi->mutex);
 	spin_lock_init(&msi->cfg_lock);
 	INIT_LIST_HEAD(&msi->clients);
+	msi->msi_mask_disable = of_property_read_bool(dev->of_node,
+						"qcom,msi_mask_disable");
+
+	if (msi->msi_mask_disable)
+		pr_warn("MSI interrupts mask disabled:%d\n",
+				msi->msi_mask_disable);
 
 	prop_val = of_get_address(msi->of_node, 0, NULL, NULL);
 	if (!prop_val) {

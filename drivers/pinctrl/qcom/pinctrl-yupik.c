@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -621,7 +622,10 @@ enum yupik_functions {
 	msm_mux_pll_clk,
 	msm_mux_pll_reset,
 	msm_mux_pri_mi2s,
-	msm_mux_prng_rosc,
+	msm_mux_prng_rosc0,
+	msm_mux_prng_rosc1,
+	msm_mux_prng_rosc2,
+	msm_mux_prng_rosc3,
 	msm_mux_qdss_cti,
 	msm_mux_qdss_gpio,
 	msm_mux_qdss_gpio0,
@@ -1090,8 +1094,17 @@ static const char * const pll_reset_groups[] = {
 static const char * const pri_mi2s_groups[] = {
 	"gpio96",
 };
-static const char * const prng_rosc_groups[] = {
+static const char * const prng_rosc0_groups[] = {
 	"gpio123",
+};
+static const char * const prng_rosc1_groups[] = {
+	"gpio120",
+};
+static const char * const prng_rosc2_groups[] = {
+	"gpio121",
+};
+static const char * const prng_rosc3_groups[] = {
+	"gpio122",
 };
 static const char * const qdss_cti_groups[] = {
 	"gpio15", "gpio16", "gpio18", "gpio19", "gpio156", "gpio157",
@@ -1458,14 +1471,17 @@ static const struct msm_function yupik_functions[] = {
 	FUNCTION(mss_grfc3),
 	FUNCTION(cmu_rng0),
 	FUNCTION(phase_flag12),
+	FUNCTION(prng_rosc1),
 	FUNCTION(mss_grfc4),
 	FUNCTION(cri_trng0),
 	FUNCTION(phase_flag11),
+	FUNCTION(prng_rosc2),
 	FUNCTION(mss_grfc5),
 	FUNCTION(cri_trng1),
 	FUNCTION(phase_flag10),
+	FUNCTION(prng_rosc3),
 	FUNCTION(mss_grfc6),
-	FUNCTION(prng_rosc),
+	FUNCTION(prng_rosc0),
 	FUNCTION(phase_flag9),
 	FUNCTION(mss_grfc7),
 	FUNCTION(cri_trng),
@@ -1696,13 +1712,13 @@ static const struct msm_pingroup yupik_groups[] = {
 			 NA, NA, NA, 0, -1),
 	[119] = PINGROUP(119, NA, mss_grfc2, cmu_rng1, phase_flag13, NA, NA,
 			 NA, NA, NA, 0xAF014, 2),
-	[120] = PINGROUP(120, NA, mss_grfc3, cmu_rng0, phase_flag12, NA, NA,
-			 NA, NA, NA, 0, -1),
-	[121] = PINGROUP(121, NA, mss_grfc4, cri_trng0, phase_flag11, NA, NA,
-			 NA, NA, NA, 0xAF014, 3),
-	[122] = PINGROUP(122, NA, mss_grfc5, cri_trng1, phase_flag10, NA, NA,
-			 NA, NA, NA, 0, -1),
-	[123] = PINGROUP(123, NA, mss_grfc6, prng_rosc, phase_flag9, NA, NA,
+	[120] = PINGROUP(120, NA, mss_grfc3, cmu_rng0, phase_flag12, NA,
+			 prng_rosc1, NA, NA, NA, 0, -1),
+	[121] = PINGROUP(121, NA, mss_grfc4, cri_trng0, phase_flag11, NA,
+			 prng_rosc2, NA, NA, NA, 0xAF014, 3),
+	[122] = PINGROUP(122, NA, mss_grfc5, cri_trng1, phase_flag10, NA,
+			 prng_rosc3, NA, NA, NA, 0, -1),
+	[123] = PINGROUP(123, NA, mss_grfc6, prng_rosc0, phase_flag9, NA, NA,
 			 NA, NA, NA, 0xAF014, 4),
 	[124] = PINGROUP(124, NA, mss_grfc7, cri_trng, phase_flag8, NA, NA, NA,
 			 NA, NA, 0, -1),
@@ -1783,13 +1799,17 @@ static const struct msm_pingroup yupik_groups[] = {
 	[174] = PINGROUP(174, qdss_gpio15, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0xAF008, 10),
 	[175] = UFS_RESET(ufs_reset, 0x1be000),
-	[176] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1b3000, 15, 0),
+	[176] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1b3004, 0, 0),
 	[177] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1b3000, 13, 6),
 	[178] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1b3000, 11, 3),
 	[179] = SDC_QDSD_PINGROUP(sdc1_data, 0x1b3000, 9, 0),
 	[180] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1b4000, 14, 6),
 	[181] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1b4000, 11, 3),
 	[182] = SDC_QDSD_PINGROUP(sdc2_data, 0x1b4000, 9, 0),
+};
+
+static const int yupik_reserved_gpios[] = {
+	32, 33, 48, 49, 50, 51, 56, 57, 58, 59, -1
 };
 static struct pinctrl_qup yupik_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
@@ -1805,11 +1825,11 @@ static const struct msm_gpio_wakeirq_map yupik_pdc_map[] = {
 	{ 25, 95 }, { 27, 158 }, { 28, 159 }, { 31, 90 }, { 32, 144 },
 	{ 34, 77 }, { 35, 92 }, { 36, 157 }, { 39, 73 }, { 40, 97 },
 	{ 41, 98 }, { 43, 85 }, { 44, 100 }, { 45, 101 }, { 47, 102 },
-	{ 48, 75 }, { 51, 112 }, { 52, 156 }, { 54, 117 }, { 55, 84 },
+	{ 48, 74 }, { 51, 112 }, { 52, 156 }, { 54, 117 }, { 55, 84 },
 	{ 56, 108 }, { 59, 110 }, { 60, 111 }, { 61, 123 }, { 63, 104 },
 	{ 68, 127 }, { 72, 150 }, { 75, 133 }, { 77, 125 }, { 78, 105 },
 	{ 79, 106 }, { 80, 118 }, { 81, 119 }, { 82, 162 }, { 83, 122 },
-	{ 86, 74 }, { 88, 154 }, { 89, 124 }, { 90, 149 }, { 91, 76 },
+	{ 86, 75 }, { 88, 154 }, { 89, 124 }, { 90, 149 }, { 91, 76 },
 	{ 93, 128 }, { 95, 160 }, { 101, 126 }, { 102, 96 }, { 103, 116 },
 	{ 104, 114 }, { 112, 72 }, { 116, 135 }, { 117, 163 }, { 119, 137 },
 	{ 121, 138 }, { 123, 139 }, { 125, 140 }, { 127, 141 }, { 128, 165 },
@@ -1827,6 +1847,7 @@ static const struct msm_pinctrl_soc_data yupik_pinctrl = {
 	.nfunctions = ARRAY_SIZE(yupik_functions),
 	.groups = yupik_groups,
 	.ngroups = ARRAY_SIZE(yupik_groups),
+	.reserved_gpios = yupik_reserved_gpios,
 	.ngpios = 176,
 	.qup_regs = yupik_qup_regs,
 	.nqup_regs = ARRAY_SIZE(yupik_qup_regs),
@@ -1834,9 +1855,31 @@ static const struct msm_pinctrl_soc_data yupik_pinctrl = {
 	.nwakeirq_map = ARRAY_SIZE(yupik_pdc_map),
 };
 
+/* By default, all the gpios that are mpm wake capable are enabled.
+ * The following list disables the gpios explicitly
+ */
+static const unsigned int config_mpm_wake_disable_gpios[] = { 127 };
+
+static void yupik_pinctrl_config_mpm_wake_disable_gpios(void)
+{
+	unsigned int i;
+	unsigned int n_gpios = ARRAY_SIZE(config_mpm_wake_disable_gpios);
+
+	for (i = 0; i < n_gpios; i++)
+		msm_gpio_mpm_wake_set(config_mpm_wake_disable_gpios[i], false);
+}
+
 static int yupik_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &yupik_pinctrl);
+	int ret;
+
+	ret = msm_pinctrl_probe(pdev, &yupik_pinctrl);
+	if (ret)
+		return ret;
+
+	yupik_pinctrl_config_mpm_wake_disable_gpios();
+
+	return 0;
 }
 
 static const struct of_device_id yupik_pinctrl_of_match[] = {

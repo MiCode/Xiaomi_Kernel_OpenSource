@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause OR GPL-2.0
 /* Copyright (c) 2017-2018 Mellanox Technologies. All rights reserved */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -290,12 +291,13 @@ mlxsw_sp_acl_tcam_group_add(struct mlxsw_sp_acl_tcam *tcam,
 	int err;
 
 	group->tcam = tcam;
-	mutex_init(&group->lock);
 	INIT_LIST_HEAD(&group->region_list);
 
 	err = mlxsw_sp_acl_tcam_group_id_get(tcam, &group->id);
 	if (err)
 		return err;
+
+	mutex_init(&group->lock);
 
 	return 0;
 }

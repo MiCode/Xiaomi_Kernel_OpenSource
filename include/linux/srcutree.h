@@ -4,6 +4,7 @@
  *	tree variant.
  *
  * Copyright (C) IBM Corporation, 2017
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Paul McKenney <paulmck@linux.ibm.com>
  */
@@ -124,7 +125,7 @@ struct srcu_struct {
 # define __DEFINE_SRCU(name, is_static)					\
 	is_static struct srcu_struct name;				\
 	struct srcu_struct * const __srcu_struct_##name			\
-		__section("___srcu_struct_ptrs") = &name
+		__section(___srcu_struct_ptrs) = &name
 #else
 # define __DEFINE_SRCU(name, is_static)					\
 	static DEFINE_PER_CPU(struct srcu_data, name##_srcu_data);	\

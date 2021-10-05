@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2012 IBM Corporation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Ashley Lai <ashleydlai@gmail.com>
  *
@@ -26,6 +27,7 @@ struct ibmvtpm_crq_queue {
 	struct ibmvtpm_crq *crq_addr;
 	u32 index;
 	u32 num_entry;
+	wait_queue_head_t wq;
 };
 
 struct ibmvtpm_dev {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/init.h>
@@ -512,7 +513,7 @@ static void free_pmu_counters(unsigned int cpu)
 static int init_pmu_counter(void)
 {
 	int cpu;
-	unsigned long cpu_capacity[NR_CPUS];
+	unsigned long cpu_capacity[NR_CPUS] = {0};
 	unsigned long min_cpu_capacity = ULONG_MAX;
 	int ret = 0;
 
@@ -814,7 +815,7 @@ static int msm_perf_core_ctl_notify(struct notifier_block *nb,
 					void *data)
 {
 	static unsigned int tld, nrb, i;
-	static unsigned int top_ld[CLUSTER_MAX], curr_cp[CLUSTER_MAX];
+	static unsigned int top_ld[CLUSTER_MAX] = {0}, curr_cp[CLUSTER_MAX] = {0};
 	static DECLARE_WORK(sysfs_notify_work, nr_notify_userspace);
 	struct core_ctl_notif_data *d = data;
 	int cluster = 0;
@@ -877,7 +878,7 @@ module_param_cb(core_ctl_register, &param_ops_cc_register,
 
 void  msm_perf_events_update(enum evt_update_t update_typ,
 			enum gfx_evt_t evt_typ, pid_t pid,
-			uint32_t ctx_id, uint32_t timestamp)
+			uint32_t ctx_id, uint32_t timestamp, bool end_of_frame)
 {
 	unsigned long flags;
 	int idx = 0;
@@ -885,7 +886,8 @@ void  msm_perf_events_update(enum evt_update_t update_typ,
 	if (update_typ != MSM_PERF_GFX)
 		return;
 
-	if (pid != atomic_read(&game_status_pid) || (timestamp == 0))
+	if (pid != atomic_read(&game_status_pid) || (timestamp == 0)
+		|| !(end_of_frame))
 		return;
 
 	spin_lock_irqsave(&gfx_circ_buff_lock, flags);
@@ -985,7 +987,7 @@ module_param_cb(plh_log_level, &param_ops_plh_log_level, &plh_log_level, 0644);
 static int init_splh_notif(const char *buf)
 {
 	int i, j, ret;
-	u16 tmp[SPLH_INIT_IPC_FREQ_TBL_PARAMS];
+	u16 tmp[SPLH_INIT_IPC_FREQ_TBL_PARAMS] = {0};
 	u16 *ptmp = tmp, ntokens, nfps, n_ipc_freq_pair, tmp_valid_len = 0;
 	const char *cp, *cp1;
 	struct scmi_plh_vendor_ops *ops;
@@ -1008,6 +1010,8 @@ static int init_splh_notif(const char *buf)
 		cp = strnchr(cp, strlen(cp), ':');	/* skip INIT */
 		cp++;
 		cp = strnchr(cp, strlen(cp), ':');	/* skip nfps */
+		if (!cp)
+			return -EINVAL;
 
 		*ptmp++ = nfps;		/* nfps is first cmd param */
 		tmp_valid_len++;
@@ -1034,6 +1038,9 @@ static int init_splh_notif(const char *buf)
 			ptmp++;		/* increment after storing FPS val */
 			tmp_valid_len++;
 			cp1 = strnchr(cp1, strlen(cp1), ','); /* move to ,ipc */
+			if (!cp1)
+				return -EINVAL;
+
 			for (j = 0; j < 2 * n_ipc_freq_pair; j++) {
 				if (sscanf(cp1, ",%hu", ptmp) != 1)
 					return -EINVAL;
@@ -1041,12 +1048,20 @@ static int init_splh_notif(const char *buf)
 				ptmp++;	/* increment after storing ipc or freq */
 				tmp_valid_len++;
 				cp1++;
-				if (j != (2 * n_ipc_freq_pair - 1))
+				if (j != (2 * n_ipc_freq_pair - 1)) {
 					cp1 = strnchr(cp1, strlen(cp1), ','); /* move to next */
+					if (!cp1)
+						return -EINVAL;
+
+				}
 			}
 
-			if (i != (nfps - 1))
+			if (i != (nfps - 1)) {
 				cp1 = strnchr(cp1, strlen(cp1), ':'); /* move to next FPS val */
+				if (!cp1)
+					return -EINVAL;
+
+			}
 
 		}
 	} else {

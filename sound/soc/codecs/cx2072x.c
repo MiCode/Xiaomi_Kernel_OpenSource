@@ -3,6 +3,7 @@
 // ALSA SoC CX20721/CX20723 codec driver
 //
 // Copyright:	(C) 2017 Conexant Systems, Inc.
+// Copyright (C) 2021 XiaoMi, Inc.
 // Author:	Simon Ho, <Simon.ho@conexant.com>
 //
 // TODO: add support for TDM mode.
@@ -1579,7 +1580,7 @@ static struct snd_soc_dai_driver soc_codec_cx2072x_dai[] = {
 		.id	= CX2072X_DAI_DSP,
 		.probe = cx2072x_dsp_dai_probe,
 		.playback = {
-			.stream_name = "Playback",
+			.stream_name = "DSP Playback",
 			.channels_min = 2,
 			.channels_max = 2,
 			.rates = CX2072X_RATES_DSP,
@@ -1591,7 +1592,7 @@ static struct snd_soc_dai_driver soc_codec_cx2072x_dai[] = {
 		.name = "cx2072x-aec",
 		.id	= 3,
 		.capture = {
-			.stream_name = "Capture",
+			.stream_name = "AEC Capture",
 			.channels_min = 2,
 			.channels_max = 2,
 			.rates = CX2072X_RATES_DSP,

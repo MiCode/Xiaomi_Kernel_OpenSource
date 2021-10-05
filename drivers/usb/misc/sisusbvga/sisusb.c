@@ -5,6 +5,7 @@
  * Main part
  *
  * Copyright (C) 2005 by Thomas Winischhofer, Vienna, Austria
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * If distributed as part of the Linux kernel, this code is licensed under the
  * terms of the GPL v2.
@@ -761,7 +762,7 @@ static int sisusb_write_mem_bulk(struct sisusb_usb_data *sisusb, u32 addr,
 	u8   swap8, fromkern = kernbuffer ? 1 : 0;
 	u16  swap16;
 	u32  swap32, flag = (length >> 28) & 1;
-	char buf[4];
+	u8 buf[4];
 
 	/* if neither kernbuffer not userbuffer are given, assume
 	 * data in obuf

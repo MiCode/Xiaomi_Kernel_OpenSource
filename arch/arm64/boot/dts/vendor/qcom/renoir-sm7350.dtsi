@@ -1,0 +1,163 @@
+/*
+this file is for attribution only of renoir
+And public attribution of xiaomi platforms(like K9 and so and)
+*/
+
+#include "renoir-pinctrl.dtsi"
+#include "xiaomi-sm7350-common.dtsi"
+#include "renoir-audio-overlay.dtsi"
+#include "camera/renoir-sm7350-camera-sensor.dtsi"
+
+&qupv3_se1_i2c {
+	status = "ok";
+	tfa98xx_1@34 {
+		compatible = "tfa,tfa98xx";
+		reset-gpio = <&tlmm 15 0>;
+		irq-gpio = <&tlmm 47 0>;
+		spk-sw-gpio = <&tlmm 24 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <47 0>;
+		interrupt-names = "smartpa_irq";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&smartpa_top_int_active &smartpa_enable_active &spk_sw_active>;
+		pinctrl-1 = <&smartpa_top_int_suspend &smartpa_enable_suspend &spk_sw_inactive>;
+		reg = <0x34>;
+		status = "ok";
+	};
+	tfa98xx_2@35 {
+		compatible = "tfa,tfa98xx";
+		irq-gpio = <&tlmm 84 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <84 0>;
+		interrupt-names = "smartpa_irq";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&smartpa_bot_int_active>;
+		pinctrl-1 = <&smartpa_bot_int_suspend>;
+		reg = <0x35>;
+		status = "ok";
+	};
+};
+
+&qupv3_se10_spi {
+	status = "ok";
+	qcom,rt;
+	xiaomi_k9_touch@0{
+		compatible = "xiaomi,k9-spi";
+		reg = <0>;
+		spi-max-frequency = <6000000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <31 0x2008>;
+
+		goodix,avdd-name = "avdd";
+		goodix,iovdd-name = "iovdd";
+		focaltech,avdd-name = "avdd";
+		focaltech,iovdd-name = "iovdd";
+		avdd-supply = <&L7C>;
+		iovdd-supply = <&L2C>;
+
+		goodix,reset-gpio = <&tlmm 30 0x00>;
+		goodix,irq-gpio = <&tlmm 31 0x2800>;
+		goodix,irq-flags = <2>;
+		goodix,panel-max-x = <1080>;
+		goodix,panel-max-y = <2400>;
+		goodix,panel-max-w = <255>;
+		goodix,panel-max-p = <4096>;
+
+		/*pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_release";*/
+		/*pinctrl-0 = <&mi_ts_active>;*/
+		/*pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;*/
+		/*pinctrl-2 = <&ts_release>;*/
+		/*vdd-supply = <&touch_avdd_vreg>;*/
+		/*vcc_i2c-supply = <&L2C>;*/
+		focaltech,reset-gpio = <&tlmm 30 0x00>;
+		focaltech,irq-gpio = <&tlmm 31 0x2008>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords = <0 0 1080 2400>;
+		focaltech,open-min = <3000>;
+	};
+};
+
+&pm8350c_rgb {
+	status = "disabled";
+};
+
+&L3C {
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+	qcom,init-voltage = <3300000>;
+};
+
+&soc {
+	fingerprint_fpc {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <38 0x0>;
+		fpc,gpio_rst    = <&tlmm 39 0x0>;
+		fpc,gpio_irq    = <&tlmm 38 0x0>;
+		fp_vdd_vreg-supply = <&L3C>;
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+		pinctrl-0 = <&msm_gpio_reset>;
+		pinctrl-1 = <&msm_gpio_reset_output_high>;
+		pinctrl-2 = <&msm_gpio_irq>;
+	};
+
+	md_testing_mode {
+		compatible = "modem,md-testing-mode";
+		status-gpio = <&tlmm 11 0x00>,
+                      <&tlmm 14 0x00>;
+		debounce-time = <30>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ant2_ctrl_irq &ant5_ctrl_irq>;
+	};
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0xe7 0x6c      /* override_x0 */
+		 0x07 0x70      /* override_x1 */
+		 0x17 0x74>;    /* override x2 */
+};
+
+&tlmm {
+	/* FP_RESET_N */
+	msm_gpio_reset: msm_gpio_reset {
+		mux {
+			pins = "gpio39";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio39";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+	/* FP_RESET_N, state device active*/
+	msm_gpio_reset_output_high: msm_gpio_reset_output_high {
+		mux {
+			pins = "gpio39";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio39";
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+	/* FP_INT_N */
+	msm_gpio_irq: msm_gpio_irq {
+		mux {
+			pins = "gpio38";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio38";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};

@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "monaco.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Monaco SoC";
+	compatible = "qcom,monaco";
+	qcom,board-id = <0 0>;
+};

@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "lisa-sm7325.dtsi"
+
+/ {
+	model = "lisa based Qualcomm Technologies, Inc. SM7325";
+	compatible = "qcom,yupik-idp", "qcom,yupik", "qcom,idp";
+	qcom,msm-id = <475 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+	xiaomi,board-id = <0xA 0>;
+};

@@ -1,0 +1,66 @@
+#include "sdxlemur-mtp.dtsi"
+#include "sdxlemur-mtp-audio-overlay.dtsi"
+
+&soc {
+
+};
+
+&chosen {
+	bootargs = "reboot=w";
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie_ep {
+	status = "ok";
+};
+
+&mhi_device {
+	status = "ok";
+};
+
+&mhi_net_device {
+	status = "ok";
+};
+
+&ipa_eth_group1 {
+	qcom,iommu-dma = "bypass";
+};
+
+&ipa_hw {
+	qcom,use-ipa-in-mhi-mode;
+	ipa_smmu_ap {
+		qcom,iommu-dma = "bypass";
+	};
+
+	ipa_smmu_wlan {
+		qcom,iommu-dma = "bypass";
+	};
+
+	ipa_smmu_uc {
+		qcom,iommu-dma = "bypass";
+	};
+
+	ipa_smmu_11ad {
+		qcom,iommu-dma = "bypass";
+	};
+
+	ipa_smmu_eth {
+		qcom,iommu-dma = "bypass";
+	};
+
+	ipa_smmu_eth1 {
+		qcom,iommu-dma = "bypass";
+	};
+
+	ipa_smmu_wlan1 {
+		qcom,iommu-dma = "bypass";
+	};
+
+};
+
+&usb {
+	qcom,iommu-dma = "bypass";
+};

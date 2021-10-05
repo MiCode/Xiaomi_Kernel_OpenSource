@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -47,6 +48,11 @@ static ssize_t aop_msg_write(struct file *file, const char __user *userstr,
 		mutex_unlock(&qmp_debugfs_mutex);
 		return len;
 	}
+
+	/*
+	 * Trim the leading and trailing white spaces
+	 */
+	strim(data_pkt[count].buf);
 
 	/*
 	 * Controller expects a 4 byte aligned buffer

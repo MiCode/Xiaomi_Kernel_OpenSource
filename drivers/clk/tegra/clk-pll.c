@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012, 2013, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
@@ -1568,9 +1569,6 @@ static int clk_plle_tegra114_enable(struct clk_hw *hw)
 	int ret;
 	unsigned long flags = 0;
 	unsigned long input_rate;
-
-	if (clk_pll_is_enabled(hw))
-		return 0;
 
 	input_rate = clk_hw_get_rate(clk_hw_get_parent(hw));
 

@@ -1,5 +1,6 @@
 /*
  * Copyright 2013 Oliver Schinagl
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Oliver Schinagl <oliver@schinagl.nl>
  *
@@ -151,7 +152,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&gmac_rgmii_pins>;
 	phy-handle = <&phy1>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	status = "okay";
 };
 

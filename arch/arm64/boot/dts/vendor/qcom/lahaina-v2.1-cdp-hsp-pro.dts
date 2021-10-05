@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lahaina-v2.1.dtsi"
+#include "lahaina-cdp-hsp-pro.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina CDP-HSP-PRO";
+	compatible = "qcom,lahaina-cdp", "qcom,lahaina", "qcom,cdp";
+	qcom,board-id = <0x3010001 0>;
+};

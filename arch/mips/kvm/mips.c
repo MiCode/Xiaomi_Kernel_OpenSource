@@ -6,6 +6,7 @@
  * KVM/MIPS: MIPS specific KVM APIs
  *
  * Copyright (C) 2012  MIPS Technologies, Inc.  All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: Sanjay Lal <sanjayl@kymasys.com>
  */
 
@@ -131,6 +132,8 @@ int kvm_arch_check_processor_compat(void)
 int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 {
 	switch (type) {
+	case KVM_VM_MIPS_AUTO:
+		break;
 #ifdef CONFIG_KVM_MIPS_VZ
 	case KVM_VM_MIPS_VZ:
 #else

@@ -1,0 +1,7 @@
+#include "sa8155-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155P v2";
+	qcom,msm-name = "SA8155P v2";
+	qcom,msm-id = <367 0x20000>;
+};

@@ -1,0 +1,147 @@
+#include "yupik-audio-overlay.dtsi"
+
+&yupik_snd {
+	qcom,model = "lahaina-yupikidp-snd-card";
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>, <1>;
+	qcom,wcn-bt = <1>;
+	qcom,mi2s-audio-intf = <1>;
+	qcom,auxpcm-audio-intf = <1>;
+	qcom,ext-disp-audio-rx = <0>;
+	qcom,afe-rxtx-lb = <0>;
+	qcom,audio-routing =
+		"AMIC1", "Analog Mic1",
+		"Analog Mic1", "MIC BIAS1",
+		"AMIC2", "Analog Mic2",
+		"Analog Mic2", "MIC BIAS2",
+		"AMIC3", "Analog Mic3",
+		"Analog Mic3", "MIC BIAS3",
+		"AMIC4", "Analog Mic4",
+		"Analog Mic4", "MIC BIAS3",
+		"AMIC5", "Analog Mic5",
+		"Analog Mic5", "MIC BIAS4",
+		"TX DMIC0", "Digital Mic0",
+		"Digital Mic0", "MIC BIAS3",
+		"TX DMIC1", "Digital Mic1",
+		"Digital Mic1", "MIC BIAS3",
+		"TX DMIC2", "Digital Mic2",
+		"Digital Mic2", "MIC BIAS1",
+		"TX DMIC3", "Digital Mic3",
+		"Digital Mic3", "MIC BIAS1",
+		"TX DMIC4", "Digital Mic4",
+		"Digital Mic4", "MIC BIAS4",
+		"TX DMIC5", "Digital Mic5",
+		"Digital Mic5", "MIC BIAS4",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"TX SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA SWR_INPUT", "VA_SWR_CLK",
+		"VA SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA_AIF1 CAP", "VA_SWR_CLK",
+		"VA_AIF2 CAP", "VA_SWR_CLK",
+		"VA_AIF3 CAP", "VA_SWR_CLK";
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+	qcom,wsa-max-devs = <0>;
+	qcom,swr-dmic-max-devs = <0>;
+	qcom,pri-mi2s-gpios = <&cdc_pri_tdm_gpios>;
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+//	qcom,uart-audio-sw-gpio = <&sbu_uart_en>;
+        asoc-codec  = <&stub_codec>, <&bolero>,
+		      <&wcd938x_codec>, <&swr_haptics>,
+		      <&wsa883x_0222>,
+		      <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+			   "wcd938x_codec", "swr-haptics",
+			   "wsa-codec2",
+			   "msm-ext-disp-audio-codec-rx";
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&lpi_tlmm>,
+				  <&bolero>;
+};
+
+&q6core {
+	cdc_pri_tdm_gpios: pri_tdm_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_tdm_clk_active &pri_tdm_sync_active
+			&pri_tdm_din_active &pri_tdm_dout_active>;
+		pinctrl-1 = <&pri_tdm_clk_sleep &pri_tdm_sync_sleep
+			&pri_tdm_din_sleep &pri_tdm_dout_sleep>;
+		qcom,lpi-gpios;
+		#gpio-cells = <0>;
+	};
+};
+
+&swr2 {
+	qcom,swr-phy-dev-addr = <0x0D 0x01170223>,
+				<0x08 0x58350223>,
+				<0x08 0x58350222>,
+				<0x08 0x58350221>,
+				<0x08 0x58350220>;
+};
+
+&wcd938x_rx_slave {
+	status = "okay";
+};
+
+&wcd938x_tx_slave {
+	status = "okay";
+};
+
+&wcd938x_codec {
+	status = "okay";
+	qcom,cdc-micbias1-mv = <2750>;
+	qcom,cdc-micbias2-mv = <2750>;
+	qcom,cdc-micbias3-mv = <2750>;
+	qcom,cdc-micbias4-mv = <2750>;
+};
+
+&wcd937x_codec {
+	status = "disabled";
+};
+
+&wcd937x_rx_slave {
+	status = "disabled";
+};
+
+&wcd937x_tx_slave {
+	status = "disabled";
+};
+
+&wsa_swr_gpios {
+	status = "disabled";
+};
+
+&wsa_spkr_en1 {
+	status = "disabled";
+};
+
+&wsa_spkr_en2 {
+	status = "disabled";
+};
+
+&bolero {
+	qcom,num-macros = <3>;
+};
+
+&wsa_macro {
+	compatible = "qcom,wsa-macro";
+	status = "disabled";
+};
+
+/* 
+&soc {
+	sbu_uart_en: msm_cdc_pinctrl@9 {
+	compatible = "qcom,msm-cdc-pinctrl";
+	status = "disabled";
+	pinctrl-names = "aud_active", "aud_sleep";
+	pinctrl-0 = <&sbu_uart_en_active>;
+	pinctrl-1 = <&sbu_uart_en_idle>;
+ 	#gpio-cells = <0>;
+	};
+};
+ */

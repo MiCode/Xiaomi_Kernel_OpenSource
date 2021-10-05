@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2020 The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2020-2021 The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -464,6 +465,7 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 	if (!priv)
 		return -ENOMEM;
 	priv->dev = cdev;
+	init_waitqueue_head(&priv->wait_q);
 
 	ret = of_property_read_u32(node, "haven-label", &priv->haven_label);
 	if (ret) {
@@ -490,8 +492,6 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 		dev_err(dev, "failed to get haven rx dbl %d\n", ret);
 		goto fail_rx_dbl;
 	}
-
-	init_waitqueue_head(&priv->wait_q);
 	/* Start the thread for syncing with the receiver. */
 	priv->sync_thread = kthread_run(channel_sync_thread, priv,
 					"send_sync_thread");

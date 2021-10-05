@@ -1,0 +1,292 @@
+&rpm_bus {
+	rpm-regulator-smpe1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpe";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_s1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpe3 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpe";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_s3";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpe5 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpe";
+		qcom,resource-id = <5>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s5 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_s5";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpe6 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpe";
+		qcom,resource-id = <6>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s6 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_s6";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpe8 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpe";
+		qcom,resource-id = <8>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s8 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_s8";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe2 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l2";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe3 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l3";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe4 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <4>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l4 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l4";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe5 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <5>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l5 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l5";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe6 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <6>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l6 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l6";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe7 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <7>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l7 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l7";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe8 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <8>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l8 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l8";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe9 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <9>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l9 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l9";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe10 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <10>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l10 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l10";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoe11 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoe";
+		qcom,resource-id = <11>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l11 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_l11";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-bobe {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "bobe";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <4>;
+		qcom,regulator-hw-type = "pmic5-bob";
+		qcom,send-defaults;
+		status = "disabled";
+
+		regulator-pm6150a-bob {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_bob";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+
+		regulator-pm6150a-bob-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6150a_bob_ao";
+			qcom,set = <1>;
+			status = "disabled";
+		};
+	};
+};

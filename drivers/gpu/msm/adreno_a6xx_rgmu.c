@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/clk-provider.h>
@@ -711,6 +712,7 @@ static void a6xx_rgmu_power_off(struct adreno_device *adreno_dev)
 	a6xx_rgmu_disable_clks(adreno_dev);
 	a6xx_rgmu_disable_gdsc(adreno_dev);
 
+	kgsl_pwrctrl_clear_l3_vote(device);
 }
 
 static int a6xx_rgmu_clock_set(struct adreno_device *adreno_dev,
@@ -1180,7 +1182,7 @@ static void a6xx_rgmu_pm_resume(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 
-	if (WARN(!test_bit(GMU_PRIV_PM_SUSPEND, &rgmu->flags),
+	if (WARN(!test_bit(RGMU_PRIV_PM_SUSPEND, &rgmu->flags),
 		"resume invoked without a suspend\n"))
 		return;
 
@@ -1341,7 +1343,13 @@ static int a6xx_rgmu_probe(struct kgsl_device *device,
 
 	device->gmu_core.gmu2gpu_offset = (res->start - device->reg_phys) >> 2;
 	device->gmu_core.reg_len = resource_size(res);
-	device->gmu_core.reg_virt = devm_ioremap_resource(&pdev->dev, res);
+	/*
+	 * We can't use devm_ioremap_resource here because we purposely double
+	 * map the gpu_cc registers for debugging purposes
+	 */
+	device->gmu_core.reg_virt = devm_ioremap(&pdev->dev,
+			res->start,
+			resource_size(res));
 
 	if (IS_ERR(device->gmu_core.reg_virt)) {
 		dev_err(&pdev->dev, "Unable to map the RGMU registers\n");

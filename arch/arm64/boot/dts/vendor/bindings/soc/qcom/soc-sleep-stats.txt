@@ -1,0 +1,45 @@
+* SoC Sleep Stats
+
+Always On Processor/Resource Power Manager maintains statistics of the SoC
+sleep modes involving lowering or powering down of the backbone rails - Cx
+and Mx and the oscillator clock XO.
+
+Statistics includes SoC sleep mode type, number of times low power mode were
+entered, time of last entry, time of last exit and accumulated sleep duration.
+SoC Sleep Stats driver provides sysfs interface to display this information.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should be "qcom,rpmh-sleep-stats" or "qcom,rpm-sleep-stats"
+		    or "qcom,legacy-rpm-sleep-stats".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: The base address on the Always On Processor or Resource Power
+		    Manager from where the stats are read.
+
+EXAMPLE 1:
+
+	rpmh_sleep_stats: soc-sleep-stats@c3f0000 {
+		compatible = "qcom,rpmh-sleep-stats";
+		reg = <0 0xc3f0000 0 0x400>;
+	};
+
+EXAMPLE 2:
+
+	rpm_sleep_stats: soc-sleep-stats@4690000 {
+		compatible = "qcom,rpm-sleep-stats";
+		reg = <0 0x04690000 0 0x400>;
+	};
+
+EXAMPLE 3:
+
+	rpm_sleep_stats: soc-sleep-stats@29dba0 {
+		compatible = "qcom,legacy-rpm-sleep-stats";
+		reg = <0x2a1ba0 0x1000>;
+	};
+

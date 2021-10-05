@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/err.h>
@@ -552,8 +553,10 @@ static int qcom_pdc_probe(struct platform_device *pdev)
 
 static const struct of_device_id qcom_pdc_match_table[] = {
 	{ .compatible = "qcom,lahaina-pdc" },
+	{ .compatible = "qcom,direwolf-pdc"},
 	{ .compatible = "qcom,shima-pdc" },
 	{ .compatible = "qcom,sm8150-pdc" },
+	{ .compatible = "qcom,sm6150-pdc" },
 	{ .compatible = "qcom,yupik-pdc" },
 	{}
 };
@@ -570,7 +573,9 @@ module_platform_driver(qcom_pdc_driver);
 #else
 IRQCHIP_DECLARE(qcom_pdc, "qcom,pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_lahaina, "qcom,lahaina-pdc", qcom_pdc_init);
+IRQCHIP_DECLARE(pdc_direwolf, "qcom,direwolf-pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_shima, "qcom,shima-pdc", qcom_pdc_init);
+IRQCHIP_DECLARE(pdc_sm6150, "qcom,sm6150-pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_sm8150, "qcom,sm8150-pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_yupik, "qcom,yupik-pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_sdxlemur, "qcom,sdxlemur-pdc", qcom_pdc_init);

@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "yupikp.dtsi"
+#include "yupikp-idps-amoled.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YupikP IDPS + AMOLED";
+	compatible = "qcom,yupikp-idp", "qcom,yupikp", "qcom,idp";
+	qcom,board-id = <34 2>;
+};

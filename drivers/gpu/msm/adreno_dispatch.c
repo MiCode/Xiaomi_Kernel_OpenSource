@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
@@ -301,7 +302,8 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
 				pid_nr(context->proc_priv->pid),
-				context->id, drawobj->timestamp);
+				context->id, drawobj->timestamp,
+				!!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
@@ -697,7 +699,8 @@ static int sendcmd(struct adreno_device *adreno_dev,
 
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_SUBMIT,
 			       pid_nr(context->proc_priv->pid),
-			       context->id, drawobj->timestamp);
+			       context->id, drawobj->timestamp,
+			       !!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 
 	trace_adreno_cmdbatch_submitted(drawobj, &info,
 			time.ticks, (unsigned long) secs, nsecs / 1000,
@@ -1220,7 +1223,8 @@ static void _queue_drawobj(struct adreno_context *drawctxt,
 	drawctxt->queued++;
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_QUEUE,
 				pid_nr(context->proc_priv->pid),
-				context->id, drawobj->timestamp);
+				context->id, drawobj->timestamp,
+				!!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 	trace_adreno_cmdbatch_queued(drawobj, drawctxt->queued);
 }
 
@@ -2341,7 +2345,8 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
 			       pid_nr(context->proc_priv->pid),
-			       context->id, drawobj->timestamp);
+			       context->id, drawobj->timestamp,
+			       !!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
@@ -2973,7 +2978,7 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	sysfs_create_files(&device->dev->kobj, _preempt_attr_list);
+	WARN_ON(sysfs_create_files(&device->dev->kobj, _preempt_attr_list));
 
 	mutex_init(&dispatcher->mutex);
 

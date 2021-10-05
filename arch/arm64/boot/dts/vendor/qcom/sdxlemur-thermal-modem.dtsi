@@ -1,0 +1,632 @@
+#include <dt-bindings/thermal/thermal_qti.h>
+
+&soc {
+	qmi-tmd-devices {
+		compatible = "qcom,qmi-cooling-devices";
+
+		modem {
+			qcom,instance-id = <QMI_MODEM_INST_ID>;
+
+			modem_lte_dsc: modem_lte_dsc {
+				qcom,qmi-dev-name = "modem_lte_dsc";
+				#cooling-cells = <2>;
+			};
+
+			modem_nr_dsc: modem_nr_dsc {
+				qcom,qmi-dev-name = "modem_nr_dsc";
+				#cooling-cells = <2>;
+			};
+
+			modem_nr_scg_dsc: modem_nr_scg_dsc {
+				qcom,qmi-dev-name = "modem_nr_scg_dsc";
+				#cooling-cells = <2>;
+			};
+
+			sdr0_lte_dsc: sdr0_lte_dsc {
+				qcom,qmi-dev-name = "sdr0_lte_dsc";
+				#cooling-cells = <2>;
+			};
+
+			sdr1_lte_dsc: sdr1_lte_dsc {
+				qcom,qmi-dev-name = "sdr1_lte_dsc";
+				#cooling-cells = <2>;
+			};
+
+			sdr0_nr_dsc: sdr0_nr_dsc {
+				qcom,qmi-dev-name = "sdr0_nr_dsc";
+				#cooling-cells = <2>;
+			};
+
+			sdr1_nr_dsc: sdr1_nr_dsc {
+				qcom,qmi-dev-name = "sdr1_nr_dsc";
+				#cooling-cells = <2>;
+			};
+
+			pa_sdr0_dsc: pa_sdr0_dsc {
+				qcom,qmi-dev-name = "pa_sdr0_dsc";
+				#cooling-cells = <2>;
+			};
+
+			pa_sdr1_dsc: pa_sdr1_dsc {
+				qcom,qmi-dev-name = "pa_sdr1_dsc";
+				#cooling-cells = <2>;
+			};
+
+			pa_fr1_sdr0_dsc: pa_fr1_sdr0_dsc {
+				qcom,qmi-dev-name = "pa_fr1_sdr0_dsc";
+				#cooling-cells = <2>;
+			};
+
+			pa_fr1_sdr1_dsc: pa_fr1_sdr1_dsc {
+				qcom,qmi-dev-name = "pa_fr1_sdr1_dsc";
+				#cooling-cells = <2>;
+			};
+
+			pa_fr1_sdr0_scg_dsc: pa_fr1_sdr0_scg_dsc {
+				qcom,qmi-dev-name = "pa_fr1_sdr0_scg_dsc";
+				#cooling-cells = <2>;
+			};
+
+			pa_fr1_sdr1_scg_dsc: pa_fr1_sdr1_scg_dsc {
+				qcom,qmi-dev-name = "pa_fr1_sdr1_scg_dsc";
+				#cooling-cells = <2>;
+			};
+
+			mmw0_dsc: mmw0_dsc {
+				qcom,qmi-dev-name = "mmw0_dsc";
+				#cooling-cells = <2>;
+			};
+
+			mmw1_dsc: mmw1_dsc {
+				qcom,qmi-dev-name = "mmw1_dsc";
+				#cooling-cells = <2>;
+			};
+
+			mmw2_dsc: mmw2_dsc {
+				qcom,qmi-dev-name = "mmw2_dsc";
+				#cooling-cells = <2>;
+			};
+
+			mmw3_dsc: mmw3_dsc {
+				qcom,qmi-dev-name = "mmw3_dsc";
+				#cooling-cells = <2>;
+			};
+
+			mmw_ul_throttling_dsc: mmw_ul_throttling_dsc {
+				qcom,qmi-dev-name = "mmw_ul_throttling_dsc";
+				#cooling-cells = <2>;
+			};
+
+			mmw_ific_dsc: mmw_ific_dsc {
+				qcom,qmi-dev-name = "mmw_ific_dsc";
+				#cooling-cells = <2>;
+			};
+
+			qmi_wlan: wlan {
+				qcom,qmi-dev-name = "wlan";
+				#cooling-cells = <2>;
+			};
+
+			wlan_bw: wlan_bw {
+				qcom,qmi-dev-name = "wlan_bw";
+				#cooling-cells = <2>;
+			};
+
+			modem_vdd: modem_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+
+	qmi_sensor: qmi-ts-sensors {
+		compatible = "qcom,qmi-sensors";
+		#thermal-sensor-cells = <1>;
+
+		modem {
+			qcom,instance-id = <QMI_MODEM_INST_ID>;
+			qcom,qmi-sensor-names = "pa",
+						"pa_1",
+						"qtm_therm",
+						"sys_therm1",
+						"sys_therm2",
+						"modem_bcl_warn",
+						"modem_tsens",
+						"modem_tsens1",
+						"sdr0_pa0",
+						"sdr0_pa1",
+						"sdr0_pa2",
+						"sdr0_pa3",
+						"sdr0_pa4",
+						"sdr0",
+						"sdr1_pa0",
+						"sdr1_pa1",
+						"sdr1_pa2",
+						"sdr1_pa3",
+						"sdr1_pa4",
+						"sdr1_pa5",
+						"sdr1",
+						"mmw0",
+						"mmw1",
+						"mmw2",
+						"mmw3",
+						"mmw_ific0";
+		};
+	};
+};
+
+&thermal_zones {
+	modem-lte-sub6-pa1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_PA)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-lte-sub6 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_PA_1)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-beamer {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_QTM_THERM)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-wifi {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SYS_THERM_1)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-ambient {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SYS_THERM_2)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-bcl-warn {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_BCL_WARN)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr0-pa0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR0_PA0)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr0-pa1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR0_PA1)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr0-pa2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR0_PA2)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr0-pa3 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR0_PA3)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr0-pa4 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR0_PA4)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR0)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr1-pa0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR1_PA0)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr1-pa1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR1_PA1)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr1-pa2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR1_PA2)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr1-pa3 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR1_PA3)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr1-pa4 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR1_PA4)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr1-pa5 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR1_PA5)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-sdr1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR1)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-mmw0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_MMW0)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-mmw1 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_MMW1)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-mmw2 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_MMW2)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-mmw3 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_MMW3)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	modem-mmw-ific0 {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_MMW_IFIC0)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};

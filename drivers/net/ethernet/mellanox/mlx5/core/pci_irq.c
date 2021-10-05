@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB
 /* Copyright (c) 2019 Mellanox Technologies. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/interrupt.h>
 #include <linux/notifier.h>
@@ -115,7 +116,7 @@ static int request_irqs(struct mlx5_core_dev *dev, int nvec)
 	return 0;
 
 err_request_irq:
-	for (; i >= 0; i--) {
+	while (i--) {
 		struct mlx5_irq *irq = mlx5_irq_get(dev, i);
 		int irqn = pci_irq_vector(dev->pdev, i);
 

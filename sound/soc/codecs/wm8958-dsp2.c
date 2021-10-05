@@ -3,6 +3,7 @@
  * wm8958-dsp2.c  --  WM8958 DSP2 support
  *
  * Copyright 2011 Wolfson Microelectronics plc
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
  */
@@ -416,7 +417,11 @@ int wm8958_aif_ev(struct snd_soc_dapm_widget *w,
 		  struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
+	struct wm8994 *control = dev_get_drvdata(component->dev->parent);
 	int i;
+
+	if (control->type != WM8958)
+		return 0;
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -38,12 +39,13 @@ u32 arm_smmu_debug_tcu_testbus_select(phys_addr_t phys_addr,
 	int ret = 0;
 
 	if (testbus == CLK_TESTBUS) {
-		offset = ARM_SMMU_TESTBUS_SEL_HLOS1_NS;
 		if (write) {
+			offset = ARM_SMMU_TESTBUS_SEL_HLOS1_NS;
 			writel_relaxed(val, tcu_base + offset);
 			/* Make sure tcu select register is written to */
 			wmb();
 		} else {
+			offset = ARM_SMMU_TCU_TESTBUS_HLOS1_NS;
 			return readl_relaxed(tcu_base + offset);
 		}
 	} else {

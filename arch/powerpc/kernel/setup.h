@@ -3,16 +3,11 @@
  * Prototypes for functions that are shared between setup_(32|64|common).c
  *
  * Copyright 2016 Michael Ellerman, IBM Corporation.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __ARCH_POWERPC_KERNEL_SETUP_H
 #define __ARCH_POWERPC_KERNEL_SETUP_H
-
-#ifdef CONFIG_CC_IS_CLANG
-#define __nostackprotector
-#else
-#define __nostackprotector __attribute__((__optimize__("no-stack-protector")))
-#endif
 
 void initialize_cache_info(void);
 void irqstack_early_init(void);

@@ -4,6 +4,7 @@
  * for more details.
  *
  * Copyright (C) 2011 by Kevin Cernekee (cernekee@gmail.com)
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * SMP support for BMIPS
  */
@@ -241,6 +242,8 @@ static int bmips_boot_secondary(int cpu, struct task_struct *idle)
  */
 static void bmips_init_secondary(void)
 {
+	bmips_cpu_setup();
+
 	switch (current_cpu_type()) {
 	case CPU_BMIPS4350:
 	case CPU_BMIPS4380:

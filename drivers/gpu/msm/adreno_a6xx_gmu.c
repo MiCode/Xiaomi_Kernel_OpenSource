@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/clk.h>
@@ -16,6 +17,7 @@
 #include <linux/soc/qcom/llcc-qcom.h>
 #include <linux/mailbox/qmp.h>
 #include <soc/qcom/cmd-db.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
@@ -916,34 +918,7 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
-	if (adreno_is_a619_holi(adreno_dev)) {
-		u32 val;
-		void __iomem *addr = adreno_dev->gmu_wrapper_virt +
-				(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
-				adreno_dev->gmu_wrapper_base;
-
-		if (!adreno_dev->gmu_wrapper_virt) {
-			dev_err(device->dev,
-				"invalid gmu_wrapper addr, power on SPTPRAC fail\n");
-			return -EINVAL;
-		}
-
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
-			SPTPRAC_POWERON_CTRL_MASK);
-
-		if (readl_poll_timeout(addr, val,
-			(val & SPTPRAC_POWERON_STATUS_MASK) ==
-			SPTPRAC_POWERON_STATUS_MASK, 10,
-			10 * 1000)) {
-			dev_err(device->dev, "power on SPTPRAC fail\n");
-			return -EINVAL;
-		}
-		return 0;
-	}
-
-	if (!gmu_core_gpmu_isenabled(device) ||
-			!adreno_has_sptprac_gdsc(adreno_dev))
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
 		return 0;
 
 	gmu_core_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
@@ -963,6 +938,30 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 }
 
 /*
+ * a6xx_holi_gmu_sptprac_enable() - Power on SPTPRAC
+ * @adreno_dev: Pointer to Adreno device
+ */
+int a6xx_holi_gmu_sptprac_enable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 val;
+	void __iomem *addr = adreno_dev->gmu_wrapper_virt +
+				(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
+				adreno_dev->gmu_wrapper_base;
+
+	adreno_write_gmu_wrapper(adreno_dev, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+		SPTPRAC_POWERON_CTRL_MASK);
+
+	if (readl_poll_timeout(addr, val, (val & SPTPRAC_POWERON_STATUS_MASK) ==
+		SPTPRAC_POWERON_STATUS_MASK, 10, 10 * 1000)) {
+		dev_err(device->dev, "power on SPTPRAC fail\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+/*
  * a6xx_gmu_sptprac_disable() - Power of SPTPRAC
  * @adreno_dev: Pointer to Adreno device
  */
@@ -971,37 +970,7 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
-	if (adreno_is_a619_holi(adreno_dev)) {
-		u32 val;
-		void __iomem *addr = adreno_dev->gmu_wrapper_virt +
-				(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
-				adreno_dev->gmu_wrapper_base;
-
-		if (!adreno_dev->gmu_wrapper_virt) {
-			dev_err(device->dev,
-				"invalid gmu_wrapper addr, power off SPTPRAC fail\n");
-			return;
-		}
-
-		/* Ensure that retention is on */
-		adreno_read_gmu_wrapper(adreno_dev,
-			A6XX_GPU_CC_GX_GDSCR, &val);
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GPU_CC_GX_GDSCR,
-			(val | A6XX_RETAIN_FF_ENABLE_ENABLE_MASK));
-		adreno_write_gmu_wrapper(adreno_dev,
-			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
-			SPTPRAC_POWEROFF_CTRL_MASK);
-		if (readl_poll_timeout(addr, val,
-			(val & SPTPRAC_POWEROFF_STATUS_MASK) ==
-			SPTPRAC_POWEROFF_STATUS_MASK, 10,
-			10 * 1000))
-			dev_err(device->dev, "power off SPTPRAC fail\n");
-		return;
-	}
-
-	if (!gmu_core_gpmu_isenabled(device) ||
-			!adreno_has_sptprac_gdsc(adreno_dev))
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
 		return;
 
 	/* Ensure that retention is on */
@@ -1017,6 +986,31 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 			SPTPRAC_CTRL_TIMEOUT,
 			SPTPRAC_POWEROFF_STATUS_MASK))
 		dev_err(&gmu->pdev->dev, "power off SPTPRAC fail\n");
+}
+
+
+/*
+ * a6xx_holi_gmu_sptprac_disable() - Power of SPTPRAC
+ * @adreno_dev: Pointer to Adreno device
+ */
+void a6xx_holi_gmu_sptprac_disable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 val;
+	void __iomem *addr = adreno_dev->gmu_wrapper_virt +
+			(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
+			adreno_dev->gmu_wrapper_base;
+
+	/* Ensure that retention is on */
+	adreno_read_gmu_wrapper(adreno_dev, A6XX_GPU_CC_GX_GDSCR, &val);
+	adreno_write_gmu_wrapper(adreno_dev, A6XX_GPU_CC_GX_GDSCR,
+		(val | A6XX_RETAIN_FF_ENABLE_ENABLE_MASK));
+	adreno_write_gmu_wrapper(adreno_dev, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+		SPTPRAC_POWEROFF_CTRL_MASK);
+
+	if (readl_poll_timeout(addr, val, (val & SPTPRAC_POWEROFF_STATUS_MASK) ==
+		SPTPRAC_POWEROFF_STATUS_MASK, 10, 10 * 1000))
+		dev_err(device->dev, "power off SPTPRAC fail\n");
 }
 
 #define SPTPRAC_POWER_OFF	BIT(2)
@@ -1044,14 +1038,26 @@ bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 
-	if (gmu_core_isenabled(device))
-		gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
-			&val);
-	else if (adreno_is_a619_holi(adreno_dev))
-		adreno_read_gmu_wrapper(adreno_dev,
-			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
-	else
+	if (!adreno_has_sptprac_gdsc(adreno_dev))
 		return true;
+
+	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
+			&val);
+
+	return !(val & (SPTPRAC_POWER_OFF | SP_CLK_OFF));
+}
+
+/*
+ * a6xx_holi_gmu_sptprac_is_on() - Check if SPTP is on using pwr status register
+ * @adreno_dev - Pointer to adreno_device
+ * This check should only be performed if the keepalive bit is set or it
+ * can be guaranteed that the power state of the GPU will remain unchanged
+ */
+bool a6xx_holi_gmu_sptprac_is_on(struct adreno_device *adreno_dev)
+{
+	unsigned int val;
+
+	adreno_read_gmu_wrapper(adreno_dev, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 
 	return !(val & (SPTPRAC_POWER_OFF | SP_CLK_OFF));
 }
@@ -1163,6 +1169,13 @@ int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 		"RBBM_INT_UNMASKED_STATUS=%x PWR_COL_KEEPALIVE=%x\n",
 		reg3, reg4);
 	dev_err(&gmu->pdev->dev, "A6XX_GMU_AO_SPARE_CNTL=%x\n", reg5);
+
+	if (adreno_is_a660(adreno_dev)) {
+		u32 val;
+
+		gmu_core_regread(device, A6XX_GMU_PWR_COL_PREEMPT_KEEPALIVE, &val);
+		dev_err(&gmu->pdev->dev, "PWR_COL_PREEMPT_KEEPALIVE=%x\n", val);
+	}
 
 	/* Access GX registers only when GX is ON */
 	if (is_on(reg1)) {
@@ -1346,11 +1359,10 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 			| ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) & 0xf) << 8);
 
 	/*
-	 * For A660 GPU variant, GMU firmware expects chipid as per below
-	 * format to differentiate between A660 and A660 variant. In device
-	 * tree, target version is specified as high nibble of patch to align
-	 * with usermode driver expectation. Format the chipid according to
-	 * firmware requirement.
+	 * For A642 GPU, GMU firmware expects chipid as per below format.
+	 * In device tree, target version is specified as  high nibble of
+	 * patch to align with usermode driver expectation. Format the
+	 * chipid according to firmware requirement.
 	 *
 	 * Bit 11-8: patch version
 	 * Bit 15-12: minor version
@@ -1358,7 +1370,7 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 	 * Bit 27-24: core version
 	 * Bit 31-28: target version
 	 */
-	if (adreno_is_a660_shima(adreno_dev))
+	if (adreno_is_a642(adreno_dev))
 		chipid |= ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) >> 4) << 28);
 
 	gmu_core_regwrite(device, A6XX_GMU_HFI_SFR_ADDR, chipid);
@@ -1626,6 +1638,8 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 		}
 		/* Halt CX traffic */
 		a6xx_halt_gbif(adreno_dev);
+		/* De-assert the halts */
+		kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
 	}
 
 	if (a6xx_gmu_gx_is_on(device))
@@ -1748,14 +1762,8 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
-		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
-
 	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
-
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
-		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -1969,7 +1977,7 @@ static bool a6xx_gmu_scales_bandwidth(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
+	return (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A635);
 }
 
 static irqreturn_t a6xx_gmu_irq_handler(int irq, void *data)
@@ -2764,9 +2772,6 @@ int a6xx_halt_gbif(struct adreno_device *adreno_dev)
 	ret = adreno_wait_for_halt_ack(device,
 		A6XX_GBIF_HALT_ACK, A6XX_GBIF_ARB_HALT_MASK);
 
-	/* De-assert the halts */
-	kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
-
 	return ret;
 }
 
@@ -2797,8 +2802,11 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	a6xx_rdpm_mx_freq_update(gmu, 0);
 
 	/* Now that we are done with GMU and GPU, Clear the GBIF */
-	if (!adreno_is_a630(adreno_dev))
+	if (!adreno_is_a630(adreno_dev)) {
 		ret = a6xx_halt_gbif(adreno_dev);
+		/* De-assert the halts */
+		kgsl_regwrite(device, A6XX_GBIF_HALT, 0x0);
+	}
 
 	a6xx_gmu_irq_disable(adreno_dev);
 
@@ -2807,7 +2815,8 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 	/* Pool to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
+	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device,
+		IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON) ? 0 : 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
@@ -2962,6 +2971,8 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
 		return a6xx_boot(adreno_dev);
 
+	place_marker("M - DRIVER ADRENO Init");
+
 	ret = adreno_dispatcher_init(adreno_dev);
 	if (ret)
 		return ret;
@@ -3015,6 +3026,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
 
+	place_marker("M - DRIVER ADRENO Ready");
 
 	return 0;
 }
@@ -3093,6 +3105,8 @@ no_gx_power:
 	del_timer_sync(&device->idle_timer);
 
 	kgsl_pwrscale_sleep(device);
+
+	kgsl_pwrctrl_clear_l3_vote(device);
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_SLUMBER);
 

@@ -2,6 +2,7 @@
  * Broadcom NetXtreme-E RoCE driver.
  *
  * Copyright (c) 2016 - 2017, Broadcom. All rights reserved.  The term
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Broadcom refers to Broadcom Limited and/or its subsidiaries.
  *
  * This software is available to you under a choice of one of two
@@ -47,6 +48,7 @@
 struct bnxt_qplib_dev_attr {
 #define FW_VER_ARR_LEN			4
 	u8				fw_ver[FW_VER_ARR_LEN];
+#define BNXT_QPLIB_NUM_GIDS_SUPPORTED	256
 	u16				max_sgid;
 	u16				max_mrw;
 	u32				max_qp;

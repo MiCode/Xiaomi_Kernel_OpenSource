@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "yupik-vm.dtsi"
+#include "yupik-vm-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Yupik VM IDP";
+	compatible = "qcom,yupik-idp", "qcom,yupik", "qcom,idp";
+	qcom,board-id = <34 0>;
+};

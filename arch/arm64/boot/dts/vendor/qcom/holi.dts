@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "holi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi SoC";
+	compatible = "qcom,holi";
+	qcom,board-id = <0 0>;
+};

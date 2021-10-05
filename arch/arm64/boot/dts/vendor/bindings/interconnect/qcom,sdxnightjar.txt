@@ -1,0 +1,52 @@
+QTI SDXNIGHTJAR Network-On-Chip interconnect driver binding
+-----------------------------------------------------------
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,sdxnightjar-bimc",
+			"qcom,sdxnightjar-pcnoc",
+			"qcom,sdxnightjar-snoc",
+- #interconnect-cells : should contain 1
+
+reg : specifies the physical base address and size of registers
+clocks : list of phandles and specifiers to all interconnect bus clocks
+clock-names : clock names should include both "bus" and "bus_a"
+
+The following are optional properties:
+
+qcom,util-factor : Parameter that represents the DDR utilization factor
+		to be used in aggregation scheme. It is represented as
+		actual util-factor * 100.
+
+Examples:
+
+soc {
+	...
+	system_noc: interconnect@580000 {
+		reg = <0x580000 0x14000>;
+		compatible = "qcom,sdxnightjar-snoc";
+		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_SNOC_CLK>,
+			<&rpmcc RPM_SMD_SNOC_A_CLK>,
+	};
+
+	pc_noc: interconnect@500000{
+		reg = <0x500000 0x11000>;
+		compatible = "qcom,sdxnightjar-pcnoc";
+		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_PCNOC_CLK>,
+			<&rpmcc RPM_SMD_PCNOC_A_CLK>;
+	};
+
+	bimc: interconnect@400000{
+		reg = <0x400000 0x62000>;
+		compatible = "qcom,sdxnightjar-bimc";
+		qcom,util-factor = <153>;
+		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_BIMC_CLK>,
+			<&rpmcc RPM_SMD_BIMC_A_CLK>;
+	};
+};

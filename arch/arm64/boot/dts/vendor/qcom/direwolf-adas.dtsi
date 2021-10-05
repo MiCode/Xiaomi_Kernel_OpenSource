@@ -1,0 +1,8 @@
+#include "direwolf.dtsi"
+#include "direwolf-pmic.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DirewolfAU ADAS SoC";
+	compatible = "qcom,direwolf-adas", "qcom,direwolf";
+	qcom,msm-id = <461 0x10000>;
+};

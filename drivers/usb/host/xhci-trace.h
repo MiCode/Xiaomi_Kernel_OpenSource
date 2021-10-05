@@ -3,6 +3,7 @@
  * xHCI host controller driver
  *
  * Copyright (C) 2013 Xenia Ragiadakou
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Xenia Ragiadakou
  * Email : burzalodowa@gmail.com
@@ -547,6 +548,32 @@ DEFINE_EVENT(xhci_log_portsc, xhci_get_port_status,
 DEFINE_EVENT(xhci_log_portsc, xhci_hub_status_data,
 	     TP_PROTO(u32 portnum, u32 portsc),
 	     TP_ARGS(portnum, portsc)
+);
+
+DECLARE_EVENT_CLASS(xhci_log_doorbell,
+	TP_PROTO(u32 slot, u32 doorbell),
+	TP_ARGS(slot, doorbell),
+	TP_STRUCT__entry(
+		__field(u32, slot)
+		__field(u32, doorbell)
+	),
+	TP_fast_assign(
+		__entry->slot = slot;
+		__entry->doorbell = doorbell;
+	),
+	TP_printk("Ring doorbell for %s",
+		xhci_decode_doorbell(__entry->slot, __entry->doorbell)
+	)
+);
+
+DEFINE_EVENT(xhci_log_doorbell, xhci_ring_ep_doorbell,
+	     TP_PROTO(u32 slot, u32 doorbell),
+	     TP_ARGS(slot, doorbell)
+);
+
+DEFINE_EVENT(xhci_log_doorbell, xhci_ring_host_doorbell,
+	     TP_PROTO(u32 slot, u32 doorbell),
+	     TP_ARGS(slot, doorbell)
 );
 
 DECLARE_EVENT_CLASS(xhci_dbc_log_request,

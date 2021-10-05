@@ -4,6 +4,7 @@
 
 /*
  * 	genhd.h Copyright (C) 1992 Drew Eckhardt
+ * 	genhd.h Copyright (C) 2021 XiaoMi, Inc.
  *	Generic hard disk header file by  
  * 		Drew Eckhardt
  *
@@ -434,7 +435,7 @@ static inline void free_part_info(struct hd_struct *part)
 	kfree(part->info);
 }
 
-void update_io_ticks(struct hd_struct *part, unsigned long now);
+void update_io_ticks(struct hd_struct *part, unsigned long now, bool end);
 
 /* block/genhd.c */
 extern void device_add_disk(struct device *parent, struct gendisk *disk,

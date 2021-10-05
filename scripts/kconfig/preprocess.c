@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright (C) 2018 Masahiro Yamada <yamada.masahiro@socionext.com>
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -114,7 +115,7 @@ static char *do_error_if(int argc, char *argv[])
 	if (!strcmp(argv[0], "y"))
 		pperror("%s", argv[1]);
 
-	return NULL;
+	return xstrdup("");
 }
 
 static char *do_filename(int argc, char *argv[])

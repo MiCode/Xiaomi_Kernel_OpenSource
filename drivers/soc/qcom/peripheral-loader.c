@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -1291,7 +1292,7 @@ int pil_boot(struct pil_desc *desc)
 	 * Fallback to serial loading of blobs if the
 	 * workqueue creatation failed during module init.
 	 */
-	if (pil_wq) {
+	if (pil_wq && !(desc->sequential_loading)) {
 		ret = pil_load_segs(desc);
 		if (ret)
 			goto err_deinit_image;
@@ -1324,7 +1325,7 @@ int pil_boot(struct pil_desc *desc)
 		goto err_auth_and_reset;
 	}
 	trace_pil_event("reset_done", desc);
-	pil_info(desc, "Brought out of reset\n");
+	pil_err(desc, "Brought out of reset\n");
 	desc->modem_ssr = false;
 err_auth_and_reset:
 	if (ret && desc->subsys_vmid > 0) {
@@ -1504,7 +1505,7 @@ int pil_desc_init(struct pil_desc *desc)
 	}
 	if (of_property_read_u32(ofnode, "qcom,minidump-id",
 		&desc->minidump_id))
-		pr_err("minidump-id not found for %s\n", desc->name);
+		pr_warn("minidump-id not found for %s\n", desc->name);
 	else {
 		if (IS_ERR_OR_NULL(g_md_toc)) {
 			/* Get Global minidump ToC*/
