@@ -730,7 +730,7 @@ static const struct drm_display_mode default_mode = {
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 595,
-	.vfp_low_power = 4180,
+	.vfp_low_power = 840,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
