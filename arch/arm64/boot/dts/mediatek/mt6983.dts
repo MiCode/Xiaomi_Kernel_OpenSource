@@ -4470,7 +4470,9 @@
 	tboard_thermistor1: thermal-ntc1 {
 		compatible = "mediatek,mt6983-board-ntc";
 		#thermal-sensor-cells = <0>;
-		reg = <0 0x1c015ed4 0 0x4>; /* TIA DATA T0 */
+		reg = <0 0x1c015ed4 0 0x4>, /* TIA DATA T0 */
+			<0 0x1c015e28 0 0x4>,
+			<0 0x1c015ef0 0 0x4>;
 		temperature-lookup-table = <
 			(-40000) 4397119
 			(-39000) 4092874
