@@ -2650,11 +2650,30 @@ static void process_dbg_opt(const char *opt)
 			DDPINFO("esd_ctx is null!\n");
 		}
 	} else if (strncmp(opt, "mml_debug:", 10) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+
 		if (strncmp(opt + 10, "1", 1) == 0)
 			g_mml_debug = true;
 		else if (strncmp(opt + 10, "0", 1) == 0)
 			g_mml_debug = false;
-		DDPMSG("g_mml_debug:%d", g_mml_debug);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->is_mml_debug = g_mml_debug;
+
+		DDPMSG("g_mml_debug:%d, mtk_crtc->is_mml_debug:%d",
+			g_mml_debug, mtk_crtc->is_mml_debug);
 	} else if (strncmp(opt, "dual_te:", 8) == 0) {
 		struct drm_crtc *crtc;
 

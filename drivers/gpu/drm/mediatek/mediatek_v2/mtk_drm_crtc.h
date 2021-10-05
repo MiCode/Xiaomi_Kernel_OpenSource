@@ -797,6 +797,7 @@ struct mtk_drm_crtc {
 	wait_queue_head_t signal_mml_last_job_is_flushed_wq;
 	bool is_mml;
 	bool last_is_mml;
+	bool is_mml_debug;
 };
 
 struct mtk_crtc_state {

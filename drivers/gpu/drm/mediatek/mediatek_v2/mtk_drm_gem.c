@@ -770,8 +770,11 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 
 	mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
 
-	if (g_mml_debug)
+	if (g_mml_debug) {
+		DDPINFO("%s:%d\n", __func__, __LINE__);
 		print_mml_submit(submit_kernel);
+		DDPINFO("%s:%d\n", __func__, __LINE__);
+	}
 
 	if (mml_ctx > 0) {
 		ret = mml_drm_submit(mml_ctx, submit_kernel, NULL);
