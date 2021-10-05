@@ -93,7 +93,7 @@ static DEFINE_MUTEX(vow_payloaddump_mutex);
 #endif
 static DEFINE_MUTEX(vow_vmalloc_lock);
 static DEFINE_MUTEX(vow_extradata_mutex);
-
+static DEFINE_MUTEX(voicedata_mutex);
 
 /*****************************************************************************
  * VOW SERVICES
@@ -541,7 +541,9 @@ static void vow_service_Init(void)
 		vowserv.payloaddump_length = 0;
 #endif
 		vowserv.voicedata_kernel_ptr = NULL;
+		mutex_lock(&vow_vmalloc_lock);
 		vowserv.kernel_voicedata_idx = 0;
+		mutex_unlock(&vow_vmalloc_lock);
 		memset((void *)vow_dump_info, 0, sizeof(vow_dump_info));
 		init_flag = 1;
 		vowserv.dump_pcm_flag = false;
@@ -1248,7 +1250,9 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			    (unsigned int)vowserv.voicedata_user_size,
 			    buf_offset);
 			/* VOW_ASSERT(0); */
+			mutex_lock(&vow_vmalloc_lock);
 			vowserv.kernel_voicedata_idx = 0;
+			mutex_unlock(&vow_vmalloc_lock);
 		}
 		mutex_lock(&vow_vmalloc_lock);
 #if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
@@ -1275,7 +1279,7 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 				     buf_length);
 			vowserv.tx_keyword_start = true;
 		}
-
+		mutex_lock(&vow_vmalloc_lock);
 #if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
 		/* 2 Channels */
 		vowserv.kernel_voicedata_idx += buf_length;
@@ -1283,6 +1287,7 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 		/* 1 Channel */
 		vowserv.kernel_voicedata_idx += (buf_length >> 1);
 #endif
+		mutex_unlock(&vow_vmalloc_lock);
 	}
 	if (vowserv.kernel_voicedata_idx >= (VOW_VOICE_RECORD_BIG_THRESHOLD >> 1))
 		vowserv.transfer_length = VOW_VOICE_RECORD_BIG_THRESHOLD;
@@ -1323,9 +1328,14 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			       &vowserv.voicedata_kernel_ptr[idx],
 			       tmp);
 			mutex_unlock(&vow_vmalloc_lock);
+			mutex_lock(&vow_vmalloc_lock);
 			vowserv.kernel_voicedata_idx -= idx;
-		} else
+			mutex_unlock(&vow_vmalloc_lock);
+		} else {
+			mutex_lock(&vow_vmalloc_lock);
 			vowserv.kernel_voicedata_idx = 0;
+			mutex_unlock(&vow_vmalloc_lock);
+		}
 
 		/* speed up voicedata transfer to hal */
 		if (vowserv.kernel_voicedata_idx >= VOW_VOICE_RECORD_THRESHOLD)
@@ -1474,7 +1484,9 @@ static void vow_service_ReadVoiceData(void)
 			VoiceData_Wait_Queue_flag = 0;
 			if ((VowDrv_GetHWStatus() == VOW_PWR_OFF)
 			 || (vowserv.recording_flag == false)) {
+				mutex_lock(&vow_vmalloc_lock);
 				vowserv.kernel_voicedata_idx = 0;
+				mutex_unlock(&vow_vmalloc_lock);
 				stop_condition = 1;
 				VOWDRV_DEBUG(
 				    "stop read vow voice data: %d, %d\n",
@@ -2341,7 +2353,9 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			break;
 		case VOWControlCmd_EnableDebug:
 			VOWDRV_DEBUG("VOW_SET_CONTROL EnableDebug");
+			mutex_lock(&vow_vmalloc_lock);
 			vowserv.kernel_voicedata_idx = 0;
+			mutex_unlock(&vow_vmalloc_lock);
 			vowserv.recording_flag = true;
 			vowserv.firstRead = true;
 			/*VowDrv_SetFlag(VOW_FLAG_DEBUG, true);*/
