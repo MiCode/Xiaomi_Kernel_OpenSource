@@ -1100,6 +1100,73 @@ exit:
 	rxstate(musb, req);
 }
 
+enum {
+	USB_TYPE_UNKNOWN,
+	USB_TYPE_ADB,
+	USB_TYPE_MTP,
+	/* USB_TYPE_PTP, */
+	USB_TYPE_RNDIS,
+	USB_TYPE_ACM,
+};
+
+static struct usb_descriptor_header **
+get_function_descriptors(struct usb_function *f,
+		     enum usb_device_speed speed)
+{
+	struct usb_descriptor_header **descriptors;
+
+	switch (speed) {
+	case USB_SPEED_SUPER_PLUS:
+		descriptors = f->ssp_descriptors;
+		if (descriptors)
+			break;
+	case USB_SPEED_SUPER:
+		descriptors = f->ss_descriptors;
+		if (descriptors)
+			break;
+	case USB_SPEED_HIGH:
+		descriptors = f->hs_descriptors;
+		if (descriptors)
+			break;
+	default:
+		descriptors = f->fs_descriptors;
+	}
+	return descriptors;
+}
+
+static int musb_get_ep_type(struct usb_descriptor_header **f_desc)
+{
+	struct usb_interface_descriptor *int_desc;
+	u8 int_class, int_subclass, int_protocol;
+
+	for (; *f_desc; ++f_desc) {
+		if ((*f_desc)->bDescriptorType != USB_DT_INTERFACE)
+			continue;
+		int_desc = (struct usb_interface_descriptor *)*f_desc;
+		int_class = int_desc->bInterfaceClass;
+		int_subclass = int_desc->bInterfaceSubClass;
+		int_protocol = int_desc->bInterfaceProtocol;
+
+		if (int_class == 0x6 && int_subclass == 0x1
+			&& int_protocol == 0x1) {
+			return USB_TYPE_MTP;
+		} else if (int_class == 0xff && int_subclass == 0x42
+			&& int_protocol == 0x1) {
+			return USB_TYPE_ADB;
+		} else if (int_class == 0x2 && int_subclass == 0x2
+			&& int_protocol == 0xff) {
+			return USB_TYPE_RNDIS;
+		} else if (int_class == 0xe0 && int_subclass == 0x1
+			&& int_protocol == 0x3) {
+			return USB_TYPE_RNDIS;
+		} else if (int_class == 0x2 && int_subclass == 0x2
+			&& int_protocol == 0x1) {
+			return USB_TYPE_ACM;
+		}
+	}
+	return USB_TYPE_UNKNOWN;
+}
+
 /*
  * at the safe mode,
  * ACM IN-BULK-> Double Buffer,
@@ -1111,202 +1178,36 @@ exit:
 
 static int is_db_ok(struct musb *musb, struct musb_ep *musb_ep)
 {
+	struct usb_ep *ep = &musb_ep->end_point;
 	struct usb_composite_dev *cdev = (musb->g).ep0->driver_data;
-	struct usb_configuration *c = cdev->config;
 	struct usb_gadget *gadget = &(musb->g);
-	int tmp;
+	struct usb_function *f = NULL;
+	struct usb_descriptor_header **f_desc;
+	int addr;
+	int type = USB_TYPE_UNKNOWN;
 	int ret = 1;
 
-	for (tmp = 0; tmp < MAX_CONFIG_INTERFACES; tmp++) {
-		struct usb_function *f = c->interface[tmp];
-		struct usb_descriptor_header **descriptors;
-
-		if (!f)
-			break;
-
-		DBG(0, "Ifc name=%s\n", f->name);
-
-		switch (gadget->speed) {
-		case USB_SPEED_SUPER:
-			descriptors = f->ss_descriptors;
-			break;
-		case USB_SPEED_HIGH:
-			descriptors = f->hs_descriptors;
-			break;
-		default:
-			descriptors = f->fs_descriptors;
-		}
-
-		for (; *descriptors; ++descriptors) {
-			struct usb_endpoint_descriptor *ep;
-			int is_in;
-			int epnum;
-
-			if ((*descriptors)->bDescriptorType != USB_DT_ENDPOINT)
-				continue;
-
-			ep = (struct usb_endpoint_descriptor *)*descriptors;
-
-			is_in = (ep->bEndpointAddress & 0x80) >> 7;
-			epnum = (ep->bEndpointAddress & 0x0f);
-
-			/*
-			 * Under saving mode, some
-			 * kinds of EPs have to be
-			 * set as Single Buffer
-			 * ACM OUT-BULK - Signle
-			 * ACM IN-BULK - Double
-			 * ADB OUT-BULK - Signle
-			 * ADB IN-BULK - Single
-			 */
-
-			/* ep must be matched */
-			if (ep->bEndpointAddress ==
-					(musb_ep->end_point).address) {
-
-				DBG(0, "%s %s desc-addr=%x, addr=%x\n"
-					, f->name
-					, is_in ? "IN" : "OUT"
-				    , ep->bEndpointAddress
-				    , (musb_ep->end_point).address);
-
-				if (!strcmp(f->name, "acm") && !is_in)
-					ret = 0;
-				else if (!strcmp(f->name, "adb"))
-					ret = 0;
-
-				if (ret == 0)
-					DBG(0, "[%s] EP%d-%s as signle buffer\n"
-						, f->name, epnum,
-					    (is_in ? "IN" : "OUT"));
-				else
-					DBG(0, "[%s] EP%d-%s as double buffer\n"
-						, f->name, epnum,
-					    (is_in ? "IN" : "OUT"));
-
-				goto end;
-			}
-		}
+	addr = ((ep->address & 0x80) >> 3)
+			| (ep->address & 0x0f);
+	list_for_each_entry(f, &cdev->config->functions, list) {
+		if (test_bit(addr, f->endpoints))
+			goto find_f;
 	}
-end:
+	goto done;
+find_f:
+	f_desc = get_function_descriptors(f, gadget->speed);
+	if (f_desc)
+		type = musb_get_ep_type(f_desc);
+	else
+		goto done;
+
+	if (type == USB_TYPE_ACM && !musb_ep->is_in)
+		ret = 0;
+	else if (type == USB_TYPE_ADB)
+		ret = 0;
+
+done:
 	return ret;
-}
-
-
-static char *musb_dbuffer_avail_function_list[] = {
-
-	"adb",
-	"mtp",
-	"Mass Storage Function",
-	"rndis",
-	"acm",
-	"rawbulk-modem",
-	NULL
-};
-
-static int check_musb_dbuffer_avail(struct musb *musb, struct musb_ep *musb_ep)
-{
-/* #define TIME_SPENT_CHECK_MUSB_DBUFFER_AVAIL */
-#ifdef TIME_SPENT_CHECK_MUSB_DBUFFER_AVAIL
-	struct timeval tv_before, tv_after;
-
-	do_gettimeofday(&tv_before);
-#endif
-
-	int tmp;
-	struct usb_composite_dev *cdev = (musb->g).ep0->driver_data;
-	struct usb_configuration *c = cdev->config;
-	struct usb_gadget *gadget = &(musb->g);
-
-	if (c == NULL)
-		return 0;
-
-	for (tmp = 0; tmp < MAX_CONFIG_INTERFACES; tmp++) {
-		struct usb_function *f = c->interface[tmp];
-		struct usb_descriptor_header **descriptors;
-
-		if (!f)
-			break;
-
-		DBG(1, "<%s, %d>, name: %s\n", __func__, __LINE__, f->name);
-
-		switch (gadget->speed) {
-		case USB_SPEED_SUPER:
-			descriptors = f->ss_descriptors;
-			break;
-		case USB_SPEED_HIGH:
-			descriptors = f->hs_descriptors;
-			break;
-		default:
-			descriptors = f->fs_descriptors;
-		}
-
-		for (; *descriptors; ++descriptors) {
-			struct usb_endpoint_descriptor *ep;
-			int is_in;
-			int epnum;
-
-			if ((*descriptors)->bDescriptorType != USB_DT_ENDPOINT)
-				continue;
-
-			ep = (struct usb_endpoint_descriptor *)*descriptors;
-
-			is_in = (ep->bEndpointAddress & 0x80) >> 7;
-			epnum = (ep->bEndpointAddress & 0x0f);
-
-			DBG(1,
-				"<%s, %d>, ep->bEndpointAddress(%x), address(%x)\n"
-				, __func__, __LINE__,
-				ep->bEndpointAddress,
-				(musb_ep->end_point).address);
-
-			/* ep must be matched */
-			if (ep->bEndpointAddress
-					== (musb_ep->end_point).address) {
-				int i;
-
-				for (i = 0;; i++) {
-					if (musb_dbuffer_avail_function_list[i]
-						== NULL)
-						break;
-
-					DBG(1, "<%s, %d>, comparing:%s\n"
-						, __func__,	__LINE__,
-					musb_dbuffer_avail_function_list[i]);
-					if (!strcmp(f->name,
-					musb_dbuffer_avail_function_list[i])) {
-						DBG(0,
-							"<%s, %d>, got bulk ep:%x in function :%s\n",
-							__func__, __LINE__,
-							ep->bEndpointAddress,
-							f->name);
-#ifdef TIME_SPENT_CHECK_MUSB_DBUFFER_AVAIL
-						do_gettimeofday(&tv_after);
-						DBG(0,
-							"<%s, %d>, sec:%d, usec:%d\n",
-							__func__, __LINE__,
-							(tv_after.tv_sec -
-							tv_before.tv_sec),
-							(tv_after.tv_usec -
-							tv_before.tv_usec));
-#endif
-						return 1;
-					}
-				}
-#ifdef TIME_SPENT_CHECK_MUSB_DBUFFER_AVAIL
-				do_gettimeofday(&tv_after);
-				DBG(0, "<%s, %d>, sec:%d, usec:%d\n", __func__
-					, __LINE__,
-					(tv_after.tv_sec - tv_before.tv_sec),
-					(tv_after.tv_usec - tv_before.tv_usec));
-#endif
-				return 0;
-			}
-		}
-	}
-	return 0;
-
-	DBG(0, "<%s, %d>, should not be here\n", __func__, __LINE__);
 }
 
 static void fifo_setup(struct musb *musb, struct musb_ep *musb_ep)
@@ -1335,8 +1236,6 @@ static void fifo_setup(struct musb *musb, struct musb_ep *musb_ep)
 	if (musb_ep->fifo_mode == BUF_DOUBLE
 	    && (musb_ep->type == USB_ENDPOINT_XFER_BULK
 		|| musb_ep->type == USB_ENDPOINT_XFER_ISOC)) {
-
-		if (check_musb_dbuffer_avail(musb, musb_ep))
 			dbuffer_needed = 1;
 	}
 
