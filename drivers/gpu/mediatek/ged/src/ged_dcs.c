@@ -27,8 +27,8 @@ int g_max_core_num;
 int g_avail_mask_num;
 int g_virtual_opp_num;
 
-struct dcs_virtual_opp *g_virtual_opp;
 struct gpufreq_core_mask_info *g_core_mask_table;
+struct gpufreq_core_mask_info *g_avail_mask_table;
 
 /* Function Pointer hooked by DDK to scale cores */
 int (*ged_dvfs_set_gpu_core_mask_fp)(u64 core_mask) = NULL;
@@ -94,24 +94,32 @@ GED_ERROR ged_dcs_init_platform_info(void)
 	return ret;
 }
 
+void ged_dcs_exit(void)
+{
+	kfree(g_core_mask_table);
+	kfree(g_avail_mask_table);
+}
+
 struct gpufreq_core_mask_info *dcs_get_avail_mask_table(void)
 {
 	int i, j = 0;
 	u32 iter = 0;
-	struct gpufreq_core_mask_info *mask_table;
 
 	if (!g_dcs_opp_setting)
 		return g_core_mask_table;
 
+	if (g_avail_mask_table)
+		return g_avail_mask_table;
+
 	/* mapping selected core mask */
-	mask_table = kcalloc(g_avail_mask_num,
+	g_avail_mask_table = kcalloc(g_avail_mask_num,
 		sizeof(struct gpufreq_core_mask_info), GFP_KERNEL);
 
 	iter = 1 << (g_max_core_num - 1);
 
 	for (i = 0; i < g_max_core_num; i++) {
 		if (g_dcs_opp_setting & iter) {
-			*(mask_table + j) = *(g_core_mask_table + i);
+			*(g_avail_mask_table + j) = *(g_core_mask_table + i);
 			j++;
 		}
 		iter >>= 1;
@@ -120,11 +128,11 @@ struct gpufreq_core_mask_info *dcs_get_avail_mask_table(void)
 #ifdef GED_KPI_DEBUG
 	for (i = 0; i < g_avail_mask_num; i++) {
 		GED_LOGI("[%02d*] MC0%d : 0x%llX",
-			i, mask_table[i].num, mask_table[i].mask);
+			i, g_avail_mask_table[i].num, g_avail_mask_table[i].mask);
 	}
 #endif /* GED_KPI_DEBUG */
 
-	return mask_table;
+	return g_avail_mask_table;
 }
 
 int dcs_get_cur_core_num(void)

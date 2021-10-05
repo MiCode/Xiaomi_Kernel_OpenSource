@@ -675,6 +675,10 @@ static int ged_pdrv_remove(struct platform_device *pdev)
 
 	ged_sysfs_exit();
 
+#ifdef GED_DCS_POLICY
+	ged_dcs_exit();
+#endif
+
 	ged_gpufreq_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);

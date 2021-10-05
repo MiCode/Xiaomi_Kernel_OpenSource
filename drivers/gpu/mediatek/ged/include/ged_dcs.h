@@ -22,6 +22,7 @@ struct dcs_virtual_opp {
 };
 
 GED_ERROR ged_dcs_init_platform_info(void);
+void ged_dcs_exit(void);
 struct gpufreq_core_mask_info *dcs_get_avail_mask_table(void);
 
 int dcs_get_cur_core_num(void);
