@@ -4199,15 +4199,23 @@ void aie_uninit(struct mtk_aie_dev *fd)
 	else
 		aie_free_output_buf(fd);
 
-	if (fd->base_para != NULL)
+	if (fd->base_para != NULL) {
 		kfree(fd->base_para);
-	if (fd->attr_para != NULL)
+		fd->base_para = NULL;
+	}
+	if (fd->attr_para != NULL) {
 		kfree(fd->attr_para);
-	if (fd->dma_para != NULL)
+		fd->attr_para = NULL;
+	}
+	if (fd->dma_para != NULL) {
 		kfree(fd->dma_para);
+		fd->dma_para = NULL;
+	}
 #ifdef FLD
-	if (fd->fld_para != NULL)
+	if (fd->fld_para != NULL) {
 		kfree(fd->fld_para);
+		fd->fld_para = NULL;
+	}
 #endif
 }
 

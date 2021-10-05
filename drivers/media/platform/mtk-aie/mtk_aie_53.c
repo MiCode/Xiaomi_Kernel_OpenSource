@@ -542,9 +542,8 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	if (fd->fd_stream_count == 0) {
 		mtk_aie_mmqos_set(fd, 0);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
-		if (fd->fdvt_clt != NULL)
-			cmdq_mbox_disable(fd->fdvt_clt->chan);
 		if (fd->dmabuf->vmap_ptr != NULL) {
+			cmdq_mbox_disable(fd->fdvt_clt->chan);
 			dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
 			dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(fd->dmabuf);
