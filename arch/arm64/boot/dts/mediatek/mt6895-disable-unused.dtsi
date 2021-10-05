@@ -304,6 +304,7 @@
 			<&vdec_soc_gcon_base_clk CLK_VDE1_LAT_CKEN>,
 			<&vdec_soc_gcon_base_clk CLK_VDE1_LAT_ACTIVE>,
 			<&vdec_soc_gcon_base_clk CLK_VDE1_LAT_CKEN_ENG>,
+			<&vdec_soc_gcon_base_clk CLK_VDE1_MINI_MDP_CKEN_CFG_RG>,
 			<&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>,
 			<&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_ACTIVE>,
 			<&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN_ENG>;
@@ -740,7 +741,6 @@
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_CCUSYS_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
-			<&topckgen_clk CLK_TOP_MCU_ACP_SEL>,
 			<&topckgen_clk CLK_TOP_MFG_SEL_0_SEL>,
 			<&topckgen_clk CLK_TOP_MFG_SEL_1_SEL>,
 			<&topckgen_clk CLK_TOP_APLL_I2S0_MCK_SEL>,
