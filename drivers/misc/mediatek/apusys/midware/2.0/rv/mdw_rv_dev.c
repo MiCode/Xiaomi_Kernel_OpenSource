@@ -490,7 +490,7 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 
 	if (!mrdev->stat) {
 		ret = -ENOMEM;
-		goto free_mrdev;
+		goto free_ept;
 	}
 
 	/* init up dev */
@@ -503,6 +503,8 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 
 	goto out;
 
+free_ept:
+	rpmsg_destroy_ept(mrdev->ept);
 free_mrdev:
 	kfree(mrdev);
 	mdev->dev_specific = NULL;
