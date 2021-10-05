@@ -5731,7 +5731,7 @@
 			};
 
 			lvts_e_data2: data2 {
-				reg = <0x2f8 0x4c>;
+				reg = <0x2f8 0x50>;
 			};
 
 			csi_efuse0: csi_data0 {
