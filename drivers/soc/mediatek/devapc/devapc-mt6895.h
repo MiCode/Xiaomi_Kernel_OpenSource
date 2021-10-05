@@ -484,7 +484,7 @@ static const struct mtk_device_info mt6895_devices_infra[] = {
 
 	{-1, -1, 293, "Decode_error", true},
 	{-1, -1, 294, "Decode_error", true},
-	{-1, -1, 295, "Decode_error", true},
+	{-1, -1, 295, "Decode_error", false},
 	{-1, -1, 296, "Decode_error", true},
 	{-1, -1, 297, "Decode_error", true},
 	{-1, -1, 298, "Decode_error", true},
@@ -964,10 +964,10 @@ static const struct mtk_device_info mt6895_devices_peri_par[] = {
 	{-1, -1, 69, "Decode_error", true},
 	{-1, -1, 70, "Decode_error", true},
 
-	{-1, -1, 71, "APDMA", true},
-	{-1, -1, 72, "IIC_P2P_REMAP", true},
-	{-1, -1, 73, "DEVICE_APC_PERI _AO", true},
-	{-1, -1, 74, "DEVICE_APC_PERI_PDN", true},
+	{-1, -1, 71, "APDMA", false},
+	{-1, -1, 72, "IIC_P2P_REMAP", false},
+	{-1, -1, 73, "DEVICE_APC_PERI _AO", false},
+	{-1, -1, 74, "DEVICE_APC_PERI_PDN", false},
 };
 static const struct mtk_device_info mt6895_devices_vlp[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
@@ -1719,7 +1719,7 @@ static const struct mtk_device_info mt6895_devices_mminfra[] = {
 
 	{-1, -1, 452, "Decode_error", true},
 	{-1, -1, 453, "Decode_error", true},
-	{-1, -1, 454, "Decode_error", true},
+	{-1, -1, 454, "Decode_error", false},
 	{-1, -1, 455, "Decode_error", true},
 	{-1, -1, 456, "Decode_error", true},
 
