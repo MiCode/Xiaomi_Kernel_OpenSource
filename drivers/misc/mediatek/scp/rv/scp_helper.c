@@ -332,7 +332,10 @@ static void scp_A_register_notify_pending(void)
 	while (node->next) {
 		nb = node->next;
 		node->next = node->next->next;
+		spin_unlock(&notify_register_spinlock);
+		/* should not call blocking API in atomic context */
 		scp_A_register_notify(nb);
+		spin_lock(&notify_register_spinlock);
 	}
 	register_curr = &register_notify_pending;
 	spin_unlock(&notify_register_spinlock);
@@ -347,7 +350,10 @@ static void scp_A_unregister_notify_pending(void)
 	while (node->next) {
 		nb = node->next;
 		node->next = node->next->next;
+		spin_unlock(&notify_unregister_spinlock);
+		/* should not call blocking API in atomic context */
 		scp_A_unregister_notify(nb);
+		spin_lock(&notify_unregister_spinlock);
 	}
 	unregister_curr = &unregister_notify_pending;
 	spin_unlock(&notify_unregister_spinlock);
