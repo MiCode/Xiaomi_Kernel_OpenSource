@@ -13,6 +13,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/pm_runtime.h>
 #include <linux/iommu.h>
 #include <linux/fs.h>
@@ -22,6 +23,9 @@
 #include <linux/remoteproc/mtk_ccu.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <soc/mediatek/smi.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include "../misc/mediatek/include/mt-plat/aee.h"
+#endif
 
 #include "mtk_ccu_isp71.h"
 #include "mtk_ccu_common.h"
@@ -513,6 +517,7 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 #if defined(SECURE_CCU)
 	struct arm_smccc_res res;
 #endif
+	char error_desc[80];
 
 	/*1. prepare CCU's clks & power*/
 	ret = mtk_ccu_clk_prepare(ccu);
@@ -531,7 +536,22 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 		0, 0, 0, 0, 0, 0, &res);
 #endif
 	if (res.a0 != 0) {
-		dev_err(ccu->dev, "load CCU binary failed (%d).\n", res.a0);
+		snprintf(error_desc, 80, "load CCU binary fail(%d), clock: %d %d %d %d %d %d %d",
+			res.a0,
+			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[0]),
+			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[1]),
+			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[2]),
+			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[3]),
+			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[4]),
+			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[5]),
+			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[6]));
+		dev_err(ccu->dev, "%s\n", error_desc);
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "CCU",
+			       error_desc);
+#else
+		WARN_ON(1);
+#endif
 		return (int)(res.a0);
 	}
 	else
