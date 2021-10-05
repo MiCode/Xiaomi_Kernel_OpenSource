@@ -694,7 +694,8 @@ static int mhi_netdev_enable_iface(struct mhi_netdev *mhi_netdev)
 		return -ENOMEM;
 	}
 
-	mhi_netdev->ndev->mtu = MHI_MAX_MTU;
+	mhi_netdev->ndev->mtu = mhi_dev->mhi_cntrl->buffer_len;
+
 	SET_NETDEV_DEV(mhi_netdev->ndev, &mhi_dev->dev);
 	mhi_netdev_priv = netdev_priv(mhi_netdev->ndev);
 	mhi_netdev_priv->mhi_netdev = mhi_netdev;
