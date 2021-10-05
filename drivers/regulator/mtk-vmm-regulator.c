@@ -151,7 +151,7 @@ static int force_opp_level(void *data, u64 val)
 	struct ispdvfs_dbg_data *dbg_data = (struct ispdvfs_dbg_data *)data;
 	struct dvfs_driver_data *drv_data;
 	struct dvfs_table *opp_table;
-	int voltage = 0;
+	int reg_enable;
 
 	ISP_LOGI("Force opp level(%d)", val);
 
@@ -172,12 +172,17 @@ static int force_opp_level(void *data, u64 val)
 	}
 	opp_table = &(drv_data->opp_table);
 
-	if (val < opp_table->opp_num)
-		voltage = opp_table->voltage[val];
-	else
-		ISP_LOGI("Opp level is not in range. Use default level\n");
+	reg_enable = regulator_is_enabled(dbg_data->reg);
+	if (!reg_enable)
+		regulator_enable(dbg_data->reg);
 
-	regulator_set_voltage(dbg_data->reg, voltage, INT_MAX);
+	if (val < opp_table->opp_num)
+		regulator_set_voltage(dbg_data->reg, opp_table->voltage[val], INT_MAX);
+	else {
+		ISP_LOGI("Opp level is not in range.\n");
+		if (reg_enable)
+			regulator_disable(dbg_data->reg);
+	}
 
 	return 0;
 }
