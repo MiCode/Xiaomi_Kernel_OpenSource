@@ -533,21 +533,13 @@ static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rh
 static void mml_core_calc_tput(struct mml_task *task, u32 pixel,
 	const struct timespec64 *end, const struct timespec64 *start)
 {
-	if (task->config->info.mode == MML_MODE_RACING) {
-		/* throughput is pixel / duration,
-		 * duration is 1/60 * 0.8 (w/o blanking), thus
-		 * pixel / (1/60 * 0.8) = pixel * 60 * 1.25
-		 */
-		task->throughput = (pixel * 60 * 10) >> 3;
-	} else {
-		u64 duration = time_dur_us(end, start);
+	u64 duration = time_dur_us(end, start);
 
-		if (!duration)
-			duration = 1;
+	if (!duration)
+		duration = 1;
 
-		/* truoughput by end time */
-		task->throughput = (u32)div_u64(pixel, duration);
-	}
+	/* truoughput by end time */
+	task->throughput = (u32)div_u64(pixel, duration);
 }
 
 static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe)
@@ -594,11 +586,21 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	else
 		task->submit_time = curr_time;
 
-	if (timespec64_compare(&task->submit_time, &task->end_time) < 0) {
+	task->throughput = 0;
+	if (task->config->info.mode == MML_MODE_RACING) {
+		/* throughput is pixel / duration,
+		 * duration is vblank * 0.8, thus
+		 * pixel / (vblank * 0.8) = pixel * 5 / 4 / vblank
+		 */
+		task->throughput = (u32)div_u64(
+			max_pixel * 5, task->config->info.vblank) >> 2;
+	} else if (timespec64_compare(&task->submit_time, &task->end_time) < 0) {
 		/* calculate remaining time to complete pixels */
 		mml_core_calc_tput(task, max_pixel,
 			&task->end_time, &task->submit_time);
+	}
 
+	if (task->throughput) {
 		throughput = task->throughput;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
 			/* find the max throughput (frequency) between tasks on same client */
@@ -1230,11 +1232,12 @@ static void dump_inout(struct mml_task *task)
 	u32 i;
 
 	get_frame_str(frame, sizeof(frame), &task->config->info.src);
-	mml_log("in:%s plane:%hhu%s%s",
+	mml_log("in:%s plane:%hhu%s%s job %hu",
 		frame,
 		task->buf.src.cnt,
 		task->buf.src.fence ? " fence" : "",
-		task->buf.src.flush ? " flush" : "");
+		task->buf.src.flush ? " flush" : "",
+		task->job.jobid);
 	for (i = 0; i < task->config->info.dest_cnt; i++) {
 		get_frame_str(frame, sizeof(frame), &task->config->info.dest[i].data);
 		mml_log(

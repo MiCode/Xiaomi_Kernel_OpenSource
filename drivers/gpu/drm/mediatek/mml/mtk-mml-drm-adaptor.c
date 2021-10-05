@@ -11,6 +11,8 @@
 #include <linux/time64.h>
 #include <mtk_sync.h>
 #include <mtk_drm_drv.h>
+#include <drm/drm_fourcc.h>
+#include <drm/drm_gem_framebuffer_helper.h>
 
 #include "mtk-mml-drm-adaptor.h"
 #include "mtk-mml-buf.h"
@@ -20,7 +22,6 @@
 #include "mtk-mml-sys.h"
 #include "mtk-mml-mmp.h"
 
-#define MML_QUERY_ADJUST	1
 #define MML_DEFAULT_END_NS	15000000
 
 #define MML_REF_NAME "mml"
@@ -52,50 +53,6 @@ struct mml_drm_ctx {
 	void (*submit_cb)(void *cb_param);
 };
 
-#if MML_QUERY_ADJUST == 1
-static void mml_adjust_src(struct mml_frame_data *src)
-{
-	const u32 srcw = src->width;
-	const u32 srch = src->height;
-
-	if (MML_FMT_H_SUBSAMPLE(src->format) && (srcw & 0x1))
-		src->width &= ~1;
-
-	if (MML_FMT_V_SUBSAMPLE(src->format) && (srch & 0x1))
-		src->height &= ~1;
-}
-
-static void mml_adjust_dest(struct mml_frame_data *src,
-	struct mml_frame_dest *dest)
-{
-	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
-		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
-			dest->data.width &= ~1; /* WROT HW constraint */
-			dest->data.height &= ~1;
-		} else if (MML_FMT_V_SUBSAMPLE(dest->data.format)) {
-			dest->data.width &= ~1;
-		}
-	} else {
-		if (MML_FMT_H_SUBSAMPLE(dest->data.format))
-			dest->data.width &= ~1;
-
-	        if (MML_FMT_V_SUBSAMPLE(dest->data.format))
-			dest->data.height &= ~1;
-	}
-
-	/* help user fill in crop if not give */
-	if (!dest->crop.r.width && !dest->crop.r.height) {
-		dest->crop.r.width = src->width;
-		dest->crop.r.height = src->height;
-	}
-
-	if (!dest->compose.width && !dest->compose.height) {
-		dest->compose.width = dest->data.width;
-		dest->compose.height = dest->data.height;
-	}
-}
-#endif
-
 enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 				struct mml_frame_info *info)
 {
@@ -104,22 +61,19 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 	const u32 srcw = info->src.width;
 	const u32 srch = info->src.height;
 
-#if MML_QUERY_ADJUST == 0
-	/* following part should adjust later */
-	if (MML_FMT_H_SUBSAMPLE(info->src.format) && (srcw & 0x1)) {
-		mml_err("[drm]invalid src width %u alignment format %#010x",
-			srcw, info->src.format);
+	if (!info->src.format) {
+		mml_err("[drm]invalid src mml color format %#010x", info->src.format);
 		goto not_support;
 	}
 
-	if (MML_FMT_V_SUBSAMPLE(info->src.format) && (srch & 0x1)) {
-		mml_err("[drm]invalid src height %u alignment format %#010x",
-			srch, info->src.format);
-		goto not_support;
+	if (MML_FMT_BLOCK(info->src.format)) {
+		if ((info->src.width & 0x0f) || (info->src.height & 0x1f)) {
+			mml_err(
+				"[drm]invalid blk width %u height %u must alignment width 16x height 32x",
+				info->src.width, info->src.height);
+			goto not_support;
+		}
 	}
-#else
-	mml_adjust_src(&info->src);
-#endif
 
 	/* for alpha rotate */
 	if (srcw < 9) {
@@ -142,34 +96,6 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 			goto not_support;
 		}
 
-#if MML_QUERY_ADJUST == 0
-		/* following part should adjust later */
-		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
-			if (destw & 0x1) {
-				mml_err("[drm]invalid dest width %u alignment format %#010x",
-					destw, dest->data.format);
-				goto not_support;
-			}
-
-			if ((desth & 0x1) && (dest->rotate == MML_ROT_90 ||
-				dest->rotate == MML_ROT_270)) {
-				mml_err("[drm]invalid dest %ux%u alignment format %#010x",
-					destw, desth,
-					dest->data.format);
-				goto not_support;
-			}
-		}
-
-		if (MML_FMT_V_SUBSAMPLE(dest->data.format) && (desth & 0x1)) {
-			mml_err("[drm]invalid dest height %u alignment format %#010x",
-				desth, dest->data.format);
-			goto not_support;
-		}
-#else
-		/* adjust info data directly for user */
-	        mml_adjust_dest(&info->src, &info->dest[i]);
-#endif
-
 		/* check crop and pq combination */
 		if (dest->pq_config.en && dest->crop.r.width < 48) {
 			mml_err("[drm]exceed HW limitation crop width %u < 48 with pq",
@@ -185,6 +111,96 @@ not_support:
 	return MML_MODE_NOT_SUPPORT;
 }
 EXPORT_SYMBOL_GPL(mml_drm_query_cap);
+
+static void mml_adjust_src(struct mml_frame_data *src)
+{
+	const u32 srcw = src->width;
+	const u32 srch = src->height;
+
+	if (MML_FMT_H_SUBSAMPLE(src->format) && (srcw & 0x1))
+		src->width &= ~1;
+
+	if (MML_FMT_V_SUBSAMPLE(src->format) && (srch & 0x1))
+		src->height &= ~1;
+}
+
+static void mml_adjust_dest(struct mml_frame_data *src, struct mml_frame_dest *dest)
+{
+	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
+		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
+			dest->data.width &= ~1; /* WROT HW constraint */
+			dest->data.height &= ~1;
+		} else if (MML_FMT_V_SUBSAMPLE(dest->data.format)) {
+			dest->data.width &= ~1;
+		}
+	} else {
+		if (MML_FMT_H_SUBSAMPLE(dest->data.format))
+			dest->data.width &= ~1;
+
+		if (MML_FMT_V_SUBSAMPLE(dest->data.format))
+			dest->data.height &= ~1;
+	}
+
+	/* help user fill in crop if not give */
+	if (!dest->crop.r.width && !dest->crop.r.height) {
+		dest->crop.r.width = src->width;
+		dest->crop.r.height = src->height;
+	}
+
+	if (!dest->compose.width && !dest->compose.height) {
+		dest->compose.width = dest->data.width;
+		dest->compose.height = dest->data.height;
+	}
+}
+
+void mml_drm_try_frame(struct mml_drm_ctx *ctx, struct mml_frame_info *info)
+{
+	u32 i;
+
+	mml_adjust_src(&info->src);
+
+	for (i = 0; i < info->dest_cnt; i++) {
+		/* adjust info data directly for user */
+		mml_adjust_dest(&info->src, &info->dest[i]);
+	}
+
+	if ((MML_FMT_PLANE(info->src.format) > 1) && info->src.uv_stride <= 0)
+		info->src.uv_stride = mml_color_get_min_uv_stride(
+			info->src.format, info->src.width);
+
+}
+EXPORT_SYMBOL_GPL(mml_drm_try_frame);
+
+static u32 afbc_drm_to_mml(u32 drm_format)
+{
+	switch (drm_format) {
+	case MML_FMT_RGBA8888:
+		return MML_FMT_RGBA8888_AFBC;
+	case MML_FMT_BGRA8888:
+		return MML_FMT_BGRA8888_AFBC;
+	case MML_FMT_RGBA1010102:
+		return MML_FMT_RGBA1010102_AFBC;
+	case MML_FMT_BGRA1010102:
+		return MML_FMT_BGRA1010102_AFBC;
+	default:
+		mml_err("[drm]%s unknown drm format %#x", __func__, drm_format);
+		return drm_format;
+	}
+}
+
+#define MML_AFBC	DRM_FORMAT_MOD_ARM_AFBC( \
+	AFBC_FORMAT_MOD_BLOCK_SIZE_32x8 | AFBC_FORMAT_MOD_SPLIT)
+
+static u32 format_drm_to_mml(u32 drm_format, u64 modifier)
+{
+	/* check afbc modifier with rdma/wrot supported
+	 * 32x8 block and split mode
+	 */
+	if (modifier == MML_AFBC)
+		return afbc_drm_to_mml(drm_format);
+
+	return drm_format;
+}
 
 static bool check_frame_change(struct mml_frame_info *info,
 			       struct mml_frame_config *cfg)
@@ -585,6 +601,29 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			frame_calc_plane_offset(&submit->info.dest[i].data,
 				&submit->buffer.dest[i]);
 	}
+
+	/* always fixup format/modifier for afbc case
+	 * the format in info should change to fourcc format in future design
+	 * and store mml format in another structure
+	 */
+	submit->info.src.format = format_drm_to_mml(
+		submit->info.src.format, submit->info.src.modifier);
+	for (i = 0; i < submit->info.dest_cnt; i++)
+		submit->info.dest[i].data.format = format_drm_to_mml(
+			submit->info.dest[i].data.format,
+			submit->info.dest[i].data.modifier);
+
+	/* check vblank and warning if not fill in
+	 * vblank must fill in for racing mode
+	 * fill in 16666 us for default
+	 */
+	if (submit->info.mode == MML_MODE_RACING && !submit->info.vblank)
+		submit->info.vblank = 16666;
+
+	/* always do frame info adjust for now
+	 * but this flow should call from hwc/disp in future version
+	 */
+	mml_drm_try_frame(ctx, &submit->info);
 
 	mml_mmp(submit, MMPROFILE_FLAG_PULSE, atomic_read(&ctx->job_serial), 0);
 

@@ -127,6 +127,7 @@ struct mml_frame_data {
 	uint32_t uv_stride;
 	uint32_t vert_stride;
 	uint32_t format;
+	uint64_t modifier;
 	uint16_t profile;
 	uint32_t plane_offset[MML_MAX_PLANES];
 	uint8_t plane_cnt;
@@ -160,6 +161,7 @@ struct mml_frame_dest {
 struct mml_frame_info {
 	struct mml_frame_data src;
 	struct mml_frame_dest dest[MML_MAX_OUTPUTS];
+	uint32_t vblank;	/* us time for racing support and dvfs */
 	uint8_t dest_cnt;	/* should be < MML_MAX_OUTPUTS */
 	int8_t mode;	/* one of mml_mode */
 	uint8_t layer_id;

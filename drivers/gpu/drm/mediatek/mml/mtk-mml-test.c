@@ -236,6 +236,7 @@ static void case_general_submit(struct mml_test *test,
 		setup(&task, cur);
 	mode = task.info.mode;
 
+	mml_drm_try_frame(mml_ctx, &task.info);
 	if (mml_drm_query_cap(mml_ctx, &task.info) == MML_MODE_NOT_SUPPORT) {
 		mml_err("%s not support", __func__);
 		return;

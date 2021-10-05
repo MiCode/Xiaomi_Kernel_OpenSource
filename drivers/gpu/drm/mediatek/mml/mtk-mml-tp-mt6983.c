@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 
+#include "mtk-mml-drm-adaptor.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 
@@ -16,7 +17,7 @@
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
 #define MML_IR_DUAL_FRAME	(2560 * 1440)	/* racing use dual from 2k */
 #define MML_IR_MIN_FRAME	(1920 * 1080)
-#define MML_IR_MAX_FRAME	(1080 * 2400)	/* lcm size */
+#define MML_IR_MAX_FRAME	(2560 * 1440)	/* lcm size */
 #define MML_IR_MAX_WIDTH	3200
 
 int mml_force_rsz;
@@ -553,18 +554,19 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 
 	/* HW limitation */
 	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
-		if (info->dest[0].compose.width > MML_IR_MAX_WIDTH)
+		if (info->dest[0].crop.r.width > MML_IR_MAX_WIDTH)
 			goto decouple;
 	} else {
-		if (info->dest[0].compose.height > MML_IR_MAX_WIDTH)
+		if (info->dest[0].crop.r.height > MML_IR_MAX_WIDTH)
 			goto decouple;
 	}
-	/* HRT BW limitation */
-	pixel = info->dest[0].compose.width * info->dest[0].compose.height;
-	if (pixel > MML_IR_MAX_FRAME)
-		goto decouple;
 
-	if (pixel < MML_IR_MIN_FRAME)
+	/* TODO: check racing mode by resolution/vblank/rotate
+	 * currently do not check low bound for testing
+	 */
+	/* HRT BW limitation */
+	pixel = info->dest[0].crop.r.width * info->dest[0].crop.r.height;
+	if (pixel > MML_IR_MAX_FRAME)
 		goto decouple;
 
 	return MML_MODE_RACING;

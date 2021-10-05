@@ -4142,7 +4142,6 @@ struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev)
 
 	disp_param.dual = false;
 	disp_param.racing_height = 64;
-	disp_param.vblank_interval = 16666666;
 	disp_param.vdo_mode = true;
 	disp_param.submit_cb = mtk_drm_mmlsys_submit_done_cb;
 

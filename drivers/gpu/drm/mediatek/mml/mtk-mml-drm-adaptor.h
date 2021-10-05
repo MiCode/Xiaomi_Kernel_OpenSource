@@ -17,9 +17,6 @@ struct mml_drm_ctx;
 struct mml_comp;
 
 struct mml_drm_param {
-	/* [in]helps calculate inline rotate support */
-	u32 vblank_interval;
-
 	/* [in]set true if display uses dual pipe */
 	bool dual;
 
@@ -44,6 +41,14 @@ struct mml_drm_param {
  */
 enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 				struct mml_frame_info *info);
+
+/*
+ * mml_drm_try_frame - Try/adjust frame info to match mml hardware spec.
+ *
+ * @ctx:	Context of mml drm adaptor. Get by mml_drm_get_context API.
+ * @info:	Frame info which describe frame process by mml.
+ */
+void mml_drm_try_frame(struct mml_drm_ctx *ctx, struct mml_frame_info *info);
 
 /*
  * mml_drm_get_context - Get mml drm context to control mml.

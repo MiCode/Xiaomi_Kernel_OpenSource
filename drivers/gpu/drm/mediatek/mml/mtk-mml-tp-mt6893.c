@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 
+#include "mtk-mml-drm-adaptor.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 
@@ -518,22 +519,6 @@ static s32 tp_select(struct mml_topology_cache *cache,
 
 static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
 {
-	/* racing only support 1 out */
-	if (info->dest_cnt > 1)
-		goto decouple;
-	/* HW limitation */
-	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
-		if (info->dest[0].compose.width > MML_IR_MAX_WIDTH)
-			goto decouple;
-	} else {
-		if (info->dest[0].compose.height > MML_IR_MAX_WIDTH)
-			goto decouple;
-	}
-	/* HRT BW limitation */
-	if (info->dest[0].compose.width * info->dest[0].compose.height > MML_IR_MAX_FRAME)
-		goto decouple;
-
-decouple:
 	return MML_MODE_MML_DECOUPLE;
 }
 

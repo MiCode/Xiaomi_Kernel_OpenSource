@@ -8,15 +8,13 @@
 #include <linux/module.h>
 #include <linux/types.h>
 
+#include "mtk-mml-drm-adaptor.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 
 #define TOPOLOGY_PLATFORM	"mt6879"
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
-#define MML_IR_MIN_FRAME	(2560 * 1440)
-#define MML_IR_MAX_FRAME	(3840 * 2176)
-#define MML_IR_MAX_WIDTH	3200
 
 int mml_force_rsz;
 module_param(mml_force_rsz, int, 0644);
@@ -379,22 +377,6 @@ static s32 tp_select(struct mml_topology_cache *cache,
 
 static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
 {
-	/* racing only support 1 out */
-	if (info->dest_cnt > 1)
-		goto decouple;
-	/* HW limitation */
-	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
-		if (info->dest[0].compose.width > MML_IR_MAX_WIDTH)
-			goto decouple;
-	} else {
-		if (info->dest[0].compose.height > MML_IR_MAX_WIDTH)
-			goto decouple;
-	}
-	/* HRT BW limitation */
-	if (info->dest[0].compose.width * info->dest[0].compose.height > MML_IR_MAX_FRAME)
-		goto decouple;
-
-decouple:
 	return MML_MODE_MML_DECOUPLE;
 }
 
