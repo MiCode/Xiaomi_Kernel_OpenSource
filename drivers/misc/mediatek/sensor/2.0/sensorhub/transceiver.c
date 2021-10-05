@@ -65,6 +65,7 @@ struct transceiver_device {
 };
 
 static struct transceiver_device transceiver_dev;
+static DEFINE_RATELIMIT_STATE(ratelimit, 5 * HZ, 10);
 DEFINE_SPINLOCK(transceiver_fifo_lock);
 DECLARE_COMPLETION(transceiver_done);
 DEFINE_KFIFO(transceiver_fifo, uint32_t, 32);
@@ -91,7 +92,7 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 		dnotify->scp_timestamp, dnotify->scp_archcounter);
 	timesync_end_time = ktime_get_boottime_ns();
 	if (kfifo_is_full(&transceiver_fifo)) {
-		if (kfifo_out(&transceiver_fifo, &wp, 1))
+		if (kfifo_out(&transceiver_fifo, &wp, 1) && __ratelimit(&ratelimit))
 			printk_deferred("drop normal write position\n");
 	}
 	wp = dnotify->write_position;
@@ -101,7 +102,7 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 	complete_end_time = ktime_get_boottime_ns();
 	spin_unlock(&transceiver_fifo_lock);
 	end_time = ktime_get_boottime_ns();
-	if (end_time - start_time > timeout_ns)
+	if (end_time - start_time > timeout_ns && __ratelimit(&ratelimit))
 		printk_deferred("time monitor:%llu, %llu, %llu, %llu, %llu, %llu\n",
 			start_time, wait_spin_lock_end_time, timesync_end_time,
 			kfifo_end_time, complete_end_time, end_time);
