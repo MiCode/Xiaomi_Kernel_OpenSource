@@ -13,6 +13,7 @@
 
 $(info $(srctree))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
 
