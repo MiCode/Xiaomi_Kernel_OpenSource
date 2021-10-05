@@ -2503,7 +2503,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	if (cmdq_mdp_get_func()->mdpIsIspCamin(handle) && isp_pmqos_freq) {
 		u32 isp_throughput = isp_t((unsigned long long)(max_throughput));
 
-		/*update bandwidth*/
+		/* update bandwidth */
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
 			target_pmqos->qos2_isp_count > i &&
 			target_pmqos->qos2_isp_port[i]; i++) {
@@ -2522,13 +2522,13 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		mdp_update_voltage(thread_id, isp_throughput, false);
 	}
 
-	/*update bandwidth*/
+	/* update bandwidth */
 	if (target_pmqos->mdp_total_datasize) {
 		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
 			&& target_pmqos->qos2_mdp_count > i
-			&& target_pmqos->qos2_mdp_port[i] != 0; i++) {
+			&& target_pmqos->qos2_mdp_port[i] >= 0; i++) {
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 					target_pmqos->qos2_mdp_port[i]);
 			struct icc_path *port_path =
@@ -2786,10 +2786,11 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 	if (update_isp_bandwidth) {
 		u32 isp_throughput = isp_t((unsigned long long)(max_throughput));
-		/*update bandwidth*/
+
+		/* update bandwidth */
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
 			target_pmqos->qos2_isp_count > i &&
-			target_pmqos->qos2_isp_port[i] != 0; i++) {
+			target_pmqos->qos2_isp_port[i] >= 0; i++) {
 			struct icc_path *port_path =
 				cmdq_mdp_get_func()->qosGetPath(
 				thread_id, target_pmqos->qos2_isp_port[i]);
@@ -2811,7 +2812,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
 			&& mdp_curr_pmqos->qos2_mdp_count > i
-			&& mdp_curr_pmqos->qos2_mdp_port[i] != 0; i++) {
+			&& mdp_curr_pmqos->qos2_mdp_port[i] >= 0; i++) {
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 				mdp_curr_pmqos->qos2_mdp_port[i]);
 			struct icc_path *port_path =
@@ -2831,7 +2832,7 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM &&
 			target_pmqos->qos2_mdp_count > i &&
-			target_pmqos->qos2_mdp_port[i] != 0; i++) {
+			target_pmqos->qos2_mdp_port[i] >= 0; i++) {
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 				target_pmqos->qos2_mdp_port[i]);
 			struct icc_path *port_path =
