@@ -38,7 +38,7 @@ void mtk_drm_print_trace(char *fmt, ...)
 	va_end(args);
 
 	if (len >= MTK_DRM_TRACE_MSG_LEN) {
-		pr_info("%s, string size %u exceed limit\n", __func__, len);
+		DDPPR_ERR("%s, string size %u exceed limit\n", __func__, len);
 		return;
 	}
 

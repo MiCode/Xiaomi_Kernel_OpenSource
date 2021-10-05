@@ -33,11 +33,11 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 	do {                                                                   \
 		mtk_dprec_logger_pr(DPREC_LOGGER_DEBUG, fmt, ##arg);           \
 		if (g_mobile_log)                                              \
-			pr_info(pr_fmt(fmt), ##arg);     \
+			pr_info("[DISP]" pr_fmt(fmt), ##arg);     \
 	} while (0)
 
 #define DDPFUNC(fmt, arg...)		\
-	pr_info("[%s line:%d]"pr_fmt(fmt), __func__, __LINE__, ##arg)
+	pr_info("[DISP][%s line:%d]"pr_fmt(fmt), __func__, __LINE__, ##arg)
 
 #define DDPDBG(fmt, arg...)                                                    \
 	do {                                                                   \
@@ -45,33 +45,33 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 			break;                                                 \
 		mtk_dprec_logger_pr(DPREC_LOGGER_DEBUG, fmt, ##arg);           \
 		if (g_mobile_log)                                              \
-			pr_info(pr_fmt(fmt), ##arg);     \
+			pr_info("[DISP]" pr_fmt(fmt), ##arg);     \
 	} while (0)
 
 #define DDPMSG(fmt, arg...)                                                    \
 	do {                                                                   \
 		mtk_dprec_logger_pr(DPREC_LOGGER_DEBUG, fmt, ##arg);           \
-		pr_info(pr_fmt(fmt), ##arg);             \
+		pr_info("[DISP]" pr_fmt(fmt), ##arg);             \
 	} while (0)
 
 #define DDPDUMP(fmt, arg...)                                                   \
 	do {                                                                   \
 		mtk_dprec_logger_pr(DPREC_LOGGER_DUMP, fmt, ##arg);            \
 		if (g_mobile_log)                                              \
-			pr_info(pr_fmt(fmt), ##arg);     \
+			pr_info("[DISP]" pr_fmt(fmt), ##arg);     \
 	} while (0)
 
 #define DDPFENCE(fmt, arg...)                                                  \
 	do {                                                                   \
 		mtk_dprec_logger_pr(DPREC_LOGGER_FENCE, fmt, ##arg);           \
 		if (g_fence_log)                                               \
-			pr_info(pr_fmt(fmt), ##arg);     \
+			pr_info("[DISP]" pr_fmt(fmt), ##arg);     \
 	} while (0)
 
 #define DDPPR_ERR(fmt, arg...)                                                 \
 	do {                                                                   \
 		mtk_dprec_logger_pr(DPREC_LOGGER_ERROR, fmt, ##arg);           \
-		pr_err(pr_fmt(fmt), ##arg);              \
+		pr_err("[DISP][E]" pr_fmt(fmt), ##arg);              \
 	} while (0)
 
 #define DDPIRQ(fmt, arg...)                                                    \

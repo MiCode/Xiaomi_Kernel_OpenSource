@@ -201,14 +201,14 @@ static int mtk_disp_merge_bind(struct device *dev, struct device *master,
 	//struct mtk_drm_private *private = drm_dev->dev_private;
 	int ret;
 
-	pr_info("%s\n", __func__);
+	DDPFUNC("+");
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
 		dev_err(dev, "Failed to register component %s: %d\n",
 			dev->of_node->full_name, ret);
 		return ret;
 	}
-	pr_info("%s end\n", __func__);
+	DDPFUNC("-");
 	return 0;
 }
 
@@ -232,7 +232,7 @@ static int mtk_disp_merge_probe(struct platform_device *pdev)
 	enum mtk_ddp_comp_id comp_id;
 	int ret;
 
-	pr_info("%s+\n", __func__);
+	DDPFUNC("+");
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -261,8 +261,7 @@ static int mtk_disp_merge_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
-
-	pr_info("%s-\n", __func__);
+	DDPFUNC("-");
 
 	return ret;
 }

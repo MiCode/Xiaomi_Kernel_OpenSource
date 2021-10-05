@@ -385,7 +385,7 @@ int mtkfb_set_aod_backlight_level(unsigned int level)
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
 	if (!crtc) {
-		pr_info("find crtc fail\n");
+		DDPPR_ERR("find crtc fail\n");
 		return -EINVAL;
 	}
 	ret = mtk_drm_aod_setbacklight(crtc, level);
@@ -1887,7 +1887,7 @@ static void process_dbg_opt(const char *opt)
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 					typeof(*crtc), head);
 		if (!crtc) {
-			pr_info("find crtc fail\n");
+			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
 
@@ -2071,7 +2071,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = sscanf(opt, "aod_bl:%u\n", &level);
 		if (ret != 1) {
-			pr_info("%d fail to parse cmd %s\n",
+			DDPPR_ERR("%d fail to parse cmd %s\n",
 				__LINE__, opt);
 			return;
 		}
@@ -2629,7 +2629,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = sscanf(opt, "esd_check:%u\n", &esd_check_en);
 		if (ret != 1) {
-			pr_info("%d error to parse cmd %s\n", __LINE__, opt);
+			DDPPR_ERR("%d error to parse cmd %s\n", __LINE__, opt);
 			return;
 		}
 
@@ -2637,7 +2637,7 @@ static void process_dbg_opt(const char *opt)
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 					typeof(*crtc), head);
 		if (!crtc) {
-			pr_info("find crtc fail\n");
+			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
 
@@ -2680,7 +2680,7 @@ static void process_dbg_opt(const char *opt)
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 					typeof(*crtc), head);
 		if (!crtc) {
-			pr_info("find crtc fail\n");
+			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
 		if (strncmp(opt + 8, "1", 1) == 0) {
@@ -3227,54 +3227,54 @@ void disp_dbg_probe(void)
 				   NULL,
 				   &debug_proc_fops);
 	if (!mtkfb_procfs) {
-		pr_info("[%s %d]failed to create mtkfb in /proc/disp_ddp\n",
+		DDPPR_ERR("[%s %d]failed to create mtkfb in /proc/disp_ddp\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
 	disp_lowpower_proc = proc_mkdir("displowpower", NULL);
 	if (!disp_lowpower_proc) {
-		pr_info("[%s %d]failed to create dir: /proc/displowpower\n",
+		DDPPR_ERR("[%s %d]failed to create dir: /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
 	if (!proc_create("idletime", S_IFREG | 0444,
 			 disp_lowpower_proc, &idletime_proc_fops)) {
-		pr_info("[%s %d]failed to create idletime in /proc/displowpower\n",
+		DDPPR_ERR("[%s %d]failed to create idletime in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
 	if (!proc_create("idlevfp", S_IFREG | 0444,
 		disp_lowpower_proc, &idlevfp_proc_fops)) {
-		pr_info("[%s %d]failed to create idlevfp in /proc/displowpower\n",
+		DDPPR_ERR("[%s %d]failed to create idlevfp in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
 	mtkfb_debug_procfs = proc_mkdir("mtkfb_debug", NULL);
 	if (!mtkfb_debug_procfs) {
-		pr_info("[%s %d]failed to create dir: /proc/mtkfb_debug\n",
+		DDPPR_ERR("[%s %d]failed to create dir: /proc/mtkfb_debug\n",
 			__func__, __LINE__);
 		goto out;
 	}
 	if (!proc_create("disp_met", S_IFREG | 0444,
 		mtkfb_debug_procfs, &disp_met_proc_fops)) {
-		pr_info("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_met\n",
+		DDPPR_ERR("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_met\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
 	if (!proc_create("disp_lfr_dbg", S_IFREG | 0444,
 		mtkfb_debug_procfs, &disp_lfr_dbg_proc_fops)) {
-		pr_info("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_lfr_dbg\n",
+		DDPPR_ERR("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_lfr_dbg\n",
 			__func__, __LINE__);
 		goto out;
 	}
 	if (!proc_create("disp_lfr_params", S_IFREG | 0444,
 		mtkfb_debug_procfs, &disp_lfr_params_proc_fops)) {
-		pr_info("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_lfr_params\n",
+		DDPPR_ERR("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_lfr_params\n",
 			__func__, __LINE__);
 		goto out;
 	}

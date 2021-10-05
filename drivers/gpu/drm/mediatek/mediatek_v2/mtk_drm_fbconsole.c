@@ -10,6 +10,7 @@
 #include <linux/font.h>
 
 #include "mtk_drm_fbconsole.h"
+#include "mtk_log.h"
 
 /* ------------------------------------------------------------------------- */
 
@@ -79,11 +80,11 @@ static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 	int font_draw_table16[4];
 
 	if (x > (MFC_WIDTH - MFC_FONT_WIDTH)) {
-		pr_info("draw width too large,x=%d\n", x);
+		DDPPR_ERR("draw width too large,x=%d\n", x);
 		return;
 	}
 	if (y > (MFC_HEIGHT - MFC_FONT_HEIGHT)) {
-		pr_info("draw hight too large,y=%d\n", y);
+		DDPPR_ERR("draw hight too large,y=%d\n", y);
 		return;
 	}
 
@@ -157,7 +158,7 @@ static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 		}
 		break;
 	default:
-		pr_info("draw char fail,MFC_BPP=%d\n", MFC_BPP);
+		DDPPR_ERR("draw char fail,MFC_BPP=%d\n", MFC_BPP);
 		break;
 	}
 }
@@ -359,7 +360,7 @@ enum MFC_STATUS MFC_SetWH(MFC_HANDLE handle, unsigned int fb_width,
 		return MFC_STATUS_INVALID_ARGUMENT;
 
 	if (down_interruptible(&ctxt->sem)) {
-		pr_info("[MFC] ERROR: Can't get semaphore in %s()\n", __func__);
+		DDPPR_ERR("[MFC] ERROR: Can't get semaphore in %s()\n", __func__);
 		return MFC_STATUS_LOCK_FAIL;
 	}
 

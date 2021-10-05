@@ -11256,7 +11256,7 @@ mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id)
 		data = &mt6855_mmsys_reg_data;
 		break;
 	default:
-		pr_info("mtk drm not support mmsys id %d\n", mmsys_id);
+		DDPPR_ERR("mtk drm not support mmsys id %d\n", mmsys_id);
 		break;
 	}
 	return data;
@@ -13931,12 +13931,12 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		if (!of_find_property(dev->of_node, "clocks", &i))
-			pr_info("mediatek-drm %s: has no clocks, set freerun\n",
+			DDPPR_ERR("mediatek-drm %s: has no clocks, set freerun\n",
 				dev_name(dev));
 		else {
 			ddp->clk = devm_clk_get(dev, NULL);
 			if (IS_ERR(ddp->clk)) {
-				pr_info("Failed to get Mutex clock\n");
+				DDPPR_ERR("Failed to get Mutex clock\n");
 				return PTR_ERR(ddp->clk);
 			}
 		}
@@ -13972,7 +13972,7 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 	}
 	ddp->side_clk = of_clk_get(dev->of_node, 1);
 	if (IS_ERR(ddp->side_clk))
-		pr_info("Failed to get Mutex1 clock\n");
+		DDPPR_ERR("Failed to get Mutex1 clock\n");
 
 SKIP_SIDE_DISP:
 

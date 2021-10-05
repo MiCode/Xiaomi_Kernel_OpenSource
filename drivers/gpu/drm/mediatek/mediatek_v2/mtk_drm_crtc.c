@@ -290,7 +290,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		mutex_dump_reg_mt6879(mtk_crtc->mutex[0]);
 		break;
 	default:
-		pr_info("%s mtk drm not support mmsys id %d\n",
+		DDPPR_ERR("%s mtk drm not support mmsys id %d\n",
 			__func__, priv->data->mmsys_id);
 		break;
 	}
@@ -453,7 +453,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		mutex_dump_analysis_mt6855(mtk_crtc->mutex[0]);
 		break;
 	default:
-		pr_info("%s mtk drm not support mmsys id %d\n",
+		DDPPR_ERR("%s mtk drm not support mmsys id %d\n",
 			__func__, priv->data->mmsys_id);
 		break;
 	}
@@ -3047,7 +3047,7 @@ bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc)
 	if (comp->id == DDP_COMPONENT_DP_INTF0 ||
 		comp->id == DDP_COMPONENT_DPI0 ||
 		comp->id == DDP_COMPONENT_DPI1) {
-		pr_info("%s(%d-%d) is vdo mode\n", __func__,
+		DDPPR_ERR("%s(%d-%d) is vdo mode\n", __func__,
 			comp->id, DDP_COMPONENT_DPI0);
 		return false;
 	}
@@ -3719,7 +3719,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 			if (is_vfp_period == 0) {
 				CRTC_MMP_MARK(id, not_vfp_period, 1, 0);
-				pr_info("[Msync]not vfp period\n");
+				DDPMSG("[Msync]not vfp period\n");
 			} else
 				CRTC_MMP_MARK(id, vfp_period, 1, 0);
 
@@ -7849,7 +7849,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		DDPDBG("[Msync]cmdq pkt size = %d\n", cmdq_handle->cmd_buf_size);
 		if (cmdq_handle->cmd_buf_size >= 4096) {
 			/*ToDo: if larger than 4096 need consider change pages*/
-			pr_info("[Msync]cmdq pkt size = %d\n", cmdq_handle->cmd_buf_size);
+			DDPPR_ERR("[Msync]cmdq pkt size = %d\n", cmdq_handle->cmd_buf_size);
 		}
 	}
 
@@ -7885,7 +7885,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 		msync_cb_data = kmalloc(sizeof(*msync_cb_data), GFP_KERNEL);
 		if (!msync_cb_data) {
-			pr_info("cb data creation failed\n");
+			DDPPR_ERR("cb data creation failed\n");
 			CRTC_MMP_MARK(index, atomic_flush, 1, 1);
 			goto end;
 		}
@@ -7928,7 +7928,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		msync_cb_data->cmdq_handle = cmdq_handle;
 		if (cmdq_pkt_flush_threaded(cmdq_handle,
 			msync_cmdq_cb, msync_cb_data) < 0)
-			pr_info("failed to flush msync_cmdq_cb\n");
+			DDPPR_ERR("failed to flush msync_cmdq_cb\n");
 	}
 
 	/* When open VDS path switch feature, After VDS created

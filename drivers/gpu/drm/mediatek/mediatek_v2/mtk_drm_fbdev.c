@@ -143,7 +143,7 @@ static int mtk_drm_fb_pan_display(struct fb_var_screeninfo *var,
 void disp_get_fb_address(unsigned long *fbVirAddr)
 {
 	*fbVirAddr = (unsigned long)debug_info->screen_base;
-	pr_info(
+	DDPMSG(
 		  "%s fbdev->fb_va_base = 0x%p\n",
 		  __func__, debug_info->screen_base);
 }
@@ -171,7 +171,7 @@ int pan_display_test(int frame_num, int bpp)
 	h = debug_info->var.yres;
 	fb_h = fb_size / (ALIGN_TO(w, 32) * Bpp) - 10;
 
-	pr_info("%s: frame_num=%d,bpp=%d, w=%d,h=%d,fb_h=%d\n",
+	DDPMSG("%s: frame_num=%d,bpp=%d, w=%d,h=%d,fb_h=%d\n",
 		__func__, frame_num, bpp, w, h, fb_h);
 
 	for (i = 0; i < fb_h; i++)

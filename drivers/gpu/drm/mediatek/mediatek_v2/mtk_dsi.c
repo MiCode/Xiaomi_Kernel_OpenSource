@@ -5805,7 +5805,7 @@ static irqreturn_t dsi_te1_irq_handler(int irq, void *data)
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp == NULL) {
-		pr_info("%s: null pointer\n", __func__);
+		DDPPR_ERR("%s: null pointer\n", __func__);
 		return IRQ_NONE;
 	}
 	dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
@@ -5860,7 +5860,7 @@ static void dual_te_init(struct drm_crtc *crtc)
 	node = of_find_compatible_node(NULL, NULL,
 			"mediatek, DSI1_TE-int");
 	if (unlikely(!node)) {
-		pr_info("can't find DSI1 TE int compatible node\n");
+		DDPPR_ERR("can't find DSI1 TE int compatible node\n");
 		return;
 	}
 
@@ -5868,7 +5868,7 @@ static void dual_te_init(struct drm_crtc *crtc)
 	ret = request_irq(d_te->te1, dsi_te1_irq_handler,
 			IRQF_TRIGGER_RISING, "DSI1_TE", mtk_crtc);
 	if (ret) {
-		pr_info("request irq failed!\n");
+		DDPPR_ERR("request irq failed!\n");
 		return;
 	}
 	disable_irq(d_te->te1);
@@ -6981,12 +6981,12 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 			phy_power_on(dsi->phy);
 			ret = clk_prepare_enable(dsi->engine_clk);
 			if (ret < 0)
-				pr_info("%s Failed to enable engine clock: %d\n",
+				DDPPR_ERR("%s Failed to enable engine clock: %d\n",
 					__func__, ret);
 
 			ret = clk_prepare_enable(dsi->digital_clk);
 			if (ret < 0)
-				pr_info("%s Failed to enable digital clock: %d\n",
+				DDPPR_ERR("%s Failed to enable digital clock: %d\n",
 					__func__, ret);
 		}
 		dsi->output_en = true;

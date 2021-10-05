@@ -495,7 +495,7 @@ static int mtk_disp_rsz_bind(struct device *dev, struct device *master,
 	struct mtk_drm_private *private = drm_dev->dev_private;
 	int ret;
 
-	pr_info("%s\n", __func__);
+	DDPFUNC();
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
 		dev_err(dev, "Failed to register component %s: %d\n",
