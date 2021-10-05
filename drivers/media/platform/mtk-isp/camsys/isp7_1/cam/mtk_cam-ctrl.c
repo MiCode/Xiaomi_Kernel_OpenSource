@@ -2088,7 +2088,8 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 
 static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 				       struct mtk_cam_ctx *ctx,
-				       unsigned int dequeued_frame_seq_no)
+				       unsigned int dequeued_frame_seq_no,
+				       u64 ts_ns)
 {
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
@@ -2188,17 +2189,17 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
 	}
 	if (ctx->used_sv_num && is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx, ktime_get_boottime_ns()) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, ts_ns) == 0)
 			dev_info(raw_dev->dev, "sv apply next buffer failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx, ktime_get_boottime_ns()) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, ts_ns) == 0)
 			dev_info(raw_dev->dev, "mraw apply next buffer failed");
 	}
 }
 
 int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
-			struct mtk_cam_ctx *ctx, int deque_frame_no)
+			struct mtk_cam_ctx *ctx, int deque_frame_no, u64 ts_ns)
 {
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *state_temp;
@@ -2235,7 +2236,7 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 	/*1-exp - as normal mode*/
 	if (!raw_dev->stagger_en && !state_switch) {
-		mtk_camsys_raw_frame_start(raw_dev, ctx, deque_frame_no);
+		mtk_camsys_raw_frame_start(raw_dev, ctx, deque_frame_no, ts_ns);
 		return 0;
 	}
 	/*HDR to Normal cam mux switch case timing will be at last sof*/
@@ -3260,7 +3261,7 @@ static int mtk_camsys_camsv_state_handle(
 }
 
 static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
-	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no)
+	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no, u64 ts_ns)
 {
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
@@ -3303,7 +3304,7 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
 		ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
 		if (mtk_cam_sv_apply_next_buffer(ctx,
-			camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, ktime_get_boottime_ns())) {
+			camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, ts_ns)) {
 			/* Transit state from Sensor -> Outer */
 			if (ctx->sensor)
 				state_transition(current_state, E_STATE_SENSOR, E_STATE_OUTER);
@@ -3312,12 +3313,12 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 		}
 	} else {
 		mtk_cam_sv_apply_next_buffer(ctx,
-			camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, ktime_get_boottime_ns());
+			camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, ts_ns);
 	}
 }
 
 static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
-	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no)
+	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no, u64 ts_ns)
 {
 	int mraw_dev_index;
 
@@ -3330,7 +3331,7 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	ctx->mraw_dequeued_frame_seq_no[mraw_dev_index] = dequeued_frame_seq_no;
 
 	mtk_cam_mraw_apply_next_buffer(ctx,
-		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, ktime_get_boottime_ns());
+		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, ts_ns);
 }
 
 static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
@@ -3422,10 +3423,10 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 		if (mtk_cam_is_stagger(ctx)) {
 			dev_dbg(raw_dev->dev, "[stagger] last frame_start\n");
 			mtk_cam_hdr_last_frame_start(raw_dev, ctx,
-						     irq_info->frame_idx_inner);
+				irq_info->frame_idx_inner, irq_info->ts_ns);
 		} else {
 			mtk_camsys_raw_frame_start(raw_dev, ctx,
-						   irq_info->frame_idx_inner);
+				irq_info->frame_idx_inner, irq_info->ts_ns);
 		}
 	}
 
@@ -3464,7 +3465,7 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 	/* mraw's SOF */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
 		mtk_camsys_mraw_frame_start(mraw_dev, ctx,
-					    irq_info->frame_idx_inner);
+			irq_info->frame_idx_inner, irq_info->ts_ns);
 	/* mraw's CQ done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 		if (mtk_camsys_is_all_cq_done(ctx, stream_id)) {
@@ -3510,10 +3511,10 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 
 			if (camsv_dev->pipeline->exp_order == 0)
 				mtk_camsys_raw_frame_start(raw_dev, ctx,
-							   irq_info->frame_idx_inner);
+					irq_info->frame_idx_inner, irq_info->ts_ns);
 			else if (camsv_dev->pipeline->exp_order == 2)
 				mtk_cam_hdr_last_frame_start(raw_dev, ctx,
-							     irq_info->frame_idx_inner);
+					irq_info->frame_idx_inner, irq_info->ts_ns);
 		}
 		// time sharing - camsv write DRAM mode
 		if (camsv_dev->pipeline->hw_scen &
@@ -3548,7 +3549,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		/* camsv's SOF */
 		if (irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_START))
 			mtk_camsys_camsv_frame_start(camsv_dev, ctx,
-						     irq_info->frame_idx_inner);
+				irq_info->frame_idx_inner, irq_info->ts_ns);
 	}
 
 	return 0;

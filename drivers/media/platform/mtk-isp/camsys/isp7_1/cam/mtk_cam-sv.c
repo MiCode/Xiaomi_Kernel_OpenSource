@@ -1355,7 +1355,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 {
 	unsigned int seq_no;
 	dma_addr_t base_addr;
-	struct mtk_camsv_working_buf_entry *buf_entry;
+	struct mtk_camsv_working_buf_entry *buf_entry, *buf_entry_prev;
 	struct mtk_camsv_device *camsv_dev;
 	int i;
 
@@ -1367,14 +1367,20 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 			spin_unlock(&ctx->sv_using_buffer_list[i].lock);
 			return 0;
 		}
+		list_for_each_entry_safe(buf_entry, buf_entry_prev,
+			&ctx->sv_using_buffer_list[i].list, list_entry) {
+			if (buf_entry->ts_raw == 0) {
+				buf_entry->ts_raw = ts_ns;
+				break;
+			}
+		}
 		buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
 				struct mtk_camsv_working_buf_entry, list_entry);
-		buf_entry->ts_raw = ts_ns;
 		if (mtk_cam_sv_is_vf_on(camsv_dev) &&
 			(ctx->used_raw_num != 0)) {
 			if ((buf_entry->ts_sv == 0) ||
 				((buf_entry->ts_sv < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_sv) > 5000000))) {
+				((buf_entry->ts_raw - buf_entry->ts_sv) > 3000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
 					__func__, ctx->sv_pipe[i]->id,
 					buf_entry->ts_raw, buf_entry->ts_sv);
@@ -1441,7 +1447,7 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx,
 			buf_entry->ts_sv = ts_ns;
 			if (((buf_entry->ts_raw == 0) && (ctx->used_raw_num != 0)) ||
 				((buf_entry->ts_sv < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_sv) > 5000000))) {
+				((buf_entry->ts_raw - buf_entry->ts_sv) > 3000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
 					__func__, ctx->sv_pipe[i]->id,
 					buf_entry->ts_raw, buf_entry->ts_sv);

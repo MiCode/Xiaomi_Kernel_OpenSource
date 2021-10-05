@@ -955,7 +955,7 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 
 int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 {
-	struct mtk_mraw_working_buf_entry *buf_entry;
+	struct mtk_mraw_working_buf_entry *buf_entry, *buf_entry_prev;
 	struct mtk_mraw_device *mraw_dev;
 	int i;
 
@@ -967,14 +967,20 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 			spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
 			return 0;
 		}
+		list_for_each_entry_safe(buf_entry, buf_entry_prev,
+			&ctx->mraw_composed_buffer_list[i].list, list_entry) {
+			if (buf_entry->ts_raw == 0) {
+				buf_entry->ts_raw = ts_ns;
+				break;
+			}
+		}
 		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
 							struct mtk_mraw_working_buf_entry,
 							list_entry);
-		buf_entry->ts_raw = ts_ns;
 		if (mtk_cam_mraw_is_vf_on(mraw_dev)) {
 			if ((buf_entry->ts_mraw == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_mraw) > 5000000))) {
+				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld",
 					__func__, ctx->mraw_pipe[i]->id,
 					buf_entry->ts_raw, buf_entry->ts_mraw);
@@ -1025,7 +1031,7 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 			buf_entry->ts_mraw = ts_ns;
 			if ((buf_entry->ts_raw == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_mraw) > 5000000))) {
+				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld",
 					__func__, ctx->mraw_pipe[i]->id,
 					buf_entry->ts_raw, buf_entry->ts_mraw);
@@ -1051,7 +1057,6 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 			} else {
 				mtk_cam_mraw_vf_on(mraw_dev, 0);
 			}
-
 			break;
 		}
 	}
