@@ -1135,7 +1135,7 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		submit_kernel->update = false;
 		submit_kernel->info.mode = MML_MODE_RACING;
 
-		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
+		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, &(mtk_crtc->base));
 		submit_pq = mtk_alloc_mml_submit();
 
 		{
@@ -1228,7 +1228,7 @@ static void mtk_atomic_mml(struct drm_device *dev,
 		if (mtk_crtc->last_is_mml) {
 			struct mml_drm_ctx *mml_ctx = NULL;
 
-			mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
+			mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 			mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
 		}
 	}
@@ -4116,7 +4116,8 @@ void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para)
 	DDPINFO("%s 3\n", __func__);
 }
 
-struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev)
+struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
+	struct drm_crtc *crtc)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct platform_device *plat_dev = NULL;
@@ -4142,7 +4143,7 @@ struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev)
 
 	disp_param.dual = false;
 	disp_param.racing_height = 64;
-	disp_param.vdo_mode = true;
+	disp_param.vdo_mode =  (!mtk_crtc_is_frame_trigger_mode(crtc));
 	disp_param.submit_cb = mtk_drm_mmlsys_submit_done_cb;
 
 	mml_ctx = mml_drm_get_context(mml_pdev, &disp_param);

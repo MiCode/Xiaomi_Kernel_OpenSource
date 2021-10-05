@@ -740,6 +740,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mml_submit* submit_kernel;
+	struct drm_crtc *crtc;
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY)) {
 		return -EINVAL;
@@ -768,7 +769,9 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		}
 	}
 
-	mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
+	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
+		typeof(*crtc), head);
+	mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 
 	if (g_mml_debug) {
 		DDPINFO("%s:%d\n", __func__, __LINE__);

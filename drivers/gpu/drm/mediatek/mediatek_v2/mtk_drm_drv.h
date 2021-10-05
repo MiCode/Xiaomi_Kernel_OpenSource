@@ -280,7 +280,8 @@ int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 bool mtk_drm_lcm_is_connect(void);
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 	unsigned int *fps);
-struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev);
+struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
+	struct drm_crtc *crtc);
 void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para);
 void **mtk_aod_scp_ipi_init(void);
 

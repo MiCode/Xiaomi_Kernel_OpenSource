@@ -5204,7 +5204,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 
 	/* stop the last mml pkt */
 	if (mtk_crtc->mml_cfg) {
-		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
+		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
 	}
 
@@ -6125,7 +6125,7 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 			mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode,
 				DDP_COMPONENT_OVL0_2L));
 
-		mml_ctx = mtk_drm_get_mml_drm_ctx(dev);
+		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
 	}
 }

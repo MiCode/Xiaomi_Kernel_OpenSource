@@ -1545,6 +1545,8 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
 				0x000F0000, GENMASK(19, 16));
+
+			write_phy_layer_addr_cmdq(comp, handle, lye_idx, sram_addr);
 		} else {
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
 		}

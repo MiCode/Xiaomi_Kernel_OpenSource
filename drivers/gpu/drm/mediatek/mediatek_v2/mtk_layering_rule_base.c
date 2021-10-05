@@ -2601,7 +2601,7 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 				print_mml_frame_info(*mml_info);
 				DDPINFO("%s:%d\n", __func__, __LINE__);
 			}
-			mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev), mml_info);
+			mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev, crtc), mml_info);
 			DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
 		} else
 			DDPMSG("%s, mml_info is null\n", __func__);
