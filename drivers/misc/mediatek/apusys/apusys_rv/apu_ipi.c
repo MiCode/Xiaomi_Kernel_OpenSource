@@ -334,8 +334,9 @@ out:
 	ts = timespec64_sub(te, ts);
 
 	dev_info(dev,
-		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld\n",
+		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, latency=%lld, elapse=%lld\n",
 		 __func__, id, len, apu->hdr.csum, apu->hdr.serial_no,
+		 timespec64_to_ns(&tl),
 		 timespec64_to_ns(&ts));
 
 	return IRQ_HANDLED;
