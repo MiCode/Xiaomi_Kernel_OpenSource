@@ -612,10 +612,11 @@
 #define CLK_VDE1_LAT_CKEN				1
 #define CLK_VDE1_LAT_ACTIVE				2
 #define CLK_VDE1_LAT_CKEN_ENG				3
-#define CLK_VDE1_VDEC_CKEN				4
-#define CLK_VDE1_VDEC_ACTIVE				5
-#define CLK_VDE1_VDEC_CKEN_ENG				6
-#define CLK_VDE1_NR_CLK					7
+#define CLK_VDE1_MINI_MDP_CKEN_CFG_RG			4
+#define CLK_VDE1_VDEC_CKEN				5
+#define CLK_VDE1_VDEC_ACTIVE				6
+#define CLK_VDE1_VDEC_CKEN_ENG				7
+#define CLK_VDE1_NR_CLK					8
 
 /* VDEC_GCON_BASE */
 #define CLK_VDE2_LARB1_CKEN				0
