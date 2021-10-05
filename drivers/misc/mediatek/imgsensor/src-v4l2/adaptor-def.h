@@ -4,8 +4,8 @@
 #ifndef __ADAPTOR_DEF_H__
 #define __ADAPTOR_DEF_H__
 
-#define MODE_MAXCNT 16
-#define OF_SENSOR_NAMES_MAXCNT 16
+#define MODE_MAXCNT 20
+#define OF_SENSOR_NAMES_MAXCNT 20
 //#define POWERON_ONCE_OPENED
 #define IMGSENSOR_DEBUG
 #define OF_SENSOR_NAME_PREFIX "sensor"
@@ -103,7 +103,7 @@ enum {
 	((code) & 0xFFFF)
 
 #define to_mtk_ext_fmt_code(stdcode, mode) \
-	(0x10000000 | (((mode) & 0xF) << 16) | to_std_fmt_code(stdcode))
+	(0x10000000 | (((mode) & 0xFF) << 16) | to_std_fmt_code(stdcode))
 
 #define set_std_parts_fmt_code(code, stdcode) \
 { \
@@ -116,7 +116,7 @@ enum {
 #define get_sensor_mode_from_fmt_code(code) \
 ({ \
 	int __val = 0; \
-	__val = ((code) >> 16) & 0xF; \
+	__val = ((code) >> 16) & 0xFF; \
 	__val; \
 })
 
