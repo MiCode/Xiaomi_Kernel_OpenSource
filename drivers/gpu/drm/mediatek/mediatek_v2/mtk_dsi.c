@@ -1812,6 +1812,10 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		goto out;
 	}
 
+	mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	if ((status & 0xffde) & FRAME_DONE_INT_FLAG)
+		mtk_crtc->eof_time = irq_time;
+
 	DRM_MMP_MARK(IRQ, irq, status);
 
 	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
@@ -1826,7 +1830,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	 * Read LCM will clear the bit.
 	 */
 	/* do not clear vm command done */
-	mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	status &= 0xffde;
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
@@ -1926,8 +1929,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 				mtk_crtc && mtk_crtc->vblank_en)
 				mtk_crtc_vblank_irq(&mtk_crtc->base);
-
-			mtk_crtc->eof_time = irq_time;
 		}
 	}
 
