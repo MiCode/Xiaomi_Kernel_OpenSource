@@ -264,7 +264,10 @@ enum mtk_cam_request_state {
  * @list: List entry of the object for @struct mtk_cam_device:
  *        pending_job_list or running_job_list.
  * @mtk_cam_request_stream_data: stream context related to the request
- *
+ * @fs_op_lock: protect frame sync state variables
+ * @fs_state: the number of ctx in a request
+ * @fs_on_cnt: the count of frame sync on called by ctx
+ * @fs_off_cnt: the count of frame sync off called by ctx
  */
 struct mtk_cam_request {
 	struct media_request req;
@@ -275,7 +278,9 @@ struct mtk_cam_request {
 	unsigned int done_status;
 	spinlock_t done_status_lock;
 	atomic_t state;
-	unsigned int fs_on_cnt; /*0:init X:sensor_fs_on*/
+	unsigned int fs_state;
+	unsigned int fs_on_cnt;
+	unsigned int fs_off_cnt;
 	struct mutex fs_op_lock;
 	struct list_head list;
 	struct work_struct link_work;

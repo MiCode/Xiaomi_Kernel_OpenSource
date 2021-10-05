@@ -1640,6 +1640,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 	struct mtk_cam_request_stream_data *req_stream_data, *req_stream_data_mstream;
 	const struct v4l2_format *cfg_fmt;
 	struct v4l2_selection *cfg_selection;
+	int i, cnt, ctx_used;
 
 	dev_dbg(cam->dev, "update request:%s\n", req->req.debug_str);
 
@@ -1763,6 +1764,17 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			break;
 		}
 	}
+	/* frame sync */
+	cnt = 0;
+	ctx_used = req->ctx_used;
+	for (i = 0; i < cam->max_stream_num; i++) {
+		cnt += ctx_used % 2;
+		ctx_used = ctx_used >> 1;
+		if (!ctx_used)
+			break;
+	}
+	req->fs_state = cnt > 1 ? cnt : 0;
+
 	if (mtk_cam_is_stagger(ctx))
 		check_stagger_buffer(cam, req);
 	if (mtk_cam_is_time_shared(ctx))
@@ -2281,6 +2293,7 @@ static void mtk_cam_req_queue(struct media_request *req)
 	cam_req->done_status = 0;
 	cam_req->pipe_used = mtk_cam_req_get_pipe_used(req);
 	cam_req->fs_on_cnt = 0;
+	cam_req->fs_off_cnt = 0;
 	cam_req->flags = 0;
 	cam_req->ctx_used = 0;
 

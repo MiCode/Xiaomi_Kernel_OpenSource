@@ -141,6 +141,7 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_ctx *sync_ctx[MTKCAM_SUBDEV_MAX];
 	int i, ctx_cnt = 0;
+	bool ret = false;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (!(1 << i & req->ctx_used))
@@ -168,10 +169,12 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 
 	mutex_lock(&req->fs_op_lock);
 	if (ctx_cnt > 1) {
+		dev_dbg(cam->dev, "%s:%s:state/on/off(%d/%d/%d)\n",
+			__func__, req->req.debug_str, req->fs_state,
+			req->fs_on_cnt, req->fs_off_cnt);
 		if (req->fs_on_cnt) { /* not first time */
 			req->fs_on_cnt++;
-			mutex_unlock(&req->fs_op_lock);
-			return false;
+			goto EXIT;
 		}
 		req->fs_on_cnt++;
 		for (i = 0; i < ctx_cnt; i++) {
@@ -187,18 +190,14 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 				if (ctrl) {
 					v4l2_ctrl_s_ctrl(ctrl, 1);
 					ctx->synced = 1;
-					dev_dbg(cam->dev,
+					dev_info(cam->dev,
 						 "%s: ctx(%d): apply V4L2_CID_FRAME_SYNC(1)\n",
 						 __func__, ctx->stream_id);
 				} else {
-					dev_dbg(cam->dev,
+					dev_info(cam->dev,
 						 "%s: ctx(%d): failed to find V4L2_CID_FRAME_SYNC\n",
 						 __func__, ctx->stream_id);
 				}
-			} else {
-				dev_dbg(cam->dev,
-					"%s: ctx(%d): skip V4L2_CID_FRAME_SYNC (already applied)\n",
-					__func__, ctx->stream_id);
 			}
 		}
 
@@ -207,8 +206,8 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 
 		fs_sync_frame(1);
 
-		mutex_unlock(&req->fs_op_lock);
-		return true;
+		ret = true;
+		goto EXIT;
 	} else if (ctx_cnt == 1) { /* single sensor case */
 		ctx = sync_ctx[0];
 		if (ctx->synced) {
@@ -219,20 +218,20 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 			if (ctrl) {
 				v4l2_ctrl_s_ctrl(ctrl, 0);
 				ctx->synced = 0;
-				dev_dbg(cam->dev,
+				dev_info(cam->dev,
 					 "%s: ctx(%d): apply V4L2_CID_FRAME_SYNC(0)\n",
 					 __func__, ctx->stream_id);
 			} else {
-				dev_dbg(cam->dev,
+				dev_info(cam->dev,
 					 "%s: ctx(%d): failed to find V4L2_CID_FRAME_SYNC\n",
 					 __func__, ctx->stream_id);
 			}
 		}
-		mutex_unlock(&req->fs_op_lock);
-		return false;
+		goto EXIT;
 	}
+EXIT:
 	mutex_unlock(&req->fs_op_lock);
-	return false;
+	return ret;
 }
 
 static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
@@ -242,6 +241,10 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
 	struct mtk_cam_ctx *ctx;
 	int i, ctx_cnt = 0;
+	bool ret = false;
+
+	if (!req->fs_state)
+		return false;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (!(1 << i & req->ctx_used))
@@ -268,10 +271,13 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 
 	mutex_lock(&req->fs_op_lock);
 	if (ctx_cnt > 1 && req->fs_on_cnt) { /* check fs on */
-		req->fs_on_cnt--;
-		if (req->fs_on_cnt) { /* not the last */
-			mutex_unlock(&req->fs_op_lock);
-			return false;
+		dev_dbg(cam->dev, "%s:%s:state/on/off(%d/%d/%d)\n",
+			__func__, req->req.debug_str, req->fs_state,
+			req->fs_on_cnt, req->fs_off_cnt);
+		req->fs_off_cnt++;
+		if (req->fs_on_cnt != req->fs_state ||
+		    req->fs_off_cnt != req->fs_state) { /* not the last */
+			goto EXIT;
 		}
 		dev_dbg(cam->dev,
 			 "%s:%s:fs_sync_frame(0): sync %d ctxs: 0x%x\n",
@@ -279,11 +285,12 @@ static bool mtk_cam_req_frame_sync_end(struct mtk_cam_request *req)
 
 		fs_sync_frame(0);
 
-		mutex_unlock(&req->fs_op_lock);
-		return true;
+		ret = true;
+		goto EXIT;
 	}
+EXIT:
 	mutex_unlock(&req->fs_op_lock);
-	return false;
+	return ret;
 }
 
 static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
@@ -1189,6 +1196,22 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 		}
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
+
+	/** Frame sync:
+	 * make sure the all ctxs of previous request are triggered
+	 */
+	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+						 sensor_seq_no_next - 1);
+	if (req_stream_data) {
+		req = mtk_cam_s_data_get_req(req_stream_data);
+		if (req->fs_state != req->fs_off_cnt) {
+			dev_info(ctx->cam->dev,
+				 "[TimerIRQ] ctx:%d the fs of req(%s) is not completed, state/on/off(%d/%d/%d)\n",
+				 ctx->stream_id, req->req.debug_str, req->fs_state,
+				 req->fs_on_cnt, req->fs_off_cnt);
+			return;
+		}
+	}
 
 	req_stream_data =  mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 	if (req_stream_data) {
