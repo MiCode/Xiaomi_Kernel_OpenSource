@@ -782,8 +782,15 @@ static int setup_events(void)
 				pr_err("event %d not set for cpu %d ret %d\n",
 					event->event_id, cpu, ret);
 				event->event_id = 0;
+				/*
+				 * Only return error for -EPROBE_DEFER. Clear
+				 * ret for all other cases as it is okay for
+				 * some events to fail.
+				 */
 				if (ret == -EPROBE_DEFER)
 					goto cleanup_events;
+				else
+					ret = 0;
 			}
 		}
 		spin_lock_irqsave(&cpu_data->read_lock, flags);
