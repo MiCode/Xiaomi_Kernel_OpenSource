@@ -586,6 +586,32 @@ lro_end:
 	return 0;
 }
 
+static void dpmaif_dump_rx_pit(struct hif_dpmaif_ctrl *hif_ctrl)
+{
+	int i;
+	struct dpmaif_rx_queue *rxq = NULL;
+
+	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
+		rxq = &hif_ctrl->rxq[i];
+
+		CCCI_BUF_LOG_TAG(hif_ctrl->md_id, CCCI_DUMP_DPMAIF, TAG,
+			"dpmaif: rxq%d, pit request base: 0x%p(%d*%d)\n",
+			rxq->index, rxq->pit_base,
+			(int)sizeof(struct dpmaifq_normal_pit),
+			rxq->pit_size_cnt);
+
+		CCCI_BUF_LOG_TAG(hif_ctrl->md_id, CCCI_DUMP_DPMAIF, TAG,
+			"Current rxq%d pit pos: w/r/rel=%x, %x, %x\n", i,
+			rxq->pit_wr_idx, rxq->pit_rd_idx,
+			rxq->pit_rel_rd_idx);
+
+		ccci_util_mem_dump(hif_ctrl->md_id,
+			CCCI_DUMP_DPMAIF, rxq->pit_base,
+			(rxq->pit_size_cnt *
+			sizeof(struct dpmaifq_normal_pit)));
+	}
+}
+
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
 	if (hif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
@@ -641,6 +667,8 @@ static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
 		hif_ctrl->dpmaif_pd_sram_base + 0x00,
 		0x184);
+
+	dpmaif_dump_rx_pit(hif_ctrl);
 }
 
 #if 0

@@ -275,6 +275,7 @@ static const struct proc_ops ccci_log_fops = {
 #define CCCI_REG_DUMP_BUF		(4096 * 128 * 2)
 #define CCCI_DUMP_MD_INIT_BUF		(1024 * 16)
 #define CCCI_KE_DUMP_BUF		(1024 * 32)
+#define CCCI_DPMAIF_DUMP_BUF		(1024 * 256 * 8)
 
 #define MD3_CCCI_INIT_SETTING_BUF	(64)
 #define MD3_CCCI_BOOT_UP_BUF		(64)
@@ -282,6 +283,7 @@ static const struct proc_ops ccci_log_fops = {
 #define MD3_CCCI_REPEAT_BUF		(64)
 #define MD3_CCCI_REG_DUMP_BUF		(64)
 #define MD3_CCCI_HISTORY_BUF		(64)
+#define MD3_CCCI_DPMAIF_DUMP_BUF	(64)
 
 struct ccci_dump_buffer {
 	void *buffer;
@@ -309,6 +311,7 @@ static struct ccci_dump_buffer reg_dump_ctlb[2];
 static struct ccci_dump_buffer history_ctlb[2];
 static struct ccci_dump_buffer ke_dump_ctlb[2];
 static struct ccci_dump_buffer md_init_buf[2];
+static struct ccci_dump_buffer dpmaif_dump_buf[2];
 
 static int buff_bind_md_id[5];
 static int md_id_bind_buf_id[5];
@@ -358,7 +361,9 @@ static struct buffer_node node_array[2][CCCI_DUMP_MAX+1] = {
 		{&ke_dump_ctlb[0], CCCI_KE_DUMP_BUF,
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
 		{&md_init_buf[0], CCCI_DUMP_MD_INIT_BUF,
-                CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
+		CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
+		{&dpmaif_dump_buf[0], CCCI_DPMAIF_DUMP_BUF,
+		CCCI_DUMP_ATTR_RING, CCCI_DUMP_DPMAIF},
 	},
 	{
 		{&init_setting_ctlb[1], MD3_CCCI_INIT_SETTING_BUF,
@@ -376,7 +381,9 @@ static struct buffer_node node_array[2][CCCI_DUMP_MAX+1] = {
 		{&ke_dump_ctlb[1], 1*1024,
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
 		{&md_init_buf[1], 64,
-                CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
+		CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
+		{&dpmaif_dump_buf[1], MD3_CCCI_DPMAIF_DUMP_BUF,
+		CCCI_DUMP_ATTR_RING, CCCI_DUMP_DPMAIF},
 	}
 };
 
@@ -594,6 +601,9 @@ static void format_separate_str(char str[], int type)
 		break;
 	case CCCI_DUMP_MD_INIT:
 		sep_str = "[0]CCCI MD INIT REGION";
+		break;
+	case CCCI_DUMP_DPMAIF:
+		sep_str = "[0]CCCI DPMAIF REGION";
 		break;
 	default:
 		sep_str = "[0]Unsupport REGION";
@@ -941,6 +951,8 @@ int get_dump_buf_usage(char buf[], int size)
 					history_ctlb[i].max_num);
 		ret += scnprintf(&buf[ret], size - ret, "  register:%d\n",
 					ke_dump_ctlb[i].max_num);
+		ret += scnprintf(&buf[ret], size - ret, "  dpmaif:%d\n",
+					dpmaif_dump_buf[i].max_num);
 	}
 
 	return ret;
