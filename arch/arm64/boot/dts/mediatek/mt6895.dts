@@ -2863,6 +2863,11 @@
 			reg = <0 0x13f90000 0 0x10000>;
 		};
 
+		gpu_eb_rpc_bus_clk: syscon@13f91000 {
+			compatible = "mediatek,mt6895-gpu_eb_rpc_bus", "syscon";
+			reg = <0 0x13f91000 0 0x1000>;
+		};
+
 		g3d_config@13fa0000 {
 			compatible = "mediatek,g3d_config";
 			reg = <0 0x13fa0000 0 0x400>;
@@ -3121,6 +3126,7 @@
 				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON>,
 				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2SYS_GALS_CON>,
+				<&mminfra_config_clk CLK_MMINFRA_SMI>,
 				<&mmsys0_config_clk CLK_MM0_SMI_COMMON>,
 				<&mmsys1_config_clk CLK_MM1_SMI_COMMON>,
 				<&mdpsys_config_clk CLK_MDP_SMI0>,
@@ -3133,11 +3139,12 @@
 				"disp", "disp1", "mdp", "mdp1", "mm_infra", "mmup",
 				"isp", "ipe", "vde", "ven",
 				"cam-0", "cam-1", "cam_lp-0", "cam_lp-1",
-				"cam_lp-2", "disp-0", "disp1-0",
+				"cam_lp-2", "mm_infra_lp-0", "disp-0", "disp1-0",
 				"mdp-0", "mdp1-0", "isp-0", "isp-1",
 				"vde0-0", "vde1-0";
 			infracfg = <&infracfg_ao_clk>;
 			vlpcfg = <&vlpcfg_bus_clk>;
+			mfgrpc = <&gpu_eb_rpc_bus_clk>;
 		};
 
 		vlpcfg_bus_clk: syscon@1c00c000 {
