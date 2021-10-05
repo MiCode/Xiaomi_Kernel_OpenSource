@@ -10,9 +10,7 @@
 
 #include "apu_ipi.h"
 #include "apu_config.h"
-#include "apu_regdump.h"
 #include "apu_mbox.h"
-
 
 struct mtk_apu;
 
@@ -33,15 +31,6 @@ struct mtk_apu_hw_ops {
 	int (*power_off)(struct mtk_apu *apu);
 };
 
-struct apu_regdump_region {
-	const struct regdump_region_info *region_info;
-	uint32_t region_num;
-};
-
-struct mtk_apu_hw_configs {
-	struct apu_regdump_region apu_regdump;
-};
-
 #define F_PRELOAD_FIRMWARE	BIT(0)
 #define F_AUTO_BOOT		BIT(1)
 #define F_BYPASS_IOMMU		BIT(2)
@@ -52,7 +41,6 @@ struct mtk_apu_hw_configs {
 struct mtk_apu_platdata {
 	uint32_t flags;
 	struct mtk_apu_hw_ops ops;
-	struct mtk_apu_hw_configs configs;
 };
 
 struct apusys_secure_info_t {

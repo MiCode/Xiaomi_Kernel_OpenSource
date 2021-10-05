@@ -6,10 +6,19 @@
 #ifndef APU_REGDUMP_H
 #define APU_REGDUMP_H
 
-struct regdump_region_info {
-	char *name;
+#define NAME_MAX_LEN   30
+#define REGION_MAX_NUM 30
+
+struct apusys_regdump_region_info {
+	char name[NAME_MAX_LEN + 1];
 	uint32_t start;
 	uint32_t size;
+};
+
+struct apusys_regdump_info {
+	unsigned long size;
+	uint32_t region_info_num;
+	struct apusys_regdump_region_info region_info[REGION_MAX_NUM];
 };
 
 void apu_regdump(void);

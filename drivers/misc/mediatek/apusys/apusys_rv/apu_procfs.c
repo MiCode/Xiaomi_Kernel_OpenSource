@@ -152,32 +152,42 @@ static int xfile_seq_show(struct seq_file *s, void *v)
 static int regdump_seq_show(struct seq_file *s, void *v)
 {
 	struct mtk_apu *apu = NULL;
-	struct mtk_apu_hw_configs *configs = NULL;
-	const struct regdump_region_info *info = NULL;
+	const struct apusys_regdump_info *info = NULL;
+	const struct apusys_regdump_region_info *region_info = NULL;
 	void *base_va = NULL;
-	uint32_t region_num = 0;
+	uint32_t region_info_num = 0;
 	unsigned int region_offset = 0;
 	int i;
 
 	apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
-	configs = &apu->platdata->configs;
 
-	info = configs->apu_regdump.region_info;
+	base_va = apu->apu_aee_coredump_mem_base +
+		apu->apusys_aee_coredump_info->regdump_ofs;
+	info = (struct apusys_regdump_info *) base_va;
+
 	if (info == NULL) {
-		dev_info(&g_apu_pdev->dev, "%s: region_info == NULL\n", __func__);
+		dev_info(&g_apu_pdev->dev, "%s: apusys_regdump_info == NULL\n",
+			__func__);
 		return 0;
 	}
 
-	region_num = configs->apu_regdump.region_num;
-	base_va = apu->apu_aee_coredump_mem_base +
-		apu->apusys_aee_coredump_info->regdump_ofs;
+	if (info->region_info_num == 0) {
+		dev_info(&g_apu_pdev->dev, "%s: region_info_num == 0\n",
+			__func__);
+		return 0;
+	}
 
-	for (i = 0; i < region_num; i++) {
+	region_info = info->region_info;
+	region_info_num = info->region_info_num;
+
+	for (i = 0; i < region_info_num; i++) {
 		seq_printf(s, "---- dump %s from 0x%x to 0x%x ----\n",
-			info[i].name, info[i].start, info[i].start + info[i].size);
+			region_info[i].name, region_info[i].start,
+			region_info[i].start + region_info[i].size);
 		seq_hex_dump(s, "", DUMP_PREFIX_OFFSET, 16, 4,
-			(void *)(base_va + region_offset), info[i].size, false);
-		region_offset += info[i].size;
+			(void *)(base_va + info->size + region_offset),
+			region_info[i].size, false);
+		region_offset += region_info[i].size;
 	}
 
 	return 0;
