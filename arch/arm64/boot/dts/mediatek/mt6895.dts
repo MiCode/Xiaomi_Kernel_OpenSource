@@ -827,10 +827,10 @@
 			clk-div = <0xa2a0>, <0xa2a4>, <0xa2a8>, <0xa2e0>;
 
 			/* regulator */
-			/* proc1-supply = <&mt6319_2_vbuck3>; //L */
-			/* proc2-supply = <&mt6319_2_vbuck1>; //BL */
-			/* proc3-supply = <&mt6319_1_vbuck1>; //B */
-			/* proc4-supply = <&mt6319_2_vbuck3>; //DSU */
+			proc1-supply = <&mt6319_7_vbuck3>; //L
+			proc2-supply = <&mt6319_7_vbuck1>; //BL
+			proc3-supply = <&mt6319_6_vbuck1>; //B
+			proc4-supply = <&mt6319_7_vbuck3>; //DSU
 		};
 
 		cqdma: cq_dma@10212000 {
