@@ -50,6 +50,7 @@ struct mml_dev {
 	/* inline rotate sync event */
 	u16 event_mml_ready;
 	u16 event_disp_ready;
+	u16 event_mml_stop;
 
 	/* wack lock to prevent system off */
 	struct wakeup_source *wake_lock;
@@ -665,6 +666,11 @@ u16 mml_ir_get_disp_ready_event(struct mml_dev *mml)
 	return mml->event_disp_ready;
 }
 
+u16 mml_ir_get_mml_stop_event(struct mml_dev *mml)
+{
+	return mml->event_mml_stop;
+}
+
 void mml_dump_thread(struct mml_dev *mml)
 {
 	u32 i;
@@ -804,6 +810,9 @@ static int mml_probe(struct platform_device *pdev)
 
 	if (!of_property_read_u16(dev->of_node, "event_ir_disp_ready", &mml->event_disp_ready))
 		mml_log("racing event event_disp_ready %hu", mml->event_disp_ready);
+
+	if (!of_property_read_u16(dev->of_node, "event_ir_mml_stop", &mml->event_mml_stop))
+		mml_log("racing event event_mml_stop %hu", mml->event_mml_stop);
 
 	mml->cmdq_base = cmdq_register_device(dev);
 	for (i = 0; i < thread_cnt; i++) {

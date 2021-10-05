@@ -201,6 +201,8 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
 
 	if (task->config->info.mode == MML_MODE_RACING) {
+		cmdq_pkt_clear_event(pkt, mml_ir_get_mml_stop_event(task->config->mml));
+
 		if (!mml_racing_fast && likely(!mml_racing_ut))
 			sys_sync_racing(comp, task, ccfg);
 
@@ -362,6 +364,8 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lhs, &rhs, CMDQ_NOT_EQUAL);
 
 	sys_racing_addr_update(comp, task, ccfg);
+
+	cmdq_pkt_set_event(pkt, mml_ir_get_mml_stop_event(task->config->mml));
 }
 
 bool sys_sync(struct mml_comp *comp, struct mml_task *task,

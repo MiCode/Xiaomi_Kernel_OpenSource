@@ -87,6 +87,17 @@ void mml_drm_put_context(struct mml_drm_ctx *ctx);
 s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt);
 
 /*
+ * mml_drm_racing_stop_sync - append event sync instructions to disp pkt
+ *
+ * @ctx:	The drm context instance.
+ * @pkt:	The pkt to append cmdq instructions, which helps this pkt
+ *		and mml pkt execute at same time.
+ *
+ * return:	0 if success and < 0 error no if fail
+ */
+s32 mml_drm_racing_stop_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt);
+
+/*
  * mml_drm_split_info - split submit info to racing info and pq info
  *
  * @ctx:	Context of mml drm adaptor. Get by mml_drm_get_context API.

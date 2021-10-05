@@ -108,6 +108,15 @@ u16 mml_ir_get_mml_ready_event(struct mml_dev *mml);
 u16 mml_ir_get_disp_ready_event(struct mml_dev *mml);
 
 /*
+ * mml_ir_get_mml_stop_event - get inline rot sync event mml_stop
+ *
+ * @mml:	The mml driver instance
+ *
+ * Return:	The event id of disp_ready
+ */
+u16 mml_ir_get_mml_stop_event(struct mml_dev *mml);
+
+/*
  * mml_dump_thread - dump cmdq threads hold by mml
  *
  * @mml:	The mml driver instance

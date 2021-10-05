@@ -950,6 +950,22 @@ s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL_GPL(mml_drm_racing_config_sync);
 
+s32 mml_drm_racing_stop_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
+{
+	/* debug current task idx */
+	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3,
+		atomic_read(&ctx->job_serial));
+
+	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_NEXT);
+
+	cmdq_pkt_wait_no_clear(pkt, mml_ir_get_mml_stop_event(ctx->mml));
+
+	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CLEAR);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mml_drm_racing_stop_sync);
+
 void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 {
 	struct mml_frame_info *info = &submit->info;
