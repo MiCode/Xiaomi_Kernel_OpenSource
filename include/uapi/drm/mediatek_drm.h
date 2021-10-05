@@ -17,6 +17,7 @@
 #define MTK_DRM_PROP_NEXT_BUFF_IDX  "NEXT_BUFF_IDX"
 #define MTK_DRM_PROP_PRESENT_FENCE  "PRESENT_FENCE"
 
+struct mml_frame_info;
 
 /**
  * User-desired buffer creation information structure.
@@ -590,6 +591,7 @@ struct drm_mtk_layering_info {
 	int res_idx;
 	__u32 hrt_weight;
 	__u32 hrt_idx;
+	struct mml_frame_info *mml_cfg[3];
 };
 
 /**
