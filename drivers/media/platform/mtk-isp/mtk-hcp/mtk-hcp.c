@@ -1021,7 +1021,6 @@ phys_addr_t mtk_hcp_get_reserve_mem_size(unsigned int id)
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_size);
 
-
 void mtk_hcp_set_reserve_mem_fd(unsigned int id, uint32_t fd)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID))
@@ -1044,13 +1043,18 @@ EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_fd);
 void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	void *buffer;
 
 	if (!hcp_dev->data->get_gce_virt) {
-		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return NULL;
 	}
 
-	return hcp_dev->data->get_gce_virt();
+	buffer = hcp_dev->data->get_gce_virt();
+	if (!buffer)
+		dev_info(&pdev->dev, "%s: gce buffer is null\n", __func__);
+
+	return buffer;
 }
 EXPORT_SYMBOL(mtk_hcp_get_gce_mem_virt);
 
@@ -1349,10 +1353,10 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case HCP_GET_OBJECT:
 		// pr_info("[HCP] HCP_GET_OBJECT+");
-		copy_from_user(&data, (void *)arg, sizeof(struct packet));
+		(void)copy_from_user(&data, (void *)arg, sizeof(struct packet));
 		// pr_info("[HCP] send count %d", data.count);
 		for (index = 0; index < data.count; index++) {
-			copy_from_user((void *)&buffer, (void *)data.buffer[index],
+			(void)copy_from_user((void *)&buffer, (void *)data.buffer[index],
 				sizeof(struct share_buf));
 			if (buffer.info.cmd == HCP_COMPLETE) {
 				// pr_info("[HCP] HCP_COMPLETE+");
@@ -1401,7 +1405,7 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case HCP_COMPLETE:
 		pr_info("[HCP] HCP_COMPLETE+");
-		copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
+		(void)copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
 		module_notify(hcp_dev, &buffer);
 		module_wake_up(hcp_dev, &buffer);
 		pr_info("[HCP] HCP_COMPLETE-");
@@ -1409,13 +1413,13 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case HCP_NOTIFY:
 		pr_info("[HCP] HCP_NOTIFY+");
-		copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
+		(void)copy_from_user(&buffer, (void *)arg, sizeof(struct share_buf));
 		module_notify(hcp_dev, &buffer);
 		pr_info("[HCP] HCP_NOTIFY-");
 		ret = 0;
 		break;
 	case HCP_WAKEUP:
-		//copy_from_user(&buffer, (void*)arg, sizeof(struct share_buf));
+		//(void)copy_from_user(&buffer, (void*)arg, sizeof(struct share_buf));
 		//module_wake_up(hcp_dev, &buffer);
 		pr_info("[HCP] HCP_WAKEUP+");
 		wake_up(&hcp_dev->poll_wq[MODULE_IMG]);
