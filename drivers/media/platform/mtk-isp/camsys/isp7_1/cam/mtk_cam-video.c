@@ -1375,19 +1375,24 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		mtk_cam_set_meta_stats_info(dma_port, vaddr, pde_cfg);
 		break;
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
+		if (node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT) {
+			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
+		} else {
 #if PDAF_READY
-		sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
-			sizeof(struct mtk_cam_uapi_meta_camsv_stats_0);
+			sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
+				sizeof(struct mtk_cam_uapi_meta_camsv_stats_0);
 #else
-		sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
+			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
 #endif
-		width = node->active_fmt.fmt.pix_mp.width;
-		height = node->active_fmt.fmt.pix_mp.height;
-		stride = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+			width = node->active_fmt.fmt.pix_mp.width;
+			height = node->active_fmt.fmt.pix_mp.height;
+			stride = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 #if PDAF_READY
-		vaddr = vb2_plane_vaddr(vb, 0);
-		mtk_cam_sv_set_meta_stats_info(node->desc.dma_port, vaddr, width, height, stride);
+			vaddr = vb2_plane_vaddr(vb, 0);
+			mtk_cam_sv_set_meta_stats_info(node->desc.dma_port,
+				vaddr, width, height, stride);
 #endif
+		}
 		break;
 #if MRAW_READY
 	case MTKCAM_IPI_MRAW_META_STATS_CFG:

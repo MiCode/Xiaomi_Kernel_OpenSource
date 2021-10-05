@@ -296,8 +296,13 @@ EXIT:
 static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 			struct mtk_cam_ctx *ctx)
 {
-	unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
+	unsigned int hw_scen = 0;
 	int i;
+
+	if (mtk_cam_is_stagger(ctx))
+		hw_scen = mtk_raw_get_hdr_scen_id(ctx);
+	else if (mtk_cam_is_with_w_channel(ctx))
+		hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
 
 	spin_lock(&ctx->streaming_lock);
 	if (ctx->streaming) {
@@ -308,7 +313,7 @@ static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 			mtk_cam_mraw_dev_stream_on(ctx, i, 1, 0);
 		for (i = MTKCAM_SUBDEV_CAMSV_END - 1;
 				i >= MTKCAM_SUBDEV_CAMSV_START; i--) {
-			if (mtk_cam_is_stagger(ctx) &&
+			if (hw_scen &&
 				(ctx->pipe->enabled_raw & (1 << i)))
 				mtk_cam_sv_dev_stream_on(
 					ctx, i - MTKCAM_SUBDEV_CAMSV_START, 1, hw_scen);
@@ -2162,6 +2167,11 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			ctx->composed_frame_seq_no, base_addr, req_stream_data->timestamp,
 			req_stream_data->timestamp_mono);
 		}
+	}
+
+	if (mtk_cam_is_with_w_channel(ctx) && is_apply) {
+		if (mtk_cam_sv_rgbw_apply_next_buffer(buf_entry->s_data) == 0)
+			dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
 	}
 	if (ctx->used_sv_num && is_apply) {
 		if (mtk_cam_sv_apply_all_buffers(ctx, ktime_get_boottime_ns()) == 0)

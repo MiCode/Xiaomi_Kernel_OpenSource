@@ -1482,12 +1482,34 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx,
 				if (ctx->sv_wq)
 					queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
 			}
-
 			break;
 		}
 	}
 
 	return 1;
+}
+
+int mtk_cam_sv_rgbw_apply_next_buffer(
+	struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_cam_ctx *ctx = s_data->ctx;
+	struct mtk_camsv_device *camsv_dev;
+	dma_addr_t base_addr;
+	unsigned int seq_no;
+	int i, ret = 0;
+
+	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
+		if (ctx->pipe->enabled_raw & (1 << i)) {
+			camsv_dev = get_camsv_dev(
+				ctx->cam, &ctx->cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START]);
+			base_addr = s_data->sv_frame_params.img_out.buf[0][0].iova;
+			seq_no = s_data->frame_seq_no;
+			mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+			ret = 1;
+		}
+	}
+
+	return ret;
 }
 
 int mtk_cam_sv_dev_config(
@@ -1508,10 +1530,17 @@ int mtk_cam_sv_dev_config(
 
 	// TODO: correct w channel
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
-		img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
-			.active_fmt;
-		pad_idx = PAD_SRC_RAW0;
-		mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
+		if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW)) {
+			img_fmt = &ctx->pipe->vdev_nodes[
+				MTK_RAW_MAIN_STREAM_SV_1_OUT - MTK_RAW_SINK_NUM].active_fmt;
+			pad_idx = PAD_SRC_RAW_W0;
+			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
+		} else {
+			img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
+				.active_fmt;
+			pad_idx = PAD_SRC_RAW0;
+			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
+		}
 	} else {
 		img_fmt = &ctx->sv_pipe[idx]
 			->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT-MTK_CAMSV_SINK_NUM].active_fmt;
