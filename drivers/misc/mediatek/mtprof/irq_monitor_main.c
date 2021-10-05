@@ -80,9 +80,9 @@ struct irq_mon_tracer {
 };
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_IRQ_TIMER_OVERRIDE)
-#define OVERRIDE_TH1_MS 200
-#define OVERRIDE_TH2_MS 200
-#define OVERRIDE_TH3_MS 200
+#define OVERRIDE_TH1_MS 50
+#define OVERRIDE_TH2_MS 50
+#define OVERRIDE_TH3_MS 50
 #endif
 
 static struct irq_mon_tracer irq_handler_tracer __read_mostly = {
