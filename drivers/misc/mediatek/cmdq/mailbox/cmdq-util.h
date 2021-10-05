@@ -105,6 +105,7 @@ typedef const char *(*platform_event_module_dispatch)(phys_addr_t gce_pa, const 
 	s32 thread);
 typedef u32 (*platform_util_hw_id)(u32 pa);
 typedef u32 (*platform_test_get_subsys_list)(u32 **regs_out);
+typedef void (*platform_test_set_ostd)(void);
 typedef const char *(*platform_util_hw_name)(void *chan);
 typedef bool (*platform_thread_ddr_module)(const s32 thread);
 
@@ -113,6 +114,7 @@ struct cmdq_util_platform_fp {
 	platform_event_module_dispatch event_module_dispatch;
 	platform_util_hw_id util_hw_id;
 	platform_test_get_subsys_list test_get_subsys_list;
+	platform_test_set_ostd test_set_ostd;
 	platform_util_hw_name util_hw_name;
 	platform_thread_ddr_module thread_ddr_module;
 };
@@ -122,6 +124,7 @@ const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 const char *cmdq_util_thread_module_dispatch(phys_addr_t gce_pa, s32 thread);
 u32 cmdq_util_get_hw_id(u32 pa);
 u32 cmdq_util_test_get_subsys_list(u32 **regs_out);
+void cmdq_util_test_set_ostd(void);
 
 u32 cmdq_util_get_bit_feature(void);
 bool cmdq_util_is_feature_en(u8 feature);

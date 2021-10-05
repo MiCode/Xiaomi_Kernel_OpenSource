@@ -180,6 +180,16 @@ u32 cmdq_util_test_get_subsys_list(u32 **regs_out)
 }
 EXPORT_SYMBOL(cmdq_util_test_get_subsys_list);
 
+void cmdq_util_test_set_ostd(void)
+{
+	if (!cmdq_platform->test_set_ostd) {
+		cmdq_err("%s test_set_ostd is NULL ", __func__);
+		return;
+	}
+	cmdq_platform->test_set_ostd();
+}
+EXPORT_SYMBOL(cmdq_util_test_set_ostd);
+
 u32 cmdq_util_get_bit_feature(void)
 {
 	return util.fs.bit_feature;

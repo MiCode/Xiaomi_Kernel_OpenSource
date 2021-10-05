@@ -158,18 +158,11 @@ u32 cmdq_util_hw_id(u32 pa)
 u32 cmdq_test_get_subsys_list(u32 **regs_out)
 {
 	static u32 regs[] = {
-		0x1f016f00,	/* VIDO_BASE_ADDR */
-		0x14116100,	/* MMSYS_CG_CON0 */
-		0x1602f10c,	/* VDEC_AXI_ASIF_CFG0 */
-		0x17000104,	/* Reserved (venc_top) */
-		0x17800104,	/* Reserved (venc_core1) */
-		0x1a000370,	/* CAMSYS_APB3_SPARE */
-		0x15020000,	/* IMGSYS1 */
-		0x15820000,	/* IMGSYS2 */
-		0x1B000000,	/* IPESYS */
-		0x112300A0,	/* perisys apb msdc0 SW_DBG_SEL */
-		0x1121004C,	/* perisys apb audio0 AFE_I2S_CON3_OFFSET */
-		0x110020BC,	/* perisys apb uart0 UART */
+		0x1f003000,	/* mdp_wrot0 */
+		0x14000100,	/* mmsys_config */
+		0x14001000,	/* dispsys */
+		0x15101200,	/* imgsys */
+		0x1000106c,	/* infra */
 	};
 
 	*regs_out = regs;

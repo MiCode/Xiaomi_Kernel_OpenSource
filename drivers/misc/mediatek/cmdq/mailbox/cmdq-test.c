@@ -582,6 +582,26 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 	cmdq_msg("%s done", __func__);
 }
 
+static void cmdq_test_mbox_write_dma(
+	struct cmdq_test *test, const bool secure, u32 cnt)
+{
+	struct cmdq_client	*clt = secure ? test->sec : test->clt;
+	struct cmdq_pkt		*pkt;
+	u32		*dma_va;
+	dma_addr_t	dma_pa;
+	s32 i;
+
+	cmdq_msg("%s in", __func__);
+	dma_va = cmdq_mbox_buf_alloc(clt, &dma_pa);
+	pkt = cmdq_pkt_create(clt);
+	for (i = 0; i < cnt; i++)
+		cmdq_pkt_write(pkt, NULL, dma_pa + ((i * 4) % PAGE_SIZE), i, ~0);
+
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+	cmdq_msg("%s end", __func__);
+}
+
 static void cmdq_test_mbox_sync_token_flush(struct timer_list *t)
 {
 	u32	val;
@@ -761,7 +781,12 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	u32 *regs, count, *va, i;
 	dma_addr_t pa;
 	u8 swap_reg = CMDQ_THR_SPR_IDX1;
-	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
+	u32 pat = 0xadceabce, pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
+	void __iomem	*va_base;
+	u32 val = 0;
+	u32 pa_base;
+
+	cmdq_msg("%s in", __func__);
 
 	count = cmdq_util_test_get_subsys_list(&regs);
 	if (count <= 0) {
@@ -777,6 +802,16 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 
 	for (i = 0; i < count; i++) {
 		va[0] = pat_init;
+
+		cmdq_msg("%s idx:%d, addr:%#x = %#x ", __func__, i, regs[i]);
+		pa_base = regs[i];
+		va_base = ioremap(pa_base, 0x1000);
+		writel(pat, va_base);
+		val = readl(va_base);
+		if (val != pat)
+			cmdq_msg("%s AP write, addr:%#x = %#x, pat:%#x",
+				__func__, regs[i], val, pat);
+		writel(0, va_base);
 
 		pkt = cmdq_pkt_create(test->clt);
 		cmdq_pkt_write_value_addr(pkt, regs[i], pat_src, ~0);
@@ -1213,6 +1248,10 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	case 20:
 		cmdq_test_mbox_tzmp(test, sec, false);
 		break;
+	case 21:
+		cmdq_util_test_set_ostd();
+		cmdq_test_mbox_write_dma(test, sec, 10);
+		break;
 	default:
 		break;
 	}
@@ -1307,36 +1346,6 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	cmdq_msg("gce dev:%p va:%p pa:%pa",
 		test->gce.dev, test->gce.va, &test->gce.pa);
 
-	// mmsys
-	np = of_parse_phandle(pdev->dev.of_node, "mmsys_config", 0);
-	if (!np) {
-		cmdq_err("of_parse_phandle mmsys_config failed");
-		return -EINVAL;
-	}
-
-	np_pdev = of_find_device_by_node(np);
-	of_node_put(np);
-	if (!np_pdev) {
-		cmdq_err("of_find_device_by_node to mmsys_config failed");
-		return -EINVAL;
-	}
-	test->mmsys.dev = &np_pdev->dev;
-
-	test->mmsys.va = of_iomap(np_pdev->dev.of_node, 0);
-	if (!test->mmsys.va)
-		return -EINVAL;
-
-	ret = of_address_to_resource(np_pdev->dev.of_node, 0, &res);
-	if (ret) {
-		cmdq_err(
-			"of_address_to_resource to mmsys_config failed ret:%d",
-			ret);
-		return ret;
-	}
-	test->mmsys.pa = res.start;
-	cmdq_msg("mmsys dev:%p va:%p pa:%pa",
-		test->mmsys.dev, test->mmsys.va, &test->mmsys.pa);
-
 	// clt
 	test->clt = cmdq_mbox_create(&pdev->dev, 0);
 	if (IS_ERR(test->clt) || !test->clt) {
@@ -1354,7 +1363,7 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	test->sec = cmdq_mbox_create(&pdev->dev, 2);
 	if (IS_ERR(test->sec) || !test->sec) {
 		if (!test->sec)
-			return -ENXIO;
+			cmdq_err("no test->sec");
 	}
 #endif
 	cmdq_msg("%s test:%p dev:%p clt:%p loop:%p sec:%p",

@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
+#include <linux/of_address.h>
 
 #include <dt-bindings/gce/mt6895-gce.h>
 
@@ -151,22 +152,40 @@ u32 cmdq_util_hw_id(u32 pa)
 u32 cmdq_test_get_subsys_list(u32 **regs_out)
 {
 	static u32 regs[] = {
-		0x1f016f00,	/* VIDO_BASE_ADDR */
-		0x14116100,	/* MMSYS_CG_CON0 */
-		0x1602f10c,	/* VDEC_AXI_ASIF_CFG0 */
-		0x17000104,	/* Reserved (venc_top) */
-		0x17800104,	/* Reserved (venc_core1) */
-		0x1a000370,	/* CAMSYS_APB3_SPARE */
-		0x15020000,	/* IMGSYS1 */
-		0x15820000,	/* IMGSYS2 */
-		0x1B000000,	/* IPESYS */
-		0x112300A0,	/* perisys apb msdc0 SW_DBG_SEL */
-		0x1121004C,	/* perisys apb audio0 AFE_I2S_CON3_OFFSET */
-		0x110020BC,	/* perisys apb uart0 UART */
+		0x1f003000,	/* mdp_rdma0 */
+		0x14000100,	/* mmsys_config */
+		0x14001000,	/* dispsys */
+		0x15101200,	/* imgsys */
+		0x1000106c,	/* infra */
 	};
 
 	*regs_out = regs;
 	return ARRAY_SIZE(regs);
+}
+
+void cmdq_test_set_ostd(void)
+{
+	void __iomem	*va_base;
+	u32 val = 0x01014000;
+	u32 pa_base;
+	u32 preval, newval;
+
+	cmdq_msg("%s in", __func__);
+	/* 1. set mdp_smi_common outstanding to 1 : 0x1E80F120 = 0x01014000 */
+	pa_base = 0x1E80F120;
+	va_base = ioremap(pa_base, 0x1000);
+	preval = readl(va_base);
+	writel(val, va_base);
+	newval = readl(va_base);
+	cmdq_msg("%s addr0x%#x: 0x%#x -> 0x%#x  ", __func__, pa_base, preval, newval);
+
+	/* 2. set mdp_sub_common outstanding to 1 : 0x1E818120 = 0x01014000 */
+	pa_base = 0x1E818120;
+	va_base = ioremap(pa_base, 0x1000);
+	preval = readl(va_base);
+	writel(val, va_base);
+	newval = readl(va_base);
+	cmdq_msg("%s addr0x%#x: 0x%#x -> 0x%#x  ", __func__, pa_base, preval, newval);
 }
 
 const char *cmdq_util_hw_name(void *chan)
@@ -199,6 +218,7 @@ struct cmdq_util_platform_fp platform_fp = {
 	.event_module_dispatch = cmdq_event_module_dispatch,
 	.util_hw_id = cmdq_util_hw_id,
 	.test_get_subsys_list = cmdq_test_get_subsys_list,
+	.test_set_ostd = cmdq_test_set_ostd,
 	.util_hw_name = cmdq_util_hw_name,
 	.thread_ddr_module = cmdq_thread_ddr_module,
 };
