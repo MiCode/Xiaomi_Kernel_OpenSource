@@ -35,6 +35,7 @@
 #include "mtk_drm_fb.h"
 #include "mtk_disp_aal.h"
 #include "mtk_disp_c3d.h"
+#include "mtk_disp_tdshp.h"
 #include "mtk_dp_debug.h"
 #include "mtk_drm_arr.h"
 #include "mtk_drm_graphics_base.h"
@@ -1816,6 +1817,14 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	if (m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_AAL_BYPASS])
 		disp_aal_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_AAL_BYPASS]);
+
+	if (m_old_pq_persist_property[DISP_PQ_C3D_BYPASS] !=
+		m_new_pq_persist_property[DISP_PQ_C3D_BYPASS])
+		disp_c3d_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_C3D_BYPASS]);
+
+	if (m_old_pq_persist_property[DISP_PQ_TDSHP_BYPASS] !=
+		m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS])
+		disp_tdshp_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT] !=
 		m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT])

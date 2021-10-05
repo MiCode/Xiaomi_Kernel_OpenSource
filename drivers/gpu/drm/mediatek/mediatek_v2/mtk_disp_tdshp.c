@@ -13,6 +13,10 @@ static struct DISP_TDSHP_DISPLAY_SIZE g_tdshp_size;
 static DEFINE_MUTEX(g_tdshp_global_lock);
 static DEFINE_SPINLOCK(g_tdshp_clock_lock);
 
+// It's a work around for no comp assigned in functions.
+static struct mtk_ddp_comp *default_comp;
+static struct mtk_ddp_comp *tdshp1_default_comp;
+
 #define index_of_tdshp(module) ((module == DDP_COMPONENT_TDSHP0) ? 0 : 1)
 #define DISP_TDSHP_HW_ENGINE_NUM (2)
 static unsigned int g_tdshp_relay_value[DISP_TDSHP_HW_ENGINE_NUM] = { 0, 0 };
@@ -23,6 +27,7 @@ static atomic_t g_tdshp_is_clock_on[DISP_TDSHP_HW_ENGINE_NUM] = { ATOMIC_INIT(0)
 
 enum TDSHP_IOCTL_CMD {
 	SET_TDSHP_REG,
+	BYPASS_TDSHP,
 };
 
 struct mtk_disp_tdshp_data {
@@ -423,6 +428,27 @@ static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	}
 }
 
+static void mtk_disp_tdshp_bypass(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle)
+{
+	pr_notice("%s, comp_id: %d, bypass: %d\n",
+			__func__, index_of_tdshp(comp->id));
+
+	if (bypass == 1) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_CFG, 0x1, 0x1);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_00, (0x1 << 31), (0x1 << 31));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_CTRL, 0xfffffffd, ~0);
+		g_tdshp_relay_value[index_of_tdshp(comp->id)] = 0x1;
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_CFG, 0x0, 0x1);
+		g_tdshp_relay_value[index_of_tdshp(comp->id)] = 0x0;
+	}
+}
+
 static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	unsigned int cmd, void *data)
 {
@@ -451,6 +477,21 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 		mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
 	}
 	break;
+	case BYPASS_TDSHP:
+	{
+		unsigned int *value = data;
+
+		mtk_disp_tdshp_bypass(comp, *value, handle);
+		if (comp->mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP1];
+
+			mtk_disp_tdshp_bypass(comp_tdshp1, *value, handle);
+		}
+	}
+	break;
 	default:
 		DDPPR_ERR("%s: error cmd: %d\n", __func__, cmd);
 		return -EINVAL;
@@ -471,26 +512,6 @@ static void mtk_disp_tdshp_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 	pr_notice("%s, line: %d\n", __func__, __LINE__);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_CTRL, 0x0, 0x1);
-}
-
-static void mtk_disp_tdshp_bypass(struct mtk_ddp_comp *comp, int bypass,
-	struct cmdq_pkt *handle)
-{
-	pr_notice("%s, comp_id: %d\n", __func__, comp->id);
-
-	if (bypass == 1) {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_TDSHP_CFG, 0x1, 0x1);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_TDSHP_00, (0x1 << 31), (0x1 << 31));
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_TDSHP_CTRL, 0xfffffffd, ~0);
-		g_tdshp_relay_value[index_of_tdshp(comp->id)] = 0x1;
-	} else {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_TDSHP_CFG, 0x0, 0x1);
-		g_tdshp_relay_value[index_of_tdshp(comp->id)] = 0x0;
-	}
 }
 
 static void mtk_disp_tdshp_prepare(struct mtk_ddp_comp *comp)
@@ -623,6 +644,11 @@ static int mtk_disp_tdshp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (!default_comp && comp_id == DDP_COMPONENT_TDSHP0)
+		default_comp = &priv->ddp_comp;
+	if (!tdshp1_default_comp && comp_id == DDP_COMPONENT_TDSHP1)
+		tdshp1_default_comp = &priv->ddp_comp;
+
 	priv->data = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, priv);
 
@@ -693,3 +719,12 @@ struct platform_driver mtk_disp_tdshp_driver = {
 			.of_match_table = mtk_disp_tdshp_driver_dt_match,
 		},
 };
+
+void disp_tdshp_set_bypass(struct drm_crtc *crtc, int bypass)
+{
+	int ret;
+
+	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_TDSHP, &bypass);
+
+	DDPINFO("%s : ret = %d", __func__, ret);
+}
