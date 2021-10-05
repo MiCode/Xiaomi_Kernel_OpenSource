@@ -99,6 +99,7 @@ static int fops_vcodec_open(struct file *file)
 	ctx->enc_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
 	mtk_vcodec_enc_set_default_params(ctx);
 
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	if (v4l2_fh_is_singular(&ctx->fh)) {
 		/*
 		 * vcu_load_firmware checks if it was loaded already and
@@ -118,7 +119,7 @@ static int fops_vcodec_open(struct file *file)
 			vcu_get_venc_hw_capa(dev->vcu_plat_dev);
 		mtk_v4l2_debug(0, "encoder capability %x", dev->enc_capability);
 	}
-
+#endif
 	mtk_v4l2_debug(2, "Create instance [%d]@%p m2m_ctx=%p ",
 				   ctx->id, ctx, ctx->m2m_ctx);
 
@@ -130,11 +131,13 @@ static int fops_vcodec_open(struct file *file)
 	return ret;
 
 	/* Deinit when failure occurred */
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 err_load_fw:
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 	mutex_lock(&dev->ctx_mutex);
 	list_del_init(&ctx->list);
 	mutex_unlock(&dev->ctx_mutex);
+#endif
 err_m2m_ctx_init:
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 err_ctrls_setup:
@@ -278,13 +281,13 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&dev->ctx_list);
 	dev->plat_dev = pdev;
-
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	dev->vcu_plat_dev = vcu_get_plat_device(dev->plat_dev);
 	if (dev->vcu_plat_dev == NULL) {
 		mtk_v4l2_err("[VCU] vcu device in not ready");
 		return -EPROBE_DEFER;
 	}
-
+#endif
 	ret = of_property_read_string(pdev->dev.of_node, "mediatek,platform", &dev->platform);
 	if (ret != 0) {
 		mtk_v4l2_err("failed to find mediatek,platform\n");

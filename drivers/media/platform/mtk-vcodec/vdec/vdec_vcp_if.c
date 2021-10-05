@@ -497,9 +497,12 @@ int vcp_dec_ipi_handler(void *arg)
 				break;
 			// TODO: need remove HW locks /power & ISR ipis
 			case VCU_IPIMSG_DEC_LOCK_LAT:
+				mutex_unlock(&dev->ctx_mutex);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_LAT);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_LAT_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
+				kfree(mq_node);
+				continue;
 				break;
 			case VCU_IPIMSG_DEC_UNLOCK_LAT:
 				vdec_decode_unprepare(vcu->ctx, MTK_VDEC_LAT);
@@ -507,9 +510,12 @@ int vcp_dec_ipi_handler(void *arg)
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				break;
 			case VCU_IPIMSG_DEC_LOCK_CORE:
+				mutex_unlock(&dev->ctx_mutex);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_CORE);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_CORE_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
+				kfree(mq_node);
+				continue;
 				break;
 			case VCU_IPIMSG_DEC_UNLOCK_CORE:
 				vdec_decode_unprepare(vcu->ctx, MTK_VDEC_CORE);

@@ -437,9 +437,12 @@ int vcp_enc_ipi_handler(void *arg)
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 			break;
 		case VCU_IPIMSG_ENC_POWER_ON:
+			mutex_unlock(&dev->ctx_mutex);
 			venc_encode_prepare(ctx, msg->status, &flags);
 			msg->msg_id = AP_IPIMSG_ENC_POWER_ON_DONE;
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
+			kfree(mq_node);
+			continue;
 			break;
 		case VCU_IPIMSG_ENC_POWER_OFF:
 			venc_encode_unprepare(ctx, msg->status, &flags);
