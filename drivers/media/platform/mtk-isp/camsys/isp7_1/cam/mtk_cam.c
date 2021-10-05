@@ -546,9 +546,9 @@ static void mtk_cam_del_req_from_running(struct mtk_cam_ctx *ctx,
 	atomic_set(&req->state, MTK_CAM_REQ_STATE_COMPLETE);
 	spin_lock(&ctx->cam->running_job_lock);
 	list_del(&req->list);
+	ctx->cam->running_job_count--;
 	spin_unlock(&ctx->cam->running_job_lock);
 
-	ctx->cam->running_job_count--;
 	atomic_dec(&ctx->running_s_data_cnt);
 	mtk_cam_req_clean(req);
 	media_request_put(&req->req);
@@ -861,6 +861,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 			atomic_set(&req->state, MTK_CAM_REQ_STATE_COMPLETE);
 			spin_lock(&cam->running_job_lock);
 			list_del(&req->list);
+			cam->running_job_count--;
 			media_request_put(&req->req); /* for leave running list*/
 			mtk_cam_req_clean(req);
 			spin_unlock(&cam->running_job_lock);
@@ -2005,9 +2006,9 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	list_for_each_entry_safe(req, req_prev, &cam->pending_job_list, list) {
 		if (likely(mtk_cam_dev_req_is_stream_on(cam, req))) {
 			if (job_count + enqueue_req_cnt >=
-			    2 * MTK_CAM_MAX_RUNNING_JOBS) {
+			    RAW_PIPELINE_NUM * MTK_CAM_MAX_RUNNING_JOBS) {
 				dev_dbg(cam->dev, "jobs are full, job cnt(%d)\n",
-					cam->running_job_count);
+					 job_count);
 				break;
 			}
 			dev_dbg(cam->dev, "%s job cnt(%d), allow req_enqueue(%s)\n",
