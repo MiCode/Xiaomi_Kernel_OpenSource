@@ -12,6 +12,7 @@
 #include <linux/limits.h>
 #include <kree/system.h>
 #include <kree/mem.h>
+#include <linux/vmalloc.h>
 
 //#include "tee_client_api.h"
 #if defined(CONFIG_MICROTRUST_TEE_SUPPORT)

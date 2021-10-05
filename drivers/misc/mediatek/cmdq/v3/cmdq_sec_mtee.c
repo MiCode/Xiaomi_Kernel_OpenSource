@@ -65,7 +65,7 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 		return -EINVAL;
 
 	/* region_id = 0, mapAry = NULL for continuous */
-	*wsm_buffer = kzalloc(size, GFP_KERNEL);
+	*wsm_buffer = vmalloc(size);
 	if (!*wsm_buffer)
 		return -ENOMEM;
 
@@ -83,7 +83,7 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 		__func__, tee->wsm_pHandle, tee->wsm_handle,
 		tee->wsm_param.size, *wsm_buffer, *wsm_buffer);
 
-	*wsm_buf_ex = kzalloc(size_ex, GFP_KERNEL);
+	*wsm_buf_ex = vmalloc(size_ex);
 	if (!*wsm_buf_ex)
 		return -ENOMEM;
 
@@ -100,7 +100,7 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 			__func__, tee->wsm_pHandle, tee->wsm_ex_handle,
 			tee->wsm_ex_param.size, *wsm_buf_ex, *wsm_buf_ex);
 
-	*wsm_buf_ex2 = kzalloc(size_ex2, GFP_KERNEL);
+	*wsm_buf_ex2 = vmalloc(size_ex2);
 	if (!*wsm_buf_ex2)
 		return -ENOMEM;
 
@@ -132,7 +132,7 @@ s32 cmdq_sec_mtee_free_wsm(struct cmdq_sec_mtee_context *tee,
 		return -EINVAL;
 
 	KREE_UnregisterSharedmem(tee->wsm_pHandle, tee->wsm_handle);
-	kfree(*wsm_buffer);
+	vfree(*wsm_buffer);
 	*wsm_buffer = NULL;
 	return 0;
 }
