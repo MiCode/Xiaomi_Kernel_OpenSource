@@ -54,6 +54,7 @@ static unsigned int **fbt_opp_tbl;
 static unsigned int *fbt_min_freq;
 static unsigned int *fbt_max_freq;
 static int *fbt_cur_ceiling;
+static int *fbt_last_ceiling;
 static int *fbt_final_ceiling;
 static int *fbt_cur_floor;
 
@@ -458,6 +459,7 @@ static void fbt_cfp_notifier(int heavy)
 int fbt_set_cpu_freq_ceiling(int num, int *freq)
 {
 	int i, need_cfp = 0;
+	int need_update = 0;
 
 	mutex_lock(&cpu_ctrl_lock);
 
@@ -465,6 +467,10 @@ int fbt_set_cpu_freq_ceiling(int num, int *freq)
 #if DEBUG_LOG
 		pr_info("%s i:%d, freq:%d\n", __func__, i, freq[i]);
 #endif
+		if (fbt_last_ceiling[i] != freq[i]) {
+			need_update = 1;
+			fbt_last_ceiling[i] = freq[i];
+		}
 
 		if (freq[i] == -1)
 			fbt_cur_ceiling[i] = fbt_max_freq[i];
@@ -479,7 +485,9 @@ int fbt_set_cpu_freq_ceiling(int num, int *freq)
 				fbt_cur_ceiling[i] = freq[i];
 		}
 	}
-	__update_cpu_freq_locked();
+
+	if (need_update)
+		__update_cpu_freq_locked();
 	mutex_unlock(&cpu_ctrl_lock);
 
 	/* enable / disable CFP */
@@ -548,6 +556,8 @@ int fbt_cpu_ctrl_init(void)
 
 	fbt_cur_ceiling = kcalloc(policy_num,
 		sizeof(struct cpufreq_policy *), GFP_KERNEL);
+	fbt_last_ceiling = kcalloc(policy_num,
+		sizeof(struct cpufreq_policy *), GFP_KERNEL);
 	fbt_final_ceiling = kcalloc(policy_num,
 		sizeof(struct freq_qos_request), GFP_KERNEL);
 	fbt_cur_floor = kcalloc(policy_num,
@@ -555,6 +565,7 @@ int fbt_cpu_ctrl_init(void)
 
 	for (i = 0; i < policy_num; i++) {
 		fbt_cur_ceiling[i] = fbt_max_freq[i];
+		fbt_last_ceiling[i] = -1;
 		fbt_final_ceiling[i] = fbt_max_freq[i];
 		fbt_cur_floor[i] = fbt_min_freq[i];
 	}
@@ -601,6 +612,7 @@ int fbt_cpu_ctrl_exit(void)
 	kfree(fbt_freq_min_notifier);
 
 	kfree(fbt_cur_ceiling);
+	kfree(fbt_last_ceiling);
 	kfree(fbt_final_ceiling);
 	kfree(fbt_cur_floor);
 	kfree(cur_wall_time);
