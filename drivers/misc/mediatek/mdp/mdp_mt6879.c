@@ -1383,15 +1383,13 @@ struct device *mdp_init_larb(struct platform_device *pdev, u8 idx)
 void cmdqMdpInitialSetting(struct platform_device *pdev)
 {
 #ifdef MDP_IOMMU_DEBUG
-	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
-
 	CMDQ_LOG("[MDP] %s\n", __func__);
 
 	/* Register ION Translation Fault function */
 	mtk_iommu_register_fault_callback(M4U_LARB2_PORT1,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_LARB2_PORT3,
-		cmdq_TranslationFault_callback, (void *)data, false);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 #endif
 
 	/* must porting in dts */
