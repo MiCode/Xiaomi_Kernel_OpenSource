@@ -427,6 +427,18 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vc->feature = VC_PDAF_STATS_SE_PIX_2;
 			vc->out_pad = PAD_SRC_PDAF6;
 			break;
+		case VC_YUV_Y:
+			vc->feature = VC_RAW_DATA;
+			vc->out_pad = PAD_SRC_RAW0;
+			break;
+		case VC_YUV_UV:
+			vc->feature = VC_RAW_DATA;
+			vc->out_pad = PAD_SRC_RAW1;
+			break;
+		case VC_GENERAL_EMBEDDED:
+			vc->feature = VC_GENERAL_EMBEDDED;
+			vc->out_pad = PAD_SRC_GENERAL0;
+			break;
 		default:
 			if (vc->dt == 0x2a || vc->dt == 0x2b ||
 			    vc->dt == 0x2c) {
@@ -445,6 +457,12 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 					break;
 				case VC_STAGGER_SE:
 					vc->out_pad = PAD_SRC_RAW2;
+					break;
+				case VC_RAW_W_DATA:
+					vc->out_pad = PAD_SRC_RAW_W0;
+					break;
+				case VC_RAW_PROCESSED_DATA:
+					vc->out_pad = PAD_SRC_RAW_EXT0;
 					break;
 				default:
 					vc->out_pad = PAD_SRC_RAW0 + raw_cnt;

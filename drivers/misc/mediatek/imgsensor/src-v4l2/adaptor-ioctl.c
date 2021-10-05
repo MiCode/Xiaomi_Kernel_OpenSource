@@ -135,6 +135,21 @@ static enum VC_FEATURE fd_desc_to_vc_feature(
 	case VC_PDAF_STATS_SE_PIX_2:
 		ret = VC_PDAF_STATS_SE_PIX_2;
 		break;
+	case VC_YUV_Y:
+		ret = VC_YUV_Y;
+		break;
+	case VC_YUV_UV:
+		ret = VC_YUV_UV;
+		break;
+	case VC_RAW_W_DATA:
+		ret = VC_RAW_W_DATA;
+		break;
+	case VC_RAW_PROCESSED_DATA:
+		ret = VC_RAW_PROCESSED_DATA;
+		break;
+	case VC_GENERAL_EMBEDDED:
+		ret = VC_GENERAL_EMBEDDED;
+		break;
 	default:
 		ret = VC_NONE;
 		break;
@@ -294,6 +309,21 @@ static void vcinfo2_fill_pad(
 		case VC_STAGGER_SE:
 			vcinfo2->vc_info[i].pad = PAD_SRC_RAW2;
 			break;
+		case VC_YUV_Y:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW0;
+			break;
+		case VC_YUV_UV:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW1;
+			break;
+		case VC_RAW_W_DATA:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_W0;
+			break;
+		case VC_RAW_PROCESSED_DATA:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW_EXT0;
+			break;
+		case VC_GENERAL_EMBEDDED:
+			vcinfo2->vc_info[i].pad = PAD_SRC_GENERAL0;
+			break;
 		default:
 			vcinfo2->vc_info[i].pad = PAD_ERR;
 			break;
@@ -326,7 +356,11 @@ static void vcinfo2_fill_output_format(
 		if (((vcinfo2->vc_info[i].VC_FEATURE >= VC_MIN_NUM) &&
 		    (vcinfo2->vc_info[i].VC_FEATURE < VC_RAW_DATA_MAX)) ||
 		    ((vcinfo2->vc_info[i].VC_FEATURE >= VC_STAGGER_NE) &&
-		    (vcinfo2->vc_info[i].VC_FEATURE < VC_STAGGER_MAX_NUM))) {
+		    (vcinfo2->vc_info[i].VC_FEATURE < VC_STAGGER_MAX_NUM)) ||
+		    ((vcinfo2->vc_info[i].VC_FEATURE >= VC_YUV_MIN_NUM) &&
+		    (vcinfo2->vc_info[i].VC_FEATURE < VC_YUV_MAX_NUM)) ||
+		    ((vcinfo2->vc_info[i].VC_FEATURE >= VC_RAW_EXT_MIN_NUM) &&
+		    (vcinfo2->vc_info[i].VC_FEATURE < VC_RAW_EXT_MAX_NUM))) {
 			/* image raw */
 			vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = fmt;
 		} else {
