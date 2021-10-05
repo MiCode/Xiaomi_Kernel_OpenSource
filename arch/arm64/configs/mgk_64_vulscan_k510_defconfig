@@ -503,3 +503,4 @@ CONFIG_KCOV_INSTRUMENT_ALL=y
 CONFIG_FAULT_INJECTION=n
 CONFIG_FORTIFY_SOURCE=y
 CONFIG_FRAME_WARN=0
+CONFIG_EXT_MODULES="../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra"

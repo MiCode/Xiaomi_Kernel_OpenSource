@@ -499,3 +499,4 @@ CONFIG_INTERCONNECT_MTK_MMQOS_MT6895=m
 CONFIG_MTK_BUS_PARITY_CHECK=m
 CONFIG_MTK_CACHE_PARITY_CHECK=m
 CONFIG_PAGE_POISONING=y
+CONFIG_EXT_MODULES="../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra"

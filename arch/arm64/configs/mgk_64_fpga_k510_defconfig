@@ -421,3 +421,4 @@ CONFIG_MTK_SSC_DBG_V1=m
 CONFIG_MTK_SSC_DBG_V2=m
 CONFIG_MTK_LOAD_TRACKER=m
 CONFIG_MTK_ULTRASND_PROXIMITY=m
+CONFIG_EXT_MODULES="../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra"
