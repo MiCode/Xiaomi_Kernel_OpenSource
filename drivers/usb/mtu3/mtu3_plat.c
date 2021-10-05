@@ -91,6 +91,8 @@ static void ssusb_hw_request(struct ssusb_mtk *ssusb,
 	spm_ctrl &= ~SSUSB_SPM_REQ_MSK;
 	spm_ctrl |= req;
 	mtu3_writel(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL, spm_ctrl);
+	/* wait 1ms */
+	mdelay(1);
 }
 
 void ssusb_set_power_state(struct ssusb_mtk *ssusb,
