@@ -3038,8 +3038,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 			atomic_read(&camsys_sensor_ctrl->initial_drop_frame_cnt)) {
 			dev_info(ctx->cam->dev,
 					"1st SWD passed for initial request setting\n");
-			if (ctx->stream_id == pipe_id)
-				atomic_dec(&camsys_sensor_ctrl->initial_drop_frame_cnt);
+			atomic_dec(&camsys_sensor_ctrl->initial_drop_frame_cnt);
 			return;
 		}
 	}
