@@ -209,8 +209,8 @@
 #define MAINPLL_CON2				0x358
 #define MAINPLL_CON3				0x35C
 #define UNIVPLL_CON0				0x228
-#define UNIVPLL_CON1				0x22C
-#define UNIVPLL_CON2				0x230
+#define UNIVPLL_CON1				0x30C
+#define UNIVPLL_CON2				0x310
 #define UNIVPLL_CON3				0x234
 #define MSDCPLL_CON0				0x360
 #define MSDCPLL_CON1				0x364
