@@ -850,6 +850,8 @@
 			proc2-supply = <&mt6319_7_vbuck1>; //BL
 			proc3-supply = <&mt6319_6_vbuck1>; //B
 			proc4-supply = <&mt6319_7_vbuck3>; //DSU
+			/* regulator step value */
+			proc3 = <6250>; //B
 		};
 
 		cqdma: cq_dma@10212000 {
