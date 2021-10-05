@@ -1054,7 +1054,7 @@ return:
 static int32_t nvt_selftest_open(struct inode *inode, struct file *file)
 {
 	struct device_node *np = ts->client->dev.of_node;
-	unsigned char mpcriteria[32] = {0};	//novatek-mp-criteria-default
+	unsigned char mpcriteria[PAGE_SIZE] = {0};	//novatek-mp-criteria-default
 
 	TestResult_Short = 0;
 	TestResult_Open = 0;
@@ -1209,12 +1209,11 @@ static int32_t nvt_selftest_open(struct inode *inode, struct file *file)
 	return seq_open(file, &nvt_selftest_seq_ops);
 }
 
-static const struct file_operations nvt_selftest_fops = {
-	.owner = THIS_MODULE,
-	.open = nvt_selftest_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
+static const struct proc_ops nvt_selftest_fops = {
+	.proc_open = nvt_selftest_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = seq_release,
 };
 
 #ifdef CONFIG_OF

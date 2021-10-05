@@ -29,6 +29,10 @@
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 
+#if defined(CONFIG_DRM)
+#include <linux/soc/qcom/panel_event_notifier.h>
+#endif
+
 #if defined(CONFIG_DRM_PANEL)
 #include <drm/drm_panel.h>
 #elif defined(CONFIG_FB)
@@ -63,22 +67,21 @@ extern void nvt_mp_proc_deinit(void);
 
 struct nvt_ts_data *ts;
 
-#if defined(CONFIG_DRM_PANEL)
-static struct drm_panel *active_panel;
-#endif
-
 #if BOOT_UPDATE_FIRMWARE
 static struct workqueue_struct *nvt_fwu_wq;
 extern void Boot_Update_Firmware(struct work_struct *work);
 #endif
 
-#if defined(CONFIG_DRM_PANEL)
+#if defined(CONFIG_DRM)
+static struct drm_panel *active_panel;
+static void nvt_i2c_panel_notifier_callback(enum panel_event_notifier_tag tag,
+			struct panel_event_notification *notification, void *client_data);
+
+#elif defined(_MSM_DRM_NOTIFY_H_)
 static int nvt_drm_notifier_callback(struct notifier_block *self, unsigned long event, void *data);
-#elif defined(CONFIG_FB)
+
+#else
 static int nvt_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data);
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-static void nvt_ts_early_suspend(struct early_suspend *h);
-static void nvt_ts_late_resume(struct early_suspend *h);
 #endif
 
 #if TOUCH_KEY_NUM > 0
@@ -109,6 +112,22 @@ const uint16_t gesture_key_array[] = {
 
 static uint8_t bTouchIsAwake = 0;
 
+#if defined(CONFIG_DRM)
+static void nvt_i2c_register_for_panel_events(struct device_node *dp,
+		struct nvt_ts_data *ts)
+{
+	void *cookie = NULL;
+
+	cookie = panel_event_notifier_register(PANEL_EVENT_NOTIFICATION_PRIMARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH, active_panel,
+			&nvt_i2c_panel_notifier_callback, ts);
+	if (!cookie) {
+		pr_err("Failed to register for panel events\n");
+		return;
+	}
+	ts->notifier_cookie = cookie;
+}
+#endif
 /*******************************************************
  * Description:
  *     Novatek touchscreen irq enable/disable function.
@@ -610,10 +629,10 @@ static int32_t nvt_flash_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations nvt_flash_fops = {
-	.open = nvt_flash_open,
-	.release = nvt_flash_close,
-	.read = nvt_flash_read,
+static const struct proc_ops nvt_flash_fops = {
+	.proc_open = nvt_flash_open,
+	.proc_release = nvt_flash_close,
+	.proc_read = nvt_flash_read,
 };
 
 /*******************************************************
@@ -1200,7 +1219,7 @@ out:
 	return ret;
 }
 
-#if defined(CONFIG_DRM_PANEL)
+#if defined(CONFIG_DRM)
 static int nvt_ts_check_dt(struct device_node *np)
 {
 	int i;
@@ -1551,38 +1570,31 @@ static int32_t nvt_ts_probe(struct i2c_client *client,
 	ts->id = id;
 
 #if defined(CONFIG_DRM)
+	nvt_i2c_register_for_panel_events(client->dev.of_node, ts);
+#elif defined(_MSM_DRM_NOTIFY_H_)
 	ts->drm_notif.notifier_call = nvt_drm_notifier_callback;
-
-	if (active_panel &&
-		drm_panel_notifier_register(active_panel,
-			&ts->drm_notif) < 0) {
-		NVT_ERR("register notifier failed!\n");
+	ret = msm_drm_register_client(&ts->drm_notif);
+	if (ret) {
+		NVT_ERR("register drm_notifier failed. ret=%d\n", ret);
 		goto err_register_drm_notif_failed;
 	}
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	ts->early_suspend.suspend = nvt_ts_early_suspend;
-	ts->early_suspend.resume = nvt_ts_late_resume;
-	ret = register_early_suspend(&ts->early_suspend);
+#else
+	ts->fb_notif.notifier_call = nvt_fb_notifier_callback;
+	ts->fb_notif.notifier_call = nvt_fb_notifier_callback;
 	if (ret) {
-		NVT_ERR("register early suspend failed. ret=%d\n", ret);
-		goto err_register_early_suspend_failed;
+		NVT_ERR("register fb_notifier failed. ret=%d\n", ret);
+		goto err_register_fb_notif_failed;
 	}
 #endif
-
 	NVT_LOG("end\n");
 	return 0;
-
 #if defined(CONFIG_DRM)
-	if (active_panel)
-		drm_panel_notifier_unregister(active_panel, &ts->drm_notif);
+
+#elif defined(_MSM_DRM_NOTIFY_H_)
 err_register_drm_notif_failed:
-
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_early_suspend(&ts->early_suspend);
-err_register_early_suspend_failed:
+#else
+err_register_fb_notif_failed:
 #endif
-
 	return -ENODEV;
 }
 
@@ -1597,14 +1609,15 @@ static int32_t nvt_ts_remove(struct i2c_client *client)
 {
 	NVT_LOG("Removing driver...\n");
 
-#if defined(CONFIG_DRM_PANEL)
-	if (active_panel)
-		drm_panel_notifier_unregister(active_panel, &ts->drm_notif);
-#elif defined(CONFIG_FB)
+#if defined(CONFIG_DRM)
+	if (active_panel && ts->notifier_cookie)
+		panel_event_notifier_unregister(ts->notifier_cookie);
+#elif defined(_MSM_DRM_NOTIFY_H_)
+	if (msm_drm_unregister_client(&ts->drm_notif))
+		NVT_ERR("Error occurred while unregistering drm_notifier.\n");
+#else
 	if (fb_unregister_client(&ts->fb_notif))
 		NVT_ERR("Error occurred while unregistering fb_notifier.\n");
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_early_suspend(&ts->early_suspend);
 #endif
 
 #if NVT_TOUCH_MP
@@ -1668,14 +1681,15 @@ static void nvt_ts_shutdown(struct i2c_client *client)
 
 	nvt_irq_enable(false);
 
-#if defined(CONFIG_DRM_PANEL)
-	if (active_panel)
-		drm_panel_notifier_unregister(active_panel, &ts->drm_notif);
-#elif defined(CONFIG_FB)
+#if defined(CONFIG_DRM)
+	if (active_panel && ts->notifier_cookie)
+		panel_event_notifier_unregister(ts->notifier_cookie);
+#elif defined(_MSM_DRM_NOTIFY_H_)
+	if (msm_drm_unregister_client(&ts->drm_notif))
+		NVT_ERR("Error occurred while unregistering drm_notifier.\n");
+#else
 	if (fb_unregister_client(&ts->fb_notif))
 		NVT_ERR("Error occurred while unregistering fb_notifier.\n");
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	unregister_early_suspend(&ts->early_suspend);
 #endif
 
 #if NVT_TOUCH_MP
@@ -1838,39 +1852,84 @@ static int32_t nvt_ts_resume(struct device *dev)
 	return 0;
 }
 
-#if defined(CONFIG_DRM_PANEL)
-static int nvt_drm_notifier_callback(struct notifier_block *self,
-	unsigned long event, void *data)
+#if defined(CONFIG_DRM)
+
+static void nvt_i2c_panel_notifier_callback(enum panel_event_notifier_tag tag,
+		struct panel_event_notification *notification, void *client_data)
 {
-	struct drm_panel_notifier *evdata = data;
+	struct nvt_ts_data *ts = client_data;
+
+	if (!notification) {
+		pr_err("Invalid notification\n");
+		return;
+	}
+
+	NVT_LOG("Notification type:%d, early_trigger:%d",
+		notification->notif_type,
+		notification->notif_data.early_trigger);
+
+	switch (notification->notif_type) {
+	case DRM_PANEL_EVENT_UNBLANK:
+		if (notification->notif_data.early_trigger)
+			NVT_LOG("resume notification pre commit\n");
+		else
+			nvt_ts_resume(&ts->client->dev);
+		break;
+
+	case DRM_PANEL_EVENT_BLANK:
+		if (notification->notif_data.early_trigger)
+			nvt_ts_suspend(&ts->client->dev);
+		else
+			NVT_LOG("suspend notification post commit\n");
+		break;
+
+	case DRM_PANEL_EVENT_BLANK_LP:
+		NVT_LOG("received lp event\n");
+		break;
+
+	case DRM_PANEL_EVENT_FPS_CHANGE:
+		NVT_LOG("Received fps change old fps:%d new fps:%d\n",
+			notification->notif_data.old_fps,
+			notification->notif_data.new_fps);
+		break;
+	default:
+		NVT_LOG("notification serviced :%d\n",
+			notification->notif_type);
+		break;
+	}
+}
+
+#elif defined(_MSM_DRM_NOTIFY_H_)
+static int nvt_drm_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
+{
+	struct msm_drm_notifier *evdata = data;
 	int *blank;
 	struct nvt_ts_data *ts =
 		container_of(self, struct nvt_ts_data, drm_notif);
 
-	if (!evdata || !evdata->data || !ts)
+	if (!evdata || (evdata->id != 0))
 		return 0;
 
-	blank = evdata->data;
-
-	if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
-		if (*blank == DRM_PANEL_BLANK_POWERDOWN) {
-			NVT_LOG("event=%lu, *blank=%d\n", event, *blank);
-			nvt_ts_suspend(&ts->client->dev);
-		}
-	} else if (event == DRM_PANEL_EVENT_BLANK) {
-		if (*blank == DRM_PANEL_BLANK_UNBLANK) {
-			NVT_LOG("event=%lu, *blank=%d\n", event, *blank);
-			nvt_ts_resume(&ts->client->dev);
+	if (evdata->data && ts) {
+		blank = evdata->data;
+		if (event == MSM_DRM_EARLY_EVENT_BLANK) {
+			if (*blank == MSM_DRM_BLANK_POWERDOWN) {
+				NVT_LOG("event=%lu, *blank=%d\n", event, *blank);
+				nvt_ts_suspend(&ts->client->dev);
+			}
+		} else if (event == MSM_DRM_EVENT_BLANK) {
+			if (*blank == MSM_DRM_BLANK_UNBLANK) {
+				NVT_LOG("event=%lu, *blank=%d\n", event, *blank);
+				nvt_ts_resume(&ts->client->dev);
+			}
 		}
 	}
 
 	return 0;
 }
 
-#elif defined(CONFIG_FB)
-
-static int nvt_fb_notifier_callback(struct notifier_block *self,
-	unsigned long event, void *data)
+#else
+static int nvt_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {
 	struct fb_event *evdata = data;
 	int *blank;
@@ -1892,31 +1951,6 @@ static int nvt_fb_notifier_callback(struct notifier_block *self,
 	}
 
 	return 0;
-}
-
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-/*******************************************************
- * Description:
- *     Novatek touchscreen driver early suspend function.
- *
- * return:
- *     n.a.
- *******************************************************/
-static void nvt_ts_early_suspend(struct early_suspend *h)
-{
-	nvt_ts_suspend(ts->client, PMSG_SUSPEND);
-}
-
-/*******************************************************
- * Description:
- *     Novatek touchscreen driver late resume function.
- *
- * return:
- *     n.a.
- * *******************************************************/
-static void nvt_ts_late_resume(struct early_suspend *h)
-{
-	nvt_ts_resume(ts->client);
 }
 #endif
 
@@ -1982,8 +2016,8 @@ static void __exit nvt_driver_exit(void)
 	i2c_del_driver(&nvt_i2c_driver);
 }
 
-late_initcall(nvt_driver_init);
-//module_init(nvt_driver_init);
+//late_initcall(nvt_driver_init);
+module_init(nvt_driver_init);
 module_exit(nvt_driver_exit);
 
 MODULE_DESCRIPTION("Novatek Touchscreen Driver");

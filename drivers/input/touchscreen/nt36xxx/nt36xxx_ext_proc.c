@@ -335,12 +335,11 @@ static int32_t nvt_fw_version_open(struct inode *inode, struct file *file)
 	return seq_open(file, &nvt_fw_version_seq_ops);
 }
 
-static const struct file_operations nvt_fw_version_fops = {
-	.owner = THIS_MODULE,
-	.open = nvt_fw_version_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
+static const struct proc_ops nvt_fw_version_fops = {
+	.proc_open = nvt_fw_version_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = seq_release,
 };
 
 /*******************************************************
@@ -390,12 +389,11 @@ static int32_t nvt_baseline_open(struct inode *inode, struct file *file)
 	return seq_open(file, &nvt_seq_ops);
 }
 
-static const struct file_operations nvt_baseline_fops = {
-	.owner = THIS_MODULE,
-	.open = nvt_baseline_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
+static const struct proc_ops nvt_baseline_fops = {
+	.proc_open = nvt_baseline_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = seq_release,
 };
 
 /*******************************************************
@@ -448,12 +446,11 @@ static int32_t nvt_raw_open(struct inode *inode, struct file *file)
 	return seq_open(file, &nvt_seq_ops);
 }
 
-static const struct file_operations nvt_raw_fops = {
-	.owner = THIS_MODULE,
-	.open = nvt_raw_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
+static const struct proc_ops nvt_raw_fops = {
+	.proc_open = nvt_raw_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = seq_release,
 };
 
 /*******************************************************
@@ -506,12 +503,11 @@ static int32_t nvt_diff_open(struct inode *inode, struct file *file)
 	return seq_open(file, &nvt_seq_ops);
 }
 
-static const struct file_operations nvt_diff_fops = {
-	.owner = THIS_MODULE,
-	.open = nvt_diff_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
+static const struct proc_ops nvt_diff_fops = {
+	.proc_open = nvt_diff_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = seq_release,
 };
 
 /*******************************************************

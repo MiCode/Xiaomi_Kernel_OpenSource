@@ -98,12 +98,13 @@ struct nvt_ts_data {
 	uint16_t addr;
 	int8_t phys[32];
 	const struct i2c_device_id *id;
-#if defined(CONFIG_DRM_PANEL)
+#if defined(CONFIG_DRM)
+	struct notifier_block drm_panel_notif;
+#elif defined(_MSM_DRM_NOTIFY_H_)
 	struct notifier_block drm_notif;
-#elif defined(CONFIG_FB)
+#else
 	struct notifier_block fb_notif;
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
+
 #endif
 	uint8_t fw_ver;
 	uint8_t x_num;
@@ -124,6 +125,7 @@ struct nvt_ts_data {
 	uint8_t xbuf[1025];
 	struct mutex xbuf_lock;
 	bool irq_enabled;
+	void *notifier_cookie;
 };
 
 #if NVT_TOUCH_PROC
