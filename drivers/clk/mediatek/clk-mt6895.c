@@ -21,8 +21,8 @@
 
 /* bringup config */
 #define MT_CCF_BRINGUP		1
-#define MT_CCF_PLL_DISABLE	1
-#define MT_CCF_MUX_DISABLE	1
+#define MT_CCF_PLL_DISABLE	0
+#define MT_CCF_MUX_DISABLE	0
 
 /* Regular Number Definition */
 #define INV_OFS	-1
@@ -558,7 +558,7 @@ static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_OSC_D10, "osc_d10",
 			"ulposc", 1, 10),
 	FACTOR(CLK_TOP_ULPOSC, "ulposc_ck",
-			"None", 1, 1),
+			"ulposc", 1, 1),
 	FACTOR(CLK_TOP_F26M, "f26m_ck",
 			"clk26m", 1, 1),
 	FACTOR(CLK_TOP_RTC, "rtc_ck",
@@ -2602,16 +2602,14 @@ static const struct mtk_mux top_muxes[] = {
 		31/* pdn */, CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_MCU_ACP_SHIFT/* upd shift */),
 	/* CLK_CFG_30 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MFG_SEL_0_SEL/* dts */, "mfg_sel_0_sel",
+	MUX_CLR_SET_UPD(CLK_TOP_MFG_SEL_0_SEL/* dts */, "mfg_sel_0_sel",
 		mfg_sel_0_parents/* parent */, CLK_CFG_30, CLK_CFG_30_SET,
 		CLK_CFG_30_CLR/* set parent */, 16/* lsb */, 1/* width */,
-		None/* pdn */, INV_OFS/* upd ofs */,
-		INV_BIT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MFG_SEL_1_SEL/* dts */, "mfg_sel_1_sel",
+		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
+	MUX_CLR_SET_UPD(CLK_TOP_MFG_SEL_1_SEL/* dts */, "mfg_sel_1_sel",
 		mfg_sel_1_parents/* parent */, CLK_CFG_30, CLK_CFG_30_SET,
 		CLK_CFG_30_CLR/* set parent */, 17/* lsb */, 1/* width */,
-		None/* pdn */, INV_OFS/* upd ofs */,
-		INV_BIT/* upd shift */),
+		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
 #endif
 };
 

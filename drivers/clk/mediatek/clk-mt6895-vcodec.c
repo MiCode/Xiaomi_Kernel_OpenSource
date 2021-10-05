@@ -96,12 +96,18 @@ static const struct mtk_gate_regs vde10_cg_regs = {
 };
 
 static const struct mtk_gate_regs vde11_cg_regs = {
+	.set_ofs = 0x190,
+	.clr_ofs = 0x190,
+	.sta_ofs = 0x190,
+};
+
+static const struct mtk_gate_regs vde12_cg_regs = {
 	.set_ofs = 0x200,
 	.clr_ofs = 0x204,
 	.sta_ofs = 0x200,
 };
 
-static const struct mtk_gate_regs vde12_cg_regs = {
+static const struct mtk_gate_regs vde13_cg_regs = {
 	.set_ofs = 0x8,
 	.clr_ofs = 0xC,
 	.sta_ofs = 0x8,
@@ -122,7 +128,7 @@ static const struct mtk_gate_regs vde12_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &vde11_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+		.ops = &mtk_clk_gate_ops_no_setclr_inv,	\
 	}
 
 #define GATE_VDE12(_id, _name, _parent, _shift) {	\
@@ -130,6 +136,15 @@ static const struct mtk_gate_regs vde12_cg_regs = {
 		.name = _name,				\
 		.parent_name = _parent,			\
 		.regs = &vde12_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+	}
+
+#define GATE_VDE13(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &vde13_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
 	}
@@ -143,14 +158,17 @@ static const struct mtk_gate vde1_clks[] = {
 	GATE_VDE10(CLK_VDE1_VDEC_CKEN_ENG, "vde1_vdec_cken_eng",
 			"vdec_ck"/* parent */, 8),
 	/* VDE11 */
-	GATE_VDE11(CLK_VDE1_LAT_CKEN, "vde1_lat_cken",
+	GATE_VDE11(CLK_VDE1_MINI_MDP_CKEN_CFG_RG, "vde1_mini_mdp_cken",
 			"vdec_ck"/* parent */, 0),
-	GATE_VDE11(CLK_VDE1_LAT_ACTIVE, "vde1_lat_active",
-			"vdec_ck"/* parent */, 4),
-	GATE_VDE11(CLK_VDE1_LAT_CKEN_ENG, "vde1_lat_cken_eng",
-			"vdec_ck"/* parent */, 8),
 	/* VDE12 */
-	GATE_VDE12(CLK_VDE1_LARB1_CKEN, "vde1_larb1_cken",
+	GATE_VDE12(CLK_VDE1_LAT_CKEN, "vde1_lat_cken",
+			"vdec_ck"/* parent */, 0),
+	GATE_VDE12(CLK_VDE1_LAT_ACTIVE, "vde1_lat_active",
+			"vdec_ck"/* parent */, 4),
+	GATE_VDE12(CLK_VDE1_LAT_CKEN_ENG, "vde1_lat_cken_eng",
+			"vdec_ck"/* parent */, 8),
+	/* VDE13 */
+	GATE_VDE13(CLK_VDE1_LARB1_CKEN, "vde1_larb1_cken",
 			"vdec_ck"/* parent */, 0),
 };
 

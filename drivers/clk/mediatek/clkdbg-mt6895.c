@@ -436,6 +436,7 @@ const char * const *get_mt6895_all_clk_names(void)
 		"vde1_lat_cken",
 		"vde1_lat_active",
 		"vde1_lat_cken_eng",
+		"vde1_mini_mdp_cken",
 		"vde1_vdec_cken",
 		"vde1_vdec_active",
 		"vde1_vdec_cken_eng",
