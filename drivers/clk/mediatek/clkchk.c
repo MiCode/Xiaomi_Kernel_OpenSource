@@ -48,12 +48,12 @@ EXPORT_SYMBOL(set_clkchk_ops);
  * for clock exception event handling
  */
 
-static void clkchk_dump_hwv_history(struct regmap *regmap)
+static void clkchk_dump_hwv_history(struct regmap *regmap, u32 id)
 {
 	if (clkchk_ops == NULL || clkchk_ops->dump_hwv_history == NULL)
 		return;
 
-	clkchk_ops->dump_hwv_history(regmap);
+	clkchk_ops->dump_hwv_history(regmap, id);
 }
 
 static int clkchk_evt_handling(struct notifier_block *nb,
@@ -63,7 +63,7 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 
 	switch (clkd->event_type) {
 	case CLK_EVT_HWV_CG_TIMEOUT:
-		clkchk_dump_hwv_history(clkd->regmap);
+		clkchk_dump_hwv_history(clkd->regmap, clkd->id);
 		break;
 	default:
 		pr_notice("cannot get flags identify\n");

@@ -35,7 +35,7 @@ int unregister_mtk_clk_notifier(struct notifier_block *nb)
 EXPORT_SYMBOL_GPL(unregister_mtk_clk_notifier);
 
 int mtk_clk_notify(struct regmap *regmap, const char *name, u32 ofs,
-		u32 shift, int event_type)
+		u32 id, u32 shift, int event_type)
 {
 	struct clk_event_data clke;
 
@@ -43,6 +43,7 @@ int mtk_clk_notify(struct regmap *regmap, const char *name, u32 ofs,
 	clke.regmap = regmap;
 	clke.name = name;
 	clke.ofs = ofs;
+	clke.id = id;
 	clke.shift = shift;
 
 	blocking_notifier_call_chain(&mtk_clk_notifier_list, 0, &clke);

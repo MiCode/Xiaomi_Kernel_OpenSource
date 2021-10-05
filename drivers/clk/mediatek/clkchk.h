@@ -87,7 +87,7 @@ struct clkchk_ops {
 	int (*get_vcore_opp)(void);
 	bool (*is_pwr_on)(struct provider_clk *pvdck);
 	void (*devapc_dump)(void);
-	void (*dump_hwv_history)(struct regmap *regmap);
+	void (*dump_hwv_history)(struct regmap *regmap, u32 id);
 };
 
 int clkchk_pvdck_is_on(struct provider_clk *pvdck);

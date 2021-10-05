@@ -31,6 +31,13 @@
 #define HWV_IDX_POINTER			0x1F84
 #define HWV_DOMAIN_KEY			0x155C
 #define HWV_SECURE_KEY			0x10907
+#define HWV_CG_SET(id)			(0x0 + (id * 0x8))
+#define HWV_CG_STA(id)			(0x1800 + (id * 0x4))
+#define HWV_CG_EN(id)			(0x1900 + (id * 0x4))
+#define HWV_CG_SET_STA(id)		(0x1A00 + (id * 0x4))
+#define HWV_CG_CLR_STA(id)		(0x1B00 + (id * 0x4))
+#define HWV_CG_DONE(id)			(0x1C00 + (id * 0x4))
+
 /*
  * clkchk dump_regs
  */
@@ -629,9 +636,10 @@ static bool is_pll_chk_bug_on(void)
 	return false;
 }
 
-static void dump_hwv_history(struct regmap *regmap)
+static void dump_hwv_history(struct regmap *regmap, u32 id)
 {
 	u32 val, val2;
+	u32 set, sta, set_sta, clr_sta, en, done;
 	int i;
 
 	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
@@ -642,6 +650,16 @@ static void dump_hwv_history(struct regmap *regmap)
 	}
 	regmap_read(regmap, HWV_IDX_POINTER, &val);
 	pr_notice("idx: 0x%x\n", val);
+	regmap_read(regmap, HWV_CG_SET(id), &set);
+	regmap_read(regmap, HWV_CG_STA(id), &sta);
+	regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
+	regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
+	regmap_read(regmap, HWV_CG_EN(id), &en);
+	regmap_read(regmap, HWV_CG_DONE(id), &done);
+	pr_notice("[%d](%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
+			id, HWV_CG_SET(id), set, HWV_CG_STA(id), sta,
+			HWV_CG_SET_STA(id), set_sta, HWV_CG_CLR_STA(id), clr_sta,
+			HWV_CG_EN(id), en, HWV_CG_DONE(id), done);
 
 	BUG_ON(1);
 }

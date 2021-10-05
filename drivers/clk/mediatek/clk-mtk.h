@@ -30,6 +30,7 @@ struct clk_event_data {
 	int event_type;
 	const char *name;
 	u32 ofs;
+	u32 id;
 	u32 shift;
 };
 
@@ -288,6 +289,6 @@ int mtk_clk_simple_probe(struct platform_device *pdev);
 extern int register_mtk_clk_notifier(struct notifier_block *nb);
 extern int unregister_mtk_clk_notifier(struct notifier_block *nb);
 extern int mtk_clk_notify(struct regmap *regmap, const char *name, u32 ofs,
-		u32 shift, int event_type);
+		u32 id, u32 shift, int event_type);
 
 #endif /* __DRV_CLK_MTK_H */
