@@ -355,8 +355,10 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 				queue_work(g_psNotifyWorkQueue,
 					&psNotify->sWork);
 			}
+#ifdef GED_DVFS_DEBUG
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] Timer removed	(ts=%llu) ", temp);
+#endif
 			return HRTIMER_NORESTART;
 		}
 
@@ -366,8 +368,10 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 			psNotify->phase = GED_DVFS_TIMER_BACKUP;
 			psNotify->ul3DFenceDoneTime = 0;
 			queue_work(g_psNotifyWorkQueue, &psNotify->sWork);
+#ifdef GED_DVFS_DEBUG
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] Timer queue to kick (ts=%llu)", temp);
+#endif
 			hrtimer_start(&g_HT_hwvsync_emu,
 			ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
 			g_timer_on_ts = temp;
