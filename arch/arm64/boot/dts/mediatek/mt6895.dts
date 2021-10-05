@@ -7265,6 +7265,35 @@
 			<6 8>;
 		};
 
+		jpgenc@17030000 {
+			compatible = "mediatek,mtk-jpgenc";
+			reg = <0 0x17030000 0 0x10000>;
+			interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>;
+			clock-names = "jpgenc";
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_VEN0>;
+			mediatek,larb = <&smi_larb7>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&disp_iommu M4U_LARB7_PORT7>,
+					<&disp_iommu M4U_LARB7_PORT8>,
+					<&disp_iommu M4U_LARB7_PORT9>,
+					<&disp_iommu M4U_LARB7_PORT16>;
+			interconnects = <&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT7)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT8)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT9)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT16)
+					&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "path_jpegenc_y_rdma",
+				"path_jpegenc_c_rmda",
+				"path_jpegenc_q_table",
+				"path_jpegenc_bsdma";
+			operating-points-v2 = <&opp_table_venc>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		};
+
 		jpgdec0@17040000 {
 			compatible = "mediatek,jpgdec0";
 			reg = <0 0x17040000 0 0x10000>,
@@ -7287,12 +7316,6 @@
 				<&disp_iommu M4U_LARB7_PORT29>,
 				<&disp_iommu M4U_LARB7_PORT30>;
 		};
-
-		jpgenc@17030000 {
-			compatible = "mediatek,jpgenc";
-			reg = <0 0x17030000 0 0x10000>;
-		};
-
 		mbist@17060000 {
 			compatible = "mediatek,mbist";
 			reg = <0 0x17060000 0 0x10000>;
@@ -7307,12 +7330,36 @@
 			compatible = "mediatek,venc";
 			reg = <0 0x17820000 0 0x10000>;
 		};
-
+#if 0
 		jpgenc@17830000 {
-			compatible = "mediatek,jpgenc";
+			compatible = "mediatek,mtk-jpgenc_c1";
 			reg = <0 0x17830000 0 0x10000>;
+			interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&venc_gcon_core1_clk CLK_VEN2_CKE2_JPGENC>;
+			clock-names = "jpgenc_c1";
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_VEN1>;
+			mediatek,larb = <&smi_larb8>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&mdp_iommu M4U_LARB8_PORT7>,
+					<&mdp_iommu M4U_LARB8_PORT8>,
+					<&mdp_iommu M4U_LARB8_PORT9>,
+					<&mdp_iommu M4U_LARB8_PORT16>;
+			interconnects = <&mmqos MASTER_LARB_PORT(M4U_LARB8_PORT7)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB8_PORT8)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB8_PORT9)
+					&mmqos SLAVE_COMMON(1)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB8_PORT16)
+					&mmqos SLAVE_COMMON(1)>;
+			interconnect-names = "path_jpegenc_y_rdma",
+				"path_jpegenc_c_rmda",
+				"path_jpegenc_q_table",
+				"path_jpegenc_bsdma";
+			operating-points-v2 = <&opp_table_venc>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
-
+#endif
 		mbist@17860000 {
 			compatible = "mediatek,mbist";
 			reg = <0 0x17860000 0 0x10000>;
