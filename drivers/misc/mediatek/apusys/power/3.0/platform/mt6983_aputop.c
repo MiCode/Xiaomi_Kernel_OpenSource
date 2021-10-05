@@ -25,6 +25,7 @@
 #include "mt6983_apupwr_prot.h"
 
 #define LOCAL_DBG	(1)
+#define RPC_ALIVE_DBG	(0)
 
 /* Below reg_name has to 1-1 mapping DTS's name */
 static const char *reg_name[APUPW_MAX_REGS] = {
@@ -37,6 +38,9 @@ static const char *reg_name[APUPW_MAX_REGS] = {
 static struct apu_power apupw;
 
 static void aputop_dump_pwr_res(void);
+static void aputop_dump_pwr_reg(struct device *dev);
+static void are_dump_config(int are_hw);
+static void are_dump_entry(int are_hw);
 
 /* regulator id */
 static struct regulator *vapu_reg_id;
@@ -66,6 +70,29 @@ static uint32_t apusys_pwr_smc_call(struct device *dev, uint32_t smc_id,
 				__func__,
 				smc_id, res.a0);
 	return res.a0;
+}
+
+static int check_if_rpc_alive(void)
+{
+#if RPC_ALIVE_DBG
+	unsigned int regValue = 0x0;
+	int bit_offset = 26; // [31:26] is reserved for debug
+
+	regValue = apu_readl(apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+	pr_info("%s , before: APU_RPC_TOP_SEL = 0x%x\n", __func__, regValue);
+	regValue |= (0x3a << bit_offset);
+	apu_writel(regValue, apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+
+	regValue = 0x0;
+	regValue = apu_readl(apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+	pr_info("%s , after: APU_RPC_TOP_SEL = 0x%x\n", __func__, regValue);
+
+	apu_clearl((BIT(26) | BIT(27) | BIT(28) | BIT(29) | BIT(30) | BIT(31)),
+					apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+
+	return ((regValue >> bit_offset) & 0x3f) == 0x3a ? 1 : 0;
+#endif
+	return 1;
 }
 
 #if APU_POWER_INIT
@@ -680,23 +707,17 @@ static int __apu_are_init(struct device *dev)
 }
 #endif // APU_POWER_INIT
 
-static void are_dump_entry(int are_hw)
+static void are_dump_config(int are_hw)
 {
-	int are_id, are_entry_max_id;
-	uint32_t reg, data;
-	uint32_t target_data = 0x0;
-	void *target_addr = 0x0;
-	int entry, err_flag;
+	int entry = 0;
+	int are_id = 0;
 
 	if (are_hw == 0) {
 		are_id = apu_are0;
-		are_entry_max_id = 238;
 	} else if (are_hw == 1) {
 		are_id = apu_are1;
-		are_entry_max_id = 210;
 	} else {
 		are_id = apu_are2;
-		are_entry_max_id = 237;
 	}
 
 	pr_info("APU_ARE_DUMP are_hw:%d offset: 0x%03x = 0x%08x\n",
@@ -718,6 +739,26 @@ static void are_dump_entry(int are_hw)
 				APU_ARE_ETRY0_SRAM_H + entry * 4),
 			readl(apupw.regs[are_id] +
 				APU_ARE_ETRY0_SRAM_L + entry * 4));
+	}
+}
+
+static void are_dump_entry(int are_hw)
+{
+	int are_id, are_entry_max_id;
+	uint32_t reg, data;
+	uint32_t target_data = 0x0;
+	void *target_addr = 0x0;
+	int entry, err_flag;
+
+	if (are_hw == 0) {
+		are_id = apu_are0;
+		are_entry_max_id = 238;
+	} else if (are_hw == 1) {
+		are_id = apu_are1;
+		are_entry_max_id = 210;
+	} else {
+		are_id = apu_are2;
+		are_entry_max_id = 237;
 	}
 
 	for (entry = 3 ; entry <= are_entry_max_id ; entry++) {
@@ -1031,7 +1072,12 @@ static int mt6983_apu_top_on(struct device *dev)
 	ret = __apu_wake_rpc_rcx(dev);
 
 	if (ret) {
-		pr_info("%s fail to wakeup RPC, ret %d\n", __func__, ret);
+		pr_info("%s fail to wakeup RPC, ret %d, rpc_alive:%d\n",
+					__func__, ret, check_if_rpc_alive());
+		aputop_dump_pwr_res();
+		aputop_dump_pwr_reg(dev);
+		are_dump_config(0);
+		are_dump_config(1);
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_WAKEUP_FAIL");
 		return -1;
 	}
@@ -1062,8 +1108,13 @@ static int mt6983_apu_top_off(struct device *dev)
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL) == 0x0, 50, rpc_timeout_val);
 	if (ret) {
-		pr_info("%s timeout to wait RPC sleep (val:%d), ret %d\n",
-				__func__, rpc_timeout_val, ret);
+		pr_info(
+		"%s timeout to wait RPC sleep (val:%d), ret %d, rpc_alive:%d\n",
+			__func__, rpc_timeout_val, ret, check_if_rpc_alive());
+		aputop_dump_pwr_res();
+		aputop_dump_pwr_reg(dev);
+		are_dump_config(0);
+		are_dump_config(1);
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_SLEEP_TIMEOUT");
 		return -1;
 	}
@@ -1358,18 +1409,6 @@ static void aputop_dump_pwr_res(void)
 	pr_info("%s vapu:%u(en:%d,mode:%d) vcore:%u vsram:%u\n",
 			__func__, vapu, vapu_en, vapu_mode, vcore, vsram);
 
-	pr_info("%s d:%d d1:%d d2:%d d3:%d d4:%d d5:%d d6:%d d7:%d i:%d\n",
-			__func__,
-			clk_get_rate(clk_top_dsp_sel),
-			clk_get_rate(clk_top_dsp1_sel),
-			clk_get_rate(clk_top_dsp2_sel),
-			clk_get_rate(clk_top_dsp3_sel),
-			clk_get_rate(clk_top_dsp4_sel),
-			clk_get_rate(clk_top_dsp5_sel),
-			clk_get_rate(clk_top_dsp6_sel),
-			clk_get_rate(clk_top_dsp7_sel),
-			clk_get_rate(clk_top_ipu_if_sel));
-
 	mt6983_apu_dump_rpc_status(RCX, NULL);
 #if APU_POWER_BRING_UP
 	mt6983_apu_dump_rpc_status(ACX0, NULL);
@@ -1377,11 +1416,28 @@ static void aputop_dump_pwr_res(void)
 #endif
 }
 
-static int mt6983_apu_top_func(struct platform_device *pdev,
-		enum aputop_func_id func_id, struct aputop_func_param *aputop)
+static void aputop_dump_pwr_reg(struct device *dev)
 {
 	char buf[32];
 
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "phys 0x%08x: ",
+			(u32)(apupw.phy_addr[apu_rpc]));
+	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			apupw.regs[apu_rpc], 0x300, true);
+
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "phys 0x%08x: ",
+			(u32)(apupw.phy_addr[apu_pcu]));
+	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			apupw.regs[apu_pcu], 0x100, true);
+
+	apusys_pwr_smc_call(dev, MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP, 0);
+}
+
+static int mt6983_apu_top_func(struct platform_device *pdev,
+		enum aputop_func_id func_id, struct aputop_func_param *aputop)
+{
 	pr_info("%s func_id : %d\n", __func__, aputop->func_id);
 
 	switch (aputop->func_id) {
@@ -1400,21 +1456,8 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 	case APUTOP_FUNC_DUMP_REG:
 
 		aputop_dump_pwr_res();
+		aputop_dump_pwr_reg(&pdev->dev);
 
-		memset(buf, 0, sizeof(buf));
-		snprintf(buf, 32, "phys 0x%08x: ",
-				(u32)(apupw.phy_addr[apu_rpc]));
-		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-				apupw.regs[apu_rpc], 0x300, true);
-
-		memset(buf, 0, sizeof(buf));
-		snprintf(buf, 32, "phys 0x%08x: ",
-				(u32)(apupw.phy_addr[apu_pcu]));
-		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-				apupw.regs[apu_pcu], 0x100, true);
-
-		apusys_pwr_smc_call(&pdev->dev,
-				MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP, 0);
 #if DEBUG_DUMP_REG
 		aputop_dump_all_reg();
 #endif
@@ -1426,10 +1469,13 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 		test_ipi_wakeup_apu();
 		break;
 	case APUTOP_FUNC_ARE_DUMP1:
+		are_dump_config(0);
 		are_dump_entry(0);
+		are_dump_config(1);
 		are_dump_entry(1);
 		break;
 	case APUTOP_FUNC_ARE_DUMP2:
+		are_dump_config(2);
 		are_dump_entry(2);
 		break;
 	default:
