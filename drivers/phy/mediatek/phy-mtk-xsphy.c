@@ -1006,6 +1006,28 @@ static void u2_phy_instance_power_on(struct mtk_xsphy *xsphy,
 	u32 tmp;
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp |= P2D_FORCE_SUSPENDM;
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~P2D_RG_SUSPENDM;
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp |= P2D_RG_SUSPENDM;
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	udelay(30);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~P2D_FORCE_SUSPENDM;
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~P2D_RG_SUSPENDM;
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~(P2D_FORCE_UART_EN);
 	writel(tmp, pbase + XSP_U2PHYDTM0);
 
@@ -1100,6 +1122,8 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~P2D_RG_SUSPENDM;
 	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	udelay(1);
 
 	dev_info(xsphy->dev, "%s(%d)\n", __func__, index);
 }
