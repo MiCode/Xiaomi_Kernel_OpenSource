@@ -1255,8 +1255,10 @@ static int seninf_link_setup(struct media_entity *entity,
 
 	if (local->flags & MEDIA_PAD_FL_SOURCE) {
 		if (flags & MEDIA_LNK_FL_ENABLED) {
-			if (!mtk_cam_seninf_get_vc_by_pad(ctx, local->index))
-				return -EIO;
+			if (!mtk_cam_seninf_get_vc_by_pad(ctx, local->index)) {
+				dev_info(ctx->dev,
+				"%s enable link w/o vc_info pad idex %d\n", local->index);
+			}
 		}
 	} else {
 		/* NOTE: update vcinfo once the link becomes enabled */
