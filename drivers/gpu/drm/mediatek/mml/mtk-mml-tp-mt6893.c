@@ -533,8 +533,6 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (info->dest[0].compose.width * info->dest[0].compose.height > MML_IR_MAX_FRAME)
 		goto decouple;
 
-	return MML_MODE_RACING;
-
 decouple:
 	return MML_MODE_MML_DECOUPLE;
 }
