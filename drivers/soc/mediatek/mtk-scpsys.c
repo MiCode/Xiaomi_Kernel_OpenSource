@@ -31,6 +31,7 @@
 
 #define MTK_POLL_DELAY_US   10
 #define MTK_POLL_TIMEOUT    USEC_PER_SEC
+#define MTK_POLL_IRQ_TIMEOUT    10
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -920,8 +921,17 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 	if (ret)
 		goto err_lp_clk;
 
+	/* wait for irq status idle */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv_ack;
+
 	val = BIT(scpd->data->hwv_shift);
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_set_ofs, val);
+
+	/* delay 10us to prevent false ack check */
+	udelay(10);
 
 	/* wait until VOTER_ACK = 1 */
 	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
@@ -957,8 +967,17 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 	if (ret)
 		goto err_lp_clk;
 
+	/* wait for irq status idle */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv;
+
 	val = BIT(scpd->data->hwv_shift);
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_clr_ofs, val);
+
+	/* delay 1us to prevent false ack check */
+	udelay(10);
 
 	/* wait until VOTER_ACK = 0 */
 	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
@@ -975,7 +994,6 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 		goto err_regulator;
 
 	return 0;
-
 
 err_hwv:
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
