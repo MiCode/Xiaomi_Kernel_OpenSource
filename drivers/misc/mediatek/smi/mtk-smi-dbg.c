@@ -319,8 +319,9 @@ static void mtk_smi_dbg_print(
 	const u32		regs_nr = node.regs_nr;
 
 	char	buf[LINK_MAX + 1] = {0};
-	u32	val;
+	u32	val, comm_id;
 	s32	i, len, ret;
+	bool	dump_with = false;
 
 	if (!node.dev || !node.va)
 		return;
@@ -328,8 +329,14 @@ static void mtk_smi_dbg_print(
 	ret = pm_runtime_get_if_in_use(node.dev);
 	dev_info(node.dev, "===== %s%u rpm:%d =====\n"
 		, name, id, ret);
-	if (ret <= 0)
-		return;
+
+	if (ret <= 0) {
+		if (of_property_read_u32(node.dev->of_node, "mediatek,dump-with-comm", &comm_id))
+			return;
+		if (pm_runtime_get_if_in_use(smi->comm[comm_id].dev) <= 0)
+			return;
+		dump_with = true;
+	}
 
 	for (i = 0, len = 0; i < regs_nr; i++) {
 
@@ -352,6 +359,11 @@ static void mtk_smi_dbg_print(
 	}
 	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
 	dev_info(node.dev, "%s\n", buf);
+
+	if (dump_with) {
+		pm_runtime_put(smi->comm[comm_id].dev);
+		return;
+	}
 	pm_runtime_put(node.dev);
 }
 
