@@ -300,8 +300,8 @@ struct mtk_raw_device {
 
 	/* for subsample, sensor-control */
 	bool sub_sensor_ctrl_en;
-	u64 set_sensor_time_from_sof;
-	u64 last_sof_time;
+	int set_sensor_idx;
+	int cur_vsync_idx;
 
 	u8 time_shared_busy;
 	u8 time_shared_busy_ctx_id;

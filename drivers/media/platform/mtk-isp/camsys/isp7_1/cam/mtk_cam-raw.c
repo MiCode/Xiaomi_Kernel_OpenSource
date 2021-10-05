@@ -1496,26 +1496,10 @@ void stagger_disable(struct mtk_raw_device *dev)
 
 static void subsample_set_sensor_time(struct mtk_raw_device *dev)
 {
-	u32 sensor_frame_idx; /* which frame to set sensor */
-	u64 sub_frame_time;
-
-	/*
-	 * Use timestamp of vsync to decide whether to set sensor or not.
-	 * Avoid to count vsyncs since we may miss hw irq.
-	 */
-
-	sensor_frame_idx =
+	dev->sub_sensor_ctrl_en = true;
+	dev->set_sensor_idx =
 		mtk_cam_get_subsample_ratio(dev->pipeline->feature_active) - 1;
-
-	sub_frame_time = 1000000000ULL *
-		dev->pipeline->res_config.interval.numerator /
-		dev->pipeline->res_config.interval.denominator;
-
-	dev->sub_sensor_ctrl_en = 1;
-	dev->set_sensor_time_from_sof = sensor_frame_idx * sub_frame_time
-					- sub_frame_time / 2;
-	dev_dbg(dev->dev, "%s: %llu\n",
-		__func__, dev->set_sensor_time_from_sof);
+	dev->cur_vsync_idx = -1;
 }
 
 void subsample_enable(struct mtk_raw_device *dev)
@@ -1560,7 +1544,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 
 	dev->is_slave = is_slave;
 	dev->sof_count = 0;
-	dev->sub_sensor_ctrl_en = 0;
+	dev->sub_sensor_ctrl_en = false;
 	dev->time_shared_busy = 0;
 	atomic_set(&dev->vf_en, 0);
 	dev->stagger_en = 0;
@@ -1998,9 +1982,9 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 		raw_irq_handle_tg_overrun_err(raw_dev, frame_idx_inner);
 }
 
-static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev, u64 vsync_ts)
+static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 {
-	return vsync_ts - dev->last_sof_time >= dev->set_sensor_time_from_sof;
+	return dev->cur_vsync_idx >= dev->set_sensor_idx;
 }
 
 static irqreturn_t mtk_irq_raw(int irq, void *data)
@@ -2062,15 +2046,19 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	if (irq_status & SOF_INT_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 
-		raw_dev->last_sof_time = irq_info.ts_ns;
+		raw_dev->cur_vsync_idx = 0;
 		raw_dev->write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		dev_dbg(dev, "[SOF] fho wcnt:%d\n", raw_dev->write_cnt);
 		raw_dev->sof_count++;
 	}
 
-	if (raw_dev->sub_sensor_ctrl_en && irq_status & TG_VS_INT_ORG_ST) {
-		if (is_sub_sample_sensor_timing(raw_dev, irq_info.ts_ns))
+	if (raw_dev->sub_sensor_ctrl_en && irq_status & TG_VS_INT_ORG_ST
+	    && raw_dev->cur_vsync_idx >= 0) {
+		if (is_sub_sample_sensor_timing(raw_dev)) {
+			raw_dev->cur_vsync_idx = -1;
 			irq_info.irq_type |= 1 << CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET;
+		}
+		++raw_dev->cur_vsync_idx;
 	}
 
 	if (irq_info.irq_type && !raw_dev->is_slave) {
