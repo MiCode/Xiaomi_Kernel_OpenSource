@@ -134,6 +134,11 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 			ret |= mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_HRT_BW,
 						   &tmp);
 		}
+		if (!mtk_crtc->is_dual_pipe)
+			continue;
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, j, i)
+			ret |= mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_HRT_BW,
+					&tmp);
 	}
 
 	if (ret == RDMA_REQ_HRT)
