@@ -2906,7 +2906,8 @@ static int _build_path_direct_link(void)
 }
 
 static int _convert_disp_input_to_ovl(struct OVL_CONFIG_STRUCT *dst,
-				      struct disp_input_config *src)
+				      struct disp_input_config *src,
+				      unsigned int session_id)
 {
 	int ret = 0;
 	int force_disable_alpha = 0;
@@ -2963,6 +2964,14 @@ static int _convert_disp_input_to_ovl(struct OVL_CONFIG_STRUCT *dst,
 	dst->identity = src->identity;
 	dst->connected_type = src->connected_type;
 	dst->security = src->security;
+
+	/* only updated secure buffer handle for input */
+	if (dst->security != DISP_NORMAL_BUFFER) {
+		dst->hnd = disp_snyc_get_ion_handle(session_id, dst->layer, dst->buff_idx);
+		DISPINFO("%s [SVP]ovl2mem sec layer id: %d, buf_idx:0x%x\n", __func__,
+			 dst->layer, dst->buff_idx);
+	}
+
 	dst->yuv_range = src->yuv_range;
 	dst->ds = (enum android_dataspace)src->dataspace;
 
@@ -6694,7 +6703,7 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 			DISPMSG("set AEE layer %d\n", l_id);
 		}
 
-		_convert_disp_input_to_ovl(ovl_cfg, input_cfg);
+		_convert_disp_input_to_ovl(ovl_cfg, input_cfg, cfg->session_id);
 
 		dprec_logger_start(DPREC_LOGGER_PRIMARY_CONFIG,
 				   ((ovl_cfg->src_x & 0xFFFF) << 16) |
@@ -7106,7 +7115,7 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 			data_config = dpmgr_path_get_last_config(disp_handle);
 			ret = _convert_disp_input_to_ovl(
 					&(data_config->ovl_config[layer]),
-					&cfg->input_cfg[0]);
+					&cfg->input_cfg[0], cfg->session_id);
 		}
 
 		goto done;

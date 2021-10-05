@@ -357,7 +357,6 @@ static struct ion_handle *mtkfb_ion_import_handle(struct ion_client *client,
 						  int fd)
 {
 	struct ion_handle *handle = NULL;
-	struct ion_mm_data mm_data;
 
 	/* If no need ION support, do nothing! */
 	if (fd == MTK_FB_NO_ION_FD) {
@@ -404,7 +403,6 @@ static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 				      unsigned int *mva)
 {
 	size_t size;
-	ion_phys_addr_t phy_addr = 0;
 	struct ion_mm_data mm_data;
 
 	if (!ion_client) {

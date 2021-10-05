@@ -169,7 +169,8 @@ void *mtk_ovl_get_dpmgr_handle(void)
 }
 
 static int _convert_disp_input_to_ovl(struct OVL_CONFIG_STRUCT *dst,
-				      struct disp_input_config *src)
+				      struct disp_input_config *src,
+				      unsigned int session_id)
 {
 	int ret = 0;
 	int force_disable_alpha = 0;
@@ -224,6 +225,13 @@ static int _convert_disp_input_to_ovl(struct OVL_CONFIG_STRUCT *dst,
 	dst->identity = src->identity;
 	dst->connected_type = src->connected_type;
 	dst->security = src->security;
+
+	/* only updated secure buffer handle for input */
+	if (dst->security != DISP_NORMAL_BUFFER) {
+		dst->hnd = disp_snyc_get_ion_handle(session_id, dst->layer, dst->buff_idx);
+		DISPINFO("%s [SVP]ovl2mem sec layer id: %d, buf_idx:0x%x\n", __func__,
+			 dst->layer, dst->buff_idx);
+	}
 	dst->yuv_range = src->yuv_range;
 
 	/* dim layer, constant alpha */
@@ -556,7 +564,7 @@ static int ovl2mem_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		config_layer_id = cfg->input_cfg[i].layer_id;
 		_convert_disp_input_to_ovl(
 			&(data_config->ovl_config[config_layer_id]),
-			&(cfg->input_cfg[i]));
+			&(cfg->input_cfg[i]), cfg->session_id);
 		dprec_mmp_dump_ovl_layer(
 			&(data_config->ovl_config[config_layer_id]),
 			config_layer_id, 3);
@@ -570,9 +578,9 @@ static int ovl2mem_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		if (cfg->input_cfg[i].layer_enable &&
 		    cfg->input_cfg[i].security != DISP_NORMAL_BUFFER) {
 			data_config->ovl_config[config_layer_id].hnd =
-				disp_snyc_get_ion_handle(cfg->session_id,
+					disp_snyc_get_ion_handle(cfg->session_id,
 					cfg->input_cfg[i].layer_id,
-				(unsigned int)cfg->input_cfg[i].next_buff_idx);
+					(unsigned int)cfg->input_cfg[i].next_buff_idx);
 			DISPINFO("[SVP]ovl2mem sec layer id: %d, cdmq handle:%p\n",
 				 cfg->input_cfg[i].layer_id, pgcl->cmdq_handle_config);
 		}
@@ -586,10 +594,9 @@ static int ovl2mem_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 
 	/* only updated secure buffer handle for output */
 	if (cfg->output_cfg.security != DISP_NORMAL_BUFFER) {
-		data_config->wdma_config.hnd = disp_snyc_get_ion_handle(
-			cfg->session_id,
-			disp_sync_get_output_timeline_id(),
-			(unsigned int)cfg->output_cfg.buff_idx);
+		data_config->wdma_config.hnd = disp_snyc_get_ion_handle(cfg->session_id,
+						disp_sync_get_output_timeline_id(),
+						(unsigned int)cfg->output_cfg.buff_idx);
 		DISPINFO("[SVP]ovl2mem out is sec addr, cdmq handle:%p:\n",
 			 pgcl->cmdq_handle_config);
 	}
@@ -692,6 +699,17 @@ static int ovl2mem_frame_cfg_output(struct disp_frame_cfg_t *cfg)
 	data_config->wdma_config.useSpecifiedAlpha = 1;
 	data_config->wdma_config.alpha = 0xFF;
 	data_config->wdma_config.security = cfg->output_cfg.security;
+
+	/* only updated secure buffer handle for input */
+	if (data_config->wdma_config.security != DISP_NORMAL_BUFFER) {
+		data_config->wdma_config.hnd = disp_snyc_get_ion_handle(cfg->session_id,
+					disp_sync_get_output_timeline_id(),
+					cfg->output_cfg.buff_idx);
+		DISPINFO("%s [SVP]ovl2mem out sec buf_idx:0x%x\n", __func__,
+			 cfg->output_cfg.buff_idx);
+	}
+
+
 	data_config->p_golden_setting_context = get_golden_setting_pgc();
 
 	if (dpmgr_path_is_busy(pgcl->dpmgr_handle))
