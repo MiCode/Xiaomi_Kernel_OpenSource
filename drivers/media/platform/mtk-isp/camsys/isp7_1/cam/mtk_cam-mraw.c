@@ -2233,7 +2233,7 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int ret;
-	int i;
+	int clks, i;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,mraw-id",
 						       &mraw->id);
@@ -2294,19 +2294,16 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 	dev_dbg(dev, "registered irq=%d\n", mraw->irq);
 	disable_irq(mraw->irq);
 
-	mraw->num_clks = 0;
-	mraw->num_clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
+	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
+	mraw->num_clks = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", mraw->num_clks);
-	if (!mraw->num_clks) {
-		dev_dbg(dev, "no clock\n");
-		return -ENODEV;
+	if (mraw->num_clks) {
+		mraw->clks = devm_kcalloc(dev, mraw->num_clks, sizeof(*mraw->clks),
+					 GFP_KERNEL);
+		if (!mraw->clks)
+			return -ENOMEM;
 	}
-
-	mraw->clks = devm_kcalloc(dev, mraw->num_clks, sizeof(*mraw->clks),
-				 GFP_KERNEL);
-	if (!mraw->clks)
-		return -ENOMEM;
 
 	for (i = 0; i < mraw->num_clks; i++) {
 		mraw->clks[i] = of_clk_get(pdev->dev.of_node, i);

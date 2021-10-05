@@ -312,9 +312,14 @@ static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 
 bool is_first_request_sync(struct mtk_cam_ctx *ctx)
 {
-	if (ctx->pipe->feature_active == 0 &&
-		MTK_CAM_INITIAL_REQ_SYNC && ctx->sensor)
-		return true;
+	if (ctx->used_raw_num != 0) {
+		if (ctx->pipe->feature_active == 0 &&
+			MTK_CAM_INITIAL_REQ_SYNC && ctx->sensor)
+			return true;
+	} else { // only for sv running case
+		if (MTK_CAM_INITIAL_REQ_SYNC && ctx->sensor)
+			return true;
+	}
 
 	return false;
 }

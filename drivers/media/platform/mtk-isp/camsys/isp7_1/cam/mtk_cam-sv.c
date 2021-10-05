@@ -1881,7 +1881,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	unsigned int tg_timestamp;
 	unsigned int irq_status, err_status;
 	unsigned int drop_status, imgo_err_status, imgo_overr_status;
-	unsigned int fbc_imgo_status, imgo_addr;
+	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
 	unsigned int tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg;
 	bool wake_thread = 0;
 
@@ -1895,6 +1895,8 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		readl_relaxed(camsv_dev->base + REG_CAMSV_FBC_IMGO_CTL2);
 	imgo_addr =
 		readl_relaxed(camsv_dev->base + REG_CAMSV_IMGO_BASE_ADDR);
+	imgo_addr_msb =
+		readl_relaxed(camsv_dev->base + REG_CAMSV_IMGO_BASE_ADDR_MSB);
 	tg_sen_mode =
 		readl_relaxed(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE);
 	dcif_set =
@@ -1910,11 +1912,11 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	drop_status = irq_status & CAMSV_INT_IMGO_DROP_ST;
 
 	dev_dbg(dev,
-		"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
+		"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x%08x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
 		camsv_dev->id,
 		irq_status, err_status,
 		drop_status, imgo_err_status, imgo_overr_status,
-		fbc_imgo_status, imgo_addr, dequeued_imgo_seq_no_inner,
+		fbc_imgo_status, imgo_addr_msb, imgo_addr, dequeued_imgo_seq_no_inner,
 		tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg);
 	/*
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
@@ -1954,11 +1956,11 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 			wake_thread = 1;
 
 		dev_info(dev,
-			"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
+			"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x%08x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
 			camsv_dev->id,
 			irq_status, err_status,
 			drop_status, imgo_err_status, imgo_overr_status,
-			fbc_imgo_status, imgo_addr, dequeued_imgo_seq_no_inner,
+			fbc_imgo_status, imgo_addr_msb, imgo_addr, dequeued_imgo_seq_no_inner,
 			tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg);
 	}
 
