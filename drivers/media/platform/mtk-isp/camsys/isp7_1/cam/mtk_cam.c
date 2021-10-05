@@ -2512,26 +2512,34 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 	int current_feature = ctx->pipe->feature_pending;
 	struct mtk_cam_video_device *vdev;
 	int main_stream_size;
+	__u32 iova, ccd_fd;
+	__u8 imgo_path_sel;
 
 	vdev = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 	main_stream_size = vdev->active_fmt.fmt.pix_mp.plane_fmt[1].sizeimage;
 
 	pr_info("%s cur_feature(%d) prev_feature(%d) main_stream_size(%d)",
 		__func__, current_feature, previous_feature, main_stream_size);
-	if (mtk_cam_feature_is_mstream(current_feature)) {
-		/* backup first because main stream buffer is already assigned */
-		__u32 iova = frame_param->img_outs[desc_id].buf[0][0].iova;
-		__u32 ccd_fd = frame_param->img_outs[desc_id].buf[0][0].ccd_fd;
-		__u8 imgo_path_sel = frame_param->raw_param.imgo_path_sel;
 
+	/* backup first because main stream buffer is already assigned */
+	iova = frame_param->img_outs[desc_id].buf[0][0].iova;
+	ccd_fd = frame_param->img_outs[desc_id].buf[0][0].ccd_fd;
+	imgo_path_sel = frame_param->raw_param.imgo_path_sel;
+
+	if (mtk_cam_feature_is_mstream(current_feature)) {
+		/* for 1->2, 2->2 */
 		/* init stream data for mstream */
 		mtk_cam_req_s_data_init(req, pipe_id, 2);
-
-		/* recover main stream buffer */
-		frame_param->img_outs[desc_id].buf[0][0].iova = iova;
-		frame_param->img_outs[desc_id].buf[0][0].ccd_fd = ccd_fd;
-		frame_param->raw_param.imgo_path_sel = imgo_path_sel;
+	} else {
+		/* for 2->1 */
+		/* init stream data for normal exp */
+		mtk_cam_req_s_data_init(req, pipe_id, 1);
 	}
+
+	/* recover main stream buffer */
+	frame_param->img_outs[desc_id].buf[0][0].iova = iova;
+	frame_param->img_outs[desc_id].buf[0][0].ccd_fd = ccd_fd;
+	frame_param->raw_param.imgo_path_sel = imgo_path_sel;
 
 	if (current_feature == MSTREAM_NE_SE) {
 		mstream_frame_param->raw_param.exposure_num = 1;
