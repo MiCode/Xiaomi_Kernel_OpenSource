@@ -2711,7 +2711,7 @@
 		};
 
 		mmc1: mmc@11240000 {
-			compatible = "mediatek,common-mmc";
+			compatible = "mediatek,common-mmc-v2";
 			reg = <0 0x11240000 0 0x1000>,
 				  <0 0x11e70000 0 0x1000>;
 			interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -2723,7 +2723,7 @@
 		};
 
 		mmc2: mmc@11242000 {
-			compatible = "mediatek,common-mmc";
+			compatible = "mediatek,common-mmc-v2";
 			reg = <0 0x11242000 0 0x1000>,
 				  <0 0x11f60000 0 0x1000>;
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH 0>;

@@ -24,7 +24,7 @@
 	sd-uhs-ddr50;
 	cd-debounce-delay-ms = <0>;
 	cd-gpios = <&pio 11 GPIO_ACTIVE_LOW>;
-	vmmc-supply = <&mt6368_vmch>;
+	vmmc-supply = <&mt6368_vmch_eint_high>;
 	vqmmc-supply = <&mt6368_vmc>;
 	no-mmc;
 	no-sdio;
@@ -44,12 +44,13 @@
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
-	cd-gpios = <&pio 11 GPIO_ACTIVE_LOW>;
+	eint-gpios = <&pio 191 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&mt6368_vmch>;
-	vqmmc-supply = <&mt6368_vmc>;
+	vqmmc-supply = <&mt6363_vio18>;
 	no-mmc;
 	no-sd;
 	cap-sdio-irq;
+	non-removable;
 };
 
 &pio {
@@ -97,12 +98,12 @@
 				<PINMUX_GPIO193__FUNC_MSDC2_DAT3>,
 				<PINMUX_GPIO189__FUNC_MSDC2_CMD>;
 			input-enable;
-			drive-strength = <1>;
+			drive-strength = <3>;
 			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 		pins_clk {
 			pinmux = <PINMUX_GPIO188__FUNC_MSDC2_CLK>;
-			drive-strength = <1>;
+			drive-strength = <3>;
 			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 	};
