@@ -11071,6 +11071,10 @@
 		reg-names = "base", "ana-rx";
 		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH 0>;
 
+		seninf_num = <12>;
+		mux_num = <22>;
+		cam_mux_num = <23>;
+
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
 
 		operating-points-v2 = <&opp_table_cam>;
