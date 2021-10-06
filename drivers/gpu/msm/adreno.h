@@ -1122,6 +1122,7 @@ static inline int adreno_is_gen7(struct adreno_device *adreno_dev)
 
 ADRENO_TARGET(gen7_0_0, ADRENO_REV_GEN7_0_0)
 ADRENO_TARGET(gen7_0_1, ADRENO_REV_GEN7_0_1)
+ADRENO_TARGET(gen7_4_0, ADRENO_REV_GEN7_4_0)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
