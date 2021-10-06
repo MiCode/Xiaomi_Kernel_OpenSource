@@ -8,6 +8,12 @@ debug-regulator.ko
 dispcc-kalama.ko
 gcc-kalama.ko
 gdsc-regulator.ko
+gh_arm_drv.ko
+gh_ctrl.ko
+gh_dbl.ko
+gh_msgq.ko
+gh_rm_drv.ko
+gh_virt_wdt.ko
 icc-bcm-voter.ko
 icc-debug.ko
 icc-rpmh.ko
