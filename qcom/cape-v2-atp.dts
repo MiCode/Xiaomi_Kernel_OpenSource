@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape-v2.dtsi"
+#include "cape-v2-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape LTE Only ATP";
+	compatible = "qcom,cape-v2-atp", "qcom,cape-v2", "qcom,atp";
+	qcom,board-id = <33 0>;
+};
