@@ -863,7 +863,8 @@ static void memlat_update_work(struct work_struct *work)
 			max_freqs[grp] = max(mon->cur_freq, max_freqs[grp]);
 		}
 		if (memlat_grp->adaptive_high_freq ||
-				memlat_grp->adaptive_low_freq)
+				memlat_grp->adaptive_low_freq ||
+				memlat_grp->adaptive_cur_freq)
 			apply_adaptive_freq(memlat_grp, &max_freqs[grp]);
 	}
 
