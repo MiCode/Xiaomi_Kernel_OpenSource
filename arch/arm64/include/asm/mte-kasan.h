@@ -132,6 +132,7 @@ static inline void mte_set_mem_tag_range(void *addr, size_t size, u8 tag,
 
 void mte_enable_kernel_sync(void);
 void mte_enable_kernel_async(void);
+void mte_enable_kernel_asymm(void);
 
 #else /* CONFIG_ARM64_MTE */
 
@@ -160,6 +161,10 @@ static inline void mte_enable_kernel_sync(void)
 }
 
 static inline void mte_enable_kernel_async(void)
+{
+}
+
+static inline void mte_enable_kernel_asymm(void)
 {
 }
 
