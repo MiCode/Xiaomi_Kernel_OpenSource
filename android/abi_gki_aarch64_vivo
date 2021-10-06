@@ -1764,6 +1764,7 @@
   __tracepoint_android_rvh_flush_task
   __tracepoint_android_rvh_migrate_queued_task
   __tracepoint_android_rvh_new_task_stats
+  __tracepoint_android_rvh_refrigerator
   __tracepoint_android_rvh_replace_next_task_fair
   __tracepoint_android_rvh_resume_cpus
   __tracepoint_android_rvh_sched_cpu_dying
@@ -1875,6 +1876,7 @@
   ucsi_destroy
   ucsi_get_drvdata
   ucsi_register
+  ucsi_send_command
   ucsi_set_drvdata
   ucsi_unregister
   __udelay
