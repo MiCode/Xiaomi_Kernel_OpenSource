@@ -3313,6 +3313,7 @@ static int msm_geni_serial_read_dtsi(struct platform_device *pdev,
 
 	dev_port->wrapper_dev = &wrapper_pdev->dev;
 	dev_port->serial_rsc.wrapper_dev = &wrapper_pdev->dev;
+	dev_port->serial_rsc.ctrl_dev = &pdev->dev;
 
 	if (is_console)
 		ret = geni_se_resources_init(&dev_port->serial_rsc,
@@ -3327,8 +3328,6 @@ static int msm_geni_serial_read_dtsi(struct platform_device *pdev,
 		msm_geni_update_uart_error_code(dev_port, UART_ERROR_SE_RESOURCES_INIT_FAIL);
 		return ret;
 	}
-
-	dev_port->serial_rsc.ctrl_dev = &pdev->dev;
 
 	/* RUMI specific */
 	dev_port->rumi_platform = of_property_read_bool(pdev->dev.of_node,
