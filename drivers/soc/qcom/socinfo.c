@@ -674,6 +674,8 @@ static const struct soc_id soc_id[] = {
 	{ 482, "WAIPIOP" },
 	{ 506, "DIWALI" },
 	{ 537, "PARROT" },
+	{ 530, "CAPE" },
+	{ 540, "CAPE-V2" },
 };
 
 static struct qcom_socinfo *qsocinfo;
