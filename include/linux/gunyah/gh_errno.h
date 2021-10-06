@@ -12,6 +12,7 @@
 
 #define GH_ERROR_OK			0
 #define GH_ERROR_UNIMPLEMENTED		-1
+#define GH_ERROR_RETRY			-2
 
 #define GH_ERROR_ARG_INVAL		1
 #define GH_ERROR_ARG_SIZE		2

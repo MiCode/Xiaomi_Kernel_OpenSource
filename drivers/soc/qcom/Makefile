@@ -65,6 +65,7 @@ obj-$(CONFIG_QTI_HW_MEMLAT_LOG)	+= rimps_log.o
 obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
 obj-$(CONFIG_QCOM_PANEL_EVENT_NOTIFIER) += panel_event_notifier.o
 obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o
+obj-$(CONFIG_QCOM_GH_VCPU_SCHED) += gh_vcpu_sched.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
