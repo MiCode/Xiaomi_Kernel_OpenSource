@@ -190,15 +190,26 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_CAPE) += cape-mtp-overlay.dtbo \
         cape-cdp-overlay.dtbo \
-        cape-atp-overlay.dtbo
+        cape-atp-overlay.dtbo \
+        cape-v2-mtp-overlay.dtb \
+        cape-v2-cdp-overlay.dtb \
+        cape-v2-atp-overlay.dtb
 
 cape-mtp-overlay.dtbo-base := cape.dtb
 cape-cdp-overlay.dtbo-base := cape.dtb
 cape-atp-overlay.dtbo-base := cape.dtb
+cape-v2-mtp-overlay.dtbo-base := cape-v2.dtb
+cape-v2-cdp-overlay.dtbo-base := cape-v2.dtb
+cape-v2-atp-overlay.dtbo-base := cape-v2.dtb
+
 else
 dtb-$(CONFIG_ARCH_CAPE) += cape-mtp.dtb \
         cape-cdp.dtb \
-        cape-atp.dtb
+        cape-atp.dtb \
+        cape-v2-mtp.dtb \
+        cape-v2-cdp.dtb \
+        cape-v2-atp.dtb
+
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
