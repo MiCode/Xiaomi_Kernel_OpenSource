@@ -252,6 +252,9 @@
   kvmalloc_node
   led_classdev_register_ext
   led_classdev_unregister
+  led_set_brightness_nosleep
+  led_trigger_register
+  led_trigger_unregister
   __list_add_valid
   __list_del_entry_valid
   __log_post_read_mmio
@@ -301,6 +304,7 @@
   of_property_read_u32_index
   of_property_read_variable_u32_array
   of_regulator_match
+  of_usb_get_dr_mode_by_phy
   __page_pinner_migration_failed
   panic_notifier_list
   param_ops_bool
@@ -336,6 +340,7 @@
   put_disk
   __put_page
   __put_task_struct
+  pwm_adjust_config
   pwm_apply_state
   queue_delayed_work_on
   queue_work_on
@@ -468,10 +473,15 @@
   wakeup_source_add
   __warn_printk
 
+# required by act8865-regulator.ko
+  regulator_set_pull_down_regmap
+
 # required by adc-keys.ko
   devm_iio_channel_get
   iio_get_channel_type
   iio_read_channel_processed
+  input_set_poll_interval
+  input_setup_polling
 
 # required by aes-ce-ccm.ko
   ce_aes_expandkey
@@ -482,6 +492,7 @@
   scsi_device_lookup
   __scsi_execute
   scsi_print_sense_hdr
+  scsi_register_driver
 
 # required by clk-pwm.ko
   of_clk_add_hw_provider
@@ -529,19 +540,30 @@
 
 # required by cpufreq_ondemand.ko
   cpufreq_cpu_get_raw
+  cpufreq_dbs_governor_exit
+  cpufreq_dbs_governor_init
+  cpufreq_dbs_governor_limits
+  cpufreq_dbs_governor_start
+  cpufreq_dbs_governor_stop
   cpufreq_table_index_unsorted
   cpus_read_lock
   cpus_read_unlock
+  dbs_update
   get_cpu_idle_time_us
+  gov_update_cpu_data
+  store_sampling_rate
 
 # required by cw2015_battery.ko
   device_property_read_u8_array
+  power_supply_am_i_supplied
   power_supply_get_battery_info
   power_supply_put_battery_info
   regmap_raw_read
   regmap_raw_write
 
 # required by dw_mmc-rockchip.ko
+  clk_get_phase
+  clk_set_phase
   mmc_send_tuning
 
 # required by dw_mmc.ko
@@ -653,6 +675,8 @@
   bitmap_free
   bitmap_zalloc
   iio_channel_get_all
+  iio_channel_release_all
+  iio_update_buffers
 
 # required by industrialio-triggered-buffer.ko
   iio_alloc_pollfunc
@@ -677,6 +701,7 @@
 
 # required by ledtrig-heartbeat.ko
   atomic_notifier_chain_unregister
+  avenrun
 
 # required by lzo-rle.ko
   lzorle1x_1_compress
@@ -813,6 +838,7 @@
   pci_save_state
   pci_select_bars
   pci_set_master
+  pci_sriov_configure_simple
   pci_unregister_driver
   pm_suspend_global_flags
   sg_init_table
@@ -853,6 +879,7 @@
   pm_runtime_get_if_active
   strscpy
   __v4l2_ctrl_modify_range
+  v4l2_ctrl_new_int_menu
 
 # required by panel-simple.ko
   drm_bus_flags_from_videomode
@@ -877,15 +904,19 @@
   of_drm_get_panel_orientation
   of_find_i2c_adapter_by_node
   of_get_display_timing
+  of_get_drm_display_mode
   of_parse_phandle
   videomode_from_timing
 
 # required by phy-rockchip-inno-dsidphy.ko
   devm_platform_ioremap_resource_byname
+  phy_mipi_dphy_config_validate
   platform_get_resource_byname
 
 # required by phy-rockchip-inno-usb2.ko
   devm_extcon_register_notifier
+  extcon_set_state
+  extcon_sync
   wakeup_source_remove
 
 # required by phy-rockchip-typec.ko
@@ -997,6 +1028,8 @@
   thermal_zone_device_update
 
 # required by rtc-rk808.ko
+  _bcd2bin
+  _bin2bcd
   devm_rtc_allocate_device
   __rtc_register_device
   rtc_time64_to_tm
@@ -1007,7 +1040,9 @@
   devm_clk_bulk_get_optional
   dma_get_required_mask
   sdhci_add_host
+  sdhci_adma_write_desc
   sdhci_get_property
+  sdhci_pltfm_clk_get_max_clock
   sdhci_pltfm_free
   sdhci_pltfm_init
   sdhci_remove_host
@@ -1015,6 +1050,7 @@
   sdhci_reset
   sdhci_resume_host
   sdhci_set_bus_width
+  sdhci_set_clock
   sdhci_suspend_host
 
 # required by sg.ko
