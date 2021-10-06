@@ -7,12 +7,14 @@
 #ifndef _SOC_QCOM_LLCC_PERFMON_H_
 #define _SOC_QCOM_LLCC_PERFMON_H_
 
+#define LLCC_VER4			(41)
 #define LLCC_VER2			(21)
-#define VER_CHK(v)			(v == LLCC_VER2)
+#define VER_CHK(v)			(v >= LLCC_VER2) //check LLCC version 2
+#define VER_CHK4(v)			(v == LLCC_VER4) //check LLCC version 4
 
 /* COMMON */
-#define LLCC_COMMON_HW_INFO(v)		((v == LLCC_VER2) ? 0x34000 : 0x30000)
-#define LLCC_COMMON_STATUS0(v)		((v == LLCC_VER2) ? 0x3400C : 0x3000C)
+#define LLCC_COMMON_HW_INFO(v)		(VER_CHK(v) ? 0x34000 : 0x30000)
+#define LLCC_COMMON_STATUS0(v)		(VER_CHK(v) ? 0x3400C : 0x3000C)
 
 /* FEAC */
 #define FEAC_PROF_FILTER_0_CFG3(v)	(VER_CHK(v) ? 0x4300C : 0x03700C)
@@ -64,9 +66,11 @@
 #define PERFMON_COUNTER_n_CONFIG(v, n)	((VER_CHK(v) ? 0x36020 : 0x031020) \
 					+ 4 * (n))
 #define PERFMON_MODE(v)			(VER_CHK(v) ? 0x3600C : 0x03100C)
-#define PERFMON_DUMP(v)			(VER_CHK(v) ? 0x36010 : 0x031010)
-#define LLCC_COUNTER_n_VALUE(v, n)	((VER_CHK(v) ? 0x36060 : 0x031060) \
-					+ 4 * (n))
+#define PERFMON_DUMP(v)			(VER_CHK4(v) ? 0x37000 : VER_CHK(v) ? \
+					0x36010 : 0x031010)
+
+#define LLCC_COUNTER_n_VALUE(v, n)	((VER_CHK4(v) ? 0x37008 : VER_CHK(v) ?\
+					0x36060 : 0x31060) + 4 * (n))
 
 #define EVENT_NUM_MAX			(128)
 #define SCID_MAX			(32)
@@ -285,6 +289,7 @@
 #define LLCC_VERSION_1			(0x01010200)
 #define LLCC_VERSION_2			(0x02000000)
 #define LLCC_VERSION_3			(0x03000000)
+#define LLCC_VERSION_4			(0x04000000)
 #define	MAJOR_REV_NO(v)			((v & MAJOR_VER_MASK) >> 24)
 #define	BRANCH_NO(v)			((v & BRANCH_MASK) >> 16)
 #define	MINOR_NO(v)			((v & MINOR_MASK) >> 8)
