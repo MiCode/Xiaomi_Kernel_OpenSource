@@ -657,7 +657,7 @@ struct hns_roce_qp {
 	u8			rdb_en;
 	u8			sdb_en;
 	u32			doorbell_qpn;
-	u32			sq_signal_bits;
+	enum ib_sig_type	sq_signal_bits;
 	struct hns_roce_wq	sq;
 
 	struct ib_umem		*umem;

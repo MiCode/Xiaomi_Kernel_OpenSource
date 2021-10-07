@@ -835,7 +835,7 @@ int cmd_inject(int argc, const char **argv)
 	inject.tool.ordered_events = inject.sched_stat;
 
 	data.path = inject.input_name;
-	inject.session = perf_session__new(&data, true, &inject.tool);
+	inject.session = perf_session__new(&data, inject.output.is_pipe, &inject.tool);
 	if (IS_ERR(inject.session))
 		return PTR_ERR(inject.session);
 

@@ -35,7 +35,19 @@ struct elevator_mq_ops {
 	void (*depth_updated)(struct blk_mq_hw_ctx *);
 
 	bool (*allow_merge)(struct request_queue *, struct request *, struct bio *);
+/*
+ * CRC "preservation" hack
+ *
+ * This is due to efed9a3337e3 ("kyber: fix out of bounds access when * preempted")
+ * showing up in 5.4.120.  It does not actually change anything relevant, but
+ * the CRC check goes crazy because of it, so paper over it by keeping the old
+ * signature for when we do the check.
+ */
+#ifdef __GENKSYMS__
 	bool (*bio_merge)(struct blk_mq_hw_ctx *, struct bio *, unsigned int);
+#else
+	bool (*bio_merge)(struct request_queue *, struct bio *, unsigned int);
+#endif
 	int (*request_merge)(struct request_queue *q, struct request **, struct bio *);
 	void (*request_merged)(struct request_queue *, struct request *, enum elv_merge);
 	void (*requests_merged)(struct request_queue *, struct request *, struct request *);
