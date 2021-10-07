@@ -6,6 +6,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. Cape LTE Only ATP";
 	compatible = "qcom,cape-v2-atp", "qcom,cape-v2", "qcom,atp";
-	qcom,msm-id = <530 0x10000>;
+	qcom,msm-id = <540 0x10000>;
 	qcom,board-id = <33 0>;
 };
