@@ -94,6 +94,7 @@ Subsystem properties:
 		61. sub2_mcg_fr2_cc
 		62. sub2_scg_fr1_cc
 		63. sub2_scg_fr2_cc
+		64. isense_trim
 
 Example:
 
@@ -107,5 +108,10 @@ qmi_sensor: qmi-ts-sensors {
 					"pa_1",
 					"qfe_pa0",
 					"qfe_wtr0";
+	};
+
+	cdsp {
+		qcom,instance-id = <QMI_CDSP_INST_ID>;
+		qcom,qmi-sensor-names = "isense_trim";
 	};
 };
