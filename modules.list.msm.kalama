@@ -14,6 +14,7 @@ iommu-logger.ko
 mem_buf.ko
 mem_buf_dev.ko
 msm_dma_iommu_mapping.ko
+ns.ko
 phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 phy-qcom-ufs.ko
@@ -32,6 +33,7 @@ qcom_ipcc.ko
 qcom_rpmh.ko
 qnoc-kalama.ko
 qnoc-qos.ko
+qrtr.ko
 rpmh-regulator.ko
 sdhci-msm.ko
 secure_buffer.ko
