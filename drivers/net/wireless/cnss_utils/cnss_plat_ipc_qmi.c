@@ -8,6 +8,7 @@
 #if IS_ENABLED(CONFIG_IPC_LOGGING)
 #include <linux/ipc_logging.h>
 #endif
+#include <linux/sched.h>
 #include <asm/current.h>
 #include <linux/limits.h>
 #include <linux/slab.h>
