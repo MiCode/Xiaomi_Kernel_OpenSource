@@ -290,11 +290,6 @@ static int qcom_cpuss_all_stats_show(struct seq_file *s, void *d)
 
 DEFINE_SHOW_ATTRIBUTE(qcom_cpuss_all_stats);
 
-static int qcom_cpuss_stats_reset_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, NULL, NULL);
-}
-
 static ssize_t qcom_cpuss_reset_clear_lpm_residency(phys_addr_t addr, u32 new_val)
 {
 	u32 val;
@@ -387,10 +382,6 @@ error:
 
 static const struct file_operations qcom_cpuss_stats_reset_fops = {
 	.owner		= THIS_MODULE,
-	.open		= qcom_cpuss_stats_reset_open,
-	.read		= seq_read,
-	.release	= single_release,
-	.llseek		= no_llseek,
 	.write		= qcom_cpuss_stats_reset_write,
 };
 
@@ -686,7 +677,7 @@ static int qcom_cpuss_sleep_stats_probe(struct platform_device *pdev)
 
 	/* Debugfs to reset all LPM and residency */
 	mutex_init(&t_info->stats_reset_lock);
-	debugfs_create_file("reset", 0644, root_dir, (void *) t_info,
+	debugfs_create_file("reset", 0220, root_dir, (void *) t_info,
 			    &qcom_cpuss_stats_reset_fops);
 
 	platform_set_drvdata(pdev, root_dir);
