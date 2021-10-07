@@ -579,10 +579,12 @@ static int sysmon_start(struct rproc_subdev *subdev)
 
 	mutex_lock(&sysmon_lock);
 	list_for_each_entry(target, &sysmon_list, node) {
-		if (target == sysmon)
-			continue;
-
 		mutex_lock(&target->state_lock);
+		if (target == sysmon || target->state != QCOM_SSR_AFTER_POWERUP) {
+			mutex_unlock(&target->state_lock);
+			continue;
+		}
+
 		send_event(sysmon, target);
 		mutex_unlock(&target->state_lock);
 	}
