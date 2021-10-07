@@ -2689,7 +2689,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	unsigned int timeout;
-	int retry = 0;
+	int retry = 0, bt_en_gpio = plat_priv->pinctrl_info.bt_en_gpio;
 
 	if (plat_priv->ramdump_info_v2.dump_data_valid) {
 		cnss_pci_clear_dump_info(pci_priv);
@@ -2721,6 +2721,13 @@ retry:
 		}
 		if (ret == -EAGAIN && retry++ < POWER_ON_RETRY_MAX_TIMES) {
 			cnss_power_off_device(plat_priv);
+			/* Force toggle BT_EN GPIO low */
+			if (retry == POWER_ON_RETRY_MAX_TIMES &&
+			    bt_en_gpio >= 0) {
+				cnss_pr_info("Set BT_EN GPIO(%u) low\n",
+					     bt_en_gpio);
+				gpio_direction_output(bt_en_gpio, 0);
+			}
 			cnss_pr_dbg("Retry to resume PCI link #%d\n", retry);
 			msleep(POWER_ON_RETRY_DELAY_MS * retry);
 			goto retry;
