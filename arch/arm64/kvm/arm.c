@@ -398,15 +398,14 @@ void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu)
 	 * doorbells to be signalled, should an interrupt become pending.
 	 */
 	preempt_disable();
-	kvm_vgic_vmcr_sync(vcpu);
-	vgic_v4_put(vcpu, true);
+	kvm_vgic_put(vcpu, true);
 	preempt_enable();
 }
 
 void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu)
 {
 	preempt_disable();
-	vgic_v4_load(vcpu);
+	kvm_vgic_load(vcpu);
 	preempt_enable();
 }
 
@@ -460,7 +459,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
 	if (has_vhe())
 		kvm_vcpu_put_sysregs_vhe(vcpu);
 	kvm_timer_vcpu_put(vcpu);
-	kvm_vgic_put(vcpu);
+	kvm_vgic_put(vcpu, false);
 	kvm_vcpu_pmu_restore_host(vcpu);
 
 	vcpu->cpu = -1;
