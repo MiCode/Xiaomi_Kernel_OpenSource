@@ -825,6 +825,15 @@ static int get_fifo_play_length_us(struct fifo_cfg *fifo, u32 t_lra_us)
 	case T_LRA_DIV_8:
 		length_us /= 8;
 		break;
+	case T_LRA_X_2:
+		length_us *= 2;
+		break;
+	case T_LRA_X_4:
+		length_us *= 4;
+		break;
+	case T_LRA_X_8:
+		length_us *= 8;
+		break;
 	case F_8KHZ:
 		length_us = 1000 * fifo->num_s / 8;
 		break;

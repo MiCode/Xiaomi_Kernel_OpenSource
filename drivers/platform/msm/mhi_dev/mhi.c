@@ -1841,6 +1841,8 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 	int rc = 0;
 	struct mhi_dev_channel *ch;
 	struct mhi_addr host_addr;
+	struct event_req *itr, *tmp;
+	unsigned long flags;
 
 	rc = mhi_dev_mmio_disable_chdb_a7(mhi, ch_id);
 	if (rc) {
@@ -1855,6 +1857,20 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 	}
 
 	ch = &mhi->ch[ch_id];
+	mhi_log(MHI_MSG_VERBOSE, "Processing reset cmd for ch%d\n", ch_id);
+	/*
+	 * Ensure that the completions that are present in the flush list are
+	 * removed from the list and discarded before stopping the channel.
+	 * Otherwise, those stale events may get flushed along with a valid
+	 * event in the next flush operation.
+	 */
+	spin_lock_irqsave(&mhi_ctx->lock, flags);
+	list_for_each_entry_safe(itr, tmp, &ch->flush_event_req_buffers, list) {
+		list_del(&itr->list);
+		kfree(itr);
+	}
+	spin_unlock_irqrestore(&mhi_ctx->lock, flags);
+
 	/* hard stop and set the channel to stop */
 	mhi->ch_ctx_cache[ch_id].ch_state =
 				MHI_DEV_CH_STATE_DISABLED;

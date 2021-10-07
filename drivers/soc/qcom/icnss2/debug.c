@@ -710,6 +710,83 @@ static const struct file_operations icnss_fw_debug_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= seq_lseek,
 };
+
+static ssize_t icnss_control_params_debug_write(struct file *fp,
+					       const char __user *user_buf,
+					       size_t count, loff_t *off)
+{
+	struct icnss_priv *priv =
+		((struct seq_file *)fp->private_data)->private;
+
+	char buf[64];
+	char *sptr, *token;
+	char *cmd;
+	u32 val;
+	unsigned int len = 0;
+	const char *delim = " ";
+
+	if (!priv)
+		return -ENODEV;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EINVAL;
+
+	buf[len] = '\0';
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+	if (!sptr)
+		return -EINVAL;
+	cmd = token;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+	if (kstrtou32(token, 0, &val))
+		return -EINVAL;
+
+	if (strcmp(cmd, "qmi_timeout") == 0)
+		priv->ctrl_params.qmi_timeout = msecs_to_jiffies(val);
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static int icnss_control_params_debug_show(struct seq_file *s, void *data)
+{
+	struct icnss_priv *priv = s->private;
+
+	seq_puts(s, "\nUsage: echo <params_name> <value> > <debugfs>/icnss/control_params\n");
+	seq_puts(s, "<params_name> can be from below:\n");
+	seq_puts(s, "qmi_timeout: Timeout for QMI message in milliseconds\n");
+
+	seq_puts(s, "\nCurrent value:\n");
+
+	seq_printf(s, "qmi_timeout: %u\n", priv->ctrl_params.qmi_timeout);
+
+	return 0;
+}
+
+static int icnss_control_params_debug_open(struct inode *inode,
+					  struct file *file)
+{
+	return single_open(file, icnss_control_params_debug_show,
+			   inode->i_private);
+}
+
+static const struct file_operations icnss_control_params_debug_fops = {
+	.read		= seq_read,
+	.write		= icnss_control_params_debug_write,
+	.release	= single_release,
+	.open		= icnss_control_params_debug_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
 #ifdef CONFIG_ICNSS2_DEBUG
 int icnss_debugfs_create(struct icnss_priv *priv)
 {
@@ -734,6 +811,8 @@ int icnss_debugfs_create(struct icnss_priv *priv)
 						&icnss_regread_fops);
 		debugfs_create_file("reg_write", 0600, root_dentry, priv,
 						&icnss_regwrite_fops);
+		debugfs_create_file("control_params", 0600, root_dentry, priv,
+					&icnss_control_params_debug_fops);
 out:
 		return ret;
 }

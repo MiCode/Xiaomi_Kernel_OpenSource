@@ -3257,3 +3257,78 @@ out:
 	kfree(resp);
 	return ret;
 }
+
+int wlfw_subsys_restart_level_msg(struct icnss_priv *penv, uint8_t type)
+{
+	int ret;
+	struct wlfw_subsys_restart_level_req_msg_v01 *req;
+	struct wlfw_subsys_restart_level_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!penv)
+		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &penv->state))
+		return -EINVAL;
+
+	icnss_pr_dbg("Sending subsystem restart level, type: 0x%x\n", type);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->restart_level_type_valid = 1;
+	req->restart_level_type = type;
+
+	penv->stats.restart_level_req++;
+
+	ret = qmi_txn_init(&penv->qmi, &txn,
+			   wlfw_subsys_restart_level_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		icnss_pr_err("Fail to init txn for subsystem restart level, resp %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&penv->qmi, NULL, &txn,
+			       QMI_WLFW_SUBSYS_RESTART_LEVEL_REQ_V01,
+			       WLFW_SUBSYS_RESTART_LEVEL_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_subsys_restart_level_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Fail to send subsystem restart level %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, penv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_pr_err("Subsystem restart level timed out with ret %d\n",
+			     ret);
+		goto out;
+
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("Subsystem restart level request rejected,result:%d error:%d\n",
+			     resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	penv->stats.restart_level_resp++;
+
+	kfree(resp);
+	kfree(req);
+	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	penv->stats.restart_level_err++;
+	return ret;
+}

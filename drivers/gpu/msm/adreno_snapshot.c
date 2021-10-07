@@ -273,6 +273,14 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 	int parse_ibs = 0, ib_parse_start;
 
 	/*
+	 * During IB parse, vmalloc is called which can sleep and
+	 * should not be called from atomic context. Since IBs are not
+	 * dumped during atomic snapshot, there is no need to parse it.
+	 */
+	if (device->snapshot_atomic)
+		return;
+
+	/*
 	 * Figure out the window of ringbuffer data to dump.  First we need to
 	 * find where the last processed IB ws submitted.  Start walking back
 	 * from the rptr

@@ -1416,7 +1416,8 @@ int group_send_sig_info(int sig, struct kernel_siginfo *info,
 		check_panic_on_foreground_kill(p);
 		ret = do_send_sig_info(sig, info, p, type);
 		if (capable(CAP_KILL) && sig == SIGKILL)
-			if (!strcmp(current->comm, ULMK_MAGIC))
+			if (!strcmp(current->comm, ULMK_MAGIC) ||
+				!strcmp(current->comm, PRE_KILL))
 				add_to_oom_reaper(p);
 	}
 

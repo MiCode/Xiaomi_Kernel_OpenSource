@@ -1407,7 +1407,18 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		mhi_sm_ctx->stats.rst_deast_event_cnt++;
 		MHI_SM_DBG("Hold wake for perst deassert event\n");
 		pm_stay_awake(mhi->dev);
-		break;
+
+		atomic_inc(&mhi_sm_ctx->pending_pcie_events);
+		dstate_change_evt->event = event;
+		INIT_WORK(&dstate_change_evt->work, mhi_sm_pcie_event_manager);
+		/*
+		 * Link init has to be completed as quicly as possible.
+		 * Since this gets inovked from threaded IRQ context, do
+		 * all processing in the same context, so that we don't run
+		 * into any scheduling letencies.
+		 */
+		mhi_sm_pcie_event_manager(&dstate_change_evt->work);
+		goto exit;
 	case EP_PCIE_EVENT_PM_D0:
 		mhi_sm_ctx->stats.d0_event_cnt++;
 
