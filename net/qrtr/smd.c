@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -23,8 +23,10 @@ static int qcom_smd_qrtr_callback(struct rpmsg_device *rpdev,
 	struct qrtr_smd_dev *qdev = dev_get_drvdata(&rpdev->dev);
 	int rc;
 
-	if (!qdev)
+	if (!qdev) {
+		pr_err("%s:Not ready\n", __func__);
 		return -EAGAIN;
+	}
 
 	rc = qrtr_endpoint_post(&qdev->ep, data, len);
 	if (rc == -EINVAL) {
@@ -70,12 +72,14 @@ static int qcom_smd_qrtr_probe(struct rpmsg_device *rpdev)
 	qdev->ep.xmit = qcom_smd_qrtr_send;
 
 	rc = qrtr_endpoint_register(&qdev->ep, QRTR_EP_NID_AUTO);
-	if (rc)
+	if (rc) {
+		dev_err(qdev->dev, "endpoint register failed: %d\n", rc);
 		return rc;
+	}
 
 	dev_set_drvdata(&rpdev->dev, qdev);
 
-	dev_dbg(&rpdev->dev, "Qualcomm SMD QRTR driver probed\n");
+	pr_info("%s:SMD QRTR driver probed\n", __func__);
 
 	return 0;
 }

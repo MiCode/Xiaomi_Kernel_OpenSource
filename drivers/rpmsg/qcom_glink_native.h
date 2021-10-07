@@ -22,9 +22,12 @@ struct qcom_glink_pipe {
 	void (*write)(struct qcom_glink_pipe *glink_pipe,
 		      const void *hdr, size_t hlen,
 		      const void *data, size_t dlen);
+
+	void (*reset)(struct qcom_glink_pipe *glink_pipe);
 };
 
 struct qcom_glink;
+extern const struct dev_pm_ops glink_native_pm_ops;
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
