@@ -480,3 +480,4 @@
 };
 
 #include "cape-pinctrl.dtsi"
+#include "cape-regulators.dtsi"
