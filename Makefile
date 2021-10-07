@@ -208,7 +208,6 @@ ifneq ($(abs_srctree),$(abs_objtree))
 # --included-dir is added for backward compatibility, but you should not rely on
 # it. Please add $(srctree)/ prefix to include Makefiles in the source tree.
 MAKEFLAGS += --include-dir=$(abs_srctree)
-need-sub-make := 1
 endif
 
 ifneq ($(filter 3.%,$(MAKE_VERSION)),)
