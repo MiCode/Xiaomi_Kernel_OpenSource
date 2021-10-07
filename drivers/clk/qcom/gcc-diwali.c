@@ -21,8 +21,8 @@
 #include "reset.h"
 #include "vdd-level.h"
 
-static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH + 1, 1, vdd_corner);
-static DEFINE_VDD_REGULATORS(vdd_mxa, VDD_HIGH + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH_L1 + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mxa, VDD_HIGH_L1 + 1, 1, vdd_corner);
 
 static struct clk_vdd_class *gcc_diwali_regulators[] = {
 	&vdd_cx,
@@ -33,7 +33,10 @@ enum {
 	P_BI_TCXO,
 	P_GCC_GPLL0_OUT_EVEN,
 	P_GCC_GPLL0_OUT_MAIN,
+	P_GCC_GPLL1_OUT_MAIN,
+	P_GCC_GPLL2_OUT_MAIN,
 	P_GCC_GPLL4_OUT_MAIN,
+	P_GCC_GPLL6_OUT_MAIN,
 	P_GCC_GPLL9_OUT_MAIN,
 	P_PCIE_0_PIPE_CLK,
 	P_SLEEP_CLK,
@@ -93,6 +96,62 @@ static struct clk_alpha_pll_postdiv gcc_gpll0_out_even = {
 	},
 };
 
+static struct clk_alpha_pll gcc_gpll1 = {
+	.offset = 0x1000,
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.clkr = {
+		.enable_reg = 0x62018,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_gpll1",
+			.parent_data = &(const struct clk_parent_data){
+				.fw_name = "bi_tcxo",
+			},
+			.num_parents = 1,
+			.ops = &clk_alpha_pll_fixed_lucid_evo_ops,
+		},
+		.vdd_data = {
+			.vdd_class = &vdd_cx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOWER_D1] = 500000000,
+				[VDD_LOWER] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000,
+				[VDD_HIGH] = 2000000000},
+		},
+	},
+};
+
+static struct clk_alpha_pll gcc_gpll2 = {
+	.offset = 0x2000,
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.clkr = {
+		.enable_reg = 0x62018,
+		.enable_mask = BIT(2),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_gpll2",
+			.parent_data = &(const struct clk_parent_data){
+				.fw_name = "bi_tcxo",
+			},
+			.num_parents = 1,
+			.ops = &clk_alpha_pll_fixed_lucid_evo_ops,
+		},
+		.vdd_data = {
+			.vdd_class = &vdd_cx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOWER_D1] = 500000000,
+				[VDD_LOWER] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000,
+				[VDD_HIGH] = 2000000000},
+		},
+	},
+};
+
 static struct clk_alpha_pll gcc_gpll4 = {
 	.offset = 0x4000,
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
@@ -101,6 +160,34 @@ static struct clk_alpha_pll gcc_gpll4 = {
 		.enable_mask = BIT(4),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpll4",
+			.parent_data = &(const struct clk_parent_data){
+				.fw_name = "bi_tcxo",
+			},
+			.num_parents = 1,
+			.ops = &clk_alpha_pll_fixed_lucid_evo_ops,
+		},
+		.vdd_data = {
+			.vdd_class = &vdd_cx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_LOWER_D1] = 500000000,
+				[VDD_LOWER] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000,
+				[VDD_HIGH] = 2000000000},
+		},
+	},
+};
+
+static struct clk_alpha_pll gcc_gpll6 = {
+	.offset = 0x6000,
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.clkr = {
+		.enable_reg = 0x62018,
+		.enable_mask = BIT(6),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_gpll6",
 			.parent_data = &(const struct clk_parent_data){
 				.fw_name = "bi_tcxo",
 			},
@@ -257,6 +344,42 @@ static const struct parent_map gcc_parent_map_9[] = {
 static const struct clk_parent_data gcc_parent_data_9[] = {
 	{ .fw_name = "usb3_phy_wrapper_gcc_usb30_pipe_clk" },
 	{ .fw_name = "bi_tcxo" },
+};
+
+static const struct parent_map gcc_parent_map_10[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_GCC_GPLL0_OUT_MAIN, 1 },
+	{ P_GCC_GPLL6_OUT_MAIN, 2 },
+	{ P_GCC_GPLL2_OUT_MAIN, 3 },
+	{ P_GCC_GPLL1_OUT_MAIN, 4 },
+	{ P_GCC_GPLL4_OUT_MAIN, 5 },
+	{ P_GCC_GPLL0_OUT_EVEN, 6 },
+};
+
+static const struct clk_parent_data gcc_parent_data_10[] = {
+	{ .fw_name = "bi_tcxo" },
+	{ .hw = &gcc_gpll0.clkr.hw },
+	{ .hw = &gcc_gpll6.clkr.hw },
+	{ .hw = &gcc_gpll2.clkr.hw },
+	{ .hw = &gcc_gpll1.clkr.hw },
+	{ .hw = &gcc_gpll4.clkr.hw },
+	{ .hw = &gcc_gpll0_out_even.clkr.hw },
+};
+
+static const struct parent_map gcc_parent_map_11[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_GCC_GPLL0_OUT_MAIN, 1 },
+	{ P_GCC_GPLL2_OUT_MAIN, 2 },
+	{ P_GCC_GPLL1_OUT_MAIN, 4 },
+	{ P_GCC_GPLL0_OUT_EVEN, 6 },
+};
+
+static const struct clk_parent_data gcc_parent_data_11[] = {
+	{ .fw_name = "bi_tcxo" },
+	{ .hw = &gcc_gpll0.clkr.hw },
+	{ .hw = &gcc_gpll2.clkr.hw },
+	{ .hw = &gcc_gpll1.clkr.hw },
+	{ .hw = &gcc_gpll0_out_even.clkr.hw },
 };
 
 static struct clk_regmap_mux gcc_pcie_0_pipe_clk_src = {
@@ -958,6 +1081,8 @@ static const struct freq_tbl ftbl_gcc_ufs_phy_axi_clk_src[] = {
 	F(75000000, P_GCC_GPLL0_OUT_EVEN, 4, 0, 0),
 	F(150000000, P_GCC_GPLL0_OUT_MAIN, 4, 0, 0),
 	F(300000000, P_GCC_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(375000000, P_GCC_GPLL6_OUT_MAIN, 2, 0, 0),
+	F(403000000, P_GCC_GPLL4_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -965,13 +1090,13 @@ static struct clk_rcg2 gcc_ufs_phy_axi_clk_src = {
 	.cmd_rcgr = 0x8702c,
 	.mnd_width = 8,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_0,
+	.parent_map = gcc_parent_map_10,
 	.freq_tbl = ftbl_gcc_ufs_phy_axi_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_axi_clk_src",
-		.parent_data = gcc_parent_data_0,
-		.num_parents = ARRAY_SIZE(gcc_parent_data_0),
+		.parent_data = gcc_parent_data_10,
+		.num_parents = ARRAY_SIZE(gcc_parent_data_10),
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
@@ -981,7 +1106,9 @@ static struct clk_rcg2 gcc_ufs_phy_axi_clk_src = {
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 75000000,
 			[VDD_LOW] = 150000000,
-			[VDD_NOMINAL] = 300000000},
+			[VDD_NOMINAL] = 300000000,
+			[VDD_HIGH] = 375000000,
+			[VDD_HIGH_L1] = 403000000},
 	},
 };
 
@@ -989,6 +1116,8 @@ static const struct freq_tbl ftbl_gcc_ufs_phy_ice_core_clk_src[] = {
 	F(75000000, P_GCC_GPLL0_OUT_EVEN, 4, 0, 0),
 	F(150000000, P_GCC_GPLL0_OUT_MAIN, 4, 0, 0),
 	F(300000000, P_GCC_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(550000000, P_GCC_GPLL2_OUT_MAIN, 2, 0, 0),
+	F(600000000, P_GCC_GPLL0_OUT_MAIN, 1, 0, 0),
 	{ }
 };
 
@@ -996,13 +1125,13 @@ static struct clk_rcg2 gcc_ufs_phy_ice_core_clk_src = {
 	.cmd_rcgr = 0x87074,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_0,
+	.parent_map = gcc_parent_map_11,
 	.freq_tbl = ftbl_gcc_ufs_phy_ice_core_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_ice_core_clk_src",
-		.parent_data = gcc_parent_data_0,
-		.num_parents = ARRAY_SIZE(gcc_parent_data_0),
+		.parent_data = gcc_parent_data_11,
+		.num_parents = ARRAY_SIZE(gcc_parent_data_11),
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
@@ -1012,7 +1141,9 @@ static struct clk_rcg2 gcc_ufs_phy_ice_core_clk_src = {
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 75000000,
 			[VDD_LOW] = 150000000,
-			[VDD_NOMINAL] = 300000000},
+			[VDD_NOMINAL] = 300000000,
+			[VDD_HIGH] = 550000000,
+			[VDD_HIGH_L1] = 600000000},
 	},
 };
 
@@ -1041,13 +1172,13 @@ static struct clk_rcg2 gcc_ufs_phy_unipro_core_clk_src = {
 	.cmd_rcgr = 0x8708c,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_0,
+	.parent_map = gcc_parent_map_11,
 	.freq_tbl = ftbl_gcc_ufs_phy_ice_core_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_unipro_core_clk_src",
-		.parent_data = gcc_parent_data_0,
-		.num_parents = ARRAY_SIZE(gcc_parent_data_0),
+		.parent_data = gcc_parent_data_11,
+		.num_parents = ARRAY_SIZE(gcc_parent_data_11),
 		.ops = &clk_rcg2_ops,
 	},
 	.clkr.vdd_data = {
@@ -1057,7 +1188,9 @@ static struct clk_rcg2 gcc_ufs_phy_unipro_core_clk_src = {
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 75000000,
 			[VDD_LOW] = 150000000,
-			[VDD_NOMINAL] = 300000000},
+			[VDD_NOMINAL] = 300000000,
+			[VDD_HIGH] = 550000000,
+			[VDD_HIGH_L1] = 600000000},
 	},
 };
 
@@ -2650,7 +2783,10 @@ static struct clk_regmap *gcc_diwali_clocks[] = {
 	[GCC_GP3_CLK_SRC] = &gcc_gp3_clk_src.clkr,
 	[GCC_GPLL0] = &gcc_gpll0.clkr,
 	[GCC_GPLL0_OUT_EVEN] = &gcc_gpll0_out_even.clkr,
+	[GCC_GPLL1] = &gcc_gpll1.clkr,
+	[GCC_GPLL2] = &gcc_gpll2.clkr,
 	[GCC_GPLL4] = &gcc_gpll4.clkr,
+	[GCC_GPLL6] = &gcc_gpll6.clkr,
 	[GCC_GPLL9] = &gcc_gpll9.clkr,
 	[GCC_GPU_GPLL0_CLK_SRC] = &gcc_gpu_gpll0_clk_src.clkr,
 	[GCC_GPU_GPLL0_DIV_CLK_SRC] = &gcc_gpu_gpll0_div_clk_src.clkr,
