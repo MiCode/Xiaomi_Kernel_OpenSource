@@ -72,14 +72,14 @@ struct gh_msgq_cap_table *gh_msgq_alloc_entry(int label)
 	spin_lock_init(&cap_table_entry->cap_entry_lock);
 
 	cap_table_entry->tx_irq_name =
-		kasprintf(GFP_KERNEL, "gh_msgq_tx_%d", label);
+		kasprintf(GFP_ATOMIC, "gh_msgq_tx_%d", label);
 	if (!cap_table_entry->tx_irq_name) {
 		ret = -ENOMEM;
 		goto err;
 	}
 
 	cap_table_entry->rx_irq_name =
-		kasprintf(GFP_KERNEL, "gh_msgq_rx_%d", label);
+		kasprintf(GFP_ATOMIC, "gh_msgq_rx_%d", label);
 	if (!cap_table_entry->rx_irq_name) {
 		ret = -ENOMEM;
 		goto err;
