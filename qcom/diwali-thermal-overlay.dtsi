@@ -12,6 +12,11 @@
 				trip = <&socd_trip>;
 				cooling-device = <&cdsp_sw 4 4>;
 			};
+
+			socd_gpu0 {
+				trip = <&socd_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 		};
 	};
 
@@ -31,7 +36,7 @@
 		};
 	};
 
-	pm7250b-bcl-lvl0 {
+	pm8350b-bcl-lvl0 {
 		cooling-maps {
 			vbat_lte0 {
 				trip = <&b_bcl_lvl0>;
@@ -57,10 +62,15 @@
 				trip = <&b_bcl_lvl0>;
 				cooling-device = <&cpu5_pause 1 1>;
 			};
+
+			vbat_gpu0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&msm_gpu 1 1>;
+			};
 		};
 	};
 
-	pm7250b-bcl-lvl1 {
+	pm8350b-bcl-lvl1 {
 		cooling-maps {
 			vbat_lte1 {
 				trip = <&b_bcl_lvl1>;
@@ -86,14 +96,24 @@
 				trip = <&b_bcl_lvl1>;
 				cooling-device = <&cpu_6_7_pause 1 1>;
 			};
+
+			vbat_gpu1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 		};
 	};
 
-	pm7250b-bcl-lvl2 {
+	pm8350b-bcl-lvl2 {
 		cooling-maps {
 			vbat_cdsp2 {
 				trip = <&b_bcl_lvl2>;
 				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			vbat_gpu2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&msm_gpu 3 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
@@ -124,6 +144,11 @@
 				trip = <&c_bcl_lvl0>;
 				cooling-device = <&cpu5_pause 1 1>;
 			};
+
+			vph_gpu0 {
+				trip = <&c_bcl_lvl0>;
+				cooling-device = <&msm_gpu 1 1>;
+			};
 		};
 	};
 
@@ -153,6 +178,11 @@
 				trip = <&c_bcl_lvl1>;
 				cooling-device = <&cpu_6_7_pause 1 1>;
 			};
+
+			vph_gpu1 {
+				trip = <&c_bcl_lvl1>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
 		};
 	};
 
@@ -162,16 +192,16 @@
 				trip = <&c_bcl_lvl2>;
 				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
 			};
+
+			vph_gpu2 {
+				trip = <&c_bcl_lvl2>;
+				cooling-device = <&msm_gpu 3 THERMAL_NO_LIMIT>;
+			};
 		};
 	};
 
 	pm8350c_tz {
 		cooling-maps {
-			pm8350c_nsp {
-				trip = <&pm8350c_trip0>;
-				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
-			};
-
 			pm8350c_lte {
 				trip = <&pm8350c_trip0>;
 				cooling-device = <&modem_lte_dsc 255 255>;
@@ -180,6 +210,11 @@
 			pm8350c_nr {
 				trip = <&pm8350c_trip0>;
 				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			pm8350c_gpu {
+				trip = <&pm8350c_trip0>;
+				cooling-device = <&msm_gpu 3 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
