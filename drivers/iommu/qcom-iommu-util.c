@@ -431,10 +431,11 @@ void *qcom_io_pgtable_alloc_pages(const struct qcom_iommu_pgtable_ops *ops,
 }
 
 void qcom_io_pgtable_free_pages(const struct qcom_iommu_pgtable_ops *ops,
-				void *cookie, void *virt, int order)
+				void *cookie, void *virt, int order,
+				bool deferred_free)
 {
 	if (ops)
-		ops->free(cookie, virt, order);
+		ops->free(cookie, virt, order, deferred_free);
 	else
 		free_pages((unsigned long)virt, order);
 }
