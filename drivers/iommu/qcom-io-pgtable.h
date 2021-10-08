@@ -13,7 +13,9 @@ struct qcom_iommu_pgtable_log_ops {
 };
 
 struct qcom_iommu_flush_ops {
-	void (*tlb_add_walk)(void *cookie, void *virt, unsigned long iova, size_t granule);
+	void (*tlb_add_walk_page)(void *cookie, void *virt);
+	void (*tlb_add_inv)(void *cookie);
+	void (*tlb_sync)(void *cookie);
 };
 
 struct qcom_io_pgtable_info {
@@ -38,11 +40,24 @@ struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie);
 void qcom_free_io_pgtable_ops(struct io_pgtable_ops *ops);
+
 static inline void
-qcom_io_pgtable_tlb_add_walk(const struct qcom_iommu_flush_ops *tlb_ops, void *cookie, void *virt,
-				unsigned long iova, size_t granule)
+qcom_io_pgtable_tlb_add_walk_page(const struct qcom_iommu_flush_ops *tlb_ops, void *cookie,
+				  void *virt)
 {
-	tlb_ops->tlb_add_walk(cookie, virt, iova, granule);
+	tlb_ops->tlb_add_walk_page(cookie, virt);
+}
+
+static inline void
+qcom_io_pgtable_tlb_add_inv(const struct qcom_iommu_flush_ops *tlb_ops, void *cookie)
+{
+	tlb_ops->tlb_add_inv(cookie);
+}
+
+static inline void
+qcom_io_pgtable_tlb_sync(const struct qcom_iommu_flush_ops *tlb_ops, void *cookie)
+{
+	tlb_ops->tlb_sync(cookie);
 }
 
 static inline void

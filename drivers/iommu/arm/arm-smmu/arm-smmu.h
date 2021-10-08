@@ -507,7 +507,8 @@ struct arm_smmu_domain {
 	 * freed, or before their iovas can be reused by iommu_map().
 	 */
 	spinlock_t			iotlb_gather_lock;
-	struct iommu_iotlb_gather	iotlb_gather;
+	struct page			*freelist;
+	bool				deferred_sync;
 
 	struct iommu_debug_attachment	*logger;
 	struct iommu_domain		domain;
