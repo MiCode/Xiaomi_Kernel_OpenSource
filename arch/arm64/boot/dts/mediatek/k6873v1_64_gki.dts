@@ -488,6 +488,10 @@
 	};
 };
 
+&mt6360_regulator {
+	pwr_off_seq = [06 00 02 04];
+};
+
 &mt6360_typec {
 	port {
 		tcpc_typec_usb: endpoint@0 {
