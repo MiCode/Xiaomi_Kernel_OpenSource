@@ -417,7 +417,6 @@ source "drivers/char/xillybus/Kconfig"
 
 config MSM_ADSPRPC
 	tristate "QTI FastRPC driver"
-	select QCOM_PDR_HELPERS
 	depends on RPMSG && QCOM_SECURE_BUFFER && PM_SLEEP && HAS_DMA && CMA && MMU
 	help
 		Provides a communication mechanism that allows clients to
