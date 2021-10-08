@@ -20,6 +20,7 @@
 #include <nvhe/pkvm.h>
 #include <nvhe/trap_handler.h>
 
+#include <linux/irqchip/arm-gic-v3.h>
 #include <uapi/linux/psci.h>
 
 DEFINE_PER_CPU(struct kvm_nvhe_init_params, kvm_init_params);
@@ -213,11 +214,52 @@ static const shadow_entry_exit_handler_fn exit_shadow_handlers[] = {
 	[ESR_ELx_EC_DABT_LOW]		= handle_pvm_exit_dabt,
 };
 
+static void flush_vgic_state(struct kvm_vcpu *host_vcpu,
+			     struct kvm_vcpu *shadow_vcpu)
+{
+	struct vgic_v3_cpu_if *host_cpu_if, *shadow_cpu_if;
+	unsigned int used_lrs, max_lrs, i;
+
+	host_cpu_if	= &host_vcpu->arch.vgic_cpu.vgic_v3;
+	shadow_cpu_if	= &shadow_vcpu->arch.vgic_cpu.vgic_v3;
+
+	max_lrs = (read_gicreg(ICH_VTR_EL2) & 0xf) + 1;
+	used_lrs = READ_ONCE(host_cpu_if->used_lrs);
+	used_lrs = min(used_lrs, max_lrs);
+
+	shadow_cpu_if->vgic_hcr	= host_cpu_if->vgic_hcr;
+	/* Should be a one-off */
+	shadow_cpu_if->vgic_sre = (ICC_SRE_EL1_DIB |
+				   ICC_SRE_EL1_DFB |
+				   ICC_SRE_EL1_SRE);
+	shadow_cpu_if->used_lrs	= used_lrs;
+
+	for (i = 0; i < used_lrs; i++)
+		shadow_cpu_if->vgic_lr[i] = host_cpu_if->vgic_lr[i];
+}
+
+static void sync_vgic_state(struct kvm_vcpu *host_vcpu,
+			    struct kvm_vcpu *shadow_vcpu)
+{
+	struct vgic_v3_cpu_if *host_cpu_if, *shadow_cpu_if;
+	unsigned int i;
+
+	host_cpu_if	= &host_vcpu->arch.vgic_cpu.vgic_v3;
+	shadow_cpu_if	= &shadow_vcpu->arch.vgic_cpu.vgic_v3;
+
+	host_cpu_if->vgic_hcr	= shadow_cpu_if->vgic_hcr;
+
+	for (i = 0; i < shadow_cpu_if->used_lrs; i++)
+		host_cpu_if->vgic_lr[i] = shadow_cpu_if->vgic_lr[i];
+}
+
 static bool handle_shadow_entry(struct kvm_vcpu *shadow_vcpu)
 {
 	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 	u8 esr_ec;
 	shadow_entry_exit_handler_fn ec_handler;
+
+	flush_vgic_state(host_vcpu, shadow_vcpu);
 
 	switch (ARM_EXCEPTION_CODE(shadow_vcpu->arch.pkvm.exit_code)) {
 	case ARM_EXCEPTION_IRQ:
@@ -242,6 +284,8 @@ static void handle_shadow_exit(struct kvm_vcpu *shadow_vcpu)
 	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 	u8 esr_ec;
 	shadow_entry_exit_handler_fn ec_handler;
+
+	sync_vgic_state(host_vcpu, shadow_vcpu);
 
 	switch (shadow_vcpu->arch.pkvm.exit_code) {
 	case ARM_EXCEPTION_IRQ:
@@ -370,18 +414,61 @@ static void handle___kvm_get_mdcr_el2(struct kvm_cpu_context *host_ctxt)
 	cpu_reg(host_ctxt, 1) = __kvm_get_mdcr_el2();
 }
 
+static struct vgic_v3_cpu_if *get_shadow_vgic_v3_cpu_if(struct vgic_v3_cpu_if *cpu_if)
+{
+	struct kvm_vcpu *vcpu, *shadow_vcpu;
+
+	vcpu = container_of(cpu_if, struct kvm_vcpu, arch.vgic_cpu.vgic_v3);
+	shadow_vcpu = hyp_get_shadow_vcpu(vcpu);
+	if (!shadow_vcpu)
+		return cpu_if;
+	return &shadow_vcpu->arch.vgic_cpu.vgic_v3;
+}
+
 static void handle___vgic_v3_save_vmcr_aprs(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct vgic_v3_cpu_if *, cpu_if, host_ctxt, 1);
+	struct vgic_v3_cpu_if *shadow_cpu_if;
 
-	__vgic_v3_save_vmcr_aprs(kern_hyp_va(cpu_if));
+	cpu_if = kern_hyp_va(cpu_if);
+	shadow_cpu_if = get_shadow_vgic_v3_cpu_if(cpu_if);
+
+	__vgic_v3_save_vmcr_aprs(shadow_cpu_if);
+
+	if (cpu_if != shadow_cpu_if) {
+		int i;
+
+		cpu_if->vgic_vmcr = shadow_cpu_if->vgic_vmcr;
+		for (i = 0; i < ARRAY_SIZE(cpu_if->vgic_ap0r); i++) {
+			cpu_if->vgic_ap0r[i] = shadow_cpu_if->vgic_ap0r[i];
+			cpu_if->vgic_ap1r[i] = shadow_cpu_if->vgic_ap1r[i];
+		}
+	}
 }
 
 static void handle___vgic_v3_restore_vmcr_aprs(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct vgic_v3_cpu_if *, cpu_if, host_ctxt, 1);
+	struct vgic_v3_cpu_if *shadow_cpu_if;
 
-	__vgic_v3_restore_vmcr_aprs(kern_hyp_va(cpu_if));
+	cpu_if = kern_hyp_va(cpu_if);
+	shadow_cpu_if = get_shadow_vgic_v3_cpu_if(cpu_if);
+
+	if (cpu_if != shadow_cpu_if) {
+		int i;
+
+		shadow_cpu_if->vgic_vmcr = cpu_if->vgic_vmcr;
+		/* Should be a one-off */
+		shadow_cpu_if->vgic_sre = (ICC_SRE_EL1_DIB |
+					   ICC_SRE_EL1_DFB |
+					   ICC_SRE_EL1_SRE);
+		for (i = 0; i < ARRAY_SIZE(cpu_if->vgic_ap0r); i++) {
+			shadow_cpu_if->vgic_ap0r[i] = cpu_if->vgic_ap0r[i];
+			shadow_cpu_if->vgic_ap1r[i] = cpu_if->vgic_ap1r[i];
+		}
+	}
+
+	__vgic_v3_restore_vmcr_aprs(shadow_cpu_if);
 }
 
 static void handle___pkvm_init(struct kvm_cpu_context *host_ctxt)
