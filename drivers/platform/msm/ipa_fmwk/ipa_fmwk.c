@@ -427,10 +427,6 @@ struct ipa_fmwk_contex {
 	int (*ipa_eth_client_set_perf_profile)(struct ipa_eth_client *client,
 		struct ipa_eth_perf_profile *profile);
 
-	int (*ipa_eth_client_conn_evt)(struct ipa_ecm_msg *msg);
-
-	int (*ipa_eth_client_disconn_evt)(struct ipa_ecm_msg *msg);
-
 	int (*ipa_get_default_aggr_time_limit)(enum ipa_client_type client,
 		u32 *default_aggr_time_limit);
 
@@ -2162,8 +2158,6 @@ int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
 		|| ipa_fmwk_ctx->ipa_eth_client_reg_intf
 		|| ipa_fmwk_ctx->ipa_eth_client_unreg_intf
 		|| ipa_fmwk_ctx->ipa_eth_client_set_perf_profile
-		|| ipa_fmwk_ctx->ipa_eth_client_conn_evt
-		|| ipa_fmwk_ctx->ipa_eth_client_disconn_evt
 		|| ipa_fmwk_ctx->ipa_eth_get_ipa_client_type_from_eth_type
 		|| ipa_fmwk_ctx->ipa_eth_client_exist) {
 		pr_err("ipa_eth APIs were already initialized\n");
@@ -2180,9 +2174,6 @@ int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
 	ipa_fmwk_ctx->ipa_eth_client_unreg_intf = in->ipa_eth_client_unreg_intf;
 	ipa_fmwk_ctx->ipa_eth_client_set_perf_profile =
 		in->ipa_eth_client_set_perf_profile;
-	ipa_fmwk_ctx->ipa_eth_client_conn_evt = in->ipa_eth_client_conn_evt;
-	ipa_fmwk_ctx->ipa_eth_client_disconn_evt =
-		in->ipa_eth_client_disconn_evt;
 	ipa_fmwk_ctx->ipa_eth_get_ipa_client_type_from_eth_type =
 		in->ipa_eth_get_ipa_client_type_from_eth_type;
 	ipa_fmwk_ctx->ipa_eth_client_exist =
@@ -2284,28 +2275,6 @@ int ipa_eth_client_set_perf_profile(struct ipa_eth_client *client,
 	return ret;
 }
 EXPORT_SYMBOL(ipa_eth_client_set_perf_profile);
-
-int ipa_eth_client_conn_evt(struct ipa_ecm_msg *msg)
-{
-	int ret;
-
-	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_conn_evt,
-		msg);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_eth_client_conn_evt);
-
-int ipa_eth_client_disconn_evt(struct ipa_ecm_msg *msg)
-{
-	int ret;
-
-	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_disconn_evt,
-		msg);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_eth_client_disconn_evt);
 
 int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
 				u32 *default_aggr_time_limit)
