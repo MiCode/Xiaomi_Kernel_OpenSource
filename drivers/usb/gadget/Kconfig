@@ -237,6 +237,7 @@ config USB_F_GSI
 config USB_F_FS_IPC_LOGGING
         tristate "Enable IPC logging for FunctionFS via f_fs_ipc_log"
 	depends on IPC_LOGGING
+	depends on ARM64
 	help
 	 Enables additional debug messages for FunctionFS driver with the help
 	 of f_fs_ipc_log module and output via IPC Logging mechanism. This can
