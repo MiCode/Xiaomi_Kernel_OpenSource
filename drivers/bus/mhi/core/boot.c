@@ -53,17 +53,49 @@ void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 		&mhi_buf->dma_addr, mhi_buf->len, sequence_id);
 }
 
+/* check RDDM image is downloaded */
+int mhi_rddm_download_status(struct mhi_controller *mhi_cntrl)
+{
+	u32 rx_status;
+	enum mhi_ee_type ee;
+	const u32 delayus = 5000;
+	void __iomem *base = mhi_cntrl->bhie;
+	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	int ret = 0;
+
+	while (retry--) {
+		ret = mhi_read_reg_field(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS,
+					 BHIE_RXVECSTATUS_STATUS_BMSK,
+					 BHIE_RXVECSTATUS_STATUS_SHFT,
+					 &rx_status);
+		if (ret)
+			return -EIO;
+
+		if (rx_status == BHIE_RXVECSTATUS_STATUS_XFER_COMPL) {
+			MHI_LOG("RDDM dumps collected successfully");
+			return 0;
+		}
+
+		udelay(delayus);
+	}
+
+	ee = mhi_get_exec_env(mhi_cntrl);
+	ret = mhi_read_reg(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS, &rx_status);
+	MHI_ERR("ret: %d, RXVEC_STATUS: 0x%x, EE:%s\n", ret, rx_status,
+		TO_MHI_EXEC_STR(ee));
+
+	return -EIO;
+}
+
 /* Collect RDDM buffer during kernel panic */
 static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
-	u32 rx_status;
 	enum mhi_ee_type ee;
 	const u32 delayus = 2000;
-	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
 	const u32 rddm_timeout_us = 200000;
 	int rddm_retry = rddm_timeout_us / delayus;
-	void __iomem *base = mhi_cntrl->bhie;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 
 	MHI_VERB("Entered with pm_state:%s dev_state:%s ee:%s\n",
@@ -123,24 +155,11 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 		"Waiting for RDDM image download via BHIe, current EE:%s\n",
 		TO_MHI_EXEC_STR(ee));
 
-	while (retry--) {
-		ret = mhi_read_reg_field(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS,
-					 BHIE_RXVECSTATUS_STATUS_BMSK,
-					 BHIE_RXVECSTATUS_STATUS_SHFT,
-					 &rx_status);
-		if (ret)
-			return -EIO;
-
-		if (rx_status == BHIE_RXVECSTATUS_STATUS_XFER_COMPL)
-			return 0;
-
-		udelay(delayus);
+	ret = mhi_rddm_download_status(mhi_cntrl);
+	if (!ret) {
+		MHI_LOG("RDDM dumps collected successfully");
+		return 0;
 	}
-
-	ee = mhi_get_exec_env(mhi_cntrl);
-	ret = mhi_read_reg(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS, &rx_status);
-
-	MHI_ERR("RXVEC_STATUS: 0x%x\n", rx_status);
 
 error_exit_rddm:
 	MHI_ERR("RDDM transfer failed. Current EE: %s\n",

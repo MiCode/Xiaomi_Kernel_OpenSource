@@ -259,6 +259,13 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 					u64 local_time,
 					u64 remote_time));
 
+/**
+ * mhi_force_reset - does host reset request to collect device side dumps
+ * for debugging purpose
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_force_reset(struct mhi_controller *mhi_cntrl);
+
 #else
 
 /**
@@ -555,6 +562,16 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 					u64 remote_time))
 {
 	return -EPERM;
+}
+
+/**
+ * mhi_force_reset - does host reset request to collect device side dumps
+ * for debugging purpose
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_force_reset(struct mhi_controller *mhi_cntrl)
+{
+	return -EINVAL;
 }
 
 #endif /* CONFIG_MHI_BUS_MISC */
