@@ -46,6 +46,7 @@
 #define BC_WAIT_TIME_MS			1000
 #define WLS_FW_PREPARE_TIME_MS		300
 #define WLS_FW_WAIT_TIME_MS		500
+#define WLS_FW_UPDATE_TIME_MS		1000
 #define WLS_FW_BUF_SIZE			128
 #define DEFAULT_RESTRICT_FCC_UA		1000000
 
@@ -161,6 +162,7 @@ struct wireless_fw_check_req {
 	struct pmic_glink_hdr	hdr;
 	u32			fw_version;
 	u32			fw_size;
+	u32			fw_crc;
 };
 
 struct wireless_fw_check_resp {
@@ -231,9 +233,12 @@ struct battery_chg_dev {
 	bool				debug_battery_detected;
 	bool				wls_fw_update_reqd;
 	u32				wls_fw_version;
+	u16				wls_fw_crc;
 	struct notifier_block		reboot_notifier;
 	u32				thermal_fcc_ua;
 	u32				restrict_fcc_ua;
+	u32				last_fcc_ua;
+	u32				usb_icl_ua;
 	bool				restrict_chg_en;
 };
 
@@ -421,14 +426,6 @@ static void battery_chg_notify_enable(struct battery_chg_dev *bcdev)
 		pr_err("Failed to enable notification rc=%d\n", rc);
 }
 
-static void battery_chg_subsys_up_work(struct work_struct *work)
-{
-	struct battery_chg_dev *bcdev = container_of(work,
-					struct battery_chg_dev, subsys_up_work);
-
-	battery_chg_notify_enable(bcdev);
-}
-
 static void battery_chg_state_cb(void *priv, enum pmic_glink_state state)
 {
 	struct battery_chg_dev *bcdev = priv;
@@ -597,6 +594,9 @@ static void handle_message(struct battery_chg_dev *bcdev, void *data,
 			fw_update_msg = data;
 			if (fw_update_msg->fw_update_done == 1)
 				complete(&bcdev->fw_update_ack);
+			else
+				pr_err("Wireless FW update not done %d\n",
+					(int)fw_update_msg->fw_update_done);
 		} else {
 			pr_err("Incorrect response length %zu for wls_fw_update_status_resp\n",
 				len);
@@ -635,6 +635,11 @@ static void battery_chg_update_usb_type_work(struct work_struct *work)
 		pr_err("Failed to read USB_ADAP_TYPE rc=%d\n", rc);
 		return;
 	}
+
+	/* Reset usb_icl_ua whenever USB adapter type changes */
+	if (pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_SDP &&
+	    pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_PD)
+		bcdev->usb_icl_ua = 0;
 
 	pr_debug("usb_adap_type: %u\n", pst->prop[USB_ADAP_TYPE]);
 
@@ -831,8 +836,10 @@ static int usb_psy_set_icl(struct battery_chg_dev *bcdev, u32 prop_id, int val)
 		temp = UINT_MAX;
 
 	rc = write_property_id(bcdev, pst, prop_id, temp);
-	if (!rc)
+	if (!rc) {
 		pr_debug("Set ICL to %u\n", temp);
+		bcdev->usb_icl_ua = temp;
+	}
 
 	return rc;
 }
@@ -946,10 +953,12 @@ static int __battery_psy_set_charge_current(struct battery_chg_dev *bcdev,
 
 	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_BATTERY],
 				BATT_CHG_CTRL_LIM, fcc_ua);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("Failed to set FCC %u, rc=%d\n", fcc_ua, rc);
-	else
+	} else {
 		pr_debug("Set FCC to %u uA\n", fcc_ua);
+		bcdev->last_fcc_ua = fcc_ua;
+	}
 
 	return rc;
 }
@@ -1128,6 +1137,38 @@ static int battery_chg_init_psy(struct battery_chg_dev *bcdev)
 	return 0;
 }
 
+static void battery_chg_subsys_up_work(struct work_struct *work)
+{
+	struct battery_chg_dev *bcdev = container_of(work,
+					struct battery_chg_dev, subsys_up_work);
+	int rc;
+
+	battery_chg_notify_enable(bcdev);
+
+	/*
+	 * Give some time after enabling notification so that USB adapter type
+	 * information can be obtained properly which is essential for setting
+	 * USB ICL.
+	 */
+	msleep(200);
+
+	if (bcdev->last_fcc_ua) {
+		rc = __battery_psy_set_charge_current(bcdev,
+				bcdev->last_fcc_ua);
+		if (rc < 0)
+			pr_err("Failed to set FCC (%u uA), rc=%d\n",
+				bcdev->last_fcc_ua, rc);
+	}
+
+	if (bcdev->usb_icl_ua) {
+		rc = usb_psy_set_icl(bcdev, USB_INPUT_CURR_LIMIT,
+				bcdev->usb_icl_ua);
+		if (rc < 0)
+			pr_err("Failed to set ICL(%u uA), rc=%d\n",
+				bcdev->usb_icl_ua, rc);
+	}
+}
+
 static int wireless_fw_send_firmware(struct battery_chg_dev *bcdev,
 					const struct firmware *fw)
 {
@@ -1185,6 +1226,7 @@ static int wireless_fw_check_for_update(struct battery_chg_dev *bcdev,
 	req_msg.hdr.opcode = BC_WLS_FW_CHECK_UPDATE;
 	req_msg.fw_version = version;
 	req_msg.fw_size = size;
+	req_msg.fw_crc = bcdev->wls_fw_crc;
 
 	return battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
 }
@@ -1272,7 +1314,7 @@ static int wireless_fw_update(struct battery_chg_dev *bcdev, bool force)
 	}
 
 	rc = wait_for_completion_timeout(&bcdev->fw_update_ack,
-				msecs_to_jiffies(WLS_FW_WAIT_TIME_MS));
+				msecs_to_jiffies(WLS_FW_UPDATE_TIME_MS));
 	if (!rc) {
 		pr_err("Error, timed out updating firmware\n");
 		rc = -ETIMEDOUT;
@@ -1284,12 +1326,30 @@ static int wireless_fw_update(struct battery_chg_dev *bcdev, bool force)
 	pr_info("Wireless FW update done\n");
 
 release_fw:
+	bcdev->wls_fw_crc = 0;
 	release_firmware(fw);
 out:
 	pm_relax(bcdev->dev);
 
 	return rc;
 }
+
+static ssize_t wireless_fw_crc_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	u16 val;
+
+	if (kstrtou16(buf, 0, &val) || !val)
+		return -EINVAL;
+
+	bcdev->wls_fw_crc = val;
+
+	return count;
+}
+static CLASS_ATTR_WO(wireless_fw_crc);
 
 static ssize_t wireless_fw_version_show(struct class *c,
 					struct class_attribute *attr,
@@ -1636,6 +1696,7 @@ static struct attribute *battery_class_attrs[] = {
 	&class_attr_wireless_fw_update.attr,
 	&class_attr_wireless_fw_force_update.attr,
 	&class_attr_wireless_fw_version.attr,
+	&class_attr_wireless_fw_crc.attr,
 	&class_attr_ship_mode_en.attr,
 	&class_attr_restrict_chg.attr,
 	&class_attr_restrict_cur.attr,
