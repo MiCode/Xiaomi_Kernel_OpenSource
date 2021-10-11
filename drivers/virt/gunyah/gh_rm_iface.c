@@ -150,9 +150,6 @@ int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vm)
 	if (!vm)
 		return -EINVAL;
 
-	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth)
-		return -EINVAL;
-
 	vm->guid = gh_vm_table[vm_name].guid;
 	vm->uri = gh_vm_table[vm_name].uri;
 	vm->name = gh_vm_table[vm_name].name;

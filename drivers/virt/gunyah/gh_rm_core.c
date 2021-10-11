@@ -56,6 +56,16 @@ struct gh_rm_notif_validate {
 	struct gh_rm_connection *conn;
 	struct work_struct validate_work;
 };
+const static struct {
+	enum gh_vm_names val;
+	const char *image_name;
+	const char *vm_name;
+} vm_name_map[] = {
+	{GH_PRIMARY_VM, "pvm", ""},
+	{GH_TRUSTED_VM, "trustedvm", "qcom,trustedvm"},
+	{GH_CPUSYS_VM, "cpusys_vm", "qcom,cpusysvm"},
+	{GH_OEM_VM, "oem_vm", "qcom,oemvm"},
+};
 
 static struct task_struct *gh_rm_drv_recv_task;
 static struct gh_msgq_desc *gh_rm_msgq_desc;
@@ -81,6 +91,32 @@ bool gh_rm_core_initialized;
 
 static void gh_rm_get_svm_res_work_fn(struct work_struct *work);
 static DECLARE_WORK(gh_rm_get_svm_res_work, gh_rm_get_svm_res_work_fn);
+
+enum gh_vm_names gh_get_image_name(const char *str)
+{
+	int vmid;
+
+	for (vmid = 0; vmid < ARRAY_SIZE(vm_name_map); ++vmid) {
+		if (!strcmp(str, vm_name_map[vmid].image_name))
+			return vm_name_map[vmid].val;
+	}
+	pr_err("Can find vm index for image name %s\n", str);
+	return GH_VM_MAX;
+}
+EXPORT_SYMBOL(gh_get_image_name);
+
+enum gh_vm_names gh_get_vm_name(const char *str)
+{
+	int vmid;
+
+	for (vmid = 0; vmid < ARRAY_SIZE(vm_name_map); ++vmid) {
+		if (!strcmp(str, vm_name_map[vmid].vm_name))
+			return vm_name_map[vmid].val;
+	}
+	pr_err("Can find vm index for vm name %s\n", str);
+	return GH_VM_MAX;
+}
+EXPORT_SYMBOL(gh_get_vm_name);
 
 static struct gh_rm_connection *gh_rm_alloc_connection(u32 msg_id,
 							bool needed)
@@ -791,13 +827,14 @@ static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
+int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 {
 	struct gh_vm_get_id_resp_entry *id_entries = NULL, *entry;
 	struct gh_vm_property vm_prop = {0};
 	void *info = NULL;
 	int ret = 0;
 	u32 n_id, i;
+	enum gh_vm_names vm_name;
 
 	id_entries = gh_rm_vm_get_id(vmid, &n_id);
 	if (IS_ERR_OR_NULL(id_entries))
@@ -826,6 +863,7 @@ int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
 			continue;
 		}
 
+		pr_debug("%s: idx:%d id_info %s\n", __func__, i, info);
 		switch (entry->id_type) {
 		case GH_RM_ID_TYPE_GUID:
 			vm_prop.guid = info;
@@ -843,14 +881,23 @@ int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
 			pr_err("%s: Unknown id type: %u\n",
 				__func__, entry->id_type);
 			ret = -EINVAL;
+			kfree(info);
 		}
 		entry = (void *)entry + sizeof(*entry) +
 			     round_up(entry->id_size, 4);
-		pr_debug("%s: idx:%d id_info %s\n", __func__, i, info);
 	}
 
-	if (!ret)
-		ret = gh_update_vm_prop_table(vm_name, &vm_prop);
+	if (!ret) {
+		vm_prop.vmid = vmid;
+		vm_name = gh_get_vm_name(vm_prop.name);
+		if (vm_name == GH_VM_MAX) {
+			pr_err("Invalid vm name %s of VMID %d\n", vm_prop.name,
+			       vmid);
+			ret = -EINVAL;
+		} else {
+			ret = gh_update_vm_prop_table(vm_name, &vm_prop);
+		}
+	}
 
 	kfree(id_entries);
 	return ret;
@@ -1200,6 +1247,59 @@ static void gh_rm_get_svm_res_work_fn(struct work_struct *work)
 		gh_rm_populate_hyp_res(vmid, NULL);
 }
 
+static int gh_vm_status_nb_handler(struct notifier_block *this,
+					unsigned long cmd, void *data)
+{
+	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
+	struct gh_vminfo vm_info = {0};
+	enum gh_vm_names vm_name;
+	u8 vm_status = vm_status_payload->vm_status;
+	int ret;
+
+	if (cmd != GH_RM_NOTIF_VM_STATUS)
+		return NOTIFY_DONE;
+
+	switch (vm_status) {
+	case GH_RM_VM_STATUS_READY:
+		pr_err("vm(%d) is ready\n", vm_status_payload->vmid);
+		ret = gh_rm_get_vm_id_info(vm_status_payload->vmid);
+		if (ret < 0) {
+			pr_err("Failed to get vmid info for vmid = %d ret = %d\n",
+				vm_status_payload->vmid, ret);
+			return NOTIFY_DONE;
+		}
+		ret = gh_rm_get_vm_name(vm_status_payload->vmid, &vm_name);
+		if (ret < 0) {
+			pr_err("Failed to get vm name for vmid = %d ret = %d\n",
+			       vm_status_payload->vmid, ret);
+			return NOTIFY_DONE;
+		}
+		ret = gh_rm_get_vminfo(vm_name, &vm_info);
+		if (ret < 0)
+			pr_err("Failed to get vminfo of vmname = %s\n", vm_name);
+		ret = gh_rm_populate_hyp_res(vm_status_payload->vmid,
+					     vm_info.name);
+		if (ret < 0) {
+			pr_err("Failed to get hyp resources for vmid = %d vmname = %s ret = %d\n",
+			       vm_status_payload->vmid, vm_name, ret);
+			return NOTIFY_DONE;
+		}
+		break;
+	case GH_RM_VM_STATUS_RUNNING:
+		pr_err("vm(%d) started running\n", vm_status_payload->vmid);
+		break;
+	default:
+		pr_err("Unknown notification receieved for vmid = %d vm_status = %d\n",
+				vm_status_payload->vmid, vm_status);
+	}
+
+	return NOTIFY_DONE;
+}
+
+
+static struct notifier_block gh_vm_status_nb = {
+	.notifier_call = gh_vm_status_nb_handler
+};
 static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 {
 	struct device_node *node;
@@ -1237,6 +1337,7 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 
 		/* Query RM for available resources */
 		schedule_work(&gh_rm_get_svm_res_work);
+		gh_rm_register_notifier(&gh_vm_status_nb);
 	}
 
 	return 0;

@@ -160,8 +160,7 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 			complete_all(&priv->vm_start);
 			return NOTIFY_DONE;
 		}
-		ret = gh_rm_get_vm_id_info(get_gh_vm_name(priv->vm_name),
-							priv->vmid);
+		ret = gh_rm_get_vm_id_info(priv->vmid);
 		if (ret < 0)
 			dev_err(priv->dev, "Couldn't obtain VM ID info.\n");
 

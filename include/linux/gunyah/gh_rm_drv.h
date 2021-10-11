@@ -324,10 +324,12 @@ int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr);
 int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid);
 int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid);
 int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid);
+int gh_rm_get_vm_id_info(gh_vmid_t vmid);
 int gh_rm_get_vm_name(gh_vmid_t vmid, enum gh_vm_names *vm_name);
 int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vminfo);
 int gh_rm_vm_start(int vmid);
-int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid);
+enum gh_vm_names gh_get_image_name(const char *str);
+enum gh_vm_names gh_get_vm_name(const char *str);
 int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags);
 int gh_rm_vm_reset(gh_vmid_t vmid);
 
@@ -466,7 +468,7 @@ static inline int gh_rm_vm_start(int vmid)
 	return -EINVAL;
 }
 
-static inline int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
+static inline int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 {
 	return -EINVAL;
 }
