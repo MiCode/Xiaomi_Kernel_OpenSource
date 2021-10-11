@@ -7,12 +7,6 @@ function update_config() {
          -d CPU_BIG_ENDIAN \
          -d STM \
          -d TEST_MEMCAT_P \
-         -d DEBUG_SPINLOCK \
-         -d DEBUG_LOCK_ALLOC \
-         -d LOCK_STAT \
-         -d DEBUG_WW_MUTEX_SLOWPATH \
-         -d DEBUG_LOCK_ALLOC \
-         -d PROVE_LOCKING \
          -e UNWINDER_FRAME_POINTER \
 
     (cd ${OUT_DIR} && \
