@@ -569,3 +569,4 @@
 };
 
 #include "parrot-pinctrl.dtsi"
+#include "parrot-dma-heaps.dtsi"
