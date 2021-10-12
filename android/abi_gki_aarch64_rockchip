@@ -1,5 +1,6 @@
 [abi_symbol_list]
 # commonly used symbols
+  add_timer
   add_uevent_var
   aes_encrypt
   alloc_chrdev_region
@@ -42,6 +43,7 @@
   __check_object_size
   __class_create
   class_destroy
+  class_for_each_device
   clk_bulk_disable
   clk_bulk_enable
   clk_bulk_prepare
@@ -128,6 +130,7 @@
   devm_gpiod_get_index
   devm_gpiod_get_index_optional
   devm_gpiod_get_optional
+  devm_gpio_request
   devm_input_allocate_device
   devm_ioremap
   devm_ioremap_resource
@@ -139,11 +142,14 @@
   devm_of_clk_add_hw_provider
   __devm_of_phy_provider_register
   devm_phy_create
+  devm_phy_get
   devm_pinctrl_get
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
+  devm_platform_ioremap_resource_byname
   devm_power_supply_register
   devm_pwm_get
+  devm_regmap_field_alloc
   __devm_regmap_init_i2c
   __devm_regmap_init_mmio_clk
   devm_regulator_bulk_get
@@ -188,10 +194,13 @@
   drm_display_info_set_bus_formats
   drm_get_edid
   drm_mode_vrefresh
+  dummy_irq_chip
   enable_irq
   extcon_get_edev_by_phandle
   extcon_get_state
+  extcon_register_notifier
   extcon_set_state_sync
+  extcon_unregister_notifier
   failure_tracking
   find_next_bit
   find_next_zero_bit
@@ -205,6 +214,7 @@
   fwnode_property_present
   fwnode_property_read_string
   fwnode_property_read_u32_array
+  generic_handle_irq
   get_device
   gic_nonsecure_priorities
   gpiochip_add_pin_range
@@ -212,13 +222,18 @@
   gpiochip_generic_request
   gpiochip_get_data
   gpiod_cansleep
+  gpiod_direction_input
   gpiod_direction_output
   gpiod_get_optional
+  gpiod_get_raw_value
   gpiod_get_value
   gpiod_get_value_cansleep
   gpiod_set_consumer_name
   gpiod_set_value
   gpiod_set_value_cansleep
+  gpiod_to_irq
+  gpio_to_desc
+  handle_simple_irq
   hid_debug
   hid_hw_close
   hid_hw_open
@@ -258,10 +273,19 @@
   input_set_abs_params
   __ioremap
   iounmap
+  __irq_domain_add
+  irq_domain_remove
+  irq_find_mapping
   irq_get_irq_data
+  irq_set_chained_handler_and_data
+  irq_set_chip_and_handler_name
+  irq_set_chip_data
+  irq_set_irq_type
   irq_set_irq_wake
   jiffies
+  jiffies_to_msecs
   kasan_flag_enabled
+  kasprintf
   kernel_neon_begin
   kernel_neon_end
   kfree
@@ -275,6 +299,7 @@
   kstrtoull
   ktime_get
   ktime_get_mono_fast_ns
+  ktime_get_with_offset
   kvfree
   kvmalloc_node
   led_classdev_register_ext
@@ -306,8 +331,10 @@
   mutex_unlock
   no_llseek
   nr_cpu_ids
+  ns_to_timespec64
   nvmem_cell_put
   nvmem_cell_read
+  of_address_to_resource
   of_alias_get_id
   of_clk_add_provider
   of_clk_del_provider
@@ -321,6 +348,7 @@
   of_find_node_by_name
   of_find_property
   of_get_child_by_name
+  of_get_named_gpio_flags
   of_get_next_available_child
   of_get_next_child
   of_get_parent
@@ -349,6 +377,10 @@
   param_ops_uint
   __per_cpu_offset
   pfn_valid
+  phy_exit
+  phy_init
+  phy_power_off
+  phy_power_on
   pinctrl_dev_get_drvdata
   pinctrl_lookup_state
   pinctrl_select_state
@@ -356,6 +388,7 @@
   __platform_driver_register
   platform_driver_unregister
   platform_get_irq
+  platform_get_irq_byname
   platform_get_resource
   platform_get_resource_byname
   pm_power_off
@@ -371,7 +404,9 @@
   __pm_runtime_suspend
   __pm_runtime_use_autosuspend
   __pm_stay_awake
+  pm_wakeup_ws_event
   power_supply_changed
+  power_supply_class
   power_supply_get_drvdata
   preempt_schedule
   preempt_schedule_notrace
@@ -405,6 +440,9 @@
   register_reboot_notifier
   regmap_bulk_read
   regmap_bulk_write
+  regmap_field_read
+  regmap_field_update_bits_base
+  regmap_irq_get_virq
   regmap_read
   regmap_update_bits_base
   regmap_write
@@ -429,6 +467,10 @@
   reset_control_assert
   reset_control_deassert
   revalidate_disk_size
+  rtc_class_open
+  rtc_read_time
+  rtc_tm_to_time64
+  rtc_valid_tm
   scatterwalk_map_and_copy
   schedule
   schedule_timeout
@@ -734,7 +776,6 @@
   usb_wakeup_enabled_descendants
 
 # required by fan53555.ko
-  gpiod_get_raw_value
   gpiod_set_raw_value
 
 # required by ghash-ce.ko
@@ -746,16 +787,12 @@
   gpiod_count
 
 # required by gpio-rockchip.ko
-  generic_handle_irq
   gpiochip_add_data_with_key
   gpiochip_remove
   handle_edge_irq
   handle_level_irq
   __irq_alloc_domain_generic_chips
   irq_create_mapping_affinity
-  __irq_domain_add
-  irq_domain_remove
-  irq_find_mapping
   irq_gc_ack_set_bit
   irq_gc_mask_clr_bit
   irq_gc_mask_set_bit
@@ -763,8 +800,6 @@
   irq_generic_chip_ops
   irq_get_domain_generic_chip
   irq_of_parse_and_map
-  irq_set_chained_handler_and_data
-  of_address_to_resource
   of_pinctrl_get
 
 # required by grf.ko
@@ -848,7 +883,6 @@
 
 # required by leds-gpio.ko
   devm_gpio_request_one
-  gpio_to_desc
 
 # required by ledtrig-heartbeat.ko
   atomic_notifier_chain_unregister
@@ -903,9 +937,7 @@
   ida_destroy
   ida_free
   init_srcu_struct
-  kasprintf
   kobject_uevent_env
-  ktime_get_with_offset
   list_sort
   memchr_inv
   param_ops_byte
@@ -1088,7 +1120,6 @@
   v4l2_subdev_init
 
 # required by phy-rockchip-inno-dsidphy.ko
-  devm_platform_ioremap_resource_byname
   phy_mipi_dphy_config_validate
 
 # required by phy-rockchip-inno-hdmi-phy.ko
@@ -1188,6 +1219,11 @@
   regmap_del_irq_chip
   regmap_irq_get_domain
 
+# required by rk818_battery.ko
+  blocking_notifier_call_chain
+  blocking_notifier_chain_register
+  blocking_notifier_chain_unregister
+
 # required by rockchip-iommu.ko
   bus_set_iommu
   device_link_add
@@ -1254,7 +1290,6 @@
   input_unregister_handle
   __memset_io
   of_devfreq_cooling_register_power
-  platform_get_irq_byname
 
 # required by rockchip_dmc_common.ko
   down_write_trylock
@@ -1484,7 +1519,6 @@
   iommu_set_fault_handler
   iommu_unmap
   memblock_free
-  ns_to_timespec64
   of_graph_get_next_endpoint
   of_graph_get_port_by_id
   of_graph_get_remote_port
@@ -1511,15 +1545,9 @@
   devm_rtc_allocate_device
   __rtc_register_device
   rtc_time64_to_tm
-  rtc_tm_to_time64
   rtc_update_irq
 
 # required by sdhci-of-arasan.ko
-  devm_phy_get
-  phy_exit
-  phy_init
-  phy_power_off
-  phy_power_on
   __sdhci_add_host
   sdhci_cleanup_host
   sdhci_cqe_disable
@@ -1552,7 +1580,6 @@
   fasync_helper
   get_sg_io_hdr
   import_iovec
-  jiffies_to_msecs
   kill_fasync
   __module_get
   nonseekable_open
@@ -1641,7 +1668,6 @@
   devm_get_clk_from_child
   devm_kasprintf
   devm_kvasprintf
-  of_get_named_gpio_flags
   snd_soc_card_jack_new
   snd_soc_dai_set_sysclk
   snd_soc_dai_set_tdm_slot
