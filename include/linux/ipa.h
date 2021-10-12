@@ -2054,11 +2054,6 @@ static inline int ipa_register_ipa_ready_cb(
 	return -EPERM;
 }
 
-static inline int ipa_uc_bw_monitor(struct ipa_wdi_bw_info *info)
-{
-	return -EPERM;
-}
-
 static inline int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 {
 	return -EPERM;
