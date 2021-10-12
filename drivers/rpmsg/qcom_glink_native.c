@@ -24,7 +24,6 @@
 #include <linux/mailbox_client.h>
 #include <linux/ipc_logging.h>
 #include <linux/suspend.h>
-#include <soc/qcom/subsystem_notif.h>
 
 #include "rpmsg_internal.h"
 #include "qcom_glink_native.h"
