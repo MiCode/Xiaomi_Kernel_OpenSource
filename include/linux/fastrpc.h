@@ -87,6 +87,7 @@ struct fastrpc_driver {
 
 #define to_fastrpc_driver(x) container_of((x), struct fastrpc_driver, driver)
 
+#if IS_ENABLED(CONFIG_MSM_ADSPRPC)
 /**
  * function fastrpc_driver_register - Register fastrpc driver
  * @drv: Initialized fastrpc driver structure pointer
@@ -111,6 +112,18 @@ void fastrpc_driver_unregister(struct fastrpc_driver *drv);
  */
 long fastrpc_driver_invoke(struct fastrpc_device *dev,
 	enum fastrpc_driver_invoke_nums invoke_num, unsigned long invoke_param);
+
+#else
+int fastrpc_driver_register(struct fastrpc_driver *drv)
+{   return 0;   }
+
+void fastrpc_driver_unregister(struct fastrpc_driver *drv)
+{   return;     }
+
+long fastrpc_driver_invoke(struct fastrpc_device *dev,
+	enum fastrpc_driver_invoke_nums invoke_num, unsigned long invoke_param);
+{   return 0;   }
+#endif
 
 /**
  * module_fastrpc_driver() - Helper macro for registering a fastrpc driver
