@@ -1647,12 +1647,13 @@ EXPORT_SYMBOL(cnss_pci_unlock_reg_window);
  */
 static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 {
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	u32 mem_addr, val, pbl_log_max_size, sbl_log_max_size;
-	u32 pbl_log_sram_start, sbl_log_def_start, sbl_log_def_end;
+	u32 pbl_log_sram_start;
 	u32 pbl_stage, sbl_log_start, sbl_log_size;
 	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
 	u32 pbl_bootstrap_status_reg = PBL_BOOTSTRAP_STATUS;
+	u32 sbl_log_def_start = SRAM_START;
+	u32 sbl_log_def_end = SRAM_END;
 	int i;
 
 	switch (pci_priv->device_id) {
@@ -1660,28 +1661,17 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 		pbl_log_sram_start = QCA6390_DEBUG_PBL_LOG_SRAM_START;
 		pbl_log_max_size = QCA6390_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
 		sbl_log_max_size = QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
-		sbl_log_def_start = QCA6390_V2_SBL_DATA_START;
-		sbl_log_def_end = QCA6390_V2_SBL_DATA_END;
 		break;
 	case QCA6490_DEVICE_ID:
 		pbl_log_sram_start = QCA6490_DEBUG_PBL_LOG_SRAM_START;
 		pbl_log_max_size = QCA6490_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
 		sbl_log_max_size = QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
-		if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
-			sbl_log_def_start = QCA6490_V2_SBL_DATA_START;
-			sbl_log_def_end = QCA6490_V2_SBL_DATA_END;
-		} else {
-			sbl_log_def_start = QCA6490_V1_SBL_DATA_START;
-			sbl_log_def_end = QCA6490_V1_SBL_DATA_END;
-		}
 		break;
 	case WCN7850_DEVICE_ID:
 		pbl_bootstrap_status_reg = WCN7850_PBL_BOOTSTRAP_STATUS;
 		pbl_log_sram_start = WCN7850_DEBUG_PBL_LOG_SRAM_START;
 		pbl_log_max_size = WCN7850_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
 		sbl_log_max_size = WCN7850_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
-		sbl_log_def_start = WCN7850_SBL_DATA_START;
-		sbl_log_def_end = WCN7850_SBL_DATA_END;
 	default:
 		return;
 	}
