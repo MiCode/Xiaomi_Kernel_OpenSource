@@ -24,7 +24,6 @@
 #include <linux/mailbox_client.h>
 #include <linux/ipc_logging.h>
 #include <linux/suspend.h>
-#include <soc/qcom/subsystem_notif.h>
 
 #include "rpmsg_internal.h"
 #include "qcom_glink_native.h"
@@ -141,6 +140,8 @@ struct qcom_glink {
 
 	int irq;
 	char irqname[GLINK_NAME_SIZE];
+	spinlock_t irq_lock;
+	bool irq_running;
 
 	struct kthread_worker kworker;
 	struct task_struct *task;
@@ -1248,24 +1249,34 @@ static int qcom_glink_handle_signals(struct qcom_glink *glink,
 	return 0;
 }
 
-static irqreturn_t qcom_glink_native_intr(int irq, void *data)
+static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 {
-	struct qcom_glink *glink = data;
 	struct glink_msg msg;
+	unsigned long flags;
 	unsigned int param1;
 	unsigned int param2;
 	unsigned int avail;
 	unsigned int cmd;
 	int ret = 0;
+	int i;
+
+	spin_lock_irqsave(&glink->irq_lock, flags);
+	if (glink->irq_running) {
+		spin_unlock_irqrestore(&glink->irq_lock, flags);
+		return 0;
+	}
+	glink->irq_running = true;
+	spin_unlock_irqrestore(&glink->irq_lock, flags);
 
 	if (should_wake) {
-		pr_info("%s: %d triggered %s\n", __func__, irq, glink->irqname);
+		pr_info("%s: wakeup %s\n", __func__, glink->irqname);
+		should_wake = false;
 		pm_system_wakeup();
 	}
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
 
-	for (;;) {
+	for (i = 0; i < iterations || !iterations; i++) {
 		avail = qcom_glink_rx_avail(glink);
 		if (avail < sizeof(msg))
 			break;
@@ -1329,6 +1340,29 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 		if (ret)
 			break;
 	}
+
+	spin_lock_irqsave(&glink->irq_lock, flags);
+	glink->irq_running = false;
+	spin_unlock_irqrestore(&glink->irq_lock, flags);
+
+	return qcom_glink_rx_avail(glink);
+}
+
+static irqreturn_t qcom_glink_native_intr(int irq, void *data)
+{
+	struct qcom_glink *glink = data;
+	int ret;
+
+	ret = qcom_glink_native_rx(glink, 10);
+
+	return (ret) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+
+static irqreturn_t qcom_glink_native_thread_intr(int irq, void *data)
+{
+	struct qcom_glink *glink = data;
+
+	qcom_glink_native_rx(glink, 0);
 
 	return IRQ_HANDLED;
 }
@@ -2178,17 +2212,22 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
 
+	spin_lock_init(&glink->irq_lock);
+	glink->irq_running = false;
+
 	irq = of_irq_get(dev->of_node, 0);
-	ret = devm_request_irq(dev, irq,
-			       qcom_glink_native_intr,
-			       IRQF_NO_SUSPEND | IRQF_SHARED,
-			       glink->irqname, glink);
+	ret = devm_request_threaded_irq(dev, irq,
+					qcom_glink_native_intr,
+					qcom_glink_native_thread_intr,
+					IRQF_NO_SUSPEND | IRQF_ONESHOT,
+					glink->irqname, glink);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ\n");
 		return ERR_PTR(ret);
 	}
 
 	glink->irq = irq;
+	disable_irq(glink->irq);
 
 	size = of_property_count_u32_elems(dev->of_node, "cpu-affinity");
 	if (size > 0) {
@@ -2203,22 +2242,31 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 			qcom_glink_set_affinity(glink, arr, size);
 		kfree(arr);
 	}
+	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
+
+	return glink;
+}
+EXPORT_SYMBOL(qcom_glink_native_probe);
+
+int qcom_glink_native_start(struct qcom_glink *glink)
+{
+	int ret;
+
+	enable_irq(glink->irq);
 
 	ret = qcom_glink_send_version(glink);
 	if (ret) {
-		dev_err(dev, "failed to send version %d\n", ret);
-		return ERR_PTR(ret);
+		dev_err(glink->dev, "failed to send version: %d\n", ret);
+		return ret;
 	}
 
 	ret = qcom_glink_create_chrdev(glink);
 	if (ret)
 		dev_err(glink->dev, "failed to register chrdev\n");
 
-	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
-
-	return glink;
+	return 0;
 }
-EXPORT_SYMBOL_GPL(qcom_glink_native_probe);
+EXPORT_SYMBOL(qcom_glink_native_start);
 
 static int qcom_glink_remove_device(struct device *dev, void *data)
 {
@@ -2262,7 +2310,13 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 
 	kthread_flush_worker(&glink->kworker);
 	kthread_stop(glink->task);
+
+	/*
+	 * Required for spss only. A cb is provided for this in spss driver. For
+	 * others, its done in prepare stage in smem driver. No cb is given.
+	 */
 	qcom_glink_pipe_reset(glink);
+
 	mbox_free_channel(glink->mbox_chan);
 }
 EXPORT_SYMBOL_GPL(qcom_glink_native_remove);

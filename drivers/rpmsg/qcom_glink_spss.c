@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, 2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -322,6 +322,10 @@ struct qcom_glink *qcom_glink_spss_register(struct device *parent,
 		ret = PTR_ERR(glink);
 		goto err_put_dev;
 	}
+
+	ret = qcom_glink_native_start(glink);
+	if (ret)
+		goto err_put_dev;
 
 	return glink;
 
