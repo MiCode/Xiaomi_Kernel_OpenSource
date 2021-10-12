@@ -87,5 +87,3 @@ ufs_qcom.ko
 arm_smmu.ko
 msm-geni-se.ko
 mem-offline.ko
-qcom_aoss.ko
-msm_qmp.ko
