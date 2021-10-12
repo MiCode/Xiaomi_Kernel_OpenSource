@@ -121,3 +121,7 @@
 &tsens0 {
 	status = "disabled";
 };
+
+&debugcc {
+	clocks = <&bi_tcxo>;
+};
