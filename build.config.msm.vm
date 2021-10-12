@@ -24,6 +24,13 @@ function update_signing_keys_config() {
 	fi
 }
 
+FILES+="""
+usr/gen_initramfs.sh
+usr/gen_init_cpio
+usr/initramfs_data.cpio
+usr/initramfs_inc_data
+"""
+
 append_cmd POST_KERNEL_BUILD_CMDS 'move_signing_keys'
 
 function move_signing_keys() {
