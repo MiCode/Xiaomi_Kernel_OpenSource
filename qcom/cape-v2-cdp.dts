@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape-v2.dtsi"
+#include "cape-v2-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape LTE Only CDP";
+	compatible = "qcom,cape-v2-cdp", "qcom,cape-v2", "qcom,cdp";
+	qcom,board-id = <1 0>;
+};

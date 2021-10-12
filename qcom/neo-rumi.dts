@@ -4,7 +4,7 @@
 #include "neo-rumi.dtsi"
 
 / {
-/** DUMMY DEVICE TREE - Place holder only **/
-	model = "Qualcomm Technologies, Inc. NEO RUMI DUMMY DT";
+	model = "Qualcomm Technologies, Inc. NEO RUMI";
 	compatible = "qcom,neo-rumi", "qcom,neo", "qcom,rumi";
+	qcom,board-id = <0x1000f 0>;
 };

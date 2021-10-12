@@ -10,13 +10,19 @@
 	status = "disabled";
 };
 
+&bluetooth {
+	status = "disabled";
+};
+
+&wlan {
+	status = "disabled";
+};
+
 &pcie1 {
 	qcom,target-link-width = <1>; /* force X1 lane width */
 	qcom,no-l0s-supported;
 	qcom,target-link-speed = <2>; /* Boot up in Gen2 with a max of Gen4 */
-	vreg-qref-supply = <&pm8350_l5>;
 	qcom,vreg-0p9-voltage-level = <912000 912000 193000>;
-	qcom,vreg-qref-voltage-level = <880000 880000 25700>;
 	qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
 					RPMH_REGULATOR_LEVEL_NOM 0>;
 	qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
@@ -38,7 +44,7 @@
 			RPMH_REGULATOR_LEVEL_NOM
 			100000000>;
 
-	qcom,pcie-phy-ver = <105>;
+	qcom,pcie-phy-ver = <108>;
 	qcom,phy-sequence = <0x1240 0x03 0x0
 			0x101c 0x31 0x0
 			0x1020 0x01 0x0
@@ -77,7 +83,7 @@
 			0x1168 0x0a 0x0
 			0x116c 0x04 0x0
 			0x119c 0x88 0x0
-			0x1174 0x20 0x0
+			0x1174 0x60 0x0
 			0x117c 0x06 0x0
 			0x11a0 0x14 0x0
 			0x11a8 0x0f 0x0
@@ -184,6 +190,7 @@
 			0x1584 0x28 0x0
 			0x1370 0x2e 0x0
 			0x155c 0x2e 0x0
+			0x140c 0x1d 0x0
 			0x1388 0x99 0x0
 			0x1e24 0x01 0x0
 			0x1e28 0x01 0x0

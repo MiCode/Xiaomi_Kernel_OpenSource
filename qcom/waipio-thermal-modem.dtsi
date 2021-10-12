@@ -146,6 +146,7 @@
 						"sdr1_pa4",
 						"sdr1_pa5",
 						"sdr1",
+						"sdr_mmw_therm",
 						"mmw0",
 						"mmw1",
 						"mmw2",
@@ -153,7 +154,13 @@
 						"mmw_pa1",
 						"mmw_pa2",
 						"mmw_pa3",
-						"mmw_ific0";
+						"mmw_ific0",
+						"sub1_modem_cfg",
+						"sub1_lte_cc",
+						"sub1_mcg_fr1_cc",
+						"sub1_mcg_fr2_cc",
+						"sub1_scg_fr1_cc",
+						"sub1_scg_fr2_cc";
 		};
 	};
 };
@@ -204,46 +211,6 @@
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
 				(QMI_MODEM_INST_ID+QMI_QTM_THERM)>;
-		trips {
-			thermal-engine-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-
-			thermal-hal-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	sys-therm1 {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&qmi_sensor
-				(QMI_MODEM_INST_ID+QMI_SYS_THERM_1)>;
-		trips {
-			thermal-engine-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-
-			thermal-hal-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	sys-therm2 {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&qmi_sensor
-				(QMI_MODEM_INST_ID+QMI_SYS_THERM_2)>;
 		trips {
 			thermal-engine-config0 {
 				temperature = <125000>;
@@ -524,6 +491,26 @@
 		polling-delay = <0>;
 		thermal-sensors = <&qmi_sensor
 				(QMI_MODEM_INST_ID+QMI_SDR1)>;
+		trips {
+			thermal-engine-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			thermal-hal-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	sdr-mmw-therm {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_MODEM_INST_ID+QMI_SDR_MMW)>;
 		trips {
 			thermal-engine-config0 {
 				temperature = <125000>;

@@ -52,7 +52,7 @@
 
 	/* DISP_CC GDSCs */
 	disp_cc_mdss_core_gdsc: qcom,gdsc@af09000 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xaf09000 0x4>;
 		regulator-name = "disp_cc_mdss_core_gdsc";
 		proxy-supply = <&disp_cc_mdss_core_gdsc>;
@@ -63,7 +63,7 @@
 	};
 
 	disp_cc_mdss_core_int2_gdsc: qcom,gdsc@af0b000 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xaf0b000 0x4>;
 		regulator-name = "disp_cc_mdss_core_int2_gdsc";
 		qcom,retain-regs;

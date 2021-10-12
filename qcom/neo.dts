@@ -3,7 +3,7 @@
 #include "neo.dtsi"
 
 / {
-/** DUMMY DEVICE TREE - Place holder only **/
-	model = "Qualcomm Technologies, Inc. NEO SoC DUMMY DT";
+	model = "Qualcomm Technologies, Inc. NEO SoC";
 	compatible = "qcom,neo";
+	qcom,board-id = <0 0>;
 };

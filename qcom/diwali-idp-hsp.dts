@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "diwali-hsp.dtsi"
+#include "diwali-idp-hsp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali IDP + HSP";
+	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
+	qcom,board-id = <34 2>;
+};

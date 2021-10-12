@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "diwali.dtsi"
+#include "diwali-idp-usbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali IDP USBC audio";
+	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
+	qcom,board-id = <34 1>;
+};

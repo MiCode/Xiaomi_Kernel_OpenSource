@@ -19,6 +19,13 @@ PON Log device accesses this log and parses it into a human readable format.
 	Value type: <stringlist>
 	Definition: must be "pon_log"
 
+- qcom,pmic-fault-panic:
+	Usage: optional
+	Value type: <empty>
+	Definition: Boolean flag indicating that the device should trigger a
+		    controlled panic shutdown if the preceding restart was
+		    caused by a PMIC fault.
+
 Example:
 
 pmic-pon-log {

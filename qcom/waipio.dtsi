@@ -26,7 +26,7 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 irqaffinity=0-3 ftrace_dump_on_oops pstore.compress=none fsa4480_i2c.async_probe=1";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 irqaffinity=0-3 ftrace_dump_on_oops pstore.compress=none fsa4480_i2c.async_probe=1 can.stats_timer=0";
 		stdout-path = "/soc/qcom,qup_uart@99c000:115200n8";
 	};
 
@@ -157,7 +157,7 @@
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
-			capacity-dmips-mhz = <1980>;
+			capacity-dmips-mhz = <2253>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_4: l2-cache {
@@ -178,7 +178,7 @@
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
-			capacity-dmips-mhz = <1980>;
+			capacity-dmips-mhz = <2253>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_5: l2-cache {
@@ -198,7 +198,7 @@
 			power-domains = <&CPU_PD6>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			power-domain-names = "psci";
-			capacity-dmips-mhz = <1980>;
+			capacity-dmips-mhz = <2253>;
 			dynamic-power-coefficient = <251>;
 			#cooling-cells = <2>;
 			L2_6: l2-cache {
@@ -218,7 +218,7 @@
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
-			capacity-dmips-mhz = <2097>;
+			capacity-dmips-mhz = <2386>;
 			dynamic-power-coefficient = <396>;
 			#cooling-cells = <2>;
 			L2_7: l2-cache {
@@ -3071,10 +3071,7 @@
 
 	ddr_freq_table: ddr-freq-table {
 		qcom,freq-tbl =
-			<  200000 >,
-			<  451000 >,
 			<  547000 >,
-			<  681000 >,
 			<  768000 >,
 			< 1555000 >,
 			< 1708000 >,
@@ -3085,7 +3082,6 @@
 
 	llcc_freq_table: llcc-freq-table {
 		qcom,freq-tbl =
-			<  150000 >,
 			<  300000 >,
 			<  466000 >,
 			<  600000 >,
@@ -3188,8 +3184,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  200000 >,
-					<  691200  451000 >,
 					< 1190400  547000 >,
 					< 1459200  768000 >,
 					< 1900800 1555000 >;
@@ -3200,8 +3194,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  200000 >,
-					<  672000  451000 >,
 					<  902400  547000 >,
 					< 1017600  768000 >,
 					< 1305600 1555000 >,
@@ -3215,8 +3207,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  200000 >,
-					<  672000  451000 >,
 					<  902400  547000 >,
 					< 1017600  768000 >,
 					< 1305600 1555000 >,
@@ -3230,7 +3220,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					< 1804800  200000 >,
+					< 1804800  547000 >,
 					< 2400000 1555000 >;
 				qcom,sampling-enabled;
 				qcom,compute-mon;
@@ -3240,7 +3230,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					< 2304000  200000 >,
+					< 2304000  547000 >,
 					< 2400000 3196000 >;
 				qcom,sampling-enabled;
 			};
@@ -3256,7 +3246,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  150000 >,
 					<  691200  300000 >,
 					< 1459200  466000 >,
 					< 1900800  600000 >;
@@ -3267,7 +3256,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  150000 >,
 					<  672000  300000 >,
 					< 1017600  466000 >,
 					< 1305600  600000 >,
@@ -3281,7 +3269,7 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					< 1804800  150000 >,
+					< 1804800  300000 >,
 					< 2400000  600000 >;
 				qcom,sampling-enabled;
 				qcom,compute-mon;

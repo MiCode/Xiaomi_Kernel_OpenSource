@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00010000;
+
+#include "parrot.dtsi"
+#include "parrot-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Parrot RUMI";
+	compatible = "qcom,parrot-rumi", "qcom,parrot", "qcom,rumi";
+	qcom,board-id = <0x1000F 0>;
+};

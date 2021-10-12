@@ -93,10 +93,13 @@ SoCs:
   compatible = "qcom,diwali"
 
 - CAPE
-  compatible = "qcom,cape"
+  compatible = "qcom,cape", "qcom,cape-v2"
 
 - NEO
   compatible = "qcom,neo"
+
+- PARROT
+  compatible = "qcom,parrot"
 
 Generic board variants:
 
@@ -263,7 +266,12 @@ compatible = "qcom,waipiop-qrd"
 compatible = "qcom,cape-mtp"
 compatible = "qcom,cape-atp"
 compatible = "qcom,cape-cdp"
+compatible = "qcom,cape-v2-mtp"
+compatible = "qcom,cape-v2-atp"
+compatible = "qcom,cape-v2-cdp"
 compatible = "qcom,diwali-rumi"
 compatible = "qcom,diwali-idp"
 compatible = "qcom,diwali-qrd"
+compatible = "qcom,diwali-atp"
 compatible = "qcom,neo-rumi"
+compatible = "qcom,parrot-rumi"
