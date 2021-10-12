@@ -1,7 +1,37 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "diwali-pmic-overlay.dtsi"
+
 &soc {
 	qcom,userspace-cdev {
 		display-fps {
 			qcom,max-level = <4>;
 		};
 	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm7325_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};
+
+&battery_charger {
+	qcom,thermal-mitigation = <11500000 11000000 10500000 10000000 9500000
+				9000000 8500000 8000000 7500000 7000000 6500000
+				6000000 5500000 5000000 4500000 4000000 3500000
+				3000000 2500000 2000000 1500000 1000000 500000>;
 };
