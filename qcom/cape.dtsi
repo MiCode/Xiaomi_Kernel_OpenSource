@@ -740,3 +740,4 @@
 
 #include "cape-pinctrl.dtsi"
 #include "cape-regulators.dtsi"
+#include "msm-arm-smmu-waipio.dtsi"
