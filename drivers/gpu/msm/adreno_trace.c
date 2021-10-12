@@ -10,6 +10,7 @@
 #define CREATE_TRACE_POINTS
 #include "adreno_trace.h"
 
+#ifdef CONFIG_QCOM_KGSL_FENCE_TRACE
 static const char * const kgsl_fence_trace_events[] = {
 	"adreno_cmdbatch_submitted",
 	"adreno_cmdbatch_retired",
@@ -34,3 +35,4 @@ void adreno_fence_trace_array_init(struct kgsl_device *device)
 			"kgsl", kgsl_fence_trace_events[i], true);
 
 }
+#endif

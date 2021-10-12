@@ -19,6 +19,13 @@
 #define IPA_MAX_CH_STATS_SUPPORTED 5
 #define IPA_EP_ARR_SIZE 2
 #define IPA_EP_PER_REG 32
+
+/* Notifiers for rmnet driver */
+#define BUFF_ABOVE_HIGH_THRESHOLD_FOR_DEFAULT_PIPE        1
+#define BUFF_ABOVE_HIGH_THRESHOLD_FOR_COAL_PIPE           2
+#define BUFF_BELOW_LOW_THRESHOLD_FOR_DEFAULT_PIPE         3
+#define BUFF_BELOW_LOW_THRESHOLD_FOR_COAL_PIPE            4
+
 /**
  * enum ipa_transport_type
  * transport type: either GSI or SPS
@@ -1455,6 +1462,24 @@ int ipa_rmnet_ctl_xmit(struct sk_buff *skb);
  */
 int ipa_rmnet_ll_xmit(struct sk_buff *skb);
 
+/*
+ * ipa_register_notifier - Register for IPA atomic notifier
+ *
+ * @fn_ptr - Function pointer to get the notification
+ *
+ * This funciton will return 0 on success, -EAGAIN if reg fails.
+ */
+int ipa_register_notifier(void *fn_ptr);
+
+/*
+ * ipa_unregister_notifier - Unregister for IPA atomic notifier
+ *
+ * @fn_ptr - Same function pointer used to get the notification
+ *
+ * This funciton will return 0 on success, -EAGAIN if reg fails.
+ */
+int ipa_unregister_notifier(void *fn_ptr);
+
 void ipa_free_skb(struct ipa_rx_data *data);
 
 /*
@@ -1876,6 +1901,22 @@ static inline int ipa_rmnet_ctl_xmit(struct sk_buff *skb)
  * Low Latency data Tx
  */
 static inline int ipa_rmnet_ll_xmit(struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+/*
+ * Yellow water mark notifier register
+ */
+static inline int ipa_register_notifier(void *fn_ptr)
+{
+	return -EPERM;
+}
+
+/*
+ * Yellow water mark notifier unregister
+ */
+static inline int ipa_unregister_notifier(void *fn_ptr)
 {
 	return -EPERM;
 }

@@ -151,28 +151,6 @@ static DEFINE_SPINLOCK(md_modules_lock);
 #endif	/* CONFIG_MODULES */
 #endif
 
-static void register_log_buf(void)
-{
-	char *log_bufp;
-	uint32_t log_buf_len;
-	struct md_region md_entry;
-
-	log_bufp = log_buf_addr_get();
-	log_buf_len = log_buf_len_get();
-
-	if (!log_bufp || !log_buf_len) {
-		pr_err("Unable to locate log_buf!\n");
-		return;
-	}
-	/*Register logbuf to minidump, first idx would be from bss section */
-	strlcpy(md_entry.name, "KLOGBUF", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t) log_bufp;
-	md_entry.phys_addr = virt_to_phys(log_bufp);
-	md_entry.size = log_buf_len;
-	if (msm_minidump_add_region(&md_entry) < 0)
-		pr_err("Failed to add logbuf in Minidump\n");
-}
-
 static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size)
 {
 	struct page *sp_page;
@@ -567,42 +545,6 @@ static void register_suspend_context(void)
 	register_pm_notifier(&minidump_pm_nb);
 	md_suspend_context.init = true;
 }
-#endif
-
-#ifdef CONFIG_ARM64
-static void register_irq_stack(void)
-{
-	int cpu;
-	unsigned int i;
-	int irq_stack_pages_count;
-	u64 irq_stack_base;
-	struct md_region irq_sp_entry;
-	u64 sp;
-	u64 *irq_stack_ptr = android_debug_per_cpu_symbol(ADS_IRQ_STACK_PTR);
-
-	for_each_possible_cpu(cpu) {
-		irq_stack_base = (u64)per_cpu_ptr((void *)irq_stack_ptr, cpu);
-		if (is_vmap_stack) {
-			irq_stack_pages_count = IRQ_STACK_SIZE / PAGE_SIZE;
-			sp = irq_stack_base & ~(PAGE_SIZE - 1);
-			for (i = 0; i < irq_stack_pages_count; i++) {
-				scnprintf(irq_sp_entry.name,
-					  sizeof(irq_sp_entry.name),
-					  "KISTACK%d_%d", cpu, i);
-				register_stack_entry(&irq_sp_entry, sp,
-						     PAGE_SIZE);
-				sp += PAGE_SIZE;
-			}
-		} else {
-			sp = irq_stack_base;
-			scnprintf(irq_sp_entry.name, sizeof(irq_sp_entry.name),
-				  "KISTACK%d", cpu);
-			register_stack_entry(&irq_sp_entry, sp, IRQ_STACK_SIZE);
-		}
-	}
-}
-#else
-static inline void register_irq_stack(void) {}
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
@@ -1320,12 +1262,10 @@ int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
 	is_vmap_stack = IS_ENABLED(CONFIG_VMAP_STACK);
-	register_irq_stack();
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
 	register_current_stack();
 	register_suspend_context();
 #endif
-	register_log_buf();
 #ifdef CONFIG_QCOM_MINIDUMP_PSTORE
 	register_pstore_info();
 #endif

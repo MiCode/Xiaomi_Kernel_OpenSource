@@ -202,6 +202,7 @@ extern unsigned int __read_mostly sched_load_granule;
 
 /* 1ms default for 20ms window size scaled to 1024 */
 extern unsigned int sysctl_sched_min_task_util_for_boost;
+extern unsigned int sysctl_sched_min_task_util_for_uclamp;
 /* 0.68ms default for 20ms window size scaled to 1024 */
 extern unsigned int sysctl_sched_min_task_util_for_colocation;
 extern unsigned int __read_mostly sysctl_sched_silver_thres;
@@ -224,6 +225,8 @@ extern unsigned int sysctl_input_boost_freq[8];
 extern unsigned int sysctl_sched_boost_on_input;
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
+extern unsigned int sysctl_sched_hyst_min_coloc_ns;
+
 #define WALT_MANY_WAKEUP_DEFAULT 1000
 extern unsigned int sysctl_sched_many_wakeup_threshold;
 extern unsigned int sysctl_walt_rtg_cfs_boost_prio;
@@ -288,6 +291,7 @@ extern unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by defau
 extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_bug_on_rt_throttle;
 extern unsigned int sysctl_sched_suppress_region2;
+extern unsigned int sysctl_sched_skip_sp_newly_idle_lb;
 extern struct ctl_table walt_table[];
 extern struct ctl_table walt_base_table[];
 extern void walt_tunables(void);
@@ -483,9 +487,8 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 
 static inline bool walt_uclamp_boosted(struct task_struct *p)
 {
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	return uclamp_eff_value(p, UCLAMP_MIN) > 0 && wts->unfilter;
+	return ((uclamp_eff_value(p, UCLAMP_MIN) > 0) &&
+			(task_util(p) > sysctl_sched_min_task_util_for_uclamp));
 }
 
 static inline unsigned long capacity_of(int cpu)

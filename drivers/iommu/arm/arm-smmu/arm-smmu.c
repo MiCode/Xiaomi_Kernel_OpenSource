@@ -299,8 +299,19 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_FSRRESTORE,
 				ARM_SMMU_FSR_TF);
 
-		wait_event_timeout(wait_int, (irq_count > irq_cnt),
-			msecs_to_jiffies(1000));
+		if (!wait_event_timeout(wait_int, (irq_count > irq_cnt),
+					msecs_to_jiffies(1000))) {
+			u32 fsr;
+
+			fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+			dev_info(smmu->dev, "timeout cb:%d, irq:%d, fsr:0x%x\n",
+				 cb, irq_cnt, fsr);
+
+			if (!fsr)
+				dev_err(smmu->dev, "SCTLR  = 0x%08x\n",
+					arm_smmu_cb_read(smmu, idx,
+							 ARM_SMMU_CB_SCTLR));
+		}
 
 		/* Make sure ARM_SMMU_CB_FSRRESTORE is written to */
 		wmb();
@@ -1364,14 +1375,28 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 	gather->end = max(iova + granule - 1, gather->end);
 	list_add(&page->lru, &smmu_domain->iotlb_gather_freelist);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+}
 
-	trace_tlb_add_walk(smmu_domain, iova, granule);
+static void arm_smmu_log_new_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_add(smmu_domain, iova, __pa(virt), granule);
+}
+
+static void arm_smmu_log_remove_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_remove(smmu_domain, iova, __pa(virt), granule);
 }
 
 static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
 	.alloc = arm_smmu_alloc_pgtable,
 	.free = arm_smmu_free_pgtable,
 	.tlb_add_walk = arm_smmu_tlb_add_walk,
+	.log_new_table = arm_smmu_log_new_table,
+	.log_remove_table = arm_smmu_log_remove_table,
 };
 
 static int arm_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
@@ -2441,11 +2466,14 @@ static void arm_smmu_iotlb_sync_map(struct iommu_domain *domain,
 		return;
 
 	arm_smmu_rpm_get(smmu);
+	/* Secure pages may be freed to the secure pool after TLB maintenance. */
+	arm_smmu_secure_domain_lock(smmu_domain);
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	if ((iova_end >= smmu_domain->iotlb_gather.start) &&
 	      (iova <= smmu_domain->iotlb_gather.end))
 		__arm_smmu_iotlb_sync(domain, NULL);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_rpm_put(smmu);
 }
 
@@ -2460,9 +2488,12 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 		return;
 
 	arm_smmu_rpm_get(smmu);
+	/* Secure pages may be freed to the secure pool after TLB maintenance. */
+	arm_smmu_secure_domain_lock(smmu_domain);
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	__arm_smmu_iotlb_sync(domain, NULL);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_rpm_put(smmu);
 }
 

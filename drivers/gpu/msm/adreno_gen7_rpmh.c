@@ -311,8 +311,7 @@ static int setup_gx_arc_votes(struct adreno_device *adreno_dev,
 	/* Add the zero powerlevel for the perf table */
 	table->gpu_level_num = device->pwrctrl.num_pwrlevels + 1;
 
-	if (table->gpu_level_num > pri_rail->num ||
-		table->gpu_level_num > ARRAY_SIZE(vlvl_tbl)) {
+	if (table->gpu_level_num > ARRAY_SIZE(vlvl_tbl)) {
 		dev_err(&gmu->pdev->dev,
 			"Defined more GPU DCVS levels than RPMh can support\n");
 		return -ERANGE;
@@ -462,8 +461,14 @@ int gen7_build_rpmh_tables(struct adreno_device *adreno_dev)
 	int ret;
 
 	ret = build_dcvs_table(adreno_dev);
-	if (ret)
+	if (ret) {
+		dev_err(adreno_dev->dev.dev, "Failed to build dcvs table\n");
 		return ret;
+	}
 
-	return build_bw_table(adreno_dev);
+	ret = build_bw_table(adreno_dev);
+	if (ret)
+		dev_err(adreno_dev->dev.dev, "Failed to build bw table\n");
+
+	return ret;
 }

@@ -774,4 +774,13 @@ config SM_VIDEOCC_DIWALI
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config SM_DISPCC_DIWALI
+	tristate "DIWALI Display Clock Controller"
+	select SM_GCC_DIWALI
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  DIWALI devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif

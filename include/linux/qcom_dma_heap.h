@@ -40,10 +40,14 @@
  * carveout_heap_add_memory - Dynamically add reserved heap memory
  * @heap_name:	The name of the DMA-BUF Heap we're giving memory to
  * @sgt:	An SGT corresponding to the memory adding to the heap
+ * @cookie:	Cookie for managing refcount.
+ * @get:	Function callback for increasing refcount.
+ * @put:	Function callback for decreasing refcount.
  *
  * Return: 0 on success, a negative error value otherwise.
  */
-int carveout_heap_add_memory(char *heap_name, struct sg_table *sgt);
+int carveout_heap_add_memory(char *heap_name, struct sg_table *sgt, void *cookie,
+			int (*get)(void *), void (*put)(void *));
 
 
 /**

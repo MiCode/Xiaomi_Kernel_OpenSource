@@ -281,7 +281,16 @@ void tmc_free_sg_table(struct tmc_sg_table *sg_table)
 }
 EXPORT_SYMBOL_GPL(tmc_free_sg_table);
 
-long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
+static long tmc_flat_get_rwp_offset(struct tmc_drvdata *drvdata)
+{
+	dma_addr_t paddr = drvdata->sysfs_buf->hwaddr;
+	u64 rwp;
+
+	rwp = tmc_read_rwp(drvdata);
+	return rwp - paddr;
+}
+
+static long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
 {
 	struct etr_buf *etr_buf = drvdata->sysfs_buf;
 	struct etr_sg_table *etr_table = etr_buf->private;
@@ -293,6 +302,16 @@ long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
 	w_offset = tmc_sg_get_data_page_offset(table, rwp);
 
 	return w_offset;
+}
+
+long tmc_get_rwp_offset(struct tmc_drvdata *drvdata)
+{
+	struct etr_buf *etr_buf = drvdata->sysfs_buf;
+
+	if (etr_buf->mode == ETR_MODE_FLAT)
+		return tmc_flat_get_rwp_offset(drvdata);
+	else
+		return tmc_sg_get_rwp_offset(drvdata);
 }
 
 /*

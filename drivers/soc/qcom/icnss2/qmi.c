@@ -440,7 +440,7 @@ int wlfw_send_soc_wake_msg(struct icnss_priv *priv,
 	if (test_bit(ICNSS_FW_DOWN, &priv->state))
 		return -EINVAL;
 
-	icnss_pr_dbg("Sending soc wake msg, type: 0x%x\n",
+	icnss_pr_soc_wake("Sending soc wake msg, type: 0x%x\n",
 		     type);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);

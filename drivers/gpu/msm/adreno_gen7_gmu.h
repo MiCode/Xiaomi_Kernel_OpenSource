@@ -85,6 +85,12 @@ struct gen7_gmu_device {
 	 * which GMU can run at 500 Mhz.
 	 */
 	u32 perf_ddr_bw;
+	/** @rdpm_cx_virt: Pointer where the RDPM CX block is mapped */
+	void __iomem *rdpm_cx_virt;
+	/** @rdpm_mx_virt: Pointer where the RDPM MX block is mapped */
+	void __iomem *rdpm_mx_virt;
+	/** @num_oob_perfcntr: Number of active oob_perfcntr requests */
+	u32 num_oob_perfcntr;
 };
 
 /* Helper function to get to gen7 gmu device from adreno device */

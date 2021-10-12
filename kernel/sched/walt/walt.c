@@ -197,13 +197,13 @@ void walt_task_dump(struct task_struct *p)
 	for (i = 0 ; i < nr_cpu_ids; i++)
 		j += scnprintf(buff + j, buffsz - j, "%u ",
 				wts->curr_window_cpu[i]);
-	printk_deferred("%s=%d (%s)\n", STRG(wts->curr_window),
+	printk_deferred("%s=%u (%s)\n", STRG(wts->curr_window),
 			wts->curr_window, buff);
 
 	for (i = 0, j = 0 ; i < nr_cpu_ids; i++)
 		j += scnprintf(buff + j, buffsz - j, "%u ",
 				wts->prev_window_cpu[i]);
-	printk_deferred("%s=%d (%s)\n", STRG(wts->prev_window),
+	printk_deferred("%s=%u (%s)\n", STRG(wts->prev_window),
 			wts->prev_window, buff);
 
 	SCHED_PRINT(wts->last_wake_ts);
@@ -694,10 +694,26 @@ static inline void account_load_subtractions(struct rq *rq)
 		ls[i].new_subs = 0;
 	}
 
-	WALT_PANIC((s64)wrq->prev_runnable_sum < 0);
-	WALT_PANIC((s64)wrq->curr_runnable_sum < 0);
-	WALT_PANIC((s64)wrq->nt_prev_runnable_sum < 0);
-	WALT_PANIC((s64)wrq->nt_curr_runnable_sum < 0);
+	if ((s64)wrq->prev_runnable_sum < 0) {
+		WALT_BUG(NULL, "wrq->prev_runnable_sum=%llu < 0",
+				(s64)wrq->prev_runnable_sum);
+		wrq->prev_runnable_sum = 0;
+	}
+	if ((s64)wrq->curr_runnable_sum < 0) {
+		WALT_BUG(NULL, "wrq->curr_runnable_sum=%llu < 0",
+				(s64)wrq->curr_runnable_sum);
+		wrq->curr_runnable_sum = 0;
+	}
+	if ((s64)wrq->nt_prev_runnable_sum < 0) {
+		WALT_BUG(NULL, "wrq->nt_prev_runnable_sum=%llu < 0",
+				(s64)wrq->nt_prev_runnable_sum);
+		wrq->nt_prev_runnable_sum = 0;
+	}
+	if ((s64)wrq->nt_curr_runnable_sum < 0) {
+		WALT_BUG(NULL, "wrq->nt_curr_runnable_sum=%llu < 0",
+				(s64)wrq->nt_curr_runnable_sum);
+		wrq->nt_curr_runnable_sum = 0;
+	}
 }
 
 static inline void create_subtraction_entry(struct rq *rq, u64 ws, int index)
@@ -2179,6 +2195,19 @@ done:
 	run_walt_irq_work(old_window_start, rq);
 }
 
+static void __sched_fork_init(struct task_struct *p)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	wts->last_sleep_ts	= 0;
+	wts->wake_up_idle	= false;
+	wts->boost		= 0;
+	wts->boost_expires	= 0;
+	wts->boost_period	= false;
+	wts->low_latency	= false;
+	wts->iowaited		= false;
+}
+
 static void init_new_task_load(struct task_struct *p)
 {
 	int i;
@@ -2230,6 +2259,7 @@ static void init_new_task_load(struct task_struct *p)
 	wts->sum_exec_snapshot = 0;
 	wts->total_exec = 0;
 	wts->mvp_prio = WALT_NOT_MVP;
+	__sched_fork_init(p);
 }
 
 static void init_existing_task_load(struct task_struct *p)
@@ -2679,7 +2709,7 @@ static DEFINE_RWLOCK(related_thread_group_lock);
 
 static inline
 void update_best_cluster(struct walt_related_thread_group *grp,
-				   u64 demand, bool boost)
+				   u64 combined_demand, bool boost)
 {
 	if (boost) {
 		/*
@@ -2691,15 +2721,18 @@ void update_best_cluster(struct walt_related_thread_group *grp,
 	}
 
 	if (is_suh_max())
-		demand = sched_group_upmigrate;
+		combined_demand = sched_group_upmigrate;
 
 	if (!grp->skip_min) {
-		if (demand >= sched_group_upmigrate)
+		if (combined_demand >= sched_group_upmigrate)
 			grp->skip_min = true;
 		return;
 	}
-	if (demand < sched_group_downmigrate) {
-		if (!sysctl_sched_coloc_downmigrate_ns) {
+	if (combined_demand < sched_group_downmigrate) {
+		if (!sysctl_sched_coloc_downmigrate_ns ||
+				(grp->last_update - grp->start_ktime_ts) <
+				sysctl_sched_hyst_min_coloc_ns) {
+			grp->downmigrate_ts = 0;
 			grp->skip_min = false;
 			return;
 		}
@@ -2766,13 +2799,15 @@ static void _set_preferred_cluster(struct walt_related_thread_group *grp)
 
 	grp->last_update = wallclock;
 	update_best_cluster(grp, combined_demand, group_boost);
-	trace_sched_set_preferred_cluster(grp, combined_demand);
 
 out:
+	trace_sched_set_preferred_cluster(grp, combined_demand, prev_skip_min);
 	if (grp->id == DEFAULT_CGROUP_COLOC_ID
 			&& grp->skip_min != prev_skip_min) {
 		if (grp->skip_min)
-			grp->start_ts = sched_clock();
+			grp->start_ktime_ts = wallclock;
+		else
+			grp->start_ktime_ts = 0;
 		sched_update_hyst_times();
 	}
 }
@@ -3283,12 +3318,12 @@ bool is_rtgb_active(void)
 u64 get_rtgb_active_time(void)
 {
 	struct walt_related_thread_group *grp;
-	u64 now = sched_clock();
+	u64 now = walt_ktime_get_ns();
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
 
-	if (grp && grp->skip_min && grp->start_ts)
-		return now - grp->start_ts;
+	if (grp && grp->skip_min && grp->start_ktime_ts)
+		return now - grp->start_ktime_ts;
 
 	return 0;
 }
@@ -3696,6 +3731,7 @@ static void android_rvh_wake_up_new_task(void *unused, struct task_struct *new)
 {
 	if (unlikely(walt_disabled))
 		return;
+	init_new_task_load(new);
 	add_new_task_to_grp(new);
 }
 
@@ -3766,13 +3802,6 @@ static void android_rvh_set_task_cpu(void *unused, struct task_struct *p, unsign
 	if (unlikely(walt_disabled))
 		return;
 	fixup_busy_time(p, (int) new_cpu);
-}
-
-static void android_rvh_sched_fork(void *unused, struct task_struct *p)
-{
-	if (unlikely(walt_disabled))
-		return;
-	init_new_task_load(p);
 }
 
 static void android_rvh_new_task_stats(void *unused, struct task_struct *p)
@@ -4083,17 +4112,10 @@ static void android_rvh_sched_setaffinity(void *unused, struct task_struct *p,
 
 static void android_rvh_sched_fork_init(void *unused, struct task_struct *p)
 {
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
 	if (unlikely(walt_disabled))
 		return;
-	wts->last_sleep_ts		= 0;
-	wts->wake_up_idle		= false;
-	wts->boost			= 0;
-	wts->boost_expires		= 0;
-	wts->boost_period		= false;
-	wts->low_latency		= false;
-	wts->iowaited			= false;
+
+	__sched_fork_init(p);
 }
 
 static void android_rvh_ttwu_cond(void *unused, bool *cond)
@@ -4156,7 +4178,6 @@ static void register_walt_hooks(void)
 	register_trace_android_rvh_sched_cpu_dying(android_rvh_sched_cpu_dying, NULL);
 	register_trace_android_rvh_set_task_cpu(android_rvh_set_task_cpu, NULL);
 	register_trace_android_rvh_new_task_stats(android_rvh_new_task_stats, NULL);
-	register_trace_android_rvh_sched_fork(android_rvh_sched_fork, NULL);
 	register_trace_android_rvh_account_irq(android_rvh_account_irq, NULL);
 	register_trace_android_rvh_flush_task(android_rvh_flush_task, NULL);
 	register_trace_android_rvh_update_misfit_status(android_rvh_update_misfit_status, NULL);

@@ -178,6 +178,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A640 = 640,
 	ADRENO_REV_A650 = 650,
 	ADRENO_REV_A660 = 660,
+	ADRENO_REV_A662 = 662,
 	ADRENO_REV_A680 = 680,
 	/*
 	 * Gen7 and higher version numbers may exceed 1 digit
@@ -1014,6 +1015,7 @@ ADRENO_TARGET(a619, ADRENO_REV_A619)
 ADRENO_TARGET(a620, ADRENO_REV_A620)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a635, ADRENO_REV_A635)
+ADRENO_TARGET(a662, ADRENO_REV_A662)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
 ADRENO_TARGET(a650, ADRENO_REV_A650)
 ADRENO_TARGET(a680, ADRENO_REV_A680)
@@ -1023,7 +1025,8 @@ static inline int adreno_is_a660(struct adreno_device *adreno_dev)
 {
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
-	return (rev == ADRENO_REV_A660 || rev == ADRENO_REV_A635);
+	return (rev == ADRENO_REV_A660 || rev == ADRENO_REV_A635 ||
+			rev == ADRENO_REV_A662);
 }
 
 /*
@@ -1061,7 +1064,8 @@ static inline int adreno_is_a650_family(struct adreno_device *adreno_dev)
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
 	return (rev == ADRENO_REV_A650 || rev == ADRENO_REV_A620 ||
-		rev == ADRENO_REV_A660 || rev == ADRENO_REV_A635);
+		rev == ADRENO_REV_A660 || rev == ADRENO_REV_A635 ||
+		rev == ADRENO_REV_A662);
 }
 
 static inline int adreno_is_a619_holi(struct adreno_device *adreno_dev)
@@ -1747,6 +1751,7 @@ static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
 	adreno_dev->dispatch_ops = ops;
 }
 
+#ifdef CONFIG_QCOM_KGSL_FENCE_TRACE
 /**
  * adreno_fence_trace_array_init - Initialize an always on trace array
  * @device: A GPU device handle
@@ -1754,6 +1759,9 @@ static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
  * Register an always-on trace array to for fence timeout debugging
  */
 void adreno_fence_trace_array_init(struct kgsl_device *device);
+#else
+static inline void adreno_fence_trace_array_init(struct kgsl_device *device) {}
+#endif
 
 /*
  * adreno_drawobj_set_constraint - Set a power constraint

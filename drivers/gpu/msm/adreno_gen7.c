@@ -474,6 +474,36 @@ int gen7_start(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+/* Offsets into the MX/CX mapped register regions */
+#define GEN7_RDPM_MX_OFFSET 0xf00
+#define GEN7_RDPM_CX_OFFSET 0xf14
+
+void gen7_rdpm_mx_freq_update(struct gen7_gmu_device *gmu, u32 freq)
+{
+	if (gmu->rdpm_mx_virt) {
+		writel_relaxed(freq/1000, (gmu->rdpm_mx_virt + GEN7_RDPM_MX_OFFSET));
+
+		/*
+		 * ensure previous writes post before this one,
+		 * i.e. act like normal writel()
+		 */
+		wmb();
+	}
+}
+
+void gen7_rdpm_cx_freq_update(struct gen7_gmu_device *gmu, u32 freq)
+{
+	if (gmu->rdpm_cx_virt) {
+		writel_relaxed(freq/1000, (gmu->rdpm_cx_virt + GEN7_RDPM_CX_OFFSET));
+
+		/*
+		 * ensure previous writes post before this one,
+		 * i.e. act like normal writel()
+		 */
+		wmb();
+	}
+}
+
 void gen7_spin_idle_debug(struct adreno_device *adreno_dev,
 				const char *str)
 {

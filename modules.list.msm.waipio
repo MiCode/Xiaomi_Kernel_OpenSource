@@ -1,3 +1,6 @@
+gh_virt_wdt.ko
+qcom_wdt_core.ko
+qcom_cpu_vendor_hooks.ko
 clk-rpmh.ko
 gcc-waipio.ko
 icc-rpmh.ko
@@ -19,6 +22,7 @@ crypto-qti-hwkm.ko
 dcvs_fp.ko
 debug-regulator.ko
 deferred-free-helper.ko
+dispcc-diwali.ko
 dispcc-waipio.ko
 gcc-diwali.ko
 gdsc-regulator.ko
@@ -56,7 +60,6 @@ pinctrl-cape.ko
 pinctrl-diwali.ko
 pinctrl-msm.ko
 proxy-consumer.ko
-qcom_cpu_vendor_hooks.ko
 qcom-dcvs.ko
 qcom-dload-mode.ko
 qcom_dma_heaps.ko
@@ -87,3 +90,5 @@ ufs_qcom.ko
 arm_smmu.ko
 msm-geni-se.ko
 mem-offline.ko
+qcom_aoss.ko
+msm_qmp.ko

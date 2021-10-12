@@ -997,6 +997,10 @@ int se_geni_clks_on(struct se_geni_rsc *rsc)
 	if (unlikely(!geni_se_dev))
 		return -EPROBE_DEFER;
 
+	if (rsc->proto == UART)
+		GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s Start", __func__);
+
 	ret = geni_se_add_ab_ib(geni_se_dev, rsc);
 	if (ret) {
 		GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
@@ -1004,6 +1008,10 @@ int se_geni_clks_on(struct se_geni_rsc *rsc)
 			dev_name(rsc->ctrl_dev), ret);
 		return ret;
 	}
+
+	if (rsc->proto == UART)
+		GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s enabling clocks", __func__);
 
 	ret = clk_prepare_enable(rsc->m_ahb_clk);
 	if (ret)
@@ -1016,6 +1024,11 @@ int se_geni_clks_on(struct se_geni_rsc *rsc)
 	ret = clk_prepare_enable(rsc->se_clk);
 	if (ret)
 		goto clks_on_err3;
+
+	if (rsc->proto == UART)
+		GENI_LOG_DBG(geni_se_dev->log_ctx, false, geni_se_dev->dev,
+			"%s clks enabled", __func__);
+
 	return 0;
 
 clks_on_err3:

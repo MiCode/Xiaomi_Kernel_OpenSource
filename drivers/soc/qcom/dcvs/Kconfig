@@ -51,6 +51,20 @@ config QCOM_BWMON
 	  to identify memory bandwidth bound workloads and vote for DCVS HW
 	  (memory) frequencies through the QCOM DCVS framework.
 
+config QTI_HW_MEMLAT_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
+	depends on QCOM_MEMLAT && QTI_SCMI_MEMLAT_PROTOCOL
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for memlat
+	  vendor protocol, and also registers with the memlat interface
+	  driver.
+
+	  This driver delivers the memlat vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate with
+	  memlat HW.
+
+
 config QTI_PMU_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for PMU"
 	depends on QTI_SCMI_PMU_PROTOCOL && QCOM_PMU_LIB

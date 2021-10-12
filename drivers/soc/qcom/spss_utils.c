@@ -471,8 +471,8 @@ static int spss_handle_set_fw_and_apps_cmac(struct spss_ioc_set_fw_and_apps_cmac
 		saved_fw_cmac[2], saved_fw_cmac[3]);
 
 	/* store the saved apps cmac */
-	memcpy(saved_apps_cmac, fw_and_apps_cmacs[1],
-		sizeof(saved_apps_cmac));
+	memcpy(saved_apps_cmac, &fw_and_apps_cmacs[1][0],
+	       sizeof(saved_apps_cmac));
 
 	/*
 	 * SPSS is loaded now by UEFI,

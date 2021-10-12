@@ -41,6 +41,7 @@ enum amu_counters {
 
 #if IS_ENABLED(CONFIG_QCOM_PMU_LIB)
 int qcom_pmu_event_supported(u32 event_id, int cpu);
+int qcom_get_cpucp_id(u32 event_id, int cpu);
 int qcom_pmu_read(int cpu, u32 event_id, u64 *pmu_data);
 int qcom_pmu_read_local(u32 event_id, u64 *pmu_data);
 int qcom_pmu_read_all(int cpu, struct qcom_pmu_data *data);
@@ -50,6 +51,10 @@ int qcom_pmu_idle_unregister(struct qcom_pmu_notif_node *idle_node);
 int rimps_pmu_init(struct scmi_device *sdev);
 #else
 static inline int qcom_pmu_event_supported(u32 event_id, int cpu)
+{
+	return -ENODEV;
+}
+static inline int qcom_get_cpucp_id(u32 event_id, int cpu)
 {
 	return -ENODEV;
 }

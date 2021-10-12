@@ -492,6 +492,8 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	bool reenable_intr = false;
 
+	host->reset_in_progress = true;
+
 	if (!host->core_reset) {
 		dev_warn(hba->dev, "%s: reset control not set\n", __func__);
 		goto out;
@@ -528,6 +530,7 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	}
 
 out:
+	host->reset_in_progress = false;
 	return ret;
 }
 
@@ -2119,8 +2122,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			atomic_set(&host->clks_on, on);
 		break;
 	}
-	if (!(!!atomic_read(&host->clks_on)))
-		cancel_dwork_unvote_cpufreq(hba);
 	ufs_qcom_log_str(host, "#,%d,%d,%d\n", status, on, err);
 
 	return err;
@@ -3692,9 +3693,7 @@ static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 }
 
 static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {
-	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUEG8UHDB-C2D1",
-		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
-	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUDG4UHDB-B2D1",
+	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),

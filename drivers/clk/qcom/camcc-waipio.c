@@ -222,7 +222,7 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.config_ctl_hi1_val = 0x00000217,
 };
 
-static const struct alpha_pll_config cam_cc_pll2_config_sm8450_v2 = {
+static const struct alpha_pll_config cam_cc_pll2_config_waipio_v2 = {
 	.l = 0x32,
 	.cal_l = 0x32,
 	.alpha = 0x0,
@@ -3236,7 +3236,7 @@ MODULE_DEVICE_TABLE(of, cam_cc_waipio_match_table);
 
 static void cam_cc_waipio_fixup_waipiov2(struct regmap *regmap)
 {
-	clk_rivian_evo_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config_sm8450_v2);
+	clk_rivian_evo_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config_waipio_v2);
 	cam_cc_ife_0_clk_src.freq_tbl = ftbl_cam_cc_ife_0_clk_src_waipio_v2;
 	cam_cc_ife_0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
 	cam_cc_ife_1_clk_src.freq_tbl = ftbl_cam_cc_ife_1_clk_src_waipio_v2;

@@ -753,6 +753,9 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 
 	do {
 		clk_hw = __clk_get_hw(clk);
+		if (!clk_hw)
+			break;
+
 		clk_enabled = clk_hw_is_enabled(clk_hw);
 		clk_prepared = clk_hw_is_prepared(clk_hw);
 		clk_rate = clk_hw_get_rate(clk_hw);
@@ -915,10 +918,10 @@ static void clk_hw_debug_remove(struct hw_debug_clk *dclk)
 
 static void clk_debug_unregister(void)
 {
-	struct hw_debug_clk *dclk;
+	struct hw_debug_clk *dclk, *temp;
 
 	mutex_lock(&clk_debug_lock);
-	list_for_each_entry(dclk, &clk_hw_debug_list, list)
+	list_for_each_entry_safe(dclk, temp, &clk_hw_debug_list, list)
 		clk_hw_debug_remove(dclk);
 	mutex_unlock(&clk_debug_lock);
 }

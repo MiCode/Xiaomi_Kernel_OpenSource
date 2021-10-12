@@ -62,6 +62,18 @@ config DRM_LONTIUM_LT9611
 	  HDMI signals
 	  Please say Y if you have such hardware.
 
+config DRM_LONTIUM_LT9611UXC
+	tristate "Lontium LT9611UXC DSI/HDMI bridge"
+	depends on OF
+	select DRM_KMS_HELPER
+	select REGMAP_I2C
+	select DRM_MIPI_DSI
+	help
+	  Say Y here if you want support for the HDMI interface.
+	  It is Lontium Semiconductor DSI/HDMI transmitter driver.
+	  This only need to upload firmware and do not need add
+	  too much other configs when running.
+
 config DRM_LVDS_CODEC
 	tristate "Transparent LVDS encoders and decoders support"
 	depends on OF

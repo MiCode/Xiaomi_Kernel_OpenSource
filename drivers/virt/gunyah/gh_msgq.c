@@ -427,7 +427,7 @@ void *gh_msgq_register(int label)
 	client_desc = kzalloc(sizeof(*client_desc), GFP_ATOMIC);
 	if (!client_desc) {
 		spin_unlock(&cap_table_entry->cap_entry_lock);
-		return ERR_PTR(ENOMEM);
+		return ERR_PTR(-ENOMEM);
 	}
 
 	client_desc->label = label;

@@ -376,7 +376,7 @@ static void update_cpu_history(struct lpm_cpu *cpu_gov)
 
 void update_ipi_history(int cpu)
 {
-	struct lpm_cpu *cpu_gov = this_cpu_ptr(&lpm_cpu_data);
+	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
 	struct history_ipi *history = &cpu_gov->ipi_history;
 	ktime_t now = ktime_get();
 
@@ -557,7 +557,7 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	for (i = drv->state_count - 1; i > 0; i--) {
 		struct cpuidle_state *s = &drv->states[i];
 
-		if (!i && dev->states_usage[i].disable) {
+		if (i && dev->states_usage[i].disable) {
 			reason |= UPDATE_REASON(i, LPM_SELECT_STATE_DISABLED);
 			continue;
 		}
@@ -645,8 +645,12 @@ static void lpm_idle_enter(void *unused, int *state, struct cpuidle_device *dev)
  */
 static void lpm_idle_exit(void *unused, int state, struct cpuidle_device *dev)
 {
-	histtimer_cancel();
-	biastimer_cancel();
+	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, dev->cpu);
+
+	if (cpu_gov->enable) {
+		histtimer_cancel();
+		biastimer_cancel();
+	}
 }
 
 /**

@@ -58,6 +58,8 @@ struct a6xx_rgmu_device {
 	unsigned int fault_count;
 	/** @flags: rgmu internal flags */
 	unsigned long flags;
+	/** @num_oob_perfcntr: Number of active oob_perfcntr requests */
+	u32 num_oob_perfcntr;
 };
 
 /**

@@ -21,9 +21,9 @@
 #define BOOT_LOG_SIZE    SZ_512K
 #define LOG_NEWLINE          2
 
-char *boot_log_buf;
-unsigned int boot_log_buf_size;
-bool copy_early_boot_log = true;
+static char *boot_log_buf;
+static unsigned int boot_log_buf_size;
+static bool copy_early_boot_log = true;
 static unsigned int off;
 
 static size_t print_time(u64 ts, char *buf, size_t buf_sz)
@@ -154,15 +154,7 @@ static void register_log_minidump(struct printk_ringbuffer *prb)
 	struct md_region md_entry;
 	int ret;
 
-	strlcpy(md_entry.name, "LOG_PRB", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t)prb;
-	md_entry.phys_addr = virt_to_phys(prb);
-	md_entry.size = sizeof(*prb);
-	ret = msm_minidump_add_region(&md_entry);
-	if (ret < 0)
-		pr_err("Failed to add log_prb entry in minidump table\n");
-
-	strlcpy(md_entry.name, "LOG_TEXT", sizeof(md_entry.name));
+	strlcpy(md_entry.name, "KLOGBUF", sizeof(md_entry.name));
 	md_entry.virt_addr = (uintptr_t)textdata_ring.data;
 	md_entry.phys_addr = virt_to_phys(textdata_ring.data);
 	md_entry.size = _DATA_SIZE(textdata_ring.size_bits);

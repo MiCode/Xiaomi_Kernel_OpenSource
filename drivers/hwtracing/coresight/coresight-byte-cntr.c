@@ -53,35 +53,44 @@ static irqreturn_t etr_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void tmc_etr_flush_bytes(struct byte_cntr *byte_cntr_data, loff_t *ppos,
-			size_t bytes, size_t *len)
+
+static long tmc_etr_flush_remaining_bytes(struct tmc_drvdata *tmcdrvdata, loff_t *ppos,
+			char **bufpp)
 {
-	uint32_t rwp = 0;
-	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
-	dma_addr_t paddr = tmcdrvdata->sysfs_buf->hwaddr;
+	long rwp_offset, req_size, actual = 0;
+	struct etr_buf *etr_buf = tmcdrvdata->sysfs_buf;
 
-	rwp = readl_relaxed(tmcdrvdata->base + TMC_RWP);
+	rwp_offset = tmc_get_rwp_offset(tmcdrvdata);
+	req_size = ((rwp_offset < *ppos) ? tmcdrvdata->size : 0) +
+		rwp_offset - *ppos;
 
-	if (rwp >= (paddr + *ppos)) {
-		if (bytes > (rwp - paddr - *ppos))
-			*len = rwp - paddr - *ppos;
-	}
+	if (req_size > 0)
+		actual = tmc_etr_buf_get_data(etr_buf, *ppos, req_size, bufpp);
+
+	return actual;
 }
+
 
 static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 			       size_t len, loff_t *ppos)
 {
 	struct byte_cntr *byte_cntr_data = fp->private_data;
 	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
-	char *bufp;
+	char *bufp = NULL;
 	int ret = 0;
+
 	if (!data)
 		return -EINVAL;
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
 	if (!byte_cntr_data->read_active) {
-		ret = -EINVAL;
-		goto err0;
+		len = tmc_etr_flush_remaining_bytes(tmcdrvdata, ppos, &bufp);
+		if (len > 0) {
+			goto copy;
+		} else {
+			ret = -EINVAL;
+			goto err0;
+		}
 	}
 
 	if (byte_cntr_data->enable) {
@@ -93,30 +102,30 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *fp, char __user *data,
 				return -ERESTARTSYS;
 			mutex_lock(&byte_cntr_data->byte_cntr_lock);
 			if (!byte_cntr_data->read_active) {
-				ret = -EINVAL;
-				goto err0;
+				len = tmc_etr_flush_remaining_bytes(tmcdrvdata, ppos, &bufp);
+				if (len > 0) {
+					goto copy;
+				} else {
+					ret = -EINVAL;
+					goto err0;
+				}
 			}
-
 		}
 
 		tmc_etr_read_bytes(byte_cntr_data, ppos,
 				   byte_cntr_data->block_size, &len, &bufp);
 
 	} else {
-		if (!atomic_read(&byte_cntr_data->irq_cnt)) {
-			tmc_etr_flush_bytes(byte_cntr_data, ppos, byte_cntr_data->block_size,
-						  &len);
-			if (!len) {
-				ret = -EINVAL;
-				goto err0;
-			}
+		len = tmc_etr_flush_remaining_bytes(tmcdrvdata, ppos, &bufp);
+		if (len > 0) {
+			goto copy;
 		} else {
-			tmc_etr_read_bytes(byte_cntr_data, ppos,
-						   byte_cntr_data->block_size,
-						   &len, &bufp);
+			ret = -EINVAL;
+			goto err0;
 		}
 	}
 
+copy:
 	if (copy_to_user(data, bufp, len)) {
 		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
 		dev_dbg(&tmcdrvdata->csdev->dev,
@@ -202,6 +211,11 @@ static int tmc_etr_byte_cntr_open(struct inode *in, struct file *fp)
 	struct tmc_drvdata *tmcdrvdata = byte_cntr_data->tmcdrvdata;
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
+
+	if (byte_cntr_data->read_active) {
+		mutex_unlock(&byte_cntr_data->byte_cntr_lock);
+		return -EBUSY;
+	}
 
 	if (tmcdrvdata->mode != CS_MODE_SYSFS ||
 			!byte_cntr_data->block_size) {

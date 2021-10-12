@@ -598,23 +598,6 @@ struct hfi_issue_ib {
 } __packed;
 
 /* H2F */
-struct hfi_issue_cmd_cmd {
-	u32 hdr;
-	u32 ctxt_id;
-	u32 flags;
-	u32 ts;
-	u32 count;
-	struct hfi_issue_ib *ibs[];
-} __packed;
-
-/* Internal */
-struct hfi_issue_cmd_req {
-	u32 queue;
-	u32 ctxt_id;
-	struct hfi_issue_cmd_cmd cmd;
-} __packed;
-
-/* H2F */
 /* The length of *buf will be embedded in the hdr */
 struct hfi_issue_cmd_raw_cmd {
 	u32 hdr;
@@ -736,7 +719,7 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 
 /* Maximum number of IBs in a submission */
 #define HWSCHED_MAX_DISPATCH_NUMIBS \
-	((HFI_MAX_MSG_SIZE - offsetof(struct hfi_issue_cmd_cmd, ibs)) \
+	((HFI_MAX_MSG_SIZE - sizeof(struct hfi_submit_cmd)) \
 		/ sizeof(struct hfi_issue_ib))
 
 /**

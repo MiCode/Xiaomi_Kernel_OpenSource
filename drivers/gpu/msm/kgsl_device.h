@@ -461,6 +461,11 @@ struct kgsl_process_private {
 	 * @cmd_count: The number of cmds that are active for the process
 	 */
 	atomic_t cmd_count;
+	/**
+	 * @kobj_memtype: Pointer to a kobj for memtype sysfs directory for this
+	 * process
+	 */
+	struct kobject kobj_memtype;
 };
 
 struct kgsl_device_private {

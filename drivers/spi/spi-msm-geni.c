@@ -1896,6 +1896,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 	}
 
 	geni_mas->spi_rsc.wrapper_dev = &wrapper_pdev->dev;
+	geni_mas->spi_rsc.ctrl_dev = geni_mas->dev;
 	/*
 	 * For LE, clocks, gpio and icb voting will be provided by
 	 * by LA. The SPI operates in GSI mode only for LE usecase,
@@ -1910,7 +1911,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 			goto spi_geni_probe_err;
 		}
 
-		geni_mas->spi_rsc.ctrl_dev = geni_mas->dev;
 		rsc->geni_pinctrl = devm_pinctrl_get(&pdev->dev);
 		if (IS_ERR_OR_NULL(rsc->geni_pinctrl)) {
 			dev_err(&pdev->dev, "No pinctrl config specified!\n");

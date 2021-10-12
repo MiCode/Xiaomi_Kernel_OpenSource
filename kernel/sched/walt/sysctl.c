@@ -56,6 +56,7 @@ unsigned int __read_mostly sysctl_sched_asym_cap_sibling_freq_match_pct;
 unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by default */
 unsigned int sysctl_sched_conservative_pl;
 unsigned int sysctl_sched_min_task_util_for_boost = 51;
+unsigned int sysctl_sched_min_task_util_for_uclamp = 51;
 unsigned int sysctl_sched_min_task_util_for_colocation = 35;
 unsigned int sysctl_sched_many_wakeup_threshold = WALT_MANY_WAKEUP_DEFAULT;
 const int sched_user_hint_max = 1000;
@@ -64,6 +65,8 @@ unsigned int sysctl_sched_sync_hint_enable = 1;
 unsigned int sysctl_sched_bug_on_rt_throttle;
 unsigned int sysctl_panic_on_walt_bug;
 unsigned int sysctl_sched_suppress_region2;
+unsigned int sysctl_sched_skip_sp_newly_idle_lb = 1;
+unsigned int sysctl_sched_hyst_min_coloc_ns = 80000000;
 
 /* range is [1 .. INT_MAX] */
 static int sysctl_task_read_pid = 1;
@@ -112,12 +115,12 @@ static int walt_proc_user_hint_handler(struct ctl_table *table,
 
 	mutex_lock(&mutex);
 
-	sched_user_hint_reset_time = jiffies + HZ;
 	old_value = sysctl_sched_user_hint;
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (ret || !write || (old_value == sysctl_sched_user_hint))
 		goto unlock;
 
+	sched_user_hint_reset_time = jiffies + HZ;
 	walt_irq_work_queue(&walt_migration_irq_work);
 
 unlock:
@@ -543,6 +546,15 @@ struct ctl_table walt_table[] = {
 		.extra2		= &one_thousand,
 	},
 	{
+		.procname	= "sched_min_task_util_for_uclamp",
+		.data		= &sysctl_sched_min_task_util_for_uclamp,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &one_thousand,
+	},
+	{
 		.procname	= "sched_min_task_util_for_colocation",
 		.data		= &sysctl_sched_min_task_util_for_colocation,
 		.maxlen		= sizeof(unsigned int),
@@ -731,6 +743,23 @@ struct ctl_table walt_table[] = {
 		.proc_handler   = proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_ONE,
+	},
+	{
+		.procname       = "sched_skip_sp_newly_idle_lb",
+		.data           = &sysctl_sched_skip_sp_newly_idle_lb,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
+		.procname       = "sched_hyst_min_coloc_ns",
+		.data           = &sysctl_sched_hyst_min_coloc_ns,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
 	},
 	{
 		.procname       = "panic_on_walt_bug",

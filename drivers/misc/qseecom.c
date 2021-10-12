@@ -1594,9 +1594,7 @@ static int __qseecom_unregister_listener(struct qseecom_dev_handle *data,
 	if (ret) {
 		pr_err("scm_call() failed with err: %d (lstnr id=%d)\n",
 				ret, data->listener.id);
-		if (ret == -EBUSY)
-			return ret;
-		goto exit;
+		return ret;
 	}
 
 	if (resp.result != QSEOS_RESULT_SUCCESS) {
@@ -1691,7 +1689,7 @@ static void __qseecom_processing_pending_lsnr_unregister(void)
 			if (ptr_svc) {
 				ret = __qseecom_unregister_listener(
 						entry->data, ptr_svc);
-				if (ret == -EBUSY) {
+				if (ret) {
 					pr_debug("unregister %d pending again\n",
 						entry->data->listener.id);
 					mutex_unlock(&listener_access_lock);

@@ -229,11 +229,7 @@ static int __init qcom_rimps_init(void)
 		pr_err("%s: qcom_rimps register failed %d\n", __func__, ret);
 	return ret;
 }
-#if IS_MODULE(CONFIG_QCOM_RIMPS)
 module_init(qcom_rimps_init);
-#else
-arch_initcall(qcom_rimps_init);
-#endif
 
 static __exit void qcom_rimps_exit(void)
 {

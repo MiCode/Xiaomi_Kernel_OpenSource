@@ -8,6 +8,7 @@
 #if IS_ENABLED(CONFIG_IPC_LOGGING)
 #include <linux/ipc_logging.h>
 #endif
+#include <linux/sched.h>
 #include <asm/current.h>
 #include <linux/limits.h>
 #include <linux/slab.h>
@@ -82,10 +83,26 @@ struct cnss_plat_ipc_qmi_svc_ctx {
 };
 
 static struct cnss_plat_ipc_qmi_svc_ctx plat_ipc_qmi_svc;
-static void *cnss_plat_ipc_log_context;
 static struct cnss_plat_ipc_daemon_config daemon_cfg;
 
 #if IS_ENABLED(CONFIG_IPC_LOGGING)
+static void *cnss_plat_ipc_log_context;
+
+static void cnss_plat_ipc_logging_init(void)
+{
+	cnss_plat_ipc_log_context = ipc_log_context_create(NUM_LOG_PAGES,
+							   "cnss_plat", 0);
+	if (!cnss_plat_ipc_log_context)
+		pr_err("cnss_plat: Unable to create log context\n");
+}
+
+static void cnss_plat_ipc_logging_deinit(void)
+{
+	if (cnss_plat_ipc_log_context) {
+		ipc_log_context_destroy(cnss_plat_ipc_log_context);
+		cnss_plat_ipc_log_context = NULL;
+	}
+}
 
 void cnss_plat_ipc_debug_log_print(void *log_ctx, char *process, const char *fn,
 				   const char *log_level, char *fmt, ...)
@@ -108,6 +125,9 @@ void cnss_plat_ipc_debug_log_print(void *log_ctx, char *process, const char *fn,
 #define cnss_plat_ipc_log_print(_x...) \
 		cnss_plat_ipc_debug_log_print(cnss_plat_ipc_log_context, _x)
 #else
+static void cnss_plat_ipc_logging_init(void) {};
+static void cnss_plat_ipc_logging_deinit(void) {};
+
 void cnss_plat_ipc_debug_log_print(void *log_ctx, char *process, const char *fn,
 				   const char *log_level, char *fmt, ...)
 {
@@ -743,7 +763,8 @@ static struct qmi_msg_handler cnss_plat_ipc_qmi_req_handlers[] = {
 		.decoded_size =
 			CNSS_PLAT_IPC_QMI_FILE_UPLOAD_REQ_MSG_V01_MAX_MSG_LEN,
 		.fn = cnss_plat_ipc_qmi_file_upload_req_handler,
-	}
+	},
+	{}
 };
 
 /**
@@ -913,21 +934,6 @@ static bool cnss_plat_ipc_is_valid_dt_node_found(void)
 	return false;
 }
 
-void cnss_plat_ipc_logging_init(void)
-{
-	cnss_plat_ipc_log_context = ipc_log_context_create(NUM_LOG_PAGES, "cnss_plat", 0);
-	if (!cnss_plat_ipc_log_context)
-		cnss_plat_ipc_err("Unable to create log context\n");
-}
-
-void cnss_plat_ipc_lgging_deinit(void)
-{
-	if (cnss_plat_ipc_log_context) {
-		ipc_log_context_destroy(cnss_plat_ipc_log_context);
-		cnss_plat_ipc_log_context = NULL;
-	}
-}
-
 static DECLARE_WORK(cnss_plat_ipc_init_work, cnss_plat_ipc_init_fn);
 
 static int __init cnss_plat_ipc_qmi_svc_init(void)
@@ -960,7 +966,7 @@ static void __exit cnss_plat_ipc_qmi_svc_exit(void)
 		idr_destroy(&svc->file_idr);
 	}
 
-	cnss_plat_ipc_lgging_deinit();
+	cnss_plat_ipc_logging_deinit();
 }
 
 module_init(cnss_plat_ipc_qmi_svc_init);

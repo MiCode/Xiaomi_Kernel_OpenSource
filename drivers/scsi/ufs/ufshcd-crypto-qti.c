@@ -69,6 +69,12 @@ static int ufshcd_crypto_qti_keyslot_program(struct blk_keyslot_manager *ksm,
 	if (WARN_ON(cap_idx < 0))
 		return -EOPNOTSUPP;
 
+	if (host->reset_in_progress) {
+		pr_err("UFS host reset in progress, state = 0x%x\n",
+				hba->ufshcd_state);
+		return -EINVAL;
+	}
+
 	err = ufshcd_hold(hba, false);
 	if (err) {
 		pr_err("%s: failed to enable clocks, err %d\n", __func__, err);
@@ -96,6 +102,12 @@ static int ufshcd_crypto_qti_keyslot_evict(struct blk_keyslot_manager *ksm,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ice_mmio_data mmio_data;
 
+	if (host->reset_in_progress) {
+		pr_err("UFS host reset in progress, state = 0x%x\n",
+				hba->ufshcd_state);
+		return -EINVAL;
+	}
+
 	err = ufshcd_hold(hba, false);
 	if (err) {
 		pr_err("%s: failed to enable clocks, err %d\n", __func__, err);
@@ -120,6 +132,13 @@ static int ufshcd_crypto_qti_derive_raw_secret(struct blk_keyslot_manager *ksm,
 {
 	int err = 0;
 	struct ufs_hba *hba = container_of(ksm, struct ufs_hba, ksm);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (host->reset_in_progress) {
+		pr_err("UFS host reset in progress, state = 0x%x\n",
+				hba->ufshcd_state);
+		return -EINVAL;
+	}
 
 	err = ufshcd_hold(hba, false);
 	if (err) {
