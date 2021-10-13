@@ -14,6 +14,7 @@
 #include <linux/arm-smccc.h>
 
 #include <nvhe/memory.h>
+#include <nvhe/mem_protect.h>
 #include <nvhe/mm.h>
 #include <nvhe/spinlock.h>
 #include <nvhe/trap_handler.h>
@@ -359,6 +360,11 @@ static int s2mpu_init(void)
 	 */
 	for_each_powered_s2mpu(dev)
 		initialize_with_mpt(dev, &kvm_hyp_host_mpt);
+
+	/* Prevent DMA to the S2MPU MMIO regions. */
+	for_each_s2mpu(dev)
+		s2mpu_host_stage2_set_owner(dev->pa, S2MPU_MMIO_SIZE, pkvm_hyp_id);
+
 	return 0;
 }
 
