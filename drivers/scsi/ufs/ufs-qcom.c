@@ -4127,19 +4127,10 @@ static int ufs_qcom_remove(struct platform_device *pdev)
 static void ufs_qcom_shutdown(struct platform_device *pdev)
 {
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
-	struct scsi_device *sdev;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	ufs_qcom_log_str(host, "0xdead\n");
-	pm_runtime_get_sync(hba->dev);
-
-	shost_for_each_device(sdev, hba->host) {
-		if (sdev == hba->sdev_ufs_device)
-			scsi_device_quiesce(sdev);
-		else
-			scsi_remove_device(sdev);
-	}
-	ufshcd_shutdown(hba);
+	ufshcd_pltfrm_shutdown(pdev);
 }
 
 static const struct of_device_id ufs_qcom_of_match[] = {
