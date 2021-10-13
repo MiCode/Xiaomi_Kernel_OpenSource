@@ -13,3 +13,4 @@ KERNEL_DIR=kernel-common
 #READELF=llvm-readelf
 #OBJSIZE=llvm-size
 #STRIP=llvm-strip
+DTC='${OUT_DIR}/scripts/dtc/dtc'
