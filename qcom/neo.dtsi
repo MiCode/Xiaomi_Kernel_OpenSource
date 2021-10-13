@@ -25,6 +25,7 @@
 	aliases {
 		mmc0 = &sdhc_1; /*SDC1 eMMC slot*/
 		serial0 = &qupv3_se11_2uart;
+		hsuart0 = &qupv3_se7_4uart;
 	};
 
 	chosen {
