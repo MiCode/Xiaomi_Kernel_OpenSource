@@ -10,6 +10,7 @@ Required properties :
 			"qcom,sdxlemur-debugcc"
 			"qcom,waipio-debugcc"
 			"qcom,diwali-debugcc"
+			"qcom,neo-debugcc"
 
 - qcom,gcc: phandle to the GCC device node.
 - qcom,videocc: phandle to the Video CC device node.
