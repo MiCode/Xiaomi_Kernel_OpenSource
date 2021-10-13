@@ -793,7 +793,7 @@ static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
  */
 int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
 {
-	struct gh_vm_get_id_resp_entry *id_entries = NULL;
+	struct gh_vm_get_id_resp_entry *id_entries = NULL, *entry;
 	struct gh_vm_property vm_prop = {0};
 	void *info = NULL;
 	int ret = 0;
@@ -806,24 +806,27 @@ int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
 	pr_debug("%s: %d Info are associated with vmid %d\n",
 		 __func__, n_id, vmid);
 
+	entry = id_entries;
 	for (i = 0; i < n_id; i++) {
 		pr_debug("%s: idx:%d id_type %d reserved %d id_size %d\n",
 			__func__, i,
-			id_entries[i].id_type,
-			id_entries[i].reserved,
-			id_entries[i].id_size);
+			entry->id_type,
+			entry->reserved,
+			entry->id_size);
 
-		info = kmemdup_nul(id_entries[i].id_info,
-			id_entries[i].id_size, GFP_KERNEL);
+		info = kzalloc(entry->id_size % 4 ? entry->id_size + 1 :
+							entry->id_size,
+			GFP_KERNEL);
+		memcpy(info, entry->id_info, entry->id_size);
 
 		if (!info) {
 			pr_err("%s: Couldn't copy id type: %u\n",
-					__func__, id_entries[i].id_type);
+					__func__, entry->id_type);
 			ret = PTR_ERR(info);
 			continue;
 		}
 
-		switch (id_entries[i].id_type) {
+		switch (entry->id_type) {
 		case GH_RM_ID_TYPE_GUID:
 			vm_prop.guid = info;
 		break;
@@ -838,9 +841,11 @@ int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
 		break;
 		default:
 			pr_err("%s: Unknown id type: %u\n",
-				__func__, id_entries[i].id_type);
+				__func__, entry->id_type);
 			ret = -EINVAL;
 		}
+		entry = (void *)entry + sizeof(*entry) +
+			     round_up(entry->id_size, 4);
 		pr_debug("%s: idx:%d id_info %s\n", __func__, i, info);
 	}
 
