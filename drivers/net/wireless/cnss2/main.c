@@ -857,7 +857,10 @@ unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 		 */
 		return (qmi_timeout + WLAN_MISSION_MODE_TIMEOUT * 3);
 	case CNSS_TIMEOUT_CALIBRATION:
-		return (qmi_timeout + WLAN_COLD_BOOT_CAL_TIMEOUT);
+		/* Similar to mission mode, in CBC if FW init fails
+		 * fw recovery is tried. Thus return 2x the CBC timeout.
+		 */
+		return (qmi_timeout + WLAN_COLD_BOOT_CAL_TIMEOUT * 2);
 	case CNSS_TIMEOUT_WLAN_WATCHDOG:
 		return ((qmi_timeout << 1) + WLAN_WD_TIMEOUT_MS);
 	case CNSS_TIMEOUT_RDDM:
