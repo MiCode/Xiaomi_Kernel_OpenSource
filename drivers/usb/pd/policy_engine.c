@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/completion.h>
@@ -61,41 +61,7 @@ enum usbpd_state {
 	PE_MAX_STATES,
 };
 
-static const char * const usbpd_state_strings[] = {
-	"UNKNOWN",
-	"ERROR_RECOVERY",
-	"SRC_Disabled",
-	"SRC_Startup",
-	"SRC_Startup_Wait_for_VDM_Resp",
-	"SRC_Send_Capabilities",
-	"SRC_Send_Capabilities (Wait for Request)",
-	"SRC_Negotiate_Capability",
-	"SRC_Transition_Supply",
-	"SRC_Ready",
-	"SRC_Hard_Reset",
-	"SRC_Soft_Reset",
-	"SRC_Discovery",
-	"SRC_Transition_to_default",
-	"SNK_Startup",
-	"SNK_Discovery",
-	"SNK_Wait_for_Capabilities",
-	"SNK_Evaluate_Capability",
-	"SNK_Select_Capability",
-	"SNK_Transition_Sink",
-	"SNK_Ready",
-	"SNK_Hard_Reset",
-	"SNK_Soft_Reset",
-	"SNK_Transition_to_default",
-	"DRS_Send_DR_Swap",
-	"PRS_SNK_SRC_Send_Swap",
-	"PRS_SNK_SRC_Transition_to_off",
-	"PRS_SNK_SRC_Source_on",
-	"PRS_SRC_SNK_Send_Swap",
-	"PRS_SRC_SNK_Transition_to_off",
-	"PRS_SRC_SNK_Wait_Source_on",
-	"Send_Soft_Reset",
-	"VCS_Wait_for_VCONN",
-};
+#define usbpd_state_string(state) state_handlers[state].string
 
 enum usbpd_control_msg_type {
 	MSG_RESERVED = 0,
@@ -518,6 +484,7 @@ static const unsigned int usbpd_extcon_cable[] = {
 };
 
 struct usbpd_state_handler {
+	const char * const string;
 	void (*enter_state)(struct usbpd *pd);
 	void (*handle_state)(struct usbpd *pd, struct rx_msg *msg);
 };
@@ -3337,7 +3304,7 @@ static void handle_state_send_soft_reset(struct usbpd *pd,
 				PE_SNK_WAIT_FOR_CAPABILITIES);
 	} else {
 		usbpd_err(&pd->dev, "%s: Did not see Accept, do Hard Reset\n",
-				usbpd_state_strings[pd->current_state]);
+				usbpd_state_string(pd->current_state));
 		usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 				PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
 	}
@@ -3371,8 +3338,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		return;
 
 	usbpd_dbg(&pd->dev, "%s -> %s\n",
-			usbpd_state_strings[pd->current_state],
-			usbpd_state_strings[next_state]);
+			usbpd_state_string(pd->current_state),
+			usbpd_state_string(next_state));
 
 	pd->current_state = next_state;
 
@@ -3381,60 +3348,112 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		state_handlers[pd->current_state].enter_state(pd);
 	else
 		usbpd_dbg(&pd->dev, "No action for state %s\n",
-				usbpd_state_strings[pd->current_state]);
+				usbpd_state_string(pd->current_state));
 }
 
+#define STATE_HANDLER(state, enter, handle)	\
+	[state] = {				\
+		#state,				\
+		enter,				\
+		handle,				\
+	}
 static const struct usbpd_state_handler state_handlers[] = {
-	[PE_UNKNOWN] = {NULL, handle_state_unknown},
-	[PE_ERROR_RECOVERY] = {enter_state_error_recovery, NULL},
-	[PE_SRC_DISABLED] = {enter_state_src_disabled, NULL},
-	[PE_SRC_STARTUP] = {enter_state_src_startup, handle_state_src_startup},
-	[PE_SRC_STARTUP_WAIT_FOR_VDM_RESP] = {NULL,
-				handle_state_src_startup_wait_for_vdm_resp},
-	[PE_SRC_SEND_CAPABILITIES] = {enter_state_src_send_capabilities,
-				handle_state_src_send_capabilities},
-	[PE_SRC_SEND_CAPABILITIES_WAIT] = {NULL,
-				handle_state_src_send_capabilities_wait},
-	[PE_SRC_NEGOTIATE_CAPABILITY] = {enter_state_src_negotiate_capability,
-					NULL},
-	[PE_SRC_READY] = {enter_state_src_ready, handle_state_src_ready},
-	[PE_SRC_HARD_RESET] = {enter_state_hard_reset, NULL},
-	[PE_SRC_SOFT_RESET] = {NULL, handle_state_soft_reset},
-	[PE_SRC_TRANSITION_TO_DEFAULT] = {NULL,
-				handle_state_src_transition_to_default},
-	[PE_SNK_STARTUP] = {enter_state_snk_startup,
-				handle_state_snk_startup},
-	[PE_SNK_DISCOVERY] = {NULL, handle_state_snk_discovery},
-	[PE_SNK_WAIT_FOR_CAPABILITIES] = {
-					enter_state_snk_wait_for_capabilities,
-					handle_state_snk_wait_for_capabilities},
-	[PE_SNK_EVALUATE_CAPABILITY] = {enter_state_snk_evaluate_capability,
-					NULL},
-	[PE_SNK_SELECT_CAPABILITY] = {enter_state_snk_select_capability,
-					handle_state_snk_select_capability},
-	[PE_SNK_TRANSITION_SINK] = {enter_state_snk_transition_sink,
-					handle_state_snk_transition_sink},
-	[PE_SNK_READY] = {enter_state_snk_ready, handle_state_snk_ready},
-	[PE_SNK_HARD_RESET] = {enter_state_hard_reset, NULL},
-	[PE_SNK_SOFT_RESET] = {NULL, handle_state_soft_reset},
-	[PE_SNK_TRANSITION_TO_DEFAULT] = {
-				enter_state_snk_transition_to_default,
-				handle_state_snk_transition_to_default},
-	[PE_DRS_SEND_DR_SWAP] = {NULL, handle_state_drs_send_dr_swap},
-	[PE_PRS_SNK_SRC_SEND_SWAP] = {NULL, handle_state_prs_snk_src_send_swap},
-	[PE_PRS_SNK_SRC_TRANSITION_TO_OFF] = {
-				enter_state_prs_snk_src_transition_to_off,
-				handle_state_prs_snk_src_transition_to_off},
-	[PE_PRS_SNK_SRC_SOURCE_ON] = {NULL, handle_state_prs_snk_src_source_on},
-	[PE_PRS_SRC_SNK_SEND_SWAP] = {NULL, handle_state_prs_src_snk_send_swap},
-	[PE_PRS_SRC_SNK_TRANSITION_TO_OFF] = {
-				enter_state_prs_src_snk_transition_to_off,
-				handle_state_prs_src_snk_transition_to_off},
-	[PE_PRS_SRC_SNK_WAIT_SOURCE_ON] = {NULL,
-			handle_state_prs_src_snk_wait_source_on},
-	[PE_SEND_SOFT_RESET] = {enter_state_send_soft_reset,
-				handle_state_send_soft_reset},
-	[PE_VCS_WAIT_FOR_VCONN] = {NULL, handle_state_vcs_wait_for_vconn},
+	STATE_HANDLER(PE_UNKNOWN,
+		NULL,
+		handle_state_unknown),
+	STATE_HANDLER(PE_ERROR_RECOVERY,
+		enter_state_error_recovery,
+		NULL),
+	STATE_HANDLER(PE_SRC_DISABLED,
+		enter_state_src_disabled,
+		NULL),
+	STATE_HANDLER(PE_SRC_STARTUP,
+		enter_state_src_startup,
+		handle_state_src_startup),
+	STATE_HANDLER(PE_SRC_STARTUP_WAIT_FOR_VDM_RESP,
+		NULL,
+		handle_state_src_startup_wait_for_vdm_resp),
+	STATE_HANDLER(PE_SRC_SEND_CAPABILITIES,
+		enter_state_src_send_capabilities,
+		handle_state_src_send_capabilities),
+	STATE_HANDLER(PE_SRC_SEND_CAPABILITIES_WAIT,
+		NULL,
+		handle_state_src_send_capabilities_wait),
+	STATE_HANDLER(PE_SRC_NEGOTIATE_CAPABILITY,
+		enter_state_src_negotiate_capability,
+		NULL),
+	STATE_HANDLER(PE_SRC_TRANSITION_SUPPLY,
+		NULL,
+		NULL),
+	STATE_HANDLER(PE_SRC_READY,
+		enter_state_src_ready,
+		handle_state_src_ready),
+	STATE_HANDLER(PE_SRC_HARD_RESET,
+		enter_state_hard_reset,
+		NULL),
+	STATE_HANDLER(PE_SRC_SOFT_RESET,
+		NULL,
+		handle_state_soft_reset),
+	STATE_HANDLER(PE_SRC_TRANSITION_TO_DEFAULT,
+		NULL,
+		handle_state_src_transition_to_default),
+	STATE_HANDLER(PE_SNK_STARTUP,
+		enter_state_snk_startup,
+		handle_state_snk_startup),
+	STATE_HANDLER(PE_SNK_DISCOVERY,
+		NULL,
+		handle_state_snk_discovery),
+	STATE_HANDLER(PE_SNK_WAIT_FOR_CAPABILITIES,
+		enter_state_snk_wait_for_capabilities,
+		handle_state_snk_wait_for_capabilities),
+	STATE_HANDLER(PE_SNK_EVALUATE_CAPABILITY,
+		enter_state_snk_evaluate_capability,
+		NULL),
+	STATE_HANDLER(PE_SNK_SELECT_CAPABILITY,
+		enter_state_snk_select_capability,
+		handle_state_snk_select_capability),
+	STATE_HANDLER(PE_SNK_TRANSITION_SINK,
+		enter_state_snk_transition_sink,
+		handle_state_snk_transition_sink),
+	STATE_HANDLER(PE_SNK_READY,
+		enter_state_snk_ready,
+		handle_state_snk_ready),
+	STATE_HANDLER(PE_SNK_HARD_RESET,
+		enter_state_hard_reset,
+		NULL),
+	STATE_HANDLER(PE_SNK_SOFT_RESET,
+		NULL,
+		handle_state_soft_reset),
+	STATE_HANDLER(PE_SNK_TRANSITION_TO_DEFAULT,
+		enter_state_snk_transition_to_default,
+		handle_state_snk_transition_to_default),
+	STATE_HANDLER(PE_DRS_SEND_DR_SWAP,
+		NULL,
+		handle_state_drs_send_dr_swap),
+	STATE_HANDLER(PE_PRS_SNK_SRC_SEND_SWAP,
+		NULL,
+		handle_state_prs_snk_src_send_swap),
+	STATE_HANDLER(PE_PRS_SNK_SRC_TRANSITION_TO_OFF,
+		enter_state_prs_snk_src_transition_to_off,
+		handle_state_prs_snk_src_transition_to_off),
+	STATE_HANDLER(PE_PRS_SNK_SRC_SOURCE_ON,
+		NULL,
+		handle_state_prs_snk_src_source_on),
+	STATE_HANDLER(PE_PRS_SRC_SNK_SEND_SWAP,
+		NULL,
+		handle_state_prs_src_snk_send_swap),
+	STATE_HANDLER(PE_PRS_SRC_SNK_TRANSITION_TO_OFF,
+		enter_state_prs_src_snk_transition_to_off,
+		handle_state_prs_src_snk_transition_to_off),
+	STATE_HANDLER(PE_PRS_SRC_SNK_WAIT_SOURCE_ON,
+		NULL,
+		handle_state_prs_src_snk_wait_source_on),
+	STATE_HANDLER(PE_SEND_SOFT_RESET,
+		enter_state_send_soft_reset,
+		handle_state_send_soft_reset),
+	STATE_HANDLER(PE_VCS_WAIT_FOR_VCONN,
+		NULL,
+		handle_state_vcs_wait_for_vconn),
 };
 
 static void handle_disconnect(struct usbpd *pd)
@@ -3569,7 +3588,7 @@ static void usbpd_sm(struct work_struct *w)
 	unsigned long flags;
 
 	usbpd_dbg(&pd->dev, "handle state %s\n",
-			usbpd_state_strings[pd->current_state]);
+			usbpd_state_string(pd->current_state));
 
 	hrtimer_cancel(&pd->timer);
 	pd->sm_queued = false;
@@ -3612,7 +3631,7 @@ static void usbpd_sm(struct work_struct *w)
 		state_handlers[pd->current_state].handle_state(pd, rx_msg);
 	else
 		usbpd_err(&pd->dev, "Unhandled state %s\n",
-				usbpd_state_strings[pd->current_state]);
+				usbpd_state_string(pd->current_state));
 sm_done:
 	kfree(rx_msg);
 
