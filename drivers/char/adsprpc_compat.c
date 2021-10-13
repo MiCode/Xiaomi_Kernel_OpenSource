@@ -240,6 +240,12 @@ struct compat_fastrpc_ioctl_capability {
 	compat_uint_t capability;
 };
 
+
+static void *compat_alloc_user_space(int size)
+{
+	return NULL;
+}
+
 static int compat_get_fastrpc_ioctl_invoke(
 			struct compat_fastrpc_ioctl_invoke_async __user *inv32,
 			struct fastrpc_ioctl_invoke_async __user *inv,
