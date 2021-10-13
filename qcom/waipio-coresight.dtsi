@@ -3302,6 +3302,7 @@
 		dma-coherent;
 		coresight-name = "coresight-tmc-etr";
 
+		arm,buffer-size = <0x10000000>;
 		coresight-csr = <&csr>;
 		csr-atid-offset = <0xf4>;
 		csr-irqctrl-offset = <0x6c>;
