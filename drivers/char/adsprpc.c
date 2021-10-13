@@ -6173,15 +6173,17 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 						&fl->dev_pm_qos_req[ii],
 						latency);
 			}
+			/* PM QoS request APIs return 0 or 1 on success */
 			if (err < 0) {
-				pr_warn("adsprpc: %s: %s: PM voting for cpu:%d failed, err %d, QoS update %d\n",
-					current->comm, __func__, cpu,
-					err, fl->qos_request);
+				ADSPRPC_WARN("QoS with lat %u failed for CPU %d, err %d, req %d\n",
+					latency, cpu, err, fl->qos_request);
 				break;
 			}
 		}
-		if (err >= 0)
+		if (err >= 0) {
 			fl->qos_request = 1;
+			err = 0;
+		}
 
 		/* Ensure CPU feature map updated to DSP for early WakeUp */
 		fastrpc_send_cpuinfo_to_dsp(fl);
