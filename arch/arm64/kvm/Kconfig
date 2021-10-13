@@ -63,4 +63,10 @@ config KVM_S2MPU
 	  hypervisor to restrict DMA access to its memory and the memory of
 	  protected guests.
 
+config TEST_KVM_S2MPU
+	tristate "Test kernel module for S2MPU"
+	depends on KVM_S2MPU
+	help
+	  Kernel module for kselftests that exercises the KVM S2MPU driver.
+
 endif # VIRTUALIZATION
