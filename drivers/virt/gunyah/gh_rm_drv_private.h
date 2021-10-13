@@ -190,7 +190,7 @@ struct gh_vm_get_id_resp_entry {
 	u8 id_type;
 	u8 reserved;
 	u16 id_size;
-	void *id_info;
+	char id_info[];
 } __packed;
 
 struct gh_vm_get_id_resp_payload {
