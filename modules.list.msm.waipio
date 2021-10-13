@@ -92,3 +92,6 @@ msm-geni-se.ko
 mem-offline.ko
 qcom_aoss.ko
 msm_qmp.ko
+qcom_rimps.ko
+c1dcvs_vendor.ko
+c1dcvs_scmi.ko
