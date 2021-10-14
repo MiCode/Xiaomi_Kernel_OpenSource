@@ -1670,11 +1670,18 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main_wb_path[] = {
 	//DDP_COMPONENT_WDMA0,
 };
 
-static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext[] = {
+static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext_dp[] = {
 	DDP_COMPONENT_OVL2_2L_NWCG,
 	DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA3,
 	DDP_COMPONENT_SUB1_VIRTUAL1,
 	DDP_COMPONENT_DP_INTF0,
+};
+
+static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext_dsi[] = {
+	DDP_COMPONENT_OVL2_2L_NWCG,
+	DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA3,
+	DDP_COMPONENT_MAIN1_VIRTUAL,
+	DDP_COMPONENT_DSI1,
 };
 
 static const enum mtk_ddp_comp_id mt6983_dual_data_ext[] = {
@@ -2480,8 +2487,17 @@ static const struct mtk_crtc_path_data mt6983_mtk_main_path_data = {
 };
 
 static const struct mtk_crtc_path_data mt6983_mtk_ext_path_data = {
-	.path[DDP_MAJOR][0] = mt6983_mtk_ddp_ext,
-	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6983_mtk_ddp_ext),
+	.path[DDP_MAJOR][0] = mt6983_mtk_ddp_ext_dp,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6983_mtk_ddp_ext_dp),
+	.path_req_hrt[DDP_MAJOR][0] = true,
+	.addon_data = mt6983_addon_ext,
+	.dual_path[0] = mt6983_dual_data_ext,
+	.dual_path_len[0] = ARRAY_SIZE(mt6983_dual_data_ext),
+};
+
+static const struct mtk_crtc_path_data mt6983_mtk_ext_dsi_path_data = {
+	.path[DDP_MAJOR][0] = mt6983_mtk_ddp_ext_dsi,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6983_mtk_ddp_ext_dsi),
 	.path_req_hrt[DDP_MAJOR][0] = true,
 	.addon_data = mt6983_addon_ext,
 	.dual_path[0] = mt6983_dual_data_ext,
@@ -3028,6 +3044,7 @@ static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
 static const struct mtk_mmsys_driver_data mt6983_mmsys_driver_data = {
 	.main_path_data = &mt6983_mtk_main_path_data,
 	.ext_path_data = &mt6983_mtk_ext_path_data,
+	.ext_alter_path_data = &mt6983_mtk_ext_dsi_path_data,
 	.third_path_data = &mt6983_mtk_third_path_data,
 	.fake_eng_data = &mt6983_fake_eng_data,
 	.mmsys_id = MMSYS_MT6983,
@@ -4284,7 +4301,10 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		/* ... and OVL1 -> COLOR1 -> GAMMA -> RDMA1 -> DPI0. */
-		ret = mtk_drm_crtc_create(drm, private->data->ext_path_data);
+		if (of_property_read_bool(private->mmsys_dev->of_node, "enable_ext_alter_path"))
+			ret = mtk_drm_crtc_create(drm, private->data->ext_alter_path_data);
+		else
+			ret = mtk_drm_crtc_create(drm, private->data->ext_path_data);
 		if (ret < 0)
 			goto err_component_unbind;
 
@@ -4296,10 +4316,14 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	/* Use OVL device for all DMA memory allocations */
 	np = private->comp_node[private->data->main_path_data
 					->path[DDP_MAJOR][0][0]];
-	if (np == NULL)
-		np = private->comp_node[private->data->ext_path_data
+	if (np == NULL) {
+		if (of_property_read_bool(private->mmsys_dev->of_node, "enable_ext_alter_path"))
+			np = private->comp_node[private->data->ext_alter_path_data
 						->path[DDP_MAJOR][0][0]];
-
+		else
+			np = private->comp_node[private->data->ext_path_data
+						->path[DDP_MAJOR][0][0]];
+	}
 	pdev = of_find_device_by_node(np);
 	if (!pdev) {
 		ret = -ENODEV;
