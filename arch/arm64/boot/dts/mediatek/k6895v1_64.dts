@@ -384,6 +384,106 @@ initcall_debug=1 ";
 };
 /* GPS GPIO standardization end */
 
+/* ConnFem start */
+&connfem {
+#if 0 /* Enable epa_elna node to support Wifi & BT ePA/eLNA FEM on customer load */
+	epa_elna {
+		parts = <&wlan7207h &wlan7207c>;
+
+		wifi {
+			flags-0 {
+				open-loop;
+			};
+		};
+
+		bt {
+			flags-0 {
+				/* choose one of: epa_elna / epa / elna / bypass */
+				epa_elna;
+			};
+		};
+	};
+#endif
+
+	epa_elna_mtk {
+		parts = <&nofem &nofem>,		/* [0]iPA/iLNA */
+			<&wlan7207h &wlan7207c>,	/* [1]7207C: Wifi Open, BT bypass */
+			<&wlan7207h &wlan7207c>,	/* [2]7207C: Wifi Open, BT ePA/eLNA */
+			<&wlan7207h &wlan7207c>,	/* [3]7207C: Wifi Closed, BT bypass */
+			<&wlan7207h &wlan7207c>,	/* [4]7207C: Wifi Closed, BT ePA/eLNA */
+			<&wlan7207h &wlan7205c>,	/* [5]7205C: Wifi Open, BT bypass */
+			<&wlan7207h &wlan7205c>,	/* [6]7205C: Wifi Open, BT ePA/eLNA */
+			<&wlan7207h &wlan7205c>,	/* [7]7205C: Wifi Closed, BT bypass */
+			<&wlan7207h &wlan7205c>,	/* [8]7205C: Wifi Closed, BT ePA/eLNA */
+			<&qm42195 &qm45197>,		/* [9]QM: Wifi Open, BT bypass */
+			<&qm42195 &qm45197>,		/* [10]QM: Wifi Open, BT ePA/eLNA */
+			<&qm42195 &qm45197>,		/* [11]QM: Wifi Closed, BT bypass */
+			<&qm42195 &qm45197>;		/* [12]QM: Wifi Closed, BT ePA/eLNA */
+
+		wifi {
+			flags-1 {
+				open-loop;
+			};
+			flags-2 {
+				open-loop;
+			};
+			flags-5 {
+				open-loop;
+			};
+			flags-6 {
+				open-loop;
+			};
+			flags-9 {
+				open-loop;
+			};
+			flags-10 {
+				open-loop;
+			};
+		};
+
+		bt {
+			/* choose one of: epa_elna / epa / elna / bypass */
+			flags-1 {
+				bypass;
+			};
+			flags-2 {
+				epa_elna;
+			};
+			flags-3 {
+				bypass;
+			};
+			flags-4 {
+				epa_elna;
+			};
+			flags-5 {
+				bypass;
+			};
+			flags-6 {
+				epa_elna;
+			};
+			flags-7 {
+				bypass;
+			};
+			flags-8 {
+				epa_elna;
+			};
+			flags-9 {
+				bypass;
+			};
+			flags-10 {
+				epa_elna;
+			};
+			flags-11 {
+				bypass;
+			};
+			flags-12 {
+				epa_elna;
+			};
+		};
+	};
+};
+/* ConnFem end */
+
 &sound {
 	mediatek,spk-i2s = <3 0>;
 	mediatek,speaker-codec {

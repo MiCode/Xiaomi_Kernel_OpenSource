@@ -8733,6 +8733,10 @@
 		interrupts = <GIC_SPI 759 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
+	connfem: connfem@18000000 {
+		compatible = "mediatek,mt6895-connfem";
+	};
+
 	btif: btif@1100c000 {
 		compatible = "mediatek,btif";
 		reg = <0 0x1100c000 0 0x100>, /*btif base*/
@@ -12204,6 +12208,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 #include "mediatek/mt6368.dtsi"
 #include "mediatek/rt5133.dtsi"
 #include "mediatek/rt6160.dtsi"
+#include "mediatek/cust_mt6895_connfem.dtsi"
 
 &rt5133 {
 	interrupts-extended = <&pio 141 0x0>;
