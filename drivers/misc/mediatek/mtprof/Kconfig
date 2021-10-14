@@ -25,6 +25,15 @@ config MTK_IRQ_MONITOR
 	  IRQ monitor. If you are not sure about whether to enable it or not,
 	  please set n.
 
+config MTK_IRQ_MONITOR_DEBUG
+	tristate "Enable MTK IRQ Monitor Debug"
+	help
+	  MTK_IRQ_MONITOR_DEBUG if used to debug ISR/SOFTIRQ processing
+	  duration, IRQ disabled duration and burst IRQ. It is only enabled
+	  on userdebug load. Say Y here to enable MTK IRQ monitor debug.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
+
 config MTK_IRQ_MONITOR_DEFAULT_ENABLED
 	bool "Enable all tracers of MTK IRQ Monitor by default"
 	depends on MTK_IRQ_MONITOR
