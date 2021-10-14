@@ -842,7 +842,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		mtk_cam_complete_raw_hdl(s_data);
 
 		if (need_clean_s_data) {
-			dev_info(cam->dev,
+			dev_dbg(cam->dev,
 				 "%s:%s:pipe(%d):seq(%d): clean s_data\n",
 				 __func__, req->req.debug_str, pipe_id,
 				 s_data->frame_seq_no);
@@ -3708,7 +3708,7 @@ static int mtk_cam_ctx_get_ipi_id(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 		return -EINVAL;
 	}
 
-	dev_info(ctx->cam->dev, "%s: mtk_raw_pipeline(%d), ipi_id(%d)\n",
+	dev_dbg(ctx->cam->dev, "%s: mtk_raw_pipeline(%d), ipi_id(%d)\n",
 		__func__, pipe_id, ipi_id);
 
 	return ipi_id;
@@ -3747,8 +3747,8 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 		goto faile_release_msg_dev;
 	}
 
-	dev_info(dev, "%s initialized composer of ctx:%d\n",
-		 __func__, ctx->stream_id);
+	dev_info(dev, "%s initialized composer of ctx:%d, ipi_id:%d\n",
+		 __func__, ctx->stream_id, ipi_id);
 
 	return 0;
 
@@ -3765,7 +3765,7 @@ static int mtk_cam_runtime_suspend(struct device *dev)
 	struct mtk_camsys_dvfs *dvfs_info =
 				&cam_dev->camsys_ctrl.dvfs_info;
 
-	dev_info(dev, "- %s\n", __func__);
+	dev_dbg(dev, "- %s\n", __func__);
 
 	if (dvfs_info->reg_vmm)
 		regulator_disable(dvfs_info->reg_vmm);
@@ -3779,7 +3779,7 @@ static int mtk_cam_runtime_resume(struct device *dev)
 	struct mtk_camsys_dvfs *dvfs_info =
 				&cam_dev->camsys_ctrl.dvfs_info;
 
-	dev_info(dev, "- %s\n", __func__);
+	dev_dbg(dev, "- %s\n", __func__);
 
 	if (dvfs_info->reg_vmm)
 		regulator_enable(dvfs_info->reg_vmm);
@@ -4014,7 +4014,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	/* Consider scenario that stop the ctx while the ctx is not streamed on */
 	if (ctx->session_created) {
-		dev_info(cam->dev,
+		dev_dbg(cam->dev,
 			"%s:ctx(%d): session_created, wait for composer session destroy\n",
 			__func__, ctx->stream_id);
 		if (wait_for_completion_timeout(

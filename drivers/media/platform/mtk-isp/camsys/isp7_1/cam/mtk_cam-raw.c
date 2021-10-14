@@ -385,17 +385,13 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 	struct device *dev = pipeline->raw->devs[pipeline->id];
 
 	dev_info(dev,
-		 "%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d\n",
+		 "%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
 		 __func__, pipeline->id,
 		 res_user->sensor_res.hblank, res_user->sensor_res.vblank,
 		 res_user->sensor_res.pixel_rate,
 		 res_user->sensor_res.cust_pixel_rate,
 		 res_user->sensor_res.interval.denominator,
-		 res_user->sensor_res.interval.numerator);
-
-	dev_info(dev,
-		 "%s:pipe(%d): from user: raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
-		 __func__, pipeline->id,
+		 res_user->sensor_res.interval.numerator,
 		 res_user->raw_res.feature, res_user->raw_res.bin,
 		 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
 		 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
@@ -1251,7 +1247,7 @@ static void reset_reg(struct mtk_raw_device *dev)
 {
 	int cq_en, sw_done, sw_sub_ctl;
 
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 			 "[%s++] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
 			 __func__,
 			 readl_relaxed(dev->base_inner + REG_CQ_EN),
@@ -1276,7 +1272,7 @@ static void reset_reg(struct mtk_raw_device *dev)
 
 	wmb(); /* make sure committed */
 
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 			 "[%s--] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
 			 __func__,
 			 readl_relaxed(dev->base_inner + REG_CQ_EN),
@@ -2608,7 +2604,7 @@ static int mtk_raw_available_resource(struct mtk_raw *raw)
 				res_status |= 1 << j;
 		}
 	}
-	dev_info(raw->cam_dev, "%s raw_status:0x%x Available Engine:A/B/C:%d/%d/%d\n",
+	dev_dbg(raw->cam_dev, "%s raw_status:0x%x Available Engine:A/B/C:%d/%d/%d\n",
 		 __func__, res_status,
 			!(res_status & (1 << MTKCAM_SUBDEV_RAW_0)),
 			!(res_status & (1 << MTKCAM_SUBDEV_RAW_1)),
@@ -2919,14 +2915,12 @@ bool mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
 		return false;
 	}
 
-	dev_info(sd->v4l2_dev->dev,	"%s:sensor:%d/%d/%lld/%d/%d\n",
+	dev_dbg(sd->v4l2_dev->dev, "%s:sensor:%d/%d/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
 		__func__,
 		res->sensor_res.hblank, res->sensor_res.vblank,
 		res->sensor_res.pixel_rate,	res->sensor_res.interval.denominator,
-		res->sensor_res.interval.numerator);
-
-	dev_info(sd->v4l2_dev->dev,	"%s:raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
-		__func__, res->raw_res.feature,	res->raw_res.bin, res->raw_res.path_sel,
+		res->sensor_res.interval.numerator,
+		res->raw_res.feature, res->raw_res.bin, res->raw_res.path_sel,
 		res->raw_res.raw_max, res->raw_res.raw_min, res->raw_res.raw_used,
 		res->raw_res.strategy, res->raw_res.pixel_mode,
 		res->raw_res.throughput);
@@ -3179,7 +3173,7 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 		else
 			source_fmt->height = framefmt->height;
 
-		dev_info(dev,
+		dev_dbg(dev,
 			"%s(%d): Propagate to pad:%d(%s), (0x%x/%d/%d)\n",
 			__func__, fmt->which, fmt->pad, node->desc.name,
 			source_fmt->code, source_fmt->width, source_fmt->height);

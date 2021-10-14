@@ -1661,7 +1661,7 @@ int mtk_cam_mraw_dev_stream_on(
 	unsigned int i;
 	int ret = 0;
 
-	dev_info(dev, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	dev_mraw = mtk_cam_find_mraw_dev(cam, ctx->used_mraw_dev[idx]);
 	if (dev_mraw == NULL) {

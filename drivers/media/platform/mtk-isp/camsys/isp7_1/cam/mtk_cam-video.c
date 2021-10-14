@@ -256,7 +256,7 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 		}
 #endif
 
-	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
+	dev_dbg(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
 		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
 	if (ctx->streaming_node_cnt < ctx->enabled_node_cnt)
@@ -298,7 +298,7 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	if (WARN_ON(!ctx))
 		return;
 
-	dev_info(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
+	dev_dbg(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
 		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
 
 	if (ctx->streaming_node_cnt == ctx->enabled_node_cnt) {
