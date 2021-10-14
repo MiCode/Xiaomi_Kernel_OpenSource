@@ -198,9 +198,9 @@ struct gpufreq_core_mask_info g_core_mask_table[] = {
 #define GPUFREQ_CONSTRAINT_COEF         (11)
 #define GPUFREQ_BASE_COEF               (10)
 /* DVFS Timing issue */
-#define DVFS_TIMING_PARK_FREQ           (586000)
+#define DVFS_TIMING_PARK_FREQ           (590000)
 /* DELSEL ULV SRAM access */
-#define DELSEL_ULV_PARK_FREQ            (316000)
+#define DELSEL_ULV_PARK_FREQ            (317000)
 
 /**************************************************
  * Enumeration

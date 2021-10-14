@@ -3165,7 +3165,7 @@ static void __gpufreq_acp_control(void)
 	val |= 0x055;
 	writel(val, g_mfg_top_base + 0x928);
 }
-//TODO
+
 /* GPM1.0: di/dt reduction by slowing down speed of frequency scaling up or down */
 static void __gpufreq_gpm_control(void)
 {
@@ -3178,8 +3178,8 @@ static void __gpufreq_gpm_control(void)
 	/* MFG_I2M_PROTECTOR_CFG_02 0x13FBFF68 = 0x01010802 */
 	writel(0x01010802, g_mfg_top_base + 0xF68);
 
-	/* MFG_I2M_PROTECTOR_CFG_03 0x13FBFFA8 = 0x00030FF3 */
-	writel(0x00030FF3, g_mfg_top_base + 0xFA8);
+	/* MFG_I2M_PROTECTOR_CFG_03 0x13FBFFA8 = 0x000227F3 */
+	writel(0x000227F3, g_mfg_top_base + 0xFA8);
 
 	/* wait 1us */
 	udelay(1);
