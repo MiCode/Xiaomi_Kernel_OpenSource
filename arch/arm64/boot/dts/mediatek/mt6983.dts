@@ -3975,8 +3975,7 @@
 	disp_iommu: iommu@1e802000 {
 			compatible = "mediatek,mt6983-disp-iommu";
 			reg = <0 0x1e802000 0 0x1000>;
-			iommu_id = <0>;
-			iommu_type = "mm";
+			table_id = <0>;
 			mediatek,larbs = <&smi_larb0 &smi_larb2 &smi_larb5>,
 					<&smi_larb6 &smi_larb7 &smi_larb9>,
 					<&smi_larb10 &smi_larb11 &smi_larb13>,
@@ -4022,8 +4021,7 @@
 	mdp_iommu: iommu@1e810000 {
 			compatible = "mediatek,mt6983-mdp-iommu";
 			reg = <0 0x1e810000 0 0x1000>;
-			iommu_id = <1>;
-			iommu_type = "mm";
+			table_id = <0>;
 			mediatek,larbs = <&smi_larb1 &smi_larb3 &smi_larb4>,
 					 <&smi_larb8 &smi_larb12 &smi_larb14>,
 					 <&smi_larb15 &smi_larb16 &smi_larb17>,
@@ -4140,8 +4138,7 @@
 	apu_iommu0: iommu@19010000 {
 			compatible = "mediatek,mt6983-apu-iommu0";
 			reg = <0 0x19010000 0 0x1000>;
-			iommu_id = <0>;
-			iommu_type = "apu";
+			table_id = <1>;
 			mediatek,apu_power = <&apusys_rv>;
 			mediatek,iommu_banks = <&apu_iommu0_bank1 &apu_iommu0_bank2
 						&apu_iommu0_bank3 &apu_iommu0_bank4>;
@@ -4181,8 +4178,7 @@
 	apu_iommu1: iommu@19015000 {
 			compatible = "mediatek,mt6983-apu-iommu1";
 			reg = <0 0x19015000 0 0x1000>;
-			iommu_id = <1>;
-			iommu_type = "apu";
+			table_id = <1>;
 			mediatek,apu_power = <&apusys_rv>;
 			mediatek,iommu_banks = <&apu_iommu1_bank1 &apu_iommu1_bank2
 						&apu_iommu1_bank3 &apu_iommu1_bank4>;
