@@ -2741,8 +2741,13 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 
 	/* Check if disp_mode_idx change */
 	if (old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] ==
-		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX])
+		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {
+		if (drm_need_fisrt_invoke_fps_callbacks()) {
+			fps_dst = drm_mode_vrefresh(&crtc->state->mode);
+			drm_invoke_fps_chg_callbacks(fps_dst);
+		}
 		return;
+	}
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), mode_switch, 0, 0);
 
