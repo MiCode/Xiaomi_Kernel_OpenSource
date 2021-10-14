@@ -304,6 +304,7 @@ struct mtk_smi_dbg {
 	struct notifier_block suspend_nb;
 };
 static struct mtk_smi_dbg	*gsmi;
+static u32 smi_force_on;
 
 static void mtk_smi_dbg_print(
 	struct mtk_smi_dbg *smi, const bool larb, const u32 id, bool skip_pm_runtime)
@@ -920,3 +921,47 @@ MODULE_PARM_DESC(smi_larb_disable, "disable smi larb");
 module_init(mtk_smi_dbg_init);
 MODULE_LICENSE("GPL v2");
 
+int smi_larb_force_all_on(char *buf, const struct kernel_param *kp)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	s32 i;
+
+	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
+		if (!smi->larb[i].dev)
+			continue;
+		mtk_smi_larb_get(smi->larb[i].dev);
+	}
+	smi_force_on = 1;
+	pr_notice("[smi] larb force all on\n");
+	return 0;
+}
+
+static struct kernel_param_ops smi_larb_force_all_on_ops = {
+	.get = smi_larb_force_all_on,
+};
+module_param_cb(smi_force_all_on, &smi_larb_force_all_on_ops, NULL, 0644);
+MODULE_PARM_DESC(smi_force_all_on, "smi larb force all on");
+
+int smi_larb_force_all_put(char *buf, const struct kernel_param *kp)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	s32 i;
+
+	if (smi_force_on) {
+		for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
+			if (!smi->larb[i].dev)
+				continue;
+			mtk_smi_larb_put(smi->larb[i].dev);
+		}
+		smi_force_on = 0;
+		pr_notice("[smi] larb force all put\n");
+	}
+
+	return 0;
+}
+
+static struct kernel_param_ops smi_larb_force_all_put_ops = {
+	.get = smi_larb_force_all_put,
+};
+module_param_cb(smi_force_all_put, &smi_larb_force_all_put_ops, NULL, 0644);
+MODULE_PARM_DESC(smi_force_all_put, "smi larb force all put");
