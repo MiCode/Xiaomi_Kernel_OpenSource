@@ -140,6 +140,13 @@
 #define MIPITX_D1_SW_CTL_EN_MT6983 (0x045CUL)
 #define MIPITX_D3_SW_CTL_EN_MT6983 (0x055CUL)
 
+#define MIPITX_PLL_CON2_MT6983 (0x0034UL)
+#define RG_DSI_PLL_SDM_SSC_EN_MT6983 BIT(1)
+#define FLD_RG_DSI_PLL_SDM_SSC_PRD_MT6983 (0xffff << 16)
+#define MIPITX_PLL_CON3_MT6983 (0x0038UL)
+#define FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983 (0xffff << 0)
+#define FLD_RG_DSI_PLL_SDM_SSC_DELTA_MT6983 (0xffff << 16)
+
 #define MIPITX_PHY_SEL0_MT6983 (0x0040UL)
 #define FLD_MIPI_TX_PHY2_SEL_MT6983 (0xf << 0)
 #define FLD_MIPI_TX_CPHY0BC_SEL_MT6983 (0xf << 4)
@@ -318,6 +325,7 @@ struct mtk_mipitx_data {
 	const u32 mppll_preserve;
 	const u32 dsi_pll_sdm_pcw_chg;
 	const u32 dsi_pll_en;
+	const u32 dsi_ssc_en;
 	const u32 ck_sw_ctl_en;
 	const u32 d0_sw_ctl_en;
 	const u32 d1_sw_ctl_en;
@@ -917,6 +925,45 @@ int mtk_mipi_tx_dphy_lane_config_mt6983(struct phy *phy,
 		FLD_MIPI_TX_PHY3_HSDATA_SEL,
 		(pad_mapping[swap_base[MIPITX_PHY_LANE_3]]) << 0);
 
+	return 0;
+}
+
+int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int data_Rate;
+	u16 pdelta1, ssc_prd;
+	u8 txdiv;
+
+	DDPINFO("%s+\n", __func__);
+	if (mtk_panel->params->ssc_enable) {
+
+		data_Rate = mtk_panel->params->data_rate;
+
+		if (data_Rate >= 1500)
+			txdiv = 4;
+		else if (data_Rate >= 750)
+			txdiv = 8;
+		else if (data_Rate >= 430)
+			txdiv = 16;
+		else
+			return -EINVAL;
+
+		pdelta1 = data_Rate * txdiv * 5 / 26 * 262144 / 1000 / 433;
+
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983, pdelta1);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA_MT6983, pdelta1 << 16);
+
+		ssc_prd = 0x1b1;//fix
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_PRD_MT6983, ssc_prd << 16);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						mipi_tx->driver_data->dsi_ssc_en);
+
+		DDPINFO("set ssc enabled\n");
+	}
 	return 0;
 }
 
@@ -3404,6 +3451,7 @@ static const struct mtk_mipitx_data mt6983_mipitx_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG_MT6983,
 	.dsi_pll_en = RG_DSI_PLL_EN_MT6983,
+	.dsi_ssc_en = RG_DSI_PLL_SDM_SSC_EN_MT6983,
 	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN_MT6983,
 	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN_MT6983,
 	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN_MT6983,
@@ -3430,6 +3478,7 @@ static const struct mtk_mipitx_data mt6895_mipitx_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG_MT6983,
 	.dsi_pll_en = RG_DSI_PLL_EN_MT6983,
+	.dsi_ssc_en = RG_DSI_PLL_SDM_SSC_EN_MT6983,
 	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN_MT6983,
 	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN_MT6983,
 	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN_MT6983,
@@ -3456,6 +3505,7 @@ static const struct mtk_mipitx_data mt6983_mipitx_cphy_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG_MT6983,
 	.dsi_pll_en = RG_DSI_PLL_EN_MT6983,
+	.dsi_ssc_en = RG_DSI_PLL_SDM_SSC_EN_MT6983,
 	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN_MT6983,
 	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN_MT6983,
 	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN_MT6983,
@@ -3482,6 +3532,7 @@ static const struct mtk_mipitx_data mt6895_mipitx_cphy_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG_MT6983,
 	.dsi_pll_en = RG_DSI_PLL_EN_MT6983,
+	.dsi_ssc_en = RG_DSI_PLL_SDM_SSC_EN_MT6983,
 	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN_MT6983,
 	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN_MT6983,
 	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN_MT6983,

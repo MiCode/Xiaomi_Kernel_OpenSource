@@ -381,7 +381,7 @@ struct mtk_panel_params {
 	unsigned int cust_esd_check;
 	unsigned int esd_check_enable;
 	struct esd_check_item lcm_esd_check_table[ESD_CHECK_NUM];
-	unsigned int ssc_disable;
+	unsigned int ssc_enable;
 	unsigned int ssc_range;
 	int lcm_color_mode;
 	unsigned int min_luminance;

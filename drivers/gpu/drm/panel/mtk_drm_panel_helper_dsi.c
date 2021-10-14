@@ -344,8 +344,8 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			"lcm-params-dsi-vfp_for_low_power",
 			&ext_param->vfp_low_power);
 	mtk_lcm_dts_read_u32(np,
-			"lcm-params-dsi-ssc_disable",
-			&ext_param->ssc_disable);
+			"lcm-params-dsi-ssc_enable",
+			&ext_param->ssc_enable);
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-ssc_range",
 			&ext_param->ssc_range);
@@ -1464,7 +1464,7 @@ static void dump_lcm_dsi_fps_ext_param(struct mtk_panel_params *ext_param, unsig
 		ext_param->pll_clk,
 		ext_param->data_rate,
 		ext_param->vfp_low_power,
-		ext_param->ssc_disable,
+		ext_param->ssc_enable,
 		ext_param->ssc_range);
 	DDPDUMP("color_mode=%u, luminance:(min=%u, average=%u, max=%u)\n",
 		ext_param->lcm_color_mode,

@@ -904,13 +904,14 @@ static const struct drm_display_mode performance_mode_120hz = {
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 549,
+	.pll_clk = 551,
 	.vfp_low_power = 4180,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
+	.ssc_enable = 1,
 	.lane_swap_en = 1,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
@@ -960,7 +961,7 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1098,
+	.data_rate = 1102,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
@@ -984,13 +985,14 @@ static struct mtk_panel_params ext_params = {
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 549,
+	.pll_clk = 551,
 	.vfp_low_power = 2528,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
+	.ssc_enable = 1,
 	.lane_swap_en = 1,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
@@ -1040,7 +1042,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1098,
+	.data_rate = 1102,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
@@ -1064,13 +1066,14 @@ static struct mtk_panel_params ext_params_90hz = {
 };
 
 static struct mtk_panel_params ext_params_120hz = {
-	.pll_clk = 549,
+	.pll_clk = 551,
 	.vfp_low_power = 2528,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
+	.ssc_enable = 1,
 	.lane_swap_en = 1,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
@@ -1120,7 +1123,7 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1098,
+	.data_rate = 1102,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {

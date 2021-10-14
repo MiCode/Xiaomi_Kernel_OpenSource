@@ -1113,6 +1113,11 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 				}
 		}
 
+		if (dsi->ext) {
+			if (dsi->ext->params->ssc_enable)
+				mtk_mipi_tx_ssc_en(dsi->phy, dsi->ext);
+		}
+
 		pm_runtime_get_sync(dsi->host.dev);
 
 		phy_power_on(dsi->phy);
@@ -7261,10 +7266,10 @@ u32 PanelMaster_get_dsi_timing(struct mtk_dsi *dsi, enum MIPI_SETTING_TYPE type)
 	}
 	case MIPI_SSC_EN:
 	{
-		if (dsi->ext->params->ssc_disable)
-			dsi_val = 0;
-		else
+		if (dsi->ext->params->ssc_enable)
 			dsi_val = 1;
+		else
+			dsi_val = 0;
 		return dsi_val;
 	}
 	default:
@@ -7279,9 +7284,9 @@ u32 PanelMaster_get_dsi_timing(struct mtk_dsi *dsi, enum MIPI_SETTING_TYPE type)
 
 u32 DSI_ssc_enable(struct mtk_dsi *dsi, u32 en)
 {
-	u32 disable = en ? 0 : 1;
+	u32 enable = en ? 1 : 0;
 
-	dsi->ext->params->ssc_disable = disable;
+	dsi->ext->params->ssc_enable = enable;
 
 	return 0;
 }
