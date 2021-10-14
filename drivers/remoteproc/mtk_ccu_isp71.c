@@ -34,6 +34,7 @@
 
 #define CCU_SET_MMQOS
 /* #define CCU1_DEVICE */
+#define MTK_CCU_MB_RX_TIMEOUT_SPEC    1000  /* 10ms */
 
 #define MTK_CCU_TAG "[ccu_rproc]"
 #define LOG_DBG(format, args...) \
@@ -328,6 +329,12 @@ static int mtk_ccu_start(struct rproc *rproc)
 	ccu->poweron = true;
 	spin_unlock(&ccu->ccu_poweron_lock);
 
+	if (devm_request_threaded_irq(ccu->dev, ccu->irq_num, NULL,
+		mtk_ccu_isr_handler, IRQF_ONESHOT, "ccu_rproc", ccu)) {
+		dev_err(ccu->dev, "fail to request ccu irq!\n");
+		return -ENODEV;
+	}
+
 	/*1. Set CCU run*/
 	mtk_ccu_run(ccu);
 	return 0;
@@ -369,11 +376,19 @@ void *mtk_ccu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 }
 EXPORT_SYMBOL_GPL(mtk_ccu_da_to_va);
 
+static bool mtk_ccu_mb_rx_empty(struct mtk_ccu *ccu)
+{
+	if ((!ccu) || (!(ccu->mb)))
+		return true;
+
+	return (readl(&ccu->mb->rear) == readl(&ccu->mb->front));
+}
+
 static int mtk_ccu_stop(struct rproc *rproc)
 {
 	struct mtk_ccu *ccu = (struct mtk_ccu *)rproc->priv;
 	/* struct device *dev = &rproc->dev; */
-	int ret;
+	int ret, i;
 #if defined(SECURE_CCU)
 	struct arm_smccc_res res;
 #else
@@ -410,11 +425,23 @@ static int mtk_ccu_stop(struct rproc *rproc)
 	writel(ccu_reset|MTK_CCU_HW_RESET_BIT, ccu_base + MTK_CCU_REG_RESET);
 #endif
 
+	for (i = 0; i <= MTK_CCU_MB_RX_TIMEOUT_SPEC; ++i) {
+		if (mtk_ccu_mb_rx_empty(ccu))
+			break;
+		if (i < MTK_CCU_MB_RX_TIMEOUT_SPEC)
+			udelay(10);
+	}
+
+	if (i > MTK_CCU_MB_RX_TIMEOUT_SPEC)
+		LOG_DBG("mb_rx_empty timeout.\n");
+
 #if defined(CCU_SET_MMQOS)
 	mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(0), MBps_to_icc(0));
 	mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(0), MBps_to_icc(0));
 	mtk_icc_set_bw(ccu->path_ccug, MBps_to_icc(0), MBps_to_icc(0));
 #endif
+
+	devm_free_irq(ccu->dev, ccu->irq_num, ccu);
 
 	spin_lock(&ccu->ccu_poweron_lock);
 	ccu->poweron = false;
@@ -785,12 +812,6 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	/* get irq from device irq*/
 	ccu->irq_num = irq_of_parse_and_map(node, 0);
 	LOG_DBG("ccu_probe irq_num: %d\n", ccu->irq_num);
-
-	if (devm_request_threaded_irq(ccu->dev, ccu->irq_num, NULL,
-		mtk_ccu_isr_handler, IRQF_ONESHOT, "ccu_rproc", ccu)) {
-		dev_err(ccu->dev, "fail to request ccu irq!\n");
-		return -ENODEV;
-	}
 
 	/*prepare mutex & log's waitqueuehead*/
 	mutex_init(&ccu->ipc_desc_lock);
