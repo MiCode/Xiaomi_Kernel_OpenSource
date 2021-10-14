@@ -456,13 +456,13 @@
 	clock-frequency = <400000>;
 	#address-cells = <1>;
 	#size-cells = <0>;
-#if 0
+
 	mtk_camera_eeprom4:camera_eeprom4@50 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x50>;
 		status = "okay";
 	};
-#endif
+
 	sensor4: sensor4@10 {
 		compatible = "mediatek,imgsensor";
 		sensor-names = "imx481_mipi_raw";
@@ -513,13 +513,12 @@
 	clock-frequency = <400000>;
 	#address-cells = <1>;
 	#size-cells = <0>;
-#if 0
+
 	mtk_camera_eeprom1:camera_eeprom1@50 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x50>;
 		status = "okay";
 	};
-#endif
 
 	sensor1: sensor1@10 {
 		compatible = "mediatek,imgsensor";
@@ -572,13 +571,13 @@
 	clock-frequency = <400000>;
 	#address-cells = <1>;
 	#size-cells = <0>;
-#if 0
+
 	mtk_camera_eeprom0:camera_eeprom0@50 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x50>;
 		status = "okay";
 	};
-#endif
+
 	sensor0: sensor0@1a {
 		compatible = "mediatek,imgsensor";
 		reg = <0x1a>;
