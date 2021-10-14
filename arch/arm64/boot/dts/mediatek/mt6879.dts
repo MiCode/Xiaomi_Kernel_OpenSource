@@ -689,15 +689,6 @@
 			alignment = <0x0 0x10000>;
 		};
 
-		reserve-memory-mcupm_share {
-			compatible = "mediatek,reserve-memory-mcupm_share";
-			no-map;
-			status = "okay";
-			size = <0 0x610000>; /* 6M + 64K */
-			alignment = <0 0x10000>;
-			alloc-ranges = <0 0x40000000 0 0x60000000>;
-		};
-
 		gps_mem: gps-reserve-memory {
 			compatible = "mediatek,gps-reserve-memory";
 			no-map;
