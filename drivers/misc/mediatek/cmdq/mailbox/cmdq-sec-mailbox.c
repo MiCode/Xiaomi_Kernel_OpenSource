@@ -1214,7 +1214,7 @@ static int cmdq_sec_suspend(struct device *dev)
 
 	cmdq_log("cmdq:%p", cmdq);
 	cmdq->suspended = true;
-	clk_unprepare(cmdq->clock);
+
 	return 0;
 }
 
@@ -1223,7 +1223,7 @@ static int cmdq_sec_resume(struct device *dev)
 	struct cmdq_sec *cmdq = dev_get_drvdata(dev);
 
 	cmdq_log("cmdq:%p", cmdq);
-	WARN_ON(clk_prepare(cmdq->clock) < 0);
+
 	cmdq->suspended = false;
 	return 0;
 }
@@ -1701,7 +1701,6 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->shared_mem->size = PAGE_SIZE;
 
 	platform_set_drvdata(pdev, cmdq);
-	WARN_ON(clk_prepare(cmdq->clock) < 0);
 
 	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa, true);
 
@@ -1722,7 +1721,7 @@ static int cmdq_sec_remove(struct platform_device *pdev)
 	struct cmdq_sec *cmdq = platform_get_drvdata(pdev);
 
 	mbox_controller_unregister(&cmdq->mbox);
-	clk_unprepare(cmdq->clock);
+
 	return 0;
 }
 
