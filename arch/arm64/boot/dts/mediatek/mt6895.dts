@@ -4756,6 +4756,7 @@
 				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_UMPSAP>,
 				<&ufs_ao_config_clk CLK_UFSAO_U_AO_0_MMPSAP>,
 				<&ufs_pdn_cfg_clk CLK_UFSPDN_U_0_HCIUFS>,
+				<&ufs_pdn_cfg_clk CLK_UFSPDN_U_0_HCIAES>,
 				<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
 				<&topckgen_clk CLK_TOP_U_SEL>;
 
@@ -4767,10 +4768,12 @@
 				"unipro_sap",
 				"phy_sap",
 				"ufs_ck",
+				"ufs_fde_ck",
 				"ufs_fde",
 				"ufs";
 
 			freq-table-hz =
+				<0 0>,
 				<0 0>,
 				<0 0>,
 				<0 0>,
