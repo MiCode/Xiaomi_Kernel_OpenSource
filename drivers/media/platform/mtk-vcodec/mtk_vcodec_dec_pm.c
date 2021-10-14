@@ -749,6 +749,7 @@ static int mtk_vdec_translation_fault_callback(
 	struct mtk_vcodec_ctx *ctx;
 	u32 fourcc;
 	enum mtk_vcodec_ipm vdec_hw_ipm;
+	int port_idx;
 
 	if (dev->pm.mtkdev == NULL) {
 		mtk_v4l2_err("fail to get vdec_hw_ipm");
@@ -757,27 +758,35 @@ static int mtk_vdec_translation_fault_callback(
 		vdec_hw_ipm = dev->pm.mtkdev->vdec_hw_ipm;
 	}
 
-	if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO_ENC])
+	for (port_idx = 0; port_idx < NUM_MAX_VDEC_M4U_PORT; port_idx++)
+		if (port == dev->dec_m4u_ports[port_idx])
+			break;
+
+	if (port_idx == VDEC_M4U_PORT_LAT0_UFO ||
+	    port_idx == VDEC_M4U_PORT_LAT0_UFO_C ||
+	    port_idx == VDEC_M4U_PORT_LAT0_MC)
 		hw_id = MTK_VDEC_CORE;
 	else if (MTK_M4U_TO_LARB(port) == 4)
 		hw_id = MTK_VDEC_CORE; // larb4 CORE
 	else if (MTK_M4U_TO_LARB(port) == 5 && vdec_hw_ipm == VCODEC_IPM_V2)
 		hw_id = MTK_VDEC_LAT; // larb5 LAT
 	else {
-		mtk_v4l2_err("unknown larb port %d of m4u port 0x%x", port >> 5, port);
+		mtk_v4l2_err("unknown larb port %d of m4u port 0x%x", MTK_M4U_TO_LARB(port), port);
 		return 0;
 	}
 
 	ctx = dev->curr_dec_ctx[hw_id];
 	if (ctx) {
 		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
-		mtk_v4l2_err("codec:0x%08x(%c%c%c%c) %s TF larb %d port %x mva 0x%llx",
-			fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+		mtk_v4l2_err("[%d] codec:0x%08x(%c%c%c%c) %s(%d) TF larb %d port %s(%x) mva 0x%llx",
+			ctx->id, fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
 			(fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF,
-			(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE", port >> 5, port, (u64)mva);
+			(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE", hw_id,
+			MTK_M4U_TO_LARB(port), dec_port_name[port_idx], port, (u64)mva);
 	} else {
-		mtk_v4l2_err("ctx NULL codec unknown, %s TF larb %d port %x mva 0x%llx",
-			(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE", port >> 5, port, (u64)mva);
+		mtk_v4l2_err("ctx NULL codec unknown, %s(%d) TF larb %d port %s(%x) mva 0x%llx",
+			(hw_id == MTK_VDEC_LAT) ? "LAT" : "CORE", hw_id,
+			MTK_M4U_TO_LARB(port), dec_port_name[port_idx], port, (u64)mva);
 	}
 
 	if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_LAT0_VLD] ||
@@ -785,8 +794,13 @@ static int mtk_vdec_translation_fault_callback(
 		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_IN_BUF);
 	} else if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_PP] ||
 		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO] ||
-		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO_ENC]) {
+		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO_ENC] ||
+		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_LAT0_UFO] ||
+		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_LAT0_UFO_C]) {
 		mtk_vdec_dump_addr_reg(dev, MTK_VDEC_CORE, DUMP_VDEC_OUT_BUF);
+		if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO] ||
+		    port == dev->dec_m4u_ports[VDEC_M4U_PORT_UFO_ENC])
+			mtk_vdec_dump_addr_reg(dev, MTK_VDEC_CORE, DUMP_VDEC_REF_BUF);
 	} else if (port == dev->dec_m4u_ports[VDEC_M4U_PORT_MC] ||
 		   port == dev->dec_m4u_ports[VDEC_M4U_PORT_LAT0_MC]) {
 		mtk_vdec_dump_addr_reg(dev, hw_id, DUMP_VDEC_REF_BUF);

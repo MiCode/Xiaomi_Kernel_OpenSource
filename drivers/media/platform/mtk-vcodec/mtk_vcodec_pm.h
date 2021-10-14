@@ -157,6 +157,32 @@ enum mtk_dec_dtsi_m4u_port_idx {
 	NUM_MAX_VDEC_M4U_PORT
 };
 
+static char *dec_port_name[NUM_MAX_VDEC_M4U_PORT+1] = {
+	[VDEC_M4U_PORT_MC]                  = "MC",
+	[VDEC_M4U_PORT_UFO]                 = "UFO",
+	[VDEC_M4U_PORT_PP]                  = "PP",
+	[VDEC_M4U_PORT_PRED_RD]             = "PRED_RD",
+	[VDEC_M4U_PORT_PRED_WR]             = "PRED_WR",
+	[VDEC_M4U_PORT_PPWRAP]              = "PPWRAP",
+	[VDEC_M4U_PORT_TILE]                = "TILE",
+	[VDEC_M4U_PORT_VLD]                 = "VLD",
+	[VDEC_M4U_PORT_VLD2]                = "VLD2",
+	[VDEC_M4U_PORT_AVC_MV]              = "MV",
+	[VDEC_M4U_PORT_RG_CTRL_DMA]         = "RG_CTRL_DMA",
+	[VDEC_M4U_PORT_UFO_ENC]             = "UFO_ENC",
+	[VDEC_M4U_PORT_LAT0_VLD]            = "LAT_VLD",
+	[VDEC_M4U_PORT_LAT0_VLD2]           = "LAT_VLD2",
+	[VDEC_M4U_PORT_LAT0_AVC_MV]         = "LAT_MV",
+	[VDEC_M4U_PORT_LAT0_PRED_RD]        = "LAT_PRED_RD",
+	[VDEC_M4U_PORT_LAT0_TILE]           = "LAT_TILE",
+	[VDEC_M4U_PORT_LAT0_WDMA]           = "LAT_WDMA",
+	[VDEC_M4U_PORT_LAT0_RG_CTRL_DMA]    = "LAT_RG_CTRL_DMA",
+	[VDEC_M4U_PORT_LAT0_MC]             = "LAT_MC",
+	[VDEC_M4U_PORT_LAT0_UFO]            = "LAT_UFO",
+	[VDEC_M4U_PORT_LAT0_UFO_C]          = "LAT_UFO_C",
+	[NUM_MAX_VDEC_M4U_PORT]             = "UNKNOWN",
+};
+
 
 // The reg name should same with dts
 #define MTK_VDEC_REG_NAME_VDEC_BASE				"VDEC_BASE"
