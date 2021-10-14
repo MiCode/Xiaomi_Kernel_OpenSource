@@ -5246,6 +5246,13 @@ skip:
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 			PMQOS_UPDATE_BW, NULL);
 
+	/* 3.1 stop the last mml pkt */
+	if (mtk_crtc->is_mml &&
+		!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
+		mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
+	}
+
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 
@@ -6132,6 +6139,10 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
+	} else if (mtk_crtc->need_stop_last_mml_job  &&
+		!mtk_crtc_is_frame_trigger_mode(crtc)) {
+		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
+		mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
 	}
 }
 

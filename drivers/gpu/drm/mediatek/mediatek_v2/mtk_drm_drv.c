@@ -1197,6 +1197,7 @@ static void mtk_atomic_mml(struct drm_device *dev,
 			mtk_crtc = to_mtk_crtc(crtc);
 			mtk_crtc->last_is_mml = mtk_crtc->is_mml;
 			mtk_crtc->is_mml = false;
+			mtk_crtc->need_stop_last_mml_job = false;
 			break;
 		}
 	}
@@ -1225,12 +1226,9 @@ static void mtk_atomic_mml(struct drm_device *dev,
 			continue;
 
 		atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
-		if (mtk_crtc->last_is_mml) {
-			struct mml_drm_ctx *mml_ctx = NULL;
 
-			mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
-			mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
-		}
+		if (mtk_crtc->last_is_mml)
+			mtk_crtc->need_stop_last_mml_job = true;
 	}
 }
 
