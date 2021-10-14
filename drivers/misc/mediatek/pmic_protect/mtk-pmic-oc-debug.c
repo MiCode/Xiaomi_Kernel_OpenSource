@@ -335,6 +335,9 @@ static const struct of_device_id pmic_oc_debug_of_match[] = {
 		.compatible = "mediatek,mt6879-oc-debug",
 		.data = &mt6879_debug_info,
 	}, {
+		.compatible = "mediatek,mt6895-oc-debug",
+		.data = &mt6879_debug_info,
+	}, {
 		.compatible = "mediatek,mt6983-oc-debug",
 		.data = &mt6983_debug_info,
 	}, {
