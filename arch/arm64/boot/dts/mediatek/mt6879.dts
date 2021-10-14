@@ -6872,6 +6872,32 @@
 			<&disp_iommu M4U_LARB4_PORT13>,
 			<&disp_iommu M4U_LARB4_PORT14>,
 			<&disp_iommu M4U_LARB4_PORT15>;
+		m4u-ports =
+			<M4U_LARB4_PORT0>,
+			<M4U_LARB4_PORT1>,
+			<M4U_LARB4_PORT2>,
+			<M4U_LARB4_PORT3>,
+			<M4U_LARB4_PORT4>,
+			<M4U_LARB4_PORT5>,
+			<M4U_LARB4_PORT6>,
+			<M4U_LARB4_PORT7>,
+			<M4U_LARB4_PORT8>,
+			<M4U_LARB4_PORT9>,
+			<M4U_LARB4_PORT10>,
+			<M4U_LARB4_PORT11>;
+		m4u-port-names =
+			"M4U_PORT_VDEC_MC",
+			"M4U_PORT_VDEC_UFO",
+			"M4U_PORT_VDEC_PP",
+			"M4U_PORT_VDEC_PRED_RD",
+			"M4U_PORT_VDEC_PRED_WR",
+			"M4U_PORT_VDEC_PPWRAP",
+			"M4U_PORT_VDEC_TILE",
+			"M4U_PORT_VDEC_VLD",
+			"M4U_PORT_VDEC_VLD2",
+			"M4U_PORT_VDEC_AVC_MV",
+			"M4U_PORT_VDEC_RG_CTRL_DMA",
+			"M4U_PORT_VDEC_UFO_ENC";
 		mediatek,larbs = <&smi_larb4>;
 		interrupts = <GIC_SPI 561 IRQ_TYPE_LEVEL_HIGH 0>;
 		//dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
