@@ -2821,6 +2821,11 @@
 		enable_fast_charging_indicator;
 	};
 
+	logstore: logstore {
+		enabled = <1>;
+		pmic_register = <0xa0d>;
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
