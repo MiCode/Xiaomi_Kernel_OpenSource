@@ -55,9 +55,6 @@ struct GED_NOTIFY_SW_SYNC {
 	unsigned long ul3DFenceDoneTime;
 };
 
-#define MAX_NOTIFY_CNT 25
-struct GED_NOTIFY_SW_SYNC loading_base_notify[MAX_NOTIFY_CNT];
-int notify_index;
 
 int (*ged_sw_vsync_event_fp)(bool bMode) = NULL;
 EXPORT_SYMBOL(ged_sw_vsync_event_fp);
@@ -114,6 +111,7 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 				"[GED_K] Timer kick giveup (ts=%llu)", temp);
 		}
 #endif
+		ged_free(psNotify, sizeof(struct GED_NOTIFY_SW_SYNC));
 	}
 }
 
@@ -155,6 +153,7 @@ static void ged_timer_switch_work_handle(struct work_struct *psWork)
 	if (psNotify) {
 		ged_sw_vsync_event(false);
 		timer_switch(false);
+		ged_free(psNotify, sizeof(struct GED_NOTIFY_SW_SYNC));
 	}
 }
 
@@ -340,9 +339,8 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 	llDiff = (long long)(temp - sw_vsync_ts);
 
 	if (llDiff > GED_VSYNC_MISS_QUANTUM_NS) {
-		psNotify = &(loading_base_notify[((notify_index++)%MAX_NOTIFY_CNT)]);
-		if (notify_index >= MAX_NOTIFY_CNT)
-			notify_index = 0;
+		psNotify = (struct GED_NOTIFY_SW_SYNC *)
+			ged_alloc_atomic(sizeof(struct GED_NOTIFY_SW_SYNC));
 
 #ifndef ENABLE_TIMER_BACKUP
 		ged_dvfs_cal_gpu_utilization_ex(&gpu_av_loading,
