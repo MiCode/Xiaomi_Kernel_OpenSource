@@ -511,6 +511,25 @@ resource_size_t mtk_ovl_mmsys_mapping_MT6983(struct mtk_ddp_comp *comp)
 	}
 }
 
+resource_size_t mtk_ovl_mmsys_mapping_MT6895(struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL1_2L:
+		return priv->config_regs_pa;
+	case DDP_COMPONENT_OVL1:
+	case DDP_COMPONENT_OVL2_2L:
+	case DDP_COMPONENT_OVL3_2L:
+		return priv->side_config_regs_pa;
+	default:
+		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
 unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
@@ -3704,6 +3723,7 @@ static const struct mtk_disp_ovl_data mt6895_ovl_driver_data = {
 	.greq_num_dl = 0x7777,
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6895,
+	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6895,
 };
 
 static const struct compress_info compr_info_mt6873  = {
