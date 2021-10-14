@@ -118,25 +118,18 @@ struct PDA_CLK_STRUCT pda_clk[PDA_CLK_NUM];
 
 #ifdef PDA_MMQOS
 // mmqos relate
-#define PDA_MMQOS_RDMA_NUM 8
+#define PDA_MMQOS_RDMA_NUM 4
 static const char * const mmqos_names_rdma[PDA_MMQOS_RDMA_NUM] = {
-	"l13_pdai_a_0",
-	"l13_pdai_a_1",
 	"l25_pdai_a0",
 	"l25_pdai_a1",
-	"l14_pdai_b_0",
-	"l14_pdai_b_1",
 	"l26_pdai_b0",
 	"l26_pdai_b1"
 };
 struct icc_path *icc_path_pda_rdma[PDA_MMQOS_RDMA_NUM];
 
-#define PDA_MMQOS_WDMA_NUM 5
+#define PDA_MMQOS_WDMA_NUM 2
 static const char * const mmqos_names_wdma[PDA_MMQOS_WDMA_NUM] = {
-	"l13_pdao_a",
-	"l13_pdao_c",
 	"l25_pdao_a",
-	"l14_pdao_b",
 	"l26_pdao_b"
 };
 struct icc_path *icc_path_pda_wdma[PDA_MMQOS_WDMA_NUM];
@@ -242,23 +235,28 @@ static void pda_mmqos_bw_set(void)
 
 	// WDMA BW estimate
 	double WDMA_PEAK_BW = (double)WDMA_Data / (double)OperationTime / 1000.0;
-	double WDMA_AVG_BW = (double)WDMA_Data * Frame_Rate / 1000000.0;
+	double WDMA_AVG_BW = (double)WDMA_Data * Frame_Rate * (1.33) / 1000000.0;
 
 	// RDMA BW estimate
 	double RDMA_PEAK_BW = (double)RDMA_Data / (double)OperationTime / 1000.0;
 	double RDMA_AVG_BW = (double)RDMA_Data / (1000000.0/(double)Frame_Rate);
 
+	// Left/Right RDMA BW
+	double IMAGE_TABLE_RDMA_PEAK_BW = RDMA_PEAK_BW / 2;
+	double IMAGE_TABLE_RDMA_AVG_BW = RDMA_AVG_BW * (1.33) / 2;
+
 	// MMQOS set bw
 	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
 		if (icc_path_pda_rdma[i]) {
 			mtk_icc_set_bw(icc_path_pda_rdma[i],
-				(int)MBps_to_icc(RDMA_AVG_BW),
-				(int)MBps_to_icc(RDMA_PEAK_BW));
+				(int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
+				(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW));
 			LOG_INF("rdma index: %d, RDMA_AVG_BW: %d, RDMA_PEAK_BW: %d\n",
-				i, (int)MBps_to_icc(RDMA_AVG_BW),
-				(int)MBps_to_icc(RDMA_PEAK_BW));
+				i, (int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
+				(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW));
 		}
 	}
+
 	for (i = 0; i < PDA_MMQOS_WDMA_NUM; ++i) {
 		if (icc_path_pda_wdma[i]) {
 			mtk_icc_set_bw(icc_path_pda_wdma[i],
@@ -1811,7 +1809,6 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	LOG_INF("PDA open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
 #ifdef PDA_MMQOS
-	pda_mmqos_init();
 	pda_mmqos_bw_set();
 #endif
 
@@ -1819,8 +1816,10 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	g_reasonable_IRQCount = 0;
 	g_PDA0_IRQCount = 0;
 	g_PDA1_IRQCount = 0;
+#ifdef FOR_DEBUG
 	LOG_INF("IRQCount, Reasonable = %d, PDA0 = %d, PDA1 = %d\n",
 		g_reasonable_IRQCount, g_PDA0_IRQCount, g_PDA1_IRQCount);
+#endif
 #endif
 
 	return 0;
@@ -2068,6 +2067,10 @@ static int PDA_probe(struct platform_device *pDev)
 			LOG_INF("PDA1 get IRQ ID Fail or No IRQ: %d\n", PDA_devs[0].irq);
 		}
 	}
+
+#ifdef PDA_MMQOS
+	pda_mmqos_init();
+#endif
 
 	LOG_INF("Attached!!\n");
 	LOG_INF("probe End\n");
