@@ -142,6 +142,9 @@ enum pageflags {
 #ifdef CONFIG_KASAN_HW_TAGS
 	PG_skip_kasan_poison,
 #endif
+#ifdef CONFIG_MTK_VM_DEBUG
+	PG_debug,
+#endif
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -275,6 +278,25 @@ static __always_inline void SetPage##uname(struct page *page)		\
 static __always_inline void ClearPage##uname(struct page *page)		\
 	{ clear_bit(PG_##lname, &policy(page, 1)->flags); }
 
+#ifdef CONFIG_MTK_VM_DEBUG
+#define __SETPAGEFLAG(uname, lname, policy)				\
+static __always_inline void __SetPage##uname(struct page *page)		\
+{									\
+	SetPageDebug(page);						\
+	__set_bit(PG_##lname, &policy(page, 1)->flags);			\
+	if (!TestClearPageDebug(page))					\
+		BUG();							\
+}
+
+#define __CLEARPAGEFLAG(uname, lname, policy)				\
+static __always_inline void __ClearPage##uname(struct page *page)	\
+{									\
+	SetPageDebug(page);						\
+	__clear_bit(PG_##lname, &policy(page, 1)->flags);		\
+	if (!TestClearPageDebug(page))					\
+		BUG();							\
+}
+#else
 #define __SETPAGEFLAG(uname, lname, policy)				\
 static __always_inline void __SetPage##uname(struct page *page)		\
 	{ __set_bit(PG_##lname, &policy(page, 1)->flags); }
@@ -282,6 +304,25 @@ static __always_inline void __SetPage##uname(struct page *page)		\
 #define __CLEARPAGEFLAG(uname, lname, policy)				\
 static __always_inline void __ClearPage##uname(struct page *page)	\
 	{ __clear_bit(PG_##lname, &policy(page, 1)->flags); }
+#endif
+
+#ifdef CONFIG_MTK_VM_DEBUG
+#define SETPAGEFLAGDEBUG(uname, lname, policy)				\
+static __always_inline void SetPage##uname(struct page *page)		\
+{									\
+	ClearPageDebug(page);						\
+	set_bit(PG_##lname, &policy(page, 1)->flags);			\
+	ClearPageDebug(page);						\
+}
+
+#define CLEARPAGEFLAGDEBUG(uname, lname, policy)			\
+static __always_inline void ClearPage##uname(struct page *page)		\
+{									\
+	ClearPageDebug(page);						\
+	clear_bit(PG_##lname, &policy(page, 1)->flags);			\
+	ClearPageDebug(page);						\
+}
+#endif
 
 #define TESTSETFLAG(uname, lname, policy)				\
 static __always_inline int TestSetPage##uname(struct page *page)	\
@@ -300,6 +341,13 @@ static __always_inline int TestClearPage##uname(struct page *page)	\
 	TESTPAGEFLAG(uname, lname, policy)				\
 	__SETPAGEFLAG(uname, lname, policy)				\
 	__CLEARPAGEFLAG(uname, lname, policy)
+
+#ifdef CONFIG_MTK_VM_DEBUG
+#define PAGEFLAGDEBUG(uname, lname, policy)				\
+		TESTPAGEFLAG(uname, lname, policy)			\
+		SETPAGEFLAGDEBUG(uname, lname, policy)			\
+		CLEARPAGEFLAGDEBUG(uname, lname, policy)
+#endif
 
 #define TESTSCFLAG(uname, lname, policy)				\
 	TESTSETFLAG(uname, lname, policy)				\
@@ -329,15 +377,28 @@ static inline int TestClearPage##uname(struct page *page) { return 0; }
 #define TESTSCFLAG_FALSE(uname)						\
 	TESTSETFLAG_FALSE(uname) TESTCLEARFLAG_FALSE(uname)
 
+#ifdef CONFIG_MTK_VM_DEBUG
+PAGEFLAG(Debug, debug, PF_ANY)
+	TESTCLEARFLAG(Debug, debug, PF_ANY)
+#endif
+
 __PAGEFLAG(Locked, locked, PF_NO_TAIL)
+#ifdef CONFIG_MTK_VM_DEBUG
+PAGEFLAGDEBUG(Waiters, waiters, PF_ONLY_HEAD) __CLEARPAGEFLAG(Waiters, waiters, PF_ONLY_HEAD)
+#else
 PAGEFLAG(Waiters, waiters, PF_ONLY_HEAD) __CLEARPAGEFLAG(Waiters, waiters, PF_ONLY_HEAD)
+#endif
 PAGEFLAG(Error, error, PF_NO_TAIL) TESTCLEARFLAG(Error, error, PF_NO_TAIL)
 PAGEFLAG(Referenced, referenced, PF_HEAD)
 	TESTCLEARFLAG(Referenced, referenced, PF_HEAD)
 	__SETPAGEFLAG(Referenced, referenced, PF_HEAD)
 PAGEFLAG(Dirty, dirty, PF_HEAD) TESTSCFLAG(Dirty, dirty, PF_HEAD)
 	__CLEARPAGEFLAG(Dirty, dirty, PF_HEAD)
+#ifdef CONFIG_MTK_VM_DEBUG
+PAGEFLAGDEBUG(LRU, lru, PF_HEAD) __CLEARPAGEFLAG(LRU, lru, PF_HEAD)
+#else
 PAGEFLAG(LRU, lru, PF_HEAD) __CLEARPAGEFLAG(LRU, lru, PF_HEAD)
+#endif
 PAGEFLAG(Active, active, PF_HEAD) __CLEARPAGEFLAG(Active, active, PF_HEAD)
 	TESTCLEARFLAG(Active, active, PF_HEAD)
 PAGEFLAG(Workingset, workingset, PF_HEAD)
