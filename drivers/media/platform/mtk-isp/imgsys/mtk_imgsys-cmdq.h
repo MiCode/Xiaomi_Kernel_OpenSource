@@ -123,7 +123,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 					uint32_t fail_uinfo_idx, bool isHWhang));
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
-				dma_addr_t dma_pa, uint32_t *num);
+				dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
 int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev);
 int imgsys_cmdq_sec_adl_task(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt);
