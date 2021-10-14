@@ -18,6 +18,11 @@ enum idle_param {
 
 #define S2IDLE_STATE_NAME	"s2idle"
 
+#define get_residency_ns(drv, idx)\
+	((drv)->states[idx].target_residency_ns)
+#define get_latency_ns(drv, idx)\
+	((drv)->states[idx].exit_latency_ns)
+
 #define get_residency(drv, idx)\
 	((drv)->states[idx].target_residency)
 #define get_latency(drv, idx)\
@@ -38,11 +43,17 @@ enum idle_param {
 })
 #define mtk_cpuidle_set_param(drv, state, param, val)           \
 do {                                                            \
-	if (param == IDLE_PARAM_LAT)                            \
-		get_latency(drv, state) = (unsigned int)val;                  \
-	else if (param == IDLE_PARAM_RES)                       \
-		get_residency(drv, state) = (unsigned int)val;                \
-	else if (param == IDLE_PARAM_EN){                        \
+	if (param == IDLE_PARAM_LAT) {                          \
+		u64 __time_ns = val;				\
+		__time_ns = __time_ns * NSEC_PER_USEC;		\
+		get_latency(drv, state) = (unsigned int)val;	\
+		get_latency_ns(drv, state) = __time_ns;		\
+	} else if (param == IDLE_PARAM_RES) {			\
+		u64 __time_ns = val;				\
+		__time_ns = __time_ns * NSEC_PER_USEC;		\
+		get_residency(drv, state) = (unsigned int)val;	\
+		get_residency_ns(drv, state) = __time_ns;	\
+	} else if (param == IDLE_PARAM_EN) {			\
 		if (!!val) {					\
 			get_disabled(drv, state) &= ~CPUIDLE_FLAG_UNUSABLE;	\
 			cpuidle_driver_state_disabled(drv, state, false);	\
