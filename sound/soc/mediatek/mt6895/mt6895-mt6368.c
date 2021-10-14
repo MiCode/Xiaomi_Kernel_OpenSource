@@ -635,7 +635,7 @@ SND_SOC_DAILINK_DEFS(hostless_src_aaudio,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless SRC AAudio DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD)
 
 SND_SOC_DAILINK_DEFS(btcvsd,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1200,7 +1200,7 @@ static struct snd_soc_dai_link mt6895_mt6368_dai_links[] = {
 		SND_SOC_DAILINK_REG(hostless_src_aaudio),
 	},
 	/* BTCVSD */
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD)
 	{
 		.name = "BTCVSD",
 		.stream_name = "BTCVSD",
