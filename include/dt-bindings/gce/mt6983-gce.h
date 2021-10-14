@@ -947,6 +947,13 @@
 #define CMDQ_SYNC_TOKEN_DISP_VA_START			692
 #define CMDQ_SYNC_TOKEN_DISP_VA_END			693
 
+/* SW sync token for dual display */
+#define CMDQ_SYNC_TOKEN_CONFIG_DIRTY_1			694
+#define CMDQ_SYNC_TOKEN_STREAM_EOF_1			695
+#define CMDQ_SYNC_TOKEN_ESD_EOF_1			696
+#define CMDQ_SYNC_TOKEN_STREAM_BLOCK_1			697
+#define CMDQ_SYNC_TOKEN_CABC_EOF_1			698
+
 /* GPR access tokens (for HW register backup)
  * There are 15 32-bit GPR, 3 GPR form a set
  * (64-bit for address, 32-bit for value)
