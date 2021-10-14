@@ -6,7 +6,6 @@
 #include "mtk-mmc.h"
 #include "mtk-mmc-dbg.h"
 #include "../core/card.h"
-#include "../core/core.h"
 #include <linux/regulator/consumer.h>
 #include <mt-plat/mtk_blocktag.h>
 
@@ -1102,22 +1101,9 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 
 		/* Apply different pinctrl settings for different signal voltage */
-		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180)
 			pinctrl_select_state(host->pinctrl, host->pins_uhs);
-			if (host->id == MSDC_SD || host->id == MSDC_SDIO) {
-				/* Keep clock gated for 10 ms, though spec only says 5 ms */
-				mmc_delay(10);
-				sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
-				mmc_delay(1);
-				sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
-				if (readl(host->base + MSDC_PS) & (0xf << 16))
-					return 0;
-				pr_notice(
-				"msdc%d: 1.8V regulator output did not became stable\n",
-					host->id);
-				return -EAGAIN;
-			}
-		} else
+		else
 			pinctrl_select_state(host->pinctrl, host->pins_default);
 	}
 #endif
@@ -1583,9 +1569,19 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		msdc_init_tune_setting(host);
 #endif
 
-	if (host->mclk != ios->clock || host->timing != ios->timing)
+	if (host->mclk != ios->clock || host->timing != ios->timing) {
 		msdc_set_mclk(host, ios->timing, ios->clock);
-
+		if ((mmc->caps2 & MMC_CAP2_NO_MMC)
+			&& host->old_signal_voltage == MMC_SIGNAL_VOLTAGE_330
+			&& mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+			dev_info(host->dev, "[%s]:enable clk free run 1ms+ for switch to 1.8v\n",
+				__func__);
+			sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+			usleep_range(1000, 1500);
+			sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+		}
+		host->old_signal_voltage = mmc->ios.signal_voltage;
+	}
 #if IS_ENABLED(CONFIG_MMC_AUTOK)
 	if (ios->timing == MMC_TIMING_MMC_HS400 &&
 		ios->clock > 52000000) {
