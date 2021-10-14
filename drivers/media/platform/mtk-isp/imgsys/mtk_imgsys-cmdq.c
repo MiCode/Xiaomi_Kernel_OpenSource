@@ -1022,7 +1022,7 @@ void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	int volt = 0, ret = 0, idx = 0, opp_idx = 0;
 	unsigned long freq = 0;
-	u32 hw_comb = frm_info->user_info[0].hw_comb;
+	/* u32 hw_comb = frm_info->user_info[0].hw_comb; */
 
 	freq = dvfs_info->freq;
 
@@ -1030,8 +1030,8 @@ void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
 		dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
 	else {
 		/* Choose for IPESYS */
-		if (hw_comb & IMGSYS_ENG_ME)
-			opp_idx = 1;
+		/* if (hw_comb & IMGSYS_ENG_ME) */
+			/* opp_idx = 1; */
 
 		for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
 			if (freq <= dvfs_info->clklv[opp_idx][idx])
