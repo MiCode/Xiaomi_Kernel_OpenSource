@@ -1775,6 +1775,14 @@ static const struct mtk_addon_module_data addon_rsz_data_v4[] = {
 	{DISP_RSZ_v4, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
 };
 
+static const struct mtk_addon_module_data addon_rsz_data_v5[] = {
+	{DISP_RSZ_v5, ADDON_BETWEEN, DDP_COMPONENT_OVL1_2L},
+};
+
+static const struct mtk_addon_module_data addon_rsz_data_v6[] = {
+	{DISP_RSZ_v6, ADDON_BETWEEN, DDP_COMPONENT_OVL3_2L},
+};
+
 static const struct mtk_addon_module_data addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_DITHER0},
 };
@@ -1983,13 +1991,13 @@ static const struct mtk_addon_scenario_data mt6895_addon_main[ADDON_SCN_NR] = {
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[ONE_SCALING] = {
-				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
-				.module_data = addon_rsz_data_v2,
+				.module_num = ARRAY_SIZE(addon_rsz_data_v5),
+				.module_data = addon_rsz_data_v5,
 				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 		[TWO_SCALING] = {
-				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
-				.module_data = addon_rsz_data_v2,
+				.module_num = ARRAY_SIZE(addon_rsz_data_v5),
+				.module_data = addon_rsz_data_v5,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[WDMA_WRITE_BACK] = {
@@ -2006,13 +2014,13 @@ static const struct mtk_addon_scenario_data mt6895_addon_main_dual[ADDON_SCN_NR]
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[ONE_SCALING] = {
-				.module_num = ARRAY_SIZE(addon_rsz_data_v4),
-				.module_data = addon_rsz_data_v4,
+				.module_num = ARRAY_SIZE(addon_rsz_data_v6),
+				.module_data = addon_rsz_data_v6,
 				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 		[TWO_SCALING] = {
-				.module_num = ARRAY_SIZE(addon_rsz_data_v4),
-				.module_data = addon_rsz_data_v4,
+				.module_num = ARRAY_SIZE(addon_rsz_data_v6),
+				.module_data = addon_rsz_data_v6,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[WDMA_WRITE_BACK] = {
