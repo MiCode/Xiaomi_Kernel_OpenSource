@@ -72,6 +72,7 @@ static unsigned int lasthpg_act;
 static unsigned int lasthpg_cpu;
 static unsigned long long lasthpg_t;
 static unsigned long long wk_lasthpg_t[16] = { 0 };	/* max cpu 16 */
+static unsigned int cpuid_t[16] = { 0 };	/* max cpu 16 */
 static unsigned long long lastsuspend_t;
 static unsigned long long lastresume_t;
 static struct notifier_block wdt_pm_nb;
@@ -296,7 +297,8 @@ static void kwdt_time_sync(void)
 }
 
 static void kwdt_process_kick(int local_bit, int cpu,
-				unsigned long curInterval, char msg_buf[])
+				unsigned long curInterval, char msg_buf[],
+				unsigned int original_kicker)
 {
 	unsigned int dump_timeout = 0, r_counter = DEFAULT_INTERVAL;
 	int i = 0;
@@ -305,7 +307,10 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		r_counter = ioread32(toprgu_base + WDT_COUNTER) / (32 * 1024);
 
 	local_bit = kick_bit;
-	if ((local_bit & (1 << cpu)) == 0) {
+	if (cpu != original_kicker) {
+		/* wdtk-(original_kicker) is migrated to (cpu) */
+		local_bit |= (1 << original_kicker);
+	} else if ((local_bit & (1 << cpu)) == 0) {
 		/* pr_debug("[wdk] set kick_bit\n"); */
 		local_bit |= (1 << cpu);
 		/* aee_rr_rec_wdk_kick_jiffies(jiffies); */
@@ -325,8 +330,8 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%x,%d,%d,%lld,%lld,%lld,[%lld,%ld] %d\n",
-	 cpu, local_bit, get_check_bit(),
+	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%lld,%lld,[%lld,%ld] %d\n",
+	 cpu, original_kicker, local_bit, get_check_bit(),
 	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
 	 lasthpg_act, lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
 	 curInterval, r_counter);
@@ -484,29 +489,20 @@ static int kwdt_thread(void *arg)
 
 		/* to avoid wk_tsk[cpu] had not created out */
 		if (wk_tsk[cpu] != 0) {
-			/* only process kicking info
-			 * if thread-x is on cpu-x
-			 */
-			if (wk_tsk[cpu]->pid == current->pid) {
-				if ((kick_bit & get_check_bit()) == 0) {
-					g_nxtKickTime =
-						ktime_to_us(ktime_get())
-						+ g_kinterval*1000*1000;
-					curInterval =
-						g_kinterval*1000*1000;
-				} else {
-					curInterval =	g_nxtKickTime
-					- ktime_to_us(ktime_get());
-				}
-				/* to avoid interval too long */
-				if (curInterval > g_kinterval*1000*1000)
-					curInterval =
-						g_kinterval*1000*1000;
-				kwdt_process_kick(local_bit, cpu,
-					curInterval, msg_buf);
+			if ((kick_bit & get_check_bit()) == 0) {
+				g_nxtKickTime = ktime_to_us(ktime_get())
+					+ g_kinterval*1000*1000;
+				curInterval = g_kinterval*1000*1000;
 			} else {
-				spin_unlock(&lock);
+				curInterval = g_nxtKickTime
+				- ktime_to_us(ktime_get());
 			}
+			/* to avoid interval too long */
+			if (curInterval > g_kinterval*1000*1000)
+				curInterval = g_kinterval*1000*1000;
+
+			kwdt_process_kick(local_bit, cpu, curInterval,
+				msg_buf, *((unsigned int *)arg));
 		} else {
 			spin_unlock(&lock);
 		}
@@ -523,8 +519,9 @@ static int start_kicker(void)
 	int i;
 
 	for (i = 0; i < CPU_NR; i++) {
+		cpuid_t[i] = i;
 		wk_tsk[i] = kthread_create(kwdt_thread,
-			(void *)(unsigned long)i, "wdtk-%d", i);
+			(void *) &cpuid_t[i], "wdtk-%d", i);
 		if (IS_ERR(wk_tsk[i])) {
 			int ret = PTR_ERR(wk_tsk[i]);
 
