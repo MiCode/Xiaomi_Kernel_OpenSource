@@ -326,7 +326,6 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 		}
 
 		apu_regdump();
-		hw_logger_copy_buf();
 		apusys_rv_aee_warn(apusys_assert_module_name[apu->conf_buf->ramdump_module],
 			"APUSYS_RV_EXCEPTION");
 		dev_info(dev, "%s: done\n", __func__);
@@ -470,7 +469,6 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 	}
 
 	apu_regdump();
-	hw_logger_copy_buf();
 	apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_TIMEOUT");
 	dev_info(dev, "%s: done\n", __func__);
 }

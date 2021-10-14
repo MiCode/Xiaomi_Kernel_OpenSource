@@ -77,8 +77,10 @@ static unsigned int __loc_log_sz;
 /* for hw buffer tracking */
 static unsigned int __hw_log_r_ofs;
 
+#ifdef HW_LOG_SYSFS_BIN
 /* for sysfs normal dump */
 static unsigned int g_dump_log_r_ofs;
+#endif
 
 atomic_t apu_toplog_deep_idle;
 
@@ -279,8 +281,9 @@ int hw_logger_config_init(struct mtk_apu *apu)
 	g_log_lm.w_ptr = 0;
 	g_log_lm.r_ptr = U32_MAX;
 	g_log_lm.ov_flg = 0;
+#ifdef HW_LOG_SYSFS_BIN
 	g_dump_log_r_ofs = U32_MAX;
-
+#endif
 	__loc_log_sz = 0;
 
 	atomic_set(&apu_toplog_deep_idle, 0);
@@ -479,8 +482,18 @@ static int apu_logtop_copy_buf(void)
 {
 	unsigned int w_ofs, r_ofs, t_size, st_addr;
 	int ret = 0;
+	static bool lock_fail;
 
-	mutex_lock(&hw_logger_mutex);
+	if (!mutex_trylock(&hw_logger_mutex)) {
+		if (!lock_fail) {
+			HWLOGR_WARN("lock fail\n");
+			lock_fail = true;
+		}
+		return ret;
+	} else if (lock_fail) {
+		HWLOGR_INFO("lock success\n");
+		lock_fail = false;
+	}
 
 	__get_r_w_sz(&w_ofs, &r_ofs, &t_size, &st_addr);
 
@@ -489,8 +502,10 @@ static int apu_logtop_copy_buf(void)
 	 * entered, the w_ofs, r_ofs, t_size
 	 * can not be trusted.
 	 */
-	if (atomic_read(&apu_toplog_deep_idle))
+	if (atomic_read(&apu_toplog_deep_idle)) {
+		HWLOGR_INFO("in deep idle skip copy");
 		goto out;
+	}
 
 	ret = __apu_logtop_copy_buf(w_ofs,
 			r_ofs, t_size, st_addr);
@@ -1058,6 +1073,11 @@ static int seq_show(struct seq_file *s, void *v)
 		if (prevIsBinary)
 			seq_puts(s, "\n");
 		prevIsBinary = 0;
+		/*
+		 * force null-terminated
+		 * prevent overflow from printing non-string content
+		 */
+		*(local_log_buf + pSData->r_ptr + HWLOG_LINE_MAX_LENS - 1) = '\0';
 		seq_printf(s, "%s",
 			local_log_buf + pSData->r_ptr);
 	}
