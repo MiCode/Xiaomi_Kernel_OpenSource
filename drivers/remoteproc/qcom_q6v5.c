@@ -100,6 +100,7 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 
 	/* Sometimes the stop triggers a watchdog rather than a stop-ack */
 	if (!q6v5->running) {
+		dev_info(q6v5->dev, "received wdog irq while q6 is offline\n");
 		complete(&q6v5->stop_done);
 		return IRQ_HANDLED;
 	}
@@ -128,6 +129,11 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	struct qcom_q6v5 *q6v5 = data;
 	size_t len;
 	char *msg;
+
+	if (!q6v5->running) {
+		dev_info(q6v5->dev, "received fatal irq while q6 is offline\n");
+		return IRQ_HANDLED;
+	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
 	if (!IS_ERR(msg) && len > 0 && msg[0])
