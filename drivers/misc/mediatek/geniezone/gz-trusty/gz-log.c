@@ -45,6 +45,7 @@
 #include <linux/of_address.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/debugfs.h>
+#include <linux/sched/clock.h>
 
 #include <mt-plat/mrdump.h>
 
@@ -55,7 +56,6 @@
 	#include "gz_trace_module.h"
 #endif
 #include <linux/vmalloc.h>
-#include <linux/sched/clock.h>
 
 struct gz_trace_dump_t {
 	u64 ktime_base;
@@ -740,6 +740,33 @@ static const struct proc_ops proc_gz_log_fops = {
 	.proc_poll = gz_log_poll,
 };
 
+static int trusty_gz_send_ktime(struct platform_device *pdev)
+{
+	uint64_t current_ktime;
+	uint64_t current_cnt;
+	uint64_t diff_all;
+	uint32_t diff_msb;
+	uint32_t diff_lsb;
+
+	current_ktime = sched_clock();
+	current_cnt = __arch_counter_get_cntvct();
+
+	diff_all = current_cnt - (13 * current_ktime)/1000;
+	diff_msb = (diff_all >> 32);
+	diff_lsb = (diff_all & U32_MAX);
+
+	trusty_fast_call32(pdev->dev.parent,
+		MTEE_SMCNR(MT_SMCF_FC_KTIME_ALIGN, pdev->dev.parent),
+		diff_msb, diff_lsb, 0);
+
+	return 0;
+}
+
+static int trusty_gz_log_resume(struct platform_device *pdev)
+{
+	return trusty_gz_send_ktime(pdev);
+}
+
 static int trusty_gz_log_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -751,6 +778,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	int cpu;
 #endif
 
+	trusty_gz_send_ktime(pdev);
 
 	if (!trusty_supports_logging(pdev->dev.parent))
 		return -ENXIO;
@@ -963,6 +991,7 @@ static const struct of_device_id trusty_gz_of_match[] = {
 
 static struct platform_driver trusty_gz_log_driver = {
 	.probe = trusty_gz_log_probe,
+	.resume = trusty_gz_log_resume,
 	.remove = trusty_gz_log_remove,
 	.driver = {
 		.name = "trusty-gz-log",
