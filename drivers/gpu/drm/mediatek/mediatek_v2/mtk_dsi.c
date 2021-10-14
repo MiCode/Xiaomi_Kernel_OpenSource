@@ -1843,21 +1843,16 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
-			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
-				MTK_DRM_OPT_DSI_UNDERRUN_AEE)) {
-				if (dsi_underrun_trigger == 1) {
-					DDPAEE(
-						"[IRQ] %s:buffer underrun\n",
-						mtk_dump_comp_str(
-							&dsi->ddp_comp));
-					if (dsi->encoder.crtc) {
-						mtk_drm_crtc_analysis(
-							dsi->encoder.crtc);
-						mtk_drm_crtc_dump(
-							dsi->encoder.crtc);
-					}
-					dsi_underrun_trigger = 0;
-				}
+			if (dsi_underrun_trigger == 1 && priv &&
+					mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_DSI_UNDERRUN_AEE))
+				DDPAEE("[IRQ] %s:buffer underrun\n",
+					mtk_dump_comp_str(&dsi->ddp_comp));
+
+			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
+				mtk_drm_crtc_analysis(dsi->encoder.crtc);
+				mtk_drm_crtc_dump(dsi->encoder.crtc);
+				dsi_underrun_trigger = 0;
 			}
 
 			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
@@ -1866,12 +1861,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if (__ratelimit(&ioctl_ratelimit))
 				pr_err(pr_fmt("[IRQ] %s: buffer underrun\n"),
 					mtk_dump_comp_str(&dsi->ddp_comp));
-
-			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
-				mtk_drm_crtc_analysis(dsi->encoder.crtc);
-				mtk_drm_crtc_dump(dsi->encoder.crtc);
-				dsi_underrun_trigger = 0;
-			}
 		}
 
 		//if (status & INP_UNFINISH_INT_EN)
