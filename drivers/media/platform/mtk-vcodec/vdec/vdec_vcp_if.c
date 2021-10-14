@@ -113,7 +113,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		return -EIO;
 
 	while (!is_vcp_ready(VCP_A_ID)) {
-		mtk_v4l2_debug(0, "[VCP] wait ready");
+		mtk_v4l2_debug(((timeout > 9) ? 0 : 4), "[VCP] wait ready %d ms", timeout);
 		mdelay(1);
 		timeout++;
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {

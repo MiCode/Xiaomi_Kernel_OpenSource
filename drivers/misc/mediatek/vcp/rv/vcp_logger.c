@@ -45,6 +45,12 @@
 #define VCP_LOGGER_DRAM_OFF (VCP_LOGGER_OFF_CTRL_BIT | VCP_LOGGER_DRAM_ON_BIT)
 #define VCP_LOGGER_UT (1)
 
+#undef pr_debug
+#define pr_debug(fmt, arg...) do { \
+		if (vcp_dbg_log) \
+			pr_info(fmt, ##arg); \
+	} while (0)
+
 struct log_ctrl_s {
 	unsigned int base;
 	unsigned int size;
@@ -604,7 +610,7 @@ static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 	phys_addr_t dma_addr;
 
 	dma_addr = vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID);
-	pr_debug("[VCP]vcp_get_reserve_mem_phys=%llx\n", (uint64_t)dma_addr);
+	pr_debug("[VCP] vcp_get_reserve_mem_phys=%llx\n", (uint64_t)dma_addr);
 	spin_lock_irqsave(&vcp_A_log_buf_spinlock, flags);
 	/* sync vcp last log information*/
 	last_log_info.vcp_log_dram_addr = log_info->vcp_log_dram_addr;
@@ -614,20 +620,20 @@ static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 	last_log_info.vcp_log_buf_maxlen = log_info->vcp_log_buf_maxlen;
 	/*cofirm last log information is less than tcm size*/
 	if (last_log_info.vcp_log_dram_addr > vcpreg.total_tcmsize)
-		pr_notice("[VCP]last_log_info.vcp_log_dram_addr %x is over tcm_size %x\n",
+		pr_notice("[VCP] last_log_info.vcp_log_dram_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_dram_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_buf_addr > vcpreg.total_tcmsize)
-		pr_notice("[VCP]last_log_info.vcp_log_buf_addr %x is over tcm_size %x\n",
+		pr_notice("[VCP] last_log_info.vcp_log_buf_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_buf_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_start_addr > vcpreg.total_tcmsize)
-		pr_notice("[VCP]last_log_info.vcp_log_start_addr %x is over tcm_size %x\n",
+		pr_notice("[VCP] last_log_info.vcp_log_start_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_start_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_end_addr > vcpreg.total_tcmsize)
-		pr_notice("[VCP]last_log_info.vcp_log_end_addr %x is over tcm_size %x\n",
+		pr_notice("[VCP] last_log_info.vcp_log_end_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_end_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_buf_addr + last_log_info.vcp_log_buf_maxlen >
 		vcpreg.total_tcmsize)
-		pr_notice("[VCP] end of last_log_info.vcp_last_log_buf %x is over tcm_size %x\n",
+		pr_notice("[VCP]  end of last_log_info.vcp_last_log_buf %x is over tcm_size %x\n",
 			last_log_info.vcp_log_buf_addr + last_log_info.vcp_log_buf_maxlen,
 				vcpreg.total_tcmsize);
 
@@ -695,7 +701,7 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 	msg.u.init.addr = (uint32_t)(VCP_PACK_IOVA(dma_addr));
 	msg.u.init.size = vcp_get_reserve_mem_size(VCP_A_LOGGER_MEM_ID);
 
-	pr_notice("[VCP] %s: id=%u\n", __func__, vcp_ipi_id);
+	pr_debug("[VCP] %s: id=%u\n", __func__, vcp_ipi_id);
 	/*
 	 *send ipi to invoke vcp logger
 	 */

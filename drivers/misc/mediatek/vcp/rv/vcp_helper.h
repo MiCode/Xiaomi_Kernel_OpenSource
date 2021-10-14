@@ -55,7 +55,6 @@ struct VCP_IRQ_AST_INFO {
 #define VCP_UNPACK_IOVA(addr)   \
 	((uint64_t)(addr & 0xFFFFFFF0) | (((uint64_t)(addr) & 0xF) << 32))
 
-
 /* vcp semaphore definition*/
 enum SEMAPHORE_FLAG {
 	SEMAPHORE_CLK_CFG_5 = 0,
@@ -177,6 +176,7 @@ extern void vcp_logger_uninit(void);
 
 extern void vcp_logger_stop(void);
 extern void vcp_logger_cleanup(void);
+extern unsigned int vcp_dbg_log;
 
 /* vcp exception */
 int vcp_excep_init(void);

@@ -80,10 +80,10 @@ unsigned int vcp_expected_freq;
 unsigned int vcp_current_freq;
 unsigned int vcp_dvfs_cali_ready;
 unsigned int vcp_support;
+unsigned int vcp_dbg_log;
 
 /*vcp awake variable*/
 int vcp_awake_counts[VCP_CORE_TOTAL];
-
 
 unsigned int vcp_recovery_flag[VCP_CORE_TOTAL];
 #define VCP_A_RECOVERY_OK	0x44
@@ -172,12 +172,11 @@ struct vcp_ipi_irq vcp_ipi_irqs[] = {
 #define IRQ_NUMBER  (sizeof(vcp_ipi_irqs)/sizeof(struct vcp_ipi_irq))
 struct device *vcp_io_devs[VCP_IOMMU_DEV_NUM];
 
-/*
-#undef pr_notice
-#define pr_notice pr_info
 #undef pr_debug
-#define pr_debug pr_info
-*/
+#define pr_debug(fmt, arg...) do { \
+		if (vcp_dbg_log) \
+			pr_info(fmt, ##arg); \
+	} while (0)
 
 static void vcp_enable_irqs(void)
 {
@@ -674,9 +673,9 @@ void vcp_enable_pm_clk(void)
 			reset_vcp(VCP_ALL_ENABLE);
 	}
 	pwclkcnt++;
+	pr_notice("[VCP] %s done %d\n", __func__, pwclkcnt);
 	mutex_unlock(&vcp_pw_clk_mutex);
 
-	pr_debug("[VCP] %s done\n", __func__);
 }
 EXPORT_SYMBOL_GPL(vcp_enable_pm_clk);
 
@@ -688,9 +687,9 @@ void vcp_disable_pm_clk(void)
 	if (!vcp_support)
 		return;
 
-	pr_debug("[VCP] %s entered\n", __func__);
-
 	mutex_lock(&vcp_pw_clk_mutex);
+	pr_notice("[VCP] %s entered %d ready %d\n", __func__,
+		pwclkcnt, is_vcp_ready(VCP_A_ID));
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
 		while (!is_vcp_ready(VCP_A_ID)) {
@@ -979,7 +978,8 @@ static ssize_t vcp_ee_enable_store(struct device *kobj
 
 	if (kstrtouint(buf, 10, &value) == 0) {
 		vcp_ee_enable = value;
-		pr_debug("[VCP] vcp_ee_enable = %d(1:enable, 0:disable)\n"
+		vcp_dbg_log = value;
+		pr_debug("[VCP] vcp_ee_enable(vcp_dbg_log) = %d(1:enable, 0:disable)\n"
 				, vcp_ee_enable);
 	}
 	return n;
@@ -2479,6 +2479,7 @@ static int __init vcp_init(void)
 	}
 	vcp_dvfs_cali_ready = 0;
 	vcp_support = 1;
+	vcp_dbg_log = 0;
 
 	/* vco io device initialise */
 	for (i = 0; i < VCP_IOMMU_DEV_NUM; i++)
