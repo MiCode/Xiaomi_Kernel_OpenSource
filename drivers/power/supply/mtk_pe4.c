@@ -96,6 +96,7 @@ void mtk_pe40_reset(struct chg_alg_device *alg)
 
 	pe4_hal_vbat_mon_en(alg, CHG1, false);
 	pe40->old_cv = 0;
+	pe40->stop_6pin_re_en = 0;
 	pe40->cap.nr = 0;
 	pe40->pe4_input_current_limit = -1;
 	pe40->pe4_input_current_limit_setting = -1;
@@ -1093,6 +1094,7 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 	bool chg2_enable = false;
 	bool chg2_chip_enable = false;
 	bool thermal_skip = false;
+	int uisoc = 0;
 
 	pe40 = dev_get_drvdata(&alg->dev);
 
@@ -1250,11 +1252,11 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 	if (ret == 1)
 		goto disable_hv;
 
-	if (pe40->avbus * oldibus <= PE40_MIN_WATT) {
+	uisoc = pe4_hal_get_uisoc(alg);
+	if (uisoc > 80 && pe40->avbus * oldibus <= PE40_MIN_WATT) {
 		if (pe40->charging_current_limit1 != -1 ||
 			pe40->input_current_limit1 != -1)
 			mtk_pe40_end(alg, 1);
-
 		else
 			mtk_pe40_end(alg, 1);
 	}
@@ -1340,8 +1342,10 @@ static int pe4_sc_set_charger(struct chg_alg_device *alg)
 
 		pe4->old_cv = pe4->cv;
 	} else {
-		if (pe4->pe4_6pin_en && pe4->stop_6pin_re_en != 1)
+		if (pe4->pe4_6pin_en && pe4->stop_6pin_re_en != 1) {
+			pe4->stop_6pin_re_en = 1;
 			pe4_hal_vbat_mon_en(alg, CHG1, true);
+		}
 	}
 
 

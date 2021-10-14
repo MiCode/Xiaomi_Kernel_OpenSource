@@ -108,6 +108,7 @@ static int pe2_plugout_reset(struct chg_alg_device *alg)
 
 		pe2_hal_vbat_mon_en(alg, CHG1, false);
 		pe2->old_cv = 0;
+		pe2->stop_6pin_re_en = 0;
 
 		/* Enable OVP */
 		ret = pe2_hal_enable_vbus_ovp(alg, true);
@@ -187,6 +188,7 @@ int pe2_reset_ta_vchr(struct chg_alg_device *alg)
 
 	pe2_hal_vbat_mon_en(alg, CHG1, false);
 	pe2->old_cv = 0;
+	pe2->stop_6pin_re_en = 0;
 
 	if (ret_value != 0) {
 		pe2_err("%s: failed, ret = %d\n", __func__, ret);
@@ -554,6 +556,7 @@ static int _pe2_init_algo(struct chg_alg_device *alg)
 
 	pe2_hal_vbat_mon_en(alg, CHG1, false);
 	pe2->old_cv = 0;
+	pe2->stop_6pin_re_en = 0;
 
 	ret = pe2_hal_set_efficiency_table(pe2->alg);
 	if (ret != 0)
@@ -722,8 +725,10 @@ static int pe2_sc_set_charger(struct chg_alg_device *alg)
 
 		pe2->old_cv = pe2->cv;
 	} else {
-		if (pe2->pe2_6pin_en && pe2->stop_6pin_re_en != 1)
+		if (pe2->pe2_6pin_en && pe2->stop_6pin_re_en != 1) {
+			pe2->stop_6pin_re_en = 1;
 			pe2_hal_vbat_mon_en(alg, CHG1, true);
+		}
 	}
 
 	pe2_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d, 6pin_en:%d, 6pin_re_en=%d\n", __func__,

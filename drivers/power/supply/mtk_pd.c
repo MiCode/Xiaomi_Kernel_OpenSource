@@ -111,6 +111,7 @@ static int _pd_init_algo(struct chg_alg_device *alg)
 
 	pd_hal_vbat_mon_en(alg, CHG1, false);
 	pd->old_cv = 0;
+	pd->stop_6pin_re_en = 0;
 
 	if (alg->config == DUAL_CHARGERS_IN_PARALLEL) {
 		pd_err("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
@@ -713,8 +714,10 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 
 		pd->old_cv = pd->cv;
 	} else {
-		if (pd->pd_6pin_en && pd->stop_6pin_re_en != 1)
+		if (pd->pd_6pin_en && pd->stop_6pin_re_en != 1) {
+			pd->stop_6pin_re_en = 1;
 			pd_hal_vbat_mon_en(alg, CHG1, true);
+		}
 	}
 
 	pd_dbg("%s old_cv=%d, new_cv=%d, pd_6pin_en=%d 6pin_re_en=%d\n", __func__,

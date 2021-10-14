@@ -331,6 +331,7 @@ struct mtk_charger {
 	bool batpro_done;
 	bool enable_vbat_mon;
 	int old_cv;
+	bool stop_6pin_re_en;
 
 	/* sw jeita */
 	bool enable_sw_jeita;

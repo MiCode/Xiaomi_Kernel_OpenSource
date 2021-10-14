@@ -2208,6 +2208,7 @@ stop_charging:
 	if (charging && uisoc < 80 && info->batpro_done == true) {
 		info->setting.vbat_mon_en = true;
 		info->batpro_done = false;
+		info->stop_6pin_re_en = false;
 	}
 
 	chr_err("tmp:%d (jeita:%d sm:%d cv:%d en:%d) (sm:%d) en:%d c:%d s:%d ov:%d sc:%d %d %d saf_cmd:%d bat_mon:%d %d\n",
@@ -2419,6 +2420,7 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 	info->safety_timeout = false;
 	info->vbusov_stat = false;
 	info->old_cv = 0;
+	info->stop_6pin_re_en = false;
 	info->batpro_done = false;
 
 	chr_err("mtk_is_charger_on plug in, type:%d\n", chr_type);

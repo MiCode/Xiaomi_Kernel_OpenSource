@@ -374,9 +374,11 @@ static int do_algorithm(struct mtk_charger *info)
 	if (info->is_chg_done != chg_done) {
 		if (chg_done) {
 			charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
+			info->polling_interval = CHARGING_FULL_INTERVAL;
 			chr_err("%s battery full\n", __func__);
 		} else {
 			charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+			info->polling_interval = CHARGING_INTERVAL;
 			chr_err("%s battery recharge\n", __func__);
 		}
 	}
@@ -479,14 +481,16 @@ static int do_algorithm(struct mtk_charger *info)
 				info->chg1_dev, false);
 			charger_dev_set_constant_voltage(info->chg1_dev,
 				info->setting.cv);
-			if (info->setting.vbat_mon_en)
+			if (info->setting.vbat_mon_en && info->stop_6pin_re_en != 1)
 				charger_dev_enable_6pin_battery_charging(
 					info->chg1_dev, true);
 			info->old_cv = info->setting.cv;
 		} else {
-			if (info->setting.vbat_mon_en)
+			if (info->setting.vbat_mon_en && info->stop_6pin_re_en != 1) {
+				info->stop_6pin_re_en = 1;
 				charger_dev_enable_6pin_battery_charging(
 					info->chg1_dev, true);
+			}
 		}
 	}
 
@@ -549,12 +553,13 @@ static int charger_dev_event(struct notifier_block *nb, unsigned long event,
 
 	switch (event) {
 	case CHARGER_DEV_NOTIFY_EOC:
+		info->stop_6pin_re_en = 1;
 		notify.evt = EVT_FULL;
 		notify.value = 0;
-	for (i = 0; i < 10; i++) {
-		alg = info->alg[i];
-		chg_alg_notifier_call(alg, &notify);
-	}
+		for (i = 0; i < 10; i++) {
+			alg = info->alg[i];
+			chg_alg_notifier_call(alg, &notify);
+		}
 
 		break;
 	case CHARGER_DEV_NOTIFY_RECHG:
