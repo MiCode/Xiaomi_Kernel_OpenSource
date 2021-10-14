@@ -168,12 +168,6 @@ int ssusb_host_enable(struct ssusb_mtk *ssusb)
 
 	ret =  ssusb_check_clocks(ssusb, check_clk);
 
-	/* set noise still transfer */
-	if (ssusb->noise_still_tr) {
-		mtu3_setbits(ssusb->mac_base, U3D_USB_BUS_PERFORMANCE,
-			NOISE_STILL_TRANSFER);
-	}
-
 	/* update txdeemph */
 	ssusb_set_txdeemph(ssusb);
 

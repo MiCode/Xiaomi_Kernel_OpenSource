@@ -26,6 +26,15 @@ enum {
 	MTU3_SMC_INFRA_NUM,
 };
 
+void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb)
+{
+	/* set noise still transfer */
+	if (ssusb->noise_still_tr) {
+		mtu3_setbits(ssusb->mac_base, U3D_USB_BUS_PERFORMANCE,
+			NOISE_STILL_TRANSFER);
+	}
+}
+
 void ssusb_set_txdeemph(struct ssusb_mtk *ssusb)
 {
 	u32 txdeemph;
@@ -91,8 +100,8 @@ static void ssusb_hw_request(struct ssusb_mtk *ssusb,
 	spm_ctrl &= ~SSUSB_SPM_REQ_MSK;
 	spm_ctrl |= req;
 	mtu3_writel(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL, spm_ctrl);
-	/* wait 1ms */
-	mdelay(1);
+	/* wait 2ms */
+	mdelay(2);
 }
 
 void ssusb_set_power_state(struct ssusb_mtk *ssusb,

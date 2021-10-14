@@ -479,6 +479,7 @@ void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
 void ssusb_set_power_state(struct ssusb_mtk *ssusb, enum mtu3_power_state);
 void ssusb_set_txdeemph(struct ssusb_mtk *ssusb);
+void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb);
 struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags);
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req);
 void mtu3_req_complete(struct mtu3_ep *mep,
@@ -501,6 +502,9 @@ void mtu3_gadget_reset(struct mtu3 *mtu);
 void mtu3_gadget_suspend(struct mtu3 *mtu);
 void mtu3_gadget_resume(struct mtu3 *mtu);
 void mtu3_gadget_disconnect(struct mtu3 *mtu);
+
+int mtu3_device_enable(struct mtu3 *mtu);
+void mtu3_device_disable(struct mtu3 *mtu);
 
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);
 extern const struct usb_ep_ops mtu3_ep0_ops;

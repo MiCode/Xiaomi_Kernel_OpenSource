@@ -142,9 +142,7 @@ static void switch_port_to_on(struct ssusb_mtk *ssusb,
 		ssusb_phy_power_on(ssusb);
 		ssusb_phy_set_mode(ssusb, mode);
 		ssusb_ip_sw_reset(ssusb);
-		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 	} else {
-		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 		ssusb_ip_sleep(ssusb);
 		ssusb_phy_power_off(ssusb);
 		ssusb_clks_disable(ssusb);
@@ -247,28 +245,30 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 
 	switch (status) {
 	case MTU3_ID_GROUND:
-		switch_port_to_on(ssusb, true, PHY_MODE_USB_HOST);
 		if (ssusb->clk_mgr) {
+			switch_port_to_on(ssusb, true, PHY_MODE_USB_HOST);
 			ssusb_host_enable(ssusb);
-			ssusb_host_register(ssusb, true);
-		}
+			ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
+		} else
+			switch_port_to_host(ssusb);
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
-		switch_port_to_host(ssusb);
-		ssusb_set_vbus(otg_sx, 1);
+		ssusb_host_register(ssusb, true);
+		ssusb_set_noise_still_tr(ssusb);
 		ssusb->is_host = true;
 		otg_sx->sw_state |= MTU3_SW_ID_GROUND;
 		break;
 	case MTU3_ID_FLOAT:
-		if (ssusb->clk_mgr) {
-			ssusb_host_register(ssusb, false);
-			ssusb_host_disable(ssusb, true);
-		}
-		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_NONE);
 		ssusb->is_host = false;
 		ssusb_set_vbus(otg_sx, 0);
-		switch_port_to_device(ssusb);
+		ssusb_host_register(ssusb, false);
+		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_NONE);
+		if (ssusb->clk_mgr) {
+			ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
+			ssusb_host_disable(ssusb, true);
+			switch_port_to_on(ssusb, false, PHY_MODE_USB_OTG);
+		} else
+			switch_port_to_device(ssusb);
 		otg_sx->sw_state &= ~MTU3_SW_ID_GROUND;
-		switch_port_to_on(ssusb, false, PHY_MODE_USB_OTG);
 		break;
 	case MTU3_VBUS_OFF:
 		spin_lock_irqsave(&mtu->lock, flags);
@@ -280,13 +280,21 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		spin_unlock_irqrestore(&mtu->lock, flags);
 		pm_relax(ssusb->dev);
 		ssusb_set_force_vbus(ssusb, false);
+		if (ssusb->clk_mgr) {
+			ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
+			mtu3_device_disable(mtu);
+			switch_port_to_on(ssusb, false, PHY_MODE_USB_OTG);
+		}
 		otg_sx->sw_state &= ~MTU3_SW_VBUS_VALID;
-		switch_port_to_on(ssusb, false, PHY_MODE_USB_OTG);
 		break;
 	case MTU3_VBUS_VALID:
-		switch_port_to_on(ssusb, true, PHY_MODE_USB_DEVICE);
+		if (ssusb->clk_mgr) {
+			switch_port_to_on(ssusb, true, PHY_MODE_USB_DEVICE);
+			mtu3_device_enable(mtu);
+			ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
+		} else
+			switch_port_to_device(ssusb);
 		ssusb_set_force_vbus(ssusb, true);
-		switch_port_to_device(ssusb);
 		/* avoid suspend when works as device */
 		pm_stay_awake(ssusb->dev);
 		mtu3_start(mtu);
