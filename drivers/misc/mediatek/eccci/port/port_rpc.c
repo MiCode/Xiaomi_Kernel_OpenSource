@@ -78,7 +78,6 @@ static int get_md_adc_val(__attribute__((unused))unsigned int num)
 {
 	int val = ccci_get_adc_val();
 
-	CCCI_NORMAL_LOG(0, RPC, "ADC raw val:%d\n", val);
 	return val;
 }
 
