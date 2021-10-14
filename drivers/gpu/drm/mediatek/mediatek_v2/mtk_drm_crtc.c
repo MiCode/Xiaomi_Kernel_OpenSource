@@ -8423,14 +8423,16 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 	size_t size;
 	unsigned int offset = 0;
 	struct dummy_mapping *table;
-	unsigned int idx;
+	unsigned int idx, mmsys_id = 0;
 
 	if (slot_index > DISP_SLOT_SIZE) {
 		DDPPR_ERR("%s invalid slot_index", __func__);
 		return NULL;
 	}
 
-	if (mtk_get_mmsys_id(crtc) != MMSYS_MT6983) {
+	mmsys_id = mtk_get_mmsys_id(crtc);
+	if ((mmsys_id != MMSYS_MT6983) &&
+	    (mmsys_id != MMSYS_MT6895)) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
 		if (cmdq_buf == NULL) {
@@ -8466,14 +8468,16 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 	size_t size;
 	unsigned int offset = 0;
 	struct dummy_mapping *table;
-	unsigned int idx;
+	unsigned int idx, mmsys_id = 0;
 
 	if (slot_index > DISP_SLOT_SIZE) {
 		DDPPR_ERR("%s invalid slot_index", __func__);
 		return 0;
 	}
 
-	if (mtk_get_mmsys_id(crtc) != MMSYS_MT6983) {
+	mmsys_id = mtk_get_mmsys_id(crtc);
+	if ((mmsys_id != MMSYS_MT6983) &&
+	    (mmsys_id != MMSYS_MT6895)) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
 		if (cmdq_buf == NULL) {
