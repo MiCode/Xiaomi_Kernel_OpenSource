@@ -150,40 +150,44 @@ void scp_dump_last_regs(void)
 		c1_t1_m->lr_latch = readl(R_CORE1_T1_MON_LR_LATCH);
 		c1_t1_m->sp_latch = readl(R_CORE1_T1_MON_SP_LATCH);
 	}
+	scp_dump_bus_tracker_status();
+}
 
-	pr_debug("[SCP] c0h0_status = %08x\n", c0_m->status);
-	pr_debug("[SCP] c0h0_pc = %08x\n", c0_m->pc);
-	pr_debug("[SCP] c0h0_lr = %08x\n", c0_m->lr);
-	pr_debug("[SCP] c0h0_sp = %08x\n", c0_m->sp);
-	pr_debug("[SCP] c0h0_pc_latch = %08x\n", c0_m->pc_latch);
-	pr_debug("[SCP] c0h0_lr_latch = %08x\n", c0_m->lr_latch);
-	pr_debug("[SCP] c0h0_sp_latch = %08x\n", c0_m->sp_latch);
+void scp_show_last_regs(void)
+{
+	pr_notice("[SCP] c0h0_status = %08x\n", c0_m->status);
+	pr_notice("[SCP] c0h0_pc = %08x\n", c0_m->pc);
+	pr_notice("[SCP] c0h0_lr = %08x\n", c0_m->lr);
+	pr_notice("[SCP] c0h0_sp = %08x\n", c0_m->sp);
+	pr_notice("[SCP] c0h0_pc_latch = %08x\n", c0_m->pc_latch);
+	pr_notice("[SCP] c0h0_lr_latch = %08x\n", c0_m->lr_latch);
+	pr_notice("[SCP] c0h0_sp_latch = %08x\n", c0_m->sp_latch);
 	if (scpreg.twohart) {
-		pr_debug("[SCP] c0h1_pc = %08x\n", c0_t1_m->pc);
-		pr_debug("[SCP] c0h1_lr = %08x\n", c0_t1_m->lr);
-		pr_debug("[SCP] c0h1_sp = %08x\n", c0_t1_m->sp);
-		pr_debug("[SCP] c0h1_pc_latch = %08x\n", c0_t1_m->pc_latch);
-		pr_debug("[SCP] c0h1_lr_latch = %08x\n", c0_t1_m->lr_latch);
-		pr_debug("[SCP] c0h1_sp_latch = %08x\n", c0_t1_m->sp_latch);
+		pr_notice("[SCP] c0h1_pc = %08x\n", c0_t1_m->pc);
+		pr_notice("[SCP] c0h1_lr = %08x\n", c0_t1_m->lr);
+		pr_notice("[SCP] c0h1_sp = %08x\n", c0_t1_m->sp);
+		pr_notice("[SCP] c0h1_pc_latch = %08x\n", c0_t1_m->pc_latch);
+		pr_notice("[SCP] c0h1_lr_latch = %08x\n", c0_t1_m->lr_latch);
+		pr_notice("[SCP] c0h1_sp_latch = %08x\n", c0_t1_m->sp_latch);
 	}
 	if (scpreg.core_nums == 2) {
-		pr_debug("[SCP] c1h0_status = %08x\n", c1_m->status);
-		pr_debug("[SCP] c1h0_pc = %08x\n", c1_m->pc);
-		pr_debug("[SCP] c1h0_lr = %08x\n", c1_m->lr);
-		pr_debug("[SCP] c1h0_sp = %08x\n", c1_m->sp);
-		pr_debug("[SCP] c1h0_pc_latch = %08x\n", c1_m->pc_latch);
-		pr_debug("[SCP] c1h0_lr_latch = %08x\n", c1_m->lr_latch);
-		pr_debug("[SCP] c1h0_sp_latch = %08x\n", c1_m->sp_latch);
+		pr_notice("[SCP] c1h0_status = %08x\n", c1_m->status);
+		pr_notice("[SCP] c1h0_pc = %08x\n", c1_m->pc);
+		pr_notice("[SCP] c1h0_lr = %08x\n", c1_m->lr);
+		pr_notice("[SCP] c1h0_sp = %08x\n", c1_m->sp);
+		pr_notice("[SCP] c1h0_pc_latch = %08x\n", c1_m->pc_latch);
+		pr_notice("[SCP] c1h0_lr_latch = %08x\n", c1_m->lr_latch);
+		pr_notice("[SCP] c1h0_sp_latch = %08x\n", c1_m->sp_latch);
 	}
 	if (scpreg.core_nums == 2 && scpreg.twohart) {
-		pr_debug("[SCP] c1h1_pc = %08x\n", c1_t1_m->pc);
-		pr_debug("[SCP] c1h1_lr = %08x\n", c1_t1_m->lr);
-		pr_debug("[SCP] c1h1_sp = %08x\n", c1_t1_m->sp);
-		pr_debug("[SCP] c1h1_pc_latch = %08x\n", c1_t1_m->pc_latch);
-		pr_debug("[SCP] c1h1_lr_latch = %08x\n", c1_t1_m->lr_latch);
-		pr_debug("[SCP] c1h1_sp_latch = %08x\n", c1_t1_m->sp_latch);
+		pr_notice("[SCP] c1h1_pc = %08x\n", c1_t1_m->pc);
+		pr_notice("[SCP] c1h1_lr = %08x\n", c1_t1_m->lr);
+		pr_notice("[SCP] c1h1_sp = %08x\n", c1_t1_m->sp);
+		pr_notice("[SCP] c1h1_pc_latch = %08x\n", c1_t1_m->pc_latch);
+		pr_notice("[SCP] c1h1_lr_latch = %08x\n", c1_t1_m->lr_latch);
+		pr_notice("[SCP] c1h1_sp_latch = %08x\n", c1_t1_m->sp_latch);
 	}
-	scp_dump_bus_tracker_status();
+	scp_show_bus_tracker_status();
 }
 
 void scp_dump_bus_tracker_status(void)
@@ -191,37 +195,59 @@ void scp_dump_bus_tracker_status(void)
 	uint32_t offset;
 	uint64_t __iomem *bus_dbg_read_l;
 	uint64_t __iomem *bus_dbg_write_l;
-	int i;
+	int i, j;
+	struct scp_bus_tracker_status *bus_tracker;
 
-	pr_notice("BUS DBG CON: %x\n", readl(SCP_BUS_DBG_CON));
+	bus_tracker = &scpreg.tracker_status;
+	bus_tracker->dbg_con = readl(SCP_BUS_DBG_CON);
 	for (i = 3; i >= 0; --i) {
 		offset = i << 3;
 		bus_dbg_read_l = ((uint64_t *)SCP_BUS_DBG_AR_TRACK0_L) + offset;
 		bus_dbg_write_l = ((uint64_t *)SCP_BUS_DBG_AW_TRACK0_L) + offset;
 		if (!readl(bus_dbg_read_l + 7) && !readl(bus_dbg_write_l + 7))
 			continue;
+
+		for (j = 7; j >= 0; --j) {
+			bus_tracker->dbg_r[offset + j] =
+				readl(bus_dbg_read_l + j);
+			bus_tracker->dbg_w[offset + j] =
+				readl(bus_dbg_write_l + j);
+		}
+	}
+}
+
+void scp_show_bus_tracker_status(void)
+{
+	uint32_t offset;
+	int i;
+	struct scp_bus_tracker_status *bus_tracker;
+
+	bus_tracker = &scpreg.tracker_status;
+	pr_notice("BUS DBG CON: %x\n", bus_tracker->dbg_con);
+	for (i = 3; i >= 0; --i) {
+		offset = i << 3;
+		if (!bus_tracker->dbg_r[offset + 7] && !bus_tracker->dbg_r[offset + 7])
+			continue;
 		pr_notice("R[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
 				offset, offset + 7,
-				readl(bus_dbg_read_l),
-				readl(bus_dbg_read_l + 1),
-				readl(bus_dbg_read_l + 2),
-				readl(bus_dbg_read_l + 3),
-				readl(bus_dbg_read_l + 4),
-				readl(bus_dbg_read_l + 5),
-				readl(bus_dbg_read_l + 6),
-				readl(bus_dbg_read_l + 7)
-			   );
+				bus_tracker->dbg_r[offset],
+				bus_tracker->dbg_r[offset + 1],
+				bus_tracker->dbg_r[offset + 2],
+				bus_tracker->dbg_r[offset + 3],
+				bus_tracker->dbg_r[offset + 4],
+				bus_tracker->dbg_r[offset + 5],
+				bus_tracker->dbg_r[offset + 6],
+				bus_tracker->dbg_r[offset + 7]);
 		pr_notice("W[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
 				offset, offset + 7,
-				readl(bus_dbg_write_l),
-				readl(bus_dbg_write_l + 1),
-				readl(bus_dbg_write_l + 2),
-				readl(bus_dbg_write_l + 3),
-				readl(bus_dbg_write_l + 4),
-				readl(bus_dbg_write_l + 5),
-				readl(bus_dbg_write_l + 6),
-				readl(bus_dbg_write_l + 7)
-			   );
+				bus_tracker->dbg_w[offset],
+				bus_tracker->dbg_w[offset + 1],
+				bus_tracker->dbg_w[offset + 2],
+				bus_tracker->dbg_w[offset + 3],
+				bus_tracker->dbg_w[offset + 4],
+				bus_tracker->dbg_w[offset + 5],
+				bus_tracker->dbg_w[offset + 6],
+				bus_tracker->dbg_w[offset + 7]);
 		}
 }
 
@@ -575,6 +601,7 @@ static void scp_prepare_aed_dump(char *aed_str,
 
 	pr_debug("[SCP] %s begins:%s\n", __func__, aed_str);
 	scp_dump_last_regs();
+	scp_show_last_regs();
 
 	scp_A_log = scp_pickup_log_for_aee();
 

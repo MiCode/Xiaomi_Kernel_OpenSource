@@ -454,9 +454,6 @@ static void scp_A_notify_ws(struct work_struct *ws)
 
 		writel(0xff, SCP_TO_SPM_REG); /* patch: clear SPM interrupt */
 
-#if SCP_RECOVERY_SUPPORT
-		atomic_set(&scp_reset_status, RESET_STATUS_STOP);
-#endif
 		scp_ready[SCP_A_ID] = 1;
 
 #if SCP_DVFS_INIT_ENABLE
@@ -481,7 +478,16 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	msleep(2000);
 	__pm_relax(scp_reset_lock);
 	scp_register_feature(RTOS_FEATURE_ID);
-
+#if SCP_RECOVERY_SUPPORT
+	if (atomic_read(&scp_reset_status) == RESET_STATUS_START_WDT) {
+		pr_notice("[SCP] recovery fail, recovery again\n");
+		atomic_set(&scp_reset_status, RESET_STATUS_START);
+		scp_send_reset_wq(RESET_TYPE_WDT);
+	} else {
+		pr_notice("[SCP] recovery success\n");
+		atomic_set(&scp_reset_status, RESET_STATUS_STOP);
+	}
+#endif
 }
 
 
@@ -723,6 +729,7 @@ static inline ssize_t scp_A_reg_status_show(struct device *kobj
 	int len = 0;
 
 	scp_dump_last_regs();
+	scp_show_last_regs();
 	len += scnprintf(buf + len, PAGE_SIZE - len,
 		"c0h0_status = %08x\n", c0_m->status);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
@@ -1565,23 +1572,42 @@ void scp_awake_init(void)
 #if SCP_RECOVERY_SUPPORT
 /*
  * scp_set_reset_status, set and return scp reset status function
- * return value:
- *   0: scp not in reset status
- *   1: scp in reset status
+ * return value: scp reset original status
  */
 unsigned int scp_set_reset_status(void)
 {
 	unsigned long spin_flags;
+	unsigned int res;
 
 	spin_lock_irqsave(&scp_reset_spinlock, spin_flags);
-	if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
-		spin_unlock_irqrestore(&scp_reset_spinlock, spin_flags);
-		return 1;
+	switch (res = atomic_read(&scp_reset_status)) {
+	case RESET_STATUS_STOP:
+		atomic_set(&scp_reset_status, RESET_STATUS_START);
+		break;
+	/*
+	 * do nothing because scp bus hang may trigger reset
+	 * by awake reset and then scp trigger wdt.
+	 */
+	case RESET_STATUS_START:
+		break;
+	/*
+	 * after kick scp and wdt happen mean reboot fail, we
+	 * need to reset again after recovery finish.
+	 */
+	case RESET_STATUS_START_KICK:
+		atomic_set(&scp_reset_status, RESET_STATUS_START_WDT);
+		break;
+	/*
+	 * do nothing because when status is wdt, the status should
+	 * be changed by workqueue when recovery finish.
+	 */
+	case RESET_STATUS_START_WDT:
+		break;
+	default:
+		break;
 	}
-	/* scp not in reset status, set it and return*/
-	atomic_set(&scp_reset_status, RESET_STATUS_START);
 	spin_unlock_irqrestore(&scp_reset_spinlock, spin_flags);
-	return 0;
+	return res;
 }
 
 /******************************************************************************
@@ -1645,6 +1671,27 @@ void scp_reset_wait_timeout(void)
 
 }
 
+static void wait_scp_ready_to_reboot(void)
+{
+	int retry = 0;
+	unsigned long c0, c1;
+
+	/* clr after SCP side INT trigger,
+	 * or SCP may lost INT max wait = 200ms
+	 */
+	for (retry = 200; retry > 0; retry--) {
+		c0 = readl(SCP_GPR_CORE0_REBOOT);
+		c1 = scpreg.core_nums == 2 ? readl(SCP_GPR_CORE1_REBOOT) :
+			CORE_RDY_TO_REBOOT;
+
+		if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
+			break;
+		usleep_range(1000, 1100);
+	}
+
+	if (retry == 0)
+		pr_notice("[SCP] SCP don't stay in wfi c0:%x c1:%x\n", c0, c1);
+}
 /*
  * callback function for work struct
  * NOTE: this function may be blocked
@@ -1662,6 +1709,9 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/*notify scp functions stop*/
 	pr_debug("[SCP] %s(): scp_extern_notify\n", __func__);
 	scp_extern_notify(SCP_EVENT_STOP);
+	if (scp_reset_type == RESET_TYPE_WDT)
+		scp_show_last_regs();
+	wait_scp_ready_to_reboot();
 	/*
 	 *   scp_ready:
 	 *   SCP_PLATFORM_STOP  = 0,
@@ -1768,6 +1818,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	pr_notice("[SCP] rstn core0 %x\n", readl(R_CORE0_SW_RSTN_CLR));
 	dsb(SY); /* may take lot of time */
 	}
+	atomic_set(&scp_reset_status, RESET_STATUS_START_KICK);
 #if SCP_BOOT_TIME_OUT_MONITOR
 	mod_timer(&scp_ready_timer[SCP_A_ID].tl, jiffies + SCP_READY_TIMEOUT);
 #endif
@@ -2238,6 +2289,7 @@ static int scp_device_probe(struct platform_device *pdev)
 			pr_notice("[SCP]ipc0 require fail %d %d\n",
 				scpreg.irq0, ret);
 		else {
+			scp_A_irq0_tasklet.data = scpreg.irq0;
 			ret = enable_irq_wake(scpreg.irq0);
 			if (ret < 0)
 				pr_notice("[SCP] ipc0 wake fail:%d,%d\n",
@@ -2256,6 +2308,7 @@ static int scp_device_probe(struct platform_device *pdev)
 			pr_notice("[SCP]ipc1 require irq fail %d %d\n",
 				scpreg.irq1, ret);
 		else {
+			scp_A_irq1_tasklet.data = scpreg.irq1;
 			ret = enable_irq_wake(scpreg.irq1);
 			if (ret < 0)
 				pr_notice("[SCP] irq wake fail:%d,%d\n",

@@ -68,6 +68,11 @@ enum SEMAPHORE_FLAG {
 enum SCP_RESET_STATUS {
 	RESET_STATUS_STOP = 0,
 	RESET_STATUS_START = 1,
+	/* this state mean scp already kick reboot, if wdt trigger before
+	 * recovery finish mean recovery fail, should retry again
+	 */
+	RESET_STATUS_START_KICK = 2,
+	RESET_STATUS_START_WDT = 3,
 };
 
 /* scp reset status */
@@ -76,6 +81,12 @@ enum SCP_RESET_TYPE {
 	RESET_TYPE_AWAKE = 1,
 	RESET_TYPE_CMD = 2,
 	RESET_TYPE_TIMEOUT = 3,
+};
+
+struct scp_bus_tracker_status {
+	u32 dbg_con;
+	u32 dbg_r[32];
+	u32 dbg_w[32];
 };
 
 struct scp_regs {
@@ -96,6 +107,7 @@ struct scp_regs {
 	unsigned int core_nums;
 	unsigned int twohart;
 	unsigned int secure_dump;
+	struct scp_bus_tracker_status tracker_status;
 };
 
 /* scp work struct definition*/
@@ -208,6 +220,8 @@ extern struct scp_region_info_st *scp_region_info;
 extern void __iomem *scp_ap_dram_virt;
 extern void __iomem *scp_loader_virt;
 extern void __iomem *scp_regdump_virt;
+extern struct tasklet_struct scp_A_irq0_tasklet;
+extern struct tasklet_struct scp_A_irq1_tasklet;
 #endif
 
 enum MTK_TINYSYS_SCP_KERNEL_OP {
