@@ -25,6 +25,8 @@
 
 #include "mtk-sp-spk-amp.h"
 
+static int adsp_standby_flag;
+
 /* don't use this directly if not necessary */
 static struct mtk_base_dsp *local_base_dsp;
 static struct mtk_base_afe *local_dsp_afe;
@@ -460,9 +462,11 @@ static int mtk_audio_dsp_event_receive(
 {
 	switch (event) {
 	case ADSP_EVENT_STOP:
+		adsp_standby_flag = 1;
 		break;
 	case ADSP_EVENT_READY:
 		mtk_reinit_adsp();
+		adsp_standby_flag = 0;
 		break;
 	default:
 		pr_info("event %lu err", event);
@@ -486,14 +490,26 @@ int mtk_audio_register_notify(void)
 
 int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
 {
-	int result = 0;
+	int result = -1;
 	struct ipi_msg_t ipi_msg;
 	int task_scene;
 
+	if (adsp_standby_flag)
+		return result;
+
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
-	task_scene = get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-				   ADSP_TASK_ATTR_RUNTIME) ?
-		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+
+	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+			  ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_CALL_FINAL;
+	else if (get_task_attr(AUDIO_TASK_PLAYBACK_ID,
+			       ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_AUDPLAYBACK;
+	else {
+		pr_info("%s(), callfinal and playback are not enable\n",
+			__func__);
+		return result;
+	}
 
 	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
 					   AUDIO_DSP_TASK_AURISYS_SET_BUF,
@@ -508,14 +524,27 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 				  int16_t size,
 				  uint32_t *buf_len)
 {
-	int result = 0;
+	int result = -1;
 	struct ipi_msg_t ipi_msg;
 	int task_scene;
 
+	if (adsp_standby_flag)
+		return result;
+
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
-	task_scene = get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-				   ADSP_TASK_ATTR_RUNTIME) ?
-		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+
+	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+			  ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_CALL_FINAL;
+	else if (get_task_attr(AUDIO_TASK_PLAYBACK_ID,
+			       ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_AUDPLAYBACK;
+	else {
+		pr_info("%s(), callfinal and playback are not enable\n",
+			__func__);
+		return result;
+	}
+
 	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
 					     task_scene,
 					     AUDIO_DSP_TASK_AURISYS_GET_BUF,
