@@ -364,6 +364,10 @@ enum MFC_STATUS MFC_SetWH(MFC_HANDLE handle, unsigned int fb_width,
 		return MFC_STATUS_LOCK_FAIL;
 	}
 
+	ctxt->scale = MFC_GetScale(fb_width, fb_height, ctxt->fb_bpp);
+	if (ctxt->scale == 0)
+		ctxt->scale = 1;
+
 	ctxt->fb_width = fb_width;
 	ctxt->fb_height = fb_height;
 	ctxt->rows = fb_height / (MFC_FONT_HEIGHT * ctxt->scale);

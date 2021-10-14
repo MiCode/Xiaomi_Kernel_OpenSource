@@ -517,8 +517,12 @@ void mtk_drm_assert_init(struct drm_device *dev)
 	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
 		typeof(*crtc), head);
 
-	width = crtc->mode.hdisplay;
-	height = crtc->mode.vdisplay;
+	mtk_drm_crtc_get_panel_original_size(crtc, &width, &height);
+	if (width == 0 || height == 0) {
+		DDPFUNC("display size error(%dx%d).\n", width, height);
+		return;
+	}
+
 	size = width * height * DAL_BPP;
 
 	mtk_gem = mtk_drm_gem_create(dev, size, true);
@@ -532,6 +536,9 @@ void mtk_drm_assert_init(struct drm_device *dev)
 
 	dal_va = mtk_gem->kvaddr;
 	dal_pa = mtk_gem->dma_addr;
+
+	width = crtc->mode.hdisplay;
+	height = crtc->mode.vdisplay;
 
 	MFC_Open(&mfc_handle, mtk_gem->kvaddr, width, height, DAL_BPP,
 		RGB888_To_RGB565(DAL_COLOR_WHITE),

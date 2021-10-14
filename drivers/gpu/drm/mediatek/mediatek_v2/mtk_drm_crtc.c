@@ -5741,6 +5741,34 @@ struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
 	return &mtk_crtc->avail_modes[idx];
 }
 
+int mtk_drm_crtc_get_panel_original_size(struct drm_crtc *crtc, unsigned int *width,
+	unsigned int *height)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int ret = 0;
+
+	if (mtk_crtc->avail_modes_num > 0) {
+		int i;
+
+		for (i = 0; i < mtk_crtc->avail_modes_num; i++) {
+			struct drm_display_mode *mode = &mtk_crtc->avail_modes[i];
+
+			if (mode->hdisplay > *width)
+				*width = mode->hdisplay;
+
+			if (mode->vdisplay > *height)
+				*height = mode->vdisplay;
+		}
+	} else {
+		ret = -EINVAL;
+		DDPMSG("invalid display mode\n");
+	}
+
+	DDPMSG("panel original size:%dx%d\n", *width, *height);
+
+	return ret;
+}
+
 void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);

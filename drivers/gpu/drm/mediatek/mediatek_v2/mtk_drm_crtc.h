@@ -950,6 +950,8 @@ void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
 	struct drm_crtc_state *old_state, struct drm_crtc_state *new_state);
 struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
 	unsigned int idx);
+int mtk_drm_crtc_get_panel_original_size(struct drm_crtc *crtc, unsigned int *width,
+	unsigned int *height);
 unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *crtc);
 
 unsigned int mtk_drm_primary_display_get_debug_state(
