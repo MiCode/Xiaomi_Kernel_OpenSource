@@ -42,7 +42,6 @@ enum VAL_CODEC_TYPE_T {
 	VAL_CODEC_TYPE_H263_DEC,		/* /< H.263 decoder */
 	VAL_CODEC_TYPE_H264_ENC,		/* /< H.264 encoder */
 	VAL_CODEC_TYPE_H264_DEC,		/* /< H.264 decoder */
-	VAL_CODEC_TYPE_SORENSON_SPARK_DEC,	/* /< Sorenson Spark decoder */
 	VAL_CODEC_TYPE_VC1_SP_DEC,	/* /< VC-1 simple profile decoder */
 	VAL_CODEC_TYPE_RV9_DEC,			/* /< RV9 decoder */
 	VAL_CODEC_TYPE_MP1_MP2_DEC,		/* /< MPEG1/2 decoder */
