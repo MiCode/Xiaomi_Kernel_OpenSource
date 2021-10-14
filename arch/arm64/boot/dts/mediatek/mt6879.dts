@@ -1248,16 +1248,17 @@
 			<0 0>,
 			<0 0>;
 
-#if 0
-		vcc_ufs2-supply = <&mt6363_vemc>;
-		vcc_ufs3-supply = <&mt6363_vbuck5>;
-#endif
-
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_UFS0_SHUTDOWN>;
 
-		/* need to fix */
-		vcc-supply = <&mt6363_vemc>;
+		/*
+		 * In the same SoC,
+		 * vcc-supply is for one kind of UFS and
+		 * vcc_ufs2-supply & vcc_ufs3-supply are for ufs2/ufs3 co-load setting
+		 */
+		vcc_ufs2-supply = <&mt6363_vemc>;
+		vcc_ufs3-supply = <&mt6363_vbuck5>;
 
+		/* porting vccq/vccq2 to disable unused vufs */
 		vccq-supply = <&mt6363_vufs12>;
 		vccq2-supply = <&mt6363_vufs18>;
 
@@ -1265,6 +1266,7 @@
 			<&ufsaocfg_rst 0>,
 			<&ufspdncfg_rst 0>,
 			<&ufspdncfg_rst 1>;
+
 		reset-names =
 			"unipro_rst",
 			"crypto_rst",
@@ -10138,10 +10140,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 };
 
 &mt6363_vbuck4 {
-	regulator-always-on;
-};
-
-&mt6363_vbuck5 {
 	regulator-always-on;
 };
 
