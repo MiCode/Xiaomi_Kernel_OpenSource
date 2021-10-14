@@ -2121,8 +2121,10 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
 	struct vb2_buffer *dst_buf;
 	struct vb2_v4l2_buffer *src_vb2_v4l2, *dst_vb2_v4l2;
+	struct mtk_video_enc_buf *srcbuf, *dstbuf;
+	struct vb2_queue *srcq, *dstq;
 	struct venc_done_result enc_result;
-	int ret;
+	int i, ret;
 
 	mtk_v4l2_debug(2, "[%d]-> type=%d", ctx->id, q->type);
 
@@ -2133,20 +2135,43 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 		NULL, NULL, &enc_result);
 		if (!ctx->async_mode)
 			mtk_enc_put_buf(ctx);
-		if (ret)
-			mtk_v4l2_err("venc_if_deinit failed=%d", ret);
+		if (ret) {
+			mtk_v4l2_err("venc_if_encode FINAL failed=%d", ret);
+			if (ret == -EIO) {
+				dstq = &ctx->m2m_ctx->cap_q_ctx.q;
+				srcq = &ctx->m2m_ctx->out_q_ctx.q;
+				for (i = 0; i < dstq->num_buffers; i++) {
+					dst_vb2_v4l2 = container_of(
+						dstq->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
+					dstbuf = container_of(
+						dst_vb2_v4l2, struct mtk_video_enc_buf, vb);
+					if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+						v4l2_m2m_buf_done(&dstbuf->vb, VB2_BUF_STATE_ERROR);
+				}
+
+				for (i = 0; i < srcq->num_buffers; i++) {
+					src_vb2_v4l2 = container_of(
+						srcq->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
+					srcbuf = container_of(
+						src_vb2_v4l2, struct mtk_video_enc_buf, vb);
+					if (src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+						v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_ERROR);
+				}
+			}
+		}
 	}
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		while ((dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			dst_buf->planes[0].bytesused = 0;
-			v4l2_m2m_buf_done(dst_vb2_v4l2,
-					  VB2_BUF_STATE_ERROR);
+			if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+				v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
 	} else {
 		while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx))) {
-			if (src_vb2_v4l2 != &ctx->enc_flush_buf->vb)
+			if (src_vb2_v4l2 != &ctx->enc_flush_buf->vb &&
+				src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
 		ctx->enc_flush_buf->lastframe = NON_EOS;
@@ -3414,13 +3439,17 @@ void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 	v4l2_m2m_streamoff(file, fh->m2m_ctx,
 		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 
-	while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
-		v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
+	while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx))) {
+		if (src_vb2_v4l2 != &ctx->enc_flush_buf->vb &&
+			src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+			v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
+	}
 
 	while ((dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
 		dst_buf = &dst_vb2_v4l2->vb2_buf;
 		dst_buf->planes[0].bytesused = 0;
-		v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
+		if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+			v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
 	}
 
 	ctx->state = MTK_STATE_FREE;

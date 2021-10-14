@@ -539,9 +539,9 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 	unsigned int src_chg = 0;
 	struct vdec_fb drain_fb;
 	int i, ret = 0;
-	struct vb2_v4l2_buffer *dst_vb2_v4l2;
-	struct mtk_video_dec_buf *dstbuf;
-	struct vb2_queue *q;
+	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
+	struct mtk_video_dec_buf *dstbuf, *srcbuf;
+	struct vb2_queue *dstq, *srcq;
 
 	ctx->state = MTK_STATE_FLUSH;
 	if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
@@ -561,33 +561,42 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 		ret = vdec_if_decode(ctx, NULL, NULL, &src_chg);
 	}
 
-	q = &ctx->m2m_ctx->cap_q_ctx.q;
+	dstq = &ctx->m2m_ctx->cap_q_ctx.q;
+	srcq = &ctx->m2m_ctx->out_q_ctx.q;
 	if (ret) {
 		mtk_v4l2_err("DecodeFinal failed, ret=%d", ret);
-		mutex_lock(&ctx->buf_lock);
-		for (i = 0; i < q->num_buffers; i++) {
-			dst_vb2_v4l2 = container_of(
-				q->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
-			dstbuf = container_of(
-				dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
-			if (ret == -EIO) {
+
+		if (ret == -EIO) {
+			mutex_lock(&ctx->buf_lock);
+			for (i = 0; i < dstq->num_buffers; i++) {
+				dst_vb2_v4l2 = container_of(
+					dstq->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
+				dstbuf = container_of(
+					dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
 				// codec exception handling
 				mtk_v4l2_debug(8, "[%d]num_buffers %d status=%x queue id=%d %p %llx q_cnt %d %d %d %d state %d",
-					ctx->id, q->num_buffers, dstbuf->frame_buffer.status,
+					ctx->id, dstq->num_buffers, dstbuf->frame_buffer.status,
 					dstbuf->vb.vb2_buf.index, &dstbuf->frame_buffer,
 					(unsigned long)(&dstbuf->frame_buffer),
-					atomic_read(&q->owned_by_drv_count),
+					atomic_read(&dstq->owned_by_drv_count),
 					dstbuf->queued_in_vb2,
 					dstbuf->queued_in_v4l2, dstbuf->used, dst_vb2_v4l2->vb2_buf.state);
-				if (dstbuf->used && dstbuf->queued_in_v4l2 &&
-					(dstbuf->frame_buffer.status == FB_ST_NORMAL ||
-					(dstbuf->frame_buffer.status == FB_ST_DISPLAY && !dstbuf->ready_to_display ))) {
+				if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE) {
 					v4l2_m2m_buf_done(&dstbuf->vb, VB2_BUF_STATE_ERROR);
 					dstbuf->frame_buffer.status = FB_ST_FREE;
 				}
 			}
+			mutex_unlock(&ctx->buf_lock);
+
+			for (i = 0; i < srcq->num_buffers; i++) {
+				src_vb2_v4l2 = container_of(
+					srcq->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
+				srcbuf = container_of(
+					src_vb2_v4l2, struct mtk_video_dec_buf, vb);
+				if (src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+					v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_ERROR);
+			}
 		}
-		mutex_unlock(&ctx->buf_lock);
 		return;
 	}
 
@@ -597,16 +606,16 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 
 	/* check buffer status */
 	mutex_lock(&ctx->buf_lock);
-	for (i = 0; i < q->num_buffers; i++) {
+	for (i = 0; i < dstq->num_buffers; i++) {
 		dst_vb2_v4l2 = container_of(
-			q->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
+			dstq->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
 		dstbuf = container_of(
 			dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
 		mtk_v4l2_debug(4, "[%d]num_buffers %d status=%x queue id=%d %p %llx q_cnt %d %d %d %d",
-			ctx->id, q->num_buffers, dstbuf->frame_buffer.status,
+			ctx->id, dstq->num_buffers, dstbuf->frame_buffer.status,
 			dstbuf->vb.vb2_buf.index, &dstbuf->frame_buffer,
 			(unsigned long)(&dstbuf->frame_buffer),
-			atomic_read(&q->owned_by_drv_count),
+			atomic_read(&dstq->owned_by_drv_count),
 			dstbuf->queued_in_vb2,
 			dstbuf->queued_in_v4l2, dstbuf->used);
 	}
@@ -1178,7 +1187,8 @@ void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 
 	while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
-		if (src_vb2_v4l2 != &ctx->dec_flush_buf->vb)
+		if (src_vb2_v4l2 != &ctx->dec_flush_buf->vb &&
+			src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 			v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 
 	while ((dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
@@ -1187,7 +1197,8 @@ void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 		for (i = 0; i < dst_buf->num_planes; i++)
 			vb2_set_plane_payload(dst_buf, i, 0);
 
-		v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
+		if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+			v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
 	}
 
 	ctx->state = MTK_STATE_FREE;
@@ -2680,8 +2691,9 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		}
 
 		while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
-				if (src_vb2_v4l2 != &ctx->dec_flush_buf->vb)
-						v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
+			if (src_vb2_v4l2 != &ctx->dec_flush_buf->vb &&
+				src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		ctx->dec_flush_buf->lastframe = NON_EOS;
 		return;
 	}
@@ -2716,8 +2728,8 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		for (i = 0; i < dst_buf->num_planes; i++)
 			vb2_set_plane_payload(dst_buf, i, 0);
 
-		v4l2_m2m_buf_done(dst_vb2_v4l2,
-						  VB2_BUF_STATE_ERROR);
+		if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+			v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
 	}
 
 	/* check buffer status */
