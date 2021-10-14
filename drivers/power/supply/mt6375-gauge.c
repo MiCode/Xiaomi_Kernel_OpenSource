@@ -88,6 +88,8 @@
 #define RG_FGADC_CUR_CON3			0x2ED
 #define RG_SYSTEM_INFO_CON0			0x2F9
 
+#define HK_TOP_RST_CON0				0x30F
+#define RESET_MASK				BIT(0)
 #define RG_HK_TOP_STRUP_CON1			0x325
 #define HK_STRUP_AUXADC_START_SEL_MASK		BIT(2)
 #define HK_STRUP_AUXADC_START_SEL_SHIFT		2
@@ -3007,6 +3009,26 @@ static int battery_temperature_adc_get(struct mtk_gauge *gauge,
 	return ret;
 }
 
+static int auxadc_reset(struct mt6375_priv *priv)
+{
+	int ret;
+
+	ret = mt6375_enable_auxadc_hm(priv, true);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(priv->regmap, HK_TOP_RST_CON0, RESET_MASK);
+	if (ret)
+		goto out;
+
+	ret = regmap_write(priv->regmap, HK_TOP_RST_CON0, 0);
+	if (ret)
+		goto out;
+out:
+	mt6375_enable_auxadc_hm(priv, false);
+	return ret;
+}
+
 static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
 	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
@@ -3014,7 +3036,10 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	u32 data = 0;
 	static long long t1;
 	static int print_period;
-	int dump_reg[] = { 0x416, 0x417, 0x46E, 0x46F, 0x470, 0x471 };
+	int dump_reg[] = { 0x236, 0x237, 0x238, 0x31C, 0x31D, 0x338, 0x339,
+			   0x33A, 0x35D, 0x35E, 0x408, 0x409, 0x40A, 0x40B,
+			   0x410, 0x411, 0x416, 0x417, 0x41E, 0x41F, 0x422,
+			   0x423, 0x45C, 0x46E, 0x46F, 0x470, 0x471 };
 
 	if (IS_ERR(gauge->chan_bat_voltage)) {
 		bm_err("[%s]chan error\n", __func__);
@@ -3036,6 +3061,20 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 
 		if ((local_clock() - t1) / NSEC_PER_SEC > print_period) {
 			print_period += 3;
+			ret = mt6375_get_vbat_mon_rpt(priv, &vbat_mon);
+			bm_err("[%s] vbat_mon = %d(%d)\n", __func__, vbat_mon, ret);
+			for (i = 0; i < ARRAY_SIZE(dump_reg); i++) {
+				ret = regmap_read(gauge->regmap, dump_reg[i], &data);
+				bm_err("[%s] addr:0x%4x, data:0x%x(%d)\n",
+					__func__, dump_reg[i], data, ret);
+			}
+
+			ret = auxadc_reset(priv);
+			if (ret)
+				bm_err("[%s] failed to reset auxadc(%d)\n", __func__, ret);
+			bm_err("[%s] after reset auxadc(%d)\n", __func__, ret);
+			ret = iio_read_channel_processed(gauge->chan_bat_voltage, val);
+			bm_err("[%s] vbat_cell = %d(%d)\n", __func__, *val, ret);
 			ret = mt6375_get_vbat_mon_rpt(priv, &vbat_mon);
 			bm_err("[%s] vbat_mon = %d(%d)\n", __func__, vbat_mon, ret);
 			for (i = 0; i < ARRAY_SIZE(dump_reg); i++) {
