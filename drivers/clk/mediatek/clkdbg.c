@@ -33,7 +33,7 @@
 #define MAX_PD_NUM	64
 #define PLL_LEN		20
 /* increase this number if encouter BRK issue in dump_genpd */
-#define MAX_DEV_NUM	200
+#define MAX_DEV_NUM	512
 
 void __attribute__((weak)) clkdbg_set_cfg(void)
 {
@@ -1222,7 +1222,7 @@ static void dump_genpd_state(struct genpd_state *pdst, struct seq_file *s)
 
 			seq_printf(s, "\t%c (%-19s %3d, %10s)\n",
 				devst->active ? '+' : '-',
-				pdev->name,
+				pdev->name ? pdev->name : "NULL",
 				atomic_read(&dev->power.usage_count),
 				devst->disable_depth ? "unsupport" :
 				devst->runtime_error ? "error" :

@@ -168,16 +168,6 @@ struct pd_check_swcg dip_top_dip1_swcgs[] = {
 	SWCG("dip_dip1_dip_top"),
 	SWCG(NULL),
 };
-/* gce_d */
-struct pd_check_swcg gce_d_swcgs[] = {
-	SWCG("gce_d"),
-	SWCG(NULL),
-};
-/* gce_m */
-struct pd_check_swcg gce_m_swcgs[] = {
-	SWCG("gce_m"),
-	SWCG(NULL),
-};
 /* imgsys_main */
 struct pd_check_swcg imgsys_main_swcgs[] = {
 	SWCG("img_larb9"),
@@ -467,8 +457,6 @@ struct subsys_cgs_check mtk_subsys_check[] = {
 	{MT6895_POWER_DOMAIN_CAM_MAIN, ccu_main_swcgs, ccu},
 	{MT6895_POWER_DOMAIN_ISP_DIP1, dip_nr_dip1_swcgs, dip_nr_dip1},
 	{MT6895_POWER_DOMAIN_ISP_DIP1, dip_top_dip1_swcgs, dip_top_dip1},
-	{MT6895_POWER_DOMAIN_MM_INFRA, gce_d_swcgs, gce_d},
-	{MT6895_POWER_DOMAIN_MM_INFRA, gce_m_swcgs, gce_m},
 	{MT6895_POWER_DOMAIN_ISP_MAIN, imgsys_main_swcgs, img},
 	{MT6895_POWER_DOMAIN_ISP_IPE, ipesys_swcgs, ipe},
 	{MT6895_POWER_DOMAIN_MDP1, mdpsys1_config_swcgs, mdp1},

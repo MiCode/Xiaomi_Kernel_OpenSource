@@ -47,7 +47,6 @@ const char * const *get_mt6895_all_clk_names(void)
 		"camtg5_sel",
 		"camtg6_sel",
 		"camtg7_sel",
-		"uart_sel",
 		"spi_sel",
 		"msdc_macro_sel",
 		"msdc30_1_sel",
@@ -134,8 +133,8 @@ const char * const *get_mt6895_all_clk_names(void)
 		"ifrao_bus_hre",
 		"ifrao_infra_force",
 		"ifrao_therm",
-		"ifrao_dma",
 		"ifrao_trng",
+		"ifrao_cpum",
 		"ifrao_ccif1_ap",
 		"ifrao_ccif1_md",
 		"ifrao_ccif_ap",
@@ -477,7 +476,6 @@ const char * const *get_mt6895_all_clk_names(void)
 		/* vlp_cksys */
 		"vlp_scp_sel",
 		"vlp_pwrap_ulposc_sel",
-		"vlp_gpt_bclk_sel",
 		"vlp_dxcc_vlp_sel",
 		"vlp_spmi_p_sel",
 		"vlp_spmi_m_sel",
@@ -488,7 +486,6 @@ const char * const *get_mt6895_all_clk_names(void)
 		"vlp_systimer_26m_sel",
 		"vlp_sspm_sel",
 		"vlp_sspm_f26m_sel",
-		"vlp_apeint_66m_sel",
 		"vlp_srck_sel",
 		"vlp_sramrc_sel",
 		"vlp_scp_spi_sel",
@@ -616,12 +613,6 @@ const char * const *get_mt6895_all_clk_names(void)
 		"mminfra_gce_m",
 		"mminfra_smi",
 		"mminfra_gce_26m",
-
-		/* gce_d */
-		"gce_d",
-
-		/* gce_m */
-		"gce_m",
 
 		/* mdpsys_config */
 		"mdp_mutex0",

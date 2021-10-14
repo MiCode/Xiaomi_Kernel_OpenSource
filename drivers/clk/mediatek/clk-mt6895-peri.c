@@ -132,7 +132,7 @@ static const struct mtk_gate_regs perao2_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &perao0_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr,	\
+		.ops = &mtk_clk_gate_ops_no_setclr,	\
 	}
 
 #define GATE_PERAO1(_id, _name, _parent, _shift) {	\
@@ -141,7 +141,7 @@ static const struct mtk_gate_regs perao2_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &perao1_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr,	\
+		.ops = &mtk_clk_gate_ops_no_setclr,	\
 	}
 
 #define GATE_PERAO2(_id, _name, _parent, _shift) {	\
@@ -150,7 +150,7 @@ static const struct mtk_gate_regs perao2_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &perao2_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr,	\
+		.ops = &mtk_clk_gate_ops_no_setclr,	\
 	}
 
 static const struct mtk_gate perao_clks[] = {
@@ -195,57 +195,21 @@ static const struct mtk_gate perao_clks[] = {
 			"i2c_ck"/* parent */, 23),
 	GATE_PERAO0(CLK_PERAOP_0_SPI7_BCLK, "peraop_0_spi7_bclk",
 			"i2c_ck"/* parent */, 24),
-	GATE_PERAO0(CLK_PERAOP_0_SPI0_HCLK, "peraop_0_spi0_hclk",
-			"peri_axi_ck"/* parent */, 25),
-	GATE_PERAO0(CLK_PERAOP_0_SPI1_HCLK, "peraop_0_spi1_hclk",
-			"peri_axi_ck"/* parent */, 26),
-	GATE_PERAO0(CLK_PERAOP_0_SPI2_HCLK, "peraop_0_spi2_hclk",
-			"peri_axi_ck"/* parent */, 27),
-	GATE_PERAO0(CLK_PERAOP_0_SPI3_HCLK, "peraop_0_spi3_hclk",
-			"peri_axi_ck"/* parent */, 28),
-	GATE_PERAO0(CLK_PERAOP_0_SPI4_HCLK, "peraop_0_spi4_hclk",
-			"peri_axi_ck"/* parent */, 29),
-	GATE_PERAO0(CLK_PERAOP_0_SPI5_HCLK, "peraop_0_spi5_hclk",
-			"peri_axi_ck"/* parent */, 30),
-	GATE_PERAO0(CLK_PERAOP_0_SPI6_HCLK, "peraop_0_spi6_hclk",
-			"peri_axi_ck"/* parent */, 31),
 	/* PERAO1 */
-	GATE_PERAO1(CLK_PERAOP_1_SPI7_HCLK, "peraop_1_spi7_hclk",
-			"peri_axi_ck"/* parent */, 0),
-	GATE_PERAO1(CLK_PERAOP_1_BUS_HCLK, "peraop_1_bus_hclk",
-			"peri_axi_ck"/* parent */, 4),
 	GATE_PERAO1(CLK_PERAOP_1_DMA_BCLK, "peraop_1_dma_bclk",
 			"peri_axi_ck"/* parent */, 5),
-	GATE_PERAO1(CLK_PERAOP_1_USB_PIPE, "peraop_1_usb_pipe",
-			"f26m_ck"/* parent */, 6),
-	GATE_PERAO1(CLK_PERAOP_1_USB_REF, "peraop_1_usb_ref",
-			"f26m_ck"/* parent */, 7),
 	GATE_PERAO1(CLK_PERAOP_1_USB_FRMC, "peraop_1_usb_frmc",
 			"ssusb_fmcnt_ck"/* parent */, 8),
-	GATE_PERAO1(CLK_PERAOP_1_USB_UTMI, "peraop_1_usb_utmi",
-			"f26m_ck"/* parent */, 9),
 	GATE_PERAO1(CLK_PERAOP_1_USB_SYS, "peraop_1_usb_sys",
 			"usb_ck"/* parent */, 10),
 	GATE_PERAO1(CLK_PERAOP_1_USB_XHCI, "peraop_1_usb_xhci",
 			"ssusb_xhci_ck"/* parent */, 11),
-	GATE_PERAO1(CLK_PERAOP_1_USB_133, "peraop_1_usb_133",
-			"peri_axi_ck"/* parent */, 12),
-	GATE_PERAO1(CLK_PERAOP_1_USB_66, "peraop_1_usb_66",
-			"peri_axi_ck"/* parent */, 13),
-	GATE_PERAO1(CLK_PERAOP_1_USB1P_REF, "peraop_1_usb1p_ref",
-			"f26m_ck"/* parent */, 14),
 	GATE_PERAO1(CLK_PERAOP_1_USB1P_FRMC, "peraop_1_usb1p_frmc",
 			"ssusb_fmcnt_ck"/* parent */, 15),
-	GATE_PERAO1(CLK_PERAOP_1_USB1P_UTMI, "peraop_1_usb1p_utmi",
-			"f26m_ck"/* parent */, 16),
 	GATE_PERAO1(CLK_PERAOP_1_USB1P_SYS, "peraop_1_usb1p_sys",
 			"usb_ck"/* parent */, 17),
 	GATE_PERAO1(CLK_PERAOP_1_USB1P_XHCI, "peraop_1_usb1p_xhci",
 			"ssusb_xhci_ck"/* parent */, 18),
-	GATE_PERAO1(CLK_PERAOP_1_USB1P_133, "peraop_1_usb1p_133",
-			"peri_axi_ck"/* parent */, 19),
-	GATE_PERAO1(CLK_PERAOP_1_USB1P_66, "peraop_1_usb1p_66",
-			"peri_axi_ck"/* parent */, 20),
 	GATE_PERAO1(CLK_PERAOP_1_MSDC1, "peraop_1_msdc1",
 			"msdc30_1_ck"/* parent */, 21),
 	GATE_PERAO1(CLK_PERAOP_1_MSDC1_HCLK, "peraop_1_msdc1_hclk",
@@ -264,30 +228,7 @@ static const struct mtk_clk_desc perao_mcd = {
 	.num_clks = CLK_PERAO_NR_CLK,
 };
 
-static const struct mtk_gate_regs usb_d_cg_regs = {
-	.set_ofs = 0xC84,
-	.clr_ofs = 0xC84,
-	.sta_ofs = 0xC84,
-};
 
-#define GATE_USB_D(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &usb_d_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
-static const struct mtk_gate usb_d_clks[] = {
-	GATE_USB_D(CLK_USB_D_DMA_B, "usb_d_dma_b",
-			"axi_ck"/* parent */, 2),
-};
-
-static const struct mtk_clk_desc usb_d_mcd = {
-	.clks = usb_d_clks,
-	.num_clks = CLK_USB_D_NR_CLK,
-};
 
 static const struct mtk_gate_regs usb_sif0_cg_regs = {
 	.set_ofs = 0x30,
@@ -299,12 +240,6 @@ static const struct mtk_gate_regs usb_sif1_cg_regs = {
 	.set_ofs = 0x50,
 	.clr_ofs = 0x50,
 	.sta_ofs = 0x50,
-};
-
-static const struct mtk_gate_regs usb_sif2_cg_regs = {
-	.set_ofs = 0x80,
-	.clr_ofs = 0x80,
-	.sta_ofs = 0x80,
 };
 
 #define GATE_USB_SIF0(_id, _name, _parent, _shift) {	\
@@ -325,15 +260,6 @@ static const struct mtk_gate_regs usb_sif2_cg_regs = {
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
 	}
 
-#define GATE_USB_SIF2(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &usb_sif2_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
 static const struct mtk_gate usb_sif_clks[] = {
 	/* USB_SIF0 */
 	GATE_USB_SIF0(CLK_USB_SIF_USB_U3_P, "usb_sif_usb_u3_p",
@@ -341,9 +267,6 @@ static const struct mtk_gate usb_sif_clks[] = {
 	/* USB_SIF1 */
 	GATE_USB_SIF1(CLK_USB_SIF_USB_U2_P, "usb_sif_usb_u2_p",
 			"usb_ck"/* parent */, 0),
-	/* USB_SIF2 */
-	GATE_USB_SIF2(CLK_USB_SIF_USB_IP_DMA_B, "usb_sif_usb_dma",
-			"axi_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc usb_sif_mcd = {
@@ -361,12 +284,6 @@ static const struct mtk_gate_regs usb_sif_p11_cg_regs = {
 	.set_ofs = 0x50,
 	.clr_ofs = 0x50,
 	.sta_ofs = 0x50,
-};
-
-static const struct mtk_gate_regs usb_sif_p12_cg_regs = {
-	.set_ofs = 0x80,
-	.clr_ofs = 0x80,
-	.sta_ofs = 0x80,
 };
 
 #define GATE_USB_SIF_P10(_id, _name, _parent, _shift) {	\
@@ -387,15 +304,6 @@ static const struct mtk_gate_regs usb_sif_p12_cg_regs = {
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
 	}
 
-#define GATE_USB_SIF_P12(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &usb_sif_p12_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
 static const struct mtk_gate usb_sif_p1_clks[] = {
 	/* USB_SIF_P10 */
 	GATE_USB_SIF_P10(CLK_USB_SIF_P1_USB_U3_P, "usb_sif_p1_usb_u3_p",
@@ -403,9 +311,6 @@ static const struct mtk_gate usb_sif_p1_clks[] = {
 	/* USB_SIF_P11 */
 	GATE_USB_SIF_P11(CLK_USB_SIF_P1_USB_U2_P, "usb_sif_p1_usb_u2_p",
 			"usb_ck"/* parent */, 0),
-	/* USB_SIF_P12 */
-	GATE_USB_SIF_P12(CLK_USB_SIF_P1_USB_IP_DMA_B, "usb_sif_p1_usb_dma",
-			"axi_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc usb_sif_p1_mcd = {
@@ -441,10 +346,6 @@ static const struct mtk_gate ufsao_clks[] = {
 			"f26m_ck"/* parent */, 4),
 	GATE_UFSAO(CLK_UFSAO_U_AO_0_MMPSAP, "ufsao_u_ao_0_mmpsap",
 			"f26m_ck"/* parent */, 8),
-	GATE_UFSAO(CLK_UFSAO_U_AO_0_MMPAHB, "ufsao_u_ao_0_mmpahb",
-			"ufs_haxi_ck"/* parent */, 9),
-	GATE_UFSAO(CLK_UFSAO_U_AO_0_PERI2UFS, "ufsao_u_ao_0_p2ufs",
-			"ufs_haxi_ck"/* parent */, 10),
 };
 
 static const struct mtk_clk_desc ufsao_mcd = {
@@ -472,10 +373,6 @@ static const struct mtk_gate ufspdn_clks[] = {
 			"ufs_haxi_ck"/* parent */, 0),
 	GATE_UFSPDN(CLK_UFSPDN_U_0_HCIAES, "ufspdn_u_0_hciaes",
 			"aes_ufsfde_ck"/* parent */, 1),
-	GATE_UFSPDN(CLK_UFSPDN_U_0_HCIAHB, "ufspdn_u_0_hciahb",
-			"ufs_haxi_ck"/* parent */, 3),
-	GATE_UFSPDN(CLK_UFSPDN_U_0_HCIAXI, "ufspdn_u_0_hciaxi",
-			"ufs_haxi_ck"/* parent */, 5),
 };
 
 static const struct mtk_clk_desc ufspdn_mcd = {
@@ -496,9 +393,6 @@ static const struct of_device_id of_match_clk_mt6895_peri[] = {
 	}, {
 		.compatible = "mediatek,mt6895-pericfg_ao",
 		.data = &perao_mcd,
-	}, {
-		.compatible = "mediatek,mt6895-ssusb_device",
-		.data = &usb_d_mcd,
 	}, {
 		.compatible = "mediatek,mt6895-ssusb_sifslv_ippc",
 		.data = &usb_sif_mcd,

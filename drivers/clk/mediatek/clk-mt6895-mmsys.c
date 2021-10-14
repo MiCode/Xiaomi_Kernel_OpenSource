@@ -19,56 +19,6 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
-static const struct mtk_gate_regs gce_d_cg_regs = {
-	.set_ofs = 0xF0,
-	.clr_ofs = 0xF0,
-	.sta_ofs = 0xF0,
-};
-
-#define GATE_GCE_D(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &gce_d_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
-static const struct mtk_gate gce_d_clks[] = {
-	GATE_GCE_D(CLK_GCE_D, "gce_d",
-			"axi_ck"/* parent */, 16),
-};
-
-static const struct mtk_clk_desc gce_d_mcd = {
-	.clks = gce_d_clks,
-	.num_clks = CLK_GCE_D_NR_CLK,
-};
-
-static const struct mtk_gate_regs gce_m_cg_regs = {
-	.set_ofs = 0xF0,
-	.clr_ofs = 0xF0,
-	.sta_ofs = 0xF0,
-};
-
-#define GATE_GCE_M(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &gce_m_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
-	}
-
-static const struct mtk_gate gce_m_clks[] = {
-	GATE_GCE_M(CLK_GCE_M, "gce_m",
-			"axi_ck"/* parent */, 16),
-};
-
-static const struct mtk_clk_desc gce_m_mcd = {
-	.clks = gce_m_clks,
-	.num_clks = CLK_GCE_M_NR_CLK,
-};
-
 static const struct mtk_gate_regs mminfra_config0_cg_regs = {
 	.set_ofs = 0x104,
 	.clr_ofs = 0x108,
@@ -419,12 +369,6 @@ static const struct mtk_clk_desc mm1_mcd = {
 
 static const struct of_device_id of_match_clk_mt6895_mmsys[] = {
 	{
-		.compatible = "mediatek,mt6895-gce_d",
-		.data = &gce_d_mcd,
-	}, {
-		.compatible = "mediatek,mt6895-gce_m",
-		.data = &gce_m_mcd,
-	}, {
 		.compatible = "mediatek,mt6895-mminfra_config",
 		.data = &mminfra_config_mcd,
 	}, {
