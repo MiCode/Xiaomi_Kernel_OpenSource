@@ -1520,6 +1520,15 @@
 		clock-names = "gce","gce-timer";
 	};
 
+	gce_m_sec: gce_mbox_m_sec@1e990000 {
+		compatible = "mediatek,mailbox-gce-sec";
+		reg = <0 0x1e990000 0 0x4000>;
+		#mbox-cells = <3>;
+		mboxes = <&gce_m 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>;
+		clock-names = "gce";
+	};
+
 	ktf-cmdq-test {
 		compatible = "mediatek,ktf-cmdq-test";
 		mediatek,gce = <&gce>;
@@ -1593,7 +1602,8 @@
 			 <&gce_m 16 0 CMDQ_THR_PRIO_1>,
 			 <&gce_m 17 0 CMDQ_THR_PRIO_1>,
 			 <&gce_m 18 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 19 0 CMDQ_THR_PRIO_1>;
+			 <&gce_m 19 0 CMDQ_THR_PRIO_1>,
+			 <&gce_m_sec 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 		traw_cq_thread0_frame_done =
 			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0>;
 		traw_cq_thread1_frame_done =
@@ -1996,6 +2006,10 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_99>;
 		sw_sync_token_pool_100 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_100>;
+		sw_sync_token_tzmp_isp_wait =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT>;
+		sw_sync_token_tzmp_isp_set =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_SET>;
 #if 0
 		sw_sync_token_camsys_pool_1 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_1>;

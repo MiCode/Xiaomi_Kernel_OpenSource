@@ -5027,7 +5027,7 @@
 			mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 			mboxes = <&gce 14 0 CMDQ_THR_PRIO_1>,
 				 <&gce_m 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-			//	 <&gce_m_sec 12 0 CMDQ_THR_PRIO_1>;
+			//	 <&gce_m_sec 9 0 CMDQ_THR_PRIO_1>;
 			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 		};
@@ -5602,7 +5602,9 @@
 				 <&gce_m 16 3000 CMDQ_THR_PRIO_1>,
 				 <&gce_m 17 3000 CMDQ_THR_PRIO_1>,
 				 <&gce_m 18 3000 CMDQ_THR_PRIO_1>,
-				 <&gce_m 19 3000 CMDQ_THR_PRIO_1>;
+				 <&gce_m 19 3000 CMDQ_THR_PRIO_1>,
+				 <&gce_m_sec 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+				 <&gce_m_sec 12 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 			traw_cq_thread0_frame_done =
 				/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0>;
 			traw_cq_thread1_frame_done =
@@ -6013,6 +6015,11 @@
 				/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT>;
 			sw_sync_token_tzmp_isp_set =
 				/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ISP_SET>;
+			sw_sync_token_tzmp_adl_wait =
+				/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ADL_WAIT>;
+			sw_sync_token_tzmp_adl_set =
+				/bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_ADL_SET>;
+
 	#if 0
 			sw_sync_token_camsys_pool_1 =
 				/bits/ 16 <CMDQ_SYNC_TOKEN_CAMSYS_POOL_1>;
