@@ -2481,6 +2481,23 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 	return true;
 }
 
+static void charger_send_kpoc_uevent(struct mtk_charger *info)
+{
+	static bool first_time = true;
+	ktime_t ktime_now;
+
+	if (first_time) {
+		info->uevent_time_check = ktime_get();
+		first_time = false;
+	} else {
+		ktime_now = ktime_get();
+		if ((ktime_ms_delta(ktime_now, info->uevent_time_check) / 1000) >= 60) {
+			mtk_chgstat_notify(info);
+			info->uevent_time_check = ktime_now;
+		}
+	}
+}
+
 static void kpoc_power_off_check(struct mtk_charger *info)
 {
 	unsigned int boot_mode = info->bootmode;
@@ -2502,6 +2519,7 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 				}
 			}
 		}
+		charger_send_kpoc_uevent(info);
 	}
 }
 

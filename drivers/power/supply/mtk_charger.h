@@ -365,6 +365,8 @@ struct mtk_charger {
 
 	/*charger IC charging status*/
 	bool is_charging;
+
+	ktime_t uevent_time_check;
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,
