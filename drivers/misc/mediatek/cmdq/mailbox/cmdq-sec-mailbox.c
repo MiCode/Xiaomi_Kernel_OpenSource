@@ -1298,8 +1298,7 @@ void cmdq_sec_mbox_stop(struct cmdq_client *cl)
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	list_for_each_entry_safe(task, temp, &thread->task_list, list_entry) {
-		list_del_init(&task->list_entry);
-		kfree(task);
+		cmdq_sec_task_done(task, 0);
 
 		if (!thread->task_cnt)
 			cmdq_err("thd:%u task_cnt:%u cannot below zero",
