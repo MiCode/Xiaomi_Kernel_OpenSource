@@ -7288,14 +7288,12 @@ static int fastrpc_bus_probe(struct device *dev)
 	return 0;
 }
 
-static int fastrpc_bus_remove(struct device *dev)
+static void fastrpc_bus_remove(struct device *dev)
 {
 	struct fastrpc_driver *frpc_drv = to_fastrpc_driver(dev->driver);
 
 	if (frpc_drv && frpc_drv->callback)
-		return frpc_drv->callback(to_fastrpc_device(dev), FASTRPC_PROC_DOWN);
-
-	return 0;
+		frpc_drv->callback(to_fastrpc_device(dev), FASTRPC_PROC_DOWN);
 }
 
 static struct bus_type fastrpc_bus_type = {
