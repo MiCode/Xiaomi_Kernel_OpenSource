@@ -14,9 +14,13 @@
 #include "mtk_bp_thl.h"
 
 #define BAT_PERCENT_LIMIT 15
+#define BAT_PERCENT_LIMIT_EXT 15
+#define BAT_PERCENT_LIMIT_RELEASE_EXT 15
 
 static struct task_struct *bp_notify_thread;
 static bool bp_notify_flag;
+static bool bp_notify_flag_ext;
+
 static DECLARE_WAIT_QUEUE_HEAD(bp_notify_waiter);
 static struct wakeup_source *bp_notify_lock;
 
@@ -27,6 +31,8 @@ struct bp_thl_callback_table {
 #define BPCB_MAX_NUM 16
 
 static struct bp_thl_callback_table bpcb_tb[BPCB_MAX_NUM] = { {0} };
+static struct bp_thl_callback_table bpcb_tb_ext[BPCB_MAX_NUM] = { {0} };
+
 
 static struct notifier_block bp_nb;
 
@@ -36,6 +42,7 @@ struct bp_thl_priv {
 	int soc_limit_ext;
 	int soc_limit_ext_release;
 	int bp_thl_lv;
+	int bp_thl_lv_ext;
 	int bp_thl_stop;
 };
 
@@ -66,6 +73,31 @@ void register_bp_thl_notify(
 }
 EXPORT_SYMBOL(register_bp_thl_notify);
 
+void register_bp_thl_notify_ext(
+	battery_percent_callback bp_cb,
+	BATTERY_PERCENT_PRIO prio_val)
+{
+	if (!bp_thl_data) {
+		pr_info("[%s] bp_thl not init\n", __func__);
+		return;
+	}
+
+	if (prio_val >= BPCB_MAX_NUM || prio_val < 0) {
+		pr_info("[%s] prio_val=%d, out of boundary\n", __func__, prio_val);
+		return;
+	}
+
+	bpcb_tb_ext[prio_val].bpcb = bp_cb;
+	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
+
+	if (bp_thl_data->bp_thl_lv_ext == 1) {
+		pr_info("[%s] level 1 happen\n", __func__);
+		if (bp_cb != NULL)
+			bp_cb(BATTERY_PERCENT_LEVEL_1);
+	}
+}
+EXPORT_SYMBOL(register_bp_thl_notify_ext);
+
 void exec_bp_thl_callback(enum BATTERY_PERCENT_LEVEL_TAG bp_level)
 {
 	int i;
@@ -77,6 +109,22 @@ void exec_bp_thl_callback(enum BATTERY_PERCENT_LEVEL_TAG bp_level)
 		for (i = 0; i < BPCB_MAX_NUM; i++) {
 			if (bpcb_tb[i].bpcb != NULL)
 				bpcb_tb[i].bpcb(bp_level);
+		}
+		pr_info("[%s] bp_level=%d\n", __func__, bp_level);
+	}
+}
+
+void exec_bp_thl_callback_ext(enum BATTERY_PERCENT_LEVEL_TAG bp_level)
+{
+	int i;
+
+	if (bp_thl_data->bp_thl_stop == 1) {
+		pr_info("[%s] bp_thl_data->bp_thl_stop=%d\n"
+			, __func__, bp_thl_data->bp_thl_stop);
+	} else {
+		for (i = 0; i < BPCB_MAX_NUM; i++) {
+			if (bpcb_tb_ext[i].bpcb != NULL)
+				bpcb_tb_ext[i].bpcb(bp_level);
 		}
 		pr_info("[%s] bp_level=%d\n", __func__, bp_level);
 	}
@@ -183,10 +231,17 @@ static DEVICE_ATTR_RW(bp_thl_level);
 int bp_notify_handler(void *unused)
 {
 	do {
-		wait_event_interruptible(bp_notify_waiter, (bp_notify_flag == true));
+		wait_event_interruptible(bp_notify_waiter, (bp_notify_flag == true) ||
+			(bp_notify_flag_ext == true));
 		__pm_stay_awake(bp_notify_lock);
-		exec_bp_thl_callback(bp_thl_data->bp_thl_lv);
-		bp_notify_flag = false;
+		if (bp_notify_flag) {
+			exec_bp_thl_callback(bp_thl_data->bp_thl_lv);
+			bp_notify_flag = false;
+		}
+		if (bp_notify_flag_ext) {
+			exec_bp_thl_callback_ext(bp_thl_data->bp_thl_lv_ext);
+			bp_notify_flag_ext = false;
+		}
 		__pm_relax(bp_notify_lock);
 	} while (!kthread_should_stop());
 
@@ -214,12 +269,11 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 
 	bat_status = val.intval;
 
-	if ((bat_status != POWER_SUPPLY_STATUS_CHARGING) &&
+	if ((bat_status != POWER_SUPPLY_STATUS_CHARGING && bat_status != -1) &&
 		(bp_thl_data->bp_thl_lv == BATTERY_PERCENT_LEVEL_0) &&
 		(uisoc <= bp_thl_data->soc_limit && uisoc >= 0)) {
 		bp_thl_data->bp_thl_lv = BATTERY_PERCENT_LEVEL_1;
 		bp_notify_flag = true;
-		wake_up_interruptible(&bp_notify_waiter);
 		pr_info("bp_notify called, l=%d s=%d soc=%d\n", bp_thl_data->bp_thl_lv,
 			bat_status, uisoc);
 	} else if (((bat_status == POWER_SUPPLY_STATUS_CHARGING) ||
@@ -227,10 +281,26 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 		(bp_thl_data->bp_thl_lv == BATTERY_PERCENT_LEVEL_1)) {
 		bp_thl_data->bp_thl_lv = BATTERY_PERCENT_LEVEL_0;
 		bp_notify_flag = true;
-		wake_up_interruptible(&bp_notify_waiter);
 		pr_info("bp_notify called, l=%d s=%d soc=%d\n", bp_thl_data->bp_thl_lv,
 			bat_status, uisoc);
 	}
+
+	if ((bat_status != -1) && (bp_thl_data->bp_thl_lv_ext == BATTERY_PERCENT_LEVEL_0) &&
+		(uisoc <= bp_thl_data->soc_limit_ext && uisoc > 0)) {
+		bp_thl_data->bp_thl_lv_ext = BATTERY_PERCENT_LEVEL_1;
+		bp_notify_flag_ext = true;
+		pr_info("bp_notify_ext called, l=%d s=%d soc=%d\n", bp_thl_data->bp_thl_lv_ext,
+			bat_status, uisoc);
+	} else if ((uisoc >= bp_thl_data->soc_limit_ext_release) &&
+		(bp_thl_data->bp_thl_lv_ext == BATTERY_PERCENT_LEVEL_1)) {
+		bp_thl_data->bp_thl_lv_ext = BATTERY_PERCENT_LEVEL_0;
+		bp_notify_flag_ext = true;
+		pr_info("bp_notify_ext called, l=%d s=%d soc=%d\n",
+			bp_thl_data->bp_thl_lv_ext, bat_status, uisoc);
+	}
+
+	if (bp_notify_flag_ext || bp_notify_flag)
+		wake_up_interruptible(&bp_notify_waiter);
 
 	return NOTIFY_DONE;
 }
@@ -256,11 +326,11 @@ static int bp_thl_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(np, "soc_limit_ext", &priv->soc_limit_ext);
 	if (ret)
-		priv->soc_limit_ext = BAT_PERCENT_LIMIT;
+		priv->soc_limit_ext = BAT_PERCENT_LIMIT_EXT;
 
 	ret = of_property_read_u32(np, "soc_limit_ext_release", &priv->soc_limit_ext_release);
 	if (ret)
-		priv->soc_limit_ext_release = BAT_PERCENT_LIMIT;
+		priv->soc_limit_ext_release = BAT_PERCENT_LIMIT_RELEASE_EXT;
 
 	bp_thl_data = priv;
 
