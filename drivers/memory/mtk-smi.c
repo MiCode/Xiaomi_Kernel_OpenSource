@@ -1534,8 +1534,11 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 		//WARN_ON(1);
 	}
 
-	if (readl_relaxed(larb->base + SMI_LARB_STAT))
-		raw_notifier_call_chain(&smi_driver_notifier_list, 0, NULL);
+	if (readl_relaxed(larb->base + SMI_LARB_STAT)) {
+		pr_notice("[SMI]larb:%d, suspend but busy\n", larb->larbid);
+		raw_notifier_call_chain(&smi_driver_notifier_list, larb->larbid, larb);
+	}
+
 	if (larb_gen->sleep_ctrl)
 		larb_gen->sleep_ctrl(dev, true);
 
@@ -2130,8 +2133,11 @@ static int __maybe_unused mtk_smi_common_suspend(struct device *dev)
 {
 	struct mtk_smi *common = dev_get_drvdata(dev);
 
-	if (!(readl_relaxed(common->base + SMI_DEBUG_MISC) & 0x1))
-		raw_notifier_call_chain(&smi_driver_notifier_list, 0, NULL);
+	if (!(readl_relaxed(common->base + SMI_DEBUG_MISC) & 0x1)) {
+		pr_notice("[SMI]common:%d suspend but busy\n", common->commid);
+		raw_notifier_call_chain(&smi_driver_notifier_list, common->commid, NULL);
+	}
+
 	mtk_smi_clk_disable(common);
 	atomic_dec(&common->ref_count);
 	return 0;

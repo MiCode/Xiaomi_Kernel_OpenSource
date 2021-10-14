@@ -78,14 +78,6 @@
 #define INT_SMI_LARB_DBG_CON		(0x500 + (SMI_LARB_DBG_CON))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 
-struct smi_dbg {
-	void __iomem *ctrl_base;
-	ssize_t ctrl_size;
-	struct device *comm_dev;
-	struct notifier_block nb;
-};
-static struct smi_dbg *dbg;
-
 #define SMI_LARB_REGS_NR		(194)
 static u32	smi_larb_regs[SMI_LARB_REGS_NR] = {
 	SMI_LARB_STAT, SMI_LARB_IRQ_EN, SMI_LARB_IRQ_STATUS, SMI_LARB_SLP_CON,
@@ -294,6 +286,7 @@ struct mtk_smi_dbg_node {
 	void __iomem	*va;
 	phys_addr_t	pa;
 	struct device	*comm;
+	u32	id;
 
 	u32	regs_nr;
 	u32	*regs;
@@ -308,11 +301,12 @@ struct mtk_smi_dbg {
 	struct mtk_smi_dbg_node	comm[MTK_LARB_NR_MAX];
 	u64			exec;
 	u8			frame;
+	struct notifier_block suspend_nb;
 };
 static struct mtk_smi_dbg	*gsmi;
 
 static void mtk_smi_dbg_print(
-	struct mtk_smi_dbg *smi, const bool larb, const u32 id)
+	struct mtk_smi_dbg *smi, const bool larb, const u32 id, bool skip_pm_runtime)
 {
 	struct mtk_smi_dbg_node	node = larb ? smi->larb[id] : smi->comm[id];
 	const char		*name = larb ? "LARB" : "COMM";
@@ -326,16 +320,22 @@ static void mtk_smi_dbg_print(
 	if (!node.dev || !node.va)
 		return;
 
-	ret = pm_runtime_get_if_in_use(node.dev);
-	dev_info(node.dev, "===== %s%u rpm:%d =====\n"
-		, name, id, ret);
+	if (!skip_pm_runtime) {
+		ret = pm_runtime_get_if_in_use(node.dev);
+		dev_info(node.dev, "===== %s%u rpm:%d =====\n"
+			, name, id, ret);
 
-	if (ret <= 0) {
-		if (of_property_read_u32(node.dev->of_node, "mediatek,dump-with-comm", &comm_id))
-			return;
-		if (pm_runtime_get_if_in_use(smi->comm[comm_id].dev) <= 0)
-			return;
-		dump_with = true;
+		if (ret <= 0) {
+			if (of_property_read_u32(node.dev->of_node,
+				"mediatek,dump-with-comm", &comm_id))
+				return;
+			if (pm_runtime_get_if_in_use(smi->comm[comm_id].dev) <= 0)
+				return;
+			dump_with = true;
+		}
+	} else {
+		dev_info(node.dev, "===== %s%u rpm:skip =====\n"
+			, name, id);
 	}
 
 	for (i = 0, len = 0; i < regs_nr; i++) {
@@ -360,11 +360,13 @@ static void mtk_smi_dbg_print(
 	snprintf(buf + len, LINK_MAX - len, "%c", '\0');
 	dev_info(node.dev, "%s\n", buf);
 
-	if (dump_with) {
-		pm_runtime_put(smi->comm[comm_id].dev);
-		return;
+	if (!skip_pm_runtime) {
+		if (dump_with) {
+			pm_runtime_put(smi->comm[comm_id].dev);
+			return;
+		}
+		pm_runtime_put(node.dev);
 	}
-	pm_runtime_put(node.dev);
 }
 
 static void mtk_smi_dbg_hang_detect_single(
@@ -374,11 +376,11 @@ static void mtk_smi_dbg_hang_detect_single(
 	s32			i;
 
 	dev_info(node.dev, "%s: larb:%d id:%u\n", __func__, larb, id);
-	mtk_smi_dbg_print(smi, larb, id);
+	mtk_smi_dbg_print(smi, larb, id, false);
 	if (larb)
 		for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
 			if (smi->comm[i].dev == smi->larb[id].comm) {
-				mtk_smi_dbg_print(smi, !larb, i);
+				mtk_smi_dbg_print(smi, !larb, i, false);
 				break;
 			}
 		}
@@ -593,10 +595,13 @@ static char	*mtk_smi_dbg_comp[] = {
 	"mediatek,smi-larb", "mediatek,smi-common"
 };
 
-static int smi_dbg_cb(struct notifier_block *nb,
+static int smi_dbg_suspend_cb(struct notifier_block *nb,
 		unsigned long value, void *v)
 {
-	mtk_smi_dbg_hang_detect("smi driver");
+	bool is_larb = (v != NULL);
+
+	pr_notice("[SMI] %s: %d - %d\n", __func__, is_larb, value);
+	mtk_smi_dbg_print(gsmi, is_larb, value, true);
 	return 0;
 }
 
@@ -606,10 +611,6 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 	struct device_node	*node = NULL;
 	struct platform_device	*pdev;
 	s32			larb_nr = 0, comm_nr = 0, id, ret;
-
-	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
-	if (!dbg)
-		return -ENOMEM;
 
 	pr_info("%s: comp[%d]:%s\n", __func__, 0, mtk_smi_dbg_comp[0]);
 
@@ -626,6 +627,7 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 		if (!pdev)
 			return -EINVAL;
 		smi->larb[id].dev = &pdev->dev;
+		smi->larb[id].id = id;
 
 		ret = mtk_smi_dbg_parse(pdev, smi->larb, true, id);
 		if (ret)
@@ -644,13 +646,14 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 		if (!pdev)
 			return -EINVAL;
 		smi->comm[id].dev = &pdev->dev;
+		smi->comm[id].id = id;
 
 		ret = mtk_smi_dbg_parse(pdev, smi->comm, false, id);
 		if (ret)
 			return ret;
 	}
-	dbg->nb.notifier_call = smi_dbg_cb;
-	mtk_smi_driver_register_notifier(&dbg->nb);
+	smi->suspend_nb.notifier_call = smi_dbg_suspend_cb;
+	mtk_smi_driver_register_notifier(&smi->suspend_nb);
 	return 0;
 }
 
@@ -735,10 +738,10 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 
 	for (j = 0; j < PRINT_NR; j++) {
 		for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
-			mtk_smi_dbg_print(smi, true, i);
+			mtk_smi_dbg_print(smi, true, i, false);
 
 		for (i = 0; i < ARRAY_SIZE(smi->comm); i++)
-			mtk_smi_dbg_print(smi, false, i);
+			mtk_smi_dbg_print(smi, false, i, false);
 	}
 	return ret;
 }
