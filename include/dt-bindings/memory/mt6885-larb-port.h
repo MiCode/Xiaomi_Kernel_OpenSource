@@ -7,7 +7,7 @@
 #ifndef _DTS_IOMMU_PORT_MT6885_H_
 #define _DTS_IOMMU_PORT_MT6885_H_
 
-#include <dt-bindings/memory/mtk-smi-larb-port.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
 /*
  * domain 0: display: larb0, larb2.
