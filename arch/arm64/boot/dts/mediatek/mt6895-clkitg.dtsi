@@ -9,7 +9,6 @@
 	bring-up {
 		compatible = "mediatek,clk-bring-up";
 		clocks =
-			<&topckgen_clk CLK_TOP_SPI_SEL>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_DXCC_SEC_CORE>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
@@ -17,7 +16,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>,
-			<&infracfg_ao_clk CLK_IFRAO_FBIST2FPC>,
 			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>,
