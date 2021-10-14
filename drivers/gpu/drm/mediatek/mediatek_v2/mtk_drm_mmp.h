@@ -64,6 +64,8 @@ struct CRTC_MMP_Events {
 	mmp_event release_fence;
 	mmp_event update_present_fence;
 	mmp_event release_present_fence;
+	mmp_event present_fence_timestamp_same;
+	mmp_event present_fence_timestamp;
 	mmp_event update_sf_present_fence;
 	mmp_event release_sf_present_fence;
 	mmp_event warn_sf_pf_0;

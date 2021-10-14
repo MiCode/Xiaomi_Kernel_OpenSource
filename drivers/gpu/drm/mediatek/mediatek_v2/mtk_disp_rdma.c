@@ -385,6 +385,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			wake_up_interruptible(
 				&rdma->mtk_crtc->esd_ctx->check_task_wq);
 		}
+		atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 	}
 
 	/* TODO: check if this is not necessary */

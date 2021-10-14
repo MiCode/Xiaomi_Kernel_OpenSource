@@ -778,6 +778,7 @@ struct mtk_drm_crtc {
 	atomic_t cwb_task_active;
 
 	ktime_t eof_time;
+	ktime_t prev_eof_time;
 	struct task_struct *signal_present_fece_task;
 	struct cmdq_cb_data cb_data;
 	atomic_t cmdq_done;
@@ -799,6 +800,9 @@ struct mtk_drm_crtc {
 	bool last_is_mml;
 	bool is_mml_debug;
 	bool need_stop_last_mml_job;
+
+	atomic_t signal_irq_for_pre_fence;
+	wait_queue_head_t signal_irq_for_pre_fence_wq;
 };
 
 struct mtk_crtc_state {
@@ -832,6 +836,7 @@ struct mtk_cmdq_cb_data {
 	void __iomem *disp_mutex_reg_va;
 	void __iomem *mmlsys_reg_va;
 	bool is_mml;
+	unsigned int pres_fence_idx;
 };
 
 extern unsigned int disp_spr_bypass;

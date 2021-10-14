@@ -1823,8 +1823,11 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 	DRM_MMP_MARK(IRQ, irq, status);
 
-	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+		atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
+		wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
 		DRM_MMP_MARK(dsi0, status, 0);
+	}
 	else if (dsi->ddp_comp.id == DDP_COMPONENT_DSI1)
 		DRM_MMP_MARK(dsi1, status, 0);
 

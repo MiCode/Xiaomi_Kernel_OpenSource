@@ -3643,6 +3643,47 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 }
 
 #ifndef DRM_CMDQ_DISABLE
+static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc,
+			   struct mtk_drm_crtc *mtk_crtc)
+{
+	int id = drm_crtc_index(crtc);
+	unsigned int vrefresh = 0;
+	ktime_t cur_eof_time;
+	ktime_t start_time;
+	ktime_t wait_time;
+
+	cur_eof_time = mtk_crtc->eof_time;
+
+	if ((id == 0) && mtk_crtc->prev_eof_time == cur_eof_time) {
+		vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+
+		start_time = ktime_get();
+		wait_event_interruptible_timeout(
+			mtk_crtc->signal_irq_for_pre_fence_wq
+			, atomic_read(&mtk_crtc->signal_irq_for_pre_fence)
+			, msecs_to_jiffies(1000 / vrefresh));
+		atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
+		wait_time = ktime_get();
+
+		if ((start_time - wait_time) / 100000 > vrefresh / 2) {
+			DDPINFO("Wait time over %d, start time %lld wait time %lld\n",
+				(1000 / vrefresh), start_time, wait_time);
+			CRTC_MMP_MARK(id, present_fence_timestamp, start_time, wait_time);
+		}
+
+		cur_eof_time = mtk_crtc->eof_time;
+		DDPINFO("%s:Modify the eof_time to avoid same timestamp.\n", __func__);
+		CRTC_MMP_MARK(id, present_fence_timestamp_same,
+			mtk_crtc->prev_eof_time, cur_eof_time);
+
+		if (mtk_crtc->prev_eof_time == cur_eof_time)
+			DDPINFO("%s:The present fence timestamp still same.\n", __func__);
+	}
+
+	mtk_crtc->prev_eof_time = cur_eof_time;
+
+	return cur_eof_time;
+}
 #ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_FB_LEAK
 static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cmdq_cb_data data)
@@ -3685,6 +3726,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	unsigned int is_vfp_period = 0;
 	unsigned int _dsi_state_dbg7 = 0;
 	unsigned int _dsi_state_dbg7_2 = 0;
+	ktime_t cur_eof_time;
 
 	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x\n",
 		crtc_state,
@@ -3696,6 +3738,16 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	id = drm_crtc_index(crtc);
 
 	CRTC_MMP_EVENT_START(id, frame_cfg, 0, 0);
+
+	if ((drm_crtc_index(crtc) != 2) && (priv->power_state)) {
+		// only VDO mode panel use CMDQ call
+		if (mtk_crtc && !mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+				!cb_data->msync2_enable) {
+			cur_eof_time = mtk_check_preset_fence_timestamp(crtc, mtk_crtc);
+			mtk_release_present_fence(session_id, cb_data->pres_fence_idx,
+				cur_eof_time);
+		}
+	}
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if ((id == 0) && (priv->power_state)) {
@@ -3745,15 +3797,16 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		unsigned int fence_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_PRESENT_FENCE(drm_crtc_index(crtc))));
 
+		if (fence_idx != cb_data->pres_fence_idx) {
+			DDPMSG("%s:fence_idx:%d, cb_data->pres_fence_idx:%d",
+				__func__, fence_idx, cb_data->pres_fence_idx);
+		}
 		// only VDO mode panel use CMDQ call
 		if (mtk_crtc &&
 			!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			if (cb_data->msync2_enable)
 				mtk_release_present_fence(session_id,
 						fence_idx, ktime_get());
-			else
-				mtk_release_present_fence(session_id,
-						fence_idx, mtk_crtc->eof_time);
 		}
 	}
 
@@ -7829,6 +7882,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->misc = mtk_crtc->ddp_mode;
 	cb_data->msync2_enable = 0;
 	cb_data->is_mml = mtk_crtc->is_mml;
+	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
+		cb_data->pres_fence_idx = state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
 
 	/* This refcnt would be release in ddp_cmdq_cb */
 	drm_atomic_state_get(old_crtc_state->state);
@@ -9070,6 +9125,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	atomic_set(&(mtk_crtc->mml_last_job_is_flushed), 1);
 	init_waitqueue_head(&(mtk_crtc->signal_mml_last_job_is_flushed_wq));
 
+	atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
+	init_waitqueue_head(&(mtk_crtc->signal_irq_for_pre_fence_wq));
 	if (output_comp && mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_DUAL_TE))
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DUAL_TE_INIT,

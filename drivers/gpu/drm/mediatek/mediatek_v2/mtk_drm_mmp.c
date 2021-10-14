@@ -143,6 +143,12 @@ void init_crtc_mmp_event(void)
 		g_CRTC_MMP_Events[i].release_present_fence =
 			mmprofile_register_event(crtc_mmp_root,
 				"release_present_fence");
+		g_CRTC_MMP_Events[i].present_fence_timestamp_same =
+			mmprofile_register_event(crtc_mmp_root,
+				"present_fence_timestamp_same");
+		g_CRTC_MMP_Events[i].present_fence_timestamp =
+			mmprofile_register_event(crtc_mmp_root,
+				"present_fence_timestamp");
 		g_CRTC_MMP_Events[i].update_sf_present_fence =
 			mmprofile_register_event(crtc_mmp_root,
 				"update_sf_present_fence");
