@@ -355,6 +355,7 @@ struct fstb_trace_event {
 	int pid;
 };
 
+extern int xgf_trace_enable;
 extern struct xgf_trace_event *xgf_event_data;
 extern void *xgf_event_index;
 extern void *xgf_ko_enabled;

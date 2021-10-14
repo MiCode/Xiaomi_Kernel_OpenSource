@@ -59,7 +59,6 @@
 #define FBTCPU_SEC_DIVIDER 1000000000
 #define NSEC_PER_HUSEC 100000
 #define TIME_MS_TO_NS  1000000ULL
-#define MAX_DEP_NUM 30
 #define LOADING_WEIGHT 50
 #define DEFAULT_ADJUST_LOADING_HWUI_HINT 1
 #define DEF_RESCUE_PERCENT 33
@@ -365,6 +364,8 @@ static int max_blc_pid;
 static unsigned long long  max_blc_buffer_id;
 static int max_blc_stage;
 static unsigned int max_blc_cur;
+static struct fpsgo_loading max_blc_dep[MAX_DEP_NUM];
+static int max_blc_dep_num;
 static int boosted_group;
 
 static unsigned int *clus_obv;
@@ -632,6 +633,7 @@ static struct fbt_thread_blc *fbt_list_blc_add(int pid,
 	obj->blc = 0;
 	obj->pid = pid;
 	obj->buffer_id = buffer_id;
+	obj->dep_num = 0;
 
 	mutex_lock(&blc_mlock);
 	list_add(&obj->entry, &blc_list);
@@ -641,13 +643,15 @@ static struct fbt_thread_blc *fbt_list_blc_add(int pid,
 }
 
 static void fbt_find_max_blc(unsigned int *temp_blc, int *temp_blc_pid,
-	unsigned long long *temp_blc_buffer_id)
+	unsigned long long *temp_blc_buffer_id,
+	int *temp_blc_dep_num, struct fpsgo_loading temp_blc_dep[])
 {
 	struct fbt_thread_blc *pos, *next;
 
 	*temp_blc = 0;
 	*temp_blc_pid = 0;
 	*temp_blc_buffer_id = 0;
+	*temp_blc_dep_num = 0;
 
 	mutex_lock(&blc_mlock);
 	list_for_each_entry_safe(pos, next, &blc_list, entry) {
@@ -655,6 +659,9 @@ static void fbt_find_max_blc(unsigned int *temp_blc, int *temp_blc_pid,
 			*temp_blc = pos->blc;
 			*temp_blc_pid = pos->pid;
 			*temp_blc_buffer_id = pos->buffer_id;
+			*temp_blc_dep_num = pos->dep_num;
+			memcpy(temp_blc_dep, pos->dep,
+				pos->dep_num * sizeof(struct fpsgo_loading));
 		}
 	}
 	mutex_unlock(&blc_mlock);
@@ -662,13 +669,15 @@ static void fbt_find_max_blc(unsigned int *temp_blc, int *temp_blc_pid,
 
 static void fbt_find_ex_max_blc(int pid, unsigned long long buffer_id,
 	unsigned int *temp_blc, int *temp_blc_pid,
-	unsigned long long *temp_blc_buffer_id)
+	unsigned long long *temp_blc_buffer_id,
+	int *temp_blc_dep_num, struct fpsgo_loading temp_blc_dep[])
 {
 	struct fbt_thread_blc *pos, *next;
 
 	*temp_blc = 0;
 	*temp_blc_pid = 0;
 	*temp_blc_buffer_id = 0;
+	*temp_blc_dep_num = 0;
 
 	mutex_lock(&blc_mlock);
 	list_for_each_entry_safe(pos, next, &blc_list, entry) {
@@ -677,6 +686,9 @@ static void fbt_find_ex_max_blc(int pid, unsigned long long buffer_id,
 			*temp_blc = pos->blc;
 			*temp_blc_pid = pos->pid;
 			*temp_blc_buffer_id = pos->buffer_id;
+			*temp_blc_dep_num = pos->dep_num;
+			memcpy(temp_blc_dep, pos->dep,
+				pos->dep_num * sizeof(struct fpsgo_loading));
 		}
 	}
 	mutex_unlock(&blc_mlock);
@@ -972,6 +984,135 @@ static void fbt_set_task_policy(struct fpsgo_loading *fl,
 	fpsgo_systrace_c_fbt_debug(fl->pid, 0, policy, "task_policy");
 }
 
+#define MAX_PID_DIGIT 7
+#define MAIN_LOG_SIZE (256)
+static void print_dep(const char *func,
+	char *tag, int pid,
+	unsigned long long buffer_id,
+	struct fpsgo_loading dep[], int size)
+{
+	char *dep_str = NULL;
+	char temp[MAX_PID_DIGIT] = {"\0"};
+	struct fpsgo_loading *fl;
+	int i;
+
+	if (!xgf_trace_enable)
+		return;
+
+	dep_str = kcalloc(size + 1, MAX_PID_DIGIT * sizeof(char),
+				GFP_KERNEL);
+	if (!dep_str)
+		return;
+
+	for (i = 0; i < size; i++) {
+		fl = &dep[i];
+
+		if (strlen(dep_str) == 0)
+			snprintf(temp, sizeof(temp), "%d", fl->pid);
+		else
+			snprintf(temp, sizeof(temp), ",%d", fl->pid);
+
+		if (strlen(dep_str) + strlen(temp) < MAIN_LOG_SIZE)
+			strncat(dep_str, temp, strlen(temp));
+	}
+	xgf_trace("%s %s %s %d %d size:%d dep-list %s",
+			__func__, func, tag, pid, buffer_id, size, dep_str);
+	kfree(dep_str);
+}
+
+/*
+ * __incr- Given an array ARR with size @max, while index @i reaches @max,
+ *         return @max and keeping @fl points to last valid element of
+ *         ARR[max - 1]. Otherwise, do nomral increment of @i and @fl.
+ */
+static inline int __incr(int i, int max)
+{
+	if (i >= max)
+		return max;
+
+	return i + 1;
+}
+
+/*
+ * __incr_alt - if @t reaches maximum already, raise @incr_c as candidate
+ */
+static inline void __incr_alt(int t, int max, int *incr_t, int *incr_c)
+{
+	if (t < max)
+		*incr_t = 1;
+	else
+		*incr_c = 1;
+}
+
+static void dep_a_except_b(
+	struct fpsgo_loading dep_a[], int size_a,
+	struct fpsgo_loading dep_b[], int size_b,
+	struct fpsgo_loading dep_result[], int *size_result,
+	int copy_intersection_to_b)
+{
+	struct fpsgo_loading *fl_b, *fl_a;
+	int i, j;
+	int incr_i, incr_j;
+	int temp_size_result = 0;
+
+	if (!size_b) {
+		memcpy(dep_result, dep_a,
+			size_a * sizeof(struct fpsgo_loading));
+		*size_result = size_a;
+		return;
+	}
+	if (!size_a) {
+		*size_result = 0;
+		return;
+	}
+
+	for (i = 0, j = 0, fl_b = &dep_b[0], fl_a = &(dep_a[0]);
+	     size_b > 0 && size_a &&
+	     (i < size_b || j < size_a);
+	     i = incr_i ? __incr(i, size_b) : i,
+	     j = incr_j ? __incr(j, size_a) : j,
+	     fl_b = &dep_b[clamp(i, i, size_b - 1)],
+	     fl_a = &(dep_a[clamp(j, j, size_a - 1)])) {
+
+		incr_i = incr_j = 0;
+
+		if (fl_b->pid == 0) {
+			if (i >= size_b && j < size_a) {
+				dep_result[temp_size_result] = *fl_a;
+				temp_size_result++;
+			}
+			__incr_alt(i, size_b, &incr_i, &incr_j);
+			continue;
+		}
+
+		if (fl_a->pid == 0) {
+			__incr_alt(j, size_a, &incr_j, &incr_i);
+			continue;
+		}
+
+		if (fl_b->pid == fl_a->pid) {
+			if (copy_intersection_to_b)
+				*fl_b = *fl_a;
+			incr_i = incr_j = 1;
+		} else if (fl_b->pid > fl_a->pid) {
+			if (j < size_a) {
+				dep_result[temp_size_result] = *fl_a;
+				temp_size_result++;
+			}
+			__incr_alt(j, size_a, &incr_j, &incr_i);
+		} else { /* b pid < a pid */
+			if (i >= size_b && j < size_a) {
+				dep_result[temp_size_result] = *fl_a;
+				temp_size_result++;
+			}
+			__incr_alt(i, size_b, &incr_i, &incr_j);
+		}
+	}
+
+	*size_result = temp_size_result;
+}
+
+
 static void fbt_reset_task_setting(struct fpsgo_loading *fl, int reset_boost)
 {
 	if (!fl || !fl->pid)
@@ -1031,39 +1172,15 @@ static void fbt_query_dep_list_loading(struct render_info *thr)
 	fpsgo_fbt2minitop_start(thr->dep_valid_size, thr->dep_arr);
 }
 
-/*
- * __incr- Given an array ARR with size @max, while index @i reaches @max,
- *         return @max and keeping @fl points to last valid element of
- *         ARR[max - 1]. Otherwise, do nomral increment of @i and @fl.
- */
-static inline int __incr(int i, int max)
-{
-	if (i >= max)
-		return max;
-
-	return i + 1;
-}
-
-/*
- * __incr_alt - if @t reaches maximum already, raise @incr_c as candidate
- */
-static inline void __incr_alt(int t, int max, int *incr_t, int *incr_c)
-{
-	if (t < max)
-		*incr_t = 1;
-	else
-		*incr_c = 1;
-}
-
 static int fbt_get_dep_list(struct render_info *thr)
 {
 	int pid;
 	int count = 0;
 	int ret_size;
-	struct fpsgo_loading dep_new[MAX_DEP_NUM];
-	int i, j;
-	struct fpsgo_loading *fl_new, *fl_old;
-	int incr_i, incr_j;
+	struct fpsgo_loading dep_new[MAX_DEP_NUM],
+		dep_only_old[MAX_DEP_NUM], dep_old_need_reset[MAX_DEP_NUM];
+	int i;
+	int temp_size_only_old = 0, temp_size_old_need_reset = 0;
 
 	memset(dep_new, 0,
 		MAX_DEP_NUM * sizeof(struct fpsgo_loading));
@@ -1089,43 +1206,35 @@ static int fbt_get_dep_list(struct render_info *thr)
 	fbt_dep_list_filter(dep_new, count);
 	sort(dep_new, count, sizeof(struct fpsgo_loading), __cmp1, NULL);
 
-	for (i = 0, j = 0, fl_new = &dep_new[0], fl_old = &(thr->dep_arr[0]);
-	     count > 0 && thr->dep_valid_size &&
-	     (i < count || j < thr->dep_valid_size);
-	     i = incr_i ? __incr(i, count) : i,
-	     j = incr_j ? __incr(j, thr->dep_valid_size) : j,
-	     fl_new = &dep_new[clamp(i, i, count - 1)],
-	     fl_old = &(thr->dep_arr[clamp(j, j, thr->dep_valid_size - 1)])) {
+	dep_a_except_b(
+		&(thr->dep_arr[0]), thr->dep_valid_size,
+		&dep_new[0], count,
+		&dep_only_old[0], &temp_size_only_old,
+		1);
+	print_dep(__func__, "old_dep",
+		thr->pid, thr->buffer_id,
+		&(thr->dep_arr[0]), thr->dep_valid_size);
+	print_dep(__func__, "new_dep",
+		thr->pid, thr->buffer_id,
+		&dep_new[0], count);
+	print_dep(__func__, "only_in_old_dep",
+		thr->pid, thr->buffer_id,
+		&dep_only_old[0], temp_size_only_old);
 
-		incr_i = incr_j = 0;
-
-		if (fl_new->pid == 0) {
-			if (i >= count && j < thr->dep_valid_size)
-				fbt_reset_task_setting(fl_old, 1);
-			__incr_alt(i, count, &incr_i, &incr_j);
-			continue;
-		}
-
-		if (fl_old->pid == 0) {
-			__incr_alt(j, thr->dep_valid_size, &incr_j, &incr_i);
-			continue;
-		}
-
-		if (fl_new->pid == fl_old->pid) {
-			fl_new->loading = fl_old->loading;
-			fl_new->prefer_type = fl_old->prefer_type;
-			fl_new->policy = fl_old->policy;
-			fl_new->nice_bk = fl_old->nice_bk;
-			incr_i = incr_j = 1;
-		} else if (fl_new->pid > fl_old->pid) {
-			if (j < thr->dep_valid_size)
-				fbt_reset_task_setting(fl_old, 1);
-			__incr_alt(j, thr->dep_valid_size, &incr_j, &incr_i);
-		} else { /* new pid < old pid */
-			if (i >= count && j < thr->dep_valid_size)
-				fbt_reset_task_setting(fl_old, 1);
-			__incr_alt(i, count, &incr_i, &incr_j);
-		}
+	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id)
+		for (i = 0; i < temp_size_only_old; i++)
+			fbt_reset_task_setting(&dep_only_old[i], 1);
+	else {
+		dep_a_except_b(
+			&(dep_only_old[0]), temp_size_only_old,
+			&max_blc_dep[0], max_blc_dep_num,
+			&dep_old_need_reset[0], &temp_size_old_need_reset,
+			0);
+		print_dep(__func__, "dep_need_reset",
+			thr->pid, thr->buffer_id,
+			&dep_old_need_reset[0], temp_size_old_need_reset);
+		for (i = 0; i < temp_size_old_need_reset; i++)
+			fbt_reset_task_setting(&dep_old_need_reset[i], 1);
 	}
 
 	if (!thr->dep_arr) {
@@ -1157,12 +1266,31 @@ static void fbt_clear_dep_list(struct fpsgo_loading *pdep)
 static void fbt_clear_min_cap(struct render_info *thr)
 {
 	int i;
+	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
+	int temp_size_need_set = 0;
 
 	if (!thr || !thr->dep_arr)
 		return;
 
-	for (i = 0; i < thr->dep_valid_size; i++)
-		fbt_reset_task_setting(&thr->dep_arr[i], 1);
+	if ((thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id))
+		for (i = 0; i < thr->dep_valid_size; i++)
+			fbt_reset_task_setting(&thr->dep_arr[i], 1);
+	else {
+		dep_a_except_b(
+			&(thr->dep_arr[0]), thr->dep_valid_size,
+			&max_blc_dep[0], max_blc_dep_num,
+			&dep_need_set[0], &temp_size_need_set,
+			0);
+		print_dep(__func__, "dep",
+			thr->pid, thr->buffer_id,
+			&(thr->dep_arr[0]), thr->dep_valid_size);
+		print_dep(__func__, "dep_need_clear",
+			thr->pid, thr->buffer_id,
+			&dep_need_set[0], temp_size_need_set);
+
+		for (i = 0; i < temp_size_need_set; i++)
+			fbt_reset_task_setting(&dep_need_set[i], 1);
+	}
 }
 
 static int fbt_is_light_loading(int loading)
@@ -1219,15 +1347,13 @@ static int fbt_get_opp_by_normalized_cap(unsigned int cap, int cluster)
 	return tgt_opp;
 }
 
-#define MAX_PID_DIGIT 7
-#define MAIN_LOG_SIZE (256)
 static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 					int jerk)
 {
 /*
  * boost_ta should be checked during the flow, not here.
  */
-	int size = 0, i;
+	int size = 0, size_final = 0, i;
 	char *dep_str = NULL;
 	int ret;
 	int heavy_pid = 0;
@@ -1240,6 +1366,8 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int bhr_local;
 	int cluster = 0;
 	int max_cap = 100;
+	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
+	int temp_size_need_set = 0;
 
 
 	if (!uclamp_boost_enable)
@@ -1336,9 +1464,31 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	if (!dep_str)
 		return;
 
-	for (i = 0; i < size; i++) {
+	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id)
+		size_final = size;
+	else {
+		dep_a_except_b(
+			&(thr->dep_arr[0]), thr->dep_valid_size,
+			&max_blc_dep[0], max_blc_dep_num,
+			&dep_need_set[0], &temp_size_need_set,
+			0);
+		print_dep(__func__, "dep",
+			thr->pid, thr->buffer_id,
+			&(thr->dep_arr[0]), thr->dep_valid_size);
+		print_dep(__func__, "dep_need_set",
+			thr->pid, thr->buffer_id,
+			&dep_need_set[0], temp_size_need_set);
+		size_final = temp_size_need_set;
+	}
+
+	for (i = 0; i < size_final; i++) {
 		char temp[MAX_PID_DIGIT] = {"\0"};
-		struct fpsgo_loading *fl = &thr->dep_arr[i];
+		struct fpsgo_loading *fl;
+
+		if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id)
+			fl = &thr->dep_arr[i];
+		else
+			fl = &dep_need_set[i];
 
 		if (!fl->pid)
 			continue;
@@ -2389,6 +2539,8 @@ static void fbt_clear_state(struct render_info *thr)
 	unsigned int temp_blc = 0;
 	int temp_blc_pid = 0;
 	unsigned long long temp_blc_buffer_id = 0;
+	int temp_blc_dep_num = 0;
+	struct fpsgo_loading temp_blc_dep[MAX_DEP_NUM];
 
 	if (!thr || thr->boost_info.cur_stage == FPSGO_JERK_INACTIVE)
 		return;
@@ -2400,7 +2552,8 @@ static void fbt_clear_state(struct render_info *thr)
 	if (ultra_rescue)
 		fbt_boost_dram(0);
 
-	fbt_find_max_blc(&temp_blc, &temp_blc_pid, &temp_blc_buffer_id);
+	fbt_find_max_blc(&temp_blc, &temp_blc_pid,
+		&temp_blc_buffer_id, &temp_blc_dep_num, temp_blc_dep);
 	if (temp_blc)
 		fbt_do_boost(temp_blc, temp_blc_pid, temp_blc_buffer_id);
 
@@ -2414,12 +2567,21 @@ static void fbt_set_limit(unsigned int blc_wt,
 	unsigned int final_blc = blc_wt;
 	int final_blc_pid = pid;
 	unsigned long long final_blc_buffer_id = buffer_id;
+	int final_blc_dep_num = 0;
+	struct fpsgo_loading final_blc_dep[MAX_DEP_NUM];
 
 	if (!(blc_wt > max_blc ||
 		(pid == max_blc_pid && buffer_id == max_blc_buffer_id))) {
 		fbt_clear_state(thread_info);
 		return;
 	}
+
+	if (thread_info && thread_info->dep_arr) {
+		final_blc_dep_num = thread_info->dep_valid_size;
+		memcpy(final_blc_dep, thread_info->dep_arr,
+			final_blc_dep_num * sizeof(struct fpsgo_loading));
+	}
+
 
 	if (ultra_rescue)
 		fbt_boost_dram(0);
@@ -2429,9 +2591,12 @@ static void fbt_set_limit(unsigned int blc_wt,
 		unsigned int temp_blc = 0;
 		int temp_blc_pid = 0;
 		unsigned long long temp_blc_buffer_id = 0;
+		int temp_blc_dep_num = 0;
+		struct fpsgo_loading temp_blc_dep[MAX_DEP_NUM];
 
 		fbt_find_ex_max_blc(pid, buffer_id, &temp_blc,
-				&temp_blc_pid, &temp_blc_buffer_id);
+				&temp_blc_pid, &temp_blc_buffer_id,
+				&temp_blc_dep_num, temp_blc_dep);
 		if (blc_wt && temp_blc > blc_wt && temp_blc_pid
 			&& (temp_blc_pid != pid ||
 				temp_blc_buffer_id != buffer_id)) {
@@ -2441,6 +2606,9 @@ static void fbt_set_limit(unsigned int blc_wt,
 			final_blc = temp_blc;
 			final_blc_pid = temp_blc_pid;
 			final_blc_buffer_id = temp_blc_buffer_id;
+			final_blc_dep_num = temp_blc_dep_num;
+			memcpy(final_blc_dep, temp_blc_dep,
+				temp_blc_dep_num * sizeof(struct fpsgo_loading));
 
 			goto EXIT;
 		}
@@ -2475,10 +2643,18 @@ EXIT:
 	max_blc_pid = final_blc_pid;
 	max_blc_buffer_id = final_blc_buffer_id;
 	max_blc_stage = FPSGO_JERK_INACTIVE;
+	max_blc_dep_num = final_blc_dep_num;
+	memcpy(max_blc_dep, final_blc_dep,
+		max_blc_dep_num * sizeof(struct fpsgo_loading));
+
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc, "max_blc");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_pid, "max_blc_pid");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_buffer_id, "max_blc_buffer_id");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_dep_num, "max_blc_dep_num");
+	print_dep(__func__, "max_blc_dep",
+		0, 0,
+		max_blc_dep, max_blc_dep_num);
 
 	if (jatm_notify_fp)
 		jatm_notify_fp(0);
@@ -3117,8 +3293,12 @@ static int fbt_boost_policy(
 	mutex_unlock(&fbt_mlock);
 
 	mutex_lock(&blc_mlock);
-	if (thread_info->p_blc)
+	if (thread_info->p_blc) {
 		thread_info->p_blc->blc = blc_wt;
+		thread_info->p_blc->dep_num = thread_info->dep_valid_size;
+		memcpy(thread_info->p_blc->dep, thread_info->dep_arr,
+			thread_info->dep_valid_size * sizeof(struct fpsgo_loading));
+	}
 	mutex_unlock(&blc_mlock);
 
 	boost_info->last_blc = blc_wt;
@@ -3241,19 +3421,30 @@ static void fbt_check_max_blc_locked(void)
 	unsigned int temp_blc = 0;
 	int temp_blc_pid = 0;
 	unsigned long long temp_blc_buffer_id = 0;
+	int temp_blc_dep_num = 0;
+	struct fpsgo_loading temp_blc_dep[MAX_DEP_NUM];
 
-	fbt_find_max_blc(&temp_blc, &temp_blc_pid, &temp_blc_buffer_id);
+	fbt_find_max_blc(&temp_blc, &temp_blc_pid,
+		&temp_blc_buffer_id, &temp_blc_dep_num, temp_blc_dep);
 
 	max_blc = temp_blc;
 	max_blc_cur = temp_blc;
 	max_blc_pid = temp_blc_pid;
 	max_blc_buffer_id = temp_blc_buffer_id;
 	max_blc_stage = FPSGO_JERK_INACTIVE;
+	max_blc_dep_num = temp_blc_dep_num;
+	memcpy(max_blc_dep, temp_blc_dep,
+		max_blc_dep_num * sizeof(struct fpsgo_loading));
+
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc, "max_blc");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_pid, "max_blc_pid");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_buffer_id,
 		"max_blc_buffer_id");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_dep_num, "max_blc_dep_num");
+	print_dep(__func__, "max_blc_dep",
+		0, 0,
+		max_blc_dep, max_blc_dep_num);
 
 	if (max_blc == 0 && max_blc_pid == 0 && max_blc_buffer_id == 0) {
 		if (boost_ta || boosted_group) {
@@ -4154,12 +4345,17 @@ void fpsgo_base2fbt_no_one_render(void)
 	max_blc_pid = 0;
 	max_blc_buffer_id = 0;
 	max_blc_stage = FPSGO_JERK_INACTIVE;
+	max_blc_dep_num = 0;
 	memset(base_opp, 0, cluster_num * sizeof(unsigned int));
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc, "max_blc");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_pid, "max_blc_pid");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_buffer_id,
 		"max_blc_buffer_id");
 	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_stage, "max_blc_stage");
+	fpsgo_systrace_c_fbt_debug(-100, 0, max_blc_dep_num, "max_blc_dep_num");
+	print_dep(__func__, "max_blc_dep",
+		0, 0,
+		max_blc_dep, max_blc_dep_num);
 
 	fbt_setting_reset(1);
 
@@ -4524,6 +4720,7 @@ static void fbt_setting_exit(void)
 	max_blc_pid = 0;
 	max_blc_buffer_id = 0;
 	max_blc_stage = FPSGO_JERK_INACTIVE;
+	max_blc_dep_num = 0;
 
 	fbt_setting_reset(1);
 }

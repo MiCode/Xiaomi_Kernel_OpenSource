@@ -33,7 +33,7 @@
 
 static DEFINE_MUTEX(xgf_main_lock);
 static int xgf_enable;
-static int xgf_trace_enable;
+int xgf_trace_enable;
 static int xgf_log_trace_enable;
 static int xgf_ko_ready;
 static struct kobject *xgf_kobj;

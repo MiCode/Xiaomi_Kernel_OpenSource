@@ -14,6 +14,7 @@
 #include <linux/sched/task.h>
 #include <linux/sched.h>
 
+#define MAX_DEP_NUM 30
 #define WINDOW 20
 #define RESCUE_TIMER_NUM 5
 #define QUOTA_MAX_SIZE 300
@@ -74,10 +75,21 @@ struct fbt_thread_loading {
 	int ext_id;
 };
 
+
+struct fpsgo_loading {
+	int pid;
+	int loading;
+	int prefer_type;
+	int policy;
+	long nice_bk;
+};
+
 struct fbt_thread_blc {
 	int pid;
 	unsigned long long buffer_id;
 	unsigned int blc;
+	int dep_num;
+	struct fpsgo_loading dep[MAX_DEP_NUM];
 	struct list_head entry;
 };
 
@@ -199,14 +211,6 @@ struct BQ_id {
 struct hwui_info {
 	int pid;
 	struct rb_node entry;
-};
-
-struct fpsgo_loading {
-	int pid;
-	int loading;
-	int prefer_type;
-	int policy;
-	long nice_bk;
 };
 
 struct gbe_runtime {
