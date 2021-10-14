@@ -544,6 +544,7 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 		if ((ionFd == iova_info->ionfd) &&
 				(dma_buf == iova_info->dma_buf)) {
 			cache = true;
+			dma_addr = iova_info->dma_addr;
 			dma_buf_put(dma_buf);
 			break;
 		}
@@ -552,7 +553,7 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 
 	if (cache) {
 		pr_debug("%s cache hit\n", __func__);
-		return iova_info->dma_addr;
+		return dma_addr;
 	}
 
 	if (IS_ERR(dma_buf)) {
