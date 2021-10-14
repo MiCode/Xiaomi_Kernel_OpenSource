@@ -1880,7 +1880,7 @@ void camsv_irq_handle_err(
 	val2 = val2 | CAMSV_TG_SEN_MODE_CMOS_RDY_SEL;
 	writel_relaxed(val2, camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
 	wmb(); /* TBC */
-	dev_info(camsv_dev->dev,
+	dev_info_ratelimited(camsv_dev->dev,
 		"TG PATHCFG/SENMODE/FRMSIZE/RGRABPXL/LIN:%x/%x/%x/%x/%x/%x\n",
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_PATH_CFG),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_MODE),
@@ -1888,7 +1888,7 @@ void camsv_irq_handle_err(
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_FRMSIZE_ST_R),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_GRAB_PXL),
 		readl_relaxed(camsv_dev->base + REG_CAMSV_TG_SEN_GRAB_LIN));
-	dev_info(camsv_dev->dev,
+	dev_info_ratelimited(camsv_dev->dev,
 		"IMGO:0x%x\n",
 		readl_relaxed(camsv_dev->base + REG_CAMSV_IMGO_ERR_STAT));
 
@@ -1914,7 +1914,6 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	struct device *dev = camsv_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
 	unsigned int dequeued_imgo_seq_no, dequeued_imgo_seq_no_inner;
-	unsigned int tg_timestamp;
 	unsigned int irq_status, err_status;
 	unsigned int drop_status, imgo_err_status, imgo_overr_status;
 	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
@@ -1922,7 +1921,6 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	bool wake_thread = 0;
 
 	irq_status	= readl_relaxed(camsv_dev->base + REG_CAMSV_INT_STATUS);
-	tg_timestamp = readl_relaxed(camsv_dev->base + REG_CAMSV_TG_TIME_STAMP);
 	dequeued_imgo_seq_no =
 		readl_relaxed(camsv_dev->base + REG_CAMSV_FRAME_SEQ_NO);
 	dequeued_imgo_seq_no_inner =
@@ -1966,12 +1964,13 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	if ((irq_status & CAMSV_INT_TG_SOF_INT_ST) &&
 		(irq_status & CAMSV_INT_PASS1_DON_ST))
 		dev_dbg(dev, "sof_done block cnt:%d\n", camsv_dev->sof_count);
+
 	/* Frame done */
 	if (irq_status & CAMSV_INT_SW_PASS1_DON_ST)
-		irq_info.irq_type |= 1<<CAMSYS_IRQ_FRAME_DONE;
+		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_DONE);
 	/* Frame start */
 	if (irq_status & CAMSV_INT_TG_SOF_INT_ST) {
-		irq_info.irq_type |= 1<<CAMSYS_IRQ_FRAME_START;
+		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_START);
 		camsv_dev->sof_count++;
 	}
 
@@ -1990,14 +1989,6 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 
 		if (push_msgfifo(camsv_dev, &err_info) == 0)
 			wake_thread = 1;
-
-		dev_info(dev,
-			"%i status:0x%x(err:0x%x) drop:0x%x imgo_dma_err:0x%x_%x fbc:0x%x (imgo:0x%x%08x) in:%d tg_sen/dcif_set/tg_vf/tg_path:0x%x_%x_%x_%x\n",
-			camsv_dev->id,
-			irq_status, err_status,
-			drop_status, imgo_err_status, imgo_overr_status,
-			fbc_imgo_status, imgo_addr_msb, imgo_addr, dequeued_imgo_seq_no_inner,
-			tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg);
 	}
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;

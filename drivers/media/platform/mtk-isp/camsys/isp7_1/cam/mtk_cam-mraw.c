@@ -1889,20 +1889,22 @@ void mtk_mraw_unregister_entities(struct mtk_mraw *mraw)
 		mtk_mraw_pipeline_unregister(mraw->pipelines + i);
 }
 
-void mraw_irq_handle_tg_grab_err(
-	struct mtk_mraw_device *mraw_dev)
+void mraw_irq_handle_tg_grab_err(struct mtk_mraw_device *mraw_dev,
+	int dequeued_frame_seq_no)
 {
 	int val, val2;
+	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_ctx *ctx;
 
 	val = readl_relaxed(mraw_dev->base + REG_MRAW_TG_PATH_CFG);
-	val = val|MRAW_TG_PATH_TG_FULL_SEL;
+	val = val | MRAW_TG_PATH_TG_FULL_SEL;
 	writel_relaxed(val, mraw_dev->base + REG_MRAW_TG_PATH_CFG);
 	wmb(); /* TBC */
 	val2 = readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-	val2 = val2|MRAW_TG_CMOS_RDY_SEL;
+	val2 = val2 | MRAW_TG_CMOS_RDY_SEL;
 	writel_relaxed(val2, mraw_dev->base + REG_MRAW_TG_SEN_MODE);
 	wmb(); /* TBC */
-	dev_dbg_ratelimited(mraw_dev->dev,
+	dev_info_ratelimited(mraw_dev->dev,
 		"TG PATHCFG/SENMODE/FRMSIZE/RGRABPXL/LIN:%x/%x/%x/%x/%x/%x\n",
 		readl_relaxed(mraw_dev->base + REG_MRAW_TG_PATH_CFG),
 		readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_MODE),
@@ -1910,48 +1912,92 @@ void mraw_irq_handle_tg_grab_err(
 		readl_relaxed(mraw_dev->base + REG_MRAW_TG_FRMSIZE_ST_R),
 		readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_GRAB_PXL),
 		readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_GRAB_LIN));
+
+	ctx = mtk_cam_find_ctx(mraw_dev->cam, &mraw_dev->pipeline->subdev.entity);
+	if (!ctx) {
+		dev_info(mraw_dev->dev, "%s: cannot find ctx\n", __func__);
+		return;
+	}
+
+	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
+	if (s_data) {
+		mtk_cam_debug_seninf_dump(s_data);
+	} else {
+		dev_info(mraw_dev->dev,
+			 "%s: req(%d) can't be found for seninf dump\n",
+			 __func__, dequeued_frame_seq_no);
+	}
 }
 
 void mraw_irq_handle_dma_err(struct mtk_mraw_device *mraw_dev)
 {
-	dev_dbg_ratelimited(mraw_dev->dev,
-		"IMGO:0x%x\n",
-		readl_relaxed(mraw_dev->base + REG_MRAW_IMGO_ERR_STAT));
-
-	dev_dbg_ratelimited(mraw_dev->dev,
-		"IMGBO:0x%x\n",
-		readl_relaxed(mraw_dev->base + REG_MRAW_IMGBO_ERR_STAT));
-
-	dev_dbg_ratelimited(mraw_dev->dev,
-		"CPIO:0x%x\n",
+	dev_info_ratelimited(mraw_dev->dev,
+		"IMGO:0x%x IMGBO:0x%x CPIO:0x%x\n",
+		readl_relaxed(mraw_dev->base + REG_MRAW_IMGO_ERR_STAT),
+		readl_relaxed(mraw_dev->base + REG_MRAW_IMGBO_ERR_STAT),
 		readl_relaxed(mraw_dev->base + REG_MRAW_CPIO_ERR_STAT));
 }
 
-static void mraw_irq_handle_tg_overrun_err(struct mtk_mraw_device *mraw_dev)
+static void mraw_irq_handle_tg_overrun_err(struct mtk_mraw_device *mraw_dev,
+	int dequeued_frame_seq_no)
 {
-	dev_info(mraw_dev->dev,
-			 "TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
+	int val, val2, irq_status5;
+	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_ctx *ctx;
+
+	val = readl_relaxed(mraw_dev->base + REG_MRAW_TG_PATH_CFG);
+	val = val | MRAW_TG_PATH_TG_FULL_SEL;
+	writel_relaxed(val, mraw_dev->base + REG_MRAW_TG_PATH_CFG);
+	wmb(); /* TBC */
+	val2 = readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_MODE);
+	val2 = val2 | MRAW_TG_CMOS_RDY_SEL;
+	writel_relaxed(val2, mraw_dev->base + REG_MRAW_TG_SEN_MODE);
+	wmb(); /* TBC */
+	irq_status5 = readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT5_STATUSX);
+	dev_info_ratelimited(mraw_dev->dev,
+			 "TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:0x%x/0x%x 0x%x/0x%x 0x%x/0x%x\n",
 			 readl_relaxed(mraw_dev->base + REG_MRAW_TG_PATH_CFG),
 			 readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_MODE),
 			 readl_relaxed(mraw_dev->base + REG_MRAW_TG_FRMSIZE_ST),
 			 readl_relaxed(mraw_dev->base + REG_MRAW_TG_FRMSIZE_ST_R),
 			 readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_GRAB_PXL),
 			 readl_relaxed(mraw_dev->base + REG_MRAW_TG_SEN_GRAB_LIN));
+	dev_info_ratelimited(mraw_dev->dev,
+			"imgo_overr_status:0x%x, imgbo_overr_status:0x%x, cpio_overr_status:0x%x\n",
+			irq_status5 & MRAWCTL_IMGO_M1_OTF_OVERFLOW_ST,
+			irq_status5 & MRAWCTL_IMGBO_M1_OTF_OVERFLOW_ST,
+			irq_status5 & MRAWCTL_CPIO_M1_OTF_OVERFLOW_ST);
+
+	ctx = mtk_cam_find_ctx(mraw_dev->cam, &mraw_dev->pipeline->subdev.entity);
+	if (!ctx) {
+		dev_info(mraw_dev->dev, "%s: cannot find ctx\n", __func__);
+		return;
+	}
+
+	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
+	if (s_data) {
+		mtk_cam_debug_seninf_dump(s_data);
+	} else {
+		dev_info(mraw_dev->dev,
+			 "%s: req(%d) can't be found for seninf dump\n",
+			 __func__, dequeued_frame_seq_no);
+	}
 }
 
 static void mraw_handle_error(struct mtk_mraw_device *mraw_dev,
 			     struct mtk_camsys_irq_info *data)
 {
 	int err_status = data->e.err_status;
+	int frame_idx_inner = data->frame_idx_inner;
 
 	/* Show DMA errors in detail */
 	if (err_status & DMA_ST_MASK_MRAW_ERR)
 		mraw_irq_handle_dma_err(mraw_dev);
 	/* Show TG register for more error detail*/
 	if (err_status & MRAWCTL_TG_GBERR_ST)
-		mraw_irq_handle_tg_grab_err(mraw_dev);
+		mraw_irq_handle_tg_grab_err(mraw_dev, frame_idx_inner);
 	if (err_status & MRAWCTL_TG_ERR_ST)
-		mraw_irq_handle_tg_overrun_err(mraw_dev);
+		mraw_irq_handle_tg_overrun_err(mraw_dev, frame_idx_inner);
 }
 
 static irqreturn_t mtk_irq_mraw(int irq, void *data)
@@ -1960,18 +2006,13 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	struct device *dev = mraw_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
 	unsigned int dequeued_imgo_seq_no, dequeued_imgo_seq_no_inner;
-	unsigned int tg_timestamp;
-	unsigned int irq_status, irq_status5, irq_status6, err_status;
-	unsigned int irq_status2, irq_status3, irq_status4;
-	unsigned int dma_err_status;
+	unsigned int irq_status, irq_status2, irq_status3, irq_status4;
+	unsigned int irq_status5, irq_status6;
+	unsigned int err_status, dma_err_status;
 	unsigned int imgo_overr_status, imgbo_overr_status, cpio_overr_status;
-	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
-	unsigned int fbc_imgbo_status, imgbo_addr, imgbo_addr_msb;
-	unsigned int fbc_cpio_status, cpio_addr, cpio_addr_msb;
 	bool wake_thread = 0;
 
 	irq_status	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT_STATUS);
-
 	/*
 	 * [ISP 7.0/7.1] HW Bug Workaround: read MRAWCTL_INT2_STATUS every irq
 	 * Because MRAWCTL_INT2_EN is attach to OTF_OVER_FLOW ENABLE incorrectly
@@ -1979,35 +2020,12 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	irq_status2	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT2_STATUS);
 	irq_status3	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT3_STATUS);
 	irq_status4	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT4_STATUS);
-
 	irq_status5 = readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT5_STATUS);
 	irq_status6	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT6_STATUS);
-	tg_timestamp = readl_relaxed(mraw_dev->base + REG_MRAW_TG_TIME_STAMP);
 	dequeued_imgo_seq_no =
 		readl_relaxed(mraw_dev->base + REG_MRAW_FRAME_SEQ_NUM);
 	dequeued_imgo_seq_no_inner =
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FRAME_SEQ_NUM);
-
-	fbc_imgo_status =
-		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL2);
-	imgo_addr =
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR);
-	imgo_addr_msb =
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR_MSB);
-
-	fbc_imgbo_status =
-		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL2);
-	imgbo_addr =
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR);
-	imgbo_addr_msb =
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR_MSB);
-
-	fbc_cpio_status =
-		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL2);
-	cpio_addr =
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR);
-	cpio_addr_msb =
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR_MSB);
 
 	err_status = irq_status & INT_ST_MASK_MRAW_ERR;
 	dma_err_status = irq_status & MRAWCTL_DMA_ERR_ST;
@@ -2016,15 +2034,22 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	cpio_overr_status = irq_status5 & MRAWCTL_CPIO_M1_OTF_OVERFLOW_ST;
 
 	dev_dbg(dev,
-		"%i status:0x%x(err:0x%x)/0x%x dma_err:0x%x fbc_status(imgo:0x%x, imgbo:0x%x, cpio:0x%x) dma_addr(imgo:0x%x%x, imgbo:0x%x%x, cpio:0x%x%x), seq_num:%d\n",
+		"%i status:0x%x(err:0x%x)/0x%x dma_err:0x%x seq_num:%d\n",
 		mraw_dev->id, irq_status, err_status, irq_status6, dma_err_status,
-		fbc_imgo_status, fbc_imgbo_status, fbc_cpio_status,
-		imgo_addr_msb, imgo_addr, imgbo_addr_msb, imgbo_addr,
-		cpio_addr_msb, cpio_addr, dequeued_imgo_seq_no_inner);
+		dequeued_imgo_seq_no_inner);
 
 	dev_dbg(dev,
-		"%i imgo_overr_status:0x%x, imgbo_overr_status:0x%x, cpio_overr_status:0x%x\n",
-		mraw_dev->id, imgo_overr_status, imgbo_overr_status, cpio_overr_status);
+		"%i dma_overr:0x%x_0x%x_0x%x fbc_ctrl:0x%x_0x%x_0x%x dma_addr:0x%x%x_0x%x%x_0x%x%x\n",
+		mraw_dev->id, imgo_overr_status, imgbo_overr_status, cpio_overr_status,
+		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL2),
+		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL2),
+		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL2),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR_MSB),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR_MSB),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR_MSB),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR));
 
 	/*
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
@@ -2038,20 +2063,21 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	if ((irq_status & MRAWCTL_SOF_INT_ST) &&
 		(irq_status & MRAWCTL_PASS1_DONE_ST))
 		dev_dbg(dev, "sof_done block cnt:%d\n", mraw_dev->sof_count);
+
 	/* Frame done */
 	if (irq_status & MRAWCTL_SW_PASS1_DONE_ST) {
-		irq_info.irq_type |= 1<<CAMSYS_IRQ_FRAME_DONE;
+		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_DONE);
 		dev_dbg(dev, "p1_done sof_cnt:%d\n", mraw_dev->sof_count);
 	}
 	/* Frame start */
 	if (irq_status & MRAWCTL_SOF_INT_ST) {
-		irq_info.irq_type |= 1<<CAMSYS_IRQ_FRAME_START;
+		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_START);
 		mraw_dev->sof_count++;
 		dev_dbg(dev, "sof block cnt:%d\n", mraw_dev->sof_count);
 	}
 	/* CQ done */
 	if (irq_status6 & MRAWCTL_CQ_THR0_DONE_ST) {
-		irq_info.irq_type |= 1<<CAMSYS_IRQ_SETTING_DONE;
+		irq_info.irq_type |= (1 << CAMSYS_IRQ_SETTING_DONE);
 		dev_dbg(dev, "CQ done:%d\n", mraw_dev->sof_count);
 	}
 
@@ -2070,13 +2096,6 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 
 		if (push_msgfifo(mraw_dev, &err_info) == 0)
 			wake_thread = 1;
-
-		dev_info(dev,
-			"%i status:0x%x(err:0x%x)/0x%x dma_err:0x%x fbc_status(imgo:0x%x, imgbo:0x%x, cpio:0x%x) dma_addr(imgo:0x%x%x, imgbo:0x%x%x, cpio:0x%x%x), seq_num:%d\n",
-			mraw_dev->id, irq_status, err_status, irq_status6, dma_err_status,
-			fbc_imgo_status, fbc_imgbo_status, fbc_cpio_status,
-			imgo_addr_msb, imgo_addr, imgbo_addr_msb, imgbo_addr,
-			cpio_addr_msb, cpio_addr, dequeued_imgo_seq_no_inner);
 	}
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
