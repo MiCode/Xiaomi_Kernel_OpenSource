@@ -160,7 +160,8 @@ static int regulator_oc_event(struct notifier_block *nb,
 	case REGULATOR_EVENT_OVER_CURRENT:
 	case REGULATOR_EVENT_FAIL:
 		pr_info("get regulator oc event: %lu", event);
-		vibr_disable(vibr);
+		atomic_set(&vibr->vibr_state, 0);
+		queue_work(vibr->vibr_queue, &vibr->vibr_work);
 		break;
 	default:
 		break;
