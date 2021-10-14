@@ -12,6 +12,7 @@
 #define MAX_MUX_NUM (10)
 #define MAX_OPP_STEP 7
 #define DEFAULT_VOLTAGE 650000
+#define FINE_GRAIN_LOWER_BOUND 650000
 #define DEFAULT_VOLTAGE_LEVEL 3
 
 enum dvfs_apmcu_task_id {
@@ -19,6 +20,12 @@ enum dvfs_apmcu_task_id {
 	DVFS_CCU_INIT = 0,
 	DVFS_VOLTAGE_UPDATE = 1,
 	DVFS_CCU_UNINIT = 2,
+};
+
+enum dvfs_dbg_id {
+	DVFS_DEBUG_DEFAULT = 0,
+	DVFS_DEBUG_LOG = 1,
+	DVFS_DEBUG_MICROP = 2,
 };
 
 struct dvfs_clk_data {
@@ -61,6 +68,7 @@ struct dvfs_driver_data {
 struct dvfs_ipc_init {
 	u32 needVoltageBin;
 	u32 needSimAging;
+	u32 needCbFromMicroP;
 };
 
 struct dvfs_ipc_info {

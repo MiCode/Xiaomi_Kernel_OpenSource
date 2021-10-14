@@ -36,7 +36,7 @@ module_param(mtk_ispdvfs_dbg_level, int, 0644);
 #ifdef ISPDVFS_DBG
 #define ISP_LOGD(fmt, args...) \
 	do { \
-		if (mtk_ispdvfs_dbg_level) \
+		if (mtk_ispdvfs_dbg_level & DVFS_DEBUG_LOG) \
 			pr_notice("[ISPDVFS] %s(): " fmt "\n",\
 				__func__, ##args); \
 	} while (0)
@@ -107,6 +107,7 @@ struct ispdvfs_dbg_data {
 	struct dvfs_driver_data *drv_data;
 	struct regulator *reg;
 	int max_voltage;
+	bool reg_enable;
 };
 
 static int regulator_trace_consumers(struct regulator_dev *rdev)
@@ -126,22 +127,30 @@ static int regulator_trace_consumers(struct regulator_dev *rdev)
 	return 0;
 }
 
-static int force_dvfs_set(void *data, u64 val)
+static int force_voltage(void *data, u64 val)
 {
 	struct ispdvfs_dbg_data *dbg_data = (struct ispdvfs_dbg_data *)data;
+	int voltage = (int)val;
 
-	ISP_LOGI("Force max dvfs control(%d)", val);
+	ISP_LOGI("Force votage(%d)", voltage);
+
+	if (!dbg_data->reg_enable) {
+		regulator_enable(dbg_data->reg);
+		dbg_data->reg_enable = true;
+	}
+
+	/* Disable vmm regulator when voltage is 0 */
+	if (dbg_data->reg_enable && !voltage) {
+		regulator_disable(dbg_data->reg);
+		dbg_data->reg_enable = false;
+	}
+
 	if (IS_ERR(dbg_data->reg)) {
 		ISP_LOGE("can't get dvfs regulator\n");
 		return PTR_ERR(dbg_data->reg);
 	}
 
-	if (val == 0) {
-		regulator_set_voltage(dbg_data->reg, 0, INT_MAX);
-	} else {
-		regulator_set_voltage(dbg_data->reg,
-				dbg_data->max_voltage, INT_MAX);
-	}
+	regulator_set_voltage(dbg_data->reg, voltage, INT_MAX);
 
 	return 0;
 }
@@ -151,7 +160,6 @@ static int force_opp_level(void *data, u64 val)
 	struct ispdvfs_dbg_data *dbg_data = (struct ispdvfs_dbg_data *)data;
 	struct dvfs_driver_data *drv_data;
 	struct dvfs_table *opp_table;
-	int reg_enable;
 
 	ISP_LOGI("Force opp level(%d)", val);
 
@@ -172,16 +180,19 @@ static int force_opp_level(void *data, u64 val)
 	}
 	opp_table = &(drv_data->opp_table);
 
-	reg_enable = regulator_is_enabled(dbg_data->reg);
-	if (!reg_enable)
+	if (!dbg_data->reg_enable) {
 		regulator_enable(dbg_data->reg);
+		dbg_data->reg_enable = true;
+	}
 
 	if (val < opp_table->opp_num)
 		regulator_set_voltage(dbg_data->reg, opp_table->voltage[val], INT_MAX);
 	else {
 		ISP_LOGI("Opp level is not in range.\n");
-		if (reg_enable)
+		if (dbg_data->reg_enable) {
 			regulator_disable(dbg_data->reg);
+			dbg_data->reg_enable = false;
+		}
 	}
 
 	return 0;
@@ -270,7 +281,8 @@ static int disable_all_muxes(struct dvfs_driver_data *drv_data)
 
 static void ccu_ipc_update_dvfs(uint32_t data, uint32_t len, void *priv)
 {
-	ISP_LOGI("Update dvfs\n");
+	ISP_LOGD("Current VMM voltage(%d)", data);
+	trace_vmm__update_voltage(data);
 }
 
 static int power_on_ccu(struct ccu_handle_info *ccu_handle)
@@ -334,16 +346,43 @@ error_handle:
 	return ret;
 }
 
-static u32 get_idx_by_voltage(int voltage, struct dvfs_table *table)
+static int get_idx_by_voltage(
+		int voltage,
+		const struct dvfs_table *table,
+		int *min_volt,
+		int *max_volt)
 {
 	u32 i = 0;
 
-	for (i = 0; i < table->opp_num; i++) {
-		if (voltage <= table->voltage[i])
-			break;
+	if (!table || !min_volt || !max_volt) {
+		ISP_LOGE("some arguments are NULL\n");
+		return -EINVAL;
 	}
 
-	return i;
+	for (i = 0; i < table->opp_num; i++) {
+		if (voltage == table->voltage[i]) {
+			*min_volt = i;
+			*max_volt = i;
+			break;
+		} else if (voltage < table->voltage[i]) {
+			if (i >= 3
+				&& table->voltage[i] >= FINE_GRAIN_LOWER_BOUND) {
+				*min_volt = i - 1;
+				*max_volt = i;
+			} else {
+				*min_volt = i;
+				*max_volt = i;
+			}
+			break;
+		}
+	}
+
+	if (i == table->opp_num) {
+		*min_volt = i - 1;
+		*max_volt = i - 1;
+	}
+
+	return 0;
 }
 
 static int ccu_set_voltage(struct regulator_dev *rdev,
@@ -373,7 +412,6 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 		return 0;
 
 	/* record vmm & related consumer traces */
-	trace_vmm__update_voltage(min_uV);
 	regulator_trace_consumers(rdev);
 
 	current_info = &(drv_data->current_dvfs);
@@ -406,6 +444,8 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 
 		dvfs_ipi_init.needVoltageBin = drv_data->en_vb;
 		dvfs_ipi_init.needSimAging = drv_data->simulate_aging;
+		dvfs_ipi_init.needCbFromMicroP
+				= mtk_ispdvfs_dbg_level & DVFS_DEBUG_MICROP;
 		ret = mtk_ccu_rproc_ipc_send(
 			ccu_handle->ccu_pdev,
 			MTK_CCU_FEATURE_ISPDVFS,
@@ -418,15 +458,22 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 		}
 	}
 
-	dvfs_ipi.maxOppIdx = get_idx_by_voltage(min_uV,
-			&(drv_data->opp_table));
-	dvfs_ipi.minOppIdx = dvfs_ipi.maxOppIdx;
+	ret = get_idx_by_voltage(min_uV,
+			&drv_data->opp_table,
+			&dvfs_ipi.minOppIdx,
+			&dvfs_ipi.maxOppIdx);
+	if (ret) {
+		ISP_LOGE("get voltage index fail\n");
+		mutex_unlock(&current_info->voltage_mutex);
+		return ret;
+	}
+
 	ret = mtk_ccu_rproc_ipc_send(
 		ccu_handle->ccu_pdev,
 		MTK_CCU_FEATURE_ISPDVFS,
 		DVFS_VOLTAGE_UPDATE,
 		(void *)&dvfs_ipi, sizeof(struct dvfs_ipc_info));
-	if (ret != 0) {
+	if (ret) {
 		ISP_LOGE("mtk_ccu_rproc_ipc_send(DVFS_VOLTAGE_UPDATE) fail\n");
 		mutex_unlock(&current_info->voltage_mutex);
 		return ret;
@@ -437,6 +484,10 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 
 	ISP_LOGD("CCU VMM set voltage (%d) max level(%d)",
 			min_uV, dvfs_ipi.maxOppIdx);
+
+	if (dvfs_ipi.maxOppIdx == dvfs_ipi.minOppIdx)
+		trace_vmm__update_voltage(min_uV);
+
 	return 0;
 }
 
@@ -657,7 +708,7 @@ static const struct of_device_id mtk_vmm_regulator_match[] = {
 	},
 };
 
-DEFINE_SIMPLE_ATTRIBUTE(force_dvfs_ops, NULL, force_dvfs_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(force_voltage_ops, NULL, force_voltage, "%llu\n");
 DEFINE_SIMPLE_ATTRIBUTE(force_opp_level_ops, NULL, force_opp_level, "%llu\n");
 static int vmm_regulator_probe(struct platform_device *pdev)
 {
@@ -790,10 +841,11 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	dbg_data->drv_data = dvfs_data;
 	dbg_data->reg = devm_regulator_get(dev, "dvfs-vmm");
 	dbg_data->max_voltage = opp_table->voltage[opp_table->opp_num - 1];
-	dentry = debugfs_create_file("force_max_freq", 0200,
-			ispdvfs_debugfs_dir, dbg_data, &force_dvfs_ops);
+	dbg_data->reg_enable = false;
+	dentry = debugfs_create_file("force_voltage", 0200,
+			ispdvfs_debugfs_dir, dbg_data, &force_voltage_ops);
 	if (IS_ERR(dentry))
-		ISP_LOGE("Failed to create debugfs force_max_freq: %ld\n",
+		ISP_LOGE("Failed to create debugfs force_voltage: %ld\n",
 			PTR_ERR(dentry));
 
 	/* Need to remove. We do not allow select operating point level */
