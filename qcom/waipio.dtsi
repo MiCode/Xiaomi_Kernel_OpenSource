@@ -1419,6 +1419,8 @@
 		qcom,spss-test-firmware-name = "spss1t.mdt";  /* 8 chars max */
 		qcom,spss-prod-firmware-name = "spss1p.mdt";  /* 8 chars max */
 		qcom,spss-debug-reg-addr = <0x01886020>;
+		qcom,spss-debug-reg-addr1 = <0x01888020>;
+		qcom,spss-debug-reg-addr3 = <0x0188C020>;
 		qcom,spss-emul-type-reg-addr = <0x01fc8004>;
 		pil-mem = <&spss_region_mem>;
 		qcom,pil-size = <0x0F0000>; // padding to 960KB
