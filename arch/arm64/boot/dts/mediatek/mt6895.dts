@@ -10838,10 +10838,8 @@
 		logger-enable-states = "mcusysoff", "system_mem",
 					"system_pll", "system_bus";
 
-		/* FIXME
-		 * irq-remain = <&edge_keypad>,
-		 *		<&level_btif_tx &level_btif_rx &level_bt>;
-		 */
+		irq-remain = <&edge_keypad &edge_mdwdt>;
+
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
 		constraints = <&rc_bus26m &rc_syspll &rc_dram>,
@@ -10870,24 +10868,14 @@
 		};
 
 		irq-remain-list {
-		/* FIXME
-		 *	edge_keypad: edge_keypad {
-		 *		target = <&keypad>;
-		 *		value = <1 0 0 0x04>;
-		 *	};
-		 *	level_bt: level_bt {
-		 *		target = <&bt>;
-		 *		value = <0 0 0 0>;
-		 *	};
-		 *	level_btif_tx: level_btif_tx {
-		 *		target = <&btif>;
-		 *		value = <0 1 0 0>;
-		 *	};
-		 *	level_btif_rx: level_btif_rx {
-		 *		target = <&btif>;
-		 *		value = <0 2 0 0>;
-		 *	};
-		 */
+			edge_keypad: edge_keypad {
+				target = <&keypad>;
+				value = <1 0 0 0x04>;
+			};
+			edge_mdwdt: edge_mdwdt {
+				target = <&mddriver>;
+				value = <1 0 0 0x02000000>;
+			};
 		};
 
 		resource-ctrl-list {
