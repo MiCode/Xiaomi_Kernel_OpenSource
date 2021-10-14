@@ -109,21 +109,21 @@ static const struct mtk_clk_desc impw_mcd = {
 };
 
 static const struct mtk_gate_regs perao0_cg_regs = {
-	.set_ofs = 0x24,
-	.clr_ofs = 0x28,
-	.sta_ofs = 0x10,
+	.set_ofs = 0x3c,
+	.clr_ofs = 0x3c,
+	.sta_ofs = 0x3c,
 };
 
 static const struct mtk_gate_regs perao1_cg_regs = {
-	.set_ofs = 0x2C,
-	.clr_ofs = 0x30,
-	.sta_ofs = 0x14,
+	.set_ofs = 0x40,
+	.clr_ofs = 0x40,
+	.sta_ofs = 0x40,
 };
 
 static const struct mtk_gate_regs perao2_cg_regs = {
-	.set_ofs = 0x34,
-	.clr_ofs = 0x38,
-	.sta_ofs = 0x18,
+	.set_ofs = 0x44,
+	.clr_ofs = 0x44,
+	.sta_ofs = 0x44,
 };
 
 #define GATE_PERAO0(_id, _name, _parent, _shift) {	\
