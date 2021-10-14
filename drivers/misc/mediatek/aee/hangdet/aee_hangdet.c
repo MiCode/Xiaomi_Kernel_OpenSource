@@ -573,15 +573,10 @@ static void wdk_work_callback(struct work_struct *work)
 
 	cpu_hotplug_disable();
 
-	res = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
-		"watchdog:wdkctrl:online", wk_cpu_callback_online, NULL);
+	res = cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ONLINE_DYN,
+		"watchdog:wdkctrl:hp", wk_cpu_callback_online, wk_cpu_callback_offline);
 	if (res < 0)
-		pr_info("[wdk]setup CPUHP_AP_ONLINE_DYN fail %d\n", res);
-
-	res = cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
-		"watchdog:wdkctrl:offline", NULL, wk_cpu_callback_offline);
-	if (res < 0)
-		pr_info("[wdk]setup CPUHP_BP_PREPARE_DYN fail %d\n", res);
+		pr_info("[wdk]setup CPUHP fail %d\n", res);
 
 	for (i = 0; i < CPU_NR; i++) {
 		if (cpu_online(i)) {
