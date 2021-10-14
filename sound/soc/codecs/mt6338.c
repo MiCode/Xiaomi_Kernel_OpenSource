@@ -568,11 +568,9 @@ static void mt6338_set_dl_src(struct mt6338_priv *priv, bool enable)
 			AFE_DL_SRC_ON_TMP_CTL_PRE_MASK_SFT,
 			0x1 << AFE_DL_SRC_ON_TMP_CTL_PRE_SFT);
 
-		/* Step2: DL digital gain control, 0x1800, (-19dB) */
-		regmap_write(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON1_H,
-			0xff);
-		regmap_write(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON1_M,
-			0xff);
+		/* Step2: DL digital gain control, 0xA028, (-4dB),  20*log(41000/2^16) */
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON1_H, 0xa0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON1_M, 0x28);
 		if (priv->hp_hifi_mode == 0) {
 			/* Step1: Choose DL FS and DL enable and DL gain enable */
 			regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SRC_CON0_H,
@@ -1938,9 +1936,8 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 		regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
 			0x3 << 0x6, 0x0 << 0x6);
 	} else {
-		/* 0:switch path */
-		regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-			0x3 << 0x6, 0x3 << 0x6);
+		/* 3:hwgain1/2 swap & bypass HWgain1/2 */
+		regmap_write(priv->regmap, MT6338_AFE_TOP_DEBUG0, 0xc4);
 	}
 
 	/* Enable AUD_CLK */
@@ -3068,9 +3065,9 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* 3:hwgain1/2 swap */
-		regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-			0x3 << 0x6, 0x3 << 0x6);
+		/* 3:hwgain1/2 swap & bypass HWgain1/2 */
+		regmap_write(priv->regmap, MT6338_AFE_TOP_DEBUG0, 0xc4);
+
 		/* Enable AUD_CLK */
 		mt6338_set_decoder_clk(priv, true, false);
 		/* Enable AUD_ZCD */
@@ -3175,7 +3172,7 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 
 		/* decrease HS gain to minimum gain step by step */
 		regmap_write(priv->regmap, MT6338_ZCD_CON3,
-			     DL_GAIN_N_40DB);
+			DL_GAIN_N_40DB);
 		/* Disable HS driver core circuits */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON20,
 			RG_AUDHSPWRUP_VAUDP18_MASK_SFT,
@@ -3208,9 +3205,9 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* 3:hwgain1/2 swap */
-		regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-			0x3 << 0x6, 0x3 << 0x6);		/* Enable AUD_ZCD */
+		/* 3:hwgain1/2 swap & bypass HWgain1/2, 0:normal path */
+		regmap_write(priv->regmap, MT6338_AFE_TOP_DEBUG0, 0xc4);
+		/* Enable AUD_ZCD */
 		zcd_enable(priv, true, DEVICE_LO);
 
 		ldo_select_to_min(priv, true, true);
@@ -3234,42 +3231,42 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 			0x1 << RG_AUDLOSCDISABLE_VAUDP18_SFT);
 		/* IBIST */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON31,
-				RG_AUDIBIASPWRDN_VAUDP18_MASK_SFT,
-				0x0 << RG_AUDIBIASPWRDN_VAUDP18_SFT);
+			RG_AUDIBIASPWRDN_VAUDP18_MASK_SFT,
+			0x0 << RG_AUDIBIASPWRDN_VAUDP18_SFT);
 
 		/* Set LO DR bias current optimization, 010: 6uA */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON31,
-				RG_AUDBIASADJ_0_LO_VAUDP18_MASK_SFT,
-				DRBIAS_6UA << RG_AUDBIASADJ_0_LO_VAUDP18_SFT);
+			RG_AUDBIASADJ_0_LO_VAUDP18_MASK_SFT,
+			DRBIAS_6UA << RG_AUDBIASADJ_0_LO_VAUDP18_SFT);
 
 		/* Set LO & ZCD bias current optimization */
 		/* 01: ZCD: 4uA, HP/HS/LO: 5uA */
 		if (priv->dev_counter[DEVICE_HP] == 0)
 			regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON32,
-					IBIAS_ZCD_MASK_SFT,
-					IBIAS_ZCD_4UA << IBIAS_ZCD_SFT);
+				IBIAS_ZCD_MASK_SFT,
+				IBIAS_ZCD_4UA << IBIAS_ZCD_SFT);
 
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON32,
-				IBIAS_LO_MASK_SFT,
-				IBIAS_6UA << IBIAS_LO_SFT);
+			IBIAS_LO_MASK_SFT,
+			IBIAS_6UA << IBIAS_LO_SFT);
 
 		/* Set LO STB enhance circuits */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON27,
-				RG_LOOUTPUTSTBENH_VAUDP18_MASK_SFT,
-				0x1 << RG_LOOUTPUTSTBENH_VAUDP18_SFT);
+			RG_LOOUTPUTSTBENH_VAUDP18_MASK_SFT,
+			0x1 << RG_LOOUTPUTSTBENH_VAUDP18_SFT);
 
 		/* Enable LO driver bias circuits */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON24,
-				RG_AUDLOPWRUP_IBIAS_VAUDP18_MASK_SFT,
-				0x1 << RG_AUDLOPWRUP_IBIAS_VAUDP18_SFT);
+			RG_AUDLOPWRUP_IBIAS_VAUDP18_MASK_SFT,
+			0x1 << RG_AUDLOPWRUP_IBIAS_VAUDP18_SFT);
 		/* Enable LO driver core circuits */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON24,
-				RG_AUDLOPWRUP_VAUDP18_MASK_SFT,
-				0x1 << RG_AUDLOPWRUP_VAUDP18_SFT);
+			RG_AUDLOPWRUP_VAUDP18_MASK_SFT,
+			0x1 << RG_AUDLOPWRUP_VAUDP18_SFT);
 
 		/* Set LO gain to normal gain step by step */
 		regmap_write(priv->regmap, MT6338_ZCD_CON1,
-			     priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL]);
+			priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL]);
 
 		/* Enable AUD_CLK */
 		regmap_write(priv->regmap, MT6338_AUDDEC_PMU_CON46,
@@ -10233,9 +10230,9 @@ static int mt6338_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	/* 3:hwgain1/2 swap */
-	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-		0x3 << 0x6, 0x3 << 0x6);
+	/* 3:hwgain1/2 swap & bypass HWgain1/2 */
+	regmap_write(priv->regmap, MT6338_AFE_TOP_DEBUG0, 0xc4);
+
 	/* receiver downlink */
 	mt6338_set_playback_gpio(priv);
 	regmap_update_bits(priv->regmap, MT6338_LDO_VAUD18_CON0,
