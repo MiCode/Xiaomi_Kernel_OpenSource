@@ -316,6 +316,20 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
+static s64 mtk_cam_get_stagger_path(s64 hw_mode)
+{
+	switch (hw_mode) {
+	case ON_THE_FLY:
+		return STAGGER_ON_THE_FLY;
+	case DCIF:
+		return STAGGER_DCIF;
+	default:
+		break;
+	}
+
+	return STAGGER_ON_THE_FLY;
+}
+
 int
 mtk_cam_res_copy_fmt_from_user(struct mtk_raw_pipeline *pipeline,
 			       struct mtk_cam_resource *res_user,
@@ -707,6 +721,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	/* skip control value checks */
 	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
 	case V4L2_CID_MTK_CAM_FEATURE:
+	case V4L2_CID_MTK_CAM_CAMSYS_HW_MODE:
 		ret = 0;
 		break;
 	default:
@@ -758,6 +773,18 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
 			pipeline->feature_pending, pipeline->feature_active);
 		ret = 0;
+		break;
+	case V4L2_CID_MTK_CAM_CAMSYS_HW_MODE:
+	{
+		pipeline->hw_mode = *ctrl->p_new.p_s64;
+
+		dev_dbg(dev,
+			"%s:pipe(%d):streaming(%d), hw_mode(0x%x)\n",
+			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
+			pipeline->hw_mode);
+
+		ret = 0;
+	}
 		break;
 	default:
 		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
@@ -1078,6 +1105,17 @@ static const struct v4l2_ctrl_config cfg_pde_info = {
 	.step = 1,
 	.def = 0,
 	.dims = {sizeof_u32(struct mtk_cam_pde_info)},
+};
+
+static const struct v4l2_ctrl_config mtk_camsys_hw_mode = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_CAMSYS_HW_MODE,
+	.name = "Mediatek camsys hardware mode",
+	.type = V4L2_CTRL_TYPE_INTEGER64,
+	.min = 0,
+	.max = 0x7FFFFFFF,
+	.step = 1,
+	.def = DEFAULT,
 };
 
 void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
@@ -2601,7 +2639,9 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 		ctx_chk = &cam->ctxs[i];
 		if (ctx_chk->streaming && mtk_cam_is_stagger(ctx_chk)) {
 			for (m = 0; m < STAGGER_MAX_STREAM_NUM; m++) {
-				mode = stagger_order.stagger_select[m].mode_decision;
+				mode = (pipe->hw_mode) ?
+					mtk_cam_get_stagger_path(pipe->hw_mode) :
+					stagger_order.stagger_select[m].mode_decision;
 				dev_info(cam->dev, "[%s:stagger check] i:%d/m:%d; mode:%d\n",
 				__func__, i, m, mode);
 				if (mode == ctx_chk->pipe->stagger_path) {
@@ -2620,10 +2660,12 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 	for (i = 0; i < stagger_ctx_num + 1; i++) {
 		if (stagger_order_mask[i] == 0) {
 			stagger_select = stagger_order.stagger_select[i];
-			ctx->pipe->stagger_path = stagger_select.mode_decision;
+			ctx->pipe->stagger_path = (pipe->hw_mode) ?
+				mtk_cam_get_stagger_path(pipe->hw_mode) :
+				stagger_select.mode_decision;
 			dev_info(cam->dev, "[%s:plan:%d] raw_status 0x%x, stagger_select_raw_mask:0x%x mode:0x%x\n",
 				__func__, i, raw_status, stagger_select.raw_select,
-				stagger_select.mode_decision);
+				ctx->pipe->stagger_path);
 		}
 	}
 	for (m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
@@ -5293,6 +5335,11 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
+		&mtk_camsys_hw_mode, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mstream_exposure, NULL);
 	pipe->res_config.hwn_limit_max = hwn_limit.def;
 	pipe->res_config.frz_limit = frz_limit.def;
@@ -5305,6 +5352,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->pde_config.pde_info.pdi_max_size = cfg_pde_info.def;
 	pipe->pde_config.pde_info.pd_table_offset = cfg_pde_info.def;
 	pipe->subdev.ctrl_handler = ctrl_hdlr;
+	pipe->hw_mode = mtk_camsys_hw_mode.def;
 }
 
 static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,

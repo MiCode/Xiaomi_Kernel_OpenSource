@@ -94,6 +94,12 @@ enum hdr_scenario_id {
 	MSTREAM_M2M		= (1 << 5),
 };
 
+enum hardware_mode_id {
+	DEFAULT			= 0,
+	ON_THE_FLY		= 1,
+	DCIF			= 2,
+};
+
 #define RAW_STATS_CFG_SIZE \
 	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_cfg), SZ_1K)
 /* max(pdi_table1, pdi_table2, ...) */
@@ -269,9 +275,12 @@ struct mtk_raw_pipeline {
 	s64 sync_id;
 	/* mstream */
 	struct mtk_cam_mstream_exposure mstream_exposure;
+	/* stagger */
 	enum hdr_scenario_id stagger_path;
 	/* pde module */
 	struct mtk_raw_pde_config pde_config;
+
+	s64 hw_mode;
 };
 
 struct mtk_raw_device {
