@@ -134,11 +134,8 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 					   "APUSYS_RV_WARMBOOT_TIMEOUT");
 			return;
 		}
-		if (ret == -ERESTARTSYS) {
+		if (ret == -ERESTARTSYS)
 			dev_info(dev, "wait APU interrupted by a signal!!\n");
-			apusys_rv_aee_warn("APUSYS_RV", "APUSYS_WARM_BOOT_INTERRUPT");
-			return;
-		}
 
 		dev_info(apu->dev, "%s: warm boot done\n", __func__);
 	}

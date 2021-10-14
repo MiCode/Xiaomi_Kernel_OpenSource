@@ -83,11 +83,8 @@ static int __apu_run(struct rproc *rproc)
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_BOOT_TIMEOUT");
 		goto stop;
 	}
-	if (ret == -ERESTARTSYS) {
+	if (ret == -ERESTARTSYS)
 		dev_info(dev, "wait APU interrupted by a signal!!\n");
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_BOOT_TIMEOUT");
-		goto stop;
-	}
 
 	delta = timespec64_sub(end, begin);
 	dev_info(dev,
