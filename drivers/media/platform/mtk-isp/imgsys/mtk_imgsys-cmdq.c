@@ -1034,7 +1034,7 @@ void mtk_imgsys_mmdvfs_set(struct mtk_imgsys_dev *imgsys_dev,
 	freq = dvfs_info->freq;
 
 	if (IS_ERR_OR_NULL(dvfs_info->reg))
-		dev_info(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
+		dev_dbg(dvfs_info->dev, "%s: [ERROR] reg is err or null\n", __func__);
 	else {
 		/* Choose for IPESYS */
 		/* if (hw_comb & IMGSYS_ENG_ME) */
