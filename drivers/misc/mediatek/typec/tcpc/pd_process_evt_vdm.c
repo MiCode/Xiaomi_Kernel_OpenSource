@@ -620,7 +620,8 @@ static inline bool pd_process_data_msg(
 	print_vdm_msg(pd_port, pd_event);
 
 	if (pd_port->curr_vdm_svid != USB_SID_PD &&
-		!dpm_get_svdm_svid_data(pd_port, pd_port->curr_vdm_svid)) {
+		!dpm_get_svdm_svid_data(pd_port, pd_port->curr_vdm_svid) &&
+		pd_port->curr_vdm_svid != USB_VID_MQP) {
 		PE_TRANSIT_STATE(pd_port, PE_UFP_VDM_SEND_NAK);
 		ret = true;
 	} else if (pd_msg->frame_type == TCPC_TX_SOP_PRIME) {

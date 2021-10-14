@@ -29,7 +29,7 @@ extern int tcpc_typec_handle_timeout(
 
 extern int tcpc_typec_handle_vsafe0v(struct tcpc_device *tcpc);
 
-extern int tcpc_typec_set_rp_level(struct tcpc_device *tcpc, uint8_t res);
+extern int tcpc_typec_set_rp_level(struct tcpc_device *tcpc, uint8_t rp_lvl);
 
 extern int tcpc_typec_error_recovery(struct tcpc_device *tcpc);
 

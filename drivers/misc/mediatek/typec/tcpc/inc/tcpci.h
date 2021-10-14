@@ -73,6 +73,19 @@ int tcpci_init_alert_mask(struct tcpc_device *tcpc);
 
 int tcpci_get_cc(struct tcpc_device *tcpc);
 int tcpci_set_cc(struct tcpc_device *tcpc, int pull);
+static inline int __tcpci_set_cc(struct tcpc_device *tcpc, int pull)
+{
+	PD_BUG_ON(tcpc->ops->set_cc == NULL);
+
+	if (pull & TYPEC_CC_DRP) {
+		tcpc->typec_remote_cc[0] =
+		tcpc->typec_remote_cc[1] =
+			TYPEC_CC_DRP_TOGGLING;
+	}
+
+	tcpc->typec_local_cc = pull;
+	return tcpc->ops->set_cc(tcpc, pull);
+}
 int tcpci_set_polarity(struct tcpc_device *tcpc, int polarity);
 int tcpci_set_low_rp_duty(struct tcpc_device *tcpc, bool low_rp);
 int tcpci_set_vconn(struct tcpc_device *tcpc, int enable);

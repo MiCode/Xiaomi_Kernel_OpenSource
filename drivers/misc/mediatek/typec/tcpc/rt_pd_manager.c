@@ -131,13 +131,13 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			typec_set_data_role(rpmd->typec_port, TYPEC_HOST);
 			typec_set_pwr_role(rpmd->typec_port, TYPEC_SOURCE);
 			switch (noti->typec_state.local_rp_level) {
-			case TYPEC_CC_RP_3_0:
+			case TYPEC_RP_3_0:
 				opmode = TYPEC_PWR_MODE_3_0A;
 				break;
-			case TYPEC_CC_RP_1_5:
+			case TYPEC_RP_1_5:
 				opmode = TYPEC_PWR_MODE_1_5A;
 				break;
-			case TYPEC_CC_RP_DFT:
+			case TYPEC_RP_DFT:
 			default:
 				opmode = TYPEC_PWR_MODE_USB;
 				break;

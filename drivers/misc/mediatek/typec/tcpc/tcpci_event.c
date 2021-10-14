@@ -1072,7 +1072,9 @@ void pd_notify_pe_error_recovery(struct pd_port *pd_port)
 	__tcp_event_buf_reset(tcpc, TCP_DPM_RET_DROP_ERROR_REOCVERY);
 	mutex_unlock(&tcpc->access_lock);
 
+	tcpci_lock_typec(tcpc);
 	tcpc_typec_error_recovery(tcpc);
+	tcpci_unlock_typec(tcpc);
 }
 
 #ifdef CONFIG_USB_PD_RECV_HRESET_COUNTER
@@ -1251,7 +1253,7 @@ void pd_notify_pe_src_explicit_contract(struct pd_port *pd_port)
 		return;
 	}
 
-	if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT)
+	if (tcpc->typec_local_rp_level == TYPEC_RP_DFT)
 		pull = TYPEC_CC_RP_1_5;
 
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
