@@ -290,6 +290,14 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 		);
 	}
 
+	if (cb_param->err != 0)
+		pr_info(
+			"%s: [ERROR] cb(%p) error(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d)",
+			__func__, cb_param, cb_param->err,
+			cb_param->frm_idx, cb_param->frm_num,
+			cb_param->blk_idx, cb_param->blk_num,
+			cb_param->isBlkLast, cb_param->isFrmLast,
+			cb_param->is_earlycb);
 	if (is_stream_off == 1)
 		pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
 			__func__, cb_param, is_stream_off);
@@ -336,7 +344,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 		__func__, cb_param->frm_info->request_fd,
 		cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
 		cb_param, cb_param->frm_info, cb_param->isBlkLast, cb_param->frm_num,
-		cb_frm_cnt, cb_frm_cnt);
+		cb_frm_cnt);
 
 	if (cb_param->isBlkLast && cb_param->user_cmdq_cb &&
 		((cb_param->frm_num == cb_frm_cnt) || cb_param->is_earlycb)) {
@@ -364,7 +372,8 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 				cmdq_mbox_buf_free(cb_param->clt,
 					cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
 			isLastTaskInReq = 1;
-		}
+		} else
+			isLastTaskInReq = 0;
 		IMGSYS_SYSTRACE_END();
 		tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
 
@@ -443,14 +452,19 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 		__func__, cb_param, data.err, cb_param->frm_idx, cb_param->frm_num);
 
 	if (cb_param->err != 0) {
-		pr_info("%s: [ERROR] cb(%p) error(%d) for frm(%d/%d)",
-			__func__, cb_param, cb_param->err, cb_param->frm_idx, cb_param->frm_num);
+		pr_info(
+			"%s: [ERROR] cb(%p) error(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d)",
+			__func__, cb_param, cb_param->err,
+			cb_param->frm_idx, cb_param->frm_num,
+			cb_param->blk_idx, cb_param->blk_num,
+			cb_param->isBlkLast, cb_param->isFrmLast,
+			cb_param->is_earlycb);
 		if (is_stream_off == 1)
 			pr_info("%s: [ERROR] cb(%p) pipe had been turned off(%d)!\n",
 				__func__, cb_param, is_stream_off);
 		pipe = (struct mtk_imgsys_pipe *)cb_param->frm_info->pipe;
 		if (!pipe->streaming) {
-			is_stream_off = 1;
+			/* is_stream_off = 1; */
 			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)\n",
 				__func__, cb_param, is_stream_off);
 		}
@@ -540,8 +554,9 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	IMGSYS_SYSTRACE_END();
 	tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
 
-	is_stream_off = 0;
+	/* is_stream_off = 0; */
 	frm_num = frm_info->total_frmnum;
+	frm_info->cb_frmcnt = 0;
 	cmd_ofst = sizeof(struct GCERecoder);
 
 	#if IMGSYS_SECURE_ENABLE
@@ -711,6 +726,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				cb_param->isFrmLast = 1;
 			else
 				cb_param->isFrmLast = 0;
+			cb_param->blk_idx = blk_idx;
+			cb_param->blk_num = cmd_buf->frame_block;
 			cb_param->is_earlycb = frm_info->user_info[frm_idx].is_earlycb;
 			cb_param->group_id = frm_info->group_id;
 			cb_param->cmdqTs.tsReqStart = tsReqStart;

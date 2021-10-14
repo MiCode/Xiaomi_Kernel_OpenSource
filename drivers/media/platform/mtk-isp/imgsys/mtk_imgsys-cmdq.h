@@ -48,6 +48,8 @@ struct mtk_imgsys_cb_param {
 	s32 err;
 	u32 frm_idx;
 	u32 frm_num;
+	u32 blk_idx;
+	u32 blk_num;
 	u32 is_earlycb;
 	s32 group_id;
 	u32 thd_idx;
