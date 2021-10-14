@@ -173,7 +173,7 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(value, (ADLRegBA + 0x300));
 	}
 
-	iowrite32(0xFFFFFFFF, (void *)(imgsysmainRegBA + SW_RST));
+	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
 	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
 
 	iowrite32(0x0, (void *)(dipRegBA + SW_RST));
@@ -218,7 +218,7 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(value, (ADLRegBA + 0x300));
 	}
 
-	iowrite32(0xFFFFFFFF, (void *)(imgsysmainRegBA + SW_RST));
+	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
 	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
 
 	pr_info("%s: -.\n", __func__);
