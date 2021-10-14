@@ -431,8 +431,8 @@ static void mtk_aie_hw_done(struct mtk_aie_dev *fd,
 	if (!cancel_delayed_work(&fd->job_timeout_work))
 		return;
 
-	atomic_dec(&fd->num_composing);
 	mtk_aie_hw_job_finish(fd, vb_state);
+	atomic_dec(&fd->num_composing);
 	wake_up(&fd->flushing_waitq);
 }
 
@@ -983,8 +983,8 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 
 	aie_irqhandle(fd);
 	aie_reset(fd);
-	atomic_dec(&fd->num_composing);
 	mtk_aie_hw_job_finish(fd, VB2_BUF_STATE_ERROR);
+	atomic_dec(&fd->num_composing);
 	wake_up(&fd->flushing_waitq);
 }
 
