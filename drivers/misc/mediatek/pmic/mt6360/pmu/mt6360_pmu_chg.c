@@ -3138,52 +3138,48 @@ static const struct regulator_desc mt6360_otg_rdesc = {
 static int mt6360_get_charger_type(struct mt6360_pmu_chg_info *mpci,
 	bool attach)
 {
-	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mpci->dev);
-	union power_supply_propval prop, prop2;
 	static struct power_supply *chg_psy;
 	int ret = 0;
+	union power_supply_propval val = {.intval = 0};
+	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mpci->dev);
 
-	if (chg_psy == NULL) {
+	if (!chg_psy) {
 		if (pdata->bc12_sel == 1)
 			chg_psy = power_supply_get_by_name("mtk_charger_type");
 		else if (pdata->bc12_sel == 2)
 			chg_psy = power_supply_get_by_name("ext_charger_type");
 	}
 
-	if (IS_ERR_OR_NULL(chg_psy))
+	if (!chg_psy) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
-	else {
-		prop.intval = attach;
-		if (attach) {
-			ret = power_supply_set_property(chg_psy,
-					POWER_SUPPLY_PROP_ONLINE, &prop);
-			ret = power_supply_get_property(chg_psy,
-					POWER_SUPPLY_PROP_USB_TYPE, &prop2);
-		} else
-			prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-
-		pr_notice("%s usb_type:%d\n", __func__, prop2.intval);
-
-		switch (prop2.intval) {
-		case POWER_SUPPLY_USB_TYPE_SDP:
-			mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-			break;
-		case POWER_SUPPLY_USB_TYPE_CDP:
-			mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-			break;
-		case POWER_SUPPLY_USB_TYPE_DCP:
-			mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-			break;
-		case POWER_SUPPLY_USB_TYPE_UNKNOWN:
-		default:
-			mpci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-			break;
-		}
-		mpci->psy_usb_type = prop2.intval;
-		mt6360_power_supply_changed(mpci);
+		mpci->psy_desc.type = attach ? POWER_SUPPLY_TYPE_USB :
+					       POWER_SUPPLY_TYPE_UNKNOWN;
+		mpci->psy_usb_type = attach ? POWER_SUPPLY_USB_TYPE_DCP :
+					      POWER_SUPPLY_USB_TYPE_UNKNOWN;
+		goto out;
 	}
 
-	return prop2.intval;
+	if (attach) {
+		val.intval = true;
+		ret = power_supply_set_property(chg_psy,
+						POWER_SUPPLY_PROP_ONLINE, &val);
+		ret = power_supply_get_property(chg_psy,
+						POWER_SUPPLY_PROP_TYPE, &val);
+		mpci->psy_desc.type = val.intval;
+		pr_notice("%s type:%d\n", __func__, val.intval);
+		ret = power_supply_get_property(chg_psy,
+						POWER_SUPPLY_PROP_USB_TYPE,
+						&val);
+		mpci->psy_usb_type = val.intval;
+		pr_notice("%s usb_type:%d\n", __func__, val.intval);
+	} else {
+		mpci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+	}
+out:
+	mt6360_power_supply_changed(mpci);
+
+	return mpci->psy_usb_type;
 }
 
 static int typec_attach_thread(void *data)
@@ -3251,6 +3247,10 @@ static void handle_typec_attach(struct mt6360_pmu_chg_info *mpci,
 				bool attach, bool ignore)
 {
 	mutex_lock(&mpci->attach_lock);
+	if (mpci->typec_attach == attach) {
+		mutex_unlock(&mpci->attach_lock);
+		return;
+	}
 	mpci->typec_attach = attach;
 	mpci->ignore_usb = ignore;
 	atomic_inc(&mpci->chrdet_start);
