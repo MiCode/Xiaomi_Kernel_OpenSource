@@ -128,6 +128,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 	int volt = 0;
 	int ret = 0;
 	unsigned long request_freq;
+	u64 request_freq64;
 	struct timespec64 curr_time;
 	s32 duration;
 	u32 bandwidth;
@@ -143,17 +144,21 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 	fmt_debug(1, "curr time tv_sec %d tv_nsec %d", curr_time.tv_sec, curr_time.tv_nsec);
 
 	FMT_TIMER_GET_DURATION_IN_MS(curr_time, pmqos_param, duration);
-	request_freq = (u64)pmqos_param.pixel_size * 1000 / duration;
+	request_freq64 = (u64)pmqos_param.pixel_size * 1000 / duration;
+	request_freq = (unsigned long)((request_freq64 > ULONG_MAX) ? ULONG_MAX : request_freq64);
 
-	if (request_freq > fmt->fmt_freqs[fmt->fmt_freq_cnt-1])
+	fmt_debug(1, "request_freq %lu", request_freq);
+
+	if (request_freq > fmt->fmt_freqs[fmt->fmt_freq_cnt-1]) {
 		request_freq = fmt->fmt_freqs[fmt->fmt_freq_cnt-1];
-
-	fmt_debug(1, "request_freq %d", request_freq);
+		fmt_debug(1, "request_freq %lu limited by highest fmt_freq %lu",
+					request_freq, fmt->fmt_freqs[fmt->fmt_freq_cnt-1]);
+	}
 
 	if (fmt->fmt_reg != 0) {
-		fmt_debug(1, "request freq %d", request_freq);
 		opp = dev_pm_opp_find_freq_ceil(fmt->dev,
 					&request_freq);
+		fmt_debug(1, "actual request freq %lu", request_freq);
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
