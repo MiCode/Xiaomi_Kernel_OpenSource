@@ -11231,6 +11231,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		};
 	};
 
+	camera_fsync_ccu {
+		compatible = "mediatek,camera_fsync_ccu";
+		mediatek,ccu_rproc = <&ccu_rproc>;
+	};
+
 	seninf_top: seninf_top@1a010000 {
 		compatible = "mediatek,seninf-core";
 		reg = <0 0x1a010000 0 0x20000>,
