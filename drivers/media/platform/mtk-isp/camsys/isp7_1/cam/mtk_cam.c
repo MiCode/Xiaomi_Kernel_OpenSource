@@ -2513,7 +2513,8 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 	int current_feature = ctx->pipe->feature_pending;
 	struct mtk_cam_video_device *vdev;
 	int main_stream_size;
-	__u32 iova, ccd_fd;
+	__u64 iova;
+	__u32 ccd_fd;
 	__u8 imgo_path_sel;
 
 	vdev = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
@@ -2539,6 +2540,7 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 
 	/* recover main stream buffer */
 	frame_param->img_outs[desc_id].buf[0][0].iova = iova;
+	frame_param->img_outs[desc_id].buf[0][0].size = main_stream_size;
 	frame_param->img_outs[desc_id].buf[0][0].ccd_fd = ccd_fd;
 	frame_param->raw_param.imgo_path_sel = imgo_path_sel;
 
@@ -2566,7 +2568,7 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 		// NE as normal 1 exposure flow, get iova from frame_param
 		mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
 				frame_param->img_outs[desc_id].buf[0][0].iova;
-		pr_info("%s mstream ne_se ne imgo:0x%x\n",
+		pr_debug("%s mstream ne_se ne imgo:0x%x\n",
 			__func__,
 			mstream_frame_param->img_outs[desc_id].buf[0][0].iova);
 
@@ -2578,19 +2580,25 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 		// out = SE output
 		frame_param->img_outs[desc_id].buf[0][0].iova +=
 			main_stream_size;
-		pr_info("%s mstream ne_se se rawi:0x%x imgo:0x%x\n",
+		frame_param->img_outs[desc_id].buf[0][0].size =
+			main_stream_size;
+		pr_debug("%s mstream ne_se se rawi:0x%x imgo:0x%x size:%d\n",
 			__func__,
 			frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-			frame_param->img_outs[desc_id].buf[0][0].iova);
+			frame_param->img_outs[desc_id].buf[0][0].iova,
+			frame_param->img_outs[desc_id].buf[0][0].size);
 	} else if (current_feature == MSTREAM_SE_NE) {
 		// Normal single exposure seamless to NE_SE
 		// SE as normal output SE(plane[1]) first
 		mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
 			frame_param->img_outs[desc_id].buf[0][0].iova +
 			main_stream_size;
-		pr_info("%s mstream se_ne se imgo:0x%x\n",
+		mstream_frame_param->img_outs[desc_id].buf[0][0].size =
+			main_stream_size;
+		pr_debug("%s mstream se_ne se imgo:0x%x size:%d\n",
 			__func__,
-			mstream_frame_param->img_outs[desc_id].buf[0][0].iova);
+			mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
+			mstream_frame_param->img_outs[desc_id].buf[0][0].size);
 
 		// NE,  in = SE output
 		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
@@ -2599,10 +2607,11 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 			.size = main_stream_size;
 		// out = NE out, already configured in normal single exposure
 
-		pr_info("%s mstream se_ne ne rawi:0x%x imgo:0x%x\n",
+		pr_debug("%s mstream se_ne ne rawi:0x%x imgo:0x%x size:%d\n",
 			__func__,
 			frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-			frame_param->img_outs[desc_id].buf[0][0].iova);
+			frame_param->img_outs[desc_id].buf[0][0].iova,
+			frame_param->img_outs[desc_id].buf[0][0].size);
 	} else {
 		// M-Stream seamless to normal single exposure
 		// clear mstream mstream_frame_param
@@ -2625,7 +2634,7 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 		frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
 			.size = 0;
 
-		pr_info("%s normal imgo:0x%x\n", __func__,
+		pr_debug("%s normal imgo:0x%x\n", __func__,
 			frame_param->img_outs[desc_id].buf[0][0].iova);
 	}
 }

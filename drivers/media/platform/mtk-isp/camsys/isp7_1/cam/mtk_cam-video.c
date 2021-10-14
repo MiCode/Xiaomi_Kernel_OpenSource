@@ -757,7 +757,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 
 	if (i >= 2) {
-		pr_debug("mstream buffer plane over 2\n");
+		pr_info("mstream buffer plane over 2\n");
 		return;
 	}
 
@@ -802,7 +802,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 					frame_param->img_outs[desc_id].buf[0][0].size =
 						f->fmt.pix_mp.plane_fmt[0].sizeimage;
 
-					pr_info("mstream ne_se m2m ne imgo:0x%x size:%d se imgo:0x%x size:%d\n",
+					pr_debug("mstream ne_se m2m ne imgo:0x%x size:%d se imgo:0x%x size:%d\n",
 					mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
 					mstream_frame_param->img_outs[desc_id].buf[0][0].size,
 					frame_param->img_outs[desc_id].buf[0][0].iova,
@@ -821,7 +821,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
 						f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
-					pr_info("mstream ne_se m2m se rawi2:0x%x size:%d\n",
+					pr_debug("mstream ne_se m2m se rawi2:0x%x size:%d\n",
 						frame_param->img_ins[in_node -
 						MTKCAM_IPI_RAW_RAWI_2].
 						buf[0].iova, frame_param->img_ins[in_node -
@@ -837,7 +837,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
 						f->fmt.pix_mp.plane_fmt[0].sizeimage;
 
-					pr_info("mstream ne_se m2m ne rawi2:0x%x size:%d\n",
+					pr_debug("mstream ne_se m2m ne rawi2:0x%x size:%d\n",
 						mstream_frame_param->img_ins[
 						in_node -
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
@@ -858,7 +858,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
 						f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
-					pr_info("mstream ne_se m2m se rawi6:0x%x size:%d\n",
+					pr_debug("mstream ne_se m2m se rawi6:0x%x size:%d\n",
 						frame_param->img_ins[in_node -
 						MTKCAM_IPI_RAW_RAWI_2].
 						buf[0].iova, frame_param->img_ins[in_node -
@@ -885,7 +885,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 					frame_param->img_outs[desc_id].buf[0][0].size =
 						f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
-					pr_info("mstream se_ne m2m se imgo:0x%x size:%d ne imgo:0x%x size:%d\n",
+					pr_debug("mstream se_ne m2m se imgo:0x%x size:%d ne imgo:0x%x size:%d\n",
 					mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
 					mstream_frame_param->img_outs[desc_id].buf[0][0].size,
 					frame_param->img_outs[desc_id].buf[0][0].iova,
@@ -904,7 +904,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
 						f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
-					pr_info("mstream se_ne m2m ne rawi2:0x%x size:%d\n",
+					pr_debug("mstream se_ne m2m ne rawi2:0x%x size:%d\n",
 						frame_param->img_ins[in_node -
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
 						frame_param->img_ins[in_node -
@@ -920,7 +920,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
 						f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
-					pr_info("mstream se_ne m2m se rawi2:0x%x size:%d\n",
+					pr_debug("mstream se_ne m2m se rawi2:0x%x size:%d\n",
 						mstream_frame_param->img_ins[
 						in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
 						mstream_frame_param->img_ins[in_node -
@@ -939,7 +939,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
 						f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
-					pr_info("mstream se_ne m2m ne rawi6:0x%x size:%d\n",
+					pr_debug("mstream se_ne m2m ne rawi6:0x%x size:%d\n",
 						frame_param->img_ins[in_node -
 						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
 						frame_param->img_ins[in_node -
@@ -961,8 +961,12 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 				// as normal 1 exposure flow
 				mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
 					buf->daddr;
-				pr_info("mstream ne_se ne imgo:0x%x\n",
-				mstream_frame_param->img_outs[desc_id].buf[0][0].iova);
+				mstream_frame_param->img_outs[desc_id].buf[0][0].size =
+					f->fmt.pix_mp.plane_fmt[i].sizeimage;
+
+				pr_debug("mstream ne_se ne imgo:0x%x size:%d\n",
+				mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
+				mstream_frame_param->img_outs[desc_id].buf[0][0].size);
 			} else if (i == 1) { // then SE
 				// in = NE output
 				int in_node = MTKCAM_IPI_RAW_RAWI_2;
@@ -975,17 +979,25 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 				// out = SE output
 				frame_param->img_outs[desc_id].buf[0][0].iova =
 					buf->daddr + f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				pr_info("mstream ne_se se rawi:0x%x imgo:0x%x\n",
+				frame_param->img_outs[desc_id].buf[0][0].size =
+					f->fmt.pix_mp.plane_fmt[i].sizeimage;
+				pr_debug("mstream ne_se se rawi:0x%x size:%d, imgo:0x%x size:%d\n",
 					frame_param->img_ins[in_node -
 					MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-					frame_param->img_outs[desc_id].buf[0][0].iova);
+					frame_param->img_ins[in_node -
+					MTKCAM_IPI_RAW_RAWI_2].buf[0].size,
+					frame_param->img_outs[desc_id].buf[0][0].iova,
+					frame_param->img_outs[desc_id].buf[0][0].size);
 			}
 		} else {
 			if (i == 0) { // normal output SE(plane[1]) first
 				mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
 					buf->daddr + f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				pr_info("mstream se_ne se imgo:0x%x\n",
-				mstream_frame_param->img_outs[desc_id].buf[0][0].iova);
+				mstream_frame_param->img_outs[desc_id].buf[0][0].size =
+					f->fmt.pix_mp.plane_fmt[i].sizeimage;
+				pr_debug("mstream se_ne se imgo:0x%x size:%d\n",
+				mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
+				mstream_frame_param->img_outs[desc_id].buf[0][0].size);
 			} else if (i == 1) { // then NE
 				// in = SE output
 				int in_node = MTKCAM_IPI_RAW_RAWI_2;
@@ -998,10 +1010,15 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 				// out = NE out
 				frame_param->img_outs[desc_id].buf[0][0].iova =
 					buf->daddr;
-				pr_info("mstream se_ne ne rawi:0x%x imgo:0x%x\n",
+				frame_param->img_outs[desc_id].buf[0][0].size =
+					f->fmt.pix_mp.plane_fmt[i].sizeimage;
+				pr_debug("mstream se_ne ne rawi:0x%x size:%d, imgo:0x%x size:%d\n",
 					frame_param->img_ins[in_node -
 					MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-					frame_param->img_outs[desc_id].buf[0][0].iova);
+					frame_param->img_ins[in_node -
+					MTKCAM_IPI_RAW_RAWI_2].buf[0].size,
+					frame_param->img_outs[desc_id].buf[0][0].iova,
+					frame_param->img_outs[desc_id].buf[0][0].size);
 			}
 		}
 	}
