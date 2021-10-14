@@ -189,6 +189,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.min_gain = BASEGAIN,
 	.max_gain = BASEGAIN*16,
 	.min_gain_iso = 100,
+	.exp_step = 1,
 	.gain_step = 1,
 	.gain_type = 0,
 
@@ -2043,6 +2044,11 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_shutter;
+		*(feature_data + 2) = imgsensor_info.exp_step;
+		break;
+	case SENSOR_FEATURE_GET_MAX_EXP_LINE:
+		*(feature_data + 2) =
+			imgsensor_info.max_frame_length - imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_GET_PERIOD:
 		*feature_return_para_16++ = ctx->line_length;
@@ -2251,6 +2257,22 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		if (*feature_data != 0)
 			set_shutter(ctx, *feature_data);
 		streaming_control(ctx, KAL_TRUE);
+		break;
+	case SENSOR_FEATURE_GET_BINNING_TYPE:
+		switch (*(feature_data + 1)) {
+		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		default:
+			*feature_return_para_32 = 1;
+			break;
+		}
+		pr_debug(
+			"SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
+			*feature_return_para_32);
+		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_GET_MIPI_PIXEL_RATE:
 	{

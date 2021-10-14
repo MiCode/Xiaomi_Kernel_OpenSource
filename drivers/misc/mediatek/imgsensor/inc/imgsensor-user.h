@@ -305,6 +305,12 @@ struct mtk_stagger_max_exp_time {
 	__u32 max_exp_time;
 };
 
+struct mtk_max_exp_line {
+	__u32 scenario_id;
+	__u32 exposure;
+	__u32 max_exp_line;
+};
+
 struct mtk_exp_margin {
 	__u32 scenario_id;
 	__u32 margin;
@@ -494,6 +500,9 @@ struct mtk_fine_integ_line {
 
 #define VIDIOC_MTK_G_FINE_INTEG_LINE_BY_SCENARIO \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 38, struct mtk_fine_integ_line)
+
+#define VIDIOC_MTK_G_MAX_EXPOSURE_LINE \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 39, struct mtk_max_exp_line)
 
 /* SET */
 

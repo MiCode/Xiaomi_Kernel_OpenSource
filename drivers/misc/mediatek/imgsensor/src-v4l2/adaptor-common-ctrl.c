@@ -87,3 +87,23 @@ int g_max_exposure(struct adaptor_ctx *ctx,
 
 	return 0;
 }
+
+int g_max_exposure_line(struct adaptor_ctx *ctx,
+				   int scenario,
+				   struct mtk_max_exp_line *info)
+{
+	u32 len = 0;
+	union feature_para para;
+
+	para.u64[0] = scenario;
+	para.u64[1] = (u64)info->exposure;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_MAX_EXP_LINE,
+		para.u8, &len);
+
+	info->max_exp_line = (u32)para.u64[2];
+
+	return 0;
+}

@@ -1102,6 +1102,13 @@ static int g_output_format_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_max_exposure_line_ioctl(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_max_exp_line *target = arg;
+
+	return g_max_exposure_line(ctx, target->scenario_id, target);
+}
+
 static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_seamless_target_scenarios *target = arg;
@@ -1375,6 +1382,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_MAX_EXPOSURE, g_max_exposure_ioctl},
 	{VIDIOC_MTK_G_OUTPUT_FORMAT_BY_SCENARIO, g_output_format_by_scenario},
 	{VIDIOC_MTK_G_FINE_INTEG_LINE_BY_SCENARIO, g_fine_integ_line_by_scenario},
+	{VIDIOC_MTK_G_MAX_EXPOSURE_LINE, g_max_exposure_line_ioctl},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

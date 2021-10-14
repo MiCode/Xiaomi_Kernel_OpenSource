@@ -142,6 +142,7 @@ struct imgsensor_info_struct {
 	kal_uint32 min_gain_iso;
 	kal_uint32 gain_step;
 	kal_uint32 gain_type;
+	kal_uint32 exp_step;
 };
 
 extern int iBurstWriteReg_multi(
