@@ -80,7 +80,6 @@ static void set_cmos_sensor_8(struct subdrv_ctx *ctx,
 	_i2c_data[_size_to_write++] = val;
 }
 
-static kal_uint8 qsc_flag;
 static kal_uint8 otp_flag;
 
 static kal_uint16 previous_exp[3];
@@ -1975,6 +1974,10 @@ static int open(struct subdrv_ctx *ctx)
 	/* initail sequence write in  */
 	sensor_init(ctx);
 
+	LOG_INF("write_sensor_QSC Start\n");
+	write_sensor_QSC(ctx);
+	LOG_INF("write_sensor_QSC End\n");
+
 	ctx->autoflicker_en = KAL_FALSE;
 	ctx->sensor_mode = IMGSENSOR_MODE_INIT;
 	ctx->shutter = 0x3D0;
@@ -2015,7 +2018,6 @@ static int close(struct subdrv_ctx *ctx)
 	/*No Need to implement this function*/
 
 	write_cmos_sensor_8(ctx, 0x0100, 0x00);
-	qsc_flag = 0;
 	return ERROR_NONE;
 } /* close */
 
@@ -2048,12 +2050,6 @@ static kal_uint32 preview(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->min_frame_length = imgsensor_info.pre.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	preview_setting(ctx);
 
 	return ERROR_NONE;
@@ -2085,12 +2081,6 @@ static kal_uint32 capture(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.cap.framelength;
 	ctx->min_frame_length = imgsensor_info.cap.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	capture_setting(ctx);
 
 	return ERROR_NONE;
@@ -2107,12 +2097,6 @@ static kal_uint32 normal_video(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.normal_video.framelength;
 	ctx->min_frame_length = imgsensor_info.normal_video.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	normal_video_setting(ctx);
 
 	return ERROR_NONE;
@@ -2131,12 +2115,6 @@ static kal_uint32 hs_video(struct subdrv_ctx *ctx,
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	hs_video_setting(ctx);
 
 	return ERROR_NONE;
@@ -2155,12 +2133,6 @@ static kal_uint32 slim_video(struct subdrv_ctx *ctx,
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	slim_video_setting(ctx);
 
 	return ERROR_NONE;
@@ -2177,12 +2149,6 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom1.framelength;
 	ctx->min_frame_length = imgsensor_info.custom1.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom1_setting(ctx);
 
 	return ERROR_NONE;
@@ -2199,12 +2165,6 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom2.framelength;
 	ctx->min_frame_length = imgsensor_info.custom2.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom2_setting(ctx);
 
 	return ERROR_NONE;
@@ -2221,12 +2181,6 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom3.framelength;
 	ctx->min_frame_length = imgsensor_info.custom3.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom3_setting(ctx);
 
 	return ERROR_NONE;
@@ -2243,12 +2197,6 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom4.framelength;
 	ctx->min_frame_length = imgsensor_info.custom4.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom4_setting(ctx);
 
 	return ERROR_NONE;
@@ -2265,12 +2213,6 @@ static kal_uint32 custom5(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom5.framelength;
 	ctx->min_frame_length = imgsensor_info.custom5.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom5_setting(ctx);
 
 	return ERROR_NONE;
@@ -2287,12 +2229,6 @@ static kal_uint32 custom6(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom6.framelength;
 	ctx->min_frame_length = imgsensor_info.custom6.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom6_setting(ctx);
 
 	return ERROR_NONE;
@@ -2309,12 +2245,6 @@ static kal_uint32 custom7(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom7.framelength;
 	ctx->min_frame_length = imgsensor_info.custom7.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom7_setting(ctx);
 
 	return ERROR_NONE;
@@ -2331,12 +2261,6 @@ static kal_uint32 custom8(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom8.framelength;
 	ctx->min_frame_length = imgsensor_info.custom8.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom8_setting(ctx);
 
 	return ERROR_NONE;
@@ -2353,12 +2277,6 @@ static kal_uint32 custom9(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom9.framelength;
 	ctx->min_frame_length = imgsensor_info.custom9.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom9_setting(ctx);
 
 	return ERROR_NONE;
@@ -2375,12 +2293,6 @@ static kal_uint32 custom10(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom10.framelength;
 	ctx->min_frame_length = imgsensor_info.custom10.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom10_setting(ctx);
 
 	return ERROR_NONE;
@@ -2397,12 +2309,6 @@ static kal_uint32 custom11(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom11.framelength;
 	ctx->min_frame_length = imgsensor_info.custom11.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom11_setting(ctx);
 
 	return ERROR_NONE;
@@ -2419,12 +2325,6 @@ static kal_uint32 custom12(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom12.framelength;
 	ctx->min_frame_length = imgsensor_info.custom12.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom12_setting(ctx);
 
 	return ERROR_NONE;
@@ -2441,12 +2341,6 @@ static kal_uint32 custom13(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom13.framelength;
 	ctx->min_frame_length = imgsensor_info.custom13.framelength;
 	ctx->autoflicker_en = KAL_FALSE;
-	if (!qsc_flag) {
-		LOG_INF("write_sensor_QSC Start\n");
-		write_sensor_QSC(ctx);
-		LOG_INF("write_sensor_QSC End\n");
-		qsc_flag = 1;
-	}
 	custom13_setting(ctx);
 
 	return ERROR_NONE;
