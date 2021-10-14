@@ -40,7 +40,7 @@ static struct pm_qos_request slbc_qos_request;
 #endif /* CONFIG_MTK_L3C_PART */
 
 /* #define SLBC_TRACE */
-/* #define ENABLE_SLBC */
+#define ENABLE_SLBC
 
 static struct mtk_slbc *slbc;
 
@@ -98,6 +98,8 @@ static unsigned long slbc_slot_used;
 static struct slbc_config p_config[] = {
 	/* SLBC_ENTRY(id, sid, max, fix, p, extra, res, cache) */
 	SLBC_ENTRY(UID_MM_VENC, 0, 0, 0, 0, 0x0, 0xf, 0),
+	SLBC_ENTRY(UID_MML, 1, 0, 0, 0, 0x0, 0xf, 0),
+	SLBC_ENTRY(UID_DISP, 2, 0, 0, 0, 0x0, 0x030, 0),
 };
 
 u32 slbc_sram_read(u32 offset)
