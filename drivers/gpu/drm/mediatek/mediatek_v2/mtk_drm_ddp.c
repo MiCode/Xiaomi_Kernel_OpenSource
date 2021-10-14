@@ -8184,6 +8184,14 @@ static int mtk_ddp_mout_en_MT6895(const struct mtk_mmsys_reg_data *data,
 		(cur == DDP_COMPONENT_OVL2_2L && next == DDP_COMPONENT_OVL2_2L_VIRTUAL0)) {
 		*addr = MT6895_MMSYS_OVL_CON;
 		value = MT6895_DISP_OVL0_2L_TO_DISP_OVL0_2L_BLENDOUT_MOUT;
+	} else if ((cur == DDP_COMPONENT_OVL1_2L && next == DDP_COMPONENT_OVL1_2L_VIRTUAL0) ||
+		(cur == DDP_COMPONENT_OVL3_2L && next == DDP_COMPONENT_OVL3_2L_VIRTUAL0)) {
+		*addr = MT6895_MMSYS_OVL_CON;
+		value = MT6895_DISP_OVL1_2L_TO_DISP_OVL1_2L_BLENDOUT_MOUT;
+	} else if ((cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 && next == DDP_COMPONENT_RSZ0) ||
+		(cur == DDP_COMPONENT_OVL3_2L_VIRTUAL0 && next == DDP_COMPONENT_RSZ1)) {
+		*addr = MT6895_DISP_OVL1_2L_BLEND_MOUT_EN;
+		value = MT6895_DISP_OVL1_2L_BLEND_MOUT_EN_TO_DISP_RSZ0_SEL_IN;
 	} else if ((cur == DDP_COMPONENT_OVL0_2L_VIRTUAL0 &&
 				next == DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL) ||
 		(cur == DDP_COMPONENT_OVL2_2L_VIRTUAL0 &&
@@ -8293,6 +8301,10 @@ static int mtk_ddp_sel_in_MT6895(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_SUB_OVL_DISP1_PQ0_VIRTUAL)) {
 		*addr = MT6895_DISP_SUB_DISP_PQ0_SEL_IN;
 		value = MT6895_DISP_SUB_DISP_PQ0_SEL_IN_FROM_DISP_OVL0_2L_BLEND_MOUT_EN;
+	} else if ((cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 && next == DDP_COMPONENT_RSZ0) ||
+		(cur == DDP_COMPONENT_OVL3_2L_VIRTUAL0 && next == DDP_COMPONENT_RSZ1)) {
+		*addr = MT6895_DISP_RSZ0_SEL_IN;
+		value = MT6895_DISP_RSZ0_SEL_IN_FROM_DISP_OVL1_2L_BLEND_MOUT_EN;
 	} else if ((cur == DDP_COMPONENT_RSZ0 && next == DDP_COMPONENT_OVL0) ||
 		(cur == DDP_COMPONENT_RSZ1 && next == DDP_COMPONENT_OVL1)) {
 		*addr = MT6895_DISP_OVL0_UFDO_SEL_IN;
@@ -11045,20 +11057,6 @@ void mtk_ddp_remove_dsc_prim_MT6895(struct mtk_drm_crtc *mtk_crtc,
 		       mtk_crtc->config_regs_pa + addr, ~value, value);
 
 	addr = MT6895_DISP_MAIN0_SEL_IN;
-	value = 0;
-	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-		       mtk_crtc->config_regs_pa + addr, value, ~0);
-
-	if (!mtk_crtc->is_dual_pipe)
-		return;
-
-	/* DLI_ASYNC0 to  DISP_DSC_WRAP0_R_SEL */
-	addr = MT6895_DISP_DLI0_SOUT_SEL;
-	value = 0;
-	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-		       mtk_crtc->config_regs_pa + addr, value, ~0);
-
-	addr = MT6895_DISP_DSC_WRAP0_R_SEL_IN;
 	value = 0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
