@@ -7,7 +7,8 @@
 
 #include "ged_type.h"
 
-#define DCS_POLICY_MARGIN 200
+#define DCS_POLICY_MARGIN 250
+#define DCS_MIN_OPP_CNT 4
 
 struct dcs_core_mask {
 	unsigned int core_mask;

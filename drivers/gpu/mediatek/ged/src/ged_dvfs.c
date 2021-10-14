@@ -184,7 +184,7 @@ static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 
 #define MAX_TB_DVFS_MARGIN               99
-#define MIN_TB_DVFS_MARGIN               10
+#define MIN_TB_DVFS_MARGIN               15
 #define MIN_TB_MARGIN_INC_STEP           1
 #define CONFIGURE_TIMER_BASED_MODE       0x00000000
 #define DYNAMIC_TB_MASK                  0x00000100
