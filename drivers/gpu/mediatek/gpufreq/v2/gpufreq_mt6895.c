@@ -26,6 +26,9 @@
 #include <linux/printk.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
 
 #include <gpufreq_v2.h>
 #include <gpufreq_debug.h>
@@ -4316,11 +4319,16 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 			g_gpu.working_table[i].vsram, g_gpu.working_table[i].vaging);
 	}
 
+
 	/* init STACK OPP table */
 	/* init OPP segment range */
 	segment_id = g_stack.segment_id;
 	if (segment_id == MT6895_SEGMENT)
-		g_stack.segment_upbound = 0;
+		g_stack.segment_upbound = 10;
+	else if (segment_id == MT6895T_SEGMENT)
+		g_stack.segment_upbound = 8;
+	else if (segment_id == MT6895TT_SEGMENT)
+		g_stack.segment_upbound = 1;
 	else
 		g_stack.segment_upbound = 0;
 	g_stack.segment_lowbound = SIGNED_OPP_STACK_NUM - 1;
@@ -4408,10 +4416,45 @@ static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx)
 static int __gpufreq_init_segment_id(struct platform_device *pdev)
 {
 	unsigned int efuse_id = 0x0;
-	unsigned int segment_id = 0;
+	unsigned int segment_id = MT6895_SEGMENT;
 	int ret = GPUFREQ_SUCCESS;
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		GPUFREQ_LOGE("fail to get efuse_segment_cell (%ld)", PTR_ERR(efuse_cell));
+		ret = PTR_ERR(efuse_cell);
+		goto done;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		GPUFREQ_LOGE("fail to get efuse_buf (%ld)", PTR_ERR(efuse_buf));
+		ret = PTR_ERR(efuse_buf);
+		goto done;
+	}
+
+	efuse_id = (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+#else
+	efuse_id = 0x0;
+#endif /* CONFIG_MTK_DEVINFO */
+
 	switch (efuse_id) {
+	case 0x1:
+		segment_id = MT6895_SEGMENT;
+		break;
+	case 0x2:
+		segment_id = MT6895T_SEGMENT;
+		break;
+	case 0x3:
+		segment_id = MT6895TT_SEGMENT;
+		break;
 	default:
 		segment_id = MT6895_SEGMENT;
 		GPUFREQ_LOGW("unknown efuse id: 0x%x", efuse_id);
@@ -4420,9 +4463,11 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 
 	GPUFREQ_LOGI("efuse_id: 0x%x, segment_id: %d", efuse_id, segment_id);
 
+done:
 	g_stack.segment_id = segment_id;
 
 	return ret;
+
 }
 
 //TODO pd_mfg1 name
