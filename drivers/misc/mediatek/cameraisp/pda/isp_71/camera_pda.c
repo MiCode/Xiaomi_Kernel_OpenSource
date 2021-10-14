@@ -1298,7 +1298,7 @@ static void LOGHWRegister(int i)
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG));
 }
 
-static void TimeoutHandler(void)
+static void TimeoutHandler(int hw_trigger_num)
 {
 	int i = 0;
 	int sel_index = 0;
@@ -1322,13 +1322,13 @@ static void TimeoutHandler(void)
 #endif
 
 	// check dma status
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		LOG_INF("timeout, PDA_%d PDA_PDA_TILE_STATUS_REG = 0x%x\n",
 			i, PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_TILE_STATUS_REG));
 	}
 
 	// check dma error status
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		LOG_INF("PDA%d PDA_PDAI_P1_ERR_STAT_REG = 0x%x",
 			i, PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_ERR_STAT_REG));
 		LOG_INF("PDA%d PDA_PDATI_P1_ERR_STAT_REG = 0x%x",
@@ -1342,7 +1342,7 @@ static void TimeoutHandler(void)
 	}
 
 	// check debug data
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		for (sel_index = 0; sel_index < Length_Arr; ++sel_index) {
 			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_DEBUG_SEL_REG,
 				Debug_Sel[sel_index]);
@@ -1354,20 +1354,20 @@ static void TimeoutHandler(void)
 	}
 
 	// check hw register setting
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		LOG_INF("PDA_%d register LOG +++++\n", i);
 		LOGHWRegister(i);
 		LOG_INF("PDA_%d register LOG -----\n", i);
 	}
 
 	// reset flow
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		pda_reset(i);
 		pda_nontransaction_reset(i);
 	}
 }
 
-static void pda_execute(void)
+static void pda_execute(int hw_trigger_num)
 {
 	int i;
 
@@ -1375,7 +1375,7 @@ static void pda_execute(void)
 	LOG_INF("+\n");
 #endif
 
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		// PDA_TOP_CTL set 1'b1 to bit3, to load register from double buffer
 		PDA_WR32(PDA_devs[i].m_pda_base  + PDA_PDA_TOP_CTL_REG, PDA_DOUBLE_BUFFER);
 
@@ -1398,11 +1398,11 @@ static void pda_execute(void)
 #endif
 }
 
-static int check_pda_status(void)
+static int check_pda_status(int hw_trigger_num)
 {
 	int i = 0;
 
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		if (PDA_devs[i].HWstatus == 0) {
 #ifdef FOR_DEBUG
 			LOG_INF("PDA%d HWstatus = %d\n", i, PDA_devs[i].HWstatus);
@@ -1418,20 +1418,20 @@ static inline unsigned int pda_ms_to_jiffies(unsigned int ms)
 	return ((ms * HZ + 512) >> 10);
 }
 
-static signed int pda_wait_irq(struct PDA_Data_t *pda_data)
+static signed int pda_wait_irq(struct PDA_Data_t *pda_data, int hw_trigger_num)
 {
 	int ret = 0, i = 0;
 
 	/* start to wait signal */
 	ret = wait_event_interruptible_timeout(g_wait_queue_head,
-						check_pda_status(),
+						check_pda_status(hw_trigger_num),
 						pda_ms_to_jiffies(pda_data->Timeout));
 
 #ifdef GET_PDA_TIME
 	ktime_get_real_ts64(&time_end);
 #endif
 	if (ret == 0) {
-		TimeoutHandler();
+		TimeoutHandler(hw_trigger_num);
 
 		// timeout error
 		LOG_INF("wait_event_interruptible_timeout Fail\n");
@@ -1440,7 +1440,7 @@ static signed int pda_wait_irq(struct PDA_Data_t *pda_data)
 	} else if (ret == -ERESTARTSYS) {
 		LOG_INF("Interrupted by a signal\n");
 		pda_data->Status = -3;
-		for (i = 0; i < g_PDA_quantity; i++)
+		for (i = 0; i < hw_trigger_num; i++)
 			pda_nontransaction_reset(i);
 		return -1;
 	}
@@ -1449,7 +1449,7 @@ static signed int pda_wait_irq(struct PDA_Data_t *pda_data)
 	pda_data->Status = 1;
 
 	// update status to user
-	for (i = 0; i < g_PDA_quantity; i++) {
+	for (i = 0; i < hw_trigger_num; i++) {
 		if (PDA_devs[i].HWstatus < 0) {
 			pda_data->Status = PDA_devs[i].HWstatus;
 
@@ -1556,6 +1556,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 	int i;
 	unsigned int nRemainder = 0, nFactor = 0;
 	unsigned int nOneRoundProcROI = 0;
+	int hw_trigger_num = 0;
 
 	if (g_u4EnableClockCount == 0 || g_PDA_quantity == 0) {
 		LOG_INF("Cannot process without enable pda clock or no PDA support\n");
@@ -1641,7 +1642,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		HWDMASettings(&pda_Pdadata);
 
 		// ---------------- this part will run many times --------------
-		while (nROIcount != 0 && nROIcount > 0) {
+		while (nROIcount > 0) {
 
 			// read 0x3b4, avoid the impact of previous data
 			// LOG_INF("PDA status before process = %d\n",
@@ -1655,6 +1656,9 @@ static long PDA_Ioctl(struct file *a_pstFile,
 
 			// reset local variable
 			nOneRoundProcROI = 0;
+
+			//reset hw trigger number
+			hw_trigger_num = g_PDA_quantity;
 
 			// assign strategy, used for multi-engine
 			if (nROIcount >= (PDA_MAXROI_PER_ROUND * g_PDA_quantity)) {
@@ -1703,6 +1707,14 @@ static long PDA_Ioctl(struct file *a_pstFile,
 					nCurrentProcRoiIndex);
 #endif
 
+				if (g_CurrentProcRoiNum[i] == 0) {
+					hw_trigger_num = i;
+#ifdef FOR_DEBUG
+					LOG_INF("assign roi number is zero, no need to process\n");
+#endif
+					break;
+				}
+
 				// calculate 1024 ROI data
 				if (ProcessROIData(&pda_Pdadata,
 						g_CurrentProcRoiNum[i],
@@ -1732,9 +1744,9 @@ static long PDA_Ioctl(struct file *a_pstFile,
 			}
 
 			// trigger PDA work
-			pda_execute();
+			pda_execute(hw_trigger_num);
 
-			nirqRet = pda_wait_irq(&pda_Pdadata);
+			nirqRet = pda_wait_irq(&pda_Pdadata, hw_trigger_num);
 
 			if (nirqRet < 0) {
 				LOG_INF("pda_wait_irq Fail (%d)\n", nirqRet);
