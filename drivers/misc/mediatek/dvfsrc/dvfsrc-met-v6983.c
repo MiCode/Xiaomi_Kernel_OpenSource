@@ -30,6 +30,7 @@ enum met_src_index {
 	DDR__MD_DDR,
 	VCORE__SCP,
 	VCORE__HIFI,
+	VCORE__SRAMRC,
 	VCORE__SW_REQ1,
 	VCORE__SW_REQ2,
 	VCORE__SW_REQ3,
@@ -39,7 +40,7 @@ enum met_src_index {
 	VCORE__SW_REQ7,
 	VCORE__SW_REQ8,
 	SCP_REQ,
-	PMQOS_TATOL,
+	PMQOS_TOTAL,
 	PMQOS_BW0,
 	PMQOS_BW1,
 	PMQOS_BW2,
@@ -74,6 +75,7 @@ static char *met_src_name[SRC_MAX] = {
 	"DDR__MD_DDR",
 	"VCORE__SCP",
 	"VCORE__HIFI",
+	"VCORE__SRAMRC",
 	"VCORE__SW_REQ1",
 	"VCORE__SW_REQ2",
 	"VCORE__SW_REQ3",
@@ -83,7 +85,7 @@ static char *met_src_name[SRC_MAX] = {
 	"VCORE__SW_REQ7",
 	"VCORE__SW_REQ8",
 	"SCP_REQ",
-	"PMQOS_TATOL",
+	"PMQOS_TOTAL",
 	"PMQOS_BW0",
 	"PMQOS_BW1",
 	"PMQOS_BW2",
@@ -116,6 +118,7 @@ static char *met_src_name[SRC_MAX] = {
 #define DVFSRC_VCORE_REQUEST (0x80)
 #define DVFSRC_DEBUG_STA_0 (0x29C)
 #define DVFSRC_DEBUG_STA_2 (0x2A4)
+#define DVFSRC_DEBUG_STA_8 (0x2BC)
 
 #define DVFSRC_PCIE_VCORE_REQ (0xE4)
 
@@ -144,6 +147,10 @@ static char *met_src_name[SRC_MAX] = {
 /* DVFSRC_VCORE_REQUEST 0x70 */
 #define VCORE_SCP_GEAR_SHIFT	12
 #define VCORE_SCP_GEAR_MASK	0x7
+
+/* DVFSRC_SRARMC */
+#define VCORE_SRAMRC_GEAR_SHIFT	18
+#define VCORE_SRAMRC_GEAR_MASK	0x7
 
 /* met profile function */
 static int dvfsrc_get_src_req_num(void)
@@ -225,7 +232,7 @@ static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc_met *dvfs)
 static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc_met *dvfs)
 {
 	u32 val;
-	u32 sta2;
+	u32 sta;
 
 	val = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ1);
 	met_vcorefs_src[VCORE__SW_REQ1] = (val >> VCORE_SW_AP_SHIFT) & VCORE_SW_AP_MASK;
@@ -253,12 +260,15 @@ static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc_met *dvfs)
 
 	met_vcorefs_src[VCORE__HIFI] = mtk_dvfsrc_query_debug_info(DVFSRC_HIFI_VCORE_REQ);
 
-	sta2 = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2);
-	if ((sta2 >> 14) & 0x1) {
+	sta = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2);
+	if ((sta >> 14) & 0x1) {
 		val = dvfsrc_met_read(dvfs, DVFSRC_VCORE_REQUEST);
 		met_vcorefs_src[VCORE__SCP] = (val >> VCORE_SCP_GEAR_SHIFT) & VCORE_SCP_GEAR_MASK;
 	} else
 		met_vcorefs_src[VCORE__SCP] = 0;
+
+	sta = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_8);
+	met_vcorefs_src[VCORE__SRAMRC] = (sta >> VCORE_SRAMRC_GEAR_SHIFT) & VCORE_SRAMRC_GEAR_MASK;
 }
 
 static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
@@ -276,11 +286,13 @@ static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
 	met_vcorefs_src[PMQOS_BW7] = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_7);
 	met_vcorefs_src[PMQOS_BW8] = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_8);
 	met_vcorefs_src[PMQOS_BW9] = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_9);
-	met_vcorefs_src[PMQOS_TATOL] = 0;
+	met_vcorefs_src[PMQOS_TOTAL] = 0;
 
-	for (i = 0; i < 9; i++)
-		met_vcorefs_src[PMQOS_TATOL] += met_vcorefs_src[PMQOS_BW0 + i];
-
+	for (i = 0; i < 9; i++) {
+		if (i == 6)
+			continue;
+		met_vcorefs_src[PMQOS_TOTAL] += met_vcorefs_src[PMQOS_BW0 + i];
+	}
 	met_vcorefs_src[HRT_ISP_BW] = dvfsrc_met_read(dvfs, DVFSRC_ISP_HRT);
 	met_vcorefs_src[HRT_MD_BW] = mtk_dvfsrc_query_debug_info(DVFSRC_MD_HRT_BW);
 
