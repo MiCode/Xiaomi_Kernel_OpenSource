@@ -426,7 +426,6 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom_mm[] = {
 	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 6,VDO_UP_512MB_2 */
 	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 7,VDO_UP_256MB_1 */
 	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 8,VDO_UP_256MB_1 */
-	{ .iova_base = 0x200000000ULL, .size = SZ_256M, .type = NORMAL}, /* 9,test */
 };
 
 /*
@@ -443,7 +442,6 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom_apu[] = {
 	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K), .type = SECURE}, /* 1,APU_SECURE:512M */
 	{ .iova_base = SZ_1G, .size = (SZ_1G * 3ULL), .type = NORMAL}, /* 2,APU_CODE:3GB */
 	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = NORMAL}, /* 3,LK_RESV:32MB */
-	{ .iova_base = 0x200000000ULL, .size = SZ_256M, .type = NORMAL}, /* 4,test */
 };
 
 uint64_t mtee_iova_to_phys(unsigned long iova, u32 tab_id, u32 *sr_info,
