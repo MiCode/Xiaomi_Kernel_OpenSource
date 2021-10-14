@@ -867,7 +867,8 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 		priv = mtk_crtc->base.dev->dev_private;
 
 	if ((priv->data->mmsys_id == MMSYS_MT6983 ||
-			priv->data->mmsys_id == MMSYS_MT6895) &&
+		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6879) &&
 		(dsi->d_rate != 0)) {
 		data_rate = dsi->d_rate;
 		DDPMSG("%s, data rate=%d\n", __func__, data_rate);
