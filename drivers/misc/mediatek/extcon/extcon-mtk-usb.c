@@ -108,10 +108,8 @@ static int mtk_usb_extcon_set_role(struct mtk_extcon_info *extcon,
 	return 0;
 }
 
-static void mtk_usb_extcon_psy_detector(struct work_struct *work)
+static bool usb_is_online(struct mtk_extcon_info *extcon)
 {
-	struct mtk_extcon_info *extcon = container_of(to_delayed_work(work),
-		struct mtk_extcon_info, wq_psy);
 	union power_supply_propval pval;
 	union power_supply_propval tval;
 	int ret;
@@ -120,17 +118,29 @@ static void mtk_usb_extcon_psy_detector(struct work_struct *work)
 				POWER_SUPPLY_PROP_ONLINE, &pval);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get online prop\n");
-		return;
+		return false;
 	}
 
 	ret = power_supply_get_property(extcon->usb_psy,
 				POWER_SUPPLY_PROP_TYPE, &tval);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get usb type\n");
-		return;
+		return false;
 	}
 
 	dev_info(extcon->dev, "online=%d, type=%d\n", pval.intval, tval.intval);
+
+	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
+			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
+		return true;
+	else
+		return false;
+}
+
+static void mtk_usb_extcon_psy_detector(struct work_struct *work)
+{
+	struct mtk_extcon_info *extcon = container_of(to_delayed_work(work),
+		struct mtk_extcon_info, wq_psy);
 
 	/* Workaround for PR_SWAP, Host mode should not come to this function. */
 	if (extcon->c_role == DUAL_PROP_DR_HOST) {
@@ -138,8 +148,7 @@ static void mtk_usb_extcon_psy_detector(struct work_struct *work)
 		return;
 	}
 
-	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
-			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
+	if (usb_is_online(extcon))
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
 	else
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
@@ -177,6 +186,11 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	ret = power_supply_reg_notifier(&extcon->psy_nb);
 	if (ret)
 		dev_err(dev, "fail to register notifer\n");
+
+	if (usb_is_online(extcon))
+		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
+	else
+		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
 
 	return ret;
 }
@@ -420,6 +434,10 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 		return PTR_ERR(extcon->role_sw);
 	}
 
+	/* initial usb role */
+	if (extcon->role_sw)
+		extcon->c_role = USB_ROLE_NONE;
+
 	/* vbus */
 	extcon->vbus = devm_regulator_get(dev, "vbus");
 	if (IS_ERR(extcon->vbus)) {
@@ -427,13 +445,19 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 		return PTR_ERR(extcon->vbus);
 	}
 
-	if (!of_property_read_u32(dev->of_node, "vbus-voltage",
-					&extcon->vbus_vol))
-		dev_info(dev, "vbus-voltage=%d", extcon->vbus_vol);
+	/* sync vbus state */
+	if (extcon->vbus) {
+		extcon->vbus_on = regulator_is_enabled(extcon->vbus);
+		dev_info(dev, "vbus is %s\n", extcon->vbus_on ? "on" : "off");
 
-	if (!of_property_read_u32(dev->of_node, "vbus-current",
+		if (!of_property_read_u32(dev->of_node, "vbus-voltage",
+					&extcon->vbus_vol))
+			dev_info(dev, "vbus-voltage=%d", extcon->vbus_vol);
+
+		if (!of_property_read_u32(dev->of_node, "vbus-current",
 					&extcon->vbus_cur))
-		dev_info(dev, "vbus-current=%d", extcon->vbus_cur);
+			dev_info(dev, "vbus-current=%d", extcon->vbus_cur);
+	}
 
 	extcon->bypss_typec_sink =
 		of_property_read_bool(dev->of_node,
@@ -442,14 +466,6 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 	extcon->extcon_wq = create_singlethread_workqueue("extcon_usb");
 	if (!extcon->extcon_wq)
 		return -ENOMEM;
-
-	extcon->c_role = DUAL_PROP_DR_DEVICE;
-
-	/* default initial role */
-	mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
-
-	/* default turn off vbus */
-	mtk_usb_extcon_set_vbus(extcon, false);
 
 	/* get id resources */
 	ret = mtk_usb_extcon_id_pin_init(extcon);
