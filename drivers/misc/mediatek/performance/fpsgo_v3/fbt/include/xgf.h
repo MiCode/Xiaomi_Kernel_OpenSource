@@ -242,7 +242,8 @@ extern int (*fpsgo_xgf2ko_calculate_target_fps_fp)(int pid,
 	unsigned long long bufID,
 	int *target_fps_margin,
 	unsigned long long cur_dequeue_start_ts,
-	unsigned long long cur_queue_end_ts);
+	unsigned long long cur_queue_end_ts,
+	int eara_is_active);
 extern void (*fpsgo_xgf2ko_do_recycle_fp)(int pid,
 	unsigned long long bufID);
 extern long long (*xgf_ema2_predict_fp)(struct xgf_ema2_predictor *pt, long long X);
@@ -289,14 +290,13 @@ int uboost2xgf_get_info(int pid, unsigned long long bufID,
 
 int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
 	int *target_fps_margin, unsigned long long cur_dequeue_start_ts,
-	unsigned long long cur_queue_end_ts);
+	unsigned long long cur_queue_end_ts, int eara_is_active);
 int fpsgo_xgf2ko_calculate_target_fps(int pid, unsigned long long bufID,
 	int *target_fps_margin, unsigned long long cur_dequeue_start_ts,
-	unsigned long long cur_queue_end_ts);
+	unsigned long long cur_queue_end_ts, int eara_is_active);
 int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID);
 void fpsgo_xgf2ko_do_recycle(int pid, unsigned long long bufID);
 void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps);
-void fpsgo_fstb2xgf_set_no_stable_num(int eara_flag);
 void fpsgo_fstb2xgf_set_camera_flag(int camera_flag);
 int xgf_get_display_rate(void);
 int xgf_get_process_id(int pid);

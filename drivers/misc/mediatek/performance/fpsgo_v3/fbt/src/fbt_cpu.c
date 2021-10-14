@@ -250,6 +250,7 @@ static int gcc_enq_bound_quota;
 static int gcc_deq_bound_thrs;
 static int gcc_deq_bound_quota;
 static int gcc_positive_clamp;
+static int boost_LR;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -316,6 +317,7 @@ module_param(gcc_enq_bound_quota, int, 0644);
 module_param(gcc_deq_bound_thrs, int, 0644);
 module_param(gcc_deq_bound_quota, int, 0644);
 module_param(gcc_positive_clamp, int, 0644);
+module_param(boost_LR, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1323,10 +1325,10 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	kfree(clus_floor_freq);
 	kfree(clus_opp);
 
-	if (loading_th || boost_affinity)
+	if (loading_th || boost_affinity || boost_LR)
 		fbt_query_dep_list_loading(thr);
 
-	if (boost_affinity)
+	if (boost_affinity || boost_LR)
 		heavy_pid = fbt_get_heavy_pid(thr->dep_valid_size, thr->dep_arr);
 
 	dep_str = kcalloc(size + 1, MAX_PID_DIGIT * sizeof(char),
@@ -1341,7 +1343,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		if (!fl->pid)
 			continue;
 
-		if (loading_th || boost_affinity) {
+		if (loading_th || boost_affinity || boost_LR) {
 			fpsgo_systrace_c_fbt_debug(fl->pid, thr->buffer_id,
 				fl->loading, "dep-loading");
 
@@ -1366,10 +1368,17 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			if (boost_affinity)
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
 						FPSGO_PREFER_BIG, 1);
+			else if (boost_LR && thr->hwui == RENDER_INFO_HWUI_NONE)
+				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
+						FPSGO_PREFER_NONE, 1);
 		} else if (boost_affinity && thr->pid == fl->pid && max_cl_core_num > 1) {
 			fbt_set_per_task_cap(fl->pid, min_cap, max_cap);
 			fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
 						FPSGO_PREFER_BIG, 1);
+		} else if (boost_LR && thr->pid == fl->pid && thr->hwui == RENDER_INFO_HWUI_NONE) {
+			fbt_set_per_task_cap(fl->pid, min_cap, max_cap);
+			fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
+						FPSGO_PREFER_NONE, 1);
 		} else {
 			fbt_set_per_task_cap(fl->pid, min_cap, max_cap);
 			if (boost_affinity && heavy_pid && heavy_pid != fl->pid)

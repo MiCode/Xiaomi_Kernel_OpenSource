@@ -66,8 +66,6 @@ int fstb_frame_num = 20;
 EXPORT_SYMBOL(fstb_frame_num);
 int fstb_no_stable_thr = 5;
 EXPORT_SYMBOL(fstb_no_stable_thr);
-int fstb_is_eara_active;
-EXPORT_SYMBOL(fstb_is_eara_active);
 int fstb_can_update_thr = 60;
 EXPORT_SYMBOL(fstb_can_update_thr);
 int fstb_target_fps_margin_low_fps = 3;
@@ -118,7 +116,8 @@ int (*fpsgo_xgf2ko_calculate_target_fps_fp)(
 	unsigned long long bufID,
 	int *target_fps_margin,
 	unsigned long long cur_dequeue_start_ts,
-	unsigned long long cur_queue_end_ts
+	unsigned long long cur_queue_end_ts,
+	int eara_is_active
 	);
 EXPORT_SYMBOL(fpsgo_xgf2ko_calculate_target_fps_fp);
 void (*fpsgo_xgf2ko_do_recycle_fp)(
@@ -372,13 +371,6 @@ void fpsgo_ctrl2xgf_set_display_rate(int dfrc_fps)
 {
 	xgf_lock(__func__);
 	xgf_display_rate = dfrc_fps;
-	xgf_unlock(__func__);
-}
-
-void fpsgo_fstb2xgf_set_no_stable_num(int eara_flag)
-{
-	xgf_lock(__func__);
-	fstb_is_eara_active = eara_flag;
 	xgf_unlock(__func__);
 }
 
@@ -2191,7 +2183,7 @@ static int xgf_enter_est_runtime(int rpid, struct xgf_render *render,
 
 int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
 	int *target_fps_margin, unsigned long long cur_dequeue_start_ts,
-	unsigned long long cur_queue_end_ts)
+	unsigned long long cur_queue_end_ts, int eara_is_active)
 {
 	int target_fps;
 
@@ -2199,7 +2191,8 @@ int fpsgo_fstb2xgf_get_target_fps(int pid, unsigned long long bufID,
 
 	if (fpsgo_xgf2ko_calculate_target_fps_fp)
 		target_fps = fpsgo_xgf2ko_calculate_target_fps_fp(pid, bufID,
-			target_fps_margin, cur_dequeue_start_ts, cur_queue_end_ts);
+			target_fps_margin, cur_dequeue_start_ts, cur_queue_end_ts,
+			eara_is_active);
 	else
 		target_fps = -ENOENT;
 

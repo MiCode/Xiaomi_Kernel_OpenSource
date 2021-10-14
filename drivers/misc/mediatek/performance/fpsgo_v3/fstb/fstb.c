@@ -785,11 +785,6 @@ void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff,
 			iter->target_fps_diff = diff;
 			fpsgo_systrace_c_fstb_man(pid, buf_id, diff, "eara_diff");
 
-			if (diff)
-				fpsgo_fstb2xgf_set_no_stable_num(1);
-			else
-				fpsgo_fstb2xgf_set_no_stable_num(0);
-
 			if (iter->target_fps_notifying
 				&& tfps == iter->target_fps_notifying) {
 				iter->target_fps_v2 = iter->target_fps_notifying;
@@ -969,7 +964,8 @@ out:
 	/* parse cpu time of each frame to ged_kpi */
 	iter->cpu_time = cpu_time_ns;
 
-	if (fstb_is_cam_active || iter->hwui_flag == 1 || !fstb_self_ctrl_fps_enable) {
+	if (fstb_is_cam_active || iter->hwui_flag == RENDER_INFO_HWUI_TYPE ||
+		!fstb_self_ctrl_fps_enable) {
 		eara_fps = iter->target_fps;
 		if (iter->target_fps && iter->target_fps != -1 && iter->target_fps_diff
 			&& !iter->target_fps_margin && !iter->target_fps_margin_gpu) {
@@ -1019,7 +1015,7 @@ out:
 static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	unsigned long long cur_dequeue_start_ts, unsigned long long cur_queue_end_ts)
 {
-	int i, target_fps, margin = 0;
+	int i, target_fps, margin = 0, eara_is_active = 0;
 	int target_fps_old = max_fps_limit, target_fps_new = max_fps_limit;
 	struct FSTB_FRAME_INFO *iter;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter;
@@ -1035,11 +1031,15 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 		goto out;
 
 	margin = iter->target_fps_margin_v2;
+	if (iter->target_fps_diff)
+		eara_is_active = 1;
+	else
+		eara_is_active = 0;
 
 	mutex_unlock(&fstb_lock);
 
 	target_fps = fpsgo_fstb2xgf_get_target_fps(pid, bufID,
-		&margin, cur_dequeue_start_ts, cur_queue_end_ts);
+		&margin, cur_dequeue_start_ts, cur_queue_end_ts, eara_is_active);
 
 	mutex_lock(&fstb_lock);
 
@@ -1081,8 +1081,9 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	}
 	iter->target_fps_margin_v2 = margin;
 
-	fpsgo_main_trace("[fstb][%d][0x%llx] | target_fps:%d(%d) margin:%d", iter->pid, iter->bufid,
-		iter->target_fps_v2, target_fps, iter->target_fps_margin_v2);
+	fpsgo_main_trace("[fstb][%d][0x%llx] | target_fps:%d(%d)(%d)(%d) margin:%d",
+		iter->pid, iter->bufid, iter->target_fps_v2,
+		target_fps_old, target_fps_new, target_fps, iter->target_fps_margin_v2);
 	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, iter->target_fps_v2, "target_fps_v2");
 	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, iter->target_fps_margin_v2,
 		"target_fps_margin_v2");
@@ -1123,7 +1124,7 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 	}
 
 	if (iter == NULL || fstb_is_cam_active ||
-		iter->hwui_flag == 1 || !fstb_self_ctrl_fps_enable)
+		iter->hwui_flag == RENDER_INFO_HWUI_TYPE || !fstb_self_ctrl_fps_enable)
 		goto out;
 
 	vpPush =
@@ -1795,7 +1796,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		(*quantile_cpu_time) = iter->quantile_cpu_time;
 		(*quantile_gpu_time) = iter->quantile_gpu_time;
 
-		if (fstb_is_cam_active || iter->hwui_flag == 1 ||
+		if (fstb_is_cam_active || iter->hwui_flag == RENDER_INFO_HWUI_TYPE ||
 			!fstb_self_ctrl_fps_enable) {
 			if (iter->target_fps && iter->target_fps != -1
 				&& iter->target_fps_diff
@@ -2781,7 +2782,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		if (iter) {
-			if (fstb_is_cam_active || (iter->hwui_flag == 1) ||
+			if (fstb_is_cam_active || (iter->hwui_flag == RENDER_INFO_HWUI_TYPE) ||
 				!fstb_self_ctrl_fps_enable) {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
