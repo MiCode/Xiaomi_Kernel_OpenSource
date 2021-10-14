@@ -1353,7 +1353,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			}
 		}
 
-		if (fbt_is_light_loading(fl->loading)) {
+		if (fbt_is_light_loading(fl->loading) && bhr_opp != (NR_FREQ_CPU - 1)) {
 			fbt_set_per_task_cap(fl->pid,
 				(!loading_policy) ? 0
 				: min_cap * loading_policy / 100, max_cap);
