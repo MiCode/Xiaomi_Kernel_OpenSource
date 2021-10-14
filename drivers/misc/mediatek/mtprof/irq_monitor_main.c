@@ -365,8 +365,7 @@ static void probe_irq_handler_exit(void *ignore,
 
 		if ((out & TO_AEE) && tracer->aee_limit &&
 				!irq_aee_state[irq]) {
-			if (t_prev_aee && irq_mon_aee_debounce &&
-				(sched_clock() - t_prev_aee) < irq_mon_aee_debounce)
+			if (!irq_mon_aee_debounce_check(true))
 				/* debounce period, skip */
 				irq_mon_msg(TO_FTRACE, "irq handler aee skip in debounce period");
 			else {
@@ -377,7 +376,6 @@ static void probe_irq_handler_exit(void *ignore,
 					, irq, (void *)action->handler, msec_high(duration));
 				aee_kernel_warning_api(__FILE__, __LINE__,
 					DB_OPT_DEFAULT|DB_OPT_FTRACE, module, msg);
-				t_prev_aee = sched_clock();
 			}
 		}
 	}
@@ -618,8 +616,7 @@ static void probe_hrtimer_expire_exit(void *ignore, struct hrtimer *hrtimer)
 		irq_mon_msg(out, msg);
 
 		if ((out & TO_AEE) && tracer->aee_limit && !ever_dump) {
-			if (t_prev_aee && irq_mon_aee_debounce &&
-				(sched_clock() - t_prev_aee) < irq_mon_aee_debounce)
+			if (!irq_mon_aee_debounce_check(true))
 				/* debounce period, skip */
 				irq_mon_msg(TO_FTRACE, "hrtimer duration skip in debounce period");
 			else {
@@ -630,7 +627,6 @@ static void probe_hrtimer_expire_exit(void *ignore, struct hrtimer *hrtimer)
 					, (void *)hrtimer->function, msec_high(duration));
 				aee_kernel_warning_api(__FILE__, __LINE__,
 					DB_OPT_DEFAULT|DB_OPT_FTRACE, module, msg);
-				t_prev_aee = sched_clock();
 			}
 		}
 	}

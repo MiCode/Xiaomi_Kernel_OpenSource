@@ -23,7 +23,6 @@ const void *irq_to_handler(int irq);
 void show_irq_count_info(unsigned int output);
 void irq_count_tracer_set(bool val);
 void irq_count_tracer_proc_init(struct proc_dir_entry *parent);
-
 #define TO_FTRACE     (1U << 0)
 #define TO_KERNEL_LOG (1U << 1)
 #define TO_AEE        (1U << 2)
@@ -38,11 +37,9 @@ void irq_mon_msg(unsigned int out, char *buf, ...);
 int irq_mon_bool_open(struct inode *inode, struct file *file);
 ssize_t irq_mon_count_set(struct file *filp,
 		const char *ubuf, size_t count, loff_t *data);
+bool irq_mon_aee_debounce_check(bool update);
 
 extern const struct proc_ops irq_mon_uint_pops;
-
-extern unsigned long long irq_mon_aee_debounce;
-extern unsigned long long t_prev_aee;
 
 #define IRQ_MON_TRACER_PROC_ENTRY(name, mode, type, dir, ptr) \
 	proc_create_data(#name, mode, dir, &irq_mon_##type##_pops, (void *)ptr)

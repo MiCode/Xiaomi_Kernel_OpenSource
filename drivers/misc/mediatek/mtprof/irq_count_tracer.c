@@ -35,8 +35,6 @@ static bool irq_count_tracer __read_mostly;
 static unsigned int irq_period_th1_ns = 666666; /* log */
 static unsigned int irq_period_th2_ns = 200000; /* aee */
 static unsigned int irq_count_aee_limit = 1;
-unsigned long long irq_mon_aee_debounce = 5000000000; /* 5s */
-unsigned long long t_prev_aee;
 /* period setting for specific irqs */
 struct irq_count_period_setting {
 	const char *name;
@@ -85,6 +83,38 @@ const int irq_to_ipi_type(int irq)
 		if (ipi_desc[i] == desc)
 			return i;
 	return -1;
+}
+
+/*
+ * return true: not in debounce (will do aee) and update time if update is true
+ * return false: in debounce period (not do aee) and do not update time.
+ */
+bool irq_mon_aee_debounce_check(bool update)
+{
+	static unsigned long long irq_mon_aee_debounce = 5000000000; /* 5s */
+	static unsigned long long t_prev_aee;
+	static int in_debounce_check;
+	unsigned long long t_check = 0;
+	bool ret = true;
+
+	/*
+	 * if in_debounce_check = 0, set to 1 and return 0 (continue checking)
+	 * if in_debounce_check = 1, return 1 (return false to caller)
+	 */
+	if (cmpxchg(&in_debounce_check, 0, 1))
+		return false;
+
+	t_check = sched_clock();
+
+	if (t_prev_aee && irq_mon_aee_debounce &&
+		(t_check - t_prev_aee) < irq_mon_aee_debounce)
+		ret = false;
+	else if (update)
+		t_prev_aee = t_check;
+
+	xchg(&in_debounce_check, 0);
+
+	return ret;
 }
 
 #ifdef MODULE
@@ -231,7 +261,11 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 	t_diff = irq_cnt->t_end - irq_cnt->t_start;
 
 	for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
+		const char *tmp_irq_name = NULL;
 		char irq_name[64];
+		char irq_handler_addr[20];
+		char irq_handler_name[64];
+		const void *irq_handler = NULL;
 
 		irq_num = irq_mon_irqs_cpu(irq, cpu);
 		count = irq_num - irq_cnt->count[irq];
@@ -250,11 +284,12 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		if (t_avg > irq_period_th1_ns)
 			continue;
 
-		if (!irq_to_name(irq))
+		tmp_irq_name = irq_to_name(irq);
+		if (!tmp_irq_name)
 			continue;
 
 		for (i = 0, skip = 0; i < list_num && !skip; i++) {
-			if (!strcmp(irq_to_name(irq), irq_count_plist[i].name))
+			if (!strcmp(tmp_irq_name, irq_count_plist[i].name))
 				if (t_avg > irq_count_plist[i].period)
 					skip = 1;
 		}
@@ -262,12 +297,16 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		if (skip)
 			continue;
 
-		if (!strcmp(irq_to_name(irq), "IPI")) {
+		if (!strcmp(tmp_irq_name, "IPI")) {
 			scnprintf(irq_name, sizeof(irq_name), "%s%d",
-				irq_to_name(irq), irq_to_ipi_type(irq));
+				tmp_irq_name, irq_to_ipi_type(irq));
 			skip = 1;
 		} else
-			scnprintf(irq_name, sizeof(irq_name), "%s", irq_to_name(irq));
+			scnprintf(irq_name, sizeof(irq_name), "%s", tmp_irq_name);
+
+		irq_handler = irq_to_handler(irq);
+		scnprintf(irq_handler_addr, sizeof(irq_handler_addr), "%p", irq_handler);
+		scnprintf(irq_handler_name, sizeof(irq_handler_name), "%pS", irq_handler);
 
 		for (i = 0; i < REC_NUM; i++) {
 			char msg[MAX_MSG_LEN];
@@ -284,8 +323,8 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			do_div(t_diff_ms, 1000000);
 
 			scnprintf(msg, sizeof(msg),
-				 "irq: %d [<%p>]%pS, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
-				 irq, irq_to_handler(irq), irq_to_handler(irq), irq_name,
+				 "irq: %d [<%s>]%s, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
+				 irq, irq_handler_addr, irq_handler_name, irq_name,
 				 irq_cpus[i].diff[irq], t_diff_ms,
 				 sec_high(irq_cpus[i].ts),
 				 sec_low(irq_cpus[i].ts),
@@ -295,8 +334,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			if (irq_period_th2_ns && t_avg < irq_period_th2_ns &&
 				irq_count_aee_limit && !skip)
 				/* aee threshold and aee limit meet */
-				if (t_prev_aee && irq_mon_aee_debounce &&
-					(sched_clock() - t_prev_aee) < irq_mon_aee_debounce)
+				if (!irq_mon_aee_debounce_check(false))
 					/* in debounce period, to FTRACE only */
 					irq_mon_msg(TO_FTRACE, msg);
 				else
@@ -310,8 +348,8 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		}
 
 		scnprintf(aee_msg, sizeof(aee_msg),
-			 "irq: %d [<%p>]%pS, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
-			 irq, irq_to_handler(irq), irq_to_handler(irq), irq_name,
+			 "irq: %d [<%s>]%s, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
+			 irq, irq_handler_addr, irq_handler_name, irq_name,
 			 count, t_diff_ms,
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
 			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
@@ -320,8 +358,7 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		if (irq_period_th2_ns && t_avg < irq_period_th2_ns &&
 			irq_count_aee_limit && !skip)
 			/* aee threshold and aee limit meet */
-			if (t_prev_aee && irq_mon_aee_debounce &&
-				(sched_clock() - t_prev_aee) < irq_mon_aee_debounce)
+			if (!irq_mon_aee_debounce_check(true))
 				/* in debounce period, to FTRACE only */
 				irq_mon_msg(TO_FTRACE, aee_msg);
 			else {
@@ -329,12 +366,11 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 				/* do aee and kernel log */
 				irq_mon_msg(TO_BOTH, aee_msg);
 				scnprintf(module, sizeof(module),
-					"BURST IRQ:%d, %pS %s +%d in %lldms",
-					irq, irq_to_handler(irq), irq_name,
+					"BURST IRQ:%d, %s %s +%d in %lldms",
+					irq, irq_handler_name, irq_name,
 					count, t_diff_ms);
 				aee_kernel_warning_api(__FILE__, __LINE__,
 					DB_OPT_DUMMY_DUMP|DB_OPT_FTRACE, module, aee_msg);
-				t_prev_aee = sched_clock();
 			}
 		else
 			/* no aee, just logging (to FTRACE) */
