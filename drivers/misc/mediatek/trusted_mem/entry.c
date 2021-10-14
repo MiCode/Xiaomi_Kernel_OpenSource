@@ -27,6 +27,7 @@
 #include <linux/unistd.h>
 #include <linux/version.h>
 #include <linux/sizes.h>
+#include <linux/sched/clock.h>
 #if IS_ENABLED(CONFIG_MTK_GZ_KREE)
 #include <tz_cross/ta_mem.h>
 #include <tz_cross/trustzone.h>
@@ -296,6 +297,7 @@ int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
 			  struct ssheap_buf_info **buf_info)
 {
 	struct ssheap_buf_info *info = NULL;
+	unsigned long long start, end;
 #if HYP_PMM_MASTER_SIDE_PROTECT
 	unsigned long smc_ret;
 #endif
@@ -303,19 +305,31 @@ int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
 	if (!buf_info)
 		return TMEM_PARAMETER_ERROR;
 
+	start = sched_clock();
 	info = ssheap_alloc_non_contig(size, 0, mem_type);
 	if (!info) {
 		*buf_info = NULL;
 		pr_err("[%d] alloc non contig failed! sz:0x%x\n", mem_type, size);
 		return TMEM_GENERAL_ERROR;
 	}
+	end = sched_clock();
+	if (end - start > 10000000ULL) {/* unit is ns */
+		pr_info("%s alloc_non_contig len: 0x%lx time: %lld ns\n",
+			__func__, size, end - start);
+	}
 
 #if HYP_PMM_MASTER_SIDE_PROTECT
+	start = sched_clock();
 	smc_ret = mtee_assign_buffer(info, mem_type);
 	if (smc_ret) {
 		pr_err("smc_ret:%x assign buffer failed!\n", smc_ret);
 		ssheap_free_non_contig(info);
 		return TMEM_GENERAL_ERROR;
+	}
+	end = sched_clock();
+	if (end - start > 10000000ULL) {/* unit is ns */
+		pr_info("%s mtee assign buffer len: 0x%lx time: %lld ns\n",
+			__func__, size, end - start);
 	}
 #endif
 

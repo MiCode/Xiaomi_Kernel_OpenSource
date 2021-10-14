@@ -25,6 +25,8 @@
 #include <linux/kallsyms.h>
 #include <linux/slab.h>
 #include <linux/arm-smccc.h>
+#include <linux/sched/clock.h>
+#include <linux/spinlock.h>
 
 #include <private/ssheap_priv.h>
 #include <public/trusted_mem_api.h>
@@ -33,6 +35,8 @@
 
 #define HYP_PMM_ASSIGN_BUFFER (0XBB00FFA0)
 #define HYP_PMM_UNASSIGN_BUFFER (0XBB00FFA1)
+
+#define ENABLE_CACHE_PAGE 1
 
 #define PREFER_GRANULE SZ_2M
 #define MIN_GRANULE SZ_2M
@@ -51,6 +55,17 @@ static phys_addr_t ssheap_phys_size;
 static atomic64_t total_alloced_size;
 static DEFINE_MUTEX(ssheap_alloc_lock);
 
+//static u32 cache_count;
+static struct list_head cache_list;
+//static DEFINE_MUTEX(cache_lock);
+static DEFINE_SPINLOCK(cache_lock);
+
+struct ssheap_page {
+	struct list_head entry;
+	struct page *page;
+	u32 size;
+};
+
 struct ssheap_block {
 	struct list_head entry;
 	void *cpu_addr;
@@ -61,15 +76,47 @@ struct ssheap_block {
 
 static inline void free_system_mem(struct page *page, u32 size)
 {
+#if ENABLE_CACHE_PAGE
+	unsigned long flags;
+	struct ssheap_page *s_page = NULL;
+
+	spin_lock_irqsave(&cache_lock, flags);
+	s_page = kzalloc(sizeof(struct ssheap_page), GFP_KERNEL);
+	s_page->page = page;
+	s_page->size = size;
+	list_add_tail(&s_page->entry, &cache_list);
+	spin_unlock_irqrestore(&cache_lock, flags);
+#else
 	if (!ssheap_dev->cma_area)
 		__free_pages(page, get_order(size));
 	else
 		cma_release(ssheap_dev->cma_area, page, size >> PAGE_SHIFT);
+#endif
 }
 
 static inline struct page *alloc_system_mem(u32 block_size)
 {
 	struct page *page = NULL;
+#if ENABLE_CACHE_PAGE
+	struct ssheap_page *s_page = NULL;
+	unsigned long flags;
+#endif
+
+#if ENABLE_CACHE_PAGE
+	spin_lock_irqsave(&cache_lock, flags);
+	if (!list_empty(&cache_list)) {
+		s_page = list_first_entry(&cache_list, struct ssheap_page, entry);
+		list_del(&s_page->entry);
+		page = s_page->page;
+		kfree(s_page);
+		s_page = NULL;
+	}
+	spin_unlock_irqrestore(&cache_lock, flags);
+
+	if (page)
+		return page;
+	pr_info("TMEM_INFO: not in cache\n");
+#endif
 
 	if (!ssheap_dev->cma_area)
 		page = alloc_pages(GFP_KERNEL, get_order(SZ_2M));
@@ -106,6 +153,12 @@ static u64 free_blocks(struct ssheap_buf_info *info)
 int ssheap_free_non_contig(struct ssheap_buf_info *info)
 {
 	unsigned long freed_size;
+# if ENABLE_CACHE_PAGE
+	struct ssheap_page *s_page = NULL;
+	struct page *page = NULL;
+	u32 size;
+	unsigned long flags;
+#endif
 
 	if (!info)
 		return -EINVAL;
@@ -115,7 +168,29 @@ int ssheap_free_non_contig(struct ssheap_buf_info *info)
 	if (info->pmm_msg_page)
 		__free_pages(info->pmm_msg_page, get_order(PAGE_SIZE));
 
+# if ENABLE_CACHE_PAGE
+	// TODO need to check!!!!
+	if (atomic64_sub_return(freed_size, &total_alloced_size) == 0x0) {
+		spin_lock_irqsave(&cache_lock, flags);
+		pr_info("free all pooling pages");
+		while (!list_empty(&cache_list)) {
+			s_page = list_first_entry(&cache_list, struct ssheap_page, entry);
+			list_del(&s_page->entry);
+			page = s_page->page;
+			size = s_page->size;
+			kfree(s_page);
+			s_page = NULL;
+			if (!ssheap_dev->cma_area)
+				__free_pages(page, get_order(size));
+			else
+				cma_release(ssheap_dev->cma_area, page, size >> PAGE_SHIFT);
+			page = NULL;
+		}
+		spin_unlock_irqrestore(&cache_lock, flags);
+	}
+#else
 	atomic64_sub(freed_size, &total_alloced_size);
+#endif
 	kfree(info);
 
 	return 0;
@@ -165,7 +240,7 @@ struct ssheap_buf_info *ssheap_alloc_non_contig(u32 req_size, u32 prefer_align,
 		return NULL;
 	INIT_LIST_HEAD(&info->block_list);
 
-	mutex_lock(&ssheap_alloc_lock);
+	//mutex_lock(&ssheap_alloc_lock);
 
 	info->alignment = prefer_align;
 	info->table = kmalloc(sizeof(*info->table), GFP_KERNEL);
@@ -227,7 +302,7 @@ retry:
 	info->aligned_req_size = aligned_req_size;
 	info->allocated_size = allocated_size;
 	info->elems = elems;
-	mutex_unlock(&ssheap_alloc_lock);
+	//mutex_unlock(&ssheap_alloc_lock);
 
 	/* setting sg_table */
 	ret = sg_alloc_table(info->table, elems, GFP_KERNEL);
@@ -247,7 +322,7 @@ retry:
 
 	return info;
 out_err:
-	mutex_unlock(&ssheap_alloc_lock);
+	//mutex_unlock(&ssheap_alloc_lock);
 out_err2:
 	/* free blocks */
 	free_blocks(info);
@@ -371,4 +446,5 @@ void ssheap_set_cma_region(phys_addr_t base, phys_addr_t size)
 void ssheap_set_dev(struct device *dev)
 {
 	ssheap_dev = dev;
+	INIT_LIST_HEAD(&cache_list);
 }

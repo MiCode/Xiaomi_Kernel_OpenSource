@@ -51,13 +51,13 @@ static int get_reserved_cma_memory(struct device *dev)
 		return -EINVAL;
 	}
 
-	pr_info("cma base=%pa, size=%pa\n", &rmem->base, &rmem->size);
-	ssheap_set_cma_region(rmem->base, rmem->size);
-
 	/*
 	 * setup init device with rmem
 	 */
 	of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+
+	pr_info("cma base=%pa, size=%pa\n", &rmem->base, &rmem->size);
+	ssheap_set_cma_region(rmem->base, rmem->size);
 
 	return 0;
 }
