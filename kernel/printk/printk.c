@@ -428,6 +428,7 @@ static u32 log_buf_len = __LOG_BUF_LEN;
 
 /* console duration detect */
 #ifdef CONFIG_MTK_PRINTK_DEBUG
+static int printk_uart_status;
 struct __conwrite_stat_struct {
 	struct console *con; /* current console */
 	u64 time_before_conwrite; /* the last record before write */
@@ -1984,8 +1985,15 @@ static inline void printk_delay(void)
 
 static inline u32 printk_caller_id(void)
 {
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+#define CPU_INDEX (100000)
+#define UART_INDEX (1000000)
+	return (in_task() ? 0 : 0x80000000) + printk_uart_status * UART_INDEX
+		+ raw_smp_processor_id() * CPU_INDEX + task_pid_nr(current);
+#else
 	return in_task() ? task_pid_nr(current) :
 		0x80000000 + raw_smp_processor_id();
+#endif
 }
 
 static size_t log_output(int facility, int level, enum log_flags lflags,
@@ -2997,6 +3005,10 @@ void register_console(struct console *newcon)
 	console_unlock();
 	console_sysfs_notify();
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	if (!strncmp(newcon->name, "ttyS", 4))
+		printk_uart_status = 1;
+#endif
 	/*
 	 * By unregistering the bootconsoles after we enable the real console
 	 * we get the "console xxx enabled" message on all the consoles -
@@ -3024,6 +3036,10 @@ int unregister_console(struct console *console)
 {
 	struct console *con;
 	int res;
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	if (!strncmp(console->name, "ttyS", 4))
+		printk_uart_status = 0;
+#endif
 
 	pr_info("%sconsole [%s%d] disabled\n",
 		(console->flags & CON_BOOT) ? "boot" : "" ,
@@ -3168,18 +3184,53 @@ late_initcall(printk_late_init);
 
 static DEFINE_PER_CPU(int, printk_pending);
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+unsigned long long printk_irq_t0;
+unsigned long long printk_irq_t1;
+int wake_up_type;
+
+int get_printk_wake_up_time(unsigned long long *t0, unsigned long long *t1)
+{
+	*t0 = printk_irq_t0;
+	*t1 = printk_irq_t1;
+	printk_irq_t0 = 0;
+	printk_irq_t1 = 0;
+	return wake_up_type;
+}
+EXPORT_SYMBOL_GPL(get_printk_wake_up_time);
+#endif
+
 static void wake_up_klogd_work_func(struct irq_work *irq_work)
 {
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	unsigned long long t0;
+	unsigned long long t1;
+	unsigned long long t2;
+#endif
 	int pending = __this_cpu_xchg(printk_pending, 0);
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	t0 = local_clock();
+#endif
 	if (pending & PRINTK_PENDING_OUTPUT) {
 		/* If trylock fails, someone else is doing the printing */
 		if (console_trylock())
 			console_unlock();
 	}
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	t1 = local_clock();
+#endif
 
 	if (pending & PRINTK_PENDING_WAKEUP)
 		wake_up_interruptible(&log_wait);
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	t2 = local_clock();
+	if (t2 - t0 > 1000000) {
+		printk_irq_t0 = t1 - t0;
+		printk_irq_t1 = t2 - t1;
+		wake_up_type = pending;
+	}
+#endif
 }
 
 static DEFINE_PER_CPU(struct irq_work, wake_up_klogd_work) = {

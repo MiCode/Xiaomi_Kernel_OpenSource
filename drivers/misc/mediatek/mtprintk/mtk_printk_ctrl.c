@@ -165,7 +165,11 @@ static int logmuch_dump_thread(void *arg)
 	unsigned long long old = 0;
 	unsigned long long now = 0;
 	unsigned long long period = 0;
-
+#if IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
+	unsigned long long printk_irq_t0 = 0;
+	unsigned long long printk_irq_t1 = 0;
+	int wake_up_type = 0;
+#endif
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	log_much = kmalloc(log_much_len, GFP_KERNEL);
 	if (log_much == NULL) {
@@ -212,6 +216,12 @@ static int logmuch_dump_thread(void *arg)
 			wait_event_interruptible_timeout(logmuch_thread_exit,
 				logmuch_exit == 1, 60 * CONFIG_LOG_TOO_MUCH_DETECT_GAP * HZ);
 		}
+#if IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
+		wake_up_type = get_printk_wake_up_time(&printk_irq_t0, &printk_irq_t1);
+		if (printk_irq_t0 != 0 || printk_irq_t1 != 0)
+			pr_info("printk irq %d, %llu, %llu.\n", wake_up_type,
+				printk_irq_t0, printk_irq_t1);
+#endif
 	}
 	pr_notice("[log_much] logmuch_Detect dump thread exit.\n");
 	logmuch_exit = 0;
@@ -281,6 +291,7 @@ static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 /*
  * register_trace_android_vh_printk_logbuf function, don't call printk/pr_xx to
  * printk log, or will into infinite loop
@@ -302,6 +313,7 @@ static void mt_printk_logbuf(void *data, struct printk_ringbuffer *rb,
 		r->info->caller_id = r->info->caller_id + UART_INDEX;
 #endif
 }
+#endif
 
 static ssize_t mt_printk_ctrl_write(struct file *filp,
 	const char *ubuf, size_t cnt, loff_t *data)
@@ -381,8 +393,9 @@ static int __init mt_printk_ctrl_init(void)
 	entry = proc_create("mtprintk", 0664, NULL, &mt_printk_ctrl_fops);
 	if (!entry)
 		return -ENOMEM;
-
+#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 	register_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
+#endif
 
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
 	logmuch_entry = proc_create("log_much", 0444, NULL, &log_much_ops);
@@ -405,7 +418,9 @@ static void __exit mt_printk_ctrl_exit(void)
 	if (entry)
 		proc_remove(entry);
 
+#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 	unregister_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
+#endif
 
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
 	if (logmuch_entry)
