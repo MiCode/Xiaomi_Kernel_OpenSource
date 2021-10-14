@@ -548,6 +548,41 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 						strlen(local_ptr));
 				wr = WR_SPM_ACK_CHK;
 			}
+			if (IS_WAKE_MISC(WAKE_MISC_SRCLKEN_RC_ERR_INT)) {
+				local_ptr = " WAKE_MISC_SRCLKEN_RC_ERR_INT";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_VLP_BUS_TIMEOUT_IRQ)) {
+				local_ptr = " WAKE_MISC_VLP_BUS_TIMEOUT_IRQ";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_PMIC_EINT_OUT)) {
+				local_ptr = " WAKE_MISC_PMIC_EINT_OUT";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_PMIC_IRQ_ACK)) {
+				local_ptr = " WAKE_MISC_PMIC_IRQ_ACK";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_PMIC_SCP_IRQ)) {
+				local_ptr = " WAKE_MISC_PMIC_SCP_IRQ";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
 		}
 		for (i = 1; i < 32; i++) {
 			if (wakesrc->r12 & (1U << i)) {
