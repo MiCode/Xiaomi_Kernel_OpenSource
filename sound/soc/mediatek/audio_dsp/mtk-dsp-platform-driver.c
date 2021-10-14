@@ -567,15 +567,12 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	void *ipi_audio_buf;
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
 	spinlock_t *ringbuf_lock = &dsp->dsp_mem[id].ringbuf_lock;
-	const char *task_name = get_str_by_dsp_dai_id(id);
 
 #ifdef DEBUG_VERBOSE_IRQ
 	pr_info("%s dsp[%p] id[%id]\n", __func__, dsp, id);
 #endif
 
 	if (!dsp->dsp_mem[id].substream) {
-		pr_info_ratelimited("%s %s substream NULL\n",
-				    __func__, task_name);
 		return;
 	}
 
