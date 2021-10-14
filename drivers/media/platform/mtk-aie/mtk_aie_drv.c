@@ -4355,8 +4355,8 @@ void aie_enable_secure_domain(struct mtk_aie_dev *fd)
 	struct cmdq_pkt *pkt = NULL;
 
 	pkt = cmdq_pkt_create(fd->fdvt_clt);
-	cmdq_pkt_set_event(pkt, 657); //SET: 657
-	cmdq_pkt_wfe(pkt, 658); //WAIT-EVENT: 658
+	cmdq_pkt_set_event(pkt, fd->fdvt_sec_wait);
+	cmdq_pkt_wfe(pkt, fd->fdvt_sec_set);
 	cmdq_pkt_flush_async(pkt, AIECmdqSecCB, (void *)fd);	/* flush and destry in cmdq*/
 	cmdq_pkt_wait_complete(pkt);
 	cmdq_pkt_destroy(pkt);
@@ -4367,8 +4367,8 @@ void aie_disable_secure_domain(struct mtk_aie_dev *fd)
 	struct cmdq_pkt *pkt = NULL;
 
 	pkt = cmdq_pkt_create(fd->fdvt_clt);
-	cmdq_pkt_set_event(pkt, 657); //SET: 657
-	cmdq_pkt_wfe(pkt, 658); //WAIT-EVENT: 658
+	cmdq_pkt_set_event(pkt, fd->fdvt_sec_wait);
+	cmdq_pkt_wfe(pkt, fd->fdvt_sec_set);
 	cmdq_pkt_flush_async(pkt, AIECmdqSecCB, (void *)fd);/* flush and destry in cmdq*/
 	cmdq_pkt_wait_complete(pkt);
 	cmdq_pkt_destroy(pkt);

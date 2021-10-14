@@ -1864,6 +1864,13 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "fdvt_frame_done", &(fd->fdvt_event_id));
 	dev_info(dev, "fdvt event id is %d\n", fd->fdvt_event_id);
 
+	of_property_read_u32(pdev->dev.of_node, "sw_sync_token_tzmp_aie_wait",
+				&(fd->fdvt_sec_wait));
+	dev_info(dev, "fdvt_sec_wait is %d\n", fd->fdvt_sec_wait);
+	of_property_read_u32(pdev->dev.of_node, "sw_sync_token_tzmp_aie_set",
+				&(fd->fdvt_sec_set));
+	dev_info(dev, "fdvt_sec_set is %d\n", fd->fdvt_sec_set);
+
 	mutex_init(&fd->vfd_lock);
 	init_completion(&fd->fd_job_finished);
 	INIT_DELAYED_WORK(&fd->job_timeout_work, mtk_aie_job_timeout_work);

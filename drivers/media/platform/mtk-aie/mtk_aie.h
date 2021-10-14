@@ -1174,6 +1174,8 @@ struct mtk_aie_dev {
 
 	void __iomem *fd_base;
 
+	u32 fdvt_sec_set;
+	u32 fdvt_sec_wait;
 	u32 fd_stream_count;
 	struct completion fd_job_finished;
 	struct delayed_work job_timeout_work;
