@@ -645,6 +645,7 @@ static ssize_t gt9896s_ts_irq_info_store(struct device *dev,
 		return -EINVAL;
 
 	switch (en) {
+	//change to touch polling mode
 	case 0:
 		gt9896s_polling_flag = 1;
 		ts_info("disable irq, polling mode, flag = %d", gt9896s_polling_flag);
@@ -660,6 +661,7 @@ static ssize_t gt9896s_ts_irq_info_store(struct device *dev,
 			}
 		}
 		break;
+	//change to touch irq mode
 	case 1:
 		gt9896s_polling_flag = 0;
 		ts_info("enable irq, irq mode, flag = %d", gt9896s_polling_flag);
@@ -667,6 +669,24 @@ static ssize_t gt9896s_ts_irq_info_store(struct device *dev,
 			kthread_stop(gt9896s_polling_thread);
 			gt9896s_polling_thread = NULL;
 		}
+		break;
+	//use cmd to make touch power off
+	case 2:
+		ret = gt9896s_ts_power_off(core_data);
+		if (ret < 0) {
+			ts_err("Failed to disable analog power: %d", ret);
+			return ret;
+		}
+		ts_info("touch power off");
+		break;
+	//use cmd to make touch power on
+	case 3:
+		ret = gt9896s_ts_power_on(core_data);
+		if (ret < 0) {
+			ts_err("Failed to enable analog power: %d", ret);
+			return ret;
+		}
+		ts_info("touch power on");
 		break;
 	default:
 		break;
