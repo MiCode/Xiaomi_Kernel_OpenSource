@@ -1487,6 +1487,12 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 			kfree(mtk_dp->edid);
 			mtk_dp->edid = NULL;
 			ret = DPTX_PLUG_OUT;
+
+			if (mtk_dp->disp_status == DPTX_DISP_NONE) {
+				drm_connector_update_edid_property(&mtk_dp->conn, NULL);
+				mtk_dp->conn.status
+					= mtk_dp->conn.funcs->detect(&mtk_dp->conn, false);
+			}
 		}
 	}
 
@@ -3780,7 +3786,7 @@ static int mtk_dp_bind(struct device *dev, struct device *master, void *data)
 	drm_connector_attach_encoder(&mtk_dp->conn, &mtk_dp->enc);
 	g_mtk_dp = mtk_dp;
 
-	mtk_dp->conn.kdev = drm->dev;
+	//mtk_dp->conn.kdev = drm->dev;
 	mtk_dp->aux.dev = mtk_dp->conn.kdev;
 	if (drm_dp_aux_register(&mtk_dp->aux))
 		goto err_encoder_init;
