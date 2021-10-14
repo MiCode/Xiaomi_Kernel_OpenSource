@@ -2466,7 +2466,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 				   dst_q_data->sizeimage[0],
 				   dst_q_data->sizeimage[1]);
 
-	mtk_v4l2_debug(0, "[%d] bs %c%c%c%c fm %c%c%c%c, num_planes %d, fb_sz[0] %d, fb_sz[1] %d",
+	mtk_v4l2_debug(0, "[%d] bs %c%c%c%c fm %c%c%c%c, num_planes %d, fb_sz[0] %d, fb_sz[1] %d, BS %s",
 				   ctx->id,
 				   bs_fourcc & 0xFF, (bs_fourcc >> 8) & 0xFF,
 				   (bs_fourcc >> 16) & 0xFF,
@@ -2476,7 +2476,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 				   (fm_fourcc >> 24) & 0xFF,
 				   dst_q_data->fmt->num_planes,
 				   ctx->last_decoded_picinfo.fb_sz[0],
-				   ctx->last_decoded_picinfo.fb_sz[1]);
+				   ctx->last_decoded_picinfo.fb_sz[1], debug_bs);
 
 	ret = vdec_if_get_param(ctx, GET_PARAM_DPB_SIZE, &dpbsize);
 	if (dpbsize == 0)

@@ -167,7 +167,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		return 0;
 
 	if (ret != IPI_ACTION_DONE) {
-		mtk_vcodec_err(inst, "mtk_ipi_send fail %d", ret);
+		mtk_vcodec_err(inst, "mtk_ipi_send %X fail %d", *(u32 *)msg, ret);
 		mutex_unlock(msg_mutex);
 		inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 		inst->vcu.abort = 1;
@@ -639,6 +639,7 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	int err = 0;
 	struct vdec_ap_ipi_init msg;
 	struct vdec_inst *inst = NULL;
+	__u32 fourcc;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst)
@@ -649,8 +650,9 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	}
 
 	inst->ctx = ctx;
+	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
-	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
+	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
 		inst->vcu.id = IPI_VDEC_H264;
 		break;
@@ -731,7 +733,10 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;
 
-	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
+	mtk_v4l2_debug(0, "[%d] %c%c%c%c(%d) Decoder Instance >> %p, ap_inst_addr %x, ",
+		ctx->id, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+		(fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF,
+		inst->vcu.id, inst, msg.ap_inst_addr);
 
 	return 0;
 
