@@ -9570,7 +9570,7 @@
 			<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
 			<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
 			<0 0x10042000 0 0x1000>,  /* NTH_EMI_AO_DEBUG_CTRL */
-			<0 0x11ee0000 0 0x1000>,  /* EFUSE */
+			<0 0x11f10000 0 0x1000>,  /* EFUSE */
 			<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CONTROL */
 			<0 0x13fb6000 0 0x1000>;  /* MFG_CPE_SENSOR */
 		reg-names =
@@ -9637,6 +9637,8 @@
 		_dvfsrc-supply = <&dvfsrc_vcore>;
 		_vstack-supply = <&mt6368_vbuck2>;
 		_vsram-supply = <&mt6363_vbuck4>;
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 		gpufreq_wrapper-supply = <&gpufreq_wrapper>;
 	};
 
@@ -9657,6 +9659,10 @@
 		reg = <0 0x11f10000 0 0x10000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+		efuse_segment: segment@78 {
+			reg = <0x78 0x4>;
+		};
+
 		lvts_e_data1: data1 {
 			reg = <0x1d4 0xc>;
 		};
