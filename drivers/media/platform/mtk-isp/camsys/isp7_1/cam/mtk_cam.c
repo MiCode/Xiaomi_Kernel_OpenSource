@@ -3996,6 +3996,7 @@ fail_rproc_put:
 	if (is_first_ctx) {
 		rproc_put(cam->rproc_handle);
 		cam->rproc_handle = NULL;
+		cam->composer_cnt = 0;
 	}
 #endif
 	return NULL;
