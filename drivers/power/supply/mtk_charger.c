@@ -2492,7 +2492,15 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 		vbus = get_vbus(info);
 		if (vbus >= 0 && vbus < 2500 && !mtk_is_charger_on(info) && !info->pd_reset) {
 			chr_err("Unplug Charger/USB in KPOC mode, vbus=%d, shutdown\n", vbus);
-			kernel_power_off();
+			while (1) {
+				if (info->is_suspend == false) {
+					chr_err("%s, not in suspend, shutdown\n", __func__);
+					kernel_power_off();
+				} else {
+					chr_err("%s, suspend! cannot shutdown\n", __func__);
+					msleep(20);
+				}
+			}
 		}
 	}
 }

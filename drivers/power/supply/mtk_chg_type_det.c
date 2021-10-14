@@ -11,7 +11,9 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/reboot.h>
-
+#include <linux/suspend.h>
+#include <linux/mutex.h>
+#include <linux/delay.h>
 #include <tcpm.h>
 
 #define MTK_CTD_DRV_VERSION	"1.0.0_MTK"
@@ -31,6 +33,9 @@ struct mtk_ctd_info {
 	struct mutex attach_lock;
 	bool typec_attach;
 	bool tcpc_kpoc;
+	/* suspend notify */
+	struct notifier_block pm_nb;
+	bool is_suspend;
 };
 
 enum {
@@ -130,7 +135,15 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			if (mci->tcpc_kpoc) {
 				pr_info("%s: typec unattached, power off\n",
 					__func__);
-				kernel_power_off();
+				while (1) {
+					if (mci->is_suspend == false) {
+						pr_info("%s, not in suspend, shutdown\n", __func__);
+						kernel_power_off();
+					} else {
+						pr_info("%s, suspend, cannot shutdown\n", __func__);
+						msleep(20);
+					}
+				}
 			}
 			handle_typec_attach(mci, false);
 		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
@@ -147,6 +160,29 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		break;
 	};
 	return NOTIFY_OK;
+}
+
+static int chg_type_det_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct mtk_ctd_info *info;
+
+	info = (struct mtk_ctd_info *)container_of(notifier,
+		struct mtk_ctd_info, pm_nb);
+
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		info->is_suspend = true;
+		pr_info("%s: enter PM_SUSPEND_PREPARE\n", __func__);
+		break;
+	case PM_POST_SUSPEND:
+		info->is_suspend = false;
+		pr_info("%s: enter PM_POST_SUSPEND\n", __func__);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
 }
 
 static void mtk_ctd_parse_dt(struct mtk_ctd_info *mci)
@@ -196,7 +232,13 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	mci->pm_nb.notifier_call = chg_type_det_pm_event;
 	mci->pd_nb.notifier_call = pd_tcp_notifier_call;
+
+	ret = register_pm_notifier(&mci->pm_nb);
+	if (ret < 0)
+		pr_notice("%s: register pm failed\n", __func__);
+
 	ret = register_tcp_dev_notifier(mci->tcpc_dev, &mci->pd_nb,
 					TCP_NOTIFY_TYPE_ALL);
 	if (ret < 0) {
