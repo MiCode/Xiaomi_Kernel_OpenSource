@@ -1917,7 +1917,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 			s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 			if (dequeued_frame_seq_no == s_data->frame_seq_no) {
 				dev_dbg(raw_dev->dev,
-					"%s mstream [SOF] frame:%d sof:%d enque_req_cnt:%d\n",
+					"%s mstream [SOF] with-req frame:%d sof:%d enque_req_cnt:%d\n",
 					__func__, dequeued_frame_seq_no,
 					req->p_data[ctx->stream_id].req_seq,
 					ctx->enqueued_request_cnt);
@@ -1927,9 +1927,25 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 					req->p_data[ctx->stream_id].req_seq;
 				mtk_cam_event_frame_sync(ctx->pipe,
 					req->p_data[ctx->stream_id].req_seq);
+			} else if (dequeued_frame_seq_no ==
+				ctx->next_sof_mask_frame_seq_no) {
+				dev_dbg(raw_dev->dev, "mstream [SOF-mask] with-req frame:%d working_seq:%d, sof_cnt:%d\n",
+					dequeued_frame_seq_no, ctx->working_request_seq,
+					raw_dev->sof_count);
+				ctx->next_sof_mask_frame_seq_no = 1;
+			} else {
+				dev_dbg(raw_dev->dev, "mstream [SOF] with-req frame:%d\n",
+					ctx->working_request_seq);
+				mtk_cam_event_frame_sync(ctx->pipe,
+					ctx->working_request_seq);
 			}
 		} else {
 			/* mstream 1exp case */
+			dev_dbg(raw_dev->dev,
+					"%s mstream 1-exp [SOF] with-req frame:%d sof:%d enque_req_cnt:%d\n",
+					__func__, dequeued_frame_seq_no,
+					req->p_data[ctx->stream_id].req_seq,
+					ctx->enqueued_request_cnt);
 			ctx->working_request_seq =
 				req->p_data[ctx->stream_id].req_seq;
 			mtk_cam_event_frame_sync(ctx->pipe,
@@ -1937,12 +1953,14 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 		}
 	} else if (dequeued_frame_seq_no ==
 			ctx->next_sof_mask_frame_seq_no) {
-		/* when frame request is already remove sof_done case */
-		dev_dbg(raw_dev->dev, "mstream [SOF-mask] frame:%d\n",
-			ctx->next_sof_mask_frame_seq_no);
+		/* when frame request is already remove sof_done block or laggy enque case */
+		dev_dbg(raw_dev->dev, "mstream [SOF-mask] req-gone frame:%d sof:%d sof_cnt:%d\n",
+			ctx->next_sof_mask_frame_seq_no, ctx->working_request_seq,
+			raw_dev->sof_count);
+		ctx->next_sof_mask_frame_seq_no = 1;
 	} else {
 		/* except: keep report current working request sequence */
-		dev_dbg(raw_dev->dev, "mstream [SOF] frame:%d\n",
+		dev_dbg(raw_dev->dev, "mstream [SOF] req-gone frame:%d\n",
 			ctx->working_request_seq);
 		mtk_cam_event_frame_sync(ctx->pipe,
 				ctx->working_request_seq);
