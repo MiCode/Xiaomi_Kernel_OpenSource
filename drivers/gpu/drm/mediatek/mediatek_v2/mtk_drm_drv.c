@@ -1085,7 +1085,7 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct mml_pq_param *temp_pq_param[MML_MAX_OUTPUTS] = {NULL, NULL};
 	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(mtk_plane_state->crtc);
-	int i = 0;
+	int i = 0, j = 0;
 
 	submit_user = (struct mml_submit *)
 		(mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
@@ -1158,6 +1158,15 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 			submit_kernel->info.dest[0].crop.w_sub_px = 0;
 			submit_kernel->info.dest[0].crop.x_sub_px = 0;
 			submit_kernel->info.dest[0].crop.y_sub_px = 0;
+		}
+
+		{
+			for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
+				for (j = 0; j < MML_MAX_PLANES; ++j) {
+					submit_kernel->buffer.dest[i].fd[j] = -1;
+					submit_kernel->buffer.dest[i].size[j] = 0;
+				}
+			}
 		}
 
 		mml_drm_split_info(submit_kernel, submit_pq);
