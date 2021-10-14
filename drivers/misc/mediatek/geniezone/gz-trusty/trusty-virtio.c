@@ -352,7 +352,7 @@ static int trusty_virtio_start(struct trusty_ctx *tctx, void *va, size_t sz)
 	}
 
 	/* Send NOP to secure world to init per-cpu resource */
-	for (i = 0; i < num_possible_cpus(); i++) {
+	for (i = 0; i < num_online_cpus(); i++) {
 		dev_dbg(tctx->dev, "%s: init per cpu %d\n", __func__, i);
 		trusty_enqueue_nop(tctx->trusty_dev, NULL, i);
 	}

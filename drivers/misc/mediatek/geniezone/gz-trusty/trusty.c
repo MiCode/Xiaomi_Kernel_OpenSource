@@ -839,7 +839,6 @@ static int trusty_poll_notify(struct notifier_block *nb, unsigned long action,
 static void trusty_poll_work(struct kthread_work *work)
 {
 	struct trusty_state *s = container_of(work, struct trusty_state, poll_work);
-	int nr_cpus = num_possible_cpus();
 	uint32_t cpu_mask;
 	int i;
 
@@ -853,7 +852,7 @@ static void trusty_poll_work(struct kthread_work *work)
 	}
 
 	if (cpu_mask > 0) {
-		for (i = 0; i < nr_cpus; i++) {
+		for (i = 0; i < num_online_cpus() ; i++) {
 			if (cpu_mask & (1 << i)) {
 				trusty_dbg(s->dev, "%s send nop for cpu %d\n",
 						__func__, i);
