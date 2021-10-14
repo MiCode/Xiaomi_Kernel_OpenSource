@@ -5725,20 +5725,12 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 		cmdq_pkt_wait_no_clear(handle,
 			mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-			comp = mtk_ddp_comp_request_output(mtk_crtc);
+		comp = mtk_ddp_comp_request_output(mtk_crtc);
 
-			if (!comp) {
-				DDPPR_ERR("ddp comp is NULL\n");
-				return;
-			}
-
-			if (dsi->mipi_hopping_sta) {
-				DDPINFO("%s,mipi_clk_change_sta\n", __func__);
-				vfp = dsi->ext->params->dyn.vfp;
-			} else
-				vfp = adjusted_mode.vsync_start -
-					adjusted_mode.vdisplay;
-			dsi->vm.vfront_porch = vfp;
+		if (!comp) {
+			DDPPR_ERR("ddp comp is NULL\n");
+			return;
+		}
 
 		if (dsi->mipi_hopping_sta) {
 			DDPINFO("%s,mipi_clk_change_sta\n", __func__);
