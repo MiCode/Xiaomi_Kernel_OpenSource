@@ -629,6 +629,7 @@ static int vmm_disable_regulator(struct regulator_dev *rdev)
 	struct vmm_regulator *regulator;
 	struct dvfs_driver_data *dvfs_data;
 	struct ccu_handle_info *ccu_handle;
+	struct dvfs_info *current_info;
 	int ret;
 
 	ISP_LOGI("Disable vmm regulator");
@@ -665,6 +666,9 @@ static int vmm_disable_regulator(struct regulator_dev *rdev)
 		disable_all_muxes(dvfs_data);
 		dvfs_data->mux_is_enable = false;
 	}
+
+	current_info = &(dvfs_data->current_dvfs);
+	current_info->voltage_target = DEFAULT_VOLTAGE;
 
 	regulator->is_enable = 0;
 	return 0;
