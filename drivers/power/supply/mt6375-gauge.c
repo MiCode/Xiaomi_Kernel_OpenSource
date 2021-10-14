@@ -20,6 +20,7 @@
 #include <linux/pm.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
+#include <linux/sched/clock.h>
 #include <net/sock.h>
 
 #include "mtk_battery.h"
@@ -3008,8 +3009,12 @@ static int battery_temperature_adc_get(struct mtk_gauge *gauge,
 
 static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
-	int i = 0, ret = 0;
+	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
+	int i = 0, ret = 0, vbat_mon;
 	u32 data = 0;
+	static long long t1;
+	static int print_period;
+	int dump_reg[] = { 0x416, 0x417, 0x46E, 0x46F, 0x470, 0x471 };
 
 	if (IS_ERR(gauge->chan_bat_voltage)) {
 		bm_err("[%s]chan error\n", __func__);
@@ -3017,17 +3022,28 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	}
 
 	ret = iio_read_channel_processed(gauge->chan_bat_voltage, val);
-	if (ret < 0)
+	if (ret < 0) {
 		bm_err("[%s]read fail,ret=%d\n", __func__, ret);
+		return ret;
+	}
 
+	bm_err("[%s] vbat_cell = %d\n", __func__, *val);
 	if (*val < 1000) {
-		bm_err("[%s] vbat_cell = %d\n", __func__, *val);
-		for (i = 0; i < 0x4FF; i++) {
-			ret = regmap_read(gauge->regmap, i, &data);
-			bm_err("[%s] addr:0x%4x, data:0x%x(%d)\n",
-				__func__, i, data, ret);
+		if (t1 == 0)
+			t1 = local_clock();
+		else if ((local_clock() - t1) / NSEC_PER_SEC > 15)
+			aee_kernel_warning("GAUGE", "vbat cell < 1V");
+
+		if ((local_clock() - t1) / NSEC_PER_SEC > print_period) {
+			print_period += 3;
+			ret = mt6375_get_vbat_mon_rpt(priv, &vbat_mon);
+			bm_err("[%s] vbat_mon = %d(%d)\n", __func__, vbat_mon, ret);
+			for (i = 0; i < ARRAY_SIZE(dump_reg); i++) {
+				ret = regmap_read(gauge->regmap, dump_reg[i], &data);
+				bm_err("[%s] addr:0x%4x, data:0x%x(%d)\n",
+					__func__, dump_reg[i], data, ret);
+			}
 		}
-		aee_kernel_warning("GAUGE", "vbat cell < 1V");
 	}
 	return ret;
 }
