@@ -122,9 +122,9 @@ struct IMG_META_INFO {
  ******************************************************************************/
 struct UFD_META_INFO {
 	unsigned int bUF;
-	unsigned int UFD_BITSTREAM_OFST_ADDR;
-	unsigned int UFD_BS_AU_START;
-	unsigned int UFD_AU2_SIZE;
+	unsigned int UFD_BITSTREAM_OFST_ADDR[4];
+	unsigned int UFD_BS_AU_START[4];
+	unsigned int UFD_AU2_SIZE[4];
 	unsigned int UFD_BOND_MODE;
 };
 
@@ -146,9 +146,9 @@ struct UFO_META_INFO {
 
 struct YUFD_META_INFO {
 	unsigned int bYUF;
-	unsigned int YUFD_BITSTREAM_OFST_ADDR;
-	unsigned int YUFD_BS_AU_START;
-	unsigned int YUFD_AU2_SIZE;
+	unsigned int YUFD_BITSTREAM_OFST_ADDR[4];
+	unsigned int YUFD_BS_AU_START[4];
+	unsigned int YUFD_AU2_SIZE[4];
 	unsigned int YUFD_BOND_MODE;
 };
 
