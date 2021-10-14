@@ -221,8 +221,12 @@ static s32 prepare_tile_data(union mml_tile_data *data, struct mml_task *task,
 			mml_log("%s read rsz param index: %d done job_id[%d]",
 				__func__, rsz_frm->out_idx, task->job.jobid);
 		} else {
-			mml_err("%s read rsz param index: %d out of count %d",
-				__func__, rsz_frm->out_idx, result->rsz_param_cnt);
+			if (rsz_frm && result)
+				mml_err("%s read rsz param index: %d out of count %d",
+					__func__, rsz_frm->out_idx, result->rsz_param_cnt);
+			else
+				mml_err("%s read rsz param index: %d",
+					__func__, rsz_frm->out_idx);
 		}
 	} else {
 		mml_err("get rsz param timeout: %d in %dms, job_id[%d]",
