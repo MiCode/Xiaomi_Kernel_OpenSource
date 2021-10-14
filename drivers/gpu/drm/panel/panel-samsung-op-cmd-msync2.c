@@ -625,13 +625,14 @@ static struct mtk_panel_params ext_params = {
 		.msync_max_fps = 120,
 		.msync_min_fps = 20,
 		.msync_level_num = 20,
+		.delay_frame_num = 2,
 		.multi_te_tb = {
 			/* Multi-TE level */
 			.multi_te_level[0] = {
 				.level_id = 0,
 				.level_fps = 60,
 				.max_fps = 60,
-				.min_fps = 40,
+				.min_fps = 30,
 			},
 			.multi_te_level[1] = {
 				.level_id = 1,

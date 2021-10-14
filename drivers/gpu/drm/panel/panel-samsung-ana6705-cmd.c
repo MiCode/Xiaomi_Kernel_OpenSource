@@ -1584,7 +1584,7 @@ static struct mtk_panel_params ext_params = {
 				.level_id = 0,
 				.level_fps = 60,
 				.max_fps = 60,
-				.min_fps = 40,
+				.min_fps = 30,
 			},
 			.multi_te_level[1] = {
 				.level_id = 1,
@@ -1668,7 +1668,7 @@ static struct mtk_panel_params ext_params_wqhd = {
 				.level_id = 0,
 				.level_fps = 60,
 				.max_fps = 60,
-				.min_fps = 40,
+				.min_fps = 30,
 			},
 			.multi_te_level[1] = {
 				.level_id = 1,
