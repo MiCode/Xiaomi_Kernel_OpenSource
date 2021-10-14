@@ -347,7 +347,7 @@
 };
 
 &i2c2 {
-	clock-frequency = <400000>;
+	clock-frequency = <1000000>;
 	/* WIDE */
 	camera_af_main@74 {
 		compatible = "mediatek,ak7375c";
@@ -414,7 +414,7 @@
 };
 
 &i2c8 {
-	clock-frequency = <400000>;
+	clock-frequency = <1000000>;
 	/* MAIN */
 	camera_af_main@0c {
 		compatible = "mediatek,ak7377a";
@@ -478,7 +478,7 @@
 };
 
 &i2c9 {
-	clock-frequency = <400000>;
+	clock-frequency = <1000000>;
 	/* FRONT */
 	mtk_camera_eeprom1:camera_eeprom1@54 {
 		compatible = "mediatek,camera_eeprom";
