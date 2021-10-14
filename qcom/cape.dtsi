@@ -1602,6 +1602,8 @@
 #include "cape-pinctrl.dtsi"
 #include "waipio-qupv3.dtsi"
 #include "cape-regulators.dtsi"
+#include "cape-coresight.dtsi"
+#include "cape-debug.dtsi"
 #include "msm-arm-smmu-waipio.dtsi"
 #include "cape-dma-heaps.dtsi"
 #include "cape-gpu.dtsi"
