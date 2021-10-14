@@ -3546,7 +3546,7 @@
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
-		smi_img_subcommon1: smi_img_sub_comm0@15003000 {
+		smi_img_subcommon1: smi_img_sub_comm1@15003000 {
 			compatible = "mediatek,mt6895-smi-common",
 					"mediatek,smi-common", "syscon", "mediatek,smi-sub-common";
 			reg = <0 0x15003000 0 0x1000>;
