@@ -80,7 +80,10 @@
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
 #define SMI_BUS_LARB_SHIFT(larbid)	((larbid) << 1)
-#define SMI_DEBUG_MISC		(0x440)
+#define SMI_CLAMP_EN			(0x3C0)
+#define SMI_CLAMP_EN_SET		(0x3C4)
+#define SMI_CLAMP_EN_CLR		(0x3C8)
+#define SMI_DEBUG_MISC			(0x440)
 /* All are MMU0 defaultly. Only specialize mmu1 here. */
 #define F_MMU1_LARB(larbid)		(0x1 << SMI_BUS_LARB_SHIFT(larbid))
 #define SMI_L1LEN			0x100
@@ -152,12 +155,14 @@ struct mtk_smi {
 	atomic_t		ref_count;
 };
 
+#define LARB_MAX_COMMON		(2)
 struct mtk_smi_larb { /* larb: local arbiter */
 	struct mtk_smi			smi;
 	void __iomem			*base;
-	struct device			*smi_common_dev;
+	struct device			*smi_common_dev[LARB_MAX_COMMON];
 	const struct mtk_smi_larb_gen	*larb_gen;
 	int				larbid;
+	int				comm_port_id[LARB_MAX_COMMON];
 	u32				*mmu;
 
 	unsigned char			*bank;
@@ -176,7 +181,7 @@ static unsigned int init_power_on_num;
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
-	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev);
+	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev[0]);
 
 	if (port >= SMI_COMMON_LARB_NR_MAX) { /* max: 8 input larbs. */
 		dev_err(dev, "%s port invalid:%d, val:%u.\n", __func__,
@@ -452,7 +457,7 @@ static void mtk_smi_larb_config_port_gen1(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
-	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev);
+	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev[0]);
 	int i, m4u_port_id, larb_port_num;
 	u32 sec_con_val, reg_val;
 
@@ -1382,7 +1387,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	struct device_node *smi_node;
 	struct platform_device *smi_pdev;
 	struct device_link *link;
-	int ret;
+	int ret, i;
 
 	larb = devm_kzalloc(dev, sizeof(*larb), GFP_KERNEL);
 	if (!larb)
@@ -1413,46 +1418,30 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	larb->smi.dev = dev;
 	atomic_set(&larb->smi.ref_count, 0);
 
-	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 0);
-	if (!smi_node)
-		return -EINVAL;
+	for (i = 0; i < LARB_MAX_COMMON; i++) {
+		smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", i);
+		if (!smi_node)
+			break;
 
-	smi_pdev = of_find_device_by_node(smi_node);
-	of_node_put(smi_node);
-	if (smi_pdev) {
-		if (!platform_get_drvdata(smi_pdev))
-			return -EPROBE_DEFER;
-		larb->smi_common_dev = &smi_pdev->dev;
-		link = device_link_add(dev, larb->smi_common_dev,
-				       DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
-		if (!link) {
-			dev_notice(dev, "Unable to link smi_common device\n");
-			return -ENODEV;
-		}
-	} else {
-		dev_err(dev, "Failed to get the smi_common device\n");
-		return -EINVAL;
-	}
-
-	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 1);
-	if (smi_node) {
 		smi_pdev = of_find_device_by_node(smi_node);
 		of_node_put(smi_node);
 		if (smi_pdev) {
 			if (!platform_get_drvdata(smi_pdev))
 				return -EPROBE_DEFER;
-			link = device_link_add(dev, &smi_pdev->dev,
-					       DL_FLAG_PM_RUNTIME |
-					       DL_FLAG_STATELESS);
+			larb->smi_common_dev[i] = &smi_pdev->dev;
+			link = device_link_add(dev, larb->smi_common_dev[i],
+					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 			if (!link) {
-				dev_notice(dev,
-					"Unable to link sram smi-common dev\n");
+				dev_notice(dev, "Unable to link smi_common device %d\n", i);
 				return -ENODEV;
 			}
 		} else {
-			dev_notice(dev, "Failed to get sram smi_common device\n");
+			dev_notice(dev, "Failed to get the smi_common device %d\n", i);
 			return -EINVAL;
 		}
+		larb->comm_port_id[i] = -1;
+		of_property_read_u32_index(dev->of_node, "mediatek,comm-port-id",
+						i, &larb->comm_port_id[i]);
 	}
 
 	pm_runtime_enable(dev);
@@ -1484,12 +1473,24 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
-	int ret;
+	int ret, i;
 
 	atomic_inc(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d callback get ref_count:%d\n",
 			larb->larbid, atomic_read(&larb->smi.ref_count));
+
+	/* enable related SMI common port */
+	for (i = 0; i < LARB_MAX_COMMON; i++) {
+		struct mtk_smi *common;
+
+		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
+			common = dev_get_drvdata(larb->smi_common_dev[i]);
+
+			writel(1 << larb->comm_port_id[i],
+				common->base + SMI_CLAMP_EN_CLR);
+		}
+	}
 
 	ret = mtk_smi_clk_enable(&larb->smi);
 	if (ret < 0) {
@@ -1523,6 +1524,7 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
+	int i;
 
 	atomic_dec(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
@@ -1531,7 +1533,6 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 	if (atomic_read(&larb->smi.ref_count)) {
 		dev_notice(dev, "Error: larb(%d) ref count=%d on suspend\n",
 			larb->larbid, atomic_read(&larb->smi.ref_count));
-		//WARN_ON(1);
 	}
 
 	if (readl_relaxed(larb->base + SMI_LARB_STAT)) {
@@ -1543,6 +1544,17 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 		larb_gen->sleep_ctrl(dev, true);
 
 	mtk_smi_clk_disable(&larb->smi);
+	/* disable related SMI common port */
+	for (i = 0; i < LARB_MAX_COMMON; i++) {
+		struct mtk_smi *common;
+
+		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
+			common = dev_get_drvdata(larb->smi_common_dev[i]);
+
+			writel(1 << larb->comm_port_id[i],
+				common->base + SMI_CLAMP_EN_SET);
+		}
+	}
 	return 0;
 }
 
