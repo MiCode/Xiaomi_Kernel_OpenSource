@@ -562,9 +562,10 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u32) CCU_SMC_REQ_LOAD,
 		0, 0, 0, 0, 0, 0, &res);
 #endif
-	if (res.a0 != 0) {
+	ret = (int)(res.a0);
+	if (ret != 0) {
 		snprintf(error_desc, 80, "load CCU binary fail(%d), clock: %d %d %d %d %d %d %d",
-			res.a0,
+			ret,
 			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[0]),
 			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[1]),
 			__clk_is_enabled(ccu->ccu_clk_pwr_ctrl[2]),
@@ -579,7 +580,7 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 #else
 		WARN_ON(1);
 #endif
-		return (int)(res.a0);
+		goto ccu_load_err;
 	}
 	else
 		LOG_DBG("load CCU binary OK\n");
@@ -590,12 +591,19 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 	ret = mtk_ccu_allocate_mem(ccu->dev, &ccu->buffer_handle[MTK_CCU_DDR]);
 	if (ret) {
 		dev_err(ccu->dev, "alloc mem failed\n");
-		return ret;
+		goto ccu_load_err;
 	}
 
 	/*3. load binary*/
 	ret = ccu_elf_load_segments(rproc, fw);
+	if (ret) {
+		mtk_ccu_deallocate_mem(ccu->dev, &ccu->buffer_handle[MTK_CCU_DDR]);
+		got ccu_load_err;
+	}
 #endif
+	return ret;
+ccu_load_err:
+	mtk_ccu_clk_unprepare(ccu);
 	return ret;
 }
 
