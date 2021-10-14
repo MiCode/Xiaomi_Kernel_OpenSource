@@ -14,7 +14,6 @@
 /* import from mcupm_driver */
 extern int mcupm_plt_ackdata;
 
-
 #if MCUPM_PLT_SERV_SUPPORT
 struct plt_ctrl_s {
 	unsigned int magic;
@@ -43,8 +42,8 @@ static ssize_t mcupm_alive_show(struct device *kobj,
 		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
 		2000);
 
-	return snprintf(buf, PAGE_SIZE, "%s\n",
-			mcupm_plt_ackdata ? "Alive" : "Dead");
+	return snprintf(buf, PAGE_SIZE, "%s RES_MEM(%d) SKIP_LOG(%d)\n",
+			mcupm_plt_ackdata ? "Alive" : "Dead", has_reserved_memory, skip_logger);
 }
 DEVICE_ATTR_RO(mcupm_alive);
 
@@ -70,88 +69,99 @@ int mcupm_plt_module_init(void)
 	if (unlikely(ret != 0))
 		goto error;
 
-	phys_addr = mcupm_reserve_mem_get_phys(MCUPM_MEM_ID);
-	if (phys_addr == 0) {
-		pr_info("MCUPM: Can't get logger phys mem\n");
-		goto error;
-	}
+	if (has_reserved_memory) {
+		phys_addr = mcupm_reserve_mem_get_phys(MCUPM_MEM_ID);
+		if (phys_addr == 0) {
+			pr_info("MCUPM: Can't get logger phys mem\n");
+			goto error;
+		}
 
-	virt_addr = (phys_addr_t)mcupm_reserve_mem_get_virt(MCUPM_MEM_ID);
-	if (virt_addr == 0) {
-		pr_info("MCUPM: Can't get logger virt mem\n");
-		goto error;
-	}
+		virt_addr = (phys_addr_t)mcupm_reserve_mem_get_virt(MCUPM_MEM_ID);
+		if (virt_addr == 0) {
+			pr_info("MCUPM: Can't get logger virt mem\n");
+			goto error;
+		}
 
-	mem_sz = mcupm_reserve_mem_get_size(MCUPM_MEM_ID);
-	if (mem_sz == 0) {
-		pr_info("MCUPM: Can't get logger mem size\n");
-		goto error;
-	}
+		mem_sz = mcupm_reserve_mem_get_size(MCUPM_MEM_ID);
+		if (mem_sz == 0) {
+			pr_info("MCUPM: Can't get logger mem size\n");
+			goto error;
+		}
 
-	b = (unsigned char *) (uintptr_t)virt_addr;
-	for (last_ofs = 0; last_ofs < sizeof(*plt_ctl); last_ofs++)
-		b[last_ofs] = 0x0;
+		b = (unsigned char *) (uintptr_t)virt_addr;
+		for (last_ofs = 0; last_ofs < sizeof(*plt_ctl); last_ofs++)
+			b[last_ofs] = 0x0;
 
-	mark = (unsigned int *) (uintptr_t)virt_addr;
-	*mark = MCUPM_PLT_INIT;
-	mark = (unsigned int *) ((unsigned char *) (uintptr_t)
-				virt_addr + mem_sz - 4);
-	*mark = MCUPM_PLT_INIT;
+		mark = (unsigned int *) (uintptr_t)virt_addr;
+		*mark = MCUPM_PLT_INIT;
+		mark = (unsigned int *) ((unsigned char *) (uintptr_t)
+					virt_addr + mem_sz - 4);
+		*mark = MCUPM_PLT_INIT;
 
-	plt_ctl = (struct plt_ctrl_s *) (uintptr_t)virt_addr;
-	plt_ctl->magic = MCUPM_PLT_INIT;
-	plt_ctl->size = sizeof(*plt_ctl);
-	plt_ctl->mem_sz = mem_sz;
+		plt_ctl = (struct plt_ctrl_s *) (uintptr_t)virt_addr;
+		plt_ctl->magic = MCUPM_PLT_INIT;
 
-	last_ofs = plt_ctl->size;
-
-
-	pr_info("MCUPM: %s(): after plt, ofs=0x%x\n", __func__, last_ofs);
-
+		plt_ctl->size = sizeof(*plt_ctl);
 #if MCUPM_LOGGER_SUPPORT
-	plt_ctl->logger_ofs = last_ofs;
-	last_sz = mcupm_logger_init(virt_addr + last_ofs, mem_sz - last_ofs);
-
-
-	if (last_sz == 0) {
-		pr_info("MCUPM: mcupm_logger_init return fail\n");
-		goto error;
-	}
-
-	last_ofs += last_sz;
-	pr_info("MCUPM: %s(): after logger, ofs=0x%x\n", __func__, last_ofs);
+		if (skip_logger)
+			plt_ctl->size = sizeof(*plt_ctl) - 4;
 #endif
 
-	ipi_data.cmd = MCUPM_PLT_INIT;
-	ipi_data.u.ctrl.phys = phys_addr;
-	ipi_data.u.ctrl.size = mem_sz;
-	mcupm_plt_ackdata = 0;
+		plt_ctl->mem_sz = mem_sz;
 
-	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_POLLING,
-		&ipi_data,
-		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
-		2000);
+		last_ofs = plt_ctl->size;
 
-	if (ret) {
-		pr_info("MCUPM: plt IPI fail ret=%d, ackdata=%d\n",
+
+		pr_info("MCUPM: %s(): after plt, ofs=0x%x plt_ctl size=0x%x\n", __func__,
+			last_ofs, sizeof(*plt_ctl));
+
+#if MCUPM_LOGGER_SUPPORT
+		if (!skip_logger) {
+			plt_ctl->logger_ofs = last_ofs;
+			last_sz = mcupm_logger_init(virt_addr + last_ofs, mem_sz - last_ofs);
+
+
+			if (last_sz == 0) {
+				pr_info("MCUPM: mcupm_logger_init return fail\n");
+				goto error;
+			}
+
+			last_ofs += last_sz;
+			pr_info("MCUPM: %s(): after logger, ofs=0x%x\n", __func__, last_ofs);
+		}
+#endif
+
+		ipi_data.cmd = MCUPM_PLT_INIT;
+		ipi_data.u.ctrl.phys = phys_addr;
+		ipi_data.u.ctrl.size = mem_sz;
+		mcupm_plt_ackdata = 0;
+
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_POLLING,
+			&ipi_data,
+			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+			2000);
+
+		if (ret) {
+			pr_info("MCUPM: plt IPI fail ret=%d, ackdata=%d\n",
+				ret, mcupm_plt_ackdata);
+			goto error;
+		}
+
+		if (mcupm_plt_ackdata < 0) {
+			pr_info("MCUPM: plt IPI init fail, ackdata=%d\n",
+					mcupm_plt_ackdata);
+			goto error;
+		}
+
+		pr_info("MCUPM: plt IPI success ret=%d, ackdata=%d\n",
 			ret, mcupm_plt_ackdata);
-		goto error;
-	}
-
-	if (!mcupm_plt_ackdata) {
-		pr_info("MCUPM: plt IPI init fail, ackdata=%d\n",
-				mcupm_plt_ackdata);
-		goto error;
-	}
-
-	pr_info("MCUPM: plt IPI success ret=%d, ackdata=%d\n",
-		ret, mcupm_plt_ackdata);
 
 #if MCUPM_LOGGER_SUPPORT
-	mcupm_logger_init_done();
+		if (!skip_logger)
+			mcupm_logger_init_done();
 #endif
-
-
+		return 0;
+	}
 	return 0;
  error:
 	return -1;
