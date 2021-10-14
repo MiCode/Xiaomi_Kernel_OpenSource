@@ -634,3 +634,23 @@ int mt6983_add_misc_control(struct snd_soc_component *component)
 
 	return 0;
 }
+
+#define USECS_TO_CYCLES(time_usecs)			\
+	xloops_to_cycles((time_usecs) * 0x10C7UL)
+
+static inline unsigned long xloops_to_cycles(unsigned long xloops)
+{
+	return (xloops * loops_per_jiffy * HZ) >> 32;
+}
+
+void mt6983_aud_delay(unsigned long usecs)
+{
+	unsigned long cycles = 0;
+	cycles_t start = get_cycles();
+
+	cycles = USECS_TO_CYCLES(usecs);
+
+	while ((get_cycles() - start) < cycles)
+		cpu_relax();
+}
+

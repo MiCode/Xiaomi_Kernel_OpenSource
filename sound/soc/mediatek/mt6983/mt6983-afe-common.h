@@ -252,4 +252,7 @@ int mt6983_set_lch_dc_compensation(int value);
 int mt6983_set_rch_dc_compensation(int value);
 int mt6983_adda_dl_gain_control(bool mute);
 
+/* audio delay*/
+void mt6983_aud_delay(unsigned long cycles);
+
 #endif
