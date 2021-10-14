@@ -22,7 +22,7 @@
 
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
-#define IMGSYS_SEC_THD 1
+#define IMGSYS_SEC_THD 2
 #define IMGSYS_MAX_FPS 60
 
 #define IMGSYS_CMDQ_HW_EVENT_BEGIN	129
@@ -259,6 +259,8 @@ enum mtk_imgsys_event {
 	IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_10,
 	IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT,
 	IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_SET,
+	IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ADL_WAIT,
+	IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ADL_SET,
 	IMGSYS_CMDQ_EVENT_MAX
 };
 
@@ -490,6 +492,8 @@ static struct imgsys_event_table imgsys_event[] = {
 	{IMGSYS_CMDQ_SYNC_TOKEN_CAMSYS_POOL_10, "sw_sync_token_camsys_pool_10"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT, "sw_sync_token_tzmp_isp_wait"},
 	{IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_SET, "sw_sync_token_tzmp_isp_set"},
+	{IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ADL_WAIT, "sw_sync_token_tzmp_adl_wait"},
+	{IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ADL_SET, "sw_sync_token_tzmp_adl_set"},
 	{IMGSYS_CMDQ_EVENT_MAX, "imgsys_event_max"},
 };
 
