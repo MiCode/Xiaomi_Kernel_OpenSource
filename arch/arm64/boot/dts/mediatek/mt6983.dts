@@ -1378,7 +1378,7 @@
 				mediatek,efuse-intr = <0x26>;
 				mediatek,eye-vrt = <2>;
 				mediatek,eye-vrt-host = <2>;
-				mediatek,discth= <0x9>;
+				mediatek,discth= <0xb>;
 			};
 
 			u3port0: usb3-phy0@11e43000 {
@@ -1406,7 +1406,7 @@
 				mediatek,efuse-intr = <0x26>;
 				mediatek,eye-vrt = <2>;
 				mediatek,eye-vrt-host = <2>;
-				mediatek,discth= <0x9>;
+				mediatek,discth= <0xb>;
 			};
 		};
 
