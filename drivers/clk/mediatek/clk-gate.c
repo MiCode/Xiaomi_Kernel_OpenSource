@@ -202,6 +202,13 @@ const struct clk_ops mtk_clk_gate_ops_hwv_dummy = {
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_hwv_dummy);
 
+const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
+	.is_enabled	= mtk_cg_bit_is_set,
+	.enable		= mtk_cg_enable_inv,
+	.disable_unused = mtk_cg_disable_unused_inv,
+};
+EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_inv_dummy);
+
 const struct clk_ops mtk_clk_gate_ops_setclr = {
 	.is_enabled	= mtk_cg_bit_is_cleared,
 	.enable		= mtk_cg_enable,

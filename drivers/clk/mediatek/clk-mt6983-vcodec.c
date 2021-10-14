@@ -107,6 +107,14 @@ static const struct mtk_gate_regs vde13_base_hwv_regs = {
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_setclr_inv,			\
 	}
+#define GATE_VDE1_BASE_3_DUMMY(_id, _name, _parent, _shift) {			\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &vde1_base_3_cg_regs,				\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_setclr_inv_dummy,			\
+	}
 #define GATE_HWV_VDE10_BASE(_id, _name, _parent, _shift) {			\
 		.id = _id,						\
 		.name = _name,						\
@@ -165,7 +173,7 @@ static struct mtk_gate vde1_base_clks[] = {
 	GATE_VDE1_BASE_2(CLK_VDE1_BASE_LAT_CKEN_ENG /* CLK ID */,
 		"vde1_base_lat_cken_eng" /* name */,
 		"vdec_ck" /* parent */, 8 /* bit */),
-	GATE_HWV_VDE10_BASE(CLK_VDE1_BASE_LARB1_CKEN /* CLK ID */,
+	GATE_VDE1_BASE_3_DUMMY(CLK_VDE1_BASE_LARB1_CKEN /* CLK ID */,
 		"vde1_base_larb1_cken" /* name */,
 		"vdec_ck" /* parent */, 0 /* bit */),
 };
@@ -253,6 +261,14 @@ static const struct mtk_gate_regs vde21_base_hwv_regs = {
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_setclr_inv,			\
 	}
+#define GATE_VDE2_BASE_2_DUMMY(_id, _name, _parent, _shift) {			\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &vde2_base_2_cg_regs,				\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_setclr_inv_dummy,			\
+	}
 #define GATE_HWV_VDE20_BASE(_id, _name, _parent, _shift) {			\
 		.id = _id,						\
 		.name = _name,						\
@@ -290,7 +306,7 @@ static struct mtk_gate vde2_base_clks[] = {
 	GATE_VDE2_BASE_1(CLK_VDE2_BASE_LAT_CKEN_ENG /* CLK ID */,
 		"vde2_base_lat_cken_eng" /* name */,
 		"vdec_ck" /* parent */, 8 /* bit */),
-	GATE_HWV_VDE20_BASE(CLK_VDE2_BASE_LARB1_CKEN /* CLK ID */,
+	GATE_VDE2_BASE_2_DUMMY(CLK_VDE2_BASE_LARB1_CKEN /* CLK ID */,
 		"vde2_base_larb1_cken" /* name */,
 		"vdec_ck" /* parent */, 0 /* bit */),
 };
