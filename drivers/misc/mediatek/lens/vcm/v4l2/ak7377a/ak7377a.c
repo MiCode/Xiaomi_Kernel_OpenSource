@@ -69,9 +69,20 @@ struct regval_list {
 static int ak7377a_set_position(struct ak7377a_device *ak7377a, u16 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&ak7377a->sd);
+	int retry = 3;
+	int ret;
 
-	return i2c_smbus_write_word_data(client, AK7377A_SET_POSITION_ADDR,
+	while (--retry > 0) {
+		ret = i2c_smbus_write_word_data(client, AK7377A_SET_POSITION_ADDR,
 					 swab16(val << 6));
+		if (ret < 0) {
+			usleep_range(AK7377A_MOVE_DELAY_US,
+				     AK7377A_MOVE_DELAY_US + 1000);
+		} else {
+			break;
+		}
+	}
+	return ret;
 }
 
 static int ak7377a_release(struct ak7377a_device *ak7377a)
