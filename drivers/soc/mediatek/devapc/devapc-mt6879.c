@@ -89,6 +89,39 @@ static const char *mt6879_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			return "NTH_EMI_GMC_M";
 		else
 			return infra_mi_trans(bus_id >> 1);
+	} else if (slave_type == SLAVE_TYPE_VLP) {
+		/* mi3 */
+		if ((vio_addr >= VLP_SCP_START_ADDR) && (vio_addr <= VLP_SCP_END_ADDR)) {
+			if ((bus_id & 0x3) == 0x0)
+				return "SSPM_M";
+			else if ((bus_id & 0x3) == 0x1)
+				return "SPM_M";
+			else if ((bus_id & 0x3) == 0x2)
+				return infra_mi_trans(bus_id >> 2);
+			else
+				return "UNKNOWN_MASTER_TO_SCP";
+		/* mi1 */
+		} else if ((vio_addr >= VLP_INFRA_START && vio_addr <= VLP_INFRA_END) ||
+			(vio_addr >= VLP_INFRA_1_START && vio_addr <= VLP_INFRA_1_END)) {
+			if ((bus_id & 0x3) == 0x0)
+				return "SCP_M";
+			else if ((bus_id & 0x3) == 0x1)
+				return "SSPM_M";
+			else if ((bus_id & 0x3) == 0x2)
+				return "SPM_M";
+			else
+				return "UNKNOWN_MASTER_TO_INFRA";
+		/* mi2 */
+		} else {
+			if ((bus_id & 0x3) == 0x0)
+				return "SCP_M";
+			else if ((bus_id & 0x3) == 0x1)
+				return "SSPM_M";
+			else if ((bus_id & 0x3) == 0x2)
+				return "SPM_M";
+			else
+				return infra_mi_trans(bus_id >> 2);
+		}
 	} else {
 		return infra_mi_trans(bus_id);
 	}

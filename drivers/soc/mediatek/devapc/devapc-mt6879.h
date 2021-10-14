@@ -149,6 +149,15 @@ enum DEVAPC_IRQ_TYPE {
 #define SRAM_START_ADDR				(0x100000)
 #define SRAM_END_ADDR				(0x1FFFFF)
 
+/* For VLP Bus Parser */
+#define VLP_SCP_START_ADDR			(0x1C400000)
+#define VLP_SCP_END_ADDR			(0x1C7FFFFF)
+
+#define VLP_INFRA_START				(0x00000000)
+#define VLP_INFRA_END				(0x1BFFFFFF)
+#define VLP_INFRA_1_START			(0x1D000000)
+#define VLP_INFRA_1_END				(0x43FFFFFFF)
+
 static const struct mtk_device_info mt6879_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
 	/* 0 */
