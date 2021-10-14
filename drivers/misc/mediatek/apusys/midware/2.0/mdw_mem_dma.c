@@ -291,12 +291,9 @@ static void mdw_dmabuf_release(struct dma_buf *dbuf)
 
 	mdw_mem_dma_show(mdbuf);
 
-	if (m->op != MDW_MEM_OP_IMPORT) {
-		mdw_mem_dma_free_sgt(&mdbuf->sgt);
-		vunmap(mdbuf->vaddr);
-		kvfree(mdbuf->buf);
-	}
-
+	mdw_mem_dma_free_sgt(&mdbuf->sgt);
+	vunmap(mdbuf->vaddr);
+	kvfree(mdbuf->buf);
 	kfree(mdbuf);
 	m->release(m);
 }
@@ -356,7 +353,6 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 	mdbuf = kzalloc(sizeof(*mdbuf), GFP_KERNEL);
 	if (!mdbuf)
 		return -ENOMEM;
-
 
 	mutex_init(&mdbuf->mtx);
 	INIT_LIST_HEAD(&mdbuf->attachments);
@@ -431,26 +427,8 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 			&mdbuf->sgt, DMA_TO_DEVICE);
 	}
 
-	/* internal use, don't export fd */
-	if (mem->need_handle == false) {
-		mem->handle = -1;
-		goto out;
-	}
-
-	/* create fd from dma-buf */
-	mem->handle =  dma_buf_fd(mem->dbuf,
-		(O_RDWR | O_CLOEXEC) & ~O_ACCMODE);
-	if (mem->handle < 0) {
-		ret = -EINVAL;
-		mdw_drv_err("dma_buf_fd Fail\n");
-		dma_buf_put(mem->dbuf);
-		return ret;
-	}
-
-out:
 	mdw_mem_dma_show(mdbuf);
-
-	return ret;
+	goto out;
 
 free_sgt:
 	mdw_mem_dma_free_sgt(&mdbuf->sgt);
@@ -458,6 +436,6 @@ free_buf:
 	kvfree(kva);
 free_mdw_dbuf:
 	kfree(mdbuf);
-
+out:
 	return ret;
 }

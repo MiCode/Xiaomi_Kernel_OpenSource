@@ -63,6 +63,7 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	filp->private_data = mpriv;
 	mutex_init(&mpriv->mtx);
 	INIT_LIST_HEAD(&mpriv->mems);
+	INIT_LIST_HEAD(&mpriv->invokes);
 	INIT_LIST_HEAD(&mpriv->cmds);
 
 	if (!atomic_read(&g_inited)) {

@@ -196,15 +196,6 @@ int mdw_mem_aram_alloc(struct mdw_mem *mem)
 		goto unprepare_slb;
 	}
 
-	/* create fd from dma-buf */
-	mem->handle =  dma_buf_fd(mem->dbuf,
-		(O_RDWR | O_CLOEXEC) & ~O_ACCMODE);
-	if (mem->handle < 0) {
-		ret = -EINVAL;
-		mdw_drv_err("create dmabuf fd for slb fail\n");
-		dma_buf_put(mem->dbuf);
-	}
-
 	goto out;
 
 unprepare_slb:

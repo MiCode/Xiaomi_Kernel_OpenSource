@@ -66,6 +66,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	int ret = 0;
 
 	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
+	mutex_lock(&mpriv->mtx);
 
 	/* check mem address for rv */
 	if (MDW_IS_HIGHADDR(c->exec_infos->device_va) ||
@@ -99,9 +100,8 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	cb_size += c->exec_infos->size;
 
 	/* allocate communicate buffer */
-	rc->cb = mdw_mem_alloc(mpriv, cb_size, MDW_DEFAULT_ALIGN,
-		F_MDW_MEM_CACHEABLE|F_MDW_MEM_32BIT, MDW_MEM_TYPE_MAIN,
-		MDW_MEM_OP_INTERNAL);
+	rc->cb = mdw_mem_alloc(mpriv, MDW_MEM_TYPE_MAIN, cb_size,
+		MDW_DEFAULT_ALIGN, F_MDW_MEM_CACHEABLE|F_MDW_MEM_32BIT, false);
 	if (!rc->cb) {
 		mdw_drv_err("c(0x%llx) alloc cb size(%u) fail\n",
 			c->kid, cb_size);
@@ -191,6 +191,7 @@ free_rc:
 	kfree(rc);
 	rc = NULL;
 out:
+	mutex_unlock(&mpriv->mtx);
 	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
 	return rc;
 }
@@ -199,10 +200,12 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 {
 	struct mdw_cmd *c = rc->c;
 	struct mdw_rv_msg_cmd *rmc = NULL;
+	struct mdw_fpriv *mpriv = c->mpriv;
 
 	if (!rc)
 		return -EINVAL;
 
+	mutex_lock(&mpriv->mtx);
 	/* invalidate */
 	if (mdw_mem_invalidate(c->mpriv, rc->cb))
 		mdw_drv_warn("s(0x%llx) c(0x%llx) invalidate rcbs(%u) fail\n",
@@ -223,6 +226,7 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 	mdw_mem_unmap(rc->c->mpriv, rc->cb);
 	mdw_mem_free(rc->c->mpriv, rc->cb);
 	kfree(rc);
+	mutex_unlock(&mpriv->mtx);
 
 	return 0;
 }

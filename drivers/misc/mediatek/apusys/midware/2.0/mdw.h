@@ -38,6 +38,7 @@
 
 struct mdw_fpriv;
 struct mdw_device;
+struct mdw_mem;
 
 enum mdw_mem_op {
 	MDW_MEM_OP_NONE,
@@ -46,31 +47,46 @@ enum mdw_mem_op {
 	MDW_MEM_OP_IMPORT,
 };
 
+struct mdw_mem_map {
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct kref map_ref;
+	struct mdw_mem *m;
+};
+
+struct mdw_mem_invoke {
+	struct list_head map_node; //to mdw_mem_map
+	struct list_head u_node; //to mpriv
+	struct kref ref;
+	struct mdw_mem *m;
+	void (*get)(struct mdw_mem_invoke *m_invoke);
+	void (*put)(struct mdw_mem_invoke *m_invoke);
+};
+
 struct mdw_mem {
 	/* in */
+	enum mdw_mem_type type;
 	unsigned int size;
 	unsigned int align;
 	uint64_t flags;
-	struct mdw_fpriv *mpriv;
-	bool need_handle;
 
 	/* out */
-	int handle;
 	void *vaddr;
-	uint64_t device_va;
-	uint32_t dva_size;
 	struct device *mdev;
 	struct dma_buf *dbuf;
 	void *priv;
 
 	/* map */
-	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
-	struct kref map_ref;
+	uint64_t device_va;
+	uint32_t dva_size;
+	struct mdw_mem_map *map;
 
 	/* control */
-	enum mdw_mem_op op;
-	enum mdw_mem_type type;
+	int handle;
+	bool belong_apu;
+	bool need_handle;
+	struct list_head maps;
+	struct mdw_fpriv *mpriv;
 	struct list_head u_item; //to mpriv
 	struct list_head d_node; //to mdev
 	struct mutex mtx;
@@ -152,6 +168,7 @@ struct mdw_fpriv {
 	struct mdw_device *mdev;
 
 	struct list_head mems;
+	struct list_head invokes;
 	struct list_head cmds;
 	struct mutex mtx;
 
@@ -257,11 +274,11 @@ void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);
 
 void mdw_mem_all_print(struct mdw_fpriv *mpriv);
 
+void mdw_mem_put(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle);
-struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
-	uint32_t align, uint64_t flags,
-	enum mdw_mem_type type, enum mdw_mem_op op);
-int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m);
+struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
+	uint32_t size, uint32_t align, uint64_t flags, bool need_handle);
+void mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m);

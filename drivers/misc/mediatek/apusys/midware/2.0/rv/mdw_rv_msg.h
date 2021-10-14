@@ -41,7 +41,7 @@ struct mdw_ipi_apu_cmd {
 	uint64_t start_ts_ns; // cmd time
 	uint64_t iova;
 	uint32_t size;
-};
+} __attribute__((__packed__));
 
 struct mdw_ipi_handshake {
 	uint32_t h_id;
@@ -77,7 +77,6 @@ struct mdw_ipi_param {
 	uint32_t dir;
 	uint32_t value;
 };
-
 
 struct mdw_stat {
 	uint32_t task_num[APUSYS_DEVICE_MAX];

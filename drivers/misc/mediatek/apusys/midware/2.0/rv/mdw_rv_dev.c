@@ -67,7 +67,8 @@ static int mdw_rv_dev_send_msg(struct mdw_rv_dev *mrdev, struct mdw_ipi_msg_sync
 	uint32_t cnt = 50, i = 0;
 
 	s_msg->msg.sync_id = (uint64_t)s_msg;
-	mdw_drv_debug("sync id(0x%llx)\n", s_msg->msg.sync_id);
+	mdw_drv_debug("sync id(0x%llx) (0x%llx/%u)\n",
+		s_msg->msg.sync_id, s_msg->msg.c.iova, s_msg->msg.c.size);
 
 	/* insert to msg list */
 	mutex_lock(&mrdev->msg_mtx);
@@ -207,8 +208,8 @@ static int mdw_rv_dev_send_cmd(struct mdw_rv_dev *mrdev, struct mdw_rv_cmd *rc)
 {
 	int ret = 0;
 
-	mdw_drv_debug("pid(%d) run cmd(0x%llx) dva(0x%llx)\n",
-		current->pid, rc->c->kid, rc->cb->device_va);
+	mdw_drv_debug("pid(%d) run cmd(0x%llx) dva(0x%llx) size(%u)\n",
+		current->pid, rc->c->kid, rc->cb->device_va, rc->cb->size);
 
 	rc->s_msg.msg.id = MDW_IPI_APU_CMD;
 	rc->s_msg.msg.c.iova = rc->cb->device_va;

@@ -16,17 +16,23 @@
 
 #define mdw_mem_show(m) \
 	mdw_mem_debug("mem(0x%llx/0x%llx/%d/0x%llx/%d/0x%llx/0x%x/0x%llx" \
-	"/0x%x/%u/0x%llx/%d/%d/%p)(%d)\n", \
-	(uint64_t) m->mpriv, (uint64_t) m, m->handle, (uint64_t)m->dbuf, \
+	"/0x%x/%u/0x%llx/%d/%p)(%d)\n", \
+	(uint64_t)m->mpriv, (uint64_t)m, m->handle, (uint64_t)m->dbuf, \
 	m->type, (uint64_t)m->vaddr, m->size, \
-	m->device_va, m->dva_size, m->align, m->flags, m->op, \
-	kref_read(&m->map_ref), m->priv, current->pid)
+	m->device_va, m->dva_size, m->align, m->flags, m->need_handle, \
+	m->priv, current->pid)
+
+
+void mdw_mem_put(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	dma_buf_put(m->dbuf);
+}
 
 struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 {
 	struct dma_buf *dbuf = NULL;
 	struct mdw_device *mdev = mpriv->mdev;
-	struct mdw_mem *m = NULL, *pos = NULL, *tmp = NULL;
+	struct mdw_mem *m = NULL, *tmp = NULL;
 
 	dbuf = dma_buf_get(handle);
 	if (IS_ERR_OR_NULL(dbuf)) {
@@ -35,19 +41,18 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 	}
 
 	mutex_lock(&mdev->m_mtx);
-	list_for_each_entry_safe(pos, tmp, &mdev->m_list, d_node) {
-		if (pos->dbuf == dbuf) {
-			m = pos;
-			break;
+	list_for_each_entry_safe(m, tmp, &mdev->m_list, d_node) {
+		if (m->dbuf == dbuf) {
+			mutex_unlock(&mdev->m_mtx);
+			return m;
 		}
 	}
 	mutex_unlock(&mdev->m_mtx);
 
 	dma_buf_put(dbuf);
-	if (!m)
-		mdw_mem_debug("handle(%d) not belong to apu\n", handle);
+	mdw_mem_debug("handle(%d) not belong to apu\n", handle);
 
-	return m;
+	return NULL;
 }
 
 void mdw_mem_all_print(struct mdw_fpriv *mpriv)
@@ -68,24 +73,17 @@ void mdw_mem_all_print(struct mdw_fpriv *mpriv)
 static void mdw_mem_delete(struct mdw_mem *m)
 {
 	struct mdw_fpriv *mpriv = m->mpriv;
+	struct mdw_device *mdev = mpriv->mdev;
 
 	mdw_mem_show(m);
-
-	mutex_lock(&mdw_dev->m_mtx);
+	mutex_lock(&mdev->m_mtx);
 	list_del(&m->d_node);
-	mutex_unlock(&mdw_dev->m_mtx);
-
-	if (m->op == MDW_MEM_OP_INTERNAL || !m->dbuf) {
-	} else if (m->op == MDW_MEM_OP_IMPORT || !m->dbuf) {
-		list_del(&m->u_item);
-	} else if (m->op == MDW_MEM_OP_ALLOC) {
+	mutex_unlock(&mdev->m_mtx);
+	if (m->belong_apu) {
 		mutex_lock(&mpriv->mtx);
 		list_del(&m->u_item);
 		mutex_unlock(&mpriv->mtx);
-	} else {
-		mdw_drv_err("unknown mem(0x%llx) op(%d)\n", (uint64_t)m, m->op);
 	}
-
 	kfree(m);
 	mpriv->put(mpriv);
 }
@@ -93,66 +91,48 @@ static void mdw_mem_delete(struct mdw_mem *m)
 static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 {
 	struct mdw_mem *m = NULL;
+	struct mdw_device *mdev = mpriv->mdev;
 
 	m = kzalloc(sizeof(*m), GFP_KERNEL);
 	if (m) {
 		m->mpriv = mpriv;
 		m->release = mdw_mem_delete;
+		m->handle = -1;
+		mutex_init(&m->mtx);
+		INIT_LIST_HEAD(&m->maps);
 		mdw_mem_show(m);
 		mpriv->get(mpriv);
-		mutex_init(&m->mtx);
-
-		mutex_lock(&mdw_dev->m_mtx);
-		list_add_tail(&m->d_node, &mdw_dev->m_list);
-		mutex_unlock(&mdw_dev->m_mtx);
+		mutex_lock(&mdev->m_mtx);
+		list_add_tail(&m->d_node, &mdev->m_list);
+		mutex_unlock(&mdev->m_mtx);
 	}
 
 	return m;
 }
 
-static void mdw_mem_map_release(struct kref *ref)
+static int mdw_mem_gen_handle(struct mdw_mem *m)
 {
-	struct mdw_mem *m =
-			container_of(ref, struct mdw_mem, map_ref);
+	int ret = 0;
 
-	mdw_mem_show(m);
-	dma_buf_unmap_attachment(m->attach,
-		m->sgt, DMA_BIDIRECTIONAL);
-	dma_buf_detach(m->dbuf, m->attach);
-	dma_buf_put(m->dbuf);
+	if (IS_ERR_OR_NULL(m->dbuf) || m->handle >= 0)
+		return -EINVAL;
 
-	if (m->op == MDW_MEM_OP_IMPORT)
-		mdw_mem_delete(m);
+	/* create fd from dma-buf */
+	m->handle =  dma_buf_fd(m->dbuf,
+		(O_RDWR | O_CLOEXEC) & ~O_ACCMODE);
+	if (m->handle < 0) {
+		mdw_drv_err("create handle for dmabuf(%d) fail\n", m->type);
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
 
-struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
-	uint32_t align, uint64_t flags,
-	enum mdw_mem_type type, enum mdw_mem_op op)
+static int mdw_mem_alloc_internal(struct mdw_mem *m)
 {
-	struct mdw_mem *m = NULL;
-	int ret = -EINVAL;
+	int ret = 0;
 
-	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, size, align);
-
-	m = mdw_mem_create(mpriv);
-	if (!m)
-		goto out;
-
-	/* setup in args */
-	if (op == MDW_MEM_OP_INTERNAL)
-		m->need_handle = false;
-	else
-		m->need_handle = true;
-	m->size = size;
-	m->align = align;
-	m->flags = flags;
-	m->op = op;
-	m->type = type;
-
-	mdw_mem_debug("%u/%u/0x%x/%u/%u\n", size, align, flags, op, type);
-
-	switch (type) {
+	switch (m->type) {
 	case MDW_MEM_TYPE_MAIN:
 		ret = mdw_mem_dma_alloc(m);
 		break;
@@ -167,31 +147,66 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, uint32_t size,
 		break;
 	}
 
-	if (ret) {
-		mdw_drv_err("alloc mem(%d/%d) fail (%d)\n", type, op, ret);
-		/* TODO */
-		mutex_lock(&mdw_dev->m_mtx);
-		list_del(&m->d_node);
-		mutex_unlock(&mdw_dev->m_mtx);
-		kfree(m);
-		m = NULL;
-		mpriv->put(mpriv);
+	return ret;
+}
 
+struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
+	uint32_t size, uint32_t align, uint64_t flags, bool need_handle)
+{
+	struct mdw_mem *m = NULL;
+	int ret = -EINVAL;
+
+	mdw_trace_begin("%s|size(%u) align(%u)",
+		__func__, size, align);
+
+	/* create mem struct */
+	m = mdw_mem_create(mpriv);
+	if (!m)
 		goto out;
+
+	/* setup in args */
+	m->size = size;
+	m->align = align;
+	m->flags = flags;
+	m->type = type;
+	m->belong_apu = true;
+	m->need_handle = need_handle;
+	list_add_tail(&m->u_item, &mpriv->mems);
+
+	/* alloc mem */
+	ret = mdw_mem_alloc_internal(m);
+	if (ret || IS_ERR_OR_NULL(m->dbuf)) {
+		mdw_drv_err("alloc mem(%d/%d/%p) fail(%d)\n",
+			m->type, m->need_handle, m->dbuf, ret);
+		goto delete_mem;
+	}
+
+	/* generate handle */
+	if (need_handle) {
+		ret = mdw_mem_gen_handle(m);
+		if (ret) {
+			mdw_drv_err("generate mem handle fail\n");
+			dma_buf_put(m->dbuf);
+			m = NULL;
+			goto out;
+		}
 	}
 
 	mdw_mem_show(m);
+	goto out;
 
+delete_mem:
+	/* delete mem struct */
+	mdw_mem_delete(m);
+	m = NULL;
 out:
 	mdw_trace_end("%s|size(%u) align(%u)",
 		__func__, size, align);
 	return m;
 }
 
-int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+void mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
-	int ret = 0;
-
 	mdw_mem_show(m);
 
 	mdw_trace_begin("%s|size(%u) align(%u)",
@@ -201,54 +216,93 @@ int mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 	mdw_trace_end("%s|size(%u) align(%u)",
 		__func__, m->size, m->align);
-
-
-	return ret;
 }
 
-int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+static void mdw_mem_map_release(struct kref *ref)
 {
+	struct mdw_mem_map *map =
+			container_of(ref, struct mdw_mem_map, map_ref);
+	struct mdw_mem *m = map->m;
+	struct dma_buf *dbuf = m->dbuf;
+
+	mdw_mem_show(m);
+
+	/* unmap device va */
+	mutex_lock(&m->mtx);
+	dma_buf_unmap_attachment(map->attach,
+		map->sgt, DMA_BIDIRECTIONAL);
+	dma_buf_detach(m->dbuf, map->attach);
+	m->device_va = 0;
+	m->dva_size = 0;
+	m->map = NULL;
+	kfree(map);
+	mutex_unlock(&m->mtx);
+
+	/* delete mem struct */
+	if (m->belong_apu == false)
+		mdw_mem_delete(m);
+
+	/* put dma buf ref from map */
+	dma_buf_put(dbuf);
+}
+
+static void mdw_mem_map_put(struct mdw_mem_map *map)
+{
+	if (map)
+		kref_put(&map->map_ref, mdw_mem_map_release);
+}
+
+static void mdw_mem_map_get(struct mdw_mem_map *map)
+{
+	if (map)
+		kref_get(&map->map_ref);
+}
+
+static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	struct mdw_mem_map *map = NULL;
 	int ret = 0;
 
-	if (IS_ERR_OR_NULL(m->dbuf)) {
-		mdw_drv_err("mem dbuf invalid (0x%llx)\n", (uint64_t) m);
-		return -EINVAL;
-	}
-
-	if (kref_read(&m->map_ref)) {
-		kref_get(&m->map_ref);
-		goto out;
-	} else {
-		kref_init(&m->map_ref);
-	}
-
+	mutex_lock(&m->mtx);
 	get_dma_buf(m->dbuf);
+	if (m->map) {
+		mdw_drv_err("mem(0x%llx) already map\n", (uint64_t)m->map);
+		ret = -EINVAL;
+		goto out;
+	}
+
 	if (!m->mdev) {
 		m->mdev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_CODE);
 		if (!m->mdev) {
 			mdw_drv_err("get mem dev fail\n");
 			ret = -ENODEV;
-			goto put_dbuf;
+			goto out;
 		}
 	}
 
-	m->attach = dma_buf_attach(m->dbuf, m->mdev);
-	if (IS_ERR(m->attach)) {
-		ret = PTR_ERR(m->attach);
-		mdw_drv_err("dma_buf_attach failed: %d\n", ret);
-		goto put_dbuf;
+	map = kzalloc(sizeof(*map), GFP_KERNEL);
+	if (!map) {
+		ret = -ENOMEM;
+		goto out;
 	}
 
-	m->sgt = dma_buf_map_attachment(m->attach,
+	map->attach = dma_buf_attach(m->dbuf, m->mdev);
+	if (IS_ERR(map->attach)) {
+		ret = PTR_ERR(map->attach);
+		mdw_drv_err("dma_buf_attach failed: %d\n", ret);
+		goto free_map;
+	}
+
+	map->sgt = dma_buf_map_attachment(map->attach,
 		DMA_BIDIRECTIONAL);
-	if (IS_ERR(m->sgt)) {
-		ret = PTR_ERR(m->sgt);
+	if (IS_ERR(map->sgt)) {
+		ret = PTR_ERR(map->sgt);
 		mdw_drv_err("dma_buf_map_attachment failed: %d\n", ret);
 		goto detach_dbuf;
 	}
 
-	m->device_va = sg_dma_address(m->sgt->sgl);
-	m->dva_size = sg_dma_len(m->sgt->sgl);
+	m->device_va = sg_dma_address(map->sgt->sgl);
+	m->dva_size = sg_dma_len(map->sgt->sgl);
 	if (!m->device_va || !m->dva_size) {
 		mdw_drv_err("can't get mem(0x%llx) dva(0x%llx/%u)\n",
 			(uint64_t)m, m->device_va, m->dva_size);
@@ -256,38 +310,178 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		goto unmap_dbuf;
 	}
 
+	map->m = m;
+	m->map = map;
+	kref_init(&map->map_ref);
 	mdw_mem_show(m);
 	goto out;
 
 unmap_dbuf:
-	dma_buf_unmap_attachment(m->attach,
-		m->sgt, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment(map->attach,
+		map->sgt, DMA_BIDIRECTIONAL);
 detach_dbuf:
-	dma_buf_detach(m->dbuf, m->attach);
-put_dbuf:
-	dma_buf_put(m->dbuf);
-	kref_put(&m->map_ref, mdw_mem_map_release);
+	dma_buf_detach(m->dbuf, map->attach);
+free_map:
+	m->device_va = 0;
+	m->dva_size = 0;
+	m->map = NULL;
+	kfree(map);
 out:
+	if (ret)
+		dma_buf_put(m->dbuf);
+	mutex_unlock(&m->mtx);
+
+	return ret;
+}
+
+static void mdw_mem_invoke_release(struct kref *ref)
+{
+	struct mdw_mem_invoke *m_invoke =
+			container_of(ref, struct mdw_mem_invoke, ref);
+	struct mdw_mem_map *map = m_invoke->m->map;
+	struct dma_buf *dbuf = m_invoke->m->dbuf;
+
+	mdw_mem_show(m_invoke->m);
+	list_del(&m_invoke->u_node);
+	kfree(m_invoke);
+	mdw_mem_map_put(map);
+	dma_buf_put(dbuf);
+}
+
+static struct mdw_mem_invoke *mdw_mem_invoke_find(struct mdw_fpriv *mpriv,
+	struct mdw_mem *m)
+{
+	struct mdw_mem_invoke *m_invoke = NULL;
+
+	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		if (m_invoke->m == m) {
+			mdw_flw_debug("mpriv(0x%llx) find invoke(0x%llx) to mem(0x%llx)\n",
+				(uint64_t)mpriv, (uint64_t)m_invoke,
+				(uint64_t)m);
+			return m_invoke;
+		}
+	}
+
+	return NULL;
+}
+
+static void mdw_mem_invoke_put(struct mdw_mem_invoke *m_invoke)
+{
+	if (m_invoke) {
+		mdw_mem_show(m_invoke->m);
+		kref_put(&m_invoke->ref, mdw_mem_invoke_release);
+	}
+}
+
+static void mdw_mem_invoke_get(struct mdw_mem_invoke *m_invoke)
+{
+	if (m_invoke) {
+		mdw_mem_show(m_invoke->m);
+		kref_get(&m_invoke->ref);
+	}
+}
+
+static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	struct mdw_mem_invoke *m_invoke = NULL;
+	struct mdw_mem_map *map = m->map;
+
+	m_invoke = kzalloc(sizeof(*m_invoke), GFP_KERNEL);
+	if (!m_invoke)
+		return -ENOMEM;
+
+	get_dma_buf(m->dbuf);
+	mdw_mem_map_get(map);
+	mdw_mem_show(m);
+	m_invoke->m = m;
+	m_invoke->get = mdw_mem_invoke_get;
+	m_invoke->put = mdw_mem_invoke_put;
+	kref_init(&m_invoke->ref);
+	list_add_tail(&m_invoke->u_node, &mpriv->invokes);
+
+	return 0;
+}
+
+int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
+{
+	struct mdw_mem_invoke *m_invoke = NULL;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(m->dbuf)) {
+		mdw_drv_err("mem dbuf invalid (0x%llx)\n", (uint64_t) m);
+		return -EINVAL;
+	}
+
+	mdw_trace_begin("%s", __func__);
+	get_dma_buf(m->dbuf);
+
+	mdw_mem_show(m);
+
+	/* handle map */
+	if (m->map == NULL) {
+		ret = mdw_mem_map_create(mpriv, m);
+		if (ret) {
+			mdw_drv_err("m(0x%llx) map fail(%d)\n",
+				(uint64_t)m, ret);
+			goto out;
+		} else {
+			/* map create ok, create invoke for map */
+			ret = mdw_mem_invoke_create(mpriv, m);
+			if (ret)
+				mdw_drv_err("m(0x%llx) create invoke fail(%d)\n",
+					(uint64_t)m, ret);
+		}
+
+		mdw_mem_map_put(m->map);
+		goto out;
+	}
+
+	/* handle invoke */
+	m_invoke = mdw_mem_invoke_find(mpriv, m);
+	mdw_flw_debug("0x%llx\n", (uint64_t)m_invoke);
+	if (m_invoke) {
+		m_invoke->get(m_invoke);
+	} else {
+		ret = mdw_mem_invoke_create(mpriv, m);
+		if (ret)
+			mdw_drv_err("m(0x%llx) invoke fail(%d)\n",
+				(uint64_t)m, ret);
+	}
+
+	goto out;
+
+out:
+	dma_buf_put(m->dbuf);
+	mdw_trace_end("%s", __func__);
 
 	return ret;
 }
 
 int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
-	if (!kref_read(&m->map_ref)) {
-		mdw_drv_warn("can't unmap mem\n");
-		return -EINVAL;
-	}
-	mdw_mem_show(m);
-	kref_put(&m->map_ref, mdw_mem_map_release);
+	struct mdw_mem_invoke *m_invoke = NULL;
+	int ret = 0;
 
-	return 0;
+	mdw_mem_show(m);
+	m_invoke = mdw_mem_invoke_find(mpriv, m);
+	if (m_invoke == NULL) {
+		mdw_drv_warn("mpriv(0x%llx) no invoke m(0x%llx)\n",
+			(uint64_t)mpriv, (uint64_t)m);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	m_invoke->put(m_invoke);
+
+out:
+	return ret;
 }
 
 int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	int ret = 0;
 
+	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
 	ret = dma_buf_end_cpu_access(m->dbuf, DMA_TO_DEVICE);
 	if (ret) {
 		mdw_drv_err("Flush Fail\n");
@@ -297,12 +491,15 @@ int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 	mdw_mem_show(m);
 out:
+	mdw_trace_end("%s|size(%u)", __func__, m->dva_size);
 	return ret;
 }
 
 int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	int ret = 0;
+
+	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
 
 	ret = dma_buf_begin_cpu_access(m->dbuf, DMA_FROM_DEVICE);
 	if (ret) {
@@ -313,18 +510,19 @@ int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 	mdw_mem_show(m);
 out:
+	mdw_trace_end("%s|size(%u)", __func__, m->dva_size);
 	return ret;
 }
 
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv)
 {
-	struct mdw_mem *m = NULL, *tmp = NULL;
-	int i = 0, ref_cnt = 0;
+	struct mdw_mem_invoke *m_invoke = NULL, *tmp = NULL;
 
-	list_for_each_entry_safe(m, tmp, &mpriv->mems, u_item) {
-		ref_cnt = kref_read(&m->map_ref);
-		for (i = 0; i < ref_cnt; i++)
-			kref_put(&m->map_ref, mdw_mem_map_release);
+	list_for_each_entry_safe(m_invoke, tmp, &mpriv->invokes, u_node) {
+		if (m_invoke->m->handle >= 0) {
+			mdw_mem_show(m_invoke->m);
+			mdw_mem_invoke_release(&m_invoke->ref);
+		}
 	}
 }
 
@@ -333,30 +531,30 @@ static int mdw_mem_ioctl_alloc(struct mdw_fpriv *mpriv,
 {
 	struct mdw_mem_in *in = (struct mdw_mem_in *)args;
 	struct mdw_mem *m = NULL;
+	int ret = 0;
 
 	if (!in->alloc.size) {
 		mdw_drv_err("invalid size(%u)\n", in->alloc.size);
 		return -EINVAL;
 	}
 
-	m = mdw_mem_alloc(mpriv, in->alloc.size,
-		in->alloc.align, in->alloc.flags,
-		in->alloc.type, MDW_MEM_OP_ALLOC);
+	mutex_lock(&mpriv->mtx);
+
+	m = mdw_mem_alloc(mpriv, in->alloc.type, in->alloc.size,
+		in->alloc.align, in->alloc.flags, true);
 	memset(args, 0, sizeof(*args));
 	if (!m) {
 		mdw_drv_err("mdw_mem_alloc fail\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto out;
 	}
 
-	mutex_lock(&mpriv->mtx);
-	list_add_tail(&m->u_item, &mpriv->mems);
-
 	args->out.alloc.handle = m->handle;
-
 	mdw_mem_show(m);
-	mutex_unlock(&mpriv->mtx);
 
-	return 0;
+out:
+	mutex_unlock(&mpriv->mtx);
+	return ret;
 }
 
 static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
@@ -367,7 +565,6 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	struct dma_buf *dbuf = NULL;
 	int ret = -ENOMEM, handle = (int)in->map.handle;
 	uint32_t size = in->map.size;
-	bool is_new = false;
 
 	memset(args, 0, sizeof(*args));
 
@@ -379,6 +576,7 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 
 	mutex_lock(&mpriv->mtx);
 
+	/* query mem from apu's mem list */
 	m = mdw_mem_get(mpriv, handle);
 	if (!m) {
 		m = mdw_mem_create(mpriv);
@@ -388,27 +586,19 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 		} else {
 			m->size = size;
 			m->dbuf = dbuf;
-			m->op = MDW_MEM_OP_IMPORT;
 			m->type = MDW_MEM_TYPE_MAIN;
-			is_new = true;
 		}
+	} else {
+		mdw_mem_put(mpriv, m);
 	}
 
+	/* map apu va */
 	ret = mdw_mem_map(mpriv, m);
 	if (ret) {
-		/* TODO */
-		mdw_drv_err("map fail\n");
-		mutex_lock(&mdw_dev->m_mtx);
-		list_del(&m->d_node);
-		mutex_unlock(&mdw_dev->m_mtx);
-		kfree(m);
-		m = NULL;
-		mpriv->put(mpriv);
+		mdw_drv_err("map dmabuf(%d) fail\n", handle);
+		mdw_mem_delete(m);
 		goto out;
 	}
-
-	if (is_new == true)
-		list_add_tail(&m->u_item, &mpriv->mems);
 
 	mdw_mem_show(m);
 	goto out;
@@ -437,6 +627,8 @@ static int mdw_mem_ioctl_unmap(struct mdw_fpriv *mpriv,
 	m = mdw_mem_get(mpriv, handle);
 	if (!m)
 		goto out;
+	else
+		mdw_mem_put(mpriv, m);
 
 	mdw_mem_show(m);
 	ret = mdw_mem_unmap(mpriv, m);
@@ -452,7 +644,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data)
 	union mdw_mem_args *args = (union mdw_mem_args *)data;
 	int ret = 0;
 
-	mdw_flw_debug("op::%d\n", args->in.op);
+	mdw_flw_debug("mpriv(0x%llx) op::%d\n", (uint64_t)mpriv, args->in.op);
 	switch (args->in.op) {
 	case MDW_MEM_IOCTL_ALLOC:
 		ret = mdw_mem_ioctl_alloc(mpriv, args);
