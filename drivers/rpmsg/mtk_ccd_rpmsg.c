@@ -8,6 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
 #include <linux/workqueue.h>
+#include <linux/jiffies.h>
 #include <linux/slab.h>
 
 #include <uapi/linux/mtk_ccd_controls.h>
@@ -248,17 +249,11 @@ mtk_destroy_client_msgdevice(struct rproc_subdev *subdev,
 	listen_obj_rdy = atomic_read(&mtk_subdev->listen_obj_rdy);
 	if (listen_obj_rdy == CCD_LISTEN_OBJECT_READY) {
 		mutex_unlock(&mtk_subdev->master_listen_lock);
-		ret = wait_event_interruptible
+		wait_event_interruptible_timeout
 			(mtk_subdev->ccd_listen_wq,
-			 (atomic_read(&mtk_subdev->listen_obj_rdy) ==
-			 CCD_LISTEN_OBJECT_PREPARING));
-
-		if (ret != 0) {
-			dev_dbg(&mtk_subdev->pdev->dev,
-				"ccd listen wait error: %d\n", ret);
-			return -EINVAL;
-		}
-
+			(atomic_read(&mtk_subdev->listen_obj_rdy) ==
+			CCD_LISTEN_OBJECT_PREPARING),
+			msecs_to_jiffies(400));
 		mutex_lock(&mtk_subdev->master_listen_lock);
 	}
 
