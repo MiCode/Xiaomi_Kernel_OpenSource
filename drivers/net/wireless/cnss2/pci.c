@@ -3027,7 +3027,10 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
 		goto reg_driver;
 	} else {
-		cnss_pr_err("Calibration still not done\n");
+		cnss_pr_err("Timeout waiting for calibration to complete\n");
+		del_timer(&plat_priv->fw_boot_timer);
+		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
+			CNSS_ASSERT(0);
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 		if (!cal_info)
 			return;
@@ -3035,8 +3038,6 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
 				       0, cal_info);
-		/* Temporarily return for bringup. CBC will not be triggered */
-		return;
 	}
 reg_driver:
 	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
