@@ -81,7 +81,6 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	struct vdec_fb *pfb;
 	struct timespec64 t_s, t_e;
 	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 	struct vdec_vsi *vsi;
 	uint64_t vdec_fb_va;
 	long timeout_jiff;
@@ -105,9 +104,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	BUILD_BUG_ON(
 		sizeof(struct vdec_vcu_ipi_query_cap_ack) > SHARE_BUF_SIZE);
 
-	vcu_get_file_lock();
-	vcu_get_task(&task, &f, 0);
-	vcu_put_file_lock();
+	vcu_get_task(&task, 0);
 	if (msg == NULL || task == NULL ||
 	   task->tgid != current->tgid ||
 	   (struct vdec_vcu_inst *)msg->ap_inst_addr == NULL) {
@@ -328,7 +325,6 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 {
 	int err;
 	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 	unsigned int suspend_block_cnt = 0;
 
 	mtk_vcodec_debug(vcu, "id=%X", *(uint32_t *)msg);
@@ -344,9 +340,7 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 		usleep_range(10000, 20000);
 	}
 
-	vcu_get_file_lock();
-	vcu_get_task(&task, &f, 0);
-	vcu_put_file_lock();
+	vcu_get_task(&task, 0);
 	if (task == NULL ||
 		vcu->daemon_pid != task->tgid) {
 		if (task)
@@ -394,11 +388,8 @@ static int vcodec_send_ap_ipi(struct vdec_vcu_inst *vcu, unsigned int msg_id)
 void vcu_dec_set_pid(struct vdec_vcu_inst *vcu)
 {
 	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 
-	vcu_get_file_lock();
-	vcu_get_task(&task, &f, 0);
-	vcu_put_file_lock();
+	vcu_get_task(&task, 0);
 	if (task != NULL)
 		vcu->daemon_pid = task->tgid;
 	else

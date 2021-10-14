@@ -132,10 +132,9 @@ inline unsigned int ipi_id_to_inst_id(int id)
 static struct mtk_vcu *vcu_mtkdev[MTK_VCU_NR_MAX];
 
 static struct task_struct *vcud_task;
-static struct files_struct *files;
 
 /* for protecting vpud file struct */
-struct mutex vpud_file_mutex;
+struct mutex vpud_task_mutex;
 
 static __attribute__((used)) unsigned int time_ms_s, time_ms_e;
 #define time_check_start() { \
@@ -1481,18 +1480,6 @@ int vcu_compare_version(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(vcu_compare_version);
 
-void vcu_get_file_lock(void)
-{
-	mutex_lock(&vpud_file_mutex);
-}
-EXPORT_SYMBOL_GPL(vcu_get_file_lock);
-
-void vcu_put_file_lock(void)
-{
-	mutex_unlock(&vpud_file_mutex);
-}
-EXPORT_SYMBOL_GPL(vcu_put_file_lock);
-
 int vcu_get_sig_lock(unsigned long *flags)
 {
 	return spin_trylock_irqsave(&vcu_ptr->vpud_sig_lock, *flags);
@@ -1511,20 +1498,20 @@ int vcu_check_vpud_alive(void)
 }
 EXPORT_SYMBOL_GPL(vcu_check_vpud_alive);
 
-void vcu_get_task(struct task_struct **task, struct files_struct **f,
-		int reset)
+void vcu_get_task(struct task_struct **task, int reset)
 {
 	vcu_dbg_log("mtk_vcu_get_task %p\n", vcud_task);
 
+	mutex_lock(&vpud_task_mutex);
+
 	if (reset == 1) {
 		vcud_task = NULL;
-		files = NULL;
 	}
 
 	if (task)
 		*task = vcud_task;
-	if (f)
-		*f = files;
+
+	mutex_unlock(&vpud_task_mutex);
 }
 EXPORT_SYMBOL_GPL(vcu_get_task);
 
@@ -1572,7 +1559,7 @@ static int vcu_ipi_init(struct mtk_vcu *vcu)
 	mutex_init(&vcu->vcu_gce_mutex[VCU_RESOURCE]);
 	mutex_init(&vcu->ctx_ipi_binding[VCU_RESOURCE]);
 	mutex_init(&vcu->vcu_share);
-	mutex_init(&vpud_file_mutex);
+	mutex_init(&vpud_task_mutex);
 
 	return 0;
 }
@@ -1630,9 +1617,7 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 
 		atomic_set(&vcu->vdec_log_got, 1);
 		wake_up(&vcu->vdec_log_get_wq);
-		vcu_get_file_lock();
-		vcu_get_task(NULL, NULL, 1);
-		vcu_put_file_lock();
+		vcu_get_task(NULL, 1);
 
 		dev_info(vcu->dev, "[VCU] vpud killing\n");
 
@@ -1661,10 +1646,15 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	else if (strcmp(current->comm, "mdpd") == 0)
 		vcuid = 1;
 	else if (strcmp(current->comm, "vpud") == 0) {
-		vcu_get_file_lock();
-		vcud_task = current;
-		files = vcud_task->files;
-		vcu_put_file_lock();
+		mutex_lock(&vpud_task_mutex);
+		if (vcud_task &&
+			current->tgid != vcud_task->tgid &&
+			current->group_leader != vcud_task->group_leader) {
+			mutex_unlock(&vpud_task_mutex);
+			return -EACCES;
+		}
+		vcud_task = current->group_leader;
+		mutex_unlock(&vpud_task_mutex);
 		vcuid = 0;
 	} else if (strcmp(current->comm, "vdec_srv") == 0 ||
 		strcmp(current->comm, "venc_srv") == 0) {
@@ -1690,16 +1680,15 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	vcu_ptr->abort = false;
 	vcu_ptr->vpud_is_going_down = 0;
 
-	pr_info("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
-		current->comm, current->tgid, vcu_ptr->open_cnt);
+	pr_info("[VCU] %s name: %s pid %d tgid %d open_cnt %d current %p group_leader %p\n",
+		__func__, current->comm, current->pid, current->tgid,
+		vcu_ptr->open_cnt, current, current->group_leader);
 
 	return 0;
 }
 
 static int mtk_vcu_release(struct inode *inode, struct file *file)
 {
-	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 	unsigned long flags;
 
 	if (file->private_data)
@@ -1710,9 +1699,7 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 	if (vcu_ptr->open_cnt == 0) {
 		/* reset vpud due to abnormal situations. */
 		vcu_ptr->abort = true;
-		vcu_get_file_lock();
-		vcu_get_task(&task, &f, 1);
-		vcu_put_file_lock();
+		vcu_get_task(NULL, 1);
 		up(&vcu_ptr->vpud_killed);  /* vdec worker */
 		up(&vcu_ptr->vpud_killed);  /* venc worker */
 
@@ -2682,7 +2669,7 @@ vcu_mutex_destroy:
 	mutex_destroy(&vcu->vcu_gce_mutex[VCU_RESOURCE]);
 	mutex_destroy(&vcu->ctx_ipi_binding[VCU_RESOURCE]);
 	mutex_destroy(&vcu->vcu_share);
-	mutex_destroy(&vpud_file_mutex);
+	mutex_destroy(&vpud_task_mutex);
 err_ipi_init:
 	devm_kfree(dev, vcu);
 

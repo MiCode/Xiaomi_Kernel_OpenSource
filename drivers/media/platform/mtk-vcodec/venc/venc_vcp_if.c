@@ -150,7 +150,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		return 0;
 
 	if (ret != IPI_ACTION_DONE) {
-		mtk_vcodec_err(inst, "mtk_ipi_send fail %d", ret);
+		mtk_vcodec_err(inst, "mtk_ipi_send %X fail %d", *(u32 *)msg, ret);
 		mutex_unlock(&inst->ctx->dev->ipi_mutex);
 		inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
 		inst->vcu_inst.abort = 1;

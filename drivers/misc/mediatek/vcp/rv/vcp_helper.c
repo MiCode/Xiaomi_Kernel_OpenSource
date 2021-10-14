@@ -827,6 +827,37 @@ static struct notifier_block vcp_pm_notifier_block = {
 	.priority = 0,
 };
 
+static inline ssize_t vcp_register_on_store(struct device *kobj
+		, struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int value = 0;
+
+	if (!buf || count == 0)
+		return count;
+
+	if (kstrtouint(buf, 10, &value) == 0)
+		if (value == 666)
+			vcp_register_feature(RTOS_FEATURE_ID);
+
+	return count;
+}
+DEVICE_ATTR_WO(vcp_register_on);
+
+static inline ssize_t vcp_deregister_off_store(struct device *kobj
+		, struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int value = 0;
+
+	if (!buf || count == 0)
+		return count;
+
+	if (kstrtouint(buf, 10, &value) == 0)
+		if (value == 666)
+			vcp_deregister_feature(RTOS_FEATURE_ID);
+
+	return count;
+}
+DEVICE_ATTR_WO(vcp_deregister_off);
 
 static inline ssize_t vcp_A_status_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
@@ -1226,6 +1257,15 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 #endif  // VCP_RECOVERY_SUPPORT
+	ret = device_create_file(vcp_device.this_device,
+					&dev_attr_vcp_register_on);
+	if (unlikely(ret != 0))
+		return ret;
+
+	ret = device_create_file(vcp_device.this_device,
+					&dev_attr_vcp_deregister_off);
+	if (unlikely(ret != 0))
+		return ret;
 
 	ret = device_create_file(vcp_device.this_device,
 					&dev_attr_log_filter);

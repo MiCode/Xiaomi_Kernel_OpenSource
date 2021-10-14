@@ -73,7 +73,6 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	int ret = 0;
 	unsigned long flags;
 	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 
 	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_init) > SHARE_BUF_SIZE);
 	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_query_cap) > SHARE_BUF_SIZE);
@@ -90,9 +89,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_deinit) > SHARE_BUF_SIZE);
 	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_waitisr) > SHARE_BUF_SIZE);
 
-	vcu_get_file_lock();
-	vcu_get_task(&task, &f, 0);
-	vcu_put_file_lock();
+	vcu_get_task(&task, 0);
 	if (msg == NULL || task == NULL ||
 	   task->tgid != current->tgid ||
 	   (struct venc_vcu_inst *)(unsigned long)msg->venc_inst == NULL) {
@@ -196,7 +193,6 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 {
 	int status;
 	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 	unsigned int suspend_block_cnt = 0;
 
 	mtk_vcodec_debug_enter(vcu);
@@ -218,9 +214,7 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 		usleep_range(10000, 20000);
 	}
 
-	vcu_get_file_lock();
-	vcu_get_task(&task, &f, 0);
-	vcu_put_file_lock();
+	vcu_get_task(&task, 0);
 	if (task == NULL ||
 		vcu->daemon_pid != task->tgid) {
 		if (task)
@@ -253,11 +247,8 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 void vcu_enc_set_pid(struct venc_vcu_inst *vcu)
 {
 	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 
-	vcu_get_file_lock();
-	vcu_get_task(&task, &f, 0);
-	vcu_put_file_lock();
+	vcu_get_task(&task, 0);
 	if (task != NULL)
 		vcu->daemon_pid = task->tgid;
 	else
