@@ -1795,7 +1795,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	u32 status;
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
-	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
+	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 5);
 	bool doze_enabled = 0;
 	unsigned int doze_wait = 0;
 	static unsigned int cnt;
@@ -1869,9 +1869,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 		}
 
-		if (status & INP_UNFINISH_INT_EN)
-			DDPPR_ERR("[IRQ] %s: input relay unfinish\n",
-				  mtk_dump_comp_str(&dsi->ddp_comp));
+		//if (status & INP_UNFINISH_INT_EN)
+			//DDPPR_ERR("[IRQ] %s: input relay unfinish\n",
+				  //mtk_dump_comp_str(&dsi->ddp_comp));
 
 		if (status & SLEEPOUT_DONE_INT_FLAG)
 			wakeup_dsi_wq(&dsi->exit_ulps_done);

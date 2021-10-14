@@ -170,11 +170,11 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 		priv->abnormal_cnt++;
 	}
 
-	if (val & (1 << 8)) {
-		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
-			  mtk_dump_comp_str(postmask), priv->underflow_cnt);
-		priv->underflow_cnt++;
-	}
+	//if (val & (1 << 8)) {
+		//DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
+			  //mtk_dump_comp_str(postmask), priv->underflow_cnt);
+		//priv->underflow_cnt++;
+	//}
 
 	ret = IRQ_HANDLED;
 
