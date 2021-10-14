@@ -780,12 +780,6 @@
 			<&mfgpll_pll_ctrl_clk CLK_MFG_AO_MFGPLL>;
 	};
 
-	disable-unused-clk-gpuebpll_pll_ctrl {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&gpuebpll_pll_ctrl_clk CLK_GPUEB_AO_GPUEBPLL>;
-	};
-
 	disable-unused-clk-mfgscpll_pll_ctrl {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
