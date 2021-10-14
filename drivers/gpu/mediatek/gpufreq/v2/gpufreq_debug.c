@@ -31,7 +31,6 @@
  */
 static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
-static unsigned int g_sudo_mode;
 static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
 static unsigned int g_gpm_enable;
@@ -170,53 +169,6 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 	return GPUFREQ_SUCCESS;
 }
 
-/* PROCFS: show current mode of GPUFREQ-DEBUG */
-static int gpufreq_pikachu_proc_show(struct seq_file *m, void *v)
-{
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (g_sudo_mode)
-		seq_puts(m, "[GPUFREQ-DEBUG] this is a SUPER pikachu\n");
-	else
-		seq_puts(m, "[GPUFREQ-DEBUG] this is a pikachu\n");
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-	return GPUFREQ_SUCCESS;
-}
-
-/*
- * PROCFS: enable sudo mode of GPUFREQ-DEBUG
- * GPUFREQ_DBG_KEY: enable sudo mode
- * others: disable sudo mode
- */
-static ssize_t gpufreq_pikachu_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *data)
-{
-	int ret = GPUFREQ_SUCCESS;
-	char buf[64];
-	unsigned int len = 0;
-
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-	if (copy_from_user(buf, buffer, len)) {
-		ret = GPUFREQ_EINVAL;
-		goto done;
-	}
-	buf[len] = '\0';
-
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (sysfs_streq(buf, GPUFREQ_DBG_KEY))
-		g_sudo_mode = true;
-	else
-		g_sudo_mode = false;
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-done:
-	return (ret < 0) ? ret : count;
-}
-
 static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
@@ -288,9 +240,6 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (!g_sudo_mode)
-		goto done;
-
 	opp_table = gpufreq_get_signed_table(TARGET_GPU);
 	if (!opp_table) {
 		GPUFREQ_LOGE("fail to get GPU signed OPP table (ENOENT)");
@@ -321,9 +270,6 @@ static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 	int i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
-
-	if (!g_sudo_mode)
-		goto done;
 
 	opp_table = gpufreq_get_signed_table(TARGET_STACK);
 	if (!opp_table) {
@@ -537,9 +483,6 @@ static ssize_t fix_custom_freq_volt_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (!g_sudo_mode)
-		goto done_unlock;
-
 	if (sscanf(buf, "%7d %6d", &fixed_freq, &fixed_volt) == 2) {
 		ret = gpufreq_fix_custom_freq_volt(TARGET_DEFAULT, fixed_freq, fixed_volt);
 		if (ret) {
@@ -555,7 +498,6 @@ static ssize_t fix_custom_freq_volt_proc_write(struct file *file,
 		}
 	}
 
-done_unlock:
 	mutex_unlock(&gpufreq_debug_lock);
 done:
 	return (ret < 0) ? ret : count;
@@ -842,51 +784,8 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
-/*
- * PROCFS: cause bug on for DFD data dump when GPU hard stop
- * 0: do nothing
- * 1: cause bug on when GPU hard stop
- * may have other modes, we will not use "enable" and "disable"
- */
-static int gpudfd_force_dump_proc_show(struct seq_file *m, void *v)
-{
-	unsigned int force_dump_mode = 0;
-
-	seq_puts(m, "0: disable\n");
-	seq_puts(m, "1: force dump\n");
-
-	force_dump_mode = gpufreq_get_dfd_force_dump_mode();
-	seq_printf(m, "DFD force dump mode: %d\n", force_dump_mode);
-
-	return 0;
-}
-
-static ssize_t gpudfd_force_dump_proc_write(
-		struct file *file, const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret = -EFAULT;
-	char buf[64];
-	unsigned int len = 0;
-	unsigned int value = 0;
-
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-
-	if (copy_from_user(buf, buffer, len))
-		goto out;
-
-	buf[len] = '\0';
-
-	if (!kstrtouint(buf, 10, &value))
-		ret = gpufreq_set_dfd_force_dump_mode(value);
-
-out:
-	return (ret < 0) ? ret : count;
-}
-
 /* PROCFS : initialization */
 PROC_FOPS_RO(gpufreq_status);
-PROC_FOPS_RW(gpufreq_pikachu);
 PROC_FOPS_RO(gpu_working_opp_table);
 PROC_FOPS_RO(gpu_signed_opp_table);
 PROC_FOPS_RO(stack_working_opp_table);
@@ -899,7 +798,6 @@ PROC_FOPS_RW(mfgsys_power_control);
 PROC_FOPS_RW(opp_stress_test);
 PROC_FOPS_RW(aging_mode);
 PROC_FOPS_RW(gpm_mode);
-PROC_FOPS_RW(gpudfd_force_dump);
 
 static int gpufreq_create_procfs(void)
 {
@@ -913,7 +811,6 @@ static int gpufreq_create_procfs(void)
 
 	const struct pentry default_entries[] = {
 		PROC_ENTRY(gpufreq_status),
-		PROC_ENTRY(gpufreq_pikachu),
 		PROC_ENTRY(gpu_working_opp_table),
 		PROC_ENTRY(gpu_signed_opp_table),
 		PROC_ENTRY(asensor_info),
@@ -924,7 +821,6 @@ static int gpufreq_create_procfs(void)
 		PROC_ENTRY(opp_stress_test),
 		PROC_ENTRY(aging_mode),
 		PROC_ENTRY(gpm_mode),
-		PROC_ENTRY(gpudfd_force_dump),
 	};
 
 	const struct pentry dualbuck_entries[] = {

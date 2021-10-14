@@ -9,8 +9,6 @@
 /**************************************************
  * Definition
  **************************************************/
-#define GPUFREQ_DBG_KEY                 "detective"
-
 #if defined(CONFIG_PROC_FS)
 #define PROC_FOPS_RW(name)            \
 	static int name ## _proc_open(    \
