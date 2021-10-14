@@ -6918,7 +6918,6 @@
 			<&vdec_soc_gcon_base_clk CLK_VDE1_MINI_MDP_CKEN_CFG_RG>;
 		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP";
 		mediatek,fmt_gce_th_num = <2>; /* FMT GCE HW THREAD NUM */
-		mediatek,fmt_rdma_swwa = <1>; /* FMT RDMA need SW workaround */
 		mboxes = <&gce_m 6 0 CMDQ_THR_PRIO_1>,
 				<&gce_m 7 0 CMDQ_THR_PRIO_1>;
 		/* rdma0_sw_rst_done_eng_event */
