@@ -1208,6 +1208,12 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 					 __func__, req_stream_data->frame_seq_no, time_after_sof);
 				return;
 			}
+		} else if (req_stream_data->frame_seq_no == sensor_seq_no_next) {
+			spin_unlock(&sensor_ctrl->camsys_state_lock);
+			dev_dbg(ctx->cam->dev,
+					 "[%s] req:%d was already in state_list (already set)\n",
+					 __func__, req_stream_data->frame_seq_no);
+			return;
 		}
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
@@ -3653,7 +3659,8 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *initial_req,
 	if (mtk_cam_is_subsample(ctx))
 		state_transition(&req_stream_data->state,
 			E_STATE_READY, E_STATE_SUBSPL_READY);
-	dev_info(ctx->cam->dev, "Initial sensor timer setup\n");
+	dev_info(ctx->cam->dev, "Directly setup sensor req:%d\n",
+		req_stream_data->frame_seq_no);
 }
 
 static void mtk_cam_complete_hdl(struct mtk_cam_request_stream_data *s_data,
