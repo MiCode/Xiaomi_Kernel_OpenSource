@@ -1463,6 +1463,11 @@
 					fh-id = <3>;
 					pll-id = <999>;
 				};
+				mpll {
+					fh-id = <6>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
 				mmpll {
 					fh-id = <7>;
 					pll-id = <999>;
