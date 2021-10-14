@@ -93,6 +93,9 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 static struct cmdq_pkt *sb_cmdq_handle;
 static unsigned int sb_backlight;
 
+struct timespec64 atomic_flush_tval;
+struct timespec64 rdma_sof_tval;
+
 bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
@@ -6527,9 +6530,13 @@ unsigned int msync_cmd_level_tb_dirty;
 int (*mtk_drm_get_target_fps_fp)(unsigned int vrefresh, unsigned int atomic_fps);
 EXPORT_SYMBOL(mtk_drm_get_target_fps_fp);
 
-int (*mtk_sync_multi_te_level_decision_fp)(void *level_tb,
-	unsigned int target_fps, unsigned int *fps_level, unsigned int *min_fps);
+int (*mtk_sync_multi_te_level_decision_fp)(void *level_tb, unsigned int te_type,
+	unsigned int target_fps, unsigned int *fps_level,
+	unsigned int *min_fps, unsigned long x_time);
+int (*mtk_sync_slow_descent_fp)(unsigned int fps_level, unsigned int fps_level_old,
+	unsigned int delay_frame_num);
 EXPORT_SYMBOL(mtk_sync_multi_te_level_decision_fp);
+EXPORT_SYMBOL(mtk_sync_slow_descent_fp);
 
 void mtk_drm_sort_msync_level_table(void)
 {
@@ -6678,6 +6685,9 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	int index = drm_crtc_index(crtc);
 	static unsigned int fps_level_old;
 	static unsigned int min_fps_old;
+	static unsigned long sec;
+	static unsigned long usec;
+	unsigned long x_time = 0;
 
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
 
@@ -6690,6 +6700,12 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		DDPPR_ERR("[Msync2.0] mtk_drm_get_target_fps_fp is NULL\n");
 		return;
 	}
+
+	/* Get SOF - atomic_flush time*/
+	sec = rdma_sof_tval.tv_sec - atomic_flush_tval.tv_sec;
+	usec = rdma_sof_tval.tv_nsec/1000 - atomic_flush_tval.tv_nsec/1000;
+	x_time = sec * 1000000 + usec;  /* time is usec as unit */
+	DDPMSG("[Msync2.0]Get SOF - atomic_flush time:%lu\n", x_time);
 
 	/* If need request TE, to do it here */
 	if (params->msync_cmd_table.te_type == REQUEST_TE) {
@@ -6707,11 +6723,11 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			min_fps = drm_mode_vrefresh(&crtc->state->mode);
 		} else if (mtk_sync_multi_te_level_decision_fp) {
 			mtk_sync_multi_te_level_decision_fp((void *)mte_tb->multi_te_level,
-				target_fps, &fps_level, &min_fps);
+				MULTI_TE, target_fps, &fps_level, &min_fps, x_time);
 
 			if (msync_cmd_level_tb_dirty)
 				mtk_sync_multi_te_level_decision_fp((void *)msync_level_tb,
-					target_fps, &fps_level, &min_fps);
+					MULTI_TE, target_fps, &fps_level, &min_fps, x_time);
 		} else {
 			DDPMSG("[Msync2.0] Not have level decision function\n");
 			return;
@@ -6721,6 +6737,13 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			target_fps, fps_level, msync_cmd_level_tb_dirty, min_fps);
 		DDPMSG("[Msync2.0] M-TE fps_level_old:%u min_fps_old:%u\n",
 			fps_level_old, min_fps_old);
+
+		if (mtk_sync_slow_descent_fp) {
+			int ret = mtk_sync_slow_descent_fp(fps_level, fps_level_old,
+				params->msync_cmd_table.delay_frame_num);
+			if (ret == 1)
+				return;
+		}
 
 		/*Msync 2.0: add Msync trace info*/
 		mtk_drm_trace_begin("msync_level_fps:%u[%u] to %u[%u]",
@@ -6799,6 +6822,8 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	unsigned int target_fps = 0;
 	unsigned int atomic_fps = 0;
 	static unsigned int msync_may_close;
+	unsigned int msync_fps_record[60];
+	static unsigned int position;
 
 	/* When open VDS path switch feature, we will resume VDS crtc
 	 * in it's second atomic commit, and the crtc will be resumed
@@ -6856,6 +6881,13 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 		/* Get target fps for msync2.0 */
 		atomic_fps = mtk_drm_get_atomic_fps();
+		/* cycle record fps */
+		msync_fps_record[position] = atomic_fps;
+		if (position < (sizeof(msync_fps_record)/sizeof(unsigned int)) - 1)
+			position++;
+		else
+			position = 0;
+
 		WARN_ON(!mtk_drm_get_target_fps_fp);
 		if (mtk_drm_get_target_fps_fp)
 			target_fps = mtk_drm_get_target_fps_fp(
@@ -8039,6 +8071,7 @@ end:
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 	mtk_drm_trace_end();
+	ktime_get_real_ts64(&atomic_flush_tval);
 }
 
 static const struct drm_crtc_funcs mtk_crtc_funcs = {
@@ -8768,6 +8801,8 @@ static int mtk_drm_pf_release_thread(void *data)
 		mtk_release_present_fence(private->session_id[crtc_idx],
 					  fence_idx, 0);
 		mutex_unlock(&private->commit.lock);
+		if (crtc_idx == 0)
+			ktime_get_real_ts64(&rdma_sof_tval);
 #endif
 	}
 

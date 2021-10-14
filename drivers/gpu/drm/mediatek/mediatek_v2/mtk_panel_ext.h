@@ -365,6 +365,7 @@ struct msync_cmd_table {
 	unsigned int msync_max_fps;
 	unsigned int msync_min_fps;
 	unsigned int msync_level_num;
+	unsigned int delay_frame_num;
 	struct msync_request_te_table request_te_tb;
 	struct msync_multi_te_table multi_te_tb;
 	struct msync_trigger_level_te_table trigger_level_te_tb;
