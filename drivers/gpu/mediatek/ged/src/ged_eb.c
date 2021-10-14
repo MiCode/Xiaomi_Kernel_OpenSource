@@ -451,11 +451,23 @@ int mtk_gpueb_sysram_batch_read(int max_read_count,
 					avg_freq += frequency2;
 					curr_str_len += scnprintf(batch_string + curr_str_len,
 						batch_str_size, "|%d", frequency2);
-				} else
+				} else {
+					// Reset the rest data
+					for (; index_freq < max_read_count; index_freq++)
+						/* Reset the rest unread data */
+						__raw_writel(0, mtk_gpueb_dvfs_sysram_base_addr +
+							SYSRAM_GPU_CURR_FREQ + (index_freq<<2));
 					break;
+				}
 			} else {
 				GPUFDVFS_LOGD("batch_string: %s, index_freq: %d\n",
 					batch_string, index_freq);
+
+				// Reset the rest data
+				for (; index_freq < max_read_count; index_freq++)
+					/* Reset the rest unread data */
+					__raw_writel(0, mtk_gpueb_dvfs_sysram_base_addr +
+						SYSRAM_GPU_CURR_FREQ + (index_freq<<2));
 
 				break;
 			}

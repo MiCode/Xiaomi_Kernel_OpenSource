@@ -398,6 +398,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 
 		if (ged_is_fdvfs_support() &&
 			is_fb_dvfs_triggered && is_fdvfs_enable()) {
+			memset(batch_freq, 0, sizeof(batch_freq));
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
 
@@ -877,7 +878,8 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	gpu_freq_pre = ged_get_cur_freq() >> 10;
 
-	if (ged_is_fdvfs_support() && is_fb_dvfs_triggered && is_fdvfs_enable())
+	if (ged_is_fdvfs_support() && is_fb_dvfs_triggered && is_fdvfs_enable()
+		&& g_eb_workload != 0xFFFF)
 		busy_cycle_cur = g_eb_workload / 100;
 	else
 		busy_cycle_cur = t_gpu * gpu_freq_pre;
