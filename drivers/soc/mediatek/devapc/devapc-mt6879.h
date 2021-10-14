@@ -74,7 +74,7 @@ enum DEVAPC_PD_OFFSET {
 #define MM2ND_SLAVE_TYPE	SLAVE_TYPE_NUM		/* No MM2ND */
 
 enum OTHER_TYPES_INDEX {
-	SRAMROM_VIO_INDEX = 287,
+	SRAMROM_VIO_INDEX = 288,
 	CONN_VIO_INDEX = 126, /* starts from 0x18 */
 	MDP_VIO_INDEX = 0,
 	DISP2_VIO_INDEX = 0,
@@ -481,13 +481,14 @@ static const struct mtk_device_info mt6879_devices_infra[] = {
 	{-1, -1, 285, "Decode_error", true},
 	{-1, -1, 286, "Decode_error", true},
 
-	{-1, -1, 287, "SRAMROM", true},
-	{-1, -1, 288, "reserve", false},
+	{-1, -1, 287, "Decode_error", true},
+	{-1, -1, 288, "SRAMROM", true},
 	{-1, -1, 289, "reserve", false},
 	{-1, -1, 290, "reserve", false},
-	{-1, -1, 291, "CQ_DMA", false},
-	{-1, -1, 292, "DEVICE_APC_INFRA_AO", false},
-	{-1, -1, 293, "DEVICE_APC_INFRA_PDN", false},
+	{-1, -1, 291, "reserve", false},
+	{-1, -1, 292, "CQ_DMA", false},
+	{-1, -1, 293, "DEVICE_APC_INFRA_AO", false},
+	{-1, -1, 294, "DEVICE_APC_INFRA_PDN", false},
 };
 
 static const struct mtk_device_info mt6879_devices_infra1[] = {
