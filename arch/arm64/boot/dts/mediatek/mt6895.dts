@@ -1522,6 +1522,12 @@
 			};
 		};
 
+		drm: drm@1000d000 {
+			compatible = "mediatek,dbgtop-drm";
+			reg = <0 0x1000d000 0 0x1000>;
+			dis_ddr_rsv_mode = <1>;
+		};
+
 		devapc_ao_infra_peri@1000e000 {
 			compatible = "mediatek,devapc_ao_infra_peri";
 			reg = <0 0x1000e000 0 0x1000>;
