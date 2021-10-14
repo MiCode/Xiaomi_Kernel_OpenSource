@@ -30,6 +30,9 @@ module_param(imgsys_cmdq_ts_en, int, 0644);
 int imgsys_wpe_bwlog_en;
 module_param(imgsys_wpe_bwlog_en, int, 0644);
 
+int imgsys_cmdq_ts_dbg_en;
+module_param(imgsys_cmdq_ts_dbg_en, int, 0644);
+
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
@@ -391,22 +394,23 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	cb_param->cmdqTs.tsReqEnd = ktime_get_boottime_ns()/1000;
 	IMGSYS_SYSTRACE_END();
 
-	dev_dbg(imgsys_dev->dev,
-	"%s: TSus req fd/no(%d/%d) frame no(%d) thd(%d) cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
-		__func__, req_fd, req_no, frm_no, cb_param->thd_idx,
-		cb_param, cb_param->err, cb_param->frm_idx,
-		cb_param->frm_num, cb_frm_cnt, hw_comb,
-		(cb_param->cmdqTs.tsDvfsQosEnd-cb_param->cmdqTs.tsDvfsQosStart),
-		(cb_param->cmdqTs.tsReqEnd-cb_param->cmdqTs.tsReqStart),
-		(cb_param->cmdqTs.tsFlushStart-cb_param->cmdqTs.tsReqStart),
-		(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart),
-		tsTaskPending, tsSwEvent, tsHwEvent, tsHw,
-		(cb_param->cmdqTs.tsCmdqCbEnd-cb_param->cmdqTs.tsCmdqCbStart),
-		(cb_param->cmdqTs.tsCmdqCbWorkStart-cb_param->cmdqTs.tsCmdqCbEnd),
-		(cb_param->cmdqTs.tsReqEnd-cb_param->cmdqTs.tsCmdqCbWorkStart),
-		(cb_param->cmdqTs.tsUserCbEnd-cb_param->cmdqTs.tsUserCbStart),
-		(tsDvfsQosEnd-tsDvfsQosStart)
-		);
+	if (imgsys_cmdq_ts_dbg_enable())
+		dev_info(imgsys_dev->dev,
+			"%s: TSus req fd/no(%d/%d) frame no(%d) thd(%d) cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
+			__func__, req_fd, req_no, frm_no, cb_param->thd_idx,
+			cb_param, cb_param->err, cb_param->frm_idx,
+			cb_param->frm_num, cb_frm_cnt, hw_comb,
+			(cb_param->cmdqTs.tsDvfsQosEnd-cb_param->cmdqTs.tsDvfsQosStart),
+			(cb_param->cmdqTs.tsReqEnd-cb_param->cmdqTs.tsReqStart),
+			(cb_param->cmdqTs.tsFlushStart-cb_param->cmdqTs.tsReqStart),
+			(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart),
+			tsTaskPending, tsSwEvent, tsHwEvent, tsHw,
+			(cb_param->cmdqTs.tsCmdqCbEnd-cb_param->cmdqTs.tsCmdqCbStart),
+			(cb_param->cmdqTs.tsCmdqCbWorkStart-cb_param->cmdqTs.tsCmdqCbEnd),
+			(cb_param->cmdqTs.tsReqEnd-cb_param->cmdqTs.tsCmdqCbWorkStart),
+			(cb_param->cmdqTs.tsUserCbEnd-cb_param->cmdqTs.tsUserCbStart),
+			(tsDvfsQosEnd-tsDvfsQosStart)
+			);
 	vfree(cb_param);
 }
 
@@ -1618,5 +1622,10 @@ bool imgsys_cmdq_ts_enable(void)
 bool imgsys_wpe_bwlog_enable(void)
 {
 	return imgsys_wpe_bwlog_en;
+}
+
+bool imgsys_cmdq_ts_dbg_enable(void)
+{
+	return imgsys_cmdq_ts_dbg_en;
 }
 

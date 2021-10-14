@@ -146,4 +146,5 @@ void mtk_imgsys_pwr(struct platform_device *pdev, bool on);
 
 bool imgsys_cmdq_ts_enable(void);
 bool imgsys_wpe_bwlog_enable(void);
+bool imgsys_cmdq_ts_dbg_enable(void);
 
