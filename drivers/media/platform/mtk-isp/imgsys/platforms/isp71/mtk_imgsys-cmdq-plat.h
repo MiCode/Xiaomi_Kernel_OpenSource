@@ -22,7 +22,7 @@
 
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
-#define IMGSYS_SEC_THD 1
+#define IMGSYS_SEC_THD 2
 #define IMGSYS_MAX_FPS 60
 
 #define IMGSYS_CMDQ_HW_EVENT_BEGIN	129
@@ -502,10 +502,6 @@ static struct imgsys_event_table imgsys_event[] = {
 
 static struct cmdq_client *imgsys_clt[IMGSYS_ENG_MAX];
 static struct cmdq_client *imgsys_sec_clt[IMGSYS_SEC_THD];
-static struct cmdq_client *imgsys_adl_clt;
-static struct cmdq_pkt *imgsys_adl_pkt;
-static u16 imgsys_adl_wait;
-static u16 imgsys_adl_set;
 
 enum mtk_imgsys_m4u_port {
 	/* TRAW */

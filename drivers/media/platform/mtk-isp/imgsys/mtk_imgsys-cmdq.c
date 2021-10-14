@@ -41,13 +41,14 @@ static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
 static u32 is_sec_task_create;
 static struct cmdq_pkt *pkt_sec;
+static u32 is_adl_task_create;
+static struct cmdq_pkt *pkt_adl;
 #endif
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev)
 {
 	struct device *dev = imgsys_dev->dev;
 	u32 idx = 0;
-	int ret;
 
 	pr_info("%s: +, dev(0x%x), num(%d)\n", __func__, dev, nr_imgsys_dev);
 
@@ -78,30 +79,6 @@ void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev
 				__func__, idx, imgsys_sec_clt[idx-IMGSYS_ENG_MAX]);
 		}
 		#endif
-
-		ret = of_property_read_u16(imgsys_dev->dev->of_node,
-			"sw_sync_token_tzmp_adl_wait", &imgsys_adl_wait);
-		if (ret < 0)
-			imgsys_adl_wait = 0;
-
-		ret = of_property_read_u16(imgsys_dev->dev->of_node,
-			"sw_sync_token_tzmp_adl_set", &imgsys_adl_set);
-		if (ret < 0)
-			imgsys_adl_set = 0;
-
-		if (imgsys_adl_wait && imgsys_adl_set) {
-			imgsys_adl_clt = cmdq_mbox_create(dev, 11);
-			if (imgsys_adl_clt) {
-				imgsys_adl_pkt = cmdq_pkt_create(imgsys_adl_clt);
-				cmdq_sec_pkt_set_data(imgsys_adl_pkt, 0, 0, CMDQ_SEC_DEBUG,
-					CMDQ_METAEX_TZMP);
-				cmdq_sec_pkt_set_mtee(imgsys_adl_pkt, true);
-			}
-		} else {
-			imgsys_adl_pkt = NULL;
-			imgsys_adl_clt = NULL;
-		}
-
 		/* parse hardware event */
 		for (idx = 0; idx < IMGSYS_CMDQ_EVENT_MAX; idx++) {
 			of_property_read_u16(dev->of_node,
@@ -126,16 +103,6 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 	u32 idx = 0;
 	pr_info("%s: +\n", __func__);
 
-	if (imgsys_adl_pkt) {
-		cmdq_pkt_destroy(imgsys_adl_pkt);
-		imgsys_adl_pkt = NULL;
-	}
-
-	if (imgsys_adl_clt) {
-		cmdq_mbox_destroy(imgsys_adl_clt);
-		imgsys_adl_clt = NULL;
-	}
-
 	/* Destroy cmdq client */
 	for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
 		cmdq_mbox_destroy(imgsys_clt[idx]);
@@ -156,30 +123,6 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 	mutex_destroy(&imgsys_dev->power_ctrl_lock);
 }
 
-void imgsys_cmdq_adl_streamon(struct mtk_imgsys_dev *imgsys_dev)
-{
-	int value;
-	int count;
-
-	if (imgsys_adl_wait && imgsys_adl_set) {
-		if (imgsys_adl_clt && imgsys_adl_pkt) {
-			cmdq_clear_event(imgsys_adl_clt->chan, imgsys_adl_wait);
-			cmdq_clear_event(imgsys_adl_clt->chan, imgsys_adl_set);
-			cmdq_pkt_finalize_loop(imgsys_adl_pkt);
-			cmdq_pkt_flush_threaded(imgsys_adl_pkt, NULL, (void *)imgsys_adl_pkt);
-
-			count = 0;
-			do {
-				value = cmdq_get_event(imgsys_adl_clt->chan, imgsys_adl_set);
-				if (value != 0)
-					break;
-			} while (++count < 1000000);
-
-			dev_dbg(imgsys_dev->dev, "%s: adl event value %d\n", __func__, value);
-		}
-	}
-}
-
 void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 idx = 0;
@@ -192,14 +135,6 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 	for (idx = IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_START;
 		idx <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END; idx++)
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[idx].event);
-
-	imgsys_cmdq_adl_streamon(imgsys_dev);
-}
-
-void imgsys_cmdq_adl_streamoff(struct mtk_imgsys_dev *imgsys_dev)
-{
-	if (imgsys_adl_clt)
-		cmdq_sec_mbox_stop(imgsys_adl_clt);
 }
 
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
@@ -209,8 +144,6 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	dev_info(imgsys_dev->dev,
 		"%s: cmdq stream off (%d) idx(%d)\n", __func__, is_stream_off, idx);
 	is_stream_off = 1;
-
-	imgsys_cmdq_adl_streamoff(imgsys_dev);
 
 	#if CMDQ_STOP_FUNC
 	for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
@@ -226,6 +159,13 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 		cmdq_pkt_destroy(pkt_sec);
 		pkt_sec = NULL;
 		is_sec_task_create = 0;
+	}
+
+	if (is_adl_task_create) {
+		cmdq_sec_mbox_stop(imgsys_sec_clt[1]);
+		cmdq_pkt_destroy(pkt_adl);
+		pkt_adl = NULL;
+		is_adl_task_create = 0;
 	}
 	#endif
 
@@ -694,6 +634,15 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			return -1;
 		}
 
+		if ((hw_comb & (IMGSYS_ENG_ADL_A | IMGSYS_ENG_ADL_B)) &&
+			(is_adl_task_create == 0)) {
+			imgsys_cmdq_sec_adl_task(imgsys_dev);
+			is_adl_task_create = 1;
+			pr_info(
+				"%s: create imgsys secure task is_secReq(%d)\n",
+				__func__, frm_info->is_secReq);
+		}
+
 		dev_dbg(imgsys_dev->dev,
 		"%s: req fd/no(%d/%d) frame no(%d) frm(%d/%d) cmd_oft(0x%x/0x%x), cmd_len(%d), num(%d), sz_per_cmd(%d), frm_blk(%d), hw_comb(0x%x), sync_id(%d), gce_thd(%d), gce_clt(0x%x)\n",
 			__func__, frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
@@ -736,6 +685,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			if (frm_info->user_info[frm_idx].is_secFrm)
 				imgsys_cmdq_sec_cmd(pkt);
 			#endif
+			if (hw_comb & (IMGSYS_ENG_ADL_A | IMGSYS_ENG_ADL_B))
+				imgsys_cmdq_sec_adl(pkt);
 
 			ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx], hw_comb,
 				(pkt_ts_pa + 4 * pkt_ts_ofst), &pkt_ts_num, thd_idx);
@@ -754,6 +705,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			if (frm_info->user_info[frm_idx].is_secFrm)
 				imgsys_cmdq_sec_cmd(pkt);
 			#endif
+			if (hw_comb & (IMGSYS_ENG_ADL_A | IMGSYS_ENG_ADL_B))
+				imgsys_cmdq_sec_adl(pkt);
 
 			IMGSYS_SYSTRACE_END();
 
@@ -944,10 +897,32 @@ int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev)
 	return ret;
 }
 
+int imgsys_cmdq_sec_adl_task(struct mtk_imgsys_dev *imgsys_dev)
+{
+	struct cmdq_client *clt_sec = NULL;
+	int ret = 0;
+
+	clt_sec = imgsys_sec_clt[1];
+	#if IMGSYS_SECURE_ENABLE
+	pkt_adl = cmdq_pkt_create(clt_sec);
+	cmdq_sec_pkt_set_data(pkt_adl, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
+	cmdq_sec_pkt_set_mtee(pkt_adl, true);
+	cmdq_pkt_finalize_loop(pkt_adl);
+	cmdq_pkt_flush_threaded(pkt_adl, NULL, (void *)pkt_adl);
+	#endif
+	return ret;
+}
+
 void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt)
 {
 	cmdq_pkt_set_event(pkt, imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_WAIT].event);
 	cmdq_pkt_wfe(pkt, imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ISP_SET].event);
+}
+
+void imgsys_cmdq_sec_adl(struct cmdq_pkt *pkt)
+{
+	cmdq_pkt_set_event(pkt, imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ADL_WAIT].event);
+	cmdq_pkt_wfe(pkt, imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_TZMP_ADL_SET].event);
 }
 
 void imgsys_cmdq_setevent(u64 u_id)
