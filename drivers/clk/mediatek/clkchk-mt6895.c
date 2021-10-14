@@ -50,7 +50,6 @@ static struct regbase rb[] = {
 	[imps] = REGBASE_V(0x11D07000, imps, PD_NULL, "i2c_ck"),
 	[impw] = REGBASE_V(0x11F41000, impw, PD_NULL, "i2c_ck"),
 	[mfg_ao] = REGBASE_V(0x13fa0000, mfg_ao, PD_NULL, CLK_NULL),
-	[gpueb_ao] = REGBASE_V(0x13fa0800, gpueb_ao, PD_NULL, CLK_NULL),
 	[mfgsc_ao] = REGBASE_V(0x13fa0c00, mfgsc_ao, PD_NULL, CLK_NULL),
 	[mfgcfg] = REGBASE_V(0x13fbf000, mfgcfg, PD_NULL, CLK_NULL),
 	[mm0] = REGBASE_V(0x14000000, mm0, MT6895_POWER_DOMAIN_DISP, CLK_NULL),
@@ -249,11 +248,6 @@ static struct regname rn[] = {
 	REGNAME(mfg_ao, 0xc, MFGPLL_CON1),
 	REGNAME(mfg_ao, 0x10, MFGPLL_CON2),
 	REGNAME(mfg_ao, 0x14, MFGPLL_CON3),
-	/* GPUEBPLL_PLL_CTRL register */
-	REGNAME(gpueb_ao, 0x8, GPUEBPLL_CON0),
-	REGNAME(gpueb_ao, 0xc, GPUEBPLL_CON1),
-	REGNAME(gpueb_ao, 0x10, GPUEBPLL_CON2),
-	REGNAME(gpueb_ao, 0x14, GPUEBPLL_CON3),
 	/* MFGSCPLL_PLL_CTRL register */
 	REGNAME(mfgsc_ao, 0x8, MFGSCPLL_CON0),
 	REGNAME(mfgsc_ao, 0xc, MFGSCPLL_CON1),
@@ -464,7 +458,6 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"vlp_cksys", PWR_STA, 0x00000000},
 	{"mfgpll_pll_ctrl", PWR_STA, 0x00000000},
 	{"mfgscpll_pll_ctrl", PWR_STA, 0x00000000},
-	{"gpuebpll_pll_ctrl", PWR_STA, 0x00000000},
 	{"apupll_pll_ctrl", PWR_STA, 0x00000000},
 	{"npupll_pll_ctrl", PWR_STA, 0x00000000},
 	{"apupll1_pll_ctrl", PWR_STA, 0x00000000},
@@ -662,7 +655,6 @@ static void devapc_dump(void)
 	print_subsys_reg_mt6895(infracfg);
 	print_subsys_reg_mt6895(apmixed);
 	print_subsys_reg_mt6895(mfg_ao);
-	print_subsys_reg_mt6895(gpueb_ao);
 	print_subsys_reg_mt6895(mfgsc_ao);
 	print_subsys_reg_mt6895(apu0_ao);
 	print_subsys_reg_mt6895(npu_ao);
@@ -685,7 +677,6 @@ static const char * const off_pll_names[] = {
 	"tvdpll",
 	"imgpll",
 	"mfg_ao_mfgpll",
-	"gpueb_ao_gpuebpll",
 	"mfgsc_ao_mfgscpll",
 	"apu0_ao_apupll",
 	"npu_ao_npupll",

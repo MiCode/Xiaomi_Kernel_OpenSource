@@ -287,10 +287,6 @@
 #define MFGPLL_CON1				0x00C
 #define MFGPLL_CON2				0x010
 #define MFGPLL_CON3				0x014
-#define GPUEBPLL_CON0				0x008
-#define GPUEBPLL_CON1				0x00C
-#define GPUEBPLL_CON2				0x010
-#define GPUEBPLL_CON3				0x014
 #define MFGSCPLL_CON0				0x008
 #define MFGSCPLL_CON1				0x00C
 #define MFGSCPLL_CON2				0x010
@@ -318,7 +314,6 @@ enum subsys_id {
 	NPUPLL_PLL_CTRL,
 	APUPLL1_PLL_CTRL,
 	APUPLL_PLL_CTRL,
-	GPUEBPLL_PLL_CTRL,
 	MFGPLL_PLL_CTRL = 5,
 	MFGSCPLL_PLL_CTRL,
 	PLL_SYS_NUM,
@@ -2863,15 +2858,6 @@ static const struct mtk_pll_data mfgsc_ao_plls[] = {
 		MFGSCPLL_CON1, 0, 22/*pcw*/),
 };
 
-static const struct mtk_pll_data gpueb_ao_plls[] = {
-	PLL(CLK_GPUEB_AO_GPUEBPLL, "gpueb_ao_gpuebpll", GPUEBPLL_CON0/*base*/,
-		GPUEBPLL_CON0, 0, 0/*en*/,
-		GPUEBPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		GPUEBPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		GPUEBPLL_CON1, 0, 22/*pcw*/),
-};
-
 static int clk_mt6895_pll_registration(enum subsys_id id,
 		const struct mtk_pll_data *plls,
 		struct platform_device *pdev,
@@ -2936,12 +2922,6 @@ static int clk_mt6895_apu0_ao_probe(struct platform_device *pdev)
 {
 	return clk_mt6895_pll_registration(APUPLL_PLL_CTRL, apu0_ao_plls,
 			pdev, ARRAY_SIZE(apu0_ao_plls));
-}
-
-static int clk_mt6895_gpueb_ao_probe(struct platform_device *pdev)
-{
-	return clk_mt6895_pll_registration(GPUEBPLL_PLL_CTRL, gpueb_ao_plls,
-			pdev, ARRAY_SIZE(gpueb_ao_plls));
 }
 
 static int clk_mt6895_mfg_ao_probe(struct platform_device *pdev)
@@ -3094,9 +3074,6 @@ static const struct of_device_id of_match_clk_mt6895[] = {
 	}, {
 		.compatible = "mediatek,mt6895-apupll_pll_ctrl",
 		.data = clk_mt6895_apu0_ao_probe,
-	}, {
-		.compatible = "mediatek,mt6895-gpuebpll_pll_ctrl",
-		.data = clk_mt6895_gpueb_ao_probe,
 	}, {
 		.compatible = "mediatek,mt6895-mfgpll_pll_ctrl",
 		.data = clk_mt6895_mfg_ao_probe,

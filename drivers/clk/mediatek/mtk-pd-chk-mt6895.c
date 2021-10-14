@@ -580,7 +580,6 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	print_subsys_reg_mt6895(infracfg);
 	print_subsys_reg_mt6895(apmixed);
 	print_subsys_reg_mt6895(mfg_ao);
-	print_subsys_reg_mt6895(gpueb_ao);
 	print_subsys_reg_mt6895(mfgsc_ao);
 	print_subsys_reg_mt6895(apu0_ao);
 	print_subsys_reg_mt6895(npu_ao);

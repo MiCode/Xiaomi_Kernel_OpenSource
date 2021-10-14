@@ -282,9 +282,6 @@ const char * const *get_mt6895_all_clk_names(void)
 		/* mfgpll_pll_ctrl */
 		"mfg_ao_mfgpll",
 
-		/* gpuebpll_pll_ctrl */
-		"gpueb_ao_gpuebpll",
-
 		/* mfgscpll_pll_ctrl */
 		"mfgsc_ao_mfgscpll",
 
