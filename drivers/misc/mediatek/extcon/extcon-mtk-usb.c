@@ -177,12 +177,12 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	ret = power_supply_reg_notifier(&extcon->psy_nb);
 	if (ret)
 		dev_err(dev, "fail to register notifer\n");
-
+/*
 	if (usb_is_online(extcon))
 		mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 	else
 		mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
-
+*/
 	return ret;
 }
 
