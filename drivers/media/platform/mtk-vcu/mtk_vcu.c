@@ -1648,8 +1648,8 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	else if (strcmp(current->comm, "vpud") == 0) {
 		mutex_lock(&vpud_task_mutex);
 		if (vcud_task &&
-			current->tgid != vcud_task->tgid &&
-			current->group_leader != vcud_task->group_leader) {
+			(current->tgid != vcud_task->tgid ||
+			current->group_leader != vcud_task->group_leader)) {
 			mutex_unlock(&vpud_task_mutex);
 			return -EACCES;
 		}
