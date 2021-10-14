@@ -26,6 +26,10 @@
 
 #define PDA_MAGIC               'P'
 
+#define PDAROIARRAYMAX 128
+
+#define PDA_MAXROI_PER_ROUND 45
+
 #define PDA_MAX_QUANTITY 4
 
 #define PDA_CFG_0_REG (0x000)
@@ -386,11 +390,11 @@ struct _pda_a_reg_t_ {
 
 //Datastructure for 1024 ROI
 struct PDA_Data_t {
-	unsigned int rgn_x[128];	//128
-	unsigned int rgn_y[128];
-	unsigned int rgn_h[128];
-	unsigned int rgn_w[128];
-	unsigned int rgn_iw[128];
+	unsigned int rgn_x[PDAROIARRAYMAX];
+	unsigned int rgn_y[PDAROIARRAYMAX];
+	unsigned int rgn_h[PDAROIARRAYMAX];
+	unsigned int rgn_w[PDAROIARRAYMAX];
+	unsigned int rgn_iw[PDAROIARRAYMAX];
 
 	unsigned int xnum;
 	unsigned int ynum;

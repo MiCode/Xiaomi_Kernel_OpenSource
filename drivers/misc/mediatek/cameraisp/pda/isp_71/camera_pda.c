@@ -91,7 +91,8 @@ wait_queue_head_t g_wait_queue_head;
 static int g_PDA_quantity;
 
 #ifdef CHECK_IRQ_COUNT
-static int g_PerFrameCount;
+// Calculate reasonable irq counts
+static unsigned int g_reasonable_IRQCount;
 static int g_PDA0_IRQCount;
 static int g_PDA1_IRQCount;
 #endif
@@ -153,11 +154,11 @@ struct timespec64 pda2_done_b, pda2_done_e;
 #endif
 
 // calculate 1024 roi data
-unsigned int g_rgn_x_buf[45];
-unsigned int g_rgn_y_buf[45];
-unsigned int g_rgn_h_buf[45];
-unsigned int g_rgn_w_buf[45];
-unsigned int g_rgn_iw_buf[45];
+unsigned int g_rgn_x_buf[PDA_MAXROI_PER_ROUND];
+unsigned int g_rgn_y_buf[PDA_MAXROI_PER_ROUND];
+unsigned int g_rgn_h_buf[PDA_MAXROI_PER_ROUND];
+unsigned int g_rgn_w_buf[PDA_MAXROI_PER_ROUND];
+unsigned int g_rgn_iw_buf[PDA_MAXROI_PER_ROUND];
 
 // buffer mmu
 struct pda_mmu g_image_mmu;
@@ -173,7 +174,7 @@ unsigned int *g_buf_RT_va;
 unsigned int *g_buf_Out_va;
 #endif
 
-// current  Process ROI number
+// current Process ROI number
 unsigned int g_CurrentProcRoiNum[PDA_MAX_QUANTITY];
 
 #ifdef PDA_MMQOS
@@ -202,12 +203,12 @@ static void pda_mmqos_bw_set(void)
 	int Inter_Frame_Size_Width = 820;
 	int Inter_Frame_Size_Height = 1232;
 
-	int Mach_ROI_Max_Width = 820;
-	int Mach_ROI_Max_Height = 616;
-	int Mach_Frame_Size_Width = 820;
-	int Mach_Frame_Size_Height = 1232;
+	int Mach_ROI_Max_Width = 3280;
+	int Mach_ROI_Max_Height = 154;
+	int Mach_Frame_Size_Width = 6560;
+	int Mach_Frame_Size_Height = 308;
 
-	int Freqency = 360;
+	double Freqency = 360.0;
 	int FOV = 200;
 	int ROI_Number = 45;
 	int Frame_Rate = 30;
@@ -231,12 +232,13 @@ static void pda_mmqos_bw_set(void)
 	int Required_Operation_Cycle =
 		(int)(Mach_Input_Total_pixel_Itar *
 		Operation_Margin *
-		((Search_Range+1)/Search_Range));
+		(Search_Range+1)) /
+		Search_Range + 1;
 	int WDMA_Data = 1408*ROI_Number;
 	int temp = Inter_Input_Total_pixel_Itar+Inter_Input_Total_pixel_Iref;
 	int RDMA_Data = temp*20/8;
 
-	int OperationTime = Required_Operation_Cycle / Freqency / 1000;
+	double OperationTime = (double)Required_Operation_Cycle / Freqency / 1000.0;
 
 	// WDMA BW estimate
 	double WDMA_PEAK_BW = (double)WDMA_Data / (double)OperationTime / 1000.0;
@@ -842,13 +844,14 @@ static int ProcessROIData(struct PDA_Data_t *pda_data,
 		y0 = pda_data->rgn_y[0];
 		w0 = pda_data->rgn_w[0];
 		h0 = pda_data->rgn_h[0];
-		nWidth = w0 / xnum;
-		nHeight = h0 / ynum;
 
 		if (xnum <= 0 || ynum <= 0) {
 			LOG_INF("xnum(%d) or ynum(%d) value is invalid\n", xnum, ynum);
 			return -1;
 		}
+
+		nWidth = w0 / xnum;
+		nHeight = h0 / ynum;
 
 		if (w0 < xnum || h0 < ynum) {
 			LOG_INF("w0(%d)/h0(%d) can't less than xnum(%d)/ynum(%d)\n",
@@ -861,7 +864,7 @@ static int ProcessROIData(struct PDA_Data_t *pda_data,
 			for (; i < xnum; i++) {
 				nLocalBufIndex = j * xnum + i - ROIIndex;
 
-				if (nLocalBufIndex >= 45 || nLocalBufIndex < 0) {
+				if (nLocalBufIndex >= PDA_MAXROI_PER_ROUND || nLocalBufIndex < 0) {
 					LOG_INF("nLocalBufIndex out of range (%d)\n",
 						nLocalBufIndex);
 					return -1;
@@ -1439,14 +1442,19 @@ static signed int pda_wait_irq(struct PDA_Data_t *pda_data)
 	} else if (ret == -ERESTARTSYS) {
 		LOG_INF("Interrupted by a signal\n");
 		pda_data->Status = -3;
+		for (i = 0; i < g_PDA_quantity; i++)
+			pda_nontransaction_reset(i);
 		return -1;
 	}
 
-	for (i = 0; i < g_PDA_quantity; i++) {
-		// update status to user
-		pda_data->Status = PDA_devs[i].HWstatus;
+	// pda status
+	pda_data->Status = 1;
 
+	// update status to user
+	for (i = 0; i < g_PDA_quantity; i++) {
 		if (PDA_devs[i].HWstatus < 0) {
+			pda_data->Status = PDA_devs[i].HWstatus;
+
 			LOG_INF("PDA%d HW error (%d)", i, PDA_devs[i].HWstatus);
 
 			LOG_INF("PDA%d PDA_PDAI_P1_ERR_STAT_REG = 0x%x",
@@ -1461,12 +1469,8 @@ static signed int pda_wait_irq(struct PDA_Data_t *pda_data)
 				i, PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_ERR_STAT_REG));
 
 			// reset flow
-			pda_reset(i);
-			break;
+			pda_nontransaction_reset(i);
 		}
-#ifdef FOR_DEBUG
-		LOG_INF("PDA%d HW done", i);
-#endif
 	}
 
 	return ret;
@@ -1480,6 +1484,10 @@ static irqreturn_t pda_irqhandle(signed int Irq, void *DeviceId)
 	nPdaStatus = PDA_RD32(PDA_devs[0].m_pda_base + PDA_PDA_ERR_STAT_REG) &
 		PDA_STATUS_REG;
 
+#ifdef FOR_DEBUG
+	LOG_INF("PDA0 PDA_PDA_ERR_STAT_REG = 0x%x", nPdaStatus);
+#endif
+
 	// for WCL=1 case, write 1 to clear pda done status
 	// PDA_WR32(PDA_devs[0].m_pda_base + PDA_PDA_ERR_STAT_REG, 0x00000001);
 
@@ -1491,10 +1499,9 @@ static irqreturn_t pda_irqhandle(signed int Irq, void *DeviceId)
 
 #ifdef CHECK_IRQ_COUNT
 	++g_PDA0_IRQCount;
-	if (g_PDA0_IRQCount > g_PerFrameCount) {
+	if (g_PDA0_IRQCount > g_reasonable_IRQCount) {
 		PDA_devs[0].HWstatus = -29;
 		pda_nontransaction_reset(0);
-		--g_PDA0_IRQCount;
 	}
 #endif
 
@@ -1511,6 +1518,10 @@ static irqreturn_t pda2_irqhandle(signed int Irq, void *DeviceId)
 	nPdaStatus = PDA_RD32(PDA_devs[1].m_pda_base + PDA_PDA_ERR_STAT_REG) &
 		PDA_STATUS_REG;
 
+#ifdef FOR_DEBUG
+	LOG_INF("PDA1 PDA_PDA_ERR_STAT_REG = 0x%x", nPdaStatus);
+#endif
+
 	// for WCL=1 case, write 1 to clear pda done status
 	// PDA_WR32(PDA_devs[1].m_pda_base + PDA_PDA_ERR_STAT_REG, 0x00000001);
 
@@ -1522,10 +1533,9 @@ static irqreturn_t pda2_irqhandle(signed int Irq, void *DeviceId)
 
 #ifdef CHECK_IRQ_COUNT
 	++g_PDA1_IRQCount;
-	if (g_PDA1_IRQCount > g_PerFrameCount) {
+	if (g_PDA1_IRQCount > g_reasonable_IRQCount) {
 		PDA_devs[1].HWstatus = -29;
 		pda_nontransaction_reset(1);
-		--g_PDA1_IRQCount;
 	}
 #endif
 
@@ -1549,8 +1559,8 @@ static long PDA_Ioctl(struct file *a_pstFile,
 	unsigned int nRemainder = 0, nFactor = 0;
 	unsigned int nOneRoundProcROI = 0;
 
-	if (g_u4EnableClockCount == 0) {
-		LOG_INF("Cannot process without enable pda clock\n");
+	if (g_u4EnableClockCount == 0 || g_PDA_quantity == 0) {
+		LOG_INF("Cannot process without enable pda clock or no PDA support\n");
 		return -1;
 	}
 
@@ -1573,6 +1583,16 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		for (i = 0; i < g_PDA_quantity; i++)
 			PDA_devs[i].HWstatus = 0;
 
+#ifdef CHECK_IRQ_COUNT
+		// reset PDA0/PDA1 IRQ count
+		g_PDA0_IRQCount = 0;
+		g_PDA1_IRQCount = 0;
+#ifdef FOR_DEBUG
+		LOG_INF("PDA0_IRQCount = %d, PDA1_IRQCount = %d\n",
+			g_PDA0_IRQCount, g_PDA1_IRQCount);
+#endif
+#endif
+
 		if (copy_from_user(&pda_Pdadata,
 				   (void *)a_u4Param,
 				   sizeof(struct PDA_Data_t)) != 0) {
@@ -1581,16 +1601,28 @@ static long PDA_Ioctl(struct file *a_pstFile,
 			break;
 		}
 
-#ifdef CHECK_IRQ_COUNT
-		++g_PerFrameCount;
-#endif
-
 		// read user's ROI number
 		nUserROINumber = pda_Pdadata.ROInumber;
 #ifdef FOR_DEBUG
 		LOG_INF("nUserROINumber = %d\n", nUserROINumber);
 		LOG_INF("g_PDA_quantity = %d\n", g_PDA_quantity);
 #endif
+
+		if (nUserROINumber == 0) {
+			pda_Pdadata.Status = -28;
+			LOG_INF("fail, nUserROINumber cannot be zero\n");
+			goto EXIT_WITHOUT_FREE_IOVA;
+		}
+
+#ifdef CHECK_IRQ_COUNT
+		// setting reasonable IRQ count
+		g_reasonable_IRQCount = 1 +
+			(int)((nUserROINumber-1)/(PDA_MAXROI_PER_ROUND*g_PDA_quantity));
+#ifdef FOR_DEBUG
+		LOG_INF("g_reasonable_IRQCount = %d\n", g_reasonable_IRQCount);
+#endif
+#endif
+
 		// Init ROI count which needed to process
 		nROIcount = nUserROINumber;
 
@@ -1627,9 +1659,9 @@ static long PDA_Ioctl(struct file *a_pstFile,
 			nOneRoundProcROI = 0;
 
 			// assign strategy, used for multi-engine
-			if (nROIcount >= (45 * g_PDA_quantity)) {
+			if (nROIcount >= (PDA_MAXROI_PER_ROUND * g_PDA_quantity)) {
 				for (i = 0; i < g_PDA_quantity; i++) {
-					g_CurrentProcRoiNum[i] = 45;
+					g_CurrentProcRoiNum[i] = PDA_MAXROI_PER_ROUND;
 					nOneRoundProcROI += g_CurrentProcRoiNum[i];
 #ifdef FOR_DEBUG
 					LOG_INF("g_CurrentProcRoiNum[%d] = %d\n",
@@ -1784,11 +1816,11 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 #endif
 
 #ifdef CHECK_IRQ_COUNT
-	g_PerFrameCount = 0;
+	g_reasonable_IRQCount = 0;
 	g_PDA0_IRQCount = 0;
 	g_PDA1_IRQCount = 0;
-	LOG_INF("FrameCount = %d, PDA0_IRQCount = %d, PDA1_IRQCount = %d\n",
-		g_PerFrameCount, g_PDA0_IRQCount, g_PDA1_IRQCount);
+	LOG_INF("IRQCount, Reasonable = %d, PDA0 = %d, PDA1 = %d\n",
+		g_reasonable_IRQCount, g_PDA0_IRQCount, g_PDA1_IRQCount);
 #endif
 
 	return 0;
