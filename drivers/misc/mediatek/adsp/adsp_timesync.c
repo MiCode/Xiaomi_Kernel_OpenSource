@@ -45,6 +45,7 @@ static void adsp_timesync_update(u32 fz)
 {
 	u64 tick, ts;
 	struct timesync_info_s *infos = &timesync_ctrl.infos;
+	int ret = 0;
 
 	ts =  timecounter_read(&timesync_ctrl.tc);
 	tick = timesync_ctrl.tc.cycle_last;
@@ -56,9 +57,11 @@ static void adsp_timesync_update(u32 fz)
 	infos->freeze = fz;
 	infos->version++;
 
-	if (is_adsp_system_running())
-		adsp_push_message(ADSP_IPI_TIME_SYNC, (void *)infos,
-				  sizeof(*infos), 0, ADSP_A_ID);
+	if (is_adsp_system_running()) {
+		ret = adsp_copy_to_sharedmem(get_adsp_core_by_id(ADSP_A_ID),
+					ADSP_SHAREDMEM_TIMESYNC,
+					infos, sizeof(*infos));
+	}
 }
 
 static enum hrtimer_restart adsp_timesync_refresh(struct hrtimer *hrt)
