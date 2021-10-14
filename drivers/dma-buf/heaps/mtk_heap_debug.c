@@ -735,6 +735,7 @@ static int dma_heap_buf_dump_cb(const struct dma_buf *dmabuf, void *priv)
 	if (flag & HEAP_DUMP_DEC_1_REF)
 		delta = 1;
 
+	spin_lock((spinlock_t *)&dmabuf->name_lock);
 	dmabuf_dump(s, "inode:%-8d size:%-10zu(Byte) count:%-2ld cache_sg:%d  exp:%s\tname:%s\n",
 		    file_inode(dmabuf->file)->i_ino,
 		    dmabuf->size,
@@ -742,6 +743,7 @@ static int dma_heap_buf_dump_cb(const struct dma_buf *dmabuf, void *priv)
 		    dmabuf->ops->cache_sgt_mapping,
 		    dmabuf->exp_name?:"NULL",
 		    dmabuf->name?:"NULL");
+	spin_unlock((spinlock_t *)&dmabuf->name_lock);
 
 	dma_heap_priv_dump(dmabuf, dump_heap, s);
 

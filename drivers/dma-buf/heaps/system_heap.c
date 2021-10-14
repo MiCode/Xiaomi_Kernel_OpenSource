@@ -363,12 +363,15 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		}
 	}
 
-	if (skip_cache_sync)
+	if (skip_cache_sync) {
+		spin_lock(&dmabuf->name_lock);
 		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
 				    __func__, dma_heap_get_name(buffer->heap),
 				    file_inode(dmabuf->file)->i_ino,
-				    dmabuf->name, direction,
+				    dmabuf->name?:"NULL", direction,
 				    "skip cache sync because no iova");
+		spin_unlock(&dmabuf->name_lock);
+	}
 
 	mutex_unlock(&buffer->lock);
 
@@ -397,12 +400,15 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		}
 	}
 
-	if (skip_cache_sync)
+	if (skip_cache_sync) {
+		spin_lock(&dmabuf->name_lock);
 		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
 				    __func__, dma_heap_get_name(buffer->heap),
 				    file_inode(dmabuf->file)->i_ino,
-				    dmabuf->name, direction,
+				    dmabuf->name?:"NULL", direction,
 				    "skip cache sync because no iova");
+		spin_unlock(&dmabuf->name_lock);
+	}
 
 	mutex_unlock(&buffer->lock);
 
@@ -556,8 +562,11 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
 	int i, j;
 
+	spin_lock(&dmabuf->name_lock);
 	pr_debug("%s: inode:%lu, size:%lu, name:%s\n", __func__,
-		 file_inode(dmabuf->file)->i_ino, buffer->len, dmabuf->name);
+		 file_inode(dmabuf->file)->i_ino, buffer->len,
+		 dmabuf->name?:"NULL");
+	spin_unlock(&dmabuf->name_lock);
 
 	dmabuf_release_check(dmabuf);
 
