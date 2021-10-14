@@ -1032,6 +1032,7 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 				dbg_probed_components[i]->ddp_comp.id,
 				dbg_probed_components[i]->ddp_bound);
 		}
+		break;
 	default:
 		mml_err("not support read for debug_case: %d", dbg_case);
 		break;

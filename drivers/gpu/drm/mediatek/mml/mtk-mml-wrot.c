@@ -1929,7 +1929,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	u32 value[33];
 	u32 debug[33];
-	u32 dbg_id = 0, state;
+	u32 dbg_id = 0, state, smi_req;
 	u32 shadow_ctrl;
 	u32 i;
 
@@ -2018,17 +2018,21 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	}
 
 	/* parse state */
-	state = debug[3] & 0x1;
-	mml_err("WROT state: %#x (%s)", state, wrot_state(state));
 	mml_err("WROT crop_busy:%u req:%u valid:%u",
-		(debug[3] >> 1) & 0x1, (debug[3] >> 2) & 0x1,
-		(debug[3] >> 3) & 0x1);
+		(debug[2] >> 1) & 0x1, (debug[2] >> 2) & 0x1,
+		(debug[2] >> 3) & 0x1);
+	state = debug[2] & 0x1;
+	smi_req = (debug[18] >> 31) & 0x1;
+	mml_err("WROT state: %#x (%s)", state, wrot_state(state));
+	mml_err("WROT x_cnt %u y_cnt %u",
+		debug[9] & 0xffff, (debug[9] >> 16) & 0xffff);
+	mml_err("WROT smi_req:%u => suggest to ask SMI help:%u", smi_req, smi_req);
 
+	/* inlinerot debug */
 	if (wrot->irot_va[0]) {
 		value[0] = readl(wrot->irot_va[0] + INLINEROT_OVLSEL);
 		mml_err("INLINEROT0 INLINEROT_OVLSEL %#x", value[0]);
 	}
-
 	if (wrot->irot_va[1]) {
 		value[1] = readl(wrot->irot_va[1] + INLINEROT_OVLSEL);
 		mml_err("INLINEROT1 INLINEROT_OVLSEL %#x", value[1]);
@@ -2304,6 +2308,7 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 				dbg_probed_components[i]->ddp_comp.id,
 				dbg_probed_components[i]->ddp_bound);
 		}
+		break;
 	default:
 		mml_err("not support read for debug_case: %d", dbg_case);
 		break;

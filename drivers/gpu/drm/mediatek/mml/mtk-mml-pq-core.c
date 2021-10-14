@@ -1548,6 +1548,7 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 				"  - [%d] task submit time: %lu.%lu\n", i,
 				task->end_time.tv_sec, task->end_time.tv_nsec);
 		}
+		break;
 	default:
 		pr_notice("not support read for case_id: %d\n", ut_case);
 		break;

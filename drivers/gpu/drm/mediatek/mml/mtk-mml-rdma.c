@@ -1563,10 +1563,10 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		(mon[0] >> 11) & 0x1, (mon[0] >> 10) & 0x1,
 		(mon[0] >> 25) & 0x1);
 	state = (mon[1] >> 8) & 0x7ff;
-	greq = (mon[1] >> 20) & 0x1;
+	greq = (mon[0] >> 21) & 0x1;
 	mml_err("RDMA state: %#x (%s)", state, rdma_state(state));
 	mml_err("RDMA horz_cnt %u vert_cnt %u",
-		mon[26] & 0xfff, (mon[26] >> 16) & 0xfff);
+		mon[26] & 0xffff, (mon[26] >> 16) & 0xffff);
 	mml_err("RDMA greq:%u => suggest to ask SMI help:%u", greq, greq);
 }
 
@@ -1742,6 +1742,7 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 				comp->larb_port, comp->larb_base,
 				comp->pw_cnt, comp->clk_cnt);
 		}
+		break;
 	default:
 		mml_err("not support read for debug_case: %d", dbg_case);
 		break;

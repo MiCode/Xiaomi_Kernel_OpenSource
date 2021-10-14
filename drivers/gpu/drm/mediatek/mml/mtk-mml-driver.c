@@ -981,6 +981,7 @@ static int dbg_get(char *buf, const struct kernel_param *kp)
 	case 0:
 		length += snprintf(buf + length, PAGE_SIZE - length,
 			"[%d] probed: %d\n", dbg_case, dbg_probed);
+		break;
 	default:
 		mml_err("not support read for debug_case: %d", dbg_case);
 		break;

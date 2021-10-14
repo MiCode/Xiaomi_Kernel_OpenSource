@@ -201,8 +201,8 @@ static s32 prepare_tile_data(union mml_tile_data *data, struct mml_task *task,
 	if (!ret) {
 		result = get_tile_init_result(task);
 		if (result && rsz_frm->out_idx < result->rsz_param_cnt) {
-			mml_log("%s read rsz param index: %d", __func__,
-				rsz_frm->out_idx);
+			mml_log("%s read rsz param index: %d job_id[%d]",
+				__func__, rsz_frm->out_idx, task->job.jobid);
 			init_param = &(result->rsz_param[rsz_frm->out_idx]);
 			data->rsz_data.coeff_step_x = init_param->coeff_step_x;
 			data->rsz_data.coeff_step_y = init_param->coeff_step_y;
@@ -218,8 +218,6 @@ static s32 prepare_tile_data(union mml_tile_data *data, struct mml_task *task,
 			data->rsz_data.ver_algo = init_param->ver_algorithm;
 			data->rsz_data.ver_first = init_param->vertical_first;
 			data->rsz_data.ver_cubic_trunc = init_param->ver_cubic_trunc;
-			mml_log("%s read rsz param index: %d done job_id[%d]",
-				__func__, rsz_frm->out_idx, task->job.jobid);
 		} else {
 			if (rsz_frm && result)
 				mml_err("%s read rsz param index: %d out of count %d",
@@ -824,6 +822,7 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 				dbg_probed_components[i]->ddp_comp.id,
 				dbg_probed_components[i]->ddp_bound);
 		}
+		break;
 	default:
 		mml_err("not support read for debug_case: %d", dbg_case);
 		break;
