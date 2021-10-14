@@ -5867,7 +5867,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	/*4. Enable Frame done IRQ &  process first config */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		mtk_ddp_comp_first_cfg(comp, &cfg, cmdq_handle);
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_ALL, NULL);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 			MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
 	}
@@ -5876,7 +5876,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 			mtk_ddp_comp_first_cfg(comp, &cfg, cmdq_handle);
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				IRQ_LEVEL_ALL, NULL);
+				IRQ_LEVEL_NORMAL, NULL);
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
 		}
@@ -6152,7 +6152,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 
 	if (idx == 2)
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_ALL, NULL);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);

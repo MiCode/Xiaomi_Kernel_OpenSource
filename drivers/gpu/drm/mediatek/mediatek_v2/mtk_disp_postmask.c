@@ -111,6 +111,8 @@
 #define DISP_POSTMASK_GRAD_VAL_0 0xA00
 #define DISP_POSTMASK_GRAD_VAL(n) (DISP_POSTMASK_GRAD_VAL_0 + (0x4 * (n)))
 
+static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id) __attribute__((unused));
+
 struct mtk_disp_postmask_data {
 	bool is_support_34bits;
 };
@@ -436,7 +438,7 @@ static void mtk_postmask_start(struct mtk_ddp_comp *comp,
 {
 	DDPDBG("%s\n", __func__);
 
-	mtk_postmask_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
+	mtk_postmask_io_cmd(comp, handle, IRQ_LEVEL_NORMAL, NULL);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_POSTMASK_EN, 1, ~0);
@@ -499,7 +501,7 @@ static int mtk_postmask_io_cmd(struct mtk_ddp_comp *comp,
 			       enum mtk_ddp_io_cmd io_cmd, void *params)
 {
 	switch (io_cmd) {
-	case IRQ_LEVEL_ALL: {
+	case IRQ_LEVEL_NORMAL: {
 		unsigned int inten;
 
 		inten = REG_FLD_VAL(INTEN_FLD_PM_IF_FME_END_INTEN, 1) |
@@ -548,7 +550,6 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_disp_postmask *priv;
 	enum mtk_ddp_comp_id comp_id;
-	int irq;
 	int ret;
 
 	DDPINFO("%s+\n", __func__);
@@ -556,10 +557,6 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
 		return -ENOMEM;
-
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DISP_POSTMASK);
 	if ((int)comp_id < 0) {
@@ -577,16 +574,6 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	priv->data = of_device_get_match_data(dev);
 
 	platform_set_drvdata(pdev, priv);
-
-	ret = devm_request_irq(dev, irq, mtk_postmask_irq_handler,
-			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
-			       priv);
-	if (ret < 0) {
-		DDPAEE("%s:%d, failed to request irq:%d ret:%d comp_id:%d\n",
-				__func__, __LINE__,
-				irq, ret, comp_id);
-		return ret;
-	}
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 

@@ -81,7 +81,7 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 				   MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ)) {
 		mtk_disp_mutex_inten_enable_cmdq(mtk_crtc->mutex[0], handle);
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-			mtk_ddp_comp_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
+			mtk_ddp_comp_io_cmd(comp, handle, IRQ_LEVEL_NORMAL, NULL);
 	}
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);

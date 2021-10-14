@@ -803,14 +803,10 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	DDPDBG("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
 
-	mtk_ovl_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
+	mtk_ovl_io_cmd(comp, handle, IRQ_LEVEL_NORMAL, NULL);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x1, 0x1);
-
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_INTEN,
-		       0x61F2, ~0);
 
 	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
 	if (compr_info && strncmp(compr_info->name, "PVRIC_V3_1", 10) == 0) {
@@ -2723,10 +2719,20 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			REG_FLD_VAL(INTEN_FLD_RDMA2_EOF_ABNORMAL_INTEN, 1) |
 			REG_FLD_VAL(INTEN_FLD_RDMA3_EOF_ABNORMAL_INTEN, 1) |
 			REG_FLD_VAL(INTEN_FLD_ABNORMAL_SOF, 1) |
+			REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1) |
 			REG_FLD_VAL(INTEN_FLD_START_INTEN, 1);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, inten,
-			       inten);
+			       ~0);
+		break;
+	}
+	case IRQ_LEVEL_NORMAL: {
+		unsigned int inten;
+
+		inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_INTEN, inten,
+			       ~0);
 		break;
 	}
 	case IRQ_LEVEL_IDLE: {

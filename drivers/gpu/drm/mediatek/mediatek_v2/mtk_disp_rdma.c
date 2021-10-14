@@ -437,7 +437,7 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write_mask(comp, MATRIX_INT_MTX_SEL_DEFAULT,
 			   DISP_REG_RDMA_SIZE_CON_0, 0xff0000, handle);
 
-	mtk_rdma_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
+	mtk_rdma_io_cmd(comp, handle, IRQ_LEVEL_NORMAL, NULL);
 
 	mtk_ddp_write_mask(comp, RDMA_ENGINE_EN, DISP_REG_RDMA_GLOBAL_CON,
 			   RDMA_ENGINE_EN, handle);
@@ -889,6 +889,16 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
 			RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT |
 			RDMA_TARGET_LINE_INT;
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, inten,
+			       inten);
+		break;
+	}
+	case IRQ_LEVEL_NORMAL: {
+		unsigned int inten;
+
+		inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
+			RDMA_FIFO_UNDERFLOW_INT | RDMA_TARGET_LINE_INT;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, inten,
 			       inten);

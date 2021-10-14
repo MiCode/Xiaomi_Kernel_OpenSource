@@ -6103,6 +6103,39 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		}
 	}
 		break;
+	case IRQ_LEVEL_NORMAL:
+	{
+		unsigned int inten;
+
+		if (!handle) {
+			DDPPR_ERR("GCE handle is NULL\n");
+			return 0;
+		}
+
+		inten = BUFFER_UNDERRUN_INT_FLAG;
+
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+			inten |= FRAME_DONE_INT_FLAG;
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DSI_INTEN, inten, inten);
+			if (dsi->slave_dsi) {
+				inten |= FRAME_DONE_INT_FLAG;
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DSI_INTEN, inten, inten);
+			}
+
+		} else {
+			inten |= TE_RDY_INT_FLAG;
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DSI_INTEN, inten, inten);
+			if (dsi->slave_dsi) {
+				inten |= TE_RDY_INT_FLAG;
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DSI_INTEN, inten, inten);
+			}
+		}
+	}
+		break;
 	case LCM_RESET:
 	{
 		struct mtk_dsi *dsi =

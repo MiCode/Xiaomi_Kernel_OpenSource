@@ -1428,6 +1428,15 @@ static int mtk_wdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
 		break;
 	}
+	case IRQ_LEVEL_NORMAL: {
+		unsigned int inten;
+
+		inten = REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
+			REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+
+		mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
+		break;
+	}
 	default:
 		break;
 	}
