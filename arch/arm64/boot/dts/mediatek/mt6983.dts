@@ -66,6 +66,7 @@
 		wdma2 = &disp_wdma2;
 		wdma3 = &disp_wdma3;
 		dsi0 = &dsi0;
+		dsi1 = &dsi1;
 		rsz0 = &disp_rsz0;
 		rsz1 = &disp_rsz1;
 		scp_i2c1 = &scp_i2c1;
@@ -7434,7 +7435,7 @@
 					"DDP_COMPONENT_RDMA3_hrt_qos";
 	};
 
-	disp_dp_intf0@1441d000 {
+	dp_intf: disp_dp_intf0@1441d000 {
 		compatible = "mediatek,dp_intf",
 				"mediatek,mt6885-dp-intf";
 		reg = <0 0x1441d000 0 0x1000>;
