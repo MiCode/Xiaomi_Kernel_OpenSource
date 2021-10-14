@@ -477,6 +477,13 @@
 		#mbox-cells = <2>;
 	};
 
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x280000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
+
 };
 
 #include "cape-pinctrl.dtsi"
