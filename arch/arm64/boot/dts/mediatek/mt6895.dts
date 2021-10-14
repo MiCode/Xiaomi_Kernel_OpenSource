@@ -5122,6 +5122,7 @@
 
 		dispsys_config: dispsys_config@14000000 {
 			compatible = "mediatek,mt6895-disp";
+			mediatek,mml = <&mmlsys_config>;
 			reg = <0 0x14000000 0 0x1000>;
 
 			iommus = <&disp_iommu M4U_LARB0_PORT9>; /* M4U_PORT_L0_DISP_OVL1_2L_0 */
@@ -5305,7 +5306,7 @@
 				<0>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 				<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
 				<1>, /*MTK_DRM_OPT_MSYNC2_0*/
-				<0>, /*MTK_DRM_OPT_MML_PRIMARY*/
+				<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
 				<0>, /*MTK_DRM_OPT_DUAL_TE*/
 				<0>; /*MTK_DRM_OPT_RES_SWITCH*/
 		};
@@ -5313,6 +5314,7 @@
 		disp_mutex0: disp_mutex@14001000 {
 			compatible = "mediatek,disp_mutex0",
 						"mediatek,mt6895-disp-mutex";
+			mediatek,mml = <&mmlsys_config>;
 			reg = <0 0x14001000 0 0x1000>;
 			interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_MUTEX0>;
