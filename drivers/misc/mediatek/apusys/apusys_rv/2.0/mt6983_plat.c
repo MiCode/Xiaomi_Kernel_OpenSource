@@ -362,7 +362,7 @@ static int mt6983_apu_power_init(struct mtk_apu *apu)
 static int mt6983_apu_power_on(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
-	int ret, timeout;
+	int ret, timeout, i;
 
 	/* to force apu top power on synchronously */
 	ret = pm_runtime_get_sync(apu->power_dev);
@@ -375,13 +375,42 @@ static int mt6983_apu_power_on(struct mtk_apu *apu)
 	}
 
 	/* to notify IOMMU power on */
-	ret = pm_runtime_get_sync(apu->apu_iommu0);
-	if (ret < 0)
-		goto iommu_get_error;
+	/* workaround possible nested disable issue */
+	i = 0;
+	do {
+		ret = pm_runtime_get_sync(apu->apu_iommu0);
+		/*try atmost 7 times since disable_depth is 3-bit wide */
+		if (ret == -EACCES && i <= 7) {
+			pm_runtime_enable(apu->apu_iommu0);
+			pm_runtime_put_sync(apu->apu_iommu0);
+			i++;
+			dev_info(apu->dev,
+				 "%s: %s is disabled. Enable and retry(%d)\n",
+				 __func__,
+				 to_platform_device(apu->apu_iommu0)->name, i);
+		} else if (ret < 0)
+			goto iommu_get_error;
 
-	ret = pm_runtime_get_sync(apu->apu_iommu1);
-	if (ret < 0)
-		pm_runtime_put_sync(apu->apu_iommu0);
+	} while (ret < 0);
+
+	i = 0;
+	/* workaround possible nested disable issue */
+	do {
+		ret = pm_runtime_get_sync(apu->apu_iommu1);
+		/*try atmost 7 times since disable_depth is 3-bit wide */
+		if (ret == -EACCES && i <= 7) {
+			pm_runtime_enable(apu->apu_iommu1);
+			pm_runtime_put_sync(apu->apu_iommu1);
+			i++;
+			dev_info(apu->dev,
+				 "%s: %s is disabled. Enable and retry(%d)\n",
+				 __func__,
+				 to_platform_device(apu->apu_iommu1)->name, i);
+			continue;
+		} else if (ret < 0)
+			pm_runtime_put_sync(apu->apu_iommu0);
+
+	} while (ret < 0);
 
 iommu_get_error:
 	if (ret < 0) {
@@ -430,7 +459,7 @@ error_put_power_dev:
 static int mt6983_apu_power_off(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
-	int ret, timeout;
+	int ret, timeout, i;
 
 	ret = pm_runtime_put_sync(apu->dev);
 	if (ret) {
@@ -441,15 +470,41 @@ static int mt6983_apu_power_off(struct mtk_apu *apu)
 		return ret;
 	}
 
-
 	/* to notify IOMMU power off */
-	ret = pm_runtime_put_sync(apu->apu_iommu1);
-	if (ret < 0)
-		goto iommu_put_error;
+	/* workaround possible nested disable issue */
+	i = 0;
+	do {
+		ret = pm_runtime_put_sync(apu->apu_iommu1);
+		/*try atmost 7 times since disable_depth is 3-bit wide */
+		if (ret == -EACCES && i <= 7) {
+			pm_runtime_enable(apu->apu_iommu1);
+			pm_runtime_get_sync(apu->apu_iommu1);
+			i++;
+			dev_info(apu->dev,
+				 "%s: %s is disabled. Enable and retry(%d)\n",
+				 __func__,
+				 to_platform_device(apu->apu_iommu1)->name, i);
+		} else if (ret < 0)
+			goto iommu_put_error;
 
-	ret = pm_runtime_put_sync(apu->apu_iommu0);
-	if (ret < 0)
-		pm_runtime_get_sync(apu->apu_iommu1);
+	} while (ret < 0);
+
+	i = 0;
+	do {
+		ret = pm_runtime_put_sync(apu->apu_iommu0);
+		/*try atmost 7 times since disable_depth is 3-bit wide */
+		if (ret == -EACCES && i <= 7) {
+			pm_runtime_enable(apu->apu_iommu0);
+			pm_runtime_get_sync(apu->apu_iommu0);
+			i++;
+			dev_info(apu->dev,
+				 "%s: %s is disabled. Enable and retry(%d)\n",
+				 __func__,
+				 to_platform_device(apu->apu_iommu0)->name, i);
+		} else if (ret < 0)
+			pm_runtime_get_sync(apu->apu_iommu1);
+
+	} while (ret < 0);
 
 iommu_put_error:
 	if (ret < 0) {
@@ -468,13 +523,11 @@ iommu_put_error:
 	if (timeout <= 0) {
 		dev_info(apu->dev, "%s: polling iommu off timeout!!\n",
 			 __func__);
-		apu_ipi_unlock(apu);
 		WARN_ON(0);
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_IOMMU_OFF_TIMEOUT");
 		ret = -ETIMEDOUT;
 		goto error_get_iommu_dev;
 	}
-
 
 	/* to force apu top power off synchronously */
 	ret = pm_runtime_put_sync(apu->power_dev);
@@ -493,13 +546,11 @@ iommu_put_error:
 	if (timeout <= 0) {
 		dev_info(apu->dev, "%s: polling power off timeout!!\n",
 			 __func__);
-		apu_ipi_unlock(apu);
 		WARN_ON(0);
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_PWRDN_TIMEOUT");
 		ret = -ETIMEDOUT;
 		goto error_get_power_dev;
 	}
-
 
 	return 0;
 

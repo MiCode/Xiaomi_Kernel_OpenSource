@@ -197,6 +197,7 @@ static void apu_deepidle_work_func(struct work_struct *work)
 		ret = hw_ops->power_off(apu);
 		if (ret) {
 			dev_info(apu->dev, "failed to power off ret=%d\n", ret);
+			hw_logger_deep_idle_enter_post();
 			apu_ipi_unlock(apu);
 			WARN_ON(0);
 			return;
