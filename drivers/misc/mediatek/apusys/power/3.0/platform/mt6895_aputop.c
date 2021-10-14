@@ -350,6 +350,13 @@ static void __apu_acc_init(void)
 	// HW_CTRL_EN
 	apu_writel(0x00008000, apupw.regs[apu_acc] + APU_ACC_CONFG_SET0);
 
+	/* uP clk setting */
+	pr_info("iommu clk setting %s %d\n", __func__, __LINE__);
+	// CGEN_SOC
+	apu_writel(0x00000004, apupw.regs[apu_acc] + APU_ACC_CONFG_CLR1);
+	// HW_CTRL_EN
+	apu_writel(0x00008000, apupw.regs[apu_acc] + APU_ACC_CONFG_SET1);
+
 	/* mvpu clk setting */
 	pr_info("mvpu clk setting %s %d\n", __func__, __LINE__);
 	// CGEN_SOC
