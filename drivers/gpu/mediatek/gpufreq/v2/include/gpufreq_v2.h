@@ -166,6 +166,7 @@ struct gpufreq_platform_fp {
 	struct gpufreq_asensor_info (*get_asensor_info)(void);
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
+	void (*get_critical_volt)(const struct gpufreq_opp_info *opp_table);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);

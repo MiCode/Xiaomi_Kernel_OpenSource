@@ -1826,6 +1826,10 @@ void gpufreq_register_gpuppm_fp(struct gpuppm_platform_fp *platform_fp)
 
 	/* init gpufreq debug */
 	gpufreq_debug_init(g_dual_buck, g_gpueb_support);
+
+	/* workaround to dump mt6983/mt6895 critical volt */
+	if (gpufreq_fp && gpufreq_fp->get_critical_volt)
+		gpufreq_fp->get_critical_volt(gpufreq_get_signed_table(TARGET_STACK));
 }
 EXPORT_SYMBOL(gpufreq_register_gpuppm_fp);
 

@@ -209,6 +209,7 @@ static unsigned int g_dvfs_timing_park_volt;
 static unsigned int g_dvfs_timing_park_reg;
 static unsigned int g_desel_ulv_park_volt;
 static unsigned int g_desel_ulv_park_reg;
+static unsigned int g_critical_volt[5];
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
 
@@ -268,6 +269,7 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.get_asensor_info = __gpufreq_get_asensor_info,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
+	.get_critical_volt = __gpufreq_get_critical_volt,
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
@@ -279,6 +281,7 @@ static struct gpufreq_platform_fp platform_eb_fp = {
 	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
+	.get_critical_volt = __gpufreq_get_critical_volt,
 };
 
 /**
@@ -1284,6 +1287,9 @@ void __gpufreq_dump_infra_status(void)
 			g_stack.cur_oppidx, g_stack.cur_freq,
 			g_stack.cur_volt, g_stack.cur_vsram);
 	}
+	GPUFREQ_LOGI("[Constraint] [0]: %d, [11]: %d, [18]: %d, [28]: %d, [32]: %d",
+		g_critical_volt[0], g_critical_volt[1], g_critical_volt[2],
+		g_critical_volt[3], g_critical_volt[4]);
 
 	/* 0x13FBF000, 0x13F90000 */
 	if (g_mfg_top_base && g_mfg_rpc_base) {
@@ -1480,6 +1486,16 @@ struct gpufreq_core_mask_info *__gpufreq_get_core_mask_table(void)
 unsigned int __gpufreq_get_core_num(void)
 {
 	return SHADER_CORE_NUM;
+}
+
+/* API: keep critical volt of Vcore boundary */
+void __gpufreq_get_critical_volt(const struct gpufreq_opp_info *opp_table)
+{
+	g_critical_volt[0] = opp_table[0].volt;
+	g_critical_volt[1] = opp_table[11].volt;
+	g_critical_volt[2] = opp_table[18].volt;
+	g_critical_volt[3] = opp_table[28].volt;
+	g_critical_volt[4] = opp_table[32].volt;
 }
 
 /**
