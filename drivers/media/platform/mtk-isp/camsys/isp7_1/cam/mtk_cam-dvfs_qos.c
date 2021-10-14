@@ -381,6 +381,7 @@ opp_default_table:
 
 #define MTK_CAM_QOS_LSCI_TABLE_MAX_SIZE (32768)
 #define MTK_CAM_QOS_CACI_TABLE_MAX_SIZE (32768)
+#define BW_B2KB(value) ((value) / 1024)
 #define BW_B2KB_WITH_RATIO(value) ((value) * 4 / 3 / 1024)
 
 void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
@@ -758,7 +759,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 				mtk_icc_set_bw(dvfs_info->qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
 						dvfs_info->qos_bw_avg[i])),
-					kBps_to_icc(BW_B2KB_WITH_RATIO(
+					kBps_to_icc(BW_B2KB(
 						dvfs_info->qos_bw_avg[i])));
 		}
 	}
@@ -771,7 +772,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 				mtk_icc_set_bw(dvfs_info->sv_qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
 						dvfs_info->sv_qos_bw_avg[i])),
-					kBps_to_icc(BW_B2KB_WITH_RATIO(
+					kBps_to_icc(BW_B2KB(
 						dvfs_info->sv_qos_bw_avg[i])));
 		}
 	}
@@ -784,7 +785,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 				mtk_icc_set_bw(dvfs_info->mraw_qos_req[i],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
 						dvfs_info->mraw_qos_bw_avg[i])),
-					kBps_to_icc(BW_B2KB_WITH_RATIO(
+					kBps_to_icc(BW_B2KB(
 						dvfs_info->mraw_qos_bw_avg[i])));
 		}
 	}
@@ -867,27 +868,59 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 	}
 }
 
-void mtk_cam_qos_bw_reset(struct mtk_cam_device *cam)
+void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 {
+	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_raw_pipeline *pipe = ctx->pipe;
+	struct mtk_raw_device *raw_dev = get_master_raw_dev(cam, pipe);
 	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
-	int i;
+	unsigned int qos_port_id;
+	int engine_id = raw_dev->id;
+	int i, j;
 
-	for (i = 0; i < MTK_CAM_RAW_PORT_NUM; i++) {
-		dvfs_info->qos_bw_avg[i] = 0;
-		if (dvfs_info->qos_req[i])
-			mtk_icc_set_bw(dvfs_info->qos_req[i], 0, 0);
-	}
-	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
-		dvfs_info->sv_qos_bw_avg[i] = 0;
-		if (dvfs_info->sv_qos_req[i])
-			mtk_icc_set_bw(dvfs_info->sv_qos_req[i], 0, 0);
-	}
-	for (i = 0; i < MTK_CAM_MRAW_PORT_NUM; i++) {
-		dvfs_info->mraw_qos_bw_avg[i] = 0;
-		if (dvfs_info->mraw_qos_req[i])
-			mtk_icc_set_bw(dvfs_info->mraw_qos_req[i], 0, 0);
+	dev_info(cam->dev, "[%s] enabled_raw(%d),used_sv_num(%d),used_mraw_num(%d)\n",
+		__func__, ctx->pipe->enabled_raw, ctx->used_sv_num, ctx->used_mraw_num);
+
+	for (i = 0; i < raw_qos_port_num; i++) {
+		qos_port_id = engine_id * raw_qos_port_num + i;
+
+		dvfs_info->qos_bw_avg[qos_port_id] = 0;
+		if (dvfs_info->qos_req[qos_port_id])
+			mtk_icc_set_bw(dvfs_info->qos_req[qos_port_id], 0, 0);
 	}
 
-	dev_info(cam->dev, "[%s]\n", __func__);
+	if (mtk_cam_is_stagger(ctx) || mtk_cam_is_time_shared(ctx)
+		|| mtk_cam_is_with_w_channel(ctx)) {
+		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
+			if (enabled_sv & (1 << i)) {
+				qos_port_id =
+					((i - MTKCAM_SUBDEV_CAMSV_START) * sv_qos_port_num) +
+					sv_imgo;
+				dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
+				if (dvfs_info->sv_qos_req[qos_port_id])
+					mtk_icc_set_bw(dvfs_info->sv_qos_req[qos_port_id], 0, 0);
+			}
+		}
+	}
+
+	for (i = 0; i < ctx->used_sv_num; i++) {
+		for (j = 0; j < sv_qos_port_num; j++) {
+			qos_port_id = ((ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START)
+						* sv_qos_port_num) + j;
+			dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
+			if (dvfs_info->sv_qos_req[qos_port_id])
+				mtk_icc_set_bw(dvfs_info->sv_qos_req[qos_port_id], 0, 0);
+		}
+	}
+
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		for (j = 0; j < mraw_qos_port_num; j++) {
+			qos_port_id = ((ctx->mraw_pipe[i]->id - MTKCAM_SUBDEV_MRAW_START)
+				* mraw_qos_port_num) + j;
+			dvfs_info->mraw_qos_bw_avg[qos_port_id] = 0;
+			if (dvfs_info->mraw_qos_req[qos_port_id])
+				mtk_icc_set_bw(dvfs_info->mraw_qos_req[qos_port_id], 0, 0);
+		}
+	}
 }
 
