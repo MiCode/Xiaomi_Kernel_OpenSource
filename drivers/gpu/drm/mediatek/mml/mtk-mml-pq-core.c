@@ -1168,11 +1168,14 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 		mml_pq_msg("single pipe");
 	}
 
+	atomic_dec_if_positive(&new_sub_task->queued);
+
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
 	return 0;
 
 wake_up_aal_readback_task:
+	atomic_dec_if_positive(&new_sub_task->queued);
 	kfree(job);
 	cancel_sub_task(new_sub_task);
 	mml_pq_msg("%s end %d", __func__, ret);
@@ -1294,11 +1297,14 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 		mml_pq_msg("single pipe");
 	}
 
+	atomic_dec_if_positive(&new_sub_task->queued);
+
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
 	return 0;
 
 wake_up_hdr_readback_task:
+	atomic_dec_if_positive(&new_sub_task->queued);
 	kfree(job);
 	cancel_sub_task(new_sub_task);
 	mml_pq_msg("%s end %d\n", __func__, ret);
@@ -1362,11 +1368,14 @@ static int mml_pq_rsz_callback_ioctl(unsigned long data)
 		goto wake_up_rsz_callback_task;
 	}
 
+	atomic_dec_if_positive(&new_sub_task->queued);
+
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
 	return 0;
 
 wake_up_rsz_callback_task:
+	atomic_dec_if_positive(&new_sub_task->queued);
 	kfree(job);
 	cancel_sub_task(new_sub_task);
 	mml_pq_msg("%s end %d\n", __func__, ret);
