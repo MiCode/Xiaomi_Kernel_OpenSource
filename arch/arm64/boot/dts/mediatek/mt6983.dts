@@ -8693,6 +8693,8 @@
 		mediatek,larb = <&smi_larb12>;
 		mediatek,imgsys_fw = <&imgsys_fw>;
 		fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
+		sw_sync_token_tzmp_aie_wait = <CMDQ_SYNC_TOKEN_TZMP_AIE_WAIT>;
+		sw_sync_token_tzmp_aie_set = <CMDQ_SYNC_TOKEN_TZMP_AIE_SET>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_IPE>;
 		iommus = <&mdp_iommu M4U_PORT_L12_IPE_FDVT_RDA0>,
 			 <&mdp_iommu M4U_PORT_L12_IPE_FDVT_RDB0>,
