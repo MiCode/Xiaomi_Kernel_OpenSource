@@ -2843,10 +2843,7 @@ static void accdet_ipi_rx_internal(unsigned int *msg_data)
 {
 	int ret;
 
-	pr_info("%s MT6338 ACCDET AP data = %x\n", __func__, msg_data[0]);
 	ret = queue_work(accdet->ipi_workqueue, &accdet->ipi_work);
-	if (!ret)
-		pr_notice("Error: %s (%d)\n", __func__, ret);
 }
 
 static int accdet_ipi_rx_handler(unsigned int id,
