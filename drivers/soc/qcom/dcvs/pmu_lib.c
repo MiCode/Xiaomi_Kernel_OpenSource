@@ -449,15 +449,16 @@ static int configure_cpucp_map(cpumask_t mask)
 	if (!qcom_pmu_inited)
 		return -EPROBE_DEFER;
 
+	if (!ops || !pmu_base)
+		return ret;
+
 	/*
 	 * Only set the hw cntrs for cpus that are part of the cpumask passed
 	 * in argument and cpucp_map events mask. Set rest of the memory with
 	 * INVALID_ID which is ignored on cpucp side.
 	 */
 	memset(pmu_map, INVALID_ID, MAX_NUM_CPUS * MAX_CPUCP_EVT);
-	for (cpu = 0; cpu < MAX_NUM_CPUS; cpu++) {
-		if (!cpumask_test_cpu(cpu, &mask))
-			continue;
+	for_each_cpu(cpu, &mask) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
 		for (i = 0; i < cpu_data->num_evs; i++) {
 			event = &cpu_data->events[i];
@@ -470,8 +471,7 @@ static int configure_cpucp_map(cpumask_t mask)
 		}
 	}
 
-	if (ops)
-		ret = ops->set_pmu_map(ph, pmu_map);
+	ret = ops->set_pmu_map(ph, pmu_map);
 
 	return ret;
 }
@@ -858,7 +858,7 @@ int rimps_pmu_init(struct scmi_device *sdev)
 	 * will be de-allocated. Make ops NULL to avoid further scmi calls.
 	 */
 	ret = configure_cpucp_map(*cpu_possible_mask);
-	if (ret)
+	if (ret < 0)
 		ops = NULL;
 
 	return ret;
