@@ -101,10 +101,9 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 	} while (retry++ < max_retry && ret < 0);
 
 	duration = ktime_get_boottime_ns() - start_time;
-	if (duration > timeout) {
-		pr_notice("running time %lld, retry:%d\n", duration, retry);
-		WARN_ON(1);
-	}
+	if (duration > timeout)
+		pr_notice("running time %lld, type %u, cmd %u, retries %d\n",
+			duration, ctrl->sensor_type, ctrl->command, retry);
 	return ret;
 }
 
