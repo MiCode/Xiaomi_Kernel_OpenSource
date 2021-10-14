@@ -75,6 +75,8 @@ void mt6338_Keyunlock(struct mt6338_pmic_info *mpi)
 	regmap_write(mpi->regmap, MT6338_PSC_WPK_H, 0x47);
 	regmap_write(mpi->regmap, MT6338_HK_TOP_WKEY_L, 0x38);
 	regmap_write(mpi->regmap, MT6338_HK_TOP_WKEY_H, 0x63);
+	regmap_write(mpi->regmap, MT6338_PLT_CON0, 0x3a);
+	regmap_write(mpi->regmap, MT6338_PLT_CON1, 0x0c);
 }
 
 void mt6338_Keylock(struct mt6338_pmic_info *mpi)
@@ -172,8 +174,6 @@ void mt6338_InitSetting(struct mt6338_pmic_info *mpi)
 				MT6338_TOP_CKPDN_CON0,
 				RG_TRIM_75K_CK_PDN_MASK_SFT,
 				0x1 << RG_TRIM_75K_CK_PDN_SFT);
-	regmap_write(mpi->regmap, MT6338_PLT_CON0, 0x00);
-	regmap_write(mpi->regmap, MT6338_PLT_CON1, 0x00);
 	regmap_write(mpi->regmap, MT6338_HK_TOP_CLK_CON0, 0x15);
 	regmap_update_bits(mpi->regmap,
 				MT6338_AUXADC_CON0,
@@ -269,7 +269,6 @@ static int mt6338_pmic_probe(struct i2c_client *client,
 	mt6338_LP_Setting(mpi);
 	mt6338_InitSetting(mpi);
 	mt6338_Suspend_Setting(mpi);
-	mt6338_Keylock(mpi);
 
 	dev_info(&client->dev, "Successfully probed\n");
 	return 0;
