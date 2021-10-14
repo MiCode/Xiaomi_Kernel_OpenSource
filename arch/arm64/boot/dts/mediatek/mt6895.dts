@@ -4568,7 +4568,6 @@
 							&smi_larb25 &smi_larb26 &smi_larb27
 							&smi_larb28 &smi_larb29 &smi_larb30>;
 			mediatek,commons = <&smi_disp_common>, <&smi_mdp_common>;
-			disable-mmqos;
 			clocks = <&topckgen_clk CLK_TOP_MMINFRA_SEL>,
 					<&topckgen_clk CLK_TOP_MMINFRA_SEL>;
 			clock-names = "mm", "mdp";
@@ -4582,7 +4581,7 @@
 			compatible = "mediatek,mmdvfs-debug";
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			force-step0 = <1>;
-			release-step0 = <0>;
+			release-step0 = <1>;
 		};
 
 		mmdvfs {
