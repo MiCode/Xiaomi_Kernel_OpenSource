@@ -54,9 +54,9 @@ struct system_heap_buffer {
 	int (*show)(const struct dma_buf *dmabuf, struct seq_file *s);
 
 	/* system heap will not strore sgtable here */
-	bool                     mapped[BUF_PRIV_MAX_CNT];
-	struct mtk_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
-	struct sg_table          *mapped_table[BUF_PRIV_MAX_CNT];
+	bool                     mapped[MTK_M4U_TAB_NR_MAX][MTK_M4U_DOM_NR_MAX];
+	struct mtk_heap_dev_info dev_info[MTK_M4U_TAB_NR_MAX][MTK_M4U_DOM_NR_MAX];
+	struct sg_table          *mapped_table[MTK_M4U_TAB_NR_MAX][MTK_M4U_DOM_NR_MAX];
 	struct mutex             map_lock; /* map iova lock */
 	pid_t                    pid;
 	pid_t                    tid;
@@ -143,7 +143,7 @@ static int fill_buffer_info(struct system_heap_buffer *buffer,
 			    struct sg_table *table,
 			    struct dma_buf_attachment *a,
 			    enum dma_data_direction dir,
-			    int iommu_dom_id)
+			    int tab_id, int dom_id)
 {
 	struct sg_table *new_table = NULL;
 	int ret = 0;
@@ -152,10 +152,10 @@ static int fill_buffer_info(struct system_heap_buffer *buffer,
 	 * devices without iommus attribute,
 	 * use common flow, skip set buf_info
 	 */
-	if (iommu_dom_id >= BUF_PRIV_MAX_CNT)
+	if (tab_id >= MTK_M4U_TAB_NR_MAX || dom_id >= MTK_M4U_DOM_NR_MAX)
 		return 0;
 
-	if (buffer->mapped[iommu_dom_id]) {
+	if (buffer->mapped[tab_id][dom_id]) {
 		pr_info("%s err: already mapped before\n", __func__);
 		return -EINVAL;
 	}
@@ -175,12 +175,12 @@ static int fill_buffer_info(struct system_heap_buffer *buffer,
 	if (ret)
 		return ret;
 
-	buffer->mapped_table[iommu_dom_id] = new_table;
-	buffer->mapped[iommu_dom_id] = true;
-	buffer->dev_info[iommu_dom_id].dev = a->dev;
-	buffer->dev_info[iommu_dom_id].direction = dir;
+	buffer->mapped_table[tab_id][dom_id] = new_table;
+	buffer->mapped[tab_id][dom_id] = true;
+	buffer->dev_info[tab_id][dom_id].dev = a->dev;
+	buffer->dev_info[tab_id][dom_id].direction = dir;
 	/* TODO: check map_attrs affect??? */
-	buffer->dev_info[iommu_dom_id].map_attrs = a->dma_map_attrs;
+	buffer->dev_info[tab_id][dom_id].map_attrs = a->dma_map_attrs;
 
 	return 0;
 }
@@ -240,7 +240,7 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 	int ret;
 
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
-	int dom_id = BUF_PRIV_MAX_CNT;
+	int dom_id = MTK_M4U_DOM_NR_MAX, tab_id = MTK_M4U_TAB_NR_MAX;
 	struct system_heap_buffer *buffer = attachment->dmabuf->priv;
 
 	if (a->uncached)
@@ -248,18 +248,20 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 
 	mutex_lock(&buffer->map_lock);
 
-	if (fwspec)
+	if (fwspec) {
 		dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
+		tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
+	}
 
 	/* device with iommus attribute AND mapped before */
-	if (fwspec && buffer->mapped[dom_id]) {
+	if (fwspec && buffer->mapped[tab_id][dom_id]) {
 		/* mapped before, return saved table */
-		ret = copy_sg_table(buffer->mapped_table[dom_id], table);
+		ret = copy_sg_table(buffer->mapped_table[tab_id][dom_id], table);
 
 		/* update device info */
-		buffer->dev_info[dom_id].dev = attachment->dev;
-		buffer->dev_info[dom_id].direction = direction;
-		buffer->dev_info[dom_id].map_attrs = attr;
+		buffer->dev_info[tab_id][dom_id].dev = attachment->dev;
+		buffer->dev_info[tab_id][dom_id].direction = direction;
+		buffer->dev_info[tab_id][dom_id].map_attrs = attr;
 
 		mutex_unlock(&buffer->map_lock);
 		if (ret)
@@ -275,14 +277,14 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 
 	/* first map OR device without iommus attribute */
 	if (dma_map_sgtable(attachment->dev, table, direction, attr)) {
-		pr_info("%s map fail dom:%d, dev:%s\n",
-			__func__, dom_id, dev_name(attachment->dev));
+		pr_info("%s map fail tab:%d, dom:%d, dev:%s\n",
+			__func__, tab_id, dom_id, dev_name(attachment->dev));
 		mutex_unlock(&buffer->map_lock);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	ret = fill_buffer_info(buffer, table,
-			       attachment, direction, dom_id);
+			       attachment, direction, tab_id, dom_id);
 	if (ret) {
 		mutex_unlock(&buffer->map_lock);
 		return ERR_PTR(ret);
@@ -552,7 +554,7 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
-	int i;
+	int i, j;
 
 	pr_debug("%s: inode:%lu, size:%lu, name:%s\n", __func__,
 		 file_inode(dmabuf->file)->i_ino, buffer->len, dmabuf->name);
@@ -560,21 +562,23 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 	dmabuf_release_check(dmabuf);
 
 	/* unmap all domains' iova */
-	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
-		struct sg_table *table = buffer->mapped_table[i];
-		struct mtk_heap_dev_info dev_info = buffer->dev_info[i];
-		unsigned long attrs = dev_info.map_attrs;
+	for (i = 0; i < MTK_M4U_TAB_NR_MAX; i++) {
+		for (j = 0; j < MTK_M4U_DOM_NR_MAX; j++) {
+			struct sg_table *table = buffer->mapped_table[i][j];
+			struct mtk_heap_dev_info dev_info = buffer->dev_info[i][j];
+			unsigned long attrs = dev_info.map_attrs;
 
-		if (buffer->uncached)
-			attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+			if (buffer->uncached)
+				attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-		if (!buffer->mapped[i])
-			continue;
+			if (!buffer->mapped[i][j])
+				continue;
 
-		dma_unmap_sgtable(dev_info.dev, table, dev_info.direction, attrs);
-		buffer->mapped[i] = false;
-		sg_free_table(table);
-		kfree(table);
+			dma_unmap_sgtable(dev_info.dev, table, dev_info.direction, attrs);
+			buffer->mapped[i][j] = false;
+			sg_free_table(table);
+			kfree(table);
+		}
 	}
 
 	if (atomic64_sub_return(buffer->len, &dma_heap_normal_total) < 0) {
@@ -856,7 +860,7 @@ static struct dma_heap_ops mtk_mm_uncached_heap_ops = {
 static int system_buf_priv_dump(const struct dma_buf *dmabuf,
 				struct seq_file *s)
 {
-	int i = 0;
+	int i = 0, j = 0;
 	struct system_heap_buffer *buf = dmabuf->priv;
 
 	dmabuf_dump(s, "\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
@@ -868,21 +872,23 @@ static int system_buf_priv_dump(const struct dma_buf *dmabuf,
 	if (is_system_heap_dmabuf(dmabuf))
 		return 0;
 
-	for (i = 0; i < BUF_PRIV_MAX_CNT; i++) {
-		bool mapped = buf->mapped[i];
-		struct device *dev = buf->dev_info[i].dev;
-		struct sg_table *sgt = buf->mapped_table[i];
+	for (i = 0; i < MTK_M4U_TAB_NR_MAX; i++) {
+		for (j = 0; j < MTK_M4U_DOM_NR_MAX; j++) {
+			bool mapped = buf->mapped[i][j];
+			struct device *dev = buf->dev_info[i][j].dev;
+			struct sg_table *sgt = buf->mapped_table[i][j];
 
-		if (!sgt || !dev || !dev_iommu_fwspec_get(dev))
-			continue;
+			if (!sgt || !dev || !dev_iommu_fwspec_get(dev))
+				continue;
 
-		dmabuf_dump(s,
-			    "\tbuf_priv: dom:%-2d map:%d iova:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
-			    i, mapped,
-			    sg_dma_address(sgt->sgl),
-			    buf->dev_info[i].map_attrs,
-			    buf->dev_info[i].direction,
-			    dev_name(dev));
+			dmabuf_dump(s,
+				    "\tbuf_priv: tab:%-2d dom:%-2d map:%d iova:0x%-12lx attr:0x%-4lx dir:%-2d dev:%s\n",
+				    i, j, mapped,
+				    sg_dma_address(sgt->sgl),
+				    buf->dev_info[i][j].map_attrs,
+				    buf->dev_info[i][j].direction,
+				    dev_name(dev));
+		}
 	}
 
 	return 0;

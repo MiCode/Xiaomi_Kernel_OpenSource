@@ -76,9 +76,9 @@ struct dmaheap_buf_copy {
 	int (*show)(const struct dma_buf *dmabuf, struct seq_file *s);
 
 	/* system heap will not strore sgtable here */
-	bool                     mapped[BUF_PRIV_MAX_CNT];
-	struct mtk_heap_dev_info dev_info[BUF_PRIV_MAX_CNT];
-	struct sg_table          *mapped_table[BUF_PRIV_MAX_CNT];
+	bool                     mapped[MTK_M4U_TAB_NR_MAX][MTK_M4U_DOM_NR_MAX];
+	struct mtk_heap_dev_info dev_info[MTK_M4U_TAB_NR_MAX][MTK_M4U_DOM_NR_MAX];
+	struct sg_table          *mapped_table[MTK_M4U_TAB_NR_MAX][MTK_M4U_DOM_NR_MAX];
 	struct mutex             map_lock; /* map iova lock */
 	pid_t                    pid;
 	pid_t                    tid;
