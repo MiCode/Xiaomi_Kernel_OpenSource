@@ -992,7 +992,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 		set_cmos_sensor_8(ctx, 0x3128, 0x00);
 		write_frame_len(ctx, ctx->frame_length);
 		ctx->current_ae_effective_frame = 2;
-		LOG_INF("set frame_length\n");
+		// LOG_INF("set frame_length\n");
 	}
 
 	/* Update Shutter */
@@ -1277,7 +1277,7 @@ static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bo
 
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
-	LOG_INF("gain = %d, reg_gain = 0x%x\n ", gain, reg_gain);
+	LOG_INF("gain = %d, reg_gain = 0x%x\n", gain, reg_gain);
 
 	if (gph)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
@@ -1314,8 +1314,8 @@ static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 	kal_uint32 per_frame_ms = (kal_uint32)(((unsigned long long)ctx->frame_length *
 		(unsigned long long)ctx->line_length * 1000) / (unsigned long long)ctx->pclk);
 
-	LOG_INF("per_frame_ms: %d / %d = %d",
-		(ctx->frame_length * ctx->line_length * 1000), ctx->pclk, per_frame_ms);
+	// LOG_INF("per_frame_ms: %d / %d = %d",
+		// (ctx->frame_length * ctx->line_length * 1000), ctx->pclk, per_frame_ms);
 
 	ctx->frame_length = (per_frame_ms + (ns / 1000000)) * ctx->frame_length / per_frame_ms;
 
@@ -1625,12 +1625,6 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	if (se)
 		se = round_up((se) / exposure_cnt, 4);
 
-	LOG_INF("E! le:0x%x, me:0x%x, se:0x%x autoflicker_en %d frame_length %d\n",
-		le, me, se, ctx->autoflicker_en, ctx->frame_length);
-
-	if (gph)
-		set_cmos_sensor_8(ctx, 0x0104, 0x01);
-
 	if (ctx->autoflicker_en) {
 		realtime_fps =
 			ctx->pclk / ctx->line_length * 10 /
@@ -1640,6 +1634,12 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
 	}
+	LOG_INF("E! le:0x%x, me:0x%x, se:0x%x autoflicker_en %d frame_length %d\n",
+		le, me, se, ctx->autoflicker_en, ctx->frame_length);
+
+	if (gph)
+		set_cmos_sensor_8(ctx, 0x0104, 0x01);
+
 	write_frame_len(ctx, ctx->frame_length);
 
 	/* Long exposure */
@@ -1678,7 +1678,7 @@ static void hdr_write_tri_gain_w_gph(struct subdrv_ctx *ctx,
 	kal_uint16 reg_lg, reg_mg, reg_sg;
 
 	reg_lg = gain2reg(ctx, lg);
-	reg_mg = gain2reg(ctx, mg);
+	reg_mg = mg ? gain2reg(ctx, mg) : 0;
 	reg_sg = gain2reg(ctx, sg);
 
 	ctx->gain = reg_lg;
@@ -1711,27 +1711,6 @@ static void hdr_write_tri_gain(struct subdrv_ctx *ctx,
 	hdr_write_tri_gain_w_gph(ctx, lg, mg, sg, KAL_TRUE);
 }
 
-#define PHASE_PIX_OUT_EN	0x30B4
-#define FRAME_LEN_UPPER		0x0340
-#define FRAME_LEN_LOWER		0x0341
-#define CIT_LE_UPPER		0x0202
-#define CIT_LE_LOWER		0x0203
-#define CIT_ME_UPPER		0x0224
-#define CIT_ME_LOWER		0x0225
-#define CIT_SE_UPPER		0x313A
-#define CIT_SE_LOWER		0x313B
-#define DOL_EN				0x33D0
-#define DOL_MODE			0x33D1
-#define VSB_2ND_VCID		0x3070
-#define VSB_3ND_VCID		0x3080
-
-#define PIX_1_1ST_VCID		0x3066
-#define PIX_2_1ST_VCID		0x3068
-#define PIX_1_2ND_VCID		0x3077
-#define PIX_2_2ND_VCID		0x3079
-#define PIX_1_3RD_VCID		0x3087
-#define PIX_2_3RD_VCID		0x3089
-
 #define FMC_GPH_START		do { \
 					write_cmos_sensor_8(ctx, 0x0104, 0x01); \
 					write_cmos_sensor_8(ctx, 0x3010, 0x02); \
@@ -1741,88 +1720,15 @@ static void hdr_write_tri_gain(struct subdrv_ctx *ctx,
 					write_cmos_sensor_8(ctx, 0x0104, 0x00); \
 				} while (0)
 
-enum {
-	SHUTTER_NE_FRM_1 = 0,
-	GAIN_NE_FRM_1,
-	FRAME_LEN_NE_FRM_1,
-	HDR_TYPE_FRM_1,
-	SHUTTER_NE_FRM_2,
-	GAIN_NE_FRM_2,
-	FRAME_LEN_NE_FRM_2,
-	HDR_TYPE_FRM_2,
-	SHUTTER_SE_FRM_1,
-	GAIN_SE_FRM_1,
-	SHUTTER_SE_FRM_2,
-	GAIN_SE_FRM_2,
-	SHUTTER_ME_FRM_1,
-	GAIN_ME_FRM_1,
-	SHUTTER_ME_FRM_2,
-	GAIN_ME_FRM_2,
-};
-
 static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, uint32_t *ae_ctrl)
 {
 	ctx->extend_frame_length_en = KAL_FALSE;
 
 	switch (scenario_id) {
-	case SENSOR_SCENARIO_ID_CUSTOM4:
-	{
-		unsigned short imx766dual_seamless_custom4[] = {
-			0x0340, 0x09,
-			0x0341, 0x5C,
-			0x0224, 0x00,
-			0x0225, 0xFC,
-			0x30B4, 0x03,
-			0x33D0, 0x01,
-			0x307A, 0x31,
-		};
-
-		ctx->sensor_mode = scenario_id;
-		ctx->autoflicker_en = KAL_FALSE;
-		ctx->pclk = imgsensor_info.custom4.pclk;
-		ctx->line_length = imgsensor_info.custom4.linelength;
-		ctx->frame_length = imgsensor_info.custom4.framelength;
-		ctx->min_frame_length = imgsensor_info.custom4.framelength;
-
-		FMC_GPH_START;
-		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom4,
-				sizeof(imx766dual_seamless_custom4) / sizeof(kal_uint16));
-
-		if (ae_ctrl) {
-			LOG_INF("call SENSOR_SCENARIO_ID_CUSTOM4 %d %d %d %d %d %d",
-					ae_ctrl[SHUTTER_NE_FRM_1],
-					0,
-					ae_ctrl[SHUTTER_SE_FRM_1],
-					ae_ctrl[GAIN_NE_FRM_1],
-					0,
-					ae_ctrl[GAIN_SE_FRM_1]);
-			hdr_write_tri_shutter_w_gph(ctx,
-					ae_ctrl[SHUTTER_NE_FRM_1],
-					0,
-					ae_ctrl[SHUTTER_SE_FRM_1],
-					KAL_FALSE);
-			hdr_write_tri_gain_w_gph(ctx,
-					ae_ctrl[GAIN_NE_FRM_1],
-					0,
-					ae_ctrl[GAIN_SE_FRM_1],
-					KAL_FALSE);
-		}
-		FMC_GPH_END;
-	}
-		break;
+	// video stagger seamless switch (1exp-2exp)
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 	{
-		unsigned short imx766dual_seamless_normal_video[] = {
-			0x0340, 0x12,
-			0x0341, 0xBA,
-			0x0224, 0x01,
-			0x0225, 0xF4,
-			0x30B4, 0x01,
-			0x33D0, 0x00,
-			0x307A, 0x30,
-		};
-
 		ctx->sensor_mode = scenario_id;
 		ctx->autoflicker_en = KAL_FALSE;
 		ctx->pclk = imgsensor_info.normal_video.pclk;
@@ -1835,10 +1741,153 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 				sizeof(imx766dual_seamless_normal_video) / sizeof(kal_uint16));
 
 		if (ae_ctrl) {
-			LOG_INF("call SENSOR_SCENARIO_ID_NORMAL_VIDEO %d %d",
-					ae_ctrl[SHUTTER_NE_FRM_1], ae_ctrl[GAIN_NE_FRM_1]);
-			set_shutter_w_gph(ctx, ae_ctrl[SHUTTER_NE_FRM_1], KAL_FALSE);
-			set_gain_w_gph(ctx, ae_ctrl[GAIN_NE_FRM_1], KAL_FALSE);
+			// LOG_INF("call SENSOR_SCENARIO_ID_NORMAL_VIDEO %d %d",
+				// ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM4:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom4.pclk;
+		ctx->line_length = imgsensor_info.custom4.linelength;
+		ctx->frame_length = imgsensor_info.custom4.framelength;
+		ctx->min_frame_length = imgsensor_info.custom4.framelength;
+
+		FMC_GPH_START;
+		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom4,
+				sizeof(imx766dual_seamless_custom4) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			// LOG_INF("call SENSOR_SCENARIO_ID_CUSTOM4 %d %d %d %d %d %d",
+				// ae_ctrl[0], 0, ae_ctrl[1],
+				// ae_ctrl[5], 0, ae_ctrl[6]);
+			hdr_write_tri_shutter_w_gph(ctx,
+				ae_ctrl[0],	0, ae_ctrl[1], KAL_FALSE);
+			hdr_write_tri_gain_w_gph(ctx,
+				ae_ctrl[5],	0, ae_ctrl[6], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	// stagger seamless switch (1exp-2exp-3exp)
+	// normal seamless switch
+	case SENSOR_SCENARIO_ID_CUSTOM8:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom8.pclk;
+		ctx->line_length = imgsensor_info.custom8.linelength;
+		ctx->frame_length = imgsensor_info.custom8.framelength;
+		ctx->min_frame_length = imgsensor_info.custom8.framelength;
+
+		FMC_GPH_START;
+		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom8,
+				sizeof(imx766dual_seamless_custom8) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			// LOG_INF("call SENSOR_SCENARIO_ID_CUSTOM8 %d %d",
+					// ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM9:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom9.pclk;
+		ctx->line_length = imgsensor_info.custom9.linelength;
+		ctx->frame_length = imgsensor_info.custom9.framelength;
+		ctx->min_frame_length = imgsensor_info.custom9.framelength;
+
+		FMC_GPH_START;
+		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom9,
+				sizeof(imx766dual_seamless_custom9) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			// LOG_INF("call SENSOR_SCENARIO_ID_CUSTOM9 %d %d %d %d %d %d",
+				// ae_ctrl[0],	0, ae_ctrl[1],
+				// ae_ctrl[5],	0, ae_ctrl[6]);
+			hdr_write_tri_shutter_w_gph(ctx,
+				ae_ctrl[0],	0, ae_ctrl[1], KAL_FALSE);
+			hdr_write_tri_gain_w_gph(ctx,
+				ae_ctrl[5],	0, ae_ctrl[6], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom10.pclk;
+		ctx->line_length = imgsensor_info.custom10.linelength;
+		ctx->frame_length = imgsensor_info.custom10.framelength;
+		ctx->min_frame_length = imgsensor_info.custom10.framelength;
+
+		FMC_GPH_START;
+		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom10,
+				sizeof(imx766dual_seamless_custom10) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			// LOG_INF("call SENSOR_SCENARIO_ID_CUSTOM10 %d %d %d %d %d %d",
+				// ae_ctrl[0], ae_ctrl[1], ae_ctrl[2],
+				// ae_ctrl[5], ae_ctrl[6], ae_ctrl[7]);
+			hdr_write_tri_shutter_w_gph(ctx,
+				ae_ctrl[0],	ae_ctrl[1], ae_ctrl[2], KAL_FALSE);
+			hdr_write_tri_gain_w_gph(ctx,
+				ae_ctrl[5],	ae_ctrl[6], ae_ctrl[7], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM11:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom11.pclk;
+		ctx->line_length = imgsensor_info.custom11.linelength;
+		ctx->frame_length = imgsensor_info.custom11.framelength;
+		ctx->min_frame_length = imgsensor_info.custom11.framelength;
+
+		FMC_GPH_START;
+		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom11,
+				sizeof(imx766dual_seamless_custom11) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			// LOG_INF("call SENSOR_SCENARIO_ID_CUSTOM11 %d %d",
+					// ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
+		}
+		FMC_GPH_END;
+	}
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM12:
+	{
+		ctx->sensor_mode = scenario_id;
+		ctx->autoflicker_en = KAL_FALSE;
+		ctx->pclk = imgsensor_info.custom12.pclk;
+		ctx->line_length = imgsensor_info.custom12.linelength;
+		ctx->frame_length = imgsensor_info.custom12.framelength;
+		ctx->min_frame_length = imgsensor_info.custom12.framelength;
+
+		FMC_GPH_START;
+		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom12,
+				sizeof(imx766dual_seamless_custom12) / sizeof(kal_uint16));
+
+		if (ae_ctrl) {
+			// LOG_INF("call SENSOR_SCENARIO_ID_CUSTOM12 %d %d",
+					// ae_ctrl[0], ae_ctrl[5]);
+			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
+			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
 		}
 		FMC_GPH_END;
 	}
@@ -3500,13 +3549,13 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 		break;
 	case SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH:
-		LOG_INF("extend_frame_len %d\n", *feature_data);
+		// LOG_INF("extend_frame_len %d\n", *feature_data);
 		extend_frame_length(ctx, (MUINT32) *feature_data);
-		LOG_INF("extend_frame_len done %d\n", *feature_data);
+		// LOG_INF("extend_frame_len done %d\n", *feature_data);
 		break;
 	case SENSOR_FEATURE_SEAMLESS_SWITCH:
 	{
-		LOG_INF("SENSOR_FEATURE_SEAMLESS_SWITCH");
+		// LOG_INF("SENSOR_FEATURE_SEAMLESS_SWITCH");
 		if ((feature_data + 1) != NULL)
 			pAeCtrls = (MUINT32 *)((uintptr_t)(*(feature_data + 1)));
 		else
@@ -3516,7 +3565,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			LOG_INF("error! input scenario is null!");
 			return ERROR_INVALID_SCENARIO_ID;
 		}
-		LOG_INF("call seamless_switch");
+		// LOG_INF("call seamless_switch");
 		seamless_switch(ctx, (*feature_data), pAeCtrls);
 	}
 		break;
@@ -3528,14 +3577,45 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			return ERROR_INVALID_SCENARIO_ID;
 		}
 		switch (*feature_data) {
+		// video stagger seamless switch (1exp-2exp)
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM4;
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM4:
 			*pScenarios = SENSOR_SCENARIO_ID_NORMAL_VIDEO;
 			break;
-		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		// stagger seamless switch (1exp-2exp-3exp)
+		// normal seamless switch
+		case SENSOR_SCENARIO_ID_CUSTOM8:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM9;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM10;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM11;
+			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM9:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM10;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM11;
+			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM9;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM11;
+			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM11:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM9;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM12;
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM12:
+			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM8;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM9;
+			*(pScenarios + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+			*(pScenarios + 3) = SENSOR_SCENARIO_ID_CUSTOM11;
+			break;
 		default:
 			*pScenarios = 0xff;
 			break;
@@ -3593,6 +3673,39 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			switch (*(feature_data + 1)) {
 			case HDR_RAW_STAGGER_2EXP:
 				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM4;
+				break;
+			default:
+				break;
+			}
+		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM8) {
+			switch (*(feature_data + 1)) {
+			case HDR_RAW_STAGGER_2EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
+				break;
+			case HDR_RAW_STAGGER_3EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+				break;
+			default:
+				break;
+			}
+		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM9) {
+			switch (*(feature_data + 1)) {
+			case HDR_NONE:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM8;
+				break;
+			case HDR_RAW_STAGGER_3EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+				break;
+			default:
+				break;
+			}
+		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM10) {
+			switch (*(feature_data + 1)) {
+			case HDR_NONE:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM8;
+				break;
+			case HDR_RAW_STAGGER_2EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
 				break;
 			default:
 				break;

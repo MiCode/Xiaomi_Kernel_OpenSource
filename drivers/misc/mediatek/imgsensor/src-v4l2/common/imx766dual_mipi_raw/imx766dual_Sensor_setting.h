@@ -3093,4 +3093,156 @@ static kal_uint16 imx766dual_custom13_setting[] = {
 	0x3911, 0x00,
 };
 
+/* seamless_switch */
+#define PHASE_PIX_OUT_EN            0x30B4
+#define LINE_LEN_UPPER              0x0342
+#define LINE_LEN_LOWER              0x0343
+#define FRAME_LEN_UPPER             0x0340
+#define FRAME_LEN_LOWER             0x0341
+#define DOL_EN                      0x33D0
+#define DOL_MODE                    0x33D1
+#define BINNING_TYPE                0x0901
+#define BINNING_PRIORITY_H          0x3200
+#define BINNING_PRIORITY_V          0x3201
+#define X_ADD_STA_UPPER             0x0344
+#define X_ADD_STA_LOWER             0x0345
+#define Y_ADD_STA_UPPER             0x0346
+#define Y_ADD_STA_LOWER             0x0347
+#define X_ADD_END_UPPER             0x0348
+#define X_ADD_END_LOWER             0x0349
+#define Y_ADD_END_UPPER             0x034A
+#define Y_ADD_END_LOWER             0x034B
+#define DIG_CROP_X_OFFSET_UPPER     0x0408
+#define DIG_CROP_X_OFFSET_LOWER     0x0409
+#define DIG_CROP_Y_OFFSET_UPPER     0x040A
+#define DIG_CROP_Y_OFFSET_LOWER     0x040B
+#define DIG_CROP_IMAGE_WIDTH_UPPER  0x040C
+#define DIG_CROP_IMAGE_WIDTH_LOWER  0x040D
+#define DIG_CROP_IMAGE_HEIGHT_UPPER 0x040E
+#define DIG_CROP_IMAGE_HEIGHT_LOWER 0x040F
+#define X_OUT_SIZE_UPPER            0x034C
+#define X_OUT_SIZE_LOWER            0x034D
+#define Y_OUT_SIZE_UPPER            0x034E
+#define Y_OUT_SIZE_LOWER            0x034F
+
+// video stagger seamless switch (1exp-2exp)
+static kal_uint16 imx766dual_seamless_normal_video[] = {
+	PHASE_PIX_OUT_EN, 0x01,
+	DOL_EN, 0x00,
+};
+static kal_uint16 imx766dual_seamless_custom4[] = {
+	PHASE_PIX_OUT_EN, 0x03,
+	DOL_EN, 0x01,
+};
+
+// stagger seamless switch (1exp-2exp-3exp)
+// normal seamless switch
+static kal_uint16 imx766dual_seamless_custom8[] = {
+	PHASE_PIX_OUT_EN, 0x01,
+	LINE_LEN_UPPER, 0x22,
+	LINE_LEN_LOWER, 0x70,
+	DOL_EN, 0x00,
+	DOL_MODE, 0x00,
+	BINNING_TYPE, 0x44,
+	0x3121, 0x00,
+	BINNING_PRIORITY_H, 0x43,
+	BINNING_PRIORITY_V, 0x43,
+	Y_ADD_STA_UPPER, 0x00,
+	Y_ADD_END_UPPER, 0x17,
+	DIG_CROP_X_OFFSET_UPPER, 0x00,
+	DIG_CROP_IMAGE_WIDTH_UPPER, 0x08,
+	DIG_CROP_IMAGE_HEIGHT_UPPER, 0x06,
+	X_OUT_SIZE_UPPER, 0x08,
+	Y_OUT_SIZE_UPPER, 0x06,
+	0x38B1, 0x64,
+	0x38B3, 0x64,
+	0x38C4, 0x00,
+	0x38C5, 0x64,
+};
+static kal_uint16 imx766dual_seamless_custom9[] = {
+	PHASE_PIX_OUT_EN, 0x03,
+	LINE_LEN_UPPER, 0x22,
+	LINE_LEN_LOWER, 0x70,
+	DOL_EN, 0x01,
+	DOL_MODE, 0x00,
+	0x3121, 0x00,
+	BINNING_PRIORITY_H, 0x43,
+	BINNING_PRIORITY_V, 0x43,
+	Y_ADD_STA_UPPER, 0x00,
+	Y_ADD_END_UPPER, 0x17,
+	DIG_CROP_X_OFFSET_UPPER, 0x00,
+	DIG_CROP_IMAGE_WIDTH_UPPER, 0x08,
+	DIG_CROP_IMAGE_HEIGHT_UPPER, 0x06,
+	X_OUT_SIZE_UPPER, 0x08,
+	Y_OUT_SIZE_UPPER, 0x06,
+	0x38B1, 0x64,
+	0x38B3, 0x64,
+	0x38C4, 0x00,
+	0x38C5, 0x64,
+};
+static kal_uint16 imx766dual_seamless_custom10[] = {
+	PHASE_PIX_OUT_EN, 0x07,
+	LINE_LEN_UPPER, 0x22,
+	LINE_LEN_LOWER, 0x70,
+	DOL_EN, 0x01,
+	DOL_MODE, 0x01,
+	0x3121, 0x00,
+	BINNING_PRIORITY_H, 0x43,
+	BINNING_PRIORITY_V, 0x43,
+	Y_ADD_STA_UPPER, 0x00,
+	Y_ADD_END_UPPER, 0x17,
+	DIG_CROP_X_OFFSET_UPPER, 0x00,
+	DIG_CROP_IMAGE_WIDTH_UPPER, 0x08,
+	DIG_CROP_IMAGE_HEIGHT_UPPER, 0x06,
+	X_OUT_SIZE_UPPER, 0x08,
+	Y_OUT_SIZE_UPPER, 0x06,
+	0x38B1, 0x64,
+	0x38B3, 0x64,
+	0x38C4, 0x00,
+	0x38C5, 0x64,
+};
+static kal_uint16 imx766dual_seamless_custom11[] = {
+	PHASE_PIX_OUT_EN, 0x01,
+	LINE_LEN_UPPER, 0x3D,
+	LINE_LEN_LOWER, 0x00,
+	DOL_EN, 0x00,
+	DOL_MODE, 0x00,
+	BINNING_TYPE, 0x22,
+	0x3121, 0x01,
+	BINNING_PRIORITY_H, 0x41,
+	BINNING_PRIORITY_V, 0x41,
+	Y_ADD_STA_UPPER, 0x00,
+	Y_ADD_END_UPPER, 0x17,
+	DIG_CROP_X_OFFSET_UPPER, 0x00,
+	DIG_CROP_IMAGE_WIDTH_UPPER, 0x10,
+	DIG_CROP_IMAGE_HEIGHT_UPPER, 0x0C,
+	X_OUT_SIZE_UPPER, 0x10,
+	Y_OUT_SIZE_UPPER, 0x0C,
+	0x38B1, 0x00,
+	0x38B3, 0x00,
+	0x38C4, 0x01,
+	0x38C5, 0x2C,
+};
+static kal_uint16 imx766dual_seamless_custom12[] = {
+	PHASE_PIX_OUT_EN, 0x01,
+	LINE_LEN_UPPER, 0x3D,
+	LINE_LEN_LOWER, 0x00,
+	DOL_EN, 0x00,
+	DOL_MODE, 0x00,
+	BINNING_TYPE, 0x22,
+	0x3121, 0x01,
+	BINNING_PRIORITY_H, 0x41,
+	BINNING_PRIORITY_V, 0x41,
+	Y_ADD_STA_UPPER, 0x06,
+	Y_ADD_END_UPPER, 0x11,
+	DIG_CROP_X_OFFSET_UPPER, 0x04,
+	DIG_CROP_IMAGE_WIDTH_UPPER, 0x08,
+	DIG_CROP_IMAGE_HEIGHT_UPPER, 0x06,
+	X_OUT_SIZE_UPPER, 0x08,
+	Y_OUT_SIZE_UPPER, 0x06,
+	0x38B1, 0x00,
+	0x38B3, 0x00,
+	0x38C4, 0x01,
+	0x38C5, 0x2C,
+};
 #endif
