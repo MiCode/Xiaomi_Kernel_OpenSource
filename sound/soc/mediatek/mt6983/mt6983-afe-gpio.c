@@ -26,6 +26,8 @@ static struct audio_gpio_attr aud_gpios[MT6983_AFE_GPIO_GPIO_NUM] = {
 	[MT6983_AFE_GPIO_DAT_MISO1_ON] = {"aud_dat_miso1_on", false, NULL},
 	[MT6983_AFE_GPIO_DAT_MISO2_OFF] = {"aud_dat_miso2_off", false, NULL},
 	[MT6983_AFE_GPIO_DAT_MISO2_ON] = {"aud_dat_miso2_on", false, NULL},
+	[MT6983_AFE_GPIO_CLK_MOSI_OFF] = {"aud_clk_mosi_off", false, NULL},
+	[MT6983_AFE_GPIO_CLK_MOSI_ON] = {"aud_clk_mosi_on", false, NULL},
 	[MT6983_AFE_GPIO_DAT_MOSI_OFF] = {"aud_dat_mosi_off", false, NULL},
 	[MT6983_AFE_GPIO_DAT_MOSI_ON] = {"aud_dat_mosi_on", false, NULL},
 	[MT6983_AFE_GPIO_I2S0_OFF] = {"aud_gpio_i2s0_off", false, NULL},
@@ -57,38 +59,6 @@ static struct audio_gpio_attr aud_gpios[MT6983_AFE_GPIO_GPIO_NUM] = {
 };
 
 static DEFINE_MUTEX(gpio_request_mutex);
-
-int mt6983_afe_gpio_init(struct mtk_base_afe *afe)
-{
-	int ret;
-	int i = 0;
-
-	aud_pinctrl = devm_pinctrl_get(afe->dev);
-	if (IS_ERR(aud_pinctrl)) {
-		ret = PTR_ERR(aud_pinctrl);
-		dev_err(afe->dev, "%s(), ret %d, cannot get aud_pinctrl!\n",
-			__func__, ret);
-		return -ENODEV;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(aud_gpios); i++) {
-		aud_gpios[i].gpioctrl = pinctrl_lookup_state(aud_pinctrl,
-							     aud_gpios[i].name);
-		if (IS_ERR(aud_gpios[i].gpioctrl)) {
-			ret = PTR_ERR(aud_gpios[i].gpioctrl);
-			dev_err(afe->dev, "%s(), pinctrl_lookup_state %s fail, ret %d\n",
-				__func__, aud_gpios[i].name, ret);
-		} else {
-			aud_gpios[i].gpio_prepare = true;
-		}
-	}
-
-	/* gpio status init */
-	mt6983_afe_gpio_request(afe, false, MT6983_DAI_ADDA, 0);
-	mt6983_afe_gpio_request(afe, false, MT6983_DAI_ADDA, 1);
-
-	return 0;
-}
 
 static int mt6983_afe_gpio_select(struct mtk_base_afe *afe,
 				  enum mt6983_afe_gpio type)
@@ -260,6 +230,39 @@ int mt6983_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6983_afe_gpio_request);
+
+int mt6983_afe_gpio_init(struct mtk_base_afe *afe)
+{
+	int ret;
+	int i = 0;
+
+	aud_pinctrl = devm_pinctrl_get(afe->dev);
+	if (IS_ERR(aud_pinctrl)) {
+		ret = PTR_ERR(aud_pinctrl);
+		dev_err(afe->dev, "%s(), ret %d, cannot get aud_pinctrl!\n",
+			__func__, ret);
+		return -ENODEV;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(aud_gpios); i++) {
+		aud_gpios[i].gpioctrl = pinctrl_lookup_state(aud_pinctrl,
+							     aud_gpios[i].name);
+		if (IS_ERR(aud_gpios[i].gpioctrl)) {
+			ret = PTR_ERR(aud_gpios[i].gpioctrl);
+			dev_err(afe->dev, "%s(), pinctrl_lookup_state %s fail, ret %d\n",
+				__func__, aud_gpios[i].name, ret);
+		} else {
+			aud_gpios[i].gpio_prepare = true;
+		}
+	}
+
+	/* gpio status init */
+	mt6983_afe_gpio_select(afe, MT6983_AFE_GPIO_CLK_MOSI_ON);
+	mt6983_afe_gpio_request(afe, false, MT6983_DAI_ADDA, 0);
+	mt6983_afe_gpio_request(afe, false, MT6983_DAI_ADDA, 1);
+
+	return 0;
+}
 
 bool mt6983_afe_gpio_is_prepared(enum mt6983_afe_gpio type)
 {
