@@ -33,6 +33,9 @@ module_param(imgsys_wpe_bwlog_en, int, 0644);
 int imgsys_cmdq_ts_dbg_en;
 module_param(imgsys_cmdq_ts_dbg_en, int, 0644);
 
+int imgsys_dvfs_dbg_en;
+module_param(imgsys_dvfs_dbg_en, int, 0644);
+
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
@@ -1385,11 +1388,14 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 			dvfs_info->freq = freq;
 		}
 	}
-	dev_dbg(qos_info->dev,
-	"[%s] isSet(%d) fps(%d) bw_exe(%d) freq(%d/%d) pix_sz(%d/%d) eq(%lld) curr(%lld) sw(%lld) end(%lld) exe(%lld)\n",
+
+	if (imgsys_dvfs_dbg_enable())
+		dev_info(qos_info->dev,
+		"[%s] isSet(%d) fps(%d) bw_exe(%d) freq(%d/%d) local_pix_sz(%d/%d/%d) global_pix_sz(%d/%d/%d)\n",
 		__func__, isSet, fps, bw_exe, freq, dvfs_info->freq,
-		pixel_max, pixel_total_max,
-		ts_eq, ts_curr, ts_sw, ts_end, ts_exe);
+		pixel_size[0], pixel_size[1], pixel_max,
+		dvfs_info->pixel_size[0], dvfs_info->pixel_size[1], pixel_total_max
+		);
 	#else
 	if (isSet == 1) {
 		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++)
@@ -1678,5 +1684,10 @@ bool imgsys_wpe_bwlog_enable(void)
 bool imgsys_cmdq_ts_dbg_enable(void)
 {
 	return imgsys_cmdq_ts_dbg_en;
+}
+
+bool imgsys_dvfs_dbg_enable(void)
+{
+	return imgsys_dvfs_dbg_en;
 }
 
