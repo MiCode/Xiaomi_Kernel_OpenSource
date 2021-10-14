@@ -10,6 +10,7 @@
 #include <linux/spinlock.h>
 
 struct iova_info {
+	u32 tab_id;
 	u32 dom_id;
 	struct device *dev;
 	dma_addr_t iova;

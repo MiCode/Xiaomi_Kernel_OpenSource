@@ -83,7 +83,7 @@ enum peri_iommu {
 	PERI_IOMMU_NUM
 };
 
-enum IOMMU_BANK {
+enum iommu_bank {
 	IOMMU_BK0, /* normal bank */
 	IOMMU_BK1, /* protected bank1 */
 	IOMMU_BK2, /* protected bank2 */
@@ -97,6 +97,13 @@ enum iommu_tab_type {
 	PROT_TAB,
 	SEC_TAB,
 	TAB_TYPE_NUM
+};
+
+enum iommu_tab_id {
+	MM_TABLE,
+	APU_TABLE,
+	PERI_TABLE,
+	PGTBALE_NUM
 };
 
 struct mtk_iommu_iova_region;
@@ -127,6 +134,8 @@ struct mtk_iommu_plat_data {
 	u32                 normal_dom;
 	int		    iommu_id;
 	enum mtk_iommu_type iommu_type;
+	enum iommu_tab_id			tab_id;
+	struct list_head			*hw_list;
 	unsigned int				iova_region_nr;
 	const struct mtk_iommu_iova_region	*iova_region;
 	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
@@ -159,6 +168,8 @@ struct mtk_iommu_data {
 	unsigned long			first_jiffies;
 	struct timer_list		iommu_isr_pause_timer;
 
+	struct list_head		*hw_list;
+	struct list_head		hw_list_head;
 	struct list_head		list;
 	struct mtk_smi_larb_iommu	larb_imu[MTK_LARB_NR_MAX];
 };
@@ -191,9 +202,10 @@ static inline void mtk_iommu_unbind(struct device *dev)
 
 int dev_is_normal_region(struct device *dev);
 
-void mtk_dump_reg_for_hang_issue(uint32_t type);
+void mtk_dump_reg_for_hang_issue(enum mtk_iommu_type type, int	id);
 
-uint64_t mtee_iova_to_phys(unsigned long iova, u32 *sr_info, u64 *pa, u32 *type, u32 *lvl);
+uint64_t mtee_iova_to_phys(unsigned long iova, u32 tab_id, u32 *sr_info,
+				u64 *pa, u32 *type, u32 *lvl);
 
 #else
 
@@ -202,11 +214,12 @@ int dev_is_normal_region(struct device *dev)
 	return 0;
 }
 
-void mtk_dump_reg_for_hang_issue(uint32_t type)
+void mtk_dump_reg_for_hang_issue(enum mtk_iommu_type type, int	id)
 {
 }
 
-uint64_t mtee_iova_to_phys(unsigned long iova, u32 *sr_info, u64 *pa, u32 *type, u32 *lvl)
+uint64_t mtee_iova_to_phys(unsigned long iova, u32 tab_id, u32 *sr_info,
+			u64 *pa, u32 *type, u32 *lvl)
 {
 	return 0;
 }
