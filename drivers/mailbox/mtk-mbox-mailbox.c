@@ -127,7 +127,7 @@ static int tinysys_mbox_startup(struct mbox_chan *chan)
 	int ret;
 
 	ret = request_irq(mlink->irq, tinysys_mbox_rx_interrupt,
-			  IRQF_TRIGGER_NONE, "mtk_tinysys_mbox", chan);
+			  IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE, "mtk_tinysys_mbox", chan);
 	if (ret) {
 		dev_notice(chan->mbox->dev,
 			"Unable to acquire IRQ %d\n", mlink->irq);
