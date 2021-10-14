@@ -928,6 +928,8 @@ static void devapc_dump_info(void)
 	/* For debug slave error, will be removed later */
 	pr_info("dump_virt1 (0x10001F54): 0x%x\n", readl(dump_virt1 + 0xF54));
 	pr_info("dump_virt1 (0x10001F58): 0x%x\n", readl(dump_virt1 + 0xF58));
+	pr_info("dump_virt1 (0x10001C40): 0x%x\n", readl(dump_virt1 + 0xC40));
+	pr_info("dump_virt1 (0x10001C50): 0x%x\n", readl(dump_virt1 + 0xC50));
 	pr_info("dump_virt2 (0x102150E4): 0x%x\n", readl(dump_virt2 + 0x0E4));
 	pr_info("dump_virt2 (0x102150E8): 0x%x\n", readl(dump_virt2 + 0x0E8));
 	pr_info("dump_virt2 (0x102150EC): 0x%x\n", readl(dump_virt2 + 0x0EC));
