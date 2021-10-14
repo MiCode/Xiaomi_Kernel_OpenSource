@@ -214,13 +214,10 @@ static ssize_t camera_max_bw_store(struct device *dev,
 	cancel_delayed_work_sync(&mmqos_hrt->work);
 	mmqos_hrt->cam_occu_bw = MULTIPLY_W_DRAM_WEIGHT(bw);
 	mutex_lock(&mmqos_hrt->blocking_lock);
-	if (mmqos_hrt->cam_occu_bw < mmqos_hrt->cam_max_bw) {
-		mmqos_hrt->blocking = false;
+	if (mmqos_hrt->cam_occu_bw < mmqos_hrt->cam_max_bw)
 		schedule_delayed_work(&mmqos_hrt->work, 2 * HZ);
-	} else {
-		mmqos_hrt->blocking = true;
+	else
 		schedule_delayed_work(&mmqos_hrt->work, 0);
-	}
 	mutex_unlock(&mmqos_hrt->blocking_lock);
 
 	return count;
