@@ -357,7 +357,6 @@ static void mmc_enqueue_queue(struct mmc_host *host, struct mmc_request *mrq)
 	} else {
 
 		spin_lock_irqsave(&host->cmd_que_lock, flags);
-		atomic_inc(&host->areq_cnt);
 		if (mrq->flags)
 			list_add(&mrq->link, &host->cmd_que);
 		else
@@ -896,11 +895,6 @@ int mmc_run_queue_thread(void *data)
 	bool is_done = false;
 	int err;
 	u64 chk_time = 0;
-	struct sched_param scheduler_params = {0};
-
-	/* Set as RT priority */
-	scheduler_params.sched_priority = 1;
-	sched_setscheduler(current, SCHED_FIFO, &scheduler_params);
 
 	pr_info("[CQ] start cmdq thread\n");
 	mt_bio_queue_alloc(current, NULL, false);
@@ -1104,9 +1098,6 @@ int mmc_run_queue_thread(void *data)
 			schedule();
 
 		set_current_state(TASK_RUNNING);
-
-		if (kthread_should_stop())
-			break;
 	}
 	mt_bio_queue_free(current);
 	return 0;

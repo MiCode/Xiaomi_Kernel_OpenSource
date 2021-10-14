@@ -2361,6 +2361,7 @@ static int mmc_blk_swcq_issue_rw_rq(struct mmc_queue *mq,
 	mq->mqrq[index].req = req;
 	atomic_set(&mqrq->index, index + 1);
 	atomic_set(&mq->mqrq[index].index, index + 1);
+	atomic_inc(&card->host->areq_cnt);
 
 	mmc_blk_rw_rq_prep(mqrq, mq->card, 0, mq);
 
