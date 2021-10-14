@@ -2173,6 +2173,25 @@ static bool color_get_TDSHP0_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_MML_TDSHP0_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_tdshp");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc) {
+		DDPINFO("Fail to get MML TDSHP0 REG\n");
+		return false;
+	}
+
+	DDPDBG("MML TDSHP0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 #if defined(SUPPORT_ULTRA_RESOLUTION)
 static bool color_get_MDP_RSZ0_REG(struct resource *res)
 {
@@ -2247,6 +2266,25 @@ static bool color_get_MDP_HDR0_REG(struct resource *res)
 	}
 
 	DDPDBG("MDP_HDR0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
+static bool color_get_MML_COLOR0_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_color");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc) {
+		DDPINFO("Fail to get MML_COLOR0 REG\n");
+		return false;
+	}
+
+	DDPDBG("MML_COLOR0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
 
 	return true;
 }
@@ -2528,6 +2566,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 		return 2;
 	}
 
+	if (color_get_MML_COLOR0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MML_COLOR0\n", addr);
+		return 2;
+	}
+
 	/*Check if MDP AAL base address*/
 	if (color_get_MDP_AAL0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
@@ -2538,6 +2582,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	if (color_get_TDSHP0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
 		DDPDBG("addr=0x%lx, module=TDSHP0\n", addr);
+		return 2;
+	}
+
+	if (color_get_MML_TDSHP0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MML_TDSHP0\n", addr);
 		return 2;
 	}
 
@@ -2689,7 +2739,18 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 			break;
 		}
 #endif
-
+	case SWREG_MML_TDSHP_BASE_ADDRESS:
+		{
+			if (color_get_MML_TDSHP0_REG(&res))
+				ret = res.start;
+			break;
+		}
+	case SWREG_MML_COLOR_BASE_ADDRESS:
+		{
+			if (color_get_MML_COLOR0_REG(&res))
+				ret = res.start;
+			break;
+		}
 	case SWREG_TDSHP_BASE_ADDRESS:
 		{
 			if (color_get_TDSHP0_REG(&res))
