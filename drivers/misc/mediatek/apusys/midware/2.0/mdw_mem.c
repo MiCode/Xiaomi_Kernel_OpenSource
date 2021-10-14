@@ -70,21 +70,34 @@ void mdw_mem_all_print(struct mdw_fpriv *mpriv)
 	mdw_mem_debug("---list--\n");
 }
 
-static void mdw_mem_delete(struct mdw_mem *m)
+static void mdw_mem_release(struct mdw_mem *m, bool put_mpriv)
 {
+	struct mdw_device *mdev = m->mpriv->mdev;
 	struct mdw_fpriv *mpriv = m->mpriv;
-	struct mdw_device *mdev = mpriv->mdev;
 
 	mdw_mem_show(m);
+
 	mutex_lock(&mdev->m_mtx);
 	list_del(&m->d_node);
 	mutex_unlock(&mdev->m_mtx);
-	if (m->belong_apu) {
-		mutex_lock(&mpriv->mtx);
+
+	if (m->belong_apu)
 		list_del(&m->u_item);
-		mutex_unlock(&mpriv->mtx);
-	}
+
 	kfree(m);
+
+	if (put_mpriv == true)
+		mpriv->put(mpriv);
+}
+
+static void mdw_mem_delete(struct mdw_mem *m)
+{
+	struct mdw_fpriv *mpriv = m->mpriv;
+
+	mutex_lock(&mpriv->mtx);
+	mdw_mem_release(m, false);
+	mutex_unlock(&mpriv->mtx);
+
 	mpriv->put(mpriv);
 }
 
@@ -197,7 +210,7 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
 
 delete_mem:
 	/* delete mem struct */
-	mdw_mem_delete(m);
+	mdw_mem_release(m, true);
 	m = NULL;
 out:
 	mdw_trace_end("%s|size(%u) align(%u)",
@@ -240,7 +253,7 @@ static void mdw_mem_map_release(struct kref *ref)
 
 	/* delete mem struct */
 	if (m->belong_apu == false)
-		mdw_mem_delete(m);
+		mdw_mem_release(m, true);
 
 	/* put dma buf ref from map */
 	dma_buf_put(dbuf);
@@ -594,9 +607,9 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 
 	/* map apu va */
 	ret = mdw_mem_map(mpriv, m);
-	if (ret) {
+	if (ret && m->belong_apu == false) {
 		mdw_drv_err("map dmabuf(%d) fail\n", handle);
-		mdw_mem_delete(m);
+		mdw_mem_release(m, true);
 		goto out;
 	}
 
