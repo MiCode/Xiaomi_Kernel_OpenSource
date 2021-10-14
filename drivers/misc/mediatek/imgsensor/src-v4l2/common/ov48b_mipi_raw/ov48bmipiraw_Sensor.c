@@ -482,10 +482,13 @@ static void set_max_framerate_video(struct subdrv_ctx *ctx, UINT16 framerate,
 static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
 	pr_debug("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
-	if (enable)
+	if (enable) {
 		write_cmos_sensor_8(ctx, 0x0100, 0X01);
-	else
+		ctx->is_streaming = true;
+	} else {
 		write_cmos_sensor_8(ctx, 0x0100, 0x00);
+		ctx->is_streaming = false;
+	}
 	mdelay(10);
 	return ERROR_NONE;
 }
@@ -1333,6 +1336,8 @@ static int open(struct subdrv_ctx *ctx)
 
 static int close(struct subdrv_ctx *ctx)
 {
+	_is_seamless = false;
+	_size_to_write = 0;
 	return ERROR_NONE;
 }   /*  close  */
 
@@ -2318,12 +2323,15 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM10;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM11;
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM10:
-			*pScenarios = SENSOR_SCENARIO_ID_CUSTOM11;
+			*pScenarios = SENSOR_SCENARIO_ID_NORMAL_CAPTURE;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM11;
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM11:
 			*pScenarios = SENSOR_SCENARIO_ID_NORMAL_CAPTURE;
+			*(pScenarios + 1) = SENSOR_SCENARIO_ID_CUSTOM10;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
@@ -2349,7 +2357,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		pAeCtrls = (MUINT32 *)((uintptr_t)(*(feature_data+1)));
 		if (pAeCtrls)
 			seamless_switch(ctx, (*feature_data), *pAeCtrls,
-				*(pAeCtrls+1), *(pAeCtrls+4), *(pAeCtrls+5));
+				*(pAeCtrls+5), *(pAeCtrls+10), *(pAeCtrls+15));
 		else
 			seamless_switch(ctx, (*feature_data), 0, 0, 0, 0);
 		break;
@@ -3240,6 +3248,7 @@ static const struct subdrv_ctx defctx = {
 	.frame_time_delay_frame = 3,
 	.margin = 22,
 	.max_frame_length = 0xffffe9,
+	.is_streaming = KAL_FALSE,
 
 	.mirror = IMAGE_NORMAL,
 	.sensor_mode = IMGSENSOR_MODE_INIT,
