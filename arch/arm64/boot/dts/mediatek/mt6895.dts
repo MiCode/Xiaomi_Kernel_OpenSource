@@ -5016,19 +5016,6 @@
 			/* ccf-fmeter-support; */
 		};
 
-		gce_d_clk: syscon@1e980000 {
-			compatible = "mediatek,mt6895-gce_d", "syscon";
-			reg = <0 0x1e980000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
-		gce_m_clk: syscon@1e990000 {
-			compatible = "mediatek,mt6895-gce_m", "syscon";
-			reg = <0 0x1e990000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
-
 		gce: gce@1e980000 {
 			compatible = "mediatek,mt6895-gce";
 			reg = <0 0x1e980000 0 0x4000>;
@@ -7568,7 +7555,7 @@
 			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
 			      <6 0x400>; /* VENC_VCP_LOG_INFO_ID 1KB */
 
-		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
+		//power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOP_MMUP_SEL>,
 			<&topckgen_clk CLK_TOP_MAINPLL_D3>;
 		clock-names = "mmup-clk", "mmup-pll";
