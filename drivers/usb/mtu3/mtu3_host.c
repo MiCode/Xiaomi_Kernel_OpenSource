@@ -277,6 +277,8 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 
 	ssusb_host_setup(ssusb);
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
+
 	ret = of_platform_populate(parent_dn, NULL, NULL, parent_dev);
 	if (ret) {
 		dev_dbg(parent_dev, "failed to create child devices at %pOF\n",
@@ -294,5 +296,6 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 void ssusb_host_exit(struct ssusb_mtk *ssusb)
 {
 	of_platform_depopulate(ssusb->dev);
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 	ssusb_host_cleanup(ssusb);
 }

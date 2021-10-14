@@ -584,8 +584,6 @@ static int mtu3_probe(struct platform_device *pdev)
 		goto comm_exit;
 	}
 
-	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
-
 	return 0;
 
 host_exit:

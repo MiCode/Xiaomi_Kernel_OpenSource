@@ -509,6 +509,7 @@ static int ssusb_role_sw_register(struct otg_switch_mtk *otg_sx)
 	struct usb_role_switch_desc role_sx_desc = { 0 };
 	struct ssusb_mtk *ssusb =
 		container_of(otg_sx, struct ssusb_mtk, otg_switch);
+	int ret;
 
 	if (!otg_sx->role_sw_used)
 		return 0;
@@ -519,7 +520,18 @@ static int ssusb_role_sw_register(struct otg_switch_mtk *otg_sx)
 	role_sx_desc.driver_data = ssusb;
 	otg_sx->role_sw = usb_role_switch_register(ssusb->dev, &role_sx_desc);
 
-	return PTR_ERR_OR_ZERO(otg_sx->role_sw);
+	ret = PTR_ERR_OR_ZERO(otg_sx->role_sw);
+	if (ret)
+		return ret;
+
+	if (ssusb->clk_mgr) {
+		if (ssusb->is_host)
+			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
+		else
+			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
+	}
+
+	return 0;
 }
 
 static ssize_t mode_store(struct device *dev,

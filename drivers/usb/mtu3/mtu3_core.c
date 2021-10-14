@@ -902,11 +902,14 @@ static int mtu3_hw_init(struct mtu3 *mtu)
 
 	mtu3_regs_init(mtu);
 
+	ssusb_set_power_state(mtu->ssusb, MTU3_STATE_POWER_ON);
+
 	return 0;
 }
 
 static void mtu3_hw_exit(struct mtu3 *mtu)
 {
+	ssusb_set_power_state(mtu->ssusb, MTU3_STATE_POWER_OFF);
 	mtu3_device_disable(mtu);
 	mtu3_mem_free(mtu);
 }
