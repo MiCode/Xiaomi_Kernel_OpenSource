@@ -1431,6 +1431,7 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *dev)
 	u32 val;
 
 	val = readl_relaxed(dev->base + REG_MRAW_CQ_EN);
+	val = val & (~CQ_DB_EN);
 	writel_relaxed(val | SCQ_EN, dev->base + REG_MRAW_CQ_EN);
 
 	writel_relaxed(0xffffffff, dev->base + REG_MRAW_SCQ_START_PERIOD);
