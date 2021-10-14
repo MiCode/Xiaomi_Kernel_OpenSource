@@ -90,7 +90,7 @@ static long wv_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	}
 
 err_quit:
-	if (!dmabuf)
+	if (dmabuf)
 		dma_buf_put(dmabuf);
 	return ret;
 }
