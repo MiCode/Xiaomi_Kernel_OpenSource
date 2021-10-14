@@ -39,7 +39,7 @@
 	/* Battery temperature T3 */
 	TEMPERATURE_T4 = <(-7)>;
 	/* Battery temperature T4 */
-	TEMPERATURE_T4 = <(-10)>;
+	TEMPERATURE_T5 = <(-10)>;
 	/* Battery temperature T5 */
 	g_FG_PSEUDO100_T0 = <(100)>;
 	/* Pseudo 100% percentage at T0 */
