@@ -10718,7 +10718,6 @@
 		/*cvsd_mcu_read, write, packet_indicator*/
 		mediatek,offset =<0xf00 0x800 0x140 0x144 0x148>;
 		disable_write_silence = <1>;
-		status = "disabled";
 	};
 
 	snd_scp_ultra: snd_scp_ultra {
