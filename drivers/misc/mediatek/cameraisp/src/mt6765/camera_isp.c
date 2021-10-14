@@ -5421,7 +5421,7 @@ static signed int ISP_P2_BufQue_Update_ListCIdx(
  *
  *****************************************************************************/
 static signed int ISP_P2_BufQue_Erase(enum ISP_P2_BUFQUE_PROPERTY propertyU,
-enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
+enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idxU)
 {
 	signed int ret =  -1;
 	bool stop = false;
@@ -5429,7 +5429,13 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 	signed int cnt = 0;
 	int tmpIdx = 0;
 	unsigned int property = 0;
+	unsigned int idx = 0;
 
+	if (idxU < 0 || idxU >= _MAX_SUPPORT_P2_PACKAGE_NUM_) {
+		pr_info("idxU abnormal error\n");
+		return ret;
+	}
+	idx = idxU;
 	property = propertyU;
 
 	switch (listTag) {
@@ -5767,19 +5773,25 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 {
 	unsigned int ret = MFALSE;
 	signed int index = -1;
+	unsigned int local_idx = 0;
 	unsigned int property;
 
 	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		pr_err("property err(%d)\n", param.property);
 		return ret;
 	}
+	if (*idx < 0 || *idx >= _MAX_SUPPORT_P2_FRAME_NUM_) {
+		pr_info("*idx abnormal error\n");
+		return ret;
+	}
+
 	property = param.property;
+	local_idx = *idx;
 	/*  */
 	switch (type) {
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
 		spin_lock(&(SpinLock_P2FrameList));
-		index = *idx;
-		if (P2_FrameUnit_List[property][index].bufSts ==
+		if (P2_FrameUnit_List[property][local_idx].bufSts ==
 		    ISP_P2_BUF_STATE_RUNNING)
 			ret = MTRUE;
 
@@ -5787,9 +5799,8 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 		break;
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		spin_lock(&(SpinLock_P2FrameList));
-		index = *idx;
-		if (P2_FramePackage_List[property][index].dequedNum ==
-		    P2_FramePackage_List[property][index].frameNum)
+		if (P2_FramePackage_List[property][local_idx].dequedNum ==
+		    P2_FramePackage_List[property][local_idx].frameNum)
 			ret = MTRUE;
 
 		spin_unlock(&(SpinLock_P2FrameList));
