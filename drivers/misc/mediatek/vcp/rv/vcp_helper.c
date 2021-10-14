@@ -172,10 +172,12 @@ struct vcp_ipi_irq vcp_ipi_irqs[] = {
 #define IRQ_NUMBER  (sizeof(vcp_ipi_irqs)/sizeof(struct vcp_ipi_irq))
 struct device *vcp_io_devs[VCP_IOMMU_DEV_NUM];
 
+/*
 #undef pr_notice
 #define pr_notice pr_info
 #undef pr_debug
 #define pr_debug pr_info
+*/
 
 static void vcp_enable_irqs(void)
 {
@@ -1658,7 +1660,12 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	unsigned long spin_flags;
 	struct arm_smccc_res res;
 
-	pr_debug("[VCP] %s(): remain %d times\n", __func__, vcp_reset_counts);
+	pr_debug("[VCP] %s(): remain %d times, encnt %d\n", __func__,
+		vcp_reset_counts, mmup_enable_count());
+
+	if (mmup_enable_count() == 0)
+		return;
+
 	/*notify vcp functions stop*/
 	pr_debug("[VCP] %s(): vcp_extern_notify\n", __func__);
 	vcp_extern_notify(VCP_EVENT_STOP);

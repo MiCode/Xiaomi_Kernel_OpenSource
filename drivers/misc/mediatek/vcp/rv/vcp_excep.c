@@ -62,7 +62,7 @@ void (*vcp_do_tbufdump)(uint32_t*, uint32_t*) = NULL;
 
 static struct mutex vcp_excep_mutex;
 int vcp_ee_enable;
-int vcp_reset_counts = 100000;
+unsigned int vcp_reset_counts = 0xFFFFFFFF;
 
 void vcp_dump_last_regs(void)
 {
