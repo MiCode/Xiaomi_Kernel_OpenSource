@@ -10563,6 +10563,9 @@ int mtk_crtc_enter_tui(struct drm_crtc *crtc)
 	/* TODO: HardCode select OVL0, maybe store in platform data */
 	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = true;
 
+	if (mtk_crtc->is_dual_pipe)
+		priv->ddp_comp[DDP_COMPONENT_OVL1]->blank_mode = true;
+
 	DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 
 	wake_up(&mtk_crtc->state_wait_queue);
@@ -10581,6 +10584,8 @@ int mtk_crtc_exit_tui(struct drm_crtc *crtc)
 
 	/* TODO: Hard Code select OVL0, maybe store in platform data */
 	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = false;
+	if (mtk_crtc->is_dual_pipe)
+		priv->ddp_comp[DDP_COMPONENT_OVL1]->blank_mode = false;
 
 	mtk_crtc->crtc_blank = false;
 
