@@ -4037,11 +4037,31 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 		ret = mtk_drm_get_panel_info(dev, info, 0);
 		return ret;
 	} else if (s_type == MTK_SESSION_EXTERNAL) {
+		struct mtk_drm_private *priv = dev->dev_private;
+		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[1]);
+		struct mtk_ddp_comp *output_comp;
+		enum mtk_ddp_comp_type type;
 
-//		if (MTK_SESSION_DEV(info->session_id) == 1)
-//			ret = mtk_drm_get_panel_info(dev, info, 1);
-//		else
+		if (!mtk_crtc) {
+			DDPPR_ERR("invalid CRTC1\n");
+			return -EINVAL;
+		}
+
+		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+		if (unlikely(!output_comp)) {
+			DDPPR_ERR("%s:CRTC1 invalid output comp\n",
+				  __func__);
+			return -EINVAL;
+		}
+		type = mtk_ddp_comp_get_type(output_comp->id);
+		if (type == MTK_DSI)
+			ret = mtk_drm_get_panel_info(dev, info, 1);
+		else if (type == MTK_DP_INTF)
 			ret = mtk_drm_dp_get_info(dev, info);
+		else {
+			DDPPR_ERR("invalid comp type: %d\n", type);
+			ret = -EINVAL;
+		}
 		return ret;
 	} else if (s_type == MTK_SESSION_MEMORY) {
 		return ret;

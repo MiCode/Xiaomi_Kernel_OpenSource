@@ -4264,9 +4264,17 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 						     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 			}
 
-		} else if (crtc_id == 1)
-			cmdq_pkt_wfe(cmdq_handle,
+		} else if (crtc_id == 1) {
+			struct mtk_ddp_comp *output_comp;
+
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI)
+				cmdq_pkt_wfe(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+			else
+				cmdq_pkt_wfe(cmdq_handle,
 					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+		}
 
 		/* sw workaround to fix gce hw bug */
 		if (mtk_crtc_with_sodi_loop(crtc)) {
