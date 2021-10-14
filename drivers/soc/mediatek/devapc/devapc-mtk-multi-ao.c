@@ -429,8 +429,9 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 		}
 	}
 
-	pr_info(PFX "%s: no violation for %s:0x%x\n", __func__,
-			"slave_type", slave_type);
+	if (!mtk_devapc_ctx->soc->slave_error)
+		pr_info(PFX "%s: no violation for %s:0x%x\n", __func__,
+				"slave_type", slave_type);
 	return false;
 }
 
@@ -712,8 +713,9 @@ static bool mtk_devapc_dump_vio_dbg(int slave_type, int *vio_idx, int *index)
 		return true;
 	}
 
-	pr_info(PFX "check_devapc_vio_status: no violation for %s:0x%x\n",
-			"slave_type", slave_type);
+	if (!mtk_devapc_ctx->soc->slave_error)
+		pr_info(PFX "check_devapc_vio_status: no violation for %s:0x%x\n",
+				"slave_type", slave_type);
 	return false;
 }
 
@@ -911,8 +913,6 @@ static void devapc_dump_info(void)
 	int slave_type, vio_idx, index;
 	const char *vio_master;
 	uint8_t perm;
-
-	print_vio_mask_sta(true);
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
@@ -1480,8 +1480,6 @@ static DRIVER_ATTR_RW(set_swp_addr);
 static void devapc_arm64_serror_panic_hook(void *data,
 		struct pt_regs *regs, unsigned int esr)
 {
-	pr_info(PFX "serror panic hook\n");
-
 	mtk_devapc_ctx->soc->slave_error = true;
 	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
 	devapc_dump_info();
@@ -1493,8 +1491,6 @@ static void devapc_do_sea_hook(void *data,
 		struct pt_regs *regs, unsigned int esr,
 		unsigned long addr, const char *msg)
 {
-	pr_info(PFX "sabort panic hook\n");
-
 	if (mtk_devapc_ctx->soc->abort_error)
 		return;
 

@@ -188,9 +188,7 @@ struct mtk_devapc_soc {
 	const struct mtk_sramrom_sec_vio_desc *sramrom_sec_vios;
 	const uint32_t *devapc_pds;
 	uint32_t irq_type_num;
-#ifdef CONFIG_MTK_SERROR_HOOK
 	bool slave_error;
-#endif
 #ifdef CONFIG_MTK_SABORT_HOOK
 	bool abort_error;
 #endif
