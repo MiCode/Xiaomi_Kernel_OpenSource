@@ -104,7 +104,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 		int id, int width, int height)
 {
 	union feature_para para;
-	u32 idx, val, len;
+	u32 idx, val, len, llp_readout;
 	struct sensor_mode *mode;
 
 	idx = ctx->mode_cnt;
@@ -122,6 +122,14 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	para.u64[0] = id;
 	para.u64[1] = (u64)&val;
 
+	para.u64[2] = SENSOR_GET_LINELENGTH_FOR_READOUT;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO,
+		para.u8, &len);
+	llp_readout = val & 0xffff;
+	para.u64[2] = 0;
+
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO,
 		para.u8, &len);
@@ -170,10 +178,19 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 		(mode->pclk / 1000 - 1);
 	do_div(mode->linetime_in_ns, mode->pclk / 1000);
 
-	dev_dbg(ctx->dev, "[%d] id %d %dx%d %dx%d px %d fps %d\n",
+
+	mode->linetime_in_ns_readout = (u64)llp_readout * 1000000 +
+		(mode->pclk / 1000 - 1);
+	do_div(mode->linetime_in_ns_readout, mode->pclk / 1000);
+
+
+	dev_dbg(ctx->dev, "%s [%d] id %d %dx%d %dx%d px %d fps %d tLine %lld|%lld\n",
+		__func__,
 		idx, id, width, height,
 		mode->llp, mode->fll,
-		mode->mipi_pixel_rate, mode->max_framerate);
+		mode->mipi_pixel_rate, mode->max_framerate,
+		mode->linetime_in_ns,
+		mode->linetime_in_ns_readout);
 
 	ctx->mode_cnt++;
 }
@@ -504,7 +521,6 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	/* Only one raw bayer order is supported */
 	set_std_parts_fmt_code(fmt->format.code, ctx->fmt_code);
 
-	dev_info(ctx->dev, "set fmt code = 0x%x\n", fmt->format.code);
 
 	mode = v4l2_find_nearest_size(ctx->mode,
 		ctx->mode_cnt, width, height,
@@ -516,7 +532,8 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		if (sensor_mode_id >= 0 && sensor_mode_id < ctx->mode_cnt)
 			mode = &ctx->mode[sensor_mode_id];
 	}
-	dev_info(ctx->dev, "sensor_mode_id = %u\n", mode->id);
+	dev_info(ctx->dev, "set fmt code = 0x%x, sensor_mode_id = %u\n",
+			fmt->format.code, mode->id);
 
 	update_pad_format(ctx, mode, fmt);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {

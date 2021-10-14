@@ -596,9 +596,12 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 		ctrl->val = mode->fll - mode->height;
 		break;
 	case V4L2_CID_HBLANK:
-		ctrl->val = (mode->llp > mode->width)
-			? mode->llp - mode->width
-			: 1;
+		ctrl->val =
+			(((mode->linetime_in_ns_readout *
+				mode->mipi_pixel_rate)/1000000000) - mode->width);
+
+		if (ctrl->val < 1)
+			ctrl->val = 1;
 		break;
 	case V4L2_CID_MTK_SENSOR_PIXEL_RATE:
 		ctrl->val = mode->mipi_pixel_rate;
@@ -701,9 +704,13 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 
 			info->fps = val / 10;
 			info->vblank = mode->fll - mode->height;
-			info->hblank = (mode->llp > mode->width)
-					? mode->llp - mode->width
-					: 1;
+			info->hblank =
+				(((mode->linetime_in_ns_readout *
+					mode->mipi_pixel_rate)/1000000000) - mode->width);
+
+			if (info->hblank < 1)
+				info->hblank = 1;
+
 			info->pixelrate = mode->mipi_pixel_rate;
 			info->cust_pixelrate = mode->cust_pixel_rate;
 		}
@@ -1520,7 +1527,7 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx)
 		return;
 	}
 
-	dev_info(ctx->dev, "%s\n", __func__);
+	dev_dbg(ctx->dev, "%s\n", __func__);
 
 	do_set_ae_ctrl(ctx, &ctx->ae_memento);
 }

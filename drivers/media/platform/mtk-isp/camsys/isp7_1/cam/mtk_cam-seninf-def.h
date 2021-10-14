@@ -11,6 +11,8 @@
 
 #define SENINF_TIMESTAMP_CLK 1000
 #define HW_BUF_EFFECT 80
+#define ISP_CLK_LOW 273000000
+
 
 #define CSI_CLK_273MHZ
 

@@ -1113,7 +1113,6 @@ static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 	if (!ctx || !target)
 		return -EINVAL;
 
-	dev_info(ctx->dev, "[%s]scenario %u\n", __func__, target->scenario_id);
 
 	for (i = 0; i < SENSOR_SCENARIO_ID_MAX; ++i)
 		target_scenario_ids[i] = SENSOR_SCENARIO_ID_NONE;
@@ -1127,7 +1126,8 @@ static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 
 	while (count < SENSOR_SCENARIO_ID_MAX &&
 		target_scenario_ids[count] != SENSOR_SCENARIO_ID_NONE) {
-		dev_info(ctx->dev, "%s target %u\n", __func__,
+		dev_info(ctx->dev, "[%s] src %u target %u\n", __func__,
+				target->scenario_id,
 				target_scenario_ids[count]);
 		++count;
 	}

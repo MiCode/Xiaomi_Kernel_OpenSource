@@ -42,6 +42,7 @@ struct sensor_mode {
 	u32 max_framerate;
 	u32 pclk;
 	u64 linetime_in_ns;
+	u64 linetime_in_ns_readout;
 	struct mtk_csi_param csi_param;
 };
 

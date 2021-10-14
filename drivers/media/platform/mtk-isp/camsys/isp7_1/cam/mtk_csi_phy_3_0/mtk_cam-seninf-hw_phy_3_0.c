@@ -1009,12 +1009,13 @@ static int csirx_phyA_power_on(struct seninf_ctx *ctx, int portIdx, int en)
 		SENINF_BITS(base, CDPHY_RX_ANA_8,
 			    RG_CSI0_XX_T1CA_EQ_OS_CAL_EN, 1);
 		udelay(1);
+
+		dev_info(ctx->dev, "portIdx %d en %d CDPHY_RX_ANA_0 0x%x ANA_8 0x%x\n",
+			 portIdx, en,
+			SENINF_READ_REG(base, CDPHY_RX_ANA_0),
+			SENINF_READ_REG(base, CDPHY_RX_ANA_8));
 	}
 
-	dev_info(ctx->dev, "portIdx %d en %d CDPHY_RX_ANA_0 0x%x ANA_8 0x%x\n",
-		 portIdx, en,
-		SENINF_READ_REG(base, CDPHY_RX_ANA_0),
-		SENINF_READ_REG(base, CDPHY_RX_ANA_8));
 
 	return 0;
 }
@@ -1160,8 +1161,6 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 		// SENINF_BITS(base, CDPHY_RX_ANA_SETTING_1,
 			// RG_CSI0_ASYNC_OPTION, 0xC);
 
-		dev_info(ctx->dev, "port:%d CDPHY_RX_ANA_0(0x%x)\n",
-			 port, SENINF_READ_REG(base, CDPHY_RX_ANA_0));
 	}
 
 #ifdef CSI_EFUSE_SET
@@ -1415,9 +1414,9 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		do_div(cycles, data_rate);
 		cycles += CYCLE_MARGIN;
 
-		dev_info(ctx->dev,
-		"%s data_rate %lld bps cycles %lld\n",
-		__func__, data_rate, cycles);
+		//dev_info(ctx->dev,
+		//"%s data_rate %lld bps cycles %lld\n",
+		//__func__, data_rate, cycles);
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_OPT,
 			    RG_CSI2_CPHY_SEL, 0);
 		SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_EN, csi_en);
@@ -1446,9 +1445,9 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		do_div(data_rate, ctx->num_data_lanes*16);
 		do_div(cycles, data_rate);
 		cycles += CYCLE_MARGIN;
-			dev_info(ctx->dev,
-		"%s data_rate %lld pps cycles %lld\n",
-		__func__, data_rate, cycles);
+		//dev_info(ctx->dev,
+		//"%s data_rate %lld pps cycles %lld\n",
+		//__func__, data_rate, cycles);
 
 		SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_EN, csi_en);
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_OPT,
@@ -1921,14 +1920,14 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 	baseA = ctx->reg_ana_csi_rx[ctx->portA];
 	baseB = ctx->reg_ana_csi_rx[ctx->portB];
 
-	dev_info(ctx->dev, "port %d A %d B %d\n", ctx->port, ctx->portA, ctx->portB);
+	//dev_info(ctx->dev, "port %d A %d B %d\n", ctx->port, ctx->portA, ctx->portB);
 
 	if (!ctx->is_cphy) { //Dphy
 		int bit_per_pixel = 10;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
 		do_div(data_rate, ctx->num_data_lanes);
-		dev_info(ctx->dev, "data_rate %llu bps\n", data_rate);
+		//dev_info(ctx->dev, "data_rate %llu bps\n", data_rate);
 
 		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
 			    RG_CSI0_ASYNC_OPTION, 0x5);
@@ -2168,9 +2167,10 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 
 		data_rate *= 7;
 		do_div(data_rate, ctx->num_data_lanes*16);
-		dev_info(ctx->dev,
-			"%s data_rate %llu bps\n",
-			__func__, data_rate);
+		/* dev_info(ctx->dev,
+		 *	"%s data_rate %llu bps\n",
+		 *	__func__, data_rate);
+		 */
 
 		if (ctx->is_4d1c) {
 			SENINF_BITS(baseA, CDPHY_RX_ANA_0,
@@ -2499,7 +2499,7 @@ static int mtk_cam_seninf_reset(struct seninf_ctx *ctx, int seninfIdx)
 	udelay(1);
 	SENINF_BITS(pSeninf, SENINF_CSI2_CTRL, SENINF_CSI2_SW_RST, 0);
 
-	dev_info(ctx->dev, "reset seninf %d\n", seninfIdx);
+	//dev_info(ctx->dev, "reset seninf %d\n", seninfIdx);
 
 	for (i = SENINF_MUX1; i < _seninf_ops->mux_num; i++)
 		if (mtk_cam_seninf_get_top_mux_ctrl(ctx, i) == seninfIdx &&

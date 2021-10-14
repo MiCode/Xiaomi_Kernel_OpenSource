@@ -945,20 +945,24 @@ static int calc_buffered_pixel_rate(struct device *dev,
 				    int fps_n, int fps_d, s64 *result)
 {
 	s64 buffered_pixel_rate;
+	s64 orig_pixel_rate = *result;
 	s64 pclk;
+	s64 k;
 
 	/* calculate pclk */
 	pclk = (width + hblank) * (height + vblank) * fps_n;
 	do_div(pclk, fps_d);
 
 	/* calculate buffered pixel_rate */
-	buffered_pixel_rate = pclk * width;
-	do_div(buffered_pixel_rate, (width + hblank - HW_BUF_EFFECT));
+	buffered_pixel_rate = orig_pixel_rate * width;
+	k = HW_BUF_EFFECT * orig_pixel_rate;
+	do_div(k, ISP_CLK_LOW);
+	do_div(buffered_pixel_rate, (width + hblank - k));
 	*result = buffered_pixel_rate;
 
-	dev_info(dev, "%s: w %d h %d hb %d vb %d fps %d/%d pclk %lld->%lld\n",
+	dev_info(dev, "%s: w %d h %d hb %d vb %d fps %d/%d pclk %lld->%lld orig %lld k %lld\n",
 		 __func__, width, height, hblank, vblank,
-		 fps_n, fps_d, pclk, buffered_pixel_rate);
+		 fps_n, fps_d, pclk, buffered_pixel_rate, orig_pixel_rate, k);
 
 	return 0;
 }
@@ -1083,7 +1087,6 @@ int update_isp_clk(struct seninf_ctx *ctx)
 	s64 pixel_rate = -1, dfs_freq;
 	struct seninf_vc *vc;
 
-	dev_info(ctx->dev, "%s dfs->cnt %d\n", __func__, dfs->cnt);
 
 	if (!dfs->cnt)
 		return 0;
@@ -1094,8 +1097,9 @@ int update_isp_clk(struct seninf_ctx *ctx)
 		return -1;
 	}
 	dev_info(ctx->dev,
-		"%s pixel mode %d customized_pixel_rate %lld, buffered_pixel_rate %lld mipi_pixel_rate %lld\n",
+		"%s dfs->cnt %d pixel mode %d customized_pixel_rate %lld, buffered_pixel_rate %lld mipi_pixel_rate %lld\n",
 		__func__,
+		dfs->cnt,
 		vc->pixel_mode,
 		ctx->customized_pixel_rate,
 		ctx->buffered_pixel_rate,
@@ -1155,16 +1159,16 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		return -EFAULT;
 	}
 
-	get_mbus_config(ctx, ctx->sensor_sd);
-
-	get_buffered_pixel_rate(ctx, ctx->sensor_sd,
-				ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
-
-	get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
-
-	get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
-
 	if (enable) {
+		get_mbus_config(ctx, ctx->sensor_sd);
+
+		get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
+
+		ctx->buffered_pixel_rate = ctx->mipi_pixel_rate;
+		get_buffered_pixel_rate(ctx, ctx->sensor_sd,
+					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
+
+		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "pm_runtime_get_sync ret %d\n", ret);
