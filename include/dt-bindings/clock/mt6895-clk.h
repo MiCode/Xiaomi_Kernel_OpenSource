@@ -446,10 +446,6 @@
 #define CLK_MFG_AO_MFGPLL				0
 #define CLK_MFG_AO_NR_CLK				1
 
-/* GPUEBPLL_PLL_CTRL */
-#define CLK_GPUEB_AO_GPUEBPLL				0
-#define CLK_GPUEB_AO_NR_CLK				1
-
 /* MFGSCPLL_PLL_CTRL */
 #define CLK_MFGSC_AO_MFGSCPLL				0
 #define CLK_MFGSC_AO_NR_CLK				1
