@@ -407,9 +407,6 @@ static struct sk_buff *rndis_add_header(struct gether *port,
 				sizeof(*header));
 			header->DataOffset = cpu_to_le32(36);
 			header->DataLength = cpu_to_le32(skb->len);
-			pr_debug("MessageLength:%d DataLength:%d\n",
-				header->MessageLength,
-				header->DataLength);
 			return skb;
 		}
 		pr_notice("RNDIS header is NULL.\n");
