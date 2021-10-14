@@ -4855,7 +4855,7 @@
 					  <12 100 1>,	/* vow dual mic barge in */
 					  <13 200 0>;	/* ultrasound */
 
-			secure_dump = "disable";   /* enable dump via secure world*/
+			secure_dump = "enable";   /* enable dump via secure world*/
 			secure_dump_size = <0x300000>;
 
 			scp_mem_key = "mediatek,reserve-memory-scp_share";
