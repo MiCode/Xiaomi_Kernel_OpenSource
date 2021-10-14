@@ -99,6 +99,7 @@ static int debounce_times_perf_force_down = 100;
 #if IS_ENABLED(CONFIG_MTK_CM_IPI)
 static int dsu_enable = 1;
 static int dsu_opp_send = 0xff;
+static int dsu_mode;
 #endif
 int debounce_times_reset_adb;
 int light_load_cps = 1000;
@@ -113,15 +114,16 @@ int total_bw_value;
 
 /* setting in DTS */
 int cm_mgr_use_bcpu_weight;
-int cm_mgr_use_cpu_to_dram_map;
+int cm_mgr_use_cpu_to_dram_map = 1;
 static int cm_mgr_use_cpu_to_dram_map_new;
 int cpu_power_bcpu_weight_max = 100;
 int cpu_power_bcpu_weight_min = 100;
 int cpu_power_bbcpu_weight_max = 100;
 int cpu_power_bbcpu_weight_min = 100;
-int cm_mgr_cpu_map_dram_enable = 1;
+int cm_mgr_cpu_map_dram_enable;
 int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
+unsigned int cm_work_flag;
 
 struct icc_path *cm_mgr_get_bw_path(void)
 {
@@ -391,9 +393,9 @@ static void cm_mgr_cpu_map_update_table(void)
 
 static void cm_mgr_add_cpu_opp_to_ddr_req(void)
 {
-	struct device *dev = &cm_mgr_pdev->dev;
+	//struct device *dev = &cm_mgr_pdev->dev;
 
-	dev_pm_genpd_set_performance_state(dev, 0);
+	//dev_pm_genpd_set_performance_state(dev, 0);
 
 	if (cm_mgr_use_cpu_to_dram_map_new)
 		cm_mgr_cpu_map_update_table();
@@ -500,6 +502,8 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			dsu_enable);
 	len += cm_mgr_print("dsu_opp_send %d\n",
 			dsu_opp_send);
+	len += cm_mgr_print("dsu_mode_change %d\n",
+			dsu_mode);
 #endif
 	len += cm_mgr_print("\n");
 
@@ -657,6 +661,9 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 	} else if (!strcmp(cmd, "dsu_opp_send")) {
 		dsu_opp_send = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_OPP_SEND, val_1);
+	} else if (!strcmp(cmd, "dsu_mode")) {
+		dsu_mode = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_MODE, val_1);
 #endif
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
@@ -847,8 +854,10 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	int ret = 0;
 	int dram_opp = 0;
 
-	if (!cm_mgr_use_cpu_to_dram_map)
+
+	if (!cm_mgr_use_cpu_to_dram_map || !cm_work_flag)
 		return;
+
 
 	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1) {
 		if (cm_mgr_cpu_to_dram_opp != cm_mgr_num_perf) {
@@ -869,8 +878,8 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	if ((cpu_opp >= 0) && (cpu_opp < cm_mgr_cpu_opp_size))
 		dram_opp = cm_mgr_cpu_opp_to_dram[cpu_opp];
 
-	if (cm_mgr_cpu_to_dram_opp == dram_opp)
-		return;
+	//if (cm_mgr_cpu_to_dram_opp == dram_opp)
+	//	return;
 
 	cm_mgr_cpu_to_dram_opp = dram_opp;
 
@@ -1061,7 +1070,7 @@ fail_reg_cpu_frequency_entry:
 
 	if (cm_mgr_use_cpu_to_dram_map) {
 		cm_mgr_add_cpu_opp_to_ddr_req();
-
+		cm_work_flag = 1;
 		INIT_DELAYED_WORK(&cm_mgr_work, cm_mgr_process);
 	}
 
