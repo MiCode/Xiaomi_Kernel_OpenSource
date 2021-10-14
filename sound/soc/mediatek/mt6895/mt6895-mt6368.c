@@ -657,7 +657,7 @@ SND_SOC_DAILINK_DEFS(ultra,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_scp_ultra")));
 #endif
 #if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) \
-&& IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD)) && !defined(SKIP_SB)
+&& IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD))
 
 SND_SOC_DAILINK_DEFS(dspoffload,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_offload_dai")),
@@ -1217,7 +1217,7 @@ static struct snd_soc_dai_link mt6895_mt6368_dai_links[] = {
 	},
 #endif
 #if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) \
-&& IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD)) && !defined(SKIP_SB)
+&& IS_ENABLED(CONFIG_SND_SOC_MTK_OFFLOAD))
 	{
 		.name = "Offload_Playback",
 		.stream_name = "Offload_Playback",
