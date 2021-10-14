@@ -2461,7 +2461,7 @@
 			status = "okay";
 			reg = <0 0x1e050000 0 0x9000>, /* ITCM */
 				<0 0x1e020000 0 0x8000>; /* DTCM */
-			system = <0 0x50000000 0 0x700000>;
+			system = <0 0x50000000 0 0x900000>;
 			interrupts = <GIC_SPI 638 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 640 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 642 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -2474,7 +2474,7 @@
 			status = "okay";
 			reg = <0 0x1e0c0000 0 0x9000>, /* ITCM */
 				<0 0x1e090000 0 0x8000>; /* DTCM */
-			system = <0 0x50700000 0 0x700000>;
+			system = <0 0x50900000 0 0x900000>;
 			interrupts = <GIC_SPI 639 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 641 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 643 IRQ_TYPE_LEVEL_HIGH 0>;
