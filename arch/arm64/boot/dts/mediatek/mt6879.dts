@@ -4645,7 +4645,7 @@
 			compatible = "mediatek,dvs";
 			reg = <0 0x15300000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			interrupts = <GIC_SPI 542 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&gce_m 21 1000 CMDQ_THR_PRIO_1>;
 			mediatek,larb = <&smi_larb12>;
 			iommus =  <&disp_iommu M4U_LARB12_PORT6>,
@@ -4674,7 +4674,7 @@
 			compatible = "mediatek,dvp";
 			reg = <0 0x15300800 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			interrupts = <GIC_SPI 543 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&gce_m 21 1000 CMDQ_THR_PRIO_1>;
 			mediatek,larb = <&smi_larb12>;
 			iommus =  <&disp_iommu M4U_LARB12_PORT6>,
