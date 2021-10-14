@@ -683,6 +683,11 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 		break;
 	}
 out:
+#ifdef DVFSRC_FORCE_OPP_SUPPORT
+	if (dvfsrc->opp_forced)
+		return;
+#endif
+
 	if (ret < 0) {
 		dev_warn(dvfsrc->dev,
 			 "%d: idle timeout, data: %llu, last: %d -> %d\n",
