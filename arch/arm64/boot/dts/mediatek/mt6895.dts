@@ -5308,7 +5308,7 @@
 				<0>, /*MTK_DRM_OPT_SF_PF*/
 				<0>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
 				<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
-				<0>, /*MTK_DRM_OPT_MSYNC2_0*/
+				<1>, /*MTK_DRM_OPT_MSYNC2_0*/
 				<0>, /*MTK_DRM_OPT_MML_PRIMARY*/
 				<0>, /*MTK_DRM_OPT_DUAL_TE*/
 				<0>; /*MTK_DRM_OPT_RES_SWITCH*/
