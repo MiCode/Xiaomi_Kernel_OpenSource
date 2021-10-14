@@ -44,45 +44,36 @@ static void mtk_usb_extcon_update_role(struct work_struct *work)
 	dev_info(extcon->dev, "cur_dr(%d) new_dr(%d)\n", cur_dr, new_dr);
 
 	/* none -> device */
-	if (cur_dr == DUAL_PROP_DR_NONE &&
-			new_dr == DUAL_PROP_DR_DEVICE) {
+	if (cur_dr == USB_ROLE_NONE &&
+			new_dr == USB_ROLE_DEVICE) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB, true);
 	/* none -> host */
-	} else if (cur_dr == DUAL_PROP_DR_NONE &&
-			new_dr == DUAL_PROP_DR_HOST) {
+	} else if (cur_dr == USB_ROLE_NONE &&
+			new_dr == USB_ROLE_HOST) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB_HOST, true);
 	/* device -> none */
-	} else if (cur_dr == DUAL_PROP_DR_DEVICE &&
-			new_dr == DUAL_PROP_DR_NONE) {
+	} else if (cur_dr == USB_ROLE_DEVICE &&
+			new_dr == USB_ROLE_NONE) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB, false);
 	/* host -> none */
-	} else if (cur_dr == DUAL_PROP_DR_HOST &&
-			new_dr == DUAL_PROP_DR_NONE) {
+	} else if (cur_dr == USB_ROLE_HOST &&
+			new_dr == USB_ROLE_NONE) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB_HOST, false);
 	/* device -> host */
-	} else if (cur_dr == DUAL_PROP_DR_DEVICE &&
-			new_dr == DUAL_PROP_DR_HOST) {
+	} else if (cur_dr == USB_ROLE_DEVICE &&
+			new_dr == USB_ROLE_HOST) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB, false);
 		extcon_set_state_sync(extcon->edev, EXTCON_USB_HOST, true);
 	/* host -> device */
-	} else if (cur_dr == DUAL_PROP_DR_HOST &&
-			new_dr == DUAL_PROP_DR_DEVICE) {
+	} else if (cur_dr == USB_ROLE_HOST &&
+			new_dr == USB_ROLE_DEVICE) {
 		extcon_set_state_sync(extcon->edev, EXTCON_USB_HOST, false);
 		extcon_set_state_sync(extcon->edev, EXTCON_USB, true);
 	}
 
 	/* usb role switch */
-	if (extcon->role_sw) {
-		if (new_dr == DUAL_PROP_DR_DEVICE)
-			usb_role_switch_set_role(extcon->role_sw,
-						USB_ROLE_DEVICE);
-		else if (new_dr == DUAL_PROP_DR_HOST)
-			usb_role_switch_set_role(extcon->role_sw,
-						USB_ROLE_HOST);
-		else
-			usb_role_switch_set_role(extcon->role_sw,
-						USB_ROLE_NONE);
-	}
+	if (extcon->role_sw)
+		usb_role_switch_set_role(extcon->role_sw, new_dr);
 
 	extcon->c_role = new_dr;
 	kfree(role);
@@ -143,15 +134,15 @@ static void mtk_usb_extcon_psy_detector(struct work_struct *work)
 		struct mtk_extcon_info, wq_psy);
 
 	/* Workaround for PR_SWAP, Host mode should not come to this function. */
-	if (extcon->c_role == DUAL_PROP_DR_HOST) {
+	if (extcon->c_role == USB_ROLE_HOST) {
 		dev_info(extcon->dev, "Remain HOST mode\n");
 		return;
 	}
 
 	if (usb_is_online(extcon))
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
+		mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 	else
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+		mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 }
 
 static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
@@ -188,9 +179,9 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 		dev_err(dev, "fail to register notifer\n");
 
 	if (usb_is_online(extcon))
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
+		mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 	else
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+		mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 
 	return ret;
 }
@@ -265,32 +256,32 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			dev_info(dev, "Type-C SRC plug in\n");
-			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
 		} else if (!(extcon->bypss_typec_sink) &&
 			noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			dev_info(dev, "Type-C SINK plug in\n");
-			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			noti->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
 			noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			dev_info(dev, "Type-C plug out\n");
-			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 		}
 		break;
 	case TCP_NOTIFY_DR_SWAP:
 		dev_info(dev, "%s dr_swap, new role=%d\n",
 				__func__, noti->swap_state.new_role);
 		if (noti->swap_state.new_role == PD_ROLE_UFP &&
-				extcon->c_role == DUAL_PROP_DR_HOST) {
+				extcon->c_role == USB_ROLE_HOST) {
 			dev_info(dev, "switch role to device\n");
-			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
-			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 		} else if (noti->swap_state.new_role == PD_ROLE_DFP &&
-				extcon->c_role == DUAL_PROP_DR_DEVICE) {
+				extcon->c_role == USB_ROLE_DEVICE) {
 			dev_info(dev, "switch role to host\n");
-			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
-			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
 		}
 		break;
 	}
@@ -343,10 +334,10 @@ static void mtk_usb_extcon_detect_cable(struct work_struct *work)
 	/* at first we clean states which are no longer active */
 	if (id) {
 		mtk_usb_extcon_set_vbus(extcon, false);
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+		mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 	} else {
 		mtk_usb_extcon_set_vbus(extcon, true);
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
+		mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
 	}
 }
 
@@ -396,7 +387,7 @@ static int mtk_usb_extcon_id_pin_init(struct mtk_extcon_info *extcon)
 	dev_info(extcon->dev, "id value : %d\n", id);
 	if (!id) {
 		mtk_usb_extcon_set_vbus(extcon, true);
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
+		mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
 	}
 
 	return 0;
