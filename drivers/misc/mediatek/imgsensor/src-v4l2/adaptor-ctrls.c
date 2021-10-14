@@ -221,12 +221,20 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 					u32 ae_exp_cnt, u32 *ae_exp_arr)
 {
 	struct fs_perframe_st pf_ctrl = {0};
-#if defined(TWO_STAGE_FS)
-	u16 fsync_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
+	u32 fine_integ_line = 0;
 	union feature_para para;
 	u32 len = 0;
+#if defined(TWO_STAGE_FS)
+	u32 fsync_exp[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
 	int i;
 #endif // TWO_STAGE_FS
+
+	para.u64[0] = ctx->cur_mode->id;
+	para.u64[1] = (u64)&fine_integ_line;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
+		para.u8, &len);
 
 	pf_ctrl.sensor_id = ctx->subdrv->id;
 	pf_ctrl.sensor_idx = ctx->idx;
@@ -235,11 +243,14 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 	pf_ctrl.shutter_lc =
 		(ae_exp_cnt == 1 && ae_exp_arr != NULL)
 		? *(ae_exp_arr + 0) : 0;
+	if (fine_integ_line)
+		pf_ctrl.shutter_lc = FINE_INTEG_CONVERT(pf_ctrl.shutter_lc, fine_integ_line);
 	pf_ctrl.margin_lc = ctx->subctx.margin;
 	pf_ctrl.flicker_en = ctx->subctx.autoflicker_en;
 	pf_ctrl.out_fl_lc = ctx->subctx.frame_length; // sensor current fl_lc
 
-	fsync_setup_hdr_exp_data(ctx, &pf_ctrl.hdr_exp, ae_exp_cnt, ae_exp_arr);
+	fsync_setup_hdr_exp_data(ctx, &pf_ctrl.hdr_exp, ae_exp_cnt, ae_exp_arr,
+				fine_integ_line);
 
 	/* preventing issue (seamless switch not update ctx->cur_mode data) */
 	pf_ctrl.pclk = ctx->subctx.pclk;
@@ -252,7 +263,7 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 #if defined(TWO_STAGE_FS)
 	for (i = 0; (i < ae_exp_cnt) && (i < IMGSENSOR_STAGGER_EXPOSURE_CNT); i++)
-		fsync_exp[i] = (u16)(*(ae_exp_arr + i));
+		fsync_exp[i] = (u32)(*(ae_exp_arr + i));
 
 	para.u64[0] = (u64)fsync_exp;
 	para.u64[1] = min_t(u32, ae_exp_cnt, (u32)IMGSENSOR_STAGGER_EXPOSURE_CNT);
@@ -490,7 +501,7 @@ static int g_volatile_temperature(struct adaptor_ctx *ctx,
 
 void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 		struct fs_hdr_exp_st *p_hdr_exp,
-		u32 ae_exp_cnt, u32 *ae_exp_arr)
+		u32 ae_exp_cnt, u32 *ae_exp_arr, u32 fine_integ_line)
 {
 	int ret = 0;
 	unsigned int i = 0;
@@ -518,8 +529,14 @@ void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 		for (i = 0; i < ae_exp_cnt; ++i) {
 			int idx = hdr_exp_idx_map[ae_exp_cnt][i];
 
-			if (idx >= 0)
+			if (idx >= 0) {
 				p_hdr_exp->exp_lc[idx] = ae_exp_arr[i];
+				if (fine_integ_line) {
+					p_hdr_exp->exp_lc[idx] =
+						FINE_INTEG_CONVERT(p_hdr_exp->exp_lc[idx],
+							fine_integ_line);
+				}
+			}
 		}
 	}
 }
@@ -769,9 +786,22 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
 		{
 			u32 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
+			union feature_para para2;
+			__u32 fine_integ_time = 0;
 
 			para.u64[0] = ctrl->val * 100000;
 			do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
+
+			/* read fine integ time*/
+			para2.u64[0] = ctx->subctx.current_scenario_id;
+			para2.u64[1] = (u64)&fine_integ_time;
+			subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
+			para2.u8, &len);
+
+			if (fine_integ_time > 0)
+				para.u64[0] = para.u64[0] * 1000;
+
 #if defined(TWO_STAGE_FS)
 			/* frame-sync no set sync (disable frame-sync) */
 			if (!ctx->fsync_mgr || !ctx->fsync_mgr->fs_is_set_sync(ctx->idx)) {

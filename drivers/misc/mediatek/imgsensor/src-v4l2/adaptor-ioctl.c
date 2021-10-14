@@ -1140,6 +1140,25 @@ static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+
+static int g_fine_integ_line_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_fine_integ_line *info = arg;
+	union feature_para para;
+	u32 len;
+
+	info->fine_integ_line = 0; //initail fine_integ_time as 0.
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = (u64)&info->fine_integ_line;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
+		para.u8, &len);
+
+	return 0;
+}
+
+
 static int s_video_framerate(struct adaptor_ctx *ctx, void *arg)
 {
 	u32 *info = arg;
@@ -1355,6 +1374,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_STAGGER_SCENARIO, g_stagger_scenario_ioctl},
 	{VIDIOC_MTK_G_MAX_EXPOSURE, g_max_exposure_ioctl},
 	{VIDIOC_MTK_G_OUTPUT_FORMAT_BY_SCENARIO, g_output_format_by_scenario},
+	{VIDIOC_MTK_G_FINE_INTEG_LINE_BY_SCENARIO, g_fine_integ_line_by_scenario},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

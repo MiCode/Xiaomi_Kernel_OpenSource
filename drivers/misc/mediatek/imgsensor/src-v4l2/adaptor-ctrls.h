@@ -17,6 +17,7 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 				struct fs_hdr_exp_st *p_hdr_exp,
 				u32 ae_exp_cnt,
-				u32 *ae_exp_arr);
+				u32 *ae_exp_arr,
+				u32 fine_integ_line);
 
 #endif

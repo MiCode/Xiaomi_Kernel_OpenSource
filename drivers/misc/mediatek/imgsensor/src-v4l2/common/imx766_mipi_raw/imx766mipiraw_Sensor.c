@@ -311,7 +311,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.max_gain = BASEGAIN * 64,
 	.min_gain_iso = 100,
 	.margin = 48,
-	.min_shutter = 18,
+	.min_shutter = 16,
 	.gain_step = 1,
 	.gain_type = 0,
 	.max_frame_length = 0xffff,
@@ -625,6 +625,51 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 		1
 	}
 };
+//mode    0,  1,  2,   3,  4,  5,  6,  7,   8,   9,  10, 11,  12,  13,  14, 15, 16, 17, 18, 19
+static MUINT32 fine_Integ_Line_Table[SENSOR_SCENARIO_ID_MAX] = {
+		826,	//mode 0
+		826,	//mode 1
+		826,	//mode 2
+		2555,	//mode 3
+		826,	//mode 4
+		413,	//mode 5
+		826,	//mode 6
+		502,	//mode 7
+		2826,	//mode 8
+		2555,	//mode 9
+		1709,	//mode 10
+		502,	//mode 11
+		2555,	//mode 12
+		6555,	//mode 13
+		6555,	//mode 14
+		826,	//mode 15
+		826,	//mode 16
+		826,	//mode 17
+		826,	//mode 18
+		826		//mode 19
+	};
+static MUINT32 exposure_Step_Table[SENSOR_SCENARIO_ID_MAX] = {
+		4,	//mode 0
+		4,	//mode 1
+		4,	//mode 2
+		4,	//mode 3
+		4,	//mode 4
+		4,	//mode 5
+		4,	//mode 6
+		4,	//mode 7
+		8,	//mode 8
+		4,	//mode 9
+		4,	//mode 10
+		4,	//mode 11
+		4,	//mode 12
+		8,	//mode 13
+		12,	//mode 14
+		4,	//mode 15
+		4,	//mode 16
+		4,	//mode 17
+		4,	//mode 18
+		4	//mode 19
+	};
 
 static kal_uint16 imx766_QSC_setting[3072 * 2];
 
@@ -911,6 +956,9 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 {
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 l_shift = 1;
+	kal_uint32 fineIntegTime = fine_Integ_Line_Table[ctx->current_scenario_id];
+
+	shutter = FINE_INTEG_CONVERT(shutter, fineIntegTime);
 
 	shutter = round_up(shutter, 4);
 
@@ -1031,13 +1079,17 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 }
 
 static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
-				kal_uint16 *shutters, kal_uint16 shutter_cnt,
+				kal_uint32 *shutters, kal_uint16 shutter_cnt,
 				kal_uint16 frame_length)
 {
 	int i;
 	kal_uint32 calc_fl = 0;
 	kal_uint32 calc_fl2 = 0;
 	kal_uint16 le, me, se;
+	kal_uint32 fineIntegTime = fine_Integ_Line_Table[ctx->current_scenario_id];
+
+	for (i = 0; i < shutter_cnt; i++)
+		shutters[i] = FINE_INTEG_CONVERT(shutters[i], fineIntegTime);
 
 	previous_exp_cnt = shutter_cnt;
 	for (i = 0; i < shutter_cnt; i++) {
@@ -1065,7 +1117,7 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	ctx->frame_length = min(ctx->frame_length, imgsensor_info.max_frame_length);
 
 	for (i = 0; i < shutter_cnt; i++)
-		shutters[i] = round_up((shutters[i] - 2) / shutter_cnt, 4);
+		shutters[i] = round_up((shutters[i]) / shutter_cnt, 4);
 
 	switch (shutter_cnt) {
 	case 3:
@@ -1544,10 +1596,16 @@ static void custom13_setting(struct subdrv_ctx *ctx)
 }
 
 static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
-		kal_uint16 le, kal_uint16 me, kal_uint16 se, kal_bool gph)
+		kal_uint32 le, kal_uint32 me, kal_uint32 se, kal_bool gph)
 {
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 exposure_cnt = 0;
+
+	kal_uint32 fineIntegTime = fine_Integ_Line_Table[ctx->current_scenario_id];
+
+	le = FINE_INTEG_CONVERT(le, fineIntegTime);
+	me = FINE_INTEG_CONVERT(me, fineIntegTime);
+	se = FINE_INTEG_CONVERT(se, fineIntegTime);
 
 	if (le)
 		exposure_cnt++;
@@ -1581,11 +1639,11 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	ctx->frame_length = min(ctx->frame_length, imgsensor_info.max_frame_length);
 
 	if (le)
-		le = round_up((le - 2)/exposure_cnt, 4);
+		le = round_up((le) / exposure_cnt, 4);
 	if (me)
-		me = round_up((me - 2)/exposure_cnt, 4);
+		me = round_up((me) / exposure_cnt, 4);
 	if (se)
-		se = round_up((se - 2)/exposure_cnt, 4);
+		se = round_up((se) / exposure_cnt, 4);
 
 	LOG_INF("E! le:0x%x, me:0x%x, se:0x%x autoflicker_en %d frame_length %d\n",
 		le, me, se, ctx->autoflicker_en, ctx->frame_length);
@@ -1626,7 +1684,7 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 }
 
 static void hdr_write_tri_shutter(struct subdrv_ctx *ctx,
-		kal_uint16 le, kal_uint16 me, kal_uint16 se)
+		kal_uint32 le, kal_uint32 me, kal_uint32 se)
 {
 	// LOG_INF("Fine Integ Time = %d",
 	// (read_cmos_sensor_8(ctx, 0x0200) << 8) | read_cmos_sensor_8(ctx, 0x0201));
@@ -2959,6 +3017,39 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
+static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, MUINT32 *fine_integ_line)
+{
+
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+	case SENSOR_SCENARIO_ID_CUSTOM1:
+	case SENSOR_SCENARIO_ID_CUSTOM2:
+	case SENSOR_SCENARIO_ID_CUSTOM3:
+	case SENSOR_SCENARIO_ID_CUSTOM4:
+	case SENSOR_SCENARIO_ID_CUSTOM5:
+	case SENSOR_SCENARIO_ID_CUSTOM6:
+	case SENSOR_SCENARIO_ID_CUSTOM7:
+	case SENSOR_SCENARIO_ID_CUSTOM8:
+	case SENSOR_SCENARIO_ID_CUSTOM9:
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+	case SENSOR_SCENARIO_ID_CUSTOM11:
+	case SENSOR_SCENARIO_ID_CUSTOM12:
+	case SENSOR_SCENARIO_ID_CUSTOM13:
+	case SENSOR_SCENARIO_ID_CUSTOM14:
+	case SENSOR_SCENARIO_ID_CUSTOM15:
+		*fine_integ_line = fine_Integ_Line_Table[scenario_id];
+		break;
+	default:
+		break;
+	}
+	return ERROR_NONE;
+}
+
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 {
 	LOG_INF("enable: %d\n", enable);
@@ -3061,7 +3152,35 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_shutter;
-		*(feature_data + 2) = 24; // 3 exp: 3 * 4 shutter step
+
+		switch (*feature_data) {
+		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+		case SENSOR_SCENARIO_ID_CUSTOM1:
+		case SENSOR_SCENARIO_ID_CUSTOM2:
+		case SENSOR_SCENARIO_ID_CUSTOM3:
+		case SENSOR_SCENARIO_ID_CUSTOM4:
+		case SENSOR_SCENARIO_ID_CUSTOM5:
+		case SENSOR_SCENARIO_ID_CUSTOM6:
+		case SENSOR_SCENARIO_ID_CUSTOM7:
+		case SENSOR_SCENARIO_ID_CUSTOM8:
+		case SENSOR_SCENARIO_ID_CUSTOM9:
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+		case SENSOR_SCENARIO_ID_CUSTOM11:
+		case SENSOR_SCENARIO_ID_CUSTOM12:
+		case SENSOR_SCENARIO_ID_CUSTOM13:
+		case SENSOR_SCENARIO_ID_CUSTOM14:
+		case SENSOR_SCENARIO_ID_CUSTOM15:
+			*(feature_data + 2) = exposure_Step_Table[*feature_data];
+			break;
+		default:
+			*(feature_data + 2) = 4;
+			break;
+		}
+
 		break;
 	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
 		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 3000000;
@@ -3295,6 +3414,11 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO:
 		 get_default_framerate_by_scenario(ctx,
+				(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+				(MUINT32 *)(uintptr_t)(*(feature_data+1)));
+		break;
+	case SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO:
+		 get_fine_integ_line_by_scenario(ctx,
 				(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
 				(MUINT32 *)(uintptr_t)(*(feature_data+1)));
 		break;
@@ -3619,11 +3743,11 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_HDR_SHUTTER://for 2EXP
 		LOG_INF("SENSOR_FEATURE_SET_HDR_SHUTTER LE=%d, SE=%d\n",
-				(UINT16) *feature_data, (UINT16) *(feature_data + 1));
+				(UINT32) *feature_data, (UINT32) *(feature_data + 1));
 		// implement write shutter for NE/SE
-		hdr_write_tri_shutter(ctx, (UINT16)*feature_data,
+		hdr_write_tri_shutter(ctx, (UINT32)*feature_data,
 					0,
-					(UINT16)*(feature_data+1));
+					(UINT32)*(feature_data+1));
 		break;
 	case SENSOR_FEATURE_SET_DUAL_GAIN://for 2EXP
 		LOG_INF("SENSOR_FEATURE_SET_DUAL_GAIN LE=%d, SE=%d\n",
@@ -3636,13 +3760,13 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_SHUTTER://for 3EXP
 		LOG_INF("SENSOR_FEATURE_SET_HDR_TRI_SHUTTER LE=%d, ME=%d, SE=%d\n",
-				(UINT16) *feature_data,
-				(UINT16) *(feature_data + 1),
-				(UINT16) *(feature_data + 2));
+				(UINT32) *feature_data,
+				(UINT32) *(feature_data + 1),
+				(UINT32) *(feature_data + 2));
 		hdr_write_tri_shutter(ctx,
-				(UINT16) *feature_data,
-				(UINT16) *(feature_data + 1),
-				(UINT16) *(feature_data + 2));
+				(UINT32) *feature_data,
+				(UINT32) *(feature_data + 1),
+				(UINT32) *(feature_data + 2));
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_GAIN:
 		LOG_INF("SENSOR_FEATURE_SET_HDR_TRI_GAIN LG=%d, SG=%d, MG=%d\n",
@@ -3820,7 +3944,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		set_frame_length(ctx, (UINT16) (*feature_data));
 		break;
 	case SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME:
-		set_multi_shutter_frame_length(ctx, (UINT16 *)(*feature_data),
+		set_multi_shutter_frame_length(ctx, (UINT32 *)(*feature_data),
 					(UINT16) (*(feature_data + 1)),
 					(UINT16) (*(feature_data + 2)));
 		break;

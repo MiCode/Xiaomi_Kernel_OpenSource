@@ -379,6 +379,12 @@ struct mtk_test_pattern_data {
 	__u32 Channel_B;
 };
 
+
+struct mtk_fine_integ_line {
+	__u32 scenario_id;
+	__u32 fine_integ_line;
+};
+
 /* GET */
 
 #define VIDIOC_MTK_G_DEF_FPS_BY_SCENARIO \
@@ -485,6 +491,9 @@ struct mtk_test_pattern_data {
 
 #define VIDIOC_MTK_G_OUTPUT_FORMAT_BY_SCENARIO \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 37, struct mtk_sensor_value)
+
+#define VIDIOC_MTK_G_FINE_INTEG_LINE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 38, struct mtk_fine_integ_line)
 
 /* SET */
 

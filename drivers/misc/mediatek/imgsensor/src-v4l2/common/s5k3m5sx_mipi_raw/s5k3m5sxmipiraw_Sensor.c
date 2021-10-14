@@ -2857,7 +2857,7 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 }
 
 static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
-				kal_uint16 *shutters, kal_uint16 shutter_cnt,
+				kal_uint32 *shutters, kal_uint16 shutter_cnt,
 				kal_uint16 frame_length)
 {
 	if (shutter_cnt == 1) {
@@ -4505,7 +4505,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		set_frame_length(ctx, (UINT16) (*feature_data));
 		break;
 	case SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME:
-		set_multi_shutter_frame_length(ctx, (UINT16 *)(*feature_data),
+		set_multi_shutter_frame_length(ctx, (UINT32 *)(*feature_data),
 					(UINT16) (*(feature_data + 1)),
 					(UINT16) (*(feature_data + 2)));
 		break;

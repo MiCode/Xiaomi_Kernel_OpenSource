@@ -189,4 +189,11 @@ struct subdrv_entry {
 	adaptor_i2c_wr_regs_u16(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, list, len)
 
+#define FINE_INTEG_CONVERT(_shutter, _fine_integ) \
+( \
+	((_fine_integ) <= 0) ? \
+	(_shutter) : \
+	(((_shutter) > (_fine_integ)) ? (((_shutter) - (_fine_integ)) / 1000) : 0) \
+)
+
 #endif
