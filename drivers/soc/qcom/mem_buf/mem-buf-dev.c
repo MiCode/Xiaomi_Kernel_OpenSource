@@ -176,17 +176,17 @@ int mem_buf_assign_mem(int op, struct sg_table *sgt,
 {
 	u32 src_vmid = current_vmid;
 	int ret;
-	int api;
+	int use_gunyah;
 
 	if (!sgt || !arg->nr_acl_entries || !arg->vmids || !arg->perms)
 		return -EINVAL;
 
-	api = mem_buf_vm_get_backend_api(arg->vmids, arg->nr_acl_entries);
-	if (api < 0)
+	use_gunyah = mem_buf_vm_uses_gunyah(arg->vmids, arg->nr_acl_entries);
+	if (use_gunyah < 0)
 		return -EINVAL;
 
 	arg->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
-	if (api == MEM_BUF_API_GUNYAH)
+	if (use_gunyah > 0)
 		return mem_buf_assign_mem_gunyah(op, sgt, arg);
 
 	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
