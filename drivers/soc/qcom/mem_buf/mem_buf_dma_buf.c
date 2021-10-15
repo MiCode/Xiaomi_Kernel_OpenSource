@@ -8,6 +8,7 @@
 #include <linux/highmem.h>
 #include <linux/mem-buf-exporter.h>
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 
 struct mem_buf_vmperm {
 	u32 flags;

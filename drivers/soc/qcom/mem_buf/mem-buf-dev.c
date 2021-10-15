@@ -15,6 +15,7 @@
 
 #include <linux/mem-buf.h>
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 
 #define CREATE_TRACE_POINTS
 #include "trace-mem-buf.h"

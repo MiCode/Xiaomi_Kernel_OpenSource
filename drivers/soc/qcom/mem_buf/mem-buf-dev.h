@@ -7,12 +7,10 @@
 #define MEM_BUF_PRIVATE_H
 
 #include <linux/device.h>
-#include <linux/cdev.h>
 #include <linux/dma-buf.h>
 #include <linux/gunyah/gh_rm_drv.h>
 #include <linux/mem-buf.h>
 #include <linux/slab.h>
-#include <linux/dma-heap.h>
 
 #define MEM_BUF_CAP_SUPPLIER	BIT(0)
 #define MEM_BUF_CAP_CONSUMER	BIT(1)
@@ -38,34 +36,4 @@ int mem_buf_unmap_mem_s2(gh_memparcel_handle_t memparcel_hdl);
 int mem_buf_map_mem_s1(struct gh_sgl_desc *sgl_desc);
 int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc);
 
-#define MEM_BUF_API_HYP_ASSIGN BIT(0)
-#define MEM_BUF_API_GUNYAH BIT(1)
-
-/* Future targets should receive a notification with the proper value */
-#define VMID_TUIVM (45)
-
-/*
- * @vmid - id assigned by hypervisor to uniquely identify a VM
- * @allowed_api - Some vms may use a different hypervisor interface.
- */
-struct mem_buf_vm {
-	const char *name;
-	u16 vmid;
-	u32 allowed_api;
-	struct cdev cdev;
-	struct device dev;
-};
-
-extern int current_vmid;
-int mem_buf_vm_init(struct device *dev);
-void mem_buf_vm_exit(void);
-/*
- * Returns a negative number for invalid arguments, otherwise a MEM_BUF_API
- * which is supported by all vmids in the array.
- */
-int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries);
-/* @Return: A negative number on failure, or vmid on success */
-int mem_buf_fd_to_vmid(int fd);
-
 #endif
-

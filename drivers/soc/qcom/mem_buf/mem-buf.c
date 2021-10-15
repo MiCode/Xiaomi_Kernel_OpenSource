@@ -31,6 +31,7 @@
 
 #include "../../../../drivers/dma-buf/heaps/qcom_sg_ops.h"
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 #include "trace-mem-buf.h"
 
 #define MEM_BUF_MAX_DEVS 1
