@@ -31,17 +31,16 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 #define MEM_BUF_API_HYP_ASSIGN BIT(0)
 #define MEM_BUF_API_GUNYAH BIT(1)
 
+/* Future targets should receive a notification with the proper value */
+#define VMID_TUIVM (45)
+
 /*
  * @vmid - id assigned by hypervisor to uniquely identify a VM
- * @gh_id - id used to request the real vmid from the kernel
- * gunyah driver. This is a legacy field which should eventually be
- * removed once a better design is present.
  * @allowed_api - Some vms may use a different hypervisor interface.
  */
 struct mem_buf_vm {
 	const char *name;
 	u16 vmid;
-	enum gh_vm_names gh_id;
 	u32 allowed_api;
 	struct cdev cdev;
 	struct device dev;

@@ -27,7 +27,6 @@ int current_vmid;
 static struct mem_buf_vm vm_ ## _lname = {	\
 	.name = "qcom," #_lname,		\
 	.vmid = VMID_ ## _uname,		\
-	.gh_id = GH_VM_MAX,			\
 	.allowed_api = MEM_BUF_API_HYP_ASSIGN,	\
 }
 
@@ -46,15 +45,13 @@ PERIPHERAL_VM(CP_APP, cp_app);
 
 static struct mem_buf_vm vm_trusted_vm = {
 	.name = "qcom,trusted_vm",
-	/* Vmid via dynamic lookup */
-	.gh_id = GH_TRUSTED_VM,
+	.vmid = VMID_TUIVM,
 	.allowed_api = MEM_BUF_API_GUNYAH,
 };
 
 static struct mem_buf_vm vm_hlos = {
 	.name = "qcom,hlos",
 	.vmid = VMID_HLOS,
-	.gh_id = GH_VM_MAX,
 	.allowed_api = MEM_BUF_API_HYP_ASSIGN | MEM_BUF_API_GUNYAH,
 };
 
@@ -94,44 +91,6 @@ static const struct file_operations mem_buf_vm_fops = {
 	.open = mem_buf_vm_open,
 };
 
-/*
- * This is more complicated because we need to deal with the case where
- * the vmid belongs to a cpu-based vm. And we don't get a notification
- * when a cpu-based vm is created/destroyed, so we can't add them to our
- * xarray.
- */
-static struct mem_buf_vm *find_vm_by_vmid(int vmid)
-{
-	struct mem_buf_vm *vm;
-	enum gh_vm_names vm_name;
-	gh_vmid_t gh_vmid;
-	unsigned long idx;
-	int ret;
-
-	vm = xa_load(&mem_buf_vms, vmid);
-	if (vm)
-		return vm;
-
-	for (vm_name = GH_PRIMARY_VM; vm_name < GH_VM_MAX; vm_name++) {
-		ret = gh_rm_get_vmid(vm_name, &gh_vmid);
-		if (ret)
-			return ERR_PTR(ret);
-
-		if (gh_vmid == vmid)
-			break;
-	}
-
-	if (vm_name == GH_VM_MAX)
-		return ERR_PTR(-EINVAL);
-
-	xa_for_each(&mem_buf_vm_minors, idx, vm) {
-		if (vm->gh_id == vm_name)
-			return vm;
-	}
-	WARN_ON(1);
-	return ERR_PTR(-EINVAL);
-}
-
 int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries)
 {
 	struct mem_buf_vm *vm;
@@ -139,8 +98,8 @@ int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries)
 	int i;
 
 	for (i = 0; i < nr_acl_entries; i++) {
-		vm = find_vm_by_vmid(vmids[i]);
-		if (IS_ERR(vm)) {
+		vm = xa_load(&mem_buf_vms, vmids[i]);
+		if (!vm) {
 			pr_err_ratelimited("No vm with vmid=0x%x\n", vmids[i]);
 			return PTR_ERR(vm);
 		}
@@ -165,7 +124,6 @@ int mem_buf_fd_to_vmid(int fd)
 	int ret = -EINVAL;
 	struct mem_buf_vm *vm;
 	struct file *file;
-	gh_vmid_t vmid;
 
 	file = fget(fd);
 	if (!file)
@@ -178,16 +136,9 @@ int mem_buf_fd_to_vmid(int fd)
 	}
 
 	vm = file->private_data;
-	if (vm->gh_id == GH_VM_MAX) {
-		fput(file);
-		return vm->vmid;
-	}
-
-	ret = gh_rm_get_vmid(vm->gh_id, &vmid);
-	if (ret)
-		pr_err("gh_rm_get_vmid %d failed\n", vm->gh_id);
+	ret = vm->vmid;
 	fput(file);
-	return ret ? ret : vmid;
+	return ret;
 }
 EXPORT_SYMBOL(mem_buf_fd_to_vmid);
 
@@ -234,11 +185,9 @@ static int mem_buf_vm_add(struct mem_buf_vm *new_vm)
 	dev_set_drvdata(dev, new_vm);
 	dev_set_name(dev, "%s", new_vm->name);
 
-	if (new_vm->gh_id == GH_VM_MAX) {
-		ret = xa_err(xa_store(&mem_buf_vms, new_vm->vmid, new_vm, GFP_KERNEL));
-		if (ret)
-			goto err_xa_store;
-	}
+	ret = xa_err(xa_store(&mem_buf_vms, new_vm->vmid, new_vm, GFP_KERNEL));
+	if (ret)
+		goto err_xa_store;
 
 	ret = cdev_device_add(&new_vm->cdev, dev);
 	if (ret) {
@@ -279,8 +228,8 @@ static int mem_buf_vm_add_self(void)
 	struct mem_buf_vm *vm, *self;
 	int ret;
 
-	vm = find_vm_by_vmid(current_vmid);
-	if (IS_ERR(vm))
+	vm = xa_load(&mem_buf_vms, current_vmid);
+	if (!vm)
 		return PTR_ERR(vm);
 
 	self = kzalloc(sizeof(*self), GFP_KERNEL);
@@ -290,7 +239,6 @@ static int mem_buf_vm_add_self(void)
 	/* Create an aliased name */
 	self->name = "qcom,self";
 	self->vmid = vm->vmid;
-	self->gh_id = vm->gh_id;
 	self->allowed_api = vm->allowed_api;
 
 	ret = mem_buf_vm_add(self);
