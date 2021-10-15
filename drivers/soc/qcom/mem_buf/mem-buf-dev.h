@@ -40,8 +40,6 @@ int mem_buf_gh_acl_desc_to_vmid_perm_list(struct gh_acl_desc *acl_desc,
 size_t mem_buf_get_sgl_buf_size(struct gh_sgl_desc *sgl_desc);
 struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc);
 int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
-			      int *src_vmids, int *src_perms,
-			      unsigned int nr_src_acl_entries,
 			      struct mem_buf_lend_kernel_arg *arg);
 int mem_buf_unassign_mem_gunyah(gh_memparcel_handle_t memparcel_hdl);
 #else
@@ -94,9 +92,7 @@ static inline struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_de
 }
 
 static inline int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
-			      int *src_vmids, int *src_perms,
-			      unsigned int nr_src_acl_entries,
-			      struct mem_buf_lend_kernel_arg *arg)
+					    struct mem_buf_lend_kernel_arg *arg)
 {
 	return -EINVAL;
 }

@@ -10,6 +10,7 @@
 #include <soc/qcom/secure_buffer.h>
 
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 
 #define CREATE_TRACE_POINTS
 #include "trace-mem-buf.h"
@@ -250,8 +251,6 @@ int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc)
 EXPORT_SYMBOL(mem_buf_unmap_mem_s1);
 
 int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
-			      int *src_vmids, int *src_perms,
-			      unsigned int nr_src_acl_entries,
 			      struct mem_buf_lend_kernel_arg *arg)
 {
 	int ret, i;
@@ -259,6 +258,11 @@ int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 	struct gh_acl_desc *gh_acl;
 	size_t size;
 	struct scatterlist *sgl;
+
+	arg->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
+	ret = mem_buf_vm_uses_gunyah(arg->vmids, arg->nr_acl_entries);
+	if (ret <= 0)
+		return ret;
 
 	/* Physically contiguous memory only */
 	if (sgt->nents > 1) {
@@ -285,17 +289,6 @@ int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 	if (IS_ERR(gh_acl)) {
 		ret = PTR_ERR(gh_acl);
 		goto err_gh_acl;
-	}
-
-	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
-	ret = hyp_assign_table(sgt, src_vmids, nr_src_acl_entries,
-			       arg->vmids, arg->perms, arg->nr_acl_entries);
-	if (ret < 0) {
-		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
-		       __func__, ret);
-		goto err_hyp_assign;
-	} else {
-		pr_debug("%s: Memory assigned to target VMIDs\n", __func__);
 	}
 
 	pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
@@ -330,12 +323,6 @@ int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 	return 0;
 
 err_gunyah:
-	ret = hyp_assign_table(sgt, arg->vmids, arg->nr_acl_entries,
-			       src_vmids, src_perms, nr_src_acl_entries);
-	if (ret)
-		ret = -EADDRNOTAVAIL;
-
-err_hyp_assign:
 	kfree(gh_acl);
 err_gh_acl:
 	kvfree(gh_sgl);
