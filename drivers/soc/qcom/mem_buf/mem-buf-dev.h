@@ -12,6 +12,8 @@
 #include <linux/mem-buf.h>
 #include <linux/slab.h>
 
+#define MEM_BUF_MEMPARCEL_INVALID (U32_MAX)
+
 #define MEM_BUF_CAP_SUPPLIER	BIT(0)
 #define MEM_BUF_CAP_CONSUMER	BIT(1)
 #define MEM_BUF_CAP_DUAL (MEM_BUF_CAP_SUPPLIER | MEM_BUF_CAP_CONSUMER)

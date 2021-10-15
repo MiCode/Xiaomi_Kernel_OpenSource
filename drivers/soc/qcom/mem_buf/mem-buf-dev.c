@@ -185,6 +185,7 @@ int mem_buf_assign_mem(int op, struct sg_table *sgt,
 	if (api < 0)
 		return -EINVAL;
 
+	arg->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
 	if (api == MEM_BUF_API_GUNYAH)
 		return mem_buf_assign_mem_gunyah(op, sgt, arg);
 
@@ -207,16 +208,12 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 {
 	int dst_vmid[] = {current_vmid};
 	int dst_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-	int ret, api;
+	int ret;
 
 	if (!sgt || !src_vmids || !nr_acl_entries)
 		return -EINVAL;
 
-	api = mem_buf_vm_get_backend_api(src_vmids, nr_acl_entries);
-	if (api < 0)
-		return -EINVAL;
-
-	if (api == MEM_BUF_API_GUNYAH) {
+	if (memparcel_hdl != MEM_BUF_MEMPARCEL_INVALID) {
 		pr_debug("%s: Beginning gunyah reclaim\n", __func__);
 		ret = gh_rm_mem_reclaim(memparcel_hdl, 0);
 		if (ret) {
