@@ -11,6 +11,8 @@
 #include <linux/mem-buf.h>
 #include <linux/slab.h>
 
+#define MEM_BUF_MEMPARCEL_INVALID (U32_MAX)
+
 #define MEM_BUF_CAP_SUPPLIER	BIT(0)
 #define MEM_BUF_CAP_CONSUMER	BIT(1)
 #define MEM_BUF_CAP_DUAL (MEM_BUF_CAP_SUPPLIER | MEM_BUF_CAP_CONSUMER)
@@ -41,11 +43,7 @@ int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 			      int *src_vmids, int *src_perms,
 			      unsigned int nr_src_acl_entries,
 			      struct mem_buf_lend_kernel_arg *arg);
-int mem_buf_unassign_mem_gunyah(struct sg_table *sgt, int *src_vmids,
-				unsigned int nr_src_acl_entries,
-				int *dst_vmids, int *dst_perms,
-				unsigned int nr_dst_acl_entries,
-				gh_memparcel_handle_t memparcel_hdl);
+int mem_buf_unassign_mem_gunyah(gh_memparcel_handle_t memparcel_hdl);
 #else
 static inline int mem_buf_map_mem_s1(struct gh_sgl_desc *sgl_desc)
 {
@@ -103,11 +101,7 @@ static inline int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 	return -EINVAL;
 }
 
-static inline int mem_buf_unassign_mem_gunyah(struct sg_table *sgt, int *src_vmids,
-				unsigned int nr_src_acl_entries,
-				int *dst_vmids, int *dst_perms,
-				unsigned int nr_dst_acl_entries,
-				gh_memparcel_handle_t memparcel_hdl)
+static inline int mem_buf_unassign_mem_gunyah(gh_memparcel_handle_t memparcel_hdl)
 {
 	return -EINVAL;
 }

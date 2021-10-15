@@ -343,11 +343,7 @@ err_gh_acl:
 	return ret;
 }
 
-int mem_buf_unassign_mem_gunyah(struct sg_table *sgt, int *src_vmids,
-				unsigned int nr_src_acl_entries,
-				int *dst_vmids, int *dst_perms,
-				unsigned int nr_dst_acl_entries,
-				gh_memparcel_handle_t memparcel_hdl)
+int mem_buf_unassign_mem_gunyah(gh_memparcel_handle_t memparcel_hdl)
 {
 	int ret;
 
@@ -358,15 +354,6 @@ int mem_buf_unassign_mem_gunyah(struct sg_table *sgt, int *src_vmids,
 		return ret;
 	}
 	pr_debug("%s: Finished gunyah reclaim\n", __func__);
-
-	pr_debug("%s: Unassigning memory to HLOS\n", __func__);
-	ret = hyp_assign_table(sgt, src_vmids, nr_src_acl_entries,
-			       dst_vmids, dst_perms, nr_dst_acl_entries);
-	if (ret < 0)
-		pr_err("%s: failed to assign memory from rmt allocation rc: %d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: Unassigned memory to HLOS\n", __func__);
 
 	return ret;
 }

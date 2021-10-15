@@ -125,6 +125,7 @@ static struct mem_buf_vmperm *mem_buf_vmperm_alloc_flags(
 	mutex_unlock(&vmperm->lock);
 	vmperm->sgt = sgt;
 	vmperm->flags = flags;
+	vmperm->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
 
 	return vmperm;
 
@@ -193,6 +194,7 @@ static int __mem_buf_vmperm_reclaim(struct mem_buf_vmperm *vmperm)
 
 	mem_buf_vmperm_update_state(vmperm, new_vmids, new_perms, 1);
 	vmperm->flags &= ~MEM_BUF_WRAPPER_FLAG_LENDSHARE;
+	vmperm->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
 	return 0;
 }
 

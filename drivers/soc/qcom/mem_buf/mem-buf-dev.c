@@ -36,6 +36,7 @@ int mem_buf_assign_mem(int op, struct sg_table *sgt,
 	if (api < 0)
 		return -EINVAL;
 
+	arg->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
 	if (api == MEM_BUF_API_GUNYAH)
 		return mem_buf_assign_mem_gunyah(op, sgt, src_vmid, src_perms,
 						 ARRAY_SIZE(src_vmid), arg);
@@ -59,19 +60,16 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 {
 	int dst_vmid[] = {current_vmid};
 	int dst_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-	int ret, api;
+	int ret;
 
 	if (!sgt || !src_vmids || !nr_acl_entries)
 		return -EINVAL;
 
-	api = mem_buf_vm_get_backend_api(src_vmids, nr_acl_entries);
-	if (api < 0)
-		return -EINVAL;
-
-	if (api == MEM_BUF_API_GUNYAH)
-		return mem_buf_unassign_mem_gunyah(sgt, src_vmids, nr_acl_entries,
-						   dst_vmid, dst_perm,
-						   ARRAY_SIZE(dst_vmid), memparcel_hdl);
+	if (memparcel_hdl != MEM_BUF_MEMPARCEL_INVALID) {
+		ret = mem_buf_unassign_mem_gunyah(memparcel_hdl);
+		if (ret)
+			return ret;
+	}
 
 	pr_debug("%s: Unassigning memory to HLOS\n", __func__);
 	ret = hyp_assign_table(sgt, src_vmids, nr_acl_entries,
