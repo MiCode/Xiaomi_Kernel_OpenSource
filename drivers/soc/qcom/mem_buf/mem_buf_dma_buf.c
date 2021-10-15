@@ -393,7 +393,6 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	struct mem_buf_vmperm *vmperm;
 	struct sg_table *sgt;
 	int ret;
-	int api;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
 		return -EOPNOTSUPP;
@@ -408,10 +407,6 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 		return -EINVAL;
 	}
 	sgt = vmperm->sgt;
-
-	api = mem_buf_vm_get_backend_api(arg->vmids, arg->nr_acl_entries);
-	if (api < 0)
-		return -EINVAL;
 
 	ret = validate_lend_vmids(arg, op);
 	if (ret)

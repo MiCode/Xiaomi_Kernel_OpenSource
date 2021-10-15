@@ -31,11 +31,14 @@ struct mem_buf_vm {
 extern int current_vmid;
 int mem_buf_vm_init(struct device *dev);
 void mem_buf_vm_exit(void);
+
+bool mem_buf_vm_uses_hyp_assign(void);
 /*
- * Returns a negative number for invalid arguments, otherwise a MEM_BUF_API
- * which is supported by all vmids in the array.
+ * Returns a negative number for invalid arguments, otherwise a positive value
+ * if gunyah APIs are required.
  */
-int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries);
+int mem_buf_vm_uses_gunyah(int *vmids, unsigned int nr_acl_entries);
+
 /* @Return: A negative number on failure, or vmid on success */
 int mem_buf_fd_to_vmid(int fd);
 

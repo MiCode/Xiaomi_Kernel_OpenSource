@@ -28,7 +28,7 @@ int current_vmid;
 static struct mem_buf_vm vm_ ## _lname = {	\
 	.name = "qcom," #_lname,		\
 	.vmid = VMID_ ## _uname,		\
-	.allowed_api = MEM_BUF_API_HYP_ASSIGN,	\
+	.allowed_api = 0,			\
 }
 
 PERIPHERAL_VM(CP_TOUCH, cp_touch);
@@ -53,7 +53,7 @@ static struct mem_buf_vm vm_trusted_vm = {
 static struct mem_buf_vm vm_hlos = {
 	.name = "qcom,hlos",
 	.vmid = VMID_HLOS,
-	.allowed_api = MEM_BUF_API_HYP_ASSIGN | MEM_BUF_API_GUNYAH,
+	.allowed_api = 0,
 };
 
 struct mem_buf_vm *pdata_array[] = {
@@ -92,33 +92,43 @@ static const struct file_operations mem_buf_vm_fops = {
 	.open = mem_buf_vm_open,
 };
 
-int mem_buf_vm_get_backend_api(int *vmids, unsigned int nr_acl_entries)
+bool mem_buf_vm_uses_hyp_assign(void)
+{
+	return current_vmid == VMID_HLOS;
+}
+EXPORT_SYMBOL(mem_buf_vm_uses_hyp_assign);
+
+/*
+ * Use Gunyah API if any vm in the source or destination requires it.
+ */
+int mem_buf_vm_uses_gunyah(int *vmids, unsigned int nr_acl_entries)
 {
 	struct mem_buf_vm *vm;
-	u32 allowed_api = U32_MAX;
 	int i;
 
 	for (i = 0; i < nr_acl_entries; i++) {
 		vm = xa_load(&mem_buf_vms, vmids[i]);
 		if (!vm) {
 			pr_err_ratelimited("No vm with vmid=0x%x\n", vmids[i]);
-			return PTR_ERR(vm);
+			return -EINVAL;
 		}
 
-		allowed_api &= vm->allowed_api;
+		if (vm->allowed_api & MEM_BUF_API_GUNYAH)
+			return true;
 	}
 
-	if (!allowed_api) {
-		pr_err_ratelimited("Vms have no common backend API\n");
-		return -EINVAL;
+	vm = xa_load(&mem_buf_vms, current_vmid);
+	if (!vm) {
+		pr_err_ratelimited("No vm with vmid=0x%x\n", current_vmid);
+		return PTR_ERR(vm);
 	}
 
-	/* Prefer hyp assign since it has fewer limitations */
-	if (allowed_api & MEM_BUF_API_HYP_ASSIGN)
-		return MEM_BUF_API_HYP_ASSIGN;
-	else
-		return MEM_BUF_API_GUNYAH;
+	if (vm->allowed_api & MEM_BUF_API_GUNYAH)
+		return true;
+
+	return false;
 }
+EXPORT_SYMBOL(mem_buf_vm_uses_gunyah);
 
 int mem_buf_fd_to_vmid(int fd)
 {
