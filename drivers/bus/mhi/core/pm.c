@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -150,14 +150,52 @@ static void mhi_toggle_dev_wake(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->wake_put(mhi_cntrl, true);
 }
 
+/* Add event ring elements and ring er db */
+static void mhi_setup_event_rings(struct mhi_controller *mhi_cntrl, bool add_el)
+{
+	struct mhi_event *mhi_event;
+	int i;
+	bool skip_er_setup;
+
+	mhi_event = mhi_cntrl->mhi_event;
+	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
+		struct mhi_ring *ring = &mhi_event->ring;
+
+		if (mhi_event->offload_ev)
+			continue;
+
+		/* skip HW event ring setup in ready state */
+		if (mhi_cntrl->dev_state == MHI_STATE_READY)
+			skip_er_setup = mhi_event->hw_ring;
+		else
+			skip_er_setup = !mhi_event->hw_ring;
+
+		/* if no er element to add, ring all er dbs */
+		if (add_el && skip_er_setup)
+			continue;
+
+		if (add_el) {
+			ring->wp = ring->base + ring->len - ring->el_size;
+			*ring->ctxt_wp =
+				ring->iommu_base + ring->len - ring->el_size;
+			/* Update all cores */
+			smp_wmb();
+		}
+
+		/* Ring the event ring db */
+		spin_lock_irq(&mhi_event->lock);
+		mhi_ring_er_db(mhi_event);
+		spin_unlock_irq(&mhi_event->lock);
+	}
+}
+
 /* Handle device ready state transition */
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_event *mhi_event;
 	enum mhi_pm_state cur_state;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	u32 interval_us = 25000; /* poll register field every 25 milliseconds */
-	int ret, i;
+	int ret = -EINVAL;
 
 	/* Check if device entered error state */
 	if (MHI_PM_IN_FATAL_STATE(mhi_cntrl->pm_state)) {
@@ -208,25 +246,8 @@ int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl)
 		goto error_mmio;
 	}
 
-	/* Add elements to all SW event rings */
-	mhi_event = mhi_cntrl->mhi_event;
-	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		struct mhi_ring *ring = &mhi_event->ring;
-
-		/* Skip if this is an offload or HW event */
-		if (mhi_event->offload_ev || mhi_event->hw_ring)
-			continue;
-
-		ring->wp = ring->base + ring->len - ring->el_size;
-		*ring->ctxt_wp = ring->iommu_base + ring->len - ring->el_size;
-		/* Update all cores */
-		smp_wmb();
-
-		/* Ring the event ring db */
-		spin_lock_irq(&mhi_event->lock);
-		mhi_ring_er_db(mhi_event);
-		spin_unlock_irq(&mhi_event->lock);
-	}
+	/* add SW event ring elements and ring SW event ring dbs */
+	mhi_setup_event_rings(mhi_cntrl, true);
 
 	/* Set MHI to M0 state */
 	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_M0);
@@ -263,24 +284,19 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 
 	/* Ring all event rings and CMD ring only if we're in mission mode */
 	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
-		struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
 		struct mhi_cmd *mhi_cmd =
 			&mhi_cntrl->mhi_cmd[PRIMARY_CMD_RING];
 
-		for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-			if (mhi_event->offload_ev)
-				continue;
-
-			spin_lock_irq(&mhi_event->lock);
-			mhi_ring_er_db(mhi_event);
-			spin_unlock_irq(&mhi_event->lock);
-		}
+		mhi_setup_event_rings(mhi_cntrl, false);
 
 		/* Only ring primary cmd ring if ring is not empty */
 		spin_lock_irq(&mhi_cmd->lock);
 		if (mhi_cmd->ring.rp != mhi_cmd->ring.wp)
 			mhi_ring_cmd_db(mhi_cntrl, mhi_cmd);
 		spin_unlock_irq(&mhi_cmd->lock);
+
+		/* ring misc doorbells for certain controllers */
+		mhi_misc_dbs_pending(mhi_cntrl);
 	}
 
 	/* Ring channel DB registers */
@@ -373,10 +389,9 @@ int mhi_pm_m3_transition(struct mhi_controller *mhi_cntrl)
 /* Handle device Mission Mode transition */
 static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_event *mhi_event;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	enum mhi_ee_type ee = MHI_EE_MAX, current_ee = mhi_cntrl->ee;
-	int i, ret;
+	int ret;
 
 	dev_dbg(dev, "Processing Mission Mode transition\n");
 
@@ -411,26 +426,13 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 		goto error_mission_mode;
 	}
 
-	/* Add elements to all HW event rings */
-	mhi_event = mhi_cntrl->mhi_event;
-	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		struct mhi_ring *ring = &mhi_event->ring;
-
-		if (mhi_event->offload_ev || !mhi_event->hw_ring)
-			continue;
-
-		ring->wp = ring->base + ring->len - ring->el_size;
-		*ring->ctxt_wp = ring->iommu_base + ring->len - ring->el_size;
-		/* Update to all cores */
-		smp_wmb();
-
-		spin_lock_irq(&mhi_event->lock);
-		if (MHI_DB_ACCESS_VALID(mhi_cntrl))
-			mhi_ring_er_db(mhi_event);
-		spin_unlock_irq(&mhi_event->lock);
-	}
+	/* Add elements to all HW event rings and ring HW event ring dbs */
+	mhi_setup_event_rings(mhi_cntrl, true);
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	mhi_misc_mission_mode(mhi_cntrl);
+	mhi_process_sleeping_events(mhi_cntrl);
 
 	/*
 	 * The MHI devices are only created when the client device switches its
@@ -489,11 +491,17 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl)
 		if (mhi_event->offload_ev)
 			continue;
 		free_irq(mhi_cntrl->irq[mhi_event->irq], mhi_event);
-		tasklet_kill(&mhi_event->task);
+		if (mhi_event->priority == MHI_ER_PRIORITY_HI_SLEEP)
+			cancel_work_sync(&mhi_event->work);
+		else
+			tasklet_kill(&mhi_event->task);
 	}
 
 	/* Release lock and wait for all pending threads to complete */
 	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+	mhi_misc_disable(mhi_cntrl);
+
 	dev_dbg(dev, "Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
 
@@ -623,11 +631,17 @@ static void mhi_pm_sys_error_transition(struct mhi_controller *mhi_cntrl)
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
 		if (mhi_event->offload_ev)
 			continue;
-		tasklet_kill(&mhi_event->task);
+		if (mhi_event->priority == MHI_ER_PRIORITY_HI_SLEEP)
+			cancel_work_sync(&mhi_event->work);
+		else
+			tasklet_kill(&mhi_event->task);
 	}
 
 	/* Release lock and wait for all pending threads to complete */
 	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+	mhi_misc_disable(mhi_cntrl);
+
 	dev_dbg(dev, "Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
 
@@ -759,6 +773,9 @@ void mhi_pm_st_worker(struct work_struct *work)
 			write_lock_irq(&mhi_cntrl->pm_lock);
 			mhi_cntrl->ee = MHI_EE_SBL;
 			write_unlock_irq(&mhi_cntrl->pm_lock);
+
+			mhi_process_sleeping_events(mhi_cntrl);
+
 			/*
 			 * The MHI devices are only created when the client
 			 * device switches its Execution Environment (EE) to
@@ -898,8 +915,8 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
 		return -EIO;
 
-	if (mhi_get_mhi_state(mhi_cntrl) != MHI_STATE_M3)
-		return -EINVAL;
+	if (mhi_cntrl->pm_state != MHI_PM_M3)
+		panic("mhi_pm_state != M3");
 
 	/* Notify clients about exiting LPM */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
@@ -1169,6 +1186,9 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 	flush_work(&mhi_cntrl->st_worker);
 
 	free_irq(mhi_cntrl->irq[0], mhi_cntrl);
+
+	if (mhi_cntrl->fbc_image)
+		mhi_free_bhie_table(mhi_cntrl, &mhi_cntrl->fbc_image);
 }
 EXPORT_SYMBOL_GPL(mhi_power_down);
 

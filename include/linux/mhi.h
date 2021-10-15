@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  */
 #ifndef _MHI_H_
@@ -14,6 +14,9 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+
+/* MHI client drivers to set this upper bound for tx buffer */
+#define MHI_MAX_MTU 0xffff
 
 #define MHI_MAX_OEM_PK_HASH_SEGMENTS 16
 
@@ -34,6 +37,7 @@ struct mhi_buf_info;
  * @MHI_CB_SYS_ERROR: MHI device entered error state (may recover)
  * @MHI_CB_FATAL_ERROR: MHI device entered fatal error state
  * @MHI_CB_BW_REQ: Received a bandwidth switch request from device
+ * @MHI_CB_FALLBACK_IMG: MHI device was loaded with the provided fallback image
  */
 enum mhi_callback {
 	MHI_CB_IDLE,
@@ -45,6 +49,7 @@ enum mhi_callback {
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
 	MHI_CB_BW_REQ,
+	MHI_CB_FALLBACK_IMG,
 };
 
 /**
@@ -102,10 +107,12 @@ struct image_info {
  * struct mhi_link_info - BW requirement
  * target_link_speed - Link speed as defined by TLS bits in LinkControl reg
  * target_link_width - Link width as defined by NLW bits in LinkStatus reg
+ * sequence_num - used by device to track bw requests sent to host
  */
 struct mhi_link_info {
 	unsigned int target_link_speed;
 	unsigned int target_link_width;
+	int sequence_num;
 };
 
 /**
@@ -183,10 +190,26 @@ enum mhi_ch_ee_mask {
  * enum mhi_er_data_type - Event ring data types
  * @MHI_ER_DATA: Only client data over this ring
  * @MHI_ER_CTRL: MHI control data and client data
+ * @MHI_ER_BW_SCALE: MHI controller bandwidth scale functionality
+ * @MHI_ER_TIMESYNC: MHI controller time synchronization DB mode functionality
  */
 enum mhi_er_data_type {
 	MHI_ER_DATA,
 	MHI_ER_CTRL,
+	MHI_ER_BW_SCALE,
+	MHI_ER_TIMESYNC,
+};
+
+/**
+ * enum mhi_er_priority - Event ring processing priority
+ * @MHI_ER_PRIORITY_DEFAULT_NOSLEEP: processed by tasklet
+ * @MHI_ER_PRIORITY_HI_NOSLEEP: processed by hi-priority tasklet
+ * @MHI_ER_PRIORITY_HI_SLEEP: processed by hi-priority wq
+ */
+enum mhi_er_priority {
+	MHI_ER_PRIORITY_DEFAULT_NOSLEEP,
+	MHI_ER_PRIORITY_HI_NOSLEEP,
+	MHI_ER_PRIORITY_HI_SLEEP,
 };
 
 /**
@@ -242,7 +265,7 @@ struct mhi_channel_config {
  * @irq_moderation_ms: Delay irq for additional events to be aggregated
  * @irq: IRQ associated with this ring
  * @channel: Dedicated channel number. U32_MAX indicates a non-dedicated ring
- * @priority: Priority of this ring. Use 1 for now
+ * @priority: Processing priority of this ring.
  * @mode: Doorbell mode
  * @data_type: Type of data this ring will process
  * @hardware_event: This ring is associated with hardware channels
@@ -299,6 +322,7 @@ struct mhi_controller_config {
  * @iova_start: IOMMU starting address for data (required)
  * @iova_stop: IOMMU stop address for data (required)
  * @fw_image: Firmware image name for normal booting (optional)
+ * @fallback_fw_image: Fallback firmware image name for backup boot (optional)
  * @edl_image: Firmware image name for emergency download mode (optional)
  * @rddm_size: RAM dump size that host should allocate for debugging purpose
  * @sbl_size: SBL image size downloaded through BHIe (optional)
@@ -332,7 +356,7 @@ struct mhi_controller_config {
  * @dev_state: MHI device state
  * @dev_wake: Device wakeup count
  * @pending_pkts: Pending packets for the controller
- * @M0, M2, M3: Counters to track number of device MHI state changes
+ * @M0, M2, M3, M3_fast: Counters to track number of device MHI state changes
  * @transition_list: List of MHI state transitions
  * @transition_lock: Lock for protecting MHI state transition list
  * @wlock: Lock for protecting device wakeup
@@ -353,6 +377,7 @@ struct mhi_controller_config {
  * @reset: Controller specific reset function (optional)
  * @buffer_len: Bounce buffer length
  * @index: Index of the MHI controller instance
+ * @img_pre_alloc: allocate rddm and fbc image buffers one time
  * @bounce_buf: Use of bounce buffer
  * @fbc_download: MHI host needs to do complete image transfer (optional)
  * @wake_set: Device wakeup set flag
@@ -384,6 +409,7 @@ struct mhi_controller {
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	const char *fw_image;
+	const char *fallback_fw_image;
 	const char *edl_image;
 	size_t rddm_size;
 	size_t sbl_size;
@@ -405,6 +431,7 @@ struct mhi_controller {
 	u32 minor_version;
 	u32 serial_number;
 	u32 oem_pk_hash[MHI_MAX_OEM_PK_HASH_SEGMENTS];
+	u32 session_id;
 
 	struct mhi_event *mhi_event;
 	struct mhi_cmd *mhi_cmd;
@@ -419,7 +446,7 @@ struct mhi_controller {
 	enum mhi_state dev_state;
 	atomic_t dev_wake;
 	atomic_t pending_pkts;
-	u32 M0, M2, M3;
+	u32 M0, M2, M3, M3_fast;
 	struct list_head transition_list;
 	spinlock_t transition_lock;
 	spinlock_t wlock;
@@ -447,6 +474,7 @@ struct mhi_controller {
 
 	size_t buffer_len;
 	int index;
+	bool img_pre_alloc;
 	bool bounce_buf;
 	bool fbc_download;
 	bool wake_set;
@@ -465,7 +493,9 @@ struct mhi_controller {
  * @dev: Driver model device node for the MHI device
  * @dev_type: MHI device type
  * @ul_chan_id: MHI channel id for UL transfer
+ * @ul_event_id: MHI event ring id for UL transfer
  * @dl_chan_id: MHI channel id for DL transfer
+ * @ul_event_id: MHI event ring id for DL transfer
  * @dev_wake: Device wakeup counter
  */
 struct mhi_device {
@@ -477,7 +507,9 @@ struct mhi_device {
 	struct device dev;
 	enum mhi_device_type dev_type;
 	int ul_chan_id;
+	int ul_event_id;
 	int dl_chan_id;
+	int dl_event_id;
 	u32 dev_wake;
 };
 
@@ -716,15 +748,26 @@ int mhi_device_get_sync(struct mhi_device *mhi_dev);
 void mhi_device_put(struct mhi_device *mhi_dev);
 
 /**
- * mhi_prepare_for_transfer - Setup UL and DL channels for data transfer.
+ * mhi_prepare_for_transfer - Setup UL and DL channels for data transfer
  *                            Allocate and initialize the channel context and
  *                            also issue the START channel command to both
  *                            channels. Channels can be started only if both
  *                            host and device execution environments match and
- *                            channels are in a DISABLED state.
+ *                            channels are in a DISABLED state. Calling the
+ *                            mhi_start_transfer() function is not required
+ *                            afterwards as channels are already started. This
+ *                            function also initializes the channel context
+ *                            whereas mhi_start_transfer() can only be used to
+ *                            issue the start channel command once the context
+ *                            is setup.
  * @mhi_dev: Device associated with the channels
+ * @flags: MHI channel flags
  */
-int mhi_prepare_for_transfer(struct mhi_device *mhi_dev);
+int mhi_prepare_for_transfer(struct mhi_device *mhi_dev,
+			     unsigned int flags);
+
+/* Automatically allocate and queue inbound buffers */
+#define MHI_CH_INBOUND_ALLOC_BUFS BIT(0)
 
 /**
  * mhi_unprepare_from_transfer - Reset UL and DL channels for data transfer.
@@ -736,10 +779,31 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev);
  *                               clean-up. Channels can be reset only if both
  *                               host and device execution environments match
  *                               and channels are in an ENABLED, STOPPED or
- *                               SUSPENDED state.
+ *                               SUSPENDED state. Calling mhi_stop_transfer() is
+ *                               required before calling this function as it
+ *                               will only stop transfers, not reset channels.
  * @mhi_dev: Device associated with the channels
  */
 void mhi_unprepare_from_transfer(struct mhi_device *mhi_dev);
+
+/**
+ * mhi_stop_transfer - Pauses ongoing channel activity by issuing the STOP
+ *                     channel command to both UL and DL channels. This command
+ *                     does not reset the channel context and the client drivers
+ *                     can issue mhi_start_transfer to resume activity.
+ * @mhi_dev: Device associated with the channels
+ */
+int mhi_stop_transfer(struct mhi_device *mhi_dev);
+
+/**
+ * mhi_start_transfer - Resumes channel activity by issuing the START channel
+ *                      command to both UL and DL channels. This command assumes
+ *                      the channel context is already setup and the client
+ *                      drivers can issue mhi_stop_transfer to pause activity if
+ *                      required.
+ * @mhi_dev: Device associated with the channels
+ */
+int mhi_start_transfer(struct mhi_device *mhi_dev);
 
 /**
  * mhi_poll - Poll for any available data in DL direction

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -227,7 +227,7 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 			   dma_addr_t dma_addr,
 			   size_t size)
 {
-	u32 tx_status, val, session_id;
+	u32 tx_status, val;
 	int i, ret;
 	void __iomem *base = mhi_cntrl->bhi;
 	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
@@ -249,16 +249,16 @@ static int mhi_fw_load_bhi(struct mhi_controller *mhi_cntrl,
 		goto invalid_pm_state;
 	}
 
-	session_id = MHI_RANDOM_U32_NONZERO(BHI_TXDB_SEQNUM_BMSK);
+	mhi_cntrl->session_id = MHI_RANDOM_U32_NONZERO(BHI_TXDB_SEQNUM_BMSK);
 	dev_dbg(dev, "Starting image download via BHI. Session ID: %u\n",
-		session_id);
+		mhi_cntrl->session_id);
 	mhi_write_reg(mhi_cntrl, base, BHI_STATUS, 0);
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_HIGH,
 		      upper_32_bits(dma_addr));
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_LOW,
 		      lower_32_bits(dma_addr));
 	mhi_write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, session_id);
+	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, mhi_cntrl->session_id);
 	read_unlock_bh(pm_lock);
 
 	/* Wait for the image download to complete */
@@ -296,17 +296,22 @@ invalid_pm_state:
 }
 
 void mhi_free_bhie_table(struct mhi_controller *mhi_cntrl,
-			 struct image_info *image_info)
+			 struct image_info **image_info)
 {
 	int i;
-	struct mhi_buf *mhi_buf = image_info->mhi_buf;
+	struct mhi_buf *mhi_buf = (*image_info)->mhi_buf;
 
-	for (i = 0; i < image_info->entries; i++, mhi_buf++)
+	if (mhi_cntrl->img_pre_alloc)
+		return;
+
+	for (i = 0; i < (*image_info)->entries; i++, mhi_buf++)
 		dma_free_coherent(mhi_cntrl->cntrl_dev, mhi_buf->len,
 				  mhi_buf->buf, mhi_buf->dma_addr);
 
-	kfree(image_info->mhi_buf);
-	kfree(image_info);
+	kfree((*image_info)->mhi_buf);
+	kfree(*image_info);
+
+	*image_info = NULL;
 }
 
 int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
@@ -318,6 +323,9 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 	int i;
 	struct image_info *img_info;
 	struct mhi_buf *mhi_buf;
+
+	if (mhi_cntrl->img_pre_alloc)
+		return 0;
 
 	img_info = kzalloc(sizeof(*img_info), GFP_KERNEL);
 	if (!img_info)
@@ -430,10 +438,22 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 		goto error_fw_load;
 	}
 
-	ret = request_firmware(&firmware, fw_name, dev);
+	ret = request_firmware(&firmware, fw_name, dev->parent);
 	if (ret) {
-		dev_err(dev, "Error loading firmware: %d\n", ret);
-		goto error_fw_load;
+		if (!mhi_cntrl->fallback_fw_image) {
+			dev_err(dev, "Error loading firmware: %d\n", ret);
+			goto error_fw_load;
+		}
+
+		ret = request_firmware(&firmware,
+				       mhi_cntrl->fallback_fw_image,
+				       dev->parent);
+		if (ret) {
+			dev_err(dev, "Error loading fallback firmware: %d\n",
+				ret);
+			goto error_fw_load;
+		}
+		mhi_cntrl->status_cb(mhi_cntrl, MHI_CB_FALLBACK_IMG);
 	}
 
 	size = (mhi_cntrl->fbc_download) ? mhi_cntrl->sbl_size : firmware->size;
@@ -502,7 +522,7 @@ fw_load_ready_state:
 
 error_ready_state:
 	if (mhi_cntrl->fbc_download) {
-		mhi_free_bhie_table(mhi_cntrl, mhi_cntrl->fbc_image);
+		mhi_free_bhie_table(mhi_cntrl, &mhi_cntrl->fbc_image);
 		mhi_cntrl->fbc_image = NULL;
 	}
 
