@@ -1104,9 +1104,6 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	struct dma_buf *dmabuf;
 	struct sg_table *sgt;
 
-	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-		return ERR_PTR(-EOPNOTSUPP);
-
 	if (arg->fd_flags & ~MEM_BUF_VALID_FD_FLAGS)
 		return ERR_PTR(-EINVAL);
 

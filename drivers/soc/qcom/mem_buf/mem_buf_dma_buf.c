@@ -394,9 +394,6 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	struct sg_table *sgt;
 	int ret;
 
-	if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-		return -EOPNOTSUPP;
-
 	if (!arg->nr_acl_entries || !arg->vmids || !arg->perms)
 		return -EINVAL;
 
