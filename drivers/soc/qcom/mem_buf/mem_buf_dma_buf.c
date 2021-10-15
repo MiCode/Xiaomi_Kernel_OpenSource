@@ -362,7 +362,7 @@ bool mem_buf_vmperm_can_vmap(struct mem_buf_vmperm *vmperm)
 EXPORT_SYMBOL(mem_buf_vmperm_can_vmap);
 
 static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
-				bool is_lend)
+				int op)
 {
 	int i;
 	bool found = false;
@@ -374,10 +374,10 @@ static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
 		}
 	}
 
-	if (found && is_lend) {
+	if (found && op == GH_RM_TRANS_TYPE_LEND) {
 		pr_err_ratelimited("Lend cannot target the current VM\n");
 		return -EINVAL;
-	} else if (!found && !is_lend) {
+	} else if (!found && op == GH_RM_TRANS_TYPE_SHARE) {
 		pr_err_ratelimited("Share must target the current VM\n");
 		return -EINVAL;
 	}
@@ -386,7 +386,7 @@ static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
 
 static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg,
-			bool is_lend)
+			int op)
 {
 	struct mem_buf_vmperm *vmperm;
 	struct sg_table *sgt;
@@ -411,7 +411,7 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	if (api < 0)
 		return -EINVAL;
 
-	ret = validate_lend_vmids(arg, is_lend);
+	ret = validate_lend_vmids(arg, op);
 	if (ret)
 		return ret;
 
@@ -452,7 +452,7 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	if (ret)
 		goto err_resize;
 
-	ret = mem_buf_assign_mem(is_lend, vmperm->sgt, arg);
+	ret = mem_buf_assign_mem(op, vmperm->sgt, arg);
 	if (ret) {
 		if (ret == -EADDRNOTAVAIL)
 			mem_buf_vmperm_set_err(vmperm);
@@ -480,7 +480,7 @@ err_resize:
 int mem_buf_lend(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg)
 {
-	return mem_buf_lend_internal(dmabuf, arg, true);
+	return mem_buf_lend_internal(dmabuf, arg, GH_RM_TRANS_TYPE_LEND);
 }
 EXPORT_SYMBOL(mem_buf_lend);
 
@@ -500,7 +500,7 @@ int mem_buf_share(struct dma_buf *dmabuf,
 	}
 
 	if (found)
-		return mem_buf_lend_internal(dmabuf, arg, false);
+		return mem_buf_lend_internal(dmabuf, arg, GH_RM_TRANS_TYPE_SHARE);
 
 	vmids = kmalloc_array(len + 1, sizeof(*vmids), GFP_KERNEL);
 	if (!vmids)
@@ -525,7 +525,7 @@ int mem_buf_share(struct dma_buf *dmabuf,
 	arg->perms = perms;
 	arg->nr_acl_entries += 1;
 
-	ret = mem_buf_lend_internal(dmabuf, arg, false);
+	ret = mem_buf_lend_internal(dmabuf, arg, GH_RM_TRANS_TYPE_SHARE);
 	/* Swap back */
 	arg->vmids = orig_vmids;
 	arg->perms = orig_perms;

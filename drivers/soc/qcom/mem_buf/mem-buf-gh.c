@@ -304,10 +304,9 @@ static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl
 
 static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 {
-	int ret;
+	int ret, xfer_type;
 	struct mem_buf_xfer_mem *xfer_mem;
 	struct mem_buf_lend_kernel_arg arg = {0};
-	bool is_lend;
 
 	xfer_mem = mem_buf_prep_xfer_mem(req);
 	if (IS_ERR(xfer_mem))
@@ -318,14 +317,13 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 		goto err_rmt_alloc;
 
 	if (!xfer_mem->secure_alloc) {
-		ret = mem_buf_get_mem_xfer_type(xfer_mem->dst_vmids,
+		xfer_type = mem_buf_get_mem_xfer_type(xfer_mem->dst_vmids,
 				xfer_mem->dst_perms, xfer_mem->nr_acl_entries);
-		is_lend = (ret == GH_RM_TRANS_TYPE_LEND);
 
 		arg.nr_acl_entries = xfer_mem->nr_acl_entries;
 		arg.vmids = xfer_mem->dst_vmids;
 		arg.perms = xfer_mem->dst_perms;
-		ret = mem_buf_assign_mem(is_lend, xfer_mem->mem_sgt, &arg);
+		ret = mem_buf_assign_mem(xfer_type, xfer_mem->mem_sgt, &arg);
 		if (ret < 0)
 			goto err_assign_mem;
 

@@ -18,7 +18,7 @@ extern unsigned char mem_buf_capability;
 extern struct device *mem_buf_dev;
 
 /* Hypervisor Interface */
-int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
+int mem_buf_assign_mem(int op, struct sg_table *sgt,
 		       struct mem_buf_lend_kernel_arg *arg);
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 			 unsigned int nr_acl_entries,
@@ -37,7 +37,7 @@ int mem_buf_gh_acl_desc_to_vmid_perm_list(struct gh_acl_desc *acl_desc,
 					  int **vmids, int **perms);
 size_t mem_buf_get_sgl_buf_size(struct gh_sgl_desc *sgl_desc);
 struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc);
-int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
+int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 			      int *src_vmids, int *src_perms,
 			      unsigned int nr_src_acl_entries,
 			      struct mem_buf_lend_kernel_arg *arg);
@@ -95,7 +95,7 @@ static inline struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_de
 	return ERR_PTR(-EINVAL);
 }
 
-static inline int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
+static inline int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 			      int *src_vmids, int *src_perms,
 			      unsigned int nr_src_acl_entries,
 			      struct mem_buf_lend_kernel_arg *arg)

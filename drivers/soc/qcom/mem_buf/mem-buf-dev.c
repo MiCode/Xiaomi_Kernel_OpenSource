@@ -21,8 +21,8 @@ EXPORT_SYMBOL(mem_buf_dev);
 unsigned char mem_buf_capability;
 EXPORT_SYMBOL(mem_buf_capability);
 
-int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
-			struct mem_buf_lend_kernel_arg *arg)
+int mem_buf_assign_mem(int op, struct sg_table *sgt,
+		       struct mem_buf_lend_kernel_arg *arg)
 {
 	int src_vmid[] = {current_vmid};
 	int src_perms[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
@@ -37,7 +37,7 @@ int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
 		return -EINVAL;
 
 	if (api == MEM_BUF_API_GUNYAH)
-		return mem_buf_assign_mem_gunyah(is_lend, sgt, src_vmid, src_perms,
+		return mem_buf_assign_mem_gunyah(op, sgt, src_vmid, src_perms,
 						 ARRAY_SIZE(src_vmid), arg);
 
 	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);

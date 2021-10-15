@@ -249,7 +249,7 @@ int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc)
 }
 EXPORT_SYMBOL(mem_buf_unmap_mem_s1);
 
-int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
+int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 			      int *src_vmids, int *src_perms,
 			      unsigned int nr_src_acl_entries,
 			      struct mem_buf_lend_kernel_arg *arg)
@@ -299,16 +299,26 @@ int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 	}
 
 	pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
-	if (is_lend)
+	if (op == GH_RM_TRANS_TYPE_LEND) {
 		ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, arg->flags,
 				     arg->label, gh_acl, gh_sgl,
 				     NULL /* Default memory attributes */,
 				     &arg->memparcel_hdl);
-	else
+	} else if (op == GH_RM_TRANS_TYPE_SHARE) {
 		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, arg->flags,
 				     arg->label, gh_acl, gh_sgl,
 				     NULL /* Default memory attributes */,
 				     &arg->memparcel_hdl);
+	} else if (op == GH_RM_TRANS_TYPE_DONATE) {
+		ret = gh_rm_mem_donate(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+				     arg->label, gh_acl, gh_sgl,
+				     NULL /* Default memory attributes */,
+				     &arg->memparcel_hdl);
+	} else {
+		pr_err("%s: Unrecognized op %d\n", op);
+		ret = -EINVAL;
+	}
+
 	if (ret < 0) {
 		pr_err("%s: Gunyah lend/share failed rc:%d\n",
 		       __func__, ret);
