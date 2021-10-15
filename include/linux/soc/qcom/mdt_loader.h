@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ */
 #ifndef __QCOM_MDT_LOADER_H__
 #define __QCOM_MDT_LOADER_H__
 
@@ -10,6 +13,12 @@
 
 struct device;
 struct firmware;
+
+struct qcom_mdt_metadata {
+	void *buf;
+	dma_addr_t buf_phys;
+	size_t size;
+};
 
 #if IS_ENABLED(CONFIG_QCOM_MDT_LOADER)
 
@@ -23,7 +32,13 @@ int qcom_mdt_load_no_init(struct device *dev, const struct firmware *fw,
 			  const char *fw_name, int pas_id, void *mem_region,
 			  phys_addr_t mem_phys, size_t mem_size,
 			  phys_addr_t *reloc_base);
-void *qcom_mdt_read_metadata(const struct firmware *fw, size_t *data_len);
+void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw,
+		const char *firmware, size_t *data_len, dma_addr_t *metadata_phys);
+int qcom_mdt_load_no_free(struct device *dev, const struct firmware *fw, const char *firmware,
+		  int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
+		  phys_addr_t *reloc_base, struct qcom_mdt_metadata *metadata);
+void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
+			    int err);
 
 #else /* !IS_ENABLED(CONFIG_QCOM_MDT_LOADER) */
 
@@ -50,10 +65,21 @@ static inline int qcom_mdt_load_no_init(struct device *dev,
 	return -ENODEV;
 }
 
-static inline void *qcom_mdt_read_metadata(const struct firmware *fw,
-					   size_t *data_len)
+void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw,
+		const char *firmware, size_t *data_len, dma_addr_t *metadata_phys)
 {
-	return ERR_PTR(-ENODEV);
+	return NULL;
+}
+int qcom_mdt_load_no_free(struct device *dev, const struct firmware *fw, const char *firmware,
+		  int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
+		  phys_addr_t *reloc_base, struct qcom_mdt_metadata *metadata)
+{
+	return -ENODEV;
+}
+void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
+			    int err)
+{
+	return;
 }
 
 #endif /* !IS_ENABLED(CONFIG_QCOM_MDT_LOADER) */

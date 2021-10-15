@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2016-2018 Linaro Ltd.
  * Copyright (C) 2014 Sony Mobile Communications AB
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2020-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
@@ -13,6 +13,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/remoteproc.h>
+#include <linux/delay.h>
 #include "qcom_common.h"
 #include "qcom_q6v5.h"
 
@@ -52,6 +53,29 @@ int qcom_q6v5_unprepare(struct qcom_q6v5 *q6v5)
 }
 EXPORT_SYMBOL_GPL(qcom_q6v5_unprepare);
 
+static void qcom_q6v5_crash_handler_work(struct work_struct *work)
+{
+	struct qcom_q6v5 *q6v5 = container_of(work, struct qcom_q6v5, crash_handler);
+	struct rproc *rproc = q6v5->rproc;
+	struct rproc_subdev *subdev;
+
+	mutex_lock(&rproc->lock);
+
+	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
+		if (subdev->stop)
+			subdev->stop(subdev, true);
+	}
+
+	mutex_unlock(&rproc->lock);
+
+	/*
+	 * Temporary workaround until ramdump userspace application calls
+	 * sync() and fclose() on attempting the dump.
+	 */
+	msleep(100);
+	panic("Panicking, remoteproc %s crashed\n", q6v5->rproc->name);
+}
+
 static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 {
 	struct qcom_q6v5 *q6v5 = data;
@@ -69,6 +93,9 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 		dev_err(q6v5->dev, "watchdog received: %s\n", msg);
 	else
 		dev_err(q6v5->dev, "watchdog without message\n");
+
+	if (q6v5->rproc->recovery_disabled)
+		schedule_work(&q6v5->crash_handler);
 
 	rproc_report_crash(q6v5->rproc, RPROC_WATCHDOG);
 
@@ -88,6 +115,9 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 		dev_err(q6v5->dev, "fatal error without message\n");
 
 	q6v5->running = false;
+	if (q6v5->rproc->recovery_disabled)
+		schedule_work(&q6v5->crash_handler);
+
 	rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
 
 	return IRQ_HANDLED;
@@ -157,8 +187,10 @@ int qcom_q6v5_request_stop(struct qcom_q6v5 *q6v5, struct qcom_sysmon *sysmon)
 
 	q6v5->running = false;
 
-	/* Don't perform SMP2P dance if sysmon already shut down the remote */
-	if (qcom_sysmon_shutdown_acked(sysmon))
+	/* Don't perform SMP2P dance if sysmon already shut
+	 * down the remote or if it isn't running
+	 */
+	if (q6v5->rproc->state != RPROC_RUNNING || qcom_sysmon_shutdown_acked(sysmon))
 		return 0;
 
 	qcom_smem_state_update_bits(q6v5->state,
@@ -220,7 +252,7 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 
 	ret = devm_request_threaded_irq(&pdev->dev, q6v5->wdog_irq,
 					NULL, q6v5_wdog_interrupt,
-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					IRQF_ONESHOT,
 					"q6v5 wdog", q6v5);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to acquire wdog IRQ\n");
@@ -280,11 +312,13 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 		return ret;
 	}
 
-	q6v5->state = devm_qcom_smem_state_get(&pdev->dev, "stop", &q6v5->stop_bit);
+	q6v5->state = qcom_smem_state_get(&pdev->dev, "stop", &q6v5->stop_bit);
 	if (IS_ERR(q6v5->state)) {
 		dev_err(&pdev->dev, "failed to acquire stop state\n");
 		return PTR_ERR(q6v5->state);
 	}
+
+	INIT_WORK(&q6v5->crash_handler, qcom_q6v5_crash_handler_work);
 
 	return 0;
 }

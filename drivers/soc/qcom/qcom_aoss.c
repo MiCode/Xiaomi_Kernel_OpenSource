@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2019, Linaro Ltd
  */
 #include <dt-bindings/power/qcom-aoss-qmp.h>
@@ -708,6 +709,7 @@ static const struct of_device_id qmp_dt_match[] = {
 	{ .compatible = "qcom,sm8350-aoss-qmp", },
 	{ .compatible = "qcom,kalama-aoss-qmp", },
 	{ .compatible = "qcom,aoss-qmp", },
+	{ .compatible = "qcom,waipio-aoss-qmp", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, qmp_dt_match);

@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ */
 
 #ifndef __QCOM_Q6V5_H__
 #define __QCOM_Q6V5_H__
@@ -22,6 +25,8 @@ struct qcom_q6v5 {
 	int ready_irq;
 	int handover_irq;
 	int stop_irq;
+
+	struct work_struct crash_handler;
 
 	bool handover_issued;
 
