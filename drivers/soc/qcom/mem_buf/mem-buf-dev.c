@@ -13,6 +13,7 @@
 
 #include <linux/mem-buf.h>
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 
 struct device *mem_buf_dev;
 EXPORT_SYMBOL(mem_buf_dev);
