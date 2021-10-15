@@ -15,6 +15,7 @@
 
 /* Future targets should receive a notification with the proper value */
 #define VMID_TUIVM (45)
+#define VMID_OEMVM (49)
 
 /*
  * @vmid - id assigned by hypervisor to uniquely identify a VM
