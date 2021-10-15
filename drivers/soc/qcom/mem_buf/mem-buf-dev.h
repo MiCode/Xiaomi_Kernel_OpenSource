@@ -33,8 +33,8 @@ int mem_buf_assign_mem(int op, struct sg_table *sgt,
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 			 unsigned int nr_acl_entries,
 			 gh_memparcel_handle_t hdl);
-struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
-					struct gh_acl_desc *acl_desc);
+struct gh_sgl_desc *mem_buf_map_mem_s2(int op, gh_memparcel_handle_t *memparcel_hdl,
+					struct gh_acl_desc *acl_desc, int src_vmid);
 int mem_buf_unmap_mem_s2(gh_memparcel_handle_t memparcel_hdl);
 
 /* Memory Hotplug */
