@@ -77,6 +77,70 @@ struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt)
 }
 EXPORT_SYMBOL(mem_buf_sgt_to_gh_sgl_desc);
 
+int mem_buf_gh_acl_desc_to_vmid_perm_list(struct gh_acl_desc *acl_desc,
+						 int **vmids, int **perms)
+{
+	int *vmids_arr = NULL, *perms_arr = NULL;
+	u32 nr_acl_entries = acl_desc->n_acl_entries;
+	unsigned int i;
+
+	if (!vmids || !perms)
+		return -EINVAL;
+
+	vmids_arr = kmalloc_array(nr_acl_entries, sizeof(*vmids_arr),
+				  GFP_KERNEL);
+	if (!vmids_arr)
+		return -ENOMEM;
+
+	perms_arr = kmalloc_array(nr_acl_entries, sizeof(*perms_arr),
+				  GFP_KERNEL);
+	if (!perms_arr) {
+		kfree(vmids_arr);
+		return -ENOMEM;
+	}
+
+	*vmids = vmids_arr;
+	*perms = perms_arr;
+
+	for (i = 0; i < nr_acl_entries; i++) {
+		vmids_arr[i] = acl_desc->acl_entries[i].vmid;
+		perms_arr[i] = acl_desc->acl_entries[i].perms;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mem_buf_gh_acl_desc_to_vmid_perm_list);
+
+struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc)
+{
+	struct sg_table *new_table;
+	int ret, i;
+	struct scatterlist *sg;
+
+	if (!sgl_desc || !sgl_desc->n_sgl_entries)
+		return ERR_PTR(-EINVAL);
+
+	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
+	if (!new_table)
+		return ERR_PTR(-ENOMEM);
+
+	ret = sg_alloc_table(new_table, sgl_desc->n_sgl_entries, GFP_KERNEL);
+	if (ret) {
+		kfree(new_table);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	for_each_sg(new_table->sgl, sg, new_table->nents, i) {
+		sg_set_page(sg, phys_to_page(sgl_desc->sgl_entries[i].ipa_base),
+			    sgl_desc->sgl_entries[i].size, 0);
+		sg_dma_address(sg) = 0;
+		sg_dma_len(sg) = 0;
+	}
+
+	return new_table;
+}
+EXPORT_SYMBOL(dup_gh_sgl_desc_to_sgt);
+
 static int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 				struct mem_buf_lend_kernel_arg *arg)
 {

@@ -23,6 +23,9 @@ extern struct device *mem_buf_dev;
 struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
 		unsigned int nr_acl_entries);
 struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt);
+int mem_buf_gh_acl_desc_to_vmid_perm_list(struct gh_acl_desc *acl_desc,
+						 int **vmids, int **perms);
+struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc);
 
 /* Hypervisor Interface */
 int mem_buf_assign_mem(int op, struct sg_table *sgt,
