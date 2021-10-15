@@ -13,6 +13,7 @@
 #include "../../../../drivers/dma-buf/heaps/qcom_sg_ops.h"
 #include "mem-buf-gh.h"
 #include "mem-buf-msgq.h"
+#include "mem-buf-ids.h"
 #include "trace-mem-buf.h"
 
 #define MEM_BUF_MHP_ALIGNMENT (1UL << SUBSECTION_SHIFT)
@@ -290,24 +291,31 @@ static void mem_buf_free_xfer_mem(struct mem_buf_xfer_mem *xfer_mem)
 	kfree(xfer_mem);
 }
 
-static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl_entries)
+/*
+ * @owner_vmid: Owner of the memparcel handle which has @vmids and @perms
+ */
+static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl_entries,
+				     int owner_vmid)
 {
 	u32 i;
 
 	for (i = 0; i < nr_acl_entries; i++)
-		if (vmids[i] == VMID_HLOS &&
+		if (vmids[i] == owner_vmid &&
 		    perms[i] != 0)
 			return GH_RM_TRANS_TYPE_SHARE;
 
 	return GH_RM_TRANS_TYPE_LEND;
 }
 
-static int mem_buf_get_mem_xfer_type_gh(struct gh_acl_desc *acl_desc)
+/*
+ * @owner_vmid: Owner of the memparcel handle which has @acl_desc
+ */
+static int mem_buf_get_mem_xfer_type_gh(struct gh_acl_desc *acl_desc, int owner_vmid)
 {
 	u32 i, nr_acl_entries = acl_desc->n_acl_entries;
 
 	for (i = 0; i < nr_acl_entries; i++)
-		if (acl_desc->acl_entries[i].vmid == VMID_HLOS &&
+		if (acl_desc->acl_entries[i].vmid == owner_vmid &&
 		    acl_desc->acl_entries[i].perms != 0)
 			return GH_RM_TRANS_TYPE_SHARE;
 
@@ -330,7 +338,7 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 
 	if (!xfer_mem->secure_alloc) {
 		xfer_type = mem_buf_get_mem_xfer_type(xfer_mem->dst_vmids,
-				xfer_mem->dst_perms, xfer_mem->nr_acl_entries);
+				xfer_mem->dst_perms, xfer_mem->nr_acl_entries, VMID_HLOS);
 
 		arg.nr_acl_entries = xfer_mem->nr_acl_entries;
 		arg.vmids = xfer_mem->dst_vmids;
@@ -842,7 +850,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (ret)
 		goto err_mem_req;
 
-	op = mem_buf_get_mem_xfer_type_gh(membuf->acl_desc);
+	op = mem_buf_get_mem_xfer_type_gh(membuf->acl_desc, VMID_HLOS);
 	sgl_desc = mem_buf_map_mem_s2(op, &membuf->memparcel_hdl, membuf->acl_desc, VMID_HLOS);
 	if (IS_ERR(sgl_desc))
 		goto err_map_mem_s2;
@@ -1011,7 +1019,7 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 		goto err_gh_acl;
 	}
 
-	op = mem_buf_get_mem_xfer_type_gh(acl_desc);
+	op = mem_buf_get_mem_xfer_type_gh(acl_desc, arg->sender_vmid);
 	sgl_desc = mem_buf_map_mem_s2(op, &arg->memparcel_hdl, acl_desc, arg->sender_vmid);
 	if (IS_ERR(sgl_desc)) {
 		ret = PTR_ERR(sgl_desc);
@@ -1180,6 +1188,12 @@ int mem_buf_retrieve_user(struct mem_buf_retrieve_ioctl_arg *uarg)
 	if (ret)
 		return ret;
 
+	karg.sender_vmid = mem_buf_fd_to_vmid(uarg->sender_vm_fd);
+	if (karg.sender_vmid < 0) {
+		pr_err_ratelimited("%s: Invalid sender_vmid %d\n", __func__, uarg->sender_vm_fd);
+		goto err_sender_vmid;
+	}
+
 	karg.nr_acl_entries = uarg->nr_acl_entries;
 	karg.vmids = vmids;
 	karg.perms = perms;
@@ -1203,6 +1217,7 @@ int mem_buf_retrieve_user(struct mem_buf_retrieve_ioctl_arg *uarg)
 	return 0;
 err_fd:
 	dma_buf_put(dmabuf);
+err_sender_vmid:
 err_retrieve:
 	kfree(vmids);
 	kfree(perms);
