@@ -41,6 +41,7 @@
 
 #define GH_RM_MEM_SHARE_SANITIZE		BIT(0)
 #define GH_RM_MEM_LEND_SANITIZE			BIT(0)
+#define GH_RM_MEM_DONATE_SANITIZE		BIT(0)
 
 #define GH_RM_MEM_NOTIFY_RECIPIENT_SHARED	BIT(0)
 #define GH_RM_MEM_NOTIFY_RECIPIENT	GH_RM_MEM_NOTIFY_RECIPIENT_SHARED
@@ -365,6 +366,10 @@ int gh_rm_mem_share(u8 mem_type, u8 flags, gh_label_t label,
 		    struct gh_mem_attr_desc *mem_attr_desc,
 		    gh_memparcel_handle_t *handle);
 int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
+		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
+		   struct gh_mem_attr_desc *mem_attr_desc,
+		   gh_memparcel_handle_t *handle);
+int gh_rm_mem_donate(u8 mem_type, u8 flags, gh_label_t label,
 		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
 		   struct gh_mem_attr_desc *mem_attr_desc,
 		   gh_memparcel_handle_t *handle);

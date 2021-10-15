@@ -24,6 +24,7 @@
 	 GH_RM_MEM_ACCEPT_DONE)
 #define GH_RM_MEM_SHARE_VALID_FLAGS GH_RM_MEM_SHARE_SANITIZE
 #define GH_RM_MEM_LEND_VALID_FLAGS GH_RM_MEM_LEND_SANITIZE
+#define GH_RM_MEM_DONATE_VALID_FLAGS GH_RM_MEM_DONATE_SANITIZE
 #define GH_RM_MEM_NOTIFY_VALID_FLAGS\
 	(GH_RM_MEM_NOTIFY_RECIPIENT_SHARED |\
 	 GH_RM_MEM_NOTIFY_OWNER_RELEASED | GH_RM_MEM_NOTIFY_OWNER_ACCEPTED)
@@ -1351,6 +1352,7 @@ static void gh_rm_populate_mem_request(void *req_buf, u32 fn_id,
 	switch (fn_id) {
 	case GH_RM_RPC_MSG_ID_CALL_MEM_LEND:
 	case GH_RM_RPC_MSG_ID_CALL_MEM_SHARE:
+	case GH_RM_RPC_MSG_ID_CALL_MEM_DONATE:
 		req_hdr_size = sizeof(struct gh_mem_share_req_payload_hdr);
 		break;
 	case GH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
@@ -1389,6 +1391,7 @@ static void *gh_rm_alloc_mem_request_buf(u32 fn_id, size_t n_acl_entries,
 	switch (fn_id) {
 	case GH_RM_RPC_MSG_ID_CALL_MEM_LEND:
 	case GH_RM_RPC_MSG_ID_CALL_MEM_SHARE:
+	case GH_RM_RPC_MSG_ID_CALL_MEM_DONATE:
 		req_payload_size = sizeof(struct gh_mem_share_req_payload_hdr);
 		break;
 	case GH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
@@ -1701,7 +1704,9 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 	    ((fn_id == GH_RM_RPC_MSG_ID_CALL_MEM_SHARE) &&
 	     (flags & ~GH_RM_MEM_SHARE_VALID_FLAGS)) ||
 	    ((fn_id == GH_RM_RPC_MSG_ID_CALL_MEM_LEND) &&
-	     (flags & ~GH_RM_MEM_LEND_VALID_FLAGS)) || !acl_desc ||
+	     (flags & ~GH_RM_MEM_LEND_VALID_FLAGS)) ||
+	    ((fn_id == GH_RM_RPC_MSG_ID_CALL_MEM_DONATE) &&
+	     (flags & ~GH_RM_MEM_DONATE_VALID_FLAGS)) || !acl_desc ||
 	    (acl_desc && !acl_desc->n_acl_entries) || !sgl_desc ||
 	    (sgl_desc && !sgl_desc->n_sgl_entries) ||
 	    (mem_attr_desc && !mem_attr_desc->n_mem_attr_entries) || !handle)
@@ -1810,6 +1815,61 @@ int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
 					   sgl_desc, mem_attr_desc, handle);
 }
 EXPORT_SYMBOL(gh_rm_mem_lend);
+
+/**
+ * gh_rm_mem_donate: Donate memory to a single VM.
+ * @mem_type: The type of memory being lent (i.e. normal or I/O)
+ * @flags: Bitmask of values to influence the behavior of the RM when it lends
+ *         the memory
+ * @label: The label to assign to the memparcel that the RM will create
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should consider when lending the
+ *            memory
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            the location of the memory in the IPA space of the owner
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should consider
+ *                 when lending the memory
+ * @handle: Pointer to where the memparcel handle should be stored
+
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ *
+ * Restrictions:
+ * Only to or from HLOS.
+ * non-HLOS VM must only donate memory which was previously donated to them by
+ * HLOS.
+ * Physically contiguous.
+ * If Lend or Share operates on a sgl entry which contains memory which
+ * originated from donate, that sgl entry must be entirely contained within
+ * that donate operation.
+ */
+int gh_rm_mem_donate(u8 mem_type, u8 flags, gh_label_t label,
+		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
+		   struct gh_mem_attr_desc *mem_attr_desc,
+		   gh_memparcel_handle_t *handle)
+{
+	if (sgl_desc->n_sgl_entries != 1) {
+		pr_err("%s: Physically contiguous memory required\n", __func__);
+		return -EINVAL;
+	}
+
+	if (acl_desc->n_acl_entries != 1) {
+		pr_err("%s: Donate requires single destination VM\n", __func__);
+		return -EINVAL;
+	}
+
+	if (acl_desc->acl_entries[0].perms != (GH_RM_ACL_X | GH_RM_ACL_W | GH_RM_ACL_R)) {
+		pr_err("%s: Invalid permission argument\n", __func__);
+		return -EINVAL;
+	}
+
+	return gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_DONATE,
+					   mem_type, flags, label, acl_desc,
+					   sgl_desc, mem_attr_desc, handle);
+}
+EXPORT_SYMBOL(gh_rm_mem_donate);
 
 /**
  * gh_rm_mem_notify: Notify VMs about a change in state with respect to a
