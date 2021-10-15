@@ -105,6 +105,7 @@ static int ufs_qcom_update_qos_constraints(struct qos_cpu_group *qcg,
 static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba);
 static void ufs_qcom_parse_g4_workaround_flag(struct ufs_qcom_host *host);
 static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val);
+static int ufs_qcom_config_shared_ice(struct ufs_qcom_host *host);
 
 static inline void cancel_dwork_unvote_cpufreq(struct ufs_hba *hba)
 {
@@ -676,6 +677,13 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		 * is initialized.
 		 */
 		err = ufs_qcom_enable_lane_clks(host);
+		if (err)
+			dev_err(hba->dev, "%s: enable lane clks failed,	ret=%d\n",
+				__func__, err);
+		err = ufs_qcom_config_shared_ice(host);
+		if (err)
+			dev_err(hba->dev, "%s: config shared ice failed, ret=%d\n",
+				__func__, err);
 		/*
 		 * ICE enable needs to be called before ufshcd_crypto_enable
 		 * during resume as it is needed before reprogramming all
@@ -2024,6 +2032,9 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 		 */
 		host->caps |= UFS_QCOM_CAP_SVS2;
 	}
+
+	if (host->hw_ver.major >= 0x5)
+		host->caps |= UFS_QCOM_CAP_SHARED_ICE;
 }
 
 static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba)
@@ -2857,6 +2868,167 @@ struct thermal_cooling_device_ops ufs_thermal_ops = {
 	.set_cur_state = ufs_qcom_set_cur_therm_state,
 };
 
+/* Static Algorithm */
+static int ufs_qcom_config_alg1(struct ufs_hba *hba)
+{
+	int ret;
+	unsigned int val, rx_aes;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	ret = of_property_read_u32(host->np, "rx-alloc-percent", &val);
+	if (ret < 0)
+		return ret;
+
+	ufshcd_writel(hba, STATIC_ALLOC_ALG1, REG_UFS_MEM_SHARED_ICE_CONFIG);
+	/*
+	 * DTS specifies the percent allocation to rx stream
+	 * Calculation -
+	 *  Num Tx stream = N_TOT - (N_TOT * percent of rx stream allocation)
+	 */
+	rx_aes = DIV_ROUND_CLOSEST(host->num_aes_cores * val, 100);
+	val = rx_aes | ((host->num_aes_cores - rx_aes) << 8);
+	ufshcd_writel(hba, val, REG_UFS_MEM_SHARED_ICE_ALG1_NUM_CORE);
+
+	host->chosen_algo = STATIC_ALLOC_ALG1;
+
+	return 0;
+}
+
+/* Floor based algorithm */
+static int ufs_qcom_config_alg2(struct ufs_hba *hba)
+{
+	int i, ret;
+	unsigned int reg = REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_0;
+	/* 6 values for each group, refer struct shared_ice_alg2_config */
+	unsigned int override_val[6];
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	char name[8];
+
+	memset(name, 0, sizeof(name));
+	ufshcd_writel(hba, FLOOR_BASED_ALG2, REG_UFS_MEM_SHARED_ICE_CONFIG);
+	for (i = 0; i < ARRAY_SIZE(alg2_config); i++) {
+		int core = 0, task = 0;
+
+		if (host->np) {
+			snprintf(name, sizeof(name), "%s%d", "g", i);
+			ret = of_property_read_variable_u32_array(host->np,
+								  name,
+								  override_val,
+								  6, 6);
+			/* Some/All parameters may be overwritten */
+			if (ret > 0)
+				__get_alg2_grp_params(override_val, &core,
+						      &task);
+			else
+				get_alg2_grp_params(i, &core, &task);
+		} else {
+			get_alg2_grp_params(i, &core, &task);
+		}
+		/* Num Core and Num task are contiguous & configured for a group together */
+		ufshcd_writel(hba, core, reg);
+		reg += 4;
+		ufshcd_writel(hba, task, reg);
+		reg += 4;
+	}
+
+	host->chosen_algo = FLOOR_BASED_ALG2;
+
+	return 0;
+}
+
+/* Instantaneous algorithm */
+static int ufs_qcom_config_alg3(struct ufs_hba *hba)
+{
+	unsigned int val[4];
+	int ret;
+	unsigned int config;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	ret = of_property_read_variable_u32_array(host->np, "num-core", val,
+						  4, 4);
+	if (ret < 0)
+		return ret;
+
+	ufshcd_writel(hba, INSTANTANEOUS_ALG3, REG_UFS_MEM_SHARED_ICE_CONFIG);
+	config = val[0] | (val[1] << 8) | (val[2] << 16) | (val[3] << 24);
+	ufshcd_writel(hba, config, REG_UFS_MEM_SHARED_ICE_ALG3_NUM_CORE);
+
+	host->chosen_algo = INSTANTANEOUS_ALG3;
+
+	return 0;
+}
+
+static int ufs_qcom_parse_shared_ice_config(struct ufs_hba *hba)
+{
+	struct device_node *np;
+	int ret;
+	const char *alg_name;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	np = of_parse_phandle(hba->dev->of_node, "shared-ice-cfg", 0);
+	if (!np)
+		return -ENOENT;
+
+	/* Only 1 algo can be enabled, pick the first */
+	host->np = of_get_next_available_child(np, NULL);
+	if (!host->np)
+		/* No overrides, use floor based as default */
+		return ufs_qcom_config_alg2(hba);
+
+	ret = of_property_read_string(host->np, "alg-name", &alg_name);
+	if (ret < 0)
+		return ret;
+
+	host->num_aes_cores = ufshcd_readl(hba, REG_UFS_MEM_ICE_NUM_AES_CORES);
+	if (!strcmp(alg_name, "alg1"))
+		ret = ufs_qcom_config_alg1(hba);
+	else if (!strcmp(alg_name, "alg2"))
+		ret = ufs_qcom_config_alg2(hba);
+	else if (!strcmp(alg_name, "alg3"))
+		ret = ufs_qcom_config_alg3(hba);
+	else
+		/* Absurd condition */
+		return -ENODATA;
+	return ret;
+}
+
+static int ufs_qcom_config_shared_ice(struct ufs_qcom_host *host)
+{
+	if (!is_shared_ice_supported(host))
+		return 0;
+
+	/*
+	 * Forbid during init, by which its already configured
+	 * Refer ufs_qcom_hce_enable_notify()
+	 */
+	if (!host->hba->pm_op_in_progress && !host->hba->eh_flags)
+		return 0;
+
+	switch (host->chosen_algo) {
+	case STATIC_ALLOC_ALG1:
+		return ufs_qcom_config_alg1(host->hba);
+	case FLOOR_BASED_ALG2:
+		return ufs_qcom_config_alg2(host->hba);
+	case INSTANTANEOUS_ALG3:
+		return ufs_qcom_config_alg3(host->hba);
+	default:
+		dev_err(host->hba->dev, "Unknown shared ICE algo (%d)\n",
+			host->chosen_algo);
+	}
+	return -EINVAL;
+}
+
+static int ufs_qcom_shared_ice_init(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (!is_shared_ice_supported(host))
+		return 0;
+
+	/* Shared ICE is enabled by default */
+	return ufs_qcom_parse_shared_ice_config(hba);
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -3034,6 +3206,10 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	ufs_qcom_set_caps(hba);
 	ufs_qcom_advertise_quirks(hba);
+
+	err = ufs_qcom_shared_ice_init(hba);
+	if (err)
+		dev_err(hba->dev, "Shared ICE Init failed, ret=%d\n", err);
 
 	err = ufs_qcom_ice_init(host);
 	if (err)
