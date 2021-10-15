@@ -220,6 +220,7 @@ static const struct mhi_controller_config cnss_mhi_config = {
 	.ch_cfg = cnss_mhi_channels,
 	.num_events = ARRAY_SIZE(cnss_mhi_events),
 	.event_cfg = cnss_mhi_events,
+	.m2_no_db = true,
 };
 
 static struct cnss_pci_reg ce_src[] = {
