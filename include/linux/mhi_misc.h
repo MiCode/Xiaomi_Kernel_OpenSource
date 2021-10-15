@@ -22,6 +22,26 @@ enum MHI_DEBUG_LEVEL {
 	MHI_MSG_LVL_MAX,
 };
 
+/**
+ * struct mhi_buf - MHI Buffer description
+ * @node: list entry point
+ * @buf: Virtual address of the buffer
+ * @name: Buffer label. For offload channel, configurations name must be:
+ *        ECA - Event context array data
+ *        CCA - Channel context array data
+ * @dma_addr: IOMMU address of the buffer
+ * @phys_addr: physical address of the buffer
+ * @len: # of bytes
+ */
+struct mhi_buf_extended {
+	struct list_head node;
+	void *buf;
+	const char *name;
+	dma_addr_t dma_addr;
+	phys_addr_t phys_addr;
+	size_t len;
+};
+
 #ifdef CONFIG_MHI_BUS_MISC
 
 /**
@@ -166,6 +186,27 @@ void mhi_controller_set_base(struct mhi_controller *mhi_cntrl,
 			     phys_addr_t base);
 
 /**
+ * mhi_controller_get_base - Get the controller base / resource start address
+ * @mhi_cntrl: MHI controller
+ * @base: Pointer to physical address to be populated
+ */
+int mhi_controller_get_base(struct mhi_controller *mhi_cntrl,
+			    phys_addr_t *base);
+
+/**
+ * mhi_controller_set_numeric_id - sets numeric ID for controller from pci_dev
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_controller_set_numeric_id(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_controller_set_numeric_id - set numeric ID for controller
+ * @mhi_cntrl: MHI controller
+ * returns value set as ID or 0 if no value was set
+ */
+u32 mhi_controller_get_numeric_id(struct mhi_controller *mhi_cntrl);
+
+/**
  * mhi_get_channel_db_base - retrieve the channel doorbell base address
  * @mhi_dev: Device associated with the channels
  * @value: Pointer to an address value which will be populated
@@ -258,6 +299,13 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 					u32 sequence,
 					u64 local_time,
 					u64 remote_time));
+
+/**
+ * mhi_force_reset - does host reset request to collect device side dumps
+ * for debugging purpose
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_force_reset(struct mhi_controller *mhi_cntrl);
 
 #else
 
@@ -440,6 +488,35 @@ void mhi_controller_set_base(struct mhi_controller *mhi_cntrl,
 }
 
 /**
+ * mhi_controller_get_base - Get the controller base / resource start address
+ * @mhi_cntrl: MHI controller
+ * @base: Pointer to physical address to be populated
+ */
+int mhi_controller_get_base(struct mhi_controller *mhi_cntrl,
+			    phys_addr_t *base);
+{
+	return -EINVAL;
+}
+
+/**
+ * mhi_controller_set_numeric_id - set numeric ID for controller from pci_dev
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_controller_set_numeric_id(struct mhi_controller *mhi_cntrl)
+{
+}
+
+/**
+ * mhi_controller_set_numeric_id - set numeric ID for controller
+ * @mhi_cntrl: MHI controller
+ * returns value set as ID or 0 if no value was set
+ */
+u32 mhi_controller_get_numeric_id(struct mhi_controller *mhi_cntrl)
+{
+	return 0;
+}
+
+/**
  * mhi_get_channel_db_base - retrieve the channel doorbell base address
  * @mhi_dev: Device associated with the channels
  * @value: Pointer to an address value which will be populated
@@ -555,6 +632,16 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 					u64 remote_time))
 {
 	return -EPERM;
+}
+
+/**
+ * mhi_force_reset - does host reset request to collect device side dumps
+ * for debugging purpose
+ * @mhi_cntrl: MHI controller
+ */
+int mhi_force_reset(struct mhi_controller *mhi_cntrl)
+{
+	return -EINVAL;
 }
 
 #endif /* CONFIG_MHI_BUS_MISC */

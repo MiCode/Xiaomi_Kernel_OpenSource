@@ -37,3 +37,6 @@ config MHI_BUS_MISC
 	  introduction of a list of controllers for debug using ramdumps and
 	  other features not present upstream such as Dynamic Resource Vote,
 	  SFR parsing using RDDM dumps, scanning for the RDDM cookie and more.
+
+source "drivers/bus/mhi/devices/Kconfig"
+source "drivers/bus/mhi/controllers/Kconfig"
