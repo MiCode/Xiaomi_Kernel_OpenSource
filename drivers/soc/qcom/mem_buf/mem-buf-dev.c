@@ -21,8 +21,8 @@ EXPORT_SYMBOL(mem_buf_dev);
 unsigned char mem_buf_capability;
 EXPORT_SYMBOL(mem_buf_capability);
 
-static int mem_buf_hyp_assign_table(struct sg_table *sgt, u32 *src_vmid, int source_nelems,
-				    int *dest_vmids, int *dest_perms, int dest_nelems)
+int mem_buf_hyp_assign_table(struct sg_table *sgt, u32 *src_vmid, int source_nelems,
+			     int *dest_vmids, int *dest_perms, int dest_nelems)
 {
 	char *verb;
 	int ret;

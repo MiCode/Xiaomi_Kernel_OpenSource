@@ -302,6 +302,18 @@ static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl
 	return GH_RM_TRANS_TYPE_LEND;
 }
 
+static int mem_buf_get_mem_xfer_type_gh(struct gh_acl_desc *acl_desc)
+{
+	u32 i, nr_acl_entries = acl_desc->n_acl_entries;
+
+	for (i = 0; i < nr_acl_entries; i++)
+		if (acl_desc->acl_entries[i].vmid == VMID_HLOS &&
+		    acl_desc->acl_entries[i].perms != 0)
+			return GH_RM_TRANS_TYPE_SHARE;
+
+	return GH_RM_TRANS_TYPE_LEND;
+}
+
 static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 {
 	int ret, xfer_type;
@@ -774,6 +786,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	struct file *filp;
 	struct mem_buf_desc *membuf;
 	struct gh_sgl_desc *sgl_desc;
+	int op;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
 		return ERR_PTR(-EOPNOTSUPP);
@@ -829,7 +842,8 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (ret)
 		goto err_mem_req;
 
-	sgl_desc = mem_buf_map_mem_s2(membuf->memparcel_hdl, membuf->acl_desc);
+	op = mem_buf_get_mem_xfer_type_gh(membuf->acl_desc);
+	sgl_desc = mem_buf_map_mem_s2(op, &membuf->memparcel_hdl, membuf->acl_desc, VMID_HLOS);
 	if (IS_ERR(sgl_desc))
 		goto err_map_mem_s2;
 	membuf->sgl_desc = sgl_desc;
@@ -969,7 +983,7 @@ static void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer)
 
 struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 {
-	int ret;
+	int ret, op;
 	struct qcom_sg_buffer *buffer;
 	struct gh_acl_desc *acl_desc;
 	struct gh_sgl_desc *sgl_desc;
@@ -997,7 +1011,8 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 		goto err_gh_acl;
 	}
 
-	sgl_desc = mem_buf_map_mem_s2(arg->memparcel_hdl, acl_desc);
+	op = mem_buf_get_mem_xfer_type_gh(acl_desc);
+	sgl_desc = mem_buf_map_mem_s2(op, &arg->memparcel_hdl, acl_desc, arg->sender_vmid);
 	if (IS_ERR(sgl_desc)) {
 		ret = PTR_ERR(sgl_desc);
 		goto err_map_s2;

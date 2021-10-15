@@ -142,35 +142,59 @@ size_t mem_buf_get_sgl_buf_size(struct gh_sgl_desc *sgl_desc)
 }
 EXPORT_SYMBOL(mem_buf_get_sgl_buf_size);
 
-static int mem_buf_gh_acl_get_mem_xfer_type(struct gh_acl_desc *acl_desc)
+static int __mem_buf_map_mem_s2_cleanup_donate(struct gh_sgl_desc *sgl_desc,
+			int src_vmid, gh_memparcel_handle_t *handle)
 {
-	u32 i, nr_acl_entries = acl_desc->n_acl_entries;
+	int ret;
+	int src_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
+	struct mem_buf_lend_kernel_arg arg = {
+		.nr_acl_entries = 1,
+		.vmids = &src_vmid,
+		.perms = &src_perms,
+		.flags = 0, //No sanitize as buffer unmodified.
+		.label = 0,
+	};
+	struct sg_table *sgt;
 
-	for (i = 0; i < nr_acl_entries; i++)
-		if (acl_desc->acl_entries[i].vmid == VMID_HLOS &&
-		    acl_desc->acl_entries[i].perms != 0)
-			return GH_RM_TRANS_TYPE_SHARE;
+	sgt = dup_gh_sgl_desc_to_sgt(sgl_desc);
+	if (IS_ERR(sgt))
+		return PTR_ERR(sgt);
 
-	return GH_RM_TRANS_TYPE_LEND;
+	ret = mem_buf_assign_mem_gunyah(GH_RM_TRANS_TYPE_DONATE, sgt, &arg);
+	if (!ret)
+		*handle = arg.memparcel_hdl;
+
+	sg_free_table(sgt);
+	kfree(sgt);
+	return ret;
 }
 
+static int mem_buf_hyp_assign_table_gh(struct gh_sgl_desc *sgl_desc, int src_vmid,
+			struct gh_acl_desc *acl_desc);
+
 /*
- * FIXME: gh_rm_mem_accept uses kmemdup, which isn't right for large buffers.
+ * @memparcel_hdl:
+ *	GH_RM_TRANS_TYPE_DONATE - memparcel_hdl will be set to MEM_BUF_MEMPARCEL_INVALID
+	on success, and (possibly) set to a different valid memparcel on error. This is
+	because accepting a donated memparcel handle destroys that handle.
+	GH_RM_TRANS_TYPE_LEND - unmodified.
+	GH_RM_TRANS_TYPE_SHARE - unmodified.
  */
-struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
-					struct gh_acl_desc *acl_desc)
+struct gh_sgl_desc *mem_buf_map_mem_s2(int op, gh_memparcel_handle_t *__memparcel_hdl,
+					struct gh_acl_desc *acl_desc, int src_vmid)
 {
+	int ret, ret2;
 	struct gh_sgl_desc *sgl_desc;
 	u8 flags = GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
 		   GH_RM_MEM_ACCEPT_MAP_IPA_CONTIGUOUS |
 		   GH_RM_MEM_ACCEPT_DONE;
+	gh_memparcel_handle_t memparcel_hdl = *__memparcel_hdl;
 
 	if (!acl_desc)
 		return ERR_PTR(-EINVAL);
 
 	pr_debug("%s: adding CPU MMU stage 2 mappings\n", __func__);
-	sgl_desc = gh_rm_mem_accept(memparcel_hdl, GH_RM_MEM_TYPE_NORMAL,
-				    mem_buf_gh_acl_get_mem_xfer_type(acl_desc),
+	sgl_desc = gh_rm_mem_accept(memparcel_hdl, GH_RM_MEM_TYPE_NORMAL, op,
 				    flags, 0, acl_desc, NULL,
 				    NULL, 0);
 	if (IS_ERR(sgl_desc)) {
@@ -179,8 +203,28 @@ struct gh_sgl_desc *mem_buf_map_mem_s2(gh_memparcel_handle_t memparcel_hdl,
 		return sgl_desc;
 	}
 
+	if (op == GH_RM_TRANS_TYPE_DONATE)
+		*__memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
+
+	ret = mem_buf_hyp_assign_table_gh(sgl_desc, src_vmid, acl_desc);
+	if (ret)
+		goto err_relinquish;
+
 	trace_map_mem_s2(memparcel_hdl, sgl_desc);
 	return sgl_desc;
+
+err_relinquish:
+	if (op == GH_RM_TRANS_TYPE_DONATE)
+		ret2 = __mem_buf_map_mem_s2_cleanup_donate(sgl_desc, src_vmid,
+					__memparcel_hdl);
+	else
+		ret2 = mem_buf_unmap_mem_s2(memparcel_hdl);
+	kfree(sgl_desc);
+	if (ret2) {
+		pr_err("%s failed to recover\n", __func__);
+		return ERR_PTR(-EADDRNOTAVAIL);
+	}
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(mem_buf_map_mem_s2);
 
@@ -249,6 +293,31 @@ int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc)
 	return ret;
 }
 EXPORT_SYMBOL(mem_buf_unmap_mem_s1);
+
+static int mem_buf_hyp_assign_table_gh(struct gh_sgl_desc *sgl_desc, int src_vmid,
+			struct gh_acl_desc *acl_desc)
+{
+	struct sg_table *sgt;
+	int *dst_vmids, *dst_perms;
+	int ret;
+
+	sgt = dup_gh_sgl_desc_to_sgt(sgl_desc);
+	if (IS_ERR(sgt))
+		return PTR_ERR(sgt);
+
+	ret = mem_buf_gh_acl_desc_to_vmid_perm_list(acl_desc, &dst_vmids, &dst_perms);
+	if (ret)
+		goto err_free_sgt;
+
+	ret = mem_buf_hyp_assign_table(sgt, &src_vmid, 1, dst_vmids, dst_perms,
+				acl_desc->n_acl_entries);
+	kfree(dst_vmids);
+	kfree(dst_perms);
+err_free_sgt:
+	sg_free_table(sgt);
+	kfree(sgt);
+	return ret;
+}
 
 int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 			      struct mem_buf_lend_kernel_arg *arg)
