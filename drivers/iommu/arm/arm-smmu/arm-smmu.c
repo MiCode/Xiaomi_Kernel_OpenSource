@@ -13,6 +13,8 @@
  *	- Non-secure access to the SMMU
  *	- Context fault reporting
  *	- Extended Stream ID (16 bit)
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "arm-smmu: " fmt
@@ -1333,8 +1335,7 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 	struct iommu_iotlb_gather *gather = &smmu_domain->iotlb_gather;
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	gather->start = min(iova, gather->start);
-	gather->end = max(iova + granule - 1, gather->end);
+	iommu_iotlb_gather_add_range(gather, iova, granule);
 	list_add(&page->lru, &smmu_domain->iotlb_gather_freelist);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 
@@ -2252,27 +2253,16 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 			      phys_addr_t paddr, size_t pgsize, size_t pgcount,
 			      int prot, gfp_t gfp, size_t *mapped)
 {
-	int ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	int ret;
 
 	if (!ops)
 		return -ENODEV;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	arm_smmu_secure_domain_lock(smmu_domain);
-
-	/* Convert to ops->map_pages() when it is available. */
-	while (pgcount--) {
-		ret = ops->map(ops, iova, paddr, pgsize, prot, gfp);
-		if (ret)
-			break;
-
-		iova += pgsize;
-		paddr += pgsize;
-		if (mapped)
-			*mapped += pgsize;
-	}
+	ret = ops->map_pages(ops, iova, paddr, pgsize, pgcount, prot, gfp, mapped);
 
 	if (ret)
 		goto out;
@@ -2285,12 +2275,6 @@ out:
 		trace_map_pages(smmu_domain, iova, pgsize, pgcount);
 
 	return ret;
-}
-
-static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
-			phys_addr_t paddr, size_t size, int prot, gfp_t gfp)
-{
-	return arm_smmu_map_pages(domain, iova, paddr, size, 1, prot, gfp, NULL);
 }
 
 static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
@@ -2337,24 +2321,16 @@ static size_t arm_smmu_unmap_pages(struct iommu_domain *domain, unsigned long io
 				   size_t pgsize, size_t pgcount,
 				   struct iommu_iotlb_gather *gather)
 {
-	size_t unmapped = 0, ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	size_t ret;
 
 	if (!ops)
 		return 0;
 
 	arm_smmu_secure_domain_lock(smmu_domain);
 
-	/* Convert to ops->unmap_pages() when it is available. */
-	while (pgcount--) {
-		ret = ops->unmap(ops, iova, pgsize, gather);
-		if (!ret)
-			break;
-
-		iova += ret;
-		unmapped += ret;
-	}
+	ret = ops->unmap_pages(ops, iova, pgsize, pgcount, gather);
 
 	/*
 	 * While splitting up block mappings, we might allocate page table
@@ -2366,16 +2342,10 @@ static size_t arm_smmu_unmap_pages(struct iommu_domain *domain, unsigned long io
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
-	if (unmapped == pgsize * pgcount)
+	if (ret)
 		trace_unmap_pages(smmu_domain, iova, pgsize, pgcount);
 
-	return unmapped;
-}
-
-static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
-			     size_t size, struct iommu_iotlb_gather *gather)
-{
-	return arm_smmu_unmap_pages(domain, iova, size, 1, gather);
+	return ret;
 }
 
 static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
@@ -3006,8 +2976,8 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 		.domain_alloc		= arm_smmu_domain_alloc,
 		.domain_free		= arm_smmu_domain_free,
 		.attach_dev		= arm_smmu_attach_dev,
-		.map			= arm_smmu_map,
-		.unmap			= arm_smmu_unmap,
+		.map_pages		= arm_smmu_map_pages,
+		.unmap_pages		= arm_smmu_unmap_pages,
 		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
 		.iotlb_sync_map		= arm_smmu_iotlb_sync_map,
 		.iotlb_sync		= arm_smmu_iotlb_sync,
