@@ -1375,9 +1375,6 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	struct dma_buf *dmabuf;
 	struct sg_table *sgt;
 
-	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-		return ERR_PTR(-EOPNOTSUPP);
-
 	if (arg->fd_flags & ~MEM_BUF_VALID_FD_FLAGS)
 		return ERR_PTR(-EINVAL);
 
@@ -1793,9 +1790,6 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		struct mem_buf_lend_ioctl_arg *lend = &ioctl_arg.lend;
 		int ret;
 
-		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-			return -EOPNOTSUPP;
-
 		ret = mem_buf_lend_user(lend, true);
 		if (ret)
 			return ret;
@@ -1807,9 +1801,6 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		struct mem_buf_retrieve_ioctl_arg *retrieve =
 			&ioctl_arg.retrieve;
 		int ret;
-
-		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-			return -EOPNOTSUPP;
 
 		ret = mem_buf_retrieve_user(retrieve);
 		if (ret)
@@ -1831,9 +1822,6 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 	{
 		struct mem_buf_share_ioctl_arg *share = &ioctl_arg.share;
 		int ret;
-
-		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-			return -EOPNOTSUPP;
 
 		/* The two formats are currently identical */
 		ret = mem_buf_lend_user((struct mem_buf_lend_ioctl_arg *)share,
