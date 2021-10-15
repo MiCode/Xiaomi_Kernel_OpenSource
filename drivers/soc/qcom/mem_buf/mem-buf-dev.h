@@ -23,7 +23,7 @@ struct gh_acl_desc *mem_buf_vmid_perm_list_to_gh_acl(int *vmids, int *perms,
 struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt);
 
 /* Hypervisor Interface */
-int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
+int mem_buf_assign_mem(int op, struct sg_table *sgt,
 		       struct mem_buf_lend_kernel_arg *arg);
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 			 unsigned int nr_acl_entries,
