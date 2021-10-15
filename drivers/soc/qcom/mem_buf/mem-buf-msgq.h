@@ -107,7 +107,8 @@ struct mem_buf_msgq_ops {
 	void (*alloc_req_hdlr)(void *hdlr_data, void *msg, size_t size);
 	int (*alloc_resp_hdlr)(void *hdlr_data, void *msg, size_t size, void *resp_buf);
 	void (*relinquish_hdlr)(void *hdlr_data, void *msg, size_t size);
-	void (*relinquish_memparcel_hdl)(void *hdlr_data, gh_memparcel_handle_t memparcel_hdl);
+	void (*relinquish_memparcel_hdl)(void *hdlr_data, u32 txn_id,
+					 gh_memparcel_handle_t memparcel_hdl);
 };
 
 struct mem_buf_msgq_hdlr_info {
@@ -145,6 +146,11 @@ static inline void *get_alloc_req_arb_payload(struct mem_buf_alloc_req *req)
 	return buf + payload_offset;
 }
 
+static inline u32 get_alloc_req_txn_id(struct mem_buf_alloc_req *req)
+{
+	return req->hdr.txn_id;
+}
+
 static inline s32 get_alloc_resp_retval(struct mem_buf_alloc_resp *resp)
 {
 	return resp->ret;
@@ -155,6 +161,11 @@ static inline u32 get_alloc_resp_hdl(struct mem_buf_alloc_resp *resp)
 	return resp->hdl;
 }
 
+static inline u32 get_relinquish_req_txn_id(struct mem_buf_alloc_relinquish *relinquish_msg)
+{
+	return relinquish_msg->hdr.txn_id;
+}
+
 #if IS_ENABLED(CONFIG_QCOM_MEM_BUF_MSGQ)
 void *mem_buf_msgq_register(const char *msgq_name, struct mem_buf_msgq_hdlr_info *info);
 void mem_buf_msgq_unregister(void *mem_buf_msgq_hdl);
@@ -162,6 +173,7 @@ void *mem_buf_init_txn(void *mem_buf_msgq_hdl, void *resp_buf);
 int mem_buf_msgq_send(void *mem_buf_msgq_hdl, void *msg);
 int mem_buf_txn_wait(void *mem_buf_txn);
 void mem_buf_destroy_txn(void *mem_buf_msgq_hdl, void *mem_buf_txn);
+int mem_buf_retrieve_txn_id(void *mem_buf_txn);
 /*
  * It is the caller's responsibility to free the messages returned by
  * any functions invoked to construct them via a call to kfree().
@@ -171,7 +183,7 @@ void *mem_buf_construct_alloc_req(void *mem_buf_txn, size_t alloc_size,
 				  enum mem_buf_mem_type src_mem_type, void *src_data);
 void *mem_buf_construct_alloc_resp(void *req_msg, s32 alloc_ret,
 				   gh_memparcel_handle_t memparcel_hdl);
-void *mem_buf_construct_relinquish_msg(gh_memparcel_handle_t memparcel_hdl);
+void *mem_buf_construct_relinquish_msg(u32 txn_id, gh_memparcel_handle_t memparcel_hdl);
 #else
 static inline void *mem_buf_msgq_register(const char *msgq_name,
 					  struct mem_buf_msgq_hdlr_info *info)
@@ -216,9 +228,15 @@ static inline void *mem_buf_construct_alloc_resp(void *req_msg, s32 alloc_ret,
 	return ERR_PTR(-ENODEV);
 }
 
-static inline void *mem_buf_construct_relinquish_msg(gh_memparcel_handle_t memparcel_hdl)
+static inline void *mem_buf_construct_relinquish_msg(u32 txn_id,
+						     gh_memparcel_handle_t memparcel_hdl)
 {
 	return ERR_PTR(-ENODEV);
+}
+
+static inline int mem_buf_retrieve_txn_id(void *mem_buf_txn)
+{
+	return -ENODEV;
 }
 #endif
 #endif

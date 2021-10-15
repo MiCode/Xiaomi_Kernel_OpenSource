@@ -154,15 +154,17 @@ DECLARE_EVENT_CLASS(relinquish_req_msg_class,
 	TP_STRUCT__entry(
 		__string(msg_type, msg_type_to_str(rel_req->hdr.msg_type))
 		__field(gh_memparcel_handle_t, hdl)
+		__field(u32, txn_id)
 	),
 
 	TP_fast_assign(
 		__assign_str(msg_type, msg_type_to_str(rel_req->hdr.msg_type));
 		__entry->hdl = rel_req->hdl;
+		__entry->txn_id = rel_req->hdr.txn_id;
 	),
 
-	TP_printk("msg_type: %s memparcel_hdl: 0x%x", __get_str(msg_type),
-		  __entry->hdl)
+	TP_printk("msg_type: %s memparcel_hdl: 0x%x txn_id: 0x%x",
+		  __get_str(msg_type), __entry->hdl, __entry->txn_id)
 );
 
 DEFINE_EVENT(relinquish_req_msg_class, send_relinquish_msg,

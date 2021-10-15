@@ -155,9 +155,10 @@ EXPORT_SYMBOL(mem_buf_construct_alloc_resp);
 
 /*
  * mem_buf_construct_relinquish_msg: Construct a relinquish message.
+ * @txn_id: The transaction ID that corresponds to the memory that is being relinquished.
  * @memparcel_hdl: The memparcel that corresponds to the memory that is being relinquished.
  */
-void *mem_buf_construct_relinquish_msg(gh_memparcel_handle_t memparcel_hdl)
+void *mem_buf_construct_relinquish_msg(u32 txn_id, gh_memparcel_handle_t memparcel_hdl)
 {
 	struct mem_buf_alloc_relinquish *relinquish_msg;
 
@@ -167,11 +168,20 @@ void *mem_buf_construct_relinquish_msg(gh_memparcel_handle_t memparcel_hdl)
 
 	relinquish_msg->hdr.msg_type = MEM_BUF_ALLOC_RELINQUISH;
 	relinquish_msg->hdr.msg_size = sizeof(*relinquish_msg);
+	relinquish_msg->hdr.txn_id = txn_id;
 	relinquish_msg->hdl = memparcel_hdl;
 
 	return relinquish_msg;
 }
 EXPORT_SYMBOL(mem_buf_construct_relinquish_msg);
+
+int mem_buf_retrieve_txn_id(void *mem_buf_txn)
+{
+	struct mem_buf_txn *txn = mem_buf_txn;
+
+	return txn->txn_id;
+}
+EXPORT_SYMBOL(mem_buf_retrieve_txn_id);
 
 /*
  * mem_buf_init_txn: Allocates a mem-buf transaction that is used in request-response
@@ -191,7 +201,7 @@ void *mem_buf_init_txn(void *mem_buf_msgq_hdl, void *resp_buf)
 		return ERR_PTR(-ENOMEM);
 
 	mutex_lock(&desc->idr_mutex);
-	ret = idr_alloc_cyclic(&desc->txn_idr, txn, 0, U16_MAX, GFP_KERNEL);
+	ret = idr_alloc_cyclic(&desc->txn_idr, txn, 0, INT_MAX, GFP_KERNEL);
 	mutex_unlock(&desc->idr_mutex);
 	if (ret < 0) {
 		pr_err("%s: failed to allocate transaction id rc: %d\n", __func__, ret);
@@ -293,7 +303,8 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msgq_desc *desc, void *buf
 		 * it can be reclaimed.
 		 */
 		if (!desc->msgq_ops->alloc_resp_hdlr(desc->hdlr_data, buf, size, &memparcel_hdl))
-			desc->msgq_ops->relinquish_memparcel_hdl(desc->hdlr_data, memparcel_hdl);
+			desc->msgq_ops->relinquish_memparcel_hdl(desc->hdlr_data, hdr->txn_id,
+								 memparcel_hdl);
 	} else {
 		txn->txn_ret = desc->msgq_ops->alloc_resp_hdlr(desc->hdlr_data, buf, size,
 							       txn->resp_buf);

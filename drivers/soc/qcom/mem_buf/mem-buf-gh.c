@@ -60,6 +60,7 @@ struct mem_buf_rmt_msg {
  * memory
  * @dst_vmids: The VMIDs that have access to the memory
  * @dst_perms: The access permissions for the VMIDs that can access the memory
+ * @txn_id: The transaction ID that corresponds to this memory buffer
  */
 struct mem_buf_xfer_mem {
 	size_t size;
@@ -72,6 +73,7 @@ struct mem_buf_xfer_mem {
 	u32 nr_acl_entries;
 	int *dst_vmids;
 	int *dst_perms;
+	u32 txn_id;
 };
 
 /**
@@ -93,6 +95,7 @@ struct mem_buf_xfer_mem {
  * @filp: Pointer to the file structure for the membuf
  * @entry: List head for maintaing a list of memory buffers that have been
  * provided by remote VMs.
+ * @txn: The transaction associated with a memory buffer
  */
 struct mem_buf_desc {
 	size_t size;
@@ -105,6 +108,7 @@ struct mem_buf_desc {
 	void *dst_data;
 	struct file *filp;
 	struct list_head entry;
+	void *txn;
 };
 
 struct mem_buf_xfer_dmaheap_mem {
@@ -250,6 +254,7 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 	if (!xfer_mem)
 		return ERR_PTR(-ENOMEM);
 
+	xfer_mem->txn_id = get_alloc_req_txn_id(req_msg);
 	xfer_mem->size = get_alloc_req_size(req_msg);
 	xfer_mem->mem_type = mem_type;
 	xfer_mem->nr_acl_entries = nr_acl_entries;
@@ -410,13 +415,13 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	struct mem_buf_xfer_mem *xfer_mem_iter, *tmp, *xfer_mem = NULL;
 	struct mem_buf_rmt_msg *rmt_msg = to_rmt_msg(work);
 	struct mem_buf_alloc_relinquish *relinquish_msg = rmt_msg->msg;
-	gh_memparcel_handle_t hdl = relinquish_msg->hdl;
+	u32 relinquish_txn_id = get_relinquish_req_txn_id(relinquish_msg);
 
 	trace_receive_relinquish_msg(relinquish_msg);
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
 	list_for_each_entry_safe(xfer_mem_iter, tmp, &mem_buf_xfer_mem_list,
 				 entry)
-		if (xfer_mem_iter->hdl == hdl) {
+		if (xfer_mem_iter->txn_id == relinquish_txn_id) {
 			xfer_mem = xfer_mem_iter;
 			list_del(&xfer_mem->entry);
 			break;
@@ -426,8 +431,8 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	if (xfer_mem)
 		mem_buf_cleanup_alloc_req(xfer_mem);
 	else
-		pr_err("%s: transferred memory with handle 0x%x not found\n",
-		       __func__, hdl);
+		pr_err("%s: transferred memory with txn_id 0x%x not found\n",
+		       __func__, relinquish_txn_id);
 
 	kfree(rmt_msg->msg);
 	kfree(rmt_msg);
@@ -500,15 +505,10 @@ static void mem_buf_relinquish_hdlr(void *hdlr_data, void *buf, size_t size)
 
 static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 {
-	void *alloc_req_msg, *txn;
-	gh_memparcel_handle_t resp_hdl;
+	void *alloc_req_msg;
 	int ret;
 
-	txn = mem_buf_init_txn(mem_buf_msgq_hdl, &resp_hdl);
-	if (IS_ERR(txn))
-		return PTR_ERR(txn);
-
-	alloc_req_msg = mem_buf_construct_alloc_req(txn, membuf->size, membuf->acl_desc,
+	alloc_req_msg = mem_buf_construct_alloc_req(membuf->txn, membuf->size, membuf->acl_desc,
 						    membuf->src_mem_type, membuf->src_data);
 	if (IS_ERR(alloc_req_msg)) {
 		ret = PTR_ERR(alloc_req_msg);
@@ -526,23 +526,20 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 	if (ret < 0)
 		goto out;
 
-	ret = mem_buf_txn_wait(txn);
+	ret = mem_buf_txn_wait(membuf->txn);
 	if (ret < 0)
 		goto out;
 
-	membuf->memparcel_hdl = resp_hdl;
-
 out:
-	mem_buf_destroy_txn(mem_buf_msgq_hdl, txn);
 	return ret;
 }
 
-static void mem_buf_relinquish_mem(u32 memparcel_hdl)
+static void mem_buf_relinquish_mem(u32 txn_id, u32 memparcel_hdl)
 {
 	void *relinquish_msg;
 	int ret;
 
-	relinquish_msg = mem_buf_construct_relinquish_msg(memparcel_hdl);
+	relinquish_msg = mem_buf_construct_relinquish_msg(txn_id, memparcel_hdl);
 	if (IS_ERR(relinquish_msg))
 		return;
 
@@ -562,9 +559,9 @@ static void mem_buf_relinquish_mem(u32 memparcel_hdl)
 		pr_debug("%s: allocation relinquish message sent\n", __func__);
 }
 
-static void mem_buf_relinquish_memparcel_hdl(void *hdlr_data, gh_memparcel_handle_t hdl)
+static void mem_buf_relinquish_memparcel_hdl(void *hdlr_data, u32 txn_id, gh_memparcel_handle_t hdl)
 {
-	mem_buf_relinquish_mem(hdl);
+	mem_buf_relinquish_mem(txn_id, hdl);
 }
 
 static int get_mem_buf(void *membuf_desc);
@@ -732,7 +729,7 @@ static void mem_buf_free_mem_type_data(enum mem_buf_mem_type mem_type,
 static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 {
 	struct mem_buf_desc *membuf = filp->private_data;
-	int ret;
+	int ret, txn_id;
 
 	mutex_lock(&mem_buf_list_lock);
 	list_del(&membuf->entry);
@@ -751,9 +748,11 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 	if (ret < 0)
 		goto out_free_mem;
 
-	mem_buf_relinquish_mem(membuf->memparcel_hdl);
+	txn_id = mem_buf_retrieve_txn_id(membuf->txn);
+	mem_buf_relinquish_mem(txn_id, membuf->memparcel_hdl);
 
 out_free_mem:
+	mem_buf_destroy_txn(mem_buf_msgq_hdl, membuf->txn);
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
 	kfree(membuf->sgl_desc);
@@ -773,7 +772,7 @@ static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
 
 static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 {
-	int ret;
+	int ret, txn_id;
 	struct file *filp;
 	struct mem_buf_desc *membuf;
 	struct gh_sgl_desc *sgl_desc;
@@ -818,6 +817,12 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (IS_ERR(membuf->dst_data)) {
 		ret = PTR_ERR(membuf->dst_data);
 		goto err_alloc_dst_data;
+	}
+
+	membuf->txn = mem_buf_init_txn(mem_buf_msgq_hdl, &membuf->memparcel_hdl);
+	if (IS_ERR(membuf->txn)) {
+		ret = PTR_ERR(membuf->txn);
+		goto err_init_txn;
 	}
 
 	trace_mem_buf_alloc_info(membuf->size, membuf->src_mem_type,
@@ -866,8 +871,11 @@ err_map_mem_s1:
 	if (mem_buf_unmap_mem_s2(membuf->memparcel_hdl) < 0)
 		goto err_mem_req;
 err_map_mem_s2:
-	mem_buf_relinquish_mem(membuf->memparcel_hdl);
+	txn_id = mem_buf_retrieve_txn_id(membuf->txn);
+	mem_buf_relinquish_mem(txn_id, membuf->memparcel_hdl);
 err_mem_req:
+	mem_buf_destroy_txn(mem_buf_msgq_hdl, membuf->txn);
+err_init_txn:
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 err_alloc_dst_data:
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
