@@ -20,6 +20,8 @@
 
 #define ACTIVATE                      BIT(0)
 #define DEACTIVATE                    BIT(1)
+#define ACT_CLEAR                     BIT(0)
+#define ACT_COMPLETE                  BIT(4)
 #define ACT_CTRL_OPCODE_ACTIVATE      BIT(0)
 #define ACT_CTRL_OPCODE_DEACTIVATE    BIT(1)
 #define ACT_CTRL_ACT_TRIG             BIT(0)
@@ -43,9 +45,11 @@
 
 #define MAX_CAP_TO_BYTES(n)           (n * SZ_1K)
 #define LLCC_TRP_ACT_CTRLn(n)         (n * SZ_4K)
+#define LLCC_TRP_ACT_CLEARn(n)        (8 + n * SZ_4K)
 #define LLCC_TRP_STATUSn(n)           (4 + n * SZ_4K)
 #define LLCC_TRP_ATTR0_CFGn(n)        (0x21000 + SZ_8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n)        (0x21004 + SZ_8 * n)
+#define LLCC_TRP_ATTR2_CFGn(n)        (0x21100 + SZ_4 * n)
 
 #define LLCC_TRP_C_AS_N               0x22890
 #define LLCC_TRP_NC_AS_C              0x22894
@@ -60,6 +64,7 @@
 #define LLCC_TRP_WRSC_CACHEABLE_EN    0x21F2C
 #define LLCC_TRP_PCB_ACT              0x21F04
 #define LLCC_TRP_SCID_DIS_CAP_ALLOC   0x21F00
+#define LLCC_LPI_SHARED_SCT_CFGn(n)   (0x74100 + SZ_4 * n)
 
 /**
  * llcc_slice_config - Data associated with the llcc slice
@@ -87,6 +92,7 @@
  * @write_scid_en: Enables write cache support for a given scid.
  * @write_scid_cacheable_en: Enables write cache cacheable support for a
  *                          given scid.(Not supported on V2 or older hardware)
+ * @lpi_shared_sct: SCID Type for each SCID - Active, Global, Persistent or Island.
  */
 struct llcc_slice_config {
 	u32 usecase_id;
@@ -103,6 +109,7 @@ struct llcc_slice_config {
 	bool activate_on_init;
 	bool write_scid_en;
 	bool write_scid_cacheable_en;
+	u32 lpi_shared_sct;
 };
 
 static u32 llcc_offsets_v2[] = {
@@ -117,6 +124,13 @@ static u32 llcc_offsets_v21[] = {
 	0x400000,
 	0x100000,
 	0x500000
+};
+
+static u32 llcc_offsets_v41[] = {
+	0x0,
+	0x200000,
+	0x400000,
+	0x600000
 };
 
 enum {
@@ -251,6 +265,38 @@ static const struct llcc_slice_config diwali_data[] =  {
 	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 };
 
+static const struct llcc_slice_config kalama_data[] =  {
+	{LLCC_CPUSS,     1, 2048, 1, 1, 0xFFF,    0x0,   0, 0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMHPGRW, 23, 1024, 3, 0, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMHW,    24, 1024, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_GPUHTW,   11,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_GPU,      12, 2048, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_MMUHWT,   13,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 1 },
+	{LLCC_DISP,     16, 6144, 1, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMPNG,   25, 1024, 0, 1, 0xF00000, 0x0,   0, 0, 0, 0, 0, 0, 0, 2 },
+	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CVP,       8,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMVPE,   26,   64, 1, 1, 0xF00000, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 1 },
+	{LLCC_CPUSS1,    3, 1024, 1, 1, 0x000FFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CPUMTE,   29,  256, 1, 1, 0xFFF,    0x0,   0, 0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CAMEXP1,   7, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CMPTHCP,  14,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_LCPDARE,  30,  128, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 1 },
+	{LLCC_AENPU,     6, 3072, 1, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_ISLAND1,   9, 1024, 7, 1, 0x0F,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
+	{LLCC_ISLAND2,  15,  512, 7, 1, 0x30,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
+	{LLCC_ISLAND3,  17,  256, 7, 1, 0x40,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
+	{LLCC_ISLAND4,  18,  256, 7, 1, 0x80,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
+	{LLCC_CAMEXP2,  19, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CAMEXP3,  20, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CAMEXP4,  21, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
+};
+
 static const struct qcom_llcc_config diwali_cfg = {
 	.sct_data       = diwali_data,
 	.size           = ARRAY_SIZE(diwali_data),
@@ -279,6 +325,11 @@ static const struct qcom_llcc_config shima_cfg = {
 static const struct qcom_llcc_config waipio_cfg = {
 	.sct_data	= waipio_data,
 	.size		= ARRAY_SIZE(waipio_data),
+};
+
+static const struct qcom_llcc_config kalama_cfg = {
+	.sct_data	= kalama_data,
+	.size		= ARRAY_SIZE(kalama_data),
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
@@ -328,6 +379,7 @@ static int llcc_update_act_ctrl(u32 sid,
 				u32 act_ctrl_reg_val, u32 status)
 {
 	u32 act_ctrl_reg;
+	u32 act_clear_reg;
 	u32 status_reg;
 	u32 slice_status;
 	int ret;
@@ -336,6 +388,7 @@ static int llcc_update_act_ctrl(u32 sid,
 		return PTR_ERR(drv_data);
 
 	act_ctrl_reg = LLCC_TRP_ACT_CTRLn(sid);
+	act_clear_reg = LLCC_TRP_ACT_CLEARn(sid);
 	status_reg = LLCC_TRP_STATUSn(sid);
 
 	/* Set the ACTIVE trigger */
@@ -352,9 +405,21 @@ static int llcc_update_act_ctrl(u32 sid,
 	if (ret)
 		return ret;
 
+	if (drv_data->llcc_ver >= 41) {
+		ret = regmap_read_poll_timeout(drv_data->bcast_regmap, status_reg,
+				      slice_status, (slice_status & ACT_COMPLETE),
+				      0, LLCC_STATUS_READ_DELAY);
+		if (ret)
+			return ret;
+	}
+
 	ret = regmap_read_poll_timeout(drv_data->bcast_regmap, status_reg,
 				      slice_status, !(slice_status & status),
 				      0, LLCC_STATUS_READ_DELAY);
+
+	if (drv_data->llcc_ver >= 41)
+		regmap_write(drv_data->bcast_regmap, act_clear_reg, ACT_CLEAR);
+
 	return ret;
 }
 
@@ -480,8 +545,11 @@ EXPORT_SYMBOL_GPL(llcc_get_slice_size);
 static int qcom_llcc_cfg_program(struct platform_device *pdev)
 {
 	int i;
+	u32 attr2_cfg;
 	u32 attr1_cfg;
 	u32 attr0_cfg;
+	u32 lpisct_cfg;
+	u32 attr2_val;
 	u32 attr1_val;
 	u32 attr0_val;
 	u32 max_cap_cacheline;
@@ -529,8 +597,14 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 		max_cap_cacheline >>= CACHE_LINE_SIZE_SHIFT;
 		attr1_val |= max_cap_cacheline << ATTR1_MAX_CAP_SHIFT;
 
-		attr0_val = llcc_table[i].res_ways & ATTR0_RES_WAYS_MASK;
-		attr0_val |= llcc_table[i].bonus_ways << ATTR0_BONUS_WAYS_SHIFT;
+		if (drv_data->llcc_ver >= 41) {
+			attr2_cfg = LLCC_TRP_ATTR2_CFGn(llcc_table[i].slice_id);
+			attr0_val = llcc_table[i].res_ways;
+			attr2_val = llcc_table[i].bonus_ways;
+		} else {
+			attr0_val = llcc_table[i].res_ways & ATTR0_RES_WAYS_MASK;
+			attr0_val |= llcc_table[i].bonus_ways << ATTR0_BONUS_WAYS_SHIFT;
+		}
 
 		ret = regmap_write(drv_data->bcast_regmap, attr1_cfg,
 					attr1_val);
@@ -540,6 +614,12 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 					attr0_val);
 		if (ret)
 			return ret;
+		if (drv_data->llcc_ver >= 41) {
+			ret = regmap_write(drv_data->bcast_regmap, attr2_cfg,
+					attr2_val);
+			if (ret)
+				return ret;
+		}
 
 		if (drv_data->llcc_ver >= 20) {
 			wren |= llcc_table[i].write_scid_en <<
@@ -567,10 +647,20 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 			if (ret)
 				return ret;
 
-			pcb |= llcc_table[i].retain_on_pc <<
-					llcc_table[i].slice_id;
-			ret = regmap_write(drv_data->bcast_regmap,
-						LLCC_TRP_PCB_ACT, pcb);
+			if (drv_data->llcc_ver < 41) {
+				pcb |= llcc_table[i].retain_on_pc <<
+						llcc_table[i].slice_id;
+				ret = regmap_write(drv_data->bcast_regmap,
+							LLCC_TRP_PCB_ACT, pcb);
+				if (ret)
+					return ret;
+			}
+		}
+
+		if (drv_data->llcc_ver >= 41) {
+			lpisct_cfg = LLCC_LPI_SHARED_SCT_CFGn(llcc_table[i].slice_id);
+			ret = regmap_write(drv_data->bcast_regmap, lpisct_cfg,
+							llcc_table[i].lpi_shared_sct);
 			if (ret)
 				return ret;
 		}
@@ -648,6 +738,11 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_match_string(dev->of_node,
+				    "compatible", "qcom,llcc-v41") >= 0) {
+		drv_data->llcc_ver = 41;
+		llcc_regs = llcc_regs_v21;
+		drv_data->offsets = llcc_offsets_v41;
+	} else if (of_property_match_string(dev->of_node,
 				    "compatible", "qcom,llcc-v21") >= 0) {
 		drv_data->llcc_ver = 21;
 		llcc_regs = llcc_regs_v21;
@@ -733,6 +828,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,shima-llcc", .data = &shima_cfg },
 	{ .compatible = "qcom,waipio-llcc", .data = &waipio_cfg },
 	{ .compatible = "qcom,diwali-llcc", .data = &diwali_cfg },
+	{ .compatible = "qcom,kalama-llcc", .data = &kalama_cfg },
 	{ }
 };
 
