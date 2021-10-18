@@ -393,7 +393,7 @@ static int __init qcom_dload_driver_init(void)
 #if IS_MODULE(CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE)
 module_init(qcom_dload_driver_init);
 #else
-pure_initcall(qcom_dload_driver_init);
+fs_initcall(qcom_dload_driver_init);
 #endif
 
 static void __exit qcom_dload_driver_exit(void)
