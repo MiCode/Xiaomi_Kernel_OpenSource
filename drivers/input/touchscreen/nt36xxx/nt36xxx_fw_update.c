@@ -17,7 +17,7 @@
  *
  */
 
-#if !IS_ENABLED(CONFIG_TOUCHSCREEN_NT36XXX_SPI) /* TOUCHSCREEN_NT36XXX I2C */
+#if !defined(NVT_NT36XXX_SPI) /* NT36XXX I2C */
 
 #include <linux/firmware.h>
 
@@ -1042,7 +1042,7 @@ void Boot_Update_Firmware(struct work_struct *work)
 }
 #endif /* BOOT_UPDATE_FIRMWARE */
 
-#else  /* TOUCHSCREEN_NT36XXX_SPI */
+#else  /* NT36XXX_SPI */
 
 #include <linux/firmware.h>
 #include <linux/gpio.h>
