@@ -1149,6 +1149,12 @@ static void nvt_ts_dt_parse_trusted_touch_info(struct nvt_ts_data *ts)
 	const char *selection;
 	const char *environment;
 
+#ifdef CONFIG_ARCH_QTI_VM
+	ts->touch_environment = "tvm";
+#else
+	ts->touch_environment = "pvm";
+#endif
+
 	rc = of_property_read_string(np, "novatek,trusted-touch-mode",
 								&selection);
 	if (rc) {
@@ -2799,8 +2805,21 @@ static int32_t nvt_ts_probe(struct i2c_client *client,
 
 	ts->id = id;
 
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	nvt_ts_trusted_touch_init(ts);
+	mutex_init(&(ts->nvt_clk_io_ctrl_mutex));
+	ret = ts_create_sysfs(ts);
+	if (ret)
+		NVT_ERR("create sysfs node fail\n");
+#endif
+
 #if defined(CONFIG_DRM)
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	if (!strcmp(ts->touch_environment, "pvm"))
+		nvt_i2c_register_for_panel_events(client->dev.of_node, ts);
+#else
 	nvt_i2c_register_for_panel_events(client->dev.of_node, ts);
+#endif
 #elif defined(_MSM_DRM_NOTIFY_H_)
 	ts->drm_notif.notifier_call = nvt_drm_notifier_callback;
 	ret = msm_drm_register_client(&ts->drm_notif);
@@ -2817,13 +2836,6 @@ static int32_t nvt_ts_probe(struct i2c_client *client,
 	}
 #endif
 	NVT_LOG("end\n");
-#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	nvt_ts_trusted_touch_init(ts);
-	mutex_init(&(ts->nvt_clk_io_ctrl_mutex));
-	ret = ts_create_sysfs(ts);
-	if (ret)
-		NVT_ERR("create sysfs node fail\n");
-#endif
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifdef CONFIG_ARCH_QTI_VM
