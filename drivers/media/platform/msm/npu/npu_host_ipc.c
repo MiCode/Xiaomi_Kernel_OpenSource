@@ -68,7 +68,7 @@ static int npu_host_ipc_init_hfi(struct npu_device *npu_dev)
 	struct hfi_queue_tbl_header *q_tbl_hdr = NULL;
 	struct hfi_queue_header *q_hdr_arr = NULL;
 	struct hfi_queue_header *q_hdr = NULL;
-	void *q_tbl_addr = 0;
+	void *q_tbl_addr = NULL;
 	uint32_t reg_val = 0;
 	uint32_t q_idx = 0;
 	uint32_t q_tbl_size = sizeof(struct hfi_queue_tbl_header) +

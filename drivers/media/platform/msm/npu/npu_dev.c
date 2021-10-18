@@ -111,7 +111,7 @@ static int npu_get_property(struct npu_client *client,
 	unsigned long arg);
 static long npu_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
-static unsigned int npu_poll(struct file *filp, struct poll_table_struct *p);
+static __poll_t npu_poll(struct file *filp, struct poll_table_struct *p);
 static int npu_parse_dt_clock(struct npu_device *npu_dev);
 static int npu_parse_dt_regulator(struct npu_device *npu_dev);
 static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
@@ -541,7 +541,7 @@ static int npu_set_cdsprm_corner_limit(enum cdsprm_npu_corner corner)
 	return npu_set_power_level(g_npu_dev, false);
 }
 
-const struct cdsprm_npu_limit_cbs cdsprm_npu_limit_cbs = {
+static const struct cdsprm_npu_limit_cbs cdsprm_npu_limit_cbs = {
 	.set_corner_limit = npu_set_cdsprm_corner_limit,
 };
 
@@ -573,7 +573,7 @@ static uint32_t npu_notify_cdsprm_cxlimit_corner(
 	return pwr_lvl_to_set;
 }
 
-int npu_cdsprm_cxlimit_init(struct npu_device *npu_dev)
+static int npu_cdsprm_cxlimit_init(struct npu_device *npu_dev)
 {
 	bool enabled;
 	int ret = 0;
@@ -597,7 +597,7 @@ int npu_cdsprm_cxlimit_init(struct npu_device *npu_dev)
 	return ret;
 }
 
-int npu_cdsprm_cxlimit_deinit(struct npu_device *npu_dev)
+static int npu_cdsprm_cxlimit_deinit(struct npu_device *npu_dev)
 {
 	int ret = 0;
 
@@ -1565,8 +1565,8 @@ static int npu_process_kevent(struct npu_kevent *kevt)
 
 	switch (kevt->evt.type) {
 	case MSM_NPU_EVENT_TYPE_EXEC_V2_DONE:
-		ret = copy_to_user((void __user *)kevt->reserved[1],
-			(void *)kevt->reserved[0],
+		ret = copy_to_user(kevt->stats_buf_u,
+			kevt->stats_buf,
 			kevt->evt.u.exec_v2_done.stats_buf_size);
 		if (ret) {
 			pr_err("fail to copy to user\n");
@@ -1777,21 +1777,21 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
-static unsigned int npu_poll(struct file *filp, struct poll_table_struct *p)
+static __poll_t npu_poll(struct file *filp, struct poll_table_struct *p)
 {
 	struct npu_client *client = filp->private_data;
-	int rc = 0;
+	__poll_t mask = 0;
 
 	poll_wait(filp, &client->wait, p);
 
 	mutex_lock(&client->list_lock);
 	if (!list_empty(&client->evt_list)) {
 		pr_debug("poll cmd done\n");
-		rc = POLLIN | POLLRDNORM;
+		mask = EPOLLIN | EPOLLRDNORM;
 	}
 	mutex_unlock(&client->list_lock);
 
-	return rc;
+	return mask;
 }
 
 /* -------------------------------------------------------------------------
@@ -2135,9 +2135,9 @@ static int npu_hw_info_init(struct npu_device *npu_dev)
 static int npu_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-	struct resource *res = 0;
-	struct npu_device *npu_dev = 0;
-	struct thermal_cooling_device *tcdev = 0;
+	struct resource *res = NULL;
+	struct npu_device *npu_dev = NULL;
+	struct thermal_cooling_device *tcdev = NULL;
 
 	npu_dev = devm_kzalloc(&pdev->dev,
 		sizeof(struct npu_device), GFP_KERNEL);
