@@ -457,6 +457,9 @@ struct pkvm_mem_transition {
 				/* Address in the completer's address space */
 				u64	completer_addr;
 			} host;
+			struct {
+				u64	completer_addr;
+			} hyp;
 		};
 	} initiator;
 
@@ -596,6 +599,30 @@ static int host_initiate_donation(u64 *completer_addr,
 	return host_stage2_set_owner_locked(tx->initiator.addr, size, owner_id);
 }
 
+static bool __host_ack_skip_pgtable_check(const struct pkvm_mem_transition *tx)
+{
+	return !(IS_ENABLED(CONFIG_NVHE_EL2_DEBUG) ||
+		 tx->initiator.id != PKVM_ID_HYP);
+}
+
+static int host_ack_donation(u64 addr, const struct pkvm_mem_transition *tx)
+{
+	u64 size = tx->nr_pages * PAGE_SIZE;
+
+	if (__host_ack_skip_pgtable_check(tx))
+		return 0;
+
+	return __host_check_page_state_range(addr, size, PKVM_NOPAGE);
+}
+
+static int host_complete_donation(u64 addr, const struct pkvm_mem_transition *tx)
+{
+	u64 size = tx->nr_pages * PAGE_SIZE;
+	u8 host_id = completer_owner_id(tx);
+
+	return host_stage2_set_owner_locked(addr, size, host_id);
+}
+
 static enum pkvm_page_state hyp_get_page_state(kvm_pte_t pte)
 {
 	if (!kvm_pte_valid(pte))
@@ -614,6 +641,27 @@ static int __hyp_check_page_state_range(u64 addr, u64 size,
 
 	hyp_assert_lock_held(&pkvm_pgd_lock);
 	return check_page_state_range(&pkvm_pgtable, addr, size, &d);
+}
+
+static int hyp_request_donation(u64 *completer_addr,
+				const struct pkvm_mem_transition *tx)
+{
+	u64 size = tx->nr_pages * PAGE_SIZE;
+	u64 addr = tx->initiator.addr;
+
+	*completer_addr = tx->initiator.hyp.completer_addr;
+	return __hyp_check_page_state_range(addr, size, PKVM_PAGE_OWNED);
+}
+
+static int hyp_initiate_donation(u64 *completer_addr,
+				 const struct pkvm_mem_transition *tx)
+{
+	u64 size = tx->nr_pages * PAGE_SIZE;
+	int ret;
+
+	*completer_addr = tx->initiator.hyp.completer_addr;
+	ret = kvm_pgtable_hyp_unmap(&pkvm_pgtable, tx->initiator.addr, size);
+	return (ret != size) ? -EFAULT : 0;
 }
 
 static bool __hyp_ack_skip_pgtable_check(const struct pkvm_mem_transition *tx)
@@ -846,6 +894,9 @@ static int check_donation(struct pkvm_mem_donation *donation)
 	case PKVM_ID_HOST:
 		ret = host_request_owned_transition(&completer_addr, tx);
 		break;
+	case PKVM_ID_HYP:
+		ret = hyp_request_donation(&completer_addr, tx);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -854,6 +905,9 @@ static int check_donation(struct pkvm_mem_donation *donation)
 		return ret;
 
 	switch (tx->completer.id){
+	case PKVM_ID_HOST:
+		ret = host_ack_donation(completer_addr, tx);
+		break;
 	case PKVM_ID_HYP:
 		ret = hyp_ack_donation(completer_addr, tx);
 		break;
@@ -874,6 +928,9 @@ static int __do_donate(struct pkvm_mem_donation *donation)
 	case PKVM_ID_HOST:
 		ret = host_initiate_donation(&completer_addr, tx);
 		break;
+	case PKVM_ID_HYP:
+		ret = hyp_initiate_donation(&completer_addr, tx);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -882,6 +939,9 @@ static int __do_donate(struct pkvm_mem_donation *donation)
 		return ret;
 
 	switch (tx->completer.id){
+	case PKVM_ID_HOST:
+		ret = host_complete_donation(completer_addr, tx);
+		break;
 	case PKVM_ID_HYP:
 		ret = hyp_complete_donation(completer_addr, tx);
 		break;
