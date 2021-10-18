@@ -17,6 +17,8 @@
  * @size:	size of the heap in bytes if applicable
  * @dev:	the device associated with the heap's DT node
  * @is_dynamic:	indicates if memory can be added or removed from carveout heaps
+ * is_nomap:	indicates if this heap is assosicated with a memory region which is
+ *		which has no-map property.
  * is_uncached:	indicates if this heap provides uncached memory or not
  * @token:	the end points to which memory for secure carveout memory is
  *		assigned to
@@ -32,6 +34,7 @@ struct platform_heap {
 	struct device *dev;
 	bool is_uncached;
 	bool is_dynamic;
+	bool is_nomap;
 	u32 token;
 	u32 max_align;
 };
