@@ -1,6 +1,7 @@
 arm_smmu.ko
 clk-dummy.ko
 clk-qcom.ko
+clk-rpmh.ko
 cmd-db.ko
 cqhci.ko
 debug-regulator.ko
