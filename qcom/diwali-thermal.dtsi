@@ -190,7 +190,7 @@
 		compatible = "qcom,userspace-cooling-devices";
 
 		display_fps: display-fps {
-			qcom,max-level = <4>;
+			qcom,max-level = <3>;
 			#cooling-cells = <2>;
 		};
 	};

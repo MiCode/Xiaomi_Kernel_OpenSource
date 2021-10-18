@@ -1,2 +1,7 @@
 &soc {
+	qcom,userspace-cdev {
+		display-fps {
+			qcom,max-level = <4>;
+		};
+	};
 };
