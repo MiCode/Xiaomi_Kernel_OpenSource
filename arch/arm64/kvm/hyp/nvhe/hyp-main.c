@@ -275,7 +275,7 @@ static void sync_timer_state(struct kvm_vcpu *shadow_vcpu)
 	__vcpu_sys_reg(shadow_vcpu, CNTV_CTL_EL0) = read_sysreg_el0(SYS_CNTV_CTL);
 }
 
-static bool handle_shadow_entry(struct kvm_vcpu *shadow_vcpu)
+static void flush_shadow_state(struct kvm_vcpu *shadow_vcpu)
 {
 	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 	u8 esr_ec;
@@ -286,6 +286,8 @@ static bool handle_shadow_entry(struct kvm_vcpu *shadow_vcpu)
 
 	switch (ARM_EXCEPTION_CODE(shadow_vcpu->arch.pkvm.exit_code)) {
 	case ARM_EXCEPTION_IRQ:
+	case ARM_EXCEPTION_EL1_SERROR:
+	case ARM_EXCEPTION_IL:
 		break;
 	case ARM_EXCEPTION_TRAP:
 		esr_ec = ESR_ELx_EC(kvm_vcpu_get_esr(shadow_vcpu));
@@ -296,13 +298,13 @@ static bool handle_shadow_entry(struct kvm_vcpu *shadow_vcpu)
 
 		break;
 	default:
-		return false;
+		BUG();
 	}
 
-	return true;
+	shadow_vcpu->arch.pkvm.exit_code = 0;
 }
 
-static void handle_shadow_exit(struct kvm_vcpu *shadow_vcpu)
+static void sync_shadow_state(struct kvm_vcpu *shadow_vcpu, u32 exit_reason)
 {
 	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 	u8 esr_ec;
@@ -311,7 +313,7 @@ static void handle_shadow_exit(struct kvm_vcpu *shadow_vcpu)
 	sync_vgic_state(host_vcpu, shadow_vcpu);
 	sync_timer_state(shadow_vcpu);
 
-	switch (shadow_vcpu->arch.pkvm.exit_code) {
+	switch (ARM_EXCEPTION_CODE(exit_reason)) {
 	case ARM_EXCEPTION_IRQ:
 		break;
 	case ARM_EXCEPTION_TRAP:
@@ -322,46 +324,82 @@ static void handle_shadow_exit(struct kvm_vcpu *shadow_vcpu)
 			ec_handler(host_vcpu, shadow_vcpu);
 
 		break;
-	default:
+	case ARM_EXCEPTION_EL1_SERROR:
+	case ARM_EXCEPTION_IL:
 		break;
+	default:
+		BUG();
+	}
+
+	host_vcpu->arch.flags &= ~(KVM_ARM64_PENDING_EXCEPTION | KVM_ARM64_INCREMENT_PC);
+	shadow_vcpu->arch.pkvm.exit_code = exit_reason;
+}
+
+struct pkvm_loaded_state {
+	/* loaded vcpu is HYP VA */
+	struct kvm_vcpu	*vcpu;
+	bool		is_shadow;
+};
+
+static DEFINE_PER_CPU(struct pkvm_loaded_state, loaded_state);
+
+static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
+	struct pkvm_loaded_state *state;
+
+	/* Why did you bother? */
+	if (!is_protected_kvm_enabled())
+		return;
+
+	state = this_cpu_ptr(&loaded_state);
+
+	/* Nice try */
+	if (state->vcpu)
+		return;
+
+	vcpu = kern_hyp_va(vcpu);
+
+	state->vcpu = hyp_get_shadow_vcpu(vcpu) ?: vcpu;
+	state->is_shadow = state->vcpu != vcpu;
+
+	if (state->is_shadow) {
+		/* FIXME: we can't trust the validity of these pointers */
+		state->vcpu->arch.host_fpsimd_state = vcpu->arch.host_fpsimd_state;
+
+		/* Propagate WFx trapping flags, trap ptrauth */
+		state->vcpu->arch.hcr_el2 &= ~(HCR_TWE | HCR_TWI |
+					       HCR_API | HCR_APK);
+		state->vcpu->arch.hcr_el2 |= vcpu->arch.hcr_el2 & (HCR_TWE | HCR_TWI);
 	}
 }
 
-static struct kvm_vcpu *get_shadow_vcpu(struct kvm_vcpu *host_vcpu)
+static void handle___pkvm_vcpu_put(struct kvm_cpu_context *host_ctxt)
 {
-	struct kvm_vcpu *shadow_vcpu;
+	struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
 
-	host_vcpu = kern_hyp_va(host_vcpu);
-	shadow_vcpu = hyp_get_shadow_vcpu(host_vcpu);
-
-	if (shadow_vcpu) {
-		if (!handle_shadow_entry(shadow_vcpu))
-			return NULL;
-
-		shadow_vcpu->arch.pkvm.exit_code = 0;
-		return shadow_vcpu;
-	}
-
-	return host_vcpu;
-}
-
-static void put_shadow_vcpu(struct kvm_vcpu *shadow_vcpu, int exit_code)
-{
-	shadow_vcpu->arch.pkvm.exit_code = exit_code;
-	handle_shadow_exit(shadow_vcpu);
+	/* "It's over and done with..." */
+	state->vcpu = NULL;
 }
 
 static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
-	struct kvm_vcpu *shadow_vcpu;
 	int ret;
 
-	shadow_vcpu = get_shadow_vcpu(vcpu);
-	ret = __kvm_vcpu_run(shadow_vcpu);
+	if (unlikely(is_protected_kvm_enabled())) {
+		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
 
-	if (shadow_vcpu != kern_hyp_va(vcpu))
-		put_shadow_vcpu(shadow_vcpu, ret);
+		if (state->is_shadow)
+			flush_shadow_state(state->vcpu);
+
+		ret = __kvm_vcpu_run(state->vcpu);
+
+		if (state->is_shadow)
+			sync_shadow_state(state->vcpu, ret);
+	} else {
+		ret = __kvm_vcpu_run(kern_hyp_va(vcpu));
+	}
 
 	cpu_reg(host_ctxt, 1) =  ret;
 }
@@ -370,13 +408,19 @@ static void handle___kvm_adjust_pc(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
 
-	/*
-	 * This get_shadow_vcpu() shouldn't exist, as we would never
-	 * commit a pending update before returning to userspace, and
-	 * this is an actual attack vector (it leaves EL1 in full
-	 * control of PC).
-	 */
-	vcpu = get_shadow_vcpu(vcpu);
+	vcpu = kern_hyp_va(vcpu);
+
+	if (unlikely(is_protected_kvm_enabled())) {
+		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
+
+		/*
+		 * A shadow vcpu can never be updated from EL1, and we
+		 * must have a vcpu loaded when protected mode is
+		 * enabled.
+		 */
+		if (!state->vcpu || state->is_shadow || state->vcpu != vcpu)
+			return;
+	}
 
 	__kvm_adjust_pc(vcpu);
 }
@@ -440,13 +484,29 @@ static void handle___kvm_get_mdcr_el2(struct kvm_cpu_context *host_ctxt)
 
 static struct vgic_v3_cpu_if *get_shadow_vgic_v3_cpu_if(struct vgic_v3_cpu_if *cpu_if)
 {
-	struct kvm_vcpu *vcpu, *shadow_vcpu;
+	if (unlikely(is_protected_kvm_enabled())) {
+		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
+		struct kvm_vcpu *host_vcpu;
 
-	vcpu = container_of(cpu_if, struct kvm_vcpu, arch.vgic_cpu.vgic_v3);
-	shadow_vcpu = hyp_get_shadow_vcpu(vcpu);
-	if (!shadow_vcpu)
-		return cpu_if;
-	return &shadow_vcpu->arch.vgic_cpu.vgic_v3;
+		if (!state->vcpu)
+			return NULL;
+
+		if (state->is_shadow) {
+			host_vcpu = state->vcpu->arch.pkvm.host_vcpu;
+
+			if (&host_vcpu->arch.vgic_cpu.vgic_v3 != cpu_if)
+				return NULL;
+
+			return &state->vcpu->arch.vgic_cpu.vgic_v3;
+		} else {
+			if (&state->vcpu->arch.vgic_cpu.vgic_v3 != cpu_if)
+				return NULL;
+
+			return cpu_if;
+		}
+	}
+
+	return cpu_if;
 }
 
 static void handle___vgic_v3_save_vmcr_aprs(struct kvm_cpu_context *host_ctxt)
@@ -593,6 +653,8 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__vgic_v3_restore_vmcr_aprs),
 	HANDLE_FUNC(__pkvm_init_shadow),
 	HANDLE_FUNC(__pkvm_teardown_shadow),
+	HANDLE_FUNC(__pkvm_vcpu_load),
+	HANDLE_FUNC(__pkvm_vcpu_put),
 };
 
 static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
