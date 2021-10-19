@@ -57,7 +57,8 @@ extern struct host_kvm host_kvm;
 typedef u32 pkvm_id;
 static const pkvm_id pkvm_host_id	= 0;
 static const pkvm_id pkvm_hyp_id	= (1 << 16);
-static const pkvm_id pkvm_host_poison	= pkvm_hyp_id + 1;
+static const pkvm_id pkvm_ffa_id	= pkvm_hyp_id + 1; /* Secure world */
+static const pkvm_id pkvm_host_poison	= pkvm_ffa_id + 1;
 
 extern unsigned long hyp_nr_cpus;
 
@@ -71,6 +72,8 @@ int __pkvm_host_share_guest(u64 pfn, u64 gfn, struct kvm_vcpu *vcpu);
 int __pkvm_host_donate_guest(u64 pfn, u64 gfn, struct kvm_vcpu *vcpu);
 int __pkvm_guest_share_host(struct kvm_vcpu *vcpu, u64 ipa);
 int __pkvm_guest_unshare_host(struct kvm_vcpu *vcpu, u64 ipa);
+int __pkvm_host_share_ffa(u64 pfn, u64 nr_pages);
+int __pkvm_host_unshare_ffa(u64 pfn, u64 nr_pages);
 int __pkvm_install_ioguard_page(struct kvm_vcpu *vcpu, u64 ipa);
 int __pkvm_remove_ioguard_page(struct kvm_vcpu *vcpu, u64 ipa);
 bool __pkvm_check_ioguard_page(struct kvm_vcpu *vcpu);
