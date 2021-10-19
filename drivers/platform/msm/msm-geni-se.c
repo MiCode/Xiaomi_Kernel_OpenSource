@@ -1104,13 +1104,15 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	if (geni_se_dev->vectors == NULL)
 		return 0;
 
+	mutex_lock(&geni_se_dev->geni_dev_lock);
+
 	if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
 		geni_se_dev->bus_bw = of_icc_get(geni_se_dev->dev, "qup-core");
 		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
 			GENI_LOG_ERR(geni_se_dev->log_ctx, false, geni_se_dev->dev,
 				"%s: %s Error Get Path: (Core2x), %ld\n",
 				__func__, dev_name(rsc->ctrl_dev), PTR_ERR(geni_se_dev->bus_bw));
-
+				mutex_unlock(&geni_se_dev->geni_dev_lock);
 				return geni_se_dev->bus_bw ?
 				PTR_ERR(geni_se_dev->bus_bw) : -ENOENT;
 		}
@@ -1129,7 +1131,7 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 					PTR_ERR(geni_se_dev->bus_bw_noc));
 				icc_put(geni_se_dev->bus_bw);
 				geni_se_dev->bus_bw = NULL;
-
+				mutex_unlock(&geni_se_dev->geni_dev_lock);
 				return geni_se_dev->bus_bw_noc ?
 				PTR_ERR(geni_se_dev->bus_bw_noc) : -ENOENT;
 			}
@@ -1146,7 +1148,7 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 
 	INIT_LIST_HEAD(&rsc->ab_list);
 	INIT_LIST_HEAD(&rsc->ib_list);
-
+	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return 0;
 }
 EXPORT_SYMBOL(geni_se_resources_init);
