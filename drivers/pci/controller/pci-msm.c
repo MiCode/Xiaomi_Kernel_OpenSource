@@ -648,7 +648,8 @@ struct msm_pcie_drv_info {
 struct msm_pcie_dev_t {
 	struct platform_device *pdev;
 	struct pci_dev *dev;
-	struct regulator *gdsc;
+	struct regulator *gdsc_core;
+	struct regulator *gdsc_phy;
 	struct msm_pcie_vreg_info_t vreg[MSM_PCIE_MAX_VREG];
 	struct msm_pcie_gpio_info_t gpio[MSM_PCIE_MAX_GPIO];
 	struct msm_pcie_clk_info_t clk[MSM_PCIE_MAX_CLK];
@@ -3038,15 +3039,23 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
-	rc = regulator_enable(dev->gdsc);
+	rc = regulator_enable(dev->gdsc_core);
 
 	if (rc) {
-		PCIE_ERR(dev, "PCIe: fail to enable GDSC for RC%d (%s)\n",
+		PCIE_ERR(dev, "PCIe: fail to enable GDSC-CORE for RC%d (%s)\n",
 			dev->rc_idx, dev->pdev->name);
 		return rc;
 	}
 
-	/* switch pipe clock source after gdsc is turned on */
+	rc = regulator_enable(dev->gdsc_phy);
+
+	if (rc) {
+		PCIE_ERR(dev, "PCIe: fail to enable GDSC-PHY for RC%d (%s)\n",
+			dev->rc_idx, dev->pdev->name);
+		return rc;
+	}
+
+	/* switch pipe clock source after gdsc-core is turned on */
 	if (dev->pipe_clk_mux && dev->pipe_clk_ext_src)
 		clk_set_parent(dev->pipe_clk_mux, dev->pipe_clk_ext_src);
 
@@ -3106,11 +3115,12 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 				clk_disable_unprepare(hdl);
 		}
 
-		/* switch pipe clock mux to xo before turning off gdsc */
+		/* switch pipe clock mux to xo before turning off gdsc-core */
 		if (dev->pipe_clk_mux && dev->ref_clk_src)
 			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 
-		regulator_disable(dev->gdsc);
+		regulator_disable(dev->gdsc_phy);
+		regulator_disable(dev->gdsc_core);
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_RESET; i++) {
@@ -3172,7 +3182,7 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 				dev->rc_idx);
 	}
 
-	/* switch phy aux clock mux to xo before turning off gdsc */
+	/* switch phy aux clock mux to xo before turning off gdsc-core */
 	if (dev->phy_aux_clk_mux && dev->ref_clk_src)
 		clk_set_parent(dev->phy_aux_clk_mux, dev->ref_clk_src);
 
@@ -3180,7 +3190,8 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 	if (dev->pipe_clk_mux && dev->ref_clk_src)
 		clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 
-	regulator_disable(dev->gdsc);
+	regulator_disable(dev->gdsc_phy);
+	regulator_disable(dev->gdsc_core);
 
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
@@ -3611,15 +3622,28 @@ static int msm_pcie_get_vreg(struct msm_pcie_dev_t *pcie_dev)
 		}
 	}
 
-	pcie_dev->gdsc = devm_regulator_get(&pdev->dev, "gdsc-vdd");
+	pcie_dev->gdsc_core = devm_regulator_get(&pdev->dev, "gdsc-vdd");
 
-	if (IS_ERR(pcie_dev->gdsc)) {
-		PCIE_ERR(pcie_dev, "PCIe: RC%d: Failed to get %s GDSC:%ld\n",
-			pcie_dev->rc_idx, pdev->name, PTR_ERR(pcie_dev->gdsc));
-		if (PTR_ERR(pcie_dev->gdsc) == -EPROBE_DEFER)
-			PCIE_DBG(pcie_dev, "PCIe: EPROBE_DEFER for %s GDSC\n",
+	if (IS_ERR(pcie_dev->gdsc_core)) {
+		PCIE_ERR(pcie_dev, "PCIe: RC%d: Failed to get %s GDSC-CORE:%ld\n",
+			 pcie_dev->rc_idx, pdev->name,
+			 PTR_ERR(pcie_dev->gdsc_core));
+		if (PTR_ERR(pcie_dev->gdsc_core) == -EPROBE_DEFER)
+			PCIE_DBG(pcie_dev, "PCIe: EPROBE_DEFER for %s GDSC-CORE\n",
+				 pdev->name);
+		return PTR_ERR(pcie_dev->gdsc_core);
+	}
+
+	pcie_dev->gdsc_phy = devm_regulator_get(&pdev->dev, "gdsc-phy-vdd");
+
+	if (IS_ERR(pcie_dev->gdsc_phy)) {
+		PCIE_ERR(pcie_dev, "PCIe: RC%d: Failed to get %s GDSC-PHY:%ld\n",
+			 pcie_dev->rc_idx, pdev->name,
+			 PTR_ERR(pcie_dev->gdsc_phy));
+		if (PTR_ERR(pcie_dev->gdsc_phy) == -EPROBE_DEFER)
+			PCIE_DBG(pcie_dev, "PCIe: EPROBE_DEFER for %s GDSC-PHY\n",
 				pdev->name);
-		return PTR_ERR(pcie_dev->gdsc);
+		return PTR_ERR(pcie_dev->gdsc_phy);
 	}
 
 	return 0;
@@ -7225,9 +7249,9 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	msm_pcie_vreg_init(pcie_dev);
 
-	PCIE_DBG(pcie_dev, "PCIe: RC%d:enable gdsc\n", pcie_dev->rc_idx);
+	PCIE_DBG(pcie_dev, "PCIe: RC%d:enable gdsc-core\n", pcie_dev->rc_idx);
 
-	ret = regulator_enable(pcie_dev->gdsc);
+	ret = regulator_enable(pcie_dev->gdsc_core);
 	if (ret)
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d: failed to enable GDSC: ret %d\n",
@@ -7435,7 +7459,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 				pcie_dev->rc_idx, ret);
 	}
 
-	regulator_disable(pcie_dev->gdsc);
+	regulator_disable(pcie_dev->gdsc_core);
 
 	msm_pcie_vreg_deinit(pcie_dev);
 
