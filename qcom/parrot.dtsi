@@ -840,3 +840,4 @@
 
 #include "parrot-pinctrl.dtsi"
 #include "parrot-dma-heaps.dtsi"
+#include "msm-arm-smmu-parrot.dtsi"
