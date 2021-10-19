@@ -3425,13 +3425,29 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 
 	cancel_delayed_work_sync(&mdwc->perf_vote_work);
 	msm_dwc3_perf_vote_update(mdwc, false);
+	if (dwc) {
+		if (!mdwc->in_host_mode) {
+			evt = dwc->ev_buf;
+			if ((evt->flags & DWC3_EVENT_PENDING)) {
+				dev_dbg(mdwc->dev,
+					"%s: %d device events pending, abort suspend\n",
+					__func__, evt->count / 4);
+				mutex_unlock(&mdwc->suspend_resume_mutex);
+				return -EBUSY;
+			}
+		}
 
-	if (dwc && !mdwc->in_host_mode) {
-		evt = dwc->ev_buf;
-		if ((evt->flags & DWC3_EVENT_PENDING)) {
-			dev_dbg(mdwc->dev,
-				"%s: %d device events pending, abort suspend\n",
-				__func__, evt->count / 4);
+		/*
+		 * Check if device is not in CONFIGURED state
+		 * then check controller state of L2 and break
+		 * LPM sequence. Check this for device bus suspend case.
+		 */
+		if ((mdwc->dr_mode == USB_DR_MODE_OTG &&
+				mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) &&
+				(dwc->gadget->state != USB_STATE_CONFIGURED)) {
+			pr_err("%s(): Trying to go in LPM with state:%d\n",
+						__func__, dwc->gadget->state);
+			pr_err("%s(): LPM is not performed.\n", __func__);
 			mutex_unlock(&mdwc->suspend_resume_mutex);
 			return -EBUSY;
 		}
@@ -3455,20 +3471,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 		return -EBUSY;
 	}
 
-	/*
-	 * Check if device is not in CONFIGURED state
-	 * then check controller state of L2 and break
-	 * LPM sequence. Check this for device bus suspend case.
-	 */
-	if ((mdwc->dr_mode == USB_DR_MODE_OTG &&
-			mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) &&
-			(dwc->gadget->state != USB_STATE_CONFIGURED)) {
-		pr_err("%s(): Trying to go in LPM with state:%d\n",
-					__func__, dwc->gadget->state);
-		pr_err("%s(): LPM is not performed.\n", __func__);
-		mutex_unlock(&mdwc->suspend_resume_mutex);
-		return -EBUSY;
-	}
+
 
 	ret = dwc3_msm_prepare_suspend(mdwc, force_power_collapse);
 	if (ret) {
