@@ -5176,8 +5176,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mutex_init(&mdwc->suspend_resume_mutex);
 	mutex_init(&mdwc->role_switch_mutex);
 
-	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
 	INIT_WORK(&mdwc->redriver_work, dwc3_msm_redriver_work);
+	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
+	if (!of_device_is_available(mdwc->ss_redriver_node)) {
+		of_node_put(mdwc->ss_redriver_node);
+		mdwc->ss_redriver_node = NULL;
+	}
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		struct usb_role_switch_desc role_desc = {
