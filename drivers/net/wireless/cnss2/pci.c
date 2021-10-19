@@ -1493,9 +1493,9 @@ static void cnss_pci_dump_qca6390_sram_mem(struct cnss_pci_data *pci_priv)
 	sbl_log_size = (sbl_log_size > QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
 			QCA6390_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
 
-	if (sbl_log_start < QCA6390_V2_SBL_DATA_START ||
-	    sbl_log_start > QCA6390_V2_SBL_DATA_END ||
-	    (sbl_log_start + sbl_log_size) > QCA6390_V2_SBL_DATA_END)
+	if (sbl_log_start < SRAM_START ||
+	    sbl_log_start > SRAM_END ||
+	    (sbl_log_start + sbl_log_size) > SRAM_END)
 		goto out;
 
 	cnss_pr_dbg("Dumping SBL log data\n");
@@ -1563,17 +1563,11 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 
 	sbl_log_size = (sbl_log_size > QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
 			QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
-	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
-		if (sbl_log_start < QCA6490_V2_SBL_DATA_START ||
-		    sbl_log_start > QCA6490_V2_SBL_DATA_END ||
-		    (sbl_log_start + sbl_log_size) > QCA6490_V2_SBL_DATA_END)
-			goto out;
-	} else {
-		if (sbl_log_start < QCA6490_V1_SBL_DATA_START ||
-		    sbl_log_start > QCA6490_V1_SBL_DATA_END ||
-		    (sbl_log_start + sbl_log_size) > QCA6490_V1_SBL_DATA_END)
-			goto out;
-	}
+
+	if (sbl_log_start < SRAM_START ||
+	    sbl_log_start > SRAM_END ||
+	    (sbl_log_start + sbl_log_size) > SRAM_END)
+		goto out;
 
 	cnss_pr_dbg("Dumping SBL log data\n");
 	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
