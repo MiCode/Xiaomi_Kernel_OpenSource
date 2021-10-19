@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -338,7 +338,8 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		KGSL_CONTEXT_IFH_NOP |
 		KGSL_CONTEXT_SECURE |
 		KGSL_CONTEXT_PREEMPT_STYLE_MASK |
-		KGSL_CONTEXT_NO_SNAPSHOT);
+		KGSL_CONTEXT_NO_SNAPSHOT |
+		KGSL_CONTEXT_FAULT_INFO);
 
 	/* Check for errors before trying to initialize */
 

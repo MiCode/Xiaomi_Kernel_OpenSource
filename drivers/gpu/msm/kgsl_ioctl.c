@@ -100,6 +100,8 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 			kgsl_ioctl_timeline_signal),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_DESTROY,
 			kgsl_ioctl_timeline_destroy),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GET_FAULT_REPORT,
+			kgsl_ioctl_get_fault_report),
 };
 
 long kgsl_ioctl_copy_in(unsigned int kernel_cmd, unsigned int user_cmd,
