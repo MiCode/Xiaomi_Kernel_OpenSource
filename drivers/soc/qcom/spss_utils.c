@@ -61,7 +61,10 @@ static const char *prod_firmware_name;
 static const char *none_firmware_name = "nospss";
 static const char *firmware_name = "NA";
 static struct device *spss_dev;
-static u32 spss_debug_reg_addr; /* SP_SCSR_MBn_SP2CL_GPm(n,m) */
+/* SP_SCSR_MBn_SP2CL_GPm(n,m) */
+static u32 spss_debug_reg_addr; /*SP_SCSR_MB0_SP2CL_GP0*/
+static u32 spss_debug_reg_addr1; /*SP_SCSR_MB1_SP2CL_GP0*/
+static u32 spss_debug_reg_addr3; /*SP_SCSR_MB3_SP2CL_GP0*/
 static u32 spss_emul_type_reg_addr; /* TCSR_SOC_EMULATION_TYPE */
 static void *iar_notif_handle;
 static struct notifier_block *iar_nb;
@@ -201,30 +204,53 @@ static ssize_t spss_debug_reg_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	int ret;
+	int ret = 0;
 	void __iomem *spss_debug_reg = NULL;
-	u32 val1, val2;
-
+	void __iomem *spss_debug_reg1 = NULL;
+	void __iomem *spss_debug_reg3 = NULL;
+	u32 val1, val2, val3, val4, val7, val8;
 	if (!dev || !attr || !buf) {
 		pr_err("invalid param.\n");
 		return -EINVAL;
 	}
 
 	pr_debug("spss_debug_reg_addr [0x%x].\n", spss_debug_reg_addr);
+	pr_debug("spss_debug_reg_addr1 [0x%x].\n", spss_debug_reg_addr1);
+	pr_debug("spss_debug_reg_addr3 [0x%x].\n", spss_debug_reg_addr3);
 
 	spss_debug_reg = ioremap(spss_debug_reg_addr, sizeof(u32)*2);
+	spss_debug_reg1 = ioremap(spss_debug_reg_addr1, sizeof(u32)*2);
+	spss_debug_reg3 = ioremap(spss_debug_reg_addr3, sizeof(u32)*2);
 
 	if (!spss_debug_reg) {
-		pr_err("can't map debug reg addr\n");
-		return -EINVAL;
+		pr_err("can't map SPSS debug reg addr\n");
+		goto unmap_reg;
+	}
+	if (!spss_debug_reg1) {
+		pr_err("can't map SPSS debug reg addr1\n");
+		goto unmap_reg1;
+	}
+	if (!spss_debug_reg3) {
+		pr_err("can't map SPSS debug reg addr3\n");
+		goto unmap_reg3;
 	}
 
 	val1 = readl_relaxed(spss_debug_reg);
 	val2 = readl_relaxed(((char *) spss_debug_reg) + sizeof(u32));
+	val3 = readl_relaxed(spss_debug_reg1);
+	val4 = readl_relaxed(((char *) spss_debug_reg1) + sizeof(u32));
+	val7 = readl_relaxed(spss_debug_reg3);
+	val8 = readl_relaxed(((char *) spss_debug_reg3) + sizeof(u32));
 
-	ret = scnprintf(buf, PAGE_SIZE, "val1 [0x%x] val2 [0x%x]\n",
-			val1, val2);
+	ret = scnprintf(buf, PAGE_SIZE,
+	"MB0: val1[0x%x] val2[0x%x],\n MB1: val3[0x%x] val4[0x%x],\n MB3: val7[0x%x] val8[0x%x]\n",
+			val1, val2, val3, val4, val7, val8);
 
+unmap_reg3:
+	iounmap(spss_debug_reg3);
+unmap_reg1:
+	iounmap(spss_debug_reg1);
+unmap_reg:
 	iounmap(spss_debug_reg);
 
 	return ret;
@@ -842,6 +868,20 @@ static int spss_parse_dt(struct device_node *node)
 		&spss_debug_reg_addr);
 	if (ret < 0) {
 		pr_err("can't get debug regs addr\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(node, "qcom,spss-debug-reg-addr1",
+		&spss_debug_reg_addr1);
+	if (ret < 0) {
+		pr_err("can't get debug regs addr1\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(node, "qcom,spss-debug-reg-addr3",
+		&spss_debug_reg_addr3);
+	if (ret < 0) {
+		pr_err("can't get debug regs addr3\n");
 		return ret;
 	}
 
