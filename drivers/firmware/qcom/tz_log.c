@@ -337,6 +337,14 @@ struct hypdbg_log_pos_t {
 	uint16_t offset;
 };
 
+struct rmdbg_log_hdr_t {
+	uint32_t write_idx;
+	uint32_t size;
+};
+struct rmdbg_log_pos_t {
+	uint32_t read_idx;
+	uint32_t size;
+};
 struct hypdbg_boot_info_t {
 	uint32_t warm_entry_cnt;
 	uint32_t warm_exit_cnt;
@@ -379,6 +387,7 @@ enum tzdbg_stats_type {
 	TZDBG_QSEE_LOG,
 	TZDBG_HYP_GENERAL,
 	TZDBG_HYP_LOG,
+	TZDBG_RM_LOG,
 	TZDBG_STATS_MAX
 };
 
@@ -392,12 +401,15 @@ struct tzdbg_stat {
 struct tzdbg {
 	void __iomem *virt_iobase;
 	void __iomem *hyp_virt_iobase;
+	void __iomem *rmlog_virt_iobase;
 	struct tzdbg_t *diag_buf;
 	struct hypdbg_t *hyp_diag_buf;
+	uint8_t *rm_diag_buf;
 	char *disp_buf;
 	int debug_tz[TZDBG_STATS_MAX];
 	struct tzdbg_stat stat[TZDBG_STATS_MAX];
 	uint32_t hyp_debug_rw_buf_size;
+	uint32_t rmlog_rw_buf_size;
 	bool is_hyplog_enabled;
 	uint32_t tz_version;
 	bool is_encrypted_log_enabled;
@@ -444,6 +456,7 @@ static struct tzdbg tzdbg = {
 	.stat[TZDBG_QSEE_LOG].name = "qsee_log",
 	.stat[TZDBG_HYP_GENERAL].name = "hyp_general",
 	.stat[TZDBG_HYP_LOG].name = "hyp_log",
+	.stat[TZDBG_RM_LOG].name = "rm_log",
 };
 
 static struct tzdbg_log_t *g_qsee_log;
@@ -922,6 +935,22 @@ static int __disp_hyp_log_stats(uint8_t *log,
 	tzdbg.stat[buf_idx].data = tzdbg.disp_buf;
 	return len;
 }
+static int __disp_rm_log_stats(uint8_t *log_ptr, uint32_t max_len)
+{
+	uint32_t i = 0;
+	/*
+	 *  Transfer data from rm dialog buff to display buffer in user space
+	 */
+	while ((i < max_len) && (i < display_buf_size)) {
+		tzdbg.disp_buf[i] = log_ptr[i];
+		i++;
+	}
+	if (i != max_len)
+		pr_err("Dropping RM log message, max_len:%d display_buf_size:%d\n",
+			i, display_buf_size);
+	tzdbg.stat[TZDBG_RM_LOG].data = tzdbg.disp_buf;
+	return i;
+}
 
 static int print_text(char *intro_message,
 			unsigned char *text_addr,
@@ -1045,6 +1074,55 @@ static int _disp_hyp_log_stats(size_t count)
 			log_len, count, TZDBG_HYP_LOG);
 }
 
+static int _disp_rm_log_stats(size_t count)
+{
+	static struct rmdbg_log_pos_t log_start = { 0 };
+	struct rmdbg_log_hdr_t *p_log_hdr = NULL;
+	uint8_t *log_ptr = NULL;
+	uint32_t log_len = 0;
+	static bool wrap_around = { false };
+
+	/* Return 0 to close the display file,if there is nothing else to do */
+	if ((log_start.size == 0x0) && wrap_around) {
+		wrap_around = false;
+		return 0;
+	}
+	/* Copy RM log data to tzdbg diag buffer for the first time */
+	/* Initialize the tracking data structure */
+	if (tzdbg.rmlog_rw_buf_size != 0) {
+		if (!wrap_around) {
+			memcpy_fromio((void *)tzdbg.rm_diag_buf,
+					tzdbg.rmlog_virt_iobase,
+					tzdbg.rmlog_rw_buf_size);
+			/* get RM header info first */
+			p_log_hdr = (struct rmdbg_log_hdr_t *)tzdbg.rm_diag_buf;
+			/* Update RM log buffer index tracker and its size */
+			log_start.read_idx = 0x0;
+			log_start.size = p_log_hdr->size;
+		}
+		/* Update RM log buffer starting ptr */
+		log_ptr =
+			(uint8_t *) ((unsigned char *)tzdbg.rm_diag_buf +
+				 sizeof(struct rmdbg_log_hdr_t));
+	} else {
+	/* Return 0 to close the display file,if there is nothing else to do */
+		pr_err("There is no RM log to read, size is %d!\n",
+			tzdbg.rmlog_rw_buf_size);
+		return 0;
+	}
+	log_len = log_start.size;
+	log_ptr += log_start.read_idx;
+	/* Check if we exceed the max length provided by user space */
+	log_len = (count > log_len) ? log_len : count;
+	/* Update tracking data structure */
+	log_start.size -= log_len;
+	log_start.read_idx += log_len;
+
+	if (log_start.size)
+		wrap_around =  true;
+	return __disp_rm_log_stats(log_ptr, log_len);
+}
+
 static int _disp_qsee_log_stats(size_t count)
 {
 	static struct tzdbg_log_pos_t log_start = {0};
@@ -1148,6 +1226,10 @@ static ssize_t tzdbg_fs_read_unencrypted(int tz_id, char __user *buf,
 		len = _disp_hyp_log_stats(count);
 		*offp = 0;
 		break;
+	case TZDBG_RM_LOG:
+		len = _disp_rm_log_stats(count);
+		*offp = 0;
+		break;
 	default:
 		break;
 	}
@@ -1213,7 +1295,8 @@ static ssize_t tzdbg_fs_read(struct file *file, char __user *buf,
 	}
 
 	if (!tzdbg.is_encrypted_log_enabled ||
-		(tz_id == TZDBG_HYP_GENERAL || tz_id == TZDBG_HYP_LOG))
+	    (tz_id == TZDBG_HYP_GENERAL || tz_id == TZDBG_HYP_LOG)
+	    || tz_id == TZDBG_RM_LOG)
 		return tzdbg_fs_read_unencrypted(tz_id, buf, count, offp);
 	else
 		return tzdbg_fs_read_encrypted(tz_id, buf, count, offp);
@@ -1412,6 +1495,7 @@ err:
 static void tzdbg_fs_exit(struct platform_device *pdev)
 {
 	struct proc_dir_entry *dent_dir;
+
 	dent_dir = platform_get_drvdata(pdev);
 	if (dent_dir)
 		remove_proc_entry(TZDBG_DIR_NAME, NULL);
@@ -1460,6 +1544,55 @@ static int __update_hypdbg_base(struct platform_device *pdev,
 	return 0;
 }
 
+static int __update_rmlog_base(struct platform_device *pdev,
+			       void __iomem *virt_iobase)
+{
+	uint32_t rmlog_address;
+	uint32_t rmlog_size;
+	uint32_t *ptr = NULL;
+
+	/* if we don't get the node just ignore it */
+	if (of_property_read_u32((&pdev->dev)->of_node, "rmlog-address",
+							&rmlog_address)) {
+		dev_err(&pdev->dev, "RM log address is not defined\n");
+		tzdbg.rmlog_rw_buf_size = 0;
+		return 0;
+	}
+	/* if we don't get the node just ignore it */
+	if (of_property_read_u32((&pdev->dev)->of_node, "rmlog-size",
+							&rmlog_size)) {
+		dev_err(&pdev->dev, "RM log size is not defined\n");
+		tzdbg.rmlog_rw_buf_size = 0;
+		return 0;
+	}
+
+	tzdbg.rmlog_rw_buf_size = rmlog_size;
+
+	/* Check if there is RM log to read */
+	if (!tzdbg.rmlog_rw_buf_size) {
+		tzdbg.rmlog_virt_iobase = NULL;
+		tzdbg.rm_diag_buf = NULL;
+		dev_err(&pdev->dev, "RM log size is %d\n",
+			tzdbg.rmlog_rw_buf_size);
+		return 0;
+	}
+
+	tzdbg.rmlog_virt_iobase = devm_ioremap(&pdev->dev,
+					rmlog_address,
+					rmlog_size);
+	if (!tzdbg.rmlog_virt_iobase) {
+		dev_err(&pdev->dev, "ERROR could not ioremap: start=%pr, len=%u\n",
+			rmlog_address, tzdbg.rmlog_rw_buf_size);
+		return -ENXIO;
+	}
+
+	ptr = kzalloc(tzdbg.rmlog_rw_buf_size, GFP_KERNEL);
+	if (!ptr)
+		return -ENOMEM;
+
+	tzdbg.rm_diag_buf = (uint8_t *)ptr;
+	return 0;
+}
 static int tzdbg_get_tz_version(void)
 {
 	u64 version;
@@ -1567,6 +1700,13 @@ static int tz_log_probe(struct platform_device *pdev)
 			if (ret) {
 				dev_err(&pdev->dev,
 					"%s: fail to get hypdbg_base ret %d\n",
+					__func__, ret);
+				return -EINVAL;
+			}
+			ret = __update_rmlog_base(pdev, virt_iobase);
+			if (ret) {
+				dev_err(&pdev->dev,
+					"%s: fail to get rmlog_base ret %d\n",
 					__func__, ret);
 				return -EINVAL;
 			}
