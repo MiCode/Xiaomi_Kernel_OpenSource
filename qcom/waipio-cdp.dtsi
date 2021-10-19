@@ -212,6 +212,12 @@
 
 		novatek,reset-gpio = <&tlmm 20 0x00>;
 		novatek,irq-gpio = <&tlmm 21 0x2008>;
+
+		novatek,trusted-touch-mode = "vm_mode";
+		novatek,touch-environment = "pvm";
+		novatek,trusted-touch-spi-irq = <754>;
+		novatek,trusted-touch-io-bases = <0xF110000 0xF111000 0xF112000 0xF113000 0xF114000 0xF115000 0x990000 0x00910000>;
+		novatek,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
 	};
 };
 
