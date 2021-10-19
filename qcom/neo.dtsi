@@ -20,7 +20,9 @@
 
 	reserved_memory: reserved-memory { };
 
-	aliases { };
+	aliases {
+		mmc0 = &sdhc_1; /*SDC1 eMMC slot*/
+	};
 
 	chosen {
 		bootargs = " console=ttyMSM0,115200n8 loglevel=8";
@@ -332,6 +334,42 @@
 		clock-output-names = "gpucc_clocks";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	sdhc_1: sdhci@7C4000 {
+		status = "disabled";
+
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x007C4000 0x1000>, <0x007C5000 0x1000>;
+		reg-names = "hc", "cqhci";
+
+		interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		bus-width = <8>;
+		non-removable;
+		supports-cqe;
+
+		no-sd;
+		no-sdio;
+
+		mmc-ddr-1_8v;
+		mmc-hs200-1_8v;
+		mmc-hs400-1_8v;
+		mmc-hs400-enhanced-strobe;
+
+		clocks = <&gcc GCC_SDCC1_AHB_CLK>,
+			<&gcc GCC_SDCC1_APPS_CLK>,
+			<&gcc GCC_SDCC1_ICE_CORE_CLK>;
+		clock-names = "iface", "core", "ice_core";
+
+		qcom,ice-clk-rates = <300000000 100000000>;
+
+		qos0 {
+			mask = <0x0f>;
+			vote = <44>;
+		};
 	};
 
 	clk_virt: interconnect@0 {
