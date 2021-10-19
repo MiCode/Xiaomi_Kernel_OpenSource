@@ -31,6 +31,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
 			cpu-idle-states = <&SILVER_OFF>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
 			L2_0: l2-cache {
@@ -52,6 +54,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_0>; /* silver L2 sharing */
 			cpu-idle-states = <&SILVER_OFF>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			power-domains = <&CPU_PD1>;
 			power-domain-names = "psci";
 		};
@@ -63,6 +67,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_2>;
 			cpu-idle-states = <&SILVER_OFF>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			power-domains = <&CPU_PD2>;
 			power-domain-names = "psci";
 			L2_2: l2-cache {
@@ -79,6 +85,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_2>; /* silver L2 sharing */
 			cpu-idle-states = <&SILVER_OFF>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			power-domains = <&CPU_PD3>;
 			power-domain-names = "psci";
 		};
@@ -90,6 +98,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_4>;
 			cpu-idle-states = <&GOLD_OFF>;
+			capacity-dmips-mhz = <2253>;
+			dynamic-power-coefficient = <257>;
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
 			L2_4: l2-cache {
@@ -106,6 +116,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_5>;
 			cpu-idle-states = <&GOLD_OFF>;
+			capacity-dmips-mhz = <2253>;
+			dynamic-power-coefficient = <257>;
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
 			L2_5: l2-cache {
@@ -122,6 +134,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_6>;
 			cpu-idle-states = <&GOLD_OFF>;
+			capacity-dmips-mhz = <2253>;
+			dynamic-power-coefficient = <257>;
 			power-domains = <&CPU_PD6>;
 			power-domain-names = "psci";
 			L2_6: l2-cache {
@@ -138,6 +152,8 @@
 			enable-method = "psci";
 			next-level-cache = <&L2_7>;
 			cpu-idle-states = <&GOLD_OFF>;
+			capacity-dmips-mhz = <2386>;
+			dynamic-power-coefficient = <509>;
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
 			L2_7: l2-cache {
