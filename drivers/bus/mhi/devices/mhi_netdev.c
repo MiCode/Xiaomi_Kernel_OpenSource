@@ -130,19 +130,20 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev);
 
 static __be16 mhi_netdev_ip_type_trans(u8 data)
 {
-	__be16 protocol = 0;
+	__be16 protocol = htons(ETH_P_MAP);
 
 	/* determine L3 protocol */
 	switch (data & 0xf0) {
 	case 0x40:
-		protocol = htons(ETH_P_IP);
+		/* length must be 5 at a minimum to support 20 byte IP header */
+		if ((data & 0x0f) > 4)
+			protocol = htons(ETH_P_IP);
 		break;
 	case 0x60:
 		protocol = htons(ETH_P_IPV6);
 		break;
 	default:
-		/* default is QMAP */
-		protocol = htons(ETH_P_MAP);
+		/* default is already QMAP */
 		break;
 	}
 	return protocol;
