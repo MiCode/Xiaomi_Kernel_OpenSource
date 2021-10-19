@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -36,6 +36,12 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 		pr_debug("signaling synx 0x%x from external callback %d\n",
 			synx_obj, sync_obj);
 		synx_signal_core(row, status);
+
+		/*
+		 * release the reference on the metadata
+		 * obtained during callback registration.
+		 */
+		synx_release_handle(row);
 	} else {
 		pr_err("invalid callback from sync external obj %d\n",
 			sync_obj);
@@ -148,6 +154,7 @@ int synx_register_callback(s32 synx_obj,
 			pr_err("duplicate registration for synx 0x%x\n",
 				synx_obj);
 			mutex_unlock(&synx_dev->row_locks[row->index]);
+			synx_release_handle(row);
 			return -EALREADY;
 		}
 	}
@@ -155,6 +162,7 @@ int synx_register_callback(s32 synx_obj,
 	synx_cb = kzalloc(sizeof(*synx_cb), GFP_KERNEL);
 	if (!synx_cb) {
 		mutex_unlock(&synx_dev->row_locks[row->index]);
+		synx_release_handle(row);
 		return -ENOMEM;
 	}
 
@@ -172,12 +180,13 @@ int synx_register_callback(s32 synx_obj,
 		queue_work(synx_dev->work_queue,
 			&synx_cb->cb_dispatch_work);
 		mutex_unlock(&synx_dev->row_locks[row->index]);
+		synx_release_handle(row);
 		return 0;
 	}
 
 	list_add_tail(&synx_cb->list, &row->callback_list);
 	mutex_unlock(&synx_dev->row_locks[row->index]);
-
+	synx_release_handle(row);
 	return 0;
 }
 
@@ -217,6 +226,7 @@ int synx_deregister_callback(s32 synx_obj,
 	}
 
 	mutex_unlock(&synx_dev->row_locks[row->index]);
+	synx_release_handle(row);
 	return 0;
 }
 
@@ -318,6 +328,7 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 		if (!bind_ops) {
 			pr_err("invalid bind ops for %u\n",
 				bind_descs[i].external_desc.type);
+			synx_release_handle(row);
 			kfree(data);
 			continue;
 		}
@@ -327,9 +338,18 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 		 */
 		ret = bind_ops->deregister_callback(
 				synx_external_callback, data, sync_id);
-		if (ret < 0)
+		if (ret < 0) {
 			pr_err("de-registration fail on sync: %d, err: %d\n",
 				sync_id, ret);
+			continue;
+		}
+
+		/*
+		 * release the reference on the metadata
+		 * obtained during callback registration.
+		 */
+		synx_release_handle(row);
+
 		pr_debug("signaling external sync: %d, status: %u\n",
 			sync_id, status);
 		/* optional function to enable external signaling */
@@ -361,6 +381,7 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 
 int synx_signal(s32 synx_obj, u32 status)
 {
+	int rc;
 	struct synx_table_row *row = NULL;
 
 	row = synx_from_handle(synx_obj);
@@ -369,7 +390,9 @@ int synx_signal(s32 synx_obj, u32 status)
 		return -EINVAL;
 	}
 
-	return synx_signal_core(row, status);
+	rc = synx_signal_core(row, status);
+	synx_release_handle(row);
+	return rc;
 }
 
 int synx_merge(s32 *synx_objs, u32 num_objs, s32 *synx_merged)
@@ -440,6 +463,29 @@ free:
 	return rc;
 }
 
+static void synx_remove_handle(struct kref *kref)
+{
+	struct synx_obj_node *obj_node, *temp_obj_node;
+	struct synx_handle_entry *entry =
+		container_of(kref, struct synx_handle_entry, refcount);
+	struct synx_table_row *row = entry->row;
+
+	idr_remove(&synx_dev->synx_ids, entry->synx_obj);
+	if (row)
+		list_for_each_entry_safe(obj_node,
+			temp_obj_node, &row->synx_obj_list, list) {
+			if (obj_node->synx_obj == entry->synx_obj) {
+				pr_debug("removed synx obj at 0x%x successful\n",
+					obj_node->synx_obj);
+				list_del_init(&obj_node->list);
+				kfree(obj_node);
+			}
+		}
+
+	pr_debug("released handle entry %pK\n", entry);
+	kfree(entry);
+}
+
 static int synx_release_core(struct synx_table_row *row)
 {
 	s32 idx;
@@ -450,10 +496,10 @@ static int synx_release_core(struct synx_table_row *row)
 	 * (definitely for merged synx on invoing deinit)
 	 * be carefull while accessing the metadata
 	 */
-	mutex_lock(&synx_dev->row_locks[row->index]);
-	fence = row->fence;
 	idx = row->index;
-	if (!idx) {
+	mutex_lock(&synx_dev->row_locks[idx]);
+	fence = row->fence;
+	if ((!idx) || (!fence)) {
 		mutex_unlock(&synx_dev->row_locks[idx]);
 		pr_err("object already cleaned up at %d\n", idx);
 		return -EINVAL;
@@ -466,7 +512,7 @@ static int synx_release_core(struct synx_table_row *row)
 	if (is_merged_synx(row))
 		synx_deinit_object(row);
 
-	/* do not reference fence and row in the function after this */
+	/* remove the reference taken during create */
 	dma_fence_put(fence);
 	mutex_unlock(&synx_dev->row_locks[idx]);
 	pr_debug("Exit %s\n", __func__);
@@ -476,7 +522,11 @@ static int synx_release_core(struct synx_table_row *row)
 
 int synx_release(s32 synx_obj)
 {
+	int rc;
 	struct synx_table_row *row  = NULL;
+	struct dma_fence *fence;
+	struct synx_handle_entry *entry;
+	unsigned long flags;
 
 	pr_debug("Enter %s\n", __func__);
 
@@ -486,7 +536,21 @@ int synx_release(s32 synx_obj)
 		return -EINVAL;
 	}
 
-	return synx_release_core(row);
+	spin_lock_irqsave(&synx_dev->idr_lock, flags);
+	entry = idr_find(&synx_dev->synx_ids, synx_obj);
+	if (entry)
+		kref_put(&entry->refcount, synx_remove_handle);
+	spin_unlock_irqrestore(&synx_dev->idr_lock, flags);
+
+	if (!entry) {
+		pr_err("synx already released: 0x%x\n", synx_obj);
+		return -EINVAL;
+	}
+
+	fence = row->fence;
+	rc = synx_release_core(row);
+	dma_fence_put(fence);
+	return rc;
 }
 
 int synx_wait(s32 synx_obj, u64 timeout_ms)
@@ -507,6 +571,7 @@ int synx_wait(s32 synx_obj, u64 timeout_ms)
 		mutex_unlock(&synx_dev->row_locks[row->index]);
 		pr_err("object already cleaned up at %d\n",
 			row->index);
+		synx_release_handle(row);
 		return -EINVAL;
 	}
 	mutex_unlock(&synx_dev->row_locks[row->index]);
@@ -515,14 +580,17 @@ int synx_wait(s32 synx_obj, u64 timeout_ms)
 					msecs_to_jiffies(timeout_ms));
 	if (timeleft <= 0) {
 		pr_err("timed out for synx obj 0x%x\n", synx_obj);
+		synx_release_handle(row);
 		return -ETIMEDOUT;
 	}
 
 	if (synx_status(row) != SYNX_STATE_SIGNALED_SUCCESS) {
 		pr_err("signaled error on synx obj 0x%x\n", synx_obj);
+		synx_release_handle(row);
 		return -EINVAL;
 	}
 
+	synx_release_handle(row);
 	pr_debug("Exit %s\n", __func__);
 
 	return 0;
@@ -546,6 +614,7 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 
 	if (is_merged_synx(row)) {
 		pr_err("cannot bind to merged fence: 0x%x\n", synx_obj);
+		synx_release_handle(row);
 		return -EINVAL;
 	}
 
@@ -553,18 +622,22 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 	if (!bind_ops) {
 		pr_err("invalid bind ops for %u\n",
 			external_sync.type);
+		synx_release_handle(row);
 		return -EINVAL;
 	}
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
-	if (!data)
+	if (!data) {
+		synx_release_handle(row);
 		return -ENOMEM;
+	}
 
 	mutex_lock(&synx_dev->row_locks[row->index]);
 	if (synx_status(row) != SYNX_STATE_ACTIVE) {
 		pr_err("bind to non-active synx is prohibited 0x%x\n",
 			synx_obj);
 		mutex_unlock(&synx_dev->row_locks[row->index]);
+		synx_release_handle(row);
 		kfree(data);
 		return -EINVAL;
 	}
@@ -573,6 +646,7 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 		pr_err("max number of bindings reached for synx_objs 0x%x\n",
 			synx_obj);
 		mutex_unlock(&synx_dev->row_locks[row->index]);
+		synx_release_handle(row);
 		kfree(data);
 		return -ENOMEM;
 	}
@@ -584,6 +658,7 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 			pr_err("duplicate binding for external sync %d\n",
 				external_sync.id[0]);
 			mutex_unlock(&synx_dev->row_locks[row->index]);
+			synx_release_handle(row);
 			kfree(data);
 			return -EALREADY;
 		}
@@ -593,12 +668,21 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 	data->synx_obj = synx_obj;
 	data->secure_key = synx_generate_secure_key(row);
 
+	/*
+	 * get reference to avoid cleanup of synx handle.
+	 * reference would be released in the callback function.
+	 */
+	dma_fence_get(row->fence);
+
 	rc = bind_ops->register_callback(synx_external_callback,
 			data, external_sync.id[0]);
 	if (rc < 0) {
 		pr_err("callback registration failed for %d\n",
 			external_sync.id[0]);
+		/* release the callback reference obtained */
+		dma_fence_put(row->fence);
 		mutex_unlock(&synx_dev->row_locks[row->index]);
+		synx_release_handle(row);
 		kfree(data);
 		return rc;
 	}
@@ -612,12 +696,14 @@ int synx_bind(s32 synx_obj, struct synx_external_desc external_sync)
 	pr_debug("added external sync %d to bindings of 0x%x\n",
 		external_sync.id[0], synx_obj);
 
+	synx_release_handle(row);
 	pr_debug("Exit %s\n", __func__);
 	return rc;
 }
 
 int synx_get_status(s32 synx_obj)
 {
+	int rc;
 	struct synx_table_row *row = NULL;
 
 	pr_debug("getting the status for synx 0x%x\n", synx_obj);
@@ -628,12 +714,16 @@ int synx_get_status(s32 synx_obj)
 		return SYNX_STATE_INVALID;
 	}
 
-	return synx_status(row);
+	rc = synx_status(row);
+	synx_release_handle(row);
+	return rc;
 }
 
 int synx_addrefcount(s32 synx_obj, s32 count)
 {
 	struct synx_table_row *row = NULL;
+	struct synx_handle_entry *entry;
+	unsigned long flags;
 
 	row = synx_from_handle(synx_obj);
 	if (!row) {
@@ -647,11 +737,36 @@ int synx_addrefcount(s32 synx_obj, s32 count)
 		return -EINVAL;
 	}
 
+	spin_lock_irqsave(&synx_dev->idr_lock, flags);
+	entry = idr_find(&synx_dev->synx_ids, synx_obj);
+	if (entry)
+		kref_get(&entry->refcount);
+	spin_unlock_irqrestore(&synx_dev->idr_lock, flags);
+
+	if (!entry) {
+		pr_err("invalid synx handle entry: 0x%x\n", synx_obj);
+		synx_release_handle(row);
+		return -EINVAL;
+	}
+
 	mutex_lock(&synx_dev->row_locks[row->index]);
-	while (count--)
+	while (count--) {
 		dma_fence_get(row->fence);
+		/*
+		 * since each addrefcount needs to be released
+		 * explicitly through separate release call,
+		 * additional references have to be taken on
+		 * handle entry to prevent leak.
+		 */
+		kref_get(&entry->refcount);
+	}
 	mutex_unlock(&synx_dev->row_locks[row->index]);
 
+	spin_lock_irqsave(&synx_dev->idr_lock, flags);
+	kref_put(&entry->refcount, synx_remove_handle);
+	spin_unlock_irqrestore(&synx_dev->idr_lock, flags);
+
+	synx_release_handle(row);
 	return 0;
 }
 
@@ -714,18 +829,15 @@ int synx_import(s32 synx_obj, u32 import_key, s32 *new_synx_obj)
 
 int synx_export(s32 synx_obj, u32 *import_key)
 {
-	int rc;
+	int rc = 0;
 	struct synx_table_row *row = NULL;
+	struct dma_fence *fence = NULL;
 
 	pr_debug("Enter %s\n", __func__);
 
 	row = synx_from_handle(synx_obj);
 	if (!row)
 		return -EINVAL;
-
-	rc = synx_generate_import_key(row, synx_obj, import_key);
-	if (rc < 0)
-		return rc;
 
 	mutex_lock(&synx_dev->row_locks[row->index]);
 	/*
@@ -735,11 +847,29 @@ int synx_export(s32 synx_obj, u32 *import_key)
 	 * and account for the extra reference. Otherwise, this will
 	 * be a dangling reference and needs to be garbage collected.
 	 */
-	dma_fence_get(row->fence);
+	if (row->fence) {
+		dma_fence_get(row->fence);
+		fence = row->fence;
+	} else {
+		rc = -EINVAL;
+	}
 	mutex_unlock(&synx_dev->row_locks[row->index]);
+
+	if (rc) {
+		pr_err("invalid export of synx obj %d\n", synx_obj);
+		return rc;
+	}
+
+	rc = synx_generate_import_key(row, synx_obj, import_key, fence);
+	if (rc < 0) {
+		dma_fence_put(fence);
+		pr_err("export of synx obj %d failed\n", synx_obj);
+	}
+
+	synx_release_handle(row);
 	pr_debug("Exit %s\n", __func__);
 
-	return 0;
+	return rc;
 }
 
 
@@ -952,12 +1082,15 @@ static int synx_handle_register_user_payload(
 
 	if (!client) {
 		pr_err("invalid client for process %d\n", current->pid);
+		synx_release_handle(row);
 		return -EINVAL;
 	}
 
 	user_payload_kernel = kzalloc(sizeof(*user_payload_kernel), GFP_KERNEL);
-	if (!user_payload_kernel)
+	if (!user_payload_kernel) {
+		synx_release_handle(row);
 		return -ENOMEM;
+	}
 
 	user_payload_kernel->client = client;
 	user_payload_kernel->data.synx_obj = synx_obj;
@@ -975,6 +1108,7 @@ static int synx_handle_register_user_payload(
 		list_add_tail(&user_payload_kernel->list, &client->eventq);
 		mutex_unlock(&client->eventq_lock);
 		mutex_unlock(&synx_dev->row_locks[row->index]);
+		synx_release_handle(row);
 		wake_up_all(&client->wq);
 		return 0;
 	}
@@ -988,6 +1122,7 @@ static int synx_handle_register_user_payload(
 			pr_err("callback already registered on 0x%x\n",
 				synx_obj);
 			mutex_unlock(&synx_dev->row_locks[row->index]);
+			synx_release_handle(row);
 			kfree(user_payload_kernel);
 			return -EALREADY;
 		}
@@ -995,6 +1130,7 @@ static int synx_handle_register_user_payload(
 
 	list_add_tail(&user_payload_kernel->list, &row->user_payload_list);
 	mutex_unlock(&synx_dev->row_locks[row->index]);
+	synx_release_handle(row);
 
 	pr_debug("Exit %s\n", __func__);
 	return 0;
@@ -1030,6 +1166,7 @@ static int synx_handle_deregister_user_payload(
 
 	if (!client) {
 		pr_err("invalid client for process %d\n", current->pid);
+		synx_release_handle(row);
 		return -EINVAL;
 	}
 
@@ -1078,6 +1215,7 @@ static int synx_handle_deregister_user_payload(
 		wake_up_all(&client->wq);
 	}
 
+	synx_release_handle(row);
 	pr_debug("Exit %s\n", __func__);
 	return 0;
 }

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SYNX_PRIVATE_H__
@@ -151,6 +151,19 @@ struct synx_table_row {
 	struct synx_bind_desc bound_synxs[SYNX_MAX_NUM_BINDINGS];
 	struct list_head callback_list;
 	struct list_head user_payload_list;
+};
+
+/**
+ * struct synx_handle_entry - Entry saved in the IDR handle table
+ *
+ * @row      : Pointer to synx object
+ * @synx_obj : Synx unique ID
+ * @refcount : Reference count
+ */
+struct synx_handle_entry {
+	struct synx_table_row *row;
+	s32 synx_obj;
+	struct kref refcount;
 };
 
 /**

@@ -1061,15 +1061,27 @@ static int qcom_smem_map_toc(struct qcom_smem *smem, struct device *dev,
 	return 0;
 }
 
-static int qcom_smem_mamp_legacy(struct qcom_smem *smem)
+static int qcom_smem_map_legacy(struct qcom_smem *smem)
 {
 	struct smem_header *header;
 	u32 phys_addr;
 	u32 p_size;
+	unsigned long flags;
+	int ret;
 
 	phys_addr = smem->regions[0].aux_base;
-	header = smem->regions[0].virt_base;
-	p_size = header->available;
+	header = (struct smem_header __iomem *)smem->regions[0].virt_base;
+
+	ret = hwspin_lock_timeout_irqsave(smem->hwlock,
+					  HWSPINLOCK_TIMEOUT,
+					  &flags);
+	if (ret)
+		return ret;
+
+	p_size = readl_relaxed(&header->available) +
+			readl_relaxed(&header->free_offset);
+
+	hwspin_unlock_irqrestore(smem->hwlock, &flags);
 
 	/* unmap previously mapped starting 4k for smem header */
 	devm_iounmap(smem->dev, smem->regions[0].virt_base);
@@ -1121,27 +1133,6 @@ static int qcom_smem_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	version = qcom_smem_get_sbl_version(smem);
-	switch (version >> 16) {
-	case SMEM_GLOBAL_PART_VERSION:
-		ret = qcom_smem_set_global_partition(smem);
-		if (ret < 0)
-			return ret;
-		smem->item_count = qcom_smem_get_item_count(smem);
-		break;
-	case SMEM_GLOBAL_HEAP_VERSION:
-		qcom_smem_mamp_legacy(smem);
-		smem->item_count = SMEM_ITEM_COUNT;
-		break;
-	default:
-		dev_err(&pdev->dev, "Unsupported SMEM version 0x%x\n", version);
-		return -EINVAL;
-	}
-
-	ret = qcom_smem_enumerate_partitions(smem, SMEM_HOST_APPS);
-	if (ret < 0 && ret != -ENOENT)
-		return ret;
-
 	hwlock_id = of_hwspin_lock_get_id(pdev->dev.of_node, 0);
 	if (hwlock_id < 0) {
 		if (hwlock_id != -EPROBE_DEFER)
@@ -1152,6 +1143,27 @@ static int qcom_smem_probe(struct platform_device *pdev)
 	smem->hwlock = hwspin_lock_request_specific(hwlock_id);
 	if (!smem->hwlock)
 		return -ENXIO;
+
+	version = qcom_smem_get_sbl_version(smem);
+	switch (version >> 16) {
+	case SMEM_GLOBAL_PART_VERSION:
+		ret = qcom_smem_set_global_partition(smem);
+		if (ret < 0)
+			return ret;
+		smem->item_count = qcom_smem_get_item_count(smem);
+		break;
+	case SMEM_GLOBAL_HEAP_VERSION:
+		qcom_smem_map_legacy(smem);
+		smem->item_count = SMEM_ITEM_COUNT;
+		break;
+	default:
+		dev_err(&pdev->dev, "Unsupported SMEM version 0x%x\n", version);
+		return -EINVAL;
+	}
+
+	ret = qcom_smem_enumerate_partitions(smem, SMEM_HOST_APPS);
+	if (ret < 0 && ret != -ENOENT)
+		return ret;
 
 	__smem = smem;
 
