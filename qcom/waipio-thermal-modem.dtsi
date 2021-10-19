@@ -42,33 +42,33 @@
 				#cooling-cells = <2>;
 			};
 
-			pa_sdr0_dsc: pa_sdr0_dsc {
-				qcom,qmi-dev-name = "pa_sdr0_dsc";
+			pa_lte_sdr0_dsc: pa_lte_sdr0_dsc {
+				qcom,qmi-dev-name = "pa_lte_sdr0_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_sdr1_dsc: pa_sdr1_dsc {
-				qcom,qmi-dev-name = "pa_sdr1_dsc";
+			pa_lte_sdr1_dsc: pa_lte_sdr1_dsc {
+				qcom,qmi-dev-name = "pa_lte_sdr1_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_fr1_sdr0_dsc: pa_fr1_sdr0_dsc {
-				qcom,qmi-dev-name = "pa_fr1_sdr0_dsc";
+			pa_nr_sdr0_dsc: pa_nr_sdr0_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr0_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_fr1_sdr1_dsc: pa_fr1_sdr1_dsc {
-				qcom,qmi-dev-name = "pa_fr1_sdr1_dsc";
+			pa_nr_sdr1_dsc: pa_nr_sdr1_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr1_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_fr1_sdr0_scg_dsc: pa_fr1_sdr0_scg_dsc {
-				qcom,qmi-dev-name = "pa_fr1_sdr0_scg_dsc";
+			pa_nr_sdr0_scg_dsc: pa_nr_sdr0_scg_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr0_scg_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_fr1_sdr1_scg_dsc: pa_fr1_sdr1_scg_dsc {
-				qcom,qmi-dev-name = "pa_fr1_sdr1_scg_dsc";
+			pa_nr_sdr1_scg_dsc: pa_nr_sdr1_scg_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr1_scg_dsc";
 				#cooling-cells = <2>;
 			};
 
@@ -92,11 +92,6 @@
 				#cooling-cells = <2>;
 			};
 
-			mmw_ul_throttle_dsc: mmw_ul_throttling_dsc {
-				qcom,qmi-dev-name = "mmw_ul_throttling_dsc";
-				#cooling-cells = <2>;
-			};
-
 			mmw_ific_dsc: mmw_ific_dsc {
 				qcom,qmi-dev-name = "mmw_ific_dsc";
 				#cooling-cells = <2>;
@@ -104,11 +99,6 @@
 
 			qmi_wlan: wlan {
 				qcom,qmi-dev-name = "wlan";
-				#cooling-cells = <2>;
-			};
-
-			wlan_bw: wlan_bw {
-				qcom,qmi-dev-name = "wlan_bw";
 				#cooling-cells = <2>;
 			};
 
