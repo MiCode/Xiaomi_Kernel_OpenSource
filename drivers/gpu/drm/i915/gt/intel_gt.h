@@ -57,4 +57,6 @@ static inline bool intel_gt_is_wedged(struct intel_gt *gt)
 
 void intel_gt_queue_hangcheck(struct intel_gt *gt);
 
+void intel_gt_invalidate_tlbs(struct intel_gt *gt);
+
 #endif /* __INTEL_GT_H__ */
