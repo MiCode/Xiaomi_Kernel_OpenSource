@@ -711,7 +711,7 @@ static int gen7_hwsched_power_off(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
-	int ret;
+	int ret = 0;
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		return 0;
@@ -721,8 +721,11 @@ static int gen7_hwsched_power_off(struct adreno_device *adreno_dev)
 	/* process any profiling results that are available */
 	adreno_profile_process_results(ADRENO_DEVICE(device));
 
-	if (!gen7_hw_isidle(adreno_dev))
+	if (!gen7_hw_isidle(adreno_dev)) {
 		dev_err(&gmu->pdev->dev, "GPU isn't idle before SLUMBER\n");
+		gmu_core_fault_snapshot(device);
+		goto no_gx_power;
+	}
 
 	ret = gen7_gmu_oob_set(device, oob_gpu);
 	if (ret) {
