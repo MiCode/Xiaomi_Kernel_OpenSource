@@ -143,13 +143,9 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		1. for 8k, feedback channel
 		2. 44.1k, 88.2k rxports
 	*/
-	if ((((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
+	if (((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
 		(rxport == 1 && (rates == 44100 || rates == 88200))) &&
-		btfm_slim_is_sb_reset_needed(chipset_ver)) ||
-		chipset_ver == QCA_HSP_SOC_ID_0200 ||
-		chipset_ver == QCA_HSP_SOC_ID_0210 ||
-		chipset_ver == QCA_HSP_SOC_ID_1201 ||
-		chipset_ver == QCA_HSP_SOC_ID_1211) {
+		btfm_slim_is_sb_reset_needed(chipset_ver)) {
 
 		BTFMSLIM_INFO("btfm_is_port_opening_delayed %d",
 					btfm_is_port_opening_delayed);
@@ -381,6 +377,14 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 			"IFD Enum Addr: manu id:%.02x prod code:%.02x dev idx:%.02x instance:%.02x",
 			slim_ifd->e_addr.manf_id, slim_ifd->e_addr.prod_code,
 			slim_ifd->e_addr.dev_index, slim_ifd->e_addr.instance);
+
+	if (chipset_ver == QCA_HSP_SOC_ID_0200 ||
+		chipset_ver == QCA_HSP_SOC_ID_0210 ||
+		chipset_ver == QCA_HSP_SOC_ID_1201 ||
+		chipset_ver == QCA_HSP_SOC_ID_1211) {
+		BTFMSLIM_INFO("SB reset needed before getting LA, sleeping");
+		msleep(DELAY_FOR_PORT_OPEN_MS);
+	}
 
 	/* Assign Logical Address for PGD (Ported Generic Device)
 	 * enumeration address
