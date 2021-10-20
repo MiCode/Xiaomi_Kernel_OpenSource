@@ -56,3 +56,4 @@ obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
+obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
