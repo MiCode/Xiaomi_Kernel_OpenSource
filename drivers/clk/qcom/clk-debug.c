@@ -756,24 +756,46 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 		if (!clk_hw)
 			break;
 
-		clk_enabled = clk_hw_is_enabled(clk_hw);
-		clk_prepared = clk_hw_is_prepared(clk_hw);
 		clk_rate = clk_hw_get_rate(clk_hw);
 		vdd_level = clk_list_rate_vdd_level(clk_hw, clk_rate);
 
-		if (vdd_level)
-			clock_debug_output_cont(s, "%s%s:%u:%u [%ld, %d]", start,
+		if (s) {
+			/*
+			 * Only call clk_hw_is_enabled() if we're printing to a
+			 * debugfs file. If we're printing to the kernel log in
+			 * the debug_suspend path, then we aren't guaranteed to
+			 * have the necessary regulators enabled for register
+			 * access. And if the clock defines the is_enabled()
+			 * callback, then it'll access registers and cause a
+			 * bus error.
+			 */
+			clk_enabled = clk_hw_is_enabled(clk_hw);
+			clk_prepared = clk_hw_is_prepared(clk_hw);
+
+			if (vdd_level)
+				clock_debug_output_cont(s, "%s%s:%u:%u [%ld, %d]", start,
+					clk_hw_get_name(clk_hw),
+					clk_enabled,
+					clk_prepared,
+					clk_rate,
+					vdd_level);
+			else
+				clock_debug_output_cont(s, "%s%s:%u:%u [%ld]", start,
+					clk_hw_get_name(clk_hw),
+					clk_enabled,
+					clk_prepared,
+					clk_rate);
+		} else if (vdd_level) {
+			clock_debug_output_cont(s, "%s%s [%ld, %d]", start,
 				clk_hw_get_name(clk_hw),
-				clk_enabled,
-				clk_prepared,
 				clk_rate,
 				vdd_level);
-		else
-			clock_debug_output_cont(s, "%s%s:%u:%u [%ld]", start,
+		} else {
+			clock_debug_output_cont(s, "%s%s [%ld]", start,
 				clk_hw_get_name(clk_hw),
-				clk_enabled,
-				clk_prepared,
 				clk_rate);
+		}
+
 		start = " -> ";
 
 	} while ((clk = clk_get_parent(clk_hw->clk)));
