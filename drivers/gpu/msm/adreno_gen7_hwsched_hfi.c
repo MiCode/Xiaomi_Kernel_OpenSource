@@ -1202,6 +1202,7 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	unsigned long time_in_ns;
 	struct kgsl_context *context = drawobj->context;
 	struct submission_info info = {0};
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
 
 	/*
 	 * Here we are attempting to create a mapping between the
@@ -1234,7 +1235,7 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	time_in_s = time->ktime;
 	time_in_ns = do_div(time_in_s, 1000000000);
 
-	info.inflight = -1;
+	info.inflight = hwsched->inflight;
 	info.rb_id = adreno_get_level(context->priority);
 	info.gmu_dispatch_queue = context->gmu_dispatch_queue;
 
