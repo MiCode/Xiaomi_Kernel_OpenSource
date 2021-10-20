@@ -3202,6 +3202,11 @@
 		qcom,net-id = <0>;
 		qcom,low-latency;
 	};
+
+	qcom,test-dbl {
+		compatible = "qcom,gh-dbl";
+		qcom,label = <0x4>;
+	};
 };
 
 #include "ipcc-test.dtsi"

@@ -194,6 +194,20 @@
 					allocate-base;
 				};
 			};
+
+			test-dbl {
+				vdevice-type = "doorbell";
+				generate = "/hypervisor/test-dbl";
+				qcom,label = <0x4>;
+				peer-default;
+			};
+
+			test-dbl-source {
+				vdevice-type = "doorbell-source";
+				generate = "/hypervisor/test-dbl-source";
+				qcom,label = <0x4>;
+				peer-default;
+			};
 		};
 	};
 
@@ -361,6 +375,11 @@
 		compatible = "qcom,tee-shared-memory-bridge";
 		qcom,custom-bridge-size = <512>;
 		qcom,support-hypervisor;
+	};
+
+	qcom,test-dbl {
+		compatible = "qcom,gh-dbl";
+		qcom,label = <0x4>;
 	};
 };
 
