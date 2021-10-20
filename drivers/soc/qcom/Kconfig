@@ -546,6 +546,7 @@ config USB_BAM
 	  USB BAM driver was added to supports Smart Peripheral Subsystem
 	  Peripheral-to-Peripheral transfers between the USB and other
 	  peripheral.
+
 config QCOM_RAMDUMP
 	tristate "Qualcomm Technologies, Inc. Ramdump driver"
 	default n
@@ -593,6 +594,16 @@ config QCOM_HYP_CORE_CTL
           CPUs can be assigned to the other guest OS by the hypervisor.
           An offline CPU is considered as a reserved CPU since this OS can't use
           it.
+
+config QCOM_FSA4480_I2C
+	tristate "Fairchild FSA4480 chip with I2C"
+	select REGMAP_I2C
+	depends on I2C
+	help
+	  Support for the Fairchild FSA4480 IC switch chip controlled
+	  using I2C. This driver provides common support
+	  for accessing the device, switching between USB and Audio
+	  modes, changing orientation.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
 
