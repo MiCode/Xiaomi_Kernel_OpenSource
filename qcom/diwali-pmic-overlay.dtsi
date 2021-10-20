@@ -76,6 +76,20 @@
 	};
 };
 
+&pm8350c_gpios {
+	lcd_backlight_ctrl {
+		lcd_backlight_ctrl_default: lcd_backlight_ctrl_default {
+			pins = "gpio8";
+			function = "func1";
+			input-disable;
+			output-enable;
+			bias-disable;
+			power-source = <1>;       /* 1.8V */
+			qcom,drive-strength = <2>;
+		};
+	};
+};
+
 &soc {
 	pmic-pon-log {
 		compatible = "qcom,pmic-pon-log";
