@@ -690,7 +690,7 @@ config QCOM_MEM_HOOKS
 
 config QCOM_GLINK_PKT
 	tristate "Enable device interface for GLINK packet channels"
-	depends on RPMSG_QCOM_GLINK_SMEM
+	depends on RPMSG_QCOM_GLINK_SMEM || RPMSG_QCOM_GLINK_HELIOSCOM
 	help
 	  G-link packet driver provides the interface for the userspace
 	  clients to communicate over G-Link via device nodes.
