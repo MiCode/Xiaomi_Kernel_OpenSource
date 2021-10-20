@@ -986,11 +986,11 @@ static int _preemption_init(struct adreno_device *adreno_dev,
 		cmds += cp_protected_mode(adreno_dev, cmds, 0);
 
 	*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 6);
-	*cmds++ = 1;
+	*cmds++ = SET_PSEUDO_PRIV_NON_SECURE_SAVE_ADDR;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->preemption_desc->gpuaddr);
 
-	*cmds++ = 2;
+	*cmds++ = SET_PSEUDO_PRIV_SECURE_SAVE_ADDR;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 		rb->secure_preemption_desc->gpuaddr);
 

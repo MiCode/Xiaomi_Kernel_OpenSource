@@ -579,11 +579,11 @@ static int gen7_post_start(struct adreno_device *adreno_dev)
 		return PTR_ERR(cmds);
 
 	cmds[0] = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 6);
-	cmds[1] = 1;
+	cmds[1] = SET_PSEUDO_PRIV_NON_SECURE_SAVE_ADDR;
 	cmds[2] = lower_32_bits(rb->preemption_desc->gpuaddr);
 	cmds[3] = upper_32_bits(rb->preemption_desc->gpuaddr);
 
-	cmds[4] = 2;
+	cmds[4] = SET_PSEUDO_PRIV_SECURE_SAVE_ADDR;
 	cmds[5] = lower_32_bits(rb->secure_preemption_desc->gpuaddr);
 	cmds[6] = upper_32_bits(rb->secure_preemption_desc->gpuaddr);
 
