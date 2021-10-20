@@ -1,3 +1,4 @@
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/spmi/spmi.h>
@@ -280,6 +281,8 @@
 	};
 };
 
+#include "waipio-clock.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -387,6 +390,11 @@
 				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
 				  <FAST_PATH_TCS 1>;
 		power-domains = <&CLUSTER_PD>;
+
+		clock_rpmh: qcom,rpmhclk {
+			compatible = "qcom,waipio-rpmh-clk";
+			#clock-cells = <1>;
+		};
 	};
 
 	cpuss-sleep-stats@17800054 {
@@ -708,7 +716,26 @@
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};
+};
 
+&clock_gcc {
+	compatible = "qcom,cape-gcc", "syscon";
+};
+
+&clock_videocc {
+	compatible = "qcom,cape-videocc", "syscon";
+};
+
+&clock_camcc {
+	compatible = "qcom,cape-camcc", "syscon";
+};
+
+&clock_dispcc {
+	compatible = "qcom,cape-dispcc", "syscon";
+};
+
+&clock_gpucc {
+	compatible = "qcom,cape-gpucc", "syscon";
 };
 
 #include "cape-pinctrl.dtsi"
