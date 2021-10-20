@@ -31,6 +31,7 @@ phy-qcom-ufs.ko
 pinctrl-kalama.ko
 pinctrl-msm.ko
 proxy-consumer.ko
+qcom-cpufreq-hw.ko
 qcom-dload-mode.ko
 qcom-pdc.ko
 qcom-reboot-reason.ko
