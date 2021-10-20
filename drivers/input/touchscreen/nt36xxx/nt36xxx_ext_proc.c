@@ -17,7 +17,7 @@
  *
  */
 
-#if !IS_ENABLED(CONFIG_TOUCHSCREEN_NT36XXX_SPI) /* TOUCHSCREEN_NT36XXX I2C */
+#if !defined(NVT_NT36XXX_SPI) /* TOUCHSCREEN_NT36XXX I2C */
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -591,7 +591,7 @@ void nvt_extra_proc_deinit(void)
 }
 #endif
 
-#else  /* TOUCHSCREEN_NT36XXX_SPI */
+#else  /* NT36XXX_SPI */
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>

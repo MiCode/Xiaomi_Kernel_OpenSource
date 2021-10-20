@@ -17,7 +17,7 @@
  *
  */
 
-#if !IS_ENABLED(CONFIG_TOUCHSCREEN_NT36XXX_SPI) /* TOUCHSCREEN_NT36XXX I2C */
+#if !defined(NVT_NT36XXX_SPI) /* NT36XXX I2C */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -2023,7 +2023,7 @@ module_exit(nvt_driver_exit);
 MODULE_DESCRIPTION("Novatek Touchscreen Driver");
 MODULE_LICENSE("GPL v2");
 
-#else  /* TOUCHSCREEN_NT36XXX_SPI */
+#else  /* NT36XXX_SPI */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
