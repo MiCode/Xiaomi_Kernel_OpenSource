@@ -544,7 +544,9 @@ int a6xx_rscc_wakeup_sequence(struct adreno_device *adreno_dev)
 	if (!test_bit(GMU_PRIV_RSCC_SLEEP_DONE, &gmu->flags))
 		return 0;
 	 /* A660 has a replacement register */
-	if (adreno_is_a660(ADRENO_DEVICE(device)))
+	if (adreno_is_a662(ADRENO_DEVICE(device)))
+		gmu_core_regread(device, A662_GPU_CC_GX_DOMAIN_MISC3, &val);
+	else if (adreno_is_a660(ADRENO_DEVICE(device)))
 		gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC3, &val);
 	else
 		gmu_core_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
