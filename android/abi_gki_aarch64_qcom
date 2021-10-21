@@ -2118,6 +2118,7 @@
   scsi_unblock_requests
   sdev_prefix_printk
   __sdhci_add_host
+  __sdhci_set_timeout
   sdhci_add_host
   sdhci_cleanup_host
   sdhci_cqe_disable
