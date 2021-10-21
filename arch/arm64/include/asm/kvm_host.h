@@ -155,10 +155,16 @@ struct kvm_s2_mmu {
 struct kvm_arch_memory_slot {
 };
 
+struct kvm_pinned_page {
+	struct list_head	link;
+	struct page		*page;
+};
+
 struct kvm_protected_vm {
 	bool enabled;
 	int shadow_handle;
 	struct kvm_hyp_memcache teardown_mc;
+	struct list_head pinned_pages;
 };
 
 struct kvm_arch {
