@@ -36,6 +36,8 @@ static DEFINE_MUTEX(clk_debug_lock);
 static LIST_HEAD(clk_hw_debug_list);
 static LIST_HEAD(clk_hw_debug_mux_list);
 
+#define INVALID_MUX_SEL		0xDEADBEEF
+
 #define TCXO_DIV_4_HZ		4800000
 #define SAMPLE_TICKS_1_MS	0x1000
 #define SAMPLE_TICKS_27_MS	0x20000
@@ -206,6 +208,8 @@ static bool clk_is_debug_mux(struct clk_hw *hw)
 
 static int clk_find_and_set_parent(struct clk_hw *mux, struct clk_hw *clk)
 {
+	struct clk_debug_mux *dmux;
+	struct clk_hw *parent;
 	int i;
 
 	if (!clk || !clk_is_debug_mux(mux))
@@ -214,8 +218,13 @@ static int clk_find_and_set_parent(struct clk_hw *mux, struct clk_hw *clk)
 	if (mux == clk || !clk_set_parent(mux->clk, clk->clk))
 		return 0;
 
+	dmux = to_clk_measure(mux);
+
 	for (i = 0; i < clk_hw_get_num_parents(mux); i++) {
-		struct clk_hw *parent = clk_hw_get_parent_by_index(mux, i);
+		if (i < dmux->num_mux_sels && dmux->mux_sels[i] == INVALID_MUX_SEL)
+			continue;
+
+		parent = clk_hw_get_parent_by_index(mux, i);
 
 		if (!clk_find_and_set_parent(parent, clk))
 			return clk_set_parent(mux->clk, parent->clk);
@@ -282,10 +291,31 @@ err:
 	return ret;
 }
 
+static void clk_debug_mux_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct clk_debug_mux *mux;
+	struct clk_hw *parent;
+	unsigned int i;
+
+	mux = to_clk_measure(hw);
+
+	for (i = 0; i < clk_hw_get_num_parents(hw); i++) {
+		parent = clk_hw_get_parent_by_index(hw, i);
+
+		if (!parent && i < mux->num_mux_sels) {
+			mux->mux_sels[i] = INVALID_MUX_SEL;
+			pr_debug("%s: invalidating %s mux_sel %d\n", __func__,
+				 clk_hw_get_name(hw), i);
+		}
+	}
+
+	clk_debug_measure_add(hw, dentry);
+}
+
 const struct clk_ops clk_debug_mux_ops = {
 	.get_parent = clk_debug_mux_get_parent,
 	.set_parent = clk_debug_mux_set_parent,
-	.debug_init = clk_debug_measure_add,
+	.debug_init = clk_debug_mux_init,
 };
 EXPORT_SYMBOL(clk_debug_mux_ops);
 
