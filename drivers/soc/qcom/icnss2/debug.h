@@ -17,6 +17,7 @@ extern void *icnss_ipc_log_long_context;
 extern void *icnss_ipc_log_smp2p_context;
 extern void *icnss_ipc_soc_wake_context;
 
+#if IS_ENABLED(CONFIG_IPC_LOGGING)
 #define icnss_ipc_log_string(_x...)                                     \
 	ipc_log_string(icnss_ipc_log_context, _x)
 
@@ -28,6 +29,15 @@ extern void *icnss_ipc_soc_wake_context;
 
 #define icnss_ipc_soc_wake_string(_x...)                                \
 	ipc_log_string(icnss_ipc_soc_wake_context, _x)
+#else
+#define icnss_ipc_log_string(_x...)
+
+#define icnss_ipc_log_long_string(_x...)
+
+#define icnss_ipc_log_smp2p_string(_x...)
+
+#define icnss_ipc_soc_wake_string(_x...)
+#endif
 
 #define icnss_pr_err(_fmt, ...) do {                                    \
 	printk("%s" pr_fmt(_fmt), KERN_ERR, ##__VA_ARGS__);             \
@@ -47,7 +57,6 @@ extern void *icnss_ipc_soc_wake_context;
 			     ##__VA_ARGS__);                            \
 	} while (0)
 
-#if defined(CONFIG_DYNAMIC_DEBUG)
 #define icnss_pr_dbg(_fmt, ...) do {                                    \
 	pr_debug(_fmt, ##__VA_ARGS__);                                  \
 	icnss_ipc_log_string(pr_fmt(_fmt), ##__VA_ARGS__);              \
@@ -67,58 +76,6 @@ extern void *icnss_ipc_soc_wake_context;
 	pr_debug(_fmt, ##__VA_ARGS__);                                  \
 	icnss_ipc_soc_wake_string(pr_fmt(_fmt), ##__VA_ARGS__);         \
 	} while (0)
-
-#elif defined(DEBUG)
-#define icnss_pr_dbg(_fmt, ...) do {                                    \
-	printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);           \
-	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",                     \
-			     ##__VA_ARGS__);                            \
-	} while (0)
-
-#define icnss_pr_vdbg(_fmt, ...) do {                                   \
-	printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);           \
-	icnss_ipc_log_long_string("%s" pr_fmt(_fmt), "",                \
-				  ##__VA_ARGS__);                       \
-	} while (0)
-
-#define icnss_pr_smp2p(_fmt, ...) do {                                  \
-	pr_debug(_fmt, ##__VA_ARGS__);                                  \
-	icnss_ipc_log_smp2p_string("%s" pr_fmt(_fmt), "",               \
-				  ##__VA_ARGS__);                       \
-	} while (0)
-
-#define icnss_pr_soc_wake(_fmt, ...) do {                               \
-	pr_debug(_fmt, ##__VA_ARGS__);                                  \
-	icnss_ipc_soc_wake_string("%s" pr_fmt(_fmt), "",                \
-				  ##__VA_ARGS__);                       \
-	} while (0)
-
-#else
-#define icnss_pr_dbg(_fmt, ...) do {                                    \
-	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);        \
-	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",                     \
-			     ##__VA_ARGS__);                            \
-	} while (0)
-
-#define icnss_pr_vdbg(_fmt, ...) do {                                   \
-	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);        \
-	icnss_ipc_log_long_string("%s" pr_fmt(_fmt), "",                \
-				  ##__VA_ARGS__);                       \
-	} while (0)
-
-#define icnss_pr_smp2p(_fmt, ...) do {                                  \
-	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);        \
-	icnss_ipc_log_smp2p_string("%s" pr_fmt(_fmt), "",               \
-				  ##__VA_ARGS__);                       \
-	} while (0)
-
-#define icnss_pr_soc_wake(_fmt, ...) do {                               \
-	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);        \
-	icnss_ipc_soc_wake_string("%s" pr_fmt(_fmt), "",                \
-				  ##__VA_ARGS__);                       \
-	} while (0)
-
-#endif
 
 #ifdef CONFIG_ICNSS2_DEBUG
 #define ICNSS_ASSERT(_condition) do {                                   \
