@@ -237,8 +237,8 @@
 		LITTLE_CPU_OFF: silver-c3 {  /* C3 */
 			compatible = "arm,idle-state";
 			idle-state-name = "pc";
-			entry-latency-us = <235>;
-			exit-latency-us = <428>;
+			entry-latency-us = <350>;
+			exit-latency-us = <900>;
 			min-residency-us = <1774>;
 			arm,psci-suspend-param = <0x40000003>;
 			local-timer-stop;
@@ -247,9 +247,9 @@
 		LITTLE_CPU_RAIL_OFF: silver-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <274>;
-			exit-latency-us = <480>;
-			min-residency-us = <4001>;
+			entry-latency-us = <800>;
+			exit-latency-us = <750>;
+			min-residency-us = <4090>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
 		};
@@ -257,8 +257,8 @@
 		BIG_CPU_OFF: gold-c3 {  /* C3 */
 			compatible = "arm,idle-state";
 			idle-state-name = "pc";
-			entry-latency-us = <327>;
-			exit-latency-us = <1013>;
+			entry-latency-us = <400>;
+			exit-latency-us = <1550>;
 			min-residency-us = <2207>;
 			arm,psci-suspend-param = <0x40000003>;
 			local-timer-stop;
@@ -267,9 +267,9 @@
 		BIG_CPU_RAIL_OFF: gold-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <369>;
-			exit-latency-us = <1502>;
-			min-residency-us = <5555>;
+			entry-latency-us = <600>;
+			exit-latency-us = <1550>;
+			min-residency-us = <4791>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
 		};
@@ -277,27 +277,27 @@
 		CLUSTER_OFF: cluster-d4 { /* D4 */
 			compatible = "domain-idle-state";
 			idle-state-name = "l3-off";
-			entry-latency-us = <584>;
-			exit-latency-us = <2332>;
-			min-residency-us = <6118>;
+			entry-latency-us = <1050>;
+			exit-latency-us = <2500>;
+			min-residency-us = <5309>;
 			arm,psci-suspend-param = <0x41000044>;
 		};
 
 		CX_RET: cx-ret { /* Cx Ret */
 			compatible = "domain-idle-state";
 			idle-state-name = "cx-ret";
-			entry-latency-us = <2761>;
-			exit-latency-us = <3964>;
-			min-residency-us = <8467>;
+			entry-latency-us = <1561>;
+			exit-latency-us = <2801>;
+			min-residency-us = <8550>;
 			arm,psci-suspend-param = <0x41001344>;
 		};
 
 		APSS_OFF: cluster-e3 { /* E3 */
 			compatible = "domain-idle-state";
 			idle-state-name = "llcc-off";
-			entry-latency-us = <2893>;
-			exit-latency-us = <4023>;
-			min-residency-us = <9826>;
+			entry-latency-us = <2700>;
+			exit-latency-us = <3500>;
+			min-residency-us = <13959>;
 			arm,psci-suspend-param = <0x4100B344>;
 		};
 	};
