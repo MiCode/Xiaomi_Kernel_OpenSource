@@ -654,7 +654,7 @@ static bool ghvst_dgram_allow(u32 cid, u32 port)
 	if (gdev)
 		return true;
 
-	if (ghvst_allow_rsvd_cid(cid))
+	if (ghvst_allow_rsvd_cid(cid) || cid == VMADDR_CID_ANY)
 		return true;
 
 	pr_err("%s: dgram not allowed for cid 0x%x\n", __func__, cid);
