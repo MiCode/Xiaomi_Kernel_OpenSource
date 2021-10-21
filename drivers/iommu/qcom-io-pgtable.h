@@ -9,8 +9,9 @@
 
 struct qcom_iommu_pgtable_ops {
 	void *(*alloc)(void *cookie, gfp_t gfp_mask, int order);
-	void (*free)(void *cookie, void *virt, int order);
-	void (*tlb_add_walk)(void *cookie, void *virt, unsigned long iova, size_t granule);
+	void (*free)(void *cookie, void *virt, int order, bool deferred_free);
+	void (*tlb_add_inv)(void *cookie);
+	void (*tlb_sync)(void *cookie);
 	void (*log_new_table)(void *cookie, void *virt, unsigned long iova, size_t granule);
 	void (*log_remove_table)(void *cookie, void *virt, unsigned long iova, size_t granule);
 };
@@ -39,12 +40,18 @@ void *qcom_io_pgtable_alloc_pages(const struct qcom_iommu_pgtable_ops *ops,
 				  struct io_pgtable_cfg *cfg,
 				  void *cookie, gfp_t gfp, int order);
 void qcom_io_pgtable_free_pages(const struct qcom_iommu_pgtable_ops *ops,
-				void *cookie, void *virt, int order);
+				void *cookie, void *virt, int order,
+				bool deferred_free);
 static inline void
-qcom_io_pgtable_tlb_add_walk(const struct qcom_iommu_pgtable_ops *ops, void *cookie, void *virt,
-				unsigned long iova, size_t granule)
+qcom_io_pgtable_tlb_add_inv(const struct qcom_iommu_pgtable_ops *ops, void *cookie)
 {
-	ops->tlb_add_walk(cookie, virt, iova, granule);
+	ops->tlb_add_inv(cookie);
+}
+
+static inline void
+qcom_io_pgtable_tlb_sync(const struct qcom_iommu_pgtable_ops *ops, void *cookie)
+{
+	ops->tlb_sync(cookie);
 }
 
 static inline void
