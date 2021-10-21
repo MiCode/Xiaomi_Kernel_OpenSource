@@ -579,6 +579,33 @@ static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 	cpu_reg(host_ctxt, 1) =  ret;
 }
 
+static void handle___pkvm_host_share_guest(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(u64, pfn, host_ctxt, 1);
+	DECLARE_REG(u64, gfn, host_ctxt, 2);
+	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 3);
+	struct pkvm_loaded_state *state;
+	int ret = -EINVAL;
+	u64 nr_pages;
+
+	if (!is_protected_kvm_enabled())
+		goto out;
+
+	vcpu = kern_hyp_va(vcpu);
+	state = this_cpu_ptr(&loaded_state);
+	if (!state->vcpu || !state->is_shadow)
+		goto out;
+
+	/* Topup shadow memcache with the host's */
+	nr_pages = VTCR_EL2_LVLS(state->vcpu->arch.pkvm.shadow_vm->arch.vtcr) - 1;
+	ret = refill_memcache(&state->vcpu->arch.pkvm_memcache, nr_pages,
+			      &vcpu->arch.pkvm_memcache);
+	if (!ret)
+		ret = __pkvm_host_share_guest(pfn, gfn, state->vcpu);
+out:
+	cpu_reg(host_ctxt, 1) =  ret;
+}
+
 static void handle___kvm_adjust_pc(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
@@ -818,6 +845,7 @@ static const hcall_t host_hcall[] = {
 
 	HANDLE_FUNC(__pkvm_host_share_hyp),
 	HANDLE_FUNC(__pkvm_host_unshare_hyp),
+	HANDLE_FUNC(__pkvm_host_share_guest),
 	HANDLE_FUNC(__kvm_adjust_pc),
 	HANDLE_FUNC(__kvm_vcpu_run),
 	HANDLE_FUNC(__kvm_flush_vm_context),
