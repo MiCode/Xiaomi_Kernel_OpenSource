@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/delay.h>
 #include <linux/jiffies.h>
@@ -27,12 +30,11 @@
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
 #define CNSS_DUMP_DESC_SIZE		0x1000
 #define CNSS_DUMP_SEG_VER		0x1
-#define RECOVERY_DELAY_MS		100
 #define FILE_SYSTEM_READY		1
 #define FW_READY_TIMEOUT		20000
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
-#define COLD_BOOT_CAL_SHUTDOWN_DELAY_MS	50
+#define POWER_RESET_MIN_DELAY_MS	100
 
 #define CNSS_QUIRKS_DEFAULT		0
 #ifdef CONFIG_CNSS_EMULATION
@@ -1319,7 +1321,7 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 
 	cnss_bus_dev_shutdown(plat_priv);
 	cnss_bus_dev_ramdump(plat_priv);
-	msleep(RECOVERY_DELAY_MS);
+	msleep(POWER_RESET_MIN_DELAY_MS);
 
 	ret = cnss_bus_dev_powerup(plat_priv);
 	if (ret)
@@ -1759,7 +1761,7 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
 	cnss_bus_free_qdss_mem(plat_priv);
 	cnss_release_antenna_sharing(plat_priv);
 	cnss_bus_dev_shutdown(plat_priv);
-	msleep(COLD_BOOT_CAL_SHUTDOWN_DELAY_MS);
+	msleep(POWER_RESET_MIN_DELAY_MS);
 	complete(&plat_priv->cal_complete);
 	clear_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state);
 	set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);

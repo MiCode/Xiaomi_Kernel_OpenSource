@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
@@ -49,7 +52,7 @@
 #define MAX_FIRMWARE_NAME_LEN		40
 #define FW_V2_NUMBER                    2
 #define POWER_ON_RETRY_MAX_TIMES        3
-#define POWER_ON_RETRY_DELAY_MS         200
+#define POWER_ON_RETRY_DELAY_MS         500
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
