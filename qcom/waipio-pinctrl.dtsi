@@ -2669,6 +2669,19 @@
 				bias-pull-up;
 			};
 		};
+
+		pcie1_clkreq_sleep: pcie1_clkreq_sleep {
+			mux {
+				pins = "gpio98";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio98";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
 	};
 
 	pmx_sde: pmx_sde {
