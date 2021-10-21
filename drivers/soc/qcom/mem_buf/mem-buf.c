@@ -106,6 +106,7 @@ struct mem_buf_rmt_msg {
  * @secure_alloc: Denotes if the memory was assigned to the targeted VMs as part
  * of the allocation step
  * @hdl: The memparcel handle associated with the memory
+ * @gh_rm_trans_type: Whether handle is Lent/Shared/Donated
  * @entry: List entry for maintaining a list of memory buffers that are lent
  * out.
  * @nr_acl_entries: The number of VMIDs and permissions associated with the
@@ -119,6 +120,7 @@ struct mem_buf_xfer_mem {
 	void *mem_type_data;
 	struct sg_table *mem_sgt;
 	bool secure_alloc;
+	int gh_rm_trans_type;
 	gh_memparcel_handle_t hdl;
 	struct list_head entry;
 	u32 nr_acl_entries;
@@ -152,6 +154,7 @@ struct mem_buf_desc {
 	struct gh_acl_desc *acl_desc;
 	struct gh_sgl_desc *sgl_desc;
 	gh_memparcel_handle_t memparcel_hdl;
+	int gh_rm_trans_type;
 	enum mem_buf_mem_type src_mem_type;
 	void *src_data;
 	enum mem_buf_mem_type dst_mem_type;
@@ -459,6 +462,7 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 			goto err_assign_mem;
 
 		xfer_mem->hdl = arg.memparcel_hdl;
+		xfer_mem->gh_rm_trans_type = xfer_type;
 	}
 
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
@@ -513,6 +517,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 		       __func__, ret);
 	} else {
 		resp_msg->hdl = xfer_mem->hdl;
+		resp_msg->gh_rm_trans_type = xfer_mem->gh_rm_trans_type;
 	}
 
 	resp_msg->ret = ret;
@@ -569,7 +574,7 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 }
 
 static int mem_buf_decode_alloc_resp(void *buf, size_t size,
-				     gh_memparcel_handle_t *ret_hdl)
+				     struct mem_buf_desc *membuf)
 {
 	struct mem_buf_alloc_resp *alloc_resp = buf;
 
@@ -580,11 +585,13 @@ static int mem_buf_decode_alloc_resp(void *buf, size_t size,
 	}
 
 	trace_receive_alloc_resp_msg(alloc_resp);
-	if (alloc_resp->ret < 0)
+	if (alloc_resp->ret < 0) {
 		pr_err("%s remote allocation failed rc: %d\n", __func__,
 		       alloc_resp->ret);
-	else
-		*ret_hdl = alloc_resp->hdl;
+	} else {
+		membuf->memparcel_hdl = alloc_resp->hdl;
+		membuf->gh_rm_trans_type = alloc_resp->gh_rm_trans_type;
+	}
 
 	return alloc_resp->ret;
 }
@@ -595,11 +602,12 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 				       size_t size)
 {
 	struct mem_buf_txn *txn;
-	gh_memparcel_handle_t hdl;
 
 	mutex_lock(&mem_buf_idr_mutex);
 	txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
 	if (!txn) {
+		struct mem_buf_desc tmp;
+
 		pr_err("%s no txn associated with id: %d\n", __func__,
 		       hdr->txn_id);
 		/*
@@ -607,8 +615,8 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 		 * allocator know that the memory is not in use, so that
 		 * it can be reclaimed.
 		 */
-		if (!mem_buf_decode_alloc_resp(buf, size, &hdl))
-			mem_buf_relinquish_mem(hdr->txn_id, hdl);
+		if (!mem_buf_decode_alloc_resp(buf, size, &tmp))
+			mem_buf_relinquish_mem(hdr->txn_id, tmp.memparcel_hdl);
 	} else {
 		txn->txn_ret = mem_buf_decode_alloc_resp(buf, size,
 							 txn->resp_buf);
@@ -1109,7 +1117,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 		goto err_alloc_dst_data;
 	}
 
-	ret = mem_buf_init_txn(&membuf->txn, &membuf->memparcel_hdl);
+	ret = mem_buf_init_txn(&membuf->txn, membuf);
 	if (ret)
 		goto err_init_txn;
 
@@ -1119,7 +1127,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (ret)
 		goto err_mem_req;
 
-	op = mem_buf_get_mem_xfer_type_gh(membuf->acl_desc, VMID_HLOS);
+	op = membuf->gh_rm_trans_type;
 	sgl_desc = mem_buf_map_mem_s2(op, &membuf->memparcel_hdl, membuf->acl_desc, VMID_HLOS);
 	if (IS_ERR(sgl_desc))
 		goto err_map_mem_s2;
