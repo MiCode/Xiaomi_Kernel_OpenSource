@@ -69,11 +69,14 @@ struct mem_buf_alloc_req {
  * @hdl: The memparcel handle associated with the memory allocated to the
  * receiving VM. This field is only meaningful if the allocation on the remote
  * VM was carried out successfully, as denoted by @ret.
+ * @gh_rm_trans_type: Denotes the type of memory transfer associated with the response
+ * (i.e. memory donation, sharing, or lending).
  */
 struct mem_buf_alloc_resp {
 	struct mem_buf_msg_hdr hdr;
 	s32 ret;
 	u32 hdl;
+	int gh_rm_trans_type;
 } __packed;
 
 /**
@@ -161,6 +164,11 @@ static inline u32 get_alloc_resp_hdl(struct mem_buf_alloc_resp *resp)
 	return resp->hdl;
 }
 
+static inline int get_alloc_resp_trans_type(struct mem_buf_alloc_resp *resp)
+{
+	return resp->gh_rm_trans_type;
+}
+
 static inline u32 get_relinquish_req_txn_id(struct mem_buf_alloc_relinquish *relinquish_msg)
 {
 	return relinquish_msg->hdr.txn_id;
@@ -182,7 +190,7 @@ void *mem_buf_construct_alloc_req(void *mem_buf_txn, size_t alloc_size,
 				  struct gh_acl_desc *acl_desc,
 				  enum mem_buf_mem_type src_mem_type, void *src_data);
 void *mem_buf_construct_alloc_resp(void *req_msg, s32 alloc_ret,
-				   gh_memparcel_handle_t memparcel_hdl);
+				   gh_memparcel_handle_t memparcel_hdl, int gh_rm_trans_type);
 void *mem_buf_construct_relinquish_msg(u32 txn_id, gh_memparcel_handle_t memparcel_hdl);
 #else
 static inline void *mem_buf_msgq_register(const char *msgq_name,
@@ -223,7 +231,7 @@ static inline void *mem_buf_construct_alloc_req(void *mem_buf_txn, size_t alloc_
 }
 
 static inline void *mem_buf_construct_alloc_resp(void *req_msg, s32 alloc_ret,
-				   gh_memparcel_handle_t memparcel_hdl)
+				   gh_memparcel_handle_t memparcel_hdl, int gh_rm_trans_type)
 {
 	return ERR_PTR(-ENODEV);
 }

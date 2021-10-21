@@ -133,9 +133,11 @@ EXPORT_SYMBOL(mem_buf_construct_alloc_req);
  * @req_msg: The request message that is being replied to.
  * @alloc_ret: The return code of the allocation.
  * @memparcel_hdl: The memparcel handle that corresponds to the memory that was allocated.
+ * @gh_rm_trans_type: The type of memory transfer associated with the response (i.e. donation,
+ * sharing, or lending).
  */
 void *mem_buf_construct_alloc_resp(void *req_msg, s32 alloc_ret,
-				   gh_memparcel_handle_t memparcel_hdl)
+				   gh_memparcel_handle_t memparcel_hdl, int gh_rm_trans_type)
 {
 	struct mem_buf_alloc_req *req = req_msg;
 	struct mem_buf_alloc_resp *resp_msg = kzalloc(sizeof(*resp_msg), GFP_KERNEL);
@@ -148,6 +150,7 @@ void *mem_buf_construct_alloc_resp(void *req_msg, s32 alloc_ret,
 	resp_msg->hdr.msg_size = sizeof(*resp_msg);
 	resp_msg->ret = alloc_ret;
 	resp_msg->hdl = memparcel_hdl;
+	resp_msg->gh_rm_trans_type = gh_rm_trans_type;
 
 	return resp_msg;
 }
@@ -290,8 +293,8 @@ EXPORT_SYMBOL(mem_buf_destroy_txn);
 static void mem_buf_process_alloc_resp(struct mem_buf_msgq_desc *desc, void *buf, size_t size)
 {
 	struct mem_buf_msg_hdr *hdr = buf;
+	struct mem_buf_alloc_resp *alloc_resp = buf;
 	struct mem_buf_txn *txn;
-	gh_memparcel_handle_t memparcel_hdl;
 
 	mutex_lock(&desc->idr_mutex);
 	txn = idr_find(&desc->txn_idr, hdr->txn_id);
@@ -302,9 +305,11 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msgq_desc *desc, void *buf
 		 * allocator know that the memory is not in use, so that
 		 * it can be reclaimed.
 		 */
-		if (!desc->msgq_ops->alloc_resp_hdlr(desc->hdlr_data, buf, size, &memparcel_hdl))
+		if (!alloc_resp->ret) {
 			desc->msgq_ops->relinquish_memparcel_hdl(desc->hdlr_data, hdr->txn_id,
-								 memparcel_hdl);
+								 alloc_resp->hdl);
+			kfree(buf);
+		}
 	} else {
 		txn->txn_ret = desc->msgq_ops->alloc_resp_hdlr(desc->hdlr_data, buf, size,
 							       txn->resp_buf);
