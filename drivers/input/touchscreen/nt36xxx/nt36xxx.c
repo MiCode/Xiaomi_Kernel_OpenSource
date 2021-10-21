@@ -588,6 +588,10 @@ static void nvt_ts_trusted_touch_tvm_vm_mode_disable(struct nvt_ts_data *ts)
 
 	pr_debug("vm irq release succeded\n");
 
+	pm_runtime_put_sync(ts->client->adapter->dev.parent);
+	nvt_ts_trusted_touch_set_tvm_driver_state(ts,
+					TVM_I2C_SESSION_RELEASED);
+
 	rc = nvt_ts_vm_mem_release(ts);
 	if (rc) {
 		pr_err("Failed to release mem rc:%d\n", rc);
@@ -596,9 +600,6 @@ static void nvt_ts_trusted_touch_tvm_vm_mode_disable(struct nvt_ts_data *ts)
 		nvt_ts_trusted_touch_set_tvm_driver_state(ts,
 					TVM_IOMEM_RELEASED);
 	}
-	pm_runtime_put_sync(ts->client->adapter->dev.parent);
-	nvt_ts_trusted_touch_set_tvm_driver_state(ts,
-					TVM_I2C_SESSION_RELEASED);
 	nvt_ts_trusted_touch_set_tvm_driver_state(ts, TRUSTED_TOUCH_TVM_INIT);
 	atomic_set(&ts->trusted_touch_enabled, 0);
 	pr_info("trusted touch disabled\n");
@@ -674,16 +675,16 @@ static void nvt_ts_trusted_touch_abort_tvm(struct nvt_ts_data *ts)
 	case TVM_I2C_SESSION_ACQUIRED:
 	case TVM_IOMEM_ACCEPTED:
 	case TVM_IRQ_RELEASED:
+		pm_runtime_put_sync(ts->client->adapter->dev.parent);
+	case TVM_I2C_SESSION_RELEASED:
 		rc = nvt_ts_vm_mem_release(ts);
 		if (rc)
 			pr_err("Failed to release mem rc:%d\n", rc);
 	case TVM_IOMEM_RELEASED:
-		pm_runtime_put_sync(ts->client->adapter->dev.parent);
-	case TVM_I2C_SESSION_RELEASED:
-	case TVM_IOMEM_LENT_NOTIFIED:
-	case TVM_IRQ_LENT_NOTIFIED:
 	case TVM_ALL_RESOURCES_LENT_NOTIFIED:
 	case TRUSTED_TOUCH_TVM_INIT:
+	case TVM_IRQ_LENT_NOTIFIED:
+	case TVM_IOMEM_LENT_NOTIFIED:
 		atomic_set(&ts->trusted_touch_enabled, 0);
 	}
 
@@ -746,10 +747,10 @@ static void nvt_ts_trusted_touch_abort_pvm(struct nvt_ts_data *ts)
 	case PVM_I2C_RESOURCE_ACQUIRED:
 	case PVM_INTERRUPT_ENABLED:
 		nvt_ts_bus_put(ts);
-		complete(&ts->trusted_touch_powerdown);
 	case TRUSTED_TOUCH_PVM_INIT:
 	case PVM_I2C_RESOURCE_RELEASED:
 		atomic_set(&ts->trusted_touch_enabled, 0);
+		atomic_set(&ts->trusted_touch_underway, 0);
 	}
 
 	atomic_set(&ts->trusted_touch_abort_status, 0);
@@ -785,6 +786,10 @@ static int nvt_ts_bus_get(struct nvt_ts_data *ts)
 {
 	int rc = 0;
 
+	if (atomic_read(&ts->suspend_resume_underway))
+		wait_for_completion_interruptible(&ts->touch_suspend_resume);
+
+	reinit_completion(&ts->trusted_touch_powerdown);
 	mutex_lock(&ts->nvt_clk_io_ctrl_mutex);
 	rc = pm_runtime_get_sync(ts->client->adapter->dev.parent);
 	if (rc >= 0 &&  ts->core_clk != NULL &&
@@ -805,6 +810,7 @@ static void nvt_ts_bus_put(struct nvt_ts_data *ts)
 		nvt_ts_clk_disable_unprepare(ts);
 	pm_runtime_put_sync(ts->client->adapter->dev.parent);
 	mutex_unlock(&ts->nvt_clk_io_ctrl_mutex);
+	complete(&ts->trusted_touch_powerdown);
 }
 
 static struct gh_notify_vmid_desc *nvt_ts_vm_get_vmid(gh_vmid_t vmid)
@@ -855,10 +861,10 @@ static void nvt_trusted_touch_pvm_vm_mode_disable(struct nvt_ts_data *ts)
 	nvt_ts_bus_put(ts);
 	nvt_ts_trusted_touch_set_pvm_driver_state(ts,
 						PVM_I2C_RESOURCE_RELEASED);
-	complete(&ts->trusted_touch_powerdown);
 	nvt_ts_trusted_touch_set_pvm_driver_state(ts,
 						TRUSTED_TOUCH_PVM_INIT);
 	atomic_set(&ts->trusted_touch_enabled, 0);
+	atomic_set(&ts->trusted_touch_underway, 0);
 	pr_info("trusted touch disabled\n");
 	return;
 error:
@@ -998,10 +1004,19 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 	int rc = 0;
 	struct trusted_touch_vm_info *vm_info = ts->vm_info;
 
+	if (atomic_read(&ts->pvm_interrupt_underway))
+		wait_for_completion_interruptible(&ts->trusted_touch_interrupt);
+	atomic_set(&ts->trusted_touch_underway, 1);
+
+#if BOOT_UPDATE_FIRMWARE
+	if (nvt_fwu_wq)
+		cancel_delayed_work_sync(&ts->nvt_fwu_work);
+#endif
 	/* i2c session start and resource acquire */
 	if (nvt_ts_bus_get(ts) < 0) {
 		pr_err("nvt_ts_bus_get failed\n");
 		rc = -EIO;
+		atomic_set(&ts->trusted_touch_underway, 0);
 		return rc;
 	}
 
@@ -1032,7 +1047,6 @@ static int nvt_ts_trusted_touch_pvm_vm_mode_enable(struct nvt_ts_data *ts)
 	}
 	nvt_ts_trusted_touch_set_pvm_driver_state(ts, PVM_IRQ_LENT_NOTIFIED);
 
-	reinit_completion(&ts->trusted_touch_powerdown);
 	atomic_set(&ts->trusted_touch_enabled, 1);
 	pr_info("trusted touch enabled\n");
 	return rc;
@@ -1198,6 +1212,8 @@ static void nvt_ts_trusted_touch_init(struct nvt_ts_data *ts)
 		return;
 
 	init_completion(&ts->trusted_touch_powerdown);
+	init_completion(&ts->touch_suspend_resume);
+	init_completion(&ts->trusted_touch_interrupt);
 
 	/* Get clocks */
 	ts->core_clk = devm_clk_get(ts->client->dev.parent,
@@ -2052,7 +2068,25 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	}
 #endif
 
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	atomic_set(&ts->pvm_interrupt_underway, 1);
+	reinit_completion(&ts->trusted_touch_interrupt);
+#endif
+#endif
 	mutex_lock(&ts->lock);
+
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	if (atomic_read(&ts->trusted_touch_underway)) {
+		mutex_unlock(&ts->lock);
+		atomic_set(&ts->pvm_interrupt_underway, 0);
+		input_report_key(ts->input_dev, BTN_TOUCH, 0);
+		input_sync(ts->input_dev);
+		return IRQ_HANDLED;
+	}
+#endif
+#endif
 
 	ret = CTP_I2C_READ(ts->client, I2C_FW_Address, point_data, POINT_DATA_LEN + 1);
 	if (ret < 0) {
@@ -2072,6 +2106,12 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		input_id = (uint8_t)(point_data[1] >> 3);
 		nvt_ts_wakeup_gesture_report(input_id, point_data);
 		mutex_unlock(&ts->lock);
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+		complete(&ts->trusted_touch_interrupt);
+		atomic_set(&ts->pvm_interrupt_underway, 0);
+#endif
+#endif
 		return IRQ_HANDLED;
 	}
 #endif
@@ -2170,6 +2210,12 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 XFER_ERROR:
 
 	mutex_unlock(&ts->lock);
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	complete(&ts->trusted_touch_interrupt);
+	atomic_set(&ts->pvm_interrupt_underway, 0);
+#endif
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -2452,10 +2498,64 @@ static ssize_t trusted_touch_enable_store(struct device *dev,
 	return err;
 }
 
+static ssize_t trusted_touch_event_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct nvt_ts_data *info;
+
+	if (!client)
+		return scnprintf(buf, PAGE_SIZE, "client is null\n");
+
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		NVT_ERR("info is null\n");
+		return scnprintf(buf, PAGE_SIZE, "info is null\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			atomic_read(&info->trusted_touch_event));
+}
+
+static ssize_t trusted_touch_event_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct nvt_ts_data *info;
+	unsigned long value;
+	int err = 0;
+
+	if (!client)
+		return -EIO;
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		NVT_ERR("info is null\n");
+		return -EIO;
+	}
+	if (count > 2)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	if (!atomic_read(&info->trusted_touch_initialized))
+		return -EIO;
+
+	if (value)
+		return -EIO;
+
+	atomic_set(&info->trusted_touch_event, value);
+
+	return count;
+}
+
 static DEVICE_ATTR_RW(trusted_touch_enable);
+static DEVICE_ATTR_RW(trusted_touch_event);
 
 static struct attribute *nvt_attributes[] = {
 	&dev_attr_trusted_touch_enable.attr,
+	&dev_attr_trusted_touch_event.attr,
 	NULL,
 };
 
@@ -2494,6 +2594,7 @@ static int32_t nvt_ts_late_probe_tvm(struct i2c_client *client,
 			return ret;
 		}
 		atomic_set(&ts->delayed_vm_probe_pending, 1);
+		return ret;
 	}
 
 	NVT_ERR("irq:%d\n", ts->client->irq);
@@ -2575,6 +2676,7 @@ static int32_t nvt_ts_late_probe_sub(struct i2c_client *client,
 	ts->input_dev->name = NVT_TS_NAME;
 	ts->input_dev->phys = ts->phys;
 	ts->input_dev->id.bustype = BUS_I2C;
+	ts->input_dev->dev.parent = ts->dev;
 
 	//---register input device---
 	ret = input_register_device(ts->input_dev);
@@ -2789,6 +2891,7 @@ static int32_t nvt_ts_probe(struct i2c_client *client,
 	}
 
 	ts->client = client;
+	ts->dev = &client->dev;
 	i2c_set_clientdata(client, ts);
 
 	//---parse dts---
@@ -3003,9 +3106,8 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (atomic_read(&ts->trusted_touch_enabled))
-		wait_for_completion_interruptible(
-			&ts->trusted_touch_powerdown);
+	atomic_set(&ts->suspend_resume_underway, 1);
+	reinit_completion(&ts->touch_suspend_resume);
 #endif
 
 #if !WAKEUP_GESTURE
@@ -3038,7 +3140,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	//---write command to enter "deep sleep mode"---
 	buf[0] = EVENT_MAP_HOST_CMD;
 	buf[1] = 0x11;
-	CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	if (!atomic_read(&ts->trusted_touch_underway))
+		CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+#endif
 #endif // WAKEUP_GESTURE
 
 	mutex_unlock(&ts->lock);
@@ -3059,7 +3164,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	input_sync(ts->input_dev);
 
 	msleep(50);
-
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	complete(&ts->touch_suspend_resume);
+	atomic_set(&ts->suspend_resume_underway, 0);
+#endif
 	NVT_LOG("end\n");
 
 	return 0;
@@ -3082,6 +3190,14 @@ static int32_t nvt_ts_resume(struct device *dev)
 		return 0;
 	}
 
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	if (atomic_read(&ts->trusted_touch_underway))
+		wait_for_completion_interruptible(
+			&ts->trusted_touch_powerdown);
+
+	atomic_set(&ts->suspend_resume_underway, 1);
+	reinit_completion(&ts->touch_suspend_resume);
+#endif
 	mutex_lock(&ts->lock);
 
 	// make sure display reset(RESX) sequence and dsi cmds sent before this
@@ -3111,6 +3227,10 @@ static int32_t nvt_ts_resume(struct device *dev)
 
 	mutex_unlock(&ts->lock);
 
+#ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
+	complete(&ts->touch_suspend_resume);
+	atomic_set(&ts->suspend_resume_underway, 0);
+#endif
 	NVT_LOG("end\n");
 
 	return 0;
