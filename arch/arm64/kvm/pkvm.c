@@ -117,9 +117,9 @@ static void update_vcpu_state(struct kvm_vcpu *vcpu, int shadow_handle)
  */
 static int create_el2_shadow(struct kvm *kvm)
 {
+	size_t pgd_sz, shadow_sz;
+	void *pgd, *shadow_addr;
 	int shadow_handle;
-	void *shadow_addr;
-	size_t shadow_sz;
 	int ret, i;
 
 	if (kvm->arch.pkvm.shadow_handle)
@@ -128,17 +128,30 @@ static int create_el2_shadow(struct kvm *kvm)
 	if (kvm->created_vcpus < 1)
 		return -EINVAL;
 
+	pgd_sz = kvm_pgtable_stage2_pgd_size(kvm->arch.vtcr);
+	/*
+	 * The PGD pages will be reclaimed using a hyp_memcache which implies
+	 * page granularity. So, use alloc_pages_exact() to get individual
+	 * refcounts.
+	 */
+	pgd = alloc_pages_exact(pgd_sz, GFP_KERNEL_ACCOUNT);
+	if (!pgd)
+		return -ENOMEM;
+
 	/* Allocate memory to donate to hyp for the kvm and vcpu state. */
 	shadow_sz = PAGE_ALIGN(KVM_SHADOW_VM_SIZE +
 			       SHADOW_VCPU_STATE_SIZE * kvm->created_vcpus);
 	shadow_addr = alloc_pages_exact(shadow_sz, GFP_KERNEL_ACCOUNT);
-	if (!shadow_addr)
-		return -ENOMEM;
+	if (!shadow_addr) {
+		ret = -ENOMEM;
+		goto free_pgd;
+	}
 
 	/* Donate the shadow memory to hyp and let hyp initialize it. */
-	ret = kvm_call_hyp_nvhe(__pkvm_init_shadow, kvm, shadow_addr, shadow_sz);
+	ret = kvm_call_hyp_nvhe(__pkvm_init_shadow, kvm, shadow_addr, shadow_sz,
+				pgd);
 	if (ret < 0)
-		goto err;
+		goto free_shadow;
 
 	shadow_handle = ret;
 
@@ -151,8 +164,10 @@ static int create_el2_shadow(struct kvm *kvm)
 
 	return 0;
 
-err:
+free_shadow:
 	free_pages_exact(shadow_addr, shadow_sz);
+free_pgd:
+	free_pages_exact(pgd, pgd_sz);
 	return ret;
 }
 

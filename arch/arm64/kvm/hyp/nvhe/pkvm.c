@@ -342,8 +342,6 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm, int nr
 	int i;
 	int ret;
 
-	/* TODO: initialize the protected MMU. For now, use the host's. */
-	vm->mmu = &kvm->arch.mmu;
 	vm->host_kvm = kvm;
 	vm->created_vcpus = 0;
 
@@ -372,8 +370,7 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm, int nr
 		vm->vcpus[i] = shadow_vcpu;
 		shadow_state->vm = vm;
 
-		/* TODO - use &vm->arch.mmu when setup properly */
-		shadow_vcpu->arch.hw_mmu = host_vcpu->arch.hw_mmu;
+		shadow_vcpu->arch.hw_mmu = &vm->arch.mmu;
 		shadow_vcpu->arch.pkvm.shadow_handle = vm->shadow_handle;
 		shadow_vcpu->arch.pkvm.host_vcpu = host_vcpu;
 		shadow_vcpu->arch.pkvm.shadow_vm = vm;
@@ -421,7 +418,9 @@ static bool exists_shadow(struct kvm *host_kvm)
 static int __insert_shadow_table(struct kvm *kvm, struct kvm_shadow_vm *vm,
 			         size_t shadow_size)
 {
+	struct kvm_s2_mmu *mmu = &vm->arch.mmu;
 	int shadow_handle;
+	int vmid;
 
 	if (unlikely(num_shadow_entries >= KVM_MAX_PVMS))
 		return -ENOMEM;
@@ -444,6 +443,16 @@ static int __insert_shadow_table(struct kvm *kvm, struct kvm_shadow_vm *vm,
 
 	vm->shadow_handle = shadow_handle;
 	vm->shadow_area_size = shadow_size;
+
+	/* VMID 0 is reserved for the host */
+	vmid = next_shadow_alloc + 1;
+	if (vmid > 0xff)
+		return -ENOMEM;
+
+	mmu->vmid.vmid = vmid;
+	mmu->vmid.vmid_gen = 0;
+	mmu->arch = &vm->arch;
+	mmu->pgt = &vm->pgt;
 
 	shadow_table[next_shadow_alloc] = vm;
 	next_shadow_alloc = (next_shadow_alloc + 1) % KVM_MAX_PVMS;
@@ -517,7 +526,8 @@ static int check_shadow_size(int nr_vcpus, size_t shadow_size)
  */
 int __pkvm_init_shadow(struct kvm *kvm,
 		       void *shadow_va,
-		       size_t shadow_size)
+		       size_t shadow_size,
+		       void *pgd)
 {
 	struct kvm_shadow_vm *vm = kern_hyp_va(shadow_va);
 	phys_addr_t shadow_pa = hyp_virt_to_phys(vm);
@@ -548,19 +558,28 @@ int __pkvm_init_shadow(struct kvm *kvm,
 	/* Add the entry to the shadow table. */
 	ret = insert_shadow_table(kvm, vm, shadow_size);
 	if (ret < 0)
-		goto err_clear_shadow;
+		goto err_remove_mappings;
 
 	ret = init_shadow_structs(kvm, vm, nr_vcpus);
 	if (ret < 0)
-		goto err_clear_shadow;
+		goto err_remove_shadow_table;
+
+	pgd = kern_hyp_va(pgd);
+	ret = kvm_guest_prepare_stage2(vm, pgd);
+	if (ret)
+		goto err_remove_shadow_table;
 
 	return vm->shadow_handle;
 
-err_clear_shadow:
+err_remove_shadow_table:
+	remove_shadow_table(vm->shadow_handle);
+
+err_remove_mappings:
 	unpin_host_vcpus(vm);
 	/* Clear the donated shadow memory on failure to avoid data leaks. */
 	memset(vm, 0, shadow_size);
-	WARN_ON(__pkvm_hyp_donate_host(pfn, nr_pages));
+	WARN_ON(__pkvm_hyp_donate_host(hyp_phys_to_pfn(shadow_pa),
+				       shadow_size >> PAGE_SHIFT));
 
 err:
 	hyp_unpin_shared_mem(kvm, kvm + 1);
