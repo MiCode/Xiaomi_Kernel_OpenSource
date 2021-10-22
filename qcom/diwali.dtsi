@@ -2071,6 +2071,14 @@
 	status = "ok";
 };
 
+&qupv3_se2_i2c {
+	status = "ok";
+	fsa4480: fsa4480@42 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
+	};
+};
+
 &cam_cc_bps_gdsc {
 	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
 	clock-names = "ahb_clk";
