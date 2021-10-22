@@ -161,4 +161,15 @@
 		};
 	};
 };
+
+&thermal_zones {
+	isense_trim {
+		cooling-maps {
+			gold_plus_cdev {
+				cooling-device = <&CPU7 18 18>;
+			};
+		};
+	};
+};
+
 #include "waipio-v2-gpu.dtsi"

@@ -247,6 +247,15 @@
 
 #include "waipio-thermal-modem.dtsi"
 
+&soc {
+	qmi-ts-sensors {
+		cdsp {
+			qcom,instance-id = <QMI_CDSP_INST_ID>;
+			qcom,qmi-sensor-names = "isense_trim";
+		};
+	};
+};
+
 &thermal_zones {
 	aoss-0 {
 		polling-delay-passive = <0>;
@@ -1481,6 +1490,37 @@
 			nr_scg_cdev0 {
 				trip = <&mx_pe_config3>;
 				cooling-device = <&modem_nr_scg_dsc 10 10>;
+			};
+		};
+	};
+
+	isense_trim {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&qmi_sensor
+				(QMI_CDSP_INST_ID+QMI_NSP_ISENSE_TRIM)>;
+		trips {
+			isense_trim_trip: isense-trim-config {
+				temperature = <2>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gold_cdev {
+				trip = <&isense_trim_trip>;
+				cooling-device = <&CPU4 15 15>;
+			};
+
+			gold_plus_cdev {
+				trip = <&isense_trim_trip>;
+				cooling-device = <&CPU7 15 15>;
+			};
+
+			cdsp_hw_cdev {
+				trip = <&isense_trim_trip>;
+				cooling-device = <&cdsp_hw 1 1>;
 			};
 		};
 	};

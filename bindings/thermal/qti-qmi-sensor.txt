@@ -82,6 +82,19 @@ Subsystem properties:
 		49. mmw2
 		50. mmw3
 		51. mmw_ific0
+		52. sub1_modem_cfg
+		53. sub1_lte_cc
+		54. sub1_mcg_fr1_cc
+		55. sub1_mcg_fr2_cc
+		56. sub1_scg_fr1_cc
+		57. sub1_scg_fr2_cc
+		58. sub2_modem_cfg
+		59. sub2_lte_cc
+		60. sub2_mcg_fr1_cc
+		61. sub2_mcg_fr2_cc
+		62. sub2_scg_fr1_cc
+		63. sub2_scg_fr2_cc
+		64. isense_trim
 
 Example:
 
@@ -95,5 +108,10 @@ qmi_sensor: qmi-ts-sensors {
 					"pa_1",
 					"qfe_pa0",
 					"qfe_wtr0";
+	};
+
+	cdsp {
+		qcom,instance-id = <QMI_CDSP_INST_ID>;
+		qcom,qmi-sensor-names = "isense_trim";
 	};
 };
