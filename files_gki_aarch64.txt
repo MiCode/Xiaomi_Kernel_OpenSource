@@ -651,9 +651,9 @@ drivers/bluetooth/hci_qca.c
 drivers/bluetooth/hci_serdev.c
 drivers/bluetooth/hci_uart.h
 drivers/bus/qcom-ebi2.c
+drivers/bus/simple-pm-bus.c
 drivers/char/hw_random/arm_smccc_trng.c
 drivers/char/hw_random/core.c
-drivers/char/hw_random/exynos-trng.c
 drivers/char/hw_random/hisi-rng.c
 drivers/char/mem.c
 drivers/char/misc.c
@@ -692,16 +692,6 @@ drivers/clk/hisilicon/crg-hi3516cv300.c
 drivers/clk/hisilicon/crg-hi3798cv200.c
 drivers/clk/hisilicon/reset.c
 drivers/clk/hisilicon/reset.h
-drivers/clk/samsung/clk.c
-drivers/clk/samsung/clk-cpu.c
-drivers/clk/samsung/clk-cpu.h
-drivers/clk/samsung/clk-exynos5433.c
-drivers/clk/samsung/clk-exynos7.c
-drivers/clk/samsung/clk-exynos-audss.c
-drivers/clk/samsung/clk-exynos-clkout.c
-drivers/clk/samsung/clk.h
-drivers/clk/samsung/clk-pll.c
-drivers/clk/samsung/clk-pll.h
 drivers/clocksource/arm_arch_timer.c
 drivers/clocksource/dummy_timer.c
 drivers/clocksource/mmio.c
@@ -1007,7 +997,6 @@ drivers/hid/wacom_wac.h
 drivers/hwspinlock/hwspinlock_core.c
 drivers/hwspinlock/hwspinlock_internal.h
 drivers/i2c/algos/i2c-algo-bit.c
-drivers/i2c/busses/i2c-exynos5.c
 drivers/i2c/i2c-boardinfo.c
 drivers/i2c/i2c-core-base.c
 drivers/i2c/i2c-core.h
@@ -1390,9 +1379,6 @@ drivers/perf/arm_pmu.c
 drivers/perf/arm_pmu_platform.c
 drivers/phy/phy-core.c
 drivers/phy/phy-core-mipi-dphy.c
-drivers/phy/samsung/phy-exynos5-usbdrd.c
-drivers/phy/samsung/phy-exynos-dp-video.c
-drivers/phy/samsung/phy-exynos-mipi-video.c
 drivers/pinctrl/core.c
 drivers/pinctrl/core.h
 drivers/pinctrl/devicetree.c
@@ -1405,11 +1391,6 @@ drivers/pinctrl/pinctrl-utils.c
 drivers/pinctrl/pinctrl-utils.h
 drivers/pinctrl/pinmux.c
 drivers/pinctrl/pinmux.h
-drivers/pinctrl/samsung/pinctrl-exynos-arm64.c
-drivers/pinctrl/samsung/pinctrl-exynos.c
-drivers/pinctrl/samsung/pinctrl-exynos.h
-drivers/pinctrl/samsung/pinctrl-samsung.c
-drivers/pinctrl/samsung/pinctrl-samsung.h
 drivers/pinctrl/sunxi/pinctrl-sun50i-a100.c
 drivers/pinctrl/sunxi/pinctrl-sun50i-a100-r.c
 drivers/pinctrl/sunxi/pinctrl-sun50i-h616.c
@@ -1529,13 +1510,6 @@ drivers/scsi/ufs/ufs-sysfs.h
 drivers/scsi/ufs/unipro.h
 drivers/soc/qcom/qcom-geni-se.c
 drivers/soc/qcom/smem_state.c
-drivers/soc/samsung/exynos5422-asv.h
-drivers/soc/samsung/exynos-asv.c
-drivers/soc/samsung/exynos-asv.h
-drivers/soc/samsung/exynos-chipid.c
-drivers/soc/samsung/exynos-pmu.c
-drivers/soc/samsung/exynos-pmu.h
-drivers/soc/samsung/pm_domains.c
 drivers/soc/sunxi/sunxi_mbus.c
 drivers/soc/sunxi/sunxi_sram.c
 drivers/spi/internals.h
@@ -1583,6 +1557,7 @@ drivers/tty/serial/amba-pl011.c
 drivers/tty/serial/amba-pl011.h
 drivers/tty/serial/earlycon.c
 drivers/tty/serial/qcom_geni_serial.c
+drivers/tty/serial/samsung_tty.c
 drivers/tty/serial/serial_core.c
 drivers/tty/serial/serial_mctrl_gpio.c
 drivers/tty/serial/serial_mctrl_gpio.h
@@ -1634,7 +1609,6 @@ drivers/usb/dwc3/core.h
 drivers/usb/dwc3/debugfs.c
 drivers/usb/dwc3/debug.h
 drivers/usb/dwc3/drd.c
-drivers/usb/dwc3/dwc3-exynos.c
 drivers/usb/dwc3/dwc3-haps.c
 drivers/usb/dwc3/dwc3-of-simple.c
 drivers/usb/dwc3/dwc3-qcom.c
@@ -2451,9 +2425,6 @@ include/drm/ttm/ttm_pool.h
 include/drm/ttm/ttm_range_manager.h
 include/drm/ttm/ttm_resource.h
 include/drm/ttm/ttm_tt.h
-include/dt-bindings/clock/exynos5433.h
-include/dt-bindings/clock/exynos7-clk.h
-include/dt-bindings/clock/exynos-audss-clk.h
 include/dt-bindings/clock/hi3516cv300-clock.h
 include/dt-bindings/clock/hi3519-clock.h
 include/dt-bindings/clock/hi3559av100-clock.h
@@ -2466,7 +2437,6 @@ include/dt-bindings/input/gpio-keys.h
 include/dt-bindings/interrupt-controller/arm-gic.h
 include/dt-bindings/interrupt-controller/irq.h
 include/dt-bindings/leds/common.h
-include/dt-bindings/pinctrl/samsung.h
 include/dt-bindings/pinctrl/sun4i-a10.h
 include/dt-bindings/pwm/pwm.h
 include/dt-bindings/spmi/spmi.h
@@ -3380,6 +3350,7 @@ include/linux/serdev.h
 include/linux/serial_8250.h
 include/linux/serial_core.h
 include/linux/serial.h
+include/linux/serial_s3c.h
 include/linux/serio.h
 include/linux/set_memory.h
 include/linux/sfp.h
@@ -3403,9 +3374,6 @@ include/linux/sock_diag.h
 include/linux/socket.h
 include/linux/sockptr.h
 include/linux/soc/qcom/smem_state.h
-include/linux/soc/samsung/exynos-chipid.h
-include/linux/soc/samsung/exynos-pmu.h
-include/linux/soc/samsung/exynos-regs-pmu.h
 include/linux/soc/sunxi/sunxi_sram.h
 include/linux/sort.h
 include/linux/spinlock_api_smp.h
@@ -3852,6 +3820,7 @@ include/net/sock_reuseport.h
 include/net/stp.h
 include/net/strparser.h
 include/net/switchdev.h
+include/net/tc_act/tc_bpf.h
 include/net/tc_act/tc_csum.h
 include/net/tc_act/tc_ct.h
 include/net/tc_act/tc_gact.h
@@ -4058,6 +4027,7 @@ include/trace/hooks/timer.h
 include/trace/hooks/topology.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
+include/trace/hooks/vmscan.h
 include/trace/hooks/wqlockup.h
 include/trace/perf.h
 include/trace/syscall.h
@@ -4425,6 +4395,7 @@ include/uapi/linux/sync_file.h
 include/uapi/linux/sysctl.h
 include/uapi/linux/sysinfo.h
 include/uapi/linux/taskstats.h
+include/uapi/linux/tc_act/tc_bpf.h
 include/uapi/linux/tc_act/tc_csum.h
 include/uapi/linux/tc_act/tc_ct.h
 include/uapi/linux/tc_act/tc_gact.h
@@ -5729,6 +5700,7 @@ net/packet/internal.h
 net/rfkill/core.c
 net/rfkill/rfkill.h
 net/sched/act_api.c
+net/sched/act_bpf.c
 net/sched/act_gact.c
 net/sched/act_mirred.c
 net/sched/act_police.c
