@@ -917,6 +917,15 @@ config MINIDUMP_MAX_ENTRIES
 	  This defines maximum number of entries to be allocated for application
 	  subsytem in Minidump table.
 
+config QCOM_LOGBUF_VENDOR_HOOKS
+	tristate "QTI Logbuf Vendor Hooks Support"
+	depends on ARCH_QCOM && ANDROID_VENDOR_HOOKS
+	help
+	  This enables to keep copy of initial log_buf
+	  of minimum 512KB from bootup. It can help in
+	  debugging issues which are manifestation
+	  of failure during initial bootup.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 
 endmenu
