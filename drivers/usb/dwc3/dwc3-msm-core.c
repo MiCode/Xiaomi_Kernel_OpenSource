@@ -6033,9 +6033,6 @@ static int dwc3_core_prepare(struct device *dev)
 
 static void dwc3_core_complete(struct device *dev)
 {
-	struct dwc3	*dwc = dev_get_drvdata(dev);
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	u32		reg;
 	int		ret;
 
 	/*
@@ -6045,18 +6042,11 @@ static void dwc3_core_complete(struct device *dev)
 	 * needs to be executed.
 	 */
 	if (dev->power.direct_complete) {
-		ret = pm_runtime_resume(dev);
+		ret = pm_request_resume(dev);
 		if (ret < 0) {
 			dev_err(dev, "failed to runtime resume, ret %d\n", ret);
 			return;
 		}
-	}
-
-	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
-			dwc->dis_split_quirk) {
-		reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL3);
-		reg |= DWC3_GUCTL3_SPLITDISABLE;
-		dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL3, reg);
 	}
 }
 #endif
