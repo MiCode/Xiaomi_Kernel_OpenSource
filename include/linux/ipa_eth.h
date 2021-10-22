@@ -10,8 +10,6 @@
 #include <linux/msm_ipa.h>
 #include <linux/msm_gsi.h>
 
-#define IPA_ETH_API_VER 2
-
 /* New architecture prototypes */
 
 typedef void (*ipa_eth_ready_cb)(void *user_data);
