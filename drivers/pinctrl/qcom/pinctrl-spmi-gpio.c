@@ -978,10 +978,11 @@ static void *pmic_gpio_populate_parent_fwspec(struct gpio_chip *chip,
 		return NULL;
 
 	fwspec->fwnode = chip->irq.parent_domain->fwnode;
+
 	fwspec->param_count = 4;
 	fwspec->param[0] = state->usid;
 	fwspec->param[1] = parent_hwirq;
-	fwspec->param[2] = 0;
+	/* param[2] must be left as 0 */
 	fwspec->param[3] = parent_type;
 
 	return fwspec;
