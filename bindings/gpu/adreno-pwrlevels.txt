@@ -14,6 +14,7 @@ Properties:
 - qcom,speed-bin:		Speed bin identifier for the set - must match
 				the value read from the hardware
 - qcom,initial-pwrlevel:	GPU wakeup powerlevel
+- qcom,initial-min-pwrlevel:	Initial minimum available GPU powerlevel
 
 - qcom,gpu-pwrlevel:		A single powerlevel
 
