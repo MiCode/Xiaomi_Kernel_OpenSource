@@ -68,7 +68,30 @@ Subsystem properties:
 			"modem_skin_nr_dsc" -> DSC based NR skin mitigation
 						device,
 			"pa_dsc" -> DSC based pa cooling device,
-			"pa_fr1_dsc" -> DSC based pa cooling device.
+			"pa_fr1_dsc" -> DSC based pa cooling device,
+			"modem_lte_dsc" -> DSC based modem lte cooling device,
+			"modem_nr_dsc" -> DSC based modem nr cooling device,
+			"modem_nr_scg_dsc" -> DSC based modem nr scg cooling
+						device,
+			"sdr0_lte_dsc" -> DSC based sdr0 lte cooling device,
+			"sdr1_lte_dsc" -> DSC based sdr1 lte cooling device,
+			"sdr0_nr_dsc" -> DSC based sdr0 nr cooling device,
+			"sdr1_nr_dsc" -> DSC based sdr1 nr cooling device,
+			"pa_lte_sdr0_dsc" -> DSC based pa lte sdr0 cooling
+						device,
+			"pa_lte_sdr1_dsc" -> DSC based pa lte sdr1 cooling
+						device,
+			"pa_nr_sdr0_dsc" -> DSC based pa nr sdr0 cooling device,
+			"pa_nr_sdr1_dsc" -> DSC based pa nr sdr1 cooling device,
+			"pa_nr_sdr0_scg_dsc" -> DSC based pa nr sdr0 scg cooling
+						device,
+			"pa_nr_sdr1_scg_dsc" -> DSC based pa nr sdr1 scg cooling
+						device,
+			"mmw0_dsc" -> DSC based MMW cooling device0,
+			"mmw1_dsc" -> DSC based MMW cooling device1,
+			"mmw2_dsc" -> DSC based MMW cooling device2,
+			"mmw3_dsc" -> DSC based MMW cooling device3,
+			"mmw_ific_dsc" -> DSC based MMW IFIC cooling device.
 
 	-#cooling-cells:
 		Usage: required
