@@ -13,3 +13,4 @@ qcom_dma_heaps-$(CONFIG_QCOM_DMABUF_HEAPS_SYSTEM_SECURE) += qcom_secure_system_h
 qcom_dma_heaps-$(CONFIG_QCOM_DMABUF_HEAPS_CMA)	+= qcom_cma_heap.o
 qcom_dma_heaps-$(CONFIG_QCOM_DMABUF_HEAPS_CARVEOUT) += qcom_carveout_heap.o \
 						       qcom_dma_heap_secure_utils.o
+qcom_dma_heaps-$(CONFIG_QCOM_DMABUF_HEAPS_BITSTREAM_CONTIG) += qcom_bitstream_contig_heap.o
