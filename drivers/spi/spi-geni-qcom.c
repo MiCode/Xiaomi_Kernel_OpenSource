@@ -552,7 +552,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 		return PTR_ERR(clk);
 	}
 
-	spi = spi_alloc_master(&pdev->dev, sizeof(*mas));
+	spi = devm_spi_alloc_master(&pdev->dev, sizeof(*mas));
 	if (!spi)
 		return -ENOMEM;
 
@@ -599,7 +599,6 @@ spi_geni_probe_free_irq:
 	free_irq(mas->irq, spi);
 spi_geni_probe_runtime_disable:
 	pm_runtime_disable(&pdev->dev);
-	spi_master_put(spi);
 	return ret;
 }
 

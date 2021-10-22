@@ -138,6 +138,7 @@ static const struct property_entry dwc3_pci_amd_properties[] = {
 	PROPERTY_ENTRY_BOOL("snps,disable_scramble_quirk"),
 	PROPERTY_ENTRY_BOOL("snps,dis_u3_susphy_quirk"),
 	PROPERTY_ENTRY_BOOL("snps,dis_u2_susphy_quirk"),
+	PROPERTY_ENTRY_BOOL("snps,usb2-gadget-lpm-disable"),
 	PROPERTY_ENTRY_BOOL("linux,sysdev_is_parent"),
 	{}
 };

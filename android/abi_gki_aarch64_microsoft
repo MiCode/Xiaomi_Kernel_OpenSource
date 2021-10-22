@@ -1,0 +1,8 @@
+[abi_symbol_list]
+# required by spi-hid.ko
+  hid_add_device
+  hid_allocate_device
+  hid_destroy_device
+  hid_input_report
+  hid_parse_report
+  spi_async

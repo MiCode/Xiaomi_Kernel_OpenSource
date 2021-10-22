@@ -98,6 +98,7 @@ int blk_pre_runtime_suspend(struct request_queue *q)
 		q->rpm_status = RPM_ACTIVE;
 		pm_runtime_mark_last_busy(q->dev);
 		spin_unlock_irq(&q->queue_lock);
+
 		blk_clear_pm_only(q);
 	}
 

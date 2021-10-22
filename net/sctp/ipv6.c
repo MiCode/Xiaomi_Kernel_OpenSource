@@ -530,15 +530,20 @@ static void sctp_v6_to_sk_daddr(union sctp_addr *addr, struct sock *sk)
 }
 
 /* Initialize a sctp_addr from an address parameter. */
-static void sctp_v6_from_addr_param(union sctp_addr *addr,
+static bool sctp_v6_from_addr_param(union sctp_addr *addr,
 				    union sctp_addr_param *param,
 				    __be16 port, int iif)
 {
+	if (ntohs(param->v6.param_hdr.length) < sizeof(struct sctp_ipv6addr_param))
+		return false;
+
 	addr->v6.sin6_family = AF_INET6;
 	addr->v6.sin6_port = port;
 	addr->v6.sin6_flowinfo = 0; /* BUG */
 	addr->v6.sin6_addr = param->v6.addr;
 	addr->v6.sin6_scope_id = iif;
+
+	return true;
 }
 
 /* Initialize an address parameter from a sctp_addr and return the length
@@ -643,8 +648,8 @@ static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
 	if (!(type & IPV6_ADDR_UNICAST))
 		return 0;
 
-	return sp->inet.freebind || net->ipv6.sysctl.ip_nonlocal_bind ||
-		ipv6_chk_addr(net, in6, NULL, 0);
+	return ipv6_can_nonlocal_bind(net, &sp->inet) ||
+	       ipv6_chk_addr(net, in6, NULL, 0);
 }
 
 /* This function checks if the address is a valid address to be used for
@@ -933,8 +938,7 @@ static int sctp_inet6_bind_verify(struct sctp_sock *opt, union sctp_addr *addr)
 			net = sock_net(&opt->inet.sk);
 			rcu_read_lock();
 			dev = dev_get_by_index_rcu(net, addr->v6.sin6_scope_id);
-			if (!dev || !(opt->inet.freebind ||
-				      net->ipv6.sysctl.ip_nonlocal_bind ||
+			if (!dev || !(ipv6_can_nonlocal_bind(net, &opt->inet) ||
 				      ipv6_chk_addr(net, &addr->v6.sin6_addr,
 						    dev, 0))) {
 				rcu_read_unlock();

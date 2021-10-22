@@ -85,12 +85,12 @@ static struct dw_edma_chunk *dw_edma_alloc_chunk(struct dw_edma_desc *desc)
 
 	if (desc->chunk) {
 		/* Create and add new element into the linked list */
-		desc->chunks_alloc++;
-		list_add_tail(&chunk->list, &desc->chunk->list);
 		if (!dw_edma_alloc_burst(chunk)) {
 			kfree(chunk);
 			return NULL;
 		}
+		desc->chunks_alloc++;
+		list_add_tail(&chunk->list, &desc->chunk->list);
 	} else {
 		/* List head */
 		chunk->burst = NULL;
@@ -910,21 +910,20 @@ int dw_edma_remove(struct dw_edma_chip *chip)
 	/* Power management */
 	pm_runtime_disable(dev);
 
-	list_for_each_entry_safe(chan, _chan, &dw->wr_edma.channels,
-				 vc.chan.device_node) {
-		list_del(&chan->vc.chan.device_node);
-		tasklet_kill(&chan->vc.task);
-	}
-
-	list_for_each_entry_safe(chan, _chan, &dw->rd_edma.channels,
-				 vc.chan.device_node) {
-		list_del(&chan->vc.chan.device_node);
-		tasklet_kill(&chan->vc.task);
-	}
-
 	/* Deregister eDMA device */
 	dma_async_device_unregister(&dw->wr_edma);
+	list_for_each_entry_safe(chan, _chan, &dw->wr_edma.channels,
+				 vc.chan.device_node) {
+		tasklet_kill(&chan->vc.task);
+		list_del(&chan->vc.chan.device_node);
+	}
+
 	dma_async_device_unregister(&dw->rd_edma);
+	list_for_each_entry_safe(chan, _chan, &dw->rd_edma.channels,
+				 vc.chan.device_node) {
+		tasklet_kill(&chan->vc.task);
+		list_del(&chan->vc.chan.device_node);
+	}
 
 	/* Turn debugfs off */
 	dw_edma_v0_core_debugfs_off();

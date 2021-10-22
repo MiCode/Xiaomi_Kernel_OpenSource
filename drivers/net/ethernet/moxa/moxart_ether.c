@@ -481,6 +481,10 @@ static int moxart_mac_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		ret = -EINVAL;
+		goto init_fail;
+	}
 	ndev->base_addr = res->start;
 	priv->base = devm_ioremap_resource(p_dev, res);
 	if (IS_ERR(priv->base)) {

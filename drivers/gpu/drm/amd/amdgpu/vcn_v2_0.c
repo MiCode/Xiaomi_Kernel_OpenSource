@@ -293,6 +293,8 @@ static int vcn_v2_0_hw_fini(void *handle)
 	struct amdgpu_ring *ring = &adev->vcn.inst->ring_dec;
 	int i;
 
+	cancel_delayed_work_sync(&adev->vcn.idle_work);
+
 	if ((adev->pg_flags & AMD_PG_SUPPORT_VCN_DPG) ||
 	    (adev->vcn.cur_state != AMD_PG_STATE_GATE &&
 	      RREG32_SOC15(VCN, 0, mmUVD_STATUS)))

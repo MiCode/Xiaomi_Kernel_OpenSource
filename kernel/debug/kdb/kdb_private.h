@@ -233,7 +233,7 @@ extern struct task_struct *kdb_curr_task(int);
 #define	kdb_do_each_thread(g, p) do_each_thread(g, p)
 #define	kdb_while_each_thread(g, p) while_each_thread(g, p)
 
-#define GFP_KDB (in_interrupt() ? GFP_ATOMIC : GFP_KERNEL)
+#define GFP_KDB (in_dbg_master() ? GFP_ATOMIC : GFP_KERNEL)
 
 extern void *debug_kmalloc(size_t size, gfp_t flags);
 extern void debug_kfree(void *);

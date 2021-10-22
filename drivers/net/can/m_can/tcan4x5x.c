@@ -88,7 +88,7 @@
 
 #define TCAN4X5X_MRAM_START 0x8000
 #define TCAN4X5X_MCAN_OFFSET 0x1000
-#define TCAN4X5X_MAX_REGISTER 0x8fff
+#define TCAN4X5X_MAX_REGISTER 0x8ffc
 
 #define TCAN4X5X_CLEAR_ALL_INT 0xffffffff
 #define TCAN4X5X_SET_ALL_INT 0xffffffff
@@ -124,30 +124,6 @@ struct tcan4x5x_priv {
 	/* Register based ip */
 	int mram_start;
 	int reg_offset;
-};
-
-static struct can_bittiming_const tcan4x5x_bittiming_const = {
-	.name = DEVICE_NAME,
-	.tseg1_min = 2,
-	.tseg1_max = 31,
-	.tseg2_min = 2,
-	.tseg2_max = 16,
-	.sjw_max = 16,
-	.brp_min = 1,
-	.brp_max = 32,
-	.brp_inc = 1,
-};
-
-static struct can_bittiming_const tcan4x5x_data_bittiming_const = {
-	.name = DEVICE_NAME,
-	.tseg1_min = 1,
-	.tseg1_max = 32,
-	.tseg2_min = 1,
-	.tseg2_max = 16,
-	.sjw_max = 16,
-	.brp_min = 1,
-	.brp_max = 32,
-	.brp_inc = 1,
 };
 
 static void tcan4x5x_check_wake(struct tcan4x5x_priv *priv)
@@ -349,13 +325,13 @@ static int tcan4x5x_init(struct m_can_classdev *cdev)
 	if (ret)
 		return ret;
 
+	/* Zero out the MCAN buffers */
+	m_can_init_ram(cdev);
+
 	ret = regmap_update_bits(tcan4x5x->regmap, TCAN4X5X_CONFIG,
 				 TCAN4X5X_MODE_SEL_MASK, TCAN4X5X_MODE_NORMAL);
 	if (ret)
 		return ret;
-
-	/* Zero out the MCAN buffers */
-	m_can_init_ram(cdev);
 
 	return ret;
 }
@@ -449,8 +425,6 @@ static int tcan4x5x_can_probe(struct spi_device *spi)
 	mcan_class->dev = &spi->dev;
 	mcan_class->ops = &tcan4x5x_ops;
 	mcan_class->is_peripheral = true;
-	mcan_class->bit_timing = &tcan4x5x_bittiming_const;
-	mcan_class->data_timing = &tcan4x5x_data_bittiming_const;
 	mcan_class->net->irq = spi->irq;
 
 	spi_set_drvdata(spi, priv);

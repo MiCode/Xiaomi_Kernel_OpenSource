@@ -51,7 +51,6 @@
   clk_unprepare
   complete
   complete_all
-  completion_done
   component_add
   component_del
   __const_udelay
@@ -82,7 +81,6 @@
   device_get_match_data
   device_init_wakeup
   device_link_add
-  device_link_del
   device_property_present
   device_property_read_u32_array
   device_remove_file
@@ -93,7 +91,6 @@
   device_wakeup_enable
   _dev_info
   devm_add_action
-  devm_clk_bulk_get
   devm_clk_get
   devm_clk_get_optional
   devm_extcon_dev_allocate
@@ -102,22 +99,18 @@
   devm_gpiod_get
   devm_gpiod_get_optional
   devm_gpio_request_one
-  devm_ioremap
   devm_ioremap_resource
   devm_kasprintf
   devm_kfree
   devm_kmalloc
   __devm_of_phy_provider_register
   devm_phy_create
-  devm_phy_get
   devm_pinctrl_get
   devm_platform_ioremap_resource
   __devm_regmap_init_i2c
   __devm_regmap_init_mmio_clk
   devm_regulator_get
-  devm_regulator_get_optional
   devm_request_threaded_irq
-  __devm_reset_control_get
   devm_reset_controller_register
   devm_snd_dmaengine_pcm_register
   devm_snd_soc_register_card
@@ -125,8 +118,6 @@
   devm_usb_get_phy
   devm_usb_get_phy_by_phandle
   _dev_notice
-  dev_pm_domain_attach_by_name
-  dev_pm_domain_detach
   dev_pm_set_wake_irq
   _dev_warn
   disable_irq
@@ -145,18 +136,15 @@
   dma_direct_unmap_page
   dma_direct_unmap_sg
   dma_free_attrs
-  dma_get_slave_caps
   dma_mmap_attrs
   dma_release_channel
   dma_request_chan
-  __dma_request_channel
   dma_request_slave_channel
   dma_set_coherent_mask
   dma_set_mask
   down
   down_interruptible
   down_write
-  drm_add_edid_modes
   drm_atomic_helper_check
   drm_atomic_helper_check_plane_state
   drm_atomic_helper_cleanup_planes
@@ -165,9 +153,6 @@
   drm_atomic_helper_commit_modeset_disables
   drm_atomic_helper_commit_modeset_enables
   drm_atomic_helper_commit_planes
-  drm_atomic_helper_connector_destroy_state
-  drm_atomic_helper_connector_duplicate_state
-  drm_atomic_helper_connector_reset
   __drm_atomic_helper_crtc_destroy_state
   __drm_atomic_helper_crtc_duplicate_state
   drm_atomic_helper_disable_plane
@@ -178,14 +163,9 @@
   drm_atomic_helper_set_config
   drm_atomic_helper_update_plane
   drm_atomic_helper_wait_for_vblanks
-  drm_bridge_add
   drm_bridge_attach
-  drm_bridge_remove
   drm_compat_ioctl
-  drm_connector_attach_encoder
   drm_connector_cleanup
-  drm_connector_init
-  drm_connector_update_edid_property
   drm_crtc_arm_vblank_event
   drm_crtc_cleanup
   drm_crtc_handle_vblank
@@ -194,7 +174,6 @@
   drm_crtc_vblank_get
   drm_crtc_vblank_off
   drm_crtc_vblank_on
-  drm_detect_hdmi_monitor
   drm_dev_alloc
   drm_dev_printk
   drm_dev_put
@@ -205,25 +184,17 @@
   drm_display_mode_to_videomode
   drm_encoder_cleanup
   drm_encoder_init
-  drm_err
   drm_fb_cma_get_gem_obj
   drm_gem_fb_create
   drm_gem_prime_fd_to_handle
   drm_gem_prime_handle_to_fd
-  drm_get_edid
   drm_get_format_name
-  drm_hdmi_avi_infoframe_from_display_mode
-  drm_hdmi_vendor_infoframe_from_display_mode
-  drm_helper_hpd_irq_event
-  drm_helper_probe_single_connector_modes
   drm_ioctl
-  drm_match_cea_mode
   drm_mode_config_helper_resume
   drm_mode_config_helper_suspend
   drm_mode_create
   drm_mode_probed_add
   drm_mode_vrefresh
-  drm_of_find_possible_crtcs
   drm_open
   drm_panel_add
   drm_panel_detach
@@ -273,10 +244,8 @@
   gpiod_direction_input
   gpiod_direction_output_raw
   gpiod_get_raw_value
-  gpiod_get_raw_value_cansleep
   gpiod_get_value
   gpiod_set_raw_value
-  gpiod_set_raw_value_cansleep
   gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
@@ -284,9 +253,6 @@
   gpio_request
   gpio_to_desc
   handle_level_irq
-  hdmi_audio_infoframe_init
-  hdmi_vendor_infoframe_pack
-  i2c_add_adapter
   i2c_del_adapter
   i2c_del_driver
   i2c_register_driver
@@ -382,8 +348,6 @@
   of_find_backlight_by_node
   of_find_compatible_node
   of_find_device_by_node
-  of_find_i2c_device_by_node
-  of_find_matching_node_and_match
   of_find_node_by_name
   of_find_property
   of_fwnode_ops
@@ -531,42 +495,18 @@
   sg_init_one
   sg_init_table
   sg_next
-  snd_ctl_boolean_mono_info
-  snd_dma_alloc_pages
-  snd_dmaengine_pcm_prepare_slave_config
-  snd_dma_free_pages
-  snd_pcm_format_physical_width
   snd_pcm_format_width
   snd_pcm_hw_constraint_integer
   snd_pcm_hw_constraint_list
   snd_pcm_lib_ioctl
-  snd_pcm_period_elapsed
-  snd_soc_add_component_controls
   snd_soc_card_jack_new
-  snd_soc_component_read32
-  snd_soc_component_update_bits
-  snd_soc_component_write
   snd_soc_dai_set_fmt
   snd_soc_dai_set_sysclk
   snd_soc_dai_set_tdm_slot
-  snd_soc_dapm_add_routes
-  snd_soc_dapm_get_volsw
-  snd_soc_dapm_ignore_suspend
-  snd_soc_dapm_new_controls
-  snd_soc_dapm_put_volsw
-  snd_soc_get_enum_double
-  snd_soc_get_volsw
   snd_soc_info_enum_double
-  snd_soc_info_volsw
-  snd_soc_jack_add_gpios
-  snd_soc_jack_report
   snd_soc_of_parse_audio_routing
   snd_soc_of_parse_card_name
-  snd_soc_params_to_bclk
   snd_soc_pm_ops
-  snd_soc_put_enum_double
-  snd_soc_put_volsw
-  snd_soc_rtdcom_lookup
   snd_soc_set_runtime_hwparams
   snprintf
   sprintf
@@ -689,29 +629,6 @@
   typec_switch_register
   typec_switch_unregister
 
-# required by cdns_mhdp_drmcore.ko
-  drm_atomic_get_crtc_state
-  drm_dbg
-  drm_default_rgb_quant_range
-  drm_dev_dbg
-  drm_do_get_edid
-  drm_dp_aux_register
-  drm_dp_aux_unregister
-  drm_dp_bw_code_to_link_rate
-  drm_dp_dpcd_read
-  drm_dp_link_rate_to_bw_code
-  drm_hdmi_avi_infoframe_colorspace
-  drm_hdmi_avi_infoframe_quant_range
-  drm_hdmi_infoframe_set_hdr_metadata
-  drm_mode_create_hdmi_colorspace_property
-  drm_mode_is_420_also
-  drm_mode_is_420_only
-  drm_object_attach_property
-  hdmi_audio_infoframe_pack
-  hdmi_avi_infoframe_check
-  hdmi_avi_infoframe_pack
-  hdmi_drm_infoframe_pack
-
 # required by clk-imx8mp.ko
   clk_hw_register_divider
   clk_hw_register_fixed_factor
@@ -747,6 +664,7 @@
   regulator_put
 
 # required by cqhci.ko
+  devm_ioremap
   dmam_alloc_attrs
   dmam_free_coherent
   mmc_cqe_request_done
@@ -754,6 +672,7 @@
 # required by cyttsp5.ko
   kobject_del
   mod_timer_pending
+  unregister_pm_notifier
 
 # required by cyttsp5_device_access.ko
   device_remove_bin_file
@@ -766,43 +685,13 @@
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
 
-# required by dw-hdmi-cec.ko
-  cec_allocate_adapter
-  cec_delete_adapter
-  cec_notifier_cec_adap_register
-  cec_notifier_cec_adap_unregister
-  cec_received_msg_ts
-  cec_register_adapter
-  cec_transmit_attempt_done_ts
-  cec_unregister_adapter
-  devm_remove_action
-
-# required by dw-hdmi.ko
-  cec_fill_conn_info_from_drm
-  cec_notifier_conn_register
-  cec_notifier_conn_unregister
-  cec_notifier_set_phys_addr
-  cec_notifier_set_phys_addr_from_edid
-  drm_connector_init_with_ddc
-  drm_detect_monitor_audio
-  drm_scdc_read
-  drm_scdc_set_high_tmds_clock_ratio
-  drm_scdc_set_scrambling
-  drm_scdc_write
-  i2c_put_adapter
-  of_get_i2c_adapter_by_node
-
-# required by dw_hdmi-imx.ko
-  devm_kmemdup
-  devm_phy_optional_get
-  drm_of_encoder_active_endpoint
-
 # required by dwc3.ko
   bpf_trace_run4
   clk_bulk_disable
   device_property_read_string
   device_property_read_u8_array
   devm_clk_bulk_get_all
+  devm_phy_get
   devm_reset_control_array_get
   extcon_find_edev_by_node
   extcon_get_extcon_dev
@@ -853,6 +742,7 @@
 # required by galcore.ko
   anon_inode_getfd
   cache_line_size
+  __devm_reset_control_get
   dev_pm_opp_add
   dev_pm_opp_remove
   dma_buf_export
@@ -939,6 +829,10 @@
   i2c_add_numbered_adapter
   i2c_generic_scl_recovery
   i2c_recover_bus
+  of_find_matching_node_and_match
+
+# required by i2c-rpmsg-imx.ko
+  i2c_add_adapter
 
 # required by icx_nvp_emmc.ko
   blkdev_get_by_path
@@ -953,13 +847,20 @@
   dev_pm_opp_set_supported_hw
   nvmem_cell_read_u32
 
+# required by imx-cxd3778gf.ko
+  snd_soc_jack_report
+
 # required by imx-i2s-rpmsg.ko
   unregister_rpmsg_driver
 
 # required by imx-lcdif-crtc.ko
   drm_property_destroy
 
+# required by imx-lcdifv3-core.ko
+  devm_clk_bulk_get
+
 # required by imx-lcdifv3-crtc.ko
+  drm_match_cea_mode
   drm_mode_equal
   drm_mode_find_dmt
 
@@ -969,22 +870,29 @@
   mbox_chan_txdone
 
 # required by imx-pcm-dma-common.ko
+  dma_get_slave_caps
+  snd_dma_alloc_pages
   snd_dmaengine_pcm_close_release_chan
   snd_dmaengine_pcm_get_chan
   snd_dmaengine_pcm_open
   snd_dmaengine_pcm_open_request_chan
   snd_dmaengine_pcm_pointer
+  snd_dmaengine_pcm_prepare_slave_config
   snd_dmaengine_pcm_set_config_from_dai_data
   snd_dmaengine_pcm_trigger
+  snd_dma_free_pages
   snd_hwparams_to_dma_slave_config
+  snd_pcm_format_physical_width
 
 # required by imx-pcm-rpmsg.ko
+  snd_pcm_period_elapsed
   snd_soc_lookup_component
 
 # required by imx-sdma.ko
   dma_async_device_register
   dma_async_device_unregister
   dma_async_tx_descriptor_init
+  __dma_request_channel
   gen_pool_dma_alloc
   gen_pool_free_owner
   of_dma_controller_register
@@ -1072,6 +980,7 @@
   media_device_init
   __media_device_register
   media_device_unregister
+  of_find_i2c_device_by_node
   v4l2_async_notifier_register
   v4l2_device_register_subdev
   v4l2_device_register_subdev_nodes
@@ -1080,6 +989,7 @@
   regulator_set_voltage
 
 # required by imx8m_pm_domains.ko
+  devm_regulator_get_optional
   of_clk_get
   of_genpd_add_provider_simple
   of_genpd_add_subdomain
@@ -1108,7 +1018,23 @@
   component_master_del
   component_match_add_release
   component_unbind_all
+  drm_client_buffer_vmap
+  drm_client_framebuffer_create
+  drm_client_framebuffer_delete
+  drm_client_init
+  drm_client_modeset_commit
+  drm_client_modeset_commit_force
+  drm_client_modeset_probe
+  drm_client_register
+  drm_client_release
+  drm_client_rotation
+  drm_connector_list_iter_begin
+  drm_connector_list_iter_end
+  drm_connector_list_iter_next
   drm_connector_unregister
+  drm_dbg
+  drm_dev_dbg
+  drm_format_info
   drm_gem_cma_dumb_create
   drm_gem_cma_free_object
   drm_gem_cma_mmap
@@ -1118,13 +1044,17 @@
   drm_gem_cma_prime_vmap
   drm_gem_cma_prime_vunmap
   drm_gem_cma_vm_ops
+  drm_helper_disable_unused_functions
   drm_kms_helper_poll_fini
   drm_kms_helper_poll_init
   drm_mode_config_cleanup
   drm_mode_config_init
   drm_mode_config_reset
+  drm_mode_legacy_fb_format
   drm_of_component_match_add
+  drm_of_find_possible_crtcs
   drm_vblank_init
+  memblock_free
 
 # required by incrementalfs.ko
   bin2hex
@@ -1208,6 +1138,7 @@
   device_initialize
 
 # required by irq-imx-irqsteer.ko
+  dev_pm_domain_attach_by_name
   __irq_domain_add
   irq_domain_xlate_onecell
   irq_of_parse_and_map
@@ -1250,6 +1181,9 @@
   devm_nvmem_register
 
 # required by panel-simple.ko
+  drm_add_edid_modes
+  drm_connector_update_edid_property
+  drm_get_edid
   drm_mode_duplicate
   drm_mode_set_name
   of_find_i2c_adapter_by_node
@@ -1287,23 +1221,6 @@
   regmap_del_irq_chip
   regmap_irq_get_domain
 
-# required by pci-imx6.ko
-  dw_pcie_ep_init
-  dw_pcie_ep_raise_legacy_irq
-  dw_pcie_ep_raise_msi_irq
-  dw_pcie_ep_raise_msix_irq
-  dw_pcie_ep_reset_bar
-  dw_pcie_host_init
-  dw_pcie_link_up
-  dw_pcie_msi_init
-  dw_pcie_read_dbi
-  dw_pcie_setup_rc
-  dw_pcie_wait_for_link
-  dw_pcie_write_dbi
-  pci_msi_enabled
-  phy_calibrate
-  regulator_is_enabled
-
 # required by phy-fsl-imx8mq-usb.ko
   power_supply_get_by_phandle
   power_supply_get_property
@@ -1340,6 +1257,8 @@
   pwmchip_remove
 
 # required by qca9377_bt_rfkill.ko
+  gpiod_get_raw_value_cansleep
+  gpiod_set_raw_value_cansleep
   rfkill_alloc
   rfkill_destroy
   rfkill_init_sw_state
@@ -1353,7 +1272,6 @@
   rtc_update_irq
 
 # required by sdhci-esdhc-imx.ko
-  __mmc_claim_host
   mmc_gpiod_request_cd
   mmc_gpiod_request_ro
   mmc_gpio_get_cd
@@ -1361,7 +1279,6 @@
   mmc_gpio_set_cd_wake
   mmc_of_parse
   mmc_of_parse_voltage
-  mmc_release_host
   mmc_retune_timer_stop
   mmc_send_tuning
   sdhci_add_host
@@ -1381,6 +1298,12 @@
 
 # required by sec-dsim.ko
   bsearch
+  drm_atomic_helper_connector_destroy_state
+  drm_atomic_helper_connector_duplicate_state
+  drm_atomic_helper_connector_reset
+  drm_connector_attach_encoder
+  drm_connector_init
+  drm_helper_probe_single_connector_modes
   drm_panel_attach
   drm_panel_disable
   drm_panel_enable
@@ -1399,54 +1322,37 @@
 # required by snd-soc-cxd3778gf.ko
   irq_set_irq_type
   param_get_int
+  snd_soc_add_component_controls
+  snd_soc_info_volsw
   snd_soc_register_component
   snd_soc_unregister_component
 
 # required by snd-soc-fsl-dsp.ko
+  device_link_del
   dev_pm_domain_attach_by_id
+  dev_pm_domain_detach
   of_count_phandle_with_args
   pm_system_wakeup
+  snd_soc_rtdcom_lookup
   sysfs_streq
   vfs_llseek
 
-# required by snd-soc-fsl-easrc.ko
-  gcd
-  snd_pcm_format_big_endian
-  snd_pcm_format_linear
-  snd_pcm_format_unsigned
-  snd_soc_component_read
-  snd_soc_dpcm_get_substream
-  snd_soc_info_xr_sx
-
 # required by snd-soc-fsl-micfil.ko
+  snd_soc_component_update_bits
+  snd_soc_get_enum_double
   snd_soc_get_volsw_sx
   snd_soc_info_volsw_sx
+  snd_soc_put_enum_double
   snd_soc_put_volsw_sx
 
 # required by snd-soc-fsl-sai.ko
   snd_pcm_hw_constraint_step
   __sw_hweight8
 
-# required by snd-soc-hdmi-codec.ko
-  snd_ctl_add
-  snd_ctl_new1
-  snd_pcm_add_chmap_ctls
-  snd_pcm_create_iec958_consumer_hw_params
-  snd_pcm_hw_constraint_eld
-
-# required by snd-soc-imx-wm8960.ko
-  of_parse_phandle_with_fixed_args
-  snd_soc_dai_set_pll
-  snd_soc_dapm_disable_pin
-  snd_soc_dapm_enable_pin
-
 # required by snd-soc-lif-md6000-rme.ko
   driver_unregister
   __spi_register_driver
   spi_sync
-
-# required by snd-soc-rpmsg-wm8960.ko
-  __devm_regmap_init
 
 # required by snd-soc-simple-card-utils.ko
   devm_get_clk_from_child
@@ -1454,6 +1360,7 @@
   snd_soc_dapm_get_pin_switch
   snd_soc_dapm_info_pin_switch
   snd_soc_dapm_put_pin_switch
+  snd_soc_jack_add_gpios
   snd_soc_of_parse_audio_simple_widgets
   snd_soc_of_parse_daifmt
 
@@ -1651,6 +1558,7 @@
   cfg80211_unlink_bss
   cfg80211_vendor_cmd_reply
   complete_and_exit
+  completion_done
   consume_skb
   cpu_topology
   crypto_ahash_digest

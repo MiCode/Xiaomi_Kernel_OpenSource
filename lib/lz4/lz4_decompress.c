@@ -260,7 +260,11 @@ static FORCE_INLINE int LZ4_decompress_generic(
 				}
 			}
 
-			memcpy(op, ip, length);
+			/*
+			 * supports overlapping memory regions; only matters
+			 * for in-place decompression scenarios
+			 */
+			LZ4_memmove(op, ip, length);
 			ip += length;
 			op += length;
 

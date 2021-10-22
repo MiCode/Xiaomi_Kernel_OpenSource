@@ -783,5 +783,7 @@ int main(int argc, char **argv)
 	else
 		l2fwd_all();
 
+	munmap(bufs, NUM_FRAMES * opt_xsk_frame_size);
+
 	return 0;
 }
