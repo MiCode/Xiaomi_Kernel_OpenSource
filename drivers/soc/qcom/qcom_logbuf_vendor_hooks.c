@@ -295,21 +295,8 @@ static int boot_log_init(void)
 {
 	void *start;
 	int ret = 0;
-	unsigned int size;
+	unsigned int size = BOOT_LOG_SIZE;
 	struct md_region md_entry;
-	uint32_t log_buf_len;
-
-	log_buf_len = log_buf_len_get();
-	if (!log_buf_len) {
-		pr_err("log_buf_len is zero\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if (log_buf_len >= BOOT_LOG_SIZE)
-		size = log_buf_len;
-	else
-		size = BOOT_LOG_SIZE;
 
 	start = kzalloc(size, GFP_KERNEL);
 	if (!start) {
