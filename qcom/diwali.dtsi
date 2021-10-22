@@ -2223,7 +2223,7 @@
 	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
-#include "diwali-stub-regulator.dtsi"
+#include "diwali-regulators.dtsi"
 #include "diwali-usb.dtsi"
 #include "diwali-gpu.dtsi"
 #include "diwali-thermal.dtsi"
