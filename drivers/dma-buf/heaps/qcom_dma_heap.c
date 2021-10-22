@@ -14,6 +14,7 @@
 #include "qcom_system_heap.h"
 #include "qcom_carveout_heap.h"
 #include "qcom_secure_system_heap.h"
+#include "qcom_bitstream_contig_heap.h"
 
 static int qcom_dma_heap_probe(struct platform_device *pdev)
 {
@@ -70,6 +71,8 @@ static int qcom_dma_heap_probe(struct platform_device *pdev)
 			break;
 		}
 	}
+
+	qcom_add_bitstream_contig_heap("system-secure");
 
 	free_pdata(heaps);
 
