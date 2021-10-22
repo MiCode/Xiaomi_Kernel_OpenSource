@@ -305,7 +305,7 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 static void msm_geni_update_uart_error_code(struct msm_geni_serial_port *port,
 		enum uart_error_code uart_error_code)
 {
-	if (!port->is_console && !port->uart_error) {
+	if (!port->is_console) {
 		port->uart_error = uart_error_code;
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
 				"%s uart_error_code %d", __func__, port->uart_error);
@@ -1262,7 +1262,11 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 				geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS));
 				msm_geni_update_uart_error_code(msm_port, UART_ERROR_TX_ABORT_FAIL);
+			} else {
+				/* Reset the CANCEL error code if abort is success */
+				msm_geni_update_uart_error_code(msm_port, UART_ERROR_DEFAULT);
 			}
+
 			msm_geni_serial_allow_rx(msm_port);
 			geni_write_reg(FORCE_DEFAULT, uport->membase,
 					GENI_FORCE_DEFAULT_REG);
@@ -1285,6 +1289,10 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 					msm_geni_update_uart_error_code(msm_port,
 						UART_ERROR_TX_FSM_RESET_FAIL);
 
+				} else {
+					/* Reset Cancel/Abort error code if FSM reset is success */
+					msm_geni_update_uart_error_code(msm_port,
+									UART_ERROR_DEFAULT);
 				}
 			}
 
@@ -1366,6 +1374,12 @@ check_flow_ctrl:
 	if (++ios_log_limit % 5 == 0) {
 		UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s: ios: 0x%x\n",
 						__func__, geni_ios);
+
+		/* check if SOC RFR is high and set the error code */
+		if (geni_ios & IO2_DATA_IN)
+			msm_geni_update_uart_error_code(msm_port,
+				SOC_ERROR_START_TX_IOS_SOC_RFR_HIGH);
+
 		ios_log_limit = 0;
 	}
 exit_start_tx:
@@ -1710,7 +1724,11 @@ static int stop_rx_sequencer(struct uart_port *uport)
 
 			geni_se_dump_dbg_regs(&port->serial_rsc,
 				uport->membase, port->ipc_log_misc);
+		} else {
+			/* Reset the CANCEL error code if abort is success */
+			msm_geni_update_uart_error_code(port, UART_ERROR_DEFAULT);
 		}
+
 		msm_geni_serial_allow_rx(port);
 		geni_write_reg(FORCE_DEFAULT, uport->membase,
 					GENI_FORCE_DEFAULT_REG);
@@ -1731,6 +1749,9 @@ static int stop_rx_sequencer(struct uart_port *uport)
 				geni_se_dump_dbg_regs(&port->serial_rsc,
 					uport->membase, port->ipc_log_misc);
 
+			} else {
+				/* Reset Cancel/Abort error code if FSM reset is success */
+				msm_geni_update_uart_error_code(port, UART_ERROR_DEFAULT);
 			}
 		}
 	}
@@ -2109,6 +2130,7 @@ static bool handle_rx_fifo_xfer(u32 s_irq_status, struct uart_port *uport,
 
 static bool handle_tx_dma_xfer(u32 m_irq_status, struct uart_port *uport)
 {
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	bool ret = false;
 	u32 dma_tx_status = geni_read_reg_nolog(uport->membase,
 							SE_DMA_TX_IRQ_STAT);
@@ -2120,8 +2142,14 @@ static bool handle_tx_dma_xfer(u32 m_irq_status, struct uart_port *uport)
 		if (dma_tx_status & (TX_RESET_DONE | TX_GENI_CANCEL_IRQ))
 			return true;
 
-		if (dma_tx_status & TX_DMA_DONE)
+		if (dma_tx_status & TX_DMA_DONE) {
 			msm_geni_serial_handle_dma_tx(uport);
+
+			if (msm_port->uart_error == SOC_ERROR_START_TX_IOS_SOC_RFR_HIGH) {
+				/* Reset SOC_RFR_HIGH error code if DMA TX is success */
+				msm_geni_update_uart_error_code(msm_port, UART_ERROR_DEFAULT);
+			}
+		}
 	}
 
 	if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
@@ -2154,13 +2182,15 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 		}
 
 		if (dma_rx_status & UART_DMA_RX_ERRS) {
-			if (dma_rx_status & UART_DMA_RX_PARITY_ERR)
+			if (dma_rx_status & UART_DMA_RX_PARITY_ERR) {
 				uport->icount.parity++;
+				msm_geni_update_uart_error_code(msm_port,
+					UART_ERROR_RX_PARITY_ERROR);
+			}
 			UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 				"%s.Rx Errors.  0x%x parity:%d\n",
 					__func__, dma_rx_status,
 					uport->icount.parity);
-			msm_geni_update_uart_error_code(msm_port, UART_ERROR_RX_PARITY_ERROR);
 			drop_rx = true;
 		} else if (dma_rx_status & UART_DMA_RX_BREAK) {
 			uport->icount.brk++;
@@ -2252,12 +2282,8 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 		goto exit_geni_serial_isr;
 	}
 
-	if (m_irq_status & (M_IO_DATA_ASSERT_EN | M_IO_DATA_DEASSERT_EN)) {
+	if (m_irq_status & (M_IO_DATA_ASSERT_EN | M_IO_DATA_DEASSERT_EN))
 		uport->icount.cts++;
-		IPC_LOG_MSG(msm_port->ipc_log_misc,
-			"%s. cts counter:%d\n", __func__,
-				uport->icount.cts);
-	}
 
 	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
 		uport->icount.overrun++;
