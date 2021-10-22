@@ -1557,12 +1557,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	init_waitqueue_head(&device->active_cnt_wq);
 
-	/* Initialize the user and thermal clock constraints */
-
-	pwr->max_pwrlevel = 0;
-	pwr->min_pwrlevel = pwr->num_pwrlevels - 1;
+	/* Initialize the thermal clock constraints */
 	pwr->thermal_pwrlevel = 0;
-	pwr->thermal_pwrlevel_floor = pwr->min_pwrlevel;
+	pwr->thermal_pwrlevel_floor = pwr->num_pwrlevels - 1;
 
 	pwr->wakeup_maxpwrlevel = 0;
 
