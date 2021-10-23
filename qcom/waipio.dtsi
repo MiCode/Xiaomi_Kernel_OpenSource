@@ -1226,7 +1226,7 @@
 		qcom,vmid = <45>;
 		qcom,firmware-name = "trustedvm";
 		qcom,reserved-cpus = <0x5>, <0x6>;
-		qcom,unisolate-timeout-ms = <8000>;
+		qcom,unisolate-timeout-ms = <12000>;
 		memory-region = <&trust_ui_vm_mem>;
 	};
 
