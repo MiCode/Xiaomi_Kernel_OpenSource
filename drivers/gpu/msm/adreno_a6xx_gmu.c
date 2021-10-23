@@ -2396,7 +2396,7 @@ static void a6xx_free_gmu_globals(struct a6xx_gmu_device *gmu)
 {
 	int i;
 
-	for (i = 0; i < gmu->global_entries; i++) {
+	for (i = 0; i < gmu->global_entries && i < ARRAY_SIZE(gmu->gmu_globals); i++) {
 		struct kgsl_memdesc *md = &gmu->gmu_globals[i];
 
 		if (!md->gmuaddr)

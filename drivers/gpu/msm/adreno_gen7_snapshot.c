@@ -1109,7 +1109,7 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
-	u32 hi, lo, cgc, cgc1, cgc2;
+	u32 hi, lo, cgc = 0, cgc1 = 0, cgc2 = 0;
 
 	/*
 	 * Dump debugbus data here to capture it for both
