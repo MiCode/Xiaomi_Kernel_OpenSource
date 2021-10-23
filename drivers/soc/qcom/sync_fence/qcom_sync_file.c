@@ -83,6 +83,9 @@ static void clear_fence_array_tracker(bool force_clear)
 		fence = &array->base;
 		is_signaled = dma_fence_is_signaled(fence);
 
+		if (force_clear && !array->fences)
+			array->num_fences = 0;
+
 		pr_debug("force_clear:%d is_signaled:%d pending:%d\n", force_clear, is_signaled,
 			atomic_read(&array->num_pending));
 
@@ -180,11 +183,16 @@ static int spec_sync_create_array(struct fence_create_data *f)
 	bool signal_any;
 	int ret = 0;
 
-	if (fd < 0)
+	if (fd < 0) {
+		pr_err("failed to get_unused_fd_flags\n");
 		return fd;
+	}
 
-	if (f->num_fences < FENCE_MIN || f->num_fences > FENCE_MAX)
-		return -ERANGE;
+	if (f->num_fences < FENCE_MIN || f->num_fences > FENCE_MAX) {
+		pr_err("invalid arguments num_fences:%d\n", f->num_fences);
+		ret = -ERANGE;
+		goto error_args;
+	}
 
 	signal_any = f->flags & SPEC_FENCE_SIGNAL_ALL ? false : true;
 
@@ -197,19 +205,19 @@ static int spec_sync_create_array(struct fence_create_data *f)
 
 	sync_file = sync_file_create(&fence_array->base);
 	if (!sync_file) {
+		pr_err("sync_file_create fail\n");
 		ret = -EINVAL;
+		goto err;
+	}
+	node = kzalloc((sizeof(struct fence_array_node)), GFP_KERNEL);
+	if (!node) {
+		fput(sync_file->file);
+		ret = -ENOMEM;
 		goto err;
 	}
 
 	fd_install(fd, sync_file->file);
-
-	node = kzalloc((sizeof(struct fence_array_node)), GFP_KERNEL);
-	if (!node) {
-		ret = -ENOMEM;
-		goto err;
-	}
 	node->fence_array = fence_array;
-	dma_fence_get(&fence_array->base);
 
 	mutex_lock(&sync_dev.l_lock);
 	list_add_tail(&node->list, &sync_dev.fence_array_list);
@@ -220,6 +228,7 @@ static int spec_sync_create_array(struct fence_create_data *f)
 
 err:
 	dma_fence_put(&fence_array->base);
+error_args:
 	put_unused_fd(fd);
 	return ret;
 }
@@ -249,7 +258,7 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 	struct dma_fence_array *fence_array;
 	struct dma_fence *fence = NULL;
 	struct dma_fence *user_fence = NULL;
-	struct dma_fence *fence_list = NULL;
+	struct dma_fence **fence_list;
 	int *user_fds, ret = 0, i;
 	u32 num_fences, counter;
 
@@ -288,7 +297,7 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 		goto out;
 	}
 
-	fence_array->fences = &fence_list;
+	fence_array->fences = fence_list;
 	for (i = 0; i < num_fences; i++) {
 		user_fence = sync_file_get_fence(user_fds[i]);
 		if (!user_fence) {
@@ -309,12 +318,13 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 	clear_fence_array_tracker(false);
 
 bind_invalid:
-	for (i = counter - 1; i >= 0; i--)
-		dma_fence_put(fence_array->fences[i]);
-
 	if (ret) {
+		for (i = counter - 1; i >= 0; i--)
+			dma_fence_put(fence_array->fences[i]);
+
 		kfree(fence_list);
 		fence_array->fences = NULL;
+		fence_array->num_fences = 0;
 		dma_fence_set_error(fence, -EINVAL);
 		dma_fence_signal(fence);
 		clear_fence_array_tracker(false);
