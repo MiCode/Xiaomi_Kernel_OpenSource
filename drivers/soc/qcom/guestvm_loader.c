@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/cpumask.h>
+#include <linux/ktime.h>
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/gunyah/gh_rm_drv.h>
@@ -25,7 +26,7 @@
 #include <soc/qcom/subsystem_restart.h>
 
 #define MAX_LEN 256
-#define DEFAULT_UNISO_TIMEOUT_MS 8000
+#define DEFAULT_UNISO_TIMEOUT_MS 12000
 #define NUM_RESERVED_CPUS 2
 
 const static struct {
@@ -47,6 +48,7 @@ struct guestvm_loader_private {
 	struct completion vm_start;
 	struct kobject vm_loader_kobj;
 	struct device *dev;
+	ktime_t vm_isol_start;
 	char vm_name[MAX_LEN];
 	bool vm_loaded;
 	bool iso_needed;
@@ -130,6 +132,8 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 	u8 vm_status = vm_status_payload->vm_status;
 	u8 os_status = vm_status_payload->os_status;
 	u16 app_status = vm_status_payload->app_status;
+	u64 delta;
+	ktime_t now;
 	int ret;
 
 	priv = container_of(this, struct guestvm_loader_private, guestvm_nb);
@@ -176,23 +180,21 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 
 	if (priv->os_status != os_status) {
 		if (os_status == GH_RM_OS_STATUS_BOOT) {
-			if (priv->iso_needed) {
-				INIT_WORK(&unisolation_work, guestvm_unisolate_work);
-				schedule_work(&unisolation_work);
-				guestvm_isolate_cpu();
-				mod_timer(&guestvm_cpu_isolate_timer, jiffies +
-					msecs_to_jiffies(guestvm_unisolate_timeout));
-			}
 			priv->os_status = os_status;
-			dev_info(priv->dev, "VM with vmid %d booted\n", priv->vmid);
+			now = ktime_get();
+			delta = ktime_to_ns(ktime_sub(now, priv->vm_isol_start));
+			dev_info(priv->dev, "VM(%d) booted in %lu ns\n",
+					    priv->vmid, delta);
 		}
 	}
 
 	if (priv->app_status != app_status) {
 		if (app_status == GH_RM_APP_STATUS_TUI_SERVICE_BOOT) {
 			priv->app_status = app_status;
-			dev_info(priv->dev, "Unisolating cpus: VM app status = %d\n",
-				app_status);
+			now = ktime_get();
+			delta = ktime_to_ns(ktime_sub(now, priv->vm_isol_start));
+			dev_info(priv->dev, "Unisolating VM(%d) cpus after %lu ns: VM app status = %d\n",
+					    priv->vmid, delta, app_status);
 			complete(&isolation_done);
 		}
 	}
@@ -308,6 +310,15 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 		}
 
 		priv->vm_status = GH_RM_VM_STATUS_RUNNING;
+
+		priv->vm_isol_start = ktime_get();
+		if (priv->iso_needed) {
+			INIT_WORK(&unisolation_work, guestvm_unisolate_work);
+			schedule_work(&unisolation_work);
+			guestvm_isolate_cpu();
+			mod_timer(&guestvm_cpu_isolate_timer, jiffies +
+					msecs_to_jiffies(guestvm_unisolate_timeout));
+		}
 
 		ret = gh_rm_vm_start(priv->vmid);
 		if (ret)
