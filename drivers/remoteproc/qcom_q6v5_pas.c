@@ -207,9 +207,9 @@ static int scm_pas_enable_bw(void)
 						PIL_TZ_PEAK_BW);
 		if (ret)
 			goto err_bus;
-		scm_pas_bw_count++;
 	}
 
+	scm_pas_bw_count++;
 	mutex_unlock(&scm_pas_bw_mutex);
 	return ret;
 
@@ -435,6 +435,7 @@ static int adsp_stop(struct rproc *rproc)
 	if (ret == -ETIMEDOUT)
 		dev_err(adsp->dev, "timed out on wait\n");
 
+	scm_pas_enable_bw();
 	if (adsp->retry_shutdown)
 		ret = qcom_scm_pas_shutdown_retry(adsp->pas_id);
 	else
@@ -442,6 +443,7 @@ static int adsp_stop(struct rproc *rproc)
 	if (ret)
 		panic("Panicking, remoteproc %s failed to shutdown.\n", rproc->name);
 
+	scm_pas_disable_bw();
 	adsp_pds_disable(adsp, adsp->active_pds, adsp->active_pd_count);
 	adsp_toggle_load_state(adsp->qmp, adsp->qmp_name, false);
 	handover = qcom_q6v5_unprepare(&adsp->q6v5);
