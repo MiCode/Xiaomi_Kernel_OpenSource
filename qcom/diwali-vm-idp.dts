@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "diwali-vm.dtsi"
+#include "diwali-vm-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali SVM IDP";
+	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
+	qcom,board-id = <34 0>;
+};
