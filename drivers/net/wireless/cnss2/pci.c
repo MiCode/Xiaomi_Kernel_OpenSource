@@ -5193,6 +5193,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	rddm_image = pci_priv->mhi_ctrl->rddm_image;
 	dump_data->nentries = 0;
 
+	cnss_mhi_dump_sfr(pci_priv);
+
 	if (!dump_seg) {
 		cnss_pr_warn("FW image dump collection not setup");
 		goto skip_dump;
@@ -5223,8 +5225,6 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	}
 
 	dump_data->nentries += rddm_image->entries;
-
-	cnss_mhi_dump_sfr(pci_priv);
 
 	cnss_pr_dbg("Collect remote heap dump segment\n");
 
