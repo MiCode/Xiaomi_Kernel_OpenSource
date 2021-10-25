@@ -19,7 +19,10 @@
 
 	reserved_memory: reserved-memory { };
 
-	aliases { };
+	aliases {
+		serial0 = &qupv3_se7_2uart;
+		hsuart0 = &qupv3_se20_4uart;
+	};
 
 	firmware: firmware { };
 
@@ -844,5 +847,10 @@
 };
 
 #include "cape-pinctrl.dtsi"
+#include "waipio-qupv3.dtsi"
 #include "cape-regulators.dtsi"
 #include "msm-arm-smmu-waipio.dtsi"
+
+&qupv3_se7_2uart {
+	status = "ok";
+};
