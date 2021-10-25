@@ -259,6 +259,15 @@
 		gpios = /bits/ 16 <>;
 	};
 
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
+	};
+
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+		qcom,custom-bridge-size = <512>;
+		qcom,support-hypervisor;
+	};
 };
 
 #include "waipio-vm-dma-heaps.dtsi"
