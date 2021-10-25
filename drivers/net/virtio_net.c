@@ -406,7 +406,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
 	 * add_recvbuf_mergeable() + get_mergeable_buf_len()
 	 */
 	truesize = headroom ? PAGE_SIZE : truesize;
-	tailroom = truesize - len - headroom;
+	tailroom = truesize - len - headroom - (hdr_padded_len - hdr_len);
 	buf = p - headroom;
 
 	len -= hdr_len;
@@ -423,6 +423,10 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
 
 		skb_reserve(skb, p - buf);
 		skb_put(skb, len);
+
+		page = (struct page *)page->private;
+		if (page)
+			give_pages(rq, page);
 		goto ok;
 	}
 
@@ -2639,9 +2643,6 @@ static int virtnet_set_features(struct net_device *dev,
 	struct virtnet_info *vi = netdev_priv(dev);
 	u64 offloads;
 	int err;
-
-	if (!vi->has_cvq)
-		return 0;
 
 	if ((dev->features ^ features) & NETIF_F_GRO_HW) {
 		if (vi->xdp_enabled)
