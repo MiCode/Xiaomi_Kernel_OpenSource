@@ -337,11 +337,42 @@ static void sync_shadow_state(struct kvm_vcpu *shadow_vcpu, u32 exit_reason)
 
 struct pkvm_loaded_state {
 	/* loaded vcpu is HYP VA */
-	struct kvm_vcpu	*vcpu;
-	bool		is_shadow;
+	struct kvm_vcpu			*vcpu;
+	bool				is_shadow;
+
+	/*
+	 * Host FPSIMD state. Written to when the guest accesses its
+	 * own FPSIMD state, and read when the guest state is live and
+	 * that it needs to be switched back to the host.
+	 *
+	 * Only valid when the KVM_ARM64_FP_ENABLED flag is set in the
+	 * shadow structure.
+	 */
+	struct user_fpsimd_state	host_fpsimd_state;
 };
 
 static DEFINE_PER_CPU(struct pkvm_loaded_state, loaded_state);
+
+static void fpsimd_host_restore(void)
+{
+	sysreg_clear_set(cptr_el2, CPTR_EL2_TZ | CPTR_EL2_TFP, 0);
+	isb();
+
+	if (unlikely(is_protected_kvm_enabled())) {
+		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
+
+		if (state->is_shadow) {
+			__fpsimd_save_state(&state->vcpu->arch.ctxt.fp_regs);
+			__fpsimd_restore_state(&state->host_fpsimd_state);
+
+			state->vcpu->arch.flags &= ~KVM_ARM64_FP_ENABLED;
+			state->vcpu->arch.flags |= KVM_ARM64_FP_HOST;
+		}
+	}
+
+	if (system_supports_sve())
+		sve_cond_update_zcr_vq(ZCR_ELx_LEN_MASK, SYS_ZCR_EL2);
+}
 
 static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 {
@@ -364,8 +395,8 @@ static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 	state->is_shadow = state->vcpu != vcpu;
 
 	if (state->is_shadow) {
-		/* FIXME: we can't trust the validity of these pointers */
-		state->vcpu->arch.host_fpsimd_state = vcpu->arch.host_fpsimd_state;
+		state->vcpu->arch.host_fpsimd_state = &state->host_fpsimd_state;
+		state->vcpu->arch.flags |= KVM_ARM64_FP_HOST;
 
 		/* Propagate WFx trapping flags, trap ptrauth */
 		state->vcpu->arch.hcr_el2 &= ~(HCR_TWE | HCR_TWI |
@@ -376,10 +407,20 @@ static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 
 static void handle___pkvm_vcpu_put(struct kvm_cpu_context *host_ctxt)
 {
-	struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
+	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
 
-	/* "It's over and done with..." */
-	state->vcpu = NULL;
+	if (unlikely(is_protected_kvm_enabled())) {
+		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
+
+		if (state->vcpu && state->is_shadow &&
+		    state->vcpu->arch.pkvm.host_vcpu == kern_hyp_va(vcpu)) {
+			if (state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED)
+				fpsimd_host_restore();
+
+			/* "It's over and done with..." */
+			state->vcpu = NULL;
+		}
+	}
 }
 
 static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
@@ -397,6 +438,18 @@ static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 
 		if (state->is_shadow)
 			sync_shadow_state(state->vcpu, ret);
+
+		if (state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED) {
+			/*
+			 * The guest has used the FP, trap all accesses
+			 * from the host (both FP and SVE).
+			 */
+			u64 reg = CPTR_EL2_TFP;
+			if (system_supports_sve())
+				reg |= CPTR_EL2_TZ;
+
+			sysreg_clear_set(cptr_el2, 0, reg);
+		}
 	} else {
 		ret = __kvm_vcpu_run(kern_hyp_va(vcpu));
 	}
@@ -722,10 +775,9 @@ void handle_trap(struct kvm_cpu_context *host_ctxt)
 	case ESR_ELx_EC_SMC64:
 		handle_host_smc(host_ctxt);
 		break;
+	case ESR_ELx_EC_FP_ASIMD:
 	case ESR_ELx_EC_SVE:
-		sysreg_clear_set(cptr_el2, CPTR_EL2_TZ, 0);
-		isb();
-		sve_cond_update_zcr_vq(ZCR_ELx_LEN_MASK, SYS_ZCR_EL2);
+		fpsimd_host_restore();
 		break;
 	case ESR_ELx_EC_IABT_LOW:
 	case ESR_ELx_EC_DABT_LOW:
