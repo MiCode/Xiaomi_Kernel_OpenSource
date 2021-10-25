@@ -44,6 +44,21 @@
 #include "st_asm330lhhx_preload_mlc.h"
 #endif /* CONFIG_IIO_ST_ASM330LHHX_MLC_PRELOAD */
 
+struct threshold_t {
+	u8 th1h;
+	u8 th1l;
+	u8 th2h;
+	u8 th2l;
+	u8 addr;
+};
+
+/* threshold FSM configuration */
+static struct threshold_t thresholds[] = {
+	{ 0x00, 0x00, 0x00, 0x00, 0x06 },
+	{ 0x00, 0x00, 0x00, 0x00, 0x24 },
+	{ 0x00, 0x00, 0x00, 0x00, 0x42 },
+};
+
 static
 struct iio_dev *st_asm330lhhx_mlc_alloc_iio_dev(struct st_asm330lhhx_hw *hw,
 					enum st_asm330lhhx_sensor_id id);
@@ -370,6 +385,58 @@ unlock_page:
 	return fsm_num + mlc_num;
 }
 
+/* update fsm thresholds */
+static int st_asm330lhhx_update_thresholds(struct st_asm330lhhx_hw *hw)
+{
+	u8 fsm_update_code[] = {
+		0x01, 0x80,
+		0x17, 0x40,
+		0x02, 0x41,
+		0x08, thresholds[0].addr,
+		0x09, thresholds[0].th1l,
+		0x09, thresholds[0].th1h,
+		0x09, thresholds[0].th2l,
+		0x09, thresholds[0].th2h,
+		0x17, 0x40,
+		0x02, 0x41,
+		0x08, thresholds[1].addr,
+		0x09, thresholds[1].th1l,
+		0x09, thresholds[1].th1h,
+		0x09, thresholds[1].th2l,
+		0x09, thresholds[1].th2h,
+		0x17, 0x40,
+		0x02, 0x41,
+		0x08, thresholds[2].addr,
+		0x09, thresholds[2].th1l,
+		0x09, thresholds[2].th1h,
+		0x09, thresholds[2].th2l,
+		0x09, thresholds[2].th2h,
+		0x17, 0x00,
+		0x01, 0x00
+	};
+	int i, ret = 0;
+
+	mutex_lock(&hw->page_lock);
+
+	for (i = 0; i < ARRAY_SIZE(fsm_update_code); i += 2) {
+		int reg, val;
+
+		reg = fsm_update_code[i];
+		val = fsm_update_code[i + 1];
+		dev_info(hw->dev, "writing %x %x\n", reg, val);
+		ret = regmap_write(hw->regmap, reg, val);
+		if (ret) {
+			dev_err(hw->dev, "regmap_write fails\n");
+
+			break;
+		}
+	}
+		
+	mutex_unlock(&hw->page_lock);
+
+	return ret;
+}
+
 static void st_asm330lhhx_mlc_update(const struct firmware *fw, void *context)
 {
 	bool force_mlc_enabled = false, force_fsm_enabled = false;
@@ -610,6 +677,29 @@ static int st_asm330lhhx_write_mlc_fifo_raw(struct iio_dev *iio_dev,
 	return 0;
 }
 
+static int st_asm330lhhx_set_fsm_threshold(struct device *dev,
+										   struct device_attribute *attr,
+										   const char *buf, size_t size)
+{
+	struct st_asm330lhhx_sensor *sensor = iio_priv(dev_get_drvdata(dev));
+	struct st_asm330lhhx_hw *hw = sensor->hw;
+	int ret;
+
+	ret = sscanf(buf, "%hhx,%hhx,%hhx,%hhx,%hhx,%hhx,%hhx,%hhx,%hhx,%hhx,%hhx,%hhx",
+		     &thresholds[0].th1h, &thresholds[0].th1l,
+		     &thresholds[0].th2h, &thresholds[0].th2l,
+		     &thresholds[1].th1h, &thresholds[1].th1l,
+		     &thresholds[1].th2h, &thresholds[1].th2l,
+		     &thresholds[2].th1h, &thresholds[2].th1l,
+		     &thresholds[2].th2h, &thresholds[2].th2l);
+	if (ret != 12)
+		ret = -EINVAL;
+
+	st_asm330lhhx_update_thresholds(hw);
+	
+	return size;
+}
+
 static IIO_DEVICE_ATTR(mlc_info, S_IRUGO,
 		       st_asm330lhhx_mlc_info, NULL, 0);
 static IIO_DEVICE_ATTR(mlc_flush, S_IWUSR,
@@ -618,12 +708,15 @@ static IIO_DEVICE_ATTR(mlc_version, S_IRUGO,
 		       st_asm330lhhx_mlc_get_version, NULL, 0);
 static IIO_DEVICE_ATTR(load_mlc, S_IWUSR,
 		       NULL, st_asm330lhhx_mlc_upload_firmware, 0);
+static IIO_DEVICE_ATTR(fsm_threshold, S_IWUSR,
+		       NULL,st_asm330lhhx_set_fsm_threshold, 0);
 
 static struct attribute *st_asm330lhhx_mlc_event_attributes[] = {
 	&iio_dev_attr_mlc_info.dev_attr.attr,
 	&iio_dev_attr_mlc_version.dev_attr.attr,
 	&iio_dev_attr_load_mlc.dev_attr.attr,
 	&iio_dev_attr_mlc_flush.dev_attr.attr,
+	&iio_dev_attr_fsm_threshold.dev_attr.attr,
 	NULL,
 };
 
