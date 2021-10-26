@@ -1336,7 +1336,8 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	iommu_iotlb_gather_add_range(gather, iova, granule);
-	list_add(&page->lru, &smmu_domain->iotlb_gather_freelist);
+	page->freelist = gather->freelist;
+	gather->freelist = page;
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 
 	trace_tlb_add_walk(smmu_domain, iova, granule);
@@ -1345,6 +1346,9 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
 	.alloc = arm_smmu_alloc_pgtable,
 	.free = arm_smmu_free_pgtable,
+};
+
+static const struct qcom_iommu_flush_ops arm_smmu_iotlb_ops = {
 	.tlb_add_walk = arm_smmu_tlb_add_walk,
 };
 
@@ -1366,7 +1370,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
 	struct io_pgtable_ops *pgtbl_ops;
-	struct qcom_io_pgtable_info pgtbl_info;
+	struct qcom_io_pgtable_info pgtbl_info = {};
 	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info.cfg;
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -1496,6 +1500,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					&pgtbl_info.iova_end);
 		if (ret < 0)
 			goto out_unlock;
+	} else if (arm_smmu_has_secure_vmid(smmu_domain)) {
+		pgtbl_info.vmid = smmu_domain->secure_vmid;
 	}
 
 	ret = arm_smmu_alloc_context_bank(smmu_domain, smmu, dev, start);
@@ -1519,6 +1525,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		cfg->asid = cfg->cbndx;
 
 	pgtbl_info.iommu_pgtbl_ops = &arm_smmu_pgtable_ops;
+	pgtbl_info.iommu_tlb_ops = &arm_smmu_iotlb_ops;
 	pgtbl_info.cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
@@ -1709,7 +1716,6 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	INIT_LIST_HEAD(&smmu_domain->secure_pool_list);
 	iommu_iotlb_gather_init(&smmu_domain->iotlb_gather);
 	spin_lock_init(&smmu_domain->iotlb_gather_lock);
-	INIT_LIST_HEAD(&smmu_domain->iotlb_gather_freelist);
 	arm_smmu_domain_reinit(smmu_domain);
 
 	return &smmu_domain->domain;
@@ -2365,8 +2371,7 @@ static void __arm_smmu_iotlb_sync(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	LIST_HEAD(list);
-	struct page *page, *tmp;
+	struct page *freelist, *page;
 
 	if (smmu->version == ARM_SMMU_V2 ||
 	    smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
@@ -2374,11 +2379,12 @@ static void __arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	else
 		arm_smmu_tlb_sync_global(smmu);
 
-	list_splice_init(&smmu_domain->iotlb_gather_freelist, &list);
+	freelist = smmu_domain->iotlb_gather.freelist;
 	iommu_iotlb_gather_init(&smmu_domain->iotlb_gather);
 
-	list_for_each_entry_safe(page, tmp, &list, lru) {
-		list_del(&page->lru);
+	while (freelist) {
+		page = freelist;
+		freelist = page->freelist;
 		arm_smmu_free_pgtable(smmu_domain, page_address(page), 0);
 	}
 }
