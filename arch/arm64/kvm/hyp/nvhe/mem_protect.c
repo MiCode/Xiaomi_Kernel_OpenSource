@@ -29,6 +29,12 @@ struct host_kvm host_kvm;
 
 static struct hyp_pool host_s2_pool;
 
+static pkvm_id pkvm_guest_id(struct kvm_vcpu *vcpu)
+{
+	return vcpu->arch.hw_mmu->vmid.vmid;
+
+}
+
 static DEFINE_PER_CPU(struct kvm_shadow_vm *, __current_vm);
 #define current_vm (*this_cpu_ptr(&__current_vm))
 
@@ -687,6 +693,8 @@ static pkvm_id completer_owner_id(const struct pkvm_mem_transition *tx)
 		return pkvm_host_id;
 	case PKVM_ID_HYP:
 		return pkvm_hyp_id;
+	case PKVM_ID_GUEST:
+		return pkvm_guest_id(tx->completer.guest.vcpu);
 	default:
 		WARN_ON(1);
 		return -1;
