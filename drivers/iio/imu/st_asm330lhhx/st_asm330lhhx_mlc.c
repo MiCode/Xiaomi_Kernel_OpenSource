@@ -700,6 +700,20 @@ static int st_asm330lhhx_set_fsm_threshold(struct device *dev,
 	return size;
 }
 
+static ssize_t st_asm330lhhx_get_fsm_threshold(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE,
+					"%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
+					thresholds[0].th1h, thresholds[0].th1l,
+					thresholds[0].th2h, thresholds[0].th2l,
+					thresholds[1].th1h, thresholds[1].th1l,
+					thresholds[1].th2h, thresholds[1].th2l,
+					thresholds[2].th1h, thresholds[2].th1l,
+					thresholds[2].th2h, thresholds[2].th2l);
+}
+
 static IIO_DEVICE_ATTR(mlc_info, S_IRUGO,
 		       st_asm330lhhx_mlc_info, NULL, 0);
 static IIO_DEVICE_ATTR(mlc_flush, S_IWUSR,
@@ -708,8 +722,9 @@ static IIO_DEVICE_ATTR(mlc_version, S_IRUGO,
 		       st_asm330lhhx_mlc_get_version, NULL, 0);
 static IIO_DEVICE_ATTR(load_mlc, S_IWUSR,
 		       NULL, st_asm330lhhx_mlc_upload_firmware, 0);
-static IIO_DEVICE_ATTR(fsm_threshold, S_IWUSR,
-		       NULL,st_asm330lhhx_set_fsm_threshold, 0);
+static IIO_DEVICE_ATTR(fsm_threshold, S_IWUSR | S_IRUGO,
+		       st_asm330lhhx_get_fsm_threshold,
+		       st_asm330lhhx_set_fsm_threshold, 0);
 
 static struct attribute *st_asm330lhhx_mlc_event_attributes[] = {
 	&iio_dev_attr_mlc_info.dev_attr.attr,
