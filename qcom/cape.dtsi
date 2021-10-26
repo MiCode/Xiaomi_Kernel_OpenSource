@@ -892,6 +892,10 @@
 		qcom,secure-eud-en;
 		status = "ok";
 	};
+
+	mini_dump_node {
+		compatible = "qcom,minidump";
+	};
 };
 
 &clock_gcc {
