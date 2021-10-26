@@ -58,14 +58,23 @@ static void qcom_q6v5_crash_handler_work(struct work_struct *work)
 	struct qcom_q6v5 *q6v5 = container_of(work, struct qcom_q6v5, crash_handler);
 	struct rproc *rproc = q6v5->rproc;
 	struct rproc_subdev *subdev;
+	int votes;
 
 	mutex_lock(&rproc->lock);
+
+	rproc->state = RPROC_CRASHED;
+
+	votes = atomic_xchg(&rproc->power, 0);
+	/* if votes are zero, rproc has already been shutdown */
+	if (votes == 0)
+		goto rproc_unlock;
 
 	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
 		if (subdev->stop)
 			subdev->stop(subdev, true);
 	}
 
+rproc_unlock:
 	mutex_unlock(&rproc->lock);
 
 	/*
@@ -96,8 +105,8 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 
 	if (q6v5->rproc->recovery_disabled)
 		schedule_work(&q6v5->crash_handler);
-
-	rproc_report_crash(q6v5->rproc, RPROC_WATCHDOG);
+	else
+		rproc_report_crash(q6v5->rproc, RPROC_WATCHDOG);
 
 	return IRQ_HANDLED;
 }
@@ -117,8 +126,8 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	q6v5->running = false;
 	if (q6v5->rproc->recovery_disabled)
 		schedule_work(&q6v5->crash_handler);
-
-	rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
+	else
+		rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
 
 	return IRQ_HANDLED;
 }
