@@ -46,67 +46,6 @@ static int gen7_counter_enable(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static int gen7_counter_inline_enable(struct adreno_device *adreno_dev,
-		const struct adreno_perfcount_group *group,
-		unsigned int counter, unsigned int countable)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_perfcount_register *reg = &group->regs[counter];
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
-	u32 cmds[3];
-	int ret;
-
-	if (!(device->state == KGSL_STATE_ACTIVE))
-		return gen7_counter_enable(adreno_dev, group, counter,
-			countable);
-
-	if (group->flags & ADRENO_PERFCOUNTER_GROUP_RESTORE)
-		gen7_perfcounter_update(adreno_dev, reg, false);
-
-	cmds[0] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
-	cmds[1] = cp_type4_packet(reg->select, 1);
-	cmds[2] = countable;
-
-	/* submit to highest priority RB always */
-	ret = gen7_ringbuffer_addcmds(adreno_dev, rb, NULL,
-		F_NOTPROTECTED, cmds, 3, 0, NULL);
-	if (ret)
-		return ret;
-
-	/*
-	 * schedule dispatcher to make sure rb[0] is run, because
-	 * if the current RB is not rb[0] and gpu is idle then
-	 * rb[0] will not get scheduled to run
-	 */
-	if (adreno_dev->cur_rb != rb)
-		adreno_dispatcher_schedule(device);
-
-	/* wait for the above commands submitted to complete */
-	ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
-		ADRENO_IDLE_TIMEOUT);
-
-	if (ret) {
-		/*
-		 * If we were woken up because of cancelling rb events
-		 * either due to soft reset or adreno_stop, ignore the
-		 * error and return 0 here. The perfcounter is already
-		 * set up in software and it will be programmed in
-		 * hardware when we wake up or come up after soft reset
-		 */
-		if (ret == -EAGAIN)
-			ret = 0;
-		else
-			dev_err(device->dev,
-				"Perfcounter %s/%u/%u start via commands failed %d\n",
-				group->name, counter, countable, ret);
-	}
-
-	if (!ret)
-		reg->value = 0;
-
-	return ret;
-}
-
 static u64 gen7_counter_read(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
 		unsigned int counter)
@@ -849,8 +788,7 @@ static const struct adreno_perfcount_group gen7_perfcounter_groups
 		gen7_counter_enable, gen7_counter_read),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(PC, pc),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
-	GEN7_PERFCOUNTER_GROUP(HLSQ, hlsq,
-		gen7_counter_inline_enable, gen7_counter_read),
+	GEN7_REGULAR_PERFCOUNTER_GROUP(HLSQ, hlsq),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(CMP, cmp),
@@ -858,10 +796,8 @@ static const struct adreno_perfcount_group gen7_perfcounter_groups
 	GEN7_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(LRZ, lrz),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
-	GEN7_PERFCOUNTER_GROUP(TP, tp,
-		gen7_counter_inline_enable, gen7_counter_read),
-	GEN7_PERFCOUNTER_GROUP(SP, sp,
-		gen7_counter_inline_enable, gen7_counter_read),
+	GEN7_REGULAR_PERFCOUNTER_GROUP(TP, tp),
+	GEN7_REGULAR_PERFCOUNTER_GROUP(SP, sp),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(RB, rb),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
 	GEN7_PERFCOUNTER_GROUP_FLAGS(gen7, VBIF, gbif, 0,
@@ -883,10 +819,8 @@ static const struct adreno_perfcount_group gen7_perfcounter_groups
 	GEN7_BV_REGULAR_PERFCOUNTER_GROUP(PC, pc),
 	GEN7_BV_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
 	GEN7_BV_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
-	GEN7_BV_PERFCOUNTER_GROUP(TP, tp,
-		gen7_counter_inline_enable, gen7_counter_read),
-	GEN7_BV_PERFCOUNTER_GROUP(SP, sp,
-		gen7_counter_inline_enable, gen7_counter_read),
+	GEN7_BV_REGULAR_PERFCOUNTER_GROUP(TP, tp),
+	GEN7_BV_REGULAR_PERFCOUNTER_GROUP(SP, sp),
 	GEN7_BV_REGULAR_PERFCOUNTER_GROUP(UFC, ufc),
 };
 
