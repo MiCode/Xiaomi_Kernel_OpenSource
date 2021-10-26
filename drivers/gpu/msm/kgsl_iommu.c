@@ -1125,6 +1125,7 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pagetable)
 {
 	struct kgsl_iommu_pt *pt = to_iommu_pt(pagetable);
 
+	free_io_pgtable_ops(pt->pgtbl_ops);
 	kfree(pt);
 }
 
