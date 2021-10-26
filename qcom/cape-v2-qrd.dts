@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape-v2.dtsi"
+#include "cape-v2-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape LTE Only QRD";
+	compatible = "qcom,cape-v2-qrd", "qcom,cape-v2", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

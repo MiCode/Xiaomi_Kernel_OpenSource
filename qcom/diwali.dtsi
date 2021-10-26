@@ -237,8 +237,8 @@
 		LITTLE_CPU_OFF: silver-c3 {  /* C3 */
 			compatible = "arm,idle-state";
 			idle-state-name = "pc";
-			entry-latency-us = <235>;
-			exit-latency-us = <428>;
+			entry-latency-us = <350>;
+			exit-latency-us = <900>;
 			min-residency-us = <1774>;
 			arm,psci-suspend-param = <0x40000003>;
 			local-timer-stop;
@@ -247,9 +247,9 @@
 		LITTLE_CPU_RAIL_OFF: silver-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <274>;
-			exit-latency-us = <480>;
-			min-residency-us = <4001>;
+			entry-latency-us = <800>;
+			exit-latency-us = <750>;
+			min-residency-us = <4090>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
 		};
@@ -257,8 +257,8 @@
 		BIG_CPU_OFF: gold-c3 {  /* C3 */
 			compatible = "arm,idle-state";
 			idle-state-name = "pc";
-			entry-latency-us = <327>;
-			exit-latency-us = <1013>;
+			entry-latency-us = <400>;
+			exit-latency-us = <1550>;
 			min-residency-us = <2207>;
 			arm,psci-suspend-param = <0x40000003>;
 			local-timer-stop;
@@ -267,9 +267,9 @@
 		BIG_CPU_RAIL_OFF: gold-c4 {  /* C4 */
 			compatible = "arm,idle-state";
 			idle-state-name = "rail-pc";
-			entry-latency-us = <369>;
-			exit-latency-us = <1502>;
-			min-residency-us = <5555>;
+			entry-latency-us = <600>;
+			exit-latency-us = <1550>;
+			min-residency-us = <4791>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
 		};
@@ -277,27 +277,27 @@
 		CLUSTER_OFF: cluster-d4 { /* D4 */
 			compatible = "domain-idle-state";
 			idle-state-name = "l3-off";
-			entry-latency-us = <584>;
-			exit-latency-us = <2332>;
-			min-residency-us = <6118>;
+			entry-latency-us = <1050>;
+			exit-latency-us = <2500>;
+			min-residency-us = <5309>;
 			arm,psci-suspend-param = <0x41000044>;
 		};
 
 		CX_RET: cx-ret { /* Cx Ret */
 			compatible = "domain-idle-state";
 			idle-state-name = "cx-ret";
-			entry-latency-us = <2761>;
-			exit-latency-us = <3964>;
-			min-residency-us = <8467>;
+			entry-latency-us = <1561>;
+			exit-latency-us = <2801>;
+			min-residency-us = <8550>;
 			arm,psci-suspend-param = <0x41001344>;
 		};
 
 		APSS_OFF: cluster-e3 { /* E3 */
 			compatible = "domain-idle-state";
 			idle-state-name = "llcc-off";
-			entry-latency-us = <2893>;
-			exit-latency-us = <4023>;
-			min-residency-us = <9826>;
+			entry-latency-us = <2700>;
+			exit-latency-us = <3500>;
+			min-residency-us = <13959>;
 			arm,psci-suspend-param = <0x4100B344>;
 		};
 	};
@@ -309,6 +309,15 @@
 	qcom_scm {
 		compatible = "qcom,scm";
 	};
+
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+	};
+
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
+	};
+
 	android {
 		compatible = "android,firmware";
 		vbmeta {
@@ -360,6 +369,30 @@
 		reusable;
 		alignment = <0x0 0x400000>;
 		size = <0x0 0xC00000>;
+	};
+
+	user_contig_mem: user_contig_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x1000000>;
+	};
+
+	qseecom_mem: qseecom_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x1400000>;
+	};
+
+	qseecom_ta_mem: qseecom_ta_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x1000000>;
 	};
 };
 
@@ -889,6 +922,78 @@
 		compatible = "qcom,tcsr-mutex";
 		syscon = <&tcsr_mutex_block 0 0x1000>;
 		#hwlock-cells = <1>;
+	};
+
+	qcom_tzlog: tz-log@146AA720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146AA720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
+
+	qcom_qseecom: qseecom@c1700000 {
+		compatible = "qcom,qseecom";
+		memory-region = <&qseecom_mem>;
+		qseecom_mem = <&qseecom_mem>;
+		qseecom_ta_mem = <&qseecom_ta_mem>;
+		user_contig_mem = <&user_contig_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	qcom_cedev: qcedev@1de0000 {
+		compatible = "qcom,qcedev";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
+		qcom,bam-ee = <0>;
+		qcom,smmu-s1-enable;
+		qcom,no-clock-support;
+		interconnect-names = "data_path";
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		iommus = <&apps_smmu 0x0484 0x0011>;
+		qcom,iommu-dma = "atomic";
+		dma-coherent;
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x488 0x0>,
+				<&apps_smmu 0x49A 0x0>,
+				<&apps_smmu 0x49F 0x0>,
+				<&apps_smmu 0x498 0x5>;
+			dma-coherent;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x492 0x0>,
+				 <&apps_smmu 0x497 0x0>,
+				 <&apps_smmu 0x49B 0x0>,
+				 <&apps_smmu 0x49E 0x0>;
+			qcom,iommu-vmid = <0x9>;
+			qcom,secure-context-bank;
+		};
+	};
+
+	qcom_rng: qrng@10c3000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x10c3000 0x1000>;
+		qcom,no-qrng-config;
+		qcom,no-clock-support;
 	};
 
 	smem: qcom,smem {
@@ -1961,7 +2066,6 @@
 #include "diwali-gdsc.dtsi"
 #include "ipcc-test-diwali.dtsi"
 #include "msm-arm-smmu-diwali.dtsi"
-#include "diwali-thermal.dtsi"
 
 &qupv3_se5_2uart {
 	status = "ok";
@@ -2119,8 +2223,9 @@
 	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
-#include "diwali-stub-regulator.dtsi"
+#include "diwali-regulators.dtsi"
 #include "diwali-usb.dtsi"
 #include "diwali-gpu.dtsi"
+#include "diwali-thermal.dtsi"
 #include "msm-rdbg.dtsi"
 

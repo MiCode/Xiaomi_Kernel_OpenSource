@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape.dtsi"
+#include "cape-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape QRD";
+	compatible = "qcom,cape-qrd", "qcom,cape", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

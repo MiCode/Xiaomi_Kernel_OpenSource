@@ -1,4 +1,10 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,gcc-neo.h>
+#include <dt-bindings/clock/qcom,gpucc-neo.h>
+#include <dt-bindings/clock/qcom,camcc-neo.h>
+#include <dt-bindings/clock/qcom,dispcc-neo.h>
+#include <dt-bindings/clock/qcom,videocc-neo.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. NEO";
@@ -114,6 +120,8 @@
 	chosen { };
 };
 
+#include "neo-stub-regulator.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -205,6 +213,228 @@
 			status = "disabled";
 		};
 	};
+
+	clocks {
+		xo_board: xo_board {
+			compatible = "fixed-clock";
+			clock-frequency = <38400000>;
+			clock-output-names = "xo_board";
+			#clock-cells = <0>;
+		};
+
+		sleep_clk: sleep_clk {
+			compatible = "fixed-clock";
+			clock-frequency = <32000>;
+			clock-output-names = "sleep_clk";
+			#clock-cells = <0>;
+		};
+
+		pcie_0_pipe_clk: pcie_0_pipe_clk {
+			compatible = "fixed-clock";
+			clock-frequency = <1000>;
+			clock-output-names = "pcie_0_pipe_clk";
+			#clock-cells = <0>;
+		};
+
+		pcie_1_pipe_clk: pcie_1_pipe_clk {
+			compatible = "fixed-clock";
+			clock-frequency = <1000>;
+			clock-output-names = "pcie_1_pipe_clk";
+			#clock-cells = <0>;
+		};
+
+		usb3_phy_wrapper_gcc_usb30_pipe_clk: usb3_phy_wrapper_gcc_usb30_pipe_clk {
+			compatible = "fixed-clock";
+			clock-frequency = <1000>;
+			clock-output-names = "usb3_phy_wrapper_gcc_usb30_pipe_clk";
+			#clock-cells = <0>;
+		};
+	};
+
+	bi_tcxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	bi_tcxo_ao: bi_tcxo_ao {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	rpmhcc: qcom,rpmhcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmhcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	gcc: clock-controller@100000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	camcc: clock-controller@ade0000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "camcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	dispcc: clock-controller@af00000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	videocc: clock-controller@abf0000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "videocc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	gpucc: clock-controller@3d90000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
 };
 
 #include "neo-pinctrl.dtsi"
+#include "diwali-gdsc.dtsi"
+
+&gcc_apcs_gdsc_vote_ctrl {
+	reg = <0x162200 0x4>;
+};
+
+&gcc_pcie_0_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+	/delete-property/ qcom,support-hw-trigger;
+};
+
+&gcc_pcie_0_phy_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&gcc_pcie_1_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&gcc_pcie_1_phy_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&gcc_usb30_prim_gdsc {
+	compatible = "regulator-fixed";
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gcc_usb3_phy_gdsc {
+	compatible = "regulator-fixed";
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&hlos1_vote_turing_mmu_tbu1_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&hlos1_vote_turing_mmu_tbu0_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&cam_cc_bps_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xadf0004 0x4>;
+	status = "ok";
+};
+
+&cam_cc_ife_0_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xadf1004 0x4>;
+	status = "ok";
+};
+
+&cam_cc_ife_1_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xadf2004 0x4>;
+	status = "ok";
+};
+
+&cam_cc_ipe_0_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xadf03b8 0x4>;
+	status = "ok";
+};
+
+&cam_cc_titan_top_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xadf4000 0x4>;
+	status = "ok";
+};
+
+&disp_cc_mdss_core_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&disp_cc_mdss_core_int2_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&gpu_cc_cx_gdsc {
+	compatible = "regulator-fixed";
+	status = "ok";
+};
+
+&video_cc_mvs0_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xabf80a4 0x4>;
+	status = "ok";
+};
+
+&video_cc_mvs0c_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xabf804c 0x4>;
+	status = "ok";
+};
+
+&video_cc_mvs1_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xabf80cc 0x4>;
+	status = "ok";
+};
+
+&video_cc_mvs1c_gdsc {
+	compatible = "regulator-fixed";
+	reg = <0xabf8078 0x4>;
+	status = "ok";
+};

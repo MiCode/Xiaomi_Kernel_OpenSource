@@ -1,5 +1,9 @@
 #include <dt-bindings/thermal/thermal_qti.h>
 
+&msm_gpu {
+	#cooling-cells = <2>;
+};
+
 &soc {
 	tsens0: thermal-sensor@c263000 {
 		compatible = "qcom,tsens-v2";
@@ -177,11 +181,16 @@
 		qcom,cpus = <&CPU0 &CPU4 &CPU7>;
 	};
 
+	qcom,devfreq-cdev {
+		compatible = "qcom,devfreq-cdev";
+		qcom,devfreq = <&msm_gpu>;
+	};
+
 	qcom,userspace-cdev {
 		compatible = "qcom,userspace-cooling-devices";
 
 		display_fps: display-fps {
-			qcom,max-level = <4>;
+			qcom,max-level = <3>;
 			#cooling-cells = <2>;
 		};
 	};
@@ -223,7 +232,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 	};
@@ -242,7 +251,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 	};
@@ -267,7 +276,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu4_emerg0: cpu4-emerg0-cfg {
@@ -298,7 +307,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu4_emerg1: cpu4-emerg1-cfg {
@@ -329,7 +338,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu5_emerg0: cpu5-emerg0-cfg {
@@ -367,7 +376,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu5_emerg1: cpu5-emerg1-cfg {
@@ -405,7 +414,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu6_emerg0: cpu6-emerg0-cfg {
@@ -443,7 +452,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu6_emerg1: cpu6-emerg1-cfg {
@@ -481,7 +490,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu7_emerg0: cpu7-emerg0-cfg {
@@ -519,7 +528,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu7_emerg1: cpu7-emerg1-cfg {
@@ -557,7 +566,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			gpu0_tj_cfg: tj_cfg {
@@ -567,6 +576,12 @@
 			};
 		};
 
+		cooling-maps {
+			gpu0_cdev {
+				trip = <&gpu0_tj_cfg>;
+				cooling-device = <&msm_gpu 0 THERMAL_NO_LIMIT>;
+			};
+		};
 	};
 
 	gpuss-1 {
@@ -589,13 +604,20 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			gpu1_tj_cfg: tj_cfg {
 				temperature = <95000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu1_cdev {
+				trip = <&gpu1_tj_cfg>;
+				cooling-device = <&msm_gpu 0 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
@@ -677,7 +699,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu0_emerg: cpu0-emerg-cfg {
@@ -715,7 +737,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu1_emerg: cpu1-emerg-cfg {
@@ -753,7 +775,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu2_emerg: cpu2-emerg-cfg {
@@ -791,7 +813,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			cpu3_emerg: cpu3-emerg-cfg {
@@ -829,7 +851,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			nspss_0_config: junction-config {
@@ -868,7 +890,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			nspss_1_config: junction-config {
@@ -907,7 +929,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 
 			nspss_2_config: junction-config {
@@ -965,7 +987,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 
@@ -999,7 +1021,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 	};
@@ -1018,7 +1040,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 	};
@@ -1037,7 +1059,7 @@
 			reset-mon-cfg {
 				temperature = <115000>;
 				hysteresis = <5000>;
-				type = "passive";
+				type = "critical";
 			};
 		};
 	};
