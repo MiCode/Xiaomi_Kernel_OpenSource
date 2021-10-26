@@ -594,7 +594,7 @@ static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 	cpu_reg(host_ctxt, 1) =  ret;
 }
 
-static void handle___pkvm_host_share_guest(struct kvm_cpu_context *host_ctxt)
+static void handle___pkvm_host_donate_guest(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(u64, pfn, host_ctxt, 1);
 	DECLARE_REG(u64, gfn, host_ctxt, 2);
@@ -616,7 +616,7 @@ static void handle___pkvm_host_share_guest(struct kvm_cpu_context *host_ctxt)
 	ret = refill_memcache(&state->vcpu->arch.pkvm_memcache, nr_pages,
 			      &vcpu->arch.pkvm_memcache);
 	if (!ret)
-		ret = __pkvm_host_share_guest(pfn, gfn, state->vcpu);
+		ret = __pkvm_host_donate_guest(pfn, gfn, state->vcpu);
 out:
 	cpu_reg(host_ctxt, 1) =  ret;
 }
@@ -860,7 +860,7 @@ static const hcall_t host_hcall[] = {
 
 	HANDLE_FUNC(__pkvm_host_share_hyp),
 	HANDLE_FUNC(__pkvm_host_unshare_hyp),
-	HANDLE_FUNC(__pkvm_host_share_guest),
+	HANDLE_FUNC(__pkvm_host_donate_guest),
 	HANDLE_FUNC(__kvm_adjust_pc),
 	HANDLE_FUNC(__kvm_vcpu_run),
 	HANDLE_FUNC(__kvm_flush_vm_context),

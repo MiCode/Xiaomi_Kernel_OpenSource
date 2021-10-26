@@ -63,6 +63,7 @@ int __pkvm_host_unshare_hyp(u64 pfn);
 int __pkvm_host_donate_hyp(u64 pfn, u64 nr_pages);
 int __pkvm_hyp_donate_host(u64 pfn, u64 nr_pages);
 int __pkvm_host_share_guest(u64 pfn, u64 gfn, struct kvm_vcpu *vcpu);
+int __pkvm_host_donate_guest(u64 pfn, u64 gfn, struct kvm_vcpu *vcpu);
 int __pkvm_guest_share_host(struct kvm_vcpu *vcpu, u64 ipa);
 int __pkvm_guest_unshare_host(struct kvm_vcpu *vcpu, u64 ipa);
 
