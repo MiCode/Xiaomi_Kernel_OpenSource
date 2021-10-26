@@ -120,34 +120,13 @@ void gen7_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
 	cmds[i++] = 0;
 }
 
-u64 kgsl_fence_timestamps[GMU_CORE_LONG_WAKEUP_RETRY_LIMIT + 1];
-unsigned int kgsl_fence_retry[0xff + 1];
-unsigned int kgsl_fence_retry_cnt;
-u64
-ram_r0[0xff + 1], ram_r1[0xff + 1],
-ram_w0[0xff + 1], ram_w1[0xff + 1],
-ram_s0[0xff + 1], ram_s1[0xff + 1];
-
 int gen7_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 		u32 value, u32 mask)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int status, i;
-	u32 ram_r0s, ram_r1s, ram_w0s, ram_w1s, ram_s0s, ram_s1s;
-	u32 ram_r0e, ram_r1e, ram_w0e, ram_w1e, ram_s0e, ram_s1e;
 
-	memset(kgsl_fence_timestamps, 0, sizeof(kgsl_fence_timestamps));
 	kgsl_regwrite(device, offset, value);
-
-	kgsl_regread(device, adreno_dev->ram_cycles_lo, &ram_r0s);
-	kgsl_regread(device, adreno_dev->ram_cycles_lo_ch1_read, &ram_r1s);
-
-	kgsl_regread(device, adreno_dev->ram_cycles_lo_ch0_write, &ram_w0s);
-	kgsl_regread(device, adreno_dev->ram_cycles_lo_ch1_write, &ram_w1s);
-
-
-	kgsl_regread(device, adreno_dev->starved_ram_lo, &ram_s0s);
-	kgsl_regread(device, adreno_dev->starved_ram_lo_ch1, &ram_s1s);
 
 	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
 		/*
@@ -156,7 +135,6 @@ int gen7_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 		 */
 		mb();
 
-		kgsl_fence_timestamps[i] = gen7_read_alwayson(adreno_dev);
 		gmu_core_regread(device, GEN7_GMU_AHB_FENCE_STATUS, &status);
 
 		/*
@@ -173,34 +151,12 @@ int gen7_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 		kgsl_regwrite(device, offset, value);
 	}
 
-	kgsl_regread(device, adreno_dev->ram_cycles_lo, &ram_r0e);
-	kgsl_regread(device, adreno_dev->ram_cycles_lo_ch1_read, &ram_r1e);
-
-	kgsl_regread(device, adreno_dev->ram_cycles_lo_ch0_write, &ram_w0e);
-	kgsl_regread(device, adreno_dev->ram_cycles_lo_ch1_write, &ram_w1e);
-
-	kgsl_regread(device, adreno_dev->starved_ram_lo, &ram_s0e);
-	kgsl_regread(device, adreno_dev->starved_ram_lo_ch1, &ram_s1e);
-
-	ram_r0[kgsl_fence_retry_cnt] = ram_r0e - ram_r0s;
-	ram_r1[kgsl_fence_retry_cnt] = ram_r1e - ram_r1s;
-
-	ram_w0[kgsl_fence_retry_cnt] = ram_w0e - ram_w0s;
-	ram_w1[kgsl_fence_retry_cnt] = ram_w1e - ram_w1s;
-
-	ram_s0[kgsl_fence_retry_cnt] = ram_s0e - ram_s0s;
-	ram_s1[kgsl_fence_retry_cnt] = ram_s1e - ram_s1s;
-
-	kgsl_fence_retry[kgsl_fence_retry_cnt++] = i;
-	kgsl_fence_retry_cnt &= 0xff;
-
 	if (i < GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
 		return 0;
 
 	dev_err(adreno_dev->dev.dev,
 			"Timed out waiting %d usecs to write fenced register 0x%x\n",
 			i * GMU_CORE_WAKEUP_DELAY_US, offset);
-	BUG_ON(1);
 	return -ETIMEDOUT;
 }
 
