@@ -327,6 +327,14 @@ config QCOM_SECURE_BUFFER
 	  use this memory and no unauthorized access is made to the
 	  buffer.
 
+config QCOM_MEM_HOOKS
+       tristate "Memory trace hook callbacks"
+       help
+	 A helper driver for loading various memory-related vendor
+	 hooks, which are used to control the behavior of the core.
+	 If unsure, say 'M' here to ensure that the hooks are compiled
+	 in.
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help
