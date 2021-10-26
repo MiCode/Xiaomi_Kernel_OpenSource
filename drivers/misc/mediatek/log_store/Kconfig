@@ -1,0 +1,27 @@
+config MTK_DRAM_LOG_STORE
+	tristate "mtk DRAM log store"
+	help
+	  DRAM log store featuer is used to store log(preload, lk) in DRAM,
+	  which can be readed in kernel phase.
+	  you should set in project configure file.
+	  it will use SRAM buff.
+
+config MTK_DRAM_LOG_STORE_ADDR
+	hex "DRAM log store address(use SRAM)"
+	default 0
+	depends on MTK_DRAM_LOG_STORE
+	help
+	  store the SRAM address of log header information.
+	  it will store the log header information.
+	  the address should equal with preloader and lk setting.
+	  the address behind in ramconsole.
+
+config MTK_DRAM_LOG_STORE_SIZE
+	hex "DRAM log store size(use SRAM)"
+	default 0
+	depends on MTK_DRAM_LOG_STORE
+	help
+	  store the SRAM size of log header information.
+	  the default value is 1K.
+	  should equal with preloader and lk setting.
+	  need discussion with ramconsole owner.

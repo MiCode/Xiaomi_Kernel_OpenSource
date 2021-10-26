@@ -1,0 +1,41 @@
+#
+# (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained
+# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+#
+
+
+config BSP_HAS_HYPERVISOR
+	bool "Kernel has a hypervisor enabled"
+	depends on BUILD_KERNEL_MODULES
+	default n
+	select MALI_ARBITER_SUPPORT
+
+config MALI_HAS_ARBITER
+	bool "Build a reference arbiter"
+	default n
+	default y if BSP_HAS_HYPERVISOR
+	help
+	  Build a daisy chain reference arbiter useful
+	  to manage Mali to different Virtual Machines
+
+	  If unsure, say N.
+
+config BUILD_ARBITER_TESTS
+	bool "Kernel has arbiter tests enabled"
+	depends on BUILD_KERNEL_MODULES
+	default n
+	default y if MALI_HAS_ARBITER && UNIT_TEST_KERNEL_MODULES
+
+config MALI_ARBITER_LOST_TEST
+	bool "Build the arbiter to aggressively test GPU_LOST"
+	depends on BUILD_KERNEL_MODULES && MALI_HAS_ARBITER
+	default n

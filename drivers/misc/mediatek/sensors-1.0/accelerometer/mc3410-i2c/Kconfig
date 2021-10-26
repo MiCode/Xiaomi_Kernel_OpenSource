@@ -1,0 +1,9 @@
+config MTK_MC3410_I2C
+	bool "MTK_MC3410 for MediaTek package"
+	default n
+	help
+	  The MC3410 is a highly integrated,
+	  low power internal measurement unit
+	  that provides precise acceleration
+	  measurement.
+	  this config will turn on accelerometer feature.

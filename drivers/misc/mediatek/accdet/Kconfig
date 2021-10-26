@@ -1,0 +1,122 @@
+config MTK_ACCDET
+	bool "MediaTek ACCDET driver"
+	help
+	  ACCDET driver is for headset detect and support for MediaTek SOC
+	  If you want to use MediaTek ACCDET driver,
+	  say Y.
+	  If unsure, say N.
+
+config ACCDET_EINT
+	bool "MediaTek ACCDET AP EINT"
+	help
+	  ACCDET External EINT(AP GPIO) support for MediaTek SOC
+	  If you want to use MediaTek ACCDET EINT from AP GPIO,
+	  say Y.
+	  If unsure, say N.
+
+config ACCDET_EINT_IRQ
+	bool "MediaTek ACCDET PMIC EINT"
+	help
+	  ACCDET Internal EINT(PMIC) support for MediaTek SOC
+	  If you want to use MediaTek ACCDET EINT from PMIC,
+	  say Y.
+	  If unsure, say N.
+
+config ACCDET_SUPPORT_EINT0
+	bool "MediaTek ACCDET PMIC EINT0"
+	help
+	  ACCDET use Internal EINT0(PMIC) support for MediaTek SOC
+	  If you just want to use MediaTek PMIC ACCDET EINT0,
+	  say Y.
+	  If unsure, say N.
+
+config ACCDET_SUPPORT_EINT1
+	bool "MediaTek ACCDET PMIC EINT1"
+	help
+	  ACCDET use Internal EINT1(PMIC) support for MediaTek SOC
+	  If you just want to use MediaTek PMIC ACCDET EINT1,
+	  say Y.
+	  If unsure, say N.
+
+config ACCDET_SUPPORT_BI_EINT
+	bool "MediaTek ACCDET PMIC EINT0 and EINT1"
+	help
+	  ACCDET use Internal EINT0&EINT1(PMIC) support for MediaTek SOC
+	  If you want to use MediaTek PMIC ACCDET EINT0&EINT1,
+	  say Y.
+	  If unsure, say N.
+
+config HEADSET_TRI_KEY_CDD
+	bool "MediaTek three key headset support CDD"
+	help
+	  HEADSET_TRI_KEY_CDD support for MediaTek SOC
+	  If you want to support MediaTek CDD three key headset,
+	  say Y here.
+	  If unsure, say N.
+
+config HEADSET_SUPPORT_FIVE_POLE
+	bool "MediaTek five pole Headset"
+	help
+	  ACCDET support 5-pole headset support for MediaTek SOC
+	  If you want to support 5-pole headset,
+	  say Y.
+	  If unsure, say N.
+
+config ACCDET_PIN_SWAP
+	bool "MediaTek ACCDET PIN_SWAP"
+	help
+	  ACCDET_PIN_SWAP support for MediaTek SOC
+	  If you want to use MediaTek ACCDET PIN SWAP,
+	  say Y.
+	  If unsure, say N.
+
+config ACCDET_PIN_RECOGNIZATION
+	bool "MediaTek ACCDET PIN_RECONIZATION"
+	help
+	  ACCDET_PIN_RECOGNIZATION support for MediaTek SOC
+	  If you want to use MediaTek ACCDET PIN RECOGNIZATION,
+	  say Y.
+	  If unsure, say N.
+
+config FOUR_KEY_HEADSET
+	bool "MediaTek four key headset"
+	help
+	  FOUR_KEY_HEADSET support for MediaTek SOC
+	  If you want to use MediaTek ACCDET four key headset,
+	  say Y.
+	  If unsure, say N.
+
+config MOISTURE_INT_SUPPORT
+	bool "MediaTek moisture detect support to ues internal resitance"
+	help
+	  MOISTURE_SUPPORT support for MediaTek SOC
+	  If you want to use MediaTek moisture detect support,
+	  but the micbias will use the internal resitance.
+	  say Y here.
+	  If unsure, say N.
+
+config MOISTURE_EXT_SUPPORT
+	bool "MediaTek moisture detect support to ues external resitance"
+	help
+	  MOISTURE_SUPPORT support for MediaTek SOC
+	  If you want to use MediaTek moisture detect support,
+	  but the micbias will use the external resitance.
+	  say Y here.
+	  If unsure, say N.
+
+config MT6771_QUERY_PCB_ID
+	bool "Mediatek mt6771, query pcbID to check ACC mode or DCC mode"
+	help
+	  Query PCBID to get PCB version and check which mic-mode is supported.
+	  mt6771: we get pcb info from GPIO111&GPIO175
+	  0  0:EVB, 0 1:phone_DCC,   1 0: phone_ACC,   1 1:Reserved.
+	  say yes for mtk internal device, othwise say no.
+	  If unsure, say N.
+
+config TS3A225E_ACCDET
+	bool "MediaTek ACCDET ts3a225e"
+	help
+	  TS3A225E support for MediaTek SOC
+	  If you want to use TS3A225E
+	  say Y.
+	  If unsure, say N.

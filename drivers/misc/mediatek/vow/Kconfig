@@ -1,0 +1,62 @@
+config MTK_VOW_SUPPORT
+	bool "MediaTek VOW support"
+	select MTK_AUDIO_IPI
+	help
+	  For VOW kernel driver config. This voice wakeup
+	  kernel driver cooperate with SCP VOW driver to
+	  wakeup phone by doing voice recognition. Using
+	  IPI interface to communicate with SCP side and
+	  be controlled by sound trigger HAL.
+
+config MTK_VOW_DUAL_MIC_SUPPORT
+	bool "MediaTek VOW dual mic support"
+	help
+	  For VOW kernel driver config. This config can
+	  open dual mic control path which can transfer
+	  two channels data into sound trigger HAL. This
+	  feature need to work with MTK_VOW_SUPPORT.
+
+config MTK_VOW_2E2K_SUPPORT
+	bool "MediaTek VOW two engine two keyword support"
+	help
+	  For VOW kernel driver config. This config can
+	  reserve two keyword memory, and work with SCP
+	  and sound trigger HAL. It can report two keyword's
+	  wakeup status to HAL. This feature need to work
+	  with MTK_VOW_SUPPORT.
+
+config MTK_VOW_AMAZON_SUPPORT
+	bool "MediaTek VOW AMAZON keyword support"
+	help
+	  For VOW kernel driver config. This config can
+	  support AMAZON voice assistant, and work with SCP
+	  and sound trigger HAL. It can report Alexa keyword
+	  wakeup status to HAL. This feature need to work
+	  with MTK_VOW_SUPPORT.
+
+config MTK_VOW_GVA_SUPPORT
+	bool "MediaTek VOW Google keyword support"
+	help
+	  For VOW kernel driver config. This config can
+	  reserve Google voice assistant, and work with SCP
+	  and sound trigger HAL. It can report Google keyword
+	  wakeup status to HAL. This feature need to work
+	  with MTK_VOW_SUPPORT.
+
+config MTK_VOW_MAX_PDK_NUMBER
+	int "MediaTek VOW MAX PDK model support"
+	default 0
+	help
+	  For VOW kernel driver config. This config can
+	  support different PDK model number, and work with SCP
+	  and sound trigger HAL. This feature need to work
+	  with MTK_VOW_SUPPORT.
+
+config MTK_VOW_PCMCALLBACK_SUPPORT
+	string "MediaTek VOW open pcm callback support"
+	default "none"
+	help
+	  For VOW kernel driver config. This config can
+	  support transferring voice data since passing phase2
+	  recognition in SCP. This feature need to work
+	  with MTK_VOW_SUPPORT.

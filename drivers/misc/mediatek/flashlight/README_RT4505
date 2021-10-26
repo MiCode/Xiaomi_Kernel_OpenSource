@@ -1,0 +1,23 @@
+This is a introduction for flashlight chip RT4505
+
+[Scope]
+- One channel for one LED
+
+
+[Hardware Interface]
+- I2C
+	* For general control
+	* Slave address 0x63
+
+
+[Limit]
+- Torch Mode
+	* Min currnet: 49.60 mA
+	* Max current: 375 mA
+
+- Strobe Mode
+	* Min currnet: 93.74 mA
+	* Max current: 1500 mA
+	* Min protected timeout: 100 ms
+	* Max protected timeout: 800 ms
+

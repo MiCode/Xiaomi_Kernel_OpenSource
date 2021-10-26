@@ -1,0 +1,27 @@
+/*
+ * Copyright:
+ * ----------------------------------------------------------------------------
+ * This confidential and proprietary software may be used only as authorized
+ * by a licensing agreement from ARM Limited.
+ *      (C) COPYRIGHT 2019-2020 ARM Limited, ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorized copies and
+ * copies may only be made to the extent permitted by a licensing agreement
+ * from ARM Limited.
+ * ----------------------------------------------------------------------------
+ */
+
+bob_kernel_module {
+    name: "mali_arb_plat",
+    srcs: [
+        "Kbuild",
+        "mali_arb_plat.c",
+    ],
+    enabled: false,
+    mali_has_arbiter: {
+        enabled: true,
+    },
+    add_to_alias: [
+        "kernel",
+    ],
+    defaults: ["mali_arbitration_shared_config_defaults"],
+}

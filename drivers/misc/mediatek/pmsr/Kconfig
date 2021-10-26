@@ -1,0 +1,10 @@
+config MTK_PMSR
+	tristate "Mediatek PMSR Signal profiling tool"
+	depends on OF
+	help
+	  PMSR means Power Management State Register.
+	  For Mediatek low power pmsr signal profiling features.
+	  Profiling several hw signals for debug purposes.
+	  Select "y" if you want to use.
+	  Select "n" if you are not sure.
+

@@ -1,0 +1,23 @@
+config MTK_SDA
+	bool "Mediatek System Debug Architecture"
+	help
+	  SDA (System Debug Architecture) is designed by Mediatek to
+	  provide utilities for critical information catching and analysis.
+
+	  This select device drivers or pure software module which control
+	  or use SDA utilities. Catching data are stored in the storage
+	  of devices. Mediatek in-house tools are needed for reading the
+	  data and analysis result.
+
+if MTK_SDA
+
+config MTK_BUS_PARITY_CHECK
+	tristate "MediaTek BUS PARITY CHECK"
+	help
+	  This selects the device driver for the bus parity-check
+	  module. The module detects errors of bus in the Mediatek SoC.
+
+	  Enable this to get the report on detection or correction
+	  of errors.
+
+endif

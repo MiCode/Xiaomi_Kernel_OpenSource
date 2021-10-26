@@ -1,0 +1,157 @@
+#
+# MMC core configuration
+#
+config PWRSEQ_EMMC
+	tristate "HW reset support for eMMC"
+	default y
+	depends on OF
+	help
+	  This selects Hardware reset support aka pwrseq-emmc for eMMC
+	  devices. By default this option is set to y.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pwrseq_emmc.
+
+config PWRSEQ_SD8787
+	tristate "HW reset support for SD8787 BT + Wifi module"
+	depends on OF && (MWIFIEX || BT_MRVL_SDIO)
+	help
+	  This selects hardware reset support for the SD8787 BT + Wifi
+	  module. By default this option is set to n.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pwrseq_sd8787.
+
+config PWRSEQ_SIMPLE
+	tristate "Simple HW reset support for MMC"
+	default y
+	depends on OF
+	help
+	  This selects simple hardware reset support aka pwrseq-simple for MMC
+	  devices. By default this option is set to y.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pwrseq_simple.
+
+config MMC_BLOCK
+	tristate "MMC block device driver"
+	depends on BLOCK
+	default y
+	help
+	  Say Y here to enable the MMC block device driver support.
+	  This provides a block device driver, which you can use to
+	  mount the filesystem. Almost everyone wishing MMC support
+	  should say Y or M here.
+
+config MMC_BLOCK_MINORS
+	int "Number of minors per block device"
+	depends on MMC_BLOCK
+	range 4 256
+	default 8
+	help
+	  Number of minors per block device. One is needed for every
+	  partition on the disk (plus one for the whole disk).
+
+	  Number of total MMC minors available is 256, so your number
+	  of supported block devices will be limited to 256 divided
+	  by this number.
+
+	  Default is 8 to be backwards compatible with previous
+	  hardwired device numbering.
+
+	  If unsure, say 8 here.
+
+config SDIO_UART
+	tristate "SDIO UART/GPS class support"
+	depends on TTY
+	help
+	  SDIO function driver for SDIO cards that implements the UART
+	  class, as well as the GPS class which appears like a UART.
+
+config MMC_TEST
+	tristate "MMC host test driver"
+	help
+	  Development driver that performs a series of reads and writes
+	  to a memory card in order to expose certain well known bugs
+	  in host controllers. The tests are executed by writing to the
+	  "test" file in debugfs under each card. Note that whatever is
+	  on your card will be overwritten by these tests.
+
+	  This driver is only of interest to those developing or
+	  testing a host driver. Most people should say N here.
+
+config MMC_CRYPTO
+	bool "MMC Crypto Engine Support"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	  Enable Crypto Engine Support in MMC.
+	  Enabling this makes it possible for the kernel to use the crypto
+	  capabilities of the MMC device (if present) to perform crypto
+	  operations on data being transferred to/from the device.
+
+config MMC_CRYPTO_LEGACY
+	bool "MMC Crypto legacy Support"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	  Only for MTK legacy eMMC Crypto Engine, such as OTA projects
+	  of Android.
+	  Enabling this makes crypto data unit size is 512 bytes which
+	  used in MTK legacy eMMC Crypto Engine platforms.
+
+config MMC_BLOCK_IO_LOG
+	bool "Block IO log"
+	depends on MMC_BLOCK
+	depends on MTK_BLOCK_TAG
+	default y
+	help
+	  The BLOCK TAG trace provides I/O logs for performance analysis and
+	  application access pattern study. The BLOCK TAG trace summarizes the
+	  I/O of each process every 1 second, and saves to ring buffer. The log
+	  can be displayed by "cat /sys/kernel/debug/blockio".
+	  The trace is default enabled on user and eng builts, say N here to
+	  disable it.
+
+config MMC_FFU
+	bool "Field firmware updates to eMMC FW"
+	depends on MMC
+	help
+	  This is an option to run firmware update on eMMC 5.0.
+	  Field firmware updates (FFU) enables features enhancement
+	  in the field.
+	  This is must to upgrade the eMMC FW.
+
+config MMC_EMBEDDED_SDIO
+	boolean "MMC embedded SDIO device support"
+	help
+	  If you say Y here, support will be added for embedded SDIO
+	  devices which do not contain the necessary enumeration
+	  support in hardware to be properly detected.
+
+config MMC_PARANOID_SD_INIT
+	bool "Enable paranoid SD card initialization"
+	help
+	  If you say Y here, the MMC layer will be extra paranoid
+	  about re-trying SD init requests. This can be a useful
+	  work-around for buggy controllers and hardware. Enable
+	  if you are experiencing issues with SD detection.
+
+config MTK_MMC_PWR_WP
+	bool "Kernel power-on write protect Support"
+	depends on MMC
+	help
+	  This is an option to set power-on write protect on the partitions which
+	  have already been defined in kernel. Currently, only for HUIWEI projects
+	  use.
+
+	  E.g.  Kernel hard-code a partition named "system", User space use
+	  ioctl(fd, MMC_IOC_WP_CMD , &buf ) will set power-on write protect on it.
+
+config MMC_CRYPTO
+	bool "MMC Crypto Engine Support"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	  Enable Crypto Engine Support in MMC.
+	  Enabling this makes it possible for the kernel to use the crypto
+	  capabilities of the MMC device (if present) to perform crypto
+	  operations on data being transferred to/from the device.
+

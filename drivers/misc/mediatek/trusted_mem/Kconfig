@@ -1,0 +1,172 @@
+# Copyright (C) 2018 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+#
+# Protect Memory configuration
+#
+config MTK_PROT_MEM_SUPPORT
+	tristate "MTK Protect Memory Support"
+	depends on MTK_GZ_KREE && MTK_CAM_SECURITY_SUPPORT
+	default y
+	help
+	  Enable the support of MediaTek protect memory driver.
+	  This driver is in charge of protect memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor for protect
+	  memory management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# SVP Secure Memory configuration
+#
+config MTK_SECURE_MEM_SUPPORT
+	tristate "MTK SVP SECURE Memory Support"
+	depends on TRUSTONIC_TEE_SUPPORT || MTK_TEE_GP_SUPPORT
+	default y
+	help
+	  Enable the support of MediaTek SVP secure memory driver.
+	  This driver is in charge of SVP secure memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of TEE secure memory driver for SVP secure memory
+	  management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# WFD Secure Memory configuration
+#
+config MTK_WFD_SMEM_SUPPORT
+	tristate "MTK WFD SECURE Memory Support"
+	depends on MTK_SECURE_MEM_SUPPORT && MTK_SEC_VIDEO_PATH_SUPPORT
+	default y
+	help
+	  Enable the support of MediaTek WFD secure memory driver.
+	  This driver is in charge of WFD secure memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of TEE secure memory driver for WFD secure memory
+	  management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# HAPP Memory configuration
+#
+config MTK_HAPP_MEM_SUPPORT
+	tristate "MTK MTEE Hypervisor App Memory Support"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  Enable the support of MediaTek MTEE EL2 app memory driver.
+	  This driver is in charge of EL2 app memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor for isolated
+	  memory management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# SDSP Memory configuration
+#
+config MTK_SDSP_MEM_SUPPORT
+	tristate "MTK MTEE SDSP Firmware Memory Support"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  Enable the support of MediaTek MTEE SDSP firmware memory driver.
+	  This driver is in charge of SDSP image memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor for isolated
+	  memory management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# VPU/MTEE/TEE Shared Memory configuration
+#
+config MTK_SDSP_SHARED_MEM_SUPPORT
+	tristate "MTK SDSP Shared Memory Support"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  Enable the support of MediaTek SDSP shared memory driver.
+	  This driver is in charge of SDSP shared memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor or TEE secure
+	  memory driver for isolated memory management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+choice
+	prompt "MTK VPU/MTEE/MTEE Shared Memory Support"
+	depends on MTK_SDSP_SHARED_MEM_SUPPORT
+	default MTK_SDSP_SHARED_PERM_VPU_TEE if (MACH_MT6771)
+	default MTK_SDSP_SHARED_PERM_MTEE_TEE if (MACH_MT6768)
+	default MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
+
+config MTK_SDSP_SHARED_PERM_VPU_TEE
+	bool "MTK SDSP Shared Memory Permssions for VPU/TEE"
+	help
+	  Enable the support of SDSP shared memory buffer to be shared
+	  between VPU hardware and TEE.
+	  Select if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_SDSP_SHARED_PERM_MTEE_TEE
+	bool "MTK SDSP Shared Memory Permssions for MTEE/TEE"
+	help
+	  Enable the support of SDSP shared memory buffer to be shared
+	  between MTEE and TEE.
+	  Select if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
+	bool "MTK SDSP Shared Memory Permssions for VPU/MTEE/TEE"
+	help
+	  Enable the support of SDSP shared memory buffer to be shared
+	  between VPU hardware, MTEE and TEE.
+	  Select if you would like to enable this feature.
+	  If unsure, say N.
+endchoice
+
+#
+# MTEE Multiple Chunk Memory configuration
+#
+config MTK_MTEE_MULTI_CHUNK_SUPPORT
+	tristate "MTK MTEE Multiple Chunk Memory Support"
+	depends on MTK_HAPP_MEM_SUPPORT || MTK_SDSP_MEM_SUPPORT || \
+		   MTK_SDSP_SHARED_PERM_MTEE_TEE || \
+		   MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
+	default y
+	help
+	  Enable the support of MediaTek MTEE multiple chunks memory driver.
+	  This driver is in charge of multi-chunk memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MTEE multi-chunk memory driver for isolated memory
+	  management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# Trusted Memory Subsystem Configuration
+#
+config MTK_TRUSTED_MEMORY_SUBSYSTEM
+	tristate "MTK Trusted Memory Subsystem Support"
+	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
+		   MTK_MTEE_MULTI_CHUNK_SUPPORT || MTK_GZ_KREE
+	default y
+	help
+	  Enable the support of MediaTek trusted memory subsystem driver.
+	  This driver provide a general subsystem layer for trusted peer memory
+	  manager such as EL2 hypervisor or TEE. New type of trusted memory can
+	  be registered to this subsystem easily.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.

@@ -1,0 +1,58 @@
+$(info mali MTK evironment, building r25p0 DDK)
+
+MTK_TOP = $(srctree)/drivers/misc/mediatek/
+
+# build support for a ARM Mali Midgard GPU
+CONFIG_MALI_MIDGARD := y
+
+# use mtk platform
+CONFIG_MALI_PLATFORM_THIRDPARTY := y
+ifeq ($(CONFIG_MACH_MT6833),y)
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6833"
+else ifeq ($(CONFIG_MACH_MT6877),y)
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := "mt6877"
+else
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MTK_PLATFORM)
+endif
+
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := $(CONFIG_MALI_PLATFORM_THIRDPARTY))
+$(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME))
+
+CONFIG_MALI_DEBUG := y
+
+ccflags-y += -I$(srctree)/include
+ccflags-y += -I$(srctree)/drivers/staging/android
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/gpu_bm
+
+ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
+
+ifeq ($(CONFIG_DEBUG_FS),y)
+ccflags-y += -DCONFIG_DEBUG_FS
+endif
+
+ccflags-y += -DCONFIG_PROC_FS
+ccflags-y += -DENABLE_MTK_MEMINFO
+ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DENABLE_COMMON_DVFS
+
+# Enable by specific Family-ID
+ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
+ccflags-y += -DMTK_GPU_BM_2
+$(info *GPU defined GPU BM QoS 2.0)
+endif
+
+# Enable by specific Family-ID
+ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
+ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+endif
+
+# Enable by specific platform
+ifeq ($(findstring k6893v1_64_for_6877,$(PROJECT_DTB_NAMES)),k6893v1_64_for_6877)
+	ccflags-y += -DSHADER_PWR_CTL_WA
+else ifeq ($(CONFIG_MACH_MT6877),y)
+	ccflags-y += -DSHADER_PWR_CTL_WA
+endif
+
+# Set default policy always_on
+#ccflags-y += -DMTK_POWER_POLICY_AO

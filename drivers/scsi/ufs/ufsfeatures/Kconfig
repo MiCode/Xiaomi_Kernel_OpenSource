@@ -1,0 +1,9 @@
+#
+# Kernel configuration file for Xiaomi UFS features.
+#
+
+config CLD
+       bool "UFS CLD"
+       depends on SCSI_UFSHCD  && UFSFEATURE
+       ---help---
+	UFS CLD Feature Enable
