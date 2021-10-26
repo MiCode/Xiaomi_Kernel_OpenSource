@@ -4,7 +4,7 @@
   sync_blockdev
   read_cache_page
   blkdev_put
-  blkdev_get_by_dev
+  blkdev_get_by_path
 
 # required by pt.ko
   input_mt_sync_frame
@@ -69,3 +69,12 @@
 
 # required by chipone-ts.ko
   input_mt_sync_frame
+
+# required by hardware_info.ko
+  simple_strtoull
+
+# required by spidev.ko
+  stream_open
+
+# required by sdhci-msm.ko
+  mmc_gpio_set_cd_wake
