@@ -9,7 +9,7 @@
 	interrupt-controller;
 	#interrupt-cells = <4>;
 
-	qcom,pm7250b@2 {
+	pm7250b_2: qcom,pm7250b@2 {
 		compatible = "qcom,spmi-pmic";
 		reg = <2 SPMI_USID>;
 		#address-cells = <1>;
@@ -22,6 +22,7 @@
 
 		pm7250b_charger: qcom,qpnp-smb5 {
 			compatible = "qcom,pm7250b-smb5";
+			depends-on-supply = <&pm7250b_vadc>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#cooling-cells = <2>;
@@ -407,7 +408,7 @@
 		};
 	};
 
-	qcom,pm7250b@3 {
+	pm7250b_3: qcom,pm7250b@3 {
 		compatible = "qcom,spmi-pmic";
 		reg = <3 SPMI_USID>;
 		#address-cells = <1>;
