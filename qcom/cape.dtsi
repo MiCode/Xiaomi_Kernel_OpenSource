@@ -754,6 +754,11 @@
 		qcom,client-id = <0x00000001>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	clk_virt: interconnect@0 {
 		compatible = "qcom,waipio-clk_virt";
 		#interconnect-cells = <1>;
