@@ -3411,6 +3411,10 @@ static int cnss_remove(struct platform_device *plat_dev)
 	cnss_unregister_bus_scale(plat_priv);
 	cnss_unregister_esoc(plat_priv);
 	cnss_put_resources(plat_priv);
+
+	if (!IS_ERR_OR_NULL(plat_priv->mbox_chan))
+		mbox_free_channel(plat_priv->mbox_chan);
+
 	platform_set_drvdata(plat_dev, NULL);
 	plat_env = NULL;
 
