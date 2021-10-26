@@ -909,6 +909,14 @@
 		memory-region = <&va_md_mem>;
 		status = "ok";
 	};
+
+	vendor_hooks: qcom,cpu-vendor-hooks {
+		compatible = "qcom,cpu-vendor-hooks";
+	};
+
+	logbuf: qcom,logbuf-vendor-hooks {
+		compatible = "qcom,logbuf-vendor-hooks";
+	};
 };
 
 &clock_gcc {
