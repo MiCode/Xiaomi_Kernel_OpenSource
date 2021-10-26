@@ -1,0 +1,15 @@
+#include <dt-bindings/arm/msm/qcom_dma_heap_dt_constants.h>
+
+&soc {
+	qcom,dma-heaps {
+		compatible = "qcom,dma-heaps";
+
+		qcom,secure_cdsp {
+			qcom,dma-heap-name = "qcom,secure-cdsp";
+			qcom,dma-heap-type = <HEAP_TYPE_SECURE_CARVEOUT>;
+			memory-region = <&cdsp_secure_heap_mem>;
+			qcom,token = <0x20000000>;
+		};
+
+	};
+};
