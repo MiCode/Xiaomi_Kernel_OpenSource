@@ -43,5 +43,6 @@ secure_buffer.ko
 smem.ko
 socinfo.ko
 stub-regulator.ko
+tcsrcc-kalama.ko
 ufs_qcom.ko
 videocc-kalama.ko
