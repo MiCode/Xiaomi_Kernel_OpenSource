@@ -67,6 +67,12 @@ struct adreno_submit_time {
 };
 
 /**
+ * This is to keep track whether the SET_PSEUDO_REGISTER packet needs to be submitted
+ * or not
+ */
+#define ADRENO_RB_SET_PSEUDO_DONE 0
+
+/**
  * struct adreno_ringbuffer - Definition for an adreno ringbuffer object
  * @flags: Internal control flags for the ringbuffer
  * @buffer_desc: Pointer to the ringbuffer memory descriptor
@@ -99,7 +105,7 @@ struct adreno_submit_time {
  * hardware
  */
 struct adreno_ringbuffer {
-	uint32_t flags;
+	unsigned long flags;
 	struct kgsl_memdesc *buffer_desc;
 	unsigned int _wptr;
 	unsigned int wptr;

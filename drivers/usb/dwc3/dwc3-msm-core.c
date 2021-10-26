@@ -55,6 +55,8 @@
 /* time out to wait for USB cable status notification (in ms)*/
 #define SM_INIT_TIMEOUT 30000
 
+#define DWC3_GUCTL1_IP_GAP_ADD_ON(n)	(n << 21)
+#define DWC3_GUCTL1_IP_GAP_ADD_ON_MASK	DWC3_GUCTL1_IP_GAP_ADD_ON(7)
 #define DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST	BIT(8)
 #define DWC3_GUSB3PIPECTL_DISRXDETU3	BIT(22)
 #define DWC31_LINK_GDBGLTSSM	0xd050
@@ -2054,7 +2056,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 			req->dma, len);
 
 	buffer_addr = req->dma;
-	dbg_log_string("TRB buffer_addr = %pad buf_len = %d\n", &buffer_addr,
+	dbg_log_string("TRB buffer_addr = %pad buf_len = %zu\n", &buffer_addr,
 				req->buf_len);
 
 	/* Allocate and configgure TRBs */
@@ -2226,9 +2228,8 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 
 	dwc3_msm_write_reg_field(mdwc->base, GSI_DBL_ADDR_L(mdwc->gsi_reg, n),
 			~0x0, (u32)mdwc->dummy_gsi_db_dma);
-	dev_dbg(mdwc->dev, "Dummy DB Addr %pK: %llx %llx (LSB)\n",
-		&mdwc->dummy_gsi_db, mdwc->dummy_gsi_db_dma,
-		(u32)mdwc->dummy_gsi_db_dma);
+	dev_dbg(mdwc->dev, "Dummy DB Addr %pK: %pad\n",
+		&mdwc->dummy_gsi_db, &mdwc->dummy_gsi_db_dma);
 
 	memset(&params, 0x00, sizeof(params));
 
@@ -3225,7 +3226,7 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 					mdwc->hs_phy->flags |= PHY_LS_MODE;
 			}
 		}
-	} else {
+	} else if (mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
 		if (dwc->gadget->speed == USB_SPEED_HIGH ||
 			dwc->gadget->speed == USB_SPEED_FULL)
 			mdwc->hs_phy->flags |= PHY_HSFS_MODE;
@@ -3767,7 +3768,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 	/* Flush processing any pending events before handling new ones */
 	flush_delayed_work(&mdwc->sm_work);
 
-	dbg_log_string("enter: mdwc->inputs:%x hs_phy_flags:%x\n",
+	dbg_log_string("enter: mdwc->inputs:%lx hs_phy_flags:%x\n",
 				mdwc->inputs, mdwc->hs_phy->flags);
 	if (mdwc->id_state == DWC3_ID_FLOAT) {
 		dbg_log_string("XCVR: ID set\n");
@@ -3831,7 +3832,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		return;
 	}
 
-	dbg_log_string("exit: mdwc->inputs:%x\n", mdwc->inputs);
+	dbg_log_string("exit: mdwc->inputs:%lx\n", mdwc->inputs);
 	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 }
 
@@ -4519,6 +4520,15 @@ static ssize_t bus_vote_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(bus_vote);
 
+static struct attribute *dwc3_msm_attrs[] = {
+	&dev_attr_orientation.attr,
+	&dev_attr_mode.attr,
+	&dev_attr_speed.attr,
+	&dev_attr_bus_vote.attr,
+	NULL
+};
+ATTRIBUTE_GROUPS(dwc3_msm);
+
 static int dwc_dpdm_cb(struct notifier_block *nb, unsigned long evt, void *p)
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, dpdm_nb);
@@ -4762,6 +4772,9 @@ static void dwc3_core_complete(struct device *dev);
 static void dwc3_msm_override_pm_ops(struct device *dev, struct dev_pm_ops *pm_ops,
 					bool is_host)
 {
+	if (!dev->driver)
+		return;
+
 	(*pm_ops) = (*dev->driver->pm);
 	pm_ops->prepare = is_host ? dwc3_host_prepare : dwc3_core_prepare;
 	pm_ops->complete = is_host ? dwc3_host_complete : dwc3_core_complete;
@@ -5163,8 +5176,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mutex_init(&mdwc->suspend_resume_mutex);
 	mutex_init(&mdwc->role_switch_mutex);
 
-	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
 	INIT_WORK(&mdwc->redriver_work, dwc3_msm_redriver_work);
+	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
+	if (!of_device_is_available(mdwc->ss_redriver_node)) {
+		of_node_put(mdwc->ss_redriver_node);
+		mdwc->ss_redriver_node = NULL;
+	}
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		struct usb_role_switch_desc role_desc = {
@@ -5246,12 +5263,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_ext_event_notify(mdwc);
 	}
 
-	device_create_file(&pdev->dev, &dev_attr_orientation);
-	device_create_file(&pdev->dev, &dev_attr_mode);
-	device_create_file(&pdev->dev, &dev_attr_speed);
-	device_create_file(&pdev->dev, &dev_attr_bus_vote);
-
-	dwc3_msm_kretprobe_init();
 	return 0;
 
 put_dwc3:
@@ -5274,9 +5285,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	usb_role_switch_unregister(mdwc->role_switch);
 	of_node_put(mdwc->ss_redriver_node);
-	device_remove_file(&pdev->dev, &dev_attr_mode);
-	device_remove_file(&pdev->dev, &dev_attr_speed);
-	device_remove_file(&pdev->dev, &dev_attr_bus_vote);
 
 	if (mdwc->dpdm_nb.notifier_call) {
 		regulator_unregister_notifier(mdwc->dpdm_reg, &mdwc->dpdm_nb);
@@ -5350,8 +5358,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	kfree(mdwc->xhci_pm_ops);
 	kfree(mdwc->dwc3_pm_ops);
-
-	dwc3_msm_kretprobe_exit();
 
 	return 0;
 }
@@ -5482,6 +5488,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		if (!dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
+
+		/* Increase Inter-packet delay by 1 UTMI clock cycle (EL_23) */
+		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL1,
+				DWC3_GUCTL1_IP_GAP_ADD_ON_MASK, 1);
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
@@ -6023,9 +6033,6 @@ static int dwc3_core_prepare(struct device *dev)
 
 static void dwc3_core_complete(struct device *dev)
 {
-	struct dwc3	*dwc = dev_get_drvdata(dev);
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	u32		reg;
 	int		ret;
 
 	/*
@@ -6035,18 +6042,11 @@ static void dwc3_core_complete(struct device *dev)
 	 * needs to be executed.
 	 */
 	if (dev->power.direct_complete) {
-		ret = pm_runtime_resume(dev);
+		ret = pm_request_resume(dev);
 		if (ret < 0) {
 			dev_err(dev, "failed to runtime resume, ret %d\n", ret);
 			return;
 		}
-	}
-
-	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
-			dwc->dis_split_quirk) {
-		reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL3);
-		reg |= DWC3_GUCTL3_SPLITDISABLE;
-		dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL3, reg);
 	}
 }
 #endif
@@ -6111,6 +6111,7 @@ static struct platform_driver dwc3_msm_driver = {
 		.name	= "msm-dwc3",
 		.pm	= &dwc3_msm_dev_pm_ops,
 		.of_match_table	= of_dwc3_matach,
+		.dev_groups =	dwc3_msm_groups,
 	},
 };
 
@@ -6120,6 +6121,7 @@ MODULE_SOFTDEP("pre: phy-generic phy-msm-snps-hs phy-msm-ssusb-qmp eud");
 
 static int dwc3_msm_init(void)
 {
+	dwc3_msm_kretprobe_init();
 	return platform_driver_register(&dwc3_msm_driver);
 }
 module_init(dwc3_msm_init);
@@ -6127,5 +6129,6 @@ module_init(dwc3_msm_init);
 static void __exit dwc3_msm_exit(void)
 {
 	platform_driver_unregister(&dwc3_msm_driver);
+	dwc3_msm_kretprobe_exit();
 }
 module_exit(dwc3_msm_exit);

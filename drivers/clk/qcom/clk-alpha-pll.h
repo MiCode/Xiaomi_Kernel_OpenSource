@@ -24,7 +24,9 @@ enum {
 	CLK_ALPHA_PLL_TYPE_REGERA,
 	CLK_ALPHA_PLL_TYPE_AGERA,
 	CLK_ALPHA_PLL_TYPE_LUCID_EVO,
+	CLK_ALPHA_PLL_TYPE_LUCID_OLE,
 	CLK_ALPHA_PLL_TYPE_RIVIAN_EVO,
+	CLK_ALPHA_PLL_TYPE_RIVIAN_OLE = CLK_ALPHA_PLL_TYPE_RIVIAN_EVO,
 	CLK_ALPHA_PLL_TYPE_MAX,
 };
 
@@ -43,6 +45,8 @@ enum {
 	PLL_OFF_TEST_CTL,
 	PLL_OFF_TEST_CTL_U,
 	PLL_OFF_TEST_CTL_U1,
+	PLL_OFF_TEST_CTL_U2,
+	PLL_OFF_STATE,
 	PLL_OFF_STATUS,
 	PLL_OFF_OPMODE,
 	PLL_OFF_FRAC,
@@ -114,6 +118,7 @@ struct clk_alpha_pll_postdiv {
 struct alpha_pll_config {
 	u32 l;
 	u32 cal_l;
+	u32 cal_l_ringosc;
 	u32 alpha;
 	u32 alpha_hi;
 	u32 config_ctl_val;
@@ -125,6 +130,7 @@ struct alpha_pll_config {
 	u32 test_ctl_val;
 	u32 test_ctl_hi_val;
 	u32 test_ctl_hi1_val;
+	u32 test_ctl_hi2_val;
 	u32 main_output_mask;
 	u32 aux_output_mask;
 	u32 aux2_output_mask;
@@ -178,12 +184,18 @@ extern const struct clk_ops clk_alpha_pll_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_rivian_evo_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_rivian_evo_ops;
 
+#define clk_alpha_pll_rivian_ole_ops clk_alpha_pll_rivian_evo_ops
+
 extern const struct clk_ops clk_regera_pll_ops;
 extern const struct clk_ops clk_agera_pll_ops;
 
 extern const struct clk_ops clk_alpha_pll_fixed_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_lucid_evo_ops;
+
+#define clk_alpha_pll_lucid_ole_ops clk_alpha_pll_lucid_evo_ops
+#define clk_alpha_pll_fixed_lucid_ole_ops clk_alpha_pll_fixed_lucid_evo_ops
+#define clk_alpha_pll_postdiv_lucid_ole_ops clk_alpha_pll_postdiv_lucid_evo_ops
 
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
@@ -209,8 +221,11 @@ int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 int clk_lucid_evo_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
+#define clk_lucid_ole_pll_configure(pll, regmap, config) \
+	clk_lucid_evo_pll_configure(pll, regmap, config)
 int clk_rivian_evo_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
+#define clk_rivian_ole_pll_configure clk_rivian_evo_pll_configure
 
 #endif

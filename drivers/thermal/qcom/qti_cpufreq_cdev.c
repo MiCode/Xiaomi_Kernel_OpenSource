@@ -24,6 +24,7 @@ struct cpufreq_cdev_device {
 	int cpu;
 	unsigned long cur_state;
 	unsigned long max_state;
+	unsigned int *freq_table;
 	struct freq_qos_request qos_max_freq_req;
 	char cdev_name[THERMAL_NAME_LENGTH];
 	struct cpufreq_policy *policy;
@@ -37,16 +38,8 @@ static enum cpuhp_state cpu_hp_online;
 static unsigned int state_to_cpufreq(struct cpufreq_cdev_device *cdev_data,
 					   unsigned long state)
 {
-	struct cpufreq_policy *policy;
-	unsigned long idx;
-
-	policy = cdev_data->policy;
-	if (policy->freq_table_sorted == CPUFREQ_TABLE_SORTED_ASCENDING)
-		idx = cdev_data->max_state - state;
-	else
-		idx = state;
-
-	return policy->freq_table[idx].frequency;
+	return cdev_data->freq_table ?
+			cdev_data->freq_table[state] : UINT_MAX;
 }
 
 static int cpufreq_cdev_set_state(struct thermal_cooling_device *cdev,
@@ -54,19 +47,23 @@ static int cpufreq_cdev_set_state(struct thermal_cooling_device *cdev,
 {
 	struct cpufreq_cdev_device *cdev_data = cdev->devdata;
 	int ret = 0;
-	unsigned long freq = state_to_cpufreq(cdev_data, state);
+	unsigned int freq;
 
 	if (state > cdev_data->max_state)
 		return -EINVAL;
 	if (state == cdev_data->cur_state)
 		return 0;
 
-	pr_debug("cdev:%s Limit:%u\n", cdev->type, freq);
-	ret = freq_qos_update_request(&cdev_data->qos_max_freq_req, freq);
-	if (ret < 0) {
-		pr_err("Error placing qos request:%u. cdev:%s err:%d\n",
+	if (freq_qos_request_active(&cdev_data->qos_max_freq_req)) {
+		freq = state_to_cpufreq(cdev_data, state);
+		pr_debug("cdev:%s Limit:%u\n", cdev->type, freq);
+		ret = freq_qos_update_request(&cdev_data->qos_max_freq_req,
+						freq);
+		if (ret < 0) {
+			pr_err("Error placing qos request:%u. cdev:%s err:%d\n",
 				freq, cdev->type, ret);
-		return ret;
+			return ret;
+		}
 	}
 	cdev_data->cur_state = state;
 
@@ -102,7 +99,7 @@ static void cpufreq_cdev_register(struct work_struct *work)
 	struct cpufreq_cdev_device *cdev_data = container_of(work,
 			struct cpufreq_cdev_device, reg_work);
 	struct cpufreq_policy *policy = NULL;
-	int freq_count = 0;
+	int freq_count = 0, i;
 
 	policy = cpufreq_cpu_get(cdev_data->cpu);
 	if (!policy) {
@@ -115,6 +112,23 @@ static void cpufreq_cdev_register(struct work_struct *work)
 			cdev_data->cpu, freq_count);
 		goto error_exit;
 	}
+
+	cdev_data->freq_table = kmalloc_array(freq_count,
+					sizeof(*cdev_data->freq_table),
+					GFP_KERNEL);
+	if (!cdev_data->freq_table)
+		goto error_exit;
+
+	for (i = 0; i < freq_count; i++) {
+		if (policy->freq_table_sorted ==
+				CPUFREQ_TABLE_SORTED_ASCENDING)
+			cdev_data->freq_table[i] =
+			policy->freq_table[freq_count - i - 1].frequency;
+		else
+			cdev_data->freq_table[i] =
+				policy->freq_table[i].frequency;
+	}
+
 	freq_count--;
 	cdev_data->policy = policy;
 	cdev_data->max_state = freq_count;
@@ -138,6 +152,7 @@ error_exit:
 		cpufreq_cpu_put(policy);
 	if (cdev_data->cdev)
 		cdev_data->cdev = NULL;
+	kfree(cdev_data->freq_table);
 }
 
 static int cpufreq_cdev_hp_online(unsigned int online_cpu)
@@ -213,9 +228,11 @@ static int cpufreq_cdev_remove(struct platform_device *pdev)
 		if (!cdev_data->cdev)
 			continue;
 		thermal_cooling_device_unregister(cdev_data->cdev);
-		freq_qos_remove_request(&cdev_data->qos_max_freq_req);
+		if (freq_qos_request_active(&cdev_data->qos_max_freq_req))
+			freq_qos_remove_request(&cdev_data->qos_max_freq_req);
 		cdev_data->cdev = NULL;
 		cpufreq_cpu_put(cdev_data->policy);
+		kfree(cdev_data->freq_table);
 	}
 	mutex_unlock(&qti_cpufreq_cdev_lock);
 	return 0;

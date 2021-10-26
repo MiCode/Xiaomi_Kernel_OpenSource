@@ -19,7 +19,7 @@
 #ifndef _LINUX_NVT_TOUCH_H
 #define _LINUX_NVT_TOUCH_H
 
-#if !IS_ENABLED(CONFIG_TOUCHSCREEN_NT36XXX_SPI) /* TOUCHSCREEN_NT36XXX I2C */
+#if !defined(NVT_NT36XXX_SPI) /* NT36XXX I2C */
 
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -169,7 +169,7 @@ extern void nvt_esd_check_enable(uint8_t enable);
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
 extern void nvt_stop_crc_reboot(void);
 
-#else  /* TOUCHSCREEN_NT36XXX_SPI */
+#else  /* NT36XXX_SPI */
 
 #include <linux/delay.h>
 #include <linux/input.h>

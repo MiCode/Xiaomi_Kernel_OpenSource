@@ -227,7 +227,7 @@ void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
 				dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
 
 	mhi_reg_write_enqueue(mhi_priv, base + offset, val);
-	queue_work(mhi_cntrl->hiprio_wq, &mhi_priv->reg_write_work);
+	queue_work(mhi_priv->offload_wq, &mhi_priv->reg_write_work);
 }
 
 void mhi_write_offload_wakedb(struct mhi_controller *mhi_cntrl, int db_val)
@@ -278,7 +278,7 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_private *mhi_priv = kzalloc(sizeof(*mhi_priv), GFP_KERNEL);
 	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 	struct pci_dev *parent = to_pci_dev(mhi_cntrl->cntrl_dev);
-	int ret;
+	int ret = 0;
 
 	if (!mhi_priv)
 		return -ENOMEM;
@@ -302,15 +302,23 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	dev_set_drvdata(dev, mhi_priv);
 
+	mhi_priv->offload_wq = alloc_ordered_workqueue("mhi_offload_wq",
+						       WQ_HIGHPRI);
+	if (!mhi_priv->offload_wq) {
+		dev_err(mhi_cntrl->cntrl_dev,
+			"Failed to allocate offload workqueue\n");
+		ret = -ENOMEM;
+		goto ipc_ctx_cleanup;
+	}
+
 	INIT_WORK(&mhi_priv->reg_write_work, mhi_reg_write_work);
 
 	mhi_priv->reg_write_q = kcalloc(REG_WRITE_QUEUE_LEN,
 					sizeof(*mhi_priv->reg_write_q),
 					GFP_KERNEL);
 	if (!mhi_priv->reg_write_q) {
-		if (mhi_priv->log_buf)
-			ipc_log_context_destroy(mhi_priv->log_buf);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto wq_cleanup;
 	}
 
 	atomic_set(&mhi_priv->write_idx, -1);
@@ -324,6 +332,13 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 		MHI_ERR("Failed to create time synchronization sysfs group\n");
 
 	return 0;
+
+wq_cleanup:
+	destroy_workqueue(mhi_priv->offload_wq);
+ipc_ctx_cleanup:
+	ipc_log_context_destroy(mhi_priv->log_buf);
+
+	return ret;
 }
 
 void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
@@ -1814,3 +1829,18 @@ error_unlock:
 	return ret;
 }
 EXPORT_SYMBOL(mhi_get_remote_time);
+
+/* MHI host reset request*/
+int mhi_force_reset(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+
+	MHI_VERB("Entered with pm_state:%s dev_state:%s ee:%s\n",
+		 to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	mhi_soc_reset(mhi_cntrl);
+	return mhi_rddm_download_status(mhi_cntrl);
+}
+EXPORT_SYMBOL(mhi_force_reset);

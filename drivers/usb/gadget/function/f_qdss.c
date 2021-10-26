@@ -15,6 +15,20 @@
 
 #include "f_qdss.h"
 
+static void *_qdss_ipc_log;
+
+#define NUM_PAGES	10 /* # of pages for ipc logging */
+
+#ifdef CONFIG_DYNAMIC_DEBUG
+#define qdss_log(fmt, ...) do { \
+	ipc_log_string(_qdss_ipc_log, "%s: " fmt,  __func__, ##__VA_ARGS__); \
+	dynamic_pr_debug("%s: " fmt, __func__, ##__VA_ARGS__); \
+} while (0)
+#else
+#define qdss_log(fmt, ...) \
+	ipc_log_string(_qdss_ipc_log, "%s: " fmt,  __func__, ##__VA_ARGS__)
+#endif
+
 static DEFINE_SPINLOCK(channel_lock);
 static LIST_HEAD(usb_qdss_ch_list);
 
@@ -1117,8 +1131,6 @@ static struct usb_function *qdss_alloc(struct usb_function_instance *fi)
 	struct f_qdss *usb_qdss = opts->usb_qdss;
 
 	usb_qdss->port.function.name = "usb_qdss";
-	usb_qdss->port.function.fs_descriptors = qdss_fs_desc;
-	usb_qdss->port.function.hs_descriptors = qdss_hs_desc;
 	usb_qdss->port.function.strings = qdss_strings;
 	usb_qdss->port.function.bind = qdss_bind;
 	usb_qdss->port.function.unbind = qdss_unbind;

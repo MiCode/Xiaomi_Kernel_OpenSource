@@ -32,6 +32,16 @@ union crypto_cfg {
 
 static bool qti_hwkm_init_done;
 
+static void print_key(const struct blk_crypto_key *key,
+				unsigned int slot)
+{
+	int i = 0;
+
+	pr_err("%s: Printing key for slot %d\n", __func__, slot);
+	for (i = 0; i < key->size; i++)
+		pr_err("key->raw[%d] = 0x%x\n", i, key->raw[i]);
+}
+
 static int crypto_qti_program_hwkm_tz(const struct blk_crypto_key *key,
 						unsigned int slot)
 {
@@ -47,9 +57,11 @@ static int crypto_qti_program_hwkm_tz(const struct blk_crypto_key *key,
 
 	err = qcom_scm_config_set_ice_key(slot, shm.paddr, key->size,
 					0, 0, 0);
-	if (err)
+	if (err) {
 		pr_err("%s:SCM call Error for get contents keyblob: 0x%x\n",
 				__func__, err);
+		print_key(key, slot);
+	}
 
 	qtee_shmbridge_inv_shm_buf(&shm);
 	qtee_shmbridge_free_shm(&shm);

@@ -574,7 +574,8 @@ static u32 *qcom_slim_ngd_tx_msg_get(struct qcom_slim_ngd_ctrl *ctrl, int len,
 
 	spin_lock_irqsave(&ctrl->tx_buf_lock, flags);
 
-	if ((ctrl->tx_tail + 1) % QCOM_SLIM_NGD_DESC_NUM == ctrl->tx_head) {
+	if (((ctrl->tx_tail + 1) % QCOM_SLIM_NGD_DESC_NUM == ctrl->tx_head)
+				|| !ctrl->tx_base) {
 		spin_unlock_irqrestore(&ctrl->tx_buf_lock, flags);
 		return NULL;
 	}

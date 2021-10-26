@@ -682,18 +682,32 @@ out:
 	return ret;
 }
 
-static void adreno_of_get_initial_pwrlevel(struct kgsl_pwrctrl *pwr,
+static void adreno_of_get_initial_pwrlevels(struct kgsl_pwrctrl *pwr,
 		struct device_node *node)
 {
-	int init_level = 1;
+	int level;
 
-	of_property_read_u32(node, "qcom,initial-pwrlevel", &init_level);
+	/* Get and set the initial power level */
+	if (of_property_read_u32(node, "qcom,initial-pwrlevel", &level))
+		level = 1;
 
-	if (init_level < 0 || init_level >= pwr->num_pwrlevels)
-		init_level = 1;
+	if (level < 0 || level >= pwr->num_pwrlevels)
+		level = 1;
 
-	pwr->active_pwrlevel = init_level;
-	pwr->default_pwrlevel = init_level;
+	pwr->active_pwrlevel = level;
+	pwr->default_pwrlevel = level;
+
+	/* Set the max power level */
+	pwr->max_pwrlevel = 0;
+
+	/* Get and set the min power level */
+	if (of_property_read_u32(node, "qcom,initial-min-pwrlevel", &level))
+		level = pwr->num_pwrlevels - 1;
+
+	if (level < 0 || level >= pwr->num_pwrlevels || level < pwr->default_pwrlevel)
+		level = pwr->num_pwrlevels - 1;
+
+	pwr->min_pwrlevel = level;
 }
 
 static void adreno_of_get_limits(struct adreno_device *adreno_dev,
@@ -733,7 +747,7 @@ static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 	ret = adreno_of_parse_pwrlevels(adreno_dev, node);
 
 	if (!ret) {
-		adreno_of_get_initial_pwrlevel(&device->pwrctrl, parent);
+		adreno_of_get_initial_pwrlevels(&device->pwrctrl, parent);
 		adreno_of_get_limits(adreno_dev, parent);
 	}
 
@@ -766,7 +780,7 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 				return ret;
 			}
 
-			adreno_of_get_initial_pwrlevel(&device->pwrctrl, child);
+			adreno_of_get_initial_pwrlevels(&device->pwrctrl, child);
 
 			/*
 			 * Check for global throttle-pwrlevel first and override

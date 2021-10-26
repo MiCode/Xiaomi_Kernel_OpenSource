@@ -34,6 +34,8 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/msm_ep_pcie.h>
+#include <linux/platform_device.h>
+
 #include "../dmaengine.h"
 
 /* global logging macros */
@@ -1200,6 +1202,46 @@ int qcom_edma_init(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(qcom_edma_init);
+
+static int edma_dev_probe(struct platform_device *pdev)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+static int edma_dev_remove(struct platform_device *pdev)
+{
+	platform_set_drvdata(pdev, NULL);
+	return 0;
+}
+
+static const struct of_device_id edma_dev_match_table[] = {
+	{	.compatible = "qcom,pci-edma" },
+	{}
+};
+
+static struct platform_driver edma_dev_driver = {
+	.driver		= {
+		.name	= "qcom,pci-edma",
+		.of_match_table = edma_dev_match_table,
+	},
+	.probe		= edma_dev_probe,
+	.remove		= edma_dev_remove,
+};
+
+static int __init edma_dev_init(void)
+{
+	pr_debug("%s\n", __func__);
+	return platform_driver_register(&edma_dev_driver);
+}
+subsys_initcall(edma_dev_init);
+
+static void __exit edma_dev_exit(void)
+{
+	pr_debug("%s\n", __func__);
+	platform_driver_unregister(&edma_dev_driver);
+}
+module_exit(edma_dev_exit);
 
 MODULE_DESCRIPTION("QTI PCIe eDMA driver");
 MODULE_LICENSE("GPL v2");

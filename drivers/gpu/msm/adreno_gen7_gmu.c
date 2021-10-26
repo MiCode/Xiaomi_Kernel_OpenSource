@@ -1733,7 +1733,7 @@ static void gen7_free_gmu_globals(struct gen7_gmu_device *gmu)
 {
 	int i;
 
-	for (i = 0; i < gmu->global_entries; i++) {
+	for (i = 0; i < gmu->global_entries && i < ARRAY_SIZE(gmu->gmu_globals); i++) {
 		struct kgsl_memdesc *md = &gmu->gmu_globals[i];
 
 		if (!md->gmuaddr)

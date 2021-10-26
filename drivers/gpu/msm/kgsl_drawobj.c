@@ -188,11 +188,23 @@ static void syncobj_timer(struct timer_list *t)
 		case KGSL_CMD_SYNCPOINT_TYPE_TIMELINE: {
 			int j;
 			struct event_timeline_info *info = event->priv;
+			struct dma_fence *fence = event->fence;
+			bool retired = false;
+			bool signaled = test_bit(DMA_FENCE_FLAG_SIGNALED_BIT,
+					&fence->flags);
+			const char *str = NULL;
 
+			if (fence->ops->signaled && fence->ops->signaled(fence))
+				retired = true;
+
+			if (!retired)
+				str = "not retired";
+			else if (retired && signaled)
+				str = "signaled";
+			else if (retired && !signaled)
+				str = "retired but not signaled";
 			dev_err(device->dev, "       [%u] FENCE %s\n",
-				i, dma_fence_is_signaled(event->fence) ?
-					"signaled" : "not signaled");
-
+				i, str);
 			for (j = 0; info && info[j].timeline; j++)
 				dev_err(device->dev, "       TIMELINE %d SEQNO %lld\n",
 					info[j].timeline, info[j].seqno);

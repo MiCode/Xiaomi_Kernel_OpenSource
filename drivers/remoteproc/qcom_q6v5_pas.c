@@ -232,7 +232,7 @@ static void scm_pas_disable_bw(void)
 	mutex_unlock(&scm_pas_bw_mutex);
 }
 
-static void adsp_recalibrate_phys_addrs(struct qcom_adsp *adsp, const struct firmware *fw)
+static void adsp_add_coredump_segments(struct qcom_adsp *adsp, const struct firmware *fw)
 {
 	struct rproc *rproc = adsp->rproc;
 	struct rproc_dump_segment *entry;
@@ -240,17 +240,27 @@ static void adsp_recalibrate_phys_addrs(struct qcom_adsp *adsp, const struct fir
 	struct elf32_phdr *phdr, *phdrs = (struct elf32_phdr *)(fw->data + ehdr->e_phoff);
 	uint32_t elf_min_addr = U32_MAX;
 	bool relocatable = false;
+	int ret;
 	int i;
 
 	for (i = 0; i < ehdr->e_phnum; i++) {
 		phdr = &phdrs[i];
-		if (phdr->p_type != PT_LOAD)
+		if (phdr->p_type != PT_LOAD ||
+		   (phdr->p_flags & QCOM_MDT_TYPE_MASK) == QCOM_MDT_TYPE_HASH ||
+		   !phdr->p_memsz)
 			continue;
 
 		if (phdr->p_flags & QCOM_MDT_RELOCATABLE)
 			relocatable = true;
 
 		elf_min_addr = min(phdr->p_paddr, elf_min_addr);
+
+		ret = rproc_coredump_add_segment(rproc, phdr->p_paddr, phdr->p_memsz);
+		if (ret) {
+			dev_err(adsp->dev, "failed to add rproc segment: %d\n", ret);
+			rproc_coredump_cleanup(adsp->rproc);
+			return;
+		}
 	}
 
 	list_for_each_entry(entry, &rproc->dump_segments, node)
@@ -267,6 +277,8 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "enter");
 
+	rproc_coredump_cleanup(adsp->rproc);
+
 	scm_pas_enable_bw();
 	ret = qcom_mdt_load_no_free(adsp->dev, fw, rproc->firmware, adsp->pas_id,
 			    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
@@ -277,7 +289,7 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
-	adsp_recalibrate_phys_addrs(adsp, fw);
+	adsp_add_coredump_segments(adsp, fw);
 
 exit:
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_load", "exit");
@@ -479,7 +491,6 @@ static const struct rproc_ops adsp_ops = {
 	.start = adsp_start,
 	.stop = adsp_stop,
 	.da_to_va = adsp_da_to_va,
-	.parse_fw = qcom_register_dump_segments,
 	.load = adsp_load,
 	.panic = adsp_panic,
 };
@@ -488,7 +499,6 @@ static const struct rproc_ops adsp_minidump_ops = {
 	.start = adsp_start,
 	.stop = adsp_stop,
 	.da_to_va = adsp_da_to_va,
-	.parse_fw = qcom_register_dump_segments,
 	.load = adsp_load,
 	.panic = adsp_panic,
 	.coredump = adsp_minidump,

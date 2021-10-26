@@ -866,16 +866,10 @@ static struct kretprobe ffsprobes[] = {
 	ENTRY_EXIT(ffs_closed)
 };
 
-static int __init kretprobe_init(void)
+static void register_ffsprobes(struct work_struct *w)
 {
 	int ret;
 	int i;
-
-	ipc_wq = alloc_ordered_workqueue("ipc_wq", 0);
-	if (!ipc_wq) {
-		pr_err("%s: Unable to create workqueue ipc_wq\n", __func__);
-		return -ENOMEM;
-	}
 
 	for (i = 0; i < ARRAY_SIZE(ffsprobes); i++) {
 		ret = register_kretprobe(&ffsprobes[i]);
@@ -884,6 +878,29 @@ static int __init kretprobe_init(void)
 				ffsprobes[i].kp.symbol_name, ret);
 		}
 	}
+
+	kfree(w);
+}
+
+static int __init kretprobe_init(void)
+{
+	struct work_struct *register_work;
+
+	ipc_wq = alloc_ordered_workqueue("ipc_wq", 0);
+	if (!ipc_wq) {
+		pr_err("%s: Unable to create workqueue ipc_wq\n", __func__);
+		return -ENOMEM;
+	}
+
+	register_work = kmalloc(sizeof(*register_work), GFP_KERNEL);
+	if (!register_work) {
+		destroy_workqueue(ipc_wq);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(register_work, register_ffsprobes);
+	queue_work(ipc_wq, register_work);
+
 	return 0;
 }
 

@@ -2011,6 +2011,8 @@ static int spcom_register_channel(struct spcom_channel *ch)
 	ch_name = ch->name;
 
 	mutex_lock(&ch->lock);
+	spcom_pr_dbg("the pid name [%s] of pid [%d] try to open [%s] channel\n",
+		     current->comm, pid, ch_name);
 
 	if (!spcom_is_channel_open(ch))
 		spcom_pr_err("channel [%s] is not open\n", ch_name);

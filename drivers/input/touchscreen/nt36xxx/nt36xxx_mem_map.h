@@ -19,7 +19,7 @@
 #define CHIP_VER_TRIM_ADDR 0x3F004
 #define CHIP_VER_TRIM_OLD_ADDR 0x1F64E
 
-#if !IS_ENABLED(CONFIG_TOUCHSCREEN_NT36XXX_SPI) /* TOUCHSCREEN_NT36XXX I2C */
+#if !defined(NVT_NT36XXX_SPI) /* NT36XXX I2C */
 
 struct nvt_ts_mem_map {
 	uint32_t EVENT_BUF_ADDR;
@@ -231,7 +231,7 @@ static const struct nvt_ts_trim_id_table trim_id_table[] = {
 		.mmap = &NT36676F_memory_map, .hwinfo = &NT36676F_hw_info}
 };
 
-#else  /* TOUCHSCREEN_NT36XXX_SPI */
+#else  /* NT36XXX_SPI */
 
 #define NVT_SPI_CHIP_VER_TRIM_ADDR 0x3F004
 #define NVT_SPI_CHIP_VER_TRIM_OLD_ADDR 0x1F64E

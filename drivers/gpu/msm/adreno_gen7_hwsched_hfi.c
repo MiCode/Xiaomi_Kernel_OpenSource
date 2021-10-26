@@ -1152,7 +1152,8 @@ static int hfi_f2h_main(void *arg)
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(hfi->f2h_wq, !kthread_should_stop() &&
 			!(is_queue_empty(adreno_dev, HFI_MSG_ID) &&
-			is_queue_empty(adreno_dev, HFI_DBG_ID)));
+			is_queue_empty(adreno_dev, HFI_DBG_ID)) &&
+			(hfi->irq_mask & HFI_IRQ_MSGQ_MASK));
 
 		if (kthread_should_stop())
 			break;
@@ -1201,6 +1202,7 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	unsigned long time_in_ns;
 	struct kgsl_context *context = drawobj->context;
 	struct submission_info info = {0};
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
 
 	/*
 	 * Here we are attempting to create a mapping between the
@@ -1233,7 +1235,7 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	time_in_s = time->ktime;
 	time_in_ns = do_div(time_in_s, 1000000000);
 
-	info.inflight = -1;
+	info.inflight = hwsched->inflight;
 	info.rb_id = adreno_get_level(context->priority);
 	info.gmu_dispatch_queue = context->gmu_dispatch_queue;
 
