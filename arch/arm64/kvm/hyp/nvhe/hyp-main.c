@@ -501,6 +501,7 @@ static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
 	struct pkvm_loaded_state *state;
+	int handle;
 
 	/* Why did you bother? */
 	if (!is_protected_kvm_enabled())
@@ -514,7 +515,8 @@ static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 
 	vcpu = kern_hyp_va(vcpu);
 
-	state->vcpu = hyp_get_shadow_vcpu(vcpu) ?: vcpu;
+	handle = vcpu->arch.pkvm.shadow_handle;
+	state->vcpu = get_shadow_vcpu(handle, vcpu->vcpu_idx) ?: vcpu;
 	state->is_shadow = state->vcpu != vcpu;
 
 	if (state->is_shadow) {
@@ -539,6 +541,8 @@ static void handle___pkvm_vcpu_put(struct kvm_cpu_context *host_ctxt)
 		    state->vcpu->arch.pkvm.host_vcpu == kern_hyp_va(vcpu)) {
 			if (state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED)
 				fpsimd_host_restore();
+
+			put_shadow_vcpu(state->vcpu);
 
 			/* "It's over and done with..." */
 			state->vcpu = NULL;

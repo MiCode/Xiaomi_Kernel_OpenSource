@@ -53,7 +53,8 @@ extern struct kvm_shadow_vm **shadow_table;
 
 int __pkvm_init_shadow(struct kvm *kvm, void *shadow_va, size_t size, void *pgd);
 int __pkvm_teardown_shadow(struct kvm *kvm);
-struct kvm_vcpu *hyp_get_shadow_vcpu(const struct kvm_vcpu *host_vcpu);
+struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, int vcpu_idx);
+void put_shadow_vcpu(struct kvm_vcpu *vcpu);
 
 u64 pvm_read_id_reg(const struct kvm_vcpu *vcpu, u32 id);
 bool kvm_handle_pvm_sysreg(struct kvm_vcpu *vcpu, u64 *exit_code);
