@@ -4,6 +4,8 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/clock/qcom,gcc-waipio.h>
+
 / {
 	model = "Qualcomm Technologies, Inc. Cape";
 	compatible = "qcom,cape";
@@ -873,6 +875,22 @@
 		#interconnect-cells = <1>;
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
+	eud: qcom,msm-eud@88e0000 {
+		compatible = "qcom,msm-eud";
+		interrupt-names = "eud_irq";
+		interrupt-parent = <&pdc>;
+		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x088e0000 0x2000>,
+			<0x088e2000 0x1000>;
+		reg-names = "eud_base", "eud_mode_mgr2";
+
+		clocks = <&clock_gcc GCC_EUSB3_0_CLKREF_EN>;
+		clock-names = "eud_clkref_clk";
+
+		qcom,secure-eud-en;
+		status = "ok";
 	};
 };
 
