@@ -34,6 +34,7 @@ qcom-dload-mode.ko
 qcom-pdc.ko
 qcom-reboot-reason.ko
 qcom-scm.ko
+qcom-spmi-pmic.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
@@ -43,11 +44,14 @@ qcom_rpmh.ko
 qnoc-kalama.ko
 qnoc-qos.ko
 qrtr.ko
+qti-regmap-debugfs.ko
+regmap-spmi.ko
 rpmh-regulator.ko
 sdhci-msm.ko
 secure_buffer.ko
 smem.ko
 socinfo.ko
+spmi-pmic-arb.ko
 stub-regulator.ko
 ufs_qcom.ko
 videocc-kalama.ko
