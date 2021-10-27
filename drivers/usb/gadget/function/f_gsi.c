@@ -155,8 +155,11 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	 * fully USB 3.0 compatible hosts.
 	 */
 	if ((gadget->speed >= USB_SPEED_SUPER) && (gsi->func_is_suspended)) {
+		ret = -EOPNOTSUPP;
+#if IS_ENABLED(CONFIG_USB_FUNC_WAKEUP_SUPPORTED)
 		log_event_dbg("%s: Calling usb_func_wakeup", __func__);
 		ret = usb_func_wakeup(func);
+#endif
 	} else {
 		log_event_dbg("%s: Calling usb_gadget_wakeup", __func__);
 		ret = usb_gadget_wakeup(gadget);
@@ -1858,10 +1861,11 @@ static int queue_notification_request(struct f_gsi *gsi)
 		ret = usb_ep_queue(gsi->c_port.notify,
 				   gsi->c_port.notify_req, GFP_ATOMIC);
 	} else {
+		ret = -EOPNOTSUPP;
+#if IS_ENABLED(CONFIG_USB_FUNC_WAKEUP_SUPPORTED)
 		if (gsi->func_wakeup_allowed)
 			ret = usb_func_wakeup(&gsi->function);
-		else
-			ret = -EOPNOTSUPP;
+#endif
 	}
 
 	if (ret < 0 || gsi->func_is_suspended) {
