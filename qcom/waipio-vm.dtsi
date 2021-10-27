@@ -72,6 +72,12 @@
 		gunyah-label = <3>;
 	};
 
+	gunyah-vsock {
+		compatible = "qcom,gunyah-vsock";
+		qcom,master;
+		msgq-label = <3>;
+	};
+
 	qcom,vm-config {
 		compatible = "qcom,vm-1.0";
 		vm-type = "aarch64-guest";
@@ -170,6 +176,15 @@
 				queue-depth = <0x00000008>;
 				peer-default;
 				qcom,label = <0x0000002>;
+			};
+
+			gvsock-message-queue-pair {
+				vdevice-type = "message-queue-pair";
+				generate = "/hypervisor/gvsock-msgq-pair";
+				message-size = <0x000000f0>;
+				queue-depth = <0x00000008>;
+				peer = "vm-name:qcom,oemvm";
+				qcom,label = <0x0000003>;
 			};
 
 			qrtr-shm {
