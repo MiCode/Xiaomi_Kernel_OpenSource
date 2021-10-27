@@ -10,10 +10,12 @@
 #include <linux/kprobes.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/atomic.h>
 #include <linux/sched/debug.h>
+#include <linux/io.h>
 
 #include <soc/qcom/watchdog.h>
 
@@ -99,9 +101,48 @@ static void register_spinlock_bug_hook(struct platform_device *pdev)
 static inline void register_spinlock_bug_hook(struct platform_device *pdev) { }
 #endif
 
+#ifdef CONFIG_RANDOMIZE_BASE
+#define KASLR_OFFSET_MASK	0x00000000FFFFFFFF
+static void __iomem *map_prop_mem(const char *propname)
+{
+	struct device_node *np = of_find_compatible_node(NULL, NULL, propname);
+	void __iomem *addr;
+
+	if (!np) {
+		pr_err("Unable to find DT property: %s\n", propname);
+		return NULL;
+	}
+
+	addr = of_iomap(np, 0);
+	if (!addr)
+		pr_err("Unable to map memory for DT property: %s\n", propname);
+	return addr;
+}
+
+static void store_kaslr_offset(void)
+{
+	void __iomem *mem = map_prop_mem("qcom,msm-imem-kaslr_offset");
+
+	if (!mem)
+		return;
+
+	__raw_writel(0xdead4ead, mem);
+	__raw_writel((kimage_vaddr - KIMAGE_VADDR) & KASLR_OFFSET_MASK,
+		     mem + 4);
+	__raw_writel(((kimage_vaddr - KIMAGE_VADDR) >> 32) & KASLR_OFFSET_MASK,
+		     mem + 8);
+
+	iounmap(mem);
+}
+#else
+static void store_kaslr_offset(void) {}
+#endif /* CONFIG_RANDOMIZE_BASE */
+
 static int cpu_vendor_hooks_driver_probe(struct platform_device *pdev)
 {
 	int ret;
+
+	store_kaslr_offset();
 
 	ret = register_trace_android_vh_ipi_stop(trace_ipi_stop, NULL);
 	if (ret) {

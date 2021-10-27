@@ -291,27 +291,6 @@ static void __iomem *map_prop_mem(const char *propname)
 	return addr;
 }
 
-#ifdef CONFIG_RANDOMIZE_BASE
-#define KASLR_OFFSET_MASK	0x00000000FFFFFFFF
-static void store_kaslr_offset(void)
-{
-	void __iomem *mem = map_prop_mem("qcom,msm-imem-kaslr_offset");
-
-	if (!mem)
-		return;
-
-	__raw_writel(0xdead4ead, mem);
-	__raw_writel((kimage_vaddr - KIMAGE_VADDR) & KASLR_OFFSET_MASK,
-		     mem + 4);
-	__raw_writel(((kimage_vaddr - KIMAGE_VADDR) >> 32) & KASLR_OFFSET_MASK,
-		     mem + 8);
-
-	iounmap(mem);
-}
-#else
-static void store_kaslr_offset(void) {}
-#endif /* CONFIG_RANDOMIZE_BASE */
-
 static int qcom_dload_probe(struct platform_device *pdev)
 {
 	struct qcom_dload *poweroff;
@@ -337,7 +316,6 @@ static int qcom_dload_probe(struct platform_device *pdev)
 	}
 
 	poweroff->dload_dest_addr = map_prop_mem("qcom,msm-imem-dload-type");
-	store_kaslr_offset();
 
 	msm_enable_dump_mode(enable_dump);
 	if (!enable_dump)
