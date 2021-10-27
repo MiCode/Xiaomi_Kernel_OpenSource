@@ -606,7 +606,10 @@ static void qcom_check_ssr_status(void *data, struct rproc *rproc)
 {
 	if (!atomic_read(&rproc->power) ||
 	    rproc->state == RPROC_RUNNING ||
-	    qcom_device_shutdown_in_progress)
+	    qcom_device_shutdown_in_progress ||
+	    system_state == SYSTEM_RESTART ||
+	    system_state == SYSTEM_POWER_OFF ||
+	    system_state == SYSTEM_HALT)
 		return;
 
 	panic("Panicking, remoteproc %s failed to recover!\n", rproc->name);
