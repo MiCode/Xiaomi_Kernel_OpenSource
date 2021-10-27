@@ -63,7 +63,6 @@
 #define LLCC_TRP_WRSC_CACHEABLE_EN    0x21F2C
 #define LLCC_TRP_PCB_ACT              0x21F04
 #define LLCC_TRP_SCID_DIS_CAP_ALLOC   0x21F00
-#define LLCC_LPI_SHARED_SCT_CFGn(n)   (0x74100 + SZ_4 * n)
 
 /**
  * llcc_slice_config - Data associated with the llcc slice
@@ -91,7 +90,6 @@
  * @write_scid_en: Enables write cache support for a given scid.
  * @write_scid_cacheable_en: Enables write cache cacheable support for a
  *                          given scid.(Not supported on V2 or older hardware)
- * @lpi_shared_sct: SCID Type for each SCID - Active, Global, Persistent or Island.
  */
 struct llcc_slice_config {
 	u32 usecase_id;
@@ -108,7 +106,6 @@ struct llcc_slice_config {
 	bool activate_on_init;
 	bool write_scid_en;
 	bool write_scid_cacheable_en;
-	u32 lpi_shared_sct;
 };
 
 static u32 llcc_offsets_v2[] = {
@@ -576,7 +573,6 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr2_cfg;
 	u32 attr1_cfg;
 	u32 attr0_cfg;
-	u32 lpisct_cfg;
 	u32 attr2_val;
 	u32 attr1_val;
 	u32 attr0_val;
@@ -693,14 +689,6 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 				if (ret)
 					return ret;
 			}
-		}
-
-		if (drv_data->llcc_ver >= 41) {
-			lpisct_cfg = LLCC_LPI_SHARED_SCT_CFGn(llcc_table[i].slice_id);
-			ret = regmap_write(drv_data->bcast_regmap, lpisct_cfg,
-							llcc_table[i].lpi_shared_sct);
-			if (ret)
-				return ret;
 		}
 
 		if (llcc_table[i].activate_on_init) {
