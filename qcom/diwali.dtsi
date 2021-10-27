@@ -32,7 +32,7 @@
 
 	reserved_memory: reserved-memory { };
 
-	aliases {
+	aliases: aliases {
 		serial0 = &qupv3_se5_2uart;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
@@ -1258,7 +1258,7 @@
 		qcom,smem-states = <&adsp_smp2p_out 0>;
 		qcom,smem-state-names = "stop";
 
-		glink-edge {
+		glink_edge: glink-edge {
 			qcom,remote-pid = <2>;
 			transport = "smem";
 			mboxes = <&ipcc_mproc IPCC_CLIENT_LPASS
