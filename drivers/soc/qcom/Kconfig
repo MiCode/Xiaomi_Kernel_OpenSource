@@ -577,4 +577,5 @@ config QCOM_PANEL_EVENT_NOTIFIER
 	with display panel power state.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
+
 endmenu

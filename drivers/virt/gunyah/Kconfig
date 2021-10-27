@@ -24,4 +24,70 @@ config GH_VIRT_WATCHDOG
 	  actions such as setting the bark/bite time and also petting the
 	  watchdog in the hypervisor.
 
+config GH_DBL
+        tristate "Gunyah Doorbell driver"
+        help
+          Gunyah offers a simple inter VMs(Virtual Machines) communication
+          through the use of doorbell interrupts. A single doorbell instance
+          provides an unidirectional communication between two VMs and it acts
+          like either a source(Tx) or generate(Rx). Individual VMs make use of
+          these doorbells by calling send and/or a receive primitives exposed by
+          driver and trigger an interrupt to each other and exchange the data.
+
+config GH_MSGQ
+        tristate "Gunyah Message Queue driver"
+        help
+          Gunyah offers message-queues as one of the IPC mechanisms to
+          communicate among the Virtual Machines. The message queue drivers
+          runs on the Virtual machines to provide an interface to the clients
+          who wish to communicate to other clients on a different VM. Currently,
+          the services offered by the drivers is simply to send and receive
+          messages in a blocking manner.
+
+config GH_RM_DRV
+        tristate "Gunyah Resource Manager driver"
+        help
+          The Gunyah Resource Manager driver is used to communicate with the
+          Resource Manager Virtual Machine (RM-VM). The RM-VM acts as a mediator
+          and provides numerous services to the other VMs running in the system,
+          such as notifying when a particular VM is up, resource (IRQ/device)
+          sharing between VMs, information about the IPC mechanisms, and so on.
+
+          The Resource Manager driver runs on the Virtual Machine and acts as an
+          interface to other driver in order to obtain the services provided by
+          the RM-VM.
+
+config GH_IRQ_LEND
+        tristate "Gunyah IRQ Lending Framework"
+        depends on GH_RM_DRV
+        help
+          Gunyah Resource Manager permits interrupts to be shared between
+          virtual machines. This config enables a framework which
+          supports sharing these interrupts. The follows RM recommended
+          protocol.
+
+config GH_MEM_NOTIFIER
+        tristate "Gunyah Memory Resource Notification Framework"
+        depends on GH_RM_DRV
+        help
+          The Gunyah Resource Manager allows for different memory resources
+          to be transferred across virtual machines with different notification
+          labels assigned to each resource to aid in distinguishing them.
+          Enabling the Gunyah Memory Resource Notification Framework provides an
+          interface for clients to transmit memory resources between virtual
+          machines, and register callbacks that get invoked only when
+          notifications pertaining to their memory resources arrive.
+
+
+config GH_GUEST_POPS
+        tristate "Gunyah Guest Power-Operations driver"
+        depends on GH_RM_DRV
+        help
+          The driver runs on guest VMs and is majorly responsible for coordinating
+          the guest's power operations. This includes, setting the VM's status,
+          such as OS_STATUS_* or APPS_STATUS_*. It also acts as an input power key
+          driver. That is, it listens to the shutdown requests, and when it receives
+          one, it'll emulate a power key press action by sending an input
+          notification to user-space.
+
 endif
