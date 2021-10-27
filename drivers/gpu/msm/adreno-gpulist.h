@@ -1917,6 +1917,33 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_0_1 = {
 	.highest_bank_bit = 16,
 };
 
+static const struct adreno_gen7_core adreno_gpu_core_gen7_4_0 = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_GEN7_4_0,
+				UINT_MAX, UINT_MAX, UINT_MAX, ANY_ID),
+		.compatible = "qcom,adreno-gpu-gen7-4-0",
+		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
+				ADRENO_CONTENT_PROTECTION,
+		.gpudev = &adreno_gen7_gmu_gpudev.base,
+		.perfcounters = &adreno_gen7_perfcounters,
+		.gmem_base = 0,
+		.gmem_size = SZ_2M,
+		.bus_width = 32,
+		.snapshot_size = SZ_4M,
+	},
+	.sqefw_name = "a730_sqe.fw",
+	.gmufw_name = "gmu_gen70000.bin",
+	.gmufw_bak_name = "c500_gmu.bin",
+	.zap_name = "a730_zap",
+	.hwcg = gen7_0_0_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(gen7_0_0_hwcg_regs),
+	.gbif = gen7_0_0_gbif_regs,
+	.gbif_count = ARRAY_SIZE(gen7_0_0_gbif_regs),
+	.hang_detect_cycles = 0xcfffff,
+	.protected_regs = gen7_0_0_protected_regs,
+	.highest_bank_bit = 16,
+};
+
 static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a306.base,
 	&adreno_gpu_core_a306a.base,
@@ -1956,4 +1983,6 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_gen7_0_0.base,
 	&adreno_gpu_core_gen7_0_1.base,
 	&adreno_gpu_core_a662.base,
+	&adreno_gpu_core_gen7_4_0.base,
+
 };
