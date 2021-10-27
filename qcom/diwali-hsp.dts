@@ -6,4 +6,6 @@
 	model = "Qualcomm Technologies, Inc. Diwali HSP SoC";
 	compatible = "qcom,diwali";
 	qcom,board-id = <0 2>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
 };
