@@ -713,6 +713,7 @@
 #define GEN7_RB_PERFCTR_CCU_SEL_2           0x8e1a
 #define GEN7_RB_PERFCTR_CCU_SEL_3           0x8e1b
 #define GEN7_RB_PERFCTR_CCU_SEL_4           0x8e1c
+#define GEN7_RB_CMP_DBG_ECO_CNTL            0x8e28
 #define GEN7_RB_PERFCTR_CMP_SEL_0           0x8e2c
 #define GEN7_RB_PERFCTR_CMP_SEL_1           0x8e2d
 #define GEN7_RB_PERFCTR_CMP_SEL_2           0x8e2e

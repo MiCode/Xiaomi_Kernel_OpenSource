@@ -33,6 +33,7 @@ static const u32 gen7_pwrup_reglist[] = {
 	GEN7_UCHE_CACHE_WAYS,
 	GEN7_UCHE_MODE_CNTL,
 	GEN7_RB_NC_MODE_CNTL,
+	GEN7_RB_CMP_DBG_ECO_CNTL,
 	GEN7_TPL1_NC_MODE_CNTL,
 	GEN7_SP_NC_MODE_CNTL,
 	GEN7_GRAS_NC_MODE_CNTL,
@@ -485,6 +486,9 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regrmw(device, GEN7_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
 			0xFF, 0x20);
 	kgsl_regwrite(device, GEN7_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
+
+	/* Disable non-ubwc read reqs from passing write reqs */
+	kgsl_regrmw(device, GEN7_RB_CMP_DBG_ECO_CNTL, 0, (1 << 11));
 
 	gen7_protect_init(adreno_dev);
 
