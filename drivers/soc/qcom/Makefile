@@ -64,3 +64,4 @@ obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
 obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
 obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
 obj-$(CONFIG_GH_TLMM_VM_MEM_ACCESS) += gh_tlmm_vm_mem_access.o
+obj-$(CONFIG_SPS) += sps/
