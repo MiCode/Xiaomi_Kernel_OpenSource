@@ -780,6 +780,7 @@ struct msm_pcie_dev_t {
 	struct mutex drv_pc_lock;
 	struct completion speed_change_completion;
 
+	const char *drv_name;
 	bool drv_supported;
 
 	bool aer_dump;
@@ -5575,9 +5576,10 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		INIT_WORK(&pcie_dev->link_recover_wq, handle_link_recover);
 	}
 
-	pcie_dev->drv_supported = of_property_read_bool(of_node,
-							"qcom,drv-supported");
-	if (pcie_dev->drv_supported) {
+	ret = of_property_read_string(of_node, "qcom,drv-name",
+				      &pcie_dev->drv_name);
+	if (!ret) {
+		pcie_dev->drv_supported = true;
 		ret = msm_pcie_setup_drv(pcie_dev, of_node);
 		if (ret)
 			PCIE_ERR(pcie_dev,
@@ -6349,7 +6351,8 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 		mutex_unlock(&pcie_dev->drv_pc_lock);
 	}
 
-	pcie_drv->notifier = qcom_register_ssr_notifier("lpass", &pcie_drv->nb);
+	pcie_drv->notifier = qcom_register_ssr_notifier(pcie_dev->drv_name,
+							&pcie_drv->nb);
 	if (IS_ERR(pcie_drv->notifier)) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to register ssr notifier\n",
 			 pcie_dev->rc_idx);
