@@ -1226,6 +1226,12 @@ static void fts_ts_dt_parse_trusted_touch_info(struct fts_ts_data *fts_data)
 	const char *selection;
 	const char *environment;
 
+#ifdef CONFIG_ARCH_QTI_VM
+	fts_data->touch_environment = "tvm";
+#else
+	fts_data->touch_environment = "pvm";
+#endif
+
 	rc = of_property_read_string(np, "focaltech,trusted-touch-mode",
 								&selection);
 	if (rc) {
