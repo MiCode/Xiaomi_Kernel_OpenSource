@@ -87,7 +87,7 @@ EXPORT_SYMBOL_GPL(usb_ep_set_maxpacket_limit);
  * configurable, with more generic names like "ep-a".  (remember that for
  * USB, "in" means "towards the USB master".)
  *
- * This routine must be called in process context.
+ * This routine may be called in an atomic (interrupt) context..
  *
  * returns zero, or a negative error code.
  */
@@ -132,7 +132,7 @@ EXPORT_SYMBOL_GPL(usb_ep_enable);
  * gadget drivers must call usb_ep_enable() again before queueing
  * requests to the endpoint.
  *
- * This routine must be called in process context.
+ * This routine may be called in an atomic (interrupt) context.
  *
  * returns zero, or a negative error code.
  */
