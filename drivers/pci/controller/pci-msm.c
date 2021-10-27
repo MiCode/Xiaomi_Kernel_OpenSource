@@ -34,7 +34,6 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include <soc/qcom/subsystem_notif.h>
 
 #include "../pci.h"
 
