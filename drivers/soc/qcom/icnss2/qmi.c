@@ -1047,7 +1047,7 @@ bypass_bdf:
 		req->file_id_valid = 1;
 		req->file_id = priv->board_id;
 		req->total_size_valid = 1;
-		req->total_size = remaining;
+		req->total_size = fw_entry->size;
 		req->seg_id_valid = 1;
 		req->data_valid = 1;
 		req->end_valid = 1;
