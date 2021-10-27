@@ -615,7 +615,7 @@ void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
 {
 	struct clk_regmap *rclk;
 
-	if (IS_ERR_OR_NULL(hw))
+	if (IS_ERR_OR_NULL(hw) || !hw->core)
 		return;
 
 	clk_debug_print_hw(clk_hw_get_parent(hw), f);

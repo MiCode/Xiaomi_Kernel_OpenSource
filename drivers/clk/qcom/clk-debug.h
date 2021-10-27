@@ -103,7 +103,7 @@ extern void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f);
 #define WARN_CLK(hw, cond, fmt, ...)						\
 	do {									\
 		clk_debug_print_hw(hw, NULL);					\
-		WARN(cond, "%s: " fmt, clk_hw_get_name(hw), ##__VA_ARGS__);	\
+		WARN(cond, "%s: " fmt, qcom_clk_hw_get_name(hw), ##__VA_ARGS__);	\
 	} while (0)
 
 #define clock_debug_output(m, fmt, ...)			\
