@@ -267,6 +267,7 @@
 &firmware {
 	qcom_scm {
 		compatible = "qcom,scm";
+		qcom,dload-mode = <&tcsr 0x13000>;
 	};
 	android {
 		compatible = "android,firmware";
@@ -1006,6 +1007,15 @@
 		size = <0x0 0x200000>;
 		pmsg-size = <0x200000>;
 		mem-type = <2>;
+	};
+
+	dload_mode {
+		compatible = "qcom,dload-mode";
+	};
+
+	tcsr: syscon@1fc0000 {
+		compatible = "syscon";
+		reg = <0x1fc0000 0x30000>;
 	};
 };
 
