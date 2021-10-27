@@ -90,3 +90,4 @@ stub-regulator.ko
 tmecom-intf.ko
 ufs_qcom.ko
 ufshcd-crypto-qti.ko
+sched-walt-debug.ko
