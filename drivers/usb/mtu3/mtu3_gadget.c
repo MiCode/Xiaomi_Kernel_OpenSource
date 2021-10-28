@@ -120,6 +120,10 @@ static int mtu3_ep_enable(struct mtu3_ep *mep)
 	/* slot mainly affects bulk/isoc transfer, so ignore int */
 	mep->slot = usb_endpoint_xfer_int(desc) ? 0 : mtu->slot;
 
+	/* reserve ep slot for super speed */
+	if (mtu->is_ep_saving && mtu->g.speed >= MTU3_SPEED_SUPER)
+		mep->slot = 0;
+
 	ret = mtu3_config_ep(mtu, mep, interval, burst, mult);
 	if (ret < 0)
 		return ret;

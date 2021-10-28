@@ -628,9 +628,39 @@ static ssize_t max_speed_show(struct device *dev,
 }
 static DEVICE_ATTR_RW(max_speed);
 
+static ssize_t saving_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+	int saving;
+
+	if (kstrtoint(buf, 10, &saving))
+		return -EINVAL;
+
+	mtu->is_ep_saving = saving ? 1 : 0;
+
+	dev_info(dev, "saving mode %d\n", mtu->is_ep_saving);
+
+	return count;
+}
+
+static ssize_t saving_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+
+	return sprintf(buf, "%d\n", mtu->is_ep_saving);
+}
+static DEVICE_ATTR_RW(saving);
+
 static struct attribute *ssusb_dr_attrs[] = {
 	&dev_attr_mode.attr,
 	&dev_attr_max_speed.attr,
+	&dev_attr_saving.attr,
 	NULL
 };
 
