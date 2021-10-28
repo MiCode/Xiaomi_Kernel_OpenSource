@@ -18,6 +18,8 @@
 #include "adaptor-i2c.h"
 #include "adaptor-ctrls.h"
 #include "adaptor-ioctl.h"
+#include "imgsensor-glue/imgsensor-glue.h"
+#include "virt-sensor/virt-sensor-entry.h"
 
 #undef E
 #define E(__x__) (__x__##_entry)
@@ -291,9 +293,19 @@ static int search_sensor(struct adaptor_ctx *ctx)
 	struct subdrv_entry **subdrvs, *subdrv;
 	struct subdrv_entry *of_subdrvs[OF_SENSOR_NAMES_MAXCNT];
 	const char *of_sensor_names[OF_SENSOR_NAMES_MAXCNT];
+	int subdrv_name_ret;
+	const char *of_subdrv_name;
 
 	of_sensor_names_cnt = of_property_read_string_array(ctx->dev->of_node,
 		"sensor-names", of_sensor_names, ARRAY_SIZE(of_sensor_names));
+
+	subdrv_name_ret = of_property_read_string(ctx->dev->of_node,
+						  "subdrv-name", &of_subdrv_name);
+
+	dev_info(ctx->dev, "subdrv_name_ret %d\n", subdrv_name_ret);
+
+	if (!subdrv_name_ret)
+		dev_info(ctx->dev, "subdrv name %s found\n", of_subdrv_name);
 
 	/* try to load custom list from DT */
 	if (of_sensor_names_cnt > 0) {
@@ -312,6 +324,15 @@ static int search_sensor(struct adaptor_ctx *ctx)
 				dev_warn(ctx->dev, "%s not found\n",
 					of_sensor_names[i]);
 			}
+		}
+	} else if (!subdrv_name_ret) {
+		subdrvs_cnt = 0;
+		of_subdrvs[0] = vs_query_subdrv_entry(of_subdrv_name);
+
+		if (of_subdrvs[0]) {
+			subdrvs_cnt = 1;
+			subdrvs = of_subdrvs;
+			dev_info(ctx->dev, "subdrv name %s found\n", of_subdrv_name);
 		}
 	} else {
 		subdrvs = imgsensor_subdrvs;

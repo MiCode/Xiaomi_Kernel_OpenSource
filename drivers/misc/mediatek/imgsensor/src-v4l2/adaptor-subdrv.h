@@ -135,6 +135,9 @@ struct subdrv_ops {
 	int (*get_csi_param)(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		struct mtk_csi_param *csi_param);
+
+	int (*power_on)(struct subdrv_ctx *ctx, void *data);
+	int (*power_off)(struct subdrv_ctx *ctx, void *data);
 };
 
 struct subdrv_entry {

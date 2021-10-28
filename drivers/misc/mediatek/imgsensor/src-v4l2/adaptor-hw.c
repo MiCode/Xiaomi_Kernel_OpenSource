@@ -234,6 +234,9 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 			mdelay(ent->delay);
 	}
 
+	if (ctx->subdrv->ops->power_on)
+		subdrv_call(ctx, power_on, NULL);
+
 	//dev_dbg(ctx->dev, "%s\n", __func__);
 
 	return 0;
@@ -258,6 +261,9 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	int i;
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
+
+	if (ctx->subdrv->ops->power_off)
+		subdrv_call(ctx, power_off, NULL);
 
 	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
 		ent = &ctx->subdrv->pw_seq[i];

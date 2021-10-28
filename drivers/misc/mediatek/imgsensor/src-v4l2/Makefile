@@ -9,6 +9,7 @@ MTK_CAMSYS_DRIVER_PATH := $(srctree)/drivers/media/platform/mtk-isp/camsys/isp7_
 IMGSENSOR_PROJECT := $(subst ",,$(CONFIG_MTK_IMGSENSOR_PROJECT))
 
 FRAME_SYNC := frame-sync
+VIRT_SENSOR := virt-sensor
 
 subdir-ccflags-y += \
 	-I$(MTK_DRIVER_PATH)/imgsensor/inc \
@@ -52,6 +53,13 @@ else
 $(info framesync_drv: NOT FOUND)
 endif
 
+ifneq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(VIRT_SENSOR)/virt-sensor.mk),)
+$(info virt-sensor: $(VIRT_SENSOR))
+include $(IMGSENSOR_DRIVER_PATH)/$(VIRT_SENSOR)/virt-sensor.mk
+else
+$(info virt-sensor: NOT FOUND)
+endif
+
 define add_subdrv
 $(eval subdrv-rpath = $1)
 $(eval include $(src)/$1/subdrv.mk)
@@ -88,4 +96,5 @@ endif
 $(info imgsensor-objs : $(imgsensor-objs))
 $(info subdir-ccflags-y : $(subdir-ccflags-y))
 
+obj-$(CONFIG_MTK_V4L2_IMGSENSOR) += imgsensor-glue/
 obj-$(CONFIG_MTK_V4L2_IMGSENSOR) += imgsensor.o
