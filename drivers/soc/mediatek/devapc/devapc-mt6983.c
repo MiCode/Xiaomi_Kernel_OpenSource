@@ -172,6 +172,8 @@ static const char *mt6983_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 				return infra_mi_trans(bus_id >> 2);
 		}
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
+		if (domain == 0x4)
+			return "GCE";
 		/* mmup */
 		if ((vio_addr >= MMUP_START_ADDR) && (vio_addr <= MMUP_END_ADDR)) {
 			if (domain < ARRAY_SIZE(mminfra_domain))

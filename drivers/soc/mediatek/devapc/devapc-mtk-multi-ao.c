@@ -889,7 +889,8 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	clkchk_devapc_dump();
 
 	/* dump cmdq state */
-	cmdq_util_devapc_dump();
+	if (id == INFRA_SUBSYS_GCE)
+		cmdq_util_devapc_dump();
 
 	/* Severity level */
 	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE)) {
