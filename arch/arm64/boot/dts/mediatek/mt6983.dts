@@ -3887,12 +3887,12 @@
 		compatible = "mediatek,pwm";
 		reg = <0 0x11008000 0 0x1000>;
 		interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK1_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK2_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK3_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK4_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_HCLK_CG>,
-			<&infracfg_ao_clk CLK_PERICFG_AO_PERI_PWM_BCLK_CG>;
+		clocks = <&pericfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK1_CG>,
+			<&pericfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK2_CG>,
+			<&pericfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK3_CG>,
+			<&pericfg_ao_clk CLK_PERICFG_AO_PERI_PWM_FBCLK4_CG>,
+			<&pericfg_ao_clk CLK_PERICFG_AO_PERI_PWM_HCLK_CG>,
+			<&pericfg_ao_clk CLK_PERICFG_AO_PERI_PWM_BCLK_CG>;
 
 		clock-names = "PWM1-main",
 			"PWM2-main",
