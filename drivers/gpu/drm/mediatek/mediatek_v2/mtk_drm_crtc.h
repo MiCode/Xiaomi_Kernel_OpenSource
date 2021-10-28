@@ -1019,4 +1019,8 @@ bool mtk_crtc_frame_buffer_existed(void);
 int mtk_drm_format_plane_cpp(uint32_t format, int plane);
 
 int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock);
+int mtk_drm_ioctl_get_pq_caps(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
 #endif /* MTK_DRM_CRTC_H */

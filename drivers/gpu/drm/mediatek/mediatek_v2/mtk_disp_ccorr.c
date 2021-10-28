@@ -49,12 +49,25 @@
 #define CCORR_12BIT_MASK				0x0fff
 #define CCORR_13BIT_MASK				0x1fff
 
+#define CCORR_INVERSE_GAMMA   (0)
+#define CCORR_BYASS_GAMMA      (1)
+
 #define CCORR_REG(idx) (idx * 4 + 0x80)
 #define CCORR_CLIP(val, min, max) ((val >= max) ? \
 	max : ((val <= min) ? min : val))
 
 static unsigned int g_ccorr_8bit_switch[DISP_CCORR_TOTAL];
 static unsigned int g_ccorr_relay_value[DISP_CCORR_TOTAL];
+
+struct drm_mtk_ccorr_caps disp_ccorr_caps;
+static int ccorr_offset_base = 1024;
+static int ccorr_max_negative = -2048;
+static int ccorr_max_positive = 2047;
+static int ccorr_fullbit_mask = 0x0fff;
+static int ccorr_offset_mask = 14;
+unsigned int disp_ccorr_number;
+unsigned int disp_ccorr_linear;
+bool disp_aosp_ccorr;
 
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : \
 		((module == DDP_COMPONENT_CCORR1) ? 1 : \
@@ -194,9 +207,9 @@ static void disp_ccorr_multiply_3x3(unsigned int ccorrCoef[3][3],
 	/* convert unsigned 12 bit ccorr coefficient to signed 12 bit format */
 	for (i = 0; i < 3; i += 1) {
 		for (j = 0; j < 3; j += 1) {
-			if (ccorrCoef[i][j] > 2047) {
+			if (ccorrCoef[i][j] > ccorr_max_positive) {
 				signedCcorrCoef[i][j] =
-					(int)ccorrCoef[i][j] - 4096;
+					(int)ccorrCoef[i][j] - (ccorr_offset_base<<2);
 			} else {
 				signedCcorrCoef[i][j] =
 					(int)ccorrCoef[i][j];
@@ -213,48 +226,57 @@ static void disp_ccorr_multiply_3x3(unsigned int ccorrCoef[3][3],
 
 	temp_Result = (int)((signedCcorrCoef[0][0]*color_matrix[0][0] +
 		signedCcorrCoef[0][1]*color_matrix[1][0] +
-		signedCcorrCoef[0][2]*color_matrix[2][0]) / 1024);
-	resultCoef[0][0] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[0][2]*color_matrix[2][0]) / ccorr_offset_base);
+	resultCoef[0][0] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[0][0]*color_matrix[0][1] +
 		signedCcorrCoef[0][1]*color_matrix[1][1] +
-		signedCcorrCoef[0][2]*color_matrix[2][1]) / 1024);
-	resultCoef[0][1] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[0][2]*color_matrix[2][1]) / ccorr_offset_base);
+	resultCoef[0][1] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[0][0]*color_matrix[0][2] +
 		signedCcorrCoef[0][1]*color_matrix[1][2] +
-		signedCcorrCoef[0][2]*color_matrix[2][2]) / 1024);
-	resultCoef[0][2] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[0][2]*color_matrix[2][2]) / ccorr_offset_base);
+	resultCoef[0][2] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[1][0]*color_matrix[0][0] +
 		signedCcorrCoef[1][1]*color_matrix[1][0] +
-		signedCcorrCoef[1][2]*color_matrix[2][0]) / 1024);
-	resultCoef[1][0] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[1][2]*color_matrix[2][0]) / ccorr_offset_base);
+	resultCoef[1][0] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[1][0]*color_matrix[0][1] +
 		signedCcorrCoef[1][1]*color_matrix[1][1] +
-		signedCcorrCoef[1][2]*color_matrix[2][1]) / 1024);
-	resultCoef[1][1] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[1][2]*color_matrix[2][1]) / ccorr_offset_base);
+	resultCoef[1][1] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[1][0]*color_matrix[0][2] +
 		signedCcorrCoef[1][1]*color_matrix[1][2] +
-		signedCcorrCoef[1][2]*color_matrix[2][2]) / 1024);
-	resultCoef[1][2] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[1][2]*color_matrix[2][2]) / ccorr_offset_base);
+	resultCoef[1][2] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[2][0]*color_matrix[0][0] +
 		signedCcorrCoef[2][1]*color_matrix[1][0] +
-		signedCcorrCoef[2][2]*color_matrix[2][0]) / 1024);
-	resultCoef[2][0] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[2][2]*color_matrix[2][0]) / ccorr_offset_base);
+	resultCoef[2][0] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[2][0]*color_matrix[0][1] +
 		signedCcorrCoef[2][1]*color_matrix[1][1] +
-		signedCcorrCoef[2][2]*color_matrix[2][1]) / 1024);
-	resultCoef[2][1] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[2][2]*color_matrix[2][1]) / ccorr_offset_base);
+	resultCoef[2][1] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	temp_Result = (int)((signedCcorrCoef[2][0]*color_matrix[0][2] +
 		signedCcorrCoef[2][1]*color_matrix[1][2] +
-		signedCcorrCoef[2][2]*color_matrix[2][2]) / 1024);
-	resultCoef[2][2] = CCORR_CLIP(temp_Result, -2048, 2047) & 0xFFF;
+		signedCcorrCoef[2][2]*color_matrix[2][2]) / ccorr_offset_base);
+	resultCoef[2][2] = CCORR_CLIP(temp_Result, ccorr_max_negative, ccorr_max_positive) &
+		ccorr_fullbit_mask;
 
 	for (i = 0; i < 3; i += 1) {
 		DDPINFO("resultCoef[%d][0-2] = {0x%x, 0x%x, 0x%x}\n", i,
@@ -282,7 +304,7 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	struct DRM_DISP_CCORR_COEF_T *ccorr, *multiply_matrix;
 	int ret = 0;
 	int id = index_of_ccorr(comp->id);
-	unsigned int temp_matrix[3][3];
+//	unsigned int temp_matrix[3][3];
 	unsigned int cfg_val;
 	int i, j;
 
@@ -290,6 +312,7 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		mutex_lock(&g_ccorr_global_lock);
 
 	ccorr = g_disp_ccorr_coef[id];
+	DDPINFO("%s:ccorr id:%d,aosp ccorr:%d\n", __func__, id, disp_aosp_ccorr);
 	if (ccorr == NULL) {
 		DDPINFO("%s: [%d] is not initialized\n", __func__, id);
 		ret = -EFAULT;
@@ -298,10 +321,13 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 
 	//if (id == 0) {
 		multiply_matrix = &g_multiply_matrix_coef;
-		disp_ccorr_multiply_3x3(ccorr->coef, g_ccorr_color_matrix[id],
-			temp_matrix);
-		disp_ccorr_multiply_3x3(temp_matrix, g_rgb_matrix[id],
-			multiply_matrix->coef);
+		if (disp_aosp_ccorr) {
+			disp_ccorr_multiply_3x3(ccorr->coef, g_ccorr_color_matrix[id],
+				multiply_matrix->coef);
+		} else {
+			disp_ccorr_multiply_3x3(ccorr->coef, g_rgb_matrix[id],
+				multiply_matrix->coef);
+		}
 		ccorr = multiply_matrix;
 
 		ccorr->offset[0] = g_disp_ccorr_coef[id]->offset[0];
@@ -310,9 +336,11 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	//}
 
 	// For 6885 need to left shift one bit
-	for (i = 0; i < 3; i++)
-		for (j = 0; j < 3; j++)
-			ccorr->coef[i][j] = ccorr->coef[i][j]<<1;
+	if (disp_ccorr_caps.ccorr_bit == 12) {
+		for (i = 0; i < 3; i++)
+			for (j = 0; j < 3; j++)
+				ccorr->coef[i][j] = ccorr->coef[i][j]<<1;
+	}
 
 	if (handle == NULL) {
 		/* use CPU to write */
@@ -321,19 +349,19 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 			     (g_disp_ccorr_without_gamma << 2) |
 				(g_ccorr_8bit_switch[id] << 10);
 		writel(cfg_val, comp->regs + DISP_REG_CCORR_CFG);
-		writel(((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
-			(ccorr->coef[0][1] & CCORR_13BIT_MASK),
+		writel(((ccorr->coef[0][0] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[0][1] & ccorr_fullbit_mask),
 			comp->regs + CCORR_REG(0));
-		writel(((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
-			(ccorr->coef[1][0] & CCORR_13BIT_MASK),
+		writel(((ccorr->coef[0][2] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[1][0] & ccorr_fullbit_mask),
 			comp->regs + CCORR_REG(1));
-		writel(((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
-			(ccorr->coef[1][2] & CCORR_13BIT_MASK),
+		writel(((ccorr->coef[1][1] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[1][2] & ccorr_fullbit_mask),
 			comp->regs + CCORR_REG(2));
-		writel(((ccorr->coef[2][0] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[2][1] & CCORR_13BIT_MASK),
+		writel(((ccorr->coef[2][0] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[2][1] & ccorr_fullbit_mask),
 			comp->regs + CCORR_REG(3));
-		writel(((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16),
+		writel(((ccorr->coef[2][2] & ccorr_fullbit_mask) << 16),
 			comp->regs + CCORR_REG(4));
 		/* Ccorr Offset */
 		writel(((ccorr->offset[0] & CCORR_COLOR_OFFSET_MASK) |
@@ -355,23 +383,23 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(0),
-			((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
-			(ccorr->coef[0][1] & CCORR_13BIT_MASK), ~0);
+			((ccorr->coef[0][0] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[0][1] & ccorr_fullbit_mask), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(1),
-			((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
-			(ccorr->coef[1][0] & CCORR_13BIT_MASK), ~0);
+			((ccorr->coef[0][2] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[1][0] & ccorr_fullbit_mask), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(2),
-			((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
-			(ccorr->coef[1][2] & CCORR_13BIT_MASK), ~0);
+			((ccorr->coef[1][1] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[1][2] & ccorr_fullbit_mask), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(3),
-			((ccorr->coef[2][0] & CCORR_13BIT_MASK) << 16) |
-			(ccorr->coef[2][1] & CCORR_13BIT_MASK), ~0);
+			((ccorr->coef[2][0] & ccorr_fullbit_mask) << 16) |
+			(ccorr->coef[2][1] & ccorr_fullbit_mask), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(4),
-			((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16), ~0);
+			((ccorr->coef[2][2] & ccorr_fullbit_mask) << 16), ~0);
 		/* Ccorr Offset */
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_0,
@@ -629,13 +657,16 @@ static int disp_ccorr_set_coef(
 				need_offset) {
 				DDPINFO("%s:need change offset", __func__);
 				g_disp_ccorr_coef[id]->offset[0] =
-						(OFFSET_VALUE << 1) << 14;
+						(ccorr_offset_base << 1) << ccorr_offset_mask;
 				g_disp_ccorr_coef[id]->offset[1] =
-						(OFFSET_VALUE << 1) << 14;
+						(ccorr_offset_base << 1) << ccorr_offset_mask;
 				g_disp_ccorr_coef[id]->offset[2] =
-						(OFFSET_VALUE << 1) << 14;
+						(ccorr_offset_base << 1) << ccorr_offset_mask;
 			}
 			DDPINFO("%s: Set module(%d) coef", __func__, id);
+			if (disp_aosp_ccorr)
+				disp_aosp_ccorr = false;
+
 			ret = disp_ccorr_write_coef_reg(comp, handle, 0);
 
 			mutex_unlock(&g_ccorr_global_lock);
@@ -705,6 +736,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct DRM_DISP_CCORR_COEF_T *ccorr;
 
 	if (handle == NULL) {
 		DDPPR_ERR("%s: cmdq can not be NULL\n", __func__);
@@ -712,11 +744,16 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	}
 
 	if (g_disp_ccorr_coef[id] == NULL) {
-		DDPINFO("%s: can't set matrix for NULL coef", __func__);
-		return -EFAULT;
+		ccorr = kmalloc(sizeof(struct DRM_DISP_CCORR_COEF_T), GFP_KERNEL);
+		if (ccorr == NULL) {
+			DDPPR_ERR("%s: no memory\n", __func__);
+			return -EFAULT;
+		}
+		g_disp_ccorr_coef[id] = ccorr;
 	}
 
 	mutex_lock(&g_ccorr_global_lock);
+
 
 	for (i = 0; i < 3; i++) {
 		for (j = 0; j < 3; j++) {
@@ -727,7 +764,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 			if (ccorr_without_gamma == 1)
 				continue;
 
-			if (i == j && g_ccorr_color_matrix[id][i][j] != 1024) {
+			if (i == j && g_ccorr_color_matrix[id][i][j] != ccorr_offset_base) {
 				ccorr_without_gamma = 1;
 				identity_matrix = false;
 			} else if (i != j && g_ccorr_color_matrix[id][i][j] != 0) {
@@ -787,9 +824,15 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	else
 		need_offset = false;
 
-	g_disp_ccorr_coef[id]->offset[0] = (matrix[12] << 1) << 14;
-	g_disp_ccorr_coef[id]->offset[1] = (matrix[13] << 1) << 14;
-	g_disp_ccorr_coef[id]->offset[2] = (matrix[14] << 1) << 14;
+	g_disp_ccorr_coef[id]->offset[0] = (matrix[12] << 1) << ccorr_offset_mask;
+	g_disp_ccorr_coef[id]->offset[1] = (matrix[13] << 1) << ccorr_offset_mask;
+	g_disp_ccorr_coef[id]->offset[2] = (matrix[14] << 1) << ccorr_offset_mask;
+	for (i = 0; i < 3; i++)
+		for (j = 0; j < 3; j++) {
+			g_disp_ccorr_coef[id]->coef[i][j] = 0;
+			if (i == j)
+				g_disp_ccorr_coef[id]->coef[i][j] = ccorr_offset_base;
+	}
 
 	for (i = 0; i < 3; i += 1) {
 		DDPDBG("g_ccorr_color_matrix[%d][0-2] = {%d, %d, %d}\n",
@@ -806,6 +849,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 
 	g_disp_ccorr_without_gamma = ccorr_without_gamma;
 
+	disp_aosp_ccorr = true;
 	disp_ccorr_write_coef_reg(comp, handle, 0);
 
 	for (i = 0; i < 3; i++) {
@@ -864,10 +908,21 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
 	struct drm_crtc *crtc = private->crtc[0];
+	struct DRM_DISP_CCORR_COEF_T *ccorr_config = data;
+	int ret;
+
+	if (ccorr_config->hw_id == DRM_DISP_CCORR1) {
+		comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
+		g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
+	} else if (disp_ccorr_linear&0x01) {
+		g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
+	} else {
+		DDPPR_ERR("%s: no available ccorr", __func__);
+		ret = -1;
+		return ret;
+	}
 
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
-		int ret;
-		struct DRM_DISP_CCORR_COEF_T *ccorr_config = data;
 
 		ret = mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
 
@@ -994,9 +1049,30 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	if (support_matrix)
 		ret = 0; //Zero: support color matrix.
 
+	//if only one ccorr and ccorr0 is linear, AOSP matrix unsupport
+	if ((disp_ccorr_number == 1) && (disp_ccorr_linear&0x01))
+		ret = -EFAULT;
+	else
+		ret = 0;
+
 	return ret;
 }
 
+int mtk_get_ccorr_caps(struct drm_mtk_ccorr_caps *ccorr_caps)
+{
+	memcpy(ccorr_caps, &disp_ccorr_caps, sizeof(disp_ccorr_caps));
+	return 0;
+}
+
+int mtk_set_ccorr_caps(struct drm_mtk_ccorr_caps *ccorr_caps)
+{
+	if (ccorr_caps->ccorr_linear != disp_ccorr_caps.ccorr_linear) {
+		disp_ccorr_caps.ccorr_linear = ccorr_caps->ccorr_linear;
+		disp_ccorr_linear = disp_ccorr_caps.ccorr_linear;
+		DDPINFO("%s:update ccorr 0 linear by DORA API\n", __func__);
+	}
+	return 0;
+}
 
 static void mtk_ccorr_config(struct mtk_ddp_comp *comp,
 			     struct mtk_ddp_config *cfg,
@@ -1062,7 +1138,7 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
 			if (ccorr->data->single_pipe_ccorr_num == 2)
-				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR2];
+				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR3];
 
 			if (disp_ccorr_set_coef(config, comp_ccorr1, handle) < 0) {
 				DDPPR_ERR("DISP_IOCTL_SET_CCORR: failed\n");
@@ -1221,6 +1297,58 @@ void mtk_ccorr_dump(struct mtk_ddp_comp *comp)
 	mtk_cust_dump_reg(baddr, 0x24, 0x28, -1, -1);
 }
 
+static int  mtk_update_ccorr_base(void)
+{
+	int g, i, j;
+
+	if (disp_ccorr_caps.ccorr_bit == 12)
+		return 0;
+
+	ccorr_offset_base = 2048;
+	ccorr_max_negative = ccorr_offset_base*(-2);
+	ccorr_max_positive = (ccorr_offset_base*2)-1;
+	ccorr_fullbit_mask = 0x1fff;
+	ccorr_offset_mask = 13;
+
+	for (g = 0; g < DISP_CCORR_TOTAL; g++)
+		for (i = 0; i < 3; i++)
+			for (j = 0; j < 3; j++) {
+				if (i == j) {
+					g_ccorr_color_matrix[g][i][j] = ccorr_offset_base;
+					g_ccorr_prev_matrix[g][i][j] = ccorr_offset_base;
+					g_rgb_matrix[g][i][j] = ccorr_offset_base;
+				}
+			}
+	return 0;
+}
+
+static void mtk_get_ccorr_property(struct device_node *node)
+{
+	int ret;
+
+	ret = of_property_read_u32(node, "ccorr_bit", &disp_ccorr_caps.ccorr_bit);
+	if (ret)
+		DDPPR_ERR("read ccorr_bit failed\n");
+
+	ret = of_property_read_u32(node, "ccorr_num_per_pipe", &disp_ccorr_caps.ccorr_number);
+	if (ret)
+		DDPPR_ERR("read ccorr_number failed\n");
+
+	ret = of_property_read_u32(node, "ccorr_linear_per_pipe", &disp_ccorr_caps.ccorr_linear);
+	if (ret)
+		DDPPR_ERR("read ccorr_linear failed\n");
+
+	DDPINFO("%s:ccorr_bit:%d,ccorr_number:%d,ccorr_linear:%d\n", __func__,
+		disp_ccorr_caps.ccorr_bit, disp_ccorr_caps.ccorr_number,
+		disp_ccorr_caps.ccorr_linear);
+
+	disp_ccorr_number = disp_ccorr_caps.ccorr_number;
+	disp_ccorr_linear = disp_ccorr_caps.ccorr_linear;
+
+	mtk_update_ccorr_base();
+
+}
+
 static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1243,6 +1371,13 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 	if ((int)comp_id < 0) {
 		DDPPR_ERR("Failed to identify by alias: %d\n", comp_id);
 		return comp_id;
+	}
+
+	if (comp_id == DDP_COMPONENT_CCORR0) {
+		disp_ccorr_caps.ccorr_bit = 12;
+		disp_ccorr_caps.ccorr_number = 1;
+		disp_ccorr_caps.ccorr_linear = 0x01;
+		mtk_get_ccorr_property(dev->of_node);
 	}
 
 	if (!default_comp && comp_id == DDP_COMPONENT_CCORR0)

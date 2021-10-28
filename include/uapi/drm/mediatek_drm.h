@@ -483,6 +483,9 @@ struct DISP_DITHER_PARAM {
 #define DRM_MTK_SET_DISP_TDSHP_REG 0x50
 #define DRM_MTK_DISP_TDSHP_GET_SIZE 0x51
 
+#define DRM_MTK_GET_PQ_CAPS 0x54
+#define DRM_MTK_SET_PQ_CAPS 0x55
+
 /* C3D */
 #define DISP_C3D_1DLUT_SIZE 32
 
@@ -949,6 +952,17 @@ struct drm_mtk_chist_config {
 	struct drm_mtk_channel_config chist_config[MTK_DRM_DISP_CHIST_CHANNEL_COUNT];
 };
 
+
+struct drm_mtk_ccorr_caps {
+	unsigned int ccorr_bit;
+	unsigned int ccorr_number;
+	unsigned int ccorr_linear;//1st byte:high 4 bit:CCORR1,low 4 bit:CCORR0
+};
+
+struct mtk_drm_pq_caps_info {
+	struct drm_mtk_ccorr_caps ccorr_caps;
+};
+
 #define DRM_IOCTL_MTK_GEM_CREATE	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_GEM_CREATE, struct drm_mtk_gem_create)
 
@@ -1096,6 +1110,11 @@ struct drm_mtk_chist_config {
 			DRM_MTK_SET_DITHER_PARAM, struct DISP_DITHER_PARAM)
 #define DRM_IOCTL_MTK_BYPASS_DISP_GAMMA    DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_BYPASS_DISP_GAMMA, unsigned int)
+
+#define DRM_IOCTL_MTK_GET_PQ_CAPS DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_GET_PQ_CAPS, struct mtk_drm_pq_caps_info)
+#define DRM_IOCTL_MTK_SET_PQ_CAPS    DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_SET_PQ_CAPS, struct mtk_drm_pq_caps_info)
 
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */

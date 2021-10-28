@@ -100,6 +100,8 @@ bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
 
+struct drm_mtk_ccorr_caps drm_ccorr_caps;
+
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
 #define DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL 0x308
@@ -3385,8 +3387,10 @@ static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 			i = 0;
 			j = 0;
 			for_each_comp_in_dual_pipe(comp_ccorr, mtk_crtc, i, j) {
-				if (comp_ccorr->id == DDP_COMPONENT_CCORR1 ||
-					comp_ccorr->id == DDP_COMPONENT_CCORR2) {
+				if (((drm_ccorr_caps.ccorr_number == 1) &&
+					(comp_ccorr->id == DDP_COMPONENT_CCORR1)) ||
+					((drm_ccorr_caps.ccorr_number == 2) &&
+					(comp_ccorr->id == DDP_COMPONENT_CCORR2))) {
 					disp_ccorr_set_color_matrix(comp_ccorr, cmdq_handle,
 								ccorr_matrix, mode, false);
 					set = true;
@@ -7518,8 +7522,10 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 		i = 0;
 		j = 0;
 		for_each_comp_in_dual_pipe(comp_ccorr, mtk_crtc, i, j) {
-			if (comp_ccorr->id == DDP_COMPONENT_CCORR1 ||
-				comp_ccorr->id == DDP_COMPONENT_CCORR2) {
+			if (((drm_ccorr_caps.ccorr_number == 1) &&
+				(comp_ccorr->id == DDP_COMPONENT_CCORR1)) ||
+				((drm_ccorr_caps.ccorr_number == 2) &&
+				(comp_ccorr->id == DDP_COMPONENT_CCORR2))) {
 				disp_ccorr_set_color_matrix(comp_ccorr, cmdq_handle,
 						ccorr_config->color_matrix,
 						ccorr_config->mode, ccorr_config->featureFlag);
@@ -9494,6 +9500,26 @@ int mtk_drm_crtc_get_sf_fence_ioctl(struct drm_device *dev, void *data,
 		 args->fence_fd);
 	return ret;
 }
+
+int mtk_drm_ioctl_get_pq_caps(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	struct mtk_drm_pq_caps_info *pq_info = data;
+
+	mtk_get_ccorr_caps(&pq_info->ccorr_caps);
+	memcpy(&drm_ccorr_caps, &pq_info->ccorr_caps, sizeof(drm_ccorr_caps));
+	return 0;
+}
+
+int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
+	struct drm_file *file_priv)
+{
+	struct mtk_drm_pq_caps_info *pq_info = data;
+
+	mtk_set_ccorr_caps(&pq_info->ccorr_caps);
+	return 0;
+}
+
 
 static int __crtc_need_composition_wb(struct drm_crtc *crtc)
 {
