@@ -133,16 +133,18 @@ static void mtk_usb_extcon_psy_detector(struct work_struct *work)
 	struct mtk_extcon_info *extcon = container_of(to_delayed_work(work),
 		struct mtk_extcon_info, wq_psy);
 
-	/* Workaround for PR_SWAP, Host mode should not come to this function. */
-	if (extcon->c_role == USB_ROLE_HOST) {
-		dev_info(extcon->dev, "Remain HOST mode\n");
-		return;
+	/* Workaround for PR_SWAP, IF tcpc_dev, then do not switch role. */
+	/* Since we will set USB to none when type-c plug out */
+	if (extcon->tcpc_dev) {
+		if (usb_is_online(extcon) && extcon->c_role == USB_ROLE_NONE)
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
+	} else {
+		if (usb_is_online(extcon))
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
+		else
+			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 	}
 
-	if (usb_is_online(extcon))
-		mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
-	else
-		mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 }
 
 static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
