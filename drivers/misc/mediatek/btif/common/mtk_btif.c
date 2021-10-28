@@ -24,7 +24,7 @@
 #endif
 #define DFT_TAG "MTK-BTIF"
 
-#define BTIF_CDEV_SUPPORT 1
+#define BTIF_CDEV_SUPPORT 0
 
 #include "btif_pub.h"
 #include "btif_dma_pub.h"
@@ -44,11 +44,13 @@ static int mtk_btif_drv_resume(struct device *dev);
 static int mtk_btif_drv_suspend(struct device *pdev);
 
 static int mtk_btif_restore_noirq(struct device *device);
+#if BTIF_CDEV_SUPPORT
 static int btif_file_open(struct inode *pinode, struct file *pfile);
 static int btif_file_release(struct inode *pinode, struct file *pfile);
 static ssize_t btif_file_read(struct file *pfile,
 			      char __user *buf, size_t count, loff_t *f_ops);
 static unsigned int btif_poll(struct file *filp, poll_table *wait);
+#endif
 static int _btif_irq_reg(struct _MTK_BTIF_IRQ_STR_ *p_irq,
 		  irq_handler_t irq_handler, void *data);
 static int _btif_irq_free(struct _MTK_BTIF_IRQ_STR_ *p_irq, void *data);
@@ -130,8 +132,11 @@ static int _btif_vfifo_init(struct _mtk_btif_dma_ *p_dma);
 static bool _btif_is_tx_complete(struct _mtk_btif_ *p_btif);
 static int _btif_init(struct _mtk_btif_ *p_btif);
 static int _btif_lpbk_ctrl(struct _mtk_btif_ *p_btif, bool flag);
+
+#if BTIF_CDEV_SUPPORT
 static int btif_rx_dma_mode_set(int en);
 static int btif_tx_dma_mode_set(int en);
+#endif
 
 static int _btif_send_data(struct _mtk_btif_ *p_btif,
 		    const unsigned char *p_buf, unsigned int buf_len);
@@ -3198,6 +3203,7 @@ int btif_log_buf_init(struct _mtk_btif_ *p_btif)
 	return 0;
 }
 
+#if BTIF_CDEV_SUPPORT
 int btif_tx_dma_mode_set(int en)
 {
 	int index = 0;
@@ -3219,6 +3225,7 @@ int btif_rx_dma_mode_set(int en)
 
 	return 0;
 }
+#endif
 
 static int BTIF_init(void)
 {
