@@ -541,6 +541,10 @@
 	thermal_zones: thermal-zones {
 	};
 
+	qcom,mem-buf-msgq {
+		compatible = "qcom,mem-buf-msgq";
+	};
+
 	spmi_bus: spmi0_bus: qcom,spmi@c42d000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0xc42d000 0x4000>,
@@ -726,6 +730,11 @@
 				};
 			};
 		};
+	};
+
+	qcom,secure-buffer {
+		compatible = "qcom,secure-buffer";
+		qcom,vmid-cp-camera-preview-ro;
 	};
 
 	soc-sleep-stats@c3f0000 {
