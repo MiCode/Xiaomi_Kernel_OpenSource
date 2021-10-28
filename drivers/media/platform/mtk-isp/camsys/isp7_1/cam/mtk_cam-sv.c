@@ -876,11 +876,9 @@ int mtk_cam_sv_top_config(
 	struct mtk_camsv_device *dev,
 	struct mtkcam_ipi_input_param *cfg_in_param)
 {
-	unsigned int int_en = (SV_INT_EN_VS1_INT_EN |
-							SV_INT_EN_TG_ERR_INT_EN |
+	unsigned int int_en = (SV_INT_EN_TG_ERR_INT_EN |
 							SV_INT_EN_TG_GBERR_INT_EN |
 							SV_INT_EN_TG_SOF_INT_EN |
-							SV_INT_EN_PASS1_DON_INT_EN |
 							SV_INT_EN_SW_PASS1_DON_INT_EN |
 							SV_INT_EN_DMA_ERR_INT_EN);
 	union CAMSV_FMT_SEL fmt;
@@ -1008,11 +1006,11 @@ int mtk_cam_sv_dmao_config(
 		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON3, 0x020001A0);
 		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON4, 0x012000C0);
 	} else {
-		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON0, 0x10000100);
-		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON1, 0x00400020);
-		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON2, 0x00800060);
-		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON3, 0x00AA0082);
-		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON4, 0x00600040);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON0, 0x10000080);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON1, 0x00200010);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON2, 0x00400030);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON3, 0x00550045);
+		CAMSV_WRITE_REG(dev->base + REG_CAMSV_IMGO_CON4, 0x00300020);
 	}
 
 	return ret;
@@ -1534,7 +1532,6 @@ int mtk_cam_sv_dev_config(
 	unsigned int i;
 	int ret, pad_idx, pixel_mode = 0;
 
-	// TODO: correct w channel
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW)) {
 			img_fmt = &ctx->pipe->vdev_nodes[
@@ -1560,13 +1557,17 @@ int mtk_cam_sv_dev_config(
 	cfg_in_param.data_pattern = 0x0;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
-	cfg_in_param.in_crop.s.w = ALIGN(img_fmt->fmt.pix_mp.width, 4);
-	cfg_in_param.in_crop.s.h = ALIGN(img_fmt->fmt.pix_mp.height, 4);
+	cfg_in_param.in_crop.s.w = img_fmt->fmt.pix_mp.width;
+	cfg_in_param.in_crop.s.h = img_fmt->fmt.pix_mp.height;
 	dev_info(dev, "sink pad code:0x%x raw's imgo stride:%d\n", mf->code,
 		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline);
 	cfg_in_param.raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
 	cfg_in_param.subsample = 0;
 	cfg_in_param.fmt = mtk_cam_sv_format_sel(img_fmt->fmt.pix_mp.pixelformat);
+
+	if (cfg_in_param.in_crop.s.w % (1 << pixel_mode))
+		dev_info(dev, "crop width(%d) is not the multiple of pixel mode(%d)\n",
+			cfg_in_param.in_crop.s.w, pixel_mode);
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		pm_runtime_get_sync(cam->sv.devs[idx]);
@@ -1870,7 +1871,9 @@ void camsv_irq_handle_err(
 {
 	int val, val2;
 	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_device *cam = camsv_dev->cam;
 	struct mtk_cam_ctx *ctx;
+	struct mtk_raw_pipeline *raw_pipe;
 
 	val = readl_relaxed(camsv_dev->base + REG_CAMSV_TG_PATH_CFG);
 	val = val | CAMSV_TG_PATH_TG_FULL_SEL;
@@ -1892,10 +1895,22 @@ void camsv_irq_handle_err(
 		"IMGO:0x%x\n",
 		readl_relaxed(camsv_dev->base + REG_CAMSV_IMGO_ERR_STAT));
 
-	ctx = mtk_cam_find_ctx(camsv_dev->cam, &camsv_dev->pipeline->subdev.entity);
-	if (!ctx) {
-		dev_info(camsv_dev->dev, "%s: cannot find ctx\n", __func__);
-		return;
+	if (camsv_dev->pipeline->hw_scen &
+		MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
+		raw_pipe = &cam->raw
+			.pipelines[camsv_dev->pipeline->master_pipe_id];
+		ctx = mtk_cam_find_ctx(cam, &raw_pipe->subdev.entity);
+		if (!ctx) {
+			dev_info(camsv_dev->dev, "%s: cannot find ctx\n", __func__);
+			return;
+		}
+	} else {
+		ctx = mtk_cam_find_ctx(camsv_dev->cam,
+			&camsv_dev->pipeline->subdev.entity);
+		if (!ctx) {
+			dev_info(camsv_dev->dev, "%s: cannot find ctx\n", __func__);
+			return;
+		}
 	}
 
 	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);

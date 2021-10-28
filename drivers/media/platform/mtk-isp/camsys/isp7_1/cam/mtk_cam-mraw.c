@@ -1222,9 +1222,7 @@ int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev)
 {
 	int ret = 0;
 
-	unsigned int int_en1 = (
-							MRAW_INT_EN1_VS_INT_EN |
-							MRAW_INT_EN1_TG_ERR_EN |
+	unsigned int int_en1 = (MRAW_INT_EN1_TG_ERR_EN |
 							MRAW_INT_EN1_TG_GBERR_EN |
 							MRAW_INT_EN1_TG_SOF_INT_EN |
 							MRAW_INT_EN1_CQ_CODE_ERR_EN |
@@ -1235,8 +1233,7 @@ int mtk_cam_mraw_top_config(struct mtk_mraw_device *dev)
 							MRAW_INT_EN1_DMA_ERR_EN
 							);
 
-	unsigned int int_en5 = (
-							MRAW_INT_EN5_IMGO_M1_ERR_EN |
+	unsigned int int_en5 = (MRAW_INT_EN5_IMGO_M1_ERR_EN |
 							MRAW_INT_EN5_IMGBO_M1_ERR_EN |
 							MRAW_INT_EN5_CPIO_M1_ERR_EN
 							);
