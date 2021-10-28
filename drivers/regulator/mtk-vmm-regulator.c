@@ -414,19 +414,16 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	/* record vmm & related consumer traces */
 	regulator_trace_consumers(rdev);
 
+	if (!atomic_read(&drv_data->ccu_power_on)) {
+		ISP_LOGE("CCU is not power on before set voltage\n");
+		return -EINVAL;
+	}
+
 	current_info = &(drv_data->current_dvfs);
 	mutex_lock(&current_info->voltage_mutex);
 
 	if (current_info->voltage_target == min_uV) {
 		ret = 0;
-		goto Unlock_Mutex;
-	}
-
-	ret = wait_event_interruptible_timeout(vmm_wait_queue, drv_data->ccu_power_on,
-			msecs_to_jiffies(3000));
-	if (!ret) {
-		ISP_LOGE("Wait CCU power on timeout\n");
-		ret = -EINVAL;
 		goto Unlock_Mutex;
 	}
 
@@ -602,6 +599,8 @@ static void power_control_handler(struct work_struct *work)
 
 		dvfs_ipi_init.needVoltageBin = drv_data->en_vb;
 		dvfs_ipi_init.needSimAging = drv_data->simulate_aging;
+		dvfs_ipi_init.needCbFromMicroP
+				= mtk_ispdvfs_dbg_level & DVFS_DEBUG_MICROP;
 		ret = mtk_ccu_rproc_ipc_send(
 			ccu_handle->ccu_pdev,
 			MTK_CCU_FEATURE_ISPDVFS,
@@ -612,7 +611,7 @@ static void power_control_handler(struct work_struct *work)
 			return;
 		}
 
-		drv_data->ccu_power_on = true;
+		atomic_set(&drv_data->ccu_power_on, true);
 	} else {
 		int exit = 1;
 
@@ -627,7 +626,7 @@ static void power_control_handler(struct work_struct *work)
 
 		rproc_shutdown(ccu_handle->proc);
 		memset(ccu_handle, 0, sizeof(*ccu_handle));
-		drv_data->ccu_power_on = false;
+		atomic_set(&drv_data->ccu_power_on, false);
 	}
 
 	wake_up_interruptible(&vmm_wait_queue);
@@ -665,6 +664,14 @@ static int vmm_enable_regulator(struct regulator_dev *rdev)
 	drv_data->request_power_on = true;
 	schedule_work(&drv_data->work_structure);
 
+	ret = wait_event_interruptible_timeout(vmm_wait_queue,
+			atomic_read(&drv_data->ccu_power_on),
+			msecs_to_jiffies(WAIT_POWER_ON_OFF_TIMEOUT_MS));
+	if (ret <= 0) {
+		ISP_LOGE("Wait CCU power on timeout\n");
+		return -EINVAL;
+	}
+
 	regulator->is_enable = 1;
 
 	return 0;
@@ -696,14 +703,14 @@ static int vmm_disable_regulator(struct regulator_dev *rdev)
 		dvfs_data->mux_is_enable = false;
 	}
 
-	if (dvfs_data->ccu_power_on) {
+	if (atomic_read(&dvfs_data->ccu_power_on)) {
 		dvfs_data->request_power_on = false;
 		schedule_work(&dvfs_data->work_structure);
 
 		ret = wait_event_interruptible_timeout(vmm_wait_queue,
-			dvfs_data->ccu_power_on == false,
-			msecs_to_jiffies(3000));
-		if (!ret)
+			atomic_read(&dvfs_data->ccu_power_on) == false,
+			msecs_to_jiffies(WAIT_POWER_ON_OFF_TIMEOUT_MS));
+		if (ret <= 0)
 			ISP_LOGE("Wait CCU power off timeout\n");
 	}
 
@@ -824,7 +831,7 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	dvfs_data->mux_is_enable = false;
 
 	/* CCU power on status */
-	dvfs_data->ccu_power_on = false;
+	atomic_set(&dvfs_data->ccu_power_on, false);
 	INIT_WORK(&dvfs_data->work_structure, power_control_handler);
 
 	/* Real regualtor instance which controls vmm directly */
