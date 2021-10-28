@@ -1032,6 +1032,7 @@
 			compatible = "mediatek,mt6895-topckgen", "syscon";
 			reg = <0 0x10000000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		infracfg_ao_clk: syscon@10001000 {
@@ -1070,6 +1071,7 @@
 			compatible = "mediatek,mt6895-apmixedsys", "syscon";
 			reg = <0 0x1000C000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		dpmaif:dpmaif@10014000 {
@@ -3273,12 +3275,14 @@
 			compatible = "mediatek,mt6895-mmsys0", "syscon";
 			reg = <0 0x14000000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		mmsys1_config_clk: syscon@14400000 {
 			compatible = "mediatek,mt6895-mmsys1", "syscon";
 			reg = <0 0x14400000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		imgsys_main_clk: syscon@15000000 {
@@ -3327,24 +3331,28 @@
 			compatible = "mediatek,mt6895-vdec_soc_gcon_base", "syscon";
 			reg = <0 0x1600f000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		vdec_gcon_base_clk: syscon@1602f000 {
 			compatible = "mediatek,mt6895-vdec_gcon_base", "syscon";
 			reg = <0 0x1602f000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		venc_gcon_clk: syscon@17000000 {
 			compatible = "mediatek,mt6895-vencsys", "syscon";
 			reg = <0 0x17000000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		venc_gcon_core1_clk: syscon@17800000 {
 			compatible = "mediatek,mt6895-vencsys_c1", "syscon";
 			reg = <0 0x17800000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		touch: touch {
@@ -3418,6 +3426,7 @@
 			mfgrpc = <&gpu_eb_rpc_bus_clk>;
 			isp_main-supply = <&mt6319_6_vbuck3>;
 			cam_main-supply = <&mt6319_6_vbuck3>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		vlpcfg_bus_clk: syscon@1c00c000 {
@@ -3500,6 +3509,7 @@
 			compatible = "mediatek,mt6895-mminfra_config", "syscon";
 			reg = <0 0x1e800000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		smi_infra_disp_subcommon0: smi_infra_disp_subcomm0@1e809000 {
@@ -4285,6 +4295,11 @@
 			clocks = <&mminfra_config_clk CLK_MMINFRA_SMI>;
 			clock-names = "bclk";
 			#iommu-cells = <1>;
+		};
+
+		hwv: syscon@10320000 {
+			compatible = "mediatek,mt6895-hwv", "syscon";
+			reg = <0 0x10320000 0 0x2000>;
 		};
 
 		emislb: emislb@10342000 {
@@ -8108,6 +8123,7 @@
 			compatible = "mediatek,mt6895-mdpsys", "syscon";
 			reg = <0 0x1f000000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		smi_larb2: smi_larb2@1f002000 {
@@ -8245,6 +8261,7 @@
 			compatible = "mediatek,mt6895-mdpsys1", "syscon";
 			reg = <0 0x1f800000 0 0x1000>;
 			#clock-cells = <1>;
+			hw-voter-regmap = <&hwv>;
 		};
 
 		smi_larb3: smi_larb3@1f802000 {
