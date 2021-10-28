@@ -221,9 +221,10 @@ static int mtk_mraw_call_set_fmt(struct v4l2_subdev *sd,
 			"sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
 			sd->name, fmt->pad, mf->width, mf->height, mf->code);
 
-		if (fmt->pad == MTK_MRAW_SINK) {
+		if (fmt->pad == MTK_MRAW_SINK &&
+			fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 			dev_info(mraw->cam_dev,
-				"%s:Set res_config tg param:%d\n", __func__);
+				"%s: set mraw res_config\n", __func__);
 			/* set cfg buffer for tg/crp info. */
 			ipi_fmt = mtk_cam_get_sensor_fmt(fmt->format.code);
 			if (ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
