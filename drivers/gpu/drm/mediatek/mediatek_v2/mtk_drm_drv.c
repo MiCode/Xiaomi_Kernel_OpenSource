@@ -5182,8 +5182,6 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
 	if (ranges)
 		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
-	else
-		DDPPR_ERR("can't get mmsys dma-range\n");
 
 	ret = of_property_read_u32(dev->of_node,
 				"dispsys_num", &dispsys_num);
