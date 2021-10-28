@@ -80,7 +80,9 @@ enum mml_pq_enable_flag {
 	MML_PQ_DYN_CONTRAST_EN = 1 << 4,
 	MML_PQ_DRE_EN = 1 << 5,
 	MML_PQ_CCORR_EN = 1 << 6,
-	MML_PQ_VIDEO_HDR_EN = 1 << 7,
+	MML_PQ_AI_SCENE_PQ_EN = 1 << 7,
+	MML_PQ_AI_SDR_TO_HDR_EN = 1 << 8,
+	MML_PQ_VIDEO_HDR_EN = 1 << 9,
 };
 
 enum mml_gamut {
