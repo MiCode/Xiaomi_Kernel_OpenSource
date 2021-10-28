@@ -484,7 +484,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		/* use user_id as input param, which is the array index,
 		 * and it will override user space's ID value
 		 */
-		if (in_ccb.user_id > ccb_configs_len) {
+		if (in_ccb.user_id >= ccb_configs_len) {
 			ret = -EINVAL;
 			break;
 		}
