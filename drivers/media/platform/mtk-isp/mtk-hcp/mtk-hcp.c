@@ -258,7 +258,8 @@ inline int hcp_id_to_module_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 		break;
 	case HCP_DIP_INIT_ID:
 	case HCP_DIP_FRAME_ID:
-	case HCP_DIP_HW_TIMEOUT_ID:
+	case HCP_IMGSYS_HW_TIMEOUT_ID:
+	case HCP_IMGSYS_SW_TIMEOUT_ID:
 	case HCP_DIP_DEQUE_DUMP_ID:
 	case HCP_IMGSYS_DEQUE_DONE_ID:
 	case HCP_IMGSYS_DEINIT_ID:
@@ -337,7 +338,8 @@ static bool mtk_hcp_cm4_support(struct mtk_hcp *hcp_dev, enum hcp_id id)
 		break;
 	case HCP_DIP_INIT_ID:
 	case HCP_DIP_FRAME_ID:
-	case HCP_DIP_HW_TIMEOUT_ID:
+	case HCP_IMGSYS_HW_TIMEOUT_ID:
+	case HCP_IMGSYS_SW_TIMEOUT_ID:
 		is_cm4_support = hcp_dev->cm4_support_list[MODULE_DIP];
 		break;
 	case HCP_FD_CMD_ID:
@@ -478,20 +480,7 @@ static int hcp_send_internal(struct platform_device *pdev,
 
 		spin_lock_irqsave(&hcp_dev->msglock, flag);
 
-		// Bypass sequeunce check for the following commands
-		//if ((id == HCP_IMGSYS_IOVA_FDS_ADD_ID) ||
-		//		(id == HCP_IMGSYS_IOVA_FDS_DEL_ID) ||
-		//		(id == HCP_IMGSYS_UVA_FDS_ADD_ID) ||
-		//		(id == HCP_IMGSYS_UVA_FDS_DEL_ID) ||
-		//		(id == HCP_IMGSYS_SET_CONTROL_ID) ||
-		//		(id == HCP_IMGSYS_GET_CONTROL_ID)) {
-		//	no = 0;
-		//} else {
-			no = atomic_inc_return(&hcp_dev->seq);
-		//}
-
-		//msg->user_obj.id =
-		//	(int)((id & 0x01F) | ((req_fd << 5) & 0x0FFE0) | (no << 16));
+		no = atomic_inc_return(&hcp_dev->seq);
 
 		msg->user_obj.info.send.hcp = id;
 		msg->user_obj.info.send.req = req_fd;
@@ -502,12 +491,14 @@ static int hcp_send_internal(struct platform_device *pdev,
 		list_add_tail(&msg->entry, &hcp_dev->chans[module_id]);
 		spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 
-		wake_up(&hcp_dev->get_wq[module_id]);
 		wake_up(&hcp_dev->poll_wq[module_id]);
 
 		dev_dbg(&pdev->dev,
 			"%s frame_no_%d, message(%d)size(%d) send to user space !!!\n",
 			__func__, no, id, len);
+
+		if (id == HCP_IMGSYS_SW_TIMEOUT_ID)
+			chans_pool_dump(hcp_dev);
 
 		if (!wait)
 			return 0;
@@ -1779,7 +1770,6 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	hcp_dev->is_open = false;
 	for (i = 0; i < MODULE_MAX_ID; i++) {
 		init_waitqueue_head(&hcp_dev->ack_wq[i]);
-		init_waitqueue_head(&hcp_dev->get_wq[i]);
 		init_waitqueue_head(&hcp_dev->poll_wq[i]);
 
 		INIT_LIST_HEAD(&hcp_dev->chans[i]);

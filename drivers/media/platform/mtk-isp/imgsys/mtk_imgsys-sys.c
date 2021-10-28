@@ -603,11 +603,20 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 		/* DAEMON debug dump */
 		ipi_param.usage = IMG_IPI_DEBUG;
 		swbuf_data.offset  = frm_info->req_sbuf_goft;
-		imgsys_send(req->imgsys_pipe->imgsys_dev->scp_pdev,
-				HCP_IMGSYS_HW_TIMEOUT_ID,
-				&swbuf_data,
-				sizeof(struct img_sw_buffer),
-				frm_info->request_fd, 1);
+
+		if (swork->fail_isHWhang) {
+			imgsys_send(req->imgsys_pipe->imgsys_dev->scp_pdev,
+					HCP_IMGSYS_HW_TIMEOUT_ID,
+					&swbuf_data,
+					sizeof(struct img_sw_buffer),
+					frm_info->request_fd, 1);
+		} else {
+			imgsys_send(req->imgsys_pipe->imgsys_dev->scp_pdev,
+					HCP_IMGSYS_SW_TIMEOUT_ID,
+					&swbuf_data,
+					sizeof(struct img_sw_buffer),
+					frm_info->request_fd, 1);
+		}
 		wake_up_interruptible(&frm_info_waitq);
 	}
 

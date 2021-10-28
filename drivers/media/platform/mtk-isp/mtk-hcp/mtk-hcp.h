@@ -45,6 +45,7 @@ enum hcp_id {
 	HCP_IMGSYS_FRAME_ID = HCP_DIP_FRAME_ID,
 	HCP_DIP_HW_TIMEOUT_ID,
 	HCP_IMGSYS_HW_TIMEOUT_ID = HCP_DIP_HW_TIMEOUT_ID,
+	HCP_IMGSYS_SW_TIMEOUT_ID,
 	HCP_DIP_DEQUE_DUMP_ID,
 	HCP_IMGSYS_DEQUE_DONE_ID,
 	HCP_IMGSYS_DEINIT_ID,
@@ -272,10 +273,7 @@ struct share_buf {
  *                       processes wake up, they will check the condition
  *                       "hcp_id_ack" to run the corresponding action or
  *                       go back to sleep.
- * @hcp_id_ack:         The ACKs for registered HCP function.
- * @get_wq:              When sleeping process waking up, it will check the
- *                       condition "ipi_got" to run the corresponding action or
- *                       go back to sleep.
+ * @hcp_id_ack:          The ACKs for registered HCP function.
  * @ipi_got:             The flags for IPI message polling from user.
  * @ipi_done:            The flags for IPI message polling from user again,
  *       which means the previous messages has been dispatched
