@@ -8178,6 +8178,7 @@
 		compatible = "mediatek, mt6879-mvpu";
 		core_num = <1>;
 		version = <0x0>;
+		mask = /bits/ 64 <0x00000003ffffffff>;
 		iommus = <&apu_iommu0 M4U_LARB34_APU_CODE>;
 	};
 
