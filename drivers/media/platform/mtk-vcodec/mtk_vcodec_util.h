@@ -84,7 +84,7 @@ extern int mtk_vdec_sw_mem_sec;
 
 #define mtk_v4l2_debug(level, fmt, args...)                              \
 	do {                                                             \
-		if ((mtk_v4l2_dbg_level & level) == level)           \
+		if (((mtk_v4l2_dbg_level) & level) == level)           \
 			pr_info("[MTK_V4L2] level=%d %s(),%d: " fmt "\n",\
 				level, __func__, __LINE__, ##args);      \
 	} while (0)

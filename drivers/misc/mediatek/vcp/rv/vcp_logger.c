@@ -79,6 +79,8 @@ struct vcp_logger_ctrl_msg {
 		struct {
 			unsigned int addr;
 			unsigned int size;
+			unsigned int ap_time_h;
+			unsigned int ap_time_l;
 		} init;
 		struct {
 			unsigned int enable;
@@ -689,9 +691,10 @@ static int vcp_logger_ctrl_handler(unsigned int id, void *prdata, void *data,
  */
 static void vcp_logger_notify_ws(struct work_struct *ws)
 {
-	unsigned int retrytimes;
 	int ret;
+	unsigned int retrytimes;
 	unsigned int vcp_ipi_id;
+	unsigned long long ap_time;
 	struct vcp_logger_ctrl_msg msg;
 	phys_addr_t dma_addr;
 
@@ -700,8 +703,11 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 	dma_addr = vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID);
 	msg.u.init.addr = (uint32_t)(VCP_PACK_IOVA(dma_addr));
 	msg.u.init.size = vcp_get_reserve_mem_size(VCP_A_LOGGER_MEM_ID);
+	ap_time = (unsigned long long)ktime_to_ns(ktime_get());
+	msg.u.init.ap_time_l = (unsigned int)(ap_time & 0xFFFFFFFF);
+	msg.u.init.ap_time_h = (unsigned int)((ap_time >> 32) & 0xFFFFFFFF);
 
-	pr_debug("[VCP] %s: id=%u\n", __func__, vcp_ipi_id);
+	pr_debug("[VCP] %s: id=%u, ap_time %llu\n", __func__, vcp_ipi_id, ap_time);
 	/*
 	 *send ipi to invoke vcp logger
 	 */
