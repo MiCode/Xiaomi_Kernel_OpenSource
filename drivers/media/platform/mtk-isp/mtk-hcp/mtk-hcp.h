@@ -174,7 +174,7 @@ struct task_struct *mtk_hcp_get_current_task(struct platform_device *pdev);
  * This function allocate working buffers and store the information
  * in mtk_hcp_reserve_mblock.
  **/
-int mtk_hcp_allocate_working_buffer(struct platform_device *pdev);
+int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int mode);
 
 /**
  * mtk_hcp_release_working_buffer - release driver working buffer.
@@ -319,8 +319,9 @@ struct mtk_hcp {
 
 struct mtk_hcp_data {
 	struct mtk_hcp_reserve_mblock *mblock;
+	struct mtk_hcp_reserve_mblock *smblock;
 	unsigned int block_num;
-	int (*allocate)(struct mtk_hcp *hcp_dev);
+	int (*allocate)(struct mtk_hcp *hcp_dev, unsigned int smvr);
 	int (*release)(struct mtk_hcp *hcp_dev);
 	int (*get_init_info)(struct img_init_info *info);
 	void* (*get_gce_virt)(void);

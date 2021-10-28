@@ -48,6 +48,7 @@ struct sensor_info {
 struct init_info {
 	struct sensor_info sensor;
 	uint32_t sec_tag;
+	uint32_t is_smvr;
 };
 #define MTKDIP_IOC_S_INIT_INFO \
 			_IOW('V', BASE_VIDIOC_PRIVATE + 12, struct init_info)

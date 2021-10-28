@@ -7,6 +7,201 @@
 #include "mtk_heap.h"
 #include "mtk-hcp_isp71.h"
 
+static struct mtk_hcp_reserve_mblock *mb;
+
+static struct mtk_hcp_reserve_mblock isp71_smvr_mblock[] = {
+	{
+		/*share buffer for frame setting, to be sw usage*/
+		.name = "IMG_MEM_FOR_HW_ID",
+		.num = IMG_MEM_FOR_HW_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x400000,   /*need more than 4MB*/
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "WPE_MEM_C_ID",
+		.num = WPE_MEM_C_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x300000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "WPE_MEM_T_ID",
+		.num = WPE_MEM_T_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x500000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "TRAW_MEM_C_ID",
+		.num = TRAW_MEM_C_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0xB00000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "TRAW_MEM_T_ID",
+		.num = TRAW_MEM_T_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x3000000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "DIP_MEM_C_ID",
+		.num = DIP_MEM_C_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0xF00000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "DIP_MEM_T_ID",
+		.num = DIP_MEM_T_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x3000000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "PQDIP_MEM_C_ID",
+		.num = PQDIP_MEM_C_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x200000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "PQDIP_MEM_T_ID",
+		.num = PQDIP_MEM_T_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x200000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+	{
+		.name = "ADL_MEM_C_ID",
+		.num = ADL_MEM_C_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x100000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL
+	},
+	{
+		.name = "ADL_MEM_T_ID",
+		.num = ADL_MEM_T_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x200000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL
+	},
+	{
+		.name = "IMG_MEM_G_ID",
+		.num = IMG_MEM_G_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.start_dma  = 0x0,
+		.size = 0x5000000,
+		.is_dma_buf = true,
+		.mmap_cnt = 0,
+		.mem_priv = NULL,
+		.d_buf = NULL,
+		.fd = -1,
+		.pIonHandle = NULL,
+		.attach = NULL,
+		.sgt = NULL
+	},
+};
+
+
 struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 	{
 		/*share buffer for frame setting, to be sw usage*/
@@ -31,7 +226,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x200000,   /*900KB*/
+		.size = 0xE1000,   /*900KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -47,7 +242,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x400000,   /*1MB + 600KB*/
+		.size = 0x196000,   /*1MB + 600KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -63,7 +258,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xB00000,   /*4MB + 800KB*/
+		.size = 0x4C8000,   /*4MB + 800KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -79,7 +274,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x3000000,   /*26MB + 800KB*/
+		.size = 0x1AC8000,   /*26MB + 800KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -95,7 +290,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xB00000,   /*5MB + 800KB*/
+		.size = 0x5C8000,   /*5MB + 800KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -111,7 +306,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x3000000,   /*31MB + 700KB*/
+		.size = 0x1FAF000,   /*31MB + 700KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -127,7 +322,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x200000,   /*600KB*/
+		.size = 0x96000,   /*600KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -143,7 +338,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x200000,   /*1MB*/
+		.size = 0x100000,   /*1MB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -187,7 +382,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x2840000,   /*15MB GCE + 2MB TPIPE + 30KB BW*/
+		.size = 0x2300000,   /*15MB GCE + 2MB TPIPE + 30KB BW*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -205,7 +400,7 @@ phys_addr_t isp71_get_reserve_mem_phys(unsigned int id)
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else {
-		return isp71_reserve_mblock[id].start_phys;
+		return mb[id].start_phys;
 	}
 }
 EXPORT_SYMBOL(isp71_get_reserve_mem_phys);
@@ -216,7 +411,7 @@ void *isp71_get_reserve_mem_virt(unsigned int id)
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else
-		return isp71_reserve_mblock[id].start_virt;
+		return mb[id].start_virt;
 }
 EXPORT_SYMBOL(isp71_get_reserve_mem_virt);
 
@@ -226,7 +421,7 @@ phys_addr_t isp71_get_reserve_mem_dma(unsigned int id)
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else {
-		return isp71_reserve_mblock[id].start_dma;
+		return mb[id].start_dma;
 	}
 }
 EXPORT_SYMBOL(isp71_get_reserve_mem_dma);
@@ -237,7 +432,7 @@ phys_addr_t isp71_get_reserve_mem_size(unsigned int id)
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else {
-		return isp71_reserve_mblock[id].size;
+		return mb[id].size;
 	}
 }
 EXPORT_SYMBOL(isp71_get_reserve_mem_size);
@@ -248,24 +443,24 @@ uint32_t isp71_get_reserve_mem_fd(unsigned int id)
 		pr_info("[HCP] no reserve memory for %d", id);
 		return 0;
 	} else
-		return isp71_reserve_mblock[id].fd;
+		return mb[id].fd;
 }
 EXPORT_SYMBOL(isp71_get_reserve_mem_fd);
 
 void *isp71_get_gce_virt(void)
 {
-	return isp71_reserve_mblock[IMG_MEM_G_ID].start_virt;
+	return mb[IMG_MEM_G_ID].start_virt;
 }
 EXPORT_SYMBOL(isp71_get_gce_virt);
 
 void *isp71_get_hwid_virt(void)
 {
-	return isp71_reserve_mblock[DIP_MEM_FOR_HW_ID].start_virt;
+	return mb[DIP_MEM_FOR_HW_ID].start_virt;
 }
 EXPORT_SYMBOL(isp71_get_hwid_virt);
 
 
-int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev)
+int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 {
 	enum isp71_rsv_mem_id_t id;
 	struct mtk_hcp_reserve_mblock *mblock;
@@ -275,7 +470,12 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev)
 	struct dma_heap *pdma_heap;
 	void *buf_ptr;
 
-	mblock = hcp_dev->data->mblock;
+	if (mode)
+		mblock = hcp_dev->data->smblock;
+	else
+		mblock = hcp_dev->data->mblock;
+
+	mb = mblock;
 	block_num = hcp_dev->data->block_num;
 	for (id = 0; id < block_num; id++) {
 		if (mblock[id].is_dma_buf) {
@@ -448,7 +648,7 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 	struct mtk_hcp_reserve_mblock *mblock;
 	unsigned int block_num;
 
-	mblock = hcp_dev->data->mblock;
+	mblock = mb;
 	block_num = hcp_dev->data->block_num;
 
 	/* release reserved memory */
@@ -619,19 +819,20 @@ int isp71_get_init_info(struct img_init_info *info)
 
 static int isp71_put_gce(void)
 {
-	kref_put(&isp71_reserve_mblock[IMG_MEM_G_ID].kref, gce_release);
+	kref_put(&mb[IMG_MEM_G_ID].kref, gce_release);
 	return 0;
 }
 
 static int isp71_get_gce(void)
 {
-	kref_get(&isp71_reserve_mblock[IMG_MEM_G_ID].kref);
+	kref_get(&mb[IMG_MEM_G_ID].kref);
 	return 0;
 }
 
 struct mtk_hcp_data isp71_hcp_data = {
 	.mblock = isp71_reserve_mblock,
 	.block_num = ARRAY_SIZE(isp71_reserve_mblock),
+	.smblock = isp71_smvr_mblock,
 	.allocate = isp71_allocate_working_buffer,
 	.release = isp71_release_working_buffer,
 	.get_init_info = isp71_get_init_info,

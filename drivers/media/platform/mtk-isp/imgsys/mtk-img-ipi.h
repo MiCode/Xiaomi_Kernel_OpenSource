@@ -80,6 +80,7 @@ struct img_init_info {
 	uint32_t	sec_tag;
 	uint16_t	full_wd;
 	uint16_t	full_ht;
+	uint32_t	smvr_mode;
 } __attribute__ ((__packed__));
 
 struct img_swfrm_info {

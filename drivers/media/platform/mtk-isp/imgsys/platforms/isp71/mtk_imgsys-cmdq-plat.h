@@ -16,7 +16,7 @@
 #define IMGSYS_SECURE_ENABLE   (1)
 
 /* Record info definitions */
-#define GCE_REC_MAX_FRAME_BLOCK     (13)
+#define GCE_REC_MAX_FRAME_BLOCK     (40)
 #define GCE_REC_MAX_TILE_BLOCK      (40)
 #define GCE_REC_MAX_LABEL_COUNT     (256)
 

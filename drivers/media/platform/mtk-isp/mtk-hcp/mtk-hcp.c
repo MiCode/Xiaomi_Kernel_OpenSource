@@ -1681,7 +1681,7 @@ int release_working_buffer_helper(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(release_working_buffer_helper);
 
-int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
+int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int mode)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
@@ -1690,7 +1690,7 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev)
 		return allocate_working_buffer_helper(pdev);
 	}
 
-	return hcp_dev->data->allocate(hcp_dev);
+	return hcp_dev->data->allocate(hcp_dev, mode);
 }
 EXPORT_SYMBOL(mtk_hcp_allocate_working_buffer);
 

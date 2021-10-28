@@ -1738,6 +1738,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	int fd;
 #endif
 	u32 user_cnt = 0;
+	unsigned int mode;
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
 	if (user_cnt != 0)
@@ -1766,7 +1767,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 
 		mtk_imgsys_hw_working_buf_pool_reinit(imgsys_dev);
 		/* ALLOCATE IMGSYS WORKING BUFFER FIRST */
-		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev);
+		mode = imgsys_dev->imgsys_pipe[0].init_info.is_smvr;
+		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode);
 		if (ret) {
 			dev_dbg(imgsys_dev->dev, "%s: mtk_hcp_allocate_working_buffer failed %d\n",
 				__func__, ret);
@@ -1805,6 +1807,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		info.sec_tag = imgsys_dev->imgsys_pipe[0].init_info.sec_tag;
 		info.full_wd = imgsys_dev->imgsys_pipe[0].init_info.sensor.full_wd;
 		info.full_ht = imgsys_dev->imgsys_pipe[0].init_info.sensor.full_ht;
+		info.smvr_mode = imgsys_dev->imgsys_pipe[0].init_info.is_smvr;
 		ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_INIT_ID,
 			(void *)&info, sizeof(info), 0, 1);
 	}

@@ -27,7 +27,7 @@ enum isp71_rsv_mem_id_t {
 };
 
 int isp71_release_working_buffer(struct mtk_hcp *hcp_dev);
-int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev);
+int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode);
 int isp71_get_init_info(struct img_init_info *info);
 void *isp71_get_gce_virt(void);
 void *isp71_get_hwid_virt(void);
