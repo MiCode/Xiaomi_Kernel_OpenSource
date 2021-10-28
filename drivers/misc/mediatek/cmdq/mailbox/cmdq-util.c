@@ -695,8 +695,6 @@ int cmdq_util_init(void)
 	if (exists)
 		dput(dir);
 
-	cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
-
 #ifdef CONFIG_MTK_DEVAPC
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
