@@ -21,8 +21,9 @@
 	      MTK_CAM_UAPI_LTMSO_SIZE + \
 	      MTK_CAM_UAPI_FLK_MAX_BUF_SIZE + \
 	      MTK_CAM_UAPI_TSFSO_SIZE * 2 + /* r1 & r2 */ \
-	      MTK_CAM_UAPI_TNCSYO_SIZE \
-	      /* TODO: TNCSO TNCSBO TNCSHO SIZE */ \
+	      MTK_CAM_UAPI_TNCSYO_SIZE + \
+	      /* TODO: TNCSO TNCSBO TNCSHO SIZE + */ \
+	      MTK_CAM_UAPI_TIMESTAMP_SIZE \
 	      , (4 * SZ_1K))
 
 #define RAW_STATS_1_SIZE \
@@ -72,6 +73,14 @@ static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
 	*offset += size;
 }
 
+static uint64_t *camsys_get_timestamp_addr(void *vaddr)
+{
+	struct mtk_cam_uapi_meta_raw_stats_0 *stats0;
+
+	stats0 = (struct mtk_cam_uapi_meta_raw_stats_0 *)vaddr;
+	return (uint64_t *)(vaddr + stats0->timestamp.timestamp_buf.offset);
+}
+
 static void camsys_set_meta_stats_info(u32 dma_port, void *vaddr,
 				 struct mtk_raw_pde_config *pde_cfg)
 {
@@ -91,6 +100,7 @@ static void camsys_set_meta_stats_info(u32 dma_port, void *vaddr,
 		set_payload(&stats0->tsf_stats.tsfo_r1_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 		set_payload(&stats0->tsf_stats.tsfo_r2_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 		set_payload(&stats0->tncy_stats.tncsyo_buf, MTK_CAM_UAPI_TNCSYO_SIZE, &offset);
+		set_payload(&stats0->timestamp.timestamp_buf, MTK_CAM_UAPI_TIMESTAMP_SIZE, &offset);
 		if (pde_cfg) {
 			if (pde_cfg->pde_info.pd_table_offset) {
 				set_payload(&stats0->pde_stats.pdo_buf,
@@ -202,6 +212,7 @@ static struct camsys_plat_fp plat_fp = {
 	.set_sv_meta_stats_info = camsys_sv_set_meta_stats_info,
 #endif
 	.get_port_bw = camsys_get_port_bw,
+	.get_timestamp_addr = camsys_get_timestamp_addr,
 };
 
 static int __init plat_module_init(void)

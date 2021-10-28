@@ -48,6 +48,7 @@
 #include <dt-bindings/memory/mt6983-larb-port.h>
 #include "iommu_debug.h"
 #endif
+#include "mtk_cam-timesync.h"
 
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
@@ -574,6 +575,69 @@ static void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
 	}
 }
 
+void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
+		struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_cam_buffer *buf;
+	struct vb2_buffer *vb;
+	void *vaddr;
+	int subsample =
+		mtk_cam_get_subsample_ratio(ctx->pipe->res_config.raw_feature);
+	uint64_t *pTimestamp;
+	u32 *fho_va;
+	int i;
+
+	buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_OUT_0);
+	if (!buf) {
+		dev_info(ctx->cam->dev,
+			 "ctx(%d): can't get MTK_RAW_META_OUT_0 buf from req(%d)\n",
+			 ctx->stream_id, s_data->frame_seq_no);
+		return;
+	}
+
+	vb = &buf->vbb.vb2_buf;
+	if (!vb) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get vb2 buf\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
+	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+	if (!vaddr) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get plane_vadd\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
+	if ((s_data->working_buf->buffer.va == (void *)NULL) ||
+		s_data->working_buf->buffer.size == 0) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get working_buf\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
+	fho_va = (u32 *)(s_data->working_buf->buffer.va +
+		s_data->working_buf->buffer.size - 64 * (subsample + 1));
+
+	pTimestamp = mtk_cam_get_timestamp_addr(vaddr);
+	for (i = 0; i < (subsample + 1); i++) {
+		/* timstamp_LSB + timestamp_MSB << 32 */
+		*(pTimestamp + i*2) = mtk_cam_timesync_to_monotonic
+		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
+		/1000;
+		*(pTimestamp + i*2 + 1) = mtk_cam_timesync_to_boot
+		((u64) (*(fho_va + i*16)) + ((u64)(*(fho_va + i*16 + 1)) << 32))
+		/1000;
+		dev_dbg(ctx->cam->dev,
+			"timestamp TS:momo %ld us boot %ld us, LSB:%d MSB:%d\n",
+			*(pTimestamp + i*2), *(pTimestamp + i*2 + 1),
+			*(fho_va + i*16), *(fho_va + i*16 + 1));
+	}
+}
+
 int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			      unsigned int dequeued_frame_seq_no,
 			      int pipe_id)
@@ -645,6 +709,7 @@ STOP_SCAN:
 
 		spin_unlock(&req->done_status_lock);
 
+		mtk_cam_get_timestamp(ctx, s_data);
 		if (mtk_cam_feature_is_mstream(feature) || mtk_cam_feature_is_mstream_m2m(feature))
 			s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 		else

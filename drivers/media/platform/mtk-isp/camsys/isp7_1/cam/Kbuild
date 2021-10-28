@@ -44,7 +44,8 @@ mtk-cam-isp-objs := mtk_cam.o mtk_cam-raw.o mtk_cam-pool.o mtk_cam_pm.o\
 		    mtk_cam-feature-mstream.o mtk_cam-feature-smvr.o \
 		    mtk_cam-feature-stagger.o \
 		    mtk_cam-mraw.o\
-		    mtk_cam-seninf-ca.o
+		    mtk_cam-seninf-ca.o \
+		    mtk_cam-timesync.o
 
 mtk-cam-plat-util-objs :=  mtk_cam-plat-util.o
 

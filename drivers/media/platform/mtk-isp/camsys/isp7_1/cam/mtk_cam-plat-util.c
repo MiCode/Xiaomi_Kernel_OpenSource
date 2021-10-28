@@ -87,6 +87,16 @@ int mtk_cam_get_port_bw(
 }
 EXPORT_SYMBOL(mtk_cam_get_port_bw);
 
+uint64_t *mtk_cam_get_timestamp_addr(void *vaddr)
+{
+	if (!plat_fp) {
+		pr_info("%s platform fp is NULL ", __func__);
+		return 0;
+	}
+	return plat_fp->get_timestamp_addr(vaddr);
+}
+EXPORT_SYMBOL(mtk_cam_get_timestamp_addr);
+
 static int __init util_module_init(void)
 {
 	pr_info("platform util init\n");

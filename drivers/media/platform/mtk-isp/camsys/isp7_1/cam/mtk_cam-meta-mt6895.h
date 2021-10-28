@@ -634,6 +634,11 @@ struct mtk_cam_uapi_pd_stats {
 	struct	mtk_cam_uapi_meta_hw_buf pdo_buf;
 };
 
+#define MTK_CAM_UAPI_TIMESTAMP_SIZE (64*16)
+struct mtk_cam_uapi_timestamp {
+	struct mtk_cam_uapi_meta_hw_buf timestamp_buf;
+};
+
 /**
  *  T O N E
  */
@@ -802,6 +807,7 @@ struct mtk_cam_uapi_meta_raw_stats_0 {
 	struct mtk_cam_uapi_tsf_stats tsf_stats;
 	struct mtk_cam_uapi_tncy_stats tncy_stats;
 	struct mtk_cam_uapi_pd_stats pde_stats;
+	struct mtk_cam_uapi_timestamp timestamp;
 };
 
 /**
