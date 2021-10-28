@@ -397,6 +397,10 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS2_MM_PROC),
 		},
+		.sram_table = {
+			SRAM_NO_ACK(0xF08, 8), SRAM_NO_ACK(0xF08, 9),
+			SRAM_NO_ACK(0xF08, 10), SRAM_NO_ACK(0xF08, 11),
+		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_DP_TX] = {

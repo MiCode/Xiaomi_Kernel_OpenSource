@@ -23,10 +23,9 @@
 #define MTK_SCPD_IS_PWR_CON_ON		BIT(8)
 #define MTK_SCPD_L2TCM_SRAM		BIT(9)
 #define MTK_SCPD_BYPASS_CLK		BIT(10)
-#define MTK_SCPD_L2SRAM			BIT(11)
-#define MTK_SCPD_HWV_OPS		BIT(12)
-#define MTK_SCPD_BYPASS_CHILD		BIT(13)
-#define MTK_SCPD_CHILD_OFF		BIT(14)
+#define MTK_SCPD_HWV_OPS		BIT(11)
+#define MTK_SCPD_BYPASS_CHILD		BIT(12)
+#define MTK_SCPD_CHILD_OFF		BIT(13)
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
@@ -34,8 +33,20 @@
 #define MAX_SRAM_STEPS	4
 #define MAX_CHILDREN	2
 
+#define _SRAM_CTRL(_offs, _msk, _ack_msk, _wait_ack) {	\
+		.offs = _offs,			\
+		.msk = _msk,			\
+		.ack_msk = _ack_msk,		\
+		.wait_ack = _wait_ack,		\
+	}
+
+#define SRAM_NO_ACK(_offs, _msk)	\
+		_SRAM_CTRL(_offs, (BIT(_msk)), (BIT(_msk)), false)	\
+
 struct sram_ctl {
 	u32 offs;
+	u32 msk;
+	u32 ack_msk;
 	bool wait_ack;
 };
 
@@ -67,8 +78,6 @@ struct scp_domain_data {
 	u32 sram_pdn_ack_bits;
 	u32 sram_slp_bits;
 	u32 sram_slp_ack_bits;
-	u32 l2sram_pdn_bits;
-	u32 l2sram_slp_bits;
 	int extb_iso_offs;
 	u32 extb_iso_bits;
 	const char *basic_clk_name[MAX_CLKS];

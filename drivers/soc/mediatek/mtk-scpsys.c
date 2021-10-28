@@ -31,7 +31,8 @@
 
 #define MTK_POLL_DELAY_US   10
 #define MTK_POLL_TIMEOUT    USEC_PER_SEC
-#define MTK_POLL_IRQ_TIMEOUT    50
+#define MTK_POLL_IRQ_DELAY_US   3
+#define MTK_POLL_IRQ_TIMEOUT    USEC_PER_SEC
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -204,15 +205,23 @@ static int scpsys_clk_enable(struct clk *clk[], int max_num)
 	return ret;
 }
 
-static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr, bool wait_ack)
+static int scpsys_sram_on(struct scp_domain *scpd, void __iomem *ctl_addr,
+			u32 set_bits, u32 ack_bits, bool wait_ack)
 {
+	u32 ack_mask, ack_sta;
 	u32 val;
 	int tmp;
+	int ret = 0;
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
-		val = readl(ctl_addr) | scpd->data->sram_slp_bits;
-	else
-		val = readl(ctl_addr) & ~scpd->data->sram_pdn_bits;
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
+		ack_mask = ack_bits;
+		ack_sta = ack_mask;
+		val = readl(ctl_addr) | set_bits;
+	} else {
+		ack_mask = ack_bits;
+		ack_sta = 0;
+		val = readl(ctl_addr) & ~set_bits;
+	}
 
 	writel(val, ctl_addr);
 
@@ -226,16 +235,6 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr, b
 		usleep_range(12000, 12100);
 	} else {
 		/* Either wait until SRAM_PDN_ACK all 1 or 0 */
-		int ret;
-		u32 ack_mask, ack_sta;
-
-		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
-			ack_mask = scpd->data->sram_slp_ack_bits;
-			ack_sta = ack_mask;
-		} else {
-			ack_mask = scpd->data->sram_pdn_ack_bits;
-			ack_sta = 0;
-		}
 		if (wait_ack) {
 			ret = readl_poll_timeout_atomic(ctl_addr, tmp,
 				(tmp & ack_mask) == ack_sta,
@@ -245,69 +244,25 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr, b
 		}
 	}
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
-		val = readl(ctl_addr) | PWR_SRAM_ISOINT_B_BIT;
-		writel(val, ctl_addr);
-		udelay(1);
-		val &= ~PWR_SRAM_CLKISO_BIT;
-		writel(val, ctl_addr);
-	}
-
-	return 0;
-}
-
-static int scpsys_l2sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
-{
-	u32 val;
-
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
-		val = readl(ctl_addr) | scpd->data->l2sram_slp_bits;
-	else
-		val = readl(ctl_addr) & ~scpd->data->l2sram_pdn_bits;
-
-	writel(val, ctl_addr);
-
-	return 0;
-}
-
-static int scpsys_l2sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
-{
-	u32 val;
-	int ret = 0;
-
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
-		val = readl(ctl_addr) & ~scpd->data->l2sram_slp_bits;
-	else
-		val = readl(ctl_addr) | scpd->data->l2sram_pdn_bits;
-
-	writel(val, ctl_addr);
-
 	return ret;
 }
 
-static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr, bool wait_ack)
+static int scpsys_sram_off(struct scp_domain *scpd, void __iomem *ctl_addr,
+			u32 set_bits, u32 ack_bits, bool wait_ack)
 {
 	u32 val;
 	u32 ack_mask, ack_sta;
 	int tmp;
 	int ret = 0;
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
-		val = readl(ctl_addr) | PWR_SRAM_CLKISO_BIT;
-		writel(val, ctl_addr);
-		val &= ~PWR_SRAM_ISOINT_B_BIT;
-		writel(val, ctl_addr);
-		udelay(1);
-	}
-
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
-		ack_mask = scpd->data->sram_slp_ack_bits;
+		ack_mask = ack_bits;
 		ack_sta = 0;
-		val = readl(ctl_addr) & ~scpd->data->sram_slp_bits;
+		val = readl(ctl_addr) & ~set_bits;
 	} else {
-		ack_mask = scpd->data->sram_pdn_ack_bits;
+		ack_mask = ack_bits;
 		ack_sta = ack_mask;
-		val = readl(ctl_addr) | scpd->data->sram_pdn_bits;
+		val = readl(ctl_addr) | set_bits;
 	}
 	writel(val, ctl_addr);
 
@@ -320,42 +275,48 @@ static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr, 
 	return ret;
 }
 
-static int scpsys_l2sram_table_enable(struct scp_domain *scpd)
+static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 {
-	const struct sram_ctl *sram_table = scpd->data->sram_table;
-	struct scp *scp = scpd->scp;
+	u32 val;
 	int ret = 0;
-	int i;
 
-	for (i = 0; i < MAX_SRAM_STEPS; i++) {
-		if (sram_table[i].offs) {
-			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
+		ret = scpsys_sram_on(scpd, ctl_addr, scpd->data->sram_slp_bits,
+				scpd->data->sram_slp_ack_bits, true);
+	else
+		ret = scpsys_sram_on(scpd, ctl_addr, scpd->data->sram_pdn_bits,
+				scpd->data->sram_pdn_ack_bits, true);
 
-			ret = scpsys_l2sram_enable(scpd, ctl_addr);
-			if (ret)
-				return ret;
-		}
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
+		val = readl(ctl_addr) | PWR_SRAM_ISOINT_B_BIT;
+		writel(val, ctl_addr);
+		udelay(1);
+		val &= ~PWR_SRAM_CLKISO_BIT;
+		writel(val, ctl_addr);
 	}
 
 	return ret;
 }
 
-static int scpsys_l2sram_table_disable(struct scp_domain *scpd)
+static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
 {
-	const struct sram_ctl *sram_table = scpd->data->sram_table;
-	struct scp *scp = scpd->scp;
+	u32 val;
 	int ret = 0;
-	int i;
 
-	for (i = 0; i < MAX_SRAM_STEPS; i++) {
-		if (sram_table[i].offs) {
-			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
-
-			ret = scpsys_l2sram_disable(scpd, ctl_addr);
-			if (ret)
-				return ret;
-		}
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
+		val = readl(ctl_addr) | PWR_SRAM_CLKISO_BIT;
+		writel(val, ctl_addr);
+		val &= ~PWR_SRAM_ISOINT_B_BIT;
+		writel(val, ctl_addr);
+		udelay(1);
 	}
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
+		ret = scpsys_sram_off(scpd, ctl_addr, scpd->data->sram_slp_bits,
+				scpd->data->sram_slp_ack_bits, true);
+	else
+		ret = scpsys_sram_off(scpd, ctl_addr, scpd->data->sram_pdn_bits,
+				scpd->data->sram_pdn_ack_bits, true);
 
 	return ret;
 }
@@ -371,7 +332,8 @@ static int scpsys_sram_table_enable(struct scp_domain *scpd)
 		if (sram_table[i].offs) {
 			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
 
-			ret = scpsys_sram_enable(scpd, ctl_addr, sram_table[i].wait_ack);
+			ret = scpsys_sram_on(scpd, ctl_addr, sram_table[i].msk,
+					sram_table[i].ack_msk, sram_table[i].wait_ack);
 			if (ret)
 				return ret;
 		}
@@ -391,7 +353,8 @@ static int scpsys_sram_table_disable(struct scp_domain *scpd)
 		if (sram_table[i].offs) {
 			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
 
-			ret = scpsys_sram_disable(scpd, ctl_addr, sram_table[i].wait_ack);
+			ret = scpsys_sram_off(scpd, ctl_addr, sram_table[i].msk,
+					sram_table[i].ack_msk, sram_table[i].wait_ack);
 			if (ret)
 				return ret;
 		}
@@ -554,6 +517,16 @@ static void scpsys_extb_iso_up(struct scp_domain *scpd)
 	writel(val, ctl_addr);
 }
 
+static int scpsys_dummy_power_on(struct generic_pm_domain *genpd)
+{
+	return 0;
+}
+
+static int scpsys_dummy_power_off(struct generic_pm_domain *genpd)
+{
+	return 0;
+}
+
 static int scpsys_power_on(struct generic_pm_domain *genpd)
 {
 	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
@@ -617,13 +590,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 			goto err_sram;
 	}
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2SRAM)) {
-		ret = scpsys_l2sram_table_enable(scpd);
-		if (ret < 0)
-			goto err_sram;
-	}
-
-	ret = scpsys_sram_enable(scpd, ctl_addr, true);
+	ret = scpsys_sram_enable(scpd, ctl_addr);
 	if (ret < 0)
 		goto err_sram;
 
@@ -688,13 +655,7 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 			goto out;
 	}
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2SRAM)) {
-		ret = scpsys_l2sram_table_disable(scpd);
-		if (ret < 0)
-			goto out;
-	}
-
-	ret = scpsys_sram_disable(scpd, ctl_addr, true);
+	ret = scpsys_sram_disable(scpd, ctl_addr);
 	if (ret < 0)
 		goto out;
 
@@ -787,7 +748,7 @@ static int scpsys_md_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
-	ret = scpsys_sram_enable(scpd, ctl_addr, true);
+	ret = scpsys_sram_enable(scpd, ctl_addr);
 	if (ret < 0)
 		goto err_sram;
 
@@ -822,7 +783,7 @@ static int scpsys_md_power_off(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto out;
 
-	ret = scpsys_sram_disable(scpd, ctl_addr, true);
+	ret = scpsys_sram_disable(scpd, ctl_addr);
 	if (ret < 0)
 		goto out;
 
@@ -890,15 +851,14 @@ static int scpsys_apu_power_off(struct generic_pm_domain *genpd)
 	return ret;
 }
 
-static int mtk_hwv_is_done(struct generic_pm_domain *genpd)
+static int mtk_hwv_is_done(struct scp_domain *scpd)
 {
-	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
 	struct scp *scp = scpd->scp;
 	u32 val = 0;
 
 	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
 
-	return (val & BIT(scpd->data->hwv_shift)) != 0;
+	return (val & BIT(scpd->data->hwv_shift));
 }
 
 static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
@@ -908,6 +868,7 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 	u32 val = 0;
 	int ret = 0;
 	int tmp;
+	int i = 0;
 
 	ret = scpsys_regulator_enable(scpd);
 	if (ret < 0)
@@ -922,32 +883,44 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 		goto err_lp_clk;
 
 	/* wait for irq status idle */
-	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
 	if (ret < 0)
-		goto err_hwv_ack;
+		goto err_hwv_prepare;
 
 	val = BIT(scpd->data->hwv_shift);
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_set_ofs, val);
-
-	/* delay 10us to prevent false ack check */
-	udelay(10);
+	do {
+		regmap_read(scp->hwv_regmap, scpd->data->hwv_set_ofs, &val);
+		udelay(1);
+		if (i > 100)
+			goto err_hwv_vote;
+		i++;
+	} while ((val & BIT(scpd->data->hwv_shift)) == 0);
 
 	/* wait until VOTER_ACK = 1 */
-	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
-		goto err_hwv_ack;
+		goto err_hwv_done;
 
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 
 	return 0;
 
-err_hwv_ack:
+err_hwv_done:
+	dev_err(scp->dev, "Failed to hwv done timeout %s(%d)\n", genpd->name, ret);
+err_hwv_vote:
+	dev_err(scp->dev, "Failed to hwv vote timeout %s(%d %x)\n", genpd->name, ret, val);
+err_hwv_prepare:
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	dev_err(scp->dev, "Failed to hwv prepare timeout %s(%d %x)\n", genpd->name, ret, val);
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 err_lp_clk:
+	dev_err(scp->dev, "Failed to enable lp clk %s(%d)\n", genpd->name, ret);
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
 err_clk:
+	dev_err(scp->dev, "Failed to enable clk %s(%d)\n", genpd->name, ret);
 	scpsys_regulator_disable(scpd);
 err_regulator:
 	dev_err(scp->dev, "Failed to power on domain %s(%d)\n", genpd->name, ret);
@@ -962,28 +935,33 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 	u32 val = 0;
 	int ret = 0;
 	int tmp;
+	int i = 0;
 
 	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
 	if (ret)
 		goto err_lp_clk;
 
 	/* wait for irq status idle */
-	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
 	if (ret < 0)
-		goto err_hwv;
+		goto err_hwv_prepare;
 
 	val = BIT(scpd->data->hwv_shift);
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_clr_ofs, val);
-
-	/* delay 1us to prevent false ack check */
-	udelay(10);
+	do {
+		regmap_read(scp->hwv_regmap, scpd->data->hwv_set_ofs, &val);
+		udelay(1);
+		if (i > 100)
+			goto err_hwv_vote;
+		i++;
+	} while ((val & BIT(scpd->data->hwv_shift)) != 0);
 
 	/* wait until VOTER_ACK = 0 */
-	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, genpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
-		goto err_hwv;
+		goto err_hwv_done;
 
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
 
@@ -995,10 +973,17 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 
 	return 0;
 
-err_hwv:
+err_regulator:
+	dev_err(scp->dev, "Failed to regulator disable %s(%d)\n", genpd->name, ret);
+err_hwv_done:
+	dev_err(scp->dev, "Failed to hwv done timeout %s(%d)\n", genpd->name, ret);
+err_hwv_vote:
+	dev_err(scp->dev, "Failed to hwv vote timeout %s(%d %x)\n", genpd->name, ret, val);
+err_hwv_prepare:
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	dev_err(scp->dev, "Failed to hwv prepare timeout %s(%d %x)\n", genpd->name, ret, val);
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 err_lp_clk:
-err_regulator:
 	dev_err(scp->dev, "Failed to power off domain %s(%d)\n", genpd->name, ret);
 
 	return ret;
@@ -1251,7 +1236,8 @@ struct scp *init_scp(struct platform_device *pdev,
 			genpd->power_on = scpsys_hwv_power_on;
 			genpd->power_off = scpsys_hwv_power_off;
 		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CHILD)) {
-			genpd->power_on = scpsys_power_on;
+			genpd->power_off = scpsys_dummy_power_off;
+			genpd->power_on = scpsys_dummy_power_on;
 		} else {
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;
