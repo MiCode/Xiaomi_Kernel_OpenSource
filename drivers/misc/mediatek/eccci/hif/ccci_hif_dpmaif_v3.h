@@ -390,6 +390,9 @@ struct hif_dpmaif_ctrl {
 	struct dpmaif_bat_request *bat_frag;
 	wait_queue_head_t   bat_alloc_wq;
 	struct task_struct *bat_alloc_thread;
+	wait_queue_head_t   skb_alloc_wq;
+	struct task_struct *skb_alloc_thread;
+	unsigned int        skb_start_alloc;
 	atomic_t bat_need_alloc;
 	atomic_t bat_paused_alloc;
 	int bat_alloc_running;

@@ -48,17 +48,52 @@ struct temp_page_info {
 	unsigned long long base_addr;
 };
 
-#define MAX_INFO_COUNT 10000
+#define MAX_SKB_TBL_CNT 10000
+#define MAX_FRG_TBL_CNT 5000
 
-static struct temp_skb_info g_skb_tbl[MAX_INFO_COUNT];
-static unsigned int g_skb_tbl_cnt;
-static unsigned int g_skb_tbl_idx;
+static struct temp_skb_info g_skb_tbl[MAX_SKB_TBL_CNT];
+static unsigned int g_skb_tbl_rdx;
+static unsigned int g_skb_tbl_wdx;
 
 
-static struct temp_page_info g_page_tbl[MAX_INFO_COUNT];
-static unsigned int g_page_tbl_cnt;
-static unsigned int g_page_tbl_idx;
+static struct temp_page_info g_page_tbl[MAX_FRG_TBL_CNT];
+static unsigned int g_page_tbl_rdx;
+static unsigned int g_page_tbl_wdx;
 
+static inline u32 get_ringbuf_used_cnt(u32 len, u32 rdx, u32 wdx)
+{
+	if (wdx >= rdx)
+		return (wdx - rdx);
+
+	return (len - rdx + wdx);
+}
+
+static inline u32 get_ringbuf_free_cnt(u32 len, u32 rdx, u32 wdx)
+{
+	if (wdx >= rdx)
+		return len - wdx + rdx - 1;
+
+	return (rdx - wdx) - 1;
+}
+
+static inline u32 get_ringbuf_next_idx(u32 len, u32 idx, u32 cnt)
+{
+	idx += cnt;
+
+	if (idx >= len)
+		idx -= len;
+
+	return idx;
+}
+
+static inline void ccci_dpmaif_skb_wakeup_thread(void)
+{
+	if (dpmaif_ctrl->skb_alloc_thread &&
+			dpmaif_ctrl->skb_start_alloc == 0) {
+		dpmaif_ctrl->skb_start_alloc = 1;
+		wake_up(&dpmaif_ctrl->skb_alloc_wq);
+	}
+}
 
 static inline struct device *ccci_md_get_dev_by_id(int md_id)
 {
@@ -138,44 +173,45 @@ fast_retry:
 static inline void alloc_skb_to_tbl(int skb_cnt, int blocking)
 {
 	int alloc_cnt, i;
-	unsigned int cur_tbl_idx;
+	unsigned int used_cnt;
 	struct temp_skb_info *skb_info;
 	unsigned int pkt_buf_sz = dpmaif_ctrl->bat_req->pkt_buf_sz;
 
-	if (skb_cnt > MAX_INFO_COUNT)
-		skb_cnt = MAX_INFO_COUNT;
+	if (skb_cnt >= MAX_SKB_TBL_CNT)
+		skb_cnt = MAX_SKB_TBL_CNT - 1;
 
-	if (skb_cnt <= g_skb_tbl_cnt)
+	used_cnt = get_ringbuf_used_cnt(MAX_SKB_TBL_CNT,
+				g_skb_tbl_rdx, g_skb_tbl_wdx);
+
+	if (skb_cnt <= used_cnt)
 		return;
 
-	alloc_cnt = skb_cnt - g_skb_tbl_cnt;
-	cur_tbl_idx = ringbuf_get_next_idx(MAX_INFO_COUNT,
-					g_skb_tbl_idx, g_skb_tbl_cnt);
+	alloc_cnt = skb_cnt - used_cnt;
 
 	for (i = 0; i < alloc_cnt; i++) {
-		skb_info = &g_skb_tbl[cur_tbl_idx];
+		skb_info = &g_skb_tbl[g_skb_tbl_wdx];
+
 		if (skb_alloc(&skb_info->skb, &skb_info->base_addr,
 						pkt_buf_sz, blocking))
 			break;
 
-		cur_tbl_idx = ringbuf_get_next_idx(MAX_INFO_COUNT,
-						cur_tbl_idx, 1);
-		g_skb_tbl_cnt++;
+		g_skb_tbl_wdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT,
+						g_skb_tbl_wdx, 1);
 	}
 }
 
-static inline struct temp_skb_info *get_skb_info_from_tbl(void)
+static inline struct temp_skb_info *get_skb_from_tbl(void)
 {
 	struct temp_skb_info *skb_info = NULL;
 
-	if (g_skb_tbl_cnt > 0) {
-		skb_info = &g_skb_tbl[g_skb_tbl_idx];
+	if (!get_ringbuf_used_cnt(MAX_SKB_TBL_CNT,
+				g_skb_tbl_rdx, g_skb_tbl_wdx))
+		return NULL;
 
-		g_skb_tbl_idx = ringbuf_get_next_idx(MAX_INFO_COUNT,
-						g_skb_tbl_idx, 1);
+	skb_info = &g_skb_tbl[g_skb_tbl_rdx];
 
-		g_skb_tbl_cnt--;
-	}
+	g_skb_tbl_rdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT,
+					g_skb_tbl_rdx, 1);
 
 	return skb_info;
 }
@@ -229,18 +265,19 @@ fast_retry:
 	return 0;
 }
 
-static inline struct temp_page_info *get_page_info_from_tbl(void)
+static inline struct temp_page_info *get_page_from_tbl(void)
 {
 	struct temp_page_info *page_info = NULL;
 
-	if (g_page_tbl_cnt > 0) {
-		page_info = &g_page_tbl[g_page_tbl_idx];
+	if (!get_ringbuf_used_cnt(MAX_FRG_TBL_CNT,
+				g_page_tbl_rdx, g_page_tbl_wdx))
+		return NULL;
 
-		g_page_tbl_idx = ringbuf_get_next_idx(MAX_INFO_COUNT,
-					g_page_tbl_idx, 1);
 
-		g_page_tbl_cnt--;
-	}
+	page_info = &g_page_tbl[g_page_tbl_rdx];
+
+	g_page_tbl_rdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT,
+					g_page_tbl_rdx, 1);
 
 	return page_info;
 }
@@ -248,29 +285,30 @@ static inline struct temp_page_info *get_page_info_from_tbl(void)
 static inline void alloc_page_to_tbl(int page_cnt, int blocking)
 {
 	int alloc_cnt, i;
-	unsigned int cur_tbl_idx;
+	unsigned int used_cnt;
 	struct temp_page_info *page_info;
 	unsigned int pkt_buf_sz = dpmaif_ctrl->bat_frag->pkt_buf_sz;
 
-	if (page_cnt > MAX_INFO_COUNT)
-		page_cnt = MAX_INFO_COUNT;
+	if (page_cnt >= MAX_FRG_TBL_CNT)
+		page_cnt = MAX_FRG_TBL_CNT - 1;
 
-	if (page_cnt <= g_page_tbl_cnt)
+	used_cnt = get_ringbuf_used_cnt(MAX_FRG_TBL_CNT,
+			g_page_tbl_rdx, g_page_tbl_wdx);
+
+	if (page_cnt <= used_cnt)
 		return;
 
-	alloc_cnt = page_cnt - g_page_tbl_cnt;
-	cur_tbl_idx = ringbuf_get_next_idx(MAX_INFO_COUNT,
-					g_page_tbl_idx, g_page_tbl_cnt);
+	alloc_cnt = page_cnt - used_cnt;
 
 	for (i = 0; i < alloc_cnt; i++) {
-		page_info = &g_page_tbl[cur_tbl_idx];
+		page_info = &g_page_tbl[g_page_tbl_wdx];
+
 		if (page_alloc(&page_info->page, &page_info->base_addr,
 						pkt_buf_sz, blocking))
 			break;
 
-		cur_tbl_idx = ringbuf_get_next_idx(MAX_INFO_COUNT,
-						cur_tbl_idx, 1);
-		g_page_tbl_cnt++;
+		g_page_tbl_wdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT,
+						g_page_tbl_wdx, 1);
 	}
 }
 
@@ -340,7 +378,7 @@ static inline int alloc_bat_skb(
 	unsigned long long data_base_addr;
 	struct temp_skb_info *skb_info;
 
-	skb_info = get_skb_info_from_tbl();
+	skb_info = get_skb_from_tbl();
 	if (skb_info) {
 		bat_skb->skb = skb_info->skb;
 		data_base_addr = skb_info->base_addr;
@@ -350,12 +388,6 @@ static inline int alloc_bat_skb(
 			pkt_buf_sz, blocking);
 		if (ret)
 			return ret;
-	}
-
-	if (!bat_skb->skb) {
-		CCCI_ERROR_LOG(0, TAG,
-			"[%s] g_skb_tbl_cnt: %u; g_skb_tbl_idx: %u\n",
-			__func__, g_skb_tbl_cnt, g_skb_tbl_idx);
 	}
 
 	bat_skb->data_phy_addr = data_base_addr;
@@ -416,6 +448,9 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt,
 
 		bat_wr_idx = next_wr_idx;
 		count++;
+
+		if (update_bat_cnt && (count & 0x7F) == 0)
+			ccci_dpmaif_skb_wakeup_thread();
 	}
 
 alloc_end:
@@ -431,10 +466,10 @@ alloc_end:
 					"[%s] dpmaif: update req cnt fail(%d)\n",
 					__func__, ret);
 		}
-	}
 
-	if (update_bat_cnt && (buf_space - count > 0))
-		alloc_skb_to_tbl(buf_space - count, blocking);
+		if (update_bat_cnt)
+			ccci_dpmaif_skb_wakeup_thread();
+	}
 
 	return ret;
 }
@@ -449,7 +484,7 @@ static inline int alloc_bat_page(
 	int ret;
 	struct temp_page_info *page_info;
 
-	page_info = get_page_info_from_tbl();
+	page_info = get_page_from_tbl();
 	if (page_info) {
 		bat_page->page = page_info->page;
 		data_base_addr = page_info->base_addr;
@@ -518,8 +553,10 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt,
 			goto alloc_end;
 
 		bat_wr_idx = next_wr_idx;
-
 		count++;
+
+		if (update_bat_cnt && (count & 0x7F) == 0)
+			ccci_dpmaif_skb_wakeup_thread();
 	}
 
 alloc_end:
@@ -535,10 +572,10 @@ alloc_end:
 					"[%s] dpmaif: update frg cnt fail(%d)\n",
 					__func__, ret);
 		}
-	}
 
-	if (update_bat_cnt && (buf_space - count > 0))
-		alloc_page_to_tbl(buf_space - count, blocking);
+		if (update_bat_cnt)
+			ccci_dpmaif_skb_wakeup_thread();
+	}
 
 	return ret;
 }
@@ -690,6 +727,64 @@ static int ccci_dpmaif_create_bat_thread(void)
 			__func__, (long)dpmaif_ctrl->bat_alloc_thread);
 
 		dpmaif_ctrl->bat_alloc_thread = NULL;
+
+		return -1;
+	}
+
+	return 0;
+}
+
+static int dpmaif_rx_skb_alloc_thread(void *arg)
+{
+	int ret;
+
+	CCCI_NORMAL_LOG(-1, TAG, "[%s] run start.\n", __func__);
+
+	while (1) {
+		ret = wait_event_interruptible(dpmaif_ctrl->skb_alloc_wq,
+				dpmaif_ctrl->skb_start_alloc);
+
+		if (ret == -ERESTARTSYS)
+			continue;
+
+		if (kthread_should_stop()) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: kthread_should_stop.\n",
+				__func__);
+			break;
+		}
+
+		alloc_skb_to_tbl(MAX_SKB_TBL_CNT, 0);
+		alloc_page_to_tbl(MAX_FRG_TBL_CNT, 0);
+
+		dpmaif_ctrl->skb_start_alloc = 0;
+	}
+
+	CCCI_NORMAL_LOG(-1, TAG, "[%s] run end.\n", __func__);
+
+	return 0;
+}
+
+static int ccci_dpmaif_create_skb_thread(void)
+{
+	g_skb_tbl_rdx  = 0;
+	g_skb_tbl_wdx  = 0;
+	g_page_tbl_rdx = 0;
+	g_page_tbl_wdx = 0;
+
+	init_waitqueue_head(&dpmaif_ctrl->skb_alloc_wq);
+	dpmaif_ctrl->skb_start_alloc = 0;
+
+	dpmaif_ctrl->skb_alloc_thread = kthread_run(
+				dpmaif_rx_skb_alloc_thread,
+				NULL, "skb_alloc_thread");
+
+	if (IS_ERR(dpmaif_ctrl->skb_alloc_thread)) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] kthread_run fail %ld\n",
+			__func__, (long)dpmaif_ctrl->skb_alloc_thread);
+
+		dpmaif_ctrl->skb_alloc_thread = NULL;
 
 		return -1;
 	}
@@ -879,11 +974,6 @@ int ccci_dpmaif_bat_sw_init_v3(void)
 {
 	int ret;
 
-	g_skb_tbl_cnt = 0;
-	g_skb_tbl_idx = 0;
-	g_page_tbl_cnt = 0;
-	g_page_tbl_idx = 0;
-
 	dpmaif_ctrl->bat_req = ccci_dpmaif_bat_create();
 	if (!dpmaif_ctrl->bat_req)
 		return LOW_MEMORY_BAT;
@@ -915,6 +1005,10 @@ int ccci_dpmaif_bat_sw_init_v3(void)
 		return ret;
 
 	ret = ccci_dpmaif_create_bat_thread();
+	if (ret)
+		return ret;
+
+	ret = ccci_dpmaif_create_skb_thread();
 	if (ret)
 		return ret;
 
