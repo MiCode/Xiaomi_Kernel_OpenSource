@@ -121,7 +121,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = IMX481_SENSOR_ID,
 
 	/* checksum value for Camera Auto Test */
-	.checksum_value = 0x5f9bf7a1,
+	.checksum_value = 0x1c0140cc,
 
 	.pre = {/*data rate 1836 Mbps/lane */
 		.pclk = 580000000,
