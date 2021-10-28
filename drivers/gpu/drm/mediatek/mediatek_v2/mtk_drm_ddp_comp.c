@@ -1511,7 +1511,8 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 					0xFF, HRT_URGENT_CTL_SEL_ALL);
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0, HRT_URGENT_CTL_VAL_ALL);
-	} else if (id == DDP_COMPONENT_RDMA0) {
+	} else if (id == DDP_COMPONENT_RDMA0 ||
+	    id == DDP_COMPONENT_RDMA2) {
 		/* Select ddren smi req source from dsi */
 		/* Todo: judge by dsi_buf on/off */
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 0,
@@ -1529,7 +1530,8 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 
 		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 				HRT_URGENT_CTL_SEL_RDMA0);
-	} else if (id == DDP_COMPONENT_RDMA1) {
+	} else if (id == DDP_COMPONENT_RDMA1 ||
+	    id == DDP_COMPONENT_RDMA3) {
 		/* apsrc */
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 1,
 					SODI_REQ_SEL_RDMA1_PD_MODE);
