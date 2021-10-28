@@ -4046,6 +4046,11 @@
 			clock-names = "apb", "smi";
 		};
 
+		iommu_test {
+			compatible = "mediatek,ktf-iommu-test";
+			iommus = <&disp_iommu M4U_LARB34_APU_SECURE>;
+		};
+
 		mtk_iommu_debug {
 			compatible = "mediatek,mt6895-iommu-debug";
 		};
