@@ -16,135 +16,40 @@
 
 static struct platform_device *g_apu_pdev;
 
-struct apusys_rv_seq_data {
-	size_t len;
-	uint32_t i;
-	void *base;
-};
-
 static struct proc_dir_entry *procfs_root;
-
-static struct apusys_rv_seq_data *p_seqdata_coredump;
-static struct apusys_rv_seq_data *p_seqdata_xfile;
-
-static void *coredump_seq_start(struct seq_file *s, loff_t *pos)
-{
-	struct mtk_apu *apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
-
-	if (p_seqdata_coredump == NULL) {
-		p_seqdata_coredump = kzalloc(sizeof(struct apusys_rv_seq_data),
-			GFP_KERNEL);
-		if (!p_seqdata_coredump)
-			return NULL;
-		p_seqdata_coredump->len = sizeof(struct apu_coredump);
-		p_seqdata_coredump->i = 0;
-		if (apu->platdata->flags & F_SECURE_COREDUMP)
-			p_seqdata_coredump->base = apu->apu_aee_coredump_mem_base +
-				apu->apusys_aee_coredump_info->up_coredump_ofs;
-		else
-			p_seqdata_coredump->base = apu->coredump_buf;
-	} else if (p_seqdata_coredump->i >= p_seqdata_coredump->len) {
-		kfree(p_seqdata_coredump);
-		p_seqdata_coredump = NULL;
-		return NULL;
-	}
-
-	return p_seqdata_coredump;
-}
-
-static void *coredump_seq_next(struct seq_file *s, void *v, loff_t *pos)
-{
-	struct apusys_rv_seq_data *pSData = v;
-
-	if (pSData == NULL) {
-		dev_info(&g_apu_pdev->dev, "%s: pSData == NULL\n", __func__);
-		return NULL;
-	}
-
-	pSData->i = pSData->i + PAGE_SIZE;
-
-	/* prevent kernel warning */
-	*pos = pSData->i;
-
-	if (pSData->i >= pSData->len)
-		return NULL;
-
-	return v;
-}
-
-static void coredump_seq_stop(struct seq_file *s, void *v)
-{
-}
 
 static int coredump_seq_show(struct seq_file *s, void *v)
 {
-	struct apusys_rv_seq_data *pSData = v;
+	struct mtk_apu *apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
+	size_t len;
+	void *base;
 
-	if (pSData->i + PAGE_SIZE <= pSData->len)
-		seq_write(s, pSData->base + pSData->i, PAGE_SIZE);
+	len = sizeof(struct apu_coredump);
+	if (apu->platdata->flags & F_SECURE_COREDUMP)
+		base = apu->apu_aee_coredump_mem_base +
+			apu->apusys_aee_coredump_info->up_coredump_ofs;
 	else
-		seq_write(s, pSData->base + pSData->i, pSData->len - pSData->i);
+		base = apu->coredump_buf;
+
+	seq_write(s, base, len);
 
 	return 0;
 }
 
-static void *xfile_seq_start(struct seq_file *s, loff_t *pos)
-{
-	struct mtk_apu *apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
-
-	if (p_seqdata_xfile == NULL) {
-		p_seqdata_xfile = kzalloc(sizeof(struct apusys_rv_seq_data),
-			GFP_KERNEL);
-		if (!p_seqdata_xfile)
-			return NULL;
-		if (apu->platdata->flags & F_PRELOAD_FIRMWARE)
-			p_seqdata_xfile->len = apu->apusys_aee_coredump_info->up_xfile_sz;
-		else
-			p_seqdata_xfile->len = 0;
-		p_seqdata_xfile->i = 0;
-		p_seqdata_xfile->base = apu->apu_aee_coredump_mem_base +
-			apu->apusys_aee_coredump_info->up_xfile_ofs;
-	} else if (p_seqdata_xfile->i >= p_seqdata_xfile->len) {
-		kfree(p_seqdata_xfile);
-		p_seqdata_xfile = NULL;
-		return NULL;
-	}
-
-	return p_seqdata_xfile;
-}
-
-static void *xfile_seq_next(struct seq_file *s, void *v, loff_t *pos)
-{
-	struct apusys_rv_seq_data *pSData = v;
-
-	if (pSData == NULL) {
-		dev_info(&g_apu_pdev->dev, "%s: pSData == NULL\n", __func__);
-		return NULL;
-	}
-
-	pSData->i = pSData->i + PAGE_SIZE;
-
-	/* prevent kernel warning */
-	*pos = pSData->i;
-
-	if (pSData->i >= pSData->len)
-		return NULL;
-
-	return v;
-}
-
-static void xfile_seq_stop(struct seq_file *s, void *v)
-{
-}
-
 static int xfile_seq_show(struct seq_file *s, void *v)
 {
-	struct apusys_rv_seq_data *pSData = v;
+	struct mtk_apu *apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
+	size_t len;
+	void *base;
 
-	if (pSData->i + PAGE_SIZE <= pSData->len)
-		seq_write(s, pSData->base + pSData->i, PAGE_SIZE);
+	if (apu->platdata->flags & F_PRELOAD_FIRMWARE)
+		len = apu->apusys_aee_coredump_info->up_xfile_sz;
 	else
-		seq_write(s, pSData->base + pSData->i, pSData->len - pSData->i);
+		return 0;
+	base = apu->apu_aee_coredump_mem_base +
+		apu->apusys_aee_coredump_info->up_xfile_ofs;
+
+	seq_write(s, base, len);
 
 	return 0;
 }
@@ -193,28 +98,14 @@ static int regdump_seq_show(struct seq_file *s, void *v)
 	return 0;
 }
 
-static const struct seq_operations coredump_seq_ops = {
-	.start = coredump_seq_start,
-	.next  = coredump_seq_next,
-	.stop  = coredump_seq_stop,
-	.show  = coredump_seq_show
-};
-
-static const struct seq_operations xfile_seq_ops = {
-	.start = xfile_seq_start,
-	.next  = xfile_seq_next,
-	.stop  = xfile_seq_stop,
-	.show  = xfile_seq_show
-};
-
 static int coredump_sqopen(struct inode *inode, struct file *file)
 {
-	return seq_open(file, &coredump_seq_ops);
+	return single_open(file, coredump_seq_show, NULL);
 }
 
 static int xfile_sqopen(struct inode *inode, struct file *file)
 {
-	return seq_open(file, &xfile_seq_ops);
+	return single_open(file, xfile_seq_show, NULL);
 }
 
 static int regdump_sqopen(struct inode *inode, struct file *file)
