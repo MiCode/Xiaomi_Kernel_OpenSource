@@ -82,7 +82,7 @@ static void set_cmos_sensor_8(struct subdrv_ctx *ctx,
 
 static kal_uint8 otp_flag;
 
-static kal_uint16 previous_exp[3];
+static kal_uint32 previous_exp[3];
 static kal_uint16 previous_exp_cnt;
 
 static struct imgsensor_info_struct imgsensor_info = {
@@ -197,6 +197,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 938060000,
 		.max_framerate = 300,
+		/* ((y_end - y_start + 1) / 4 + 35) * 2 */
+		.readout_length = 2374,
 	},
 	.custom5 = { /* QBIN_HVBIN_V2H2_FHD_2048x1152_240FPS */
 		.pclk = 2716800000,
@@ -257,6 +259,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 591090000,
 		.max_framerate = 300,
+		.readout_length = 1580,
 	},
 	.custom10 = { /* QBIN_HVBIN_V2H2_3DOL_2048x1536_30FPS */
 		.pclk = 1488000000,
@@ -269,6 +272,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 591090000,
 		.max_framerate = 300,
+		.readout_length = 1600,
 	},
 	.custom11 = { /* QBIN_HVBIN_V1H1_4096x3072_30FPS */
 		.pclk = 1488000000,
@@ -605,52 +609,51 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[18] = {
 	}
 };
 
-//mode    0,  1,  2,   3,  4,  5,  6,  7,   8,   9,  10, 11,  12,  13,  14, 15, 16, 17, 18, 19
-static MUINT32 fine_Integ_Line_Table[SENSOR_SCENARIO_ID_MAX] = {
-		826,	//mode 0
-		826,	//mode 1
-		826,	//mode 2
-		2555,	//mode 3
-		826,	//mode 4
-		413,	//mode 5
-		826,	//mode 6
-		502,	//mode 7
-		2826,	//mode 8
-		2555,	//mode 9
-		1709,	//mode 10
-		502,	//mode 11
-		2555,	//mode 12
-		6555,	//mode 13
-		6555,	//mode 14
-		826,	//mode 15
-		826,	//mode 16
-		826,	//mode 17
-		826,	//mode 18
-		826		//mode 19
-	};
+static MUINT32 fine_integ_line_table[SENSOR_SCENARIO_ID_MAX] = {
+	826,	//mode 0
+	826,	//mode 1
+	826,	//mode 2
+	2555,	//mode 3
+	826,	//mode 4
+	413,	//mode 5
+	826,	//mode 6
+	502,	//mode 7
+	2826,	//mode 8
+	2555,	//mode 9
+	1709,	//mode 10
+	502,	//mode 11
+	2555,	//mode 12
+	6555,	//mode 13
+	6555,	//mode 14
+	826,	//mode 15
+	826,	//mode 16
+	826,	//mode 17
+	826,	//mode 18
+	826		//mode 19
+};
 
-static MUINT32 exposure_Step_Table[SENSOR_SCENARIO_ID_MAX] = {
-		4,	//mode 0
-		4,	//mode 1
-		4,	//mode 2
-		4,	//mode 3
-		4,	//mode 4
-		4,	//mode 5
-		4,	//mode 6
-		4,	//mode 7
-		8,	//mode 8
-		4,	//mode 9
-		4,	//mode 10
-		4,	//mode 11
-		4,	//mode 12
-		8,	//mode 13
-		12,	//mode 14
-		4,	//mode 15
-		4,	//mode 16
-		4,	//mode 17
-		4,	//mode 18
-		4	//mode 19
-	};
+static MUINT32 exposure_step_table[SENSOR_SCENARIO_ID_MAX] = {
+	4,	//mode 0
+	4,	//mode 1
+	4,	//mode 2
+	4,	//mode 3
+	4,	//mode 4
+	4,	//mode 5
+	4,	//mode 6
+	4,	//mode 7
+	8,	//mode 8
+	4,	//mode 9
+	4,	//mode 10
+	4,	//mode 11
+	4,	//mode 12
+	8,	//mode 13
+	12,	//mode 14
+	4,	//mode 15
+	4,	//mode 16
+	4,	//mode 17
+	4,	//mode 18
+	4	//mode 19
+};
 
 static kal_uint16 imx766dual_QSC_setting[3072 * 2];
 
@@ -936,8 +939,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 {
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 l_shift = 1;
-
-	kal_uint32 fineIntegTime = fine_Integ_Line_Table[ctx->current_scenario_id];
+	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
+	int i;
 
 	shutter = FINE_INTEG_CONVERT(shutter, fineIntegTime);
 	shutter = round_up(shutter, 4);
@@ -950,6 +953,12 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 		ctx->frame_length = imgsensor_info.max_frame_length;
 	if (shutter < imgsensor_info.min_shutter)
 		shutter = imgsensor_info.min_shutter;
+
+	/* restore current shutter value */
+	for (i = 0; i < previous_exp_cnt; i++)
+		previous_exp[i] = 0;
+	previous_exp[0] = shutter;
+	previous_exp_cnt = 1;
 
 	if (gph)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
@@ -1028,8 +1037,6 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 static void set_shutter_w_gph(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool gph)
 {
 	ctx->shutter = shutter;
-	previous_exp_cnt = 1;
-	previous_exp[0] = shutter;
 
 	write_shutter(ctx, shutter, gph);
 }
@@ -1063,53 +1070,71 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 				kal_uint16 frame_length)
 {
 	int i;
+	int readoutDiff = 0;
 	kal_uint32 calc_fl = 0;
 	kal_uint32 calc_fl2 = 0;
+	kal_uint32 calc_fl3 = 0;
 	kal_uint16 le, me, se;
-	kal_uint32 fineIntegTime = fine_Integ_Line_Table[ctx->current_scenario_id];
+	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
+	kal_uint32 readoutLength = ctx->readout_length;
+	kal_uint32 readMargin = ctx->read_margin;
 
-	for (i = 0; i < shutter_cnt; i++)
-		shutters[i] = FINE_INTEG_CONVERT(shutters[i], fineIntegTime);
-
-
-	previous_exp_cnt = shutter_cnt;
+	/* convert & set current available shutter value */
 	for (i = 0; i < shutter_cnt; i++) {
+		shutters[i] = FINE_INTEG_CONVERT(shutters[i], fineIntegTime);
 		shutters[i] = (kal_uint16)max(imgsensor_info.min_shutter,
 					(kal_uint32)shutters[i]);
-		previous_exp[i] = shutters[i];
+		shutters[i] = round_up((shutters[i]) / shutter_cnt, 4) * shutter_cnt;
 	}
 
-	/* previous se + previous me + current le */
+	/* fl constraint 1: previous se + previous me + current le */
 	calc_fl = shutters[0];
 	for (i = 1; i < previous_exp_cnt; i++)
 		calc_fl += previous_exp[i];
+	calc_fl += imgsensor_info.margin*shutter_cnt*shutter_cnt;
 
-	/* current se + current me + current le */
+	/* fl constraint 2: current se + current me + current le */
 	calc_fl2 = shutters[0];
 	for (i = 1; i < shutter_cnt; i++)
 		calc_fl2 += shutters[i];
+	calc_fl2 += imgsensor_info.margin*shutter_cnt*shutter_cnt;
+
+	/* fl constraint 3: readout time cannot be overlapped */
+	calc_fl3 = (readoutLength + readMargin) * shutter_cnt;
+	if (previous_exp_cnt == shutter_cnt) {
+		for (i = 1; i < shutter_cnt; i++) {
+			readoutDiff = previous_exp[i] - shutters[i];
+			calc_fl3 += readoutDiff > 0 ? readoutDiff : 0;
+		}
+	}
 
 	/* using max fl of above value */
 	calc_fl = max(calc_fl, calc_fl2);
+	calc_fl = max(calc_fl, calc_fl3);
 
-	ctx->frame_length = max((kal_uint32)(calc_fl + imgsensor_info.margin),
-		ctx->min_frame_length);
+	/* set fl range */
+	ctx->frame_length = max((kal_uint32)calc_fl, ctx->min_frame_length);
 	ctx->frame_length = max(ctx->frame_length, (kal_uint32)frame_length);
 	ctx->frame_length = min(ctx->frame_length, imgsensor_info.max_frame_length);
 
+	/* restore current shutter value */
+	for (i = 0; i < previous_exp_cnt; i++)
+		previous_exp[i] = 0;
 	for (i = 0; i < shutter_cnt; i++)
-		shutters[i] = round_up((shutters[i]) / shutter_cnt, 4);
+		previous_exp[i] = shutters[i];
+	previous_exp_cnt = shutter_cnt;
 
+	/* register value conversion */
 	switch (shutter_cnt) {
 	case 3:
-		le = shutters[0];
-		me = shutters[1];
-		se = shutters[2];
+		le = shutters[0]/3;
+		me = shutters[1]/3;
+		se = shutters[2]/3;
 		break;
 	case 2:
-		le = shutters[0];
+		le = shutters[0]/2;
 		me = 0;
-		se = shutters[1];
+		se = shutters[1]/2;
 		break;
 	case 1:
 		le = shutters[0];
@@ -1119,25 +1144,22 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	}
 
 	set_cmos_sensor_8(ctx, 0x0104, 0x01);
-
 	write_frame_len(ctx, ctx->frame_length);
-
 	/* Long exposure */
 	set_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0203, le & 0xFF);
-	/* Muddle exposure */
-	if (me != 0) {
+	/* Middle exposure */
+	if (me) {
 		/*MID_COARSE_INTEG_TIME[15:8]*/
 		set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
 		/*MID_COARSE_INTEG_TIME[7:0]*/
 		set_cmos_sensor_8(ctx, 0x313B, me & 0xFF);
 	}
 	/* Short exposure */
-	if (se != 0) {
+	if (se) {
 		set_cmos_sensor_8(ctx, 0x0224, (se >> 8) & 0xFF);
 		set_cmos_sensor_8(ctx, 0x0225, se & 0xFF);
 	}
-
 	set_cmos_sensor_8(ctx, 0x0104, 0x00);
 
 	commit_write_sensor(ctx);
@@ -1581,22 +1603,36 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 {
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 exposure_cnt = 0;
-	kal_uint32 fineIntegTime = fine_Integ_Line_Table[ctx->current_scenario_id];
+	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
+	int i;
 
 	le = FINE_INTEG_CONVERT(le, fineIntegTime);
 	me = FINE_INTEG_CONVERT(me, fineIntegTime);
 	se = FINE_INTEG_CONVERT(se, fineIntegTime);
 
-	if (le)
+	if (le) {
 		exposure_cnt++;
-	if (me)
+		le = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)le);
+		le = round_up((le) / exposure_cnt, 4) * exposure_cnt;
+	}
+	if (me) {
 		exposure_cnt++;
-	if (se)
+		me = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)me);
+		me = round_up((me) / exposure_cnt, 4) * exposure_cnt;
+	}
+	if (se) {
 		exposure_cnt++;
+		se = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)se);
+		se = round_up((se) / exposure_cnt, 4) * exposure_cnt;
+	}
 
-	le = (kal_uint16)max(imgsensor_info.min_shutter, (kal_uint32)le);
+	ctx->frame_length =
+		max((kal_uint32)(le + me + se + imgsensor_info.margin*exposure_cnt*exposure_cnt),
+		ctx->min_frame_length);
+	ctx->frame_length = min(ctx->frame_length, imgsensor_info.max_frame_length);
 
-	previous_exp_cnt = exposure_cnt;
+	for (i = 0; i < previous_exp_cnt; i++)
+		previous_exp[i] = 0;
 	previous_exp[0] = le;
 	switch (exposure_cnt) {
 	case 3:
@@ -1613,17 +1649,14 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		previous_exp[2] = 0;
 		break;
 	}
-
-	ctx->frame_length = max((kal_uint32)(le + me + se + imgsensor_info.margin),
-		ctx->min_frame_length);
-	ctx->frame_length = min(ctx->frame_length, imgsensor_info.max_frame_length);
+	previous_exp_cnt = exposure_cnt;
 
 	if (le)
-		le = round_up((le) / exposure_cnt, 4);
+		le = le / exposure_cnt;
 	if (me)
-		me = round_up((me) / exposure_cnt, 4);
+		me = me / exposure_cnt;
 	if (se)
-		se = round_up((se) / exposure_cnt, 4);
+		se = se / exposure_cnt;
 
 	if (ctx->autoflicker_en) {
 		realtime_fps =
@@ -1634,8 +1667,6 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
 	}
-	LOG_INF("E! le:0x%x, me:0x%x, se:0x%x autoflicker_en %d frame_length %d\n",
-		le, me, se, ctx->autoflicker_en, ctx->frame_length);
 
 	if (gph)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
@@ -1646,7 +1677,7 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	set_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0203, le & 0xFF);
 	/* Muddle exposure */
-	if (me != 0) {
+	if (me) {
 		/*MID_COARSE_INTEG_TIME[15:8]*/
 		set_cmos_sensor_8(ctx, 0x313A, (me >> 8) & 0xFF);
 		/*MID_COARSE_INTEG_TIME[7:0]*/
@@ -1660,7 +1691,8 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 
 	commit_write_sensor(ctx);
 
-	LOG_INF("L! le:0x%x, me:0x%x, se:0x%x\n", le, me, se);
+	LOG_INF("X! le:0x%x, me:0x%x, se:0x%x autoflicker_en %d frame_length %d\n",
+		le, me, se, ctx->autoflicker_en, ctx->frame_length);
 }
 
 static void hdr_write_tri_shutter(struct subdrv_ctx *ctx,
@@ -1735,6 +1767,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->line_length = imgsensor_info.normal_video.linelength;
 		ctx->frame_length = imgsensor_info.normal_video.framelength;
 		ctx->min_frame_length = imgsensor_info.normal_video.framelength;
+		ctx->readout_length = imgsensor_info.normal_video.readout_length;
 
 		FMC_GPH_START;
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_normal_video,
@@ -1757,6 +1790,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->line_length = imgsensor_info.custom4.linelength;
 		ctx->frame_length = imgsensor_info.custom4.framelength;
 		ctx->min_frame_length = imgsensor_info.custom4.framelength;
+		ctx->readout_length = imgsensor_info.custom4.readout_length;
 
 		FMC_GPH_START;
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom4,
@@ -1784,6 +1818,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->line_length = imgsensor_info.custom8.linelength;
 		ctx->frame_length = imgsensor_info.custom8.framelength;
 		ctx->min_frame_length = imgsensor_info.custom8.framelength;
+		ctx->readout_length = imgsensor_info.custom8.readout_length;
 
 		FMC_GPH_START;
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom8,
@@ -1806,6 +1841,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->line_length = imgsensor_info.custom9.linelength;
 		ctx->frame_length = imgsensor_info.custom9.framelength;
 		ctx->min_frame_length = imgsensor_info.custom9.framelength;
+		ctx->readout_length = imgsensor_info.custom9.readout_length;
 
 		FMC_GPH_START;
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom9,
@@ -1831,6 +1867,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->line_length = imgsensor_info.custom10.linelength;
 		ctx->frame_length = imgsensor_info.custom10.framelength;
 		ctx->min_frame_length = imgsensor_info.custom10.framelength;
+		ctx->readout_length = imgsensor_info.custom10.readout_length;
 
 		FMC_GPH_START;
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom10,
@@ -1856,6 +1893,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->line_length = imgsensor_info.custom11.linelength;
 		ctx->frame_length = imgsensor_info.custom11.framelength;
 		ctx->min_frame_length = imgsensor_info.custom11.framelength;
+		ctx->readout_length = imgsensor_info.custom11.readout_length;
 
 		FMC_GPH_START;
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom11,
@@ -1878,6 +1916,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->line_length = imgsensor_info.custom12.linelength;
 		ctx->frame_length = imgsensor_info.custom12.framelength;
 		ctx->min_frame_length = imgsensor_info.custom12.framelength;
+		ctx->readout_length = imgsensor_info.custom12.readout_length;
 
 		FMC_GPH_START;
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_seamless_custom12,
@@ -2081,6 +2120,7 @@ static kal_uint32 preview(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.pre.linelength;
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->min_frame_length = imgsensor_info.pre.framelength;
+	ctx->readout_length = imgsensor_info.pre.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	preview_setting(ctx);
 
@@ -2112,6 +2152,7 @@ static kal_uint32 capture(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.cap.linelength;
 	ctx->frame_length = imgsensor_info.cap.framelength;
 	ctx->min_frame_length = imgsensor_info.cap.framelength;
+	ctx->readout_length = imgsensor_info.cap.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	capture_setting(ctx);
 
@@ -2128,6 +2169,7 @@ static kal_uint32 normal_video(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.normal_video.linelength;
 	ctx->frame_length = imgsensor_info.normal_video.framelength;
 	ctx->min_frame_length = imgsensor_info.normal_video.framelength;
+	ctx->readout_length = imgsensor_info.normal_video.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	normal_video_setting(ctx);
 
@@ -2144,6 +2186,7 @@ static kal_uint32 hs_video(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.hs_video.linelength;
 	ctx->frame_length = imgsensor_info.hs_video.framelength;
 	ctx->min_frame_length = imgsensor_info.hs_video.framelength;
+	ctx->readout_length = imgsensor_info.hs_video.readout_length;
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
 	ctx->autoflicker_en = KAL_FALSE;
@@ -2162,6 +2205,7 @@ static kal_uint32 slim_video(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.slim_video.linelength;
 	ctx->frame_length = imgsensor_info.slim_video.framelength;
 	ctx->min_frame_length = imgsensor_info.slim_video.framelength;
+	ctx->readout_length = imgsensor_info.slim_video.readout_length;
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
 	ctx->autoflicker_en = KAL_FALSE;
@@ -2180,6 +2224,7 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom1.linelength;
 	ctx->frame_length = imgsensor_info.custom1.framelength;
 	ctx->min_frame_length = imgsensor_info.custom1.framelength;
+	ctx->readout_length = imgsensor_info.custom1.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom1_setting(ctx);
 
@@ -2196,6 +2241,7 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom2.linelength;
 	ctx->frame_length = imgsensor_info.custom2.framelength;
 	ctx->min_frame_length = imgsensor_info.custom2.framelength;
+	ctx->readout_length = imgsensor_info.custom2.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom2_setting(ctx);
 
@@ -2212,6 +2258,7 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom3.linelength;
 	ctx->frame_length = imgsensor_info.custom3.framelength;
 	ctx->min_frame_length = imgsensor_info.custom3.framelength;
+	ctx->readout_length = imgsensor_info.custom3.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom3_setting(ctx);
 
@@ -2228,6 +2275,7 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom4.linelength;
 	ctx->frame_length = imgsensor_info.custom4.framelength;
 	ctx->min_frame_length = imgsensor_info.custom4.framelength;
+	ctx->readout_length = imgsensor_info.custom4.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom4_setting(ctx);
 
@@ -2244,6 +2292,7 @@ static kal_uint32 custom5(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom5.linelength;
 	ctx->frame_length = imgsensor_info.custom5.framelength;
 	ctx->min_frame_length = imgsensor_info.custom5.framelength;
+	ctx->readout_length = imgsensor_info.custom5.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom5_setting(ctx);
 
@@ -2260,6 +2309,7 @@ static kal_uint32 custom6(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom6.linelength;
 	ctx->frame_length = imgsensor_info.custom6.framelength;
 	ctx->min_frame_length = imgsensor_info.custom6.framelength;
+	ctx->readout_length = imgsensor_info.custom6.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom6_setting(ctx);
 
@@ -2276,6 +2326,7 @@ static kal_uint32 custom7(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom7.linelength;
 	ctx->frame_length = imgsensor_info.custom7.framelength;
 	ctx->min_frame_length = imgsensor_info.custom7.framelength;
+	ctx->readout_length = imgsensor_info.custom7.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom7_setting(ctx);
 
@@ -2292,6 +2343,7 @@ static kal_uint32 custom8(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom8.linelength;
 	ctx->frame_length = imgsensor_info.custom8.framelength;
 	ctx->min_frame_length = imgsensor_info.custom8.framelength;
+	ctx->readout_length = imgsensor_info.custom8.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom8_setting(ctx);
 
@@ -2308,6 +2360,7 @@ static kal_uint32 custom9(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom9.linelength;
 	ctx->frame_length = imgsensor_info.custom9.framelength;
 	ctx->min_frame_length = imgsensor_info.custom9.framelength;
+	ctx->readout_length = imgsensor_info.custom9.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom9_setting(ctx);
 
@@ -2324,6 +2377,7 @@ static kal_uint32 custom10(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom10.linelength;
 	ctx->frame_length = imgsensor_info.custom10.framelength;
 	ctx->min_frame_length = imgsensor_info.custom10.framelength;
+	ctx->readout_length = imgsensor_info.custom10.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom10_setting(ctx);
 
@@ -2340,6 +2394,7 @@ static kal_uint32 custom11(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom11.linelength;
 	ctx->frame_length = imgsensor_info.custom11.framelength;
 	ctx->min_frame_length = imgsensor_info.custom11.framelength;
+	ctx->readout_length = imgsensor_info.custom11.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom11_setting(ctx);
 
@@ -2356,6 +2411,7 @@ static kal_uint32 custom12(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom12.linelength;
 	ctx->frame_length = imgsensor_info.custom12.framelength;
 	ctx->min_frame_length = imgsensor_info.custom12.framelength;
+	ctx->readout_length = imgsensor_info.custom12.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom12_setting(ctx);
 
@@ -2372,6 +2428,7 @@ static kal_uint32 custom13(struct subdrv_ctx *ctx,
 	ctx->line_length = imgsensor_info.custom13.linelength;
 	ctx->frame_length = imgsensor_info.custom13.framelength;
 	ctx->min_frame_length = imgsensor_info.custom13.framelength;
+	ctx->readout_length = imgsensor_info.custom13.readout_length;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom13_setting(ctx);
 
@@ -2968,7 +3025,7 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM13:
 	case SENSOR_SCENARIO_ID_CUSTOM14:
 	case SENSOR_SCENARIO_ID_CUSTOM15:
-		*fine_integ_line = fine_Integ_Line_Table[scenario_id];
+		*fine_integ_line = fine_integ_line_table[scenario_id];
 		break;
 	default:
 		break;
@@ -3100,7 +3157,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM13:
 		case SENSOR_SCENARIO_ID_CUSTOM14:
 		case SENSOR_SCENARIO_ID_CUSTOM15:
-			*(feature_data + 2) = exposure_Step_Table[*feature_data];
+			*(feature_data + 2) = exposure_step_table[*feature_data];
 			break;
 		default:
 			*(feature_data + 2) = 4;
@@ -4638,7 +4695,7 @@ static const struct subdrv_ctx defctx = {
 	.exposure_min = 24,
 	.exposure_step = 1,
 	.frame_time_delay_frame = 3,
-	.margin = 48,
+	.margin = 48, /* exp margin */
 	.max_frame_length = 0xffff,
 
 	.mirror = IMAGE_NORMAL,	/* mirrorflip information */
@@ -4654,6 +4711,8 @@ static const struct subdrv_ctx defctx = {
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x34, /* record current sensor's i2c write id */
+	.readout_length = 0,
+	.read_margin = 10,
 	.current_ae_effective_frame = 2,
 	.extend_frame_length_en = KAL_FALSE,
 	.fast_mode_on = KAL_FALSE,
