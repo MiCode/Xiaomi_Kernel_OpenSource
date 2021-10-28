@@ -515,25 +515,28 @@ static int kwdt_thread(void *arg)
 
 static int start_kicker(void)
 {
-
 	int i;
 
 	for (i = 0; i < CPU_NR; i++) {
-		cpuid_t[i] = i;
-		wk_tsk[i] = kthread_create(kwdt_thread,
-			(void *) &cpuid_t[i], "wdtk-%d", i);
-		if (IS_ERR(wk_tsk[i])) {
-			int ret = PTR_ERR(wk_tsk[i]);
+		if (cpu_online(i)) {
+			cpuid_t[i] = i;
+			wk_tsk[i] = kthread_create(kwdt_thread,
+				(void *) &cpuid_t[i], "wdtk-%d", i);
+			if (IS_ERR(wk_tsk[i])) {
+				int ret = PTR_ERR(wk_tsk[i]);
 
-			wk_tsk[i] = NULL;
-			pr_info("[wdk]kthread_create failed, wdtk-%d\n", i);
-			return ret;
-		}
-		/* wk_cpu_update_bit_flag(i,1); */
-		wk_start_kick_cpu(i);
+				wk_tsk[i] = NULL;
+				pr_info("[wdk]kthread_create failed, wdtk-%d\n", i);
+				return ret;
+			}
+			/* wk_cpu_update_bit_flag(i,1); */
+			wk_start_kick_cpu(i);
+		} else
+			atomic_andnot(1 << i, &plug_mask);
 	}
 	g_kicker_init = 1;
-	pr_info("[wdk] WDT start kicker done CPU_NR=%d\n", CPU_NR);
+	pr_info("[wdk] WDT start kicker done CPU_NR=%d online cpu NR%d\n",
+		CPU_NR, num_online_cpus());
 	return 0;
 }
 
