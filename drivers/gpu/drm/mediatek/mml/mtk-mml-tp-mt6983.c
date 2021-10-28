@@ -403,11 +403,15 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 	path->tile_engine_cnt = tile_idx;
 
 	/* scan out engines */
-	out_eng_idx = 0;
-	for (i = 0; i < path->node_cnt && out_eng_idx < MML_MAX_OUTPUTS; i++) {
+	for (i = 0; i < path->node_cnt; i++) {
 		if (!engine_wrot(path->nodes[i].id))
 			continue;
-		path->out_engine_ids[out_eng_idx++] = path->nodes[i].id;
+		out_eng_idx = path->nodes[i].out_idx;
+		if (path->out_engine_ids[out_eng_idx])
+			mml_err("[topology]multiple out engines: was %hhu now %hhu on out idx:%hhu",
+				path->out_engine_ids[out_eng_idx],
+				path->nodes[i].id, out_eng_idx);
+		path->out_engine_ids[out_eng_idx] = path->nodes[i].id;
 	}
 
 	if (path->tile_engine_cnt == 2)
