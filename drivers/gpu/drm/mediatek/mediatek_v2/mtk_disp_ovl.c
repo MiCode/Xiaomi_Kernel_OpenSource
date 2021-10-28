@@ -1544,7 +1544,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		if (pending->mml_mode == MML_MODE_RACING) {
 			dma_addr_t sram_addr = pending->addr;
-
+			sram_addr += offset;
 			// enable
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_SYSRAM_CFG(lye_idx), 1,
@@ -1562,6 +1562,13 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				0x000F0000, GENMASK(19, 16));
 
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, sram_addr);
+
+			if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
+				// setting SMI for read SRAM
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					(resource_size_t)(0x14421000) + SMI_LARB_NON_SEC_CON + 4*9,
+					0x000F0000, GENMASK(19, 16));
+			}
 		} else {
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
 		}
@@ -2091,6 +2098,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
 			0x00000000, GENMASK(19, 16));
+		if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
+			// setting SMI for read SRAM
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				(resource_size_t)(0x14421000) + SMI_LARB_NON_SEC_CON + 4*9,
+				0x00000000, GENMASK(19, 16));
+		}
 	}
 
 	/* if no compress, do common config and return */

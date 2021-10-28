@@ -133,7 +133,8 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_DLI_ASYNC:
 		mtk_dli_async_dump(comp);
 		break;
-	case DDP_COMPONENT_INLINE_ROTATE:
+	case DDP_COMPONENT_INLINE_ROTATE0:
+	case DDP_COMPONENT_INLINE_ROTATE1:
 		mtk_inlinerotate_dump(comp);
 		break;
 	case DDP_COMPONENT_MMLSYS_BYPASS:

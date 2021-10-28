@@ -4176,6 +4176,7 @@ struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
 	struct platform_device *mml_pdev = NULL;
 	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mml_drm_param disp_param = {};
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	if (priv->mml_ctx != NULL) {
 		return priv->mml_ctx;
@@ -4193,7 +4194,7 @@ struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
 		goto err_handle_mtk_drm_get_mml_drm_ctx;
 	}
 
-	disp_param.dual = false;
+	disp_param.dual = mtk_crtc->is_dual_pipe;
 	disp_param.racing_height = 64;
 	disp_param.vdo_mode =  (!mtk_crtc_is_frame_trigger_mode(crtc));
 	disp_param.submit_cb = mtk_drm_mmlsys_submit_done_cb;

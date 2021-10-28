@@ -305,7 +305,11 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	{
 		struct mtk_ddp_comp *comp = NULL;
 
-		comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE];
+		comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE0];
+		if (comp)
+			mtk_dump_reg(comp);
+
+		comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE1];
 		if (comp)
 			mtk_dump_reg(comp);
 	}
@@ -6235,18 +6239,33 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 		return;
 
 	if (mtk_crtc->is_mml) {
-		comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE];
+		comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE0];
 		if (comp && comp->funcs && comp->funcs->addon_config)
 			comp->funcs->addon_config(comp, 0, 0, NULL, cmdq_handle);
 		else
 			DDPINFO("%s not in", __func__);
 
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc,
-			DDP_COMPONENT_INLINE_ROTATE,
-			false,
+			DDP_COMPONENT_INLINE_ROTATE0,
+			mtk_crtc_is_frame_trigger_mode(crtc),
 			cmdq_handle,
 			mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode,
 				DDP_COMPONENT_OVL0_2L));
+
+		if (mtk_crtc->is_dual_pipe) {
+			comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE1];
+			if (comp && comp->funcs && comp->funcs->addon_config)
+				comp->funcs->addon_config(comp, 0, 0, NULL, cmdq_handle);
+			else
+				DDPINFO("%s not in", __func__);
+
+			mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc,
+				DDP_COMPONENT_INLINE_ROTATE1,
+				mtk_crtc_is_frame_trigger_mode(crtc),
+				cmdq_handle,
+				mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode,
+					DDP_COMPONENT_OVL0_2L));
+		}
 
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
