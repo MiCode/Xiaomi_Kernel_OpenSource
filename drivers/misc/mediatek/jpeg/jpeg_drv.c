@@ -49,20 +49,6 @@ static struct dmabuf_info bufInfo[HW_CORE_NUMBER];
 int jpg_dbg_level;
 module_param(jpg_dbg_level, int, 0644);
 
-static int jpeg_drv_hybrid_dec_suspend(void)
-{
-	int i;
-
-	JPEG_LOG(0, "+");
-	for (i = 0 ; i < HW_CORE_NUMBER; i++) {
-		JPEG_LOG(1, "jpeg dec suspend core %d", i);
-		if (dec_hwlocked[i]) {
-			JPEG_LOG(0, "jpeg dec suspend core %d fail", i);
-		}
-	}
-	return 0;
-}
-
 static int jpeg_drv_hybrid_dec_suspend_notifier(
 					struct notifier_block *nb,
 					unsigned long action, void *data)
@@ -425,6 +411,21 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 	jpg_dmabuf_free_iova(bufInfo[hwid].o_dbuf, bufInfo[hwid].o_attach, bufInfo[hwid].o_sgt);
 	jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
 	mutex_unlock(&jpeg_hybrid_dec_lock);
+}
+
+static int jpeg_drv_hybrid_dec_suspend(void)
+{
+	int i;
+
+	JPEG_LOG(0, "+");
+	for (i = 0 ; i < HW_CORE_NUMBER; i++) {
+		JPEG_LOG(1, "jpeg dec suspend core %d", i);
+		if (dec_hwlocked[i]) {
+			JPEG_LOG(0, "suspend unlock core %d\n", i);
+			jpeg_drv_hybrid_dec_unlock(i);
+		}
+	}
+	return 0;
 }
 
 static int jpeg_drv_hybrid_dec_get_status(int hwid)
