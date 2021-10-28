@@ -790,7 +790,7 @@ struct mtk_drm_crtc {
 	struct dual_te d_te;
 
 	// MML inline rotate SRAM
-	struct slbc_data mml_ir_sram;
+	struct slbc_data *mml_ir_sram;
 	struct mml_submit *mml_cfg;
 	struct mtk_mml_cb_para mml_cb;
 

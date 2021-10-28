@@ -2116,10 +2116,14 @@ static void mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc)
 	if (!mtk_crtc)
 		return;
 
-	sram = &(mtk_crtc->mml_ir_sram);
+	if (mtk_crtc->mml_ir_sram)
+		return;
+
+	mtk_crtc->mml_ir_sram = kzalloc(sizeof(struct slbc_data), GFP_KERNEL);
+	sram = mtk_crtc->mml_ir_sram;
 	sram->type = TP_BUFFER;
 	sram->size = 0;
-	sram->uid = UID_MML;
+	sram->uid = UID_DISP;
 	sram->flag = 0;
 	if (slbc_request(sram) >= 0) {
 		ret = slbc_power_on(sram);
@@ -2128,10 +2132,14 @@ static void mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc)
 		DDPINFO("%s fail\n", __func__);
 }
 
-static void mtk_crtc_delete_sram(struct mtk_drm_crtc *mtk_crtc)
+static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 {
-	slbc_power_off(&mtk_crtc->mml_ir_sram);
-	slbc_release(&mtk_crtc->mml_ir_sram);
+	if (mtk_crtc->mml_ir_sram == NULL)
+		return;
+
+	slbc_power_off(mtk_crtc->mml_ir_sram);
+	slbc_release(mtk_crtc->mml_ir_sram);
+	mtk_crtc->mml_ir_sram = NULL;
 }
 
 static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
@@ -2175,7 +2183,7 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 				if (cur_is_mml)
 					mtk_crtc_alloc_sram(mtk_crtc);
 				else if (prev_is_mml)
-					mtk_crtc_delete_sram(mtk_crtc);
+					mtk_crtc_free_sram(mtk_crtc);
 			}
 		}
 
@@ -5298,6 +5306,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	if (mtk_crtc->mml_cfg) {
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
+		mtk_crtc_free_sram(mtk_crtc);
 	}
 
 	if (crtc_id == 2) {
@@ -5546,6 +5555,9 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 14. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
 
+	/* 15. alloc sram if last is MML */
+	if (mtk_crtc->mml_cfg)
+		mtk_crtc_alloc_sram(mtk_crtc);
 end:
 	CRTC_MMP_EVENT_END(crtc_id, enable,
 			mtk_crtc->enabled, 0);
@@ -8976,6 +8988,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc->mmsys_reg_data = priv->reg_data;
 	mtk_crtc->path_data = path_data;
 	mtk_crtc->is_dual_pipe = false;
+	mtk_crtc->mml_ir_sram = NULL;
 
 	for (i = 0; i < DDP_MODE_NR; i++) {
 		for (j = 0; j < DDP_PATH_NR; j++) {
