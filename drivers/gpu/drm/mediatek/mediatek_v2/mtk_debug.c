@@ -104,7 +104,12 @@ struct logger_buffer {
 	const unsigned int size;
 };
 
-static DEFINE_SPINLOCK(dprec_logger_spinlock);
+static DEFINE_SPINLOCK(dprec_err_logger_spinlock);
+static DEFINE_SPINLOCK(dprec_fence_logger_spinlock);
+static DEFINE_SPINLOCK(dprec_dbg_logger_spinlock);
+static DEFINE_SPINLOCK(dprec_dump_logger_spinlock);
+/* redundant spin lock prevent exception condition */
+static DEFINE_SPINLOCK(dprec_status_logger_spinlock);
 
 static char **err_buffer;
 static char **fence_buffer;
@@ -276,6 +281,25 @@ err:
 	DDPPR_ERR("[DISP]%s: log buffer allocation fail\n", __func__);
 }
 
+static inline spinlock_t *dprec_logger_lock(enum DPREC_LOGGER_PR_TYPE type)
+{
+	switch (type) {
+	case DPREC_LOGGER_ERROR:
+		return &dprec_err_logger_spinlock;
+	case DPREC_LOGGER_FENCE:
+		return &dprec_fence_logger_spinlock;
+	case DPREC_LOGGER_DEBUG:
+		return &dprec_dbg_logger_spinlock;
+	case DPREC_LOGGER_DUMP:
+		return &dprec_dump_logger_spinlock;
+	case DPREC_LOGGER_STATUS:
+		return &dprec_status_logger_spinlock;
+	default:
+		DDPPR_ERR("invalid logger type\n");
+	}
+	return NULL;
+}
+
 int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...)
 {
 	int n = 0;
@@ -292,7 +316,7 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...)
 	if (!is_buffer_init)
 		return -1;
 
-	spin_lock_irqsave(&dprec_logger_spinlock, flags);
+	spin_lock_irqsave(dprec_logger_lock(type), flags);
 	if (dprec_logger_buffer[type].len < 128) {
 		dprec_logger_buffer[type].id++;
 		dprec_logger_buffer[type].id = dprec_logger_buffer[type].id %
@@ -317,7 +341,7 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...)
 	}
 
 	dprec_logger_buffer[type].len -= n;
-	spin_unlock_irqrestore(&dprec_logger_spinlock, flags);
+	spin_unlock_irqrestore(dprec_logger_lock(type), flags);
 
 	return n;
 }
