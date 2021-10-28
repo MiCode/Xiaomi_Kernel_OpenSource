@@ -369,34 +369,48 @@ static const struct mtk_iommu_iova_region mt6879_multi_dom[] = {
 };
 
 /*
- * 0,NORMAL:
- *   212MB:           0x32BF_FFFF~0x3FFF_FFFF
- *   96MB:            0x1_0000_0000~0x1_05FF_FFFF
- *   256M + 10GB:     0x1_7000_0000~0x3_FFFF_FFFF
- * 1,APU_SECURE:      0x1000~0x1FFF_FFFF
- * 2.VDEC:            0x2000_0000~0x32BF_FFFF
- * 3.APU_CODE:        0x4000_0000~0xFFFF_FFFF
- * 4.LK_RESV:         0x1_0600_0000~0x1_07FF_FFFF
- * 5.CCU0:            0x1_0800_0000~0x1_0BFF_FFFF
- * 6.CCU1:            0x1_0C00_0000~0x1_0FFF_FFFF
- * 7.VDO_UP_512MB_1:  0x1_1000_0000~0x1_2FFF_FFFF
- * 8.VDO_UP_512MB_2:  0x1_3000_0000~0x1_4FFF_FFFF
- * 9.VDO_UP_256MB_1:  0x1_5000_0000~0x1_5FFF_FFFF
- * 10.VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF
+ * 0.NORMAL: total: 14.04GB
+ *	-NORMAL: 0x1000~0x1FFF_FFFF(512MB)
+ *	-VDEC
+ *	-NORMAL: 0x32C0_0000~0xFFFF_FFFF(3.2GB)
+ *	-NORMAL: 0x1_0000_0000~0x1_05FF_FFFF(96MB)
+ *	-LK + CCU + Video uP
+ *	-NORMAL: 0x1_7000_0000~0x3_FFFF_FFFF(10.25GB)
+ * 1.VDEC:           0x2000_0000~0x32BF_FFFF(300MB)
+ * 2.LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF(32MB)
+ * 3.CCU0:           0x1_0800_0000~0x1_0BFF_FFFF(64MB)
+ * 4.CCU1:           0x1_0C00_0000~0x1_0FFF_FFFF(64MB)
+ * 5.VDO_UP_512MB_1: 0x1_1000_0000~0x1_2FFF_FFFF(512MB)
+ * 6.VDO_UP_512MB_2: 0x1_3000_0000~0x1_4FFF_FFFF(512MB)
+ * 7.VDO_UP_256MB_1: 0x1_5000_0000~0x1_5FFF_FFFF(256MB)
+ * 8.VDO_UP_256MB_1: 0x1_6000_0000~0x1_6FFF_FFFF(256MB)
  */
-static const struct mtk_iommu_iova_region mt6895_multi_dom[] = {
-	/* 0, NORMAL:212MB+96MB+256M+10GB */
-	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL},
+static const struct mtk_iommu_iova_region mt6895_multi_dom_mm[] = {
+	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL}, /*0. NORMAL */
+	{ .iova_base = 0x20000000ULL, .size = 0x12c00000, .type = NORMAL}, /* 1,VDEC 300MB */
+	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = NORMAL}, /* 2,LK_RESV:32MB */
+	{ .iova_base = 0x108000000ULL, .size = SZ_64M, .type = PROTECTED}, /* 3,CCU0:64MB */
+	{ .iova_base = 0x10C000000ULL, .size = SZ_64M, .type = PROTECTED}, /* 4,CCU1:64MB */
+	{ .iova_base = 0x110000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 5,VDO_UP_512MB_1 */
+	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 6,VDO_UP_512MB_2 */
+	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 7,VDO_UP_256MB_1 */
+	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 8,VDO_UP_256MB_1 */
+};
+
+/*
+ * 0,APU_DATA(NORMAL): 12.375GB
+ *	0x2000_0000~0x3FFF_FFFF(512MB)
+ *	0x1_0000_0000~0x1_05FF_FFFF(96MB)
+ *	0x1_0800_0000~0x3_FFFF_FFFF(11.875GB)
+ * 1,APU_SECURE:     0x1000~0x1FFF_FFFF(512MB)
+ * 2.APU_CODE:       0x4000_0000~0xFFFF_FFFF(3GB)
+ * 3.LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF(32MB)
+ */
+static const struct mtk_iommu_iova_region mt6895_multi_dom_apu[] = {
+	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL},/*0. APU_DATA */
 	{ .iova_base = SZ_4K, .size = (SZ_512M - SZ_4K), .type = SECURE}, /* 1,APU_SECURE:512M */
-	{ .iova_base = SZ_512M, .size = 0x12c00000, .type = NORMAL}, /* 2,VDEC 300MB */
-	{ .iova_base = SZ_1G, .size = (SZ_2G + SZ_1G), .type = NORMAL}, /* 3,APU_CODE:3GB */
-	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = PROTECTED}, /* 4,LK_RESV:32MB */
-	{ .iova_base = 0x108000000ULL, .size = SZ_64M, .type = PROTECTED}, /* 5,CCU0:64MB */
-	{ .iova_base = 0x10C000000ULL, .size = SZ_64M, .type = PROTECTED}, /* 6,CCU1:64MB */
-	{ .iova_base = 0x110000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 7,VDO_UP_512MB_1 */
-	{ .iova_base = 0x130000000ULL, .size = SZ_512M, .type = PROTECTED}, /* 8,VDO_UP_512MB_2 */
-	{ .iova_base = 0x150000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 9,VDO_UP_256MB_1 */
-	{ .iova_base = 0x160000000ULL, .size = SZ_256M, .type = PROTECTED}, /* 10,VDO_UP_256MB_1 */
+	{ .iova_base = SZ_1G, .size = (SZ_1G * 3ULL), .type = NORMAL}, /* 2,APU_CODE:3GB */
+	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = NORMAL}, /* 3,LK_RESV:32MB */
 };
 
 /*
@@ -3188,13 +3202,15 @@ static const struct mtk_iommu_plat_data mt6895_data_disp = {
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN | IOMMU_MAU_EN |
-			  HAS_SMI_SUB_COMM | SAME_SUBSYS | HAS_BCLK | SHARE_PGTABLE,
+			  HAS_SMI_SUB_COMM | SAME_SUBSYS | HAS_BCLK,
+	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
+	.tab_id		= MM_TABLE,
 	.normal_dom	= 0,
-	.iova_region    = mt6895_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.iova_region    = mt6895_multi_dom_mm,
+	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom_mm),
 	.mau_count	= 4,
 	/* not use larbid_remap */
 };
@@ -3204,13 +3220,15 @@ static const struct mtk_iommu_plat_data mt6895_data_mdp = {
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN | IOMMU_MAU_EN |
-			  HAS_SMI_SUB_COMM | SAME_SUBSYS | HAS_BCLK | SHARE_PGTABLE,
+			  HAS_SMI_SUB_COMM | SAME_SUBSYS | HAS_BCLK,
+	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
 	.iommu_type     = MM_IOMMU,
+	.tab_id		= MM_TABLE,
 	.normal_dom	= 0,
-	.iova_region    = mt6895_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.iova_region    = mt6895_multi_dom_mm,
+	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom_mm),
 	.mau_count	= 4,
 	/* not use larbid_remap */
 };
@@ -3219,13 +3237,15 @@ static const struct mtk_iommu_plat_data mt6895_data_apu0 = {
 	.m4u_plat	= M4U_MT6895,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
-			  PM_OPS_SKIP | SHARE_PGTABLE,
+			  PM_OPS_SKIP,
+	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU0,
 	.iommu_type     = APU_IOMMU,
+	.tab_id		= APU_TABLE,
 	.normal_dom	= 0,
-	.iova_region    = mt6895_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.iova_region    = mt6895_multi_dom_apu,
+	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom_apu),
 	.mau_count	= 4,
 	/* not use larbid_remap */
 };
@@ -3234,57 +3254,16 @@ static const struct mtk_iommu_plat_data mt6895_data_apu1 = {
 	.m4u_plat	= M4U_MT6895,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
-			  PM_OPS_SKIP | SHARE_PGTABLE,
+			  PM_OPS_SKIP,
+	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU1,
 	.iommu_type     = APU_IOMMU,
+	.tab_id		= APU_TABLE,
 	.normal_dom	= 0,
-	.iova_region    = mt6895_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
+	.iova_region    = mt6895_multi_dom_apu,
+	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom_apu),
 	.mau_count	= 4,
-	/* not use larbid_remap */
-};
-
-static const struct mtk_iommu_plat_data mt6895_data_peri_m4 = {
-	.m4u_plat	= M4U_MT6895,
-	.flags          = HAS_SUB_COMM | SET_TBW_ID | TLB_SYNC_EN |
-			  GET_DOM_ID_LEGACY | IOMMU_SEC_BK_EN | IOMMU_NO_IRQ |
-			  IOVA_34_EN | SHARE_PGTABLE,
-	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
-	.tbw_reg_val	= 0x3ffc3ffd,
-	.iommu_id	= PERI_IOMMU_M4,
-	.iommu_type     = PERI_IOMMU,
-	.normal_dom	= 0,
-	.iova_region    = mt6895_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
-	/* not use larbid_remap */
-};
-
-static const struct mtk_iommu_plat_data mt6895_data_peri_m6 = {
-	.m4u_plat	= M4U_MT6895,
-	.flags          = HAS_SUB_COMM | SET_TBW_ID | TLB_SYNC_EN |
-			  GET_DOM_ID_LEGACY | IOMMU_SEC_BK_EN | IOMMU_NO_IRQ |
-			  IOVA_34_EN | SHARE_PGTABLE,
-	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
-	.tbw_reg_val	= 0x03fc03fd,
-	.iommu_id	= PERI_IOMMU_M6,
-	.iommu_type     = PERI_IOMMU,
-	.normal_dom	= 0,
-	.iova_region    = mt6895_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
-	/* not use larbid_remap */
-};
-
-static const struct mtk_iommu_plat_data mt6895_data_peri_m7 = {
-	.m4u_plat	= M4U_MT6895,
-	.flags          = HAS_SUB_COMM | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
-			  GET_DOM_ID_LEGACY | IOMMU_NO_IRQ | IOVA_34_EN | SHARE_PGTABLE,
-	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
-	.iommu_id	= PERI_IOMMU_M7,
-	.iommu_type     = PERI_IOMMU,
-	.normal_dom	= 0,
-	.iova_region    = mt6895_multi_dom,
-	.iova_region_nr = ARRAY_SIZE(mt6895_multi_dom),
 	/* not use larbid_remap */
 };
 
@@ -3436,11 +3415,6 @@ static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt6895-mdp-iommu", .data = &mt6895_data_mdp},
 	{ .compatible = "mediatek,mt6895-apu-iommu0", .data = &mt6895_data_apu0},
 	{ .compatible = "mediatek,mt6895-apu-iommu1", .data = &mt6895_data_apu1},
-#ifdef IOMMU_NO_USE
-	{ .compatible = "mediatek,mt6895-peri-iommu-m4", .data = &mt6895_data_peri_m4},
-	{ .compatible = "mediatek,mt6895-peri-iommu-m6", .data = &mt6895_data_peri_m6},
-	{ .compatible = "mediatek,mt6895-peri-iommu-m7", .data = &mt6895_data_peri_m7},
-#endif
 	{ .compatible = "mediatek,mt6983-apu-iommu0", .data = &mt6983_data_apu0},
 	{ .compatible = "mediatek,mt6983-apu-iommu1", .data = &mt6983_data_apu1},
 	{ .compatible = "mediatek,mt6983-disp-iommu", .data = &mt6983_data_disp},
