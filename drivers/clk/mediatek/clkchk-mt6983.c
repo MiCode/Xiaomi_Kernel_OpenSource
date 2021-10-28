@@ -570,9 +570,6 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 static const char * const off_pll_names[] = {
 	"msdcpll",
 	"univpll",
-	"adsppll",
-	"apll1",
-	"apll2",
 	"mmpll",
 	"tvdpll",
 	"imgpll",
@@ -582,6 +579,9 @@ static const char * const off_pll_names[] = {
 };
 
 static const char * const notice_pll_names[] = {
+	"adsppll",
+	"apll1",
+	"apll2",
 	"apu_ao_apupll",
 	"apu_ao_npupll",
 	"apu_ao_apupll1",
