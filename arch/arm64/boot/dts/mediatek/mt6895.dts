@@ -1766,9 +1766,6 @@
 			compatible = "mediatek,dvfsrc-met";
 		};
 
-		goodix_fp: fingerprint {
-			compatible = "mediatek,goodix-fp";
-		};
 	};
 
 		keypad: kp@1c00e000 {
@@ -3319,6 +3316,10 @@
 
 		touch: touch {
 			compatible = "mediatek,touch";
+		};
+
+		goodix_fp: fingerprint {
+			compatible = "mediatek,goodix-fp";
 		};
 
 		apupll_pll_ctrl_clk: syscon@190f3000 {
