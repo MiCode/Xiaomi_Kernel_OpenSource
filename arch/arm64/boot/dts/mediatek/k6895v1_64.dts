@@ -11,7 +11,7 @@
 #include <dt-bindings/pinctrl/mt6895-pinfunc.h>
 
 &chosen {
-	bootargs_ext = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+	bootargs_ext = "console=tty0 root=/dev/ram \
 loglevel=8 \
 androidboot.hardware=mt6895 \
 initcall_debug=1 ";
