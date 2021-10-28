@@ -3570,6 +3570,7 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 	int irq;
 	int ret, len;
 	const __be32 *ranges = NULL;
+	unsigned int inten = 0;
 
 	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -3606,6 +3607,8 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 	if (ranges && priv->data && priv->data->is_support_34bits)
 		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 
+	inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+	writel(inten, priv->ddp_comp.regs + DISP_REG_OVL_INTEN);
 	ret = devm_request_irq(dev, irq, mtk_disp_ovl_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
 			       priv);
