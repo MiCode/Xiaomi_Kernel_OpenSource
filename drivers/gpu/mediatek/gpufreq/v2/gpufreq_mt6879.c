@@ -121,7 +121,6 @@ static int __gpufreq_clock_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
 static int __gpufreq_buck_control(enum gpufreq_power_state power);
 static void __gpufreq_aoc_control(enum gpufreq_power_state power);
-static void __gpufreq_pdc_control(void);
 static void __gpufreq_hw_dcm_control(void);
 static void __gpufreq_acp_control(void);
 /* init function */
@@ -227,6 +226,8 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.get_asensor_info = __gpufreq_get_asensor_info,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
+	.pdc_control = __gpufreq_pdc_control,
+	.fake_spm_mtcmos_control = __gpufreq_fake_spm_mtcmos_control,
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
@@ -237,6 +238,8 @@ static struct gpufreq_platform_fp platform_eb_fp = {
 	.get_dyn_pgpu = __gpufreq_get_dyn_pgpu,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
+	.pdc_control = __gpufreq_pdc_control,
+	.fake_spm_mtcmos_control = __gpufreq_fake_spm_mtcmos_control,
 };
 
 /**
@@ -685,10 +688,8 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		}
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_05);
 
-#if GPUFREQ_PDCv2_ENABLE
 		/* set PDCv2 register when power on, let GPU DDK control MTCMOS itself */
-		__gpufreq_pdc_control();
-#endif
+		__gpufreq_pdc_control(POWER_ON);
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_06);
 
 		/* control ACP */
@@ -1162,6 +1163,110 @@ struct gpufreq_core_mask_info *__gpufreq_get_core_mask_table(void)
 unsigned int __gpufreq_get_core_num(void)
 {
 	return SHADER_CORE_NUM;
+}
+
+/* PDCv2: GPU IP automatically control GPU shader MTCMOS */
+void __gpufreq_pdc_control(enum gpufreq_power_state power)
+{
+#if GPUFREQ_PDCv2_ENABLE
+	u32 val = 0;
+
+	if (power == POWER_ON) {
+		/* MFG_ACTIVE_POWER_CON_CG_06 0x13FBF100 [0] rg_cg_active_pwrctl_en = 1'b1 */
+		val = readl(g_mfg_top_base + 0x100);
+		val |= (1UL << 0);
+		writel(val, g_mfg_top_base + 0x100);
+
+		/* MFG_ACTIVE_POWER_CON_00 0x13FBF400 [0] rg_sc0_active_pwrctl_en = 1'b1 */
+		val = readl(g_mfg_top_base + 0x400);
+		val |= (1UL << 0);
+		writel(val, g_mfg_top_base + 0x400);
+
+		/* MFG_ACTIVE_POWER_CON_06 0x13FBF418 [0] rg_sc1_active_pwrctl_en = 1'b1 */
+		val = readl(g_mfg_top_base + 0x418);
+		val |= (1UL << 0);
+		writel(val, g_mfg_top_base + 0x418);
+
+		/* MFG_ACTIVE_POWER_CON_12 0x13FBF430 [0] rg_sc2_active_pwrctl_en = 1'b1 */
+		val = readl(g_mfg_top_base + 0x430);
+		val |= (1UL << 0);
+		writel(val, g_mfg_top_base + 0x430);
+
+		/* MFG_ACTIVE_POWER_CON_01 0x13FBF404 [31] rg_sc0_active_pwrctl_rsv = 1'b1 */
+		val = readl(g_mfg_top_base + 0x404);
+		val |= (1UL << 31);
+		writel(val, g_mfg_top_base + 0x404);
+
+		/* MFG_ACTIVE_POWER_CON_07 0x13FBF41C [31] rg_sc1_active_pwrctl_rsv = 1'b1 */
+		val = readl(g_mfg_top_base + 0x41C);
+		val |= (1UL << 31);
+		writel(val, g_mfg_top_base + 0x41C);
+
+		/* MFG_ACTIVE_POWER_CON_13 0x13FBF434 [31] rg_sc2_active_pwrctl_rsv = 1'b1 */
+		val = readl(g_mfg_top_base + 0x434);
+		val |= (1UL << 31);
+		writel(val, g_mfg_top_base + 0x434);
+	} else {
+		/* MFG_ACTIVE_POWER_CON_CG_06 0x13FBF100 [0] rg_cg_active_pwrctl_en = 1'b0 */
+		val = readl(g_mfg_top_base + 0x100);
+		val &= ~(1UL << 0);
+		writel(val, g_mfg_top_base + 0x100);
+
+		/* MFG_ACTIVE_POWER_CON_00 0x13FBF400 [0] rg_sc0_active_pwrctl_en = 1'b0 */
+		val = readl(g_mfg_top_base + 0x400);
+		val &= ~(1UL << 0);
+		writel(val, g_mfg_top_base + 0x400);
+
+		/* MFG_ACTIVE_POWER_CON_06 0x13FBF418 [0] rg_sc1_active_pwrctl_en = 1'b0 */
+		val = readl(g_mfg_top_base + 0x418);
+		val &= ~(1UL << 0);
+		writel(val, g_mfg_top_base + 0x418);
+
+		/* MFG_ACTIVE_POWER_CON_12 0x13FBF430 [0] rg_sc2_active_pwrctl_en = 1'b0 */
+		val = readl(g_mfg_top_base + 0x430);
+		val &= ~(1UL << 0);
+		writel(val, g_mfg_top_base + 0x430);
+
+		/* MFG_ACTIVE_POWER_CON_01 0x13FBF404 [31] rg_sc0_active_pwrctl_rsv = 1'b0 */
+		val = readl(g_mfg_top_base + 0x404);
+		val &= ~(1UL << 31);
+		writel(val, g_mfg_top_base + 0x404);
+
+		/* MFG_ACTIVE_POWER_CON_07 0x13FBF41C [31] rg_sc1_active_pwrctl_rsv = 1'b0 */
+		val = readl(g_mfg_top_base + 0x41C);
+		val &= ~(1UL << 31);
+		writel(val, g_mfg_top_base + 0x41C);
+
+		/* MFG_ACTIVE_POWER_CON_13 0x13FBF434 [31] rg_sc2_active_pwrctl_rsv = 1'b0 */
+		val = readl(g_mfg_top_base + 0x434);
+		val &= ~(1UL << 31);
+		writel(val, g_mfg_top_base + 0x434);
+	}
+#else
+	GPUFREQ_UNREFERENCED(power);
+#endif /* GPUFREQ_PDCv2_ENABLE */
+}
+
+/* API: fake PWR_CON value to temporarily disable PDCv2 */
+void __gpufreq_fake_spm_mtcmos_control(enum gpufreq_power_state power)
+{
+#if GPUFREQ_PDCv2_ENABLE
+	if (power == POWER_ON) {
+		/* fake power on value of SPM MFG2-5 */
+		writel(0xC000000D, g_sleep + 0xEC0); /* MFG2  */
+		writel(0xC000000D, g_sleep + 0xEC4); /* MFG3  */
+		writel(0xC000000D, g_sleep + 0xEC8); /* MFG4  */
+		writel(0xC000000D, g_sleep + 0xECC); /* MFG5  */
+	} else {
+		/* fake power off value of SPM MFG2-5 */
+		writel(0x1112, g_sleep + 0xECC); /* MFG5  */
+		writel(0x1112, g_sleep + 0xEC8); /* MFG4  */
+		writel(0x1112, g_sleep + 0xEC4); /* MFG3  */
+		writel(0x1112, g_sleep + 0xEC0); /* MFG2  */
+	}
+#else
+	GPUFREQ_UNREFERENCED(power);
+#endif /* GPUFREQ_PDCv2_ENABLE */
 }
 
 /**
@@ -2282,47 +2387,6 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 	val = readl(g_sleep + 0x6AC);
 	val |= (1UL << 0);
 	writel(val, g_sleep + 0x6AC);
-}
-
-/* PDCv2: GPU FW Control GPU shader cores itself */
-static void __gpufreq_pdc_control(void)
-{
-	u32 val = 0;
-
-	/* MFG_ACTIVE_POWER_CON_CG_06 0x13FBF100 [0] rg_cg_active_pwrctl_en = 1'b1 */
-	val = readl(g_mfg_top_base + 0x100);
-	val |= (1UL << 0);
-	writel(val, g_mfg_top_base + 0x100);
-
-	/* MFG_ACTIVE_POWER_CON_00 0x13FBF400 [0] rg_sc0_active_pwrctl_en = 1'b1 */
-	val = readl(g_mfg_top_base + 0x400);
-	val |= (1UL << 0);
-	writel(val, g_mfg_top_base + 0x400);
-
-	/* MFG_ACTIVE_POWER_CON_06 0x13FBF418 [0] rg_sc1_active_pwrctl_en = 1'b1 */
-	val = readl(g_mfg_top_base + 0x418);
-	val |= (1UL << 0);
-	writel(val, g_mfg_top_base + 0x418);
-
-	/* MFG_ACTIVE_POWER_CON_12 0x13FBF430 [0] rg_sc2_active_pwrctl_en = 1'b1 */
-	val = readl(g_mfg_top_base + 0x430);
-	val |= (1UL << 0);
-	writel(val, g_mfg_top_base + 0x430);
-
-	/* MFG_ACTIVE_POWER_CON_01 0x13FBF404 [31] rg_sc0_active_pwrctl_rsv = 1'b1 */
-	val = readl(g_mfg_top_base + 0x404);
-	val |= (1UL << 31);
-	writel(val, g_mfg_top_base + 0x404);
-
-	/* MFG_ACTIVE_POWER_CON_07 0x13FBF41c [31] rg_sc1_active_pwrctl_rsv = 1'b1 */
-	val = readl(g_mfg_top_base + 0x41c);
-	val |= (1UL << 31);
-	writel(val, g_mfg_top_base + 0x41c);
-
-	/* MFG_ACTIVE_POWER_CON_13 0x13FBF434 [31] rg_sc2_active_pwrctl_rsv = 1'b1 */
-	val = readl(g_mfg_top_base + 0x434);
-	val |= (1UL << 31);
-	writel(val, g_mfg_top_base + 0x434);
 }
 
 /* ACP: GPU can access CPU cache directly */

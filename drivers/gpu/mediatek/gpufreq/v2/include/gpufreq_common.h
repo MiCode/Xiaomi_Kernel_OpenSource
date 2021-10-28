@@ -142,6 +142,8 @@ struct gpufreq_asensor_info __gpufreq_get_asensor_info(void);
 struct gpufreq_core_mask_info *__gpufreq_get_core_mask_table(void);
 unsigned int __gpufreq_get_core_num(void);
 void __gpufreq_get_critical_volt(const struct gpufreq_opp_info *opp_table);
+void __gpufreq_pdc_control(enum gpufreq_power_state power);
+void __gpufreq_fake_spm_mtcmos_control(enum gpufreq_power_state power);
 /* GPU */
 unsigned int __gpufreq_get_cur_fgpu(void);
 unsigned int __gpufreq_get_cur_vgpu(void);

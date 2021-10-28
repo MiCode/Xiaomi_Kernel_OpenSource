@@ -167,6 +167,8 @@ struct gpufreq_platform_fp {
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
 	void (*get_critical_volt)(const struct gpufreq_opp_info *opp_table);
+	void (*pdc_control)(enum gpufreq_power_state power);
+	void (*fake_spm_mtcmos_control)(enum gpufreq_power_state power);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);
@@ -268,6 +270,10 @@ int gpufreq_get_cur_limit_idx(enum gpufreq_target target,enum gpuppm_limit_type 
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit);
 int gpufreq_power_control(enum gpufreq_power_state power);
 int gpufreq_commit(enum gpufreq_target target, int oppidx);
+struct gpufreq_core_mask_info *gpufreq_get_core_mask_table(void);
+unsigned int gpufreq_get_core_num(void);
+void gpufreq_pdc_control(enum gpufreq_power_state power);
+void gpufreq_fake_spm_mtcmos_control(enum gpufreq_power_state power);
 void gpufreq_register_gpufreq_fp(struct gpufreq_platform_fp *platform_fp);
 void gpufreq_register_gpuppm_fp(struct gpuppm_platform_fp *platform_fp);
 
@@ -286,7 +292,5 @@ int gpufreq_set_stress_test(unsigned int mode);
 int gpufreq_set_aging_mode(unsigned int mode);
 int gpufreq_set_gpm_mode(unsigned int mode);
 struct gpufreq_asensor_info gpufreq_get_asensor_info(void);
-struct gpufreq_core_mask_info *gpufreq_get_core_mask_table(void);
-unsigned int gpufreq_get_core_num(void);
 
 #endif /* __GPUFREQ_V2_H__ */
