@@ -87,7 +87,7 @@ struct ccci_smem_region md1_6297_cacheable[] = {
  * will be re-calculated during port initialization. and please be
  * aware of that CCB user's size will be aligned to 4KB.
  */
-{SMEM_USER_RAW_MD_CONSYS,	0,	0, SMF_NCLR_FIRST, },
+{SMEM_USER_RAW_MD_CONSYS,	0,	0, (SMF_NCLR_FIRST | SMF_NO_REMAP), },
 {SMEM_USER_MD_NVRAM_CACHE,	0,	0, 0, },
 {SMEM_USER_CCB_DHL,		0,	0, 0, },
 {SMEM_USER_CCB_MD_MONITOR,	0,	0, 0, },
@@ -259,8 +259,15 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 
 		regions[i].base_ap_view_phy =
 			base_ap_view_phy + regions[i].offset;
-		regions[i].base_ap_view_vir =
-			base_ap_view_vir + regions[i].offset;
+		/* 1. mapping one region; 2. no mapping; 3. mapping together. */
+		if (!base_ap_view_vir && !(regions[i].flag & SMF_NO_REMAP))
+			regions[i].base_ap_view_vir = (!regions[i].size)?NULL:ccci_map_phy_addr(
+					regions[i].base_ap_view_phy, regions[i].size);
+		else if (regions[i].flag & SMF_NO_REMAP)
+			regions[i].base_ap_view_vir = NULL;
+		else
+			regions[i].base_ap_view_vir =
+				base_ap_view_vir + regions[i].offset;
 		regions[i].base_md_view_phy =
 			base_md_view_phy + regions[i].offset;
 		CCCI_BOOTUP_LOG(-1, TAG,
@@ -418,19 +425,6 @@ static void ccci_6297_md_smem_layout_config(struct ccci_modem *md)
 		&mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 		&mm_str->md_bank4_cacheable_total.size);
 	/* cacheable start */
-	if (mm_str->md_bank4_cacheable_total.base_ap_view_phy &&
-		mm_str->md_bank4_cacheable_total.size)
-		mm_str->md_bank4_cacheable_total.base_ap_view_vir =
-			ccci_map_phy_addr(
-			mm_str->md_bank4_cacheable_total.base_ap_view_phy,
-			mm_str->md_bank4_cacheable_total.size);
-	else
-		CCCI_ERROR_LOG(md->index, TAG,
-			"get cacheable info base:%lx size:%x\n",
-			(unsigned long)
-			mm_str->md_bank4_cacheable_total.base_ap_view_phy,
-			mm_str->md_bank4_cacheable_total.size);
-
 	mm_str->md_bank4_cacheable_total.base_md_view_phy = 0x40000000
 		+ get_md_smem_cachable_offset(MD_SYS1)
 		+ mm_str->md_bank4_cacheable_total.base_ap_view_phy -

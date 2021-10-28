@@ -118,6 +118,7 @@ enum {
 	SMF_CLR_RESET = (1 << 0), /* clear when reset modem */
 	SMF_NCLR_FIRST = (1 << 1), /* do not clear even in MD first boot up */
 	SMF_MD3_RELATED = (1 << 2), /* MD3 related share memory */
+	SMF_NO_REMAP = (1 << 3), /* no need mapping region */
 };
 
 struct ccci_mem_region {

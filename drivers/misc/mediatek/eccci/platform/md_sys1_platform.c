@@ -860,6 +860,174 @@ static int md_cd_srcclkena_setting(struct ccci_modem *md)
 	return 0;
 }
 
+static int ccci_md_pll_sec(unsigned long stage)
+{
+	struct arm_smccc_res res = {0};
+
+	CCCI_NORMAL_LOG(-1, TAG, "Trigger MD pll setting, %d\n", (int)stage);
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+		MD_LK_BOOT_PLAT, stage, 0, 0, 0, 0, &res);
+	if (res.a0)
+		return -1;
+	return 0;
+}
+
+static int delay_and_wait(int wait_us, int set_val, int wait_val)
+{
+#define WAITE_UNIT   (10)
+	int wait_counter = 1000000/WAITE_UNIT; // 1s
+	int ret;
+	unsigned int val = 0;
+
+	udelay(wait_us);
+	ret = regmap_write(md_cd_plat_val_ptr.spm_sleep_base, 0x404, set_val);
+	if (ret)
+		return -2;
+
+	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON] polling after %dus wait\n", wait_us);
+
+	do {
+		ret = regmap_read(md_cd_plat_val_ptr.spm_sleep_base, 0x404, &val);
+		if (ret) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"%s:read spm_sleep_base fail,ret=%d\n",
+					__func__, ret);
+			return -3;
+		}
+		if ((val & 0x10) == wait_val)
+			break;
+		udelay(WAITE_UNIT);
+		wait_counter--;
+	} while (wait_counter);
+
+	if (!wait_counter && ((val & 0x10) != wait_val)) {
+		CCCI_NORMAL_LOG(-1, TAG, "[POWER ON] polling end after %dus wait, 0x%x\n",
+			wait_us, val);
+		return -1;
+	}
+
+	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON] polling end after %dus wait\n", wait_us);
+
+	return 0;
+}
+
+static int set_pll_wa_flow(void)
+{
+	unsigned long stage = 0;
+	int ret;
+
+	if (IS_ERR(md_cd_plat_val_ptr.spm_sleep_base)) {
+		ret = -1;
+		goto SET_PLL_END;
+	}
+
+	for (stage = 0; stage < 3; stage++) {
+		ret = ccci_md_pll_sec(stage);
+		switch (stage) {
+		case 0:
+			ret = delay_and_wait(90, 1, 0x10);
+			if (ret < 0) {
+				ret = -2;
+				goto SET_PLL_END;
+			}
+			break;
+		case 1:
+			ret = delay_and_wait(60, 0, 0x00);
+			if (ret < 0) {
+				ret = -3;
+				goto SET_PLL_END;
+			}
+			ret = delay_and_wait(250, 1, 0x10);
+			if (ret < 0) {
+				ret = -4;
+				goto SET_PLL_END;
+			}
+
+			break;
+		case 2:
+			ret = delay_and_wait(500, 0, 0x00);
+			if (ret < 0) {
+				ret = -5;
+				goto SET_PLL_END;
+			}
+			break;
+		}
+	}
+SET_PLL_END:
+
+	return ret;
+
+}
+
+struct tag_chipid {
+	u32 size;
+	u32 hw_code;
+	u32 hw_subcod;
+	u32 hw_ver;
+	u32 sw_ver;
+};
+
+unsigned int get_chip_id_from_dts(void)
+{
+	struct device_node *np_chosen = NULL;
+	struct tag_chipid *tag = NULL;
+	static int ap_sw_chipid = -1;
+
+	if (ap_sw_chipid >= 0) {
+		CCCI_NORMAL_LOG(-1, TAG,
+			"[%s] ap_sw_chipid: 0x%x\n", __func__, ap_sw_chipid);
+		return ap_sw_chipid;
+	}
+
+	np_chosen = of_find_node_by_path("/chosen");
+	if (!np_chosen) {
+		CCCI_ERROR_LOG(-1, TAG, "warning: not find node: '/chosen'\n");
+
+		np_chosen = of_find_node_by_path("/chosen@0");
+		if (!np_chosen) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: not find node: '/chosen@0'\n",
+				__func__);
+			return 0;
+		}
+	}
+
+	tag = (struct tag_chipid *)
+			of_get_property(np_chosen, "atag,chipid", NULL);
+	if (!tag) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: not find tag: 'atag,chipid';\n", __func__);
+		return 0;
+	}
+
+	ap_sw_chipid = tag->sw_ver;
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] chip_id: 0x%x ap_sw_chipid: 0x%x\n",
+		__func__, tag->hw_code, tag->sw_ver);
+
+	return ap_sw_chipid;
+}
+
+static void md_pll_setting(struct ccci_modem *md)
+{
+	int ret = 0;
+	int chip_id = 0;
+
+	chip_id = get_chip_id_from_dts();
+	if (chip_id >= 0x0001 || //only e1 need it
+		!(md_cd_plat_val_ptr.power_flow_config & (1 << MD_PLL_SETTING)))
+		return;
+
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] %s start\n", __func__);
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] %s start\n", __func__);
+
+	ret = set_pll_wa_flow();
+
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] %s end, %d\n", __func__, ret);
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] %s end, %d\n", __func__, ret);
+}
+
 static int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
@@ -932,6 +1100,8 @@ static int md_cd_power_on(struct ccci_modem *md)
 	/* notify NFC */
 	inform_nfc_vsim_change(md->index, 1, 0);
 #endif
+
+	md_pll_setting(md);
 
 	/* md_first_power_on set 1 */
 	md_cd_plat_val_ptr.md_first_power_on = 1;
