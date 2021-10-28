@@ -408,8 +408,10 @@ static int rt5512_codec_classd_event(struct snd_soc_dapm_widget *w,
 		ret |= snd_soc_component_update_bits(component, 0x98, 0x0200,
 						     0x0200);
 		/* UV enable */
+		/*
 		ret |= snd_soc_component_update_bits(component, 0xb5, 0x0600,
 						     0x0600);
+		*/
 		dev_info(component->dev, "Amp on\n");
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
@@ -444,7 +446,7 @@ static int rt5512_codec_classd_event(struct snd_soc_dapm_widget *w,
 		ret |= snd_soc_component_update_bits(component, 0x40, 0x0003,
 						     0x0000);
 		/* D_VBG, Bias current disable */
-		ret |= snd_soc_component_update_bits(component, 0xb5, 0xf9fe,
+		ret |= snd_soc_component_update_bits(component, 0xb5, 0xfffe,
 						     0x0000);
 		break;
 	default:
@@ -1227,4 +1229,4 @@ module_i2c_driver(rt5512_i2c_driver);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5512 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("2.0.3_M");
+MODULE_VERSION("2.0.4_M");
