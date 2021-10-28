@@ -374,12 +374,28 @@ int mtk_drm_ioctl_tdshp_set_reg(struct drm_device *dev, void *data,
 int mtk_drm_ioctl_tdshp_get_size(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
+	struct drm_crtc *crtc;
+	u32 width = 0, height = 0;
 	struct DISP_TDSHP_DISPLAY_SIZE *dst =
 			(struct DISP_TDSHP_DISPLAY_SIZE *)data;
 
 	pr_notice("%s", __func__);
 
+	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
+		typeof(*crtc), head);
+
+	mtk_drm_crtc_get_panel_original_size(crtc, &width, &height);
+	if (width == 0 || height == 0) {
+		DDPFUNC("panel original size error(%dx%d).\n", width, height);
+		width = crtc->mode.hdisplay;
+		height = crtc->mode.vdisplay;
+	}
+
+	g_tdshp_size.lcm_width = width;
+	g_tdshp_size.lcm_height = height;
+
 	disp_tdshp_wait_size(60);
+
 	pr_notice("%s ---", __func__);
 	memcpy(dst, &g_tdshp_size, sizeof(g_tdshp_size));
 
@@ -419,9 +435,9 @@ static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET, 0x0, ~0);
 
+	g_tdshp_size.height = cfg->h;
+	g_tdshp_size.width = cfg->w;
 	if (g_tdshp_get_size_available == false) {
-		g_tdshp_size.height = cfg->h;
-		g_tdshp_size.width = cfg->w;
 		g_tdshp_get_size_available = true;
 		wake_up_interruptible(&g_tdshp_size_wq);
 		pr_notice("size available: (w, h)=(%d, %d)+\n", width, cfg->h);

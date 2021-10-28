@@ -725,13 +725,13 @@ static void mtk_aal_config(struct mtk_ddp_comp *comp,
 	AALFLOW_LOG("(w,h)=(%d,%d)+, %d\n",
 		width, height, g_aal_get_size_available);
 
+	g_aal_size.height = height;
+	g_aal_size.width = width;
+	g_dual_aal_size.height = height;
+	g_dual_aal_size.width = cfg->w;
+	g_aal_size.isdualpipe = isDualPQ;
+	g_dual_aal_size.isdualpipe = isDualPQ;
 	if (g_aal_get_size_available == false) {
-		g_aal_size.height = height;
-		g_aal_size.width = width;
-		g_aal_size.isdualpipe = isDualPQ;
-		g_dual_aal_size.height = height;
-		g_dual_aal_size.width = cfg->w;
-		g_dual_aal_size.isdualpipe = isDualPQ;
 		g_aal_get_size_available = true;
 		wake_up_interruptible(&g_aal_size_wq);
 		AALFLOW_LOG("size available: (w,h)=(%d,%d)+\n", width, height);
@@ -866,10 +866,16 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	g_aal_hist.essStrengthIndex = g_aal_ess_level;
 	g_aal_hist.ess_enable = g_aal_ess_en;
 	g_aal_hist.dre_enable = g_aal_dre_en;
-	if (isDualPQ)
+
+	if (isDualPQ) {
 		g_aal_hist.pipeLineNum = 2;
-	else
+		g_aal_hist.srcWidth = g_dual_aal_size.width;
+		g_aal_hist.srcHeight = g_dual_aal_size.height;
+	} else {
 		g_aal_hist.pipeLineNum = 1;
+		g_aal_hist.srcWidth = g_aal_size.width;
+		g_aal_hist.srcHeight = g_aal_size.height;
+	}
 
 	g_aal_hist.serviceFlags = 0;
 	atomic_set(&g_aal0_hist_available, 0);
