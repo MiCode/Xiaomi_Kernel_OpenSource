@@ -700,7 +700,7 @@
 		reserve-memory-vcp_share {
 			compatible = "mediatek,reserve-memory-vcp_share";
 			no-map;
-			size = <0 0x00200000>; /* 2MB */
+			size = <0 0x00201000>; /* 2MB */
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
@@ -6650,7 +6650,7 @@
 
 	vcp: vcp@1ec00000 {
 		compatible = "mediatek,vcp";
-		vcp-support = <0>;
+		vcp-support = <1>;
 		status = "okay";
 		reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 		      <0 0x1ec24000 0 0x1000>, /* cfg */
@@ -6730,9 +6730,11 @@
 
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_256MB1>;
+		mediatek,smi = <&smi_disp_common>;
 
 		core_0 = "enable";
 		vcp_sramSize = <0x00040000>;
+		vcp_dramSize = <0x00800000>;
 		core_nums = <1>;	/* core number */
 		twohart = <1>;		/* two hart arch */
 		mbox_count = <5>;
@@ -6768,25 +6770,34 @@
 		vcp_mem_key = "mediatek,reserve-memory-vcp_share";
 		vcp_mem_tbl = <0 0x78000>, /* VDEC_MEM_ID 480KB */
 			      <1 0x8000>, /* VENC_MEM_ID 32KB */
-			      <2 0x180000>; /* LOGGER 1MB 512KB*/
+			      <2 0x180000>, /* LOGGER 1MB 512KB*/
+			      <3 0x400>, /* VDEC_SET_PROP_MEM_ID 1KB */
+			      <4 0x400>, /* VENC_SET_PROP_MEM_ID 1KB */
+			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
+			      <6 0x400>; /* VENC_VCP_LOG_INFO_ID 1KB */
+
+		power-domains = <&scpsys MT6879_POWER_DOMAIN_MM_PROC_DORMANT>;
+		clocks = <&topckgen_clk CLK_TOP_MMUP_SEL>,
+			<&topckgen_clk CLK_TOP_MAINPLL_D3>;
+		clock-names = "mmup-clk", "mmup-pll";
 	};
 
 	vcp_iommu_vdec {
-		vcp-support = <0>;
+		vcp-support = <2>;
 		compatible =  "mediatek,vcp-io-vdec";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_512MB1>;
 	};
 
 	vcp_iommu_venc {
-		vcp-support = <0>;
+		vcp-support = <3>;
 		compatible =  "mediatek,vcp-io-venc";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_512MB2>;
 	};
 
 	vcp_iommu_work {
-		vcp-support = <0>;
+		vcp-support = <4>;
 		compatible = "mediatek,vcp-io-work";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_256MB2>;
