@@ -2400,11 +2400,11 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		src_buf = &src_vb2_v4l2->vb2_buf;
 		v4l2_m2m_buf_done(src_vb2_v4l2,
 						  VB2_BUF_STATE_DONE);
-		mtk_v4l2_debug(ret ? 0 : 1,
-			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d, BS %s",
+		mtk_v4l2_debug(((ret || mtk_vcodec_unsupport || need_seq_header) ? 0 : 1),
+			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d, need_seq_header=%d, BS %s",
 			ctx->id, src_buf->index,
 			src_mem->size, ret, res_chg,
-			mtk_vcodec_unsupport, debug_bs);
+			mtk_vcodec_unsupport, need_seq_header, debug_bs);
 
 		/* If not support the source, eg: w/h,
 		 * bitdepth, level, we need to stop to play it

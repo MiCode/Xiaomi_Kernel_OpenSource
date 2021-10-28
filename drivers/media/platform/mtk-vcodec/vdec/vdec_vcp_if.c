@@ -904,7 +904,7 @@ static int vdec_vcp_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 		inst->vsi->dec.error_map;
 
 	if ((*src_chg & VDEC_NEED_SEQ_HEADER) != 0U)
-		mtk_vcodec_err(inst, "- need first seq header -");
+		mtk_vcodec_debug(inst, "- need first seq header -");
 	else if ((*src_chg & VDEC_RES_CHANGE) != 0U)
 		mtk_vcodec_debug(inst, "- resolution changed -");
 	else if ((*src_chg & VDEC_HW_NOT_SUPPORT) != 0U)
