@@ -536,18 +536,24 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	//mtk_aie_ccf_disable(fd->dev);
 	pm_runtime_put_sync(fd->dev);
 	//mtk_imgsys_pwr(fd->img_pdev, false);
-	dev_info(fd->dev, "[%s] fd_stream_count:%d\n", __func__, fd->fd_stream_count);
-
+	dev_info(fd->dev, "[%s] count:%d %llx %llx %d\n", __func__,
+			fd->fd_stream_count, fd->dmabuf->vmap_ptr,
+			(void *)fd->kva, fd->dmabuf->vmapping_counter);
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) {
 		mtk_aie_mmqos_set(fd, 0);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
-		if (fd->dmabuf->vmap_ptr != NULL) {
+		if (fd->dmabuf->vmap_ptr != NULL &&
+			fd->dmabuf->vmapping_counter != 0 &&
+			fd->dmabuf->vmap_ptr == (void *)fd->kva) {
 			cmdq_mbox_disable(fd->fdvt_clt->chan);
 			dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
 			dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(fd->dmabuf);
 			fd->map_count--;
+			dev_info(fd->dev, "[%s] count:%d %llx %llx %d\n", __func__,
+					fd->fd_stream_count, fd->dmabuf->vmap_ptr,
+					(void *)fd->kva, fd->dmabuf->vmapping_counter);
 		}
 		aie_uninit(fd);
 	}

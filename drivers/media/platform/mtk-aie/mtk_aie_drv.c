@@ -782,7 +782,7 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 	}
 
 	/* FD Pose secure result output buffer: result size * 3 loops */
-	fd->fd_dma_rst_max_size += result_size * 3;
+	//fd->fd_dma_rst_max_size += result_size * 3;
 }
 
 static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
