@@ -1296,7 +1296,7 @@ int cpucp_memlat_init(struct scmi_device *sdev)
 	if (!sdev || !sdev->handle)
 		return -EINVAL;
 
-	ops = sdev->handle->devm_get_protocol(sdev, SCMI_PROTOCOL_MEMLAT, &ph);
+	ops = sdev->handle->devm_protocol_get(sdev, SCMI_PROTOCOL_MEMLAT, &ph);
 	if (!ops)
 		return -ENODEV;
 

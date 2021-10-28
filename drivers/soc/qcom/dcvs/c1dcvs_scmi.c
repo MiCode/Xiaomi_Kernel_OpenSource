@@ -249,7 +249,7 @@ static int scmi_c1dcvs_probe(struct scmi_device *sdev)
 	if (!sdev)
 		return -ENODEV;
 
-	ops = sdev->handle->devm_get_protocol(sdev, SCMI_C1DCVS_PROTOCOL, &ph);
+	ops = sdev->handle->devm_protocol_get(sdev, SCMI_C1DCVS_PROTOCOL, &ph);
 	if (!ops)
 		return -ENODEV;
 

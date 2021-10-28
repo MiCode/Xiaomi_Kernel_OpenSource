@@ -290,7 +290,7 @@ static int scmi_memlat_vendor_protocol_init(const struct scmi_protocol_handle *p
 static const struct scmi_protocol scmi_memlat_vendor = {
 	.id = SCMI_PROTOCOL_MEMLAT,
 	.owner = THIS_MODULE,
-	.init_instance = &scmi_memlat_vendor_protocol_init,
+	.instance_init = &scmi_memlat_vendor_protocol_init,
 	.ops = &memlat_proto_ops,
 };
 module_scmi_protocol(scmi_memlat_vendor);

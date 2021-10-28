@@ -849,7 +849,7 @@ int rimps_pmu_init(struct scmi_device *sdev)
 	if (!sdev || !sdev->handle)
 		return -EINVAL;
 
-	ops = sdev->handle->devm_get_protocol(sdev, SCMI_PMU_PROTOCOL, &ph);
+	ops = sdev->handle->devm_protocol_get(sdev, SCMI_PMU_PROTOCOL, &ph);
 	if (!ops)
 		return -EINVAL;
 
