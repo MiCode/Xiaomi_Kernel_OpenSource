@@ -11455,7 +11455,8 @@
 					"system_pll", "system_bus";
 
 		irq-remain = <&edge_keypad>,
-			     <&level_btif_tx &level_btif_rx &level_bt>;
+			     <&level_btif_tx &level_btif_rx &level_bt>,
+			     <&level_usb_host>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -11500,6 +11501,10 @@
 			level_btif_rx: level_btif_rx {
 				target = <&btif>;
 				value = <0 2 0 0>;
+			};
+			level_usb_host: level_usb_host {
+				target = <&usb_host>;
+				value = <0 0 0 0>;
 			};
 		};
 
