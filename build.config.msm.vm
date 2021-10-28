@@ -2,6 +2,8 @@
 # Common configuration for building kernel for Virtual Machines
 DEFCONFIG="generic_vm_defconfig"
 OPENSSL_DIR=${KERNEL_DIR}/../build/build-tools/path/linux-x86/openssl
+# Kernel platform missing aosp/1843323
+DISABLE_HERMETIC_SYSROOT=1
 
 append_cmd POST_DEFCONFIG_CMDS 'update_signing_keys_config'
 

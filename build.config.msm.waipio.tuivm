@@ -5,7 +5,6 @@
 
 ################################################################################
 ## Variant setup
-HERMETIC_TOOLCHAIN=0
 MSM_ARCH=waipio_tuivm
 VARIANTS=(defconfig debug_defconfig)
 [ -z "${VARIANT}" ] && VARIANT=debug_defconfig
