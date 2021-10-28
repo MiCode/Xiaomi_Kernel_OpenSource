@@ -196,6 +196,8 @@ struct mtk_cam_sensor_work {
  * @frame_work: work queue entry for frame transmission to SCP.
  * @working_buf: command queue buffer associated to this request
  * @mtk_cam_exposure: exposure value of sensor of mstream
+ * @deque_list_node: the entry node of s_data for deque
+ * @cleanup_list_node: the entry node of s_data for cleanup
  *
  */
 struct mtk_cam_request_stream_data {
@@ -237,7 +239,8 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_shutter_gain mtk_cam_exposure;
 	struct mtk_cam_req_dbg_work dbg_work;
 	struct mtk_cam_req_dbg_work dbg_exception_work;
-	struct list_head list;
+	struct list_head deque_list_node;
+	struct list_head cleanup_list_node;
 };
 
 struct mtk_cam_req_pipe {
