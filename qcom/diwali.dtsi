@@ -1482,7 +1482,7 @@
 		qcom,smem-states = <&wpss_smp2p_out 0>;
 		qcom,smem-state-names = "stop";
 
-		glink_wpss: wpss {
+		glink-edge {
 			qcom,remote-pid = <13>;
 			transport = "smem";
 			mboxes = <&ipcc_mproc IPCC_CLIENT_WPSS
