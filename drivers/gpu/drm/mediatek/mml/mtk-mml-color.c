@@ -248,7 +248,6 @@ static void color_start_config(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 3, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM1_EN, 0, 0x00000001);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM2_EN, 0, 0x00000001);
-	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CFG_MAIN, 0, 0x0000000f);
 
 	/* Enable shadow */
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_SHADOW_CTRL, 0x2, U32_MAX);
