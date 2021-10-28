@@ -208,7 +208,6 @@ static int mtk_apu_rpmsg_register_device(
 	struct rpmsg_device *rpdev;
 	struct mtk_apu_rpmsg_device *mdev;
 	struct platform_device *pdev = mtk_subdev->pdev;
-	int ret;
 
 	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
 	if (!mdev)
@@ -228,13 +227,7 @@ static int mtk_apu_rpmsg_register_device(
 	rpdev->dev.parent = &pdev->dev;
 	rpdev->dev.release = mtk_apu_rpmsg_release_device;
 
-	ret = rpmsg_register_device(rpdev);
-	if (ret) {
-		kfree(mdev);
-		return ret;
-	}
-
-	return 0;
+	return rpmsg_register_device(rpdev);
 }
 
 static void mtk_register_device_work_function(struct work_struct *register_work)
