@@ -27,6 +27,9 @@ static void spm_resource_req_timer_fn(struct timer_list *data)
 	u32 ufs = 0, msdc = 0, disp = 0, apu = 0;
 	u32 spm = 0;
 
+	if (!spm_base)
+		return;
+
 	req_sta_0 = plat_mmio_read(SPM_REQ_STA_0);
 	req_sta_1 = plat_mmio_read(SPM_REQ_STA_1);
 	req_sta_2 = plat_mmio_read(SPM_REQ_STA_2);

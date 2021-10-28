@@ -261,6 +261,9 @@ static void lpm_save_sleep_info(void)
 	u32 off_26M_duration;
 	u32 slp_duration;
 
+	if (!lpm_spm_base)
+		return;
+
 	slp_duration = plat_mmio_read(SPM_BK_PCM_TIMER);
 	if (slp_duration == before_ap_slp_duration)
 		return;
@@ -632,7 +635,7 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 				LOG_BUF_OUT_SZ - log_size,
 				" clk_settle = 0x%x, ", wakesrc->clk_settle);
 
-		if (type == LPM_ISSUER_SUSPEND) {
+		if (type == LPM_ISSUER_SUSPEND && lpm_spm_base) {
 			/* calculate 26M off percentage in suspend period */
 			if (wakesrc->timer_out != 0) {
 				spm_26M_off_pct =
