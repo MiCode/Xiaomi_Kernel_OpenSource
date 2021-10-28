@@ -47,6 +47,8 @@ struct mtk_camsys_irq_info {
 	u64 ts_ns;
 	int frame_idx;
 	int frame_idx_inner;
+	int write_cnt;
+	int fbc_cnt;
 	union {
 		struct mtk_camsys_irq_normal_data	n;
 		struct mtk_camsys_irq_error_data	e;

@@ -2092,9 +2092,9 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 
 		raw_dev->cur_vsync_idx = 0;
-		raw_dev->write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
-		raw_dev->fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 12;
 		raw_dev->sof_count++;
+		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
+		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 12;
 	}
 
 	if (raw_dev->sub_sensor_ctrl_en && irq_status & TG_VS_INT_ORG_ST
@@ -2115,7 +2115,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	if (unlikely(err_status)) {
 		struct mtk_camsys_irq_info err_info;
 
-		err_info.irq_type = CAMSYS_IRQ_ERROR;
+		err_info.irq_type = 1 << CAMSYS_IRQ_ERROR;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
 		err_info.frame_idx_inner = irq_info.frame_idx_inner;
@@ -2180,7 +2180,7 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 			irq_info.frame_idx);
 
 		/* error case */
-		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
+		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_ERROR))) {
 			raw_handle_error(raw_dev, &irq_info);
 			continue;
 		}

@@ -306,8 +306,6 @@ struct mtk_raw_device {
 	bool is_slave;
 
 	u64 sof_count;
-	int write_cnt;
-	int fbc_cnt;
 
 	/* for subsample, sensor-control */
 	bool sub_sensor_ctrl_en;
