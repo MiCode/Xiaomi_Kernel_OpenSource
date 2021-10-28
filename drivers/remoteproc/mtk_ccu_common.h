@@ -137,6 +137,8 @@ struct mtk_ccu {
 	int g_LogBufIdx;
 	int log_level;
 	int log_taglevel;
+	uint32_t ipc_tout_fid;
+	uint32_t ipc_tout_mid;
 };
 
 /*---------------------------------------------------------------------------*/

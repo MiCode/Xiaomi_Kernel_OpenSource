@@ -94,8 +94,9 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 
 	//since ipc is synchronized, check no previous ipc
 	if (read_cnt != write_cnt) {
-		dev_err(ccu->dev, "CCU IPC violation, rcnt:%d, wcnt:%d",
-		read_cnt, write_cnt);
+		dev_err(ccu->dev,
+			"CCU IPC violation, rcnt:%d, wcnt:%d, tout_fid:%d, tout_mid:%d",
+			read_cnt, write_cnt, ccu->ipc_tout_fid, ccu->ipc_tout_mid);
 		return -EINVAL;
 	}
 
@@ -123,6 +124,8 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 		dev_err(ccu->dev,
 			"CCU IPC timeout, ft(%d), mid(%d), ack(%d), cnt(%d)\n",
 			msg->feature_type, msg->msg_id, ackValue, loop_cnt);
+		ccu->ipc_tout_fid = msg->feature_type;
+		ccu->ipc_tout_mid = msg->msg_id;
 		return -ETIMEDOUT;
 	}
 

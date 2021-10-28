@@ -44,7 +44,7 @@ static int mtk_ccu_probe(struct platform_device *dev);
 static int mtk_ccu_remove(struct platform_device *dev);
 static int mtk_ccu_read_platform_info_from_dt(struct device_node
 	*node, uint32_t *ccu_hw_base, uint32_t *ccu_hw_size);
-static void mtk_ccu_get_power(struct device *dev);
+static int mtk_ccu_get_power(struct device *dev);
 static void mtk_ccu_put_power(struct device *dev);
 
 static int
@@ -261,15 +261,19 @@ static int mtk_ccu_clk_prepare(struct mtk_ccu *ccu)
 	int i = 0;
 	struct device *dev = ccu->dev;
 
-	mtk_ccu_get_power(dev);
+	ret = mtk_ccu_get_power(dev);
+	if (ret)
+		return ret;
 #if defined(CCU1_DEVICE)
-	mtk_ccu_get_power(&ccu->pdev1->dev);
+	ret = mtk_ccu_get_power(&ccu->pdev1->dev);
+	if (ret)
+		goto ERROR_poweroff_ccu;
 #endif
 
 	for (i = 0; i < MTK_CCU_CLK_PWR_NUM; ++i) {
 		ret = clk_prepare_enable(ccu->ccu_clk_pwr_ctrl[i]);
 		if (ret) {
-			dev_err(dev, "failed to enable clocks\n");
+			dev_err(dev, "failed to enable CCU clocks #%d\n", i);
 			goto ERROR;
 		}
 	}
@@ -277,13 +281,14 @@ static int mtk_ccu_clk_prepare(struct mtk_ccu *ccu)
 	return 0;
 
 ERROR:
-	for (; i >= 0 ; i--)
+	for (--i; i >= 0 ; --i)
 		clk_disable_unprepare(ccu->ccu_clk_pwr_ctrl[i]);
 
-	mtk_ccu_put_power(dev);
 #if defined(CCU1_DEVICE)
 	mtk_ccu_put_power(&ccu->pdev1->dev);
+ERROR_poweroff_ccu:
 #endif
+	mtk_ccu_put_power(dev);
 
 	return ret;
 
@@ -907,17 +912,22 @@ static int mtk_ccu1_remove(struct platform_device *pdev)
 }
 #endif
 
-static void mtk_ccu_get_power(struct device *dev)
+static int mtk_ccu_get_power(struct device *dev)
 {
 	int ret = pm_runtime_get_sync(dev);
 
 	if (ret != 0)
 		dev_err(dev, "pm_runtime_get_sync failed %d", ret);
+
+	return ret;
 }
 
 static void mtk_ccu_put_power(struct device *dev)
 {
-	pm_runtime_put_sync(dev);
+	int ret = pm_runtime_put_sync(dev);
+
+	if (ret != 0)
+		dev_err(dev, "pm_runtime_put_sync failed %d", ret);
 }
 
 static const struct of_device_id mtk_ccu_of_ids[] = {
