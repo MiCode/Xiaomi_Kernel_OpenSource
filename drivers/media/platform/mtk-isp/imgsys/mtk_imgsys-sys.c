@@ -1981,7 +1981,6 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 					iova_info->sgt);
 			spin_lock(&pipe->iova_cache.lock);
 			list_del(&iova_info->list_entry);
-			iova_info->iova_list->records[iova_info->ionfd] = NULL;
 			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}

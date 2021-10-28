@@ -91,11 +91,9 @@ struct mtk_imgsys_dev_format {
 };
 
 // desc added {
-#define IOVA_FD_MAX (65536)
 struct mtk_imgsys_dma_buf_iova_list {
 	struct list_head list;
 	spinlock_t lock;
-	struct list_head *records[IOVA_FD_MAX];
 };
 
 struct mtk_imgsys_dma_buf_iova_get_info {
@@ -106,7 +104,6 @@ struct mtk_imgsys_dma_buf_iova_get_info {
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	struct list_head list_entry;
-	struct mtk_imgsys_dma_buf_iova_list *iova_list;
 };
 // } desc added
 

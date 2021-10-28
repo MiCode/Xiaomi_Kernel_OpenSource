@@ -1638,14 +1638,12 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		fd_iova->dma_buf = dmabuf;
 		fd_iova->attach = attach;
 		fd_iova->sgt = sgt;
-		fd_iova->iova_list = &pipe->iova_cache;
 		dev_dbg(pipe->imgsys_dev->dev,
 				"%s:dma_buf:%lx,attach:%lx,sgt:%lx\n", __func__,
 			fd_iova->dma_buf, fd_iova->attach, fd_iova->sgt);
 
 		spin_lock(&pipe->iova_cache.lock);
 		list_add_tail(&fd_iova->list_entry, &pipe->iova_cache.list);
-		pipe->iova_cache.records[fd_iova->ionfd] = &fd_iova->list_entry;
 		spin_unlock(&pipe->iova_cache.lock);
 		fd_info.fds_size[i] = dmabuf->size;
 		fd_info.fds[i] = kfd[i];
@@ -1718,7 +1716,6 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 
 			spin_lock(&pipe->iova_cache.lock);
 			list_del(&iova_info->list_entry);
-			iova_info->iova_list->records[fd] = NULL;
 			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}
