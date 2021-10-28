@@ -7842,7 +7842,7 @@
 
 	vcp: vcp@1ec00000 {
 		compatible = "mediatek,vcp";
-		vcp-support = <0>;
+		vcp-support = <1>;
 		status = "okay";
 		reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 		      <0 0x1ec24000 0 0x1000>, /* cfg */
@@ -7904,13 +7904,13 @@
 			    "mbox4_clr",
 			    "mbox4_init";
 
-		interrupts = <GIC_SPI 797 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 798 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 799 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 800 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 801 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 802 IRQ_TYPE_LEVEL_HIGH 0>,
-			     <GIC_SPI 803 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 765 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 766 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 767 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 768 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 769 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 770 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 771 IRQ_TYPE_LEVEL_HIGH 0>;
 
 		interrupt-names = "wdt",
 				  "reserved",
@@ -7968,7 +7968,7 @@
 			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
 			      <6 0x400>; /* VENC_VCP_LOG_INFO_ID 1KB */
 
-		//power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
+		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOP_MMUP_SEL>,
 			<&topckgen_clk CLK_TOP_MAINPLL_D3>;
 		clock-names = "mmup-clk", "mmup-pll";
@@ -7976,21 +7976,21 @@
 
 	vcp_io2: vcp_iommu_vdec {
 		compatible =  "mediatek,vcp-io-vdec";
-		vcp-support = <0>;
+		vcp-support = <2>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_LARB33_VIDEO_UP_512MB1>;
 	};
 
 	vcp_io3: vcp_iommu_venc {
 		compatible =  "mediatek,vcp-io-venc";
-		vcp-support = <0>;
+		vcp-support = <3>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_LARB33_VIDEO_UP_512MB2>;
 	};
 
 	vcp_io4: vcp_iommu_work {
 		compatible = "mediatek,vcp-io-work";
-		vcp-support = <0>;
+		vcp-support = <4>;
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&mdp_iommu M4U_LARB33_VIDEO_UP_256MB2>;
 	};
