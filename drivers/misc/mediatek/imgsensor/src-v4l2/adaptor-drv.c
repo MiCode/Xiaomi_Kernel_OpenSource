@@ -530,8 +530,8 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		if (sensor_mode_id >= 0 && sensor_mode_id < ctx->mode_cnt)
 			mode = &ctx->mode[sensor_mode_id];
 	}
-	dev_info(ctx->dev, "set fmt code = 0x%x, sensor_mode_id = %u\n",
-			fmt->format.code, mode->id);
+	dev_info(ctx->dev, "set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
+			fmt->format.code, fmt->which, mode->id);
 
 	update_pad_format(ctx, mode, fmt);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {

@@ -708,11 +708,12 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 			mtk_cam_seninf_get_vcinfo(ctx);
 	}
 
-	dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d => 0x%x/%dx%d\n",
+	dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
 		 fmt->pad,
 		fmt->format.code,
 		fmt->format.width,
 		fmt->format.height,
+		fmt->which,
 		format->code,
 		format->width,
 		format->height);
@@ -881,11 +882,7 @@ static int config_hw(struct seninf_ctx *ctx)
 		}
 
 		vc->mux = mux->idx;
-		dev_info(
-			ctx->dev, "ctx->pad2cam[vc->out_pad] %d vc->out_pad %d vc->cam %d, i %d",
-			ctx->pad2cam[vc->out_pad], vc->out_pad, vc->cam, i);
-
-		vc->cam = ctx->pad2cam[vc->out_pad];//
+		vc->cam = ctx->pad2cam[vc->out_pad];
 
 		if (!skip_mux_ctrl) {
 			g_seninf_ops->_mux(ctx, vc->mux);
