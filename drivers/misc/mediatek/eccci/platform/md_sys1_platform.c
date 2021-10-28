@@ -462,6 +462,112 @@ int md1_revert_sequencer_setting(struct ccci_modem *md)
 	return 0;
 }
 
+static int md1_enable_sequencer_setting(struct ccci_modem *md)
+{
+	void __iomem *reg = NULL;
+	int count = 0;
+
+	if (!md_cd_plat_val_ptr.md_first_power_on) {
+		CCCI_NORMAL_LOG(md->index, TAG, "[POWER OFF]%s:md_first_power_on=%u,exit\n",
+			__func__, md_cd_plat_val_ptr.md_first_power_on);
+		return 0;
+	}
+
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER OFF] %s start\n", __func__);
+
+	reg = ioremap_wc(0x1C803000, 0x1000);
+	if (reg == NULL) {
+		CCCI_ERROR_LOG(
+			md->index, TAG,
+			"[POWER OFF] %s:ioremap 0x100 bytes from 0x1C803000 fail\n",
+			__func__);
+		return -1;
+	}
+
+	/* enable sequencer */
+	ccci_write32(reg, 0x204, 0x1);
+	CCCI_NORMAL_LOG(md->index, TAG,
+		"[POWER OFF] %s enable sequencer done\n", __func__);
+
+	/* retry 1000 * 1ms = 1s*/
+	while (1) {
+		/* wait sequencer done */
+		if (ccci_read32(reg, 0x310) == 0x4040040)
+			break;
+		count++;
+		udelay(1000);
+		if (count == 1000) {
+			CCCI_ERROR_LOG(
+				md->index, TAG,
+				"[POWER OFF] wait sequencer fail,0x1C803200=0x%x,0x1C803204=0x%x,0x1C803208=0x%x,0x1C803310=0x%x\n",
+				ccci_read32(reg, 0x200),
+				ccci_read32(reg, 0x204),
+				ccci_read32(reg, 0x208),
+				ccci_read32(reg, 0x310));
+			iounmap(reg);
+			return -2;
+		}
+	}
+
+	iounmap(reg);
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER OFF] %s end\n", __func__);
+
+	return 0;
+}
+
+static int md1_disable_sequencer_setting(struct ccci_modem *md)
+{
+	void __iomem *reg = NULL;
+	int count = 0;
+
+	if (!md_cd_plat_val_ptr.md_first_power_on) {
+		CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON]%s:md_first_power_on=%u,exit\n",
+			__func__, md_cd_plat_val_ptr.md_first_power_on);
+		return 0;
+	}
+
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] %s start\n", __func__);
+
+	reg = ioremap_wc(0x1C803000, 0x1000);
+	if (reg == NULL) {
+		CCCI_ERROR_LOG(
+			md->index, TAG,
+			"[POWER ON] %s:ioremap 0x100 bytes from 0x1C803000 fail\n",
+			__func__);
+		return -1;
+	}
+
+	/* disable sequencer */
+	ccci_write32(reg, 0x204, 0x0);
+	CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER ON] %s:disable sequencer done\n", __func__);
+
+	/* retry 1000 * 1ms = 1s*/
+	while (1) {
+		/* wait sequencer done */
+		if (ccci_read32(reg, 0x310) == 0x1010001)
+			break;
+		count++;
+		udelay(1000);
+		if (count == 1000) {
+			CCCI_ERROR_LOG(
+				md->index, TAG,
+				"[POWER OFF] wait sequencer fail,0x1C803200=0x%x,0x1C803204=0x%x,0x1C803208=0x%x,0x1C803310=0x%x\n",
+				ccci_read32(reg, 0x200),
+				ccci_read32(reg, 0x204),
+				ccci_read32(reg, 0x208),
+				ccci_read32(reg, 0x310));
+			iounmap(reg);
+			return -2;
+		}
+	}
+
+	iounmap(reg);
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] %s end\n", __func__);
+
+	return 0;
+}
+
 static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
 	int ret = -1;
@@ -527,6 +633,13 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	}
 
 	flight_mode_set_by_atf(md, true);
+
+	/* enable sequencer setting to AOC2.5 for gen98 */
+	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+		ret = md1_enable_sequencer_setting(md);
+		if (ret)
+			return ret;
+	}
 
 	/* modem topclkgen off setting */
 	md_cd_topclkgen_off(md);
@@ -783,6 +896,13 @@ static int md_cd_power_on(struct ccci_modem *md)
 		return ret;
 	}
 
+	/* disable sequencer setting to AOC2.5 for gen98 */
+	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+		ret = md1_disable_sequencer_setting(md);
+		if (ret)
+			return ret;
+	}
+
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	flight_mode_set_by_atf(md, false);
 	CCCI_BOOTUP_LOG(md->index, TAG,
@@ -812,6 +932,9 @@ static int md_cd_power_on(struct ccci_modem *md)
 	/* notify NFC */
 	inform_nfc_vsim_change(md->index, 1, 0);
 #endif
+
+	/* md_first_power_on set 1 */
+	md_cd_plat_val_ptr.md_first_power_on = 1;
 
 	return 0;
 }
