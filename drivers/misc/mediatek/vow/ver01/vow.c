@@ -612,6 +612,10 @@ int vow_service_GetParameter(unsigned long arg)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 static int vow_service_CopyModel(int slot)
 {
+	if (slot >= MAX_VOW_SPEAKER_MODEL || slot < 0) {
+		VOWDRV_DEBUG("%s(), slot id=%d, over range\n", __func__, slot);
+		return -EDOM;
+	}
 	if (vowserv.vow_info_apuser[3] > VOW_MODEL_SIZE) {
 		VOWDRV_DEBUG("vow DMA Size Too Large\n");
 		return -EFAULT;
@@ -705,7 +709,7 @@ static bool vow_service_SendSpeakerModel(int slot, bool release_flag)
 	bool ret = false;
 	unsigned int vow_ipi_buf[5];
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
-	if (slot >= MAX_VOW_SPEAKER_MODEL) {
+	if (slot >= MAX_VOW_SPEAKER_MODEL || slot < 0) {
 		VOWDRV_DEBUG("%s(), slot id=%d, over range\n", __func__, slot);
 		return ret;
 	}
@@ -826,7 +830,7 @@ static bool vow_service_SendModelStatus(int slot, bool enable)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	unsigned int vow_ipi_buf[2];
 
-	if (slot >= MAX_VOW_SPEAKER_MODEL) {
+	if (slot >= MAX_VOW_SPEAKER_MODEL || slot < 0) {
 		VOWDRV_DEBUG("%s(), slot id=%d, over range\n", __func__, slot);
 		return ret;
 	}
@@ -913,6 +917,12 @@ static bool vow_service_SetModelStatus(bool enable, unsigned long arg)
 			   (const void __user *)(arg),
 			   sizeof(struct vow_model_start_t))) {
 		VOWDRV_DEBUG("vow get vow_model_start data fail\n");
+		return false;
+	}
+
+	if (model_start.handle > INT_MAX || model_start.handle < INT_MIN) {
+		VOWDRV_DEBUG("%s(), model_start.handle will cause truncated value\n",
+					__func__);
 		return false;
 	}
 
@@ -1488,25 +1498,37 @@ static void vow_service_OpenDumpFile_internal(void)
 	getnstimeofday(&curr_tm);
 
 	memset(string_time, '\0', 16);
-	sprintf(string_time, "%.2lu_%.2lu_%.2lu_%.3lu",
+	if (sprintf(string_time, "%.2lu_%.2lu_%.2lu_%.3lu",
 		(8 + (curr_tm.tv_sec / 3600)) % (24),
 		(curr_tm.tv_sec / 60) % (60),
 		(curr_tm.tv_sec % 60),
-		(curr_tm.tv_nsec % 1000));
-	sprintf(path_input_pcm, "%s/%s_%s",
-		DUMP_PCM_DATA_PATH, string_time, string_input_pcm);
+		(curr_tm.tv_nsec % 1000)) < 0) {
+		VOWDRV_DEBUG("%s(), sprintf failed\n", __func__);
+	}
+	if (sprintf(path_input_pcm, "%s/%s_%s",
+		DUMP_PCM_DATA_PATH, string_time, string_input_pcm) < 0) {
+		VOWDRV_DEBUG("%s(), sprintf failed\n", __func__);
+	}
 	VOWDRV_DEBUG("[BargeIn] %s path_input_pcm= %s\n", __func__,
 		     path_input_pcm);
-	sprintf(path_echo_ref, "%s/%s_%s",
-		DUMP_PCM_DATA_PATH, string_time, string_echo_pcm);
+
+	if (sprintf(path_echo_ref, "%s/%s_%s",
+		DUMP_PCM_DATA_PATH, string_time, string_echo_pcm) < 0) {
+		VOWDRV_DEBUG("%s(), sprintf failed\n", __func__);
+	}
 	VOWDRV_DEBUG("[BargeIn] %s path_input_pcm= %s\n", __func__,
 		     path_echo_ref);
-	sprintf(path_delay_info, "%s/%s_%s",
-		DUMP_PCM_DATA_PATH, string_time, string_delay_info);
+	if (sprintf(path_delay_info, "%s/%s_%s",
+		DUMP_PCM_DATA_PATH, string_time, string_delay_info) < 0) {
+		VOWDRV_DEBUG("%s(), sprintf failed\n", __func__);
+	}
 	VOWDRV_DEBUG("[BargeIn] %s path_input_pcm= %s\n", __func__,
 		     path_delay_info);
-	sprintf(path_recog, "%s/%s_%s",
-		DUMP_PCM_DATA_PATH, string_time, string_recog);
+
+	if (sprintf(path_recog, "%s/%s_%s",
+		DUMP_PCM_DATA_PATH, string_time, string_recog) < 0) {
+		VOWDRV_DEBUG("%s(), sprintf failed\n", __func__);
+	}
 	VOWDRV_DEBUG("[Recog] %s path_recog= %s\n", __func__,
 		     path_recog);
 
@@ -2657,9 +2679,12 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		vow_service_SetModelStatus(VOW_MODEL_STATUS_STOP, arg);
 		break;
 	case VOW_GET_GOOGLE_ENGINE_VER: {
-		copy_to_user((void __user *)arg,
-				 &vowserv.google_engine_version,
-				 sizeof(vowserv.google_engine_version));
+		if (copy_to_user((void __user *)arg,
+						 &vowserv.google_engine_version,
+						 sizeof(vowserv.google_engine_version))) {
+			VOWDRV_DEBUG("%s(), copy_to_user fail in VOW_GET_GOOGLE_ENGINE_VER",
+						__func__);
+		}
 	}
 		break;
 	case VOW_GET_GOOGLE_ARCH:
@@ -2667,31 +2692,39 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		struct vow_engine_version_t engine_ver_temp;
 		unsigned int length = VOW_ENGINE_INFO_LENGTH_BYTE;
 
-		copy_from_user((void *)&engine_ver_temp,
+		if (copy_from_user((void *)&engine_ver_temp,
 				 (const void __user *)arg,
-				 sizeof(struct vow_engine_version_t));
+				 sizeof(struct vow_engine_version_t))) {
+			VOWDRV_DEBUG("%s(), copy_from_user fail", __func__);
+		}
 		if ((unsigned int)cmd == VOW_GET_ALEXA_ENGINE_VER) {
 			pr_debug("VOW_GET_ALEXA_ENGINE_VER = %s, %lu, %lu, %d",
 				 vowserv.alexa_engine_version,
 				 engine_ver_temp.data_addr,
 				 engine_ver_temp.return_size_addr,
 				 length);
-			copy_to_user((void __user *)engine_ver_temp.data_addr,
-				 vowserv.alexa_engine_version,
-				 length);
+			if (copy_to_user((void __user *)engine_ver_temp.data_addr,
+					 vowserv.alexa_engine_version,
+					 length)) {
+				VOWDRV_DEBUG("%s(), copy_to_user fail", __func__);
+			}
 		} else if ((unsigned int)cmd == VOW_GET_GOOGLE_ARCH) {
 			pr_debug("VOW_GET_GOOGLE_ARCH = %s, %lu, %lu, %d",
 					 vowserv.google_engine_arch,
 					 engine_ver_temp.data_addr,
 					 engine_ver_temp.return_size_addr,
 					 length);
-			copy_to_user((void __user *)engine_ver_temp.data_addr,
+			if (copy_to_user((void __user *)engine_ver_temp.data_addr,
 					 vowserv.google_engine_arch,
-					 length);
+					 length)) {
+				VOWDRV_DEBUG("%s(), copy_to_user fail", __func__);
+			}
 		}
-		copy_to_user((void __user *)engine_ver_temp.return_size_addr,
+		if (copy_to_user((void __user *)engine_ver_temp.return_size_addr,
 				 &length,
-				 sizeof(unsigned int));
+				 sizeof(unsigned int))) {
+			VOWDRV_DEBUG("%s(), copy_to_user fail", __func__);
+		}
 	}
 		break;
 	default:
