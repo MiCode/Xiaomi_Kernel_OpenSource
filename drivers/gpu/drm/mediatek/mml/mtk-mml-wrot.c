@@ -91,6 +91,8 @@
 #define VIDO_OFST_ADDR_HIGH_C		0xf44
 #define VIDO_OFST_ADDR_HIGH_V		0xf48
 
+#define WROT_MIN_BUF_LINE_NUM		16
+
 /* register mask */
 #define VIDO_INT_MASK			0x00000007
 
@@ -241,6 +243,8 @@ struct wrot_frame_data {
 	u32 hor_sh_uv;
 	/* vert right shift uv */
 	u32 ver_sh_uv;
+	/* VIDO_FILT_TYPE_V Chroma down sample filter type */
+	u32 filt_v;
 
 	/* calculate in frame, use in each tile calc */
 	u32 fifo_max_sz;
@@ -977,7 +981,6 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	u32 out_swap = MML_FMT_SWAP(dest_fmt);
 	u32 uv_xsel, uv_ysel;
-	u32 filt_v = 0, filt_h = 0;
 	u32 preultra;
 	u32 scan_10bit = 0, bit_num = 0, pending_zero = 0, pvric = 0;
 
@@ -1003,7 +1006,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SHADOW_CTRL, 0x1, U32_MAX);
 
 	if (h_subsample == 1) {    /* YUV422/420 out */
-		filt_v = MML_FMT_V_SUBSAMPLE(src_fmt) ||
+		wrot_frm->filt_v = MML_FMT_V_SUBSAMPLE(src_fmt) ||
 			 MML_FMT_GROUP(src_fmt) == 2 ?
 			 0 : uv_table[v_subsample][rotate][flip][1];
 		uv_xsel = uv_table[v_subsample][rotate][flip][2];
@@ -1161,10 +1164,6 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* Set VIDO_FIFO_TEST */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_FIFO_TEST, wrot->data->fifo, U32_MAX);
-
-	/* Filter Enable */
-	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAIN_BUF_SIZE,
-		       (filt_v << 4) + (filt_h << 0), 0x00000077);
 
 	/* turn off WROT dma dcm */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_ROT_EN,
@@ -1499,8 +1498,8 @@ static void wrot_check_buf(const struct mml_frame_dest *dest,
 	 * y_buf_width is just larger than main_blk_width
 	 */
 	buf->y_buf_width = ceil_m(setting->main_blk_width,
-				setting->main_buf_line_num) *
-			   setting->main_buf_line_num;
+				  setting->main_buf_line_num) *
+				setting->main_buf_line_num;
 	buf->y_buf_usage = buf->y_buf_width * setting->main_buf_line_num;
 	if (buf->y_buf_usage > buf->y_buf_size) {
 		setting->main_buf_line_num = setting->main_buf_line_num - 4;
@@ -1626,6 +1625,7 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 wrot_tar_ysize;
 	struct wrot_ofst_addr ofst = {0};
 	struct wrot_setting setting = {0};
+	u32 buf_line_num;
 
 	/* Fill the the tile settings */
 	if (MML_FMT_COMPRESS(dest_fmt))
@@ -1676,10 +1676,20 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	 */
 	setting.tar_xsize = wrot_tar_xsize;
 	wrot_calc_setting(wrot, dest, wrot_frm, &setting);
+	if (cfg->info.mode == MML_MODE_RACING) {
+		/* line number for inline always set 16,
+		 * since sram has no latency
+		 */
+		buf_line_num = WROT_MIN_BUF_LINE_NUM;
+	} else {
+		/* line number for each tile calculated by format */
+		buf_line_num = setting.main_buf_line_num;
+	}
 
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_MAIN_BUF_SIZE,
-		       (setting.main_blk_width << 16) +
-		       (setting.main_buf_line_num << 8), 0xffff7f00);
+		       (setting.main_blk_width << 16) |
+		       (buf_line_num << 8) |
+		       (wrot_frm->filt_v << 4), U32_MAX);
 
 	/* Set wrot interrupt bit for debug,
 	 * this bit will clear to 0 after wrot done.

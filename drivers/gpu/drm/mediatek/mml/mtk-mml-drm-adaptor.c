@@ -437,17 +437,15 @@ static void task_frame_done(struct mml_task *task)
 
 	mml_trace_ex_begin("%s", __func__);
 
-	mml_log("[drm]frame done task %p state %u job %u",
+	mml_msg("[drm]frame done task %p state %u job %u",
 		task, task->state, task->job.jobid);
 
 	/* clean up */
 	mml_trace_ex_begin("%s_putbuf", __func__);
-	if (task->config->info.mode != MML_MODE_RACING) {
-		for (i = 0; i < task->buf.dest_cnt; i++) {
-			mml_msg("[drm]release dest %hhu iova %#011llx",
-				i, task->buf.dest[i].dma[0].iova);
-			mml_buf_put(&task->buf.dest[i]);
-		}
+	for (i = 0; i < task->buf.dest_cnt; i++) {
+		mml_msg("[drm]release dest %hhu iova %#011llx",
+			i, task->buf.dest[i].dma[0].iova);
+		mml_buf_put(&task->buf.dest[i]);
 	}
 	mml_msg("[drm]release src iova %#011llx",
 		task->buf.src.dma[0].iova);
@@ -579,13 +577,11 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 		}
 	}
 
-	if (likely(!mml_racing_ut)) {
-		/* always fixup plane offset */
-		frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
-		for (i = 0; i < submit->info.dest_cnt; i++)
-			frame_calc_plane_offset(&submit->info.dest[i].data,
-				&submit->buffer.dest[i]);
-	}
+	/* always fixup plane offset */
+	frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
+	for (i = 0; i < submit->info.dest_cnt; i++)
+		frame_calc_plane_offset(&submit->info.dest[i].data,
+			&submit->buffer.dest[i]);
 
 	/* always fixup format/modifier for afbc case
 	 * the format in info should change to fourcc format in future design
@@ -598,12 +594,11 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			submit->info.dest[i].data.format,
 			submit->info.dest[i].data.modifier);
 
-	/* check vblank and warning if not fill in
-	 * vblank must fill in for racing mode
-	 * fill in 16666 us for default
+	/* TODO: remove after disp support calc time 6.75 * 1000 * height
+	 * give default total time for mml frame in racing case
 	 */
-	if (submit->info.mode == MML_MODE_RACING && !submit->info.vblank)
-		submit->info.vblank = 16666;
+	if (submit->info.mode == MML_MODE_RACING && !submit->info.act_time)
+		submit->info.act_time = 6750 * submit->info.dest[0].data.height;
 
 	/* always do frame info adjust for now
 	 * but this flow should call from hwc/disp in future version
@@ -941,16 +936,25 @@ EXPORT_SYMBOL_GPL(mml_drm_put_context);
 
 s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 {
+	struct cmdq_operand lhs, rhs;
+
 	/* debug current task idx */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3,
 		atomic_read(&ctx->job_serial));
 
-	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_NEXT);
+	/* set NEXT bit on, to let mml know should jump next */
+	lhs.reg = true;
+	lhs.idx = MML_CMDQ_NEXT_SPR;
+	rhs.reg = false;
+	rhs.value = MML_NEXTSPR_NEXT;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_OR, MML_CMDQ_NEXT_SPR, &lhs, &rhs);
 
 	cmdq_pkt_set_event(pkt, mml_ir_get_disp_ready_event(ctx->mml));
 	cmdq_pkt_wfe(pkt, mml_ir_get_mml_ready_event(ctx->mml));
 
-	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CLEAR);
+	/* clear next bit since disp with new mml now */
+	rhs.value = ~(u16)MML_NEXTSPR_NEXT;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_AND, MML_CMDQ_NEXT_SPR, &lhs, &rhs);
 
 	return 0;
 }
@@ -958,15 +962,24 @@ EXPORT_SYMBOL_GPL(mml_drm_racing_config_sync);
 
 s32 mml_drm_racing_stop_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 {
+	struct cmdq_operand lhs, rhs;
+
 	/* debug current task idx */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3,
 		atomic_read(&ctx->job_serial));
 
-	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_NEXT);
+	/* set NEXT bit on, to let mml know should jump next */
+	lhs.reg = true;
+	lhs.idx = MML_CMDQ_NEXT_SPR;
+	rhs.reg = false;
+	rhs.value = MML_NEXTSPR_NEXT;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_OR, MML_CMDQ_NEXT_SPR, &lhs, &rhs);
 
 	cmdq_pkt_wait_no_clear(pkt, mml_ir_get_mml_stop_event(ctx->mml));
 
-	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CLEAR);
+	/* clear next bit since disp with new mml now */
+	rhs.value = ~(u16)MML_NEXTSPR_NEXT;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_AND, MML_CMDQ_NEXT_SPR, &lhs, &rhs);
 
 	return 0;
 }

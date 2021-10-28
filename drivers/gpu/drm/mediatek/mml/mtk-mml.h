@@ -162,7 +162,7 @@ struct mml_frame_dest {
 struct mml_frame_info {
 	struct mml_frame_data src;
 	struct mml_frame_dest dest[MML_MAX_OUTPUTS];
-	uint32_t vblank;	/* us time for racing support and dvfs */
+	uint32_t act_time;	/* ns time for mml frame */
 	uint8_t dest_cnt;	/* should be < MML_MAX_OUTPUTS */
 	int8_t mode;	/* one of mml_mode */
 	uint8_t layer_id;

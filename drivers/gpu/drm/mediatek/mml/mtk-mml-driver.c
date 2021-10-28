@@ -264,6 +264,7 @@ struct mml_topology_cache *mml_topology_get_cache(struct mml_dev *mml)
 {
 	return IS_ERR(mml->topology) ? NULL : mml->topology;
 }
+EXPORT_SYMBOL_GPL(mml_topology_get_cache);
 
 struct mml_comp *mml_dev_get_comp_by_id(struct mml_dev *mml, u32 id)
 {

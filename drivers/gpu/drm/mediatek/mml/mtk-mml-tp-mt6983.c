@@ -16,9 +16,9 @@
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
 #define MML_IR_DUAL_FRAME	(2560 * 1440)	/* racing use dual from 2k */
-#define MML_IR_MIN_FRAME	(1920 * 1080)
-#define MML_IR_MAX_FRAME	(2560 * 1440)	/* lcm size */
-#define MML_IR_MAX_WIDTH	3200
+#define MML_IR_WIDTH		1920
+#define MML_IR_HEIGHT		1088
+#define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
 
 int mml_force_rsz;
 module_param(mml_force_rsz, int, 0644);
@@ -577,7 +577,9 @@ static s32 tp_select(struct mml_topology_cache *cache,
 
 static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
 {
+	struct mml_topology_cache *tp;
 	u32 pixel;
+	u32 freq;
 
 	if (unlikely(mml_path_mode))
 		return mml_path_mode;
@@ -588,6 +590,23 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	} else if (!mml_racing_enable(mml))
 		goto decouple;
 
+	/* get mid opp frequency */
+	tp = mml_topology_get_cache(mml);
+	if (!tp || !tp->opp_cnt) {
+		mml_err("not support racing due to opp not ready");
+		goto decouple;
+	}
+
+	/* TODO: remove after disp support calc time 6.75 * 1000 * height */
+	if (!info->act_time)
+		info->act_time = 6750 * info->dest[0].data.height;
+
+	freq = tp->opp_speeds[MML_IR_MAX_OPP];
+	pixel = max(info->src.width * info->src.height,
+		info->dest[0].data.width * info->dest[0].data.height);
+	if (div_u64(pixel, (u32)div_u64(freq, 1000000)) >= info->act_time)
+		goto decouple;
+
 	/* aal-dre(scltm) not support inline rot */
 	if (info->dest[0].pq_config.en && info->dest[0].pq_config.en_dre)
 		goto decouple;
@@ -596,21 +615,14 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (info->dest_cnt > 1)
 		goto decouple;
 
-	/* HW limitation */
-	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
-		if (info->dest[0].crop.r.width > MML_IR_MAX_WIDTH)
-			goto decouple;
-	} else {
-		if (info->dest[0].crop.r.height > MML_IR_MAX_WIDTH)
-			goto decouple;
-	}
-
-	/* TODO: check racing mode by resolution/vblank/rotate
-	 * currently do not check low bound for testing
-	 */
-	/* HRT BW limitation */
-	pixel = info->dest[0].crop.r.width * info->dest[0].crop.r.height;
-	if (pixel > MML_IR_MAX_FRAME)
+	/* only support FHD 1920x1088 with rotate 90/270 case for now */
+	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180)
+		goto decouple;
+	if (info->dest[0].crop.r.width > MML_IR_WIDTH + 30 ||
+		info->dest[0].crop.r.width < MML_IR_WIDTH - 30)
+		goto decouple;
+	if (info->dest[0].crop.r.height > MML_IR_HEIGHT + 30 ||
+		info->dest[0].crop.r.height < MML_IR_HEIGHT - 30)
 		goto decouple;
 
 	return MML_MODE_RACING;

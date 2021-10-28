@@ -256,12 +256,12 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	struct mml_comp_config *ccfg = cache->cfg;
 	const u32 tile_cnt = task->config->tile_output[pipe]->tile_cnt;
 	struct mml_frame_dest dest = task->config->info.dest[0];
-	bool reverse;
+	bool reverse = false;
 
 	struct mml_comp *comp;
 	u32 i, tile, tile_idx, tile_wait = 0;
 	s32 ret;
-	bool sync = false;
+	bool sync;
 
 	if (IS_ERR(pkt)) {
 		mml_err("%s fail err %d", __func__, PTR_ERR(pkt));
@@ -300,8 +300,15 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		goto err;
 	}
 
-	reverse = task->config->info.mode == MML_MODE_RACING &&
-		  (dest.rotate == MML_ROT_180 || dest.rotate == MML_ROT_270);
+	if (task->config->info.mode == MML_MODE_RACING) {
+		if (dest.rotate == MML_ROT_180 || dest.rotate == MML_ROT_270)
+			reverse = true;
+		/* make mmlsys do sync */
+		sync = false;
+	} else {
+		/* no need to call sync for dc mode */
+		sync = true;
+	}
 
 	for (tile = 0; tile < tile_cnt; tile++) {
 		tile_idx = reverse ? tile_cnt - 1 - tile : tile;
@@ -397,6 +404,62 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 	cmdq_pkt_refinalize(task->pkts[pipe]);
 
 	return 0;
+}
+
+static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
+{
+	snprintf(frame, sz, "%u %u (%u %u) C%#010x%s%s%s%s%s%s%s%s P%hu",
+		data->width, data->height, data->y_stride, data->uv_stride,
+		data->format,
+		MML_FMT_SWAP(data->format) ? "s" : "",
+		MML_FMT_BLOCK(data->format) ? "b" : "",
+		MML_FMT_INTERLACED(data->format) ? "i" : "",
+		MML_FMT_UFO(data->format) ? "u" : "",
+		MML_FMT_10BIT_TILE(data->format) ? "t" :
+		MML_FMT_10BIT_PACKED(data->format) ? "p" :
+		MML_FMT_10BIT_LOOSE(data->format) ? "l" : "",
+		MML_FMT_10BIT_JUMP(data->format) ? "j" : "",
+		MML_FMT_COMPRESS(data->format) ? "c" : "",
+		data->secure ? " sec" : "",
+		data->profile);
+}
+
+static void dump_inout(struct mml_task *task)
+{
+	const struct mml_frame_config *cfg = task->config;
+	char frame[60];
+	u32 i;
+
+	get_frame_str(frame, sizeof(frame), &cfg->info.src);
+	mml_log("in:%s plane:%hhu%s%s job %hu",
+		frame,
+		task->buf.src.cnt,
+		task->buf.src.fence ? " fence" : "",
+		task->buf.src.flush ? " flush" : "",
+		task->job.jobid);
+	for (i = 0; i < cfg->info.dest_cnt; i++) {
+		get_frame_str(frame, sizeof(frame), &cfg->info.dest[i].data);
+		mml_log(
+			"out %u:%s r:%hu plane:%hhu%s%s%s%s",
+			i,
+			frame,
+			cfg->info.dest[i].rotate,
+			task->buf.dest[i].cnt,
+			cfg->info.dest[i].flip ? " flip" : "",
+			task->buf.dest[i].fence ? " fence" : "",
+			task->buf.dest[i].flush ? " flush" : "",
+			task->buf.dest[i].invalid ? " invalid" : "");
+		mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
+			i,
+			cfg->info.dest[i].crop.r.left,
+			cfg->info.dest[i].crop.r.top,
+			cfg->info.dest[i].crop.r.width,
+			cfg->info.dest[i].crop.r.height,
+			cfg->info.dest[i].compose.left,
+			cfg->info.dest[i].compose.top,
+			cfg->info.dest[i].compose.width,
+			cfg->info.dest[i].compose.height);
+	}
 }
 
 static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
@@ -532,6 +595,15 @@ static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rh
 	return div_u64((u64)delta.tv_sec * 1000000000 + delta.tv_nsec, 1000);
 }
 
+static void mml_core_calc_tput_racing(struct mml_task *task, u32 pixel)
+{
+	/* in inline rotate case mml must complete 1 frame in disp
+	 * giving act time, thus calc tput by act_time directly.
+	 */
+	task->throughput = div_u64(pixel,
+		div_u64(task->config->info.act_time, 1000000));
+}
+
 static void mml_core_calc_tput(struct mml_task *task, u32 pixel,
 	const struct timespec64 *end, const struct timespec64 *start)
 {
@@ -590,12 +662,11 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 
 	task->throughput = 0;
 	if (task->config->info.mode == MML_MODE_RACING) {
-		/* throughput is pixel / duration,
-		 * duration is vblank * 0.8, thus
-		 * pixel / (vblank * 0.8) = pixel * 5 / 4 / vblank
+		/* racing mode uses different calculation since start time
+		 * consistent with disp
 		 */
-		task->throughput = (u32)div_u64(
-			max_pixel * 5, task->config->info.vblank) >> 2;
+		mml_core_calc_tput_racing(task, max_pixel);
+
 	} else if (timespec64_compare(&task->submit_time, &task->end_time) < 0) {
 		/* calculate remaining time to complete pixels */
 		mml_core_calc_tput(task, max_pixel,
@@ -1079,13 +1150,14 @@ static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bo
 	if (force) {
 		/* call cmdq to stop hardware thread directly */
 		cmdq_mbox_channel_stop(cfg->path[pipe]->clt->chan);
-		mml_mmp(irq_stop, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
 	} else {
 		if (cmdq_mbox_get_usage(cfg->path[pipe]->clt->chan) <= 0)
 			return;
 		cmdq_thread_set_spr(cfg->path[pipe]->clt->chan, MML_CMDQ_NEXT_SPR,
 			MML_NEXTSPR_NEXT);
-		mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid,
+			pipe | BIT(4));
 	}
 }
 
@@ -1240,62 +1312,6 @@ static void core_buffer_map(struct mml_task *task)
 		call_cfg_op(comp, buf_map, task, &path->nodes[i]);
 	}
 	mml_trace_end();
-}
-
-static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
-{
-	snprintf(frame, sz, "%u %u (%u %u) C%#010x%s%s%s%s%s%s%s%s P%hu",
-		data->width, data->height, data->y_stride, data->uv_stride,
-		data->format,
-		MML_FMT_SWAP(data->format) ? "s" : "",
-		MML_FMT_BLOCK(data->format) ? "b" : "",
-		MML_FMT_INTERLACED(data->format) ? "i" : "",
-		MML_FMT_UFO(data->format) ? "u" : "",
-		MML_FMT_10BIT_TILE(data->format) ? "t" :
-		MML_FMT_10BIT_PACKED(data->format) ? "p" :
-		MML_FMT_10BIT_LOOSE(data->format) ? "l" : "",
-		MML_FMT_10BIT_JUMP(data->format) ? "j" : "",
-		MML_FMT_COMPRESS(data->format) ? "c" : "",
-		data->secure ? " sec" : "",
-		data->profile);
-}
-
-static void dump_inout(struct mml_task *task)
-{
-	const struct mml_frame_config *cfg = task->config;
-	char frame[60];
-	u32 i;
-
-	get_frame_str(frame, sizeof(frame), &cfg->info.src);
-	mml_log("in:%s plane:%hhu%s%s job %hu",
-		frame,
-		task->buf.src.cnt,
-		task->buf.src.fence ? " fence" : "",
-		task->buf.src.flush ? " flush" : "",
-		task->job.jobid);
-	for (i = 0; i < cfg->info.dest_cnt; i++) {
-		get_frame_str(frame, sizeof(frame), &cfg->info.dest[i].data);
-		mml_log(
-			"out %u:%s r:%hu plane:%hhu%s%s%s%s",
-			i,
-			frame,
-			cfg->info.dest[i].rotate,
-			task->buf.dest[i].cnt,
-			cfg->info.dest[i].flip ? " flip" : "",
-			task->buf.dest[i].fence ? " fence" : "",
-			task->buf.dest[i].flush ? " flush" : "",
-			task->buf.dest[i].invalid ? " invalid" : "");
-		mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
-			i,
-			cfg->info.dest[i].crop.r.left,
-			cfg->info.dest[i].crop.r.top,
-			cfg->info.dest[i].crop.r.width,
-			cfg->info.dest[i].crop.r.height,
-			cfg->info.dest[i].compose.left,
-			cfg->info.dest[i].compose.top,
-			cfg->info.dest[i].compose.width,
-			cfg->info.dest[i].compose.height);
-	}
 }
 
 static void core_config_task(struct mml_task *task)

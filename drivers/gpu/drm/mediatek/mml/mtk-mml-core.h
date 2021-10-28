@@ -92,9 +92,8 @@ extern int mml_racing_wdone_eoc;
 #define MML_CMDQ_NEXT_SPR	(CMDQ_GPR_CNT_ID + CMDQ_GPR_R10)
 #define MML_CMDQ_ROUND_SPR	CMDQ_THR_SPR_IDX3
 #define MML_ROUND_SPR_INIT	0x8000
-#define MML_NEXTSPR_CLEAR	0x1
-#define MML_NEXTSPR_CONTI	0x2
-#define MML_NEXTSPR_NEXT	0x3
+#define MML_NEXTSPR_NEXT	BIT(0)
+#define MML_NEXTSPR_CONTI	BIT(1)
 
 struct mml_topology_cache;
 struct mml_frame_config;

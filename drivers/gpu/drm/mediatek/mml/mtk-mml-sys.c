@@ -211,7 +211,15 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
 
 	if (task->config->info.mode == MML_MODE_RACING) {
+		struct cmdq_operand lhs, rhs;
+
 		cmdq_pkt_clear_event(pkt, mml_ir_get_mml_stop_event(task->config->mml));
+
+		lhs.reg = true;
+		lhs.idx = MML_CMDQ_NEXT_SPR;
+		rhs.reg = false;
+		rhs.value = ~(u16)MML_NEXTSPR_CONTI;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_AND, MML_CMDQ_NEXT_SPR, &lhs, &rhs);
 
 		if (!mml_racing_fast && likely(!mml_racing_ut))
 			sys_sync_racing(comp, task, ccfg);
@@ -363,12 +371,23 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
 	sys_frm->racing_tile0_jump = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 
-	/* loop if NEXT_SPR is not MML_NEXTSPR_NEXT
-	 *	if NEXT_SPR != 1:
-	 *		jump CONFIG_TILE0
+	/* get the MML_NEXTSPR_NEXT bit first
+	 * pseudo:
+	 *	SPR1 = NEXT_SPR & MML_NEXTSPR_NEXT
 	 */
 	lhs.reg = true;
 	lhs.idx = MML_CMDQ_NEXT_SPR;
+	rhs.reg = false;
+	rhs.value = MML_NEXTSPR_NEXT;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_AND, CMDQ_THR_SPR_IDX1, &lhs, &rhs);
+
+	/* loop if SPR1 is not MML_NEXTSPR_NEXT
+	 * pseudo:
+	 *	if SPR1 != MML_NEXTSPR_NEXT:
+	 *		jump CONFIG_TILE0
+	 */
+	lhs.reg = true;
+	lhs.idx = CMDQ_THR_SPR_IDX1;
 	rhs.reg = false;
 	rhs.value = MML_NEXTSPR_NEXT;
 	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lhs, &rhs, CMDQ_NOT_EQUAL);
@@ -393,15 +412,36 @@ bool sys_sync(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
 	sys_frm->racing_skip_jump = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 
+	/* get the MML_NEXTSPR_CONTI bit first
+	 * pseudo:
+	 *	SPR1 = NEXT_SPR & MML_NEXTSPR_CONTI
+	 *	if SPR1 == CONTI:
+	 *		jump racing_skip_jump
+	 */
 	lhs.reg = true;
 	lhs.idx = MML_CMDQ_NEXT_SPR;
 	rhs.reg = false;
-	rhs.value = MML_NEXTSPR_CLEAR;
-	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lhs, &rhs, CMDQ_NOT_EQUAL);
+	rhs.value = MML_NEXTSPR_CONTI;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_AND, CMDQ_THR_SPR_IDX1, &lhs, &rhs);
+
+	lhs.reg = true;
+	lhs.idx = CMDQ_THR_SPR_IDX1;
+	rhs.reg = false;
+	rhs.value = MML_NEXTSPR_CONTI;
+	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lhs, &rhs, CMDQ_EQUAL);
 
 	if (likely(!mml_racing_ut))
 		sys_sync_racing(comp, task, ccfg);
-	cmdq_pkt_assign_command(pkt, MML_CMDQ_NEXT_SPR, MML_NEXTSPR_CONTI);
+
+	/* and mark conti bit after wait sync
+	 * pseudo:
+	 *	NEXT_SPR = NEXT_SPR | MML_NEXTSPR_CONTI;
+	 */
+	lhs.reg = true;
+	lhs.idx = MML_CMDQ_NEXT_SPR;
+	rhs.reg = false;
+	rhs.value = MML_NEXTSPR_CONTI;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_OR, MML_CMDQ_NEXT_SPR, &lhs, &rhs);
 
 	sys_frm->racing_skip_offset = pkt->cmd_buf_size;
 
