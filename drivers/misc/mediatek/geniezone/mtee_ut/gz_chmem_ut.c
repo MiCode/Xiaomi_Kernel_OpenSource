@@ -353,7 +353,7 @@ out_close_sn:
 	ret = KREE_CloseSession(append_sn);
 	CHECK_EQ(ret, TZ_RESULT_SUCCESS, "close append_sn");
 	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("[%s] append_sn(0x%llx) close fail(%d)\n", __func__, append_sn, ret);
+		KREE_ERR("[%s] append_sn(0x%x) close fail(%d)\n", __func__, append_sn, ret);
 
 out_ssmr_put:
 	/*release chmem*/

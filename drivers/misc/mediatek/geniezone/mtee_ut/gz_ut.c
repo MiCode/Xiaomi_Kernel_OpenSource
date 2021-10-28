@@ -159,7 +159,7 @@ int simple_ut(void *args)
 	start = ktime_get();
 	ret = KREE_TeeServiceCall(session, TZCMD_TEST_ADD, types, param);
 	end = ktime_get();
-	KREE_DEBUG("TeeServiceCall time(simple ADD): %d (ns)\n",
+	KREE_DEBUG("TeeServiceCall time(simple ADD): %lld (ns)\n",
 		ktime_to_ns(ktime_sub(end, start)));
 
 	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "TeeServiceCall");
@@ -168,7 +168,7 @@ int simple_ut(void *args)
 	start = ktime_get();
 	ret = KREE_CloseSession(session);
 	end = ktime_get();
-	KREE_DEBUG("CloseSession time(simple ADD): %d (ns)\n",
+	KREE_DEBUG("CloseSession time(simple ADD): %lld (ns)\n",
 		ktime_to_ns(ktime_sub(end, start)));
 
 	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "CreateSession:echo");
