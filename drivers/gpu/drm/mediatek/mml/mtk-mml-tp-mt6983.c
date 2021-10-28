@@ -15,9 +15,17 @@
 #define TOPOLOGY_PLATFORM	"mt6983"
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
-#define MML_IR_DUAL_FRAME	(2560 * 1440)	/* racing use dual from 2k */
-#define MML_IR_WIDTH		1920
-#define MML_IR_HEIGHT		1088
+/* TODO: mml ir dual not ready, *8 to foce disable, should remove later */
+#define MML_IR_DUAL_FRAME	(2560 * 1440 * 8) /* racing use dual from 2k */
+/* 2k size and pixel as upper bound */
+#define MML_IR_WIDTH_2K		(2560 + 30)
+#define MML_IR_HEIGHT_2K	(1440 + 30)
+#define MML_IR_2k		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
+/* fhd size and pixel as lower bound */
+#define MML_IR_WIDTH		(1920 - 30)
+#define MML_IR_HEIGHT		(1088 - 30)
+#define MML_IR_FHD		(MML_IR_WIDTH * MML_IR_HEIGHT)
+
 #define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
 
 int mml_force_rsz;
@@ -547,6 +555,8 @@ static s32 tp_select(struct mml_topology_cache *cache,
 		cfg->dual = cfg->disp_dual;
 		cfg->framemode = true;
 		cfg->nocmd = true;
+	} else if (cfg->info.mode == MML_MODE_SRAM_READ) {
+		cfg->dual = false;
 	}
 	cfg->shadow = true;
 
@@ -618,11 +628,13 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	/* only support FHD 1920x1088 with rotate 90/270 case for now */
 	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180)
 		goto decouple;
-	if (info->dest[0].crop.r.width > MML_IR_WIDTH + 30 ||
-		info->dest[0].crop.r.width < MML_IR_WIDTH - 30)
+	if (info->dest[0].crop.r.width > MML_IR_WIDTH_2K ||
+		info->dest[0].crop.r.height > MML_IR_HEIGHT_2K ||
+		pixel > MML_IR_2k)
 		goto decouple;
-	if (info->dest[0].crop.r.height > MML_IR_HEIGHT + 30 ||
-		info->dest[0].crop.r.height < MML_IR_HEIGHT - 30)
+	if (info->dest[0].crop.r.width < MML_IR_WIDTH ||
+		info->dest[0].crop.r.height < MML_IR_HEIGHT ||
+		pixel < MML_IR_FHD)
 		goto decouple;
 
 	return MML_MODE_RACING;
