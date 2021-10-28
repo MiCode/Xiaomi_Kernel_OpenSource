@@ -1796,7 +1796,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 #else
 		buf = get_first_sd_buf();
 		if (!buf) {
-			pr_info("%s: no single device buff added\n", __func__);
+			pr_debug("%s: no single device buff added\n", __func__);
 		} else {
 			dbuf = (struct dma_buf *)buf->dma_buf_putkva;
 			info.hw_buf_size = dbuf->size;

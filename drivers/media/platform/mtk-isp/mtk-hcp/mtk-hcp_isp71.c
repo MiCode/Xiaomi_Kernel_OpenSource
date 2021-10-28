@@ -599,7 +599,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					mblock[id].start_virt);
 			mblock[id].start_dma = 0;
 		}
-		pr_info(
+		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
 			__func__, id, isp71_get_reserve_mem_phys(id),
 			isp71_get_reserve_mem_virt(id),
@@ -694,7 +694,7 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 			mblock[id].start_dma = 0x0;
 			mblock[id].mmap_cnt = 0;
 		}
-		pr_info(
+		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
 			__func__, id, isp71_get_reserve_mem_phys(id),
 			isp71_get_reserve_mem_virt(id),
