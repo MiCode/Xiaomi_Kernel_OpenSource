@@ -14,6 +14,8 @@
 #include <linux/dma-iommu.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/arm-smccc.h>
 
 // mtk imgsys local header file
 
@@ -23,8 +25,14 @@
 static void __iomem *g_adl_a_va;
 static void __iomem *g_adl_b_va;
 
+enum imgsys_smc_control {
+	IMGSYS_ADL_SET_DOMAIN
+};
+
 void imgsys_adl_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
+	struct arm_smccc_res res;
+
 	pr_info("%s: +\n", __func__);
 
 	// ADL_A: 0x15005300
@@ -32,6 +40,9 @@ void imgsys_adl_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 	// ADL_B: 0x15007300
 	g_adl_b_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
+
+	arm_smccc_smc(MTK_SIP_IMGSYS_CONTROL, IMGSYS_ADL_SET_DOMAIN, 0,
+		0, 0, 0, 0, 0, &res);
 
 	pr_info("%s: -\n", __func__);
 }

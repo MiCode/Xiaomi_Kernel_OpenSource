@@ -125,9 +125,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
 				dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
 int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev);
-int imgsys_cmdq_sec_adl_task(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_cmdq_sec_cmd(struct cmdq_pkt *pkt);
-void imgsys_cmdq_sec_adl(struct cmdq_pkt *pkt);
 
 #if DVFS_QOS_READY
 void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev);
