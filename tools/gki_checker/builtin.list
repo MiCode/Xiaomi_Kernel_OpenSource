@@ -1212,6 +1212,7 @@ fs/erofs/decompressor.o
 fs/erofs/dir.o
 fs/erofs/inode.o
 fs/erofs/namei.o
+fs/erofs/pcpubuf.o
 fs/erofs/super.o
 fs/erofs/utils.o
 fs/erofs/xattr.o

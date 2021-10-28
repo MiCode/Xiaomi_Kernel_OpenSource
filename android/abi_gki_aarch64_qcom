@@ -1482,6 +1482,7 @@
   neigh_destroy
   __neigh_event_send
   neigh_lookup
+  neigh_resolve_output
   neigh_xmit
   __netdev_alloc_skb
   netdev_err
@@ -1960,6 +1961,7 @@
   register_kretprobe
   register_memory_notifier
   register_module_notifier
+  register_qdisc
   register_netdev
   register_netdevice
   register_netdevice_notifier
@@ -2814,6 +2816,7 @@
   unregister_oom_notifier
   unregister_pernet_device
   unregister_pm_notifier
+  unregister_qdisc
   unregister_reboot_notifier
   unregister_restart_handler
   unregister_rpmsg_driver
