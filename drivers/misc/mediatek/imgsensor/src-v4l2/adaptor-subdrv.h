@@ -183,6 +183,10 @@ struct subdrv_entry {
 	adaptor_i2c_wr_p16(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, reg, p_vals, n_vals)
 
+#define subdrv_i2c_wr_seq_p8(subctx, reg, p_vals, n_vals) \
+	adaptor_i2c_wr_seq_p8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, p_vals, n_vals)
+
 #define subdrv_i2c_wr_regs_u8(subctx, list, len) \
 	adaptor_i2c_wr_regs_u8(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, list, len)

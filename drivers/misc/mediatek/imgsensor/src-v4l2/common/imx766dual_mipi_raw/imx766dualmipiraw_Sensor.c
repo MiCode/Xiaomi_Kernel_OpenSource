@@ -43,11 +43,14 @@
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
 
+#define SEQUENTIAL_WRITE_EN 1
+
 #define read_cmos_sensor_8(...) subdrv_i2c_rd_u8(__VA_ARGS__)
 #define read_cmos_sensor_16(...) subdrv_i2c_rd_u16(__VA_ARGS__)
 #define write_cmos_sensor_8(...) subdrv_i2c_wr_u8(__VA_ARGS__)
 #define write_cmos_sensor_16(...) subdrv_i2c_wr_u16(__VA_ARGS__)
 #define imx766dual_table_write_cmos_sensor_8(...) subdrv_i2c_wr_regs_u8(__VA_ARGS__)
+#define imx766dual_seq_write_cmos_sensor_8(...) subdrv_i2c_wr_seq_p8(__VA_ARGS__)
 
 #define IMX766DUAL_EEPROM_READ_ID  0xA2
 #define IMX766DUAL_EEPROM_WRITE_ID 0xA3
@@ -655,7 +658,20 @@ static MUINT32 exposure_step_table[SENSOR_SCENARIO_ID_MAX] = {
 	4	//mode 19
 };
 
-static kal_uint16 imx766dual_QSC_setting[3072 * 2];
+#define QSC_SIZE 3072
+#define QSC_TABLE_SIZE (QSC_SIZE*2)
+#define QSC_EEPROM_ADDR 0x22C0
+#define QSC_OTP_ADDR 0xC800
+#define SENSOR_ID_L 0x05
+#define SENSOR_ID_H 0x00
+#define LENS_ID_L 0x47
+#define LENS_ID_H 0x01
+
+#if SEQUENTIAL_WRITE_EN
+static kal_uint8 imx766dual_QSC_setting[QSC_SIZE];
+#else
+static kal_uint16 imx766dual_QSC_setting[QSC_TABLE_SIZE];
+#endif
 
 static void get_vc_info_2(struct SENSOR_VC_INFO2_STRUCT *pvcinfo2, kal_uint32 scenario)
 {
@@ -793,17 +809,13 @@ static kal_uint16 read_cmos_eeprom_8(struct subdrv_ctx *ctx, kal_uint16 addr)
 	return get_byte;
 }
 
-#define QSC_SIZE 3072
-#define QSC_EEPROM_ADDR 0x22C0
-#define QSC_OTP_ADDR 0xC800
-#define SENSOR_ID_L 0x05
-#define SENSOR_ID_H 0x00
-#define LENS_ID_L 0x47
-#define LENS_ID_H 0x01
-
 static void read_sensor_Cali(struct subdrv_ctx *ctx)
 {
-	kal_uint16 idx = 0, addr_qsc = QSC_EEPROM_ADDR, sensor_qsc = QSC_OTP_ADDR;
+	kal_uint16 idx = 0;
+	kal_uint16 addr_qsc = QSC_EEPROM_ADDR;
+#if SEQUENTIAL_WRITE_EN == 0
+	kal_uint16 sensor_qsc = QSC_OTP_ADDR;
+#endif
 	kal_uint8 otp_data[9] = {0};
 	int i = 0;
 
@@ -821,10 +833,14 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 		otp_flag = OTP_QSC_CUSTOM;
 		for (idx = 0; idx < QSC_SIZE; idx++) {
 			addr_qsc = QSC_EEPROM_ADDR + idx;
+#if SEQUENTIAL_WRITE_EN
+			imx766dual_QSC_setting[idx] = read_cmos_eeprom_8(ctx, addr_qsc);
+#else
 			sensor_qsc = QSC_OTP_ADDR + idx;
 			imx766dual_QSC_setting[2 * idx] = sensor_qsc;
 			imx766dual_QSC_setting[2 * idx + 1] =
 				read_cmos_eeprom_8(ctx, addr_qsc);
+#endif
 		}
 	} else {
 		LOG_INF("OTP type: No Data, 0x0008 = %d, 0x0009 = %d",
@@ -839,8 +855,13 @@ static void write_sensor_QSC(struct subdrv_ctx *ctx)
 	write_cmos_sensor_8(ctx, 0x86A9, 0x4E);
 	// set QSC from EEPROM to sensor
 	if ((otp_flag == OTP_QSC_CUSTOM) || (otp_flag == OTP_QSC_INTERNAL)) {
+#if SEQUENTIAL_WRITE_EN
+		imx766dual_seq_write_cmos_sensor_8(ctx, QSC_OTP_ADDR,
+		imx766dual_QSC_setting, sizeof(imx766dual_QSC_setting));
+#else
 		imx766dual_table_write_cmos_sensor_8(ctx, imx766dual_QSC_setting,
 		sizeof(imx766dual_QSC_setting) / sizeof(kal_uint16));
+#endif
 	}
 	write_cmos_sensor_8(ctx, 0x32D2, 0x01);
 }

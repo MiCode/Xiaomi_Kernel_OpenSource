@@ -25,6 +25,9 @@ int adaptor_i2c_wr_p8(struct i2c_client *i2c_client,
 int adaptor_i2c_wr_p16(struct i2c_client *i2c_client,
 		u16 addr, u16 reg, u16 *p_vals, u32 n_vals);
 
+int adaptor_i2c_wr_seq_p8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *p_vals, u32 n_vals);
+
 int adaptor_i2c_wr_regs_u8(struct i2c_client *i2c_client,
 		u16 addr, u16 *list, u32 len);
 
