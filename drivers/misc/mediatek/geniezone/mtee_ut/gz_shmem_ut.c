@@ -91,6 +91,8 @@ TZ_RESULT shmem_test_continuous(void)
 {
 	int sz = 4272; /*can update for test*/
 
+	int aligned_sz = (int) PAGE_ALIGN(sz);
+	int sz_order = 0;
 	char *buf = NULL;
 	int num_PA = 0;
 	uint64_t pa = 0;
@@ -106,12 +108,26 @@ TZ_RESULT shmem_test_continuous(void)
 	if ((sz % PAGE_SIZE) != 0)
 		num_PA++;
 
-	buf = kmalloc(sz, GFP_KERNEL);
+	//buf = kmalloc(sz, GFP_KERNEL);
+	sz_order = get_order(aligned_sz);
+	buf = (char *)__get_free_pages(GFP_KERNEL, sz_order);
 	if (!buf) {
 		KREE_ERR("[%s] buf kmalloc fail.\n", __func__);
 		ret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
 		goto out;
 	}
+
+	pa = (uint64_t) virt_to_phys((void *)buf);
+
+	if ((pa % PAGE_SIZE) != 0)	{
+		KREE_ERR("[%s] buf PA(0x%llx) !aligned, stop UT\n",
+			__func__, pa);
+		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
+		goto out_free_buf;
+	}
+
+	KREE_DEBUG("[%s]sz=%d, aligned_sz=%d, PA=%llx, num_PA=%d\n",
+	__func__, sz, aligned_sz, pa, num_PA);
 
 	memset(buf, 'a', sz);	/*init data */
 	ret = verify_data(buf, sz, 'a');
@@ -120,8 +136,6 @@ TZ_RESULT shmem_test_continuous(void)
 		KREE_ERR("[%s]buf (bf) fail(%d)\n", __func__, ret);
 		goto out_free_buf;
 	}
-
-	pa = (uint64_t) virt_to_phys((void *)buf);
 
 	shm_param.buffer = (void *)pa;
 	shm_param.size = sz;
@@ -180,7 +194,8 @@ out_create_mem_sn:
 out_free_buf:
 	/*free test shmem region */
 	if (buf)
-		kfree(buf);
+		free_pages((unsigned long)buf, sz_order);
+		//kfree(buf); /*w kmalloc()*/
 
 out:
 	KREE_DEBUG("[%s] test end\n", __func__);
@@ -194,6 +209,9 @@ TZ_RESULT shmem_test_discontinuous(void)
 {
 	int sz1 = 8192, sz2 = 12288; /*can update for test*/
 
+	int aligned_sz1 = (int) PAGE_ALIGN(sz1);
+	int aligned_sz2 = (int) PAGE_ALIGN(sz2);
+	int sz1_order = 0, sz2_order = 0;
 	char *buf1 = NULL, *buf2 = NULL;
 	int num_PA1 = 0, num_PA2 = 0, num_PA;
 	int num_PA1_div = 0, num_PA2_div = 0;
@@ -220,7 +238,9 @@ TZ_RESULT shmem_test_discontinuous(void)
 
 	num_PA = (num_PA1 + num_PA2);
 
-	buf1 = kmalloc(sz1, GFP_KERNEL);
+	//buf1 = kmalloc(sz1, GFP_KERNEL);
+	sz1_order = get_order(aligned_sz1);
+	buf1 = (char *)__get_free_pages(GFP_KERNEL, sz1_order);
 	if (!buf1) {
 		KREE_ERR("[%s] buf1 kmalloc fail.\n", __func__);
 		ret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
@@ -235,7 +255,9 @@ TZ_RESULT shmem_test_discontinuous(void)
 		goto out_free_buf1;
 	}
 
-	buf2 = kmalloc(sz2, GFP_KERNEL);
+	//buf2 = kmalloc(sz2, GFP_KERNEL);
+	sz2_order = get_order(aligned_sz2);
+	buf2 = (char *)__get_free_pages(GFP_KERNEL, sz2_order);
 	if (!buf2) {
 		KREE_ERR("[%s] buf2 kmalloc fail.\n", __func__);
 		ret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
@@ -252,6 +274,20 @@ TZ_RESULT shmem_test_discontinuous(void)
 
 	pa1 = (uint64_t) virt_to_phys((void *)buf1);
 	pa2 = (uint64_t) virt_to_phys((void *)buf2);
+
+	if ((pa1 % PAGE_SIZE) != 0)	{
+		KREE_ERR("[%s] buf1 PA(0x%llx) !aligned, stop UT\n",
+			__func__, pa1);
+		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
+		goto out_free_buf2;
+	}
+
+	if ((pa2 % PAGE_SIZE) != 0)	{
+		KREE_ERR("[%s] buf2 PA(0x%llx) !aligned, stop UT\n",
+			__func__, pa2);
+		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
+		goto out_free_buf2;
+	}
 
 	paAry = kmalloc((num_PA + 1) * sizeof(uint64_t), GFP_KERNEL);
 	if (!paAry) {
@@ -341,12 +377,14 @@ out_free_paAry:
 out_free_buf2:
 	/*free test shmem region */
 	if (buf2)
-		kfree(buf2);
+		free_pages((unsigned long)buf2, sz2_order);
+		//kfree(buf2);
 
 out_free_buf1:
 	/*free test shmem region */
 	if (buf1)
-		kfree(buf1);
+		free_pages((unsigned long)buf1, sz1_order);
+		//kfree(buf1);
 
 out:
 	KREE_DEBUG("[%s] test end\n", __func__);
