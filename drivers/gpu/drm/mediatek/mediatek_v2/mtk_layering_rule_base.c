@@ -1600,7 +1600,7 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 		else if (priv->data->mmsys_id == MMSYS_MT6983)
 			return DDP_COMPONENT_OVL2_2L_NWCG;
 		else if (priv->data->mmsys_id == MMSYS_MT6895)
-			return DDP_COMPONENT_OVL0_2L;
+			return DDP_COMPONENT_OVL2_2L;
 	} else if (disp_idx == 2) {
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_VDS_PATH_SWITCH))

@@ -85,6 +85,10 @@ enum DPTx_FEC_ERROR_COUNT_TYPE {
 	FEC_PARITY_BLOCK_ERROR_COUNT           = 0x4,
 	FEC_PARITY_BIT_ERROR_COUNT             = 0x5,
 };
+enum DPTx_CAPABILITY {
+	DP_CAPS_DSC             = BIT(0),
+	DP_CAPS_YUV422          = BIT(1),
+};
 
 struct DP_CTS_AUTO_REQ {
 	unsigned int test_link_training;
@@ -235,9 +239,11 @@ enum DPTX_VIDEO_MODE {
 #define DP_CAPABILITY_BITWIDTH_MASK             0x07
 #define DP_CAPABILITY_BITWIDTH_SFT              16
 
-
+bool mtk_drm_dp_is_dsc(void);
 void mtk_dp_poweroff(void);
 void mtk_dp_poweron(void);
+bool mtk_dp_is_yuv422(void);
+bool mtk_dp_is_dsc(void);
 void mtk_dp_video_trigger(int res);
 struct edid *mtk_dp_handle_edid(struct mtk_dp *mtk_dp);
 int mdrv_DPTx_SetTrainingStart(struct mtk_dp *mtk_dp);
@@ -276,6 +282,7 @@ int mtk_dp_hdcp_getInfo(char *buffer, int size);
 int mtk_dp_phy_getInfo(char *buffer, int size);
 void mdrv_DPTx_reAuthentication(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_PatternSet(bool enable, int resolution);
+void mdrv_DPTx_FmmCgSet(bool enable);
 void mdrv_DPTx_set_maxlinkrate(bool enable, int maxlinkrate);
 void mtk_dp_SWInterruptSet(int bstatus);
 void mtk_dp_aux_swap_enable(bool enable);

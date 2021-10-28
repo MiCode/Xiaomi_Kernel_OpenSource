@@ -57,6 +57,7 @@
 #include "cmdq-util.h"
 #include "mtk_disp_ccorr.h"
 #include "mtk_debug.h"
+#include "mtk_dp.h"
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -427,6 +428,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		}
 		break;
 	case MMSYS_MT6895:
+		DDPDUMP("DUMP DISPSYS0\n");
 		mmsys_config_dump_analysis_mt6895(mtk_crtc->config_regs);
 		if (mtk_crtc->side_config_regs) {
 			DDPDUMP("DUMP DISPSYS1\n");
@@ -1205,8 +1207,7 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 		return true;
 	}
 
-	if ((drm_crtc_index(crtc) == 1) &&
-		(crtc->state->adjusted_mode.hdisplay == 1920*2)) {
+	if (drm_crtc_index(crtc) == 1) {
 		DDPFUNC();
 		return true;
 	}
@@ -1231,7 +1232,6 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_ddp_comp *comp;
 	struct device *dev = mtk_crtc->base.dev->dev;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-	struct drm_crtc *crtc = &mtk_crtc->base;
 	int en = 1;
 
 	if (mtk_crtc_is_dual_pipe(&(mtk_crtc->base))) {
@@ -1286,15 +1286,13 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 			mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
 			continue;
 		} else if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_DSC) {
-			/*4k 30 use DISP_MERGE1, 4k 60 use DSC*/
-			//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
-			if ((drm_crtc_index(&mtk_crtc->base) == 1) &&
-				(drm_mode_vrefresh(&crtc->state->adjusted_mode) == 30)) {
+			if ((drm_crtc_index(&mtk_crtc->base) == 1) && !mtk_dp_is_dsc()) {
 				comp = priv->ddp_comp[DDP_COMPONENT_MERGE1];
 				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
 				comp->mtk_crtc = mtk_crtc;
+				continue;
 			}
-			continue;
+
 		}
 		comp = priv->ddp_comp[comp_id];
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
@@ -2319,6 +2317,12 @@ static unsigned int dual_comp_map_mt6895(unsigned int comp_id)
 		break;
 	case DDP_COMPONENT_OVL1_2L:
 		ret = DDP_COMPONENT_OVL3_2L;
+		break;
+	case DDP_COMPONENT_OVL2_2L:
+		ret = DDP_COMPONENT_OVL0_2L;
+		break;
+	case DDP_COMPONENT_OVL3_2L:
+		ret = DDP_COMPONENT_OVL1_2L;
 		break;
 	case DDP_COMPONENT_OVL0_2L_NWCG:
 		ret = DDP_COMPONENT_OVL2_2L_NWCG;

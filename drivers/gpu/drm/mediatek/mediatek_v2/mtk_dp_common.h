@@ -262,14 +262,16 @@ struct mtk_dp {
 	void __iomem *regs;
 	struct clk *dp_tx_clk;
 
-	bool bUeventToHwc;
+	u32 capability;
 	int disp_status;  //for DDP
+	bool bUeventToHwc;
 	bool bPowerOn;
 	bool audio_enable;
 	bool video_enable;
 	bool dp_ready;
-	bool has_dsc;
-	bool has_fec;
+	bool sink_support_dsc;
+	bool sink_support_fec;
+	bool sink_support_yuv422;
 	bool dsc_enable;
 	struct mtk_drm_private *priv;
 	//phy_params[10] = {L0P0,L0P1,L0P2,L0P3,L1P0,L1P1,L1P2,L2P0,L2P1,L3P0};

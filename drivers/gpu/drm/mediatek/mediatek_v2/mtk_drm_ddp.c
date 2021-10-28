@@ -27,6 +27,7 @@
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
+#include "mtk_dp.h"
 
 #define DISP_REG_OVL0_MOUT_EN(data) (data->ovl0_mout_en)
 #define DISP_REG_DPI0_SEL_IN(data) (data->dpi0_sel_in)
@@ -814,7 +815,8 @@
 	#define MT6895_DISP_DSI0_SEL_IN_FROM_DISP_RDMA0_OUT_RELAY			0x0
 	#define MT6895_DISP_DSI0_SEL_IN_FROM_DISP_MAIN0_SOUT_SEL			0x1
 #define MT6895_DISP_DP_INTF0_SEL_IN				0xF88
-	#define MT6895_DISP_DP_INTF0_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL				0x0
+	#define MT6895_DISP_DP_INTF0_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL		0x0
+	#define MT6895_DISP_DP_INTF0_SEL_IN_FROM_DISP_SUB0_SOUT_SEL			0x1
 #define MT6895_DISP_RDMA0_SOUT_SEL				0xF98
 	#define MT6895_DISP_RDMA0_SOUT_SEL_TO_DISP_RDMA0_OUT_RELAY			0x0
 	#define MT6895_DISP_RDMA0_SOUT_SEL_TO_DISP_RDMA0_POS_SEL_IN			0x1
@@ -841,13 +843,19 @@
 #define MT6895_DISP_MDP_ALL0_SEL_IN				0xF4C
 	#define MT6895_DISP_MDP_ALL0_SEL_IN_FROM_DISP_C3D0_SOUT_SEL		0x1
 
+#define MT6895_DISP_MERGE0_L_SEL_IN				0xF60
+	#define MT6895_DISP_MERGE0_L_SEL_IN_FROM_DISP_TV0_SOUT_SEL		0x1
+
+#define MT6895_DISP_MERGE0_R_SEL_IN				0xF64
+	#define MT6895_DISP_MERGE0_R_SEL_IN_FROM_DISP_DLI2_SOUT_SEL		0x1
+
 #define MT6895_DISP_DSC_WRAP0_L_SEL_IN			0xF68
 	#define MT6895_DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_PQ0_SOUT_SEL	0x0
 	#define MT6895_DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_TV0_SOUT_SEL	0x1
 
 #define MT6895_DISP_DSC_WRAP0_R_SEL_IN			0xF6C
-	#define MT6895_DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_DLI0_SOUT_SEL				0x0
-	#define MT6895_DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_DLI2_SOUT_SEL				0x1
+	#define MT6895_DISP_DSC_WRAP0_R_SEL_IN_FROM_DISP_DLI0_SOUT_SEL				0x0
+	#define MT6895_DISP_DSC_WRAP0_R_SEL_IN_FROM_DISP_DLI2_SOUT_SEL				0x1
 
 #define MT6895_DISP_WDMA0_SEL_IN				0xF70
 	#define MT6895_DISP_WDMA0_SEL_IN_FROM_DISP_SPR0						0x2
@@ -856,6 +864,10 @@
 	#define MT6895_DISP_MAIN0_SEL_IN_FROM_DISP_PQ0_SOUT_SEL				0x1
 	#define MT6895_DISP_MAIN0_SEL_IN_FROM_DISP_DSC_WRAP0_MOUT_EN		0x3
 	#define MT6895_DISP_MAIN0_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL			0x4
+
+#define MT6895_DISP_SUB0_SEL_IN					0xF7C
+	#define MT6895_DISP_SUB0_SEL_IN_FROM_DISP_MERGE0_MOUT_EN				0x2
+	#define MT6895_DISP_SUB0_SEL_IN_FROM_DISP_DSC_WRAP0_MOUT_EN				0x3
 
 #define MT6895_DISP_WDMA1_SEL_IN				0xF80
 	#define MT6895_DISP_WDMA1_SEL_IN_FROM_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN		0x1
@@ -886,13 +898,18 @@
 	#define MT6895_DISP_PQ0_SOUT_SEL_TO_DISP_MERGE0_L_SEL_IN		0x3
 	#define MT6895_DISP_PQ0_SOUT_SEL_TO_DISP_DSC_WRAP0_L_SEL_IN		0x4
 
+#define MT6895_DISP_TV0_SOUT_SEL	0xFB0
+	#define MT6895_DISP_TV0_SOUT_SEL_TO_DISP_DLO_RELAY2				0x0
+	#define MT6895_DISP_TV0_SOUT_SEL_TO_DISP_MERGE0_L_SEL_IN		0x2
+	#define MT6895_DISP_TV0_SOUT_SEL_TO_DISP_DSC_WRAP0_L_SEL_IN		0x3
+
 #define MT6895_DISP_DLI0_SOUT_SEL				0xFB4
 	#define MT6895_DISP_DLI0_SOUT_SEL_TO_DISP_MERGE0_R_SEL_IN		0x0
 	#define MT6895_DISP_DLI0_SOUT_SEL_TO_DISP_DSC_WRAP0_R_SEL_IN	0x1
 
 #define MT6895_DISP_DLI2_SOUT_SEL				0xFB8
-	#define MT6895_DISP_DLI2_SOUT_SEL_TO_DISP_MERGE0_L_SEL_IN		0x0
-	#define MT6895_DISP_DLI2_SOUT_SEL_TO_DISP_DSC_WRAP0_L_SEL_IN	0x1
+	#define MT6895_DISP_DLI2_SOUT_SEL_TO_DISP_MERGE0_R_SEL_IN		0x0
+	#define MT6895_DISP_DLI2_SOUT_SEL_TO_DISP_DSC_WRAP0_R_SEL_IN	0x1
 
 #define MT6895_DISP_MAIN0_SOUT_SEL				0xFBC
 	#define MT6895_DISP_MAIN0_SOUT_SEL_TO_DISP_DSI0_SEL_IN			0x1
@@ -901,7 +918,7 @@
 	#define MT6895_DISP_SUB0_SOUT_SEL_TO_DISP_RDMA1_IN_RELAY		0x0
 	#define MT6895_DISP_SUB0_SOUT_SEL_TO_DISP_DP_INTF0_SEL_IN		0x1
 
-#define MT6895_DISP_SUB0_TX_SOUT_SEL			0xFC0
+#define MT6895_DISP_SUB0_TX_SOUT_SEL			0xFC4
 	#define MT6895_DISP_SUB0_TX_SOUT_SEL_TO_DISP_DP_INTF0			0x0
 
 #define MT6895_DISP_POSTMASK0_MOUT_EN			0xFE0
@@ -926,8 +943,12 @@
 	#define MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN_TO_DISP_WDMA1_SEL_IN		BIT(3)
 	#define MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN_TO_DISP_UFBC_WDMA0_SEL_IN	BIT(4)
 
+#define MT6895_DISP_MERGE0_MOUT_EN				0xFF0
+	#define MT6895_DISP_MERGE0_MOUT_EN_TO_DISP_SUB0_SEL_IN			BIT(2)
+
 #define MT6895_DISP_DSC_WRAP0_MOUT_EN			0xFF4
 	#define MT6895_DISP_DSC_WRAP0_MOUT_EN_TO_DISP_MAIN0_SEL_IN		BIT(0)
+	#define MT6895_DISP_DSC_WRAP0_MOUT_EN_TO_DISP_SUB0_SEL_IN		BIT(1)
 
 #define MT6895_DISP_CHIST0_SEL_IN				0xF50
 	#define MT6895_DISP_CHIST0_SEL_IN_FROM_DISP_RDMA0_POS_MOUT_EN				0x0
@@ -995,9 +1016,12 @@
 #define MT6895_MUTEX_SOF_DSI0 1
 #define MT6895_MUTEX_SOF_DPI0 2
 #define MT6895_MUTEX_SOF_DSI1 3
+#define MT6895_MUTEX_SOF_DPI1 4
+
 #define MT6895_MUTEX_EOF_DSI0 (MT6895_MUTEX_SOF_DSI0 << 6)
 #define MT6895_MUTEX_EOF_DPI0 (MT6895_MUTEX_SOF_DPI0 << 6)
 #define MT6895_MUTEX_EOF_DSI1 (MT6895_MUTEX_SOF_DSI1 << 6)
+#define MT6895_MUTEX_EOF_DPI1 (MT6895_MUTEX_SOF_DPI1 << 6)
 
 #define DISP_REG_CONFIG_MMSYS_CG_CON0_MT6895 0x100
 #define DISP_REG_CONFIG_MMSYS_CG_CON1_MT6895 0x110
@@ -2417,6 +2441,7 @@ static const unsigned int mt6895_dispsys_map[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_GAMMA0] = 0,
 		[DDP_COMPONENT_OVL0] = 0,
 		[DDP_COMPONENT_OVL0_2L] = 0,
+		[DDP_COMPONENT_OVL0_2L_VIRTUAL0] = 0,
 		[DDP_COMPONENT_OVL1_2L] = 0,
 		[DDP_COMPONENT_OVL1_2L_VIRTUAL0] = 0,
 		[DDP_COMPONENT_PWM0] = 0,
@@ -2465,6 +2490,8 @@ static const unsigned int mt6895_dispsys_map[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_GAMMA1] = 1,
 		[DDP_COMPONENT_OVL1] = 1,
 		[DDP_COMPONENT_OVL2_2L] = 1,
+		[DDP_COMPONENT_OVL2_2L_VIRTUAL0] = 1,
+		[DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0] = 1,
 		[DDP_COMPONENT_OVL3_2L] = 1,
 		[DDP_COMPONENT_OVL3_2L_VIRTUAL0] = 1,
 		[DDP_COMPONENT_PWM1] = 1,
@@ -2558,6 +2585,8 @@ static const unsigned int mt6895_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 			MT6895_MUTEX_SOF_DSI1 | MT6895_MUTEX_EOF_DSI1,
 		[DDP_MUTEX_SOF_DPI0] =
 			MT6895_MUTEX_SOF_DPI0 | MT6895_MUTEX_EOF_DPI0,
+		[DDP_MUTEX_SOF_DPI1] =
+			MT6895_MUTEX_SOF_DPI1 | MT6895_MUTEX_EOF_DPI1,
 };
 
 static const unsigned int mt6873_mutex_sof[DDP_MUTEX_SOF_MAX] = {
@@ -6445,8 +6474,12 @@ char *mtk_ddp_get_mutex_sof_name_mt6895(unsigned int regval)
 		return "single";
 	case MT6895_MUTEX_SOF_DSI0:
 		return "dsi0";
+	case MT6895_MUTEX_SOF_DSI1:
+		return "dsi1";
 	case MT6895_MUTEX_SOF_DPI0:
 		return "dpi0";
+	case MT6895_MUTEX_SOF_DPI1:
+		return "dpi1";
 	default:
 		DDPDUMP("%s, unknown reg=%d\n", __func__, regval);
 		return "unknown";
@@ -8219,6 +8252,12 @@ static int mtk_ddp_mout_en_MT6895(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_RSZ1)) {
 		*addr = MT6895_DISP_OVL1_2L_BLEND_MOUT_EN;
 		value = DISP_OVL1_2L_BLEND_MOUT_EN_TO_DISP_RSZ0_SEL_IN;
+	} else if ((cur == DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0 &&
+		next == DDP_COMPONENT_RDMA1) ||
+		(cur == DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0 &&
+		next == DDP_COMPONENT_RDMA3)) {
+		*addr = MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN;
+		value = MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN_TO_DISP_RDMA1_SEL_IN;
 	} else {
 		value = -1;
 	}
@@ -8329,6 +8368,11 @@ static int mtk_ddp_sel_in_MT6895(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_RSZ1)) {
 		*addr = MT6895_DISP_RSZ0_SEL_IN;
 		value = DISP_RSZ0_SEL_IN_FROM_DISP_OVL1_2L_BLEND_MOUT_EN;
+	} else if ((cur == DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0 &&
+		next == DDP_COMPONENT_RDMA1) || (cur == DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0 &&
+		next == DDP_COMPONENT_RDMA3)) {
+		*addr = MT6895_DISP_RDMA1_SEL_IN;
+		value = MT6895_DISP_RDMA1_SEL_IN_FROM_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN;
 	} else {
 		value = -1;
 	}
@@ -10712,6 +10756,199 @@ static void mtk_ddp_ext_insert_dual_pipe_MT6885(struct mtk_drm_crtc *mtk_crtc,
 	writel_relaxed(value, config_regs + addr);
 
 }
+static void mtk_ddp_ext_dual_pipe_dsc_MT6895(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_disp_mutex *mutex)
+{
+	unsigned int addr, value, reg;
+	void __iomem *config_regs = mtk_crtc->config_regs;
+	void __iomem *side_config_regs = mtk_crtc->side_config_regs;
+
+	DDPFUNC();
+	//DISPSYS0
+	/*pipe1 from ovl0_2l to dlo_async2*/
+	/* DISP_OVL0_2L -> DISP_OVL0_2L_BLEND_MOUT*/
+	addr = MT6895_MMSYS_OVL_CON;
+	value = MT6895_DISP_OVL0_2L_TO_DISP_OVL0_2L_BLENDOUT_MOUT;
+	reg = readl_relaxed(config_regs + addr) | value;
+	writel_relaxed(reg, config_regs + addr);
+
+	/* DISP_OVL0_2L_BLEND_MOUT -> DISP_SUB_DISP_PQ0_SEL*/
+	addr = MT6895_DISP_OVL0_2L_BLEND_MOUT_EN;
+	value = MT6895_DISP_OVL0_2L_BLEND_MOUT_EN_TO_DISP_SUB_DISP_PQ0_SEL_IN;
+	writel_relaxed(value, config_regs + addr);
+	addr = MT6895_DISP_SUB_DISP_PQ0_SEL_IN;
+	value = MT6895_DISP_SUB_DISP_PQ0_SEL_IN_FROM_DISP_OVL0_2L_BLEND_MOUT_EN;
+	writel_relaxed(value, config_regs + addr);
+
+
+	/* DISP_OVL0_2L_NWCG_BLEND_MOUT -> DISP_RDMA1 */
+	addr = MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN;
+	value = MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN_TO_DISP_RDMA1_SEL_IN;
+	writel_relaxed(value, config_regs + addr);
+	addr = MT6895_DISP_RDMA1_SEL_IN;
+	value = MT6895_DISP_RDMA1_SEL_IN_FROM_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN;
+	writel_relaxed(value, config_regs + addr);
+
+
+	/* DISP_RDMA1_SOUT -> DISP_RDMA1_POS_SEL */
+	addr = MT6895_DISP_RDMA1_SOUT_SEL;
+	value = MT6895_DISP_RDMA1_SOUT_SEL_TO_DISP_RDMA1_POS_SEL_IN;
+	writel_relaxed(value, config_regs + addr);
+	addr = MT6895_DISP_RDMA1_POS_SEL_IN;
+	value = MT6895_DISP_RDMA1_POS_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL;
+	writel_relaxed(value, config_regs + addr);
+
+	/* DISP_TV0_SOUT -> DISP_DLO_RELAY2 */
+	addr = MT6895_DISP_TV0_SOUT_SEL;
+	value = MT6895_DISP_TV0_SOUT_SEL_TO_DISP_DLO_RELAY2;
+	writel_relaxed(value, config_regs + addr);
+
+	//DISPSYS1
+	/* continue pipe1 from dlo_async2 to dsc1_r */
+	/* DISP_DLI6_SOUT -> DISP_DSC_WRAP1_R_SEL */
+	addr = MT6895_DISP_DLI2_SOUT_SEL;
+	value = MT6895_DISP_DLI2_SOUT_SEL_TO_DISP_DSC_WRAP0_R_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_DSC_WRAP0_R_SEL_IN;
+	value = MT6895_DISP_DSC_WRAP0_R_SEL_IN_FROM_DISP_DLI2_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/*pipe0 from rdma3_sout to dsc1_l */
+	/* DISP_RDMA3_SOUT -> DISP_RDMA3_POS_SEL */
+	addr = MT6895_DISP_RDMA1_SOUT_SEL;
+	value = MT6895_DISP_RDMA1_SOUT_SEL_TO_DISP_RDMA1_POS_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_RDMA1_POS_SEL_IN;
+	value = MT6895_DISP_RDMA1_POS_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* DISP_TV1_SOUT -> DISP_DSC_WRAP1_L_SEL */
+	addr = MT6895_DISP_TV0_SOUT_SEL;
+	value = MT6895_DISP_TV0_SOUT_SEL_TO_DISP_DSC_WRAP0_L_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_DSC_WRAP0_L_SEL_IN;
+	value = MT6895_DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_TV0_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* continue pipe0 from dsc1 to dp_intf */
+	/* DISP_DSC_WRAP1_MOUT -> DISP_SUB1_SEL */
+	addr = MT6895_DISP_DSC_WRAP0_MOUT_EN;
+	value = MT6895_DISP_DSC_WRAP0_MOUT_EN_TO_DISP_SUB0_SEL_IN;
+	reg = readl_relaxed(side_config_regs + addr) | value;
+	writel_relaxed(reg, side_config_regs + addr);
+	addr = MT6895_DISP_SUB0_SEL_IN;
+	value = MT6895_DISP_SUB0_SEL_IN_FROM_DISP_DSC_WRAP0_MOUT_EN;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* DISP_SUB1_SOUT -> DISP_DP_INTF1_SEL */
+	addr = MT6895_DISP_SUB0_SOUT_SEL;
+	value = MT6895_DISP_SUB0_SOUT_SEL_TO_DISP_DP_INTF0_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_DP_INTF0_SEL_IN;
+	value = MT6895_DISP_DP_INTF0_SEL_IN_FROM_DISP_SUB0_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* DISP_SUB1_TX_SOUT -> DISP_DP_INTF */
+	addr = MT6895_DISP_SUB0_TX_SOUT_SEL;
+	value = MT6895_DISP_SUB0_TX_SOUT_SEL_TO_DISP_DP_INTF0;
+	writel_relaxed(value, side_config_regs + addr);
+}
+
+static void mtk_ddp_ext_insert_dual_pipe_MT6895(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_disp_mutex *mutex)
+{
+	unsigned int addr, value, reg;
+	void __iomem *config_regs = mtk_crtc->config_regs;
+	void __iomem *side_config_regs = mtk_crtc->side_config_regs;
+
+	DDPFUNC();
+	//DISPSYS0
+	/*pipe1 from ovl0_2l to dlo_async2*/
+	/* DISP_OVL0_2L -> DISP_OVL0_2L_BLEND_MOUT*/
+	addr = MT6895_MMSYS_OVL_CON;
+	value = MT6895_DISP_OVL0_2L_TO_DISP_OVL0_2L_BLENDOUT_MOUT;
+	reg = readl_relaxed(config_regs + addr) | value;
+	writel_relaxed(reg, config_regs + addr);
+
+	/* DISP_OVL2_2L_BLEND_MOUT -> DISP_SUB_DISP_PQ0_SEL*/
+	addr = MT6895_DISP_OVL0_2L_BLEND_MOUT_EN;
+	value = MT6895_DISP_OVL0_2L_BLEND_MOUT_EN_TO_DISP_SUB_DISP_PQ0_SEL_IN;
+	writel_relaxed(value, config_regs + addr);
+	addr = MT6895_DISP_SUB_DISP_PQ0_SEL_IN;
+	value = MT6895_DISP_SUB_DISP_PQ0_SEL_IN_FROM_DISP_OVL0_2L_BLEND_MOUT_EN;
+	writel_relaxed(value, config_regs + addr);
+
+	/* DISP_OVL2_2L_NWCG_BLEND_MOUT -> DISP_RDMA3 */
+	addr = MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN;
+	value = MT6895_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN_TO_DISP_RDMA1_SEL_IN;
+	writel_relaxed(value, config_regs + addr);
+	addr = MT6895_DISP_RDMA1_SEL_IN;
+	value = MT6895_DISP_RDMA1_SEL_IN_FROM_DISP_OVL0_2L_NWCG_BLEND_MOUT_EN;
+	writel_relaxed(value, config_regs + addr);
+
+	/* DISP_RDMA1_SOUT -> DISP_RDMA1_POS_SEL */
+	addr = MT6895_DISP_RDMA1_SOUT_SEL;
+	value = MT6895_DISP_RDMA1_SOUT_SEL_TO_DISP_RDMA1_POS_SEL_IN;
+	writel_relaxed(value, config_regs + addr);
+	addr = MT6895_DISP_RDMA1_POS_SEL_IN;
+	value = MT6895_DISP_RDMA1_POS_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL;
+	writel_relaxed(value, config_regs + addr);
+
+	/* DISP_TV0_SOUT -> DISP_DLO_RELAY2 */
+	addr = MT6895_DISP_TV0_SOUT_SEL;
+	value = MT6895_DISP_TV0_SOUT_SEL_TO_DISP_DLO_RELAY2;
+	writel_relaxed(value, config_regs + addr);
+
+	//DISPSYS1
+	/* continue pipe1 from dli_async6 to merge1_r */
+	/* DISP_DLI6_SOUT -> DISP_MERGE1_R_SEL */
+	addr = MT6895_DISP_DLI2_SOUT_SEL;
+	value = MT6895_DISP_DLI2_SOUT_SEL_TO_DISP_MERGE0_R_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_MERGE0_R_SEL_IN;
+	value = MT6895_DISP_MERGE0_R_SEL_IN_FROM_DISP_DLI2_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* dispsys1 pipe0 from rdma3 to merge1_l to dp_intf */
+	/* DISP_RDMA3_SOUT -> DISP_RDMA3_POS_SEL */
+	addr = MT6895_DISP_RDMA1_SOUT_SEL;
+	value = MT6895_DISP_RDMA1_SOUT_SEL_TO_DISP_RDMA1_POS_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_RDMA1_POS_SEL_IN;
+	value = MT6895_DISP_RDMA1_POS_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* DISP_TV1_SOUT -> DISP_MERGE1_L_SEL */
+	addr = MT6895_DISP_TV0_SOUT_SEL;
+	value = MT6895_DISP_TV0_SOUT_SEL_TO_DISP_MERGE0_L_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_MERGE0_L_SEL_IN;
+	value = MT6895_DISP_MERGE0_L_SEL_IN_FROM_DISP_TV0_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* continue pipe0 from merge1 to dp_intf */
+	/* DISP_MERGE1_MOUT -> DISP_SUB1_SEL */
+	addr = MT6895_DISP_MERGE0_MOUT_EN;
+	value = MT6895_DISP_MERGE0_MOUT_EN_TO_DISP_SUB0_SEL_IN;
+	reg = readl_relaxed(side_config_regs + addr) | value;
+	writel_relaxed(reg, side_config_regs + addr);
+	addr = MT6895_DISP_SUB0_SEL_IN;
+	value = MT6895_DISP_SUB0_SEL_IN_FROM_DISP_MERGE0_MOUT_EN;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* DISP_SUB1_SOUT -> DISP_DP_INTF1_SEL */
+	addr = MT6895_DISP_SUB0_SOUT_SEL;
+	value = MT6895_DISP_SUB0_SOUT_SEL_TO_DISP_DP_INTF0_SEL_IN;
+	writel_relaxed(value, side_config_regs + addr);
+	addr = MT6895_DISP_DP_INTF0_SEL_IN;
+	value = MT6895_DISP_DP_INTF0_SEL_IN_FROM_DISP_SUB0_SOUT_SEL;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* DISP_SUB1_TX_SOUT -> DISP_DP_INTF */
+	addr = MT6895_DISP_SUB0_TX_SOUT_SEL;
+	value = MT6895_DISP_SUB0_TX_SOUT_SEL_TO_DISP_DP_INTF0;
+	writel_relaxed(value, side_config_regs + addr);
+}
 
 static void mtk_ddp_ext_dual_pipe_dsc_MT6983(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_disp_mutex *mutex)
@@ -10901,6 +11138,9 @@ static void mtk_ddp_ext_dual_pipe_dsc(struct mtk_drm_crtc *mtk_crtc,
 	case MMSYS_MT6983:
 		mtk_ddp_ext_dual_pipe_dsc_MT6983(mtk_crtc, mutex);
 		break;
+	case MMSYS_MT6895:
+		mtk_ddp_ext_dual_pipe_dsc_MT6895(mtk_crtc, mutex);
+		break;
 	default:
 		DDPINFO("%s mtk drm not support mmsys id %d\n",
 			__func__, priv->data->mmsys_id);
@@ -10919,6 +11159,9 @@ static void mtk_ddp_ext_insert_dual_pipe(struct mtk_drm_crtc *mtk_crtc,
 		break;
 	case MMSYS_MT6983:
 		mtk_ddp_ext_insert_dual_pipe_MT6983(mtk_crtc, mutex);
+		break;
+	case MMSYS_MT6895:
+		mtk_ddp_ext_insert_dual_pipe_MT6895(mtk_crtc, mutex);
 		break;
 	default:
 		DDPINFO("%s mtk drm not support mmsys id %d\n",
@@ -11035,7 +11278,7 @@ void mtk_ddp_insert_dsc_prim_MT6895(struct mtk_drm_crtc *mtk_crtc,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 
 	addr = MT6895_DISP_DSC_WRAP0_R_SEL_IN;
-	value = MT6895_DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_DLI0_SOUT_SEL;
+	value = MT6895_DISP_DSC_WRAP0_R_SEL_IN_FROM_DISP_DLI0_SOUT_SEL;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 }
@@ -11200,8 +11443,7 @@ void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 {
 	DDPFUNC();
 	if (drm_crtc_index(&mtk_crtc->base) == 1) {
-		//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
-		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
+		if (mtk_dp_is_dsc())
 			mtk_ddp_ext_dual_pipe_dsc(mtk_crtc, mutex);
 		else
 			mtk_ddp_ext_insert_dual_pipe(mtk_crtc, mutex);

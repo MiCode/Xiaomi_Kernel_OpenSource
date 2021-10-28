@@ -1762,19 +1762,21 @@ static const enum mtk_ddp_comp_id mt6895_mtk_ddp_main_wb_path[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6895_mtk_ddp_ext[] = {
-	// todo ..
-	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_RDMA3,
-//	DDP_COMPONENT_MAIN1_VIRTUAL,
-//	DDP_COMPONENT_DSI1,
+	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_OVL2_2L_VIRTUAL0,
+	DDP_COMPONENT_SUB_OVL_DISP1_PQ0_VIRTUAL,
+	DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA3,
+	DDP_COMPONENT_SUB1_VIRTUAL1,
+	DDP_COMPONENT_DP_INTF0,
 };
 
 static const enum mtk_ddp_comp_id mt6895_dual_data_ext[] = {
-	// todo ..
-	DDP_COMPONENT_OVL1_2L,
-	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
-	DDP_COMPONENT_OVL0_VIRTUAL1, DDP_COMPONENT_RDMA0,
-	DDP_COMPONENT_RDMA0_OUT_RELAY,
-	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
+	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_OVL0_2L_VIRTUAL0,
+	DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL,
+	DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA1,
+	DDP_COMPONENT_TV0_VIRTUAL,
+	DDP_COMPONENT_DLO_ASYNC2, DDP_COMPONENT_DLI_ASYNC6,
+	/*DDP_COMPONENT_MERGE1,*/
+	DDP_COMPONENT_DSC1,
 };
 
 static const enum mtk_ddp_comp_id mt6895_mtk_ddp_third[] = {
@@ -4941,8 +4943,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DSI},
 	{.compatible = "mediatek,mt6983-dp-intf",
 	 .data = (void *)MTK_DP_INTF},
-//	{.compatible = "mediatek,mt6895-dp-intf",
-//	 .data = (void *)MTK_DP_INTF},
+	{.compatible = "mediatek,mt6895-dp-intf",
+	 .data = (void *)MTK_DP_INTF},
 	{.compatible = "mediatek,mt6873-dsi",
 	 .data = (void *)MTK_DSI},
 	{.compatible = "mediatek,mt6853-dsi",
@@ -5079,8 +5081,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_DPTX},
 	{.compatible = "mediatek,mt6983-dp_tx",
 	 .data = (void *)MTK_DISP_DPTX},
-//	{.compatible = "mediatek,mt6895-dp_tx",
-//	 .data = (void *)MTK_DISP_DPTX},
+	{.compatible = "mediatek,mt6895-dp_tx",
+	 .data = (void *)MTK_DISP_DPTX},
 	{.compatible = "mediatek,mt6885-dmdp-aal",
 	 .data = (void *)MTK_DMDP_AAL},
 	{.compatible = "mediatek,mt6983-dmdp-aal",

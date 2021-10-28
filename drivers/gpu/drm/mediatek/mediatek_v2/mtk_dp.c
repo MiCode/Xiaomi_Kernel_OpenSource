@@ -372,9 +372,9 @@ void mdrv_DPTx_deinit(struct mtk_dp *mtk_dp)
 	mtk_dp->video_enable = false;
 	mtk_dp->dp_ready = false;
 	mhal_DPTx_PHY_SetIdlePattern(mtk_dp, true);
-	if (mtk_dp->has_fec) {
+	if (mtk_dp->sink_support_fec) {
 		mhal_DPTx_EnableFEC(mtk_dp, false);
-		mtk_dp->has_fec = false;
+		mtk_dp->sink_support_fec = false;
 	}
 
 	if (mtk_dp->edid != NULL) {
@@ -401,7 +401,7 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mtk_dp->state = DPTXSTATE_INITIAL;
 	mtk_dp->state_pre = DPTXSTATE_INITIAL;
 	mtk_dp->info.input_src = DPTX_SRC_DPINTF;
-	mtk_dp->info.format = DP_COLOR_FORMAT_RGB_444;
+	mtk_dp->info.format = DP_COLOR_FORMAT_YUV_422;
 	mtk_dp->info.depth = DP_COLOR_DEPTH_8BIT;
 	if (!mtk_dp->info.bPatternGen)
 		mtk_dp->info.resolution = SINK_1920_1080;
@@ -413,8 +413,9 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mtk_dp->bPowerOn = false;
 	mtk_dp->video_enable = false;
 	mtk_dp->dp_ready = false;
-	mtk_dp->has_dsc = false;
-	mtk_dp->has_fec = false;
+	mtk_dp->sink_support_dsc  = false;
+	mtk_dp->sink_support_fec  = false;
+	mtk_dp->sink_support_yuv422 = false;
 	mtk_dp->dsc_enable = false;
 
 	if (!mtk_dp->training_info.set_max_linkrate)
@@ -1469,7 +1470,7 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 
 			mdrv_DPTx_InitVariable(mtk_dp);
 			mhal_DPTx_PHY_SetIdlePattern(mtk_dp, true);
-			if (mtk_dp->has_fec)
+			if (mtk_dp->sink_support_fec)
 				mhal_DPTx_EnableFEC(mtk_dp, false);
 			mdrv_DPTx_StopSentSDP(mtk_dp);
 			mhal_DPTx_AnalogPowerOnOff(mtk_dp, false);
@@ -1876,13 +1877,9 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 
 	if (mtk_dp->training_info.ubDPCD_REV >= 0x14) {
 		mdrv_DPTx_FEC_Ready(mtk_dp, FEC_BIT_ERROR_COUNT);
-		mdrv_DPTx_DSC_Support(mtk_dp);
+		if (mtk_dp->capability & DP_CAPS_DSC)
+			mdrv_DPTx_DSC_Support(mtk_dp);
 	}
-
-	if (!mtk_dp->has_dsc || !mtk_dp->has_fec)
-		mtk_dp_enable_4k60(false);
-	else
-		mtk_dp_enable_4k60(true);
 
 #if !ENABLE_DPTX_FIX_LRLC
 	mtk_dp->training_info.ubLinkRate =
@@ -2173,7 +2170,13 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 	case DPTX_NTSTATE_CHECKEDID:
 		mtk_dp->edid = mtk_dp_handle_edid(mtk_dp);
 		if (mtk_dp->edid) {
-			DPTXMSG("READ EDID done!\n");
+			DPTXMSG("READ EDID Success:");
+			DPTXMSG("version:%u.%u, featrue:0x%x, %ux%u\n",
+					mtk_dp->edid->version,
+					mtk_dp->edid->revision,
+					mtk_dp->edid->features,
+					mtk_dp->edid->width_cm,
+					mtk_dp->edid->height_cm);
 			if (mtk_dp_debug_get()) {
 				u8 *raw_edid = (u8 *)mtk_dp->edid;
 
@@ -2209,7 +2212,7 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 			mdrv_DPTx_AudioMute(mtk_dp, true);
 			mtk_dp->training_state = DPTX_NTSTATE_CHECKTIMING;
 			mtk_dp->dp_ready = true;
-			mhal_DPTx_EnableFEC(mtk_dp, mtk_dp->has_fec);
+			mhal_DPTx_EnableFEC(mtk_dp, mtk_dp->sink_support_fec);
 		} else if (ret == DPTX_RETRANING) {
 			ret = DPTX_NOERR;
 		} else
@@ -2349,6 +2352,11 @@ int mdrv_DPTx_Handle(struct mtk_dp *mtk_dp)
 		break;
 
 	case DPTXSTATE_PREPARE:
+		if (mtk_dp->info.bPatternGen) {
+			mtk_dp->video_enable = true;
+			mtk_dp->info.input_src = DPTX_SRC_PG;
+		}
+
 		if (mtk_dp->video_enable) {
 			mtk_dp_video_config(mtk_dp);
 			mdrv_DPTx_Video_Enable(mtk_dp, true);
@@ -2692,11 +2700,11 @@ void mdrv_DPTx_DSC_Support(struct mtk_dp *mtk_dp)
 
 	drm_dp_dpcd_read(&mtk_dp->aux, 0x60, Data, 1);
 	if (Data[0] & BIT0)
-		mtk_dp->has_dsc = true;
+		mtk_dp->sink_support_dsc  = true;
 	else
-		mtk_dp->has_dsc = false;
+		mtk_dp->sink_support_dsc  = false;
 
-	DPTXMSG("Sink has_dsc = %d\n", mtk_dp->has_dsc);
+	DPTXMSG("Sink sink_support_dsc  = %d\n", mtk_dp->sink_support_dsc);
 #endif
 }
 
@@ -2715,7 +2723,7 @@ void mdrv_DPTx_FEC_Ready(struct mtk_dp *mtk_dp, u8 err_cnt_sel)
 	 * 101b: PARITY_BIT_ERROR_COUNT             *
 	 */
 	if (Data[0] & BIT0) {
-		mtk_dp->has_fec = true;
+		mtk_dp->sink_support_fec  = true;
 		Data[0] = (err_cnt_sel << 1) | 0x1;     //FEC Ready
 		drm_dp_dpcd_write(&mtk_dp->aux, 0x120, Data, 0x1);
 		drm_dp_dpcd_read(&mtk_dp->aux, 0x280, Data, 0x3);
@@ -2723,7 +2731,7 @@ void mdrv_DPTx_FEC_Ready(struct mtk_dp *mtk_dp, u8 err_cnt_sel)
 			DPTXDBG("FEC status & error Count: 0x%x\n", Data[i]);
 	}
 
-	DPTXMSG("SINK has fec (%d)\n", mtk_dp->has_fec);
+	DPTXMSG("SINK sink_support_fec  (%d)\n", mtk_dp->sink_support_fec);
 }
 
 DWORD getTimeDiff(DWORD dwPreTime)
@@ -2827,7 +2835,6 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp)
 		break;
 	case SINK_3840_2160:
 		DPTX_TBL->FrameRate = 60;
-		mtk_dp->dsc_enable = true;
 		DPTX_TBL->Htt = 4400; DPTX_TBL->Hbp = 296; DPTX_TBL->Hsw = 88;
 		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 176; DPTX_TBL->Hde = 3840;
 		DPTX_TBL->Vtt = 2250; DPTX_TBL->Vbp = 72; DPTX_TBL->Vsw = 10;
@@ -2928,7 +2935,7 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp)
 
 	mhal_DPTx_OverWrite_MN(mtk_dp, overwrite, mvid, 0x8000);
 
-	if (mtk_dp->has_dsc) {
+	if (mtk_dp->sink_support_dsc) {
 		uint8_t Data[1];
 
 		Data[0] = (u8) mtk_dp->dsc_enable;
@@ -3017,6 +3024,8 @@ static int mtk_dp_control_kthread(void *data)
 
 			mtk_dp->video_enable = true;
 			mtk_dp->info.resolution = res;
+			if (mtk_dp->sink_support_yuv422)
+				mtk_dp->info.format = DP_COLOR_FORMAT_YUV_422;
 			queue_work(mtk_dp->dptx_wq, &mtk_dp->dptx_work);
 			queue_work(mtk_dp->dptx_wq, &mtk_dp->hdcp_work);
 
@@ -3127,7 +3136,10 @@ int mtk_drm_dp_get_info(struct drm_device *dev,
 
 	return 0;
 }
-
+bool mtk_drm_dp_is_dsc(void)
+{
+	return g_mtk_dp->dsc_enable;
+}
 void mtk_dp_get_dsc_capability(u8 *dsc_cap)
 {
 	if (!g_mtk_dp->dp_ready) {
@@ -3312,8 +3324,13 @@ static int mtk_dp_conn_get_modes(struct drm_connector *conn)
 		drm_connector_update_edid_property(&mtk_dp->conn,
 			mtk_dp->edid);
 		ret = drm_add_edid_modes(&mtk_dp->conn, mtk_dp->edid);
-		//drm_edid_to_eld(&mtk_dp->conn, mtk_dp->edid);
-		DPTXMSG("%s modes = %d\n", __func__, ret);
+		if (mtk_dp->capability & DP_CAPS_YUV422)
+			mtk_dp->sink_support_yuv422
+				= !!(conn->display_info.color_formats & DRM_COLOR_FORMAT_YCRCB422);
+		if (!mtk_dp->sink_support_dsc && !mtk_dp->sink_support_yuv422)
+			mtk_dp_enable_4k60(false);
+		DPTXMSG("%s modes = %d, support %s\n", __func__, ret,
+			mtk_dp->sink_support_yuv422 ? "YUV422" : "RGB444");
 		if (ret)
 			return ret;
 	} else {
@@ -3333,7 +3350,7 @@ struct drm_display_limit_mode {
 };
 
 static struct drm_display_limit_mode dp_plat_limit[] = {
-	{3840, 2160, 60, 594000, 1},
+	{3840, 2160, 60, 594000, 0},
 	{3840, 2160, 30, 297000, 1},
 	{1080, 2460, 60, 174110, 1},
 	{1920, 1200, 60, 152128, 1},
@@ -3344,16 +3361,51 @@ static struct drm_display_limit_mode dp_plat_limit[] = {
 
 void mtk_dp_enable_4k60(int enable)
 {
-#if DPTX_SUPPORT_DSC
+	if (enable == dp_plat_limit[0].valid)
+		return;
 	if (enable > 0)
 		dp_plat_limit[0].valid = 1;
 	else
 		dp_plat_limit[0].valid = 0;
-#else
-	dp_plat_limit[0].valid = 0;
-#endif
 
 	DPTXFUNC("enable = %d\n", dp_plat_limit[0].valid);
+}
+
+bool mtk_dp_is_yuv422(void)
+{
+	if (!g_mtk_dp)
+		return false;
+
+	return g_mtk_dp->sink_support_yuv422;
+}
+
+bool mtk_dp_is_dsc(void)
+{
+	if (!g_mtk_dp)
+		return false;
+
+	return g_mtk_dp->sink_support_dsc;
+}
+
+
+static int mtk_dp_pixel_clock_calc(struct mtk_dp *mtk_dp)
+{
+	int bpp = 24;
+	int compress_rate = 1;
+	int pixelclock;
+
+	if (mtk_dp->sink_support_yuv422)
+		bpp = 16;
+
+	if (mtk_dp->sink_support_dsc) {
+		compress_rate = 3;
+		mtk_dp->dsc_enable = true;
+	}
+
+	pixelclock = drm_dp_bw_code_to_link_rate(mtk_dp->training_info.ubLinkRate) *
+			mtk_dp->training_info.ubLinkLaneCount * 8 * compress_rate / bpp;
+
+	return pixelclock;
 }
 
 static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
@@ -3362,19 +3414,16 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 	int plat_limit_array = ARRAY_SIZE(dp_plat_limit);
 	int i;
 	struct mtk_dp *mtk_dp = mtk_dp_ctx_from_conn(conn);
-	int bandwidth = mtk_dp->training_info.ubLinkLaneCount *
-			mtk_dp->training_info.ubLinkRate * 27000 * 8 / 24;
+	int bandwidth;
 
-	if (mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
-		drm_mode_vrefresh(mode) == 60 && mtk_dp->has_dsc)
-		bandwidth = bandwidth * 594 * 10 / 2025;
-
-	if (fakecablein == true)
+	if (fakecablein)
 		bandwidth = dp_plat_limit[0].clock;
+	else
+		bandwidth = mtk_dp_pixel_clock_calc(mtk_dp);
 
-	DPTXDBG("Hde:%d,Vde:%d,fps:%d,clk:%d,bandwidth:%d,4k60:%d\n",
-		mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode), mode->clock,
-		bandwidth, dp_plat_limit[0].valid);
+	DPTXDBG("support bw:%d, display mode:" DRM_MODE_FMT "\n", bandwidth,
+		DRM_MODE_ARG(mode));
+
 
 	if (mode->clock > (dp_plat_limit[0].clock + 50000))
 		return MODE_CLOCK_HIGH;
@@ -3386,8 +3435,7 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 			break;
 
 		if (mode->clock == 0)
-			mode->clock
-				= mode->htotal * mode->vtotal * drm_mode_vrefresh(mode);
+			mode->clock = mode->htotal * mode->vtotal * drm_mode_vrefresh(mode);
 
 		if ((abs(dp_plat_limit[i].vrefresh - drm_mode_vrefresh(mode)) <= 1)
 			&& (mode->vdisplay == dp_plat_limit[i].vdisplay)
@@ -3408,12 +3456,6 @@ static enum drm_mode_status mtk_dp_conn_mode_valid(struct drm_connector *conn,
 			__func__, mode->hdisplay, mode->vdisplay,
 			drm_mode_vrefresh(mode),
 			mode->clock);
-
-	if (0x1fff > 0 && mode->hdisplay > 0x1fff)
-		return MODE_VIRTUAL_X;
-
-	if (0x1fff > 0 && mode->vdisplay > 0x1fff)
-		return MODE_VIRTUAL_Y;
 
 	return MODE_OK;
 }
@@ -3830,6 +3872,7 @@ static int mtk_drm_dp_probe(struct platform_device *pdev)
 	mtk_dp->priv = mtk_priv;
 	mtk_dp->bUeventToHwc = false;
 	mtk_dp->disp_status = DPTX_DISP_NONE;
+	mtk_dp->capability = DP_CAPS_YUV422;// | DP_CAPS_DSC;
 	irq_num = platform_get_irq(pdev, 0);
 	if (irq_num < 0) {
 		dev_err(&pdev->dev, "failed to request dp irq resource\n");
