@@ -173,6 +173,7 @@ static s32 rsz_prepare_scale(struct mml_comp *comp, struct mml_task *task,
 	/* cache out index for easy use */
 	rsz_frm->out_idx = ccfg->node->out_idx;
 	rsz_frm->rsz_relay_mode = rsz_relay(cfg, src, dest);
+	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(cfg->info.src.format);
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 	if (!rsz_frm->rsz_relay_mode)
@@ -252,6 +253,7 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		prepare_tile_data(data, task, ccfg);
 
 	data->rsz_data.max_width = rsz->data->tile_width;
+	data->rsz_data.use_121filter = rsz_frm->use121filter;
 	/* RSZ support crop capability */
 	func->type = TILE_TYPE_CROP_EN;
 	func->init_func_ptr = tile_prz_init;
@@ -321,7 +323,6 @@ static s32 rsz_init(struct mml_comp *comp, struct mml_task *task,
 static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
-	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct rsz_frame_data *rsz_frm = rsz_frm_data(ccfg);
@@ -352,7 +353,6 @@ static s32 rsz_config_frame(struct mml_comp *comp, struct mml_task *task,
 		mml_err("%s: not get result from user lib", __func__);
 	}
 
-	rsz_frm->use121filter = !MML_FMT_H_SUBSAMPLE(cfg->info.src.format);
 	cmdq_pkt_write(pkt, NULL, base_pa + RSZ_CON_1,
 		       rsz_frm->use121filter << 26, 0x04000000);
 
