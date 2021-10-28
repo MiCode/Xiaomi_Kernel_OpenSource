@@ -346,7 +346,9 @@ static int mt6879_mt6368_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* disable ext amp connection */
 	snd_soc_dapm_disable_pin(dapm, EXT_SPK_AMP_W_NAME);
-
+#if IS_ENABLED(CONFIG_SND_SOC_MT6368_ACCDET)
+	mt6368_accdet_init(codec_component, rtd->card);
+#endif
 	return 0;
 }
 
@@ -1291,20 +1293,6 @@ static struct snd_soc_card mt6879_mt6368_soc_card = {
 	.num_dapm_routes = ARRAY_SIZE(mt6879_mt6368_routes),
 };
 
-#if IS_ENABLED(CONFIG_SND_SOC_MT6368_ACCDET)
-
-static int mt6879_mt6368_headset_init(struct snd_soc_component *component)
-{
-	struct snd_soc_card *card = &mt6879_mt6368_soc_card;
-
-	return mt6368_accdet_init(component, card);
-}
-
-static struct snd_soc_aux_dev mt6879_mt6368_headset_dev = {
-	.dlc = COMP_EMPTY(),
-	.init = mt6879_mt6368_headset_init,
-};
-#endif
 static int mt6879_mt6368_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6879_mt6368_soc_card;
@@ -1363,18 +1351,7 @@ static int mt6879_mt6368_dev_probe(struct platform_device *pdev)
 	}
 
 	card->dev = &pdev->dev;
-#if IS_ENABLED(CONFIG_SND_SOC_MT6368_ACCDET)
-	mt6879_mt6368_headset_dev.dlc.of_node =
-		of_parse_phandle(pdev->dev.of_node,
-				"mediatek,headset-codec", 0);
-	if (mt6879_mt6368_headset_dev.dlc.of_node) {
-		card->aux_dev = &mt6879_mt6368_headset_dev;
-		card->num_aux_devs = 1;
-	} else
-		dev_err(&pdev->dev,
-			"Property 'mediatek,headset-codec' missing/invalid\n");
-	mt6368_accdet_set_drvdata(card);
-#endif
+
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
