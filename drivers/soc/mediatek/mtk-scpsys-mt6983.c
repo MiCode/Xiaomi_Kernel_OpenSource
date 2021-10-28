@@ -253,7 +253,6 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE10,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.basic_clk_name = {"ufs0_0"},
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				UFS0_PROT_STEP1_0_MASK),
