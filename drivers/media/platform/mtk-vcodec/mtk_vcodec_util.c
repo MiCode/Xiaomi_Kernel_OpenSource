@@ -255,9 +255,8 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 					dst_buf->planes[i].dbuf);
 			}
 		}
-		pfb->status = 0;
+		pfb->status = FB_ST_INIT;
 		dst_buf_info->used = true;
-		mutex_unlock(&ctx->buf_lock);
 
 		mtk_v4l2_debug(1, "[%d] id=%d pfb=0x%p %llx VA=%p dma_addr[0]=%lx dma_addr[1]=%lx Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
 				ctx->id, dst_buf->index, pfb, (unsigned long long)pfb,
@@ -275,6 +274,8 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 			mtk_v4l2_debug(8, "[%d] index=%d, num_rdy_bufs=%d\n",
 				ctx->id, dst_buf->index,
 				v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx));
+
+		mutex_unlock(&ctx->buf_lock);
 	} else {
 		mtk_v4l2_debug(8, "[%d] No free framebuffer in v4l2!!\n", ctx->id);
 		pfb = NULL;

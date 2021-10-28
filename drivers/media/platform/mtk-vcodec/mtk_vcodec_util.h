@@ -36,6 +36,19 @@ struct mtk_vcodec_mem {
 };
 
 /**
+ * struct vdec_fb_status  - decoder frame buffer status
+ * @FB_ST_INIT        : initial state
+ * @FB_ST_DISPLAY       : frmae buffer is ready to be displayed
+ * @FB_ST_FREE          : frame buffer is not used by decoder any more
+ */
+enum vdec_fb_status {
+	FB_ST_INIT              = 0,
+	FB_ST_DISPLAY           = (1 << 0),
+	FB_ST_FREE              = (1 << 1),
+	FB_ST_EOS               = (1 << 2)
+};
+
+/**
  * enum flags  - decoder different operation types
  * @NO_CAHCE_FLUSH	: no need to proceed cache flush
  * @NO_CAHCE_INVALIDATE	: no need to proceed cache invalidate

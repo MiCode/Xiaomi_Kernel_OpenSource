@@ -29,19 +29,6 @@ struct vdec_inst {
 };
 
 /**
- * struct vdec_fb_status  - decoder frame buffer status
- * @FB_ST_NORMAL        : initial state
- * @FB_ST_DISPLAY       : frmae buffer is ready to be displayed
- * @FB_ST_FREE          : frame buffer is not used by decoder any more
- */
-enum vdec_fb_status {
-	FB_ST_NORMAL            = 0,
-	FB_ST_DISPLAY           = (1 << 0),
-	FB_ST_FREE              = (1 << 1),
-	FB_ST_EOS               = (1 << 2)
-};
-
-/**
  * struct vdec_fb_node  - decoder frame buffer node
  * @list        : list to hold this node
  * @fb  : point to frame buffer (vdec_fb), fb could point to frame buffer and

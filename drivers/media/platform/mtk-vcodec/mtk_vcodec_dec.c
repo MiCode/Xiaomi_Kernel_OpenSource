@@ -236,22 +236,22 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
-	mutex_unlock(&ctx->buf_lock);
 
 	if (disp_frame_buffer == NULL) {
 		mtk_v4l2_debug(4, "No display frame buffer");
+		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
 	if (!virt_addr_valid(disp_frame_buffer)) {
 		mtk_v4l2_debug(3, "Bad display frame buffer %p",
 			disp_frame_buffer);
+		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
 
 	dstbuf = container_of(disp_frame_buffer, struct mtk_video_dec_buf,
 						  frame_buffer);
 	num_planes = dstbuf->vb.vb2_buf.num_planes;
-	mutex_lock(&ctx->buf_lock);
 	if (dstbuf->used) {
 		for (i = 0; i < num_planes; i++) {
 			vb2_set_plane_payload(&dstbuf->vb.vb2_buf, i,
@@ -311,15 +311,16 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
-	mutex_unlock(&ctx->buf_lock);
 
 	if (free_frame_buffer == NULL) {
 		mtk_v4l2_debug(4, " No free frame buffer");
+		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
 	if (!virt_addr_valid(free_frame_buffer)) {
 		mtk_v4l2_debug(3, "Bad free frame buffer %p",
 			free_frame_buffer);
+		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
 	mtk_v4l2_debug(4, "[%d] tmp_frame_addr = 0x%p",
@@ -329,7 +330,6 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 						  frame_buffer);
 	dstbuf->flags |= REF_FREED;
 
-	mutex_lock(&ctx->buf_lock);
 	if (dstbuf->used) {
 		for (i = 0; i < free_frame_buffer->num_planes; i++) {
 			fput(free_frame_buffer->fb_base[i].dmabuf->file);
@@ -841,7 +841,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 					dst_buf->planes[i].dbuf);
 			}
 		}
-		pfb->status = 0;
+		pfb->status = FB_ST_INIT;
 		dst_buf_info->used = true;
 		mutex_unlock(&ctx->buf_lock);
 
