@@ -157,6 +157,8 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	obj.len = len;
 	ipi_size = ((sizeof(u32) * 2) + len + 3) /4;
 	inst->vcu.failure = 0;
+	if (!is_ack)
+		*msg_signaled = false;
 
 	mtk_v4l2_debug(2, "id %d len %d msg 0x%x is_ack %d %d", obj.id, obj.len, *(u32 *)msg,
 		is_ack, *msg_signaled);
@@ -176,6 +178,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	}
 
 	if (!is_ack) {
+wait_ack:
 		/* wait for VCP's ACK */
 		timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 		ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout);
@@ -189,6 +192,13 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 			inst->vcu.abort = 1;
 			trigger_vcp_halt(VCP_A_ID);
 			return -EIO;
+		} else if (-ERESTARTSYS == ret) {
+			mtk_vcodec_err(inst, "wait vcp ipi %X ack ret %d RESTARTSYS retry! (%d)",
+				*(u32 *)msg, ret, inst->vcu.failure);
+			goto wait_ack;
+		} else if (ret < 0) {
+			mtk_vcodec_err(inst, "wait vcp ipi %X ack fail ret %d! (%d)",
+				*(u32 *)msg, ret, inst->vcu.failure);
 		}
 	}
 	mutex_unlock(msg_mutex);

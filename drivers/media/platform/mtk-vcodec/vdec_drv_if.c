@@ -132,6 +132,7 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 	ret = ctx->dec_if->get_param(ctx->drv_handle, type, out);
 
 	if (!drv_handle_exist) {
+		inst->vcu.abort = 1;
 		kfree(inst);
 		ctx->drv_handle = 0;
 		ctx->dec_if = NULL;
