@@ -52,6 +52,20 @@
 #define TRAW_YUVO_T1_FIFO_DEBUG_DATA_CASE1	(0x10700)
 #define TRAW_YUVO_T1_FIFO_DEBUG_DATA_CASE3	(0x30700)
 
+#define	TRAW_DMA_IMGI_ADDR		(0x4100)
+#define	TRAW_DMA_UFDI_ADDR		(0x4170)
+#define	TRAW_DMA_IMGBI_ADDR		(0x41E0)
+#define	TRAW_DMA_IMGCI_ADDR		(0x4250)
+#define	TRAW_DMA_YUVO_T1_ADDR		(0x4600)
+#define	TRAW_DMA_YUVBO_T1_ADDR		(0x46B0)
+#define	TRAW_DMA_YUVCO_T1_ADDR		(0x4760)
+#define	TRAW_DMA_TIMGO_T1_ADDR		(0x48C0)
+#define	TRAW_DMA_YUVO_T2_ADDR		(0x4970)
+#define	TRAW_DMA_YUVO_T5_ADDR		(0x4AF0)
+#define	TRAW_DMA_TNCSO_T1_ADDR		(0x4BA0)
+#define	TRAW_DMA_RZH1N2TO_T1_ADDR	(0x5000)
+#define	TRAW_DMA_DBGO_T1_ADDR		(0x51C0)
+
 /********************************************************************
  * Enum Define
  ********************************************************************/

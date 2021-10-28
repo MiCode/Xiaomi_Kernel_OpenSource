@@ -14,6 +14,11 @@
 #include <linux/dma-iommu.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
+
+// drivers/misc/mediatek/iommu/
+#include "iommu_debug.h"
+
 
 // mtk imgsys local header file
 
@@ -25,16 +30,18 @@
  ********************************************************************/
 #define TRAW_INIT_ARRAY_COUNT	1
 
-#define TRAW_CTL_ADDR_OFST	0x330
-#define TRAW_DMA_ADDR_OFST	0x4000
-#define TRAW_DMA_ADDR_END	0x5300
-#define TRAW_DATA_ADDR_OFST	0x8000
-#define TRAW_MAX_ADDR_OFST	0xBD00
+#define TRAW_CTL_ADDR_OFST		0x330
+#define TRAW_DMA_ADDR_OFST		0x4000
+#define TRAW_DMA_ADDR_END		0x5300
+#define TRAW_DATA_ADDR_OFST		0x8000
+#define TRAW_MAX_ADDR_OFST		0xBD00
 
 
 #define TRAW_HW_SET		3
 #define WPE_HW_SET		3
 
+#define TRAW_L9_PORT_CNT	25
+#define TRAW_L11_PORT_CNT	16
 
 /********************************************************************
  * Global Variable
@@ -106,6 +113,54 @@ static unsigned int g_RegBaseAddr = TRAW_A_BASE_ADDR;
 
 static void __iomem *g_trawRegBA, *g_ltrawRegBA, *g_xtrawRegBA;
 
+static unsigned int g_IOMMUDumpPort;
+
+static unsigned int g_IOMMUL9Def[TRAW_L9_PORT_CNT] = {
+	MTK_M4U_PORT_ID(0, 0, 9, 0),	/* IMGI_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 1),	/* UFDI_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 2),	/* IMGBI_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 3),	/* IMGCI_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 4),	/* SMTI_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 5),	/* SMTI_T4_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 6),	/* TNCSTI_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 7),	/* TNCSTI_T4_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 8),	/* YUVO_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 9),	/* YUVBO_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 10),	/* YUVCO_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 11),	/* TIMGO_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 12),	/* YUVO_T2_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 13),	/* YUVO_T5_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 14),	/* IMGI_T1_B */
+	MTK_M4U_PORT_ID(0, 0, 9, 15),	/* IMGBI_T1_B */
+	MTK_M4U_PORT_ID(0, 0, 9, 16),	/* IMGCI_T1_B */
+	MTK_M4U_PORT_ID(0, 0, 9, 17),	/* SMTI_T4_B */
+	MTK_M4U_PORT_ID(0, 0, 9, 18),	/* TNCSO_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 19),	/* SMTO_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 20),	/* SMTO_T4_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 21),	/* TNCSTO_T1_A */
+	MTK_M4U_PORT_ID(0, 0, 9, 22),	/* YUVO_T2_B */
+	MTK_M4U_PORT_ID(0, 0, 9, 23),	/* YUVO_T5_B */
+	MTK_M4U_PORT_ID(0, 0, 9, 24)	/* SMTO_T4_B */
+};
+
+static unsigned int g_IOMMUL11Def[TRAW_L11_PORT_CNT] = {
+	MTK_M4U_PORT_ID(0, 0, 11, 9),	/* IMGI_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 10),	/* IMGBI_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 11),	/* IMGCI_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 12),	/* SMTI_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 13),	/* SMTI_T4_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 14),	/* SMTI_T6_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 15),	/* YUVO_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 16),	/* YUVBO_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 17),	/* YUVCO_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 23),	/* TIMGO_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 24),	/* YUVO_T2_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 25),	/* YUVO_T5_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 26),	/* SMTO_T1_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 27),	/* SMTO_T4_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 28),	/* SMTO_T6_C */
+	MTK_M4U_PORT_ID(0, 0, 11, 29)	/* DBGO_T1_C */
+};
 
 static unsigned int ExeDbgCmd(struct mtk_imgsys_dev *a_pDev,
 			void __iomem *a_pRegBA,
@@ -530,6 +585,194 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 
 }
 
+static int GetFaultDMAAddr(unsigned int port, unsigned int *pStartAddr, unsigned int *pEndAddr)
+{
+	int Result = 1;
+
+	/* IMGI_T1 */
+	if (port == MTK_M4U_PORT_ID(0, 0, 9, 0) ||
+		port == MTK_M4U_PORT_ID(0, 0, 9, 14) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 9)) {
+		*pStartAddr = TRAW_DMA_IMGI_ADDR;
+		*pEndAddr = (*pStartAddr + 48);
+	}
+	/* UFDI_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 1)) {
+		*pStartAddr = TRAW_DMA_UFDI_ADDR;
+		*pEndAddr = (*pStartAddr + 48);
+	}
+	/* IMGBI_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 2) ||
+		port == MTK_M4U_PORT_ID(0, 0, 9, 15) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 10)) {
+		*pStartAddr = TRAW_DMA_IMGBI_ADDR;
+		*pEndAddr = (*pStartAddr + 48);
+	}
+	/* IMGCI_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 3) ||
+		port == MTK_M4U_PORT_ID(0, 0, 9, 16) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 11)) {
+		*pStartAddr = TRAW_DMA_IMGCI_ADDR;
+		*pEndAddr = (*pStartAddr + 48);
+	}
+	/* YUVO_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 8) ||
+		port == MTK_M4U_PORT_ID(0, 0, 9, 9) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 15) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 16)) {
+		*pStartAddr = TRAW_DMA_YUVO_T1_ADDR;
+		*pEndAddr = (*pStartAddr + 224);
+	}
+	/* YUVCO_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 10) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 17)) {
+		*pStartAddr = TRAW_DMA_YUVCO_T1_ADDR;
+		*pEndAddr = (*pStartAddr + 224);
+	}
+	/* TIMGO_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 11) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 23)) {
+		*pStartAddr = TRAW_DMA_TIMGO_T1_ADDR;
+		*pEndAddr = (*pStartAddr + 48);
+	}
+	/* YUVO_T2 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 12) ||
+		port == MTK_M4U_PORT_ID(0, 0, 9, 22) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 24)) {
+		*pStartAddr = TRAW_DMA_YUVO_T2_ADDR;
+		*pEndAddr = (*pStartAddr + 368);
+	}
+	/* YUVO_T5 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 13) ||
+		port == MTK_M4U_PORT_ID(0, 0, 9, 23) ||
+		port == MTK_M4U_PORT_ID(0, 0, 11, 25)) {
+		*pStartAddr = TRAW_DMA_YUVO_T5_ADDR;
+		*pEndAddr = (*pStartAddr + 48);
+	}
+	/* TNCSO_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 9, 18)) {
+		*pStartAddr = TRAW_DMA_TNCSO_T1_ADDR;
+		*pEndAddr = (*pStartAddr + 240);
+	}
+	/* SMTO_T6 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 11, 28)) {
+		*pStartAddr = TRAW_DMA_RZH1N2TO_T1_ADDR;
+		*pEndAddr = (*pStartAddr + 176);
+	}
+	/* DBGO_T1 */
+	else if (port == MTK_M4U_PORT_ID(0, 0, 11, 29)) {
+		*pStartAddr = TRAW_DMA_DBGO_T1_ADDR;
+		*pEndAddr = (*pStartAddr + 48);
+	}
+	/* Not Define Port */
+	else
+		Result = 0;
+
+
+
+	return Result;
+
+
+}
+
+static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
+{
+	unsigned int engine = IMGSYS_ENG_TRAW;
+	void __iomem *trawRegBA = 0L;
+	unsigned int i = 0;
+	unsigned int DMAStartAddr = 0, DMAEndAddr = 0;
+	unsigned int RegMap = REG_MAP_E_TRAW;
+	char DbgStr[128];
+
+
+	if (g_IOMMUDumpPort != port)
+		g_IOMMUDumpPort = port;
+	else
+		return 0;
+
+	/* Set HW Engine */
+	if (port >= MTK_M4U_PORT_ID(0, 0, 9, 0) &&
+		port <= MTK_M4U_PORT_ID(0, 0, 9, 13))
+		engine = IMGSYS_ENG_TRAW;
+	else if (port >= MTK_M4U_PORT_ID(0, 0, 9, 14) &&
+		port <= MTK_M4U_PORT_ID(0, 0, 9, 17))
+		engine = IMGSYS_ENG_LTR;
+	else if (port >= MTK_M4U_PORT_ID(0, 0, 9, 18) &&
+		port <= MTK_M4U_PORT_ID(0, 0, 9, 21))
+		engine = IMGSYS_ENG_TRAW;
+	else if (port >= MTK_M4U_PORT_ID(0, 0, 9, 22) &&
+		port <= MTK_M4U_PORT_ID(0, 0, 9, 24))
+		engine = IMGSYS_ENG_LTR;
+	else if (port >= MTK_M4U_PORT_ID(0, 0, 11, 9) &&
+		port <= MTK_M4U_PORT_ID(0, 0, 11, 17))
+		engine = IMGSYS_ENG_XTR;
+	else if (port >= MTK_M4U_PORT_ID(0, 0, 11, 23) &&
+		port <= MTK_M4U_PORT_ID(0, 0, 11, 29))
+		engine = IMGSYS_ENG_XTR;
+	else
+		return 0;
+
+	/* ltraw */
+	if (engine & IMGSYS_ENG_LTR) {
+		RegMap = REG_MAP_E_LTRAW;
+		g_RegBaseAddr = TRAW_B_BASE_ADDR;
+		trawRegBA = g_ltrawRegBA;
+	}
+	/* xltraw */
+	else if (engine & IMGSYS_ENG_XTR) {
+		RegMap = REG_MAP_E_XTRAW;
+		g_RegBaseAddr = TRAW_C_BASE_ADDR;
+		trawRegBA = g_xtrawRegBA;
+	}
+	/* traw */
+	else {
+		g_RegBaseAddr = TRAW_A_BASE_ADDR;
+		trawRegBA = g_trawRegBA;
+	}
+
+	if (!trawRegBA)
+		return 0;
+
+	/* Dump Fault DMA registers */
+	if (GetFaultDMAAddr(port, &DMAStartAddr, &DMAEndAddr) == 0)
+		return 0;
+
+	for (i = DMAStartAddr; i <= DMAEndAddr; i += 16) {
+		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(g_RegBaseAddr + i),
+			(unsigned int)ioread32((void *)(trawRegBA + i)),
+			(unsigned int)ioread32((void *)(trawRegBA + i + 4)),
+			(unsigned int)ioread32((void *)(trawRegBA + i + 8)),
+			(unsigned int)ioread32((void *)(trawRegBA + i + 12))) > 0)
+			pr_info("%s\n", DbgStr);
+	}
+
+	return 0;
+
+}
+
+static void imgsys_traw_reg_iommu_cb(void)
+{
+	unsigned int i = 0;
+
+	/* Reg Traw/Ltraw L9 Port Callback */
+	for (i = 0; i < TRAW_L9_PORT_CNT; i++) {
+		mtk_iommu_register_fault_callback(
+			g_IOMMUL9Def[i],
+			(mtk_iommu_fault_callback_t)imgsys_traw_iommu_cb,
+			NULL, false);
+	}
+
+	/* Reg Xtraw L11 Port Callback */
+	for (i = 0; i < TRAW_L11_PORT_CNT; i++) {
+		mtk_iommu_register_fault_callback(
+			g_IOMMUL11Def[i],
+			(mtk_iommu_fault_callback_t)imgsys_traw_iommu_cb,
+			NULL, false);
+	}
+
+}
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Public Functions
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -542,6 +785,10 @@ void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 	/* Init HW */
 	imgsys_traw_set_initial_value_hw(imgsys_dev);
+	/* Register IOMMU Callback */
+	imgsys_traw_reg_iommu_cb();
+	g_IOMMUDumpPort = 0;
+
 
 	pr_info("%s\n", __func__);
 }
