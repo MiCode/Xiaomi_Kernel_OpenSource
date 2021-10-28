@@ -5,6 +5,7 @@
 
 #include "mdw_rv.h"
 #include "mdw_cmn.h"
+#include "mdw_mem_pool.h"
 #include "mdw_trace.h"
 
 #define MDW_IS_HIGHADDR(addr) ((addr & 0xffffffff00000000) ? true : false)
@@ -63,7 +64,6 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_msg_cmd *rmc = NULL;
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
-	int ret = 0;
 
 	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
 	mutex_lock(&mpriv->mtx);
@@ -100,19 +100,12 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	cb_size += c->exec_infos->size;
 
 	/* allocate communicate buffer */
-	rc->cb = mdw_mem_alloc(mpriv, MDW_MEM_TYPE_MAIN, cb_size,
-		MDW_DEFAULT_ALIGN, F_MDW_MEM_CACHEABLE|F_MDW_MEM_32BIT, false);
+	rc->cb = mdw_mem_pool_alloc(&mpriv->cmd_buf_pool, cb_size,
+		MDW_DEFAULT_ALIGN);
 	if (!rc->cb) {
 		mdw_drv_err("c(0x%llx) alloc cb size(%u) fail\n",
 			c->kid, cb_size);
 		goto free_rc;
-	}
-
-	ret = mdw_mem_map(mpriv, rc->cb);
-	if (ret) {
-		mdw_drv_err("c(0x%llx) map cb size(%u) fail\n",
-			c->kid, cb_size);
-		goto free_mem;
 	}
 
 	/* assign cmd info */
@@ -185,8 +178,6 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	goto out;
 
-free_mem:
-	mdw_mem_free(mpriv, rc->cb);
 free_rc:
 	kfree(rc);
 	rc = NULL;
@@ -223,8 +214,7 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 			c->exec_infos->size);
 	}
 
-	mdw_mem_unmap(rc->c->mpriv, rc->cb);
-	mdw_mem_free(rc->c->mpriv, rc->cb);
+	mdw_mem_pool_free(rc->cb);
 	kfree(rc);
 	mutex_unlock(&mpriv->mtx);
 

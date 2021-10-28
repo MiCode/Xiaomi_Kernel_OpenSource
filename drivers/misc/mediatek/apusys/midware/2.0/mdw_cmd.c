@@ -10,6 +10,7 @@
 #include "mdw_trace.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
+#include "mdw_mem_pool.h"
 
 #define mdw_cmd_show(c, f) \
 	f("cmd(0x%llx/0x%llx/0x%llx)param(%u/%u/%u/%u/"\
@@ -64,9 +65,8 @@ static void mdw_cmd_put_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 			ksubcmd->ori_cbs[j] = NULL;
 		}
 	}
-	mdw_mem_unmap(mpriv, c->cmdbufs);
-	mdw_mem_free(mpriv, c->cmdbufs);
 
+	mdw_mem_pool_free(c->cmdbufs);
 	c->cmdbufs = NULL;
 
 	mdw_trace_end("put cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",
@@ -87,21 +87,11 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	if (!c->size_cmdbufs || c->cmdbufs)
 		goto out;
 
-	/* alloc cmdbuf by dmabuf */
-	c->cmdbufs = mdw_mem_alloc(mpriv, MDW_MEM_TYPE_MAIN, c->size_cmdbufs,
-		MDW_DEFAULT_ALIGN, F_MDW_MEM_CACHEABLE|F_MDW_MEM_32BIT, false);
+	c->cmdbufs = mdw_mem_pool_alloc(&mpriv->cmd_buf_pool, c->size_cmdbufs,
+		MDW_DEFAULT_ALIGN);
 	if (!c->cmdbufs) {
 		mdw_drv_err("cmd(0x%llx/0x%llx) alloc buffer for duplicate fail\n",
-			(uint64_t) mpriv, c->kid);
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	ret = mdw_mem_map(mpriv, c->cmdbufs);
-	if (ret) {
-		mdw_drv_err("cmd(0x%llx) map buffer for duplicate fail\n",
-			(uint64_t) mpriv);
-		mdw_mem_free(mpriv, c->cmdbufs);
+		(uint64_t) mpriv, c->kid);
 		ret = -ENOMEM;
 		goto out;
 	}

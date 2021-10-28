@@ -13,6 +13,7 @@
 #include "apusys_core.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
+#include "mdw_mem_pool.h"
 
 struct mdw_device *mdw_dev;
 static struct apusys_core_info *g_info;
@@ -77,6 +78,13 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	mpriv->get = mdw_drv_priv_get;
 	mpriv->put = mdw_drv_priv_put;
 	kref_init(&mpriv->ref);
+
+	ret = mdw_mem_pool_create(mpriv, &mpriv->cmd_buf_pool,
+		MDW_MEM_TYPE_MAIN, MDW_MEM_POOL_CHUNK_SIZE,
+		MDW_DEFAULT_ALIGN, F_MDW_MEM_32BIT);
+	if (ret)
+		goto out;
+
 	mdw_dev_session_create(mpriv);
 	mdw_flw_debug("mpriv(0x%llx)\n", mpriv);
 
@@ -92,6 +100,7 @@ static int mdw_drv_close(struct inode *inode, struct file *filp)
 	mdw_flw_debug("mpriv(%llx)\n", (uint64_t) mpriv);
 	mdw_dev_session_delete(mpriv);
 	mutex_lock(&mpriv->mtx);
+	mdw_mem_pool_destroy(&mpriv->cmd_buf_pool);
 	mdw_mem_mpriv_release(mpriv);
 	mutex_unlock(&mpriv->mtx);
 	mpriv->put(mpriv);

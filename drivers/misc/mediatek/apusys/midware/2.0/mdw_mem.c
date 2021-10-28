@@ -13,6 +13,7 @@
 #include "mdw_mem.h"
 #include "mdw_mem_rsc.h"
 #include "mdw_trace.h"
+#include "mdw_mem_pool.h"
 
 #define mdw_mem_show(m) \
 	mdw_mem_debug("mem(0x%llx/0x%llx/%d/0x%llx/%d/0x%llx/0x%x/0x%llx" \
@@ -111,6 +112,8 @@ static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 		m->mpriv = mpriv;
 		m->release = mdw_mem_delete;
 		m->handle = -1;
+		m->pool = NULL;
+		INIT_LIST_HEAD(&m->p_chunk);
 		mutex_init(&m->mtx);
 		INIT_LIST_HEAD(&m->maps);
 		mdw_mem_show(m);
@@ -494,6 +497,9 @@ int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	int ret = 0;
 
+	if (m->pool)
+		return mdw_mem_pool_flush(m);
+
 	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
 	ret = dma_buf_end_cpu_access(m->dbuf, DMA_TO_DEVICE);
 	if (ret) {
@@ -511,6 +517,9 @@ out:
 int mdw_mem_invalidate(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	int ret = 0;
+
+	if (m->pool)
+		return mdw_mem_pool_invalidate(m);
 
 	mdw_trace_begin("%s|size(%u)", __func__, m->dva_size);
 
@@ -816,3 +825,4 @@ uint64_t apusys_mem_query_iova(uint64_t kva)
 
 	return iova;
 }
+

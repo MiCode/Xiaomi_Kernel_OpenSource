@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/dma-fence.h>
 #include <linux/hashtable.h>
+#include <linux/genalloc.h>
 
 #include "apusys_core.h"
 #include "apusys_device.h"
@@ -88,10 +89,35 @@ struct mdw_mem {
 	bool need_handle;
 	struct list_head maps;
 	struct mdw_fpriv *mpriv;
+	struct mdw_mem_pool *pool;
 	struct list_head u_item; //to mpriv
 	struct list_head d_node; //to mdev
+	struct list_head p_chunk; //to mem pool
 	struct mutex mtx;
 	void (*release)(struct mdw_mem *m);
+};
+
+/* default chunk size of memory pool */
+#define MDW_MEM_POOL_CHUNK_SIZE (4*1024*1024)
+
+struct mdw_mem_pool {
+	struct mdw_fpriv *mpriv;
+	/* pool attribute */
+	enum mdw_mem_type type;
+	uint64_t flags;
+	uint32_t align;
+	uint32_t chunk_size;
+	/* container and lock */
+	struct gen_pool *gp;
+	struct mutex m_mtx;
+	/* list of resource chunks */
+	struct list_head m_chunks;
+	/* list of allocated memories from gp */
+	struct list_head m_list;
+	/* ref count for cmd/mem */
+	struct kref m_ref;
+	void (*get)(struct mdw_mem_pool *pool);
+	void (*put)(struct mdw_mem_pool *pool);
 };
 
 struct mdw_dinfo {
@@ -175,6 +201,7 @@ struct mdw_fpriv {
 	struct list_head invokes;
 	struct list_head cmds;
 	struct mutex mtx;
+	struct mdw_mem_pool cmd_buf_pool;
 
 	/* ref count for cmd/mem */
 	struct kref ref;
