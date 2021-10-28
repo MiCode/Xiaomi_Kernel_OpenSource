@@ -1976,9 +1976,52 @@ immediate_link_update_chk(struct mtk_cam_device *cam, int pipe_id,
 	}
 }
 
+static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
+				    int pipe_id,
+				    int s_data_index)
+{
+	struct mtk_cam_request_stream_data *req_stream_data;
+
+	req_stream_data = &req->p_data[pipe_id].s_data[s_data_index];
+	req_stream_data->req = req;
+	req_stream_data->pipe_id = pipe_id;
+	req_stream_data->state.estate = E_STATE_READY;
+	req_stream_data->index = s_data_index;
+
+	/**
+	 * req_stream_data->flags is cleaned by
+	 * mtk_cam_req_s_data_clean () at previous job done
+	 * and may by updated by qbuf before request enqueue
+	 * so we don't reset it here.
+	 */
+	mtk_cam_req_work_init(&req_stream_data->seninf_s_fmt_work,
+				  req_stream_data);
+	mtk_cam_req_work_init(&req_stream_data->frame_work,
+				  req_stream_data);
+	mtk_cam_req_work_init(&req_stream_data->frame_done_work,
+				  req_stream_data);
+	mtk_cam_req_work_init(&req_stream_data->meta1_done_work,
+				  req_stream_data);
+	mtk_cam_req_work_init(&req_stream_data->sv_work,
+				  req_stream_data);
+	/**
+	 * clean the param structs since we support req reinit.
+	 * the mtk_cam_request may not be "zero" when it is
+	 * enqueued.
+	 */
+	memset(&req_stream_data->frame_params, 0,
+		   sizeof(req_stream_data->frame_params));
+	memset(&req_stream_data->sv_frame_params, 0,
+		   sizeof(req_stream_data->sv_frame_params));
+
+	/* generally is single exposure */
+	req_stream_data->frame_params.raw_param.exposure_num = 1;
+
+}
+
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
-	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_ctx *ctx, *stream_ctx;
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data;
 	int i, s_data_flags;
@@ -2109,13 +2152,25 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 						 __func__, req->req.debug_str,
 						 ctx->pipe->feature_pending);
 			} else if (is_camsv_subdev(i)) {
+				stream_ctx = mtk_cam_find_ctx(cam,
+					&cam->sv.pipelines[i -
+					MTKCAM_SUBDEV_CAMSV_START].subdev.entity);
 				/* copy s_data content for mstream case */
-				if (req->p_data[i].s_data_num == 2)
+				if (mtk_cam_is_mstream(stream_ctx)) {
+					req->p_data[i].s_data_num = 2;
+					mtk_cam_req_s_data_init(req, i, 1);
 					fill_sv_mstream_s_data(cam, req, i);
+				}
 			} else if (is_mraw_subdev(i)) {
+				stream_ctx = mtk_cam_find_ctx(cam,
+					&cam->mraw.pipelines[i -
+					MTKCAM_SUBDEV_MRAW_START].subdev.entity);
 				/* copy s_data content for mstream case */
-				if (req->p_data[i].s_data_num == 2)
+				if (mtk_cam_is_mstream(stream_ctx)) {
+					req->p_data[i].s_data_num = 2;
+					mtk_cam_req_s_data_init(req, i, 1);
 					fill_mraw_mstream_s_data(cam, req, i);
+				}
 			}
 		}
 
@@ -2186,50 +2241,15 @@ static int mtk_cam_req_chk_job_list(struct mtk_cam_device *cam,
 	return 0;
 }
 
-static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
+static void mtk_cam_req_p_data_init(struct mtk_cam_request *req,
 				    int pipe_id,
 				    int s_data_num)
 {
-	struct mtk_cam_request_stream_data *req_stream_data;
 	int i = 0;
 
 	req->p_data[pipe_id].s_data_num = s_data_num;
-	for (i = 0; i < s_data_num; i++) {
-		req_stream_data = &req->p_data[pipe_id].s_data[i];
-		req_stream_data->req = req;
-		req_stream_data->pipe_id = pipe_id;
-		req_stream_data->state.estate = E_STATE_READY;
-		req_stream_data->index = i;
-
-		/**
-		 * req_stream_data->flags is cleaned by
-		 * mtk_cam_req_s_data_clean () at previous job done
-		 * and may by updated by qbuf before request enqueue
-		 * so we don't reset it here.
-		 */
-		mtk_cam_req_work_init(&req_stream_data->seninf_s_fmt_work,
-				      req_stream_data);
-		mtk_cam_req_work_init(&req_stream_data->frame_work,
-				      req_stream_data);
-		mtk_cam_req_work_init(&req_stream_data->frame_done_work,
-				      req_stream_data);
-		mtk_cam_req_work_init(&req_stream_data->meta1_done_work,
-				      req_stream_data);
-		mtk_cam_req_work_init(&req_stream_data->sv_work,
-				      req_stream_data);
-		/**
-		 * clean the param structs since we support req reinit.
-		 * the mtk_cam_request may not be "zero" when it is
-		 * enqueued.
-		 */
-		memset(&req_stream_data->frame_params, 0,
-		       sizeof(req_stream_data->frame_params));
-		memset(&req_stream_data->sv_frame_params, 0,
-		       sizeof(req_stream_data->sv_frame_params));
-
-		/* generally is single exposure */
-		req_stream_data->frame_params.raw_param.exposure_num = 1;
-	}
+	for (i = 0; i < s_data_num; i++)
+		mtk_cam_req_s_data_init(req, pipe_id, i);
 }
 
 static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
@@ -2242,7 +2262,7 @@ static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
 	struct media_request_object *obj;
 	unsigned int pipe_used = 0;
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
-	unsigned int i, feature = 0;
+	unsigned int i, feature;
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 	struct mtk_raw_pipeline *raw_pipeline;
@@ -2260,24 +2280,22 @@ static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
 
 	/* Initialize per pipe's stream data (without ctx)*/
 	for (i = 0; i < cam->max_stream_num; i++) {
-		if ((pipe_used & (1 << i)) &&
-			is_raw_subdev(i)) {
-			raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, i);
-			feature = raw_pipeline->feature_pending;
-			break;
-		}
-	}
-	for (i = 0; i < cam->max_stream_num; i++) {
 		if (pipe_used & (1 << i)) {
+			/* reset feature for each pipe */
+			feature = 0;
 			/**
 			 * By default, the s_data_num is 1;
 			 * for some special feature like mstream, it is 2.
 			 */
+			if (is_raw_subdev(i)) {
+				raw_pipeline = &cam->raw.pipelines[i - MTKCAM_SUBDEV_RAW_0];
+				feature = raw_pipeline->feature_pending;
+			}
 			if (mtk_cam_feature_is_mstream(feature) ||
 					mtk_cam_feature_is_mstream_m2m(feature))
-				mtk_cam_req_s_data_init(cam_req, i, 2);
+				mtk_cam_req_p_data_init(cam_req, i, 2);
 			else
-				mtk_cam_req_s_data_init(cam_req, i, 1);
+				mtk_cam_req_p_data_init(cam_req, i, 1);
 		}
 	}
 
@@ -2531,11 +2549,11 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 	if (mtk_cam_feature_is_mstream(current_feature)) {
 		/* for 1->2, 2->2 */
 		/* init stream data for mstream */
-		mtk_cam_req_s_data_init(req, pipe_id, 2);
+		mtk_cam_req_p_data_init(req, pipe_id, 2);
 	} else {
 		/* for 2->1 */
 		/* init stream data for normal exp */
-		mtk_cam_req_s_data_init(req, pipe_id, 1);
+		mtk_cam_req_p_data_init(req, pipe_id, 1);
 	}
 
 	/* recover main stream buffer */
