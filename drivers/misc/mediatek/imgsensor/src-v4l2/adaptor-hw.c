@@ -414,19 +414,25 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 
 int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 {
-
-
-	dev_info(ctx->dev, "%s %d|%d|%d|%d\n",
+	dev_info(ctx->dev, "%s %d|%d|%d\n",
 		__func__,
 		ctx->is_streaming,
 		ctx->is_sensor_inited,
-		ctx->is_sensor_inited,
 		ctx->power_refcnt);
 
-	do_hw_power_off(ctx);
-	do_hw_power_on(ctx);
+	if (ctx->is_streaming == 1 &&
+		ctx->is_sensor_inited == 1 &&
+		ctx->power_refcnt > 0) {
 
-	return 0;
+		do_hw_power_off(ctx);
+		do_hw_power_on(ctx);
+
+		return 0;
+	}
+	dev_info(ctx->dev, "%s skip to reset due to either integration or else\n",
+		__func__);
+
+	return -1;
 }
 
 

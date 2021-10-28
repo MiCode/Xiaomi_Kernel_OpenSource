@@ -1134,7 +1134,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
 
 			//dev_info(dev, "V4L2_CID_MTK_SENSOR_RESET\n");
-			adaptor_hw_sensor_reset(ctx);
+			if (adaptor_hw_sensor_reset(ctx) < 0)
+				break;
 
 			subdrv_call(ctx, open);
 			subdrv_call(ctx, control,
