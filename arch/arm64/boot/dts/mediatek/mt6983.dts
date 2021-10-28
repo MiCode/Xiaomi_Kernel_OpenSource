@@ -12563,13 +12563,11 @@
 			met_res_ram_sspm {
 				size = <0x400000>; /* 4M: only reserve on userdebug/eng load */
 				start = <0x0>; /* start addr of reserved ram*/
-				force_res = <0>; /* force reserve even in user load */
 			};
 
 			met_res_ram_mcupm {
 				size = <0x400000>; /* 4M: only reserve on userdebug/eng load */
 				start = <0x0>; /* start addr of reserved ram*/
-				force_res = <0>; /* force reserve even in user load */
 			};
 		};
 
