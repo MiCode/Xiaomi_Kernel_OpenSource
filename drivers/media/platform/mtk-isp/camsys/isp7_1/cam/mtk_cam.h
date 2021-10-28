@@ -254,6 +254,7 @@ struct mtk_cam_req_pipe {
 
 enum mtk_cam_request_state {
 	MTK_CAM_REQ_STATE_QUEUED,
+	MTK_CAM_REQ_STATE_DELETING,
 	MTK_CAM_REQ_STATE_COMPLETE,
 	NR_OF_MTK_CAM_REQ_STATE,
 };

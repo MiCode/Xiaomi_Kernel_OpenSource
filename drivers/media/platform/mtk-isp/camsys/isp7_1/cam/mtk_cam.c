@@ -700,9 +700,10 @@ STOP_SCAN:
 
 		spin_lock(&req->done_status_lock);
 
-		if ((req->done_status & 1 << pipe_id) &&
-		    (req->done_status & ctx->cam->streaming_pipe) ==
-		    (req->pipe_used & ctx->cam->streaming_pipe)) {
+		if (!(1 << pipe_id & req->pipe_used) ||
+		    ((req->done_status & 1 << pipe_id) &&
+		     (req->done_status & ctx->cam->streaming_pipe) ==
+		     (req->pipe_used & ctx->cam->streaming_pipe))) {
 			/* already handled by another job done work */
 			spin_unlock(&req->done_status_lock);
 			continue;
@@ -711,12 +712,17 @@ STOP_SCAN:
 		/* Check whether all pipelines of single ctx are done */
 		req->done_status |= 1 << pipe_id;
 		if ((req->done_status & ctx->streaming_pipe) ==
-			(req->pipe_used & ctx->streaming_pipe))
+		    (req->pipe_used & ctx->streaming_pipe))
 			del_job = true;
 
 		if ((req->done_status & ctx->cam->streaming_pipe) ==
-		    (req->pipe_used & ctx->cam->streaming_pipe))
-			del_req = true;
+		    (req->pipe_used & ctx->cam->streaming_pipe)) {
+			if (MTK_CAM_REQ_STATE_QUEUED ==
+			    atomic_cmpxchg(&req->state,
+					   MTK_CAM_REQ_STATE_QUEUED,
+					   MTK_CAM_REQ_STATE_DELETING))
+				del_req = true;
+		}
 
 		dev_info(ctx->cam->dev,
 			"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),del_req(%d)\n",
@@ -919,15 +925,16 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		else
 			need_clean_s_data = true;
 
-		if (atomic_read(&req->state) == MTK_CAM_REQ_STATE_COMPLETE) {
-			need_clean_req = false;
-		} else {
+		need_clean_req = false;
+		if (atomic_read(&req->state) == MTK_CAM_REQ_STATE_QUEUED) {
 			/* mark request status to done for release */
 			req->done_status |= req->pipe_used & (1 << pipe_id);
-			if (req->done_status == req->pipe_used)
+			if (req->done_status == req->pipe_used &&
+			    MTK_CAM_REQ_STATE_QUEUED ==
+			    atomic_cmpxchg(&req->state,
+					   MTK_CAM_REQ_STATE_QUEUED,
+					   MTK_CAM_REQ_STATE_DELETING))
 				need_clean_req = true;
-			else
-				need_clean_req = false;
 		}
 		spin_unlock(&req->done_status_lock);
 
