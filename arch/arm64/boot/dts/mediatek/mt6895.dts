@@ -2720,7 +2720,7 @@
 				<GIC_SPI 642 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 0>, /*channel 0*/
 				<&adspsys 1>; /*channel 1*/
-			feature_control_bits = <0x8a703ff>;
+			feature_control_bits = <0x8e783ff>;
 		};
 		adsp_core1: adsp_core1@1e090000 {
 			compatible = "mediatek,mt6895-adsp_core_1";
@@ -2733,7 +2733,7 @@
 				<GIC_SPI 643 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 2>, /*channel 2*/
 				<&adspsys 3>; /*channel 3*/
-			feature_control_bits = <0x1118f00f>;
+			feature_control_bits = <0x1118700f>;
 		};
 
 		infra_device_mpu@10225000 {
