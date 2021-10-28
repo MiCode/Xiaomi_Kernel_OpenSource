@@ -280,30 +280,21 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
-	if (IS_ERR_OR_NULL(priv)) {
-		DDPIRQ("%s, invalid device\n", __func__);
+	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
-	}
 
 	rdma = &priv->ddp_comp;
-	if (IS_ERR_OR_NULL(rdma)) {
-		DDPIRQ("%s, invalid comp\n", __func__);
+	if (IS_ERR_OR_NULL(rdma))
 		return IRQ_NONE;
-	}
-
-	mtk_crtc = rdma->mtk_crtc;
-	if (IS_ERR_OR_NULL(mtk_crtc)) {
-		DDPIRQ("%s, invalid crtc\n", __func__);
-		return IRQ_NONE;
-	}
 
 	val = readl(rdma->regs + DISP_REG_RDMA_INT_STATUS);
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
 	}
-
 	DRM_MMP_MARK(IRQ, irq, val);
+
+	mtk_crtc = rdma->mtk_crtc;
 
 	if (rdma->id == DDP_COMPONENT_RDMA0)
 		DRM_MMP_MARK(rdma0, val, 0);
@@ -330,16 +321,17 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		if (rdma->id == DDP_COMPONENT_RDMA0)
 			DRM_MMP_EVENT_END(rdma0, val, 0);
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
-		if (rdma->mtk_crtc && rdma->mtk_crtc->esd_ctx)
-			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 0);
-		if (priv && priv->ddp_comp.mtk_crtc && rdma->id == DDP_COMPONENT_RDMA0) {
-			unsigned long long rdma_end_time = sched_clock();
+		if (mtk_crtc) {
+			if (mtk_crtc->esd_ctx)
+				atomic_set(&mtk_crtc->esd_ctx->target_time, 0);
+			if (rdma->id == DDP_COMPONENT_RDMA0) {
+				unsigned long long rdma_end_time = sched_clock();
 
-			lcm_fps_ctx_update(rdma_end_time,
-					   priv->ddp_comp.mtk_crtc->base.index,
-					   1);
+				lcm_fps_ctx_update(rdma_end_time,
+						   mtk_crtc->base.index, 1);
+			}
+			mtk_crtc->eof_time = ktime_get();
 		}
-		mtk_crtc->eof_time = ktime_get();
 		mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
 
@@ -373,17 +365,15 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		       readl(DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
 		mtk_rdma_analysis(rdma);
 		mtk_rdma_dump(rdma);
-		if (rdma->mtk_crtc) {
-			mtk_drm_crtc_analysis(&(rdma->mtk_crtc->base));
-			mtk_drm_crtc_dump(&(rdma->mtk_crtc->base));
-		}
-
-		if (rdma->mtk_crtc) {
+		if (mtk_crtc) {
 			struct mtk_drm_private *drm_priv = NULL;
 
-			if (rdma->mtk_crtc->base.dev)
+			mtk_drm_crtc_analysis(&(rdma->mtk_crtc->base));
+			mtk_drm_crtc_dump(&(rdma->mtk_crtc->base));
+
+			if (mtk_crtc->base.dev)
 				drm_priv =
-					rdma->mtk_crtc->base.dev->dev_private;
+					mtk_crtc->base.dev->dev_private;
 			if (drm_priv && mtk_drm_helper_get_opt(
 				drm_priv->helper_opt,
 				MTK_DRM_OPT_RDMA_UNDERFLOW_AEE)) {
@@ -398,13 +388,15 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 	if (val & (1 << 5)) {
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
-		if (rdma->mtk_crtc && rdma->mtk_crtc->esd_ctx &&
-			(!(val & (1 << 2)))) {
-			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 1);
-			wake_up_interruptible(
-				&rdma->mtk_crtc->esd_ctx->check_task_wq);
+		if (mtk_crtc) {
+			if (mtk_crtc->esd_ctx &&
+				(!(val & (1 << 2)))) {
+				atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+				wake_up_interruptible(
+					&mtk_crtc->esd_ctx->check_task_wq);
+			}
+			atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 		}
-		atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 	}
 
 	/* TODO: check if this is not necessary */

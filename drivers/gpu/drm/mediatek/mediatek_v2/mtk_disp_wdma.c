@@ -237,23 +237,18 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
-	if (IS_ERR_OR_NULL(priv)) {
-		DDPIRQ("%s, invalid device\n", __func__);
+	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
-	}
 
 	wdma = &priv->ddp_comp;
-	if (IS_ERR_OR_NULL(wdma)) {
-		DDPIRQ("%s, invalid comp\n", __func__);
+	if (IS_ERR_OR_NULL(wdma))
 		return IRQ_NONE;
-	}
 
 	val = readl(wdma->regs + DISP_REG_WDMA_INTSTA);
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
 	}
-
 	DRM_MMP_MARK(IRQ, irq, val);
 
 	if (wdma->id == DDP_COMPONENT_WDMA0)
