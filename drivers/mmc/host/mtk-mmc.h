@@ -20,7 +20,6 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
-#include <linux/pm_qos.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -653,8 +652,6 @@ struct msdc_host {
 	u32 ocr_volt;
 	struct regulator *dvfsrc_vcore_power;
 	int old_signal_voltage;
-	bool use_cmd_intr;
-	struct pm_qos_request pm_qos_req;
 };
 
 /*--------------------------------------------------------------------------*/
