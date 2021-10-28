@@ -378,6 +378,7 @@ static int vcodec_send_ap_ipi(struct vdec_vcu_inst *vcu, unsigned int msg_id)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = msg_id;
+	msg.ctx_id = vcu->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
 
 	err = vcodec_vcu_send_msg(vcu, &msg, sizeof(msg));
@@ -455,6 +456,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_INIT;
+	msg.ctx_id = vcu->ctx->id;
 	msg.ap_inst_addr = (unsigned long)vcu;
 
 	if (vcu->ctx->dec_params.svp_mode)
@@ -482,6 +484,7 @@ int vcu_dec_start(struct vdec_vcu_inst *vcu,
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_START;
+	msg.ctx_id = vcu->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
 
 	for (i = 0; i < len; i++)
@@ -522,6 +525,7 @@ int vcu_dec_reset(struct vdec_vcu_inst *vcu, enum vdec_reset_type drain_type)
 	mtk_vcodec_debug(vcu, "drain_type %d", drain_type);
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_RESET;
+	msg.ctx_id = vcu->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
 	msg.reserved = drain_type;
 
@@ -555,6 +559,7 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_QUERY_CAP;
 	msg.id = id;
+	msg.ctx_id = vcu->ctx->id;
 	msg.ap_inst_addr = (uintptr_t)vcu;
 	msg.ap_data_addr = (uintptr_t)out;
 
@@ -577,6 +582,7 @@ int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
 	msg.id = id;
+	msg.ctx_id = vcu->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
 	for (i = 0; i < size; i++) {
 		msg.data[i] = (__u32)(*(param_ptr + i));
@@ -605,6 +611,7 @@ int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb)
 	memset(&ipi_fb, 0, sizeof(ipi_fb));
 	msg.msg_id = AP_IPIMSG_DEC_FRAME_BUFFER;
 	msg.id = 0;
+	msg.ctx_id = vcu->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
 
 	do {

@@ -706,6 +706,7 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_INIT;
+	msg.ctx_id = inst->ctx->id;
 	msg.ap_inst_addr = (unsigned long)&inst->vcu;
 
 	if (ctx->dec_params.svp_mode)
@@ -735,7 +736,7 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	ctx->ipi_blocked = &inst->vsi->ipi_blocked;
 	*(ctx->ipi_blocked) = 0;
 
-	mtk_v4l2_debug(0, "[%d] %c%c%c%c(%d) Decoder Instance >> %p, ap_inst_addr %x, ",
+	mtk_v4l2_debug(0, "[%d] %c%c%c%c(%d) Decoder Instance >> %p, ap_inst_addr %llx",
 		ctx->id, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
 		(fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF,
 		inst->vcu.id, inst, msg.ap_inst_addr);
@@ -765,6 +766,7 @@ static void vdec_vcp_deinit(unsigned long h_vdec)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_DEINIT;
+	msg.ctx_id = inst->ctx->id;
 	msg.vcu_inst_addr = inst->vcu.inst_addr;
 
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
@@ -796,6 +798,7 @@ int vdec_vcp_reset(struct vdec_inst *inst, enum vdec_reset_type drain_type)
 	mtk_vcodec_debug(inst, "drain_type %d +", drain_type);
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_RESET;
+	msg.ctx_id = inst->ctx->id;
 	msg.vcu_inst_addr = inst->vcu.inst_addr;
 	msg.reserved = drain_type;
 
@@ -889,6 +892,7 @@ static int vdec_vcp_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_START;
+	msg.ctx_id = inst->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
 	msg.data[0] = (unsigned int)bs->size;
 	msg.data[1] = (unsigned int)bs->length;
@@ -956,6 +960,7 @@ void set_vdec_vcp_data(struct vdec_inst *inst, enum vcp_reserve_mem_id_t id, voi
 	else
 		mtk_vcodec_err(inst, "unknown id (%d)", msg.id);
 
+	msg.ctx_id = inst->ctx->id;
 	msg.vcu_inst_addr = (uintptr_t)&inst->vcu;
 	msg.data[0] = (__u32)((__u64)string_pa & 0xFFFFFFFF);
 	msg.data[1] = (__u32)((__u64)string_pa >> 32);
@@ -981,6 +986,7 @@ int vdec_vcp_set_frame_buffer(struct vdec_inst *inst, void *fb)
 	memset(&msg, 0, sizeof(msg));
 	memset(&ipi_fb, 0, sizeof(ipi_fb));
 	msg.msg_id = AP_IPIMSG_DEC_FRAME_BUFFER;
+	msg.ctx_id = inst->ctx->id;
 	msg.id = 0;
 	msg.vcu_inst_addr = inst->vcu.inst_addr;
 
@@ -1019,6 +1025,8 @@ int vdec_vcp_set_frame_buffer(struct vdec_inst *inst, void *fb)
 		if (pfb != NULL || fb == NULL) {
 			memcpy(msg.data, &ipi_fb, sizeof(struct vdec_ipi_fb));
 			err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
+			if (err < 0)
+				break;
 		}
 	} while (pfb != NULL);
 
@@ -1028,7 +1036,10 @@ int vdec_vcp_set_frame_buffer(struct vdec_inst *inst, void *fb)
 			&dst_buf_info->frame_buffer,
 			(u64)&dst_buf_info->frame_buffer);
 	}
-	mtk_vcodec_debug(inst, "- id=%X ret=%d", AP_IPIMSG_DEC_FRAME_BUFFER, err);
+	if (err < 0)
+		mtk_vcodec_err(inst, "- id=%X ret=%d", AP_IPIMSG_DEC_FRAME_BUFFER, err);
+	else
+		mtk_vcodec_debug(inst, "- id=%X ret=%d", AP_IPIMSG_DEC_FRAME_BUFFER, err);
 
 	return err;
 }
@@ -1114,6 +1125,7 @@ static int vdec_vcp_set_param(unsigned long h_vdec,
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
+	msg.ctx_id = inst->ctx->id;
 	msg.id = type;
 	msg.vcu_inst_addr = inst->vcu.inst_addr;
 
@@ -1184,6 +1196,7 @@ static void get_supported_format(struct vdec_inst *inst,
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_QUERY_CAP;
 	msg.id = GET_PARAM_VDEC_CAP_SUPPORTED_FORMATS;
+	msg.ctx_id = inst->ctx->id;
 	msg.ap_inst_addr = (uintptr_t)&inst->vcu;
 	msg.ap_data_addr = (uintptr_t)video_fmt;
 	inst->vcu.daemon_pid = get_vcp_generation();
@@ -1211,6 +1224,7 @@ static void get_frame_sizes(struct vdec_inst *inst,
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_QUERY_CAP;
 	msg.id = GET_PARAM_VDEC_CAP_FRAME_SIZES;
+	msg.ctx_id = inst->ctx->id;
 	msg.ap_inst_addr = (uintptr_t)&inst->vcu;
 	msg.ap_data_addr = (uintptr_t)codec_framesizes;
 	inst->vcu.daemon_pid = get_vcp_generation();

@@ -529,7 +529,7 @@ static void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 		.type = V4L2_EVENT_MTK_VDEC_ERROR,
 	};
 
-	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	mtk_v4l2_debug(0, "[%d]", ctx->id);
 	v4l2_event_queue_fh(&ctx->fh, &ev_error);
 }
 
@@ -555,6 +555,7 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 			ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, NULL);
 			if (ret == -EIO) {
 				ctx->state = MTK_STATE_ABORT;
+				vdec_check_release_lock(ctx);
 				mtk_vdec_queue_error_event(ctx);
 			}
 		}
@@ -960,6 +961,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
 			ctx->state = MTK_STATE_ABORT;
+			vdec_check_release_lock(ctx);
 			mtk_vdec_queue_error_event(ctx);
 			v4l2_m2m_buf_done(&src_buf_info->vb,
 				VB2_BUF_STATE_ERROR);
@@ -2306,6 +2308,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
 			if (ret == -EIO) {
 				ctx->state = MTK_STATE_ABORT;
+				vdec_check_release_lock(ctx);
 				mtk_vdec_queue_error_event(ctx);
 			}
 		}
@@ -2417,6 +2420,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		} else if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
 			ctx->state = MTK_STATE_ABORT;
+			vdec_check_release_lock(ctx);
 			mtk_vdec_queue_error_event(ctx);
 		}
 		return;
