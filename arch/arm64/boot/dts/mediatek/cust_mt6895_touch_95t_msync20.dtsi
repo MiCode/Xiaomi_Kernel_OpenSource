@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* TOUCH start */
+&i2c0 {
+	status = "ok";
+	synaptics_tcm@4b {
+		compatible = "synaptics,tcm-i2c";
+		reg = <0x4b>;
+		interrupt-parent = <&pio>;
+		interrupts = <135 IRQ_TYPE_EDGE_FALLING 135 0>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_suspend>;
+		//synaptics,bus-reg-name = "vdd";
+		//vdd-supply = <&mt6368_vtp>;
+		synaptics,pwr-reg-name = "vtouch";
+		vtouch-supply = <&mt6368_vtp>;
+		synaptics,irq-gpio = <&pio 135 0x2008>;
+		synaptics,reset-gpio = <&pio 3 0x0>;
+		synaptics,irq-on-state = <0>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,ubl-i2c-addr = <0x4b>;
+		/* tp-io reset is only used for specific tddi devices */
+		/* synaptics,tpio-reset-gpio = <&msm_gpio 102 0>; */
+	};
+};
+
+
+&pio {
+	ctp_synaptics_pins_default: pins_default {
+	};
+	ts_active: ts_active1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ts_suspend: ts_suspend1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+/* TOUCH end */
