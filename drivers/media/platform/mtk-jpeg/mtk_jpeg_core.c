@@ -654,7 +654,6 @@ static void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx)
 	unsigned int picSize = 0;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
-	pr_info("bw update +");
 	picSize = (ctx->out_q.pix_mp.width * ctx->out_q.pix_mp.height) / 1000;
 	emi_bw = picSize * target_fps;
 	emi_bw = emi_bw * 4/3;
@@ -672,20 +671,16 @@ static void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx)
 	}
 	mtk_icc_set_bw(jpeg->path_qtbl, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
 	mtk_icc_set_bw(jpeg->path_bsdma, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
-	pr_info("bw update -");
-
 }
 
 static void mtk_jpeg_end_bw_request(struct mtk_jpeg_ctx *ctx)
 {
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
-	pr_info("bw update end +");
 	mtk_icc_set_bw(jpeg->path_y_rdma, 0, 0);
 	mtk_icc_set_bw(jpeg->path_c_rdma, 0, 0);
 	mtk_icc_set_bw(jpeg->path_qtbl, 0, 0);
 	mtk_icc_set_bw(jpeg->path_bsdma, 0, 0);
-	pr_info("bw update end -");
 }
 
 static void mtk_jpeg_dvfs_begin(struct mtk_jpeg_ctx *ctx)
@@ -693,17 +688,10 @@ static void mtk_jpeg_dvfs_begin(struct mtk_jpeg_ctx *ctx)
 	struct dev_pm_opp *opp = 0;
 	int volt = 0;
 	int ret = 0;
-	int i = 0;
 	unsigned long active_freq = 0;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
-	pr_info("%s  ++\n", __func__);
 	active_freq = jpeg->freqs[jpeg->freq_cnt - 1];
-
-	pr_info("%s  jpeg->freq_cnt %d --\n", __func__, jpeg->freq_cnt);
-
-	for (i = 0; i < jpeg->freq_cnt; i++)
-		pr_info("%s  freq: %d --\n", __func__, jpeg->freqs[i]);
 
 	if (jpeg->jpegenc_reg != 0) {
 		opp = dev_pm_opp_find_freq_ceil(jpeg->dev,
@@ -718,7 +706,7 @@ static void mtk_jpeg_dvfs_begin(struct mtk_jpeg_ctx *ctx)
 		}
 	}
 
-	pr_info("%s  volt: %d --\n", __func__, volt);
+	pr_info("%s  volt: %d\n", __func__, volt);
 
 }
 
