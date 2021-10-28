@@ -7491,7 +7491,7 @@
 	inlinerot1: inlinerot@14420000 {
 		compatible = "mediatek,inlinerot",
 			"mediatek,mt6983-disp-inlinerotate";
-		clocks = <&dispsys_config_clk CLK_DISPSYS1_CONFIG_INLINEROT>;
+		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_INLINEROT>;
 		reg = <0 0x14420000 0 0x1000>;
 	};
 
