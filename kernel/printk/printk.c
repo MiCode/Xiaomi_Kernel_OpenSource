@@ -3277,9 +3277,7 @@ int vprintk_deferred(const char *fmt, va_list args)
 	int r;
 
 	r = vprintk_emit(0, LOGLEVEL_SCHED, NULL, fmt, args);
-#ifndef	CONFIG_MTK_PRINTK_DEBUG
 	defer_console_output();
-#endif
 
 	return r;
 }
