@@ -1146,7 +1146,8 @@
 			/* Rx Interrupt */
 		interrupts = <GIC_SPI 513 IRQ_TYPE_LEVEL_HIGH 0>,
 			/* Assert & FW log interrupt */
-			<GIC_SPI 528 IRQ_TYPE_LEVEL_HIGH 0>;
+			<GIC_SPI 528 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 514 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
 	odm: odm {

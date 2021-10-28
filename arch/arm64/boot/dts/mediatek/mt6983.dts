@@ -10264,7 +10264,8 @@
 			/* Rx Interrupt */
 		interrupts = <GIC_SPI 555 IRQ_TYPE_LEVEL_HIGH 0>,
 			/* Assert & FW log interrupt */
-			<GIC_SPI 570 IRQ_TYPE_LEVEL_HIGH 0>;
+			<GIC_SPI 570 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 556 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
 	wifi: wifi@18000000 {
