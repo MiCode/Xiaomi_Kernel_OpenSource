@@ -119,8 +119,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS2_ISP_MAIN),
 		},
-		.child = {MT6895_POWER_DOMAIN_ISP_IPE, MT6895_POWER_DOMAIN_ISP_DIP1},
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_CHILD_OFF,
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ISP_DIP1] = {
 		.name = "isp_dip1",
@@ -128,7 +127,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE28,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_CHILD,
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ISP_IPE] = {
 		.name = "isp_ipe",
@@ -137,7 +136,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"ipe"},
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_CHILD,
+		.caps = MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ISP_VCORE] = {
 		.name = "isp_vcore",
