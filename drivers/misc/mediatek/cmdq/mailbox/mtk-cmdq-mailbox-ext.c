@@ -1819,14 +1819,20 @@ static int cmdq_suspend(struct device *dev)
 		dev_notice(dev, "exist running task(s) in suspend\n");
 		schedule();
 	}
-
+	if (!gce_mminfra) {
+		clk_unprepare(cmdq->clock);
+		clk_unprepare(cmdq->clock_timer);
+	}
 	return 0;
 }
 
 static int cmdq_resume(struct device *dev)
 {
 	struct cmdq *cmdq = dev_get_drvdata(dev);
-
+	if (!gce_mminfra) {
+		WARN_ON(clk_prepare(cmdq->clock) < 0);
+		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
+	}
 	cmdq->suspended = false;
 	return 0;
 }
@@ -1838,6 +1844,10 @@ static int cmdq_remove(struct platform_device *pdev)
 	wakeup_source_unregister(cmdq->wake_lock);
 	destroy_workqueue(cmdq->buf_dump_wq);
 	mbox_controller_unregister(&cmdq->mbox);
+	if (!gce_mminfra) {
+		clk_unprepare(cmdq->clock);
+		clk_unprepare(cmdq->clock_timer);
+	}
 
 	return 0;
 }
@@ -2177,6 +2187,10 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, cmdq);
+	if (!gce_mminfra) {
+		WARN_ON(clk_prepare(cmdq->clock) < 0);
+		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
+	}
 
 	cmdq->wake_lock = wakeup_source_register(dev, "cmdq_pm_lock");
 
@@ -2270,13 +2284,16 @@ void cmdq_mbox_enable(void *chan)
 		return;
 	}
 	pm_runtime_get_sync(cmdq->mbox.dev);
-	mutex_lock(&cmdq->mbox_mutex);
-	mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
-	if (mbox_usage == 1) {
-		WARN_ON(clk_prepare(cmdq->clock) < 0);
-		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
+	if (gce_mminfra) {
+		mutex_lock(&cmdq->mbox_mutex);
+		mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
+		if (mbox_usage == 1) {
+			WARN_ON(clk_prepare(cmdq->clock) < 0);
+			WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
+		}
+		mutex_unlock(&cmdq->mbox_mutex);
 	}
-	mutex_unlock(&cmdq->mbox_mutex);
+
 	cmdq_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
@@ -2295,16 +2312,19 @@ void cmdq_mbox_disable(void *chan)
 		return;
 	}
 	cmdq_clk_disable(cmdq);
-	mutex_lock(&cmdq->mbox_mutex);
-	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
-	if (mbox_usage == 0) {
-		clk_unprepare(cmdq->clock_timer);
-		clk_unprepare(cmdq->clock);
-	} else if (mbox_usage < 0) {
-		cmdq_err("mbox_usage:%d", mbox_usage);
-		dump_stack();
+
+	if (gce_mminfra) {
+		mutex_lock(&cmdq->mbox_mutex);
+		mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
+		if (mbox_usage == 0) {
+			clk_unprepare(cmdq->clock_timer);
+			clk_unprepare(cmdq->clock);
+		} else if (mbox_usage < 0) {
+			cmdq_err("mbox_usage:%d", mbox_usage);
+			dump_stack();
+		}
+		mutex_unlock(&cmdq->mbox_mutex);
 	}
-	mutex_unlock(&cmdq->mbox_mutex);
 	pm_runtime_put_sync(cmdq->mbox.dev);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
