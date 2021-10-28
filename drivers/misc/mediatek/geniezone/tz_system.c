@@ -1090,7 +1090,7 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 	int rc, copied = 0;
 	KREE_SESSION_HANDLE session;
 	struct tipc_dn_chan *chan_p;
-	struct gz_syscall_cmd_param *ree_param;
+	struct gz_syscall_cmd_param ree_param = { 0 };
 
 	/* get session from Fd */
 	chan_p = _HandleToChanInfo(_FdToHandle(Fd));
@@ -1124,28 +1124,23 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 		return TZ_RESULT_ERROR_COMMUNICATION;
 	}
 
-	ree_param = kmalloc(sizeof(*ree_param), GFP_KERNEL);
-	if (!ree_param) {
-		KREE_ERR("==>ree_param kmalloc fail. Stop.\n");
-		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
-	}
 	/* keeps serving REE call until ends */
 	while (1) {
-		rc = _gz_client_wait_ret(Fd, ree_param);
+		rc = _gz_client_wait_ret(Fd, &ree_param);
 		if (rc < 0) {
 			KREE_ERR("%s: wait ret failed(%d)\n", __func__, rc);
 			ret = TZ_RESULT_ERROR_COMMUNICATION;
 			break;
 		}
 		KREE_DEBUG("=====> %s, ree service %d\n", __func__,
-			   ree_param->ree_service);
+			   ree_param.ree_service);
 
 		/* TODO: ret = ree_param.ret */
 
 		/* check if REE service */
-		if (ree_param->ree_service == 0) {
+		if (ree_param.ree_service == 0) {
 			KREE_DEBUG("=====> %s, general return!!!!\n", __func__);
-			memcpy(param, ree_param, sizeof(*param));
+			memcpy(param, &ree_param, sizeof(*param));
 			recover_64_params(param->param, origin,
 					  param->paramTypes);
 
@@ -1155,33 +1150,33 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 				ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
 			}
 			break;
-		} else if (ree_param->ree_service != 1) {
+		} else if (ree_param.ree_service != 1) {
 			KREE_ERR("invalid ree_service value\n");
 			break;
 		}
 
 		/* REE service main function */
-		GZ_RewriteParamMemAddr(ree_param);
-		_Gz_KreeServiceCall_body(ree_param->handle, ree_param->command,
-					 ree_param->paramTypes,
-					 ree_param->param);
+		GZ_RewriteParamMemAddr(&ree_param);
+		_Gz_KreeServiceCall_body(ree_param.handle, ree_param.command,
+					 ree_param.paramTypes,
+					 ree_param.param);
 
 		/* return param to GZ */
-		copied = GZ_CopyMemToBuffer(ree_param);
+		copied = GZ_CopyMemToBuffer(&ree_param);
 		if (copied < 0) {
 			KREE_ERR(" invalid gp params\n");
 			break;
 		}
-		ree_param->payload_size = copied;
+		ree_param.payload_size = copied;
 
-		make_64_params_local(ree_param->param, ree_param->paramTypes);
+		make_64_params_local(ree_param.param, ree_param.paramTypes);
 #ifdef DYNAMIC_TIPC_LEN
-		rc = _gz_client_cmd(Fd, session, 0, ree_param,
+		rc = _gz_client_cmd(Fd, session, 0, &ree_param,
 				    GZ_MSG_HEADER_LEN
-					    + ree_param->payload_size);
+					    + ree_param.payload_size);
 #else
-		rc = _gz_client_cmd(Fd, session, 0, ree_param,
-				    sizeof(*ree_param));
+		rc = _gz_client_cmd(Fd, session, 0, &ree_param,
+				    sizeof(ree_param));
 #endif
 		if (rc < 0) {
 			KREE_ERR("%s: gz client cmd failed\n", __func__);
@@ -1192,7 +1187,6 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 		KREE_DEBUG("=========> %s _GzRounter done\n", __func__);
 	}
 
-	kfree(ree_param);
 	return ret;
 }
 
