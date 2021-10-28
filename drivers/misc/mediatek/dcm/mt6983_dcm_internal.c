@@ -88,11 +88,17 @@ int dcm_infra_preset(int on)
 
 int dcm_infra(int on)
 {
+	dcm_infracfg_ao_aximem_bus_dcm(on);
+	dcm_infracfg_ao_infra_bus_dcm(on);
+	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
+	dcm_infra_ao_bcrm_infra_bus_dcm(on);
+	dcm_infra_ao_bcrm_infra_bus_fmem_sub_dcm(on);
 	return 0;
 }
 
 int dcm_peri(int on)
 {
+	dcm_peri_ao_bcrm_peri_bus_dcm(on);
 	return 0;
 }
 
