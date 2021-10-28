@@ -17,6 +17,9 @@
 #include "mtk_rect.h"
 #include "mtk_layering_rule.h"
 
+#include "../mml/mtk-mml.h"
+#include "../mml/mtk-mml-drm.h"
+
 enum addon_scenario {
 	NONE,
 	ONE_SCALING,
@@ -25,6 +28,7 @@ enum addon_scenario {
 	GAME_PQ,
 	VP_PQ,
 	TRIPLE_DISP,
+	MML_WITH_PQ,
 	MML,
 	MML_SRAM_ONLY,
 	ADDON_SCN_NR,
@@ -40,6 +44,8 @@ enum addon_module {
 	DISP_WDMA0,
 	DISP_WDMA1,
 	DISP_WDMA2,
+	MML_RSZ,
+	MML_RSZ_v2,
 	DMDP_PQ_WITH_RDMA,
 	DISP_INLINE_ROTATE,
 	DISP_INLINE_ROTATE_SRAM_ONLY,
@@ -51,6 +57,8 @@ enum addon_type {
 	ADDON_BETWEEN,
 	ADDON_BEFORE,
 	ADDON_AFTER,
+	ADDON_CONNECT,
+	ADDON_DISCONNECT,
 };
 
 struct mtk_lye_ddp_state {
@@ -109,10 +117,19 @@ struct mtk_addon_wdma_config {
 	struct golden_setting_context *p_golden_setting_context;
 };
 
+struct mtk_addon_mml_config {
+	struct mtk_addon_config_type config_type;
+	struct mml_mutex_ctl mutex;	/* [IN] display mode and output port */
+	struct mml_submit submit;	/* [IN] mml_drm_split_info submit_pq */
+	struct mml_task *task;		/* [OUT] task and config for mml */
+	struct mtk_rect mml_src_roi;	/* [OUT] roi for source OVL */
+};
+
 union mtk_addon_config {
 	struct mtk_addon_config_type config_type;
 	struct mtk_addon_rsz_config addon_rsz_config;
 	struct mtk_addon_wdma_config addon_wdma_config;
+	struct mtk_addon_mml_config addon_mml_config;
 };
 
 const struct mtk_addon_path_data *
