@@ -758,10 +758,10 @@
 		interrupts = <GIC_SPI 154 IRQ_TYPE_EDGE_RISING 0>;
 	};
 
-	/* Microtrust SW IRQ number 156(188 - 32) ~ 157(189 - 32) */
+	/* Microtrust SW IRQ number 188(220 - 32) ~ 189(221 - 32) */
 	utos: utos {
 		compatible = "microtrust,utos";
-		interrupts = <GIC_SPI 157 IRQ_TYPE_EDGE_RISING 0>;
+		interrupts = <GIC_SPI 189 IRQ_TYPE_EDGE_RISING 0>;
 	};
 
 	utos_tester {
