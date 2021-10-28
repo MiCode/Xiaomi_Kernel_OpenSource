@@ -739,20 +739,6 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	}
 	if (val & (1 << 3))
 		DDPIRQ("[IRQ] %s: sw reset done!\n", mtk_dump_comp_str(ovl));
-	//if (val & (1 << 4))
-		//DDPPR_ERR("[IRQ] %s: hw reset done!\n", mtk_dump_comp_str(ovl));
-	if (val & (1 << 5))
-		DDPPR_ERR("[IRQ] %s: L0 not complete until EOF!\n",
-			  mtk_dump_comp_str(ovl));
-	if (val & (1 << 6))
-		DDPPR_ERR("[IRQ] %s: L1 not complete until EOF!\n",
-			  mtk_dump_comp_str(ovl));
-	if (val & (1 << 7))
-		DDPPR_ERR("[IRQ] %s: L2 not complete until EOF!\n",
-			  mtk_dump_comp_str(ovl));
-	if (val & (1 << 8))
-		DDPPR_ERR("[IRQ] %s: L3 not complete until EOF!\n",
-			  mtk_dump_comp_str(ovl));
 
 	if (mtk_crtc) {
 		drv_priv = mtk_crtc->base.dev->dev_private;
