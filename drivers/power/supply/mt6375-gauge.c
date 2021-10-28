@@ -535,6 +535,10 @@ static void pre_gauge_update(struct mtk_gauge *gauge)
 	unsigned int reg_val = 0;
 	int ret = 0;
 
+	if (gauge->gm->disableGM30) {
+		pr_notice("%s disable gauge ,skip", __func__);
+		return;
+	}
 	ret = regmap_update_bits(gauge->regmap, RG_FGADC_CON3,
 				 FG_SW_READ_PRE_MASK, FG_SW_READ_PRE_MASK);
 	if (ret) {
