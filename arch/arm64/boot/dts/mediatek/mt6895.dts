@@ -8304,6 +8304,11 @@
 			hw-voter-regmap = <&hwv>;
 		};
 
+		smi_test {
+			compatible = "mediatek,smi-testcase";
+			mediatek,larbs = <&smi_larb2>;
+		};
+
 		smi_larb2: smi_larb2@1f002000 {
 			compatible = "mediatek,smi_larb2",
 				"mediatek,mt6895-smi-larb", "mediatek,smi-larb";
@@ -8452,6 +8457,11 @@
 			clocks = <&mdpsys1_config_clk CLK_MDP1_SMI0>,
 					<&mdpsys1_config_clk CLK_MDP1_SMI0>;
 			clock-names = "apb", "smi";
+		};
+
+		mml-ait {
+			compatible = "mediatek,mml-ait";
+			mediatek,mml = <&mmlsys_config>;
 		};
 
 		mml-test {
