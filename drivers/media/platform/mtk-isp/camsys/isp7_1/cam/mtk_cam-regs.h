@@ -294,8 +294,10 @@
 
 /* CAMSYS_RAW 0x1a03 */
 #define REG_RAWI_R2_BASE       0x4100
+#define REG_RAWI_R2_BASE_MSB   0x4104
 #define REG_UFDI_R2_BASE       0x4170
 #define REG_RAWI_R3_BASE       0x41e0
+#define REG_RAWI_R3_BASE_MSB   0x41e4
 #define REG_UFDI_R3_BASE       0x4250
 #define REG_CQI_R1_BASE        0x4410
 #define REG_CQI_R2_BASE        0x4480

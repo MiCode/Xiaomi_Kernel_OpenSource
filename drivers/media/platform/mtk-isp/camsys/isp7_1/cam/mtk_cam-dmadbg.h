@@ -31,6 +31,22 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R2_UFD[] = {
 	{0x00000301, "rawi_r2 ufd line_pix_cnt"},
 };
 
+static __maybe_unused struct dma_debug_item dbg_RAWI_R3[] = {
+	{0x00000003, "rawi_r3 32(hex) 0000"},
+	{0x00000103, "rawi_r3 state_checksum"},
+	{0x00000203, "rawi_r3 line_pix_cnt_tmp"},
+	{0x00000303, "rawi_r3 line_pix_cnt"},
+	{0x00000503, "rawi_r3 smi_debug_data (case 0)"},
+	{0x00010603, "rawi_r3 aff(fifo)_debug_data (case 1)"},
+	{0x00030603, "rawi_r3 aff(fifo)_debug_data (case 3)"},
+	{0x01000043, "rawi_r3_smi_port / plane-0 / data-crc"},
+	{0x01000044, "rawi_r3_smi_port / plane-0 / addr-crc"},
+	{0x00000082, "rawi_r3_smi_port / smi_latency_mon output"},
+	{0x000000A2, "rawi_r3_smi_port / plane-0 / { len-cnt, dle-cnt }"},
+	{0x000002C0, "rawi_r3_smi_port / plane-0 / maddr_max record"},
+	{0x000002C1, "rawi_r3_smi_port / plane-0 / maddr_min record"},
+};
+
 static __maybe_unused struct dma_debug_item dbg_IMGO_R1[] = {
 	{0x00000019, "imgo_r1 32(hex) 0000"},
 	{0x00000119, "imgo_r1 state_checksum"},

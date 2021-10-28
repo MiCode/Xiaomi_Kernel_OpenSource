@@ -5966,11 +5966,17 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
 	struct device *dev = raw_dev->dev;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_request_stream_data *s_data;
 
 	unsigned int dequeued_frame_seq_no_inner;
+	unsigned int rawi_inner_addr, rawi_inner_addr_msb;
 
 	dequeued_frame_seq_no_inner =
 		readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
+
+	ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
+	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no_inner);
 
 	dev_info(dev, "=================== [CAMSYS M4U] Dump Begin ==================\n");
 
@@ -6025,6 +6031,36 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
 
 	switch (port) {
+	case M4U_PORT_L16_CAM2_RAWI_R2:
+	case M4U_PORT_L27_CAM2_RAWI_R2:
+	case M4U_PORT_L28_CAM2_RAWI_R2:
+		// M4U_PORT CAM3_RAWI_R2
+		rawi_inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R2_BASE);
+		rawi_inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R2_BASE_MSB);
+		dev_info(raw_dev->dev,
+			 "rawi_r2_inner_addr_msb:%d, rawi_r2_inner_addr:%08x\n",
+			rawi_inner_addr_msb, rawi_inner_addr);
+
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+				"RAWI_R2", dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
+		break;
+	case M4U_PORT_L16_CAM2_RAWI_R3:
+	case M4U_PORT_L27_CAM2_RAWI_R3:
+	case M4U_PORT_L28_CAM2_RAWI_R3:
+		// M4U_PORT CAM3_RAWI_R2
+		rawi_inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R3_BASE);
+		rawi_inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R3_BASE_MSB);
+		dev_info(raw_dev->dev,
+			 "rawi_r3_inner_addr_msb:%d, rawi_r3_inner_addr:%08x\n",
+			 rawi_inner_addr_msb, rawi_inner_addr);
+
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+				"RAWI_R3", dbg_RAWI_R3, ARRAY_SIZE(dbg_RAWI_R3));
+		break;
 	case M4U_PORT_L17_CAM3_YUVO_R1:
 	case M4U_PORT_L29_CAM3_YUVO_R1:
 	case M4U_PORT_L30_CAM3_YUVO_R1:
@@ -6104,9 +6140,10 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	default:
 		break;
 	}
-	// TODO: trigger camsys dump via dequeued_frame_seq_no_inner
-
 	dev_info(dev, "=================== [CAMSYS M4U] Dump End ====================\n");
+	if (s_data)
+		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED, "M4U TF");
+
 	return 0;
 }
 #endif
