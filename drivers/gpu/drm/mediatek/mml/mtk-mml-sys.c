@@ -974,7 +974,7 @@ static const struct mml_data mt6895_mml_data = {
 		[MML_CT_DL_IN] = &dl_comp_init,
 		[MML_CT_DL_OUT] = &dl_comp_init,
 	},
-	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
 
 const struct of_device_id mtk_mml_of_ids[] = {
