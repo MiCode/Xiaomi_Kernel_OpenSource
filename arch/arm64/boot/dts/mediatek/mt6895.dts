@@ -7804,13 +7804,12 @@
 		status = "okay";
 		reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 		      <0 0x1ec24000 0 0x1000>, /* cfg */
-		      <0 0x1ec21000 0 0x1000>, /* clk*/
 		      <0 0x1ec30000 0 0x1000>, /* cfg core0 */
 		      <0 0x1ec40000 0 0x1000>, /* cfg core1 */
-		      <0 0x1ec52000 0 0x1000>, /* bus tracker */
-		      <0 0x1ec60000 0 0x40000>, /* llc */
-		      <0 0x1eca5000 0 0x4>, /* cfg_sec */
-		      <0 0x1e820000 0 0x4>, /* mmu */
+		      <0 0x1ec52000 0 0x1000>, /* bus tracker dbg */
+		      <0 0x1ec60000 0 0x40000>, /* llc dbg */
+		      <0 0x1eca5000 0 0x4>, /* cfg_sec dbg */
+		      <0 0x1e820000 0 0x4>, /* mmu dbg */
 		      <0 0x1ecfb000 0 0x100>, /* mbox0 base */
 		      <0 0x1ecfb100 0 0x4>, /* mbox0 set */
 		      <0 0x1ecfb10c 0 0x4>, /* mbox0 clr */
@@ -7834,7 +7833,6 @@
 
 		reg-names = "vcp_sram_base",
 			    "vcp_cfgreg",
-			    "vcp_clkreg",
 			    "vcp_cfgreg_core0",
 			    "vcp_cfgreg_core1",
 			    "vcp_bus_tracker",
