@@ -1556,6 +1556,25 @@ static kal_uint16 imx519_capture_30_setting[] = {
 	0x0902, 0x0A,
 	0x3F4C, 0x01,
 	0x3F4D, 0x01,
+	/*PDAF Area Config Begin*/
+	0x38A3, 0x02,
+	0x38B4, 0x05,
+	0x38B5, 0xBB,
+	0x38B6, 0x04,
+	0x38B7, 0x2B,
+	0x38B8, 0x0C,
+	0x38B9, 0x74,
+	0x38BA, 0x09,
+	0x38BB, 0x7C,
+	0x38AC, 0x01,
+	0x38AD, 0x00,
+	0x38AE, 0x00,
+	0x38AF, 0x00,
+	0x38B0, 0x00,
+	0x38B1, 0x00,
+	0x38B2, 0x00,
+	0x38B3, 0x00,
+	/*PDAF Area Config End*/
 	0x4254, 0x7F,
 	0x0401, 0x00,
 	0x0404, 0x00,
@@ -3574,7 +3593,144 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	return ERROR_NONE;
 } /* feature_control(ctx) */
 
+#ifdef IMGSENSOR_VC_ROUTING
+static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0918,
+			.vsize = 0x06c0,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x36,
+			.hsize = 0x0B60,
+			.vsize = 0x0001,
+			.user_data_desc = VC_PDAF_STATS,
+		},
+	},
+};
 
+static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1230,
+			.vsize = 0x0DA8,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x36,
+			.hsize = 0x16BC,
+			.vsize = 0x0001,
+			.user_data_desc = VC_PDAF_STATS,
+		},
+	},
+};
+static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1230,
+			.vsize = 0x0A38,
+		},
+	},
+};
+static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0780,
+			.vsize = 0x0438,
+		},
+	},
+};
+static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0500,
+			.vsize = 0x02d0,
+		},
+	},
+};
+static struct mtk_mbus_frame_desc_entry frame_desc_cust1[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0500,
+			.vsize = 0x02d0,
+		},
+	},
+};
+static struct mtk_mbus_frame_desc_entry frame_desc_cust3[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0918,
+			.vsize = 0x06d4,
+		},
+	},
+};
+
+static int get_frame_desc(struct subdrv_ctx *ctx,
+		int scenario_id, struct mtk_mbus_frame_desc *fd)
+{
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_CUSTOM1:
+	case SENSOR_SCENARIO_ID_CUSTOM2:
+				fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cust1);
+		memcpy(fd->entry, frame_desc_cust1, sizeof(frame_desc_cust1));
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM3:
+				fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cust3);
+		memcpy(fd->entry, frame_desc_cust3, sizeof(frame_desc_cust3));
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_prev);
+		memcpy(fd->entry, frame_desc_prev, sizeof(frame_desc_prev));
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cap);
+		memcpy(fd->entry, frame_desc_cap, sizeof(frame_desc_cap));
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_vid);
+		memcpy(fd->entry, frame_desc_vid, sizeof(frame_desc_vid));
+		break;
+	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_hs_vid);
+		memcpy(fd->entry, frame_desc_hs_vid, sizeof(frame_desc_hs_vid));
+		break;
+	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_slim_vid);
+		memcpy(fd->entry, frame_desc_slim_vid, sizeof(frame_desc_slim_vid));
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+#endif
 static const struct subdrv_ctx defctx = {
 
 	.ana_gain_def = BASEGAIN * 4,
@@ -3634,6 +3790,9 @@ static struct subdrv_ops ops = {
 	.control = control,
 	.feature_control = feature_control,
 	.close = close,
+#ifdef IMGSENSOR_VC_ROUTING
+	.get_frame_desc = get_frame_desc,
+#endif
 	.get_temp = get_temp,
 };
 
