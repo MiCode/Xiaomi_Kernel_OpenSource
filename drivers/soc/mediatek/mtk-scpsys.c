@@ -610,15 +610,16 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	return 0;
 
 err_sram:
-	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+	dev_err(scp->dev, "Failed to power on sram/bus %s(%d)\n", genpd->name, ret);
 err_pwr_ack:
-	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+	dev_err(scp->dev, "Failed to power on mtcmos %s(%d)\n", genpd->name, ret);
 err_lp_clk:
-	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+	dev_err(scp->dev, "Failed to enable lp_clk %s(%d)\n", genpd->name, ret);
 err_clk:
 	scpsys_regulator_disable(scpd);
+	dev_err(scp->dev, "Failed to enable clk %s(%d)\n", genpd->name, ret);
 err_regulator:
-	dev_err(scp->dev, "Failed to power on domain %s(%d)\n", genpd->name, ret);
+	dev_err(scp->dev, "Failed to power on regulator %s(%d)\n", genpd->name, ret);
 
 	return ret;
 }
