@@ -1781,7 +1781,7 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 
 	/* configure auto-hibern8 timer to 10ms */
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
-		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 10) |
+		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
 			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
 	}
 
