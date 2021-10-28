@@ -3246,7 +3246,7 @@
 	swpm: swpm {
 		compatible = "mediatek,mtk-swpm";
 		pmu_boundary_num = <4>;
-		pmu_rf_support = <2>;
+		pmu_dsu_support = <1>;
 	};
 
 	psci {
@@ -12678,7 +12678,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7";
 
 			node_26 = "SSPM_SWPM_CPU__DSU_STATE_RATIO",
-				"active,idle,off";
+				"active,idle,dormant,off";
 
 			node_27 = "SSPM_SWPM_CPU__DSU_L3_BW",
 				"L3_BW";
@@ -12800,8 +12800,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"hit,miss";
 			node_65 = "SSPM_SLBC_WAY",
 				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc,left";
-			node_66 = "SSPM_SWPM_CPU__CORE_PMU_L3DC_REFILL",
-				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7";
+			node_66 = "SSPM_SWPM_CPU__DSU_PMU",
+				"dsu_cycles";
 		};
 	};
 
