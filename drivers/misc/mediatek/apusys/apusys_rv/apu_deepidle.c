@@ -21,6 +21,7 @@
 
 #include "apu_hw.h"
 #include "hw_logger.h"
+#include "apu_regdump.h"
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 int apu_keep_awake;
@@ -142,21 +143,26 @@ wait_for_warm_boot:
 			if (delta.tv_sec > (wait_ms/1000)) {
 				dev_info(dev, "%s: retry(%d) over %u seconds!\n",
 					__func__, retry, (wait_ms/1000));
-			} else {
-				if (retry % 50 == 0)
-					dev_info(dev,
-						"%s: wait APU interrupted by a signal, retry again\n",
-						__func__);
-				retry++;
-				msleep(20);
-				goto wait_for_warm_boot;
+				dev_info(dev, "APU warm boot timeout!!\n");
+				apu_regdump();
+				apusys_rv_aee_warn("APUSYS_RV",
+					"APUSYS_RV_TIMEOUT");
+				return;
 			}
+			if (retry % 50 == 0)
+				dev_info(dev,
+					"%s: wait APU interrupted by a signal, retry again\n",
+					__func__);
+			retry++;
+			msleep(20);
+			goto wait_for_warm_boot;
 		}
 
 		if (ret == 0) {
 			dev_info(dev, "APU warm boot timeout!!\n");
+			apu_regdump();
 			apusys_rv_aee_warn("APUSYS_RV",
-					   "APUSYS_RV_WARMBOOT_TIMEOUT");
+				"APUSYS_RV_TIMEOUT");
 			return;
 		}
 
