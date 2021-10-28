@@ -44,6 +44,8 @@ static void aee_exception_reboot(int reboot_reason)
 
 	if (reboot_reason == AEE_REBOOT_MODE_HANG_DETECT)
 		opt1 |= ((unsigned char)AEE_EXP_TYPE_HANG_DETECT) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
+	else if (reboot_reason == AEE_REBOOT_MODE_WDT)
+		opt1 |= ((unsigned char)AEE_EXP_TYPE_HWT) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
 	else
 		opt1 |= ((unsigned char)AEE_EXP_TYPE_KE) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
 
@@ -125,6 +127,8 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 	case AEE_REBOOT_MODE_HANG_DETECT:
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_HANG_DETECT);
 		break;
+	case AEE_REBOOT_MODE_WDT:
+		aee_rr_rec_exp_type(AEE_EXP_TYPE_HWT);
 	default:
 		/* Don't print anything */
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);

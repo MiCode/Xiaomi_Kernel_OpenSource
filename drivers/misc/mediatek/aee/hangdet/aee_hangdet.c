@@ -3,6 +3,10 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
+#include <asm/cacheflush.h>
+#include <asm/kexec.h>
+#include <asm/memory.h>
+#include <asm/stacktrace.h>
 #include <linux/cpu.h>
 #include <linux/delay.h>
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
@@ -27,6 +31,7 @@
 #include <mt-plat/mboot_params.h>
 #include <mt-plat/mrdump.h>
 #include "mrdump_helper.h"
+#include "mrdump_private.h"
 
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
 extern void mt_irq_dump_status(unsigned int irq);
@@ -55,6 +60,10 @@ extern void mt_irq_dump_status(unsigned int irq);
 
 #define SYST0_CON		0x40
 #define SYST0_VAL		0x44
+
+/* Delay to change RGU timeout in ms */
+#define CHG_TMO_DLY		2000
+#define CHG_TMO_EN		0
 
 static int start_kicker(void);
 static int g_kicker_init;
@@ -86,6 +95,8 @@ static unsigned int systimer_irq;
 #endif
 static unsigned int cpus_kick_bit;
 static atomic_t plug_mask = ATOMIC_INIT(0xFF);
+
+static struct pt_regs saved_regs;
 
 __weak void mt_irq_dump_status(unsigned int irq)
 {
@@ -408,7 +419,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				}
 			}
 		}
-
+#if CHG_TMO_EN
 		if (toprgu_base) {
 			spin_lock(&lock);
 			g_change_tmo = 1;
@@ -417,8 +428,8 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				toprgu_base + WDT_LENGTH);
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 		}
-
-		for (i = 0; i < 2000; i++) {
+#endif
+		for (i = 0; i < CHG_TMO_DLY; i++) {
 			mdelay(1);
 			spin_lock(&lock);
 			if (!g_hang_detected) {
@@ -449,6 +460,11 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				p_mt_aee_dump_irq_info();
 #endif
 			sysrq_sched_debug_show_at_AEE();
+
+			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
+			/* trigger HWT */
+			crash_setup_regs(&saved_regs, NULL);
+			mrdump_common_die(AEE_REBOOT_MODE_WDT, "HWT", &saved_regs);
 		} else {
 			spin_lock(&lock);
 			g_change_tmo = 0;

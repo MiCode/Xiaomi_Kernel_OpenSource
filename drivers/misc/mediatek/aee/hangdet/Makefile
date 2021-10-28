@@ -10,6 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/mrdump
 subdir-ccflags-y += -I$(srctree)/include/
 subdir-ccflags-y += -I$(srctree)/kernel/
 
