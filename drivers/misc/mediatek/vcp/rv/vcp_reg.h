@@ -41,7 +41,6 @@
 #define R_CORE0_SW_RSTN_SET	(vcpreg.cfg_core0 + 0x0004)
 #define R_CORE1_SW_RSTN_SET	(vcpreg.cfg_core1 + 0x0004)
 
-
 #define R_CORE0_DBG_CTRL	(vcpreg.cfg_core0 + 0x0010)
 #define R_CORE1_DBG_CTRL	(vcpreg.cfg_core1 + 0x0010)
 	#define M_CORE_TBUF_DBG_SEL	(7 << 4)
@@ -155,20 +154,6 @@
 #define VCP_BUS_DBG_AW_TRACK5_L		(vcpreg.bus_tracker + 0x328)
 #define VCP_BUS_DBG_AW_TRACK6_L		(vcpreg.bus_tracker + 0x330)
 #define VCP_BUS_DBG_AW_TRACK7_L		(vcpreg.bus_tracker + 0x338)
-
-/* clk reg*/
-#define VCP_A_SLEEP_DEBUG_REG		(vcpreg.clkctrl + 0x0028)
-#define VCP_CLK_CTRL_L1_SRAM_PD		(vcpreg.clkctrl + 0x002C)
-#define VCP_CLK_HIGH_CORE_CG		(vcpreg.clkctrl + 0x005C)
-#define VCP_CPU0_SRAM_PD		(vcpreg.clkctrl + 0x0080)
-#define VCP_CPU1_SRAM_PD		(vcpreg.clkctrl + 0x0084)
-#define VCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(vcpreg.clkctrl + 0x0094)
-
-#define CLK_SW_SEL					(vcpreg.clkctrl + 0x0)
-#define CLK_SW_SEL_O_BIT			8
-#define CLK_SW_SEL_O_MASK			0xf
-#define CLK_SW_SEL_O_ULPOSC_CORE	0x4
-#define CLK_SW_SEL_O_ULPOSC_PERI	0x8
 
 #define R_SEC_CTRL			(vcpreg.cfg_sec + 0x0000)
 	#define B_CORE0_CACHE_DBG_EN	(1 << 28)

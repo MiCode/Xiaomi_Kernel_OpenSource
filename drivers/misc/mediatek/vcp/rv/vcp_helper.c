@@ -179,6 +179,28 @@ struct device *vcp_io_devs[VCP_IOMMU_DEV_NUM];
 			pr_info(fmt, ##arg); \
 	} while (0)
 
+static void vcp_enable_dapc(void)
+{
+	struct arm_smccc_res res;
+	unsigned long onoff;
+
+	/* Turn on MMuP security */
+	onoff = 1;
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_CONTROL,
+		onoff, 0, 0, 0, 0, 0, 0, &res);
+}
+
+static void vcp_disable_dapc(void)
+{
+	struct arm_smccc_res res;
+	unsigned long onoff;
+
+	/* Turn off MMuP security */
+	onoff = 0;
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_CONTROL,
+		onoff, 0, 0, 0, 0, 0, 0, &res);
+}
+
 static void vcp_enable_irqs(void)
 {
 	int i = 0;
@@ -197,7 +219,6 @@ static void vcp_disable_irqs(void)
 
 	for (i = 0; i < vcp_mboxdev.count; i++)
 		disable_irq(vcp_mboxdev.info_table[i].irq_num);
-
 }
 
 static int vcp_ipi_dbg_resume_noirq(struct device *dev)
@@ -618,18 +639,11 @@ EXPORT_SYMBOL_GPL(get_vcp_generation);
 int reset_vcp(int reset)
 {
 	struct arm_smccc_res res;
-	unsigned long onoff;
 
 	mutex_lock(&vcp_A_notify_mutex);
 	blocking_notifier_call_chain(&vcp_A_notifier_list, VCP_EVENT_STOP,
 		NULL);
 	mutex_unlock(&vcp_A_notify_mutex);
-
-	/* Turn off MMuP security */
-	onoff = 0;
-	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_CONTROL,
-		onoff, 0, 0, 0, 0, 0, 0, &res);
-	/* To Do: fixed L2/L3 timing & enable */
 
 	if (reset & 0x0f) { /* do reset */
 		/* make sure vcp is in idle state */
@@ -641,11 +655,13 @@ int reset_vcp(int reset)
 		 */
 		writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
-		writel(1, R_CORE0_SW_RSTN_CLR);  /* release reset */
+		arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
+				0, 0, 0, 0, 0, 0, &res);
 
-		pr_debug("[VCP] %s: R_CORE0_SW_RSTN_CLR %x %x %x\n", __func__,
+		pr_notice("[VCP] %s: R_CORE0_SW_RSTN_CLR %x %x %x ret %lu\n", __func__,
 			readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
-			readl(R_CORE0_SW_RSTN_CLR));
+			readl(R_CORE0_SW_RSTN_CLR), res.a0);
 
 		dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
@@ -682,6 +698,7 @@ void vcp_enable_pm_clk(void)
 		if (ret)
 			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 
+		vcp_enable_dapc();
 		vcp_enable_irqs();
 
 		if (!is_vcp_ready(VCP_A_ID))
@@ -738,6 +755,7 @@ void vcp_disable_pm_clk(void)
 #if VCP_BOOT_TIME_OUT_MONITOR
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
+		vcp_disable_dapc();
 		clk_disable_unprepare(vcppll);
 		clk_disable_unprepare(vcpclk);
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
@@ -776,6 +794,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_BOOT_TIME_OUT_MONITOR
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
+			vcp_disable_dapc();
 			clk_disable_unprepare(vcppll);
 			clk_disable_unprepare(vcpclk);
 			retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
@@ -804,6 +823,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			if (retval)
 				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 
+			vcp_enable_dapc();
 			vcp_enable_irqs();
 #if VCP_RECOVERY_SUPPORT
 			cpuidle_pause_and_lock();
@@ -1795,11 +1815,12 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 	writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
 	/* start vcp */
-	pr_notice("[VCP] start vcp\n");
 	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 			MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
-			0, 0, 0, 0, 0, 0, &res);
-	pr_notice("[VCP] rstn core0 %x ret %lu\n", readl(R_CORE0_SW_RSTN_CLR), res.a0);
+			1, 0, 0, 0, 0, 0, &res);
+	pr_notice("[VCP] %s: R_CORE0_SW_RSTN_CLR %x %x %x ret %lu\n", __func__,
+		readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
+		readl(R_CORE0_SW_RSTN_CLR), res.a0);
 	dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
 	mod_timer(&vcp_ready_timer[VCP_A_ID].tl, jiffies + VCP_READY_TIMEOUT);
@@ -1838,7 +1859,7 @@ int vcp_check_resource(void)
 	return vcp_resource_status;
 }
 
-#ifdef VCP_RECOVERY_SUPPORT_REMOVED
+#ifdef VCP_DEBUG_REMOVED
 void vcp_region_info_init(void)
 {
 	/*get vcp loader/firmware info from vcp sram*/
@@ -2120,7 +2141,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 		if (vcp_support > 1)
 			return 0;
 	}
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_sram_base");
 	vcpreg.sram = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.sram)) {
 		pr_notice("[VCP] vcpreg.sram error\n");
@@ -2130,7 +2151,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	pr_debug("[VCP] sram base = 0x%p %x\n"
 		, vcpreg.sram, vcpreg.total_tcmsize);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_cfgreg");
 	vcpreg.cfg = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.cfg)) {
 		pr_notice("[VCP] vcpreg.cfg error\n");
@@ -2138,15 +2159,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[VCP] cfg base = 0x%p\n", vcpreg.cfg);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	vcpreg.clkctrl = devm_ioremap_resource(dev, res);
-	if (IS_ERR((void const *) vcpreg.clkctrl)) {
-		pr_notice("[VCP] vcpreg.clkctrl error\n");
-		return -1;
-	}
-	pr_debug("[VCP] clkctrl base = 0x%p\n", vcpreg.clkctrl);
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_cfgreg_core0");
 	vcpreg.cfg_core0 = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.cfg_core0)) {
 		pr_debug("[VCP] vcpreg.cfg_core0 error\n");
@@ -2154,7 +2167,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[VCP] cfg_core0 base = 0x%p\n", vcpreg.cfg_core0);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 4);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_cfgreg_core1");
 	vcpreg.cfg_core1 = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.cfg_core1)) {
 		pr_debug("[VCP] vcpreg.cfg_core1 error\n");
@@ -2162,7 +2175,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[VCP] cfg_core1 base = 0x%p\n", vcpreg.cfg_core1);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 5);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_bus_tracker");
 	vcpreg.bus_tracker = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.bus_tracker)) {
 		pr_debug("[VCP] vcpreg.bus_tracker error\n");
@@ -2170,7 +2183,8 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[VCP] bus_tracker base = 0x%p\n", vcpreg.bus_tracker);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 6);
+#ifdef VCP_DEBUG_REMOVED
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_l1creg");
 	vcpreg.l1cctrl = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.l1cctrl)) {
 		pr_debug("[VCP] vcpreg.l1cctrl error\n");
@@ -2178,7 +2192,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[VCP] l1cctrl base = 0x%p\n", vcpreg.l1cctrl);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 7);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_cfgreg_sec");
 	vcpreg.cfg_sec = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.cfg_sec)) {
 		pr_debug("[VCP] vcpreg.cfg_sec error\n");
@@ -2186,13 +2200,14 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[VCP] cfg_sec base = 0x%p\n", vcpreg.cfg_sec);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 8);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vcp_cfgreg_mmu");
 	vcpreg.cfg_mmu = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.cfg_mmu)) {
 		pr_debug("[VCP] vcpreg.cfg_mmu error\n");
 		return -1;
 	}
 	pr_debug("[VCP] cfg_mmu base = 0x%p\n", vcpreg.cfg_mmu);
+#endif
 
 	of_property_read_u32(pdev->dev.of_node, "vcp_sramSize"
 						, &vcpreg.vcp_tcmsize);

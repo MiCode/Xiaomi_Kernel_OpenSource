@@ -66,8 +66,6 @@ unsigned int vcp_reset_counts = 0xFFFFFFFF;
 
 void vcp_dump_last_regs(void)
 {
-	return;
-
 	c0_m->status = readl(R_CORE0_STATUS);
 	c0_m->pc = readl(R_CORE0_MON_PC);
 	c0_m->lr = readl(R_CORE0_MON_LR);
@@ -102,35 +100,35 @@ void vcp_dump_last_regs(void)
 		c1_t1_m->sp_latch = readl(R_CORE1_T1_MON_SP_LATCH);
 	}
 
-	pr_debug("[VCP] c0_status = %08x\n", c0_m->status);
-	pr_debug("[VCP] c0_pc = %08x\n", c0_m->pc);
+	pr_notice("[VCP] c0_status = %08x\n", c0_m->status);
+	pr_notice("[VCP] c0_pc = %08x\n", c0_m->pc);
 	pr_debug("[VCP] c0_lr = %08x\n", c0_m->lr);
 	pr_debug("[VCP] c0_sp = %08x\n", c0_m->sp);
-	pr_debug("[VCP] c0_pc_latch = %08x\n", c0_m->pc_latch);
+	pr_notice("[VCP] c0_pc_latch = %08x\n", c0_m->pc_latch);
 	pr_debug("[VCP] c0_lr_latch = %08x\n", c0_m->lr_latch);
 	pr_debug("[VCP] c0_sp_latch = %08x\n", c0_m->sp_latch);
 	if (vcpreg.twohart) {
-		pr_debug("[VCP] c0_t0_pc = %08x\n", c0_t1_m->pc);
+		pr_notice("[VCP] c0_t0_pc = %08x\n", c0_t1_m->pc);
 		pr_debug("[VCP] c0_t0_lr = %08x\n", c0_t1_m->lr);
 		pr_debug("[VCP] c0_t0_sp = %08x\n", c0_t1_m->sp);
-		pr_debug("[VCP] c0_t0_pc_latch = %08x\n", c0_t1_m->pc_latch);
+		pr_notice("[VCP] c0_t0_pc_latch = %08x\n", c0_t1_m->pc_latch);
 		pr_debug("[VCP] c0_t0_lr_latch = %08x\n", c0_t1_m->lr_latch);
 		pr_debug("[VCP] c0_t0_sp_latch = %08x\n", c0_t1_m->sp_latch);
 	}
 	if (vcpreg.core_nums == 2) {
-		pr_debug("[VCP] c1_status = %08x\n", c1_m->status);
-		pr_debug("[VCP] c1_pc = %08x\n", c1_m->pc);
+		pr_notice("[VCP] c1_status = %08x\n", c1_m->status);
+		pr_notice("[VCP] c1_pc = %08x\n", c1_m->pc);
 		pr_debug("[VCP] c1_lr = %08x\n", c1_m->lr);
 		pr_debug("[VCP] c1_sp = %08x\n", c1_m->sp);
-		pr_debug("[VCP] c1_pc_latch = %08x\n", c1_m->pc_latch);
+		pr_notice("[VCP] c1_pc_latch = %08x\n", c1_m->pc_latch);
 		pr_debug("[VCP] c1_lr_latch = %08x\n", c1_m->lr_latch);
 		pr_debug("[VCP] c1_sp_latch = %08x\n", c1_m->sp_latch);
 	}
 	if (vcpreg.core_nums == 2 && vcpreg.twohart) {
-		pr_debug("[VCP] c1_pc = %08x\n", c1_t1_m->pc);
+		pr_notice("[VCP] c1_pc = %08x\n", c1_t1_m->pc);
 		pr_debug("[VCP] c1_lr = %08x\n", c1_t1_m->lr);
 		pr_debug("[VCP] c1_sp = %08x\n", c1_t1_m->sp);
-		pr_debug("[VCP] c1_pc_latch = %08x\n", c1_t1_m->pc_latch);
+		pr_notice("[VCP] c1_pc_latch = %08x\n", c1_t1_m->pc_latch);
 		pr_debug("[VCP] c1_lr_latch = %08x\n", c1_t1_m->lr_latch);
 		pr_debug("[VCP] c1_sp_latch = %08x\n", c1_t1_m->sp_latch);
 	}
