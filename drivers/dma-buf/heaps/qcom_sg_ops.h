@@ -18,6 +18,8 @@
 #include <linux/device.h>
 #include <linux/mem-buf-exporter.h>
 
+#include "deferred-free-helper.h"
+
 struct qcom_sg_buffer {
 	struct dma_heap *heap;
 	struct list_head attachments;
@@ -28,6 +30,7 @@ struct qcom_sg_buffer {
 	void *vaddr;
 	bool uncached;
 	struct mem_buf_vmperm *vmperm;
+	struct deferred_freelist_item deferred_free;
 	void (*free)(struct qcom_sg_buffer *buffer);
 };
 

@@ -30,6 +30,7 @@ config QCOM_DMABUF_HEAPS
 config QCOM_DMABUF_HEAPS_SYSTEM
 	bool "QCOM DMA-BUF System Heap"
 	depends on QCOM_DMABUF_HEAPS
+	select DMABUF_HEAPS_DEFERRED_FREE
 	help
 	  Choose this option to build the QCOM DMA-BUF system
 	  heap. This heap combines the built-in system heap
