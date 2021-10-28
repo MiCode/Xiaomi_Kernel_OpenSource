@@ -2629,7 +2629,6 @@ void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
 			== old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {
 			new_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]
 				= mtk_crtc->mode_idx;
-			return;
 		}
 	}
 
