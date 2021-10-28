@@ -237,7 +237,7 @@ static int bt_vreg_enable(struct bt_power_vreg_data *vreg)
 
 		rc = regulator_enable(vreg->reg);
 		if (rc < 0) {
-			pr_err("regulator_enable(%s) failed. rc=%d\n",
+			pr_err("%s: regulator_enable(%s) failed. rc=%d\n",
 					__func__, vreg->name, rc);
 			goto out;
 		}
@@ -1022,7 +1022,7 @@ static void  set_pwr_srcs_status(struct bt_power_vreg_data *handle)
 			(regulator_is_enabled(handle->reg))) {
 			bt_power_src_status[ldo_index] =
 				(int)regulator_get_voltage(handle->reg);
-			pr_err("%s(%d) value(%d)\n", handle->name,
+			pr_err("%s(%p) value(%d)\n", handle->name,
 				handle, bt_power_src_status[ldo_index]);
 		} else {
 			pr_err("%s:%s is_enabled: %d\n",
