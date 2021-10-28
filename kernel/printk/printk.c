@@ -1727,7 +1727,11 @@ int do_syslog(int type, char __user *buf, int len, int source)
 			 * for pending data, not the size; return the count of
 			 * records, not the length.
 			 */
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+			error = prb_next_seq_id(prb, syslog_seq) - syslog_seq;
+#else
 			error = prb_next_seq(prb) - syslog_seq;
+#endif
 		} else {
 			bool time = syslog_partial ? syslog_time : printk_time;
 			unsigned int line_count;
