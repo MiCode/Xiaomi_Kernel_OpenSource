@@ -157,7 +157,6 @@ const struct of_device_id accdet_of_match[] = {
 };
 
 static struct platform_driver accdet_driver;
-static const struct snd_soc_component_driver accdet_soc_driver;
 
 static atomic_t accdet_first;
 #define ACCDET_INIT_WAIT_TIMER (10 * HZ)
@@ -2799,8 +2798,6 @@ static void delay_init_timerhandler(struct timer_list *t)
 int mt6338_accdet_init(struct snd_soc_component *component, struct snd_soc_card *card)
 {
 	int ret;
-	struct mt63xx_accdet_data *priv =
-			snd_soc_card_get_drvdata(component->card);
 
 	/* Enable Headset and 4 Buttons Jack detection */
 	ret = snd_soc_card_jack_new(card,
@@ -2808,7 +2805,7 @@ int mt6338_accdet_init(struct snd_soc_component *component, struct snd_soc_card 
 				    SND_JACK_HEADSET |
 				    SND_JACK_LINEOUT |
 				    SND_JACK_MECHANICAL,
-				    &priv->jack,
+				    &accdet->jack,
 				    NULL, 0);
 	if (ret) {
 		pr_notice("Property 'mediatek,soc-accdet' missing/invalid\n");
@@ -2821,17 +2818,11 @@ int mt6338_accdet_init(struct snd_soc_component *component, struct snd_soc_card 
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
 
+	snd_soc_component_set_jack(component, &accdet->jack, NULL);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mt6338_accdet_init);
-
-int mt6338_accdet_set_drvdata(struct snd_soc_card *card)
-{
-	snd_soc_card_set_drvdata(card, accdet);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt6338_accdet_set_drvdata);
 
 static void ipi_work_callback(struct work_struct *work)
 {
@@ -2906,14 +2897,6 @@ static int accdet_probe(struct platform_device *pdev)
 	mutex_init(&accdet->res_lock);
 
 	platform_set_drvdata(pdev, accdet);
-	/* Important. must to register */
-	ret = devm_snd_soc_register_component(&pdev->dev, &accdet_soc_driver,
-			NULL, 0);
-
-	if (ret) {
-		dev_notice(&pdev->dev, "Property 'mediatek,soc-accdet' missing/invalid\n");
-		return ret;
-	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
