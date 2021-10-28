@@ -657,14 +657,15 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 	buf = &src_buf_info->bs_buffer;
 	buf->va = vb2_plane_vaddr(src_buf, 0);
-	buf->dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
+	buf->dma_addr = (src_buf->planes[0].mem_priv == NULL) ?
+		0 : vb2_dma_contig_plane_dma_addr(src_buf, 0);
 	buf->size = (size_t)src_buf->planes[0].bytesused;
 	buf->length = (size_t)src_buf->planes[0].length;
 	buf->dmabuf = src_buf->planes[0].dbuf;
 	buf->flags = src_vb2_v4l2->flags;
 	buf->index = src_buf->index;
 
-	if (buf->va == NULL && buf->dmabuf == NULL) {
+	if (buf->dma_addr == 0 || buf->dmabuf == NULL) {
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		mtk_v4l2_err("[%d] id=%d src_addr is NULL!!",
 					 ctx->id, src_buf->index);
