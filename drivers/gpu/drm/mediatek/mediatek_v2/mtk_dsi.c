@@ -1795,8 +1795,8 @@ static int wait_dsi_wq(struct t_condition_wq *wq, int timeout)
 static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 {
 	struct mtk_dsi *dsi = dev_id;
-	struct mtk_drm_crtc *mtk_crtc;
-	struct mtk_panel_ext *panel_ext;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct mtk_panel_ext *panel_ext = NULL;
 	u32 status;
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
@@ -1810,6 +1810,11 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
+	if (IS_ERR_OR_NULL(dsi)) {
+		DDPIRQ("%s, invalid dsi\n", __func__);
+		return IRQ_NONE;
+	}
+
 	status = readl(dsi->regs + DSI_INTSTA);
 	if (!status) {
 		ret = IRQ_NONE;
@@ -1817,6 +1822,10 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	}
 
 	mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPIRQ("%s, invalid crtc\n", __func__);
+		return IRQ_NONE;
+	}
 
 	DRM_MMP_MARK(IRQ, irq, status);
 
@@ -1896,7 +1905,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				if (dsi->encoder.crtc)
 					doze_enabled = mtk_dsi_doze_state(dsi);
 
-				if (panel_ext->params->doze_delay &&
+				if (panel_ext && panel_ext->params->doze_delay &&
 					doze_enabled) {
 					doze_wait =
 						panel_ext->params->doze_delay;
@@ -5801,17 +5810,17 @@ static irqreturn_t dsi_te1_irq_handler(int irq, void *data)
 	static unsigned int cnt;
 
 	if (IS_ERR_OR_NULL(mtk_crtc)) {
-		DDPPR_ERR("%s: invalid data\n", __func__);
+		DDPIRQ("%s: invalid data\n", __func__);
 		return IRQ_NONE;
 	}
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (IS_ERR_OR_NULL(output_comp)) {
-		DDPPR_ERR("%s: invalid comp\n", __func__);
+		DDPIRQ("%s: invalid comp\n", __func__);
 		return IRQ_NONE;
 	}
 	dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
 	if (IS_ERR_OR_NULL(dsi)) {
-		DDPPR_ERR("%s: invalid dsi\n", __func__);
+		DDPIRQ("%s: invalid dsi\n", __func__);
 		return IRQ_NONE;
 	}
 

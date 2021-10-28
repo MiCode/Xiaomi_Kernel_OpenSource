@@ -697,19 +697,19 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	}
 
 	if (IS_ERR_OR_NULL(priv)) {
-		DDPPR_ERR("%s, invalid device\n", __func__);
+		DDPIRQ("%s, invalid device\n", __func__);
 		return IRQ_NONE;
 	}
 
 	ovl = &priv->ddp_comp;
 	if (IS_ERR_OR_NULL(ovl)) {
-		DDPPR_ERR("%s, invalid comp\n", __func__);
+		DDPIRQ("%s, invalid comp\n", __func__);
 		return IRQ_NONE;
 	}
 
 	mtk_crtc = ovl->mtk_crtc;
 	if (IS_ERR_OR_NULL(mtk_crtc)) {
-		DDPPR_ERR("%s, invalid crtc\n", __func__);
+		DDPIRQ("%s, invalid crtc\n", __func__);
 		return IRQ_NONE;
 	}
 

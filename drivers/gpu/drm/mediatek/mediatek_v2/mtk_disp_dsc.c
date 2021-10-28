@@ -139,13 +139,13 @@ static irqreturn_t mtk_dsc_irq_handler(int irq, void *dev_id)
 	}
 
 	if (IS_ERR_OR_NULL(priv)) {
-		DDPPR_ERR("%s, invalid device\n", __func__);
+		DDPIRQ("%s, invalid device\n", __func__);
 		return IRQ_NONE;
 	}
 
 	dsc = &priv->ddp_comp;
 	if (IS_ERR_OR_NULL(dsc)) {
-		DDPPR_ERR("%s, invalid comp\n", __func__);
+		DDPIRQ("%s, invalid comp\n", __func__);
 		return IRQ_NONE;
 	}
 
