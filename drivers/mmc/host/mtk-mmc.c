@@ -571,6 +571,7 @@ static inline u32 msdc_cmd_find_resp(struct msdc_host *host,
 {
 	u32 resp;
 
+	host->use_cmd_intr = false;
 	switch (mmc_resp_type(cmd)) {
 		/* Actually, R1, R5, R6, R7 are the same */
 	case MMC_RSP_R1:
@@ -578,6 +579,7 @@ static inline u32 msdc_cmd_find_resp(struct msdc_host *host,
 		break;
 	case MMC_RSP_R1B:
 		resp = 0x7;
+		host->use_cmd_intr = true;
 		break;
 	case MMC_RSP_R2:
 		resp = 0x2;
@@ -874,6 +876,41 @@ static inline bool msdc_cmd_is_ready(struct msdc_host *host,
 	return true;
 }
 
+static bool msdc_command_resp_polling(struct msdc_host *host,
+	struct mmc_request *mrq, struct mmc_command *cmd,
+	unsigned long timeout)
+{
+	bool ret = false;
+	unsigned long tmo;
+	int events;
+
+	/* polling */
+	tmo = jiffies + timeout;
+	while (1) {
+		events = readl(host->base + MSDC_INT);
+		if ((events & cmd_ints_mask) != 0) {
+			/* clear all int flag */
+			events &= cmd_ints_mask;
+			writel(events, host->base + MSDC_INT);
+			break;
+		}
+
+		if (time_after(jiffies, tmo) &&
+			((readl(host->base + MSDC_INT) & cmd_ints_mask) == 0)) {
+			dev_info(host->dev, "[%s]: CMD<%d> polling_for_completion timeout ARG<0x%.8x>\n",
+				__func__, cmd->opcode, cmd->arg);
+			ret = msdc_cmd_done(host, MSDC_INT_CMDTMO, mrq, cmd);
+			goto exit;
+		}
+	}
+
+	if (cmd)
+		ret = msdc_cmd_done(host, events, mrq, cmd);
+
+exit:
+	return ret;
+}
+
 static void msdc_start_command(struct msdc_host *host,
 		struct mmc_request *mrq, struct mmc_command *cmd)
 {
@@ -897,7 +934,10 @@ static void msdc_start_command(struct msdc_host *host,
 	rawcmd = msdc_cmd_prepare_raw_cmd(host, mrq, cmd);
 
 	spin_lock_irqsave(&host->lock, flags);
-	sdr_set_bits(host->base + MSDC_INTEN, cmd_ints_mask);
+	if (host->use_cmd_intr)
+		sdr_set_bits(host->base + MSDC_INTEN, cmd_ints_mask);
+	else
+		sdr_clr_bits(host->base + MSDC_INTEN, cmd_ints_mask);
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	writel(cmd->arg, host->base + SDC_ARG);
@@ -913,9 +953,12 @@ static void msdc_cmd_next(struct msdc_host *host,
 	       cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200))) ||
 	    (mrq->sbc && mrq->sbc->error))
 		msdc_request_done(host, mrq);
-	else if (cmd == mrq->sbc)
+	else if (cmd == mrq->sbc) {
 		msdc_start_command(host, mrq, mrq->cmd);
-	else if (!cmd->data)
+		if (!host->use_cmd_intr)
+			msdc_command_resp_polling(host, mrq,
+				mrq->cmd, CMD_TIMEOUT);
+	} else if (!cmd->data)
 		msdc_request_done(host, mrq);
 	else
 		msdc_start_data(host, mrq, cmd, cmd->data);
@@ -945,10 +988,17 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * use HW option,  otherwise use SW option
 	 */
 	if (mrq->sbc && (!mmc_card_mmc(mmc->card) ||
-	    (mrq->sbc->arg & 0xFFFF0000)))
+	    (mrq->sbc->arg & 0xFFFF0000))) {
 		msdc_start_command(host, mrq, mrq->sbc);
-	else
+		if (!host->use_cmd_intr)
+			msdc_command_resp_polling(host, mrq,
+				mrq->sbc, CMD_TIMEOUT);
+	} else {
 		msdc_start_command(host, mrq, mrq->cmd);
+		if (!host->use_cmd_intr)
+			msdc_command_resp_polling(host, mrq,
+				mrq->cmd, CMD_TIMEOUT);
+	}
 }
 
 static void msdc_pre_req(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -982,9 +1032,12 @@ static void msdc_data_xfer_next(struct msdc_host *host,
 				struct mmc_request *mrq, struct mmc_data *data)
 {
 	if (mmc_op_multi(mrq->cmd->opcode) && mrq->stop && !mrq->stop->error &&
-	    !mrq->sbc)
+	    !mrq->sbc) {
 		msdc_start_command(host, mrq, mrq->stop);
-	else
+		if (!host->use_cmd_intr)
+			msdc_command_resp_polling(host, mrq,
+				mrq->stop, CMD_TIMEOUT);
+	} else
 		msdc_request_done(host, mrq);
 }
 
@@ -2750,6 +2803,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 			goto release;
 		}
 	}
+
+	cpu_latency_qos_add_request(&host->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 	pm_runtime_set_active(host->dev);
 	pm_runtime_set_autosuspend_delay(host->dev, MTK_MMC_AUTOSUSPEND_DELAY);
 	pm_runtime_use_autosuspend(host->dev);
@@ -2770,6 +2825,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	return 0;
 end:
 	pm_runtime_disable(host->dev);
+	cpu_latency_qos_remove_request(&host->pm_qos_req);
 release:
 	platform_set_drvdata(pdev, NULL);
 	msdc_deinit_hw(host);
@@ -2804,6 +2860,7 @@ static int msdc_drv_remove(struct platform_device *pdev)
 	msdc_deinit_hw(host);
 	msdc_gate_clock(host);
 
+	cpu_latency_qos_remove_request(&host->pm_qos_req);
 	pm_runtime_disable(host->dev);
 	pm_runtime_put_noidle(host->dev);
 	dma_free_coherent(&pdev->dev,
@@ -3008,6 +3065,8 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 		if (regulator_set_voltage(host->dvfsrc_vcore_power, 0, INT_MAX))
 			pr_info("%s: failed to set vcore to MIN\n", __func__);
 	}
+	cpu_latency_qos_update_request(&host->pm_qos_req,
+		PM_QOS_DEFAULT_VALUE);
 
 	return 0;
 }
@@ -3017,6 +3076,7 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
 
+	cpu_latency_qos_update_request(&host->pm_qos_req, 0);
 	if (host->dvfsrc_vcore_power && host->req_vcore) {
 		if (regulator_set_voltage(host->dvfsrc_vcore_power,
 			host->req_vcore, INT_MAX))
