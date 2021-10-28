@@ -453,6 +453,8 @@ static int mvpu_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	mutex_init(&mvpu_pool_lock);
+
 	/* Initialize platform to allocate mvpu devices first. */
 	ret = mvpu_plat_init(pdev);
 	if (!ret) {
