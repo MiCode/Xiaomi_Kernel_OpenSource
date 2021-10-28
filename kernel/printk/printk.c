@@ -428,7 +428,7 @@ static u32 log_buf_len = __LOG_BUF_LEN;
 
 /* console duration detect */
 #ifdef CONFIG_MTK_PRINTK_DEBUG
-static int printk_uart_status;
+int printk_uart_status;
 struct __conwrite_stat_struct {
 	struct console *con; /* current console */
 	u64 time_before_conwrite; /* the last record before write */
@@ -444,6 +444,12 @@ static struct __conwrite_stat_struct conwrite_stat_struct = {
 };
 unsigned long rem_nsec_con_write_ttyS;
 bool console_status_detected;
+
+void set_printk_uart_status(int value)
+{
+	printk_uart_status = value;
+}
+EXPORT_SYMBOL_GPL(set_printk_uart_status);
 #endif
 
 /*
@@ -3267,7 +3273,9 @@ int vprintk_deferred(const char *fmt, va_list args)
 	int r;
 
 	r = vprintk_emit(0, LOGLEVEL_SCHED, NULL, fmt, args);
+#ifndef	CONFIG_MTK_PRINTK_DEBUG
 	defer_console_output();
+#endif
 
 	return r;
 }

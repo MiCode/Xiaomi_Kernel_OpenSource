@@ -17,6 +17,7 @@ extern int oops_in_progress;	/* If set, an oops, panic(), BUG() or die() is in p
 #define PRINTK_MAX_SINGLE_HEADER_LEN 2
 #ifdef CONFIG_MTK_PRINTK_DEBUG
 int get_printk_wake_up_time(unsigned long long *t0, unsigned long long *t1);
+void set_printk_uart_status(int value);
 #endif
 
 
