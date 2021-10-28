@@ -321,6 +321,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 					   priv->ddp_comp.mtk_crtc->base.index,
 					   1);
 		}
+		mtk_crtc->eof_time = ktime_get();
 		mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
 

@@ -3688,11 +3688,12 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc,
 
 		cur_eof_time = mtk_crtc->eof_time;
 		DDPINFO("%s:Modify the eof_time to avoid same timestamp.\n", __func__);
-		CRTC_MMP_MARK(id, present_fence_timestamp_same,
-			mtk_crtc->prev_eof_time, cur_eof_time);
 
-		if (mtk_crtc->prev_eof_time == cur_eof_time)
+		if (mtk_crtc->prev_eof_time == cur_eof_time) {
 			DDPINFO("%s:The present fence timestamp still same.\n", __func__);
+			CRTC_MMP_MARK(id, present_fence_timestamp_same,
+			mtk_crtc->prev_eof_time, cur_eof_time);
+		}
 	}
 
 	mtk_crtc->prev_eof_time = cur_eof_time;
