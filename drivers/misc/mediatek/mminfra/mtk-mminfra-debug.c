@@ -12,10 +12,11 @@
 #include <linux/pm_runtime.h>
 #include <linux/scmi_protocol.h>
 #include <linux/slab.h>
+#include "cmdq-util.h"
 #include "mtk-smi-dbg.h"
 #include "tinysys-scmi.h"
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-#include <aee.h>
+#include <mt-plat/aee.h>
 #endif
 
 #define MMINFRA_MAX_CLK_NUM	(4)
@@ -111,6 +112,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 	if (flags == GENPD_NOTIFY_ON) {
 		mminfra_clk_set(true);
 		count = atomic_inc_return(&clk_ref_cnt);
+		cmdq_util_mminfra_cmd(0);
 		do_mminfra_bkrs(true);
 		test_base = ioremap(0x1e800280, 4);
 		val = readl_relaxed(test_base);
@@ -270,6 +272,32 @@ static int mminfra_smi_dbg_cb(struct notifier_block *nb,
 	return 0;
 }
 
+
+static irqreturn_t mminfra_irq_handler(int irq, void *data)
+{
+	//char buf[LINK_MAX + 1] = {0};
+	int ret;
+
+	pr_notice("handle mminfra irq!\n");
+	if (!dev || !dbg || !dbg->comm_dev)
+		return IRQ_NONE;
+
+	ret = pm_runtime_get_if_in_use(dbg->comm_dev);
+	if (ret <= 0) {
+		pr_notice("%s: mminfra is power off(%d)\n", __func__, ret);
+		return IRQ_NONE;
+	}
+	cmdq_util_mminfra_cmd(1);
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	aee_kernel_warning("mminfra", "MMInfra bus timeout\n");
+#endif
+	cmdq_util_mminfra_cmd(0);
+
+	pm_runtime_put(dbg->comm_dev);
+	return IRQ_HANDLED;
+}
+
 static int mminfra_debug_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
@@ -279,7 +307,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	const char *name;
 	struct clk *clk;
 	u32 mminfra_bkrs = 0, comm_id;
-	int ret = 0, i = 0;
+	int ret = 0, i = 0, irq;
 
 	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
 	if (!dbg)
@@ -321,6 +349,21 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 
 	dev = &pdev->dev;
 	pm_runtime_enable(dev);
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		dev_notice(&pdev->dev, "failed to get irq (%d)\n", irq);
+	} else {
+		ret = devm_request_irq(&pdev->dev, irq, mminfra_irq_handler, IRQF_SHARED,
+				"mtk_mminfra_debug", dbg);
+		if (ret) {
+			dev_notice(&pdev->dev,
+				"failed to register ISR %d (%d)", irq, ret);
+			return ret;
+		}
+		cmdq_util_mminfra_cmd(0);
+	}
+
 	if (mminfra_bkrs == 1) {
 		mtk_pd_notifier.notifier_call = mtk_mminfra_pd_callback;
 		ret = dev_pm_genpd_add_notifier(dev, &mtk_pd_notifier);
