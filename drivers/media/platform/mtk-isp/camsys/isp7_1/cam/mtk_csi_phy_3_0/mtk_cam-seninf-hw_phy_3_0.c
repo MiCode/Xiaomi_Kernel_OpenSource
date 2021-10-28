@@ -3298,4 +3298,5 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	.seninf_num = 12,
 	.mux_num = 22,
 	.cam_mux_num = 23,
+	.pref_mux_num = 17,
 };

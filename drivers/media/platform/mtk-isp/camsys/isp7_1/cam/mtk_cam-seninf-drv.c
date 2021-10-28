@@ -386,12 +386,16 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			&g_seninf_ops->mux_num);
 		of_property_read_u32(dev->of_node, "cam_mux_num",
 			&g_seninf_ops->cam_mux_num);
+		of_property_read_u32(dev->of_node, "pref_mux_num",
+			&g_seninf_ops->pref_mux_num);
 
-		dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d\n",
+		dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
 			__func__,
 			g_seninf_ops->seninf_num,
 			g_seninf_ops->mux_num,
-			g_seninf_ops->cam_mux_num);
+			g_seninf_ops->cam_mux_num,
+			g_seninf_ops->pref_mux_num);
+
 		return 0;
 	}
 	for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
@@ -415,12 +419,16 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 				&g_seninf_ops->mux_num);
 			of_property_read_u32(dev->of_node, "cam_mux_num",
 				&g_seninf_ops->cam_mux_num);
+			of_property_read_u32(dev->of_node, "pref_mux_num",
+				&g_seninf_ops->pref_mux_num);
 
-			dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d\n",
+
+			dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
 				__func__,
 				g_seninf_ops->seninf_num,
 				g_seninf_ops->mux_num,
-				g_seninf_ops->cam_mux_num);
+				g_seninf_ops->cam_mux_num,
+				g_seninf_ops->pref_mux_num);
 			return 0;
 		}
 	}
@@ -871,8 +879,13 @@ static int config_hw(struct seninf_ctx *ctx)
 			mux = mux_by_grp[vc->group];
 			skip_mux_ctrl = 1;
 		} else {
+			int pref_idx[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+					10, 11, 12, 13, 14, 15,	16, 17, 18, 19, 20, 21 };
 			mux = mux_by_grp[vc->group] =
-				mtk_cam_seninf_mux_get(ctx);
+				//mtk_cam_seninf_mux_get(ctx);
+				mtk_cam_seninf_mux_get_pref(ctx,
+						pref_idx,
+						g_seninf_ops->pref_mux_num);
 			skip_mux_ctrl = 0;
 		}
 

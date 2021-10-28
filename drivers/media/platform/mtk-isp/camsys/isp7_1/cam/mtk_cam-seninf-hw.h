@@ -99,6 +99,7 @@ struct mtk_cam_seninf_ops {
 	unsigned int seninf_num;
 	unsigned int mux_num;
 	unsigned int cam_mux_num;
+	unsigned int pref_mux_num;
 
 };
 
