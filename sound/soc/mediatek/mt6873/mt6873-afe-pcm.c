@@ -162,20 +162,18 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (afe_priv->irq_cnt[id] > 0)
 			counter = afe_priv->irq_cnt[id];
 
-		regmap_update_bits(afe->regmap, irq_data->irq_cnt_reg,
-				   irq_data->irq_cnt_maskbit
-				   << irq_data->irq_cnt_shift,
-				   counter << irq_data->irq_cnt_shift);
+		mtk_regmap_update_bits(afe->regmap, irq_data->irq_cnt_reg,
+				   irq_data->irq_cnt_maskbit,
+				   counter, irq_data->irq_cnt_shift);
 
 		/* set irq fs */
 		fs = afe->irq_fs(substream, runtime->rate);
 		if (fs < 0)
 			return -EINVAL;
 
-		regmap_update_bits(afe->regmap, irq_data->irq_fs_reg,
-				   irq_data->irq_fs_maskbit
-				   << irq_data->irq_fs_shift,
-				   fs << irq_data->irq_fs_shift);
+		mtk_regmap_update_bits(afe->regmap, irq_data->irq_fs_reg,
+				   irq_data->irq_fs_maskbit,
+				   fs, irq_data->irq_fs_shift);
 
 		if (!runtime->no_period_wakeup)
 			mtk_irq_set_enable(afe, irq_data, id);

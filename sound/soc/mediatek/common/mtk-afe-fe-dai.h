@@ -14,6 +14,11 @@ struct mtk_base_afe;
 struct mtk_base_afe_memif;
 struct mtk_base_irq_data;
 
+extern int mtk_regmap_update_bits(struct regmap *map, int reg,
+		       unsigned int mask,
+		       unsigned int val, int shift);
+extern int mtk_regmap_write(struct regmap *map, int reg,
+		       unsigned int val);
 int mtk_afe_fe_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai);
 void mtk_afe_fe_shutdown(struct snd_pcm_substream *substream,

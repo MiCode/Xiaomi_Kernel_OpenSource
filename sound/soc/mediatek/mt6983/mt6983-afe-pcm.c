@@ -170,20 +170,18 @@ int mt6983_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (afe_priv->irq_cnt[id] > 0)
 			counter = afe_priv->irq_cnt[id];
 
-		regmap_update_bits(afe->regmap, irq_data->irq_cnt_reg,
-				   irq_data->irq_cnt_maskbit
-				   << irq_data->irq_cnt_shift,
-				   counter << irq_data->irq_cnt_shift);
+		mtk_regmap_update_bits(afe->regmap, irq_data->irq_cnt_reg,
+				   irq_data->irq_cnt_maskbit,
+				   counter, irq_data->irq_cnt_shift);
 
 		/* set irq fs */
 		fs = afe->irq_fs(substream, runtime->rate);
 		if (fs < 0)
 			return -EINVAL;
 
-		regmap_update_bits(afe->regmap, irq_data->irq_fs_reg,
-				   irq_data->irq_fs_maskbit
-				   << irq_data->irq_fs_shift,
-				   fs << irq_data->irq_fs_shift);
+		mtk_regmap_update_bits(afe->regmap, irq_data->irq_fs_reg,
+				   irq_data->irq_fs_maskbit,
+				   fs, irq_data->irq_fs_shift);
 
 		if (!runtime->no_period_wakeup)
 			mtk_irq_set_enable(afe, irq_data, id);
@@ -7197,6 +7195,10 @@ static int mt6983_afe_pcm_dev_probe(struct platform_device *pdev)
 	}
 	afe->memif[MT6983_DEEP_MEMIF].ack = mtk_sp_clean_written_buffer_ack;
 
+	/* init arm_smccc_smc call */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
+		      0, 0, 0, 0, 0, 0, &smccc_res);
+
 	mutex_init(&afe->irq_alloc_lock);	/* needed when dynamic irq */
 
 	/* init irq */
@@ -7228,10 +7230,6 @@ static int mt6983_afe_pcm_dev_probe(struct platform_device *pdev)
 	if (ret < 0)
 		dev_err(dev, "enable_irq_wake %d err: %d\n", irq_id, ret);
 #endif
-
-	/* init arm_smccc_smc call */
-	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
-		      0, 0, 0, 0, 0, 0, &smccc_res);
 
 	/* init sub_dais */
 	INIT_LIST_HEAD(&afe->sub_dais);
