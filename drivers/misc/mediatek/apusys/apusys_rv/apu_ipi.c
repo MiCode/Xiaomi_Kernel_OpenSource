@@ -101,7 +101,7 @@ static void ipi_usage_cnt_update(struct mtk_apu *apu, u32 id, int diff)
 	spin_unlock(&apu->usage_cnt_lock);
 }
 
-extern void apu_deepidle_power_on_aputop(struct mtk_apu *apu);
+extern int apu_deepidle_power_on_aputop(struct mtk_apu *apu);
 
 int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		 u32 wait_ms)
@@ -135,7 +135,12 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 	/* re-init inbox mask everytime for aoc */
 	apu_mbox_inbox_init(apu);
 
-	apu_deepidle_power_on_aputop(apu);
+	ret = apu_deepidle_power_on_aputop(apu);
+	if (ret) {
+		dev_info(dev, "apu_deepidle_power_on_aputop failed\n");
+		mutex_unlock(&apu->send_lock);
+		return -ESHUTDOWN;
+	}
 
 	ret = apu_mbox_wait_inbox(apu);
 	if (ret) {

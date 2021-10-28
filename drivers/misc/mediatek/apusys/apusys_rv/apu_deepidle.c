@@ -99,7 +99,7 @@ static void apu_deepidle_pwron_dbg_fn(struct work_struct *work)
 		__func__, ioread32(apu->apu_ao_ctl + MD32_PRE_DEFINE));
 }
 
-void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
+int apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 {
 	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct device *dev = apu->dev;
@@ -126,7 +126,7 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 		if (ret == 0)
 			hw_logger_deep_idle_leave();
 		else
-			return;
+			return ret;
 
 		if (!(apu->platdata->flags & F_SECURE_BOOT))
 			schedule_work(&pwron_dbg_wk);
@@ -147,7 +147,7 @@ wait_for_warm_boot:
 				apu_regdump();
 				apusys_rv_aee_warn("APUSYS_RV",
 					"APUSYS_RV_TIMEOUT");
-				return;
+				return -1;
 			}
 			if (retry % 50 == 0)
 				dev_info(dev,
@@ -163,11 +163,13 @@ wait_for_warm_boot:
 			apu_regdump();
 			apusys_rv_aee_warn("APUSYS_RV",
 				"APUSYS_RV_TIMEOUT");
-			return;
+			return -1;
 		}
 
 		dev_info(apu->dev, "%s: warm boot done\n", __func__);
 	}
+
+	return 0;
 }
 
 static int apu_deepidle_send_ack(struct mtk_apu *apu, uint32_t cmd, uint32_t ack)
