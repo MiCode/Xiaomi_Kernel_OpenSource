@@ -196,3 +196,4 @@ void dcs_enable(int enable)
 	}
 	mutex_unlock(&g_DCS_lock);
 }
+EXPORT_SYMBOL(dcs_enable);

@@ -217,8 +217,11 @@ unsigned int ged_get_freq_by_idx(int oppidx)
 
 	if (g_working_table == NULL)
 		return gpufreq_get_freq_by_idx(TARGET_DEFAULT, oppidx);
-	else
-		return g_working_table[oppidx].freq;
+
+	if (unlikely(oppidx > g_min_working_oppidx))
+		oppidx = g_min_working_oppidx;
+
+	return g_working_table[oppidx].freq;
 }
 
 unsigned int ged_get_power_by_idx(int oppidx)
@@ -228,8 +231,11 @@ unsigned int ged_get_power_by_idx(int oppidx)
 
 	if (g_working_table == NULL)
 		return gpufreq_get_power_by_idx(TARGET_DEFAULT, oppidx);
-	else
-		return g_working_table[oppidx].power;
+
+	if (unlikely(oppidx > g_min_working_oppidx))
+		oppidx = g_min_working_oppidx;
+
+	return g_working_table[oppidx].power;
 }
 
 int ged_get_oppidx_by_freq(unsigned int freq)
