@@ -87,9 +87,9 @@ struct gpufreq_ipi_data {
 		unsigned int power_state;
 		unsigned int mode;
 		struct {
-			unsigned int status_base;
+			unsigned long long status_base;
+			unsigned long long debug_base;
 			unsigned int status_size;
-			unsigned int debug_base;
 			unsigned int debug_size;
 		} addr;
 		struct {

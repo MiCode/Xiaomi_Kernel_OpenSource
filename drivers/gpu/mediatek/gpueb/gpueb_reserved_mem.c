@@ -140,35 +140,21 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 	of_property_read_u64(of_gpueb, "gpueb_mem_size", &gpueb_mem_size);
 
 	if (!gpueb_mem_base_phys || !gpueb_mem_size) {
-		gpueb_pr_debug("@%s: invalid gpueb_mem_base_phys (0x%x), gpueb_mem_size (%x)\n",
-			__func__, (unsigned int)gpueb_mem_base_phys, (unsigned int)gpueb_mem_size);
+		gpueb_pr_debug("@%s: invalid gpueb_mem_base_phys (0x%llx), gpueb_mem_size (%llx)\n",
+			__func__, gpueb_mem_base_phys, gpueb_mem_size);
 		return -EINVAL;
 	}
 
-	gpueb_pr_debug("@%s: base_phys = 0x%x, size = 0x%x",
-			__func__,
-			(unsigned int)gpueb_mem_base_phys,
-			(unsigned int)gpueb_mem_size);
+	gpueb_pr_debug("@%s: base_phys = 0x%llx, size = 0x%llx",
+		__func__, gpueb_mem_base_phys, gpueb_mem_size);
 
-	if ((gpueb_mem_base_phys >= (0x80000000ULL)) ||
-		(gpueb_mem_base_phys < (0x40000000ULL))) {
+	if ((gpueb_mem_base_phys >= 0x800000000ULL) || (gpueb_mem_base_phys < 0x40000000ULL)) {
 		/*
 		 * The gpueb remapped region is fixed, only
-		 * 0x4000_0000ULL ~ 0x7FFF_FFFFULL is accessible.
-		 *
-		 * ========= .dtsi =========
-		 * size = <0 0x00300000>;
-		 * alignment = <0 0x1000000>;
-		 * alloc-ranges = <0 0x40000000 0 0x40000000>;
-		 * ========= .dtsi =========
-		 *
-		 * means:
-		 * allocate size = 0x00300000
-		 * allocate range = 0x40000000 ~ 0x40000000+0x40000000
-		 * start address need align 0x1000000
+		 * 0x4000_0000 ~ 0x7_FFFF_FFFF is accessible.
 		 */
 		gpueb_pr_debug("@%s: Error: Wrong Address (0x%llx)\n",
-				__func__, (uint64_t)gpueb_mem_base_phys);
+			__func__, gpueb_mem_base_phys);
 		BUG_ON(1);
 		return -1;
 	}
@@ -196,7 +182,7 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 
 	for (i = 0; i < gpueb_mem_num; i++) {
 		gpueb_pr_debug("gpueb_reserve_mblock_ary_name[%d] = %s\n",
-				i, gpueb_reserve_mblock_ary_name[i]);
+			i, gpueb_reserve_mblock_ary_name[i]);
 	}
 
 	gpueb_reserve_mblock_ary = vzalloc(sizeof(struct gpueb_reserve_mblock) * gpueb_mem_num);
@@ -236,10 +222,7 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 	gpueb_mem_base_virt = (phys_addr_t)(size_t)ioremap_wc(
 			gpueb_mem_base_phys, gpueb_mem_size);
 	gpueb_pr_debug("@%s: Reserved phy_base = 0x%llx, len:0x%llx, Reserved virt_base = 0x%llx\n",
-			__func__,
-			(uint64_t)gpueb_mem_base_phys,
-			(uint64_t)gpueb_mem_size,
-			(uint64_t)gpueb_mem_base_virt);
+		__func__, gpueb_mem_base_phys, gpueb_mem_size, gpueb_mem_base_virt);
 
 	// Init the access address for each block
 	for (i = 0; i < gpueb_mem_num; i++) {
@@ -249,15 +232,13 @@ int gpueb_reserved_mem_init(struct platform_device *pdev)
 			accumlate_memory_size;
 		accumlate_memory_size += gpueb_reserve_mblock_ary[i].size;
 		gpueb_pr_debug("@%s: Reserved block[%d] phys:0x%llx, virt:0x%llx, len:0x%llx\n",
-				__func__,
-				i, (uint64_t)gpueb_reserve_mblock_ary[i].start_phys,
-				(uint64_t)gpueb_reserve_mblock_ary[i].start_virt,
-				(uint64_t)gpueb_reserve_mblock_ary[i].size);
+			__func__, i, gpueb_reserve_mblock_ary[i].start_phys,
+			gpueb_reserve_mblock_ary[i].start_virt, gpueb_reserve_mblock_ary[i].size);
 	}
 
 	if (accumlate_memory_size > gpueb_mem_size)
 		gpueb_pr_debug("@%s: Total memory in memory table is more than reserved",
-				__func__);
+			__func__);
 
 	return 0;
 }

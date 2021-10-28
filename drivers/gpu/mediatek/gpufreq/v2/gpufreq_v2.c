@@ -1913,9 +1913,9 @@ static int gpufreq_gpueb_init(void)
 	debug_shared_mem_size = shared_mem_size - GPUFREQ_STATUS_MEM_SZ;
 
 	send_msg.cmd_id = CMD_INIT_SHARED_MEM;
-	send_msg.u.addr.status_base = (uint32_t)status_shared_mem_pa;
+	send_msg.u.addr.status_base = status_shared_mem_pa;
 	send_msg.u.addr.status_size = (uint32_t)status_shared_mem_size;
-	send_msg.u.addr.debug_base = (uint32_t)debug_shared_mem_pa;
+	send_msg.u.addr.debug_base = debug_shared_mem_pa;
 	send_msg.u.addr.debug_size = (uint32_t)debug_shared_mem_size;
 	ret = gpufreq_ipi_to_gpueb(send_msg);
 	if (unlikely(ret)) {
@@ -1923,9 +1923,9 @@ static int gpufreq_gpueb_init(void)
 		ret = GPUFREQ_EINVAL;
 	}
 
-	GPUFREQ_LOGI("status shared memory phy_addr: 0x%x, virt_addr: 0x%llx, size: 0x%x",
+	GPUFREQ_LOGI("status shared memory phy_addr: 0x%llx, virt_addr: 0x%llx, size: 0x%x",
 		status_shared_mem_pa, g_status_shared_mem_va, status_shared_mem_size);
-	GPUFREQ_LOGI("debug shared memory phy_addr: 0x%x, virt_addr: 0x%llx, size: 0x%x",
+	GPUFREQ_LOGI("debug shared memory phy_addr: 0x%llx, virt_addr: 0x%llx, size: 0x%x",
 		debug_shared_mem_pa, g_debug_shared_mem_va, debug_shared_mem_size);
 
 done:
