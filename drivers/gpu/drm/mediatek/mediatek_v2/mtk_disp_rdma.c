@@ -1293,7 +1293,7 @@ static void mtk_rdma_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	if (pending->height == 0u || pending->width == 0u)
 		return;
 
-	DDPINFO("%s addr: 0x%x\n", __func__, addr);
+	DDPINFO("%s addr: 0x%lx\n", __func__, (unsigned long)addr);
 
 	con = rdma_fmt_convert(rdma, fmt);
 	mtk_ddp_write_relaxed(comp, con, DISP_RDMA_MEM_CON, handle);
@@ -1322,8 +1322,8 @@ int MMPathTraceRDMA(struct mtk_ddp_comp *ddp_comp, char *str,
 	struct mtk_rdma_cfg_info *cfg_info = &rdma->cfg_info;
 
 	n += scnprintf(str + n, strlen - n,
-		"in=0x%x, in_width=%d, in_height=%d, in_fmt=%s, in_bpp=%d, ",
-		cfg_info->addr,
+		"in=0x%lx, in_width=%d, in_height=%d, in_fmt=%s, in_bpp=%d, ",
+		(unsigned long)cfg_info->addr,
 		cfg_info->width,
 		cfg_info->height,
 		mtk_get_format_name(cfg_info->fmt),
@@ -1542,6 +1542,7 @@ static const struct mtk_disp_rdma_data mt6895_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+	.is_support_34bits = true,
 	.dsi_buffer = true,
 };
 

@@ -931,8 +931,8 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 
 	addr += comp->fb->offsets[0];
 	con = wdma_fmt_convert(comp->fb->format->format);
-	DDPINFO("%s fmt:0x%x, con:0x%x addr:0x%x\n", __func__,
-		comp->fb->format->format, con, addr);
+	DDPINFO("%s fmt:0x%x, con:0x%x addr:0x%lx\n", __func__,
+		comp->fb->format->format, con, (unsigned long)addr);
 	if (!addr) {
 		DDPPR_ERR("%s wdma dst addr is zero\n", __func__);
 		return;
@@ -1066,8 +1066,8 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 	gsc = addon_config->addon_wdma_config.p_golden_setting_context;
 	mtk_wdma_golden_setting(comp, gsc, handle);
 
-	DDPMSG("[capture] config addr:0x%x, roi:(%d,%d,%d,%d)\n",
-		addr, clip_x, clip_y, clip_w, clip_h);
+	DDPMSG("[capture] config addr:0x%lx, roi:(%d,%d,%d,%d)\n",
+		(unsigned long)addr, clip_x, clip_y, clip_w, clip_h);
 	cfg_info->width = clip_w;
 	cfg_info->height = clip_h;
 	cfg_info->fmt = comp->fb->format->format;
@@ -1378,8 +1378,8 @@ int MMPathTraceWDMA(struct mtk_ddp_comp *ddp_comp, char *str,
 	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
 
 	n += scnprintf(str + n, strlen - n,
-		"out=0x%x, out_width=%d, out_height=%d, out_fmt=%s, out_bpp=%d",
-		cfg_info->addr,
+		"out=0x%lx, out_width=%d, out_height=%d, out_fmt=%s, out_bpp=%d",
+		(unsigned long)cfg_info->addr,
 		cfg_info->width,
 		cfg_info->height,
 		mtk_get_format_name(cfg_info->fmt),
@@ -1670,7 +1670,7 @@ static const struct mtk_disp_wdma_data mt6895_wdma_driver_data = {
 	.aid_sel = &mtk_wdma_aid_sel_MT6895,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
-	.is_support_34bits = false,
+	.is_support_34bits = true,
 };
 
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {

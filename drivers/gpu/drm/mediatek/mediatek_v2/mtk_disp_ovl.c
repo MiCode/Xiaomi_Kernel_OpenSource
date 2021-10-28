@@ -1659,8 +1659,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	DDPINFO("%s+ id %d, idx:%d, enable:%d, fmt:0x%x, ",
 		__func__, comp->id, idx, pending->enable, pending->format);
-	DDPINFO("addr 0x%x, compr %d, con 0x%x\n",
-		pending->addr, (unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con);
+	DDPINFO("addr 0x%lx, compr %d, con 0x%x\n",
+		(unsigned long)pending->addr,
+		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con);
 
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
@@ -2051,8 +2052,8 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	resource_size_t mmsys_reg = 0;
 	int sec_bit;
 
-	DDPDBG("%s:%d, addr:0x%x, pitch:%d, vpitch:%d\n",
-		__func__, __LINE__, addr,
+	DDPDBG("%s:%d, addr:0x%lx, pitch:%d, vpitch:%d\n",
+		__func__, __LINE__, (unsigned long)addr,
 		pitch, vpitch);
 	DDPDBG("src:(%d,%d,%d,%d), fmt:%d, Bpp:%d, compress:%d\n",
 		src_x, src_y,
@@ -2672,9 +2673,9 @@ static void mtk_ovl_backup_info_cmp(struct mtk_ddp_comp *comp, bool *compare)
 		cur_info[i].layer = i;
 		cur_info[i].layer_en = src_on & (0x1 << i);
 		if (!cur_info[i].layer_en) {
-			DDPMSG("%s:layer%d,en %d,size 0x%x,addr 0x%x\n",
+			DDPMSG("%s:layer%d,en %d,size 0x%x,addr 0x%lx\n",
 			       __func__, i, cur_info[i].layer_en,
-			       cur_info[i].src_size, cur_info[i].addr);
+			       cur_info[i].src_size, (unsigned long)cur_info[i].addr);
 			continue;
 		}
 
@@ -2691,9 +2692,9 @@ static void mtk_ovl_backup_info_cmp(struct mtk_ddp_comp *comp, bool *compare)
 		cur_info[i].data_path_con =
 			readl(DISP_REG_OVL_DATAPATH_CON + Lx_base);
 
-		DDPMSG("%s:layer%d,en %d,size 0x%x, addr 0x%x\n", __func__, i,
+		DDPMSG("%s:layer%d,en %d,size 0x%x, addr 0x%lx\n", __func__, i,
 		       cur_info[i].layer_en, cur_info[i].src_size,
-		       cur_info[i].addr);
+		       (unsigned long)cur_info[i].addr);
 		if (memcmp(&cur_info[i], &ovl->backup_info[i],
 			   sizeof(struct mtk_ovl_backup_info)) != 0)
 			*compare = true;
@@ -3215,8 +3216,8 @@ static void ovl_dump_layer_info_compress(struct mtk_ddp_comp *comp, int layer,
 		return;
 	}
 
-	DDPDUMP("compr_en:%u, pitch_msb:0x%x, hdr_addr:0x%x, hdr_pitch:0x%x\n",
-		compr_en, pitch_msb, addr, pitch);
+	DDPDUMP("compr_en:%u, pitch_msb:0x%x, hdr_addr:0x%lx, hdr_pitch:0x%x\n",
+		compr_en, pitch_msb, (unsigned long)addr, pitch);
 }
 
 static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
@@ -3253,9 +3254,9 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 		is_ext_layer ? "ext" : "phy", layer, offset & 0xfff,
 		(offset >> 16) & 0xfff, src_size & 0xfff,
 		(src_size >> 16) & 0xfff);
-	DDPDUMP("pitch=%u,addr=0x%x,source=%s,aen=%u,alpha=%u,cl=0x%x\n",
+	DDPDUMP("pitch=%u,addr=0x%lx,source=%s,aen=%u,alpha=%u,cl=0x%x\n",
 		pitch & 0xffff,
-		addr, /* unified_color_fmt_name(fmt),*/
+		(unsigned long)addr, /* unified_color_fmt_name(fmt),*/
 		(REG_FLD_VAL_GET(L_CON_FLD_LSRC, con) == 0) ? "mem"
 							    : "constant_color",
 		REG_FLD_VAL_GET(L_CON_FLD_AEN, con),
