@@ -898,6 +898,9 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 		i++;
 	} while ((val & BIT(scpd->data->hwv_shift)) == 0);
 
+	/* delay 50us for stable status */
+	udelay(50);
+
 	/* wait until VOTER_ACK = 1 */
 	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
@@ -956,6 +959,9 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 			goto err_hwv_vote;
 		i++;
 	} while ((val & BIT(scpd->data->hwv_shift)) != 0);
+
+	/* delay 50us for stable status */
+	udelay(50);
 
 	/* wait until VOTER_ACK = 0 */
 	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
