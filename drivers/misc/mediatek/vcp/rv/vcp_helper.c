@@ -737,6 +737,7 @@ void vcp_disable_pm_clk(void)
 			mdelay(5);
 			if (i > VCP_SYNC_TIMEOUT_MS) {
 				pr_info("[VCP] wait ready timeout\n");
+				vcp_dump_last_regs();
 				break;
 			}
 		}
@@ -838,6 +839,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 				mdelay(5);
 				if (i > VCP_SYNC_TIMEOUT_MS) {
 					pr_info("[VCP] wait ready timeout\n");
+					vcp_dump_last_regs();
 					break;
 				}
 			}
