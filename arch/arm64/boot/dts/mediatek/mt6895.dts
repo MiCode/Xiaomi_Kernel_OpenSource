@@ -515,14 +515,6 @@
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
 
-		gps_mem: gps-reserve-memory {
-			compatible = "mediatek,gps-reserve-memory";
-			no-map;
-			size = <0 0x100000>;
-			alignment = <0 0x100000>;
-			alloc-ranges = <0 0x40000000 0 0x80000000>;
-		};
-
 		ssmr_cma_mem: ssmr-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -1631,7 +1623,11 @@
 				<GIC_SPI 532 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 533 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 534 IRQ_TYPE_LEVEL_HIGH 0>;
-			memory-region = <&gps_mem>;
+		emi-connac-ver = <2>;
+		emi-addr = <0>;
+		emi-size = <0x100000>;
+		emi-alignment = <0x100000>;
+		emi-max-addr = <0xc0000000>;
 		};
 
 		watchdog: watchdog@1c007000 {
