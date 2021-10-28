@@ -442,6 +442,9 @@ static void ccci_rpc_get_gpio_adc(struct ccci_rpc_gpio_adc_intput *input,
 				val = get_md_adc_val(num);
 				output->adcChMeasSum += val;
 			}
+			CCCI_NORMAL_LOG(0, RPC,
+					"%s, reqMask:%d, adcChmeasCount:%u, adcChMeasSum:%u\n",
+					__func__, input->reqMask, i, output->adcChMeasSum);
 		}
 	} else {
 		if (input->reqMask & RPC_REQ_ADC_PIN) {
@@ -456,6 +459,9 @@ static void ccci_rpc_get_gpio_adc(struct ccci_rpc_gpio_adc_intput *input,
 				val = get_md_adc_val(input->adcChNum);
 				output->adcChMeasSum += val;
 			}
+			CCCI_NORMAL_LOG(0, RPC,
+					"%s, reqMask:%d, adcChmeasCount:%u, adcChMeasSum:%u\n",
+					__func__, input->reqMask, i, output->adcChMeasSum);
 		}
 	}
 }
@@ -514,6 +520,9 @@ static void ccci_rpc_get_gpio_adc_v2(struct ccci_rpc_gpio_adc_intput_v2 *input,
 				val = get_md_adc_val(num);
 				output->adcChMeasSum += val;
 			}
+			CCCI_NORMAL_LOG(0, RPC,
+					"%s, reqMask:%d, adcChmeasCount:%u, adcChMeasSum:%u\n",
+					__func__, input->reqMask, i, output->adcChMeasSum);
 		}
 	} else {
 		if (input->reqMask & RPC_REQ_ADC_PIN) {
@@ -528,6 +537,9 @@ static void ccci_rpc_get_gpio_adc_v2(struct ccci_rpc_gpio_adc_intput_v2 *input,
 				val = get_md_adc_val(input->adcChNum);
 				output->adcChMeasSum += val;
 			}
+			CCCI_NORMAL_LOG(0, RPC,
+					"%s, reqMask:%d, adcChmeasCount:%u, adcChMeasSum:%u\n",
+					__func__, input->reqMask, i, output->adcChMeasSum);
 		}
 	}
 }
