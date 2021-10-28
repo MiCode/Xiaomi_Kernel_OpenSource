@@ -1078,6 +1078,7 @@ static int mt6983_apu_top_on(struct device *dev)
 		aputop_dump_pwr_reg(dev);
 		are_dump_config(0);
 		are_dump_config(1);
+		are_dump_config(2);
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_WAKEUP_FAIL");
 		return -1;
 	}
@@ -1115,6 +1116,7 @@ static int mt6983_apu_top_off(struct device *dev)
 		aputop_dump_pwr_reg(dev);
 		are_dump_config(0);
 		are_dump_config(1);
+		are_dump_config(2);
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_SLEEP_TIMEOUT");
 		return -1;
 	}
@@ -1439,21 +1441,21 @@ static void aputop_dump_pwr_reg(struct device *dev)
 	snprintf(buf, 32, "phys 0x%08x: ",
 			(u32)(apupw.phy_addr[apu_are0]));
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[apu_pcu], 0x50, true);
+			apupw.regs[apu_are0], 0x50, true);
 
 	// reg dump for N.ARE
 	memset(buf, 0, sizeof(buf));
 	snprintf(buf, 32, "phys 0x%08x: ",
 			(u32)(apupw.phy_addr[apu_are1]));
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[apu_pcu], 0x50, true);
+			apupw.regs[apu_are1], 0x50, true);
 
 	// reg dump for S.ARE1
 	memset(buf, 0, sizeof(buf));
 	snprintf(buf, 32, "phys 0x%08x: ",
 			(u32)(apupw.phy_addr[apu_are2]));
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
-			apupw.regs[apu_pcu], 0x50, true);
+			apupw.regs[apu_are2], 0x50, true);
 
 	apusys_pwr_smc_call(dev, MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP, 0);
 }
