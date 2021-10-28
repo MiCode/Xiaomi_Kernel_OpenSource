@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
  * Author: Dennis YC Hsieh <dennis-yc.hsieh@mediatek.com>
@@ -10,7 +10,6 @@
 #include <linux/sync_file.h>
 #include <linux/time64.h>
 #include <mtk_sync.h>
-#include <mtk_drm_drv.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 
@@ -24,8 +23,6 @@
 
 #define MML_DEFAULT_END_NS	15000000
 
-#define MML_REF_NAME "mml"
-
 /* set to 0 to disable reuse config */
 int mml_reuse = 1;
 module_param(mml_reuse, int, 0644);
@@ -35,9 +32,6 @@ module_param(mml_max_cache_task, int, 0644);
 
 int mml_max_cache_cfg = 2;
 module_param(mml_max_cache_cfg, int, 0644);
-
-int mml_pq_disable;
-module_param(mml_pq_disable, int, 0644);
 
 struct mml_drm_ctx {
 	struct list_head configs;
@@ -205,10 +199,7 @@ static u32 format_drm_to_mml(u32 drm_format, u64 modifier)
 static bool check_frame_change(struct mml_frame_info *info,
 			       struct mml_frame_config *cfg)
 {
-	if (memcmp(&cfg->info, info, sizeof(*info)))
-		return false;
-
-	return true;
+	return !memcmp(&cfg->info, info, sizeof(*info));
 }
 
 static struct mml_frame_config *frame_config_find_reuse(
@@ -257,7 +248,7 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 
 	mml_msg("[drm]%s frame config %p", __func__, cfg);
 
-	if (!list_empty(&cfg->await_tasks)) {
+	if (WARN_ON(!list_empty(&cfg->await_tasks))) {
 		mml_err("[drm]still waiting tasks in wq during destroy config");
 		list_for_each_entry_safe(task, tmp, &cfg->await_tasks, entry) {
 			/* unable to handling error,
@@ -269,7 +260,7 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 		}
 	}
 
-	if (!list_empty(&cfg->tasks)) {
+	if (WARN_ON(!list_empty(&cfg->tasks))) {
 		mml_err("[drm]still busy tasks during destroy config");
 		list_for_each_entry_safe(task, tmp, &cfg->tasks, entry) {
 			/* unable to handling error,
@@ -300,25 +291,19 @@ static struct mml_frame_config *frame_config_create(
 	struct mml_frame_info *info)
 {
 	struct mml_frame_config *cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
+
 	if (!cfg)
 		return ERR_PTR(-ENOMEM);
+	mml_core_init_config(cfg);
 
-	INIT_LIST_HEAD(&cfg->entry);
 	list_add_tail(&cfg->entry, &ctx->configs);
 	ctx->config_cnt++;
 	cfg->info = *info;
-	mutex_init(&cfg->task_mutex);
-	INIT_LIST_HEAD(&cfg->tasks);
-	INIT_LIST_HEAD(&cfg->await_tasks);
-	INIT_LIST_HEAD(&cfg->done_tasks);
 	cfg->disp_dual = ctx->disp_dual;
 	cfg->disp_vdo = ctx->disp_vdo;
-	mutex_init(&cfg->pipe_mutex);
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
 	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
-
-	mml_core_init_config(cfg);
 
 	return cfg;
 }
@@ -709,9 +694,9 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 
 	/* copy pq parameters */
 	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)
-		memcpy(&task->pq_param[i], submit->pq_param[i], sizeof(struct mml_pq_param));
+		memcpy(&task->pq_param[i], submit->pq_param[i], sizeof(task->pq_param[i]));
 
-	/* wack lock */
+	/* wake lock */
 	mml_lock_wake_lock(task->config->mml, true);
 
 	/* submit to core */
@@ -722,7 +707,6 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 		memcpy(submit->job, &task->job, sizeof(*submit->job));
 
 	mml_trace_end();
-
 	return 0;
 
 err_unlock_exit:
@@ -789,7 +773,7 @@ void mml_drm_dump(struct mml_drm_ctx *ctx, struct mml_submit *submit)
 }
 EXPORT_SYMBOL_GPL(mml_drm_dump);
 
-s32 dup_task(struct mml_task *task, u32 pipe)
+static s32 dup_task(struct mml_task *task, u32 pipe)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
@@ -819,7 +803,6 @@ s32 dup_task(struct mml_task *task, u32 pipe)
 	src = list_first_entry_or_null(&cfg->tasks, struct mml_task, entry);
 	if (src && src->pkts[pipe])
 		goto dup_command;
-
 
 	list_for_each_entry_reverse(src, &cfg->await_tasks, entry) {
 		/* the first one should be current task, skip it */
@@ -853,24 +836,6 @@ dup_command:
 
 	mutex_unlock(&ctx->config_mutex);
 	return 0;
-}
-
-struct list_head *run_task_get(struct mml_task *task)
-{
-	struct mml_frame_config *cfg = task->config;
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
-
-	mutex_lock(&ctx->config_mutex);
-
-	return &cfg->tasks;
-}
-
-void run_task_put(struct mml_task *task)
-{
-
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
-
-	mutex_unlock(&ctx->config_mutex);
 }
 
 const static struct mml_task_ops drm_task_ops = {
@@ -967,6 +932,8 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 
 void mml_drm_put_context(struct mml_drm_ctx *ctx)
 {
+	if (IS_ERR_OR_NULL(ctx))
+		return;
 	mml_log("[drm]%s", __func__);
 	mml_dev_put_drm_ctx(ctx->mml, drm_ctx_release);
 }
@@ -1020,7 +987,7 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 			*submit_pq->pq_param[i] = *submit->pq_param[i];
 
 	if (info->dest[0].rotate == MML_ROT_0 ||
-		info->dest[0].rotate == MML_ROT_180) {
+	    info->dest[0].rotate == MML_ROT_180) {
 		info->dest[0].compose.left = 0;
 		info->dest[0].compose.top = 0;
 		info->dest[0].compose.width = info->dest[0].crop.r.width;
@@ -1035,11 +1002,9 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	info->dest[0].data.width = info->dest[0].compose.width;
 	info->dest[0].data.height = info->dest[0].compose.height;
 	info->dest[0].data.y_stride = mml_color_get_min_y_stride(
-		info->dest[0].data.format,
-		info->dest[0].compose.width);
+		info->dest[0].data.format, info->dest[0].compose.width);
 	info->dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		info->dest[0].data.format,
-		info->dest[0].compose.width);
+		info->dest[0].data.format, info->dest[0].compose.width);
 	memset(&info->dest[0].pq_config, 0, sizeof(info->dest[0].pq_config));
 
 	info_pq->src = info->dest[0].data;
@@ -1049,104 +1014,11 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	info_pq->dest[0].crop.r.height = info_pq->src.height;
 	info_pq->dest[0].rotate = 0;
 	info_pq->dest[0].flip = 0;
+	info_pq->mode = MML_MODE_DDP_ADDON;
 
 	if (MML_FMT_PLANE(info->dest[0].data.format) > 1)
 		mml_err("%s dest plane should be 1 but format %#010x",
 			__func__, info->dest[0].data.format);
 }
 EXPORT_SYMBOL_GPL(mml_drm_split_info);
-
-struct mml_ddp_comp_match {
-	enum mtk_ddp_comp_id id;
-	enum mtk_ddp_comp_type type;
-	const char *name;
-};
-
-static const struct mml_ddp_comp_match mml_ddp_matches[] = {
-	{ DDP_COMPONENT_MML_RSZ0, MTK_MML_RSZ, "rsz0" },
-	{ DDP_COMPONENT_MML_RSZ1, MTK_MML_RSZ, "rsz1" },
-	{ DDP_COMPONENT_MML_RSZ2, MTK_MML_RSZ, "rsz2" },
-	{ DDP_COMPONENT_MML_RSZ3, MTK_MML_RSZ, "rsz3" },
-	{ DDP_COMPONENT_MML_HDR0, MTK_MML_HDR, "hdr0" },
-	{ DDP_COMPONENT_MML_HDR1, MTK_MML_HDR, "hdr1" },
-	{ DDP_COMPONENT_MML_AAL0, MTK_MML_AAL, "aal0" },
-	{ DDP_COMPONENT_MML_AAL1, MTK_MML_AAL, "aal1" },
-	{ DDP_COMPONENT_MML_TDSHP0, MTK_MML_TDSHP, "tdshp0" },
-	{ DDP_COMPONENT_MML_TDSHP1, MTK_MML_TDSHP, "tdshp1" },
-	{ DDP_COMPONENT_MML_COLOR0, MTK_MML_COLOR, "color0" },
-	{ DDP_COMPONENT_MML_COLOR1, MTK_MML_COLOR, "color1" },
-	{ DDP_COMPONENT_MML_MML0, MTK_MML_MML, "mmlsys" },
-	{ DDP_COMPONENT_MML_DLI0, MTK_MML_MML, "dli0" },
-	{ DDP_COMPONENT_MML_DLI1, MTK_MML_MML, "dli1" },
-	{ DDP_COMPONENT_MML_DLO0, MTK_MML_MML, "dlo0" },
-	{ DDP_COMPONENT_MML_DLO1, MTK_MML_MML, "dlo1" },
-	{ DDP_COMPONENT_MML_MUTEX0, MTK_MML_MUTEX, "mutex0" },
-	{ DDP_COMPONENT_MML_WROT0, MTK_MML_WROT, "wrot0" },
-	{ DDP_COMPONENT_MML_WROT1, MTK_MML_WROT, "wrot1" },
-	{ DDP_COMPONENT_MML_WROT2, MTK_MML_WROT, "wrot2" },
-	{ DDP_COMPONENT_MML_WROT3, MTK_MML_WROT, "wrot3" },
-};
-
-static u32 mml_ddp_comp_get_id(struct device_node *node, const char *name)
-{
-	u32 i;
-
-	if (!name) {
-		mml_err("no comp-names in component %s for ddp binding",
-			node->full_name);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(mml_ddp_matches); i++) {
-		if (!strcmp(name, mml_ddp_matches[i].name))
-			return mml_ddp_matches[i].id;
-	}
-	mml_err("no ddp component matches: %s", name);
-	return -ENODATA;
-}
-
-int mml_ddp_comp_init(struct device *dev,
-		      struct mtk_ddp_comp *ddp_comp, struct mml_comp *mml_comp,
-		      const struct mtk_ddp_comp_funcs *funcs)
-{
-	if (unlikely(!funcs))
-		return -EINVAL;
-
-	ddp_comp->id = mml_ddp_comp_get_id(dev->of_node, mml_comp->name);
-	if (IS_ERR_VALUE(ddp_comp->id))
-		return ddp_comp->id;
-
-	ddp_comp->funcs = funcs;
-	ddp_comp->dev = dev;
-
-	/* ddp_comp->clk = mml_comp->clks[0]; */
-	ddp_comp->regs_pa = mml_comp->base_pa;
-	ddp_comp->regs = mml_comp->base;
-	/* ddp_comp->cmdq_base = cmdq_register_device(dev); */
-	ddp_comp->larb_dev = mml_comp->larb_dev;
-	ddp_comp->larb_id = mml_comp->larb_port;
-	ddp_comp->sub_idx = mml_comp->sub_idx;
-	return 0;
-}
-
-int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
-{
-	struct mtk_drm_private *private = drm->dev_private;
-
-	if (private->ddp_comp[comp->id])
-		return -EBUSY;
-
-	if (comp->id < 0)
-		return -EINVAL;
-
-	private->ddp_comp[comp->id] = comp;
-	return 0;
-}
-
-void mml_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
-{
-	struct mtk_drm_private *private = drm->dev_private;
-	if (comp && comp->id >= 0)
-		private->ddp_comp[comp->id] = NULL;
-}
 

@@ -35,6 +35,7 @@ mtk-mml-objs += mtk-mml-core.o
 mtk-mml-objs += mtk-mml-tile.o
 mtk-mml-objs += mtk-mml-pq-core.o
 mtk-mml-objs += mtk-mml-drm-adaptor.o
+mtk-mml-objs += mtk-mml-dle-adaptor.o
 mtk-mml-objs += mtk-mml-buf.o
 mtk-mml-objs += mtk-mml-sys.o
 mtk-mml-objs += tile_core.o

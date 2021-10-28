@@ -71,6 +71,9 @@ extern int mml_trace;
 		mml_trace_end(); \
 } while (0)
 
+/* mml pq control */
+extern int mml_pq_disable;
+
 /* mml slt */
 extern int mml_slt;
 
@@ -82,7 +85,7 @@ extern int mml_racing_wdone_eoc;
 
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16
-#define MML_MAX_PATH_CACHES	8
+#define MML_MAX_PATH_CACHES	12
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
 #define MML_MAX_TPUT		800
@@ -196,8 +199,7 @@ struct mml_path_client {
 
 struct mml_topology_cache {
 	const struct mml_topology_ops *op;
-	struct mml_topology_path path[MML_MAX_PATH_CACHES];
-	u32 cnt;
+	struct mml_topology_path paths[MML_MAX_PATH_CACHES];
 	struct mml_path_client path_clts[MML_MAX_CMDQ_CLTS];
 	struct regulator *reg;
 	u32 opp_cnt;
@@ -233,24 +235,23 @@ struct mml_frame_config {
 	struct list_head entry;
 	struct mml_frame_info info;
 	struct mml_frame_size frame_out[MML_MAX_OUTPUTS];
-	struct mutex task_mutex;
 	struct list_head tasks;
 	struct list_head await_tasks;
 	struct list_head done_tasks;
 	u32 run_task_cnt;
 	u32 await_task_cnt;
 	u8 done_task_cnt;
-	bool dual;
-	bool alpharot;
-	bool shadow;
+	/* mutex to join operations of task pipes, like buffer flush */
+	struct mutex pipe_mutex;
+
+	/* display parameter */
 	bool disp_dual;
 	bool disp_vdo;
-	struct mutex pipe_mutex;
 
 	/* platform driver */
 	struct mml_dev *mml;
 
-	/* drm adaptor */
+	/* adaptor */
 	u32 last_jobid;
 
 	/* core */
@@ -268,6 +269,11 @@ struct mml_frame_config {
 
 	/* topology */
 	const struct mml_topology_path *path[MML_PIPE_CNT];
+	bool dual:1;
+	bool alpharot:1;
+	bool shadow:1;
+	bool framemode:1;
+	bool nocmd:1;
 
 	/* tile */
 	struct mml_tile_output *tile_output[MML_PIPE_CNT];
@@ -602,6 +608,14 @@ void mml_core_init_config(struct mml_frame_config *cfg);
  * @cfg: The frame config to be deinit.
  */
 void mml_core_deinit_config(struct mml_frame_config *cfg);
+
+/**
+ * mml_core_config_task - config the task in current thread
+ *
+ * @cfg:	the frame config to handle
+ * @task:	task to execute
+ */
+void mml_core_config_task(struct mml_frame_config *cfg, struct mml_task *task);
 
 /**
  * mml_core_submit_task - queue the task in config work thread

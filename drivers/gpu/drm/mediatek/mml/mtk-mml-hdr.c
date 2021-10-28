@@ -12,7 +12,7 @@
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
-#include "mtk-mml-drm-adaptor.h"
+#include "mtk-mml-dle-adaptor.h"
 #include "mtk-mml-pq-core.h"
 
 #include "mtk-mml-driver.h"

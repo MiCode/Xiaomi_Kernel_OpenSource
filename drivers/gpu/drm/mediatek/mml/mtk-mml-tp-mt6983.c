@@ -51,6 +51,8 @@ enum topology_scenario {
 	PATH_MML_NOPQ_P1,
 	PATH_MML_PQ_P0,
 	PATH_MML_PQ_P1,
+	PATH_MML_PQ_DD0,
+	PATH_MML_PQ_DD1,
 	PATH_MML_PQ_P2,
 	PATH_MML_PQ_P3,
 	PATH_MML_2OUT_P0,
@@ -110,6 +112,32 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_DLO1_SOUT, MML_WROT1,},
 		{MML_WROT1,},
 	},
+	[PATH_MML_PQ_DD0] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_DLI0, MML_DLI0_SEL,},
+		{MML_DLI0_SEL, MML_HDR0,},
+		{MML_HDR0, MML_AAL0,},
+		{MML_AAL0, MML_RSZ0,},
+		{MML_RSZ0, MML_TDSHP0,},
+		{MML_TDSHP0, MML_COLOR0,},
+		{MML_COLOR0, MML_DLO0_SOUT,},
+		{MML_DLO0_SOUT, MML_DLO0,},
+		{MML_DLO0,},
+	},
+	[PATH_MML_PQ_DD1] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_DLI1, MML_DLI1_SEL,},
+		{MML_DLI1_SEL, MML_HDR1,},
+		{MML_HDR1, MML_AAL1,},
+		{MML_AAL1, MML_RSZ1,},
+		{MML_RSZ1, MML_TDSHP1,},
+		{MML_TDSHP1, MML_COLOR1,},
+		{MML_COLOR1, MML_DLO1_SOUT,},
+		{MML_DLO1_SOUT, MML_DLO1,},
+		{MML_DLO1,},
+	},
 	[PATH_MML_PQ_P2] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
@@ -167,6 +195,8 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_P0] = MML_CLT_PIPE0,
 	[PATH_MML_PQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_PQ_DD0] = MML_CLT_PIPE0,
+	[PATH_MML_PQ_DD1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_P2] = MML_CLT_PIPE0,
 	[PATH_MML_PQ_P3] = MML_CLT_PIPE1,
 	[PATH_MML_2OUT_P0] = MML_CLT_PIPE0,
@@ -190,6 +220,8 @@ static const u8 grp_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P1] = MUX_SOF_GRP2,
 	[PATH_MML_PQ_P0] = MUX_SOF_GRP1,
 	[PATH_MML_PQ_P1] = MUX_SOF_GRP2,
+	[PATH_MML_PQ_DD0] = MUX_SOF_GRP3,
+	[PATH_MML_PQ_DD1] = MUX_SOF_GRP4,
 	[PATH_MML_PQ_P2] = MUX_SOF_GRP1,
 	[PATH_MML_PQ_P3] = MUX_SOF_GRP2,
 	[PATH_MML_2OUT_P0] = MUX_SOF_GRP1,
@@ -384,9 +416,14 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 			__func__);
 		return -ECHILD;
 	}
+	if (ARRAY_SIZE(cache->paths) < PATH_MML_MAX) {
+		mml_err("[topology]%s not enough path cache for all paths",
+			__func__);
+		return -ECHILD;
+	}
 
 	for (i = 0; i < PATH_MML_MAX; i++) {
-		struct mml_topology_path *path = &cache->path[i];
+		struct mml_topology_path *path = &cache->paths[i];
 
 		tp_parse_path(mml, path, path_map[i]);
 		if (mtk_mml_msg) {
@@ -439,6 +476,11 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;
 		goto done;
+	} else if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+		/* direct-link in/out for addon case */
+		scene[0] = PATH_MML_PQ_DD0;
+		scene[1] = PATH_MML_PQ_DD1;
+		goto done;
 	}
 
 	en_rsz = tp_need_resize(&cfg->info);
@@ -446,27 +488,24 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		en_rsz = true;
 
 	if (!en_rsz && !cfg->info.dest[0].pq_config.en) {
-		/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
+		/* dual pipe, rdma to wrot */
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;
-	} else if ((en_rsz || cfg->info.dest[0].pq_config.en) &&
-		   cfg->info.dest_cnt == 1) {
-		/* 1 in 1 out with PQs */
-		if (mml_force_rsz == 2) {
-			scene[0] = PATH_MML_PQ_P2;
-			scene[1] = PATH_MML_PQ_P3;
-		} else {
-			scene[0] = PATH_MML_PQ_P0;
-			scene[1] = PATH_MML_PQ_P1;
-		}
 	} else if (cfg->info.dest_cnt == 2) {
 		scene[0] = PATH_MML_2OUT_P0;
 		scene[1] = PATH_MML_2OUT_P1;
+	} else if (mml_force_rsz == 2) {
+		scene[0] = PATH_MML_PQ_P2;
+		scene[1] = PATH_MML_PQ_P3;
+	} else {
+		/* 1 in 1 out with PQs */
+		scene[0] = PATH_MML_PQ_P0;
+		scene[1] = PATH_MML_PQ_P1;
 	}
 
 done:
-	path[0] = &cache->path[scene[0]];
-	path[1] = &cache->path[scene[1]];
+	path[0] = &cache->paths[scene[0]];
+	path[1] = &cache->paths[scene[1]];
 
 	if (mml_path_swap)
 		swap(path[0], path[1]);
@@ -504,6 +543,11 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	else /* (mml_dual == MML_DUAL_NORMAL) */
 		cfg->dual = tp_need_dual(cfg);
 
+	if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+		cfg->dual = cfg->disp_dual;
+		cfg->framemode = true;
+		cfg->nocmd = true;
+	}
 	cfg->shadow = true;
 
 	tp_select_path(cache, cfg, path);
@@ -578,7 +622,7 @@ decouple:
 static struct cmdq_client *get_racing_clt(struct mml_topology_cache *cache, u32 pipe)
 {
 	/* use NO PQ path as inline rot path for this platform */
-	return cache->path[PATH_MML_NOPQ_P0 + pipe].clt;
+	return cache->paths[PATH_MML_NOPQ_P0 + pipe].clt;
 }
 
 static const struct mml_topology_ops tp_ops_mt6983 = {

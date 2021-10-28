@@ -8,25 +8,14 @@
 #include <linux/module.h>
 #include <linux/types.h>
 
-#include "mtk-mml-drm-adaptor.h"
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 
 #define TOPOLOGY_PLATFORM	"mt6879"
-#define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
 
 int mml_force_rsz;
 module_param(mml_force_rsz, int, 0644);
-
-enum topology_dual {
-	MML_DUAL_NORMAL,
-	MML_DUAL_DISABLE,
-	MML_DUAL_ALWAYS,
-};
-
-int mml_dual;
-module_param(mml_dual, int, 0644);
 
 enum topology_scenario {
 	PATH_MML_NOPQ_P0 = 0,
@@ -267,18 +256,18 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 	}
 
 	for (i = 0; i < PATH_MML_MAX; i++) {
-		struct mml_topology_path *path = &cache->path[i];
+		struct mml_topology_path *path = &cache->paths[i];
 
 		tp_parse_path(mml, path, path_map[i]);
 		if (mtk_mml_msg) {
-			mml_log("[topology]dump path %hhu count %u",
-				i, path->node_cnt);
+			mml_log("[topology]dump path %hhu count %u clt id %hhu",
+				i, path->node_cnt, clt_dispatch[i]);
 			tp_dump_path(path);
 		}
 
 		/* now dispatch cmdq client (channel) to path */
 		path->clt = clts[clt_dispatch[i]];
-
+		path->clt_id = clt_dispatch[i];
 		path->mux_group = grp_dispatch[i];
 	}
 
@@ -326,13 +315,8 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		scene[0] = PATH_MML_PQ_P0;
 	}
 
-	path[0] = &cache->path[scene[0]];
-	path[1] = &cache->path[scene[1]];
-}
-
-static inline bool tp_need_dual(struct mml_frame_config *cfg)
-{
-	return false;
+	path[0] = &cache->paths[scene[0]];
+	path[1] = &cache->paths[scene[1]];
 }
 
 static s32 tp_select(struct mml_topology_cache *cache,
@@ -340,15 +324,8 @@ static s32 tp_select(struct mml_topology_cache *cache,
 {
 	struct mml_topology_path *path[2] = {0};
 
-	if (mml_dual == MML_DUAL_DISABLE)
-		cfg->dual = false;
-	else if (mml_dual == MML_DUAL_ALWAYS)
-		cfg->dual = true;
-	else /* (mml_dual == MML_DUAL_NORMAL) */
-		cfg->dual = tp_need_dual(cfg);
-
-	if (!cfg->dual && cfg->info.mode == MML_MODE_RACING)
-		mml_err("[topology]racing mode but not dual may fail mml");
+	cfg->dual = false;
+	cfg->shadow = true;
 
 	tp_select_path(cache, cfg, path);
 
@@ -369,14 +346,13 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	}
 
 	tp_dump_path_short(path[0]);
-	if (cfg->dual && path[1])
-		tp_dump_path_short(path[1]);
 
 	return 0;
 }
 
 static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
 {
+	/* not support inline rot in this platform */
 	return MML_MODE_MML_DECOUPLE;
 }
 

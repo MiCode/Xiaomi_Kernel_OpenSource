@@ -12,7 +12,7 @@
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
-#include "mtk-mml-drm-adaptor.h"
+#include "mtk-mml-dle-adaptor.h"
 
 #define MUTEX_MAX_MOD_REGS	((MML_MAX_COMPONENTS + 31) >> 5)
 
@@ -70,6 +70,11 @@ struct mml_mutex {
 
 	struct mutex_module modules[MML_MAX_COMPONENTS];
 };
+
+static inline struct mml_mutex *comp_to_mutex(struct mml_comp *comp)
+{
+	return container_of(comp, struct mml_mutex, comp);
+}
 
 static s32 mutex_enable(struct mml_mutex *mutex, struct cmdq_pkt *pkt,
 			const struct mml_topology_path *path, u32 mutex_sof)
@@ -129,7 +134,7 @@ static s32 mutex_disable(struct mml_mutex *mutex, struct cmdq_pkt *pkt,
 static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
 			 struct mml_comp_config *ccfg)
 {
-	struct mml_mutex *mutex = container_of(comp, struct mml_mutex, comp);
+	struct mml_mutex *mutex = comp_to_mutex(comp);
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
@@ -143,7 +148,7 @@ static const struct mml_comp_config_ops mutex_config_ops = {
 static void mutex_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	struct mml_mutex *mutex = container_of(comp, struct mml_mutex, comp);
+	struct mml_mutex *mutex = comp_to_mutex(comp);
 	u8 i, j;
 
 	mml_err("mutex component %u dump:", comp->id);

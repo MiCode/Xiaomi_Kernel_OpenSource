@@ -10,7 +10,6 @@
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
-#include "mtk-mml-drm-adaptor.h"
 
 #include "tile_driver.h"
 

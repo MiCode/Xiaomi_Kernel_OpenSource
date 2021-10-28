@@ -84,6 +84,6 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx);
 
 void destroy_tile_output(struct mml_tile_output *output);
 
-void dump_tile_output(struct mml_task *task, u8 pipe_idx);
+void dump_tile_output(struct mml_task *task, u32 pipe_idx);
 
 #endif	/* __MTK_MML_TILE_H__ */

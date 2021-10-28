@@ -12,7 +12,7 @@
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
-#include "mtk-mml-drm-adaptor.h"
+#include "mtk-mml-dle-adaptor.h"
 
 #define SYS_SW0_RST_B_REG	0x700
 #define SYS_SW1_RST_B_REG	0x704
@@ -72,12 +72,17 @@ struct mml_dbg_reg {
 };
 
 struct mml_sys {
+	/* Device data and component bindings */
 	const struct mml_data *data;
 	struct mtk_ddp_comp ddp_comps[MML_MAX_SYS_COMPONENTS];
+	/* DDP component flags */
 	u32 ddp_comp_en;
+	/* DDP component bound index */
 	u32 ddp_bound;
 	struct mml_comp comps[MML_MAX_SYS_COMPONENTS];
+	/* MML component count */
 	u32 comp_cnt;
+	/* MML component bound count */
 	u32 comp_bound;
 
 	/* MML multiplexer pins.
@@ -100,7 +105,7 @@ struct mml_sys {
 	 *	mux_pins[adjacency[RDMA0][RSZ0]] is MOUT from RDMA0 to RSZ0.
 	 *	mux_pins[adjacency[RSZ0][RDMA0]] is SELIN from RDMA0 to RSZ0.
 	 *
-	 * array data would be like:
+	 * Array data would be like:
 	 *	[0] = { T  indices of },	T: indices of component data
 	 *	[1] = { . T . MOUTs & },	   (by component type, the
 	 *	[2] = { . . T . SOUTs },	    indices refer to different
@@ -118,6 +123,11 @@ struct mml_sys {
 
 	/* register for racing mode select ready signal */
 	u16 inline_ready_sel;
+
+	/* component master device, i.e., mml driver device */
+	struct device *master;
+	/* adaptor for display addon config */
+	struct mml_dle_ctx *dle_ctx;
 };
 
 struct sys_frame_data {
@@ -772,6 +782,15 @@ static int bind_mml(struct device *dev, struct device *master,
 		    struct mml_sys *sys)
 {
 	s32 ret;
+
+	if (WARN_ON(sys->master && sys->master != master)) {
+		dev_err(dev, "failed to register component %s to new master %s from old %s\n",
+			dev->of_node->full_name,
+			master->of_node->full_name,
+			sys->master->of_node->full_name);
+		return -EUSERS;
+	}
+	sys->master = master;
 
 	if (WARN_ON(sys->comp_bound >= sys->comp_cnt))
 		return -ERANGE;

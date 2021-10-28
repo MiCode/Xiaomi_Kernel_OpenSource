@@ -1,0 +1,544 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021 MediaTek Inc.
+ * Author: Ping-Hsun Wu <ping-hsun.wu@mediatek.com>
+ */
+
+#include <mtk_drm_drv.h>
+
+#include "mtk-mml-dle-adaptor.h"
+#include "mtk-mml-buf.h"
+#include "mtk-mml-color.h"
+#include "mtk-mml-core.h"
+#include "mtk-mml-driver.h"
+#include "mtk-mml-mmp.h"
+
+/* set to 0 to disable reuse config */
+int dle_reuse = 1;
+module_param(dle_reuse, int, 0644);
+
+int dle_max_cache_task = 2;
+module_param(dle_max_cache_task, int, 0644);
+
+int dle_max_cache_cfg = 2;
+module_param(dle_max_cache_cfg, int, 0644);
+
+struct mml_dle_ctx {
+	struct list_head configs;
+	u32 config_cnt;
+	struct mutex config_mutex;
+	struct mml_dev *mml;
+	const struct mml_task_ops *task_ops;
+	atomic_t job_serial;
+	struct workqueue_struct *wq_destroy;
+	bool dl_dual;
+	void (*submit_cb)(const struct mml_task *task, void *cb_param);
+};
+
+static bool check_frame_change(struct mml_frame_info *info,
+			       struct mml_frame_config *cfg)
+{
+	return !memcmp(&cfg->info, info, sizeof(*info));
+}
+
+static struct mml_frame_config *frame_config_find_reuse(
+	struct mml_dle_ctx *ctx,
+	struct mml_submit *submit)
+{
+	struct mml_frame_config *cfg;
+
+	if (!dle_reuse)
+		return NULL;
+
+	mml_trace_ex_begin("%s", __func__);
+
+	list_for_each_entry(cfg, &ctx->configs, entry) {
+		if (submit->update && cfg->last_jobid == submit->job->jobid)
+			goto done;
+
+		if (check_frame_change(&submit->info, cfg))
+			goto done;
+	}
+
+	/* not found, give return value to NULL */
+	cfg = NULL;
+
+done:
+	mml_trace_ex_end();
+	return cfg;
+}
+
+static struct mml_task *task_get_idle(struct mml_frame_config *cfg)
+{
+	struct mml_task *task = list_first_entry_or_null(
+		&cfg->done_tasks, struct mml_task, entry);
+
+	if (task) {
+		list_del_init(&task->entry);
+		cfg->done_task_cnt--;
+		memset(&task->buf, 0, sizeof(task->buf));
+	}
+	return task;
+}
+
+static void frame_config_destroy(struct mml_frame_config *cfg)
+{
+	struct mml_task *task, *tmp;
+
+	mml_msg("[dle]%s frame config %p", __func__, cfg);
+
+	if (WARN_ON(!list_empty(&cfg->await_tasks))) {
+		mml_err("[dle]still waiting tasks in wq during destroy config");
+		list_for_each_entry_safe(task, tmp, &cfg->await_tasks, entry) {
+			/* unable to handling error,
+			 * print error but not destroy
+			 */
+			mml_err("[dle]busy task:%p", task);
+			list_del_init(&task->entry);
+			task->config = NULL;
+		}
+	}
+
+	while (!list_empty(&cfg->done_tasks)) {
+		task = list_first_entry(&cfg->done_tasks, typeof(*task),
+			entry);
+		list_del_init(&task->entry);
+		mml_core_destroy_task(task);
+	}
+
+	mml_core_deinit_config(cfg);
+	kfree(cfg);
+
+	mml_msg("[dle]%s frame config %p destroy done", __func__, cfg);
+}
+
+static void frame_config_destroy_work(struct work_struct *work)
+{
+	struct mml_frame_config *cfg = container_of(work,
+		struct mml_frame_config, work_destroy);
+
+	frame_config_destroy(cfg);
+}
+
+static struct mml_frame_config *frame_config_create(
+	struct mml_dle_ctx *ctx,
+	struct mml_frame_info *info)
+{
+	struct mml_frame_config *cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
+
+	if (!cfg)
+		return ERR_PTR(-ENOMEM);
+	mml_core_init_config(cfg);
+
+	list_add_tail(&cfg->entry, &ctx->configs);
+	ctx->config_cnt++;
+	cfg->info = *info;
+	cfg->disp_dual = ctx->dl_dual;
+	cfg->mml = ctx->mml;
+	cfg->task_ops = ctx->task_ops;
+	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
+
+	return cfg;
+}
+
+static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
+				  struct mml_buffer *fdbuf,
+				  const char *name)
+{
+	u8 i;
+
+	mml_buf_get(fbuf, fdbuf->fd, fdbuf->cnt, name);
+
+	/* also copy size for later use */
+	for (i = 0; i < fdbuf->cnt; i++)
+		fbuf->size[i] = fdbuf->size[i];
+	fbuf->cnt = fdbuf->cnt;
+	fbuf->flush = fdbuf->flush;
+	fbuf->invalid = fdbuf->invalid;
+
+	if (fdbuf->fence >= 0) {
+		/* fbuf->fence = sync_file_get_fence(fdbuf->fence); */
+		mml_err("[dle]ignore dma fence %d", fdbuf->fence);
+	}
+}
+
+static void task_move_to_idle(struct mml_task *task)
+{
+	/* Must lock ctx->config_mutex before call */
+	if (task->state == MML_TASK_INITIAL ||
+		task->state == MML_TASK_DUPLICATE ||
+		task->state == MML_TASK_REUSE) {
+		/* move out from awat list */
+		task->config->await_task_cnt--;
+	} else {
+		/* unknown state transition */
+		mml_err("[drm]%s state conflict %d", __func__, task->state);
+	}
+
+	list_del_init(&task->entry);
+	task->state = MML_TASK_IDLE;
+	list_add_tail(&task->entry, &task->config->done_tasks);
+	task->config->done_task_cnt++;
+
+	mml_msg("[drm]%s task cnt (%u %u %hhu)",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt);
+}
+
+static void task_move_to_destroy(struct kref *kref)
+{
+	struct mml_task *task = container_of(kref,
+		struct mml_task, ref);
+
+	mml_core_destroy_task(task);
+}
+
+static void task_submit_done(struct mml_task *task)
+{
+	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
+
+	mml_msg("[dle]%s task %p state %u", __func__, task, task->state);
+
+	/* mml_mmp(submit_cb, MMPROFILE_FLAG_PULSE, task->job.jobid, 0); */
+
+	if (ctx->submit_cb)
+		ctx->submit_cb(task, task->cb_param);
+
+	mutex_lock(&ctx->config_mutex);
+	task_move_to_idle(task);
+	mutex_unlock(&ctx->config_mutex);
+
+	kref_put(&task->ref, task_move_to_destroy);
+}
+
+static void dump_pq_en(u32 idx, struct mml_pq_param *pq_param,
+	struct mml_pq_config *pq_config)
+{
+	u32 pqen = 0;
+
+	memcpy(&pqen, pq_config, min(sizeof(*pq_config), sizeof(pqen)));
+
+	if (pq_param)
+		mml_log("[dle]PQ %u config %#x param en %u %s",
+			idx, pqen, pq_param->enable,
+			mml_pq_disable ? "FORCE DISABLE" : "");
+	else
+		mml_log("[dle]PQ %u config %#x param NULL %s",
+			idx, pqen,
+			mml_pq_disable ? "FORCE DISABLE" : "");
+}
+
+static void frame_calc_plane_offset(struct mml_frame_data *data,
+	struct mml_buffer *buf)
+{
+	u32 i;
+
+	data->plane_offset[0] = 0;
+	for (i = 1; i < MML_FMT_PLANE(data->format); i++) {
+		if (buf->fd[i] != buf->fd[i-1] && buf->fd[i] >= 0) {
+			/* different buffer for different plane, set to begin */
+			data->plane_offset[i] = 0;
+			continue;
+		}
+		data->plane_offset[i] = data->plane_offset[i-1] + buf->size[i-1];
+	}
+}
+
+s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
+	void *cb_param)
+{
+	struct mml_frame_config *cfg;
+	struct mml_task *task;
+	s32 result;
+	u32 i;
+
+	mml_trace_begin("%s", __func__);
+
+	if (mtk_mml_msg || mml_pq_disable) {
+		for (i = 0; i < submit->info.dest_cnt; i++) {
+			dump_pq_en(i, submit->pq_param[i],
+				&submit->info.dest[i].pq_config);
+
+			if (mml_pq_disable) {
+				submit->pq_param[i] = NULL;
+				memset(&submit->info.dest[i].pq_config, 0,
+					sizeof(submit->info.dest[i].pq_config));
+			}
+		}
+	}
+
+	/* always fixup plane offset */
+	frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
+	for (i = 0; i < submit->info.dest_cnt; i++)
+		frame_calc_plane_offset(&submit->info.dest[i].data,
+			&submit->buffer.dest[i]);
+
+	/* mml_mmp(submit, MMPROFILE_FLAG_PULSE, atomic_read(&ctx->job_serial), 0); */
+
+	mutex_lock(&ctx->config_mutex);
+
+	cfg = frame_config_find_reuse(ctx, submit);
+	if (cfg) {
+		mml_msg("[dle]%s reuse config %p", __func__, cfg);
+		task = task_get_idle(cfg);
+		if (task) {
+			/* reuse case change state IDLE to REUSE */
+			task->state = MML_TASK_REUSE;
+			mml_msg("[dle]reuse task %p", task);
+		} else {
+			task = mml_core_create_task();
+			if (IS_ERR(task)) {
+				result = PTR_ERR(task);
+				goto err_unlock_exit;
+			}
+			task->config = cfg;
+			task->state = MML_TASK_DUPLICATE;
+		}
+	} else {
+		cfg = frame_config_create(ctx, &submit->info);
+		mml_msg("[dle]%s create config %p", __func__, cfg);
+		if (IS_ERR(cfg)) {
+			result = PTR_ERR(cfg);
+			goto err_unlock_exit;
+		}
+		task = mml_core_create_task();
+		if (IS_ERR(task)) {
+			list_del_init(&cfg->entry);
+			frame_config_destroy(cfg);
+			result = PTR_ERR(task);
+			goto err_unlock_exit;
+		}
+		task->config = cfg;
+	}
+
+	/* make sure id unique and cached last */
+	task->job.jobid = atomic_fetch_inc(&ctx->job_serial);
+	task->cb_param = cb_param;
+	cfg->last_jobid = task->job.jobid;
+	list_add_tail(&task->entry, &cfg->await_tasks);
+	cfg->await_task_cnt++;
+	mml_msg("[dle]%s task cnt (%u %u %hhu)",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt);
+
+	mutex_unlock(&ctx->config_mutex);
+
+	/* copy per-frame info */
+	task->ctx = ctx;
+	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src, "mml_rdma");
+	task->buf.dest_cnt = submit->buffer.dest_cnt;
+	for (i = 0; i < submit->buffer.dest_cnt; i++)
+		frame_buf_to_task_buf(&task->buf.dest[i],
+				      &submit->buffer.dest[i],
+				      "mml_wrot");
+
+	/* no fence for dle task */
+	task->job.fence = -1;
+	mml_log("[dle]mml job %u task %p config %p mode %hhu",
+		task->job.jobid, task, cfg, cfg->info.mode);
+
+	/* copy pq parameters */
+	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)
+		memcpy(&task->pq_param[i], submit->pq_param[i], sizeof(task->pq_param[i]));
+
+	/* wake lock */
+	/* mml_lock_wake_lock(task->config->mml, true); */
+
+	/* get config from core */
+	mml_core_config_task(cfg, task);
+
+	/* copy job content back */
+	if (submit->job)
+		memcpy(submit->job, &task->job, sizeof(*submit->job));
+
+	mml_trace_end();
+	return 0;
+
+err_unlock_exit:
+	mutex_unlock(&ctx->config_mutex);
+	mml_trace_end();
+	return result;
+}
+
+static s32 dup_task(struct mml_task *task, u32 pipe)
+{
+	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
+
+	mutex_lock(&ctx->config_mutex);
+
+	mml_msg("[dle]%s task cnt (%u %u %hhu) task %p pipe %u config %p",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt,
+		task, pipe, task->config);
+
+	mutex_unlock(&ctx->config_mutex);
+	return 0;
+}
+
+const static struct mml_task_ops dle_task_ops = {
+	.submit_done = task_submit_done,
+	.dup_task = dup_task,
+};
+
+static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
+					  struct mml_dle_param *dl)
+{
+	struct mml_dle_ctx *ctx;
+
+	mml_msg("[dle]%s on dev %p", __func__, mml);
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return ERR_PTR(-ENOMEM);
+
+	INIT_LIST_HEAD(&ctx->configs);
+	mutex_init(&ctx->config_mutex);
+	ctx->mml = mml;
+	ctx->task_ops = &dle_task_ops;
+	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy", 0, 0);
+	ctx->dl_dual = dl->dual;
+	ctx->submit_cb = dl->submit_cb;
+
+	return ctx;
+}
+
+struct mml_dle_ctx *mml_dle_get_context(struct device *dev,
+					struct mml_dle_param *dl)
+{
+	struct mml_dev *mml = dev_get_drvdata(dev);
+
+	mml_msg("[dle]%s", __func__);
+	if (!mml) {
+		mml_err("[dle]%s not init mml", __func__);
+		return ERR_PTR(-EPERM);
+	}
+	return mml_dev_get_dle_ctx(mml, dl, dle_ctx_create);
+}
+
+static void dle_ctx_release(struct mml_dle_ctx *ctx)
+{
+	struct mml_frame_config *cfg, *tmp;
+
+	mml_msg("[dle]%s on ctx %p", __func__, ctx);
+
+	mutex_lock(&ctx->config_mutex);
+	list_for_each_entry_safe(cfg, tmp, &ctx->configs, entry) {
+		/* check and remove configs/tasks in this context */
+		list_del_init(&cfg->entry);
+		frame_config_destroy(cfg);
+	}
+
+	mutex_unlock(&ctx->config_mutex);
+	destroy_workqueue(ctx->wq_destroy);
+	kfree(ctx);
+}
+
+void mml_dle_put_context(struct mml_dle_ctx *ctx)
+{
+	if (IS_ERR_OR_NULL(ctx))
+		return;
+	mml_log("[dle]%s", __func__);
+	mml_dev_put_dle_ctx(ctx->mml, dle_ctx_release);
+}
+
+struct mml_ddp_comp_match {
+	enum mtk_ddp_comp_id id;
+	enum mtk_ddp_comp_type type;
+	const char *name;
+};
+
+static const struct mml_ddp_comp_match mml_ddp_matches[] = {
+	{ DDP_COMPONENT_MML_RSZ0, MTK_MML_RSZ, "rsz0" },
+	{ DDP_COMPONENT_MML_RSZ1, MTK_MML_RSZ, "rsz1" },
+	{ DDP_COMPONENT_MML_RSZ2, MTK_MML_RSZ, "rsz2" },
+	{ DDP_COMPONENT_MML_RSZ3, MTK_MML_RSZ, "rsz3" },
+	{ DDP_COMPONENT_MML_HDR0, MTK_MML_HDR, "hdr0" },
+	{ DDP_COMPONENT_MML_HDR1, MTK_MML_HDR, "hdr1" },
+	{ DDP_COMPONENT_MML_AAL0, MTK_MML_AAL, "aal0" },
+	{ DDP_COMPONENT_MML_AAL1, MTK_MML_AAL, "aal1" },
+	{ DDP_COMPONENT_MML_TDSHP0, MTK_MML_TDSHP, "tdshp0" },
+	{ DDP_COMPONENT_MML_TDSHP1, MTK_MML_TDSHP, "tdshp1" },
+	{ DDP_COMPONENT_MML_COLOR0, MTK_MML_COLOR, "color0" },
+	{ DDP_COMPONENT_MML_COLOR1, MTK_MML_COLOR, "color1" },
+	{ DDP_COMPONENT_MML_MML0, MTK_MML_MML, "mmlsys" },
+	{ DDP_COMPONENT_MML_DLI0, MTK_MML_MML, "dli0" },
+	{ DDP_COMPONENT_MML_DLI1, MTK_MML_MML, "dli1" },
+	{ DDP_COMPONENT_MML_DLO0, MTK_MML_MML, "dlo0" },
+	{ DDP_COMPONENT_MML_DLO1, MTK_MML_MML, "dlo1" },
+	{ DDP_COMPONENT_MML_MUTEX0, MTK_MML_MUTEX, "mutex0" },
+	{ DDP_COMPONENT_MML_WROT0, MTK_MML_WROT, "wrot0" },
+	{ DDP_COMPONENT_MML_WROT1, MTK_MML_WROT, "wrot1" },
+	{ DDP_COMPONENT_MML_WROT2, MTK_MML_WROT, "wrot2" },
+	{ DDP_COMPONENT_MML_WROT3, MTK_MML_WROT, "wrot3" },
+};
+
+static u32 mml_ddp_comp_get_id(struct device_node *node, const char *name)
+{
+	u32 i;
+
+	if (!name) {
+		mml_err("no comp-names in component %s for ddp binding",
+			node->full_name);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(mml_ddp_matches); i++) {
+		if (!strcmp(name, mml_ddp_matches[i].name))
+			return mml_ddp_matches[i].id;
+	}
+	mml_err("no ddp component matches: %s", name);
+	return -ENODATA;
+}
+
+int mml_ddp_comp_init(struct device *dev,
+		      struct mtk_ddp_comp *ddp_comp, struct mml_comp *mml_comp,
+		      const struct mtk_ddp_comp_funcs *funcs)
+{
+	if (unlikely(!funcs))
+		return -EINVAL;
+
+	ddp_comp->id = mml_ddp_comp_get_id(dev->of_node, mml_comp->name);
+	if (IS_ERR_VALUE(ddp_comp->id))
+		return ddp_comp->id;
+
+	ddp_comp->funcs = funcs;
+	ddp_comp->dev = dev;
+
+	/* ddp_comp->clk = mml_comp->clks[0]; */
+	ddp_comp->regs_pa = mml_comp->base_pa;
+	ddp_comp->regs = mml_comp->base;
+	/* ddp_comp->cmdq_base = cmdq_register_device(dev); */
+	ddp_comp->larb_dev = mml_comp->larb_dev;
+	ddp_comp->larb_id = mml_comp->larb_port;
+	ddp_comp->sub_idx = mml_comp->sub_idx;
+	return 0;
+}
+
+int mml_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *private = drm->dev_private;
+
+	if (private->ddp_comp[comp->id])
+		return -EBUSY;
+
+	if (comp->id < 0)
+		return -EINVAL;
+
+	private->ddp_comp[comp->id] = comp;
+	return 0;
+}
+
+void mml_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *private = drm->dev_private;
+
+	if (comp && comp->id >= 0)
+		private->ddp_comp[comp->id] = NULL;
+}
+

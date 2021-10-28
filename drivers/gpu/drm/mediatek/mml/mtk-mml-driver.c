@@ -36,8 +36,10 @@ struct mml_dev {
 
 	atomic_t drm_cnt;
 	struct mml_drm_ctx *drm_ctx;
-	struct mutex drm_ctx_mutex;
+	atomic_t dle_cnt;
+	struct mml_dle_ctx *dle_ctx;
 	struct mml_topology_cache *topology;
+	struct mutex ctx_mutex;
 	struct mutex clock_mutex;
 
 	/* sram operation */
@@ -162,6 +164,18 @@ void mml_qos_update_tput(struct mml_dev *mml)
 }
 
 
+static void create_dev_topology_locked(struct mml_dev *mml)
+{
+	/* make sure topology ready before client can use mml */
+	if (!mml->topology) {
+		mml->topology = mml_topology_create(mml, mml->pdev,
+			mml->cmdq_clts, mml->cmdq_clt_cnt);
+		mml_qos_init(mml);
+	}
+	if (IS_ERR(mml->topology))
+		mml_err("topology create fail %ld", PTR_ERR(mml->topology));
+}
+
 struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 	struct mml_drm_param *disp,
 	struct mml_drm_ctx *(*ctx_create)(struct mml_dev *mml,
@@ -169,23 +183,20 @@ struct mml_drm_ctx *mml_dev_get_drm_ctx(struct mml_dev *mml,
 {
 	struct mml_drm_ctx *ctx;
 
-	/* make sure topology ready before client can use mml */
-	if (!mml->topology) {
-		mml->topology = mml_topology_create(mml, mml->pdev,
-			mml->cmdq_clts, mml->cmdq_clt_cnt);
-		mml_qos_init(mml);
-	}
+	mutex_lock(&mml->ctx_mutex);
+
+	create_dev_topology_locked(mml);
 	if (IS_ERR(mml->topology)) {
-		mml_err("topology create fail %ld", PTR_ERR(mml->topology));
-		return (void *)mml->topology;
+		ctx = ERR_CAST(mml->topology);
+		goto exit;
 	}
 
-	mutex_lock(&mml->drm_ctx_mutex);
 	if (atomic_inc_return(&mml->drm_cnt) == 1)
 		mml->drm_ctx = ctx_create(mml, disp);
 	ctx = mml->drm_ctx;
-	mutex_unlock(&mml->drm_ctx_mutex);
 
+exit:
+	mutex_unlock(&mml->ctx_mutex);
 	return ctx;
 }
 
@@ -195,12 +206,54 @@ void mml_dev_put_drm_ctx(struct mml_dev *mml,
 	struct mml_drm_ctx *ctx;
 	int cnt;
 
-	mutex_lock(&mml->drm_ctx_mutex);
+	mutex_lock(&mml->ctx_mutex);
 	ctx = mml->drm_ctx;
 	cnt = atomic_dec_if_positive(&mml->drm_cnt);
 	if (cnt == 0)
 		mml->drm_ctx = NULL;
-	mutex_unlock(&mml->drm_ctx_mutex);
+	mutex_unlock(&mml->ctx_mutex);
+	if (cnt == 0)
+		ctx_release(ctx);
+
+	WARN_ON(cnt < 0);
+}
+
+struct mml_dle_ctx *mml_dev_get_dle_ctx(struct mml_dev *mml,
+	struct mml_dle_param *dl,
+	struct mml_dle_ctx *(*ctx_create)(struct mml_dev *mml,
+	struct mml_dle_param *dl))
+{
+	struct mml_dle_ctx *ctx;
+
+	mutex_lock(&mml->ctx_mutex);
+
+	create_dev_topology_locked(mml);
+	if (IS_ERR(mml->topology)) {
+		ctx = ERR_CAST(mml->topology);
+		goto exit;
+	}
+
+	if (atomic_inc_return(&mml->dle_cnt) == 1)
+		mml->dle_ctx = ctx_create(mml, dl);
+	ctx = mml->dle_ctx;
+
+exit:
+	mutex_unlock(&mml->ctx_mutex);
+	return ctx;
+}
+
+void mml_dev_put_dle_ctx(struct mml_dev *mml,
+	void (*ctx_release)(struct mml_dle_ctx *ctx))
+{
+	struct mml_dle_ctx *ctx;
+	int cnt;
+
+	mutex_lock(&mml->ctx_mutex);
+	ctx = mml->dle_ctx;
+	cnt = atomic_dec_if_positive(&mml->dle_cnt);
+	if (cnt == 0)
+		mml->dle_ctx = NULL;
+	mutex_unlock(&mml->ctx_mutex);
 	if (cnt == 0)
 		ctx_release(ctx);
 
@@ -771,7 +824,7 @@ static int mml_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mml->pdev = pdev;
-	mutex_init(&mml->drm_ctx_mutex);
+	mutex_init(&mml->ctx_mutex);
 	mutex_init(&mml->clock_mutex);
 	mutex_init(&mml->wake_ref_mutex);
 

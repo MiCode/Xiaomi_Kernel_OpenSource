@@ -26,6 +26,9 @@ enum mml_mode {
 	MML_MODE_RACING,
 	MML_MODE_MML_DECOUPLE,
 	MML_MODE_MDP_DECOUPLE,
+
+	/* belows are modes from driver internally */
+	MML_MODE_DDP_ADDON,
 	MML_MODE_SRAM_READ,
 };
 
@@ -36,8 +39,7 @@ enum mml_orientation {
 	MML_ROT_270
 };
 
-enum mml_pq_scenario
-{
+enum mml_pq_scenario {
 	MML_PQ_MEDIA_UNKNOWN = 0x0,
 	MML_PQ_MEDIA_VIDEO = 0x101,
 	MML_PQ_MEDIA_GAME_NORMAL = 0x1001,
@@ -67,10 +69,10 @@ struct mml_pq_config {
 	bool hfg_en:1;
 };
 
-enum mml_pq_enable_flag
-{
-	/* if PQ_DEFAULT_ENABLE == 1, use default enable set by PQ
-	   The other enable will be regardless. */
+enum mml_pq_enable_flag {
+	/* If MML_PQ_DEFAULT_EN, use default enable set by PQ,
+	 * and the other flags will be ignored.
+	 */
 	MML_PQ_DEFAULT_EN = 1 << 0,
 	MML_PQ_COLOR_EN = 1 << 1,
 	MML_PQ_SHP_EN = 1 << 2,
@@ -90,14 +92,13 @@ enum mml_gamut {
 	MML_GAMUT_BT2020,
 };
 
-enum mml_pq_user_info{
+enum mml_pq_user_info {
 	MML_PQ_USER_UNKNOWN = 0,
 	MML_PQ_USER_HWC = 1,
 	MML_PQ_USER_GPU = 2,
 };
 
-enum mml_pq_video_mode
-{
+enum mml_pq_video_mode {
 	MML_PQ_NORMAL = 0,
 	MML_PQ_HDR10,
 	MML_PQ_HDR10P,
@@ -214,6 +215,5 @@ struct mml_submit {
 	struct mml_pq_param *pq_param[MML_MAX_OUTPUTS];
 	bool update;
 };
-
 
 #endif	/* __MTK_MML_H__ */

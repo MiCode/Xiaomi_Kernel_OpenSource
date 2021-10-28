@@ -18,7 +18,7 @@
 #include "mtk-mml-color.h"
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
-#include "mtk-mml-drm-adaptor.h"
+#include "mtk-mml-dle-adaptor.h"
 
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"

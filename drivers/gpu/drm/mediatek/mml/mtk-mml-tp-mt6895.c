@@ -386,7 +386,7 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 	}
 
 	for (i = 0; i < PATH_MML_MAX; i++) {
-		struct mml_topology_path *path = &cache->path[i];
+		struct mml_topology_path *path = &cache->paths[i];
 
 		tp_parse_path(mml, path, path_map[i]);
 		if (mtk_mml_msg) {
@@ -449,23 +449,21 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;
-	} else if (en_rsz && cfg->info.dest_cnt == 1) {
-		/* 1 in 1 out with PQs */
-		if (mml_force_rsz == 2) {
-			scene[0] = PATH_MML_PQ_P2;
-			scene[1] = PATH_MML_PQ_P3;
-		} else {
-			scene[0] = PATH_MML_PQ_P0;
-			scene[1] = PATH_MML_PQ_P1;
-		}
 	} else if (cfg->info.dest_cnt == 2) {
 		scene[0] = PATH_MML_2OUT_P0;
 		scene[1] = PATH_MML_2OUT_P1;
+	} else if (mml_force_rsz == 2) {
+		scene[0] = PATH_MML_PQ_P2;
+		scene[1] = PATH_MML_PQ_P3;
+	} else {
+		/* 1 in 1 out with PQs */
+		scene[0] = PATH_MML_PQ_P0;
+		scene[1] = PATH_MML_PQ_P1;
 	}
 
 done:
-	path[0] = &cache->path[scene[0]];
-	path[1] = &cache->path[scene[1]];
+	path[0] = &cache->paths[scene[0]];
+	path[1] = &cache->paths[scene[1]];
 
 	if (mml_path_swap)
 		swap(path[0], path[1]);

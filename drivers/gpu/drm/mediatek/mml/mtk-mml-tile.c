@@ -20,9 +20,9 @@ static const struct mml_topology_path *get_topology_path(
 }
 
 static const struct mml_path_node *get_tile_node(
-	const struct mml_topology_path *path, u8 tile_idx)
+	const struct mml_topology_path *path, u32 eng_idx)
 {
-	return &path->nodes[path->tile_engines[tile_idx]];
+	return &path->nodes[path->tile_engines[eng_idx]];
 }
 
 static void set_tile_in_region(struct mml_tile_region *region,
@@ -76,18 +76,15 @@ static void set_tile_config(struct mml_task *task,
 			    const struct mml_topology_path *path,
 			    struct mml_tile_config *tile,
 			    u32 tile_idx,
-			    struct tile_param *tile_param)
+			    struct func_description *tile_func)
 {
-	u8 eng_cnt = path->tile_engine_cnt;
-	u8 i = 0;
-	struct func_description *ptr_tile_func_param =
-		tile_param->ptr_tile_func_param;
-	struct tile_func_block *ptr_func;
+	u32 eng_cnt = path->tile_engine_cnt;
+	u32 i;
 
 	for (i = 0; i < eng_cnt; i++) {
 		const struct mml_path_node *e = get_tile_node(path, i);
+		struct tile_func_block *ptr_func = &tile_func->func_list[i];
 
-		ptr_func = &ptr_tile_func_param->func_list[i];
 		set_tile_engine(e, &tile->tile_engines[i], ptr_func);
 	}
 
@@ -103,21 +100,18 @@ static void set_tile_config(struct mml_task *task,
 
 static s32 prepare_tile(struct mml_task *task,
 			const struct mml_topology_path *path, u32 pipe_idx,
-			struct tile_param *tile_param,
+			struct func_description *tile_func,
 			union mml_tile_data *tile_datas)
 {
 	struct mml_pipe_cache *cache = &task->config->cache[pipe_idx];
 	u32 eng_cnt = path->tile_engine_cnt;
-	struct func_description *ptr_tile_func_param =
-		tile_param->ptr_tile_func_param;
-	s32 ret;
 	u32 i;
+	s32 ret;
 
 	for (i = 0; i < eng_cnt; i++) {
 		struct mml_comp *comp = get_tile_node(path, i)->comp;
-		struct tile_func_block *ptr_func;
+		struct tile_func_block *ptr_func = &tile_func->func_list[i];
 
-		ptr_func = &ptr_tile_func_param->func_list[i];
 		if (unlikely(comp->id != ptr_func->func_num)) {
 			mml_err("[tile]mismatched tile_func(%d) and comp(%d) at [%d]",
 				ptr_func->func_num, comp->id, i);
@@ -199,115 +193,104 @@ static s32 tile_message_to_errno(enum isp_tile_message result)
 	}
 }
 
-s32 calc_tile(struct mml_task *task, u32 pipe_idx)
+struct tile_ctx {
+	/* output */
+	struct mml_tile_output *output;
+	/* working */
+	union mml_tile_data *tile_datas;
+	struct tile_reg_map *tile_reg_map;
+	struct func_description *tile_func;
+};
+
+static void destroy_tile_working(struct tile_ctx *ctx)
 {
-	struct mml_tile_output *output = NULL;
-	struct mml_tile_config *tiles = NULL;
-	size_t tile_num;
-	struct mml_frame_dest dest = task->config->info.dest[0];
-	const struct mml_topology_path *path = get_topology_path(task, pipe_idx);
-	u32 tile_cnt = 0;
-	struct tile_param *tile_param = NULL;
-	struct tile_reg_map *tile_reg_map = NULL;
-	struct func_description *tile_func = NULL;
+	/* free working but keep output */
+	kfree(ctx->tile_datas);
+	kfree(ctx->tile_reg_map);
+	kfree(ctx->tile_func);
+}
+
+static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max)
+{
+	ctx->output = kzalloc(sizeof(*ctx->output), GFP_KERNEL);
+	if (!ctx->output)
+		return -ENOMEM;
+	ctx->output->tiles = kcalloc(tile_max, sizeof(*ctx->output->tiles), GFP_KERNEL);
+	if (!ctx->output->tiles)
+		return -ENOMEM;
+	ctx->tile_datas = kcalloc(eng_cnt, sizeof(*ctx->tile_datas), GFP_KERNEL);
+	if (!ctx->tile_datas)
+		return -ENOMEM;
+	/* todo: vmalloc when driver init */
+	ctx->tile_reg_map = kzalloc(sizeof(*ctx->tile_reg_map), GFP_KERNEL);
+	if (!ctx->tile_reg_map)
+		return -ENOMEM;
+	ctx->tile_func = kzalloc(sizeof(*ctx->tile_func), GFP_KERNEL);
+	if (!ctx->tile_func)
+		return -ENOMEM;
+	return 0;
+}
+
+static s32 calc_frame(struct mml_task *task, u32 pipe_idx,
+	const struct mml_topology_path *path, struct tile_ctx *ctx)
+{
+	struct tile_reg_map *tile_reg_map = ctx->tile_reg_map;
+	struct func_description *tile_func = ctx->tile_func;
+	union mml_tile_data *tile_datas = ctx->tile_datas;
 	enum isp_tile_message result;
 	bool stop = false;
-	union mml_tile_data *tile_datas = NULL;
-	u32 eng_cnt = path->tile_engine_cnt;
-	s32 ret = 0;
-
-	mml_msg("%s task %p pipe %u", __func__, task, pipe_idx);
-
-	tile_datas = kcalloc(eng_cnt, sizeof(*tile_datas), GFP_KERNEL);
-	if (!tile_datas) {
-		ret = -ENOMEM;
-		goto free_output;
-	}
-	output = kzalloc(sizeof(*output), GFP_KERNEL);
-	if (!output) {
-		ret = -ENOMEM;
-		goto free_output;
-	}
-
-	if (task->config->info.mode == MML_MODE_RACING) {
-		if (task->config->info.dest_cnt > 1)
-			mml_err("Racing mode but output count > 1");
-
-		if (dest.rotate == MML_ROT_90 || dest.rotate == MML_ROT_270)
-			tile_num = MAX_RACING_90_270_TILE_NUM;
-		else
-			tile_num = MAX_RACING_0_180_TILE_NUM;
-	} else {
-		tile_num = MAX_DECOUPLE_TILE_NUM;
-	}
-	tiles = kcalloc(tile_num, sizeof(*tiles), GFP_KERNEL);
-	if (!tiles) {
-		ret = -ENOMEM;
-		goto free_output;
-	}
-
-	/* todo: vmalloc when driver init */
-	tile_param = kzalloc(sizeof(*tile_param), GFP_KERNEL);
-	if (!tile_param) {
-		ret = -ENOMEM;
-		goto free_output;
-	}
-	tile_reg_map = kzalloc(sizeof(*tile_reg_map), GFP_KERNEL);
-	if (!tile_reg_map) {
-		ret = -ENOMEM;
-		goto free_output;
-	}
-	tile_func = kzalloc(sizeof(*tile_func), GFP_KERNEL);
-	if (!tile_func) {
-		ret = -ENOMEM;
-		goto free_output;
-	}
-
-	tile_param->ptr_tile_reg_map = tile_reg_map;
-	tile_param->ptr_tile_func_param = tile_func;
+	s32 ret;
 
 	/* frame calculate */
 	result = tile_convert_func(tile_reg_map, tile_func, path);
-	if (result != ISP_MESSAGE_TILE_OK) {
-		ret = tile_message_to_errno(result);
-		goto free_output;
-	}
+	if (result != ISP_MESSAGE_TILE_OK)
+		goto err_tile;
 
 	/* comp prepare initTileCalc to get each engine's in/out size */
-	ret = prepare_tile(task, path, pipe_idx, tile_param, tile_datas);
+	ret = prepare_tile(task, path, pipe_idx, tile_func, tile_datas);
 	if (ret)
-		goto free_output;
+		goto err_exit;
 
 	result = tile_init_config(tile_reg_map, tile_func);
-	if (result != ISP_MESSAGE_TILE_OK) {
-		ret = tile_message_to_errno(result);
-		goto free_output;
-	}
+	if (result != ISP_MESSAGE_TILE_OK)
+		goto err_tile;
 
 	result = tile_frame_mode_init(tile_reg_map, tile_func);
-	if (result != ISP_MESSAGE_TILE_OK) {
-		ret = tile_message_to_errno(result);
-		goto free_output;
-	}
+	if (result != ISP_MESSAGE_TILE_OK)
+		goto err_tile;
 
 	result = tile_proc_main_single(tile_reg_map, tile_func, 0, &stop);
-	if (result != ISP_MESSAGE_TILE_OK) {
-		ret = tile_message_to_errno(result);
-		goto free_output;
-	}
+	if (result != ISP_MESSAGE_TILE_OK)
+		goto err_tile;
 
 	result = tile_frame_mode_close(tile_reg_map, tile_func);
-	if (result != ISP_MESSAGE_TILE_OK) {
-		ret = tile_message_to_errno(result);
-		goto free_output;
-	}
+	if (result != ISP_MESSAGE_TILE_OK)
+		goto err_tile;
+
+	return 0;
+
+err_tile:
+	ret = tile_message_to_errno(result);
+	mml_err("%s fail message %d errno %d", __func__, result, ret);
+err_exit:
+	return ret;
+}
+
+static s32 calc_tile_loop(struct mml_task *task,
+	const struct mml_topology_path *path, struct tile_ctx *ctx)
+{
+	struct tile_reg_map *tile_reg_map = ctx->tile_reg_map;
+	struct func_description *tile_func = ctx->tile_func;
+	struct mml_tile_config *tiles = ctx->output->tiles;
+	u32 tile_cnt = 0;
+	enum isp_tile_message result;
+	bool stop;
+	s32 ret;
 
 	/* tile calculate */
 	result = tile_mode_init(tile_reg_map, tile_func);
-	if (result != ISP_MESSAGE_TILE_OK) {
-		ret = tile_message_to_errno(result);
-		goto free_output;
-	}
+	if (result != ISP_MESSAGE_TILE_OK)
+		goto err_tile;
 
 	/* initialize stop for tile calculate */
 	stop = false;
@@ -317,45 +300,98 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 
 		result = tile_proc_main_single(tile_reg_map, tile_func,
 					       tile_cnt, &stop);
-		if (result != ISP_MESSAGE_TILE_OK) {
-			ret = tile_message_to_errno(result);
-			goto free_output;
-		}
+		if (result != ISP_MESSAGE_TILE_OK)
+			goto err_tile;
 
-		/* tile result from param retrieveTileParam */
-		set_tile_config(task, path, &tiles[tile_cnt],
-				tile_cnt, tile_param);
+		/* tile result from param */
+		set_tile_config(task, path, &tiles[tile_cnt], tile_cnt, tile_func);
 		tile_cnt++;
 	}
 
 	result = tile_mode_close(tile_reg_map, tile_func);
-	if (result != ISP_MESSAGE_TILE_OK) {
-		ret = tile_message_to_errno(result);
+	if (result != ISP_MESSAGE_TILE_OK)
+		goto err_tile;
+
+	ctx->output->tile_cnt = tile_cnt;
+	ctx->output->h_tile_cnt = tiles[tile_cnt - 1].h_tile_no + 1;
+	ctx->output->v_tile_cnt = tiles[tile_cnt - 1].v_tile_no + 1;
+	return 0;
+
+err_tile:
+	ret = tile_message_to_errno(result);
+	mml_err("%s fail message %d errno %d", __func__, result, ret);
+	return ret;
+}
+
+static s32 calc_frame_mode(struct mml_task *task,
+	const struct mml_topology_path *path, struct tile_ctx *ctx)
+{
+	struct mml_tile_config *tiles = ctx->output->tiles;
+
+	/* tile result from param once */
+	set_tile_config(task, path, &tiles[0], 0, ctx->tile_func);
+
+	ctx->output->tile_cnt = 1;
+	ctx->output->h_tile_cnt = 1;
+	ctx->output->v_tile_cnt = 1;
+	return 0;
+}
+
+s32 calc_tile(struct mml_task *task, u32 pipe_idx)
+{
+	size_t tile_max;
+	const struct mml_frame_dest *dest = &task->config->info.dest[0];
+	const struct mml_topology_path *path = get_topology_path(task, pipe_idx);
+	struct tile_ctx ctx = {0};
+	u32 eng_cnt = path->tile_engine_cnt;
+	s32 ret = 0;
+
+	mml_msg("%s task %p pipe %u", __func__, task, pipe_idx);
+
+	if (task->config->info.mode == MML_MODE_RACING) {
+		if (task->config->info.dest_cnt > 1)
+			mml_err("Racing mode but output count > 1");
+
+		if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)
+			tile_max = MAX_RACING_90_270_TILE_NUM;
+		else
+			tile_max = MAX_RACING_0_180_TILE_NUM;
+	} else if (task->config->framemode) {
+		tile_max = 1;
+	} else {
+		tile_max = MAX_DECOUPLE_TILE_NUM;
+	}
+
+	ret = create_tile_ctx(&ctx, eng_cnt, tile_max);
+	if (ret) {
+		mml_err("no memory to create tile context");
 		goto free_output;
 	}
 
-	output->tiles = tiles;
-	output->tile_cnt = tile_cnt;
-	output->h_tile_cnt = tiles[tile_cnt - 1].h_tile_no + 1;
-	output->v_tile_cnt = tiles[tile_cnt - 1].v_tile_no + 1;
+	ret = calc_frame(task, pipe_idx, path, &ctx);
+	if (ret)
+		goto free_output;
+
+	if (task->config->framemode)
+		ret = calc_frame_mode(task, path, &ctx);
+	else
+		ret = calc_tile_loop(task, path, &ctx);
+	if (ret)
+		goto free_output;
 
 	/* put tile_output to task */
-	task->config->tile_output[pipe_idx] = output;
+	task->config->tile_output[pipe_idx] = ctx.output;
 	goto free_working;
 
 free_output:
-	kfree(output);
-	kfree(tiles);
+	destroy_tile_output(ctx.output);
 free_working:
-	kfree(tile_datas);
-	kfree(tile_param);
-	kfree(tile_reg_map);
-	kfree(tile_func);
+	destroy_tile_working(&ctx);
 	return ret;
 }
 
 static struct mml_tile_output *get_tile_output(
-	struct mml_task *task, u8 pipe_idx)
+	struct mml_task *task, u32 pipe_idx)
 {
 	return task->config->tile_output[pipe_idx];
 }
@@ -367,22 +403,6 @@ void destroy_tile_output(struct mml_tile_output *output)
 	kfree(output->tiles);
 	kfree(output);
 	return;
-}
-
-static __attribute__((unused)) s32 destroy_all(struct mml_task *task)
-{
-	bool dual = task->config->dual;
-	u8 pipe_cnt = 0;
-	u8 pipe_idx = 0;
-
-	if (dual)
-		pipe_cnt = 2;
-	else
-		pipe_cnt = 1;
-
-	for (pipe_idx = 0; pipe_idx < pipe_cnt; pipe_idx++)
-		destroy_tile_output(task->config->tile_output[pipe_idx]);
-	return 0;
 }
 
 static void dump_tile_region(char *prefix, struct mml_tile_region *region)
@@ -414,8 +434,8 @@ static void dump_tile_config(struct mml_tile_config *tile)
 	u32 tile_no = tile->tile_no;
 	u32 h_no = tile->h_tile_no;
 	u32 v_no = tile->v_tile_no;
-	u8 engine_cnt = tile->engine_cnt;
-	u8 i = 0;
+	u32 engine_cnt = tile->engine_cnt;
+	u32 i;
 
 	mml_log("\t\ttile_no %u, h_no %u, v_no %u, eng_cnt %u",
 		tile_no, h_no, v_no, engine_cnt);
@@ -423,13 +443,12 @@ static void dump_tile_config(struct mml_tile_config *tile)
 		dump_tile_engine(&tile->tile_engines[i]);
 }
 
-void dump_tile_output(struct mml_task *task, u8 pipe_idx)
+void dump_tile_output(struct mml_task *task, u32 pipe_idx)
 {
 	struct mml_tile_output *output = get_tile_output(task, pipe_idx);
-	u8 tile_cnt = 0;
-	u8 i = 0;
+	u32 tile_cnt = output->tile_cnt;
+	u32 i;
 
-	tile_cnt = output->tile_cnt;
 	mml_log("tile_cnt %u", tile_cnt);
 	for (i = 0; i < tile_cnt; i++)
 		dump_tile_config(&output->tiles[i]);
