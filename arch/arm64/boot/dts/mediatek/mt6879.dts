@@ -8525,6 +8525,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		seninf_num = <8>;
 		mux_num = <13>;
 		cam_mux_num = <16>;
+		pref_mux_num = <9>;
 
 		interrupts = <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH 0>;
 
