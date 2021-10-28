@@ -29,6 +29,11 @@ struct mtk_apu_hw_ops {
 	int (*power_init)(struct mtk_apu *apu);
 	int (*power_on)(struct mtk_apu *apu);
 	int (*power_off)(struct mtk_apu *apu);
+
+	/* irq affinity tuning */
+	int (*irq_affin_init)(struct mtk_apu *apu);
+	int (*irq_affin_set)(struct mtk_apu *apu);
+	int (*irq_affin_unset)(struct mtk_apu *apu);
 };
 
 #define F_PRELOAD_FIRMWARE	BIT(0)

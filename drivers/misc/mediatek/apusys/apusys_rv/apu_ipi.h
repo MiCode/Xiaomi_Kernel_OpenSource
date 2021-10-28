@@ -68,6 +68,8 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 		 u32 wait_ms);
 int apu_ipi_lock(struct mtk_apu *apu);
 void apu_ipi_unlock(struct mtk_apu *apu);
+int apu_ipi_affin_enable(void);
+int apu_ipi_affin_disable(void);
 
 #endif /* APU_IPI_H */
 

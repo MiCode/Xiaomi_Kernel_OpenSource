@@ -3,8 +3,10 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/sched/clock.h>
 #include <linux/of_platform.h>
@@ -20,6 +22,11 @@
 #include "../apu_config.h"
 #include "../apu_hw.h"
 #include "../apu_excep.h"
+
+
+/* for IPI IRQ affinity tuning*/
+static struct cpumask perf_cpus, normal_cpus;
+
 
 static uint32_t apusys_rv_smc_call(struct device *dev, uint32_t smc_id,
 	uint32_t a2)
@@ -565,6 +572,38 @@ error_get_rv_dev:
 	return ret;
 }
 
+static int mt6983_irq_affin_init(struct mtk_apu *apu)
+{
+	int i;
+
+	/* init perf_cpus mask 0x80, CPU7 only */
+	cpumask_clear(&perf_cpus);
+	cpumask_set_cpu(7, &perf_cpus);
+
+	/* init normal_cpus mask 0x0f, CPU0~CPU4 */
+	cpumask_clear(&normal_cpus);
+	for (i = 0; i < 4; i++)
+		cpumask_set_cpu(i, &normal_cpus);
+
+	irq_set_affinity_hint(apu->mbox0_irq_number, &normal_cpus);
+
+	return 0;
+}
+
+static int mt6983_irq_affin_set(struct mtk_apu *apu)
+{
+	irq_set_affinity_hint(apu->mbox0_irq_number, &perf_cpus);
+
+	return 0;
+}
+
+static int mt6983_irq_affin_unset(struct mtk_apu *apu)
+{
+	irq_set_affinity_hint(apu->mbox0_irq_number, &normal_cpus);
+
+	return 0;
+}
+
 static int mt6983_apu_memmap_init(struct mtk_apu *apu)
 {
 	struct platform_device *pdev = apu->pdev;
@@ -720,5 +759,8 @@ const struct mtk_apu_platdata mt6983_platdata = {
 		.power_init = mt6983_apu_power_init,
 		.power_on = mt6983_apu_power_on,
 		.power_off = mt6983_apu_power_off,
+		.irq_affin_init = mt6983_irq_affin_init,
+		.irq_affin_set = mt6983_irq_affin_set,
+		.irq_affin_unset = mt6983_irq_affin_unset,
 	},
 };

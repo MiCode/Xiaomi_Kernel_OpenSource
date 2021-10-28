@@ -29,6 +29,11 @@ static unsigned int tx_serial_no;
 static unsigned int rx_serial_no;
 unsigned int temp_buf[APU_SHARE_BUFFER_SIZE / 4];
 
+/* for IRQ affinity tuning */
+static struct mutex affin_lock;
+static unsigned int affin_depth;
+static struct mtk_apu *g_apu;
+
 static inline void dump_msg_buf(struct mtk_apu *apu, void *data, uint32_t len)
 {
 	struct device *dev = apu->dev;
@@ -625,6 +630,42 @@ static int apu_ipi_dbg_init(void) { return 0; }
 static void apu_ipi_dbg_exit(void) { }
 #endif
 
+int apu_ipi_affin_enable(void)
+{
+	struct mtk_apu *apu = g_apu;
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
+	int ret = 0;
+
+	mutex_lock(&affin_lock);
+
+	if (affin_depth == 0)
+		ret = hw_ops->irq_affin_set(apu);
+
+	affin_depth++;
+
+	mutex_unlock(&affin_lock);
+
+	return ret;
+}
+
+int apu_ipi_affin_disable(void)
+{
+	struct mtk_apu *apu = g_apu;
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
+	int ret = 0;
+
+	mutex_lock(&affin_lock);
+
+	affin_depth--;
+
+	if (affin_depth == 0)
+		ret = hw_ops->irq_affin_unset(apu);
+
+	mutex_unlock(&affin_lock);
+
+	return ret;
+}
+
 void apu_ipi_remove(struct mtk_apu *apu)
 {
 	apu_ipi_dbg_exit();
@@ -635,6 +676,7 @@ void apu_ipi_remove(struct mtk_apu *apu)
 
 int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 {
+	struct mtk_apu_hw_ops *hw_ops = &apu->platdata->ops;
 	struct device *dev = apu->dev;
 	int i, ret;
 
@@ -643,6 +685,10 @@ int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 
 	mutex_init(&apu->send_lock);
 	spin_lock_init(&apu->usage_cnt_lock);
+
+	mutex_init(&affin_lock);
+	affin_depth = 0;
+	g_apu = apu;
 
 	for (i = 0; i < APU_IPI_MAX; i++) {
 		mutex_init(&apu->ipi_desc[i].lock);
@@ -678,6 +724,8 @@ int apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 			__func__, apu->mbox0_irq_number, ret);
 		goto remove_rpmsg_subdev;
 	}
+
+	hw_ops->irq_affin_init(apu);
 
 	apu_mbox_hw_init(apu);
 
