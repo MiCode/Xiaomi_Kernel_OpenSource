@@ -56,6 +56,7 @@ static struct work_struct scp_ipi_rx_work;
 static wait_queue_head_t scp_ipi_rx_wq;
 static struct ccci_skb_queue scp_ipi_rx_skb_list;
 static unsigned int init_work_done;
+static unsigned int scp_clk_last_state;
 #if (MD_GENERATION >= 6297)
 static struct ccci_ipi_msg scp_ipi_rx_msg;
 #endif
@@ -121,6 +122,12 @@ static int scp_set_clk_cg(unsigned int on)
 		return -1;
 	}
 
+	if (on == scp_clk_last_state) {
+		CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s:on=%u skip set scp clk!\n",
+			__func__, on);
+		return 0;
+	}
+
 	for (idx = 0; idx < ARRAY_SIZE(scp_clk_table); idx++) {
 		if (on) {
 			ret = clk_prepare_enable(scp_clk_table[idx].clk_ref);
@@ -136,6 +143,7 @@ static int scp_set_clk_cg(unsigned int on)
 
 	CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s:on=%u set done!\n",
 		__func__, on);
+	scp_clk_last_state = on;
 
 	return 0;
 }
