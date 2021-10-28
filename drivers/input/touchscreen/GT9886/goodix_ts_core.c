@@ -1161,7 +1161,7 @@ static int goodix_ts_power_init(struct goodix_ts_core *core_data)
 	ts_bdata = board_data(core_data);
 
 	if (ts_bdata->avdd_name) {
-		ts_err("avdd name is %s!\n", ts_bdata->avdd_name);
+		ts_info("avdd name is %s!\n", ts_bdata->avdd_name);
 		core_data->avdd = devm_regulator_get(dev,
 				 ts_bdata->avdd_name);
 		if (IS_ERR_OR_NULL(core_data->avdd)) {
@@ -1952,41 +1952,33 @@ int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 	struct goodix_ts_core *core_data =
 		container_of(nb, struct goodix_ts_core, disp_notifier);
 	int *data = (int *)v;
-	int err = 0;
 
 	if (core_data && v) {
-		if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+		if (value == MTK_DISP_EVENT_BLANK) {
+//resume: touch power on after display to avoid display disturb
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_UNBLANK) {
-				if (touch_suspend_flag
 #if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
-				&& !atomic_read(&gt9886_tui_flag)
+				if (!atomic_read(&gt9886_tui_flag))
 #endif
-				) {
-					err = queue_work(touch_resume_workqueue,
-						&touch_resume_work);
-					if (!err) {
-						ts_err("start resume_workqueue failed\n");
-						return err;
-					}
-					touch_suspend_flag = 0;
-				}
-			} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
-				if (!touch_suspend_flag
+					goodix_ts_resume(core_data);
+			}
+			ts_info("%s OUT", __func__);
+		} else if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+//suspend: touch power off before displayto avoid touch report event
+//after screen is off
+			ts_info("%s IN", __func__);
+			if (*data == MTK_DISP_BLANK_POWERDOWN) {
 #if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
-				&& !atomic_read(&gt9886_tui_flag)
+				if (!atomic_read(&gt9886_tui_flag))
 #endif
-				) {
-					err = cancel_work_sync(
-						&touch_resume_work);
-					if (!err)
-						ts_err("cancel resume_workqueue failed\n");
 					goodix_ts_suspend(core_data);
-				}
-				touch_suspend_flag = 1;
 			}
 			ts_info("%s OUT", __func__);
 		}
+	} else {
+		ts_info("gt9886 touch IC can not suspend or resume");
+		return -1;
 	}
 	return 0;
 }
