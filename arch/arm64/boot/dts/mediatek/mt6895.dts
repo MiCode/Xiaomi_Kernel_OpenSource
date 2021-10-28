@@ -777,15 +777,14 @@
 	spmi: spmi@1c804000 {
 		compatible = "mediatek,mt6895-spmi";
 		reg = <0 0x1c804000 0 0x0008ff>,
-		      <0 0x1c804000 0 0x000500>,
 		      <0 0x1c801000 0 0x000100>;
-		reg-names = "pmif", "pmifmpu", "spmimst";
-		interrupt-parent = <&pio>;
-		interrupts = <243 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "rcs_irq";
+		reg-names = "pmif", "spmimst";
+		interrupts-extended = <&pio 243 IRQ_TYPE_LEVEL_HIGH>,
+				     <&gic GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupt-names = "rcs_irq", "pmif_irq";
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		irq_event_en = <0xe 0x0 0x0 0x0 0x0>;
+		irq_event_en = <0x80000000 0x0 0x0 0x0 0x0>;
 		clocks = <&vlp_cksys_clk CLK_VLP_CK_PWRAP_ULPOSC_SEL>,
 			 <&vlp_cksys_clk CLK_VLP_CK_SPMI_M_MST_SEL>,
 			 <&vlp_cksys_clk CLK_VLP_CK_SPMI_P_MST_SEL>;
@@ -796,6 +795,13 @@
 		ap_swinf_no = <2>;
 		#address-cells = <2>;
 		#size-cells = <0>;
+	};
+
+	spmi_pmif_mpu: spmi_pmif_mpu@1c804900 {
+		compatible = "mediatek,mt6895-spmi_pmif_mpu";
+		reg = <0 0x1c804900 0 0x000500>;
+		reg-names = "pmif_mpu";
+		mediatek,pmic_all_rgn_en = <0x020c0000>;
 	};
 
 	ccu_rproc: ccu_rproc@1b080000 {
