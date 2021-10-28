@@ -279,15 +279,14 @@ static s32 sys_config_tile(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
 	u8 sof_grp = path->mux_group;
-	struct sys_frame_data *sys_frm;
+	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
 	u32 i, j;
 
-	if (task->config->info.mode == MML_MODE_RACING && idx == 0) {
+	if (task->config->info.mode == MML_MODE_RACING && !sys_frm->racing_tile0_offset) {
 		struct cmdq_operand lhs, rhs;
 
 		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX2, MML_ROUND_SPR_INIT);
 
-		sys_frm = sys_frm_data(ccfg);
 		sys_frm->racing_tile0_offset = pkt->cmd_buf_size;
 
 		lhs.reg = true;

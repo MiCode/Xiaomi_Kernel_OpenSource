@@ -578,10 +578,12 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	}
 
 	/* always fixup plane offset */
-	frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
-	for (i = 0; i < submit->info.dest_cnt; i++)
-		frame_calc_plane_offset(&submit->info.dest[i].data,
-			&submit->buffer.dest[i]);
+	if (likely(submit->info.mode != MML_MODE_SRAM_READ)) {
+		frame_calc_plane_offset(&submit->info.src, &submit->buffer.src);
+		for (i = 0; i < submit->info.dest_cnt; i++)
+			frame_calc_plane_offset(&submit->info.dest[i].data,
+				&submit->buffer.dest[i]);
+	}
 
 	/* always fixup format/modifier for afbc case
 	 * the format in info should change to fourcc format in future design
@@ -683,9 +685,10 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	} else {
 		task->job.fence = -1;
 	}
-	mml_log("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu",
+	mml_log("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu%s",
 		task->job.jobid, task->job.fence, task, task->fence, cfg,
-		cfg->info.mode);
+		cfg->info.mode,
+		(cfg->info.mode == MML_MODE_RACING && cfg->disp_dual) ? " disp dual" : "");
 
 	/* copy pq parameters */
 	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)

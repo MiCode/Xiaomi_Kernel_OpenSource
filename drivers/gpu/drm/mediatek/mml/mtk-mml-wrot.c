@@ -1396,7 +1396,7 @@ static void wrot_tile_calc(const struct mml_task *task,
 	} else if (dest->rotate == MML_ROT_180 && !dest->flip) {
 		if (mode == MML_MODE_RACING) {
 			sram_block = (tout->v_tile_cnt - tout->tiles[idx].v_tile_no - 1) & 0x1;
-			out_h = out_ys + 1;
+			out_h = tile->out.ye + 1;
 			tile_eol = tout->tiles[idx].h_tile_no == 0;
 		}
 		/* Target Y offset */
@@ -1421,7 +1421,7 @@ static void wrot_tile_calc(const struct mml_task *task,
 	} else if (dest->rotate == MML_ROT_180 && dest->flip) {
 		if (mode == MML_MODE_RACING) {
 			sram_block = (tout->v_tile_cnt - tout->tiles[idx].v_tile_no - 1) & 0x1;
-			out_h = out_ys + 1;
+			out_h = tile->out.ye + 1;
 			tile_eol = tout->tiles[idx].h_tile_no == 0;
 		}
 		/* Target Y offset */
@@ -1445,7 +1445,7 @@ static void wrot_tile_calc(const struct mml_task *task,
 	} else if (dest->rotate == MML_ROT_270 && !dest->flip) {
 		if (mode == MML_MODE_RACING) {
 			sram_block = (tout->h_tile_cnt - tout->tiles[idx].h_tile_no - 1) & 0x1;
-			out_w = out_xs + 1;
+			out_w = tile->out.xe + 1;
 			tile_eol = tout->tiles[idx].v_tile_no == 0;
 		}
 		/* Target Y offset */
@@ -1469,7 +1469,7 @@ static void wrot_tile_calc(const struct mml_task *task,
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		if (mode == MML_MODE_RACING) {
 			sram_block = (tout->h_tile_cnt - tout->tiles[idx].h_tile_no - 1) & 0x1;
-			out_w = out_xs + 1;
+			out_w = tile->out.xe + 1;
 			tile_eol = tout->tiles[idx].v_tile_no == 0;
 		}
 		/* Target Y offset */

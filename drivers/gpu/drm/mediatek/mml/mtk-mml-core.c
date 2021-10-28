@@ -468,8 +468,12 @@ static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 	struct mml_comp *comp;
 	u32 i;
 
-	mml_err("dump %d task %p pipe %u config %p job %u",
-		cnt, task, pipe, task->config, task->job.jobid);
+	mml_err("dump %d task %p pipe %u config %p job %u mode %u",
+		cnt, task, pipe, task->config, task->job.jobid,
+		task->config->info.mode);
+
+	/* print info for this task */
+	dump_inout(task);
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
