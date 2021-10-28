@@ -21,6 +21,11 @@
 #include "ddp_misc.h"
 #include "ddp_reg_mmsys.h"
 
+#include <ion_sec_heap.h>
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+#include "trusted_mem_api.h"
+#endif
+
 #define MMSYS_CLK_LOW (0)
 #define MMSYS_CLK_HIGH (1)
 
@@ -504,7 +509,8 @@ static int rdma_config(enum DISP_MODULE_ENUM module, enum RDMA_MODE mode,
 		       unsigned long address, enum UNIFIED_COLOR_FMT inFormat,
 		       unsigned int pitch, unsigned int width,
 		       unsigned int height, unsigned int ufoe_enable,
-		       enum DISP_BUFFER_TYPE sec, unsigned int yuv_range,
+		       enum DISP_BUFFER_TYPE sec, struct ion_handle *ion_hnd,
+		       unsigned int yuv_range,
 		       struct rdma_bg_ctrl_t *bg_ctrl, void *handle,
 		       struct golden_setting_context *p_golden_setting,
 		       unsigned int bpp)
@@ -587,6 +593,9 @@ static int rdma_config(enum DISP_MODULE_ENUM module, enum RDMA_MODE mode,
 	} else {
 		int m4u_port;
 		unsigned int size = pitch * height;
+		int sec = -1, sec_id = -1;
+		ion_phys_addr_t sec_hdl = 0;
+		enum TRUSTED_MEM_REQ_TYPE mem_type;
 
 		m4u_port = idx == 0 ?  DISP_M4U_PORT_DISP_RDMA0 :
 						DISP_M4U_PORT_DISP_RDMA1;
@@ -596,9 +605,20 @@ static int rdma_config(enum DISP_MODULE_ENUM module, enum RDMA_MODE mode,
 		 * cmdq sec driver will help to convert handle to
 		 * correct address
 		 */
-		cmdqRecWriteSecure(handle, disp_addr_convert(offset +
+		if (unlikely(!ion_hnd)) {
+			DISP_LOG_E("%s #%d NULL handle for secure layer\n",
+				   __func__, __LINE__);
+			return 0;
+		}
+		mem_type = ion_hdl2sec_type(ion_hnd, &sec, &sec_id, &sec_hdl);
+
+		if (unlikely(mem_type < 0)) {
+			DISP_LOG_E("normal memory set as secure\n");
+			return 0;
+		}
+		cmdqRecWriteSecureMetaData(handle, disp_addr_convert(offset +
 						DISP_REG_RDMA_MEM_START_ADDR),
-				CMDQ_SAM_H_2_MVA, address, 0, size, m4u_port);
+				CMDQ_SAM_H_2_MVA, address, 0, size, m4u_port, mem_type);
 	}
 
 	DISP_REG_SET(handle, offset + DISP_REG_RDMA_MEM_SRC_PITCH, pitch);
@@ -960,7 +980,8 @@ static int do_rdma_config_l(enum DISP_MODULE_ENUM module,
 		    (mode == RDMA_MODE_DIRECT_LINK) ? UFMT_RGB888 : inFormat,
 		    (mode == RDMA_MODE_DIRECT_LINK) ? 0 : cfg->pitch,
 		    width, height, lcm_param->dsi.ufoe_enable,
-		    cfg->security, cfg->yuv_range,
+		    cfg->security, cfg->hnd,
+		    cfg->yuv_range,
 		    &cfg->bg_ctrl, handle, p_golden_setting,
 		    pConfig->lcm_bpp);
 

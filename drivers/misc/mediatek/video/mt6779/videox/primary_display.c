@@ -2122,6 +2122,7 @@ static int _DL_switch_to_DC_fast(int block)
 		init_sec_buf();
 		mva = sec_mva;
 		wdma_config.security = DISP_SECURE_BUFFER;
+		wdma_config.hnd = sec_ion_handle;
 	} else {
 		mva = pgc->dc_buf[pgc->dc_buf_id];
 		wdma_config.security = DISP_NORMAL_BUFFER;
@@ -2159,6 +2160,8 @@ static int _DL_switch_to_DC_fast(int block)
 	/* 4.config RDMA from directlink mode to memory mode */
 	rdma_config.address = mva;
 	rdma_config.security = wdma_config.security;
+	if (rdma_config.security == DISP_SECURE_BUFFER)
+		rdma_config.hnd = sec_ion_handle;
 
 	data_config_dl = dpmgr_path_get_last_config(pgc->dpmgr_handle);
 	data_config_dl->rdma_config = rdma_config;
@@ -5958,12 +5961,14 @@ static int decouple_trigger_worker_thread(void *data)
 
 static int config_wdma_output(disp_path_handle disp_handle,
 			      struct cmdqRecStruct *cmdq_handle,
-			      struct disp_output_config *output)
+			      struct disp_frame_cfg_t *cfg)
 {
 	struct disp_ddp_path_config *pconfig = NULL;
 	struct WDMA_CONFIG_STRUCT *wcfg = NULL;
+	struct disp_output_config *output;
 
-	ASSERT(output);
+	ASSERT(cfg && (&cfg->output_cfg));
+	output = &cfg->output_cfg;
 
 	pconfig = dpmgr_path_get_last_config(disp_handle);
 	wcfg = &pconfig->wdma_config;
@@ -5981,6 +5986,15 @@ static int config_wdma_output(disp_path_handle disp_handle,
 	wcfg->dstPitch = output->pitch * UFMT_GET_Bpp(wcfg->outputFormat);
 	wcfg->security = output->security;
 	pconfig->wdma_dirty = 1;
+
+	/* only updated secure buffer handle for input */
+	if (wcfg->security == DISP_SECURE_BUFFER) {
+		wcfg->hnd = disp_snyc_get_ion_handle(cfg->session_id,
+						disp_sync_get_output_timeline_id(),
+						output->buff_idx);
+		DISPINFO("%s [SVP]ovl2mem sec layer id: %d, buf_idx:0x%x\n", __func__,
+			 disp_sync_get_output_timeline_id(), output->buff_idx);
+	}
 
 	return dpmgr_path_config(disp_handle, pconfig, cmdq_handle);
 }
@@ -6040,7 +6054,7 @@ static int primary_frame_cfg_output(struct disp_frame_cfg_t *cfg)
 		pgc->need_trigger_ovl1to2 = 1;
 	}
 
-	ret = config_wdma_output(disp_handle, cmdq_handle, &cfg->output_cfg);
+	ret = config_wdma_output(disp_handle, cmdq_handle, cfg);
 
 	if ((pgc->session_id > 0) && primary_display_is_decouple_mode())
 		update_frm_seq_info((unsigned long)(cfg->output_cfg.pa), 0,

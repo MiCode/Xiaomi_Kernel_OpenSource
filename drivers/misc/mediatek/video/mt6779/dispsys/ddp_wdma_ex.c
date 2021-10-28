@@ -18,6 +18,8 @@
 #include "ddp_mmp.h"
 #include "ddp_reg_mmsys.h"
 
+#include "mtk_ovl.h"
+
 #include <ion_sec_heap.h>
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 #include "trusted_mem_api.h"
@@ -190,7 +192,8 @@ static int wdma_config_yuv420(enum DISP_MODULE_ENUM module,
 
 		m4u_port = DISP_M4U_PORT_DISP_WDMA0;
 		if (unlikely(!ion_hnd)) {
-			DISP_LOG_E("NULL handle for secure layer, ticket:\n");
+			DISP_LOG_E("%s #%d NULL handle for secure layer, ticket:%d\n",
+				   __func__, __LINE__, get_ovl2mem_ticket());
 			return 0;
 		}
 		mem_type = ion_hdl2sec_type(ion_hnd, &sec, &sec_id, &sec_hdl);
@@ -289,7 +292,9 @@ static int wdma_config(enum DISP_MODULE_ENUM module,
 
 		m4u_port = DISP_M4U_PORT_DISP_WDMA0;
 		if (unlikely(!ion_hnd)) {
-			DISP_LOG_E("NULL handle for secure layer, ticket:\n");
+			DISP_LOG_E("%s #%d NULL handle for secure layer, ticket:%d\n",
+				   __func__, __LINE__, get_ovl2mem_ticket());
+			dump_stack();
 			return 0;
 		}
 		mem_type = ion_hdl2sec_type(ion_hnd, &sec, &sec_id, &sec_hdl);

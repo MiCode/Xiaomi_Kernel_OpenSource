@@ -595,10 +595,15 @@ static int ovl2mem_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	/* only updated secure buffer handle for output */
 	if (cfg->output_cfg.security != DISP_NORMAL_BUFFER) {
 		data_config->wdma_config.hnd = disp_snyc_get_ion_handle(cfg->session_id,
-						disp_sync_get_output_timeline_id(),
-						(unsigned int)cfg->output_cfg.buff_idx);
+							disp_sync_get_output_timeline_id(),
+							(unsigned int)cfg->output_cfg.buff_idx);
 		DISPINFO("[SVP]ovl2mem out is sec addr, cdmq handle:%p:\n",
 			 pgcl->cmdq_handle_config);
+		if (!cfg->output_en)
+			DISP_PR_INFO("%s#%d:output is not enabled? session:%d buf_idx:%d\n",
+				     __func__, __LINE__,
+				     cfg->session_id,
+				     cfg->output_cfg.buff_idx);
 	}
 
 	if (dpmgr_path_is_busy(pgcl->dpmgr_handle))

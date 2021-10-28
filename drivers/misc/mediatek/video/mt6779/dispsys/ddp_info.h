@@ -307,6 +307,7 @@ struct RDMA_CONFIG_STRUCT {
 	enum DISP_BUFFER_TYPE security;
 	unsigned int yuv_range;
 	struct rdma_bg_ctrl_t bg_ctrl;
+	struct ion_handle *hnd;
 };
 
 struct WDMA_CONFIG_STRUCT {
