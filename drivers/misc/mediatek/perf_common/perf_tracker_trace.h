@@ -221,26 +221,30 @@ TRACE_EVENT(perf_index_sbin,
 
 TRACE_EVENT(freq_qos_user_setting,
 	TP_PROTO(
+		int cid,
 		int type,
 		int value,
 		const char *caller
 	),
 
-	TP_ARGS(type, value, caller),
+	TP_ARGS(cid, type, value, caller),
 
 	TP_STRUCT__entry(
+		__field(int, cid)
 		__field(int, type)
 		__field(int, value)
 		__string(caller, caller)
 	),
 
 	TP_fast_assign(
+		__entry->cid = cid;
 		__entry->type = type;
 		__entry->value = value;
 		__assign_str(caller, caller);
 	),
 
-	TP_printk("type=%d value=%d caller=%s",
+	TP_printk("cid=%d type=%d value=%d caller=%s",
+		__entry->cid,
 		__entry->type,
 		__entry->value,
 		__get_str(caller)

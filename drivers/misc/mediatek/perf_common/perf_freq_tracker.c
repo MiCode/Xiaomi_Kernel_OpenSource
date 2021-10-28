@@ -20,6 +20,7 @@ struct h_node {
 static DECLARE_HASHTABLE(tbl, 5);
 static int is_inited;
 static int is_hooked;
+static struct freq_constraints *qos_in_cluster[MAX_CLUSTER_NR] = {0};
 
 static const char *find_and_get_symobls(unsigned long caller_addr)
 {
@@ -49,21 +50,38 @@ static const char *find_and_get_symobls(unsigned long caller_addr)
 	return cur_symbol;
 }
 
+static inline int find_qos_in_cluster(struct freq_constraints *qos)
+{
+	int cid = 0;
+
+	for (cid = 0; cid < cluster_nr; cid++) {
+		if (qos_in_cluster[cid] == qos)
+			break;
+	}
+	return (cid < cluster_nr) ? cid : -1;
+}
+
 static void mtk_freq_qos_add_request(void *data, struct freq_constraints *qos,
 	struct freq_qos_request *req, enum freq_qos_req_type type, int value, int ret)
 {
+	int cid = 0;
 	const char *caller_info = find_and_get_symobls(
 		(unsigned long)__builtin_return_address(1));
-	if (caller_info)
-		trace_freq_qos_user_setting(type, value, caller_info);
+	if (caller_info) {
+		cid = find_qos_in_cluster(qos);
+		trace_freq_qos_user_setting(cid, type, value, caller_info);
+	}
 }
 
 static void mtk_freq_qos_update_request(void *data, struct freq_qos_request *req, int value)
 {
+	int cid = 0;
 	const char *caller_info = find_and_get_symobls(
 		(unsigned long)__builtin_return_address(1));
-	if (caller_info)
-		trace_freq_qos_user_setting(req->type, value, caller_info);
+	if (caller_info) {
+		cid = find_qos_in_cluster(req->qos);
+		trace_freq_qos_user_setting(cid, req->type, value, caller_info);
+	}
 }
 
 int insert_freq_qos_hook(void)
@@ -97,12 +115,31 @@ void remove_freq_qos_hook(void)
 	unregister_trace_android_vh_freq_qos_update_request(mtk_freq_qos_update_request, NULL);
 }
 
+static void init_cluster_qos_info(void)
+{
+	struct cpufreq_policy *policy;
+	int cpu;
+	int num = 0;
+
+	for_each_possible_cpu(cpu) {
+		if (num >= cluster_nr)
+			break;
+		policy = cpufreq_cpu_get(cpu);
+		if (policy) {
+			qos_in_cluster[num++] = &(policy->constraints);
+			cpu = cpumask_last(policy->related_cpus);
+			cpufreq_cpu_put(policy);
+		}
+	}
+}
+
 void init_perf_freq_tracker(void)
 {
 	is_hooked = 0;
 	is_inited = 1;
 	// Initialize hash table
 	hash_init(tbl);
+	init_cluster_qos_info();
 }
 
 void exit_perf_freq_tracker(void)
