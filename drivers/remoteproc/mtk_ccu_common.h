@@ -132,6 +132,7 @@ struct mtk_ccu {
 	struct mtk_ccu_buffer log_info[MTK_CCU_DRAM_LOG_BUF_CNT];
 	wait_queue_head_t WaitQueueHead;
 	bool poweron;
+	bool disirq;
 	bool bWaitCond;
 	int g_LogBufIdx;
 	int log_level;

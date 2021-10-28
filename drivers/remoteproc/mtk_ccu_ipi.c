@@ -189,10 +189,13 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 	struct arm_smccc_res res;
 #endif
 
-	if (!spin_trylock(&ccu->ccu_poweron_lock))
+	if (!spin_trylock(&ccu->ccu_poweron_lock)) {
+		LOG_DBG_IPI("trylock failed.\n");
 		goto ISR_EXIT;
+	}
 
 	if (!ccu->poweron) {
+		LOG_DBG_IPI("ccu->poweron false.\n");
 		spin_unlock(&ccu->ccu_poweron_lock);
 		goto ISR_EXIT;
 	}
@@ -216,8 +219,11 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 
 	while (1) {
 		mb_cnt = mtk_ccu_mb_rx(ccu, &msg);
-		if (mb_cnt == 0)
+		if (mb_cnt == 0) {
+			if (ccu->disirq)
+				disable_irq_nosync(ccu->irq_num);
 			goto ISR_EXIT;
+		}
 
 		if (msg.msg_id >= MTK_CCU_MSG_TO_APMCU_MAX)
 			continue;

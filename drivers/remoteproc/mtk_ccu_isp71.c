@@ -329,6 +329,7 @@ static int mtk_ccu_start(struct rproc *rproc)
 	ccu->poweron = true;
 	spin_unlock(&ccu->ccu_poweron_lock);
 
+	ccu->disirq = false;
 	if (devm_request_threaded_irq(ccu->dev, ccu->irq_num, NULL,
 		mtk_ccu_isr_handler, IRQF_ONESHOT, "ccu_rproc", ccu)) {
 		dev_err(ccu->dev, "fail to request ccu irq!\n");
@@ -401,6 +402,8 @@ static int mtk_ccu_stop(struct rproc *rproc)
 		3, NULL, 0);
 
 	mtk_ccu_sw_hw_reset(ccu);
+
+	ccu->disirq = true;
 
 #if !defined(SECURE_CCU)
 	ret = mtk_ccu_deallocate_mem(ccu->dev,
