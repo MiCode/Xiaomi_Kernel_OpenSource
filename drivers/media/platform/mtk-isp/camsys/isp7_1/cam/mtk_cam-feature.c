@@ -156,6 +156,8 @@ int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 				res = EXPOSURE_CHANGE_2_to_1 |
 						MSTREAM_EXPOSURE_CHANGE;
 		} else {
+			cur &= MTK_CAM_FEATURE_HDR_MASK;
+			prev &= MTK_CAM_FEATURE_HDR_MASK;
 			if ((cur == STAGGER_2_EXPOSURE_LE_SE || cur == STAGGER_2_EXPOSURE_LE_SE) &&
 			    (prev == STAGGER_3_EXPOSURE_LE_NE_SE ||
 			     prev == STAGGER_3_EXPOSURE_SE_NE_LE))
