@@ -462,9 +462,11 @@ static s64 mtk_cam_calc_pure_m2m_pixelrate(s64 width, s64 height,
 	int fps_n = interval->numerator;
 	int fps_d = interval->denominator;
 
-	prate = width * height * fps_n * PURE_M2M_PROCESS_MARGIN_N;
-	do_div(prate, fps_d * PURE_M2M_PROCESS_MARGIN_D);
+	prate = width * height * fps_d * PURE_M2M_PROCESS_MARGIN_N;
+	do_div(prate, fps_n * PURE_M2M_PROCESS_MARGIN_D);
 
+	pr_info("%s:width:%d height:%d interval:%d/%d prate:%lld\n",
+		__func__, width, height, fps_n, fps_d, prate);
 	return prate;
 }
 
