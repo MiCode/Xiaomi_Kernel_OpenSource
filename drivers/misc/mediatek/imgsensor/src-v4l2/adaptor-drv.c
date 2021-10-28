@@ -361,10 +361,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	adaptor_hw_power_on(ctx);
 #endif
 
-	if (!ctx->is_sensor_inited) {
-		subdrv_call(ctx, open);
-		ctx->is_sensor_inited = 1;
-	}
+	adaptor_sensor_init(ctx);
 #endif
 
 	mutex_unlock(&ctx->mutex);
@@ -544,10 +541,7 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		ctx->try_format_mode = mode;
 	} else {
 #ifndef POWERON_ONCE_OPENED
-		if (!ctx->is_sensor_inited) {
-			subdrv_call(ctx, open);
-			ctx->is_sensor_inited = 1;
-		}
+		adaptor_sensor_init(ctx);
 #endif
 		set_sensor_mode(ctx, mode, 1);
 	}
@@ -674,10 +668,7 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
-	if (!ctx->is_sensor_inited) {
-		subdrv_call(ctx, open);
-		ctx->is_sensor_inited = 1;
-	}
+	adaptor_sensor_init(ctx);
 
 	control_sensor(ctx);
 

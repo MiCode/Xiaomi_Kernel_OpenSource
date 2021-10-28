@@ -1151,6 +1151,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			//dev_info(dev, "exit V4L2_CID_MTK_SENSOR_RESET\n");
 		}
 		break;
+	case V4L2_CID_MTK_SENSOR_INIT:
+		//dev_info(dev, "V4L2_CID_MTK_SENSOR_INIT val = %d\n", ctrl->val);
+		if (ctrl->val)
+			adaptor_sensor_init(ctx);
+		break;
 	}
 
 	pm_runtime_put(dev);
@@ -1554,6 +1559,24 @@ static const struct v4l2_ctrl_config cfg_n_1_mode = {
 	.dims = {sizeof_u32(struct mtk_n_1_mode)},
 };
 
+static const struct v4l2_ctrl_config cfg_sensor_init = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_INIT,
+	.name = "sensor_init",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 1,
+	.step = 1,
+};
+
+void adaptor_sensor_init(struct adaptor_ctx *ctx)
+{
+	if (ctx && !ctx->is_sensor_inited) {
+		subdrv_call(ctx, open);
+		ctx->is_sensor_inited = 1;
+	}
+}
+
 void restore_ae_ctrl(struct adaptor_ctx *ctx)
 {
 	if (!ctx->ae_memento.exposure.le_exposure ||
@@ -1788,6 +1811,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_mstream_mode, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_n_1_mode, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_reset, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_init, NULL);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
