@@ -81,7 +81,7 @@
 #define DEFAULT_GCC_GPU_BOUND_LOADING 80
 #define DEFAULT_GCC_GPU_BOUND_TIME 90
 #define DEFAULT_GCC_CPU_UNKNOWN_SLEEP 80
-#define DEFAULT_GCC_CHECK_UNDER_BOOST 0
+#define DEFAULT_GCC_CHECK_QUOTA_TREND 1
 #define DEFAULT_GCC_ENQ_BOUND_THRS 20
 #define DEFAULT_GCC_ENQ_BOUND_QUOTA 6
 #define DEFAULT_GCC_DEQ_BOUND_THRS 20
@@ -186,6 +186,7 @@ static int uclamp_boost_enable;
 static int bhr;
 static int bhr_opp;
 static int bhr_opp_l;
+static int isolation_limit_cap;
 static int rescue_opp_f;
 static int rescue_enhance_f;
 static int rescue_opp_c;
@@ -242,7 +243,7 @@ static int gcc_down_sec_pct;
 static int gcc_gpu_bound_loading;
 static int gcc_gpu_bound_time;
 static int gcc_cpu_unknown_sleep;
-static int gcc_check_under_boost;
+static int gcc_check_quota_trend;
 static int gcc_upper_clamp;
 static int gcc_enq_bound_thrs;
 static int gcc_enq_bound_quota;
@@ -254,6 +255,7 @@ static int boost_LR;
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
 module_param(bhr_opp_l, int, 0644);
+module_param(isolation_limit_cap, int, 0644);
 module_param(rescue_opp_f, int, 0644);
 module_param(rescue_enhance_f, int, 0644);
 module_param(rescue_opp_c, int, 0644);
@@ -309,7 +311,7 @@ module_param(gcc_down_sec_pct, int, 0644);
 module_param(gcc_gpu_bound_loading, int, 0644);
 module_param(gcc_gpu_bound_time, int, 0644);
 module_param(gcc_cpu_unknown_sleep, int, 0644);
-module_param(gcc_check_under_boost, int, 0644);
+module_param(gcc_check_quota_trend, int, 0644);
 module_param(gcc_upper_clamp, int, 0644);
 module_param(gcc_enq_bound_thrs, int, 0644);
 module_param(gcc_enq_bound_quota, int, 0644);
@@ -346,7 +348,7 @@ static int enable_ceiling;
 static int cluster_num;
 static unsigned int cpu_max_freq;
 static struct fbt_cpu_dvfs_info *cpu_dvfs;
-static int max_cap_cluster, min_cap_cluster;
+static int max_cap_cluster, min_cap_cluster, sec_cap_cluster;
 static unsigned int def_capacity_margin;
 static int max_cl_core_num;
 
@@ -867,6 +869,22 @@ static void fbt_set_hard_limit_locked(int input, struct cpu_ctrl_data *pld)
 
 	if (set_ceiling)
 		fbt_limit_ceiling_locked(pld, is_rescue);
+}
+
+static int fbt_limit_capacity_isolation(int blc_wt, int *max_cap_isolation)
+{
+	int max_cap = 0;
+
+	if (isolation_limit_cap && fbt_is_cl_isolated(max_cap_cluster))
+		*max_cap_isolation = max_cap =
+			cpu_dvfs[sec_cap_cluster].capacity_ratio[0];
+	else
+		*max_cap_isolation = max_cap = 100;
+
+	if (max_cap <= 0)
+		return blc_wt;
+
+	return MIN(blc_wt, max_cap);
 }
 
 static int fbt_limit_capacity(int blc_wt, int is_rescue)
@@ -2970,7 +2988,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		int target_fps, int fps_margin, unsigned long long t_Q2Q,
 		unsigned int gpu_loading, int pct, int blc_wt,
-		long long t_cpu, int target_fpks)
+		long long t_cpu, int target_fpks, int max_iso_cap)
 {
 	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin * 10);
 	int gcc_down_window, gcc_up_window;
@@ -3045,8 +3063,8 @@ check_deboost:
 			goto done;
 		}
 
-		if (gcc_check_under_boost &&
-			(boost_info->gcc_avg_pct) > (boost_info->gcc_pct_thrs)) {
+		if (gcc_check_quota_trend &&
+			boost_info->gcc_quota > quota) {
 			ret += 3;
 			goto done;
 		}
@@ -3072,7 +3090,8 @@ check_boost:
 			goto done;
 		}
 
-		if (boost_info->gcc_quota < quota) {
+		if (gcc_check_quota_trend &&
+			boost_info->gcc_quota < quota) {
 			ret += 3;
 			goto done;
 		}
@@ -3106,8 +3125,8 @@ done:
 	if (quota != INT_MAX)
 		boost_info->gcc_quota = quota;
 
-	if ((boost_info->correction) + blc_wt > 100 + gcc_upper_clamp)
-		(boost_info->correction) = 100 + gcc_upper_clamp - blc_wt;
+	if ((boost_info->correction) + blc_wt > max_iso_cap + gcc_upper_clamp)
+		(boost_info->correction) = max_iso_cap + gcc_upper_clamp - blc_wt;
 	else if ((boost_info->correction) + blc_wt < 0)
 		(boost_info->correction) = -blc_wt;
 
@@ -3168,6 +3187,7 @@ static int fbt_boost_policy(
 	u64 t2wnt = 0ULL;
 	int active_jerk_id = 0;
 	long long rescue_target_t, qr_quota_adj;
+	int isolation_cap = 100;
 
 	if (!thread_info) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
@@ -3232,6 +3252,7 @@ static int fbt_boost_policy(
 	}
 
 	blc_wt = fbt_limit_capacity(blc_wt, 0);
+	blc_wt = fbt_limit_capacity_isolation(blc_wt, &isolation_cap);
 
 	/* update quota */
 	if (qr_enable || gcc_enable) {
@@ -3252,16 +3273,14 @@ static int fbt_boost_policy(
 	if (gcc_enable && (!gcc_hwui_hint ||
 			thread_info->hwui != RENDER_INFO_HWUI_TYPE)) {
 		unsigned int gpu_loading;
-		int pct;
 		int gcc_boost;
 
 		mtk_get_gpu_loading(&gpu_loading);
-		pct = gcc_check_under_boost ? fbt_get_max_dep_pct(thread_info) : 1000;
 		gcc_boost = fbt_eva_gcc(
 				boost_info,
 				target_fps, fps_margin,
 				thread_info->Q2Q_time,
-				gpu_loading, pct, blc_wt, t_cpu_cur, target_fpks);
+				gpu_loading, 1000, blc_wt, t_cpu_cur, target_fpks, isolation_cap);
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
 		fpsgo_systrace_c_fbt(pid, buffer_id, gcc_boost, "gcc_boost");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
@@ -3273,14 +3292,6 @@ static int fbt_boost_policy(
 		else
 			blc_wt = clamp((int)blc_wt + boost_info->correction, 1, 100);
 		fpsgo_systrace_c_fbt(pid, buffer_id, gpu_loading, "gpu_loading");
-		if (gcc_check_under_boost) {
-			fpsgo_systrace_c_fbt(pid, buffer_id,
-				pct, "pct");
-			fpsgo_systrace_c_fbt(pid, buffer_id,
-				boost_info->gcc_pct_thrs, "gcc_pct_thrs");
-			fpsgo_systrace_c_fbt(pid, buffer_id,
-				boost_info->gcc_avg_pct, "gcc_avg_pct");
-		}
 
 	}
 
@@ -4707,6 +4718,8 @@ static void fbt_update_pwd_tbl(void)
 
 	max_cap_cluster = clamp(max_cap_cluster, 0, cluster_num - 1);
 	min_cap_cluster = clamp(min_cap_cluster, 0, cluster_num - 1);
+	sec_cap_cluster = (max_cap_cluster > min_cap_cluster)
+		? max_cap_cluster - 1 : min_cap_cluster - 1;
 	fbt_set_cap_limit();
 
 	if (cluster_num > 0 && max_cap_cluster < cluster_num)
@@ -5789,8 +5802,7 @@ static ssize_t limit_cfreq_m_show(struct kobject *kobj,
 
 	mutex_lock(&fbt_mlock);
 
-	cluster = (max_cap_cluster > min_cap_cluster)
-			? max_cap_cluster - 1 : min_cap_cluster - 1;
+	cluster = sec_cap_cluster;
 	if (cluster >= cluster_num || cluster < 0 || !limit_clus_ceil)
 		goto EXIT;
 
@@ -6070,6 +6082,7 @@ int __init fbt_cpu_init(void)
 	bhr = 0;
 	bhr_opp = 0;
 	bhr_opp_l = fbt_get_l_min_bhropp();
+	isolation_limit_cap = 1;
 	rescue_opp_c = (NR_FREQ_CPU - 1);
 	rescue_opp_f = 5;
 	rescue_percent = DEF_RESCUE_PERCENT;
@@ -6143,7 +6156,7 @@ int __init fbt_cpu_init(void)
 	gcc_gpu_bound_loading = DEFAULT_GCC_GPU_BOUND_LOADING;
 	gcc_gpu_bound_time = DEFAULT_GCC_GPU_BOUND_TIME;
 	gcc_cpu_unknown_sleep = DEFAULT_GCC_CPU_UNKNOWN_SLEEP;
-	gcc_check_under_boost = DEFAULT_GCC_CHECK_UNDER_BOOST;
+	gcc_check_quota_trend = DEFAULT_GCC_CHECK_QUOTA_TREND;
 	gcc_enq_bound_thrs = DEFAULT_GCC_ENQ_BOUND_THRS;
 	gcc_enq_bound_quota = DEFAULT_GCC_ENQ_BOUND_QUOTA;
 	gcc_deq_bound_thrs = DEFAULT_GCC_DEQ_BOUND_THRS;
