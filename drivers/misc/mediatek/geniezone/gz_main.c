@@ -947,6 +947,7 @@ static TZ_RESULT DMAFd2MemHandle(int buf_fd,
 		return TZ_RESULT_ERROR_GENERIC;
 	}
 
+	dma_buf_put(dbuf);
 	*mem_handle = secure_handle;
 	return TZ_RESULT_SUCCESS;
 }
