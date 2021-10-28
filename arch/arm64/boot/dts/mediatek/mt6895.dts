@@ -2174,6 +2174,11 @@
 			reg = <0 0x00113c00 0 0x100>;
 			status = "enable";
 		};
+		swpm: swpm {
+			compatible = "mediatek,mtk-swpm";
+			pmu_boundary_num = <4>;
+			pmu_dsu_support = <1>;
+		};
 
 		infra_mbist@1020d000 {
 			compatible = "mediatek,infra_mbist";
