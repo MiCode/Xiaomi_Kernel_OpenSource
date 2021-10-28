@@ -114,6 +114,7 @@ struct cmdq_pkt_buffer {
 	dma_addr_t		pa_base;
 	bool			use_pool;
 	bool			map;
+	u64			alloc_time;
 };
 
 struct cmdq_buf_pool {

@@ -2010,10 +2010,12 @@ static void cmdq_config_init_buf(struct device *dev, struct cmdq *cmdq)
 int cmdq_iommu_fault_callback(int port, dma_addr_t mva, void *cb_data)
 {
 	struct cmdq *cmdq = (struct cmdq *)cb_data;
+	struct iommu_domain *domain = iommu_get_domain_for_dev(cmdq->mbox.dev);
+	phys_addr_t pa = domain ? iommu_iova_to_phys(domain, mva) : 0;
 	s32 i;
 
-	cmdq_msg("%s: port:%d mva:%pa cmdq hwid:%hu",
-		__func__, port, &mva, cmdq->hwid);
+	cmdq_msg("%s: port:%d mva:%pa cmdq hwid:%hu iommu domain:%p pa:%pa",
+		__func__, port, &mva, cmdq->hwid, domain, &pa);
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		if (!cmdq->thread[i].occupied || !cmdq->thread[i].chan)

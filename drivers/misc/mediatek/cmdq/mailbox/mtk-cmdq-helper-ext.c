@@ -502,6 +502,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 			cmdq_err("cannot get dev:%p domain", pkt->dev);
 	}
 
+	buf->alloc_time = sched_clock();
 	list_add_tail(&buf->list_entry, &pkt->buf);
 	pkt->avail_buf_size += CMDQ_CMD_BUFFER_SIZE;
 	pkt->buf_size += CMDQ_CMD_BUFFER_SIZE;
@@ -1882,8 +1883,9 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 				pc > CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE) {
 				size -= CMDQ_CMD_BUFFER_SIZE;
 				cmdq_util_user_msg(client ? client->chan : NULL,
-					"buffer %u va:0x%p pa:%pa iova:%pa",
-					cnt, buf->va_base, &buf->pa_base, &buf->iova_base);
+					"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llx",
+					cnt, buf, buf->va_base, &buf->pa_base,
+					&buf->iova_base, buf->alloc_time);
 				cnt++;
 				continue;
 			}
@@ -1894,8 +1896,9 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 				size = CMDQ_CMD_BUFFER_SIZE;
 
 			cmdq_util_user_msg(client ? client->chan : NULL,
-				"error irq buffer %u va:0x%p pa:%pa iova:%pa",
-				cnt, buf->va_base, &buf->pa_base, &buf->iova_base);
+				"error irq buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llx",
+				cnt, buf, buf->va_base, &buf->pa_base,
+				&buf->iova_base, buf->alloc_time);
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
 				CMDQ_BUF_ADDR(buf), pc, NULL, client->chan);
 
@@ -2759,8 +2762,9 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		} else if (cnt > 2 && !(curr_pa >= CMDQ_BUF_ADDR(buf) &&
 			curr_pa < CMDQ_BUF_ADDR(buf) + CMDQ_BUF_ALLOC_SIZE)) {
 			cmdq_util_user_msg(client ? client->chan : NULL,
-				"buffer %u va:0x%p pa:%pa iova:%pa %#018llx (skip detail) %#018llx",
-				cnt, buf->va_base, &buf->pa_base, &buf->iova_base,
+				"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llx %#018llx (skip detail) %#018llx",
+				cnt, buf, buf->va_base, &buf->pa_base,
+				&buf->iova_base, buf->alloc_time,
 				*((u64 *)buf->va_base),
 				*((u64 *)(buf->va_base +
 				CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE)));
@@ -2770,8 +2774,9 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 			size = CMDQ_CMD_BUFFER_SIZE;
 		}
 		cmdq_util_user_msg(client ? client->chan : NULL,
-			"buffer %u va:0x%p pa:%pa iova:%pa",
-			cnt, buf->va_base, &buf->pa_base, &buf->iova_base);
+			"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llx",
+			cnt, buf, buf->va_base, &buf->pa_base,
+			&buf->iova_base, buf->alloc_time);
 		if (buf->va_base && client) {
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
 				CMDQ_BUF_ADDR(buf), curr_pa, NULL, client->chan);
