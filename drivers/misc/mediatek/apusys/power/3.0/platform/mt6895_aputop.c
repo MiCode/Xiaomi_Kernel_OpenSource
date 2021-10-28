@@ -17,6 +17,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
 
 #include "apusys_secure.h"
 #include "aputop_rpmsg.h"
@@ -1105,13 +1108,41 @@ static int init_plat_chip_data(struct platform_device *pdev)
 {
 	struct plat_cfg_data plat_cfg;
 	uint32_t aging_attr = 0x0;
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	uint32_t segment_id = 0x0;
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+#endif /* CONFIG_MTK_DEVINFO */
 
 	memset(&plat_cfg, 0, sizeof(plat_cfg));
 
 	of_property_read_u32(pdev->dev.of_node, "aging_load", &aging_attr);
 
 	plat_cfg.aging_flag = (aging_attr & 0xf);
+
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_seg_cell");
+	if (IS_ERR(efuse_cell)) {
+		pr_info("fail to get efuse_seg_cell (%ld)", PTR_ERR(efuse_cell));
+		goto done;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		pr_info("fail to get efuse_buf (%ld)", PTR_ERR(efuse_buf));
+		goto done;
+	}
+
+	segment_id = (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+
+done:
+	plat_cfg.hw_id = segment_id;
+#else
 	plat_cfg.hw_id = 0x0;
+#endif /* CONFIG_MTK_DEVINFO */
 
 	pr_info("%s 0x%08x 0x%08x 0x%08x\n", __func__,
 		plat_cfg.aging_flag,
