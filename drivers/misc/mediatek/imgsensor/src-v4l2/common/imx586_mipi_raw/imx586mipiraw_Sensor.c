@@ -2389,8 +2389,8 @@ static kal_uint16 imx586_custom4_setting[] = {
 	/*PDAF TYPE2 Setting*/
 	0x3E20, 0x02,
 	0x3E3B, 0x01,
-	0x4434, 0x00,
-	0x4435, 0xf8,
+	0x4434, 0x01,
+	0x4435, 0x00,
 };
 
 static kal_uint16 imx586_custom3_setting[] = {
@@ -5506,7 +5506,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cust4[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x34,
-			.hsize = 0x026c,
+			.hsize = 0x0280,
 			.vsize = 0x02e0,
 			.user_data_desc = VC_PDAF_STATS,
 		},
