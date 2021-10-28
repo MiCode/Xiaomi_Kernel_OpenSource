@@ -1631,8 +1631,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		ext_lye_idx = state->comp_state.ext_lye_id;
 	} else
 		lye_idx = idx;
+
+	if (fmt == DRM_FORMAT_RGB332) {
+		pending->enable = false;
+		DDPINFO("%s: DRM_FORMAT_RGB332 not support, so skip it\n", __func__);
+	}
+
 	DDPINFO("%s+ idx:%d, enable:%d, fmt:0x%x\n", __func__, idx,
 		pending->enable, pending->format);
+
 	if (!pending->enable)
 		mtk_ovl_layer_off(comp, lye_idx, ext_lye_idx, handle);
 
