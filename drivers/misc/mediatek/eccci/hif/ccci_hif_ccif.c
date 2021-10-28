@@ -1278,14 +1278,6 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 
 	if (md_ctrl->channel_id & (1 << AP_MD_CCB_WAKEUP)) {
 		clear_bit(AP_MD_CCB_WAKEUP, &md_ctrl->channel_id);
-		CCCI_DEBUG_LOG(md_ctrl->md_id, TAG, "CCB wakeup\n");
-
-		if (test_and_clear_bit(AP_MD_CCB_WAKEUP,
-			&md_ctrl->wakeup_ch)) {
-			CCCI_NOTICE_LOG(md_ctrl->md_id, TAG,
-				"CCIF_MD wakeup source:(CCB)(%u)\n",
-				md_ctrl->wakeup_count);
-		}
 
 #ifdef DEBUG_FOR_CCB
 		/* CCB count here for channel_id of ccb is clear in this if */
@@ -1334,8 +1326,7 @@ static irqreturn_t md_ccif_isr(int irq, void *data)
 	 */
 	ccif_write32(md_ctrl->ccif_ap_base,
 		APCCIF_ACK, ch_id & 0xFFFF);
-	CCCI_DEBUG_LOG(md_ctrl->md_id, TAG,
-		"%s ch_id = 0x%lX\n", __func__, md_ctrl->channel_id);
+
 	/* igore exception queue */
 	if (ch_id >> RINGQ_BASE) {
 		md_ctrl->traffic_info.isr_cnt++;
@@ -2324,6 +2315,11 @@ static int ccif_resume_noirq(struct device *dev)
 			"CCIF 0 Wake up: channel_id == 0x%x\n", ccif_ch);
 		ccif_ctrl->wakeup_ch = ccif_ch;
 		ccif_ctrl->wakeup_count++;
+		if (test_and_clear_bit(AP_MD_CCB_WAKEUP,
+			&ccif_ctrl->wakeup_ch))
+			CCCI_NOTICE_LOG(ccif_ctrl->md_id, TAG,
+				"CCIF_MD wakeup source:(CCB)(%u)\n",
+				ccif_ctrl->wakeup_count);
 	}
 	return 0;
 }
