@@ -267,9 +267,9 @@ static void swpm_sp_timer_init(void)
 	mod_timer(&swpm_sp_timer, jiffies + msecs_to_jiffies(update_interval_ms));
 }
 
-/* void swpm_v6983_ext_init(phys_addr_t ref_addr, */
+/* void swpm_v6895_ext_init(phys_addr_t ref_addr, */
 /*		  phys_addr_t ctrl_addr) */
-void swpm_v6983_ext_init(void)
+void swpm_v6895_ext_init(void)
 {
 	int i, j;
 
@@ -348,8 +348,8 @@ void swpm_v6983_ext_init(void)
 	mtk_register_swpm_ops(&plat_ops);
 }
 
-void swpm_v6983_ext_exit(void)
+void swpm_v6895_ext_exit(void)
 {
-	del_timer(&swpm_sp_timer);
+	del_timer_sync(&swpm_sp_timer);
 }
 

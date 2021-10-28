@@ -106,9 +106,9 @@ struct share_ctrl_ext {
 extern struct core_swpm_rec_data *core_ptr;
 extern struct mem_swpm_rec_data *mem_ptr;
 
-//extern void swpm_v6983_ext_init(phys_addr_t ref_addr,
+//extern void swpm_v6895_ext_init(phys_addr_t ref_addr,
 			 //phys_addr_t ctrl_addr);
-extern void swpm_v6983_ext_init(void);
-extern void swpm_v6983_ext_exit(void);
+extern void swpm_v6895_ext_init(void);
+extern void swpm_v6895_ext_exit(void);
 
 #endif /* __MTK_SWPM_SP_PLATFORM_H__ */

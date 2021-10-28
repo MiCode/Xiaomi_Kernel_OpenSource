@@ -53,7 +53,6 @@ struct power_rail_data swpm_power_rail[NR_POWER_RAIL] = {
 	[VGPU] = {0, "VGPU"},
 	[VCORE] = {0, "VCORE"},
 	[VDRAM] = {0, "VDRAM"},
-	[VIO18_DRAM] = {0, "VIO18_DRAM"},
 };
 struct share_wrap *wrap_d;
 
@@ -1150,7 +1149,7 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 	swpm_unlock(&swpm_mutex);
 }
 
-int swpm_v6983_init(void)
+int swpm_v6895_init(void)
 {
 	int ret = 0;
 
@@ -1209,11 +1208,11 @@ end:
 	return ret;
 }
 
-void swpm_v6983_exit(void)
+void swpm_v6895_exit(void)
 {
 	swpm_lock(&swpm_mutex);
 
-	del_timer(&swpm_timer);
+	del_timer_sync(&swpm_timer);
 	swpm_set_enable(ALL_METER_TYPE, 0);
 
 	swpm_unlock(&swpm_mutex);

@@ -359,7 +359,7 @@ static const struct mtk_swpm_sysfs_op swpm_sp_ddr_idx_fops = {
 };
 #endif
 
-static void swpm_v6983_dbg_fs_init(void)
+static void swpm_v6895_dbg_fs_init(void)
 {
 	mtk_swpm_sysfs_entry_func_node_add("enable"
 			, 0644, &enable_fops, NULL, NULL);
@@ -379,72 +379,72 @@ static void swpm_v6983_dbg_fs_init(void)
 #endif
 }
 
-static int __init swpm_v6983_dbg_early_initcall(void)
+static int __init swpm_v6895_dbg_early_initcall(void)
 {
 	return 0;
 }
 #ifndef MTK_SWPM_KERNEL_MODULE
-subsys_initcall(swpm_v6983_dbg_early_initcall);
+subsys_initcall(swpm_v6895_dbg_early_initcall);
 #endif
 
-static int __init swpm_v6983_dbg_device_initcall(void)
+static int __init swpm_v6895_dbg_device_initcall(void)
 {
 	return 0;
 }
 
-static int __init swpm_v6983_dbg_late_initcall(void)
+static int __init swpm_v6895_dbg_late_initcall(void)
 {
 	/*
 	 * use late init call sync to
 	 * ensure qos module is ready
 	 */
 	swpm_dbg_common_fs_init();
-	swpm_v6983_init();
-	swpm_v6983_ext_init();
-	swpm_v6983_dbg_fs_init();
+	swpm_v6895_init();
+	swpm_v6895_ext_init();
+	swpm_v6895_dbg_fs_init();
 	pr_notice("swpm init success\n");
 
 	return 0;
 }
 #ifndef MTK_SWPM_KERNEL_MODULE
-late_initcall_sync(swpm_v6983_dbg_late_initcall);
+late_initcall_sync(swpm_v6895_dbg_late_initcall);
 #endif
 
-int __init swpm_v6983_dbg_init(void)
+int __init swpm_v6895_dbg_init(void)
 {
 	int ret = 0;
 #ifdef MTK_SWPM_KERNEL_MODULE
-	ret = swpm_v6983_dbg_early_initcall();
+	ret = swpm_v6895_dbg_early_initcall();
 #endif
 	if (ret)
-		goto swpm_v6983_dbg_init_fail;
+		goto swpm_v6895_dbg_init_fail;
 
-	ret = swpm_v6983_dbg_device_initcall();
+	ret = swpm_v6895_dbg_device_initcall();
 
 	if (ret)
-		goto swpm_v6983_dbg_init_fail;
+		goto swpm_v6895_dbg_init_fail;
 
 #ifdef MTK_SWPM_KERNEL_MODULE
-	ret = swpm_v6983_dbg_late_initcall();
+	ret = swpm_v6895_dbg_late_initcall();
 #endif
 
 	if (ret)
-		goto swpm_v6983_dbg_init_fail;
+		goto swpm_v6895_dbg_init_fail;
 
 	return 0;
-swpm_v6983_dbg_init_fail:
+swpm_v6895_dbg_init_fail:
 	return -EAGAIN;
 }
 
-void __exit swpm_v6983_dbg_exit(void)
+void __exit swpm_v6895_dbg_exit(void)
 {
-	swpm_v6983_exit();
-	swpm_dbg_common_fs_exit();
+	swpm_v6895_exit();
+	swpm_v6895_ext_exit();
 }
 
-module_init(swpm_v6983_dbg_init);
-module_exit(swpm_v6983_dbg_exit);
+module_init(swpm_v6895_dbg_init);
+module_exit(swpm_v6895_dbg_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("v6983 software power model debug module");
+MODULE_DESCRIPTION("v6895 software power model debug module");
 MODULE_AUTHOR("MediaTek Inc.");

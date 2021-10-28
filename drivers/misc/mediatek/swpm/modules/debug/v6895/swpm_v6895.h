@@ -66,7 +66,6 @@ enum power_rail {
 	VGPU,
 	VCORE,
 	VDRAM,
-	VIO18_DRAM,
 
 	NR_POWER_RAIL
 };
@@ -433,8 +432,8 @@ extern struct share_wrap *wrap_d;
 extern char *swpm_power_rail_to_string(enum power_rail p);
 extern void swpm_set_update_cnt(unsigned int type, unsigned int cnt);
 extern void swpm_set_enable(unsigned int type, unsigned int enable);
-extern int swpm_v6983_init(void);
-extern void swpm_v6983_exit(void);
+extern int swpm_v6895_init(void);
+extern void swpm_v6895_exit(void);
 
 #endif
 
