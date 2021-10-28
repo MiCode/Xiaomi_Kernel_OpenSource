@@ -1341,6 +1341,7 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 {
 	unsigned int i;
+	unsigned int enq_no, sen_no;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl =
 		container_of(t, struct mtk_camsys_sensor_ctrl,
 			     sensor_deadline_timer);
@@ -1379,17 +1380,16 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 			time_after_sof, ctx->stream_id,
 			atomic_read(&sensor_ctrl->sensor_request_seq_no));
 	if (drained_res == 0) {
-		if (atomic_read(&ctx->enqueued_frame_seq_no) ==
-			atomic_read(&sensor_ctrl->sensor_enq_seq_no)) {
+		sen_no = atomic_read(&sensor_ctrl->sensor_enq_seq_no);
+		enq_no = atomic_read(&ctx->enqueued_frame_seq_no);
+		if (enq_no == sen_no) {
 			mtk_cam_submit_kwork_in_sensorctrl(
 			sensor_ctrl->sensorsetting_wq, sensor_ctrl);
 			return HRTIMER_NORESTART;
 		}
 		dev_dbg(cam->dev,
 			"[TimerIRQ [SOF+%dms]] ctx:%d, enq:%d/sensor_enq:%d\n",
-			time_after_sof, ctx->stream_id,
-			atomic_read(&ctx->enqueued_frame_seq_no),
-			atomic_read(&sensor_ctrl->sensor_enq_seq_no));
+			time_after_sof, ctx->stream_id, enq_no, sen_no);
 	}
 	hrtimer_forward_now(&sensor_ctrl->sensor_deadline_timer, m_kt);
 
@@ -2186,6 +2186,9 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	bool is_apply = false;
 
+	/*touch watchdog*/
+	if (watchdog_scenario(ctx))
+		mtk_ctx_watchdog_kick(ctx);
 	/* inner register dequeue number */
 	if (!mtk_cam_is_stagger(ctx))
 		ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
@@ -2904,7 +2907,7 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 	if (!need_dequeue)
 		return;
 
-	dev_info(ctx->cam->dev, "[%s] job done ctx-%d:pipe-%d:req(%d)\n",
+	dev_dbg(ctx->cam->dev, "[%s] job done ctx-%d:pipe-%d:req(%d)\n",
 		 __func__, ctx->stream_id, pipe_id, frame_seq_no);
 	if (mtk_cam_dequeue_req_frame(ctx, frame_seq_no, pipe_id)) {
 		mutex_lock(&ctx->cam->queue_lock);

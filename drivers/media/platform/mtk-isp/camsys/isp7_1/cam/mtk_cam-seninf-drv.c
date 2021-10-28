@@ -34,7 +34,7 @@
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"
 
-#define ESD_RESET_SUPPORT 0
+#define ESD_RESET_SUPPORT 1
 #define V4L2_CID_MTK_SENINF_BASE	(V4L2_CID_USER_BASE | 0xf000)
 #define V4L2_CID_MTK_TEST_STREAMON	(V4L2_CID_MTK_SENINF_BASE + 1)
 

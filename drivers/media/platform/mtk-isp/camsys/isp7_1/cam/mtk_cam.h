@@ -48,6 +48,8 @@
 #define MAX_SV_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM-1)
 #define MAX_MRAW_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM-1)
 
+#define MTK_CAM_CTX_WATCHDOG_INTERVAL	100
+
 struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;
@@ -410,6 +412,12 @@ struct mtk_cam_ctx {
 	spinlock_t first_cq_lock;
 
 	struct mtk_cam_hsf_ctrl *hsf;
+	atomic_t watchdog_timeout_cnt;
+	atomic_t watchdog_cnt;
+	atomic_t watchdog_dumped;
+	atomic_t watchdog_dump_cnt;
+	struct timer_list watchdog_timer;
+	struct work_struct watchdog_work;
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;
@@ -715,6 +723,11 @@ void mtk_cam_complete_raw_hdl(struct mtk_cam_request_stream_data *s_data);
 void mtk_cam_complete_sensor_hdl(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
+bool watchdog_scenario(struct mtk_cam_ctx *ctx);
+void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx);
+void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt);
+void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx);
+
 int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 				      struct v4l2_subdev *sd,
 				      int pad_id, int pixel_mode);
