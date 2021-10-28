@@ -1402,7 +1402,7 @@ void spmi_dump_pmif_acc_vio_reg(void)
 		slvid = (tmp_dat & (0xf << 6)) >> 6;
 		is_write = (tmp_dat & (0x1 << 10)) >> 10;
 		cmd = (tmp_dat & (0x3 << 11)) >> 11;
-		type = (tmp_dat & (0x1 << 22)) >> 22;
+		type = (tmp_dat & (0x1 << 13)) >> 13;
 		has_vio = (tmp_dat & (0x1 << 31)) >> 31;
 
 		offset += 4;
@@ -1418,6 +1418,8 @@ void spmi_dump_pmif_acc_vio_reg(void)
 		log_size += sprintf(wp + log_size,
 			"bytecnt:%d, rgn:0x%x, ", bytecnt, rgn);
 		if (is_write) {
+			if (!bytecnt)
+				wdata &= 0xff;
 			log_size += sprintf(wp + log_size, "(addr 0x%x=0x%x)]\n",
 					addr, wdata);
 		} else {
@@ -2046,6 +2048,10 @@ int spmi_pmif_dbg_init(struct spmi_controller *ctrl)
 		arb->dbgver = 2;
 	} else if (of_device_is_compatible(ctrl->dev.parent->of_node,
 				    "mediatek,mt6877-pmif-m")) {
+		arb->dbgregs = mt6833_pmif_dbg_regs;
+		arb->dbgver = 3;
+	} else if (of_device_is_compatible(ctrl->dev.parent->of_node,
+				    "mediatek,mt6895-spmi")) {
 		arb->dbgregs = mt6833_pmif_dbg_regs;
 		arb->dbgver = 3;
 	} else if (of_device_is_compatible(ctrl->dev.parent->of_node,

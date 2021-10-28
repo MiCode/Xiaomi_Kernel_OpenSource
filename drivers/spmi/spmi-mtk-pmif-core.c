@@ -903,18 +903,19 @@ static irqreturn_t rcs_irq_handler(int irq, void *data)
 
 	for (i = 0; i < SPMI_MAX_SLAVE_ID; i++) {
 		slv_irq_sta = mtk_spmi_readl(arb, SPMI_SLV_3_0_EINT + (i / 4));
-		slv_irq_sta >>= (((i % 4) * 8) & 0xFF);
-		if (arb->rcs_enable_hwirq[i] && slv_irq_sta) {
-			dev_info(&arb->spmic->dev,
-				 "hwirq=%d, sta=0x%x\n", i, slv_irq_sta);
-			handle_nested_irq(irq_find_mapping(arb->domain, i));
-		}
+		slv_irq_sta = (slv_irq_sta >> ((i % 4) * 8)) & 0xFF;
+
 		/* need to clear using 0xFF to avoid new irq happen
 		 * after read SPMI_SLV_3_0_EINT + (i/4) value then use
 		 * this value to clean
 		 */
 		mtk_spmi_writel(arb, (0xFF << ((i % 4) * 8)),
 				SPMI_SLV_3_0_EINT + (i / 4));
+		if (arb->rcs_enable_hwirq[i] && slv_irq_sta) {
+			dev_info(&arb->spmic->dev,
+				 "hwirq=%d, sta=0x%x\n", i, slv_irq_sta);
+			handle_nested_irq(irq_find_mapping(arb->domain, i));
+		}
 	}
 	return IRQ_HANDLED;
 }
