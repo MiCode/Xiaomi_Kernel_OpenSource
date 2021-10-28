@@ -8,6 +8,7 @@
 #include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/remoteproc.h>
+#include <linux/workqueue.h>
 
 #define MAX_MUX_NUM (10)
 #define MAX_OPP_STEP 7
@@ -63,6 +64,9 @@ struct dvfs_driver_data {
 	u32 en_vb;
 	u32 disable_dvfs;
 	struct ccu_handle_info ccu_handle;
+	bool ccu_power_on;
+	bool request_power_on;
+	struct work_struct work_structure;
 };
 
 struct dvfs_ipc_init {

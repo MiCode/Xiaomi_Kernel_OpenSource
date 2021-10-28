@@ -24,6 +24,7 @@
 
 static struct dentry *ispdvfs_debugfs_dir;
 static struct regulator *vmm_reg;
+DECLARE_WAIT_QUEUE_HEAD(vmm_wait_queue);
 
 #define REGULATOR_ID_VMM 0
 #define AGING_MARGIN_MICROVOLT 12500
@@ -394,7 +395,6 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	struct ccu_handle_info *ccu_handle;
 	struct dvfs_info *current_info;
 	struct dvfs_ipc_info dvfs_ipi;
-	struct dvfs_ipc_init dvfs_ipi_init;
 
 	regulator = rdev_get_drvdata(rdev);
 	if (!regulator) {
@@ -418,44 +418,16 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	mutex_lock(&current_info->voltage_mutex);
 
 	if (current_info->voltage_target == min_uV) {
-		mutex_unlock(&current_info->voltage_mutex);
-		return 0;
+		ret = 0;
+		goto Unlock_Mutex;
 	}
 
-	if (!drv_data->mux_is_enable) {
-		/* Enable mux so that we could keep mux life cycle */
-		ret = enable_all_muxes(drv_data);
-		if (ret) {
-			ISP_LOGE("enable all mux fail\n");
-			mutex_unlock(&current_info->voltage_mutex);
-			return ret;
-		}
-		drv_data->mux_is_enable = true;
-	}
-
-	ccu_handle = &(drv_data->ccu_handle);
-	if (!ccu_handle->ccu_pdev) {
-		ret = power_on_ccu(ccu_handle);
-		if (ret) {
-			ISP_LOGE("boot ccu rproc fail\n");
-			mutex_unlock(&current_info->voltage_mutex);
-			return ret;
-		}
-
-		dvfs_ipi_init.needVoltageBin = drv_data->en_vb;
-		dvfs_ipi_init.needSimAging = drv_data->simulate_aging;
-		dvfs_ipi_init.needCbFromMicroP
-				= mtk_ispdvfs_dbg_level & DVFS_DEBUG_MICROP;
-		ret = mtk_ccu_rproc_ipc_send(
-			ccu_handle->ccu_pdev,
-			MTK_CCU_FEATURE_ISPDVFS,
-			DVFS_CCU_INIT,
-			(void *)&dvfs_ipi_init, sizeof(struct dvfs_ipc_init));
-		if (ret) {
-			ISP_LOGE("mtk_ccu_rproc_ipc_send(DVFS_CCU_INIT) fail\n");
-			mutex_unlock(&current_info->voltage_mutex);
-			return ret;
-		}
+	ret = wait_event_interruptible_timeout(vmm_wait_queue, drv_data->ccu_power_on,
+			msecs_to_jiffies(3000));
+	if (!ret) {
+		ISP_LOGE("Wait CCU power on timeout\n");
+		ret = -EINVAL;
+		goto Unlock_Mutex;
 	}
 
 	ret = get_idx_by_voltage(min_uV,
@@ -464,10 +436,10 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 			&dvfs_ipi.maxOppIdx);
 	if (ret) {
 		ISP_LOGE("get voltage index fail\n");
-		mutex_unlock(&current_info->voltage_mutex);
-		return ret;
+		goto Unlock_Mutex;
 	}
 
+	ccu_handle = &(drv_data->ccu_handle);
 	ret = mtk_ccu_rproc_ipc_send(
 		ccu_handle->ccu_pdev,
 		MTK_CCU_FEATURE_ISPDVFS,
@@ -475,12 +447,10 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 		(void *)&dvfs_ipi, sizeof(struct dvfs_ipc_info));
 	if (ret) {
 		ISP_LOGE("mtk_ccu_rproc_ipc_send(DVFS_VOLTAGE_UPDATE) fail\n");
-		mutex_unlock(&current_info->voltage_mutex);
-		return ret;
+		goto Unlock_Mutex;
 	}
 
 	current_info->voltage_target = min_uV;
-	mutex_unlock(&current_info->voltage_mutex);
 
 	ISP_LOGD("CCU VMM set voltage (%d) max level(%d)",
 			min_uV, dvfs_ipi.maxOppIdx);
@@ -488,7 +458,10 @@ static int ccu_set_voltage(struct regulator_dev *rdev,
 	if (dvfs_ipi.maxOppIdx == dvfs_ipi.minOppIdx)
 		trace_vmm__update_voltage(min_uV);
 
-	return 0;
+Unlock_Mutex:
+	mutex_unlock(&current_info->voltage_mutex);
+
+	return ret;
 }
 
 static int apmcu_set_voltage(struct regulator_dev *rdev,
@@ -608,9 +581,63 @@ static void vmm_init_opp_table(struct dvfs_driver_data *data)
 	}
 }
 
+static void power_control_handler(struct work_struct *work)
+{
+	struct dvfs_driver_data *drv_data
+			= container_of(work, struct dvfs_driver_data, work_structure);
+	struct ccu_handle_info *ccu_handle;
+	struct dvfs_ipc_init dvfs_ipi_init;
+	int ret;
+
+	ccu_handle = &(drv_data->ccu_handle);
+
+	if (drv_data->request_power_on) {
+		ISP_LOGI("Power on CCU");
+
+		ret = power_on_ccu(ccu_handle);
+		if (ret) {
+			ISP_LOGE("boot ccu rproc fail\n");
+			return;
+		}
+
+		dvfs_ipi_init.needVoltageBin = drv_data->en_vb;
+		dvfs_ipi_init.needSimAging = drv_data->simulate_aging;
+		ret = mtk_ccu_rproc_ipc_send(
+			ccu_handle->ccu_pdev,
+			MTK_CCU_FEATURE_ISPDVFS,
+			DVFS_CCU_INIT,
+			(void *)&dvfs_ipi_init, sizeof(struct dvfs_ipc_init));
+		if (ret) {
+			ISP_LOGE("mtk_ccu_rproc_ipc_send(DVFS_CCU_INIT) fail\n");
+			return;
+		}
+
+		drv_data->ccu_power_on = true;
+	} else {
+		int exit = 1;
+
+		ISP_LOGI("Power off CCU");
+		ret = mtk_ccu_rproc_ipc_send(
+			ccu_handle->ccu_pdev,
+			MTK_CCU_FEATURE_ISPDVFS,
+			DVFS_CCU_UNINIT,
+			(void *)&exit, sizeof(exit));
+		if (ret != 0)
+			ISP_LOGE("ccu ipc fail(DVFS_CCU_UNINIT) fail");
+
+		rproc_shutdown(ccu_handle->proc);
+		memset(ccu_handle, 0, sizeof(*ccu_handle));
+		drv_data->ccu_power_on = false;
+	}
+
+	wake_up_interruptible(&vmm_wait_queue);
+}
+
 static int vmm_enable_regulator(struct regulator_dev *rdev)
 {
 	struct vmm_regulator *regulator;
+	struct dvfs_driver_data *drv_data;
+	int ret;
 
 	ISP_LOGI("Enable vmm regulator");
 	regulator = rdev_get_drvdata(rdev);
@@ -618,6 +645,25 @@ static int vmm_enable_regulator(struct regulator_dev *rdev)
 		ISP_LOGE("rdev_get_drvdata ptr is null");
 		return PTR_ERR(regulator);
 	}
+
+	drv_data = regulator->dvfs_data;
+	if (!drv_data) {
+		ISP_LOGE("dvfs_data ptr is null");
+		return PTR_ERR(drv_data);
+	}
+
+	if (!drv_data->mux_is_enable) {
+		/* Enable mux so that we could keep mux life cycle */
+		ret = enable_all_muxes(drv_data);
+		if (ret) {
+			ISP_LOGE("enable all mux fail\n");
+			return ret;
+		}
+		drv_data->mux_is_enable = true;
+	}
+
+	drv_data->request_power_on = true;
+	schedule_work(&drv_data->work_structure);
 
 	regulator->is_enable = 1;
 
@@ -628,9 +674,8 @@ static int vmm_disable_regulator(struct regulator_dev *rdev)
 {
 	struct vmm_regulator *regulator;
 	struct dvfs_driver_data *dvfs_data;
-	struct ccu_handle_info *ccu_handle;
 	struct dvfs_info *current_info;
-	int ret;
+	int ret = 0;
 
 	ISP_LOGI("Disable vmm regulator");
 
@@ -646,25 +691,20 @@ static int vmm_disable_regulator(struct regulator_dev *rdev)
 		return PTR_ERR(dvfs_data);
 	}
 
-	ccu_handle = &(dvfs_data->ccu_handle);
-	if (ccu_handle->ccu_pdev) {
-		int exit = 1;
-
-		ret = mtk_ccu_rproc_ipc_send(
-			ccu_handle->ccu_pdev,
-			MTK_CCU_FEATURE_ISPDVFS,
-			DVFS_CCU_UNINIT,
-			(void *)&exit, sizeof(exit));
-		if (ret != 0)
-			ISP_LOGE("ccu ipc fail(DVFS_CCU_UNINIT) fail");
-
-		rproc_shutdown(ccu_handle->proc);
-		memset(ccu_handle, 0, sizeof(*ccu_handle));
-	}
-
 	if (dvfs_data->mux_is_enable) {
 		disable_all_muxes(dvfs_data);
 		dvfs_data->mux_is_enable = false;
+	}
+
+	if (dvfs_data->ccu_power_on) {
+		dvfs_data->request_power_on = false;
+		schedule_work(&dvfs_data->work_structure);
+
+		ret = wait_event_interruptible_timeout(vmm_wait_queue,
+			dvfs_data->ccu_power_on == false,
+			msecs_to_jiffies(3000));
+		if (!ret)
+			ISP_LOGE("Wait CCU power off timeout\n");
 	}
 
 	current_info = &(dvfs_data->current_dvfs);
@@ -782,6 +822,10 @@ static int vmm_regulator_probe(struct platform_device *pdev)
 	}
 	dvfs_data->num_muxes = num_mux;
 	dvfs_data->mux_is_enable = false;
+
+	/* CCU power on status */
+	dvfs_data->ccu_power_on = false;
+	INIT_WORK(&dvfs_data->work_structure, power_control_handler);
 
 	/* Real regualtor instance which controls vmm directly */
 	vmm_reg = devm_regulator_get(dev, "buck-vmm");
