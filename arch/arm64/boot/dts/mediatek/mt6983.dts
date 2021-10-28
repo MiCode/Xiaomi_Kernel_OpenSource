@@ -2873,12 +2873,8 @@
 				"cam_main_pda2";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 		mediatek,pda2 = <&pda2>;
-		mediatek,larbs = <&smi_larb13 &smi_larb25>;
-		iommus = <&disp_iommu M4U_PORT_L13_CAM1_PDAI_A_0>,
-			<&disp_iommu M4U_PORT_L13_CAM1_PDAI_A_1>,
-			<&disp_iommu M4U_PORT_L13_CAM1_PDAO_A>,
-			<&disp_iommu M4U_PORT_L13_CAM1_PDAO_C>,
-			<&disp_iommu M4U_PORT_L25_CAM_PDAI_A0>,
+		mediatek,larbs = <&smi_larb25>;
+		iommus = <&disp_iommu M4U_PORT_L25_CAM_PDAI_A0>,
 			<&disp_iommu M4U_PORT_L25_CAM_PDAI_A1>,
 			<&disp_iommu M4U_PORT_L25_CAM_PDAO_A>;
 		interconnects =
@@ -2926,11 +2922,8 @@
 				"cam_main_pda1",
 				"cam_main_pda2";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
-		mediatek,larbs = <&smi_larb14 &smi_larb26>;
-		iommus = <&mdp_iommu M4U_PORT_L14_CAM1_PDAI_B_0>,
-			<&mdp_iommu M4U_PORT_L14_CAM1_PDAI_B_1>,
-			<&mdp_iommu M4U_PORT_L14_CAM1_PDAO_B>,
-			<&mdp_iommu M4U_PORT_L26_CAM_PDAI_B0>,
+		mediatek,larbs = <&smi_larb26>;
+		iommus = <&mdp_iommu M4U_PORT_L26_CAM_PDAI_B0>,
 			<&mdp_iommu M4U_PORT_L26_CAM_PDAI_B1>,
 			<&mdp_iommu M4U_PORT_L26_CAM_PDAO_B>;
 	};
