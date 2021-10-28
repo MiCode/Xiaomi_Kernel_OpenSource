@@ -1264,6 +1264,10 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 
 static void mtk_rtc_shutdown(struct platform_device *pdev)
 {
+	struct mt6685_rtc *rtc = dev_get_drvdata(&pdev->dev);
+
+	/*Normal sequence power off when PON falling*/
+	rtc_write(rtc, TOP2_ELR1, 1);
 
 #ifdef SUPPORT_EOSC_CALI
 	mtk_rtc_enable_k_eosc(&pdev->dev);
