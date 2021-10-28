@@ -9,7 +9,6 @@
 #include <linux/irqdomain.h>
 #include <linux/platform_device.h>
 #include <linux/mailbox_controller.h>
-#include <linux/msm_rtb.h>
 
 /* RIMPS Register offsets */
 #define RIMPS_IPC_CHAN_SUPPORTED	2
@@ -49,12 +48,12 @@ static irqreturn_t qcom_rimps_rx_interrupt(int irq, void *p)
 
 	for (i = 0; i < rimps_ipc->num_chan; i++) {
 
-		val = readl_no_log(rimps_ipc->rx_irq_base +
+		val = readl(rimps_ipc->rx_irq_base +
 		RIMPS_STATUS_IRQ_OFFSET + (i * RIMPS_CLOCK_DOMAIN_OFFSET));
 		if (val & RIMPS_STATUS_IRQ_VAL) {
 
 			val = RIMPS_CLEAR_IRQ_VAL;
-			writel_no_log(val, rimps_ipc->rx_irq_base +
+			writel(val, rimps_ipc->rx_irq_base +
 			RIMPS_CLEAR_IRQ_OFFSET +
 				(i * RIMPS_CLOCK_DOMAIN_OFFSET));
 			/* Make sure register write is complete before proceeding */
@@ -79,7 +78,7 @@ static int qcom_rimps_mbox_send_data(struct mbox_chan *chan, void *data)
 	struct qcom_rimps_ipc *rimps_ipc = container_of(chan->mbox,
 						  struct qcom_rimps_ipc, mbox);
 
-	writel_no_log(RIMPS_SEND_IRQ_VAL,
+	writel(RIMPS_SEND_IRQ_VAL,
 			rimps_ipc->tx_irq_base + RIMPS_SEND_IRQ_OFFSET);
 	return 0;
 }
