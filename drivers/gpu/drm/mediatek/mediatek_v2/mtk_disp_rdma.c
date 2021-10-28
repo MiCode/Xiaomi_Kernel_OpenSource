@@ -572,13 +572,12 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	gs[GS_RDMA_ULTRA_TH_LOW] =
 		DIV_ROUND_UP(consume_rate * (ultra_low_us), FP);
 	gs[GS_RDMA_ULTRA_TH_HIGH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
-	if (gsc->is_vdo_mode) {
+	if (gsc->is_vdo_mode)
 		gs[GS_RDMA_VALID_TH_BLOCK_ULTRA] = 0;
-		gs[GS_RDMA_VDE_BLOCK_ULTRA] = 1;
-	} else {
+	else
 		gs[GS_RDMA_VALID_TH_BLOCK_ULTRA] = 1;
-		gs[GS_RDMA_VDE_BLOCK_ULTRA] = 0;
-	}
+
+	gs[GS_RDMA_VDE_BLOCK_ULTRA] = 0;
 
 	/* DISP_RDMA_FIFO_CON */
 
@@ -1165,6 +1164,8 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_CROP_CON_0 + baddr));
 		DDPDUMP("(0x0e8)DISP_REG_RDMA_MEM_GMC_SETTING_3=0x%x\n",
 			readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr));
+		DDPDUMP("(0x0ec)DISP_REG_RDMA_MEM_GMC_SETTING_4=0x%x\n",
+			readl(DISP_REG_RDMA_MEM_GMC_S4 + baddr));
 		DDPDUMP("(0x0f0)R_IN_PXL_CNT=0x%x\n",
 			readl(DISP_REG_RDMA_IN_P_CNT + baddr));
 		DDPDUMP("(0x0f4)R_IN_LINE_CNT=0x%x\n",
