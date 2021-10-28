@@ -66,6 +66,7 @@
 #include "../mml/mtk-mml-driver.h"
 
 #include "slbc_ops.h"
+#include <linux/syscalls.h>
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -1075,63 +1076,73 @@ static struct mml_submit *mtk_alloc_mml_submit(void)
 	return temp;
 }
 
+void mtk_free_mml_submit(struct mml_submit *temp)
+{
+	unsigned int i = 0;
+
+	if (!temp)
+		return;
+
+	kfree(temp->job);
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+		kfree(temp->pq_param[i]);
+	kfree(temp);
+}
+
+static int copy_mml_submit_from_user(struct mml_submit *src,
+	struct mml_submit *dst)
+{
+	struct mml_job *temp_job = NULL;
+	struct mml_pq_param *temp_pq_param[MML_MAX_OUTPUTS] = {NULL, NULL};
+	int i = 0;
+
+	temp_job = dst->job;
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+		temp_pq_param[i] = dst->pq_param[i];
+
+	if (copy_from_user(dst, src, sizeof(struct mml_submit))) {
+		DDPINFO("%s copy_from_user all fail\n", __func__);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(temp_job, dst->job, sizeof(struct mml_job))) {
+		DDPINFO("%s copy_from_user mml_job fail\n", __func__);
+		return -EINVAL;
+	}
+	dst->job = temp_job;
+
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
+		if (copy_from_user(temp_pq_param[i],
+			dst->pq_param[i], sizeof(struct mml_pq_param))) {
+			DDPINFO("%s copy_from_user mml_pq_param fail\n", __func__);
+			return -EINVAL;
+		}
+		dst->pq_param[i] = temp_pq_param[i];
+	}
+
+	return 0;
+}
+
 static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct mtk_plane_state *mtk_plane_state)
 {
 	struct mml_submit *submit_kernel = NULL;
 	struct mml_submit *submit_pq = NULL;
 	struct mml_submit *submit_user = NULL;
-	struct mml_job *temp_job = NULL;
-	struct mml_pq_param *temp_pq_param[MML_MAX_OUTPUTS] = {NULL, NULL};
 	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(mtk_plane_state->crtc);
 	int i = 0, j = 0;
+	int ret = 0;
 
 	submit_user = (struct mml_submit *)
 		(mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
 
-	submit_kernel = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
-	if (copy_from_user(submit_kernel, submit_user,
-			sizeof(struct mml_submit))) {
-		DDPPR_ERR("%s copy_from_user mml_submit fail\n", __func__);
+	submit_kernel = mtk_alloc_mml_submit();
+	ret = copy_mml_submit_from_user(submit_user, submit_kernel);
+	if (ret < 0)
 		goto err_handle_mtk_atomic_mml_plane_free_mml_submit;
-	}
-	temp_job = submit_kernel->job;
-	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
-
-	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
-		temp_pq_param[i] = submit_kernel->pq_param[i];
-		submit_kernel->pq_param[i] =
-			kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
-	}
-
-	if (temp_job) {
-		if (copy_from_user(submit_kernel->job, temp_job,
-			sizeof(struct mml_job))) {
-			DDPPR_ERR("%s copy_from_user mml_job fail\n", __func__);
-			goto err_handle_mtk_atomic_mml_plane_free_all;
-		}
-	} else {
-		DDPPR_ERR("%s submit_user->job is null\n", __func__);
-		goto err_handle_mtk_atomic_mml_plane_free_all;
-	}
-
-	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
-		if (!temp_pq_param[i]) {
-			DDPPR_ERR("%s temp_pq_param[%d] is null\n", __func__, i);
-			goto err_handle_mtk_atomic_mml_plane_free_all;
-		}
-
-		if (copy_from_user(submit_kernel->pq_param[i],
-				temp_pq_param[i], sizeof(struct mml_pq_param))) {
-			DDPPR_ERR("%s copy_from_user mml_pq_param fail\n", __func__);
-			goto err_handle_mtk_atomic_mml_plane_free_all;
-		}
-	}
 
 	if (submit_kernel != NULL) {
-		int ret = 0;
-
 		submit_kernel->update = false;
 		submit_kernel->info.mode = MML_MODE_RACING;
 
@@ -1176,18 +1187,22 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 
 			mtk_crtc->is_mml = true;
 			mtk_plane_state->mml_mode = MML_MODE_RACING;
+
+			// release previous mml_cfg
+			if (mtk_plane_state->pending.mml_cfg)
+				mtk_free_mml_submit(mtk_plane_state->pending.mml_cfg);
 			mtk_plane_state->mml_cfg = submit_pq;
+
+			// release previous mml_cfg
+			if (mtk_crtc->mml_cfg)
+				mtk_free_mml_submit(mtk_crtc->mml_cfg);
 			mtk_crtc->mml_cfg = submit_kernel;
 		}
 	}
 
-err_handle_mtk_atomic_mml_plane_free_all:
-	//for (i = 0; i < MML_MAX_OUTPUTS; ++i)
-	//	kfree(submit_kernel->pq_param[i]);
-	//kfree(submit_kernel->job);
+	return;
 err_handle_mtk_atomic_mml_plane_free_mml_submit:
-	//kfree(submit_kernel);
-	DDPINFO("%s -\n", __func__);
+	mtk_free_mml_submit(submit_kernel);
 }
 
 static void mtk_atomic_mml(struct drm_device *dev,

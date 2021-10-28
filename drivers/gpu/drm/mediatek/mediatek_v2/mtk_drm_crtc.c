@@ -2182,8 +2182,14 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 			if (cur_is_mml != prev_is_mml) {
 				if (cur_is_mml)
 					mtk_crtc_alloc_sram(mtk_crtc);
-				else if (prev_is_mml)
+				else if (prev_is_mml) {
 					mtk_crtc_free_sram(mtk_crtc);
+					// release previous mml_cfg
+					if (mtk_crtc->mml_cfg) {
+						mtk_free_mml_submit(mtk_crtc->mml_cfg);
+						mtk_crtc->mml_cfg = NULL;
+					}
+				}
 			}
 		}
 
@@ -5302,12 +5308,8 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	if (!need_wait)
 		goto skip;
 
-	/* stop the last mml pkt */
-	if (mtk_crtc->mml_cfg) {
-		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
-		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
+	if (mtk_crtc->mml_cfg)
 		mtk_crtc_free_sram(mtk_crtc);
-	}
 
 	if (crtc_id == 2) {
 		int gce_event =
