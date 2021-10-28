@@ -256,6 +256,13 @@ static void mddpwh_sm_md_reset(struct mddp_app_t *app)
 	schedule_work(&wfpm_reset_work);
 }
 
+static void mddpwh_sm_dummy_act(struct mddp_app_t *app)
+{
+	mddp_netdev_notifier_exit();
+	mddp_f_dev_del_wan_dev(app->ap_cfg.ul_dev_name);
+	mddp_f_dev_del_lan_dev(app->ap_cfg.dl_dev_name);
+}
+
 //------------------------------------------------------------------------------
 // MDDPWH State machine.
 //------------------------------------------------------------------------------
@@ -274,7 +281,7 @@ static struct mddp_sm_entry_t mddpwh_disabled_state_machine_s[] = {
 {MDDP_EVT_MD_RESET,       MDDP_STATE_DISABLED,     mddpwh_sm_md_reset},
 {MDDP_EVT_FUNC_ENABLE,    MDDP_STATE_ENABLING,     mddpwh_sm_enable},
 {MDDP_EVT_FUNC_DISABLE,   MDDP_STATE_DISABLED,     NULL},
-{MDDP_EVT_FUNC_ACT,       MDDP_STATE_DISABLED,     NULL},
+{MDDP_EVT_FUNC_ACT,       MDDP_STATE_DISABLED,     mddpwh_sm_dummy_act},
 {MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DISABLED,     NULL},
 {MDDP_EVT_DUMMY,          MDDP_STATE_DISABLED,     NULL} /* End of SM. */
 };
