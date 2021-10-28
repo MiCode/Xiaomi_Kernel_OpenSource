@@ -1742,17 +1742,15 @@ static struct mtk_mux top_muxes[] = {
 		0 /* lsb */, 3 /* width */, 7 /* pdn */,
 		CLK_CFG_UPDATE_0 /* upd ofs */,
 		TOP_MUX_AXI_SHIFT /* upd shift */),
-	MUX_HWV(CLK_TOP_DISP0_SEL /* dts */,
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_DISP0_SEL /* dts */,
 		"disp0_sel", disp0_parents /* parents*/,
 		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR, /* sta/set/clr */
-		HWV_CLK_CFG_1_STA, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
 		0 /* lsb */, 4 /* width */, 7 /* pdn */,
 		CLK_CFG_UPDATE_0 /* upd ofs */,
 		TOP_MUX_DISP0_SHIFT /* upd shift */),
-	MUX_HWV(CLK_TOP_DISP1_SEL /* dts */,
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_DISP1_SEL /* dts */,
 		"disp1_sel", disp1_parents /* parents*/,
 		CLK_CFG_1, CLK_CFG_1_SET, CLK_CFG_1_CLR, /* sta/set/clr */
-		HWV_CLK_CFG_1_STA, HWV_CLK_CFG_1_SET, HWV_CLK_CFG_1_CLR, /* sta/set/clr */
 		8 /* lsb */, 4 /* width */, 15 /* pdn */,
 		CLK_CFG_UPDATE_0 /* upd ofs */,
 		TOP_MUX_DISP1_SHIFT /* upd shift */),
@@ -1768,10 +1766,9 @@ static struct mtk_mux top_muxes[] = {
 		24 /* lsb */, 4 /* width */, 31 /* pdn */,
 		CLK_CFG_UPDATE_0 /* upd ofs */,
 		TOP_MUX_MDP1_SHIFT /* upd shift */),
-	MUX_HWV(CLK_TOP_MMINFRA_SEL /* dts */,
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_MMINFRA_SEL /* dts */,
 		"mminfra_sel", mminfra_parents /* parents*/,
 		CLK_CFG_2, CLK_CFG_2_SET, CLK_CFG_2_CLR, /* sta/set/clr */
-		HWV_CLK_CFG_2_STA, HWV_CLK_CFG_2_SET, HWV_CLK_CFG_2_CLR, /* sta/set/clr */
 		0 /* lsb */, 4 /* width */, 7 /* pdn */,
 		CLK_CFG_UPDATE_0 /* upd ofs */,
 		TOP_MUX_MMINFRA_SHIFT /* upd shift */),
@@ -2081,10 +2078,9 @@ static struct mtk_mux top_muxes[] = {
 		24 /* lsb */, 1 /* width */, 31 /* pdn */,
 		CLK_CFG_UPDATE_1 /* upd ofs */,
 		TOP_MUX_AUD_1_SHIFT /* upd shift */),
-	MUX_HWV(CLK_TOP_VENC_SEL /* dts */,
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_VENC_SEL /* dts */,
 		"venc_sel", venc_parents /* parents*/,
 		CLK_CFG_15, CLK_CFG_15_SET, CLK_CFG_15_CLR, /* sta/set/clr */
-		HWV_CLK_CFG_15_STA, HWV_CLK_CFG_15_SET, HWV_CLK_CFG_15_CLR, /* sta/set/clr */
 		24 /* lsb */, 4 /* width */, 31 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_VENC_SHIFT /* upd shift */),
@@ -2106,10 +2102,9 @@ static struct mtk_mux top_muxes[] = {
 		16 /* lsb */, 3 /* width */, 23 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_DPMAIF_MAIN_SHIFT /* upd shift */),
-	MUX_HWV(CLK_TOP_VDEC_SEL /* dts */,
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_VDEC_SEL /* dts */,
 		"vdec_sel", vdec_parents /* parents*/,
 		CLK_CFG_16, CLK_CFG_16_SET, CLK_CFG_16_CLR, /* sta/set/clr */
-		HWV_CLK_CFG_16_STA, HWV_CLK_CFG_16_SET, HWV_CLK_CFG_16_CLR, /* sta/set/clr */
 		0 /* lsb */, 4 /* width */, 7 /* pdn */,
 		CLK_CFG_UPDATE_2 /* upd ofs */,
 		TOP_MUX_VDEC_SHIFT /* upd shift */),
@@ -2918,15 +2913,14 @@ static const struct mtk_pll_data apmixedsys_plls[] = {
 		ADSPPLL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
 		ADSPPLL_CON1, 0, 22 /* pcw */),
-	PLL_HV(CLK_APMIXEDSYS_TVDPLL /* dts */,
+	PLL(CLK_APMIXEDSYS_TVDPLL /* dts */,
 		"tvdpll" /* name */,
 		TVDPLL_CON0 /* base */,
 		TVDPLL_CON0, 0x00000000, 0 /* en_reg/div_en_msk/en_bit */,
 		TVDPLL_CON3, 0, BIT(0) /* pwr_reg/flag/rstb_bit */,
 		TVDPLL_CON1, 24 /* post div reg/bit */,
 		0, 0, 0 /* tuner */,
-		TVDPLL_CON1, 0, 22 /* pcw */,
-		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE, 5),
+		TVDPLL_CON1, 0, 22 /* pcw */),
 	PLL(CLK_APMIXEDSYS_APLL1 /* dts */,
 		"apll1" /* name */,
 		APLL1_CON0 /* base */,
