@@ -8,6 +8,7 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/bitfield.h>
+#include <linux/cpumask.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -2232,6 +2233,8 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	struct device_node *reset_node;
 	struct platform_device *reset_pdev;
 	struct device_link *link;
+	struct ufs_hba *hba;
+	struct cpumask imask;
 
 	reset_node = of_find_compatible_node(NULL, NULL,
 					     "ti,syscon-reset");
@@ -2260,9 +2263,19 @@ skip_reset:
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
 
-out:
-	if (err)
+	if (err) {
 		dev_info(dev, "probe failed %d\n", err);
+		goto out;
+	}
+
+	/* set affinity to cpu3 */
+	hba = platform_get_drvdata(pdev);
+	if (hba && hba->irq) {
+		cpumask_clear(&imask);
+		cpumask_set_cpu(3, &imask);
+		irq_set_affinity_hint(hba->irq, &imask);
+	}
+out:
 
 	of_node_put(reset_node);
 	return err;
