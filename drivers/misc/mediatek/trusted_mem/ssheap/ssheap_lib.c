@@ -35,6 +35,7 @@
 
 #define HYP_PMM_ASSIGN_BUFFER (0XBB00FFA0)
 #define HYP_PMM_UNASSIGN_BUFFER (0XBB00FFA1)
+#define HYP_PMM_SET_CMA_REGION (0XBB00FFA8)
 
 #define ENABLE_CACHE_PAGE 1
 
@@ -437,10 +438,14 @@ void ssheap_enable_buddy_system(bool enable)
 
 void ssheap_set_cma_region(phys_addr_t base, phys_addr_t size)
 {
+	struct arm_smccc_res smc_res;
+
 	pr_info("use cma base=%pa size=%pa\n", &base, &size);
 	use_cma = true;
 	ssheap_phys_base = base;
 	ssheap_phys_size = size;
+	arm_smccc_smc(HYP_PMM_SET_CMA_REGION, ssheap_phys_base >> 20,
+		      ssheap_phys_size >> 20, 0, 0, 0, 0, 0, &smc_res);
 }
 
 void ssheap_set_dev(struct device *dev)
