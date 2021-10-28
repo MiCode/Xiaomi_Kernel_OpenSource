@@ -204,6 +204,32 @@ static int apu_top_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int apu_top_suspend(struct device *dev)
+{
+	if (check_pwr_data())
+		return -ENODEV;
+
+	pr_info("%s +\n", __func__);
+
+	if (IS_ERR_OR_NULL(pwr_data->plat_aputop_suspend))
+		return 0;
+
+	return pwr_data->plat_aputop_suspend(dev);
+}
+
+static int apu_top_resume(struct device *dev)
+{
+	if (check_pwr_data())
+		return -ENODEV;
+
+	pr_info("%s +\n", __func__);
+
+	if (IS_ERR_OR_NULL(pwr_data->plat_aputop_resume))
+		return 0;
+
+	return pwr_data->plat_aputop_resume(dev);
+}
+
 #ifndef MT6983_PLAT_DATA
 const struct apupwr_plat_data mt6983_plat_data;
 #endif
@@ -223,6 +249,7 @@ static const struct of_device_id of_match_apu_top[] = {
 
 static const struct dev_pm_ops mtk_aputop_pm_ops = {
 	SET_RUNTIME_PM_OPS(aputop_pwr_off_rpm_cb, aputop_pwr_on_rpm_cb, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(apu_top_suspend, apu_top_resume)
 };
 
 static struct platform_driver apu_top_drv = {

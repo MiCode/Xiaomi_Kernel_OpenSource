@@ -49,6 +49,8 @@ struct apupwr_plat_data {
 	int ( *plat_aputop_off)(struct device *dev);
 	int ( *plat_aputop_pb)(struct platform_device *pdev);
 	int ( *plat_aputop_rm)(struct platform_device *pdev);
+	int (*plat_aputop_suspend)(struct device *dev);
+	int (*plat_aputop_resume)(struct device *dev);
 	int ( *plat_aputop_func)(struct platform_device *pdev,
 			enum aputop_func_id func_id,
 			struct aputop_func_param *aputop);

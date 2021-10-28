@@ -1459,6 +1459,8 @@ const struct apupwr_plat_data mt6879_plat_data = {
 	.plat_aputop_off = mt6879_apu_top_off,
 	.plat_aputop_pb = mt6879_apu_top_pb,
 	.plat_aputop_rm = mt6879_apu_top_rm,
+	.plat_aputop_suspend = NULL,
+	.plat_aputop_resume = NULL,
 	.plat_aputop_func = mt6879_apu_top_func,
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	.plat_aputop_dbg_open = mt6879_apu_top_dbg_open,

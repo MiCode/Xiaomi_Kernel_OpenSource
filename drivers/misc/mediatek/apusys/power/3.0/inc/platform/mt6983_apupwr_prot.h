@@ -17,6 +17,7 @@
 #define SPARE_DBG_REG14		0x438	// mbox4_dummy14
 #define SPARE_DBG_REG15		0x43C	// mbox4_dummy15
 #define SPARE_DBG_REG16		0x440	// mbox4_dummy16
+#define SPARE_DBG_REG17		0x444	// mbox4_dummy17
 
 #define ACX0_LIMIT_OPP_REG      SPARE_DBG_REG10
 #define ACX1_LIMIT_OPP_REG      SPARE_DBG_REG11
@@ -26,6 +27,8 @@
 #define DRV_CFG_SYNC_REG	SPARE_DBG_REG15
 
 #define PWR_FLOW_SYNC_REG	SPARE_DBG_REG16
+
+#define PWR_DBG_VCORE_OFF_REG	SPARE_DBG_REG17
 
 enum {
 	APUPWR_DBG_DEV_CTL = 0,

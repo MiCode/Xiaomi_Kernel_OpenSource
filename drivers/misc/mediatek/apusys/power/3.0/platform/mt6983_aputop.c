@@ -1389,6 +1389,28 @@ static int mt6983_apu_top_rm(struct platform_device *pdev)
 	return 0;
 }
 
+static int mt6983_apu_top_suspend(struct device *dev)
+{
+	uint32_t magicNum = 0x11223344;
+	uint32_t regValue = 0x0;
+
+	apu_writel(magicNum, apupw.regs[apu_md32_mbox] + PWR_DBG_VCORE_OFF_REG);
+	regValue = apu_readl(apupw.regs[apu_md32_mbox] + PWR_DBG_VCORE_OFF_REG);
+	pr_info("%s mbox_dbg_reg readback = 0x%08x\n", __func__, regValue);
+
+	return 0;
+}
+
+static int mt6983_apu_top_resume(struct device *dev)
+{
+	uint32_t regValue = 0x0;
+
+	regValue = apu_readl(apupw.regs[apu_md32_mbox] + PWR_DBG_VCORE_OFF_REG);
+	pr_info("%s mbox_dbg_reg readback = 0x%08x\n", __func__, regValue);
+
+	return 0;
+}
+
 static void aputop_dump_pwr_res(void)
 {
 	int vapu_en = 0, vapu_mode = 0;
@@ -1517,6 +1539,8 @@ const struct apupwr_plat_data mt6983_plat_data = {
 	.plat_aputop_off = mt6983_apu_top_off,
 	.plat_aputop_pb = mt6983_apu_top_pb,
 	.plat_aputop_rm = mt6983_apu_top_rm,
+	.plat_aputop_suspend = mt6983_apu_top_suspend,
+	.plat_aputop_resume = mt6983_apu_top_resume,
 	.plat_aputop_func = mt6983_apu_top_func,
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	.plat_aputop_dbg_open = mt6983_apu_top_dbg_open,
