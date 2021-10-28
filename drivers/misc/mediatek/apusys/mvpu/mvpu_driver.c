@@ -30,6 +30,8 @@
 
 #define SEC_DISABLE_CHK
 
+struct mutex mvpu_pool_lock;
+
 static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *dev)
 {
 	int ret = 0;
@@ -45,8 +47,8 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 	uint32_t batch_name_hash;
 	uint32_t buf_num;
 	uint32_t rp_num;
+	void *kreg_kva;
 
-#ifndef SEC_DISABLE_CHK
 	uint32_t i = 0;
 
 	uint32_t *sec_chk_addr = NULL;
@@ -61,9 +63,6 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 	uint32_t *target_buf_old_map = NULL;
 	uint32_t *target_buf_new_map = NULL;
 
-	//void *addr = NULL;
-	//uint32_t addr_ori;
-
 	bool algo_in_img = false;
 	uint32_t ker_bin_offset = 0;
 	//uint32_t ker_size = 0;
@@ -73,9 +72,10 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 	uint32_t session_id = -1;
 	uint32_t hash_id = -1;
 #endif
-#endif
 
+#ifdef MVPU_SEC_DEBUG
 	pr_info("%s cmd type %d\n", __func__, type);
+#endif
 
 	if (!dev)
 		return -1;
@@ -94,6 +94,12 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 	case APUSYS_CMD_VALIDATE:
 		cmd_hnd = hnd;
 
+		if (cmd_hnd->session == NULL) {
+			pr_info("[MVPU][Sec] APUSYS_CMD_VALIDATE error: cmd_hnd->session is NULL\n");
+			ret = -1;
+			break;
+		}
+
 		if (cmd_hnd->num_cmdbufs < MVPU_MIN_CMDBUF_NUM) {
 			pr_info("%s get wrong num_cmdbufs: %d\n", __func__, cmd_hnd->num_cmdbufs);
 			ret = -1;
@@ -103,12 +109,15 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 		cmdbuf = cmd_hnd->cmdbufs;
 
 		if (cmdbuf[MVPU_CMD_INFO_IDX].size < sizeof(mvpu_request_t)) {
-			pr_info("%s get wrong cmdbuf size: 0x%x, should be 0x%x\n", __func__, cmdbuf[MVPU_CMD_INFO_IDX].size, sizeof(mvpu_request_t));
+			pr_info("%s get wrong cmdbuf size: 0x%x, should be 0x%x\n",
+				__func__, cmdbuf[MVPU_CMD_INFO_IDX].size,
+				sizeof(mvpu_request_t));
 			ret = -1;
 			break;
 		}
 
 		mvpu_req = (mvpu_request_t *)cmdbuf[MVPU_CMD_INFO_IDX].kva;
+		kreg_kva = cmdbuf[MVPU_CMD_KREG_BASE_IDX].kva;
 
 #ifdef MVPU_SECURITY
 		batch_name_hash = mvpu_req->batch_name_hash;
@@ -125,10 +134,17 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 		pr_info("[MVPU][Sec] rp_num %d\n", rp_num);
 #endif
 
-#ifndef SEC_DISABLE_CHK
-		sec_chk_addr = (uint32_t *)kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
+		//FIXME: processor wrong infos
+		if (buf_num == 0 || rp_num == 0) {
+			pr_info("[MVPU][Sec] WARNING: wrong buf infos: buf_num %d, rp_num %d\n",
+						buf_num, rp_num);
+			pr_info("[MVPU][Sec] WARNING: BYPASS secure flow\n");
+			ret = 0;
+			goto END;
+		}
+
+		sec_chk_addr = kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!sec_chk_addr) {
-			pr_info("[MVPU][Sec] alloc sec_chk_addr fail\n");
 			ret = -ENOMEM;
 			goto END;
 		}
@@ -137,11 +153,15 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			pr_info("[MVPU][Sec] copy sec_chk_addr fail 0x%llx\n", mvpu_req->sec_chk_addr);
 			ret = -EFAULT;
 			goto END;
+		} else {
+#ifdef MVPU_SEC_DEBUG
+			pr_info("[MVPU][Sec] copy sec_chk_addr success 0x%llx, sec_chk_addr 0x%lx\n",
+				mvpu_req->sec_chk_addr, sec_chk_addr[0]);
+#endif
 		}
 
-		sec_buf_size = (uint32_t *)kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
+		sec_buf_size = kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!sec_buf_size) {
-			pr_info("[MVPU][Sec] alloc sec_buf_size fail\n");
 			ret = -ENOMEM;
 			goto END;
 		}
@@ -150,11 +170,16 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			pr_info("[MVPU][Sec] copy sec_buf_size fail 0x%llx\n", mvpu_req->sec_buf_size);
 			ret = -EFAULT;
 			goto END;
+		} else {
+#ifdef MVPU_SEC_DEBUG
+			pr_info("[MVPU][Sec] copy sec_buf_size success 0x%llx, sec_buf_size 0x%lx\n",
+					mvpu_req->sec_buf_size,
+					sec_buf_size[0]);
+#endif
 		}
 
-		mem_is_kernel = (uint32_t *)kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
+		mem_is_kernel = kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!mem_is_kernel) {
-			pr_info("[MVPU][Sec] alloc mem_is_kernel fail\n");
 			ret = -ENOMEM;
 			goto END;
 		}
@@ -163,25 +188,39 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			pr_info("[MVPU][Sec] copy mem_is_kernel fail 0x%llx\n", mvpu_req->mem_is_kernel);
 			ret = -EFAULT;
 			goto END;
+		} else {
+#ifdef MVPU_SEC_DEBUG
+			for (i = 0; i < buf_num; i++)
+				pr_info("[MVPU][Sec] copy mem_is_kernel success 0x%llx, mem_is_kernel[%d]: %d\n",
+						mvpu_req->mem_is_kernel,
+						i, mem_is_kernel[i]);
+#endif
 		}
 
 		//integrity check
 		for (i = 0; i < buf_num; i++) {
-			pr_info("[MVPU][Sec] DRV check cnt %3d, addr: 0x%lx\n", i, sec_chk_addr[i]);
+#ifdef MVPU_SEC_DEBUG
+			pr_info("[MVPU][Sec] DRV check cnt %3d, addr 0x%08x, buf_attr: %d, buf_size: 0x%08x\n",
+					i, sec_chk_addr[i],
+					mem_is_kernel[i],
+					sec_buf_size[i]);
+#endif
+			if (sec_chk_addr[i] == 0)
+				continue;
 
 			// check buffer integrity
 			if (apusys_mem_get_by_iova(cmd_hnd->session, (uint64_t)sec_chk_addr[i]) != 0) {
-				pr_info("[MVPU][Sec] addr: 0x%08x integrity checked FAIL\n", sec_chk_addr[i]);
+				pr_info("[MVPU][Sec] buf[%d]: 0x%08x integrity checked FAIL\n",
+							i, sec_chk_addr[i]);
 				ret = -1;
 				goto END;
 			} else {
-				pr_info("[MVPU][Sec] addr: 0x%08x integrity checked PASS\n", sec_chk_addr[i]);
+				pr_info("[MVPU][Sec] buf[%d]: 0x%08x integrity checked PASS\n",
+							i, sec_chk_addr[i]);
 			}
 		}
-#endif
 
-#ifndef SEC_DISABLE_CHK
-		target_buf_old_base = (uint32_t *)kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
+		target_buf_old_base = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!target_buf_old_base) {
 			ret = -ENOMEM;
 			goto END;
@@ -192,7 +231,7 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			goto END;
 		}
 
-		target_buf_old_offset = (uint32_t *)kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
+		target_buf_old_offset = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!target_buf_old_offset) {
 			ret = -ENOMEM;
 			goto END;
@@ -203,7 +242,7 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			goto END;
 		}
 
-		target_buf_new_base = (uint32_t *)kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
+		target_buf_new_base = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!target_buf_new_base) {
 			ret = -ENOMEM;
 			goto END;
@@ -214,7 +253,7 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			goto END;
 		}
 
-		target_buf_new_offset = (uint32_t *)kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
+		target_buf_new_offset = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!target_buf_new_offset) {
 			ret = -ENOMEM;
 			goto END;
@@ -225,20 +264,18 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			goto END;
 		}
 
-		target_buf_old_map = (uint32_t *)kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
+		target_buf_old_map = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!target_buf_old_map) {
 			ret = -ENOMEM;
 			goto END;
 		}
 
-		target_buf_new_map = (uint32_t *)kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
+		target_buf_new_map = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
 		if (!target_buf_new_map) {
 			ret = -ENOMEM;
 			goto END;
 		}
-#endif
 
-#ifndef SEC_DISABLE_CHK
 		//map rp_info to buf_id
 		map_base_buf_id(buf_num, sec_chk_addr, rp_num, target_buf_old_map, target_buf_old_base);
 		map_base_buf_id(buf_num, sec_chk_addr, rp_num, target_buf_new_map, target_buf_new_base);
@@ -247,7 +284,7 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 		//algo_in_img = get_ker_info(batch_name_hash, &ker_bin_offset, &ker_size, &ker_bin_num);
 		algo_in_img = get_ker_info(batch_name_hash, &ker_bin_offset, &ker_bin_num);
 		if (algo_in_img) {
-			ker_bin_each_iova = (uint32_t *)kzalloc(ker_bin_num*sizeof(uint32_t), GFP_KERNEL);
+			ker_bin_each_iova = kcalloc(ker_bin_num, sizeof(uint32_t), GFP_KERNEL);
 			if (!ker_bin_each_iova) {
 				ret = -ENOMEM;
 				goto END;
@@ -256,7 +293,7 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			set_ker_iova(ker_bin_offset, ker_bin_num, ker_bin_each_iova);
 		}
 
-#ifndef SEC_DISABLE_CHK
+		mutex_lock(&mvpu_pool_lock);
 		//mem pool: session/hash
 		session_id = get_saved_session_id(cmd_hnd->session);
 
@@ -267,10 +304,16 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 				hash_id = get_avail_hash_id(session_id);
 				clear_hash(session_id, hash_id);
 
-				ret = update_hash_pool(algo_in_img, session_id, hash_id, batch_name_hash, buf_num, sec_chk_addr, sec_buf_size, mem_is_kernel);
+				ret = update_hash_pool(cmd_hnd->session, algo_in_img,
+							session_id, hash_id, batch_name_hash,
+							buf_num, sec_chk_addr,
+							sec_buf_size, mem_is_kernel);
 
-				if (ret != 0)
-					goto END;
+				if (ret != 0) {
+					pr_info("[MVPU][SEC] hash error: ret = 0x%08x\n",
+								ret);
+					goto VALIDATE_END;
+				}
 			}
 		} else {
 			session_id = get_avail_session_id();
@@ -281,35 +324,46 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 			hash_id = get_avail_hash_id(session_id);
 			clear_hash(session_id, hash_id);
 
-			ret = update_hash_pool(algo_in_img, session_id, hash_id, batch_name_hash, buf_num, sec_chk_addr, sec_buf_size, mem_is_kernel);
-
-			if (ret != 0)
-				goto END;
+			ret = update_hash_pool(cmd_hnd->session, algo_in_img,
+						session_id, hash_id, batch_name_hash,
+						buf_num, sec_chk_addr, sec_buf_size, mem_is_kernel);
+			if (ret != 0) {
+				pr_info("[MVPU][SEC] hash error: ret = 0x%08x\n",
+							ret);
+				goto VALIDATE_END;
+			}
 		}
 
-#endif
-
-		ret = update_new_base_addr(algo_in_img, session_id, hash_id, mem_is_kernel, rp_num, target_buf_new_map, target_buf_new_base, ker_bin_num, ker_bin_each_iova);
+		ret = update_new_base_addr(algo_in_img, session_id, hash_id,
+						sec_chk_addr, mem_is_kernel,
+						rp_num, target_buf_new_map, target_buf_new_base,
+						ker_bin_num, ker_bin_each_iova, kreg_kva);
 
 		if (ret != 0)
-			goto END;
+			goto VALIDATE_END;
 
-		replace_mem(session_id, hash_id, rp_num, target_buf_old_map, target_buf_old_base, target_buf_old_offset, target_buf_new_base, target_buf_new_offset);
-#endif
-
-#ifdef SEC_DISABLE_CHK
-		ret = 0;
-#endif
+		ret = replace_mem(session_id, hash_id, rp_num,
+						target_buf_old_map,
+						target_buf_old_base, target_buf_old_offset,
+						target_buf_new_base, target_buf_new_offset,
+						kreg_kva);
+VALIDATE_END:
+		mutex_unlock(&mvpu_pool_lock);
 
 		break;
 	case APUSYS_CMD_SESSION_CREATE:
 		ret = 0;
 		break;
 	case APUSYS_CMD_SESSION_DELETE:
-		cmd_hnd = hnd;
-		//free_all_hash(session_id);
-		//clear_session(cmd_hnd->session);
-		ret = 0;
+		if (hnd == NULL) {
+			pr_info("[MVPU][Sec] APUSYS_CMD_SESSION_DELETE error: hnd is NULL\n");
+			ret = -1;
+		} else {
+			mutex_lock(&mvpu_pool_lock);
+			clear_session(hnd);
+			mutex_unlock(&mvpu_pool_lock);
+			ret = 0;
+		}
 		break;
 #endif //MVPU_SECURITY
 	default:
@@ -318,7 +372,6 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 		break;
 	}
 
-#ifndef SEC_DISABLE_CHK
 END:
 	if (sec_chk_addr != NULL)
 		kfree(sec_chk_addr);
@@ -346,8 +399,6 @@ END:
 
 	if (target_buf_new_map != NULL)
 		kfree(target_buf_new_map);
-
-#endif
 
 	return ret;
 }
@@ -389,32 +440,47 @@ static int mvpu_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	struct device *dev = &pdev->dev;
-	mvpu_dev = dev;
 
 	dev_info(dev, "mvpu probe start\n");
 
 	ret = mvpu_apusys_register(pdev);
 	if (!ret) {
-		dev_info(dev, "(f:%s/l:%d) register apusys device success\n", __func__, __LINE__);
+		dev_info(dev, "(f:%s/l:%d) register apusys device success\n",
+						__func__, __LINE__);
 	} else {
-		dev_info(dev, "(f:%s/l:%d) set probe defer, wait longer\n", __func__, __LINE__);
+		dev_info(dev, "(f:%s/l:%d) set probe defer, wait longer\n",
+						__func__, __LINE__);
 		return ret;
 	}
 
 	/* Initialize platform to allocate mvpu devices first. */
 	ret = mvpu_plat_init(pdev);
 	if (!ret) {
-		dev_info(dev, "(f:%s/l:%d) mvpu register power device pass\n", __func__, __LINE__);
+		dev_info(dev, "(f:%s/l:%d) mvpu register power device pass\n",
+						__func__, __LINE__);
 	} else {
-		dev_info(dev, "(f:%s/l:%d) register mvpu power fail\n", __func__, __LINE__);
+		dev_info(dev, "(f:%s/l:%d) register mvpu power fail\n",
+						__func__, __LINE__);
+		return ret;
+	}
+
+	ret = mvpu_sec_init(dev);
+	if (!ret) {
+		dev_info(dev, "(f:%s/l:%d) mvpu sec pass\n",
+						__func__, __LINE__);
+	} else {
+		dev_info(dev, "(f:%s/l:%d) mvpu sec fail\n",
+						__func__, __LINE__);
 		return ret;
 	}
 
 	ret = mvpu_load_img(dev);
 	if (!ret) {
-		dev_info(dev, "(f:%s/l:%d) mvpu load mvpu_algo.img pass\n", __func__, __LINE__);
+		dev_info(dev, "(f:%s/l:%d) mvpu load mvpu_algo.img pass\n",
+						__func__, __LINE__);
 	} else {
-		dev_info(dev, "(f:%s/l:%d) mvpu load mvpu_algo.img fail\n", __func__, __LINE__);
+		dev_info(dev, "(f:%s/l:%d) mvpu load mvpu_algo.img fail\n",
+						__func__, __LINE__);
 		return ret;
 	}
 

@@ -3,7 +3,6 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-static struct device *mvpu_dev;
 static struct apusys_device mvpu_adev;
 
 int mvpu_init(void);

@@ -13,6 +13,8 @@
 #endif
 
 //#define MVPU_SEC_DEBUG
+//#define MVPU_SEC_DEBUG_ADV
+//#define MVPU_SEC_DEBUG_RP_INFO
 
 #ifdef MVPU_SECURITY
 
@@ -24,7 +26,7 @@ static uint32_t *mvpu_algo_img;
 //static uint32_t mvpu_algo_iova = 0;
 
 static uint32_t ker_img_offset;
-static uint32_t ker_img_iova;
+//static uint32_t ker_img_iova;
 
 #define IMG_HEADER_SIZE 4
 #define PTN_INFO_SIZE 2
@@ -39,7 +41,6 @@ static uint32_t ker_img_iova;
 #define MAX_SAVE_SESSION  5
 #define MAX_SAVE_HASH    10
 
-// FIXME: wait APUSYS session type
 static void *saved_session[MAX_SAVE_SESSION];
 static uint32_t sess_oldest;
 
@@ -70,21 +71,16 @@ uint32_t get_ker_img_offset(void);
 bool get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num);
 void set_ker_iova(uint32_t ker_bin_offset, uint32_t ker_bin_num, uint32_t *ker_bin_each_iova);
 
-//FIXME: fake function
-uint64_t iova_to_kva(uint64_t iova);
-uint64_t kva_to_iova(uint64_t kva);
-
 // buf map
-void map_base_buf_id(uint32_t buf_num, uint32_t *sec_chk_addr, uint32_t rp_num, uint32_t *target_map, uint32_t *target_base);
+void map_base_buf_id(uint32_t buf_num, uint32_t *sec_chk_addr,
+				uint32_t rp_num, uint32_t *target_map, uint32_t *target_base);
 
 // mem pool
 uint32_t get_saved_session_id(void *session);
 uint32_t get_avail_session_id(void);
 
 void clear_session(void *session);
-/* seems no need this function, just update saved_session
-void clear_session_id(uint32_t session_id);
-*/
+
 void update_session_id(uint32_t session_id, void *session);
 
 uint32_t get_saved_hash_id(uint32_t session_id, uint32_t batch_name_hash);
@@ -93,12 +89,27 @@ uint32_t get_avail_hash_id(uint32_t session_id);
 void clear_hash(uint32_t session_id, uint32_t hash_id);
 void free_all_hash(uint32_t session_id);
 
-uint32_t update_hash_pool(bool algo_in_img, uint32_t session_id, uint32_t hash_id, uint32_t batch_name_hash, uint32_t buf_num, uint32_t *sec_chk_addr, uint32_t *sec_buf_size, uint32_t *mem_is_kernel);
+int update_hash_pool(void *session, bool algo_in_img,
+				uint32_t session_id, uint32_t hash_id, uint32_t batch_name_hash,
+				uint32_t buf_num, uint32_t *sec_chk_addr,
+				uint32_t *sec_buf_size, uint32_t *mem_is_kernel);
 
 // replacement
-uint32_t update_new_base_addr(bool algo_in_img, uint32_t session_id, uint32_t hash_id, uint32_t *mem_is_kernel, uint32_t rp_num, uint32_t *target_buf_new_map, uint32_t *target_buf_new_base, uint32_t ker_bin_num, uint32_t *ker_bin_each_iova);
-void replace_mem(uint32_t session_id, uint32_t hash_id, uint32_t rp_num, uint32_t *target_buf_old_map, uint32_t *target_buf_old_base, uint32_t *target_buf_old_offset, uint32_t *target_buf_new_base, uint32_t *target_buf_new_offset);
+int update_new_base_addr(bool algo_in_img,
+				uint32_t session_id, uint32_t hash_id,
+				uint32_t *sec_chk_addr, uint32_t *mem_is_kernel, uint32_t rp_num,
+				uint32_t *target_buf_new_map, uint32_t *target_buf_new_base,
+				uint32_t ker_bin_num, uint32_t *ker_bin_each_iova,
+				void *kreg_kva);
+
+int replace_mem(uint32_t session_id, uint32_t hash_id, uint32_t rp_num,
+				uint32_t *target_buf_old_map,
+				uint32_t *target_buf_old_base, uint32_t *target_buf_old_offset,
+				uint32_t *target_buf_new_base, uint32_t *target_buf_new_offset,
+				void *kreg_kva);
 
 int mvpu_load_img(struct device *dev);
+
+int mvpu_sec_init(struct device *dev);
 
 #endif
