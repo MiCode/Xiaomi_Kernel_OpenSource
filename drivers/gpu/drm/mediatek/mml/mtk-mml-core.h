@@ -340,7 +340,6 @@ struct mml_task {
 	struct kref ref;
 	struct mml_task_pipe pipe[MML_PIPE_CNT];
 	u32 throughput;
-	//bool dump_buf;
 
 	/* mml context */
 	void *ctx;

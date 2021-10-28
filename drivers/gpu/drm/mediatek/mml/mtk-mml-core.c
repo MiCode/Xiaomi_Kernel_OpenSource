@@ -926,7 +926,8 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	 */
 
 	/* remove task in qos list and setup next */
-	mml_core_dvfs_end(task, pipe);
+	if (task->pkts[pipe])
+		mml_core_dvfs_end(task, pipe);
 
 	cnt = atomic_inc_return(&task->pipe_done);
 

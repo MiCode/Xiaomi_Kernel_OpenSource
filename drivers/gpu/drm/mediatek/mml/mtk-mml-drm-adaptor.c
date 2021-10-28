@@ -351,6 +351,12 @@ static void task_move_to_running(struct mml_task *task)
 		return;
 	}
 
+	if (list_empty(&task->entry)) {
+		mml_err("[drm]%s task %p already leave config",
+			__func__, task);
+		return;
+	}
+
 	list_del_init(&task->entry);
 	task->config->await_task_cnt--;
 
@@ -435,6 +441,31 @@ static void task_put_idles(struct mml_frame_config *cfg)
 	}
 }
 
+static void task_state_dec(struct mml_frame_config *cfg, struct mml_task *task,
+	const char *api)
+{
+	if (list_empty(&task->entry))
+		return;
+
+	list_del_init(&task->entry);
+
+	switch (task->state) {
+	case MML_TASK_INITIAL:
+	case MML_TASK_DUPLICATE:
+	case MML_TASK_REUSE:
+		cfg->await_task_cnt--;
+		break;
+	case MML_TASK_RUNNING:
+		cfg->run_task_cnt--;
+		break;
+	case MML_TASK_IDLE:
+		cfg->done_task_cnt--;
+		break;
+	default:
+		mml_err("%s conflict state %u", api, task->state);
+	}
+}
+
 static void task_frame_done(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
@@ -465,22 +496,23 @@ static void task_frame_done(struct mml_task *task)
 	 */
 
 	mutex_lock(&ctx->config_mutex);
-	task_move_to_idle(task);
 
-	if (!task->pkts[0] || (task->config->dual && !task->pkts[1])) {
-		list_del_init(&task->entry);
-		cfg->done_task_cnt--;
-		mml_msg("[drm]%s task cnt (%u %u %hhu)",
+	if (unlikely(!task->pkts[0] || (cfg->dual && !task->pkts[1]))) {
+		task_state_dec(cfg, task, __func__);
+		mml_err("[drm]%s task cnt (%u %u %hhu) error from state %d",
 			__func__,
-			task->config->await_task_cnt,
-			task->config->run_task_cnt,
-			task->config->done_task_cnt);
+			cfg->await_task_cnt,
+			cfg->run_task_cnt,
+			cfg->done_task_cnt,
+			task->state);
 		kref_put(&task->ref, task_move_to_destroy);
+	} else {
+		/* works fine, safe to move */
+		task_move_to_idle(task);
 	}
 
 	if (cfg->done_task_cnt > mml_max_cache_task) {
-		task = list_first_entry(&cfg->done_tasks, typeof(*task),
-			entry);
+		task = list_first_entry(&cfg->done_tasks, typeof(*task), entry);
 		list_del_init(&task->entry);
 		cfg->done_task_cnt--;
 		mml_msg("[drm]%s task cnt (%u %u %hhu)",
