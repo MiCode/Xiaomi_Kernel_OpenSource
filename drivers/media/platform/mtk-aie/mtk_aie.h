@@ -208,6 +208,7 @@
 #define FDVT_RS_CON_BASE_ADR_MSB         0x150
 #define FDVT_FD_CON_BASE_ADR_MSB         0x154
 
+#define FDVT_CTRL_REG      0x098
 #define FDVT_IN_BASE_ADR_0 0x09c
 #define FDVT_IN_BASE_ADR_1 0x0a0
 #define FDVT_IN_BASE_ADR_2 0x0a4
@@ -218,6 +219,7 @@
 #define FDVT_OUT_BASE_ADR_3 0x0b8
 #define FDVT_KERNEL_BASE_ADR_0 0x0bc
 #define FDVT_KERNEL_BASE_ADR_1 0x0c0
+#define DMA_DEBUG_SEL_REG 0x3f4
 
 /*CMDQ ADDRESS*/
 #define CMDQ_REG_MASK 0xffffffff
