@@ -10144,8 +10144,8 @@
 		#thermal-sensor-cells = <1>;
 		reg = <0 0x10315000 0 0x1000>,
 			  <0 0x10316000 0 0x1000>;
-		interrupts = <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH 0>,
-			<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH 0>;
 
 		clocks = <&infracfg_ao_clk CLK_IFRAO_THERM>;
 		clock-names = "lvts_clk";
