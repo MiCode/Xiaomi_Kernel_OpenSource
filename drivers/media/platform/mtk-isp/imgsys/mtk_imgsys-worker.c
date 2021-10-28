@@ -7,9 +7,10 @@
  */
 #include <linux/device.h>
 #include <linux/kthread.h>
-#include <linux/sched/task.h>
-#include <uapi/linux/sched/types.h>
+#include <linux/sched.h>
+
 #include "mtk_imgsys-worker.h"
+#include "mtk_imgsys-trace.h"
 
 int imgsys_queue_init(struct imgsys_queue *que, struct device *dev, char *name)
 {
@@ -29,6 +30,7 @@ int imgsys_queue_init(struct imgsys_queue *que, struct device *dev, char *name)
 	atomic_set(&que->nr, 0);
 	que->peak = 0;
 	mutex_init(&que->task_lock);
+
 EXIT:
 	return ret;
 }
@@ -38,9 +40,6 @@ static int worker_func(void *data)
 	struct imgsys_queue *head = data;
 	struct imgsys_work *node;
 	struct list_head *list;
-	struct sched_param param = {.sched_priority = 94 };
-
-	sched_setscheduler(current, SCHED_NORMAL, &param);
 
 	while (1) {
 		dev_dbg(head->dev, "%s: %s kthread sleeps\n", __func__,
@@ -65,9 +64,11 @@ static int worker_func(void *data)
 		spin_unlock(&head->lock);
 
 		node = list_entry(list, struct imgsys_work, entry);
+
+		IMGSYS_SYSTRACE_BEGIN("%s work:%p nr:%d\n", __func__, node, atomic_read(&head->nr));
 		if (node->run)
 			node->run(node);
-
+		IMGSYS_SYSTRACE_END();
 
 next:
 		if (kthread_should_stop()) {
@@ -92,6 +93,7 @@ int imgsys_queue_enable(struct imgsys_queue *que)
 		dev_info(que->dev, "%s: kthread_run failed\n", __func__);
 		return PTR_ERR(que->task);
 	}
+	sched_set_normal(que->task, -20);
 	get_task_struct(que->task);
 	atomic_set(&que->disable, 0);
 	wake_up_process(que->task);
@@ -158,13 +160,29 @@ int imgsys_queue_add(struct imgsys_queue *que, struct imgsys_work *work)
 		que->peak = size;
 	spin_unlock(&que->lock);
 
-	if (size == 1) {
-		dev_dbg(que->dev, "%s try wakeup dis/nr(%d/%d)\n", __func__,
-			atomic_read(&que->disable), atomic_read(&que->nr));
-		wake_up(&que->wq);
-	}
+	dev_dbg(que->dev, "%s try wakeup dis/nr(%d/%d)\n", __func__,
+		atomic_read(&que->disable), atomic_read(&que->nr));
+	wake_up(&que->wq);
 
 	dev_dbg(que->dev, "%s: raising %s\n", __func__, que->name);
+
+	return 0;
+}
+
+int imgsys_queue_timeout(struct imgsys_queue *que)
+{
+	struct imgsys_work *work, *tmp;
+
+	spin_lock(&que->lock);
+
+	dev_info(que->dev, "%s: stalled work+\n");
+	list_for_each_entry_safe(work, tmp,
+		&que->queue, entry){
+		dev_info(que->dev, "%s: work %p\n", __func__, work);
+	}
+	dev_info(que->dev, "%s: stalled work-\n");
+
+	spin_unlock(&que->lock);
 
 	return 0;
 }

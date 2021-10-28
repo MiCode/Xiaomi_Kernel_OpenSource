@@ -611,6 +611,8 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 					sizeof(struct img_sw_buffer),
 					frm_info->request_fd, 1);
 		} else {
+			imgsys_queue_timeout(&(req->imgsys_pipe->imgsys_dev->runnerque));
+
 			imgsys_send(req->imgsys_pipe->imgsys_dev->scp_pdev,
 					HCP_IMGSYS_SW_TIMEOUT_ID,
 					&swbuf_data,

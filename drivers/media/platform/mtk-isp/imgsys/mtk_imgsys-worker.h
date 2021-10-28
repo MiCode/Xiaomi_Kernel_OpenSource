@@ -36,5 +36,6 @@ int imgsys_queue_init(struct imgsys_queue *que, struct device *dev, char *name);
 int imgsys_queue_enable(struct imgsys_queue *que);
 int imgsys_queue_disable(struct imgsys_queue *que);
 int imgsys_queue_add(struct imgsys_queue *que, struct imgsys_work *work);
+int imgsys_queue_timeout(struct imgsys_queue *que);
 
 #endif
