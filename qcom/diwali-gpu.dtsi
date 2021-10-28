@@ -22,7 +22,8 @@
 			<&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>,
 			<&gpucc GPU_CC_CX_GMU_CLK>,
 			<&gpucc GPU_CC_HUB_AON_CLK>,
-			<&gpucc GPU_CC_HUB_CX_INT_CLK>;
+			<&gpucc GPU_CC_HUB_CX_INT_CLK>,
+			<&aoss_qmp>;
 
 		clock-names = "gcc_gpu_memnoc_gfx",
 				"gcc_gpu_snoc_dvm_gfx",
@@ -30,7 +31,8 @@
 				"gpu_cc_hlos1_vote_gpu_smmu",
 				"gpu_cc_cx_gmu",
 				"gpu_cc_hub_aon",
-				"gpu_cc_hub_cx_int";
+				"gpu_cc_hub_cx_int",
+				"apb_pclk";
 
 		qcom,chipid = <0x06060201>;
 
@@ -253,9 +255,11 @@
 			<&gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			<&gpucc GPU_CC_AHB_CLK>,
 			<&gpucc GPU_CC_HUB_CX_INT_CLK>,
-			<&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>;
+			<&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>,
+			<&aoss_qmp>;
 
 		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
-			"memnoc_clk", "ahb_clk", "hub_clk", "smmu_vote";
+			"memnoc_clk", "ahb_clk", "hub_clk", "smmu_vote",
+			"apb_pclk";
 	};
 };
