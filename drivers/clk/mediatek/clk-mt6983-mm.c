@@ -104,16 +104,16 @@ static const struct mtk_gate_regs mminfra_config_1_hwv_regs = {
 	}
 
 static struct mtk_gate mminfra_config_clks[] = {
-	GATE_HWV_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_D /* CLK ID */,
+	GATE_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_D /* CLK ID */,
 		"mminfra_config_gce_d" /* name */,
 		"fmminfra_ck" /* parent */, 0 /* bit */),
-	GATE_HWV_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_M /* CLK ID */,
+	GATE_MMINFRA_CONFIG_0(CLK_MMINFRA_CONFIG_GCE_M /* CLK ID */,
 		"mminfra_config_gce_m" /* name */,
 		"fmminfra_ck" /* parent */, 1 /* bit */),
 	GATE_MMINFRA_CONFIG_0_DUMMY(CLK_MMINFRA_CONFIG_SMI /* CLK ID */,
 		"mminfra_config__smi" /* name */,
 		"fmminfra_ck" /* parent */, 2 /* bit */),
-	GATE_HWV_MMINFRA_CONFIG_1(CLK_MMINFRA_CONFIG_GCE_26M /* CLK ID */,
+	GATE_MMINFRA_CONFIG_1(CLK_MMINFRA_CONFIG_GCE_26M /* CLK ID */,
 		"mminfra_config_gce_26m" /* name */,
 		"fmminfra_ck" /* parent */, 17 /* bit */),
 };
@@ -345,7 +345,7 @@ static struct mtk_gate dispsys_config_clks[] = {
 	GATE_DISPSYS_CONFIG_1(CLK_DISPSYS_CONFIG_DISP_OVL1_2L_NWCG /* CLK ID */,
 		"dispsys_config_disp_ovl1_2l_nwcg" /* name */,
 		"disp0_ck" /* parent */, 16 /* bit */),
-	GATE_DISPSYS_CONFIG_1_DUMMY(CLK_DISPSYS_CONFIG_SMI_SUB_COMM /* CLK ID */,
+	GATE_DISPSYS_CONFIG_1(CLK_DISPSYS_CONFIG_SMI_SUB_COMM /* CLK ID */,
 		"dispsys_config_smi_sub_comm" /* name */,
 		"disp0_ck" /* parent */, 20 /* bit */),
 	GATE_DISPSYS_CONFIG_2(CLK_DISPSYS_CONFIG_DSI_CLK /* CLK ID */,
@@ -583,7 +583,7 @@ static struct mtk_gate dispsys1_config_clks[] = {
 	GATE_DISPSYS1_CONFIG_1(CLK_DISPSYS1_CONFIG_DISP_OVL1_2L_NWCG /* CLK ID */,
 		"dispsys1_config_disp_ovl1_2l_nwcg" /* name */,
 		"disp1_ck" /* parent */, 16 /* bit */),
-	GATE_DISPSYS1_CONFIG_1_DUMMY(CLK_DISPSYS1_CONFIG_SMI_SUB_COMM /* CLK ID */,
+	GATE_DISPSYS1_CONFIG_1(CLK_DISPSYS1_CONFIG_SMI_SUB_COMM /* CLK ID */,
 		"dispsys1_config_smi_sub_comm" /* name */,
 		"disp1_ck" /* parent */, 20 /* bit */),
 	GATE_DISPSYS1_CONFIG_2(CLK_DISPSYS1_CONFIG_DSI_CLK /* CLK ID */,
