@@ -11178,6 +11178,9 @@
 			"apu_are2",
 			"apu_acx0",
 			"apu_acx0_rpc_lite";
+
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_seg_cell";
 		// consumer = <&apu_iommu0>; // set devlink to iommu
 	   };
 
@@ -12615,10 +12618,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 };
 
 &mt6363_vrf12 {
-	regulator-always-on;
-};
-
-&mt6368_vbuck4 {
 	regulator-always-on;
 };
 
