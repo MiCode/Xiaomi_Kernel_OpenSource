@@ -99,6 +99,7 @@ void dcm_infracfg_ao_infra_bus_dcm(int on);
 void dcm_infracfg_ao_infra_rx_p2p_dcm(int on);
 void dcm_infracfg_ao_mts_bus_dcm(int on);
 void dcm_infra_ao_bcrm_infra_bus_dcm(int on);
+void dcm_infra_ao_bcrm_infra_bus_fmem_sub_dcm(int on);
 void dcm_peri_ao_bcrm_peri_bus_dcm(int on);
 void dcm_vlp_ao_bcrm_vlp_bus_dcm(int on);
 void dcm_mp_cpusys_top_adb_dcm(int on);
