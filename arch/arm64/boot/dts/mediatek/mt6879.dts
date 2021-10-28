@@ -3013,8 +3013,8 @@
 			/* value[1] not exist means in mddbgsys. the value(6) has no meaningful */
 			mediatek,offset_epon_md1 = <0x44 0x06>;
 			mediatek,cldma_capability = <14>;
-			/* bit0:srcclkena|bit1:srclken_o1_on|bit2:revert_sequencer */
-			mediatek,power_flow_config = <0x6>;
+			/* bit0:srcclkena|1:srclken_o1_on|2:revert_sequencer|3:md_pll_setting */
+			mediatek,power_flow_config = <0x0e>;
 			/* srclken_o1 set value |= 1<<21 */
 			mediatek,srclken_o1 = <0x4000>;
 			reg = <0 0x0d124000 0 0x2000>; /* l2sram base address */
