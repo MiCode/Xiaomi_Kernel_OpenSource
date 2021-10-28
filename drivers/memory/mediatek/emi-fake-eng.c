@@ -151,6 +151,11 @@ static int fake_eng_init(unsigned int chn_id)
 	fakeng->feng_arg.start_addr_wr_2nd = phy_addr;
 	fakeng->feng_arg.start_addr_rd_2nd = phy_addr;
 
+	fakeng->feng_arg.start_addr_wr_extend = phy_addr >> 32;
+	fakeng->feng_arg.start_addr_rd_extend = phy_addr >> 32;
+	fakeng->feng_arg.start_addr_wr_2nd_extend = phy_addr >> 32;
+	fakeng->feng_arg.start_addr_rd_2nd_extend = phy_addr >> 32;
+
 	/* Disable fake engine*/
 	writel(0x0, fakeng->fake_eng_base[chn_id] + FAKE_ENG_EN);
 	/* Reset fake engine*/
