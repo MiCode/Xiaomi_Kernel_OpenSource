@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* TOUCH start */
+
+&spi2 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fts@0 {
+		status = "ok";
+		compatible = "st,spi";
+		reg = <0x0>;
+		interrupt-parent = <&pio>;
+		interrupts = <135 0x2008>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_spi_mode", "pmx_ts_dvdd_enable", "pmx_ts_dvdd_disable";
+		pinctrl-0 = <&ts_reset_active &ts_int_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_spi_mode>;
+		pinctrl-3 = <&ts_dvdd_enable>;
+		pinctrl-4 = <&ts_dvdd_disable>;
+		avdd-supply = <&mt6368_vtp>;
+		fts,config-array-size = <1>;
+		fts,pwr-reg-name = "avdd";
+		//fts,bus-reg-name = "vdd";
+		fts,irq-gpio = <&pio 135 0x0>;
+		fts,irq-gpio-name = "fts_irq";
+		fts,reset-gpio-enable;
+		fts,reset-gpio = <&pio 3 0x0>;
+		fts,reset-gpio-name = "fts_rst";
+		fts,irq-flags = <0x2008>;/* 1:rising, 2:falling;*/
+		fts,x-max = <14400>;/*Super resolution*/
+		fts,y-max = <32000>;/*Super resolution*/
+		fts,screen_x = <1440>;
+		fts,screen_y = <3200>;
+		//fts,fod-lx = <4180>;
+		//fts,fod-ly = <16810>;
+		fts,support-super-resolution = <1>;
+		spi-max-frequency = <12000000>;
+		fts,default-fw-name = "st_fts_L11a.ftb";
+		fts,thp-fw-name = "st_fts_L11a_thp.ftb";
+	/*	fts,touch-up-threshold-min = <40>;	*/
+	/*	fts,touch-up-threshold-max = <120>;	*/
+	/*	fts,touch-up-threshold-def = <80>;	*/
+	/*	fts,touch-tolerance-min = <5>;		*/
+	/*	fts,touch-tolerance-max = <35>;		*/
+	/*	fts,touch-tolerance-def = <25>; 	*/
+		fts,touch-follow-performance-def = <3>;
+		fts,touch-tap-sensitivity-def = <4>;
+		fts,touch-aim-sensitivity-def = <3>;
+		fts,touch-tap-stability-def = <3>;
+		fts,cornerfilter-area-step1 = <100>;
+		fts,cornerfilter-area-step2 = <170>;
+		fts,cornerfilter-area-step3 = <250>;
+		fts,touch-deadzone-filter-ver = <2 0 0 0 0 0 0 0
+						 2 1 0 0 0 0 0 0
+						 2 2 0 0 0 2399 0 0
+						 2 3 1079 0 1079 2399 0 0>;
+		fts,touch-deadzone-filter-hor = <2 0 0 0 1079 0 0 0
+						 2 1 0    2399 1079 2399 0 0
+						 2 2 0    0    0    2399 0 0
+						 2 3 1079 0    1079 2399 0 0>;
+		fts,touch-edgezone-filter-ver = <1 0 0 0 0 0 0 0
+						 1 1 0    0 0    0    0 0
+						 1 2 0    0 40   2339 0 0
+						 1 3 1039 0 1079 2339 0 0>;
+		fts,touch-edgezone-filter-hor = <1 0 0 0 1079 40 0 0
+						 1 1 0    2359 1079 2399 0 0
+						 1 2 0    0    40   2399 0 0
+						 1 3 1039 0    1079 2399 0 0>;
+		fts,touch-cornerzone-filter-ver = <0 0 0 0 0 0 0 0
+						   0 1 0   0    0    0    0 0
+						   0 2 0   2099 150  2399 0 0
+						   0 3 929 2099 1079 2399 0 0>;
+		fts,touch-cornerzone-filter-hor1 = <0 0 0 0 170 170 0 0
+						    0 1 0 0    0   0    0 0
+						    0 2 0 2229 170 2399 0 0
+						    0 3 0 0    0   0    0 0>;
+		fts,touch-cornerzone-filter-hor2 = <0 0 0 0 0 0 0 0
+						    0 1 909 0    1079 170  0 0
+						    0 2 0   0    0    0    0 0
+						    0 3 909 2229 1079 2399 0 0>;
+		fts,touch-follow-performance = <10 15 1
+						8 15 1
+						6 15 1
+						4 15 1
+						2 15 1>;
+		fts,touch-tap-sensitivity = <150 140 130 120 110>;
+		fts,touch-aim-sensitivity = <8 6 5 3 2>;
+		fts,touch-tap-stability = <8 12 15 18 25>;
+		fts,touch-expert-array = <2 15 1 120 3 15
+					  4 15 1 120 2 15
+					  6 15 1 120 5 15>;
+		fts,cfg_0 {
+			fts,tp-vendor = <0x38>;
+			fts,tp-color = <0x32>;
+			fts,fw-name = "st_fts_L11a.ftb";
+			fts,limit-name = "stm_fts_production_limits.csv";
+		};
+	};
+};
+
+&mt6368_vtp {
+	regulator-boot-on;
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+};
+
+&pio {
+	ts_reset_active: ts_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-high;
+		};
+	};
+	ts_int_active: ts_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			input-enable;
+		};
+	};
+	ts_int_suspend: ts_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_reset_suspend: ts_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_spi_mode: ts_spimode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_SPI2_A_MI>,
+				<PINMUX_GPIO110__FUNC_SPI2_A_CSB>,
+				<PINMUX_GPIO111__FUNC_SPI2_A_MO>,
+				<PINMUX_GPIO112__FUNC_SPI2_A_CLK>;
+			drive-strength = <2>;
+		};
+	};
+	ts_dvdd_enable: ts_dvddenable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO118__FUNC_GPIO118>;
+			output-high;
+		};
+	};
+	ts_dvdd_disable: ts_dvdddisable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO118__FUNC_GPIO118>;
+			output-low;
+		};
+	};
+};
+
+&odm {
+	xiaomi_touch: xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+};
+/* TOUCH end */
