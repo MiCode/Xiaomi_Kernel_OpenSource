@@ -29,11 +29,9 @@ enum isp_tile_message tile_mode_init(struct tile_reg_map *ptr_tile_reg_map,
 	struct func_description *ptr_tile_func_param);
 enum isp_tile_message tile_mode_close(struct tile_reg_map *ptr_tile_reg_map,
 	struct func_description *ptr_tile_func_param);
-
 enum isp_tile_message tile_proc_main_single(
 	struct tile_reg_map *ptr_tile_reg_map,
 	struct func_description *ptr_tile_func_param,
 	int tile_no, bool *stop_flag);
-const char *tile_print_error_message(enum isp_tile_message n);
 
 #endif

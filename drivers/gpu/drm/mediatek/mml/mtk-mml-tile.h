@@ -71,6 +71,12 @@ struct wrot_tile_data {
 	u8 racing_h;
 };
 
+struct dlo_tile_data {
+	bool enable_x_crop;
+	u32 crop_left;
+	u32 crop_width;
+};
+
 union mml_tile_data {
 	struct rdma_tile_data rdma_data;
 	struct hdr_tile_data hdr_data;
@@ -78,6 +84,7 @@ union mml_tile_data {
 	struct rsz_tile_data rsz_data;
 	struct tdshp_tile_data tdshp_data;
 	struct wrot_tile_data wrot_data;
+	struct dlo_tile_data dlo_data;
 };
 
 s32 calc_tile(struct mml_task *task, u32 pipe_idx);

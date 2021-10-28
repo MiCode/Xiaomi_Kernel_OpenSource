@@ -565,18 +565,6 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
             {
                 unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
                 TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
-                /* call init func before check enable & output disable */
-                if (PREVIOUS_BLK_NO_OF_START == ptr_func->prev_blk_num[0])/* start func */
-                {
-                    /* check init func is null */
-                    if (!ptr_func->init_func_ptr)
-                    {
-                        /* error of non-init start func */
-                        result = ISP_MESSAGE_NULL_INIT_PTR_FOR_START_FUNC_ERROR;
-                        tile_driver_printf("Error [%s] %s\r\n", ptr_func->func_name, tile_print_error_message(result));
-                        return result;
-                    }
-                }
                 if (ptr_func->output_disable_flag)
                 {
                     if (ISP_MESSAGE_TILE_OK == result)

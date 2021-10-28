@@ -24,7 +24,7 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_RDMA_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	/* Specific constraints implied by different formats */
 
@@ -100,7 +100,7 @@ enum isp_tile_message tile_hdr_init(struct tile_func_block *ptr_func,
 	struct hdr_tile_data *data = &ptr_func->func_data->hdr_data;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_HDR_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	ptr_func->in_tile_width   = 8191;
 	ptr_func->out_tile_width  = 8191;
@@ -124,7 +124,7 @@ enum isp_tile_message tile_aal_init(struct tile_func_block *ptr_func,
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
-		return MDP_MESSAGE_AAL_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	ptr_func->in_tile_width   = data->max_width;
 	ptr_func->out_tile_width  = data->max_width;
@@ -149,7 +149,7 @@ enum isp_tile_message tile_prz_init(struct tile_func_block *ptr_func,
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
-		return MDP_MESSAGE_PRZ_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	// drs: C42 downsampler output frame width
 	data->c42_out_frame_w = (ptr_func->full_size_x_in + 0x01) & ~0x01;
@@ -224,7 +224,7 @@ enum isp_tile_message tile_tdshp_init(struct tile_func_block *ptr_func,
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
-		return MDP_MESSAGE_TDSHP_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	ptr_func->in_tile_width   = data->max_width;
 	ptr_func->out_tile_width  = data->max_width;
@@ -245,7 +245,7 @@ enum isp_tile_message tile_wrot_init(struct tile_func_block *ptr_func,
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
-		return MDP_MESSAGE_WROT_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	if (data->racing) {
 		if (data->rotate == MML_ROT_90 ||
@@ -305,7 +305,7 @@ enum isp_tile_message tile_rdma_for(struct tile_func_block *ptr_func,
 	struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_RDMA_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	if (data->alpharot) {
 		if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
@@ -418,7 +418,7 @@ enum isp_tile_message tile_prz_for(struct tile_func_block *ptr_func,
 	struct rsz_tile_data *data = &ptr_func->func_data->rsz_data;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_PRZ_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
 		/* drs: C42 downsampler forward */
@@ -667,7 +667,7 @@ enum isp_tile_message tile_wrot_for(struct tile_func_block *ptr_func,
 	s32 remain;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_WROT_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	/* frame mode */
 	if (ptr_tile_reg_map->first_frame) {
@@ -771,7 +771,7 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 	s32 remain, start;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_RDMA_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	if (data->alpharot) {
 		if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
@@ -893,7 +893,7 @@ enum isp_tile_message tile_prz_back(struct tile_func_block *ptr_func,
 	struct rsz_tile_data *data = &ptr_func->func_data->rsz_data;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_PRZ_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
 		/* urs: C24 upsampler backward */
@@ -1066,7 +1066,7 @@ enum isp_tile_message tile_wrot_back(struct tile_func_block *ptr_func,
 	struct wrot_tile_data *data = &ptr_func->func_data->wrot_data;
 
 	if (unlikely(!data))
-		return MDP_MESSAGE_WROT_NULL_DATA;
+		return MDP_MESSAGE_NULL_DATA;
 
 	/* frame mode */
 	if (ptr_tile_reg_map->first_frame) {
@@ -1157,3 +1157,48 @@ enum isp_tile_message tile_wrot_back(struct tile_func_block *ptr_func,
 
 	return ISP_MESSAGE_TILE_OK;
 }
+
+enum isp_tile_message tile_dlo_back(struct tile_func_block *ptr_func,
+				    struct tile_reg_map *ptr_tile_reg_map)
+{
+	struct dlo_tile_data *data = &ptr_func->func_data->dlo_data;
+
+	if (unlikely(!data))
+		return MDP_MESSAGE_NULL_DATA;
+
+	/* frame mode */
+	if (ptr_tile_reg_map->first_frame) {
+		if (data->enable_x_crop &&
+		    !ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
+			ptr_func->out_pos_xs = data->crop_left;
+			ptr_func->out_pos_xe = data->crop_left + data->crop_width - 1;
+			ptr_func->in_pos_xs = ptr_func->out_pos_xs;
+			ptr_func->in_pos_xe = ptr_func->out_pos_xe;
+			ptr_func->min_out_pos_xs = ptr_func->out_pos_xs;
+			ptr_func->max_out_pos_xe = ptr_func->out_pos_xe;
+		}
+		return ISP_MESSAGE_TILE_OK;
+	}
+
+	if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
+		int full_size_x_out = ptr_func->full_size_x_out;
+
+		if (data->enable_x_crop) {
+			if (ptr_func->valid_h_no == 0) {
+				/* first tile */
+				ptr_func->out_pos_xs = data->crop_left;
+				ptr_func->in_pos_xs = ptr_func->out_pos_xs;
+			}
+
+			full_size_x_out = data->crop_left + data->crop_width;
+
+			if (ptr_func->out_pos_xe + 1 >= full_size_x_out) {
+				ptr_func->in_pos_xe = full_size_x_out - 1;
+				/* ptr_func->h_end_flag = true; */
+			}
+		}
+	}
+
+	return ISP_MESSAGE_TILE_OK;
+}
+

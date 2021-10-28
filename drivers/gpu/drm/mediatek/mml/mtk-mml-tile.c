@@ -139,13 +139,8 @@ static s32 tile_message_to_errno(enum isp_tile_message result)
 	case ISP_MESSAGE_TILE_FUNC_CANNOT_FIND_LAST_FUNC_ERROR:
 	case ISP_MESSAGE_SCHEDULING_BACKWARD_ERROR:
 	case ISP_MESSAGE_SCHEDULING_FORWARD_ERROR:
-	case MDP_MESSAGE_RDMA_NULL_DATA:
-	case MDP_MESSAGE_HDR_NULL_DATA:
-	case MDP_MESSAGE_AAL_NULL_DATA:
-	case MDP_MESSAGE_PRZ_NULL_DATA:
-	case MDP_MESSAGE_TDSHP_NULL_DATA:
-	case MDP_MESSAGE_WROT_NULL_DATA:
 	case MDP_MESSAGE_WROT_INVALID_FORMAT:
+	case MDP_MESSAGE_NULL_DATA:
 	case MDP_MESSAGE_INVALID_STATE:
 		return -EINVAL;
 	case ISP_MESSAGE_IN_CONST_X_ERROR:
@@ -384,6 +379,7 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 	goto free_working;
 
 free_output:
+	mml_err("%s free output %d", __func__, ret);
 	destroy_tile_output(ctx.output);
 free_working:
 	destroy_tile_working(&ctx);

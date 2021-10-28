@@ -69,7 +69,6 @@ typedef enum TILE_RUN_MODE_ENUM {
 	CMD(n, ISP_MESSAGE_IN_CONST_Y_ERROR)\
 	CMD(n, ISP_MESSAGE_OUT_CONST_X_ERROR)\
 	CMD(n, ISP_MESSAGE_OUT_CONST_Y_ERROR)\
-	CMD(n, ISP_MESSAGE_NULL_INIT_PTR_FOR_START_FUNC_ERROR)\
 	CMD(n, ISP_MESSAGE_INIT_INCORRECT_X_INPUT_SIZE_POS_ERROR)\
 	CMD(n, ISP_MESSAGE_INIT_INCORRECT_Y_INPUT_SIZE_POS_ERROR)\
 	CMD(n, ISP_MESSAGE_INIT_INCORRECT_X_OUTPUT_SIZE_POS_ERROR)\
@@ -151,22 +150,14 @@ typedef enum TILE_RUN_MODE_ENUM {
 
 /* error enum */
 #define MDP_ERROR_MESSAGE_ENUM(n, CMD) \
-	/* RDMA check */\
-	CMD(n, MDP_MESSAGE_RDMA_NULL_DATA)\
-	/* HDR check */\
-	CMD(n, MDP_MESSAGE_HDR_NULL_DATA)\
-	/* AAL check */\
-	CMD(n, MDP_MESSAGE_AAL_NULL_DATA)\
 	/* PRZ check */\
-	CMD(n, MDP_MESSAGE_PRZ_NULL_DATA)\
 	CMD(n, MDP_MESSAGE_RESIZER_SCALING_ERROR)\
 	/* TDSHP check */\
-	CMD(n, MDP_MESSAGE_TDSHP_NULL_DATA)\
 	CMD(n, MDP_MESSAGE_TDSHP_BACK_LT_FORWARD)\
 	/* WROT check */\
-	CMD(n, MDP_MESSAGE_WROT_NULL_DATA)\
 	CMD(n, MDP_MESSAGE_WROT_INVALID_FORMAT)\
 	/* General status */\
+	CMD(n, MDP_MESSAGE_NULL_DATA)\
 	CMD(n, MDP_MESSAGE_INVALID_STATE)\
 	CMD(n, MDP_MESSAGE_UNKNOWN_ERROR)
 
@@ -192,15 +183,16 @@ typedef enum isp_tile_message {
 		(name) = ""; \
 	}
 
-/* a, b, c, d, e reserved */
-/* data type */
-/* register name of current c model */
-/* reserved */
-/* value mask */
-/* array bracket [] */
-/* S: c model variables, U: unmasked variable, M: masked variable */
-/* be careful with init, must items to reset by TILE_MODULE_CHECK macro */
-/* output_disable = false function to reset by tile_init_config() */
+/* a, b, c, d, e reserved
+ * data type
+ * register name of current c model
+ * reserved
+ * value mask
+ * array bracket []
+ * S: c model variables, U: unmasked variable, M: masked variable
+ * be careful with init, must items to reset by TILE_MODULE_CHECK macro
+ * output_disable = false function to reset by tile_init_config()
+ */
 #define TILE_FUNC_BLOCK_LUT(CMD, a, b, c, d, e) \
     CMD(a, b, c, d, e, int, func_num, , ,, S, ,)\
     CMD(a, b, c, d, e, char, func_name, ,, [MAX_TILE_FUNC_NAME_SIZE], S, ,)\
@@ -358,11 +350,12 @@ typedef enum isp_tile_message {
     CMD(a, b, c, d, e, int, next_func_num, ,, [MAX_TILE_BRANCH_NO], S, ,)\
     CMD(a, b, c, d, e, TILE_HORZ_BACKUP_BUFFER, horz_para, ,, [MAX_TILE_BACKUP_HORZ_NO], S, ,)
 
-/* register table for tile driver only parameters */
-/* data type */
-/* internal variable name of tile */
-/* array bracket [xx] */
-/* direct-link param 0: must be equal, 1: replaced by MDP, 2: don't care */
+/* register table for tile driver only parameters
+ * data type
+ * internal variable name of tile
+ * array bracket [xx]
+ * direct-link param 0: must be equal, 1: replaced by MDP, 2: don't care
+ */
 #define COMMON_TILE_INTERNAL_REG_LUT(CMD) \
 	/* Internal */\
 	CMD(int, skip_x_cal, , 2)\
@@ -399,19 +392,20 @@ typedef enum isp_tile_message {
 	/* debug mode with invalid offset to enable recursive forward*/\
 	CMD(int, recursive_forward_en, , 2)
 
-/* a, b c, d, e reserved */
-/* function id */
-/* function name */
-/* tile type: 0x1 non-fixed func to configure, 0x2 rdma, 0x4 wdma, 0x8 crop_en */
-/* tile group, 0: ISP group, 1: CDP group 2: resizer with offset & crop */
-/* tile group except for 2 will restrict last end < current end (to ensure WDMA end at same time) */
-/* tile loss, l_loss, r_loss, t_loss, b_loss, in_x, int_y, out_x, out_y */
-/* init function name, default NULL */
-/* forward function name, default NULL */
-/* back function name, default NULL */
-/* calculate tile reg function name, default NULL */
-/* input tile constraint, 0: no check, 1: to clip when enabled */
-/* output tile constraint, 0: no check, 1: to clip when enabled */
+/* a, b c, d, e reserved
+ * function id
+ * function name
+ * tile type: 0x1 non-fixed func to configure, 0x2 rdma, 0x4 wdma, 0x8 crop_en
+ * tile group, 0: ISP group, 1: CDP group 2: resizer with offset & crop
+ * tile group except for 2 will restrict last end < current end (to ensure WDMA end at same time)
+ * tile loss, l_loss, r_loss, t_loss, b_loss, in_x, int_y, out_x, out_y
+ * init function name, default NULL
+ * forward function name, default NULL
+ * back function name, default NULL
+ * calculate tile reg function name, default NULL
+ * input tile constraint, 0: no check, 1: to clip when enabled
+ * output tile constraint, 0: no check, 1: to clip when enabled
+ */
 #define TILE_TYPE_LOSS (0x1)/* post process by c model */
 #define TILE_TYPE_RDMA (0x2)
 #define TILE_TYPE_WDMA (0x4)
