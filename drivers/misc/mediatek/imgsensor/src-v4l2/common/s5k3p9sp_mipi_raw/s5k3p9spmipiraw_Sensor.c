@@ -1384,12 +1384,12 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_SET_ISP_MASTER_CLOCK_FREQ:
 		break;
 	case SENSOR_FEATURE_SET_REGISTER:
-		write_cmos_sensor_16(ctx, sensor_reg_data->RegAddr,
+		write_cmos_sensor_8(ctx, sensor_reg_data->RegAddr,
 			sensor_reg_data->RegData);
 		break;
 	case SENSOR_FEATURE_GET_REGISTER:
 		sensor_reg_data->RegData =
-			read_cmos_sensor_16(ctx, sensor_reg_data->RegAddr);
+			read_cmos_sensor_8(ctx, sensor_reg_data->RegAddr);
 		break;
 	case SENSOR_FEATURE_GET_LENS_DRIVER_ID:
 		/* get the lens driver ID from EEPROM */

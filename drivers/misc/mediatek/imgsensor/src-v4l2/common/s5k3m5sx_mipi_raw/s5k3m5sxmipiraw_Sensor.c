@@ -2677,7 +2677,7 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 	DEBUG_LOG(ctx, "enable: %d\n", enable);
 
 	if (enable)
-		write_cmos_sensor(ctx, 0x0600, 0x0003); /*100% Color bar*/
+		write_cmos_sensor(ctx, 0x0600, 0x0002); /*100% Color bar*/
 	else
 		write_cmos_sensor(ctx, 0x0600, 0x0000); /*No pattern*/
 
@@ -4177,12 +4177,12 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_SET_ISP_MASTER_CLOCK_FREQ:
 		break;
 	case SENSOR_FEATURE_SET_REGISTER:
-		write_cmos_sensor(ctx, sensor_reg_data->RegAddr,
+		write_cmos_sensor_8(ctx, sensor_reg_data->RegAddr,
 				  sensor_reg_data->RegData);
 		break;
 	case SENSOR_FEATURE_GET_REGISTER:
 		sensor_reg_data->RegData =
-			read_cmos_sensor(ctx, sensor_reg_data->RegAddr);
+			read_cmos_sensor_8(ctx, sensor_reg_data->RegAddr);
 		break;
 	case SENSOR_FEATURE_GET_LENS_DRIVER_ID:
 		/*get the lens driver ID from EEPROM
@@ -4417,15 +4417,12 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
 		switch (*(feature_data + 1)) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-			*feature_return_para_32 = 1; /*BINNING_NONE*/
-			break;
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-			*feature_return_para_32 = 4; /*BINNING_SUMMED*/
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
-			*feature_return_para_32 = 2; /*BINNING_AVERAGED*/
+			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
 			break;
 		}
 		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
