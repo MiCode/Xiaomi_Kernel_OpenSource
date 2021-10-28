@@ -161,7 +161,7 @@ struct imgsensor_info_struct {
 	kal_uint8  mclk; //mclk value, suggest 24Mhz or 26Mhz
 
 	kal_uint8  mipi_lane_num;		//mipi lane num
-
+	kal_uint8  xtalk_flag;
 	kal_uint8  i2c_addr_table[5];
 	kal_uint32  i2c_speed; //khz
 	kal_uint32 min_gain;

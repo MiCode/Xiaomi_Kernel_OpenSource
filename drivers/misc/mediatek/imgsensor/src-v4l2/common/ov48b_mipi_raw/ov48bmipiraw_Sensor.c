@@ -39,7 +39,6 @@
 #include "ov48b_Sensor_setting.h"
 #include "ov48b_ana_gain_table.h"
 
-#define SEQUENTIAL_WRITE_EN 1
 #define MULTI_WRITE 1
 #define FPT_PDAF_SUPPORT 1
 
@@ -321,6 +320,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 #endif
 	.i2c_addr_table = {0x6d, 0x20, 0xff},
 	.i2c_speed = 1000,
+	.xtalk_flag = KAL_FALSE,
 };
 
 
@@ -481,10 +481,10 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
 	if (enable) {
 		write_cmos_sensor_8(ctx, 0x0100, 0X01);
-		ctx->is_streaming = true;
+		ctx->is_streaming = KAL_TRUE;
 	} else {
 		write_cmos_sensor_8(ctx, 0x0100, 0x00);
-		ctx->is_streaming = false;
+		ctx->is_streaming = KAL_FALSE;
 	}
 	mdelay(10);
 	return ERROR_NONE;
@@ -930,8 +930,17 @@ static void custom3_setting(struct subdrv_ctx *ctx)
 	int _length = 0;
 
 	LOG_INF("E\n");
-	table_write_cmos_sensor(ctx, addr_data_pair_xtalk_ov48b2q,
-		sizeof(addr_data_pair_xtalk_ov48b2q)/sizeof(kal_uint16));
+
+	if (!imgsensor_info.xtalk_flag) {
+#if SEQUENTIAL_WRITE_EN
+		seq_write_cmos_sensor(ctx, XTALK_OTP_ADDR,
+			data_xtalk_ov48b2q, sizeof(data_xtalk_ov48b2q));
+#else
+		table_write_cmos_sensor(ctx, addr_data_pair_xtalk_ov48b2q,
+			sizeof(addr_data_pair_xtalk_ov48b2q)/sizeof(kal_uint16));
+#endif
+		imgsensor_info.xtalk_flag = KAL_TRUE;
+	}
 
 	_length = sizeof(addr_data_pair_custom3) / sizeof(kal_uint16);
 	if (!_is_seamless) {
@@ -1363,12 +1372,14 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->test_pattern = KAL_FALSE;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 
+	imgsensor_info.xtalk_flag = KAL_FALSE;
+
 	return ERROR_NONE;
 }
 
 static int close(struct subdrv_ctx *ctx)
 {
-	_is_seamless = false;
+	_is_seamless = KAL_FALSE;
 	_size_to_write = 0;
 	return ERROR_NONE;
 }   /*  close  */
@@ -1658,7 +1669,7 @@ static int get_info(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_
 	sensor_info->SensorHsyncPolarity = SENSOR_CLOCK_POLARITY_LOW;
 	sensor_info->SensorVsyncPolarity = SENSOR_CLOCK_POLARITY_LOW;
 	sensor_info->SensorInterruptDelayLines = 4; /* not use */
-	sensor_info->SensorResetActiveHigh = FALSE; /* not use */
+	sensor_info->SensorResetActiveHigh = KAL_FALSE; /* not use */
 	sensor_info->SensorResetDelayCount = 5; /* not use */
 
 	sensor_info->SensroInterfaceType = imgsensor_info.sensor_interface_type;
@@ -2191,7 +2202,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_
 #if SEAMLESS_NO_USE
 	int k = 0;
 #endif
-	_is_seamless = true;
+	_is_seamless = KAL_TRUE;
 	memset(_i2c_data, 0x0, sizeof(_i2c_data));
 	_size_to_write = 0;
 
@@ -2265,7 +2276,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_
 			k,  _i2c_data[k], read_cmos_sensor_8(ctx, _i2c_data[k]));
 #endif
 
-	_is_seamless = false;
+	_is_seamless = KAL_FALSE;
 	LOG_INF("exit\n");
 	return ERROR_NONE;
 }
