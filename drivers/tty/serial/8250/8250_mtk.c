@@ -37,6 +37,11 @@
 #define MTK_UART_IER_RTSI	0x40	/* Enable RTS Modem status interrupt */
 #define MTK_UART_IER_CTSI	0x80	/* Enable CTS Modem status interrupt */
 
+#define MTK_UART_DLL  0x24
+#define MTK_UART_DLH  0x25
+#define MTK_UART_FEATURE_SEL  0x27
+#define MTK_UART_EFR    0x26
+
 #define MTK_UART_EFR_EN		0x10	/* Enable enhancement feature */
 #define MTK_UART_EFR_RTS	0x40	/* Enable hardware rx flow control */
 #define MTK_UART_EFR_CTS	0x80	/* Enable hardware tx flow control */
@@ -224,21 +229,19 @@ static void mtk8250_enable_intrs(struct uart_8250_port *up, int mask)
 static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 {
 	struct uart_port *port = &up->port;
-	int lcr = serial_in(up, UART_LCR);
 
-	serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
-	serial_out(up, UART_EFR, UART_EFR_ECB);
-	serial_out(up, UART_LCR, lcr);
-	lcr = serial_in(up, UART_LCR);
+	serial_out(up, MTK_UART_FEATURE_SEL, 1);
+	serial_out(up, MTK_UART_EFR, UART_EFR_ECB);
+	serial_out(up, MTK_UART_FEATURE_SEL, 0);
 
 	switch (mode) {
 	case MTK_UART_FC_NONE:
 		serial_out(up, MTK_UART_ESCAPE_DAT, MTK_UART_ESCAPE_CHAR);
 		serial_out(up, MTK_UART_ESCAPE_EN, 0x00);
-		serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
-		serial_out(up, UART_EFR, serial_in(up, UART_EFR) &
+		serial_out(up, MTK_UART_FEATURE_SEL, 1);
+		serial_out(up, MTK_UART_EFR, serial_in(up, MTK_UART_EFR) &
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK)));
-		serial_out(up, UART_LCR, lcr);
+		serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		mtk8250_disable_intrs(up, MTK_UART_IER_XOFFI |
 			MTK_UART_IER_RTSI | MTK_UART_IER_CTSI);
 		break;
@@ -247,14 +250,14 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 		serial_out(up, MTK_UART_ESCAPE_DAT, MTK_UART_ESCAPE_CHAR);
 		serial_out(up, MTK_UART_ESCAPE_EN, 0x00);
 		serial_out(up, UART_MCR, UART_MCR_RTS);
-		serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
+		serial_out(up, MTK_UART_FEATURE_SEL, 1);
 
 		/*enable hw flow control*/
-		serial_out(up, UART_EFR, MTK_UART_EFR_HW_FC |
-			(serial_in(up, UART_EFR) &
+		serial_out(up, MTK_UART_EFR, MTK_UART_EFR_HW_FC |
+			(serial_in(up, MTK_UART_EFR) &
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK))));
 
-		serial_out(up, UART_LCR, lcr);
+		serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		mtk8250_disable_intrs(up, MTK_UART_IER_XOFFI);
 		mtk8250_enable_intrs(up, MTK_UART_IER_CTSI | MTK_UART_IER_RTSI);
 		break;
@@ -262,22 +265,32 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 	case MTK_UART_FC_SW:	/*MTK software flow control */
 		serial_out(up, MTK_UART_ESCAPE_DAT, MTK_UART_ESCAPE_CHAR);
 		serial_out(up, MTK_UART_ESCAPE_EN, 0x01);
-		serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
+		serial_out(up, MTK_UART_FEATURE_SEL, 1);
 
 		/*enable sw flow control */
-		serial_out(up, UART_EFR, MTK_UART_EFR_XON1_XOFF1 |
-			(serial_in(up, UART_EFR) &
+		serial_out(up, MTK_UART_EFR, MTK_UART_EFR_XON1_XOFF1 |
+			(serial_in(up, MTK_UART_EFR) &
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK))));
 
 		serial_out(up, UART_XON1, START_CHAR(port->state->port.tty));
 		serial_out(up, UART_XOFF1, STOP_CHAR(port->state->port.tty));
-		serial_out(up, UART_LCR, lcr);
+		serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		mtk8250_disable_intrs(up, MTK_UART_IER_CTSI|MTK_UART_IER_RTSI);
 		mtk8250_enable_intrs(up, MTK_UART_IER_XOFFI);
 		break;
 	default:
 		break;
 	}
+}
+
+static void
+mtk8250_set_divisor(struct uart_port *port, unsigned int baud,
+			unsigned int quot, unsigned int quot_frac)
+{
+	serial_port_out(port, MTK_UART_FEATURE_SEL, 1);
+	serial_port_out(port, MTK_UART_DLL, quot & 0xff);
+	serial_port_out(port, MTK_UART_DLH, (quot >> 8) & 0xff);
+	serial_port_out(port, MTK_UART_FEATURE_SEL, 0);
 }
 
 static void
@@ -291,7 +304,8 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 3
 	};
 	struct uart_8250_port *up = up_to_u8250p(port);
-	unsigned int baud, quot, fraction;
+	unsigned int baud, quot;
+	unsigned int fraction = 0;
 	unsigned long flags;
 	int mode;
 
@@ -357,13 +371,6 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	 */
 	uart_update_timeout(port, termios->c_cflag, baud);
 
-	/* set DLAB we have cval saved in up->lcr from the call to the core */
-	serial_port_out(port, UART_LCR, up->lcr | UART_LCR_DLAB);
-	serial_dl_write(up, quot);
-
-	/* reset DLAB */
-	serial_port_out(port, UART_LCR, up->lcr);
-
 	if (baud >= 115200) {
 		unsigned int tmp;
 
@@ -385,6 +392,8 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		serial_port_out(port, MTK_UART_FRACDIV_L, 0x00);
 		serial_port_out(port, MTK_UART_FRACDIV_M, 0x00);
 	}
+
+	mtk8250_set_divisor(port, baud, quot, fraction);
 
 	if ((termios->c_cflag & CRTSCTS) && (!(termios->c_iflag & CRTSCTS)))
 		mode = MTK_UART_FC_HW;
@@ -446,7 +455,7 @@ static int __maybe_unused mtk8250_runtime_resume(struct device *dev)
 static void
 mtk8250_do_pm(struct uart_port *port, unsigned int state, unsigned int old)
 {
-	unsigned char lcr = 0, efr = 0;
+	unsigned char efr = 0;
 	struct uart_8250_port *up = up_to_u8250p(port);
 
 	if (!state)
@@ -457,17 +466,16 @@ mtk8250_do_pm(struct uart_port *port, unsigned int state, unsigned int old)
 
 	if (up->capabilities & UART_CAP_SLEEP) {
 		if (up->capabilities & UART_CAP_EFR) {
-			lcr = serial_in(up, UART_LCR);
-			serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
-			efr = serial_in(up, UART_EFR);
-			serial_out(up, UART_EFR, UART_EFR_ECB);
-			serial_out(up, UART_LCR, 0);
+			serial_out(up, MTK_UART_FEATURE_SEL, 1);
+			efr = serial_in(up, MTK_UART_EFR);
+			serial_out(up, MTK_UART_EFR, UART_EFR_ECB);
+			serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		}
 		serial_out(up, UART_IER, (state != 0) ? UART_IERX_SLEEP : 0);
 		if (up->capabilities & UART_CAP_EFR) {
-			serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
-			serial_out(up, UART_EFR, efr);
-			serial_out(up, UART_LCR, lcr);
+			serial_out(up, MTK_UART_FEATURE_SEL, 1);
+			serial_out(up, MTK_UART_EFR, efr);
+			serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		}
 	}
 
@@ -578,6 +586,7 @@ static int mtk8250_probe(struct platform_device *pdev)
 	uart.port.shutdown = mtk8250_shutdown;
 	uart.port.startup = mtk8250_startup;
 	uart.port.set_termios = mtk8250_set_termios;
+	uart.port.set_divisor = mtk8250_set_divisor;
 	uart.port.uartclk = clk_get_rate(data->uart_clk);
 #ifdef CONFIG_SERIAL_8250_DMA
 	if (data->dma)
