@@ -21,5 +21,6 @@ int ged_ge_get(int ge_fd, int region_id, int u32_offset,
 	int u32_size, uint32_t *output_data);
 int ged_ge_set(int ge_fd, int region_id, int u32_offset,
 	int u32_size, uint32_t *input_data);
+int ged_dmabuf_set_name(int32_t share_fd, char *name);
 
 #endif

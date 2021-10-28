@@ -97,6 +97,10 @@ int ged_bridge_gpu_tuner_status(
 	struct GED_BRIDGE_IN_GPU_TUNER_STATUS *in,
 	struct GED_BRIDGE_OUT_GPU_TUNER_STATUS *out);
 
+int ged_bridge_dmabuf_set_name(
+	struct GED_BRIDGE_IN_DMABUF_SET_NAME *in,
+	struct GED_BRIDGE_OUT_DMABUF_SET_NAME *out);
+
 #ifdef ENABLE_FRR_FOR_MT6XXX_PLATFORM
 int ged_bridge_vsync_wait(void *IN, void *OUT);
 #endif
