@@ -51,6 +51,7 @@ struct drv_cfg_data {
 struct plat_cfg_data {
 	int8_t aging_flag:4,
 	       hw_id:4;
+	int8_t seg_efuse;
 };
 
 struct device_opp_limit {

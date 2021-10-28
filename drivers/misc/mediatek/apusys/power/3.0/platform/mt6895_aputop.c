@@ -1120,6 +1120,7 @@ static int init_plat_chip_data(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node, "aging_load", &aging_attr);
 
 	plat_cfg.aging_flag = (aging_attr & 0xf);
+	plat_cfg.hw_id = 0x0;
 
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_seg_cell");
@@ -1139,14 +1140,15 @@ static int init_plat_chip_data(struct platform_device *pdev)
 	kfree(efuse_buf);
 
 done:
-	plat_cfg.hw_id = segment_id;
+	plat_cfg.seg_efuse = segment_id;
 #else
-	plat_cfg.hw_id = 0x0;
+	plat_cfg.seg_efuse = 0x0;
 #endif /* CONFIG_MTK_DEVINFO */
 
-	pr_info("%s 0x%08x 0x%08x 0x%08x\n", __func__,
+	pr_info("%s 0x%08x 0x%08x 0x%08x 0x%08x\n", __func__,
 		plat_cfg.aging_flag,
 		plat_cfg.hw_id,
+		plat_cfg.seg_efuse,
 		aging_attr);
 
 	return mt6895_chip_data_remote_sync(&plat_cfg);

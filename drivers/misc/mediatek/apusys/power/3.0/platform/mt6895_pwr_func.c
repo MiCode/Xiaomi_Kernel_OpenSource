@@ -485,7 +485,8 @@ int mt6895_chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
 	uint32_t reg_data = 0x0;
 
 	reg_data = (plat_cfg->aging_flag & 0xf)
-		| ((plat_cfg->hw_id & 0xf) << 4);
+		| ((plat_cfg->hw_id & 0xf) << 4)
+		| ((plat_cfg->seg_efuse & 0xf) << 8);
 
 	pr_info("%s 0x%08x\n", __func__, reg_data);
 	apu_writel(reg_data, spare_reg_base + PLAT_CFG_SYNC_REG);
