@@ -152,6 +152,19 @@ enum mdw_info_dir {
 	MDW_INFO_GET
 };
 
+enum {
+	MDW_POWERPOLICY_DEFAULT = 0, //do nothing
+	MDW_POWERPOLICY_SUSTAINABLE = 1,
+	MDW_POWERPOLICY_PERFORMANCE = 2,
+	MDW_POWERPOLICY_POWERSAVING = 3,
+};
+
+enum {
+	MDW_APPTYPE_DEFAULT = 0,
+	MDW_APPTYPE_ONESHOT = 1,
+	MDW_APPTYPE_STREAMING = 2,
+};
+
 struct mdw_device {
 	enum mdw_driver_type driver_type;
 	union {

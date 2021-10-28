@@ -8,6 +8,8 @@
 #include "mdw_mem_pool.h"
 #include "mdw_trace.h"
 
+#include "apu_ipi.h"
+
 #define MDW_IS_HIGHADDR(addr) ((addr & 0xffffffff00000000) ? true : false)
 
 static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
@@ -29,6 +31,20 @@ static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 	mdw_cmd_debug(" adj_matrix_offset = 0x%x\n", rc->adj_matrix_offset);
 	mdw_cmd_debug(" exec_infos_offset = 0x%x\n", rc->exec_infos_offset);
 	mdw_cmd_debug("-------------------------\n");
+}
+
+static void mdw_rv_cmd_set_affinity(struct mdw_cmd *c, bool enable)
+{
+	if (c->power_plcy != MDW_POWERPOLICY_PERFORMANCE)
+		return;
+
+	if (enable) {
+		mdw_flw_debug("enable affinity\n");
+		apu_ipi_affin_enable();
+	} else {
+		mdw_flw_debug("disable affinity\n");
+		apu_ipi_affin_disable();
+	}
 }
 
 static void mdw_rv_sc_print(struct mdw_rv_msg_sc *rsc,
@@ -176,6 +192,8 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		mdw_drv_warn("s(0x%llx) c(0x%llx) flush rv cbs(%u) fail\n",
 			(uint64_t)c->mpriv, c->kid, rc->cb->size);
 
+	mdw_rv_cmd_set_affinity(c, true);
+
 	goto out;
 
 free_rc:
@@ -195,6 +213,8 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 
 	if (!rc)
 		return -EINVAL;
+
+	mdw_rv_cmd_set_affinity(c, false);
 
 	mutex_lock(&mpriv->mtx);
 	/* invalidate */
