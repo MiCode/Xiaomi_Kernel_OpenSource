@@ -3201,9 +3201,10 @@ static int _mtk_crtc_cmdq_retrig(void *data)
 {
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *) data;
 	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct sched_param param = {.sched_priority = 94 };
 	int ret;
 
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	atomic_set(&mtk_crtc->cmdq_trig, 0);
 	while (1) {
@@ -4999,9 +5000,10 @@ static int __mtk_check_trigger(struct mtk_drm_crtc *mtk_crtc)
 static int _mtk_crtc_check_trigger(void *data)
 {
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *) data;
+	struct sched_param param = {.sched_priority = 94 };
 	int ret;
 
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	atomic_set(&mtk_crtc->trig_event_act, 0);
 	while (1) {
@@ -5023,9 +5025,10 @@ static int _mtk_crtc_check_trigger(void *data)
 static int _mtk_crtc_check_trigger_delay(void *data)
 {
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *) data;
+	struct sched_param param = {.sched_priority = 94 };
 	int ret;
 
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	atomic_set(&mtk_crtc->trig_delay_act, 0);
 
@@ -8741,12 +8744,13 @@ void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable)
 
 static int mtk_drm_fake_vsync_kthread(void *data)
 {
+	struct sched_param param = {.sched_priority = 87 };
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_fake_vsync *fake_vsync = mtk_crtc->fake_vsync;
 	int ret = 0;
 
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (1) {
 		ret = wait_event_interruptible(fake_vsync->fvsync_wq,
@@ -8788,10 +8792,11 @@ void mtk_drm_fake_vsync_init(struct drm_crtc *crtc)
 static int dc_main_path_commit_thread(void *data)
 {
 	int ret;
+	struct sched_param param = {.sched_priority = 94 };
 	struct drm_crtc *crtc = data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (1) {
 		ret = wait_event_interruptible(mtk_crtc->dc_main_path_commit_wq,
@@ -8812,6 +8817,7 @@ static int dc_main_path_commit_thread(void *data)
 
 static int mtk_drm_pf_release_thread(void *data)
 {
+	struct sched_param param = {.sched_priority = 87};
 	struct mtk_drm_private *private;
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
@@ -8820,7 +8826,7 @@ static int mtk_drm_pf_release_thread(void *data)
 	crtc = &mtk_crtc->base;
 	private = crtc->dev->dev_private;
 	crtc_idx = drm_crtc_index(crtc);
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(mtk_crtc->present_fence_wq,
@@ -8852,6 +8858,7 @@ static int mtk_drm_pf_release_thread(void *data)
 
 static int mtk_drm_sf_pf_release_thread(void *data)
 {
+	struct sched_param param = {.sched_priority = 87};
 	struct mtk_drm_private *private;
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
@@ -8859,7 +8866,7 @@ static int mtk_drm_sf_pf_release_thread(void *data)
 
 	crtc = &mtk_crtc->base;
 	private = crtc->dev->dev_private;
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(mtk_crtc->sf_present_fence_wq,
