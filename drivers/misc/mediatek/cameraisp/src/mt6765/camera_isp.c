@@ -5448,43 +5448,44 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idxU)
 		P2_FramePackage_List[property][idx].frameNum = 0;
 		P2_FramePackage_List[property][idx].dequedNum = 0;
 		/* [2] update first index */
-		if (P2_FramePackage_List[property][tmpIdx].dupCQIdx == -1) {
-			/* traverse count needed, cuz user may erase the */
-			/* element but not the one at first idx */
-			/* (pip or vss scenario) */
-			if (P2_FramePack_List_Idx[property].start <=
-			P2_FramePack_List_Idx[property].end) {
-				cnt = P2_FramePack_List_Idx[property].end -
-					P2_FramePack_List_Idx[property].start;
-			} else {
-				cnt = _MAX_SUPPORT_P2_PACKAGE_NUM_ -
-					P2_FramePack_List_Idx[property].start;
-				cnt += P2_FramePack_List_Idx[property].end;
-			}
-			do { /* to find the newest first lindex */
-				tmpIdx = (tmpIdx + 1) %
-					_MAX_SUPPORT_P2_PACKAGE_NUM_;
-				switch (
-				P2_FramePackage_List[property][tmpIdx].
-				dupCQIdx){
-				case (-1):
-					break;
-				default:
-					stop = true;
-					P2_FramePack_List_Idx[property].start =
-						tmpIdx;
-					break;
+		if (tmpIdx >= 0) {
+			if (P2_FramePackage_List[property][tmpIdx].dupCQIdx == -1) {
+				/* traverse count needed, cuz user may erase the */
+				/* element but not the one at first idx */
+				/* (pip or vss scenario) */
+				if (P2_FramePack_List_Idx[property].start <=
+				P2_FramePack_List_Idx[property].end) {
+					cnt = P2_FramePack_List_Idx[property].end -
+						P2_FramePack_List_Idx[property].start;
+				} else {
+					cnt = _MAX_SUPPORT_P2_PACKAGE_NUM_ -
+						P2_FramePack_List_Idx[property].start;
+					cnt += P2_FramePack_List_Idx[property].end;
 				}
-				i++;
-			} while ((i < cnt) && (!stop));
-			/* current last erased element in list is the one */
-			/* firstBufindex point at and all the buffer node */
-			/* are deque done in the current moment, should */
-			/* update first index to the last node */
-			if ((!stop) && (i == cnt))
-				P2_FramePack_List_Idx[property].start =
-					P2_FramePack_List_Idx[property].end;
+				do { /* to find the newest first lindex */
+					tmpIdx = (tmpIdx + 1) %
+						_MAX_SUPPORT_P2_PACKAGE_NUM_;
+					switch (
+					P2_FramePackage_List[property][tmpIdx].dupCQIdx){
+					case (-1):
+						break;
+					default:
+						stop = true;
+						P2_FramePack_List_Idx[property].start =
+							tmpIdx;
+						break;
+					}
+					i++;
+				} while ((i < cnt) && (!stop));
+				/* current last erased element in list is the one */
+				/* firstBufindex point at and all the buffer node */
+				/* are deque done in the current moment, should */
+				/* update first index to the last node */
+				if ((!stop) && (i == cnt))
+					P2_FramePack_List_Idx[property].start =
+						P2_FramePack_List_Idx[property].end;
 
+			}
 		}
 		break;
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
@@ -5495,50 +5496,51 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idxU)
 		P2_FrameUnit_List[property][idx].cqMask =  0x0;
 		P2_FrameUnit_List[property][idx].bufSts = ISP_P2_BUF_STATE_NONE;
 		/* [2]update first index */
-		if (P2_FrameUnit_List[property][tmpIdx].bufSts ==
-		ISP_P2_BUF_STATE_NONE) {
-			/* traverse count needed, cuz user may erase the */
-			/* element but not the one at first idx */
-			if (P2_FrameUnit_List_Idx[property].start <=
-			P2_FrameUnit_List_Idx[property].end) {
-				cnt = P2_FrameUnit_List_Idx[property].end -
-					P2_FrameUnit_List_Idx[property].start;
-			} else {
-				cnt = _MAX_SUPPORT_P2_FRAME_NUM_ -
-					P2_FrameUnit_List_Idx[property].start;
-				cnt += P2_FrameUnit_List_Idx[property].end;
-			}
-			/* to find the newest first lindex */
-			do {
-				tmpIdx = (tmpIdx + 1) %
-					_MAX_SUPPORT_P2_FRAME_NUM_;
-				switch (
-				P2_FrameUnit_List[property][tmpIdx].bufSts) {
-				case ISP_P2_BUF_STATE_ENQUE:
-				case ISP_P2_BUF_STATE_RUNNING:
-				case ISP_P2_BUF_STATE_DEQUE_SUCCESS:
-					stop = true;
-					P2_FrameUnit_List_Idx[property].start =
-						tmpIdx;
-					break;
-				case ISP_P2_BUF_STATE_WAIT_DEQUE_FAIL:
-				case ISP_P2_BUF_STATE_DEQUE_FAIL:
-					/* ASSERT */
-					break;
-				case ISP_P2_BUF_STATE_NONE:
-				default:
-					break;
+		if (tmpIdx >= 0) {
+			if (P2_FrameUnit_List[property][tmpIdx].bufSts ==
+			ISP_P2_BUF_STATE_NONE) {
+				/* traverse count needed, cuz user may erase the */
+				/* element but not the one at first idx */
+				if (P2_FrameUnit_List_Idx[property].start <=
+				P2_FrameUnit_List_Idx[property].end) {
+					cnt = P2_FrameUnit_List_Idx[property].end -
+						P2_FrameUnit_List_Idx[property].start;
+				} else {
+					cnt = _MAX_SUPPORT_P2_FRAME_NUM_ -
+						P2_FrameUnit_List_Idx[property].start;
+					cnt += P2_FrameUnit_List_Idx[property].end;
 				}
-				i++;
-			} while ((i < cnt) && (!stop));
-			/* current last erased element in list is the one */
-			/* firstBufindex point at and all the buffer node are */
-			/* deque done in the current moment, should */
-			/* update first index to the last node */
-			if ((!stop) && (i == (cnt)))
-				P2_FrameUnit_List_Idx[property].start =
-					P2_FrameUnit_List_Idx[property].end;
-
+				/* to find the newest first lindex */
+				do {
+					tmpIdx = (tmpIdx + 1) %
+						_MAX_SUPPORT_P2_FRAME_NUM_;
+					switch (
+					P2_FrameUnit_List[property][tmpIdx].bufSts) {
+					case ISP_P2_BUF_STATE_ENQUE:
+					case ISP_P2_BUF_STATE_RUNNING:
+					case ISP_P2_BUF_STATE_DEQUE_SUCCESS:
+						stop = true;
+						P2_FrameUnit_List_Idx[property].start =
+							tmpIdx;
+						break;
+					case ISP_P2_BUF_STATE_WAIT_DEQUE_FAIL:
+					case ISP_P2_BUF_STATE_DEQUE_FAIL:
+						/* ASSERT */
+						break;
+					case ISP_P2_BUF_STATE_NONE:
+					default:
+						break;
+					}
+					i++;
+				} while ((i < cnt) && (!stop));
+				/* current last erased element in list is the one */
+				/* firstBufindex point at and all the buffer node are */
+				/* deque done in the current moment, should */
+				/* update first index to the last node */
+				if ((!stop) && (i == (cnt)))
+					P2_FrameUnit_List_Idx[property].start =
+						P2_FrameUnit_List_Idx[property].end;
+			}
 		}
 		break;
 	default:
@@ -5787,7 +5789,7 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 	switch (type) {
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
 		index = *idx;
-		if (index < 0 || index >= _MAX_SUPPORT_P2_FRAME_NUM_) {
+		if (index < 0) {
 			pr_info("index abnormal error(%d) 1\n", index);
 			return ret;
 		}
@@ -5801,7 +5803,7 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 		break;
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		index = *idx;
-		if (index < 0 || index >= _MAX_SUPPORT_P2_FRAME_NUM_) {
+		if (index < 0) {
 			pr_info("index abnormal error(%d) 2\n", index);
 			return ret;
 		}
