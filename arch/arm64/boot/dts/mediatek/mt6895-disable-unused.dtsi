@@ -148,7 +148,9 @@
 			<&camsys_mraw_clk CLK_CAM_MR_MRAW0>,
 			<&camsys_mraw_clk CLK_CAM_MR_MRAW1>,
 			<&camsys_mraw_clk CLK_CAM_MR_MRAW2>,
-			<&camsys_mraw_clk CLK_CAM_MR_MRAW3>;
+			<&camsys_mraw_clk CLK_CAM_MR_MRAW3>,
+			<&camsys_mraw_clk CLK_CAM_MR_PDA0>,
+			<&camsys_mraw_clk CLK_CAM_MR_PDA1>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MRAW>;
 	};
 
