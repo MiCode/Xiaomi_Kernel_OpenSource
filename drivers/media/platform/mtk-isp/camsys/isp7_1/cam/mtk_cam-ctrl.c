@@ -592,7 +592,8 @@ static void mtk_cam_m2m_sensor_skip(struct mtk_cam_request_stream_data *req_stre
 	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
 	cam = ctx->cam;
 	req = mtk_cam_s_data_get_req(req_stream_data);
-	dev_dbg(cam->dev, "%s:%s:ctx(%d):sensor ctrl skip frame_seq_no %d\n",
+	dev_dbg(ctx->cam->dev,
+		"%s:%s:ctx(%d):sensor ctrl skip frame_seq_no %d\n",
 		__func__, req->req.debug_str,
 		ctx->stream_id, req_stream_data->frame_seq_no);
 
@@ -603,31 +604,60 @@ static void mtk_cam_m2m_sensor_skip(struct mtk_cam_request_stream_data *req_stre
 
 }
 
+static void mtk_cam_set_sensor_mstream_mode(struct mtk_cam_ctx *ctx, bool on)
+{
+	struct v4l2_ctrl *mstream_mode_ctrl;
+
+	mstream_mode_ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler,
+			V4L2_CID_MTK_MSTREAM_MODE);
+
+	if (!mstream_mode_ctrl) {
+		dev_info(ctx->cam->dev,
+			"%s: ctx(%d): no sensor mstream mode control found\n",
+			__func__, ctx->stream_id);
+		return;
+	}
+
+	if (on)
+		v4l2_ctrl_s_ctrl(mstream_mode_ctrl, 1);
+	else
+		v4l2_ctrl_s_ctrl(mstream_mode_ctrl, 0);
+
+	dev_dbg(ctx->cam->dev,
+		"%s mstream mode:%d\n", __func__, on);
+}
+
 static int mtk_cam_set_sensor_mstream_exposure(struct mtk_cam_ctx *ctx,
 		struct mtk_cam_request_stream_data *req_stream_data)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	int is_mstream_last_exposure = 0;
+	struct mtk_cam_request *req = mtk_cam_s_data_get_req(req_stream_data);
+	struct mtk_cam_request_stream_data *last_req_stream_data;
 
-	if (!(req_stream_data->frame_seq_no & 0x1))
+	last_req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+	if (req_stream_data->frame_seq_no == last_req_stream_data->frame_seq_no)
 		is_mstream_last_exposure = 1;
 
 	if (!ctx->sensor) {
 		dev_info(cam->dev, "%s: ctx(%d): no sensor found\n",
 			__func__, ctx->stream_id);
 	} else {
-		struct v4l2_ctrl *shutter_ctrl;
-		struct v4l2_ctrl *gain_ctrl;
+		struct v4l2_ctrl *ae_ctrl;
+		struct mtk_hdr_ae ae;
 		u32 shutter, gain;
 
-		shutter_ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler,
-				V4L2_CID_EXPOSURE);
-		gain_ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler,
-				V4L2_CID_ANALOGUE_GAIN);
+		/* mstream mode on */
+		if (last_req_stream_data->frame_seq_no == 2 || mtk_cam_feature_change_is_mstream(
+				last_req_stream_data->feature.switch_feature_type))
+			mtk_cam_set_sensor_mstream_mode(ctx, 1);
 
-		if (!shutter_ctrl || !gain_ctrl) {
-			dev_info(cam->dev, "%s: ctx(%d): no sensor exposure control found\n",
-				__func__, ctx->stream_id);
+		ae_ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler,
+				V4L2_CID_MTK_STAGGER_AE_CTRL);
+		if (!ae_ctrl) {
+			dev_info(ctx->cam->dev,
+				"no stagger ae ctrl id in %s\n",
+				ctx->sensor->name);
 			return is_mstream_last_exposure;
 		}
 
@@ -638,8 +668,16 @@ static int mtk_cam_set_sensor_mstream_exposure(struct mtk_cam_ctx *ctx,
 			"%s exposure:%d gain:%d\n", __func__, shutter, gain);
 
 		if (shutter > 0 && gain > 0) {
-			v4l2_ctrl_s_ctrl(shutter_ctrl, shutter);
-			v4l2_ctrl_s_ctrl(gain_ctrl, gain);
+			ae.exposure.le_exposure = shutter;
+			ae.gain.le_gain = gain;
+
+			if (!is_mstream_last_exposure)
+				ae.subsample_tags = 1;
+			else
+				ae.subsample_tags = 2;
+			v4l2_ctrl_s_ctrl_compound(ae_ctrl, V4L2_CTRL_TYPE_U32,
+						&ae);
+			dev_dbg(ctx->cam->dev, "mstream sensor ae ctrl done\n");
 		}
 	}
 
@@ -674,6 +712,7 @@ static bool mtk_cam_submit_kwork(struct kthread_worker *worker,
 	atomic_set(&sensor_work->is_queued, 1);
 	return kthread_queue_work(worker, &sensor_work->work);
 }
+
 static void mtk_cam_exp_switch_sensor_worker(struct kthread_work *work)
 {
 	struct mtk_cam_request *req;
@@ -1109,6 +1148,14 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 			ctx->sensor_ctrl.initial_cq_done == 1 &&
 			s_data->frame_seq_no == 1)
 			mtk_cam_stream_on(raw_dev, ctx);
+	}
+
+	if (mtk_cam_feature_change_is_mstream(
+				s_data->feature.switch_feature_type)) {
+		/* mstream mode off */
+		if (s_data->feature.switch_feature_type ==
+				(EXPOSURE_CHANGE_2_to_1 | MSTREAM_EXPOSURE_CHANGE))
+			mtk_cam_set_sensor_mstream_mode(ctx, 0);
 	}
 
 	dev_dbg(cam->dev, "%s:%s:ctx(%d)req(%d):sensor done at SOF+%dms\n",
