@@ -64,14 +64,17 @@ obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-plat-util.o
 
 # camsys platform module
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cam-plat-mt6983.c),)
+subdir-ccflags-y += -DCAMSYS_MRAW_V1
 mtk-cam-plat-mt6983-objs :=  mtk_cam-plat-mt6983.o
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-plat-mt6983.o
 endif
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cam-plat-mt6879.c),)
+subdir-ccflags-y += -DCAMSYS_MRAW_V2
 mtk-cam-plat-mt6879-objs :=  mtk_cam-plat-mt6879.o
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-plat-mt6879.o
 endif
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cam-plat-mt6895.c),)
+subdir-ccflags-y += -DCAMSYS_MRAW_V3
 mtk-cam-plat-mt6895-objs :=  mtk_cam-plat-mt6895.o
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-plat-mt6895.o
 endif
