@@ -223,7 +223,7 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	}
 
 	if (!srcmdev->rpdev.ept) {
-		dev_info(ccd->dev, "src ept is not ready\n");
+		dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
