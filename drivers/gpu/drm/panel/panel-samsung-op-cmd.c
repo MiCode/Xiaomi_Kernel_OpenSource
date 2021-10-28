@@ -690,11 +690,11 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 			.switch_en = 1, .vact_timing_fps = 60,
 		},
 		.cust_esd_check = 0,
-		.esd_check_enable = 0,
+		.esd_check_enable = 1,
 		.lcm_esd_check_table[0] = {
 			.cmd = 0x0a,
 			.count = 1,
-			.para_list[0] = 0x1c,
+			.para_list[0] = 0x9f,
 		},
 	},
 	//WQHD_SDC120
@@ -740,11 +740,11 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 			.switch_en = 1, .vact_timing_fps = 120,
 		},
 		.cust_esd_check = 0,
-		.esd_check_enable = 0,
+		.esd_check_enable = 1,
 		.lcm_esd_check_table[0] = {
 			.cmd = 0x0a,
 			.count = 1,
-			.para_list[0] = 0x1c,
+			.para_list[0] = 0x9f,
 		},
 	},
 	//WQHD_SDC90
@@ -790,11 +790,11 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 			.switch_en = 1, .vact_timing_fps = 90,
 		},
 		.cust_esd_check = 0,
-		.esd_check_enable = 0,
+		.esd_check_enable = 1,
 		.lcm_esd_check_table[0] = {
 			.cmd = 0x0a,
 			.count = 1,
-			.para_list[0] = 0x1c,
+			.para_list[0] = 0x9f,
 		},
 	},
 	//FHD_SDC60
@@ -840,11 +840,11 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 			.switch_en = 1, .vact_timing_fps = 60,
 		},
 		.cust_esd_check = 0,
-		.esd_check_enable = 0,
+		.esd_check_enable = 1,
 		.lcm_esd_check_table[0] = {
 			.cmd = 0x0a,
 			.count = 1,
-			.para_list[0] = 0x1c,
+			.para_list[0] = 0x9f,
 		},
 	},
 	//FHD_SDC120
@@ -890,11 +890,11 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 			.switch_en = 1, .vact_timing_fps = 120,
 		},
 		.cust_esd_check = 0,
-		.esd_check_enable = 0,
+		.esd_check_enable = 1,
 		.lcm_esd_check_table[0] = {
 			.cmd = 0x0a,
 			.count = 1,
-			.para_list[0] = 0x1c,
+			.para_list[0] = 0x9f,
 		},
 	},
 	//FHD_SDC90
@@ -940,11 +940,11 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 			.switch_en = 1, .vact_timing_fps = 90,
 		},
 		.cust_esd_check = 0,
-		.esd_check_enable = 0,
+		.esd_check_enable = 1,
 		.lcm_esd_check_table[0] = {
 			.cmd = 0x0a,
 			.count = 1,
-			.para_list[0] = 0x1c,
+			.para_list[0] = 0x9f,
 		},
 	},
 };
