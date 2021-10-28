@@ -8,7 +8,6 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/dma-mapping.h>
 #include <drm/drm_fourcc.h>
 
 #ifndef DRM_CMDQ_DISABLE
@@ -1499,8 +1498,7 @@ static int mtk_disp_wdma_probe(struct platform_device *pdev)
 	struct mtk_disp_wdma *priv;
 	enum mtk_ddp_comp_id comp_id;
 	int irq;
-	int ret, len;
-	const __be32 *ranges = NULL;
+	int ret;
 
 	DDPMSG("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -1537,10 +1535,6 @@ static int mtk_disp_wdma_probe(struct platform_device *pdev)
 	}
 
 	priv->data = of_device_get_match_data(dev);
-
-	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
-	if (ranges && priv->data && priv->data->is_support_34bits)
-		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 

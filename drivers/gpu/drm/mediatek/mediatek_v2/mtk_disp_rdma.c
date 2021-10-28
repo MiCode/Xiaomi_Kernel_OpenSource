@@ -11,7 +11,6 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/dma-mapping.h>
 
 #ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -1412,8 +1411,7 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 	struct mtk_disp_rdma *priv;
 	enum mtk_ddp_comp_id comp_id;
 	int irq;
-	int ret, len;
-	const __be32 *ranges = NULL;
+	int ret;
 
 	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -1454,10 +1452,6 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 	priv->data = of_device_get_match_data(dev);
 
 	platform_set_drvdata(pdev, priv);
-
-	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
-	if (ranges && priv->data && priv->data->is_support_34bits)
-		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
