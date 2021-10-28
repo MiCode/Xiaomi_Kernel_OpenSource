@@ -1888,6 +1888,10 @@ static void ut_set_fs_set_shutter(void)
 				pf_ctrl.hdr_exp.exp_lc[hdr_idx] =
 					US_TO_LC(g_hdr_shutter[hdr_idx],
 						pf_ctrl.lineTimeInNs);
+
+				/* TODO: fix hdr_exp hardcode variable */
+				pf_ctrl.hdr_exp.readout_len_lc = 2374*2;
+				pf_ctrl.hdr_exp.read_margin_lc = 10*2;
 			}
 			// printf("hdr_idx:%u, exp:%u\n", hdr_idx, pf_ctrl.hdr_exp.exp_lc[hdr_idx]);
 		}

@@ -115,6 +115,10 @@ struct fs_hdr_exp_st {
 	unsigned int ae_exp_cnt;         // exp cnt from ae set ctrl
 
 	unsigned int exp_lc[FS_HDR_MAX];
+
+	/* stagger read offset change */
+	unsigned int readout_len_lc;
+	unsigned int read_margin_lc;
 };
 /******************************************************************************/
 

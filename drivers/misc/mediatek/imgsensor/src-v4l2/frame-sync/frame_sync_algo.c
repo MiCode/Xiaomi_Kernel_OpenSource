@@ -151,6 +151,10 @@ struct FrameSyncInst {
 //----------------------------------------------------------------------------//
 
 //---------------------------- private member --------------------------------//
+	/* for STG sensor read offset change, effect valid min fl */
+	unsigned int readout_min_fl_lc;
+
+
 	/* for STG sensor using FDOL mode like DOL mode */
 	/* when doing STG seamless switch */
 	unsigned int extend_fl_lc;
@@ -393,7 +397,7 @@ static inline void set_fl_us(unsigned int idx, unsigned int us)
  *      could be "def_min_fl_lc" ( like sensor driver write_shutter() function )
  *      or "min_fl_lc" ( for frame sync dynamic FPS ).
  */
-static inline unsigned int calc_min_fl_lc(
+static unsigned int calc_min_fl_lc(
 	unsigned int idx, unsigned int min_fl_lc)
 {
 	unsigned int output_fl_lc = 0;
@@ -406,6 +410,14 @@ static inline unsigned int calc_min_fl_lc(
 		output_fl_lc = shutter_margin;
 	else
 		output_fl_lc = min_fl_lc;
+
+
+	if (fs_inst[idx].hdr_exp.mode_exp_cnt > 1) {
+		/* STG FLL constraints */
+		output_fl_lc =
+			(output_fl_lc > fs_inst[idx].readout_min_fl_lc)
+			? output_fl_lc : fs_inst[idx].readout_min_fl_lc;
+	}
 
 
 	/* check extend frame length had been set */
@@ -879,7 +891,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, stable_fl:%u(%u), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -888,6 +900,13 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		convert2LineCount(
 			fs_inst[idx].lineTimeInNs,
 			fs_sa_inst.dynamic_paras[idx].stable_fl_us),
+		fs_inst[idx].shutter_lc,
+		fs_inst[idx].margin_lc,
+		fs_inst[idx].min_fl_lc,
+		fs_inst[idx].readout_min_fl_lc,
+		fs_inst[idx].hdr_exp.readout_len_lc,
+		fs_inst[idx].hdr_exp.read_margin_lc,
+		fs_inst[idx].lineTimeInNs,
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[0],
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[1],
 		fs_sa_inst.dynamic_paras[idx].ts_bias_us,
@@ -1826,6 +1845,68 @@ static unsigned int fs_alg_get_hdr_equivalent_exp_lc(unsigned int idx)
 }
 
 
+static void fs_alg_update_hdr_exp_readout_fl_lc(unsigned int idx)
+{
+	int read_offset_diff = 0;
+	unsigned int i = 1;
+	unsigned int readout_fl_lc = 0, readout_min_fl_lc = 0;
+	unsigned int mode_exp_cnt = fs_inst[idx].hdr_exp.mode_exp_cnt;
+	unsigned int readout_len_lc = fs_inst[idx].hdr_exp.readout_len_lc;
+	unsigned int read_margin_lc = fs_inst[idx].hdr_exp.read_margin_lc;
+
+	struct fs_hdr_exp_st *p_curr_hdr = &fs_inst[idx].hdr_exp;
+	struct fs_hdr_exp_st *p_prev_hdr = &fs_inst[idx].prev_hdr_exp;
+
+
+	if ((mode_exp_cnt > 1) && (readout_len_lc == 0)) {
+		/* multi exp mode but with readout length equal to zero */
+		fs_inst[idx].readout_min_fl_lc = 0;
+
+		LOG_INF(
+			"WARNING: [%u] ID:%#x(sidx:%u), readout_len_lc:%d, FL calc. may have error\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			readout_len_lc);
+
+		return;
+	}
+
+	/* calc. each exp readout offset change, except LE */
+	for (i = 1; i < mode_exp_cnt; ++i) {
+		int hdr_idx = hdr_exp_idx_map[mode_exp_cnt][i];
+
+		if (hdr_idx < 0) {
+			LOG_INF(
+				"ERROR: [%u] ID:%#x(sidx:%u), hdr_exp_idx_map[%u][%u] = %d\n",
+				idx,
+				fs_inst[idx].sensor_id,
+				fs_inst[idx].sensor_idx,
+				mode_exp_cnt,
+				i,
+				hdr_idx);
+
+			return;
+		}
+
+
+		read_offset_diff +=
+			p_prev_hdr->exp_lc[hdr_idx] -
+			p_curr_hdr->exp_lc[hdr_idx];
+
+		readout_fl_lc = (read_offset_diff > 0)
+			? (readout_len_lc + read_margin_lc + read_offset_diff)
+			: (readout_len_lc + read_margin_lc);
+
+		if (readout_min_fl_lc < readout_fl_lc)
+			readout_min_fl_lc = readout_fl_lc;
+	}
+
+
+	fs_inst[idx].readout_min_fl_lc = readout_min_fl_lc;
+}
+
+
 static void fs_alg_set_hdr_exp_st_data(
 	unsigned int idx, unsigned int *shutter_lc,
 	struct fs_hdr_exp_st *p_hdr_exp)
@@ -1891,13 +1972,16 @@ static void fs_alg_set_hdr_exp_st_data(
 
 
 	/* for sensor is at STG mode */
+	/* 1.  update from new -> old: p_hdr_exp -> .hdr_exp -> .prev_hdr_exp */
 	fs_inst[idx].prev_hdr_exp = fs_inst[idx].hdr_exp;
 
-
-	/* 1. update multi-exp value to hdr_exp.exp array */
+	/* 1.1 update hdr_exp struct data one by one */
 	fs_inst[idx].hdr_exp.mode_exp_cnt = p_hdr_exp->mode_exp_cnt;
 	fs_inst[idx].hdr_exp.ae_exp_cnt = p_hdr_exp->ae_exp_cnt;
+	fs_inst[idx].hdr_exp.readout_len_lc = p_hdr_exp->readout_len_lc;
+	fs_inst[idx].hdr_exp.read_margin_lc = p_hdr_exp->read_margin_lc;
 
+	/* 1.2 update hdr_exp.exp_lc array value */
 	for (i = 0; i < p_hdr_exp->ae_exp_cnt; ++i) {
 		int hdr_idx = hdr_exp_idx_map[p_hdr_exp->ae_exp_cnt][i];
 
@@ -1962,9 +2046,13 @@ static void fs_alg_set_hdr_exp_st_data(
 	*shutter_lc = fs_inst[idx].shutter_lc;
 
 
+	/* 4. update read offset change (update readout_min_fl_lc) */
+	fs_alg_update_hdr_exp_readout_fl_lc(idx);
+
+
 // #ifndef REDUCE_FS_ALGO_LOG
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), hdr_exp: c(%u/%u/%u/%u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u), ctrl(%u/%u/%u/%u/%u, %u/%u) cnt:(mode/ae), shutter:%u(%u) (equiv)\n",
+		"[%u] ID:%#x(sidx:%u), hdr_exp: c(%u/%u/%u/%u/%u, %u/%u, %u/%u), p(%u/%u/%u/%u/%u, %u/%u, %u/%u), ctrl(%u/%u/%u/%u/%u, %u/%u, %u/%u) cnt:(mode/ae) read:(len/margin), readout_min_fl:%u(%u), shutter:%u(%u) (equiv)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -1975,6 +2063,8 @@ static void fs_alg_set_hdr_exp_st_data(
 		fs_inst[idx].hdr_exp.exp_lc[4],
 		fs_inst[idx].hdr_exp.mode_exp_cnt,
 		fs_inst[idx].hdr_exp.ae_exp_cnt,
+		fs_inst[idx].hdr_exp.readout_len_lc,
+		fs_inst[idx].hdr_exp.read_margin_lc,
 		fs_inst[idx].prev_hdr_exp.exp_lc[0],
 		fs_inst[idx].prev_hdr_exp.exp_lc[1],
 		fs_inst[idx].prev_hdr_exp.exp_lc[2],
@@ -1982,6 +2072,8 @@ static void fs_alg_set_hdr_exp_st_data(
 		fs_inst[idx].prev_hdr_exp.exp_lc[4],
 		fs_inst[idx].prev_hdr_exp.mode_exp_cnt,
 		fs_inst[idx].prev_hdr_exp.ae_exp_cnt,
+		fs_inst[idx].prev_hdr_exp.readout_len_lc,
+		fs_inst[idx].prev_hdr_exp.read_margin_lc,
 		p_hdr_exp->exp_lc[0],
 		p_hdr_exp->exp_lc[1],
 		p_hdr_exp->exp_lc[2],
@@ -1989,6 +2081,12 @@ static void fs_alg_set_hdr_exp_st_data(
 		p_hdr_exp->exp_lc[4],
 		p_hdr_exp->mode_exp_cnt,
 		p_hdr_exp->ae_exp_cnt,
+		p_hdr_exp->readout_len_lc,
+		p_hdr_exp->read_margin_lc,
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].readout_min_fl_lc),
+		fs_inst[idx].readout_min_fl_lc,
 		convert2TotalTime(
 			fs_inst[idx].lineTimeInNs,
 			*shutter_lc),
@@ -2057,6 +2155,7 @@ void fs_alg_set_perframe_st_data(
 	fs_inst[idx].pclk = pData->pclk;
 	fs_inst[idx].linelength = pData->linelength;
 	fs_inst[idx].lineTimeInNs = pData->lineTimeInNs;
+	fs_inst[idx].readout_min_fl_lc = 0;
 
 
 	/* hdr exp settings, overwrite shutter_lc value (equivalent shutter) */
@@ -2272,7 +2371,7 @@ static void do_fps_sync(unsigned int solveIdxs[], unsigned int len)
 
 		ret = snprintf(log_buf + strlen(log_buf),
 			LOG_BUF_STR_LEN - strlen(log_buf),
-			"[%u] ID:%#x(sidx:%u), fl:%u(%u) (%u/%u/%u/%u, %u); ",
+			"[%u] ID:%#x(sidx:%u), fl:%u(%u) (%u/%u/%u/%u/%u, %u); ",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -2281,6 +2380,7 @@ static void do_fps_sync(unsigned int solveIdxs[], unsigned int len)
 			fs_inst[idx].shutter_lc,
 			fs_inst[idx].margin_lc,
 			fs_inst[idx].min_fl_lc,
+			fs_inst[idx].readout_min_fl_lc,
 			*fs_inst[idx].recs[0].framelength_lc,
 			fs_inst[idx].lineTimeInNs);
 
@@ -2744,7 +2844,7 @@ static void do_fps_sync_sa(
 
 
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), #%u, m_idx:%u, FL sync to %u(%u), fl:%u(%u) (%u/%u/%u/%u, %u), FL((#%u[%u/%u],%u/#%u[%u/%u],%u/#%u[%u/%u],%u/#%u[%u/%u],%u/#%u[%u/%u],%u), valid:%d, [%u/%u]), flk_en:[%u/%u/%u/%u/%u](+%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u, m_idx:%u, FL sync to %u(%u), fl:%u(%u) (%u/%u/%u/%u/%u, %u), FL((#%u[%u/%u],%u/#%u[%u/%u],%u/#%u[%u/%u],%u/#%u[%u/%u],%u/#%u[%u/%u],%u), valid:%d, [%u/%u]), flk_en:[%u/%u/%u/%u/%u](+%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -2759,6 +2859,7 @@ static void do_fps_sync_sa(
 		fs_inst[idx].shutter_lc,
 		fs_inst[idx].margin_lc,
 		fs_inst[idx].min_fl_lc,
+		fs_inst[idx].readout_min_fl_lc,
 		*fs_inst[idx].recs[0].framelength_lc,
 		fs_inst[idx].lineTimeInNs,
 		magic_num_buf[0],
