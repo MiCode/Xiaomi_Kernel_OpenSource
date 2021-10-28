@@ -522,6 +522,7 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 
 		AALAPI_LOG("brightness changed: %d(%d)\n",
 			trans_level, led_conf->cdev.brightness);
+		led_conf->aal_enable = 1;
 		break;
 	case LED_STATUS_SHUTDOWN:
 		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])

@@ -231,12 +231,11 @@ int mtk_leds_brightness_set(char *name, int level)
 
 	mutex_lock(&led_dat->led_access);
 	if (!led_dat->conf.aal_enable) {
-		led_dat->conf.aal_enable = 1;
 		pr_notice("aal not enable, set %s %d return", name, level);
+	} else {
+		mtk_set_hw_brightness(led_dat, level);
+		led_dat->last_hw_brightness = level;
 	}
-
-	mtk_set_hw_brightness(led_dat, level);
-	led_dat->last_hw_brightness = level;
 	mutex_unlock(&led_dat->led_access);
 
 	return 0;
