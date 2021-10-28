@@ -159,6 +159,7 @@ struct cmdq_sec {
 	struct cmdq_sec_context		*context;
 	struct iwcCmdqCancelTask_t	cancel;
 	struct cmdq_mmp_event		mmp;
+	bool			unprepare_in_idle;
 };
 static atomic_t cmdq_path_res = ATOMIC_INIT(0);
 static atomic_t cmdq_path_res_mtee = ATOMIC_INIT(0);
@@ -294,11 +295,13 @@ void cmdq_sec_mbox_enable(void *chan)
 			atomic_read(&cmdq->usage));
 		return;
 	}
-	mutex_lock(&cmdq->mbox_mutex);
-	mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
-	if (mbox_usage == 1)
-		WARN_ON(clk_prepare(cmdq->clock) < 0);
-	mutex_unlock(&cmdq->mbox_mutex);
+	if (cmdq->unprepare_in_idle) {
+		mutex_lock(&cmdq->mbox_mutex);
+		mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
+		if (mbox_usage == 1)
+			WARN_ON(clk_prepare(cmdq->clock) < 0);
+		mutex_unlock(&cmdq->mbox_mutex);
+	}
 	cmdq_sec_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_enable);
@@ -317,15 +320,17 @@ void cmdq_sec_mbox_disable(void *chan)
 		return;
 	}
 	cmdq_sec_clk_disable(cmdq);
-	mutex_lock(&cmdq->mbox_mutex);
-	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
-	if (mbox_usage == 0)
-		clk_unprepare(cmdq->clock);
-	else if (mbox_usage < 0) {
-		cmdq_err("mbox_usage:%d", mbox_usage);
-		dump_stack();
+	if (cmdq->unprepare_in_idle) {
+		mutex_lock(&cmdq->mbox_mutex);
+		mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
+		if (mbox_usage == 0)
+			clk_unprepare(cmdq->clock);
+		else if (mbox_usage < 0) {
+			cmdq_err("mbox_usage:%d", mbox_usage);
+			dump_stack();
+		}
+		mutex_unlock(&cmdq->mbox_mutex);
 	}
-	mutex_unlock(&cmdq->mbox_mutex);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_disable);
 
@@ -1232,7 +1237,8 @@ static int cmdq_sec_suspend(struct device *dev)
 
 	cmdq_log("cmdq:%p", cmdq);
 	cmdq->suspended = true;
-
+	if (!cmdq->unprepare_in_idle)
+		clk_unprepare(cmdq->clock);
 	return 0;
 }
 
@@ -1241,7 +1247,8 @@ static int cmdq_sec_resume(struct device *dev)
 	struct cmdq_sec *cmdq = dev_get_drvdata(dev);
 
 	cmdq_log("cmdq:%p", cmdq);
-
+	if (!cmdq->unprepare_in_idle)
+		WARN_ON(clk_prepare(cmdq->clock) < 0);
 	cmdq->suspended = false;
 	return 0;
 }
@@ -1655,6 +1662,7 @@ static struct mbox_chan *cmdq_sec_mbox_of_xlate(
 static int cmdq_sec_probe(struct platform_device *pdev)
 {
 	struct cmdq_sec *cmdq;
+	struct device *dev = &pdev->dev;
 	struct resource *res;
 	s32 i, err;
 
@@ -1690,6 +1698,9 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->mbox.txdone_poll = false;
 	cmdq->mbox.of_xlate = cmdq_sec_mbox_of_xlate;
 
+	cmdq->unprepare_in_idle =
+		of_property_read_bool(dev->of_node, "unprepare_in_idle");
+
 	mutex_init(&cmdq->exec_lock);
 	mutex_init(&cmdq->mbox_mutex);
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
@@ -1719,6 +1730,8 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->shared_mem->size = PAGE_SIZE;
 
 	platform_set_drvdata(pdev, cmdq);
+	if (!cmdq->unprepare_in_idle)
+		WARN_ON(clk_prepare(cmdq->clock) < 0);
 
 	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa, true);
 
@@ -1739,7 +1752,8 @@ static int cmdq_sec_remove(struct platform_device *pdev)
 	struct cmdq_sec *cmdq = platform_get_drvdata(pdev);
 
 	mbox_controller_unregister(&cmdq->mbox);
-
+	if (!cmdq->unprepare_in_idle)
+		clk_unprepare(cmdq->clock);
 	return 0;
 }
 

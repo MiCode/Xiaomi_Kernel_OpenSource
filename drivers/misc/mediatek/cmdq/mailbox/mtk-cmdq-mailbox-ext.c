@@ -188,6 +188,7 @@ struct cmdq {
 	bool			sw_ddr_en;
 	bool			outpin_en;
 	bool			prebuilt_enable;
+	bool			unprepare_in_idle;
 	struct cmdq_client	*prebuilt_clt;
 };
 
@@ -308,18 +309,12 @@ static int cmdq_ultra_en(struct cmdq *cmdq)
 
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
 {
-	s32 usage, mbox_usage, err, err_timer;
+	s32 usage, err, err_timer;
 	unsigned long flags;
 
 	cmdq_trace_ex_begin("%s", __func__);
 
 	spin_lock_irqsave(&cmdq->lock, flags);
-
-	mbox_usage = atomic_read(&cmdq->mbox_usage);
-	if (mbox_usage <= 0) {
-		cmdq_err("mbox_usage:%d, need cmdq_mbox_enable", mbox_usage);
-		dump_stack();
-	}
 
 	usage = atomic_inc_return(&cmdq->usage);
 	err = clk_enable(cmdq->clock);
@@ -362,18 +357,12 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 
 static void cmdq_clk_disable(struct cmdq *cmdq)
 {
-	s32 usage, mbox_usage;
+	s32 usage;
 	unsigned long flags;
 
 	cmdq_trace_ex_begin("%s", __func__);
 
 	spin_lock_irqsave(&cmdq->lock, flags);
-
-	mbox_usage = atomic_read(&cmdq->mbox_usage);
-	if (mbox_usage <= 0) {
-		cmdq_err("mbox_usage:%d, need cmdq_mbox_enable", mbox_usage);
-		dump_stack();
-	}
 
 	usage = atomic_dec_return(&cmdq->usage);
 
@@ -1819,7 +1808,7 @@ static int cmdq_suspend(struct device *dev)
 		dev_notice(dev, "exist running task(s) in suspend\n");
 		schedule();
 	}
-	if (!gce_mminfra) {
+	if (!cmdq->unprepare_in_idle) {
 		clk_unprepare(cmdq->clock);
 		clk_unprepare(cmdq->clock_timer);
 	}
@@ -1829,7 +1818,7 @@ static int cmdq_suspend(struct device *dev)
 static int cmdq_resume(struct device *dev)
 {
 	struct cmdq *cmdq = dev_get_drvdata(dev);
-	if (!gce_mminfra) {
+	if (!cmdq->unprepare_in_idle) {
 		WARN_ON(clk_prepare(cmdq->clock) < 0);
 		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
 	}
@@ -1844,7 +1833,7 @@ static int cmdq_remove(struct platform_device *pdev)
 	wakeup_source_unregister(cmdq->wake_lock);
 	destroy_workqueue(cmdq->buf_dump_wq);
 	mbox_controller_unregister(&cmdq->mbox);
-	if (!gce_mminfra) {
+	if (!cmdq->unprepare_in_idle) {
 		clk_unprepare(cmdq->clock);
 		clk_unprepare(cmdq->clock_timer);
 	}
@@ -2141,6 +2130,8 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->hwid = hwid++;
 	cmdq->prebuilt_enable =
 		of_property_read_bool(dev->of_node, "prebuilt-enable");
+	cmdq->unprepare_in_idle =
+		of_property_read_bool(dev->of_node, "unprepare_in_idle");
 
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,
@@ -2187,7 +2178,7 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, cmdq);
-	if (!gce_mminfra) {
+	if (!cmdq->unprepare_in_idle) {
 		WARN_ON(clk_prepare(cmdq->clock) < 0);
 		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
 	}
@@ -2284,7 +2275,7 @@ void cmdq_mbox_enable(void *chan)
 		return;
 	}
 	pm_runtime_get_sync(cmdq->mbox.dev);
-	if (gce_mminfra) {
+	if (cmdq->unprepare_in_idle) {
 		mutex_lock(&cmdq->mbox_mutex);
 		mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
 		if (mbox_usage == 1) {
@@ -2313,7 +2304,7 @@ void cmdq_mbox_disable(void *chan)
 	}
 	cmdq_clk_disable(cmdq);
 
-	if (gce_mminfra) {
+	if (cmdq->unprepare_in_idle) {
 		mutex_lock(&cmdq->mbox_mutex);
 		mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
 		if (mbox_usage == 0) {
