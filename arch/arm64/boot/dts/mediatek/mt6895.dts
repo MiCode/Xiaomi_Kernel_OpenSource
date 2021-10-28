@@ -1692,8 +1692,6 @@
 		reg = <0 0x1c00f000 0 0x1000>,
 			<0 0x1c001000 0 0x1000>;
 		reg-names = "dvfsrc", "spm";
-		dvfsrc,bringup = <1>;
-		dvfsrc_flag = <0x3>;
 		#interconnect-cells = <1>;
 
 		dvfsrc_vcore: dvfsrc-vcore {
