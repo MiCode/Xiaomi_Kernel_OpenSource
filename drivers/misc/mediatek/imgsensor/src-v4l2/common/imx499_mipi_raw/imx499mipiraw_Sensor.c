@@ -833,10 +833,10 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 
 
 	/* if shutter bigger than frame_length, extend frame length first */
-	if (shutter > ctx->min_frame_length - imgsensor_info.margin)
-		ctx->frame_length = shutter + imgsensor_info.margin;
-	else
-		ctx->frame_length = ctx->min_frame_length;
+	//if (shutter > ctx->min_frame_length - imgsensor_info.margin)
+	//	ctx->frame_length = shutter + imgsensor_info.margin;
+	//else
+	ctx->frame_length = ctx->min_frame_length;
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
 		ctx->frame_length = imgsensor_info.max_frame_length;
 
@@ -861,7 +861,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 			l_shift = MAX_CIT_LSHIFT;
 		}
 		shutter = shutter >> l_shift;
-		ctx->frame_length = shutter + imgsensor_info.margin;
+		//ctx->frame_length = shutter + imgsensor_info.margin;
 		write_cmos_sensor_8(ctx, 0x3100,
 		    read_cmos_sensor_8(ctx, 0x3100) | (l_shift & 0x7));
 
@@ -886,7 +886,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(ctx, 146, 0);
 		else {
-			/* Extend frame length */
+			//Extend frame length
 			write_cmos_sensor_8(ctx, 0x0104, 0x01);
 			write_cmos_sensor_8(ctx, 0x0340, ctx->frame_length >> 8);
 			write_cmos_sensor_8(ctx, 0x0341,
@@ -895,7 +895,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 			write_cmos_sensor_8(ctx, 0x0104, 0x00);
 		}
 	} else {
-		/* Extend frame length */
+		//Extend frame length
 		write_cmos_sensor_8(ctx, 0x0104, 0x01);
 		write_cmos_sensor_8(ctx, 0x0340, ctx->frame_length >> 8);
 		write_cmos_sensor_8(ctx, 0x0341, ctx->frame_length & 0xFF);

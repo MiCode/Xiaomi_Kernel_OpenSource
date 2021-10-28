@@ -52,9 +52,7 @@
 #define LOG_DEBUG(...) do { if ((DEBUG_LOG_EN)) LOG_INF(__VA_ARGS__); } while (0)
 
 #define read_cmos_sensor_8(...) subdrv_i2c_rd_u8(__VA_ARGS__)
-#define read_cmos_sensor_16(...) subdrv_i2c_rd_u16(__VA_ARGS__)
 #define write_cmos_sensor_8(...) subdrv_i2c_wr_u8(__VA_ARGS__)
-#define write_cmos_sensor_16(...) subdrv_i2c_wr_u16(__VA_ARGS__)
 #define imx766dual_table_write_cmos_sensor_8(...) subdrv_i2c_wr_regs_u8(__VA_ARGS__)
 #define imx766dual_seq_write_cmos_sensor_8(...) subdrv_i2c_wr_seq_p8(__VA_ARGS__)
 
@@ -1021,7 +1019,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 		ctx->current_ae_effective_frame = 2;
 	} else {
 		set_cmos_sensor_8(ctx, 0x3128, 0x00);
-		write_frame_len(ctx, ctx->frame_length);
+		// write_frame_len(ctx, ctx->frame_length);
 		ctx->current_ae_effective_frame = 2;
 	}
 
@@ -1690,7 +1688,7 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	if (gph)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 
-	write_frame_len(ctx, ctx->frame_length);
+	// write_frame_len(ctx, ctx->frame_length);
 
 	/* Long exposure */
 	set_cmos_sensor_8(ctx, 0x0202, (le >> 8) & 0xFF);

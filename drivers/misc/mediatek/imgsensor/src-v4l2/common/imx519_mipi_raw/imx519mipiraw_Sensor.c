@@ -430,10 +430,10 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 l_shift = 1;
 
-	if (shutter > ctx->min_frame_length - imgsensor_info.margin)
-		ctx->frame_length = shutter + imgsensor_info.margin;
-	else
-		ctx->frame_length = ctx->min_frame_length;
+	//if (shutter > ctx->min_frame_length - imgsensor_info.margin)
+	//	ctx->frame_length = shutter + imgsensor_info.margin;
+	//else
+	ctx->frame_length = ctx->min_frame_length;
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
 		ctx->frame_length = imgsensor_info.max_frame_length;
 	if (shutter < imgsensor_info.min_shutter)
@@ -468,7 +468,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 			l_shift = MAX_CIT_LSHIFT;
 		}
 		shutter = shutter >> l_shift;
-		ctx->frame_length = shutter + imgsensor_info.margin;
+		//ctx->frame_length = shutter + imgsensor_info.margin;
 		LOG_INF("enter long exposure mode, time is %d", l_shift);
 		write_cmos_sensor_8(ctx, 0x3100,
 			read_cmos_sensor(ctx, 0x3100) | (l_shift & 0x7));

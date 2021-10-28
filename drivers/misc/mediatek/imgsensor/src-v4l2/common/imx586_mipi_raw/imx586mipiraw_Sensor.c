@@ -140,7 +140,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.cap = { /*reg_A 12M@30fps*/
 		.pclk = 1728000000,
-		.linelength = 15744,//15744, use fake linelength to pull isp clock
+		.linelength = 15744,
 		.framelength = 3658,
 		.startx = 0,
 		.starty = 0,
@@ -526,8 +526,8 @@ static void set_dummy(struct subdrv_ctx *ctx)
 
 		set_cmos_sensor_8(ctx, 0x0340, ctx->frame_length >> 8);
 		set_cmos_sensor_8(ctx, 0x0341, ctx->frame_length & 0xFF);
-		set_cmos_sensor_8(ctx, 0x0342, ctx->line_length >> 8);
-		set_cmos_sensor_8(ctx, 0x0343, ctx->line_length & 0xFF);
+		//set_cmos_sensor_8(ctx, 0x0342, ctx->line_length >> 8);
+		//set_cmos_sensor_8(ctx, 0x0343, ctx->line_length & 0xFF);
 
 		set_cmos_sensor_8(ctx, 0x0104, 0x00);
 
@@ -614,10 +614,10 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 	static int long_exposure_status;
 	#endif
 
-	if (shutter > ctx->min_frame_length - imgsensor_info.margin)
-		ctx->frame_length = shutter + imgsensor_info.margin;
-	else
-		ctx->frame_length = ctx->min_frame_length;
+	//if (shutter > ctx->min_frame_length - imgsensor_info.margin)
+	//	ctx->frame_length = shutter + imgsensor_info.margin;
+	//else
+	ctx->frame_length = ctx->min_frame_length;
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
 		ctx->frame_length = imgsensor_info.max_frame_length;
 	if (shutter < imgsensor_info.min_shutter)
@@ -747,10 +747,10 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	if (shutter_cnt == 1) {
 		ctx->shutter = shutters[0];
 
-		if (shutters[0] > ctx->min_frame_length - imgsensor_info.margin)
-			ctx->frame_length = shutters[0] + imgsensor_info.margin;
-		else
-			ctx->frame_length = ctx->min_frame_length;
+		//if (shutters[0] > ctx->min_frame_length - imgsensor_info.margin)
+		//	ctx->frame_length = shutters[0] + imgsensor_info.margin;
+		//else
+		ctx->frame_length = ctx->min_frame_length;
 		if (frame_length > ctx->frame_length)
 			ctx->frame_length = frame_length;
 		if (ctx->frame_length > imgsensor_info.max_frame_length)
@@ -801,24 +801,14 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx, kal_uint16 shutter,
 
 	ctx->shutter = shutter;
 
-	/*0x3500, 0x3501, 0x3502 will increase VBLANK to
-	 *get exposure larger than frame exposure
-	 *AE doesn't update sensor gain at capture mode,
-	 *thus extra exposure lines must be updated here.
-	 */
-
-	/* OV Recommend Solution */
-	/*if shutter bigger than frame_length,
-	 *should extend frame length first
-	 */
 	/* Change frame time */
 	if (frame_length > 1)
 		dummy_line = frame_length - ctx->frame_length;
 
 	ctx->frame_length = ctx->frame_length + dummy_line;
 
-	if (shutter > ctx->frame_length - imgsensor_info.margin)
-		ctx->frame_length = shutter + imgsensor_info.margin;
+	//if (shutter > ctx->frame_length - imgsensor_info.margin)
+	//	ctx->frame_length = shutter + imgsensor_info.margin;
 
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
 		ctx->frame_length = imgsensor_info.max_frame_length;

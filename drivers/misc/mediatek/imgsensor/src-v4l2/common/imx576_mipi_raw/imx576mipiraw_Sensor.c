@@ -298,10 +298,10 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 	kal_uint16 realtime_fps = 0;
 
 
-	if (shutter > ctx->min_frame_length - imgsensor_info.margin)
-		ctx->frame_length = shutter + imgsensor_info.margin;
-	else
-		ctx->frame_length = ctx->min_frame_length;
+	//if (shutter > ctx->min_frame_length - imgsensor_info.margin)
+	//	ctx->frame_length = shutter + imgsensor_info.margin;
+	//else
+	ctx->frame_length = ctx->min_frame_length;
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
 		ctx->frame_length = imgsensor_info.max_frame_length;
 
@@ -334,6 +334,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 
 	/* Update Shutter */
 	write_cmos_sensor_8(ctx, 0x0104, 0x01);
+	write_cmos_sensor_8(ctx, 0x0350, 0x01); /* Enable auto extend */
 	write_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor_8(ctx, 0x0203, shutter  & 0xFF);
 	write_cmos_sensor_8(ctx, 0x0104, 0x00);
