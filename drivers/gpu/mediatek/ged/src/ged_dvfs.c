@@ -869,6 +869,10 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		}
 	}
 
+	// Hint target frame time w/o headroom
+	if (ged_is_fdvfs_support())
+		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target);
+
 #ifdef GED_DCS_POLICY
 	if (is_dcs_enable() && dcs_get_cur_core_num() < dcs_get_max_core_num())
 		gx_fb_dvfs_margin = DCS_POLICY_MARGIN;
@@ -880,11 +884,13 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	if (ged_is_fdvfs_support() && is_fb_dvfs_triggered && is_fdvfs_enable()
 		&& g_eb_workload != 0xFFFF)
-		busy_cycle_cur = g_eb_workload / 100;
+		busy_cycle_cur = (g_eb_workload / 100) < (t_gpu * gpu_freq_pre) ?
+			(g_eb_workload / 100) : (t_gpu * gpu_freq_pre);
 	else
 		busy_cycle_cur = t_gpu * gpu_freq_pre;
 
 	busy_cycle[cur_frame_idx] = busy_cycle_cur;
+
 	if (num_pre_frames != GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM - 1) {
 		gpu_busy_cycle = busy_cycle[cur_frame_idx];
 		num_pre_frames++;
@@ -899,10 +905,6 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		gpu_freq_tar = (gpu_busy_cycle / t_gpu_target);
 	else
 		gpu_freq_tar = gpu_freq_pre;
-
-	// Hint target frame time
-	if (ged_is_fdvfs_support())
-		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target);
 
 	if (gpu_freq_tar * 100
 		< GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT * gpu_freq_pre) {

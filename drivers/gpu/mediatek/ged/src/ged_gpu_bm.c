@@ -90,7 +90,7 @@ void mtk_bandwidth_update_info(int pid, int frame_nr, int job_id)
 
 void mtk_bandwidth_check_SF(int pid, int isSF)
 {
-	if (isSF && pid != sf_pid)
+	if (isSF == 1 && pid != sf_pid)
 		sf_pid = pid;
 }
 
