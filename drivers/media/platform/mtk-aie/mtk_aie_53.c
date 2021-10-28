@@ -30,7 +30,7 @@
 #include <linux/rtc.h>
 #include <soc/mediatek/smi.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
-
+#include "cmdq-sec.h"
 #include "mtk_aie.h"
 #include "mtk_imgsys-cmdq.h"
 
@@ -532,7 +532,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 {
 	if (g_user_param.is_secure == 1 & fd->fd_stream_count == 1) {
 		aie_disable_secure_domain(fd);
-		config_aie_cmdq_secure_end(fd);
+		cmdq_sec_mbox_stop(fd->fdvt_secure_clt);
 	}
 	//mtk_aie_ccf_disable(fd->dev);
 	pm_runtime_put_sync(fd->dev);

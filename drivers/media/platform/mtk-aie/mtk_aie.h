@@ -1274,7 +1274,6 @@ void aie_execute_pose(struct mtk_aie_dev *fd);
 void aie_irqhandle(struct mtk_aie_dev *fd);
 void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
-void config_aie_cmdq_secure_end(struct mtk_aie_dev *fd);
 void aie_enable_secure_domain(struct mtk_aie_dev *fd);
 void aie_disable_secure_domain(struct mtk_aie_dev *fd);
 void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);

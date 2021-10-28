@@ -4349,6 +4349,15 @@ static void AIECmdqSecCB(struct cmdq_cb_data data)
 	dev_info(fd->dev, "AIE SEC CMDQ CB\n");
 }
 
+static void AieSecPktCB(struct cmdq_cb_data data)
+{
+	struct cmdq_pkt *sec_pkt = (struct cmdq_pkt *)data.data;
+
+	cmdq_pkt_destroy(sec_pkt);
+	g_sec_pkt = NULL;
+
+}
+
 void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd)
 {
 	g_sec_pkt = cmdq_pkt_create(fd->fdvt_secure_clt);
@@ -4356,7 +4365,7 @@ void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd)
 	cmdq_sec_pkt_set_data(g_sec_pkt, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
 	cmdq_sec_pkt_set_mtee(g_sec_pkt, true);
 	cmdq_pkt_finalize_loop(g_sec_pkt);
-	cmdq_pkt_flush_threaded(g_sec_pkt, NULL, (void *)g_sec_pkt);
+	cmdq_pkt_flush_threaded(g_sec_pkt, AieSecPktCB, (void *)g_sec_pkt);
 }
 
 void aie_enable_secure_domain(struct mtk_aie_dev *fd)
@@ -4383,13 +4392,6 @@ void aie_disable_secure_domain(struct mtk_aie_dev *fd)
 	cmdq_pkt_destroy(pkt);
 }
 
-void config_aie_cmdq_secure_end(struct mtk_aie_dev *fd)
-{
-	cmdq_sec_mbox_stop(fd->fdvt_secure_clt);
-	cmdq_pkt_destroy(g_sec_pkt);
-	g_sec_pkt = NULL;
-
-}
 void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	struct cmdq_pkt *pkt = NULL;
