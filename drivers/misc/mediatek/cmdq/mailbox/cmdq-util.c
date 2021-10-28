@@ -419,6 +419,7 @@ enum cmdq_smc_request {
 	CMDQ_PREBUILT_ENABLE,
 	CMDQ_PREBUILT_DISABLE,
 	CMDQ_PREBUILT_DUMP,
+	CMDQ_MMINFRA_CMD,
 };
 
 static atomic_t cmdq_dbg_ctrl[CMDQ_HW_MAX] = {ATOMIC_INIT(0)};
@@ -485,6 +486,17 @@ void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
 		0, 0, 0, 0, &res);
 }
 EXPORT_SYMBOL(cmdq_util_prebuilt_dump);
+
+void cmdq_util_mminfra_cmd(const u8 type)
+{
+	struct arm_smccc_res res;
+
+	cmdq_msg("%s: type:%hu", __func__, type);
+
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_MMINFRA_CMD, type, 0,
+		0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_mminfra_cmd);
 
 void cmdq_util_enable_dbg(u32 id)
 {
