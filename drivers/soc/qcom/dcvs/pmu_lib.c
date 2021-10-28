@@ -669,10 +669,10 @@ static int qcom_pmu_cpu_hp_init(void)
 {
 	int ret;
 
-	ret = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
-				"QCOM_PMU",
-				qcom_pmu_hotplug_coming_up,
-				qcom_pmu_hotplug_going_down);
+	ret = cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ONLINE_DYN,
+						"QCOM_PMU",
+						qcom_pmu_hotplug_coming_up,
+						qcom_pmu_hotplug_going_down);
 	if (ret < 0)
 		pr_err("qcom_pmu: CPU hotplug notifier error: %d\n",
 		       ret);
@@ -772,7 +772,7 @@ static int setup_events(void)
 	if (!attr)
 		return -ENOMEM;
 
-	get_online_cpus();
+	cpus_read_lock();
 	for_each_possible_cpu(cpu) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
 		for (i = 0; i < cpu_data->num_evs; i++) {
@@ -820,7 +820,7 @@ cleanup_events:
 		}
 	}
 out:
-	put_online_cpus();
+	cpus_read_unlock();
 	kfree(attr);
 	return ret;
 }
