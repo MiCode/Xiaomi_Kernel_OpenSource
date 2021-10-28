@@ -450,7 +450,7 @@ unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_d
 	bufinfo->sgt = sgt;
 
 	iova = sg_dma_address(sgt->sgl);
-	dev_info(fd->dev, "AIE IOVA GET: %llx\n", iova);
+
 	return iova;
 }
 
@@ -4082,6 +4082,15 @@ int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 	if (ret)
 		goto fld_fail;
 #endif
+
+	dev_info(fd->dev,
+	"c(%llx/%llx/%llx)o(%llx/%llx/%llx/%llx/%llx)f(%llx/%llx/%llx/%llx/%llx/%llx/%llx)\n",
+		fd->rs_cfg_data.pa, fd->fd_cfg_data.pa, fd->yuv2rgb_cfg_data.pa,
+		fd->rs_output_hw.pa, fd->fd_dma_hw.pa, fd->fd_dma_result_hw.pa,
+		fd->fd_kernel_hw.pa, fd->fd_attr_dma_hw.pa, fd->fld_cv_hw.pa,
+		fd->fld_fp_hw.pa, fd->fld_leafnode_hw.pa, fd->fld_tree_02_hw.pa,
+		fd->fld_tree_13_hw.pa, fd->fld_blink_weight_hw.pa, fd->fld_output_hw.pa
+	);
 	aie_arrange_fddma_buf(fd);
 	aie_arrange_kernel_buf(fd);
 	aie_arrange_attrdma_buf(fd);
