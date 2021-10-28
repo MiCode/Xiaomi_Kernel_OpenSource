@@ -964,15 +964,15 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	fmt->dtsInfo.pipeNum = fmt->gce_th_num;
 	fmt_debug(0, "gce_th_num %d", fmt->gce_th_num);
 
+	if (ret != 0 || fmt->gce_th_num > FMT_CORE_NUM)
+		fmt->gce_th_num = 1;
+
 	ret = of_property_read_u32(dev->of_node, "mediatek,fmt_rdma_swwa",
 						&rdma_swwa);
 	fmt_debug(0, "rdma_swwa %d", rdma_swwa);
 	fmt->dtsInfo.RDMA_needWA = (bool) rdma_swwa;
 	if (fmt->dtsInfo.RDMA_needWA)
 		fmt_debug(0, "RDMA need software workaround");
-
-	if (ret != 0 || fmt->gce_th_num > FMT_CORE_NUM)
-		fmt->gce_th_num = 1;
 
 	for (i = 0; i < ARRAY_SIZE(fmt->gce_gpr); i++) {
 		ret = of_property_read_u32_index(dev->of_node, "gce-gpr",
