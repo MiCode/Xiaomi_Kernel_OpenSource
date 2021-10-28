@@ -1644,6 +1644,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 
 		spin_lock(&pipe->iova_cache.lock);
 		list_add_tail(&fd_iova->list_entry, &pipe->iova_cache.list);
+		hash_add(pipe->iova_cache.hlists, &fd_iova->hnode, fd_iova->ionfd);
 		spin_unlock(&pipe->iova_cache.lock);
 		fd_info.fds_size[i] = dmabuf->size;
 		fd_info.fds[i] = kfd[i];
@@ -1716,6 +1717,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 
 			spin_lock(&pipe->iova_cache.lock);
 			list_del(&iova_info->list_entry);
+			hash_del(&iova_info->hnode);
 			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}

@@ -91,8 +91,10 @@ struct mtk_imgsys_dev_format {
 };
 
 // desc added {
+#define HBITS (32)
 struct mtk_imgsys_dma_buf_iova_list {
 	struct list_head list;
+	struct hlist_head hlists[HBITS];
 	spinlock_t lock;
 };
 
@@ -104,6 +106,7 @@ struct mtk_imgsys_dma_buf_iova_get_info {
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	struct list_head list_entry;
+	struct hlist_node hnode;
 };
 // } desc added
 
@@ -123,6 +126,7 @@ struct mtk_imgsys_dev_buffer {
 	__u32 vflip;
 	__u32 dataofst;
 	struct list_head list;
+
 // desc added {
 //Keep dmabuf used in latter for put kva
 	struct dma_buf *dma_buf_putkva;

@@ -42,7 +42,7 @@ int mtk_imgsys_pipe_init(struct mtk_imgsys_dev *imgsys_dev,
 	INIT_LIST_HEAD(&pipe->pipe_job_pending_list);
 	INIT_LIST_HEAD(&pipe->iova_cache.list);
 	spin_lock_init(&pipe->iova_cache.lock);
-
+	hash_init(pipe->iova_cache.hlists);
 	//spin_lock_init(&pipe->job_lock);
 	//mutex_init(&pipe->job_lock);
 	spin_lock_init(&pipe->pending_job_lock);
@@ -540,7 +540,11 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 	bool cache = false;
 
 	spin_lock(&pipe->iova_cache.lock);
+#ifdef LINEAR_CACHE
 	list_for_each_entry(iova_info, &pipe->iova_cache.list, list_entry) {
+#else
+	hash_for_each_possible(pipe->iova_cache.hlists, iova_info, hnode, ionFd) {
+#endif
 		if ((ionFd == iova_info->ionfd) &&
 				(dma_buf == iova_info->dma_buf)) {
 			cache = true;
@@ -552,7 +556,7 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 	spin_unlock(&pipe->iova_cache.lock);
 
 	if (cache) {
-		pr_debug("%s cache hit\n", __func__);
+		dev_dbg(imgsys_dev->dev, "%s fd:%d cache hit\n", __func__, ionFd);
 		return dma_addr;
 	}
 
@@ -591,8 +595,7 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 		ion->dma_buf = dma_buf;
 		ion->attach = attach;
 		ion->sgt = sgt;
-		dev_dbg(imgsys_dev->dev,
-				"mtk_imgsys_dma_buf_iova_get_info:dma_buf:%lx,attach:%lx,sgt:%lx\n",
+		pr_debug("mtk_imgsys_dma_buf_iova_get_info:dma_buf:%lx,attach:%lx,sgt:%lx\n",
 				ion->dma_buf, ion->attach, ion->sgt);
 
 		// add data to list head
