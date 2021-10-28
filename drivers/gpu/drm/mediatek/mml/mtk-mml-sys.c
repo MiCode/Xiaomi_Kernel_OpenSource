@@ -14,6 +14,10 @@
 #include "mtk-mml-driver.h"
 #include "mtk-mml-dle-adaptor.h"
 
+#include "tile_driver.h"
+#include "mtk-mml-tile.h"
+#include "tile_mdp_func.h"
+
 #define SYS_SW0_RST_B_REG	0x700
 #define SYS_SW1_RST_B_REG	0x704
 #define SYS_AID_SEL		0xfa8
@@ -142,7 +146,10 @@ struct sys_frame_data {
 	u32 racing_skip_jump;
 };
 
-#define sys_frm_data(i)	((struct sys_frame_data *)(i->data))
+static inline struct sys_frame_data *sys_frm_data(struct mml_comp_config *ccfg)
+{
+	return ccfg->data;
+}
 
 static inline struct mml_sys *comp_to_sys(struct mml_comp *comp)
 {
@@ -154,17 +161,26 @@ static inline struct mml_sys *ddp_comp_to_sys(struct mtk_ddp_comp *ddp_comp)
 	return container_of(ddp_comp, struct mml_sys, ddp_comps[ddp_comp->sub_idx]);
 }
 
+static inline struct mml_comp *ddp_to_mml_comp(struct mtk_ddp_comp *ddp_comp)
+{
+	return &ddp_comp_to_sys(ddp_comp)->comps[ddp_comp->sub_idx];
+}
+
 static void ddp_prepare(struct mtk_ddp_comp *ddp_comp)
 {
-	struct mml_comp *comp = &ddp_comp_to_sys(ddp_comp)->comps[ddp_comp->sub_idx];
+	struct mml_comp *comp = ddp_to_mml_comp(ddp_comp);
 
+	mml_log("%s", __func__);
+	return;
 	comp->hw_ops->clk_enable(comp);
 }
 
 static void ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
 {
-	struct mml_comp *comp = &ddp_comp_to_sys(ddp_comp)->comps[ddp_comp->sub_idx];
+	struct mml_comp *comp = ddp_to_mml_comp(ddp_comp);
 
+	mml_log("%s", __func__);
+	return;
 	comp->hw_ops->clk_disable(comp);
 }
 
@@ -183,7 +199,6 @@ static s32 sys_config_prepare(struct mml_comp *comp, struct mml_task *task,
 		sys_frm = kzalloc(sizeof(*sys_frm), GFP_KERNEL);
 		ccfg->data = sys_frm;
 	}
-
 	return 0;
 }
 
@@ -205,15 +220,17 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
 	struct mml_sys *sys = comp_to_sys(comp);
-	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
+	struct mml_frame_config *cfg = task->config;
+	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	u32 aid_sel = 0, mask = 0;
 	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
+	u32 i;
 
-	if (task->config->info.mode == MML_MODE_RACING) {
+	if (cfg->info.mode == MML_MODE_RACING) {
 		struct cmdq_operand lhs, rhs;
 
-		cmdq_pkt_clear_event(pkt, mml_ir_get_mml_stop_event(task->config->mml));
+		cmdq_pkt_clear_event(pkt, mml_ir_get_mml_stop_event(cfg->mml));
 
 		lhs.reg = true;
 		lhs.idx = MML_CMDQ_NEXT_SPR;
@@ -229,18 +246,16 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 			MML_ROUND_SPR_INIT + 0x10000);
 	}
 
-	if (task->config->info.src.secure)
+	if (cfg->info.src.secure)
 		aid_sel |= 1 << sys->aid_sel[in_engine_id];
 	mask |= 1 << sys->aid_sel[in_engine_id];
-	if (task->config->info.dest[0].data.secure)
-		aid_sel |= 1 << sys->aid_sel[path->out_engine_ids[0]];
-	mask |= 1 << sys->aid_sel[path->out_engine_ids[0]];
-	if (task->config->info.dest_cnt > 1) {
-		if (task->config->info.dest[1].data.secure)
-			aid_sel |= 1 << sys->aid_sel[path->out_engine_ids[1]];
-		mask |= 1 << sys->aid_sel[path->out_engine_ids[1]];
+	for (i = 0; i < cfg->info.dest_cnt; i++) {
+		if (!path->out_engine_ids[i])
+			continue;
+		if (cfg->info.dest[i].data.secure)
+			aid_sel |= 1 << sys->aid_sel[path->out_engine_ids[i]];
+		mask |= 1 << sys->aid_sel[path->out_engine_ids[i]];
 	}
-
 	cmdq_pkt_write(pkt, NULL, comp->base_pa + SYS_AID_SEL, aid_sel, mask);
 
 	return 0;
@@ -400,10 +415,9 @@ bool sys_sync(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg, u32 idx)
 {
 	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
-	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	struct cmdq_operand lhs, rhs;
-	struct mml_tile_config *tile_cfg = &cfg->tile_output[ccfg->pipe]->tiles[idx];
+	struct mml_tile_config *tile_cfg = &task->config->tile_output[ccfg->pipe]->tiles[idx];
 
 	if (!tile_cfg->eol || !mml_racing_fast)
 		return false;
@@ -452,7 +466,6 @@ static s32 sys_post(struct mml_comp *comp, struct mml_task *task,
 {
 	if (task->config->info.mode == MML_MODE_RACING)
 		sys_racing_loop(comp, task, ccfg);
-
 	return 0;
 }
 
@@ -461,7 +474,6 @@ static s32 sys_repost(struct mml_comp *comp, struct mml_task *task,
 {
 	if (task->config->info.mode == MML_MODE_RACING)
 		sys_racing_addr_update(comp, task, ccfg);
-
 	return 0;
 }
 
@@ -582,14 +594,125 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 	return 0;
 }
 
+static void sys_submit_done_cb(struct mml_task *task, void *cb_param)
+{
+	struct mtk_addon_mml_config *cfg = cb_param;
+
+	cfg->task = task;
+	mml_msg("%s mml task:%p", __func__, cfg->task);
+}
+
+static struct mml_dle_ctx *sys_get_dle_ctx(struct mml_sys *sys)
+{
+	struct mml_dle_param dl;
+
+	if (!sys->dle_ctx) {
+		dl.dual = false;
+		dl.submit_cb = sys_submit_done_cb;
+		sys->dle_ctx = mml_dle_get_context(sys->master, &dl);
+	}
+	return sys->dle_ctx;
+}
+
+#define has_cfg_op(_comp, op) \
+	(_comp->config_ops && _comp->config_ops->op)
+#define call_cfg_op(_comp, op, ...) \
+	(has_cfg_op(_comp, op) ? \
+		_comp->config_ops->op(_comp, ##__VA_ARGS__) : 0)
+
+static void addon_command_make(struct mml_task *task, u32 pipe,
+			       struct cmdq_pkt *pkt)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp_config *ccfg = task->config->cache[pipe].cfg;
+	struct mml_comp *comp;
+	u32 i;
+
+	task->pkts[pipe] = pkt;
+
+	/* call all component init and frame op, include mmlsys and mutex */
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_cfg_op(comp, init, task, &ccfg[i]);
+	}
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_cfg_op(comp, frame, task, &ccfg[i]);
+	}
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_cfg_op(comp, tile, task, &ccfg[i], 0);
+	}
+}
+
+static u32 src_w = 1080;
+static u32 src_h = 1920;
+
 static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
 			     enum mtk_ddp_comp_id prev,
 			     enum mtk_ddp_comp_id next,
 			     union mtk_addon_config *addon_config,
 			     struct cmdq_pkt *pkt)
 {
-	/* Config aid select if mml output */
-	/* Config mux select for each path node and each next */
+	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
+	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
+	struct mml_dle_ctx *ctx;
+	u32 pipe;
+	s32 ret;
+
+	mml_log("%s %d", __func__, cfg->config_type.type);
+	if (cfg->config_type.type == ADDON_DISCONNECT)
+		return;
+
+	/* >>>>>> TEST: begin submit here */
+	memset(&cfg->submit, 0, sizeof(cfg->submit));
+	//cfg->submit.info.src.format;
+	cfg->submit.info.src.width = src_w++;
+	cfg->submit.info.src.height = src_h++;
+	//cfg->submit.info.src.plane_cnt;
+	//cfg->submit.info.src.y_stride;
+	//cfg->submit.info.dest[0].data.format;
+	cfg->submit.info.dest[0].data.width = cfg->submit.info.src.width-640;
+	cfg->submit.info.dest[0].data.height = cfg->submit.info.src.height-360;
+	//cfg->submit.info.dest[0].data.plane_cnt;
+	//cfg->submit.info.dest[0].data.y_stride;
+	cfg->submit.info.dest[0].crop.r.width = cfg->submit.info.src.width;
+	cfg->submit.info.dest[0].crop.r.height = cfg->submit.info.src.height;
+	cfg->submit.info.dest[0].compose.width = cfg->submit.info.dest[0].data.width;
+	cfg->submit.info.dest[0].compose.height = cfg->submit.info.dest[0].data.height;
+	cfg->submit.info.dest_cnt = 1;
+	cfg->submit.info.mode = MML_MODE_DDP_ADDON;
+	cfg->submit.buffer.dest_cnt = 1;
+	cfg->submit.buffer.src.fence = -1;
+	cfg->submit.buffer.dest[0].fence = -1;
+	/* TEST: end submit here <<<<<< */
+
+	if (cfg->config_type.module == MML_RSZ_v2) {
+		pipe = 1;
+	} else {
+		pipe = 0;
+
+		ctx = sys_get_dle_ctx(sys);
+		if (IS_ERR(ctx)) {
+			mml_err("fail to get mml ctx for addon config");
+			return;
+		}
+
+		ret = mml_dle_config(ctx, &cfg->submit, cfg);
+		if (ret) {
+			mml_err("%s config fail", __func__);
+			return;
+		}
+	}
+
+	/* wait submit_done */
+	if (!cfg->task || !cfg->task->config->tile_output[pipe]) {
+		mml_err("%s no tile for task %p pipe %u", __func__,
+			cfg->task, pipe);
+		return;
+	}
+
+	addon_command_make(cfg->task, pipe, pkt);
 }
 
 static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
@@ -598,14 +721,76 @@ static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
 	.unprepare = ddp_unprepare,
 };
 
+static s32 dli_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg,
+			    struct tile_func_block *func,
+			    union mml_tile_data *data)
+{
+	struct mml_frame_data *src = &task->config->info.src;
+
+	func->type = TILE_TYPE_RDMA;
+	func->full_size_x_in = src->width;
+	func->full_size_y_in = src->height;
+	func->full_size_x_out = src->width;
+	func->full_size_y_out = src->height;
+	return 0;
+}
+
+static const struct mml_comp_tile_ops dli_tile_ops = {
+	.prepare = dli_tile_prepare,
+};
+
+static void dlo_config_left(struct mml_frame_dest *dest,
+			    struct dlo_tile_data *data)
+{
+	data->enable_x_crop = true;
+	data->crop_left = 0;
+	data->crop_width = dest->data.width >> 1;
+}
+
+static void dlo_config_right(struct mml_frame_dest *dest,
+			     struct dlo_tile_data *data)
+{
+	data->enable_x_crop = true;
+	data->crop_left = dest->data.width >> 1;
+	data->crop_width = dest->data.width - data->crop_left;
+}
+
+static s32 dlo_tile_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg,
+			    struct tile_func_block *func,
+			    union mml_tile_data *data)
+{
+	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
+
+	if (task->config->dual) {
+		if (ccfg->pipe == 0)
+			dlo_config_left(dest, &data->dlo_data);
+		else
+			dlo_config_right(dest, &data->dlo_data);
+	}
+	func->full_size_x_in = dest->data.width;
+	func->full_size_y_in = dest->data.height;
+	func->full_size_x_out = dest->data.width;
+	func->full_size_y_out = dest->data.height;
+
+	func->type = TILE_TYPE_WDMA;
+	func->back_func_ptr = tile_dlo_back;
+	func->func_data = data;
+	return 0;
+}
+
+static const struct mml_comp_tile_ops dlo_tile_ops = {
+	.prepare = dlo_tile_prepare,
+};
+
 static s32 dl_config_tile(struct mml_comp *comp, struct mml_task *task,
 			  struct mml_comp_config *ccfg, u32 idx)
 {
 	struct mml_sys *sys = comp_to_sys(comp);
-	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	const phys_addr_t base_pa = comp->base_pa;
-	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
+	struct mml_tile_engine *tile = config_get_tile(task->config, ccfg, idx);
 
 	u16 offset = sys->dl_relays[sys->adjacency[comp->id][comp->id]];
 	u32 dl_w = tile->in.xe - tile->in.xs + 1;
@@ -658,30 +843,29 @@ static int dl_comp_init(struct device *dev, struct mml_sys *sys,
 	return 0;
 }
 
-static void dli_addon_config(struct mtk_ddp_comp *ddp_comp,
-			     enum mtk_ddp_comp_id prev,
-			     enum mtk_ddp_comp_id next,
-			     union mtk_addon_config *addon_config,
-			     struct cmdq_pkt *pkt)
+static int dli_comp_init(struct device *dev, struct mml_sys *sys,
+			 struct mml_comp *comp)
 {
+	int ret = dl_comp_init(dev, sys, comp);
+
+	if (ret)
+		return ret;
+	comp->tile_ops = &dli_tile_ops;
+	return 0;
 }
 
-static const struct mtk_ddp_comp_funcs dli_ddp_funcs = {
-	.addon_config = dli_addon_config,
-	.prepare = ddp_prepare,
-	.unprepare = ddp_unprepare,
-};
-
-static void dlo_addon_config(struct mtk_ddp_comp *ddp_comp,
-			     enum mtk_ddp_comp_id prev,
-			     enum mtk_ddp_comp_id next,
-			     union mtk_addon_config *addon_config,
-			     struct cmdq_pkt *pkt)
+static int dlo_comp_init(struct device *dev, struct mml_sys *sys,
+			 struct mml_comp *comp)
 {
+	int ret = dl_comp_init(dev, sys, comp);
+
+	if (ret)
+		return ret;
+	comp->tile_ops = &dlo_tile_ops;
+	return 0;
 }
 
-static const struct mtk_ddp_comp_funcs dlo_ddp_funcs = {
-	.addon_config = dlo_addon_config,
+static const struct mtk_ddp_comp_funcs dl_ddp_funcs = {
 	.prepare = ddp_prepare,
 	.unprepare = ddp_unprepare,
 };
@@ -751,16 +935,12 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 	}
 
 	ret = component_add(dev, comp_ops);
-	if (sys->ddp_comp_en & (1 << 0))
-		ret = component_add(dev, comp_ops);
 	if (ret) {
 		dev_err(dev, "failed to add mmlsys comp-%d: %d\n", 0, ret);
 		return ret;
 	}
 	for (i = 1; i < comp_cnt; i++) {
 		ret = component_add_typed(dev, comp_ops, i);
-		if (sys->ddp_comp_en & (1 << i))
-			ret = component_add_typed(dev, comp_ops, i);
 		if (ret) {
 			dev_err(dev, "failed to add mmlsys comp-%d: %d\n",
 				i, ret);
@@ -768,14 +948,16 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 		}
 	}
 	sys->comp_cnt = comp_cnt;
+
+	/* add mmlsys component to match ddp master. */
+	/* unlike to mml, to ddp register all components in one binding. */
+	if (sys->ddp_comp_en)
+		ret = component_add(dev, comp_ops);
 	return 0;
 
 err_comp_add:
-	for (; i > 0; i--) {
+	for (; i > 0; i--)
 		component_del(dev, comp_ops);
-		if (sys->ddp_comp_en & (1 << (i - 1)))
-			component_del(dev, comp_ops);
-	}
 	return ret;
 }
 
@@ -809,11 +991,11 @@ void mml_sys_destroy(struct platform_device *pdev, struct mml_sys *sys,
 {
 	int i;
 
-	for (i = 0; i < sys->comp_cnt; i++) {
+	mml_dle_put_context(sys->dle_ctx);
+	for (i = 0; i < sys->comp_cnt; i++)
 		component_del(&pdev->dev, comp_ops);
-		if (sys->ddp_comp_en & (1 << i))
-			component_del(&pdev->dev, comp_ops);
-	}
+	if (sys->ddp_comp_en)
+		component_del(&pdev->dev, comp_ops);
 	devm_kfree(&pdev->dev, sys);
 }
 
@@ -842,10 +1024,10 @@ static int bind_mml(struct device *dev, struct device *master,
 	return ret;
 }
 
-static int bind_ddp(struct device *dev, struct drm_device *drm_dev,
-		    struct mml_sys *sys)
+static int bind_ddp_each(struct device *dev, struct drm_device *drm_dev,
+			 struct mml_sys *sys)
 {
-	s32 i, ret;
+	int i, ret;
 
 	for (i = sys->ddp_bound; i < sys->comp_cnt; i++)
 		if (sys->ddp_comp_en & (1 << i))
@@ -859,6 +1041,19 @@ static int bind_ddp(struct device *dev, struct drm_device *drm_dev,
 		dev_err(dev, "failed to register ddp component %s: %d\n",
 			dev->of_node->full_name, ret);
 		sys->ddp_bound--;
+	}
+	return ret;
+}
+
+static int bind_ddp(struct device *dev, struct drm_device *drm_dev,
+		    struct mml_sys *sys)
+{
+	int ret = 0;
+
+	while (sys->ddp_comp_en & GENMASK(31, sys->ddp_bound)) {
+		ret = bind_ddp_each(dev, drm_dev, sys);
+		if (ret)
+			break;
 	}
 	return ret;
 }
@@ -948,13 +1143,13 @@ static const struct mml_data mt6893_mml_data = {
 static const struct mml_data mt6983_mml_data = {
 	.comp_inits = {
 		[MML_CT_SYS] = &sys_comp_init,
-		[MML_CT_DL_IN] = &dl_comp_init,
-		[MML_CT_DL_OUT] = &dl_comp_init,
+		[MML_CT_DL_IN] = &dli_comp_init,
+		[MML_CT_DL_OUT] = &dlo_comp_init,
 	},
 	.ddp_comp_funcs = {
 		[MML_CT_SYS] = &sys_ddp_funcs,
-		[MML_CT_DL_IN] = &dli_ddp_funcs,
-		[MML_CT_DL_OUT] = &dlo_ddp_funcs,
+		[MML_CT_DL_IN] = &dl_ddp_funcs,
+		[MML_CT_DL_OUT] = &dl_ddp_funcs,
 	},
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
@@ -962,8 +1157,8 @@ static const struct mml_data mt6983_mml_data = {
 static const struct mml_data mt6879_mml_data = {
 	.comp_inits = {
 		[MML_CT_SYS] = &sys_comp_init,
-		[MML_CT_DL_IN] = &dl_comp_init,
-		[MML_CT_DL_OUT] = &dl_comp_init,
+		[MML_CT_DL_IN] = &dli_comp_init,
+		[MML_CT_DL_OUT] = &dlo_comp_init,
 	},
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
@@ -971,8 +1166,8 @@ static const struct mml_data mt6879_mml_data = {
 static const struct mml_data mt6895_mml_data = {
 	.comp_inits = {
 		[MML_CT_SYS] = &sys_comp_init,
-		[MML_CT_DL_IN] = &dl_comp_init,
-		[MML_CT_DL_OUT] = &dl_comp_init,
+		[MML_CT_DL_IN] = &dli_comp_init,
+		[MML_CT_DL_OUT] = &dlo_comp_init,
 	},
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
@@ -1051,7 +1246,7 @@ static s32 dbg_get(char *buf, const struct kernel_param *kp)
 			struct mml_sys *sys = dbg_probed_components[j];
 
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  - [%d] component count: %d bound: %d ddp: %d\n", j,
+				"  - [%d] component count: %d bound: %d ddp_bound: %d\n", j,
 				sys->comp_cnt, sys->comp_bound, sys->ddp_bound);
 			for (i = 0; i < sys->comp_cnt; i++) {
 				struct mml_comp *comp = &sys->comps[i];

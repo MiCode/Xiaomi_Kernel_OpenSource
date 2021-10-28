@@ -266,7 +266,10 @@ struct wrot_frame_data {
 	u16 labels[WROT_LABEL_TOTAL];
 };
 
-#define wrot_frm_data(i)	((struct wrot_frame_data *)(i->data))
+static inline struct wrot_frame_data *wrot_frm_data(struct mml_comp_config *ccfg)
+{
+	return ccfg->data;
+}
 
 static inline struct mml_comp_wrot *comp_to_wrot(struct mml_comp *comp)
 {
@@ -440,8 +443,8 @@ static void wrot_config_pipe1(struct mml_frame_config *cfg,
 	}
 }
 
-static s32 wrot_prepare_write(struct mml_comp *comp, struct mml_task *task,
-			      struct mml_comp_config *ccfg)
+static s32 wrot_prepare(struct mml_comp *comp, struct mml_task *task,
+			struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct wrot_frame_data *wrot_frm;
@@ -568,7 +571,6 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 		for (i = 0; i < dest_buf->cnt; i++)
 			wrot_frm->iova[i] = dest_buf->dma[i].iova;
 	}
-
 	return 0;
 }
 
@@ -1911,7 +1913,7 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 }
 
 static const struct mml_comp_config_ops wrot_cfg_ops = {
-	.prepare = wrot_prepare_write,
+	.prepare = wrot_prepare,
 	.buf_map = wrot_buf_map,
 	.buf_unmap = wrot_buf_unmap,
 	.buf_prepare = wrot_buf_prepare,
@@ -2117,32 +2119,27 @@ static inline struct mml_comp_wrot *ddp_comp_to_wrot(struct mtk_ddp_comp *ddp_co
 	return container_of(ddp_comp, struct mml_comp_wrot, ddp_comp);
 }
 
-static void wrot_addon_config(struct mtk_ddp_comp *ddp_comp,
-			      enum mtk_ddp_comp_id prev,
-			      enum mtk_ddp_comp_id next,
-			      union mtk_addon_config *addon_config,
-			      struct cmdq_pkt *pkt)
-{
-}
-
-static void wrot_prepare(struct mtk_ddp_comp *ddp_comp)
+static void wrot_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
 {
 	struct mml_comp *comp = &ddp_comp_to_wrot(ddp_comp)->comp;
 
+	mml_log("%s", __func__);
+	return;
 	comp->hw_ops->clk_enable(comp);
 }
 
-static void wrot_unprepare(struct mtk_ddp_comp *ddp_comp)
+static void wrot_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
 {
 	struct mml_comp *comp = &ddp_comp_to_wrot(ddp_comp)->comp;
 
+	mml_log("%s", __func__);
+	return;
 	comp->hw_ops->clk_disable(comp);
 }
 
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.addon_config = wrot_addon_config,
-	.prepare = wrot_prepare,
-	.unprepare = wrot_unprepare,
+	.prepare = wrot_ddp_prepare,
+	.unprepare = wrot_ddp_unprepare,
 };
 
 phys_addr_t mml_get_node_base_pa(struct platform_device *pdev, const char *name,

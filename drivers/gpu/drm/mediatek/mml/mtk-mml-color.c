@@ -187,24 +187,20 @@ struct mml_comp_color {
 	bool ddp_bound;
 };
 
-/* meta data for each different frame config */
-struct color_frame_data {
-	u8 out_idx;
-};
-
-#define color_frm_data(i)	((struct color_frame_data *)(i->data))
-
 static s32 color_prepare(struct mml_comp *comp, struct mml_task *task,
 			 struct mml_comp_config *ccfg)
 {
-	struct color_frame_data *color_frm;
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	s32 ret;
 
-	color_frm = kzalloc(sizeof(*color_frm), GFP_KERNEL);
-	ccfg->data = color_frm;
-	/* cache out index for easy use */
-	color_frm->out_idx = ccfg->node->out_idx;
+	if (!dest->pq_config.en_color)
+		return 0;
 
-	return 0;
+	mml_pq_trace_ex_begin("%s", __func__);
+	ret = mml_pq_set_comp_config(task);
+	mml_pq_trace_ex_end();
+	return ret;
 }
 
 static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -212,12 +208,10 @@ static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			      struct tile_func_block *func,
 			      union mml_tile_data *data)
 {
-	struct color_frame_data *color_frm = color_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_dest *dest = &cfg->info.dest[color_frm->out_idx];
-	s32 ret = 0;
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 
-	func->enable_flag = true;
+	func->enable_flag = dest->pq_config.en_color;
 
 	if (dest->rotate == MML_ROT_90 ||
 	    dest->rotate == MML_ROT_270) {
@@ -232,40 +226,34 @@ static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		func->full_size_y_out = dest->data.height;
 	}
 
-	if (dest->pq_config.en_color)
-		ret = mml_pq_set_comp_config(task);
-
-	return ret;
+	return 0;
 }
 
 static const struct mml_comp_tile_ops color_tile_ops = {
 	.prepare = color_tile_prepare,
 };
 
-static void color_start_config(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
+static void color_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
 {
 	/* relay mode */
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 3, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM1_EN, 0, 0x00000001);
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_CM2_EN, 0, 0x00000001);
-
 	/* Enable shadow */
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_SHADOW_CTRL, 0x2, U32_MAX);
 }
 
-static s32 color_init(struct mml_comp *comp, struct mml_task *task,
-		      struct mml_comp_config *ccfg)
+static s32 color_config_init(struct mml_comp *comp, struct mml_task *task,
+			     struct mml_comp_config *ccfg)
 {
-	color_start_config(task->pkts[ccfg->pipe], comp->base_pa);
+	color_init(task->pkts[ccfg->pipe], comp->base_pa);
 	return 0;
 }
 
 static struct mml_pq_comp_config_result *get_color_comp_config_result(
 	struct mml_task *task)
 {
-	struct mml_pq_sub_task *sub_task = &task->pq_task->comp_config;
-
-	return (struct mml_pq_comp_config_result *)sub_task->result;
+	return task->pq_task->comp_config.result;
 }
 
 static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
@@ -273,15 +261,13 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-
-	struct color_frame_data *color_frm = color_frm_data(ccfg);
-	const struct mml_frame_dest *dest = &cfg->info.dest[color_frm->out_idx];
+	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
-	struct mml_pq_comp_config_result *result = NULL;
-	s32 ret = 0;
+	struct mml_pq_comp_config_result *result;
+	s32 ret;
 
 	if (!dest->pq_config.en_color)
-		return ret;
+		return 0;
 
 	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -289,7 +275,8 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 		if (result) {
 			s32 i;
 			struct mml_pq_reg *regs = result->color_regs;
-			//TODO: use different regs
+
+			/* TODO: use different regs */
 			mml_pq_msg("%s:config color regs, count: %d", __func__,
 				result->color_reg_cnt);
 			for (i = 0; i < result->color_reg_cnt; i++) {
@@ -298,7 +285,6 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 				mml_pq_msg("[color][config][%x] = %#x mask(%#x)",
 					regs[i].offset, regs[i].value, regs[i].mask);
 			}
-
 		} else {
 			mml_pq_err("%s: not get result from user lib", __func__);
 		}
@@ -306,7 +292,6 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_err("get color param timeout: %d in %dms",
 			ret, COLOR_WAIT_TIMEOUT_MS);
 	}
-
 	return 0;
 }
 
@@ -331,8 +316,7 @@ static s32 color_config_tile(struct mml_comp *comp, struct mml_task *task,
 static s32 color_config_post(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
-	struct color_frame_data *color_frm = color_frm_data(ccfg);
-	struct mml_frame_dest *dest = &task->config->info.dest[color_frm->out_idx];
+	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 
 	if (dest->pq_config.en_color)
 		mml_pq_put_comp_config_result(task);
@@ -341,7 +325,7 @@ static s32 color_config_post(struct mml_comp *comp, struct mml_task *task,
 
 static const struct mml_comp_config_ops color_cfg_ops = {
 	.prepare = color_prepare,
-	.init = color_init,
+	.init = color_config_init,
 	.frame = color_config_frame,
 	.tile = color_config_tile,
 	.post = color_config_post,
@@ -435,22 +419,6 @@ static inline struct mml_comp_color *ddp_comp_to_color(struct mtk_ddp_comp *ddp_
 	return container_of(ddp_comp, struct mml_comp_color, ddp_comp);
 }
 
-static void color_addon_config(struct mtk_ddp_comp *ddp_comp,
-			       enum mtk_ddp_comp_id prev,
-			       enum mtk_ddp_comp_id next,
-			       union mtk_addon_config *addon_config,
-			       struct cmdq_pkt *pkt)
-{
-	const phys_addr_t base_pa = ddp_comp_to_color(ddp_comp)->comp.base_pa;
-
-	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 0x3, 0x00000003);
-}
-
-static void color_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
-{
-	color_start_config(pkt, ddp_comp_to_color(ddp_comp)->comp.base_pa);
-}
-
 static void color_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
 {
 	struct mml_comp *comp = &ddp_comp_to_color(ddp_comp)->comp;
@@ -466,8 +434,6 @@ static void color_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
 }
 
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.addon_config = color_addon_config,
-	.start = color_start,
 	.prepare = color_ddp_prepare,
 	.unprepare = color_ddp_unprepare,
 };
@@ -494,7 +460,6 @@ static int probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to init mml component: %d\n", ret);
 		return ret;
 	}
-
 	/* assign ops */
 	priv->comp.tile_ops = &color_tile_ops;
 	priv->comp.config_ops = &color_cfg_ops;

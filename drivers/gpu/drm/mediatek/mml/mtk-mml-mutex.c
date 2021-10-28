@@ -214,6 +214,44 @@ static inline struct mml_mutex *ddp_comp_to_mutex(struct mtk_ddp_comp *ddp_comp)
 	return container_of(ddp_comp, struct mml_mutex, ddp_comp);
 }
 
+static u32 get_mutex_sof(struct mml_mutex_ctl *ctl)
+{
+	u32 sof = 0;
+
+	if (ctl->is_cmd_mode)
+		return 0;
+	switch (ctl->sof_src) {
+	case DDP_COMPONENT_DSI0:
+		sof |= 1;
+		break;
+	case DDP_COMPONENT_DSI1:
+		sof |= 2;
+		break;
+	case DDP_COMPONENT_DPI0:
+	case DDP_COMPONENT_DPI1:
+	case DDP_COMPONENT_DP_INTF0:
+		sof |= 3;
+		break;
+	}
+	switch (ctl->eof_src) {
+	case DDP_COMPONENT_DSI0:
+		sof |= 1 << 6;
+		break;
+	case DDP_COMPONENT_DSI1:
+		sof |= 2 << 6;
+		break;
+	case DDP_COMPONENT_DPI0:
+	case DDP_COMPONENT_DPI1:
+	case DDP_COMPONENT_DP_INTF0:
+		sof |= 3 << 6;
+		break;
+	}
+	if (!sof)
+		mml_err("no sof/eof source %u/%u but not cmd mode",
+			ctl->sof_src, ctl->eof_src);
+	return sof;
+}
+
 static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
 			       enum mtk_ddp_comp_id prev,
 			       enum mtk_ddp_comp_id next,
@@ -221,18 +259,25 @@ static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
 			       struct cmdq_pkt *pkt)
 {
 	struct mml_mutex *mutex = ddp_comp_to_mutex(ddp_comp);
-	const struct mml_topology_path *path;/* = addon_config->... */
-	u32 mutex_sof = 0x0;/* = addon_config->... */
+	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
+	const struct mml_topology_path *path;
+	u32 pipe;
 
-	mutex_enable(mutex, pkt, path, mutex_sof);
-}
+	if (!cfg->task) {
+		mml_err("%s cannot configure without mml_task", __func__);
+		return;
+	}
 
-static void mutex_stop(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
-{
-	struct mml_mutex *mutex = ddp_comp_to_mutex(ddp_comp);
-	const struct mml_topology_path *path;/* = addon_config->... */
+	if (cfg->config_type.module == MML_RSZ_v2)
+		pipe = 1;
+	else
+		pipe = 0;
+	path = cfg->task->config->path[pipe];
 
-	mutex_disable(mutex, pkt, path);
+	if (cfg->config_type.type == ADDON_DISCONNECT)
+		mutex_disable(mutex, pkt, path);
+	else
+		mutex_enable(mutex, pkt, path, get_mutex_sof(&cfg->mutex));
 }
 
 static void mutex_prepare(struct mtk_ddp_comp *ddp_comp)
@@ -251,7 +296,6 @@ static void mutex_unprepare(struct mtk_ddp_comp *ddp_comp)
 
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
 	.addon_config = mutex_addon_config,
-	.stop = mutex_stop,/* .disconnect = mutex_disconnect, */
 	.prepare = mutex_prepare,
 	.unprepare = mutex_unprepare,
 };

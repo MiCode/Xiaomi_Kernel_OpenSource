@@ -23,125 +23,124 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "[mml_pq_hdr]" fmt
 
-
-#define HDR_TOP					(0x00000000)
-#define HDR_RELAY				(0x00000004)
-#define HDR_INTERR				(0x00000008)
-#define HDR_INTSTA				(0x0000000C)
-#define HDR_ENGSTA				(0x00000010)
-#define HDR_SIZE_0				(0x00000014)
-#define HDR_SIZE_1				(0x00000018)
-#define HDR_SIZE_2				(0x0000001C)
-#define HDR_HIST_CTRL_0			(0x00000020)
-#define HDR_HIST_CTRL_1			(0x00000024)
-#define HDR_HIST_CTRL_2			(0x00000028)
-#define HDR_DEMO_CTRL_0			(0x0000002C)
-#define HDR_DEMO_CTRL_1			(0x00000030)
-#define HDR_DEMO_CTRL_2			(0x00000034)
-#define HDR_3x3_COEF_0			(0x00000038)
-#define HDR_3x3_COEF_1			(0x0000003C)
-#define HDR_3x3_COEF_2			(0x00000040)
-#define HDR_3x3_COEF_3			(0x00000044)
-#define HDR_3x3_COEF_4			(0x00000048)
-#define HDR_3x3_COEF_5			(0x0000004C)
-#define HDR_3x3_COEF_6			(0x00000050)
-#define HDR_3x3_COEF_7			(0x00000054)
-#define HDR_3x3_COEF_8			(0x00000058)
-#define HDR_3x3_COEF_9			(0x0000005C)
-#define HDR_3x3_COEF_10			(0x00000060)
-#define HDR_3x3_COEF_11			(0x00000064)
-#define HDR_3x3_COEF_12			(0x00000068)
-#define HDR_3x3_COEF_13			(0x0000006C)
-#define HDR_3x3_COEF_14			(0x00000070)
-#define HDR_3x3_COEF_15			(0x00000074)
-#define HDR_TONE_MAP_P01		(0x00000078)
-#define HDR_TONE_MAP_P02		(0x0000007C)
-#define HDR_TONE_MAP_P03		(0x00000080)
-#define HDR_TONE_MAP_P04		(0x00000084)
-#define HDR_TONE_MAP_P05		(0x00000088)
-#define HDR_TONE_MAP_P06		(0x0000008C)
-#define HDR_TONE_MAP_P07		(0x00000090)
-#define HDR_TONE_MAP_P08		(0x00000094)
-#define HDR_TONE_MAP_S00		(0x00000098)
-#define HDR_TONE_MAP_S01		(0x0000009C)
-#define HDR_TONE_MAP_S02		(0x000000A0)
-#define HDR_TONE_MAP_S03		(0x000000A4)
-#define HDR_TONE_MAP_S04		(0x000000A8)
-#define HDR_TONE_MAP_S05		(0x000000AC)
-#define HDR_TONE_MAP_S06		(0x000000B0)
-#define HDR_TONE_MAP_S07		(0x000000B4)
-#define HDR_TONE_MAP_S08		(0x000000B8)
-#define HDR_TONE_MAP_S09		(0x000000BC)
-#define HDR_TONE_MAP_S10		(0x000000C0)
-#define HDR_TONE_MAP_S11		(0x000000C4)
-#define HDR_TONE_MAP_S12		(0x000000C8)
-#define HDR_TONE_MAP_S13		(0x000000CC)
-#define HDR_TONE_MAP_S14		(0x000000D0)
-#define HDR_TONE_MAP_S15		(0x000000D4)
-#define HDR_B_CHANNEL_NR		(0x000000D8)
-#define HDR_HIST_ADDR			(0x000000DC)
-#define HDR_HIST_DATA			(0x000000E0)
-#define HDR_A_LUMINANCE			(0x000000E4)
-#define HDR_GAIN_TABLE_0		(0x000000E8)
-#define HDR_GAIN_TABLE_1		(0x000000EC)
-#define HDR_GAIN_TABLE_2		(0x000000F0)
-#define HDR_LBOX_DET_1			(0x000000F8)
-#define HDR_LBOX_DET_2			(0x000000FC)
-#define HDR_LBOX_DET_3			(0x00000100)
-#define HDR_LBOX_DET_4			(0x00000104)
-#define HDR_LBOX_DET_5			(0x00000108)
-#define HDR_CURSOR_CTRL			(0x0000010C)
-#define HDR_CURSOR_POS			(0x00000110)
-#define HDR_CURSOR_COLOR		(0x00000114)
-#define HDR_TILE_POS			(0x00000118)
-#define HDR_CURSOR_BUF0			(0x0000011C)
-#define HDR_CURSOR_BUF1			(0x00000120)
-#define HDR_CURSOR_BUF2			(0x00000124)
-#define HDR_R2Y_00				(0x00000128)
-#define HDR_R2Y_01				(0x0000012C)
-#define HDR_R2Y_02				(0x00000130)
-#define HDR_R2Y_03				(0x00000134)
-#define HDR_R2Y_04				(0x00000138)
-#define HDR_R2Y_05				(0x0000013C)
-#define HDR_R2Y_06				(0x00000140)
-#define HDR_R2Y_07				(0x00000144)
-#define HDR_R2Y_08				(0x00000148)
-#define HDR_R2Y_09				(0x0000014C)
-#define HDR_Y2R_00				(0x00000150)
-#define HDR_Y2R_01				(0x00000154)
-#define HDR_Y2R_02				(0x0000015C)
-#define HDR_Y2R_03				(0x00000160)
-#define HDR_Y2R_04				(0x00000164)
-#define HDR_Y2R_05				(0x00000168)
-#define HDR_Y2R_06				(0x0000016C)
-#define HDR_Y2R_07				(0x00000170)
-#define HDR_Y2R_08				(0x00000174)
-#define HDR_Y2R_09				(0x00000178)
-#define HDR_Y2R_10				(0x0000017C)
-#define HDR_PROG_EOTF_0			(0x00000180)
-#define HDR_PROG_EOTF_1			(0x00000184)
-#define HDR_PROG_EOTF_2			(0x00000188)
-#define HDR_PROG_EOTF_3			(0x0000018C)
-#define HDR_PROG_EOTF_4			(0x00000190)
-#define HDR_PROG_EOTF_5			(0x00000194)
-#define HDR_EOTF_TABLE_0		(0x0000019C)
-#define HDR_EOTF_TABLE_1		(0x000001A0)
-#define HDR_EOTF_TABLE_2		(0x000001A4)
-#define HDR_OETF_TABLE_0		(0x000001A8)
-#define HDR_OETF_TABLE_1		(0x000001AC)
-#define TONE_MAP_TOP			(0x000001B0)
-#define HDR_EOTF_ACCURACY_0		(0x000001B4)
-#define HDR_EOTF_ACCURACY_1		(0x000001B8)
-#define HDR_EOTF_ACCURACY_2		(0x000001BC)
-#define HDR_L_MIX_0				(0x000001C0)
-#define HDR_L_MIX_1				(0x000001C4)
-#define HDR_L_MIX_2				(0x000001C8)
-#define HDR_Y_GAIN_IDX_0		(0x000001CC)
-#define HDR_Y_GAIN_IDX_1		(0x000001D0)
-#define HDR_DUMMY0				(0x000001D4)
-#define HDR_DUMMY1				(0x000001D8)
-#define HDR_DUMMY2				(0x000001DC)
-#define HDR_HLG_SG				(0x000001E0)
+#define HDR_TOP			0x000
+#define HDR_RELAY		0x004
+#define HDR_INTERR		0x008
+#define HDR_INTSTA		0x00c
+#define HDR_ENGSTA		0x010
+#define HDR_SIZE_0		0x014
+#define HDR_SIZE_1		0x018
+#define HDR_SIZE_2		0x01c
+#define HDR_HIST_CTRL_0		0x020
+#define HDR_HIST_CTRL_1		0x024
+#define HDR_HIST_CTRL_2		0x028
+#define HDR_DEMO_CTRL_0		0x02c
+#define HDR_DEMO_CTRL_1		0x030
+#define HDR_DEMO_CTRL_2		0x034
+#define HDR_3x3_COEF_00		0x038
+#define HDR_3x3_COEF_01		0x03c
+#define HDR_3x3_COEF_02		0x040
+#define HDR_3x3_COEF_03		0x044
+#define HDR_3x3_COEF_04		0x048
+#define HDR_3x3_COEF_05		0x04c
+#define HDR_3x3_COEF_06		0x050
+#define HDR_3x3_COEF_07		0x054
+#define HDR_3x3_COEF_08		0x058
+#define HDR_3x3_COEF_09		0x05c
+#define HDR_3x3_COEF_10		0x060
+#define HDR_3x3_COEF_11		0x064
+#define HDR_3x3_COEF_12		0x068
+#define HDR_3x3_COEF_13		0x06c
+#define HDR_3x3_COEF_14		0x070
+#define HDR_3x3_COEF_15		0x074
+#define HDR_TONE_MAP_P01	0x078
+#define HDR_TONE_MAP_P02	0x07c
+#define HDR_TONE_MAP_P03	0x080
+#define HDR_TONE_MAP_P04	0x084
+#define HDR_TONE_MAP_P05	0x088
+#define HDR_TONE_MAP_P06	0x08c
+#define HDR_TONE_MAP_P07	0x090
+#define HDR_TONE_MAP_P08	0x094
+#define HDR_TONE_MAP_S00	0x098
+#define HDR_TONE_MAP_S01	0x09c
+#define HDR_TONE_MAP_S02	0x0a0
+#define HDR_TONE_MAP_S03	0x0a4
+#define HDR_TONE_MAP_S04	0x0a8
+#define HDR_TONE_MAP_S05	0x0ac
+#define HDR_TONE_MAP_S06	0x0b0
+#define HDR_TONE_MAP_S07	0x0b4
+#define HDR_TONE_MAP_S08	0x0b8
+#define HDR_TONE_MAP_S09	0x0bc
+#define HDR_TONE_MAP_S10	0x0c0
+#define HDR_TONE_MAP_S11	0x0c4
+#define HDR_TONE_MAP_S12	0x0c8
+#define HDR_TONE_MAP_S13	0x0cc
+#define HDR_TONE_MAP_S14	0x0d0
+#define HDR_TONE_MAP_S15	0x0d4
+#define HDR_B_CHANNEL_NR	0x0d8
+#define HDR_HIST_ADDR		0x0dc
+#define HDR_HIST_DATA		0x0e0
+#define HDR_A_LUMINANCE		0x0e4
+#define HDR_GAIN_TABLE_0	0x0e8
+#define HDR_GAIN_TABLE_1	0x0ec
+#define HDR_GAIN_TABLE_2	0x0f0
+#define HDR_LBOX_DET_1		0x0f8
+#define HDR_LBOX_DET_2		0x0fc
+#define HDR_LBOX_DET_3		0x100
+#define HDR_LBOX_DET_4		0x104
+#define HDR_LBOX_DET_5		0x108
+#define HDR_CURSOR_CTRL		0x10c
+#define HDR_CURSOR_POS		0x110
+#define HDR_CURSOR_COLOR	0x114
+#define HDR_TILE_POS		0x118
+#define HDR_CURSOR_BUF0		0x11c
+#define HDR_CURSOR_BUF1		0x120
+#define HDR_CURSOR_BUF2		0x124
+#define HDR_R2Y_00		0x128
+#define HDR_R2Y_01		0x12c
+#define HDR_R2Y_02		0x130
+#define HDR_R2Y_03		0x134
+#define HDR_R2Y_04		0x138
+#define HDR_R2Y_05		0x13c
+#define HDR_R2Y_06		0x140
+#define HDR_R2Y_07		0x144
+#define HDR_R2Y_08		0x148
+#define HDR_R2Y_09		0x14c
+#define HDR_Y2R_00		0x150
+#define HDR_Y2R_01		0x154
+#define HDR_Y2R_02		0x15c
+#define HDR_Y2R_03		0x160
+#define HDR_Y2R_04		0x164
+#define HDR_Y2R_05		0x168
+#define HDR_Y2R_06		0x16c
+#define HDR_Y2R_07		0x170
+#define HDR_Y2R_08		0x174
+#define HDR_Y2R_09		0x178
+#define HDR_Y2R_10		0x17c
+#define HDR_PROG_EOTF_0		0x180
+#define HDR_PROG_EOTF_1		0x184
+#define HDR_PROG_EOTF_2		0x188
+#define HDR_PROG_EOTF_3		0x18c
+#define HDR_PROG_EOTF_4		0x190
+#define HDR_PROG_EOTF_5		0x194
+#define HDR_EOTF_TABLE_0	0x19c
+#define HDR_EOTF_TABLE_1	0x1a0
+#define HDR_EOTF_TABLE_2	0x1a4
+#define HDR_OETF_TABLE_0	0x1a8
+#define HDR_OETF_TABLE_1	0x1ac
+#define TONE_MAP_TOP		0x1b0
+#define HDR_EOTF_ACCURACY_0	0x1b4
+#define HDR_EOTF_ACCURACY_1	0x1b8
+#define HDR_EOTF_ACCURACY_2	0x1bc
+#define HDR_L_MIX_0		0x1c0
+#define HDR_L_MIX_1		0x1c4
+#define HDR_L_MIX_2		0x1c8
+#define HDR_Y_GAIN_IDX_0	0x1cc
+#define HDR_Y_GAIN_IDX_1	0x1d0
+#define HDR_DUMMY0		0x1d4
+#define HDR_DUMMY1		0x1d8
+#define HDR_DUMMY2		0x1dc
+#define HDR_HLG_SG		0x1e0
 
 #define HDR_WAIT_TIMEOUT_MS (50)
 #define HDR_REG_NUM (70)
@@ -163,13 +162,15 @@ struct mml_comp_hdr {
 
 /* meta data for each different frame config */
 struct hdr_frame_data {
-	u8 out_idx;
 	u32 out_hist_xs;
 	u16 labels[HDR_CURVE_NUM+HDR_REG_NUM];
 	bool is_hdr_need_readback;
 };
 
-#define hdr_frm_data(i)	((struct hdr_frame_data *)(i->data))
+static inline struct hdr_frame_data *hdr_frm_data(struct mml_comp_config *ccfg)
+{
+	return ccfg->data;
+}
 
 static inline struct mml_comp_hdr *comp_to_hdr(struct mml_comp *comp)
 {
@@ -183,38 +184,32 @@ static s32 hdr_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	hdr_frm = kzalloc(sizeof(*hdr_frm), GFP_KERNEL);
 	ccfg->data = hdr_frm;
-	/* cache out index for easy use */
-	hdr_frm->out_idx = ccfg->node->out_idx;
-
 	return 0;
 }
 
 static s32 hdr_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
-	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	s32 ret = 0;
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__,
-		ccfg->pipe, comp->id);
+		   ccfg->pipe, comp->id);
 	if (dest->pq_config.en_hdr)
 		ret = mml_pq_set_comp_config(task);
 
 	return ret;
 }
 
-
 static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg,
 			    struct tile_func_block *func,
 			    union mml_tile_data *data)
 {
-	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_data *src = &cfg->info.src;
-	struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
 
 	data->hdr_data.relay_mode = dest->pq_config.en_hdr ? false : true;
@@ -253,11 +248,10 @@ static const struct mml_comp_tile_ops hdr_tile_ops = {
 };
 
 static u32 hdr_get_label_count(struct mml_comp *comp, struct mml_task *task,
-			struct mml_comp_config *ccfg)
+			       struct mml_comp_config *ccfg)
 {
 	struct mml_frame_config *cfg = task->config;
-	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
-	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
 		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
@@ -265,36 +259,34 @@ static u32 hdr_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_hdr)
 		return 0;
 
-	return HDR_CURVE_NUM+HDR_REG_NUM;
+	return HDR_CURVE_NUM + HDR_REG_NUM;
 }
 
-static void hdr_start_config(struct cmdq_pkt *pkt, const phys_addr_t base_pa,
-			     bool is_start)
+static void hdr_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
 {
-	if (is_start) {
-		/* Enable engine and shadow */
-		cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x100001, 0x00308001);
-	} else {
-		/* Disable engine */
-		cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x0, 0x00000001);
-	}
+	/* Enable engine and shadow */
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, 0x100001, 0x00308001);
 }
 
-static s32 hdr_init(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *ccfg)
+static void hdr_relay(struct cmdq_pkt *pkt, const phys_addr_t base_pa,
+		      u32 relay)
+{
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, relay, U32_MAX);
+}
+
+static s32 hdr_config_init(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
 {
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
-	hdr_start_config(task->pkts[ccfg->pipe], comp->base_pa, true);
+	hdr_init(task->pkts[ccfg->pipe], comp->base_pa);
 	return 0;
 }
 
 static struct mml_pq_comp_config_result *get_hdr_comp_config_result(
 	struct mml_task *task)
 {
-	struct mml_pq_sub_task *sub_task = &task->pq_task->comp_config;
-
-	return (struct mml_pq_comp_config_result *)sub_task->result;
+	return task->pq_task->comp_config.result;
 }
 
 static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
@@ -305,18 +297,17 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	struct mml_frame_data *src = &cfg->info.src;
-	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
-	struct mml_pq_comp_config_result *result = NULL;
+	struct mml_pq_comp_config_result *result;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
-	s32 ret = 0;
+	s32 ret;
 
-	mml_pq_msg("%s pipe_id[%d] engine_id[%d] 12345 en_hdr[%d]", __func__,
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
 		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
 
-	if (MML_FMT_10BIT(src->format) ||
-	    MML_FMT_10BIT(dest->data.format))
+	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
 		cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP,
 			3 << 28, 0x30000000);
 	else
@@ -325,11 +316,10 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	if (!dest->pq_config.en_hdr) {
 		/* relay mode */
-		cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, U32_MAX);
-		return ret;
+		hdr_relay(pkt, base_pa, 0x1);
+		return 0;
 	}
-
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x0, U32_MAX);
+	hdr_relay(pkt, base_pa, 0x0);
 
 	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -339,7 +329,8 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 			s32 curve_idx = 0;
 			struct mml_pq_reg *regs = result->hdr_regs;
 			u32 *curve = result->hdr_curve;
-			//TODO: use different regs
+
+			/* TODO: use different regs */
 			mml_pq_msg("%s:config hdr regs, count: %d", __func__, result->hdr_reg_cnt);
 			for (i = 0; i < result->hdr_reg_cnt; i++) {
 				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
@@ -351,15 +342,15 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 			while (i < HDR_CURVE_NUM + result->hdr_reg_cnt) {
 				mml_write(pkt, base_pa + HDR_GAIN_TABLE_1, curve[curve_idx],
 					U32_MAX, reuse, cache, &hdr_frm->labels[i]);
-				mml_write(pkt, base_pa + HDR_GAIN_TABLE_2, curve[curve_idx+1],
-					U32_MAX, reuse, cache, &hdr_frm->labels[i+1]);
-				i = i+2;
-				curve_idx = curve_idx+2;
+				mml_write(pkt, base_pa + HDR_GAIN_TABLE_2, curve[curve_idx + 1],
+					U32_MAX, reuse, cache, &hdr_frm->labels[i + 1]);
+				i += 2;
+				curve_idx += 2;
 			}
 			cmdq_pkt_write(pkt, NULL, base_pa + HDR_GAIN_TABLE_0,
 					1 << 11, 1 << 11);
 			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
-				result->is_hdr_need_readback);
+				   result->is_hdr_need_readback);
 			hdr_frm->is_hdr_need_readback = result->is_hdr_need_readback;
 		} else {
 			mml_pq_err("%s: not get result from user lib", __func__);
@@ -380,7 +371,7 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 
-	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
+	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 	u16 tile_cnt = cfg->tile_output[ccfg->pipe]->tile_cnt;
 	u32 hdr_input_w;
@@ -426,25 +417,25 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	hdr_hist_begin_x = hdr_hist_left_start - tile->in.xs;
 	hdr_hist_end_x = tile->out.xe - tile->in.xs;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_0, hdr_hist_begin_x, 0x00003FFF);
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_1, hdr_hist_end_x, 0x00003FFF);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_0, hdr_hist_begin_x, 0x0000ffff);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_1, hdr_hist_end_x, 0x0000ffff);
 
 	if (!idx) {
-		hdr_frm->out_hist_xs = tile->out.xe+1;
+		hdr_frm->out_hist_xs = tile->out.xe + 1;
 		hdr_first_tile = 1;
 		hdr_last_tile = 0;
-	} else if (idx+1 >= tile_cnt) {
+	} else if (idx + 1 >= tile_cnt) {
 		hdr_frm->out_hist_xs = 0;
 		hdr_first_tile = 0;
 		hdr_last_tile = 1;
 	} else {
-		hdr_frm->out_hist_xs = tile->out.xe+1;
+		hdr_frm->out_hist_xs = tile->out.xe + 1;
 		hdr_first_tile = 0;
 		hdr_last_tile = 0;
 	}
 
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP, (hdr_first_tile << 5) | (hdr_last_tile << 6),
-		0x00000060);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP,
+		       (hdr_first_tile << 5) | (hdr_last_tile << 6), 0x00000060);
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_ADDR, (1 << 9), 0x00000200);
 
 	mml_pq_msg("%s %d: hdr_hist_begin_x[%d] hdr_hist_end_x[%d] out_hist_xs[%d]",
@@ -460,8 +451,7 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
-	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
-	struct mml_frame_dest *dest = &task->config->info.dest[hdr_frm->out_idx];
+	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 
 	if (dest->pq_config.en_hdr)
 		mml_pq_put_comp_config_result(task);
@@ -473,16 +463,15 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_frame_config *cfg = task->config;
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
-	const struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
-	struct mml_pq_comp_config_result *result = NULL;
+	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	struct mml_pq_comp_config_result *result;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
-	s32 ret = 0;
+	s32 ret;
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
 		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
-
 	if (!dest->pq_config.en_hdr)
-		return ret;
+		return 0;
 
 	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -498,9 +487,10 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 			while (i < HDR_CURVE_NUM + result->hdr_reg_cnt) {
 				mml_update(reuse, hdr_frm->labels[i], curve[curve_idx]);
-				mml_update(reuse, hdr_frm->labels[i+1], curve[curve_idx+1]);
-				i = i + 2;
-				curve_idx = curve_idx + 2;
+				mml_update(reuse, hdr_frm->labels[i + 1],
+					   curve[curve_idx + 1]);
+				i += 2;
+				curve_idx += 2;
 			}
 			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
 				result->is_hdr_need_readback);
@@ -519,7 +509,7 @@ static const struct mml_comp_config_ops hdr_cfg_ops = {
 	.prepare = hdr_prepare,
 	.buf_prepare = hdr_buf_prepare,
 	.get_label_count = hdr_get_label_count,
-	.init = hdr_init,
+	.init = hdr_config_init,
 	.frame = hdr_config_frame,
 	.tile = hdr_config_tile,
 	.post = hdr_config_post,
@@ -532,8 +522,7 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_frame_config *cfg = task->config;
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
-	struct mml_frame_dest *dest = &cfg->info.dest[hdr_frm->out_idx];
-
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_msg("%s is_hdr_need_readback[%d] id[%d] en_hdr[%d]", __func__,
@@ -659,27 +648,6 @@ static inline struct mml_comp_hdr *ddp_comp_to_hdr(struct mtk_ddp_comp *ddp_comp
 	return container_of(ddp_comp, struct mml_comp_hdr, ddp_comp);
 }
 
-static void hdr_addon_config(struct mtk_ddp_comp *ddp_comp,
-			     enum mtk_ddp_comp_id prev,
-			     enum mtk_ddp_comp_id next,
-			     union mtk_addon_config *addon_config,
-			     struct cmdq_pkt *pkt)
-{
-	const phys_addr_t base_pa = ddp_comp_to_hdr(ddp_comp)->comp.base_pa;
-
-	cmdq_pkt_write(pkt, NULL, base_pa + HDR_RELAY, 0x1, U32_MAX);
-}
-
-static void hdr_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
-{
-	hdr_start_config(pkt, ddp_comp_to_hdr(ddp_comp)->comp.base_pa, true);
-}
-
-static void hdr_stop(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
-{
-	hdr_start_config(pkt, ddp_comp_to_hdr(ddp_comp)->comp.base_pa, false);
-}
-
 static void hdr_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
 {
 	struct mml_comp *comp = &ddp_comp_to_hdr(ddp_comp)->comp;
@@ -695,9 +663,6 @@ static void hdr_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
 }
 
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.addon_config = hdr_addon_config,
-	.start = hdr_start,
-	.stop = hdr_stop,
 	.prepare = hdr_ddp_prepare,
 	.unprepare = hdr_ddp_unprepare,
 };
@@ -724,7 +689,6 @@ static int probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to init mml component: %d\n", ret);
 		return ret;
 	}
-
 	/* assign ops */
 	priv->comp.tile_ops = &hdr_tile_ops;
 	priv->comp.config_ops = &hdr_cfg_ops;
