@@ -6379,7 +6379,6 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_OVL0>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_0_DISP>,
 			 <&disp_iommu M4U_PORT_L0_DISP_OVL0_HDR>;
 		interconnects =
@@ -6438,7 +6437,6 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_RDMA0>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_RDMA0>;
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
@@ -6924,7 +6922,6 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_WDMA0>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_WDMA0>;
 	};
 
@@ -6941,7 +6938,6 @@
 		reg = <0 0x1401a000 0 0x1000>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_NWCG_0>,
 			 <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_NWCG_HDR>;
 		interconnect-names = "DDP_COMPONENT_OVL0_2L_nwcg_qos",
@@ -6957,7 +6953,6 @@
 		reg = <0 0x1401b000 0 0x1000>;
 		mediatek,larb = <&smi_larb0>;
 		mediatek,smi-id = <0>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL1_2L_NWCG_0>,
 			 <&disp_iommu M4U_PORT_L0_DISP_OVL1_2L_NWCG_HDR>;
 		interconnect-names = "DDP_COMPONENT_OVL1_2L_nwcg_qos",
@@ -6973,7 +6968,6 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_RDMA1>;
 		mediatek,larb = <&smi_larb1>;
 		mediatek,smi-id = <1>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_RDMA1>;
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_DISP_RDMA1)
@@ -7007,7 +7001,6 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_WDMA1>;
 		mediatek,larb = <&smi_larb1>;
 		mediatek,smi-id = <1>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_WDMA1>;
 	};
 
@@ -7152,7 +7145,6 @@
 		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_OVL0>;
 		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL0_0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL0_HDR>;
 		interconnects =
@@ -7175,7 +7167,6 @@
 		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_OVL1_2L>;
 		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL1_2L_0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL1_2L_HDR>;
 		interconnects =
@@ -7216,7 +7207,6 @@
 		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_RDMA0>;
 		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_RDMA0>;
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_RDMA0)
@@ -7386,7 +7376,6 @@
 		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_WDMA0>;
 		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_WDMA0>;
 	};
 
@@ -7403,7 +7392,6 @@
 		reg = <0 0x1441a000 0 0x1000>;
 		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL0_2L_NWCG_0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL0_2L_NWCG_HDR>;
 		interconnect-names = "DDP_COMPONENT_OVL2_2L_nwcg_qos",
@@ -7419,7 +7407,6 @@
 		reg = <0 0x1441b000 0 0x1000>;
 		mediatek,larb = <&smi_larb20>;
 		mediatek,smi-id = <20>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL1_2L_NWCG_0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL1_2L_NWCG_HDR>;
 		interconnect-names = "DDP_COMPONENT_OVL3_2L_nwcg_qos",
@@ -7435,7 +7422,6 @@
 		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_RDMA1>;
 		mediatek,larb = <&smi_larb21>;
 		mediatek,smi-id = <21>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L21_DISP_RDMA1>;
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L21_DISP_RDMA1)
@@ -7484,7 +7470,6 @@
 		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_WDMA1>;
 		mediatek,larb = <&smi_larb21>;
 		mediatek,smi-id = <21>;
-		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L21_DISP_WDMA1>;
 	};
 
