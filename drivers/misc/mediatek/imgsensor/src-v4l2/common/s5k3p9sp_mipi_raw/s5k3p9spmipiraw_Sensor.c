@@ -42,6 +42,12 @@
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
 
+#define DEBUG_LOG_EN 0
+
+#define PFX "S5K3P9SP_camera_sensor"
+#define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
+#define LOG_DEBUG(...) do { if ((DEBUG_LOG_EN)) LOG_INF(__VA_ARGS__); } while (0)
+
 #define read_cmos_sensor_8(...) subdrv_i2c_rd_u8(__VA_ARGS__)
 #define read_cmos_sensor_16(...) subdrv_i2c_rd_u16(__VA_ARGS__)
 #define write_cmos_sensor_8(...) subdrv_i2c_wr_u8(__VA_ARGS__)
@@ -53,9 +59,6 @@
 
 #define S5K3P9SP_EEPROM_READ_ID  0xA0
 #define S5K3P9SP_EEPROM_WRITE_ID 0xA1
-
-#define PFX "S5K3P9SP_camera_sensor"
-#define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 
 #define _I2C_BUF_SIZE 256
 static kal_uint16 _i2c_data[_I2C_BUF_SIZE];
@@ -214,7 +217,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] = {
 
 static void set_dummy(struct subdrv_ctx *ctx)
 {
-	LOG_INF("dummyline = %d, dummypixels = %d\n",
+	LOG_DEBUG("dummyline = %d, dummypixels = %d\n",
 		ctx->dummy_line, ctx->dummy_pixel);
 	set_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
 	set_cmos_sensor_16(ctx, 0x0342, ctx->line_length);
@@ -227,7 +230,7 @@ static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate,
 {
 	kal_uint32 frame_length = ctx->frame_length;
 
-	LOG_INF("framerate = %d, min framelength should enable %d\n",
+	LOG_DEBUG("framerate = %d, min framelength should enable %d\n",
 		framerate, min_framelength_en);
 
 	frame_length = ctx->pclk / framerate * 10 / ctx->line_length;
@@ -277,7 +280,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 
 	commit_write_sensor(ctx);
 
-	LOG_INF("shutter = %d, framelength = %d\n",
+	LOG_DEBUG("shutter = %d, framelength = %d\n",
 		shutter, ctx->frame_length);
 }	/*	write_shutter  */
 
@@ -319,7 +322,7 @@ static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 	/* Extend frame length */
 	write_cmos_sensor_16(ctx, 0x0340, ctx->frame_length & 0xFFFF);
 
-	pr_debug("Framelength: set=%d/input=%d/min=%d\n",
+	LOG_DEBUG("Framelength: set=%d/input=%d/min=%d\n",
 		ctx->frame_length, frame_length, ctx->min_frame_length);
 }
 
@@ -419,7 +422,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
-	LOG_INF("gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
+	LOG_DEBUG("gain = %d , reg_gain = 0x%x\n", gain, reg_gain);
 
 	write_cmos_sensor_16(ctx, 0x0204, reg_gain);
 
@@ -442,7 +445,7 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 			mDELAY(5);
 			framecnt = read_cmos_sensor_8(ctx, 0x0005);
 			if (framecnt == 0xFF) {
-				LOG_INF(" Stream Off OK at i=%d.\n", i);
+				LOG_DEBUG("Stream Off OK at i=%d.\n", i);
 				return ERROR_NONE;
 			}
 		}
@@ -622,14 +625,12 @@ static void hs_video_setting(struct subdrv_ctx *ctx)
 {
 	s5k3p9sp_table_write_cmos_sensor_16(ctx, addr_data_pair_hs_video,
 		sizeof(addr_data_pair_hs_video) / sizeof(kal_uint16));
-	LOG_INF("E\n");
 }	/*	hs_video_setting  */
 
 static void slim_video_setting(struct subdrv_ctx *ctx)
 {
 	s5k3p9sp_table_write_cmos_sensor_16(ctx, addr_data_pair_slim_video,
 		   sizeof(addr_data_pair_slim_video) / sizeof(kal_uint16));
-	LOG_INF("E\n");
 }	/*	slim_video_setting  */
 
 #define FOUR_CELL_SIZE 3072
@@ -644,7 +645,7 @@ static void read_four_cell_from_eeprom(struct subdrv_ctx *ctx, char *data)
 		LOG_INF("return data\n");
 		memcpy(data, four_cell_data, FOUR_CELL_SIZE);
 	} else {
-		LOG_INF("Need to read from EEPROM\n");
+		LOG_INF("need to read from EEPROM\n");
 		/* Check I2C is normal */
 		ret = adaptor_i2c_rd_u8(ctx->i2c_client,
 			S5K3P9SP_EEPROM_READ_ID >> 1, FOUR_CELL_ADDR, &temp);
@@ -955,7 +956,7 @@ static int get_info(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_
 		MSDK_SENSOR_INFO_STRUCT *sensor_info,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("scenario_id = %d\n", scenario_id);
+	LOG_DEBUG("scenario_id = %d\n", scenario_id);
 
 	sensor_info->SensorClockPolarity =
 		SENSOR_CLOCK_POLARITY_LOW;
@@ -1054,7 +1055,7 @@ static int control(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
 {
-	LOG_INF("framerate = %d\n ", framerate);
+	LOG_DEBUG("framerate = %d\n ", framerate);
 	if (framerate == 0) {
 		/* Dynamic frame rate*/
 		return ERROR_NONE;
@@ -1075,7 +1076,9 @@ static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
 
 static kal_uint32 set_auto_flicker_mode(struct subdrv_ctx *ctx, kal_bool enable, UINT16 framerate)
 {
-	LOG_INF("enable = %d, framerate = %d\n", enable, framerate);
+	(void) framerate;
+
+	LOG_DEBUG("enable = %d\n", enable);
 	if (enable) {/*enable auto flicker*/
 		ctx->autoflicker_en = KAL_TRUE;
 	} else {/*Cancel Auto flick*/
@@ -1089,7 +1092,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 {
 	kal_uint32 frame_length;
 
-	LOG_INF("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
+	LOG_DEBUG("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -1127,9 +1130,9 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		if (ctx->current_fps != imgsensor_info.cap.max_framerate) {
-			LOG_INF("Warning: current_fps %d fps is not support",
+			LOG_DEBUG("Warning: current_fps %d fps is not support",
 				framerate);
-			LOG_INF("so use cap's setting: %d fps!\n",
+			LOG_DEBUG("so use cap's setting: %d fps!\n",
 				imgsensor_info.cap.max_framerate / 10);
 		}
 		frame_length = imgsensor_info.cap.pclk /
@@ -1197,7 +1200,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	enum MSDK_SCENARIO_ID_ENUM scenario_id, MUINT32 *framerate)
 {
-	LOG_INF("scenario_id = %d\n", scenario_id);
+	LOG_DEBUG("scenario_id = %d\n", scenario_id);
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -1230,7 +1233,7 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 	else
 		return ERROR_NONE;
 
-	LOG_INF("enable: %d\n", enable);
+	LOG_DEBUG("enable: %d\n", enable);
 	ctx->test_pattern = enable;
 	return ERROR_NONE;
 }
@@ -1252,7 +1255,6 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data =
 		(MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
-	// LOG_INF("feature_id = %d\n", feature_id);
 	switch (feature_id) {
 	case SENSOR_FEATURE_GET_OUTPUT_FORMAT_BY_SCENARIO:
 		switch (*feature_data) {
@@ -1427,8 +1429,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		ctx->current_fps = *feature_data_32;
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
-		LOG_INF("SENSOR_FEATURE_GET_CROP_INFO:");
-		LOG_INF("scenarioId:%d\n", *feature_data_32);
+		LOG_DEBUG("SENSOR_FEATURE_GET_CROP_INFO, scenarioId:%d\n",
+			*feature_data_32);
 		wininfo =
 			(struct SENSOR_WINSIZE_INFO_STRUCT *)
 			(uintptr_t)(*(feature_data + 1));
@@ -1462,8 +1464,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 		break;
 	case SENSOR_FEATURE_GET_PDAF_INFO:
-		LOG_INF("SENSOR_FEATURE_GET_PDAF_INFO");
-		LOG_INF("scenarioId:%lld\n", *feature_data);
+		LOG_DEBUG("SENSOR_FEATURE_GET_PDAF_INFO, scenarioId:%lld\n",
+			*feature_data);
 		PDAFinfo =
 			(struct SET_PD_BLOCK_INFO_T *)
 			(uintptr_t)(*(feature_data + 1));
@@ -1479,8 +1481,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 		break;
 	case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
-		LOG_INF("SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY");
-		LOG_INF("scenarioId:%lld\n", *feature_data);
+		LOG_DEBUG("SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY, scenarioId:%lld\n",
+			*feature_data);
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
@@ -1519,21 +1521,21 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_4CELL_DATA:
 		/*get 4 cell data from eeprom*/
 		if (type == FOUR_CELL_CAL_TYPE_XTALK_CAL) {
-			LOG_INF("Read Cross Talk Start");
+			LOG_DEBUG("Read Cross Talk Start");
 			read_four_cell_from_eeprom(ctx, data);
-			LOG_INF("Read Cross Talk = %02x %02x %02x %02x %02x %02x\n",
+			LOG_DEBUG("Read Cross Talk = %02x %02x %02x %02x %02x %02x\n",
 				(UINT16)data[0], (UINT16)data[1],
 				(UINT16)data[2], (UINT16)data[3],
 				(UINT16)data[4], (UINT16)data[5]);
 		}
 		break;
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
-		LOG_INF("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
+		LOG_INF("SENSOR_FEATURE_SET_STREAMING_SUSPEND");
 		streaming_control(ctx, KAL_FALSE);
 		break;
 	case SENSOR_FEATURE_SET_STREAMING_RESUME:
-		LOG_INF("SENSOR_FEATURE_SET_STREAMING_RESUME");
-		LOG_INF("shutter:%llu\n", *feature_data);
+		LOG_INF("SENSOR_FEATURE_SET_STREAMING_RESUME, shutter:%llu\n",
+			*feature_data);
 		if (*feature_data != 0)
 			set_shutter(ctx, *feature_data);
 		streaming_control(ctx, KAL_TRUE);
@@ -1551,7 +1553,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*feature_return_para_32 = 1;
 			break;
 		}
-		LOG_INF("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
+		LOG_DEBUG("SENSOR_FEATURE_GET_BINNING_TYPE, AE_binning_type:%d\n",
 			*feature_return_para_32);
 		*feature_para_len = 4;
 		break;
