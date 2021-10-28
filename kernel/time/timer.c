@@ -58,6 +58,17 @@
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/timer.h>
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+#include <linux/hrtimer.h>
+#define USLEEP_RANGE_HIS_ARRAY_SIZE (50)
+#define USLEEP_RANGE_HIS_RECORD_CNT (400)
+struct arch_timer_caller_history_struct
+	usleep_range_history[USLEEP_RANGE_HIS_ARRAY_SIZE];
+static uint64_t usleep_range_count;
+static DEFINE_SPINLOCK(usleep_range_lock);
+#endif
+
+
 EXPORT_TRACEPOINT_SYMBOL_GPL(hrtimer_expire_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(hrtimer_expire_exit);
 
@@ -2076,6 +2087,19 @@ void __sched usleep_range(unsigned long min, unsigned long max)
 {
 	ktime_t exp = ktime_add_us(ktime_get(), min);
 	u64 delta = (u64)(max - min) * NSEC_PER_USEC;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 temp_count = 0;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&usleep_range_lock, flags);
+	usleep_range_count++;
+	if ((usleep_range_count % USLEEP_RANGE_HIS_RECORD_CNT) == 0)
+		temp_count = usleep_range_count / USLEEP_RANGE_HIS_RECORD_CNT;
+	temp_count = temp_count % USLEEP_RANGE_HIS_ARRAY_SIZE;
+	usleep_range_history[temp_count].timer_caller_ip = CALLER_ADDR0;
+	usleep_range_history[temp_count].timer_called = sched_clock();
+	spin_unlock_irqrestore(&usleep_range_lock, flags);
+#endif
 
 	for (;;) {
 		__set_current_state(TASK_UNINTERRUPTIBLE);
@@ -2085,3 +2109,19 @@ void __sched usleep_range(unsigned long min, unsigned long max)
 	}
 }
 EXPORT_SYMBOL(usleep_range);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+void dump_arch_timer_burst_history(void)
+{
+	int i;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&usleep_range_lock, flags);
+	for (i = 0; i < USLEEP_RANGE_HIS_ARRAY_SIZE; i++)
+		pr_info("usleep_range_history[%d].caller %pS, call time: %lld",
+			i, usleep_range_history[i].timer_caller_ip,
+			usleep_range_history[i].timer_called);
+	spin_unlock_irqrestore(&usleep_range_lock, flags);
+}
+EXPORT_SYMBOL(dump_arch_timer_burst_history);
+#endif

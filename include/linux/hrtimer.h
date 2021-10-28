@@ -564,4 +564,13 @@ extern struct cpumask *bc_tick_get_broadcast_pending_mask(void);
 extern struct cpumask *bc_tick_get_broadcast_force_mask(void);
 #endif
 
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+struct arch_timer_caller_history_struct {
+	unsigned long timer_caller_ip;
+	u64 timer_called;
+};
+extern void dump_arch_timer_burst_history(void);
+#endif
+
 #endif

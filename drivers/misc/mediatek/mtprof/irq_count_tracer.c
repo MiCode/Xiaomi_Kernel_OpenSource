@@ -31,6 +31,10 @@
 
 #include "internal.h"
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+extern void dump_hrtimer_burst_history(void);
+#endif
+
 static bool irq_count_tracer __read_mostly;
 static unsigned int irq_period_th1_ns = 666666; /* log */
 static unsigned int irq_period_th2_ns = 200000; /* aee */
@@ -365,6 +369,13 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 				char module[100];
 				/* do aee and kernel log */
 				irq_mon_msg(TO_BOTH, aee_msg);
+				/* arch_timer irq burst debug message */
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+				if (!strcmp(irq_name, "arch_timer")) {
+					dump_arch_timer_burst_history();
+					dump_hrtimer_burst_history();
+				}
+#endif
 				scnprintf(module, sizeof(module),
 					"BURST IRQ:%d, %s %s +%d in %lldms",
 					irq, irq_handler_name, irq_name,
