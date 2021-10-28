@@ -743,7 +743,9 @@
 #define CLK_CAM_MR_MRAW1				3
 #define CLK_CAM_MR_MRAW2				4
 #define CLK_CAM_MR_MRAW3				5
-#define CLK_CAM_MR_NR_CLK				6
+#define CLK_CAM_MR_PDA0					6
+#define CLK_CAM_MR_PDA1					7
+#define CLK_CAM_MR_NR_CLK				8
 
 /* CCU_MAIN */
 #define CLK_CCU_LARB19					0
