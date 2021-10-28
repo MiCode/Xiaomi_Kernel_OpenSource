@@ -64,6 +64,7 @@ struct measure_clk_data {
  */
 struct clk_debug_mux {
 	int *mux_sels;
+	int num_mux_sels;
 	int *pre_div_vals;
 	int num_parents;
 	struct regmap *regmap;
