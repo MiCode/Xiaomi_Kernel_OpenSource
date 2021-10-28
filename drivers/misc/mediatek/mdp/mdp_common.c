@@ -3119,10 +3119,10 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
 }
 
-#define MDP_HDR_HIST_DATA 0x0D8
-#define MDP_HDR_LBOX_DET_4 0x0FC
-#define HDR_TONE_MAP_S14 0x0C8
-#define HDR_GAIN_TABLE_2 0x0E8
+#define MDP_HDR_HIST_DATA 0x0E0
+#define MDP_HDR_LBOX_DET_4 0x104
+#define HDR_TONE_MAP_S14 0x0D0
+#define HDR_GAIN_TABLE_2 0x0F0
 #define MDP_HDR_HIST_CNT 57
 
 static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
