@@ -53,7 +53,8 @@ int gz_test_vreg_main(void)
 	writel(0x2, io + (2 * WORD_WIDTH));
 
 	v = readl(io + (2 * WORD_WIDTH));
-	KREE_INFO("[%s] read[0x%x]=0x%x\n", __func__, (io + (2 * WORD_WIDTH)), v);
+	KREE_INFO("[%s] read[0x%llx]=0x%x\n", __func__,
+	(uint64_t) (io + (2 * WORD_WIDTH)), v);
 
 	if (io)
 		iounmap(io);
