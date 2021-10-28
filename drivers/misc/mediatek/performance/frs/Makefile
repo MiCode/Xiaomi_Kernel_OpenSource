@@ -16,4 +16,4 @@ ccflags-y += \
     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3/mt-plat/ \
     -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3/fstb/
 
-obj-$(CONFIG_MTK_FPS_COOLER) += fps_cooler.o
+obj-$(CONFIG_MTK_FRS) += frs.o

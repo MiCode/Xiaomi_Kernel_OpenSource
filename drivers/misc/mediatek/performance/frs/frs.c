@@ -9,7 +9,7 @@
 #include <linux/proc_fs.h>
 #include <linux/module.h>
 
-#include "fps_cooler.h"
+#include "frs.h"
 #include "fpsgo_common.h"
 #include "fstb.h"
 
@@ -39,7 +39,7 @@ struct _EARA_THRM_ENABLE {
 
 static int eara_enable;
 static DEFINE_MUTEX(pre_lock);
-static struct sock *fps_cooler_nl_sk;
+static struct sock *frs_nl_sk;
 static int eara_pid = -1;
 
 static void set_tfps_diff(int max_cnt, int *pid, unsigned long long *buf_id, int *tfps, int *diff)
@@ -125,7 +125,7 @@ int eara_nl_send_to_user(void *buf, int size)
 	void *data;
 	int ret;
 
-	if (fps_cooler_nl_sk == NULL)
+	if (frs_nl_sk == NULL)
 		return -1;
 
 	skb = alloc_skb(len, GFP_ATOMIC);
@@ -139,7 +139,7 @@ int eara_nl_send_to_user(void *buf, int size)
 
 	pr_debug(TAG "Netlink_unicast size=%d\n", size);
 
-	ret = netlink_unicast(fps_cooler_nl_sk, skb, eara_pid, MSG_DONTWAIT);
+	ret = netlink_unicast(frs_nl_sk, skb, eara_pid, MSG_DONTWAIT);
 	if (ret < 0) {
 		pr_debug(TAG "Send to pid %d failed %d\n", eara_pid, ret);
 		return -1;
@@ -187,12 +187,12 @@ int eara_netlink_init(void)
 		.input  = eara_nl_data_handler,
 	};
 
-	fps_cooler_nl_sk = NULL;
-	fps_cooler_nl_sk = netlink_kernel_create(&init_net, NETLINK_FPS, &cfg);
+	frs_nl_sk = NULL;
+	frs_nl_sk = netlink_kernel_create(&init_net, NETLINK_FPS, &cfg);
 
 	pr_debug(TAG "netlink_kernel_create protol= %d\n", NETLINK_FPS);
 
-	if (fps_cooler_nl_sk == NULL) {
+	if (frs_nl_sk == NULL) {
 		pr_debug(TAG "netlink_kernel_create fail\n");
 		return -1;
 	}

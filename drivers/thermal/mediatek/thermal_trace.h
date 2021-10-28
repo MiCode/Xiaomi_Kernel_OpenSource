@@ -339,11 +339,11 @@ TRACE_EVENT(cpu_hr_info_1,
 		__entry->cpu3_temp, __entry->cpu3_pdt_temp, __entry->cpu3_headroom, __entry->cpu3_ratio)
 );
 
-TRACE_EVENT(fps_cooler,
+TRACE_EVENT(frs,
 
-	TP_PROTO(struct fps_cooler_info *fps_cooler),
+	TP_PROTO(struct frs_info *frs),
 
-	TP_ARGS(fps_cooler),
+	TP_ARGS(frs),
 
 	TP_STRUCT__entry(
 		__field(int, pid)
@@ -356,13 +356,13 @@ TRACE_EVENT(fps_cooler,
 	),
 
 	TP_fast_assign(
-		__entry->pid = fps_cooler->pid;
-		__entry->target_fps = fps_cooler->target_fps;
-		__entry->diff = fps_cooler->diff;
-		__entry->tpcb = fps_cooler->tpcb;
-		__entry->tpcb_slope = fps_cooler->tpcb_slope;
-		__entry->ap_headroom = fps_cooler->ap_headroom;
-		__entry->n_sec_to_ttpcb = fps_cooler->n_sec_to_ttpcb;
+		__entry->pid = frs->pid;
+		__entry->target_fps = frs->target_fps;
+		__entry->diff = frs->diff;
+		__entry->tpcb = frs->tpcb;
+		__entry->tpcb_slope = frs->tpcb_slope;
+		__entry->ap_headroom = frs->ap_headroom;
+		__entry->n_sec_to_ttpcb = frs->n_sec_to_ttpcb;
 	),
 
 	TP_printk("pid=%d target_fps=%d diff=%d tpcb=%d tpcb_slope=%d ap_headroom=%d target_n=%d",

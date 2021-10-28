@@ -49,8 +49,8 @@ void __iomem *thermal_csram_base;
 EXPORT_SYMBOL(thermal_csram_base);
 void __iomem *thermal_apu_mbox_base;
 EXPORT_SYMBOL(thermal_apu_mbox_base);
-struct fps_cooler_info fps_cooler_data;
-EXPORT_SYMBOL(fps_cooler_data);
+struct frs_info frs_data;
+EXPORT_SYMBOL(frs_data);
 
 static struct md_info md_info_data;
 
@@ -555,22 +555,22 @@ static ssize_t is_apu_limit_show(struct kobject *kobj,
 	return len;
 }
 
-static ssize_t fps_cooler_info_show(struct kobject *kobj,
+static ssize_t frs_info_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
 	int len = 0;
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
-		fps_cooler_data.enable,
-		fps_cooler_data.activated, fps_cooler_data.pid,
-		fps_cooler_data.target_fps, fps_cooler_data.diff,
-		fps_cooler_data.tpcb, fps_cooler_data.tpcb_slope,
-		fps_cooler_data.ap_headroom, fps_cooler_data.n_sec_to_ttpcb);
+		frs_data.enable,
+		frs_data.activated, frs_data.pid,
+		frs_data.target_fps, frs_data.diff,
+		frs_data.tpcb, frs_data.tpcb_slope,
+		frs_data.ap_headroom, frs_data.n_sec_to_ttpcb);
 
 	return len;
 }
 
-static ssize_t fps_cooler_info_store(struct kobject *kobj,
+static ssize_t frs_info_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int enable, act, target_fps, tpcb, tpcb_slope;
@@ -583,23 +583,23 @@ static ssize_t fps_cooler_info_store(struct kobject *kobj,
 		if ((ap_headroom >= -100) && (ap_headroom <= 100))
 		{
 			therm_intf_write_csram(ap_headroom, AP_NTC_HEADROOM_OFFSET);
-			fps_cooler_data.ap_headroom = ap_headroom;
+			frs_data.ap_headroom = ap_headroom;
 		} else {
-			pr_info("[fps_cooler_info_store] invalid ap head room input\n");
+			pr_info("[frs_info_store] invalid ap head room input\n");
 			return -EINVAL;
 		}
 
 		therm_intf_write_csram(tpcb, TPCB_OFFSET);
-		fps_cooler_data.enable = enable;
-		fps_cooler_data.activated = act;
-		fps_cooler_data.tpcb = tpcb;
-		fps_cooler_data.pid = pid;
-		fps_cooler_data.target_fps = target_fps;
-		fps_cooler_data.diff = diff;
-		fps_cooler_data.tpcb_slope = tpcb_slope;
-		fps_cooler_data.n_sec_to_ttpcb = n_sec_to_ttpcb;
+		frs_data.enable = enable;
+		frs_data.activated = act;
+		frs_data.tpcb = tpcb;
+		frs_data.pid = pid;
+		frs_data.target_fps = target_fps;
+		frs_data.diff = diff;
+		frs_data.tpcb_slope = tpcb_slope;
+		frs_data.n_sec_to_ttpcb = n_sec_to_ttpcb;
 	} else {
-		pr_info("[fps_cooler_info_store] invalid input\n");
+		pr_info("[frs_info_store] invalid input\n");
 		return -EINVAL;
 	}
 
@@ -825,7 +825,7 @@ static struct kobj_attribute apu_info_attr = __ATTR_RO(apu_info);
 static struct kobj_attribute is_cpu_limit_attr = __ATTR_RO(is_cpu_limit);
 static struct kobj_attribute is_gpu_limit_attr = __ATTR_RO(is_gpu_limit);
 static struct kobj_attribute is_apu_limit_attr = __ATTR_RO(is_apu_limit);
-static struct kobj_attribute fps_cooler_info_attr = __ATTR_RW(fps_cooler_info);
+static struct kobj_attribute frs_info_attr = __ATTR_RW(frs_info);
 static struct kobj_attribute cpu_temp_attr = __ATTR_RO(cpu_temp);
 static struct kobj_attribute headroom_info_attr = __ATTR_RO(headroom_info);
 static struct kobj_attribute atc_attr = __ATTR_RO(atc);
@@ -848,7 +848,7 @@ static struct attribute *thermal_attrs[] = {
 	&is_cpu_limit_attr.attr,
 	&is_gpu_limit_attr.attr,
 	&is_apu_limit_attr.attr,
-	&fps_cooler_info_attr.attr,
+	&frs_info_attr.attr,
 	&cpu_temp_attr.attr,
 	&headroom_info_attr.attr,
 	&atc_attr.attr,

@@ -186,7 +186,7 @@ static void thermal_info_work(struct work_struct *work)
 
 	trace_network_tput(trace_data->stats[0].cur_tput,
 			trace_data->stats[1].cur_tput);
-	trace_fps_cooler(&fps_cooler_data);
+	trace_frs(&frs_data);
 
 	thermal_info_timer_add(thermal_trace_data.enable);
 }

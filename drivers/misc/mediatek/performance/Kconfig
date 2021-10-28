@@ -15,10 +15,10 @@ config MTK_PERFORMANCE_MODULE
 	  Select "y" if you want to enable power throttling feature
 	  Select "n" if unsure.
 
-config MTK_FPS_COOLER
-	tristate "Mediatek FPS Cooler"
+config MTK_FRS
+	tristate "Mediatek Frame Rate Smoother"
 	help
-	  Support FPS Cooler intergface. FPS Cooler will adjustment
+	  Support Frame Rate Smoother kernel intergface. It will adjustment
 	  target fps by thermal.
 	  If you are not sure about this, set n.
 

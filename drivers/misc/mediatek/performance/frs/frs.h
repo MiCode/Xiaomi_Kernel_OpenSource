@@ -2,7 +2,8 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-#ifndef FPS_COOLER_H
+#ifndef __FRS_H__
+#define __FRS_H__
 
 extern int (*eara_pre_change_fp)(void);
 extern int (*eara_pre_change_single_fp)(int pid, unsigned long long bufID,

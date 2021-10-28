@@ -78,7 +78,7 @@ struct ttj_info {
 	unsigned int min_ttj;
 };
 
-struct fps_cooler_info {
+struct frs_info {
 	int enable;
 	int activated;
 	int pid;
@@ -127,10 +127,10 @@ extern int get_catm_min_ttj(void);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 extern void __iomem *thermal_csram_base;
 extern void __iomem *thermal_apu_mbox_base;
-extern struct fps_cooler_info fps_cooler_data;
+extern struct frs_info frs_data;
 #else
 void __iomem *thermal_csram_base;
 void __iomem *thermal_apu_mbox_base;
-struct fps_cooler_info fps_cooler_data;
+struct frs_info frs_data;
 #endif
 #endif
