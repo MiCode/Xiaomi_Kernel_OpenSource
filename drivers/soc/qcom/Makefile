@@ -55,7 +55,9 @@ obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
 obj-$(CONFIG_USB_BAM) += usb_bam.o
 obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
 obj-$(CONFIG_QCOM_PANEL_EVENT_NOTIFIER) += panel_event_notifier.o
+obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
+obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
