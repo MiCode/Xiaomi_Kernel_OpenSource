@@ -235,6 +235,7 @@ struct wrot_frame_data {
 	/* following data calculate in init and use in tile command */
 	u8 mat_en;
 	u8 mat_sel;
+	u32 dither_con;
 	/* bits per pixel y */
 	u32 bbp_y;
 	/* bits per pixel uv */
@@ -783,6 +784,21 @@ static void wrot_color_fmt(struct mml_frame_config *cfg,
 			wrot_frm->mat_sel = 13;
 		}
 	}
+
+	/* Enable dither */
+	if (MML_FMT_10BIT(cfg->info.src.format) && !MML_FMT_10BIT(fmt)) {
+		wrot_frm->mat_en = 1;
+		if (!wrot_frm->mat_sel) // if didn't set profile
+			wrot_frm->mat_sel = 15;
+		wrot_frm->dither_con = (0x1 << 10) +
+			 (0x0 << 9) +
+			 (0x0 << 8) +
+			 (0x0 << 5) +
+			 (0x0 << 4) +
+			 (0x1 << 2) +
+			 (0x1 << 1) +
+			 (0x1 << 0);
+	}
 }
 
 static void calc_plane_offset(u32 left, u32 top,
@@ -1168,6 +1184,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	/* turn off WROT dma dcm */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_ROT_EN,
 		       (0x1 << 23) + (0x1 << 20), 0x00900000);
+
+	/* Enable dither */
+	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_DITHER_CON, wrot_frm->dither_con, U32_MAX);
 
 	return 0;
 }
