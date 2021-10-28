@@ -45,7 +45,7 @@
 /* #define MT6338_SCF_DEBUG */
 /* #define MT6338_VOW_DEBUG */
 #define MT6338_GAIN_DEBUG
-#define NLE_IMP
+/* #define NLE_IMP */
 
 static ssize_t mt6338_codec_sysfs_read(struct file *filep, struct kobject *kobj,
 				       struct bin_attribute *attr,
@@ -1186,7 +1186,7 @@ static void hp_pull_down(struct mt6338_priv *priv, bool increase)
 			usleep_range(50, 60);
 	}
 }
-
+#ifdef NLE_IMP
 static int hp_gain_ctl_select(struct mt6338_priv *priv,
 			      unsigned int hp_gain_ctl)
 {
@@ -1206,7 +1206,7 @@ static int hp_gain_ctl_select(struct mt6338_priv *priv,
 
 	return 0;
 }
-
+#endif
 static bool is_valid_hp_pga_idx(int reg_idx)
 {
 	return (reg_idx >= HP_GAIN_9DB && reg_idx <= HP_GAIN_0DB) ||
@@ -4160,21 +4160,12 @@ static int mt_sram_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/* audio clk source from internal dcxo */
-		regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-			AUDIO_MEM_PDN_MASK_SFT,
-			0x0 << AUDIO_MEM_PDN_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-			AUDIO_CO_MEM_PDN_MASK_SFT,
-			0x0 << AUDIO_CO_MEM_PDN_SFT);
+		regmap_write(priv->regmap, MT6338_AUD_TOP_SRAM_CON, 0x0);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* audio clk source from internal dcxo */
-		regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-			AUDIO_MEM_PDN_MASK_SFT,
-			0x1 << AUDIO_MEM_PDN_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-			AUDIO_CO_MEM_PDN_MASK_SFT,
-			0x1 << AUDIO_CO_MEM_PDN_SFT);
+		regmap_write(priv->regmap, MT6338_AUD_TOP_SRAM_CON, 0x6);
+
 		break;
 	default:
 		break;
@@ -7682,22 +7673,14 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"AIFTX_Supply", NULL, "UL_GPIO"},
 	{"AIFTX_Supply", NULL, "KEY"},
 	{"AIFTX_Supply", NULL, "CLK_BUF"},
-	/* {"AIFTX_Supply", NULL, "vaud18"}, */
-	{"AIFTX_Supply", NULL, "NCP_CK"},
-	{"AIFTX_Supply", NULL, "NCP_CK_208"},
-	{"AIFTX_Supply", NULL, "LDO_VAUD18"},
 	{"AIFTX_Supply", NULL, "AUDGLB"},
 	{"AIFTX_Supply", NULL, "CLKSQ Audio"},
 	{"AIFTX_Supply", NULL, "PLL18 Audio"},
 	{"AIFTX_Supply", NULL, "AUD_CK"},
 	{"AIFTX_Supply", NULL, "AUDIF_CK"},
-	{"AIFTX_Supply", NULL, "AUD208M"},
 	{"AIFTX_Supply", NULL, "SRAM Audio"},
 	{"AIFTX_Supply", NULL, "AUDIO_TOP_AFE_CTL"},
 	{"AIFTX_Supply", NULL, "AUDIO_TOP_PWR_CLK"},
-	{"AIFTX_Supply", NULL, "AUDIO_TOP_PDN_RESERVED"},
-	{"AIFTX_Supply", NULL, "AUDIO_TOP_PDN_OTHERS"},
-	{"AIFTX_Supply", NULL, "AUDIO_TOP_I2S_DL"},
 	/*
 	 * *_ADC_CTL should enable only if UL_SRC in use,
 	 * but dm ck may be needed even UL_SRC_x not in use
@@ -8329,12 +8312,7 @@ static void start_trim_hardware(struct mt6338_priv *priv)
 		RG_AUD208M_CK_PDN_MASK_SFT,
 		0x0 << RG_AUD208M_CK_PDN_SFT);
 	/* release SRAM  power down */
-	regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-		AUDIO_MEM_PDN_MASK_SFT,
-		0x0 << AUDIO_MEM_PDN_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-		AUDIO_CO_MEM_PDN_MASK_SFT,
-		0x0 << AUDIO_CO_MEM_PDN_SFT);
+	regmap_write(priv->regmap, MT6338_AUD_TOP_SRAM_CON, 0x0);
 	usleep_range(250, 270);
 
 	/* Audio system digital clock power down release */
@@ -9099,12 +9077,7 @@ static void stop_trim_hardware(struct mt6338_priv *priv)
 		0x0);
 
 	/* SRAM  power down */
-	regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-		AUDIO_MEM_PDN_MASK_SFT,
-		0x1 << AUDIO_MEM_PDN_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-		AUDIO_CO_MEM_PDN_MASK_SFT,
-		0x1 << AUDIO_CO_MEM_PDN_SFT);
+	regmap_write(priv->regmap, MT6338_AUD_TOP_SRAM_CON, 0x6);
 
 	regmap_update_bits(priv->regmap, MT6338_AUD_TOP_CKPDN_CON0_H,
 		RG_AUD208M_CK_PDN_MASK_SFT,
@@ -10278,12 +10251,7 @@ static int mt6338_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 		0x0 << RG_AUD208M_CK_PDN_SFT);
 
 	/* sram power on */
-	regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-		AUDIO_MEM_PDN_MASK_SFT,
-		0x0 << AUDIO_MEM_PDN_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUD_TOP_SRAM_CON,
-		AUDIO_CO_MEM_PDN_MASK_SFT,
-		0x0 << AUDIO_CO_MEM_PDN_SFT);
+	regmap_write(priv->regmap, MT6338_AUD_TOP_SRAM_CON, 0x0);
 
 	usleep_range(250, 270);
 	/* Audio system digital clock power down release */
@@ -10638,72 +10606,24 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 		0x1F << 0x3, sample_rate << 0x3);
 #endif
 #endif
-	/* enable clk buf */
-	mt6338_set_dcxo(priv, true);
-
-	/* set those not controlled by dapm widget */
-
-	/* audio clk source from internal dcxo */
-	mt6338_set_clksq(priv, true);
-
-
 	/* set gpio */
 	mt6338_set_gpio_smt(priv);
 	mt6338_set_gpio_driving(priv);
-	mt6338_reset_playback_gpio(priv);
-	mt6338_reset_capture_gpio(priv);
 
 	/* hp gain ctl default choose ZCD */
 	priv->hp_gain_ctl = HP_GAIN_CTL_ZCD;
+#ifdef NLE_IMP
 	hp_gain_ctl_select(priv, priv->hp_gain_ctl);
-
+#endif
 	/* hp hifi mode, default normal mode */
 	priv->hp_hifi_mode = 0;
 	/* mic hifi mode, default hifi mode */
 	priv->mic_hifi_mode = 1;
 
-	/* Disable AUD_ZCD */
-	zcd_enable(priv, false, DEVICE_HP);
-
-	/* disable clk buf */
-	mt6338_set_clksq(priv, false);
-	mt6338_set_dcxo(priv, false);
-	/* this will trigger widget "DC trim" power down event */
-	enable_trim_buf(priv, true);
-
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 5;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 5;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] = 5;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4] = 5;
-
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON7,
-		RG_HPROUTPUTSTBENH_VAUDP18_MASK_SFT,
-		0x3 << RG_HPROUTPUTSTBENH_VAUDP18_SFT);
-	regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON6,
-		RG_HPLOUTPUTSTBENH_VAUDP18_MASK_SFT,
-		0x3 << RG_HPLOUTPUTSTBENH_VAUDP18_SFT);
-
-	/* Function bypass */
-	/* bypass GASRC3/4 */
-	regmap_update_bits(priv->regmap, MT6338_ETDM_0_3_COWORK_CON0_1,
-		0x1 << 0x4, 0x1 << 0x4);
-	/* bypass GASRC1/1 */
-	regmap_update_bits(priv->regmap, MT6338_ETDM_0_3_COWORK_CON0_1,
-		0x1 << 0x5, 0x1 << 0x5);
-	/* choose mtkaifv4 */
-	regmap_update_bits(priv->regmap, MT6338_ETDM_0_3_COWORK_CON0_1,
-		0x1 << 0x6, 0x0 << 0x6);
-
-	/* bypass HWgain1/2, 0:normal path */
-	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-		0x3 << 0x2, 0x1 << 0x2);
-	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-		0x3 << 0x6, 0x0 << 0x6);
-	/*  bypass stf, 0:normal path */
-	regmap_update_bits(priv->regmap, MT6338_AFE_STF_CON1,
-		0x3 << 0x2, 0x3 << 0x2);
-	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-		0x3, 0x0);
 
 	return 0;
 }
@@ -10743,7 +10663,6 @@ static int mt6338_codec_probe(struct snd_soc_component *cmpnt)
 				       ARRAY_SIZE(mt6338_snd_vow_controls));
 
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
-	keylock_reset(priv);
 
 	return mt6338_codec_init_reg(priv);
 }
@@ -10991,9 +10910,6 @@ n += scnprintf(buffer + n, size - n,
 	regmap_read(priv->regmap, MT6338_CLKSQ_PMU_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6338_CLKSQ_PMU_CON0 = 0x%x\n", value);
-	regmap_read(priv->regmap, MT6338_AUD_TOP_SRAM_CON, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "MT6338_AUD_TOP_SRAM_CON = 0x%x\n", value);
 #endif
 	regmap_read(priv->regmap, MT6338_AUD_TOP_ID, &value);
 	n += scnprintf(buffer + n, size - n,
