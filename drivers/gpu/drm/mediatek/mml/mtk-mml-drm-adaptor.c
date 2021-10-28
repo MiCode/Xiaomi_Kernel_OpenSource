@@ -36,6 +36,7 @@ module_param(mml_max_cache_cfg, int, 0644);
 struct mml_drm_ctx {
 	struct list_head configs;
 	u32 config_cnt;
+	atomic_t racing_cnt;	/* ref count for racing tasks */
 	struct mutex config_mutex;
 	struct mml_dev *mml;
 	const struct mml_task_ops *task_ops;
@@ -54,6 +55,7 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 	struct mml_topology_cache *tp = mml_topology_get_cache(ctx->mml);
 	const u32 srcw = info->src.width;
 	const u32 srch = info->src.height;
+	enum mml_mode mode;
 
 	if (!info->src.format) {
 		mml_err("[drm]invalid src mml color format %#010x", info->src.format);
@@ -98,8 +100,24 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 		}
 	}
 
-	if (tp && tp->op->query_mode)
-		return tp->op->query_mode(ctx->mml, info);
+	if (!tp || !tp->op->query_mode)
+		goto not_support;
+
+	mode = tp->op->query_mode(ctx->mml, info);
+	if (atomic_read(&ctx->racing_cnt) && mode == MML_MODE_MML_DECOUPLE) {
+		/* if mml hw running racing mode and query info need dc,
+		 * go back to MDP decouple to avoid hw conflict.
+		 *
+		 * Note: no mutex lock here cause disp call query/submit on
+		 * same kernel thread, thus racing_cnt can only decrease and
+		 * not increase after read. And it's safe to do one more mdp
+		 * decouple w/o mml racing/dc conflict.
+		 */
+		mml_log("%s mode %u to mdp dc", __func__, mode);
+		mode = MML_MODE_MDP_DECOUPLE;
+	}
+
+	return mode;
 
 not_support:
 	return MML_MODE_NOT_SUPPORT;
@@ -380,6 +398,9 @@ static void task_move_to_running(struct mml_task *task)
 
 static void task_move_to_idle(struct mml_task *task)
 {
+	struct mml_frame_config *cfg = task->config;
+	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+
 	/* Must lock ctx->config_mutex before call */
 	if (task->state == MML_TASK_INITIAL ||
 		task->state == MML_TASK_DUPLICATE ||
@@ -399,11 +420,16 @@ static void task_move_to_idle(struct mml_task *task)
 	list_add_tail(&task->entry, &task->config->done_tasks);
 	task->config->done_task_cnt++;
 
-	mml_msg("[drm]%s task cnt (%u %u %hhu)",
+	/* maintain racing ref count decrease after done */
+	if (cfg->info.mode == MML_MODE_RACING)
+		atomic_dec(&ctx->racing_cnt);
+
+	mml_msg("[drm]%s task cnt (%u %u %hhu) racing %d",
 		__func__,
 		task->config->await_task_cnt,
 		task->config->run_task_cnt,
-		task->config->done_task_cnt);
+		task->config->done_task_cnt,
+		atomic_read(&ctx->racing_cnt));
 }
 
 static void task_move_to_destroy(struct kref *kref)
@@ -678,6 +704,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			task = mml_core_create_task();
 			if (IS_ERR(task)) {
 				result = PTR_ERR(task);
+				mml_err("%s create task for reuse frame fail", __func__);
 				goto err_unlock_exit;
 			}
 			task->config = cfg;
@@ -688,6 +715,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 		mml_msg("[drm]%s create config %p", __func__, cfg);
 		if (IS_ERR(cfg)) {
 			result = PTR_ERR(cfg);
+			mml_err("%s create frame config fail", __func__);
 			goto err_unlock_exit;
 		}
 		task = mml_core_create_task();
@@ -695,10 +723,15 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			list_del_init(&cfg->entry);
 			frame_config_destroy(cfg);
 			result = PTR_ERR(task);
+			mml_err("%s create task fail", __func__);
 			goto err_unlock_exit;
 		}
 		task->config = cfg;
 	}
+
+	/* maintain racing ref count for easy query mode */
+	if (cfg->info.mode == MML_MODE_RACING)
+		atomic_inc(&ctx->racing_cnt);
 
 	/* make sure id unique and cached last */
 	task->job.jobid = atomic_fetch_inc(&ctx->job_serial);
@@ -706,11 +739,12 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	cfg->last_jobid = task->job.jobid;
 	list_add_tail(&task->entry, &cfg->await_tasks);
 	cfg->await_task_cnt++;
-	mml_msg("[drm]%s task cnt (%u %u %hhu)",
+	mml_msg("[drm]%s task cnt (%u %u %hhu) racing %d",
 		__func__,
 		task->config->await_task_cnt,
 		task->config->run_task_cnt,
-		task->config->done_task_cnt);
+		task->config->done_task_cnt,
+		atomic_read(&ctx->racing_cnt));
 
 	mutex_unlock(&ctx->config_mutex);
 
@@ -761,6 +795,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 err_unlock_exit:
 	mutex_unlock(&ctx->config_mutex);
 	mml_trace_end();
+	mml_log("%s fail result %d", __func__, result);
 	return result;
 }
 EXPORT_SYMBOL_GPL(mml_drm_submit);
