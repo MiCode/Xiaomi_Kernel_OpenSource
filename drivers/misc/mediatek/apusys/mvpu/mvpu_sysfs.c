@@ -21,9 +21,46 @@
 #include "mvpu_sysfs.h"
 #include "mvpu_ipi.h"
 
+#include "mvpu_sec.h"
 
 static struct kobject *root_dir;
 
+#ifndef MVPU_SECURITY
+#define MVPU_SECURITY
+#endif
+
+#ifdef MVPU_SECURITY
+static uint64_t ptn_total_size;
+
+static ssize_t mvpu_img_show(struct kobject *kobj, struct kobj_attribute *attr,
+			 char *buf)
+{
+	if (ptn_total_size == 0)
+		ptn_total_size = get_ptn_total_size();
+	else
+		pr_info("[MVPU] already get ptn_total_size: 0x%x\n", ptn_total_size);
+
+	sprintf(buf, "0x%x", ptn_total_size);
+	pr_info("[MVPU] %s, ptn_size = 0x%x\n", __func__, (uint32_t)ptn_total_size);
+
+	return 0;
+}
+
+static ssize_t mvpu_img_store(struct kobject *kobj, struct kobj_attribute *attr,
+			  const char *cmd, size_t count)
+{
+	return count;
+}
+
+static struct kobj_attribute get_mvpu_img = {
+	.attr = {
+		.name = "mvpu_img_sz",
+		.mode = 0644,
+	},
+	.show = mvpu_img_show,
+	.store = mvpu_img_store,
+};
+#endif
 
 static ssize_t loglevel_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
@@ -31,7 +68,7 @@ static ssize_t loglevel_show(struct kobject *kobj, struct kobj_attribute *attr,
 	uint64_t level = 0;
 
 	sprintf(buf, "%d", level);
-	pr_info("%s, level= %d\n", __func__, (uint32_t)level);
+	pr_info("[MVPU] %s, level= %d\n", __func__, (uint32_t)level);
 
 	mvpu_ipi_recv(MVPU_LOG_LEVEL, &level);
 
@@ -47,10 +84,10 @@ static ssize_t loglevel_store(struct kobject *kobj, struct kobj_attribute *attr,
 	ret = kstrtoint(cmd, 10, &level);
 
 	if (!ret) {
-		pr_info("%s, level= %d\n", __func__, (uint32_t)level);
+		pr_info("[MVPU] %s, level= %d\n", __func__, (uint32_t)level);
 		mvpu_ipi_send(MVPU_LOG_LEVEL, level);
 	} else {
-		pr_info("%s[%d]: get invalid cmd\n", __func__, __LINE__);
+		pr_info("[MVPU] %s[%d]: get invalid cmd\n", __func__, __LINE__);
 	}
 	return count;
 
@@ -81,6 +118,10 @@ int mvpu_sysfs_init(void)
 	}
 
 	sysfs_create_file(root_dir, &loglevel.attr);
+
+#ifdef MVPU_SECURITY
+	sysfs_create_file(root_dir, &get_mvpu_img.attr);
+#endif
 
 	return ret;
 }

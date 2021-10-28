@@ -55,8 +55,10 @@ const struct of_device_id *mvpu_plat_get_device(void)
 
 int mvpu_plat_init(struct platform_device *pdev)
 {
+	int ret = 0;
 	struct device *dev = &(pdev->dev);
 	struct mvpu_plat_drv *plat_drv;
+	uint64_t mask = 0;
 
 	of_property_read_u32(dev->of_node, "core_num", &nr_core_ids);
 
@@ -82,7 +84,28 @@ int mvpu_plat_init(struct platform_device *pdev)
 	dev_info(dev, "core number = %d, sw_preemption_level = 0x%x\n",
 		nr_core_ids, sw_preemption_level);
 
-	return 0;
+	// get dma mask
+	of_property_read_u64(dev->of_node, "mask", &mask);
+
+	pr_info("%s mask 0x%llx\n", __func__, mask);
+
+	ret = dma_set_mask_and_coherent(dev, mask);
+	if (ret) {
+		dev_info(&pdev->dev, "unable to set DMA mask coherent: %d\n", ret);
+		return ret;
+	}
+
+	pr_info("%s dma_set_mask_and_coherent 0x%llx\n", __func__, mask);
+
+	ret = dma_set_mask(dev, mask);
+	if (ret) {
+		dev_info(&pdev->dev, "unable to set DMA mask: %d\n", ret);
+		return ret;
+	}
+
+	pr_info("%s dma_set_mask 0x%llx\n", __func__, mask);
+
+	return ret;
 
 }
 
