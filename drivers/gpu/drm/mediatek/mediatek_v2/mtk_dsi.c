@@ -5331,10 +5331,12 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 			compress_rate = bpc * 3 * 100 / bpp;
 	} else {
 		compress_rate = 100;
-		if (spr_params->enable && spr_params->relay == 0
-			&& disp_spr_bypass == 0)
-			compress_rate = compress_rate * (3 / 2);
 	}
+	if (spr_params->enable && spr_params->relay == 0
+		&& disp_spr_bypass == 0 && spr_params->spr_format_type < MTK_PANEL_EXT_TYPE
+		&& (ext->params->spr_output_mode == MTK_PANEL_PACKED_SPR_8_BITS
+		|| ext->params->spr_output_mode == MTK_PANEL_PACKED_SPR_12_BITS))
+		compress_rate = compress_rate * 3 / 2;
 
 	return compress_rate;
 }

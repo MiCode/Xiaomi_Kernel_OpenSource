@@ -319,7 +319,7 @@ static int lcm_enable(struct drm_panel *panel)
 #define VSA (2)
 #define VBP (8)
 #define VACT (2400)
-#define PLL_CLOCK (430)
+#define PLL_CLOCK (410)
 
 
 static const struct drm_display_mode default_mode = {
