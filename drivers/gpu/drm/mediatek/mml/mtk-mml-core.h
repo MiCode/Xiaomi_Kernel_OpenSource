@@ -104,6 +104,8 @@ struct mml_tile_output;
 struct mml_task_ops {
 	void (*submit_done)(struct mml_task *task);
 	void (*frame_done)(struct mml_task *task);
+	/* optional: adaptor may use frame_done to handle error */
+	void (*frame_err)(struct mml_task *task);
 	s32 (*dup_task)(struct mml_task *task, u32 pipe);
 };
 

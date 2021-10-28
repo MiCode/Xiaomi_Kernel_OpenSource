@@ -21,7 +21,7 @@ struct mml_dle_param {
 	bool dual;
 
 	/* submit done callback api */
-	void (*submit_cb)(const struct mml_task *task, void *cb_param);
+	void (*submit_cb)(struct mml_task *task, void *cb_param);
 };
 
 /*
@@ -57,6 +57,17 @@ void mml_dle_put_context(struct mml_dle_ctx *ctx);
  */
 s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	void *cb_param);
+
+/*
+ * mml_dle_task_done - tell mml the task is configured
+ *
+ * @ctx:	Context of mml dle adaptor. Get by mml_dle_get_context API.
+ * @submit:	Frame info which want mml driver to configure.
+ *
+ * Return:	Result of config. In value < 0 case job did not send to mml
+ *		driver core.
+ */
+void mml_dle_task_done(struct mml_task *task);
 
 /*
  * mml_ddp_comp_init - initialize ddp component to drm

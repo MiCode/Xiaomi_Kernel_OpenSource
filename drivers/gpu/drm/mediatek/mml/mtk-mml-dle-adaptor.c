@@ -32,7 +32,7 @@ struct mml_dle_ctx {
 	atomic_t job_serial;
 	struct workqueue_struct *wq_destroy;
 	bool dl_dual;
-	void (*submit_cb)(const struct mml_task *task, void *cb_param);
+	void (*submit_cb)(struct mml_task *task, void *cb_param);
 };
 
 static bool check_frame_change(struct mml_frame_info *info,
@@ -99,11 +99,16 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 		}
 	}
 
-	while (!list_empty(&cfg->done_tasks)) {
-		task = list_first_entry(&cfg->done_tasks, typeof(*task),
-			entry);
-		list_del_init(&task->entry);
-		mml_core_destroy_task(task);
+	if (WARN_ON(!list_empty(&cfg->tasks))) {
+		mml_err("[dle]still busy tasks during destroy config");
+		list_for_each_entry_safe(task, tmp, &cfg->tasks, entry) {
+			/* unable to handling error,
+			 * print error but not destroy
+			 */
+			mml_err("[dle]busy task:%p", task);
+			list_del_init(&task->entry);
+			task->config = NULL;
+		}
 	}
 
 	mml_core_deinit_config(cfg);
@@ -162,6 +167,33 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	}
 }
 
+static void task_move_to_running(struct mml_task *task)
+{
+	/* Must lock ctx->config_mutex before call
+	 * For INITIAL / DUPLICATE state move to running,
+	 * otherwise do nothing.
+	 */
+	if (task->state != MML_TASK_INITIAL &&
+		task->state != MML_TASK_DUPLICATE &&
+		task->state != MML_TASK_REUSE) {
+		mml_msg("[dle]%s task %p state conflict %u",
+			__func__, task, task->state);
+		return;
+	}
+
+	list_del_init(&task->entry);
+	task->config->await_task_cnt--;
+	task->state = MML_TASK_RUNNING;
+	list_add_tail(&task->entry, &task->config->tasks);
+	task->config->run_task_cnt++;
+
+	mml_msg("[dle]%s task cnt (%u %u %hhu)",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt);
+}
+
 static void task_move_to_idle(struct mml_task *task)
 {
 	/* Must lock ctx->config_mutex before call */
@@ -170,9 +202,12 @@ static void task_move_to_idle(struct mml_task *task)
 		task->state == MML_TASK_REUSE) {
 		/* move out from awat list */
 		task->config->await_task_cnt--;
+	} else if (task->state == MML_TASK_RUNNING) {
+		/* move out from tasks list */
+		task->config->run_task_cnt--;
 	} else {
 		/* unknown state transition */
-		mml_err("[drm]%s state conflict %d", __func__, task->state);
+		mml_err("[dle]%s state conflict %d", __func__, task->state);
 	}
 
 	list_del_init(&task->entry);
@@ -180,7 +215,7 @@ static void task_move_to_idle(struct mml_task *task)
 	list_add_tail(&task->entry, &task->config->done_tasks);
 	task->config->done_task_cnt++;
 
-	mml_msg("[drm]%s task cnt (%u %u %hhu)",
+	mml_msg("[dle]%s task cnt (%u %u %hhu)",
 		__func__,
 		task->config->await_task_cnt,
 		task->config->run_task_cnt,
@@ -207,10 +242,126 @@ static void task_submit_done(struct mml_task *task)
 		ctx->submit_cb(task, task->cb_param);
 
 	mutex_lock(&ctx->config_mutex);
+	task_move_to_running(task);
+	kref_put(&task->ref, task_move_to_destroy);
+	mutex_unlock(&ctx->config_mutex);
+}
+
+static void task_buf_put(struct mml_task *task)
+{
+	u8 i;
+
+	mml_trace_ex_begin("%s_putbuf", __func__);
+	for (i = 0; i < task->buf.dest_cnt; i++) {
+		mml_msg("[dle]release dest %hhu iova %#011llx",
+			i, task->buf.dest[i].dma[0].iova);
+		mml_buf_put(&task->buf.dest[i]);
+	}
+	mml_msg("[dle]release src iova %#011llx",
+		task->buf.src.dma[0].iova);
+	mml_buf_put(&task->buf.src);
+	mml_trace_ex_end();
+}
+
+static void task_frame_err(struct mml_task *task)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
+
+	mml_trace_ex_begin("%s", __func__);
+
+	mml_log("[dle]config err task %p state %u job %u",
+		task, task->state, task->job.jobid);
+
+	/* clean up */
+	task_buf_put(task);
+
+	mutex_lock(&ctx->config_mutex);
 	task_move_to_idle(task);
+
+	list_del_init(&task->entry);
+	cfg->done_task_cnt--;
+	mml_msg("[dle]%s task cnt (%u %u %hhu)",
+		__func__,
+		task->config->await_task_cnt,
+		task->config->run_task_cnt,
+		task->config->done_task_cnt);
+	kref_put(&task->ref, task_move_to_destroy);
+
 	mutex_unlock(&ctx->config_mutex);
 
-	kref_put(&task->ref, task_move_to_destroy);
+	/* mml_lock_wake_lock(mml, false); */
+
+	mml_trace_ex_end();
+}
+
+static void task_put_idles(struct mml_frame_config *cfg)
+{
+	struct mml_task *task, *task_tmp;
+
+	list_for_each_entry_safe(task, task_tmp, &cfg->done_tasks, entry) {
+		list_del_init(&task->entry);
+		kref_put(&task->ref, task_move_to_destroy);
+	}
+}
+
+void mml_dle_task_done(struct mml_task *task)
+{
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_config *cfg_tmp;
+	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
+
+	mml_trace_ex_begin("%s", __func__);
+
+	mml_log("[dle]config done task %p state %u job %u",
+		task, task->state, task->job.jobid);
+
+	/* clean up */
+	task_buf_put(task);
+
+	mutex_lock(&ctx->config_mutex);
+	task_move_to_idle(task);
+
+	if (cfg->done_task_cnt > dle_max_cache_task) {
+		task = list_first_entry(&cfg->done_tasks, typeof(*task),
+			entry);
+		list_del_init(&task->entry);
+		cfg->done_task_cnt--;
+		mml_msg("[dle]%s task cnt (%u %u %hhu)",
+			__func__,
+			task->config->await_task_cnt,
+			task->config->run_task_cnt,
+			task->config->done_task_cnt);
+		kref_put(&task->ref, task_move_to_destroy);
+	}
+
+	/* still have room to cache, done */
+	if (ctx->config_cnt <= dle_max_cache_cfg)
+		goto done;
+
+	/* must pick cfg from list which is not running */
+	list_for_each_entry_safe(cfg, cfg_tmp, &ctx->configs, entry) {
+		/* only remove config not running */
+		if (!list_empty(&cfg->tasks) || !list_empty(&cfg->await_tasks))
+			continue;
+		list_del_init(&cfg->entry);
+		task_put_idles(cfg);
+		queue_work(ctx->wq_destroy, &cfg->work_destroy);
+		ctx->config_cnt--;
+		mml_msg("[dle]config %p send destroy remain %u",
+			cfg, ctx->config_cnt);
+
+		/* check cache num again */
+		if (ctx->config_cnt <= dle_max_cache_cfg)
+			break;
+	}
+
+done:
+	mutex_unlock(&ctx->config_mutex);
+
+	/* mml_lock_wake_lock(mml, false); */
+
+	mml_trace_ex_end();
 }
 
 static void dump_pq_en(u32 idx, struct mml_pq_param *pq_param,
@@ -383,6 +534,7 @@ static s32 dup_task(struct mml_task *task, u32 pipe)
 
 const static struct mml_task_ops dle_task_ops = {
 	.submit_done = task_submit_done,
+	.frame_err = task_frame_err,
 	.dup_task = dup_task,
 };
 

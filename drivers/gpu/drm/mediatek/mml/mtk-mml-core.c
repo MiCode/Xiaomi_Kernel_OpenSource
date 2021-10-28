@@ -718,7 +718,7 @@ exit:
 	mml_trace_ex_end();
 }
 
-static void core_task_comp_done(struct mml_task *task, u32 pipe)
+static void core_taskdone_comp(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
@@ -811,10 +811,14 @@ static void core_taskerr(struct mml_task *task, u32 pipe)
 {
 	u32 cnt;
 
+	mml_trace_begin("%s", __func__);
+
 	cnt = atomic_inc_return(&task->pipe_done);
 
+	mml_msg("%s task %p cnt %d", __func__, task, cnt);
+
 	if (task->config->dual && cnt == 1)
-		return;
+		goto done;
 
 	/* before clean up, signal buffer fence */
 	if (task->fence) {
@@ -825,7 +829,13 @@ static void core_taskerr(struct mml_task *task, u32 pipe)
 	}
 
 	core_buffer_unmap(task);
-	task->config->task_ops->frame_done(task);
+	if (task->config->task_ops->frame_err)
+		task->config->task_ops->frame_err(task);
+	else
+		task->config->task_ops->frame_done(task);
+
+done:
+	mml_trace_end();
 }
 
 static void core_taskdone(struct mml_task *task, u32 pipe)
@@ -840,13 +850,8 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	 * and note we always lock pipe 0
 	 */
 
-	if (task->pkts[pipe]) {
-		/* remove task in qos list and setup next */
-		mml_core_dvfs_end(task, pipe);
-	} else {
-		core_taskerr(task, pipe);
-		goto done;
-	}
+	/* remove task in qos list and setup next */
+	mml_core_dvfs_end(task, pipe);
 
 	cnt = atomic_inc_return(&task->pipe_done);
 
@@ -881,9 +886,9 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	}
 
 	if (task->pkts[0])
-		core_task_comp_done(task, 0);
+		core_taskdone_comp(task, 0);
 	if (task->config->dual && task->pkts[1])
-		core_task_comp_done(task, 1);
+		core_taskdone_comp(task, 1);
 
 	if (task->pkts[0])
 		core_disable(task, 0);
@@ -897,18 +902,25 @@ done:
 	mml_trace_end();
 }
 
+static void core_taskdone_pipe(struct work_struct *work, u32 pipe)
+{
+	struct mml_task *task;
+
+	task = container_of(work, struct mml_task, work_wait[pipe]);
+	if (task->pkts[pipe])
+		core_taskdone(task, pipe);
+	else
+		core_taskerr(task, pipe);
+}
+
 static void core_taskdone0_work(struct work_struct *work)
 {
-	struct mml_task *task = container_of(work, struct mml_task, work_wait[0]);
-
-	core_taskdone(task, 0);
+	core_taskdone_pipe(work, 0);
 }
 
 static void core_taskdone1_work(struct work_struct *work)
 {
-	struct mml_task *task = container_of(work, struct mml_task, work_wait[1]);
-
-	core_taskdone(task, 1);
+	core_taskdone_pipe(work, 1);
 }
 
 static void core_taskdone_cb(struct cmdq_cb_data data)
@@ -1174,8 +1186,10 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	}
 
 	/* do not make command and flush from mml in addon case */
-	if (task->config->nocmd)
+	if (task->config->nocmd) {
+		mml_msg("%s task %p pipe %u done no cmd", __func__, task, pipe);
 		goto exit;
+	}
 
 	err = core_command(task, pipe);
 	if (err < 0) {
