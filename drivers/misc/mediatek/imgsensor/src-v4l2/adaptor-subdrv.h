@@ -102,6 +102,7 @@ struct subdrv_ctx {
 
 	u8 extend_frame_length_en;
 	u8 fast_mode_on;
+	u8 ae_ctrl_gph_en;
 	u32 is_read_preload_eeprom;
 	u32 is_read_four_cell;
 	bool is_streaming;

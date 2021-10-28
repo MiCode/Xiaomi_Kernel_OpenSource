@@ -407,10 +407,10 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	union feature_para para;
 	u32 len = 0, exp_count = 0;
 
+	ctx->subctx.ae_ctrl_gph_en = 1;
 	while (exp_count < IMGSENSOR_STAGGER_EXPOSURE_CNT &&
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
-
 	dev_info(ctx->dev,
 			"exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u\n",
 			ae_ctrl->exposure.le_exposure,
@@ -488,6 +488,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 
 	ctx->exposure->val = ae_ctrl->exposure.le_exposure;
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
+	ctx->subctx.ae_ctrl_gph_en = 0;
 
 	return 0;
 }

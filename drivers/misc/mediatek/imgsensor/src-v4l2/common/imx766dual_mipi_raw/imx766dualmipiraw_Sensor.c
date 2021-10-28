@@ -1028,11 +1028,12 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 	set_cmos_sensor_8(ctx, 0x0350, 0x01); /* Enable auto extend */
 	set_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0203, shutter  & 0xFF);
-	if (gph)
-		set_cmos_sensor_8(ctx, 0x0104, 0x00);
+	if (!ctx->ae_ctrl_gph_en) {
+		if (gph)
+			set_cmos_sensor_8(ctx, 0x0104, 0x00);
 
-	commit_write_sensor(ctx);
-
+		commit_write_sensor(ctx);
+	}
 
 	DEBUG_LOG(ctx, "shutter =%d, framelength =%d\n",
 		shutter, ctx->frame_length);
@@ -1178,9 +1179,11 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 		set_cmos_sensor_8(ctx, 0x0224, (se >> 8) & 0xFF);
 		set_cmos_sensor_8(ctx, 0x0225, se & 0xFF);
 	}
-	set_cmos_sensor_8(ctx, 0x0104, 0x00);
+	if (!ctx->ae_ctrl_gph_en) {
+		set_cmos_sensor_8(ctx, 0x0104, 0x00);
 
-	commit_write_sensor(ctx);
+		commit_write_sensor(ctx);
+	}
 
 	DEBUG_LOG(ctx, "L! le:0x%x, me:0x%x, se:0x%x, fl:0x%x\n", le, me, se,
 		ctx->frame_length);
@@ -1319,7 +1322,7 @@ static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bo
 	ctx->gain = reg_gain;
 	DEBUG_LOG(ctx, "gain = %d, reg_gain = 0x%x\n", gain, reg_gain);
 
-	if (gph)
+	if (gph && !ctx->ae_ctrl_gph_en)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	set_cmos_sensor_8(ctx, 0x0204, (reg_gain>>8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0205, reg_gain & 0xFF);
@@ -1704,10 +1707,12 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 	/* Short exposure */
 	set_cmos_sensor_8(ctx, 0x0224, (se >> 8) & 0xFF);
 	set_cmos_sensor_8(ctx, 0x0225, se & 0xFF);
-	if (gph)
-		set_cmos_sensor_8(ctx, 0x0104, 0x00);
+	if (!ctx->ae_ctrl_gph_en) {
+		if (gph)
+			set_cmos_sensor_8(ctx, 0x0104, 0x00);
 
-	commit_write_sensor(ctx);
+		commit_write_sensor(ctx);
+	}
 
 	LOG_DEBUG("X! le:0x%x, me:0x%x, se:0x%x autoflicker_en %d frame_length %d\n",
 		le, me, se, ctx->autoflicker_en, ctx->frame_length);
@@ -1730,7 +1735,7 @@ static void hdr_write_tri_gain_w_gph(struct subdrv_ctx *ctx,
 	reg_sg = gain2reg(ctx, sg);
 
 	ctx->gain = reg_lg;
-	if (gph)
+	if (gph && !ctx->ae_ctrl_gph_en)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	/* Long Gian */
 	set_cmos_sensor_8(ctx, 0x0204, (reg_lg>>8) & 0xFF);
@@ -4726,6 +4731,7 @@ static const struct subdrv_ctx defctx = {
 	.current_ae_effective_frame = 2,
 	.extend_frame_length_en = KAL_FALSE,
 	.fast_mode_on = KAL_FALSE,
+	.ae_ctrl_gph_en = KAL_FALSE,
 };
 
 static int init_ctx(struct subdrv_ctx *ctx,
