@@ -176,6 +176,14 @@ static u32 afbc_drm_to_mml(u32 drm_format)
 		return MML_FMT_RGBA1010102_AFBC;
 	case MML_FMT_BGRA1010102:
 		return MML_FMT_BGRA1010102_AFBC;
+	case MML_FMT_NV12:
+		return MML_FMT_NV12_AFBC;
+	case MML_FMT_NV21:
+		return MML_FMT_NV21_AFBC;
+	case MML_FMT_NV12_10L:
+		return MML_FMT_NV12_10L_AFBC;
+	case MML_FMT_NV21_10L:
+		return MML_FMT_NV21_10L_AFBC;
 	default:
 		mml_err("[drm]%s unknown drm format %#x", __func__, drm_format);
 		return drm_format;
@@ -591,6 +599,17 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	 */
 	submit->info.src.format = format_drm_to_mml(
 		submit->info.src.format, submit->info.src.modifier);
+
+	if (MML_FMT_YUV_COMPRESS(submit->info.src.format)) {
+		submit->info.src.uv_stride = 0;
+		submit->info.src.plane_cnt = 1;
+		submit->buffer.src.cnt = 1;
+		submit->buffer.src.fd[1] = -1;
+		submit->buffer.src.fd[2] = -1;
+		if (MML_FMT_10BIT(submit->info.src.format))
+			submit->info.src.y_stride = submit->info.src.y_stride * 5 / 8;
+	}
+
 	for (i = 0; i < submit->info.dest_cnt; i++)
 		submit->info.dest[i].data.format = format_drm_to_mml(
 			submit->info.dest[i].data.format,

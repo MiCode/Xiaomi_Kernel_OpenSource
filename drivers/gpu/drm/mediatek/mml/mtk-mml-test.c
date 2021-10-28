@@ -587,6 +587,49 @@ static void case_run_afbc_to_rgb(struct mml_test *test, struct mml_test_case *cu
 	case_general_submit(test, cur, setup_afbc_to_rgb);
 }
 
+/* case_config_yuv_afbc_to_rgb
+ * yuv afbc (from last case) to rgb. Source size align 16x16 and
+ * this case crop content roi, which is height 640.
+ *
+ * format in: NV12_AFBC_RGBA8888
+ * format out: RGB888
+ */
+#define mml_yuv_afbc_align(p) (((p + 15) >> 4) << 4)
+
+static void case_config_yuv_afbc_to_rgb(void)
+{
+	the_case.cfg_src_format = MML_FMT_NV12_AFBC;
+	the_case.cfg_src_w = mml_yuv_afbc_align(mml_test_w);
+	the_case.cfg_src_h = mml_yuv_afbc_align(mml_test_h);
+	the_case.cfg_dest_format = MML_FMT_RGB888;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
+}
+
+static void case_config_yuv_afbc_10_to_rgb(void)
+{
+	the_case.cfg_src_format = MML_FMT_NV12_10L_AFBC;
+	the_case.cfg_src_w = mml_yuv_afbc_align(mml_test_w);
+	the_case.cfg_src_h = mml_yuv_afbc_align(mml_test_h);
+	the_case.cfg_dest_format = MML_FMT_RGB888;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_h;
+}
+
+static void setup_yuv_afbc_to_rgb(struct mml_submit *task,
+	struct mml_test_case *cur)
+{
+	task->info.dest[0].crop.r.left = 0;
+	task->info.dest[0].crop.r.top = 0;
+	task->info.dest[0].crop.r.width = mml_test_w;
+	task->info.dest[0].crop.r.height = mml_test_h;
+}
+
+static void case_run_yuv_afbc_to_rgb(struct mml_test *test, struct mml_test_case *cur)
+{
+	case_general_submit(test, cur, setup_yuv_afbc_to_rgb);
+}
+
 /* case_config_2out
  * 1 in 2 out + resize
  *
@@ -982,27 +1025,29 @@ static void case_run_crop_manual(struct mml_test *test, struct mml_test_case *cu
 }
 
 enum mml_ut_case {
-	MML_UT_RGB,		/* 0 */
-	MML_UT_RGB_ROTATE,	/* 1 */
-	MML_UT_COMPOSE_FLIP,	/* 2 */
-	MML_UT_RESIZE_RELAY,	/* 3 */
-	MML_UT_RESIZE_UP2,	/* 4 */
-	MML_UT_NV12,		/* 5 */
-	MML_UT_YUYV_DOWN2,	/* 6 */
-	MML_UT_BLOCK_TO_NV12,	/* 7 */
-	MML_UT_AFBC,		/* 8 */
-	MML_UT_AFBC_TO_RGB,	/* 9 */
-	MML_UT_2OUT,		/* 10 */
-	MML_UT_2OUT_CROP,	/* 11 */
-	MML_UT_2OUT_RCC,	/* 12 */
-	MML_UT_CROP,		/* 13 */
-	MML_UT_YV12_YUYV,	/* 14 */
-	MML_UT_WRITE_SRAM,	/* 15 */
-	MML_UT_READ_SRAM,	/* 16 */
-	MML_UT_WR_SRAM,		/* 17 */
-	MML_UT_RESIZE_UP1_5,	/* 18 */
-	MML_UT_RGB_DOWN2,	/* 19 */
-	MML_UT_BLK_MANUAL,	/* 20 */
+	MML_UT_RGB,			/* 0 */
+	MML_UT_RGB_ROTATE,		/* 1 */
+	MML_UT_COMPOSE_FLIP,		/* 2 */
+	MML_UT_RESIZE_RELAY,		/* 3 */
+	MML_UT_RESIZE_UP2,		/* 4 */
+	MML_UT_NV12,			/* 5 */
+	MML_UT_YUYV_DOWN2,		/* 6 */
+	MML_UT_BLOCK_TO_NV12,		/* 7 */
+	MML_UT_AFBC,			/* 8 */
+	MML_UT_AFBC_TO_RGB,		/* 9 */
+	MML_UT_2OUT,			/* 10 */
+	MML_UT_2OUT_CROP,		/* 11 */
+	MML_UT_2OUT_RCC,		/* 12 */
+	MML_UT_CROP,			/* 13 */
+	MML_UT_YV12_YUYV,		/* 14 */
+	MML_UT_WRITE_SRAM,		/* 15 */
+	MML_UT_READ_SRAM,		/* 16 */
+	MML_UT_WR_SRAM,			/* 17 */
+	MML_UT_RESIZE_UP1_5,		/* 18 */
+	MML_UT_RGB_DOWN2,		/* 19 */
+	MML_UT_BLK_MANUAL,		/* 20 */
+	MML_UT_YUV_AFBC_TO_RGB,		/* 21 */
+	MML_UT_YUV_AFBC_10_TO_RGB,	/* 22 */
 	MML_UT_TOTAL
 };
 
@@ -1090,6 +1135,14 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 	[MML_UT_BLK_MANUAL] = {
 		.config = case_config_crop_manual,
 		.run = case_run_crop_manual,
+	},
+	[MML_UT_YUV_AFBC_TO_RGB] = {
+		.config = case_config_yuv_afbc_to_rgb,
+		.run = case_run_yuv_afbc_to_rgb,
+	},
+	[MML_UT_YUV_AFBC_10_TO_RGB] = {
+		.config = case_config_yuv_afbc_10_to_rgb,
+		.run = case_run_yuv_afbc_to_rgb,
 	},
 };
 

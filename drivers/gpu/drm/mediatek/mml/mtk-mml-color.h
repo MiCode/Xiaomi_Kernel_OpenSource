@@ -45,6 +45,11 @@
 #define MML_FMT_IS_ARGB(c)		(MML_FMT_HW_FORMAT(c) == 2 || \
 					 MML_FMT_HW_FORMAT(c) == 3)
 
+#define MML_FMT_ARGB_COMPRESS(c)	(MML_FMT_COMPRESS(c) && \
+					 MML_FMT_IS_ARGB(c))
+#define MML_FMT_YUV_COMPRESS(c)		(MML_FMT_COMPRESS(c) && \
+					 MML_FMT_IS_YUV(c))
+
 enum mml_color {
 	MML_FMT_UNKNOWN		= 0,
 
@@ -127,6 +132,11 @@ enum mml_color {
 	MML_FMT_BGRA8888_AFBC	= MML_FMT(1, 0, 0, 0, 1, 0, 0, 32, 0, 0, 2),
 	MML_FMT_RGBA1010102_AFBC = MML_FMT(1, 1, 0, 0, 1, 0, 0, 32, 0, 1, 2),
 	MML_FMT_BGRA1010102_AFBC = MML_FMT(1, 1, 0, 0, 1, 0, 0, 32, 0, 0, 2),
+
+	MML_FMT_NV12_AFBC	= MML_FMT(1, 0, 0, 0, 1, 1, 1, 8, 1, 0, 12),
+	MML_FMT_NV21_AFBC	= MML_FMT(1, 0, 0, 0, 1, 1, 1, 8, 1, 1, 12),
+	MML_FMT_NV12_10L_AFBC	= MML_FMT(1, 1, 0, 0, 1, 1, 1, 10, 1, 0, 12),
+	MML_FMT_NV21_10L_AFBC	= MML_FMT(1, 1, 0, 0, 1, 1, 1, 10, 1, 1, 12),
 };
 
 /* Combine colorspace, xfer_func, ycbcr_encoding, and quantization */

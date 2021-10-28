@@ -36,13 +36,14 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	 *       YUV422 | L * 2
 	 * YUV444/RGB/Y | L * 4
 	 */
-	if (MML_FMT_COMPRESS(data->src_fmt) &&
-	    MML_FMT_IS_ARGB(data->src_fmt)) {
+	if (MML_FMT_ARGB_COMPRESS(data->src_fmt)) {
 		/* For AFBC mode end x may be extend to block size
 		 * and may exceed max tile width 640. So reduce width
 		 * to prevent it.
 		 */
 		ptr_func->in_tile_width = ((data->max_width >> 5) - 1) << 5;
+	} else if (MML_FMT_YUV_COMPRESS(data->src_fmt)) {
+		ptr_func->in_tile_width = (data->max_width >> 4) << 4;
 	} else if (MML_FMT_BLOCK(data->src_fmt)) {
 		ptr_func->in_tile_width = (data->max_width >> 6) << 6;
 	} else if ((MML_FMT_H_SUBSAMPLE(data->src_fmt) &&

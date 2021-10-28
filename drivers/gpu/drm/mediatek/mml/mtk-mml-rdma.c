@@ -629,6 +629,13 @@ static void rdma_color_fmt(struct mml_frame_config *cfg,
 		rdma_frm->hor_shift_uv = 1;
 		rdma_frm->ver_shift_uv = 1;
 		break;
+	case MML_FMT_NV12_AFBC:
+	case MML_FMT_NV21_AFBC:
+		rdma_frm->bits_per_pixel_y = 8;
+		rdma_frm->bits_per_pixel_uv = 0;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
 	case MML_FMT_BLK_UFO:
 	case MML_FMT_BLK_UFO_AUO:
 	case MML_FMT_BLK:
@@ -658,6 +665,13 @@ static void rdma_color_fmt(struct mml_frame_config *cfg,
 	case MML_FMT_NV21_10L:
 		rdma_frm->bits_per_pixel_y = 16;
 		rdma_frm->bits_per_pixel_uv = 32;
+		rdma_frm->hor_shift_uv = 1;
+		rdma_frm->ver_shift_uv = 1;
+		break;
+	case MML_FMT_NV12_10L_AFBC:
+	case MML_FMT_NV21_10L_AFBC:
+		rdma_frm->bits_per_pixel_y = 10;
+		rdma_frm->bits_per_pixel_uv = 0;
 		rdma_frm->hor_shift_uv = 1;
 		rdma_frm->ver_shift_uv = 1;
 		break;
@@ -896,6 +910,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u8 afbc_y2r = 0;
 	u8 hyfbc = 0;
 	u8 ufbdc = 0;
+	u8 payload_align = 1;
 	u32 write_mask = 0;
 	u8 output_10bit = 0;
 	u64 iova[3];
@@ -1002,10 +1017,28 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		if (MML_FMT_IS_ARGB(src->format))
 			afbc_y2r = 1;
 		ufbdc = 1;
-		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_SIZE_IN_PXL,
-			       ((src->width + 31) >> 5) << 5, U32_MAX);
-		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_MF_BKGD_H_SIZE_IN_PXL,
-			       ((src->height + 7) >> 3) << 3, U32_MAX);
+		if (MML_FMT_YUV_COMPRESS(src->format)) {
+			rdma_write(pkt, base_pa, cfg->path[ccfg->pipe]->hw_pipe,
+				   CPR_RDMA_AFBC_PAYLOAD_OST,
+				   0, write_sec);
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + RDMA_MF_BKGD_SIZE_IN_PXL,
+				((src->width + 15) >> 4) << 4, U32_MAX);
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + RDMA_MF_BKGD_H_SIZE_IN_PXL,
+				((src->height + 15) >> 4) << 4, U32_MAX);
+			if (MML_FMT_10BIT(src->format)) {
+				payload_align = 0;
+				write_mask |= 0x800;
+			}
+		} else {
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + RDMA_MF_BKGD_SIZE_IN_PXL,
+				((src->width + 31) >> 5) << 5, U32_MAX);
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + RDMA_MF_BKGD_H_SIZE_IN_PXL,
+				((src->height + 7) >> 3) << 3, U32_MAX);
+		}
 	}
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_COMP_CON,
 		       (rdma_frm->enable_ufo << 31) +
@@ -1014,7 +1047,8 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       (afbc << 22) +
 		       (afbc_y2r << 21) +
 		       (hyfbc << 13) +
-		       (ufbdc << 12),
+		       (ufbdc << 12) +
+		       (payload_align << 11),
 		       write_mask);
 
 	if (src->secure) {
