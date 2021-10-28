@@ -12420,6 +12420,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"camsys_main_mraw3",
 					"topckgen_top_muxcamtm";
 	};
+
+	drm_wv: drm_wv {
+		compatible = "mediatek,drm_wv";
+		status = "okay";
+	};
 };
 
 
@@ -12570,11 +12575,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 
 	mtee_svp: mtee_svp {
 		compatible = "medaitek,svp";
-	};
-
-	drm_wv: drm_wv {
-		compatible = "mediatek,drm_wv";
-		status = "okay";
 	};
 };
 
