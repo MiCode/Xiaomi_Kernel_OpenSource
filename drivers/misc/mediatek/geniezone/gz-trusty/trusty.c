@@ -603,7 +603,7 @@ static void nop_work_func(struct nop_task_info *nop_ti)
 	u32 args[3];
 	u32 smcnr_nop = MTEE_SMCNR_TID(SMCF_SC_NOP, tee_id);
 
-	trusty_dbg(s->dev, "%s:\n", __func__);
+	trusty_dbg(s->dev, "%s: idx %d\n", __func__, nop_ti->idx);
 
 	dequeue_nop(s, args, &nop_ti->nop_queue);
 
@@ -664,10 +664,6 @@ void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop, int cpu)
 		spin_lock_irqsave(&s->nop_lock, flags);
 		if (list_empty(&nop->node))
 			list_add_tail(&nop->node, &nop_ti->nop_queue);
-		else
-			trusty_err(s->dev,
-				   "%s: nop already in nop_queue, cpu %d\n",
-				   __func__, cpu);
 		spin_unlock_irqrestore(&s->nop_lock, flags);
 	}
 
@@ -730,6 +726,20 @@ static int trusty_task_nop(void *data)
 		} else
 			break;
 
+		if (unlikely(smp_processor_id() != idx)) {
+			/* self migrate */
+			if (cpu_online(idx)) {
+				struct cpumask cpu_mask;
+
+				cpumask_clear(&cpu_mask);
+				cpumask_set_cpu(idx, &cpu_mask);
+				set_cpus_allowed_ptr(current, &cpu_mask);
+				trusty_info(s->dev, "%s migrate to cpu %d\n",
+					    __func__, idx);
+			} else
+				trusty_info(s->dev, "%s cpu %d is offline\n",
+					    __func__, idx);
+		}
 	}
 
 	trusty_info(s->dev, "tee%d/%s_%d -<\n", s->tee_id, __func__, idx);
@@ -789,8 +799,9 @@ static int trusty_nop_thread_create(struct trusty_state *s)
 		init_completion(&nop_ti->rdy);
 		INIT_LIST_HEAD(&nop_ti->nop_queue);
 
-		ts = kthread_create(trusty_task_nop, (void *)nop_ti,
-				    "id%d_trusty_n/%d", s->tee_id, cpu);
+		ts = kthread_create_on_node(trusty_task_nop, (void *)nop_ti,
+					    cpu_to_node(cpu), "id%d_trusty_n/%d",
+					    s->tee_id, cpu);
 		if (IS_ERR(ts)) {
 			trusty_info(s->dev, "%s unable create kthread\n", __func__);
 			ret = PTR_ERR(ts);
@@ -840,7 +851,6 @@ static void trusty_poll_work(struct kthread_work *work)
 {
 	struct trusty_state *s = container_of(work, struct trusty_state, poll_work);
 	uint32_t cpu_mask;
-	int i;
 
 	cpu_mask = (uint32_t)trusty_fast_call32(s->dev,
 						SMC_FC_GZ_GET_CPU_REQUEST,
@@ -852,11 +862,13 @@ static void trusty_poll_work(struct kthread_work *work)
 	}
 
 	if (cpu_mask > 0) {
-		for (i = 0; i < num_online_cpus() ; i++) {
-			if (cpu_mask & (1 << i)) {
-				trusty_dbg(s->dev, "%s send nop for cpu %d\n",
-						__func__, i);
-				trusty_enqueue_nop(s->dev, NULL, i);
+		int cpu;
+
+		for_each_online_cpu(cpu) {
+			if (cpu_mask & (1 << cpu)) {
+				trusty_info(s->dev, "%s send nop for cpu %d\n",
+						__func__, cpu);
+				trusty_enqueue_nop(s->dev, NULL, cpu);
 			}
 		}
 	}
@@ -864,18 +876,19 @@ static void trusty_poll_work(struct kthread_work *work)
 
 static int trusty_poll_create(struct trusty_state *s)
 {
-	int ret;
+	// int ret;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
 	s->poll_notifier.notifier_call = trusty_poll_notify;
 	s->poll_notifier.priority = -1;
-	ret = trusty_call_notifier_register(s->dev, &s->poll_notifier);
+	/* ret = trusty_call_notifier_register(s->dev, &s->poll_notifier);
 	if (ret) {
 		trusty_info(s->dev,
 			 "%s: failed (%d) to register notifier\n",
 			 __func__, ret);
 		return ret;
 	}
+	*/
 
 	kthread_init_work(&s->poll_work, trusty_poll_work);
 	kthread_init_worker(&s->poll_worker);

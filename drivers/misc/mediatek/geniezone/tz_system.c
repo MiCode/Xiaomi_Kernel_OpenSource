@@ -589,6 +589,7 @@ int _gz_client_wait_ret(int32_t Fd, struct gz_syscall_cmd_param *data)
 		return -1;
 	}
 
+	KREE_DEBUG(" ===> %s: tipc_k_read\n", __func__);
 	rc = _tipc_k_read_retry(handle, (void *)data,
 				sizeof(struct gz_syscall_cmd_param), O_RDWR);
 	size = data->payload_size;
