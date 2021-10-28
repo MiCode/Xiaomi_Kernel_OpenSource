@@ -236,6 +236,9 @@ int mt6895_afe_enable_clock(struct mtk_base_afe *afe)
 {
 	struct mt6895_afe_private *afe_priv = afe->platform_priv;
 	int ret = 0;
+#if !defined(SKIP_SB)
+	struct arm_smccc_res res;
+#endif
 
 	dev_info(afe->dev, "%s()\n", __func__);
 
@@ -277,6 +280,13 @@ int mt6895_afe_enable_clock(struct mtk_base_afe *afe)
 			__func__, aud_clks[CLK_AFE], ret);
 		goto CLK_AFE_ERR;
 	}
+
+#if !defined(SKIP_SB)
+	/* use arm_smccc_smc to notify SPM */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+		MTK_AUDIO_SMC_OP_DOMAIN_SIDEBANDS,
+		0, 0, 0, 0, 0, 0, &res);
+#endif
 
 	return 0;
 

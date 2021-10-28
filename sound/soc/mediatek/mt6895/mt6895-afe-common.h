@@ -15,7 +15,7 @@
 #include "mt6895-reg.h"
 #include "../common/mtk-base-afe.h"
 
-#define SKIP_SB
+/* #define SKIP_SB */
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define AUDIO_AEE(message) \
