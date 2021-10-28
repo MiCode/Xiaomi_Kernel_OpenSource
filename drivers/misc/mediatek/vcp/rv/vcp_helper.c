@@ -565,6 +565,7 @@ static int vcp_A_ready_ipi_handler(unsigned int id, void *prdata, void *data,
 	return 0;
 }
 
+#ifdef VCP_DEBUG_REMOVED
 /*
  * Handle notification from vcp.
  * Report error from VCP to other kernel driver.
@@ -591,6 +592,7 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
 	pr_notice("[VCP] Error_info: sensor id: %u\n", info->sensor_id);
 	pr_notice("[VCP] Error_info: context: %s\n", info->context);
 }
+#endif
 
 /*
  * @return: 1 if vcp is ready for running tasks
@@ -2571,19 +2573,19 @@ static int __init vcp_init(void)
 	INIT_WORK(&vcp_A_notify_work.work, vcp_A_notify_ws);
 
 	vcp_legacy_ipi_init();
-
+#ifdef VCP_DEBUG_REMOVED
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_READY_0,
 			(void *)vcp_A_ready_ipi_handler, NULL, &msg_vcp_ready0);
-
+#endif
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_READY_1,
 			(void *)vcp_A_ready_ipi_handler, NULL, &msg_vcp_ready1);
-
+#ifdef VCP_DEBUG_REMOVED
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_ERROR_INFO_0,
 			(void *)vcp_err_info_handler, NULL, msg_vcp_err_info0);
 
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_ERROR_INFO_1,
 			(void *)vcp_err_info_handler, NULL, msg_vcp_err_info1);
-
+#endif
 	ret = register_pm_notifier(&vcp_pm_notifier_block);
 	if (ret)
 		pr_notice("[VCP] failed to register PM notifier %d\n", ret);

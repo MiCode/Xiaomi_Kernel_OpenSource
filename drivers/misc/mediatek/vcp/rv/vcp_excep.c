@@ -321,7 +321,7 @@ static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
 {
 	unsigned int vcp_dump_size = 0;
 	unsigned int vcp_awake_fail_flag;
-#ifdef VCP_RECOVERY_SUPPORT_REMOVED
+#ifdef VCP_DEBUG_REMOVED
 	uint32_t dram_start = 0;
 	uint32_t dram_size = 0;
 #endif
@@ -334,7 +334,7 @@ static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
 		pr_notice("[VCP] %s: awake vcp fail, vcp id=%u\n", __func__, id);
 		vcp_awake_fail_flag = 1;
 	}
-#ifdef VCP_RECOVERY_SUPPORT_REMOVED
+#ifdef VCP_DEBUG_REMOVED
 	memcpy_from_vcp((void *)&(pMemoryDump->l2tcm),
 		(void *)(VCP_TCM),
 		(VCP_A_TCM_SIZE));
@@ -596,7 +596,7 @@ int vcp_excep_init(void)
  *****************************************************************************/
 void vcp_ram_dump_init(void)
 {
-#ifdef VCP_RECOVERY_SUPPORT_REMOVED
+#ifdef VCP_DEBUG_REMOVED
 	vcp_A_task_context_addr = vcp_region_info->TaskContext_ptr;
 	pr_debug("[VCP] get vcp_A_task_context_addr: 0x%x\n",
 		vcp_A_task_context_addr);
