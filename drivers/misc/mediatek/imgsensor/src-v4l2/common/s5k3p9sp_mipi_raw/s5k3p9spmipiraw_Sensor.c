@@ -1726,6 +1726,25 @@ static int init_ctx(struct subdrv_ctx *ctx,
 	return 0;
 }
 
+static int get_csi_param(struct subdrv_ctx *ctx,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+	struct mtk_csi_param *csi_param)
+{
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		csi_param->dphy_trail = 0x20;
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		csi_param->dphy_trail = 0x3d;
+		break;
+	default:
+		csi_param->dphy_trail = 0;
+		break;
+	}
+	return 0;
+}
+
 static struct subdrv_ops ops = {
 	.get_id = get_imgsensor_id,
 	.init_ctx = init_ctx,
@@ -1735,6 +1754,7 @@ static struct subdrv_ops ops = {
 	.control = control,
 	.feature_control = feature_control,
 	.close = close,
+	.get_csi_param = get_csi_param,
 #ifdef IMGSENSOR_VC_ROUTING
 	.get_frame_desc = get_frame_desc,
 #endif
