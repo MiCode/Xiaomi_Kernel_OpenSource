@@ -10555,7 +10555,6 @@
 		dlo1-clock-names = "dlo1";
 		dli0_sel-clock-names = "rdma0";
 		dli1_sel-clock-names = "rdma1";
-		ddp-comp-count = <5>;
 		/* as sys component */
 		mux-pins = /bits/ 16 <
 			0 MML_RDMA0     MML_DLI0_SEL  MML_MUX_SLIN DLI0_SEL_IN
