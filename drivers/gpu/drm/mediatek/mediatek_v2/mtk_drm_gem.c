@@ -742,7 +742,10 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	struct mml_submit* submit_kernel;
 	struct drm_crtc *crtc;
 
+	DDPINFO("%s:%d +\n", __func__, __LINE__);
+
 	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY)) {
+		DDPINFO("%s:%d MTK_DRM_OPT_MML_PRIMARY is not support\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
@@ -780,7 +783,11 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	}
 
 	if (mml_ctx > 0) {
+		DDPINFO("%s:%d mml_drm_submit +\n", __func__, __LINE__);
 		ret = mml_drm_submit(mml_ctx, submit_kernel, NULL);
+		DDPINFO("%s:%d mml_drm_submit - ret:%d, job(id,fence):(%d,%d)\n",
+			__func__, __LINE__, ret,
+			submit_kernel->job->jobid, submit_kernel->job->fence);
 		if (ret) {
 			DDPMSG("submit failed: %d\n", ret);
 		}
@@ -798,6 +805,8 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	}
 	kfree(submit_kernel->job);
 	kfree(submit_kernel);
+
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
 
 	return ret;
 }
