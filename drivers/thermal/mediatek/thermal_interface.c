@@ -348,6 +348,49 @@ static ssize_t min_ttj_store(struct kobject *kobj,
 	return -EINVAL;
 }
 
+static ssize_t min_throttle_freq_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d, %d, %d %d\n",
+		therm_intf_read_csram_s32(MIN_THROTTLE_FREQ_OFFSET),
+		therm_intf_read_csram_s32(MIN_THROTTLE_FREQ_OFFSET + 4),
+		therm_intf_read_csram_s32(MIN_THROTTLE_FREQ_OFFSET + 8),
+		therm_intf_read_csram_s32(MIN_THROTTLE_FREQ_OFFSET + 12));
+
+	return len;
+}
+
+static ssize_t min_throttle_freq_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char cmd[10];
+	int cluster0_min_freq;
+	int cluster1_min_freq;
+	int cluster2_min_freq;
+	int gpu_min_freq;
+
+	if (sscanf(buf, "%9s %d %d %d %d", cmd,
+		&cluster0_min_freq,
+		&cluster1_min_freq,
+		&cluster2_min_freq,
+		&gpu_min_freq)
+		== 5) {
+		if (strncmp(cmd, "MIN_FREQ", 8) == 0) {
+			therm_intf_write_csram(cluster0_min_freq, MIN_THROTTLE_FREQ_OFFSET);
+			therm_intf_write_csram(cluster1_min_freq, MIN_THROTTLE_FREQ_OFFSET + 4);
+			therm_intf_write_csram(cluster2_min_freq, MIN_THROTTLE_FREQ_OFFSET + 8);
+			therm_intf_write_csram(gpu_min_freq, MIN_THROTTLE_FREQ_OFFSET + 12);
+			return count;
+		}
+	}
+
+	pr_info("[min_throttle_freq] invalid input\n");
+
+	return -EINVAL;
+}
+
 static void write_power_budget(unsigned int cpu_pb, unsigned int gpu_pb,
 	unsigned int apu_pb)
 {
@@ -792,6 +835,8 @@ static struct kobj_attribute md_actuator_info_attr = __ATTR_RW(md_actuator_info)
 static struct kobj_attribute utc_count_attr = __ATTR_RO(utc_count);
 static struct kobj_attribute max_ttj_attr = __ATTR_RW(max_ttj);
 static struct kobj_attribute min_ttj_attr = __ATTR_RW(min_ttj);
+static struct kobj_attribute min_throttle_freq_attr =
+	__ATTR_RW(min_throttle_freq);
 
 
 static struct attribute *thermal_attrs[] = {
@@ -813,6 +858,7 @@ static struct attribute *thermal_attrs[] = {
 	&max_ttj_attr.attr,
 	&min_ttj_attr.attr,
 	&utc_count_attr.attr,
+	&min_throttle_freq_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {

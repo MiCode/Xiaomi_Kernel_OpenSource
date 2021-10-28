@@ -19,6 +19,7 @@
 #define CPU_ACTIVE_BITMASK_OFFSET  (0x130)
 #define CPU_JATM_SUSPEND_OFFSET    (0x140)
 #define GPU_JATM_SUSPEND_OFFSET    (0x144)
+#define MIN_THROTTLE_FREQ_OFFSET    (0x14C)
 #define GPU_TEMP_OFFSET            (0x180)
 #define APU_TEMP_OFFSET            (0x190)
 #define EMUL_TEMP_OFFSET           (0x1B0)
