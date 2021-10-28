@@ -22,6 +22,7 @@
 // Local header file
 #include "mtk_imgsys-adl.h"
 
+static bool have_adl;
 static void __iomem *g_adl_a_va;
 static void __iomem *g_adl_b_va;
 
@@ -31,18 +32,26 @@ enum imgsys_smc_control {
 
 void imgsys_adl_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
+	struct resource adl;
 	struct arm_smccc_res res;
 
 	pr_info("%s: +\n", __func__);
 
-	// ADL_A: 0x15005300
-	g_adl_a_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
+	of_address_to_resource(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A, &adl);
+	if (adl.start) {
+		// ADL_A: 0x15005300
+		g_adl_a_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
 
-	// ADL_B: 0x15007300
-	g_adl_b_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
+		// ADL_B: 0x15007300
+		g_adl_b_va = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
 
-	arm_smccc_smc(MTK_SIP_IMGSYS_CONTROL, IMGSYS_ADL_SET_DOMAIN, 0,
-		0, 0, 0, 0, 0, &res);
+		arm_smccc_smc(MTK_SIP_IMGSYS_CONTROL, IMGSYS_ADL_SET_DOMAIN, 0,
+			0, 0, 0, 0, 0, &res);
+
+		have_adl = true;
+	} else {
+		have_adl = false;
+	}
 
 	pr_info("%s: -\n", __func__);
 }
@@ -286,6 +295,9 @@ static void dump_cq_rdma_status(struct mtk_imgsys_dev *imgsys_dev,
 void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	uint32_t engine)
 {
+	if (have_adl == false)
+		return;
+
 	if (engine & IMGSYS_ENG_ADL_A) {
 		dump_dma_debug_data(imgsys_dev, IMGADL_A_REG_BASE, g_adl_a_va);
 
@@ -317,14 +329,16 @@ void imgsys_adl_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
 	pr_info("%s+\n", __func__);
 
-	if (g_adl_a_va) {
-		iounmap(g_adl_a_va);
-		g_adl_a_va = 0L;
-	}
+	if (have_adl == true) {
+		if (g_adl_a_va) {
+			iounmap(g_adl_a_va);
+			g_adl_a_va = 0L;
+		}
 
-	if (g_adl_b_va) {
-		iounmap(g_adl_b_va);
-		g_adl_b_va = 0L;
+		if (g_adl_b_va) {
+			iounmap(g_adl_b_va);
+			g_adl_b_va = 0L;
+		}
 	}
 
 	pr_info("%s-\n", __func__);

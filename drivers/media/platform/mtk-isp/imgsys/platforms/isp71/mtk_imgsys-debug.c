@@ -50,6 +50,7 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 	unsigned int HwIdx = 0;
 	uint32_t count;
 	uint32_t value;
+	struct resource adl;
 
 	pr_info("%s: +.\n", __func__);
 	imgsysmainRegBA = 0L;
@@ -113,22 +114,27 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		return;
 	}
 
-	adlARegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
-	if (!adlARegBA) {
-		dev_info(imgsys_dev->dev, "%s Unable to ioremap adl a registers\n",
-								__func__);
-		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
-				__func__, imgsys_dev->dev->of_node->name);
-		return;
-	}
+	of_address_to_resource(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A, &adl);
+	if (adl.start) {
+		adlARegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A);
+		if (!adlARegBA) {
+			dev_info(imgsys_dev->dev, "%s Unable to ioremap adl a registers\n",
+									__func__);
+			dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+					__func__, imgsys_dev->dev->of_node->name);
+			return;
+		}
 
-	adlBRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
-	if (!adlARegBA) {
-		dev_info(imgsys_dev->dev, "%s Unable to ioremap adl b registers\n",
-								__func__);
-		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
-				__func__, imgsys_dev->dev->of_node->name);
-		return;
+		adlBRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
+		if (!adlARegBA) {
+			dev_info(imgsys_dev->dev, "%s Unable to ioremap adl b registers\n",
+									__func__);
+			dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+					__func__, imgsys_dev->dev->of_node->name);
+			return;
+		}
+	} else {
+		dev_info(imgsys_dev->dev, "%s Do not have ADL hardware.\n", __func__);
 	}
 
 	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
@@ -149,28 +155,30 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(0x0, pWpeCtrl);
 	}
 
-	/* Reset ADL A */
-	for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
-		if (HwIdx == 0)
-			ADLRegBA = adlARegBA;
-		else if (HwIdx == 1)
-			ADLRegBA = adlBRegBA;
+	if (adl.start) {
+		/* Reset ADL A */
+		for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
+			if (HwIdx == 0)
+				ADLRegBA = adlARegBA;
+			else if (HwIdx == 1)
+				ADLRegBA = adlBRegBA;
 
-		value = ioread32((void *)(ADLRegBA + 0x300));
-		value |= ((0x1 << 8) | (0x1 << 9));
-		iowrite32(value, (ADLRegBA + 0x300));
-
-		count = 0;
-		while (count < 1000000) {
 			value = ioread32((void *)(ADLRegBA + 0x300));
-			if ((value & 0x3) == 0x3)
-				break;
-			count++;
-		}
+			value |= ((0x1 << 8) | (0x1 << 9));
+			iowrite32(value, (ADLRegBA + 0x300));
 
-		value = ioread32((void *)(ADLRegBA + 0x300));
-		value &= ~((0x1 << 8) | (0x1 << 9));
-		iowrite32(value, (ADLRegBA + 0x300));
+			count = 0;
+			while (count < 1000000) {
+				value = ioread32((void *)(ADLRegBA + 0x300));
+				if ((value & 0x3) == 0x3)
+					break;
+				count++;
+			}
+
+			value = ioread32((void *)(ADLRegBA + 0x300));
+			value &= ~((0x1 << 8) | (0x1 << 9));
+			iowrite32(value, (ADLRegBA + 0x300));
+		}
 	}
 
 	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
@@ -192,30 +200,6 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(0xFFFFFFFF, pWpeCtrl);
 		/* Clear HW Reset */
 		iowrite32(0x0, pWpeCtrl);
-	}
-
-	/* Reset ADL */
-	for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
-		if (HwIdx == 0)
-			ADLRegBA = adlARegBA;
-		else if (HwIdx == 1)
-			ADLRegBA = adlBRegBA;
-
-		value = ioread32((void *)(ADLRegBA + 0x300));
-		value |= ((0x1 << 8) | (0x1 << 9));
-		iowrite32(value, (ADLRegBA + 0x300));
-
-		count = 0;
-		while (count < 1000000) {
-			value = ioread32((void *)(ADLRegBA + 0x300));
-			if ((value & 0x3) == 0x3)
-				break;
-			count++;
-		}
-
-		value = ioread32((void *)(ADLRegBA + 0x300));
-		value &= ~((0x1 << 8) | (0x1 << 9));
-		iowrite32(value, (ADLRegBA + 0x300));
 	}
 
 	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
