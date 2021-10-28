@@ -123,6 +123,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	if (cur_bit > 0)
 		len++;
 
+	irtx_pwm_config.pwm_no = (unsigned int)pwm_ir->pwm_ch;
 	irtx_pwm_config.PWM_MODE_MEMORY_REGS.HDURATION = h_l_period-1;
 	irtx_pwm_config.PWM_MODE_MEMORY_REGS.LDURATION = h_l_period-1;
 	irtx_pwm_config.PWM_MODE_MEMORY_REGS.BUF0_BASE_ADDR = wave_phy;
