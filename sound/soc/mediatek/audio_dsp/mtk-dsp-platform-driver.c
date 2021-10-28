@@ -1224,14 +1224,18 @@ void audio_irq_handler(int irq, void *data, int core_id)
 	pdtoa = (unsigned long *)
 		&dsp->core_share_mem.ap_adsp_core_mem[core_id]->dtoa_flag;
 
-	release_adsp_semaphore(SEMA_AUDIO);
-
 	loop_count = DSP_IRQ_LOOP_COUNT;
-	/* read dram data need mb()  */
-	mb();
+
+	/* rmb() ensure pdtoa read correct dram data */
+	rmb();
+
 	do {
 		/* valid bits */
 		task_value = fls(*pdtoa);
+
+		/* rmb() ensure task_value read dram(pdtoa) after fls */
+		rmb();
+
 		if (task_value) {
 			dsp_scene = task_value - 1;
 			task_id = get_dspdaiid_by_dspscene(dsp_scene);
@@ -1240,6 +1244,9 @@ void audio_irq_handler(int irq, void *data, int core_id)
 				__func__, *pdtoa, task_id, task_value, dsp_scene);
 #endif
 			*pdtoa = clr_bit(dsp_scene, pdtoa);
+
+			/* wmb() ensure write data to dram(pdtoa) after clr_bit */
+			wmb();
 #ifdef DEBUG_VERBOSE_IRQ
 			pr_info("-%s flag[%llx] task_id[%d] task_value[%lu]\n",
 				__func__, *pdtoa, task_id, task_value);
@@ -1252,7 +1259,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 #ifdef DEBUG_VERBOSE_IRQ
 	pr_info("leave %s\n", __func__);
 #endif
-
+	release_adsp_semaphore(SEMA_AUDIO);
 	return;
 IRQ_ERROR:
 	pr_info("IRQ_ERROR irq[%d] data[%p] core_id[%d] dsp[%p]\n",
