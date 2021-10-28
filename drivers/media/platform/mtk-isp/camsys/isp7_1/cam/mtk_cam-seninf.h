@@ -170,6 +170,7 @@ struct seninf_ctx {
 
 	int open_refcnt;
 	struct mutex mutex;
+	struct mutex pwr_mutex;
 };
 
 #endif

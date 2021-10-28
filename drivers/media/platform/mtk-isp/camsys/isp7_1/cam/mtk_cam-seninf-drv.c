@@ -1158,7 +1158,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		dev_info(ctx->dev, "no sensor\n");
 		return -EFAULT;
 	}
-	mutex_lock(&ctx->mutex);
+	mutex_lock(&ctx->pwr_mutex);
 
 	if (enable) {
 		get_mbus_config(ctx, ctx->sensor_sd);
@@ -1223,7 +1223,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	ctx->streaming = enable;
-	mutex_unlock(&ctx->mutex);
+	mutex_unlock(&ctx->pwr_mutex);
 	return 0;
 }
 
@@ -1650,6 +1650,7 @@ static int seninf_probe(struct platform_device *pdev)
 
 	ctx->open_refcnt = 0;
 	mutex_init(&ctx->mutex);
+	mutex_init(&ctx->pwr_mutex);
 
 	ret = get_csi_port(dev, &port);
 	if (ret) {
@@ -1881,7 +1882,7 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
 	int ret = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 
-	mutex_lock(&ctx->mutex);
+	mutex_lock(&ctx->pwr_mutex);
 	if (ctx->streaming) {
 		ret = g_seninf_ops->_debug(sd_to_ctx(sd));
 #if ESD_RESET_SUPPORT
@@ -1892,7 +1893,7 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
 			reset_sensor(sd_to_ctx(sd));
 	} else
 		dev_info(ctx->dev, "%s should not dump during stream off\n", __func__);
-	mutex_unlock(&ctx->mutex);
+	mutex_unlock(&ctx->pwr_mutex);
 	return ret;
 }
 
