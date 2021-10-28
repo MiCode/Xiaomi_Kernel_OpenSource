@@ -1470,8 +1470,16 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		req->tstate.time_qw2runner = ktime_get_boottime_ns()/1000;
 
 	gwork = get_gce_work(imgsys_dev);
-	if (!gwork)
+	if (!gwork) {
+		dev_info(imgsys_dev->dev,
+		"%s:own(%llx/%s)req fd/no(%d/%d) frame no(%d) group_id(%d): fidx/tfnum(%d/%d) No GceWork max(%d).\n",
+		__func__, swfrm_info->frm_owner, ((char *)&swfrm_info->frm_owner),
+		swfrm_info->request_fd, swfrm_info->request_no, swfrm_info->frame_no,
+		swfrm_info->group_id,
+		swfrm_info->user_info[0].subfrm_idx, swfrm_info->total_frmnum,
+		GCE_WORK_NR);
 		return;
+	}
 	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
 	gwork->req = req;
 	gwork->req_sbuf_kva = (void *)swfrm_info;
