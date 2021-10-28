@@ -78,14 +78,22 @@
 #define DIS1_PROT_STEP1_0_ACK_MASK       ((0x1 << 0) | (0x1 << 2) | (0x1 << 12))
 #define DIS1_PROT_STEP2_0_MASK           ((0x1 << 1) | (0x1 << 3) | (0x1 << 13))
 #define DIS1_PROT_STEP2_0_ACK_MASK       ((0x1 << 1) | (0x1 << 3) | (0x1 << 13))
+
 #define ISP_MAIN_PROT_STEP1_0_MASK       ((0x1 << 0) | (0x1 << 2) | (0x1 << 10))
 #define ISP_MAIN_PROT_STEP1_0_ACK_MASK   ((0x1 << 0) | (0x1 << 2) | (0x1 << 10))
-#define ISP_VCORE_PROT_STEP2_0_MASK      ((0x1 << 1) | (0x1 << 3) | (0x1 << 11))
-#define ISP_VCORE_PROT_STEP2_0_ACK_MASK   ((0x1 << 1) | (0x1 << 3) | (0x1 << 11))
-#define ISP_VCORE_PROT_STEP3_0_MASK      ((0x1 << 14) | (0x1 << 24))
-#define ISP_VCORE_PROT_STEP3_0_ACK_MASK   ((0x1 << 14) | (0x1 << 24))
-#define ISP_VCORE_PROT_STEP3_1_MASK      ((0x1 << 28))
-#define ISP_VCORE_PROT_STEP3_1_ACK_MASK   ((0x1 << 28))
+#define ISP_MAIN_PROT_STEP2_0_MASK       ((0x1 << 1) | (0x1 << 3) | (0x1 << 11))
+#define ISP_MAIN_PROT_STEP2_0_ACK_MASK   ((0x1 << 1) | (0x1 << 3) | (0x1 << 11))
+
+#define ISP_VCORE_PROT_STEP1_0_MASK      ((0x1 << 14) | (0x1 << 24))
+#define ISP_VCORE_PROT_STEP1_0_ACK_MASK   ((0x1 << 14) | (0x1 << 24))
+#define ISP_VCORE_PROT_STEP1_1_MASK      ((0x1 << 28))
+#define ISP_VCORE_PROT_STEP1_1_ACK_MASK   ((0x1 << 28))
+
+#define ISP_VCORE_PROT_STEP2_0_MASK      ((0x1 << 15) | (0x1 << 25))
+#define ISP_VCORE_PROT_STEP2_0_ACK_MASK   ((0x1 << 15) | (0x1 << 25))
+#define ISP_VCORE_PROT_STEP2_1_MASK      ((0x1 << 29))
+#define ISP_VCORE_PROT_STEP2_1_ACK_MASK   ((0x1 << 29))
+
 #define MDP0_PROT_STEP1_0_MASK           ((0x1 << 18))
 #define MDP0_PROT_STEP1_0_ACK_MASK       ((0x1 << 18))
 #define MDP0_PROT_STEP1_1_MASK           ((0x1 << 20))
@@ -348,12 +356,14 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE30,
 		.basic_clk_name = {"isp_vcore_0"},
 		.bp_table = {
-			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
-				ISP_VCORE_PROT_STEP2_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
-				ISP_VCORE_PROT_STEP3_0_MASK),
+				ISP_VCORE_PROT_STEP1_0_MASK),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
-				ISP_VCORE_PROT_STEP3_1_MASK),
+				ISP_VCORE_PROT_STEP1_1_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				ISP_VCORE_PROT_STEP2_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				ISP_VCORE_PROT_STEP2_1_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
@@ -469,6 +479,8 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				ISP_MAIN_PROT_STEP1_0_MASK),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				ISP_MAIN_PROT_STEP2_0_MASK),
 		},
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
