@@ -27,10 +27,13 @@ struct mtk_camsys_dvfs {
 	unsigned int clklv_target;
 	struct icc_path *qos_req[MTK_CAM_RAW_PORT_NUM];
 	unsigned long qos_bw_avg[MTK_CAM_RAW_PORT_NUM];
+	unsigned long qos_bw_peak[MTK_CAM_RAW_PORT_NUM];
 	struct icc_path *sv_qos_req[MTK_CAM_SV_PORT_NUM];
 	unsigned long sv_qos_bw_avg[MTK_CAM_SV_PORT_NUM];
+	unsigned long sv_qos_bw_peak[MTK_CAM_SV_PORT_NUM];
 	struct icc_path *mraw_qos_req[MTK_CAM_MRAW_PORT_NUM];
 	unsigned long mraw_qos_bw_avg[MTK_CAM_MRAW_PORT_NUM];
+	unsigned long mraw_qos_bw_peak[MTK_CAM_MRAW_PORT_NUM];
 };
 
 void mtk_cam_dvfs_init(struct mtk_cam_device *cam);
