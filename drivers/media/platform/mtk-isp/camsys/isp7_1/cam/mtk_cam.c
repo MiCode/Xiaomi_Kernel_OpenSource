@@ -5216,15 +5216,8 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	int watchdog_cnt;
 	int watchdog_dump_cnt;
 
-	spin_lock(&ctx->streaming_lock);
-	if (!ctx->streaming) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for stream off ctx:%d\n",
-			 __func__, ctx->stream_id);
-		spin_unlock(&ctx->streaming_lock);
+	if (!ctx->streaming)
 		return;
-	}
-	spin_unlock(&ctx->streaming_lock);
 
 	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
 	if (!raw) {
