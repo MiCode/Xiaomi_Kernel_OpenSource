@@ -182,7 +182,7 @@ static int conn_pwr_ut_event_cb_wifi(enum conn_pwr_event_type event, void *data)
 
 static int conn_pwr_ut_start(int par1, int par2, int par3)
 {
-	enum conn_pwr_low_battery_level level;
+	enum conn_pwr_low_battery_level level = CONN_PWR_THR_LV_0;
 	int ret;
 
 	pr_info("%s", __func__);
@@ -264,7 +264,7 @@ static int conn_pwr_ut_set_max_temp(int par1, int par2, int par3)
 {
 	ut_max_temp = par2;
 	ut_recovery_temp = par3;
-	pr_info("%s max = %d, recovery = %d\n", par2, par3);
+	pr_info("%s max = %d, recovery = %d\n", __func__, par2, par3);
 	return 0;
 }
 

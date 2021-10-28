@@ -146,11 +146,12 @@ int conn_pwr_set_max_temp(unsigned long arg)
 	struct conn_pwr_update_info info;
 
 	if (g_max_temp == arg || arg > CONN_PWR_MAX_TEMP_HIGH || arg < CONN_PWR_MAX_TEMP_LOW) {
-		pr_info("%s, max temp is not updated. old(%d), new(%d)", __func__, g_max_temp, arg);
+		pr_info("%s, max temp is not updated. old(%d), new(%lu)", __func__,
+			g_max_temp, arg);
 		return 0;
 	}
 
-	pr_info("%s, max temp is adjusted to %d from %d\n", __func__, arg, g_max_temp);
+	pr_info("%s, max temp is adjusted to %lu from %d\n", __func__, arg, g_max_temp);
 	g_max_temp = arg;
 
 	info.reason = CONN_PWR_ARB_THERMAL;
@@ -305,7 +306,7 @@ int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_b
 		type, level, g_customer_level, updated);
 
 	if (updated == 0) {
-		pr_info("%s, Set Level failed within %d, %d (%d, %d, %d, %d)\n", __func__,
+		pr_info("%s, Set Level failed within %d, %llu (%llu, %llu, %llu, %llu)\n", __func__,
 			CONN_PWR_SWITCH_LEVEL_MIN_SEC, sec,
 			g_radio_last_updated_time[CONN_PWR_DRV_BT],
 			g_radio_last_updated_time[CONN_PWR_DRV_FM],
@@ -440,7 +441,7 @@ EXPORT_SYMBOL(conn_pwr_drv_post_off);
 int conn_pwr_register_event_cb(enum conn_pwr_drv_type type,
 				CONN_PWR_EVENT_CB cb)
 {
-	pr_info("%s, type = %d, cb = %x\n", __func__, type, cb);
+	pr_info("%s, type = %d, cb = %p\n", __func__, type, cb);
 
 	if (type < 0 || type >= CONN_PWR_DRV_MAX) {
 		pr_info("type %d is out of range.\n", type);
@@ -536,7 +537,7 @@ int conn_pwr_init(struct conn_pwr_plat_info *data)
 	}
 
 	if (data->chip_id == 0 || data->get_temp == NULL) {
-		pr_info("%s, init data is invalid: chip_id = %d, get_temp = %x\n",
+		pr_info("%s, init data is invalid: chip_id = %d, get_temp = %p\n",
 			__func__, data->chip_id, data->get_temp);
 		return -2;
 	}
