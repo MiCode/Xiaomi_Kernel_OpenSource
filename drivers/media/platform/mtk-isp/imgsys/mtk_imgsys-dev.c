@@ -42,7 +42,7 @@ int mtk_imgsys_pipe_init(struct mtk_imgsys_dev *imgsys_dev,
 	INIT_LIST_HEAD(&pipe->pipe_job_pending_list);
 	INIT_LIST_HEAD(&pipe->iova_cache.list);
 	spin_lock_init(&pipe->iova_cache.lock);
-
+	memset(pipe->iova_cache.records, 0x0, sizeof(pipe->iova_cache.records));
 	//spin_lock_init(&pipe->job_lock);
 	//mutex_init(&pipe->job_lock);
 	spin_lock_init(&pipe->pending_job_lock);
@@ -531,14 +531,16 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 				struct mtk_imgsys_dev *imgsys_dev,
 				struct mtk_imgsys_dev_buffer *dev_buf)
 {
-	dma_addr_t dma_addr;
+	dma_addr_t dma_addr = 0x0;
 	struct device *dev;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	struct mtk_imgsys_pipe *pipe = &imgsys_dev->imgsys_pipe[0];
 	struct mtk_imgsys_dma_buf_iova_get_info *iova_info;
+	struct list_head *rec;
 	bool cache = false;
 
+#ifdef LINEAR_CACHE
 	spin_lock(&pipe->iova_cache.lock);
 	list_for_each_entry(iova_info, &pipe->iova_cache.list, list_entry) {
 		if ((ionFd == iova_info->ionfd) &&
@@ -550,7 +552,24 @@ static u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 		}
 	}
 	spin_unlock(&pipe->iova_cache.lock);
+#else
+	if (ionFd >= IOVA_FD_MAX)
+		goto check_cache;
 
+	rec = pipe->iova_cache.records[ionFd];
+	if (!rec) {
+		dev_info(imgsys_dev->dev,
+		"%s iova not found: ionFd(%d)\n", __func__, ionFd);
+
+		goto check_cache;
+	} else {
+		iova_info = container_of(rec, struct mtk_imgsys_dma_buf_iova_get_info, list_entry);
+		dma_addr = iova_info->dma_addr;
+		cache = true;
+		dma_buf_put(dma_buf);
+	}
+check_cache:
+#endif
 	if (cache) {
 		pr_debug("%s cache hit\n", __func__);
 		return dma_addr;
