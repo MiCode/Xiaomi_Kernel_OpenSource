@@ -118,3 +118,7 @@ obj-y += $(foreach TOUCH,$(TOUCH_LISTS),$(TOUCH)/)
 ifneq ($(wildcard $(srctree)/$(src)/k6983v1_64_alpha),)
 obj-$(CONFIG_TOUCHSCREEN_MT6983_ALPHA_SUPPORT) += k6983v1_64_alpha/
 endif
+
+ifneq ($(wildcard $(srctree)/$(src)/k6895v1_64_95t_alpha),)
+obj-$(CONFIG_TOUCHSCREEN_MT6983_ALPHA_SUPPORT) += k6895v1_64_95t_alpha/
+endif
