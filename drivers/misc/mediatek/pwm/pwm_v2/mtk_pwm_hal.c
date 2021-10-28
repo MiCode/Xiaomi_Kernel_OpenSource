@@ -691,30 +691,26 @@ void mt_pwm_clk_sel_hal(u32 pwm_no, u32 clk_src)
 	/* 32K */
 	case 0x00:
 		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_x_offset, 0x0 << pwm_x_offset);
-		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x0 << pwm_bclk_sw_ctrl_offset);
+			0x3 << pwm_x_offset | 0x3 << pwm_bclk_sw_ctrl_offset,
+			0x0 << pwm_x_offset | 0x0 << pwm_bclk_sw_ctrl_offset);
 		break;
 	/* 26M */
 	case 0x01:
 		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_x_offset, 0x1 << pwm_x_offset);
-		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x1 << pwm_bclk_sw_ctrl_offset);
+			0x3 << pwm_x_offset | 0x3 << pwm_bclk_sw_ctrl_offset,
+			0x1 << pwm_x_offset | 0x1 << pwm_bclk_sw_ctrl_offset);
 		break;
 	/* 78M not recommend */
 	case 0x2:
 		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_x_offset, 0x2 << pwm_x_offset);
-		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x2 << pwm_bclk_sw_ctrl_offset);
+			0x3 << pwm_x_offset | 0x3 << pwm_bclk_sw_ctrl_offset,
+			0x2 << pwm_x_offset | 0x2 << pwm_bclk_sw_ctrl_offset);
 		break;
 	/* 66M, topckgen default */
 	case 0x3:
 		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_x_offset, 0x3 << pwm_x_offset);
-		regmap_update_bits(pwm_src_regmap, pwm_clk_src_ctrl,
-			0x3 << pwm_bclk_sw_ctrl_offset, 0x3 << pwm_bclk_sw_ctrl_offset);
+			0x3 << pwm_x_offset | 0x3 << pwm_bclk_sw_ctrl_offset,
+			0x3 << pwm_x_offset | 0x3 << pwm_bclk_sw_ctrl_offset);
 		break;
 	default:
 		pr_info("PWM: invalid clk_src\n");
