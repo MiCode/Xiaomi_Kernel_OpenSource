@@ -11,7 +11,7 @@
 #include <linux/suspend.h>
 
 #include "mtk_cam-video.h"
-#include "mtk_cam-meta.h"
+#include "mtk_cam-meta-mt6983.h"
 
 #define MRAW_READY 1
 #define MRAW_PIPELINE_NUM 4

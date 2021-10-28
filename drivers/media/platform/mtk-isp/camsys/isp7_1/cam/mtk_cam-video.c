@@ -9,7 +9,6 @@
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam-video.h"
-#include "mtk_cam-meta.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-ufbc-def.h"
@@ -325,86 +324,6 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
 }
-
-static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
-			unsigned int size, unsigned long *offset)
-{
-	buf->offset = *offset;
-	buf->size = size;
-	*offset += size;
-}
-
-void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr,
-				 struct mtk_raw_pde_config *pde_cfg)
-{
-	struct mtk_cam_uapi_meta_raw_stats_0 *stats0;
-	struct mtk_cam_uapi_meta_raw_stats_1 *stats1;
-	unsigned long offset;
-
-	switch (dma_port) {
-	case MTKCAM_IPI_RAW_META_STATS_0:
-		stats0 = (struct mtk_cam_uapi_meta_raw_stats_0 *)vaddr;
-		offset = sizeof(*stats0);
-		set_payload(&stats0->ae_awb_stats.aao_buf, MTK_CAM_UAPI_AAO_MAX_BUF_SIZE, &offset);
-		set_payload(&stats0->ae_awb_stats.aaho_buf,
-			MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE, &offset);
-		set_payload(&stats0->ltm_stats.ltmso_buf, MTK_CAM_UAPI_LTMSO_SIZE, &offset);
-		set_payload(&stats0->flk_stats.flko_buf, MTK_CAM_UAPI_FLK_MAX_BUF_SIZE, &offset);
-		set_payload(&stats0->tsf_stats.tsfo_r1_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
-		set_payload(&stats0->tsf_stats.tsfo_r2_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
-		set_payload(&stats0->tncy_stats.tncsyo_buf, MTK_CAM_UAPI_TNCSYO_SIZE, &offset);
-		if (pde_cfg) {
-			mutex_lock(&pde_cfg->pde_info_lock);
-			if (pde_cfg->pde_info.pd_table_offset) {
-				set_payload(&stats0->pde_stats.pdo_buf,
-					    pde_cfg->pde_info.pdo_max_size,
-					    &offset);
-			}
-			mutex_unlock(&pde_cfg->pde_info_lock);
-		}
-		break;
-	case MTKCAM_IPI_RAW_META_STATS_1:
-		stats1 = (struct mtk_cam_uapi_meta_raw_stats_1 *)vaddr;
-		offset = sizeof(*stats1);
-		set_payload(&stats1->af_stats.afo_buf, MTK_CAM_UAPI_AFO_MAX_BUF_SIZE, &offset);
-		break;
-	case MTKCAM_IPI_RAW_META_STATS_2:
-		//todo
-		pr_info("stats 2 not support");
-		break;
-	default:
-		pr_debug("%s: dma_port err\n", __func__);
-		break;
-	}
-}
-
-/* TODO: support camsv meta header */
-#if PDAF_READY
-static void mtk_cam_sv_set_meta_stats_info(
-	u32 dma_port, void *vaddr, unsigned int width,
-	unsigned int height, unsigned int stride)
-{
-	struct mtk_cam_uapi_meta_camsv_stats_0 *sv_stats0;
-	unsigned long offset;
-	unsigned int size;
-
-	switch (dma_port) {
-	case MTKCAM_IPI_CAMSV_MAIN_OUT:
-		size = stride * height;
-		sv_stats0 = (struct mtk_cam_uapi_meta_camsv_stats_0 *)vaddr;
-		offset = sizeof(*sv_stats0);
-		set_payload(&sv_stats0->pd_stats.pdo_buf, size, &offset);
-		sv_stats0->pd_stats_enabled = 1;
-		sv_stats0->pd_stats.stats_src.width = width;
-		sv_stats0->pd_stats.stats_src.height = height;
-		sv_stats0->pd_stats.stride = stride;
-		break;
-	default:
-		pr_debug("%s: dma_port err\n", __func__);
-		break;
-	}
-}
-#endif
 
 int is_mtk_format(u32 pixelformat)
 {
@@ -1397,7 +1316,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		} else {
 #if PDAF_READY
 			sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
-				sizeof(struct mtk_cam_uapi_meta_camsv_stats_0);
+				mtk_cam_get_meta_size(dma_port);
 #else
 			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
 #endif
@@ -1406,8 +1325,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 			stride = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 #if PDAF_READY
 			vaddr = vb2_plane_vaddr(vb, 0);
-			mtk_cam_sv_set_meta_stats_info(node->desc.dma_port,
-				vaddr, width, height, stride);
+			mtk_cam_set_sv_meta_stats_info(
+				node->desc.dma_port, vaddr, width, height, stride);
 #endif
 		}
 		break;
@@ -2536,7 +2455,7 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	/* add header size for vc channel */
 	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT)
 		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
-		sizeof(struct mtk_cam_uapi_meta_camsv_stats_0);
+		mtk_cam_get_meta_size(MTKCAM_IPI_CAMSV_MAIN_OUT);
 #endif
 
 	/* Constant format fields */
@@ -2590,7 +2509,6 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
 		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
 		pde_info = &pde_cfg->pde_info;
-		mutex_lock(&pde_cfg->pde_info_lock);
 		if (pde_info->pd_table_offset) {
 			node->active_fmt.fmt.meta.buffersize =
 				default_fmt->fmt.meta.buffersize
@@ -2599,12 +2517,10 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 				node->desc.dma_port,
 				node->active_fmt.fmt.meta.buffersize);
 		}
-		mutex_unlock(&pde_cfg->pde_info_lock);
 	}
 	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
 		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
 		pde_info = &pde_cfg->pde_info;
-		mutex_lock(&pde_cfg->pde_info_lock);
 		if (pde_info->pd_table_offset) {
 			node->active_fmt.fmt.meta.buffersize =
 				default_fmt->fmt.meta.buffersize
@@ -2613,7 +2529,6 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 				node->desc.dma_port,
 				node->active_fmt.fmt.meta.buffersize);
 		}
-		mutex_unlock(&pde_cfg->pde_info_lock);
 	}
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;

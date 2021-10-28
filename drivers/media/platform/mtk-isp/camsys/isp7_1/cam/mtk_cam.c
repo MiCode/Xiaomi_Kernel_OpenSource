@@ -36,7 +36,6 @@
 #include "mtk_cam-feature.h"
 #include "mtk_cam_pm.h"
 #include "mtk_cam-dvfs_qos.h"
-#include "mtk_cam-meta.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-smem.h"
@@ -5151,7 +5150,7 @@ static int mtk_cam_debug_fs_init(struct mtk_cam_device *cam)
 	 */
 	int dump_mem_size = MTK_CAM_DEBUG_DUMP_HEADER_MAX_SIZE +
 			    CQ_BUF_SIZE +
-			    RAW_STATS_CFG_SIZE +
+			    mtk_cam_get_meta_size(MTKCAM_IPI_RAW_META_STATS_CFG) +
 			    RAW_STATS_CFG_VARIOUS_SIZE +
 			    sizeof(struct mtkcam_ipi_frame_param) +
 			    sizeof(struct mtkcam_ipi_config_param) *

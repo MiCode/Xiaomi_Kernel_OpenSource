@@ -8,7 +8,6 @@
 #include <media/v4l2-event.h>
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
-#include "mtk_cam-meta.h"
 #include "mtk_cam-debug.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
@@ -118,8 +117,8 @@ mtk_cam_debug_dump_all_content(struct mtk_cam_debug_fs *debug_fs,
 		header->payload_offset, header->payload_size);
 
 	/* meta file information */
-	header->meta_version_major = MTK_CAM_META_VERSION_MAJOR;
-	header->meta_version_minor = MTK_CAM_META_VERSION_MINOR;
+	header->meta_version_major = mtk_cam_get_meta_version(true);
+	header->meta_version_minor = mtk_cam_get_meta_version(false);
 
 	/* CQ dump */
 	header->cq_dump_buf_offset = header->payload_offset;

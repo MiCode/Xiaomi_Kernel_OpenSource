@@ -17,7 +17,6 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
-#include "mtk_cam-meta.h"
 #include "mtk_cam-sv-regs.h"
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-tg-flash.h"
@@ -2880,7 +2879,6 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	struct mtk_cam_buffer *buf;
 	struct vb2_buffer *vb;
 	struct mtk_cam_video_device *node;
-	struct mtk_cam_uapi_meta_raw_stats_1 *meta_stats_1;
 	void *vaddr;
 
 	s_data = mtk_cam_req_work_get_s_data(meta1_done_work);
@@ -2951,20 +2949,6 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 
 	/* Update the timestamp for the buffer*/
 	mtk_cam_s_data_update_timestamp(ctx, buf, s_data_ctx);
-
-	meta_stats_1 = (struct mtk_cam_uapi_meta_raw_stats_1 *) vaddr;
-	if (meta_stats_1->af_stats.blk_num_x < 1 ||
-	    meta_stats_1->af_stats.blk_num_x > 500 ||
-	    meta_stats_1->af_stats.blk_num_y < 1 ||
-	    meta_stats_1->af_stats.blk_num_y > 500) {
-		dev_info(ctx->cam->dev,
-			 "invalid meta1:enabled(%d),blk_num_x/y(%d/%d),buf_offset/sz(%d/%d)\n",
-			 meta_stats_1->af_stats_enabled,
-			 meta_stats_1->af_stats.blk_num_x,
-			 meta_stats_1->af_stats.blk_num_y,
-			 meta_stats_1->af_stats.afo_buf.offset,
-			 meta_stats_1->af_stats.afo_buf.size);
-	}
 
 	/* clean the stream data for req reinit case */
 	mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_OUT_1);

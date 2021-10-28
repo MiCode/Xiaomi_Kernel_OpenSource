@@ -23,7 +23,7 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-mraw.h"
-#include "mtk_cam-meta.h"
+#include "mtk_cam-meta-mt6983.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 

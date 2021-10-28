@@ -100,28 +100,6 @@ enum hardware_mode_id {
 	DCIF			= 2,
 };
 
-#define RAW_STATS_CFG_SIZE \
-	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_cfg), SZ_1K)
-/* max(pdi_table1, pdi_table2, ...) */
-#define RAW_STATS_CFG_VARIOUS_SIZE ALIGN(0x7500, SZ_1K)
-
-/* meta out max size include 1k meta info and dma buffer size */
-#define RAW_STATS_0_SIZE \
-	ALIGN(ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_0), SZ_1K) + \
-	      MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE + \
-	      MTK_CAM_UAPI_LTMSO_SIZE + \
-	      MTK_CAM_UAPI_FLK_MAX_BUF_SIZE + \
-	      MTK_CAM_UAPI_TSFSO_SIZE * 2 + /* r1 & r2 */ \
-	      MTK_CAM_UAPI_TNCSYO_SIZE \
-	      /* TODO: TNCSO TNCSBO TNCSHO SIZE */ \
-	      , (4 * SZ_1K))
-#define RAW_STATS_1_SIZE \
-	ALIGN(ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_1), SZ_1K) + \
-	      MTK_CAM_UAPI_AFO_MAX_BUF_SIZE, (4 * SZ_1K))
-#define RAW_STATS_2_SIZE \
-	ALIGN(ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_2), SZ_1K) + \
-	      MTK_CAM_UAPI_ACTSO_SIZE, (4 * SZ_1K))
-
 /* enum for pads of raw pipeline */
 enum {
 	MTK_RAW_SINK_BEGIN = 0,
@@ -156,6 +134,9 @@ enum {
 	MTK_RAW_PIPELINE_PADS_NUM,
 };
 
+/* max(pdi_table1, pdi_table2, ...) */
+#define RAW_STATS_CFG_VARIOUS_SIZE ALIGN(0x7500, SZ_1K)
+
 #define MTK_RAW_TOTAL_NODES (MTK_RAW_PIPELINE_PADS_NUM - MTK_RAW_SINK_NUM)
 
 struct mtk_cam_dev;
@@ -189,7 +170,6 @@ struct mtk_cam_ctx;
  */
 
 struct mtk_raw_pde_config {
-	struct mutex pde_info_lock;  /* To protect the pde information */
 	struct mtk_cam_pde_info pde_info;
 };
 

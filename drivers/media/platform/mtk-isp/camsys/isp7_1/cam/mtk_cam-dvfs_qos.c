@@ -9,7 +9,6 @@
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam-dvfs_qos.h"
-#include "mtk_cam-meta.h"
 
 static unsigned int debug_mmqos;
 module_param(debug_mmqos, uint, 0644);
@@ -589,7 +588,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			// fho = almost zero
 			// pdo = implement later
 			qos_port_id = engine_id * raw_qos_port_num + fho_r1;
-			BW_MB_s = MTK_CAM_UAPI_AAHO_HIST_SIZE * fps;
+			BW_MB_s = mtk_cam_get_port_bw(AAHO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] += BW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d BW(B/s):%lu\n",
@@ -599,8 +598,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			// aao = MTK_CAM_UAPI_AAO_MAX_BUF_SIZE (twin = /2)
 			// afo = MTK_CAM_UAPI_AFO_MAX_BUF_SIZE (twin = /2)
 			qos_port_id = engine_id * raw_qos_port_num + aao_r1;
-			BW_MB_s = (MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + MTK_CAM_UAPI_AFO_MAX_BUF_SIZE)
-							* fps;
+			BW_MB_s = mtk_cam_get_port_bw(AAO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] += BW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d BW(B/s):%lu\n",
@@ -610,7 +608,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			// tsfso x 2 = MTK_CAM_UAPI_TSFSO_SIZE * 2
 			// ltmso = MTK_CAM_UAPI_LTMSO_SIZE
 			qos_port_id = engine_id * raw_qos_port_num + tsfso_r1;
-			BW_MB_s = (MTK_CAM_UAPI_TSFSO_SIZE * 2 + MTK_CAM_UAPI_LTMSO_SIZE) * fps;
+			BW_MB_s = mtk_cam_get_port_bw(TSFSO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] += BW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d BW(B/s):%lu\n",
@@ -622,8 +620,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx)
 			// ufeo = implement later
 			// bpco = implement later
 			qos_port_id = engine_id * raw_qos_port_num + flko_r1;
-			BW_MB_s = MTK_CAM_UAPI_FLK_BLK_SIZE *  MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM
-							* height * fps;
+			BW_MB_s = mtk_cam_get_port_bw(FLKO, height, fps);
 			dvfs_info->qos_bw_avg[qos_port_id] += BW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d BW(B/s):%lu\n",

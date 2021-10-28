@@ -16,7 +16,6 @@
 #include "mtk_cam.h"
 #include "mtk_cam-smem.h"
 #include "mtk_cam-pool.h"
-#include "mtk_cam-meta.h"
 #include "mtk_heap.h"
 
 #ifndef CONFIG_MTK_SCP
@@ -88,7 +87,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 			__func__, ctx->stream_id, i, &buf->buffer.iova);
 
 		/* meta buffer */
-		smem.len = RAW_STATS_1_SIZE;
+		smem.len = mtk_cam_get_meta_size(MTKCAM_IPI_RAW_META_STATS_1);
 		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 		if (IS_ERR(mem_priv))
 			return PTR_ERR(mem_priv);
