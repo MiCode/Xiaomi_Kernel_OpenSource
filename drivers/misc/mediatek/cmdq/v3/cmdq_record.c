@@ -1419,7 +1419,7 @@ s32 cmdq_op_write_reg_secure(struct cmdqRecStruct *handle, u32 addr,
 	metadata.port = port;
 	metadata.useSecIdinMeta = 1;
 	metadata.sec_id = sec_id;
-	CMDQ_LOG("%s,port:%d,useSecIdinMeta:%d,sec_id:%d,baseHandle:0x%08x,handle:0x%08x",
+	CMDQ_LOG("%s,port:%d,useSecIdinMeta:%d,sec_id:%d,baseHandle:%llu,handle:%p",
 		__func__, metadata.port, metadata.useSecIdinMeta, metadata.sec_id,
 		baseHandle, handle);
 
