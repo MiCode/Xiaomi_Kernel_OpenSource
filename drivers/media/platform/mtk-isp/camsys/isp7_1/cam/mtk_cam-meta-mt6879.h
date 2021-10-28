@@ -856,10 +856,10 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 	struct mtk_cam_uapi_pd_stats pd_stats;
 };
 
-#define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 7
+#define MTK_CAM_META_VERSION_MAJOR 2
+#define MTK_CAM_META_VERSION_MINOR 0
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
-#define MTK_CAM_META_CHIP_NAME "mt6983"
+#define MTK_CAM_META_CHIP_NAME "mt6879"
 
 
 #endif /* __MTK_CAM_META_H__ */

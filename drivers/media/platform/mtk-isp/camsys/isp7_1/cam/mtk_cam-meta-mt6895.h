@@ -770,7 +770,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_wb_param wb_param;
 	struct mtk_cam_uapi_pde_param pde_param;
 
-	__u8 bytes[1024 * 94];
+	__u8 bytes[1024 * 95];
 };
 
 /**
@@ -856,10 +856,10 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 	struct mtk_cam_uapi_pd_stats pd_stats;
 };
 
-#define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 7
+#define MTK_CAM_META_VERSION_MAJOR 2
+#define MTK_CAM_META_VERSION_MINOR 0
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
-#define MTK_CAM_META_CHIP_NAME "mt6983"
+#define MTK_CAM_META_CHIP_NAME "mt6895"
 
 
 #endif /* __MTK_CAM_META_H__ */
