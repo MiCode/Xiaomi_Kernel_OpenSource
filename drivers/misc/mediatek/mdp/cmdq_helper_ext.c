@@ -1654,7 +1654,7 @@ u32 cmdqCoreReadWriteAddress(dma_addr_t pa)
 	return value;
 }
 
-void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out)
+void cmdqCoreReadWriteAddressBatch(dma_addr_t *addrs, u32 count, u32 *val_out)
 {
 	struct WriteAddrStruct *waddr, *cur_waddr = NULL;
 	unsigned long flags = 0L;

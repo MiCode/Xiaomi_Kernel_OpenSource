@@ -843,7 +843,7 @@ s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario);
 int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 	enum CMDQ_CLT_ENUM clt, void *fp);
 u32 cmdqCoreReadWriteAddress(dma_addr_t pa);
-void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out);
+void cmdqCoreReadWriteAddressBatch(dma_addr_t *addrs, u32 count, u32 *val_out);
 u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value);
 int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
 int cmdqCoreFreeWriteAddressByNode(void *fp, enum CMDQ_CLT_ENUM clt);

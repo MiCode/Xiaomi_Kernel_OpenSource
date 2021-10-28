@@ -221,7 +221,7 @@ static int cmdq_driver_create_reg_address_buffer(
 	return 0;
 }
 
-void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
+void cmdq_driver_dump_readback(dma_addr_t *addrs, u32 count, u32 *values)
 {
 	u32 i, n, len, cur;
 	char buf[72];
@@ -234,7 +234,7 @@ void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
 
 	i = 0;
 	while (i < count) {
-		len = snprintf(buf, sizeof(buf), "%#x:", addrs[i]);
+		len = snprintf(buf, sizeof(buf), "%#lx:", addrs[i]);
 		cur = addrs[i] & 0xFFFFFFF0;
 
 		/* limit max num 4 in line */
@@ -255,7 +255,7 @@ static void cmdq_driver_process_read_address_request(
 	struct cmdqReadAddressStruct *req_user)
 {
 	/* create kernel-space buffer for working */
-	u32 *addrs = NULL;
+	dma_addr_t *addrs = NULL;
 	u32 *values = NULL;
 	void *dma_addr;
 	void *values_addr;
@@ -278,7 +278,7 @@ static void cmdq_driver_process_read_address_request(
 			break;
 		}
 
-		addrs = kcalloc(req_user->count, sizeof(u32), GFP_KERNEL);
+		addrs = kcalloc(req_user->count, sizeof(dma_addr_t), GFP_KERNEL);
 		if (!addrs) {
 			CMDQ_ERR("[READ_PA] fail to alloc addr buf\n");
 			break;
@@ -292,9 +292,9 @@ static void cmdq_driver_process_read_address_request(
 
 		/* copy from user */
 		if (copy_from_user(addrs, dma_addr,
-			req_user->count * sizeof(u32))) {
+			req_user->count * sizeof(dma_addr_t))) {
 			CMDQ_ERR(
-				"[READ_PA] fail to copy user dma addr:0x%p\n",
+				"[READ_PA] fail to copy user dma addr:0x%pa\n",
 				dma_addr);
 			break;
 		}

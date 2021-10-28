@@ -116,7 +116,7 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 {
 	/* create kernel-space buffer for working */
 	u32 *ids = NULL;
-	u32 *addrs = NULL;
+	dma_addr_t *addrs = NULL;
 	u32 *values = NULL;
 	void *ids_user = NULL;
 	void *values_user = NULL;
@@ -149,7 +149,7 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 			break;
 		}
 
-		addrs = kcalloc(count, sizeof(u32), GFP_KERNEL);
+		addrs = kcalloc(count, sizeof(dma_addr_t), GFP_KERNEL);
 		if (!ids) {
 			CMDQ_ERR("[READ_PA] fail to alloc addr buf\n");
 			status = -ENOMEM;

@@ -105,7 +105,7 @@ s32 cmdq_driver_ioctl_query_cap_bits(unsigned long param);
 s32 cmdq_driver_ioctl_query_dts(unsigned long param);
 s32 cmdq_driver_ioctl_notify_engine(unsigned long param);
 
-void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values);
+void cmdq_driver_dump_readback(dma_addr_t *addrs, u32 count, u32 *values);
 
 /* for mdp_fence.c header */
 int mdp_sync_device_init(void);
