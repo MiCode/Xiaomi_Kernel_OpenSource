@@ -4486,6 +4486,16 @@
 				<0x3c0 0x0 1>;
 		};
 
+		mtk_dmabufheap_debug0: dmaheap_test0 {
+				compatible = "mediatek, mtk_dmabufheap, iommu0";
+				iommus = <&disp_iommu M4U_LARB0_PORT3>;
+		};
+
+		mtk_dmabufheap_debug1: dmaheap_test1 {
+				compatible = "mediatek, mtk_dmabufheap, iommu1";
+				iommus = <&disp_iommu M4U_LARB1_PORT7>;
+		};
+
 		apu_iommu0_bank1: iommu@19011000 {
 			compatible = "mediatek,common-apu-iommu0-bank1";
 			mediatek,bank-id = <1>;
