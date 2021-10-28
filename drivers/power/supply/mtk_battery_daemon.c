@@ -3568,7 +3568,12 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	{
 		unsigned int vbat = 0;
 
-		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE) * 10;
+		if (gm->disableGM30)
+			vbat = 4000 * 10;
+		else
+			vbat = gauge_get_int_property(
+				GAUGE_PROP_BATTERY_VOLTAGE) * 10;
+
 		ret_msg->fgd_data_len += sizeof(vbat);
 		memcpy(ret_msg->fgd_data, &vbat, sizeof(vbat));
 		bm_debug("[K]FG_DAEMON_CMD_GET_VBAT = %d\n", vbat);
@@ -4266,7 +4271,10 @@ void fg_update_sw_low_battery_check(unsigned int thd)
 	if (version >= GAUGE_HW_V2000)
 		return;
 
-	vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE) * 10;
+	if (gm->disableGM30)
+		vbat = 4000 * 10;
+	else
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE) * 10;
 
 	bm_err("[%s]vbat:%d %d ht:%d %d lt:%d %d\n",
 		__func__,
@@ -4353,6 +4361,7 @@ static int nafg_irq_handler(struct mtk_battery *gm)
 	signed int nafg_cnt = 0;
 	signed int nafg_dltv = 0;
 	signed int nafg_c_dltv = 0;
+	int vbat = 0;
 
 	gauge = gm->gauge;
 	/* 1. Get SW Car value */
@@ -4366,6 +4375,12 @@ static int nafg_irq_handler(struct mtk_battery *gm)
 	gauge->hw_status.nafg_dltv = nafg_dltv;
 	gauge->hw_status.nafg_c_dltv = nafg_c_dltv;
 
+	if (gm->disableGM30)
+		vbat = 4000;
+	else
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
+
 	bm_err(
 		"[%s][cnt:%d dltv:%d cdltv:%d cdltvt:%d zcv:%d vbat:%d]\n",
 		__func__,
@@ -4374,7 +4389,7 @@ static int nafg_irq_handler(struct mtk_battery *gm)
 		nafg_c_dltv,
 		gauge->hw_status.nafg_c_dltv_th,
 		gauge->hw_status.nafg_zcv,
-		gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE));
+		vbat);
 	/* battery_dump_nag(); */
 
 	/* 2. Stop HW interrupt*/

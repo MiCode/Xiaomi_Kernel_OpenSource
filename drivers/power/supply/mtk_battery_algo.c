@@ -1394,7 +1394,12 @@ void fgr_int_end_flow(struct mtk_battery *gm, unsigned int intr_no)
 
 	algo->car = gauge_get_int_property(GAUGE_PROP_COULOMB);
 	get_hw_info();
-	vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
+	if (gm->disableGM30)
+		vbat = 4000;
+	else
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
 	curr_temp = force_get_tbat(gm, true);
 
 	set_kernel_soc(gm, algo->soc);

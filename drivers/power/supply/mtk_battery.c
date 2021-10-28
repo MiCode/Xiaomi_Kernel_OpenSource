@@ -382,8 +382,12 @@ static int battery_psy_get_property(struct power_supply *psy,
 			break;
 		}
 
-		ret = gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
-			&bs_data->bat_batt_vol);
+		if (gm->disableGM30)
+			bs_data->bat_batt_vol = 4000;
+		else
+			ret = gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
+				&bs_data->bat_batt_vol);
+
 		if (ret == -EHOSTDOWN)
 			val->intval = gm->vbat;
 		else {
@@ -2085,7 +2089,12 @@ void battery_update_psd(struct mtk_battery *gm)
 {
 	struct battery_data *bat_data = &gm->bs_data;
 
-	gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE, &bat_data->bat_batt_vol);
+	if (gm->disableGM30)
+		bat_data->bat_batt_vol = 4000;
+	else
+		gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
+			&bat_data->bat_batt_vol);
+
 	bat_data->bat_batt_temp = force_get_tbat(gm, true);
 }
 void battery_update(struct mtk_battery *gm)
@@ -2849,8 +2858,13 @@ void set_shutdown_vbat_lt(struct mtk_battery *gm, int vbat_lt, int vbat_lt_lv1)
 int get_shutdown_cond(struct mtk_battery *gm)
 {
 	int ret = 0;
-	int vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+	int vbat = 0;
 	struct shutdown_controller *sdc;
+
+	if (gm->disableGM30)
+		vbat = 4000;
+	else
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
 
 	sdc = &gm->sdc;
 	if (sdc->shutdown_status.is_soc_zero_percent)
@@ -2884,20 +2898,23 @@ int disable_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 	int now_is_charging = 0;
 	int now_is_kpoc = 0;
 	struct shutdown_controller *sdc;
+	int vbat = 0;
 
 	sdc = &gm->sdc;
 	now_current = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
 	now_is_kpoc = is_kernel_power_off_charging();
 
-/* todo: can not get charger status now */
-/*	if (mt_get_charger_type() != CHARGER_UNKNOWN)*/
-/*		now_is_charging = 1;*/
+	if (gm->disableGM30)
+		vbat = 4000;
+	else
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
 
 	bm_debug("%s %d, is kpoc %d curr %d is_charging %d flag:%d lb:%d\n",
 		__func__,
 		shutdown_cond, now_is_kpoc, now_current, now_is_charging,
 		sdc->shutdown_cond_flag,
-		gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE));
+		vbat);
 
 	switch (shutdown_cond) {
 #ifdef SHUTDOWN_CONDITION_LOW_BAT_VOLT
@@ -2922,7 +2939,7 @@ int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 	int now_current;
 	int now_is_charging = 0;
 	int now_is_kpoc = 0;
-	int vbat;
+	int vbat = 0;
 	struct shutdown_controller *sdc;
 	struct shutdown_condition *sds;
 	int enable_lbat_shutdown;
@@ -2935,7 +2952,12 @@ int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 
 	now_current = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
 	now_is_kpoc = is_kernel_power_off_charging();
-	vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
+	if (gm->disableGM30)
+		vbat = 4000;
+	else
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
 	sdc = &gm->sdc;
 	sds = &gm->sdc.shutdown_status;
 
@@ -3058,7 +3080,7 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 	int now_current = 0;
 	int current_ui_soc = gm->ui_soc;
 	int current_soc = gm->soc;
-	int vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+	int vbat = 0;
 	int tmp = 25;
 	struct shutdown_controller *sdd = &gm->sdc;
 
@@ -3135,6 +3157,12 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 	if (sdd->shutdown_status.is_under_shutdown_voltage) {
 
 		int vbatcnt = 0, i;
+
+		if (gm->disableGM30)
+			vbat = 4000;
+		else
+			vbat = gauge_get_int_property(
+				GAUGE_PROP_BATTERY_VOLTAGE);
 
 		sdd->batdata[sdd->batidx] = vbat;
 
