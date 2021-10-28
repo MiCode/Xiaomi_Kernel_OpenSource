@@ -1085,7 +1085,29 @@ config_img_in_fmt_time_shared(struct mtk_cam_device *cam,
 	in_fmt->fmt.format, in_fmt->buf[0].iova);
 
 }
-
+static void check_buffer_mem_saving(
+		struct mtk_cam_request_stream_data *req,
+		struct mtkcam_ipi_img_input *in_fmt,
+		int rawi_port_num)
+{
+	if (req->feature.raw_feature & HDR_MEMORY_SAVING) {
+		if (rawi_port_num == 2) {
+			/*raw's imgo using buf from user*/
+			req->frame_params.img_outs[0].buf[0][0].iova =
+			req->frame_params.img_ins[0].buf[0].iova;
+			/*sv's imgo using img pool buf*/
+			in_fmt->buf[0].iova = 0x0;
+		} else if (rawi_port_num == 1) {
+			/*raw's imgo using buf from user*/
+			req->frame_params.img_outs[0].buf[0][0].iova =
+			req->frame_params.img_ins[0].buf[0].iova;
+			/*sv's imgo using img pool buf*/
+			in_fmt->buf[0].iova = 0x0;
+		}
+		dev_dbg(req->ctx->cam->dev, "%s: req:%d, rawi_num:%d\n",
+			__func__, req->frame_seq_no, rawi_port_num);
+	}
+}
 static void check_stagger_buffer(struct mtk_cam_device *cam,
 				 struct mtk_cam_request *cam_req)
 {
@@ -1154,6 +1176,7 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 				in_fmt =
 					&req->frame_params.img_ins[
 					input_node - MTKCAM_IPI_RAW_RAWI_2];
+				check_buffer_mem_saving(req, in_fmt, rawi_port_num);
 				if (in_fmt->buf[0].iova == 0x0) {
 					node = &ctx->pipe->vdev_nodes[
 						MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
