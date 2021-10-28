@@ -1258,7 +1258,8 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	{"ADDA CH34 Playback", NULL, "aud_3rd_dac_hires_clk",
 	 mtk_afe_dac_hires_connect},
 
-	{"ADDA Capture Enable", NULL, "aud_adc_clk"},
+	/* mtkaif4.0 only use adda6 clock */
+	{"ADDA Capture Enable", NULL, "aud_adda6_adc_clk"},
 	{"ADDA Capture Enable", NULL, "aud_adc_hires_clk",
 	 mtk_afe_adc_hires_connect},
 	{"ADDA CH34 Capture Enable", NULL, "aud_adda6_adc_clk"},
