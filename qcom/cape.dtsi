@@ -732,6 +732,11 @@
 		};
 	};
 
+	qcom,secure-buffer {
+		compatible = "qcom,secure-buffer";
+		qcom,vmid-cp-camera-preview-ro;
+	};
+
 	soc-sleep-stats@c3f0000 {
 		compatible = "qcom,rpmh-sleep-stats";
 		reg = <0xc3f0000 0x400>;
