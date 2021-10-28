@@ -3071,13 +3071,14 @@ static const struct mtk_iommu_plat_data mt6879_data_disp = {
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK | HAS_SMI_SUB_COMM |
-			  SHARE_PGTABLE,
+			  SHARE_PGTABLE | IOMMU_MAU_EN,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
 	.normal_dom	= 0,
 	.iova_region    = mt6879_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
+	.mau_count	= 4,
 	/* not use larbid_remap */
 };
 
@@ -3085,7 +3086,7 @@ static const struct mtk_iommu_plat_data mt6879_data_apu0 = {
 	.m4u_plat	= M4U_MT6879,
 	.flags          = HAS_SUB_COMM | TLB_SYNC_EN | IOMMU_SEC_BK_EN |
 			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | PM_OPS_SKIP |
-			  SHARE_PGTABLE,
+			  SHARE_PGTABLE | IOMMU_MAU_EN,
 			  // | HAS_BCLK,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= APU_IOMMU0,
@@ -3093,6 +3094,7 @@ static const struct mtk_iommu_plat_data mt6879_data_apu0 = {
 	.normal_dom	= 0,
 	.iova_region    = mt6879_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6879_multi_dom),
+	.mau_count	= 4,
 	/* not use larbid_remap */
 };
 
