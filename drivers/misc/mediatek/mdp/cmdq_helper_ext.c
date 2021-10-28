@@ -1574,7 +1574,7 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 		memset(pWriteAddr, 0, sizeof(struct WriteAddrStruct));
 
 		pWriteAddr->count = count;
-		pWriteAddr->va = cmdq_core_alloc_hw_buffer_clt(cmdq_dev_get(),
+		pWriteAddr->va = cmdq_core_alloc_hw_buffer_clt(cmdq_mbox_dev_get(),
 			count * sizeof(u32), &(pWriteAddr->pa), GFP_KERNEL,
 			clt, &pWriteAddr->pool);
 		if (current)
@@ -1604,7 +1604,7 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 	if (status != 0) {
 		/* release resources */
 		if (pWriteAddr && pWriteAddr->va) {
-			cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
+			cmdq_core_free_hw_buffer_clt(cmdq_mbox_dev_get(),
 				sizeof(u32) * pWriteAddr->count,
 				pWriteAddr->va, pWriteAddr->pa, clt,
 				pWriteAddr->pool);
@@ -1774,7 +1774,7 @@ int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt)
 
 	/* release resources */
 	if (pWriteAddr->va) {
-		cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
+		cmdq_core_free_hw_buffer_clt(cmdq_mbox_dev_get(),
 			sizeof(u32) * pWriteAddr->count,
 			pWriteAddr->va, pWriteAddr->pa, clt, pWriteAddr->pool);
 		memset(pWriteAddr, 0xda, sizeof(struct WriteAddrStruct));
@@ -1819,7 +1819,7 @@ int cmdqCoreFreeWriteAddressByNode(void *fp, enum CMDQ_CLT_ENUM clt)
 				fp, clt, pid);
 		}
 
-		cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
+		cmdq_core_free_hw_buffer_clt(cmdq_mbox_dev_get(),
 			sizeof(u32) * write_addr->count,
 			write_addr->va, write_addr->pa, clt, write_addr->pool);
 		list_del(&write_addr->list_node);
