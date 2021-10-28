@@ -80,8 +80,8 @@ void __iomem *MRAW_BASE;
 
 struct device *g_dev1, *g_dev2;
 
-struct device *larb13, *larb25;
-struct device *larb14, *larb26;
+struct device *larb25;
+struct device *larb26;
 
 static spinlock_t g_PDA_SpinLock;
 
@@ -191,18 +191,18 @@ static void pda_mmqos_init(void)
 static void pda_mmqos_bw_set(void)
 {
 	int i = 0;
-	// int Inter_ROI_Max_Width = 820;
-	// int Inter_ROI_Max_Height = 616;
-	int Inter_Frame_Size_Width = 820;
-	int Inter_Frame_Size_Height = 1232;
+	// int Inter_ROI_Max_Width = 1024;
+	// int Inter_ROI_Max_Height = 96;
+	int Inter_Frame_Size_Width = 2048;
+	int Inter_Frame_Size_Height = 192;
 
-	int Mach_ROI_Max_Width = 3280;
-	int Mach_ROI_Max_Height = 154;
-	int Mach_Frame_Size_Width = 6560;
-	int Mach_Frame_Size_Height = 308;
+	int Mach_ROI_Max_Width = 2048;
+	int Mach_ROI_Max_Height = 96;
+	int Mach_Frame_Size_Width = 4096;
+	int Mach_Frame_Size_Height = 192;
 
 	double Freqency = 360.0;
-	int FOV = 200;
+	int FOV = 100;
 	int ROI_Number = 45;
 	int Frame_Rate = 30;
 	// int Expected_HW_Compute_time = 15;
@@ -244,6 +244,10 @@ static void pda_mmqos_bw_set(void)
 	// Left/Right RDMA BW
 	double IMAGE_TABLE_RDMA_PEAK_BW = RDMA_PEAK_BW / 2;
 	double IMAGE_TABLE_RDMA_AVG_BW = RDMA_AVG_BW * (1.33) / 2;
+
+	// pda is not HRT engine, no need to set HRT bw
+	IMAGE_TABLE_RDMA_PEAK_BW = 0;
+	WDMA_PEAK_BW = 0;
 
 	// MMQOS set bw
 	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
@@ -318,13 +322,6 @@ static inline void PDA_Prepare_Enable_ccf_clock(void)
 	LOG_INF("clock begin");
 
 	// enable smi larb
-	ret = mtk_smi_larb_get(larb13);
-	if (ret)
-		LOG_INF("mtk_smi_larb13_get larbvdec fail %d\n", ret);
-	ret = mtk_smi_larb_get(larb14);
-	if (ret)
-		LOG_INF("mtk_smi_larb14_get larbvdec fail %d\n", ret);
-
 	ret = mtk_smi_larb_get(larb25);
 	if (ret)
 		LOG_INF("mtk_smi_larb25_get larbvdec fail %d\n", ret);
@@ -359,17 +356,14 @@ static inline void PDA_Disable_Unprepare_ccf_clock(void)
 	}
 
 #if IS_ENABLED(CONFIG_OF)
-	/* consumer device starting work*/
-	pm_runtime_put_sync(g_dev2); //Note: It‘s not larb's device.
-	pm_runtime_put_sync(g_dev1); //Note: It‘s not larb's device.
+	pm_runtime_put_sync(g_dev2);
+	pm_runtime_put_sync(g_dev1);
 	LOG_INF("pm_runtime_put_sync done\n");
 #endif
 
-	// enable smi larb
+	// disable smi larb
 	mtk_smi_larb_put(larb26);
 	mtk_smi_larb_put(larb25);
-	mtk_smi_larb_put(larb14);
-	mtk_smi_larb_put(larb13);
 	LOG_INF("mtk_smi_larb_put done\n");
 }
 
@@ -1979,8 +1973,7 @@ static int PDA_probe(struct platform_device *pDev)
 	LOG_INF("init_waitqueue_head done\n");
 
 	// must porting in dts
-	larb13 = pda_init_larb(pDev, 0);
-	larb25 = pda_init_larb(pDev, 1);
+	larb25 = pda_init_larb(pDev, 0);
 
 #if IS_ENABLED(CONFIG_OF)
 	g_dev1 = &pDev->dev;
@@ -2116,8 +2109,7 @@ static int PDA2_probe(struct platform_device *pdev)
 	LOG_INF("PDA2 probe Start\n");
 
 	// must porting in dts
-	larb14 = pda_init_larb(pdev, 0);
-	larb26 = pda_init_larb(pdev, 1);
+	larb26 = pda_init_larb(pdev, 0);
 
 #if IS_ENABLED(CONFIG_OF)
 	g_dev2 = &pdev->dev;
