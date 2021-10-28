@@ -210,6 +210,8 @@ static const struct mdw_dev_func mdw_ap_func = {
 	.ucmd = mdw_ap_ucmd,
 	.set_param = mdw_ap_set_param,
 	.get_info = mdw_ap_get_info,
+	.register_device = mdw_rsc_register_device,
+	.unregister_device = mdw_rsc_unregister_device,
 };
 
 void mdw_ap_set_func(struct mdw_device *mdev)

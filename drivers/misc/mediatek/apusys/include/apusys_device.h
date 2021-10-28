@@ -39,6 +39,9 @@ enum {
 
 	APUSYS_CMD_FIRMWARE,
 	APUSYS_CMD_USER,
+	APUSYS_CMD_VALIDATE,
+	APUSYS_CMD_SESSION_CREATE,
+	APUSYS_CMD_SESSION_DELETE,
 
 	APUSYS_CMD_MAX,
 };
@@ -68,6 +71,12 @@ struct apusys_cmdbuf {
 	uint32_t size;
 };
 
+struct apusys_cmd_valid_handle {
+	void *session;
+	uint32_t num_cmdbufs;
+	struct apusys_cmdbuf *cmdbufs;
+};
+
 struct apusys_cmd_handle {
 	struct apusys_cmdbuf *cmdbufs;
 	uint32_t num_cmdbufs;
@@ -94,7 +103,7 @@ struct apusys_usercmd_hnd {
 #define APUSYS_DEVICE_META_SIZE (32)
 
 struct apusys_device {
-	int dev_type;
+	uint32_t dev_type;
 	int idx;
 	int preempt_type;
 	uint8_t preempt_level;
@@ -145,8 +154,12 @@ struct apusys_device {
 int apusys_register_device(struct apusys_device *dev);
 int apusys_unregister_device(struct apusys_device *dev);
 
+
+int apusys_mem_get_by_iova(void *session, uint64_t iova);
+
 uint64_t apusys_mem_query_kva(uint64_t iova);
 uint64_t apusys_mem_query_iova(uint64_t kva);
+
 int apusys_mem_flush_kva(void *kva, uint32_t size);
 int apusys_mem_invalidate_kva(void *kva, uint32_t size);
 

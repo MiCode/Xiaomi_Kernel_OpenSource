@@ -26,6 +26,7 @@
 
 #define MDW_NAME "apusys"
 #define MDW_DEV_MAX (APUSYS_DEVICE_MAX)
+#define MDW_DEV_TAB_DEV_MAX (16)
 #define MDW_CMD_MAX (32)
 #define MDW_SUBCMD_MAX (63)
 #define MDW_PRIORITY_MAX (32)
@@ -147,6 +148,9 @@ struct mdw_device {
 	/* user interface version */
 	uint32_t uapi_ver;
 
+	/* device */
+	struct apusys_device *adevs[MDW_DEV_MAX];
+
 	/* device support information */
 	unsigned long dev_mask[BITS_TO_LONGS(MDW_DEV_MAX)];
 	struct mdw_dinfo *dinfos[MDW_DEV_MAX];
@@ -155,7 +159,7 @@ struct mdw_device {
 	struct mdw_mem minfos[MDW_MEM_TYPE_MAX];
 
 	/* memory hlist */
-	DECLARE_HASHTABLE(m_hlist, 5);
+	//DECLARE_HASHTABLE(m_hlist, 5);
 	struct list_head m_list;
 	struct mutex m_mtx;
 
@@ -246,6 +250,8 @@ struct mdw_dev_func {
 	int (*ucmd)(struct mdw_device *mdev, uint32_t type, void *vaddr, uint32_t size);
 	int (*set_param)(struct mdw_device *mdev, enum mdw_info_type type, uint32_t val);
 	uint32_t (*get_info)(struct mdw_device *mdev, enum mdw_info_type type);
+	int (*register_device)(struct apusys_device *adev);
+	int (*unregister_device)(struct apusys_device *adev);
 };
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -294,5 +300,9 @@ void mdw_dbg_deinit(void);
 
 int mdw_dev_init(struct mdw_device *mdev);
 void mdw_dev_deinit(struct mdw_device *mdev);
+void mdw_dev_session_create(struct mdw_fpriv *mpriv);
+void mdw_dev_session_delete(struct mdw_fpriv *mpriv);
+int mdw_dev_validation(struct mdw_fpriv *mpriv, uint32_t dtype,
+	struct apusys_cmdbuf *cbs, uint32_t num);
 
 #endif

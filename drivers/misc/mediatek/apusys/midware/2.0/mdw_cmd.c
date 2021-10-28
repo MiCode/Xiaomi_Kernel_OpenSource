@@ -79,6 +79,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	int ret = -EINVAL;
 	struct mdw_subcmd_kinfo *ksubcmd = NULL;
 	struct mdw_mem *m = NULL;
+	struct apusys_cmdbuf *acbs = NULL;
 
 	mdw_trace_begin("get cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",
 		c->kid, c->num_subcmds, c->num_cmdbufs);
@@ -110,6 +111,11 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		mdw_cmd_debug("sc(0x%llx-%u) #cmdbufs(%u)\n",
 			c->kid, i, c->ksubcmds[i].info->num_cmdbufs);
 
+		acbs = kcalloc(c->ksubcmds[i].info->num_cmdbufs, sizeof(*acbs), GFP_KERNEL);
+		if (!acbs) {
+			mdw_drv_warn("alloc validate struct for acbs fail\n");
+			goto free_cmdbufs;
+		}
 		ksubcmd = &c->ksubcmds[i];
 		for (j = 0; j < ksubcmd->info->num_cmdbufs; j++) {
 			/* calc align */
@@ -161,11 +167,21 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 				(uint64_t)(c->cmdbufs->device_va + ofs);
 			ofs += ksubcmd->cmdbufs[j].size;
 
-			mdw_cmd_debug("sc(0x%llx-%u) cb#%u (0x%llx/0x%llx)\n",
+			mdw_cmd_debug("sc(0x%llx-%u) cb#%u (0x%llx/0x%llx/%u)\n",
 				c->kid, i, j,
 				ksubcmd->kvaddrs[j],
-				ksubcmd->daddrs[j]);
+				ksubcmd->daddrs[j],
+				ksubcmd->cmdbufs[j].size);
+
+			acbs[j].kva = (void *)ksubcmd->kvaddrs[j];
+			acbs[j].size = ksubcmd->cmdbufs[j].size;
 		}
+
+		ret = mdw_dev_validation(mpriv, ksubcmd->info->type, acbs, ksubcmd->info->num_cmdbufs);
+		kfree(acbs);
+		acbs = NULL;
+		if (ret)
+			goto free_cmdbufs;
 	}
 	/* flush cmdbufs */
 	if (mdw_mem_flush(mpriv, c->cmdbufs))
@@ -177,6 +193,8 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 free_cmdbufs:
 	mdw_cmd_put_cmdbufs(mpriv, c);
+	if (acbs)
+		kfree(acbs);
 out:
 	mdw_cmd_debug("ret(%d)\n", ret);
 	mdw_trace_end("get cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",

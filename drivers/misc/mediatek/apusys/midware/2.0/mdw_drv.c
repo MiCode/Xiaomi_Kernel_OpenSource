@@ -18,7 +18,6 @@ struct mdw_device *mdw_dev;
 static struct apusys_core_info *g_info;
 static atomic_t g_inited;
 
-
 static void mdw_drv_priv_delete(struct kref *ref)
 {
 	struct mdw_fpriv *mpriv =
@@ -78,6 +77,7 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	mpriv->get = mdw_drv_priv_get;
 	mpriv->put = mdw_drv_priv_put;
 	kref_init(&mpriv->ref);
+	mdw_dev_session_create(mpriv);
 	mdw_flw_debug("mpriv(0x%llx)\n", mpriv);
 
 out:
@@ -90,6 +90,7 @@ static int mdw_drv_close(struct inode *inode, struct file *filp)
 
 	mpriv = filp->private_data;
 	mdw_flw_debug("mpriv(%llx)\n", (uint64_t) mpriv);
+	mdw_dev_session_delete(mpriv);
 	mutex_lock(&mpriv->mtx);
 	mdw_mem_mpriv_release(mpriv);
 	mutex_unlock(&mpriv->mtx);
@@ -135,7 +136,7 @@ static int mdw_platform_probe(struct platform_device *pdev)
 	mdev->pdev = pdev;
 	mdev->driver_type = MDW_DRIVER_TYPE_PLATFORM;
 	mdev->misc_dev = &mdw_misc_dev;
-	hash_init(mdev->m_hlist);
+//	hash_init(mdev->m_hlist);
 	mdw_dev = mdev;
 	platform_set_drvdata(pdev, mdev);
 
@@ -226,7 +227,7 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 	mdev->driver_type = MDW_DRIVER_TYPE_RPMSG;
 	mdev->rpdev = rpdev;
 	mdev->misc_dev = &mdw_misc_dev;
-	hash_init(mdev->m_hlist);
+//	hash_init(mdev->m_hlist);
 	mdw_dev = mdev;
 	dev_set_drvdata(dev, mdev);
 

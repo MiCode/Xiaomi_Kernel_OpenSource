@@ -45,6 +45,8 @@ static char * const rsc_dev_name[] = {
 	"mdla",
 	"vpu",
 	"edma",
+	"edma_lite",
+	"mvpu",
 };
 
 #if IS_ENABLED(CONFIG_PM_SLEEP)
@@ -1174,7 +1176,7 @@ void mdw_rsc_deinit(void)
 	mdw_flw_debug("\n");
 }
 
-int apusys_register_device(struct apusys_device *dev)
+int mdw_rsc_register_device(struct apusys_device *dev)
 {
 	int ret = 0;
 
@@ -1190,7 +1192,7 @@ int apusys_register_device(struct apusys_device *dev)
 	return ret;
 }
 
-int apusys_unregister_device(struct apusys_device *dev)
+int mdw_rsc_unregister_device(struct apusys_device *dev)
 {
 	struct mdw_rsc_tab *tab = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;

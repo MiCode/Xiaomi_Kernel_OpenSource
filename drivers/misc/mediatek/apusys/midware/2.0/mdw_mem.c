@@ -719,6 +719,22 @@ struct mdw_mem *mdw_mem_query_mem(uint64_t kva)
 	return m;
 }
 
+int apusys_mem_get_by_iova(void *session, uint64_t iova)
+{
+	struct mdw_fpriv *mpriv = (struct mdw_fpriv *)session;
+	struct mdw_mem_invoke *m_invoke = NULL;
+	struct mdw_mem *m = NULL;
+
+	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		m = m_invoke->m;
+		if (iova >= m->device_va &&
+			iova < m->device_va + m->dva_size)
+			return 0;
+	}
+
+	return -EINVAL;
+}
+
 int apusys_mem_flush_kva(void *kva, uint32_t size)
 {
 	struct mdw_mem *m = NULL;

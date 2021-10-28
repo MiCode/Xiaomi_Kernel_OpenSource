@@ -127,6 +127,16 @@ static uint32_t mdw_rv_get_info(struct mdw_device *mdev,
 	return val;
 }
 
+static int mdw_rv_register_device(struct apusys_device *adev)
+{
+	return 0;
+}
+
+static int mdw_rv_unregister_device(struct apusys_device *adev)
+{
+	return 0;
+}
+
 static const struct mdw_dev_func mdw_rv_func = {
 	.sw_init = mdw_rv_sw_init,
 	.sw_deinit = mdw_rv_sw_deinit,
@@ -137,6 +147,8 @@ static const struct mdw_dev_func mdw_rv_func = {
 	.ucmd = mdw_rv_ucmd,
 	.set_param = mdw_rv_set_param,
 	.get_info = mdw_rv_get_info,
+	.register_device = mdw_rv_register_device,
+	.unregister_device = mdw_rv_unregister_device,
 };
 
 void mdw_rv_set_func(struct mdw_device *mdev)

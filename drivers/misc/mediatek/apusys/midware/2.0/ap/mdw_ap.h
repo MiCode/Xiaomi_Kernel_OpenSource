@@ -139,7 +139,7 @@ int mdw_queue_init(struct mdw_queue *mq);
 extern struct dentry *mdw_dbg_root;
 
 #define MDW_DEV_NAME_SIZE (16)
-#define MDW_RSC_TAB_DEV_MAX 16 //max device num per type
+#define MDW_RSC_TAB_DEV_MAX (16) //max device num per type
 #define MDW_RSC_SET_PWR_TIMEOUT (3*1000)
 #define MDW_RSC_SET_PWR_ALLON (0)
 
@@ -268,6 +268,8 @@ extern int mtee_sdsp_enable(u32 on);
 /* mdw_rsc.c */
 int mdw_rsc_init(void);
 void mdw_rsc_deinit(void);
+int mdw_rsc_register_device(struct apusys_device *dev);
+int mdw_rsc_unregister_device(struct apusys_device *dev);
 
 /* mdw_dispr */
 void mdw_dispr_check(void);
