@@ -56,6 +56,25 @@ static bool g_probe_done;
 static struct platform_device *g_pdev;
 static struct workqueue_struct *gpueb_logger_workqueue;
 
+#if IS_ENABLED(CONFIG_PM)
+static int gpueb_suspend(struct device *dev)
+{
+	gpueb_timesync_suspend();
+	return 0;
+}
+
+static int gpueb_resume(struct device *dev)
+{
+	gpueb_timesync_resume();
+	return 0;
+}
+
+static const struct dev_pm_ops gpueb_dev_pm_ops = {
+	.suspend = gpueb_suspend,
+	.resume  = gpueb_resume,
+};
+#endif
+
 static const struct of_device_id g_gpueb_of_match[] = {
 	{ .compatible = "mediatek,gpueb" },
 	{ /* sentinel */ }
@@ -68,6 +87,9 @@ static struct platform_driver g_gpueb_pdrv = {
 		.name = "gpueb",
 		.owner = THIS_MODULE,
 		.of_match_table = g_gpueb_of_match,
+#if IS_ENABLED(CONFIG_PM)
+		.pm = &gpueb_dev_pm_ops,
+#endif
 	},
 };
 
