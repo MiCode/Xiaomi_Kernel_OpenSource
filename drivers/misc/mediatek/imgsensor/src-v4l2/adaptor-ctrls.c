@@ -1078,6 +1078,14 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
 			memcpy(&ctx->ae_memento, &info->ae_ctrl[0],  sizeof(ctx->ae_memento));
 
+			if (info->target_scenario_id < MODE_MAXCNT)
+				ctx->cur_mode = &ctx->mode[info->target_scenario_id];
+			else {
+				dev_info(dev, "[%s] err info->target_scenario_id %d >= MODE_MAXCNT\n",
+					__func__,
+					info->target_scenario_id);
+			}
+
 		}
 		break;
 #ifdef IMGSENSOR_DEBUG
