@@ -126,6 +126,7 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->dec_if = get_data_path_ptr();
+		mtk_vcodec_add_ctx_list(ctx);
 		drv_handle_exist = 0;
 	}
 
@@ -133,6 +134,7 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 
 	if (!drv_handle_exist) {
 		inst->vcu.abort = 1;
+		mtk_vcodec_del_ctx_list(ctx);
 		kfree(inst);
 		ctx->drv_handle = 0;
 		ctx->dec_if = NULL;
@@ -155,12 +157,14 @@ int vdec_if_set_param(struct mtk_vcodec_ctx *ctx, enum vdec_set_param_type type,
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->dec_if = get_data_path_ptr();
+		mtk_vcodec_add_ctx_list(ctx);
 		drv_handle_exist = 0;
 	}
 
 	ret = ctx->dec_if->set_param(ctx->drv_handle, type, in);
 
 	if (!drv_handle_exist) {
+		mtk_vcodec_del_ctx_list(ctx);
 		kfree(inst);
 		ctx->drv_handle = 0;
 		ctx->dec_if = NULL;

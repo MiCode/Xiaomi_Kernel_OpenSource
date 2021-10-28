@@ -94,6 +94,8 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 		goto error_free_inst;
 	}
 
+	mtk_vcodec_add_ctx_list(ctx);
+
 	inst->ctx = ctx;
 
 	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
@@ -187,6 +189,8 @@ static void vdec_deinit(unsigned long h_vdec)
 	mtk_vcodec_debug_enter(inst);
 
 	vcu_dec_deinit(&inst->vcu);
+
+	mtk_vcodec_del_ctx_list(inst->ctx);
 
 	kfree(inst);
 }

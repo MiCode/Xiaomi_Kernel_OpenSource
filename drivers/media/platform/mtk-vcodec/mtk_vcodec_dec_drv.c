@@ -91,10 +91,6 @@ static int fops_vcodec_open(struct file *file)
 		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 	ctx->dec_flush_buf->vb.vb2_buf.vb2_queue = src_vq;
 
-	mutex_lock(&dev->ctx_mutex);
-	list_add(&ctx->list, &dev->ctx_list);
-	mutex_unlock(&dev->ctx_mutex);
-
 	mtk_vcodec_dec_set_default_params(ctx);
 
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
@@ -179,13 +175,10 @@ static int fops_vcodec_release(struct file *file)
 	v4l2_fh_exit(&ctx->fh);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 
-	mutex_lock(&dev->ctx_mutex);
-	list_del_init(&ctx->list);
 	kfree(ctx->dec_flush_buf);
 	kfree(ctx);
 	if (dev->dec_cnt > 0)
 		dev->dec_cnt--;
-	mutex_unlock(&dev->ctx_mutex);
 	mutex_unlock(&dev->dev_mutex);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	vcp_deregister_feature(VCODEC_FEATURE_ID);

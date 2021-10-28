@@ -814,6 +814,8 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 		return -ENOMEM;
 	}
 
+	mtk_vcodec_add_ctx_list(ctx);
+
 	inst->ctx = ctx;
 	inst->vcu_inst.ctx = ctx;
 	inst->vcu_inst.dev = ctx->dev->vcu_plat_dev;
@@ -1373,6 +1375,8 @@ static int venc_vcp_deinit(unsigned long handle)
 	mtk_vcodec_debug_enter(inst);
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
 	mtk_vcodec_debug_leave(inst);
+
+	mtk_vcodec_del_ctx_list(inst->ctx);
 
 	mutex_lock(inst->vcu_inst.ctx_ipi_lock);
 	list_for_each_safe(p, q, &inst->vcu_inst.bufs) {

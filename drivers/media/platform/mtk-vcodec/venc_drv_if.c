@@ -85,6 +85,7 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->enc_if = get_data_path_ptr();
+		mtk_vcodec_add_ctx_list(ctx);
 		drv_handle_exist = 0;
 		mtk_v4l2_debug(0, "%s init drv_handle = 0x%lx",
 			__func__, ctx->drv_handle);
@@ -93,6 +94,7 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 	ret = ctx->enc_if->get_param(ctx->drv_handle, type, out);
 
 	if (!drv_handle_exist) {
+		mtk_vcodec_del_ctx_list(ctx);
 		kfree(inst);
 		ctx->drv_handle = 0;
 		ctx->enc_if = NULL;
@@ -115,6 +117,7 @@ int venc_if_set_param(struct mtk_vcodec_ctx *ctx,
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->enc_if = get_data_path_ptr();
+		mtk_vcodec_add_ctx_list(ctx);
 		drv_handle_exist = 0;
 		mtk_v4l2_debug(0, "%s init drv_handle = 0x%lx",
 			__func__, ctx->drv_handle);
@@ -123,6 +126,7 @@ int venc_if_set_param(struct mtk_vcodec_ctx *ctx,
 	ret = ctx->enc_if->set_param(ctx->drv_handle, type, in);
 
 	if (!drv_handle_exist) {
+		mtk_vcodec_del_ctx_list(ctx);
 		kfree(inst);
 		ctx->drv_handle = 0;
 		ctx->enc_if = NULL;

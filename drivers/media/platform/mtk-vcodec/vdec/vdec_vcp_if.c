@@ -439,7 +439,8 @@ int vcp_dec_ipi_handler(void *arg)
 				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VDEC_1, IPI_SEND_WAIT, obj,
 					PIN_OUT_SIZE_VDEC, 100);
 				if (ret != IPI_ACTION_DONE)
-					mtk_v4l2_err("mtk_ipi_send fail %d", ret);
+					mtk_v4l2_err("mtk_ipi_send (msg_id %X) fail %d",
+						msg->msg_id, ret);
 				kfree(mq_node);
 				continue;
 			}
@@ -458,15 +459,15 @@ int vcp_dec_ipi_handler(void *arg)
 			}
 		}
 		if (!msg_valid) {
-			mtk_v4l2_err(" msg vcu not exist %p\n", vcu);
+			mtk_v4l2_err(" msg msg_id %X vcu not exist %p\n", msg->msg_id, vcu);
 			mutex_unlock(&dev->ctx_mutex);
 			kfree(mq_node);
 			continue;
 		}
 
 		if (vcu->abort || vcu->daemon_pid != get_vcp_generation()) {
-			mtk_v4l2_err(" [%d] msg vcu abort %d %d\n",
-				vcu->ctx->id, vcu->daemon_pid, get_vcp_generation());
+			mtk_v4l2_err(" [%d] msg msg_id %X vcu abort %d %d\n",
+				msg->msg_id, vcu->ctx->id, vcu->daemon_pid, get_vcp_generation());
 			mutex_unlock(&dev->ctx_mutex);
 			kfree(mq_node);
 			continue;
@@ -660,6 +661,8 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 		goto error_free_inst;
 	}
 
+	mtk_vcodec_add_ctx_list(ctx);
+
 	inst->ctx = ctx;
 	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
@@ -781,6 +784,8 @@ static void vdec_vcp_deinit(unsigned long h_vdec)
 
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 	mtk_vcodec_debug(inst, "- ret=%d", err);
+
+	mtk_vcodec_del_ctx_list(inst->ctx);
 
 	mutex_lock(inst->vcu.ctx_ipi_lock);
 	list_for_each_safe(p, q, &inst->vcu.bufs) {

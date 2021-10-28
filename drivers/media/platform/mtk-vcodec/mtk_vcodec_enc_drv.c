@@ -91,10 +91,6 @@ static int fops_vcodec_open(struct file *file)
 	src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 
-	mutex_lock(&dev->ctx_mutex);
-	list_add(&ctx->list, &dev->ctx_list);
-	mutex_unlock(&dev->ctx_mutex);
-
 	ctx->enc_flush_buf->vb.vb2_buf.vb2_queue = src_vq;
 	ctx->enc_flush_buf->lastframe = NON_EOS;
 	ctx->enc_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
@@ -168,13 +164,10 @@ static int fops_vcodec_release(struct file *file)
 	v4l2_fh_exit(&ctx->fh);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 
-	mutex_lock(&dev->ctx_mutex);
-	list_del_init(&ctx->list);
 	kfree(ctx->enc_flush_buf);
 	kfree(ctx);
 	if (dev->enc_cnt > 0)
 		dev->enc_cnt--;
-	mutex_unlock(&dev->ctx_mutex);
 	mutex_unlock(&dev->dev_mutex);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	vcp_deregister_feature(VCODEC_FEATURE_ID);

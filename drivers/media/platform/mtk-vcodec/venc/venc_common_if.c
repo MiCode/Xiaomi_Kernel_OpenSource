@@ -226,6 +226,8 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 		return -ENOMEM;
 	}
 
+	mtk_vcodec_add_ctx_list(ctx);
+
 	inst->ctx = ctx;
 	inst->vcu_inst.ctx = ctx;
 	inst->vcu_inst.dev = ctx->dev->vcu_plat_dev;
@@ -571,6 +573,8 @@ static int venc_deinit(unsigned long handle)
 	mtk_vcodec_debug_enter(inst);
 
 	ret = vcu_enc_deinit(&inst->vcu_inst);
+
+	mtk_vcodec_del_ctx_list(inst->ctx);
 
 	mtk_vcodec_debug_leave(inst);
 	kfree(inst);
