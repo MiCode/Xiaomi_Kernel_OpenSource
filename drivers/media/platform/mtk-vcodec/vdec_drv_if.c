@@ -237,7 +237,7 @@ void vdec_check_release_lock(void *ctx_check)
 		/* user killed when holding lock */
 		if (ctx->hw_locked[i] == 1) {
 			vdec_decode_unprepare(ctx, i);
-			mtk_v4l2_err("[%d] user killed when holding lock %d", ctx->id, i);
+			mtk_v4l2_err("[%d] daemon killed when holding lock %d", ctx->id, i);
 		}
 	}
 }

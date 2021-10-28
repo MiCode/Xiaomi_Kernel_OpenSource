@@ -166,6 +166,7 @@ extern struct mtk_mbox_pin_recv *vcp_mbox_pin_recv;
 
 /* An API to get vcp status */
 extern unsigned int is_vcp_ready(enum vcp_core_id vcp_id);
+extern unsigned int get_vcp_generation(void);
 
 /* APIs to register new IPI handlers */
 extern enum vcp_ipi_status vcp_ipi_registration(enum vcp_ipi_id id,

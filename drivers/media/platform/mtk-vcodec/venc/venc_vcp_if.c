@@ -103,7 +103,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	struct share_obj obj;
 	unsigned int suspend_block_cnt = 0;
 
-	if (inst->vcu_inst.abort)
+	if (inst->vcu_inst.abort || inst->vcu_inst.daemon_pid != get_vcp_generation())
 		return -EIO;
 
 	while (!is_vcp_ready(VCP_A_ID)) {
@@ -154,7 +154,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		mutex_unlock(&inst->ctx->dev->ipi_mutex);
 		inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
 		inst->vcu_inst.abort = 1;
-		tirgger_vcp_halt(VCP_A_ID);
+		trigger_vcp_halt(VCP_A_ID);
 		return -EIO;
 	}
 	if (!is_ack) {
@@ -169,7 +169,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 			mutex_unlock(&inst->ctx->dev->ipi_mutex);
 			inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
 			inst->vcu_inst.abort = 1;
-			tirgger_vcp_halt(VCP_A_ID);
+			trigger_vcp_halt(VCP_A_ID);
 			return -EIO;
 		}
 	}
@@ -375,8 +375,10 @@ int vcp_enc_ipi_handler(void *arg)
 			kfree(mq_node);
 			continue;
 		}
-		if (vcu->abort) {
-			mtk_v4l2_err(" [%d] msg vcu abort\n", vcu->ctx->id);
+
+		if (vcu->abort || vcu->daemon_pid != get_vcp_generation()) {
+			mtk_v4l2_err(" [%d] msg vcu abort %d %d\n",
+				vcu->ctx->id, vcu->daemon_pid, get_vcp_generation());
 			mutex_unlock(&dev->ctx_mutex);
 			kfree(mq_node);
 			continue;
@@ -874,6 +876,7 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	out.msg_id = AP_IPIMSG_ENC_INIT;
 	out.venc_inst = (unsigned long)&inst->vcu_inst;
 	(*handle) = (unsigned long)inst;
+	inst->vcu_inst.daemon_pid = get_vcp_generation();
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
 	inst->vsi = (struct venc_vsi *)inst->vcu_inst.vsi;
 
@@ -1023,6 +1026,7 @@ static int venc_vcp_get_param(unsigned long handle,
 		msg.id = type;
 		msg.ap_inst_addr = (uintptr_t)&inst->vcu_inst;
 		msg.ap_data_addr = (uintptr_t)out;
+		inst->vcu_inst.daemon_pid = get_vcp_generation();
 		ret = venc_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
 		break;
 	case GET_PARAM_FREE_BUFFERS:
@@ -1085,6 +1089,7 @@ void set_venc_vcp_data(struct venc_inst *inst, enum vcp_reserve_mem_id_t id, voi
 	msg.vcu_inst_addr = inst->vcu_inst.inst_addr;
 	msg.data[0] = (__u32)((__u64)string_pa & 0xFFFFFFFF);
 	msg.data[1] = (__u32)((__u64)string_pa >> 32);
+	inst->vcu_inst.daemon_pid = get_vcp_generation();
 
 	mtk_vcodec_debug(inst, "msg.param_id %d msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
 		msg.param_id, msg.data[0], msg.data[1]);

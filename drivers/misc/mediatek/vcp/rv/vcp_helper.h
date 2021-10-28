@@ -202,7 +202,7 @@ extern struct device *vcp_get_io_device(enum VCP_IOMMU_DEV io_num);
 
 extern int vcp_check_resource(void);
 void set_vcp_mpu(void);
-void tirgger_vcp_halt(enum vcp_core_id id);
+void trigger_vcp_halt(enum vcp_core_id id);
 extern phys_addr_t vcp_mem_base_phys;
 extern phys_addr_t vcp_mem_base_virt;
 extern phys_addr_t vcp_mem_size;

@@ -138,6 +138,7 @@ static struct vcp_work_struct vcp_A_notify_work;
 static unsigned int vcp_timeout_times;
 #endif
 
+static bool is_suspending;
 static DEFINE_MUTEX(vcp_pw_clk_mutex);
 static DEFINE_MUTEX(vcp_A_notify_mutex);
 static DEFINE_MUTEX(vcp_feature_mutex);
@@ -573,7 +574,7 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
 /*
  * @return: 1 if vcp is ready for running tasks
  */
-void tirgger_vcp_halt(enum vcp_core_id id)
+void trigger_vcp_halt(enum vcp_core_id id)
 {
 	if (vcp_ready[id]) {
 		/* trigger halt isr, force vcp enter wfi */
@@ -581,7 +582,7 @@ void tirgger_vcp_halt(enum vcp_core_id id)
 		wait_vcp_wdt_irq_done();
 	}
 }
-EXPORT_SYMBOL_GPL(tirgger_vcp_halt);
+EXPORT_SYMBOL_GPL(trigger_vcp_halt);
 
 /*
  * @return: 1 if vcp is ready for running tasks
@@ -594,6 +595,15 @@ unsigned int is_vcp_ready(enum vcp_core_id id)
 		return 0;
 }
 EXPORT_SYMBOL_GPL(is_vcp_ready);
+
+/*
+ * @return: generaltion count of vcp (reset count)
+ */
+unsigned int get_vcp_generation(void)
+{
+	return vcp_reset_counts;
+}
+EXPORT_SYMBOL_GPL(get_vcp_generation);
 
 /*
  * reset vcp and create a timer waiting for vcp notify
@@ -655,6 +665,11 @@ void vcp_enable_pm_clk(void)
 	if (!vcp_support)
 		return;
 
+	if (is_suspending) {
+		pr_notice("[VCP] %s fail %d %d\n", __func__, pwclkcnt, is_suspending);
+		return;
+	}
+
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (pwclkcnt == 0) {
 		ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
@@ -686,6 +701,11 @@ void vcp_disable_pm_clk(void)
 
 	if (!vcp_support)
 		return;
+
+	if (is_suspending) {
+		pr_notice("[VCP] %s fail %d %d\n", __func__, pwclkcnt, is_suspending);
+		return;
+	}
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	pr_notice("[VCP] %s entered %d ready %d\n", __func__,
@@ -733,14 +753,12 @@ static int vcp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
 	int retval, i;
-	static int enable_status;
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		mutex_lock(&vcp_pw_clk_mutex);
-		enable_status = pwclkcnt;
-		pr_debug("[VCP] PM_SUSPEND_PREPARE entered %d\n", enable_status);
-		if (enable_status) {
+		pr_debug("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
+		if ((!is_suspending) && pwclkcnt) {
 			vcp_disable_irqs();
 
 			flush_workqueue(vcp_workqueue);
@@ -764,6 +782,8 @@ static int vcp_pm_event(struct notifier_block *notifier
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
 		}
+		is_suspending = true;
+		mutex_unlock(&vcp_pw_clk_mutex);
 
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
@@ -772,7 +792,8 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
-		if (enable_status) {
+		mutex_lock(&vcp_pw_clk_mutex);
+		if (is_suspending && pwclkcnt) {
 			retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
@@ -801,6 +822,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			cpuidle_resume_and_unlock();
 #endif
 		}
+		is_suspending = false;
 		mutex_unlock(&vcp_pw_clk_mutex);
 
 		// SMC call to TFA / DEVAPC
@@ -2586,6 +2608,7 @@ static int __init vcp_init(void)
 #endif
 	vcp_disable_irqs();
 	driver_init_done = true;
+	is_suspending = false;
 	pwclkcnt = 0;
 
 	return ret;
