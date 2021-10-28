@@ -38,6 +38,7 @@ struct vcodec_inst {
 	u32 b_frame;
 	u32 wp;
 	s32 op_rate;
+	s32 priority;
 	u32 width;
 	u32 height;
 	u64 last_access;

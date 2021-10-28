@@ -111,6 +111,11 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 		new_inst->core_cnt = 1;
 	new_inst->op_rate = (new_inst->codec_type == MTK_INST_ENCODER) ?
 		ctx->enc_params.operationrate : ctx->dec_params.operating_rate;
+	new_inst->priority = -1;
+		/* Undefined priority to be passed from C2
+		 * (new_inst->codec_type == MTK_INST_ENCODER) ?
+		 * ctx->enc_params.priority : ctx->dec_params.priority;
+		 */
 	if (new_inst->op_rate == 0) {
 		new_inst->op_rate = (new_inst->codec_type == MTK_INST_ENCODER) ?
 			(ctx->enc_params.framerate_denom == 0 ? 0 :
@@ -328,10 +333,12 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 			freq = 100000000;
 
 		if (inst->op_rate <= 0) {
-			freq = dev->vdec_dvfs_params.normal_max_freq;
+			/* Undefined priority + op_rate combination behavior, to be configurable */
+			freq = (inst->priority < 0) ?
+				0 : dev->vdec_dvfs_params.normal_max_freq;
 
-			mtk_v4l2_debug(6, "[VDVFS] VDEC oprate: %d, set freq = %u",
-					inst->op_rate, freq);
+			mtk_v4l2_debug(6, "[VDVFS] VDEC priority: %d oprate: %d, set freq = %u",
+					inst->priority, inst->op_rate, freq);
 		}
 	} else if (inst->codec_type == MTK_INST_ENCODER) {
 		if (perf != 0) {
@@ -385,8 +392,10 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 			if (freq > dev->vdec_dvfs_params.normal_max_freq)
 				dev->vdec_dvfs_params.allow_oc = 1;
 
+			/* Undefined priority + op_rate combination behavior, to be configurable
 			if (inst->op_rate == 0)
 				no_op_rate_max_freq = true;
+			*/
 
 			freq_sum += freq;
 			op_rate_sum += inst->op_rate;
