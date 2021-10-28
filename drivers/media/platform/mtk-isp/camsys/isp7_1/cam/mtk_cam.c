@@ -2175,6 +2175,32 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 					mtk_cam_req_s_data_init(req, i, 1);
 					fill_mraw_mstream_s_data(cam, req, i);
 				}
+			} else if (is_raw_subdev(i) && !ctx->sensor) {
+				/* pure m2m raw ctrl handle */
+				s_data_cnt =
+					atomic_inc_return(&ctx->running_s_data_cnt);
+
+				spin_lock_irqsave(&req->req.lock, flags);
+				list_for_each_entry(obj, &req->req.objects, list) {
+					if (vb2_request_object_is_buffer(obj))
+						continue;
+
+					hdl = (struct v4l2_ctrl_handler *)obj->priv;
+					if (hdl == &ctx->pipe->ctrl_handler)
+						raw_hdl_obj = obj;
+				}
+				spin_unlock_irqrestore(&req->req.lock, flags);
+
+				if (raw_hdl_obj) {
+					s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_EN;
+					s_data->raw_hdl_obj = raw_hdl_obj;
+					dev_dbg(cam->dev,
+						"%s:%s:ctx(%d): find pipe hdl\n",
+						__func__, req->req.debug_str, i);
+				}
+
+				/* Apply raw subdev's ctrl */
+				mtk_cam_req_update_ctrl(ctx->pipe, s_data);
 			}
 		}
 
