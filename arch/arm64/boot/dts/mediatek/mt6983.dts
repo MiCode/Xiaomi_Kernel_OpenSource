@@ -11113,6 +11113,7 @@
 		seninf_num = <12>;
 		mux_num = <22>;
 		cam_mux_num = <23>;
+		pref_mux_num = <17>;
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
 
