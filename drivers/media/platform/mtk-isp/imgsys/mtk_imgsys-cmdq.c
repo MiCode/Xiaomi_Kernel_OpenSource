@@ -40,7 +40,6 @@ struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
 static u32 is_sec_task_create;
-static struct cmdq_pkt *pkt_sec;
 #endif
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev)
@@ -154,8 +153,8 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	#if IMGSYS_SECURE_ENABLE
 	if (is_sec_task_create) {
 		cmdq_sec_mbox_stop(imgsys_sec_clt[0]);
-		cmdq_pkt_destroy(pkt_sec);
-		pkt_sec = NULL;
+		/* cmdq_pkt_destroy(pkt_sec); */
+		/* pkt_sec = NULL; */
 		is_sec_task_create = 0;
 	}
 	#endif
@@ -859,9 +858,17 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
 	return count;
 }
 
+void imgsys_cmdq_sec_task_cb(struct cmdq_cb_data data)
+{
+	struct cmdq_pkt *pkt_sec = (struct cmdq_pkt *)data.data;
+
+	cmdq_pkt_destroy(pkt_sec);
+}
+
 int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct cmdq_client *clt_sec = NULL;
+	struct cmdq_pkt *pkt_sec = NULL;
 	int ret = 0;
 
 	clt_sec = imgsys_sec_clt[0];
@@ -870,7 +877,7 @@ int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev)
 	cmdq_sec_pkt_set_data(pkt_sec, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
 	cmdq_sec_pkt_set_mtee(pkt_sec, true);
 	cmdq_pkt_finalize_loop(pkt_sec);
-	cmdq_pkt_flush_threaded(pkt_sec, NULL, (void *)pkt_sec);
+	cmdq_pkt_flush_threaded(pkt_sec, imgsys_cmdq_sec_task_cb, (void *)pkt_sec);
 	#endif
 	return ret;
 }
