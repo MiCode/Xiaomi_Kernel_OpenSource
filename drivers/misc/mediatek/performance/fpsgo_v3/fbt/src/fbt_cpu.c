@@ -3266,10 +3266,12 @@ static int fbt_boost_policy(
 		fpsgo_systrace_c_fbt(pid, buffer_id, gcc_boost, "gcc_boost");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
 		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before correction");
-		if (!gcc_positive_clamp || boost_info->correction < 0)
-			blc_wt = clamp((int)blc_wt + boost_info->correction, 1, 100);
-		else
+		if (gcc_positive_clamp && boost_info->correction >= 0)
 			fpsgo_systrace_c_fbt(pid, buffer_id, 0, "correction");
+		else if (fps_margin && boost_info->correction < 0)
+			fpsgo_systrace_c_fbt(pid, buffer_id, 0, "correction");
+		else
+			blc_wt = clamp((int)blc_wt + boost_info->correction, 1, 100);
 		fpsgo_systrace_c_fbt(pid, buffer_id, gpu_loading, "gpu_loading");
 		if (gcc_check_under_boost) {
 			fpsgo_systrace_c_fbt(pid, buffer_id,
