@@ -942,6 +942,11 @@ static void mt6338_mtkaif_tx_enable(struct mt6338_priv *priv)
 			rate <<
 				MT6338_ADDA6_MTKAIFV4_TXIF_INPUT_MODE_SFT);
 
+		/* Set to VD105 = 1.5V */
+		regmap_update_bits(priv->regmap, MT6338_STRUP_ELR_1,
+			0x1f << 3, (priv->vd105 - 0x8) << 3);
+
+
 		/* lpbk2 */
 		/* regmap_update_bits(priv->regmap, MT6338_AFE_MTKAIFV4_TX_CFG,
 		 * MT6338_MTKAIFV4_LOOPBACK2_MASK_SFT,
@@ -1931,13 +1936,21 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 {
 	dev_dbg(priv->dev, "%s()\n", __func__);
 
-	if (priv->hp_hifi_mode) {
+	if (priv->hp_hifi_mode != 0) {
 		/* 0:normal path */
 		regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
 			0x3 << 0x6, 0x0 << 0x6);
 	} else {
 		/* 3:hwgain1/2 swap & bypass HWgain1/2 */
 		regmap_write(priv->regmap, MT6338_AFE_TOP_DEBUG0, 0xc4);
+
+		/* Set to VD105 = 1V */
+		if (priv->vd105 < 0xf)
+			regmap_update_bits(priv->regmap, MT6338_STRUP_ELR_1,
+				0x1f << 3, priv->vd105 << 3);
+		else
+			regmap_update_bits(priv->regmap, MT6338_STRUP_ELR_1,
+				0x1f << 3, 0xf << 3);
 	}
 
 	/* Enable AUD_CLK */
@@ -2487,6 +2500,12 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 
 static void mtk_hp_disable(struct mt6338_priv *priv)
 {
+	if (priv->hp_hifi_mode == 0) {
+		/* Set to VD105 = 1.5V */
+		regmap_update_bits(priv->regmap, MT6338_STRUP_ELR_1,
+			0x1f << 3, (priv->vd105 - 0x8) << 3);
+	}
+
 	if (priv->hp_hifi_mode == 2) {
 		/* Set NLE DA signal to debug mode */
 		regmap_update_bits(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H,
@@ -10422,6 +10441,8 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 #if !defined(MTKAIFV4_SUPPORT)
 	unsigned int sample_rate = MT6338_AFE_ETDM_48000HZ;
 #endif
+	unsigned int value;
+
 	dev_info(priv->dev, "%s()", __func__);
 
 	codec_gpio_init(priv);
@@ -10618,7 +10639,12 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	/* hp hifi mode, default normal mode */
 	priv->hp_hifi_mode = 0;
 	/* mic hifi mode, default hifi mode */
-	priv->mic_hifi_mode = 1;
+	priv->mic_hifi_mode = 0;
+
+
+	regmap_read(priv->regmap, MT6338_STRUP_ELR_1, &value);
+
+	priv->vd105 = ((value >> 0x3) & 0x1f) + 0x8;
 
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 5;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 5;
@@ -10778,40 +10804,43 @@ static ssize_t mt6338_codec_read(struct mt6338_priv *priv, char *buffer, size_t 
 	n += scnprintf(buffer + n, size - n, "hp_current_calibrate_val = %d\n",
 		       priv->hp_current_calibrate_val);
 
-/* Replace :regmap_read(priv->regmap  to   value = mt6338_i2c_read_byte(priv->i2c, */
-regmap_read(priv->regmap, MT6338_TOP_DIG_WPK, &value);
-n += scnprintf(buffer + n, size - n,
-		   "MT6338_TOP_DIG_WPK = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_TOP_DIG_WPK_H, &value);
-n += scnprintf(buffer + n, size - n,
-		   "MT6338_TOP_DIG_WPK_H = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_TOP_TMA_KEY_H, &value);
+	/* Replace :regmap_read(priv->regmap  to   value = mt6338_i2c_read_byte(priv->i2c, */
+	regmap_read(priv->regmap, MT6338_STRUP_ELR_1, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "MT6338_TOP_TMA_KEY_H = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_TOP_TMA_KEY, &value);
+			   "MT6338_STRUP_ELR_1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_TOP_DIG_WPK, &value);
 	n += scnprintf(buffer + n, size - n,
-			   "MT6338_TOP_TMA_KEY = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_LDO_VAUD18_CON0, &value);
+			   "MT6338_TOP_DIG_WPK = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_TOP_DIG_WPK_H, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "MT6338_LDO_VAUD18_CON0 = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_VPLL18_PMU_CON0, &value);
+			   "MT6338_TOP_DIG_WPK_H = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_TOP_TMA_KEY_H, &value);
+		n += scnprintf(buffer + n, size - n,
+			       "MT6338_TOP_TMA_KEY_H = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_TOP_TMA_KEY, &value);
+		n += scnprintf(buffer + n, size - n,
+				   "MT6338_TOP_TMA_KEY = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_LDO_VAUD18_CON0, &value);
+		n += scnprintf(buffer + n, size - n,
+			       "MT6338_LDO_VAUD18_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_VPLL18_PMU_CON0, &value);
+		n += scnprintf(buffer + n, size - n,
+			       "MT6338_VPLL18_PMU_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_CLKSQ_PMU_CON0, &value);
+		n += scnprintf(buffer + n, size - n,
+			       "MT6338_CLKSQ_PMU_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_PLL208M_PMU_CON5, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "MT6338_VPLL18_PMU_CON0 = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_CLKSQ_PMU_CON0, &value);
+		       "MT6338_PLL208M_PMU_CON5 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_PLL208M_PMU_CON4, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "MT6338_CLKSQ_PMU_CON0 = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_PLL208M_PMU_CON5, &value);
-n += scnprintf(buffer + n, size - n,
-	       "MT6338_PLL208M_PMU_CON5 = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_PLL208M_PMU_CON4, &value);
-n += scnprintf(buffer + n, size - n,
-	       "MT6338_PLL208M_PMU_CON4 = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_TOP_CON, &value);
+		       "MT6338_PLL208M_PMU_CON4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_TOP_CON, &value);
+		n += scnprintf(buffer + n, size - n,
+			       "MT6338_TOP_CON = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6338_DA_INTF_STTING1, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "MT6338_TOP_CON = 0x%x\n", value);
-regmap_read(priv->regmap, MT6338_DA_INTF_STTING1, &value);
-n += scnprintf(buffer + n, size - n,
-		       "MT6338_DA_INTF_STTING1 = 0x%x\n", value);
+			       "MT6338_DA_INTF_STTING1 = 0x%x\n", value);
 #ifdef MT6338_TOP_DEBUG
 	regmap_read(priv->regmap, MT6338_SMT_CON1, &value);
 	n += scnprintf(buffer + n, size - n,
