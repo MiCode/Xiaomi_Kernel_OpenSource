@@ -215,6 +215,30 @@ static void notify_fsync_mgr_subsample_tag(struct adaptor_ctx *ctx, u64 sub_tag)
 		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
+static u32 get_margin(struct adaptor_ctx *ctx)
+{
+	union feature_para para;
+	u32 len = 0;
+	struct mtk_stagger_info info = {0};
+	u32 mode_exp_cnt = 1;
+
+	para.u64[0] = ctx->cur_mode->id;
+	para.u64[1] = 0;
+	para.u64[2] = 0;
+	subdrv_call(ctx, feature_control,
+		    SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO,
+		    para.u8, &len);
+
+	if (!g_stagger_info(ctx, ctx->cur_mode->id, &info))
+		mode_exp_cnt = info.count;
+
+	/* no vc info case, it is 1 exposure */
+	if (mode_exp_cnt == 0)
+		mode_exp_cnt = 1;
+
+	return (para.u64[2] * mode_exp_cnt);
+}
+
 /* notify frame-sync set_shutter(), bind all SENSOR_FEATURE_SET_ESHUTTER CMD */
 static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 					enum ACDK_SENSOR_FEATURE_ENUM cmd,
@@ -245,7 +269,7 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 		? *(ae_exp_arr + 0) : 0;
 	if (fine_integ_line)
 		pf_ctrl.shutter_lc = FINE_INTEG_CONVERT(pf_ctrl.shutter_lc, fine_integ_line);
-	pf_ctrl.margin_lc = ctx->subctx.margin;
+	pf_ctrl.margin_lc = get_margin(ctx);
 	pf_ctrl.flicker_en = ctx->subctx.autoflicker_en;
 	pf_ctrl.out_fl_lc = ctx->subctx.frame_length; // sensor current fl_lc
 
@@ -525,6 +549,8 @@ void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 	if (!ret) {
 		p_hdr_exp->mode_exp_cnt = info.count;
 		p_hdr_exp->ae_exp_cnt = ae_exp_cnt;
+		p_hdr_exp->readout_len_lc = (ctx->subctx.readout_length * info.count);
+		p_hdr_exp->read_margin_lc = (ctx->subctx.read_margin * info.count);
 
 		for (i = 0; i < ae_exp_cnt; ++i) {
 			int idx = hdr_exp_idx_map[ae_exp_cnt][i];

@@ -3776,7 +3776,20 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
 		*(feature_data + 1) = 1; //always 1
 		/* margin info by scenario */
-		*(feature_data + 2) = imgsensor_info.margin;
+		switch (*feature_data) {
+		case SENSOR_SCENARIO_ID_CUSTOM4:
+		case SENSOR_SCENARIO_ID_CUSTOM9:
+			// 2dol
+			*(feature_data + 2) = (imgsensor_info.margin * 2);
+			break;
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+			// 3dol
+			*(feature_data + 2) = (imgsensor_info.margin * 3);
+			break;
+		default:
+			*(feature_data + 2) = imgsensor_info.margin;
+			break;
+		}
 		break;
 	case SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME:
 		if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM4

@@ -76,7 +76,7 @@ struct subdrv_ctx {
 	u32 frame_length; /* current framelength */
 	u32 line_length; /* current linelength */
 	u32 min_frame_length;
-	u8 margin; /* current (mode's) margin */
+	u8 margin; /* current (mode's) exp margin */
 	u8 frame_time_delay_frame; /* EX: sony => 3 ; non-sony => 2 */
 	u16 dummy_pixel; /* current dummypixel */
 	u16 dummy_line; /* current dummline */
@@ -90,6 +90,8 @@ struct subdrv_ctx {
 	struct IMGSENSOR_AE_FRM_MODE ae_frm_mode;
 	u8 current_ae_effective_frame;
 	u8 i2c_write_id;
+	u32 readout_length; /* the current mode's readout line length */
+	u8 read_margin; /* the read margin */
 
 	u8 extend_frame_length_en;
 	u8 fast_mode_on;
