@@ -100,6 +100,10 @@ EXPORT_SYMBOL(unhook_ipi_queue_recv_msg_hanlder);
 
 void adsp_mbox_dump(void)
 {
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+	mt_irq_dump_status(adsp_mbox_table[ADSP_MBOX1_CH_ID].irq_num);
+	mt_irq_dump_status(adsp_mbox_table[ADSP_MBOX3_CH_ID].irq_num);
+#endif
 	mtk_mbox_dump_recv_pin(&adsp_mboxdev, &adsp_mbox_pin_recv[0]);
 	mtk_mbox_dump_recv_pin(&adsp_mboxdev, &adsp_mbox_pin_recv[1]);
 }
