@@ -747,6 +747,7 @@ static void irq_mon_tracepoint_lookup(struct tracepoint *tp, void *priv)
 }
 
 bool b_default_enabled; // default false
+#if !IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
 static void irq_mon_boot(void)
 {
 	struct device_node *node;
@@ -794,6 +795,7 @@ static void irq_mon_boot(void)
 		}
 	}
 }
+#endif
 
 /* probe tracepoints for all tracers */
 static int irq_mon_tracepoint_init(void)
@@ -803,8 +805,9 @@ static int irq_mon_tracepoint_init(void)
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
 	b_default_enabled = true;
-#endif
+#else
 	irq_mon_boot();
+#endif
 	if (b_default_enabled) {
 		struct irq_mon_tracepoint *t;
 
