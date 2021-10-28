@@ -188,6 +188,7 @@ enum {
 struct GED_EB_EVENT {
 	unsigned int freq_new;
 	struct work_struct sWork;
+	bool bUsed;
 };
 
 struct fastdvfs_event_data {

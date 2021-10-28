@@ -64,14 +64,18 @@ static int mfg_is_power_on;
 
 static struct workqueue_struct *g_psEBWorkQueue;
 
+#define MAX_EB_NOTIFY_CNT 120
+struct GED_EB_EVENT eb_notify[MAX_EB_NOTIFY_CNT];
+int eb_notify_index;
+
+
 static void ged_eb_work_cb(struct work_struct *psWork)
 {
 	struct GED_EB_EVENT *psEBEvent =
 		GED_CONTAINER_OF(psWork, struct GED_EB_EVENT, sWork);
 
 	mtk_notify_gpu_freq_change(0, psEBEvent->freq_new);
-
-	ged_free(psEBEvent, sizeof(struct GED_EB_EVENT));
+	psEBEvent->bUsed = false;
 }
 
 /*
@@ -85,17 +89,23 @@ static int fast_dvfs_eb_event_handler(unsigned int id, void *prdata, void *data,
 				    unsigned int len)
 {
 	struct GED_EB_EVENT *psEBEvent =
-				(struct GED_EB_EVENT *)ged_alloc_atomic(
-				sizeof(struct GED_EB_EVENT));
+		&(eb_notify[((eb_notify_index++) % MAX_EB_NOTIFY_CNT)]);
 
-	if (data != NULL)
+	if (eb_notify_index >= MAX_EB_NOTIFY_CNT)
+		eb_notify_index = 0;
+
+	if (data != NULL && psEBEvent && psEBEvent->bUsed == false) {
 		psEBEvent->freq_new = ((struct fastdvfs_event_data *)data)->u.set_para.arg[0];
 
-	/*get rate from EB*/
-	GPUFDVFS_LOGD("%s@%d top clock: %d (KHz)\n", __func__, __LINE__, psEBEvent->freq_new);
+		/*get rate from EB*/
+		GPUFDVFS_LOGD("%s@%d top clock: %d (KHz)\n",
+			__func__, __LINE__, psEBEvent->freq_new);
 
-	INIT_WORK(&psEBEvent->sWork, ged_eb_work_cb);
-	queue_work(g_psEBWorkQueue, &psEBEvent->sWork);
+		psEBEvent->bUsed = true;
+
+		INIT_WORK(&psEBEvent->sWork, ged_eb_work_cb);
+		queue_work(g_psEBWorkQueue, &psEBEvent->sWork);
+	}
 
 	return 0;
 }

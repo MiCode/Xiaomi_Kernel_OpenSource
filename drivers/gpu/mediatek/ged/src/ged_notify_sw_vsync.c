@@ -53,8 +53,12 @@ struct GED_NOTIFY_SW_SYNC {
 	unsigned long t;
 	long phase;
 	unsigned long ul3DFenceDoneTime;
+	bool bUsed;
 };
 
+#define MAX_NOTIFY_CNT 125
+struct GED_NOTIFY_SW_SYNC loading_base_notify[MAX_NOTIFY_CNT];
+int notify_index;
 
 int (*ged_sw_vsync_event_fp)(bool bMode) = NULL;
 EXPORT_SYMBOL(ged_sw_vsync_event_fp);
@@ -111,7 +115,7 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 				"[GED_K] Timer kick giveup (ts=%llu)", temp);
 		}
 #endif
-		ged_free(psNotify, sizeof(struct GED_NOTIFY_SW_SYNC));
+		psNotify->bUsed = false;
 	}
 }
 
@@ -153,7 +157,8 @@ static void ged_timer_switch_work_handle(struct work_struct *psWork)
 	if (psNotify) {
 		ged_sw_vsync_event(false);
 		timer_switch(false);
-		ged_free(psNotify, sizeof(struct GED_NOTIFY_SW_SYNC));
+
+		psNotify->bUsed = false;
 	}
 }
 
@@ -339,8 +344,10 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 	llDiff = (long long)(temp - sw_vsync_ts);
 
 	if (llDiff > GED_VSYNC_MISS_QUANTUM_NS) {
-		psNotify = (struct GED_NOTIFY_SW_SYNC *)
-			ged_alloc_atomic(sizeof(struct GED_NOTIFY_SW_SYNC));
+		psNotify = &(loading_base_notify[((notify_index++) % MAX_NOTIFY_CNT)]);
+
+		if (notify_index >= MAX_NOTIFY_CNT)
+			notify_index = 0;
 
 #ifndef ENABLE_TIMER_BACKUP
 		ged_dvfs_cal_gpu_utilization_ex(&gpu_av_loading,
@@ -349,7 +356,8 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 #endif
 		if (false == g_bGPUClock && 0 == gpu_loading
 			&& (temp - g_ns_gpu_on_ts > GED_DVFS_TIMER_TIMEOUT)) {
-			if (psNotify) {
+			if (psNotify && psNotify->bUsed == false) {
+				psNotify->bUsed = true;
 				INIT_WORK(&psNotify->sWork,
 					ged_timer_switch_work_handle);
 				queue_work(g_psNotifyWorkQueue,
@@ -363,15 +371,18 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 		}
 
 		if (psNotify) {
-			INIT_WORK(&psNotify->sWork,
-				ged_notify_sw_sync_work_handle);
-			psNotify->phase = GED_DVFS_TIMER_BACKUP;
-			psNotify->ul3DFenceDoneTime = 0;
-			queue_work(g_psNotifyWorkQueue, &psNotify->sWork);
+			if (psNotify->bUsed == false) {
+				psNotify->bUsed = true;
+				INIT_WORK(&psNotify->sWork,
+					ged_notify_sw_sync_work_handle);
+				psNotify->phase = GED_DVFS_TIMER_BACKUP;
+				psNotify->ul3DFenceDoneTime = 0;
+				queue_work(g_psNotifyWorkQueue, &psNotify->sWork);
 #ifdef GED_DVFS_DEBUG
-			ged_log_buf_print(ghLogBuf_DVFS,
-				"[GED_K] Timer queue to kick (ts=%llu)", temp);
+				ged_log_buf_print(ghLogBuf_DVFS,
+					"[GED_K] Timer queue to kick (ts=%llu)", temp);
 #endif
+			}
 			hrtimer_start(&g_HT_hwvsync_emu,
 			ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
 			g_timer_on_ts = temp;
