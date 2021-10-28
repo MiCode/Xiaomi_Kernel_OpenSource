@@ -156,6 +156,7 @@ int apusys_unregister_device(struct apusys_device *dev);
 
 
 int apusys_mem_get_by_iova(void *session, uint64_t iova);
+void *apusys_mem_query_kva_by_sess(void *session, uint64_t iova);
 
 uint64_t apusys_mem_query_kva(uint64_t iova);
 uint64_t apusys_mem_query_iova(uint64_t kva);

@@ -744,6 +744,23 @@ int apusys_mem_get_by_iova(void *session, uint64_t iova)
 	return -EINVAL;
 }
 
+void *apusys_mem_query_kva_by_sess(void *session, uint64_t iova)
+{
+	struct mdw_fpriv *mpriv = (struct mdw_fpriv *)session;
+	struct mdw_mem_invoke *m_invoke = NULL;
+	struct mdw_mem *m = NULL;
+
+	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		m = m_invoke->m;
+		if (iova >= m->device_va &&
+			iova < m->device_va + m->dva_size &&
+			m->vaddr)
+			return m->vaddr + (iova - m->device_va);
+	}
+
+	return NULL;
+}
+
 int apusys_mem_flush_kva(void *kva, uint32_t size)
 {
 	struct mdw_mem *m = NULL;
