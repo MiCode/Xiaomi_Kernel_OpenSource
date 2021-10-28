@@ -24,8 +24,6 @@
 #include <linux/export.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
 #include <trace/hooks/iommu.h>
-#include <soc/mediatek/emi.h>
-
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE) && !IOMMU_BRING_UP
 #include <aee.h>
 #endif
@@ -40,37 +38,6 @@
 #define F_MMU_INT_TF_LARB(id)		FIELD_GET(GENMASK(13, 7), id)
 #define F_MMU_INT_TF_PORT(id)		FIELD_GET(GENMASK(6, 2), id)
 #define F_APU_MMU_INT_TF_MSK(id)	FIELD_GET(GENMASK(11, 7), id)
-// peri_iommu
-#define EMI_PORT_ID_OFFSET			0x1F0
-#define REG_MMU_TBW_ID				0xa0
-
-#define REG_MMU_FAULT_ST0			0x130
-#define F_INT_TBW_FAULT				BIT(1)
-
-#define REG_MMU_FAULT_ST1			0x134
-
-#define REG_MMU_TBWALK_FAULT_VA			0x138
-
-#define F_REG_MMU0_INV_PA_MASK			BIT(0)
-#define F_REG_MMU0_TF_MASK			BIT(2)
-#define F_REG_MMU0_MAU_INT_MASK			GENMASK(10, 7)
-
-#define REG_MMU0_INVLD_PA			0x140
-#define REG_MMU1_FAULT_VA			0x144
-#define REG_MMU1_INVLD_PA			0x148
-#define REG_MMU0_INT_ID				0x150
-#define REG_MMU1_INT_ID				0x154
-
-#define REG_MMU0_FAULT_VA			0x13c
-#define F_MMU_INVAL_VA_31_12_MASK		GENMASK(31, 12)
-#define F_MMU_INVAL_VA_34_32_MASK		GENMASK(11, 9)
-#define F_MMU_INVAL_PA_34_32_MASK		GENMASK(8, 6)
-#define F_MMU_FAULT_VA_WRITE_BIT		BIT(1)
-#define F_MMU_FAULT_VA_LAYER_BIT		BIT(0)
-
-#define REG_MMU_INT_CONTROL0			0x120
-
-#define F_INT_CLR_BIT				BIT(12)
 
 enum mtk_iova_space {
 	MTK_IOVA_SPACE0, /* 0GB ~ 4GB */
@@ -155,30 +122,20 @@ struct mtk_m4u_plat_data {
 struct peri_iommu_data {
 	enum peri_iommu id;
 	u32 bus_id;
-	uint64_t bank0_pa;
-	uint64_t bank4_pa;
-	void __iomem *bank0_va;
-	void __iomem *bank4_va;
 };
 
 static struct peri_iommu_data mt6983_peri_iommu_data[PERI_IOMMU_NUM] = {
 	[PERI_IOMMU_M4] = {
 		.id = PERI_IOMMU_M4,
 		.bus_id = 4,
-		.bank0_pa = 0x10330000,
-		.bank4_pa = 0x10334000,
 	},
 	[PERI_IOMMU_M6] = {
 		.id = PERI_IOMMU_M6,
 		.bus_id = 6,
-		.bank0_pa = 0x10335000,
-		.bank4_pa = 0x10339000,
 	},
 	[PERI_IOMMU_M7] = {
 		.id = PERI_IOMMU_M7,
 		.bus_id = 7,
-		.bank0_pa = 0x1033a000,
-		.bank4_pa = 0x1033e000,
 	},
 };
 
@@ -3871,114 +3828,6 @@ void mtk_iommu_pm_trace(struct device *dev, bool resume)
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_pm_trace);
 
-#if IS_ENABLED(CONFIG_MTK_EMI)
-static void peri_iommu_read_data(void __iomem *base, enum peri_iommu iommu_id)
-{
-	u32 int_state0, int_state1, fault_id, va34_32, pa34_32, regval;
-	u64 fault_iova, fault_pa;
-	bool layer, write;
-
-	int_state0 = readl_relaxed(base + REG_MMU_FAULT_ST0);
-	int_state1 = readl_relaxed(base + REG_MMU_FAULT_ST1);
-	if (!int_state0 && !int_state1) {
-		pr_info("%s, peri_iommu_%d no error\n", __func__, iommu_id);
-		return;
-	}
-
-	if (int_state0 & F_INT_TBW_FAULT) {
-		regval = readl_relaxed(base + REG_MMU_TBWALK_FAULT_VA);
-		pr_err("%s err, peri_iommu_%d table walk fault, reg:0x%x\n",
-		       __func__, iommu_id, regval);
-		return;
-	}
-
-	if (int_state1 & F_REG_MMU0_INV_PA_MASK)
-		pr_info("%s err, peri_iommu_%d invalid pa\n", __func__, iommu_id);
-
-	if (int_state1 & F_REG_MMU0_TF_MASK)
-		pr_info("%s err, peri_iommu_%d translation fault\n", __func__, iommu_id);
-
-	fault_id = readl_relaxed(base + REG_MMU0_INT_ID);
-	fault_iova = readl_relaxed(base + REG_MMU0_FAULT_VA);
-	fault_pa = readl_relaxed(base + REG_MMU0_INVLD_PA);
-	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
-	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
-
-	va34_32 = FIELD_GET(F_MMU_INVAL_VA_34_32_MASK, fault_iova);
-	fault_iova = fault_iova & F_MMU_INVAL_VA_31_12_MASK;
-	fault_iova |= (u64)va34_32 << 32;
-
-	pa34_32 = FIELD_GET(F_MMU_INVAL_PA_34_32_MASK, fault_iova);
-	fault_pa |= (u64)pa34_32 << 32;
-
-	pr_info("%s done, peri_iommu:%d, fault_id:0x%x, iova:0x%lx, pa:0x%lx, layer:%d, write:%d\n",
-	       __func__, iommu_id, fault_id, fault_iova, fault_pa, layer, write);
-
-	if (int_state1 & F_REG_MMU0_MAU_INT_MASK)
-		pr_info("%s err, peri_iommu_%d MAU monitor\n", __func__, iommu_id);
-
-	regval = readl_relaxed(base + REG_MMU_INT_CONTROL0);
-	regval |= F_INT_CLR_BIT;
-	writel_relaxed(regval, base + REG_MMU_INT_CONTROL0);
-}
-
-static void iompu_emimpu_callback(
-		unsigned int emi_id,
-		struct reg_info_t *dump,
-		unsigned int leng)
-{
-	int i;
-
-	if (!dump) {
-		pr_info("%s: warning: dump is NULL.\n", __func__);
-		return;
-	}
-	pr_info("%s, emi_id:%d, leng:%d\n", __func__, emi_id, leng);
-
-	for (i = 0; i < leng; i++) {
-		pr_info("%s, offset:%x, value:%x\n", __func__, dump->offset, dump->value);
-		if (dump->offset == EMI_PORT_ID_OFFSET) {
-			enum peri_iommu id = get_peri_iommu_id(dump->value & 0x07);
-
-			if (id >= PERI_IOMMU_NUM) {
-				pr_info("%s, it is not iommu port:%d\n", __func__,
-					dump->value & 0x07);
-				return;
-			}
-			peri_iommu_read_data(m4u_data->plat_data->peri_data[id].bank0_va, id);
-
-			return;
-		}
-		dump++;
-	}
-}
-#endif
-
-static int mtk_peri_iommu_init(struct mtk_m4u_data *data)
-{
-	int i;
-
-	for (i = PERI_IOMMU_M4; i < PERI_IOMMU_NUM; i++) {
-		uint64_t pa = data->plat_data->peri_data[i].bank0_pa;
-
-		data->plat_data->peri_data[i].bank0_va = ioremap(pa,
-			sizeof(data->plat_data->peri_data[i].bank0_va));
-
-		pa = data->plat_data->peri_data[i].bank4_pa;
-		data->plat_data->peri_data[i].bank4_va = ioremap(pa,
-			sizeof(data->plat_data->peri_data[i].bank4_va));
-	}
-
-#if IS_ENABLED(CONFIG_MTK_EMI)
-	/* peri iommu don't have irq, need to add callback for emimpu replace peri's irq */
-	if (mtk_emimpu_iommu_handling_register(&iompu_emimpu_callback)) {
-		pr_warn("%s, mtk_emimpu_iommu_handling_register fail!!\n", __func__);
-		return -EINVAL;
-	}
-#endif
-	return 0;
-}
-
 static int m4u_debug_init(struct mtk_m4u_data *data)
 {
 	struct proc_dir_entry *debug_file;
@@ -4034,7 +3883,6 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 	spin_lock_init(&count_list.lock);
 	INIT_LIST_HEAD(&count_list.head);
 
-	mtk_peri_iommu_init(data);
 	return 0;
 }
 
