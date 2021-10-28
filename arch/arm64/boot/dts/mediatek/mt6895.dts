@@ -941,7 +941,6 @@
 				<GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH 0>;
 			dma-channels = <4>;
 			dma-channel-mask = <63>;
-			status = "disabled";
 		};
 
 		apdma: dma-controller@11300800 {
