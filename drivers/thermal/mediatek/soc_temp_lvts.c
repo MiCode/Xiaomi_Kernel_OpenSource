@@ -1703,14 +1703,12 @@ static void init_controller_v4(struct lvts_data *lvts_data)
 	unsigned int i;
 	void __iomem *base;
 	unsigned int sensor_idx = 0x0;
-	struct device *dev = lvts_data->dev;
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		base = GET_BASE_ADDR(i);
 
 		lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_V4, i);
 		sensor_idx = set_sensor_idx(lvts_data, i);
-		dev_info(dev, "[%d] sensor select: 0x%x\n", i, sensor_idx);
 		writel(sensor_idx, LVTSTSSEL_0 + base);
 		writel(SET_CALC_SCALE_RULES, LVTSCALSCALE_0 + base);
 
@@ -3263,7 +3261,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.num_sensor = 4,
 		.sensor_map = {MT6895_TS1_0, MT6895_TS1_1, MT6895_TS1_2, MT6895_TS1_3},
 		.device_id = {0, 1, 2, 3},
-		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.tc_speed = SET_TC_SPEED_IN_US(857, 857, 857, 857),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 116500,
@@ -3278,7 +3276,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.num_sensor = 4,
 		.sensor_map = {MT6895_TS2_0, MT6895_TS2_1, MT6895_TS2_2, MT6895_TS2_3},
 		.device_id = {0, 1, 2, 3},
-		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.tc_speed = SET_TC_SPEED_IN_US(360, 360, 360, 360),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT3,
 		.hw_reboot_trip_point = 116500,
@@ -3308,7 +3306,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.num_sensor = 2,
 		.sensor_map = {MT6895_TS5_0, MT6895_TS5_1},
 		.device_id = {0, 1},
-		.tc_speed = SET_TC_SPEED_IN_US(370, 370, 370, 370),
+		.tc_speed = SET_TC_SPEED_IN_US(4816, 4816, 4816, 4816),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 116500,
@@ -3323,7 +3321,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.num_sensor = 2,
 		.sensor_map = {MT6895_TS6_0, MT6895_TS6_2},
 		.device_id = {0, 2},
-		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.tc_speed = SET_TC_SPEED_IN_US(4816, 4816, 4816, 4816),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
 		.hw_reboot_trip_point = 116500,
@@ -3338,7 +3336,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.num_sensor = 3,
 		.sensor_map = {MT6895_TS7_0, MT6895_TS7_1, MT6895_TS7_2},
 		.device_id = {0, 1, 2},
-		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.tc_speed = SET_TC_SPEED_IN_US(3162, 3162, 3162, 3162),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
 		.hw_reboot_trip_point = 116500,
@@ -3353,7 +3351,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.num_sensor = 3,
 		.sensor_map = {MT6895_TS8_0, MT6895_TS8_1, MT6895_TS8_2},
 		.device_id = {0, 1, 2},
-		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.tc_speed = SET_TC_SPEED_IN_US(3162, 3162, 3162, 3162),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
 		.hw_reboot_trip_point = 116500,
@@ -3368,7 +3366,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.num_sensor = 3,
 		.sensor_map = {MT6895_TS9_0, MT6895_TS9_1, MT6895_TS9_2},
 		.device_id = {0, 1, 2},
-		.tc_speed = SET_TC_SPEED_IN_US(1140, 1140, 1140, 1140),
+		.tc_speed = SET_TC_SPEED_IN_US(3162, 3162, 3162, 3162),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
 		.hw_reboot_trip_point = 116500,
