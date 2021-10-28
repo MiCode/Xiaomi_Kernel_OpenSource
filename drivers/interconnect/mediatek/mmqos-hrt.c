@@ -173,13 +173,13 @@ static void set_camera_max_bw(u32 bw)
 {
 	mmqos_hrt->cam_max_bw = bw;
 	pr_notice("%s: %d\n", __func__, bw);
-	if (mmqos_hrt->blocking) {
+	if (mmqos_hrt->blocking && mmqos_hrt->cam_bw_inc) {
 		atomic_inc(&mmqos_hrt->lock_count);
 		pr_notice("%s: increase lock_count=%d\n", __func__,
 			atomic_read(&mmqos_hrt->lock_count));
 	}
 	mtk_mmqos_hrt_scen(CAM_SCEN_CHANGE, bw > 0);
-	if (mmqos_hrt->blocking) {
+	if (mmqos_hrt->blocking && mmqos_hrt->cam_bw_inc) {
 		atomic_dec(&mmqos_hrt->lock_count);
 		wake_up(&mmqos_hrt->hrt_wait);
 		pr_notice("%s: decrease lock_count=%d\n", __func__,
@@ -211,13 +211,20 @@ static ssize_t camera_max_bw_store(struct device *dev,
 		return -ENOENT;
 	}
 
+	bw = MULTIPLY_W_DRAM_WEIGHT(bw);
+	if (mmqos_hrt->cam_occu_bw == bw)
+		return count;
+
 	cancel_delayed_work_sync(&mmqos_hrt->work);
-	mmqos_hrt->cam_occu_bw = MULTIPLY_W_DRAM_WEIGHT(bw);
+	mmqos_hrt->cam_occu_bw = bw;
 	mutex_lock(&mmqos_hrt->blocking_lock);
-	if (mmqos_hrt->cam_occu_bw < mmqos_hrt->cam_max_bw)
+	if (mmqos_hrt->cam_occu_bw < mmqos_hrt->cam_max_bw) {
+		mmqos_hrt->cam_bw_inc = false;
 		schedule_delayed_work(&mmqos_hrt->work, 2 * HZ);
-	else
+	} else {
+		mmqos_hrt->cam_bw_inc = true;
 		schedule_delayed_work(&mmqos_hrt->work, 0);
+	}
 	mutex_unlock(&mmqos_hrt->blocking_lock);
 
 	return count;

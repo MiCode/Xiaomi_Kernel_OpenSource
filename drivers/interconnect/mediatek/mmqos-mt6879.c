@@ -761,7 +761,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6879 = {
 		.hrt_total_bw = 22000, /*Todo: Use DRAMC API 5500*2(channel)*2(io width)*/
 		.md_speech_bw = { 8720, 8095},
 		.hrt_ratio = {1000, 860, 880, 880}, /* MD, CAM, DISP, MML */
-		.blocking = false, /* Todo: set to true after fix locking issue */
+		.blocking = true,
 		.emi_ratio = 705,
 	},
 	.hrt_LPDDR4 = {
@@ -769,7 +769,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6879 = {
 		.hrt_total_bw = 17064, /*Todo: Use DRAMC API 4266*2(channel)*2(io width)*/
 		.md_speech_bw = { 9086, 8500},
 		.hrt_ratio = {1000, 880, 900, 900}, /* MD, CAM, DISP, MML */
-		.blocking = false, /* Todo: set to true after fix locking issue */
+		.blocking = true,
 		.emi_ratio = 800,
 	},
 	.comm_port_channels = {

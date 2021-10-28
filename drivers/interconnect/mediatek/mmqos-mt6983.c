@@ -1183,7 +1183,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6983 = {
 		.hrt_total_bw = 51200, /* Todo: Use DRAMC API 6400*4(channel)*2(io width)*/
 		.md_speech_bw = { 6265, 5640},
 		.hrt_ratio = {1000, 860, 880, 880}, /* MD, CAM, DISP, MML */
-		.blocking = false, /* Todo: set to true after fix locking issue */
+		.blocking = true,
 		.emi_ratio = 680,
 	},
 	.comm_port_channels = {

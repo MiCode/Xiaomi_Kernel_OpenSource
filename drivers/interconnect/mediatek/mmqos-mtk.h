@@ -25,6 +25,7 @@ struct mmqos_hrt {
 	u32 md_speech_bw[2];
 	u32 emi_ratio;
 	bool blocking;
+	bool cam_bw_inc;
 	struct delayed_work work;
 	struct blocking_notifier_head hrt_bw_throttle_notifier;
 	atomic_t lock_count;

@@ -260,8 +260,6 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 				icc_to_MBps(comm_port_node->latest_peak_bw),
 				mmqos->qos_bound);
 		mutex_unlock(&comm_port_node->bw_lock);
-		if (comm_port_node->hrt_type == HRT_CAM)
-			mtk_mmqos_wait_throttle_done();
 		break;
 	case MTK_MMQOS_NODE_LARB:
 		larb_port_node = (struct larb_port_node *)src->data;
