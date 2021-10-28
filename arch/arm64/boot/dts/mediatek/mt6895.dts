@@ -11414,7 +11414,7 @@
 			dramc_ver = <2>;
 			/*0: dram ebg, 1:emi_freq, 2: DRAMC_DCM_CTRL 3:chn_emi_low_effi */
 			/* 4: SLC */
-			met_emi_support_list = <0x5>;
+			met_emi_support_list = <0x7>;
 			cen_emi_reg_base = <0x10219000 0x1021d000>;
 			cen_emi_reg_size = <0x1000>;
 			chn_emi_reg_base = <0x10235000 0x10245000 0x10255000 0x10265000>;
