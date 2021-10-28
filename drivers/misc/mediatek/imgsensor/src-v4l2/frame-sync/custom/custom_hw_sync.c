@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 
 #include "custom_hw_sync.h"
+#include "frame_sync_log.h"
 #include "frame_sync_util.h"
 
 #define PFX "CustomHwSync"

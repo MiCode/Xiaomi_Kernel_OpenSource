@@ -3,6 +3,7 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include "frame_sync_log.h"
 #include "frame_sync_util.h"
 #include "hw_sensor_sync_algo.h"
 #include "custom/custom_hw_sync.h"
