@@ -6147,6 +6147,30 @@
 						"DDP_COMPONENT_RDMA3_hrt_qos";
 		};
 
+		dp_intf: disp_dp_intf0@1441d000 {
+			compatible = "mediatek,dp_intf",
+					"mediatek,mt6895-dp-intf";
+			reg = <0 0x1441d000 0 0x1000>;
+			interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&mmsys1_config_clk  CLK_MM1_FMM_DISP_DP_INTF0>,
+				<&mmsys1_config_clk CLK_MM1_DISP_DP_INTF0>,
+				<&topckgen_clk CLK_TOP_DP_SEL>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D2>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D4>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D8>,
+				<&topckgen_clk CLK_TOP_TVDPLL_D16>,
+				<&topckgen_clk CLK_TOP_TVDPLL>;
+			clock-names = "hf_fmm_ck",
+					"hf_fdp_ck",
+					"MUX_DP",
+					"TVDPLL_D2",
+					"TVDPLL_D4",
+					"TVDPLL_D8",
+					"TVDPLL_D16",
+					"DPI_CK";
+			phys = <&dp_tx>;
+			phy-names = "dp_tx";
+		};
 
 		inlinerot1: inlinerot@14420000 {
 			compatible = "mediatek,inlinerot";
@@ -13026,8 +13050,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				 *	pd,id-vdo-data =
 				 *	<0xec0029cf 0x0 0x00010000 0x11000001>;
 				 */
-				pd,id-vdo-size = <3>;
-				pd,id-vdo-data = <0xd00029cf 0x0 0x00010000>;
+				pd,id-vdo-size = <4>;
+				pd,id-vdo-data = <0xec0029cf 0x0 0x00010000 0x11000001>;
 			};
 			dpm_caps {
 				local_dr_power;
