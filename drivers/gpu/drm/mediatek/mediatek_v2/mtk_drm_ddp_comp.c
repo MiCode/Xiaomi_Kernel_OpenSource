@@ -800,8 +800,8 @@ static int mtk_ddp_m4u_callback(int port, dma_addr_t mva, void *data)
 {
 	struct mtk_ddp_comp *comp = (struct mtk_ddp_comp *)data;
 
-	DDPPR_ERR("fault call port=%d, mva=0x%lx, data=0x%p\n", port, mva,
-		  data);
+	DDPPR_ERR("fault call port=0x%x, mva=0x%lx, data=0x%p\n", port,
+		  (unsigned long)mva, data);
 
 	if (comp) {
 		mtk_dump_analysis(comp);

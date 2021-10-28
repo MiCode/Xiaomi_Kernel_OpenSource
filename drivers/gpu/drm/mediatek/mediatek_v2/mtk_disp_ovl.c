@@ -685,14 +685,31 @@ next:
 static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_ovl *priv = dev_id;
-	struct mtk_ddp_comp *ovl = &priv->ddp_comp;
+	struct mtk_ddp_comp *ovl = NULL;
 	struct mtk_drm_private *drv_priv = NULL;
-	struct mtk_drm_crtc *mtk_crtc = ovl->mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
 	if (mtk_drm_top_clk_isr_get("ovl_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, invalid device\n", __func__);
+		return IRQ_NONE;
+	}
+
+	ovl = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(ovl)) {
+		DDPPR_ERR("%s, invalid comp\n", __func__);
+		return IRQ_NONE;
+	}
+
+	mtk_crtc = ovl->mtk_crtc;
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s, invalid crtc\n", __func__);
 		return IRQ_NONE;
 	}
 

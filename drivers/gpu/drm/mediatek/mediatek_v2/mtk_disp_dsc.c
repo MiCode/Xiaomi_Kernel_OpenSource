@@ -129,12 +129,23 @@ static inline struct mtk_disp_dsc *comp_to_dsc(struct mtk_ddp_comp *comp)
 static irqreturn_t mtk_dsc_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_dsc *priv = dev_id;
-	struct mtk_ddp_comp *dsc = &priv->ddp_comp;
+	struct mtk_ddp_comp *dsc = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
 	if (mtk_drm_top_clk_isr_get("dsc_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, invalid device\n", __func__);
+		return IRQ_NONE;
+	}
+
+	dsc = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(dsc)) {
+		DDPPR_ERR("%s, invalid comp\n", __func__);
 		return IRQ_NONE;
 	}
 

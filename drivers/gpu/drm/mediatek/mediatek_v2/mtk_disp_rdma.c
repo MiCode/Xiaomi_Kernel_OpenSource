@@ -270,13 +270,30 @@ int disp_met_set(void *data, u64 val);
 static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_rdma *priv = dev_id;
-	struct mtk_ddp_comp *rdma = &priv->ddp_comp;
-	struct mtk_drm_crtc *mtk_crtc = rdma->mtk_crtc;
+	struct mtk_ddp_comp *rdma = NULL;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
 	if (mtk_drm_top_clk_isr_get("rdma_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, invalid device\n", __func__);
+		return IRQ_NONE;
+	}
+
+	rdma = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(rdma)) {
+		DDPPR_ERR("%s, invalid comp\n", __func__);
+		return IRQ_NONE;
+	}
+
+	mtk_crtc = rdma->mtk_crtc;
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s, invalid crtc\n", __func__);
 		return IRQ_NONE;
 	}
 

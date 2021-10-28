@@ -3793,7 +3793,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 				DISP_SLOT_OVL_STATUS);
 
 		if (ovl_status & 1) {
-			DDPPR_ERR("ovl status error\n");
+			DDPPR_ERR("ovl status error:0x%x\n", ovl_status);
 			mtk_drm_crtc_analysis(crtc);
 			mtk_drm_crtc_dump(crtc);
 		}
@@ -6528,6 +6528,7 @@ static void mtk_crtc_msync2_add_cmds_bef_cfg(struct drm_crtc *crtc,
 		/*0->1 need disable LFR and init vfp early stop register*/
 		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_LFR)) {
 			int en = 0;
+
 			mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
 					DSI_LFR_SET, &en);
 			mtk_drm_helper_set_opt_by_name(priv->helper_opt, "MTK_DRM_OPT_LFR", en);
@@ -8009,14 +8010,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
 	}
 
-	/* backup ovl0 2l status for crtc0 */
-	if (index == 0) {
-		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL0_2L);
-		if (comp != NULL)
-			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				BACKUP_OVL_STATUS, NULL);
-	}
-
 	/*Msync 2.0*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
 			msync_is_on(priv, params, index,
@@ -8044,6 +8037,24 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			/*ToDo: if larger than 4096 need consider change pages*/
 			DDPPR_ERR("[Msync]cmdq pkt size = %d\n", cmdq_handle->cmd_buf_size);
 		}
+	}
+
+	/* backup ovl0 2l status for crtc0 */
+	if (index == 0) {
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL0_2L);
+		if (IS_ERR_OR_NULL(comp)) {
+			comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL1_2L);
+			if (IS_ERR_OR_NULL(comp)) {
+				comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL0);
+				if (IS_ERR_OR_NULL(comp))
+					comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL1);
+			}
+		}
+		if (IS_ERR_OR_NULL(comp))
+			DDPMSG("%s: failed to backup ovl status\n", __func__);
+		else
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				BACKUP_OVL_STATUS, NULL);
 	}
 
 #ifndef DRM_CMDQ_DISABLE

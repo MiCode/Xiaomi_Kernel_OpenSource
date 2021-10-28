@@ -999,7 +999,6 @@ static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 		lfr_skip_num = mtk_dbg_get_lfr_skip_num_value();
 	}
 
-
 	SET_VAL_MASK(val, mask, lfr_mode, LFR_CON_FLD_REG_LFR_MODE);
 	SET_VAL_MASK(val, mask, lfr_type, LFR_CON_FLD_REG_LFR_TYPE);
 	SET_VAL_MASK(val, mask, lfr_enable, LFR_CON_FLD_REG_LFR_EN);
@@ -5392,8 +5391,9 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 		else
 			pixclk_min = data_rate * dsi->lanes / 8 / 3;
 
-		pixclk = vact * hact * vrefresh / 1000;
+		pixclk_min = pixclk_min * bubble_rate / 100;
 
+		pixclk = vact * hact * vrefresh / 1000;
 		if (ext->params->dsc_params.enable)
 			pixclk = pixclk * vtotal / vact;
 		else
@@ -5401,6 +5401,9 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 				(vact * hact)) / 100;
 		pixclk = pixclk * bubble_rate / 100;
 		pixclk = (unsigned int)(pixclk / 1000);
+		if (mtk_crtc->is_dual_pipe)
+			pixclk /= 2;
+
 		pixclk = (pixclk_min > pixclk) ? pixclk_min : pixclk;
 	}
 
@@ -5409,11 +5412,11 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 		if (data_rate && ext->params->is_cphy)
 			pixclk = pixclk * 16 / 7;
 		pixclk = pixclk / bpp / 100;
+		if (mtk_crtc->is_dual_pipe)
+			pixclk /= 2;
 	}
-	if (mtk_crtc->is_dual_pipe)
-		pixclk /= 2;
 
-	DDPINFO("%s, data_rate =%d, clk=%u pixclk_min=%d, dual=%u\n", __func__,
+	DDPMSG("%s, data_rate =%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
 			data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
@@ -5789,20 +5792,29 @@ static void mtk_dsi_timing_change(struct mtk_dsi *dsi,
 static irqreturn_t dsi_te1_irq_handler(int irq, void *data)
 {
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
-	struct mtk_ddp_comp *output_comp;
-	struct mtk_dsi *dsi;
+	struct mtk_ddp_comp *output_comp = NULL;
+	struct mtk_dsi *dsi = NULL;
 	struct mtk_drm_private *priv = NULL;
-	struct mtk_panel_ext *panel_ext;
+	struct mtk_panel_ext *panel_ext = NULL;
 	bool doze_enabled = 0;
 	unsigned int doze_wait = 0;
 	static unsigned int cnt;
 
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s: invalid data\n", __func__);
+		return IRQ_NONE;
+	}
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (output_comp == NULL) {
-		DDPPR_ERR("%s: null pointer\n", __func__);
+	if (IS_ERR_OR_NULL(output_comp)) {
+		DDPPR_ERR("%s: invalid comp\n", __func__);
 		return IRQ_NONE;
 	}
 	dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+	if (IS_ERR_OR_NULL(dsi)) {
+		DDPPR_ERR("%s: invalid dsi\n", __func__);
+		return IRQ_NONE;
+	}
+
 	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
 		unsigned long long ext_te_time = sched_clock();
 
@@ -5820,7 +5832,7 @@ static irqreturn_t dsi_te1_irq_handler(int irq, void *data)
 		panel_ext = dsi->ext;
 		if (dsi->encoder.crtc)
 			doze_enabled = mtk_dsi_doze_state(dsi);
-		if (panel_ext->params->doze_delay && doze_enabled) {
+		if (panel_ext && panel_ext->params->doze_delay && doze_enabled) {
 			doze_wait = panel_ext->params->doze_delay;
 			if (cnt % doze_wait == 0) {
 				mtk_crtc_vblank_irq(&mtk_crtc->base);

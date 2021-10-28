@@ -225,15 +225,26 @@ struct mtk_disp_wdma {
 static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_wdma *priv = dev_id;
-	struct mtk_ddp_comp *wdma = &priv->ddp_comp;
-	struct mtk_cwb_info *cwb_info;
-	struct mtk_drm_private *drm_priv;
+	struct mtk_ddp_comp *wdma = NULL;
+	struct mtk_cwb_info *cwb_info = NULL;
+	struct mtk_drm_private *drm_priv = NULL;
 	unsigned int buf_idx;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
 	if (mtk_drm_top_clk_isr_get("wdma_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, invalid device\n", __func__);
+		return IRQ_NONE;
+	}
+
+	wdma = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(wdma)) {
+		DDPPR_ERR("%s, invalid comp\n", __func__);
 		return IRQ_NONE;
 	}
 
@@ -264,7 +275,7 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 		cwb_info = mtk_crtc->cwb_info;
 		if (cwb_info && cwb_info->enable &&
 			cwb_info->comp->id == wdma->id &&
-			!drm_priv->cwb_is_preempted) {
+			drm_priv && !drm_priv->cwb_is_preempted) {
 			buf_idx = cwb_info->buf_idx;
 			cwb_info->buffer[buf_idx].timestamp = 100;
 			atomic_set(&mtk_crtc->cwb_task_active, 1);

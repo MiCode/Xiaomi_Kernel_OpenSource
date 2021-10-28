@@ -133,12 +133,23 @@ static inline struct mtk_disp_postmask *comp_to_postmask(struct mtk_ddp_comp *co
 static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_postmask *priv = dev_id;
-	struct mtk_ddp_comp *postmask = &priv->ddp_comp;
+	struct mtk_ddp_comp *postmask = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
 	if (mtk_drm_top_clk_isr_get("postmask_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, invalid device\n", __func__);
+		return IRQ_NONE;
+	}
+
+	postmask = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(postmask)) {
+		DDPPR_ERR("%s, invalid comp\n", __func__);
 		return IRQ_NONE;
 	}
 
