@@ -210,6 +210,10 @@ static struct regname rn[] = {
 	REGNAME(disp1, 0x100, MMSYS1_CG_0),
 	REGNAME(disp1, 0x110, MMSYS1_CG_1),
 	REGNAME(disp1, 0x1A0, MMSYS1_CG_2),
+	/* PERICFG_AO register */
+	REGNAME(perao, 0x3c, PERI_CG_0),
+	REGNAME(perao, 0x40, PERI_CG_1),
+	REGNAME(perao, 0x44, PERI_CG_2),
 	/* IMGSYS_MAIN register */
 	REGNAME(img, 0x0, IMG_MAIN_CG),
 	/* DIP_TOP_DIP1 register */
@@ -379,6 +383,7 @@ u32 *get_spm_pwr_status_array(void)
 static struct pvd_msk pvd_pwr_mask[] = {
 	{"topckgen", PWR_STA, 0x00000000},
 	{"apmixedsys", PWR_STA, 0x00000000},
+	{"pericfg_ao", PWR_STA, 0x00000000},
 	{"vlp_cksys", PWR_STA, 0x00000000},
 	{"mfg_pll_ctrl", PWR_STA, 0x00000000},
 	{"apu_pll_ctrl", PWR_STA, 0x00000000},
@@ -564,10 +569,6 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 
 static const char * const off_pll_names[] = {
 	"msdcpll",
-	NULL
-};
-
-static const char * const notice_pll_names[] = {
 	"univpll",
 	"adsppll",
 	"apll1",
@@ -577,6 +578,10 @@ static const char * const notice_pll_names[] = {
 	"imgpll",
 	"mfgpll",
 	"mfgscpll",
+	NULL
+};
+
+static const char * const notice_pll_names[] = {
 	"apu_ao_apupll",
 	"apu_ao_npupll",
 	"apu_ao_apupll1",

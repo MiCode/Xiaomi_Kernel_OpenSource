@@ -13,7 +13,7 @@
 #include "clkchk-mt6983.h"
 
 #define TAG				"[pdchk] "
-#define BUG_ON_CHK_ENABLE		1
+#define BUG_ON_CHK_ENABLE		0
 
 /*
  * The clk names in Mediatek CCF.
@@ -516,7 +516,7 @@ static void dump_subsys_reg(unsigned int id)
 unsigned int pd_list[] = {
 	MT6983_POWER_DOMAIN_MD1,
 	MT6983_POWER_DOMAIN_CONN,
-	MT6983_POWER_DOMAIN_UFS0,
+	//MT6983_POWER_DOMAIN_UFS0,
 	MT6983_POWER_DOMAIN_MM_INFRA,
 	MT6983_POWER_DOMAIN_MFG0_DORMANT,
 	MT6983_POWER_DOMAIN_ADSP_INFRA,
