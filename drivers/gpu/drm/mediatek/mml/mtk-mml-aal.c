@@ -496,7 +496,7 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 		(tile->out.xs > aal_frm->out_hist_xs) ? tile->out.xs : aal_frm->out_hist_xs;
 
 	if (!idx)
-		aal_frm->in_crop_xs = tile->in.xs;
+		aal_frm->in_crop_xs = dest->crop.r.left;
 
 	mml_pq_msg("%s %d: [input] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
 			__func__, idx, tile->in.xs, tile->in.xe, tile->in.ys, tile->in.ye);
