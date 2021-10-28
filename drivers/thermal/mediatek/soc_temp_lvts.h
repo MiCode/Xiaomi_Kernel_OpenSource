@@ -170,6 +170,7 @@ struct sensor_cal_data {
 };
 
 struct platform_ops {
+	void (*device_identification)(struct lvts_data *lvts_data);
 	void (*efuse_to_cal_data)(struct lvts_data *lvts_data);
 	void (*device_enable_and_init)(struct lvts_data *lvts_data);
 	void (*device_enable_auto_rck)(struct lvts_data *lvts_data);

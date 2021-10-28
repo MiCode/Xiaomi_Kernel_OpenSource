@@ -293,7 +293,7 @@ static void lvts_reset(struct lvts_data *lvts_data)
 	}
 }
 
-static void device_identification(struct lvts_data *lvts_data)
+static void device_identification_v1(struct lvts_data *lvts_data)
 {
 	struct device *dev = lvts_data->dev;
 	unsigned int i, data;
@@ -1041,7 +1041,9 @@ static int lvts_init(struct lvts_data *lvts_data)
 
 	lvts_reset(lvts_data);
 
-	device_identification(lvts_data);
+	if (ops->device_identification)
+		ops->device_identification(lvts_data);
+
 	if (ops->device_enable_and_init)
 		ops->device_enable_and_init(lvts_data);
 
@@ -2064,6 +2066,7 @@ static struct lvts_data mt6873_lvts_data = {
 	.tc = mt6873_tc_settings,
 	.num_sensor = MT6873_NUM_TS,
 	.ops = {
+		.device_identification = device_identification_v1,
 		.efuse_to_cal_data = mt6873_efuse_to_cal_data,
 		.device_enable_and_init = device_enable_and_init_v4,
 		.device_enable_auto_rck = device_enable_auto_rck_v4,
@@ -2091,6 +2094,7 @@ static struct lvts_data mt6853_lvts_data = {
 	.tc = mt6853_tc_settings,
 	.num_sensor = MT6853_NUM_TS,
 	.ops = {
+		.device_identification = device_identification_v1,
 		.efuse_to_cal_data = mt6853_efuse_to_cal_data,
 		.device_enable_and_init = device_enable_and_init_v4,
 		.device_enable_auto_rck = device_enable_auto_rck_v4,
@@ -2487,6 +2491,7 @@ static struct lvts_data mt6893_lvts_data = {
 	.tc = mt6893_tc_settings,
 	.num_sensor = MT6893_NUM_TS,
 	.ops = {
+		.device_identification = device_identification_v1,
 		.efuse_to_cal_data = mt6893_efuse_to_cal_data,
 		.device_enable_and_init = mt6893_device_enable_and_init,
 		.device_enable_auto_rck = device_enable_auto_rck_v4,
@@ -2737,6 +2742,38 @@ enum mt6983_lvts_controller_enum {
 	MT6983_LVTS_CTRL_NUM
 };
 
+static void mt6983_device_identification(struct lvts_data *lvts_data)
+{
+	struct device *dev = lvts_data->dev;
+	unsigned int i, data;
+	void __iomem *base;
+	struct tc_settings *tc = lvts_data->tc;
+	unsigned int lvts_dev_id;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+
+		writel(ENABLE_LVTS_CTRL_CLK, LVTSCLKEN_0 + base);
+
+		lvts_write_device(lvts_data, RESET_ALL_DEVICES, i);
+
+		lvts_write_device(lvts_data, READ_BACK_DEVICE_ID, i);
+
+		/* Check LVTS device ID */
+		data = (readl(LVTS_ID_0 + base) & GENMASK(7, 0));
+
+		if  (tc[i].domain_index == MT6983_AP_DOMAIN)
+			lvts_dev_id = 0x82 + i;
+		else
+			lvts_dev_id = 0x81 + i;
+
+		if (data != lvts_dev_id) {
+			dev_err(dev, "LVTS_TC_%d, Device ID should be 0x%x, but 0x%x\n",
+				i, lvts_dev_id, data);
+		}
+	}
+}
+
 static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
 {
 	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
@@ -2981,6 +3018,7 @@ static struct lvts_data mt6983_lvts_data = {
 	.tc = mt6983_tc_settings,
 	.num_sensor = MT6983_NUM_TS,
 	.ops = {
+		.device_identification = mt6983_device_identification,
 		.efuse_to_cal_data = mt6983_efuse_to_cal_data,
 		.device_enable_and_init = mt6983_device_enable_and_init,
 		.device_enable_auto_rck = device_enable_auto_rck_v4,
@@ -3383,6 +3421,7 @@ static struct lvts_data mt6895_lvts_data = {
 	.tc = mt6895_tc_settings,
 	.num_sensor = MT6895_NUM_TS,
 	.ops = {
+		.device_identification = device_identification_v1,
 		.efuse_to_cal_data = mt6895_efuse_to_cal_data,
 		.device_enable_and_init = mt6983_device_enable_and_init,
 		.device_enable_auto_rck = device_enable_auto_rck_v4,
@@ -3772,6 +3811,7 @@ static struct lvts_data mt6879_lvts_data = {
 	.tc = mt6879_tc_settings,
 	.num_sensor = MT6879_NUM_TS,
 	.ops = {
+		.device_identification = device_identification_v1,
 		.efuse_to_cal_data = mt6879_efuse_to_cal_data,
 		.device_enable_and_init = mt6879_device_enable_and_init,
 		.device_enable_auto_rck = device_enable_auto_rck_v4,
