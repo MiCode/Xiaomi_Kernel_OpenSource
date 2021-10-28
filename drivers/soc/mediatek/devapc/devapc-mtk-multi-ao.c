@@ -21,6 +21,7 @@
 #ifdef CONFIG_MTK_SERROR_HOOK
 #include <trace/hooks/traps.h>
 #endif
+#include <../drivers/misc/mediatek/include/mt-plat/aee.h>
 #include "devapc-mtk-multi-ao.h"
 
 static struct mtk_devapc_context {
@@ -894,6 +895,13 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE)) {
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
 		BUG_ON(id != INFRA_SUBSYS_CONN);
+
+	} else if (dbg_stat->enable_AEE) {
+		/* call mtk aee_kernel_exception */
+		aee_kernel_exception("[DEVAPC]",
+			"%s%s\n",
+			"CRDISPATCH_KEY:Device APC Violation Issue/",
+			dispatch_key);
 
 	} else if (dbg_stat->enable_WARN) {
 		WARN(1, "Device APC Violation Issue/%s", dispatch_key);
