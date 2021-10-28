@@ -139,6 +139,7 @@ void venc_encode_prepare(void *ctx_prepare,
 	if (ctx == NULL || core_id >= MTK_VENC_HW_NUM)
 		return;
 
+	mutex_lock(&ctx->hw_status);
 	mtk_venc_lock(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_enc_ctx[core_id] = ctx;
@@ -150,6 +151,7 @@ void venc_encode_prepare(void *ctx_prepare,
 		vcodec_trace_count("VENC_HW_CORE_0", 1);
 	else
 		vcodec_trace_count("VENC_HW_CORE_1", 1);
+	mutex_unlock(&ctx->hw_status);
 }
 
 void venc_encode_unprepare(void *ctx_unprepare,
@@ -170,6 +172,7 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	else
 		vcodec_trace_count("VENC_HW_CORE_1", 0);
 
+	mutex_lock(&ctx->hw_status);
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
 		disable_irq(ctx->dev->enc_irq[core_id]);
 	mtk_vcodec_enc_clock_off(ctx, core_id);
@@ -177,6 +180,7 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	ctx->dev->curr_enc_ctx[core_id] = NULL;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
 	mtk_venc_unlock(ctx, core_id);
+	mutex_unlock(&ctx->hw_status);
 }
 
 void venc_encode_pmqos_gce_begin(void *ctx_begin,
@@ -224,3 +228,18 @@ int venc_if_deinit(struct mtk_vcodec_ctx *ctx)
 
 	return ret;
 }
+
+void venc_check_release_lock(void *ctx_check)
+{
+	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
+	unsigned long flags;
+	int i;
+
+	for (i = 0; i < MTK_VENC_HW_NUM; i++) {
+		if (ctx->core_locked[i] == 1) {
+			venc_encode_unprepare(ctx, i, &flags);
+			mtk_v4l2_err("[%d] daemon killed when holding lock %d", ctx->id, i);
+		}
+	}
+}
+

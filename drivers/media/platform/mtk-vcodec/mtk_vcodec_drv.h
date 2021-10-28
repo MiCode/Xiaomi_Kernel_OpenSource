@@ -474,6 +474,7 @@ struct mtk_vcodec_ctx {
 	/* for user lock HW case release check */
 	struct mutex hw_status;
 	int hw_locked[MTK_VDEC_HW_NUM];
+	int core_locked[MTK_VENC_HW_NUM];
 	int async_mode;
 	int oal_vcodec;
 

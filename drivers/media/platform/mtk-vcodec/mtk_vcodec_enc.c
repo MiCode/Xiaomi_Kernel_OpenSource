@@ -2157,6 +2157,7 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 					if (src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 						v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_ERROR);
 				}
+				venc_check_release_lock(ctx);
 			}
 		}
 	}
@@ -2668,6 +2669,7 @@ static void mtk_venc_worker(struct work_struct *work)
 				if (ret == -EIO) {
 					ctx->state = MTK_STATE_ABORT;
 					mtk_venc_queue_error_event(ctx);
+					venc_check_release_lock(ctx);
 				}
 			} else {
 				dst_buf->planes[0].bytesused =
@@ -2695,6 +2697,7 @@ static void mtk_venc_worker(struct work_struct *work)
 				if (ret == -EIO) {
 					ctx->state = MTK_STATE_ABORT;
 					mtk_venc_queue_error_event(ctx);
+					venc_check_release_lock(ctx);
 				}
 			} else if (!ctx->async_mode)
 				mtk_enc_put_buf(ctx);
@@ -2783,6 +2786,7 @@ static void mtk_venc_worker(struct work_struct *work)
 		if (ret == -EIO) {
 			ctx->state = MTK_STATE_ABORT;
 			mtk_venc_queue_error_event(ctx);
+			venc_check_release_lock(ctx);
 		}
 	} else if (!ctx->async_mode)
 		mtk_enc_put_buf(ctx);
@@ -3409,8 +3413,10 @@ void mtk_venc_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
 
-	if (hw_id < MTK_VENC_HW_NUM)
+	if (hw_id < MTK_VENC_HW_NUM) {
+		ctx->core_locked[hw_id] = 0;
 		up(&ctx->dev->enc_sem[hw_id]);
+	}
 }
 
 void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
@@ -3424,6 +3430,7 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
 
 	ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);
+	ctx->core_locked[hw_id] = 1;
 }
 
 void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)

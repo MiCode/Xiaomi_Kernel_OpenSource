@@ -132,5 +132,6 @@ void venc_encode_prepare(void *ctx_prepare,
 		unsigned int core_id, unsigned long *flags);
 void venc_encode_unprepare(void *ctx_unprepare,
 		unsigned int core_id, unsigned long *flags);
+void venc_check_release_lock(void *ctx_check);
 
 #endif /* _VENC_DRV_IF_H_ */

@@ -234,7 +234,6 @@ void vdec_check_release_lock(void *ctx_check)
 	int i;
 
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
-		/* user killed when holding lock */
 		if (ctx->hw_locked[i] == 1) {
 			vdec_decode_unprepare(ctx, i);
 			mtk_v4l2_err("[%d] daemon killed when holding lock %d", ctx->id, i);
