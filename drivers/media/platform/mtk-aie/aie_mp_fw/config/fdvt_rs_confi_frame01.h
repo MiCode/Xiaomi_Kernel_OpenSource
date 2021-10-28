@@ -5,6 +5,7 @@
  * Author: Ya-Wen Hsu <Ya-Wen.Hsu@mediatek.com>
  *
  */
+
 char fdvt_rs_confi_frame01[] = {
 0x40,
 0x00,
