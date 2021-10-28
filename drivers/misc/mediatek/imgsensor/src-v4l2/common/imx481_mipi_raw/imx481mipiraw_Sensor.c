@@ -24,6 +24,7 @@
  ************************************************************************/
 #define PFX "IMX481_camera_sensor"
 #define pr_fmt(fmt) PFX "[%s] " fmt, __func__
+#define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 
 #include <linux/videodev2.h>
 #include <linux/i2c.h>
@@ -45,6 +46,7 @@
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
+#include "adaptor.h"
 
 #define read_cmos_sensor(...) subdrv_i2c_rd_u8(__VA_ARGS__)
 #define write_cmos_sensor(...) subdrv_i2c_wr_u8(__VA_ARGS__)
@@ -258,7 +260,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 
 static void set_dummy(struct subdrv_ctx *ctx)
 {
-	pr_debug("frame_length = %d, line_length = %d\n",
+	DEBUG_LOG(ctx, "frame_length = %d, line_length = %d\n",
 	    ctx->frame_length,
 	    ctx->line_length);
 
@@ -304,7 +306,7 @@ static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate, kal_bool
 	kal_uint32 frame_length = ctx->frame_length;
 	/* unsigned long flags; */
 
-	pr_debug("framerate = %d, min framelength should enable %d\n",
+	DEBUG_LOG(ctx, "framerate = %d, min framelength should enable %d\n",
 			framerate,
 			min_framelength_en);
 
@@ -431,7 +433,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 
 	commit_write_sensor(ctx);
 
-	pr_debug(
+	DEBUG_LOG(ctx,
 	    "Exit! shutter =%d, framelength =%d\n",
 	    shutter,
 	    ctx->frame_length);
@@ -500,7 +502,7 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 
 		commit_write_sensor(ctx);
 
-		pr_debug(
+		DEBUG_LOG(ctx,
 		    "Exit! shutters[0] =%d, framelength =%d\n",
 		    shutters[0],
 		    ctx->frame_length);
@@ -620,7 +622,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
-	pr_debug("gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
+	DEBUG_LOG(ctx, "gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
 
 	set_cmos_sensor(ctx, 0x0104, 0x01);
 	/* Global analog Gain for Long expo */
@@ -1234,7 +1236,7 @@ static void slim_video_setting(struct subdrv_ctx *ctx)
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	pr_debug("enable: %d\n", enable);
+	DEBUG_LOG(ctx, "enable: %d\n", enable);
 
 	if (enable)
 		write_cmos_sensor(ctx, 0x0601, 0x02);

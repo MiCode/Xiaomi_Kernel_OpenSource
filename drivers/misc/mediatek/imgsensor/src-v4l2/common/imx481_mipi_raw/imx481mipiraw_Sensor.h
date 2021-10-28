@@ -180,6 +180,9 @@ struct imgsensor_info_struct {
 	 * only supprt 4must end with 0xff
 	 */
 	kal_uint8 i2c_addr_table[5];
+
+	struct v4l2_subdev *sd;
+	struct adaptor_ctx *adaptor_ctx_;
 };
 
 extern int iReadRegI2C(

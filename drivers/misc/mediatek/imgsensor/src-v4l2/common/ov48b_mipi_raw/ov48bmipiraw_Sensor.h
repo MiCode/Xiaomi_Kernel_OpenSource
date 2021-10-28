@@ -27,6 +27,7 @@
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
+#include "adaptor.h"
 
 enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_INIT,
@@ -169,6 +170,9 @@ struct imgsensor_info_struct {
 	kal_uint32 gain_step;
 	kal_uint32 gain_type;
 	kal_uint32 exp_step;
+
+	struct v4l2_subdev *sd;
+	struct adaptor_ctx *adaptor_ctx_;
 };
 
 extern int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,

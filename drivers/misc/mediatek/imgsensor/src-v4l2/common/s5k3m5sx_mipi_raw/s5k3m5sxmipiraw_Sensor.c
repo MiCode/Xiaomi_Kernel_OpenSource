@@ -23,6 +23,7 @@
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
+#include "adaptor.h"
 
 #define read_cmos_sensor_8(...) subdrv_i2c_rd_u8(__VA_ARGS__)
 #define read_cmos_sensor(...) subdrv_i2c_rd_u16(__VA_ARGS__)
@@ -2673,7 +2674,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	LOG_INF("enable: %d\n", enable);
+	DEBUG_LOG(ctx, "enable: %d\n", enable);
 
 	if (enable)
 		write_cmos_sensor(ctx, 0x0600, 0x0003); /*100% Color bar*/
@@ -2705,7 +2706,7 @@ static kal_int32 get_sensor_temperature(struct subdrv_ctx *ctx)
 
 static void set_dummy(struct subdrv_ctx *ctx)
 {
-	LOG_INF("dummyline = %d, dummypixels = %d\n",
+	DEBUG_LOG(ctx, "dummyline = %d, dummypixels = %d\n",
 		ctx->dummy_line, ctx->dummy_pixel);
 
 	set_cmos_sensor(ctx, 0x0340, ctx->frame_length & 0xFFFF);
@@ -2719,7 +2720,7 @@ static void set_max_framerate(struct subdrv_ctx *ctx, UINT16 framerate, kal_bool
 	/*  kal_int16 dummy_line;  */
 	kal_uint32 frame_length = ctx->frame_length;
 
-	LOG_INF("framerate = %d, min framelength should enable %d\n",
+	DEBUG_LOG(ctx, "framerate = %d, min framelength should enable %d\n",
 		framerate, min_framelength_en);
 
 	frame_length = ctx->pclk / framerate * 10 / ctx->line_length;
@@ -2811,7 +2812,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 
 	commit_write_sensor(ctx);
 
-	LOG_INF("shutter =%d, framelength =%d\n",
+	DEBUG_LOG(ctx, "shutter =%d, framelength =%d\n",
 		shutter, ctx->frame_length);
 
 }	/*  write_shutter  */
@@ -2882,7 +2883,7 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 
 		commit_write_sensor(ctx);
 
-		LOG_INF("shutters[0] =%d, framelength =%d\n",
+		DEBUG_LOG(ctx, "shutters[0] =%d, framelength =%d\n",
 			shutters[0], ctx->frame_length);
 	}
 }
@@ -2981,7 +2982,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
-	LOG_INF("gain = %d, reg_gain = 0x%x\n ", gain, reg_gain);
+	DEBUG_LOG(ctx, "gain = %d, reg_gain = 0x%x\n ", gain, reg_gain);
 
 	write_cmos_sensor(ctx, 0x0204, (reg_gain & 0xFFFF));
 	return gain;

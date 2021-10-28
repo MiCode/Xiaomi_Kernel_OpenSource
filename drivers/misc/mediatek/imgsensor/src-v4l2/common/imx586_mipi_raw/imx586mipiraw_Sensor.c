@@ -46,6 +46,8 @@
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
+#include "adaptor.h"
+
 #define _I2C_BUF_SIZE 4096
 static kal_uint16 _i2c_data[_I2C_BUF_SIZE];
 static unsigned int _size_to_write;
@@ -518,7 +520,7 @@ static void write_sensor_QSC(struct subdrv_ctx *ctx)
 
 static void set_dummy(struct subdrv_ctx *ctx)
 {
-	pr_debug("dummyline = %d, dummypixels = %d\n",
+	DEBUG_LOG(ctx, "dummyline = %d, dummypixels = %d\n",
 		ctx->dummy_line, ctx->dummy_pixel);
 	/* return;*/ /* for test */
 	if (!_is_seamless) {
@@ -688,7 +690,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		_i2c_data[_size_to_write++] = 0x0203;
 		_i2c_data[_size_to_write++] = shutter & 0xFF;
 	}
-	pr_debug("shutter =%d, framelength =%d\n",
+	DEBUG_LOG(ctx, "shutter =%d, framelength =%d\n",
 		shutter, ctx->frame_length);
 }	/*	write_shutter  */
 
@@ -779,7 +781,7 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 			_i2c_data[_size_to_write++] = shutters[0] & 0xFF;
 		}
 
-		pr_debug("shutter =%d, framelength =%d\n",
+		DEBUG_LOG(ctx, "shutter =%d, framelength =%d\n",
 			shutters[0], ctx->frame_length);
 	}
 }
@@ -898,7 +900,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
-	pr_debug("gain = %d, reg_gain = 0x%x, max_gain:%d\n ",
+	DEBUG_LOG(ctx, "gain = %d, reg_gain = 0x%x, max_gain:%d\n ",
 		gain, reg_gain, max_gain);
 	if (!_is_seamless) {
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
@@ -4266,7 +4268,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 {
 	kal_uint32 frame_length;
 
-	pr_debug("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
+	DEBUG_LOG(ctx, "scenario_id = %d, framerate = %d\n", scenario_id, framerate);
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_CUSTOM7:
@@ -4511,7 +4513,7 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	pr_debug("enable: %d\n", enable);
+	DEBUG_LOG(ctx, "enable: %d\n", enable);
 
 	if (enable)
 		write_cmos_sensor_8(ctx, 0x0601, 0x0002); /*100% Color bar*/

@@ -41,6 +41,7 @@
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
+#include "adaptor.h"
 
 #define DEBUG_LOG_EN 0
 
@@ -217,7 +218,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] = {
 
 static void set_dummy(struct subdrv_ctx *ctx)
 {
-	LOG_DEBUG("dummyline = %d, dummypixels = %d\n",
+	DEBUG_LOG(ctx, "dummyline = %d, dummypixels = %d\n",
 		ctx->dummy_line, ctx->dummy_pixel);
 	set_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
 	set_cmos_sensor_16(ctx, 0x0342, ctx->line_length);
@@ -280,7 +281,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 
 	commit_write_sensor(ctx);
 
-	LOG_DEBUG("shutter = %d, framelength = %d\n",
+	DEBUG_LOG(ctx, "shutter = %d, framelength = %d\n",
 		shutter, ctx->frame_length);
 }	/*	write_shutter  */
 
@@ -422,7 +423,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
-	LOG_DEBUG("gain = %d , reg_gain = 0x%x\n", gain, reg_gain);
+	DEBUG_LOG(ctx, "gain = %d , reg_gain = 0x%x\n", gain, reg_gain);
 
 	write_cmos_sensor_16(ctx, 0x0204, reg_gain);
 
@@ -1092,7 +1093,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 {
 	kal_uint32 frame_length;
 
-	LOG_DEBUG("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
+	DEBUG_LOG(ctx, "scenario_id = %d, framerate = %d\n", scenario_id, framerate);
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -1233,7 +1234,7 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 	else
 		return ERROR_NONE;
 
-	LOG_DEBUG("enable: %d\n", enable);
+	DEBUG_LOG(ctx, "enable: %d\n", enable);
 	ctx->test_pattern = enable;
 	return ERROR_NONE;
 }

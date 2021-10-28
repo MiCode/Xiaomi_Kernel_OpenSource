@@ -42,10 +42,11 @@
 
 #include "adaptor-subdrv.h"
 #include "adaptor-i2c.h"
+#include "adaptor.h"
 
 #define PD_PIX_2_EN 0
 #define SEQUENTIAL_WRITE_EN 1
-#define DEBUG_LOG_EN 0
+#define DEBUG_LOG_EN 1
 
 #define PFX "IMX766DUAL_camera_sensor"
 #define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
@@ -888,7 +889,7 @@ static void write_frame_len(struct subdrv_ctx *ctx, kal_uint32 fll)
 static void set_dummy(struct subdrv_ctx *ctx)
 {
 
-	LOG_DEBUG("dummyline = %d, dummypixels = %d\n",
+	DEBUG_LOG(ctx, "dummyline = %d, dummypixels = %d\n",
 	ctx->dummy_line, ctx->dummy_pixel);
 
 	/* return;*/ /* for test */
@@ -1033,7 +1034,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 	commit_write_sensor(ctx);
 
 
-	LOG_DEBUG("shutter =%d, framelength =%d\n",
+	DEBUG_LOG(ctx, "shutter =%d, framelength =%d\n",
 		shutter, ctx->frame_length);
 }	/*	write_shutter  */
 
@@ -1181,7 +1182,7 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 
 	commit_write_sensor(ctx);
 
-	LOG_DEBUG("L! le:0x%x, me:0x%x, se:0x%x, fl:0x%x\n", le, me, se,
+	DEBUG_LOG(ctx, "L! le:0x%x, me:0x%x, se:0x%x, fl:0x%x\n", le, me, se,
 		ctx->frame_length);
 }
 
@@ -1316,7 +1317,7 @@ static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bo
 
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
-	LOG_DEBUG("gain = %d, reg_gain = 0x%x\n", gain, reg_gain);
+	DEBUG_LOG(ctx, "gain = %d, reg_gain = 0x%x\n", gain, reg_gain);
 
 	if (gph)
 		set_cmos_sensor_8(ctx, 0x0104, 0x01);
@@ -2645,7 +2646,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 {
 	kal_uint32 frame_length;
 
-	LOG_DEBUG("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
+	DEBUG_LOG(ctx, "scenario_id = %d, framerate = %d\n", scenario_id, framerate);
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -3031,7 +3032,7 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	LOG_DEBUG("enable: %d\n", enable);
+	DEBUG_LOG(ctx, "enable: %d\n", enable);
 
 	if (enable)
 		write_cmos_sensor_8(ctx, 0x0601, 0x0002); /*100% Color bar*/

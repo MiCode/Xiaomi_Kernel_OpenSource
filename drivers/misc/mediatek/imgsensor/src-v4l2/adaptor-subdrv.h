@@ -9,6 +9,13 @@
 //#include "kd_imgsensor_define_v4l2.h"
 #include "imgsensor-user.h"
 
+#define DEBUG_LOG(ctx, ...) do {\
+	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client); \
+	imgsensor_info.adaptor_ctx_ = to_ctx(imgsensor_info.sd);\
+	if (unlikely(*((imgsensor_info.adaptor_ctx_)->sensor_debug_flag)))\
+		LOG_INF(__VA_ARGS__);\
+	} while (0)
+
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define IMGSENSOR_VC_ROUTING
 
