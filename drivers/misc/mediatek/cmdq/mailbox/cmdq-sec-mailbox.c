@@ -145,10 +145,12 @@ struct cmdq_sec {
 	u64			sec_done;
 
 	struct mutex		exec_lock;
+	struct mutex		mbox_mutex;
 	struct cmdq_sec_thread	thread[CMDQ_THR_MAX_COUNT];
 	struct clk		*clock;
 	bool			suspended;
 	atomic_t		usage;
+	atomic_t		mbox_usage;
 	struct workqueue_struct	*notify_wq;
 	struct workqueue_struct	*timeout_wq;
 
@@ -283,6 +285,7 @@ void cmdq_sec_mbox_enable(void *chan)
 {
 	struct cmdq_sec *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
+	s32 mbox_usage;
 
 	WARN_ON(cmdq->suspended);
 	if (cmdq->suspended) {
@@ -291,6 +294,11 @@ void cmdq_sec_mbox_enable(void *chan)
 			atomic_read(&cmdq->usage));
 		return;
 	}
+	mutex_lock(&cmdq->mbox_mutex);
+	mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
+	if (mbox_usage == 1)
+		WARN_ON(clk_prepare(cmdq->clock) < 0);
+	mutex_unlock(&cmdq->mbox_mutex);
 	cmdq_sec_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_enable);
@@ -299,6 +307,7 @@ void cmdq_sec_mbox_disable(void *chan)
 {
 	struct cmdq_sec *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
+	s32 mbox_usage;
 
 	WARN_ON(cmdq->suspended);
 	if (cmdq->suspended) {
@@ -308,6 +317,15 @@ void cmdq_sec_mbox_disable(void *chan)
 		return;
 	}
 	cmdq_sec_clk_disable(cmdq);
+	mutex_lock(&cmdq->mbox_mutex);
+	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
+	if (mbox_usage == 0)
+		clk_unprepare(cmdq->clock);
+	else if (mbox_usage < 0) {
+		cmdq_err("mbox_usage:%d", mbox_usage);
+		dump_stack();
+	}
+	mutex_unlock(&cmdq->mbox_mutex);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_disable);
 
@@ -1673,6 +1691,7 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->mbox.of_xlate = cmdq_sec_mbox_of_xlate;
 
 	mutex_init(&cmdq->exec_lock);
+	mutex_init(&cmdq->mbox_mutex);
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].base =
 			cmdq->base + CMDQ_THR_BASE + CMDQ_THR_SIZE * i;

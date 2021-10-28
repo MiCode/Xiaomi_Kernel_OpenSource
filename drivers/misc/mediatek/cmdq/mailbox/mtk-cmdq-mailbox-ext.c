@@ -173,6 +173,7 @@ struct cmdq {
 	bool			suspended;
 	atomic_t		usage;
 	atomic_t		mbox_usage;
+	struct mutex		mbox_mutex;
 	struct workqueue_struct *timeout_wq;
 	struct wakeup_source	*wake_lock;
 	bool			wake_locked;
@@ -307,15 +308,20 @@ static int cmdq_ultra_en(struct cmdq *cmdq)
 
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
 {
-	s32 usage, err, err_timer;
+	s32 usage, mbox_usage, err, err_timer;
 	unsigned long flags;
 
 	cmdq_trace_ex_begin("%s", __func__);
 
 	spin_lock_irqsave(&cmdq->lock, flags);
 
-	usage = atomic_inc_return(&cmdq->usage);
+	mbox_usage = atomic_read(&cmdq->mbox_usage);
+	if (mbox_usage <= 0) {
+		cmdq_err("mbox_usage:%d, need cmdq_mbox_enable", mbox_usage);
+		dump_stack();
+	}
 
+	usage = atomic_inc_return(&cmdq->usage);
 	err = clk_enable(cmdq->clock);
 	if (usage <= 0 || err < 0)
 		cmdq_err("ref count error after inc:%d err:%d suspend:%s",
@@ -356,12 +362,18 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 
 static void cmdq_clk_disable(struct cmdq *cmdq)
 {
-	s32 usage;
+	s32 usage, mbox_usage;
 	unsigned long flags;
 
 	cmdq_trace_ex_begin("%s", __func__);
 
 	spin_lock_irqsave(&cmdq->lock, flags);
+
+	mbox_usage = atomic_read(&cmdq->mbox_usage);
+	if (mbox_usage <= 0) {
+		cmdq_err("mbox_usage:%d, need cmdq_mbox_enable", mbox_usage);
+		dump_stack();
+	}
 
 	usage = atomic_dec_return(&cmdq->usage);
 
@@ -2133,7 +2145,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	/* make use of TXDONE_BY_ACK */
 	cmdq->mbox.txdone_irq = false;
 	cmdq->mbox.txdone_poll = false;
-
+	mutex_init(&cmdq->mbox_mutex);
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].base = cmdq->base + CMDQ_THR_BASE +
@@ -2258,11 +2270,13 @@ void cmdq_mbox_enable(void *chan)
 		return;
 	}
 	pm_runtime_get_sync(cmdq->mbox.dev);
+	mutex_lock(&cmdq->mbox_mutex);
 	mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
 	if (mbox_usage == 1) {
 		WARN_ON(clk_prepare(cmdq->clock) < 0);
 		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
 	}
+	mutex_unlock(&cmdq->mbox_mutex);
 	cmdq_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
@@ -2281,11 +2295,16 @@ void cmdq_mbox_disable(void *chan)
 		return;
 	}
 	cmdq_clk_disable(cmdq);
+	mutex_lock(&cmdq->mbox_mutex);
 	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
 	if (mbox_usage == 0) {
 		clk_unprepare(cmdq->clock_timer);
 		clk_unprepare(cmdq->clock);
+	} else if (mbox_usage < 0) {
+		cmdq_err("mbox_usage:%d", mbox_usage);
+		dump_stack();
 	}
+	mutex_unlock(&cmdq->mbox_mutex);
 	pm_runtime_put_sync(cmdq->mbox.dev);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
