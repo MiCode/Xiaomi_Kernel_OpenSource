@@ -9,6 +9,7 @@
 #include <linux/qcom-iommu-util.h>
 #include "qcom-dma-iommu-generic.h"
 #include "qcom-io-pgtable.h"
+#include "qcom-io-pgtable-alloc.h"
 
 struct qcom_iommu_range_prop_cb_data {
 	int (*range_prop_entry_cb_fn)(const __be32 *p, int naddr, int nsize, void *arg);
@@ -506,6 +507,7 @@ static initcall_t init_table[] __initdata = {
 	dma_mapping_fast_init,
 	qcom_dma_iommu_generic_driver_init,
 	qcom_arm_lpae_do_selftests,
+	qcom_io_pgtable_alloc_init,
 	NULL
 };
 
@@ -513,6 +515,7 @@ static exitcall_t exit_table[] = {
 	dma_mapping_fast_exit,
 	qcom_dma_iommu_generic_driver_exit,
 	NULL, /*qcom_arm_lpae_do_selftests */
+	qcom_io_pgtable_alloc_exit,
 	NULL,
 };
 
