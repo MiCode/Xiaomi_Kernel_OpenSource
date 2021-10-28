@@ -9514,13 +9514,13 @@
 		compatible = "mediatek,venc";
 		reg = <0 0x17820000 0 0x10000>;
 	};
-#if 0
+
 	jpgenc@17830000 {
-		compatible = "mediatek,mtk-jpgenc";
+		compatible = "mediatek,mtk-jpgenc_c1";
 		reg = <0 0x17830000 0 0x10000>;
 		interrupts = <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&venc_gcon_core1_clk CLK_VEN1_CORE1_CKE2_JPGENC>;
-		clock-names = "jpgenc";
+		clock-names = "jpgenc_c1";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_VEN1>;
 		mediatek,larb = <&smi_larb8>;
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
@@ -9543,7 +9543,6 @@
 		operating-points-v2 = <&opp_table_venc>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
-#endif
 
 	mbist@17860000 {
 		compatible = "mediatek,mbist";
