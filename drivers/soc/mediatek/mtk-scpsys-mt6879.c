@@ -264,7 +264,7 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 				MT6879_VLP_AXI_PROT_EN_MM_PROC_2ND),
 		},
 		.sram_table = {
-			SRAM_NO_ACK(0xEA0, 9), SRAM_NO_ACK(0xEA0, 9),
+			SRAM_NO_ACK(0xEA0, 9), SRAM_NO_ACK(0xEA4, 9),
 			SRAM_NO_ACK(0xEA8, 9), SRAM_NO_ACK(0xEB0, 9),
 		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP | MTK_SCPD_L2TCM_SRAM,
