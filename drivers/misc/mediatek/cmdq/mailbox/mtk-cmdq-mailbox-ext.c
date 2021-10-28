@@ -1478,15 +1478,25 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 }
 EXPORT_SYMBOL(cmdq_thread_dump);
 
-void cmdq_mbox_dump_dbg(void *mbox_cmdq, void *chan)
+void cmdq_mbox_dump_dbg(void *mbox_cmdq, void *chan, const bool lock)
 {
 	struct cmdq *cmdq = mbox_cmdq;
 	void *base = cmdq->base;
 	u32 dbg0[3], dbg2[6], dbg3, i;
 	u32 id;
+	unsigned long flags;
 
 	if (!base) {
 		cmdq_util_msg("no cmdq dbg since no base");
+		return;
+	}
+
+	if (lock)
+		spin_lock_irqsave(&cmdq->lock, flags);
+	if (atomic_read(&cmdq->usage) <= 0) {
+		cmdq_util_msg("no cmdq dbg since mbox disable");
+		if (lock)
+			spin_unlock_irqrestore(&cmdq->lock, flags);
 		return;
 	}
 
@@ -1506,6 +1516,8 @@ void cmdq_mbox_dump_dbg(void *mbox_cmdq, void *chan)
 	}
 
 	dbg3 = readl(base + GCE_DBG3);
+	if (lock)
+		spin_unlock_irqrestore(&cmdq->lock, flags);
 
 	if (chan)
 		cmdq_util_user_msg(chan,
@@ -1529,7 +1541,7 @@ void cmdq_chan_dump_dbg(void *chan)
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 
-	cmdq_mbox_dump_dbg(cmdq, chan);
+	cmdq_mbox_dump_dbg(cmdq, chan, false);
 }
 EXPORT_SYMBOL(cmdq_chan_dump_dbg);
 

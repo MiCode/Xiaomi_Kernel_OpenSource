@@ -301,6 +301,6 @@ void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);
 #endif
 
 s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt);
-void cmdq_mbox_dump_dbg(void *mbox_cmdq, void *chan);
+void cmdq_mbox_dump_dbg(void *mbox_cmdq, void *chan, const bool lock);
 void cmdq_chan_dump_dbg(void *chan);
 #endif /* __MTK_CMDQ_MAILBOX_H__ */
