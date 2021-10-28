@@ -23,6 +23,8 @@
 #endif
 
 #define WPE_BWLOG_HW_COMB	(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
+#define WPE_BWLOG_HW_COMB_ninA (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_A)
+#define WPE_BWLOG_HW_COMB_ninB (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_B)
 
 int imgsys_cmdq_ts_en;
 module_param(imgsys_cmdq_ts_en, int, 0644);
@@ -248,6 +250,8 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	int req_fd = 0, req_no = 0, frm_no = 0;
 	u32 tsSwEvent = 0, tsHwEvent = 0, tsHw = 0, tsTaskPending = 0;
 	bool isLastTaskInReq = 0;
+	char *wpestr = NULL;
+	u32 wpebw_en = imgsys_wpe_bwlog_enable();
 
 	pr_debug("%s: +\n", __func__);
 
@@ -310,22 +314,39 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	req_no = cb_param->frm_info->request_no;
 	frm_no = cb_param->frm_info->frame_no;
 
-	if (imgsys_wpe_bwlog_enable())
-		if ((hw_comb & WPE_BWLOG_HW_COMB) == WPE_BWLOG_HW_COMB) {
+	if (wpebw_en > 0) {
+		switch (wpebw_en) {
+		case 1:
+			if ((hw_comb & WPE_BWLOG_HW_COMB) == WPE_BWLOG_HW_COMB)
+				wpestr = "tnr";
+			break;
+		case 2:
+			if (((hw_comb & WPE_BWLOG_HW_COMB_ninA) == WPE_BWLOG_HW_COMB_ninA)
+			 || ((hw_comb & WPE_BWLOG_HW_COMB_ninB) == WPE_BWLOG_HW_COMB_ninB))
+				wpestr = "eis";
+			break;
+		case 3:
+			if (hw_comb == IMGSYS_ENG_WPE_LITE)
+				wpestr = "lite";
+			break;
+		}
+		if (wpestr) {
 			dev_info(imgsys_dev->dev,
-				"%s: wpe_bwlog req fd/no(%d/%d)frameNo(%d)cb(%p)err(%d)frm(%d/%d/%d)hw_comb(0x%x)read_num(%d)-value(%d/%d/%d/%d)\n",
+				"%s: wpe_bwlog req fd/no(%d/%d)frameNo(%d)cb(%p)err(%d)frm(%d/%d/%d)hw_comb(0x%x)read_num(%d)-%s(%d/%d/%d/%d)\n",
 				__func__, cb_param->frm_info->request_fd,
 				cb_param->frm_info->request_no,
 				cb_param->frm_info->frame_no,
 				cb_param, cb_param->err, cb_param->frm_idx,
 				cb_param->frm_num, cb_frm_cnt, hw_comb,
 				cb_param->taskTs.num,
+				wpestr,
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0],
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1],
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2],
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
 				);
 		}
+	}
 
 	if (cb_param->isBlkLast) {
 		cb_param->frm_info->cb_frmcnt++;
@@ -1643,7 +1664,7 @@ bool imgsys_cmdq_ts_enable(void)
 	return imgsys_cmdq_ts_en;
 }
 
-bool imgsys_wpe_bwlog_enable(void)
+u32 imgsys_wpe_bwlog_enable(void)
 {
 	return imgsys_wpe_bwlog_en;
 }
