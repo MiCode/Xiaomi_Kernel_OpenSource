@@ -133,9 +133,6 @@ struct fbt_boost_info {
 	int gcc_count;
 	int gcc_target_fps;
 	int correction;
-	int gcc_pct_thrs;
-	int gcc_avg_pct;
-	unsigned long long gcc_pct_reset_ts;
 	int quantile_cpu_time;
 	int quantile_gpu_time;
 

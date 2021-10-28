@@ -1765,7 +1765,7 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		int *target_fps, int *target_cpu_time, int *fps_margin,
 		int tgid, unsigned long long mid, int *quantile_cpu_time,
-		int *quantile_gpu_time, int *target_fpks)
+		int *quantile_gpu_time, int *target_fpks, int *cooler_on)
 {
 	struct FSTB_FRAME_INFO *iter = NULL;
 	unsigned long long total_time, v_c_time;
@@ -1778,6 +1778,8 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		if (iter->pid == pid && iter->bufid == bufID)
 			break;
 	}
+
+	*cooler_on = 0;
 
 	if (!iter) {
 		(*quantile_cpu_time) = -1;
@@ -1811,6 +1813,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 
 				eara_fps += iter->target_fps_diff;
 				eara_fps = clamp(eara_fps, min_mlimit, max_mlimit);
+				*cooler_on = 1;
 
 				*target_fps = eara_fps / 1000;
 				tolerence_fps = iter->target_fps_margin * 1000;
@@ -1859,6 +1862,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 
 				eara_fps += iter->target_fps_diff;
 				eara_fps = clamp(eara_fps, min_mlimit, max_mlimit);
+				*cooler_on = 1;
 
 				*target_fps = eara_fps / 1000;
 				tolerence_fps = iter->target_fps_margin_v2 * 1000;
