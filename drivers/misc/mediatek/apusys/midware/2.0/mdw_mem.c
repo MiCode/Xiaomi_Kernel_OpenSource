@@ -610,6 +610,7 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	if (ret && m->belong_apu == false) {
 		mdw_drv_err("map dmabuf(%d) fail\n", handle);
 		mdw_mem_release(m, true);
+		m = NULL;
 		goto out;
 	}
 
