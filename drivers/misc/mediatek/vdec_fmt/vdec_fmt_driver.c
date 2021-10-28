@@ -379,11 +379,13 @@ static void fmt_dump_addr_reg(void)
 static void fmt_gce_flush_callback(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt_ptr;
+	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 
 	pkt_ptr = (struct cmdq_pkt *)data.data;
 
 	if (data.err < 0) {
 		fmt_err("pkt_ptr %p", pkt_ptr);
+		atomic_set(&fmt->fmt_error, 1);
 		fmt_dump_addr_reg();
 	}
 }
@@ -404,6 +406,11 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	struct dmabufmap map[FMT_FD_RESERVE];
 
 	fmt_debug(1, "+");
+
+	if (atomic_read(&fmt->fmt_error) == 1) {
+		fmt_err("fmt in error status, flushed failed!");
+		return -EINVAL;
+	}
 
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&buff, user_data_addr,
@@ -530,6 +537,32 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 	if (taskid < 0) {
 		fmt_err("failed to set task id");
+		mutex_lock(&fmt->mux_gce_th[identifier]);
+		fmt_end_dvfs_emi_bw(fmt, identifier);
+
+		mutex_lock(&fmt->mux_fmt);
+		atomic_dec(&fmt->gce_job_cnt[identifier]);
+		fmt_debug(0, "id %d job cnt %d %d",
+		identifier, atomic_read(&fmt->gce_job_cnt[0]), atomic_read(&fmt->gce_job_cnt[1]));
+		if ((atomic_read(&fmt->gce_job_cnt[0])
+			+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
+			// FMT cores share the same MTCMOS/CLK,
+			// pwr/clock on/off only when there's 0 job on both pipes
+			fmt_debug(0, "Both pipe job cnt = 0, pwr/clock off");
+			ret = fmt_clock_off(fmt);
+				if (ret != 0L) {
+					fmt_err("fmt_clock_off failed!%d",
+					ret);
+					return -EINVAL;
+				}
+		}
+		mutex_unlock(&fmt->mux_fmt);
+		if (atomic_read(&fmt->gce_job_cnt[identifier]) == 0)
+			fmt_unlock(identifier);
+
+		mutex_unlock(&fmt->mux_gce_th[identifier]);
+
+		cmdq_pkt_destroy(pkt_ptr);
 		ret = -EINVAL;
 		return ret;
 	}
@@ -1092,6 +1125,8 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 		fmt_debug(0, "64-bit DMA enable failed\n");
 		return ret;
 	}
+
+	atomic_set(&fmt->fmt_error, 0);
 
 	fmt_debug(0, "initialization completed");
 	return 0;

@@ -73,6 +73,7 @@ int32_t fmt_clock_off(struct mtk_vdec_fmt *fmt)
 	if (fmt->fmtLarb)
 		mtk_smi_larb_put(fmt->fmtLarb);
 	cmdq_mbox_disable(fmt->clt_fmt[0]->chan);
+	atomic_set(&fmt->fmt_error, 0);
 	return 0;
 }
 

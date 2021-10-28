@@ -186,6 +186,7 @@ struct mtk_vdec_fmt {
 	struct icc_path *fmt_qos_req[FMT_PORT_NUM];
 	struct dts_info dtsInfo;
 	int fmt_m4u_ports[FMT_PORT_NUM];
+	atomic_t fmt_error;
 };
 
 #define FMT_GCE_SET_CMD_FLUSH _IOW('f', 0, struct gce_cmdq_obj)
