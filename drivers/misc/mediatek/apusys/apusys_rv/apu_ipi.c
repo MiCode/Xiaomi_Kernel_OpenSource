@@ -10,6 +10,7 @@
 #include <linux/lockdep.h>
 #include <linux/time64.h>
 #include <linux/kernel.h>
+#include <linux/ratelimit.h>
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
@@ -33,6 +34,15 @@ unsigned int temp_buf[APU_SHARE_BUFFER_SIZE / 4];
 static struct mutex affin_lock;
 static unsigned int affin_depth;
 static struct mtk_apu *g_apu;
+
+#define apu_ipi_info_ratelimited(dev, fmt, ...)  \
+{                                                \
+	static DEFINE_RATELIMIT_STATE(_rs,           \
+				      HZ * 5,                    \
+				      50);                       \
+	if (__ratelimit(&_rs))                       \
+		dev_info(dev, fmt, ##__VA_ARGS__);       \
+}
 
 static inline void dump_msg_buf(struct mtk_apu *apu, void *data, uint32_t len)
 {
@@ -192,7 +202,7 @@ unlock_mutex:
 	ktime_get_ts64(&te);
 	ts = timespec64_sub(te, ts);
 
-	dev_info(dev,
+	apu_ipi_info_ratelimited(dev,
 		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, elapse=%lld\n",
 		 __func__, id, len, hdr.csum, hdr.serial_no,
 		 timespec64_to_ns(&ts));
@@ -343,7 +353,7 @@ out:
 	ktime_get_ts64(&te);
 	ts = timespec64_sub(te, ts);
 
-	dev_info(dev,
+	apu_ipi_info_ratelimited(dev,
 		 "%s: ipi_id=%d, len=%d, csum=%x, serial_no=%d, latency=%lld, elapse=%lld\n",
 		 __func__, id, len, apu->hdr.csum, apu->hdr.serial_no,
 		 timespec64_to_ns(&tl),
