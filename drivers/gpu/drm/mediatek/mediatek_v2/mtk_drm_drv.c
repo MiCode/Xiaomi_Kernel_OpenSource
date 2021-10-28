@@ -5141,12 +5141,13 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct device_node *node;
 	struct component_match *match = NULL;
 	unsigned int dispsys_num = 0;
-	int ret;
+	int ret, len;
 	int i;
 	struct platform_device *side_pdev;
 	struct device *side_dev = NULL;
 	struct device_node *side_node = NULL;
 	struct device_node *aod_scp_node = NULL;
+	const __be32 *ranges = NULL;
 
 	disp_dbg_probe();
 	PanelMaster_probe();
@@ -5177,6 +5178,12 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		disp_helper_set_stage(DISP_HELPER_STAGE_NORMAL);
 	else
 		disp_helper_set_stage(DISP_HELPER_STAGE_BRING_UP);
+
+	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
+	if (ranges)
+		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+	else
+		DDPPR_ERR("can't get mmsys dma-range\n");
 
 	ret = of_property_read_u32(dev->of_node,
 				"dispsys_num", &dispsys_num);
