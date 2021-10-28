@@ -103,6 +103,7 @@ bool dcm_infracfg_ao_mts_bus_dcm_is_on(void);
 void dcm_infracfg_ao_mts_bus_dcm(int on);
 bool dcm_infra_ao_bcrm_infra_bus_dcm_is_on(void);
 void dcm_infra_ao_bcrm_infra_bus_dcm(int on);
+void dcm_infra_ao_bcrm_infra_bus_fmem_sub_dcm(int on);
 bool dcm_peri_ao_bcrm_peri_bus_dcm_is_on(void);
 void dcm_peri_ao_bcrm_peri_bus_dcm(int on);
 bool dcm_vlp_ao_bcrm_vlp_bus_dcm_is_on(void);
