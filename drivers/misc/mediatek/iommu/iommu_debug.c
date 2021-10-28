@@ -3992,7 +3992,7 @@ static void mtk_iommu_iova_alloc_dump_top(struct seq_file *s,
 	/* count iova size by device */
 	spin_lock(&iova_list.lock);
 	list_for_each_entry_safe(plist, n, &iova_list.head, list_node) {
-		if (dev == NULL || (plist->dom_id == dom_id && plist->tab_id)) {
+		if (dev == NULL || (plist->dom_id == dom_id && plist->tab_id == tab_id)) {
 			mtk_iommu_count_iova_size(plist->dev, plist->iova, plist->size);
 			dom_count++;
 		}
