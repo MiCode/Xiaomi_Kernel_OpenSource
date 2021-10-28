@@ -584,6 +584,12 @@
 		};
 	};
 
+	swpm: swpm {
+		compatible = "mediatek,mtk-swpm";
+		pmu_boundary_num = <6>;
+		pmu_dsu_support = <1>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
@@ -8386,7 +8392,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7";
 
 			node_26 = "SSPM_SWPM_CPU__DSU_STATE_RATIO",
-				"active,idle,off";
+				"active,idle,dormant,off";
 
 			node_27 = "SSPM_SWPM_CPU__DSU_L3_BW",
 				"L3_BW";
@@ -8398,11 +8404,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"cpu_emi_bw";
 
 			node_30 = "SSPM_SWPM_CPU__DVFS",
-				"vproc2,vproc1,B_volt,cpuL_freq,cpuBL_freq,cpuB_freq,cpu_L_opp,",
-				"cpu_BL_opp,cpu_B_opp,cci_volt,cci_freq,cci_opp";
+				"vproc2,vproc1,cpuL_freq,cpu_L_opp,",
+				"cpuB_freq,cpu_B_opp,cci_volt,cci_freq,cci_opp";
 
 			node_31 = "SSPM_SWPM_CPU__LKG_POWER",
-				"cpu_L,cpu_BL,cpu_B,dsu";
+				"cpu_L,cpu_B,dsu";
 
 			node_32 = "SSPM_SWPM_CPU__POWER",
 				"cpu_L,cpu_B,dsu,mcusys";
@@ -8468,17 +8474,17 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"infra_top,dramc,thermal";
 
 			node_53 = "SSPM_SWPM_DRAM__MEM_IDX",
-				"read_bw_0,read_bw_1,write_bw_0,write_bw_1,",
-				"srr_pct,pdir_pct_0,pdir_pct_1,",
-				"phr_pct_0,phr_pct_1,acc_util_0,acc_util_1,",
-				"trans_0,trans_1,mr4,ddr_freq";
+				"read_bw,write_bw,",
+				"srr_pct,pdir_pct,",
+				"phr_pct,acc_util,",
+				"trans,mr4,ddr_freq,";
 
 			node_54 = "SSPM_SWPM_DRAM__DVFS",
 				"ddr_freq";
 
 			node_55 = "SSPM_SWPM_DRAM__POWER",
 				"aphy_vddq_0p6v,aphy_vm_0p75v,aphy_vio_1p2v,dram_vddq_0p6v,",
-				"dram_vdd2_1p1v,dram_vdd1_1p8v";
+				"dram_vdd2h_1p05v,dram_vdd2l_0p9v,dram_vdd1_1p8v";
 
 			node_56 = "SSPM_SWPM_ME__POWER",
 				"disp,mdp,venc,vdec";
@@ -8506,8 +8512,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"hit,miss";
 			node_65 = "SSPM_SLBC_WAY",
 				"venc,hifi3,sh_p2,sh_apu,mml,ainr,disp,slb,cpu,gpu,slc,left";
-			node_66 = "SSPM_SWPM_CPU__CORE_PMU_L3DC_REFILL",
-				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7";
+			node_66 = "SSPM_SWPM_CPU__DSU_PMU",
+				"dsu_cycles";
 		};
 	};
 	seninf_top: seninf_top@1a010000 {
