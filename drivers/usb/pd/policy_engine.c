@@ -1634,11 +1634,6 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 						0, SOP_MSG);
 				if (ret)
 					usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-			} else {
-				usbpd_send_svdm(pd, svid, cmd,
-						SVDM_CMD_TYPE_RESP_NAK,
-						SVDM_HDR_OBJ_POS(vdm_hdr),
-						NULL, 0);
 			}
 		}
 		break;
