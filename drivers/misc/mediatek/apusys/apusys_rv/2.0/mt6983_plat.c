@@ -370,7 +370,7 @@ static int mt6983_apu_power_on(struct mtk_apu *apu)
 		dev_info(apu->dev,
 			 "%s: call to get_sync(power_dev) failed, ret=%d\n",
 			 __func__, ret);
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_PWR_ERROR");
+		/* apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_PWR_ERROR"); */
 		return ret;
 	}
 
@@ -466,7 +466,7 @@ static int mt6983_apu_power_off(struct mtk_apu *apu)
 		dev_info(apu->dev,
 			 "%s: call to put_sync(dev) failed, ret=%d\n",
 			 __func__, ret);
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
+		/* apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR"); */
 		return ret;
 	}
 

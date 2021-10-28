@@ -124,6 +124,8 @@ void apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 
 		if (ret == 0)
 			hw_logger_deep_idle_leave();
+		else
+			return;
 
 		if (!(apu->platdata->flags & F_SECURE_BOOT))
 			schedule_work(&pwron_dbg_wk);
@@ -141,9 +143,10 @@ wait_for_warm_boot:
 				dev_info(dev, "%s: retry(%d) over %u seconds!\n",
 					__func__, retry, (wait_ms/1000));
 			} else {
-				dev_info(dev,
-					"%s: wait APU interrupted by a signal, retry again\n",
-					__func__);
+				if (retry % 50 == 0)
+					dev_info(dev,
+						"%s: wait APU interrupted by a signal, retry again\n",
+						__func__);
 				retry++;
 				msleep(20);
 				goto wait_for_warm_boot;
