@@ -254,8 +254,8 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	struct mml_comp_config *ccfg = cache->cfg;
-	const u32 tile_cnt = task->config->tile_output[pipe]->tile_cnt;
-	struct mml_frame_dest dest = task->config->info.dest[0];
+	const struct mml_frame_dest *dest = &task->config->info.dest[0];
+	u32 tile_cnt;
 	bool reverse = false;
 
 	struct mml_comp *comp;
@@ -270,13 +270,19 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	task->pkts[pipe] = pkt;
 	pkt->user_data = (void *)task;
 
+	if (!task->config->tile_output[pipe]) {
+		mml_err("%s no tile for input pipe %u", __func__, pipe);
+		ret = -EINVAL;
+		goto err;
+	}
+	tile_cnt = task->config->tile_output[pipe]->tile_cnt;
+
 	/* get total label count to create label array */
 	cache->label_cnt = 0;
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
 		cache->label_cnt += call_cfg_op(comp, get_label_count, task, &ccfg[i]);
 	}
-
 	reuse->labels = kcalloc(cache->label_cnt, sizeof(*reuse->labels), GFP_KERNEL);
 	if (!reuse->labels) {
 		mml_err("%s not able to alloc label table", __func__);
@@ -294,14 +300,8 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		call_cfg_op(comp, frame, task, &ccfg[i]);
 	}
 
-	if (!task->config->tile_output[pipe]) {
-		mml_err("%s no tile for input pipe %u", __func__, pipe);
-		ret = -EINVAL;
-		goto err;
-	}
-
 	if (task->config->info.mode == MML_MODE_RACING) {
-		if (dest.rotate == MML_ROT_180 || dest.rotate == MML_ROT_270)
+		if (dest->rotate == MML_ROT_180 || dest->rotate == MML_ROT_270)
 			reverse = true;
 		/* make mmlsys do sync */
 		sync = false;
@@ -399,7 +399,6 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 		task->reuse[pipe].label_idx, cache->label_cnt);
 	cmdq_pkt_reuse_buf_va(task->pkts[pipe], task->reuse[pipe].labels,
 		task->reuse[pipe].label_idx);
-
 	/* make sure this pkt not jump to others */
 	cmdq_pkt_refinalize(task->pkts[pipe]);
 
@@ -427,6 +426,7 @@ static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *d
 static void dump_inout(struct mml_task *task)
 {
 	const struct mml_frame_config *cfg = task->config;
+	const struct mml_frame_dest *dest;
 	char frame[60];
 	u32 i;
 
@@ -438,27 +438,27 @@ static void dump_inout(struct mml_task *task)
 		task->buf.src.flush ? " flush" : "",
 		task->job.jobid);
 	for (i = 0; i < cfg->info.dest_cnt; i++) {
-		get_frame_str(frame, sizeof(frame), &cfg->info.dest[i].data);
-		mml_log(
-			"out %u:%s r:%hu plane:%hhu%s%s%s%s",
+		dest = &cfg->info.dest[i];
+		get_frame_str(frame, sizeof(frame), &dest->data);
+		mml_log("out %u:%s r:%hu plane:%hhu%s%s%s%s",
 			i,
 			frame,
-			cfg->info.dest[i].rotate,
+			dest->rotate,
 			task->buf.dest[i].cnt,
-			cfg->info.dest[i].flip ? " flip" : "",
+			dest->flip ? " flip" : "",
 			task->buf.dest[i].fence ? " fence" : "",
 			task->buf.dest[i].flush ? " flush" : "",
 			task->buf.dest[i].invalid ? " invalid" : "");
 		mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
 			i,
-			cfg->info.dest[i].crop.r.left,
-			cfg->info.dest[i].crop.r.top,
-			cfg->info.dest[i].crop.r.width,
-			cfg->info.dest[i].crop.r.height,
-			cfg->info.dest[i].compose.left,
-			cfg->info.dest[i].compose.top,
-			cfg->info.dest[i].compose.width,
-			cfg->info.dest[i].compose.height);
+			dest->crop.r.left,
+			dest->crop.r.top,
+			dest->crop.r.width,
+			dest->crop.r.height,
+			dest->compose.left,
+			dest->compose.top,
+			dest->compose.width,
+			dest->compose.height);
 	}
 }
 
@@ -471,7 +471,6 @@ static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 	mml_err("dump %d task %p pipe %u config %p job %u mode %u",
 		cnt, task, pipe, task->config, task->job.jobid,
 		task->config->info.mode);
-
 	/* print info for this task */
 	dump_inout(task);
 
@@ -1457,16 +1456,17 @@ void mml_core_deinit_config(struct mml_frame_config *cfg)
 
 static void core_update_out(struct mml_frame_config *cfg)
 {
+	const struct mml_frame_dest *dest;
 	u32 i;
 
 	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
-		if (cfg->info.dest[i].rotate == MML_ROT_0 ||
-			cfg->info.dest[i].rotate == MML_ROT_180) {
-			cfg->frame_out[i].width = cfg->info.dest[i].data.width;
-			cfg->frame_out[i].height = cfg->info.dest[i].data.height;
+		dest = &cfg->info.dest[i];
+		if (dest->rotate == MML_ROT_0 || dest->rotate == MML_ROT_180) {
+			cfg->frame_out[i].width = dest->compose.width;
+			cfg->frame_out[i].height = dest->compose.height;
 		} else {
-			cfg->frame_out[i].width = cfg->info.dest[i].data.height;
-			cfg->frame_out[i].height = cfg->info.dest[i].data.width;
+			cfg->frame_out[i].width = dest->compose.height;
+			cfg->frame_out[i].height = dest->compose.width;
 		}
 	}
 }
