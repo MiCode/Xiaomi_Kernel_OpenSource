@@ -439,7 +439,7 @@ swpm_v6983_dbg_init_fail:
 void __exit swpm_v6983_dbg_exit(void)
 {
 	swpm_v6983_exit();
-	swpm_dbg_common_fs_exit();
+	swpm_v6983_ext_exit();
 }
 
 module_init(swpm_v6983_dbg_init);

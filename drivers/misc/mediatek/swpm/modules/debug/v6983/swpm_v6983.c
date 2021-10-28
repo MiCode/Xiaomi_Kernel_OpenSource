@@ -1214,7 +1214,7 @@ void swpm_v6983_exit(void)
 {
 	swpm_lock(&swpm_mutex);
 
-	del_timer(&swpm_timer);
+	del_timer_sync(&swpm_timer);
 	swpm_set_enable(ALL_METER_TYPE, 0);
 
 	swpm_unlock(&swpm_mutex);

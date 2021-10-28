@@ -126,6 +126,12 @@ enum cpu_lkg_type {
 	NR_CPU_LKG_TYPE
 };
 
+enum dsu_pmu_idx {
+	DSU_PMU_IDX_CYCLES,
+
+	MAX_DSU_PMU_CNT
+};
+
 enum pmu_idx {
 	PMU_IDX_L3DC,
 	PMU_IDX_INST_SPEC,
@@ -146,6 +152,7 @@ enum cpu_core_power_state {
 enum cpu_cluster_power_state {
 	CPU_CLUSTER_ACTIVE,
 	CPU_CLUSTER_IDLE,
+	CPU_CLUSTER_DORMANT,
 	CPU_CLUSTER_POWER_OFF,
 
 	NR_CPU_CLUSTER_POWER_STATE
@@ -192,6 +199,7 @@ struct cpu_swpm_index {
 	unsigned int cluster_state_ratio[NR_CPU_CLUSTER_POWER_STATE];
 	unsigned int mcusys_state_ratio[NR_MCUSYS_POWER_STATE];
 	unsigned int pmu_val[MAX_PMU_CNT][NR_CPU_CORE];
+	unsigned int dsu_pmu_val[MAX_DSU_PMU_CNT];
 	unsigned int l3_bw;
 	unsigned int cpu_emi_bw;
 	struct cpu_swpm_vf_index vf;

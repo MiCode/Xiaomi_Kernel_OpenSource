@@ -57,7 +57,7 @@ static ssize_t gpu_debug_write(char *FromUser, size_t sz, void *priv)
 	if (!FromUser)
 		return -EINVAL;
 
-	if (sscanf(FromUser, "%d", &enable_time) == 1) {
+	if (!kstrtouint(FromUser, 0, &enable_time)) {
 		/* TODO: TBD for swpm_gpu_debug */
 		swpm_gpu_debug = (enable_time) ? true : false;
 	} else {
@@ -72,6 +72,40 @@ static const struct mtk_swpm_sysfs_op gpu_debug_fops = {
 };
 
 #if IS_ENABLED(CONFIG_MTK_SWPM_PERF_ARMV8_PMU)
+static ssize_t swpm_arm_dsu_pmu_read(char *ToUser, size_t sz, void *priv)
+{
+	char *p = ToUser;
+	unsigned int val;
+
+	if (!ToUser)
+		return -EINVAL;
+
+	val = swpm_arm_pmu_get_status();
+
+	swpm_dbg_log("SWPM arm dsu pmu is %s\n",
+		     (val) ? "enabled" : "disabled");
+
+	return p - ToUser;
+}
+
+static ssize_t swpm_arm_dsu_pmu_write(char *FromUser, size_t sz, void *priv)
+{
+	int enable;
+
+	if (!FromUser)
+		return -EINVAL;
+
+	if (!kstrtouint(FromUser, 0, &enable))
+		swpm_arm_dsu_pmu_enable(enable);
+
+	return sz;
+}
+
+static const struct mtk_swpm_sysfs_op swpm_arm_dsu_pmu_fops = {
+	.fs_read = swpm_arm_dsu_pmu_read,
+	.fs_write = swpm_arm_dsu_pmu_write,
+};
+
 static ssize_t swpm_arm_pmu_read(char *ToUser, size_t sz, void *priv)
 {
 	char *p = ToUser;
@@ -82,9 +116,9 @@ static ssize_t swpm_arm_pmu_read(char *ToUser, size_t sz, void *priv)
 
 	val = swpm_arm_pmu_get_status();
 
-	swpm_dbg_log("SWPM arm pmu is %s (%d:%d:%d)\n",
+	swpm_dbg_log("SWPM arm pmu is %s (%d:%d)\n",
 		(val & 0xFFFF) ? "enabled" : "disabled",
-		(val >> 20) & 0xF, (val >> 24) & 0xF, (val >> 28) & 0xF);
+		(val >> 20) & 0xF, (val >> 24) & 0xF);
 
 	swpm_dbg_log("L3DC\n");
 	for (i = 0; i < num_possible_cpus(); i++)
@@ -98,10 +132,9 @@ static ssize_t swpm_arm_pmu_read(char *ToUser, size_t sz, void *priv)
 	for (i = 0; i < num_possible_cpus(); i++)
 		swpm_dbg_log("%d,",
 		     swpm_arm_pmu_get_idx((unsigned int)CYCLES_EVT, i));
-	swpm_dbg_log("\nL3DC_REFILL\n");
-	for (i = 0; i < num_possible_cpus(); i++)
-		swpm_dbg_log("%d,",
-		     swpm_arm_pmu_get_idx((unsigned int)L3DC_REFILL_EVT, i));
+	swpm_dbg_log("\nDSU_CYCLES\n");
+	swpm_dbg_log("%d,",
+		     swpm_arm_pmu_get_idx((unsigned int)DSU_CYCLES_EVT, 0));
 	swpm_dbg_log("\n");
 
 	return p - ToUser;
@@ -114,7 +147,7 @@ static ssize_t swpm_arm_pmu_write(char *FromUser, size_t sz, void *priv)
 	if (!FromUser)
 		return -EINVAL;
 
-	if (sscanf(FromUser, "%d", &enable) == 1)
+	if (!kstrtouint(FromUser, 0, &enable))
 		swpm_arm_pmu_enable_all(enable);
 
 	return sz;
@@ -135,6 +168,8 @@ static void swpm_dbg_fs_init(void)
 #if IS_ENABLED(CONFIG_MTK_SWPM_PERF_ARMV8_PMU)
 	mtk_swpm_sysfs_entry_func_node_add("swpm_arm_pmu"
 			, 0644, &swpm_arm_pmu_fops, NULL, NULL);
+	mtk_swpm_sysfs_entry_func_node_add("swpm_arm_dsu_pmu"
+			, 0644, &swpm_arm_dsu_pmu_fops, NULL, NULL);
 #endif
 }
 
