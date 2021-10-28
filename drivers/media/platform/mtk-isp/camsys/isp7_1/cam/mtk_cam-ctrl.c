@@ -1168,7 +1168,12 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 		atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
 	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
 			   ctx->sensor_ctrl.sof_time;
-
+	/*for 1st unsync, sensor setting will be set at enque thread*/
+	if (MTK_CAM_INITIAL_REQ_SYNC == 0 &&
+			ctx->pipe->feature_active == 0 &&
+			sensor_seq_no_next <= 2) {
+		return;
+	}
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	/* Check if previous state was without cq done */
 	list_for_each_entry(state_entry, &sensor_ctrl->camsys_state_list,
@@ -1208,12 +1213,6 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 					 __func__, req_stream_data->frame_seq_no, time_after_sof);
 				return;
 			}
-		} else if (req_stream_data->frame_seq_no == sensor_seq_no_next) {
-			spin_unlock(&sensor_ctrl->camsys_state_lock);
-			dev_dbg(ctx->cam->dev,
-					 "[%s] req:%d was already in state_list (already set)\n",
-					 __func__, req_stream_data->frame_seq_no);
-			return;
 		}
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
