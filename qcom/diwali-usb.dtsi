@@ -150,6 +150,9 @@
 				"pipe_clk_ext_src", "ref_clk_src",
 				"com_aux_clk";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb3phy_portselect_default>;
+
 		qcom,qmp-phy-reg-offset =
 			<USB3_DP_PCS_PCS_STATUS1
 			 USB3_DP_PCS_USB3_AUTONOMOUS_MODE_CTRL
