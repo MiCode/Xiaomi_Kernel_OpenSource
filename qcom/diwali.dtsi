@@ -1888,6 +1888,27 @@
 		shared-buffer = <&trust_ui_vm_qrtr>;
 	};
 
+	qfprom: qfprom@221c8000 {
+		compatible = "qcom,qfprom";
+		reg = <0x221c8000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
+
+		adsp_variant: adsp_variant@114 {
+			reg = <0x117 0x1>;
+			bits = <2 6>;
+		};
+	};
+
+	qfprom_sys: qfprom@0 {
+		compatible = "qcom,qfprom-sys";
+
+		nvmem-cells = <&adsp_variant>;
+		nvmem-cell-names = "adsp_variant";
+	};
+
 	qcom,msm-cdsp-loader {
 		compatible = "qcom,cdsp-loader";
 		qcom,proc-img-to-load = "cdsp";
