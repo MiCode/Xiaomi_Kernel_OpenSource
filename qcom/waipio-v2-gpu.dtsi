@@ -149,9 +149,10 @@
 			qcom,gpu-freq = <220000000>;
 			qcom,level = <RPMH_REGULATOR_LEVEL_LOW_SVS_D1>;
 
-			qcom,bus-freq = <2>;
+			qcom,bus-freq = <5>;
 			qcom,bus-min = <1>;
-			qcom,bus-max = <5>;
+			qcom,bus-max = <11>;
+
 		};
 	};
 };
