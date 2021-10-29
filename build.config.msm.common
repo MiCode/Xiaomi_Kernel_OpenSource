@@ -37,7 +37,8 @@ append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
 ## DTB general support
 DTB_DIR=vendor/qcom
 DTC_OVERLAY_TEST_EXT=ufdt_apply_overlay
-
+# Force /__symbols__ generation for all DTB[O]s
+DTC_FLAGS="-@"
 MAKE_GOALS+=" dtbs"
 
 function install_dtbs() {
