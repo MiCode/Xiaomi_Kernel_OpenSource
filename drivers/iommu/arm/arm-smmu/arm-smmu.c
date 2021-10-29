@@ -51,6 +51,7 @@
 #include "../../iommu-logger.h"
 #include "../../qcom-dma-iommu-generic.h"
 #include "../../qcom-io-pgtable.h"
+#include "../../qcom-io-pgtable-alloc.h"
 #include <linux/qcom-iommu-util.h>
 
 #define CREATE_TRACE_POINTS
@@ -84,18 +85,6 @@ MODULE_PARM_DESC(disable_bypass,
 
 #define INVALID_CBNDX			0xff
 
-struct arm_smmu_pte_info {
-	void *virt_addr;
-	size_t size;
-	struct list_head entry;
-};
-
-struct arm_smmu_secure_pool_chunk {
-	void *addr;
-	size_t size;
-	struct list_head list;
-};
-
 static bool using_legacy_binding, using_generic_binding;
 
 struct arm_smmu_option_prop {
@@ -117,12 +106,8 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 				struct qcom_iommu_atos_txn *txn);
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 
-static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
-static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
-
 static int arm_smmu_setup_default_domain(struct device *dev,
 				struct iommu_domain *domain);
-static void arm_smmu_free_pgtable(void *cookie, void *virt, int order);
 
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
@@ -171,18 +156,6 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain)
 {
 	return (smmu_domain->secure_vmid != VMID_INVAL);
-}
-
-static void arm_smmu_secure_domain_lock(struct arm_smmu_domain *smmu_domain)
-{
-	if (arm_smmu_has_secure_vmid(smmu_domain))
-		mutex_lock(&smmu_domain->assign_lock);
-}
-
-static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
-{
-	if (arm_smmu_has_secure_vmid(smmu_domain))
-		mutex_unlock(&smmu_domain->assign_lock);
 }
 
 #ifdef CONFIG_ARM_SMMU_SELFTEST
@@ -1195,138 +1168,6 @@ static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 		fast_smmu_put_dma_cookie(domain);
 }
 
-static int arm_smmu_secure_pool_add(struct arm_smmu_domain *smmu_domain,
-				     void *addr, size_t size)
-{
-	struct arm_smmu_secure_pool_chunk *chunk;
-
-	chunk = kmalloc(sizeof(*chunk), GFP_ATOMIC);
-	if (!chunk)
-		return -ENOMEM;
-
-	chunk->addr = addr;
-	chunk->size = size;
-	memset(addr, 0, size);
-	list_add(&chunk->list, &smmu_domain->secure_pool_list);
-
-	return 0;
-}
-
-static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
-{
-	struct arm_smmu_domain *smmu_domain = cookie;
-	struct arm_smmu_pte_info *pte_info;
-
-	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		WARN(1, "Invalid VMID is set !!\n");
-		return;
-	}
-
-	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
-	if (!pte_info)
-		return;
-
-	pte_info->virt_addr = addr;
-	pte_info->size = size;
-	list_add_tail(&pte_info->entry, &smmu_domain->unassign_list);
-}
-
-static int arm_smmu_prepare_pgtable(void *addr, void *cookie)
-{
-	struct arm_smmu_domain *smmu_domain = cookie;
-	struct arm_smmu_pte_info *pte_info;
-
-	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		WARN(1, "Invalid VMID is set !!\n");
-		return -EINVAL;
-	}
-
-	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
-	if (!pte_info)
-		return -ENOMEM;
-	pte_info->virt_addr = addr;
-	list_add_tail(&pte_info->entry, &smmu_domain->pte_info_list);
-	return 0;
-}
-
-static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
-{
-	struct arm_smmu_secure_pool_chunk *it, *i;
-
-	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
-		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
-		/* pages will be freed later (after being unassigned) */
-		list_del(&it->list);
-		kfree(it);
-	}
-}
-
-static void *arm_smmu_secure_pool_remove(struct arm_smmu_domain *smmu_domain,
-					size_t size)
-{
-	struct arm_smmu_secure_pool_chunk *it;
-
-	list_for_each_entry(it, &smmu_domain->secure_pool_list, list) {
-		if (it->size == size) {
-			void *addr = it->addr;
-
-			list_del(&it->list);
-			kfree(it);
-			return addr;
-		}
-	}
-
-	return NULL;
-}
-
-static void *arm_smmu_alloc_pgtable(void *cookie, gfp_t gfp_mask, int order)
-{
-	int ret;
-	struct page *page;
-	void *page_addr;
-	size_t size = (1UL << order) * PAGE_SIZE;
-	struct arm_smmu_domain *smmu_domain = cookie;
-
-	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		page = alloc_pages(gfp_mask, order);
-		if (!page)
-			return NULL;
-
-		return page_address(page);
-	}
-
-	page_addr = arm_smmu_secure_pool_remove(smmu_domain, size);
-	if (page_addr)
-		return page_addr;
-
-	page = alloc_pages(gfp_mask, order);
-	if (!page)
-		return NULL;
-
-	page_addr = page_address(page);
-	ret = arm_smmu_prepare_pgtable(page_addr, cookie);
-	if (ret) {
-		free_pages((unsigned long)page_addr, order);
-		return NULL;
-	}
-
-	return page_addr;
-}
-
-static void arm_smmu_free_pgtable(void *cookie, void *virt, int order)
-{
-	struct arm_smmu_domain *smmu_domain = cookie;
-	size_t size = (1UL << order) * PAGE_SIZE;
-
-	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		free_pages((unsigned long)virt, order);
-		return;
-	}
-
-	if (arm_smmu_secure_pool_add(smmu_domain, virt, size))
-		arm_smmu_unprepare_pgtable(smmu_domain, virt, size);
-}
-
 static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, size_t granule)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
@@ -1342,11 +1183,6 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 
 	trace_tlb_add_walk(smmu_domain, iova, granule);
 }
-
-static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
-	.alloc = arm_smmu_alloc_pgtable,
-	.free = arm_smmu_free_pgtable,
-};
 
 static const struct qcom_iommu_flush_ops arm_smmu_iotlb_ops = {
 	.tlb_add_walk = arm_smmu_tlb_add_walk,
@@ -1524,7 +1360,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	else
 		cfg->asid = cfg->cbndx;
 
-	pgtbl_info.iommu_pgtbl_ops = &arm_smmu_pgtable_ops;
 	pgtbl_info.iommu_tlb_ops = &arm_smmu_iotlb_ops;
 	pgtbl_info.cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
@@ -1586,18 +1421,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		dev_err(smmu->dev, "failed to request context IRQ %d (%u)\n",
 			cfg->irptndx, irq);
 		cfg->irptndx = ARM_SMMU_INVALID_IRPTNDX;
-	}
-
-	/*
-	 * assign any page table memory that might have been allocated
-	 * during alloc_io_pgtable_ops
-	 */
-	arm_smmu_secure_domain_lock(smmu_domain);
-	ret = arm_smmu_assign_table(smmu_domain);
-	arm_smmu_secure_domain_unlock(smmu_domain);
-	if (ret) {
-		dev_err(dev, "Failed to hyp-assign page table memory\n");
-		goto out_clear_smmu;
 	}
 
 	iop = container_of(pgtbl_ops, struct io_pgtable, ops);
@@ -1679,10 +1502,6 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	}
 
 	qcom_free_io_pgtable_ops(smmu_domain->pgtbl_ops);
-	arm_smmu_secure_domain_lock(smmu_domain);
-	arm_smmu_secure_pool_destroy(smmu_domain);
-	arm_smmu_unassign_table(smmu_domain);
-	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 
 	arm_smmu_rpm_put(smmu);
@@ -1710,10 +1529,6 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->cb_lock);
 	spin_lock_init(&smmu_domain->sync_lock);
-	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
-	INIT_LIST_HEAD(&smmu_domain->unassign_list);
-	mutex_init(&smmu_domain->assign_lock);
-	INIT_LIST_HEAD(&smmu_domain->secure_pool_list);
 	iommu_iotlb_gather_init(&smmu_domain->iotlb_gather);
 	spin_lock_init(&smmu_domain->iotlb_gather_lock);
 	arm_smmu_domain_reinit(smmu_domain);
@@ -1972,61 +1787,6 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 	return 0;
 }
 
-static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
-{
-	int ret = 0;
-	int dest_vmids[2] = {VMID_HLOS, smmu_domain->secure_vmid};
-	int dest_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ};
-	int source_vmid = VMID_HLOS;
-	struct arm_smmu_pte_info *pte_info, *temp;
-
-	if (!arm_smmu_has_secure_vmid(smmu_domain))
-		return ret;
-
-	list_for_each_entry(pte_info, &smmu_domain->pte_info_list, entry) {
-		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
-				      PAGE_SIZE, &source_vmid, 1,
-				      dest_vmids, dest_perms, 2);
-		if (WARN_ON(ret))
-			break;
-	}
-
-	list_for_each_entry_safe(pte_info, temp, &smmu_domain->pte_info_list,
-								entry) {
-		list_del(&pte_info->entry);
-		kfree(pte_info);
-	}
-	return ret;
-}
-
-static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
-{
-	int ret;
-	int dest_vmids = VMID_HLOS;
-	int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
-	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
-	struct arm_smmu_pte_info *pte_info, *temp;
-
-	if (!arm_smmu_has_secure_vmid(smmu_domain))
-		return;
-
-	list_for_each_entry(pte_info, &smmu_domain->unassign_list, entry) {
-		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
-				      PAGE_SIZE, source_vmlist, 2,
-				      &dest_vmids, &dest_perms, 1);
-		if (WARN_ON(ret))
-			break;
-		free_pages((unsigned long)pte_info->virt_addr,
-			   get_order(pte_info->size));
-	}
-
-	list_for_each_entry_safe(pte_info, temp, &smmu_domain->unassign_list,
-				 entry) {
-		list_del(&pte_info->entry);
-		kfree(pte_info);
-	}
-}
-
 static struct device_node *arm_iommu_get_of_node(struct device *dev)
 {
 	struct device_node *np;
@@ -2267,16 +2027,8 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 		return -ENODEV;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
-	arm_smmu_secure_domain_lock(smmu_domain);
 	ret = ops->map_pages(ops, iova, paddr, pgsize, pgcount, prot, gfp, mapped);
 
-	if (ret)
-		goto out;
-
-	ret = arm_smmu_assign_table(smmu_domain);
-
-out:
-	arm_smmu_secure_domain_unlock(smmu_domain);
 	if (!ret)
 		trace_map_pages(smmu_domain, iova, pgsize, pgcount);
 
@@ -2296,7 +2048,6 @@ static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned 
 		return -ENODEV;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
-	arm_smmu_secure_domain_lock(smmu_domain);
 	/*
 	 * Use ops->map_sg() when it is available. While this function is unreachable, this
 	 * has to be implemented as such to avoid the usage of ops->map_sg(), as it
@@ -2310,13 +2061,6 @@ static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned 
 		*mapped += tmp->length;
 	}
 
-	if (ret)
-		goto out;
-
-	ret = arm_smmu_assign_table(smmu_domain);
-
-out:
-	arm_smmu_secure_domain_unlock(smmu_domain);
 	if (!ret)
 		trace_map_sg(smmu_domain, iova, sg, nents);
 
@@ -2334,20 +2078,7 @@ static size_t arm_smmu_unmap_pages(struct iommu_domain *domain, unsigned long io
 	if (!ops)
 		return 0;
 
-	arm_smmu_secure_domain_lock(smmu_domain);
-
 	ret = ops->unmap_pages(ops, iova, pgsize, pgcount, gather);
-
-	/*
-	 * While splitting up block mappings, we might allocate page table
-	 * memory during unmap, so the vmids needs to be assigned to the
-	 * memory here as well.
-	 */
-	arm_smmu_assign_table(smmu_domain);
-	/* Also unassign any pages that were free'd during unmap */
-	arm_smmu_unassign_table(smmu_domain);
-	arm_smmu_secure_domain_unlock(smmu_domain);
-
 	if (ret)
 		trace_unmap_pages(smmu_domain, iova, pgsize, pgcount);
 
@@ -2385,7 +2116,7 @@ static void __arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	while (freelist) {
 		page = freelist;
 		freelist = page->freelist;
-		arm_smmu_free_pgtable(smmu_domain, page_address(page), 0);
+		qcom_io_pgtable_free_page(page);
 	}
 }
 
@@ -2411,13 +2142,11 @@ static void arm_smmu_iotlb_sync_map(struct iommu_domain *domain,
 
 	arm_smmu_rpm_get(smmu);
 	/* Secure pages may be freed to the secure pool after TLB maintenance. */
-	arm_smmu_secure_domain_lock(smmu_domain);
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	if ((iova_end >= smmu_domain->iotlb_gather.start) &&
 	      (iova <= smmu_domain->iotlb_gather.end))
 		__arm_smmu_iotlb_sync(domain, NULL);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
-	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_rpm_put(smmu);
 }
 
@@ -2432,12 +2161,9 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 		return;
 
 	arm_smmu_rpm_get(smmu);
-	/* Secure pages may be freed to the secure pool after TLB maintenance. */
-	arm_smmu_secure_domain_lock(smmu_domain);
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	__arm_smmu_iotlb_sync(domain, NULL);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
-	arm_smmu_secure_domain_unlock(smmu_domain);
 	arm_smmu_rpm_put(smmu);
 }
 

@@ -501,11 +501,6 @@ struct arm_smmu_domain {
 	struct arm_smmu_mapping_cfg	mapping_cfg;
 	bool				delayed_s1_trans_enable;
 	u32				secure_vmid;
-	struct list_head		pte_info_list;
-	struct list_head		unassign_list;
-	/* Protects pte_info_list, unassign_list, and secure_pool_list. */
-	struct mutex			assign_lock;
-	struct list_head		secure_pool_list;
 
 	/*
 	 * Track PMDs which require tlb invalidate prior to being
