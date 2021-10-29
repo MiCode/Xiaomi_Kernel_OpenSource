@@ -64,7 +64,6 @@
 #define LLCC_TRP_WRSC_CACHEABLE_EN    0x21F2C
 #define LLCC_TRP_PCB_ACT              0x21F04
 #define LLCC_TRP_SCID_DIS_CAP_ALLOC   0x21F00
-#define LLCC_LPI_SHARED_SCT_CFGn(n)   (0x74100 + SZ_4 * n)
 
 /**
  * llcc_slice_config - Data associated with the llcc slice
@@ -92,7 +91,6 @@
  * @write_scid_en: Enables write cache support for a given scid.
  * @write_scid_cacheable_en: Enables write cache cacheable support for a
  *                          given scid.(Not supported on V2 or older hardware)
- * @lpi_shared_sct: SCID Type for each SCID - Active, Global, Persistent or Island.
  */
 struct llcc_slice_config {
 	u32 usecase_id;
@@ -109,7 +107,6 @@ struct llcc_slice_config {
 	bool activate_on_init;
 	bool write_scid_en;
 	bool write_scid_cacheable_en;
-	u32 lpi_shared_sct;
 };
 
 static u32 llcc_offsets_v2[] = {
@@ -266,35 +263,35 @@ static const struct llcc_slice_config diwali_data[] =  {
 };
 
 static const struct llcc_slice_config kalama_data[] =  {
-	{LLCC_CPUSS,     1, 2048, 1, 1, 0xFFF,    0x0,   0, 0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_MDMHPGRW, 23, 1024, 3, 0, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_MDMHW,    24, 1024, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_GPUHTW,   11,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_GPU,      12, 2048, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 1, 0, 0 },
-	{LLCC_MMUHWT,   13,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 1 },
-	{LLCC_DISP,     16, 6144, 1, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_MDMPNG,   25, 1024, 0, 1, 0xF00000, 0x0,   0, 0, 0, 0, 0, 0, 0, 2 },
-	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CVP,       8,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_MDMVPE,   26,   64, 1, 1, 0xF00000, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 1 },
-	{LLCC_CPUSS1,    3, 1024, 1, 1, 0x000FFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CPUMTE,   29,  256, 1, 1, 0xFFF,    0x0,   0, 0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CAMEXP1,   7, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CMPTHCP,  14,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_LCPDARE,  30,  128, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0, 1 },
-	{LLCC_AENPU,     6, 3072, 1, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_ISLAND1,   9, 1024, 7, 1, 0x0F,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
-	{LLCC_ISLAND2,  15,  512, 7, 1, 0x30,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
-	{LLCC_ISLAND3,  17,  256, 7, 1, 0x40,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
-	{LLCC_ISLAND4,  18,  256, 7, 1, 0x80,     0x0,   0, 0, 0, 0, 0, 0, 0, 3 },
-	{LLCC_CAMEXP2,  19, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CAMEXP3,  20, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CAMEXP4,  21, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CPUSS,     1, 2048, 1, 1, 0xFFF,    0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMHPGRW, 23, 1024, 3, 0, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMHW,    24, 1024, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_GPUHTW,   11,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_GPU,      12, 2048, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 1, 0 },
+	{LLCC_MMUHWT,   13,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_DISP,     16, 6144, 1, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMPNG,   25, 1024, 0, 1, 0xF00000, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CVP,       8,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_MDMVPE,   26,   64, 1, 1, 0xF00000, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_CPUSS1,    3, 1024, 1, 1, 0x000FFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CPUMTE,   29,  256, 1, 1, 0xFFF,    0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_CAMEXP1,   7, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CMPTHCP,  14,  256, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_LCPDARE,  30,  128, 3, 1, 0xFFFFFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_AENPU,     6, 3072, 1, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0 },
+	{LLCC_ISLAND1,   9, 1024, 7, 1, 0x0F,     0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_ISLAND2,  15,  512, 7, 1, 0x30,     0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_ISLAND3,  17,  256, 7, 1, 0x40,     0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_ISLAND4,  18,  256, 7, 1, 0x80,     0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CAMEXP2,  19, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CAMEXP3,  20, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0 },
+	{LLCC_CAMEXP4,  21, 3200, 2, 1, 0xFFFFFF, 0x0,   2, 0, 0, 0, 0, 0, 0 },
 };
 
 static const struct qcom_llcc_config diwali_cfg = {
@@ -548,7 +545,6 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr2_cfg;
 	u32 attr1_cfg;
 	u32 attr0_cfg;
-	u32 lpisct_cfg;
 	u32 attr2_val;
 	u32 attr1_val;
 	u32 attr0_val;
@@ -655,14 +651,6 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 				if (ret)
 					return ret;
 			}
-		}
-
-		if (drv_data->llcc_ver >= 41) {
-			lpisct_cfg = LLCC_LPI_SHARED_SCT_CFGn(llcc_table[i].slice_id);
-			ret = regmap_write(drv_data->bcast_regmap, lpisct_cfg,
-							llcc_table[i].lpi_shared_sct);
-			if (ret)
-				return ret;
 		}
 
 		if (llcc_table[i].activate_on_init) {
