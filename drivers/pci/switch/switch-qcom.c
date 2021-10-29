@@ -15,8 +15,6 @@
 
 #define DIODE_VENDOR_ID	0x12d8
 #define DIODE_DEVICE_ID	0xb304
-#define NTN3_VENDOR_ID	PCI_VENDOR_ID_TOSHIBA
-#define NTN3_DEVICE_ID	0x0623
 
 /*
  * @DIODE_ERRATA_0: Apply errata specific to the upstream port (USP).
@@ -258,9 +256,6 @@ static struct pci_device_id switch_qcom_pci_tbl[] = {
 	{
 		PCI_DEVICE(DIODE_VENDOR_ID, DIODE_DEVICE_ID),
 	},
-	{
-		PCI_DEVICE(NTN3_VENDOR_ID, NTN3_DEVICE_ID),
-	},
 	{0},
 };
 MODULE_DEVICE_TABLE(pci, switch_qcom_pci_tbl);
@@ -319,33 +314,11 @@ static int switch_qcom_pci_probe(struct pci_dev *pdev,
 	return 0;
 }
 
-static int switch_qcom_pci_suspend(struct device *dev)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-
-	pci_save_state(pdev);
-	pci_set_power_state(pdev, PCI_D3hot);
-
-	return 0;
-}
-static int switch_qcom_pci_resume(struct device *dev)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-
-	pci_set_power_state(pdev, PCI_D0);
-	pci_restore_state(pdev);
-
-	return 0;
-}
-const struct dev_pm_ops switch_qcom_pci_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(switch_qcom_pci_suspend, switch_qcom_pci_resume)
-};
 static struct pci_driver switch_qcom_pci_driver = {
 	.name		= "pcie-qcom-switch",
 	.id_table	= switch_qcom_pci_tbl,
 	.probe		= switch_qcom_pci_probe,
 	.remove		= switch_qcom_pci_remove,
-	.driver.pm	= &switch_qcom_pci_pm_ops,
 };
 
 static int __init switch_qcom_pci_init(void)
