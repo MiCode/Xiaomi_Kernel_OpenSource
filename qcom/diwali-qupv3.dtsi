@@ -60,6 +60,7 @@
 		qcom,gpii-mask = <0x7f>;
 		qcom,ev-factor = <2>;
 		qcom,iommu-dma-addr-pool = <0x100000 0x100000>;
+		dma-coherent;
 		qcom,gpi-ee-offset = <0x10000>;
 		status = "ok";
 	};
@@ -81,6 +82,7 @@
 		status = "disabled";
 	};
 
+	/* TUI over I2C */
 	qupv3_se0_i2c: i2c@980000 {
 		compatible = "qcom,i2c-geni";
 		reg = <0x980000 0x4000>;
@@ -94,8 +96,8 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se0_i2c_active>;
 		pinctrl-1 = <&qupv3_se0_i2c_sleep>;
-		dmas = <&gpi_dma0 0 0 3 64 0>,
-			<&gpi_dma0 1 0 3 64 0>;
+		dmas = <&gpi_dma0 0 0 3 64 2>,
+			<&gpi_dma0 1 0 3 64 2>;
 		dma-names = "tx", "rx";
 		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
@@ -115,8 +117,8 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se0_spi_active>;
 		pinctrl-1 = <&qupv3_se0_spi_sleep>;
-		dmas = <&gpi_dma0 0 0 1 64 0>,
-			<&gpi_dma0 1 0 1 64 0>;
+		dmas = <&gpi_dma0 0 0 1 64 2>,
+			<&gpi_dma0 1 0 1 64 2>;
 		dma-names = "tx", "rx";
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
@@ -182,6 +184,7 @@
 			<&gpi_dma0 1 2 3 64 0>;
 		dma-names = "tx", "rx";
 		qcom,wrapper-core = <&qupv3_0>;
+		qcom,shared;
 		status = "disabled";
 	};
 
@@ -356,7 +359,7 @@
 		status = "disabled";
 	};
 
-	/* QUPv3_1  wrapper  instance */
+	/* QUPv3_1 wrapper instance */
 	qupv3_1: qcom,qupv3_1_geni_se@ac0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0xac0000 0x2000>;
@@ -397,6 +400,7 @@
 		qcom,gpii-mask = <0x6f>;
 		qcom,ev-factor = <2>;
 		qcom,iommu-dma-addr-pool = <0x100000 0x100000>;
+		dma-coherent;
 		qcom,gpi-ee-offset = <0x10000>;
 		status = "ok";
 	};
