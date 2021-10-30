@@ -79,8 +79,6 @@ reboot-mode.ko
 regmap-spmi.ko
 rpmh-regulator.ko
 rtc-pm8xxx.ko
-sched-walt-debug.ko
-sched-walt.ko
 secure_buffer.ko
 secure_buffer.ko
 smem.ko
