@@ -31,6 +31,9 @@
 		     0x0 0x4>;
 	};
 
+	disp_rsc: rsc@af20000 {
+		status = "disabled";
+	};
 };
 
 &usb0 {
