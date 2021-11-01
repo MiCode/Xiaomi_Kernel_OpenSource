@@ -10,14 +10,6 @@
 #include <linux/types.h>
 #include "bpf_helpers.h"
 
-#define bpf_clamp_umax(VAR, UMAX)					\
-	asm volatile (							\
-		"if %0 <= %[max] goto +1\n"				\
-		"%0 = %[max]\n"						\
-		: "+r"(VAR)						\
-		: [max]"i"(UMAX)					\
-	)
-
 typedef uint32_t pid_t;
 struct task_struct {};
 
@@ -357,7 +349,7 @@ static __always_inline uint64_t read_str_var(struct strobemeta_cfg *cfg,
 					     void *payload)
 {
 	void *location;
-	uint32_t len;
+	uint64_t len;
 
 	data->str_lens[idx] = 0;
 	location = calc_location(&cfg->str_locs[idx], tls_base);
@@ -389,7 +381,7 @@ static __always_inline void *read_map_var(struct strobemeta_cfg *cfg,
 	struct strobe_map_descr* descr = &data->map_descrs[idx];
 	struct strobe_map_raw map;
 	void *location;
-	uint32_t len;
+	uint64_t len;
 	int i;
 
 	descr->tag_len = 0; /* presume no tag is set */
@@ -412,7 +404,6 @@ static __always_inline void *read_map_var(struct strobemeta_cfg *cfg,
 
 	len = bpf_probe_read_str(payload, STROBE_MAX_STR_LEN, map.tag);
 	if (len <= STROBE_MAX_STR_LEN) {
-		bpf_clamp_umax(len, STROBE_MAX_STR_LEN);
 		descr->tag_len = len;
 		payload += len;
 	}
@@ -430,7 +421,6 @@ static __always_inline void *read_map_var(struct strobemeta_cfg *cfg,
 		len = bpf_probe_read_str(payload, STROBE_MAX_STR_LEN,
 					 map.entries[i].key);
 		if (len <= STROBE_MAX_STR_LEN) {
-			bpf_clamp_umax(len, STROBE_MAX_STR_LEN);
 			descr->key_lens[i] = len;
 			payload += len;
 		}
@@ -438,7 +428,6 @@ static __always_inline void *read_map_var(struct strobemeta_cfg *cfg,
 		len = bpf_probe_read_str(payload, STROBE_MAX_STR_LEN,
 					 map.entries[i].val);
 		if (len <= STROBE_MAX_STR_LEN) {
-			bpf_clamp_umax(len, STROBE_MAX_STR_LEN);
 			descr->val_lens[i] = len;
 			payload += len;
 		}
