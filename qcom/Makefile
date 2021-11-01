@@ -333,7 +333,10 @@ endif
 ifeq ($(CONFIG_ARCH_DIWALI), y)
 ifeq ($(CONFIG_ARCH_QTI_VM), y)
 dtb-$(CONFIG_ARCH_QTI_VM) +=  \
-        diwali-vm-rumi.dtb
+	diwali-vm-rumi.dtb \
+	diwali-vm-atp.dtb \
+	diwali-vm-idp.dtb \
+	diwali-vm-qrd.dtb
 endif
 endif
 

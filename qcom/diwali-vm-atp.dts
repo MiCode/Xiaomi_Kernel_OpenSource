@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "diwali-vm.dtsi"
+#include "diwali-vm-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali SVM ATP";
+	compatible = "qcom,diwali-atp", "qcom,diwali", "qcom,atp";
+	qcom,board-id = <33 0>;
+};
