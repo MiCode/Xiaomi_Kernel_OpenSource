@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/cma.h>
 #include <linux/io.h>
@@ -2719,11 +2722,13 @@ retry:
 		if (ret == -EAGAIN && retry++ < POWER_ON_RETRY_MAX_TIMES) {
 			cnss_power_off_device(plat_priv);
 			/* Force toggle BT_EN GPIO low */
-			if (retry == POWER_ON_RETRY_MAX_TIMES &&
-			    bt_en_gpio >= 0) {
-				cnss_pr_info("Set BT_EN GPIO(%u) low\n",
-					     bt_en_gpio);
-				gpio_direction_output(bt_en_gpio, 0);
+			if (retry == POWER_ON_RETRY_MAX_TIMES) {
+				cnss_pr_dbg("Retry #%d. Set BT_EN GPIO(%u) low\n",
+					    retry, bt_en_gpio);
+				if (bt_en_gpio >= 0)
+					gpio_direction_output(bt_en_gpio, 0);
+				cnss_pr_dbg("BT_EN GPIO val: %d\n",
+					    gpio_get_value(bt_en_gpio));
 			}
 			cnss_pr_dbg("Retry to resume PCI link #%d\n", retry);
 			msleep(POWER_ON_RETRY_DELAY_MS * retry);
