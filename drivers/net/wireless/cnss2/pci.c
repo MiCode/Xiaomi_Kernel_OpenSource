@@ -5766,6 +5766,8 @@ static irqreturn_t cnss_pci_wake_handler(int irq, void *data)
 {
 	struct cnss_pci_data *pci_priv = data;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	enum rpm_status status;
+	struct device *dev;
 
 	pci_priv->wake_counter++;
 	cnss_pr_dbg("WLAN PCI wake IRQ (%u) is asserted #%u\n",
@@ -5781,8 +5783,12 @@ static irqreturn_t cnss_pci_wake_handler(int irq, void *data)
 	 */
 	pm_system_wakeup();
 
-	if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
-	    cnss_pci_get_auto_suspended(pci_priv)) {
+	dev = &pci_priv->pci_dev->dev;
+	status = dev->power.runtime_status;
+
+	if ((cnss_pci_get_monitor_wake_intr(pci_priv) &&
+	     cnss_pci_get_auto_suspended(pci_priv)) ||
+	    (status == RPM_SUSPENDING || status == RPM_SUSPENDED)) {
 		cnss_pci_set_monitor_wake_intr(pci_priv, false);
 		cnss_pci_pm_request_resume(pci_priv);
 	}
