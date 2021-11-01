@@ -425,14 +425,14 @@
 
 		qupv3_se6_spi_sleep: qupv3_se6_spi_sleep {
 			mux {
-				pins = "gpio20", "gpio21",
-						"gpio22", "gpio23";
+				pins = "gpio24", "gpio25",
+						"gpio26", "gpio27";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio20", "gpio21",
-						"gpio22", "gpio23";
+				pins = "gpio24", "gpio25",
+						"gpio26", "gpio27";
 				drive-strength = <6>;
 				bias-disable;
 			};

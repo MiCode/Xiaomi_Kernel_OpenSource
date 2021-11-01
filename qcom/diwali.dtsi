@@ -34,6 +34,7 @@
 
 	aliases: aliases {
 		serial0 = &qupv3_se5_2uart;
+		hsuart0 = &qupv3_se7_4uart;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	 };
