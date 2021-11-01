@@ -424,7 +424,7 @@ static __poll_t glink_pkt_poll(struct file *file, poll_table *wait)
 	}
 	if (!completion_done(&gpdev->ch_open)) {
 		GLINK_PKT_ERR("%s channel in reset\n", gpdev->ch_name);
-		return POLLHUP;
+		return POLLHUP | POLLPRI;
 	}
 
 	poll_wait(file, &gpdev->readq, wait);
