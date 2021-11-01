@@ -1900,6 +1900,14 @@
 			reg = <0x117 0x1>;
 			bits = <2 6>;
 		};
+
+		feat_conf12: feat_conf12@0130 {
+			reg = <0x0130 0x4>;
+		};
+
+		feat_conf13: feat_conf13@0134 {
+			reg = <0x0134 0x4>;
+		};
 	};
 
 	qfprom_sys: qfprom@0 {
