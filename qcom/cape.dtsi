@@ -2612,6 +2612,7 @@
 #include "cape-dma-heaps.dtsi"
 #include "cape-gpu.dtsi"
 #include "cape-thermal.dtsi"
+#include "cape-usb.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
