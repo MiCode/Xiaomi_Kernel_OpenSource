@@ -439,6 +439,8 @@ struct ipa_fmwk_contex {
 
 	bool (*ipa_eth_client_exist)(
 		enum ipa_eth_client_type eth_client_type, int inst_id);
+	int (*ipa_add_socksv5_conn)(struct ipa_socksv5_info *info);
+	int (*ipa_del_socksv5_conn)(uint32_t handle);
 };
 
 static struct ipa_fmwk_contex *ipa_fmwk_ctx;
@@ -558,6 +560,8 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 		in->ipa_unregister_rmnet_ll_cb;
 	ipa_fmwk_ctx->ipa_register_notifier =
 		in->ipa_unregister_notifier;
+	ipa_fmwk_ctx->ipa_add_socksv5_conn = in->ipa_add_socksv5_conn;
+	ipa_fmwk_ctx->ipa_del_socksv5_conn = in->ipa_del_socksv5_conn;
 
 	ipa_fmwk_ctx->ipa_ready = true;
 	ipa_trigger_ipa_ready_cbs();
@@ -1056,6 +1060,26 @@ int ipa_unregister_rmnet_ll_cb(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_unregister_rmnet_ll_cb);
+
+int ipa_add_socksv5_conn(struct ipa_socksv5_info *info)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_add_socksv5_conn, info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_socksv5_conn);
+
+int ipa_del_socksv5_conn(uint32_t handle)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_del_socksv5_conn, handle);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_del_socksv5_conn);
 
 int ipa_register_notifier(void *fn_ptr)
 {
