@@ -560,6 +560,17 @@ struct smq_notif_rspv3 {
 	uint32_t status;	  /* userpd status notification */
 };
 
+enum fastrpc_process_exit_states {
+	/* Process Default State */
+	FASTRPC_PROCESS_DEFAULT_STATE				= 0,
+	/* Process exit initiated */
+	FASTRPC_PROCESS_EXIT_START				= 1,
+	/* Process exit issued to DSP */
+	FASTRPC_PROCESS_DSP_EXIT_INIT				= 2,
+	/* Process exit in DSP complete */
+	FASTRPC_PROCESS_DSP_EXIT_COMPLETE			= 3,
+};
+
 static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
 							uint32_t sc)
 {
