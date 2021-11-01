@@ -93,7 +93,7 @@ SoCs:
   compatible = "qcom,diwali"
 
 - CAPE
-  compatible = "qcom,cape", "qcom,cape-v2"
+  compatible = "qcom,cape", "qcom,cape-v2", "qcom,capep"
 
 - NEO
   compatible = "qcom,neo"
@@ -271,6 +271,9 @@ compatible = "qcom,cape-v2-mtp"
 compatible = "qcom,cape-v2-atp"
 compatible = "qcom,cape-v2-cdp"
 compatible = "qcom,cape-v2-qrd"
+compatible = "qcom,capep-mtp"
+compatible = "qcom,capep-atp"
+compatible = "qcom,capep-cdp"
 compatible = "qcom,diwali-rumi"
 compatible = "qcom,diwali-idp"
 compatible = "qcom,diwali-qrd"
