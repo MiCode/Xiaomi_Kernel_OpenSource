@@ -3870,7 +3870,7 @@ static int icnss_probe(struct platform_device *pdev)
 			icnss_pr_err("ICNSS genl init failed %d\n", ret);
 
 		icnss_runtime_pm_init(priv);
-		icnss_get_cpr_info(priv);
+		icnss_aop_mbox_init(priv);
 		icnss_get_smp2p_info(priv);
 		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 		priv->use_nv_mac = icnss_use_nv_mac(priv);
@@ -3908,6 +3908,8 @@ static int icnss_remove(struct platform_device *pdev)
 		icnss_dms_deinit(priv);
 		icnss_genl_exit();
 		icnss_runtime_pm_deinit(priv);
+		if (!IS_ERR_OR_NULL(priv->mbox_chan))
+			mbox_free_channel(priv->mbox_chan);
 	}
 
 	device_init_wakeup(&priv->pdev->dev, false);
