@@ -146,6 +146,6 @@ static void __exit ion_cma_heap_exit(void)
 		ion_device_remove_heap(&cma_heaps[nr].heap);
 }
 
-module_init(ion_cma_heap_init);
+subsys_initcall(ion_cma_heap_init);
 module_exit(ion_cma_heap_exit);
 MODULE_LICENSE("GPL v2");
