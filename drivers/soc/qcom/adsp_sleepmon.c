@@ -781,13 +781,11 @@ static int adspsleepmon_device_release(struct inode *inode, struct file *fp)
 		/*
 		 * Reaggregate num sessions
 		 */
-		if (fl->b_connected == ADSPSLEEPMON_AUDIO_CLIENT) {
-			hlist_for_each_entry_safe(client, n,
-						&g_adspsleepmon.audio_clients, hn) {
-				if (client->b_connected) {
-					num_sessions += client->num_sessions;
-					num_lpi_sessions += client->num_lpi_sessions;
-				}
+		hlist_for_each_entry_safe(client, n,
+					&g_adspsleepmon.audio_clients, hn) {
+			if (client->b_connected) {
+				num_sessions += client->num_sessions;
+				num_lpi_sessions += client->num_lpi_sessions;
 			}
 		}
 
@@ -800,37 +798,40 @@ static int adspsleepmon_device_release(struct inode *inode, struct file *fp)
 		 *				   active session)
 		 *   Stop -> An active session
 		 */
-		if (num_sessions &&
-			!g_adspsleepmon.audio_stats.num_sessions &&
-			(num_sessions != num_lpi_sessions)) {
-			del_timer(&adspsleep_timer);
-			g_adspsleepmon.timer_pending = false;
-		} else if (!num_sessions ||
-				(num_sessions == num_lpi_sessions)) {
+		if (num_sessions != g_adspsleepmon.audio_stats.num_sessions) {
+			if (num_sessions &&
+				!g_adspsleepmon.audio_stats.num_sessions &&
+				(num_sessions != num_lpi_sessions)) {
+				del_timer(&adspsleep_timer);
+				g_adspsleepmon.timer_pending = false;
+			} else if (!num_sessions ||
+					(num_sessions == num_lpi_sessions)) {
 
-			if (!num_sessions) {
-				memcpy(&g_adspsleepmon.backup_lpm_stats,
-						g_adspsleepmon.lpm_stats,
-						sizeof(struct sleep_stats));
-				g_adspsleepmon.backup_lpm_timestamp = __arch_counter_get_cntvct();
-				delay = g_adspsleepmon.lpm_wait_time;
-			} else {
-				memcpy(&g_adspsleepmon.backup_lpi_stats,
-						g_adspsleepmon.lpi_stats,
-						sizeof(struct sleep_stats));
-				g_adspsleepmon.backup_lpi_timestamp = __arch_counter_get_cntvct();
-				delay = g_adspsleepmon.lpi_wait_time;
+				if (!num_sessions) {
+					memcpy(&g_adspsleepmon.backup_lpm_stats,
+							g_adspsleepmon.lpm_stats,
+							sizeof(struct sleep_stats));
+					g_adspsleepmon.backup_lpm_timestamp =
+						__arch_counter_get_cntvct();
+					delay = g_adspsleepmon.lpm_wait_time;
+				} else {
+					memcpy(&g_adspsleepmon.backup_lpi_stats,
+							g_adspsleepmon.lpi_stats,
+							sizeof(struct sleep_stats));
+					g_adspsleepmon.backup_lpi_timestamp =
+						__arch_counter_get_cntvct();
+					delay = g_adspsleepmon.lpi_wait_time;
+				}
+
+				mod_timer(&adspsleep_timer, jiffies + delay * HZ);
+				g_adspsleepmon.timer_pending = true;
 			}
 
-			mod_timer(&adspsleep_timer, jiffies + delay * HZ);
-			g_adspsleepmon.timer_pending = true;
+			g_adspsleepmon.audio_stats.num_sessions = num_sessions;
+			g_adspsleepmon.audio_stats.num_lpi_sessions = num_lpi_sessions;
 		}
 
-		g_adspsleepmon.audio_stats.num_sessions = num_sessions;
-		g_adspsleepmon.audio_stats.num_lpi_sessions = num_lpi_sessions;
-
 		mutex_unlock(&g_adspsleepmon.lock);
-
 
 		pr_info("Release: num_sessions=%d,num_lpi_sessions=%d,timer_pending=%d\n",
 						g_adspsleepmon.audio_stats.num_sessions,
