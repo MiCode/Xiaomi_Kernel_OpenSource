@@ -744,7 +744,17 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	int ret;
 	u32 val;
-
+	int i;
+	bool result = false;
+	struct {
+		char *name;
+		u32 offset;
+	} error_reg[] = {
+		{ "ERROR_DBG1", BHI_ERRDBG1 },
+		{ "ERROR_DBG2", BHI_ERRDBG2 },
+		{ "ERROR_DBG3", BHI_ERRDBG3 },
+		{ NULL },
+		};
 	if (!mhi_cntrl->rddm_image || !cookie)
 		return false;
 
@@ -753,15 +763,23 @@ bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
 	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		return false;
 
-	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_ERRDBG2, &val);
-	if (ret)
-		return false;
+	/* look for an RDDM cookie match in any of the error debug registers */
+	for (i = 0; error_reg[i].name; i++) {
 
-	MHI_VERB("BHI_ERRDBG2 value:0x%x\n", val);
-	if (val == cookie)
-		return true;
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, error_reg[i].offset, &val);
 
-	return false;
+		if (ret)
+			break;
+
+		MHI_VERB("reg: %s value:0x%x\n", error_reg[i].name, val);
+
+		if (!(val ^ cookie)) {
+			MHI_VERB("RDDM Cookie found in %s\n", error_reg[i].name);
+			return true;
+		}
+	}
+	MHI_VERB("RDDM Cookie not found\n");
+	return result;
 }
 EXPORT_SYMBOL(mhi_scan_rddm_cookie);
 
