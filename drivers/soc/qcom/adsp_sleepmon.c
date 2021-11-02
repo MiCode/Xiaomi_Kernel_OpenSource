@@ -49,6 +49,7 @@
 #define ADSPSLEEPMON_SYSMONSTATS_SMEM_ID				634
 #define ADSPSLEEPMON_SYSMONSTATS_EVENTS_FEATURE_ID		2
 #define ADSPSLEEPMON_SYS_CLK_TICKS_PER_SEC			19200000
+#define ADSPSLEEPMON_SYS_CLK_TICKS_PER_MILLISEC		19200
 #define ADSPSLEEPMON_LPI_WAIT_TIME			15
 #define ADSPSLEEPMON_LPM_WAIT_TIME			5
 
@@ -601,11 +602,20 @@ static int adspsleepmon_worker(void *data)
 					pr_err("ADSP clock: %u, sleep latency: %u\n",
 							sysmon_event_stats.core_clk,
 							sysmon_event_stats.sleep_latency);
+					pr_err("Monitored duration (msec):%u,Sleep duration(msec): %u\n",
+						(elapsed_time /
+						ADSPSLEEPMON_SYS_CLK_TICKS_PER_MILLISEC),
+						((curr_lpm_stats.accumulated -
+						g_adspsleepmon.backup_lpm_stats.accumulated) /
+						ADSPSLEEPMON_SYS_CLK_TICKS_PER_MILLISEC));
 
 					curr_pid_audio = current_audio_pid(&curr_dsppm_stats);
 					audio_pid_active = curr_pid_audio;
 
-					if (g_adspsleepmon.b_panic_lpm && audio_pid_active)
+					if (g_adspsleepmon.b_panic_lpm &&
+						audio_pid_active &&
+						(curr_lpm_stats.accumulated ==
+						g_adspsleepmon.backup_lpm_stats.accumulated))
 						panic("ADSP sleep issue detected");
 
 				}
@@ -822,7 +832,7 @@ static int adspsleepmon_device_release(struct inode *inode, struct file *fp)
 		mutex_unlock(&g_adspsleepmon.lock);
 
 
-		pr_info("Audio: num_sessions=%d,num_lpi_sessions=%d,timer_pending=%d\n",
+		pr_info("Release: num_sessions=%d,num_lpi_sessions=%d,timer_pending=%d\n",
 						g_adspsleepmon.audio_stats.num_sessions,
 						g_adspsleepmon.audio_stats.num_lpi_sessions,
 						g_adspsleepmon.timer_pending);
