@@ -6,6 +6,13 @@ MAKE_GOALS="${MAKE_GOALS}
 Image.lz4
 "
 
+TIDY_ABI=1
+KMI_SYMBOL_LIST=android/abi_gki_aarch64
+
 FILES="${FILES}
 arch/arm64/boot/Image.lz4
 "
+
+TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
+KMI_SYMBOL_LIST_STRICT_MODE=${KMI_SYMBOL_LIST_STRICT_MODE:-1}
+MODULES_ORDER=android/gki_aarch64_modules
