@@ -819,4 +819,13 @@ config SM_CAMCC_PARROT
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config SXR_GPUCC_NEO
+	tristate "NEO Graphics Clock Controller"
+	select SXR_GCC_NEO
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  NEO devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 endif
