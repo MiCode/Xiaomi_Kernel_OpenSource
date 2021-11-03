@@ -502,9 +502,6 @@ struct kvm_vcpu_arch {
 
 #define __vcpu_sys_reg(v,r)	(ctxt_sys_reg(&(v)->arch.ctxt, (r)))
 
-u64 vcpu_read_sys_reg(const struct kvm_vcpu *vcpu, int reg);
-void vcpu_write_sys_reg(struct kvm_vcpu *vcpu, u64 val, int reg);
-
 static inline bool __vcpu_read_sys_reg_from_cpu(int reg, u64 *val)
 {
 	/*
@@ -595,6 +592,29 @@ static inline bool __vcpu_write_sys_reg_to_cpu(u64 val, int reg)
 
 	return true;
 }
+
+static inline u64 vcpu_arch_read_sys_reg(const struct kvm_vcpu_arch *vcpu_arch, int reg)
+{
+	u64 val = 0x8badf00d8badf00d;
+
+	if (is_vhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
+	    __vcpu_read_sys_reg_from_cpu(reg, &val))
+		return val;
+
+	return ctxt_sys_reg(&vcpu_arch->ctxt, reg);
+}
+
+static inline void vcpu_arch_write_sys_reg(struct kvm_vcpu_arch *vcpu_arch, u64 val, int reg)
+{
+	if (is_vhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
+	    __vcpu_write_sys_reg_to_cpu(val, reg))
+		return;
+
+	 ctxt_sys_reg(&vcpu_arch->ctxt, reg) = val;
+}
+
+#define vcpu_read_sys_reg(vcpu, reg) vcpu_arch_read_sys_reg(&((vcpu)->arch), reg)
+#define vcpu_write_sys_reg(vcpu, val, reg) vcpu_arch_write_sys_reg(&((vcpu)->arch), val, reg)
 
 struct kvm_vm_stat {
 	struct kvm_vm_stat_generic generic;
