@@ -414,10 +414,18 @@ static int st_asm330lhhx_update_thresholds(struct st_asm330lhhx_hw *hw)
 		0x17, 0x00,
 		0x01, 0x00
 	};
+	unsigned int status;
 	int i, ret = 0;
 
 	mutex_lock(&hw->page_lock);
+	ret = regmap_read(hw->regmap,
+                      ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+                      &status);
+	if (ret < 0)
+		goto out_err;
 
+	/* wait ~10 ms */
+	usleep_range(10000, 10100);
 	for (i = 0; i < ARRAY_SIZE(fsm_update_code); i += 2) {
 		int reg, val;
 
@@ -429,6 +437,98 @@ static int st_asm330lhhx_update_thresholds(struct st_asm330lhhx_hw *hw)
 			dev_err(hw->dev, "regmap_write fails\n");
 
 			break;
+		}
+	}
+
+	ret = regmap_write(hw->regmap,
+                       ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+                       status);
+
+out_err:
+	mutex_unlock(&hw->page_lock);
+
+	return ret;
+}
+
+/* update fsm thresholds */
+static int st_asm330lhhx_read_thresholds(struct st_asm330lhhx_hw *hw)
+{
+	u8 fsm_start_code[] = {
+		0x01, 0x80,
+		0x17, 0x20,
+		0x02, 0x41,
+	};
+	u8 fsm_end_code[] = {
+		0x17, 0x00,
+		0x01, 0x00
+	};
+	int i, j, ret = 0;
+
+	mutex_lock(&hw->page_lock);
+
+	for (i = 0; i < ARRAY_SIZE(thresholds); i++) {
+		int reg, val;
+
+		for (j = 0; j < ARRAY_SIZE(fsm_start_code); j += 2) {
+			reg = fsm_start_code[j];
+			val = fsm_start_code[j + 1];
+			dev_info(hw->dev, "writing %x %x\n", reg, val);
+			ret = regmap_write(hw->regmap, reg, val);
+			if (ret) {
+				dev_err(hw->dev, "regmap_write fails\n");
+
+				break;
+			}
+		}
+
+		ret = regmap_write(hw->regmap, 0x08, thresholds[i].addr);
+		if (ret) {
+			dev_err(hw->dev, "regmap_write fails\n");
+
+			break;
+		}
+
+		ret = regmap_read(hw->regmap, 0x09,
+						  (unsigned int *)&thresholds[i].th1l);
+		if (ret) {
+			dev_err(hw->dev, "regmap_read fails\n");
+
+			break;
+		}
+
+		ret = regmap_read(hw->regmap, 0x09,
+						  (unsigned int *)&thresholds[i].th1h);
+		if (ret) {
+			dev_err(hw->dev, "regmap_read fails\n");
+
+			break;
+		}
+
+		ret = regmap_read(hw->regmap, 0x09,
+						  (unsigned int *)&thresholds[i].th2l);
+		if (ret) {
+			dev_err(hw->dev, "regmap_read fails\n");
+
+			break;
+		}
+
+		ret = regmap_read(hw->regmap, 0x09,
+						  (unsigned int *)&thresholds[i].th2h);
+		if (ret) {
+			dev_err(hw->dev, "regmap_read fails\n");
+
+			break;
+		}
+		for (j = 0; j < ARRAY_SIZE(fsm_end_code); j += 2) {
+			reg = fsm_end_code[j];
+			val = fsm_end_code[j + 1];
+			dev_info(hw->dev, "writing %x %x\n", reg, val);
+			ret = regmap_write(hw->regmap, reg, val);
+			if (ret) {
+				dev_err(hw->dev, "regmap_write fails\n");
+
+				break;
+			}
 		}
 	}
 		
@@ -704,14 +804,20 @@ static ssize_t st_asm330lhhx_get_fsm_threshold(struct device *dev,
 				      struct device_attribute *attr,
 				      char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE,
-					"%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
-					thresholds[0].th1h, thresholds[0].th1l,
-					thresholds[0].th2h, thresholds[0].th2l,
-					thresholds[1].th1h, thresholds[1].th1l,
-					thresholds[1].th2h, thresholds[1].th2l,
-					thresholds[2].th1h, thresholds[2].th1l,
-					thresholds[2].th2h, thresholds[2].th2l);
+	struct st_asm330lhhx_sensor *sensor = iio_priv(dev_get_drvdata(dev));
+	struct st_asm330lhhx_hw *hw = sensor->hw;
+	int ret;
+
+	ret = st_asm330lhhx_read_thresholds(hw);
+
+	return ret ? ret : scnprintf(buf, PAGE_SIZE,
+                                "%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\n",
+                                thresholds[0].th1h, thresholds[0].th1l,
+                                thresholds[0].th2h, thresholds[0].th2l,
+                                thresholds[1].th1h, thresholds[1].th1l,
+                                thresholds[1].th2h, thresholds[1].th2l,
+                                thresholds[2].th1h, thresholds[2].th1l,
+                                thresholds[2].th2h, thresholds[2].th2l);
 }
 
 static IIO_DEVICE_ATTR(mlc_info, S_IRUGO,
