@@ -275,6 +275,60 @@ err:
 	return ret;
 }
 
+static int reclaim_walker(u64 addr, u64 end, u32 level, kvm_pte_t *ptep,
+		enum kvm_pgtable_walk_flags flag,
+		void * const arg)
+{
+	kvm_pte_t pte = *ptep;
+	phys_addr_t phys;
+
+	if (!kvm_pte_valid(pte))
+		return 0;
+
+	/*
+	 * Only update the host stage-2 -- we're about to tear-down the guest
+	 * stage-2 so no need to waste effort trying to keep it in sync.
+	 */
+	phys = kvm_pte_to_phys(pte);
+	BUG_ON(host_stage2_set_owner_locked(phys, PAGE_SIZE, pkvm_host_id));
+
+	/*
+	 * XXX: if protected guest mark the page 'dirty' instead, and zero it
+	 * lazily on host s2 aborts.
+	 */
+
+	return 0;
+}
+
+void reclaim_guest_pages(struct kvm_shadow_vm *vm, struct kvm_hyp_memcache *mc)
+{
+	struct kvm_pgtable_walker walker = {
+		.cb     = reclaim_walker,
+		.flags  = KVM_PGTABLE_WALK_LEAF
+	};
+	void *addr;
+
+	host_lock_component();
+	__guest_lock(vm);
+
+	/* Reclaim all guest pages, and dump all pgtable pages in the hyp_pool */
+	BUG_ON(kvm_pgtable_walk(&vm->pgt, 0, BIT(vm->pgt.ia_bits), &walker));
+	kvm_pgtable_stage2_destroy(&vm->pgt);
+	vm->arch.mmu.pgd_phys = 0ULL;
+
+	__guest_unlock(vm);
+	host_unlock_component();
+
+	/* Drain the hyp_pool into the memcache */
+	addr = hyp_alloc_pages(&vm->pool, 0);
+	while (addr) {
+		memset(hyp_virt_to_page(addr), 0, sizeof(struct hyp_page));
+		push_hyp_memcache(mc, addr, hyp_virt_to_phys);
+		WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(addr), 1));
+		addr = hyp_alloc_pages(&vm->pool, 0);
+	}
+}
+
 int __pkvm_prot_finalize(void)
 {
 	struct kvm_s2_mmu *mmu = &host_kvm.arch.mmu;

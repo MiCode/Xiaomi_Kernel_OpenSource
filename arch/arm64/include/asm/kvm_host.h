@@ -158,6 +158,7 @@ struct kvm_arch_memory_slot {
 struct kvm_protected_vm {
 	bool enabled;
 	int shadow_handle;
+	struct kvm_hyp_memcache teardown_mc;
 };
 
 struct kvm_arch {

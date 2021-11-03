@@ -162,6 +162,7 @@ vm_fault_t kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
 	return VM_FAULT_SIGBUS;
 }
 
+void free_hyp_memcache(struct kvm_hyp_memcache *mc);
 static void kvm_shadow_destroy(struct kvm *kvm)
 {
 	if (!kvm_vm_is_protected(kvm))
@@ -169,6 +170,8 @@ static void kvm_shadow_destroy(struct kvm *kvm)
 
 	if (kvm->arch.pkvm.shadow_handle)
 		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_shadow, kvm));
+
+	free_hyp_memcache(&kvm->arch.pkvm.teardown_mc);
 }
 
 /**

@@ -605,6 +605,7 @@ int __pkvm_teardown_shadow(struct kvm *kvm)
 
 	shadow_size = vm->shadow_area_size;
 
+	reclaim_guest_pages(vm, &vm->host_kvm->arch.pkvm.teardown_mc);
 	unpin_host_vcpus(vm);
 	hyp_unpin_shared_mem(vm->host_kvm, vm->host_kvm + 1);
 	remove_shadow_table(shadow_handle);
