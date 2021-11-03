@@ -394,6 +394,7 @@ struct qsmmuv500_archdata {
 	struct work_struct		outstanding_tnx_work;
 	spinlock_t			atos_lock;
 	struct arm_smmu_device		smmu;
+	void __iomem			*tcu_base;
 };
 #define to_qsmmuv500_archdata(smmu)				\
 	container_of(smmu, struct qsmmuv500_archdata, smmu)
@@ -1129,8 +1130,10 @@ static const struct arm_smmu_impl qsmmuv500_virt_impl = {
 struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 		const struct arm_smmu_impl *impl)
 {
+	struct resource *res;
 	struct device *dev = smmu->dev;
 	struct qsmmuv500_archdata *data;
+	struct platform_device *pdev;
 	int ret;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
@@ -1145,6 +1148,16 @@ struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 	data->smmu = *smmu;
 	data->smmu.impl = impl;
 	devm_kfree(smmu->dev, smmu);
+
+	pdev = to_platform_device(dev);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
+	if (!res) {
+		dev_err(dev, "Unable to get the tcu-base\n");
+		return ERR_PTR(-EINVAL);
+	}
+	data->tcu_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(data->tcu_base))
+		return ERR_CAST(data->tcu_base);
 
 	ret = qsmmuv500_read_actlr_tbl(data);
 	if (ret)
