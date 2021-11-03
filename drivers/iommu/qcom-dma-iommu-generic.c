@@ -6,7 +6,6 @@
  * Written by:
  *	Marek Szyprowski <m.szyprowski@samsung.com>
  *	Michal Nazarewicz <mina86@mina86.com>
- * Copyright (c) 2014 The Linux Foundation
  * Copyright (C) 2012, 2014-2015 ARM Ltd.
  */
 
