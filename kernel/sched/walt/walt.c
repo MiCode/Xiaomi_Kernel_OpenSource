@@ -3774,6 +3774,9 @@ static void android_rvh_update_cpu_capacity(void *unused, int cpu, unsigned long
 
 	cpu_rq(cpu)->cpu_capacity_orig = min(max_capacity, thermal_cap);
 	*capacity = cpu_rq(cpu)->cpu_capacity_orig - rt_pressure;
+
+	if (max_capacity != arch_scale_cpu_capacity(cpu))
+		trace_update_cpu_capacity(cpu, rt_pressure, *capacity);
 }
 
 static void android_rvh_sched_cpu_starting(void *unused, int cpu)
