@@ -720,11 +720,11 @@ static void hyp_core_ctl_deinit_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	pr_info("deinit: reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
 }
 
-static inline bool is_cpusys_vm(gh_vmid_t vmid)
+static inline bool is_tuivm(gh_vmid_t vmid)
 {
-	gh_vmid_t cpusys_vmid;
+	gh_vmid_t tui_vmid;
 
-	if (!gh_rm_get_vmid(GH_CPUSYS_VM, &cpusys_vmid) && cpusys_vmid == vmid)
+	if (!gh_rm_get_vmid(GH_TRUSTED_VM, &tui_vmid) && tui_vmid == vmid)
 		return true;
 
 	return false;
@@ -744,8 +744,9 @@ static int gh_vcpu_populate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx, gh
 		goto out;
 	}
 
-	if (is_cpusys_vm(vmid)) {
-		pr_info("Skip populating VCPU affinity info for CPUSYS VM\n");
+	if (!is_tuivm(vmid)) {
+		pr_info("Skip populating VCPU affinity info for other VM vmid%d\n",
+			vmid);
 		goto out;
 	}
 
@@ -776,8 +777,9 @@ static int gh_vcpu_unpopulate_affinity_info(gh_vmid_t vmid, gh_label_t cpu_idx)
 		return -ENXIO;
 	}
 
-	if (is_cpusys_vm(vmid)) {
-		pr_info("Skip unpopulating VCPU affinity info for CPUSYS VM\n");
+	if (!is_tuivm(vmid)) {
+		pr_info("Skip unpopulating VCPU affinity info for other VM vmid%d\n",
+			vmid);
 		goto out;
 	}
 
@@ -800,8 +802,9 @@ static int gh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
 	u8 vm_status = vm_status_payload->vm_status;
 
-	if (is_cpusys_vm(vm_status_payload->vmid)) {
-		pr_info("Reservation scheme skipped for CPUSYS VM\n");
+	if (!is_tuivm(vm_status_payload->vmid)) {
+		pr_info("Reservation scheme skipped for other VM vmid%d\n",
+			vm_status_payload->vmid);
 		goto out;
 	}
 
@@ -883,14 +886,15 @@ static int gh_vpm_grp_populate_info(gh_vmid_t vmid, gh_capid_t cap_id, int virq_
 		goto out;
 	}
 
-	if (is_cpusys_vm(vmid)) {
-		pr_info("Skip populating VPM GRP info for CPUSYS VM\n");
-		goto out;
-	}
-
 	if (virq_num < 0) {
 		pr_err("%s: Invalid IRQ number\n", __func__);
 		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!is_tuivm(vmid)) {
+		pr_info("Skip populating VPM GRP info for other VM vmid%d\n",
+			vmid);
 		goto out;
 	}
 
@@ -917,8 +921,9 @@ static int gh_vpm_grp_unpopulate_info(gh_vmid_t vmid, int *irq)
 		return -ENXIO;
 	}
 
-	if (is_cpusys_vm(vmid)) {
-		pr_info("Skip unpopulating VPM GRP info for CPUSYS VM\n");
+	if (!is_tuivm(vmid)) {
+		pr_info("Skip unpopulating VPM GRP info for other VM vmid%d\n",
+			vmid);
 		goto out;
 	}
 
@@ -1238,25 +1243,28 @@ static int hyp_core_ctl_reg_rm_cbs(void)
 {
 	int ret = -EINVAL;
 
-	ret = gh_rm_set_vcpu_affinity_cb(&gh_vcpu_populate_affinity_info);
+	ret = gh_rm_set_vcpu_affinity_cb(GH_TRUSTED_VM,
+					 &gh_vcpu_populate_affinity_info);
 	if (ret) {
 		pr_err("fail to set the vcpu affinity populate callback\n");
 		return ret;
 	}
 
-	ret = gh_rm_reset_vcpu_affinity_cb(&gh_vcpu_unpopulate_affinity_info);
+	ret = gh_rm_reset_vcpu_affinity_cb(GH_TRUSTED_VM,
+					   &gh_vcpu_unpopulate_affinity_info);
 	if (ret) {
 		pr_err("fail to set the vcpu affinity unpopulate callback\n");
 		return ret;
 	}
 
-	ret = gh_rm_set_vpm_grp_cb(&gh_vpm_grp_populate_info);
+	ret = gh_rm_set_vpm_grp_cb(GH_TRUSTED_VM, &gh_vpm_grp_populate_info);
 	if (ret) {
 		pr_err("fail to set the vpm grp populate callback\n");
 		return ret;
 	}
 
-	ret = gh_rm_reset_vpm_grp_cb(&gh_vpm_grp_unpopulate_info);
+	ret = gh_rm_reset_vpm_grp_cb(GH_TRUSTED_VM,
+				     &gh_vpm_grp_unpopulate_info);
 	if (ret) {
 		pr_err("fail to set the vpm grp unpopulate callback\n");
 		return ret;
