@@ -5517,7 +5517,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		msm_dwc3_perf_vote_update(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
-		pm_runtime_get_sync(mdwc->dev);
+		pm_runtime_get_sync(&mdwc->dwc3->dev);
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
 
@@ -5552,7 +5552,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		/* wait for LPM, to ensure h/w is reset after stop_host */
 		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
 
-		pm_runtime_put_sync_suspend(mdwc->dev);
+		pm_runtime_put_sync_suspend(&mdwc->dwc3->dev);
 		dbg_event(0xFF, "StopHost psync",
 			atomic_read(&mdwc->dev->power.usage_count));
 	}
