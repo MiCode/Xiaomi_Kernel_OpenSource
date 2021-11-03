@@ -36,32 +36,30 @@ append_cmd PRE_DEFCONFIG_CMDS 'compile_external_dtc'
 ################################################################################
 ## DTB general support
 DTB_DIR=vendor/qcom
-
+DTC_OVERLAY_TEST_EXT=ufdt_apply_overlay
+# Force /__symbols__ generation for all DTB[O]s
+DTC_FLAGS="-@"
 MAKE_GOALS+=" dtbs"
 
-function clean_dtbs() {
-  rm -rf ${OUT_DIR}/arch/${ARCH}/boot/dts/${DTB_DIR}/*
+function install_dtbs() {
+  local INSTALL_DTBS_PATH="${COMMON_OUT_DIR}/dtb_staging"
+  local dtb_types="${MSM_ARCH}-"
+  if [ "${DT_OVERLAY_SUPPORT}" -eq "1" ]; then
+    dtb_types="${dtb_types}overlays-"
+  fi
+  # Staging directory required because arch/$ARCH/arm64/boot/dts/**/*.dtb structure copied and
+  # we want a flat directory with all the DTBs.
+  rm -rf "${INSTALL_DTBS_PATH}"
+  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" INSTALL_DTBS_PATH="${INSTALL_DTBS_PATH}" DTB_TYPES="${dtb_types}" dtbs_install)
+  cp $(find ${INSTALL_DTBS_PATH} -type f \( -name "*.dtb" -o -name "*.dtbo" \)) ${DIST_DIR}
 }
-append_cmd POST_DEFCONFIG_CMDS 'clean_dtbs'
+append_cmd DIST_CMDS 'install_dtbs'
+ADDITIONAL_HOST_TOOLS+=" install"  # for scripts/Makefile.dtbinst
 
 FILES+="
-arch/${ARCH}/boot/dts/${DTB_DIR}/*.dtb*
 .config
 Module.symvers
 "
-
-################################################################################
-## DT Overlay
-DTC_OVERLAY_TEST_EXT=ufdt_apply_overlay
-
-function add_dt_overlay_defconfig() {
-  ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
-    -e BUILD_ARM64_DT_OVERLAY
-  (cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} "${MAKE_ARGS[@]}" olddefconfig)
-}
-if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
-  append_cmd POST_DEFCONFIG_CMDS 'add_dt_overlay_defconfig'
-fi
 
 ################################################################################
 ## Variant Selection
