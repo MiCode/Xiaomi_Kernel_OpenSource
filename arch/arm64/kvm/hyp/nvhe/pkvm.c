@@ -588,11 +588,14 @@ err:
 
 int __pkvm_teardown_shadow(struct kvm *kvm)
 {
+	struct kvm_hyp_memcache *mc;
 	struct kvm_shadow_vm *vm;
+	struct kvm *host_kvm;
 	size_t shadow_size;
 	int shadow_handle;
 	u64 pfn;
 	u64 nr_pages;
+	void *addr;
 
 	kvm = kern_hyp_va(kvm);
 
@@ -605,13 +608,18 @@ int __pkvm_teardown_shadow(struct kvm *kvm)
 
 	shadow_size = vm->shadow_area_size;
 
-	reclaim_guest_pages(vm, &vm->host_kvm->arch.pkvm.teardown_mc);
-	unpin_host_vcpus(vm);
-	hyp_unpin_shared_mem(vm->host_kvm, vm->host_kvm + 1);
+	/* Reclaim guest pages, and page-table pages */
+	mc = &vm->host_kvm->arch.pkvm.teardown_mc;
+	reclaim_guest_pages(vm, mc);
 	remove_shadow_table(shadow_handle);
+	unpin_host_vcpus(vm);
 
-	/* Clear the shadow memory since hyp is releasing it back to host. */
+	/* Push the metadata pages to the teardown memcache */
+	host_kvm = vm->host_kvm;
 	memset(vm, 0, shadow_size);
+	for (addr = vm; addr < ((void *)vm + shadow_size); addr += PAGE_SIZE)
+		push_hyp_memcache(mc, addr, hyp_virt_to_phys);
+	hyp_unpin_shared_mem(host_kvm, host_kvm + 1);
 
 	pfn = hyp_phys_to_pfn(__hyp_pa(vm));
 	nr_pages = shadow_size >> PAGE_SHIFT;
