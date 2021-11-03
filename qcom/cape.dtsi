@@ -221,7 +221,6 @@
 			min-residency-us = <4090>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
-			status = "nok";
 		};
 
 		GOLD_OFF: gold-c4 {  /* C4 */
@@ -232,7 +231,6 @@
 			min-residency-us = <4791>;
 			arm,psci-suspend-param = <0x40000004>;
 			local-timer-stop;
-			status = "nok";
 		};
 
 		CLUSTER_PWR_DN: cluster-d4 { /* D4 */
@@ -242,7 +240,6 @@
 			exit-latency-us = <2500>;
 			min-residency-us = <5309>;
 			arm,psci-suspend-param = <0x41000044>;
-			status = "nok";
 		};
 
 		APSS_OFF: cluster-e3 { /* E3 */
@@ -252,7 +249,6 @@
 			exit-latency-us = <3500>;
 			min-residency-us = <13959>;
 			arm,psci-suspend-param = <0x4100c344>;
-			status = "nok";
 		};
 	};
 
