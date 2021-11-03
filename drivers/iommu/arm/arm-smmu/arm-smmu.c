@@ -2055,16 +2055,22 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 			      phys_addr_t paddr, size_t pgsize, size_t pgcount,
 			      int prot, gfp_t gfp, size_t *mapped)
 {
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	struct arm_smmu_device *smmu = to_smmu_domain(domain)->smmu;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret;
 
 	if (!ops)
 		return -ENODEV;
 
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
+
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	ret = ops->map_pages(ops, iova, paddr, pgsize, pgcount, prot, gfp, mapped);
 
+	arm_smmu_rpm_put(smmu);
 	if (!ret)
 		trace_map_pages(smmu_domain, iova, pgsize, pgcount);
 
@@ -2075,13 +2081,18 @@ static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned 
 					  struct scatterlist *sg, unsigned int nents, int prot,
 					  gfp_t gfp, size_t *mapped)
 {
-	int ret, i;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	struct arm_smmu_device *smmu = to_smmu_domain(domain)->smmu;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret, i;
 	struct scatterlist *tmp;
 
 	if (!ops)
 		return -ENODEV;
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	/*
@@ -2097,6 +2108,7 @@ static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned 
 		*mapped += tmp->length;
 	}
 
+	arm_smmu_rpm_put(smmu);
 	if (!ret)
 		trace_map_sg(smmu_domain, iova, sg, nents);
 
