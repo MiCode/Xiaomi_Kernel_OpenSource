@@ -727,6 +727,15 @@ config SM_GPUCC_KALAMA
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config SM_TCSRCC_KALAMA
+	tristate "Kalama Top-Level CSR Clock Controller"
+	depends on SM_GCC_KALAMA
+	help
+	  Support for the TCSR clock controller on Qualcomm Technologies, Inc
+	  Kalama devices.
+	  Say Y if you want to support miscellaneous top-level clocks
+	  such as for the PHY references.
+
 config MSM_GCC_WAIPIO
           tristate "WAIPIO Global Clock Controller"
 	  depends on COMMON_CLK_QCOM

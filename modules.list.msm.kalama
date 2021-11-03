@@ -53,5 +53,6 @@ smem.ko
 socinfo.ko
 spmi-pmic-arb.ko
 stub-regulator.ko
+tcsrcc-kalama.ko
 ufs_qcom.ko
 videocc-kalama.ko
