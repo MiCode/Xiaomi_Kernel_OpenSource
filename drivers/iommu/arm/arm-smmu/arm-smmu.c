@@ -2353,9 +2353,14 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 	int ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
 	if (!ops)
 		return -ENODEV;
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	arm_smmu_secure_domain_lock(smmu_domain);
@@ -2368,6 +2373,7 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 
 out:
 	arm_smmu_secure_domain_unlock(smmu_domain);
+	arm_smmu_rpm_put(smmu);
 	if (!ret)
 		trace_map_pages(smmu_domain, iova, pgsize, pgcount);
 
@@ -2381,9 +2387,14 @@ static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	int ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
 	if (!ops)
 		return -ENODEV;
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	arm_smmu_secure_domain_lock(smmu_domain);
@@ -2396,6 +2407,7 @@ static int arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 
 out:
 	arm_smmu_secure_domain_unlock(smmu_domain);
+	arm_smmu_rpm_put(smmu);
 	if (!ret)
 		trace_map_sg(smmu_domain, iova, sg, nents);
 
