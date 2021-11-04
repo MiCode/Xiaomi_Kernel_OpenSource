@@ -59,7 +59,6 @@ static void *mem_buf_gh_msgq_hdl;
 static struct workqueue_struct *mem_buf_wq;
 
 static size_t mem_buf_get_sgl_buf_size(struct gh_sgl_desc *sgl_desc);
-static struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc);
 static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
 					  const void __user *acl_entries,
 					  int **dst_vmids, int **dst_perms,
@@ -107,6 +106,7 @@ struct mem_buf_rmt_msg {
  * @secure_alloc: Denotes if the memory was assigned to the targeted VMs as part
  * of the allocation step
  * @hdl: The memparcel handle associated with the memory
+ * @gh_rm_trans_type: Whether handle is Lent/Shared/Donated
  * @entry: List entry for maintaining a list of memory buffers that are lent
  * out.
  * @nr_acl_entries: The number of VMIDs and permissions associated with the
@@ -120,6 +120,7 @@ struct mem_buf_xfer_mem {
 	void *mem_type_data;
 	struct sg_table *mem_sgt;
 	bool secure_alloc;
+	int gh_rm_trans_type;
 	gh_memparcel_handle_t hdl;
 	struct list_head entry;
 	u32 nr_acl_entries;
@@ -153,6 +154,7 @@ struct mem_buf_desc {
 	struct gh_acl_desc *acl_desc;
 	struct gh_sgl_desc *sgl_desc;
 	gh_memparcel_handle_t memparcel_hdl;
+	int gh_rm_trans_type;
 	enum mem_buf_mem_type src_mem_type;
 	void *src_data;
 	enum mem_buf_mem_type dst_mem_type;
@@ -308,39 +310,6 @@ static void mem_buf_rmt_free_mem(struct mem_buf_xfer_mem *xfer_mem)
 		mem_buf_rmt_free_dmaheap_mem(xfer_mem);
 }
 
-static int mem_buf_gh_acl_desc_to_vmid_perm_list(struct gh_acl_desc *acl_desc,
-						 int **vmids, int **perms)
-{
-	int *vmids_arr = NULL, *perms_arr = NULL;
-	u32 nr_acl_entries = acl_desc->n_acl_entries;
-	unsigned int i;
-
-	if (!vmids || !perms)
-		return -EINVAL;
-
-	vmids_arr = kmalloc_array(nr_acl_entries, sizeof(*vmids_arr),
-				  GFP_KERNEL);
-	if (!vmids_arr)
-		return -ENOMEM;
-
-	perms_arr = kmalloc_array(nr_acl_entries, sizeof(*perms_arr),
-				  GFP_KERNEL);
-	if (!perms_arr) {
-		kfree(vmids_arr);
-		return -ENOMEM;
-	}
-
-	*vmids = vmids_arr;
-	*perms = perms_arr;
-
-	for (i = 0; i < nr_acl_entries; i++) {
-		vmids_arr[i] = acl_desc->acl_entries[i].vmid;
-		perms_arr[i] = acl_desc->acl_entries[i].perms;
-	}
-
-	return 0;
-}
-
 static
 struct mem_buf_xfer_dmaheap_mem *mem_buf_alloc_dmaheap_xfer_mem_type_data(
 								void *rmt_data)
@@ -435,16 +404,72 @@ static void mem_buf_free_xfer_mem(struct mem_buf_xfer_mem *xfer_mem)
 	kfree(xfer_mem);
 }
 
-static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl_entries)
+/*
+ * @owner_vmid: Owner of the memparcel handle which has @vmids and @perms
+ */
+static int __maybe_unused mem_buf_get_mem_xfer_type(int *vmids, int *perms,
+				unsigned int nr_acl_entries, int owner_vmid)
 {
 	u32 i;
 
 	for (i = 0; i < nr_acl_entries; i++)
-		if (vmids[i] == VMID_HLOS &&
+		if (vmids[i] == owner_vmid &&
 		    perms[i] != 0)
 			return GH_RM_TRANS_TYPE_SHARE;
 
 	return GH_RM_TRANS_TYPE_LEND;
+}
+
+/*
+ * @owner_vmid: Owner of the memparcel handle which has @acl_desc
+ */
+static int mem_buf_get_mem_xfer_type_gh(struct gh_acl_desc *acl_desc, int owner_vmid)
+{
+	u32 i, nr_acl_entries = acl_desc->n_acl_entries;
+
+	for (i = 0; i < nr_acl_entries; i++)
+		if (acl_desc->acl_entries[i].vmid == owner_vmid &&
+		    acl_desc->acl_entries[i].perms != 0)
+			return GH_RM_TRANS_TYPE_SHARE;
+
+	return GH_RM_TRANS_TYPE_LEND;
+}
+
+/*
+ * Check whether donate operation is supported. If not, use
+ * Lend instead. Share is not supported for remotealloc.
+ */
+static int get_alloc_req_xfer_type(struct mem_buf_xfer_mem *xfer_mem)
+{
+	static bool initialized;
+	static int alloc_req_xfer_type;
+	struct mem_buf_lend_kernel_arg arg;
+	int vmids[] = {VMID_TUIVM};
+	int perms[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	int ret;
+
+	if (initialized)
+		return alloc_req_xfer_type;
+
+	arg.nr_acl_entries = ARRAY_SIZE(vmids);
+	arg.vmids = vmids;
+	arg.perms = perms;
+	arg.flags = 0;
+	arg.label = 0;
+
+	ret = mem_buf_assign_mem(GH_RM_TRANS_TYPE_DONATE, xfer_mem->mem_sgt, &arg);
+	if (ret) {
+		initialized = true;
+		alloc_req_xfer_type = GH_RM_TRANS_TYPE_LEND;
+	} else {
+		initialized = true;
+		alloc_req_xfer_type = GH_RM_TRANS_TYPE_DONATE;
+
+		mem_buf_unassign_mem(xfer_mem->mem_sgt, vmids, ARRAY_SIZE(vmids),
+					arg.memparcel_hdl);
+	}
+	pr_info("%s: xfer_type set to %d\n", __func__, alloc_req_xfer_type);
+	return alloc_req_xfer_type;
 }
 
 static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
@@ -463,8 +488,7 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 		goto err_rmt_alloc;
 
 	if (!xfer_mem->secure_alloc) {
-		xfer_type = mem_buf_get_mem_xfer_type(xfer_mem->dst_vmids,
-				xfer_mem->dst_perms, xfer_mem->nr_acl_entries);
+		xfer_type = get_alloc_req_xfer_type(xfer_mem);
 
 		arg.nr_acl_entries = xfer_mem->nr_acl_entries;
 		arg.vmids = xfer_mem->dst_vmids;
@@ -474,6 +498,7 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 			goto err_assign_mem;
 
 		xfer_mem->hdl = arg.memparcel_hdl;
+		xfer_mem->gh_rm_trans_type = xfer_type;
 	}
 
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
@@ -490,17 +515,44 @@ err_rmt_alloc:
 	return ERR_PTR(ret);
 }
 
-static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem)
+static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem,
+				gh_memparcel_handle_t memparcel_hdl)
 {
 	int ret;
 
 	if (!xfer_mem->secure_alloc) {
-		ret = mem_buf_unassign_mem(xfer_mem->mem_sgt,
-					   xfer_mem->dst_vmids,
-					   xfer_mem->nr_acl_entries,
-					   xfer_mem->hdl);
-		if (ret < 0)
-			return;
+		if (memparcel_hdl == xfer_mem->hdl) {
+			ret = mem_buf_unassign_mem(xfer_mem->mem_sgt,
+						   xfer_mem->dst_vmids,
+						   xfer_mem->nr_acl_entries,
+						   xfer_mem->hdl);
+			if (ret < 0)
+				return;
+		} else {
+			struct gh_sgl_desc *sgl_desc;
+			struct gh_acl_desc *acl_desc;
+			size_t size;
+
+			size = struct_size(acl_desc, acl_entries, 1);
+			acl_desc = kzalloc(size, GFP_KERNEL);
+			if (!acl_desc)
+				return;
+
+			acl_desc->n_acl_entries = 1;
+			acl_desc->acl_entries[0].vmid = VMID_HLOS;
+			acl_desc->acl_entries[0].perms = GH_RM_ACL_X | GH_RM_ACL_W | GH_RM_ACL_R;
+
+
+			sgl_desc  = mem_buf_map_mem_s2(GH_RM_TRANS_TYPE_DONATE,
+					&memparcel_hdl, acl_desc, VMID_TUIVM);
+			if (IS_ERR(sgl_desc)) {
+				kfree(acl_desc);
+				return;
+			}
+			kfree(sgl_desc);
+			kfree(acl_desc);
+		}
+
 	}
 	mem_buf_rmt_free_mem(xfer_mem);
 	mem_buf_free_xfer_mem(xfer_mem);
@@ -528,6 +580,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 		       __func__, ret);
 	} else {
 		resp_msg->hdl = xfer_mem->hdl;
+		resp_msg->gh_rm_trans_type = xfer_mem->gh_rm_trans_type;
 	}
 
 	resp_msg->ret = ret;
@@ -546,7 +599,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 		mutex_lock(&mem_buf_xfer_mem_list_lock);
 		list_del(&xfer_mem->entry);
 		mutex_unlock(&mem_buf_xfer_mem_list_lock);
-		mem_buf_cleanup_alloc_req(xfer_mem);
+		mem_buf_cleanup_alloc_req(xfer_mem, xfer_mem->hdl);
 	} else {
 		pr_debug("%s: Allocation response sent\n", __func__);
 	}
@@ -574,7 +627,7 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	mutex_unlock(&mem_buf_xfer_mem_list_lock);
 
 	if (xfer_mem)
-		mem_buf_cleanup_alloc_req(xfer_mem);
+		mem_buf_cleanup_alloc_req(xfer_mem, relinquish_msg->hdl);
 	else
 		pr_err("%s: transferred memory with txn_id 0x%x not found\n",
 		       __func__, relinquish_msg->hdr.txn_id);
@@ -584,7 +637,7 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 }
 
 static int mem_buf_decode_alloc_resp(void *buf, size_t size,
-				     gh_memparcel_handle_t *ret_hdl)
+				     struct mem_buf_desc *membuf)
 {
 	struct mem_buf_alloc_resp *alloc_resp = buf;
 
@@ -595,26 +648,29 @@ static int mem_buf_decode_alloc_resp(void *buf, size_t size,
 	}
 
 	trace_receive_alloc_resp_msg(alloc_resp);
-	if (alloc_resp->ret < 0)
+	if (alloc_resp->ret < 0) {
 		pr_err("%s remote allocation failed rc: %d\n", __func__,
 		       alloc_resp->ret);
-	else
-		*ret_hdl = alloc_resp->hdl;
+	} else {
+		membuf->memparcel_hdl = alloc_resp->hdl;
+		membuf->gh_rm_trans_type = alloc_resp->gh_rm_trans_type;
+	}
 
 	return alloc_resp->ret;
 }
 
-static void mem_buf_relinquish_mem(u32 txn_id, u32 memparcel_hdl);
+static void __mem_buf_relinquish_mem(u32 txn_id, u32 memparcel_hdl);
 
 static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 				       size_t size)
 {
 	struct mem_buf_txn *txn;
-	gh_memparcel_handle_t hdl;
 
 	mutex_lock(&mem_buf_idr_mutex);
 	txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
 	if (!txn) {
+		struct mem_buf_desc tmp;
+
 		pr_err("%s no txn associated with id: %d\n", __func__,
 		       hdr->txn_id);
 		/*
@@ -622,8 +678,8 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 		 * allocator know that the memory is not in use, so that
 		 * it can be reclaimed.
 		 */
-		if (!mem_buf_decode_alloc_resp(buf, size, &hdl))
-			mem_buf_relinquish_mem(hdr->txn_id, hdl);
+		if (!mem_buf_decode_alloc_resp(buf, size, &tmp))
+			__mem_buf_relinquish_mem(hdr->txn_id, tmp.memparcel_hdl);
 	} else {
 		txn->txn_ret = mem_buf_decode_alloc_resp(buf, size,
 							 txn->resp_buf);
@@ -781,7 +837,7 @@ out:
 	return ret;
 }
 
-static void mem_buf_relinquish_mem(u32 txn_id, gh_memparcel_handle_t memparcel_hdl)
+static void __mem_buf_relinquish_mem(u32 txn_id, gh_memparcel_handle_t memparcel_hdl)
 {
 	struct mem_buf_alloc_relinquish *msg;
 	int ret;
@@ -808,6 +864,49 @@ static void mem_buf_relinquish_mem(u32 txn_id, gh_memparcel_handle_t memparcel_h
 		       __func__, ret);
 	else
 		pr_debug("%s: allocation relinquish message sent\n", __func__);
+}
+
+/*
+ * Check if membuf already has a valid handle. If it doesn't, then create one.
+ */
+static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
+{
+	int ret;
+	int vmids[] = {VMID_HLOS};
+	int perms[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	struct sg_table *sgt;
+	struct mem_buf_lend_kernel_arg arg;
+
+	if (membuf->memparcel_hdl != MEM_BUF_MEMPARCEL_INVALID) {
+		if (membuf->gh_rm_trans_type != GH_RM_TRANS_TYPE_DONATE) {
+			ret = mem_buf_unmap_mem_s2(membuf->memparcel_hdl);
+			if (ret)
+				return;
+		}
+
+		return __mem_buf_relinquish_mem(membuf->txn.txn_id,
+						membuf->memparcel_hdl);
+	}
+
+	sgt = dup_gh_sgl_desc_to_sgt(membuf->sgl_desc);
+	if (IS_ERR(sgt))
+		return;
+
+	arg.nr_acl_entries = 1;
+	arg.vmids = vmids;
+	arg.perms = perms;
+	arg.flags = GH_RM_MEM_DONATE_SANITIZE;
+	arg.label = 0;
+
+	ret = mem_buf_assign_mem(GH_RM_TRANS_TYPE_DONATE, sgt, &arg);
+	if (ret)
+		goto err_free_sgt;
+
+	membuf->memparcel_hdl = arg.memparcel_hdl;
+	__mem_buf_relinquish_mem(membuf->txn.txn_id, membuf->memparcel_hdl);
+err_free_sgt:
+	sg_free_table(sgt);
+	kfree(sgt);
 }
 
 static int get_mem_buf(void *membuf_desc);
@@ -1049,11 +1148,7 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 	if (ret < 0)
 		goto out_free_mem;
 
-	ret = mem_buf_unmap_mem_s2(membuf->memparcel_hdl);
-	if (ret < 0)
-		goto out_free_mem;
-
-	mem_buf_relinquish_mem(membuf->txn.txn_id, membuf->memparcel_hdl);
+	mem_buf_relinquish_mem(membuf);
 
 out_free_mem:
 	mem_buf_destroy_txn(&membuf->txn);
@@ -1080,13 +1175,14 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	struct file *filp;
 	struct mem_buf_desc *membuf;
 	struct gh_sgl_desc *sgl_desc;
+	int op;
+	int perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
 		return ERR_PTR(-EOPNOTSUPP);
 
-	if (!alloc_data || !alloc_data->size || !alloc_data->nr_acl_entries ||
+	if (!alloc_data || !alloc_data->size || alloc_data->nr_acl_entries != 1 ||
 	    !alloc_data->vmids || !alloc_data->perms ||
-	    (alloc_data->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
 	    !is_valid_mem_type(alloc_data->src_mem_type) ||
 	    !is_valid_mem_type(alloc_data->dst_mem_type))
 		return ERR_PTR(-EINVAL);
@@ -1098,7 +1194,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	pr_debug("%s: mem buf alloc begin\n", __func__);
 	membuf->size = ALIGN(alloc_data->size, MEM_BUF_MHP_ALIGNMENT);
 	membuf->acl_desc = mem_buf_vmid_perm_list_to_gh_acl(
-				alloc_data->vmids, alloc_data->perms,
+				alloc_data->vmids, &perms,
 				alloc_data->nr_acl_entries);
 	if (IS_ERR(membuf->acl_desc)) {
 		ret = PTR_ERR(membuf->acl_desc);
@@ -1123,7 +1219,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 		goto err_alloc_dst_data;
 	}
 
-	ret = mem_buf_init_txn(&membuf->txn, &membuf->memparcel_hdl);
+	ret = mem_buf_init_txn(&membuf->txn, membuf);
 	if (ret)
 		goto err_init_txn;
 
@@ -1133,7 +1229,8 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (ret)
 		goto err_mem_req;
 
-	sgl_desc = mem_buf_map_mem_s2(membuf->memparcel_hdl, membuf->acl_desc);
+	op = membuf->gh_rm_trans_type;
+	sgl_desc = mem_buf_map_mem_s2(op, &membuf->memparcel_hdl, membuf->acl_desc, VMID_HLOS);
 	if (IS_ERR(sgl_desc))
 		goto err_map_mem_s2;
 	membuf->sgl_desc = sgl_desc;
@@ -1169,11 +1266,9 @@ err_get_file:
 		goto err_mem_req;
 	}
 err_map_mem_s1:
-	kfree(membuf->sgl_desc);
-	if (mem_buf_unmap_mem_s2(membuf->memparcel_hdl) < 0)
-		goto err_mem_req;
 err_map_mem_s2:
-	mem_buf_relinquish_mem(membuf->txn.txn_id, membuf->memparcel_hdl);
+	mem_buf_relinquish_mem(membuf);
+	kfree(membuf->sgl_desc);
 err_mem_req:
 	mem_buf_destroy_txn(&membuf->txn);
 err_init_txn:
@@ -1272,16 +1367,13 @@ static void mem_buf_retrieve_release(struct qcom_sg_buffer *buffer)
 
 struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 {
-	int ret;
+	int ret, op;
 	struct qcom_sg_buffer *buffer;
 	struct gh_acl_desc *acl_desc;
 	struct gh_sgl_desc *sgl_desc;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dmabuf;
 	struct sg_table *sgt;
-
-	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-		return ERR_PTR(-EOPNOTSUPP);
 
 	if (arg->fd_flags & ~MEM_BUF_VALID_FD_FLAGS)
 		return ERR_PTR(-EINVAL);
@@ -1300,7 +1392,9 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 		goto err_gh_acl;
 	}
 
-	sgl_desc = mem_buf_map_mem_s2(arg->memparcel_hdl, acl_desc);
+	op = mem_buf_get_mem_xfer_type_gh(acl_desc, arg->sender_vmid);
+	sgl_desc = mem_buf_map_mem_s2(op, &arg->memparcel_hdl, acl_desc,
+					arg->sender_vmid);
 	if (IS_ERR(sgl_desc)) {
 		ret = PTR_ERR(sgl_desc);
 		goto err_map_s2;
@@ -1519,35 +1613,6 @@ static size_t mem_buf_get_sgl_buf_size(struct gh_sgl_desc *sgl_desc)
 	return size;
 }
 
-static struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc)
-{
-	struct sg_table *new_table;
-	int ret, i;
-	struct scatterlist *sg;
-
-	if (!sgl_desc || !sgl_desc->n_sgl_entries)
-		return ERR_PTR(-EINVAL);
-
-	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
-	if (!new_table)
-		return ERR_PTR(-ENOMEM);
-
-	ret = sg_alloc_table(new_table, sgl_desc->n_sgl_entries, GFP_KERNEL);
-	if (ret) {
-		kfree(new_table);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	for_each_sg(new_table->sgl, sg, new_table->nents, i) {
-		sg_set_page(sg, phys_to_page(sgl_desc->sgl_entries[i].ipa_base),
-			    sgl_desc->sgl_entries[i].size, 0);
-		sg_dma_address(sg) = 0;
-		sg_dma_len(sg) = 0;
-	}
-
-	return new_table;
-}
-
 static int mem_buf_lend_user(struct mem_buf_lend_ioctl_arg *uarg, bool is_lend)
 {
 	int *vmids, *perms;
@@ -1611,6 +1676,13 @@ static int mem_buf_retrieve_user(struct mem_buf_retrieve_ioctl_arg *uarg)
 	if (ret)
 		return ret;
 
+	karg.sender_vmid = mem_buf_fd_to_vmid(uarg->sender_vm_fd);
+	if (karg.sender_vmid < 0) {
+		pr_err_ratelimited("%s: Invalid sender_vmid %d\n", __func__,
+					uarg->sender_vm_fd);
+		goto err_sender_vmid;
+	}
+
 	karg.nr_acl_entries = uarg->nr_acl_entries;
 	karg.vmids = vmids;
 	karg.perms = perms;
@@ -1634,6 +1706,7 @@ static int mem_buf_retrieve_user(struct mem_buf_retrieve_ioctl_arg *uarg)
 	return 0;
 err_fd:
 	dma_buf_put(dmabuf);
+err_sender_vmid:
 err_retrieve:
 	kfree(vmids);
 	kfree(perms);
@@ -1717,9 +1790,6 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		struct mem_buf_lend_ioctl_arg *lend = &ioctl_arg.lend;
 		int ret;
 
-		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-			return -EOPNOTSUPP;
-
 		ret = mem_buf_lend_user(lend, true);
 		if (ret)
 			return ret;
@@ -1731,9 +1801,6 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 		struct mem_buf_retrieve_ioctl_arg *retrieve =
 			&ioctl_arg.retrieve;
 		int ret;
-
-		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
-			return -EOPNOTSUPP;
 
 		ret = mem_buf_retrieve_user(retrieve);
 		if (ret)
@@ -1755,9 +1822,6 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 	{
 		struct mem_buf_share_ioctl_arg *share = &ioctl_arg.share;
 		int ret;
-
-		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-			return -EOPNOTSUPP;
 
 		/* The two formats are currently identical */
 		ret = mem_buf_lend_user((struct mem_buf_lend_ioctl_arg *)share,
