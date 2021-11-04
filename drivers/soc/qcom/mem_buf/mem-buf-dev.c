@@ -15,6 +15,7 @@
 
 #include <linux/mem-buf.h>
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 
 #define CREATE_TRACE_POINTS
 #include "trace-mem-buf.h"
@@ -76,7 +77,7 @@ struct gh_sgl_desc *mem_buf_sgt_to_gh_sgl_desc(struct sg_table *sgt)
 }
 EXPORT_SYMBOL(mem_buf_sgt_to_gh_sgl_desc);
 
-static int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
+static int mem_buf_assign_mem_gunyah(int op, struct sg_table *sgt,
 				struct mem_buf_lend_kernel_arg *arg)
 {
 	u32 src_vmid[] = {current_vmid};
@@ -126,16 +127,26 @@ static int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 	}
 
 	pr_debug("%s: Invoking Gunyah Lend/Share\n", __func__);
-	if (is_lend)
+	if (op == GH_RM_TRANS_TYPE_LEND)
 		ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, arg->flags,
 				     arg->label, gh_acl, gh_sgl,
 				     NULL /* Default memory attributes */,
 				     &arg->memparcel_hdl);
-	else
+	else if (op == GH_RM_TRANS_TYPE_SHARE)
 		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, arg->flags,
 				     arg->label, gh_acl, gh_sgl,
 				     NULL /* Default memory attributes */,
 				     &arg->memparcel_hdl);
+	else if (op == GH_RM_TRANS_TYPE_DONATE)
+		ret = gh_rm_mem_donate(GH_RM_MEM_TYPE_NORMAL, arg->flags,
+				     arg->label, gh_acl, gh_sgl,
+				     NULL /* Default memory attributes */,
+				     &arg->memparcel_hdl);
+	else {
+		pr_err("%s: Unrecognized op %d\n", op);
+		ret = -EINVAL;
+	}
+
 	if (ret < 0) {
 		pr_err("%s: Gunyah lend/share failed rc:%d\n",
 		       __func__, ret);
@@ -160,22 +171,23 @@ err_gh_acl:
 	return ret;
 }
 
-int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
+int mem_buf_assign_mem(int op, struct sg_table *sgt,
 			struct mem_buf_lend_kernel_arg *arg)
 {
 	u32 src_vmid = current_vmid;
 	int ret;
-	int api;
+	int use_gunyah;
 
 	if (!sgt || !arg->nr_acl_entries || !arg->vmids || !arg->perms)
 		return -EINVAL;
 
-	api = mem_buf_vm_get_backend_api(arg->vmids, arg->nr_acl_entries);
-	if (api < 0)
+	use_gunyah = mem_buf_vm_uses_gunyah(arg->vmids, arg->nr_acl_entries);
+	if (use_gunyah < 0)
 		return -EINVAL;
 
-	if (api == MEM_BUF_API_GUNYAH)
-		return mem_buf_assign_mem_gunyah(is_lend, sgt, arg);
+	arg->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
+	if (use_gunyah > 0)
+		return mem_buf_assign_mem_gunyah(op, sgt, arg);
 
 	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
 	ret = hyp_assign_table(sgt, &src_vmid, 1, arg->vmids, arg->perms,
@@ -196,16 +208,12 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 {
 	int dst_vmid[] = {current_vmid};
 	int dst_perm[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-	int ret, api;
+	int ret;
 
 	if (!sgt || !src_vmids || !nr_acl_entries)
 		return -EINVAL;
 
-	api = mem_buf_vm_get_backend_api(src_vmids, nr_acl_entries);
-	if (api < 0)
-		return -EINVAL;
-
-	if (api == MEM_BUF_API_GUNYAH) {
+	if (memparcel_hdl != MEM_BUF_MEMPARCEL_INVALID) {
 		pr_debug("%s: Beginning gunyah reclaim\n", __func__);
 		ret = gh_rm_mem_reclaim(memparcel_hdl, 0);
 		if (ret) {

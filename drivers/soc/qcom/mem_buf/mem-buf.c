@@ -31,6 +31,7 @@
 
 #include "../../../../drivers/dma-buf/heaps/qcom_sg_ops.h"
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 #include "trace-mem-buf.h"
 
 #define MEM_BUF_MAX_DEVS 1
@@ -124,6 +125,7 @@ struct mem_buf_xfer_mem {
 	u32 nr_acl_entries;
 	int *dst_vmids;
 	int *dst_perms;
+	u32 txn_id;
 };
 
 /**
@@ -157,6 +159,7 @@ struct mem_buf_desc {
 	void *dst_data;
 	struct file *filp;
 	struct list_head entry;
+	struct mem_buf_txn txn;
 };
 
 struct mem_buf_xfer_dmaheap_mem {
@@ -170,7 +173,7 @@ static int mem_buf_init_txn(struct mem_buf_txn *txn, void *resp_buf)
 	int ret;
 
 	mutex_lock(&mem_buf_idr_mutex);
-	ret = idr_alloc_cyclic(&mem_buf_txn_idr, txn, 0, U16_MAX, GFP_KERNEL);
+	ret = idr_alloc_cyclic(&mem_buf_txn_idr, txn, 0, INT_MAX, GFP_KERNEL);
 	mutex_unlock(&mem_buf_idr_mutex);
 	if (ret < 0) {
 		pr_err("%s: failed to allocate transaction id rc: %d\n",
@@ -395,6 +398,7 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 	if (!xfer_mem)
 		return ERR_PTR(-ENOMEM);
 
+	xfer_mem->txn_id = req->hdr.txn_id;
 	xfer_mem->size = req->size;
 	xfer_mem->mem_type = req->src_mem_type;
 	xfer_mem->nr_acl_entries = req->acl_desc.n_acl_entries;
@@ -445,11 +449,10 @@ static int mem_buf_get_mem_xfer_type(int *vmids, int *perms, unsigned int nr_acl
 
 static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 {
-	int ret;
+	int ret, xfer_type;
 	struct mem_buf_alloc_req *req_msg = req;
 	struct mem_buf_xfer_mem *xfer_mem;
 	struct mem_buf_lend_kernel_arg arg = {0};
-	bool is_lend;
 
 	xfer_mem = mem_buf_prep_xfer_mem(req_msg);
 	if (IS_ERR(xfer_mem))
@@ -460,14 +463,13 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 		goto err_rmt_alloc;
 
 	if (!xfer_mem->secure_alloc) {
-		ret = mem_buf_get_mem_xfer_type(xfer_mem->dst_vmids,
+		xfer_type = mem_buf_get_mem_xfer_type(xfer_mem->dst_vmids,
 				xfer_mem->dst_perms, xfer_mem->nr_acl_entries);
-		is_lend = (ret == GH_RM_TRANS_TYPE_LEND);
 
 		arg.nr_acl_entries = xfer_mem->nr_acl_entries;
 		arg.vmids = xfer_mem->dst_vmids;
 		arg.perms = xfer_mem->dst_perms;
-		ret = mem_buf_assign_mem(is_lend, xfer_mem->mem_sgt, &arg);
+		ret = mem_buf_assign_mem(xfer_type, xfer_mem->mem_sgt, &arg);
 		if (ret < 0)
 			goto err_assign_mem;
 
@@ -559,13 +561,12 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	struct mem_buf_xfer_mem *xfer_mem_iter, *tmp, *xfer_mem = NULL;
 	struct mem_buf_rmt_msg *rmt_msg = to_rmt_msg(work);
 	struct mem_buf_alloc_relinquish *relinquish_msg = rmt_msg->msg;
-	gh_memparcel_handle_t hdl = relinquish_msg->hdl;
 
 	trace_receive_relinquish_msg(relinquish_msg);
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
 	list_for_each_entry_safe(xfer_mem_iter, tmp, &mem_buf_xfer_mem_list,
 				 entry)
-		if (xfer_mem_iter->hdl == hdl) {
+		if (xfer_mem_iter->txn_id == relinquish_msg->hdr.txn_id) {
 			xfer_mem = xfer_mem_iter;
 			list_del(&xfer_mem->entry);
 			break;
@@ -575,8 +576,8 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	if (xfer_mem)
 		mem_buf_cleanup_alloc_req(xfer_mem);
 	else
-		pr_err("%s: transferred memory with handle 0x%x not found\n",
-		       __func__, hdl);
+		pr_err("%s: transferred memory with txn_id 0x%x not found\n",
+		       __func__, relinquish_msg->hdr.txn_id);
 
 	kfree(rmt_msg->msg);
 	kfree(rmt_msg);
@@ -603,7 +604,7 @@ static int mem_buf_decode_alloc_resp(void *buf, size_t size,
 	return alloc_resp->ret;
 }
 
-static void mem_buf_relinquish_mem(u32 memparcel_hdl);
+static void mem_buf_relinquish_mem(u32 txn_id, u32 memparcel_hdl);
 
 static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 				       size_t size)
@@ -622,7 +623,7 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 		 * it can be reclaimed.
 		 */
 		if (!mem_buf_decode_alloc_resp(buf, size, &hdl))
-			mem_buf_relinquish_mem(hdl);
+			mem_buf_relinquish_mem(hdr->txn_id, hdl);
 	} else {
 		txn->txn_ret = mem_buf_decode_alloc_resp(buf, size,
 							 txn->resp_buf);
@@ -750,17 +751,11 @@ static void *mem_buf_construct_alloc_req(struct mem_buf_desc *membuf,
 
 static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 {
-	struct mem_buf_txn txn;
 	void *alloc_req_msg;
 	size_t msg_size;
-	gh_memparcel_handle_t resp_hdl;
 	int ret;
 
-	ret = mem_buf_init_txn(&txn, &resp_hdl);
-	if (ret)
-		return ret;
-
-	alloc_req_msg = mem_buf_construct_alloc_req(membuf, txn.txn_id,
+	alloc_req_msg = mem_buf_construct_alloc_req(membuf, membuf->txn.txn_id,
 						    &msg_size);
 	if (IS_ERR(alloc_req_msg)) {
 		ret = PTR_ERR(alloc_req_msg);
@@ -778,18 +773,15 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 	if (ret < 0)
 		goto out;
 
-	ret = mem_buf_txn_wait(&txn);
+	ret = mem_buf_txn_wait(&membuf->txn);
 	if (ret < 0)
 		goto out;
 
-	membuf->memparcel_hdl = resp_hdl;
-
 out:
-	mem_buf_destroy_txn(&txn);
 	return ret;
 }
 
-static void mem_buf_relinquish_mem(u32 memparcel_hdl)
+static void mem_buf_relinquish_mem(u32 txn_id, gh_memparcel_handle_t memparcel_hdl)
 {
 	struct mem_buf_alloc_relinquish *msg;
 	int ret;
@@ -798,6 +790,7 @@ static void mem_buf_relinquish_mem(u32 memparcel_hdl)
 	if (!msg)
 		return;
 
+	msg->hdr.txn_id = txn_id;
 	msg->hdr.msg_type = MEM_BUF_ALLOC_RELINQUISH;
 	msg->hdl = memparcel_hdl;
 
@@ -1060,9 +1053,10 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 	if (ret < 0)
 		goto out_free_mem;
 
-	mem_buf_relinquish_mem(membuf->memparcel_hdl);
+	mem_buf_relinquish_mem(membuf->txn.txn_id, membuf->memparcel_hdl);
 
 out_free_mem:
+	mem_buf_destroy_txn(&membuf->txn);
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
 	kfree(membuf->sgl_desc);
@@ -1129,6 +1123,10 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 		goto err_alloc_dst_data;
 	}
 
+	ret = mem_buf_init_txn(&membuf->txn, &membuf->memparcel_hdl);
+	if (ret)
+		goto err_init_txn;
+
 	trace_mem_buf_alloc_info(membuf->size, membuf->src_mem_type,
 				 membuf->dst_mem_type, membuf->acl_desc);
 	ret = mem_buf_request_mem(membuf);
@@ -1175,8 +1173,10 @@ err_map_mem_s1:
 	if (mem_buf_unmap_mem_s2(membuf->memparcel_hdl) < 0)
 		goto err_mem_req;
 err_map_mem_s2:
-	mem_buf_relinquish_mem(membuf->memparcel_hdl);
+	mem_buf_relinquish_mem(membuf->txn.txn_id, membuf->memparcel_hdl);
 err_mem_req:
+	mem_buf_destroy_txn(&membuf->txn);
+err_init_txn:
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 err_alloc_dst_data:
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
