@@ -1,4 +1,3 @@
-qcom_cpu_vendor_hooks.ko
 arm_smmu.ko
 clk-dummy.ko
 clk-qcom.ko
@@ -35,6 +34,7 @@ qcom-pdc.ko
 qcom-reboot-reason.ko
 qcom-scm.ko
 qcom-spmi-pmic.ko
+qcom_cpu_vendor_hooks.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
