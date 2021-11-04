@@ -24,6 +24,7 @@ mem_buf.ko
 mem_buf_dev.ko
 msm_dma_iommu_mapping.ko
 ns.ko
+nvmem_qcom-spmi-sdam.ko
 phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 phy-qcom-ufs.ko
