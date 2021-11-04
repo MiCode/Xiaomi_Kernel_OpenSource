@@ -540,6 +540,8 @@ crypto/jitterentropy.h
 crypto/jitterentropy-kcapi.c
 crypto/kpp.c
 crypto/lz4.c
+crypto/lzo.c
+crypto/lzo-rle.c
 crypto/md5.c
 crypto/memneq.c
 crypto/nhpoly1305.c
@@ -3999,11 +4001,13 @@ include/trace/events/vsock_virtio_transport_common.h
 include/trace/events/workqueue.h
 include/trace/events/writeback.h
 include/trace/events/xdp.h
+include/trace/hooks/avc.h
 include/trace/hooks/binder.h
 include/trace/hooks/cgroup.h
 include/trace/hooks/cpufreq.h
 include/trace/hooks/cpuidle.h
 include/trace/hooks/cpuidle_psci.h
+include/trace/hooks/creds.h
 include/trace/hooks/debug.h
 include/trace/hooks/dtask.h
 include/trace/hooks/epoch.h
@@ -4013,7 +4017,9 @@ include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/iommu.h
+include/trace/hooks/memory.h
 include/trace/hooks/mm.h
+include/trace/hooks/module.h
 include/trace/hooks/mpam.h
 include/trace/hooks/net.h
 include/trace/hooks/pm_domain.h
@@ -4021,6 +4027,8 @@ include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
 include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
+include/trace/hooks/selinux.h
+include/trace/hooks/syscall_check.h
 include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
 include/trace/hooks/timer.h
@@ -5278,6 +5286,7 @@ net/core/selftests.c
 net/core/skbuff.c
 net/core/skmsg.c
 net/core/sock.c
+net/core/sock_destructor.h
 net/core/sock_diag.c
 net/core/sock_map.c
 net/core/sock_reuseport.c
