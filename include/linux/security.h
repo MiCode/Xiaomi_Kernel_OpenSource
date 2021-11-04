@@ -150,7 +150,8 @@ int cap_inode_setxattr(struct dentry *dentry, const char *name,
 		       const void *value, size_t size, int flags);
 int cap_inode_removexattr(struct user_namespace *mnt_userns,
 			  struct dentry *dentry, const char *name);
-int cap_inode_need_killpriv(struct dentry *dentry);
+int cap_inode_need_killpriv(struct user_namespace *mnt_userns,
+			    struct dentry *dentry);
 int cap_inode_killpriv(struct user_namespace *mnt_userns,
 		       struct dentry *dentry);
 int cap_inode_getsecurity(struct user_namespace *mnt_userns,
@@ -363,7 +364,8 @@ int security_inode_getxattr(struct dentry *dentry, const char *name);
 int security_inode_listxattr(struct dentry *dentry);
 int security_inode_removexattr(struct user_namespace *mnt_userns,
 			       struct dentry *dentry, const char *name);
-int security_inode_need_killpriv(struct dentry *dentry);
+int security_inode_need_killpriv(struct user_namespace *mnt_userns,
+				 struct dentry *dentry);
 int security_inode_killpriv(struct user_namespace *mnt_userns,
 			    struct dentry *dentry);
 int security_inode_getsecurity(struct user_namespace *mnt_userns,
