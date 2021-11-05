@@ -6,6 +6,7 @@
 #ifndef QCOM_VADC_COMMON_H
 #define QCOM_VADC_COMMON_H
 
+#include <linux/adc-tm-clients.h>
 #include <linux/types.h>
 
 #define VADC_CONV_TIME_MIN_US			2000
@@ -59,6 +60,10 @@
 #define R_PU_100K				100000
 #define RATIO_MAX_ADC7				BIT(14)
 
+#define PMIC5_GEN3_USB_IN_I_SCALE_FACTOR	9248
+
+#define ADC_VDD_REF				1875000
+
 /*
  * VADC_CALIB_ABSOLUTE: uses the 625mV and 1.25V as reference channels.
  * VADC_CALIB_RATIOMETRIC: uses the reference voltage (1.8V) and GND for
@@ -95,6 +100,54 @@ struct vadc_prescale_ratio {
 };
 
 /**
+ * enum adc_tm_rscale_fn_type - Scaling function used to convert the
+ *	channels input voltage/temperature to corresponding ADC code that is
+ *	applied for thresholds. Check the corresponding channels scaling to
+ *	determine the appropriate temperature/voltage units that are passed
+ *	to the scaling function. Example battery follows the power supply
+ *	framework that needs its units to be in decidegreesC so it passes
+ *	deci-degreesC. PA_THERM clients pass the temperature in degrees.
+ *	The order below should match the one in the driver for
+ *	adc_tm_rscale_fn[].
+ */
+enum adc_tm_rscale_fn_type {
+	SCALE_R_ABSOLUTE = 0,
+	SCALE_RSCALE_NONE,
+};
+
+/**
+ * struct adc_tm_config - Represent ADC Thermal Monitor configuration.
+ * @high_thr_temp: Temperature at which high threshold notification is required.
+ * @low_thr_temp: Temperature at which low threshold notification is required.
+ * @low_thr_voltage : Low threshold voltage ADC code used for reverse
+ *			calibration.
+ * @high_thr_voltage: High threshold voltage ADC code used for reverse
+ *			calibration.
+ */
+struct adc_tm_config {
+	int	high_thr_temp;
+	int	low_thr_temp;
+	int64_t	high_thr_voltage;
+	int64_t	low_thr_voltage;
+};
+
+struct adc_tm_reverse_scale_fn {
+	int32_t (*chan)(struct adc_tm_config *tm_config);
+};
+
+struct adc_tm_client_info {
+	struct list_head			list;
+	struct adc_tm_param			*param;
+	int32_t						low_thr_requested;
+	int32_t						high_thr_requested;
+	bool						notify_low_thr;
+	bool						notify_high_thr;
+	bool						high_thr_set;
+	bool						low_thr_set;
+	enum adc_tm_state_request	state_request;
+};
+
+/**
  * enum vadc_scale_fn_type - Scaling function to convert ADC code to
  *				physical scaled units for the channel.
  * SCALE_DEFAULT: Default scaling to convert raw adc code to voltage (uV).
@@ -119,13 +172,13 @@ struct vadc_prescale_ratio {
  *	charger temperature.
  * SCALE_HW_CALIB_PM5_SMB_TEMP: Returns result in millidegrees for PMIC5
  *	SMB1390 temperature.
- * SCALE_HW_CALIB_BATT_THERM_100K: Returns battery thermistor voltage in
+ * SCALE_HW_CALIB_BATT_THERM_100K: Returns battery thermistor temperature in
  *	decidegC using 100k pullup. The hardware applies offset/slope to adc
  *	code.
- * SCALE_HW_CALIB_BATT_THERM_30K: Returns battery thermistor voltage in
+ * SCALE_HW_CALIB_BATT_THERM_30K: Returns battery thermistor temperature in
  *	decidegC using 30k pullup. The hardware applies offset/slope to adc
  *	code.
- * SCALE_HW_CALIB_BATT_THERM_400K: Returns battery thermistor voltage in
+ * SCALE_HW_CALIB_BATT_THERM_400K: Returns battery thermistor temperature in
  *	decidegC using 400k pullup. The hardware applies offset/slope to adc
  *	code.
  * SCALE_HW_CALIB_PM5_SMB1398_TEMP: Returns result in millidegrees for PMIC5
@@ -142,6 +195,13 @@ struct vadc_prescale_ratio {
  *	S3 die temperature channel on PM2250.
  * SCALE_HW_CALIB_PM5_CUR: Returns result in microamperes for PMIC5 channels
  *	that use voltage scaling.
+ * SCALE_HW_CALIB_PM5_GEN3_BATT_THERM_100K: Returns battery thermistor
+ *	temperature in decidegC using 100k pullup. The hardware applies
+ *	offset/slope to adc code.
+ * SCALE_HW_CALIB_PM5_GEN3_BATT_ID_100K: Returns battery ID resistance
+ *	in ohms using 100k pullup. The hardware applies offset/slope to
+ *	adc code.
+ * SCALE_HW_CALIB_PM5_GEN3_USB_IN_I: Returns USB input current in microamperes.
  */
 enum vadc_scale_fn_type {
 	SCALE_DEFAULT = 0,
@@ -167,6 +227,9 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_CUR_RAW,
 	SCALE_HW_CALIB_PM2250_S3_DIE_TEMP,
 	SCALE_HW_CALIB_PM5_CUR,
+	SCALE_HW_CALIB_PM5_GEN3_BATT_THERM_100K,
+	SCALE_HW_CALIB_PM5_GEN3_BATT_ID_100K,
+	SCALE_HW_CALIB_PM5_GEN3_USB_IN_I,
 	SCALE_HW_CALIB_INVALID,
 };
 
@@ -209,5 +272,9 @@ int qcom_adc5_avg_samples_from_dt(u32 value);
 int qcom_adc5_decimation_from_dt(u32 value, const unsigned int *decimation);
 
 int qcom_vadc_decimation_from_dt(u32 value);
+
+void adc_tm_scale_therm_voltage_100k_gen3(struct adc_tm_config *param);
+
+int32_t adc_tm_absolute_rthr_gen3(struct adc_tm_config *tm_config);
 
 #endif /* QCOM_VADC_COMMON_H */
