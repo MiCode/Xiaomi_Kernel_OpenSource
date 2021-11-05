@@ -23,10 +23,6 @@
 	};
 };
 
-&battery_charger {
-	qcom,thermal-mitigation = <3000000 1500000 1000000 500000>;
-};
-
 &qupv3_se0_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;

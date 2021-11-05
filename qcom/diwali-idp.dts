@@ -2,9 +2,12 @@
 
 #include "diwali.dtsi"
 #include "diwali-idp.dtsi"
+#include "diwali-idp-pm7250b.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Diwali IDP";
 	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
 	qcom,board-id = <34 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
 };

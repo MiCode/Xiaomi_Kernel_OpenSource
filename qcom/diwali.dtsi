@@ -1756,17 +1756,6 @@
 				qcom,glink-channels = "fastrpcglink-apps-dsp";
 				qcom,intents = <0x64 64>;
 			};
-
-			qcom,pmic_glink_rpmsg {
-				qcom,glink-channels = "PMIC_RTR_ADSP_APPS";
-			};
-
-			qcom,pmic_glink_log_rpmsg {
-				qcom,glink-channels = "PMIC_LOGS_ADSP_APPS";
-				qcom,intents = <0x800  5
-						0xc00 3
-						0x2000 1>;
-			};
 		};
 	};
 
@@ -2621,7 +2610,6 @@
 		#address-cells = <2>;
 		#size-cells = <0>;
 		depends-on-supply = <&spmi1_bus>;
-		depends-on2-supply = <&smb1394_glink_debug>;
 
 		qcom,pmk8350-debug@0 {
 			compatible = "qcom,spmi-pmic";
@@ -2670,76 +2658,22 @@
 		qcom,subsys-name = "lpass";
 		qcom,protection-domain = "tms/servreg", "msm/adsp/charger_pd";
 		depends-on-supply = <&ipcc_mproc>;
+		status = "disabled";
 
 		battery_charger: qcom,battery_charger {
 			compatible = "qcom,battery-charger";
+			status = "disabled";
 		};
 
 		ucsi: qcom,ucsi {
 			compatible = "qcom,ucsi-glink";
+			status = "disabled";
 		};
 
 		altmode: qcom,altmode {
 			compatible = "qcom,altmode-glink";
 			#altmode-cells = <1>;
-		};
-	};
-
-	qcom,pmic_glink_log {
-		compatible = "qcom,pmic-glink";
-		qcom,pmic-glink-channel = "PMIC_LOGS_ADSP_APPS";
-
-		qcom,battery_debug {
-			compatible = "qcom,battery-debug";
-		};
-
-		qcom,charger_ulog_glink {
-			compatible = "qcom,charger-ulog-glink";
-		};
-
-		spmi_glink_debug: qcom,spmi_glink_debug {
-			compatible = "qcom,spmi-glink-debug";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			depends-on-supply = <&spmi1_bus>;
-
-			/* Primary SPMI bus */
-			spmi@0 {
-				reg = <0>;
-				#address-cells = <2>;
-				#size-cells = <0>;
-
-				qcom,pm7250b-debug@8 {
-					compatible = "qcom,spmi-pmic";
-					reg = <8 SPMI_USID>;
-					qcom,can-sleep;
-				};
-			};
-
-			/* Secondary SPMI bus */
-			spmi@1 {
-				reg = <1>;
-				#address-cells = <2>;
-				#size-cells = <0>;
-
-				smb1394_glink_debug: qcom,smb1394-debug@9 {
-					compatible = "qcom,spmi-pmic";
-					reg = <9 SPMI_USID>;
-					qcom,can-sleep;
-				};
-
-				qcom,smb1394-debug@b {
-					compatible = "qcom,spmi-pmic";
-					reg = <11 SPMI_USID>;
-					qcom,can-sleep;
-				};
-
-				qcom,smb1394-debug@d {
-					compatible = "qcom,spmi-pmic";
-					reg = <12 SPMI_USID>;
-					qcom,can-sleep;
-				};
-			};
+			status = "disabled";
 		};
 	};
 };
