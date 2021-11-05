@@ -1021,6 +1021,131 @@
 		reg = <0x1fc0000 0x30000>;
 	};
 
+	tcsr_mutex_block: syscon@1f40000 {
+		compatible = "syscon";
+		reg = <0x1f40000 0x20000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	smem: qcom,smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
+	qcom,smp2p-adsp {
+		compatible = "qcom,smp2p";
+		qcom,smem = <443>, <429>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_LPASS IPCC_MPROC_SIGNAL_SMP2P
+			      IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_LPASS
+			  IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <2>;
+
+		adsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		adsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p-dsps {
+		compatible = "qcom,smp2p";
+		qcom,smem = <481>, <430>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_SLPI IPCC_MPROC_SIGNAL_SMP2P
+			      IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_SLPI IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <3>;
+
+		dsps_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		dsps_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		sleepstate_smp2p_out: sleepstate-out {
+			qcom,entry-name = "sleepstate";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		sleepstate_smp2p_in: qcom,sleepstate-in {
+			qcom,entry-name = "sleepstate_see";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p-cdsp {
+		compatible = "qcom,smp2p";
+		qcom,smem = <94>, <432>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_CDSP IPCC_MPROC_SIGNAL_SMP2P
+			      IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_CDSP IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <5>;
+
+		cdsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		cdsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p-modem {
+		compatible = "qcom,smp2p";
+		qcom,smem = <435>, <428>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_MPSS IPCC_MPROC_SIGNAL_SMP2P
+			      IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_MPSS IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+		interrupt-parent = <&sleepstate_smp2p_in>;
+		interrupts = <0 0>;
+		interrupt-names = "smp2p-sleepstate-in";
+	};
+
 	aoss_qmp: power-controller@c300000 {
 		compatible = "qcom,waipio-aoss-qmp";
 		reg = <0xc300000 0x400>;
