@@ -321,7 +321,12 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 void a6xx_cx_regulator_disable_wait(struct regulator *reg,
 				struct kgsl_device *device, u32 timeout)
 {
-	if (!adreno_regulator_disable_poll(device, reg, A6XX_GPU_CC_CX_GDSCR, timeout)) {
+	u32 offset;
+
+	offset = adreno_is_a662(ADRENO_DEVICE(device)) ?
+			 A662_GPU_CC_CX_GDSCR : A6XX_GPU_CC_CX_GDSCR;
+
+	if (!adreno_regulator_disable_poll(device, reg, offset, timeout)) {
 		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
 		/* Dump the cx regulator consumer list */
 		qcom_clk_dump(NULL, reg, false);
