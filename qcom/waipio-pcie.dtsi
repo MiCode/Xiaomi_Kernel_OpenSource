@@ -653,7 +653,7 @@
 		interconnects = <&pcie_noc MASTER_PCIE_1 &mc_virt SLAVE_EBI1>;
 
 		qcom,pcie-vendor-id = /bits/ 16 <0x17cb>;
-		qcom,pcie-device-id = /bits/ 16 <0x0111>;
+		qcom,pcie-device-id = /bits/ 16 <0x0110>;
 		qcom,tcsr-not-supported;
 		qcom,pcie-aggregated-irq;
 		qcom,pcie-mhi-a7-irq;
@@ -802,22 +802,6 @@
 		edma-parent = <&pcie1_edma>;
 		iommus = <&apps_smmu 0x1c80 0x0>;
 		qcom,pcie-edma;
-		status = "disabled";
-	};
-
-	mhi_device: mhi_dev@01c0b000 {
-		compatible = "qcom,msm-mhi-dev";
-		reg = <0x1c0b000 0x1000>;
-		reg-names = "mhi_mmio_base";
-		qcom,mhi-ep-msi = <0>;
-		qcom,mhi-version = <0x1000000>;
-		qcom,use-pcie-edma;
-		dmas = <&pcie1_edma 0 0>, <&pcie1_edma 1 0>;
-		dma-names = "tx", "rx";
-		interrupts = <0 440 0>;
-		interrupt-names = "mhi-device-inta";
-		qcom,mhi-ifc-id = <0x011117cb>;
-		qcom,mhi-interrupt;
 		status = "disabled";
 	};
 
