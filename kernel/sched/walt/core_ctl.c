@@ -796,8 +796,8 @@ static bool eval_need(struct cluster_data *cluster)
 	unsigned long flags;
 	struct cpu_data *c;
 	unsigned int need_cpus = 0, last_need, thres_idx;
-	int ret = 0;
-	bool need_flag = false;
+	bool adj_now = false;
+	bool adj_possible = false;
 	unsigned int new_need;
 	s64 now, elapsed;
 
@@ -827,13 +827,12 @@ static bool eval_need(struct cluster_data *cluster)
 		need_cpus = apply_task_need(cluster, need_cpus);
 	}
 	new_need = apply_limits(cluster, need_cpus);
-	need_flag = adjustment_possible(cluster, new_need);
 
 	last_need = cluster->need_cpus;
 	now = ktime_to_ms(ktime_get());
 
 	if (new_need > cluster->active_cpus) {
-		ret = 1;
+		adj_now = true;
 	} else {
 		/*
 		 * When there is no change in need and there are no more
@@ -842,23 +841,27 @@ static bool eval_need(struct cluster_data *cluster)
 		 */
 		if (new_need == last_need && new_need == cluster->active_cpus) {
 			cluster->need_ts = now;
-			spin_unlock_irqrestore(&state_lock, flags);
-			return 0;
+			adj_now = false;
+			goto unlock;
 		}
 
-		elapsed =  now - cluster->need_ts;
-		ret = elapsed >= cluster->offline_delay_ms;
+		elapsed = now - cluster->need_ts;
+		adj_now = elapsed >= cluster->offline_delay_ms;
 	}
 
-	if (ret) {
+	if (adj_now) {
+		adj_possible = adjustment_possible(cluster, new_need);
 		cluster->need_ts = now;
 		cluster->need_cpus = new_need;
 	}
+
+unlock:
 	trace_core_ctl_eval_need(cluster->first_cpu, last_need, new_need,
-				 ret && need_flag);
+				 cluster->active_cpus, adj_now, adj_possible,
+				 adj_now && adj_possible, cluster->need_ts);
 	spin_unlock_irqrestore(&state_lock, flags);
 
-	return ret && need_flag;
+	return adj_now && adj_possible;
 }
 
 static void apply_need(struct cluster_data *cluster)
