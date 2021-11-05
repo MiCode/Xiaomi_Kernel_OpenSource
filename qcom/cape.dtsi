@@ -5,6 +5,7 @@
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/clock/qcom,gcc-waipio.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Cape";
@@ -1018,6 +1019,45 @@
 	tcsr: syscon@1fc0000 {
 		compatible = "syscon";
 		reg = <0x1fc0000 0x30000>;
+	};
+
+	aoss_qmp: power-controller@c300000 {
+		compatible = "qcom,waipio-aoss-qmp";
+		reg = <0xc300000 0x400>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_AOP
+			      IPCC_MPROC_SIGNAL_GLINK_QMP
+			      IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_AOP
+			  IPCC_MPROC_SIGNAL_GLINK_QMP>;
+
+		#power-domain-cells = <1>;
+		#clock-cells = <0>;
+	};
+
+	qmp_aop: qcom,qmp-aop {
+		compatible = "qcom,qmp-mbox";
+		qcom,qmp = <&aoss_qmp>;
+		label = "aop";
+		#mbox-cells = <1>;
+	};
+
+	qmp_tme: qcom,qmp-tme {
+		compatible = "qcom,qmp-mbox";
+		qcom,remote-pid = <14>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_TME
+			  IPCC_MPROC_SIGNAL_GLINK_QMP>;
+		mbox-names = "tme_qmp";
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_TME
+			      IPCC_MPROC_SIGNAL_GLINK_QMP
+			      IRQ_TYPE_EDGE_RISING>;
+
+		label = "tme";
+		qcom,early-boot;
+		priority = <0>;
+		mbox-desc-offset = <0x0>;
+		#mbox-cells = <1>;
 	};
 };
 
