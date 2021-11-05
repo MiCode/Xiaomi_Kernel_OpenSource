@@ -653,12 +653,12 @@ static void dbgfs_fill_ctx_dir(struct dentry *dir, struct damon_ctx *ctx)
 		debugfs_create_file(file_names[i], 0600, dir, ctx, fops[i]);
 }
 
-static int dbgfs_before_terminate(struct damon_ctx *ctx)
+static void dbgfs_before_terminate(struct damon_ctx *ctx)
 {
 	struct damon_target *t, *next;
 
 	if (!targetid_is_pid(ctx))
-		return 0;
+		return;
 
 	mutex_lock(&ctx->kdamond_lock);
 	damon_for_each_target_safe(t, next, ctx) {
@@ -666,7 +666,6 @@ static int dbgfs_before_terminate(struct damon_ctx *ctx)
 		damon_destroy_target(t);
 	}
 	mutex_unlock(&ctx->kdamond_lock);
-	return 0;
 }
 
 static struct damon_ctx *dbgfs_new_ctx(void)
