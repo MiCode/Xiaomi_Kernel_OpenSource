@@ -45,7 +45,7 @@ static struct pll_vco lucid_evo_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config video_cc_pll0_config = {
+static struct alpha_pll_config video_cc_pll0_config = {
 	.l = 0x1E,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -54,6 +54,15 @@ static const struct alpha_pll_config video_cc_pll0_config = {
 	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
+};
+
+static struct clk_init_data video_cc_pll0_cape_init = {
+	.name = "video_cc_pll0",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
 };
 
 static struct clk_alpha_pll video_cc_pll0 = {
@@ -84,7 +93,7 @@ static struct clk_alpha_pll video_cc_pll0 = {
 	},
 };
 
-static const struct alpha_pll_config video_cc_pll1_config = {
+static struct alpha_pll_config video_cc_pll1_config = {
 	.l = 0x2B,
 	.cal_l = 0x44,
 	.alpha = 0xC000,
@@ -93,6 +102,15 @@ static const struct alpha_pll_config video_cc_pll1_config = {
 	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
+};
+
+static struct clk_init_data video_cc_pll1_cape_init = {
+	.name = "video_cc_pll1",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
 };
 
 static struct clk_alpha_pll video_cc_pll1 = {
@@ -499,9 +517,74 @@ static struct qcom_cc_desc video_cc_waipio_desc = {
 
 static const struct of_device_id video_cc_waipio_match_table[] = {
 	{ .compatible = "qcom,waipio-videocc" },
+	{ .compatible = "qcom,cape-videocc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, video_cc_waipio_match_table);
+
+static void video_cc_cape_fixup(struct regmap *regmap)
+{
+	/* Update VideoCC PLL0 Config */
+	video_cc_pll0_config.l = 0x1E;
+	video_cc_pll0_config.cal_l = 0x44;
+	video_cc_pll0_config.cal_l_ringosc = 0x44;
+	video_cc_pll0_config.alpha = 0x0;
+	video_cc_pll0_config.config_ctl_val = 0x20485699;
+	video_cc_pll0_config.config_ctl_hi_val = 0x00182261;
+	video_cc_pll0_config.config_ctl_hi1_val = 0x82AA299C;
+	video_cc_pll0_config.test_ctl_val = 0x00000000;
+	video_cc_pll0_config.test_ctl_hi_val = 0x00000003;
+	video_cc_pll0_config.test_ctl_hi1_val = 0x00009000;
+	video_cc_pll0_config.test_ctl_hi2_val = 0x00000034;
+	video_cc_pll0_config.user_ctl_val = 0x00000000;
+	video_cc_pll0_config.user_ctl_hi_val = 0x00000005;
+
+	video_cc_pll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	video_cc_pll0.clkr.hw.init = &video_cc_pll0_cape_init;
+	video_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	video_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	video_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	video_cc_pll0.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	video_cc_pll0.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	/* Update VideoCC PLL1 Config */
+	video_cc_pll1_config.l = 0x2B;
+	video_cc_pll1_config.cal_l = 0x44;
+	video_cc_pll1_config.cal_l_ringosc = 0x44;
+	video_cc_pll1_config.alpha = 0xC000;
+	video_cc_pll1_config.config_ctl_val = 0x20485699;
+	video_cc_pll1_config.config_ctl_hi_val = 0x00182261;
+	video_cc_pll1_config.config_ctl_hi1_val = 0x82AA299C;
+	video_cc_pll1_config.test_ctl_val = 0x00000000;
+	video_cc_pll1_config.test_ctl_hi_val = 0x00000003;
+	video_cc_pll1_config.test_ctl_hi1_val = 0x00009000;
+	video_cc_pll1_config.test_ctl_hi2_val = 0x00000034;
+	video_cc_pll1_config.user_ctl_val = 0x00000000;
+	video_cc_pll1_config.user_ctl_hi_val = 0x00000005;
+
+	video_cc_pll1.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	video_cc_pll1.clkr.hw.init = &video_cc_pll1_cape_init;
+	video_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	video_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	video_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	video_cc_pll1.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	video_cc_pll1.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+}
+
+static int video_cc_waipio_fixup(struct platform_device *pdev, struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || compatlen <= 0)
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,cape-videocc"))
+		video_cc_cape_fixup(regmap);
+
+	return 0;
+}
 
 static int video_cc_waipio_probe(struct platform_device *pdev)
 {
@@ -517,6 +600,10 @@ static int video_cc_waipio_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
+
+	ret = video_cc_waipio_fixup(pdev, regmap);
 	if (ret)
 		return ret;
 
