@@ -11,4 +11,5 @@ arch/arm64/boot/Image.gz
 arch/arm64/boot/Image
 vmlinux
 System.map
+Module.symvers
 "

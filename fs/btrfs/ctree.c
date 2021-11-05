@@ -5232,7 +5232,7 @@ again:
 			slot--;
 		/*
 		 * check this node pointer against the min_trans parameters.
-		 * If it is too old, old, skip to the next one.
+		 * If it is too old, skip to the next one.
 		 */
 		while (slot < nritems) {
 			u64 gen;
