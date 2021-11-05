@@ -2,6 +2,32 @@
 
 &soc { };
 
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-waipio";
+
+	vdda-phy-supply = <&L7B>;
+	vdda-pll-supply = <&L9B>;
+	vdda-phy-max-microamp = <197000>;
+	vdda-pll-max-microamp = <23700>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+
+	vcc-supply = <&L7B>;
+	vcc-max-microamp = <1100000>;
+
+	vccq-supply = <&L9B>;
+	vccq-max-microamp = <1200000>;
+
+	qcom,vddp-ref-clk-supply = <&L9B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
 &qupv3_se4_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
