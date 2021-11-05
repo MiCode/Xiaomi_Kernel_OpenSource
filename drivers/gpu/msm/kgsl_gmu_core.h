@@ -85,8 +85,8 @@ enum gmu_pwrctrl_mode {
  * exiting IFPC is taking longer than expected. We continue
  * to retry after this until the long retry limit.
  */
-#define GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT 250
-#define GMU_CORE_LONG_WAKEUP_RETRY_LIMIT 500
+#define GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT 100
+#define GMU_CORE_LONG_WAKEUP_RETRY_LIMIT 200
 
 #define FENCE_STATUS_WRITEDROPPED0_MASK 0x1
 #define FENCE_STATUS_WRITEDROPPED1_MASK 0x2
