@@ -68,6 +68,8 @@
 #define HFI_FEATURE_DBQ		19
 #define HFI_FEATURE_MINBW	20
 #define HFI_FEATURE_CLX		21
+#define HFI_FEATURE_LSR		23
+
 
 /* A6xx uses a different value for KPROF */
 #define HFI_FEATURE_A6XX_KPROF	14
