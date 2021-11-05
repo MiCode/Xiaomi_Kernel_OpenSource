@@ -67,7 +67,6 @@ struct pdr_list_node {
 	u16 transaction_id;
 	struct pdr_service *pds;
 	struct list_head node;
-	struct timer_list timer;
 };
 
 static int pdr_locator_new_server(struct qmi_handle *qmi,
@@ -271,33 +270,23 @@ static int pdr_send_indack_msg(struct pdr_handle *pdr, struct pdr_service *pds,
 	return ret;
 }
 
-static void ind_ack_timeout_handler(struct timer_list *t)
-{
-	BUG_ON(1);
-}
-
 static void pdr_indack_work(struct work_struct *work)
 {
 	struct pdr_handle *pdr = container_of(work, struct pdr_handle,
 					      indack_work);
 	struct pdr_list_node *ind, *tmp;
 	struct pdr_service *pds;
-	unsigned long timeout;
 
 	list_for_each_entry_safe(ind, tmp, &pdr->indack_list, node) {
 		pds = ind->pds;
 
 		mutex_lock(&pdr->status_lock);
 		pds->state = ind->curr_state;
-		timeout = jiffies + msecs_to_jiffies(9000);
-		mod_timer(&ind->timer, timeout);
 		pdr->status(pds->state, pds->service_path, pdr->priv);
-		del_timer_sync(&ind->timer);
 		mutex_unlock(&pdr->status_lock);
 
 		/* Ack the indication after clients release the PD resources */
 		pdr_send_indack_msg(pdr, pds, ind->transaction_id);
-
 
 		pr_info("PDR: Indication ack sent to %s, state: 0x%x, trans-id: %d\n",
 			pds->service_path, pds->state, ind->transaction_id);
@@ -349,9 +338,6 @@ static void pdr_indication_cb(struct qmi_handle *qmi,
 	ind->transaction_id = ind_msg->transaction_id;
 	ind->curr_state = ind_msg->curr_state;
 	ind->pds = pds;
-
-
-	timer_setup(&ind->timer, ind_ack_timeout_handler, 0);
 
 	mutex_lock(&pdr->list_lock);
 	list_add_tail(&ind->node, &pdr->indack_list);
