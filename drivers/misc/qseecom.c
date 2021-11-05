@@ -2756,6 +2756,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	void *cmd_buf = NULL;
 	size_t cmd_len;
 	bool first_time = false;
+	int cont = 0;
 
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(&load_img_req,
@@ -2894,6 +2895,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 			goto loadapp_err;
 		}
 
+		do {
+		cont = 0;
 		if (resp.result == QSEOS_RESULT_FAILURE) {
 			pr_err("scm_call rsp.result is QSEOS_RESULT_FAILURE\n");
 			ret = -EFAULT;
@@ -2913,13 +2916,25 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 			}
 		}
 
+		if (resp.result == QSEOS_RESULT_BLOCKED_ON_LISTENER) {
+			pr_err("unload app blocked on listener");
+			cont = 1;
+			ret = __qseecom_process_reentrancy_blocked_on_listener(&resp, NULL, data);
+			if(ret) {
+				 pr_err("__qseecom_process_reentrancy_blocked_on_listener failed, with ret :%d",ret);
+				 cont = 0;
+				 ret = -EFAULT;
+				 goto loadapp_err;
+			}
+		}
+
 		if (resp.result != QSEOS_RESULT_SUCCESS) {
 			pr_err("scm_call failed resp.result unknown, %d\n",
 				resp.result);
 			ret = -EFAULT;
 			goto loadapp_err;
 		}
-
+		} while (cont == 1);
 		app_id = resp.data;
 
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
@@ -3016,12 +3031,11 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 {
 	struct qseecom_unload_app_ireq req;
 	struct qseecom_command_scm_resp resp;
-	int ret = 0;
+	int ret = 0, cont = 0;
 
 	/* Populate the structure for sending scm call to load image */
 	req.qsee_cmd_id = QSEOS_APP_SHUTDOWN_COMMAND;
 	req.app_id = app_id;
-
 	/* SCM_CALL to unload the app */
 	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &req,
 			sizeof(struct qseecom_unload_app_ireq),
@@ -3031,6 +3045,10 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 			app_id, ret);
 		return ret;
 	}
+
+	do {
+	cont = 0;
+
 	switch (resp.result) {
 	case QSEOS_RESULT_SUCCESS:
 		pr_warn("App (%d) is unloaded\n", app_id);
@@ -3047,15 +3065,25 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 		pr_err("app (%d) unload_failed!!\n", app_id);
 		ret = -EFAULT;
 		break;
+	case QSEOS_RESULT_BLOCKED_ON_LISTENER:
+		pr_err("unload app blocked on listener");
+		cont = 1;
+		ret = __qseecom_process_reentrancy_blocked_on_listener(&resp, NULL, data);
+		if(ret) {
+			 pr_err("__qseecom_process_reentrancy_blocked_on_listener failed, with ret :%d",ret);
+			 cont = 0;
+			 ret = -EFAULT;
+		}
+		break;
 	default:
 		pr_err("unload app %d get unknown resp.result %d\n",
 				app_id, resp.result);
 		ret = -EFAULT;
 		break;
 	}
+	} while (cont == 1);
 	return ret;
 }
-
 static int qseecom_unload_app(struct qseecom_dev_handle *data,
 				bool app_crash)
 {
