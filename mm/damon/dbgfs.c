@@ -340,6 +340,7 @@ static ssize_t dbgfs_target_ids_write(struct file *file,
 {
 	struct damon_ctx *ctx = file->private_data;
 	struct damon_target *t, *next_t;
+	bool id_is_pid = true;
 	char *kbuf, *nrs;
 	unsigned long *targets;
 	ssize_t nr_targets;
@@ -352,6 +353,11 @@ static ssize_t dbgfs_target_ids_write(struct file *file,
 		return PTR_ERR(kbuf);
 
 	nrs = kbuf;
+	if (!strncmp(kbuf, "paddr\n", count)) {
+		id_is_pid = false;
+		/* target id is meaningless here, but we set it just for fun */
+		scnprintf(kbuf, count, "42    ");
+	}
 
 	targets = str_to_target_ids(nrs, ret, &nr_targets);
 	if (!targets) {
@@ -359,7 +365,7 @@ static ssize_t dbgfs_target_ids_write(struct file *file,
 		goto out;
 	}
 
-	if (targetid_is_pid(ctx)) {
+	if (id_is_pid) {
 		for (i = 0; i < nr_targets; i++) {
 			targets[i] = (unsigned long)find_get_pid(
 					(int)targets[i]);
@@ -373,7 +379,7 @@ static ssize_t dbgfs_target_ids_write(struct file *file,
 
 	mutex_lock(&ctx->kdamond_lock);
 	if (ctx->kdamond) {
-		if (targetid_is_pid(ctx))
+		if (id_is_pid)
 			dbgfs_put_pids(targets, nr_targets);
 		ret = -EBUSY;
 		goto unlock_out;
@@ -386,9 +392,18 @@ static ssize_t dbgfs_target_ids_write(struct file *file,
 		damon_destroy_target(t);
 	}
 
+	/* remove targets with previously-set primitive */
+	damon_set_targets(ctx, NULL, 0);
+
+	/* Configure the context for the address space type */
+	if (id_is_pid)
+		damon_va_set_primitives(ctx);
+	else
+		damon_pa_set_primitives(ctx);
+
 	err = damon_set_targets(ctx, targets, nr_targets);
 	if (err) {
-		if (targetid_is_pid(ctx))
+		if (id_is_pid)
 			dbgfs_put_pids(targets, nr_targets);
 		ret = err;
 	}
