@@ -46,6 +46,8 @@
  */
 #define IPAHAL_NAT_INVALID_PROTOCOL   0xFF
 
+#define IPA_ETH_API_VER 2
+
 /**
  * commands supported by IPA driver
  */
@@ -300,6 +302,8 @@
 /* IPA Linux mhip instance stats structures */
 #define IPA_LNX_MHIP_INSTANCE_INFO_STRUCT_LEN (16 + 112 + 120)
 #define IPA_LNX_MHIP_INST_STATS_STRUCT_LEN (8 + 248)
+/* IPA Linux consolidated stats structure */
+#define IPA_LNX_CONSOLIDATED_STATS_STRUCT_LEN (8 + 48)
 /* IPA Linux Instance allocation info structures */
 #define IPA_LNX_EACH_INST_ALLOC_INFO_STRUCT_LEN (24 + 12 + 12 + 16)
 #define IPA_LNX_STATS_ALL_INFO_STRUCT_LEN (32 + 128 + 128 + 128)

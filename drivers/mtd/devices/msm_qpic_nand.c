@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  */
 
 #include "msm_qpic_nand.h"
@@ -18,6 +18,38 @@
 #define SMEM_AARM_PARTITION_TABLE 9
 #define SMEM_APPS 0
 #define ONE_CODEWORD_SIZE 516
+
+static struct device *dev_node;
+static int msm_nand_bam_panic_notifier(struct notifier_block *this,
+					unsigned long event, void *ptr)
+{
+	struct msm_nand_info *info = dev_get_drvdata(dev_node);
+
+	pr_info("Dumping APSS bam pipes register dumps\n");
+	sps_get_bam_debug_info(info->sps.bam_handle, 93,
+			(SPS_BAM_PIPE(0) |
+			 SPS_BAM_PIPE(1) |
+			 SPS_BAM_PIPE(2) |
+			 SPS_BAM_PIPE(3)),
+			 0, 2);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block msm_nand_bam_panic_blk = {
+	.notifier_call = msm_nand_bam_panic_notifier,
+};
+
+void msm_nand_bam_register_panic_handler(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&msm_nand_bam_panic_blk);
+}
+
+void msm_nand_bam_unregister_panic_handler(void)
+{
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					&msm_nand_bam_panic_blk);
+}
 
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
@@ -4555,6 +4587,8 @@ static int msm_nand_probe(struct platform_device *pdev)
 	pr_info("Allocated DMA buffer at virt_addr 0x%pK, phys_addr 0x%x\n",
 		info->nand_chip.dma_virt_addr, info->nand_chip.dma_phys_addr);
 	pr_info("Host capabilities:0x%08x\n", info->nand_chip.caps);
+	dev_node = dev;
+	msm_nand_bam_register_panic_handler();
 	goto out;
 free_bam:
 	msm_nand_bam_free(info);
@@ -4576,6 +4610,7 @@ static int msm_nand_remove(struct platform_device *pdev)
 {
 	struct msm_nand_info *info = dev_get_drvdata(&pdev->dev);
 
+	msm_nand_bam_unregister_panic_handler();
 	if (pm_runtime_suspended(&(pdev)->dev))
 		pm_runtime_resume(&(pdev)->dev);
 

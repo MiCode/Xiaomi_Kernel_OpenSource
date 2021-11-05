@@ -225,6 +225,10 @@ struct ipa_fmwk_contex {
 
 	int (*ipa_unregister_rmnet_ll_cb)(void);
 
+	int (*ipa_register_notifier)(void *fn_ptr);
+
+	int (*ipa_unregister_notifier)(void *fn_ptr);
+
 	/* ipa_usb APIs */
 	int (*ipa_usb_init_teth_prot)(enum ipa_usb_teth_prot teth_prot,
 		struct ipa_usb_teth_params *teth_params,
@@ -552,6 +556,8 @@ int ipa_fmwk_register_ipa(const struct ipa_core_data *in)
 	ipa_fmwk_ctx->ipa_register_rmnet_ll_cb = in->ipa_register_rmnet_ll_cb;
 	ipa_fmwk_ctx->ipa_unregister_rmnet_ll_cb =
 		in->ipa_unregister_rmnet_ll_cb;
+	ipa_fmwk_ctx->ipa_register_notifier =
+		in->ipa_unregister_notifier;
 
 	ipa_fmwk_ctx->ipa_ready = true;
 	ipa_trigger_ipa_ready_cbs();
@@ -1050,6 +1056,26 @@ int ipa_unregister_rmnet_ll_cb(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_unregister_rmnet_ll_cb);
+
+int ipa_register_notifier(void *fn_ptr)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_register_notifier, fn_ptr);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_register_notifier);
+
+int ipa_unregister_notifier(void *fn_ptr)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_unregister_notifier, fn_ptr);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_unregister_notifier);
 
 /* registration API for IPA usb module */
 int ipa_fmwk_register_ipa_usb(const struct ipa_usb_data *in)
