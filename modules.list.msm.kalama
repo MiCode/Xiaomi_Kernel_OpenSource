@@ -19,6 +19,7 @@ icc-debug.ko
 icc-rpmh.ko
 iommu-logger.ko
 llcc-qcom.ko
+mem-offline.ko
 mem_buf.ko
 mem_buf_dev.ko
 msm_dma_iommu_mapping.ko
