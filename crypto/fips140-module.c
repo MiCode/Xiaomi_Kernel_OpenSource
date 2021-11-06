@@ -14,6 +14,8 @@
  * don't need to meet these requirements.
  */
 
+#undef __DISABLE_EXPORTS
+
 #include <linux/ctype.h>
 #include <linux/module.h>
 #include <crypto/aead.h>
@@ -86,34 +88,37 @@ const u8 *__rodata_start = &__fips140_rodata_start;
  * When adding a new algorithm here, make sure to consider whether it needs a
  * self-test added to fips140_selftests[] as well.
  */
-static const char * const fips140_algorithms[] __initconst = {
-	"aes",
+static const struct {
+	const char *name;
+	bool approved;
+} fips140_algs_to_replace[] = {
+	{"aes", true},
 
-	"cmac(aes)",
-	"ecb(aes)",
+	{"cmac(aes)", true},
+	{"ecb(aes)", true},
 
-	"cbc(aes)",
-	"cts(cbc(aes))",
-	"ctr(aes)",
-	"xts(aes)",
-	"gcm(aes)",
+	{"cbc(aes)", true},
+	{"cts(cbc(aes))", true},
+	{"ctr(aes)", true},
+	{"xts(aes)", true},
+	{"gcm(aes)", false},
 
-	"hmac(sha1)",
-	"hmac(sha224)",
-	"hmac(sha256)",
-	"hmac(sha384)",
-	"hmac(sha512)",
-	"sha1",
-	"sha224",
-	"sha256",
-	"sha384",
-	"sha512",
+	{"hmac(sha1)", true},
+	{"hmac(sha224)", true},
+	{"hmac(sha256)", true},
+	{"hmac(sha384)", true},
+	{"hmac(sha512)", true},
+	{"sha1", true},
+	{"sha224", true},
+	{"sha256", true},
+	{"sha384", true},
+	{"sha512", true},
 
-	"stdrng",
-	"jitterentropy_rng",
+	{"stdrng", true},
+	{"jitterentropy_rng", false},
 };
 
-static bool __init is_fips140_algo(struct crypto_alg *alg)
+static bool __init fips140_should_unregister_alg(struct crypto_alg *alg)
 {
 	int i;
 
@@ -124,11 +129,68 @@ static bool __init is_fips140_algo(struct crypto_alg *alg)
 	if (alg->cra_flags & CRYPTO_ALG_ASYNC)
 		return false;
 
-	for (i = 0; i < ARRAY_SIZE(fips140_algorithms); i++)
-		if (!strcmp(alg->cra_name, fips140_algorithms[i]))
+	for (i = 0; i < ARRAY_SIZE(fips140_algs_to_replace); i++) {
+		if (!strcmp(alg->cra_name, fips140_algs_to_replace[i].name))
 			return true;
+	}
 	return false;
 }
+
+/*
+ * FIPS 140-3 service indicators.  FIPS 140-3 requires that all services
+ * "provide an indicator when the service utilises an approved cryptographic
+ * algorithm, security function or process in an approved manner".  What this
+ * means is very debatable, even with the help of the FIPS 140-3 Implementation
+ * Guidance document.  However, it was decided that a function that takes in an
+ * algorithm name and returns whether that algorithm is approved or not will
+ * meet this requirement.  Note, this relies on some properties of the module:
+ *
+ *   - The module doesn't distinguish between "services" and "algorithms"; its
+ *     services are simply its algorithms.
+ *
+ *   - The status of an approved algorithm is never non-approved, since (a) the
+ *     module doesn't support operating in a non-approved mode, such as a mode
+ *     where the self-tests are skipped; (b) there are no cases where the module
+ *     supports non-approved settings for approved algorithms, e.g.
+ *     non-approved key sizes; and (c) this function isn't available to be
+ *     called until the module_init function has completed, so it's guaranteed
+ *     that the self-tests and integrity check have already passed.
+ *
+ *   - The module does support some non-approved algorithms, so a single static
+ *     indicator ("return true;") would not be acceptable.
+ */
+bool fips140_is_approved_service(const char *name)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(fips140_algs_to_replace); i++) {
+		if (!strcmp(name, fips140_algs_to_replace[i].name))
+			return fips140_algs_to_replace[i].approved;
+	}
+	return false;
+}
+EXPORT_SYMBOL_GPL(fips140_is_approved_service);
+
+/*
+ * FIPS 140-3 requires that modules provide a "service" that outputs "the name
+ * or module identifier and the versioning information that can be correlated
+ * with a validation record".  This function meets that requirement.
+ *
+ * Note: the module also prints this same information to the kernel log when it
+ * is loaded.  That might meet the requirement by itself.  However, given the
+ * vagueness of what counts as a "service", we provide this function too, just
+ * in case the certification lab or CMVP is happier with an explicit function.
+ *
+ * Note: /sys/modules/fips140/scmversion also provides versioning information
+ * about the module.  However that file just shows the bare git commit ID, so it
+ * probably isn't sufficient to meet the FIPS requirement, which seems to want
+ * the "official" module name and version number used in the FIPS certificate.
+ */
+const char *fips140_module_version(void)
+{
+	return FIPS140_MODULE_NAME " " FIPS140_MODULE_VERSION;
+}
+EXPORT_SYMBOL_GPL(fips140_module_version);
 
 static LIST_HEAD(existing_live_algos);
 
@@ -180,7 +242,7 @@ static void __init unregister_existing_fips140_algos(void)
 	 * that new users won't use them.
 	 */
 	list_for_each_entry_safe(alg, tmp, &crypto_alg_list, cra_list) {
-		if (!is_fips140_algo(alg))
+		if (!fips140_should_unregister_alg(alg))
 			continue;
 		if (refcount_read(&alg->cra_refcnt) == 1) {
 			/*
@@ -437,7 +499,7 @@ fips140_init(void)
 {
 	const u32 *initcall;
 
-	pr_info("loading module\n");
+	pr_info("loading " FIPS140_MODULE_NAME " " FIPS140_MODULE_VERSION "\n");
 	fips140_init_thread = current;
 
 	unregister_existing_fips140_algos();
