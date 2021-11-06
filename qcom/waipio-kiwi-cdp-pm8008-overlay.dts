@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+
+#include "waipio-cdp.dtsi"
+#include "waipio-pm8008.dtsi"
+#include "waipio-kiwi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio with kiwi";
+	compatible = "qcom,waipio-cdp", "qcom,waipio", "qcom,cdp";
+	qcom,msm-id = <457 0x10000>, <482 0x10000>, <457 0x20000>, <482 0x20000>;
+	qcom,board-id = <0x02010001 0x2>;
+};
