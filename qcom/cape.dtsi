@@ -21,7 +21,7 @@
 
 	reserved_memory: reserved-memory { };
 
-	aliases {
+	aliases: aliases {
 		serial0 = &qupv3_se7_2uart;
 		hsuart0 = &qupv3_se20_4uart;
 	};
@@ -1049,4 +1049,12 @@
 
 &qupv3_se7_2uart {
 	status = "ok";
+};
+
+&qupv3_se5_i2c {
+	status = "ok";
+	fsa4480: fsa4480@42 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
+	};
 };

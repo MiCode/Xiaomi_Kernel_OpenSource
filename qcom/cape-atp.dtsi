@@ -1,3 +1,5 @@
+#include "cape-pmic-overlay.dtsi"
+
 &soc { };
 
 &qupv3_se4_i2c {
