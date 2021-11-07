@@ -1,3 +1,5 @@
+#include <dt-bindings/interconnect/qcom,icc.h>
+#include <dt-bindings/interconnect/qcom,parrot.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
@@ -403,6 +405,66 @@
 		reg = <0x0 0x280000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
+	};
+
+	clk_virt: interconnect@0 {
+		compatible = "qcom,parrot-clk_virt";
+		#interconnect-cells = <1>;
+	};
+
+	mc_virt: interconnect@1 {
+		compatible = "qcom,parrot-mc_virt";
+		#interconnect-cells = <1>;
+	};
+
+	cnoc2: interconnect@1500000 {
+		compatible = "qcom,parrot-cnoc2";
+		#interconnect-cells = <1>;
+	};
+
+	cnoc3: interconnect@1502000 {
+		compatible = "qcom,parrot-cnoc3";
+		#interconnect-cells = <1>;
+	};
+
+	system_noc: interconnect@1680000 {
+		compatible = "qcom,parrot-system_noc";
+		#interconnect-cells = <1>;
+	};
+
+	pcie_noc: interconnect@16c0000 {
+		compatible = "qcom,parrot-pcie_anoc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		compatible = "qcom,parrot-aggre1_noc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		compatible = "qcom,parrot-aggre2_noc";
+		#interconnect-cells = <1>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		compatible = "qcom,parrot-mmss_noc";
+		#interconnect-cells = <1>;
+	};
+
+	gem_noc: interconnect@19100000 {
+		compatible = "qcom,parrot-gem_noc";
+		#interconnect-cells = <1>;
+	};
+
+	nsp_noc: interconnect@320C0000 {
+		compatible = "qcom,parrot-nsp_noc";
+		#interconnect-cells = <1>;
+	};
+
+	lpass_ag_noc: interconnect@3c40000 {
+		compatible = "qcom,parrot-lpass_ag_noc";
+		#interconnect-cells = <1>;
 	};
 };
 
