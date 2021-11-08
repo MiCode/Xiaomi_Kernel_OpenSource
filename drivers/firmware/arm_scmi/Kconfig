@@ -77,6 +77,39 @@ config ARM_SCMI_TRANSPORT_VIRTIO
 	  If you want the ARM SCMI PROTOCOL stack to include support for a
 	  transport based on VirtIO, answer Y.
 
+config QTI_SCMI_PMU_PROTOCOL
+        tristate "Qualcomm Technologies, Inc. SCMI PMU vendor Protocol"
+        depends on ARM || ARM64 || COMPILE_TEST
+        depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS
+        help
+          System Control and Management Interface (SCMI) pmu vendor protocol.
+          This protocol provides interface to communicate with micro controller
+          which maintains the PMU configuration for multiple clients.
+
+          This driver defines the comands or message ID's used for this
+          communication and also exposes the ops used by clients.
+
+config QTI_SCMI_C1DCVS_PROTOCOL
+        tristate "Qualcomm Technologies, Inc. SCMI C1DCVS vendor Protocol"
+        depends on ARM || ARM64 || COMPILE_TEST
+        depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS
+        help
+          System Control and Management Interface (SCMI) c1dcvs vendor protocol.
+          This protocol provides interface to communicate with micro controller
+          which maintains the c1dcvs algorithm.
+
+          This driver defines the comands or message ID's used for this
+          communication and also exposes the ops used by clients.
+
+config QTI_SCMI_MEMLAT_PROTOCOL
+	tristate "Qualcomm Technologies, Inc. SCMI MEMLAT vendor Protocol"
+	depends on ARM || ARM64 || COMPILE_TEST
+	depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS
+	help
+	  System Control and Management Interface (SCMI) memlat vendor protocol
+	  this protocol provides interface to communicate with micro controller
+	  which is executing the hw memlat governor
+
 endif #ARM_SCMI_PROTOCOL
 
 config ARM_SCMI_POWER_DOMAIN
