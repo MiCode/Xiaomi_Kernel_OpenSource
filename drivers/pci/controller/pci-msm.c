@@ -34,7 +34,6 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include <soc/qcom/subsystem_notif.h>
 
 #include "../pci.h"
 
@@ -187,8 +186,6 @@
 #define MAX_PROP_SIZE (32)
 #define MAX_RC_NAME_LEN (15)
 #define MSM_PCIE_MAX_VREG (6)
-#define MSM_PCIE_MAX_CLK (20)
-#define MSM_PCIE_MAX_PIPE_CLK (1)
 #define MAX_RC_NUM (3)
 #define MAX_DEVICE_NUM (20)
 #define PCIE_TLP_RD_SIZE (0x5)
@@ -515,9 +512,9 @@ struct msm_pcie_reset_info_t {
 /* clock info structure */
 struct msm_pcie_clk_info_t {
 	struct clk *hdl;
-	char *name;
+	const char *name;
 	u32 freq;
-	bool required;
+
 	/*
 	 * Suppressible clocks are not turned off during drv suspend.
 	 * These clocks will be automatically gated during XO shutdown.
@@ -631,12 +628,15 @@ struct msm_pcie_dev_t {
 	struct regulator *gdsc;
 	struct msm_pcie_vreg_info_t vreg[MSM_PCIE_MAX_VREG];
 	struct msm_pcie_gpio_info_t gpio[MSM_PCIE_MAX_GPIO];
-	struct msm_pcie_clk_info_t clk[MSM_PCIE_MAX_CLK];
-	struct msm_pcie_clk_info_t pipeclk[MSM_PCIE_MAX_PIPE_CLK];
 	struct msm_pcie_res_info_t res[MSM_PCIE_MAX_RES];
 	struct msm_pcie_irq_info_t irq[MSM_PCIE_MAX_IRQ];
 	struct msm_pcie_reset_info_t reset[MSM_PCIE_MAX_RESET];
 	struct msm_pcie_reset_info_t pipe_reset[MSM_PCIE_MAX_PIPE_RESET];
+
+	unsigned int num_pipe_clk;
+	struct msm_pcie_clk_info_t *pipe_clk;
+	unsigned int num_clk;
+	struct msm_pcie_clk_info_t *clk;
 
 	void __iomem *parf;
 	void __iomem *phy;
@@ -657,12 +657,12 @@ struct msm_pcie_dev_t {
 	uint32_t parf_swing;
 
 	struct msm_pcie_vreg_info_t *cx_vreg;
-	struct msm_pcie_clk_info_t *rate_change_clk;
 	struct msm_pcie_vreg_info_t *mx_vreg;
 	struct msm_pcie_bw_scale_info_t *bw_scale;
 	u32 bw_gen_max;
 	u32 link_width_max;
 
+	struct clk *rate_change_clk;
 	struct clk *pipe_clk_mux;
 	struct clk *pipe_clk_ext_src;
 	struct clk *phy_aux_clk_mux;
@@ -831,7 +831,7 @@ static struct msm_pcie_dev_t msm_pcie_dev[MAX_RC_NUM];
 /* regulators */
 static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 	{NULL, "vreg-3p3", 0, 0, 0, false},
-	{NULL, "vreg-1p8", 1800000, 1800000, 14000, true},
+	{NULL, "vreg-1p2", 1200000, 1200000, 18200, true},
 	{NULL, "vreg-0p9", 1000000, 1000000, 40000, true},
 	{NULL, "vreg-cx", 0, 0, 0, false},
 	{NULL, "vreg-mx", 0, 0, 0, false},
@@ -882,91 +882,6 @@ msm_pcie_pipe_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_RESET] = {
 	},
 	{
 		{NULL, "pcie_2_phy_pipe_reset", false}
-	}
-};
-
-/* clocks */
-static struct msm_pcie_clk_info_t
-	msm_pcie_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_CLK] = {
-	{
-	{NULL, "pcie_0_ref_clk_src", 0, false, false},
-	{NULL, "pcie_0_aux_clk", 1010000, true, false},
-	{NULL, "pcie_0_cfg_ahb_clk", 0, true, false},
-	{NULL, "pcie_0_mstr_axi_clk", 0, true, false},
-	{NULL, "pcie_0_slv_axi_clk", 0, true, false},
-	{NULL, "pcie_0_ldo", 0, true, true},
-	{NULL, "pcie_0_smmu_clk", 0, false, false},
-	{NULL, "pcie_0_slv_q2a_axi_clk", 0, false, false},
-	{NULL, "pcie_0_sleep_clk", 0, false, false},
-	{NULL, "pcie_phy_refgen_clk", 0, false, false},
-	{NULL, "pcie_tbu_clk", 0, false, false},
-	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
-	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
-	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
-	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
-	{NULL, "pcie_phy_aux_clk", 0, false, false},
-	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
-	{NULL, "pcie_phy_aux_clk_mux", 0, false, false},
-	{NULL, "pcie_phy_aux_clk_ext_src", 0, false, false}
-	},
-	{
-	{NULL, "pcie_1_ref_clk_src", 0, false, false},
-	{NULL, "pcie_1_aux_clk", 1010000, true, false},
-	{NULL, "pcie_1_cfg_ahb_clk", 0, true, false},
-	{NULL, "pcie_1_mstr_axi_clk", 0, true, false},
-	{NULL, "pcie_1_slv_axi_clk", 0, true, false},
-	{NULL, "pcie_1_ldo", 0, true, true},
-	{NULL, "pcie_1_smmu_clk", 0, false, false},
-	{NULL, "pcie_1_slv_q2a_axi_clk", 0, false, false},
-	{NULL, "pcie_1_sleep_clk", 0, false, false},
-	{NULL, "pcie_phy_refgen_clk", 0, false, false},
-	{NULL, "pcie_tbu_clk", 0, false, false},
-	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
-	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
-	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
-	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
-	{NULL, "pcie_phy_aux_clk", 0, false, false},
-	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
-	{NULL, "pcie_phy_aux_clk_mux", 0, false, false},
-	{NULL, "pcie_phy_aux_clk_ext_src", 0, false, false}
-	},
-	{
-	{NULL, "pcie_2_ref_clk_src", 0, false, false},
-	{NULL, "pcie_2_aux_clk", 1010000, true, false},
-	{NULL, "pcie_2_cfg_ahb_clk", 0, true, false},
-	{NULL, "pcie_2_mstr_axi_clk", 0, true, false},
-	{NULL, "pcie_2_slv_axi_clk", 0, true, false},
-	{NULL, "pcie_2_ldo", 0, true, true},
-	{NULL, "pcie_2_smmu_clk", 0, false, false},
-	{NULL, "pcie_2_slv_q2a_axi_clk", 0, false, false},
-	{NULL, "pcie_2_sleep_clk", 0, false, false},
-	{NULL, "pcie_phy_refgen_clk", 0, false, false},
-	{NULL, "pcie_tbu_clk", 0, false, false},
-	{NULL, "pcie_ddrss_sf_tbu_clk", 0, false, false},
-	{NULL, "pcie_aggre_noc_0_axi_clk", 0, false, false},
-	{NULL, "pcie_aggre_noc_1_axi_clk", 0, false, false},
-	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
-	{NULL, "pcie_phy_aux_clk", 0, false, false},
-	{NULL, "pcie_pipe_clk_mux", 0, false, false},
-	{NULL, "pcie_pipe_clk_ext_src", 0, false, false},
-	{NULL, "pcie_phy_aux_clk_mux", 0, false, false},
-	{NULL, "pcie_phy_aux_clk_ext_src", 0, false, false}
-	}
-};
-
-/* Pipe Clocks */
-static struct msm_pcie_clk_info_t
-	msm_pcie_pipe_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_CLK] = {
-	{
-	{NULL, "pcie_0_pipe_clk", 125000000, true, false},
-	},
-	{
-	{NULL, "pcie_1_pipe_clk", 125000000, true, false},
-	},
-	{
-	{NULL, "pcie_2_pipe_clk", 125000000, true, false},
 	}
 };
 
@@ -1226,6 +1141,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->num_parf_testbus_sel);
 	PCIE_DBG_FS(dev, "phy_len is %d",
 		dev->phy_len);
+	PCIE_DBG_FS(dev, "num_pipe_clk: %d\n", dev->num_pipe_clk);
+	PCIE_DBG_FS(dev, "num_clk: %d\n", dev->num_clk);
 	PCIE_DBG_FS(dev, "disable_pc is %d",
 		dev->disable_pc);
 	PCIE_DBG_FS(dev, "l0s_supported is %s supported\n",
@@ -2846,7 +2763,7 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 			dev->rc_idx);
 	}
 
-	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
+	for (i = 0; i < dev->num_clk; i++) {
 		info = &dev->clk[i];
 
 		if (!info->hdl)
@@ -2933,7 +2850,7 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
-	for (i = 0; i < MSM_PCIE_MAX_CLK; i++)
+	for (i = 0; i < dev->num_clk; i++)
 		if (dev->clk[i].hdl)
 			clk_disable_unprepare(dev->clk[i].hdl);
 
@@ -2973,8 +2890,8 @@ static int msm_pcie_pipe_clk_init(struct msm_pcie_dev_t *dev)
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
-	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++) {
-		info = &dev->pipeclk[i];
+	for (i = 0; i < dev->num_pipe_clk; i++) {
+		info = &dev->pipe_clk[i];
 
 		if (!info->hdl)
 			continue;
@@ -3007,8 +2924,8 @@ static int msm_pcie_pipe_clk_init(struct msm_pcie_dev_t *dev)
 		PCIE_DBG(dev, "RC%d disable pipe clocks for error handling.\n",
 			dev->rc_idx);
 		while (i--)
-			if (dev->pipeclk[i].hdl)
-				clk_disable_unprepare(dev->pipeclk[i].hdl);
+			if (dev->pipe_clk[i].hdl)
+				clk_disable_unprepare(dev->pipe_clk[i].hdl);
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_RESET; i++) {
@@ -3051,10 +2968,10 @@ static void msm_pcie_pipe_clk_deinit(struct msm_pcie_dev_t *dev)
 
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
-	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++)
-		if (dev->pipeclk[i].hdl)
+	for (i = 0; i < dev->num_pipe_clk; i++)
+		if (dev->pipe_clk[i].hdl)
 			clk_disable_unprepare(
-				dev->pipeclk[i].hdl);
+				dev->pipe_clk[i].hdl);
 
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
@@ -3236,102 +3153,142 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 
 static int msm_pcie_get_clk(struct msm_pcie_dev_t *pcie_dev)
 {
-	int i, cnt, ret;
-	struct msm_pcie_clk_info_t *clk_info;
-	u32 *clkfreq = NULL;
 	struct platform_device *pdev = pcie_dev->pdev;
-	char ref_clk_src[MAX_PROP_SIZE];
+	u32 *clk_freq = NULL, *clk_suppressible = NULL;
+	int ret, i, total_num_clk;
+	struct clk_bulk_data *bulk_clks;
+	struct msm_pcie_clk_info_t *clk;
 
-	cnt = of_property_count_elems_of_size((&pdev->dev)->of_node,
-			"max-clock-frequency-hz", sizeof(u32));
-	if (cnt <= 0)
-		return -EINVAL;
+	/* get clocks */
+	ret = devm_clk_bulk_get_all(&pdev->dev, &bulk_clks);
+	if (ret <= 0) {
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: failed to get clocks: ret: %d\n",
+			 pcie_dev->rc_idx, ret);
+		return -EIO;
+	}
 
-	clkfreq = devm_kcalloc(&pdev->dev, MSM_PCIE_MAX_CLK +
-			MSM_PCIE_MAX_PIPE_CLK, sizeof(*clkfreq), GFP_KERNEL);
-	if (!clkfreq)
+	total_num_clk = ret;
+
+	ret = of_property_count_elems_of_size(pdev->dev.of_node,
+					      "clock-frequency",
+					      sizeof(*clk_freq));
+	if (ret != total_num_clk) {
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: mismatch between number of clock and frequency entries: %d != %d\n",
+			 pcie_dev->rc_idx, total_num_clk, ret);
+		return -EIO;
+	}
+
+	/* get clock frequency info */
+	clk_freq = devm_kcalloc(&pdev->dev, total_num_clk, sizeof(*clk_freq),
+				GFP_KERNEL);
+	if (!clk_freq)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, "clock-frequency",
+					 clk_freq, total_num_clk);
+	if (ret) {
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: failed to get clock frequencies: ret: %d\n",
+			 pcie_dev->rc_idx, ret);
+		return -EIO;
+	}
+
+	ret = of_property_count_elems_of_size(pdev->dev.of_node,
+					      "clock-suppressible",
+					      sizeof(*clk_suppressible));
+	if (ret != total_num_clk) {
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: mismatch between number of clock and suppressible entries: %d != %d\n",
+			 pcie_dev->rc_idx, total_num_clk, ret);
+		return -EIO;
+	}
+
+	/* get clock suppressible info */
+	clk_suppressible = devm_kcalloc(&pdev->dev, total_num_clk,
+					sizeof(*clk_suppressible), GFP_KERNEL);
+	if (!clk_suppressible)
 		return -ENOMEM;
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
-		"max-clock-frequency-hz", clkfreq, cnt);
+					 "clock-suppressible",
+					 clk_suppressible, total_num_clk);
 	if (ret) {
 		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d: invalid max-clock-frequency-hz property %d\n",
-			pcie_dev->rc_idx, ret);
-		return ret;
+			 "PCIe: RC%d: failed to get clock suppressible info: ret: %d\n",
+			 pcie_dev->rc_idx, ret);
+		return -EIO;
 	}
 
-	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
-		clk_info = &pcie_dev->clk[i];
+	/* setup array of PCIe clock info */
+	clk = devm_kcalloc(&pdev->dev, total_num_clk, sizeof(*clk), GFP_KERNEL);
+	if (!clk)
+		return -ENOMEM;
 
-		clk_info->hdl = devm_clk_get(&pdev->dev, clk_info->name);
+	/* Initially, pipe clk and clk both point to the beginning */
+	pcie_dev->pipe_clk = pcie_dev->clk = clk;
 
-		if (IS_ERR(clk_info->hdl)) {
-			if (clk_info->required) {
-				PCIE_DBG(pcie_dev,
-					"Clock %s isn't available:%ld\n",
-					clk_info->name, PTR_ERR(clk_info->hdl));
-				return PTR_ERR(clk_info->hdl);
-			}
+	for (i = 0; i < total_num_clk; i++, clk++, bulk_clks++) {
+		clk->name = bulk_clks->id;
+		clk->hdl = bulk_clks->clk;
+		clk->freq = *clk_freq++;
+		clk->suppressible = *clk_suppressible++;
 
-			PCIE_DBG(pcie_dev, "Ignoring Clock %s\n",
-				clk_info->name);
-			clk_info->hdl = NULL;
-		} else {
-			clk_info->freq = clkfreq[i + MSM_PCIE_MAX_PIPE_CLK];
-			PCIE_DBG(pcie_dev, "Freq of Clock %s is:%d\n",
-				clk_info->name, clk_info->freq);
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: %s: frequency: %d: suppressible: %d\n",
+			 pcie_dev->rc_idx, clk->name, clk->freq,
+			 clk->suppressible);
+	}
 
-			if (!strcmp(clk_info->name, "pcie_phy_refgen_clk"))
-				pcie_dev->rate_change_clk = clk_info;
-		}
+	/*
+	 * PCIe PIPE clock needs to be voted for independently from other PCIe
+	 * clocks. Assumption is that PCIe pipe clocks come first in the list
+	 * of clocks. The rest of the clocks will come after.
+	 */
+	if (!strcmp(pcie_dev->clk->name, "pcie_pipe_clk")) {
+		pcie_dev->num_pipe_clk++;
+		pcie_dev->clk++;
+	} else {
+		PCIE_ERR(pcie_dev,
+			 "PCIe: RC%d: could not find entry for pcie_pipe_clk\n",
+			 pcie_dev->rc_idx);
+		return -EIO;
+	}
+
+	pcie_dev->num_clk = total_num_clk - pcie_dev->num_pipe_clk;
+
+	pcie_dev->rate_change_clk = clk_get(&pdev->dev, "pcie_rate_change_clk");
+	if (IS_ERR(pcie_dev->rate_change_clk)) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: pcie_rate_change_clk is not present\n",
+			 pcie_dev->rc_idx);
+		pcie_dev->rate_change_clk = NULL;
 	}
 
 	pcie_dev->pipe_clk_mux = clk_get(&pdev->dev, "pcie_pipe_clk_mux");
-	if (IS_ERR(pcie_dev->pipe_clk_mux))
+	if (IS_ERR(pcie_dev->pipe_clk_mux)) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: pcie_pipe_clk_mux is not present\n",
+			 pcie_dev->rc_idx);
 		pcie_dev->pipe_clk_mux = NULL;
+	}
 
 	pcie_dev->pipe_clk_ext_src = clk_get(&pdev->dev,
-					"pcie_pipe_clk_ext_src");
-	if (IS_ERR(pcie_dev->pipe_clk_ext_src))
+					     "pcie_pipe_clk_ext_src");
+	if (IS_ERR(pcie_dev->pipe_clk_ext_src)) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: pcie_pipe_clk_ext_src is not present\n",
+			 pcie_dev->rc_idx);
 		pcie_dev->pipe_clk_ext_src = NULL;
+	}
 
-	pcie_dev->phy_aux_clk_mux = clk_get(&pdev->dev, "pcie_phy_aux_clk_mux");
-	if (IS_ERR(pcie_dev->phy_aux_clk_mux))
-		pcie_dev->phy_aux_clk_mux = NULL;
-
-	pcie_dev->phy_aux_clk_ext_src = clk_get(&pdev->dev,
-					"pcie_phy_aux_clk_ext_src");
-	if (IS_ERR(pcie_dev->phy_aux_clk_ext_src))
-		pcie_dev->phy_aux_clk_ext_src = NULL;
-
-	scnprintf(ref_clk_src, MAX_PROP_SIZE, "pcie_%d_ref_clk_src",
-		pcie_dev->rc_idx);
-	pcie_dev->ref_clk_src = clk_get(&pdev->dev, ref_clk_src);
-	if (IS_ERR(pcie_dev->ref_clk_src))
+	pcie_dev->ref_clk_src = clk_get(&pdev->dev, "pcie_ref_clk_src");
+	if (IS_ERR(pcie_dev->ref_clk_src)) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: pcie_ref_clk_src is not present\n",
+			 pcie_dev->rc_idx);
 		pcie_dev->ref_clk_src = NULL;
-
-	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++) {
-		clk_info = &pcie_dev->pipeclk[i];
-
-		clk_info->hdl = devm_clk_get(&pdev->dev, clk_info->name);
-
-		if (IS_ERR(clk_info->hdl)) {
-			if (clk_info->required) {
-				PCIE_DBG(pcie_dev,
-					"Clock %s isn't available:%ld\n",
-					clk_info->name, PTR_ERR(clk_info->hdl));
-				return PTR_ERR(clk_info->hdl);
-			}
-
-			PCIE_DBG(pcie_dev, "Ignoring Clock %s\n",
-				clk_info->name);
-			clk_info->hdl = NULL;
-		} else {
-			clk_info->freq = clkfreq[i];
-			PCIE_DBG(pcie_dev, "Freq of Clock %s is:%d\n",
-				clk_info->name, clk_info->freq);
-		}
 	}
 
 	return 0;
@@ -3743,7 +3700,7 @@ static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,
 					pcie_dev->mx_vreg->max_v);
 
 	if (pcie_dev->rate_change_clk)
-		clk_set_rate(pcie_dev->rate_change_clk->hdl,
+		clk_set_rate(pcie_dev->rate_change_clk,
 				bw_scale->rate_change_freq);
 }
 
@@ -5505,10 +5462,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	memcpy(pcie_dev->vreg, msm_pcie_vreg_info, sizeof(msm_pcie_vreg_info));
 	memcpy(pcie_dev->gpio, msm_pcie_gpio_info, sizeof(msm_pcie_gpio_info));
-	memcpy(pcie_dev->clk, msm_pcie_clk_info[rc_idx],
-		sizeof(msm_pcie_clk_info[rc_idx]));
-	memcpy(pcie_dev->pipeclk, msm_pcie_pipe_clk_info[rc_idx],
-		sizeof(msm_pcie_pipe_clk_info[rc_idx]));
 	memcpy(pcie_dev->res, msm_pcie_res_info, sizeof(msm_pcie_res_info));
 	memcpy(pcie_dev->irq, msm_pcie_irq_info, sizeof(msm_pcie_irq_info));
 	memcpy(pcie_dev->reset, msm_pcie_reset_info[rc_idx],
@@ -6835,7 +6788,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	/* turn on all unsuppressible clocks */
 	clk_info = pcie_dev->clk;
-	for (i = 0; i < MSM_PCIE_MAX_CLK; i++, clk_info++) {
+	for (i = 0; i < pcie_dev->num_clk; i++, clk_info++) {
 		if (clk_info->hdl && !clk_info->suppressible) {
 			ret = clk_prepare_enable(clk_info->hdl);
 			if (ret)
@@ -6906,8 +6859,8 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on pipe clk\n",
 		pcie_dev->rc_idx);
 
-	clk_info = pcie_dev->pipeclk;
-	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++, clk_info++) {
+	clk_info = pcie_dev->pipe_clk;
+	for (i = 0; i < pcie_dev->num_pipe_clk; i++, clk_info++) {
 		if (clk_info->hdl && !clk_info->suppressible) {
 			ret = clk_prepare_enable(clk_info->hdl);
 			if (ret)
@@ -7001,13 +6954,13 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	pcie_dev->link_status = MSM_PCIE_LINK_DRV;
 
 	/* turn off all unsuppressible clocks */
-	clk_info = pcie_dev->pipeclk;
-	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++, clk_info++)
+	clk_info = pcie_dev->pipe_clk;
+	for (i = 0; i < pcie_dev->num_pipe_clk; i++, clk_info++)
 		if (clk_info->hdl && !clk_info->suppressible)
 			clk_disable_unprepare(clk_info->hdl);
 
 	clk_info = pcie_dev->clk;
-	for (i = 0; i < MSM_PCIE_MAX_CLK; i++, clk_info++)
+	for (i = 0; i < pcie_dev->num_clk; i++, clk_info++)
 		if (clk_info->hdl && !clk_info->suppressible)
 			clk_disable_unprepare(clk_info->hdl);
 
