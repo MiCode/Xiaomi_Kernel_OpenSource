@@ -1180,9 +1180,26 @@ static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, 
 	page->freelist = gather->freelist;
 	gather->freelist = page;
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
-
-	trace_tlb_add_walk(smmu_domain, iova, granule);
 }
+
+static void arm_smmu_log_new_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_add(smmu_domain, iova, __pa(virt), granule);
+}
+
+static void arm_smmu_log_remove_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_remove(smmu_domain, iova, __pa(virt), granule);
+}
+
+static const struct qcom_iommu_pgtable_log_ops arm_smmu_pgtable_log_ops = {
+	.log_new_table = arm_smmu_log_new_table,
+	.log_remove_table = arm_smmu_log_remove_table,
+};
 
 static const struct qcom_iommu_flush_ops arm_smmu_iotlb_ops = {
 	.tlb_add_walk = arm_smmu_tlb_add_walk,
@@ -1361,6 +1378,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		cfg->asid = cfg->cbndx;
 
 	pgtbl_info.iommu_tlb_ops = &arm_smmu_iotlb_ops;
+	pgtbl_info.pgtable_log_ops = &arm_smmu_pgtable_log_ops;
 	pgtbl_info.cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,

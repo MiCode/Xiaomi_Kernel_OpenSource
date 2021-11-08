@@ -157,6 +157,7 @@ struct arm_lpae_io_pgtable {
 	void			*pgd;
 	u32			vmid;
 	const struct qcom_iommu_flush_ops *iommu_tlb_ops;
+	const struct qcom_iommu_pgtable_log_ops *pgtable_log_ops;
 	/* Protects table refcounts */
 	spinlock_t		lock;
 };
@@ -518,6 +519,11 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 		pte = arm_lpae_install_table(cptep, ptep, 0, cfg, 0);
 		if (pte)
 			__arm_lpae_free_pages(data, cptep, tblsz, cfg, cookie);
+		else
+			qcom_io_pgtable_log_new_table(data->pgtable_log_ops,
+					data->iop.cookie, cptep,
+					iova & ~(block_size - 1),
+					block_size);
 	} else if (!cfg->coherent_walk && !(pte & ARM_LPAE_PTE_SW_SYNC)) {
 		__arm_lpae_sync_pte(ptep, 1, cfg);
 	}
@@ -827,6 +833,11 @@ static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 	}
 
 	__arm_lpae_free_pages(data, start, table_size, &data->iop.cfg, cookie);
+
+	qcom_io_pgtable_log_remove_table(data->pgtable_log_ops,
+					data->iop.cookie, start,
+					0, /* iova unknown */
+					ARM_LPAE_BLOCK_SIZE(lvl - 1, data));
 }
 
 static void arm_lpae_free_pgtable(struct io_pgtable *iop)
@@ -892,6 +903,16 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 
 		tablep = iopte_deref(pte, data);
 	} else if (unmap_idx_start >= 0) {
+		/*
+		 * note lvl + 1 due to split_sz above.
+		 * add 0xDEA as flag since split_block_unmap shouldn't ever be called
+		 */
+		size_t prev_block_size = ARM_LPAE_BLOCK_SIZE(lvl + 1, data);
+
+		qcom_io_pgtable_log_new_table(data->pgtable_log_ops,
+					data->iop.cookie, tablep,
+					iova & ~(prev_block_size - 1) + 0xDEA,
+					prev_block_size);
 		return num_entries * size;
 	}
 
@@ -970,6 +991,11 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			__arm_lpae_set_pte(ptep, 0, 1, &iop->cfg);
 
 			qcom_io_pgtable_tlb_add_walk(data->iommu_tlb_ops,
+				data->iop.cookie, table,
+				iova & ~(block_size - 1),
+				block_size);
+
+			qcom_io_pgtable_log_remove_table(data->pgtable_log_ops,
 				data->iop.cookie, table,
 				iova & ~(block_size - 1),
 				block_size);
@@ -1149,6 +1175,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 
 	spin_lock_init(&data->lock);
 	data->iommu_tlb_ops = pgtbl_info->iommu_tlb_ops;
+	data->pgtable_log_ops = pgtbl_info->pgtable_log_ops;
 	data->vmid = pgtbl_info->vmid;
 	if (qcom_io_pgtable_allocator_register(data->vmid)) {
 		kfree(data);
