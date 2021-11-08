@@ -233,7 +233,7 @@ static int finalize_host_mappings(void)
 	return 0;
 }
 
-int select_iommu_ops(enum kvm_iommu_driver driver)
+static int select_iommu_ops(enum kvm_iommu_driver driver)
 {
 	switch (driver) {
 	case KVM_IOMMU_DRIVER_NONE:
