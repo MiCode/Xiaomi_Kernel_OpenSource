@@ -184,6 +184,7 @@
 };
 
 #include "parrot-stub-regulator.dtsi"
+#include "parrot-usb.dtsi"
 
 &soc {
 	#address-cells = <1>;
