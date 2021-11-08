@@ -48,3 +48,32 @@
 		novatek,irq-gpio = <&tlmm 51 0x2008>;
 	};
 };
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-diwali";
+
+	vdda-phy-supply = <&L10C>;
+	vdda-pll-supply = <&L6B>;
+	vdda-phy-max-microamp = <88100>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+
+	vcc-supply = <&L7B>;
+	vcc-max-microamp = <1100000>;
+
+	vccq-supply = <&L9B>;
+	vccq-max-microamp = <1200000>;
+
+	vccq2-supply = <&L19B>;
+	vccq2-max-microamp = <800000>;
+
+	qcom,vddp-ref-clk-supply = <&L9B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
