@@ -1102,7 +1102,7 @@
 
 			ddr_cdev {
 				trip = <&ddr_config0>;
-				cooling-device = <&ddr_cdev 8 8>;
+				cooling-device = <&ddr_cdev 5 5>;
 			};
 		};
 	};
