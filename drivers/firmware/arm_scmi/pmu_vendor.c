@@ -60,7 +60,7 @@ static int scmi_pmu_protocol_init(const struct scmi_protocol_handle *ph)
 static const struct scmi_protocol scmi_pmu = {
 	.id = SCMI_PMU_PROTOCOL,
 	.owner = THIS_MODULE,
-	.init_instance = &scmi_pmu_protocol_init,
+	.instance_init = &scmi_pmu_protocol_init,
 	.ops = &pmu_config_ops,
 };
 module_scmi_protocol(scmi_pmu);
