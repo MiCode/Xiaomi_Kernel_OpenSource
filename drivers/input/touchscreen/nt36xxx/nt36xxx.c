@@ -2070,20 +2070,24 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-	atomic_set(&ts->pvm_interrupt_underway, 1);
-	reinit_completion(&ts->trusted_touch_interrupt);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		atomic_set(&ts->pvm_interrupt_underway, 1);
+		reinit_completion(&ts->trusted_touch_interrupt);
+	}
 #endif
 #endif
 	mutex_lock(&ts->lock);
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-	if (atomic_read(&ts->trusted_touch_underway)) {
-		mutex_unlock(&ts->lock);
-		atomic_set(&ts->pvm_interrupt_underway, 0);
-		input_report_key(ts->input_dev, BTN_TOUCH, 0);
-		input_sync(ts->input_dev);
-		return IRQ_HANDLED;
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		if (atomic_read(&ts->trusted_touch_underway)) {
+			mutex_unlock(&ts->lock);
+			atomic_set(&ts->pvm_interrupt_underway, 0);
+			input_report_key(ts->input_dev, BTN_TOUCH, 0);
+			input_sync(ts->input_dev);
+			return IRQ_HANDLED;
+		}
 	}
 #endif
 #endif
@@ -2108,8 +2112,10 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		mutex_unlock(&ts->lock);
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-		complete(&ts->trusted_touch_interrupt);
-		atomic_set(&ts->pvm_interrupt_underway, 0);
+		if (atomic_read(&ts->trusted_touch_initialized)) {
+			complete(&ts->trusted_touch_interrupt);
+			atomic_set(&ts->pvm_interrupt_underway, 0);
+		}
 #endif
 #endif
 		return IRQ_HANDLED;
@@ -2212,8 +2218,10 @@ XFER_ERROR:
 	mutex_unlock(&ts->lock);
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-	complete(&ts->trusted_touch_interrupt);
-	atomic_set(&ts->pvm_interrupt_underway, 0);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		complete(&ts->trusted_touch_interrupt);
+		atomic_set(&ts->pvm_interrupt_underway, 0);
+	}
 #endif
 #endif
 
@@ -3106,8 +3114,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	atomic_set(&ts->suspend_resume_underway, 1);
-	reinit_completion(&ts->touch_suspend_resume);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		atomic_set(&ts->suspend_resume_underway, 1);
+		reinit_completion(&ts->touch_suspend_resume);
+	}
 #endif
 
 #if !WAKEUP_GESTURE
@@ -3141,8 +3151,9 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	buf[0] = EVENT_MAP_HOST_CMD;
 	buf[1] = 0x11;
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (!atomic_read(&ts->trusted_touch_underway))
-		CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+	if (atomic_read(&ts->trusted_touch_initialized))
+		if (!atomic_read(&ts->trusted_touch_underway))
+			CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
 #endif
 #endif // WAKEUP_GESTURE
 
@@ -3165,8 +3176,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 
 	msleep(50);
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	complete(&ts->touch_suspend_resume);
-	atomic_set(&ts->suspend_resume_underway, 0);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		complete(&ts->touch_suspend_resume);
+		atomic_set(&ts->suspend_resume_underway, 0);
+	}
 #endif
 	NVT_LOG("end\n");
 
@@ -3191,12 +3204,14 @@ static int32_t nvt_ts_resume(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (atomic_read(&ts->trusted_touch_underway))
-		wait_for_completion_interruptible(
-			&ts->trusted_touch_powerdown);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		if (atomic_read(&ts->trusted_touch_underway))
+			wait_for_completion_interruptible(
+				&ts->trusted_touch_powerdown);
 
-	atomic_set(&ts->suspend_resume_underway, 1);
-	reinit_completion(&ts->touch_suspend_resume);
+		atomic_set(&ts->suspend_resume_underway, 1);
+		reinit_completion(&ts->touch_suspend_resume);
+	}
 #endif
 	mutex_lock(&ts->lock);
 
@@ -3228,8 +3243,10 @@ static int32_t nvt_ts_resume(struct device *dev)
 	mutex_unlock(&ts->lock);
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	complete(&ts->touch_suspend_resume);
-	atomic_set(&ts->suspend_resume_underway, 0);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		complete(&ts->touch_suspend_resume);
+		atomic_set(&ts->suspend_resume_underway, 0);
+	}
 #endif
 	NVT_LOG("end\n");
 
