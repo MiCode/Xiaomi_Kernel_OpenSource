@@ -101,4 +101,23 @@
 			};
 		};
 	};
+
+	pm7325_tz {
+		cooling-maps {
+			pm7325_cpu4_freq {
+				trip = <&pm7325_trip0>;
+				cooling-device = <&CPU4 10 THERMAL_NO_LIMIT>;
+			};
+
+			pm7325_cpu7_freq {
+				trip = <&pm7325_trip0>;
+				cooling-device = <&CPU7 12 THERMAL_NO_LIMIT>;
+			};
+
+			pm7325_apc1 {
+				trip = <&pm7325_trip0>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+		};
+	};
 };
