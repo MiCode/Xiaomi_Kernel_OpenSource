@@ -15,6 +15,7 @@ dispcc-waipio.ko
 gcc-diwali.ko
 gcc-waipio.ko
 gdsc-regulator.ko
+gh_arm_drv.ko
 gh_ctrl.ko
 gh_dbl.ko
 gh_msgq.ko
