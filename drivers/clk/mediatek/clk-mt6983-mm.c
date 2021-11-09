@@ -358,6 +358,9 @@ static struct mtk_gate dispsys_config_clks[] = {
 	GATE_DISPSYS_CONFIG_2(CLK_DISPSYS_CONFIG_DP_CLK /* CLK ID */,
 		"dispsys_config_dp_clk" /* name */,
 		"disp0_ck" /* parent */, 1 /* bit */),
+	GATE_DISPSYS_CONFIG_2(CLK_DISPSYS_CONFIG_26M_CLK /* CLK ID */,
+		"dispsys_config_26m_clk" /* name */,
+		"disp0_ck" /* parent */, 11 /* bit */),
 };
 
 static int clk_mt6983_dispsys_config_probe(struct platform_device *pdev)
@@ -597,6 +600,9 @@ static struct mtk_gate dispsys1_config_clks[] = {
 	GATE_DISPSYS1_CONFIG_2(CLK_DISPSYS1_CONFIG_DP_CLK /* CLK ID */,
 		"dispsys1_config_dp_clk" /* name */,
 		"disp1_ck" /* parent */, 1 /* bit */),
+	GATE_DISPSYS1_CONFIG_2(CLK_DISPSYS1_CONFIG_26M_CLK /* CLK ID */,
+		"dispsys1_config_26m_clk" /* name */,
+		"disp1_ck" /* parent */, 11 /* bit */),
 };
 
 static int clk_mt6983_dispsys1_config_probe(struct platform_device *pdev)
