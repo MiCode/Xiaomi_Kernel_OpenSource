@@ -3633,9 +3633,11 @@
 			      <0 0x18c00000 0 0x100000>,
 			      <0 0x1c000000 0 0x4>,
 			      <0 0x1c805028 0 0x4>,
-			      <0 0x1c805030 0 0x4>;
+			      <0 0x1c805030 0 0x4>,
+			      <0 0x1c8050cc 0 0x28>;
 			reg-names = "conn_infra_base", "conn_gps_base",
-				"status_dummy_cr", "tia2_gps_on", "tia2_gps_rc_sel";
+				"status_dummy_cr", "tia2_gps_on", "tia2_gps_rc_sel",
+				"tia2_gps_debug";
 			interrupts = <GIC_SPI 518 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 519 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 520 IRQ_TYPE_LEVEL_HIGH 0>,
