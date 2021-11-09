@@ -192,7 +192,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 						comm_port_node->hrt_type);
 		peak_bw += normalize_peak_bw;
 		set_chn_bw(chn_hrt_bw, comm_port_node->channel,
-			       normalize_peak_bw);
+			       comm_port_node->latest_peak_bw);
 		set_chn_bw(chn_srt_bw, comm_port_node->channel,
 			       comm_port_node->latest_avg_bw);
 		mutex_unlock(&comm_port_node->bw_lock);
