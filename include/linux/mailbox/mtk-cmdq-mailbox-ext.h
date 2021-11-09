@@ -20,6 +20,8 @@ struct cmdq_util_controller_fp {
 	util_thread_ddr_module thread_ddr_module;
 };
 
+typedef bool (*cmdq_mminfra_power)(void);
+
 void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util);
 #endif
 
@@ -305,4 +307,5 @@ void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);
 s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt);
 void cmdq_mbox_dump_dbg(void *mbox_cmdq, void *chan, const bool lock);
 void cmdq_chan_dump_dbg(void *chan);
+void cmdq_get_mminfra_cb(cmdq_mminfra_power cb);
 #endif /* __MTK_CMDQ_MAILBOX_H__ */

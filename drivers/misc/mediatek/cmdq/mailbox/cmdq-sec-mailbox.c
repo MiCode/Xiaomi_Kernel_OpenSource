@@ -295,13 +295,13 @@ void cmdq_sec_mbox_enable(void *chan)
 			atomic_read(&cmdq->usage));
 		return;
 	}
+	mutex_lock(&cmdq->mbox_mutex);
+	mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
 	if (cmdq->unprepare_in_idle) {
-		mutex_lock(&cmdq->mbox_mutex);
-		mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
 		if (mbox_usage == 1)
 			WARN_ON(clk_prepare(cmdq->clock) < 0);
-		mutex_unlock(&cmdq->mbox_mutex);
 	}
+	mutex_unlock(&cmdq->mbox_mutex);
 	cmdq_sec_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_enable);
@@ -320,17 +320,20 @@ void cmdq_sec_mbox_disable(void *chan)
 		return;
 	}
 	cmdq_sec_clk_disable(cmdq);
+	mutex_lock(&cmdq->mbox_mutex);
+	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
 	if (cmdq->unprepare_in_idle) {
-		mutex_lock(&cmdq->mbox_mutex);
-		mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
 		if (mbox_usage == 0)
 			clk_unprepare(cmdq->clock);
 		else if (mbox_usage < 0) {
 			cmdq_err("mbox_usage:%d", mbox_usage);
 			dump_stack();
 		}
-		mutex_unlock(&cmdq->mbox_mutex);
 	}
+	mutex_unlock(&cmdq->mbox_mutex);
+	if ((mbox_usage == 0) && (atomic_read(&cmdq->usage) > 0))
+		cmdq_err("sec_mbox_disable when task running,cmdq:%pa id:%u usage:%d",
+		&cmdq->base_pa, cmdq->hwid, atomic_read(&cmdq->usage));
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_disable);
 
