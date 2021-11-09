@@ -202,7 +202,7 @@ static const struct mtk_dp_intf_resolution_cfg mt6983_resolution_cfg[SINK_MAX] =
 				},
 	[SINK_1920_1080] = {
 					.clksrc = TVDPLL_D16,
-					.con1 = 0x8416D89D
+					.con1 = 0x8216D89D
 				},
 	[SINK_1080_2460] = {
 					.clksrc = TVDPLL_D16,
@@ -241,8 +241,6 @@ struct mtk_dp_intf_video_clock {
 	unsigned int con1_reg;
 };
 
-
-
 static const struct mtk_dp_intf_video_clock mt6895_dp_intf_video_clock = {
 	.compatible = "mediatek,mt6895-apmixedsys",
 	.resolution_cfg = mt6895_resolution_cfg,
@@ -264,6 +262,7 @@ struct mtk_dp_intf_driver_data {
 	irqreturn_t (*irq_handler)(int irq, void *dev_id);
 	const struct mtk_dp_intf_video_clock *video_clock_cfg;
 };
+
 #define mt_reg_sync_writel(v, a) \
 	do {    \
 		__raw_writel((v), (void __force __iomem *)((a)));   \
@@ -308,7 +307,6 @@ static int irq_vdesa;
 static int irq_underflowsa;
 static int irq_tl;
 static struct mtk_dp_intf *g_dp_intf;
-
 
 static inline struct mtk_dp_intf *comp_to_dp_intf(struct mtk_ddp_comp *comp)
 {
