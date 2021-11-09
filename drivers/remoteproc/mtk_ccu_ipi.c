@@ -97,6 +97,12 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 		dev_err(ccu->dev,
 			"CCU IPC violation, rcnt:%d, wcnt:%d, tout_fid:%d, tout_mid:%d",
 			read_cnt, write_cnt, ccu->ipc_tout_fid, ccu->ipc_tout_mid);
+		dev_err(ccu->dev, "r_assert:0x%x, i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG20),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG28),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG29),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG30),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG31));
 		return -EINVAL;
 	}
 
@@ -124,6 +130,12 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 		dev_err(ccu->dev,
 			"CCU IPC timeout, ft(%d), mid(%d), ack(%d), cnt(%d)\n",
 			msg->feature_type, msg->msg_id, ackValue, loop_cnt);
+		dev_err(ccu->dev, "r_assert:0x%x, i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG20),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG28),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG29),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG30),
+			readl(ccu->ccu_base + MTK_CCU_SPARE_REG31));
 		ccu->ipc_tout_fid = msg->feature_type;
 		ccu->ipc_tout_mid = msg->msg_id;
 		return -ETIMEDOUT;
