@@ -55,7 +55,7 @@ enum  cnss_rtpm_id {
 enum cnss_pci_reg_dev_mask {
 	REG_MASK_QCA6390,
 	REG_MASK_QCA6490,
-	REG_MASK_WCN7850,
+	REG_MASK_KIWI,
 };
 
 struct cnss_msi_user {

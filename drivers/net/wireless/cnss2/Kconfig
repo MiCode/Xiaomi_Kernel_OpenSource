@@ -89,15 +89,6 @@ config CNSS_QCA6490
 	  These changes are needed to support the new hardware architecture
 	  for CNSS QCA6490 chipset.
 
-config CNSS_WCN7850
-	bool "Enable CNSS WCN7850 chipset specific changes"
-	depends on CNSS2
-	help
-	  This enables the changes from WLAN host driver that are specific to
-	  CNSS WCN7850 chipset.
-	  These changes are needed to support the new hardware architecture
-	  for CNSS WCN7850 chipset.
-
 config CNSS_REQ_FW_DIRECT
 	bool "Enable request_firmware_direct for firmware or configuration file"
 	depends on CNSS2

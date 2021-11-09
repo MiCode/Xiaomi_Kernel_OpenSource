@@ -185,7 +185,7 @@ qmi_registered:
 static void cnss_wlfw_host_cap_parse_mlo(struct cnss_plat_data *plat_priv,
 					 struct wlfw_host_cap_req_msg_v01 *req)
 {
-	if (plat_priv->device_id == WCN7850_DEVICE_ID) {
+	if (plat_priv->device_id == KIWI_DEVICE_ID) {
 		req->mlo_capable_valid = 1;
 		req->mlo_capable = 1;
 		req->mlo_chip_id_valid = 1;
@@ -1009,7 +1009,7 @@ void cnss_get_qdss_cfg_filename(struct cnss_plat_data *plat_priv,
 	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
 	char *debug_str = QDSS_DEBUG_FILE_STR;
 
-	if (plat_priv->device_id == WCN7850_DEVICE_ID)
+	if (plat_priv->device_id == KIWI_DEVICE_ID)
 		debug_str = "";
 
 	if (plat_priv->device_version.major_version == FW_V2_NUMBER)
