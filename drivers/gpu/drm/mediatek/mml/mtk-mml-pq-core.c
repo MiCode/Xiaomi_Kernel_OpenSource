@@ -70,6 +70,7 @@ static void queue_msg(struct mml_pq_chan *chan,
 	mutex_lock(&chan->msg_lock);
 	list_add_tail(&sub_task->mbox_list, &chan->msg_list);
 	atomic_inc(&chan->msg_cnt);
+	sub_task->job_id = chan->job_idx++;
 	mutex_unlock(&chan->msg_lock);
 
 	mml_pq_msg("%s wake up channel message queue", __func__);
@@ -89,9 +90,10 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 	mutex_lock(&chan->msg_lock);
 	temp = list_first_entry_or_null(&chan->msg_list,
 		typeof(*temp), mbox_list);
-	if (temp)
+	if (temp) {
 		atomic_dec(&chan->msg_cnt);
-	list_del(&temp->mbox_list);
+		list_del(&temp->mbox_list);
+	}
 	mutex_unlock(&chan->msg_lock);
 
 	if (!temp) {
@@ -111,12 +113,37 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 
 	mutex_lock(&chan->job_lock);
 	list_add_tail(&temp->mbox_list, &chan->job_list);
-	temp->job_id = chan->job_idx++;
 	mutex_unlock(&chan->job_lock);
 	*out_sub_task = temp;
 
 	mml_pq_trace_ex_end();
 	return 0;
+}
+
+void mml_pq_comp_config_clear(struct mml_task *task)
+{
+	struct mml_pq_chan *chan = &pq_mbox->comp_config_chan;
+	struct mml_pq_sub_task *sub_task = NULL, *tmp = NULL;
+	u64 job_id = task->pq_task->comp_config.job_id;
+
+	mutex_lock(&chan->msg_lock);
+	if (atomic_read(&chan->msg_cnt)) {
+		list_for_each_entry_safe(sub_task, tmp, &chan->msg_list, mbox_list) {
+			if (sub_task->job_id == job_id) {
+				list_del(&sub_task->mbox_list);
+				atomic_dec_if_positive(&chan->msg_cnt);
+			}
+		}
+		mutex_unlock(&chan->msg_lock);
+	} else {
+		mutex_unlock(&chan->msg_lock);
+		mutex_lock(&chan->job_lock);
+		list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
+			if (sub_task->job_id == job_id)
+				list_del(&sub_task->mbox_list);
+		}
+		mutex_unlock(&chan->job_lock);
+	}
 }
 
 static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,

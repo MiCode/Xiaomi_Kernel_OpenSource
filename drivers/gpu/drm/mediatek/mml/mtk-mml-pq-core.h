@@ -225,6 +225,13 @@ int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms);
 void mml_pq_put_comp_config_result(struct mml_task *task);
 
 /*
+ * mml_pq_sub_task_clear - remove invalid sub_task from list
+ *
+ * @task:	task data, include pq parameters and frame info
+ */
+void mml_pq_comp_config_clear(struct mml_task *task);
+
+/*
  * mml_pq_aal_readback - noify from MML core through MML PQ driver
  *	to update histogram
  *

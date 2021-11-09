@@ -421,6 +421,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 			mml_pq_err("%s: not get result from user lib", __func__);
 		}
 	} else {
+		mml_pq_comp_config_clear(task);
 		mml_pq_err("get aal param timeout: %d in %dms",
 			ret, AAL_WAIT_TIMEOUT_MS);
 	}
@@ -822,6 +823,7 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 			mml_pq_err("%s: not get result from user lib", __func__);
 		}
 	} else {
+		mml_pq_comp_config_clear(task);
 		mml_pq_err("get aal param timeout: %d in %dms",
 			ret, AAL_WAIT_TIMEOUT_MS);
 	}

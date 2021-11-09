@@ -361,6 +361,7 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 			mml_pq_err("%s: not get result from user lib", __func__);
 		}
 	} else {
+		mml_pq_comp_config_clear(task);
 		mml_pq_err("get hdr param timeout: %d in %dms",
 			ret, HDR_WAIT_TIMEOUT_MS);
 	}
@@ -599,6 +600,7 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 			mml_pq_err("%s: not get result from user lib", __func__);
 		}
 	} else {
+		mml_pq_comp_config_clear(task);
 		mml_pq_err("get hdr param timeout: %d in %dms",
 			ret, HDR_WAIT_TIMEOUT_MS);
 	}
