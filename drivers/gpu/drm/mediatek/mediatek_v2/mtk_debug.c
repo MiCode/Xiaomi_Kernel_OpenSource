@@ -71,6 +71,7 @@ bool g_mobile_log;
 bool g_fence_log;
 bool g_detail_log;
 bool g_msync_debug;
+bool g_profile_log;
 
 EXPORT_SYMBOL(g_mobile_log);
 EXPORT_SYMBOL(g_msync_debug);
@@ -1936,6 +1937,11 @@ static void process_dbg_opt(const char *opt)
 			g_detail_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_detail_log = 0;
+	} else if (strncmp(opt, "profile:", 8) == 0) {
+		if (strncmp(opt + 8, "on", 2) == 0)
+			g_profile_log = 1;
+		else if (strncmp(opt + 8, "off", 3) == 0)
+			g_profile_log = 0;
 	} else if (strncmp(opt, "trace:", 6) == 0) {
 		if (strncmp(opt + 6, "on", 2) == 0)
 			g_trace_log = 1;

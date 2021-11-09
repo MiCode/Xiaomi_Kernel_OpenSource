@@ -5619,6 +5619,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		goto end;
 	}
 	DDPINFO("crtc%d do %s\n", crtc_id, __func__);
+	DDP_PROFILE("[PROFILE] %s+\n", __func__);
 	CRTC_MMP_MARK(crtc_id, enable, 1, 0);
 
 	/*for dual pipe*/
@@ -5722,6 +5723,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 end:
 	CRTC_MMP_EVENT_END(crtc_id, enable,
 			mtk_crtc->enabled, 0);
+	DDP_PROFILE("[PROFILE] %s-\n", __func__);
 }
 
 static void mtk_drm_crtc_wk_lock(struct drm_crtc *crtc, bool get,

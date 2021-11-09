@@ -2363,12 +2363,13 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	}
 
 	if (dsi->panel) {
+		DDP_PROFILE("[PROFILE] %s panel init start\n", __func__);
 		if ((!dsi->doze_enabled || force_lcm_update)
 			&& drm_panel_prepare(dsi->panel)) {
 			DDPPR_ERR("failed to prepare the panel\n");
 			return;
 		}
-
+		DDP_PROFILE("[PROFILE] %s panel init end\n", __func__);
 		mode_chg_index = mtk_crtc->mode_change_index;
 
 		/* add for ESD recovery */
@@ -2648,15 +2649,21 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 
 	DDPINFO("%s\n", __func__);
 
-	if (index == 0)
+	if (index == 0) {
+		DDP_PROFILE("[PROFILE] %s before notify start\n", __func__);
 		mtk_disp_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
 					&data);
+		DDP_PROFILE("[PROFILE] %s before notify end\n", __func__);
+	}
 
 	mtk_output_dsi_enable(dsi, false);
 
-	if (index == 0)
+	if (index == 0) {
+		DDP_PROFILE("[PROFILE] %s after notify start\n", __func__);
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
 					&data);
+		DDP_PROFILE("[PROFILE] %s after notify end\n", __func__);
+	}
 
 	CRTC_MMP_EVENT_END(index, dsi_resume,
 			(unsigned long)dsi->output_en, 0);

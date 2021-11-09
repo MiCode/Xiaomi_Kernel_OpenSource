@@ -1390,6 +1390,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	int ret, i = 0;
 	int index;
 
+	DDP_PROFILE("[PROFILE] %s+\n", __func__);
 	ret = drm_atomic_helper_prepare_planes(drm, state);
 	if (ret)
 		return ret;
@@ -1463,6 +1464,7 @@ err_mutex_unlock:
 	DRM_MMP_EVENT_END(mutex_lock, 0, 0);
 
 	mutex_unlock(&private->commit.lock);
+	DDP_PROFILE("[PROFILE] %s-\n", __func__);
 
 	return 0;
 }
