@@ -1192,7 +1192,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6983 = {
 	},
 	.comm_port_hrt_types = {
 		{ HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE, HRT_NONE,
-			HRT_NONE, HRT_NONE, HRT_CAM, HRT_DISP },
+			HRT_NONE, HRT_CAM, HRT_NONE, HRT_DISP },
 		{ HRT_NONE, HRT_NONE, HRT_MML, HRT_NONE, HRT_NONE,
 			HRT_NONE, HRT_CAM, HRT_NONE, HRT_NONE },
 	},
