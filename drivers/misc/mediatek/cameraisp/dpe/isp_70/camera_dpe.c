@@ -76,6 +76,7 @@
 #define SMI_CLK
 #define CMDQ_COMMON
 #define CHECK_SERVICE_IF_0 0
+//!#define DPE_debug_log_en
 //#define m4u_en
 //!#define smi_en
 //!#define WAKEUP_INIT
@@ -1331,7 +1332,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 
 
 	ucnt = 0;
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("dpe enque star\n");
 	#endif
 
@@ -1367,12 +1368,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_lock(&gFDMutex);
 		DVS_only_en++;
 		DVS_Num++;
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("DVS_only_en = %d ,DVS_Num = %d\n", DVS_only_en, DVS_Num);
 		#endif
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("SrcImg_Y_L fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs);
@@ -1386,7 +1387,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_Y_L_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs));
 			get_dvs_iova[0] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_SrcImg_Y_L iova = %lx, get_dvs_iova[0] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L, get_dvs_iova[0]);
 			#endif
@@ -1403,7 +1404,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("SrcImg_Y_R fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs);
@@ -1417,7 +1418,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_Y_R_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs));
 			get_dvs_iova[1] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_SrcImg_Y_R iova = %lx, get_dvs_iova[1] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R, get_dvs_iova[1]);
 			#endif
@@ -1427,7 +1428,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("ValidMap_L fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_Ofs);
@@ -1442,7 +1443,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ValidMap_L_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_Ofs));
 			get_dvs_iova[2] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("get_dvs_iova [2] = %d\n", get_dvs_iova[2]);
 			#endif
 		} else {
@@ -1451,7 +1452,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("ValidMap_R fd= %x ,offset = %x\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_Ofs);
@@ -1466,7 +1467,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ValidMap_R_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_Ofs));
 			get_dvs_iova[3] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_ValidMap_R = %lx, get_dvs_iova [3] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_ValidMap_R, get_dvs_iova[3]);
 			LOG_INF("=========================================================\n");
@@ -1477,7 +1478,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("OCC fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs);
@@ -1492,7 +1493,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(OutBuf_OCC_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs));
 			get_dvs_iova[4] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_OCC = %lx, get_dvs_iova[4] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC, get_dvs_iova[4]);
 			LOG_INF("=========================================================\n");
@@ -1503,7 +1504,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("OCC_Ext fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs);
@@ -1517,7 +1518,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(OutBuf_OCC_Ext_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs));
 			get_dvs_iova[5] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_OCC_Ext = %lx, get_dvs_iova[5] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext, get_dvs_iova[5]);
 			LOG_INF("=========================================================\n");
@@ -1533,7 +1534,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		if (DPE_P4_EN == 1) {
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("SrcImg_Y_L_Pre fd= %x ,offset = %x\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_Ofs);
@@ -1545,7 +1546,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				sg_dma_address(SrcImg_Y_L_Pre_mmu[DVS_only_en-1].sgt->sgl) +
 				_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_Ofs;
 				get_dvs_iova[6] += 1;
-				#ifdef DPE_debug_use
+				#ifdef DPE_debug_log_en
 				LOG_INF("Dpe_InBuf_SrcImg_Y_L_Pre = %lx iova[6]=%d\n",
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L_Pre, get_dvs_iova[6]);
 				LOG_INF("====================================\n");
@@ -1554,7 +1555,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_L_Pre fail\n");
 			}
 
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("SrcImg_Y_R_Pre fd= %x ,offset = %x\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_Ofs);
@@ -1567,7 +1568,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				sg_dma_address(SrcImg_Y_R_Pre_mmu[DVS_only_en-1].sgt->sgl) +
 				_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_Ofs;
 				get_dvs_iova[7] += 1;
-				#ifdef DPE_debug_use
+				#ifdef DPE_debug_log_en
 				LOG_INF("Dpe_InBuf_SrcImg_Y_R_Pre = %lx iova[7]= %d\n",
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R_Pre,
 				get_dvs_iova[7]);
@@ -1577,7 +1578,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_R_Pre fail\n");
 			}
 
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("P4_L_DV fd= %x ,offset = %x\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_Ofs);
@@ -1590,7 +1591,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				(sg_dma_address(InBuf_P4_L_mmu[DVS_only_en-1].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_Ofs));
 				get_dvs_iova[8] += 1;
-				#ifdef DPE_debug_use
+				#ifdef DPE_debug_log_en
 				LOG_INF("Dpe_InBuf_P4_L_DV = %lx iova[8]= %d\n",
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_L_DV, get_dvs_iova[8]);
 				LOG_INF("===========================\n");
@@ -1599,7 +1600,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				LOG_INF("get Dpe_InBuf_P4_L_DV fail\n");
 			}
 
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_P4_R_DV fd= %x ,offset = %x\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_Ofs);
@@ -1612,7 +1613,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				(sg_dma_address(InBuf_P4_R_mmu[DVS_only_en-1].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_Ofs));
 				get_dvs_iova[9] += 1;
-				#ifdef DPE_debug_use
+				#ifdef DPE_debug_log_en
 				LOG_INF("Dpe_InBuf_P4_R_DV = %lx iova[9] = %d\n",
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_R_DV, get_dvs_iova[9]);
 				LOG_INF("===================\n");
@@ -1624,7 +1625,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("dvs_buffer end\n");
 		#endif
 	}
@@ -1656,7 +1657,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_lock(&gFDMutex);
 		DVP_only_en++;
 		DVP_Num++;
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("DVP_only_en = %d ,DVP_Num = %d\n", DVP_only_en, DVP_Num);
 		#endif
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1674,7 +1675,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_Y_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Ofs));
 			get_dvp_iova[0] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_SrcImg_Y = %lx iova[0] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y, get_dvp_iova[0]);
 			LOG_INF("==========================================\n");
@@ -1685,7 +1686,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_InBuf_SrcImg_C fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs);
@@ -1699,7 +1700,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_C_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs));
 			get_dvp_iova[1] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("SrcImg_C = %lx iova[1] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_C, get_dvp_iova[1]);
 			LOG_INF("=======================================\n");
@@ -1709,7 +1710,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_InBuf_OCC fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ofs);
@@ -1724,7 +1725,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(InBuf_OCC_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ofs));
 			get_dvp_iova[2] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_OCC = %lx iova[2] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC, get_dvp_iova[2]);
 			LOG_INF("=========================================================\n");
@@ -1735,7 +1736,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 		//memcpy(&DVP_mmu[2], &mmu, sizeof(struct tee_mmu));
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_OutBuf_CRM fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_Ofs);
@@ -1749,7 +1750,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(OutBuf_CRM_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_Ofs));
 			get_dvp_iova[3] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_CRM = %lx iova[3] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_CRM, get_dvp_iova[3]);
 			LOG_INF("=========================================================\n");
@@ -1760,7 +1761,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 		//memcpy(&DVP_mmu[3], &mmu, sizeof(struct tee_mmu));
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_OutBuf_ASF_RD fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ofs);
@@ -1774,7 +1775,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ASF_RD_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ofs));
 			get_dvp_iova[4] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_ASF_RD = %lx iova[4] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD, get_dvp_iova[4]);
 			LOG_INF("=========================================================\n");
@@ -1785,7 +1786,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 		//memcpy(&DVP_mmu[4], &mmu, sizeof(struct tee_mmu));
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_OutBuf_ASF_HF fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ofs);
@@ -1800,7 +1801,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ASF_HF_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ofs));
 			get_dvp_iova[5] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_ASF_HF = %lx iova[5] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF, get_dvp_iova[5]);
 			LOG_INF("=========================================================\n");
@@ -1810,7 +1811,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_OutBuf_WMF_FILT fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs);
@@ -1824,7 +1825,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(WMF_FILT_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs));
 			get_dvp_iova[6] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_WMF_FILT = %lx iova[6] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WMF_FILT, get_dvp_iova[6]);
 			LOG_INF("=========================================================\n");
@@ -1834,7 +1835,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_InBuf_OCC_Ext fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs);
@@ -1848,20 +1849,20 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(InBuf_OCC_Ext_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs));
 			get_dvp_iova[7] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_InBuf_OCC_Ext = %lx iova[7] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext, get_dvp_iova[7]);
 			LOG_INF("=========================================================\n");
 			#endif
 		} else {
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("get Dpe_InBuf_OCC_Ext fail\n");
 			#endif
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_OutBuf_ASF_RD_Ext fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs);
@@ -1876,19 +1877,19 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ASF_RD_Ext_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs));
 			get_dvp_iova[8] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_ASF_RD_Ext = %lx iova[8] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext, get_dvp_iova[8]);
 			LOG_INF("=========================================================\n");
 			#endif
 		} else {
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("get Dpe_OutBuf_ASF_RD_Ext fail\n");
 			#endif
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("Dpe_OutBuf_ASF_HF_Ext fd = %d offset = %d\n",
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_fd,
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs);
@@ -1905,13 +1906,13 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %lx\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext);
 			get_dvp_iova[9] += 1;
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %x iova[9] = %d\n",
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext, get_dvp_iova[9]);
 			LOG_INF("=========================================================\n");
 			#endif
 		} else {
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("get Dpe_OutBuf_ASF_HF_Ext fail\n");
 			#endif
 		}
@@ -2091,7 +2092,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	_req = (struct DPE_Request *) req;
 	if (frames == NULL || _req == NULL)
 		return -1;
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("dpe_deque start\n");
 	#endif
 	/*TODO: m_ReqNum is FrmNum; FIFO only thus f starts from 0 */
@@ -2112,7 +2113,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		ucnt++;
 		//memcpy(&_req->m_pDpeConfig[f], frames[f].data,
 		//sizeof(struct DPE_Config));
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("[%s]request dequeued frame(%d/%d).", __func__, f,
 									fcnt);
 		#endif
@@ -2129,14 +2130,14 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	dvp_put = 0;
 	dvs_put = 0;
 	//spin_lock(&(DPEInfo.SpinLockFD));
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("put fd DVS_only_en =%d DVP_only_en =%d\n", DVS_only_en, DVP_only_en);
 		//LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n",DVS_Num,DVP_Num);
 		//LOG_INF("[dpe_deque_cb] Dpe_engineSelect %d\n",pDpeConfig->Dpe_engineSelect);
 		#endif
 	if ((pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY) ||
 		(pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("dpe_deque DVS put fd\n");
 		#endif
 		mutex_lock(&gFDMutex);
@@ -2152,7 +2153,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvs_iova[0]--;
 			memcpy(&temp_dvs, &SrcImg_Y_L_mmu[i], sizeof(struct tee_mmu));
 			mutex_unlock(&gFDMutex);
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("dpe_deque SrcImg_Y_L_mmu put fd\n");
 			#endif
 			mmu_release(&temp_dvs, 0);
@@ -2164,7 +2165,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvs_iova[1]--;
 			memcpy(&temp_dvs, &SrcImg_Y_R_mmu[i], sizeof(struct tee_mmu));
 			mutex_unlock(&gFDMutex);
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("dpe_deque SrcImg_Y_R_mmu put fd\n");
 			#endif
 			mmu_release(&temp_dvs, 1);
@@ -2295,7 +2296,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			memcpy(&temp_dvp, &SrcImg_Y_mmu[i], sizeof(struct tee_mmu));
 			mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 0);
-			#ifdef DPE_debug_use
+			#ifdef DPE_debug_log_en
 			LOG_INF("dpe_deque SrcImg_Y_mmu put fd\n");
 			#endif
 			//mmu_release(&SrcImg_Y_mmu[i], 0);
@@ -2466,7 +2467,7 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
 	pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
 	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF(
 	"Dpe_InBuf_SrcImg_Y_L: (0x%lx), Dpe_InBuf_SrcImg_Y_R(0x%lx), Dpe_InBuf_ValidMap_L(0x%lx), Dpe_InBuf_ValidMap_R(0x%lx), Dpe_OutBuf_CONF(0x%lx), Dpe_OutBuf_OCC(0x%lx)\n",
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L,
@@ -2781,7 +2782,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 			LOG_ERR("No DVP Left Src Image Y!\n");
 	}
 
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DVP_SRC_05_Y_FRM0 = %lx\n",
 	pConfigToKernel->DVP_SRC_05_Y_FRM0);
 	#endif
@@ -2793,7 +2794,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No Src Image C!\n");
 
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DVP_SRC_09_C_FRM0 = %lx\n",
 	pConfigToKernel->DVP_SRC_09_C_FRM0);
 	#endif
@@ -2804,7 +2805,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No DVP OCC In!\n");
 
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DVP_SRC_13_OCCDV0 = %lx\n",
 	pConfigToKernel->DVP_SRC_13_OCCDV0);
 	#endif
@@ -2815,7 +2816,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No CRM Output Buffer!\n");
 
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DVP_SRC_17_CRM = %lx\n",
 	pConfigToKernel->DVP_SRC_17_CRM);
 	#endif
@@ -2832,7 +2833,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 		LOG_ERR("No DVS DVP_SRC_18_ASF_RMDV Buffer!\n");
 	#endif
 
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DVP_SRC_18_ASF_RMDV = %lx\n",
 	pConfigToKernel->DVP_SRC_18_ASF_RMDV);
 	#endif
@@ -2842,7 +2843,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 		pDpeConfig->Dpe_OutBuf_ASF_RD;
 	} else
 		LOG_ERR("No ASF_RD Output Buffer!\n");
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DVP_SRC_19_ASF_RDDV = %lx\n",
 	pConfigToKernel->DVP_SRC_19_ASF_RDDV);
 	#endif
@@ -2853,7 +2854,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No ASF Output Buffer!\n");
 
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DVP_SRC_20_ASF_DV0 = %lx\n",
 	pConfigToKernel->DVP_SRC_20_ASF_DV0);
 	#endif
@@ -2870,7 +2871,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 			LOG_INF("No DVS DVP_SRC_24_WMF_HFDV Buffer!\n");
 		#endif
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("DVP_SRC_24_WMF_HFDV = %lx\n",
 		pConfigToKernel->DVP_SRC_24_WMF_HFDV);
 		#endif
@@ -2884,7 +2885,7 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 			DVP_is16BitMode = 0;
 			spin_unlock(&(DPEInfo.SpinLockFD));
 	}
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("DVP_SRC_25_WMF_DV0 = %lx\n",
 		pConfigToKernel->DVP_SRC_25_WMF_DV0);
 		#endif
@@ -5605,7 +5606,7 @@ unsigned int dpe_fop_poll(struct file *file, poll_table *wait)
 	unsigned int p;
 
 
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("DPE Poll\n");
 	#endif
 	//DPE_DumpUserSpaceReg(pDpeConfig);
@@ -5658,7 +5659,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//pid_t ProcessID;
 
 	//int tmep_cnt;
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("[%s]buf address/len = 0x%lx/0x%x\n",
 		__func__, p->m.userptr,  p->length);
 	#endif
@@ -5686,7 +5687,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	}
 	kreq.m_pDpeConfig = cfgs;
 	kreq.m_ReqNum = m_real_ReqNum;
-	#ifdef DPE_debug_use
+	#ifdef DPE_debug_log_en
 	LOG_INF("[vidioc qbuf] Dpe engineSelect = %d\n",
 	cfgs[0].Dpe_engineSelect);
 	#endif
@@ -5713,7 +5714,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY) {
 		temp_req = dpe_request_running(&dpe_reqs_dvs);
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("[vidioc qbuf]dpe_request_running stat = %d\n", temp_req);
 		#endif
 		if (!temp_req) {
@@ -5726,7 +5727,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
 		(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
 		temp_req = dpe_request_running(&dpe_reqs_dvp);
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("[vidioc qbuf]dpe_request_running stat = %d\n", temp_req);
 		#endif
 		if (!temp_req) {
@@ -5754,9 +5755,11 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//unsigned int m_real_ReqNum;
 
 	//struct DPE_Config *pDpeConfig;
-	//LOG_INF("DPE_DumpReg  star\n");
-	//DPE_DumpReg();//!test
-	//LOG_INF("DPE_DumpReg end\n");
+	#ifdef DPE_debug_log_en
+	LOG_INF("DPE_DumpReg  star\n");
+	DPE_DumpReg();//!test
+	LOG_INF("DPE_DumpReg end\n");
+	#endif
 	//LOG_INF("[%s]buf address/len = 0x%lx/0x%x, ureq =0x%x\n",
 	//__func__, p->m.userptr,  p->length, sizeof(ureq));
 
@@ -5773,7 +5776,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		//									flags);
 		kreq.m_pDpeConfig = cfgs;
 
-		#ifdef DPE_debug_use
+		#ifdef DPE_debug_log_en
 		LOG_INF("[vidioc dqbuf] Dpe_engineSelect = %d\n",
 		cfgs[0].Dpe_engineSelect);
 		#endif
@@ -6903,16 +6906,21 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 
 	DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 	DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
-	#ifdef DPE_debug_use
+
+	if ((DvsStatus == 0) || (DvpStatus == 0))
+		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
+		DvsStatus, DvpStatus);
+
+	#ifdef DPE_debug_log_en
 	 LOG_INF("DVP IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
 	 DvsStatus, DvpStatus);
 	#endif
 	/* DPE done status may rise later, so can't use done status now  */
 	/* if (DPE_INT_ST == (DPE_INT_ST & DvpStatus)) { */
-		#ifdef DPE_WR32_en
+
 		DPE_WR32(DVP_IRQ_00_REG, 0x040000F0); /* Clear DVP IRQ */
-		DPE_WR32(DVP_IRQ_00_REG, 0x04000E00);
-		#endif
+		DPE_WR32(DVP_IRQ_00_REG, 0x04000F00);
+
 		isDvpDone = MTRUE;
 	/* } */
 	spin_lock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
@@ -6944,6 +6952,7 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 #endif
 		/* Config the Next frame */
 	}
+
 	spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 	if (bResulst == MTRUE)
 		wake_up_interruptible(&DPEInfo.WaitQueueHead);
@@ -6952,7 +6961,7 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 		DPE_IRQ_TYPE_INT_DVP_ST,
 		m_CurrentPPB,
 		_LOG_INF,
-		"IRQ:%d,0x%x:0x%x,0x%x:0x%x,Result:%d\n",
+		"DVP_IRQ:%d,0x%x:0x%x,0x%x:0x%x,Result:%d\n",
 		Irq,
 		DVS_CTRL_STATUS0_HW,
 		DvsStatus,
@@ -6989,14 +6998,22 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 
 	DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 	DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
-	 LOG_INF("DVS IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
+
+	if ((DvsStatus == 0) || (DvpStatus == 0))
+		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
+		DvsStatus, DvpStatus);
+
+	#ifdef DPE_debug_log_en
+	LOG_INF("DVS IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
 	DvsStatus, DvpStatus);
+	#endif
+
 	/* DPE done status may rise later, so can't use done status now  */
 	/* if (DPE_INT_ST == (DPE_INT_ST & DvsStatus)) { */
-		#ifdef DPE_WR32_en
+
 		DPE_WR32(DVS_IRQ_00_REG, 0x040000F0); /* Clear DVS IRQ */
-		DPE_WR32(DVS_IRQ_00_REG, 0x04000E00);
-		#endif
+		DPE_WR32(DVS_IRQ_00_REG, 0x04000F00);
+
 		isDvsDone = MTRUE;
 	/* } */
 	spin_lock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
@@ -7036,7 +7053,7 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 		DPE_IRQ_TYPE_INT_DVS_ST,
 		m_CurrentPPB,
 		_LOG_INF,
-		"IRQ:%d,0x%x:0x%x,0x%x:0x%x,Result:%d\n",
+		"DVS_IRQ:%d,0x%x:0x%x,0x%x:0x%x,Result:%d\n",
 		Irq,
 		DVS_CTRL_STATUS0_HW,
 		DvsStatus,
