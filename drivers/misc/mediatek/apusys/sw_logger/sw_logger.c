@@ -27,6 +27,7 @@
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 #include <linux/sched/signal.h>
+#include <mt-plat/mrdump.h>
 
 #include "apusys_core.h"
 #include "sw_logger.h"
@@ -208,6 +209,10 @@ int sw_logger_config_init(struct mtk_apu *apu)
 			LOGGER_ERR("%s: sw_logger_buf_alloc fail\n", __func__);
 			return ret;
 		}
+		(void)mrdump_mini_add_extra_file(
+				(unsigned long)sw_log_buf,
+				__pa_nodebug(sw_log_buf),
+				APU_LOG_SIZE, "APUSYS_RV_SW_LOG");
 	}
 
 	spin_lock_irqsave(&sw_logger_spinlock, flags);
