@@ -171,6 +171,14 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 
 	mode->pclk = val;
 
+	val = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
+		para.u8, &len);
+	mode->fine_intg_line = val;
+
+
 	if (!mode->mipi_pixel_rate || !mode->max_framerate || !mode->pclk)
 		return;
 
@@ -187,13 +195,14 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	do_div(mode->linetime_in_ns_readout, mode->pclk / 1000);
 
 
-	dev_dbg(ctx->dev, "%s [%d] id %d %dx%d %dx%d px %d fps %d tLine %lld|%lld\n",
+	dev_dbg(ctx->dev, "%s [%d] id %d %dx%d %dx%d px %d fps %d tLine %lld|%lld fintl %u\n",
 		__func__,
 		idx, id, width, height,
 		mode->llp, mode->fll,
 		mode->mipi_pixel_rate, mode->max_framerate,
 		mode->linetime_in_ns,
-		mode->linetime_in_ns_readout);
+		mode->linetime_in_ns_readout,
+		mode->fine_intg_line);
 
 	ctx->mode_cnt++;
 }

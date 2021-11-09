@@ -19,6 +19,9 @@ int mtk_cam_seninf_calc_pixelrate(struct device *dev, s64 width, s64 height, s64
 
 int mtk_cam_seninf_dump(struct v4l2_subdev *sd);
 
+int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_waited);
+
+
 /**
  * struct mtk_cam_seninf_mux_setting - mux setting change setting
  * @seninf: sensor interface's V4L2 subdev

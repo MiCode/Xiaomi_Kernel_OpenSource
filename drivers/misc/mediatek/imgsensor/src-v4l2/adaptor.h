@@ -46,6 +46,7 @@ struct sensor_mode {
 	u32 pclk;
 	u64 linetime_in_ns;
 	u64 linetime_in_ns_readout;
+	u64 fine_intg_line;
 	struct mtk_csi_param csi_param;
 };
 
@@ -134,6 +135,7 @@ struct adaptor_ctx {
 	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
 
 	unsigned int *sensor_debug_flag;
+	u32 shutter_for_timeout;
 };
 
 #endif
