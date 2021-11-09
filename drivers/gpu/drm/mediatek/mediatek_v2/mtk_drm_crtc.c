@@ -2727,10 +2727,8 @@ void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
 	drm_mode_set_crtcinfo(&new_state->adjusted_mode, 0);
 }
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 void mtk_crtc_load_round_corner_pattern(struct drm_crtc *crtc,
 					struct cmdq_pkt *handle);
-#endif
 
 void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 	struct drm_crtc_state *old_state)
@@ -2784,9 +2782,7 @@ void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_wfe(cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	mtk_crtc_load_round_corner_pattern(&mtk_crtc->base, cmdq_handle);
-#endif
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		DDPDBG("%s:%s\n", __func__, mtk_dump_comp_str(comp));
@@ -5787,7 +5783,6 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 
 bool mtk_crtc_with_sub_path(struct drm_crtc *crtc, unsigned int ddp_mode);
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 void mtk_crtc_config_round_corner(struct drm_crtc *crtc,
 				  struct cmdq_pkt *handle)
 {
@@ -5896,7 +5891,6 @@ void mtk_crtc_load_round_corner_pattern(struct drm_crtc *crtc,
 
 	}
 }
-#endif
 
 struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
 	unsigned int idx)
@@ -6080,10 +6074,8 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	mtk_crtc_all_layer_off(mtk_crtc, cmdq_handle);
 
 	/*2. Load Round Corner */
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	mtk_crtc_load_round_corner_pattern(&mtk_crtc->base, cmdq_handle);
 	mtk_crtc_config_round_corner(crtc, cmdq_handle);
-#endif
 
 	/*3. Enable M4U port and replace OVL address to mva */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,

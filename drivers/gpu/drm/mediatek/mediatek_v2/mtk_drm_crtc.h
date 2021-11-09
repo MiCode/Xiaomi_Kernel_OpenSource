@@ -712,11 +712,9 @@ struct mtk_drm_crtc {
 	wait_queue_head_t crtc_status_wq;
 	struct mtk_panel_ext *panel_ext;
 	struct mtk_drm_esd_ctx *esd_ctx;
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	struct mtk_drm_gem_obj *round_corner_gem;
 	struct mtk_drm_gem_obj *round_corner_gem_l;
 	struct mtk_drm_gem_obj *round_corner_gem_r;
-#endif
 	struct mtk_drm_qos_ctx *qos_ctx;
 	bool sec_on;
 	struct task_struct *vblank_enable_task;
