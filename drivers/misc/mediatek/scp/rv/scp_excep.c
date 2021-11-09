@@ -29,6 +29,7 @@
 
 #define SCP_SECURE_DUMP_MEASURE 0
 #define POLLING_RETRY 200
+#define SCP_SECURE_DUMP_DEBUG 1
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
 	struct cal {
 		uint64_t start, end;
@@ -479,8 +480,13 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 				mdelay(polling);
 				retry--;
 			}
-			if (retry == 0)
+			if (retry == 0)	{
 				pr_notice("[SCP] Dump timed out:%d\n", POLLING_RETRY);
+#if SCP_SECURE_DUMP_DEBUG
+				pr_notice("[SCP] Dump timeout dump once again.\n");
+				print_clk_registers();
+#endif
+			}
 		}
 		dump_end = ktime_get_boottime_ns();
 		pr_notice("[SCP] Dump: %lld ns\n", (dump_end - dump_start));
