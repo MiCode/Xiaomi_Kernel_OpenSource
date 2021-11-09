@@ -4226,7 +4226,7 @@ static int mt_key_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+	dev_dbg(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -10014,7 +10014,7 @@ static int get_hp_current_calibrate_val(struct mt6338_priv *priv)
 	value = efuse_val & 0x7f;
 	value = sign ? -value : value;
 
-	dev_info(priv->dev, "%s(), efuse: %d\n", __func__, value);
+	dev_dbg(priv->dev, "%s(), efuse: %d\n", __func__, value);
 
 	return value;
 #else
@@ -10027,7 +10027,7 @@ static int set_idac_trim_val(struct mt6338_priv *priv)
 #if IS_ENABLED(CONFIG_MT6338_EFUSE)
 	int ret = 0;
 	unsigned short efuse_val = 0;
-	int value_l, value_r, reg_value;
+	int value_l, value_r;
 
 	/* set eFuse register index */
 	/* HPL_POS_LARGE[6:0] @ efuse bit 789~795 */
@@ -10038,8 +10038,8 @@ static int set_idac_trim_val(struct mt6338_priv *priv)
 	ret = nvmem_device_read(priv->hp_efuse, 0x63, 2, &efuse_val);
 	value_r = (efuse_val >> 4) & 0x7f;
 
-	dev_info(priv->dev, "%s(), efuse_l: %d\n", __func__, value_l);
-	dev_info(priv->dev, "%s(), efuse_r: %d\n", __func__, value_r);
+	dev_info(priv->dev, "%s(), efuse_l: %d efuse_r: %d\n",
+			 __func__, value_l, value_r);
 
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON0,
 		RG_AUDDACHPL_TRIM_LARGE_VAUDP18_MASK_SFT,
@@ -10054,13 +10054,6 @@ static int set_idac_trim_val(struct mt6338_priv *priv)
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON2,
 		RG_AUDDACHPR_TRIM_EN_VAUDP18_MASK_SFT,
 		0x1 << RG_AUDDACHPR_TRIM_EN_VAUDP18_SFT);
-
-	regmap_read(priv->regmap, MT6338_AUDDEC_2_PMU_CON0, &reg_value);
-	dev_info(priv->dev, "%s(), L: MT6338_AUDDEC_2_PMU_CON0 = 0x%x\n",
-		 __func__, reg_value);
-	regmap_read(priv->regmap, MT6338_AUDDEC_2_PMU_CON2, &reg_value);
-	dev_info(priv->dev, "%s(), R: MT6338_AUDDEC_2_PMU_CON2 = 0x%x\n",
-		 __func__, reg_value);
 
 	return true;
 #else
@@ -10700,6 +10693,9 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 
 	priv->vd105 = ((value >> 0x3) & 0x1f) + 0xc;
 
+	/* this will trigger widget "DC trim" power down event */
+	enable_trim_buf(priv, true);
+
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 5;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 5;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] = 5;
@@ -10720,7 +10716,6 @@ static int mt6338_codec_probe(struct snd_soc_component *cmpnt)
 
 #if IS_ENABLED(CONFIG_MT6338_EFUSE)
 	mt6338_get_hw_ver(priv);
-	dev_info(priv->dev, "%s() efuse = 0x%x\n", __func__, priv->hp_efuse);
 	set_idac_trim_val(priv);
 #ifdef NLE_IMP
 	mt6338_get_ln_gain(priv);
@@ -18096,14 +18091,14 @@ static int mt6338_parse_dt(struct mt6338_priv *priv)
 	ret = of_property_read_u32(np, "mediatek,dmic-mode",
 				   &priv->dmic_one_wire_mode);
 	if (ret) {
-		dev_info(dev, "%s() failed to read dmic-mode, default 2 wire\n",
+		dev_dbg(dev, "%s() failed to read dmic-mode, default 2 wire\n",
 			 __func__);
 		priv->dmic_one_wire_mode = 0;
 	}
 	ret = of_property_read_u32_array(np, "mediatek,mic-type",
 					 mic_type_mux, mux_num);
 	if (ret) {
-		dev_info(dev, "%s() failed to read mic-type, default DCC\n",
+		dev_dbg(dev, "%s() failed to read mic-type, default DCC\n",
 			 __func__);
 		priv->mux_select[MUX_MIC_TYPE_0] = MIC_TYPE_MUX_DCC;
 		priv->mux_select[MUX_MIC_TYPE_1] = MIC_TYPE_MUX_DCC;
