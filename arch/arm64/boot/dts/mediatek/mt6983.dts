@@ -6306,7 +6306,8 @@
 			"MTK_DRM_OPT_MSYNC2_0",
 			"MTK_DRM_OPT_MML_PRIMARY",
 			"MTK_DRM_OPT_DUAL_TE",
-			"MTK_DRM_OPT_RES_SWITCH";
+			"MTK_DRM_OPT_RES_SWITCH",
+			"MTK_DRM_OPT_PRE_TE";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -6355,7 +6356,8 @@
 			<1>, /*MTK_DRM_OPT_MSYNC2_0*/
 			<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
 			<1>, /*MTK_DRM_OPT_DUAL_TE*/
-			<1>; /*MTK_DRM_OPT_RES_SWITCH*/
+			<1>, /*MTK_DRM_OPT_RES_SWITCH*/
+			<0>; /*MTK_DRM_OPT_PRE_TE*/
 	};
 	disp_mutex0: disp_mutex@14001000 {
 		compatible = "mediatek,disp_mutex0",
