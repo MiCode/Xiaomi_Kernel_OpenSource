@@ -13,6 +13,7 @@
 
 static uint32_t g_sched_plcy_show;
 
+
 static ssize_t dsp_task_num_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {

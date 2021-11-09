@@ -79,9 +79,9 @@ struct mdw_ipi_param {
 };
 
 struct mdw_stat {
-	uint32_t task_num[APUSYS_DEVICE_MAX];
-	uint32_t task_loading[APUSYS_DEVICE_MAX];
-};
+	uint32_t task_num[APUSYS_DEVICE_LAST][MDW_QUEUE_MAX];
+	uint32_t task_loading[APUSYS_DEVICE_LAST][MDW_QUEUE_MAX][2];
+} __attribute__((__packed__));
 
 struct mdw_ipi_msg {
 	uint64_t sync_id;

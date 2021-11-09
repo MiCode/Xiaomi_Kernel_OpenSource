@@ -66,6 +66,14 @@ struct mdw_mem_invoke {
 	void (*put)(struct mdw_mem_invoke *m_invoke);
 };
 
+enum mdw_queue_type {
+	MDW_QUEUE_COMMON,
+	MDW_QUEUE_NORMAL,
+	MDW_QUEUE_DEADLINE,
+
+	MDW_QUEUE_MAX,
+};
+
 struct mdw_mem {
 	/* in */
 	enum mdw_mem_type type;

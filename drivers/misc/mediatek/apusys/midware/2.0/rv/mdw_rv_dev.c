@@ -316,14 +316,14 @@ int mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint
 		*val = g_mdw_klog;
 		break;
 	case MDW_INFO_NORMAL_TASK_DLA:
-		*val = mrdev->stat->task_num[APUSYS_DEVICE_MDLA];
+		*val = mrdev->stat->task_num[APUSYS_DEVICE_MDLA][MDW_QUEUE_NORMAL];
 		break;
 	case MDW_INFO_NORMAL_TASK_DSP:
-		*val = mrdev->stat->task_num[APUSYS_DEVICE_VPU] +
-		mrdev->stat->task_num[APUSYS_DEVICE_MVPU];
+		*val = mrdev->stat->task_num[APUSYS_DEVICE_VPU][MDW_QUEUE_NORMAL] +
+		mrdev->stat->task_num[APUSYS_DEVICE_MVPU][MDW_QUEUE_NORMAL];
 		break;
 	case MDW_INFO_NORMAL_TASK_DMA:
-		*val = mrdev->stat->task_num[APUSYS_DEVICE_EDMA];
+		*val = mrdev->stat->task_num[APUSYS_DEVICE_EDMA][MDW_QUEUE_NORMAL];
 		break;
 	case MDW_INFO_MIN_DTIME:
 	case MDW_INFO_MIN_ETIME:
