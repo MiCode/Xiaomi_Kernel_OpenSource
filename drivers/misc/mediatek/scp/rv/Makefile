@@ -16,3 +16,4 @@ ccflags-y += -D DEBUG_DO -fno-pic -mcmodel=large
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
+ccflags-y += -I$(srctree)/sound/soc/mediatek/common

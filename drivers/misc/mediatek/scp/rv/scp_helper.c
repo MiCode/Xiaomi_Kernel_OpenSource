@@ -54,6 +54,8 @@
 
 #include "scp_hwvoter_dbg.h"
 
+#include "mtk-afe-external.h"
+
 /* scp semaphore timeout count definition */
 #define SEMAPHORE_TIMEOUT 5000
 #define SEMAPHORE_3WAY_TIMEOUT 5000
@@ -2569,6 +2571,25 @@ static struct platform_driver mtk_scpsys_device = {
 	},
 };
 
+int notify_scp_semaphore_event(struct notifier_block *nb,
+			       unsigned long event, void *v)
+{
+	int status = NOTIFY_DONE;
+
+	if (event == NOTIFIER_SCP_3WAY_SEMAPHORE_GET) {
+		status = scp_get_semaphore_3way(SEMA_SCP_3WAY_AUDIOREG);
+		status = (status == SEMAPHORE_SUCCESS) ? NOTIFY_STOP : NOTIFY_BAD;
+	} else if (event == NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE) {
+		scp_release_semaphore_3way(SEMA_SCP_3WAY_AUDIOREG);
+		status = NOTIFY_STOP;
+	}
+
+	return status;
+}
+
+static struct notifier_block scp_semaphore_init_notifier = {
+	.notifier_call = notify_scp_semaphore_event,
+};
 
 /*
  * driver initialization entry point
@@ -2703,6 +2724,8 @@ static int __init scp_init(void)
 	scp_init_vcore_request();
 #endif /* SCP_DVFS_INIT_ENABLE */
 
+	register_3way_semaphore_notifier(&scp_semaphore_init_notifier);
+
 	return ret;
 err:
 #if SCP_DVFS_INIT_ENABLE
@@ -2720,6 +2743,8 @@ static void __exit scp_exit(void)
 #if SCP_BOOT_TIME_OUT_MONITOR
 	int i = 0;
 #endif
+
+	unregister_3way_semaphore_notifier(&scp_semaphore_init_notifier);
 
 #if SCP_DVFS_INIT_ENABLE
 	scp_dvfs_exit();
