@@ -16,6 +16,7 @@
 #define ENABLE_SOC_CLK_MUX	(0)	// 1: enable soc clk in rpm resume
 #define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
 #define APMCU_REQ_RPC_SLEEP	(0)	// rpm suspend trigger sleep req to rpc
+#define APUPW_DUMP_FROM_APMCU	(0)	// 1: dump reg from APMCU, 0: from ATF
 
 #define VAPU_DEF_VOLT		(750000)	// 0.75v
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
@@ -24,6 +25,12 @@
 #define TURBO_BOOST_VAL		(110)
 #define MTK_POLL_DELAY_US	(10)
 #define MTK_POLL_TIMEOUT	USEC_PER_SEC
+
+enum smc_rcx_pwr_op {
+	SMC_RCX_PWR_AFC_EN = 0,
+	SMC_RCX_PWR_WAKEUP_RPC,
+	SMC_RCX_PWR_CG_EN,
+};
 
 enum t_acx_id {
 	ACX0 = 0,

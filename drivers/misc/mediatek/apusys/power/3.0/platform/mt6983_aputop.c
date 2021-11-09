@@ -39,9 +39,10 @@ static struct apu_power apupw;
 
 static void aputop_dump_pwr_res(void);
 static void aputop_dump_pwr_reg(struct device *dev);
+#if APUPW_DUMP_FROM_APMCU
 static void are_dump_config(int are_hw);
 static void are_dump_entry(int are_hw);
-
+#endif
 /* regulator id */
 static struct regulator *vapu_reg_id;
 static struct regulator *vcore_reg_id;
@@ -707,6 +708,7 @@ static int __apu_are_init(struct device *dev)
 }
 #endif // APU_POWER_INIT
 
+#if APUPW_DUMP_FROM_APMCU
 static void are_dump_config(int are_hw)
 {
 	int entry = 0;
@@ -792,6 +794,7 @@ static void are_dump_entry(int are_hw)
 
 	}
 }
+#endif
 
 #if APMCU_REQ_RPC_SLEEP
 // backup solution : send request for RPC sleep from APMCU
@@ -854,16 +857,19 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 {
 	int ret = 0, val = 0;
 
-	/* TINFO="Enable AFC enable" */
-	apu_setl((0x1 << 16), apupw.regs[apu_rpc] + APU_RPC_TOP_SEL_1);
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
+			SMC_RCX_PWR_AFC_EN);
 
 	/* wake up RPC */
-	apu_writel(0x00000100, apupw.regs[apu_rpc] + APU_RPC_TOP_CON);
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
+			SMC_RCX_PWR_WAKEUP_RPC);
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL), 50, 10000);
 	if (ret) {
-		pr_info("%s wake up apu_rpc fail, ret %d\n", __func__, ret);
+		pr_info("%s polling RPC RDY timeout, ret %d\n", __func__, ret);
 		goto out;
 	}
 
@@ -877,25 +883,14 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			(apupw.regs[apu_rpc] + APU_RPC_STATUS),
 			val, (val & (0x1 << 29)), 50, 10000);
 	if (ret) {
-		pr_info("%s wake up rcx_rpc fail, ret %d\n", __func__, ret);
+		pr_info("%s polling ARE FSM timeout, ret %d\n", __func__, ret);
 		goto out;
 	}
 
 	/* clear vcore/rcx cgs */
-	pr_info("clear vcore/rcx cgs %s %d\n", __func__, __LINE__);
-	apu_writel(0xFFFFFFFF, apupw.regs[apu_vcore] + APUSYS_VCORE_CG_CLR);
-	apu_writel(0xFFFFFFFF, apupw.regs[apu_rcx] + APU_RCX_CG_CLR);
-
-	dev_info(dev, "%s APUSYS_VCORE_CG_CON 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_vcore] + APUSYS_VCORE_CG_CON),
-			readl(apupw.regs[apu_vcore] + APUSYS_VCORE_CG_CON));
-
-	dev_info(dev, "%s APU_RCX_CG_CON 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_rcx] + APU_RCX_CG_CON),
-			readl(apupw.regs[apu_rcx] + APU_RCX_CG_CON));
-
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
+			SMC_RCX_PWR_CG_EN);
 out:
 	return ret;
 }
@@ -1076,9 +1071,11 @@ static int mt6983_apu_top_on(struct device *dev)
 					__func__, ret, check_if_rpc_alive());
 		aputop_dump_pwr_res();
 		aputop_dump_pwr_reg(dev);
+#if APUPW_DUMP_FROM_APMCU
 		are_dump_config(0);
 		are_dump_config(1);
 		are_dump_config(2);
+#endif
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_WAKEUP_FAIL");
 		return -1;
 	}
@@ -1114,14 +1111,16 @@ static int mt6983_apu_top_off(struct device *dev)
 			__func__, rpc_timeout_val, ret, check_if_rpc_alive());
 		aputop_dump_pwr_res();
 		aputop_dump_pwr_reg(dev);
+#if APUPW_DUMP_FROM_APMCU
 		are_dump_config(0);
 		are_dump_config(1);
 		are_dump_config(2);
+#endif
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_SLEEP_TIMEOUT");
 		return -1;
 	}
 
-	mt6983_apu_dump_rpc_status(RCX, NULL);
+	// mt6983_apu_dump_rpc_status(RCX, NULL);
 
 	// for refcnt ++ to avoid be auto turned off by regulator framework
 	pr_info("%s disable vapu regulator\n", __func__);
@@ -1433,7 +1432,7 @@ static void aputop_dump_pwr_res(void)
 	pr_info("%s vapu:%u(en:%d,mode:%d) vcore:%u vsram:%u\n",
 			__func__, vapu, vapu_en, vapu_mode, vcore, vsram);
 
-	mt6983_apu_dump_rpc_status(RCX, NULL);
+	// mt6983_apu_dump_rpc_status(RCX, NULL);
 #if APU_POWER_BRING_UP
 	mt6983_apu_dump_rpc_status(ACX0, NULL);
 	mt6983_apu_dump_rpc_status(ACX1, NULL);
@@ -1442,6 +1441,7 @@ static void aputop_dump_pwr_res(void)
 
 static void aputop_dump_pwr_reg(struct device *dev)
 {
+#if APUPW_DUMP_FROM_APMCU
 	char buf[32];
 
 	// reg dump for RPC
@@ -1478,8 +1478,9 @@ static void aputop_dump_pwr_reg(struct device *dev)
 			(u32)(apupw.phy_addr[apu_are2]));
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			apupw.regs[apu_are2], 0x50, true);
-
+#else
 	apusys_pwr_smc_call(dev, MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP, 0);
+#endif
 }
 
 static int mt6983_apu_top_func(struct platform_device *pdev,
@@ -1516,14 +1517,18 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 		test_ipi_wakeup_apu();
 		break;
 	case APUTOP_FUNC_ARE_DUMP1:
+#if APUPW_DUMP_FROM_APMCU
 		are_dump_config(0);
 		are_dump_entry(0);
 		are_dump_config(1);
 		are_dump_entry(1);
+#endif
 		break;
 	case APUTOP_FUNC_ARE_DUMP2:
+#if APUPW_DUMP_FROM_APMCU
 		are_dump_config(2);
 		are_dump_entry(2);
+#endif
 		break;
 	default:
 		pr_info("%s invalid func_id : %d\n", __func__, aputop->func_id);
