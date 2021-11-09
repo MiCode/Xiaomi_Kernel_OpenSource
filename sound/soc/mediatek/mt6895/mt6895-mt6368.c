@@ -505,6 +505,10 @@ SND_SOC_DAILINK_DEFS(capture_mono_3,
 	DAILINK_COMP_ARRAY(COMP_CPU("UL_MONO_3")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(playback_hdmi,
+	DAILINK_COMP_ARRAY(COMP_CPU("HDMI")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 
 /* hostless */
 SND_SOC_DAILINK_DEFS(hostless_lpbk,
@@ -605,6 +609,10 @@ SND_SOC_DAILINK_DEFS(pcm1,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(pcm2,
 	DAILINK_COMP_ARRAY(COMP_CPU("PCM 2")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(tdm_dptx,
+	DAILINK_COMP_ARRAY(COMP_CPU("TDM_DPTX")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 
@@ -914,6 +922,15 @@ static struct snd_soc_dai_link mt6895_mt6368_dai_links[] = {
 		SND_SOC_DAILINK_REG(capture_mono_3),
 	},
 	{
+		.name = "Playback_HDMI",
+		.stream_name = "Playback_HDMI",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		SND_SOC_DAILINK_REG(playback_hdmi),
+	},
+	{
 		.name = "Hostless_LPBK",
 		.stream_name = "Hostless_LPBK",
 		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
@@ -1144,6 +1161,14 @@ static struct snd_soc_dai_link mt6895_mt6368_dai_links[] = {
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(pcm2),
 	},
+	{
+		.name = "TDM_DPTX",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(tdm_dptx),
+	},
+
 	/* dummy BE for ul memif to record from dl memif */
 	{
 		.name = "Hostless_UL1",

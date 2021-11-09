@@ -49,6 +49,7 @@ enum {
 	MT6895_MEMIF_VUL6,
 	MT6895_MEMIF_AWB,
 	MT6895_MEMIF_AWB2,
+	MT6895_MEMIF_HDMI,
 	MT6895_MEMIF_NUM,
 	MT6895_DAI_ADDA = MT6895_MEMIF_NUM,
 	MT6895_DAI_ADDA_CH34,
@@ -71,6 +72,8 @@ enum {
 	MT6895_DAI_SRC_2,
 	MT6895_DAI_PCM_1,
 	MT6895_DAI_PCM_2,
+	MT6895_DAI_TDM,
+	MT6895_DAI_TDM_DPTX,
 	MT6895_DAI_HOSTLESS_LPBK,
 	MT6895_DAI_HOSTLESS_FM,
 	MT6895_DAI_HOSTLESS_HW_GAIN_AAUDIO,
@@ -225,7 +228,7 @@ int mt6895_dai_i2s_register(struct mtk_base_afe *afe);
 int mt6895_dai_hw_gain_register(struct mtk_base_afe *afe);
 int mt6895_dai_src_register(struct mtk_base_afe *afe);
 int mt6895_dai_pcm_register(struct mtk_base_afe *afe);
-//int mt6895_dai_tdm_register(struct mtk_base_afe *afe);
+int mt6895_dai_tdm_register(struct mtk_base_afe *afe);
 
 int mt6895_dai_hostless_register(struct mtk_base_afe *afe);
 

@@ -26,9 +26,8 @@ snd-soc-mt6895-afe-objs += \
 	mt6895-dai-src.o \
 	mt6895-dai-pcm.o \
 	mt6895-dai-hostless.o \
-	mt6895-misc-control.o
-
-	#	mt6895-dai-tdm.o \
+	mt6895-misc-control.o \
+	mt6895-dai-tdm.o
 
 # machine driver
 obj-$(CONFIG_SND_SOC_MT6895_MT6368) += mt6895-mt6368.o

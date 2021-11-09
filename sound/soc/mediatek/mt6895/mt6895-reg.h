@@ -1785,6 +1785,32 @@ enum {
 #define SYSRAM_SIGN_MASK                                      0x1
 #define SYSRAM_SIGN_MASK_SFT                                  (0x1 << 0)
 
+/* AFE_HDMI_OUT_CON0 */
+#define HDMI_CH_NUM_SFT                                       24
+#define HDMI_CH_NUM_MASK                                      0xf
+#define HDMI_CH_NUM_MASK_SFT                                  (0xf << 24)
+#define HDMI_OUT_MINLEN_SFT                                   20
+#define HDMI_OUT_MINLEN_MASK                                  0xf
+#define HDMI_OUT_MINLEN_MASK_SFT                              (0xf << 20)
+#define HDMI_OUT_MAXLEN_SFT                                   16
+#define HDMI_OUT_MAXLEN_MASK                                  0xf
+#define HDMI_OUT_MAXLEN_MASK_SFT                              (0xf << 16)
+#define HDMI_OUT_SW_CLEAR_BUF_EMPTY_SFT                       15
+#define HDMI_OUT_SW_CLEAR_BUF_EMPTY_MASK                      0x1
+#define HDMI_OUT_SW_CLEAR_BUF_EMPTY_MASK_SFT                  (0x1 << 15)
+#define HDMI_OUT_PBUF_SIZE_SFT                                12
+#define HDMI_OUT_PBUF_SIZE_MASK                               0x3
+#define HDMI_OUT_PBUF_SIZE_MASK_SFT                           (0x3 << 12)
+#define HDMI_OUT_NORMAL_MODE_SFT                              5
+#define HDMI_OUT_NORMAL_MODE_MASK                             0x1
+#define HDMI_OUT_NORMAL_MODE_MASK_SFT                         (0x1 << 5)
+#define HDMI_OUT_HALIGN_SFT                                   4
+#define HDMI_OUT_HALIGN_MASK                                  0x1
+#define HDMI_OUT_HALIGN_MASK_SFT                              (0x1 << 4)
+#define HDMI_OUT_HD_MODE_SFT                                  0
+#define HDMI_OUT_HD_MODE_MASK                                 0x3
+#define HDMI_OUT_HD_MODE_MASK_SFT                             (0x3 << 0)
+
 
 /* AFE_IRQ_MCU_CON0 */
 #define IRQ31_MCU_ON_SFT                                      31
@@ -2115,6 +2141,106 @@ enum {
 #define IRQ1_MCU_SCP_EN_SFT                                  1
 #define IRQ0_MCU_SCP_EN_SFT                                  0
 
+/* AFE_TDM_CON1 */
+#define TDM_EN_SFT                                            0
+#define TDM_EN_MASK                                           0x1
+#define TDM_EN_MASK_SFT                                       (0x1 << 0)
+#define BCK_INVERSE_SFT                                       1
+#define BCK_INVERSE_MASK                                      0x1
+#define BCK_INVERSE_MASK_SFT                                  (0x1 << 1)
+#define LRCK_INVERSE_SFT                                      2
+#define LRCK_INVERSE_MASK                                     0x1
+#define LRCK_INVERSE_MASK_SFT                                 (0x1 << 2)
+#define DELAY_DATA_SFT                                        3
+#define DELAY_DATA_MASK                                       0x1
+#define DELAY_DATA_MASK_SFT                                   (0x1 << 3)
+#define LEFT_ALIGN_SFT                                        4
+#define LEFT_ALIGN_MASK                                       0x1
+#define LEFT_ALIGN_MASK_SFT                                   (0x1 << 4)
+#define WLEN_SFT                                              8
+#define WLEN_MASK                                             0x3
+#define WLEN_MASK_SFT                                         (0x3 << 8)
+#define CHANNEL_NUM_SFT                                       10
+#define CHANNEL_NUM_MASK                                      0x3
+#define CHANNEL_NUM_MASK_SFT                                  (0x3 << 10)
+#define CHANNEL_BCK_CYCLES_SFT                                12
+#define CHANNEL_BCK_CYCLES_MASK                               0x3
+#define CHANNEL_BCK_CYCLES_MASK_SFT                           (0x3 << 12)
+#define DAC_BIT_NUM_SFT                                       16
+#define DAC_BIT_NUM_MASK                                      0x1f
+#define DAC_BIT_NUM_MASK_SFT                                  (0x1f << 16)
+#define LRCK_TDM_WIDTH_SFT                                    24
+#define LRCK_TDM_WIDTH_MASK                                   0xff
+#define LRCK_TDM_WIDTH_MASK_SFT                               (0xff << 24)
+
+/* AFE_TDM_CON2 */
+#define ST_CH_PAIR_SOUT0_SFT                                  0
+#define ST_CH_PAIR_SOUT0_MASK                                 0x7
+#define ST_CH_PAIR_SOUT0_MASK_SFT                             (0x7 << 0)
+#define ST_CH_PAIR_SOUT1_SFT                                  4
+#define ST_CH_PAIR_SOUT1_MASK                                 0x7
+#define ST_CH_PAIR_SOUT1_MASK_SFT                             (0x7 << 4)
+#define ST_CH_PAIR_SOUT2_SFT                                  8
+#define ST_CH_PAIR_SOUT2_MASK                                 0x7
+#define ST_CH_PAIR_SOUT2_MASK_SFT                             (0x7 << 8)
+#define ST_CH_PAIR_SOUT3_SFT                                  12
+#define ST_CH_PAIR_SOUT3_MASK                                 0x7
+#define ST_CH_PAIR_SOUT3_MASK_SFT                             (0x7 << 12)
+#define TDM_FIX_VALUE_SEL_SFT                                 16
+#define TDM_FIX_VALUE_SEL_MASK                                0x1
+#define TDM_FIX_VALUE_SEL_MASK_SFT                            (0x1 << 16)
+#define TDM_I2S_LOOPBACK_SFT                                  20
+#define TDM_I2S_LOOPBACK_MASK                                 0x1
+#define TDM_I2S_LOOPBACK_MASK_SFT                             (0x1 << 20)
+#define TDM_I2S_LOOPBACK_CH_SFT                               21
+#define TDM_I2S_LOOPBACK_CH_MASK                              0x3
+#define TDM_I2S_LOOPBACK_CH_MASK_SFT                          (0x3 << 21)
+#define TDM_FIX_VALUE_SFT                                     24
+#define TDM_FIX_VALUE_MASK                                    0xff
+#define TDM_FIX_VALUE_MASK_SFT                                (0xff << 24)
+
+/* AFE_DPTX_CON */
+#define DPTX_CHANNEL_ENABLE_SFT                               8
+#define DPTX_CHANNEL_ENABLE_MASK                              0xff
+#define DPTX_CHANNEL_ENABLE_MASK_SFT                          (0xff << 8)
+#define DPTX_REGISTER_MONITOR_SELECT_SFT                      3
+#define DPTX_REGISTER_MONITOR_SELECT_MASK                     0x3
+#define DPTX_REGISTER_MONITOR_SELECT_MASK_SFT                 (0x3 << 3)
+#define DPTX_16_BIT_SFT                                       2
+#define DPTX_16_BIT_MASK                                      0x1
+#define DPTX_16_BIT_MASK_SFT                                  (0x1 << 2)
+#define DPTX_CHANNEL_NUM_SFT                                  1
+#define DPTX_CHANNEL_NUM_MASK                                 0x1
+#define DPTX_CHANNEL_NUM_MASK_SFT                             (0x1 << 1)
+#define DPTX_ON_SFT                                           0
+#define DPTX_ON_MASK                                          0x1
+#define DPTX_ON_MASK_SFT                                      (0x1 << 0)
+
+/* AFE_HDMI_CONN0 */
+#define HDMI_O_7_SFT                                          21
+#define HDMI_O_7_MASK                                         0x7
+#define HDMI_O_7_MASK_SFT                                     (0x7 << 21)
+#define HDMI_O_6_SFT                                          18
+#define HDMI_O_6_MASK                                         0x7
+#define HDMI_O_6_MASK_SFT                                     (0x7 << 18)
+#define HDMI_O_5_SFT                                          15
+#define HDMI_O_5_MASK                                         0x7
+#define HDMI_O_5_MASK_SFT                                     (0x7 << 15)
+#define HDMI_O_4_SFT                                          12
+#define HDMI_O_4_MASK                                         0x7
+#define HDMI_O_4_MASK_SFT                                     (0x7 << 12)
+#define HDMI_O_3_SFT                                          9
+#define HDMI_O_3_MASK                                         0x7
+#define HDMI_O_3_MASK_SFT                                     (0x7 << 9)
+#define HDMI_O_2_SFT                                          6
+#define HDMI_O_2_MASK                                         0x7
+#define HDMI_O_2_MASK_SFT                                     (0x7 << 6)
+#define HDMI_O_1_SFT                                          3
+#define HDMI_O_1_MASK                                         0x7
+#define HDMI_O_1_MASK_SFT                                     (0x7 << 3)
+#define HDMI_O_0_SFT                                          0
+#define HDMI_O_0_MASK                                         0x7
+#define HDMI_O_0_MASK_SFT                                     (0x7 << 0)
 
 /* AFE_AUD_PAD_TOP */
 #define AUD_PAD_TOP_MON_SFT                                   15
@@ -2781,6 +2907,7 @@ enum {
 #define AFE_VUL12_CUR                             0x384
 #define AFE_VUL12_END_MSB                         0x388
 #define AFE_VUL12_END                             0x38c
+#define AFE_HDMI_CONN0                            0x390
 #define AFE_IRQ3_MCU_CNT_MON                      0x398
 #define AFE_IRQ4_MCU_CNT_MON                      0x39c
 #define AFE_IRQ_MCU_CON0                          0x3a0
@@ -2860,6 +2987,10 @@ enum {
 #define PCM_INTF_CON1                             0x530
 #define PCM_INTF_CON2                             0x538
 #define PCM2_INTF_CON                             0x53c
+#define AFE_TDM_CON1                              0x548
+#define AFE_TDM_CON2                              0x54c
+#define AFE_DPTX_CON                              0x558
+#define AFE_DPTX_MON                              0x55c
 #define AFE_CONN34                                0x580
 #define FPGA_CFG0                                 0x5b0
 #define FPGA_CFG1                                 0x5b4
@@ -3080,6 +3211,13 @@ enum {
 #define AFE_MOD_DAI_CUR                           0xb10
 #define AFE_MOD_DAI_END_MSB                       0xb14
 #define AFE_MOD_DAI_END                           0xb18
+#define AFE_HDMI_OUT_CON0                         0xb1c
+#define AFE_HDMI_OUT_BASE_MSB                     0xb20
+#define AFE_HDMI_OUT_BASE                         0xb24
+#define AFE_HDMI_OUT_CUR_MSB                      0xb28
+#define AFE_HDMI_OUT_CUR                          0xb2c
+#define AFE_HDMI_OUT_END_MSB                      0xb30
+#define AFE_HDMI_OUT_END                          0xb34
 #define AFE_AWB_RCH_MON                           0xb70
 #define AFE_AWB_LCH_MON                           0xb74
 #define AFE_VUL_RCH_MON                           0xb78

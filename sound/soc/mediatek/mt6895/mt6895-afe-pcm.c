@@ -545,6 +545,18 @@ static struct snd_soc_dai_driver mt6895_memif_dai_driver[] = {
 		},
 		.ops = &mt6895_memif_dai_ops,
 	},
+	{
+		.name = "HDMI",
+		.id = MT6895_MEMIF_HDMI,
+		.playback = {
+			.stream_name = "HDMI",
+			.channels_min = 2,
+			.channels_max = 8,
+			.rates = MTK_PCM_RATES,
+			.formats = MTK_PCM_FORMATS,
+		},
+		.ops = &mt6895_memif_dai_ops,
+	},
 };
 
 /* kcontrol */
@@ -2423,6 +2435,35 @@ static const struct mtk_base_memif_data memif_data[MT6895_MEMIF_NUM] = {
 		.msb_reg = -1,
 		.msb_shift = -1,
 	},
+	[MT6895_MEMIF_HDMI] = {
+		.name = "HDMI",
+		.id = MT6895_MEMIF_HDMI,
+		.reg_ofs_base = AFE_HDMI_OUT_BASE,
+		.reg_ofs_cur = AFE_HDMI_OUT_CUR,
+		.reg_ofs_end = AFE_HDMI_OUT_END,
+		.reg_ofs_base_msb = AFE_HDMI_OUT_BASE_MSB,
+		.reg_ofs_cur_msb = AFE_HDMI_OUT_CUR_MSB,
+		.reg_ofs_end_msb = AFE_HDMI_OUT_END_MSB,
+		.fs_reg = -1,
+		.fs_shift = -1,
+		.fs_maskbit = -1,
+		.mono_reg = -1,
+		.mono_shift = -1,
+		.enable_reg = AFE_AGENT_ON,
+		.enable_shift = HDMI_OUT_ON_SFT,
+		.hd_reg = AFE_HDMI_OUT_CON0,
+		.hd_shift = HDMI_OUT_HD_MODE_SFT,
+		.agent_disable_reg = -1,
+		.agent_disable_shift = -1,
+		.msb_reg = -1,
+		.msb_shift = -1,
+		.pbuf_reg = AFE_HDMI_OUT_CON0,
+		.pbuf_mask = HDMI_OUT_PBUF_SIZE_MASK,
+		.pbuf_shift = HDMI_OUT_PBUF_SIZE_SFT,
+		.minlen_reg = AFE_HDMI_OUT_CON0,
+		.minlen_mask = HDMI_OUT_MINLEN_MASK,
+		.minlen_shift = HDMI_OUT_MINLEN_SFT,
+	},
 };
 
 static const struct mtk_base_irq_data irq_data[MT6895_IRQ_NUM] = {
@@ -2910,6 +2951,7 @@ static const int memif_irq_usage[MT6895_MEMIF_NUM] = {
 	[MT6895_MEMIF_VUL4] = MT6895_IRQ_18,
 	[MT6895_MEMIF_VUL5] = MT6895_IRQ_19,
 	[MT6895_MEMIF_VUL6] = MT6895_IRQ_20,
+	[MT6895_MEMIF_HDMI] = MT6895_IRQ_31,
 };
 
 static bool mt6895_is_volatile_reg(struct device *dev, unsigned int reg)
@@ -3032,6 +3074,9 @@ static bool mt6895_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_MOD_DAI_CUR_MSB:
 	case AFE_MOD_DAI_CUR:
 	case AFE_MOD_DAI_END:
+	case AFE_HDMI_OUT_CUR_MSB:
+	case AFE_HDMI_OUT_CUR:
+	case AFE_HDMI_OUT_END:
 	case AFE_AWB_RCH_MON:
 	case AFE_AWB_LCH_MON:
 	case AFE_VUL_RCH_MON:
@@ -3386,6 +3431,10 @@ static int mt6895_set_memif_sram_mode(struct device *dev,
 	regmap_update_bits(afe->regmap, AFE_MOD_DAI_CON0,
 			   MOD_DAI_NORMAL_MODE_MASK_SFT,
 			   reg_bit << MOD_DAI_NORMAL_MODE_SFT);
+	regmap_update_bits(afe->regmap, AFE_HDMI_OUT_CON0,
+			   HDMI_OUT_NORMAL_MODE_MASK_SFT,
+			   reg_bit << HDMI_OUT_NORMAL_MODE_SFT);
+
 	return 0;
 }
 
@@ -4148,6 +4197,9 @@ static ssize_t mt6895_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_VUL12_END, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_VUL12_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_CONN0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_CONN0 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_IRQ3_MCU_CNT_MON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_IRQ3_MCU_CNT_MON = 0x%x\n", value);
@@ -4385,6 +4437,18 @@ static ssize_t mt6895_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, PCM2_INTF_CON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "PCM2_INTF_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_TDM_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_TDM_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_TDM_CON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_TDM_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DPTX_CON, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_DPTX_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DPTX_MON, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_DPTX_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_CONN34, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_CONN34 = 0x%x\n", value);
@@ -5045,6 +5109,27 @@ static ssize_t mt6895_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_MOD_DAI_END, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_MOD_DAI_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_OUT_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_BASE_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_OUT_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_BASE, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_OUT_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_CUR_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_OUT_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_CUR, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_OUT_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_END_MSB, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_OUT_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_END, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_HDMI_OUT_END = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_AWB_RCH_MON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_AWB_RCH_MON = 0x%x\n", value);
@@ -6825,7 +6910,7 @@ static const dai_register_cb dai_register_cbs[] = {
 	mt6895_dai_hw_gain_register,
 	mt6895_dai_src_register,
 	mt6895_dai_pcm_register,
-	//      mt6895_dai_tdm_register,
+	mt6895_dai_tdm_register,
 	mt6895_dai_hostless_register,
 	mt6895_dai_memif_register,
 };
