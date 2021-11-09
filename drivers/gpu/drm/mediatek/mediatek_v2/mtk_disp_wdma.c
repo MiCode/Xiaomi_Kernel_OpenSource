@@ -48,6 +48,7 @@
 #define WDMA_CON_SWAP BIT(16)
 #define WDMA_UFO_DCP_ENABLE BIT(18)
 #define WDMA_INT_MTX_SEL (0xf << 24)
+#define WDMA_DEBUG_SEL (0xf << 28)
 #define DISP_REG_WDMA_SRC_SIZE 0x0018
 #define DISP_REG_WDMA_CLIP_SIZE 0x001c
 #define DISP_REG_WDMA_CLIP_COORD 0x0020
@@ -992,6 +993,10 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 				DISP_REG_WDMA_CFG, WDMA_CT_EN, handle);
 	}
 
+	/* Debug WDMA status */
+	mtk_ddp_write_mask(comp, 0xe0000000,
+			DISP_REG_WDMA_CFG, WDMA_DEBUG_SEL, handle);
+
 	mtk_ddp_write(comp, comp->fb->pitches[0],
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
 
@@ -1077,6 +1082,10 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 			DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);
 	mtk_ddp_write_mask(comp, 0,
 			DISP_REG_WDMA_CFG, WDMA_CT_EN, handle);
+
+	/* Debug WDMA status */
+	mtk_ddp_write_mask(comp, 0xe0000000,
+			DISP_REG_WDMA_CFG, WDMA_DEBUG_SEL, handle);
 
 	mtk_ddp_write(comp, pitch,
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
