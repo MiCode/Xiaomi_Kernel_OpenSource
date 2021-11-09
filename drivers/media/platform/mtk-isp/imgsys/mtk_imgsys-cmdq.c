@@ -1794,9 +1794,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 			/* pm_runtime_put_sync(imgsys_dev->dev);*/
 			pm_runtime_mark_last_busy(imgsys_dev->dev);
 			pm_runtime_put_autosuspend(imgsys_dev->dev);
-			if (IS_ERR_OR_NULL(dvfs_info->reg))
+			if (IS_ERR_OR_NULL(dvfs_info->reg)
+					|| !regulator_is_enabled(dvfs_info->reg))
 				dev_dbg(dvfs_info->dev,
-					"%s: [ERROR] reg is err or null\n", __func__);
+					"%s: [ERROR] reg is null or disable\n", __func__);
 			else
 				regulator_disable(dvfs_info->reg);
 
