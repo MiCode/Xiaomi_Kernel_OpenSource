@@ -353,6 +353,7 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 	unsigned int hw_ptr = 0, hw_base = 0;
 	int ret, pcm_ptr_bytes, pcm_remap_ptr_bytes;
 	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
+	unsigned long flags = 0;
 
 	if (dsp->dsp_ver)
 		goto SYNC_READINDEX;
@@ -428,12 +429,12 @@ static snd_pcm_uframes_t mtk_dsphw_pcm_pointer_dl
 			(dsp_mem->adsp_buf.aud_buffer.buf_bridge.pBufBase +
 			 pcm_remap_ptr_bytes);
 
-	spin_lock(ringbuf_lock);
+	spin_lock_irqsave(ringbuf_lock, flags);
 
 	ret = sync_ringbuf_readidx(
 		&dsp_mem->ring_buf,
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
-	spin_unlock(ringbuf_lock);
+	spin_unlock_irqrestore(ringbuf_lock, flags);
 
 	if (ret) {
 		pr_info("%s sync_ringbuf_readidx underflow\n", __func__);
@@ -459,10 +460,10 @@ SYNC_READINDEX:
 	if (dsp_mem->underflowed)
 		return -1;
 
-	spin_lock(ringbuf_lock);
+	spin_lock_irqsave(ringbuf_lock, flags);
 	pcm_ptr_bytes = (int)(dsp_mem->ring_buf.pRead -
 			      dsp_mem->ring_buf.pBufBase);
-	spin_unlock(ringbuf_lock);
+	spin_unlock_irqrestore(ringbuf_lock, flags);
 	pcm_remap_ptr_bytes =
 		bytes_to_frames(substream->runtime, pcm_ptr_bytes);
 
@@ -499,14 +500,6 @@ DSP_IRQ_HANDLER_ERR:
 	return;
 }
 
-static bool is_adsp_support_aud_irq(void)
-{
-	if (ADSP_IRQ_NUM > ADSP_IRQ_AUDIO_ID)
-		return true;
-
-	return false;
-}
-
 static bool mtk_dsp_check_exception(struct mtk_base_dsp *dsp,
 				    struct ipi_msg_t *ipi_msg, int id)
 {
@@ -538,8 +531,7 @@ static bool mtk_dsp_check_exception(struct mtk_base_dsp *dsp,
 		pr_info("%s() %s adsp underflow\n", __func__, task_name);
 		dsp->dsp_mem[id].underflowed = true;
 
-		if (!is_adsp_support_aud_irq())
-			snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
+		snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
 
 		return true;
 	}
@@ -554,6 +546,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
 	spinlock_t *ringbuf_lock = &dsp->dsp_mem[id].ringbuf_lock;
 	struct snd_pcm_substream *substream;
+	unsigned long flags = 0;
 
 	if (!dsp->dsp_mem[id].substream) {
 		return;
@@ -575,7 +568,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 		       sizeof(struct audio_hw_buffer));
 	}
 
-	spin_lock(ringbuf_lock);
+	spin_lock_irqsave(ringbuf_lock, flags);
 	dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge.pRead =
 		dsp->dsp_mem[id].adsp_work_buf.aud_buffer.buf_bridge.pRead;
 #ifdef DEBUG_VERBOSE_IRQ
@@ -587,7 +580,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 		&dsp->dsp_mem[id].ring_buf,
 		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
 
-	spin_unlock(ringbuf_lock);
+	spin_unlock_irqrestore(ringbuf_lock, flags);
 
 #ifdef DEBUG_VERBOSE_IRQ
 	dump_rbuf_s("dl_consume after sync", &dsp->dsp_mem[id].ring_buf);
@@ -698,10 +691,6 @@ void mtk_dsp_handler(struct mtk_base_dsp *dsp,
 		mtk_dsp_ul_handler(dsp, ipi_msg, id);
 		break;
 	case AUDIO_DSP_TASK_DL_CONSUME_DATA:
-		if (ipi_msg->param2 == ADSP_DL_CONSUME_UNDERFLOW) {
-			dsp->dsp_mem[id].underflowed = true;
-		}
-
 		/* check exceptions in consume message */
 		if (mtk_dsp_check_exception(dsp, ipi_msg, id))
 			break;
@@ -1340,7 +1329,8 @@ static int mtk_dsp_probe(struct snd_soc_component *component)
 	}
 
 	for (id = 0; id < get_adsp_core_total(); id++) {
-		if (adsp_irq_registration(id, ADSP_IRQ_AUDIO_ID, audio_irq_handler, dsp) < 0)
+		if (adsp_threaded_irq_registration(id, ADSP_IRQ_AUDIO_ID, NULL,
+						   audio_irq_handler, dsp) < 0)
 			pr_info("%s, ADSP_IRQ_AUDIO not supported\n");
 	}
 #ifdef CFG_RECOVERY_SUPPORT
