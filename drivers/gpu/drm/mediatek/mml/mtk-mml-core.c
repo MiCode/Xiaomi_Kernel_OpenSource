@@ -892,7 +892,7 @@ static void core_taskerr(struct mml_task *task, u32 pipe)
 
 	cnt = atomic_inc_return(&task->pipe_done);
 
-	mml_msg("%s task %p cnt %d", __func__, task, cnt);
+	mml_err("%s task %p cnt %d", __func__, task, cnt);
 
 	if (task->config->dual && cnt == 1)
 		goto done;
