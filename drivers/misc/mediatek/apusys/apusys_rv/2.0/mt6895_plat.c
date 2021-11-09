@@ -377,7 +377,7 @@ static int mt6895_apu_power_on(struct mtk_apu *apu)
 		dev_info(apu->dev,
 			 "%s: call to get_sync(power_dev) failed, ret=%d\n",
 			 __func__, ret);
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_PWR_ERROR");
+		/* apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_GET_PWR_ERROR"); */
 		return ret;
 	}
 
@@ -429,7 +429,6 @@ iommu_get_error:
 	}
 
 	/* polling IOMMU rpm state till active */
-	dev_info(apu->dev, "start polling iommu on\n");
 	timeout = 5000;
 	while ((!pm_runtime_active(apu->apu_iommu0) ||
 	       !pm_runtime_active(apu->apu_iommu1)) && timeout-- > 0)
@@ -442,7 +441,6 @@ iommu_get_error:
 		ret = -ETIMEDOUT;
 		goto error_put_iommu_dev;
 	}
-	dev_info(apu->dev, "polling iommu on done\n");
 
 	ret = pm_runtime_get_sync(apu->dev);
 	if (ret < 0) {
@@ -478,7 +476,6 @@ static int mt6895_apu_power_off(struct mtk_apu *apu)
 		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
 		return ret;
 	}
-
 
 	/* to notify IOMMU power off */
 	/* workaround possible nested disable issue */
@@ -526,7 +523,6 @@ iommu_put_error:
 	}
 
 	/* polling IOMMU rpm state till suspended */
-	dev_info(apu->dev, "start polling iommu off\n");
 	timeout = 5000;
 	while ((!pm_runtime_suspended(apu->apu_iommu0) ||
 	       !pm_runtime_suspended(apu->apu_iommu1)) && timeout-- > 0)
@@ -540,21 +536,17 @@ iommu_put_error:
 		goto error_get_iommu_dev;
 	}
 
-	dev_info(apu->dev, "polling iommu off done\n");
-
-
 	/* to force apu top power off synchronously */
 	ret = pm_runtime_put_sync(apu->power_dev);
 	if (ret) {
 		dev_info(apu->dev,
 			 "%s: call to put_sync(power_dev) failed, ret=%d\n",
 			 __func__, ret);
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_PWR_ERROR");
+		/* apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_PWR_ERROR"); */
 		goto error_get_iommu_dev;
 	}
 
 	/* polling APU TOP rpm state till suspended */
-	dev_info(apu->dev, "start polling power off\n");
 	timeout = 500;
 	while (!pm_runtime_suspended(apu->power_dev) && timeout-- > 0)
 		msleep(20);
@@ -566,8 +558,6 @@ iommu_put_error:
 		ret = -ETIMEDOUT;
 		goto error_get_power_dev;
 	}
-
-	dev_info(apu->dev, "polling power done\n");
 
 	return 0;
 
