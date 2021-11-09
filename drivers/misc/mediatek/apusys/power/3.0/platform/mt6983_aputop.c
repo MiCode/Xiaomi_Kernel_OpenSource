@@ -1123,6 +1123,13 @@ out:
 #endif // !APU_PWR_SOC_PATH
 #endif // APU_POWER_BRING_UP
 
+static void aputop_dump_pcu_data(struct device *dev)
+{
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP,
+			SMC_PWR_DUMP_PCU);
+}
+
 static int mt6983_apu_top_on(struct device *dev)
 {
 	int ret = 0;
@@ -1135,11 +1142,13 @@ static int mt6983_apu_top_on(struct device *dev)
 #endif
 	aputop_dump_pwr_res();
 	aputop_dump_rpc_data();
+	aputop_dump_pcu_data(dev);
 	aputop_dump_pll_data();
 	aputop_check_pwr_data();
 	ret = __apu_wake_rpc_rcx(dev);
 	aputop_dump_pwr_res();
 	aputop_dump_rpc_data();
+	aputop_dump_pcu_data(dev);
 	aputop_dump_pll_data();
 	aputop_check_pwr_data();
 
@@ -1181,11 +1190,17 @@ static int mt6983_apu_top_off(struct device *dev)
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL) == 0x0, 50, rpc_timeout_val);
+
+	aputop_dump_pwr_res();
+	aputop_dump_rpc_data();
+	aputop_dump_pcu_data(dev);
+	aputop_dump_pll_data();
+	aputop_check_pwr_data();
+
 	if (ret) {
 		pr_info(
 		"%s timeout to wait RPC sleep (val:%d), ret %d, rpc_alive:%d\n",
 			__func__, rpc_timeout_val, ret, check_if_rpc_alive());
-		aputop_dump_pwr_res();
 		aputop_dump_pwr_reg(dev);
 #if APUPW_DUMP_FROM_APMCU
 		are_dump_config(0);
@@ -1545,7 +1560,13 @@ static void aputop_dump_pwr_reg(struct device *dev)
 	print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			apupw.regs[apu_are2], 0x50, true);
 #else
-	apusys_pwr_smc_call(dev, MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP, 0);
+	// dump reg in ATF log
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_DUMP,
+			SMC_PWR_DUMP_ALL);
+	// dump reg in AEE db
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_REGDUMP, 0);
 #endif
 }
 

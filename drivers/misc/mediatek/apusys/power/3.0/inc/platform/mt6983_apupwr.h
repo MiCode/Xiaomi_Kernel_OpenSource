@@ -32,6 +32,13 @@ enum smc_rcx_pwr_op {
 	SMC_RCX_PWR_CG_EN,
 };
 
+enum smc_pwr_dump {
+	SMC_PWR_DUMP_RPC = 0,
+	SMC_PWR_DUMP_PCU,
+	SMC_PWR_DUMP_ARE,
+	SMC_PWR_DUMP_ALL,
+};
+
 enum t_acx_id {
 	ACX0 = 0,
 	ACX1,
