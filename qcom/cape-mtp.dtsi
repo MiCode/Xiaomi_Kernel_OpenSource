@@ -22,6 +22,23 @@
 	};
 };
 
+&sdhc_2 {
+	status = "ok";
+	vdd-supply = <&L9C>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6C>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 125000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4-waipio";
 

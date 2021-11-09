@@ -29,6 +29,7 @@
 		serial0 = &qupv3_se7_2uart;
 		hsuart0 = &qupv3_se20_4uart;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
 	firmware: firmware { };
@@ -1493,6 +1494,44 @@
 		reg = <0x0 0x280000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
+	};
+
+	sdhc_2: sdhci@8804000 {
+		status = "disabled";
+
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x08804000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		bus-width = <4>;
+		no-sdio;
+		no-mmc;
+
+		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+			<&clock_gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface", "core";
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007442C 0x0 0x08
+					0x090106C0 0x80040868>;
+
+		iommus = <&apps_smmu 0x4A0 0x0>;
+		dma-coherent;
+		qcom,iommu-dma = "fastmap";
+
+		qos0 {
+			mask = <0xf0>;
+			vote = <44>;
+		};
+
+		qos1 {
+			mask = <0x0f>;
+			vote = <44>;
+		};
 	};
 
 	qcom,sps {
