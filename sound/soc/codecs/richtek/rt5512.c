@@ -869,10 +869,10 @@ static int rt5512_component_aif_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 	char tmp[32];
 
-	dev_info(dai->dev, "%s: ++\n", __func__);
-	dev_info(dai->dev, "format: 0x%08x\n", params_format(hw_params));
-	dev_info(dai->dev, "rate: 0x%08x\n", params_rate(hw_params));
-	dev_info(dai->dev, "word_len: %d, aud_bit: %d\n", word_len, aud_bit);
+	dev_dbg(dai->dev, "%s: ++\n", __func__);
+	dev_info(dai->dev, "format: 0x%08x, rate: 0x%08x, word_len: %d, aud_bit: %d\n",
+		 params_format(hw_params), params_rate(hw_params), word_len,
+		 aud_bit);
 	if (word_len > 32 || word_len < 16) {
 		dev_err(dai->dev, "not supported word length\n");
 		return -ENOTSUPP;
@@ -907,7 +907,7 @@ static int rt5512_component_aif_hw_params(struct snd_pcm_substream *substream,
 		dev_err(dai->dev, "config word len fail\n");
 		return ret;
 	}
-	dev_info(dai->dev, "%s: --\n", __func__);
+	dev_dbg(dai->dev, "%s: --\n", __func__);
 	snprintf(tmp, 32, "%s SPK", dai->component->name_prefix);
 	return snd_soc_dapm_enable_pin(dapm, tmp);
 }
