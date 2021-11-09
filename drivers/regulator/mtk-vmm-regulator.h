@@ -15,7 +15,7 @@
 #define DEFAULT_VOLTAGE 650000
 #define FINE_GRAIN_LOWER_BOUND 650000
 #define DEFAULT_VOLTAGE_LEVEL 3
-#define WAIT_POWER_ON_OFF_TIMEOUT_MS 1000
+#define WAIT_POWER_ON_OFF_TIMEOUT_MS 2000
 
 enum dvfs_apmcu_task_id {
 	DVFS_CCU_NO_NEED_CB = -1,
@@ -66,7 +66,7 @@ struct dvfs_driver_data {
 	u32 disable_dvfs;
 	struct ccu_handle_info ccu_handle;
 	atomic_t ccu_power_on;
-	bool request_power_on;
+	atomic_t request_power_on;
 	struct work_struct work_structure;
 };
 
