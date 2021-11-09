@@ -43,6 +43,7 @@ static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
 static u32 is_sec_task_create;
 #endif
+static struct imgsys_event_history event_hist[IMGSYS_CMDQ_SYNC_POOL_NUM];
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev)
 {
@@ -134,6 +135,9 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 	for (idx = IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_START;
 		idx <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END; idx++)
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[idx].event);
+
+	memset((void *)event_hist, 0x0,
+		sizeof(struct imgsys_event_history)*IMGSYS_CMDQ_SYNC_POOL_NUM);
 }
 
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
@@ -462,6 +466,9 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 	struct mtk_imgsys_pipe *pipe;
 	size_t err_ofst;
 	u32 idx = 0, err_idx = 0, real_frm_idx = 0;
+	u16 event = 0, event_sft = 0;
+	u64 event_diff = 0;
+	bool isHWhang = 0;
 
 	pr_debug("%s: +\n", __func__);
 
@@ -520,42 +527,58 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)\n",
 				__func__, cb_param, is_stream_off);
 		}
+
+		event = cb_param->pkt->err_data.event;
+		if ((event >= IMGSYS_CMDQ_HW_EVENT_BEGIN) &&
+			(event <= IMGSYS_CMDQ_HW_EVENT_END)) {
+			isHWhang = 1;
+			pr_info(
+				"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
+				__func__,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event, isHWhang);
+		} else if ((event >= IMGSYS_CMDQ_SW_EVENT_BEGIN) &&
+			(event <= IMGSYS_CMDQ_SW_EVENT_END)) {
+			event_sft = event - IMGSYS_CMDQ_SW_EVENT_BEGIN;
+			event_diff = event_hist[event_sft].set.ts >
+						event_hist[event_sft].wait.ts ?
+						(event_hist[event_sft].set.ts -
+						event_hist[event_sft].wait.ts) :
+						(event_hist[event_sft].wait.ts -
+						event_hist[event_sft].set.ts);
+			pr_info(
+				"%s: [ERROR] SW event timeout! wfe(%d) event(%d) isHW(%d); event st(%d)_ts(%lld)_set(%d/%d/%d/%lld)_wait(%d/%d/%d/%lld)",
+				__func__,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event, isHWhang,
+				event_hist[event_sft].st, event_diff,
+				event_hist[event_sft].set.req_fd,
+				event_hist[event_sft].set.req_no,
+				event_hist[event_sft].set.frm_no,
+				event_hist[event_sft].set.ts,
+				event_hist[event_sft].wait.req_fd,
+				event_hist[event_sft].wait.req_no,
+				event_hist[event_sft].wait.frm_no,
+				event_hist[event_sft].wait.ts);
+		} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
+			(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
+			isHWhang = 1;
+			pr_info(
+				"%s: [ERROR] GPR event timeout! wfe(%d) event(%d) isHW(%d)",
+				__func__,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event, isHWhang);
+		} else
+			pr_info(
+				"%s: [ERROR] Other event timeout! wfe(%d) event(%d) isHW(%d)",
+				__func__,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event, isHWhang);
+
 		imgsys_cmdq_cmd_dump(cb_param->frm_info, real_frm_idx);
+
 		if (cb_param->user_cmdq_err_cb) {
 			struct cmdq_cb_data user_cb_data;
-			u16 event = 0;
-			bool isHWhang = 0;
-
-			event = cb_param->pkt->err_data.event;
-			if ((event >= IMGSYS_CMDQ_HW_EVENT_BEGIN) &&
-				(event <= IMGSYS_CMDQ_HW_EVENT_END)) {
-				isHWhang = 1;
-				pr_info(
-					"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
-					__func__,
-					cb_param->pkt->err_data.wfe_timeout,
-					cb_param->pkt->err_data.event, isHWhang);
-			} else if ((event >= IMGSYS_CMDQ_SW_EVENT_BEGIN) &&
-				(event <= IMGSYS_CMDQ_SW_EVENT_END))
-				pr_info(
-					"%s: [ERROR] SW event timeout! wfe(%d) event(%d) isHW(%d)",
-					__func__,
-					cb_param->pkt->err_data.wfe_timeout,
-					cb_param->pkt->err_data.event, isHWhang);
-			else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
-				(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
-				isHWhang = 1;
-				pr_info(
-					"%s: [ERROR] GPR event timeout! wfe(%d) event(%d) isHW(%d)",
-					__func__,
-					cb_param->pkt->err_data.wfe_timeout,
-					cb_param->pkt->err_data.event, isHWhang);
-			} else
-				pr_info(
-					"%s: [ERROR] Other event timeout! wfe(%d) event(%d) isHW(%d)",
-					__func__,
-					cb_param->pkt->err_data.wfe_timeout,
-					cb_param->pkt->err_data.event, isHWhang);
 
 			user_cb_data.err = cb_param->err;
 			user_cb_data.data = (void *)cb_param->frm_info;
@@ -739,7 +762,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				imgsys_cmdq_sec_cmd(pkt);
 			#endif
 
-			ret = imgsys_cmdq_parser(pkt, &cmd[cmd_idx], hw_comb,
+			ret = imgsys_cmdq_parser(frm_info, pkt, &cmd[cmd_idx], hw_comb,
 				(pkt_ts_pa + 4 * pkt_ts_ofst), &pkt_ts_num, thd_idx);
 			if (ret < 0) {
 				pr_info(
@@ -872,11 +895,18 @@ sendtask_done:
 	return ret;
 }
 
-int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
+int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
+						struct Command *cmd, u32 hw_comb,
 						dma_addr_t dma_pa, uint32_t *num, u32 thd_idx)
 {
 	bool stop = 0;
 	int count = 0;
+	int req_fd = 0, req_no = 0, frm_no = 0;
+	u32 event = 0;
+
+	req_fd = frm_info->request_fd;
+	req_no = frm_info->request_no;
+	frm_no = frm_info->frame_no;
 
 	pr_debug("%s: +, cmd(%d)\n", __func__, cmd->opcode);
 
@@ -916,9 +946,21 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
 				"%s: WAIT event(%d/%d) action(%d)\n",
 				__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
 				cmd->u.action);
-			if (cmd->u.action == 1)
+			if (cmd->u.action == 1) {
 				cmdq_pkt_wfe(pkt, imgsys_event[cmd->u.event].event);
-			else if (cmd->u.action == 0)
+				if ((cmd->u.event >= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START) &&
+					(cmd->u.event <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END)) {
+					event = cmd->u.event -
+						IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START;
+					event_hist[event].st++;
+					event_hist[event].wait.req_fd = req_fd;
+					event_hist[event].wait.req_no = req_no;
+					event_hist[event].wait.frm_no = frm_no;
+					event_hist[event].wait.ts = ktime_get_boottime_ns()/1000;
+					event_hist[event].wait.frm_info = frm_info;
+					event_hist[event].wait.pkt = pkt;
+				}
+			} else if (cmd->u.action == 0)
 				cmdq_pkt_wait_no_clear(pkt, imgsys_event[cmd->u.event].event);
 			else
 				pr_info("%s: [ERROR]Not Support wait action(%d)!\n",
@@ -929,9 +971,21 @@ int imgsys_cmdq_parser(struct cmdq_pkt *pkt, struct Command *cmd, u32 hw_comb,
 				"%s: UPDATE event(%d/%d) action(%d)\n",
 				__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
 				cmd->u.action);
-			if (cmd->u.action == 1)
+			if (cmd->u.action == 1) {
 				cmdq_pkt_set_event(pkt, imgsys_event[cmd->u.event].event);
-			else if (cmd->u.action == 0)
+				if ((cmd->u.event >= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START) &&
+					(cmd->u.event <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END)) {
+					event = cmd->u.event -
+						IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START;
+					event_hist[event].st--;
+					event_hist[event].set.req_fd = req_fd;
+					event_hist[event].set.req_no = req_no;
+					event_hist[event].set.frm_no = frm_no;
+					event_hist[event].set.ts = ktime_get_boottime_ns()/1000;
+					event_hist[event].set.frm_info = frm_info;
+					event_hist[event].set.pkt = pkt;
+				}
+			} else if (cmd->u.action == 0)
 				cmdq_pkt_clear_event(pkt, imgsys_event[cmd->u.event].event);
 			else
 				pr_info("%s: [ERROR]Not Support update action(%d)!\n",
