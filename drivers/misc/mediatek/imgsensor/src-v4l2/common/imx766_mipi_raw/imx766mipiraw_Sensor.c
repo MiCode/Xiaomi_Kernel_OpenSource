@@ -46,7 +46,7 @@
 
 #define PD_PIX_2_EN 0
 #define SEQUENTIAL_WRITE_EN 1
-#define DEBUG_LOG_EN 1
+#define DEBUG_LOG_EN 0
 
 #define PFX "IMX766_camera_sensor"
 #define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
@@ -1376,15 +1376,27 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 
 static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 {
-	UINT32 old_fl = ctx->frame_length;
+	int i;
+	kal_uint32 old_fl = ctx->frame_length;
+	kal_uint32 calc_fl = 0;
+	kal_uint32 readoutLength = ctx->readout_length;
+	kal_uint32 readMargin = ctx->read_margin;
+	kal_uint32 per_frame_ns = (kal_uint32)(((unsigned long long)ctx->frame_length *
+		(unsigned long long)ctx->line_length * 1000000000) / (unsigned long long)ctx->pclk);
 
-	kal_uint32 per_frame_ms = (kal_uint32)(((unsigned long long)ctx->frame_length *
-		(unsigned long long)ctx->line_length * 1000) / (unsigned long long)ctx->pclk);
+	if (ns)
+		ctx->frame_length = (kal_uint32)(((unsigned long long)(per_frame_ns + ns)) *
+			ctx->frame_length / per_frame_ns);
 
-	LOG_DEBUG("per_frame_ms: %d / %d = %d",
-		(ctx->frame_length * ctx->line_length * 1000), ctx->pclk, per_frame_ms);
+	/* fl constraint: normal DOL behavior while stagger seamless switch */
+	if (previous_exp_cnt) {
+		calc_fl = (readoutLength + readMargin) * previous_exp_cnt;
+		for (i = 1; i < previous_exp_cnt; i++)
+			calc_fl += (previous_exp[i] + imgsensor_info.margin * previous_exp_cnt);
+		calc_fl += 0; // for a safety delay (need?)
 
-	ctx->frame_length = (per_frame_ms + (ns / 1000000)) * ctx->frame_length / per_frame_ms;
+		ctx->frame_length = max(calc_fl, ctx->frame_length);
+	}
 
 	set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	write_frame_len(ctx, ctx->frame_length);
@@ -1394,8 +1406,10 @@ static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 
 	ctx->extend_frame_length_en = KAL_TRUE;
 
-	LOG_INF("new frame len = %d, old frame len = %d, per_frame_ms = %d, add more %d ms",
-		ctx->frame_length, old_fl, per_frame_ms, (ns / 1000000));
+	ns = (kal_uint32)(((unsigned long long)(ctx->frame_length - old_fl) *
+		(unsigned long long)ctx->line_length * 1000000000) / (unsigned long long)ctx->pclk);
+	LOG_INF("new frame len = %d, old frame len = %d, per_frame_ns = %d, add more %d ns",
+		ctx->frame_length, old_fl, per_frame_ns, ns);
 }
 
 static void sensor_init(struct subdrv_ctx *ctx)
