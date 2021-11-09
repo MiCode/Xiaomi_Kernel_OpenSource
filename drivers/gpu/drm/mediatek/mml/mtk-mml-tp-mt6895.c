@@ -607,6 +607,14 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (info->src.secure || info->dest[0].data.secure)
 		goto decouple;
 
+	/* no pq support for racing mode */
+	if (info->dest[0].pq_config.en)
+		goto decouple;
+
+	/* racing only support 1 out */
+	if (info->dest_cnt > 1)
+		goto decouple;
+
 	/* get mid opp frequency */
 	tp = mml_topology_get_cache(mml);
 	if (!tp || !tp->opp_cnt) {
@@ -630,10 +638,6 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 
 	/* aal-dre(scltm) not support inline rot */
 	if (info->dest[0].pq_config.en && info->dest[0].pq_config.en_dre)
-		goto decouple;
-
-	/* racing only support 1 out */
-	if (info->dest_cnt > 1)
 		goto decouple;
 
 	/* only support FHD/2K with rotate 90/270 case for now */
