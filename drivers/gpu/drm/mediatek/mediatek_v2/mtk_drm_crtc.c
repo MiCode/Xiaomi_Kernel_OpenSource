@@ -1008,6 +1008,7 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		/* 1. power on mtcmos */
 		mtk_drm_top_clk_prepare_enable(crtc->dev);
 
+		cmdq_mbox_enable(client->chan);
 		if (mtk_crtc_with_trigger_loop(crtc))
 			mtk_crtc_start_trig_loop(crtc);
 
@@ -1067,6 +1068,7 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 		mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_DISABLE, NULL);
 
+		cmdq_mbox_disable(client->chan);
 		mtk_drm_top_clk_disable_unprepare(crtc->dev);
 	}
 
