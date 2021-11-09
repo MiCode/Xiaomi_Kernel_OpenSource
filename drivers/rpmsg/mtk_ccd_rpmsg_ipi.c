@@ -266,6 +266,12 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	ccd_params = list_first_entry(&mept->pending_sendq.queue,
 				      struct mtk_ccd_params,
 				      list_entry);
+	if (!ccd_params) {
+		spin_unlock(&mept->pending_sendq.queue_lock);
+		dev_info(ccd->dev, "%s: get MULL ccd_params, ccd_cmd_sent(%d)\n",
+			 __func__, atomic_read(&mept->ccd_cmd_sent));
+		goto err_ret;
+	}
 	list_del(&ccd_params->list_entry);
 	atomic_dec(&mept->ccd_cmd_sent);
 	spin_unlock(&mept->pending_sendq.queue_lock);
