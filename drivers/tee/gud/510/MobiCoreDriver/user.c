@@ -21,6 +21,9 @@
 #include <linux/uaccess.h>
 
 #include "public/mc_user.h"
+#if defined(MC_HIGH_FREQ)
+#include <linux/cpufreq.h>
+#endif
 
 #include "main.h"
 #include "admin.h"	/* tee_object* */
@@ -29,6 +32,39 @@
 #include "mcp.h"	/* mcp_get_version */
 #include "protocol.h"
 #include "user.h"
+
+#if defined(MC_HIGH_FREQ)
+static void tee_set_cpu_to_high_freq(int target_cpu, u32 high_freq)
+{
+	struct cpufreq_policy *policy;
+	unsigned int index;
+
+	if (target_cpu >= 8) {
+		mc_dev_info("invalid target cpu (%d)", target_cpu);
+		return;
+	}
+
+	policy = cpufreq_cpu_get(target_cpu);
+	if (policy == NULL) {
+		mc_dev_info("invalid policy, target cpu (%d)", target_cpu);
+		return;
+	}
+
+	down_write(&policy->rwsem);
+	if (high_freq) {
+		/* set min_freq to max freq */
+		policy->cpuinfo.min_freq = policy->freq_table[0].frequency;
+	} else {
+		/* find min freq in table */
+		index = cpufreq_table_find_index_dl(policy, 0);
+		/* set min_freq to min freq */
+		policy->cpuinfo.min_freq = policy->freq_table[index].frequency;
+	}
+	up_write(&policy->rwsem);
+	cpufreq_cpu_put(policy);
+	cpufreq_update_limits(target_cpu);
+}
+#endif
 
 /*
  * Get client object from file pointer
@@ -411,6 +447,22 @@ err_mmu:
 		ret = 0;
 		break;
 	}
+#if defined(MC_HIGH_FREQ)
+	case MC_IO_HIGH_FREQ: {
+		u32 high_freq;
+		int cpu;
+
+		if (copy_from_user(&high_freq, uarg, sizeof(high_freq)))
+			goto exit;
+
+		for (cpu = 0; cpu < 8; cpu++)
+			tee_set_cpu_to_high_freq(cpu, high_freq);
+
+exit:
+		ret = 0;
+		break;
+	}
+#endif
 	default:
 		ret = -ENOIOCTLCMD;
 		mc_dev_err(ret, "unsupported command no %d", id);

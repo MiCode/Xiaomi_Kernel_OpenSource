@@ -45,6 +45,8 @@
 #define MC_IO_MAP_OUTPUT		BIT(1)
 #define MC_IO_MAP_INPUT_OUTPUT		(MC_IO_MAP_INPUT | MC_IO_MAP_OUTPUT)
 
+#define MC_HIGH_FREQ
+
 /*
  * Universally Unique Identifier (UUID) according to ISO/IEC 11578.
  */
@@ -295,5 +297,9 @@ struct mc_ioctl_gp_request_cancellation {
 	_IOWR(MC_IOC_MAGIC, 26, struct mc_ioctl_gp_invoke_command)
 #define MC_IO_GP_REQUEST_CANCELLATION \
 	_IOW(MC_IOC_MAGIC, 27, struct mc_ioctl_gp_request_cancellation)
+#if defined(MC_HIGH_FREQ)
+#define MC_IO_HIGH_FREQ \
+	_IO(MC_IOC_MAGIC, 100)
+#endif
 
 #endif /* MC_USER_H */
