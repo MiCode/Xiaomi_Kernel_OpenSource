@@ -40,8 +40,11 @@
 
 #include <mrdump.h>
 #include "blocktag-ufs.h"
-#include "mtk_blocktag.h"
 
+#include "mtk_blocktag.h"
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+#include "fscmd-trace.h"
+#endif
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
 #include "blocktag-pm-trace.h"
 #endif
@@ -1318,7 +1321,10 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 	SPREAD_PRINTF(buff, size, seq, "[BLK_PM]\n");
 	mtk_btag_blk_pm_show(buff, size, seq);
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+	SPREAD_PRINTF(buff, size, seq, "[FS_CMD]\n");
+	used_mem += mtk_fscmd_usedmem(buff, size, seq);
+#endif
 	SPREAD_PRINTF(buff, size, seq, "[Memory Usage]\n");
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		used_mem += mtk_btag_seq_sub_show_usedmem(buff, size,
@@ -1836,7 +1842,16 @@ static struct tracepoints_table interests[] = {
 		.func = btag_blk_queue_enter_wakeup
 	},
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+	{
+		.name = "sys_enter",
+		.func = fscmd_trace_sys_enter
+	},
+	{
+		.name = "sys_exit",
+		.func = fscmd_trace_sys_exit
+	},
+#endif
 };
 
 #define FOR_EACH_INTEREST(i) \
@@ -1898,6 +1913,9 @@ static int __init mtk_btag_init(void)
 	mtk_btag_init_procfs();
 	mtk_btag_install_tracepoints();
 	mtk_btag_earaio_init();
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+	mtk_fscmd_init();
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
 	mtk_btag_blk_pm_init();
