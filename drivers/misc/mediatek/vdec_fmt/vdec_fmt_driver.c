@@ -538,7 +538,6 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	if (taskid < 0) {
 		fmt_err("failed to set task id");
 		mutex_lock(&fmt->mux_gce_th[identifier]);
-		fmt_end_dvfs_emi_bw(fmt, identifier);
 
 		mutex_lock(&fmt->mux_fmt);
 		atomic_dec(&fmt->gce_job_cnt[identifier]);
@@ -548,6 +547,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
 			// FMT cores share the same MTCMOS/CLK,
 			// pwr/clock on/off only when there's 0 job on both pipes
+			fmt_end_dvfs_emi_bw(fmt, identifier);
 			fmt_debug(0, "Both pipe job cnt = 0, pwr/clock off");
 			ret = fmt_clock_off(fmt);
 				if (ret != 0L) {
@@ -622,7 +622,6 @@ static int fmt_gce_wait_callback(unsigned long arg)
 		fmt_dump_addr_reg();
 
 	mutex_lock(&fmt->mux_gce_th[identifier]);
-	fmt_end_dvfs_emi_bw(fmt, identifier);
 
 	mutex_lock(&fmt->mux_fmt);
 	atomic_dec(&fmt->gce_job_cnt[identifier]);
@@ -630,6 +629,7 @@ static int fmt_gce_wait_callback(unsigned long arg)
 		+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
 		// FMT cores share the same MTCMOS/CLK,
 		// pwr/clock on/off only when there's 0 job on both pipes
+		fmt_end_dvfs_emi_bw(fmt, identifier);
 		fmt_debug(1, "Both pipe job cnt = 0, pwr/clock off");
 		ret = fmt_clock_off(fmt);
 			if (ret != 0L) {
