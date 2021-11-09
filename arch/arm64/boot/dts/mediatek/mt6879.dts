@@ -9988,6 +9988,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	mtee_svp: mtee_svp {
 		compatible = "medaitek,svp";
 	};
+
+	drm_wv: drm_wv {
+		compatible = "mediatek,drm_wv";
+		status = "okay";
+	};
 };
 
 &i2c5 {
