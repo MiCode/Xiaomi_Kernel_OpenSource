@@ -26,6 +26,9 @@ static struct {
 	char buf[PD_INFO_BUF_SIZE + 1 + OUT_BUF_MAX];
 } pd_dbg_buffer[2];
 
+static bool dbg_log_en;
+module_param(dbg_log_en, bool, 0644);
+
 static struct mutex buff_lock;
 static unsigned int using_buf;
 static bool event_loop_thread_stop;
@@ -106,6 +109,9 @@ int pd_dbg_info(const char *fmt, ...)
 	int r1, r2 = 0, used, left_size;
 	u64 ts;
 	unsigned long rem_usec;
+
+	if (!dbg_log_en)
+		return 0;
 
 	ts = local_clock();
 	rem_usec = do_div(ts, 1000000000) / 1000 / 1000;
