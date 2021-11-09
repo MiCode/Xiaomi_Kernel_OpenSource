@@ -15,10 +15,18 @@
 #define TOPOLOGY_PLATFORM	"mt6895"
 #define MML_DUAL_FRAME		(3840 * 2160)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
-#define MML_IR_DUAL_FRAME	(2560 * 1440)	/* racing use dual from 2k */
-#define MML_IR_MIN_FRAME	(1920 * 1080)
-#define MML_IR_MAX_FRAME	(2560 * 1440)	/* lcm size */
-#define MML_IR_MAX_WIDTH	3200
+/* TODO: mml ir dual not ready, *8 to foce disable, should remove later */
+#define MML_IR_DUAL_FRAME	(2560 * 1440 * 8) /* racing use dual from 2k */
+/* 2k size and pixel as upper bound */
+#define MML_IR_WIDTH_2K		(2560 + 30)
+#define MML_IR_HEIGHT_2K	(1440 + 30)
+#define MML_IR_2k		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
+/* fhd size and pixel as lower bound */
+#define MML_IR_WIDTH		(1920 - 30)
+#define MML_IR_HEIGHT		(1088 - 30)
+#define MML_IR_FHD		(MML_IR_WIDTH * MML_IR_HEIGHT)
+
+#define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
 
 int mml_force_rsz;
 module_param(mml_force_rsz, int, 0644);
@@ -51,6 +59,8 @@ enum topology_scenario {
 	PATH_MML_NOPQ_P1,
 	PATH_MML_PQ_P0,
 	PATH_MML_PQ_P1,
+	PATH_MML_PQ_DD0,
+	PATH_MML_PQ_DD1,
 	PATH_MML_PQ_P2,
 	PATH_MML_PQ_P3,
 	PATH_MML_2OUT_P0,
@@ -110,6 +120,32 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_DLO1_SOUT, MML_WROT1,},
 		{MML_WROT1,},
 	},
+	[PATH_MML_PQ_DD0] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_DLI0, MML_DLI0_SEL,},
+		{MML_DLI0_SEL, MML_HDR0,},
+		{MML_HDR0, MML_AAL0,},
+		{MML_AAL0, MML_RSZ0,},
+		{MML_RSZ0, MML_TDSHP0,},
+		{MML_TDSHP0, MML_COLOR0,},
+		{MML_COLOR0, MML_DLO0_SOUT,},
+		{MML_DLO0_SOUT, MML_DLO0,},
+		{MML_DLO0,},
+	},
+	[PATH_MML_PQ_DD1] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_DLI1, MML_DLI1_SEL,},
+		{MML_DLI1_SEL, MML_HDR1,},
+		{MML_HDR1, MML_AAL1,},
+		{MML_AAL1, MML_RSZ1,},
+		{MML_RSZ1, MML_TDSHP1,},
+		{MML_TDSHP1, MML_COLOR1,},
+		{MML_COLOR1, MML_DLO1_SOUT,},
+		{MML_DLO1_SOUT, MML_DLO1,},
+		{MML_DLO1,},
+	},
 	[PATH_MML_PQ_P2] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
@@ -167,6 +203,8 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_P0] = MML_CLT_PIPE0,
 	[PATH_MML_PQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_PQ_DD0] = MML_CLT_PIPE0,
+	[PATH_MML_PQ_DD1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_P2] = MML_CLT_PIPE0,
 	[PATH_MML_PQ_P3] = MML_CLT_PIPE1,
 	[PATH_MML_2OUT_P0] = MML_CLT_PIPE0,
@@ -190,6 +228,8 @@ static const u8 grp_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P1] = MUX_SOF_GRP2,
 	[PATH_MML_PQ_P0] = MUX_SOF_GRP1,
 	[PATH_MML_PQ_P1] = MUX_SOF_GRP2,
+	[PATH_MML_PQ_DD0] = MUX_SOF_GRP3,
+	[PATH_MML_PQ_DD1] = MUX_SOF_GRP4,
 	[PATH_MML_PQ_P2] = MUX_SOF_GRP1,
 	[PATH_MML_PQ_P3] = MUX_SOF_GRP2,
 	[PATH_MML_2OUT_P0] = MUX_SOF_GRP1,
@@ -363,11 +403,15 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 	path->tile_engine_cnt = tile_idx;
 
 	/* scan out engines */
-	out_eng_idx = 0;
-	for (i = 0; i < path->node_cnt && out_eng_idx < MML_MAX_OUTPUTS; i++) {
+	for (i = 0; i < path->node_cnt; i++) {
 		if (!engine_wrot(path->nodes[i].id))
 			continue;
-		path->out_engine_ids[out_eng_idx++] = path->nodes[i].id;
+		out_eng_idx = path->nodes[i].out_idx;
+		if (path->out_engine_ids[out_eng_idx])
+			mml_err("[topology]multiple out engines: was %hhu now %hhu on out idx:%hhu",
+				path->out_engine_ids[out_eng_idx],
+				path->nodes[i].id, out_eng_idx);
+		path->out_engine_ids[out_eng_idx] = path->nodes[i].id;
 	}
 
 	if (path->tile_engine_cnt == 2)
@@ -381,6 +425,11 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 
 	if (clt_cnt < MML_CLT_MAX) {
 		mml_err("[topology]%s not enough cmdq clients to all paths",
+			__func__);
+		return -ECHILD;
+	}
+	if (ARRAY_SIZE(cache->paths) < PATH_MML_MAX) {
+		mml_err("[topology]%s not enough path cache for all paths",
 			__func__);
 		return -ECHILD;
 	}
@@ -439,6 +488,11 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;
 		goto done;
+	} else if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+		/* direct-link in/out for addon case */
+		scene[0] = PATH_MML_PQ_DD0;
+		scene[1] = PATH_MML_PQ_DD1;
+		goto done;
 	}
 
 	en_rsz = tp_need_resize(&cfg->info);
@@ -446,7 +500,7 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		en_rsz = true;
 
 	if (!en_rsz && !cfg->info.dest[0].pq_config.en) {
-		/* dual pipe, rdma0 to wrot0 / rdma1 to wrot1 */
+		/* dual pipe, rdma to wrot */
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;
 	} else if (cfg->info.dest_cnt == 2) {
@@ -501,6 +555,13 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	else /* (mml_dual == MML_DUAL_NORMAL) */
 		cfg->dual = tp_need_dual(cfg);
 
+	if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+		cfg->dual = cfg->disp_dual;
+		cfg->framemode = true;
+		cfg->nocmd = true;
+	} else if (cfg->info.mode == MML_MODE_SRAM_READ) {
+		cfg->dual = false;
+	}
 	cfg->shadow = true;
 
 	tp_select_path(cache, cfg, path);
@@ -530,13 +591,73 @@ static s32 tp_select(struct mml_topology_cache *cache,
 
 static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
 {
+	struct mml_topology_cache *tp;
+	u32 pixel;
+	u32 freq;
+
+	if (unlikely(mml_path_mode))
+		return mml_path_mode;
+
+	if (unlikely(mml_racing)) {
+		if (mml_racing == 2)
+			goto decouple;
+	} else if (!mml_racing_enable(mml))
+		goto decouple;
+
+	/* get mid opp frequency */
+	tp = mml_topology_get_cache(mml);
+	if (!tp || !tp->opp_cnt) {
+		mml_err("not support racing due to opp not ready");
+		goto decouple;
+	}
+
+	/* TODO: remove after disp support calc time 6.75 * 1000 * height */
+	if (!info->act_time)
+		info->act_time = 6750 * info->dest[0].data.height;
+
+	freq = tp->opp_speeds[MML_IR_MAX_OPP];
+	pixel = max(info->src.width * info->src.height,
+		info->dest[0].data.width * info->dest[0].data.height);
+	if (div_u64(pixel, (u32)div_u64(freq, 1000000)) >= info->act_time)
+		goto decouple;
+
+	/* aal-dre(scltm) not support inline rot */
+	if (info->dest[0].pq_config.en && info->dest[0].pq_config.en_dre)
+		goto decouple;
+
+	/* racing only support 1 out */
+	if (info->dest_cnt > 1)
+		goto decouple;
+
+	/* only support FHD 1920x1088 with rotate 90/270 case for now */
+	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180)
+		goto decouple;
+	if (info->dest[0].crop.r.width > MML_IR_WIDTH_2K ||
+		info->dest[0].crop.r.height > MML_IR_HEIGHT_2K ||
+		pixel > MML_IR_2k)
+		goto decouple;
+	if (info->dest[0].crop.r.width < MML_IR_WIDTH ||
+		info->dest[0].crop.r.height < MML_IR_HEIGHT ||
+		pixel < MML_IR_FHD)
+		goto decouple;
+
+	return MML_MODE_RACING;
+
+decouple:
 	return MML_MODE_MML_DECOUPLE;
+}
+
+static struct cmdq_client *get_racing_clt(struct mml_topology_cache *cache, u32 pipe)
+{
+	/* use NO PQ path as inline rot path for this platform */
+	return cache->paths[PATH_MML_NOPQ_P0 + pipe].clt;
 }
 
 static const struct mml_topology_ops tp_ops_mt6895 = {
 	.query_mode = tp_query_mode,
 	.init_cache = tp_init_cache,
-	.select = tp_select
+	.select = tp_select,
+	.get_racing_clt = get_racing_clt,
 };
 
 static __init int mml_topology_ip_init(void)
