@@ -2530,7 +2530,7 @@ void mdrv_DPTx_I2S_Audio_Enable(struct mtk_dp *mtk_dp, bool bEnable)
 
 void mdrv_DPTx_I2S_Audio_Set_MDiv(struct mtk_dp *mtk_dp, u8 ucDiv)
 {
-	char bTable[7][5] = {"X2", "X4", "X8", "N/A", "/2", "/4", "/8"};
+	char bTable[7][5] = {"X2", "X4", "X8", "/2", "/4", "N/A", "/8"};
 
 	DPTXMSG("I2S Set Audio M Divider = %s\n", bTable[ucDiv-1]);
 	mhal_DPTx_Audio_M_Divider_Setting(mtk_dp, ucDiv);
@@ -2613,7 +2613,7 @@ void mdrv_DPTx_I2S_Audio_Config(struct mtk_dp *mtk_dp)
 		ucFs, ucWordlength);
 
 	mhal_DPTx_Audio_PG_EN(mtk_dp, ucChannel, ucFs, false);
-	mdrv_DPTx_I2S_Audio_Set_MDiv(mtk_dp, 5);
+	mdrv_DPTx_I2S_Audio_Set_MDiv(mtk_dp, 4);
 }
 
 void mdrv_DPTx_I2S_Audio_SDP_Channel_Setting(struct mtk_dp *mtk_dp,

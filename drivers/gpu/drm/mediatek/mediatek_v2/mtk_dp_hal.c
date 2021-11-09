@@ -831,6 +831,34 @@ void mhal_DPTx_Audio_Setting(struct mtk_dp *mtk_dp, BYTE Channel, BYTE bEnable)
 	}
 }
 
+void mhal_DPTx_audio_sample_arrange(struct mtk_dp *mtk_dp, BYTE bEnable)
+{
+	uint32_t value = 0;
+
+	// 0x3374 [12] = enable
+	// 0x3374 [11:0] = hblank * link_rate(MHZ) / pix_clk(MHZ) / 4 * 0.8
+	value = (mtk_dp->info.DPTX_OUTBL.Htt - mtk_dp->info.DPTX_OUTBL.Hde) *
+		mtk_dp->training_info.ubLinkRate * 27 * 200 /
+		mtk_dp->info.DPTX_OUTBL.PixRateKhz;
+
+	if (bEnable) {
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, BIT12, BIT12);
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, (uint16_t)value, BITMASK(11:0));
+	} else {
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, 0, BIT12);
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, 0, BITMASK(11:0));
+	}
+	DPTXMSG("Htt=%d, Hde=%d, ubLinkRate=%d, PixRateKhz=%d\n",
+		mtk_dp->info.DPTX_OUTBL.Htt, mtk_dp->info.DPTX_OUTBL.Hde,
+		mtk_dp->training_info.ubLinkRate, mtk_dp->info.DPTX_OUTBL.PixRateKhz);
+
+	DPTXMSG("Audio arrange patch enable = %d, value = 0x%x\n", bEnable, value);
+}
+
 void mhal_DPTx_Audio_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 	BYTE Fs, BYTE bEnable)
 {
@@ -944,6 +972,9 @@ void mhal_DPTx_Audio_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 
 	//enable audio reset
 	msWriteByteMask(mtk_dp, REG_33F4_DP_ENCODER1_P0, BIT(0), BIT(0));
+
+	// enable audio sample arrange
+	mhal_DPTx_audio_sample_arrange(mtk_dp, TRUE);
 }
 
 #if (DPTX_AutoTest_ENABLE == 0x1) && (DPTX_PHY_TEST_PATTERN_EN == 0x1)
