@@ -262,6 +262,9 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
 
+	/* call subdrv close function before pwr off */
+	subdrv_call(ctx, close);
+
 	if (ctx->subdrv->ops->power_off)
 		subdrv_call(ctx, power_off, NULL);
 

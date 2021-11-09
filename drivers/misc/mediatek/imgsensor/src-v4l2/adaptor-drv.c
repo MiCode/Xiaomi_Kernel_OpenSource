@@ -367,6 +367,8 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	mutex_lock(&ctx->mutex);
 
+	ctx->open_refcnt++;
+
 	/* Initialize try_fmt */
 	try_fmt->width = ctx->cur_mode->width;
 	try_fmt->height = ctx->cur_mode->height;
@@ -393,6 +395,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
+	int i;
 
 	mutex_lock(&ctx->mutex);
 
@@ -405,6 +408,13 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	adaptor_hw_power_off(ctx);
 #endif
 #endif
+
+	ctx->open_refcnt--;
+	if (ctx->open_refcnt <= 0) {
+		for (i = 0; ctx->power_refcnt; i++)
+			adaptor_hw_power_off(ctx);
+		ctx->open_refcnt = 0;
+	}
 
 	mutex_unlock(&ctx->mutex);
 
@@ -1163,6 +1173,7 @@ static int imgsensor_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	mutex_init(&ctx->mutex);
+	ctx->open_refcnt = 0;
 	ctx->power_refcnt = 0;
 
 	ctx->i2c_client = client;

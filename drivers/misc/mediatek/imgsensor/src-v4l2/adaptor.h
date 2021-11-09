@@ -128,6 +128,7 @@ struct adaptor_ctx {
 	unsigned int is_sensor_inited:1;
 	unsigned int is_sensor_scenario_inited:1;
 
+	int open_refcnt;
 	int power_refcnt;
 	/*debug var*/
 	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
