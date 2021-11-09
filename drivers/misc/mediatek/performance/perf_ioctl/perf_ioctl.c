@@ -424,8 +424,8 @@ static long eas_ioctl_impl(struct file *filp,
 		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;
 
-		bval = !!msgKM.enable_policy;
-		ret = core_ctl_enable_policy(bval);
+		val = msgKM.enable_policy;
+		ret = core_ctl_enable_policy(val);
 		break;
 #endif
 #if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)

@@ -46,7 +46,7 @@ extern int core_ctl_set_not_preferred(unsigned int not_preferred_cpus);
 extern int core_ctl_set_boost(bool boost);
 extern int core_ctl_set_up_thres(int cid, unsigned int val);
 extern int core_ctl_force_pause_cpu(int cpu, bool paused);
-extern int core_ctl_enable_policy(bool paused);
+extern int core_ctl_enable_policy(unsigned int policy);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)

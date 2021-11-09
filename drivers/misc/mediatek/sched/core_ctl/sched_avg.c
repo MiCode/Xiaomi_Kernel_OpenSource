@@ -268,6 +268,7 @@ void set_over_threshold(unsigned int index, unsigned int val)
 }
 EXPORT_SYMBOL(set_over_threshold);
 
+#define	mismatch_cpu	0
 enum over_thres_type is_task_over_thres(struct task_struct *p)
 {
 	struct over_thres_stats *cpu_over_thres;
@@ -282,7 +283,9 @@ enum over_thres_type is_task_over_thres(struct task_struct *p)
 	cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 
 	/* track task with max utilization */
-	if (util > cpu_over_thres->max_task_util) {
+	/* check 64-bit or not if mismatch 32bit platform */
+	if (cpumask_test_cpu(mismatch_cpu, p->cpus_ptr) &&
+	   (util > cpu_over_thres->max_task_util)) {
 		cpu_over_thres->max_task_util = util;
 		cpu_over_thres->max_task_pid = p->pid;
 	}
@@ -296,12 +299,15 @@ enum over_thres_type is_task_over_thres(struct task_struct *p)
 		return NO_OVER_THRES;
 }
 
+#define MAX_NR_DOWN_THRESHOLD	4
+#define NEED_SPREAD_THRE_PCT	60
 int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 				unsigned int *dn_avg,
 				unsigned int *up_avg,
 				unsigned int *sum_nr_over_dn_thres,
 				unsigned int *sum_nr_over_up_thres,
-				unsigned int *max_nr)
+				unsigned int *need_spread_cpus,
+				unsigned int policy)
 {
 	u64 curr_time = sched_clock();
 	s64 diff;
@@ -312,11 +318,11 @@ int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 	int cpu = 0;
 	int cluster_nr;
 	struct cpumask cls_cpus;
-	u64 tmp_max_nr = 0;
+	u64 tmp_need_spread_cpus = 0;
 
 	/* Need to make sure initialization done. */
 	if (!init_thres) {
-		*dn_avg = *up_avg = *max_nr = 0;
+		*dn_avg = *up_avg = *need_spread_cpus = 0;
 		*sum_nr_over_dn_thres = *sum_nr_over_up_thres = 0;
 		return -EPROTO;
 	}
@@ -332,7 +338,7 @@ int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 	diff = (s64)(curr_time -
 			cluster_over_thres_table[cluster_id].last_get_over_thres_time);
 	if (diff <= 0) {
-		*dn_avg = *up_avg = *max_nr = 0;
+		*dn_avg = *up_avg = *need_spread_cpus = 0;
 		*sum_nr_over_dn_thres = *sum_nr_over_up_thres = 0;
 		return -EPROTO;
 	}
@@ -355,10 +361,14 @@ int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 			break;
 		}
 
-		/* get max_nr */
-		tmp_max_nr = per_cpu(nr_max, cpu);
-		if (tmp_max_nr > *max_nr)
-			*max_nr = tmp_max_nr;
+		/* get need spread cpus */
+		/* Only consider cpu_util in conservative policy */
+		tmp_need_spread_cpus = per_cpu(nr_max, cpu);
+		if (tmp_need_spread_cpus > MAX_NR_DOWN_THRESHOLD)
+			if (policy != CONSERVATIVE_POLICY ||
+				sched_get_cpu_util_pct(cpu) > NEED_SPREAD_THRE_PCT)
+				*need_spread_cpus += 1;
+
 		/* reset max_nr value */
 		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
 
@@ -387,7 +397,7 @@ int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 	}
 
 	if (clk_faulty) {
-		*dn_avg = *up_avg = *max_nr = 0;
+		*dn_avg = *up_avg = *need_spread_cpus = 0;
 		*sum_nr_over_dn_thres = *sum_nr_over_up_thres = 0;
 		return -EPROTO;
 	}
@@ -578,7 +588,7 @@ void inc_nr_over_thres_running_by_se(void *data, struct sched_entity *se, int fl
 {
 	struct task_struct *p;
 
-	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
+	if (!(flags & SKIP_AGE_LOAD)) {
 		if (entity_is_task(se) && se->on_rq) {
 			p = task_of(se);
 			sched_update_nr_over_thres_prod(p, cpu_of(task_rq(p)), 1);
@@ -590,7 +600,7 @@ void dec_nr_over_thres_running_by_se(void *data, struct sched_entity *se, int fl
 {
 	struct task_struct *p;
 
-	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
+	if (!(flags & SKIP_AGE_LOAD)) {
 		if (entity_is_task(se) && se->on_rq) {
 			p = task_of(se);
 			sched_update_nr_over_thres_prod(p, cpu_of(task_rq(p)), -1);

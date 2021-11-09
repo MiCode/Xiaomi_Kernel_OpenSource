@@ -49,7 +49,7 @@ struct cluster_data {
 	bool enable;
 	int nr_up;
 	int nr_down;
-	int max_nr;
+	int need_spread_cpus;
 	unsigned int cluster_id;
 	unsigned int min_cpus;
 	unsigned int max_cpus;
@@ -122,8 +122,53 @@ static bool initialized;
 static unsigned int default_min_cpus[MAX_CLUSTERS] = {4, 2, 0};
 static bool debug_enable;
 module_param_named(debug_enable, debug_enable, bool, 0600);
-static bool enable_policy;
-module_param_named(policy_enable, enable_policy, bool, 0600);
+
+static unsigned int enable_policy;
+
+/*
+ *  core_ctl_enable_policy - enable policy of core control
+ *  @enable: true if set, false if unset.
+ */
+int core_ctl_enable_policy(unsigned int policy)
+{
+	unsigned int old_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&state_lock, flags);
+	if (policy != enable_policy) {
+		old_val = enable_policy;
+		enable_policy = policy;
+		pr_info("%s: Change policy from %d to %d successfully.",
+				TAG, old_val, policy);
+	}
+	spin_unlock_irqrestore(&state_lock, flags);
+	return 0;
+}
+EXPORT_SYMBOL(core_ctl_enable_policy);
+
+static int set_core_ctl_policy(const char *buf,
+			       const struct kernel_param *kp)
+{
+	int ret = 0;
+	unsigned int val = 0;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (val >= POLICY_CNT)
+		ret = -EINVAL;
+
+	if (!ret)
+		core_ctl_enable_policy(val);
+	return ret;
+}
+
+static struct kernel_param_ops set_core_ctl_policy_param_ops = {
+	.set = set_core_ctl_policy,
+	.get = param_get_uint,
+};
+
+param_check_uint(policy_enable, &enable_policy);
+module_param_cb(policy_enable, &set_core_ctl_policy_param_ops, &enable_policy, 0600);
+MODULE_PARM_DESC(policy_enable, "echo cpu pause policy if needed");
 
 static unsigned int apply_limits(const struct cluster_data *cluster,
 				 unsigned int need_cpus)
@@ -577,24 +622,6 @@ unlock:
 }
 EXPORT_SYMBOL(core_ctl_force_pause_cpu);
 
-/*
- *  core_ctl_enable_policy - enable policy of core control
- *  @enable: true if set, false if unset.
- */
-int core_ctl_enable_policy(bool enable)
-{
-	bool old_val;
-
-	if (enable != enable_policy) {
-		old_val = enable_policy;
-		enable_policy = enable;
-		pr_info("%s: Change policy from %d to %d successfully.",
-				TAG, old_val, enable);
-	}
-	return 0;
-}
-EXPORT_SYMBOL(core_ctl_enable_policy);
-
 /* ==================== sysctl node ======================== */
 
 static ssize_t store_min_cpus(struct cluster_data *state,
@@ -939,7 +966,7 @@ void get_nr_running_big_task(struct cluster_data *cluster)
 	unsigned int avg_up[MAX_CLUSTERS] = {0};
 	unsigned int nr_up[MAX_CLUSTERS] = {0};
 	unsigned int nr_down[MAX_CLUSTERS] = {0};
-	unsigned int max_nr[MAX_CLUSTERS] = {0};
+	unsigned int need_spread_cpus[MAX_CLUSTERS] = {0};
 	unsigned int i, delta;
 
 	for (i = 0; i < num_clusters; i++) {
@@ -948,8 +975,9 @@ void get_nr_running_big_task(struct cluster_data *cluster)
 					  &avg_up[i],
 					  &nr_down[i],
 					  &nr_up[i],
-					  &max_nr[i]);
-		cluster[i].max_nr = max_nr[i];
+					  &need_spread_cpus[i],
+					  enable_policy);
+		cluster[i].need_spread_cpus = need_spread_cpus[i];
 	}
 
 	for (i = 0; i < num_clusters; i++) {
@@ -989,8 +1017,9 @@ void get_nr_running_big_task(struct cluster_data *cluster)
 	for (i = 0; i < num_clusters; i++) {
 		nr_up[i] = cluster[i].nr_up;
 		nr_down[i] = cluster[i].nr_down;
+		need_spread_cpus[i] = cluster[i].need_spread_cpus;
 	}
-	trace_core_ctl_update_nr_over_thres(nr_up, nr_down, max_nr);
+	trace_core_ctl_update_nr_over_thres(nr_up, nr_down, need_spread_cpus);
 }
 
 /*
@@ -1040,6 +1069,7 @@ static inline void core_ctl_main_algo(void)
 	unsigned int big_cpu_ts = 0;
 	struct cluster_data *cluster;
 	unsigned int orig_need_cpu[MAX_CLUSTERS] = {0};
+	unsigned int total_need_spread_cpu = 0;
 
 	/* get TLP of over threshold tasks */
 	get_nr_running_big_task(cluster_state);
@@ -1048,12 +1078,15 @@ static inline void core_ctl_main_algo(void)
 	for_each_cluster(cluster, index) {
 		int temp_need_cpus = 0;
 
+		/* for high TLP with tiny tasks */
+		if (cluster->need_spread_cpus)
+			total_need_spread_cpu +=
+				(enable_policy == CONSERVATIVE_POLICY) ?
+				cluster->need_spread_cpus : 1;
+
 		if (index == 0) {
 			cluster->nr_assist = cluster->nr_up;
 			cluster->new_need_cpus = cluster->num_cpus;
-			/* for high TLP with tiny tasks */
-			if (cluster->max_nr > MAX_NR_DOWN_THRESHOLD)
-				cluster->nr_assist += 1;
 			continue;
 		}
 
@@ -1061,16 +1094,27 @@ static inline void core_ctl_main_algo(void)
 		temp_need_cpus += cluster->nr_down;
 		temp_need_cpus += get_prev_cluster_nr_assist(index);
 
-		/* for high TLP with lot of tiny tasks */
-		if (cluster->max_nr > MAX_NR_DOWN_THRESHOLD)
-			temp_need_cpus += 1;
-
 		cluster->new_need_cpus = temp_need_cpus;
 
 		/* nr_assist(i) = max(0, need_cpus(i) - max_cpus(i)) */
 		cluster->nr_assist =
 			(temp_need_cpus > cluster->max_cpus ?
 			 (temp_need_cpus - cluster->max_cpus) : 0);
+
+		/* spread high TLP to BL/B CPU */
+		if (total_need_spread_cpu) {
+			int extra_cpus =
+				cluster->max_cpus - cluster->new_need_cpus;
+
+			if (extra_cpus > 0) {
+				cluster->new_need_cpus +=
+					(total_need_spread_cpu > extra_cpus) ?
+					extra_cpus : total_need_spread_cpu;
+				total_need_spread_cpu =
+					(total_need_spread_cpu > extra_cpus) ?
+					(total_need_spread_cpu - extra_cpus) : 0;
+			}
+		}
 	}
 
 	/*
@@ -1560,7 +1604,7 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->active_cpus = get_active_cpu_count(cluster);
 
 	cluster->core_ctl_thread = kthread_run(try_core_ctl, (void *) cluster,
-			"core_ctl_v2/%d", first_cpu);
+			"core_ctl_v2.1/%d", first_cpu);
 	if (IS_ERR(cluster->core_ctl_thread))
 		return PTR_ERR(cluster->core_ctl_thread);
 

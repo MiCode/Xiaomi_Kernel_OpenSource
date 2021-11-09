@@ -114,26 +114,27 @@ TRACE_EVENT(core_ctl_update_nr_over_thres,
 	TP_PROTO(
 		unsigned int *nr_up,
 		unsigned int *nr_down,
-		unsigned int *max_nr),
+		unsigned int *need_spread_cpus),
 
-	TP_ARGS(nr_up, nr_down, max_nr),
+	TP_ARGS(nr_up, nr_down, need_spread_cpus),
 
 	TP_STRUCT__entry(
 		__array(unsigned int, nr_up, 3)
 		__array(unsigned int, nr_down, 3)
-		__array(unsigned int, max_nr, 3)
+		__array(unsigned int, need_spread_cpus, 3)
 	),
 
 	TP_fast_assign(
 		memcpy(__entry->nr_up, nr_up, sizeof(unsigned int) * 3);
 		memcpy(__entry->nr_down, nr_down, sizeof(unsigned int) * 3);
-		memcpy(__entry->max_nr, max_nr, sizeof(unsigned int) * 3);
+		memcpy(__entry->need_spread_cpus, need_spread_cpus, sizeof(unsigned int) * 3);
 	),
 
-	TP_printk("nr_up=%u|%u|%u nr_down=%u|%u|%u max_nr=%u|%u|%u",
+	TP_printk("nr_up=%u|%u|%u nr_down=%u|%u|%u need_spread_cpus=%u|%u|%u",
 		__entry->nr_up[0], __entry->nr_up[1], __entry->nr_up[2],
 		__entry->nr_down[0], __entry->nr_down[1], __entry->nr_down[2],
-		__entry->max_nr[0], __entry->max_nr[1], __entry->max_nr[2])
+		__entry->need_spread_cpus[0], __entry->need_spread_cpus[1],
+		__entry->need_spread_cpus[2])
 );
 
 #endif /*_CORE_CTL_TRACE_H */
