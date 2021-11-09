@@ -3263,6 +3263,8 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 				req_state = &s_data->state;
 				if (state_entry == req_state) {
 					list_del(&state_entry->state_element);
+					req_tmp = mtk_cam_ctrl_state_get_req(state_entry);
+					media_request_put(&req_tmp->req);
 					state_found = 1;
 				}
 			}
