@@ -214,7 +214,7 @@ void show_irq_count_info(unsigned int output)
 		__show_irq_count_info(output);
 }
 
-static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
+enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 {
 	struct irq_count_stat *irq_cnt = this_cpu_ptr(irq_count_data);
 	int cpu = smp_processor_id();

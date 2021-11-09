@@ -373,6 +373,10 @@ static void probe_irq_handler_exit(void *ignore,
 			/* skip arch_timer aee, let hrtimer handle it. */
 			irq_aee_state[irq] = 1;
 
+		if (!strcmp(irq_to_name(irq), "ufshcd") && raw_smp_processor_id())
+			/* skip ufshcd aee if CPU!=0 */
+			out &= ~TO_AEE;
+
 		if ((out & TO_AEE) && tracer->aee_limit &&
 				!irq_aee_state[irq]) {
 			if (!irq_mon_aee_debounce_check(true))
@@ -625,6 +629,8 @@ static void probe_hrtimer_expire_entry(void *ignore,
 #endif
 }
 
+/* ignore irq_count_tracer_fn hrtimer long */
+extern enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer);
 static void probe_hrtimer_expire_exit(void *ignore, struct hrtimer *hrtimer)
 {
 	struct trace_stat *trace_stat = raw_cpu_ptr(hrtimer_trace_stat);
@@ -655,6 +661,10 @@ static void probe_hrtimer_expire_exit(void *ignore, struct hrtimer *hrtimer)
 			raw_smp_processor_id());
 
 		irq_mon_msg(out, msg);
+
+		/* ignore irq_count_tracer_fn hrtimer long */
+		if ((void *)hrtimer->function == (void *)irq_count_tracer_hrtimer_fn)
+			out &= ~TO_AEE;
 
 		if ((out & TO_AEE) && tracer->aee_limit && !ever_dump) {
 			if (!irq_mon_aee_debounce_check(true))
