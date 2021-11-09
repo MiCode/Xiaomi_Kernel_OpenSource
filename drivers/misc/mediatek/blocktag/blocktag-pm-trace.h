@@ -9,7 +9,7 @@
 #include <linux/types.h>
 #include "mtk_blocktag.h"
 
-#define BLK_PM_MAX_LOG (10000)
+#define BLK_PM_MAX_LOG (4096)
 
 struct blk_pm_log_s {
 	uint64_t ns_time;

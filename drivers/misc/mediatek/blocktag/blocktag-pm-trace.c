@@ -322,12 +322,15 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 	int idx;
 
 	spin_lock(&pm_traces.lock);
-	idx = pm_traces.head;
+	idx = pm_traces.tail;
+
+	SPREAD_PRINTF(buff, size, seq,
+		"time,pid,func,rpm_status,pm_only,freeze_depth,dying,ret/err\n");
 	while (idx >= 0) {
 		tr = &pm_traces.trace[idx];
 		if (tr->event_type == PRE_RT_SUSPEND_END) {
 			SPREAD_PRINTF(buff, size, seq,
-				"btag-pm: %lld, %d, %s, %s, pm_only=%d, freeze_depth=%d, dying=%d, ret=%d\n",
+				"%lld,%d,%s,%s,%d,%d,%d,%d\n",
 				tr->ns_time,
 				tr->pid,
 				event_name(tr->event_type),
@@ -341,7 +344,7 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 			   (tr->event_type == POST_RT_RESUME_START) ||
 			   (tr->event_type == POST_RT_RESUME_END)) {
 			SPREAD_PRINTF(buff, size, seq,
-				"btag-pm: %lld, %d, %s, %s, pm_only=%d, freeze_depth=%d, dying=%d, err=%d\n",
+				"%lld,%d,%s,%s,%d,%d,%d,%d\n",
 				tr->ns_time,
 				tr->pid,
 				event_name(tr->event_type),
@@ -352,7 +355,7 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 				tr->ret);
 		} else {
 			SPREAD_PRINTF(buff, size, seq,
-				"btag-pm: %lld, %d, %s, %s, pm_only=%d, freeze_depth=%d, dying=%d\n",
+				"%lld,%d,%s,%s,%d,%d,%d\n",
 				tr->ns_time,
 				tr->pid,
 				event_name(tr->event_type),
@@ -361,9 +364,9 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 				tr->mq_freeze_depth,
 				tr->dying);
 		}
-		if (idx == pm_traces.tail)
+		if (idx == pm_traces.head)
 			break;
-		idx = (idx + 1) % BLK_PM_MAX_LOG;
+		idx = idx ? idx - 1 : BLK_PM_MAX_LOG - 1;
 	}
 	spin_unlock(&pm_traces.lock);
 }
