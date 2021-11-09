@@ -1841,13 +1841,13 @@ static void mdp_parse_opp(struct platform_device *pdev, const char *ref,
 
 		/* available freq is stored in speeds[index] */
 		of_property_read_u64(child_np, "opp-hz", &freq);
-		speeds[index] = freq;
+		speeds[index] = freq/1000000;
 
 		/* available voltage is stored in volts[i]*/
 		of_property_read_u32(child_np, "opp-microvolt", &volt);
 		volts[index] = volt;
 
-		CMDQ_LOG("%s %u: %llu %d\n", ref, index, freq, volt);
+		CMDQ_LOG("%s %u: %llu(Mhz) %d\n", ref, index, speeds[index], volts[index]);
 
 		index++;
 	} while (index < opp_num);
