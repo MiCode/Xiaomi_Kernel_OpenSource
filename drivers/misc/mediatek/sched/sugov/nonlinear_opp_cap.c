@@ -263,12 +263,11 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 {
 	int i, j;
 	int cpu;
-	int first_freq, last_freq;
-	unsigned long cur_cap;
 	struct pd_capacity_info *info;
 	struct em_perf_domain *pd;
 	unsigned long temp_util;
 	unsigned long scale;
+	int start = 0, end = 0, mid = 0;
 
 	temp_util = util;
 
@@ -282,24 +281,18 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 
 		util = min(util, info->caps[0]);
 		cpu = cpumask_first(&info->cpus);
-		for (j = info->nr_caps - 1; j >= 0; j--) {
-			cur_cap = info->caps[j];
-			if (cur_cap >= util) {
-				int opp;
-
-				pd = em_cpu_get(cpu);
-				first_freq = pd->table[0].frequency;
-				last_freq = pd->table[pd->nr_perf_states - 1].frequency;
-
-				if (first_freq > last_freq)
-					opp = j;
-				else
-					opp = pd->nr_perf_states - j - 1;
-
-				*next_freq = pd->table[opp].frequency;
-				break;
+		pd = em_cpu_get(cpu);
+		end = info->nr_caps - 1;
+		while (start <= end) {
+			mid = (start + end) / 2;
+			if (info->caps[mid] >= util) {
+				start = mid + 1;
+				j = mid;
+			} else {
+				end = mid - 1;
 			}
 		}
+		*next_freq = pd->table[pd->nr_perf_states - j - 1].frequency;
 		break;
 	}
 
