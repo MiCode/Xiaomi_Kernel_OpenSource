@@ -35,6 +35,10 @@
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
 #include "ufs-mediatek-trace.h"
@@ -2137,6 +2141,12 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 	 */
 	if (evt == UFS_EVT_HOST_RESET)
 		hba->wlun_dev_clr_ua = false;
+
+	if (evt == UFS_EVT_ABORT) {
+		aee_kernel_warning_api(__FILE__,
+			__LINE__, DB_OPT_FS_IO_LOG,
+			"ufshcd_abort", "timeout at tag %d", val);
+	}
 }
 
 static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
