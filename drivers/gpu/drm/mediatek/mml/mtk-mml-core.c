@@ -587,11 +587,14 @@ static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rh
 
 static void mml_core_calc_tput_racing(struct mml_task *task, u32 pixel)
 {
+	u32 act_time_us = div_u64(task->config->info.act_time, 1000);
+
+	if (!act_time_us)
+		act_time_us = 1;
 	/* in inline rotate case mml must complete 1 frame in disp
 	 * giving act time, thus calc tput by act_time directly.
 	 */
-	task->throughput = div_u64(pixel,
-		div_u64(task->config->info.act_time, 1000000));
+	task->throughput = div_u64(pixel, act_time_us);
 }
 
 static void mml_core_calc_tput(struct mml_task *task, u32 pixel,

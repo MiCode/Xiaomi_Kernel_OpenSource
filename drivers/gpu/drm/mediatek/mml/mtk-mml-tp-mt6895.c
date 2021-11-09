@@ -526,6 +526,9 @@ static inline bool tp_need_dual(struct mml_frame_config *cfg)
 	const struct mml_frame_data *src = &cfg->info.src;
 	u32 min_crop_w, i;
 
+	if (cfg->info.mode == MML_MODE_RACING)
+		return true;
+
 	if (src->width * src->height < MML_DUAL_FRAME)
 		return false;
 
@@ -613,12 +616,16 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 
 	/* TODO: remove after disp support calc time 6.75 * 1000 * height */
 	if (!info->act_time)
-		info->act_time = 6750 * info->dest[0].data.height;
+		info->act_time = 3375 * info->dest[0].data.height;
 
 	freq = tp->opp_speeds[MML_IR_MAX_OPP];
+	if (!freq) {
+		mml_err("no opp table support");
+		goto decouple;
+	}
 	pixel = max(info->src.width * info->src.height,
 		info->dest[0].data.width * info->dest[0].data.height);
-	if (div_u64(pixel, (u32)div_u64(freq, 1000000)) >= info->act_time)
+	if (div_u64(pixel, freq) >= info->act_time)
 		goto decouple;
 
 	/* aal-dre(scltm) not support inline rot */

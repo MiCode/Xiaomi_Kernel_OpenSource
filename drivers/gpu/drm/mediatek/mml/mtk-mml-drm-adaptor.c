@@ -677,7 +677,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	 * give default total time for mml frame in racing case
 	 */
 	if (submit->info.mode == MML_MODE_RACING && !submit->info.act_time)
-		submit->info.act_time = 6750 * submit->info.dest[0].data.height;
+		submit->info.act_time = 3375 * submit->info.dest[0].data.height;
 
 	/* always do frame info adjust for now
 	 * but this flow should call from hwc/disp in future version
@@ -770,10 +770,11 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	} else {
 		task->job.fence = -1;
 	}
-	mml_log("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu%s",
+	mml_log("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu%s act_t %u",
 		task->job.jobid, task->job.fence, task, task->fence, cfg,
 		cfg->info.mode,
-		(cfg->info.mode == MML_MODE_RACING && cfg->disp_dual) ? " disp dual" : "");
+		(cfg->info.mode == MML_MODE_RACING && cfg->disp_dual) ? " disp dual" : "",
+		submit->info.act_time);
 
 	/* copy job content back, must do before call submit */
 	if (submit->job)
