@@ -10,7 +10,6 @@
 #define _MTK_IMGSYS_WPE_H_
 
 #include "mtk_imgsys-dev.h"
-#include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-engine.h"
 
 void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);

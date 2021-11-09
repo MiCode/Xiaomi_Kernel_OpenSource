@@ -231,10 +231,7 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 			continue;
 		}
 	}
-	#if IMGSYS_QUICK_ON_OFF
-	#else
 	imgsys_wpe_set_hw_initial_value(imgsys_dev);
-	#endif
 
 #ifdef WPE_TF_DUMP_71_1
 	//wpe_eis

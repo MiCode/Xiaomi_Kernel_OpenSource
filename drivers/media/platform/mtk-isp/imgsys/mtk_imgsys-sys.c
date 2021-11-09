@@ -1733,7 +1733,7 @@ static int mtk_imgsys_hw_flush_pipe_jobs(struct mtk_imgsys_pipe *pipe)
 
 static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 {
-	int ret, i;
+	int ret;
 #ifndef USE_KERNEL_ION_BUFFER
 	struct buf_va_info_t *buf;
 	struct dma_buf *dbuf;
@@ -1748,18 +1748,10 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		dev_info(imgsys_dev->dev,
 			"%s: [ERROR] imgsys user count is not zero(%d)\n",
 			__func__, user_cnt);
-	#if IMGSYS_QUICK_ON_OFF
-	pm_runtime_get_sync(imgsys_dev->dev);
-	/*set default value for hw module*/
-	for (i = 0; i < (imgsys_dev->num_mods); i++)
-		imgsys_dev->modules[i].init(imgsys_dev);
-	pm_runtime_put_sync(imgsys_dev->dev);
-	#else
 	#if DVFS_QOS_READY
 	mtk_imgsys_power_ctrl(imgsys_dev, true);
 	#else
 	pm_runtime_get_sync(imgsys_dev->dev);
-	#endif
 	#endif
 
 #if MTK_CM4_SUPPORT
@@ -1853,7 +1845,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 
 static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 {
-	int ret, i;
+	int ret;
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
 
@@ -1899,19 +1891,10 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 
 	gce_work_pool_uninit(imgsys_dev);
 
-	#if IMGSYS_QUICK_ON_OFF
-	/*set default value for hw module*/
-	for (i = 0; i < (imgsys_dev->num_mods); i++) {
-		if (imgsys_dev->modules[i].uninit)
-			imgsys_dev->modules[i].uninit(imgsys_dev);
-	}
-
-	#else
 	#if DVFS_QOS_READY
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
 	#else
 	pm_runtime_put_sync(imgsys_dev->dev);
-	#endif
 	#endif
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);

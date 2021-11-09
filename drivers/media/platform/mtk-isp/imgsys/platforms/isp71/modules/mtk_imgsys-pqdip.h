@@ -15,7 +15,6 @@
 
 // mtk imgsys local header file
 #include <mtk_imgsys-dev.h>
-#include <mtk_imgsys-cmdq.h>
 
 // Local header file
 #include "mtk_imgsys-engine.h"

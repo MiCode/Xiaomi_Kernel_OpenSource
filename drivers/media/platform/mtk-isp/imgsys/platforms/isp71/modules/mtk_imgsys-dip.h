@@ -10,7 +10,6 @@
 #define _MTK_DIP_DIP_H_
 
 #include "mtk_imgsys-dev.h"
-#include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-engine.h"
 /* DIP */
 #define TOP_CTL_OFFSET	0x0000

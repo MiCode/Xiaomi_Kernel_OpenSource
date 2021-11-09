@@ -5,8 +5,6 @@
  * Author: Daniel Huang <daniel.huang@mediatek.com>
  *
  */
-#ifndef _MTK_IMGSYS_CMDQ_H_
-#define _MTK_IMGSYS_CMDQ_H_
 
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -18,7 +16,6 @@
 #define DVFS_QOS_READY         (1)
 
 #define MAX_FRAME_IN_TASK		64
-#define IMGSYS_QUICK_ON_OFF    (1)
 
 struct task_timestamp {
 	dma_addr_t dma_pa;
@@ -178,4 +175,3 @@ u32 imgsys_wpe_bwlog_enable(void);
 bool imgsys_cmdq_ts_dbg_enable(void);
 bool imgsys_dvfs_dbg_enable(void);
 
-#endif /* _MTK_IMGSYS_CMDQ_H_ */

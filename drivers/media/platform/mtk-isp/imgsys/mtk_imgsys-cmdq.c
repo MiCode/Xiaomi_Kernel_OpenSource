@@ -126,13 +126,6 @@ void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev)
 void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 idx = 0;
-	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
-
-	if (IS_ERR_OR_NULL(dvfs_info->reg))
-		dev_dbg(dvfs_info->dev,
-			"%s: [ERROR] reg is err or null\n", __func__);
-	else
-		regulator_enable(dvfs_info->reg);
 
 	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
 	is_stream_off = 0;
@@ -150,7 +143,6 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 idx = 0;
-	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 
 	dev_info(imgsys_dev->dev,
 		"%s: cmdq stream off (%d) idx(%d)\n", __func__, is_stream_off, idx);
@@ -174,14 +166,6 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
-
-	if (IS_ERR_OR_NULL(dvfs_info->reg)
-			|| !regulator_is_enabled(dvfs_info->reg))
-		dev_dbg(dvfs_info->dev,
-			"%s: [ERROR] reg is null or disable\n", __func__);
-	else
-		regulator_disable(dvfs_info->reg);
-
 }
 
 static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
@@ -1768,11 +1752,7 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	u32 user_cnt = 0;
-	#if IMGSYS_QUICK_ON_OFF
-	int idx = 0;
-	#else
 	int i;
-	#endif
 
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
@@ -1783,18 +1763,17 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
+			if (IS_ERR_OR_NULL(dvfs_info->reg))
+				dev_dbg(dvfs_info->dev,
+					"%s: [ERROR] reg is err or null\n", __func__);
+			else
+				regulator_enable(dvfs_info->reg);
 			pm_runtime_get_sync(imgsys_dev->dev);
 
-			#if IMGSYS_QUICK_ON_OFF
-			/*set default value for hw module*/
-			for (idx = 0; idx < (imgsys_dev->num_mods); idx++)
-				if (imgsys_dev->modules[idx].set)
-					imgsys_dev->modules[idx].set(imgsys_dev);
-			#else
 			/*set default value for hw module*/
 			for (i = 0; i < (imgsys_dev->num_mods); i++)
 				imgsys_dev->modules[i].init(imgsys_dev);
-			#endif
+
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
 	} else {
@@ -1806,16 +1785,20 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
-			#if !IMGSYS_QUICK_ON_OFF
 			/*set default value for hw module*/
 			for (i = 0; i < (imgsys_dev->num_mods); i++) {
 				if (imgsys_dev->modules[i].uninit)
 					imgsys_dev->modules[i].uninit(imgsys_dev);
 			}
-			#endif
-			pm_runtime_put_sync(imgsys_dev->dev);
-			//pm_runtime_mark_last_busy(imgsys_dev->dev);
-			//pm_runtime_put_autosuspend(imgsys_dev->dev);
+
+			/* pm_runtime_put_sync(imgsys_dev->dev);*/
+			pm_runtime_mark_last_busy(imgsys_dev->dev);
+			pm_runtime_put_autosuspend(imgsys_dev->dev);
+			if (IS_ERR_OR_NULL(dvfs_info->reg))
+				dev_dbg(dvfs_info->dev,
+					"%s: [ERROR] reg is err or null\n", __func__);
+			else
+				regulator_disable(dvfs_info->reg);
 
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
