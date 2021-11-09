@@ -1646,7 +1646,7 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		int g_head = disp_info->gles_head[di];
 		int top = -1;
 
-		if (disp_info->layer_num[di] <= 0)
+		if (disp_info->layer_num[di] <= 1)
 			continue;
 		if (g_head == -1)
 			continue;
