@@ -8703,6 +8703,20 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_CAM_MAIN>;
 		operating-points-v2 = <&opp_table_cam>;
 		dvfs-vmm-supply = <&vmm_proxy_label>;
+
+		mux_name = "cam";
+		clk_src = "TOP_MAINPLL_D4_D2",
+				"TOP_UNIVPLL_D6", "TOP_MMPLL_D6", "TOP_MAINPLL_D4";
+		clocks = <&topckgen_clk CLK_TOP_CAM_SEL>,	        /* 0 */
+			 <&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,	        /* 1 */
+			 <&topckgen_clk CLK_TOP_UNIVPLL_D6>,	        /* 2 */
+			 <&topckgen_clk CLK_TOP_MMPLL_D6>,	        /* 3 */
+			 <&topckgen_clk CLK_TOP_MAINPLL_D4>;	        /* 4 */
+		clock-names = "cam",	                                /* 0 */
+				"TOP_MAINPLL_D4_D2",	                /* 1 */
+				"TOP_UNIVPLL_D6",	                /* 2 */
+				"TOP_MMPLL_D6",	                        /* 3 */
+				"TOP_MAINPLL_D4";	                /* 4 */
 	};
 
 	cam_raw_a@1a030000 {
