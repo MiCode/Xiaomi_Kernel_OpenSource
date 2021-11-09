@@ -158,6 +158,10 @@
 #define MT6833_INFRA_DISP_DDR_CTL  0x2C
 #define MT6833_INFRA_FLD_DDR_MASK  REG_FLD_MSB_LSB(7, 4)
 
+#define MMSYS_CG_CON2              0x1A0
+#define MMSYS_CG_CLR2              0x1A8
+#define MT6895_CG_CLR2_FLD_URGENT_CLK             REG_FLD_MSB_LSB(11, 11)
+
 #define SMI_LARB_NON_SEC_CON 0x0380
 #define MMSYS_DUMMY0 0x0400
 
@@ -1502,6 +1506,7 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	struct mtk_drm_private *priv = drm->dev_private;
 	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
 	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	unsigned int clk_urgent_val = 0, clk_urgent_mask = 0;
 	bool en = *((bool *)data);
 
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
@@ -1559,12 +1564,11 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	} else
 		return;
 
+	SET_VAL_MASK(clk_urgent_val, clk_urgent_mask, 1, MT6895_CG_CLR2_FLD_URGENT_CLK);
 	if (handle == NULL) {
 		unsigned int v;
 
-		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
-			& (~sodi_req_mask));
-		v += (sodi_req_val & sodi_req_mask);
+		v = 0xF500;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
 		writel_relaxed(0x7, priv->config_regs + MMSYS_DUMMY0);
 		if (priv->side_config_regs) {
@@ -1572,26 +1576,33 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			writel_relaxed(0x7, priv->side_config_regs + MMSYS_DUMMY0);
 		}
 
-		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
-			& (~emi_req_mask));
-		v += (emi_req_val & emi_req_mask);
+		v = 0xd8;
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+
+		v = clk_urgent_val & clk_urgent_mask;
+		writel_relaxed(v, priv->config_regs +  MMSYS_CG_CLR2);
+		if (priv->side_config_regs)
+			writel_relaxed(v, priv->side_config_regs +  MMSYS_CG_CLR2);
 	} else {
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+			MMSYS_SODI_REQ_MASK, 0xf500, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_DUMMY0, 0x7, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+			MMSYS_EMI_REQ_CTL, 0xd8, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_CG_CLR2, clk_urgent_val, clk_urgent_mask);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_DUMMY0, 0x7, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+				MMSYS_EMI_REQ_CTL, 0xd8, ~0);
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_CG_CLR2, clk_urgent_val, clk_urgent_mask);
 		}
 	}
 }
