@@ -343,7 +343,7 @@ static ssize_t monitor_hang_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *f_pos)
 {
 
-	return 0;
+	return count;
 }
 
 static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
