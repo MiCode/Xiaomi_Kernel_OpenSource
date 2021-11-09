@@ -4865,6 +4865,7 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 	struct DSI_RX_DATA_REG read_data3 = {0, 0, 0, 0};
 	unsigned char packet_type;
 	unsigned int recv_data_cnt = 0;
+	unsigned int reg_val;
 
 	DDPMSG("%s +\n", __func__);
 
@@ -4996,22 +4997,22 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 	}
 
 	/* Copy slot data to data array */
+	reg_val = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+			DISP_SLOT_READ_DDIC_BASE + 0 * 0x4));
 	memcpy((void *)&read_data0,
-		mtk_get_gce_backup_slot_va(mtk_crtc,
-			DISP_SLOT_READ_DDIC_BASE + 0 * 0x4),
-			sizeof(unsigned int));
+		&reg_val, sizeof(unsigned int));
+	reg_val = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+			DISP_SLOT_READ_DDIC_BASE + 1 * 0x4));
 	memcpy((void *)&read_data1,
-		mtk_get_gce_backup_slot_va(mtk_crtc,
-			DISP_SLOT_READ_DDIC_BASE + 1 * 0x4),
-			sizeof(unsigned int));
+		&reg_val, sizeof(unsigned int));
+	reg_val = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+			DISP_SLOT_READ_DDIC_BASE + 2 * 0x4));
 	memcpy((void *)&read_data2,
-		mtk_get_gce_backup_slot_va(mtk_crtc,
-			DISP_SLOT_READ_DDIC_BASE + 2 * 0x4),
-			sizeof(unsigned int));
+		&reg_val, sizeof(unsigned int));
+	reg_val = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+			DISP_SLOT_READ_DDIC_BASE + 3 * 0x4));
 	memcpy((void *)&read_data3,
-		mtk_get_gce_backup_slot_va(mtk_crtc,
-			DISP_SLOT_READ_DDIC_BASE + 3 * 0x4),
-			sizeof(unsigned int));
+		&reg_val, sizeof(unsigned int));
 
 	DDPINFO("%s: read_data0 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
 		__func__, read_data0.byte0, read_data0.byte1
