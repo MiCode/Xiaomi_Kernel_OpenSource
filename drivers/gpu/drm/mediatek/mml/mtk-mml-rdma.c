@@ -468,7 +468,6 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		MML_FMT_BLOCK(src->format) ? 4 : 0;
 	data->rdma_data.blk_shift_h =
 		MML_FMT_BLOCK(src->format) ? 5 : 0;
-	data->rdma_data.alpharot = cfg->alpharot;
 	data->rdma_data.max_width = rdma->data->tile_width;
 
 	/* RDMA support crop capability */
@@ -506,15 +505,8 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 		if (dest->crop.r.width != src->width ||
 		    dest->crop.r.height != src->height) {
-			if (cfg->alpharot) {
 				func->full_size_x_out = in_crop_w;
 				func->full_size_y_out = in_crop_h;
-			} else {
-				func->full_size_x_out = in_crop_w +
-					dest->crop.r.left;
-				func->full_size_y_out = in_crop_h +
-					dest->crop.r.top;
-			}
 		}
 	} else {
 		data->rdma_data.crop.left = 0;

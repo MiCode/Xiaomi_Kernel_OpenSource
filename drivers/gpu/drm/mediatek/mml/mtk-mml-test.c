@@ -108,6 +108,14 @@ int mml_test_pq;
 EXPORT_SYMBOL(mml_test_pq);
 module_param(mml_test_pq, int, 0644);
 
+int mml_test_in_fmt = MML_FMT_RGB888;
+EXPORT_SYMBOL(mml_test_in_fmt);
+module_param(mml_test_in_fmt, int, 0644);
+
+int mml_test_out_fmt = MML_FMT_RGB888;
+EXPORT_SYMBOL(mml_test_out_fmt);
+module_param(mml_test_out_fmt, int, 0644);
+
 struct mml_test {
 	struct platform_device *pdev;
 	struct device *dev;
@@ -238,6 +246,8 @@ static void case_general_submit(struct mml_test *test,
 		pq_param.enable = 1;
 		pq_param.scenario = MML_PQ_MEDIA_VIDEO;
 		task.pq_param[0] = &pq_param;
+		task.info.dest[0].pq_config.en = 1;
+		task.info.dest[0].pq_config.en_dre = 1;
 	}
 
 	if (setup)
@@ -1011,10 +1021,10 @@ static void case_config_rgb_down2(void)
  */
 static void case_config_crop_manual(void)
 {
-	the_case.cfg_src_format = MML_FMT_BLK;
+	the_case.cfg_src_format = mml_test_in_fmt;
 	the_case.cfg_src_w = mml_test_w;
 	the_case.cfg_src_h = mml_test_h;
-	the_case.cfg_dest_format = MML_FMT_YUYV;
+	the_case.cfg_dest_format = mml_test_out_fmt;
 	the_case.cfg_dest_w = mml_test_out_w;
 	the_case.cfg_dest_h = mml_test_out_h;
 }
@@ -1025,6 +1035,7 @@ static void setup_crop_manual(struct mml_submit *task, struct mml_test_case *cur
 	task->info.dest[0].crop.r.top = mml_test_crop_top;
 	task->info.dest[0].crop.r.width = mml_test_crop_width;
 	task->info.dest[0].crop.r.height = mml_test_crop_height;
+	task->info.dest[0].rotate = mml_test_rot;
 
 	/* check dest 0 with 2 plane size */
 	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=

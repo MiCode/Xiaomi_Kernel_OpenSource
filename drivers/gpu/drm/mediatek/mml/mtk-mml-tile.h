@@ -18,7 +18,6 @@ struct rdma_tile_data {
 	u32 blk_shift_w;
 	u32 blk_shift_h;
 	struct mml_rect crop;
-	bool alpharot;
 	u32 max_width;
 };
 

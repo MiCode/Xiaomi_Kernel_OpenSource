@@ -245,12 +245,11 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	mml_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
+	data->rsz_data.crop = dest->crop;
 	if (!rsz_frm->relay_mode) {
 		data->rsz_data.use_121filter = rsz_frm->use121filter;
-		data->rsz_data.crop = dest->crop;
 		prepare_tile_data(data, task, ccfg);
 	}
-
 	data->rsz_data.max_width = rsz->data->tile_width;
 	/* RSZ support crop capability */
 	func->type = TILE_TYPE_CROP_EN;
@@ -270,8 +269,10 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	if (cfg->info.dest_cnt == 1 &&
 	    (dest->crop.r.width != src->width ||
 	    dest->crop.r.height != src->height)) {
-		func->full_size_x_in = in_crop_w + dest->crop.r.left;
-		func->full_size_y_in = in_crop_h + dest->crop.r.top;
+		func->full_size_x_in = in_crop_w;
+		func->full_size_y_in = in_crop_h;
+		data->rsz_data.crop.r.top -= dest->crop.r.top;
+		data->rsz_data.crop.r.left -= dest->crop.r.left;
 	} else {
 		func->full_size_x_in = src->width;
 		func->full_size_y_in = src->height;

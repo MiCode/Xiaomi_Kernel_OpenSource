@@ -49,7 +49,7 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	} else if ((MML_FMT_H_SUBSAMPLE(data->src_fmt) &&
 		    MML_FMT_V_SUBSAMPLE(data->src_fmt)) ||
 		   MML_FMT_COMPRESS(data->src_fmt)) {
-		/* Block mode, YUV420, or compression */
+		/* YUV420, or compression */
 		ptr_func->in_tile_width = data->max_width;
 	} else if (MML_FMT_H_SUBSAMPLE(data->src_fmt) &&
 		   !MML_FMT_V_SUBSAMPLE(data->src_fmt)) {
@@ -87,10 +87,8 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 		ptr_tile_reg_map->tdr_ctrl_en = true;
 	}
 
-	if (data->alpharot) {
-		ptr_func->crop_bias_x = data->crop.left;
-		ptr_func->crop_bias_y = data->crop.top;
-	}
+	ptr_func->crop_bias_x = data->crop.left;
+	ptr_func->crop_bias_y = data->crop.top;
 
 	return ISP_MESSAGE_TILE_OK;
 }
@@ -303,21 +301,14 @@ enum isp_tile_message tile_wrot_init(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_rdma_for(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
+	if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
+		ptr_func->out_pos_xs = ptr_func->in_pos_xs - ptr_func->crop_bias_x;
+		ptr_func->out_pos_xe = ptr_func->in_pos_xe - ptr_func->crop_bias_x;
+	}
 
-	if (unlikely(!data))
-		return MDP_MESSAGE_NULL_DATA;
-
-	if (data->alpharot) {
-		if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
-			ptr_func->out_pos_xs = ptr_func->in_pos_xs - ptr_func->crop_bias_x;
-			ptr_func->out_pos_xe = ptr_func->in_pos_xe - ptr_func->crop_bias_x;
-		}
-
-		if (!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag) {
-			ptr_func->out_pos_ys = ptr_func->in_pos_ys - ptr_func->crop_bias_y;
-			ptr_func->out_pos_ye = ptr_func->in_pos_ye - ptr_func->crop_bias_y;
-		}
+	if (!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag) {
+		ptr_func->out_pos_ys = ptr_func->in_pos_ys - ptr_func->crop_bias_y;
+		ptr_func->out_pos_ye = ptr_func->in_pos_ye - ptr_func->crop_bias_y;
 	}
 
 	if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
@@ -774,16 +765,14 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 	if (unlikely(!data))
 		return MDP_MESSAGE_NULL_DATA;
 
-	if (data->alpharot) {
-		if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
-			ptr_func->in_pos_xs = ptr_func->out_pos_xs + ptr_func->crop_bias_x;
-			ptr_func->in_pos_xe = ptr_func->out_pos_xe + ptr_func->crop_bias_x;
-		}
+	if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
+		ptr_func->in_pos_xs = ptr_func->out_pos_xs + ptr_func->crop_bias_x;
+		ptr_func->in_pos_xe = ptr_func->out_pos_xe + ptr_func->crop_bias_x;
+	}
 
-		if (!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag) {
-			ptr_func->in_pos_ys = ptr_func->out_pos_ys + ptr_func->crop_bias_y;
-			ptr_func->in_pos_ye = ptr_func->out_pos_ye + ptr_func->crop_bias_y;
-		}
+	if (!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag) {
+		ptr_func->in_pos_ys = ptr_func->out_pos_ys + ptr_func->crop_bias_y;
+		ptr_func->in_pos_ye = ptr_func->out_pos_ye + ptr_func->crop_bias_y;
 	}
 
 	/* frame mode */
@@ -805,6 +794,9 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 			remain = TILE_MOD(ptr_func->in_pos_xe + 1, ptr_func->in_const_x);
 			if (remain)
 				ptr_func->in_pos_xe += remain;
+			remain = TILE_MOD(ptr_func->in_pos_xs, ptr_func->in_const_x);
+			if (remain)
+				ptr_func->in_pos_xs -= remain;
 		}
 
 		if (ptr_func->in_pos_ye + 1 > data->crop.top + data->crop.height)
@@ -823,6 +815,9 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 			remain = TILE_MOD(ptr_func->in_pos_ye + 1, ptr_func->in_const_y);
 			if (remain)
 				ptr_func->in_pos_ye += remain;
+			remain = TILE_MOD(ptr_func->in_pos_ys, ptr_func->in_const_y);
+			if (remain)
+				ptr_func->in_pos_ys -= remain;
 		}
 		return ISP_MESSAGE_TILE_OK;
 	}
@@ -852,6 +847,14 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 			remain = TILE_MOD(ptr_func->in_pos_xe + 1, ptr_func->in_const_x);
 			if (remain)
 				ptr_func->in_pos_xe += remain;
+			remain = TILE_MOD(ptr_func->in_pos_xs, ptr_func->in_const_x);
+			if (remain)
+				ptr_func->in_pos_xs -= remain;
+			if (ptr_func->in_tile_width &&
+			    (ptr_func->in_pos_xe - ptr_func->in_pos_xs + 1 >
+			     ptr_func->in_tile_width))
+				ptr_func->in_pos_xe =
+					ptr_func->in_pos_xs + ptr_func->in_tile_width - 1;
 		}
 	}
 
@@ -879,6 +882,9 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 			remain = TILE_MOD(ptr_func->in_pos_ye + 1, ptr_func->in_const_y);
 			if (remain)
 				ptr_func->in_pos_ye += remain;
+			remain = TILE_MOD(ptr_func->in_pos_ys, ptr_func->in_const_y);
+			if (remain)
+				ptr_func->in_pos_ys -= remain;
 		}
 	}
 	return ISP_MESSAGE_TILE_OK;

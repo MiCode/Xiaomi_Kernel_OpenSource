@@ -236,8 +236,8 @@ static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			in_crop_w = src->width - dest->crop.r.left;
 		if (in_crop_h + dest->crop.r.top > src->height)
 			in_crop_h = src->height - dest->crop.r.top;
-		func->full_size_x_in = in_crop_w + dest->crop.r.left;
-		func->full_size_y_in = in_crop_h + dest->crop.r.top;
+		func->full_size_x_in = in_crop_w;
+		func->full_size_y_in = in_crop_h;
 	} else {
  		func->full_size_x_in = src->width;
 		func->full_size_y_in = src->height;
