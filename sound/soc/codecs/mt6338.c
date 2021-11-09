@@ -4438,58 +4438,74 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_TOP_CON9,
 			VOW_INTR_SOURCE_SEL_CH4_MASK_SFT,
 			0x1 << VOW_INTR_SOURCE_SEL_CH4_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG16,
-			VOW_IRQ_LATCH_SNR_EN_CH1_MASK_SFT,
-			0x1 << VOW_IRQ_LATCH_SNR_EN_CH1_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG16,
-			B_DEFAULT_CH1_MASK_SFT,
-			0x5 << B_DEFAULT_CH1_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG16,
-			A_DEFAULT_CH1_MASK_SFT,
-			0x6 << A_DEFAULT_CH1_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG18,
-			VOW_IRQ_LATCH_SNR_EN_CH2_MASK_SFT,
-			0x1 << VOW_IRQ_LATCH_SNR_EN_CH2_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG18,
-			B_DEFAULT_CH2_MASK_SFT,
-			0x5 << B_DEFAULT_CH2_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG18,
-			A_DEFAULT_CH2_MASK_SFT,
-			0x6 << A_DEFAULT_CH2_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG20,
-			VOW_IRQ_LATCH_SNR_EN_CH3_MASK_SFT,
-			0x1 << VOW_IRQ_LATCH_SNR_EN_CH3_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG20,
-			B_DEFAULT_CH3_MASK_SFT,
-			0x5 << B_DEFAULT_CH3_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG20,
-			A_DEFAULT_CH3_MASK_SFT,
-			0x6 << A_DEFAULT_CH3_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG22,
-			VOW_IRQ_LATCH_SNR_EN_CH4_MASK_SFT,
-			0x1 << VOW_IRQ_LATCH_SNR_EN_CH4_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG22,
-			B_DEFAULT_CH4_MASK_SFT,
-			0x5 << B_DEFAULT_CH4_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG22,
-			A_DEFAULT_CH4_MASK_SFT,
-			0x6 << A_DEFAULT_CH4_SFT);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG50, 0x80);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG51, 0x00);
+
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG1,
+			     priv->reg_afe_vow_vad_cfg0 & 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG0,
+			     priv->reg_afe_vow_vad_cfg0 >> 8);
+
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG9,
+			     priv->reg_afe_vow_vad_cfg1 & 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG8,
+			     priv->reg_afe_vow_vad_cfg1 >> 8);
+
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG17,
+			     priv->reg_afe_vow_vad_cfg2 & 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG16,
+			     priv->reg_afe_vow_vad_cfg2 >> 8);
+
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG25,
+			     priv->reg_afe_vow_vad_cfg3 & 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG24,
+			     priv->reg_afe_vow_vad_cfg3 >> 8);
+
+		regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG48,
+				   K_GAMMA_CH1_MASK_SFT,
+				   priv->reg_afe_vow_vad_cfg4
+				   << K_GAMMA_CH1_SFT);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG33,
+			     priv->reg_afe_vow_vad_cfg5 & 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG32,
+			     priv->reg_afe_vow_vad_cfg5 >> 8);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG50, 0x00);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG51, 0x10);
 		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG52, 0x00);
 		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG53, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG54, 0x80);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG55, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG56, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG57, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG58, 0x80);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG59, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG60, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG61, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG62, 0x80);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG63, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG64, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG65, 0x00);
+		if (priv->vow_channel == 2) {
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG3,
+				     priv->reg_afe_vow_vad_cfg0 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG2,
+				     priv->reg_afe_vow_vad_cfg0 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG11,
+				     priv->reg_afe_vow_vad_cfg1 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG10,
+				     priv->reg_afe_vow_vad_cfg1 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG19,
+				     priv->reg_afe_vow_vad_cfg2 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG18,
+				     priv->reg_afe_vow_vad_cfg2 >> 8);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG27,
+				     priv->reg_afe_vow_vad_cfg3 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG26,
+				     priv->reg_afe_vow_vad_cfg3 >> 8);
+
+			regmap_update_bits(priv->regmap, MT6338_AFE_VOW_VAD_CFG48,
+					   K_GAMMA_CH2_MASK_SFT,
+					   priv->reg_afe_vow_vad_cfg4
+					   << K_GAMMA_CH2_SFT);
+
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG35,
+				     priv->reg_afe_vow_vad_cfg5 & 0xff);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG34,
+				     priv->reg_afe_vow_vad_cfg5 >> 8);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG54, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG55, 0x10);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG56, 0x00);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG57, 0x00);
+		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		regmap_write(priv->regmap, MT6338_AUD_TOP_CKPDN_CON0_H_SET,
@@ -6124,8 +6140,8 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
-	/* if vow is enabled, always set volume as 10 (24dB) */
-	mic_gain_l = priv->vow_enable ? 10 :
+	/* if vow is enabled, always set volume as 6 (18dB) */
+	mic_gain_l = priv->vow_enable ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1];
 	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_l %d, mux_pga %d, vow_enable %d\n",
 		__func__, event, mic_type, mic_gain_l, mux_pga, priv->vow_enable);
