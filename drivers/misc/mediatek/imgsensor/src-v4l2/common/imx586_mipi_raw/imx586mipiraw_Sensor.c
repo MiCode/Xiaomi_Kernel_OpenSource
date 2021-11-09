@@ -4680,6 +4680,10 @@ static int feature_control(
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.custom5.pclk;
 			break;
+		case SENSOR_SCENARIO_ID_CUSTOM6:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				= imgsensor_info.custom6.pclk;
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		case SENSOR_SCENARIO_ID_CUSTOM7:
 		case SENSOR_SCENARIO_ID_CUSTOM8:
