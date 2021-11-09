@@ -316,7 +316,7 @@ static int mtk_hwv_pll_is_prepared(struct clk_hw *hw)
 static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
-	u32 val;
+	u32 val, pll_sta = 1;
 	int i = 0;
 
 	/* wait for irq idle */
@@ -335,12 +335,15 @@ static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 	udelay(1);
 	do {
 		regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
+		if (pll->data->flags & HWV_CHK_REAL_STA)
+			pll_sta = readl(pll->en_addr) & BIT(pll->data->pll_en_bit);
+
 		if (i < 200)
 			udelay(10);
 		else
 			break;
 		i++;
-	} while ((val & BIT(pll->data->hwv_shift)) == 0);
+	} while ((val & BIT(pll->data->hwv_shift)) == 0 || !pll_sta);
 
 	if (i >= 200) {
 		pr_err("%s pll prepare timeout(%dus)(0x%x)\n", pll->data->name, i * 10, val);
