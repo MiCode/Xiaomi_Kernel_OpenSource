@@ -204,7 +204,6 @@ struct mml_comp_aal {
 /* meta data for each different frame config */
 struct aal_frame_data {
 	u32 out_hist_xs;
-	u32 in_crop_xs;
 	u32 dre_blk_width;
 	u32 dre_blk_height;
 	u32 begin_offset;
@@ -492,7 +491,6 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 		goto exit;
 
 	if (!idx) {
-		aal_frm->in_crop_xs = dest->crop.r.left;
 		if (task->config->dual)
 			aal_frm->cut_pos_x = (dest->crop.r.width/2) + dest->crop.r.left;
 		else
@@ -508,34 +506,33 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 		(tile->out.xs > aal_frm->out_hist_xs) ? tile->out.xs : aal_frm->out_hist_xs;
 
 	mml_pq_msg("%s jobid[%d] engine_id[%d] idx[%d] pipe[%d] pkt[%08x]",
-			__func__, task->job.jobid, comp->id, idx, ccfg->pipe, pkt);
+		__func__, task->job.jobid, comp->id, idx, ccfg->pipe, pkt);
 
 	mml_pq_msg("%s %d: %d: %d: [input] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, task->job.jobid, comp->id, idx, tile->in.xs,
-			tile->in.xe, tile->in.ys,
-			tile->in.ye);
+		__func__, task->job.jobid, comp->id, idx, tile->in.xs,
+		tile->in.xe, tile->in.ys,
+		tile->in.ye);
 	mml_pq_msg("%s %d: %d: %d: [output] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, task->job.jobid, comp->id, idx,
-			tile->out.xs, tile->out.xe, tile->out.ys,
-			tile->out.ye);
+		__func__, task->job.jobid, comp->id, idx,
+		tile->out.xs, tile->out.xe, tile->out.ys,
+		tile->out.ye);
 	mml_pq_msg("%s %d: %d: %d: [aal_crop_offset] [x, y] = [%d, %d], aal_hist_left_start[%d]",
-			__func__, task->job.jobid, comp->id, idx,
-			aal_crop_x_offset, aal_crop_y_offset,
-			aal_hist_left_start);
+		__func__, task->job.jobid, comp->id, idx,
+		aal_crop_x_offset, aal_crop_y_offset,
+		aal_hist_left_start);
 
 	act_win_x_start = aal_hist_left_start - tile->in.xs;
 	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
 		act_win_x_end = aal_frm->cut_pos_x - tile->in.xs - 1;
 	else
 		act_win_x_end = tile->out.xe - tile->in.xs;
-	tile_pxl_x_start = tile->in.xs - aal_frm->in_crop_xs;
-	tile_pxl_x_end = tile->in.xe - aal_frm->in_crop_xs;
+	tile_pxl_x_start = tile->in.xs;
+	tile_pxl_x_end = tile->in.xe;
 
 	last_tile_x_flag = (tile->in.xe+1 >= src_frame_width) ? 1:0;
 
-	mml_pq_msg("%s %d: %d: %d: [tile_pxl] [xs, xe] = [%d, %d], in_crop_xs[%d]",
-			__func__, task->job.jobid, comp->id, idx, tile_pxl_x_start, tile_pxl_x_end,
-			aal_frm->in_crop_xs);
+	mml_pq_msg("%s %d: %d: %d: [tile_pxl] [xs, xe] = [%d, %d]",
+		__func__, task->job.jobid, comp->id, idx, tile_pxl_x_start, tile_pxl_x_end);
 
 	act_win_y_start = 0;
 	act_win_y_end = tile->in.ye - tile->in.ys;
