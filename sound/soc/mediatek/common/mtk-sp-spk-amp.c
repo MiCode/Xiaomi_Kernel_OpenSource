@@ -11,12 +11,6 @@
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#include "audio_task.h"
-#include "../audio_dsp/mtk-dsp-common_define.h"
-#include "audio_messenger_ipi.h"
-#endif
-
 #include "mtk-sp-spk-amp.h"
 #if IS_ENABLED(CONFIG_SND_SOC_RT5509)
 #include "../../codecs/rt5509.h"

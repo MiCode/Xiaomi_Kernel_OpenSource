@@ -159,6 +159,9 @@ struct mtk_base_afe {
 	struct mtk_base_afe_irq *irqs;
 	int irqs_size;
 
+	/* using scp semaphore to protect reg access */
+	int is_scp_sema_support;
+
 	/* Bit banding of memif use AFE_AGEN_ON_SET/CLR
 	 * to control memif enable bit.
 	 */

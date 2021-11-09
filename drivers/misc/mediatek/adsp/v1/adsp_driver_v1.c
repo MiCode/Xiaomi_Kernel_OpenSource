@@ -14,6 +14,7 @@
 #include "adsp_core.h"
 #include "adsp_clk_tinysys.h"
 #include "adsp_driver_v1.h"
+#include "mtk-afe-external.h"
 
 /* semaphore */
 #define SEMA_TIMEOUT        5000
@@ -279,6 +280,26 @@ static struct platform_driver * const drivers[] = {
 	&adsp_core1_driver,
 };
 
+int notify_adsp_semaphore_event(struct notifier_block *nb,
+				unsigned long event, void *v)
+{
+	int status = NOTIFY_DONE;
+
+	if (event == NOTIFIER_ADSP_3WAY_SEMAPHORE_GET) {
+		status = (get_adsp_semaphore(SEMA_AUDIOREG) == ADSP_OK) ?
+			 NOTIFY_STOP : NOTIFY_BAD;
+	} else if (event == NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE) {
+		release_adsp_semaphore(SEMA_AUDIOREG);
+		status = NOTIFY_STOP;
+	}
+
+	return status;
+}
+
+static struct notifier_block adsp_semaphore_init_notifier = {
+	.notifier_call = notify_adsp_semaphore_event,
+};
+
 /*
  * driver initialization entry point
  */
@@ -290,11 +311,14 @@ static int __init platform_adsp_init(void)
 	if (ret)
 		return ret;
 
+	register_3way_semaphore_notifier(&adsp_semaphore_init_notifier);
+
 	return adsp_system_bootup();
 }
 
 static void __exit platform_adsp_exit(void)
 {
+	unregister_3way_semaphore_notifier(&adsp_semaphore_init_notifier);
 	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
 	pr_info("[ADSP] platform-adsp Exit.\n");
 }

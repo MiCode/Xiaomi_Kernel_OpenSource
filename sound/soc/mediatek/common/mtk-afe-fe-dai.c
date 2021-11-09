@@ -607,29 +607,37 @@ int __mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 int mtk_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
 {
 	int ret = 0;
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	int adsp_sem_ret = ADSP_ERROR;
-#endif
-
+	bool is_adsp_active = false;
+	int adsp_sem_ret = NOTIFY_STOP;
+	int get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	int release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 	if (!afe)
 		return -ENODEV;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	/* use semaphore to protect memif enable bit when adsp and AP access */
-	if ((afe->is_memif_bit_banding == 0) && is_adsp_feature_in_active())
-		adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
-
-	/* get sem ok */
-	if (adsp_sem_ret == ADSP_OK) {
-		ret = __mtk_memif_set_enable(afe, afe_id);
-		release_adsp_semaphore(SEMA_AUDIOREG);
-	} else if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-		pr_info("%s adsp_sem_ret[%d]\n", __func__, ret);
-	else
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+	is_adsp_active = is_adsp_feature_in_active();
 #endif
-		ret = __mtk_memif_set_enable(afe, afe_id);
+
+	if (!is_adsp_active)
+		return __mtk_memif_set_enable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0) {
+		adsp_sem_ret =
+			notify_3way_semaphore_control(get_sema_type, NULL);
+		if (adsp_sem_ret != NOTIFY_STOP) {
+			pr_info("%s error, adsp_sem_ret[%d]\n", __func__, ret);
+			return -EBUSY;
+		}
+	}
+
+	ret = __mtk_memif_set_enable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0)
+		notify_3way_semaphore_control(release_sema_type, NULL);
 
 	return ret;
 }
@@ -638,29 +646,37 @@ EXPORT_SYMBOL_GPL(mtk_memif_set_enable);
 int mtk_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
 {
 	int ret = 0;
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	int adsp_sem_ret = ADSP_ERROR;
-#endif
-
+	bool is_adsp_active = false;
+	int adsp_sem_ret = NOTIFY_STOP;
+	int get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	int release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 	if (!afe)
 		return -ENODEV;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	/* use semaphore to protect memif disable bit when adsp and AP access */
-	if ((afe->is_memif_bit_banding == 0) && is_adsp_feature_in_active())
-		adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
-
-	/* get sem ok */
-	if (adsp_sem_ret == ADSP_OK) {
-		ret = __mtk_memif_set_disable(afe, afe_id);
-		release_adsp_semaphore(SEMA_AUDIOREG);
-	} else if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-		pr_info("%s adsp_sem_ret[%d]\n", __func__, ret);
-	else
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+	is_adsp_active = is_adsp_feature_in_active();
 #endif
-		ret = __mtk_memif_set_disable(afe, afe_id);
+
+	if (!is_adsp_active)
+		return __mtk_memif_set_disable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0) {
+		adsp_sem_ret =
+			notify_3way_semaphore_control(get_sema_type, NULL);
+		if (adsp_sem_ret != NOTIFY_STOP) {
+			pr_info("%s error, adsp_sem_ret[%d]\n", __func__, ret);
+			return -EBUSY;
+		}
+	}
+
+	ret = __mtk_memif_set_disable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0)
+		notify_3way_semaphore_control(release_sema_type, NULL);
 
 	return ret;
 }
@@ -671,35 +687,39 @@ int mtk_irq_set_enable(struct mtk_base_afe *afe,
 		       int afe_id)
 {
 	int ret = 0;
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	int adsp_sem_ret = ADSP_ERROR;
-#endif
-
+	bool is_adsp_active = false;
+	int adsp_sem_ret = NOTIFY_STOP;
+	int get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	int release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 	if (!afe)
 		return -ENODEV;
 	if (!irq_data)
 		return -ENODEV;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	/* use semaphore to protect irq enable bit when adsp and AP access */
-	if (is_adsp_feature_in_active())
-		adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
-
-	/* get sem ok */
-	if (adsp_sem_ret == ADSP_OK) {
-		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-				   1 << irq_data->irq_en_shift,
-				   1 << irq_data->irq_en_shift);
-		release_adsp_semaphore(SEMA_AUDIOREG);
-	} else if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-		pr_info("%s() SEMAPHORE_BUSY\n", __func__);
-	else
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+	is_adsp_active = is_adsp_feature_in_active();
 #endif
-		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-				   1 << irq_data->irq_en_shift,
-				   1 << irq_data->irq_en_shift);
+
+	if (!is_adsp_active)
+		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+					  1 << irq_data->irq_en_shift,
+					  1 << irq_data->irq_en_shift);
+
+	adsp_sem_ret =
+		notify_3way_semaphore_control(get_sema_type, NULL);
+	if (adsp_sem_ret != NOTIFY_STOP) {
+		pr_info("%s error, adsp_sem_ret[%d]\n", __func__, ret);
+		return -EBUSY;
+	}
+
+	regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+			   1 << irq_data->irq_en_shift,
+			   1 << irq_data->irq_en_shift);
+	notify_3way_semaphore_control(release_sema_type, NULL);
 
 	return ret;
 }
@@ -710,35 +730,39 @@ int mtk_irq_set_disable(struct mtk_base_afe *afe,
 			int afe_id)
 {
 	int ret = 0;
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	int adsp_sem_ret = ADSP_ERROR;
-#endif
-
+	bool is_adsp_active = false;
+	int adsp_sem_ret = NOTIFY_STOP;
+	int get_sema_type = afe->is_scp_sema_support ?
+			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
+			    NOTIFIER_ADSP_3WAY_SEMAPHORE_GET;
+	int release_sema_type = afe->is_scp_sema_support ?
+				NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE :
+				NOTIFIER_ADSP_3WAY_SEMAPHORE_RELEASE;
 	if (!afe)
 		return -EPERM;
 	if (!irq_data)
 		return -EPERM;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && \
-	IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	/* use semaphore to protect irq disable bit when adsp and AP access */
-	if (is_adsp_feature_in_active())
-		adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
-
-	/* get sem ok */
-	if (adsp_sem_ret == ADSP_OK) {
-		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-				   1 << irq_data->irq_en_shift,
-				   0 << irq_data->irq_en_shift);
-		release_adsp_semaphore(SEMA_AUDIOREG);
-	} else if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
-		pr_info("%s SEMAPHORE_BUSY\n", __func__);
-	else
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+	is_adsp_active = is_adsp_feature_in_active();
 #endif
-		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-				   1 << irq_data->irq_en_shift,
-				   0 << irq_data->irq_en_shift);
+
+	if (!is_adsp_active)
+		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+					  1 << irq_data->irq_en_shift,
+					  0 << irq_data->irq_en_shift);
+
+	adsp_sem_ret =
+		notify_3way_semaphore_control(get_sema_type, NULL);
+	if (adsp_sem_ret != NOTIFY_STOP) {
+		pr_info("%s error, adsp_sem_ret[%d]\n", __func__, ret);
+		return -EBUSY;
+	}
+
+	regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+			   1 << irq_data->irq_en_shift,
+			   0 << irq_data->irq_en_shift);
+	notify_3way_semaphore_control(release_sema_type, NULL);
 
 	return ret;
 }
