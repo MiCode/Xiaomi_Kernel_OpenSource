@@ -14,10 +14,6 @@
 		status = "disabled";
 	};
 
-	disp_rsc: rsc@af20000 {
-		status = "disabled";
-	};
-
 	usb_nop_phy: usb_nop_phy {
 		compatible = "usb-nop-xceiv";
 	};
