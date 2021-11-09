@@ -1663,7 +1663,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			<= INITIAL_DROP_FRAME_CNT ||
 			atomic_read(&sensor_ctrl->initial_drop_frame_cnt)) {
 			dev_dbg(raw_dev->dev, "[SOF] INIT STATE cnt:%d\n", que_cnt);
-			if (que_cnt > 0) {
+			if (que_cnt > 0 && state_rec[0]) {
 				state_temp = state_rec[0];
 				req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
 				if (req_stream_data->frame_seq_no == 1)
@@ -1674,7 +1674,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		}
 	} else {
 		dev_dbg(raw_dev->dev, "[SOF] INITcnt:%d (w/o1stsync)\n", que_cnt);
-		if (que_cnt > 1) {
+		if (que_cnt > 1 && state_rec[1]) {
 			state_temp = state_rec[1];
 			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
 			if (req_stream_data->frame_seq_no == 1)
@@ -1696,7 +1696,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				return STATE_RESULT_TRIGGER_CQ;
 			}
 		}
-		if (working_req_found) {
+		if (working_req_found && state_rec[0]) {
 			if (state_rec[0]->estate == E_STATE_READY)
 				dev_info(raw_dev->dev, "[SOF] sensor delay\n");
 			/* CQ triggering judgment*/
@@ -1846,7 +1846,7 @@ static int mtk_camsys_ts_state_handle(
 		que_cnt++;
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
-	if (que_cnt > 0) {
+	if (que_cnt > 0 && state_rec[0]) {
 		if (state_rec[0]->estate == E_STATE_TS_READY) {
 			dev_info(ctx->cam->dev, "[TS-SOF] sensor delay\n");
 			return STATE_RESULT_PASS_CQ_SW_DELAY;
@@ -1854,7 +1854,7 @@ static int mtk_camsys_ts_state_handle(
 	}
 	/* Trigger high resolution timer to try sensor setting */
 	mtk_cam_sof_timer_setup(ctx);
-	if (que_cnt > 0) {
+	if (que_cnt > 0 && state_rec[0]) {
 		/* camsv enque judgment*/
 		if (state_rec[0]->estate == E_STATE_TS_SENSOR) {
 			*current_state = state_rec[0];
@@ -3309,7 +3309,7 @@ static int mtk_camsys_camsv_state_handle(
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 
 	/* HW imcomplete case */
-	if (que_cnt >= STATE_NUM_AT_SOF) {
+	if (que_cnt >= STATE_NUM_AT_SOF && state_rec[1] && state_rec[2]) {
 		state_transition(state_rec[2], E_STATE_INNER, E_STATE_INNER_HW_DELAY);
 		state_transition(state_rec[1], E_STATE_OUTER, E_STATE_OUTER_HW_DELAY);
 		dev_dbg(camsv_dev->dev, "[SOF] HW_DELAY state\n");
@@ -3336,7 +3336,7 @@ static int mtk_camsys_camsv_state_handle(
 		}
 	}
 
-	if (que_cnt > 0) {
+	if (que_cnt > 0 && state_rec[0]) {
 		/* CQ triggering judgment*/
 		if (state_rec[0]->estate == E_STATE_SENSOR) {
 			*current_state = state_rec[0];
