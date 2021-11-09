@@ -115,9 +115,10 @@ static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 	struct cpufreq_mtk *c = policy->driver_data;
 	unsigned int index;
 
-	index = cpufreq_table_find_index_dl(policy, target_freq);
-	if (policy->freq_table[index].frequency > policy->max)
-		index++;
+	if (policy->cached_target_freq == target_freq)
+		index = policy->cached_resolved_idx;
+	else
+		index = cpufreq_table_find_index_dl(policy, target_freq);
 
 	writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
 
