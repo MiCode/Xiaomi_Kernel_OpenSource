@@ -598,7 +598,7 @@ static void case_run_afbc_to_rgb(struct mml_test *test, struct mml_test_case *cu
 
 static void case_config_yuv_afbc_to_rgb(void)
 {
-	the_case.cfg_src_format = MML_FMT_NV12_AFBC;
+	the_case.cfg_src_format = MML_FMT_YUV420_AFBC;
 	the_case.cfg_src_w = mml_yuv_afbc_align(mml_test_w);
 	the_case.cfg_src_h = mml_yuv_afbc_align(mml_test_h);
 	the_case.cfg_dest_format = MML_FMT_RGB888;
@@ -608,7 +608,7 @@ static void case_config_yuv_afbc_to_rgb(void)
 
 static void case_config_yuv_afbc_10_to_rgb(void)
 {
-	the_case.cfg_src_format = MML_FMT_NV12_10L_AFBC;
+	the_case.cfg_src_format = MML_FMT_YUV420_10P_AFBC;
 	the_case.cfg_src_w = mml_yuv_afbc_align(mml_test_w);
 	the_case.cfg_src_h = mml_yuv_afbc_align(mml_test_h);
 	the_case.cfg_dest_format = MML_FMT_RGB888;
