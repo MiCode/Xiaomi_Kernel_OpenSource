@@ -5797,6 +5797,8 @@
 			reg = <0 0x1400f000 0 0x1000>;
 			interrupts = <GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_POSTMASK0>;
+			mediatek,smi-id = <0>;
+			iommus = <&disp_iommu M4U_LARB0_PORT0>;/*M4U_PORT_L0_DISP_POSTMASK0*/
 		};
 
 		disp_dither0: disp_dither@14010000 {
@@ -6108,6 +6110,8 @@
 			reg = <0 0x1440f000 0 0x1000>;
 			interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys1_config_clk CLK_MM1_DISP_POSTMASK0>;
+			mediatek,smi-id = <20>;
+			iommus = <&disp_iommu M4U_LARB20_PORT0>;/*M4U_PORT_L20_DISP_POSTMASK0*/
 		};
 
 		disp_dither1: disp_dither@14410000 {
