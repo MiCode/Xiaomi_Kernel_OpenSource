@@ -64,6 +64,11 @@
 							DMA_ERR_ST)
 
 /* camsys */
+#define REG_CAMSYS_CG_CON				0x0000
+#define REG_CAMSYS_DBG_CG_CON				0x000c
+#define REG_CAMSYS_SW_RST				0x00a0
+#define REG_CAMSYS_SW_RST1				0x00a4
+
 #define REG_CAMSYS_CG_SET				0x0004
 #define REG_CAMSYS_CG_CLR				0x0008
 
