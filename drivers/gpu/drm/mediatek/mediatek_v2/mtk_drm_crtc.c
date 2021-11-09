@@ -6880,7 +6880,7 @@ void mtk_drm_clear_msync_cmd_level_table(void)
 		level_tb->min_fps = 0;
 	}
 
-	DDPINFO("========clear msync_level_tb done========\n");
+	DDPMSG("========clear msync_level_tb done========\n");
 
 	msync_cmd_level_tb_dirty = 0;
 }
@@ -6890,14 +6890,14 @@ void mtk_drm_get_msync_cmd_level_table(void)
 	int i = 0;
 	struct msync_level_table *level_tb = NULL;
 
-	DDPINFO("========msync_level_tb_get start========\n");
+	DDPMSG("========msync_level_tb_get start========\n");
 	for (i = 0; i < MSYNC_MAX_LEVEL; i++) {
 		level_tb = &msync_level_tb[i];
-		DDPINFO("msync_level_tb_get:level%u level_fps:%u max_fps:%u min_fps:%u\n",
+		DDPMSG("msync_level_tb_get:level%u level_fps:%u max_fps:%u min_fps:%u\n",
 		level_tb->level_id, level_tb->level_fps,
 		level_tb->max_fps, level_tb->min_fps);
 	}
-	DDPINFO("========msync_level_tb_get end========\n");
+	DDPMSG("========msync_level_tb_get end========\n");
 }
 
 int mtk_drm_get_atomic_fps(void)
@@ -9479,6 +9479,8 @@ int mtk_drm_set_msync_cmd_table(struct drm_device *dev,
 		struct msync_parameter_table *config_dst)
 {
 	struct msync_parameter_table *config_src = &msync_params_tb;
+	int i = 0;
+	struct msync_level_table *level_tb = NULL;
 
 	DDPMSG("%s:%d +++\n", __func__, __LINE__);
 	config_src->level_tb = msync_level_tb;
@@ -9507,6 +9509,15 @@ int mtk_drm_set_msync_cmd_table(struct drm_device *dev,
 		}
 	}
 
+	for (i = config_src->msync_level_num; i < MSYNC_MAX_LEVEL; i++) {
+		level_tb = &config_src->level_tb[i];
+
+		level_tb->level_id = 0;
+		level_tb->level_fps = 0;
+		level_tb->max_fps = 0;
+		level_tb->min_fps = 0;
+	}
+
 	DDPMSG("%s:%d ---\n", __func__, __LINE__);
 	return 0;
 }
@@ -9516,11 +9527,28 @@ int check_msync_config_info(struct msync_parameter_table *config)
 	unsigned int msync_level_num = config->msync_level_num;
 	struct msync_level_table *level_tb = config->level_tb;
 	int i = 0;
+	struct msync_level_table check_level_tb[MSYNC_MAX_LEVEL];
 
+	DDPMSG("%s:%d +++\n", __func__, __LINE__);
 	if (!level_tb) {
 		DDPPR_ERR("%s:%d The level table pointer is NULL !!!\n",
 			__func__, __LINE__);
 		return -EFAULT;
+	}
+
+	if (level_tb != NULL) {
+		if (copy_from_user(check_level_tb,
+					level_tb,
+					sizeof(struct msync_parameter_table) *
+					config->msync_level_num)) {
+			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+					__func__, __LINE__,
+					config->level_tb,
+					level_tb,
+					sizeof(struct msync_parameter_table) *
+					config->msync_level_num);
+			return -EFAULT;
+		}
 	}
 
 	if ((msync_level_num <= 0) ||
@@ -9530,19 +9558,26 @@ int check_msync_config_info(struct msync_parameter_table *config)
 		return -EFAULT;
 	}
 
-	if (level_tb[0].level_id != 1) {
+	if (check_level_tb[0].level_id != 1) {
 		DDPPR_ERR("%s:%d Level must start from level 1!!!\n",
 			__func__, __LINE__);
 		return -EFAULT;
 	}
 
+	for (i = 0; i < msync_level_num; i++) {
+		DDPMSG("level_id:%u level_fps:%u max_fps:%u min_fps:%u\n",
+				check_level_tb[i].level_id, check_level_tb[i].level_fps,
+				check_level_tb[i].max_fps, check_level_tb[i].min_fps);
+	}
+
 	for (i = 0; i < msync_level_num - 1; i++) {
-		if (level_tb[i+1].level_id != (level_tb[i].level_id + 1)) {
+		if (check_level_tb[i+1].level_id != (check_level_tb[i].level_id + 1)) {
 			DDPPR_ERR("%s:%d Level must set like 1,2,3 ... !!!\n",
 					__func__, __LINE__);
 			return -EFAULT;
 		}
 	}
+	DDPMSG("%s:%d ---\n", __func__, __LINE__);
 
 	return 0;
 }
@@ -9585,7 +9620,10 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv)
 {
 	struct msync_parameter_table *config = data;
-	struct msync_parameter_table *config_dst = &msync_params_tb;
+	struct msync_parameter_table *config_dst = NULL;
+	struct drm_crtc *crtc = NULL;
+	struct mtk_panel_params *params = NULL;
+	struct msync_level_table *level_tb = NULL;
 
 	DDPMSG("%s:%d +++\n", __func__, __LINE__);
 	if (!config) {
@@ -9594,25 +9632,71 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 		return -EFAULT;
 	}
 
-	config->msync_max_fps = config_dst->msync_max_fps;
-	config->msync_min_fps = config_dst->msync_min_fps;
-	config->msync_level_num = MSYNC_MAX_LEVEL;
-	config_dst->level_tb = msync_level_tb;
+	if (msync_cmd_level_tb_dirty == 1) {
+		config_dst = &msync_params_tb;
+		config_dst->level_tb = msync_level_tb;
+		config->msync_max_fps = config_dst->msync_max_fps;
+		config->msync_min_fps = config_dst->msync_min_fps;
+		config->msync_level_num = MSYNC_MAX_LEVEL;
 
-	if (config_dst->level_tb != NULL) {
-		if (copy_to_user(config->level_tb,
+		if (config_dst->level_tb != NULL) {
+			if (copy_to_user(config->level_tb,
 					config_dst->level_tb,
 					sizeof(struct msync_parameter_table) *
 					config->msync_level_num)) {
-			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+				DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
 					__func__, __LINE__,
 					config->level_tb,
 					config_dst->level_tb,
 					sizeof(struct msync_parameter_table) *
 					config->msync_level_num);
-			return -EFAULT;
+				return -EFAULT;
+			}
+		}
+	} else {
+		crtc = list_first_entry(&(dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return -EINVAL;
+		}
+
+		params = mtk_drm_get_lcm_ext_params(crtc);
+		if (!params) {
+			DDPPR_ERR("[Msync2.0] lcm params pointer is NULL\n");
+			return -EINVAL;
+		}
+
+		if (params->msync_cmd_table.te_type == REQUEST_TE) {
+			/* TODO: Add Request Te */
+		} else if (params->msync_cmd_table.te_type == MULTI_TE) {
+			config->msync_max_fps = params->msync_cmd_table.msync_max_fps;
+			config->msync_min_fps = params->msync_cmd_table.msync_min_fps;
+			config->msync_level_num = MSYNC_MAX_LEVEL;
+			level_tb = params->msync_cmd_table.multi_te_tb.multi_te_level;
+		} else if (params->msync_cmd_table.te_type == TRIGGER_LEVEL_TE) {
+			/* TODO: Add Trigger Level Te */
+		} else {
+			DDPPR_ERR("%s:%d No TE Type\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		if (level_tb != NULL) {
+			if (copy_to_user(config->level_tb,
+					level_tb,
+					sizeof(struct msync_parameter_table) *
+					config->msync_level_num)) {
+				DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+					__func__, __LINE__,
+					config->level_tb,
+					level_tb,
+					sizeof(struct msync_parameter_table) *
+					config->msync_level_num);
+				return -EFAULT;
+			}
 		}
 	}
+
 	DDPMSG("%s:%d ---\n", __func__, __LINE__);
 
 	return 0;
