@@ -1084,7 +1084,7 @@ void mtk_peri_iommu_isr(struct mtk_iommu_data *data, u32 bus_id)
 static void mtk_iommu_mau_init(struct mtk_iommu_data *data);
 
 static int mtk_iommu_mau_dump_status(struct mtk_iommu_data *data,
-				     int slave, int mau);
+				     int slave, int mau, bool aee_dump);
 #endif
 
 static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
@@ -1152,7 +1152,8 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 			for (mau = 0; mau < mau_count; mau++) {
 				if (int_state1 & F_INT_MMU_MAU_INT_STA(slave_id, mau, mau_count)) {
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
-					mtk_iommu_mau_dump_status(data, slave_id, mau);
+					mtk_iommu_mau_dump_status(data, slave_id, mau,
+						((int_state1 & F_INT_TRANSLATION_FAULT) == 0));
 #endif
 				}
 			}
@@ -2103,7 +2104,7 @@ static int mtk_iommu_mau_get_config(struct mtk_iommu_data *data,
 }
 
 static int mtk_iommu_mau_dump_status(struct mtk_iommu_data *data,
-				     int slave, int mau)
+				     int slave, int mau, bool aee_dump)
 {
 	unsigned int mau_count = data->plat_data->mau_count;
 	enum mtk_iommu_type type = data->plat_data->iommu_type;
@@ -2113,7 +2114,7 @@ static int mtk_iommu_mau_dump_status(struct mtk_iommu_data *data,
 	unsigned int status;
 	unsigned int falut_id, assert_id, assert_address, assert_b32;
 	struct mau_config_info mau_cfg;
-	char *port_name;
+	char *port_name = NULL;
 
 	if (slave >= MTK_IOMMU_MMU_COUNT || mau >= mau_count) {
 		pr_notice("%s, invalid iommu:(%d,%d), slave:%d, mau:%d\n",
@@ -2143,6 +2144,10 @@ static int mtk_iommu_mau_dump_status(struct mtk_iommu_data *data,
 		falut_id = (assert_id & F_MMU_MAU_ASRT_ID_VAL) << 2;
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 		port_name = mtk_iommu_get_port_name(type, id, falut_id);
+		if (aee_dump)
+			report_iommu_mau_fault(assert_id, falut_id, (port_name ?
+					       port_name : "port_unknown"),
+					       assert_address, assert_b32);
 #endif
 		pr_notice("%s: ASRT_ID=0x%x, FALUT_ID=0x%x(%s), AA=0x%x, AA_EXT=0x%x\n",
 			  __func__, assert_id, falut_id,

@@ -37,6 +37,10 @@ void report_custom_iommu_fault(
 	u64 fault_iova, u64 fault_pa, u32 fault_id,
 	enum mtk_iommu_type type, int id);
 
+void report_iommu_mau_fault(
+	u32 assert_id, u32 falut_id, char *port_name,
+	u32 assert_addr, u32 assert_b32);
+
 int mtk_iommu_register_fault_callback(int port,
 			       mtk_iommu_fault_callback_t fn,
 			       void *cb_data, bool is_vpu);
