@@ -457,6 +457,41 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			p->tsvc = 1;
 		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
 		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_MAX_QP:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_RC_MAX_QP: %d",
+			ctrl->val);
+		p->max_qp = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_MAX_QP;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_MIN_QP:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_RC_MIN_QP: %d",
+			ctrl->val);
+		p->min_qp = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_MIN_QP;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_I_P_QP_DELTA:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_RC_I_P_QP_DELTA: %d",
+			ctrl->val);
+		p->i_p_qp_delta = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_I_P_QP_DELTA;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_QP_CONTROL_MODE:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_RC_QP_CONTROL_MODE: %d",
+			ctrl->val);
+		p->qp_control_mode = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_QP_CONTROL_MODE;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_RC_FRAME_LEVEL_QP:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_RC_FRAME_LEVEL_QP: %d",
+			ctrl->val);
+		p->frame_level_qp = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_FRAME_LEVEL_QP;
+		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
@@ -1028,7 +1063,13 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->b_qp = enc_params->b_qp;
 	param->svp_mode = enc_params->svp_mode;
 	param->tsvc = enc_params->tsvc;
-
+	param->max_qp = enc_params->max_qp;
+	param->min_qp = enc_params->min_qp;
+	param->i_p_qp_delta = enc_params->i_p_qp_delta;
+	param->qp_control_mode = enc_params->qp_control_mode;
+	if (param->qp_control_mode) {
+		param->frame_level_qp = enc_params->frame_level_qp;
+	}
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -1427,6 +1468,12 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 
 		mtk_v4l2_debug(1, "[%d] Have HDR info meta fd, buf->index:%d. mtkbuf:%p, fd:%u",
 			ctx->id, buf->index, mtkbuf, buf->reserved);
+	}
+	if (buf->flags & V4L2_BUF_FLAG_QP_META && buf->reserved != 0) {
+		mtk_v4l2_debug(1, "[%d] Have QP info meta fd, buf->index:%d. mtkbuf:%p, pa:0x%x",
+			ctx->id, buf->index, mtkbuf, buf->reserved);
+		mtkbuf->qpmap = buf->reserved;
+		mtkbuf->frm_buf.qpmap = buf->reserved;
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
@@ -2117,6 +2164,54 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					&enc_prm);
 	}
 
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_MAX_QP) {
+		enc_prm.max_qp = mtk_buf->enc_params.max_qp;
+		mtk_v4l2_err("[%d] idx=%d, max_qp=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.max_qp);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_ADJUST_MAX_QP,
+					&enc_prm);
+	}
+
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_MIN_QP) {
+		enc_prm.min_qp = mtk_buf->enc_params.min_qp;
+		mtk_v4l2_err("[%d] idx=%d, min_qp=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.min_qp);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_ADJUST_MIN_QP,
+					&enc_prm);
+	}
+
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_I_P_QP_DELTA) {
+		enc_prm.i_p_qp_delta = mtk_buf->enc_params.i_p_qp_delta;
+		mtk_v4l2_err("[%d] idx=%d, i_p_qp_delta=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.i_p_qp_delta);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_ADJUST_I_P_QP_DELTA,
+					&enc_prm);
+	}
+
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_FRAME_LEVEL_QP) {
+		enc_prm.frame_level_qp = mtk_buf->enc_params.frame_level_qp;
+		mtk_v4l2_err("[%d] idx=%d, frame_level_qp=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.frame_level_qp);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP,
+					&enc_prm);
+	}
+
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
 	if (ret) {
@@ -2349,6 +2444,10 @@ static void mtk_venc_worker(struct work_struct *work)
 			src_buf->planes[2].data_offset);
 
 	pfrm_buf->roimap = src_buf_info->roimap;
+	pfrm_buf->has_meta = src_buf_info->has_meta;
+	pfrm_buf->qpmap = src_buf_info->qpmap;
+	pfrm_buf->meta_dma = src_buf_info->meta_dma;
+
 	ret = venc_if_encode(ctx, VENC_START_OPT_ENCODE_FRAME,
 				 pfrm_buf, pbs_buf, &enc_result);
 	if (ret) {
@@ -2731,6 +2830,66 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.dims[0] = 2;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_MAX_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video Encoder Max QP";
+	cfg.min = -1;
+	cfg.max = 51;
+	cfg.step = 1;
+	cfg.def = -1;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_MIN_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video Encoder Min QP";
+	cfg.min = -1;
+	cfg.max = 51;
+	cfg.step = 1;
+	cfg.def = -1;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_I_P_QP_DELTA;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video Encoder I-P frame QP Delta";
+	cfg.min = -1;
+	cfg.max = 50;
+	cfg.step = 1;
+	cfg.def = -1;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_QP_CONTROL_MODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video Encoder QP control mode";
+	cfg.min = -1;
+	cfg.max = 10;
+	cfg.step = 1;
+	cfg.def = -1;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_RC_FRAME_LEVEL_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video Encoder frame level QP";
+	cfg.min = 0;
+	cfg.max = 51;
+	cfg.step = 1;
+	cfg.def = 0;
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 

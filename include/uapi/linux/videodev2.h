@@ -1127,6 +1127,7 @@ static inline __u64 v4l2_timeval_to_ns(const struct timeval *tv)
 /* request_fd is valid */
 #define V4L2_BUF_FLAG_REQUEST_FD		0x00800000
 #define V4L2_BUF_FLAG_HDR_META			0x01000000
+#define V4L2_BUF_FLAG_QP_META			0x02000000
 /**
  * struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor
  *

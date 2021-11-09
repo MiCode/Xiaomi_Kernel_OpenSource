@@ -82,6 +82,11 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 15),
 	MTK_ENCODE_PARAM_TSVC = (1 << 16),
 	MTK_ENCODE_PARAM_NONREFPFREQ = (1 << 17),
+	MTK_ENCODE_PARAM_MAX_QP = (1 << 18),
+	MTK_ENCODE_PARAM_MIN_QP = (1 << 19),
+	MTK_ENCODE_PARAM_I_P_QP_DELTA = (1 << 20),
+	MTK_ENCODE_PARAM_QP_CONTROL_MODE = (1 << 21),
+	MTK_ENCODE_PARAM_FRAME_LEVEL_QP = (1 << 22),
 };
 
 /*
@@ -224,6 +229,11 @@ struct mtk_enc_params {
 	unsigned int    svp_mode;
 	unsigned int    tsvc;
 	unsigned int    nonrefpfreq;
+	unsigned int    max_qp;
+	unsigned int    min_qp;
+	unsigned int    i_p_qp_delta;
+	unsigned int    qp_control_mode;
+	unsigned int    frame_level_qp;
 };
 
 /*
@@ -277,6 +287,11 @@ struct venc_enc_param {
 	unsigned int svp_mode;
 	unsigned int tsvc;
 	unsigned int nonrefpfreq;
+	unsigned int max_qp;
+	unsigned int min_qp;
+	unsigned int i_p_qp_delta;
+	unsigned int qp_control_mode;
+	unsigned int frame_level_qp;
 };
 
 /*
@@ -290,6 +305,7 @@ struct venc_frm_buf {
 	u64 timestamp;
 	unsigned int roimap;
 	bool has_meta;
+	unsigned int qpmap;
 	struct dma_buf *meta_dma;
 	dma_addr_t meta_addr;
 };

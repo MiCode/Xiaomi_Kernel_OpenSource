@@ -40,6 +40,9 @@ struct mtk_video_enc_buf {
 	struct mtk_vcodec_mem bs_buf;
 	struct venc_frm_buf frm_buf;
 	unsigned int roimap;
+	bool has_meta;
+	unsigned int qpmap;
+	struct dma_buf *meta_dma;
 };
 
 extern const struct v4l2_ioctl_ops mtk_venc_ioctl_ops;

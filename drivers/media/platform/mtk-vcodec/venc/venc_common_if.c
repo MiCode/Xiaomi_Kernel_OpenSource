@@ -164,6 +164,7 @@ static int venc_encode_frame(struct venc_inst *inst,
 		inst->vsi->venc.roimap = frm_buf->roimap;
 
 		mtk_vcodec_debug(inst, "ROI: 0x%X", inst->vsi->venc.roimap);
+		mtk_vcodec_debug(inst, "QP: 0x%X", inst->vsi->venc.qpmap);
 	}
 	ret = vcu_enc_encode(&inst->vcu_inst, VENC_BS_MODE_FRAME, frm_buf,
 						 bs_buf, bs_size);
@@ -481,6 +482,14 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.b_qp = enc_prm->b_qp;
 		inst->vsi->config.svp_mode = enc_prm->svp_mode;
 		inst->vsi->config.tsvc = enc_prm->tsvc;
+		inst->vsi->config.max_qp = enc_prm->max_qp;
+		inst->vsi->config.min_qp = enc_prm->min_qp;
+		inst->vsi->config.i_p_qp_delta = enc_prm->i_p_qp_delta;
+		inst->vsi->config.qp_control_mode = enc_prm->qp_control_mode;
+		if (enc_prm->qp_control_mode) {
+			inst->vsi->config.frame_level_qp =
+				enc_prm->frame_level_qp;
+		}
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,
