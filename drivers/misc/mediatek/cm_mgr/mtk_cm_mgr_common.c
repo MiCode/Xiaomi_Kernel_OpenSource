@@ -100,6 +100,7 @@ static int debounce_times_perf_force_down = 100;
 static int dsu_enable = 1;
 static int dsu_opp_send = 0xff;
 static int dsu_mode;
+static int cm_aggr;
 #endif
 int debounce_times_reset_adb;
 int light_load_cps = 1000;
@@ -504,6 +505,8 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			dsu_opp_send);
 	len += cm_mgr_print("dsu_mode_change %d\n",
 			dsu_mode);
+	len += cm_mgr_print("cm_aggr %d\n",
+			cm_aggr);
 #endif
 	len += cm_mgr_print("\n");
 
@@ -664,6 +667,9 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 	} else if (!strcmp(cmd, "dsu_mode")) {
 		dsu_mode = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_MODE, val_1);
+	} else if (!strcmp(cmd, "cm_aggr")) {
+		cm_aggr = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_AGGRESSIVE, val_1);
 #endif
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
