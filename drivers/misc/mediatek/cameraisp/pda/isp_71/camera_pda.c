@@ -33,7 +33,6 @@
 // #define SMI_LOG
 #define CHECK_IRQ_COUNT
 #define PDA_MMQOS
-#define PDA_TF_DUMP_71_1
 // --------------------------------
 
 #ifdef PDA_TF_DUMP_71_1

@@ -18,6 +18,10 @@ ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
 
+ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
+subdir-ccflags-y += -DPDA_TF_DUMP_71_1
+endif
+
 obj-y := camera_pda_dummy.o
 
 obj-$(CONFIG_MTK_CAMERA_ISP_PDA_SUPPORT) += isp_71/camera_pda.o
