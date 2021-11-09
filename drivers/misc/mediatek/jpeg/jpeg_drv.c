@@ -497,7 +497,7 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 		if (jpeg_drv_hybrid_dec_lock(&hwid) == 0) {
 			*pStatus = JPEG_DEC_PROCESS;
 		} else {
-			JPEG_LOG(0, "jpeg_drv_hybrid_dec_lock failed (hw busy)");
+			JPEG_LOG(1, "jpeg_drv_hybrid_dec_lock failed (hw busy)");
 			return -EBUSY;
 		}
 
@@ -573,8 +573,9 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 					JPEG_LOG(0,
 					"JPEG Hybrid Dec Wait Error %d",
 					waitfailcnt);
+					usleep_range(10000, 20000);
 				}
-			} while (ret < 0 && waitfailcnt < 5);
+			} while (ret < 0 && waitfailcnt < 500);
 		} else
 			JPEG_LOG(1, "JPEG Hybrid Dec IRQ Wait Already Done!");
 		_jpeg_hybrid_dec_int_status[hwid] = 0;
