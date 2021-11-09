@@ -10,6 +10,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <mt-plat/mrdump.h>
 
 #include "apu.h"
 #include "apu_regdump.h"
@@ -139,12 +140,69 @@ static const struct proc_ops regdump_file_ops = {
 	.proc_release	= single_release
 };
 
+static void apu_mrdump_register(struct mtk_apu *apu)
+{
+	struct device *dev = apu->dev;
+	int ret = 0;
+	const struct apusys_regdump_info *info = NULL;
+	unsigned long base_va = 0;
+	unsigned long base_pa = 0;
+	unsigned long size = 0;
+
+	if (apu->platdata->flags & F_SECURE_COREDUMP) {
+		base_pa = apu->apusys_aee_coredump_mem_start +
+			apu->apusys_aee_coredump_info->up_coredump_ofs;
+		base_va = (unsigned long) apu->apu_aee_coredump_mem_base +
+			apu->apusys_aee_coredump_info->up_coredump_ofs;
+		size = sizeof(struct apu_coredump);
+	} else {
+		base_pa = __pa_nodebug(apu->coredump_buf);
+		base_va = (unsigned long) apu->coredump_buf;
+		size = sizeof(struct apu_coredump);
+	}
+	ret = mrdump_mini_add_extra_file(base_va, base_pa, size,
+		"APUSYS_RV_COREDUMP");
+	if (ret)
+		dev_info(dev, "%s: APUSYS_RV_COREDUMP add fail(%d)\n",
+			__func__, ret);
+
+	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
+		base_pa = apu->apusys_aee_coredump_mem_start +
+			apu->apusys_aee_coredump_info->up_xfile_ofs;
+		base_va = (unsigned long) apu->apu_aee_coredump_mem_base +
+			apu->apusys_aee_coredump_info->up_xfile_ofs;
+		size = apu->apusys_aee_coredump_info->up_xfile_sz;
+
+		ret = mrdump_mini_add_extra_file(base_va, base_pa, size,
+			"APUSYS_RV_XFILE");
+		if (ret)
+			dev_info(dev, "%s: APUSYS_RV_XFILE add fail(%d)\n",
+				__func__, ret);
+	}
+
+	base_pa = apu->apusys_aee_coredump_mem_start +
+		apu->apusys_aee_coredump_info->regdump_ofs;
+	base_va = (unsigned long) apu->apu_aee_coredump_mem_base +
+		apu->apusys_aee_coredump_info->regdump_ofs;
+	info = (struct apusys_regdump_info *) base_va;
+	size = apu->apusys_aee_coredump_info->regdump_sz;
+
+	if (info != NULL) {
+		ret = mrdump_mini_add_extra_file(base_va, base_pa, size,
+			"APUSYS_REGDUMP");
+		if (ret)
+			dev_info(dev, "%s: APUSYS_REGDUMP add fail(%d)\n",
+				__func__, ret);
+	}
+}
+
 int apu_procfs_init(struct platform_device *pdev)
 {
 	int ret;
 	struct proc_dir_entry *coredump_seqlog;
 	struct proc_dir_entry *xfile_seqlog;
 	struct proc_dir_entry *regdump_seqlog;
+	struct mtk_apu *apu = (struct mtk_apu *) platform_get_drvdata(pdev);
 
 	g_apu_pdev = pdev;
 
@@ -182,6 +240,8 @@ int apu_procfs_init(struct platform_device *pdev)
 		goto out;
 	}
 	apu_regdump_init(pdev);
+
+	apu_mrdump_register(apu);
 out:
 	return ret;
 }
