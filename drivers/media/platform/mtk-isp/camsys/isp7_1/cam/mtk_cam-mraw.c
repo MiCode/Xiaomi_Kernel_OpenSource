@@ -1925,7 +1925,8 @@ void mraw_irq_handle_tg_grab_err(struct mtk_mraw_device *mraw_dev,
 		return;
 	}
 
-	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
+	s_data = mtk_cam_get_req_s_data(ctx,
+		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, dequeued_frame_seq_no);
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
 	} else {
@@ -1980,7 +1981,8 @@ static void mraw_irq_handle_tg_overrun_err(struct mtk_mraw_device *mraw_dev,
 		return;
 	}
 
-	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
+	s_data = mtk_cam_get_req_s_data(ctx,
+		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, dequeued_frame_seq_no);
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
 	} else {

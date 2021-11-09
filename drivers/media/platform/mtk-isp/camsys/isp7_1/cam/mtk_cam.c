@@ -3374,6 +3374,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		req_stream_data_mraw->req = req_stream_data->req;
 		req_stream_data_mraw->pipe_id = ctx->mraw_pipe[i]->id;
 		req_stream_data_mraw->ctx = ctx;
+		mtk_cam_req_dump_work_init(req_stream_data_mraw);
 
 		if (req_stream_data_mraw->frame_seq_no == 1) {
 			if (req->pipe_used & (1 << ctx->mraw_pipe[i]->id)) {
@@ -3488,6 +3489,7 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 		pipe_stream_data->ctx = ctx;
 		buf_entry->ts_raw = 0;
 		buf_entry->ts_sv = 0;
+		mtk_cam_req_dump_work_init(pipe_stream_data);
 		mtk_cam_req_work_init(&pipe_stream_data->sv_work, pipe_stream_data);
 		INIT_WORK(&pipe_stream_data->sv_work.work, mtk_cam_sv_work);
 		mtk_cam_sv_wbuf_set_s_data(buf_entry, pipe_stream_data);

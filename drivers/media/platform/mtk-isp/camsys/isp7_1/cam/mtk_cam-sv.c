@@ -1947,7 +1947,8 @@ void camsv_irq_handle_err(
 		}
 	}
 
-	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
+	s_data = mtk_cam_get_req_s_data(ctx,
+		camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, dequeued_frame_seq_no);
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
 	} else {
