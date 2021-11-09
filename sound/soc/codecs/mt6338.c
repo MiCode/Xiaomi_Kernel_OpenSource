@@ -4467,8 +4467,8 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 			     priv->reg_afe_vow_vad_cfg5 & 0xff);
 		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG32,
 			     priv->reg_afe_vow_vad_cfg5 >> 8);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG50, 0x00);
-		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG51, 0x10);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG50, 0x7f);
+		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG51, 0x00);
 		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG52, 0x00);
 		regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG53, 0x00);
 		if (priv->vow_channel == 2) {
@@ -4501,8 +4501,8 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 				     priv->reg_afe_vow_vad_cfg5 & 0xff);
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG34,
 				     priv->reg_afe_vow_vad_cfg5 >> 8);
-			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG54, 0x00);
-			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG55, 0x10);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG54, 0x7f);
+			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG55, 0x00);
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG56, 0x00);
 			regmap_write(priv->regmap, MT6338_AFE_VOW_VAD_CFG57, 0x00);
 		}
@@ -6219,8 +6219,8 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
-	/* if vow is enabled, always set volume as 10 (24dB) */
-	mic_gain_r = priv->vow_enable ? 10 :
+	/* if vow is enabled, always set volume as 6 (18dB) */
+	mic_gain_r = priv->vow_enable ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2];
 	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_r %d, mux_pga %d, vow_enable %d\n",
 		__func__, event, mic_type, mic_gain_r, mux_pga, priv->vow_enable);
