@@ -491,7 +491,7 @@ void cmdq_util_mminfra_cmd(const u8 type)
 {
 	struct arm_smccc_res res;
 
-	cmdq_msg("%s: type:%hu", __func__, type);
+	cmdq_log("%s: type:%hu", __func__, type);
 
 	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_MMINFRA_CMD, type, 0,
 		0, 0, 0, 0, &res);
