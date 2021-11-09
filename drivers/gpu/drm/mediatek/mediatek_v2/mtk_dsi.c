@@ -1698,29 +1698,50 @@ static void mtk_dsi_cmdq_size_sel(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE_SEL, CMDQ_SIZE_SEL);
 }
 
+static u16 mtk_get_gpr(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct drm_crtc *crtc;
+	struct cmdq_client *client;
+	unsigned int mmsys_id;
+
+	if (!mtk_crtc || !handle)
+		return CMDQ_GPR_R07;
+
+	crtc = &mtk_crtc->base;
+	client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+	mmsys_id = mtk_get_mmsys_id(crtc);
+
+	switch (mmsys_id) {
+	case MMSYS_MT6983:
+	case MMSYS_MT6879:
+	case MMSYS_MT6895:
+	case MMSYS_MT6855:
+		if (handle->cl == (void *)client)
+			return ((drm_crtc_index(crtc) == 0) ? CMDQ_GPR_R03 : CMDQ_GPR_R05);
+		else
+			return ((drm_crtc_index(crtc) == 0) ? CMDQ_GPR_R04 : CMDQ_GPR_R06);
+	default:
+		if (handle->cl == (void *)client)
+			return CMDQ_GPR_R14;
+		else
+			return CMDQ_GPR_R07;
+	}
+}
+
 static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 			      struct cmdq_pkt *handle, unsigned int reg,
 			      unsigned int val, unsigned int mask)
 {
-	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+	u16 gpr;
 
 	if (handle == NULL)
 		DDPPR_ERR("%s no cmdq handle\n", __func__);
 
-#ifdef IF_ZERO
-	cmdq_pkt_poll_reg(handle, val, comp->cmdq_subsys, reg & 0xFFFF, mask);
-#else
-	if (handle->cl == (void *)client) {
-		cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
-					  reg, mask, 0xFFFF,
-					  CMDQ_GPR_R14);
-	} else {
-		cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
-					  reg, mask, 0xFFFF,
-					  CMDQ_GPR_R07);
-	}
-#endif
+	gpr = mtk_get_gpr(comp, handle);
+
+	cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
+				  reg, mask, 0xFFFF, gpr);
 }
 
 static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
