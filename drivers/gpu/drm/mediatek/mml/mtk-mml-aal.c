@@ -149,53 +149,46 @@
 
 #define AAL_SRAM_STATUS_BIT	BIT(17)
 
-/* TO-DO: need to fix */
-#define CMDQ_SYNC_TOKEN_GPR_SET_0	(700)
-#define CMDQ_SYNC_TOKEN_GPR_SET_1	(701)	/* 701 */
-#define CMDQ_SYNC_TOKEN_GPR_SET_2	(702)	/* 702 */
-#define CMDQ_SYNC_TOKEN_GPR_SET_3	(703)	/* 703 */
-#define CMDQ_SYNC_TOKEN_GPR_SET_4	(704)	/* 704 */
-
 struct aal_data {
 	u32 min_tile_width;
 	u32 tile_width;
 	u32 min_hist_width;
-	u32 gpr[MML_PIPE_CNT];
+	u16 gpr[MML_PIPE_CNT];
 };
 
 static const struct aal_data mt6893_aal_data = {
 	.min_tile_width = 50,
 	.tile_width = 560,
 	.min_hist_width = 128,
-	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
 static const struct aal_data mt6983_aal_data = {
 	.min_tile_width = 50,
 	.tile_width = 1652,
 	.min_hist_width = 128,
-	.gpr = {CMDQ_GPR_R15, CMDQ_GPR_R11},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
 static const struct aal_data mt6879_aal_data = {
 	.min_tile_width = 50,
 	.tile_width = 1376,
 	.min_hist_width = 128,
-	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
 static const struct aal_data mt6895_aal0_data = {
 	.min_tile_width = 50,
 	.tile_width = 1300,
 	.min_hist_width = 128,
-	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
 static const struct aal_data mt6895_aal1_data = {
 	.min_tile_width = 50,
 	.tile_width = 852,
 	.min_hist_width = 128,
-	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R14},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
 struct mml_comp_aal {
@@ -204,7 +197,6 @@ struct mml_comp_aal {
 	const struct aal_data *data;
 	bool ddp_bound;
 
-	u8 gpr_poll;
 	u32 sram_curve_start;
 	u32 sram_hist_start;
 };
@@ -218,7 +210,7 @@ struct aal_frame_data {
 	u32 begin_offset;
 	u32 condi_offset;
 	u32 cut_pos_x;
-	u16 labels[AAL_CURVE_NUM+CMDQ_GPR_UPDATE];
+	u16 labels[AAL_CURVE_NUM + CMDQ_GPR_UPDATE];
 	bool is_aal_need_readback;
 };
 
@@ -321,7 +313,7 @@ static u32 aal_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_dre)
 		return 0;
 
-	return AAL_CURVE_NUM+CMDQ_GPR_UPDATE;
+	return AAL_CURVE_NUM + CMDQ_GPR_UPDATE;
 }
 
 static void aal_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
@@ -667,13 +659,15 @@ static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 	u8 pipe = ccfg->pipe;
 	dma_addr_t begin_pa = 0;
 	u32 *condi_inst = NULL;
-	const uint16_t idx_addr = CMDQ_THR_SPR_IDX1;
-	u16 idx_gpr_out = 0;
-	u16 idx_gpr_poll = 0;
-	u16 idx_gpr_val = 0;
-	u16 idx_out_low = 0;
 	dma_addr_t pa = 0;
 	struct cmdq_operand lop, rop;
+
+	const u16 idx_addr = CMDQ_THR_SPR_IDX1;
+	const u16 idx_val = CMDQ_THR_SPR_IDX2;
+	const u16 idx_out_spr = CMDQ_THR_SPR_IDX3;
+	const u16 idx_out = aal->data->gpr[ccfg->pipe] + CMDQ_GPR_CNT_ID;
+	const u16 idx_out64 = (aal->data->gpr[ccfg->pipe] >> 1) +
+			      CMDQ_GPR_P0 + CMDQ_GPR_CNT_ID;
 
 	mml_pq_msg("%s start engine_id[%d] en_dre[%d] addr[%d]", __func__, comp->id,
 			dest->pq_config.en_dre, addr);
@@ -691,21 +685,16 @@ static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 
 	pa = task->pq_task->aal_hist[pipe]->pa;
 
-	idx_gpr_out = CMDQ_GPR_P6;
-	idx_gpr_poll = CMDQ_GPR_R10;
-	idx_gpr_val = CMDQ_GPR_R10;
-	idx_out_low = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
-	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_GPR_SET_2);
-
-	/* init sprs, spr1 = AAL_SRAM_START, gpr_p4 = out_pa */
-
+	/* init sprs
+	 * spr1 = AAL_SRAM_START
+	 * gpr_p4 = out_pa
+	 */
 	cmdq_pkt_assign_command(pkt, idx_addr, dre30_hist_sram_start);
 
-	mml_assign(pkt, idx_out_low, (u32)pa,
+	mml_assign(pkt, idx_out_spr, (u32)pa,
 		reuse, cache, &aal_frm->labels[AAL_CURVE_NUM]);
-
-	mml_assign(pkt, idx_out_low+1, (u32)(pa>>32),
-		reuse, cache, &aal_frm->labels[AAL_CURVE_NUM+1]);
+	mml_assign(pkt, idx_out + 1, (u32)(pa >> 32),
+		reuse, cache, &aal_frm->labels[AAL_CURVE_NUM + 1]);
 
 	/* loop again here */
 	aal_frm->begin_offset = pkt->cmd_buf_size;
@@ -714,14 +703,20 @@ static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 	/* config aal sram addr and poll */
 	cmdq_pkt_write_reg_addr(pkt, base_pa + AAL_SRAM_RW_IF_2,
 		idx_addr, U32_MAX);
+	/* use gpr low as poll gpr */
 	cmdq_pkt_poll_addr(pkt, AAL_SRAM_STATUS_BIT,
 		base_pa + AAL_SRAM_STATUS,
-		AAL_SRAM_STATUS_BIT, idx_gpr_poll);
+		AAL_SRAM_STATUS_BIT, idx_out);
 	/* read to value gpr */
-	cmdq_pkt_read_addr(pkt, base_pa + AAL_SRAM_RW_IF_3,
-		CMDQ_GPR_CNT_ID + idx_gpr_val);
-	/* write value gpr to dst gpr */
-	cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+	cmdq_pkt_read_addr(pkt, base_pa + AAL_SRAM_RW_IF_3, idx_val);
+	/* and now assign addr low 32bit from spr to idx_out gpr */
+	lop.reg = true;
+	lop.idx = idx_out_spr;
+	rop.reg = false;
+	rop.value = 0;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
+	/* write value spr to dst gpr */
+	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	/* jump forward end if sram is last one, if spr1 >= 4096 + 4 * 767 */
 
@@ -736,10 +731,10 @@ static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_addr, &lop, &rop);
 	/* inc outut pa */
 	lop.reg = true;
-	lop.idx = idx_out_low;
+	lop.idx = idx_out_spr;
 	rop.reg = false;
 	rop.value = 4;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_spr, &lop, &rop);
 
 	lop.reg = true;
 	lop.idx = idx_addr;
@@ -754,31 +749,34 @@ static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
+	/* assign addr low 32bit to gpr again, since later loop uses gpr directly */
+	lop.reg = true;
+	lop.idx = idx_out_spr;
+	rop.reg = false;
+	rop.value = 0;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
+
 	for (i = 0; i < 8; i++) {
-		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_00 + i * 4,
-			CMDQ_GPR_CNT_ID + idx_gpr_val);
-		cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_00 + i * 4, idx_val);
+		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 		lop.reg = true;
-		lop.idx = idx_out_low;
+		lop.idx = idx_out;
 		rop.reg = false;
 		rop.value = 4;
-		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
 	}
 
 	for (i = 0; i < 8; i++) {
-		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_08 + i * 4,
-			CMDQ_GPR_CNT_ID + idx_gpr_val);
-		cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_08 + i * 4, idx_val);
+		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 		lop.reg = true;
-		lop.idx = idx_out_low;
+		lop.idx = idx_out;
 		rop.reg = false;
 		rop.value = 4;
-		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
 	}
-
-	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_2);
 
 	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p]",
 		__func__, task->job.jobid, comp->id, task->pq_task->aal_hist[pipe]->va,
@@ -1164,9 +1162,6 @@ static int probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to init mml component: %d\n", ret);
 		return ret;
 	}
-
-	if (of_property_read_u8(dev->of_node, "gpr_poll", &priv->gpr_poll))
-		dev_err(dev, "read general purpose reg fail\n");
 
 	if (of_property_read_u32(dev->of_node, "sram_curve_base", &priv->sram_curve_start))
 		dev_err(dev, "read curve base fail\n");

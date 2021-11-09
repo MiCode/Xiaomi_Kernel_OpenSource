@@ -359,6 +359,9 @@ s32 cmdq_pkt_store64_value_reg(struct cmdq_pkt *pkt,
 s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u16 src_reg_idx, u32 mask);
 
+s32 cmdq_pkt_write_reg_indriect(struct cmdq_pkt *pkt, u16 addr_reg_idx,
+	u16 src_reg_idx, u32 mask);
+
 /**
  * cmdq_pkt_write() - append write command to the CMDQ packet
  * @pkt:	the CMDQ packet

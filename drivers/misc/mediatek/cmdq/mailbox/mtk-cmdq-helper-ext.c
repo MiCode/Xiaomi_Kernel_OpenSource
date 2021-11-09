@@ -1191,6 +1191,26 @@ s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 }
 EXPORT_SYMBOL(cmdq_pkt_write_indriect);
 
+s32 cmdq_pkt_write_reg_indriect(struct cmdq_pkt *pkt, u16 addr_reg_idx,
+	u16 src_reg_idx, u32 mask)
+{
+	enum cmdq_code op = CMDQ_CODE_WRITE_S;
+
+	if (mask != U32_MAX) {
+		int err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(~mask),
+			CMDQ_GET_ARG_B(~mask), 0, 0, 0, 0, 0, CMDQ_CODE_MASK);
+		if (err != 0)
+			return err;
+
+		op = CMDQ_CODE_WRITE_S_W_MASK;
+	}
+
+	return cmdq_pkt_append_command(pkt, 0,
+		src_reg_idx, addr_reg_idx, 0,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE, CMDQ_REG_TYPE, op);
+}
+EXPORT_SYMBOL(cmdq_pkt_write_reg_indriect);
+
 s32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u32 value, u32 mask)
 {
