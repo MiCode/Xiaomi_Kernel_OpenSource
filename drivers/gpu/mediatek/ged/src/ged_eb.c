@@ -501,7 +501,7 @@ int mtk_gpueb_sysram_batch_read(int max_read_count,
 		return avg_freq;
 
 	} else {
-		GPUFDVFS_LOGD("QQ - %s(). cur_freq: %d", __func__, (ged_get_cur_freq() / 1000));
+		GPUFDVFS_LOGD("%s(). cur_freq: %d", __func__, (ged_get_cur_freq() / 1000));
 		return (ged_get_cur_freq() / 1000);
 	}
 

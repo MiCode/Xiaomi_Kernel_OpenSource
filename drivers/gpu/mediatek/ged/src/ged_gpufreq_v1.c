@@ -109,3 +109,10 @@ unsigned int ged_gpufreq_bringup(void)
 {
 	return  mt_gpufreq_bringup();
 }
+
+unsigned int ged_gpufreq_get_power_state(void)
+{
+	// For v1 usage, always consider as POWER ON
+	return 1;
+}
+

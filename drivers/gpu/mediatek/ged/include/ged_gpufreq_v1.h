@@ -33,4 +33,6 @@ int ged_gpufreq_commit(int oppidx, int commit_type);
 
 unsigned int ged_gpufreq_bringup(void);
 
+unsigned int ged_gpufreq_get_power_state(void);
+
 #endif /* __GED_GPUFREQ_V1_H__ */

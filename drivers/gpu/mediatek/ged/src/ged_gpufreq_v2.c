@@ -407,3 +407,9 @@ void ged_gpufreq_print_tables(void)
 				g_virtual_table[i].vsram, g_virtual_table[i].vaging);
 	}
 }
+
+unsigned int ged_gpufreq_get_power_state(void)
+{
+	return gpufreq_get_power_state();
+}
+
