@@ -210,6 +210,7 @@ struct mtk_cam_request_stream_data {
 	int pipe_id;
 	unsigned int frame_seq_no;
 	unsigned int flags;
+	unsigned long raw_dmas;
 	u64 timestamp;
 	u64 timestamp_mono;
 	struct mtk_cam_buffer *bufs[MTK_RAW_TOTAL_NODES];

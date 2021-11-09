@@ -1400,7 +1400,11 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	set_fifo_threshold(dev->base + REG_PDO_R1_BASE);
 	set_fifo_threshold(dev->base + REG_AAO_R1_BASE);
 	set_fifo_threshold(dev->base + REG_AFO_R1_BASE);
-	set_fifo_threshold(dev->base + REG_PDO_R1_BASE);
+	set_fifo_threshold(dev->base + REG_LTMSO_R1_BASE);
+	set_fifo_threshold(dev->base + REG_TSFSO_R1_BASE);
+	set_fifo_threshold(dev->base + REG_TSFSO_R2_BASE);
+	set_fifo_threshold(dev->base + REG_FLKO_R1_BASE);
+	set_fifo_threshold(dev->base + REG_UFEO_R1_BASE);
 
 	set_fifo_threshold(dev->yuv_base + REG_YUVO_R1_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R1_BASE);
@@ -1408,11 +1412,6 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	set_fifo_threshold(dev->yuv_base + REG_YUVO_R3_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R3_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_YUVCO_R3_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_LTMSO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_TSFSO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_TSFSO_R2_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_FLKO_R1_BASE);
-	set_fifo_threshold(dev->yuv_base + REG_UFEO_R1_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_YUVO_R2_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_YUVBO_R2_BASE);
 	set_fifo_threshold(dev->yuv_base + REG_YUVO_R4_BASE);

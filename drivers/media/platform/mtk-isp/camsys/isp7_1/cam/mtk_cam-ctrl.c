@@ -405,7 +405,7 @@ void mtk_cam_req_seninf_change_new(struct mtk_cam_request *req)
 
 			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
 				 __func__, stream_id, s_data->seninf_new->name);
-			mtk_cam_qos_bw_calc(ctx);
+			mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas);
 		}
 	}
 
@@ -538,7 +538,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 
 			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
 				 __func__, stream_id, req_stream_data->seninf_new->name);
-			mtk_cam_qos_bw_calc(ctx);
+			mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas);
 		}
 	}
 
@@ -2261,6 +2261,12 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			buf_entry->cq_desc_offset,
 			buf_entry->sub_cq_desc_size,
 			buf_entry->sub_cq_desc_offset);
+
+		/* req_stream_data of req_cq*/
+		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
+		/* update qos bw */
+		mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas);
+
 		/* Transit state from Sensor -> CQ */
 		if (ctx->sensor) {
 			if (mtk_cam_is_subsample(ctx))
@@ -2270,8 +2276,6 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 				state_transition(current_state,
 				E_STATE_SENSOR, E_STATE_CQ);
 
-			/* req_stream_data of req_cq*/
-			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
 			dev_dbg(raw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld, monotime:%lld\n",
 			ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,

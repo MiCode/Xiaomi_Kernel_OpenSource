@@ -11,7 +11,7 @@ ROOT_DIR=$(realpath $(KROOT)/..)
 OUT_DIR=$(PWD)/out
 
 srctree=$(KROOT)
-src=$(PWD)
+src=$(subst $(KROOT),,$(PWD))
 
 # reference config file to fetch clang version
 CONFIG=$(KROOT)build.config.common

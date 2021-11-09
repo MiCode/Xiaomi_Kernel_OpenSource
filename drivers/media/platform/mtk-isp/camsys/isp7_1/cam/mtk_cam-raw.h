@@ -55,6 +55,7 @@ enum raw_module_id {
 	RAW_A = 0,
 	RAW_B = 1,
 	RAW_C = 2,
+	RAW_NUM = 3,
 };
 #define PREISP
 /* feature mask to categorize all raw functions */
@@ -261,7 +262,6 @@ struct mtk_raw_pipeline {
 	enum hdr_scenario_id stagger_path;
 	/* pde module */
 	struct mtk_raw_pde_config pde_config;
-
 	s64 hw_mode;
 };
 

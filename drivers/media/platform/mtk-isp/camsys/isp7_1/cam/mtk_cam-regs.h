@@ -73,6 +73,7 @@
 #define REG_HALT4_EN					0x035c
 #define REG_HALT5_EN					0x0360
 #define REG_HALT6_EN					0x0364
+
 #define REG_FLASH					0x03A0
 #define REG_ULTRA_HALT1_EN				0x03c0
 #define REG_ULTRA_HALT2_EN				0x03c4
@@ -248,8 +249,8 @@
 #define REG_IMGO_R1_BASE       0x4880
 #define REG_FHO_R1_BASE        0x4930
 #define REG_AAHO_R1_BASE       0x49e0
-#define REG_PDO_R1_BASE        0x4a30
-#define REG_AAO_R1_BASE        0x4a90
+#define REG_PDO_R1_BASE        0x4a90
+#define REG_AAO_R1_BASE        0x4a40
 #define REG_AFO_R1_BASE        0x4bf0
 
 /* CAMSYS_YUV 0x1a05 */

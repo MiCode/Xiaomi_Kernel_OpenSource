@@ -214,7 +214,7 @@ unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt);
 
 unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt);
 
-int mtk_cam_get_plane_num(unsigned int ipi_fmt);
+int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt);
 
 unsigned int mtk_cam_get_pixel_bits(unsigned int pix_fmt);
 

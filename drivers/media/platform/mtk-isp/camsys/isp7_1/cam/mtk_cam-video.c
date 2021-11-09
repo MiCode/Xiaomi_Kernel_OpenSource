@@ -1732,8 +1732,8 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
 	}
 }
-
-int mtk_cam_get_plane_num(unsigned int ipi_fmt)
+/* for mmqos and base is 100 */
+int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 {
 	switch (ipi_fmt) {
 	case MTKCAM_IPI_IMG_FMT_BAYER8:
