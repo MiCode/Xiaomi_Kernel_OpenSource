@@ -2504,12 +2504,6 @@ static int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
 	int ret, num;
 
-	if (pm_runtime_suspended(dev)) {
-		dev_info(dev, "%s: pm_runtime_suspended is true, no action\n",
-			__func__);
-		return 0;
-	}
-
 	ret = wait_event_timeout
 		(imgsys_dev->flushing_waitq,
 		 !(num = atomic_read(&imgsys_dev->num_composing)),
@@ -2520,6 +2514,13 @@ static int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 
 		return -EBUSY;
 	}
+#ifdef NEED_PM
+
+	if (pm_runtime_suspended(dev)) {
+		dev_info(dev, "%s: pm_runtime_suspended is true, no action\n",
+			__func__);
+		return 0;
+	}
 
 	ret = pm_runtime_put_sync(dev);
 	if (ret) {
@@ -2527,12 +2528,13 @@ static int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 			__func__, ret);
 		return ret;
 	}
-
+#endif
 	return 0;
 }
 
 static int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
 {
+#ifdef NEED_PM
 	int ret;
 
 	if (pm_runtime_suspended(dev)) {
@@ -2547,7 +2549,7 @@ static int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
 			__func__, ret);
 		return ret;
 	}
-
+#endif
 	return 0;
 }
 
