@@ -36,6 +36,8 @@ static const char *reg_name[APUPW_MAX_REGS] = {
 };
 
 static struct apu_power apupw;
+static uint32_t g_opp_cfg_acx0;
+static uint32_t g_opp_cfg_acx1;
 
 static void aputop_dump_pwr_res(void);
 static void aputop_dump_pwr_reg(struct device *dev);
@@ -1177,6 +1179,8 @@ static int mt6983_apu_top_off(struct device *dev)
 {
 	int ret = 0, val = 0;
 	int rpc_timeout_val = 500000; // 500 ms
+	int polling_cnt = 0;
+	int max_polling = 100;
 
 	pr_info("%s +\n", __func__);
 
@@ -1190,6 +1194,31 @@ static int mt6983_apu_top_off(struct device *dev)
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL) == 0x0, 50, rpc_timeout_val);
+	if (ret)
+		pr_info("%s polling PWR RDY timeout\n", __func__);
+
+	if (!ret) {
+		ret = readl_relaxed_poll_timeout_atomic(
+				(apupw.regs[apu_rpc] + APU_RPC_STATUS),
+				val, (val & 0x1UL) == 0x1, 50, 10000);
+		if (ret)
+			pr_info("%s polling PWR STATUS timeout\n", __func__);
+
+		if (vapu_reg_id) {
+			while (1) {
+				if (regulator_is_enabled(vapu_reg_id) == 0)
+					break;
+
+				if (polling_cnt++ >= max_polling) {
+					pr_info("%s polling buck off timeout\n",
+							__func__);
+					break;
+				}
+
+				udelay(20);
+			}
+		}
+	}
 
 	aputop_dump_pwr_res();
 	aputop_dump_rpc_data();
@@ -1481,13 +1510,25 @@ static int mt6983_apu_top_rm(struct platform_device *pdev)
 
 static int mt6983_apu_top_suspend(struct device *dev)
 {
-	pr_info("%s skip this func\n", __func__);
+	g_opp_cfg_acx0 = apu_readl(
+			apupw.regs[apu_md32_mbox] + ACX0_LIMIT_OPP_REG);
+	g_opp_cfg_acx1 = apu_readl(
+			apupw.regs[apu_md32_mbox] + ACX1_LIMIT_OPP_REG);
+
+	pr_info("%s backup data 0x%08x 0x%08x\n", __func__,
+			g_opp_cfg_acx0, g_opp_cfg_acx1);
 	return 0;
 }
 
 static int mt6983_apu_top_resume(struct device *dev)
 {
-	pr_info("%s skip this func\n", __func__);
+	pr_info("%s restore data 0x%08x 0x%08x\n", __func__,
+			g_opp_cfg_acx0, g_opp_cfg_acx1);
+
+	apu_writel(g_opp_cfg_acx0,
+			apupw.regs[apu_md32_mbox] + ACX0_LIMIT_OPP_REG);
+	apu_writel(g_opp_cfg_acx1,
+			apupw.regs[apu_md32_mbox] + ACX1_LIMIT_OPP_REG);
 	return 0;
 }
 
