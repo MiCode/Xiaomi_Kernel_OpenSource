@@ -1448,7 +1448,9 @@ PVRSRV_ERROR DebugCommonInit(void)
 			.pfnStop = _DebugStatusDIStop,
 			.pfnNext = _DebugStatusDINext,
 			.pfnShow = _DebugStatusDIShow,
-			.pfnWrite = DebugStatusSet
+			.pfnWrite = DebugStatusSet,
+			//'K' expected + Null terminator
+			.ui32WriteLenMax = ((1U)+1U)
 		};
 		eError = DICreateEntry("status", NULL, &sIterator, psPVRSRVData,
 		                       DI_ENTRY_TYPE_GENERIC, &gpsStatusDIEntry);
@@ -1520,7 +1522,9 @@ PVRSRV_ERROR DebugCommonInit(void)
 			.pfnStop = _DebugPowerDataDIStop,
 			.pfnNext = _DebugPowerDataDINext,
 			.pfnShow = _DebugPowerDataDIShow,
-			.pfnWrite = PowerDataSet
+			.pfnWrite = PowerDataSet,
+			//Expects '0' or '1' plus Null terminator
+			.ui32WriteLenMax = ((1U)+1U)
 		};
 		eError = DICreateEntry("power_data", NULL, &sIterator, psPVRSRVData,
 		                       DI_ENTRY_TYPE_GENERIC, &gpsPowerDataDIEntry);
@@ -1533,7 +1537,9 @@ PVRSRV_ERROR DebugCommonInit(void)
 		DI_ITERATOR_CB sIterator = {
 			.pfnSeek = _RgxRegsSeek,
 			.pfnRead = _RgxRegsRead,
-			.pfnWrite = _RgxRegsWrite
+			.pfnWrite = _RgxRegsWrite,
+			//Max size of input binary data is 4 bytes (UINT32) or 8 bytes (UINT64)
+			.ui32WriteLenMax = ((8U)+1U)
 		};
 		eError = DICreateEntry("rgxregs", NULL, &sIterator, psPVRSRVData,
 		                       DI_ENTRY_TYPE_RANDOM_ACCESS, &gpsRGXRegsDIEntry);
@@ -1547,7 +1553,9 @@ PVRSRV_ERROR DebugCommonInit(void)
 	{
 		DI_ITERATOR_CB sIterator = {
 			.pfnShow = TestMemLeakDIShow,
-			.pfnWrite = TestMemLeakDISet
+			.pfnWrite = TestMemLeakDISet,
+			//Function only allows max 15 chars + Null terminator
+			.ui32WriteLenMax = ((15U)+1U)
 		};
 		eError = DICreateEntry("test_memleak", NULL, &sIterator, psPVRSRVData,
 		                       DI_ENTRY_TYPE_GENERIC, &gpsTestMemLeakDIEntry);
@@ -1559,7 +1567,9 @@ PVRSRV_ERROR DebugCommonInit(void)
 	{
 		DI_ITERATOR_CB sIterator = {
 			.pfnShow = DebugLevelDIShow,
-			.pfnWrite = DebugLevelSet
+			.pfnWrite = DebugLevelSet,
+			//Max value of 255(3 char) + Null Term
+			.ui32WriteLenMax = ((3U)+1U)
 		};
 		eError = DICreateEntry("debug_level", NULL, &sIterator, NULL,
 		                       DI_ENTRY_TYPE_GENERIC, &gpsDebugLevelDIEntry);

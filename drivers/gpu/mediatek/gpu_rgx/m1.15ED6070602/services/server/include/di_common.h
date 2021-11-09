@@ -220,9 +220,11 @@ typedef struct DI_ITERATOR_CB
     DI_PFN_SEEK pfnSeek;   /*!< Sets data pointer in an entry. */
     DI_PFN_READ pfnRead;   /*!< Reads data from an entry. */
 
-    /* Optional writing to entry interface. */
+    /* Optional writing to entry interface. Null terminated. */
 
     DI_PFN_WRITE pfnWrite; /*!< Performs write operation on an entry. */
+    IMG_UINT32   ui32WriteLenMax; /*!< Maximum char length of entry
+                                       accepted for write. Includes \0 */
 } DI_ITERATOR_CB;
 
 #endif /* DI_COMMON_H */

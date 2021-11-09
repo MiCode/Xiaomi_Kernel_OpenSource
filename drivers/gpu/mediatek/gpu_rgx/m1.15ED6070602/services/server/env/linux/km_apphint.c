@@ -954,7 +954,7 @@ static int apphint_debuginfo_init(const char *sub_dir,
 	const DI_ITERATOR_CB iterator = {
 		.pfnStart = apphint_di_start, .pfnStop = apphint_di_stop,
 		.pfnNext  = apphint_di_next,  .pfnShow = apphint_di_show,
-		.pfnWrite = apphint_set
+		.pfnWrite = apphint_set,      .ui32WriteLenMax = APPHINT_BUFFER_SIZE
 	};
 
 	if (*rootdir) {
