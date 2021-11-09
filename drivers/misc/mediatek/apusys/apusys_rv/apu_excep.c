@@ -393,6 +393,7 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 
 		/* ungate md32 cg for debug apb connection */
 		if (!hw_ops->cg_ungating) {
+			spin_unlock_irqrestore(&apu->reg_lock, flags);
 			WARN_ON(1);
 			return;
 		}
@@ -497,6 +498,7 @@ static irqreturn_t apu_wdt_isr(int irq, void *private_data)
 		spin_lock_irqsave(&apu->reg_lock, flags);
 		/* freeze md32 by turn off cg */
 		if (!hw_ops->cg_gating) {
+			spin_unlock_irqrestore(&apu->reg_lock, flags);
 			WARN_ON(1);
 			return -EINVAL;
 		}

@@ -457,6 +457,10 @@ static int apu_probe(struct platform_device *pdev)
 		goto remove_apu_excep;
 	}
 
+	/* to avoid running state being changed through rproc sysfs */
+	if ((data->flags & F_PRELOAD_FIRMWARE) && (data->flags & F_AUTO_BOOT))
+		rproc->state = RPROC_DETACHED;
+
 	if (hw_ops->init) {
 		ret = hw_ops->init(apu);
 		if (ret)

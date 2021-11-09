@@ -473,7 +473,7 @@ static int mt6983_apu_power_off(struct mtk_apu *apu)
 		dev_info(apu->dev,
 			 "%s: call to put_sync(dev) failed, ret=%d\n",
 			 __func__, ret);
-		/* apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR"); */
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
 		return ret;
 	}
 
@@ -542,7 +542,7 @@ iommu_put_error:
 		dev_info(apu->dev,
 			 "%s: call to put_sync(power_dev) failed, ret=%d\n",
 			 __func__, ret);
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_PWR_ERROR");
+		/* apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_PWR_ERROR"); */
 		goto error_get_iommu_dev;
 	}
 
