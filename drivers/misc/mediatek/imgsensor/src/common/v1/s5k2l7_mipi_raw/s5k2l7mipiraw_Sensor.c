@@ -2374,16 +2374,19 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 	case SENSOR_FEATURE_GET_PDAF_TYPE:
 		*feature_para = pdaf_sensor_mode;
-		if (pdaf_sensor_mode == 1)
-			sprintf(feature_para, "configure S5K2L7 as mode 1");
-		else if (pdaf_sensor_mode == 2)
-			sprintf(feature_para, "configure S5K2L7 as mode 2");
-		else if (pdaf_sensor_mode == 3)
-			sprintf(feature_para, "configure S5K2L7 as mode 3");
-		else
-			sprintf(
-			    feature_para, "configure S5K2L7 as unknown mode");
-
+		if (pdaf_sensor_mode == 1) {
+			if (sprintf(feature_para, "configure S5K2L7 as mode 1") < 0)
+				pr_debug("sprintf configure S5K2L7 as mode 1 error\n");
+		} else if (pdaf_sensor_mode == 2) {
+			if (sprintf(feature_para, "configure S5K2L7 as mode 2") < 0)
+				pr_debug("sprintf configure S5K2L7 as mode 2 error\n");
+		} else if (pdaf_sensor_mode == 3) {
+			if (sprintf(feature_para, "configure S5K2L7 as mode 3") < 0)
+				pr_debug("sprintf configure S5K2L7 as mode 3 error\n");
+		} else {
+			if (sprintf(feature_para, "configure S5K2L7 as unknown mode") < 0)
+				pr_debug("sprintf configure S5K2L7 as unknown mode error\n");
+		}
 		pr_debug("get PDAF type = %d\n", pdaf_sensor_mode);
 		break;
 
