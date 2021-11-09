@@ -62,7 +62,7 @@ static void set_cmos_sensor(struct subdrv_ctx *ctx,
 
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = S5K3M5SX_SENSOR_ID,
-	.checksum_value = 0x30a07776,
+	.checksum_value = 0x24cb34d5,
 	.pre = {
 		.pclk = 482000000,
 		.linelength = 8816,
