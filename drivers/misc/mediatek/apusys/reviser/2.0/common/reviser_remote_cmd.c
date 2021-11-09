@@ -588,15 +588,17 @@ out:
 }
 
 int reviser_remote_alloc_mem(void *drvinfo,
-		uint32_t type, uint32_t size,
-		uint64_t session, uint32_t *sid)
+		uint32_t type, uint64_t input_addr, uint32_t size,
+		uint64_t *addr, uint32_t *sid)
 {
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
 	int ret = 0;
-	uint32_t id = 0, mem_op = 0;
+	uint32_t ret_id = 0, mem_op = 0;
 	int widx = 0;
 	int ridx = 0;
+	uint64_t ret_addr = 0;
+	uint32_t in_addr = 0, out_addr = 0;
 
 	DEBUG_TAG;
 
@@ -620,10 +622,12 @@ int reviser_remote_alloc_mem(void *drvinfo,
 
 	mem_op = REVISER_MEM_ALLOC;
 
+	in_addr = (uint32_t) input_addr;
+
 	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
 	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
+	RVR_RPMSG_write(&in_addr, req.data, sizeof(in_addr), widx);
 	RVR_RPMSG_write(&size, req.data, sizeof(size), widx);
-	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {
@@ -636,14 +640,238 @@ int reviser_remote_alloc_mem(void *drvinfo,
 		goto out;
 	}
 
-	RVR_RPMSG_RAED(&id, reply.data, sizeof(id), ridx);
-	*sid = id;
+	RVR_RPMSG_RAED(&out_addr, reply.data, sizeof(out_addr), ridx);
+	RVR_RPMSG_RAED(&ret_id, reply.data, sizeof(ret_id), ridx);
+
+	ret_addr = (uint64_t) out_addr;
+
+	*sid = ret_id;
+	*addr = ret_addr;
+out:
+	return ret;
+}
+
+int reviser_remote_free_mem(void *drvinfo, uint32_t sid, uint32_t *type,
+				uint64_t *addr, uint32_t *size)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+	int widx = 0;
+	int ridx = 0;
+	uint32_t mem_op = 0;
+	uint32_t out_addr = 0, out_size = 0, out_type = 0;
+	uint64_t ret_addr = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_SYSTEM_RAM;
+	req.option = REVISER_OPTION_SET;
+
+	mem_op = REVISER_MEM_FREE;
+
+	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
+	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+
+	RVR_RPMSG_RAED(&out_type, reply.data, sizeof(out_type), ridx);
+	RVR_RPMSG_RAED(&out_addr, reply.data, sizeof(out_addr), ridx);
+	RVR_RPMSG_RAED(&out_size, reply.data, sizeof(out_size), ridx);
+
+	ret_addr = (uint64_t) out_addr;
+	*type = out_type;
+	*addr = ret_addr;
+	*size = out_size;
 
 out:
 	return ret;
 }
 
-int reviser_remote_free_mem(void *drvinfo, uint64_t session, uint32_t sid, uint32_t type)
+int reviser_remote_map_mem(void *drvinfo,
+		uint64_t session, uint32_t sid, uint64_t *addr)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+	uint32_t mem_op = 0;
+	int widx = 0;
+	int ridx = 0;
+	uint32_t out_addr = 0;
+	uint64_t ret_addr = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_SYSTEM_RAM;
+	req.option = REVISER_OPTION_SET;
+
+	mem_op = REVISER_MEM_MAP;
+
+	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
+	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
+	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+
+	RVR_RPMSG_RAED(&out_addr, reply.data, sizeof(out_addr), ridx);
+
+	ret_addr = (uint64_t) out_addr;
+	*addr = ret_addr;
+
+out:
+	return ret;
+}
+
+int reviser_remote_unmap_mem(void *drvinfo,
+		uint64_t session, uint32_t sid)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+	uint32_t mem_op = 0;
+	int widx = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_SYSTEM_RAM;
+	req.option = REVISER_OPTION_SET;
+
+	mem_op = REVISER_MEM_UNMAP;
+
+	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
+	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
+	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+
+
+out:
+	return ret;
+}
+
+int reviser_remote_import_mem(void *drvinfo, uint64_t session, uint32_t sid)
+{
+	struct reviser_dev_info *rdv = NULL;
+	struct reviser_msg req, reply;
+	int ret = 0;
+	int widx = 0;
+	uint32_t mem_op = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!reviser_is_remote()) {
+		LOG_ERR("Remote Not Init\n");
+		return -EINVAL;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	memset(&req, 0, sizeof(struct reviser_msg));
+	memset(&reply, 0, sizeof(struct reviser_msg));
+
+	req.cmd = REVISER_CMD_SYSTEM_RAM;
+	req.option = REVISER_OPTION_SET;
+
+	mem_op = REVISER_MEM_IMPORT;
+
+	LOG_INFO("session %x free sid %x\n", session, sid);
+
+	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
+	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
+	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
+
+	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
+	if (ret) {
+		LOG_ERR("Send Msg Fail %d\n", ret);
+		goto out;
+	}
+	ret = reviser_remote_check_reply((void *) &reply);
+	if (ret) {
+		LOG_ERR("Check Msg Fail %d\n", ret);
+		goto out;
+	}
+out:
+	return ret;
+}
+
+int reviser_remote_unimport_mem(void *drvinfo, uint64_t session, uint32_t sid)
 {
 	struct reviser_dev_info *rdv = NULL;
 	struct reviser_msg req, reply;
@@ -672,15 +900,14 @@ int reviser_remote_free_mem(void *drvinfo, uint64_t session, uint32_t sid, uint3
 	req.option = REVISER_OPTION_SET;
 
 
-	mem_op = REVISER_MEM_FREE;
-
+	mem_op = REVISER_MEM_UNIMPORT;
 
 	LOG_INFO("session %x free sid %x\n", session, sid);
 
 	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
-	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
-	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
 	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
+	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
+
 
 	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
 	if (ret) {
@@ -770,223 +997,6 @@ int reviser_remote_get_mem_info(void *drvinfo, uint32_t type)
 	rdv->plat.pool_bank_max[pool_id] = rdv->remote.pool_bank_max[pool_id];
 	rdv->plat.pool_addr[pool_id] = rdv->remote.pool_addr[pool_id];
 
-	ret = reviser_remote_check_reply((void *) &reply);
-	if (ret) {
-		LOG_ERR("Check Msg Fail %d\n", ret);
-		goto out;
-	}
-out:
-	return ret;
-}
-
-int reviser_remote_alloc_external(void *drvinfo,
-		uint32_t addr, uint32_t size,
-		uint64_t session, uint32_t *sid)
-{
-	struct reviser_dev_info *rdv = NULL;
-	struct reviser_msg req, reply;
-	int ret = 0;
-	uint32_t id = 0, mem_op = 0, type;
-	int widx = 0;
-	int ridx = 0;
-
-	DEBUG_TAG;
-
-	if (drvinfo == NULL) {
-		LOG_ERR("invalid argument\n");
-		return -EINVAL;
-	}
-
-	if (!reviser_is_remote()) {
-		LOG_ERR("Remote Not Init\n");
-		return -EINVAL;
-	}
-
-	rdv = (struct reviser_dev_info *)drvinfo;
-
-	memset(&req, 0, sizeof(struct reviser_msg));
-	memset(&reply, 0, sizeof(struct reviser_msg));
-
-	req.cmd = REVISER_CMD_SYSTEM_RAM;
-	req.option = REVISER_OPTION_SET;
-
-	mem_op = REVISER_MEM_ALLOC;
-	type = REVISER_MEM_TYPE_EXTERNAL;
-
-	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
-	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
-	RVR_RPMSG_write(&size, req.data, sizeof(size), widx);
-	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
-	RVR_RPMSG_write(&addr, req.data, sizeof(addr), widx);
-
-	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
-	if (ret) {
-		LOG_ERR("Send Msg Fail %d\n", ret);
-		goto out;
-	}
-	ret = reviser_remote_check_reply((void *) &reply);
-	if (ret) {
-		LOG_ERR("Check Msg Fail %d\n", ret);
-		goto out;
-	}
-
-	RVR_RPMSG_RAED(&id, reply.data, sizeof(id), ridx);
-	*sid = id;
-
-out:
-	return ret;
-}
-
-int reviser_remote_free_external(void *drvinfo, uint64_t session, uint32_t sid)
-{
-	struct reviser_dev_info *rdv = NULL;
-	struct reviser_msg req, reply;
-	int ret = 0;
-	int widx = 0;
-	uint32_t mem_op = 0, type;
-
-	DEBUG_TAG;
-
-	if (drvinfo == NULL) {
-		LOG_ERR("invalid argument\n");
-		return -EINVAL;
-	}
-
-	if (!reviser_is_remote()) {
-		LOG_ERR("Remote Not Init\n");
-		return -EINVAL;
-	}
-
-	rdv = (struct reviser_dev_info *)drvinfo;
-
-	memset(&req, 0, sizeof(struct reviser_msg));
-	memset(&reply, 0, sizeof(struct reviser_msg));
-
-	req.cmd = REVISER_CMD_SYSTEM_RAM;
-	req.option = REVISER_OPTION_SET;
-
-
-	mem_op = REVISER_MEM_FREE;
-	type = REVISER_MEM_TYPE_EXTERNAL;
-
-	LOG_INFO("session %x free sid %x\n", session, sid);
-
-	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
-	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
-	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
-	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
-
-	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
-	if (ret) {
-		LOG_ERR("Send Msg Fail %d\n", ret);
-		goto out;
-	}
-	ret = reviser_remote_check_reply((void *) &reply);
-	if (ret) {
-		LOG_ERR("Check Msg Fail %d\n", ret);
-		goto out;
-	}
-out:
-	return ret;
-}
-
-int reviser_remote_import_external(void *drvinfo, uint64_t session, uint32_t sid)
-{
-	struct reviser_dev_info *rdv = NULL;
-	struct reviser_msg req, reply;
-	int ret = 0;
-	int widx = 0;
-	uint32_t mem_op = 0, type;
-
-	DEBUG_TAG;
-
-	if (drvinfo == NULL) {
-		LOG_ERR("invalid argument\n");
-		return -EINVAL;
-	}
-
-	if (!reviser_is_remote()) {
-		LOG_ERR("Remote Not Init\n");
-		return -EINVAL;
-	}
-
-	rdv = (struct reviser_dev_info *)drvinfo;
-
-	memset(&req, 0, sizeof(struct reviser_msg));
-	memset(&reply, 0, sizeof(struct reviser_msg));
-
-	req.cmd = REVISER_CMD_SYSTEM_RAM;
-	req.option = REVISER_OPTION_SET;
-
-
-	mem_op = REVISER_MEM_IMPORT;
-	type = REVISER_MEM_TYPE_EXTERNAL;
-
-	LOG_INFO("session %x free sid %x\n", session, sid);
-
-	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
-	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
-	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
-	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
-
-	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
-	if (ret) {
-		LOG_ERR("Send Msg Fail %d\n", ret);
-		goto out;
-	}
-	ret = reviser_remote_check_reply((void *) &reply);
-	if (ret) {
-		LOG_ERR("Check Msg Fail %d\n", ret);
-		goto out;
-	}
-out:
-	return ret;
-}
-
-int reviser_remote_unimport_external(void *drvinfo, uint64_t session, uint32_t sid)
-{
-	struct reviser_dev_info *rdv = NULL;
-	struct reviser_msg req, reply;
-	int ret = 0;
-	int widx = 0;
-	uint32_t mem_op = 0, type;
-
-	DEBUG_TAG;
-
-	if (drvinfo == NULL) {
-		LOG_ERR("invalid argument\n");
-		return -EINVAL;
-	}
-
-	if (!reviser_is_remote()) {
-		LOG_ERR("Remote Not Init\n");
-		return -EINVAL;
-	}
-
-	rdv = (struct reviser_dev_info *)drvinfo;
-
-	memset(&req, 0, sizeof(struct reviser_msg));
-	memset(&reply, 0, sizeof(struct reviser_msg));
-
-	req.cmd = REVISER_CMD_SYSTEM_RAM;
-	req.option = REVISER_OPTION_SET;
-
-
-	mem_op = REVISER_MEM_UNIMPORT;
-	type = REVISER_MEM_TYPE_EXTERNAL;
-
-	LOG_INFO("session %x free sid %x\n", session, sid);
-
-	RVR_RPMSG_write(&mem_op, req.data, sizeof(mem_op), widx);
-	RVR_RPMSG_write(&type, req.data, sizeof(type), widx);
-	RVR_RPMSG_write(&sid, req.data, sizeof(sid), widx);
-	RVR_RPMSG_write(&session, req.data, sizeof(session), widx);
-
-	ret = reviser_remote_send_cmd_sync(drvinfo, (void *) &req, (void *) &reply, 0);
-	if (ret) {
-		LOG_ERR("Send Msg Fail %d\n", ret);
-		goto out;
-	}
 	ret = reviser_remote_check_reply((void *) &reply);
 	if (ret) {
 		LOG_ERR("Check Msg Fail %d\n", ret);

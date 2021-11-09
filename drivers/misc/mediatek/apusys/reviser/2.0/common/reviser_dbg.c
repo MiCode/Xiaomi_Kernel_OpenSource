@@ -57,9 +57,10 @@ static struct dentry *reviser_dbg_err_info;
 static struct dentry *reviser_dbg_err_reg;
 static struct dentry *reviser_dbg_err_debug;
 
-static uint32_t g_sid;
-static uint32_t g_session_test[5];
-static int g_session_test_count;
+
+static uint32_t g_session_test[2][5];
+static uint32_t g_sid_test[2];
+static int g_session_test_count[2];
 uint32_t g_rvr_klog;
 static uint32_t g_rvr_debug_op;
 static uint32_t g_rvr_remote_klog;
@@ -523,6 +524,20 @@ static const struct file_operations reviser_dbg_fops_err_reg = {
 	//.write = seq_write,
 };
 //----------------------------------------------
+static void reviser_print_session_test(void)
+{
+	uint32_t i, j;
+
+	for (i = 0; i < 2; i++)
+		LOG_INFO("g_sid_test[%u] %u\n", i, g_sid_test[i]);
+
+	for (i = 0; i < 2; i++)
+		LOG_INFO("g_session_test_count[%u] %u\n", i, g_session_test_count[i]);
+
+	for (i = 0; i < 2; i++)
+		for (j = 0; j < 5; j++)
+			LOG_INFO("g_session_test[%u][%u] %x\n", i, j, g_session_test[i][j]);
+}
 // Debug OP
 static int reviser_dbg_read_debug_op(void *data, u64 *val)
 {
@@ -536,145 +551,247 @@ static int reviser_dbg_read_debug_op(void *data, u64 *val)
 static int reviser_dbg_write_debug_op(void *data, u64 val)
 {
 	int ret = 0;
-//	uint32_t i;
-	uint32_t type, size, addr;
+	uint32_t type, size;
 
-	uint64_t session;
+	uint64_t session, addr;
+	uint32_t sid_idx = 0, sid_tmp, session_count;
 
 	g_rvr_debug_op = val;
 
 	switch (g_rvr_debug_op) {
 	case 0:
-		LOG_INFO("SLB allocate\n");
-		session = REVISER_SESSION_TEST;
-		type = REVISER_MEM_TYPE_SLBS;
-		if (g_sid) {
-			LOG_ERR("Double Allocate fail %x\n", g_sid);
-			ret = -EINVAL;
-			break;
-		}
+		LOG_INFO("TCM allocate\n");
+		// 1M for debugging
+		type = REVISER_MEM_TYPE_RSV_T;
+		size = 0x600000;
+		sid_idx = 0;
 
-		ret = reviser_get_pool_size(type, &size);
+		ret = reviser_alloc_mem(type, size, &addr, &sid_tmp);
 		if (ret) {
-			LOG_ERR("Get Pool[%u] size fail %d\n", type, ret);
+			LOG_ERR("Alloc %x fail %d\n", size, ret);
 			goto out;
 		}
 
-		ret = reviser_alloc_pool(type, session, size, &g_sid);
+		g_sid_test[sid_idx] = sid_tmp;
+
+		break;
+	case 10:
+		LOG_INFO("External allocate\n");
+		// 1M for debugging
+		type = REVISER_MEM_TYPE_EXTERNAL;
+		size = 0x300000;
+		sid_idx = 1;
+
+		ret = reviser_alloc_mem(type, size, &addr, &sid_tmp);
 		if (ret) {
-			LOG_ERR("Alloc Session[%x] %u/%x fail %d\n", session, type, size, ret);
+			LOG_ERR("Alloc %x fail %d\n", size, ret);
 			goto out;
 		}
 
+		g_sid_test[sid_idx] = sid_tmp;
 
 		break;
 	case 1:
-		LOG_INFO("SLB Free\n");
-		if (!g_sid) {
-			LOG_ERR("double Free fail %x\n", g_sid);
-			ret = -EINVAL;
-			break;
-		}
+		LOG_INFO("Map TCM\n");
 		session = REVISER_SESSION_TEST;
-		type = REVISER_MEM_TYPE_SLBS;
+		sid_idx = 0;
 
-		ret = reviser_free_pool(session, g_sid, type);
+		ret = reviser_map_mem(session, g_sid_test[sid_idx], &addr);
 		if (ret) {
-			LOG_ERR("Free Session[%x][%u] fail %d\n", session, type, ret);
+			LOG_ERR("Map Session[%llx] %x fail %d\n", session, g_sid_test[sid_idx]
+				, ret);
 			goto out;
 		}
+		session_count = g_session_test_count[sid_idx];
+		g_session_test[sid_idx][session_count] = session;
+		g_session_test_count[sid_idx]++;
 
-		g_sid = 0;
+		break;
+	case 11:
+		LOG_INFO("Map Ext\n");
+		session = REVISER_SESSION_TEST;
+		sid_idx = 1;
+
+		ret = reviser_map_mem(session, g_sid_test[sid_idx], &addr);
+		if (ret) {
+			LOG_ERR("Map Session[%llx] %x fail %d\n", session, g_sid_test[sid_idx]
+				, ret);
+			goto out;
+		}
+		session_count = g_session_test_count[sid_idx];
+		g_session_test[sid_idx][session_count] = session;
+		g_session_test_count[sid_idx]++;
+
 		break;
 	case 2:
-		LOG_INFO("External allocate\n");
+		LOG_INFO("UnMap TCM\n");
 		session = REVISER_SESSION_TEST;
-		if (g_sid) {
-			LOG_ERR("Double Allocate fail %x\n", g_sid);
-			ret = -EINVAL;
-			break;
-		}
-		// 1M for debugging
-		session = REVISER_SESSION_TEST;
-		size = 0x100000;
-		addr = 0x1DC00000;
+		sid_idx = 0;
 
-		ret = reviser_alloc_external(addr, size, session, &g_sid);
+		ret = reviser_unmap_mem(session, g_sid_test[sid_idx]);
 		if (ret) {
-			LOG_ERR("Alloc Session[%x] %u/%x fail %d\n", session, addr, size, ret);
+			LOG_ERR("UnMap Session[%llx] %x fail %d\n", session, g_sid_test[sid_idx]
+				, ret);
 			goto out;
 		}
 
-		g_session_test_count = 0;
-		g_session_test[g_session_test_count] = session;
-		g_session_test_count++;
+		session_count = g_session_test_count[sid_idx];
+		g_session_test[sid_idx][session_count-1] = 0;
+		g_session_test_count[sid_idx]--;
+
+		break;
+	case 12:
+		LOG_INFO("UnMap Ext\n");
+		session = REVISER_SESSION_TEST;
+		sid_idx = 1;
+
+		ret = reviser_unmap_mem(session, g_sid_test[sid_idx]);
+		if (ret) {
+			LOG_ERR("UnMap Session[%llx] %x fail %d\n", session, g_sid_test[sid_idx]
+				, ret);
+			goto out;
+		}
+
+		session_count = g_session_test_count[sid_idx];
+		g_session_test[sid_idx][session_count-1] = 0;
+		g_session_test_count[sid_idx]--;
 		break;
 	case 3:
-		LOG_INFO("External Free\n");
-		if (g_session_test_count < 0) {
-			LOG_ERR("UnImport test_count zero fail %x\n", g_session_test_count);
+		sid_idx = 0;
+		LOG_INFO("Free TCM\n");
+		if (!g_sid_test[sid_idx]) {
+			LOG_ERR("double Free fail %x\n", g_sid_test[sid_idx]);
 			ret = -EINVAL;
 			break;
 		}
-
-		if (!g_sid) {
-			LOG_ERR("double Free fail %x\n", g_sid);
-			ret = -EINVAL;
-			break;
-		}
-		g_session_test_count--;
-		session = g_session_test[g_session_test_count];
-
-		ret = reviser_free_external(session, g_sid);
+		ret = reviser_free_mem(g_sid_test[sid_idx]);
 		if (ret) {
-			LOG_ERR("Free Session[%x] fail %d\n", session, ret);
+			LOG_ERR("Free sid[%x] fail %d\n", g_sid_test[sid_idx], ret);
 			goto out;
 		}
 
-		g_sid = 0;
+		g_sid_test[sid_idx] = 0;
 		break;
-	case 4:
-		LOG_INFO("External Import\n");
-		if (g_session_test_count > 0)
-			session = g_session_test[g_session_test_count-1] + 1;
-		else {
-			LOG_ERR("Import test_count zero fail %x\n", g_session_test_count);
+	case 13:
+		sid_idx = 1;
+		LOG_INFO("Free Ext\n");
+		if (!g_sid_test[sid_idx]) {
+			LOG_ERR("double Free fail %x\n", g_sid_test[sid_idx]);
 			ret = -EINVAL;
 			break;
 		}
 
-		ret = reviser_import_external(session, g_sid);
+
+		ret = reviser_free_mem(g_sid_test[sid_idx]);
+		if (ret) {
+			LOG_ERR("Free sid[%x] fail %d\n", g_sid_test[sid_idx], ret);
+			goto out;
+		}
+
+		g_sid_test[sid_idx] = 0;
+		break;
+	case 4:
+		LOG_INFO("Import TCM\n");
+		sid_idx = 0;
+		session_count = g_session_test_count[sid_idx];
+
+
+		if (session_count > 0)
+			session = g_session_test[sid_idx][session_count-1] + 1;
+		else {
+			LOG_ERR("Import test_count zero fail %x\n", session_count);
+			ret = -EINVAL;
+			break;
+		}
+
+
+		ret = reviser_import_mem(session, g_sid_test[sid_idx]);
 		if (ret) {
 			LOG_ERR("Import Session[%x] %u fail %d\n", session, ret);
 			goto out;
 		}
 
-		g_session_test[g_session_test_count] = session;
-		g_session_test_count++;
+
+		g_session_test[sid_idx][session_count] = session;
+		g_session_test_count[sid_idx]++;
+
+
 		break;
-	case 5:
-		LOG_INFO("External UnImport\n");
-		if (g_session_test_count < 0) {
-			LOG_ERR("UnImport test_count zero fail %x\n", g_session_test_count);
+	case 14:
+		LOG_INFO("Import Ext\n");
+		sid_idx = 1;
+		session_count = g_session_test_count[sid_idx];
+
+		if (session_count > 0)
+			session = g_session_test[sid_idx][session_count-1] + 1;
+		else {
+			LOG_ERR("Import test_count zero fail %x\n", session_count);
 			ret = -EINVAL;
 			break;
 		}
-		g_session_test_count--;
-		session = g_session_test[g_session_test_count];
+		sid_idx = 1;
 
-		LOG_INFO("UnImport Session[%x] sid[%x]\n", session, g_sid);
+		ret = reviser_import_mem(session, g_sid_test[sid_idx]);
+		if (ret) {
+			LOG_ERR("Import Session[%x] %u fail %d\n", session, ret);
+			goto out;
+		}
 
-		ret = reviser_unimport_external(session, g_sid);
+		g_session_test[sid_idx][session_count] = session;
+		g_session_test_count[sid_idx]++;
+		break;
+	case 5:
+		LOG_INFO("UnImport TCM\n");
+		sid_idx = 0;
+		session_count = g_session_test_count[sid_idx];
+
+		if (session_count < 0) {
+			LOG_ERR("UnImport test_count zero fail %x\n", session_count);
+			ret = -EINVAL;
+			break;
+		}
+
+		session = g_session_test[sid_idx][session_count-1];
+
+		LOG_INFO("UnImport Session[%x] sid[%x]\n", session, g_sid_test[sid_idx]);
+
+		ret = reviser_unimport_mem(session, g_sid_test[sid_idx]);
+		if (ret) {
+			LOG_ERR("UnImport Session[%x] %u fail %d\n", session, ret);
+			goto out;
+		}
+		g_session_test[sid_idx][session_count-1] = 0;
+		g_session_test_count[sid_idx]--;
+
+		break;
+	case 15:
+		LOG_INFO("UnImport Ext\n");
+		sid_idx = 1;
+		session_count = g_session_test_count[sid_idx];
+
+		if (g_session_test_count < 0) {
+			LOG_ERR("UnImport test_count zero fail %x\n", session_count);
+			ret = -EINVAL;
+			break;
+		}
+		session = g_session_test[sid_idx][session_count-1];
+
+		LOG_INFO("UnImport Session[%x] sid[%x]\n", session, g_sid_test[sid_idx]);
+
+		ret = reviser_unimport_mem(session, g_sid_test[sid_idx]);
 		if (ret) {
 			LOG_ERR("UnImport Session[%x] %u fail %d\n", session, ret);
 			goto out;
 		}
 
+		g_session_test[sid_idx][session_count-1] = 0;
+		g_session_test_count[sid_idx]--;
 		break;
 	default:
 		ret = -EINVAL;
 		break;
 	}
+	reviser_print_session_test();
 out:
 	return ret;
 }
@@ -777,7 +894,8 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 	g_reviser_mem_dram_bank = 0;
 	g_reviser_mem_dram_ctx = 0;
 	g_rvr_debug_op = 0;
-	g_sid = 0;
+	memset(g_session_test_count, 0, sizeof(g_session_test_count));
+
 
 	reviser_dbg_root = debugfs_create_dir(REVISER_DBG_DIR, apu_dbg_root);
 	reviser_dbg_table = debugfs_create_dir(REVISER_DBG_SUBDIR_TABLE,

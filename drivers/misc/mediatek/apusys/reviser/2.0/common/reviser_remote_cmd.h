@@ -39,12 +39,17 @@ int reviser_remote_set_op(void *drvinfo, uint32_t *argv, uint32_t argc);
 int reviser_remote_handshake(void *drvinfo, void *remote);
 int reviser_remote_set_hw_default_iova(void *drvinfo, uint32_t ctx, uint64_t iova);
 int reviser_remote_alloc_mem(void *drvinfo,
-		uint32_t type, uint32_t size, uint64_t session, uint32_t *sid);
-int reviser_remote_free_mem(void *drvinfo, uint64_t session, uint32_t sid, uint32_t type);
+		uint32_t type, uint64_t input_addr, uint32_t size,
+		uint64_t *addr, uint32_t *sid);
+int reviser_remote_free_mem(void *drvinfo, uint32_t sid, uint32_t *type,
+		uint64_t *addr, uint32_t *size);
+int reviser_remote_map_mem(void *drvinfo,
+		uint64_t session, uint32_t sid, uint64_t *addr);
+int reviser_remote_unmap_mem(void *drvinfo,
+		uint64_t session, uint32_t sid);
+int reviser_remote_import_mem(void *drvinfo, uint64_t session, uint32_t sid);
+int reviser_remote_unimport_mem(void *drvinfo, uint64_t session, uint32_t sid);
 int reviser_remote_get_mem_info(void *drvinfo, uint32_t type);
-int reviser_remote_alloc_external(void *drvinfo, uint32_t addr, uint32_t size,
-		uint64_t session, uint32_t *sid);
-int reviser_remote_free_external(void *drvinfo, uint64_t session, uint32_t sid);
-int reviser_remote_import_external(void *drvinfo, uint64_t session, uint32_t sid);
-int reviser_remote_unimport_external(void *drvinfo, uint64_t session, uint32_t sid);
+
+
 #endif

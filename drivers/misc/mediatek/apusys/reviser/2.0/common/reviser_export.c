@@ -12,7 +12,7 @@
 #include "reviser_hw_mgt.h"
 #include "reviser_drv.h"
 #include "reviser_remote_cmd.h"
-
+#include "slbc_ops.h"
 
 /**
  * reviser_get_vlm - get continuous memory which is consists of TCM/DRAM/System-Memory
@@ -137,61 +137,6 @@ int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size)
 	return 0;
 }
 
-int reviser_set_manual_vlm(uint32_t session, uint32_t size)
-{
-	int ret = 0;
-
-	return ret;
-}
-
-int reviser_clear_manual_vlm(uint32_t session)
-{
-	int ret = 0;
-
-	return ret;
-}
-
-int reviser_alloc_pool(uint32_t type, uint64_t session, uint32_t size, uint32_t *sid)
-{
-	int ret = 0;
-
-	if (g_rdv == NULL) {
-		LOG_ERR("Invalid reviser_device\n");
-		ret = -EINVAL;
-		return ret;
-	}
-
-	ret = reviser_remote_alloc_mem(g_rdv, type, size, session, sid);
-	if (ret) {
-		LOG_ERR("Remote Handshake fail %d\n", ret);
-		goto out;
-	}
-
-	LOG_DBG_RVR_VLM("Alloc Pool (%u/0x%llx/0x%x/0x%x)\n", type, session, sid, size);
-out:
-	return ret;
-}
-
-int reviser_free_pool(uint64_t session, uint32_t sid, uint32_t type)
-{
-	int ret = 0;
-
-	if (g_rdv == NULL) {
-		LOG_ERR("Invalid reviser_device\n");
-		ret = -EINVAL;
-		return ret;
-	}
-
-	ret = reviser_remote_free_mem(g_rdv, session, sid, type);
-	if (ret) {
-		LOG_ERR("Remote Handshake fail %d\n", ret);
-		goto out;
-	}
-
-	LOG_DBG_RVR_VLM("Free Pool (%u/0x%llx/0x%x)\n", type, session, sid);
-out:
-	return 0;
-}
 
 int reviser_get_pool_size(uint32_t type, uint32_t *size)
 {
@@ -231,49 +176,99 @@ out:
 	return ret;
 }
 
-int reviser_alloc_external(uint32_t addr, uint32_t size, uint64_t session, uint32_t *sid)
+int reviser_alloc_mem(uint32_t type, uint32_t size, uint64_t *addr, uint32_t *sid)
 {
 	int ret = 0;
+	uint64_t input_addr = 0, ret_addr = 0, input_size = 0;
+	uint32_t ret_id = 0;
+	struct slbc_data slb;
 
 	if (g_rdv == NULL) {
 		LOG_ERR("Invalid reviser_device\n");
 		ret = -EINVAL;
 		return ret;
 	}
+	LOG_DBG_RVR_VLM("Alloc Mem (%lu/0x%lx)\n", type, size);
 
-	ret = reviser_remote_alloc_external(g_rdv, addr, size, session, sid);
+	switch (type) {
+	case REVISER_MEM_TYPE_EXTERNAL:
+		/* TODO, should allocate via reviser function */
+		slb.uid = UID_SH_APU;
+		slb.type = TP_BUFFER;
+
+		slbc_request(&slb);
+
+		/*XXX get vlm addr from reviser */
+		input_addr = (size_t) slb.paddr;
+		input_size = slb.size;
+		break;
+	case REVISER_MEM_TYPE_RSV_T:
+		input_addr = 0;
+		input_size = size;
+		break;
+	default:
+		LOG_ERR("Invalid type %u\n", type);
+		ret = -EINVAL;
+		goto out;
+	}
+	LOG_DBG_RVR_VLM("Alloc Mem (%lu/0x%lx/0x%llx/0x%lx)\n", type, size, input_addr, input_size);
+
+	ret = reviser_remote_alloc_mem(g_rdv, type, input_addr, input_size, &ret_addr, &ret_id);
 	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("Alloc Ext_Pool (%lx/0x%llx/0x%x/0x%x)\n", addr, session, sid, size);
+	*addr = ret_addr;
+	*sid = ret_id;
+
+	LOG_DBG_RVR_VLM("Alloc Mem Done (%lu/0x%lx/0x%llx/0x%lx)\n", type, size, ret_addr, ret_id);
 out:
 	return ret;
 }
 
-int reviser_free_external(uint64_t session, uint32_t sid)
+int reviser_free_mem(uint32_t sid)
 {
 	int ret = 0;
+	uint32_t out_type = 0, out_size = 0;
+	uint64_t out_addr = 0;
+	struct slbc_data slb;
 
 	if (g_rdv == NULL) {
 		LOG_ERR("Invalid reviser_device\n");
 		ret = -EINVAL;
 		return ret;
 	}
+	LOG_DBG_RVR_VLM("Free Mem (0x%x)\n", sid);
 
-	ret = reviser_remote_free_external(g_rdv, session, sid);
+	ret = reviser_remote_free_mem(g_rdv, sid, &out_type, &out_addr, &out_size);
 	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("Free Ext (0x%llx/0x%x)\n", session, sid);
+	switch (out_type) {
+	case REVISER_MEM_TYPE_RSV_T:
+		break;
+	case REVISER_MEM_TYPE_EXTERNAL:
+		slb.uid = UID_SH_APU;
+		slb.type = TP_BUFFER;
+
+		slbc_release(&slb);
+		break;
+	default:
+		LOG_ERR("Invalid type %u\n", out_type);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	LOG_DBG_RVR_VLM("Free Mem Done (0x%x) (%lu/0x%x/0x%x)\n",
+				sid, out_type, out_addr, out_size);
 out:
 	return ret;
 }
 
-int reviser_import_external(uint64_t session, uint32_t sid)
+int reviser_import_mem(uint64_t session, uint32_t sid)
 {
 	int ret = 0;
 
@@ -282,19 +277,20 @@ int reviser_import_external(uint64_t session, uint32_t sid)
 		ret = -EINVAL;
 		return ret;
 	}
+	LOG_DBG_RVR_VLM("Import Mem (0x%llx/0x%x)\n", session, sid);
 
-	ret = reviser_remote_import_external(g_rdv, session, sid);
+	ret = reviser_remote_import_mem(g_rdv, session, sid);
 	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("Import Ext (0x%llx/0x%x)\n", session, sid);
+	LOG_DBG_RVR_VLM("Import Mem Done (0x%llx/0x%x)\n", session, sid);
 out:
 	return ret;
 }
 
-int reviser_unimport_external(uint64_t session, uint32_t sid)
+int reviser_unimport_mem(uint64_t session, uint32_t sid)
 {
 	int ret = 0;
 
@@ -304,14 +300,67 @@ int reviser_unimport_external(uint64_t session, uint32_t sid)
 		return ret;
 	}
 
-	ret = reviser_remote_unimport_external(g_rdv, session, sid);
+	LOG_DBG_RVR_VLM("UnImport Mem (0x%llx/0x%x)\n", session, sid);
+
+	ret = reviser_remote_unimport_mem(g_rdv, session, sid);
 	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("UnImport Ext (0x%llx/0x%x)\n", session, sid);
+	LOG_DBG_RVR_VLM("UnImport Mem Done (0x%llx/0x%x)\n", session, sid);
 out:
 	return 0;
 }
 
+
+
+int reviser_map_mem(uint64_t session, uint32_t sid, uint64_t *addr)
+{
+	int ret = 0;
+	uint64_t ret_addr = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	LOG_DBG_RVR_VLM("Map mem (0x%llx/0x%x/0x%x)\n", session, sid, ret_addr);
+
+	ret = reviser_remote_map_mem(g_rdv, session, sid, &ret_addr);
+	if (ret) {
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
+	*addr = ret_addr;
+
+	LOG_DBG_RVR_VLM("Map mem Done (0x%llx/0x%x/0x%llx)\n", session, sid, ret_addr);
+
+out:
+	return ret;
+}
+
+int reviser_unmap_mem(uint64_t session, uint32_t sid)
+{
+	int ret = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	LOG_DBG_RVR_VLM("Unmap mem (0x%llx/0x%x)\n", session, sid);
+
+	ret = reviser_remote_unmap_mem(g_rdv, session, sid);
+	if (ret) {
+		LOG_ERR("Remote Handshake fail %d\n", ret);
+		goto out;
+	}
+
+	LOG_DBG_RVR_VLM("Unmap mem Done (0x%llx/0x%x)\n", session, sid);
+
+out:
+	return ret;
+}
