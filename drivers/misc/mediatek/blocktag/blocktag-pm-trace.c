@@ -324,7 +324,6 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 	spin_lock(&pm_traces.lock);
 	idx = pm_traces.head;
 	while (idx >= 0) {
-		pr_info("[btag-pm] show pm trace idx %d\n", idx);
 		tr = &pm_traces.trace[idx];
 		if (tr->event_type == PRE_RT_SUSPEND_END) {
 			SPREAD_PRINTF(buff, size, seq,
