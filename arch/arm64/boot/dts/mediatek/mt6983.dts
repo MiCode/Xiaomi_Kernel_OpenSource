@@ -2170,7 +2170,16 @@
 		<&mdpsys_config_clk CLK_MDP_SMI0>,
 		<&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_SMI0>,
 		<&vdec_soc_gcon_base_clk CLK_VDE1_BASE_LARB1_CKEN>,
-		<&vdec_gcon_base_clk CLK_VDE2_BASE_LARB1_CKEN>;
+		<&vdec_gcon_base_clk CLK_VDE2_BASE_LARB1_CKEN>,
+		<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBA>,
+		<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBB>,
+		<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_SUBC>,
+		<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_MRAW>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_IPET>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_DIP0T>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_WPE0T>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_WPE1T>,
+		<&imgsys_main_clk CLK_IMGSYS_MAIN_WPE2T>;
 		clock-names = "ufs0_0",
 		"adsp_ao_0",
 		"mm_infra_0",
@@ -2193,7 +2202,13 @@
 		"dis0-0", "dis1-0",
 		"mdp0-0", "mdp1-0",
 		"vde0-0",
-		"vde1-0";
+		"vde1-0",
+		"suba-0",
+		"subb-0",
+		"subc-0",
+		"mraw-0",
+		"ipe-0",
+		"dip1-0", "dip1-1", "dip1-2", "dip1-3";
 		infracfg = <&infracfg_ao_clk>;
 		vlpcfg = <&vlpcfg_bus_clk>;
 		mfgrpc = <&mfgrpc_clk>;
