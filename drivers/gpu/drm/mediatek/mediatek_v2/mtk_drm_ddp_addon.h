@@ -141,6 +141,11 @@ const struct mtk_addon_scenario_data *
 mtk_addon_get_scenario_data_dual(const char *source, struct drm_crtc *crtc,
 			    enum addon_scenario scn);
 bool mtk_addon_scenario_support(struct drm_crtc *crtc, enum addon_scenario scn);
+void mtk_addon_path_config(struct drm_crtc *crtc,
+			const struct mtk_addon_module_data *module_data,
+			union mtk_addon_config *addon_config,
+			struct cmdq_pkt *cmdq_handle);
+
 void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 			       const struct mtk_addon_module_data *module_data,
 			       union mtk_addon_config *addon_config,
@@ -165,4 +170,14 @@ void mtk_addon_disconnect_after(
 	struct drm_crtc *crtc, unsigned int ddp_mode,
 	const struct mtk_addon_module_data *module_data,
 	union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle);
+
+void mtk_addon_connect_external(struct drm_crtc *crtc, unsigned int ddp_mode,
+			      const struct mtk_addon_module_data *module_data,
+			      union mtk_addon_config *addon_config,
+			      struct cmdq_pkt *cmdq_handle);
+void mtk_addon_disconnect_external(
+	struct drm_crtc *crtc, unsigned int ddp_mode,
+	const struct mtk_addon_module_data *module_data,
+	union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle);
+
 #endif

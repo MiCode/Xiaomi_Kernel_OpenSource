@@ -2841,7 +2841,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		l_rule_ops->fbdc_pre_calculate(&layering_info);
 
 	/* Initial HRT conditions */
-	l_rule_ops->scenario_decision(scn_decision_flag, scale_num);
+	l_rule_ops->scenario_decision(dev, scn_decision_flag, scale_num);
 
 	/* Layer Grouping */
 	if (l_rule_ops->fbdc_adjust_layout)
@@ -2901,7 +2901,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 
 	/* adjust scenario after dispatch gles range */
 	scale_num = get_scale_cnt(&layering_info);
-	l_rule_ops->scenario_decision(scn_decision_flag, scale_num);
+	l_rule_ops->scenario_decision(dev, scn_decision_flag, scale_num);
 	ret = dispatch_ovl_id(&layering_info, lyeblob_ids, dev);
 
 	check_layering_result(&layering_info);

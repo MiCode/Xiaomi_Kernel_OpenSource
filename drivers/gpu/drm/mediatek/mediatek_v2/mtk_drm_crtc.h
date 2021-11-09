@@ -799,6 +799,7 @@ struct mtk_drm_crtc {
 	bool is_mml;
 	bool last_is_mml;
 	bool is_mml_debug;
+	bool is_force_mml_scen;
 	bool need_stop_last_mml_job;
 
 	atomic_t signal_irq_for_pre_fence;

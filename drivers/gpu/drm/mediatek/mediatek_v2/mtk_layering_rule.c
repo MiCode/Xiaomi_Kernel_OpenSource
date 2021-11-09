@@ -81,8 +81,8 @@ static uint16_t ovl_mapping_tb_vds_switch[HRT_TB_NUM] = {
 #define GET_SYS_STATE(sys_state)                                               \
 	((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
 
-static void layering_rule_scenario_decision(unsigned int scn_decision_flag,
-					   unsigned int scale_num)
+static void layering_rule_scenario_decision(struct drm_device *dev,
+	unsigned int scn_decision_flag, unsigned int scale_num)
 {
 /*TODO: need MMP support*/
 #ifdef IF_ZERO
@@ -93,10 +93,23 @@ static void layering_rule_scenario_decision(unsigned int scn_decision_flag,
 	l_rule_info.primary_fps = 60;
 	l_rule_info.bound_tb_idx = HRT_BOUND_TYPE_LP4;
 
+	{
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc = NULL;
+
+		drm_for_each_crtc(crtc, dev)
+			if (drm_crtc_index(crtc) == 0)
+				break;
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (crtc && mtk_crtc && mtk_crtc->is_force_mml_scen)
+			scn_decision_flag = SCN_MML;
+	}
+
 	if (scn_decision_flag & SCN_MML_SRAM_ONLY) {
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML_SRAM_ONLY;
 	} else if (scn_decision_flag & SCN_MML) {
-		l_rule_info.addon_scn[HRT_PRIMARY] = MML;
+		l_rule_info.addon_scn[HRT_PRIMARY] = MML_WITH_PQ;
 	} else if (scn_decision_flag & SCN_NEED_GAME_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = GAME_PQ;
 	else if (scn_decision_flag & SCN_NEED_VP_PQ)

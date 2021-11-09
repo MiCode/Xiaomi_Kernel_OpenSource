@@ -1850,6 +1850,14 @@ static const struct mtk_addon_module_data addon_mml_sram_only_data_1[] = {
 	{DISP_INLINE_ROTATE_SRAM_ONLY_1, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
 };
 
+static const struct mtk_addon_module_data addon_mml_rsz[] = {
+	{MML_RSZ, ADDON_BETWEEN, DDP_COMPONENT_OVL0}, /* OVL0 is dummy position */
+};
+
+static const struct mtk_addon_module_data addon_mml_rsz_v2[] = {
+	{MML_RSZ, ADDON_BETWEEN, DDP_COMPONENT_DLO_ASYNC7}, /* OVL0 is dummy position */
+};
+
 static const struct mtk_addon_scenario_data mt6779_addon_main[ADDON_SCN_NR] = {
 		[NONE] = {
 
@@ -1957,6 +1965,11 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 				.module_data = mt6983_addon_wdma0_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
+		[MML_WITH_PQ] = {
+				.module_num = ARRAY_SIZE(addon_mml_rsz),
+				.module_data = addon_mml_rsz,
+				.hrt_type = HRT_TB_TYPE_GENERAL0,
+			},
 		[MML] = {
 				.module_num = ARRAY_SIZE(addon_mml_data),
 				.module_data = addon_mml_data,
@@ -1988,6 +2001,11 @@ static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR]
 				.module_num = ARRAY_SIZE(mt6983_addon_wdma2_data),
 				.module_data = mt6983_addon_wdma2_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[MML_WITH_PQ] = {
+				.module_num = ARRAY_SIZE(addon_mml_rsz),
+				.module_data = addon_mml_rsz,
+				.hrt_type = HRT_TB_TYPE_GENERAL0,
 			},
 		[MML] = {
 				.module_num = ARRAY_SIZE(addon_mml_data),

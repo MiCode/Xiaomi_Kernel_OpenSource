@@ -2731,6 +2731,30 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 16, "-1", 2) == 0)
 			g_mml_mode = MML_MODE_NOT_SUPPORT;
 		DDPMSG("mml_mode:%d", g_mml_mode);
+	} else if (strncmp(opt, "force_mml:", 10) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		int force_mml_scen = 0;
+
+		if (strncmp(opt + 10, "1", 1) == 0)
+			force_mml_scen = 1;
+		else if (strncmp(opt + 10, "0", 1) == 0)
+			force_mml_scen = 0;
+		DDPMSG("disp_mml:%d", force_mml_scen);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->is_force_mml_scen = force_mml_scen;
 	}
 }
 

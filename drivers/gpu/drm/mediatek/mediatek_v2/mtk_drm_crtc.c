@@ -1775,6 +1775,12 @@ static void _mtk_crtc_lye_addon_module_disconnect(
 			mml_addon_module_disconnect(crtc, ddp_mode, addon_module,
 				addon_data_dual, &addon_config, cmdq_handle);
 		} else if (addon_module->type == ADDON_BETWEEN &&
+				(addon_module->module == MML_RSZ ||
+				addon_module->module == MML_RSZ_v2)) {
+			mtk_addon_disconnect_external(
+				crtc, ddp_mode, addon_module, &addon_config,
+				cmdq_handle);
+		} else if (addon_module->type == ADDON_BETWEEN &&
 		    (addon_module->module == DISP_RSZ ||
 		    addon_module->module == DISP_RSZ_v2 ||
 		    addon_module->module == DISP_RSZ_v5)) {
@@ -2013,6 +2019,12 @@ _mtk_crtc_lye_addon_module_connect(
 			mml_addon_module_connect(crtc, ddp_mode, addon_module,
 				addon_data_dual, &addon_config, cmdq_handle);
 		} else if (addon_module->type == ADDON_BETWEEN &&
+				(addon_module->module == MML_RSZ ||
+				addon_module->module == MML_RSZ_v2)) {
+			mtk_addon_connect_external(
+				crtc, ddp_mode, addon_module, &addon_config,
+				cmdq_handle);
+		} else if (addon_module->type == ADDON_BETWEEN &&
 		    (addon_module->module == DISP_RSZ ||
 		    addon_module->module == DISP_RSZ_v2 ||
 		    addon_module->module == DISP_RSZ_v5)) {
@@ -2070,6 +2082,51 @@ _mtk_crtc_lye_addon_module_connect(
 }
 
 static void
+_mtk_crtc_lye_addon_module_config(
+				      struct drm_crtc *crtc,
+				      unsigned int ddp_mode,
+				      struct mtk_lye_ddp_state *lye_state,
+				      struct cmdq_pkt *cmdq_handle)
+{
+	int i;
+	const struct mtk_addon_scenario_data *addon_data;
+	const struct mtk_addon_scenario_data *addon_data_dual;
+	const struct mtk_addon_module_data *addon_module;
+	union mtk_addon_config addon_config;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+//	struct mtk_drm_private *priv = crtc->dev->dev_private;
+//	struct mtk_ddp_comp *comp = NULL;
+
+	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
+					lye_state->scn[drm_crtc_index(crtc)]);
+	if (!addon_data)
+		return;
+
+	if (mtk_crtc->is_dual_pipe) {
+		addon_data_dual = mtk_addon_get_scenario_data_dual
+			(__func__, crtc, lye_state->scn[drm_crtc_index(crtc)]);
+
+		if (!addon_data_dual)
+			return;
+	}
+
+	for (i = 0; i < addon_data->module_num; i++) {
+		addon_module = &addon_data->module_data[i];
+		addon_config.config_type.module = addon_module->module;
+		addon_config.config_type.type = addon_module->type;
+
+		if (addon_module->type == ADDON_BETWEEN &&
+				(addon_module->module == MML_RSZ ||
+				addon_module->module == MML_RSZ_v2)) {
+			mtk_addon_path_config(crtc,	addon_module, &addon_config,
+			cmdq_handle);
+		} else
+			DDPMSG("addon type:%d + module:%d not support\n",
+				  addon_module->type, addon_module->module);
+	}
+}
+
+static void
 _mtk_crtc_atmoic_addon_module_connect(
 				      struct drm_crtc *crtc,
 				      unsigned int ddp_mode,
@@ -2082,6 +2139,19 @@ _mtk_crtc_atmoic_addon_module_connect(
 	_mtk_crtc_lye_addon_module_connect(
 			crtc, ddp_mode, lye_state, cmdq_handle);
 }
+
+void
+_mtk_crtc_atmoic_addon_module_config(
+				      struct drm_crtc *crtc,
+				      unsigned int ddp_mode,
+				      struct mtk_lye_ddp_state *lye_state,
+				      struct cmdq_pkt *cmdq_handle)
+{
+
+	_mtk_crtc_lye_addon_module_config(
+			crtc, ddp_mode, lye_state, cmdq_handle);
+}
+
 
 void mtk_crtc_cwb_path_disconnect(struct drm_crtc *crtc)
 {
@@ -2161,20 +2231,28 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 		drm_property_blob_put(blob);
 		old_lye_state = &state->lye_state;
 
-		_mtk_crtc_atmoic_addon_module_disconnect(crtc,
+		/* skip MML_WITH_PQ connection/disconnection */
+		if ((lye_state->scn[drm_crtc_index(crtc)] == MML_WITH_PQ) &&
+				(old_lye_state->scn[drm_crtc_index(crtc)] == MML_WITH_PQ))
+			_mtk_crtc_atmoic_addon_module_config(crtc,
+							mtk_crtc->ddp_mode,
+							lye_state,
+							cmdq_handle);
+		else {
+			_mtk_crtc_atmoic_addon_module_disconnect(crtc,
 							mtk_crtc->ddp_mode,
 							old_lye_state,
 							cmdq_handle);
 
 		/* When open VDS path switch feature, Don't need RSZ */
-		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
-			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
-			priv->need_vds_path_switch))
-			_mtk_crtc_atmoic_addon_module_connect(crtc,
-				mtk_crtc->ddp_mode,
-				lye_state,
-				cmdq_handle);
-
+			if (!(mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+				priv->need_vds_path_switch))
+				_mtk_crtc_atmoic_addon_module_connect(crtc,
+					mtk_crtc->ddp_mode,
+					lye_state,
+					cmdq_handle);
+		}
 		if (lye_state) {
 			bool cur_is_mml = (lye_state->scn[drm_crtc_index(crtc)] == MML ||
 				lye_state->scn[drm_crtc_index(crtc)] == MML_SRAM_ONLY);
