@@ -521,6 +521,7 @@ struct cnss_plat_data {
 	const char *vreg_ol_cpr, *vreg_ipa;
 	bool adsp_pc_enabled;
 	u64 feature_list;
+	u8 charger_mode;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
