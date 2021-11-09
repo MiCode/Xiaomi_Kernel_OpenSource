@@ -5776,6 +5776,26 @@ __load_rc_pattern(struct drm_crtc *crtc, size_t size, void *addr)
 	return gem;
 }
 
+void __load_rc_memory_free(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if (mtk_crtc->round_corner_gem) {
+		mtk_drm_gem_free_object(&mtk_crtc->round_corner_gem->base);
+		mtk_crtc->round_corner_gem = NULL;
+	}
+
+	if (mtk_crtc->round_corner_gem_l) {
+		mtk_drm_gem_free_object(&mtk_crtc->round_corner_gem_l->base);
+		mtk_crtc->round_corner_gem_l = NULL;
+	}
+
+	if (mtk_crtc->round_corner_gem_r) {
+		mtk_drm_gem_free_object(&mtk_crtc->round_corner_gem_r->base);
+		mtk_crtc->round_corner_gem_r = NULL;
+	}
+}
+
 void mtk_crtc_load_round_corner_pattern(struct drm_crtc *crtc,
 					struct cmdq_pkt *handle)
 {
@@ -5783,6 +5803,8 @@ void mtk_crtc_load_round_corner_pattern(struct drm_crtc *crtc,
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 
 	if (panel_ext && panel_ext->round_corner_en) {
+		__load_rc_memory_free(crtc);
+
 		mtk_crtc->round_corner_gem =
 			__load_rc_pattern(crtc, panel_ext->corner_pattern_tp_size,
 						panel_ext->corner_pattern_lt_addr);
