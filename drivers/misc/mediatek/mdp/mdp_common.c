@@ -2983,7 +2983,7 @@ void cmdq_mdp_compose_readback_virtual(struct cmdqRecStruct *handle,
 #define MDP_AAL_MULTIPLE_BITS(_param)	((_param >> 4) & 1)
 
 static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
-	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param)
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param, u32 pipe)
 {
 	struct mdp_readback_engine *rb =
 		&handle->readback_engs[handle->readback_cnt];
@@ -2993,16 +2993,27 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	dma_addr_t begin_pa;
 	u32 offset, condi_offset;
 	u32 *condi_inst;
-	const uint16_t idx_addr = CMDQ_THR_SPR_IDX1;
-	const u16 idx_gpr_out = CMDQ_GPR_P4;
-	const u16 idx_gpr_poll = CMDQ_GPR_R05;
-	const u16 idx_gpr_val = CMDQ_GPR_R05;
-	const u16 idx_out_low = CMDQ_GPR_CNT_ID + CMDQ_GPR_R08;
+
+	const u16 idx_addr = CMDQ_THR_SPR_IDX1;
+	const u16 idx_val = CMDQ_THR_SPR_IDX2;
+	const u16 idx_out_spr = CMDQ_THR_SPR_IDX3;
+
+	/* pipe 0: P6 (R12+R13)
+	 * pipe 1: P7 (R14+R15)
+	 */
+	u16 idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
+	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
+
 	struct cmdq_operand lop, rop;
 	struct cmdq_pkt_buffer *buf;
 
 	CMDQ_MSG("%s buffer:%lx engine:%hu dre:%u\n",
 		__func__, (unsigned long)pa, engine, dre);
+
+	if (pipe == 1) {
+		idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R14;
+		idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P7;
+	}
 
 	rb->start = pa;
 	rb->count = 768;
@@ -3029,15 +3040,13 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_write_value_addr(pkt, base + MDP_AAL_SRAM_CFG,
 		(dre << 6) | (dre << 5) | BIT(4), GENMASK(6, 4));
 
-	/* for gpr r5 and p4, sharpness */
-	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
-
 	/* init sprs
 	 * spr1 = AAL_SRAM_START
 	 * gpr_p4 = out_pa
 	 */
 	cmdq_pkt_assign_command(pkt, idx_addr, dre30_hist_sram_start);
-	cmdq_pkt_move(pkt, idx_gpr_out, pa);
+	cmdq_pkt_assign_command(pkt, idx_out_spr, (u32)pa);
+	cmdq_pkt_assign_command(pkt, idx_out + 1, (u32)(pa >> 32));
 
 	/* loop again here */
 	begin_pa = cmdq_pkt_get_curr_buf_pa(pkt);
@@ -3045,14 +3054,20 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	/* config aal sram addr and poll */
 	cmdq_pkt_write_reg_addr(pkt, base + MDP_AAL_SRAM_RW_IF_2,
 		idx_addr, U32_MAX);
+	/* use gpr low as poll gpr */
 	cmdq_pkt_poll_addr(pkt, MDP_AAL_SRAM_STATUS_BIT,
 		base + MDP_AAL_SRAM_STATUS,
-		MDP_AAL_SRAM_STATUS_BIT, idx_gpr_poll);
+		MDP_AAL_SRAM_STATUS_BIT, idx_out);
 	/* read to value gpr */
-	cmdq_pkt_read_addr(pkt, base + MDP_AAL_SRAM_RW_IF_3,
-		CMDQ_GPR_CNT_ID + idx_gpr_val);
-	/* write value gpr to dst gpr */
-	cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+	cmdq_pkt_read_addr(pkt, base + MDP_AAL_SRAM_RW_IF_3, idx_val);
+	/* and now assign addr low 32bit from spr to idx_out gpr */
+	lop.reg = true;
+	lop.idx = idx_out_spr;
+	rop.reg = false;
+	rop.value = 0;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
+	/* write value src spr to dst gpr */
+	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	/* jump forward end if sram is last one
 	 * if spr1 >= 4096 + 4 * 767
@@ -3074,10 +3089,10 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_addr, &lop, &rop);
 	/* inc outut pa */
 	lop.reg = true;
-	lop.idx = idx_out_low;
+	lop.idx = idx_out_spr;
 	rop.reg = false;
 	rop.value = 4;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_spr, &lop, &rop);
 
 	cmdq_pkt_jump_addr(pkt, begin_pa);
 
@@ -3115,8 +3130,6 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 			offset += 4;
 		}
 	}
-
-	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
 }
 
 #define MDP_HDR_HIST_DATA 0x0E0
@@ -3126,7 +3139,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 #define MDP_HDR_HIST_CNT 57
 
 static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
-	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param)
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param, u32 pipe)
 {
 	struct mdp_readback_engine *rb =
 		&handle->readback_engs[handle->readback_cnt];
@@ -3134,15 +3147,24 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	dma_addr_t begin_pa;
 	u32 condi_offset;
 	u32 *condi_inst;
-	const uint16_t idx_counter = CMDQ_THR_SPR_IDX1;
-	const u16 idx_gpr_out = CMDQ_GPR_P4;
-	const u16 idx_gpr_val = CMDQ_GPR_R05;
-	const u16 idx_out_low = CMDQ_GPR_CNT_ID + CMDQ_GPR_R08;
+
+	const u16 idx_counter = CMDQ_THR_SPR_IDX1;
+	const u16 idx_val = CMDQ_THR_SPR_IDX2;
+	/* pipe 0: P6 (R12+R13)
+	 * pipe 1: P7 (R14+R15)
+	 */
+	u16 idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
+	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
 	struct cmdq_operand lop, rop;
 	struct cmdq_pkt_buffer *buf;
 
 	CMDQ_MSG("%s buffer:%lx engine:%hu\n",
 		__func__, (unsigned long)pa, engine);
+
+	if (pipe == 1) {
+		idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_P7;
+		idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_R14;
+	}
 
 	rb->start = pa;
 	rb->count = 58;
@@ -3161,11 +3183,8 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 
-	/* for gpr r5 and p4, sharpness */
-	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
-
 	/* readback to this pa */
-	cmdq_pkt_move(pkt, idx_gpr_out, pa);
+	cmdq_pkt_move(pkt, idx_out64 - CMDQ_GPR_CNT_ID, pa);
 
 	/* counter init to 0 */
 	cmdq_pkt_assign_command(pkt, idx_counter, 0);
@@ -3174,10 +3193,9 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	begin_pa = cmdq_pkt_get_curr_buf_pa(pkt);
 
 	/* read to value gpr */
-	cmdq_pkt_read_addr(pkt, base + MDP_HDR_HIST_DATA,
-		CMDQ_GPR_CNT_ID + idx_gpr_val);
-	/* write value gpr to dst gpr */
-	cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+	cmdq_pkt_read_addr(pkt, base + MDP_HDR_HIST_DATA, idx_val);
+	/* write value src spr to dst gpr */
+	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	/* jump forward end if match
 	 * if spr1 >= 57 - 1
@@ -3199,10 +3217,10 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_counter, &lop, &rop);
 	/* inc outut pa */
 	lop.reg = true;
-	lop.idx = idx_out_low;
+	lop.idx = idx_out;
 	rop.reg = false;
 	rop.value = 4;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
 
 	cmdq_pkt_jump_addr(pkt, begin_pa);
 	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
@@ -3224,8 +3242,6 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	pa = pa + MDP_HDR_HIST_CNT * 4;
 	cmdq_pkt_mem_move(pkt, NULL, base + MDP_HDR_LBOX_DET_4, pa,
 		CMDQ_THR_SPR_IDX3);
-
-	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
 }
 
 static s32 mdp_get_rdma_idx_virtual(u32 eng_base)

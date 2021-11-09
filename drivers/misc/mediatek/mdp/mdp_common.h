@@ -121,7 +121,7 @@ typedef void (*CmdqMdpComposeReadback) (struct cmdqRecStruct *handle,
 	u16 engine, dma_addr_t dma, u32 param);
 
 typedef void (*CmdqMdpReadbackEngine) (struct cmdqRecStruct *handle,
-	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param);
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param, u32 pipe);
 
 typedef s32 (*MdpGetRDMAIndex) (u32);
 

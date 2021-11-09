@@ -2078,40 +2078,46 @@ static void mdp_readback_aal_by_engine(struct cmdqRecStruct *handle,
 	u16 engine, dma_addr_t pa, u32 param)
 {
 	phys_addr_t base;
+	u32 pipe;
 
 	switch (engine) {
 	case CMDQ_ENG_MDP_AAL0:
 		base = mdp_module_pa.aal0;
+		pipe = 0;
 		break;
 	case CMDQ_ENG_MDP_AAL1:
 		base = mdp_module_pa.aal1;
+		pipe = 1;
 		break;
 	default:
 		CMDQ_ERR("%s not support\n", __func__);
 		return;
 	}
 
-	cmdq_mdp_get_func()->mdpReadbackAal(handle, engine, base, pa, param);
+	cmdq_mdp_get_func()->mdpReadbackAal(handle, engine, base, pa, param, pipe);
 }
 
 static void mdp_readback_hdr_by_engine(struct cmdqRecStruct *handle,
 	u16 engine, dma_addr_t pa, u32 param)
 {
 	phys_addr_t base;
+	u32 pipe;
 
 	switch (engine) {
 	case CMDQ_ENG_MDP_HDR0:
 		base = mdp_module_pa.hdr0;
+		pipe = 0;
 		break;
 	case CMDQ_ENG_MDP_HDR1:
 		base = mdp_module_pa.hdr1;
+		pipe = 1;
 		break;
 	default:
 		CMDQ_ERR("%s not support\n", __func__);
 		return;
 	}
 
-	cmdq_mdp_get_func()->mdpReadbackHdr(handle, engine, base, pa, param);
+	cmdq_mdp_get_func()->mdpReadbackHdr(handle, engine, base, pa, param, pipe);
 }
 
 void cmdq_mdp_compose_readback(struct cmdqRecStruct *handle,
