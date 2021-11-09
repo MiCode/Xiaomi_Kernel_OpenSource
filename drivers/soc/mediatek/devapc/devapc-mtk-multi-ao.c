@@ -836,10 +836,22 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	pr_info(PFX "%s:%d\n", "vio_trigger_times",
 			mtk_devapc_ctx->soc->vio_info->vio_trigger_times++);
 
-	/* Dispatch slave owner for all master */
-	strncpy(dispatch_key, mtk_devapc_ctx->soc->subsys_get(
-			slave_type, vio_index, vio_addr),
-			sizeof(dispatch_key) - 1);
+	/* Dispatch slave owner if these masters access.
+	 * Others, dispatch master owner.
+	 */
+	if (!strncmp(vio_master, "CPUM_M", 6) ||
+		!strncmp(vio_master, "VLPSYS_M", 8) ||
+		!strncmp(vio_master, "PERI2INFRA1_M", 13) ||
+		!strncmp(vio_master, "MCU_AP_M", 8) ||
+		!strncmp(vio_master, "AP", 2) ||
+		!strncmp(vio_master, "PCIE", 4) ||
+		!strncmp(vio_master, "others", 6) ||
+		!strncasecmp(vio_master, "UNKNOWN_MASTER", 14))
+		strncpy(dispatch_key, mtk_devapc_ctx->soc->subsys_get(
+				slave_type, vio_index, vio_addr),
+				sizeof(dispatch_key) - 1);
+	else
+		strncpy(dispatch_key, vio_master, sizeof(dispatch_key) - 1);
 
 	dispatch_key[sizeof(dispatch_key) - 1] = '\0';
 
