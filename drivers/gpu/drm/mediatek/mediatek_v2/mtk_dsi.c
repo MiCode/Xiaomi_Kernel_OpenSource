@@ -1661,6 +1661,7 @@ static void mtk_dsi_set_interrupt_enable(struct mtk_dsi *dsi)
 	else
 		inten |= TE_RDY_INT_FLAG;
 
+	writel(0, dsi->regs + DSI_INTSTA);
 	writel(inten, dsi->regs + DSI_INTEN);
 }
 
@@ -6093,6 +6094,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		inten = BUFFER_UNDERRUN_INT_FLAG | INP_UNFINISH_INT_EN;
 
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DSI_INTSTA, 0x0, ~0);
 		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 			inten |= FRAME_DONE_INT_FLAG;
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -6126,6 +6129,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		inten = BUFFER_UNDERRUN_INT_FLAG;
 
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DSI_INTSTA, 0x0, ~0);
 		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 			inten |= FRAME_DONE_INT_FLAG;
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -6994,6 +6999,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	writel(0, dsi->regs + DSI_INTSTA);
+	writel(0, dsi->regs + DSI_INTEN);
 	irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_HIGH);
 	ret = devm_request_irq(
 		&pdev->dev, irq_num, dsi->driver_data->irq_handler,

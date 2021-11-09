@@ -2732,6 +2732,9 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1) |
 			REG_FLD_VAL(INTEN_FLD_START_INTEN, 1);
 		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_INTSTA, 0,
+			       ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, inten,
 			       ~0);
 		break;
@@ -2740,6 +2743,9 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		unsigned int inten;
 
 		inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_INTSTA, 0,
+			       ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, inten,
 			       ~0);
@@ -3564,7 +3570,6 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 	enum mtk_ddp_comp_id comp_id;
 	int irq;
 	int ret;
-	unsigned int inten = 0;
 
 	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -3597,8 +3602,8 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
-	inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
-	writel(inten, priv->ddp_comp.regs + DISP_REG_OVL_INTEN);
+	writel(0, priv->ddp_comp.regs + DISP_REG_OVL_INTSTA);
+	writel(0, priv->ddp_comp.regs + DISP_REG_OVL_INTEN);
 	ret = devm_request_irq(dev, irq, mtk_disp_ovl_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
 			       priv);

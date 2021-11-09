@@ -898,6 +898,9 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT |
 			RDMA_TARGET_LINE_INT;
 		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
+			       ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, inten,
 			       inten);
 		break;
@@ -908,6 +911,9 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
 			RDMA_FIFO_UNDERFLOW_INT | RDMA_TARGET_LINE_INT;
 		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
+			       ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, inten,
 			       inten);
 		break;
@@ -917,6 +923,9 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		inten = RDMA_REG_UPDATE_INT | RDMA_FRAME_START_INT |
 			RDMA_FRAME_END_INT | RDMA_TARGET_LINE_INT;
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
+			       ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, 0,
 			       inten);
@@ -1435,8 +1444,8 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 	}
 
 	/* Disable and clear pending interrupts */
-	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_ENABLE);
 	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_STATUS);
+	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_ENABLE);
 
 	ret = devm_request_irq(dev, irq, mtk_disp_rdma_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
