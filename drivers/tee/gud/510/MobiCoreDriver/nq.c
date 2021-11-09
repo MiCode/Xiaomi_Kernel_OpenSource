@@ -338,7 +338,7 @@ static irqreturn_t irq_handler(int intr, void *arg)
 cpumask_t tee_set_affinity(void)
 {
 	cpumask_t old_affinity;
-	unsigned long affinity = (unsigned long)raw_smp_processor_id();
+	unsigned long affinity = get_tee_affinity();
 #if KERNEL_VERSION(4, 0, 0) > LINUX_VERSION_CODE
 	char buf_aff[64];
 #endif
@@ -347,9 +347,6 @@ cpumask_t tee_set_affinity(void)
 	old_affinity = current->cpus_mask;
 #else
 	old_affinity = current->cpus_allowed;
-#endif
-#if defined(MC_BIG_CORE)
-	return old_affinity;
 #endif
 #if KERNEL_VERSION(4, 0, 0) > LINUX_VERSION_CODE
 	cpulist_scnprintf(buf_aff, sizeof(buf_aff), &old_affinity);
@@ -383,9 +380,6 @@ void tee_restore_affinity(cpumask_t old_affinity)
 	char buf_aff[64];
 	char buf_cur_aff[64];
 
-#if defined(MC_BIG_CORE)
-	return;
-#endif
 	cpulist_scnprintf(buf_aff, sizeof(buf_aff), &old_affinity);
 	cpulist_scnprintf(buf_cur_aff,
 			  sizeof(buf_cur_aff),
@@ -405,9 +399,6 @@ void tee_restore_affinity(cpumask_t old_affinity)
 	cpumask_t current_affinity = current->cpus_mask;
 #else
 	cpumask_t current_affinity = current->cpus_allowed;
-#endif
-#if defined(MC_BIG_CORE)
-	return;
 #endif
 	mc_dev_devel("aff = %*pbl mask = %lx curr_aff = %*pbl (pid = %u)",
 		     cpumask_pr_args(&old_affinity),
@@ -1513,14 +1504,10 @@ int nq_cpu_off(unsigned int cpu)
 #else
 	old_affinity = current->cpus_allowed;
 #endif
-#if !defined(MC_BIG_CORE)
 	set_cpus_allowed_ptr(current, to_cpumask(&new_affinity));
-#endif
 
 	err = fc_cpu_off();
-#if !defined(MC_BIG_CORE)
 	set_cpus_allowed_ptr(current, &old_affinity);
-#endif
 
 	return err;
 }
