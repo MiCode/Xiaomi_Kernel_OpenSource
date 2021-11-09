@@ -202,7 +202,7 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 		info.policy[0] = 1;
 		cpufreq_cpu_put(tP);
 		cpu_no = 0;
-		for_each_possible_cpu(cpu) {
+		for_each_online_cpu(cpu) {
 			tP = cpufreq_cpu_get(cpu);
 			if (tP != pre_tP) {
 				info.instance[info.clusters] = cpu_no;
@@ -213,7 +213,8 @@ static int mtk_static_power_probe(struct platform_device *pdev)
 			}
 			info.policy[info.clusters] |= (1 << cpu);
 			cpu_no++;
-			cpufreq_cpu_put(tP);
+			if (tP)
+				cpufreq_cpu_put(tP);
 		}
 	} else {
 		/* no policy? should check dvfs status first */
