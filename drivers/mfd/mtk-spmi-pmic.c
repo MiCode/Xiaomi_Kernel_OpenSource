@@ -9,6 +9,8 @@
 #include <linux/mfd/mt6363/registers.h>
 #include <linux/mfd/mt6368/core.h>
 #include <linux/mfd/mt6368/registers.h>
+#include <linux/mfd/mt6369/core.h>
+#include <linux/mfd/mt6369/registers.h>
 #include <linux/mfd/mt6373/core.h>
 #include <linux/mfd/mt6373/registers.h>
 #include <linux/module.h>
@@ -130,6 +132,29 @@ static const struct resource mt6368_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6368_IRQ_VEFUSE_OC, "VEFUSE"),
 };
 
+static const struct resource mt6369_accdet_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_ACCDET, "ACCDET_IRQ"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_ACCDET_EINT0, "ACCDET_EINT0"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_ACCDET_EINT1, "ACCDET_EINT1"),
+};
+
+static const struct resource mt6369_regulators_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VPA_OC, "VPA"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VIBR_OC, "VIBR"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VIO28_OC, "VIO28"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VFP_OC, "VFP"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VTP_OC, "VTP"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VUSB_OC, "VUSB"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VAUD28_OC, "VAUD28"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VCN33_1_OC, "VCN33_1"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VCN33_2_OC, "VCN33_2"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VEFUSE_OC, "VEFUSE"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VMCH_OC, "VMCH"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VMC_OC, "VMC"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VANT18_OC, "VANT18"),
+	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VAUX18_OC, "VAUX18"),
+};
+
 static const struct mfd_cell mt6363_devs[] = {
 	{
 		.name = "mt6363-auxadc",
@@ -186,6 +211,28 @@ static const struct mfd_cell mt6368_devs[] = {
 	},
 };
 
+static const struct mfd_cell mt6369_devs[] = {
+	{
+		.name = "second-pmic",
+		.of_compatible = "mediatek,spmi-pmic-debug",
+	}, {
+		.name = "mt6369-accdet",
+		.of_compatible = "mediatek,mt6369-accdet",
+		.num_resources = ARRAY_SIZE(mt6369_accdet_resources),
+		.resources = mt6369_accdet_resources,
+	}, {
+		.name = "mt6369-regulator",
+		.num_resources = ARRAY_SIZE(mt6369_regulators_resources),
+		.resources = mt6369_regulators_resources,
+	}, {
+		.name = "mt6369-auxadc",
+		.of_compatible = "mediatek,mt6368-auxadc",
+	}, {
+		.name = "mt6369-efuse",
+		.of_compatible = "mediatek,mt6373-efuse",
+	},
+};
+
 static const struct mfd_cell mt6373_devs[] = {
 	{
 		.name = "second-pmic",
@@ -225,6 +272,14 @@ static struct irq_top_t mt6368_ints[] = {
 	MT6368_TOP_GEN(AUD),
 };
 
+static struct irq_top_t mt6369_ints[] = {
+	MT6369_TOP_GEN(BUCK),
+	MT6369_TOP_GEN(LDO),
+	MT6369_TOP_GEN(MISC),
+	MT6369_TOP_GEN(HK),
+	MT6369_TOP_GEN(AUD),
+};
+
 static struct irq_top_t mt6373_ints[] = {
 	MT6373_TOP_GEN(BUCK),
 	MT6373_TOP_GEN(LDO),
@@ -251,6 +306,15 @@ static const struct mtk_spmi_pmic_data mt6368_data = {
 	.num_pmic_irqs = MT6368_IRQ_NR,
 	.top_int_status_reg = MT6368_TOP_INT_STATUS1,
 	.pmic_ints = mt6368_ints,
+};
+
+static const struct mtk_spmi_pmic_data mt6369_data = {
+	.cells = mt6369_devs,
+	.cell_size = ARRAY_SIZE(mt6369_devs),
+	.num_top = ARRAY_SIZE(mt6369_ints),
+	.num_pmic_irqs = MT6369_IRQ_NR,
+	.top_int_status_reg = MT6369_TOP_INT_STATUS1,
+	.pmic_ints = mt6369_ints,
 };
 
 static const struct mtk_spmi_pmic_data mt6373_data = {
@@ -545,6 +609,7 @@ static const struct of_device_id mtk_spmi_pmic_of_match[] = {
 	{ .compatible = "mediatek,mt6319", .data = &common_data, },
 	{ .compatible = "mediatek,mt6363", .data = &mt6363_data, },
 	{ .compatible = "mediatek,mt6368", .data = &mt6368_data, },
+	{ .compatible = "mediatek,mt6369", .data = &mt6369_data, },
 	{ .compatible = "mediatek,mt6373", .data = &mt6373_data, },
 	{ }
 };
