@@ -5281,6 +5281,8 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 {
 	struct mtk_cam_ctx *ctx;
 	struct v4l2_subdev *seninf;
+	u64 watchdog_cnt;
+	int timeout;
 
 	ctx = container_of(work, struct mtk_cam_ctx, watchdog_work);
 	seninf = ctx->seninf;
@@ -5290,7 +5292,9 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			 __func__, ctx->stream_id);
 		return;
 	}
-
+	watchdog_cnt = atomic_read(&ctx->watchdog_cnt);
+	timeout = mtk_cam_seninf_check_timeout(seninf,
+		watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000);
 	/**
 	 * Current we just call seninf dump, but it is better to check
 	 * and restart the stream in the future.
@@ -5300,14 +5304,19 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			 "%s:ctx(%d):skip redundant seninf dump for no sof ctx:%d\n",
 			 __func__, ctx->stream_id);
 	} else {
-		dev_info(ctx->cam->dev, "%s:ctx(%d): timeout, start debug dump\n",
-			__func__, ctx->stream_id, atomic_read(&ctx->watchdog_cnt));
-		atomic_set(&ctx->watchdog_dumped, 1); // fixme
-		atomic_set(&ctx->watchdog_cnt, 0);
-		mtk_cam_seninf_dump(seninf);
-		atomic_set(&ctx->watchdog_cnt, 0);
-		atomic_inc(&ctx->watchdog_dump_cnt);
-		atomic_set(&ctx->watchdog_dumped, 0);
+		if (timeout) {
+			dev_info(ctx->cam->dev, "%s:ctx(%d): timeout, start dump (%dx100ms)\n",
+				__func__, ctx->stream_id, watchdog_cnt);
+			atomic_set(&ctx->watchdog_dumped, 1); // fixme
+			atomic_set(&ctx->watchdog_cnt, 0);
+			mtk_cam_seninf_dump(seninf);
+			atomic_set(&ctx->watchdog_cnt, 0);
+			atomic_inc(&ctx->watchdog_dump_cnt);
+			atomic_set(&ctx->watchdog_dumped, 0);
+		} else {
+			dev_info(ctx->cam->dev, "%s:ctx(%d): not timeout, for long exp (%dx100ms)\n",
+				__func__, ctx->stream_id, watchdog_cnt);
+		}
 	}
 }
 
@@ -5324,13 +5333,20 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
 	if (!raw) {
 		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no raw ctx:%d\n",
+			 "%s:ctx(%d):stop watchdog task for no raw ctx\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+	if (atomic_read(&raw->vf_en) == 0) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d):vf_en = 0\n",
 			 __func__, ctx->stream_id);
 		return;
 	}
 
 	watchdog_cnt = atomic_inc_return(&ctx->watchdog_cnt);
 	watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
+
 	if (atomic_read(&ctx->watchdog_dumped)) {
 		dev_dbg(ctx->cam->dev,
 			 "%s:ctx(%d):skip watchdog worker ctx:%d (worker is ongoing)\n",
