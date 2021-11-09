@@ -11,6 +11,7 @@
 
 #include "mtk_cam-seninf-def.h"
 #include "imgsensor-user.h"
+#include "mtk_cam-seninf-regs.h"
 
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define SENINF_VC_ROUTING
@@ -94,6 +95,15 @@ struct seninf_core {
 
 	struct kthread_worker seninf_worker;
 	struct task_struct *seninf_kworker_task;
+
+	/* record pid */
+	struct pid *pid;
+	/* mipi error detection count */
+	unsigned int detection_cnt;
+	/* enable csi irq flag */
+	unsigned int csi_irq_en_flag;
+	/* enable vsync irq flag */
+	unsigned int vsync_irq_en_flag;
 };
 
 struct seninf_ctx {
@@ -171,6 +181,25 @@ struct seninf_ctx {
 	int open_refcnt;
 	struct mutex mutex;
 	struct mutex pwr_mutex;
+
+	/* csi irq */
+	unsigned int data_not_enough_cnt;
+	unsigned int err_lane_resync_cnt;
+	unsigned int crc_err_cnt;
+	unsigned int ecc_err_double_cnt;
+	unsigned int ecc_err_corrected_cnt;
+	/* seninf_mux fifo overrun irq */
+	unsigned int fifo_overrun_cnt;
+	/* cam_mux h/v size irq */
+	unsigned int size_err_cnt;
+	/* error flag */
+	unsigned int data_not_enough_flag;
+	unsigned int err_lane_resync_flag;
+	unsigned int crc_err_flag;
+	unsigned int ecc_err_double_flag;
+	unsigned int ecc_err_corrected_flag;
+	unsigned int fifo_overrun_flag;
+	unsigned int size_err_flag;
 };
 
 #endif

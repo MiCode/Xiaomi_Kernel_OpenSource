@@ -75,6 +75,14 @@ static ssize_t status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(status);
 
+static ssize_t err_status_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	return g_seninf_ops->_show_err_status(dev, attr, buf);
+}
+
+static DEVICE_ATTR_RO(err_status);
+
 static ssize_t debug_ops_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
@@ -531,6 +539,10 @@ static int seninf_core_probe(struct platform_device *pdev)
 	if (ret)
 		dev_info(dev, "failed to create sysfs debug ops\n");
 
+	ret = device_create_file(dev, &dev_attr_err_status);
+	if (ret)
+		dev_info(dev, "failed to create sysfs status\n");
+
 	seninf_core_pm_runtime_enable(core);
 
 	kthread_init_worker(&core->seninf_worker);
@@ -557,6 +569,7 @@ static int seninf_core_remove(struct platform_device *pdev)
 	seninf_core_pm_runtime_disable(core);
 	device_remove_file(dev, &dev_attr_status);
 	device_remove_file(dev, &dev_attr_debug_ops);
+	device_remove_file(dev, &dev_attr_err_status);
 
 	if (core->seninf_kworker_task)
 		kthread_stop(core->seninf_kworker_task);
@@ -1151,6 +1164,35 @@ int update_isp_clk(struct seninf_ctx *ctx)
 	return 0;
 }
 
+static int debug_err_detect_initialize(struct seninf_ctx *ctx)
+{
+	struct seninf_core *core;
+	struct seninf_ctx *ctx_;
+
+	core = dev_get_drvdata(ctx->dev->parent);
+
+	core->csi_irq_en_flag = 0;
+	core->vsync_irq_en_flag = 0;
+
+	list_for_each_entry(ctx_, &core->list, list) {
+		ctx_->data_not_enough_flag = 0;
+		ctx_->err_lane_resync_flag = 0;
+		ctx_->crc_err_flag = 0;
+		ctx_->ecc_err_double_flag = 0;
+		ctx_->ecc_err_corrected_flag = 0;
+		ctx_->fifo_overrun_flag = 0;
+		ctx_->size_err_flag = 0;
+		ctx_->data_not_enough_cnt = 0;
+		ctx_->err_lane_resync_cnt = 0;
+		ctx_->crc_err_cnt = 0;
+		ctx_->ecc_err_double_cnt = 0;
+		ctx_->ecc_err_corrected_cnt = 0;
+		ctx_->fifo_overrun_cnt = 0;
+		ctx_->size_err_cnt = 0;
+	}
+
+	return 0;
+}
 
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
@@ -1173,6 +1215,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	mutex_lock(&ctx->pwr_mutex);
 
 	if (enable) {
+		debug_err_detect_initialize(ctx);
 		get_mbus_config(ctx, ctx->sensor_sd);
 
 		get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
@@ -1424,9 +1467,13 @@ static const struct v4l2_ctrl_ops seninf_ctrl_ops = {
 static int seninf_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct seninf_core *core;
+
+	core = dev_get_drvdata(ctx->dev->parent);
 
 	mutex_lock(&ctx->mutex);
 	ctx->open_refcnt++;
+	core->pid = find_get_pid(current->pid);
 
 	dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
 

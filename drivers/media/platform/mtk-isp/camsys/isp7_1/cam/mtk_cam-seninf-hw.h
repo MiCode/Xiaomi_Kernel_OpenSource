@@ -6,6 +6,24 @@
 
 //#include <linux/irqreturn.h>
 #include <linux/interrupt.h>
+#include <linux/sched/signal.h>
+#include <linux/sched.h>
+#include <aee.h>
+
+#ifndef CONFIG_MTK_AEE_FEATURE
+#define seninf_aee_print(string, args...) \
+	pr_info("[SENINF] error:"string, ##args)
+#else
+#define seninf_aee_print(string, args...) do { \
+		aee_kernel_exception_api(__FILE__, __LINE__, \
+			DB_OPT_DEFAULT | DB_OPT_FTRACE, \
+			DB_OPT_PROCESS_COREDUMP | DB_OPT_PROCMEM, \
+			DB_OPT_NE_JBT_TRACES | DB_OPT_PID_SMAPS, \
+			DB_OPT_DUMPSYS_PROCSTATS | DB_OPT_DUMP_DISPLAY, \
+			"Seninf", "[SENINF] error:"string, ##args); \
+		pr_info("[SENINF] error:"string, ##args);  \
+	} while (0)
+#endif
 
 enum SET_REG_KEYS {
 	REG_KEY_MIN = 0,
@@ -18,6 +36,7 @@ enum SET_REG_KEYS {
 	REG_KEY_MUX_IRQ_STAT,
 	REG_KEY_CAMMUX_IRQ_STAT,
 	REG_KEY_CAMMUX_VSYNC_IRQ_EN,
+	REG_KEY_CSI_IRQ_EN,
 	REG_KEY_MAX_NUM
 };
 
@@ -31,6 +50,7 @@ enum SET_REG_KEYS {
 	"RG_MUX_IRQ_STAT", \
 	"RG_CAMMUX_IRQ_STAT", \
 	"REG_VSYNC_IRQ_EN", \
+	"RG_CSI_IRQ_EN", \
 
 struct mtk_cam_seninf_mux_meter {
 	u32 width;
@@ -98,6 +118,7 @@ struct mtk_cam_seninf_ops {
 	int (*_disable_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx);
 	int (*_debug)(struct seninf_ctx *ctx);
 	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u32 val);
+	ssize_t (*_show_err_status)(struct device *dev, struct device_attribute *attr, char *buf);
 	unsigned int seninf_num;
 	unsigned int mux_num;
 	unsigned int cam_mux_num;
