@@ -313,6 +313,8 @@ void mdla_dbg_fs_setup(struct device *dev)
 		debugfs_create_devm_seqfile(dev, DBGFS_HW_REG_NAME, mdla_dbg_root,
 				mdla_dbg_register_show);
 
+	debugfs_create_devm_seqfile(dev, DBGFS_CMDBUF_NAME, mdla_dbg_root,
+				mdla_dbg_memory_show);
 	mdla_procfs_init();
 
 	/* Platform debug node */
