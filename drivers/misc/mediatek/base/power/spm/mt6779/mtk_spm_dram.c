@@ -28,6 +28,7 @@ static int spm_dram_golden_setting_cmp(bool en)
 static void spm_phypll_mode_check(void)
 {
 #if defined(CONFIG_MTK_DRAMC_LEGACY)
+/*
 	unsigned int val = spm_read(SPM_POWER_ON_VAL0);
 
 	if (val)
@@ -35,6 +36,7 @@ static void spm_phypll_mode_check(void)
 			"SPM Warning",
 			"Invalid SPM_POWER_ON_VAL0: 0x%08x\n",
 			val);
+*/
 #endif
 }
 
