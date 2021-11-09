@@ -212,13 +212,7 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 	int ret;
 
 	if (afe_offload_block.state != OFFLOAD_STATE_DRAIN) {
-		if (ringbuf->pRead >= ringbuf->pWrite)
-			silence_length = ringbuf->pRead - ringbuf->pWrite;
-		else
-			silence_length = ringbuf->pBufEnd - ringbuf->pWrite;
-		if (silence_length > (USE_PERIODS_MAX))
-			silence_length = USE_PERIODS_MAX;
-		memset(ringbuf->pWrite, 0, silence_length);
+		silence_length = 0;
 		RingBuf_update_writeptr(ringbuf, silence_length);
 		RingBuf_Bridge_update_writeptr(buf_bridge, silence_length);
 		ringbuf_writebk = (unsigned long)ringbuf->pWrite;
@@ -764,7 +758,7 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 	      (afe_offload_block.state == OFFLOAD_STATE_DRAIN)))) {
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 					AUDIO_IPI_MSG_ONLY,
-					AUDIO_IPI_MSG_NEED_ACK,
+					AUDIO_IPI_MSG_BYPASS_ACK,
 					OFFLOAD_PAUSE,
 					1, 0, NULL);
 		pr_debug("%s > transferred\n", __func__);
