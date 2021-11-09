@@ -4591,7 +4591,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			/* use 8-pixel mode as default */
 			mtk_cam_call_seninf_set_pixelmode(ctx,
 							  ctx->seninf,
-							  ctx->sv_pipe[i]->seninf_padidx, 2);
+							  ctx->sv_pipe[i]->seninf_padidx, 3);
 			mtk_cam_seninf_set_camtg(ctx->seninf,
 						 ctx->sv_pipe[i]->seninf_padidx,
 						 ctx->sv_pipe[i]->cammux_id);

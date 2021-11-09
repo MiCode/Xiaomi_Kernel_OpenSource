@@ -512,7 +512,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 
 			for (j = 0; j < ctx->used_sv_num; j++) {
 				mtk_cam_seninf_set_pixelmode(req_stream_data->seninf_new,
-					ctx->sv_pipe[j]->seninf_padidx, 2);
+					ctx->sv_pipe[j]->seninf_padidx, 3);
 				mtk_cam_seninf_set_camtg(req_stream_data->seninf_new,
 					ctx->sv_pipe[j]->seninf_padidx,
 					ctx->sv_pipe[j]->cammux_id);

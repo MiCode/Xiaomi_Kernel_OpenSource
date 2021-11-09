@@ -1276,7 +1276,7 @@ int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 	cfg_in_param.in_crop.p.y = 0;
 	cfg_in_param.in_crop.s.w = ALIGN(img_fmt->fmt.pix_mp.width, 4);
 	cfg_in_param.in_crop.s.h = ALIGN(img_fmt->fmt.pix_mp.height, 4);
-	cfg_in_param.pixel_mode = 2;
+	cfg_in_param.pixel_mode = 3;
 
 	pxl = ((cfg_in_param.in_crop.s.w + cfg_in_param.in_crop.p.x) << 16) |
 			cfg_in_param.in_crop.p.x;
