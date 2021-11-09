@@ -31,6 +31,8 @@
 
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
 #include <linux/interconnect.h>
@@ -60,6 +62,64 @@ static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
 static int cm_mgr_init_done;
 static int cm_mgr_idx = -1;
 spinlock_t cm_mgr_lock;
+
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+void __iomem *csram_base;
+static unsigned int mcl50_flag;
+
+
+static void cm_get_base_addr(void)
+{
+	int ret = 0;
+	struct device_node *dn = NULL;
+	struct platform_device *pdev = NULL;
+	struct resource *csram_res = NULL;
+
+	/* get cpufreq driver base address */
+	dn = of_find_node_by_name(NULL, "cpuhvfs");
+	if (!dn) {
+		ret = -ENOMEM;
+		pr_info("find cpuhvfs node failed\n");
+		return;
+	}
+
+	pdev = of_find_device_by_node(dn);
+	of_node_put(dn);
+	if (!pdev) {
+		ret = -ENODEV;
+		pr_info("cpuhvfs is not ready\n");
+		return;
+	}
+
+	csram_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!csram_res) {
+		ret = -ENODEV;
+		pr_info("cpuhvfs resource is not found\n");
+		return;
+	}
+
+	csram_base = ioremap(csram_res->start, resource_size(csram_res));
+	if (IS_ERR_OR_NULL((void *)csram_base)) {
+		ret = -ENOMEM;
+		pr_info("find csram base failed\n");
+		return;
+	}
+}
+
+unsigned int csram_read(unsigned int offs)
+{
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return 0;
+	return __raw_readl(csram_base + (offs));
+}
+
+void csram_write(unsigned int offs, unsigned int val)
+{
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return;
+	__raw_writel(val, csram_base + (offs));
+}
+#endif
 
 u32 cm_mgr_get_perfs_mt6895(int num)
 {
@@ -129,6 +189,9 @@ static void cm_mgr_perf_timeout_timer_fn(struct timer_list *timer)
 #define PERF_TIME 100
 
 static ktime_t perf_now;
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+static unsigned int dsu_cnt;
+#endif
 void cm_mgr_perf_platform_set_status_mt6895(int enable)
 {
 	unsigned long expires;
@@ -138,7 +201,14 @@ void cm_mgr_perf_platform_set_status_mt6895(int enable)
 		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
 		mod_timer(&cm_mgr_perf_timeout_timer, expires);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+	if (mcl50_flag) {
+		csram_write(OFFS_CCI_TBL_MODE, 1);
+		dsu_cnt++;
+		if (dsu_cnt >= PERF_TIME)
+			mcl50_flag = 0;
+	}
+#endif
 	if (enable) {
 		if (!cm_mgr_get_perf_enable())
 			return;
@@ -327,6 +397,11 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device_node *node = pdev->dev.of_node;
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+	struct device_node *mcl_node = NULL;
+	int err;
+	char *buf;
+#endif
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 	int i;
 #endif /* CONFIG_MTK_DVFSRC */
@@ -377,12 +452,34 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	pr_info("#@# %s(%d) cm_mgr_num_array %d\n",
 			__func__, __LINE__, cm_mgr_get_num_array());
 
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+	cm_get_base_addr();
+	mcl_node = of_find_compatible_node(NULL, NULL, "mediatek,cpufreq-hw");
+	if (mcl_node) {
+
+		err = of_property_read_string(mcl_node,
+			"dvfs-config", (const char **)&buf);
+		if (!err) {
+			if (!strcmp(buf, "mcl50")) {
+				pr_info("@[CM_MGR] send dsu perf to sspm\n");
+				cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_MODE, 1);
+				pr_info("@[CM_MGR] dsu mode %d\n", csram_read(OFFS_CCI_TBL_MODE));
+				mcl50_flag = 1;
+
+			}
+		} else
+			pr_info("@[CM_MGR] not mcl50 load %d\n", err);
+	} else
+		pr_info("CM_MGR cant find mcl node\n");
+
+#endif
+
+
 	ret = cm_mgr_check_dts_setting(pdev);
 	if (ret) {
 		pr_info("[CM_MGR] FAILED TO GET DTS DATA(%d)\n", ret);
 		return ret;
 	}
-
 	INIT_DELAYED_WORK(&cm_mgr_timeout_work, cm_mgr_timeout_process);
 	timer_setup(&cm_mgr_perf_timeout_timer, cm_mgr_perf_timeout_timer_fn,
 			0);

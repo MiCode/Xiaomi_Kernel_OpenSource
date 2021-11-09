@@ -15,6 +15,8 @@
 #include <soc/mediatek/dramc.h>
 #endif /* CONFIG_MTK_DRAMC */
 
+#define OFFS_CCI_TBL_MODE (0x0F9C)
+
 enum {
 	CM_MGR_LP4 = 0,
 	CM_MGR_MAX,
