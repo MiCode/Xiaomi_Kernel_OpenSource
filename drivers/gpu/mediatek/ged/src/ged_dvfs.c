@@ -1188,7 +1188,7 @@ static bool ged_dvfs_policy(
 				g_lb_up_count *= 2;
 
 			g_lb_down_count = 1;
-		} else if (ui32GPULoading < 15) {
+		} else if (ui32GPULoading < 20) {
 			i32NewFreqID += g_lb_down_count;
 			g_lb_down_count *= 2;
 			if (g_lb_down_count >= GED_LB_SCALE_LIMIT)

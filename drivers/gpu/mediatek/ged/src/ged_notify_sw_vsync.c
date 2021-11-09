@@ -420,15 +420,16 @@ void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 				"[GED_K] HW Start Timer");
 			timer_switch(true);
 		}
+		ged_log_perf_trace_counter("gpu_state",
+			1, 5566, 0, 0);
 	} else {
 		ged_gpu_power_off_notified = true;
 		g_bGPUClock = false;
 		ged_log_buf_print(ghLogBuf_DVFS, "[GED_K] Buck-off");
 
 		// Update frequency in trace before timer disappeared.
-		ged_log_perf_trace_counter("gpu_freq",
-			(long long)(ged_get_freq_by_idx(ged_get_min_oppidx()) / 1000),
-			5566, 0, 0);
+		ged_log_perf_trace_counter("gpu_state",
+			0, 5566, 0, 0);
 	}
 }
 EXPORT_SYMBOL(ged_dvfs_gpu_clock_switch_notify);
