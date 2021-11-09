@@ -23,7 +23,7 @@ static int __init mediatek_socinfo_init(void)
 	if (!attrs)
 		return -ENODEV;
 
-	attrs->family = "MediaTek";
+	attrs->family = "Mediatek";
 
 	np = of_find_node_by_path("/");
 	of_property_read_string(np, "model", &attrs->soc_id);
