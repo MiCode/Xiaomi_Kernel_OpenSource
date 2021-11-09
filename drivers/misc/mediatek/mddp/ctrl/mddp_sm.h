@@ -30,6 +30,7 @@ enum mddp_event_e {
 
 	MDDP_EVT_MD_RSP_OK,  /**< MD Response OK. */
 	MDDP_EVT_MD_RSP_FAIL,  /**< MD Response FAIL. */
+	MDDP_EVT_MD_RSP_TIMEOUT,  /**<MD Response timeout. */
 
 	MDDP_EVT_MD_RESET,  /**<MD send RESET. */
 
@@ -141,8 +142,8 @@ void mddp_dump_sm_table(struct mddp_app_t *app);
 #else
 #define mddp_dump_sm_table(...)
 #endif
-enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
-		enum mddp_event_e event);
+enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app, enum mddp_event_e event);
+void mddp_sm_wait(struct mddp_app_t *app, enum mddp_event_e event);
 
 void mddp_check_feature(void);
 

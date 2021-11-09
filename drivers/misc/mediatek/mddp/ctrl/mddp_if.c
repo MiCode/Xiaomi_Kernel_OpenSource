@@ -119,6 +119,7 @@ int32_t mddp_on_enable(enum mddp_app_type_e in_type)
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
+		mddp_sm_wait(app, MDDP_EVT_FUNC_ENABLE);
 	}
 
 	return 0;
@@ -140,6 +141,7 @@ int32_t mddp_on_disable(enum mddp_app_type_e in_type)
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_DISABLE);
+		mddp_sm_wait(app, MDDP_EVT_FUNC_DISABLE);
 	}
 
 	return 0;
@@ -180,6 +182,7 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 			app->ap_cfg.ul_dev_name, app->ap_cfg.dl_dev_name);
 
 	mddp_sm_on_event(app, MDDP_EVT_FUNC_ACT);
+	mddp_sm_wait(app, MDDP_EVT_FUNC_ACT);
 	mddp_u_set_wan_iface(ul_dev_name);
 
 	return 0;
@@ -203,6 +206,7 @@ int32_t mddp_on_deactivate(enum mddp_app_type_e type)
 	 * MDDP DEACTIVATE command.
 	 */
 	mddp_sm_on_event(app, MDDP_EVT_FUNC_DEACT);
+	mddp_sm_wait(app, MDDP_EVT_FUNC_DEACT);
 
 	return 0;
 }
