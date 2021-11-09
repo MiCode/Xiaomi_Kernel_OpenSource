@@ -56,6 +56,8 @@
 #define MTK_IMGSYS_CLK_LEVEL_CNT		5
 #define MTK_IMGSYS_DVFS_GROUP			2
 
+#define MTK_IMGSYS_LOG_LENGTH			1024
+
 extern unsigned int nodes_num;
 
 #define	MTK_IMGSYS_VIDEO_NODE_SIGDEV_NORM_OUT	(nodes_num - 1)
@@ -728,6 +730,7 @@ struct swfrm_info_t {
 	int8_t fail_isHWhang;
 	struct timeval eqtime;
 	int chan_id;
+	char *hw_ts_log;
 };
 
 struct info_list_t {

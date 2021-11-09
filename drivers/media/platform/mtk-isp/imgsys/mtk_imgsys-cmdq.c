@@ -253,9 +253,13 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
 	int req_fd = 0, req_no = 0, frm_no = 0;
 	u32 tsSwEvent = 0, tsHwEvent = 0, tsHw = 0, tsTaskPending = 0;
+	u32 tsHwStr = 0, tsHwEnd = 0;
 	bool isLastTaskInReq = 0;
 	char *wpestr = NULL;
 	u32 wpebw_en = imgsys_wpe_bwlog_enable();
+	char logBuf_temp[MTK_IMGSYS_LOG_LENGTH];
+	u32 idx = 0;
+	u32 real_frm_idx = 0;
 
 	pr_debug("%s: +\n", __func__);
 
@@ -276,29 +280,53 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
 
 	if (imgsys_cmdq_ts_enable()) {
-		/* Calculating task timestamp */
-		tsSwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1]
-				- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0];
-		tsHwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2]
-				- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1];
-		tsHw = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
-			- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2];
-		CMDQ_TICK_TO_US(tsSwEvent);
-		CMDQ_TICK_TO_US(tsHwEvent);
-		CMDQ_TICK_TO_US(tsHw);
-		tsTaskPending =
-			(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart)
-			- (tsSwEvent+tsHwEvent+tsHw);
-		dev_dbg(imgsys_dev->dev,
-		"%s: TSus cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) ts_num(%d) sw_event(%d) hw_event(%d) hw_real(%d) (%d/%d/%d/%d)\n",
-			__func__, cb_param, cb_param->err, cb_param->frm_idx,
-			cb_param->frm_num, cb_frm_cnt, hw_comb,
-			cb_param->taskTs.num, tsSwEvent, tsHwEvent, tsHw,
-			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+0],
-			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+1],
-			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+2],
-			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+3]
-		);
+		for (idx = 0; idx < cb_param->task_cnt; idx++) {
+			/* Calculating task timestamp */
+			tsSwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+1]
+					- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+0];
+			tsHwEvent = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+2]
+					- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+1];
+			tsHwStr = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+2];
+			tsHwEnd = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+3];
+			tsHw = cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+3]
+				- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+2];
+			tsTaskPending =
+			cb_param->taskTs.dma_va[cb_param->taskTs.ofst+cb_param->taskTs.num-1]
+			- cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+0];
+			CMDQ_TICK_TO_US(tsSwEvent);
+			CMDQ_TICK_TO_US(tsHwEvent);
+			CMDQ_TICK_TO_US(tsHw);
+			CMDQ_TICK_TO_US(tsHwStr);
+			CMDQ_TICK_TO_US(tsHwEnd);
+			CMDQ_TICK_TO_US(tsTaskPending);
+			tsTaskPending =
+				(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart)
+				- tsTaskPending;
+			dev_dbg(imgsys_dev->dev,
+			"%s: TSus cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) ts_num(%d) sw_event(%d) hw_event(%d) hw_real(%d) (%d/%d/%d/%d)\n",
+				__func__, cb_param, cb_param->err, cb_param->frm_idx,
+				cb_param->frm_num, cb_frm_cnt, hw_comb,
+				cb_param->taskTs.num, tsSwEvent, tsHwEvent, tsHw,
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+0],
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+1],
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+2],
+				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+3]
+			);
+			if (imgsys_cmdq_ts_dbg_enable()) {
+				real_frm_idx = cb_param->frm_idx - (cb_param->task_cnt - 1) + idx;
+				hw_comb = cb_param->frm_info->user_info[real_frm_idx].hw_comb;
+				memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
+				logBuf_temp[strlen(logBuf_temp)] = '\0';
+				snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
+					"/[%d/%d/%d/%d]hw_comb(0x%x)ts(%d-%d-%d-%d)hw(%d-%d)",
+					real_frm_idx, cb_param->frm_num,
+					cb_param->blk_idx, cb_param->blk_num,
+					hw_comb, tsTaskPending, tsSwEvent, tsHwEvent,
+					tsHw, tsHwStr, tsHwEnd);
+				strncat(cb_param->frm_info->hw_ts_log, logBuf_temp,
+						strlen(logBuf_temp));
+			}
+		}
 	}
 
 	if (cb_param->err != 0)
@@ -397,9 +425,15 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			#endif
 			#endif
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
-			if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable())
+			if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable()) {
 				cmdq_mbox_buf_free(cb_param->clt,
 					cb_param->taskTs.dma_va, cb_param->taskTs.dma_pa);
+				if (imgsys_cmdq_ts_dbg_enable()) {
+					dev_info(imgsys_dev->dev, "%s: %s",
+						__func__, cb_param->frm_info->hw_ts_log);
+					vfree(cb_param->frm_info->hw_ts_log);
+				}
+			}
 			isLastTaskInReq = 1;
 		} else
 			isLastTaskInReq = 0;
@@ -441,7 +475,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	IMGSYS_SYSTRACE_END();
 
 	if (imgsys_cmdq_ts_dbg_enable())
-		dev_info(imgsys_dev->dev,
+		dev_dbg(imgsys_dev->dev,
 			"%s: TSus req fd/no(%d/%d) frame no(%d) thd(%d) cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
 			__func__, req_fd, req_no, frm_no, cb_param->thd_idx,
 			cb_param, cb_param->err, cb_param->frm_idx,
@@ -625,6 +659,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	u32 task_num = 0;
 	u32 task_cnt = 0;
 	size_t pkt_ofst[MAX_FRAME_IN_TASK] = {0};
+	char logBuf_temp[MTK_IMGSYS_LOG_LENGTH];
 
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
@@ -660,8 +695,22 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	#endif
 
 	/* Allocate cmdq buffer for task timestamp */
-	if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable())
+	if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable()) {
 		pkt_ts_va = cmdq_mbox_buf_alloc(imgsys_clt[0], &pkt_ts_pa);
+		if (imgsys_cmdq_ts_dbg_enable()) {
+			frm_info->hw_ts_log = vzalloc(sizeof(char)*MTK_IMGSYS_LOG_LENGTH);
+			memset((char *)frm_info->hw_ts_log, 0x0, MTK_IMGSYS_LOG_LENGTH);
+			frm_info->hw_ts_log[strlen(frm_info->hw_ts_log)] = '\0';
+			memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
+			logBuf_temp[strlen(logBuf_temp)] = '\0';
+			snprintf(logBuf_temp, MTK_IMGSYS_LOG_LENGTH,
+				"own(%llx/%s)req fd/no(%d/%d) frame no(%d) gid(%d)",
+				frm_info->frm_owner, (char *)(&(frm_info->frm_owner)),
+				frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
+				frm_info->group_id);
+			strncat(frm_info->hw_ts_log, logBuf_temp, strlen(logBuf_temp));
+		}
+	}
 
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
 		cmd_buf = (struct GCERecoder *)frm_info->user_info[frm_idx].g_swbuf;
