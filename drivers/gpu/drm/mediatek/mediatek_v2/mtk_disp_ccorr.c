@@ -349,19 +349,19 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 			     (g_disp_ccorr_without_gamma << 2) |
 				(g_ccorr_8bit_switch[id] << 10);
 		writel(cfg_val, comp->regs + DISP_REG_CCORR_CFG);
-		writel(((ccorr->coef[0][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[0][1] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[0][1] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(0));
-		writel(((ccorr->coef[0][2] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][0] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][0] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(1));
-		writel(((ccorr->coef[1][1] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][2] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][2] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(2));
-		writel(((ccorr->coef[2][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[2][1] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[2][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[2][1] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(3));
-		writel(((ccorr->coef[2][2] & ccorr_fullbit_mask) << 16),
+		writel(((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16),
 			comp->regs + CCORR_REG(4));
 		/* Ccorr Offset */
 		writel(((ccorr->offset[0] & CCORR_COLOR_OFFSET_MASK) |
@@ -383,23 +383,23 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(0),
-			((ccorr->coef[0][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[0][1] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[0][1] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(1),
-			((ccorr->coef[0][2] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][0] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][0] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(2),
-			((ccorr->coef[1][1] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][2] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][2] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(3),
-			((ccorr->coef[2][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[2][1] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[2][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[2][1] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(4),
-			((ccorr->coef[2][2] & ccorr_fullbit_mask) << 16), ~0);
+			((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16), ~0);
 		/* Ccorr Offset */
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_0,
