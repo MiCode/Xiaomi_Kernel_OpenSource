@@ -301,6 +301,7 @@ struct mtk_charger {
 	/* common info */
 	int log_level;
 	bool usb_unlimited;
+	bool charger_unlimited;
 	bool disable_charger;
 	int battery_temp;
 	bool can_charging;

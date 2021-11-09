@@ -214,6 +214,7 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	}
 
 	info->disable_charger = of_property_read_bool(np, "disable_charger");
+	info->charger_unlimited = of_property_read_bool(np, "charger_unlimited");
 	info->atm_enabled = of_property_read_bool(np, "atm_is_enabled");
 	info->enable_sw_safety_timer =
 			of_property_read_bool(np, "enable_sw_safety_timer");
@@ -2594,8 +2595,14 @@ static int charger_routine_thread(void *arg)
 		}
 
 		while (is_module_init_done == false) {
-			if (charger_init_algo(info) == true)
+			if (charger_init_algo(info) == true) {
 				is_module_init_done = true;
+				if (info->charger_unlimited) {
+					info->usb_unlimited = true;
+					info->enable_sw_safety_timer = false;
+					charger_dev_enable_safety_timer(info->chg1_dev, false);
+				}
+			}
 			else {
 				chr_err("charger_init fail\n");
 				msleep(5000);
