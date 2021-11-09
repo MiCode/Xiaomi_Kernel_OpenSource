@@ -33,6 +33,7 @@ struct ssheap_buf_info {
 	unsigned long elems;
 	struct page *pmm_msg_page;
 	u8 mem_type;
+	int handle;
 };
 
 /**********************************************************/
