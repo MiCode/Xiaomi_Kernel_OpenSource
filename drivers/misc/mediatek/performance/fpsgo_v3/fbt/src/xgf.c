@@ -1269,6 +1269,18 @@ static void xgf_ema2_dump_rho(struct xgf_ema2_predictor *pt, char *buffer)
 		buffer += sprintf(buffer, " %lld", pt->L[i]);
 }
 
+static void xgf_ema2_dump_info_frames(struct xgf_ema2_predictor *pt, char *buffer)
+{
+	int i;
+
+	if (!pt)
+		return;
+
+	for (i = 0; i < N; i++)
+		buffer += sprintf(buffer, " %lld", pt->L[i]);
+}
+
+
 static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 	struct xgf_render **ret, int force, int hwui_flag)
 {
@@ -2462,6 +2474,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long tmp_runtime = 0;
 	unsigned long long delta = 0;
 	unsigned long long time_scale = 1000;
+	long long ema2_offset = 0;
 	char buf[256] = {0};
 
 	if (rpid <= 0 || ts == 0)
@@ -2561,16 +2574,21 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 				//predict next frame
 				r->ema_runtime = xgf_ema_cal(raw_runtime, r->ema_runtime);
 				if (xgf_ema2_predict_fp && r->ema2_pt) {
+					ema2_offset = raw_runtime - r->ema2_pt->xt_last*time_scale;
 					tmp_runtime =
 						xgf_ema2_predict_fp(r->ema2_pt,
 							raw_runtime/time_scale)
 						* time_scale;
-					xgf_trace("xgf ema2 sts t:%d err:%d ei:%d eo:%d i:%d-%d",
+					xgf_ema2_dump_info_frames(r->ema2_pt, buf);
+					xgf_trace("xgf ema2 sts t:%d err:%d ei:%d eo:%d",
 						r->ema2_pt->t, r->ema2_pt->err_code,
 						r->ema2_pt->invalid_input_cnt,
-						r->ema2_pt->invalid_negative_output_cnt,
+						r->ema2_pt->invalid_negative_output_cnt);
+					xgf_trace("xgf ema2 sts_ext i:%d-%d of:%lld L:%s",
 						r->ema2_pt->rmsprop_initialized,
-						r->ema2_pt->x_record_initialized);
+						r->ema2_pt->x_record_initialized,
+						ema2_offset,
+						buf);
 					xgf_trace("xgf ema2 raw_t:%llu alpha:%llu ema2:%lld",
 						raw_runtime, r->ema_runtime, tmp_runtime);
 
