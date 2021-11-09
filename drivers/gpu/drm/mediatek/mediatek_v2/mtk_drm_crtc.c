@@ -6054,6 +6054,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 
 	cfg.w = crtc->mode.hdisplay;
 	cfg.h = crtc->mode.vdisplay;
+	cfg.bpc = mtk_crtc->bpc;
 	if (output_comp && drm_crtc_index(crtc) == 0) {
 		cfg.w = mtk_ddp_comp_io_cmd(output_comp, NULL,
 					DSI_GET_VIRTUAL_WIDTH, NULL);
@@ -9448,6 +9449,16 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_crtc->wk_lock =
 			wakeup_source_create(mtk_crtc->wk_lock_name);
 		wakeup_source_add(mtk_crtc->wk_lock);
+	}
+
+	/* set bpc by panel info */
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+		mtk_crtc->bpc = mtk_crtc->panel_ext->params->dsc_params.bit_per_channel;
+		DDPINFO("%s, bpc = %d\n", __func__, mtk_crtc->bpc);
+	} else if (!mtk_crtc->panel_ext) {
+		DDPINFO("%s, set bpc fail, mtk_crtc->bpc NULL\n", __func__);
+	} else if (!mtk_crtc->panel_ext->params) {
+		DDPINFO("%s, set bpc fail, mtk_crtc->panel_ext->params NULL\n", __func__);
 	}
 
 #ifndef DRM_CMDQ_DISABLE

@@ -3108,8 +3108,8 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 
 		mtk_serial_dump_reg(baddr, 0x2a0, 2);
 
-		/* WCG */
-		mtk_serial_dump_reg(baddr, 0x2D8, 2);
+		/* CLRFMT, WCG */
+		mtk_serial_dump_reg(baddr, 0x2D0, 4);
 
 		/* DATAPATH_EXT_CON */
 		mtk_serial_dump_reg(baddr, 0x324, 1);

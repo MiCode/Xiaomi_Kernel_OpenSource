@@ -2686,24 +2686,26 @@ static int mtk_dsi_atomic_check(struct drm_encoder *encoder,
 				struct drm_crtc_state *crtc_state,
 				struct drm_connector_state *conn_state)
 {
+	/* using mtk_dsi_config_trigger to set bpc */
 	struct mtk_drm_crtc *mtk_crtc =
 		container_of(conn_state->crtc, struct mtk_drm_crtc, base);
 	struct mtk_dsi *dsi = encoder_to_dsi(encoder);
 
-	switch (dsi->format) {
-	case MIPI_DSI_FMT_RGB565:
-		mtk_crtc->bpc = 5;
-		break;
-	case MIPI_DSI_FMT_RGB666_PACKED:
-		mtk_crtc->bpc = 6;
-		break;
-	case MIPI_DSI_FMT_RGB666:
-	case MIPI_DSI_FMT_RGB888:
-	default:
-		mtk_crtc->bpc = 8;
-		break;
+	if (mtk_crtc->bpc != 10) {	/* no MIPI_DSI_FMT_RGB101010 in kernel-5.10 */
+		switch (dsi->format) {
+		case MIPI_DSI_FMT_RGB565:
+			mtk_crtc->bpc = 5;
+			break;
+		case MIPI_DSI_FMT_RGB666_PACKED:
+			mtk_crtc->bpc = 6;
+			break;
+		case MIPI_DSI_FMT_RGB666:
+		case MIPI_DSI_FMT_RGB888:
+		default:
+			mtk_crtc->bpc = 8;
+			break;
+		}
 	}
-
 	return 0;
 }
 
