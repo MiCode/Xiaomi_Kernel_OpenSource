@@ -36,7 +36,15 @@ void mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
 	param->stream_id = ctx->stream_id;
 	param->sequence = stream_data->frame_seq_no;
 	param->timestamp = stream_data->timestamp;
-	param->cq_cpu_addr = stream_data->working_buf->buffer.va;
+
+	if (stream_data->working_buf)
+		param->cq_cpu_addr = stream_data->working_buf->buffer.va;
+	else {
+		dev_info(cam->dev,
+			"%s:ctx(%d):req(%d):stream_data->working_buf is null\n",
+			__func__, ctx->stream_id, param->sequence);
+		return;
+	}
 
 	buf = mtk_cam_s_data_get_vbuf(stream_data, MTK_RAW_META_IN);
 	if (buf) {
@@ -841,6 +849,9 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	struct mtk_cam_dump_param dump_param;
 	char warn_desc[48];
 	char title_desc[48];
+
+	if (s_data == NULL)
+		return;
 
 	if (atomic_read(&s_data->dbg_exception_work.state) == MTK_CAM_REQ_DBGWORK_S_CANCEL) {
 		dev_info(ctx->cam->dev,

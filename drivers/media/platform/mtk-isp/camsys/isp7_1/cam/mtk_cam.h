@@ -555,6 +555,9 @@ mtk_cam_mraw_wbuf_set_s_data(struct mtk_mraw_working_buf_entry *buf_entry,
 static inline struct mtk_cam_ctx*
 mtk_cam_s_data_get_ctx(struct mtk_cam_request_stream_data *s_data)
 {
+	if (s_data == NULL)
+		return NULL;
+
 	return s_data->ctx;
 }
 
@@ -567,12 +570,18 @@ mtk_cam_s_data_get_dbg_str(struct mtk_cam_request_stream_data *s_data)
 static inline struct mtk_cam_request*
 mtk_cam_s_data_get_req(struct mtk_cam_request_stream_data *s_data)
 {
+	if (s_data == NULL)
+		return NULL;
+
 	return s_data->req;
 }
 
 static inline struct mtk_cam_resource*
 mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 {
+	if (s_data == NULL)
+		return NULL;
+
 	if (!is_raw_subdev(s_data->pipe_id))
 		return NULL;
 
