@@ -11753,6 +11753,7 @@
 			  <0 0x1a118000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <0>;
+		mediatek,larbs = <&smi_larb13>;
 		mediatek,camsv-hwcap = <0x110051>;
 		mediatek,cammux-id = <3>;
 		interrupts = <GIC_SPI 477 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -11794,6 +11795,7 @@
 			  <0 0x1a119000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <1>;
+		mediatek,larbs = <&smi_larb13>;
 		mediatek,camsv-hwcap = <0x210051>;
 		mediatek,cammux-id = <4>;
 		interrupts = <GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -11835,6 +11837,7 @@
 			  <0 0x1a11a000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <2>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x120051>;
 		mediatek,cammux-id = <5>;
 		interrupts = <GIC_SPI 479 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -11876,6 +11879,7 @@
 			  <0 0x1a11b000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <3>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x220051>;
 		mediatek,cammux-id = <6>;
 		interrupts = <GIC_SPI 480 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -11917,7 +11921,8 @@
 			  <0 0x1a11c000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <4>;
-		mediatek,camsv-hwcap = <0x1400e1>;
+		mediatek,larbs = <&smi_larb13>;
+		mediatek,camsv-hwcap = <0x1400f1>;
 		mediatek,cammux-id = <7>;
 		interrupts = <GIC_SPI 481 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
@@ -11958,7 +11963,8 @@
 			  <0 0x1a11d000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <5>;
-		mediatek,camsv-hwcap = <0x2400e1>;
+		mediatek,larbs = <&smi_larb13>;
+		mediatek,camsv-hwcap = <0x2400f1>;
 		mediatek,cammux-id = <8>;
 		interrupts = <GIC_SPI 482 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
@@ -11999,6 +12005,7 @@
 			  <0 0x1a11e000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <6>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x1800a1>;
 		mediatek,cammux-id = <19>;
 		interrupts = <GIC_SPI 483 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12040,6 +12047,7 @@
 			  <0 0x1a11f000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <7>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x2800a1>;
 		mediatek,cammux-id = <20>;
 		interrupts = <GIC_SPI 484 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12081,6 +12089,7 @@
 			  <0 0x1a188000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <8>;
+		mediatek,larbs = <&smi_larb13>;
 		mediatek,camsv-hwcap = <0x4400e1>;
 		mediatek,cammux-id = <21>;
 		interrupts = <GIC_SPI 485 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12122,6 +12131,7 @@
 			  <0 0x1a189000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <9>;
+		mediatek,larbs = <&smi_larb13>;
 		mediatek,camsv-hwcap = <0x4800a1>;
 		mediatek,cammux-id = <22>;
 		interrupts = <GIC_SPI 486 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12163,6 +12173,7 @@
 			  <0 0x1a18a000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <10>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x1>;
 		mediatek,cammux-id = <9>;
 		interrupts = <GIC_SPI 487 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12202,6 +12213,7 @@
 			  <0 0x1a18b000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <11>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x1>;
 		mediatek,cammux-id = <10>;
 		interrupts = <GIC_SPI 488 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12241,6 +12253,7 @@
 			  <0 0x1a18c000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <12>;
+		mediatek,larbs = <&smi_larb13>;
 		mediatek,camsv-hwcap = <0x1>;
 		mediatek,cammux-id = <11>;
 		interrupts = <GIC_SPI 489 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12280,6 +12293,7 @@
 			  <0 0x1a18d000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <13>;
+		mediatek,larbs = <&smi_larb13>;
 		mediatek,camsv-hwcap = <0x1>;
 		mediatek,cammux-id = <12>;
 		interrupts = <GIC_SPI 490 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12319,6 +12333,7 @@
 			  <0 0x1a18e000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <14>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x1>;
 		mediatek,cammux-id = <13>;
 		interrupts = <GIC_SPI 491 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12358,6 +12373,7 @@
 			  <0 0x1a18f000 0 0x1000>;
 		reg-names = "base", "inner_base";
 		mediatek,camsv-id = <15>;
+		mediatek,larbs = <&smi_larb14>;
 		mediatek,camsv-hwcap = <0x1>;
 		mediatek,cammux-id = <14>;
 		interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -12397,6 +12413,7 @@
 				<0 0x1a138000 0 0x8000>;
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <0>;
+		mediatek,larbs = <&smi_larb25>;
 		mediatek,cammux-id = <15>;
 		interrupts = <GIC_SPI 497 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
@@ -12432,6 +12449,7 @@
 				<0 0x1a148000 0 0x8000>;
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <1>;
+		mediatek,larbs = <&smi_larb26>;
 		mediatek,cammux-id = <16>;
 		interrupts = <GIC_SPI 498 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
@@ -12467,6 +12485,7 @@
 				<0 0x1a158000 0 0x8000>;
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <2>;
+		mediatek,larbs = <&smi_larb25>;
 		mediatek,cammux-id = <17>;
 		interrupts = <GIC_SPI 499 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
@@ -12502,6 +12521,7 @@
 				<0 0x1a168000 0 0x8000>;
 		reg-names = "base", "inner_base";
 		mediatek,mraw-id = <3>;
+		mediatek,larbs = <&smi_larb26>;
 		mediatek,cammux-id = <18>;
 		interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
