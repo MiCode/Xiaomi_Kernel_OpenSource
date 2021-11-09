@@ -98,6 +98,40 @@ enum {
 
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define cmdq_util_aee_ex(aee, key, fmt, args...) \
+	do { \
+		char tag[LINK_MAX]; \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
+		cmdq_aee(fmt, ##args); \
+		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
+		if (aee == CMDQ_AEE_WARN) \
+			aee_kernel_warning_api(__FILE__, __LINE__, \
+				DB_OPT_CMDQ, tag, fmt, ##args); \
+		else if (aee == CMDQ_AEE_EXCEPTION) \
+			aee_kernel_exception_api(__FILE__, __LINE__, \
+				DB_OPT_CMDQ, tag, fmt, ##args); \
+		else \
+			cmdq_aee("skip aee"); \
+	} while (0)
+#else
+#define cmdq_util_aee_ex(aee, key, fmt, args...) \
+	do { \
+		char tag[LINK_MAX]; \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
+		cmdq_aee(fmt" (aee not ready)", ##args); \
+		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
+	} while (0)
+
+#endif
+
+
 struct cmdq_pkt;
 
 typedef const char *(*platform_thread_module_dispatch)(phys_addr_t gce_pa, s32 thread);

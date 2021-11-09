@@ -102,6 +102,14 @@ struct cmdq_cb_data {
 	void		*data;
 };
 
+enum cmdq_aee_type {
+	CMDQ_AEE_WARN = 0x0,
+	CMDQ_NO_AEE = 0x1,
+	CMDQ_AEE_EXCEPTION = 0x2,
+};
+
+typedef int (*cmdq_aee_cb)(struct cmdq_cb_data data);
+
 typedef void (*cmdq_async_flush_cb)(struct cmdq_cb_data data);
 
 struct cmdq_task_cb {
@@ -158,6 +166,7 @@ struct cmdq_pkt {
 	bool			task_alloc;
 	bool			task_alive;
 	struct cmdq_pkt_err	err_data;
+	cmdq_aee_cb		aee_cb;
 };
 
 struct cmdq_thread {

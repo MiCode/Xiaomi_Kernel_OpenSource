@@ -34,6 +34,9 @@ struct cmdq_sec_helper_fp *cmdq_sec_helper;
 #ifndef cmdq_util_aee
 #define cmdq_util_aee(k, f, args...) cmdq_dump(f, ##args)
 #endif
+#ifndef cmdq_util_aee_ex
+#define cmdq_util_aee_ex(aee, k, f, args...) cmdq_dump(f, ##args)
+#endif
 
 #define CMDQ_ARG_A_WRITE_MASK	0xffff
 #define CMDQ_WRITE_ENABLE_MASK	BIT(0)
@@ -2036,6 +2039,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	phys_addr_t gce_pa = cmdq_mbox_get_base_pa(client->chan);
 	const char *mod = NULL;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
+	enum cmdq_aee_type aee;
 
 	/* assign error during dump cb */
 	item->err = data.err;
@@ -2104,9 +2108,17 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		pkt->err_data.wfe_timeout = true;
 		pkt->err_data.event = inst->arg_a;
+	}
+
+	if (!pkt->aee_cb)
+		aee = CMDQ_AEE_WARN;
+	else
+		aee = pkt->aee_cb(data);
+
+	if (inst && inst->op == CMDQ_CODE_WFE) {
 		mod = cmdq_util_helper->event_module_dispatch(gce_pa, inst->arg_a,
 			thread_id);
-		cmdq_util_aee(mod,
+		cmdq_util_aee_ex(aee, mod,
 			"DISPATCH:%s(%s) inst:%#018llx OP:WAIT EVENT:%hu thread:%d",
 			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, inst->arg_a, thread_id);
@@ -2115,7 +2127,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod = cmdq_util_helper->thread_module_dispatch(gce_pa,thread_id);
 
 		/* not sync case, print raw */
-		cmdq_util_aee(mod,
+		cmdq_util_aee_ex(aee, mod,
 			"DISPATCH:%s(%s) inst:%#018llx OP:%#04hhx thread:%d",
 			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, inst->op, thread_id);
@@ -2124,9 +2136,14 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod = "CMDQ";
 
 		/* no inst available */
-		cmdq_util_aee(mod,
-			"DISPATCH:%s(%s) unknown instruction thread:%d",
-			mod, cmdq_util_helper->hw_name(client->chan), thread_id);
+		if (aee == CMDQ_AEE_EXCEPTION)
+			cmdq_util_aee_ex(aee, mod,
+				"DISPATCH:%s(%s) unknown instruction thread:%d",
+				mod, cmdq_util_helper->hw_name(client->chan), thread_id);
+		else
+			cmdq_util_aee_ex(CMDQ_AEE_WARN, mod,
+				"DISPATCH:%s(%s) unknown instruction thread:%d",
+				mod, cmdq_util_helper->hw_name(client->chan), thread_id);
 	}
 #ifdef CMDQ_SECURE_SUPPORT
 done:

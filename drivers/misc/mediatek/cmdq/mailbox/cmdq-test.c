@@ -96,7 +96,15 @@ static void cmdq_test_mbox_cb_dump_err(struct cmdq_cb_data data)
 	cmdq_err("pkt:0x%p err:%d during err", data.data, data.err);
 }
 
-static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
+static int cmdq_test_no_aee(struct cmdq_cb_data data)
+{
+	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
+
+	cmdq_err("pkt:0x%p err:%d during err", pkt, data.err);
+	return CMDQ_NO_AEE;
+}
+
+static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec, const bool aee)
 {
 	struct cmdq_pkt *pkt;
 	struct cmdq_flush_completion cmplt;
@@ -106,6 +114,8 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 	struct cmdq_client *clt = sec ? test->sec : test->clt;
 	size_t wfe_offset;
 
+	cmdq_msg("%s sec[%d] aee[%d]", __func__, sec, aee);
+
 	if (clk_prepare_enable(test->gce.clk)) {
 		cmdq_err("clk fail");
 		return;
@@ -113,6 +123,9 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 
 	cmdq_clear_event(clt->chan, test->token_user0);
 	pkt = cmdq_pkt_create(clt);
+
+	if (!aee)
+		pkt->aee_cb = cmdq_test_no_aee;
 #ifdef CMDQ_SECURE_SUPPORT
 	if (sec)
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SEC_DEBUG,
@@ -1218,7 +1231,8 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_cpr(test);
 		break;
 	case 9:
-		cmdq_test_mbox_err_dump(test, sec);
+		cmdq_test_mbox_err_dump(test, sec, true);
+		cmdq_test_mbox_err_dump(test, sec, false);
 		break;
 	case 10:
 		cmdq_test_mbox_handshake_event(test);
