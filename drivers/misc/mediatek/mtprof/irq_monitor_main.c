@@ -224,7 +224,7 @@ static void irq_mon_dump_stack_trace(unsigned int out, struct preemptirq_stat *p
 
 	irq_mon_msg(out, "disable call trace:");
 	for (i = 0; i < pi_stat->nr_entries; i++) {
-		scnprintf(msg, sizeof(msg), "[<%p>] %pS",
+		scnprintf(msg, sizeof(msg), "[<%px>] %pS",
 			 (void *)pi_stat->trace_entries[i],
 			 (void *)pi_stat->trace_entries[i]);
 		irq_mon_msg(out, "%s", msg);
@@ -254,16 +254,16 @@ static void check_preemptirq_stat(struct preemptirq_stat *pi_stat, int irq)
 			pi_stat->disable_timestamp,
 			pi_stat->enable_timestamp,
 			raw_smp_processor_id());
-	irq_mon_msg(out, "disable_ip       : [<%p>] %pS",
+	irq_mon_msg(out, "disable_ip       : [<%px>] %pS",
 			(void *)pi_stat->disable_ip,
 			(void *)pi_stat->disable_ip);
-	irq_mon_msg(out, "disable_parent_ip: [<%p>] %pS",
+	irq_mon_msg(out, "disable_parent_ip: [<%px>] %pS",
 			(void *)pi_stat->disable_parent_ip,
 			(void *)pi_stat->disable_parent_ip);
-	irq_mon_msg(out, "enable_ip        : [<%p>] %pS",
+	irq_mon_msg(out, "enable_ip        : [<%px>] %pS",
 			(void *)pi_stat->enable_ip,
 			(void *)pi_stat->enable_ip);
-	irq_mon_msg(out, "enable_parent_ip : [<%p>] %pS",
+	irq_mon_msg(out, "enable_parent_ip : [<%px>] %pS",
 			(void *)pi_stat->enable_parent_ip,
 			(void *)pi_stat->enable_parent_ip);
 	irq_mon_dump_stack_trace(out, pi_stat);
@@ -360,7 +360,7 @@ static void probe_irq_handler_exit(void *ignore,
 		char msg[MAX_MSG_LEN];
 
 		scnprintf(msg, sizeof(msg),
-			"irq: %d [<%p>]%pS, duration %llu ms, from %llu ns to %llu ns on CPU:%d",
+			"irq: %d [<%px>]%pS, duration %llu ms, from %llu ns to %llu ns on CPU:%d",
 			irq, (void *)action->handler, (void *)action->handler,
 			msec_high(duration),
 			trace_stat->start_timestamp,
@@ -653,7 +653,7 @@ static void probe_hrtimer_expire_exit(void *ignore, struct hrtimer *hrtimer)
 		char msg[MAX_MSG_LEN];
 
 		scnprintf(msg, sizeof(msg),
-			"hrtimer: [<%p>]%pS, duration %llu ms, from %llu ns to %llu ns on CPU:%d",
+			"hrtimer: [<%px>]%pS, duration %llu ms, from %llu ns to %llu ns on CPU:%d",
 			(void *)hrtimer->function, (void *)hrtimer->function,
 			msec_high(duration),
 			trace_stat->start_timestamp,

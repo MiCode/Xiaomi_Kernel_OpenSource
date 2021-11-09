@@ -309,7 +309,7 @@ enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			scnprintf(irq_name, sizeof(irq_name), "%s", tmp_irq_name);
 
 		irq_handler = irq_to_handler(irq);
-		scnprintf(irq_handler_addr, sizeof(irq_handler_addr), "%p", irq_handler);
+		scnprintf(irq_handler_addr, sizeof(irq_handler_addr), "%px", irq_handler);
 		scnprintf(irq_handler_name, sizeof(irq_handler_name), "%pS", irq_handler);
 
 		for (i = 0; i < REC_NUM; i++) {
