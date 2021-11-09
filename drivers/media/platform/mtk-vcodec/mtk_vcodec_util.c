@@ -469,19 +469,19 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 
 	dbuf = dma_heap_buffer_alloc(dma_heap, mem->len, O_RDWR | O_CLOEXEC,
 		DMA_HEAP_VALID_HEAP_FLAGS);
-	if (IS_ERR(dbuf)) {
+	if (IS_ERR_OR_NULL(dbuf)) {
 		mtk_v4l2_err("buffer alloc fail\n");
 		return PTR_ERR(dbuf);
 	}
 
 	*attach = dma_buf_attach(dbuf, dev);
-	if (IS_ERR(*attach)) {
+	if (IS_ERR_OR_NULL(*attach)) {
 		mtk_v4l2_err("attach fail, return\n");
 		dma_heap_buffer_free(dbuf);
 		return PTR_ERR(*attach);
 	}
 	*sgt = dma_buf_map_attachment(*attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(*sgt)) {
+	if (IS_ERR_OR_NULL(*sgt)) {
 		mtk_v4l2_err("map failed, detach and return\n");
 		dma_buf_detach(dbuf, *attach);
 		dma_heap_buffer_free(dbuf);
@@ -491,8 +491,14 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	mem->pa = (__u64)sg_dma_address((*sgt)->sgl);
 	mem->iova = (__u64)mem->pa;
 
-	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d\n",
-		mem->va, mem->pa, mem->iova, mem->len);
+	if (mem->va == (__u64)NULL || mem->pa == (__u64)NULL) {
+		mtk_v4l2_err("alloc failed, va 0x%llx pa 0x%llx iova 0x%llx len %d type %u\n",
+		mem->va, mem->pa, mem->iova, mem->len, mem->type);
+		return -EPERM;
+	}
+
+	mtk_v4l2_debug(8, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %u\n",
+		mem->va, mem->pa, mem->iova, mem->len, mem->type);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_alloc_mem);
