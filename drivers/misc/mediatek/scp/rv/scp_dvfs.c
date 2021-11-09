@@ -757,25 +757,28 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 void mt_scp_dvfs_state_dump(void)
 {
 	unsigned int scp_state, slp_pwr_ctrl, power_status;
+	char *scp_status = 0;
 
 	scp_state = readl(SCP_A_SLEEP_DEBUG_REG);
-	pr_info("scp status: %s\n",
-		((scp_state & IN_DEBUG_IDLE) == IN_DEBUG_IDLE) ? "idle mode"
-		: ((scp_state & ENTERING_SLEEP) == ENTERING_SLEEP) ?
-			"enter sleep"
-		: ((scp_state & IN_SLEEP) == IN_SLEEP) ?
-			"sleep mode"
-		: ((scp_state & ENTERING_ACTIVE) == ENTERING_ACTIVE) ?
-			"enter active"
-		: ((scp_state & IN_ACTIVE) == IN_ACTIVE) ?
-			"active mode" : "none of state");
+	scp_status = ((scp_state & IN_DEBUG_IDLE) == IN_DEBUG_IDLE) ? "idle mode"
+			: ((scp_state & ENTERING_SLEEP) == ENTERING_SLEEP) ?
+				"enter sleep"
+			: ((scp_state & IN_SLEEP) == IN_SLEEP) ?
+				"sleep mode"
+			: ((scp_state & ENTERING_ACTIVE) == ENTERING_ACTIVE) ?
+				"enter active"
+			: ((scp_state & IN_ACTIVE) == IN_ACTIVE) ?
+				"active mode" : "none of state";
 
 	if (dvfs.vlp_support) {
 		slp_pwr_ctrl = readl(SCP_SLP_PWR_CTRL);
 		power_status = readl(SCP_POWER_STATUS);
-		pr_info("cpu-off config: %s, power status: %s\n",
+		pr_info("scp status: %s, cpu-off config: %s, power status: %s\n",
+			scp_status,
 			((slp_pwr_ctrl & R_CPU_OFF) == R_CPU_OFF) ? "enable" : "disable",
 			((power_status & POW_ON) == POW_ON) ? "on" : "off");
+	} else {
+		pr_info("scp status: %s\n", scp_status);
 	}
 }
 
@@ -2589,25 +2592,31 @@ static int mt_scp_dump_sleep_count(void)
 	ipi_data.arg1 = SCP_SLEEP_GET_COUNT;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
-	if (ret != IPI_ACTION_DONE)
+	if (ret != IPI_ACTION_DONE) {
 		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
 			__func__, __LINE__, ret);
-	else
+		goto FINISH;
+	}
+
+	if (dvfs.core_nums < 2) {
 		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d\n",
 			__func__, __LINE__, scp_ipi_ackdata0);
+		goto FINISH;
+	}
 
-	if (dvfs.core_nums != 2)
-		return 0;
-
+	/* if there are 2 cores */
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
-	if (ret != IPI_ACTION_DONE)
+	if (ret != IPI_ACTION_DONE) {
 		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
 			__func__, __LINE__, ret);
-	else
-		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_1 = %d\n",
-			__func__, __LINE__, scp_ipi_ackdata1);
+		goto FINISH;
+	}
 
+	pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d, scp_sleep_cnt_1 = %d\n",
+		__func__, __LINE__, scp_ipi_ackdata0, scp_ipi_ackdata1);
+
+FINISH:
 	return 0;
 }
 
