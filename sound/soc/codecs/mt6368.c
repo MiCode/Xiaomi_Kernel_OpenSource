@@ -3196,9 +3196,7 @@ static const struct snd_soc_dapm_widget mt6368_dapm_widgets[] = {
 			      SND_SOC_NOPM, 0, 0,
 			      mt_dcxo_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY_S("LDO_VAUD18", SUPPLY_SEQ_LDO_VAUD18,
-			      MT6368_LDO_VAUD18_CON0,
-			      RG_LDO_VAUD18_EN_SFT, 0, NULL, 0),
+	SND_SOC_DAPM_REGULATOR_SUPPLY("mt6368_vaud18", 0, 0),
 	SND_SOC_DAPM_SUPPLY_S("AUDGLB", SUPPLY_SEQ_AUD_GLB,
 			      MT6368_AUDDEC_ANA_CON26,
 			      RG_AUDGLB_PWRDN_VA32_SFT, 1, NULL, 0),
@@ -3662,7 +3660,7 @@ static int mt_dcc_clk_connect(struct snd_soc_dapm_widget *source,
 static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 	/* Capture */
 	{"AIFTX_Supply", NULL, "CLK_BUF"},
-	{"AIFTX_Supply", NULL, "LDO_VAUD18"},
+	{"AIFTX_Supply", NULL, "mt6368_vaud18"},
 	{"AIFTX_Supply", NULL, "AUDGLB"},
 	{"AIFTX_Supply", NULL, "CLKSQ Audio"},
 	{"AIFTX_Supply", NULL, "AUD_CK"},
@@ -3789,7 +3787,7 @@ static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 
 	/* DL Supply */
 	{"DL Power Supply", NULL, "CLK_BUF"},
-	{"DL Power Supply", NULL, "LDO_VAUD18"},
+	{"DL Power Supply", NULL, "mt6368_vaud18"},
 	{"DL Power Supply", NULL, "AUDGLB"},
 	{"DL Power Supply", NULL, "CLKSQ Audio"},
 	{"DL Power Supply", NULL, "AUDNCP_CK"},
@@ -3875,7 +3873,7 @@ static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 	/* VOW */
 	{"VOW TX", NULL, "VOW_UL_SRC_MUX"},
 	{"VOW TX", NULL, "CLK_BUF"},
-	{"VOW TX", NULL, "LDO_VAUD18"},
+	{"VOW TX", NULL, "mt6368_vaud18"},
 	{"VOW TX", NULL, "AUDGLB"},
 	{"VOW TX", NULL, "AUDGLB_VOW", mt_vow_amic_connect},
 	{"VOW TX", NULL, "AUD_CK", mt_vow_amic_connect},
