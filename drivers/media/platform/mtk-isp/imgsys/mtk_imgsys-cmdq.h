@@ -5,6 +5,8 @@
  * Author: Daniel Huang <daniel.huang@mediatek.com>
  *
  */
+#ifndef _MTK_IMGSYS_CMDQ_H_
+#define _MTK_IMGSYS_CMDQ_H_
 
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -175,3 +177,4 @@ u32 imgsys_wpe_bwlog_enable(void);
 bool imgsys_cmdq_ts_dbg_enable(void);
 bool imgsys_dvfs_dbg_enable(void);
 
+#endif /* _MTK_IMGSYS_CMDQ_H_ */

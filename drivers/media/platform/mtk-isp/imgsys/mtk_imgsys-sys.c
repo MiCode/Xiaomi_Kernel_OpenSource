@@ -28,6 +28,10 @@
 #include <linux/remoteproc/mtk_scp.h>
 #endif
 
+int imgsys_quick_onoff_en;
+module_param(imgsys_quick_onoff_en, int, 0644);
+
+
 static struct gce_timeout_work imgsys_timeout_winfo[VIDEO_MAX_FRAME];
 static int imgsys_timeout_idx;
 static struct info_list_t frm_info_list = {
@@ -1731,9 +1735,46 @@ static int mtk_imgsys_hw_flush_pipe_jobs(struct mtk_imgsys_pipe *pipe)
 	return 0;
 }
 
+
+static void module_uninit(struct kref *kref)
+{
+	struct mtk_imgsys_dev *imgsys_dev;
+	int i;
+	struct mtk_imgsys_dvfs *dvfs_info;
+
+	imgsys_dev = container_of(kref, struct mtk_imgsys_dev, init_kref);
+	dvfs_info = &imgsys_dev->dvfs_info;
+
+	for (i = 0; i < (imgsys_dev->num_mods); i++)
+		if (imgsys_dev->modules[i].uninit)
+			imgsys_dev->modules[i].uninit(imgsys_dev);
+
+	if (IS_ERR_OR_NULL(dvfs_info->reg) || !regulator_is_enabled(dvfs_info->reg))
+		dev_dbg(dvfs_info->dev,
+			"%s: [ERROR] reg is null or disabled\n", __func__);
+	else
+		regulator_disable(dvfs_info->reg);
+}
+
+void mtk_imgsys_mod_put(struct mtk_imgsys_dev *imgsys_dev)
+{
+	struct kref *kref;
+
+	kref = &imgsys_dev->init_kref;
+	kref_put(kref, module_uninit);
+}
+
+void mtk_imgsys_mod_get(struct mtk_imgsys_dev *imgsys_dev)
+{
+	struct kref *kref;
+
+	kref = &imgsys_dev->init_kref;
+	kref_get(kref);
+}
+
 static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 {
-	int ret;
+	int ret, i;
 #ifndef USE_KERNEL_ION_BUFFER
 	struct buf_va_info_t *buf;
 	struct dma_buf *dbuf;
@@ -1742,17 +1783,34 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 #endif
 	u32 user_cnt = 0;
 	unsigned int mode;
+	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
 	if (user_cnt != 0)
 		dev_info(imgsys_dev->dev,
 			"%s: [ERROR] imgsys user count is not zero(%d)\n",
 			__func__, user_cnt);
-	#if DVFS_QOS_READY
-	mtk_imgsys_power_ctrl(imgsys_dev, true);
-	#else
+
+	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
+	if (IS_ERR_OR_NULL(dvfs_info->reg))
+		dev_dbg(dvfs_info->dev,
+			"%s: [ERROR] reg is err or null\n", __func__);
+	else
+		regulator_enable(dvfs_info->reg);
+
 	pm_runtime_get_sync(imgsys_dev->dev);
-	#endif
+	/*set default value for hw module*/
+	for (i = 0; i < (imgsys_dev->num_mods); i++)
+		imgsys_dev->modules[i].init(imgsys_dev);
+	kref_init(&imgsys_dev->init_kref);
+
+	pm_runtime_put_sync(imgsys_dev->dev);
+	if (!imgsys_quick_onoff_en)
+		#if DVFS_QOS_READY
+		mtk_imgsys_power_ctrl(imgsys_dev, true);
+		#else
+		pm_runtime_get_sync(imgsys_dev->dev);
+		#endif
 
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
@@ -1891,11 +1949,13 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 
 	gce_work_pool_uninit(imgsys_dev);
 
-	#if DVFS_QOS_READY
-	mtk_imgsys_power_ctrl(imgsys_dev, false);
-	#else
-	pm_runtime_put_sync(imgsys_dev->dev);
-	#endif
+	if (!imgsys_quick_onoff_en)
+		#if DVFS_QOS_READY
+		mtk_imgsys_power_ctrl(imgsys_dev, false);
+		#else
+		pm_runtime_put_sync(imgsys_dev->dev);
+		#endif
+	mtk_imgsys_mod_put(imgsys_dev);
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
 	if (user_cnt != 0)

@@ -325,6 +325,7 @@ struct mtk_imgsys_dev {
 	struct mutex power_ctrl_lock;
 	debug_dump dump;
 	atomic_t imgsys_user_cnt;
+	struct kref init_kref;
 };
 
 /* contained in struct mtk_imgsys_user's done_list */
@@ -655,6 +656,8 @@ bool is_batch_mode(struct mtk_imgsys_request *req);
 void mtk_imgsys_put_dma_buf(struct dma_buf *dma_buf,
 				struct dma_buf_attachment *attach,
 				struct sg_table *sgt);
+void mtk_imgsys_mod_get(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_mod_put(struct mtk_imgsys_dev *imgsys_dev);
 
 /***************************************************************************/
 void flush_fd_kva_list(struct mtk_imgsys_dev *imgsys_dev);

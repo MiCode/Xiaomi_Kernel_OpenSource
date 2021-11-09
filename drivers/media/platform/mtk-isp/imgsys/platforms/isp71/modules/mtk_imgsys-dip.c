@@ -50,7 +50,7 @@ void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
 	unsigned int hw_idx = 0, ary_idx = 0;
 
-	pr_info("%s: +\n", __func__);
+	pr_debug("%s: +\n", __func__);
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	for (hw_idx = REG_MAP_E_DIP; hw_idx <= REG_MAP_E_DIP_NR; hw_idx++) {
@@ -65,9 +65,7 @@ void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-	imgsys_dip_set_hw_initial_value(imgsys_dev);
-
-	pr_info("%s: -\n", __func__);
+	pr_debug("%s: -\n", __func__);
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 EXPORT_SYMBOL(imgsys_dip_set_initial_value);

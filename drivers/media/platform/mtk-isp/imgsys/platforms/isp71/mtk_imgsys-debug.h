@@ -10,6 +10,7 @@
 #define _MTK_IMGSYS_DEBUG_H_
 
 #include "mtk_imgsys-dev.h"
+#include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-module.h"
 #include "mtk_imgsys-engine.h"
 /**
@@ -44,6 +45,7 @@ void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 	const struct module_ops *imgsys_modules, int imgsys_module_num,
 	unsigned int hw_comb);
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev);
 
 #endif /* _MTK_IMGSYS_DEBUG_H_ */

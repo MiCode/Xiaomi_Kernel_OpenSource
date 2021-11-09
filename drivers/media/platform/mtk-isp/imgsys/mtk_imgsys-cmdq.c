@@ -1812,17 +1812,13 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
-			if (IS_ERR_OR_NULL(dvfs_info->reg))
-				dev_dbg(dvfs_info->dev,
-					"%s: [ERROR] reg is err or null\n", __func__);
-			else
-				regulator_enable(dvfs_info->reg);
 			pm_runtime_get_sync(imgsys_dev->dev);
 
 			/*set default value for hw module*/
+			mtk_imgsys_mod_get(imgsys_dev);
 			for (i = 0; i < (imgsys_dev->num_mods); i++)
-				imgsys_dev->modules[i].init(imgsys_dev);
-
+				if (imgsys_dev->modules[i].set)
+					imgsys_dev->modules[i].set(imgsys_dev);
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
 	} else {
@@ -1834,21 +1830,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
-			/*set default value for hw module*/
-			for (i = 0; i < (imgsys_dev->num_mods); i++) {
-				if (imgsys_dev->modules[i].uninit)
-					imgsys_dev->modules[i].uninit(imgsys_dev);
-			}
-
-			/* pm_runtime_put_sync(imgsys_dev->dev);*/
-			pm_runtime_mark_last_busy(imgsys_dev->dev);
-			pm_runtime_put_autosuspend(imgsys_dev->dev);
-			if (IS_ERR_OR_NULL(dvfs_info->reg)
-					|| !regulator_is_enabled(dvfs_info->reg))
-				dev_dbg(dvfs_info->dev,
-					"%s: [ERROR] reg is null or disable\n", __func__);
-			else
-				regulator_disable(dvfs_info->reg);
+			mtk_imgsys_mod_put(imgsys_dev);
+			pm_runtime_put_sync(imgsys_dev->dev);
+			//pm_runtime_mark_last_busy(imgsys_dev->dev);
+			//pm_runtime_put_autosuspend(imgsys_dev->dev);
 
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}

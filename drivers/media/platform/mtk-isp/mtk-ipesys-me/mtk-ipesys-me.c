@@ -104,12 +104,12 @@ EXPORT_SYMBOL(ipesys_me_set_initial_value);
 
 void ipesys_me_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
-	pr_info("%s: +\n", __func__);
+	pr_debug("%s: +\n", __func__);
 	#ifdef ME_CLK_CTRL
 	pm_runtime_put_sync(me_dev->dev);
 	clk_bulk_disable_unprepare(me_dev->me_clk.clk_num, me_dev->me_clk.clks);
 	#endif
-	pr_info("%s: -\n", __func__);
+	pr_debug("%s: -\n", __func__);
 }
 EXPORT_SYMBOL(ipesys_me_uninit);
 

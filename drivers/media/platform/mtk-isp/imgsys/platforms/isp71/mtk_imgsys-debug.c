@@ -44,15 +44,8 @@ void __iomem *adlBRegBA;
 
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 {
-	void __iomem *WpeRegBA = 0L;
-	void __iomem *ADLRegBA = 0L;
-	void __iomem *pWpeCtrl = 0L;
-	unsigned int HwIdx = 0;
-	uint32_t count;
-	uint32_t value;
 	struct resource adl;
-
-	pr_info("%s: +.\n", __func__);
+	pr_debug("%s: +.\n", __func__);
 	imgsysmainRegBA = 0L;
 	wpedip1RegBA = 0L;
 	wpedip2RegBA = 0L;
@@ -126,7 +119,7 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		}
 
 		adlBRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ADL_B);
-		if (!adlARegBA) {
+		if (!adlBRegBA) {
 			dev_info(imgsys_dev->dev, "%s Unable to ioremap adl b registers\n",
 									__func__);
 			dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
@@ -134,8 +127,24 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 			return;
 		}
 	} else {
+		adlARegBA = NULL;
+		adlBRegBA = NULL;
 		dev_info(imgsys_dev->dev, "%s Do not have ADL hardware.\n", __func__);
 	}
+
+	pr_debug("%s: -.\n", __func__);
+}
+
+void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
+{
+	void __iomem *WpeRegBA = 0L;
+	void __iomem *ADLRegBA = 0L;
+	void __iomem *pWpeCtrl = 0L;
+	unsigned int HwIdx = 0;
+	uint32_t count;
+	uint32_t value;
+
+	pr_debug("%s: +.\n", __func__);
 
 	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
 	iowrite32(0xFFFFFFFF, (void *)(dip1RegBA + SW_RST));
@@ -155,13 +164,16 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		iowrite32(0x0, pWpeCtrl);
 	}
 
-	if (adl.start) {
+	if (adlARegBA || adlBRegBA) {
 		/* Reset ADL A */
 		for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
 			if (HwIdx == 0)
 				ADLRegBA = adlARegBA;
 			else if (HwIdx == 1)
 				ADLRegBA = adlBRegBA;
+
+			if (!ADLRegBA)
+				continue;
 
 			value = ioread32((void *)(ADLRegBA + 0x300));
 			value |= ((0x1 << 8) | (0x1 << 9));
@@ -205,12 +217,12 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 	iowrite32(0x00CF00FF, (void *)(imgsysmainRegBA + SW_RST));
 	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
 
-	pr_info("%s: -.\n", __func__);
+	pr_debug("%s: -.\n", __func__);
 }
 
 void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
-	pr_info("%s: +.\n", __func__);
+	pr_debug("%s: +.\n", __func__);
 
 	if (!imgsysmainRegBA) {
 		iounmap(imgsysmainRegBA);
@@ -252,7 +264,7 @@ void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
 		adlBRegBA = 0L;
 	}
 
-	pr_info("%s: -.\n", __func__);
+	pr_debug("%s: -.\n", __func__);
 }
 
 void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
