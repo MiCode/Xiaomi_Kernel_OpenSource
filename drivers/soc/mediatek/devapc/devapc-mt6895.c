@@ -76,6 +76,17 @@ static const char * const adsp_domain[] = {
 	"others",
 };
 
+static const char * const mminfra_domain[] = {
+	"AP",
+	"SSPM",
+	"CCU",
+	"SCP",
+	"GCE",
+	"GZ",
+	"MMuP",
+	"others",
+};
+
 static const char *infra_mi_trans(uint32_t bus_id)
 {
 	int master_count = ARRAY_SIZE(infra_mi_id_to_master);
@@ -206,6 +217,10 @@ static const char *mt6895_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			else
 				return adsp_mi_trans(bus_id, ADSP_MI15);
 		}
+#endif
+#if ENABLE_DEVAPC_MMUP
+	} else if (slave_type == SLAVE_TYPE_MMUP) {
+		return mminfra_domain[domain];
 #endif
 	} else {
 		return infra_mi_trans(bus_id);
