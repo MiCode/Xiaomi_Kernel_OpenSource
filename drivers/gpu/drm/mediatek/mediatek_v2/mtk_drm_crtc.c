@@ -4253,18 +4253,29 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct cmdq_operand lop, rop;
+	struct cmdq_operand lop1, rop1;
 
 	const u16 reg_jump = CMDQ_THR_SPR_IDX1;
 	const u16 var1 = CMDQ_CPR_DDR_USR_CNT;
 	const u16 var2 = 0;
+	const u16 reg_jump1 = CMDQ_THR_SPR_IDX1;
+	const u16 var_1 = CMDQ_THR_SPR_IDX2;
+	const u16 var_2 = 0x304;
 
 	u32 inst_condi_jump;
 	u64 *inst, jump_pa;
+	u32 inst_condi_jump1, inst_jump_end1;
+	u64 *inst1, jump_pa1;
 
 	lop.reg = true;
 	lop.idx = var1;
 	rop.reg = false;
 	rop.idx = var2;
+
+	lop1.reg = true;
+	lop1.idx = var_1;
+	rop1.reg = false;
+	rop1.idx = var_2;
 
 	if (crtc_id > 1) {
 		DDPPR_ERR("%s:%d invalid crtc:%ld\n",
@@ -4296,9 +4307,17 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			if (mtk_drm_helper_get_opt(priv->helper_opt,
 						MTK_DRM_OPT_DUAL_TE)) {
 				cmdq_pkt_wait_te(cmdq_handle, mtk_crtc);
+				if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_PRE_TE)) {
+					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
+					mtk_crtc->gce_obj.base);
+				}
 			} else {
 				cmdq_pkt_clear_event(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_TE]);
+				if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_PRE_TE)) {
+					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
+					mtk_crtc->gce_obj.base);
+				}
 				if (mtk_drm_lcm_is_connect())
 					cmdq_pkt_wfe(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_TE]);
@@ -4317,10 +4336,47 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 		}
 
 		/*Trigger*/
-		mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
-					   mtk_crtc->gce_obj.base);
-		mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
-				      MTK_TRIG_FLAG_TRIGGER);
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_PRE_TE)) {
+
+			cmdq_pkt_read(cmdq_handle, NULL, 0x14006000 + 0x110, var_1);
+
+			/* mark condition jump */
+			inst_condi_jump1 = cmdq_handle->cmd_buf_size;
+			cmdq_pkt_assign_command(cmdq_handle, reg_jump1, 0);
+			/* if (var1 >= var2) */
+			cmdq_pkt_cond_jump_abs(cmdq_handle, reg_jump1, &lop1, &rop,
+			CMDQ_GREATER_THAN_AND_EQUAL);
+
+			/* if condition false, will jump here */
+			if (mtk_drm_lcm_is_connect())
+				cmdq_pkt_wfe(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_TE]);
+
+			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle, MTK_TRIG_FLAG_TRIGGER);
+
+			inst_jump_end1 = cmdq_handle->cmd_buf_size;
+			cmdq_pkt_jump_addr(cmdq_handle, 0);
+
+			/* if condition true, will jump current position */
+			inst1 = cmdq_pkt_get_va_by_offset(cmdq_handle,  inst_condi_jump1);
+			jump_pa1 = cmdq_pkt_get_pa_by_offset(cmdq_handle,
+					cmdq_handle->cmd_buf_size);
+			*inst1 = *inst1 & 0xFFFFFFFF00000000;
+			*inst1 = *inst1 | CMDQ_REG_SHIFT_ADDR(jump_pa1);
+
+			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
+					MTK_TRIG_FLAG_TRIGGER);
+
+			inst1 = cmdq_pkt_get_va_by_offset(cmdq_handle, inst_jump_end1);
+			jump_pa1 = cmdq_pkt_get_pa_by_offset(cmdq_handle,
+					cmdq_handle->cmd_buf_size);
+			*inst1 = *inst1 & 0xFFFFFFFF00000000;
+			*inst1 = *inst1 | CMDQ_REG_SHIFT_ADDR(jump_pa1);
+		} else {
+			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
+						   mtk_crtc->gce_obj.base);
+			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
+					      MTK_TRIG_FLAG_TRIGGER);
+		}
 
 		cmdq_pkt_wfe(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
