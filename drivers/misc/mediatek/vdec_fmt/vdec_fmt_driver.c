@@ -390,6 +390,19 @@ static void fmt_gce_flush_callback(struct cmdq_cb_data data)
 	}
 }
 
+static int fmt_gce_timeout_aee(struct cmdq_cb_data data)
+{
+	struct cmdq_pkt *pkt_ptr;
+
+	pkt_ptr = (struct cmdq_pkt *)data.data;
+
+	if (pkt_ptr->err_data.wfe_timeout) {
+		fmt_err("wfe %d timeout", pkt_ptr->err_data.event);
+		return CMDQ_NO_AEE;
+	}
+	return CMDQ_AEE_WARN;
+}
+
 static int fmt_gce_cmd_flush(unsigned long arg)
 {
 	int i, taskid, ret;
@@ -571,6 +584,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 	// flush cmd async
 	fmt_debug(1, "call cmdq_pkt_flush_async");
+	pkt_ptr->aee_cb = fmt_gce_timeout_aee;
 	cmdq_pkt_flush_async(pkt_ptr,
 		fmt_gce_flush_callback, (void *)fmt->gce_task[taskid].pkt_ptr);
 
