@@ -2863,19 +2863,13 @@
 			<&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA0_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA1_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA2_CG_CON>;
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>;
 		clock-names = "camsys_mraw_pda0",
 				"camsys_mraw_pda1",
 				"mraw_larbx",
 				"cam_main_cam2mm0_gals_cg_con",
 				"cam_main_cam2mm1_gals_cg_con",
-				"cam_main_cam_cg_con",
-				"cam_main_pda0",
-				"cam_main_pda1",
-				"cam_main_pda2";
+				"cam_main_cam_cg_con";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 		mediatek,pda2 = <&pda2>;
 		mediatek,larbs = <&smi_larb25>;
@@ -2913,19 +2907,13 @@
 			<&camsys_mraw_clk CLK_CAMSYS_MRAW_LARBX>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM0_GALS_CG_CON>,
 			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM2MM1_GALS_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA0_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA1_CG_CON>,
-			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_PDA2_CG_CON>;
+			<&cam_main_r1a_clk CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON>;
 		clock-names = "camsys_mraw_pda0",
 				"camsys_mraw_pda1",
 				"mraw_larbx",
 				"cam_main_cam2mm0_gals_cg_con",
 				"cam_main_cam2mm1_gals_cg_con",
-				"cam_main_cam_cg_con",
-				"cam_main_pda0",
-				"cam_main_pda1",
-				"cam_main_pda2";
+				"cam_main_cam_cg_con";
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MRAW>;
 		mediatek,larbs = <&smi_larb26>;
 		iommus = <&mdp_iommu M4U_PORT_L26_CAM_PDAI_B0>,
