@@ -9,7 +9,7 @@
 #ifndef __ADSP_LOGGER_H__
 #define __ADSP_LOGGER_H__
 
-#define ADSP_LOGGER_UT              (1)
+#define ADSP_LOGGER_UT              (0)
 
 struct log_ctrl_s {
 	unsigned int base;

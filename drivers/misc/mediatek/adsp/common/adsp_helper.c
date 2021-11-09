@@ -526,16 +526,13 @@ static const struct attribute_group *adsp_attr_groups[] = {
 	&adsp_default_attr_group,
 	&adsp_awake_attr_group,
 	&adsp_dvfs_attr_group,
-	&adsp_logger_attr_group,
 	&adsp_excep_attr_group,
 	NULL,
 };
 
 const struct file_operations adsp_device_fops = {
 	.owner = THIS_MODULE,
-	.read = adsp_A_log_if_read,
 	.open = adsp_A_log_if_open,
-	.poll = adsp_A_log_if_poll,
 	.unlocked_ioctl = adsp_driver_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl   = adsp_driver_compat_ioctl,
@@ -547,6 +544,25 @@ static struct miscdevice adsp_device = {
 	.name = "adsp",
 	.groups = adsp_attr_groups,
 	.fops = &adsp_device_fops,
+};
+
+const struct file_operations adsp_core_device_fops = {
+	.owner = THIS_MODULE,
+	.read = adsp_A_log_if_read,
+	.open = adsp_A_log_if_open,
+	.poll = adsp_A_log_if_poll,
+};
+
+static const struct attribute_group *adsp_core_attr_groups[] = {
+	&adsp_logger_attr_group,
+	NULL,
+};
+
+static struct miscdevice adsp_core_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "adsp_0",
+	.groups = adsp_core_attr_groups,
+	.fops = &adsp_core_device_fops,
 };
 
 static ssize_t adsp_debug_read(struct file *file, char __user *buf,
@@ -816,7 +832,13 @@ static int __init adsp_init(void)
 
 	ret = misc_register(&adsp_device);
 	if (unlikely(ret != 0)) {
-		pr_err("[ADSP] misc register failed\n");
+		pr_err("[ADSP] misc adsp register failed\n");
+		return ret;
+	}
+
+	ret = misc_register(&adsp_core_device);
+	if (unlikely(ret != 0)) {
+		pr_err("[ADSP] misc adsp_core register failed\n");
 		return ret;
 	}
 

@@ -203,8 +203,7 @@ error:
 /*
  * create device sysfs, adsp logger status
  */
-static ssize_t adsp_A_mobile_log_show(struct device *kobj,
-				      struct device_attribute *attr, char *buf)
+static ssize_t log_enable_show(struct device *kobj, struct device_attribute *attr, char *buf)
 {
 	unsigned int stat;
 
@@ -214,9 +213,8 @@ static ssize_t adsp_A_mobile_log_show(struct device *kobj,
 			 (stat == 0x1) ? "enabled" : "disabled");
 }
 
-static ssize_t adsp_A_mobile_log_store(struct device *kobj,
-				       struct device_attribute *attr,
-				       const char *buf, size_t n)
+static ssize_t log_enable_store(struct device *kobj, struct device_attribute *attr,
+				const char *buf, size_t n)
 {
 	unsigned int enable;
 
@@ -229,7 +227,7 @@ static ssize_t adsp_A_mobile_log_store(struct device *kobj,
 
 	return n;
 }
-DEVICE_ATTR_RW(adsp_A_mobile_log);
+DEVICE_ATTR_RW(log_enable);
 
 /*
  * logger UT test
@@ -341,7 +339,7 @@ DEVICE_ATTR_RW(adsp_A_trax);
 #endif
 
 static struct attribute *adsp_logger_attrs[] = {
-	&dev_attr_adsp_A_mobile_log.attr,
+	&dev_attr_log_enable.attr,
 #if ADSP_LOGGER_UT
 	&dev_attr_adsp_A_mobile_log_UT.attr,
 #endif
