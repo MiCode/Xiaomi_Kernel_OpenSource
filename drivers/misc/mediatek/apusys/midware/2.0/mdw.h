@@ -61,6 +61,7 @@ struct mdw_mem_invoke {
 	struct list_head u_node; //to mpriv
 	struct kref ref;
 	struct mdw_mem *m;
+	struct mdw_fpriv *invoker;
 	void (*get)(struct mdw_mem_invoke *m_invoke);
 	void (*put)(struct mdw_mem_invoke *m_invoke);
 };
@@ -77,6 +78,8 @@ struct mdw_mem {
 	struct device *mdev;
 	struct dma_buf *dbuf;
 	void *priv;
+	int (*bind)(void *session, struct mdw_mem *m);
+	void (*unbind)(void *session, struct mdw_mem *m);
 
 	/* map */
 	uint64_t device_va;

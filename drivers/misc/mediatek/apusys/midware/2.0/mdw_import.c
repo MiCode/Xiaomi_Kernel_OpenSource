@@ -59,6 +59,51 @@ int mdw_rvs_get_vlm_property(uint64_t *start, uint32_t *size)
 		(unsigned int *)size);
 }
 
+int mdw_rvs_map_ext(uint64_t addr, uint32_t size,
+	uint64_t session, uint32_t *sid)
+{
+	int ret = 0;
+
+	mdw_trace_begin("%s|size(%u)", __func__, size);
+	ret = reviser_alloc_external((uint32_t)addr, size, session, sid);
+	mdw_trace_end("%s|size(%u)", __func__, size);
+
+	return ret;
+}
+
+int mdw_rvs_unmap_ext(uint64_t session, uint32_t sid)
+{
+	int ret = 0;
+
+	mdw_trace_begin("%s", __func__);
+	ret = reviser_free_external(session, sid);
+	mdw_trace_end("%s", __func__);
+
+	return ret;
+}
+
+int mdw_rvs_import_ext(uint64_t session, uint32_t sid)
+{
+	int ret = 0;
+
+	mdw_trace_begin("%s", __func__);
+	ret = reviser_import_external(session, sid);
+	mdw_trace_end("%s", __func__);
+
+	return ret;
+}
+
+int mdw_rvs_unimport_ext(uint64_t session, uint32_t sid)
+{
+	int ret = 0;
+
+	mdw_trace_begin("%s", __func__);
+	ret = reviser_unimport_external(session, sid);
+	mdw_trace_end("%s", __func__);
+
+	return ret;
+}
+
 int mdw_qos_cmd_start(uint64_t cmd_id, uint64_t sc_id,
 		int type, int core, uint32_t boost)
 {

@@ -422,7 +422,7 @@ static int mdw_rv_dev_handshake(struct mdw_rv_dev *mrdev)
 		}
 
 		mrdev->minfos[type].device_va = msg.h.mem.start;
-		mrdev->minfos[type].size = msg.h.mem.size;
+		mrdev->minfos[type].dva_size = msg.h.mem.size;
 
 		mdw_drv_debug("mem(%d)(0x%llx/0x%x)\n",
 			type, msg.h.mem.start, msg.h.mem.size);

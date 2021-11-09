@@ -70,7 +70,7 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 		args->out.mem.type = type;
 
 		args->out.mem.start = mdev->minfos[type].device_va;
-		args->out.mem.size = mdev->minfos[type].size;
+		args->out.mem.size = mdev->minfos[type].dva_size;
 		mdw_flw_debug("mem(%u) start(0x%llx) size(0x%x)\n",
 			args->out.mem.type,
 			args->out.mem.start,

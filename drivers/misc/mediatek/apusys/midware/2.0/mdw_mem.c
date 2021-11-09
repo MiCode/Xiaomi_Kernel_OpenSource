@@ -355,9 +355,12 @@ static void mdw_mem_invoke_release(struct kref *ref)
 	struct mdw_mem_invoke *m_invoke =
 			container_of(ref, struct mdw_mem_invoke, ref);
 	struct mdw_mem_map *map = m_invoke->m->map;
+	struct mdw_mem *m = m_invoke->m;
 	struct dma_buf *dbuf = m_invoke->m->dbuf;
 
 	mdw_mem_show(m_invoke->m);
+	if (m->unbind)
+		m->unbind(m_invoke->invoker, m_invoke->m);
 	list_del(&m_invoke->u_node);
 	kfree(m_invoke);
 	mdw_mem_map_put(map);
@@ -401,6 +404,7 @@ static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	struct mdw_mem_invoke *m_invoke = NULL;
 	struct mdw_mem_map *map = m->map;
+	int ret = 0;
 
 	m_invoke = kzalloc(sizeof(*m_invoke), GFP_KERNEL);
 	if (!m_invoke)
@@ -410,12 +414,29 @@ static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	mdw_mem_map_get(map);
 	mdw_mem_show(m);
 	m_invoke->m = m;
+	m_invoke->invoker = mpriv;
 	m_invoke->get = mdw_mem_invoke_get;
 	m_invoke->put = mdw_mem_invoke_put;
 	kref_init(&m_invoke->ref);
 	list_add_tail(&m_invoke->u_node, &mpriv->invokes);
+	if (m->bind) {
+		ret = m->bind(mpriv, m);
+		if (ret) {
+			mdw_drv_err("m(0x%llx) bind usr(0x%llx) fail\n",
+				(uint64_t)m, (uint64_t)mpriv);
+			goto delete_invoke;
+		}
+	}
 
-	return 0;
+	goto out;
+
+delete_invoke:
+	list_del(&m_invoke->u_node);
+	mdw_mem_map_put(map);
+	dma_buf_put(m->dbuf);
+	kfree(m_invoke);
+out:
+	return ret;
 }
 
 int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)

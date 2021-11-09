@@ -86,11 +86,11 @@ static int mdw_ap_late_init(struct mdw_device *mdev)
 	/* init mem infos */
 	ret = mdw_rvs_get_vlm_property(
 		&mdev->minfos[MDW_MEM_TYPE_VLM].device_va,
-		&mdev->minfos[MDW_MEM_TYPE_VLM].size);
+		&mdev->minfos[MDW_MEM_TYPE_VLM].dva_size);
 	if (ret) {
 		mdw_drv_warn("vlm wrong\n");
 		mdev->minfos[MDW_MEM_TYPE_VLM].device_va = 0;
-		mdev->minfos[MDW_MEM_TYPE_VLM].size = 0;
+		mdev->minfos[MDW_MEM_TYPE_VLM].dva_size = 0;
 	} else {
 		bitmap_set(mdev->mem_mask, MDW_MEM_TYPE_VLM, 1);
 	}

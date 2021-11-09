@@ -328,6 +328,15 @@ static int mdw_dmabuf_mmap(struct dma_buf *dbuf,
 	return ret;
 }
 
+static int mdw_mem_dma_bind(void *session, struct mdw_mem *m)
+{
+	return 0;
+}
+
+static void mdw_mem_dma_unbind(void *session, struct mdw_mem *m)
+{
+}
+
 static struct dma_buf_ops mdw_dmabuf_ops = {
 	.attach = mdw_dmabuf_attach,
 	.detach = mdw_dmabuf_detach,
@@ -421,6 +430,8 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 	mem->vaddr = mdbuf->vaddr;
 	mem->mdev = dev;
 	mem->priv = mdbuf;
+	mem->bind = mdw_mem_dma_bind;
+	mem->unbind = mdw_mem_dma_unbind;
 
 	if (uncached) {
 		dma_sync_sgtable_for_device(mdbuf->mem_dev,
