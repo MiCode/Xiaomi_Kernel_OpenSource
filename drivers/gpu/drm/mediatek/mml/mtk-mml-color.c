@@ -264,10 +264,14 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct mml_pq_comp_config_result *result;
-	s32 ret;
+	s32 ret = 0;
 
-	if (!dest->pq_config.en_color)
-		return 0;
+	if (!dest->pq_config.en_color) {
+		cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 0x3, U32_MAX);
+		return ret;
+	}
+
+	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 0x1, U32_MAX);
 
 	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
 	if (!ret) {
@@ -292,7 +296,7 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_err("get color param timeout: %d in %dms",
 			ret, COLOR_WAIT_TIMEOUT_MS);
 	}
-	return 0;
+	return ret;
 }
 
 static s32 color_config_tile(struct mml_comp *comp, struct mml_task *task,

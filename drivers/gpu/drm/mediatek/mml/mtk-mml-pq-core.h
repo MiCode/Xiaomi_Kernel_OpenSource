@@ -18,6 +18,7 @@
 #define AAL_CURVE_NUM (544)
 #define AAL_HIST_NUM (768)
 #define AAL_DUAL_INFO_NUM (16)
+#define CMDQ_GPR_UPDATE	(2)
 
 #define HDR_HIST_NUM (58)
 
@@ -43,6 +44,15 @@ do { \
 		pr_notice("[param_dump]" fmt "\n", ##args); \
 } while (0)
 
+extern int mml_pq_rb_msg;
+
+#define mml_pq_rb_msg(fmt, args...) \
+do { \
+	if (mml_pq_rb_msg) \
+		pr_notice("[rb_flow]" fmt "\n", ##args); \
+} while (0)
+
+
 /* mml pq ftrace */
 extern int mml_pq_trace;
 
@@ -58,8 +68,22 @@ extern int mml_pq_trace;
 
 struct mml_task;
 
+enum mml_pq_readback_engine {
+	MML_PQ_HDR = 0,
+	MML_PQ_AAL,
+	MML_PQ_DC,
+};
+
+
+struct mml_pq_readback_buffer {
+	dma_addr_t pa;
+	u32 *va;
+	struct list_head buffer_list;
+};
+
 struct mml_pq_readback_data {
 	bool is_dual;
+	atomic_t pipe_cnt;
 	u32 cut_pos_x;
 	u32 *pipe0_hist;
 	u32 *pipe1_hist;
@@ -88,6 +112,9 @@ struct mml_pq_sub_task {
 
 struct mml_pq_task {
 	struct mml_task *task;
+	struct mutex buffer_mutex;
+	struct mml_pq_readback_buffer *aal_hist[MML_PIPE_CNT];
+	struct mml_pq_readback_buffer *hdr_hist[MML_PIPE_CNT];
 	struct kref ref;
 	struct mml_pq_sub_task tile_init;
 	struct mml_pq_sub_task comp_config;
@@ -123,6 +150,25 @@ s32 mml_pq_task_create(struct mml_task *task);
  * @task:	task data, include pq_task inside
  */
 void mml_pq_task_release(struct mml_task *task);
+
+/*
+ * mml_pq_get_readback_buffer - get readback buffer
+ *
+ * @task:	task data, include pq_task inside
+ * @pipe:	pipe id, use in dual pipe
+ * @engine	engine id, readback engine
+ */
+void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
+				struct mml_pq_readback_buffer **hist);
+
+/*
+ * mml_pq_get_readback_buffer - put readback buffer
+ *
+ * @task:	task data, include pq_task inside
+ * @engine	engine id, readback engine
+ */
+void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,
+				struct mml_pq_readback_buffer *hist);
 
 /*
  * mml_pq_set_tile_init - noify from MML core through MML PQ driver

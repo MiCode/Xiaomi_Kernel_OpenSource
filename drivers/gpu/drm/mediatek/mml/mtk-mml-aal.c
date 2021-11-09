@@ -145,41 +145,57 @@
 
 #define AAL_POLL_SLEEP_TIME_US	(10)
 #define AAL_MAX_POLL_TIME_US	(1000)
+#define MAX_SRAM_BUF_NUM (2)
+
+#define AAL_SRAM_STATUS_BIT	BIT(17)
+
+/* TO-DO: need to fix */
+#define CMDQ_SYNC_TOKEN_GPR_SET_0	(700)
+#define CMDQ_SYNC_TOKEN_GPR_SET_1	(701)	/* 701 */
+#define CMDQ_SYNC_TOKEN_GPR_SET_2	(702)	/* 702 */
+#define CMDQ_SYNC_TOKEN_GPR_SET_3	(703)	/* 703 */
+#define CMDQ_SYNC_TOKEN_GPR_SET_4	(704)	/* 704 */
 
 struct aal_data {
 	u32 min_tile_width;
 	u32 tile_width;
 	u32 min_hist_width;
+	u32 gpr[MML_PIPE_CNT];
 };
 
 static const struct aal_data mt6893_aal_data = {
 	.min_tile_width = 50,
 	.tile_width = 560,
-	.min_hist_width = 128
+	.min_hist_width = 128,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
 
 static const struct aal_data mt6983_aal_data = {
 	.min_tile_width = 50,
 	.tile_width = 1652,
 	.min_hist_width = 128,
+	.gpr = {CMDQ_GPR_R15, CMDQ_GPR_R11},
 };
 
 static const struct aal_data mt6879_aal_data = {
 	.min_tile_width = 50,
 	.tile_width = 1376,
 	.min_hist_width = 128,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R09},
 };
 
 static const struct aal_data mt6895_aal0_data = {
 	.min_tile_width = 50,
 	.tile_width = 1300,
 	.min_hist_width = 128,
+	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R11},
 };
 
 static const struct aal_data mt6895_aal1_data = {
 	.min_tile_width = 50,
 	.tile_width = 852,
 	.min_hist_width = 128,
+	.gpr = {CMDQ_GPR_R10, CMDQ_GPR_R14},
 };
 
 struct mml_comp_aal {
@@ -199,7 +215,10 @@ struct aal_frame_data {
 	u32 in_crop_xs;
 	u32 dre_blk_width;
 	u32 dre_blk_height;
-	u16 labels[AAL_CURVE_NUM];
+	u32 begin_offset;
+	u32 condi_offset;
+	u32 cut_pos_x;
+	u16 labels[AAL_CURVE_NUM+CMDQ_GPR_UPDATE];
 	bool is_aal_need_readback;
 };
 
@@ -302,7 +321,7 @@ static u32 aal_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_dre)
 		return 0;
 
-	return AAL_CURVE_NUM;
+	return AAL_CURVE_NUM+CMDQ_GPR_UPDATE;
 }
 
 static void aal_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
@@ -348,7 +367,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 	u32 addr = aal->sram_curve_start;
-	u32 gpr = aal->gpr_poll;
+	u32 gpr = aal->data->gpr[ccfg->pipe];
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
@@ -396,8 +415,9 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 				addr += 4;
 			}
 
-			mml_pq_msg("%s is_aal_need_readback[%d]", __func__,
-				   result->is_aal_need_readback);
+			mml_pq_msg("%s is_aal_need_readback[%d] base_pa[%08x]", __func__,
+					result->is_aal_need_readback, base_pa);
+
 			aal_frm->is_aal_need_readback = result->is_aal_need_readback;
 
 			tile_config_param = &(result->aal_param[ccfg->node->out_idx]);
@@ -479,32 +499,50 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_dre)
 		goto exit;
 
+	if (!idx) {
+		aal_frm->in_crop_xs = dest->crop.r.left;
+		if (task->config->dual)
+			aal_frm->cut_pos_x = (dest->crop.r.width/2) + dest->crop.r.left;
+		else
+			aal_frm->cut_pos_x = dest->crop.r.left+dest->crop.r.width;
+		if (ccfg->pipe)
+			aal_frm->out_hist_xs = aal_frm->cut_pos_x;
+	}
+
 	dre_blk_width = aal_frm->dre_blk_width;
 	dre_blk_height = aal_frm->dre_blk_height;
 
 	aal_hist_left_start =
 		(tile->out.xs > aal_frm->out_hist_xs) ? tile->out.xs : aal_frm->out_hist_xs;
 
-	if (!idx)
-		aal_frm->in_crop_xs = dest->crop.r.left;
+	mml_pq_msg("%s jobid[%d] engine_id[%d] idx[%d] pipe[%d] pkt[%08x]",
+			__func__, task->job.jobid, comp->id, idx, ccfg->pipe, pkt);
 
-	mml_pq_msg("%s %d: [input] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, idx, tile->in.xs, tile->in.xe, tile->in.ys, tile->in.ye);
-	mml_pq_msg("%s %d: [output] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, idx, tile->out.xs, tile->out.xe, tile->out.ys,
+	mml_pq_msg("%s %d: %d: %d: [input] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, task->job.jobid, comp->id, idx, tile->in.xs,
+			tile->in.xe, tile->in.ys,
+			tile->in.ye);
+	mml_pq_msg("%s %d: %d: %d: [output] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, task->job.jobid, comp->id, idx,
+			tile->out.xs, tile->out.xe, tile->out.ys,
 			tile->out.ye);
-	mml_pq_msg("%s %d: [aal_crop_offset] [x, y] = [%d, %d], aal_hist_left_start[%d]",
-			__func__, idx, aal_crop_x_offset, aal_crop_y_offset, aal_hist_left_start);
+	mml_pq_msg("%s %d: %d: %d: [aal_crop_offset] [x, y] = [%d, %d], aal_hist_left_start[%d]",
+			__func__, task->job.jobid, comp->id, idx,
+			aal_crop_x_offset, aal_crop_y_offset,
+			aal_hist_left_start);
 
 	act_win_x_start = aal_hist_left_start - tile->in.xs;
-	act_win_x_end = tile->out.xe - tile->in.xs;
+	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
+		act_win_x_end = aal_frm->cut_pos_x - tile->in.xs - 1;
+	else
+		act_win_x_end = tile->out.xe - tile->in.xs;
 	tile_pxl_x_start = tile->in.xs - aal_frm->in_crop_xs;
 	tile_pxl_x_end = tile->in.xe - aal_frm->in_crop_xs;
 
 	last_tile_x_flag = (tile->in.xe+1 >= src_frame_width) ? 1:0;
 
-	mml_pq_msg("%s %d: [tile_pxl] [xs, xe] = [%d, %d], in_crop_xs[%d]",
-			__func__, idx, tile_pxl_x_start, tile_pxl_x_end,
+	mml_pq_msg("%s %d: %d: %d: [tile_pxl] [xs, xe] = [%d, %d], in_crop_xs[%d]",
+			__func__, task->job.jobid, comp->id, idx, tile_pxl_x_start, tile_pxl_x_end,
 			aal_frm->in_crop_xs);
 
 	act_win_y_start = 0;
@@ -528,14 +566,21 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	blk_cnt_y_end = tile_pxl_y_end - (blk_num_y_end * dre_blk_height);
 
 	if (!idx) {
-		aal_frm->out_hist_xs = tile->out.xe + 1;
-		save_first_blk_col_flag = 1;
+		if (task->config->dual && ccfg->pipe)
+			aal_frm->out_hist_xs = tile->in.xs + act_win_x_end + 1;
+		else
+			aal_frm->out_hist_xs = tile->out.xe + 1;
+		save_first_blk_col_flag = (ccfg->pipe) ? 1 : 0;
 		save_last_blk_col_flag = 0;
 	} else if (idx + 1 >= tile_cnt) {
 		aal_frm->out_hist_xs = 0;
-		save_last_blk_col_flag = 1;
+		save_first_blk_col_flag = 0;
+		save_last_blk_col_flag = (ccfg->pipe) ? 0 : 1;
 	} else {
-		aal_frm->out_hist_xs = tile->out.xe + 1;
+		if (task->config->dual && ccfg->pipe)
+			aal_frm->out_hist_xs = tile->in.xs + act_win_x_end + 1;
+		else
+			aal_frm->out_hist_xs = tile->out.xe + 1;
 		save_first_blk_col_flag = 0;
 		save_last_blk_col_flag = 0;
 	}
@@ -545,23 +590,28 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	win_y_start = 0;
 	win_y_end = tile_pxl_y_end - tile_pxl_y_start + 1;
 
-	mml_pq_msg("%s %d:[act_win][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, idx, act_win_x_start, act_win_x_end,
+	mml_pq_msg("%s %d: %d: %d:[act_win][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, task->job.jobid, comp->id, idx, act_win_x_start, act_win_x_end,
 			act_win_y_start, act_win_y_end);
-	mml_pq_msg("%s %d:[blk_num][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, idx, blk_num_x_start, blk_num_x_end,
+	mml_pq_msg("%s %d: %d: %d:[blk_num][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, task->job.jobid, comp->id, idx, blk_num_x_start, blk_num_x_end,
 			blk_num_y_start, blk_num_y_end);
-	mml_pq_msg("%s %d:[blk_cnt][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, idx, blk_cnt_x_start, blk_cnt_x_end,
+	mml_pq_msg("%s %d: %d: %d:[blk_cnt][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, task->job.jobid, comp->id, idx, blk_cnt_x_start, blk_cnt_x_end,
 			blk_cnt_y_start, blk_cnt_y_end);
-	mml_pq_msg("%s %d:[roi][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, idx, roi_x_start, roi_x_end, roi_y_start, roi_y_end);
-	mml_pq_msg("%s %d:[win][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
-			__func__, idx, win_x_start, win_x_end, win_y_start, win_y_end);
-	mml_pq_msg("%s %d:save_first_blk_col_flag[%d], save_last_blk_col_flag[%d]",
-			__func__, idx, save_first_blk_col_flag, save_last_blk_col_flag);
-	mml_pq_msg("%s %d:last_tile_x_flag[%d], last_tile_y_flag[%d]",
-			__func__, idx, last_tile_x_flag, last_tile_y_flag);
+	mml_pq_msg("%s %d: %d: %d:[roi][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__,  task->job.jobid, comp->id, idx, roi_x_start,
+			roi_x_end, roi_y_start, roi_y_end);
+	mml_pq_msg("%s %d: %d: %d:[win][xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
+			__func__, task->job.jobid, comp->id, idx, win_x_start,
+			win_x_end, win_y_start, win_y_end);
+	mml_pq_msg("%s %d: %d: %d:save_first_blk_col_flag[%d], save_last_blk_col_flag[%d]",
+			__func__, task->job.jobid, comp->id, idx,
+			save_first_blk_col_flag,
+			save_last_blk_col_flag);
+	mml_pq_msg("%s %d: %d: %d:last_tile_x_flag[%d], last_tile_y_flag[%d]",
+			__func__, task->job.jobid, comp->id, idx,
+			last_tile_x_flag, last_tile_y_flag);
 
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_BLOCK_INFO_00,
 		(act_win_x_end << 16) | act_win_x_start, U32_MAX);
@@ -601,10 +651,146 @@ exit:
 static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
+	struct mml_comp_aal *aal = comp_to_aal(comp);
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 
-	if (dest->pq_config.en_dre)
-		mml_pq_put_comp_config_result(task);
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct mml_frame_config *cfg = task->config;
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
+
+	const phys_addr_t base_pa = comp->base_pa;
+	u32 addr = aal->sram_hist_start;
+	u32 dre30_hist_sram_start = aal->sram_hist_start;
+	s32 i = 0;
+	u8 pipe = ccfg->pipe;
+	dma_addr_t begin_pa = 0;
+	u32 *condi_inst = NULL;
+	const uint16_t idx_addr = CMDQ_THR_SPR_IDX1;
+	u16 idx_gpr_out = 0;
+	u16 idx_gpr_poll = 0;
+	u16 idx_gpr_val = 0;
+	u16 idx_out_low = 0;
+	dma_addr_t pa = 0;
+	struct cmdq_operand lop, rop;
+
+	mml_pq_msg("%s start engine_id[%d] en_dre[%d] addr[%d]", __func__, comp->id,
+			dest->pq_config.en_dre, addr);
+
+	if (!dest->pq_config.en_dre)
+		goto exit;
+
+	mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->aal_hist[pipe]));
+
+	if (unlikely(!task->pq_task->aal_hist[pipe])) {
+		mml_pq_err("%s job_id[%d] aal_hist is null", __func__,
+			task->job.jobid);
+		goto comp_config_put;
+	}
+
+	pa = task->pq_task->aal_hist[pipe]->pa;
+
+	idx_gpr_out = CMDQ_GPR_P6;
+	idx_gpr_poll = CMDQ_GPR_R10;
+	idx_gpr_val = CMDQ_GPR_R10;
+	idx_out_low = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
+	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_GPR_SET_2);
+
+	/* init sprs, spr1 = AAL_SRAM_START, gpr_p4 = out_pa */
+
+	cmdq_pkt_assign_command(pkt, idx_addr, dre30_hist_sram_start);
+
+	mml_assign(pkt, idx_out_low, (u32)pa,
+		reuse, cache, &aal_frm->labels[AAL_CURVE_NUM]);
+
+	mml_assign(pkt, idx_out_low+1, (u32)(pa>>32),
+		reuse, cache, &aal_frm->labels[AAL_CURVE_NUM+1]);
+
+	/* loop again here */
+	aal_frm->begin_offset = pkt->cmd_buf_size;
+	begin_pa = cmdq_pkt_get_pa_by_offset(pkt, aal_frm->begin_offset);
+
+	/* config aal sram addr and poll */
+	cmdq_pkt_write_reg_addr(pkt, base_pa + AAL_SRAM_RW_IF_2,
+		idx_addr, U32_MAX);
+	cmdq_pkt_poll_addr(pkt, AAL_SRAM_STATUS_BIT,
+		base_pa + AAL_SRAM_STATUS,
+		AAL_SRAM_STATUS_BIT, idx_gpr_poll);
+	/* read to value gpr */
+	cmdq_pkt_read_addr(pkt, base_pa + AAL_SRAM_RW_IF_3,
+		CMDQ_GPR_CNT_ID + idx_gpr_val);
+	/* write value gpr to dst gpr */
+	cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+
+	/* jump forward end if sram is last one, if spr1 >= 4096 + 4 * 767 */
+
+	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, begin_pa);
+	aal_frm->condi_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+
+	/* inc src addr */
+	lop.reg = true;
+	lop.idx = idx_addr;
+	rop.reg = false;
+	rop.value = 4;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_addr, &lop, &rop);
+	/* inc outut pa */
+	lop.reg = true;
+	lop.idx = idx_out_low;
+	rop.reg = false;
+	rop.value = 4;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+
+	lop.reg = true;
+	lop.idx = idx_addr;
+	rop.reg = false;
+	rop.value = dre30_hist_sram_start + 4 * (AAL_HIST_NUM - 1);
+	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lop, &rop,
+		CMDQ_LESS_THAN_AND_EQUAL);
+
+	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, aal_frm->condi_offset);
+	if (unlikely(!condi_inst))
+		mml_pq_err("%s wrong offset %u\n", __func__, aal_frm->condi_offset);
+
+	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
+
+	for (i = 0; i < 8; i++) {
+		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_00 + i * 4,
+			CMDQ_GPR_CNT_ID + idx_gpr_val);
+		cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+
+		lop.reg = true;
+		lop.idx = idx_out_low;
+		rop.reg = false;
+		rop.value = 4;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+	}
+
+	for (i = 0; i < 8; i++) {
+		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_08 + i * 4,
+			CMDQ_GPR_CNT_ID + idx_gpr_val);
+		cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+
+		lop.reg = true;
+		lop.idx = idx_out_low;
+		rop.reg = false;
+		rop.value = 4;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+	}
+
+	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_2);
+
+	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p]",
+		__func__, task->job.jobid, comp->id, task->pq_task->aal_hist[pipe]->va,
+		task->pq_task->aal_hist[pipe]->pa, pkt);
+
+	mml_pq_rb_msg("%s end job_id[%d] condi:offset[%u] inst[%p], begin:offset[%u] pa[%08x]",
+		__func__, task->job.jobid, aal_frm->condi_offset, condi_inst,
+		aal_frm->begin_offset, begin_pa);
+
+comp_config_put:
+	mml_pq_put_comp_config_result(task);
+exit:
 	return 0;
 }
 
@@ -650,6 +836,59 @@ exit:
 	return ret;
 }
 
+static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
+{
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
+	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+	u8 pipe = ccfg->pipe;
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	dma_addr_t begin_pa = 0;
+	u32 *condi_inst = NULL;
+
+	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
+			dest->pq_config.en_dre);
+
+	if (!dest->pq_config.en_dre)
+		goto exit;
+
+	mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->aal_hist[pipe]));
+
+	if (unlikely(!task->pq_task->aal_hist[pipe])) {
+		mml_pq_err("%s job_id[%d] aal_hist is null", __func__,
+			task->job.jobid);
+		goto comp_config_put;
+	}
+
+	mml_update(reuse, aal_frm->labels[AAL_CURVE_NUM],
+		(u32)task->pq_task->aal_hist[pipe]->pa);
+	mml_update(reuse, aal_frm->labels[AAL_CURVE_NUM+1],
+		(u32)(task->pq_task->aal_hist[pipe]->pa >> 32));
+
+	begin_pa = cmdq_pkt_get_pa_by_offset(pkt, aal_frm->begin_offset);
+	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, aal_frm->condi_offset);
+	if (unlikely(!condi_inst))
+		mml_pq_err("%s wrong offset %u\n", __func__, aal_frm->condi_offset);
+
+	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
+
+	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p]",
+		__func__, task->job.jobid, comp->id, task->pq_task->aal_hist[pipe]->va,
+		task->pq_task->aal_hist[pipe]->pa, pkt);
+
+	mml_pq_rb_msg("%s end job_id[%d] condi:offset[%u] inst[%p], begin:offset[%u] pa[%08x]",
+		__func__, task->job.jobid, aal_frm->condi_offset, condi_inst,
+		aal_frm->begin_offset, begin_pa);
+
+comp_config_put:
+	mml_pq_put_comp_config_result(task);
+exit:
+	return 0;
+
+}
+
+
 static const struct mml_comp_config_ops aal_cfg_ops = {
 	.prepare = aal_prepare,
 	.buf_prepare = aal_buf_prepare,
@@ -659,7 +898,7 @@ static const struct mml_comp_config_ops aal_cfg_ops = {
 	.tile = aal_config_tile,
 	.post = aal_config_post,
 	.reframe = aal_reconfig_frame,
-	.repost = aal_config_post,
+	.repost = aal_config_repost,
 };
 
 static inline bool aal_reg_poll(struct mml_comp *comp, u32 addr, u32 value, u32 mask)
@@ -691,15 +930,60 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct mml_comp_aal *aal = comp_to_aal(comp);
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	u8 pipe = ccfg->pipe;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s is_aal_need_readback[%d] id[%d] en_dre[%d]", __func__,
 			aal_frm->is_aal_need_readback, comp->id, dest->pq_config.en_dre);
 
-	if (!dest->pq_config.en_dre)
+	mml_pq_msg("%s job_id[%d] pkt %p size %zu", __func__, task->job.jobid,
+		pkt, pkt->cmd_buf_size);
+	if (!dest->pq_config.en_dre || !task->pq_task->aal_hist[pipe])
 		goto exit;
 
-	if (aal_frm->is_aal_need_readback) {
+	mml_pq_msg("%s job_id[%d] id[%d] pipe[%d] en_dre[%d] va[%p] pa[%08x]",
+		__func__, task->job.jobid, comp->id, ccfg->pipe,
+		dest->pq_config.en_dre, task->pq_task->aal_hist[pipe]->va,
+		task->pq_task->aal_hist[pipe]->pa);
+
+	if (!pipe) {
+		mml_pq_rb_msg("%s job_id[%d] hist[0~4]={%08x, %08x, %08x, %08x, %08x",
+			__func__, task->job.jobid,
+			task->pq_task->aal_hist[pipe]->va[0],
+			task->pq_task->aal_hist[pipe]->va[1],
+			task->pq_task->aal_hist[pipe]->va[2],
+			task->pq_task->aal_hist[pipe]->va[3],
+			task->pq_task->aal_hist[pipe]->va[4]);
+
+		mml_pq_rb_msg("%s job_id[%d] hist[10~14]={%08x, %08x, %08x, %08x, %08",
+			__func__, task->job.jobid,
+			task->pq_task->aal_hist[pipe]->va[10],
+			task->pq_task->aal_hist[pipe]->va[11],
+			task->pq_task->aal_hist[pipe]->va[12],
+			task->pq_task->aal_hist[pipe]->va[13],
+			task->pq_task->aal_hist[pipe]->va[14]);
+	} else {
+		mml_pq_rb_msg("%s job_id[%d] hist[600~604]={%08x, %08x, %08x, %08x, %08x",
+			 __func__, task->job.jobid,
+			task->pq_task->aal_hist[pipe]->va[600],
+			task->pq_task->aal_hist[pipe]->va[601],
+			task->pq_task->aal_hist[pipe]->va[602],
+			task->pq_task->aal_hist[pipe]->va[603],
+			task->pq_task->aal_hist[pipe]->va[604]);
+
+		mml_pq_rb_msg("%s job_id[%d] hist[610~614]={%08x, %08x, %08x, %08x, %08x",
+			__func__, task->job.jobid,
+			task->pq_task->aal_hist[pipe]->va[610],
+			task->pq_task->aal_hist[pipe]->va[611],
+			task->pq_task->aal_hist[pipe]->va[612],
+			task->pq_task->aal_hist[pipe]->va[613],
+			task->pq_task->aal_hist[pipe]->va[614]);
+	}
+
+
+	/*remain code for ping-pong in the feature*/
+	if (!dest->pq_config.en_dre) {
 		u32 addr = aal->sram_hist_start;
 		void __iomem *base = comp->base;
 		s32 i;
@@ -743,6 +1027,12 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_aal_readback(task, ccfg->pipe, phist);
 	}
 
+
+	if (aal_frm->is_aal_need_readback)
+		mml_pq_aal_readback(task, ccfg->pipe,
+			task->pq_task->aal_hist[pipe]->va);
+
+	mml_pq_put_readback_buffer(task, pipe, task->pq_task->aal_hist[pipe]);
 exit:
 	mml_pq_trace_ex_end();
 }
