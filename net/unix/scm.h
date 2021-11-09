@@ -1,11 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-
-/*
-
- * Copyright (c) 2019 MediaTek Inc.
-
- */
-
 #ifndef NET_UNIX_SCM_H
 #define NET_UNIX_SCM_H
 
