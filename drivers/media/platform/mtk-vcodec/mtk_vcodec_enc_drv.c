@@ -131,9 +131,7 @@ static int fops_vcodec_open(struct file *file)
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 err_load_fw:
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
-	mutex_lock(&dev->ctx_mutex);
-	list_del_init(&ctx->list);
-	mutex_unlock(&dev->ctx_mutex);
+	mtk_vcodec_del_ctx_list(ctx);
 #endif
 err_m2m_ctx_init:
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);

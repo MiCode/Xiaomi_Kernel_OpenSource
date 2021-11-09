@@ -757,11 +757,10 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	return 0;
 
 error_free_inst:
-	mutex_lock(&ctx->dev->ctx_mutex);
+	mtk_vcodec_del_ctx_list(ctx);
 	kfree(inst->vcu.ctx_ipi_lock);
 	kfree(inst);
 	*h_vdec = (unsigned long)NULL;
-	mutex_unlock(&ctx->dev->ctx_mutex);
 
 	return err;
 }
