@@ -366,8 +366,7 @@ static int get_idx_by_voltage(
 			*max_volt = i;
 			break;
 		} else if (voltage < table->voltage[i]) {
-			if (i >= 3
-				&& table->voltage[i] >= FINE_GRAIN_LOWER_BOUND) {
+			if (i >= 1) {
 				*min_volt = i - 1;
 				*max_volt = i;
 			} else {
@@ -669,6 +668,8 @@ static int vmm_enable_regulator(struct regulator_dev *rdev)
 			msecs_to_jiffies(WAIT_POWER_ON_OFF_TIMEOUT_MS));
 	if (ret == 0) {
 		ISP_LOGE("Wait CCU power on timeout\n");
+		disable_all_muxes(drv_data);
+		drv_data->mux_is_enable = false;
 		return -EINVAL;
 	}
 
