@@ -1025,7 +1025,8 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 
 void
 mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
-				    const unsigned int frame_no_update_limit)
+				    const unsigned int frame_no_update_limit,
+				    struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request *req;
@@ -1050,12 +1051,13 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 	    s_data->state.estate == E_STATE_INNER_HW_DELAY)
 		s_data->no_frame_done_cnt++;
 
-	if (s_data->no_frame_done_cnt > frame_no_update_limit) {
+	if (s_data->no_frame_done_cnt > frame_no_update_limit && irq_info->e.err_status == 0) {
 		dev_info(ctx->cam->dev,
-			 "%s:SOF[ctx:%d-#%d] no p1 done for %d sofs, dump req(%d)\n",
+			 "%s:SOF[ctx:%d-#%d] no p1 done for %d sofs, FBC_CNT %d dump req(%d)\n",
 			 req->req.debug_str, ctx->stream_id,
 			 ctx->dequeued_frame_seq_no,
-			 s_data->no_frame_done_cnt, s_data->frame_seq_no);
+			 s_data->no_frame_done_cnt, irq_info->fbc_cnt,
+			 s_data->frame_seq_no);
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
 				 "No P1 done");
 	}

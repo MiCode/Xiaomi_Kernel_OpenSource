@@ -217,7 +217,8 @@ static inline int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 
 static inline void
 mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
-				    const unsigned int frame_no_update_limit)
+				    const unsigned int frame_no_update_limit,
+				    struct mtk_camsys_irq_info *irq_info)
 {
 }
 
@@ -247,7 +248,8 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 		     unsigned int dump_flag, char *desc);
 void
 mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
-				    const unsigned int frame_no_update_limit);
+				    const unsigned int frame_no_update_limit,
+				    struct mtk_camsys_irq_info *irq_info);
 void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head);
 
 void mtk_cam_req_dump_work_init(struct mtk_cam_request_stream_data *s_data);

@@ -5357,8 +5357,8 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 		 * Nth time of running the watchdog timer.
 		 */
 		if (watchdog_dump_cnt < 4) {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! watcgdog_cnt(%d)(+%dms)\n",
-				__func__, ctx->stream_id, watchdog_cnt,
+			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! VF(%d) watcgdog_cnt(%d)(+%dms)\n",
+				__func__, ctx->stream_id, atomic_read(&raw->vf_en), watchdog_cnt,
 				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
 
 			schedule_work(&ctx->watchdog_work);

@@ -2087,6 +2087,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = frame_idx;
 	irq_info.frame_idx_inner = frame_idx_inner;
+
 	/* CQ done */
 	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
@@ -2108,6 +2109,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->sof_count++;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 12;
+		irq_info.e.err_status = err_status;
 	}
 
 	if (raw_dev->sub_sensor_ctrl_en && irq_status & TG_VS_INT_ORG_ST
@@ -2215,8 +2217,10 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
 	int val, val2;
+	unsigned int inner_val, tg_full_sel;
 
 	val = readl_relaxed(raw_dev->base + REG_TG_PATH_CFG);
+	inner_val = readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG);
 	val = val | TG_TG_FULL_SEL;
 	writel_relaxed(val, raw_dev->base + REG_TG_PATH_CFG);
 	writel_relaxed(val, raw_dev->base_inner + REG_TG_PATH_CFG);
@@ -2254,6 +2258,13 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
+		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
+
+		if (tg_full_sel == 1)
+			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
+					"TG Grab Err");
+		else
+			dev_info(raw_dev->dev, "tg_full_sel 0x%x\n", __func__, tg_full_sel);
 	} else {
 		dev_info(raw_dev->dev,
 			 "%s: req(%d) can't be found for seninf dump\n",
@@ -2302,8 +2313,10 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
 	int val, val2;
+	unsigned int inner_val, tg_full_sel;
 
 	val = readl_relaxed(raw_dev->base + REG_TG_PATH_CFG);
+	inner_val = readl_relaxed(raw_dev->base_inner + REG_TG_PATH_CFG);
 	val = val | TG_TG_FULL_SEL;
 	writel_relaxed(val, raw_dev->base + REG_TG_PATH_CFG);
 	writel_relaxed(val, raw_dev->base_inner + REG_TG_PATH_CFG);
@@ -2377,8 +2390,13 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		 */
 		if (0 && raw_dev->sof_count > 3)
 			mtk_cam_debug_seninf_dump(s_data);
-		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-					 "TG overrun");
+
+		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
+		if (tg_full_sel == 1)
+			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
+					"TG Overrun Err");
+		else
+			dev_info(raw_dev->dev, "tg_full_sel 0x%x:\n", __func__, tg_full_sel);
 	} else {
 		dev_info(raw_dev->dev, "%s: req(%d) can't be found for dump\n",
 			__func__, dequeued_frame_seq_no);
