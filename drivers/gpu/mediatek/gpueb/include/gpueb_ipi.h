@@ -7,7 +7,7 @@
 #define __GPUEB_IPI_H__
 
 // Common implementation
-#define IPI_TIMEOUT_MS     5000U
+#define IPI_TIMEOUT_MS     10000U
 /* GPUEB side set CFG_AP_EB_IPI_TEST=yes to do IPI test */
 #define IPI_TEST           0
 
