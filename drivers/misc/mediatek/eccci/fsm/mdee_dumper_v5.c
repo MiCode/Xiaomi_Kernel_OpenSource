@@ -196,7 +196,7 @@ static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 				return;
 			}
 			val = snprintf(ex_info, EE_BUF_LEN_UMOLY,
-			"%s%s, MD base = 0x%08X\n\n", ex_info_temp,
+			"%s\n%s\nMD base = 0x%08X\n\n", ex_info_temp,
 			mdee->ex_mpu_string,
 			(unsigned int)mem_layout->md_bank0.base_ap_view_phy);
 			if (val < 0 || val >= EE_BUF_LEN_UMOLY)
@@ -900,17 +900,23 @@ static struct md_ee_ops mdee_ops_v5 = {
 	.set_ee_pkg = &mdee_dumper_v5_set_ee_pkg,
 };
 
-#ifdef ENABLE_EMIMPU_CB
+#if IS_ENABLED(CONFIG_MTK_EMI)
 static void mdee_dumper_v5_emimpu_callback(
-		unsigned int emi_id,
-		struct reg_info_t *dump,
-		unsigned int leng)
+		const char *vio_msg)
 {
-	int i, s;
-	int c = 0;
+	int has_write = 0;
 	int md_state;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(0);
 	struct ccci_modem *md = ccci_md_get_modem_by_id(0);
+
+	if (vio_msg)
+		CCCI_NORMAL_LOG(0, FSM,
+			"%s: %s\n", __func__, vio_msg);
+	else {
+		CCCI_ERROR_LOG(0, FSM,
+			"%s: msg is null\n", __func__);
+		return;
+	}
 
 	if (md) {
 		md_state = ccci_fsm_get_md_state(md->index);
@@ -921,39 +927,17 @@ static void mdee_dumper_v5_emimpu_callback(
 		}
 	}
 
-	if (!dump) {
-		CCCI_ERROR_LOG(0, FSM,
-			"%s: warning: dump is NULL.\n",
-			__func__);
-		return;
-	}
-
 	if (ctl) {
-		s = snprintf(&ctl->ee_ctl.ex_mpu_string[0],
-				MD_EX_MPU_STR_LEN, "<emimpu.c>\n");
-		if (s <= 0)
+		memset(ctl->ee_ctl.ex_mpu_string, 0x0,
+			sizeof(ctl->ee_ctl.ex_mpu_string));
+		has_write = snprintf(&ctl->ee_ctl.ex_mpu_string[0],
+			MD_EX_MPU_STR_LEN,
+			"%s\n", vio_msg);
+		if (has_write <= 0)
 			return;
-
-		c += s;
-		for (i = 0; i < leng; i++) {
-			if ((MD_EX_MPU_STR_LEN - c) <= 1) {
-				CCCI_ERROR_LOG(0, FSM,
-					"%s: ex_mpu_string is not enough.\n",
-					__func__);
-				return;
-			}
-
-			s = snprintf(&ctl->ee_ctl.ex_mpu_string[c],
-					MD_EX_MPU_STR_LEN - c,
-					"emi(%d),off(%x),val(%x);\n",
-					emi_id, dump->offset, dump->value);
-			if (s <= 0)
-				return;
-
-			c += s;
-			dump++;
-		}
 	}
+
+	return;
 }
 #endif
 
@@ -962,7 +946,7 @@ int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
 	struct mdee_dumper_v5 *dumper = NULL;
 	int md_id = mdee->md_id;
 
-#ifdef ENABLE_EMIMPU_CB
+#if IS_ENABLED(CONFIG_MTK_EMI)
 	if (mtk_emimpu_md_handling_register(
 			&mdee_dumper_v5_emimpu_callback))
 		CCCI_ERROR_LOG(md_id, FSM,

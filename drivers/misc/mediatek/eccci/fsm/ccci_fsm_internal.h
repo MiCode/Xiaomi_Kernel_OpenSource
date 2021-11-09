@@ -165,7 +165,7 @@ enum ccci_ipi_op_id {
 #define CCCI_AED_DUMP_EX_MEM		(1<<0)
 #define CCCI_AED_DUMP_CCIF_REG		(1<<2)
 #define CCCI_AED_DUMP_EX_PKT		(1<<3)
-#define MD_EX_MPU_STR_LEN (128)
+#define MD_EX_MPU_STR_LEN (512)
 #define MD_EX_START_TIME_LEN (128)
 
 /************ structures ************/
