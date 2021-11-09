@@ -46,7 +46,6 @@ config TCPC_RT5081
 config TCPC_MT6360
 	tristate "MediaTek MT6360 TypeC port Controller Driver"
 	depends on TCPC_CLASS
-	select TCPC_ALERT_V20
 	help
 	  Say Y to enable MediaTek MT6370
 	  TypeC port Controller
@@ -57,7 +56,6 @@ config TCPC_MT6362
 	tristate "MT6362 SPMI TCPC driver"
 	depends on TCPC_CLASS
 	depends on MFD_MT6362
-	select TCPC_ALERT_V20
 	help
 	  Say yes here to have support for the MT6362 TCPC
 	  Support TypeC port Controller and Power Delivery
@@ -79,7 +77,6 @@ config TCPC_MT6375
 	tristate "Mediatek MT6375 Type-C chip driver"
 	depends on TCPC_CLASS
 	depends on MFD_MT6375
-	select TCPC_ALERT_V20
 	help
 	  Mediatek MT6375 Type-C chip driver that works with
 	  Type-C Port Controller Manager to provide USB PD and USB
@@ -105,15 +102,6 @@ config PD_DBG_INFO
 	  for PD DBG
 	  information
 	  Say N to disable
-
-config TCPC_ALERT_V20
-	tristate "TCPCI Alert v2.0"
-	depends on TCPC_CLASS
-	help
-	  Say Y to use tcpci_alert_v20
-	  Vendor defined interrupts
-	  should be handled by
-	  tcpc driver itself
 
 config MTK_TYPEC_WATER_DETECT
 	tristate "Water detection function for type-c connector"

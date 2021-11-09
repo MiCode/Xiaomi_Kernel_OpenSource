@@ -74,7 +74,7 @@ static inline bool mtk_is_pep30_en_unlock(void)
 
 #endif /* CONFIG_TCPC_RT1711H */
 
-#ifdef CONFIG_RT7207_ADAPTER
+#if CONFIG_RT7207_ADAPTER
 enum { /* charge status */
 	RT7207_CC_MODE,
 	RT7207_CV_MODE,

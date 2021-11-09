@@ -21,7 +21,6 @@
 #include <linux/pm_wakeup.h>
 #include <linux/of_irq.h>
 #include <linux/sched/clock.h>
-#include <linux/sched/rt.h>
 #include <uapi/linux/sched/types.h>
 
 #include "inc/pd_dbg_info.h"
@@ -29,19 +28,20 @@
 #include "inc/mt6360.h"
 #include "inc/tcpci_typec.h"
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 #include <rt-regmap.h>
 #endif /* CONFIG_RT_REGMAP */
 
-#if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
+#include <linux/sched/rt.h>
+
+#if CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION
 #include <charger_class.h>
-#endif /* CONFIG_MTK_CHARGER */
 #endif /* CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION */
 
 /* #define DEBUG_GPIO	66 */
+#define DEBUG_GPIO 0
 
-#define MT6360_DRV_VERSION	"2.0.4_MTK"
+#define MT6360_DRV_VERSION	"2.0.7_MTK"
 
 #define MT6360_IRQ_WAKE_TIME	(500) /* ms */
 
@@ -54,7 +54,7 @@
 struct mt6360_chip {
 	struct i2c_client *client;
 	struct device *dev;
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	struct rt_regmap_device *m_dev;
 #endif /* CONFIG_RT_REGMAP */
 	struct semaphore io_lock;
@@ -76,12 +76,12 @@ struct mt6360_chip {
 	int pcb_gpio_polarity;
 #endif /* CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB */
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 	atomic_t wd_protect_rty;
 	struct wakeup_source *wd_wakeup_src;
 #endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 #if CONFIG_WD_POLLING_ONLY
 	struct delayed_work usbid_poll_work;
 #endif /* CONFIG_WD_POLLING_ONLY */
@@ -90,15 +90,13 @@ struct mt6360_chip {
 	bool usbid_irqen;
 #endif /* CONFIG_WD_SBU_POLLING */
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 	bool handle_init_ctd;
 	enum tcpc_cable_type init_cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
-#if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
+#if CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION
 	struct charger_device *chgdev;
-#endif /* CONFIG_MTK_CHARGER */
 #endif /* CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION */
 };
 
@@ -110,57 +108,57 @@ static const u8 mt6360_vend_alert_maskall[MT6360_VEND_INT_MAX] = {
 	0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-#ifdef CONFIG_RT_REGMAP
-RT_REG_DECL(TCPC_V10_REG_VID, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_PID, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_DID, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_TYPEC_REV, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_PD_REV, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_PDIF_REV, 2, RT_VOLATILE, {});
+#if IS_ENABLED(CONFIG_RT_REGMAP)
+RT_REG_DECL(TCPC_V10_REG_VID, 2, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_PID, 2, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_DID, 2, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_TYPEC_REV, 2, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_PD_REV, 2, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_PDIF_REV, 2, RT_NORMAL, {});
 RT_REG_DECL(TCPC_V10_REG_ALERT, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_ALERT_MASK, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_POWER_STATUS_MASK, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_FAULT_STATUS_MASK, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_EXT_STATUS_MASK, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_TCPC_CTRL, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_ROLE_CTRL, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_FAULT_CTRL, 1, RT_VOLATILE, {});
+RT_REG_DECL(TCPC_V10_REG_ALERT_MASK, 2, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_POWER_STATUS_MASK, 1, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_FAULT_STATUS_MASK, 1, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_EXT_STATUS_MASK, 1, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_TCPC_CTRL, 1, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_ROLE_CTRL, 1, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_FAULT_CTRL, 1, RT_NORMAL, {});
 RT_REG_DECL(TCPC_V10_REG_POWER_CTRL, 1, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_CC_STATUS, 1, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_POWER_STATUS, 1, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_FAULT_STATUS, 1, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_EXT_STATUS, 1, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_COMMAND, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_MSG_HDR_INFO, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_RX_DETECT, 1, RT_VOLATILE, {});
+RT_REG_DECL(TCPC_V10_REG_MSG_HDR_INFO, 1, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_RX_DETECT, 1, RT_NORMAL, {});
 RT_REG_DECL(TCPC_V10_REG_RX_BYTE_CNT, 1, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_RX_BUF_FRAME_TYPE, 1, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_RX_HDR, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_RX_DATA, 1, RT_VOLATILE, {});
+RT_REG_DECL(TCPC_V10_REG_RX_DATA, 28, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_TRANSMIT, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_TX_BYTE_CNT, 1, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_TX_HDR, 2, RT_VOLATILE, {});
-RT_REG_DECL(TCPC_V10_REG_TX_DATA, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL2, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL3, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL4, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL5, 1, RT_VOLATILE, {});
+RT_REG_DECL(TCPC_V10_REG_TX_BYTE_CNT, 1, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_TX_HDR, 2, RT_NORMAL, {});
+RT_REG_DECL(TCPC_V10_REG_TX_DATA, 28, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL2, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL3, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL4, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL5, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_PHY_CTRL6, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL7, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_CLK_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_CLK_CTRL2, 1, RT_VOLATILE, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL7, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_CLK_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_CLK_CTRL2, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_PHY_CTRL8, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_CC1_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_VCONN_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_MODE_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_MODE_CTRL2, 1, RT_VOLATILE, {});
+RT_REG_DECL(MT6360_REG_CC1_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_VCONN_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_MODE_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_MODE_CTRL2, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_MODE_CTRL3, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_MT_MASK1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_MT_MASK2, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_MT_MASK3, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_MT_MASK4, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_MT_MASK5, 1, RT_VOLATILE, {});
+RT_REG_DECL(MT6360_REG_MT_MASK1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_MT_MASK2, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_MT_MASK3, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_MT_MASK4, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_MT_MASK5, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_MT_INT1, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_MT_INT2, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_MT_INT3, 1, RT_VOLATILE, {});
@@ -172,36 +170,35 @@ RT_REG_DECL(MT6360_REG_MT_ST3, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_MT_ST4, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_MT_ST5, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_SWRESET, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_DEBOUNCE_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_DRP_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_DRP_CTRL2, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_DRP_CTRL3, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PD3_CTRL, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_VBUS_DISC_CTRL, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_CTD_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WATCHDOG_CTRL, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_I2CRST_CTRL, 1, RT_VOLATILE, {});
+RT_REG_DECL(MT6360_REG_DEBOUNCE_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_DRP_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_DRP_CTRL2, 2, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PD3_CTRL, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_VBUS_DISC_CTRL, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_CTD_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_WATCHDOG_CTRL, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_I2CRST_CTRL, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_WD_DET_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WD_DET_CTRL2, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WD_DET_CTRL3, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WD_DET_CTRL4, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WD_DET_CTRL5, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WD_DET_CTRL6, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WD_DET_CTRL7, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_WD_DET_CTRL8, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL9, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL10, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL11, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL12, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL13, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_PHY_CTRL14, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_RX_CTRL1, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_RX_CTRL2, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_VBUS_CTRL2, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_HILO_CTRL5, 1, RT_VOLATILE, {});
+RT_REG_DECL(MT6360_REG_WD_DET_CTRL2, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_WD_DET_CTRL3, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_WD_DET_CTRL4, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_WD_DET_CTRL5, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_WD_DET_CTRL6, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_WD_DET_CTRL7, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_WD_DET_CTRL8, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL9, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL10, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL11, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL12, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL13, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_PHY_CTRL14, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_RX_CTRL1, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_RX_CTRL2, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_VBUS_CTRL2, 1, RT_NORMAL, {});
+RT_REG_DECL(MT6360_REG_HILO_CTRL5, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_VCONN_CTRL2, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_VCONN_CTRL3, 1, RT_VOLATILE, {});
-RT_REG_DECL(MT6360_REG_DEBOUNCE_CTRL4, 1, RT_VOLATILE, {});
+RT_REG_DECL(MT6360_REG_DEBOUNCE_CTRL4, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_CTD_CTRL2, 1, RT_VOLATILE, {});
 
 static const rt_register_map_t mt6360_chip_regmap[] = {
@@ -269,7 +266,6 @@ static const rt_register_map_t mt6360_chip_regmap[] = {
 	RT_REG(MT6360_REG_DEBOUNCE_CTRL1),
 	RT_REG(MT6360_REG_DRP_CTRL1),
 	RT_REG(MT6360_REG_DRP_CTRL2),
-	RT_REG(MT6360_REG_DRP_CTRL3),
 	RT_REG(MT6360_REG_PD3_CTRL),
 	RT_REG(MT6360_REG_VBUS_DISC_CTRL),
 	RT_REG(MT6360_REG_CTD_CTRL1),
@@ -372,7 +368,7 @@ static int mt6360_reg_read(struct i2c_client *i2c, u8 reg, u8 *data)
 	int ret;
 	struct mt6360_chip *chip = i2c_get_clientdata(i2c);
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_read(chip->m_dev, reg, 1, data);
 #else
 	ret = mt6360_read_device(chip->client, reg, 1, data);
@@ -389,7 +385,7 @@ static int mt6360_reg_write(struct i2c_client *i2c, u8 reg, const u8 data)
 	int ret;
 	struct mt6360_chip *chip = i2c_get_clientdata(i2c);
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_write(chip->m_dev, reg, 1, &data);
 #else
 	ret = mt6360_write_device(chip->client, reg, 1, &data);
@@ -404,7 +400,7 @@ static int mt6360_block_read(struct i2c_client *i2c, u8 reg, int len, void *dst)
 	int ret;
 	struct mt6360_chip *chip = i2c_get_clientdata(i2c);
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_read(chip->m_dev, reg, len, dst);
 #else
 	ret = mt6360_read_device(chip->client, reg, len, dst);
@@ -420,7 +416,7 @@ static int mt6360_block_write(struct i2c_client *i2c, u8 reg, int len,
 	int ret;
 	struct mt6360_chip *chip = i2c_get_clientdata(i2c);
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_write(chip->m_dev, reg, len, src);
 #else
 	ret = mt6360_write_device(chip->client, reg, len, src);
@@ -549,7 +545,7 @@ static inline int mt6360_i2c_clr_bit(struct tcpc_device *tcpc, u8 reg, u8 mask)
 	return mt6360_i2c_update_bits(tcpc, reg, 0x00, mask);
 }
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 static struct rt_regmap_fops mt6360_regmap_fops = {
 	.read_device = mt6360_read_device,
 	.write_device = mt6360_write_device,
@@ -567,10 +563,12 @@ static int mt6360_regmap_init(struct mt6360_chip *chip)
 
 	props->register_num = MT6360_CHIP_REGMAP_SIZE;
 	props->rm = mt6360_chip_regmap;
-	props->rt_regmap_mode = RT_MULTI_BYTE | RT_CACHE_DISABLE |
-				RT_IO_PASS_THROUGH | RT_DBG_GENERAL;
+	props->rt_regmap_mode = RT_MULTI_BYTE |
+				RT_IO_PASS_THROUGH | RT_DBG_SPECIAL;
 
-	snprintf(name, sizeof(name), "mt6360-%02x", chip->client->addr);
+	len = snprintf(name, sizeof(name), "mt6360-%02x", chip->client->addr);
+	if (len < 0 || len > 32)
+		return -EINVAL;
 	len = strlen(name);
 	props->name = kzalloc(len + 1, GFP_KERNEL);
 	props->aliases = kzalloc(len + 1, GFP_KERNEL);
@@ -597,11 +595,16 @@ static void mt6360_regmap_deinit(struct mt6360_chip *chip)
 static inline int mt6360_software_reset(struct tcpc_device *tcpc)
 {
 	int ret;
+#if IS_ENABLED(CONFIG_RT_REGMAP)
+	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
+#endif /* CONFIG_RT_REGMAP */
 
 	ret = mt6360_i2c_write8(tcpc, MT6360_REG_SWRESET, 1);
 	if (ret < 0)
 		return ret;
-
+#if IS_ENABLED(CONFIG_RT_REGMAP)
+	rt_regmap_cache_reload(chip->m_dev);
+#endif /* CONFIG_RT_REGMAP */
 	usleep_range(1000, 2000);
 	return 0;
 }
@@ -650,12 +653,12 @@ static int mt6360_init_vend_mask(struct tcpc_device *tcpc)
 		mask[MT6360_VEND_INT1] |= MT6360_M_WAKEUP;
 #endif	/* CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG */
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 	if (tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION)
 		mask[MT6360_VEND_INT2] |= MT6360_M_WD_EVT;
 #endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 	if (tcpc->tcpc_flags & TCPC_FLAGS_CABLE_TYPE_DETECTION)
 		mask[MT6360_VEND_INT3] |= MT6360_M_CTD;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
@@ -695,7 +698,7 @@ static int mt6360_init_alert_mask(struct tcpc_device *tcpc)
 	mt6360_init_ext_mask(tcpc);
 	mt6360_init_vend_mask(tcpc);
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 	if (chip->handle_init_ctd) {
 		chip->handle_init_ctd = false;
 		tcpc_typec_handle_ctd(tcpc, chip->init_cable_type);
@@ -713,7 +716,7 @@ static void mt6360_irq_work_handler(struct kthread_work *work)
 
 	tcpci_lock_typec(chip->tcpc);
 
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 1);
 #endif /* DEBUG_GPIO */
 
@@ -726,7 +729,7 @@ static void mt6360_irq_work_handler(struct kthread_work *work)
 
 	tcpci_unlock_typec(chip->tcpc);
 
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 1);
 #endif /* DEBUG_GPIO */
 }
@@ -737,7 +740,7 @@ static irqreturn_t mt6360_intr_handler(int irq, void *data)
 
 	__pm_wakeup_event(chip->irq_wake_lock, MT6360_IRQ_WAKE_TIME);
 
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 0);
 #endif
 
@@ -771,7 +774,7 @@ static inline int mt6360_enable_auto_rpconnect(struct tcpc_device *tcpc,
 		(tcpc, MT6360_REG_CTD_CTRL2, MT6360_DIS_RPDET);
 }
 
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 static int mt6360_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2);
 static void mt6360_enable_usbid_irq(struct mt6360_chip *chip, bool en);
 
@@ -820,12 +823,14 @@ static void mt6360_wd_work(struct work_struct *work)
 	if (cc1 != TYPEC_CC_DRP_TOGGLING || cc2 != TYPEC_CC_DRP_TOGGLING)
 		goto out;
 
+#if CONFIG_WATER_DETECTION
 	ret = tcpci_is_water_detected(chip->tcpc);
 	if (ret <= 0) {
 		mt6360_enable_usbid_polling(chip, true);
 		goto out;
 	}
 	tcpc_typec_handle_wd(chip->tcpc, true);
+#endif
 out:
 	tcpci_unlock_typec(chip->tcpc);
 }
@@ -857,12 +862,12 @@ struct mt6360_pmu_irq_desc {
 #define MT6360_PMU_IRQDESC(name) {#name, mt6360_pmu_##name##_handler, -1}
 
 static struct mt6360_pmu_irq_desc mt6360_pmu_tcpc_irq_desc[] = {
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 	MT6360_PMU_IRQDESC(usbid_evt),
 #endif /* CONFIG_WD_SBU_POLLING */
 };
 
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 static void mt6360_enable_usbid_irq(struct mt6360_chip *chip, bool en)
 {
 	struct mt6360_pmu_irq_desc *irq_desc;
@@ -955,11 +960,13 @@ static int mt6360_init_alert(struct tcpc_device *tcpc)
 	name = devm_kzalloc(chip->dev, len + 5, GFP_KERNEL);
 	if (!name)
 		return -ENOMEM;
-	snprintf(name, PAGE_SIZE, "%s-IRQ", chip->tcpc_desc->name);
+	ret = snprintf(name, PAGE_SIZE, "%s-IRQ", chip->tcpc_desc->name);
+	if (ret < 0)
+		return -EINVAL;
 	dev_info(chip->dev, "%s name = %s, gpio = %d\n", __func__,
 		 chip->tcpc_desc->name, chip->irq_gpio);
 	ret = devm_gpio_request(chip->dev, chip->irq_gpio, name);
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_request(DEBUG_GPIO, "debug_latency_pin");
 	gpio_direction_output(DEBUG_GPIO, 1);
 #endif /* DEBUG_GPIO */
@@ -1029,11 +1036,12 @@ static int mt6360_alert_status_clear(struct tcpc_device *tcpc, u32 mask)
 	return 0;
 }
 
-static int mt6360_set_clock_gating(struct tcpc_device *tcpc_dev, bool en)
+static int mt6360_set_clock_gating(struct tcpc_device *tcpc, bool en)
 {
 	int ret = 0;
 
-#ifdef CONFIG_TCPC_CLOCK_GATING
+#if CONFIG_TCPC_CLOCK_GATING
+	int i = 0;
 	u8 clk1 = MT6360_CLK_DIV_600K_EN | MT6360_CLK_DIV_300K_EN;
 	u8 clk2 = MT6360_CLK_DIV_2P4M_EN;
 
@@ -1043,16 +1051,15 @@ static int mt6360_set_clock_gating(struct tcpc_device *tcpc_dev, bool en)
 	}
 
 	if (en) {
-		ret = mt6360_alert_status_clear(tcpc_dev,
-						TCPC_REG_ALERT_RX_STATUS |
-						TCPC_REG_ALERT_RX_HARD_RST |
-						TCPC_REG_ALERT_RX_BUF_OVF);
+		for (i = 0; i < 2; i++)
+			ret = mt6360_alert_status_clear(tcpc,
+				TCPC_REG_ALERT_RX_ALL_MASK);
 	}
 
 	if (ret == 0)
-		ret = mt6360_i2c_write8(tcpc_dev, MT6360_REG_CLK_CTRL1, clk1);
+		ret = mt6360_i2c_write8(tcpc, MT6360_REG_CLK_CTRL1, clk1);
 	if (ret == 0)
-		ret = mt6360_i2c_write8(tcpc_dev, MT6360_REG_CLK_CTRL2, clk2);
+		ret = mt6360_i2c_write8(tcpc, MT6360_REG_CLK_CTRL2, clk2);
 #endif	/* CONFIG_TCPC_CLOCK_GATING */
 
 	return ret;
@@ -1247,7 +1254,7 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 	int ret;
 	u8 data;
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull), pull1, pull2;
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
 #endif /* CONFIG_WD_SBU_POLLING */
 
@@ -1271,7 +1278,7 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 		tcpci_set_low_power_mode(tcpc, true, pull);
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
 		ret = mt6360_command(tcpc, TCPM_CMD_LOOK_CONNECTION);
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 #if CONFIG_WD_POLLING_ONLY
 		schedule_delayed_work(&chip->usbid_poll_work,
 					msecs_to_jiffies(500));
@@ -1387,8 +1394,16 @@ static int mt6360_is_low_power_mode(struct tcpc_device *tcpc)
 static int mt6360_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 				     int pull)
 {
+	int ret = 0;
 	u8 data = 0;
 
+	ret = (en ? mt6360_i2c_clr_bit : mt6360_i2c_set_bit)
+		(tcpc, MT6360_REG_MODE_CTRL2, MT6360_AUTOIDLE_EN);
+	if (ret < 0)
+		return ret;
+#if CONFIG_TCPC_VSAFE0V_DETECT_IC
+	mt6360_enable_vsafe0v_detect(tcpc, !en);
+#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	if (en) {
 		data = MT6360_LPWR_EN | MT6360_LPWR_LDO_EN;
 
@@ -1399,30 +1414,36 @@ static int mt6360_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 	} else {
 		data = MT6360_VBUS_DET_EN | MT6360_PD_BG_EN |
 			MT6360_PD_IREF_EN | MT6360_BMCIO_OSC_EN;
-		mt6360_enable_vsafe0v_detect(tcpc, true);
 	}
 	return mt6360_i2c_write8(tcpc, MT6360_REG_MODE_CTRL3, data);
 }
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
 
-static int mt6360_set_watchdog(struct tcpc_device *tcpc_dev, bool en)
+static int mt6360_set_watchdog(struct tcpc_device *tcpc, bool en)
 {
 	return (en ? mt6360_i2c_set_bit : mt6360_i2c_clr_bit)
-		(tcpc_dev, TCPC_V10_REG_TCPC_CTRL,
+		(tcpc, TCPC_V10_REG_TCPC_CTRL,
 		 TCPC_V10_REG_TCPC_CTRL_EN_WDT);
 }
 
-static int mt6360_tcpc_deinit(struct tcpc_device *tcpc_dev)
+static int mt6360_tcpc_deinit(struct tcpc_device *tcpc)
 {
-#if CONFIG_TCPC_SHUTDOWN_CC_DETACH
-	mt6360_set_cc(tcpc_dev, TYPEC_CC_DRP);
-	mt6360_set_cc(tcpc_dev, TYPEC_CC_OPEN);
+#if IS_ENABLED(CONFIG_RT_REGMAP)
+	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
+#endif /* CONFIG_RT_REGMAP */
 
-	mt6360_i2c_write8(tcpc_dev, MT6360_REG_I2CRST_CTRL,
+#if CONFIG_TCPC_SHUTDOWN_CC_DETACH
+	mt6360_set_cc(tcpc, TYPEC_CC_DRP);
+	mt6360_set_cc(tcpc, TYPEC_CC_OPEN);
+
+	mt6360_i2c_write8(tcpc, MT6360_REG_I2CRST_CTRL,
 			  MT6360_REG_I2CRST_SET(true, 4));
 #else
-	mt6360_i2c_write8(tcpc_dev, MT6360_REG_SWRESET, 1);
+	mt6360_i2c_write8(tcpc, MT6360_REG_SWRESET, 1);
 #endif	/* CONFIG_TCPC_SHUTDOWN_CC_DETACH */
+#if IS_ENABLED(CONFIG_RT_REGMAP)
+	rt_regmap_cache_reload(chip->m_dev);
+#endif /* CONFIG_RT_REGMAP */
 
 	return 0;
 }
@@ -1452,7 +1473,7 @@ static int mt6360_vsafe0v_irq_handler(struct tcpc_device *tcpc)
 }
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 static int mt6360_wd_irq_handler(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -1512,7 +1533,7 @@ out:
 #endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 static inline int mt6360_get_cable_type(struct tcpc_device *tcpc,
 					enum tcpc_cable_type *type)
 {
@@ -1611,11 +1632,11 @@ static struct irq_mapping_tbl mt6360_vend_irq_mapping_tbl[] = {
 	MT6360_IRQ_MAPPING(1, vsafe0v),
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 	MT6360_IRQ_MAPPING(14, wd),
 #endif /* CONFIG_WATER_DETECTION */
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 	MT6360_IRQ_MAPPING(20, ctd),
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
@@ -1628,7 +1649,8 @@ static struct irq_mapping_tbl mt6360_vend_irq_mapping_tbl[] = {
 
 static int mt6360_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 {
-	int ret, i, irqnum, irqbit;
+	int ret, i, irqbit;
+	unsigned int irqnum;
 	u8 alert[MT6360_VEND_INT_MAX];
 	u8 mask[MT6360_VEND_INT_MAX];
 
@@ -1664,7 +1686,7 @@ static int mt6360_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 	return 0;
 }
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 static inline int mt6360_init_water_detection(struct tcpc_device *tcpc)
 {
 	/*
@@ -1673,7 +1695,8 @@ static inline int mt6360_init_water_detection(struct tcpc_device *tcpc)
 	 * 0xc1[1:0] -> Rust exiting counts during rust protection flow
 	 * (when RUST_PROTECT_EN is "1"), set as 4
 	 */
-	mt6360_i2c_write8(tcpc, MT6360_REG_WD_DET_CTRL2, 0x02);
+	/* TODO: Modify PINS_SEL to CC1/CC2/DP/DM if USB setting is ready */
+	mt6360_i2c_write8(tcpc, MT6360_REG_WD_DET_CTRL2, 0x82);
 
 	/* DPDM Pull up capability, 220u */
 	mt6360_i2c_write8(tcpc, MT6360_REG_WD_DET_CTRL3, 0xFF);
@@ -1744,14 +1767,14 @@ static int mt6360_is_water_detected(struct tcpc_device *tcpc)
 	int ret, usbid;
 	u32 ub, lb;
 	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 	u8 ctd_evt;
 	enum tcpc_cable_type cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 	__pm_stay_awake(chip->wd_wakeup_src);
 
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 	ret = mt6360_enable_usbid_polling(chip, false);
 #else
 	ret = charger_dev_enable_usbid(chip->chgdev, false);
@@ -1842,7 +1865,7 @@ static int mt6360_is_water_detected(struct tcpc_device *tcpc)
 		}
 	} else
 		dev_info(chip->dev, "%s get usbid adc fail\n", __func__);
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 	cable_type = tcpc->typec_cable_type;
 	if (cable_type == TCPC_CABLE_TYPE_NONE) {
 		ret = mt6360_i2c_read8(chip->tcpc, MT6360_REG_MT_INT3,
@@ -1927,7 +1950,7 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 			return ret;
 	}
 
-#ifdef CONFIG_TCPC_I2CRST_EN
+#if CONFIG_TCPC_I2CRST_EN
 	mt6360_i2c_write8(tcpc, MT6360_REG_I2CRST_CTRL,
 			  MT6360_REG_I2CRST_SET(true, 0x0f));
 #endif	/* CONFIG_TCPC_I2CRST_EN */
@@ -1943,6 +1966,9 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	 */
 	mt6360_i2c_write8(tcpc, MT6360_REG_DEBOUNCE_CTRL1, 10);
 	mt6360_init_drp_duty(tcpc);
+
+	/* Disable BLEED_DISC and Enable AUTO_DISC_DISCNCT */
+	mt6360_i2c_write8(tcpc, TCPC_V10_REG_POWER_CTRL, 0x70);
 
 	/* RX/TX Clock Gating (Auto Mode) */
 	if (!sw_reset)
@@ -1966,7 +1992,7 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	/* Enable Rp connect oneshot */
 	mt6360_enable_oneshot_rpconnect(tcpc, true);
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 	mt6360_init_water_detection(tcpc);
 #endif /* CONFIG_WATER_DETECTION */
 
@@ -1978,9 +2004,10 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 		mt6360_set_watchdog(tcpc, true);
 	}
 
-	/* SHIPPING off, AUTOIDLE off */
+	/* SHIPPING off, AUTOIDLE enable, TIMEOUT = 6.4ms */
 	mt6360_i2c_write8(tcpc, MT6360_REG_MODE_CTRL2,
-			  MT6360_REG_MODE_CTRL2_SET(1, 0, 2));
+			  MT6360_REG_MODE_CTRL2_SET(1, 1, 0));
+	mdelay(1);
 
 	return 0;
 }
@@ -1994,11 +2021,11 @@ static int mt6360_set_msg_header(
 	return mt6360_i2c_write8(tcpc, TCPC_V10_REG_MSG_HDR_INFO, msg_hdr);
 }
 
-static int mt6360_protocol_reset(struct tcpc_device *tcpc_dev)
+static int mt6360_protocol_reset(struct tcpc_device *tcpc)
 {
-	mt6360_i2c_clr_bit(tcpc_dev, MT6360_REG_PHY_CTRL8, MT6360_PRL_FSM_RSTB);
+	mt6360_i2c_clr_bit(tcpc, MT6360_REG_PHY_CTRL8, MT6360_PRL_FSM_RSTB);
 	mdelay(1);
-	mt6360_i2c_set_bit(tcpc_dev, MT6360_REG_PHY_CTRL8, MT6360_PRL_FSM_RSTB);
+	mt6360_i2c_set_bit(tcpc, MT6360_REG_PHY_CTRL8, MT6360_PRL_FSM_RSTB);
 	return 0;
 }
 
@@ -2012,12 +2039,11 @@ static int mt6360_set_rx_enable(struct tcpc_device *tcpc, u8 en)
 	if (ret == 0)
 		ret = mt6360_i2c_write8(tcpc, TCPC_V10_REG_RX_DETECT, en);
 
-	if ((ret == 0) && !en)
-		ret = mt6360_set_clock_gating(tcpc, true);
-
-	/* For testing */
-	if (!en)
+	if ((ret == 0) && !en) {
 		mt6360_protocol_reset(tcpc);
+		ret = mt6360_set_clock_gating(tcpc, true);
+	}
+
 	return ret;
 }
 
@@ -2145,7 +2171,7 @@ static struct tcpc_ops mt6360_tcpc_ops = {
 	.retransmit = mt6360_retransmit,
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 	.is_water_detected = mt6360_is_water_detected,
 	.set_water_protection = mt6360_set_water_protection,
 	.set_usbid_polling = mt6360_set_usbid_polling,
@@ -2157,11 +2183,9 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 {
 	int ret = 0;
 
-#ifdef CONFIG_CABLE_TYPE_DETECTION
+#if CONFIG_CABLE_TYPE_DETECTION
 	u8 ctd_evt;
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
 	u8 status;
-#endif
 
 	chip->tcpc->typec_cable_type = TCPC_CABLE_TYPE_NONE;
 	chip->handle_init_ctd = true;
@@ -2170,14 +2194,12 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 		return ret;
 	if (ctd_evt & MT6360_M_CTD) {
 		mt6360_get_cable_type(chip->tcpc, &chip->init_cable_type);
-#if IS_ENABLED(CONFIG_MTK_CHARGER)
 		if (chip->init_cable_type == TCPC_CABLE_TYPE_C2C) {
 			ret = charger_dev_get_ctd_dischg_status(chip->chgdev,
 								&status);
 			if (ret >= 0 && (status & 0x82))
 				chip->init_cable_type = TCPC_CABLE_TYPE_A2C;
 		}
-#endif
 	}
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
@@ -2193,7 +2215,7 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 	struct of_phandle_args irq;
 
 	pr_info("%s\n", __func__);
-#if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
+#if IS_ENABLED(CONFIG_MTK_GPIO) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
 	ret = of_get_named_gpio(np, "mt6360pd,intr_gpio", 0);
 	if (ret < 0) {
 		dev_err(dev, "%s no intr_gpio info(gpiolib)\n", __func__);
@@ -2210,7 +2232,7 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 #endif /* !CONFIG_MTK_GPIO || CONFIG_MTK_GPIOLIB_STAND */
 
 #if IS_ENABLED(CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB)
-#if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
+#if IS_ENABLED(CONFIG_MTK_GPIO) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
 	ret = of_get_named_gpio(np, "mt6360pd,pcb_gpio", 0);
 	if (ret < 0) {
 		dev_info(dev, "%s no pcb_gpio info(gpiolib)\n", __func__);
@@ -2309,14 +2331,15 @@ static void check_printk_performance(void)
 static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 {
 	struct tcpc_desc *desc;
-	struct device_node *np = dev->of_node, *boot_np;
+	struct device_node *np = dev->of_node;
+	struct device_node *boot_np = NULL;
 	u32 val, len;
 	const char *name = "default";
 	const struct {
 		u32 size;
 		u32 tag;
-		u32 boot_mode;
-		u32 boot_type;
+		u32 bootmode;
+		u32 boottype;
 	} *tag;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
@@ -2378,7 +2401,7 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 
 	chip->tcpc_desc = desc;
 	chip->tcpc = tcpc_device_register(dev, desc, &mt6360_tcpc_ops, chip);
-	if (IS_ERR(chip->tcpc))
+	if (IS_ERR(chip->tcpc) || !chip->tcpc)
 		return -EINVAL;
 
 	/* Init tcpc_flags */
@@ -2421,9 +2444,8 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 		return -EINVAL;
 	}
 	dev_info(dev, "sz:0x%x tag:0x%x mode:0x%x type:0x%x\n",
-		 tag->size, tag->tag, tag->boot_mode, tag->boot_type);
-	chip->tcpc->boot_mode = tag->boot_mode;
-	chip->tcpc->boot_type = tag->boot_type;
+		 tag->size, tag->tag, tag->bootmode, tag->boottype);
+	chip->tcpc->bootmode = tag->bootmode;
 
 	return 0;
 }
@@ -2514,11 +2536,11 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	sema_init(&chip->suspend_lock, 1);
 	i2c_set_clientdata(client, chip);
 	chip->irq_wake_lock =
-		wakeup_source_register(chip->dev, "mt6360_irq_wakelock");
+		wakeup_source_register(chip->dev, "mt6360_irq_wake_lock");
 	chip->i2c_wake_lock =
-		wakeup_source_register(chip->dev, "mt6360_i2c_wakelock");
+		wakeup_source_register(chip->dev, "mt6360_i2c_wake_lock");
 
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 	chip->wd_wakeup_src =
 		wakeup_source_register(chip->dev, "mt6360_wd_wakeup_src");
 	atomic_set(&chip->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
@@ -2526,7 +2548,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&chip->usbid_poll_work, mt6360_usbid_poll_work);
 #endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 	mutex_init(&chip->usbid_irq_lock);
 	chip->usbid_irqen = true;
 	INIT_WORK(&chip->wd_work, mt6360_wd_work);
@@ -2534,7 +2556,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 
 	dev_info(chip->dev, "%s chipID = 0x%0X\n", __func__, chip->chip_id);
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = mt6360_regmap_init(chip);
 	if (ret < 0) {
 		dev_err(chip->dev, "%s regmap init fail(%d)\n", __func__, ret);
@@ -2542,7 +2564,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	}
 #endif /* CONIFG_RT_REGMAP */
 
-#if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
+#if CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION
 #if IS_ENABLED(CONFIG_MTK_CHARGER)
 	chip->chgdev = get_charger_by_name("primary_chg");
 	if (!chip->chgdev) {
@@ -2579,7 +2601,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	}
 
 	tcpc_schedule_init_work(chip->tcpc);
-#ifdef CONFIG_WATER_DETECTION
+#if CONFIG_WATER_DETECTION
 	mt6360_water_calibration(chip->tcpc);
 #endif /* CONFIG_WATER_DETECTION */
 	dev_info(chip->dev, "%s successfully!\n", __func__);
@@ -2588,7 +2610,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 err_sw_reset:
 	tcpc_device_unregister(chip->dev, chip->tcpc);
 err_tcpc_reg:
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	mt6360_regmap_deinit(chip);
 #endif /* CONFIG_RT_REGMAP */
 	return ret;
@@ -2599,14 +2621,14 @@ static int mt6360_i2c_remove(struct i2c_client *client)
 	struct mt6360_chip *chip = i2c_get_clientdata(client);
 
 	if (chip) {
-#ifdef CONFIG_WD_SBU_POLLING
+#if CONFIG_WD_SBU_POLLING
 		cancel_work_sync(&chip->wd_work);
 #if CONFIG_WD_POLLING_ONLY
 		cancel_delayed_work_sync(&chip->usbid_poll_work);
 #endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WD_SBU_POLLING */
 		tcpc_device_unregister(chip->dev, chip->tcpc);
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 		mt6360_regmap_deinit(chip);
 #endif /* CONFIG_RT_REGMAP */
 	}
@@ -2614,7 +2636,7 @@ static int mt6360_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if CONFIG_PM
 static int mt6360_i2c_suspend(struct device *dev)
 {
 	struct mt6360_chip *chip;
@@ -2656,7 +2678,7 @@ static void mt6360_shutdown(struct i2c_client *client)
 		i2c_smbus_write_byte_data(client, MT6360_REG_SWRESET, 0x01);
 }
 
-#ifdef CONFIG_PM_RUNTIME
+#if IS_ENABLED(CONFIG_PM_RUNTIME)
 static int mt6360_pm_suspend_runtime(struct device *device)
 {
 	dev_dbg(device, "pm_runtime: suspending...\n");
@@ -2672,7 +2694,7 @@ static int mt6360_pm_resume_runtime(struct device *device)
 
 static const struct dev_pm_ops mt6360_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mt6360_i2c_suspend, mt6360_i2c_resume)
-#ifdef CONFIG_PM_RUNTIME
+#if IS_ENABLED(CONFIG_PM_RUNTIME)
 	SET_RUNTIME_PM_OPS(mt6360_pm_suspend_runtime, mt6360_pm_resume_runtime,
 			   NULL)
 #endif /* CONFIG_PM_RUNTIME */
@@ -2690,7 +2712,6 @@ MODULE_DEVICE_TABLE(i2c, mt6360_id_table);
 
 static const struct of_device_id mt_match_table[] = {
 	{.compatible = "mediatek,usb_type_c",},
-	{.compatible = "mediatek,mt6360_tcpc",},
 	{},
 };
 
@@ -2731,10 +2752,17 @@ MODULE_DESCRIPTION("MT6360 TCPC Driver");
 MODULE_VERSION(MT6360_DRV_VERSION);
 
 /**** Release Note ****
- * 2.0.4_MTK
- *	(1) support mt6360 pd discard retry
- *	(2) fix system busy when rx pending2
- *	(3) handle mask alert event when unmask irq
+ * 2.0.7_MTK
+ *	(1) mdelay(1) after SHIPPING_OFF = 1
+ *
+ * 2.0.6_MTK
+ *	(1) Utilize rt-regmap to reduce I2C accesses
+ *	(2) Disable BLEED_DISC and Enable AUTO_DISC_DISCNCT
+ *
+ * 2.0.5_MTK
+ *	(1) Mask vSafe0V IRQ before entering low power mode
+ *	(2) AUTOIDLE enable
+ *	(3) Reset Protocol FSM and clear RX alerts twice before clock gating
  *
  * 2.0.3_MTK
  *	(1) Single Rp as Attatched.SRC for Ellisys TD.4.9.4

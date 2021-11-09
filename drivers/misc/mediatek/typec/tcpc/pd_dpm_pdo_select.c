@@ -3,9 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include "inc/pd_dpm_pdo_select.h"
-
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
+#include "inc/pd_dpm_pdo_select.h"
 
 struct dpm_select_info_t {
 	uint8_t pos;
@@ -17,7 +16,7 @@ struct dpm_select_info_t {
 static inline void dpm_extract_apdo_info(
 		uint32_t pdo, struct dpm_pdo_info_t *info)
 {
-#ifdef CONFIG_USB_PD_REV30_PPS_SINK
+#if CONFIG_USB_PD_REV30_PPS_SINK
 	switch (APDO_TYPE(pdo)) {
 	case APDO_TYPE_PPS:
 		info->apdo_type = DPM_APDO_TYPE_PPS;
@@ -64,14 +63,13 @@ void dpm_extract_pdo_info(
 		info->ma = info->uw / info->vmin;
 		break;
 
-#ifdef CONFIG_USB_PD_REV30_PPS_SINK
+#if CONFIG_USB_PD_REV30_PPS_SINK
 	case PDO_TYPE_APDO:
 		dpm_extract_apdo_info(pdo, info);
 		break;
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 	}
 }
-EXPORT_SYMBOL(dpm_extract_pdo_info);
 
 #ifndef MIN
 #define MIN(a, b)	((a < b) ? (a) : (b))
@@ -129,7 +127,7 @@ static bool dpm_select_pdo_from_vsafe5v(
  * Select PDO from Direct Charge
  */
 
-#ifdef CONFIG_USB_PD_ALT_MODE_RTDC
+#if CONFIG_USB_PD_ALT_MODE_RTDC
 static bool dpm_select_pdo_from_direct_charge(
 	struct dpm_select_info_t *select_info,
 	struct dpm_pdo_info_t *sink, struct dpm_pdo_info_t *source)
@@ -198,7 +196,7 @@ static bool dpm_select_pdo_from_max_power(
 	bool overload;
 	int uw;
 
-#ifdef CONFIG_USB_PD_ALT_MODE_RTDC
+#if CONFIG_USB_PD_ALT_MODE_RTDC
 	/* Variable for direct charge only */
 	if ((sink->type == DPM_PDO_TYPE_VAR) && (sink->vmin < 5000))
 		return false;
@@ -238,7 +236,7 @@ static bool dpm_select_pdo_from_max_power(
  * Select PDO from PPS
  */
 
-#ifdef CONFIG_USB_PD_REV30_PPS_SINK
+#if CONFIG_USB_PD_REV30_PPS_SINK
 static bool dpm_select_pdo_from_pps(
 		struct dpm_select_info_t *select_info,
 		struct dpm_pdo_info_t *sink, struct dpm_pdo_info_t *source)
@@ -320,13 +318,13 @@ bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
 		select_pdo_fun = dpm_select_pdo_from_custom;
 		break;
 
-#ifdef CONFIG_USB_PD_ALT_MODE_RTDC
+#if CONFIG_USB_PD_ALT_MODE_RTDC
 	case DPM_CHARGING_POLICY_DIRECT_CHARGE:
 		select_pdo_fun = dpm_select_pdo_from_direct_charge;
 		break;
 #endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
-#ifdef CONFIG_USB_PD_REV30_PPS_SINK
+#if CONFIG_USB_PD_REV30_PPS_SINK
 	case DPM_CHARGING_POLICY_PPS:
 		select_pdo_fun = dpm_select_pdo_from_pps;
 		break;
@@ -365,7 +363,7 @@ bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
 			req_info->oper_ma = MIN(sink->ma, source.ma);
 		}
 
-#ifdef CONFIG_USB_PD_REV30_PPS_SINK
+#if CONFIG_USB_PD_REV30_PPS_SINK
 		if (source.type == DPM_PDO_TYPE_APDO) {
 			req_info->vmax = sink->vmax;
 			req_info->vmin = sink->vmin;

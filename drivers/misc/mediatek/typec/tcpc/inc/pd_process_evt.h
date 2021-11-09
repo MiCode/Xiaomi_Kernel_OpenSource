@@ -190,7 +190,7 @@ extern bool pd_process_event_vcs(struct pd_port *pd_port, struct pd_event *evt);
 extern bool pd_process_event_com(struct pd_port *pd_port, struct pd_event *evt);
 extern bool pd_process_event_tcp(struct pd_port *pd_port, struct pd_event *evt);
 
-#ifdef CONFIG_USB_PD_CUSTOM_DBGACC
+#if CONFIG_USB_PD_CUSTOM_DBGACC
 extern bool pd_process_event_dbg(struct pd_port *pd_port, struct pd_event *evt);
 #endif	/* CONFIG_USB_PD_CUSTOM_DBGACC */
 

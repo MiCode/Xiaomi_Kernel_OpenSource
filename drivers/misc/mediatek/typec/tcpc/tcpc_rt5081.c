@@ -19,17 +19,19 @@
 #include <linux/cpu.h>
 #include <linux/version.h>
 #include <linux/wakelock.h>
-#include <linux/sched/rt.h>
 
 #include "inc/pd_dbg_info.h"
 #include "inc/tcpci.h"
 #include "inc/rt5081.h"
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 #include <mt-plat/rt-regmap.h>
 #endif /* CONFIG_RT_REGMAP */
 
+#include <linux/sched/rt.h>
+
 /* #define DEBUG_GPIO	66 */
+#define DEBUG_GPIO 0
 
 #define RT5081_DRV_VERSION	"2.0.1_MTK"
 
@@ -38,7 +40,7 @@
 struct rt5081_chip {
 	struct i2c_client *client;
 	struct device *dev;
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	struct rt_regmap_device *m_dev;
 #endif /* CONFIG_RT_REGMAP */
 	struct semaphore io_lock;
@@ -58,7 +60,7 @@ struct rt5081_chip {
 	int chip_id;
 };
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 RT_REG_DECL(TCPC_V10_REG_VID, 2, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_PID, 2, RT_VOLATILE, {});
 RT_REG_DECL(TCPC_V10_REG_DID, 2, RT_VOLATILE, {});
@@ -217,7 +219,7 @@ static int rt5081_reg_read(struct i2c_client *i2c, u8 reg)
 	u8 val = 0;
 	int ret = 0;
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_read(chip->m_dev, reg, 1, &val);
 #else
 	ret = rt5081_read_device(chip->client, reg, 1, &val);
@@ -234,7 +236,7 @@ static int rt5081_reg_write(struct i2c_client *i2c, u8 reg, const u8 data)
 	struct rt5081_chip *chip = i2c_get_clientdata(i2c);
 	int ret = 0;
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_write(chip->m_dev, reg, 1, &data);
 #else
 	ret = rt5081_write_device(chip->client, reg, 1, &data);
@@ -249,11 +251,11 @@ static int rt5081_block_read(struct i2c_client *i2c,
 {
 	struct rt5081_chip *chip = i2c_get_clientdata(i2c);
 	int ret = 0;
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_read(chip->m_dev, reg, len, dst);
 #else
 	ret = rt5081_read_device(chip->client, reg, len, dst);
-#endif /* #ifdef CONFIG_RT_REGMAP */
+#endif /* #if IS_ENABLED(CONFIG_RT_REGMAP) */
 	if (ret < 0)
 		dev_err(chip->dev, "rt5081 block read fail\n");
 	return ret;
@@ -264,11 +266,11 @@ static int rt5081_block_write(struct i2c_client *i2c,
 {
 	struct rt5081_chip *chip = i2c_get_clientdata(i2c);
 	int ret = 0;
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	ret = rt_regmap_block_write(chip->m_dev, reg, len, src);
 #else
 	ret = rt5081_write_device(chip->client, reg, len, src);
-#endif /* #ifdef CONFIG_RT_REGMAP */
+#endif /* #if IS_ENABLED(CONFIG_RT_REGMAP) */
 	if (ret < 0)
 		dev_err(chip->dev, "rt5081 block write fail\n");
 	return ret;
@@ -330,7 +332,7 @@ static inline int rt5081_i2c_read16(
 	return data;
 }
 
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 static struct rt_regmap_fops rt5081_regmap_fops = {
 	.read_device = rt5081_read_device,
 	.write_device = rt5081_write_device,
@@ -339,7 +341,7 @@ static struct rt_regmap_fops rt5081_regmap_fops = {
 
 static int rt5081_regmap_init(struct rt5081_chip *chip)
 {
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	struct rt_regmap_properties *props;
 	char name[32];
 	int len;
@@ -378,7 +380,7 @@ static int rt5081_regmap_init(struct rt5081_chip *chip)
 
 static int rt5081_regmap_deinit(struct rt5081_chip *chip)
 {
-#ifdef CONFIG_RT_REGMAP
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	rt_regmap_device_unregister(chip->m_dev);
 #endif
 	return 0;
@@ -442,14 +444,14 @@ static int rt5081_init_fault_mask(struct tcpc_device *tcpc)
 static int rt5081_init_rt_mask(struct tcpc_device *tcpc)
 {
 	uint8_t rt_mask = 0;
-#ifdef CONFIG_TCPC_WATCHDOG_EN
+#if CONFIG_TCPC_WATCHDOG_EN
 	rt_mask |= RT5081_REG_M_WATCHDOG;
 #endif /* CONFIG_TCPC_WATCHDOG_EN */
 #if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	rt_mask |= RT5081_REG_M_VBUS_80;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
-#ifdef CONFIG_TYPEC_CAP_RA_DETACH
+#if CONFIG_TYPEC_CAP_RA_DETACH
 	if (tcpc->tcpc_flags & TCPC_FLAGS_CHECK_RA_DETACHE)
 		rt_mask |= RT5081_REG_M_RA_DETACH;
 #endif /* CONFIG_TYPEC_CAP_RA_DETACH */
@@ -487,7 +489,7 @@ static void rt5081_irq_work_handler(struct kthread_work *work)
 	down(&chip->suspend_lock);
 	tcpci_lock_typec(chip->tcpc);
 
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 1);
 #endif
 
@@ -501,7 +503,7 @@ static void rt5081_irq_work_handler(struct kthread_work *work)
 	tcpci_unlock_typec(chip->tcpc);
 	up(&chip->suspend_lock);
 
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 1);
 #endif
 }
@@ -521,7 +523,7 @@ static irqreturn_t rt5081_intr_handler(int irq, void *data)
 
 	__pm_wakeup_event(chip->irq_wake_lock, RT5081_IRQ_WAKE_TIME);
 
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 0);
 #endif
 	kthread_queue_work(&chip->irq_worker, &chip->irq_work);
@@ -551,7 +553,7 @@ static int rt5081_init_alert(struct tcpc_device *tcpc)
 				chip->tcpc_desc->name, chip->irq_gpio);
 
 	ret = devm_gpio_request(chip->dev, chip->irq_gpio, name);
-#ifdef DEBUG_GPIO
+#if DEBUG_GPIO
 	gpio_request(DEBUG_GPIO, "debug_latency_pin");
 	gpio_direction_output(DEBUG_GPIO, 1);
 #endif
@@ -588,10 +590,9 @@ static int rt5081_init_alert(struct tcpc_device *tcpc)
 	sched_setscheduler(chip->irq_worker_task, SCHED_FIFO, &param);
 	kthread_init_work(&chip->irq_work, rt5081_irq_work_handler);
 
-	pr_info("IRQF_NO_THREAD Test\r\n");
+	pr_info("IRQF_NO_THREAD Test\n");
 	ret = request_irq(chip->irq, rt5081_intr_handler,
-		IRQF_TRIGGER_FALLING | IRQF_NO_THREAD |
-		IRQF_NO_SUSPEND, name, chip);
+		IRQF_TRIGGER_FALLING | IRQF_NO_THREAD, name, chip);
 	if (ret < 0) {
 		pr_err("Error: failed to request irq%d (gpio = %d, ret = %d)\n",
 			chip->irq, chip->irq_gpio, ret);
@@ -633,12 +634,12 @@ int rt5081_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask)
 	return 0;
 }
 
-static int rt5081_set_clock_gating(struct tcpc_device *tcpc_dev,
+static int rt5081_set_clock_gating(struct tcpc_device *tcpc,
 									bool en)
 {
 	int ret = 0;
 
-#ifdef CONFIG_TCPC_CLOCK_GATING
+#if CONFIG_TCPC_CLOCK_GATING
 	uint8_t clk2 = RT5081_REG_CLK_DIV_600K_EN
 		| RT5081_REG_CLK_DIV_300K_EN | RT5081_REG_CLK_CK_300K_EN;
 
@@ -652,16 +653,16 @@ static int rt5081_set_clock_gating(struct tcpc_device *tcpc_dev,
 	}
 
 	if (en) {
-		ret = rt5081_alert_status_clear(tcpc_dev,
+		ret = rt5081_alert_status_clear(tcpc,
 			TCPC_REG_ALERT_RX_STATUS |
 			TCPC_REG_ALERT_RX_HARD_RST |
 			TCPC_REG_ALERT_RX_BUF_OVF);
 	}
 
 	if (ret == 0)
-		ret = rt5081_i2c_write8(tcpc_dev, RT5081_REG_CLK_CTRL2, clk2);
+		ret = rt5081_i2c_write8(tcpc, RT5081_REG_CLK_CTRL2, clk2);
 	if (ret == 0)
-		ret = rt5081_i2c_write8(tcpc_dev, RT5081_REG_CLK_CTRL3, clk3);
+		ret = rt5081_i2c_write8(tcpc, RT5081_REG_CLK_CTRL3, clk3);
 #endif	/* CONFIG_TCPC_CLOCK_GATING */
 
 	return ret;
@@ -673,7 +674,7 @@ static inline int rt5081_init_cc_params(
 	int rv = 0;
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
-#ifdef CONFIG_USB_PD_SNK_DFT_NO_GOOD_CRC
+#if CONFIG_USB_PD_SNK_DFT_NO_GOOD_CRC
 	uint8_t en, sel;
 	struct rt5081_chip *chip = tcpc_get_dev_data(tcpc);
 
@@ -720,7 +721,7 @@ static int rt5081_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	/* For BIST, Change Transition Toggle Counter (Noise) from 3 to 7 */
 	rt5081_i2c_write8(tcpc, RT5081_REG_PHY_CTRL1, 0x71);
 
-#ifdef CONFIG_TCPC_I2CRST_EN
+#if CONFIG_TCPC_I2CRST_EN
 	rt5081_i2c_write8(tcpc,
 		RT5081_REG_I2CRST_CTRL,
 		RT5081_REG_I2CRST_SET(true, 0x0f));
@@ -988,7 +989,7 @@ static int rt5081_set_vconn(struct tcpc_device *tcpc, int enable)
 	if (rv < 0)
 		return rv;
 
-#ifndef CONFIG_TCPC_IDLE_MODE
+#if !CONFIG_TCPC_IDLE_MODE
 	rv = rt5081_i2c_write8(tcpc, RT5081_REG_IDLE_CTRL,
 		RT5081_REG_IDLE_SET(0, 1, enable ? 0 : 1, 2));
 #endif /* CONFIG_TCPC_IDLE_MODE */
@@ -1000,9 +1001,9 @@ static int rt5081_set_vconn(struct tcpc_device *tcpc, int enable)
 }
 
 #if CONFIG_TCPC_LOW_POWER_MODE
-static int rt5081_is_low_power_mode(struct tcpc_device *tcpc_dev)
+static int rt5081_is_low_power_mode(struct tcpc_device *tcpc)
 {
-	int rv = rt5081_i2c_read8(tcpc_dev, RT5081_REG_BMC_CTRL);
+	int rv = rt5081_i2c_read8(tcpc, RT5081_REG_BMC_CTRL);
 
 	if (rv < 0)
 		return rv;
@@ -1011,7 +1012,7 @@ static int rt5081_is_low_power_mode(struct tcpc_device *tcpc_dev)
 }
 
 static int rt5081_set_low_power_mode(
-		struct tcpc_device *tcpc_dev, bool en, int pull)
+		struct tcpc_device *tcpc, bool en, int pull)
 {
 	int rv = 0;
 	uint8_t data;
@@ -1025,44 +1026,44 @@ static int rt5081_set_low_power_mode(
 		data = RT5081_REG_BMCIO_BG_EN |
 			RT5081_REG_VBUS_DET_EN | RT5081_REG_BMCIO_OSC_EN;
 
-	rv = rt5081_i2c_write8(tcpc_dev, RT5081_REG_BMC_CTRL, data);
+	rv = rt5081_i2c_write8(tcpc, RT5081_REG_BMC_CTRL, data);
 	return rv;
 }
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
 
-#ifdef CONFIG_TCPC_WATCHDOG_EN
-int rt5081_set_watchdog(struct tcpc_device *tcpc_dev, bool en)
+#if CONFIG_TCPC_WATCHDOG_EN
+int rt5081_set_watchdog(struct tcpc_device *tcpc, bool en)
 {
 	uint8_t data = RT5081_REG_WATCHDOG_CTRL_SET(en, 7);
 
-	return rt5081_i2c_write8(tcpc_dev,
+	return rt5081_i2c_write8(tcpc,
 		RT5081_REG_WATCHDOG_CTRL, data);
 }
 #endif	/* CONFIG_TCPC_WATCHDOG_EN */
 
-#ifdef CONFIG_TCPC_INTRST_EN
-int rt5081_set_intrst(struct tcpc_device *tcpc_dev, bool en)
+#if CONFIG_TCPC_INTRST_EN
+int rt5081_set_intrst(struct tcpc_device *tcpc, bool en)
 {
-	return rt5081_i2c_write8(tcpc_dev,
+	return rt5081_i2c_write8(tcpc,
 		RT5081_REG_INTRST_CTRL, RT5081_REG_INTRST_SET(en, 3));
 }
 #endif	/* CONFIG_TCPC_INTRST_EN */
 
-static int rt5081_tcpc_deinit(struct tcpc_device *tcpc_dev)
+static int rt5081_tcpc_deinit(struct tcpc_device *tcpc)
 {
 #if CONFIG_TCPC_SHUTDOWN_CC_DETACH
-	rt5081_set_cc(tcpc_dev, TYPEC_CC_DRP);
-	rt5081_set_cc(tcpc_dev, TYPEC_CC_OPEN);
+	rt5081_set_cc(tcpc, TYPEC_CC_DRP);
+	rt5081_set_cc(tcpc, TYPEC_CC_OPEN);
 
-	rt5081_i2c_write8(tcpc_dev,
+	rt5081_i2c_write8(tcpc,
 		RT5081_REG_I2CRST_CTRL,
 		RT5081_REG_I2CRST_SET(true, 4));
 
-	rt5081_i2c_write8(tcpc_dev,
+	rt5081_i2c_write8(tcpc,
 		RT5081_REG_INTRST_CTRL,
 		RT5081_REG_INTRST_SET(true, 0));
 #else
-	rt5081_i2c_write8(tcpc_dev, RT5081_REG_SWRESET, 1);
+	rt5081_i2c_write8(tcpc, RT5081_REG_SWRESET, 1);
 #endif	/* CONFIG_TCPC_SHUTDOWN_CC_DETACH */
 
 	return 0;
@@ -1079,11 +1080,11 @@ static int rt5081_set_msg_header(
 		tcpc, TCPC_V10_REG_MSG_HDR_INFO, msg_hdr);
 }
 
-static int rt5081_protocol_reset(struct tcpc_device *tcpc_dev)
+static int rt5081_protocol_reset(struct tcpc_device *tcpc)
 {
-	rt5081_i2c_write8(tcpc_dev, RT5081_REG_PRL_FSM_RESET, 0);
+	rt5081_i2c_write8(tcpc, RT5081_REG_PRL_FSM_RESET, 0);
 	mdelay(1);
-	rt5081_i2c_write8(tcpc_dev, RT5081_REG_PRL_FSM_RESET, 1);
+	rt5081_i2c_write8(tcpc, RT5081_REG_PRL_FSM_RESET, 1);
 	return 0;
 }
 
@@ -1221,11 +1222,11 @@ static struct tcpc_ops rt5081_tcpc_ops = {
 	.set_low_power_mode = rt5081_set_low_power_mode,
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
 
-#ifdef CONFIG_TCPC_WATCHDOG_EN
+#if CONFIG_TCPC_WATCHDOG_EN
 	.set_watchdog = rt5081_set_watchdog,
 #endif	/* CONFIG_TCPC_WATCHDOG_EN */
 
-#ifdef CONFIG_TCPC_INTRST_EN
+#if CONFIG_TCPC_INTRST_EN
 	.set_intrst = rt5081_set_intrst,
 #endif	/* CONFIG_TCPC_INTRST_EN */
 
@@ -1261,7 +1262,7 @@ static int rt_parse_dt(struct rt5081_chip *chip, struct device *dev)
 		return -ENODEV;
 	}
 
-#if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
+#if IS_ENABLED(CONFIG_MTK_GPIO) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
 	ret = of_get_named_gpio(np, "rt5081pd,intr_gpio", 0);
 	if (ret < 0) {
 		pr_err("%s no intr_gpio info\n", __func__);
@@ -1555,7 +1556,7 @@ static int rt5081_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if CONFIG_PM
 static int rt5081_i2c_suspend(struct device *dev)
 {
 	struct rt5081_chip *chip;
@@ -1599,7 +1600,7 @@ static void rt5081_shutdown(struct i2c_client *client)
 	}
 }
 
-#ifdef CONFIG_PM_RUNTIME
+#if IS_ENABLED(CONFIG_PM_RUNTIME)
 static int rt5081_pm_suspend_runtime(struct device *device)
 {
 	dev_dbg(device, "pm_runtime: suspending...\n");
@@ -1618,7 +1619,7 @@ static const struct dev_pm_ops rt5081_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(
 			rt5081_i2c_suspend,
 			rt5081_i2c_resume)
-#ifdef CONFIG_PM_RUNTIME
+#if IS_ENABLED(CONFIG_PM_RUNTIME)
 	SET_RUNTIME_PM_OPS(
 		rt5081_pm_suspend_runtime,
 		rt5081_pm_resume_runtime,

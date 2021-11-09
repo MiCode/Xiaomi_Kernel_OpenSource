@@ -15,10 +15,6 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
-#include <linux/usb/class-dual-role.h>
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
-
 #include "tcpci_core.h"
 
 #if IS_ENABLED(CONFIG_PD_DBG_INFO)
@@ -41,7 +37,6 @@ extern int tcpci_set_wake_lock(
 extern int tcpci_report_power_control(struct tcpc_device *tcpc, bool en);
 extern int tcpc_typec_init(struct tcpc_device *tcpc, uint8_t typec_role);
 extern void tcpc_typec_deinit(struct tcpc_device *tcpc);
-extern int tcpc_dual_role_phy_init(struct tcpc_device *tcpc);
 
 extern struct tcpc_device *tcpc_device_register(
 		struct device *parent, struct tcpc_desc *tcpc_desc,
@@ -86,7 +81,6 @@ int tcpci_set_vconn(struct tcpc_device *tcpc, int enable);
 
 int tcpci_is_low_power_mode(struct tcpc_device *tcpc);
 int tcpci_set_low_power_mode(struct tcpc_device *tcpc, bool en, int pull);
-int tcpci_idle_poll_ctrl(struct tcpc_device *tcpc, bool en, bool lock);
 int tcpci_set_watchdog(struct tcpc_device *tcpc, bool en);
 int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc);
 int tcpci_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en);
@@ -95,10 +89,16 @@ int tcpci_get_vbus_voltage(struct tcpc_device *tcpc, u32 *vbus);
 int tcpci_is_vsafe0v(struct tcpc_device *tcpc);
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
+#if CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc);
 int tcpci_set_water_protection(struct tcpc_device *tcpc, bool en);
 int tcpci_set_usbid_polling(struct tcpc_device *tcpc, bool en);
 int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected);
+#endif /* CONFIG_WATER_DETECTION */
+
+#if CONFIG_CABLE_TYPE_DETECTION
+int tcpci_notify_cable_type(struct tcpc_device *tcpc);
+#endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 int tcpci_notify_fod_status(struct tcpc_device *tcpc);
 
@@ -106,8 +106,6 @@ int tcpci_notify_typec_otp(struct tcpc_device *tcpc);
 
 int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en);
 int tcpci_notify_plug_out(struct tcpc_device *tcpc);
-
-int tcpci_notify_cable_type(struct tcpc_device *tcpc);
 
 int tcpci_set_floating_ground(struct tcpc_device *tcpc, bool en);
 
@@ -150,11 +148,8 @@ int tcpci_source_vbus(struct tcpc_device *tcpc, uint8_t type, int mv, int ma);
 int tcpci_sink_vbus(struct tcpc_device *tcpc, uint8_t type, int mv, int ma);
 int tcpci_disable_vbus_control(struct tcpc_device *tcpc);
 int tcpci_notify_attachwait_state(struct tcpc_device *tcpc, bool as_sink);
-int tcpci_enable_ext_discharge(struct tcpc_device *tcpc, bool en);
 int tcpci_enable_auto_discharge(struct tcpc_device *tcpc, bool en);
-int __tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
 int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
-int tcpci_disable_force_discharge(struct tcpc_device *tcpc);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
@@ -164,7 +159,7 @@ int tcpci_enter_mode(struct tcpc_device *tcpc,
 	uint16_t svid, uint8_t ops, uint32_t mode);
 int tcpci_exit_mode(struct tcpc_device *tcpc, uint16_t svid);
 
-#ifdef CONFIG_USB_PD_ALT_MODE
+#if CONFIG_USB_PD_ALT_MODE
 int tcpci_report_hpd_state(struct tcpc_device *tcpc, uint32_t dp_status);
 int tcpci_dp_status_update(struct tcpc_device *tcpc, uint32_t dp_status);
 int tcpci_dp_configure(struct tcpc_device *tcpc, uint32_t dp_config);
@@ -178,25 +173,25 @@ int tcpci_dp_notify_config_done(struct tcpc_device *tcpc,
 	uint32_t local_cfg, uint32_t remote_cfg, bool ack);
 #endif	/* CONFIG_USB_PD_ALT_MODE */
 
-#ifdef CONFIG_USB_PD_CUSTOM_VDM
+#if CONFIG_USB_PD_CUSTOM_VDM
 int tcpci_notify_uvdm(struct tcpc_device *tcpc, bool ack);
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
 
-#ifdef CONFIG_USB_PD_ALT_MODE_RTDC
+#if CONFIG_USB_PD_ALT_MODE_RTDC
 int tcpci_dc_notify_en_unlock(struct tcpc_device *tcpc);
 #endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
 #if CONFIG_USB_PD_REV30
 
-#ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
+#if CONFIG_USB_PD_REV30_ALERT_REMOTE
 int tcpci_notify_alert(struct tcpc_device *tcpc, uint32_t ado);
 #endif	/* CONFIG_USB_PD_REV30_ALERT_REMOTE */
 
-#ifdef CONFIG_USB_PD_REV30_STATUS_REMOTE
+#if CONFIG_USB_PD_REV30_STATUS_REMOTE
 int tcpci_notify_status(struct tcpc_device *tcpc, struct pd_status *sdb);
 #endif	/* CONFIG_USB_PD_REV30_STATUS_REMOTE */
 
-#ifdef CONFIG_USB_PD_REV30_BAT_INFO
+#if CONFIG_USB_PD_REV30_BAT_INFO
 int tcpci_notify_request_bat_info(
 	struct tcpc_device *tcpc, enum pd_battery_reference ref);
 #endif	/* CONFIG_USB_PD_REV30_BAT_INFO */

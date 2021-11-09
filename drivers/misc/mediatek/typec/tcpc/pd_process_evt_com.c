@@ -3,16 +3,18 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "inc/pd_core.h"
 #include "inc/tcpci_event.h"
 #include "inc/pd_process_evt.h"
 #include "inc/pd_dpm_core.h"
 
+#define NEVER 0
 /*
  * [BLOCK] DRP (dr_swap, pr_swap, vconn_swap)
  */
 
-#ifdef CONFIG_USB_PD_DR_SWAP
+#if CONFIG_USB_PD_DR_SWAP
 static inline bool pd_evaluate_reject_dr_swap(struct pd_port *pd_port)
 {
 	if (pd_port->dpm_caps & DPM_CAP_LOCAL_DR_DATA) {
@@ -26,7 +28,7 @@ static inline bool pd_evaluate_reject_dr_swap(struct pd_port *pd_port)
 }
 #endif	/* CONFIG_USB_PD_DR_SWAP */
 
-#ifdef CONFIG_USB_PD_PR_SWAP
+#if CONFIG_USB_PD_PR_SWAP
 static inline bool pd_evaluate_reject_pr_swap(struct pd_port *pd_port)
 {
 	if (pd_port->dpm_caps & DPM_CAP_LOCAL_DR_POWER) {
@@ -40,7 +42,7 @@ static inline bool pd_evaluate_reject_pr_swap(struct pd_port *pd_port)
 }
 #endif	/* CONFIG_USB_PD_PR_SWAP */
 
-#ifdef CONFIG_USB_PD_VCONN_SWAP
+#if CONFIG_USB_PD_VCONN_SWAP
 static inline bool pd_evaluate_accept_vconn_swap(struct pd_port *pd_port)
 {
 	if (pd_port->dpm_caps & DPM_CAP_LOCAL_VCONN_SUPPLY)
@@ -58,7 +60,7 @@ static inline bool pd_process_ctrl_msg_dr_swap(
 		return true;
 	}
 
-#ifdef CONFIG_USB_PD_DR_SWAP
+#if CONFIG_USB_PD_DR_SWAP
 	if (!pd_check_pe_state_ready(pd_port))
 		return false;
 
@@ -80,7 +82,7 @@ static inline bool pd_process_ctrl_msg_dr_swap(
 static inline bool pd_process_ctrl_msg_pr_swap(
 		struct pd_port *pd_port, struct pd_event *pd_event)
 {
-#ifdef CONFIG_USB_PD_PR_SWAP
+#if CONFIG_USB_PD_PR_SWAP
 	if (!pd_evaluate_reject_pr_swap(pd_port)) {
 		pd_port->pe_data.during_swap = false;
 		pd_port->state_machine = PE_STATE_MACHINE_PR_SWAP;
@@ -96,7 +98,7 @@ static inline bool pd_process_ctrl_msg_pr_swap(
 static inline bool pd_process_ctrl_msg_vconn_swap(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
-#ifdef CONFIG_USB_PD_VCONN_SWAP
+#if CONFIG_USB_PD_VCONN_SWAP
 	if (!pd_check_pe_state_ready(pd_port))
 		return false;
 
@@ -107,14 +109,12 @@ static inline bool pd_process_ctrl_msg_vconn_swap(
 	}
 #endif	/* CONFIG_USB_PD_VCONN_SWAP */
 
-	if (pd_check_rev30(pd_port)) {
-		PE_TRANSIT_STATE(pd_port,
-			(pd_port->power_role == PD_ROLE_SINK) ?
-			PE_SNK_SEND_NOT_SUPPORTED : PE_SRC_SEND_NOT_SUPPORTED);
-	} else
+	if (!pd_check_rev30(pd_port)) {
 		PE_TRANSIT_STATE(pd_port, PE_REJECT);
+		return true;
+	}
 
-	return true;
+	return false;
 }
 
 /*
@@ -124,26 +124,37 @@ static inline bool pd_process_ctrl_msg_vconn_swap(
 static inline bool pd_process_data_msg_bist(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	if (pd_port->request_v > 5000) {
-		PE_INFO("bist_not_vsafe5v\r\n");
+		PE_INFO("bist_not_vsafe5v\n");
 		return false;
 	}
 
 	switch (BDO_MODE(pd_event->pd_msg->payload[0])) {
 	case BDO_MODE_TEST_DATA:
-		PE_DBG("bist_test\r\n");
+		PE_DBG("bist_test\n");
 		PE_TRANSIT_STATE(pd_port, PE_BIST_TEST_DATA);
 		pd_noitfy_pe_bist_mode(pd_port, PD_BIST_MODE_TEST_DATA);
 		return true;
 
 	case BDO_MODE_CARRIER2:
-		PE_DBG("bist_cm2\r\n");
+		PE_DBG("bist_cm2\n");
 		PE_TRANSIT_STATE(pd_port, PE_BIST_CARRIER_MODE_2);
 		pd_noitfy_pe_bist_mode(pd_port, PD_BIST_MODE_DISABLE);
 		return true;
 
 	default:
-		PE_DBG("Unsupport BIST\r\n");
+#if NEVER
+	case BDO_MODE_RECV:
+	case BDO_MODE_TRANSMIT:
+	case BDO_MODE_COUNTERS:
+	case BDO_MODE_CARRIER0:
+	case BDO_MODE_CARRIER1:
+	case BDO_MODE_CARRIER3:
+	case BDO_MODE_EYE:
+#endif /* NEVER */
+		PE_DBG("Unsupport BIST\n");
 		pd_noitfy_pe_bist_mode(pd_port, PD_BIST_MODE_DISABLE);
 		return false;
 	}
@@ -180,7 +191,7 @@ static inline bool pd_process_ctrl_msg_wait(struct pd_port *pd_port)
 
 static bool pd_process_tx_msg(struct pd_port *pd_port, uint8_t msg)
 {
-#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+#if CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
 	if (msg != PD_HW_TX_DISCARD)
 		pd_port->pe_data.pd_sent_ams_init_cmd = true;
 
@@ -260,7 +271,7 @@ static inline bool pd_process_ctrl_msg(
 		if (!pd_port->pe_data.during_swap &&
 			!pd_check_pe_during_hard_reset(pd_port)) {
 
-#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+#if CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
 			if (pd_is_pe_wait_pd_transmit_done(pd_port)) {
 				PE_TRANSIT_STATE(pd_port,
 						 PE_RECV_SOFT_RESET_TX_WAIT);
@@ -288,7 +299,7 @@ static inline bool pd_process_ctrl_msg(
 
 #if CONFIG_USB_PD_REV30
 
-#ifdef CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL
+#if CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL
 	case PD_CTRL_GET_COUNTRY_CODE:
 		if (pd_port->country_nr) {
 			ret = PE_MAKE_STATE_TRANSIT_SINGLE(
@@ -309,7 +320,7 @@ static inline bool pd_process_ctrl_msg(
 			return true;
 		} else if (pd_port->pe_data.vdm_state_timer) {
 			vdm_put_pe_event(
-				pd_port->tcpc_dev, PD_PE_VDM_NOT_SUPPORT);
+				pd_port->tcpc, PD_PE_VDM_NOT_SUPPORT);
 		}
 		break;
 #endif	/* CONFIG_USB_PD_REV30 */
@@ -337,21 +348,20 @@ static inline bool pd_process_data_msg(
 #endif	/* CONFIG_USB_PD_REV30 */
 
 	switch (pd_event->msg) {
-
 	case PD_DATA_BIST:
 		if (pd_port->pe_state_curr == ready_state)
 			ret = pd_process_data_msg_bist(pd_port, pd_event);
 		break;
 
 #if CONFIG_USB_PD_REV30
-#ifdef CONFIG_USB_PD_REV30_BAT_STATUS_REMOTE
+#if CONFIG_USB_PD_REV30_BAT_STATUS_REMOTE
 	case PD_DATA_BAT_STATUS:
 		ret = PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_GET_BATTERY_STATUS, ready_state);
 		break;
 #endif	/* CONFIG_USB_PD_REV30_BAT_STATUS_REMOTE */
 
-#ifdef CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL
+#if CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL
 	case PD_DATA_GET_COUNTRY_INFO:
 		if (pd_port->country_nr) {
 			ret = PE_MAKE_STATE_TRANSIT_SINGLE(
@@ -376,27 +386,22 @@ static inline bool pd_process_ext_msg(
 	bool ret = false;
 	uint8_t ready_state = pe_get_curr_ready_state(pd_port);
 
-#if CONFIG_USB_PD_REV30
 	if (!pd_check_rev30(pd_port)) {
 		pd_event->msg = PD_DATA_MSG_NR;
 		return false;
 	}
-#endif	/* CONFIG_USB_PD_REV30 */
 
-#if CONFIG_USB_PD_REV30
-#ifndef CONFIG_USB_PD_REV30_CHUNKING_BY_PE
+#if !CONFIG_USB_PD_REV30_CHUNKING_BY_PE
 	if (pd_port->pe_state_curr == ready_state &&
-		pd_check_rev30(pd_port) &&
 		pd_is_multi_chunk_msg(pd_port)) {
 		pd_port->curr_unsupported_msg = true;
 		return pd_process_protocol_error(pd_port, pd_event);
 	}
 #endif	/* CONFIG_USB_PD_REV30_CHUNKING_BY_PE */
-#endif	/* CONFIG_USB_PD_REV30 */
 
 	switch (pd_event->msg) {
 
-#ifdef CONFIG_USB_PD_REV30_BAT_CAP_LOCAL
+#if CONFIG_USB_PD_REV30_BAT_CAP_LOCAL
 	case PD_EXT_GET_BAT_CAP:
 		if (pd_port->bat_nr) {
 			ret = PE_MAKE_STATE_TRANSIT_SINGLE(
@@ -405,7 +410,7 @@ static inline bool pd_process_ext_msg(
 		break;
 #endif	/* CONFIG_USB_PD_REV30_BAT_CAP_LOCAL */
 
-#ifdef CONFIG_USB_PD_REV30_BAT_STATUS_LOCAL
+#if CONFIG_USB_PD_REV30_BAT_STATUS_LOCAL
 	case PD_EXT_GET_BAT_STATUS:
 		if (pd_port->bat_nr) {
 			ret = PE_MAKE_STATE_TRANSIT_SINGLE(
@@ -414,35 +419,35 @@ static inline bool pd_process_ext_msg(
 		break;
 #endif	/* CONFIG_USB_PD_REV30_BAT_STATUS_LOCAL */
 
-#ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
+#if CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
 	case PD_EXT_BAT_CAP:
 		ret = PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_GET_BATTERY_CAP, ready_state);
 		break;
 #endif	/* CONFIG_USB_PD_REV30_BAT_CAP_REMOTE */
 
-#ifdef CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL
+#if CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL
 	case PD_EXT_GET_MFR_INFO:
 		ret = PE_MAKE_STATE_TRANSIT_SINGLE(
 			ready_state, PE_GIVE_MANUFACTURER_INFO);
 		break;
 #endif	/* CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL */
 
-#ifdef CONFIG_USB_PD_REV30_MFRS_INFO_REMOTE
+#if CONFIG_USB_PD_REV30_MFRS_INFO_REMOTE
 	case PD_EXT_MFR_INFO:
 		ret = PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_GET_MANUFACTURER_INFO, ready_state);
 		break;
 #endif	/* CONFIG_USB_PD_REV30_MFRS_INFO_REMOTE */
 
-#ifdef CONFIG_USB_PD_REV30_COUNTRY_INFO_REMOTE
+#if CONFIG_USB_PD_REV30_COUNTRY_INFO_REMOTE
 	case PD_EXT_COUNTRY_INFO:
 		ret = PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_GET_COUNTRY_INFO, ready_state);
 		break;
 #endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_REMOTE */
 
-#ifdef CONFIG_USB_PD_REV30_COUNTRY_CODE_REMOTE
+#if CONFIG_USB_PD_REV30_COUNTRY_CODE_REMOTE
 	case PD_EXT_COUNTRY_CODES:
 		ret = PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_GET_COUNTRY_CODES, ready_state);
@@ -465,7 +470,7 @@ static inline bool pd_process_dpm_msg(
 
 	switch (pd_event->msg) {
 	case PD_DPM_ACK:
-#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+#if CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
 		if (pd_port->pe_state_curr == PE_SEND_SOFT_RESET_STANDBY) {
 			pe_transit_soft_reset_state(pd_port);
 			return true;
@@ -499,7 +504,7 @@ static inline bool pd_process_dpm_msg(
 static inline bool pd_process_recv_hard_reset(
 		struct pd_port *pd_port, struct pd_event *pd_event)
 {
-#ifdef CONFIG_USB_PD_RECV_HRESET_COUNTER
+#if CONFIG_USB_PD_RECV_HRESET_COUNTER
 	if (pd_port->pe_data.recv_hard_reset_count > PD_HARD_RESET_COUNT) {
 		PE_TRANSIT_STATE(pd_port, PE_OVER_RECV_HRESET_LIMIT);
 		return true;
@@ -508,7 +513,7 @@ static inline bool pd_process_recv_hard_reset(
 	pd_port->pe_data.recv_hard_reset_count++;
 #endif	/* CONFIG_USB_PD_RECV_HRESET_COUNTER */
 
-#ifdef CONFIG_USB_PD_RENEGOTIATION_COUNTER
+#if CONFIG_USB_PD_RENEGOTIATION_COUNTER
 	if (pd_check_pe_during_hard_reset(pd_port))
 		pd_port->pe_data.renegotiation_count++;
 #endif	/* CONFIG_USB_PD_RENEGOTIATION_COUNTER */
@@ -520,9 +525,11 @@ static inline bool pd_process_recv_hard_reset(
 static bool pd_process_hw_msg_tx_failed_discard(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
-#ifdef CONFIG_USB_PD_RENEGOTIATION_COUNTER
+#if CONFIG_USB_PD_RENEGOTIATION_COUNTER
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	if (pd_port->pe_data.renegotiation_count > PD_HARD_RESET_COUNT) {
-		PE_INFO("renegotiation failed\r\n");
+		PE_INFO("renegotiation failed\n");
 		PE_TRANSIT_STATE(pd_port, PE_ERROR_RECOVERY);
 		return true;
 	}
@@ -568,26 +575,45 @@ static inline bool pd_process_hw_msg(
 static inline bool pd_check_rx_pending(struct pd_port *pd_port)
 {
 	bool pending = false;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-#ifdef CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT
 	uint32_t alert;
+	int timeout = -1;
 
-	if (tcpci_get_alert_status(pd_port->tcpc_dev, &alert))
+	if (tcpci_get_alert_status(tcpc, &alert))
 		return false;
 
 	if (alert & TCPC_REG_ALERT_RX_STATUS) {
-		PE_INFO("rx_pending\r\n");
+		PE_INFO("rx_pending\n");
 		pending = true;
-	} else if (!pd_is_msg_empty(pd_port->tcpc_dev)) {
-		PE_INFO("rx_pending2\r\n");
+	} else if (!pd_is_msg_empty(tcpc)) {
+		PE_INFO("rx_pending2\n");
 		pending = true;
+	} else if (!tcpc->alert_done.done) {
+		pending = true;
+		/* alert thread is handling, but not sure is TXRX event
+		 * just for not block TXRX event ASAP
+		 */
+		PE_INFO("alert_pending3\n");
+		timeout =
+		wait_for_completion_interruptible_timeout(&tcpc->alert_done,
+			usecs_to_jiffies(CONFIG_USB_PD_TRY_TIMEDELAY_IF_SRTOUT));
+		PE_INFO("timeout = %d\n", timeout);
+		/* if really timeout,
+		 * timer need to handle without waiting for alert event
+		 */
+		if (timeout <= 0)
+			pending = false;
 	}
 
-#ifndef CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY
-	if (pending)
-		pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
+	if (pending) {
+#if CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY
+		if (tcpc->alert_max_access_time >
+				CONFIG_USB_PD_TRY_TIMEDELAY_MAX)
+			/*if alert may prcess long, restart timer*/
+			pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
 #endif /* CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY */
-#endif	/* CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT */
+	}
 
 	return pending;
 }
@@ -598,18 +624,11 @@ static inline bool pd_process_timer_msg(
 	uint8_t ready_state = pe_get_curr_ready_state(pd_port);
 
 	switch (pd_event->msg) {
-#ifndef CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
+#if !CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	case PD_TIMER_SENDER_RESPONSE:
 
-#ifdef CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT
-#ifndef CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY
 		if (pd_check_rx_pending(pd_port))
 			return false;
-#else
-		pd_check_rx_pending(pd_port);
-#endif	/* CONFIG_USB_PD_PRINT_SYSTEM_BUSY */
-#endif	/* CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT */
-
 
 		pd_cancel_dpm_reaction(pd_port);
 		pd_notify_pe_cancel_pr_swap(pd_port);
@@ -633,7 +652,7 @@ static inline bool pd_process_timer_msg(
 			return true;
 		break;
 
-#ifdef CONFIG_USB_PD_DFP_FLOW_DELAY
+#if CONFIG_USB_PD_DFP_FLOW_DELAY
 	case PD_TIMER_DFP_FLOW_DELAY:
 		if (pd_port->pe_state_curr == ready_state &&
 			pd_port->data_role == PD_ROLE_DFP) {
@@ -644,7 +663,7 @@ static inline bool pd_process_timer_msg(
 		break;
 #endif	/* CONFIG_USB_PD_DFP_FLOW_DELAY */
 
-#ifdef CONFIG_USB_PD_UFP_FLOW_DELAY
+#if CONFIG_USB_PD_UFP_FLOW_DELAY
 	case PD_TIMER_UFP_FLOW_DELAY:
 		if (pd_port->pe_state_curr == ready_state &&
 			pd_port->data_role == PD_ROLE_UFP) {
@@ -655,10 +674,10 @@ static inline bool pd_process_timer_msg(
 		break;
 #endif	/* CONFIG_USB_PD_UFP_FLOW_DELAY */
 
-#ifdef CONFIG_USB_PD_VCONN_STABLE_DELAY
+#if CONFIG_USB_PD_VCONN_STABLE_DELAY
 	case PD_TIMER_VCONN_STABLE:
 		if (pd_port->vconn_role == PD_ROLE_VCONN_DYNAMIC_ON) {
-			pd_port->vconn_role = PD_ROLE_VCONN_ON;
+			pd_set_vconn(pd_port, PD_ROLE_VCONN_ON);
 			dpm_reaction_set_clear(pd_port,
 				DPM_REACTION_CAP_READY_ONCE,
 				DPM_REACTION_VCONN_STABLE_DELAY);
@@ -666,13 +685,14 @@ static inline bool pd_process_timer_msg(
 		break;
 #endif	/* CONFIG_USB_PD_VCONN_STABLE_DELAY */
 
-#if defined(CONFIG_USB_PD_REV30) && defined(CONFIG_USB_PD_REV30_COLLISION_AVOID)
+#if CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30_COLLISION_AVOID
 	case PD_TIMER_DEFERRED_EVT:
 		pd_notify_tcp_event_buf_reset(
 			pd_port, TCP_DPM_RET_DROP_PE_BUSY);
 		break;
-#endif
-
+#endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
+#endif	/* CONFIG_USB_PD_REV30 */
 	default:
 		break;
 	}
@@ -708,3 +728,4 @@ bool pd_process_event_com(
 		return false;
 	}
 }
+#endif /* CONFIG_USB_POWER_DELIVERY */

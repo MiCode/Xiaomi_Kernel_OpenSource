@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
-
 #include "inc/pd_core.h"
 #include "inc/pd_dpm_core.h"
 #include "inc/tcpci.h"
@@ -46,7 +45,7 @@ void pe_vcs_turn_off_vconn_entry(struct pd_port *pd_port)
 void pe_vcs_turn_on_vconn_entry(struct pd_port *pd_port)
 {
 #if CONFIG_USB_PD_REV30
-#ifdef CONFIG_USB_PD_RESET_CABLE
+#if CONFIG_USB_PD_RESET_CABLE
 	dpm_reaction_set(pd_port, DPM_REACTION_CAP_RESET_CABLE);
 #endif	/* CONFIG_USB_PD_RESET_CABLE */
 #endif	/* CONFIG_USB_PD_REV30 */

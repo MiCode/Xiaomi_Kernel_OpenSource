@@ -54,7 +54,7 @@ struct svdm_svid_ops {
 	bool (*notify_pe_shutdown)(struct pd_port *pd_port,
 		struct svdm_svid_data *svid_data);
 
-#ifdef CONFIG_USB_PD_CUSTOM_VDM
+#if CONFIG_USB_PD_CUSTOM_VDM
 	bool (*dfp_notify_uvdm)(struct pd_port *pd_port,
 		struct svdm_svid_data *svid_data, bool ack);
 
@@ -76,7 +76,7 @@ static inline bool dpm_check_data_msg_event(
 		pd_get_curr_pd_event(pd_port), msg);
 }
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 static inline bool dpm_check_ext_msg_event(
 	struct pd_port *pd_port, uint8_t msg)
 {
