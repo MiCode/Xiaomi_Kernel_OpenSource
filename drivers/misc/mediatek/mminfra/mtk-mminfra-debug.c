@@ -102,6 +102,11 @@ static void mminfra_clk_set(bool is_enable)
 	}
 }
 
+static bool is_mminfra_power_on(void)
+{
+	return (atomic_read(&clk_ref_cnt) > 0);
+}
+
 static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
@@ -360,6 +365,8 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 		}
 		cmdq_util_mminfra_cmd(0);
 	}
+
+	cmdq_get_mminfra_cb(is_mminfra_power_on);
 
 	if (mminfra_bkrs == 1) {
 		mtk_pd_notifier.notifier_call = mtk_mminfra_pd_callback;
