@@ -258,6 +258,52 @@ static u32	smi_comm_regs[SMI_COMM_REGS_NR] = {
 	SMI_TIMEOUT, SMI_TIMEOUT_CNT, SMI_AST_STA, SMI_AST_STA_CLR
 };
 
+/* RSI */
+#define RSI_INTLV_CON			(0x0)
+#define RSI_DCM_CON			(0x4)
+#define RSI_DS_PM_CON			(0x8)
+#define RSI_MISC_CON			(0xc)
+#define RSI_STA				(0x10)
+#define RSI_TEST_CON			(0x60)
+#define RSI_AWOSTD_M0			(0x80)
+#define RSI_AWOSTD_M1			(0x84)
+
+#define RSI_AWOSTD_S			(0x90)
+#define RSI_WOSTD_M0			(0xa0)
+#define RSI_WOSTD_M1			(0xa4)
+#define RSI_WOSTD_S			(0xb0)
+#define RSI_AROSTD_M0			(0xc0)
+#define RSI_AROSTD_M1			(0xc4)
+#define RSI_AROSTD_S			(0xd0)
+
+#define RSI_WLAST_OWE_CNT_M0		(0xe0)
+#define RSI_WLAST_OWE_CNT_M1		(0xe4)
+#define RSI_WLAST_OWE_CNT_S		(0xf0)
+
+#define RSI_WDAT_CNT_M0			(0x100)
+#define RSI_WDAT_CNT_M1			(0x104)
+#define RSI_WDAT_CNT_S			(0x110)
+#define RSI_RDAT_CNT_M0			(0x120)
+#define RSI_RDAT_CNT_M1			(0x124)
+#define RSI_RDAT_CNT_S			(0x130)
+#define RSI_AXI_DBG_M0			(0x140)
+#define RSI_AXI_DBG_M1			(0x144)
+#define RSI_AXI_DBG_S			(0x150)
+#define RSI_AWOSTD_PSEUDO		(0x180)
+#define RSI_AROSTD_PSEUDO		(0x184)
+
+#define SMI_RSI_REGS_NR	(29)
+static u32	smi_rsi_regs[SMI_RSI_REGS_NR] = {
+	RSI_INTLV_CON, RSI_DCM_CON, RSI_DS_PM_CON, RSI_MISC_CON,
+	RSI_STA, RSI_TEST_CON, RSI_AWOSTD_M0, RSI_AWOSTD_M1,
+	RSI_AWOSTD_S, RSI_WOSTD_M0, RSI_WOSTD_M1, RSI_WOSTD_S,
+	RSI_AROSTD_M0, RSI_AROSTD_M1, RSI_AROSTD_S, RSI_WLAST_OWE_CNT_M0,
+	RSI_WLAST_OWE_CNT_M1, RSI_WLAST_OWE_CNT_S, RSI_WDAT_CNT_M0,
+	RSI_WDAT_CNT_M1, RSI_WDAT_CNT_S, RSI_RDAT_CNT_M0,
+	RSI_RDAT_CNT_M1, RSI_RDAT_CNT_S, RSI_AXI_DBG_M0,
+	RSI_AXI_DBG_M1, RSI_AXI_DBG_S, RSI_AWOSTD_PSEUDO, RSI_AROSTD_PSEUDO
+};
+
 #define SMI_MON_BUS_NR		(4)
 #define SMI_MON_CNT_NR		(9)
 #define SMI_MON_DEC(val, bit)	(((val) >> mon_bit[bit]) & \
@@ -299,6 +345,8 @@ struct mtk_smi_dbg {
 	struct dentry		*fs;
 	struct mtk_smi_dbg_node	larb[MTK_LARB_NR_MAX];
 	struct mtk_smi_dbg_node	comm[MTK_LARB_NR_MAX];
+	struct mtk_smi_dbg_node	rsi[MTK_LARB_NR_MAX];
+
 	u64			exec;
 	u8			frame;
 	struct notifier_block suspend_nb;
@@ -306,27 +354,29 @@ struct mtk_smi_dbg {
 static struct mtk_smi_dbg	*gsmi;
 static u32 smi_force_on;
 
-static void mtk_smi_dbg_print(
-	struct mtk_smi_dbg *smi, const bool larb, const u32 id, bool skip_pm_runtime)
+static void mtk_smi_dbg_print(struct mtk_smi_dbg *smi, const bool larb,
+				const bool rsi, const u32 id, bool skip_pm_runtime)
 {
-	struct mtk_smi_dbg_node	node = larb ? smi->larb[id] : smi->comm[id];
-	const char		*name = larb ? "LARB" : "COMM";
+	struct mtk_smi_dbg_node	node = rsi ? smi->rsi[id] : (larb ? smi->larb[id] : smi->comm[id]);
+	const char		*name = rsi ? "rsi" : (larb ? "LARB" : "COMM");
 	const u32		regs_nr = node.regs_nr;
 
 	char	buf[LINK_MAX + 1] = {0};
 	u32	val, comm_id;
-	s32	i, len, ret;
+	s32	i, len, ret = 0;
 	bool	dump_with = false;
 
 	if (!node.dev || !node.va)
 		return;
 
 	if (!skip_pm_runtime) {
-		ret = pm_runtime_get_if_in_use(node.dev);
-		dev_info(node.dev, "===== %s%u rpm:%d =====\n"
-			, name, id, ret);
-
-		if (ret <= 0) {
+		if (!rsi) {
+			ret = pm_runtime_get_if_in_use(node.dev);
+			dev_info(node.dev, "===== %s%u rpm:%d =====\n"
+				, name, id, ret);
+		} else
+			dev_info(node.dev, "===== %s%u =====\n", name, id);
+		if (ret <= 0 || rsi) {
 			if (of_property_read_u32(node.dev->of_node,
 				"mediatek,dump-with-comm", &comm_id))
 				return;
@@ -377,11 +427,11 @@ static void mtk_smi_dbg_hang_detect_single(
 	s32			i;
 
 	dev_info(node.dev, "%s: larb:%d id:%u\n", __func__, larb, id);
-	mtk_smi_dbg_print(smi, larb, id, false);
+	mtk_smi_dbg_print(smi, larb, false, id, false);
 	if (larb)
 		for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
 			if (smi->comm[i].dev == smi->larb[id].comm) {
-				mtk_smi_dbg_print(smi, !larb, i, false);
+				mtk_smi_dbg_print(smi, !larb, false, i, false);
 				break;
 			}
 		}
@@ -593,7 +643,7 @@ static s32 mtk_smi_dbg_parse(struct platform_device *pdev,
 }
 
 static char	*mtk_smi_dbg_comp[] = {
-	"mediatek,smi-larb", "mediatek,smi-common"
+	"mediatek,smi-larb", "mediatek,smi-common", "mediatek,smi-rsi"
 };
 
 static int smi_dbg_suspend_cb(struct notifier_block *nb,
@@ -602,7 +652,7 @@ static int smi_dbg_suspend_cb(struct notifier_block *nb,
 	bool is_larb = (v != NULL);
 
 	pr_notice("[SMI] %s: %d - %d\n", __func__, is_larb, value);
-	mtk_smi_dbg_print(gsmi, is_larb, value, true);
+	mtk_smi_dbg_print(gsmi, is_larb, false, value, true);
 	return 0;
 }
 
@@ -611,7 +661,9 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 	//struct device_node	*node = NULL, *comm;
 	struct device_node	*node = NULL;
 	struct platform_device	*pdev;
-	s32			larb_nr = 0, comm_nr = 0, id, ret;
+	struct resource	*res;
+	void __iomem	*va;
+	s32			larb_nr = 0, comm_nr = 0, rsi_nr = 0, id, ret;
 
 	pr_info("%s: comp[%d]:%s\n", __func__, 0, mtk_smi_dbg_comp[0]);
 
@@ -653,6 +705,35 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 		if (ret)
 			return ret;
 	}
+
+	for_each_compatible_node(node, NULL, mtk_smi_dbg_comp[2]) {
+		if (!node)
+			return -EINVAL;
+		if (of_property_read_u32(node, "mediatek,rsi-id", &id))
+			id = rsi_nr;
+		rsi_nr += 1;
+
+		pdev = of_find_device_by_node(node);
+		of_node_put(node);
+		if (!pdev)
+			return -EINVAL;
+		smi->rsi[id].dev = &pdev->dev;
+		smi->rsi[id].id = id;
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res)
+			return -EINVAL;
+		smi->rsi[id].pa = res->start;
+
+		va = devm_ioremap(&pdev->dev, res->start, 0x1000);
+		if (IS_ERR(va))
+			return PTR_ERR(va);
+		smi->rsi[id].va = va;
+
+		smi->rsi[id].regs_nr = SMI_RSI_REGS_NR;
+		smi->rsi[id].regs = smi_rsi_regs;
+
+	}
 	smi->suspend_nb.notifier_call = smi_dbg_suspend_cb;
 	mtk_smi_driver_register_notifier(&smi->suspend_nb);
 	return 0;
@@ -690,7 +771,8 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 #if IS_ENABLED(CONFIG_MTK_EMI)
 	mtk_emidbg_dump();
 #endif
-	//mtk_dump_reg_for_hang_issue(0);
+	//mtk_dump_reg_for_hang_issue(0, 0);
+	//mtk_dump_reg_for_hang_issue(0, 1);
 
 	raw_notifier_call_chain(&smi_notifier_list, 0, NULL);
 
@@ -739,11 +821,15 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 
 	for (j = 0; j < PRINT_NR; j++) {
 		for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
-			mtk_smi_dbg_print(smi, true, i, false);
+			mtk_smi_dbg_print(smi, true, false, i, false);
 
 		for (i = 0; i < ARRAY_SIZE(smi->comm); i++)
-			mtk_smi_dbg_print(smi, false, i, false);
+			mtk_smi_dbg_print(smi, false, false, i, false);
+
+		for (i = 0; i < ARRAY_SIZE(smi->rsi); i++)
+			mtk_smi_dbg_print(smi, true, true, i, false);
 	}
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
