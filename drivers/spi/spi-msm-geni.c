@@ -207,6 +207,7 @@ struct spi_geni_master {
 	int num_tx_eot;
 	int num_rx_eot;
 	int num_xfers;
+	bool is_xfer_in_progress;
 	void *ipc;
 	bool gsi_mode; /* GSI Mode */
 	bool shared_ee; /* Dual EE use case */
@@ -1116,7 +1117,8 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 			if (!pm_runtime_enabled(mas->dev)) {
 				SPI_LOG_ERR(mas->ipc, false, mas->dev,
 					"%s: System suspended\n", __func__);
-				return -EACCES;
+				ret = -EACCES;
+				goto exit_prepare_message;
 			}
 
 			ret = pm_runtime_get_sync(mas->dev);
@@ -1149,7 +1151,7 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 			if (ret) {
 				SPI_LOG_ERR(mas->ipc, true, mas->dev,
 					"%s failed: %d\n", __func__, ret);
-				return ret;
+				goto exit_prepare_message;
 			}
 		}
 	}
@@ -1158,7 +1160,8 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 		if (!pm_runtime_enabled(mas->dev)) {
 			SPI_LOG_ERR(mas->ipc, false, mas->dev,
 				"%s: System suspended\n", __func__);
-			return -EACCES;
+			ret = -EACCES;
+			goto exit_prepare_message;
 		}
 
 		ret = pm_runtime_get_sync(mas->dev);
@@ -1169,7 +1172,7 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 			pm_runtime_put_noidle(mas->dev);
 			/* Set device in suspended since resume failed */
 			pm_runtime_set_suspended(mas->dev);
-			return ret;
+			goto exit_prepare_message;
 		}
 	}
 
@@ -1438,10 +1441,13 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 	if (mas->is_le_vm)
 		return 0;
 
+	 mas->is_xfer_in_progress = true;
+
 	/* Client to respect system suspend */
 	if (!pm_runtime_enabled(mas->dev)) {
 		SPI_LOG_ERR(mas->ipc, false, mas->dev,
 			"%s: System suspended\n", __func__);
+		mas->is_xfer_in_progress = false;
 		return -EACCES;
 	}
 
@@ -1470,6 +1476,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 			pm_runtime_put_noidle(mas->dev);
 			/* Set device in suspended since resume failed */
 			pm_runtime_set_suspended(mas->dev);
+			mas->is_xfer_in_progress = false;
 			return ret;
 		}
 
@@ -1478,6 +1485,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 			if (ret) {
 				SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				"%s mas_setup failed: %d\n", __func__, ret);
+				mas->is_xfer_in_progress = false;
 				return ret;
 			}
 		}
@@ -1499,8 +1507,10 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	int count = 0;
 
-	if (mas->shared_ee || mas->is_le_vm)
+	if (mas->shared_ee || mas->is_le_vm) {
+		mas->is_xfer_in_progress = false;
 		return 0;
+	}
 
 	if (mas->gsi_mode) {
 		int ret = 0;
@@ -1527,6 +1537,8 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 		pm_runtime_mark_last_busy(mas->dev);
 		pm_runtime_put_autosuspend(mas->dev);
 	}
+
+	mas->is_xfer_in_progress = false;
 	return 0;
 }
 
@@ -2331,11 +2343,12 @@ static int spi_geni_probe(struct platform_device *pdev)
 	ret = sysfs_create_file(&(geni_mas->dev->kobj),
 			&dev_attr_spi_slave_state.attr);
 
+	geni_mas->is_xfer_in_progress = false;
+
 	dev_info(&pdev->dev, "%s: completed %d\n", __func__, ret);
 	snprintf(boot_marker, sizeof(boot_marker),
 			"M - DRIVER GENI_SPI_%d Ready", spi->bus_num);
 	place_marker(boot_marker);
-
 	return ret;
 spi_geni_probe_err:
 	dev_info(&pdev->dev, "%s: ret:%d\n", __func__, ret);
@@ -2498,10 +2511,16 @@ static int spi_geni_suspend(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
-	if (!pm_runtime_status_suspended(dev)) {
-		SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
-			":%s: runtime PM is active\n", __func__);
-		ret = -EBUSY;
+	if (geni_mas->is_xfer_in_progress) {
+		if (!pm_runtime_status_suspended(dev)) {
+			SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
+				    ":%s: runtime PM is active\n", __func__);
+			ret = -EBUSY;
+			return ret;
+		}
+		SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev,
+			    "%s System suspend not allowed while xfer in progress=%d\n",
+			    __func__, ret);
 		return ret;
 	}
 
