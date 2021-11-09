@@ -12072,6 +12072,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	unsigned int m_id = 0;
 	int ret = 0;
 	unsigned long long irq_debug[8] = {0};
+	static DEFINE_RATELIMIT_STATE(irq_ratelimit, 5 * HZ, 1);
 
 	if (mtk_drm_top_clk_isr_get("mutex_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
@@ -12122,7 +12123,8 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		}
 	}
 
-	if ((sched_clock() - irq_debug[0]) > 1000000) {
+	if (((sched_clock() - irq_debug[0]) > 1000000) &&
+			__ratelimit(&irq_ratelimit)) {
 		DDPMSG("%s > 1 ms, %llu %llu %llu %llu\n",
 			__func__,
 			(irq_debug[2] - irq_debug[1]),
