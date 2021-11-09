@@ -2185,12 +2185,14 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 	if (evt == UFS_EVT_HOST_RESET)
 		hba->wlun_dev_clr_ua = false;
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (evt == UFS_EVT_ABORT && !ufs_abort_aee_count) {
 		ufs_abort_aee_count++;
 		aee_kernel_warning_api(__FILE__,
 			__LINE__, DB_OPT_FS_IO_LOG,
 			"ufshcd_abort", "timeout at tag %d", val);
 	}
+#endif
 }
 
 static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba)
