@@ -319,7 +319,7 @@ static void sys_config_tile_racing(struct mml_task *task,
 	if (ccfg->pipe == 1) {
 		cmdq_pkt_set_event(pkt, sys->event_racing_pipe1);
 		cmdq_pkt_wfe(pkt, sys->event_racing_pipe0);
-	} else if (task->config->dual) {	/* pipe0 + dual */
+	} else if (cfg->dual) {	/* pipe0 + dual */
 		cmdq_pkt_set_event(pkt, sys->event_racing_pipe0);
 		cmdq_pkt_wfe(pkt, sys->event_racing_pipe1);
 	}
@@ -332,8 +332,7 @@ static void sys_config_tile_racing(struct mml_task *task,
 	rhs.value = 1;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_THR_SPR_IDX3, &lhs, &rhs);
 
-	if (ccfg->pipe == 0 && task->config->dual && cfg->disp_dual &&
-	    likely(mml_ir_loop)) {
+	if (ccfg->pipe == 0 && cfg->dual && likely(mml_ir_loop)) {
 		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
 		sys_frm->racing_pipe_conti_jump = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 
@@ -426,7 +425,7 @@ static void sys_racing_addr_update(struct mml_comp *comp, struct mml_task *task,
 			sys_frm->racing_tile0_offset));
 	}
 
-	if (ccfg->pipe == 0 && cfg->dual && cfg->disp_dual && likely(mml_ir_loop)) {
+	if (ccfg->pipe == 0 && cfg->dual && likely(mml_ir_loop)) {
 		inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt,
 			sys_frm->racing_pipe_conti_jump);
 		*inst = (u32)CMDQ_REG_SHIFT_ADDR(cmdq_pkt_get_pa_by_offset(
