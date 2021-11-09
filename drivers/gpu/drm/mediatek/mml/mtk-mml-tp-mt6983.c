@@ -13,10 +13,8 @@
 #include "mtk-mml-core.h"
 
 #define TOPOLOGY_PLATFORM	"mt6983"
-#define MML_DUAL_FRAME		(3840 * 2160)
+#define MML_DUAL_FRAME		(2500 * 1400)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
-/* TODO: mml ir dual not ready, *8 to foce disable, should remove later */
-#define MML_IR_DUAL_FRAME	(2560 * 1440 * 8) /* racing use dual from 2k */
 /* 2k size and pixel as upper bound */
 #define MML_IR_WIDTH_2K		(2560 + 30)
 #define MML_IR_HEIGHT_2K	(1440 + 30)
@@ -527,10 +525,8 @@ static inline bool tp_need_dual(struct mml_frame_config *cfg)
 {
 	const struct mml_frame_data *src = &cfg->info.src;
 	u32 min_crop_w, i;
-	u32 min_pixel = cfg->info.mode == MML_MODE_RACING ?
-		MML_IR_DUAL_FRAME : MML_DUAL_FRAME;
 
-	if (src->width * src->height < min_pixel)
+	if (src->width * src->height < MML_DUAL_FRAME)
 		return false;
 
 	min_crop_w = cfg->info.dest[0].crop.r.width;
@@ -604,6 +600,10 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	} else if (!mml_racing_enable(mml))
 		goto decouple;
 
+	/* secure content cannot output to sram */
+	if (info->src.secure || info->dest[0].data.secure)
+		goto decouple;
+
 	/* get mid opp frequency */
 	tp = mml_topology_get_cache(mml);
 	if (!tp || !tp->opp_cnt) {
@@ -629,7 +629,7 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (info->dest_cnt > 1)
 		goto decouple;
 
-	/* only support FHD 1920x1088 with rotate 90/270 case for now */
+	/* only support FHD/2K with rotate 90/270 case for now */
 	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180)
 		goto decouple;
 	if (info->dest[0].crop.r.width > MML_IR_WIDTH_2K ||

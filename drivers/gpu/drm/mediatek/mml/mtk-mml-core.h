@@ -89,11 +89,13 @@ extern int mml_racing_wdone_eoc;
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
 #define MML_MAX_TPUT		800
-#define MML_CMDQ_NEXT_SPR	(CMDQ_GPR_CNT_ID + CMDQ_GPR_R10)
+#define MML_CMDQ_NEXT_SPR	(CMDQ_GPR_CNT_ID + CMDQ_GPR_R09)
+#define MML_CMDQ_NEXT_SPR2	(CMDQ_GPR_CNT_ID + CMDQ_GPR_R11)
 #define MML_CMDQ_ROUND_SPR	CMDQ_THR_SPR_IDX3
 #define MML_ROUND_SPR_INIT	0x8000
 #define MML_NEXTSPR_NEXT	BIT(0)
-#define MML_NEXTSPR_CONTI	BIT(1)
+#define MML_NEXTSPR_DUAL	BIT(1)
+
 
 struct mml_topology_cache;
 struct mml_frame_config;
@@ -379,6 +381,8 @@ struct mml_comp_config_ops {
 			  const struct mml_path_node *node);
 	s32 (*buf_prepare)(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg);
+	void (*buf_unprepare)(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg);
 	u32 (*get_label_count)(struct mml_comp *comp, struct mml_task *task,
 			       struct mml_comp_config *ccfg);
 	/* op to make command in frame change case */
@@ -392,8 +396,6 @@ struct mml_comp_config_ops {
 		     struct mml_comp_config *ccfg);
 	s32 (*wait)(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg, u32 idx);
-	bool (*sync)(struct mml_comp *comp, struct mml_task *task,
-		    struct mml_comp_config *ccfg, u32 tile);
 	s32 (*post)(struct mml_comp *comp, struct mml_task *task,
 		    struct mml_comp_config *ccfg);
 	/* op to make command in reuse case */

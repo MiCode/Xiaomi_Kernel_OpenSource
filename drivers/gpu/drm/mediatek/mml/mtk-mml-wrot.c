@@ -194,7 +194,9 @@ struct mml_comp_wrot {
 	bool ddp_bound;
 
 	u16 event_eof;		/* wrot frame done */
-	u16 event_pipe_sync;	/* pipe sync in dual wdone */
+	u16 event_bufa;		/* notify pipe0 that pipe1 ready buf a */
+	u16 event_bufb;		/* notify pipe0 that pipe1 ready buf b */
+	u16 event_buf_next;	/* notify pipe1 that pipe0 ready new round */
 	int idx;
 
 	struct device *dev;	/* for dmabuf to iova */
@@ -258,12 +260,14 @@ struct wrot_frame_data {
 		bool eol:1;	/* tile is end of current line */
 		u8 sram:1;	/* sram ping pong idx of this tile */
 	} wdone[256];
-	u8 sram_side;		/* write to left/write ovl */
+	u8 sram_side;		/* write to left/right ovl */
 
 	/* array of indices to one of entry in cache entry list,
 	 * use in reuse command
 	 */
 	u16 labels[WROT_LABEL_TOTAL];
+
+	u32 wdone_cnt;
 };
 
 static inline struct wrot_frame_data *wrot_frm_data(struct mml_comp_config *ccfg)
@@ -389,6 +393,8 @@ static void wrot_config_top(struct mml_frame_dest *dest,
 	wrot_frm->en_y_crop = true;
 	wrot_frm->out_crop_y = 0;
 	wrot_frm->out_crop_h = wrot_frm->out_h >> 1;
+	if (wrot_frm->out_crop_h & 0x1)
+		wrot_frm->out_crop_h++;
 }
 
 static void wrot_config_bottom(struct mml_frame_dest *dest,
@@ -396,6 +402,8 @@ static void wrot_config_bottom(struct mml_frame_dest *dest,
 {
 	wrot_frm->en_y_crop = true;
 	wrot_frm->out_crop_y = wrot_frm->out_h >> 1;
+	if (wrot_frm->out_crop_y & 0x1)
+		wrot_frm->out_crop_y++;
 	wrot_frm->out_crop_h = wrot_frm->out_h - wrot_frm->out_crop_y;
 }
 
@@ -516,11 +524,6 @@ static s32 wrot_buf_map(struct mml_comp *comp, struct mml_task *task,
 	mml_trace_ex_begin("%s", __func__);
 
 	if (task->config->info.mode == MML_MODE_RACING) {
-		mutex_lock(&wrot->sram_mutex);
-		if (!wrot->sram_cnt)
-			wrot->sram_pa = (u64)mml_sram_get(task->config->mml);
-		wrot->sram_cnt++;
-		mutex_unlock(&wrot->sram_mutex);
 	} else {
 		/* get iova */
 		ret = mml_buf_iova_get(wrot->dev, dest_buf);
@@ -542,20 +545,6 @@ static s32 wrot_buf_map(struct mml_comp *comp, struct mml_task *task,
 	return ret;
 }
 
-static void wrot_buf_unmap(struct mml_comp *comp, struct mml_task *task,
-			   const struct mml_path_node *node)
-{
-	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
-
-	if (task->config->info.mode == MML_MODE_RACING) {
-		mutex_lock(&wrot->sram_mutex);
-		wrot->sram_cnt--;
-		if (wrot->sram_cnt == 0)
-			mml_sram_put(task->config->mml);
-		mutex_unlock(&wrot->sram_mutex);
-	}
-}
-
 static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct mml_comp_config *ccfg)
 {
@@ -566,12 +555,31 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	if (task->config->info.mode == MML_MODE_RACING) {
 		/* assign sram pa directly */
+		mutex_lock(&wrot->sram_mutex);
+		if (!wrot->sram_cnt)
+			wrot->sram_pa = (u64)mml_sram_get(task->config->mml);
+		wrot->sram_cnt++;
+		mutex_unlock(&wrot->sram_mutex);
 		wrot_frm->iova[0] = wrot->sram_pa;
 	} else {
 		for (i = 0; i < dest_buf->cnt; i++)
 			wrot_frm->iova[i] = dest_buf->dma[i].iova;
 	}
 	return 0;
+}
+
+static void wrot_buf_unprepare(struct mml_comp *comp, struct mml_task *task,
+			       struct mml_comp_config *ccfg)
+{
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+	if (task->config->info.mode == MML_MODE_RACING) {
+		mutex_lock(&wrot->sram_mutex);
+		wrot->sram_cnt--;
+		if (wrot->sram_cnt == 0)
+			mml_sram_put(task->config->mml);
+		mutex_unlock(&wrot->sram_mutex);
+	}
 }
 
 static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -1744,15 +1752,28 @@ static inline void mml_ir_done_2to1(struct mml_comp_wrot *wrot,
 	u32 wdone = 1 << sram;
 
 	if (pipe == 0) {
+		if (sram == 0)
+			cmdq_pkt_wfe(pkt, wrot->event_bufa);
+		else
+			cmdq_pkt_wfe(pkt, wrot->event_bufb);
 		/* for pipe 0, wait pipe 1 and trigger wdone */
-		cmdq_pkt_wfe(pkt, wrot->event_pipe_sync);
 		cmdq_pkt_write(pkt, NULL, wrot->irot_base[0] + irot_h_off,
 			height, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, wrot->irot_base[0] + INLINEROT_WDONE,
 			wdone, U32_MAX);
+		if (sram == 1)
+			cmdq_pkt_set_event(pkt, wrot->event_buf_next);
 	} else {
-		/* for pipe 1, trigger sw token to notify pipe 0 */
-		cmdq_pkt_set_event(pkt, wrot->event_pipe_sync);
+		if (sram == 0) {
+			/* notify pipe0 buf a */
+			cmdq_pkt_set_event(pkt, wrot->event_bufa);
+		} else {
+			/* notify pipe0 buf b and wait for loop,
+			 * this prevent event set twice or buf race condition
+			 */
+			cmdq_pkt_set_event(pkt, wrot->event_bufb);
+			cmdq_pkt_wfe(pkt, wrot->event_buf_next);
+		}
 	}
 }
 
@@ -1824,8 +1845,10 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 	/* wait wrot frame done */
 	cmdq_pkt_wfe(pkt, wrot->event_eof);
 
-	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol)
+	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol) {
 		wrot_config_inlinerot(comp, task, ccfg, idx);
+		wrot_frm->wdone_cnt++;
+	}
 
 	return 0;
 }
@@ -1840,11 +1863,12 @@ static s32 wrot_post(struct mml_comp *comp, struct mml_task *task,
 	cache->total_datasize += wrot_frm->datasize;
 	cache->max_pixel = max(cache->max_pixel, wrot_frm->pixel_acc);
 
-	mml_msg("%s task %p pipe %hhu data %u pixel %u",
-		__func__, task, ccfg->pipe, wrot_frm->datasize, wrot_frm->pixel_acc);
-
 	if (task->config->info.mode == MML_MODE_RACING) {
 		struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+		mml_log("%s task %p pipe %hhu data %u pixel %u eol %u",
+			__func__, task, ccfg->pipe, wrot_frm->datasize, wrot_frm->pixel_acc,
+			wrot_frm->wdone_cnt);
 
 		/* clear path sel back to dram */
 		cmdq_pkt_write(task->pkts[ccfg->pipe], NULL, wrot->smi_larb_con,
@@ -1915,8 +1939,8 @@ static s32 wrot_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 static const struct mml_comp_config_ops wrot_cfg_ops = {
 	.prepare = wrot_prepare,
 	.buf_map = wrot_buf_map,
-	.buf_unmap = wrot_buf_unmap,
 	.buf_prepare = wrot_buf_prepare,
+	.buf_unprepare = wrot_buf_unprepare,
 	.get_label_count = wrot_get_label_count,
 	.frame = wrot_config_frame,
 	.tile = wrot_config_tile,
@@ -2211,8 +2235,12 @@ static int probe(struct platform_device *pdev)
 
 	of_property_read_u16(dev->of_node, "event_frame_done",
 			     &priv->event_eof);
-	of_property_read_u16(dev->of_node, "event_pipe_sync",
-			     &priv->event_pipe_sync);
+	of_property_read_u16(dev->of_node, "event_bufa",
+			     &priv->event_bufa);
+	of_property_read_u16(dev->of_node, "event_bufb",
+			     &priv->event_bufb);
+	of_property_read_u16(dev->of_node, "event_buf_next",
+			     &priv->event_buf_next);
 
 	/* get index of wrot by alias */
 	priv->idx = of_alias_get_id(dev->of_node, "mml_wrot");
@@ -2242,10 +2270,12 @@ static int probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 
-	mml_log("wrot%d (%u) smi larb con %#lx event eof %hu sync %hu",
+	mml_log("wrot%d (%u) smi larb con %#lx event eof %hu sync %hu/%hu/%hu",
 		priv->idx, priv->comp.id, priv->smi_larb_con,
 		priv->event_eof,
-		priv->event_pipe_sync);
+		priv->event_bufa,
+		priv->event_bufb,
+		priv->event_buf_next);
 
 	return ret;
 }

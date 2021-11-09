@@ -256,12 +256,11 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 	struct mml_comp_config *ccfg = cache->cfg;
 	const struct mml_frame_dest *dest = &task->config->info.dest[0];
 	u32 tile_cnt;
-	bool reverse = false;
+	bool reverse;
 
 	struct mml_comp *comp;
 	u32 i, tile, tile_idx, tile_wait = 0;
 	s32 ret;
-	bool sync;
 
 	if (IS_ERR(pkt)) {
 		mml_err("%s fail err %d", __func__, PTR_ERR(pkt));
@@ -300,15 +299,8 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		call_cfg_op(comp, frame, task, &ccfg[i]);
 	}
 
-	if (task->config->info.mode == MML_MODE_RACING) {
-		if (dest->rotate == MML_ROT_180 || dest->rotate == MML_ROT_270)
-			reverse = true;
-		/* make mmlsys do sync */
-		sync = false;
-	} else {
-		/* no need to call sync for dc mode */
-		sync = true;
-	}
+	reverse = task->config->info.mode == MML_MODE_RACING &&
+		(dest->rotate == MML_ROT_180 || dest->rotate == MML_ROT_270);
 
 	for (tile = 0; tile < tile_cnt; tile++) {
 		tile_idx = reverse ? tile_cnt - 1 - tile : tile;
@@ -321,11 +313,6 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		if (task->config->shadow) {
 			/* skip first tile wait */
 			if (tile) {
-				if (!sync)
-					sync = path->mmlsys->config_ops->sync(
-						path->mmlsys, task,
-						&ccfg[path->mmlsys_idx],
-						tile_wait);
 				for (i = 0; i < path->node_cnt; i++) {
 					comp = path->nodes[i].comp;
 					call_cfg_op(comp, wait, task, &ccfg[i],
@@ -338,11 +325,6 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 			tile_wait = tile_idx;
 			/* last tile needs wait again */
 			if (tile == tile_cnt - 1) {
-				if (!sync)
-					sync = path->mmlsys->config_ops->sync(
-						path->mmlsys, task,
-						&ccfg[path->mmlsys_idx],
-						tile_wait);
 				for (i = 0; i < path->node_cnt; i++) {
 					comp = path->nodes[i].comp;
 					call_cfg_op(comp, wait, task, &ccfg[i],
@@ -352,10 +334,6 @@ static s32 command_make(struct mml_task *task, u32 pipe)
 		} else {
 			path->mutex->config_ops->mutex(path->mutex, task,
 						       &ccfg[path->mutex_idx]);
-			if (!sync)
-				sync = path->mmlsys->config_ops->sync(
-					path->mmlsys, task,
-					&ccfg[path->mmlsys_idx], tile_idx);
 			for (i = 0; i < path->node_cnt; i++) {
 				comp = path->nodes[i].comp;
 				call_cfg_op(comp, wait, task, &ccfg[i],
@@ -464,7 +442,8 @@ static void dump_inout(struct mml_task *task)
 
 static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 {
-	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_frame_config *cfg = task->config;
+	const struct mml_topology_path *path = cfg->path[pipe];
 	struct mml_comp *comp;
 	u32 i;
 
@@ -473,6 +452,14 @@ static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 		task->config->info.mode);
 	/* print info for this task */
 	dump_inout(task);
+
+	if (task->config->dual) {
+		mml_err("dump another pipe thread status for dual:");
+		if (pipe == 0)
+			cmdq_thread_dump(cfg->path[1]->clt->chan, task->pkts[1], NULL, NULL);
+		else
+			cmdq_thread_dump(cfg->path[0]->clt->chan, task->pkts[0], NULL, NULL);
+	}
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
@@ -806,6 +793,19 @@ static void core_taskdone_comp(struct mml_task *task, u32 pipe)
 	}
 }
 
+static void core_buffer_unprepare(struct mml_task *task, u32 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_pipe_cache *cache = &task->config->cache[pipe];
+	u32 i;
+
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mml_comp *comp = path->nodes[i].comp;
+
+		call_cfg_op(comp, buf_unprepare, task, &cache->cfg[i]);
+	}
+}
+
 static void core_buffer_unmap(struct mml_task *task)
 {
 	const struct mml_topology_path *path = task->config->path[0];
@@ -969,6 +969,11 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		core_disable(task, 0);
 	if (task->config->dual && task->pkts[1])
 		core_disable(task, 1);
+
+	if (task->pkts[0])
+		core_buffer_unprepare(task, 0);
+	if (task->config->dual && task->pkts[1])
+		core_buffer_unprepare(task, 1);
 
 	core_buffer_unmap(task);
 	task->config->task_ops->frame_done(task);
@@ -1291,7 +1296,8 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	}
 #endif
 
-	mml_msg("%s task %p pipe %u done", __func__, task, pipe);
+	mml_msg("%s task %p job %u pipe %u pkt %p done",
+		__func__, task, task->job.jobid, pipe, task->pkts[pipe]);
 exit:
 	mml_trace_ex_end();
 }
@@ -1361,8 +1367,9 @@ static void core_config_task(struct mml_task *task)
 	core_config_pipe(task, 0);
 
 	/* check single pipe or (dual) pipe 1 done then callback */
-	if (!cfg->dual || flush_work(&task->work_config[1]))
-		cfg->task_ops->submit_done(task);
+	if (cfg->dual)
+		flush_work(&task->work_config[1]);
+	cfg->task_ops->submit_done(task);
 
 done:
 	mml_trace_end();
