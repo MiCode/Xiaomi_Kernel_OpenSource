@@ -42,10 +42,11 @@ struct common_node {
 	struct mmqos_base_node *base;
 	struct device *comm_dev;
 	struct regulator *comm_reg;
-	u32 high_volt;
 	const char *clk_name;
 	struct clk *clk;
 	u64 freq;
+	u64 smi_clk;
+	u32 volt;
 	struct list_head list;
 	struct icc_path *icc_path;
 	struct icc_path *icc_hrt_path;

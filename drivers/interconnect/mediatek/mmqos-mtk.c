@@ -49,6 +49,7 @@ struct common_port_node {
 struct larb_port_node {
 	struct mmqos_base_node *base;
 	u16 bw_ratio;
+	bool is_max_ostd;
 };
 
 struct mtk_mmqos {
@@ -66,6 +67,7 @@ static struct mtk_mmqos *gmmqos;
 static u32 log_level;
 enum mmqos_log_level {
 	log_bw = 0,
+	log_comm_freq,
 };
 
 static void mmqos_update_comm_bw(struct device *dev,
@@ -147,6 +149,28 @@ static void set_chn_bw(u32 *bw_array, u8 chn_id, u32 bw)
 			bw_array[i] += bw;
 }
 
+static unsigned long get_volt_by_freq(struct device *dev, unsigned long freq)
+{
+	struct dev_pm_opp *opp;
+	unsigned long ret;
+
+	opp = dev_pm_opp_find_freq_ceil(dev, &freq);
+
+	/* It means freq is over the highest available frequency */
+	if (opp == ERR_PTR(-ERANGE))
+		opp = dev_pm_opp_find_freq_floor(dev, &freq);
+
+	if (IS_ERR(opp)) {
+		dev_notice(dev, "%s failed(%d) freq=%lu\n",
+			__func__, PTR_ERR(opp), freq);
+		return 0;
+	}
+
+	ret = dev_pm_opp_get_voltage(opp);
+	dev_pm_opp_put(opp);
+	return ret;
+}
+
 //static void set_comm_icc_bw_handler(struct work_struct *work)
 static void set_comm_icc_bw(struct common_node *comm_node)
 {
@@ -157,16 +181,13 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	u64 normalize_peak_bw, i;
 	u32 chn_hrt_bw[MMQOS_COMM_CHANNEL_NUM] = {0};
 	u32 chn_srt_bw[MMQOS_COMM_CHANNEL_NUM] = {0};
-	struct dev_pm_opp *opp;
 	unsigned long smi_clk = 0;
 	u32 volt;
 
 	list_for_each_entry(comm_port_node, &comm_node->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
 		avg_bw += comm_port_node->latest_avg_bw;
-		normalize_peak_bw = (comm_port_node->latest_peak_bw
-				& ~(MTK_MMQOS_MAX_BW));
-		normalize_peak_bw = MULTIPLY_RATIO(normalize_peak_bw)
+		normalize_peak_bw = MULTIPLY_RATIO(comm_port_node->latest_peak_bw)
 						/ mtk_mmqos_get_hrt_ratio(
 						comm_port_node->hrt_type);
 		peak_bw += normalize_peak_bw;
@@ -182,16 +203,31 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	}
 	if (max_bw)
 		smi_clk = SHIFT_ROUND(max_bw, 4) * 1000;
-	if (comm_node->comm_dev) {
-		opp = dev_pm_opp_find_freq_ceil(comm_node->comm_dev, &smi_clk);
-		if (opp == ERR_PTR(-ERANGE))
-			opp = dev_pm_opp_find_freq_floor(comm_node->comm_dev,
-							 &smi_clk);
-		if (!IS_ERR_OR_NULL(opp)) {
-			volt = dev_pm_opp_get_voltage(opp);
-			dev_pm_opp_put(opp);
-			regulator_set_voltage(comm_node->comm_reg, volt,
-						    INT_MAX);
+	if (comm_node->comm_dev && smi_clk != comm_node->smi_clk) {
+		volt = get_volt_by_freq(comm_node->comm_dev, smi_clk);
+		if (volt > 0 && volt != comm_node->volt) {
+			if (log_level & 1 << log_comm_freq) {
+				for (i = 0; i < MMQOS_COMM_CHANNEL_NUM; i++)
+					dev_notice(comm_node->comm_dev,
+						"comm(%d) chn=%d srt=%u hrt=%u\n",
+						MASK_8(comm_node->base->icc_node->id),
+						i, chn_srt_bw[i], chn_hrt_bw[i]);
+				dev_notice(comm_node->comm_dev,
+					"comm(%d) max_bw=%u smi_clk=%u volt=%u\n",
+					MASK_8(comm_node->base->icc_node->id),
+					max_bw, smi_clk, volt);
+			}
+			if (IS_ERR_OR_NULL(comm_node->comm_reg)) {
+				dev_notice(comm_node->comm_dev,
+					"regulator is not ready\n");
+			} else if (regulator_set_voltage(comm_node->comm_reg,
+					volt, INT_MAX)) {
+				dev_notice(comm_node->comm_dev,
+					"regulator_set_voltage failed volt=%lu\n", volt);
+			} else {
+				comm_node->smi_clk = smi_clk;
+				comm_node->volt = volt;
+			}
 		}
 	}
 	icc_set_bw(comm_node->icc_path, avg_bw, 0);
@@ -203,16 +239,15 @@ static void update_hrt_bw(struct mtk_mmqos *mmqos)
 	struct common_node *comm_node;
 	struct common_port_node *comm_port;
 	u32 hrt_bw[HRT_TYPE_NUM] = {0};
-	u32 i, normalize_peak_bw;
+	u32 i;
 
 	list_for_each_entry(comm_node, &mmqos->comm_list, list) {
 		list_for_each_entry(comm_port,
 				    &comm_node->comm_port_list, list) {
 			if (comm_port->hrt_type != HRT_NONE) {
 				mutex_lock(&comm_port->bw_lock);
-				normalize_peak_bw = (comm_port->latest_peak_bw
-							& ~(MTK_MMQOS_MAX_BW));
-				hrt_bw[comm_port->hrt_type] += icc_to_MBps(normalize_peak_bw);
+				hrt_bw[comm_port->hrt_type] +=
+					icc_to_MBps(comm_port->latest_peak_bw);
 				mutex_unlock(&comm_port->bw_lock);
 			}
 		}
@@ -247,9 +282,16 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		comm_port_node = (struct common_port_node *)dst->data;
-		if (!comm_port_node)
+		larb_node = (struct larb_node *)src->data;
+		if (!comm_port_node || !larb_node)
 			break;
 		mutex_lock(&comm_port_node->bw_lock);
+		if (comm_port_node->latest_mix_bw == comm_port_node->base->mix_bw
+			&& comm_port_node->latest_peak_bw == dst->peak_bw
+			&& comm_port_node->latest_avg_bw == dst->avg_bw) {
+			mutex_unlock(&comm_port_node->bw_lock);
+			break;
+		}
 		comm_port_node->latest_mix_bw = comm_port_node->base->mix_bw;
 		comm_port_node->latest_peak_bw = dst->peak_bw;
 		comm_port_node->latest_avg_bw = dst->avg_bw;
@@ -264,13 +306,15 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	case MTK_MMQOS_NODE_LARB:
 		larb_port_node = (struct larb_port_node *)src->data;
 		larb_node = (struct larb_node *)dst->data;
-		if (!larb_port_node || !larb_node)
+		if (!larb_port_node || !larb_node || !larb_node->larb_dev)
 			break;
 		if (larb_port_node->base->mix_bw)
 			value = SHIFT_ROUND(
 				icc_to_MBps(larb_port_node->base->mix_bw),
 				larb_port_node->bw_ratio);
-		if (value > mmqos->max_ratio)
+		else
+			larb_port_node->is_max_ostd = false;
+		if (value > mmqos->max_ratio || larb_port_node->is_max_ostd)
 			value = mmqos->max_ratio;
 		if (mmqos_state & OSTD_ENABLE)
 			mtk_smi_larb_bw_set(
@@ -296,6 +340,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	u32 *agg_peak)
 {
 	struct mmqos_base_node *base_node = NULL;
+	struct larb_port_node *larb_port_node;
 	u32 mix_bw = peak_bw;
 
 	if (!node || !node->data)
@@ -303,9 +348,16 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 
 	switch (node->id >> 16) {
 	case MTK_MMQOS_NODE_LARB_PORT:
-		base_node = ((struct larb_node *)node->data)->base;
-		if (peak_bw)
-			mix_bw = SHIFT_ROUND(peak_bw * 3, 1);
+		larb_port_node = (struct larb_port_node *)node->data;
+		base_node = larb_port_node->base;
+		if (peak_bw) {
+			if (peak_bw == MTK_MMQOS_MAX_BW) {
+				larb_port_node->is_max_ostd = true;
+				mix_bw = max_t(u32, avg_bw, 1000);
+			} else {
+				mix_bw = SHIFT_ROUND(peak_bw * 3, 1);
+			}
+		}
 		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		base_node = ((struct common_port_node *)node->data)->base;
@@ -319,8 +371,9 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 		base_node->mix_bw += peak_bw ? mix_bw : avg_bw;
 	}
 	*agg_avg += avg_bw;
+
 	if (peak_bw == MTK_MMQOS_MAX_BW)
-		*agg_peak |= MTK_MMQOS_MAX_BW;
+		*agg_peak += 1000; /* for BWL soft mode */
 	else
 		*agg_peak += peak_bw;
 	return 0;
@@ -354,13 +407,13 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	struct larb_node *larb_node;
 	struct larb_port_node *larb_port_node;
 	struct mtk_iommu_data *smi_imu;
-	int i, id, num_larbs = 0, num_volts, ret, ddr_type;
+	int i, id, num_larbs = 0, ret, ddr_type;
 	const struct mtk_mmqos_desc *mmqos_desc;
 	const struct mtk_node_desc *node_desc;
 	struct device *larb_dev;
 	struct mmqos_hrt *hrt;
 	struct device_node *np;
-	struct platform_device *comm_pdev;
+	struct platform_device *comm_pdev, *larb_pdev;
 
 	mmqos = devm_kzalloc(&pdev->dev, sizeof(*mmqos), GFP_KERNEL);
 	if (!mmqos)
@@ -374,9 +427,6 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 	of_for_each_phandle(
 		&it, ret, pdev->dev.of_node, "mediatek,larbs", NULL, 0) {
-		struct device_node *np;
-		struct platform_device *larb_pdev;
-
 		np = of_node_get(it.node);
 		if (!of_device_is_available(np))
 			continue;
@@ -501,26 +551,12 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 			comm_node->comm_reg =
 				devm_regulator_get(comm_node->comm_dev,
 						   "dvfsrc-vcore");
-			if (!comm_node->comm_reg) {
+			if (IS_ERR_OR_NULL(comm_node->comm_reg)) {
 				pr_notice("get common(%d) reg fail\n",
 				  MASK_8(node->id));
 				break;
 			}
-			num_volts =
-				regulator_count_voltages(comm_node->comm_reg);
-			if (num_volts <= 0) {
-				pr_notice("get common(%d) num voltages fail\n",
-					  MASK_8(node->id));
-				break;
-			}
-			comm_node->high_volt =
-				regulator_list_voltage(comm_node->comm_reg,
-						       num_volts-1);
-			if (comm_node->high_volt <= 0) {
-				pr_notice("get common(%d) high volt fail\n",
-					  MASK_8(node->id));
-				//break;
-			}
+			dev_pm_opp_of_add_table(comm_node->comm_dev);
 			comm_node->base = base_node;
 			node->data = (void *)comm_node;
 			break;
