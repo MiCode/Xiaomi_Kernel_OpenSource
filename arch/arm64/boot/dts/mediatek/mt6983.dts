@@ -2280,6 +2280,34 @@
 		#clock-cells = <1>;
 	};
 
+	mm_m0_rsi_regs: smi_mm_m0_rsi_regs@1e807000 {
+			compatible = "mediatek,smi-rsi";
+			reg = <0 0x1e807000 0 0x1000>;
+			mediatek,rsi-id = <0>;
+			mediatek,dump-with-comm = <0>;
+	};
+
+	mm_m1_rsi_regs: smi_mm_m1_rsi_regs@1e808000 {
+			compatible = "mediatek,smi-rsi";
+			reg = <0 0x1e808000 0 0x1000>;
+			mediatek,rsi-id = <1>;
+			mediatek,dump-with-comm = <0>;
+	};
+
+	mdp_m0_rsi_regs: smi_mdp_m0_rsi_regs@1e815000 {
+			compatible = "mediatek,smi-rsi";
+			reg = <0 0x1e815000 0 0x1000>;
+			mediatek,rsi-id = <2>;
+			mediatek,dump-with-comm = <1>;
+	};
+
+	mdp_m1_rsi_regs: smi_mdp_m1_rsi_regs@1e816000 {
+			compatible = "mediatek,smi-rsi";
+			reg = <0 0x1e816000 0 0x1000>;
+			mediatek,rsi-id = <3>;
+			mediatek,dump-with-comm = <1>;
+	};
+
 	smi_infra_disp_subcommon0: smi@1e809000 {
 			compatible = "mediatek,mt6983-smi-common",
 					 "mediatek,smi-common", "syscon", "mediatek,smi-sub-common";
