@@ -44,8 +44,9 @@ struct adspsys_description {
 struct irq_t {
 	u32 cid;
 	u32 seq;
-	void (*irq_cb)(int irq, void *data, int cid);
 	void (*clear_irq)(u32 cid);
+	void (*irq_cb)(int irq, void *data, int cid);
+	void (*thread_fn)(int irq, void *data, int cid);
 	void *data;
 };
 

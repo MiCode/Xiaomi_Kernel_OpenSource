@@ -172,7 +172,10 @@ extern void *adsp_get_reserve_mem_virt(enum adsp_reserve_mem_id_t id);
 extern size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id);
 
 /* adsp interrupt to other user, If it's not existed, return -ENOTCONN. */
-extern int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler, void *data);
+#define adsp_irq_registration(cid, irq_id, handler, data)  \
+		adsp_threaded_irq_registration(cid, irq_id, handler, NULL, data)
+extern int adsp_threaded_irq_registration(u32 core_id, u32 irq_id,
+					  void *handler, void *thread_fn, void *data);
 
 /* adsp hw semaphore */
 extern int get_adsp_semaphore(unsigned int flags);

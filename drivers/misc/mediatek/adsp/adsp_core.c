@@ -217,45 +217,69 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 }
 EXPORT_SYMBOL(adsp_send_message);
 
-static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
+static irqreturn_t adsp_irq_top_handler(int irq, void *data)
 {
 	struct irq_t *pdata = (struct irq_t *)data;
 
 	adsp_mt_clr_spm(pdata->cid);
-	if (!pdata->irq_cb || !pdata->clear_irq)
+	if (!pdata->clear_irq)
 		return IRQ_NONE;
+
 	pdata->clear_irq(pdata->cid);
-	pdata->irq_cb(irq, pdata->data, pdata->cid);
+
+	if (pdata->irq_cb)
+		pdata->irq_cb(irq, pdata->data, pdata->cid);
+
+	/* wake up bottom half if necessary */
+	return pdata->thread_fn ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+
+static irqreturn_t adsp_irq_bottom_thread(int irq, void *data)
+{
+	struct irq_t *pdata = (struct irq_t *)data;
+
+	pdata->thread_fn(irq, pdata->data, pdata->cid);
 	return IRQ_HANDLED;
 }
 
-int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler, void *data)
+int adsp_threaded_irq_registration(u32 core_id, u32 irq_id,
+				   void *handler, void *thread_fn, void *data)
 {
-	int ret;
+	int ret = 0;
 	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
 
 	if (unlikely(!pdata))
 		return -EACCES;
 
+	if (!handler && !thread_fn)
+		return -EINVAL;
+
 	pdata->irq[irq_id].cid = core_id;
 	pdata->irq[irq_id].irq_cb = handler;
+	pdata->irq[irq_id].thread_fn = thread_fn;
 	pdata->irq[irq_id].data = data;
-	ret = request_irq(pdata->irq[irq_id].seq,
-			  (irq_handler_t)adsp_irq_dispatcher,
-			  IRQF_TRIGGER_HIGH,
-			  pdata->name,
-			  &pdata->irq[irq_id]);
+
+	ret = request_threaded_irq(pdata->irq[irq_id].seq,
+				   adsp_irq_top_handler,
+				   thread_fn ? adsp_irq_bottom_thread : NULL,
+				   IRQF_TRIGGER_HIGH,
+				   pdata->name, &pdata->irq[irq_id]);
+	if (ret < 0) {
+		pr_info("%s(), request_irq(%d) err:%d\n",
+			__func__, pdata->irq[irq_id].seq, ret);
+		goto EXIT;
+	}
 
 	ret = enable_irq_wake(pdata->irq[irq_id].seq);
 	if (ret < 0) {
-		pr_info("enable_irq_wake %d err: %d\n",
-			pdata->irq[irq_id].seq, ret);
-		return ret;
+		pr_info("%s(), enable_irq_wake(%d) err:%d\n",
+			__func__, pdata->irq[irq_id].seq, ret);
+		goto EXIT;
 	}
-
+EXIT:
 	return ret;
 }
-EXPORT_SYMBOL_GPL(adsp_irq_registration);
+EXPORT_SYMBOL_GPL(adsp_threaded_irq_registration);
 
 void adsp_register_notify(struct notifier_block *nb)
 {
