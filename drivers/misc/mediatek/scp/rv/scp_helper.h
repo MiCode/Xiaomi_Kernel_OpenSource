@@ -64,6 +64,24 @@ enum SEMAPHORE_FLAG {
 	NR_FLAG = 9,
 };
 
+/* scp semaphore 3way definition */
+enum SEMAPHORE_3WAY_FLAG {
+	SEMA_SCP_3WAY_UART = 0,
+	SEMA_SCP_3WAY_C2C_A = 1,
+	SEMA_SCP_3WAY_C2C_B = 2,
+	SEMA_SCP_3WAY_DVFS = 3,
+	SEMA_SCP_3WAY_AUDIO = 4,
+	SEMA_SCP_3WAY_AUDIOREG = 5,
+	SEMA_SCP_3WAY_NUM = 6,
+};
+
+/* scp semaphore status */
+enum  SEMAPHORE_STATUS {
+	SEMAPHORE_NOT_INIT = -1,
+	SEMAPHORE_FAIL = 0,
+	SEMAPHORE_SUCCESS = 1,
+};
+
 /* scp reset status */
 enum SCP_RESET_STATUS {
 	RESET_STATUS_STOP = 0,
