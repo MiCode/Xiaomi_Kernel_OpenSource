@@ -7830,10 +7830,6 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 #endif
 	}
 
-	/* need to check mml is submit done */
-	if (mtk_crtc->is_mml)
-		mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
-
 #ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_FB_LEAK
 	if (cmdq_pkt_flush_async(cmdq_handle,
@@ -8234,6 +8230,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				BACKUP_OVL_STATUS, NULL);
 	}
+
+	/* need to check mml is submit done */
+	if (mtk_crtc->is_mml)
+		mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
 
 #ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC
