@@ -31,6 +31,7 @@ struct pdchk_ops {
 	int *(*get_off_mtcmos_id)(void);
 	int *(*get_notice_mtcmos_id)(void);
 	bool (*is_mtcmos_chk_bug_on)(void);
+	int *(*get_suspend_allow_id)(void);
 };
 
 void pdchk_common_init(const struct pdchk_ops *ops);

@@ -22,6 +22,7 @@
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
 #define ENABLE_PD_CHK_CG	0
+#define DEVN_LEN			20
 
 static struct platform_device *pd_pdev[MAX_PD_NUM];
 static struct generic_pm_domain *pds[MAX_PD_NUM];
@@ -345,6 +346,22 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static bool pdchk_suspend_allow(unsigned int id)
+{
+	int *pd_id;
+
+	if (pdchk_ops == NULL || pdchk_ops->get_suspend_allow_id == NULL)
+		return false;
+
+	pd_id = pdchk_ops->get_suspend_allow_id();
+	for (; *pd_id != PD_NULL; pd_id++) {
+		if (*pd_id == id)
+			return true;
+	}
+
+	return false;
+}
+
 static int set_genpd_notify(void)
 {
 	struct device_node *node;
@@ -360,6 +377,7 @@ static int set_genpd_notify(void)
 
 	for (i = 0; i < MAX_PD_NUM; i++) {
 		struct of_phandle_args pa;
+		char pd_dev_name[DEVN_LEN];
 
 		if(!is_in_pd_list(i))
 			continue;
@@ -368,7 +386,12 @@ static int set_genpd_notify(void)
 		pa.args[0] = i;
 		pa.args_count = 1;
 
-		pd_pdev[i] = platform_device_alloc("power-domain-chk", 0);
+		if (pdchk_suspend_allow(i)) {
+			snprintf(pd_dev_name, DEVN_LEN, "power-domain-chk-%d", i);
+			pd_pdev[i] = platform_device_register_simple(pd_dev_name, -1, NULL, 0);
+		} else
+			pd_pdev[i] = platform_device_alloc("power-domain-chk", 0);
+
 		if (!pd_pdev[i]) {
 			pr_err("create pd-%d device fail\n", i);
 			return -ENOMEM;

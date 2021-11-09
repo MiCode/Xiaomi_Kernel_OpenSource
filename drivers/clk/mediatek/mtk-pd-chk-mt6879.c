@@ -535,6 +535,16 @@ static bool is_mtcmos_chk_bug_on(void)
 	return false;
 }
 
+static int suspend_allow_id[] = {
+	MT6879_POWER_DOMAIN_UFS0_SHUTDOWN,
+	PD_NULL,
+};
+
+static int *get_suspend_allow_id(void)
+{
+	return suspend_allow_id;
+}
+
 /*
  * init functions
  */
@@ -549,6 +559,7 @@ static struct pdchk_ops pdchk_mt6879_ops = {
 	.get_off_mtcmos_id = get_off_mtcmos_id,
 	.get_notice_mtcmos_id = get_notice_mtcmos_id,
 	.is_mtcmos_chk_bug_on = is_mtcmos_chk_bug_on,
+	.get_suspend_allow_id = get_suspend_allow_id,
 };
 
 static int pd_chk_mt6879_probe(struct platform_device *pdev)
