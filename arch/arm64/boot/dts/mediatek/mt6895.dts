@@ -2693,7 +2693,7 @@
 			clock-div = <1>;
 		};
 
-		regulator_vibrator {
+		regulator_vibrator: regulator_vibrator {
 			compatible = "regulator-vibrator";
 			label = "vibrator";
 			min-volt = <2800000>;
