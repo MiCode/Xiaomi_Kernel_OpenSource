@@ -2054,6 +2054,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			mutex_lock(&buffer->lock);
 			ret = sec_ops->phys(sec_heap, buffer, &phy_addr, &len);
 			param.get_phys_param.phy_addr = phy_addr;
+			param.get_phys_param.len = len;
 			mutex_unlock(&buffer->lock);
 		} else {
 			IONMSG(": Error. get iova is not from %d heap.\n",
