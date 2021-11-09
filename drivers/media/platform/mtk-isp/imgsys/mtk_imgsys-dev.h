@@ -711,6 +711,7 @@ struct swfrm_info_t {
 	uint8_t is_secReq;
 	int fps;
 	int cb_frmcnt;
+	int total_taskcnt;
 	int handle;
 	uint64_t req_vaddr;
 	int sync_id;

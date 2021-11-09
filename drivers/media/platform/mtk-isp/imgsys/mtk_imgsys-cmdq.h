@@ -15,6 +15,8 @@
 
 #define DVFS_QOS_READY         (1)
 
+#define MAX_FRAME_IN_TASK		64
+
 struct task_timestamp {
 	dma_addr_t dma_pa;
 	uint32_t *dma_va;
@@ -53,8 +55,13 @@ struct mtk_imgsys_cb_param {
 	u32 is_earlycb;
 	s32 group_id;
 	u32 thd_idx;
+	u32 task_id;
+	u32 task_num;
+	u32 task_cnt;
+	size_t pkt_ofst[MAX_FRAME_IN_TASK];
 	bool isBlkLast;
 	bool isFrmLast;
+	bool isTaskLast;
 };
 
 enum mtk_imgsys_cmd {

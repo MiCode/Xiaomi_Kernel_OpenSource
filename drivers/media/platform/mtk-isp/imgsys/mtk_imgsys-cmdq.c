@@ -259,6 +259,16 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
 
+	dev_dbg(imgsys_dev->dev,
+		"%s: cb(%p) gid(%d) in block(%d/%d) for frm(%d/%d) lst(%d/%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)\n",
+		__func__, cb_param, cb_param->group_id,
+		cb_param->blk_idx,  cb_param->blk_num,
+		cb_param->frm_idx, cb_param->frm_num,
+		cb_param->isBlkLast, cb_param->isFrmLast, cb_param->isTaskLast,
+		cb_param->task_id, cb_param->task_num, cb_param->task_cnt,
+		cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
+		cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
+
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
 
 	if (imgsys_cmdq_ts_enable()) {
@@ -289,12 +299,15 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 
 	if (cb_param->err != 0)
 		pr_info(
-			"%s: [ERROR] cb(%p) error(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d)",
-			__func__, cb_param, cb_param->err,
+			"%s: [ERROR] cb(%p) error(%d) gid(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d) ofst(0x%x) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
+			__func__, cb_param, cb_param->err, cb_param->group_id,
 			cb_param->frm_idx, cb_param->frm_num,
 			cb_param->blk_idx, cb_param->blk_num,
 			cb_param->isBlkLast, cb_param->isFrmLast,
-			cb_param->is_earlycb);
+			cb_param->is_earlycb, cb_param->pkt->err_data.offset,
+			cb_param->task_id, cb_param->task_num, cb_param->task_cnt,
+			cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
+			cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
 	if (is_stream_off == 1)
 		pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
 			__func__, cb_param, is_stream_off);
@@ -313,6 +326,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 	req_fd = cb_param->frm_info->request_fd;
 	req_no = cb_param->frm_info->request_no;
 	frm_no = cb_param->frm_info->frame_no;
+
+	cb_param->frm_info->cb_frmcnt++;
+	cb_frm_cnt = cb_param->frm_info->cb_frmcnt;
 
 	if (wpebw_en > 0) {
 		switch (wpebw_en) {
@@ -348,11 +364,6 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 		}
 	}
 
-	if (cb_param->isBlkLast) {
-		cb_param->frm_info->cb_frmcnt++;
-		cb_frm_cnt = cb_param->frm_info->cb_frmcnt;
-	}
-
 	dev_dbg(imgsys_dev->dev,
 		"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) cb_param->frm_num(%d) cb_frm_cnt(%d)\n",
 		__func__, cb_param->frm_info->request_fd,
@@ -361,7 +372,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 		cb_frm_cnt);
 
 	if (cb_param->isBlkLast && cb_param->user_cmdq_cb &&
-		((cb_param->frm_num == cb_frm_cnt) || cb_param->is_earlycb)) {
+		((cb_param->frm_info->total_taskcnt == cb_frm_cnt) || cb_param->is_earlycb)) {
 		struct cmdq_cb_data user_cb_data;
 
 		/* PMQOS API */
@@ -372,7 +383,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 			cb_param->frm_info->frm_owner);
 		/* Calling PMQOS API if last frame */
-		if (cb_param->frm_num == cb_frm_cnt) {
+		if (cb_param->frm_info->total_taskcnt == cb_frm_cnt) {
 			mutex_lock(&(imgsys_dev->dvfs_qos_lock));
 			#if DVFS_QOS_READY
 			mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
@@ -449,6 +460,8 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 {
 	struct mtk_imgsys_cb_param *cb_param;
 	struct mtk_imgsys_pipe *pipe;
+	size_t err_ofst;
+	u32 idx = 0, err_idx = 0, real_frm_idx = 0;
 
 	pr_debug("%s: +\n", __func__);
 
@@ -466,13 +479,38 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 		__func__, cb_param, data.err, cb_param->frm_idx, cb_param->frm_num);
 
 	if (cb_param->err != 0) {
+		err_ofst = cb_param->pkt->err_data.offset;
+		err_idx = 0;
+		for (idx = 0; idx < cb_param->task_cnt; idx++)
+			if (err_ofst > cb_param->pkt_ofst[idx])
+				err_idx++;
+			else
+				break;
+		if (err_idx >= cb_param->task_cnt) {
+			pr_info(
+				"%s: [ERROR] can't find task in task list! cb(%p) error(%d) for frm(%d/%d) blk(%d/%d) ofst(0x%x) erridx(%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
+				__func__, cb_param, cb_param->err, cb_param->group_id,
+				cb_param->frm_idx, cb_param->frm_num,
+				cb_param->blk_idx, cb_param->blk_num,
+				cb_param->pkt->err_data.offset,
+				err_idx, real_frm_idx,
+				cb_param->task_id, cb_param->task_num, cb_param->task_cnt,
+				cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
+				cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
+			err_idx = cb_param->task_cnt - 1;
+		}
+		real_frm_idx = cb_param->frm_idx - (cb_param->task_cnt - 1) + err_idx;
 		pr_info(
-			"%s: [ERROR] cb(%p) error(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d)",
-			__func__, cb_param, cb_param->err,
+			"%s: [ERROR] cb(%p) error(%d) gid(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d/%d) earlycb(%d) ofst(0x%x) erridx(%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
+			__func__, cb_param, cb_param->err, cb_param->group_id,
 			cb_param->frm_idx, cb_param->frm_num,
 			cb_param->blk_idx, cb_param->blk_num,
-			cb_param->isBlkLast, cb_param->isFrmLast,
-			cb_param->is_earlycb);
+			cb_param->isBlkLast, cb_param->isFrmLast, cb_param->isTaskLast,
+			cb_param->is_earlycb, cb_param->pkt->err_data.offset,
+			err_idx, real_frm_idx,
+			cb_param->task_id, cb_param->task_num, cb_param->task_cnt,
+			cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
+			cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
 		if (is_stream_off == 1)
 			pr_info("%s: [ERROR] cb(%p) pipe had been turned off(%d)!\n",
 				__func__, cb_param, is_stream_off);
@@ -482,7 +520,7 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 			pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)\n",
 				__func__, cb_param, is_stream_off);
 		}
-		imgsys_cmdq_cmd_dump(cb_param->frm_info, cb_param->frm_idx);
+		imgsys_cmdq_cmd_dump(cb_param->frm_info, real_frm_idx);
 		if (cb_param->user_cmdq_err_cb) {
 			struct cmdq_cb_data user_cb_data;
 			u16 event = 0;
@@ -522,7 +560,7 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 			user_cb_data.err = cb_param->err;
 			user_cb_data.data = (void *)cb_param->frm_info;
 			cb_param->user_cmdq_err_cb(
-				user_cb_data, cb_param->frm_idx, isHWhang);
+				user_cb_data, real_frm_idx, isHWhang);
 		}
 	}
 
@@ -558,6 +596,12 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	u64 tsDvfsQosStart = 0, tsDvfsQosEnd = 0;
 	u32 frm_num = 0, frm_idx = 0;
 	u32 cmd_ofst = 0;
+	bool isPack = 0;
+	u32 task_idx = 0;
+	u32 task_id = 0;
+	u32 task_num = 0;
+	u32 task_cnt = 0;
+	size_t pkt_ofst[MAX_FRAME_IN_TASK] = {0};
 
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
@@ -579,6 +623,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	/* is_stream_off = 0; */
 	frm_num = frm_info->total_frmnum;
 	frm_info->cb_frmcnt = 0;
+	frm_info->total_taskcnt = 0;
 	cmd_ofst = sizeof(struct GCERecoder);
 
 	#if IMGSYS_SECURE_ENABLE
@@ -602,47 +647,52 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			(unsigned long)(cmd_buf->cmd_offset));
 		hw_comb = frm_info->user_info[frm_idx].hw_comb;
 
-		if (frm_info->group_id == -1) {
-			/* Choose cmdq_client base on hw scenario */
-			for (thd_idx = 0; thd_idx < IMGSYS_ENG_MAX; thd_idx++) {
-				if (hw_comb & 0x1) {
-					clt = imgsys_clt[thd_idx];
-					pr_debug(
-					"%s: chosen mbox thread (%d, 0x%x) for frm(%d/%d)\n",
-					__func__, thd_idx, clt, frm_idx, frm_num);
-					break;
+		if (isPack == 0) {
+			if (frm_info->group_id == -1) {
+				/* Choose cmdq_client base on hw scenario */
+				for (thd_idx = 0; thd_idx < IMGSYS_ENG_MAX; thd_idx++) {
+					if (hw_comb & 0x1) {
+						clt = imgsys_clt[thd_idx];
+						pr_debug(
+						"%s: chosen mbox thread (%d, 0x%x) for frm(%d/%d)\n",
+						__func__, thd_idx, clt, frm_idx, frm_num);
+						break;
+					}
+					hw_comb = hw_comb>>1;
 				}
-				hw_comb = hw_comb>>1;
-			}
-			/*	This segment can be removed since user had set dependency	*/
-			if (frm_info->user_info[frm_idx].hw_comb & IMGSYS_ENG_DIP) {
-				thd_idx = 4;
-				clt = imgsys_clt[thd_idx];
-			}
-		} else {
-			if (frm_info->group_id < IMGSYS_ENG_MAX) {
-				thd_idx = frm_info->group_id;
-				clt = imgsys_clt[thd_idx];
+				/* This segment can be removed since user had set dependency */
+				if (frm_info->user_info[frm_idx].hw_comb & IMGSYS_ENG_DIP) {
+					thd_idx = 4;
+					clt = imgsys_clt[thd_idx];
+				}
 			} else {
-				pr_info("%s: [ERROR] group_id(%d) is over max hw num(%d) for frm(%d/%d)!\n",
-					__func__, frm_info->group_id, IMGSYS_ENG_MAX,
-					frm_info->user_info[frm_idx].hw_comb, frm_idx, frm_num);
+				if (frm_info->group_id < IMGSYS_ENG_MAX) {
+					thd_idx = frm_info->group_id;
+					clt = imgsys_clt[thd_idx];
+				} else {
+					pr_info(
+						"%s: [ERROR] group_id(%d) is over max hw num(%d) for frm(%d/%d)!\n",
+						__func__, frm_info->group_id, IMGSYS_ENG_MAX,
+						frm_info->user_info[frm_idx].hw_comb,
+						frm_idx, frm_num);
+					return -1;
+				}
+			}
+
+			/* This is work around for low latency flow.		*/
+			/* If we change to request base,			*/
+			/* we don't have to take this condition into account.	*/
+			if (frm_info->sync_id != -1) {
+				thd_idx = 0;
+				clt = imgsys_clt[thd_idx];
+			}
+
+			if (clt == NULL) {
+				pr_info("%s: [ERROR] No HW Found (0x%x) for frm(%d/%d)!\n",
+					__func__, frm_info->user_info[frm_idx].hw_comb,
+					frm_idx, frm_num);
 				return -1;
 			}
-		}
-
-		/* This is work around for low latency flow.		*/
-		/* If we change to request base,			*/
-		/* we don't have to take this condition into account.	*/
-		if (frm_info->sync_id != -1) {
-			thd_idx = 0;
-			clt = imgsys_clt[thd_idx];
-		}
-
-		if (clt == NULL) {
-			pr_info("%s: [ERROR] No HW Found (0x%x) for frm(%d/%d)!\n",
-				__func__, frm_info->user_info[frm_idx].hw_comb, frm_idx, frm_num);
-			return -1;
 		}
 
 		dev_dbg(imgsys_dev->dev,
@@ -655,26 +705,27 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		cmd_idx = 0;
 		for (blk_idx = 0; blk_idx < cmd_buf->frame_block; blk_idx++) {
 			tsReqStart = ktime_get_boottime_ns()/1000;
-			/* create pkt and hook clt as pkt's private data */
-			pkt = cmdq_pkt_create(clt);
-			if (pkt == NULL) {
-				pr_info(
-				"%s: [ERROR] cmdq_pkt_create fail in block(%d)!\n",
-					__func__, blk_idx);
-				return -1;
+			if (isPack == 0) {
+				/* create pkt and hook clt as pkt's private data */
+				pkt = cmdq_pkt_create(clt);
+				if (pkt == NULL) {
+					pr_info(
+						"%s: [ERROR] cmdq_pkt_create fail in block(%d)!\n",
+						__func__, blk_idx);
+					return -1;
+				}
+				pr_debug(
+					"%s: cmdq_pkt_create success(0x%x) in block(%d) for frm(%d/%d)\n",
+					__func__, pkt, blk_idx, frm_idx, frm_num);
+				/* Reset pkt timestamp num */
+				pkt_ts_num = 0;
+
+				/* Assign task priority according to is_time_shared */
+				if (frm_info->user_info[frm_idx].is_time_shared)
+					pkt->priority = IMGSYS_PRI_LOW;
+				else
+					pkt->priority = IMGSYS_PRI_HIGH;
 			}
-			pr_debug(
-			"%s: cmdq_pkt_create success(0x%x) in block(%d) for frm(%d/%d)\n",
-				__func__, pkt, blk_idx, frm_idx, frm_num);
-
-			/* Reset pkt timestamp num */
-			pkt_ts_num = 0;
-
-			/* Assign task priority according to is_time_shared */
-			if (frm_info->user_info[frm_idx].is_time_shared)
-				pkt->priority = IMGSYS_PRI_LOW;
-			else
-				pkt->priority = IMGSYS_PRI_HIGH;
 
 			IMGSYS_SYSTRACE_BEGIN(
 				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)\n",
@@ -708,71 +759,112 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 
 			IMGSYS_SYSTRACE_END();
 
-			mtk_imgsys_power_ctrl(imgsys_dev, true);
+			/* Check for packing gce task */
+			pkt_ofst[task_cnt] = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+			task_cnt++;
+			if ((frm_info->user_info[frm_idx].is_time_shared)
+				|| (frm_info->user_info[frm_idx].is_secFrm)
+				|| (frm_info->user_info[frm_idx].is_earlycb)
+				|| ((frm_idx + 1) == frm_num)) {
+				mtk_imgsys_power_ctrl(imgsys_dev, true);
 
-			/* Prepare cb param */
-			cb_param =
-				vzalloc(sizeof(struct mtk_imgsys_cb_param));
-			if (cb_param == NULL) {
-				cmdq_pkt_destroy(pkt);
-				return -1;
-			}
-			dev_dbg(imgsys_dev->dev,
-			"%s: cb_param kzalloc success cb(%p) in block(%d) for frm(%d/%d)!\n",
-				__func__, cb_param, blk_idx, frm_idx, frm_num);
+				/* Prepare cb param */
+				cb_param =
+					vzalloc(sizeof(struct mtk_imgsys_cb_param));
+				if (cb_param == NULL) {
+					cmdq_pkt_destroy(pkt);
+					return -1;
+				}
+				dev_dbg(imgsys_dev->dev,
+				"%s: cb_param kzalloc success cb(%p) in block(%d) for frm(%d/%d)!\n",
+					__func__, cb_param, blk_idx, frm_idx, frm_num);
 
-			cb_param->pkt = pkt;
-			cb_param->frm_info = frm_info;
-			cb_param->frm_idx = frm_idx;
-			cb_param->frm_num = frm_num;
-			cb_param->user_cmdq_cb = cmdq_cb;
-			cb_param->user_cmdq_err_cb = cmdq_err_cb;
-			if ((blk_idx + 1) == cmd_buf->frame_block)
-				cb_param->isBlkLast = 1;
-			else
-				cb_param->isBlkLast = 0;
-			if ((frm_idx + 1) == frm_num)
-				cb_param->isFrmLast = 1;
-			else
-				cb_param->isFrmLast = 0;
-			cb_param->blk_idx = blk_idx;
-			cb_param->blk_num = cmd_buf->frame_block;
-			cb_param->is_earlycb = frm_info->user_info[frm_idx].is_earlycb;
-			cb_param->group_id = frm_info->group_id;
-			cb_param->cmdqTs.tsReqStart = tsReqStart;
-			cb_param->cmdqTs.tsDvfsQosStart = tsDvfsQosStart;
-			cb_param->cmdqTs.tsDvfsQosEnd = tsDvfsQosEnd;
-			cb_param->imgsys_dev = imgsys_dev;
-			cb_param->thd_idx = thd_idx;
-			cb_param->clt = clt;
-			if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable()) {
-				cb_param->taskTs.dma_pa = pkt_ts_pa;
-				cb_param->taskTs.dma_va = pkt_ts_va;
-				cb_param->taskTs.num = pkt_ts_num;
-				cb_param->taskTs.ofst = pkt_ts_ofst;
-				pkt_ts_ofst += pkt_ts_num;
-			}
+				task_num++;
+				cb_param->pkt = pkt;
+				cb_param->frm_info = frm_info;
+				cb_param->frm_idx = frm_idx;
+				cb_param->frm_num = frm_num;
+				cb_param->user_cmdq_cb = cmdq_cb;
+				cb_param->user_cmdq_err_cb = cmdq_err_cb;
+				if ((blk_idx + 1) == cmd_buf->frame_block)
+					cb_param->isBlkLast = 1;
+				else
+					cb_param->isBlkLast = 0;
+				if ((frm_idx + 1) == frm_num)
+					cb_param->isFrmLast = 1;
+				else
+					cb_param->isFrmLast = 0;
+				cb_param->blk_idx = blk_idx;
+				cb_param->blk_num = cmd_buf->frame_block;
+				cb_param->is_earlycb = frm_info->user_info[frm_idx].is_earlycb;
+				cb_param->group_id = frm_info->group_id;
+				cb_param->cmdqTs.tsReqStart = tsReqStart;
+				cb_param->cmdqTs.tsDvfsQosStart = tsDvfsQosStart;
+				cb_param->cmdqTs.tsDvfsQosEnd = tsDvfsQosEnd;
+				cb_param->imgsys_dev = imgsys_dev;
+				cb_param->thd_idx = thd_idx;
+				cb_param->clt = clt;
+				cb_param->task_cnt = task_cnt;
+				for (task_idx = 0; task_idx < task_cnt; task_idx++)
+					cb_param->pkt_ofst[task_idx] = pkt_ofst[task_idx];
+				task_cnt = 0;
+				cb_param->task_id = task_id;
+				task_id++;
+				if ((cb_param->isBlkLast) && (cb_param->isFrmLast)) {
+					cb_param->isTaskLast = 1;
+					cb_param->task_num = task_num;
+					frm_info->total_taskcnt = task_num;
+				} else {
+					cb_param->isTaskLast = 0;
+					cb_param->task_num = 0;
+				}
 
-			/* flush synchronized, block API */
-			cb_param->cmdqTs.tsFlushStart = ktime_get_boottime_ns()/1000;
-			IMGSYS_SYSTRACE_BEGIN(
-				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb(%p) frm(%d/%d) blk(%d)\n",
-				__func__, "pkt_flush", frm_info->frame_no, frm_info->request_no,
-				frm_info->request_fd, frm_info->user_info[frm_idx].subfrm_idx,
-				frm_info->user_info[frm_idx].hw_comb, frm_info->frm_owner,
-				cb_param, frm_idx, frm_num, blk_idx);
+				dev_dbg(imgsys_dev->dev,
+					"%s: cb(%p) gid(%d) in block(%d/%d) for frm(%d/%d) lst(%d/%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)\n",
+					__func__, cb_param, cb_param->group_id,
+					cb_param->blk_idx,	cb_param->blk_num,
+					cb_param->frm_idx, cb_param->frm_num,
+					cb_param->isBlkLast, cb_param->isFrmLast,
+					cb_param->isTaskLast, cb_param->task_id,
+					cb_param->task_num, cb_param->task_cnt,
+					cb_param->pkt_ofst[0], cb_param->pkt_ofst[1],
+					cb_param->pkt_ofst[2], cb_param->pkt_ofst[3],
+					cb_param->pkt_ofst[4]);
 
-			ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb,
+				if (imgsys_cmdq_ts_enable() || imgsys_wpe_bwlog_enable()) {
+					cb_param->taskTs.dma_pa = pkt_ts_pa;
+					cb_param->taskTs.dma_va = pkt_ts_va;
+					cb_param->taskTs.num = pkt_ts_num;
+					cb_param->taskTs.ofst = pkt_ts_ofst;
+					pkt_ts_ofst += pkt_ts_num;
+				}
+
+				/* flush synchronized, block API */
+				cb_param->cmdqTs.tsFlushStart = ktime_get_boottime_ns()/1000;
+				IMGSYS_SYSTRACE_BEGIN(
+					"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx cb(%p) frm(%d/%d) blk(%d/%d)\n",
+					__func__, "pkt_flush", frm_info->frame_no,
+					frm_info->request_no, frm_info->request_fd,
+					frm_info->user_info[frm_idx].subfrm_idx,
+					frm_info->user_info[frm_idx].hw_comb,
+					frm_info->frm_owner, cb_param, frm_idx, frm_num,
+					blk_idx, cmd_buf->frame_block);
+
+				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb,
 								(void *)cb_param);
-			IMGSYS_SYSTRACE_END();
-			if (ret_flush < 0)
-				pr_info(
-				"%s: [ERROR] cmdq_pkt_flush_async fail(%d) for frm(%d/%d)!\n",
-					__func__, ret_flush, frm_idx, frm_num);
-			else
-				pr_debug(
-				"%s: cmdq_pkt_flush_async success(%d), blk(%d), frm(%d/%d)!\n",
-					__func__, ret_flush, blk_idx, frm_idx, frm_num);
+				IMGSYS_SYSTRACE_END();
+				if (ret_flush < 0)
+					pr_info(
+					"%s: [ERROR] cmdq_pkt_flush_async fail(%d) for frm(%d/%d)!\n",
+						__func__, ret_flush, frm_idx, frm_num);
+				else
+					pr_debug(
+					"%s: cmdq_pkt_flush_async success(%d), blk(%d), frm(%d/%d)!\n",
+						__func__, ret_flush, blk_idx, frm_idx, frm_num);
+				isPack = 0;
+			} else {
+				isPack = 1;
+			}
 		}
 	}
 

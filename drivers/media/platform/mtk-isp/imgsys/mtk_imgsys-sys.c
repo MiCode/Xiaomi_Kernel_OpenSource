@@ -1469,6 +1469,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swfrm_info->req = (void *)req;
 	swfrm_info->pipe = (void *)pipe;
 	swfrm_info->cb_frmcnt = 0;
+	swfrm_info->total_taskcnt = 0;
 	swfrm_info->chan_id = 0;
 	swfrm_info->fail_isHWhang = -1;
 	for (i = 0 ; i < swfrm_info->total_frmnum ; i++) {
