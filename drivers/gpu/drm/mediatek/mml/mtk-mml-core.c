@@ -1027,16 +1027,7 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 {
 	int ret;
 
-	if (task->state == MML_TASK_DUPLICATE) {
-		/* task need duplcicate before reuse */
-		mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
-		ret = task->config->task_ops->dup_task(task, pipe);
-		mml_trace_ex_end();
-		if (ret < 0) {
-			mml_err("dup task fail %d", ret);
-			return ret;
-		}
-	} else if (task->state == MML_TASK_INITIAL) {
+	if (task->state == MML_TASK_INITIAL) {
 		/* prepare data in each component for later tile use */
 		core_prepare(task, pipe);
 
@@ -1053,6 +1044,17 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 		if (mtk_mml_msg)
 			dump_tile_output(task, pipe);
 	} else {
+		if (task->state == MML_TASK_DUPLICATE) {
+			/* task need duplcicate before reuse */
+			mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
+			ret = task->config->task_ops->dup_task(task, pipe);
+			mml_trace_ex_end();
+			if (ret < 0) {
+				mml_err("dup task fail %d", ret);
+				return ret;
+			}
+		}
+
 		/* pkt exists, reuse it directly */
 		mml_trace_ex_begin("%s_%s_%u", __func__, "reuse", pipe);
 		core_reuse(task, pipe);
