@@ -52,7 +52,7 @@ enum gpu_fastdvfs_counter {
 	NR_FASTDVFS_COUNTER
 };
 
-enum gpu_fastdvfs_feedback_info {
+enum gpu_fastdvfs_share_info {
 	FASTDVFS_FEEDBACK_INFO_UPDATED = 32,
 	FASTDVFS_FEEDBACK_INFO_GPU_TIME = 33,
 	FASTDVFS_FEEDBACK_INFO_GPU_UTILS = 34,
@@ -62,8 +62,9 @@ enum gpu_fastdvfs_feedback_info {
 	FASTDVFS_COMMIT_PLATFORM_FREQ_IDX = 38,
 	FASTDVFS_COMMIT_VIRTUAL_FREQUENCY = 39,
 	FASTDVFS_COMMIT_TYPE = 40,
+	FASTDVFS_SET_TARGET_MARGIN = 41,
 
-	MAX_FASTDVFS_FEEDBACK_INFO
+	MAX_FASTDVFS_SHARE_INFO
 };
 
 /* 6983 0x112000~0x112400 */
@@ -177,6 +178,10 @@ enum gpu_fastdvfs_feedback_info {
 (                                      \
 (FASTDVFS_COMMIT_TYPE*SYSRAM_LOG_SIZE) \
 )
+#define SYSRAM_GPU_SET_TARGET_MARGIN \
+(                                      \
+(FASTDVFS_SET_TARGET_MARGIN*SYSRAM_LOG_SIZE) \
+)
 
 enum action_map {
 	ACTION_MAP_FASTDVFS = 0,
@@ -275,8 +280,8 @@ extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
 extern void mtk_gpueb_dvfs_dcs_commit(unsigned int platform_freq_idx,
 		GED_DVFS_COMMIT_TYPE eCommitType, unsigned int virtual_freq_in_MHz);
 extern unsigned int mtk_gpueb_dvfs_set_frame_base_dvfs(unsigned int enable);
-extern int
-	mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time);
+extern int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time,
+		unsigned int target_margin);
 extern unsigned int
 	mtk_gpueb_dvfs_set_feedback_info(int frag_done_interval_in_ns,
 	struct GpuUtilization_Ex util_ex, unsigned int curr_fps);

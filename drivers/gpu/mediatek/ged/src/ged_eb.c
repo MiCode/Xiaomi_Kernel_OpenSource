@@ -352,7 +352,8 @@ unsigned int mtk_gpueb_dvfs_set_frame_base_dvfs(unsigned int enable)
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_set_frame_base_dvfs);
 
-int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time)
+int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time,
+	unsigned int target_margin)
 {
 	int ret = 0;
 	struct fdvfs_ipi_data ipi_data;
@@ -362,8 +363,12 @@ int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time)
 #ifdef FDVFS_REDUCE_IPI
 		mtk_gpueb_sysram_write(SYSRAM_GPU_SET_TARGET_FRAME_TIME,
 			target_frame_time);
+		mtk_gpueb_sysram_write(SYSRAM_GPU_SET_TARGET_MARGIN,
+			target_margin);
 #else
 		ipi_data.u.set_para.arg[0] = target_frame_time;
+		ipi_data.u.set_para.arg[1] = target_margin;
+
 		ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_TARGET_FRAME_TIME, &ipi_data);
 #endif
 	}

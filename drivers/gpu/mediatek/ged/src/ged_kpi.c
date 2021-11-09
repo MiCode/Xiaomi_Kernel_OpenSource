@@ -289,6 +289,8 @@ static unsigned int gx_gpu_freq_avg;
 unsigned int g_eb_workload;
 unsigned int g_eb_coef;
 
+int pid_sysui;
+
 /* ------------------------------------------------------------------- */
 void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu, unsigned int cur_freq
 	, unsigned int cur_max_freq, u64 ulID);
@@ -1163,7 +1165,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					ged_get_cur_limiter_floor();
 
 				cur_3D_done = psKPI->ullTimeStamp2;
-				if (psTimeStamp->i32GPUloading) {
+				if (psTimeStamp->i32GPUloading
+					|| psHead->pid != pid_sysui) {
 					/* not fallback mode */
 
 					/* choose which loading to calc. t_gpu */
@@ -1202,18 +1205,23 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
 
-					time_spent =
-					(int)(cur_3D_done - last_3D_done)
-					/ 100 * psTimeStamp->i32GPUloading;
+					time_spent = psKPI->cpu_gpu_info.gpu.t_gpu_real;
+
 					psKPI->gpu_done_interval = time_spent;
-					psKPI->t_gpu =
+
+					if (psKPI->t_gpu > time_spent)
+						time_spent =
+							psHead->t_gpu_latest =
+							psKPI->t_gpu;
+					else
+						psKPI->t_gpu =
 							psHead->t_gpu_latest =
 							time_spent;
+
 					if (ged_is_fdvfs_support())
 						g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
 							psKPI->gpu_done_interval, util_ex,
 							ged_kpi_get_cur_fps());
-
 				} else {
 					psKPI->t_gpu
 						= time_spent
@@ -1290,11 +1298,13 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			else
 				ged_set_backup_timer_timeout(
 					psKPI->t_gpu_target << 1);
+
 			ged_log_perf_trace_counter("t_gpu",
 				psKPI->t_gpu, psTimeStamp->pid,
 				psTimeStamp->i32FrameID, ulID);
-			ged_log_perf_trace_counter("t_gpu",
-				psKPI->t_gpu, 5566, 0, 0);
+			if (main_head == psHead)
+				ged_log_perf_trace_counter("t_gpu",
+					psKPI->t_gpu, 5566, 0, 0);
 
 			if (psHead->last_TimeStamp1
 				!= psKPI->ullTimeStamp1) {
@@ -1518,7 +1528,7 @@ static GED_ERROR ged_kpi_push_timestamp(
 			spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
 
 			if (!ged_kpi_check_if_fallback_mode()
-				&& !g_force_gpu_dvfs_fallback) {
+				&& !g_force_gpu_dvfs_fallback && pid != pid_sysui) {
 				struct GpuUtilization_Ex util_ex;
 				ged_kpi_trigger_fb_dvfs();
 				ged_dvfs_cal_gpu_utilization_ex(
@@ -1698,6 +1708,9 @@ GED_ERROR ged_kpi_dequeue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 
 	ged_kpi_timeD(pid, ullWdnd, i32FrameID, isSF);
 	ret = ged_kpi_timeP(pid, ullWdnd, i32FrameID);
+
+	if (isSF == -1 && pid != pid_sysui)
+		pid_sysui = pid;
 
 	return ret;
 #else

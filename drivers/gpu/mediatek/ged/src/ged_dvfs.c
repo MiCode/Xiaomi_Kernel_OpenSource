@@ -675,7 +675,7 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 int gx_fb_dvfs_margin = DEFAULT_DVFS_MARGIN;/* 10-bias */
 
 #define MAX_DVFS_MARGIN 990 /* 99 % margin */
-#define MIN_DVFS_MARGIN 10 /* 1% margin */
+#define MIN_DVFS_MARGIN 40 /* 4% margin */
 
 /* dynamic margin mode for FPSGo control fps margin */
 #define DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN 0x10
@@ -875,16 +875,17 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		}
 	}
 
-	// Hint target frame time w/o headroom
-	if (ged_is_fdvfs_support())
-		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target);
-
 #ifdef GED_DCS_POLICY
 	if (is_dcs_enable() && dcs_get_cur_core_num() < dcs_get_max_core_num())
-		gx_fb_dvfs_margin = DCS_POLICY_MARGIN;
+		if (gx_fb_dvfs_margin < DCS_POLICY_MARGIN)
+			gx_fb_dvfs_margin = DCS_POLICY_MARGIN;
 #endif /* GED_DCS_POLICY */
 
 	t_gpu_target = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
+
+	// Hint target frame time w/z headroom
+	if (ged_is_fdvfs_support())
+		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target, gx_fb_dvfs_margin);
 
 	gpu_freq_pre = ged_get_cur_freq() >> 10;
 
@@ -1142,7 +1143,8 @@ static bool ged_dvfs_policy(
 
 #ifdef GED_DCS_POLICY
 	if (is_dcs_enable() && dcs_get_cur_core_num() < dcs_get_max_core_num())
-		gx_tb_dvfs_margin = DCS_POLICY_MARGIN / 10;
+		if (gx_tb_dvfs_margin < DCS_POLICY_MARGIN / 10)
+			gx_tb_dvfs_margin = DCS_POLICY_MARGIN / 10;
 #endif /* GED_DCS_POLICY */
 
 		if (init == 0) {
