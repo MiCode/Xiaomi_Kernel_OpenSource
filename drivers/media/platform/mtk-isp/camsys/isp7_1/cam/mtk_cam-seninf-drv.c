@@ -1752,7 +1752,7 @@ static int runtime_suspend(struct device *dev)
 				clk_disable_unprepare(ctx->core->clk[i]);
 		} while (i);
 		seninf_core_pm_runtime_put(core);
-		if (ctx->core->dfs.reg)
+		if (ctx->core->dfs.reg && regulator_is_enabled(ctx->core->dfs.reg))
 			regulator_disable(ctx->core->dfs.reg);
 
 	}

@@ -3964,7 +3964,7 @@ static int mtk_cam_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "- %s\n", __func__);
 
-	if (dvfs_info->reg_vmm)
+	if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
 		regulator_disable(dvfs_info->reg_vmm);
 
 	return 0;
