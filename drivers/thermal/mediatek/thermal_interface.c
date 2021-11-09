@@ -580,7 +580,7 @@ static ssize_t frs_info_store(struct kobject *kobj,
 	if (sscanf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d", &enable, &act, &pid, &target_fps,
 		&diff, &tpcb, &tpcb_slope, &ap_headroom, &n_sec_to_ttpcb) == 9)
 	{
-		if ((ap_headroom >= -100) && (ap_headroom <= 100))
+		if ((ap_headroom >= -1000) && (ap_headroom <= 1000))
 		{
 			therm_intf_write_csram(ap_headroom, AP_NTC_HEADROOM_OFFSET);
 			frs_data.ap_headroom = ap_headroom;
