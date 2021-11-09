@@ -57,7 +57,6 @@
 #include "cmdq-util.h"
 #include "mtk_disp_ccorr.h"
 #include "mtk_debug.h"
-#include "mtk_dp.h"
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -1209,8 +1208,12 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 		return true;
 	}
 
-	if (drm_crtc_index(crtc) == 1)
+	if ((drm_crtc_index(crtc) == 1) &&
+			(crtc->state->adjusted_mode.hdisplay == 1920*2)) {
+
+		DDPFUNC();
 		return true;
+	}
 
 
 	if ((drm_crtc_index(crtc) == 0) &&
@@ -1232,6 +1235,7 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_ddp_comp *comp;
 	struct device *dev = mtk_crtc->base.dev->dev;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct drm_crtc *crtc = &mtk_crtc->base;
 	int en = 1;
 
 	if (mtk_crtc_is_dual_pipe(&(mtk_crtc->base))) {
@@ -1286,12 +1290,16 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 			mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
 			continue;
 		} else if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_DSC) {
-			if ((drm_crtc_index(&mtk_crtc->base) == 1) && !mtk_dp_is_dsc()) {
+			/*4k 30 use DISP_MERGE1, 4k 60 use DSC*/
+			//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
+			if ((drm_crtc_index(&mtk_crtc->base) == 1) &&
+				(drm_mode_vrefresh(&crtc->state->adjusted_mode) == 30)) {
 				comp = priv->ddp_comp[DDP_COMPONENT_MERGE1];
 				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
 				comp->mtk_crtc = mtk_crtc;
-				continue;
-			}
+				}
+			continue;
+
 
 		}
 		comp = priv->ddp_comp[comp_id];

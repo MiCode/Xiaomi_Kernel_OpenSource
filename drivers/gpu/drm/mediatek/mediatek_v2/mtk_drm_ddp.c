@@ -27,7 +27,6 @@
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
-#include "mtk_dp.h"
 
 #define DISP_REG_OVL0_MOUT_EN(data) (data->ovl0_mout_en)
 #define DISP_REG_DPI0_SEL_IN(data) (data->dpi0_sel_in)
@@ -11442,7 +11441,8 @@ void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_disp_mutex *mutex)
 {
 	if (drm_crtc_index(&mtk_crtc->base) == 1) {
-		if (mtk_dp_is_dsc())
+		//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
+		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
 			mtk_ddp_ext_dual_pipe_dsc(mtk_crtc, mutex);
 		else
 			mtk_ddp_ext_insert_dual_pipe(mtk_crtc, mutex);
