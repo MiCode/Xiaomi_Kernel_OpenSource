@@ -1378,7 +1378,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 			(ctx->used_raw_num != 0)) {
 			if ((buf_entry->ts_sv == 0) ||
 				((buf_entry->ts_sv < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_sv) > 3000000))) {
+				((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
 					__func__, ctx->sv_pipe[i]->id,
 					buf_entry->ts_raw, buf_entry->ts_sv);
@@ -1445,7 +1445,7 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx,
 			buf_entry->ts_sv = ts_ns;
 			if (((buf_entry->ts_raw == 0) && (ctx->used_raw_num != 0)) ||
 				((buf_entry->ts_sv < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_sv) > 3000000))) {
+				((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
 					__func__, ctx->sv_pipe[i]->id,
 					buf_entry->ts_raw, buf_entry->ts_sv);
@@ -1865,9 +1865,43 @@ void mtk_camsv_unregister_entities(struct mtk_camsv *sv)
 		mtk_camsv_pipeline_unregister(sv->pipelines + i);
 }
 
+void camsv_dump_dma_debug_data(struct mtk_camsv_device *camsv_dev)
+{
+	u32 checksum, line_pix_cnt, line_pix_cnt_temp, smi_debug_data;
+	u32 fifo_debug_data_1, fifo_debug_data_3, smi_crc, smi_latency;
+	u32 smi_len_dle_cnt, smi_com_bvalid_cnt;
+
+	writel_relaxed(0x00000100, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	checksum = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00000200, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	line_pix_cnt = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00000300, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	line_pix_cnt_temp = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00000800, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	smi_debug_data = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00010700, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	fifo_debug_data_1 = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00030700, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	fifo_debug_data_3 = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x01000040, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	smi_crc = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00000080, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	smi_latency = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x000000A0, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	smi_len_dle_cnt = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x000000A1, camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	smi_com_bvalid_cnt = readl_relaxed(camsv_dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+
+	dev_info_ratelimited(camsv_dev->dev,
+		"dma_top_debug:0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x\n",
+		checksum, line_pix_cnt, line_pix_cnt_temp, smi_debug_data,
+		fifo_debug_data_1, fifo_debug_data_3, smi_crc, smi_latency,
+		smi_len_dle_cnt, smi_com_bvalid_cnt);
+}
+
 void camsv_irq_handle_err(
 	struct mtk_camsv_device *camsv_dev,
-	int dequeued_frame_seq_no)
+	unsigned int dequeued_frame_seq_no)
 {
 	int val, val2;
 	struct mtk_cam_request_stream_data *s_data;
@@ -1921,6 +1955,19 @@ void camsv_irq_handle_err(
 			 "%s: req(%d) can't be found for seninf dump\n",
 			 __func__, dequeued_frame_seq_no);
 	}
+}
+
+void camsv_handle_err(
+	struct mtk_camsv_device *camsv_dev,
+	struct mtk_camsys_irq_info *data)
+{
+	int frame_idx_inner = data->frame_idx_inner;
+
+	/* show more error detail */
+	camsv_irq_handle_err(camsv_dev, frame_idx_inner);
+
+	/* dump dma debug data */
+	camsv_dump_dma_debug_data(camsv_dev);
 }
 
 static irqreturn_t mtk_irq_camsv(int irq, void *data)
@@ -2024,9 +2071,7 @@ static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
 
 		/* error case */
 		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
-			int frame_idx_inner = irq_info.frame_idx_inner;
-
-			camsv_irq_handle_err(camsv_dev, frame_idx_inner);
+			camsv_handle_err(camsv_dev, &irq_info);
 			continue;
 		}
 
@@ -2165,9 +2210,12 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 			    struct mtk_camsv_device *sv)
 {
 	struct device *dev = &pdev->dev;
+	struct platform_device *larb_pdev;
+	struct device_node *larb_node;
+	struct device_link *link;
 	struct resource *res;
 	unsigned int i;
-	int clks, ret;
+	int clks, larbs, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-id",
 						       &sv->id);
@@ -2256,6 +2304,32 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 			dev_info(dev, "failed to get clk %d\n", i);
 			return -ENODEV;
 		}
+	}
+
+	larbs = of_count_phandle_with_args(
+					pdev->dev.of_node, "mediatek,larbs", NULL);
+	dev_info(dev, "larb_num:%d\n", larbs);
+
+	for (i = 0; i < larbs; i++) {
+		larb_node = of_parse_phandle(
+					pdev->dev.of_node, "mediatek,larbs", i);
+		if (!larb_node) {
+			dev_info(dev, "failed to get larb id\n");
+			continue;
+		}
+
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(larb_node);
+			dev_info(dev, "failed to get larb pdev\n");
+			continue;
+		}
+		of_node_put(larb_node);
+
+		link = device_link_add(&pdev->dev, &larb_pdev->dev,
+						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			dev_info(dev, "unable to link smi larb%d\n", i);
 	}
 
 	sv->notifier_blk.notifier_call = mtk_camsv_suspend_pm_event;

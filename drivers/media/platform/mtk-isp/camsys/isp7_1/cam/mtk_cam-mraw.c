@@ -2262,9 +2262,12 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 			    struct mtk_mraw_device *mraw)
 {
 	struct device *dev = &pdev->dev;
+	struct platform_device *larb_pdev;
+	struct device_node *larb_node;
+	struct device_link *link;
 	struct resource *res;
 	int ret;
-	int clks, i;
+	int clks, larbs, i;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,mraw-id",
 						       &mraw->id);
@@ -2342,6 +2345,32 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 			dev_info(dev, "failed to get clk %d\n", i);
 			return -ENODEV;
 		}
+	}
+
+	larbs = of_count_phandle_with_args(
+					pdev->dev.of_node, "mediatek,larbs", NULL);
+	dev_info(dev, "larb_num:%d\n", larbs);
+
+	for (i = 0; i < larbs; i++) {
+		larb_node = of_parse_phandle(
+					pdev->dev.of_node, "mediatek,larbs", i);
+		if (!larb_node) {
+			dev_info(dev, "failed to get larb id\n");
+			continue;
+		}
+
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(larb_node);
+			dev_info(dev, "failed to get larb pdev\n");
+			continue;
+		}
+		of_node_put(larb_node);
+
+		link = device_link_add(&pdev->dev, &larb_pdev->dev,
+						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			dev_info(dev, "unable to link smi larb%d\n", i);
 	}
 
 	mraw->notifier_blk.notifier_call = mtk_mraw_suspend_pm_event;
