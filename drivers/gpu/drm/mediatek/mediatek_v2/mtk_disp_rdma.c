@@ -795,10 +795,9 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 	bool *rdma_memory_mode = comp->comp_mode;
 
 	//for dual pipe one layer
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc->is_dual_pipe)
 		w = cfg->w / 2;
-		DDPFUNC();
-	} else
+	else
 		w = cfg->w;
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RDMA_SIZE_CON_0, w,

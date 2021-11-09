@@ -596,7 +596,7 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	u32 value = 0;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 
-	DDPMSG("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
+	DDPINFO("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
 	ui = (1000 / dsi->data_rate > 0) ? 1000 / dsi->data_rate : 1;
 	cycle_time = 8000 / dsi->data_rate;
 

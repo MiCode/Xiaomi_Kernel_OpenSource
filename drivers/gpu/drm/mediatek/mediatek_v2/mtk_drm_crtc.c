@@ -191,6 +191,9 @@ int mtk_drm_crtc_wait_blank(struct mtk_drm_crtc *mtk_crtc)
 {
 	int ret = 0;
 
+	if (mtk_crtc->crtc_blank == false)
+		return ret;
+
 	DDPMSG("%s wait TUI finish\n", __func__);
 	while (mtk_crtc->crtc_blank == true) {
 //		DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
@@ -1203,14 +1206,12 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 	if ((drm_crtc_index(crtc) == 0) &&
 		panel_ext &&
 		panel_ext->output_mode == MTK_PANEL_DUAL_PORT) {
-		DDPFUNC();
 		return true;
 	}
 
-	if (drm_crtc_index(crtc) == 1) {
-		DDPFUNC();
+	if (drm_crtc_index(crtc) == 1)
 		return true;
-	}
+
 
 	if ((drm_crtc_index(crtc) == 0) &&
 		mtk_drm_helper_get_opt(priv->helper_opt,
@@ -1218,7 +1219,6 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 		panel_ext &&
 		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT &&
 		panel_ext->dsc_params.slice_mode == 1) {
-		DDPFUNC();
 		return true;
 	}
 
@@ -1266,13 +1266,13 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[j] = devm_kmalloc_array(
 			dev, mtk_crtc->path_data->dual_path_len[j],
 			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
-		DDPFUNC("j:%d,com_nr:%d,path_len:%d\n",
+		DDPDBG("j:%d,com_nr:%d,path_len:%d\n",
 			j, mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[j],
 			mtk_crtc->path_data->dual_path_len[j]);
 	}
 
 	for_each_comp_id_in_dual_pipe(comp_id, mtk_crtc->path_data, i, j) {
-		DDPFUNC("prepare comp id in dual pipe %d\n", comp_id);
+		DDPDBG("prepare comp id in dual pipe %d\n", comp_id);
 		if (comp_id < 0) {
 			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
 			return;
@@ -3420,7 +3420,7 @@ void mtk_crtc_release_output_buffer_fence(
 
 	fence_idx = *(unsigned int *)
 		mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_OUTPUT_FENCE);
-	if (fence_idx) {
+	if (fence_idx && fence_idx != -1) {
 		DDPINFO("output fence_idx:%d\n", fence_idx);
 		mtk_release_fence(session_id,
 			mtk_fence_get_output_timeline_id(), fence_idx);
@@ -5350,7 +5350,6 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	}
 
 	if (mtk_crtc->is_dual_pipe) {
-		DDPFUNC();
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 			mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
 			mtk_ddp_comp_start(comp, cmdq_handle);

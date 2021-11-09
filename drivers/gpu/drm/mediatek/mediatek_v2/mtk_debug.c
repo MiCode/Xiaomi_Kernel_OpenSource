@@ -1353,14 +1353,15 @@ done:
 
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 {
-	if (gCaptureOVLEn) {
-		mtk_drm_mmp_ovl_layer(plane_state, gCapturePriLayerDownX,
+	if (!gCaptureOVLEn)
+		return -1;
+
+	mtk_drm_mmp_ovl_layer(plane_state, gCapturePriLayerDownX,
 			gCapturePriLayerDownY);
-		return 0;
-	}
+
 	DDPINFO("%s, gCapturePriLayerEnable is %d\n",
 		__func__, gCaptureOVLEn);
-	return -1;
+	return 0;
 }
 
 int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,

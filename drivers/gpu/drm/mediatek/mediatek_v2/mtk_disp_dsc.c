@@ -318,7 +318,6 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	struct mtk_panel_dsc_params *dsc_params;
 	struct mtk_panel_spr_params *spr_params;
 
-	DDPFUNC();
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
@@ -331,7 +330,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
 
 	if (dsc_params->enable == 1) {
-		DDPMSG("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
+		DDPINFO("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
 			mtk_dump_comp_str(comp), cfg->w, cfg->h,
 			dsc_params->slice_mode,	dsc_params->slice_width,
 			dsc_params->slice_height, dsc_params->bit_per_pixel);
@@ -538,7 +537,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_relaxed(comp,	reg_val,
 			DISP_REG_DSC_PPS6, handle);
 
-		DDPMSG("%s, bit_per_channel:%d\n",
+		DDPINFO("%s, bit_per_channel:%d\n",
 			mtk_dump_comp_str(comp), dsc_params->bit_per_channel);
 		if (dsc_params->bit_per_channel == 10) {
 			//10bpc_to_8bpp_20_slice_h

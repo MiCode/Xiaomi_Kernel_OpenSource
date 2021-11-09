@@ -880,10 +880,9 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 {
 	unsigned int width;
 
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc->is_dual_pipe)
 		width = cfg->w / 2;
-		DDPMSG("\n");
-	} else
+	else
 		width = cfg->w;
 
 	if (cfg->w != 0 && cfg->h != 0) {
@@ -1629,9 +1628,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		pending->enable = false;
 		DDPINFO("%s: DRM_FORMAT_RGB332 not support, so skip it\n", __func__);
 	}
-
-	DDPINFO("%s+ idx:%d, enable:%d, fmt:0x%x\n", __func__, idx,
-		pending->enable, pending->format);
 
 	if (!pending->enable)
 		mtk_ovl_layer_off(comp, lye_idx, ext_lye_idx, handle);
