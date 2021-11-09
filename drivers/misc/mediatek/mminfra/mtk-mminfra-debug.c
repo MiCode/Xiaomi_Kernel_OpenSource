@@ -272,29 +272,26 @@ static int mminfra_smi_dbg_cb(struct notifier_block *nb,
 	return 0;
 }
 
-
+static bool aee_dump;
 static irqreturn_t mminfra_irq_handler(int irq, void *data)
 {
 	//char buf[LINK_MAX + 1] = {0};
-	int ret;
 
 	pr_notice("handle mminfra irq!\n");
 	if (!dev || !dbg || !dbg->comm_dev)
 		return IRQ_NONE;
 
-	ret = pm_runtime_get_if_in_use(dbg->comm_dev);
-	if (ret <= 0) {
-		pr_notice("%s: mminfra is power off(%d)\n", __func__, ret);
-		return IRQ_NONE;
-	}
 	cmdq_util_mminfra_cmd(1);
 
+	if (!aee_dump) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_kernel_warning("mminfra", "MMInfra bus timeout\n");
+		aee_kernel_warning("mminfra", "MMInfra bus timeout\n");
 #endif
+		aee_dump = true;
+	}
+
 	cmdq_util_mminfra_cmd(0);
 
-	pm_runtime_put(dbg->comm_dev);
 	return IRQ_HANDLED;
 }
 
