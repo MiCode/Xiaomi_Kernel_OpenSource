@@ -40,6 +40,7 @@ PMIC's from Qualcomm.
 		    "qcom,pm6150l-gpio"
 		    "qcom,pm8450-gpio"
 		    "qcom,pmx65-gpio"
+		    "qcom,pm7325-gpio"
 
 		    And must contain either "qcom,spmi-gpio" or "qcom,ssbi-gpio"
 		    if the device is on an spmi bus or an ssbi bus respectively

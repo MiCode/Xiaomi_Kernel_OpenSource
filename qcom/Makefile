@@ -163,6 +163,7 @@ dtbo-$(CONFIG_ARCH_DIWALI) += diwali-rumi-overlay.dtbo \
 	diwali-idp-overlay.dtbo \
 	diwali-atp-overlay.dtbo \
 	diwali-qrd-overlay.dtbo \
+	diwali-idp-amoled-overlay.dtbo \
 	diwali-idp-usbc-overlay.dtbo \
 	diwali-idp-hsp-overlay.dtbo \
 	diwali-idp-nopmi-overlay.dtbo \
@@ -172,6 +173,7 @@ diwali-rumi-overlay.dtbo-base := diwali.dtb
 diwali-idp-overlay.dtbo-base := diwali.dtb
 diwali-atp-overlay.dtbo-base := diwali.dtb
 diwali-qrd-overlay.dtbo-base := diwali.dtb
+diwali-idp-amoled-overlay.dtbo-base := diwali.dtb
 diwali-idp-usbc-overlay.dtbo-base := diwali.dtb
 diwali-idp-hsp-overlay.dtbo-base := diwali-hsp.dtb
 diwali-idp-nopmi-overlay.dtbo-base := diwali.dtb
@@ -181,6 +183,7 @@ dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb \
 	diwali-idp.dtb \
 	diwali-atp.dtb \
 	diwali-qrd.dtb \
+	diwali-idp-amoled.dtb \
 	diwali-idp-usbc.dtb \
 	diwali-idp-hsp.dtb \
 	diwali-idp-nopmi.dtb \
@@ -189,13 +192,17 @@ endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_CAPE) += cape-mtp-overlay.dtbo \
-        cape-cdp-overlay.dtbo \
-        cape-atp-overlay.dtbo \
-        cape-qrd-overlay.dtbo \
-        cape-v2-mtp-overlay.dtbo \
-        cape-v2-cdp-overlay.dtbo \
-        cape-v2-atp-overlay.dtbo \
-        cape-v2-qrd-overlay.dtbo
+	cape-cdp-overlay.dtbo \
+	cape-atp-overlay.dtbo \
+	cape-qrd-overlay.dtbo \
+	cape-v2-mtp-overlay.dtbo \
+	cape-v2-cdp-overlay.dtbo \
+	cape-v2-atp-overlay.dtbo \
+	cape-v2-qrd-overlay.dtbo \
+	capep-mtp-overlay.dtbo \
+	capep-cdp-overlay.dtbo \
+	capep-atp-overlay.dtbo
+
 
 cape-mtp-overlay.dtbo-base := cape.dtb
 cape-cdp-overlay.dtbo-base := cape.dtb
@@ -205,7 +212,9 @@ cape-v2-mtp-overlay.dtbo-base := cape-v2.dtb
 cape-v2-cdp-overlay.dtbo-base := cape-v2.dtb
 cape-v2-atp-overlay.dtbo-base := cape-v2.dtb
 cape-v2-qrd-overlay.dtbo-base := cape-v2.dtb
-
+capep-mtp-overlay.dtbo-base := capep.dtb
+capep-cdp-overlay.dtbo-base := capep.dtb
+capep-atp-overlay.dtbo-base := capep.dtb
 else
 dtb-$(CONFIG_ARCH_CAPE) += cape-mtp.dtb \
         cape-cdp.dtb \
@@ -214,7 +223,10 @@ dtb-$(CONFIG_ARCH_CAPE) += cape-mtp.dtb \
         cape-v2-mtp.dtb \
         cape-v2-cdp.dtb \
         cape-v2-atp.dtb \
-        cape-v2-qrd.dtb
+        cape-v2-qrd.dtb \
+	capep-mtp.dtb \
+	capep-cdp.dtb \
+	capep-atp.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -330,7 +342,10 @@ endif
 ifeq ($(CONFIG_ARCH_DIWALI), y)
 ifeq ($(CONFIG_ARCH_QTI_VM), y)
 dtb-$(CONFIG_ARCH_QTI_VM) +=  \
-        diwali-vm-rumi.dtb
+	diwali-vm-rumi.dtb \
+	diwali-vm-atp.dtb \
+	diwali-vm-idp.dtb \
+	diwali-vm-qrd.dtb
 endif
 endif
 
