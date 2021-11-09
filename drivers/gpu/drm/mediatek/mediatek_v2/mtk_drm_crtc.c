@@ -3774,6 +3774,10 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc,
 
 	if ((id == 0) && mtk_crtc->prev_eof_time == cur_eof_time) {
 		vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+		if (vrefresh == 0) {
+			DDPINFO("%s: invalid fps:%u\n", __func__, vrefresh);
+			vrefresh = 60;
+		}
 
 		start_time = ktime_get();
 		wait_event_interruptible_timeout(
@@ -3807,8 +3811,12 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc,
 #ifdef MTK_DRM_FB_LEAK
 static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cmdq_cb_data data)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_crtc *mtk_crtc = NULL;
 
+	if (IS_ERR_OR_NULL(crtc))
+		return;
+
+	mtk_crtc = to_mtk_crtc(crtc);
 	if (unlikely(!mtk_crtc)) {
 		DDPINFO("%s:invalid ESD context, crtc id:%d\n",
 			__func__, drm_crtc_index(crtc));
