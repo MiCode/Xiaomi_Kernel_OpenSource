@@ -309,6 +309,7 @@ static struct regname rn[] = {
 	REGNAME(apu1_ao, 0x14, APUPLL1_CON3),
 	/* SPM register */
 	REGNAME(spm, 0xE00, MD1_PWR_CON),
+	REGNAME(spm, 0xF30, SOC_BUCK_ISO_CON),
 	REGNAME(spm, 0xF34, PWR_STATUS),
 	REGNAME(spm, 0xF38, PWR_STATUS_2ND),
 	REGNAME(spm, 0xF2C, MD_BUCK_ISO_CON),
