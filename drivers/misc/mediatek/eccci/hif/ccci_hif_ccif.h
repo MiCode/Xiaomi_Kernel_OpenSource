@@ -296,6 +296,9 @@ extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
 extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+extern void mt_irq_dump_status(unsigned int irq);
+#endif
 /* used for throttling feature - start */
 extern unsigned long ccci_modem_boot_count[];
 extern int md_fsm_exp_info(int md_id, unsigned int channel_id);

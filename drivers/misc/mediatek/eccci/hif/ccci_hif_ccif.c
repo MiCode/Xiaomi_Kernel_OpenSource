@@ -487,9 +487,15 @@ static int md_ccif_op_dump_status(unsigned char hif_id,
 		md_ccif_queue_dump(hif_id);
 	}
 	if (flag & DUMP_FLAG_IRQ_STATUS) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
 		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
-		"Dump AP CCIF IRQ status not support\n");
-		/* mt_irq_dump_status(md_ctrl->ccif_irq_id);*/
+		"Dump AP CCIF IRQ status\n");
+		mt_irq_dump_status(ccif_ctrl->ap_ccif_irq0_id);
+		mt_irq_dump_status(ccif_ctrl->ap_ccif_irq1_id);
+#else
+		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
+			"Dump AP CCIF IRQ status not support\n");
+#endif
 	}
 	if (flag & DUMP_FLAG_QUEUE_0)
 		md_ccif_dump_queue_history(hif_id, 0);
