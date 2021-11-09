@@ -62,6 +62,13 @@ struct FrameSyncDynamicPara {
 	/* serial number for each dynamic paras */
 	unsigned int magic_num;
 
+	/* per-frame status variables */
+	int master_idx;
+	unsigned int chg_master;        // if request to change to master
+	long long adj_diff_m;
+	long long adj_diff_s;
+	unsigned int adj_or_not;
+
 	/* for current pf ctrl, min suitable frame length for stable sync */
 	unsigned int min_fl_us;         // max((exp+margin), user-cofig-min_fl)
 	unsigned int target_min_fl_us;  // FPS sync result
@@ -91,6 +98,8 @@ struct FrameSyncDynamicPara {
 struct FrameSyncStandAloneInst {
 	/* support: 0:adaptive switch master */
 	unsigned int sa_algo;
+
+	FS_Atomic_T master_idx;
 
 	/* serial number for each dynamic paras */
 	unsigned int magic_num[SENSOR_MAX_NUM];
@@ -155,6 +164,7 @@ struct FrameSyncInst {
 //---------------------------- private member --------------------------------//
 	/* for STG sensor read offset change, effect valid min fl */
 	unsigned int readout_min_fl_lc;
+	unsigned int prev_readout_min_fl_lc;
 
 
 	/* for STG sensor using FDOL mode like DOL mode */
@@ -187,6 +197,8 @@ struct FrameSyncInst {
 	unsigned int last_vts;
 	unsigned int cur_tick;
 	unsigned int vdiff;
+
+	unsigned int is_nonvalid_ts:1;
 };
 static struct FrameSyncInst fs_inst[SENSOR_MAX_NUM];
 
@@ -541,11 +553,87 @@ static inline void set_valid_for_using_vsyncs_recs_data(
 }
 
 
+/*
+ * predicted frame length ( current:0, next:1 )
+ *
+ * must ONLY be updated when
+ *    setting new frame recs data and after getting vsyncs data
+ *    otherwise the results will be not correct
+ */
+static void calc_predicted_frame_length(unsigned int idx)
+{
+	unsigned int i = 0;
+
+	unsigned int fdelay = fs_inst[idx].fl_active_delay;
+	unsigned int *p_fl_lc = fs_inst[idx].predicted_fl_lc;
+	unsigned int *p_fl_us = fs_inst[idx].predicted_fl_us;
+
+
+	/* for error handle, check sensor fl_active_delay value */
+	if ((fdelay < 2) || (fdelay > 3)) {
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame:%u is not valid (must be 2 or 3)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].fl_active_delay);
+
+		return;
+	}
+
+	/* calculate "current predicted" and "next predicted" framelength */
+	/* P.S. current:0, next:1 */
+	for (i = 0; i < 2; ++i) {
+		if (fdelay == 3) {
+			/* SONY sensor with auto-extend on */
+			unsigned int sm =
+				*fs_inst[idx].recs[1-i].shutter_lc +
+				fs_inst[idx].margin_lc;
+
+			p_fl_lc[i] =
+				(*fs_inst[idx].recs[2-i].framelength_lc > sm)
+				? *fs_inst[idx].recs[2-i].framelength_lc
+				: sm;
+
+			if (fs_inst[idx].hdr_exp.mode_exp_cnt > 1) {
+				/* STG FLL constraints */
+				if (i == 0) {
+					p_fl_lc[i] =
+						(p_fl_lc[i] > fs_inst[idx].prev_readout_min_fl_lc)
+						? p_fl_lc[i]
+						: fs_inst[idx].prev_readout_min_fl_lc;
+
+				} else { // if (i == 1)
+					p_fl_lc[i] =
+						(p_fl_lc[i] > fs_inst[idx].readout_min_fl_lc)
+						? p_fl_lc[i]
+						: fs_inst[idx].readout_min_fl_lc;
+				}
+			}
+
+
+			p_fl_us[i] = convert2TotalTime(
+						fs_inst[idx].lineTimeInNs,
+						p_fl_lc[i]);
+
+		} else { // fdelay == 2
+			/* non-SONY sensor case */
+			p_fl_lc[i] = *fs_inst[idx].recs[1-i].framelength_lc;
+
+
+			p_fl_us[i] = convert2TotalTime(
+						fs_inst[idx].lineTimeInNs,
+						p_fl_lc[i]);
+		}
+	}
+}
+
+
 static inline void calibrate_recs_data_by_vsyncs(unsigned int idx)
 {
 	if (!check_valid_for_using_vsyncs_recs_data(idx)) {
-		LOG_PR_WARN(
-			"[%u] ID:%#x(sidx:%u), calibrate recs failed, update vsyncs data first\n",
+		LOG_MUST(
+			"WARNING: [%u] ID:%#x(sidx:%u), calibrate recs failed, please update vsyncs data first\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx);
@@ -589,71 +677,15 @@ static inline void calibrate_recs_data_by_vsyncs(unsigned int idx)
 	}
 
 
+	/* update predicted frame length by new frame recorder data */
+	calc_predicted_frame_length(idx);
+
+
 	/* set NOT valid for using vsyncs / recs data for */
 	/* preventing calculation error */
 	/* (call calibrate_recs_data_by_vsyncs() API again */
 	/*  without re-query timestamp data) */
 	set_valid_for_using_vsyncs_recs_data(idx, 0);
-}
-
-
-/*
- * predicted frame length ( current:0, next:1 )
- *
- * must ONLY be updated when
- *    setting new frame recs data and after getting vsyncs data
- *    otherwise the results will be not correct
- */
-static void calc_predicted_frame_length(unsigned int idx)
-{
-	unsigned int i = 0;
-
-	unsigned int fdelay = fs_inst[idx].fl_active_delay;
-	unsigned int *p_fl_lc = fs_inst[idx].predicted_fl_lc;
-	unsigned int *p_fl_us = fs_inst[idx].predicted_fl_us;
-
-
-	/* for error handle, check sensor fl_active_delay value */
-	if ((fdelay < 2) || (fdelay > 3)) {
-		LOG_INF(
-			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame:%u is not valid (must be 2 or 3)\n",
-			idx,
-			fs_inst[idx].sensor_id,
-			fs_inst[idx].sensor_idx,
-			fs_inst[idx].fl_active_delay);
-
-		return;
-	}
-
-	/* calculate "current predicted" and "next predicted" framelength */
-	/* P.S. current:0, next:1 */
-	for (i = 0; i < 2; ++i) {
-		if (fdelay == 3) {
-			/* SONY sensor with auto-extend on */
-			unsigned int sm =
-				*fs_inst[idx].recs[1-i].shutter_lc +
-				fs_inst[idx].margin_lc;
-
-			p_fl_lc[i] =
-				(*fs_inst[idx].recs[2-i].framelength_lc > sm)
-				? *fs_inst[idx].recs[2-i].framelength_lc
-				: sm;
-
-
-			p_fl_us[i] = convert2TotalTime(
-						fs_inst[idx].lineTimeInNs,
-						p_fl_lc[i]);
-
-		} else { // fdelay == 2
-			/* non-SONY sensor case */
-			p_fl_lc[i] = *fs_inst[idx].recs[1-i].framelength_lc;
-
-
-			p_fl_us[i] = convert2TotalTime(
-						fs_inst[idx].lineTimeInNs,
-						p_fl_lc[i]);
-		}
-	}
 }
 
 
@@ -715,7 +747,7 @@ static unsigned int calc_vts_sync_bias(unsigned int idx)
 				fs_inst[idx].custom_bias_us);
 
 		LOG_INF(
-			"WARNING: [%u] ID:%#x(sidx:%u), set custom_bias:%u(%u)\n",
+			"NOTICE: [%u] ID:%#x(sidx:%u), set custom_bias:%u(%u)\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -754,6 +786,28 @@ static inline unsigned int check_timing_critical_section(
 		return (((pred_vdiff - target_min_fl_us) < threshold) ? 1 : 0);
 	else
 		return (((target_min_fl_us - pred_vdiff) < threshold) ? 1 : 0);
+}
+
+
+/*
+ * be careful:
+ *    In each frame this API should only be called at once,
+ *    otherwise will cause wrong frame monitor data.
+ *
+ *    So calling this API at/before next vsync coming maybe a good choise.
+ */
+void fs_alg_setup_frame_monitor_fmeas_data(unsigned int idx)
+{
+	/* 1. update predicted frame length by new frame recorder data */
+	calc_predicted_frame_length(idx);
+
+	/* 2. set frame measurement predicted frame length */
+	frm_set_frame_measurement(
+		idx, fs_inst[idx].vsyncs,
+		fs_inst[idx].predicted_fl_us[0],
+		fs_inst[idx].predicted_fl_lc[0],
+		fs_inst[idx].predicted_fl_us[1],
+		fs_inst[idx].predicted_fl_lc[1]);
 }
 /******************************************************************************/
 
@@ -893,7 +947,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u/chg:%u, adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -917,6 +971,11 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].f_cell,
 		fs_sa_inst.dynamic_paras[idx].delta,
 		fs_inst[idx].fl_active_delay,
+		fs_sa_inst.dynamic_paras[idx].master_idx,
+		fs_sa_inst.dynamic_paras[idx].chg_master,
+		fs_sa_inst.dynamic_paras[idx].adj_diff_s,
+		fs_sa_inst.dynamic_paras[idx].adj_or_not,
+		fs_sa_inst.dynamic_paras[idx].adj_diff_m,
 		fs_inst[idx].flicker_en,
 		fs_sa_inst.dynamic_paras[idx].last_ts,
 		time_after_sof,
@@ -934,10 +993,12 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 /******************************************************************************/
 #ifdef SUPPORT_FS_NEW_METHOD
 static inline void fs_alg_sa_init_new_ctrl(
-	int idx, struct FrameSyncDynamicPara *p_para)
+	int idx, int m_idx, struct FrameSyncDynamicPara *p_para)
 {
 	/* generate new ctrl serial number */
 	p_para->magic_num = ++fs_sa_inst.magic_num[idx];
+
+	p_para->master_idx = m_idx;
 
 	/* sync current settings */
 	p_para->f_tag = fs_inst[idx].frame_tag;
@@ -953,8 +1014,8 @@ static inline void fs_alg_sa_init_new_ctrl(
  */
 static unsigned int fs_alg_sa_dynamic_paras_checker(
 	unsigned int s_idx, unsigned int m_idx,
-	struct FrameSyncDynamicPara *p_para_m,
-	struct FrameSyncDynamicPara *p_para_s)
+	struct FrameSyncDynamicPara *p_para_s,
+	struct FrameSyncDynamicPara *p_para_m)
 {
 	unsigned int ret = 0;
 	unsigned int query_ts_idx[2] = {s_idx, m_idx};
@@ -965,13 +1026,15 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 	/* check if last timestamp equal to zero */
 	if (check_vsync_valid(query_ts_idx, 2) == 0) {
 		LOG_INF(
-			"WARNING: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), incorrect vsync timestamp detected, ts(s:%u/m:%u)\n",
+			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), incorrect vsync timestamp detected, ts(s:%u/m:%u), p_para_ts(s:%u/m:%u)\n",
 			s_idx,
 			fs_inst[s_idx].sensor_id,
 			fs_inst[s_idx].sensor_idx,
 			p_para_s->magic_num,
 			p_para_m->magic_num,
 			m_idx,
+			fs_inst[s_idx].last_vts,
+			fs_inst[m_idx].last_vts,
 			p_para_s->last_ts,
 			p_para_m->last_ts
 		);
@@ -1003,13 +1066,17 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 static inline unsigned int fs_alg_sa_get_timestamp_info(
 	unsigned int idx, struct FrameSyncDynamicPara *p_para)
 {
+#if !defined(QUERY_CCU_TS_AT_SOF)
 	unsigned int query_ts_idx[1] = {0};
 
 
 	query_ts_idx[0] = idx;
 	if (fs_alg_get_vsync_data(query_ts_idx, 1)) {
+#else
+	if (fs_inst[idx].is_nonvalid_ts) {
+#endif // QUERY_CCU_TS_AT_SOF
 		LOG_INF(
-			"ERROR: WARNING: [%u] ID:%#x(sidx:%u), get Vsync data ERROR, SA ctrl mag_num:%u\n",
+			"WARNING: [%u] ID:%#x(sidx:%u), get Vsync data ERROR, SA ctrl mag_num:%u\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -1308,7 +1375,7 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 		/* prevent infinite loop */
 		if (p_para_m->stable_fl_us == 0) {
 			LOG_INF(
-				"WARNING: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), detect master stable_fl_us:%u, for preventing calculation error, abort processing\n",
+				"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), detect master stable_fl_us:%u, for preventing calculation error, abort processing\n",
 				s_idx,
 				fs_inst[s_idx].sensor_id,
 				fs_inst[s_idx].sensor_idx,
@@ -1425,7 +1492,7 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 		adjust_or_not = 0;
 
 		LOG_MUST(
-			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), s/m adjust_diff(%lld(%u)/%lld) is not reasonable, do not adjust frame length\n",
+			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), s/m adjust_diff(%lld(%u)/%lld) is not reasonable, do not adjust frame length\n",
 			s_idx,
 			fs_inst[s_idx].sensor_id,
 			fs_inst[s_idx].sensor_idx,
@@ -1438,7 +1505,14 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 	}
 
 
-	LOG_MUST(
+	/* update slave all per-frame status variables to dynamic_para struct */
+	p_para_s->adj_diff_m = adjust_diff_m;
+	p_para_s->adj_diff_s = adjust_diff_s;
+	p_para_s->adj_or_not = adjust_or_not;
+	p_para_s->chg_master = request_switch_master;
+
+
+	LOG_INF(
 		"[%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), ask_switch(%u), s/m adjust_diff(%lld(%u)/%lld), ts(%lld/%lld), delta(%u/%u), sync_delay(%u/%u) [(c:%u/n:%u/s:%u/e:%u/t:%u) / (c:%u/n:%u/s:%u/e:%u/t:%u)], f_cell(%u/%u), fdelay(%u/%u), ts_abs(%u/%u)\n",
 		s_idx,
 		fs_inst[s_idx].sensor_id,
@@ -1502,7 +1576,9 @@ static inline void fs_alg_sa_update_dynamic_para(
 	FS_MUTEX_UNLOCK(&fs_algo_sa_proc_mutex_lock);
 
 
+#if !defined(TWO_STAGE_FS)
 	fs_alg_sa_dump_dynamic_para(idx);
+#endif // TWO_STAGE_FS
 }
 
 
@@ -1576,6 +1652,8 @@ static inline void fs_alg_reset_fs_sa_inst(unsigned int idx)
 	LOG_INF("clear idx:%u data. (all to zero)\n", idx);
 #endif // REDUCE_FS_ALGO_LOG
 }
+
+
 #endif // SUPPORT_FS_NEW_METHOD
 
 
@@ -1716,7 +1794,7 @@ void fs_alg_set_extend_framelength(unsigned int idx,
 	}
 
 
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), setup extend_framelength:%u(%u) us(lc)\n",
 		idx,
 		fs_inst[idx].sensor_id,
@@ -1731,7 +1809,7 @@ void fs_alg_seamless_switch(unsigned int idx)
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
 
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), sensor seamless switch %llu|%llu\n",
 		idx,
 		fs_inst[idx].sensor_id,
@@ -1870,11 +1948,12 @@ static void fs_alg_update_hdr_exp_readout_fl_lc(unsigned int idx)
 		fs_inst[idx].readout_min_fl_lc = 0;
 
 		LOG_INF(
-			"WARNING: [%u] ID:%#x(sidx:%u), readout_len_lc:%d, FL calc. may have error\n",
+			"WARNING: [%u] ID:%#x(sidx:%u), readout_len_lc:%d (mode_exp_cnt:%u) FL calc. may have error\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
-			readout_len_lc);
+			readout_len_lc,
+			mode_exp_cnt);
 
 		return;
 	}
@@ -2107,7 +2186,8 @@ void fs_alg_set_sync_with_diff(unsigned int idx, unsigned int diff_us)
 {
 	fs_inst[idx].custom_bias_us = diff_us;
 
-	LOG_INF("WARNING: [%u] ID:%#x(sidx:%u), set sync with diff:%u (us)\n",
+	LOG_INF(
+		"NOTICE: [%u] ID:%#x(sidx:%u), set sync with diff:%u (us)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -2162,6 +2242,8 @@ void fs_alg_set_perframe_st_data(
 	fs_inst[idx].pclk = pData->pclk;
 	fs_inst[idx].linelength = pData->linelength;
 	fs_inst[idx].lineTimeInNs = pData->lineTimeInNs;
+
+	fs_inst[idx].prev_readout_min_fl_lc = fs_inst[idx].readout_min_fl_lc;
 	fs_inst[idx].readout_min_fl_lc = 0;
 
 
@@ -2224,12 +2306,12 @@ void fs_alg_set_frame_record_st_data(
 
 
 	/* 3. set frame measurement predicted frame length */
-	frm_set_frame_measurement(
-		idx, fs_inst[idx].vsyncs,
-		fs_inst[idx].predicted_fl_us[0],
-		fs_inst[idx].predicted_fl_lc[0],
-		fs_inst[idx].predicted_fl_us[1],
-		fs_inst[idx].predicted_fl_lc[1]);
+	// frm_set_frame_measurement(
+	//	idx, fs_inst[idx].vsyncs,
+	//	fs_inst[idx].predicted_fl_us[0],
+	//	fs_inst[idx].predicted_fl_lc[0],
+	//	fs_inst[idx].predicted_fl_us[1],
+	//	fs_inst[idx].predicted_fl_lc[1]);
 
 
 #ifndef REDUCE_FS_ALGO_LOG
@@ -2253,6 +2335,40 @@ void fs_alg_set_frame_record_st_data(
 		fs_inst[idx].margin_lc,
 		fs_inst[idx].fl_active_delay);
 #endif
+}
+
+
+void fs_alg_sa_notify_setup_all_frame_info(unsigned int idx)
+{
+	int m_idx = FS_ATOMIC_READ(&fs_sa_inst.master_idx);
+
+
+	fs_alg_sa_dump_dynamic_para(idx);
+	fs_alg_setup_frame_monitor_fmeas_data(idx);
+
+
+	if (idx != m_idx)
+		frm_timestamp_checker(fs_inst[m_idx].tg, fs_inst[idx].tg);
+}
+
+
+void fs_alg_sa_notify_vsync(unsigned int idx)
+{
+	unsigned int query_ts_idx[1] = {idx};
+
+
+	/* get timestamp info and calibrate frame recorder data */
+	fs_inst[idx].is_nonvalid_ts = fs_alg_get_vsync_data(query_ts_idx, 1);
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	if (fs_inst[idx].is_nonvalid_ts) {
+		LOG_INF(
+			"WARNING: [%u] ID:%#x(sidx:%u), get Vsync data ERROR, SA ctrl\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx);
+	}
+#endif // REDUCE_FS_ALGO_LOG
 }
 /******************************************************************************/
 
@@ -2937,7 +3053,7 @@ static void adjust_vsync_diff_sa(
 	/* check all needed info is valid or not for preventing error */
 	if (fs_alg_sa_dynamic_paras_checker(idx, m_idx, p_para, p_para_m)) {
 		LOG_INF(
-			"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), do not adjust vsync diff, out_fl:%u(%u)\n",
+			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), do not adjust vsync diff, out_fl:%u(%u)\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -3049,7 +3165,11 @@ unsigned int fs_alg_solve_frame_length_sa(
 	unsigned int ret = 0;
 	struct FrameSyncDynamicPara para = {0};
 
-	fs_alg_sa_init_new_ctrl(idx, &para);
+
+	FS_ATOMIC_SET(m_idx, &fs_sa_inst.master_idx);
+
+	/* prepare new dynamic para */
+	fs_alg_sa_init_new_ctrl(idx, m_idx, &para);
 
 
 	/* 0. get Vsync data by Frame Monitor */
@@ -3073,8 +3193,12 @@ unsigned int fs_alg_solve_frame_length_sa(
 	/* X. update dynamic para for sharing to other sensor */
 	fs_alg_sa_update_dynamic_para(idx, &para);
 
+
+#if !defined(TWO_STAGE_FS)
 	if (idx != m_idx)
 		frm_timestamp_checker(fs_inst[m_idx].tg, fs_inst[idx].tg);
+#endif // TWO_STAGE_FS
+
 
 	return 0;
 }

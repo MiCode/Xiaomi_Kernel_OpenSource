@@ -13,6 +13,17 @@
 /* utility functions */
 unsigned int fs_alg_get_vsync_data(unsigned int solveIdxs[], unsigned int len);
 
+
+/*
+ * be careful:
+ *    In each frame this API should only be called at once,
+ *    otherwise will cause wrong frame monitor data.
+ *
+ *    So calling this API at/before next vsync coming maybe a good choise.
+ */
+void fs_alg_setup_frame_monitor_fmeas_data(unsigned int idx);
+
+
 #ifdef FS_UT
 unsigned int fs_alg_write_shutter(unsigned int idx);
 #endif
@@ -57,6 +68,11 @@ void fs_alg_set_frame_cell_size(unsigned int idx, unsigned int size);
 void fs_alg_set_frame_tag(unsigned int idx, unsigned int count);
 
 void fs_alg_set_n_1_on_off_flag(unsigned int idx, unsigned int flag);
+
+
+void fs_alg_sa_notify_setup_all_frame_info(unsigned int idx);
+
+void fs_alg_sa_notify_vsync(unsigned int idx);
 
 
 /*******************************************************************************

@@ -818,44 +818,68 @@ static void frec_notify_setting_frame_record_st_data(unsigned int idx)
 
 /*
  * description:
- *     update / record fs_alg_solve_framelength results for next calculation
+ *     update / frec data for next calculation/calibration
  *
  * input:
- *     idx: sensor register position in sensortable.
- *     fl_lc: framelength_lc result from fs_alg_solve_framelength.
+ *     idx: sensor register position in sensor table.
+ *     shutter_lc: shutter lc you want to update to frec (> 0 will update)
+ *     fl_lc: frame length lc you want to update to frec (> 0 will update)
  */
-static void frec_set_framelength_lc(unsigned int idx, unsigned int fl_lc)
+static void frec_update_shutter_fl_lc(unsigned int idx,
+	unsigned int shutter_lc, unsigned int fl_lc)
 {
-#ifndef REDUCE_FS_DRV_LOG
 	struct SensorInfo info = {0}; // for log using
-#endif // REDUCE_FS_DRV_LOG
-
-
 	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
 
 	unsigned int curr_depth = pFrameRecord->depthIdx;
+
+
+	/* log print info */
+	fs_get_reg_sensor_info(idx, &info);
 
 
 	/* ring back to point to current data records */
 	curr_depth = ((curr_depth + (RECORDER_DEPTH-1)) % (RECORDER_DEPTH));
 
 
-	/* set framelength lc */
-	pFrameRecord->frame_recs[curr_depth].framelength_lc = fl_lc;
+	/* set / update shutter/framelength lc */
+	if (shutter_lc > 0)
+		pFrameRecord->frame_recs[curr_depth].shutter_lc = shutter_lc;
+
+	if (fl_lc > 0)
+		pFrameRecord->frame_recs[curr_depth].framelength_lc = fl_lc;
+
+	if ((shutter_lc == 0) && (fl_lc == 0)) {
+		LOG_MUST(
+			"WARNING: [%u] ID:%#x(sidx:%u) set: %u/%u, recs[*%u] = *%u/%u (fl_lc/shut_lc), don't update frec data\n",
+			idx,
+			info.sensor_id,
+			info.sensor_idx,
+			curr_depth,
+			shutter_lc,
+			fl_lc,
+			pFrameRecord->frame_recs[curr_depth].framelength_lc,
+			pFrameRecord->frame_recs[curr_depth].shutter_lc);
+	}
 
 
 #ifndef REDUCE_FS_DRV_LOG
-	/* log print info */
-	fs_get_reg_sensor_info(idx, &info);
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u) recs[*%u] = *%u/%u (fl_lc/shut_lc)\n",
+		"[%u] ID:%#x(sidx:%u) set: %u/%u, recs[*%u] = *%u/%u (fl_lc/shut_lc)\n",
 		idx,
 		info.sensor_id,
 		info.sensor_idx,
 		curr_depth,
+		shutter_lc,
+		fl_lc,
 		pFrameRecord->frame_recs[curr_depth].framelength_lc,
 		pFrameRecord->frame_recs[curr_depth].shutter_lc);
 #endif // REDUCE_FS_DRV_LOG
+
+
+#ifndef REDUCE_FS_DRV_LOG
+	frec_dump_recorder(idx);
+#endif //REDUCE_FS_DRV_LOG
 
 
 	/* set the results to fs algo and frame monitor */
@@ -963,6 +987,32 @@ static inline void frec_push_record(
 	frec_dump_recorder(idx);
 #endif // REDUCE_FS_DRV_LOG
 }
+
+
+#if defined(QUERY_CCU_TS_AT_SOF)
+/*
+ * be careful:
+ *    only call this API after all frame settings/info are be done!
+ *    owning to this API will push a frame settings into recorder.
+ *
+ *    e.g. call this API after doing bellow processing
+ *       setup frame monitor frame measurement,
+ *       dump fs algo info, ..., etc
+ */
+static void frec_notify_vsync(unsigned int idx)
+{
+	/* push previous frame settings into frame recorder */
+	frec_push_record(idx,
+		fs_mgr.pf_ctrl[idx].shutter_lc,
+		fs_mgr.pf_ctrl[idx].out_fl_lc);
+
+
+#if !defined(REDUCE_FS_DRV_LOG)
+	/* log */
+	frec_dump_recorder(idx);
+#endif // REDUCE_FS_DRV_LOG
+}
+#endif // QUERY_CCU_TS_AT_SOF
 /******************************************************************************/
 
 
@@ -1434,9 +1484,9 @@ void fs_set_sync(unsigned int ident, unsigned int flag)
 
 #if !defined(FS_UT)
 	/* user cmd force disable frame-sync set_sync */
-	if (fs_con_check_usr_disable_sync()) {
+	if (fs_con_chk_force_to_ignore_set_sync()) {
 		LOG_MUST(
-			"WARNING: [%u] user set force disable frame-sync set sync, return\n",
+			"NOTICE: [%u] USER set force to ignore frame-sync set sync, return\n",
 			idx);
 		return;
 	}
@@ -1526,10 +1576,13 @@ static void fs_set_sensor_driver_framelength_lc(
  */
 static inline void fs_set_framelength_lc(unsigned int idx, unsigned int fl_lc)
 {
-#if !defined(TWO_STAGE_FS)
+#if !defined(TWO_STAGE_FS) //|| defined(QUERY_CCU_TS_AT_SOF)
 	/* 0. update frame recorder data */
-	/*    frec data in normal process will be update by fs algo */
-	frec_set_framelength_lc(idx, fl_lc);
+	frec_update_shutter_fl_lc(idx, 0, fl_lc);
+
+	/* after all settings are updated, */
+	/* setup frame monitor fmeas data before calling fs_alg_get_vsync_data */
+	fs_alg_setup_frame_monitor_fmeas_data(idx);
 #endif // TWO_STAGE_FS
 
 
@@ -1543,7 +1596,7 @@ static inline void fs_set_framelength_lc(unsigned int idx, unsigned int fl_lc)
 
 
 	/* 2. set the results to fs algo and frame monitor */
-	frec_notify_setting_frame_record_st_data(idx);
+	// frec_notify_setting_frame_record_st_data(idx);
 }
 
 
@@ -1674,7 +1727,7 @@ static inline int fs_get_valid_master_instance_idx(void)
 
 #if !defined(REDUCE_FS_DRV_LOG)
 		LOG_INF(
-			"WARNING: current master_idx:%d is not valid for doing frame-sync, validSync_bits:%d, auto set to idx:%d\n",
+			"NOTICE: current master_idx:%d is not valid for doing frame-sync, validSync_bits:%d, auto set to idx:%d\n",
 			m_idx, valid, i);
 #endif // REDUCE_FS_DRV_LOG
 
@@ -1780,7 +1833,7 @@ static inline void fs_try_set_auto_frame_tag(unsigned int idx)
 		/* N:1 case */
 		if (fs_mgr.frame_cell_size[idx] == 0) {
 			LOG_MUST(
-				"ERROR: [%u] call set auto frame_tag, feature_mode:%u, but frame_cell_size:%u not valid, return\n",
+				"NOTICE: [%u] call set auto frame_tag, feature_mode:%u, but frame_cell_size:%u not valid, return\n",
 				idx,
 				fs_mgr.ft_mode[idx],
 				fs_mgr.frame_cell_size[idx]
@@ -1801,9 +1854,9 @@ static inline void fs_try_set_auto_frame_tag(unsigned int idx)
 
 void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 {
-#if defined(TWO_STAGE_FS)
+#if defined(TWO_STAGE_FS) && !defined(QUERY_CCU_TS_AT_SOF)
 	unsigned int f_cell;
-#endif // TWO_STAGE_FS
+#endif // TWO_STAGE_FS && !QUERY_CCU_TS_AT_SOF
 
 	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
@@ -1820,7 +1873,7 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 	if ((fs_mgr.ft_mode[idx] & FS_FT_MODE_ASSIGN_FRAME_TAG)
 		&& (fs_mgr.ft_mode[idx] & FS_FT_MODE_FRAME_TAG)) {
 		/* M-Stream case */
-#if !defined(TWO_STAGE_FS)
+#if !defined(TWO_STAGE_FS) || defined(QUERY_CCU_TS_AT_SOF)
 		fs_mgr.frame_tag[idx] = f_tag;
 #else // TWO_STAGE_FS
 		f_cell = fs_mgr.frame_cell_size[idx];
@@ -1834,7 +1887,7 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 				"WARNING: [%u] input f_tag:%u, re-set to %u, because f_cell:%u (TWO_STAGE_FS)\n",
 				idx, f_tag, fs_mgr.frame_tag[idx], f_cell);
 		}
-#endif // TWO_STAGE_FS
+#endif // !TWO_STAGE_FS || QUERY_CCU_TS_AT_SOF
 
 		fs_alg_set_frame_tag(idx, fs_mgr.frame_tag[idx]);
 
@@ -1869,7 +1922,7 @@ void fs_n_1_en(unsigned int ident, unsigned int n, unsigned int en)
 	if (fs_check_n_1_status_ctrl(idx, en) == 0) {
 		/* feature mode status is non valid for this ctrl */
 		LOG_MUST(
-			"ERROR: [%u] ID:%#x(sidx:%u), set N:%u, but ft ctrl non valid, feature_mode:%u (FRAME_TAG:%u/ON:%u/KEEP:%u/OFF:%u), return  [en:%u]\n",
+			"NOTICE: [%u] ID:%#x(sidx:%u), set N:%u, but ft ctrl non valid, feature_mode:%u (FRAME_TAG:%u/ON:%u/KEEP:%u/OFF:%u), return  [en:%u]\n",
 			idx,
 			info.sensor_id,
 			info.sensor_idx,
@@ -2211,10 +2264,15 @@ unsigned int fs_streaming(
 #endif // REDUCE_FS_DRV_LOG
 
 
-#ifdef FS_SENSOR_CCU_IT
-	if (flag > 0)
-		fs_set_sync(idx, 1);
-#endif // FS_SENSOR_CCU_IT
+#if !defined(FS_UT)
+	if (flag > 0 && fs_con_chk_default_en_set_sync()) {
+		LOG_MUST(
+			"NOTICE: [%u] USER set default enable frame-sync set sync\n",
+			idx);
+
+		fs_set_sync_idx(idx, 1);
+	}
+#endif // FS_UT
 
 	return 0;
 }
@@ -2622,8 +2680,14 @@ void fs_set_shutter(struct fs_perframe_st (*frameCtrl))
 #endif // FS_UT
 
 
+#if !defined(QUERY_CCU_TS_AT_SOF)
 	/* 3. push frame settings into frame recorder */
 	frec_push_record(idx, frameCtrl->shutter_lc, frameCtrl->out_fl_lc);
+#else
+	/* 3. update frame recorder data */
+	frec_update_shutter_fl_lc(idx,
+		frameCtrl->shutter_lc, frameCtrl->out_fl_lc);
+#endif // QUERY_CCU_TS_AT_SOF
 
 
 	/* 4. frame sync ctrl */
@@ -2693,7 +2757,7 @@ void fs_update_shutter(struct fs_perframe_st (*frameCtrl))
 
 
 	/* update frame recorder data */
-	frec_set_framelength_lc(idx, frameCtrl->out_fl_lc);
+	frec_update_shutter_fl_lc(idx, 0, frameCtrl->out_fl_lc);
 }
 
 
@@ -2720,7 +2784,16 @@ void fs_notify_vsync(unsigned int ident)
 		return;
 
 
+#if !defined(QUERY_CCU_TS_AT_SOF)
 	fs_set_shutter(&fs_mgr.pf_ctrl[idx]);
+#else
+	fs_alg_sa_notify_setup_all_frame_info(idx);
+
+	frec_notify_vsync(idx);
+	fs_alg_sa_notify_vsync(idx);
+#endif // QUERY_CCU_TS_AT_SOF
+
+
 #endif // FS_UT
 }
 
@@ -2753,7 +2826,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 
 #if !defined(FS_UT)
 	/* user cmd force disable frame-sync set_sync */
-	if (fs_con_check_usr_disable_sync())
+	if (fs_con_chk_force_to_ignore_set_sync())
 		return 0;
 #endif // FS_UT
 

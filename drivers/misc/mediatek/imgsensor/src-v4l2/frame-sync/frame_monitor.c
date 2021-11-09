@@ -971,7 +971,7 @@ unsigned int frm_convert_cammux_tg_to_ccu_tg(unsigned int tg)
 	/* error handle for TG mapping non valid */
 	if (tg_mapped > CAMSV_TG_MAX) {
 		LOG_MUST(
-			"WARNING: input tg:%u, camsv0_tg:%u, camsv_id:%d, tg_mapped:%u but camsv_tg_max:%u(camsv_id_max:%u), ret:%u\n",
+			"NOTICE: input tg:%u, camsv0_tg:%u, camsv_id:%d, tg_mapped:%u but camsv_tg_max:%u(camsv_id_max:%u), ret:%u\n",
 			tg,
 			frm_inst.camsv0_tg,
 			camsv_id,

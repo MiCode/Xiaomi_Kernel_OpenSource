@@ -18,6 +18,9 @@
 
 #if !defined(FS_UT)
 #define TWO_STAGE_FS 1
+#if defined(TWO_STAGE_FS)
+#define QUERY_CCU_TS_AT_SOF 1
+#endif // TWO_STAGE_FS
 #endif // FS_UT
 
 

@@ -285,6 +285,14 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 	pf_ctrl.cmd_id = (unsigned int)cmd;
 
+
+	/* call frame-sync fs_set_shutter() */
+	if (ctx->fsync_mgr != NULL)
+		ctx->fsync_mgr->fs_set_shutter(&pf_ctrl);
+	else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
+
+
 #if defined(TWO_STAGE_FS)
 	for (i = 0; (i < ae_exp_cnt) && (i < IMGSENSOR_STAGGER_EXPOSURE_CNT); i++)
 		fsync_exp[i] = (u32)(*(ae_exp_arr + i));
@@ -301,17 +309,14 @@ static void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 		pf_ctrl.out_fl_lc = ctx->subctx.frame_length; // sensor current fl_lc
 	}
-#endif // TWO_STAGE_FS
 
-	/* call frame-sync fs_set_shutter() */
+
+	/* call frame-sync fs_update_shutter() to update FL setting for frec */
 	if (ctx->fsync_mgr != NULL)
-#if !defined(TWO_STAGE_FS)
-		ctx->fsync_mgr->fs_set_shutter(&pf_ctrl);
-#else
 		ctx->fsync_mgr->fs_update_shutter(&pf_ctrl);
-#endif // TWO_STAGE_FS
 	else
 		dev_info(ctx->dev, "frame-sync is not init!\n");
+#endif // TWO_STAGE_FS
 }
 
 static void notify_fsync_vsync(struct adaptor_ctx *ctx)

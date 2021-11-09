@@ -23,7 +23,7 @@
 #else // FS_UT
 #include <linux/printk.h>  /* for kernel log reduction */
 
-#define LOG_TRACER_DEF 1
+#define LOG_TRACER_DEF 0
 extern unsigned int log_tracer;   /* declare in frame_sync_sysfs_console.c */
 #define LOG_INF(format, args...)                                               \
 do {                                                                           \

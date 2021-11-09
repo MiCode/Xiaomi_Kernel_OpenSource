@@ -37,8 +37,9 @@
 #define FS_CON_CMD_SHIFT 100000000
 
 enum fs_console_cmd_id {
-	FS_CON_FORCE_DIS_SYNC = 1,
-	FS_CON_SET_SYNC_TYPE = 2, /* TBD */
+	FS_CON_FORCE_TO_IGNORE_SET_SYNC = 1,
+	FS_CON_DEFAULT_EN_SET_SYNC,
+	FS_CON_SET_SYNC_TYPE, /* TBD */
 
 	FS_CON_AUTO_LISTEN_EXT_VSYNC = 40,
 	FS_CON_FORCE_LISTEN_EXT_VSYNC = 41,
@@ -59,7 +60,10 @@ enum fs_console_cmd_id {
 unsigned int log_tracer;
 
 /* force disable frame-sync / set sync */
-static unsigned int force_dis_fs;
+static unsigned int force_to_ignore_set_sync;
+
+/* default enable frame-sync set sync (at streaming on) */
+static unsigned int default_en_set_sync;
 
 /* disable algo auto listen ext vsync */
 static unsigned int auto_listen_ext_vsync;
@@ -84,7 +88,8 @@ static inline void fs_console_init_def_value(void)
 {
 	// *pdev = NULL;
 	log_tracer = LOG_TRACER_DEF;
-	force_dis_fs = 0;
+	force_to_ignore_set_sync = 0;
+	default_en_set_sync = 0;
 	auto_listen_ext_vsync = ALGO_AUTO_LISTEN_VSYNC;
 
 	// two stage frame-sync:
@@ -113,9 +118,15 @@ static inline unsigned int fs_console_get_cmd_value(unsigned int cmd)
 /******************************************************************************/
 // function used internally by frame-sync
 /******************************************************************************/
-unsigned int fs_con_check_usr_disable_sync(void)
+unsigned int fs_con_chk_force_to_ignore_set_sync(void)
 {
-	return force_dis_fs;
+	return force_to_ignore_set_sync;
+}
+
+
+unsigned int fs_con_chk_default_en_set_sync(void)
+{
+	return default_en_set_sync;
 }
 
 
@@ -168,11 +179,17 @@ static void fs_console_set_force_disable_frame_sync(unsigned int cmd)
 	int len = 0;
 	char str_buf[PAGE_SIZE] = {0};
 
-	force_dis_fs = fs_console_get_cmd_value(cmd);
+	force_to_ignore_set_sync = fs_console_get_cmd_value(cmd);
 
 	SHOW(str_buf, len,
-		"\n[fsync_console] set force_dis_fs to %u\n",
-		force_dis_fs);
+		"\n[fsync_console] set force_to_ignore_set_sync to %u\n",
+		force_to_ignore_set_sync);
+}
+
+
+static void fs_console_set_default_en_set_sync(unsigned int cmd)
+{
+	default_en_set_sync = fs_console_get_cmd_value(cmd);
 }
 
 
@@ -203,34 +220,40 @@ static ssize_t fsync_console_show(
 
 
 	SHOW(buf, len,
-		"\n\t[fsync_console] show all information\n");
+		"\n\t[ fsync_console ] show all information...\n");
 
 
 	SHOW(buf, len,
-		"\t\t[FORCE_DIS_SYNC:%u] force_dis_fs:%u\n",
-		(unsigned int)FS_CON_FORCE_DIS_SYNC,
-		force_dis_fs);
+		"\t\t[ %u : FORCE_TO_IGNORE_SET_SYNC ] force_to_ignore_set_sync : %u\n",
+		(unsigned int)FS_CON_FORCE_TO_IGNORE_SET_SYNC,
+		force_to_ignore_set_sync);
 
 
 	SHOW(buf, len,
-		"\t\t[SET_SYNC_TYPE:%u] TBD\n",
+		"\t\t[ %u : DEFAULT_EN_SET_SYNC ] default_en_set_sync : %u\n",
+		(unsigned int)FS_CON_DEFAULT_EN_SET_SYNC,
+		default_en_set_sync);
+
+
+	SHOW(buf, len,
+		"\t\t[ %u : SET_SYNC_TYPE ] TBD\n",
 		(unsigned int)FS_CON_SET_SYNC_TYPE);
 
 
 	SHOW(buf, len,
-		"\t\t[AUTO_LISTEN_EXT_VSYNC:%u] auto_listen_ext_vsync:%u\n",
+		"\t\t[ %u : AUTO_LISTEN_EXT_VSYNC ] auto_listen_ext_vsync : %u\n",
 		(unsigned int)FS_CON_AUTO_LISTEN_EXT_VSYNC,
 		auto_listen_ext_vsync);
 
 
 	SHOW(buf, len,
-		"\t\t[FORCE_LISTEN_EXT_VSYNC:%u] listen_ext_vsync:%u\n",
+		"\t\t[ %u : FORCE_LISTEN_EXT_VSYNC ] listen_ext_vsync : %u\n",
 		(unsigned int)FS_CON_FORCE_LISTEN_EXT_VSYNC,
 		listen_ext_vsync);
 
 
 	SHOW(buf, len,
-		"\t\t[LOG_TRACER:%u] log_tracer:%u\n",
+		"\t\t[ %u : LOG_TRACER ] log_tracer : %u\n",
 		(unsigned int)FS_CON_LOG_TRACER,
 		log_tracer);
 
@@ -265,8 +288,12 @@ static ssize_t fsync_console_store(
 	cmd_id = fs_console_get_cmd_id(cmd);
 
 	switch (cmd_id) {
-	case FS_CON_FORCE_DIS_SYNC:
+	case FS_CON_FORCE_TO_IGNORE_SET_SYNC:
 		fs_console_set_force_disable_frame_sync(cmd);
+		break;
+
+	case FS_CON_DEFAULT_EN_SET_SYNC:
+		fs_console_set_default_en_set_sync(cmd);
 		break;
 
 	case FS_CON_LOG_TRACER:
