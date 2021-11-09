@@ -323,6 +323,13 @@ void mt_print_scp_ipi_id(unsigned int mbox)
 						buf.id, buf.info[0],
 						buf.info[1], buf.info[2],
 						buf.info[3]);
+				} else if (scp_mbox_pin_recv[i].chan_id
+						== IPI_IN_SENSOR_NOTIFY){
+					mtk_mbox_read(&scp_mboxdev, mbox,
+						    scp_mbox_pin_recv[i].offset,
+						    &buf.info, sizeof(buf.info));
+					pr_info("[SCP] sensor notify seq %u type %u cmd %u len %u\n",
+						buf.info[0], buf.info[1], buf.info[2], buf.info[3]);
 				} else {
 					pr_info("[SCP] mbox%u, ipi id %u\n",
 						mbox,
