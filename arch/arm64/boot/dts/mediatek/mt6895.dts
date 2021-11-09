@@ -12162,6 +12162,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT2)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_a0";
 	};
 
 	camsv2@1a111000 {
@@ -12200,6 +12205,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT4)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_a1";
 	};
 
 	camsv3@1a112000 {
@@ -12238,6 +12248,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT0)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_b0";
 	};
 
 	camsv4@1a113000 {
@@ -12276,6 +12291,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT1)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_b1";
 	};
 
 	camsv5@1a114000 {
@@ -12314,6 +12334,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT3)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_c0";
 	};
 
 	camsv6@1a115000 {
@@ -12352,6 +12377,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT5)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_c1";
 	};
 
 	camsv7@1a116000 {
@@ -12390,6 +12420,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT8)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_d0";
 	};
 
 	camsv8@1a117000 {
@@ -12428,6 +12463,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT9)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_d1";
 	};
 
 	camsv9@1a180000 {
@@ -12466,6 +12506,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT12)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_e0";
 	};
 
 	camsv10@1a181000 {
@@ -12504,6 +12549,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT13)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_e1";
 	};
 
 	camsv11@1a182000 {
@@ -12540,6 +12590,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT10)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_f0";
 	};
 
 	camsv12@1a183000 {
@@ -12576,6 +12631,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT11)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_f1";
 	};
 
 	camsv13@1a184000 {
@@ -12612,6 +12672,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT20)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_g0";
 	};
 
 	camsv14@1a185000 {
@@ -12648,6 +12713,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT21)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_imgo_g1";
 	};
 
 	camsv15@1a186000 {
@@ -12684,6 +12754,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT12)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_h0";
 	};
 
 	camsv16@1a187000 {
@@ -12720,6 +12795,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"topckgen_top_cam_sel",
 					"topckgen_top_camtg_sel",
 					"topckgen_top_camtm_sel";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB14_PORT13)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l14_imgo_h1";
 	};
 
 	mraw1@1a130000 {
@@ -12742,6 +12822,20 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"camsys_mraw_camtg",
 					"camsys_main_mraw0",
 					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT1)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT2)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT3)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT4)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l25_cqi_m1_0",
+			"l25_cqi_m2_0",
+			"l25_imgo_m1_0",
+			"l25_imgbo_m1_0";
 	};
 
 	mraw2@1a140000 {
@@ -12764,6 +12858,20 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"camsys_mraw_camtg",
 					"camsys_main_mraw1",
 					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT1)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT2)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT3)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT4)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l26_cqi_m1_1",
+			"l26_cqi_m2_1",
+			"l26_imgo_m1_1",
+			"l26_imgbo_m1_1";
 	};
 
 	mraw3@1a150000 {
@@ -12786,6 +12894,20 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"camsys_mraw_camtg",
 					"camsys_main_mraw2",
 					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT6)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT7)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT8)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT9)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l25_cqi_m1_2",
+			"l25_cqi_m2_2",
+			"l25_imgo_m1_2",
+			"l25_imgbo_m1_2";
 	};
 
 	mraw4@1a160000 {
@@ -12808,6 +12930,20 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"camsys_mraw_camtg",
 					"camsys_main_mraw3",
 					"topckgen_top_muxcamtm";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT6)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT7)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT8)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB26_PORT9)
+				&mmqos SLAVE_COMMON(1)>;
+		interconnect-names =
+			"l26_cqi_m1_3",
+			"l26_cqi_m2_3",
+			"l26_imgo_m1_3",
+			"l26_imgbo_m1_3";
 	};
 
 	drm_wv: drm_wv {
