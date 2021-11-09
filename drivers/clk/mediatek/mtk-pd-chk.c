@@ -119,7 +119,7 @@ static void pdchk_dump_enabled_power_domain(struct generic_pm_domain *pd)
 		if (!p || !d)
 			continue;
 
-		pr_notice("\t%c (%-19s %3d %3d %3d %3d %3d:  %10s)\n",
+		pr_notice("\t%c (%-30s %3d %3d %3d %3d %3d:  %10s)\n",
 				pm_runtime_active(d) ? '+' : '-',
 				p->name,
 				atomic_read(&d->power.usage_count),
