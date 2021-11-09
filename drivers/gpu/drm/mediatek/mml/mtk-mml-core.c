@@ -1033,12 +1033,10 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 		ret = task->config->task_ops->dup_task(task, pipe);
 		mml_trace_ex_end();
 		if (ret < 0) {
-			task->state = MML_TASK_INITIAL;
 			mml_err("dup task fail %d", ret);
+			return ret;
 		}
-	}
-
-	if (task->state == MML_TASK_INITIAL) {
+	} else if (task->state == MML_TASK_INITIAL) {
 		/* prepare data in each component for later tile use */
 		core_prepare(task, pipe);
 
