@@ -3725,6 +3725,9 @@ unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
 	unsigned long long fps = 100000000000;
 	unsigned long flags = 0;
 	unsigned int index = crtc_id;
+	unsigned int fps_num = 0;
+	unsigned long long fps_array[LCM_FPS_ARRAY_SIZE] = {0};
+	unsigned long long start_time = 0, diff = 0;
 
 	if (crtc_id >= MAX_CRTC) {
 		DDPPR_ERR("%s:invalid crtc:%u\n",
@@ -3735,7 +3738,9 @@ unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
 	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
 		return 0;
 
+	start_time = sched_clock();
 	spin_lock_irqsave(&lcm_fps_ctx[index].lock, flags);
+
 	if (atomic_read(&lcm_fps_ctx[index].skip_update) &&
 	    lcm_fps_ctx[index].fps) {
 		spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
@@ -3752,26 +3757,32 @@ unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
 		return ret;
 	}
 
+	fps_num = lcm_fps_ctx[index].num;
+	memcpy(fps_array, lcm_fps_ctx[index].array, sizeof(fps_array));
 
-	for (i = 0; i < lcm_fps_ctx[index].num; i++) {
-		duration_sum += lcm_fps_ctx[index].array[i];
-		duration_min = min(duration_min, lcm_fps_ctx[index].array[i]);
-		duration_max = max(duration_max, lcm_fps_ctx[index].array[i]);
+	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+	diff = sched_clock() - start_time;
+	if (diff > 1000000)
+		DDPMSG("%s diff = %llu, > 1 ms\n", diff);
+
+	for (i = 0; i < fps_num; i++) {
+		duration_sum += fps_array[i];
+		duration_min = min(duration_min, fps_array[i]);
+		duration_max = max(duration_max, fps_array[i]);
 	}
 	duration_sum -= duration_min + duration_max;
-	duration_avg = duration_sum / (lcm_fps_ctx[index].num - 2);
+	duration_avg = duration_sum / (fps_num - 2);
 	do_div(fps, duration_avg);
 	lcm_fps_ctx[index].fps = (unsigned int)fps;
 
 	DDPMSG("%s CRTC:%d max=%lld, min=%lld, sum=%lld, num=%d, fps=%u\n",
 		__func__, index, duration_max, duration_min,
-		duration_sum, lcm_fps_ctx[index].num, (unsigned int)fps);
+		duration_sum, fps_num, (unsigned int)fps);
 
-	if (lcm_fps_ctx[index].num >= LCM_FPS_ARRAY_SIZE) {
+	if (fps_num >= LCM_FPS_ARRAY_SIZE) {
 		atomic_set(&lcm_fps_ctx[index].skip_update, 1);
 		DDPINFO("%s set skip_update\n", __func__);
 	}
-	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
 
 	return (unsigned int)fps;
 }
