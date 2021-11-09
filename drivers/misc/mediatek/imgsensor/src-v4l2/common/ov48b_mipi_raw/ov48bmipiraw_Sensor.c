@@ -530,8 +530,10 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 	if (!_is_seamless) {
 		memset(_i2c_data, 0x0, sizeof(_i2c_data));
 		_size_to_write = 0;
-		_i2c_data[_size_to_write++] = 0x3208; //group 0 start
-		_i2c_data[_size_to_write++] = 0x00;
+		if (ctx->ae_ctrl_gph_en) {
+			_i2c_data[_size_to_write++] = 0x3208; //group 0 start
+			_i2c_data[_size_to_write++] = 0x00;
+		}
 		_i2c_data[_size_to_write++] = 0x3840;
 		_i2c_data[_size_to_write++] = ctx->frame_length >> 16;
 		_i2c_data[_size_to_write++] = 0x380e;
@@ -544,12 +546,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		_i2c_data[_size_to_write++] = (shutter >> 8) & 0xFF;
 		_i2c_data[_size_to_write++] = 0x3502;
 		_i2c_data[_size_to_write++] = (shutter)  & 0xFF;
-		if (!ctx->ae_ctrl_gph_en) { //group 0 end
-			_i2c_data[_size_to_write++] = 0x3208;
-			_i2c_data[_size_to_write++] = 0x10;
-			_i2c_data[_size_to_write++] = 0x3208;
-			_i2c_data[_size_to_write++] = 0xa0;
-		}
+
+
 		table_write_cmos_sensor(ctx, _i2c_data,
 		_size_to_write);
 	} else {
@@ -609,18 +607,18 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	if (!_is_seamless) {
 		memset(_i2c_data, 0x0, sizeof(_i2c_data));
 		_size_to_write = 0;
-		if (!ctx->ae_ctrl_gph_en) {
-			_i2c_data[_size_to_write++] = 0x3208;
-			_i2c_data[_size_to_write++] = 0x00;
-		}
+
 		_i2c_data[_size_to_write++] = 0x03508;
 		_i2c_data[_size_to_write++] =  reg_gain >> 8;
 		_i2c_data[_size_to_write++] = 0x03509;
 		_i2c_data[_size_to_write++] =  reg_gain & 0xff;
-		_i2c_data[_size_to_write++] = 0x3208;
-		_i2c_data[_size_to_write++] = 0x10;
-		_i2c_data[_size_to_write++] = 0x3208;
-		_i2c_data[_size_to_write++] = 0xa0;
+
+		if (ctx->ae_ctrl_gph_en) {
+			_i2c_data[_size_to_write++] = 0x3208;
+			_i2c_data[_size_to_write++] = 0x10;
+			_i2c_data[_size_to_write++] = 0x3208;
+			_i2c_data[_size_to_write++] = 0xa0;
+		}
 		table_write_cmos_sensor(ctx, _i2c_data,
 		_size_to_write);
 	} else {
