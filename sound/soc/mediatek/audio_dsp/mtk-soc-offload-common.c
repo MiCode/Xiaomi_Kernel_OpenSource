@@ -44,7 +44,7 @@ static struct afe_offload_service_t afe_offload_service = {
 	.write_blocked   = false,
 	.enable          = false,
 	.drain           = false,
-	.ipiwait         = false,
+	.tswait          = false,
 	.needdata        = false,
 	.decode_error    = false,
 	.volume          = 0x10000,
@@ -87,7 +87,7 @@ static struct mtk_base_dsp *dsp;
  * Function  Declaration
  */
 static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg);
-static bool OffloadService_IPICmd_Wait(unsigned int id);
+static bool OffloadService_TsWait(unsigned int id);
 static int offloadservice_copydatatoram(void __user *buf, size_t count);
 #ifdef use_wake_lock
 static void mtk_compr_offload_int_wakelock(bool enable);
@@ -280,6 +280,7 @@ static int mtk_compr_offload_open(struct snd_soc_component *component,
 		dsp = (struct mtk_base_dsp *)get_dsp_base();
 		pr_debug("get_dsp_base again\n");
 	}
+
 	/* gen pool related */
 	dsp->dsp_mem[ID].gen_pool_buffer =
 			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
@@ -538,8 +539,6 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 	}
 
 	id = get_dspdaiid_by_dspscene(ipi_msg->task_scene);
-	afe_offload_service.ipiwait = false;
-
 	if (id < 0)
 		return;
 
@@ -552,6 +551,9 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		break;
 	case OFFLOAD_PCMCONSUMED:
 		afe_offload_block.copied_total = ipi_msg->param1;
+		afe_offload_block.time_pcm = ktime_get();
+		afe_offload_block.time_pcm_delay_ms = ipi_msg->param2;
+		afe_offload_service.tswait = false;
 		break;
 	case OFFLOAD_DRAINDONE:
 		pr_info("%s mtk_compr_offload_draindone\n", __func__);
@@ -567,15 +569,16 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 	pr_debug("%s msg_id :  %d\n", __func__, ipi_msg->msg_id);
 }
 
-static bool OffloadService_IPICmd_Wait(unsigned int id)
+
+static bool OffloadService_TsWait(unsigned int id)
 {
 	int timeout = 0;
 
-	while (afe_offload_service.ipiwait) {
-		msleep(MP3_WAITCHECK_INTERVAL_MS);
-		if (timeout++ >= MP3_IPIMSG_TIMEOUT) {
-			pr_debug("Error: IPI MSG timeout:id_%x\n", id);
-			afe_offload_service.ipiwait = false;
+	while (afe_offload_service.tswait) {
+		usleep_range(1 * 1000, 1 * 1000);
+		if (timeout++ > MP3_IPIMSG_TIMEOUT) {
+			pr_info("%s tswait timeout:id_%x\n", __func__, id);
+			afe_offload_service.tswait = false;
 			return false;
 		}
 	}
@@ -693,18 +696,27 @@ Error:
 	return -1;
 }
 
+static int mtk_compr_send_query_tstamp(void)
+{
+	if (!afe_offload_service.tswait && !offload_playback_pause) {
+		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+		AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
+		OFFLOAD_TSTAMP, 0, 0, NULL);
+		afe_offload_service.tswait = true;
+	}
+	return 0;
+}
+
 static int mtk_compr_offload_pointer(struct snd_soc_component *component,
 				     struct snd_compr_stream *stream,
 				     struct snd_compr_tstamp *tstamp)
 {
 	int ret = 0;
 	int data = 0;
-	if (!afe_offload_service.ipiwait && !offload_playback_pause) {
-		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-				 AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
-				 OFFLOAD_TSTAMP, 0, 0, NULL);
-		afe_offload_service.ipiwait = true;
-	}
+	u64 pcm_compensate = 0;
+
+	mtk_compr_send_query_tstamp();
+
 	if (afe_offload_block.state == OFFLOAD_STATE_INIT ||
 	    afe_offload_block.state == OFFLOAD_STATE_IDLE ||
 	    afe_offload_block.state == OFFLOAD_STATE_PREPARE) {
@@ -714,9 +726,8 @@ static int mtk_compr_offload_pointer(struct snd_soc_component *component,
 		return 0;
 	}
 
-	if (afe_offload_block.state == OFFLOAD_STATE_RUNNING &&
-	    afe_offload_service.write_blocked)
-		OffloadService_IPICmd_Wait(OFFLOAD_PCMCONSUMED);
+	if (afe_offload_block.state == OFFLOAD_STATE_RUNNING)
+		OffloadService_TsWait(OFFLOAD_PCMCONSUMED);
 
 	if (!afe_offload_service.needdata) {
 		tstamp->copied_total  =
@@ -739,9 +750,20 @@ static int mtk_compr_offload_pointer(struct snd_soc_component *component,
 			afe_offload_block.transferred;
 	}
 	tstamp->sampling_rate = afe_offload_block.samplerate;
-	tstamp->pcm_io_frames = afe_offload_block.copied_total >>
-				2;  /* DSP return 16bit data */
+	// check for if pcm_delay should < 100ms
+	if (afe_offload_block.state == OFFLOAD_STATE_DRAIN ||
+	    afe_offload_block.state == OFFLOAD_STATE_RUNNING) {
+		if ((afe_offload_block.time_pcm_delay_ms > 0) &&
+		    (afe_offload_block.time_pcm_delay_ms < 100) &&
+		    (afe_offload_block.copied_total > 0)) {
+			pcm_compensate = afe_offload_block.samplerate *
+					 afe_offload_block.time_pcm_delay_ms / 1000;
+		}
+	}
+	tstamp->pcm_io_frames = (afe_offload_block.copied_total >> 2)
+				+ pcm_compensate; /* DSP return 16bit data */
 	tstamp->pcm_io_frames = tstamp->pcm_io_frames&0Xffffff80;
+
 	return ret;
 }
 
@@ -754,8 +776,8 @@ static int mtk_compr_offload_start(struct snd_compr_stream *stream)
 
 	afe_offload_block.state = OFFLOAD_STATE_PREPARE;
 	offload_playback_pause = false;
-	//SetOffloadEnableFlag(true);
 	afe_offload_block.drain_state = AUDIO_DRAIN_NONE;
+	memset(&afe_offload_block.time_pcm, 0, sizeof(ktime_t));
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_START,
 			       1, 0, NULL);
@@ -765,7 +787,6 @@ static int mtk_compr_offload_start(struct snd_compr_stream *stream)
 static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 {
 	int ret = 0;
-
 	if ((afe_offload_block.transferred > 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
@@ -780,9 +801,10 @@ static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 			afe_offload_block.state = OFFLOAD_STATE_RUNNING;
 	}
 	offloadservice_releasewriteblocked();
-
 	offload_playback_pause = false;
 	offload_playback_resume = true;
+	memset(&afe_offload_block.time_pcm, 0, sizeof(ktime_t));
+	mtk_compr_send_query_tstamp();
 	return 0;
 }
 

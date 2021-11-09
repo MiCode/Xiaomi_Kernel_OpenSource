@@ -33,7 +33,7 @@
 #include "mtk-dsp-platform-driver.h"
 #endif
 
-#define MP3_IPIMSG_TIMEOUT            25
+#define MP3_IPIMSG_TIMEOUT             2
 #define MP3_WAITCHECK_INTERVAL_MS      1
 
 enum {
@@ -59,13 +59,15 @@ struct afe_offload_param_t {
 	unsigned long long   copied_total;    /* for tstamp*/
 	unsigned long long   write_blocked_idx;
 	bool                 wakelock;
+	ktime_t              time_pcm;
+	unsigned long        time_pcm_delay_ms;
 };
 
 struct afe_offload_service_t {
 	bool write_blocked;
 	bool enable;
 	bool drain;
-	bool ipiwait;
+	bool tswait;
 	bool needdata;
 	bool decode_error;
 	unsigned int pcmdump;
@@ -96,4 +98,5 @@ enum ipi_send_offload {
 	OFFLOAD_SCENE,
 	OFFLOAD_CODEC_INFO,
 };
+
 #endif
