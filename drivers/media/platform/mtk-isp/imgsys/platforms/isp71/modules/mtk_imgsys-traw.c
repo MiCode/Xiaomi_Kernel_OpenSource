@@ -782,15 +782,18 @@ void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	g_trawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TRAW);
 	g_ltrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_LTRAW);
 	g_xtrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_XTRAW);
+	imgsys_traw_reg_iommu_cb();
 
+	#if IMGSYS_QUICK_ON_OFF
+	#else
 	/* Init HW */
 	imgsys_traw_set_initial_value_hw(imgsys_dev);
 	/* Register IOMMU Callback */
-	imgsys_traw_reg_iommu_cb();
 	g_IOMMUDumpPort = 0;
 
+	#endif
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 }
 
 void imgsys_traw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
@@ -818,7 +821,7 @@ void imgsys_traw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 }
 
 void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
@@ -923,5 +926,5 @@ void imgsys_traw_uninit(struct mtk_imgsys_dev *imgsys_dev)
 		g_xtrawRegBA = 0L;
 	}
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 }

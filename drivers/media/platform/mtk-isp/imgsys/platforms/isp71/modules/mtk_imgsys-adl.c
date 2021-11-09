@@ -35,7 +35,7 @@ void imgsys_adl_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	struct resource adl;
 	struct arm_smccc_res res;
 
-	pr_info("%s: +\n", __func__);
+	pr_debug("%s: +\n", __func__);
 
 	of_address_to_resource(imgsys_dev->dev->of_node, REG_MAP_E_ADL_A, &adl);
 	if (adl.start) {
@@ -53,7 +53,7 @@ void imgsys_adl_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		have_adl = false;
 	}
 
-	pr_info("%s: -\n", __func__);
+	pr_debug("%s: -\n", __func__);
 }
 
 static void dump_adl_register(struct mtk_imgsys_dev *imgsys_dev,
@@ -327,7 +327,7 @@ void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 void imgsys_adl_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
-	pr_info("%s+\n", __func__);
+	pr_debug("%s+\n", __func__);
 
 	if (have_adl == true) {
 		if (g_adl_a_va) {
@@ -341,5 +341,5 @@ void imgsys_adl_uninit(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-	pr_info("%s-\n", __func__);
+	pr_debug("%s-\n", __func__);
 }

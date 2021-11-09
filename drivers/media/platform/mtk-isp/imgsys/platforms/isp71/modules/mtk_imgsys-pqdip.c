@@ -112,9 +112,12 @@ void __iomem *gpqdipRegBA[PQDIP_HW_SET] = {0L};
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void imgsys_pqdip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
-	void __iomem *ofset = NULL;
 	unsigned int hw_idx = 0;
+	#if IMGSYS_QUICK_ON_OFF
+	#else
+	void __iomem *ofset = NULL;
 	unsigned int i = 0;
+	#endif
 
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
@@ -122,11 +125,14 @@ void imgsys_pqdip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		/* iomap registers */
 		gpqdipRegBA[hw_idx] = of_iomap(imgsys_dev->dev->of_node,
 			REG_MAP_E_PQDIP_A + hw_idx);
+		#if IMGSYS_QUICK_ON_OFF
+		#else
 		for (i = 0 ; i < PQDIP_INIT_ARRAY_COUNT ; i++) {
 			ofset = gpqdipRegBA[hw_idx]
 				+ mtk_imgsys_pqdip_init_ary[i].ofset;
 			writel(mtk_imgsys_pqdip_init_ary[i].val, ofset);
 		}
+		#endif
 	}
 
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);

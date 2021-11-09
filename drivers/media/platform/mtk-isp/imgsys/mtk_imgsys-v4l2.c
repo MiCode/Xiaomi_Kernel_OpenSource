@@ -2731,8 +2731,8 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 	mtk_imgsys_mmqos_init(imgsys_dev);
 	#endif
 
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 3000);
-	pm_runtime_use_autosuspend(&pdev->dev);
+	//pm_runtime_set_autosuspend_delay(&pdev->dev, 3000);
+	//pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	INIT_LIST_HEAD(&imgsys_dev->imgsys_users.list);
 	mutex_init(&imgsys_dev->imgsys_users.user_lock);
