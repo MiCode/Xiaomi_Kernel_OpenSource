@@ -665,7 +665,8 @@
 		sensor-names = "imx586_mipi_raw",
 				"ov48b_mipi_raw",
 				"imx766_mipi_raw",
-				"imx519_mipi_raw";
+				"imx519_mipi_raw",
+				"imx499_mipi_raw";
 		reg = <0x1a>;
 		#thermal-sensor-cells = <0>;
 		pinctrl-names = "mclk_off",
