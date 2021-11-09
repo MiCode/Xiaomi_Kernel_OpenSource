@@ -81,7 +81,7 @@ int seninf_dfs_ctrl(struct seninf_dfs_ctx *ctx,
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 		pr_debug("%s: freq=%ld Hz, volt=%ld\n", __func__, freq, volt);
-		regulator_set_voltage(ctx->reg, volt, ctx->volts[ctx->cnt-1]);
+		regulator_set_voltage(ctx->reg, volt, INT_MAX);
 	}
 		break;
 	case DFS_RELEASE:
