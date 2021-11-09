@@ -26,6 +26,7 @@ static inline struct mtk_clk_gate *to_mtk_clk_gate(struct clk_hw *hw)
 	return container_of(hw, struct mtk_clk_gate, hw);
 }
 
+extern const struct clk_ops mtk_clk_gate_ops_setclr_dummys;
 extern const struct clk_ops mtk_clk_gate_ops_setclr_dummy;
 extern const struct clk_ops mtk_clk_gate_ops_hwv;
 extern const struct clk_ops mtk_clk_gate_ops_hwv_dummy;

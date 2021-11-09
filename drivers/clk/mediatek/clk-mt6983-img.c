@@ -41,6 +41,16 @@ static const struct mtk_gate_regs imgsys_main_0_cg_regs = {
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_setclr,			\
 	}
+
+#define GATE_IMGSYS_MAIN_0_DUMMYS(_id, _name, _parent, _shift) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &imgsys_main_0_cg_regs,				\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,			\
+	}
+
 static struct mtk_gate imgsys_main_clks[] = {
 	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_LARB9 /* CLK ID */,
 		"imgsys_main_larb9" /* name */,
@@ -54,20 +64,35 @@ static struct mtk_gate imgsys_main_clks[] = {
 	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_VCORE_GALS /* CLK ID */,
 		"imgsys_main_vcore_gals" /* name */,
 		"img1_ck" /* parent */, 3 /* bit */),
-	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_DIP0 /* CLK ID */,
+	GATE_IMGSYS_MAIN_0_DUMMYS(CLK_IMGSYS_MAIN_DIP0 /* CLK ID */,
 		"imgsys_main_dip0" /* name */,
 		"img1_ck" /* parent */, 8 /* bit */),
-	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_WPE0 /* CLK ID */,
+	GATE_IMGSYS_MAIN_0_DUMMYS(CLK_IMGSYS_MAIN_WPE0 /* CLK ID */,
 		"imgsys_main_wpe0" /* name */,
 		"img1_ck" /* parent */, 9 /* bit */),
-	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_IPE /* CLK ID */,
+	GATE_IMGSYS_MAIN_0_DUMMYS(CLK_IMGSYS_MAIN_IPE /* CLK ID */,
 		"imgsys_main_ipe" /* name */,
 		"img1_ck" /* parent */, 10 /* bit */),
-	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_WPE1 /* CLK ID */,
+	GATE_IMGSYS_MAIN_0_DUMMYS(CLK_IMGSYS_MAIN_WPE1 /* CLK ID */,
 		"imgsys_main_wpe1" /* name */,
 		"img1_ck" /* parent */, 12 /* bit */),
-	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_WPE2 /* CLK ID */,
+	GATE_IMGSYS_MAIN_0_DUMMYS(CLK_IMGSYS_MAIN_WPE2 /* CLK ID */,
 		"imgsys_main_wpe2" /* name */,
+		"img1_ck" /* parent */, 13 /* bit */),
+	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_DIP0T /* CLK ID */,
+		"imgsys_main_dip0t" /* name */,
+		"img1_ck" /* parent */, 8 /* bit */),
+	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_WPE0T /* CLK ID */,
+		"imgsys_main_wpe0t" /* name */,
+		"img1_ck" /* parent */, 9 /* bit */),
+	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_IPET /* CLK ID */,
+		"imgsys_main_ipet" /* name */,
+		"img1_ck" /* parent */, 10 /* bit */),
+	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_WPE1T /* CLK ID */,
+		"imgsys_main_wpe1t" /* name */,
+		"img1_ck" /* parent */, 12 /* bit */),
+	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_WPE2T /* CLK ID */,
+		"imgsys_main_wpe2t" /* name */,
 		"img1_ck" /* parent */, 13 /* bit */),
 	GATE_IMGSYS_MAIN_0(CLK_IMGSYS_MAIN_ADL_LARB /* CLK ID */,
 		"imgsys_main_adl_larb" /* name */,
