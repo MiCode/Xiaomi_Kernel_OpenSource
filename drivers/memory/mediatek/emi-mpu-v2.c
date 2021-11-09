@@ -116,6 +116,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	int nr_vio;
 	bool violation;
 	unsigned int hp_mask = 0x600000;
+	char md_str[MTK_EMI_MAX_CMD_LEN + 13] = {'\0'};
 
 	nr_vio = 0;
 	msg_len = 0;
@@ -134,33 +135,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			continue;
 		nr_vio++;
 
-		/*
-		 * IOMMU IRQ not connected on mt6983, mt6879 and mt6985.
-		 * IOMMU uses SRINFO=3 to make SMPU violation when
-		 * translation fault. This behavior is security spec
-		 * for IOMMU. Throuh having hook function, IOMMU will
-		 * be nodified when violoation occurred.
-		 */
-		if (mpu->iommu_handler) {
-			mpu->iommu_handler(emi_id,
-				dump_reg, mpu->dump_cnt);
-		}
 
-		/*
-		 * Whenever there is an EMI MPU violation, the Modem
-		 * software would like to be notified immediately.
-		 * This is because the Modem software wants to do
-		 * its coredump as earlier as possible for debugging
-		 * and analysis.
-		 * (Even if the violated master is not Modem, it
-		 *  may still need coredump for clarification.)
-		 * Have a hook function in the EMI MPU ISR for this
-		 * purpose.
-		 */
-		if (mpu->md_handler) {
-			mpu->md_handler(emi_id,
-				dump_reg, mpu->dump_cnt);
-		}
 		/* Check HP_MODE violation */
 		if (dump_reg[2].value & hp_mask) {
 			miu_mpu_base = mpu->miu_mpu_base[emi_id];
@@ -193,6 +168,35 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 						"emi", emi_id,
 						"off", dump_reg[i].offset,
 						"val", dump_reg[i].value);
+		}
+
+		/*
+		 * Whenever there is an EMI MPU violation, the Modem
+		 * software would like to be notified immediately.
+		 * This is because the Modem software wants to do
+		 * its coredump as earlier as possible for debugging
+		 * and analysis.
+		 * (Even if the violated master is not Modem, it
+		 *  may still need coredump for clarification.)
+		 * Have a hook function in the EMI MPU ISR for this
+		 * purpose.
+		 */
+		if (mpu->md_handler) {
+			strncpy(md_str, "emi-mpu-v2.c", 13);
+			strncat(md_str, mpu->vio_msg, sizeof(md_str) - strlen(md_str) - 1);
+			mpu->md_handler(md_str);
+		}
+
+		/*
+		 * IOMMU IRQ not connected on mt6983, mt6879 and mt6895.
+		 * IOMMU uses SRINFO=3 to make SMPU violation when
+		 * translation fault. This behavior is security spec
+		 * for IOMMU. Throuh having hook function, IOMMU will
+		 * be nodified when violoation occurred.
+		 */
+		if (mpu->iommu_handler) {
+			mpu->iommu_handler(emi_id,
+				dump_reg, mpu->dump_cnt);
 		}
 
 		clear_violation(mpu, emi_id);

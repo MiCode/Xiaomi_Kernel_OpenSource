@@ -86,6 +86,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	ssize_t msg_len;
 	int n, nr_vio;
 	bool violation;
+	char md_str[MTK_EMI_MAX_CMD_LEN + 10] = {'\0'};
 
 	if (mpu->in_msg_dump)
 		goto ignore_violation;
@@ -148,8 +149,9 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		 * purpose.
 		 */
 		if (mpu->md_handler) {
-			mpu->md_handler(emi_id,
-				dump_reg, mpu->dump_cnt);
+			strncpy(md_str, "emi-mpu.c", 10);
+			strncat(md_str, mpu->vio_msg, sizeof(md_str) - strlen(md_str) - 1);
+			mpu->md_handler(md_str);
 		}
 	}
 
