@@ -4072,63 +4072,6 @@ void fpsgo_ctrl2fbt_vsync(unsigned long long ts)
 
 	vsync_duration = nsec_to_usec(ts - vsync_time);
 
-	if (_gdfrc_fps_limit == 60) {
-		vsync_duration_us_90 = 0;
-		vsync_duration_us_120 = 0;
-		vsync_duration_us_144 = 0;
-		if (vsync_duration_us_60 == 0)
-			vsync_duration_us_60 = 1000000 / 60;
-		else {
-			vsync_duration_us_60 =
-				vsync_duration < 1000000 / 60 * 15 / 10 &&
-				vsync_duration > 1000000 / 60 / 2 ?
-				(vsync_duration * 3 + vsync_duration_us_60 * 7) / 10 :
-				vsync_duration_us_60;
-		}
-
-	} else if (_gdfrc_fps_limit == 90) {
-		vsync_duration_us_60 = 0;
-		vsync_duration_us_120 = 0;
-		vsync_duration_us_144 = 0;
-		if (vsync_duration_us_90 == 0)
-			vsync_duration_us_90 = 1000000 / 90;
-		else {
-			vsync_duration_us_90 =
-				vsync_duration < 1000000 / 90 * 15 / 10 &&
-				vsync_duration > 1000000 / 90 / 2 ?
-				(vsync_duration * 3 + vsync_duration_us_90 * 7) / 10 :
-				vsync_duration_us_90;
-		}
-	} else if (_gdfrc_fps_limit == 120) {
-		vsync_duration_us_90 = 0;
-		vsync_duration_us_144 = 0;
-		if (vsync_duration_us_120 == 0) {
-			vsync_duration_us_60 = 1000000 / 60;
-			vsync_duration_us_120 = 1000000 / 120;
-		} else {
-			vsync_duration_us_120 =
-				vsync_duration < 1000000 / 120 * 15 / 10 &&
-				vsync_duration > 1000000 / 120 / 2 ?
-				(vsync_duration * 3 + vsync_duration_us_120 * 7) / 10 :
-				vsync_duration_us_120;
-			/* for game use vsync to control 60fps */
-			vsync_duration_us_60 = vsync_duration_us_120 * 2;
-		}
-	}  else if (_gdfrc_fps_limit == 144) {
-		vsync_duration_us_60 = 0;
-		vsync_duration_us_90 = 0;
-		vsync_duration_us_120 = 0;
-		if (vsync_duration_us_144 == 0)
-			vsync_duration_us_144 = 1000000 / 144;
-		else {
-			vsync_duration_us_144 =
-				vsync_duration < 1000000 / 144 * 15 / 10 &&
-				vsync_duration > 1000000 / 144 / 2 ?
-				(vsync_duration * 3 + vsync_duration_us_144 * 7) / 10 :
-				vsync_duration_us_144;
-		}
-	}
-
 	vsync_time = ts;
 	xgf_trace(
 		"vsync_time=%llu, vsync_duration=%llu, vsync_duration_60=%llu, vsync_duration_90=%llu, vsync_duration_120=%llu, vsync_duration_144=%llu",
