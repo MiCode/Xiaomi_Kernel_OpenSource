@@ -27,6 +27,8 @@
 #define INV_OFS	-1
 #define INV_BIT	-1
 
+static void __iomem *cam_rawa_base;
+
 static const struct mtk_gate_regs cam_main_r1a_0_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -224,9 +226,18 @@ static int clk_mt6983_cam_ra_probe(struct platform_device *pdev)
 	struct clk_onecell_data *clk_data;
 	int ret = 0;
 
+	void __iomem *base;
+	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
 #if MT_CCF_BRINGUP
 	pr_notice("%s init begin\n", __func__);
 #endif /* MT_CCF_BRINGUP */
+
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base)) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return PTR_ERR(base);
+	}
 
 	clk_data = mtk_alloc_clk_data(CLK_CAM_RA_NR_CLK);
 
@@ -240,12 +251,19 @@ static int clk_mt6983_cam_ra_probe(struct platform_device *pdev)
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, ret);
 
+	cam_rawa_base = base;
 #if MT_CCF_BRINGUP
 	pr_notice("%s init end\n", __func__);
 #endif /* MT_CCF_BRINGUP */
 
 	return ret;
 }
+
+void dump_cam_rawa(void)
+{
+	pr_notice("%s: %08x\r\n", __func__, readl(cam_rawa_base));
+}
+EXPORT_SYMBOL(dump_cam_rawa);
 
 static const struct mtk_gate_regs cam_rb_0_cg_regs = {
 	.set_ofs = 0x4,
