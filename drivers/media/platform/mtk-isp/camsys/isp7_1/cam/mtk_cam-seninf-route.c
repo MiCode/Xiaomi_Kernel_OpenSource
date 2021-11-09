@@ -875,16 +875,20 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 			//k_cam_seninf_set_cam_mux_dyn_en(ctx, true, camtg, index);
 
 			dev_info(ctx->dev,
-				"%s: param->num %d, pad_id[0] %d, ctx->camtg[0] %d, pad_id[1] %d, ctx->camtg[1] %d pad_id[2] %d, ctx->camtg[2] %d\n",
+				"%s: param->num %d, pad_id[0] %d, ctx->camtg[0] %d, pad_id[1] %d, ctx->camtg[1] %d pad_id[2] %d, ctx->camtg[2] %d %llu|%llu\n",
 				__func__, param->num,
 				param->settings[0].source, param->settings[0].camtg,
 				param->settings[1].source, param->settings[1].camtg,
-				param->settings[2].source, param->settings[2].camtg);
+				param->settings[2].source, param->settings[2].camtg,
+				ktime_get_boottime_ns(),
+				ktime_get_ns());
 		} else
 			dev_info(ctx->dev,
-				"%s: param->num %d, pad_id[0] %d, ctx->camtg[0] %d, pad_id[1] %d, ctx->camtg[1] %d\n",
+				"%s: param->num %d, pad_id[0] %d, ctx->camtg[0] %d, pad_id[1] %d, ctx->camtg[1] %d %llu|%llu\n",
 				__func__, param->num, pad_id, camtg,
-				param->settings[1].source, param->settings[1].camtg);
+				param->settings[1].source, param->settings[1].camtg,
+				ktime_get_boottime_ns(),
+				ktime_get_ns());
 
 		//mtk_cam_seninf_set_sw_cfg_busy(ctx, false, index);
 		//mtk_cam_seninf_enable_global_drop_irq(ctx, false, 0);

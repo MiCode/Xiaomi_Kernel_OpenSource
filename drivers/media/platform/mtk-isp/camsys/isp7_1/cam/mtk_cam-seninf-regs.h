@@ -10,7 +10,7 @@
 	u32 __iomem *__p = base + reg; \
 	u32 __v = readl(__p); \
 	__v &= ~field##_MASK; \
-	__v |= ((val) << field##_SHIFT); \
+	__v |= (((val) << field##_SHIFT) & field##_MASK); \
 	writel(__v, __p); \
 } while (0)
 

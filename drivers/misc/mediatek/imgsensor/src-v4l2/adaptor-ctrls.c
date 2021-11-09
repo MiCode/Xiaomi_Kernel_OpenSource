@@ -1030,15 +1030,16 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_START_SEAMLESS_SWITCH:
 		{
 			struct mtk_seamless_switch_param *info = ctrl->p_new.p;
+			u64 time_boot = ktime_get_boottime_ns();
+			u64 time_mono = ktime_get_ns();
 
 			para.u64[0] = info->target_scenario_id;
 			para.u64[1] = (uintptr_t)&info->ae_ctrl[0];
 			para.u64[2] = (uintptr_t)&info->ae_ctrl[1];
 
-			dev_info(dev, "V4L2_CID_START_SEAMLESS_SWITCH %u\n",
-					info->target_scenario_id);
-
-			dev_info(dev, "shutter[%u %u %u %u %u] gain[%u %u %u %u %u]\n",
+			dev_info(dev,
+				    "seamless %u s[%u %u %u %u %u] g[%u %u %u %u %u] s1[%u %u %u %u %u] g1[%u %u %u %u %u] %llu|%llu\n",
+					info->target_scenario_id,
 					info->ae_ctrl[0].exposure.arr[0],
 					info->ae_ctrl[0].exposure.arr[1],
 					info->ae_ctrl[0].exposure.arr[2],
@@ -1048,8 +1049,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 					info->ae_ctrl[0].gain.arr[1],
 					info->ae_ctrl[0].gain.arr[2],
 					info->ae_ctrl[0].gain.arr[3],
-					info->ae_ctrl[0].gain.arr[4]);
-			dev_info(dev, "shutter[%u %u %u %u %u] gain[%u %u %u %u %u]\n",
+					info->ae_ctrl[0].gain.arr[4],
 					info->ae_ctrl[1].exposure.arr[0],
 					info->ae_ctrl[1].exposure.arr[1],
 					info->ae_ctrl[1].exposure.arr[2],
@@ -1059,7 +1059,10 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 					info->ae_ctrl[1].gain.arr[1],
 					info->ae_ctrl[1].gain.arr[2],
 					info->ae_ctrl[1].gain.arr[3],
-					info->ae_ctrl[1].gain.arr[4]);
+					info->ae_ctrl[1].gain.arr[4],
+					time_boot,
+					time_mono);
+
 			if (info->target_scenario_id == 0 &&
 				info->ae_ctrl[0].exposure.arr[0] == 0 &&
 				info->ae_ctrl[0].gain.arr[0] == 0 &&

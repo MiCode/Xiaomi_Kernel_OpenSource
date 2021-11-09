@@ -24,7 +24,7 @@
 #define CYCLE_MARGIN 1
 #define RESYNC_DMY_CNT 4
 #define FIX_DPHY_SETTLE 1
-
+#define DEBUG_CAM_MUX_SWITCH 0
 //#define SCAN_SETTLE
 #define LOG_MORE 0
 
@@ -626,10 +626,11 @@ static int mtk_cam_seninf_set_cammux_vc(struct seninf_ctx *ctx, int cam_mux,
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
 
-
+#if	DEBUG_CAM_MUX_SWITCH
 	dev_info(ctx->dev, "%s cam_mux %d vc 0x%x dt 0x%x, vc_en %d dt_en %d\n",
 		__func__,
 		cam_mux, vc_sel, dt_sel, vc_en, dt_en);
+#endif
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_OPT,
 			RG_SENINF_CAM_MUX_PCSR_VC_SEL, vc_sel);
@@ -645,7 +646,9 @@ static int mtk_cam_seninf_switch_to_cammux_inner_page(struct seninf_ctx *ctx, bo
 {
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
 
+#if	DEBUG_CAM_MUX_SWITCH
 	dev_info(ctx->dev, "%s inner %d\n", __func__, inner);
+#endif
 	SENINF_BITS(pSeninf_cam_mux_gcsr,
 		SENINF_CAM_MUX_GCSR_DYN_CTRL, RG_SENINF_CAM_MUX_GCSR_DYN_PAGE_SEL, inner ? 0 : 1);
 
@@ -664,8 +667,9 @@ static int mtk_cam_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src, 
 		return 0;
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[target];
-
+#if	DEBUG_CAM_MUX_SWITCH
 	dev_info(ctx->dev, "%s cam_mux %d src %d\n", __func__, target, src);
+#endif
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					CAM_MUX_PCSR_NEXT_SRC_SEL, src);
@@ -689,10 +693,11 @@ static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int ta
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[target];
 
+#if	DEBUG_CAM_MUX_SWITCH
 
 	dev_info(ctx->dev, "%s cam_mux %d src %d exp_hsize %d, exp_hsize %d\n",
 		__func__, target, src, exp_hsize, exp_vsize);
-
+#endif
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					RG_SENINF_CAM_MUX_PCSR_SRC_SEL, src);
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CHK_CTL,
@@ -926,9 +931,6 @@ static int mtk_cam_seninf_set_cammux_chk_pixel_mode(struct seninf_ctx *ctx,
 		return 0;
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
-
-	dev_info(ctx->dev, "%s cam_mux %d chk pixel_mode %d\n",
-		 __func__, cam_mux, pixel_mode);
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					RG_SENINF_CAM_MUX_PCSR_CHK_PIX_MODE, pixel_mode);

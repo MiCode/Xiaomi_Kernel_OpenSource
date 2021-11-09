@@ -1728,11 +1728,16 @@ void fs_alg_set_extend_framelength(unsigned int idx,
 
 void fs_alg_seamless_switch(unsigned int idx)
 {
+	u64 time_boot = ktime_get_boottime_ns();
+	u64 time_mono = ktime_get_ns();
+
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), sensor seamless switch\n",
+		"[%u] ID:%#x(sidx:%u), sensor seamless switch %llu|%llu\n",
 		idx,
 		fs_inst[idx].sensor_id,
-		fs_inst[idx].sensor_idx);
+		fs_inst[idx].sensor_idx,
+		time_boot,
+		time_mono);
 
 
 	/* 1. clear/exit extend framelength stage */
