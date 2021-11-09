@@ -26,6 +26,17 @@
 
 #include <linux/ioctl.h>
 
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+extern void set_wake_sync(unsigned int sync);
+extern unsigned int get_wake_sync(void);
+extern void set_uclamp_min_ls(unsigned int val);
+extern unsigned int get_uclamp_min_ls(void);
+extern unsigned int set_newly_idle_balance_interval_us(unsigned int interval_us);
+extern unsigned int get_newly_idle_balance_interval_us(void);
+extern void set_get_thermal_headroom_interval_tick(unsigned int tick);
+extern unsigned int get_thermal_headroom_interval_tick(void);
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_CORE_CTL)
 extern int core_ctl_set_offline_throttle_ms(unsigned int cid,
                                 unsigned int throttle_ms);
@@ -183,6 +194,11 @@ struct _CPUQOS_V3_PACKAGE {
 #define CPUQOS_V3_SET_CPUQOS_MODE		_IOW('g', 14, struct _CPUQOS_V3_PACKAGE)
 #define CPUQOS_V3_SET_CT_TASK			_IOW('g', 15, struct _CPUQOS_V3_PACKAGE)
 #define CPUQOS_V3_SET_CT_GROUP			_IOW('g', 16, struct _CPUQOS_V3_PACKAGE)
+#define EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET	_IOW('g', 17,  unsigned int)
+#define EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET	_IOR('g', 18,  unsigned int)
+#define EAS_GET_THERMAL_HEADROOM_INTERVAL_SET	_IOW('g', 19,  unsigned int)
+#define EAS_GET_THERMAL_HEADROOM_INTERVAL_GET	_IOR('g', 20,  unsigned int)
+
 
 #define XGFFRAME_START              _IOW('g', 1, struct _XGFFRAME_PACKAGE)
 #define XGFFRAME_END                _IOW('g', 2, struct _XGFFRAME_PACKAGE)

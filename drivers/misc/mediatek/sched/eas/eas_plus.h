@@ -38,6 +38,8 @@ extern unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 extern unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature);
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 extern int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order);
+extern unsigned int thermal_headroom_interval_tick;
+extern unsigned int new_idle_balance_interval_ns;
 #endif
 
 extern void mtk_freq_limit_notifier_register(void);

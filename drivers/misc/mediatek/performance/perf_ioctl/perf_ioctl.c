@@ -308,10 +308,6 @@ static int eas_open(struct inode *inode, struct file *file)
 	return single_open(file, eas_show, inode->i_private);
 }
 
-extern void set_wake_sync(unsigned int sync);
-extern unsigned int get_wake_sync(void);
-extern void set_uclamp_min_ls(unsigned int val);
-extern unsigned int get_uclamp_min_ls(void);
 #if IS_ENABLED(CONFIG_MTK_CORE_PAUSE)
 extern int sched_pause_cpu(int val);
 extern int sched_resume_cpu(int val);
@@ -332,6 +328,7 @@ static long eas_ioctl_impl(struct file *filp,
 #endif
 
 	switch (cmd) {
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
 	case EAS_SYNC_SET:
 		if (perfctl_copy_from_user(&sync, (void *)arg, sizeof(unsigned int)))
 			return -1;
@@ -357,6 +354,27 @@ static long eas_ioctl_impl(struct file *filp,
 		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
 			return -1;
 		break;
+	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET:
+		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_newly_idle_balance_interval_us(val);
+		break;
+	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET:
+		val = get_newly_idle_balance_interval_us();
+		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+	case EAS_GET_THERMAL_HEADROOM_INTERVAL_SET:
+		if (perfctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_get_thermal_headroom_interval_tick(val);
+		break;
+	case EAS_GET_THERMAL_HEADROOM_INTERVAL_GET:
+		val = get_thermal_headroom_interval_tick();
+		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
+			return -1;
+		break;
+#endif
 	case CORE_CTL_FORCE_PAUSE_CPU:
 		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
 			return -1;

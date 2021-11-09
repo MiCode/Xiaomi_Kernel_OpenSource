@@ -736,6 +736,7 @@ int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
 }
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
+static DEFINE_PER_CPU(u64, next_update_new_balance_time_ns);
 void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *rf,
 		int *pulled_task, int *done)
 {
@@ -745,6 +746,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	struct rq_flags src_rf;
 	int this_cpu = this_rq->cpu;
 	unsigned long misfit_load = 0;
+	u64 now_ns;
 
 	/*
 	 * We must set idle_stamp _before_ calling idle_balance(), such that we
@@ -757,6 +759,14 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	 */
 	if (!cpu_active(this_cpu))
 		return;
+
+	now_ns = ktime_get_real_ns();
+
+	if (now_ns < per_cpu(next_update_new_balance_time_ns, this_cpu))
+		return;
+
+	per_cpu(next_update_new_balance_time_ns, this_cpu) =
+		now_ns + new_idle_balance_interval_ns;
 
 	/*
 	 * This is OK, because current is on_cpu, which avoids it being picked

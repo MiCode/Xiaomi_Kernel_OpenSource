@@ -145,7 +145,7 @@ static void update_thermal_headroom(int this_cpu)
 		return;
 
 	if (spin_trylock(&thermal_headroom_lock)) {
-		next_update_thermal = jiffies + 1;
+		next_update_thermal = jiffies + thermal_headroom_interval_tick;
 		for_each_cpu(cpu, cpu_possible_mask) {
 			thermal_headroom[cpu] = get_thermal_headroom(cpu);
 		}
@@ -383,6 +383,33 @@ void mtk_set_wake_flags(void *data, int *wake_flags, unsigned int *mode)
 	if (!sched_sync_hint_enable)
 		*wake_flags &= ~WF_SYNC;
 }
+
+unsigned int new_idle_balance_interval_ns  =  1000000;
+unsigned int thermal_headroom_interval_tick =  1;
+
+void set_newly_idle_balance_interval_us(unsigned int interval_us)
+{
+	new_idle_balance_interval_ns = interval_us * 1000;
+}
+EXPORT_SYMBOL_GPL(set_newly_idle_balance_interval_us);
+
+unsigned int get_newly_idle_balance_interval_us(void)
+{
+	return new_idle_balance_interval_ns / 1000;
+}
+EXPORT_SYMBOL_GPL(get_newly_idle_balance_interval_us);
+
+void set_get_thermal_headroom_interval_tick(unsigned int tick)
+{
+	thermal_headroom_interval_tick = tick;
+}
+EXPORT_SYMBOL_GPL(set_get_thermal_headroom_interval_tick);
+
+unsigned int get_thermal_headroom_interval_tick(void)
+{
+	return thermal_headroom_interval_tick;
+}
+EXPORT_SYMBOL_GPL(get_thermal_headroom_interval_tick);
 
 #if IS_ENABLED(CONFIG_UCLAMP_TASK_GROUP)
 void mtk_uclamp_eff_get(void *data, struct task_struct *p, enum uclamp_id clamp_id,
