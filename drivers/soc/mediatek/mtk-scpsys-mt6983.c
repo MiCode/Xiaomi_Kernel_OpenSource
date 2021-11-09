@@ -607,7 +607,8 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE44,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.subsys_lp_clk_prefix = "cam",
+		.subsys_clk_prefix = "cam",
+		.subsys_lp_clk_prefix = "cam_lp",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				CAM_MAIN_PROT_STEP1_0_MASK),
