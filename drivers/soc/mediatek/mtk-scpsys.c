@@ -166,6 +166,14 @@ static int scpsys_md_domain_is_on(struct scp_domain *scpd)
 	return false;
 }
 
+static int scpsys_regulator_is_enabled(struct scp_domain *scpd)
+{
+	if (!scpd->supply)
+		return 0;
+
+	return regulator_is_enabled(scpd->supply);
+}
+
 static int scpsys_regulator_enable(struct scp_domain *scpd)
 {
 	if (!scpd->supply)
@@ -616,8 +624,8 @@ err_pwr_ack:
 err_lp_clk:
 	dev_err(scp->dev, "Failed to enable lp_clk %s(%d)\n", genpd->name, ret);
 err_clk:
-	scpsys_regulator_disable(scpd);
-	dev_err(scp->dev, "Failed to enable clk %s(%d)\n", genpd->name, ret);
+	val = scpsys_regulator_is_enabled(scpd);
+	dev_err(scp->dev, "Failed to enable clk %s(%d %d)\n", genpd->name, ret, val);
 err_regulator:
 	dev_err(scp->dev, "Failed to power on regulator %s(%d)\n", genpd->name, ret);
 
@@ -707,7 +715,8 @@ err_subsys_lp_clk:
 err_lp_clk:
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 out:
-	dev_err(scp->dev, "Failed to power off domain %s(%d)\n", genpd->name, ret);
+	val = scpsys_regulator_is_enabled(scpd);
+	dev_err(scp->dev, "Failed to power off domain %s(%d %d)\n", genpd->name, ret, val);
 
 	return ret;
 }
