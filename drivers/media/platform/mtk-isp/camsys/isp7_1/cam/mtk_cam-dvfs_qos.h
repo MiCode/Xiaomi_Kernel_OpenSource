@@ -6,6 +6,8 @@
 #ifndef __MTK_CAM_DVFS_QOS_H
 #define __MTK_CAM_DVFS_QOS_H
 
+#include <linux/clk.h>
+
 struct device;
 struct regulator;
 struct icc_path;
@@ -16,6 +18,7 @@ struct mtk_cam_ctx;
 #define MTK_CAM_RAW_PORT_NUM 72
 #define MTK_CAM_SV_PORT_NUM 16
 #define MTK_CAM_MRAW_PORT_NUM 16
+#define MAX_CAM_OPP_STEP 10
 
 struct mtk_camsys_dvfs {
 	struct device *dev;
@@ -25,6 +28,8 @@ struct mtk_camsys_dvfs {
 	unsigned int voltlv[ISP_CLK_LEVEL_CNT];
 	unsigned int clklv_idx;
 	unsigned int clklv_target;
+	struct clk *mux;
+	struct clk *clk_src[MAX_CAM_OPP_STEP];
 	struct icc_path *qos_req[MTK_CAM_RAW_PORT_NUM];
 	unsigned long qos_bw_avg[MTK_CAM_RAW_PORT_NUM];
 	unsigned long qos_bw_peak[MTK_CAM_RAW_PORT_NUM];
