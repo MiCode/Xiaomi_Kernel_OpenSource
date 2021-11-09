@@ -1119,6 +1119,11 @@ static int
 ffs_epfile_open(struct inode *inode, struct file *file)
 {
 	struct ffs_epfile *epfile = inode->i_private;
+#if defined(CONFIG_MACH_MT6765)
+	struct cpumask cpu_mask;
+	int i = 1, idx = 0;
+	unsigned int mask = 0x0F;
+#endif
 
 	ENTER();
 
@@ -1132,6 +1137,22 @@ ffs_epfile_open(struct inode *inode, struct file *file)
 					__func__, epfile->name);
 		return -EBUSY;
 	}
+
+#if defined(CONFIG_MACH_MT6765)
+	if (!strncmp(epfile->ffs->dev_name, "mtp", 3)) {
+		cpumask_clear(&cpu_mask);
+
+		while (i <= mask) {
+			if (i & mask) {
+				cpumask_set_cpu(idx, &cpu_mask);
+				pr_info("Set CPU[%d] On\n", idx);
+			}
+			idx++;
+			i = i << 1;
+		}
+		set_cpus_allowed_ptr(current, &cpu_mask);
+	}
+#endif
 
 	atomic_set(&epfile->opened, 1);
 	file->private_data = epfile;
