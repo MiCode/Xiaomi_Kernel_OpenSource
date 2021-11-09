@@ -378,6 +378,9 @@ void check_cm_mgr_status_mt6895(unsigned int cluster, unsigned int freq,
 	if (!cm_mgr_init_done)
 		return;
 
+	if (cluster > CM_MGR_CPU_CLUSTER)
+		return;
+
 	spin_lock_irqsave(&cm_mgr_lock, spinlock_save_flag);
 
 	prev_freq_idx[cluster] = idx;
