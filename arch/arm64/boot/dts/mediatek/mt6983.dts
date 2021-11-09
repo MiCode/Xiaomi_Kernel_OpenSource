@@ -1459,10 +1459,13 @@
 			check_pattern_offset = <0x20>;
 			/* dfd_disable_efuse = <25 12>; */
 			dfd_disable_efuse = <(-1) (-1)>;
-			dfd_cache {
-				enabled = <0>;
-				dfd_timeout = <0x1d4c0>;
-				buf_length = <0x2000000>;
+			dfd_cache: dfd_cache {
+				enabled = <1>;
+				/* dfd_timeout = <0x1d4c0>; */ /* 60 sec */
+				dfd_timeout = <0x32c8>; /* 6.5 sec */
+				/* buf_length = <0x2000000>; */
+				buf_length = <0x280000>;
+				tap_en = <0x200000>;
 			};
 		};
 
