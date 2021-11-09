@@ -280,7 +280,7 @@ static int set_sub_task(struct mml_task *task,
 {
 	struct mml_pq_task *pq_task = task->pq_task;
 
-	mml_pq_log("%s called queued[%d] result_ref[%d] job_id[%d, %d] first_job[%d]",
+	mml_pq_msg("%s called queued[%d] result_ref[%d] job_id[%d, %d] first_job[%d]",
 		__func__, atomic_read(&sub_task->queued),
 		atomic_read(&sub_task->result_ref),
 		sub_task->job_id, task->job.jobid,
@@ -349,7 +349,7 @@ static int get_sub_task_result(struct mml_pq_task *pq_task,
 
 static void put_sub_task_result(struct mml_pq_sub_task *sub_task, struct mml_pq_chan *chan)
 {
-	mml_pq_log("%s result_ref[%d] queued[%d] msg_cnt[%d]",
+	mml_pq_msg("%s result_ref[%d] queued[%d] msg_cnt[%d]",
 		__func__, atomic_read(&sub_task->result_ref),
 		atomic_read(&sub_task->queued),
 		atomic_read(&chan->msg_cnt));
