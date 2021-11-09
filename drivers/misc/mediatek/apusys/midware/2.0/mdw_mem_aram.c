@@ -13,11 +13,11 @@
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 #include "mdw_mem_rsc.h"
-#include "slbc_ops.h"
 
 struct mdw_mem_aram {
 	dma_addr_t dma_addr;
 	uint32_t dma_size;
+	uint64_t addr;
 	uint32_t sid;
 	struct mdw_mem *m;
 
@@ -26,7 +26,7 @@ struct mdw_mem_aram {
 };
 
 struct mdw_mem_aram_attachment {
-	struct mdw_mem_aram *mslb;
+	struct mdw_mem_aram *am;
 	struct mdw_mem *m;
 	struct sg_table sgt;
 	struct list_head node;
@@ -38,25 +38,13 @@ static int mdw_mem_aram_attach(struct dma_buf *dbuf,
 	struct mdw_mem_aram_attachment *am_attach = NULL;
 	struct mdw_mem *m = dbuf->priv;
 	struct mdw_mem_aram *am = m->priv;
-	struct mdw_device *mdev = m->mpriv->mdev;
 	int ret = 0;
 
 	/* check type */
-	if (m->type >= MDW_MEM_TYPE_MAX) {
+	if (m->type >= MDW_MEM_TYPE_MAX ||
+		m->type == MDW_MEM_TYPE_MAIN) {
 		mdw_drv_err("invalid type(%u)\n", m->type);
 		return -EINVAL;
-	}
-
-	/* check start addr and range */
-	if (!mdev->minfos[m->type].device_va ||
-		!mdev->minfos[m->type].dva_size ||
-		am->dma_size > mdev->minfos[m->type].dva_size) {
-		mdw_drv_err("minfos(%u) invalid(0x%llx/0x%x/0x%x)\n",
-			m->type,
-			mdev->minfos[m->type].device_va,
-			mdev->minfos[m->type].dva_size,
-			am->dma_size);
-		return -ENOMEM;
 	}
 
 	/* alloc attach */
@@ -66,22 +54,25 @@ static int mdw_mem_aram_attach(struct dma_buf *dbuf,
 		goto out;
 	}
 
+	/* alloc sg table */
 	ret = sg_alloc_table(&am_attach->sgt, 1, GFP_KERNEL);
 	if (ret)
 		goto free_attach;
 
 	/* map vlm */
-	ret = mdw_rvs_map_ext(am->dma_addr, am->dma_size,
-		(uint64_t)m->mpriv, &am->sid);
-	if (ret)
+	ret = mdw_rvs_mem_map((uint64_t)m->mpriv, am->sid, &am->dma_addr);
+	if (ret) {
+		mdw_drv_err("apumem(0x%llx/%u) map fail\n",
+			(uint64_t)m->mpriv, am->sid);
 		goto free_table;
+	}
 
-	sg_dma_address(am_attach->sgt.sgl) = mdev->minfos[m->type].device_va;
-	sg_dma_len(am_attach->sgt.sgl) = mdev->minfos[m->type].dva_size;
-	am_attach->mslb = am;
+	sg_dma_address(am_attach->sgt.sgl) = am->dma_addr;
+	sg_dma_len(am_attach->sgt.sgl) = am->dma_size;
+	am_attach->am = am;
 	am_attach->m = m;
 	attach->priv = am_attach;
-	mdw_mem_debug("sess(0x%llx) sg(%p) slb(%u/0x%llx/0x%x)\n",
+	mdw_mem_debug("s(0x%llx) sg(%p) m(%u/0x%llx/0x%x)\n",
 		(uint64_t)m->mpriv,
 		&am_attach->sgt,
 		am->sid,
@@ -106,14 +97,19 @@ static void mdw_mem_aram_detach(struct dma_buf *dbuf,
 	struct dma_buf_attachment *attach)
 {
 	struct mdw_mem_aram_attachment *am_attach = attach->priv;
-	struct mdw_mem_aram *am = am_attach->mslb;
+	struct mdw_mem_aram *am = am_attach->am;
 	struct mdw_mem *m = am->m;
+	int ret = 0;
 
 	mutex_lock(&am->mtx);
 	list_del(&am_attach->node);
 	mutex_unlock(&am->mtx);
 
-	mdw_rvs_unmap_ext((uint64_t)m->mpriv, am->sid);
+	ret = mdw_rvs_mem_unmap((uint64_t)m->mpriv, am->sid);
+	if (ret) {
+		mdw_drv_warn("s(0x%llx) unmap sid(%u) fail\n",
+			(uint64_t)m->mpriv, am->sid);
+	}
 	sg_free_table(&am_attach->sgt);
 	kfree(am_attach);
 	mdw_mem_debug("\n");
@@ -136,19 +132,22 @@ static void mdw_mem_aram_unmap_dma(struct dma_buf_attachment *attach,
 
 static void mdw_mem_aram_unprepare(struct mdw_mem_aram *am)
 {
-	struct slbc_data slb_dc;
+	mdw_mem_debug("type(%u)sid(%u)m(0x%llx/0x%x)\n",
+		am->m->type, am->sid, am->dma_addr, am->dma_size);
 
 	switch (am->m->type) {
+	case MDW_MEM_TYPE_VLM:
+	case MDW_MEM_TYPE_LOCAL:
+	case MDW_MEM_TYPE_SYSTEM:
 	case MDW_MEM_TYPE_SYSTEM_ISP:
-		mdw_mem_debug("slb dc(0x%llx/0x%x)\n",
-			am->dma_addr, am->dma_size);
-		slb_dc.uid = UID_SH_APU;
-		slb_dc.type = TP_BUFFER;
-		slbc_release(&slb_dc);
+		if (mdw_rvs_mem_free(am->sid))
+			mdw_mem_debug("free apumem type(%u)sid(%u)m(0x%llx/0x%x) fail\n",
+				am->m->type, am->sid,
+				am->dma_addr, am->dma_size);
 		break;
 
 	default:
-		mdw_drv_warn("not support apu ram(%u)\n",
+		mdw_drv_warn("not support apumem(%u)\n",
 			am->m->type);
 		break;
 	}
@@ -176,27 +175,26 @@ static struct dma_buf_ops mdw_mem_aram_ops = {
 static int mdw_mem_aram_prepare(struct mdw_fpriv *mpriv,
 	struct mdw_mem_aram *am)
 {
-	struct slbc_data slb_dc;
 	int ret = 0;
 
+	mdw_mem_debug("type(%u)size(0x%x)\n", am->m->type, am->m->size);
 	switch (am->m->type) {
+	case MDW_MEM_TYPE_VLM:
+	case MDW_MEM_TYPE_LOCAL:
+	case MDW_MEM_TYPE_SYSTEM:
 	case MDW_MEM_TYPE_SYSTEM_ISP:
-		memset(&slb_dc, 0, sizeof(slb_dc));
-		slb_dc.uid = UID_SH_APU;
-		slb_dc.type = TP_BUFFER;
-		ret = slbc_request(&slb_dc);
+		ret = mdw_rvs_mem_alloc(am->m->type,
+			am->m->size, &am->addr, &am->sid);
 		if (ret) {
-			mdw_drv_err("alloc slb dc fail\n");
+			mdw_drv_err("alloc apuram(%u/%u) fail(%d)\n",
+				am->m->type, am->m->size, ret);
 		} else {
-			am->dma_addr = (uint64_t)slb_dc.paddr;
-			am->dma_size = slb_dc.size;
-			mdw_mem_debug("slb dc(0x%llx/0x%x)\n",
-				am->dma_addr, am->dma_size);
+			am->dma_size = am->m->size;
 		}
 		break;
 
 	default:
-		mdw_drv_warn("not support apu ram(%u)\n", am->m->type);
+		mdw_drv_warn("not support apumem(%u)\n", am->m->type);
 		ret = -EINVAL;
 		break;
 	}
@@ -208,20 +206,28 @@ static int mdw_mem_aram_bind(void *session, struct mdw_mem *m)
 {
 	struct mdw_mem_aram *am = (struct mdw_mem_aram *)m->priv;
 
-	mdw_mem_debug("m(0x%llx/%u/%u) bind sess(0x%llx)\n",
-		(uint64_t)m, m->type, am->sid, (uint64_t)session);
+	mdw_mem_debug("s(0x%llx) m(0x%llx/%u/%u)\n",
+		(uint64_t)session, (uint64_t)m, m->type, am->sid);
+	if (m->mpriv == session) {
+		mdw_mem_debug("s(0x%llx) don't need bind\n");
+		return 0;
+	}
 
-	return mdw_rvs_import_ext((uint64_t)session, am->sid);
+	return mdw_rvs_mem_import((uint64_t)session, am->sid);
 }
 
 static void mdw_mem_aram_unbind(void *session, struct mdw_mem *m)
 {
 	struct mdw_mem_aram *am = (struct mdw_mem_aram *)m->priv;
 
-	mdw_mem_debug("m(0x%llx/%u/%u) unbind sess(0x%llx)\n",
-		(uint64_t)m, m->type, am->sid, (uint64_t)session);
+	mdw_mem_debug("s(0x%llx) m(0x%llx/%u/%u)\n",
+		(uint64_t)session, (uint64_t)m, m->type, am->sid);
+	if (m->mpriv == session) {
+		mdw_mem_debug("s(0x%llx) don't need unbind\n");
+		return;
+	}
 
-	mdw_rvs_unimport_ext((uint64_t)session, am->sid);
+	mdw_rvs_mem_unimport((uint64_t)session, am->sid);
 }
 
 int mdw_mem_aram_alloc(struct mdw_mem *m)
@@ -244,7 +250,7 @@ int mdw_mem_aram_alloc(struct mdw_mem *m)
 
 	ret = mdw_mem_aram_prepare(m->mpriv, am);
 	if (ret) {
-		mdw_drv_err("prepare slb fail\n");
+		mdw_drv_err("prepare apumem(%u) fail\n", m->type);
 		goto free_aram;
 	}
 

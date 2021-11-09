@@ -421,7 +421,9 @@ static int mdw_rv_dev_handshake(struct mdw_rv_dev *mrdev)
 			break;
 		}
 
-		mrdev->minfos[type].device_va = msg.h.mem.start;
+		/* only vlm need addr */
+		if (type == MDW_MEM_TYPE_VLM)
+			mrdev->minfos[type].device_va = msg.h.mem.start;
 		mrdev->minfos[type].dva_size = msg.h.mem.size;
 
 		mdw_drv_debug("mem(%d)(0x%llx/0x%x)\n",

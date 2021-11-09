@@ -8,6 +8,7 @@
 #include "mdw_import.h"
 #include "mdw_trace.h"
 #include "reviser_export.h"
+#include "reviser_mem_def.h"
 #include "mnoc_api.h"
 #include "apusys_power.h"
 
@@ -59,49 +60,75 @@ int mdw_rvs_get_vlm_property(uint64_t *start, uint32_t *size)
 		(unsigned int *)size);
 }
 
-int mdw_rvs_map_ext(uint64_t addr, uint32_t size,
-	uint64_t session, uint32_t *sid)
+static int mdw_rvs_type_convert(uint32_t type, uint32_t *out)
 {
+	switch (type) {
+	case MDW_MEM_TYPE_VLM:
+		*out = REVISER_MEM_TYPE_VLM;
+		break;
+	case MDW_MEM_TYPE_LOCAL:
+		*out = REVISER_MEM_TYPE_RSV_T;
+		break;
+	case MDW_MEM_TYPE_SYSTEM_ISP:
+		*out = REVISER_MEM_TYPE_EXTERNAL;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int mdw_rvs_mem_alloc(uint32_t type, uint32_t size,
+	uint64_t *addr, uint32_t *sid)
+{
+	uint32_t mapped_type = 0;
 	int ret = 0;
 
-	mdw_trace_begin("%s|size(%u)", __func__, size);
-	ret = reviser_alloc_external((uint32_t)addr, size, session, sid);
-	mdw_trace_end("%s|size(%u)", __func__, size);
+	if (mdw_rvs_type_convert(type, &mapped_type))
+		return -EINVAL;
+
+	ret = reviser_alloc_mem(mapped_type, size, addr, sid);
+	mdw_flw_debug("type(%u)size(%u)addr(0x%llx)sid(%u)\n",
+		type, size, *addr, *sid);
 
 	return ret;
 }
 
-int mdw_rvs_unmap_ext(uint64_t session, uint32_t sid)
+int mdw_rvs_mem_free(uint32_t sid)
+{
+	mdw_flw_debug("sid(%u)\n", sid);
+	return reviser_free_mem(sid);
+}
+
+int mdw_rvs_mem_import(uint64_t session, uint32_t sid)
+{
+	mdw_flw_debug("s(0x%llx)sid(%u)\n", (uint64_t)session, sid);
+	return reviser_import_mem(session, sid);
+}
+
+int mdw_rvs_mem_unimport(uint64_t session, uint32_t sid)
+{
+	mdw_flw_debug("s(0x%llx)sid(%u)\n", (uint64_t)session, sid);
+	return reviser_unimport_mem(session, sid);
+}
+
+int mdw_rvs_mem_map(uint64_t session, uint32_t sid, uint64_t *vaddr)
 {
 	int ret = 0;
 
-	mdw_trace_begin("%s", __func__);
-	ret = reviser_free_external(session, sid);
-	mdw_trace_end("%s", __func__);
+	ret = reviser_map_mem(session, sid, vaddr);
+	mdw_flw_debug("s(0x%llx)sid(%u)vaddr(0x%llx)\n",
+		session, sid, *vaddr);
 
 	return ret;
 }
 
-int mdw_rvs_import_ext(uint64_t session, uint32_t sid)
+int mdw_rvs_mem_unmap(uint64_t session, uint32_t sid)
 {
-	int ret = 0;
-
-	mdw_trace_begin("%s", __func__);
-	ret = reviser_import_external(session, sid);
-	mdw_trace_end("%s", __func__);
-
-	return ret;
-}
-
-int mdw_rvs_unimport_ext(uint64_t session, uint32_t sid)
-{
-	int ret = 0;
-
-	mdw_trace_begin("%s", __func__);
-	ret = reviser_unimport_external(session, sid);
-	mdw_trace_end("%s", __func__);
-
-	return ret;
+	mdw_flw_debug("s(0x%llx)sid(%u)\n", (uint64_t)session, sid);
+	return reviser_unmap_mem(session, sid);
 }
 
 int mdw_qos_cmd_start(uint64_t cmd_id, uint64_t sc_id,
