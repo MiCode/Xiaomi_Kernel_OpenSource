@@ -27,6 +27,7 @@ config MTK_TEE_GP_SUPPORT
 
 source "drivers/tee/optee/Kconfig"
 source "drivers/tee/amdtee/Kconfig"
+source "drivers/tee/teeperf/Kconfig"
 source "drivers/tee/gud/Kconfig"
 source "drivers/tee/teei/Kconfig"
 
