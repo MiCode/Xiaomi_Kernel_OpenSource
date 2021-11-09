@@ -3782,7 +3782,7 @@ unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
 	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
 	diff = sched_clock() - start_time;
 	if (diff > 1000000)
-		DDPMSG("%s diff = %llu, > 1 ms\n", diff);
+		DDPMSG("%s diff = %llu, > 1 ms\n", __func__, diff);
 
 	for (i = 0; i < fps_num; i++) {
 		duration_sum += fps_array[i];
