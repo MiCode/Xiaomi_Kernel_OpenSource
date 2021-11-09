@@ -150,6 +150,8 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 		JPEG_LOG(0, "get iova fail i:0x%llx o:0x%llx", ibuf_iova, obuf_iova);
 		return ret;
 	}
+	bufInfo[id].o_dbuf = jpg_dmabuf_get(*index_buf_fd);
+	// get obuf for adding reference count, avoid early release in userspace.
 
 	IMG_REG_WRITE(data[0], REG_JPGDEC_HYBRID_090(id));
 	IMG_REG_WRITE(data[1], REG_JPGDEC_HYBRID_090(id));
@@ -410,6 +412,7 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 	jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf, bufInfo[hwid].i_attach, bufInfo[hwid].i_sgt);
 	jpg_dmabuf_free_iova(bufInfo[hwid].o_dbuf, bufInfo[hwid].o_attach, bufInfo[hwid].o_sgt);
 	jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
+	jpg_dmabuf_put(bufInfo[hwid].o_dbuf); // we manually add 1 ref count, need to put it.
 	mutex_unlock(&jpeg_hybrid_dec_lock);
 }
 
