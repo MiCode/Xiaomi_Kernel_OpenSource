@@ -2820,15 +2820,19 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 			for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
 				if ((used_cammux == i) && (enabled & (1<<i))) {
+					u32 res, irq_st;
+
+					res = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_CHK_RES);
+					irq_st = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_IRQ_STATUS);
+					SENINF_WRITE_REG(ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_IRQ_STATUS, 0x103);
 					dev_info(ctx->dev,
-						"before clear cam mux%u recSize = 0x%x, irq = 0x%x",
-						i,
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_CHK_RES),
+						"before clear cam mux%u recSize = 0x%x, irq = 0x%x|0x%x",
+						i, res, irq_st,
 						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 							SENINF_CAM_MUX_PCSR_IRQ_STATUS));
-						SENINF_WRITE_REG(ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_IRQ_STATUS, 0x103);
 				}
 			}
 		}
@@ -2994,6 +2998,42 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 static int mtk_cam_seninf_irq_handler(int irq, void *data)
 {
+	struct seninf_core *core = (struct seninf_core *)data;
+	struct seninf_ctx *ctx;
+	unsigned int cam_vsyc_irq_tmp;
+	void *pcammux_gcsr;
+	unsigned long flags;
+	u64 time_boot = ktime_get_boottime_ns();
+	u64 time_mono = ktime_get_ns();
+
+
+	spin_lock_irqsave(&core->spinlock_irq, flags);
+
+	ctx = list_first_entry_or_null(&core->list,
+					   struct seninf_ctx, list);
+
+	if (ctx != NULL) {
+		pcammux_gcsr = ctx->reg_if_cam_mux_gcsr;
+		cam_vsyc_irq_tmp =
+			SENINF_READ_REG(pcammux_gcsr, SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS);
+		if (cam_vsyc_irq_tmp) {
+			SENINF_WRITE_REG(
+				pcammux_gcsr,
+				SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS,
+				0xffffffff);
+			dev_info(ctx->dev, "%s SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS 0x%x cleared  0x%x tBoot %llu tMono %llu\n",
+				__func__,
+				cam_vsyc_irq_tmp,
+				SENINF_READ_REG(pcammux_gcsr, SENINF_CAM_MUX_GCSR_VSYNC_IRQ_STS),
+				time_boot/1000000, time_mono/1000000);
+		}
+
+	} else {
+		dev_info(ctx->dev, "%s, ctx == NULL", __func__);
+	}
+
+	spin_unlock_irqrestore(&core->spinlock_irq, flags);
+
 	return 0;
 }
 
@@ -3167,7 +3207,7 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 	int i;
 	void *base = ctx->reg_ana_dphy_top[ctx->port];
 	void *csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
-	void *pmux, *pcammux;
+	void *pmux, *pcammux, *p_gcammux;
 	struct seninf_vc *vc;
 
 	if (!ctx->streaming)
@@ -3243,6 +3283,12 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 					SENINF_CAM_MUX_PCSR_IRQ_STATUS,
 					val & 0xFFFFFFFF);
 		}
+		break;
+	case REG_KEY_CAMMUX_VSYNC_IRQ_EN:
+			p_gcammux = ctx->reg_if_cam_mux_gcsr;
+			SENINF_WRITE_REG(p_gcammux,
+					SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN,
+					val & 0xFFFFFFFF);
 		break;
 	}
 
