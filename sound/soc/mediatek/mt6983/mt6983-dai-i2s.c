@@ -168,8 +168,8 @@ static int mt6983_i2s_hd_set(struct snd_kcontrol *kcontrol,
 
 	hd_en = ucontrol->value.integer.value[0];
 
-	dev_info(afe->dev, "%s(), kcontrol name %s, hd_en %d\n",
-		 __func__, kcontrol->id.name, hd_en);
+	dev_dbg(afe->dev, "%s(), kcontrol name %s, hd_en %d\n",
+		__func__, kcontrol->id.name, hd_en);
 
 	i2s_priv = get_i2s_priv_by_name(afe, kcontrol->id.name);
 
@@ -623,7 +623,7 @@ static int mtk_i2s_hd_en_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 
-	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x\n",
+	dev_dbg(cmpnt->dev, "%s(), name %s, event 0x%x\n",
 		 __func__, w->name, event);
 
 	return 0;
@@ -723,7 +723,7 @@ static int mtk_mclk_en_event(struct snd_soc_dapm_widget *w,
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mtk_afe_i2s_priv *i2s_priv;
 
-	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x\n",
+	dev_dbg(cmpnt->dev, "%s(), name %s, event 0x%x\n",
 		 __func__, w->name, event);
 
 	i2s_priv = get_i2s_priv_by_name(afe, w->name);
