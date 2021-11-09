@@ -6,7 +6,6 @@
 #include "ufshcd.h"
 #include "ufshcd-crypto.h"
 #include "ufsfeature.h"
-#include <trace/events/ufs.h>
 #include <trace/hooks/ufshcd.h>
 
 /* Query request retries */
@@ -383,60 +382,6 @@ static void ufsf_clk_scaling_start_busy(struct ufs_hba *hba)
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
-static void ufsf_add_cmd_upiu_trace(struct ufs_hba *hba, unsigned int tag,
-				    const char *str)
-{
-	struct utp_upiu_req *rq = hba->lrb[tag].ucd_req_ptr;
-
-	trace_ufshcd_upiu(dev_name(hba->dev), str, &rq->header, &rq->sc.cdb);
-}
-
-static void ufsf_add_command_trace(struct ufs_hba *hba,
-				   unsigned int tag, const char *str)
-{
-	sector_t lba = -1;
-	u8 opcode = 0, group_id = 0;
-	u32 intr, doorbell;
-	struct ufshcd_lrb *lrbp = &hba->lrb[tag];
-	struct scsi_cmnd *cmd = lrbp->cmd;
-	int transfer_len = -1;
-
-	if (!trace_ufshcd_command_enabled()) {
-		/* trace UPIU W/O tracing command */
-		if (cmd)
-			ufsf_add_cmd_upiu_trace(hba, tag, str);
-		return;
-	}
-
-	if (cmd) { /* data phase exists */
-		/* trace UPIU also */
-		ufsf_add_cmd_upiu_trace(hba, tag, str);
-		opcode = cmd->cmnd[0];
-		if ((opcode == READ_10) || (opcode == WRITE_10)) {
-			/*
-			 * Currently we only fully trace read(10) and write(10)
-			 * commands
-			 */
-			if (cmd->request && cmd->request->bio)
-				lba = cmd->request->bio->bi_iter.bi_sector;
-			transfer_len = be32_to_cpu(
-				lrbp->ucd_req_ptr->sc.exp_data_transfer_len);
-			if (opcode == WRITE_10)
-				group_id = lrbp->cmd->cmnd[6];
-		} else if (opcode == UNMAP) {
-			if (cmd->request) {
-				lba = scsi_get_lba(cmd);
-				transfer_len = blk_rq_bytes(cmd->request);
-			}
-		}
-	}
-
-	intr = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
-	doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
-	trace_ufshcd_command(dev_name(hba->dev), str, tag,
-			doorbell, transfer_len, intr, lba, opcode, group_id);
-}
-
 static inline bool ufsf_should_inform_monitor(struct ufs_hba *hba,
 					      struct ufshcd_lrb *lrbp)
 {
@@ -477,7 +422,6 @@ void ufsf_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	lrbp->compl_time_stamp = ktime_set(0, 0);
 	ufshcd_vops_setup_xfer_req(hba, task_tag, (lrbp->cmd ? true : false));
 	trace_android_vh_ufs_send_command(hba, lrbp);
-	ufsf_add_command_trace(hba, task_tag, "send");
 	ufsf_clk_scaling_start_busy(hba);
 	if (unlikely(ufsf_should_inform_monitor(hba, lrbp)))
 		ufsf_start_monitor(hba, lrbp);
@@ -709,14 +653,6 @@ static inline bool ufsf_valid_tag(struct ufs_hba *hba, int tag)
 	return tag >= 0 && tag < hba->nutrs;
 }
 
-static void ufsf_add_query_upiu_trace(struct ufs_hba *hba, unsigned int tag,
-				      const char *str)
-{
-	struct utp_upiu_req *rq = hba->lrb[tag].ucd_req_ptr;
-
-	trace_ufshcd_upiu(dev_name(hba->dev), str, &rq->header, &rq->qr);
-}
-
 static int ufsf_exec_dev_cmd(struct ufs_hba *hba,
 			     enum dev_cmd_type cmd_type, int timeout)
 {
@@ -759,14 +695,11 @@ static int ufsf_exec_dev_cmd(struct ufs_hba *hba,
 
 	hba->dev_cmd.complete = &wait;
 
-	ufsf_add_query_upiu_trace(hba, tag, "query_send");
 	/* Make sure descriptors are ready before ringing the doorbell */
 	wmb();
 
 	ufsf_send_command(hba, tag);
 	err = ufsf_wait_for_dev_cmd(hba, lrbp, timeout);
-	ufsf_add_query_upiu_trace(hba, tag,
-			err ? "query_complete_err" : "query_complete");
 
 out:
 	blk_put_request(req);
@@ -914,12 +847,7 @@ out:
 static void ufsf_add_tm_upiu_trace(struct ufs_hba *hba, unsigned int tag,
 		const char *str)
 {
-	int off = (int)tag - hba->nutrs;
-	struct utp_task_req_desc *descp = &hba->utmrdl_base_addr[off];
-
 	trace_android_vh_ufs_send_tm_command(hba, tag, str);
-	trace_ufshcd_upiu(dev_name(hba->dev), str, &descp->req_header,
-			&descp->input_param1);
 }
 
 static int __ufsf_issue_tm_cmd(struct ufs_hba *hba,

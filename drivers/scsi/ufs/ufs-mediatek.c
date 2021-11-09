@@ -40,7 +40,6 @@
 #endif
 
 #define CREATE_TRACE_POINTS
-#include <trace/events/ufs.h>
 #include "ufs-mediatek-trace.h"
 #undef CREATE_TRACE_POINTS
 
