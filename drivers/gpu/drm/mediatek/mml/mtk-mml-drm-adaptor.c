@@ -775,6 +775,10 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 		cfg->info.mode,
 		(cfg->info.mode == MML_MODE_RACING && cfg->disp_dual) ? " disp dual" : "");
 
+	/* copy job content back, must do before call submit */
+	if (submit->job)
+		memcpy(submit->job, &task->job, sizeof(*submit->job));
+
 	/* copy pq parameters */
 	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)
 		memcpy(&task->pq_param[i], submit->pq_param[i], sizeof(task->pq_param[i]));
@@ -784,10 +788,6 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 
 	/* submit to core */
 	mml_core_submit_task(cfg, task);
-
-	/* copy job content back */
-	if (submit->job)
-		memcpy(submit->job, &task->job, sizeof(*submit->job));
 
 	mml_trace_end();
 	return 0;
