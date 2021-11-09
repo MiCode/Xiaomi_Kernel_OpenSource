@@ -9,8 +9,8 @@
 };
 
 &soc {
-	wlan_wcn7850: qcom,cnss-wcn7850@b0000000 {
-		compatible = "qcom,cnss-wcn7850";
+	wlan_kiwi: qcom,cnss-kiwi@b0000000 {
+		compatible = "qcom,cnss-kiwi";
 		reg = <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_ipa";
 		wlan-en-gpio = <&tlmm 80 0>;
