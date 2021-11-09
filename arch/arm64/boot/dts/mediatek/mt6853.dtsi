@@ -3917,27 +3917,6 @@
 			clock-names = "apb", "smi";
 		};
 
-		jpgenc@17030000 {
-			compatible = "mediatek,mtk-jpgenc";
-			reg = <0 0x17030000 0 0x10000>;
-			interrupts = <GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&venc_gcon_clk CLK_VENC_CKE2_JPGENC>;
-			clock-names = "jpgenc";
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_VENC>;
-			mediatek,larb = <&larb7>;
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			iommus = <&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA>,
-				 <&iommu0 M4U_PORT_L7_JPGENC_C_RDMA>,
-				 <&iommu0 M4U_PORT_L7_JPGENC_Q_TABLE>,
-				 <&iommu0 M4U_PORT_L7_JPGENC_BSDMA>;
-			interconnect-names = "path_jpegenc_y_rdma",
-				"path_jpegenc_c_rmda",
-				"path_jpegenc_q_table",
-				"path_jpegenc_bsdma";
-			operating-points-v2 = <&opp_table_venc>;
-			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-		};
-
 		btcvsd_snd: mtk-btcvsd-snd@18050000 {
 			compatible = "mediatek,mtk-btcvsd-snd";
 			reg=<0 0x18050000 0 0x1000>, /*PKV_PHYSICAL_BASE*/
