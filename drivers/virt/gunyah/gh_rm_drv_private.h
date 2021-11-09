@@ -58,6 +58,7 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_GET_FEATURES		0x00000002
 
 /* Message IDs: Memory management */
+#define GH_RM_RPC_MSG_ID_CALL_MEM_DONATE		0x51000010
 #define GH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT		0x51000011
 #define GH_RM_RPC_MSG_ID_CALL_MEM_LEND			0x51000012
 #define GH_RM_RPC_MSG_ID_CALL_MEM_SHARE			0x51000013
@@ -77,6 +78,9 @@ struct gh_vm_property {
 
 /* Message IDs: VM Query */
 #define GH_RM_RPC_MSG_ID_CALL_VM_GET_ID			0x56000010
+#define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_URI		0x56000011
+#define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_GUID		0x56000012
+#define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_NAME		0x56000013
 #define GH_RM_RPC_MSG_ID_CALL_VM_GET_STATE		0x56000017
 #define GH_RM_RPC_MSG_ID_CALL_VM_GET_HYP_RESOURCES	0x56000020
 #define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_CAPIDS	0x56000021
@@ -190,12 +194,34 @@ struct gh_vm_get_id_resp_entry {
 	u8 id_type;
 	u8 reserved;
 	u16 id_size;
-	void *id_info;
+	char id_info[];
 } __packed;
 
 struct gh_vm_get_id_resp_payload {
 	u32 n_id_entries;
 	struct gh_vm_get_id_resp_entry resp_entries[];
+} __packed;
+
+enum gh_vm_lookup_type {
+	GH_VM_LOOKUP_NAME,
+	GH_VM_LOOKUP_URI,
+	GH_VM_LOOKUP_GUID,
+};
+
+struct gh_vm_lookup_char_req_payload {
+	u16 size;
+	u16 reserved;
+	char data[];
+} __packed;
+
+struct gh_vm_lookup_resp_entry {
+	u16 vmid;
+	u16 reserved;
+} __packed;
+
+struct gh_vm_lookup_resp_payload {
+	u32 n_id_entries;
+	struct gh_vm_lookup_resp_entry resp_entries[];
 } __packed;
 
 /* Message ID headers */
@@ -368,6 +394,8 @@ void *gh_rm_call(gh_rm_msgid_t message_id,
 			size_t *resp_buff_size, int *reply_err_code);
 struct gh_vm_get_id_resp_entry *
 gh_rm_vm_get_id(gh_vmid_t vmid, u32 *out_n_entries);
+int gh_rm_vm_lookup(enum gh_vm_lookup_type type, const void *name,
+		    size_t size, gh_vmid_t *vmid);
 struct gh_vm_get_hyp_res_resp_entry *
 gh_rm_vm_get_hyp_res(gh_vmid_t vmid, u32 *out_n_entries);
 int gh_msgq_populate_cap_info(int label, u64 cap_id, int direction, int irq);

@@ -24,6 +24,7 @@
 	 GH_RM_MEM_ACCEPT_DONE)
 #define GH_RM_MEM_SHARE_VALID_FLAGS GH_RM_MEM_SHARE_SANITIZE
 #define GH_RM_MEM_LEND_VALID_FLAGS GH_RM_MEM_LEND_SANITIZE
+#define GH_RM_MEM_DONATE_VALID_FLAGS GH_RM_MEM_DONATE_SANITIZE
 #define GH_RM_MEM_NOTIFY_VALID_FLAGS\
 	(GH_RM_MEM_NOTIFY_RECIPIENT_SHARED |\
 	 GH_RM_MEM_NOTIFY_OWNER_RELEASED | GH_RM_MEM_NOTIFY_OWNER_ACCEPTED)
@@ -39,8 +40,13 @@ void gh_init_vm_prop_table(void)
 
 	gh_vm_table[GH_SELF_VM].vmid = 0;
 
-	for (vm_name = GH_SELF_VM + 1; vm_name < GH_VM_MAX; vm_name++)
+	for (vm_name = GH_SELF_VM + 1; vm_name < GH_VM_MAX; vm_name++) {
 		gh_vm_table[vm_name].vmid = GH_VMID_INVAL;
+		gh_vm_table[vm_name].guid = NULL;
+		gh_vm_table[vm_name].uri = NULL;
+		gh_vm_table[vm_name].name = NULL;
+		gh_vm_table[vm_name].sign_auth = NULL;
+	}
 
 	spin_unlock(&gh_vm_table_lock);
 }
@@ -54,10 +60,14 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 	if (vm_prop->vmid < 0 || vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
 		return -EINVAL;
 
-	if (vm_prop->vmid) {
-		spin_lock(&gh_vm_table_lock);
-		gh_vm_table[vm_name].vmid = vm_prop->vmid;
+	spin_lock(&gh_vm_table_lock);
+	if (gh_vm_table[vm_name].guid || gh_vm_table[vm_name].uri ||
+	    gh_vm_table[vm_name].name || gh_vm_table[vm_name].sign_auth) {
 		spin_unlock(&gh_vm_table_lock);
+		return -EEXIST;
+	}
+	if (vm_prop->vmid) {
+		gh_vm_table[vm_name].vmid = vm_prop->vmid;
 	}
 
 	if (vm_prop->guid)
@@ -71,6 +81,7 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 
 	if (vm_prop->sign_auth)
 		gh_vm_table[vm_name].sign_auth = vm_prop->sign_auth;
+	spin_unlock(&gh_vm_table_lock);
 
 	return 0;
 }
@@ -84,6 +95,10 @@ void gh_reset_vm_prop_table_entry(gh_vmid_t vmid)
 	for (vm_name = GH_SELF_VM + 1; vm_name < GH_VM_MAX; vm_name++) {
 		if (vmid == gh_vm_table[vm_name].vmid) {
 			gh_vm_table[vm_name].vmid = GH_VMID_INVAL;
+			gh_vm_table[vm_name].uri = NULL;
+			gh_vm_table[vm_name].guid = NULL;
+			gh_vm_table[vm_name].name = NULL;
+			gh_vm_table[vm_name].sign_auth = NULL;
 			break;
 		}
 	}
@@ -103,22 +118,31 @@ void gh_reset_vm_prop_table_entry(gh_vmid_t vmid)
 int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid)
 {
 	gh_vmid_t _vmid;
+	int ret = 0;
 
 	if (vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
 		return -EINVAL;
 
+
+	spin_lock(&gh_vm_table_lock);
+
 	_vmid = gh_vm_table[vm_name].vmid;
+	if (!gh_rm_core_initialized) {
+		ret = -EPROBE_DEFER;
+		goto out;
+	}
 
-	if (!gh_rm_core_initialized)
-		return -EPROBE_DEFER;
-
-	if (!_vmid && vm_name != GH_SELF_VM)
-		return -EINVAL;
+	if (!_vmid && vm_name != GH_SELF_VM) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (vmid)
 		*vmid = _vmid;
 
-	return 0;
+out:
+	spin_unlock(&gh_vm_table_lock);
+	return ret;
 }
 EXPORT_SYMBOL(gh_rm_get_vmid);
 
@@ -134,12 +158,17 @@ int gh_rm_get_vm_name(gh_vmid_t vmid, enum gh_vm_names *vm_name)
 {
 	enum gh_vm_names i;
 
+	spin_lock(&gh_vm_table_lock);
+
 	for (i = 0; i < GH_VM_MAX; i++)
 		if (gh_vm_table[i].vmid == vmid) {
 			if (vm_name)
 				*vm_name = i;
+			spin_unlock(&gh_vm_table_lock);
 			return 0;
 		}
+
+	spin_unlock(&gh_vm_table_lock);
 
 	return -EINVAL;
 }
@@ -158,14 +187,14 @@ int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vm)
 	if (!vm)
 		return -EINVAL;
 
-	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth
-		|| vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
-		return -EINVAL;
+	spin_lock(&gh_vm_table_lock);
 
 	vm->guid = gh_vm_table[vm_name].guid;
 	vm->uri = gh_vm_table[vm_name].uri;
 	vm->name = gh_vm_table[vm_name].name;
 	vm->sign_auth = gh_vm_table[vm_name].sign_auth;
+
+	spin_unlock(&gh_vm_table_lock);
 
 	return 0;
 }
@@ -191,9 +220,9 @@ gh_rm_vm_get_id(gh_vmid_t vmid, u32 *n_entries)
 	struct gh_vm_get_id_req_payload req_payload = {
 		.vmid = vmid
 	};
-	struct gh_vm_get_id_resp_entry *resp_entries;
-	size_t resp_payload_size, resp_entries_size;
-	int err, reply_err_code;
+	struct gh_vm_get_id_resp_entry *resp_entries, *temp_entry;
+	size_t resp_payload_size, resp_entries_size = 0;
+	int err, reply_err_code, i;
 
 	if (!n_entries)
 		return ERR_PTR(-EINVAL);
@@ -209,19 +238,19 @@ gh_rm_vm_get_id(gh_vmid_t vmid, u32 *n_entries)
 	}
 
 	/* The response payload should contain all the resource entries */
-	if (resp_payload_size < sizeof(*n_entries) ||
-		(sizeof(*n_entries) > (U32_MAX -
-		(resp_payload->n_id_entries * sizeof(*resp_entries)))) ||
-		resp_payload_size != sizeof(*n_entries) +
-		(resp_payload->n_id_entries * sizeof(*resp_entries))) {
-		pr_err("%s: Invalid size received for GET_ID: %u\n",
-			__func__, resp_payload_size);
+	temp_entry = resp_payload->resp_entries;
+	for (i = 0; i < resp_payload->n_id_entries; i++) {
+		resp_entries_size +=
+			sizeof(*temp_entry) + round_up(temp_entry->id_size, 4);
+		temp_entry = (void *)temp_entry + sizeof(*temp_entry) +
+			     round_up(temp_entry->id_size, 4);
+	}
+	if (resp_entries_size != resp_payload_size - sizeof(*n_entries)) {
+		pr_err("%s: Invalid size received for GET_ID: %u expect %u\n",
+		       __func__, resp_payload_size, resp_entries_size);
 		resp_entries = ERR_PTR(-EINVAL);
 		goto out;
 	}
-
-	resp_entries_size = sizeof(*resp_entries) *
-				resp_payload->n_id_entries;
 	resp_entries = kmemdup(resp_payload->resp_entries, resp_entries_size,
 			       GFP_KERNEL);
 	if (!resp_entries) {
@@ -234,6 +263,123 @@ gh_rm_vm_get_id(gh_vmid_t vmid, u32 *n_entries)
 out:
 	kfree(resp_payload);
 	return resp_entries;
+}
+
+static int gh_rm_vm_lookup_name_uri(gh_rm_msgid_t msg_id, const char *data,
+				    size_t size, gh_vmid_t *vmid)
+{
+	struct gh_vm_lookup_resp_payload *resp_payload;
+	struct gh_vm_lookup_char_req_payload *req_payload;
+	size_t resp_payload_size, req_payload_size;
+	int reply_err_code;
+	int ret = 0;
+
+	if (!data || !vmid)
+		return -EINVAL;
+
+	req_payload_size = sizeof(*req_payload) + round_up(size, 4);
+	req_payload = kzalloc(req_payload_size, GFP_KERNEL);
+	req_payload->size = size;
+	memcpy(req_payload->data, data, size);
+
+	resp_payload = gh_rm_call(msg_id, req_payload, req_payload_size,
+				  &resp_payload_size, &reply_err_code);
+
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s: lookup name/uri failed with err: %d\n", __func__, (int)ret);
+		goto out;
+	}
+
+	if (resp_payload->n_id_entries == 1) {
+		*vmid = resp_payload->resp_entries->vmid;
+	} else if (resp_payload->n_id_entries == 0) {
+		pr_err("%s: No VMID found from lookup %s\n", __func__, data);
+		ret = -EINVAL;
+	} else {
+		pr_err("%s: More than one VMID received from lookup %s\n",
+		       __func__, data);
+		ret = -EINVAL;
+	}
+
+	kfree(resp_payload);
+out:
+	kfree(req_payload);
+	return ret;
+}
+
+static int gh_rm_vm_lookup_guid(const u8 *data, gh_vmid_t *vmid)
+{
+	struct gh_vm_lookup_resp_payload *resp_payload;
+	size_t resp_payload_size;
+	int reply_err_code;
+	int ret = 0;
+
+	if (!data || !vmid)
+		return -EINVAL;
+
+	resp_payload =
+		gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_GUID, (void *)data,
+			   16, &resp_payload_size, &reply_err_code);
+
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s: lookup guid failed with err: %d\n", __func__, (int)ret);
+		return ret;
+	}
+
+	if (resp_payload->n_id_entries == 1) {
+		*vmid = resp_payload->resp_entries->vmid;
+	} else if (resp_payload->n_id_entries == 0) {
+		pr_err("%s: No VMID found from lookup %pUB\n", __func__, data);
+		ret = -EINVAL;
+	} else {
+		pr_err("%s: More than one VMID received from lookup: %pUB\n",
+		       __func__, data);
+		ret = -EINVAL;
+	}
+
+	kfree(resp_payload);
+	return ret;
+}
+
+/**
+ * gh_rm_vm_lookup: Get vmid from name
+ * @type: which type of property need to lookup
+ * @data: name/uri/guid whose vmid is needed
+ * @size: data size
+ * @vmid: vmid return to caller
+ *
+ */
+int gh_rm_vm_lookup(enum gh_vm_lookup_type type, const void *data, size_t size,
+		    gh_vmid_t *vmid)
+{
+	int ret = 0;
+
+	switch (type) {
+	case GH_VM_LOOKUP_NAME:
+		ret = gh_rm_vm_lookup_name_uri(
+			GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_NAME,
+			(const char *)data, size, vmid);
+		break;
+	case GH_VM_LOOKUP_URI:
+		ret = gh_rm_vm_lookup_name_uri(
+			GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_URI, (const char *)data,
+			size, vmid);
+		break;
+	case GH_VM_LOOKUP_GUID:
+		if (size != 16) {
+			pr_err("Invalid GUID size=%d\n", size);
+			ret = -EINVAL;
+		} else
+			ret = gh_rm_vm_lookup_guid((const u8 *)data, vmid);
+		break;
+	default:
+		pr_err("Invalid lookup type=%d\n", type);
+		break;
+	}
+
+	return ret;
 }
 
 /**
@@ -785,12 +931,15 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 	if (vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
 		return -EINVAL;
 
+	spin_lock(&gh_vm_table_lock);
 	if (gh_vm_table[vm_name].vmid != GH_VMID_INVAL ||
 		vm_name == GH_SELF_VM) {
 		pr_err("%s: VM_ALLOCATE already called for this VM\n",
 			__func__);
+		spin_unlock(&gh_vm_table_lock);
 		return -EINVAL;
 	}
+	spin_unlock(&gh_vm_table_lock);
 
 	req_payload.vmid = *vmid;
 
@@ -1206,6 +1355,7 @@ static void gh_rm_populate_mem_request(void *req_buf, u32 fn_id,
 	switch (fn_id) {
 	case GH_RM_RPC_MSG_ID_CALL_MEM_LEND:
 	case GH_RM_RPC_MSG_ID_CALL_MEM_SHARE:
+	case GH_RM_RPC_MSG_ID_CALL_MEM_DONATE:
 		req_hdr_size = sizeof(struct gh_mem_share_req_payload_hdr);
 		break;
 	case GH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
@@ -1244,6 +1394,7 @@ static void *gh_rm_alloc_mem_request_buf(u32 fn_id, size_t n_acl_entries,
 	switch (fn_id) {
 	case GH_RM_RPC_MSG_ID_CALL_MEM_LEND:
 	case GH_RM_RPC_MSG_ID_CALL_MEM_SHARE:
+	case GH_RM_RPC_MSG_ID_CALL_MEM_DONATE:
 		req_payload_size = sizeof(struct gh_mem_share_req_payload_hdr);
 		break;
 	case GH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL:
@@ -1556,7 +1707,9 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 	    ((fn_id == GH_RM_RPC_MSG_ID_CALL_MEM_SHARE) &&
 	     (flags & ~GH_RM_MEM_SHARE_VALID_FLAGS)) ||
 	    ((fn_id == GH_RM_RPC_MSG_ID_CALL_MEM_LEND) &&
-	     (flags & ~GH_RM_MEM_LEND_VALID_FLAGS)) || !acl_desc ||
+	     (flags & ~GH_RM_MEM_LEND_VALID_FLAGS)) ||
+	    ((fn_id == GH_RM_RPC_MSG_ID_CALL_MEM_DONATE) &&
+	     (flags & ~GH_RM_MEM_DONATE_VALID_FLAGS)) || !acl_desc ||
 	    (acl_desc && !acl_desc->n_acl_entries) || !sgl_desc ||
 	    (sgl_desc && !sgl_desc->n_sgl_entries) ||
 	    (mem_attr_desc && !mem_attr_desc->n_mem_attr_entries) || !handle)
@@ -1665,6 +1818,61 @@ int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
 					   sgl_desc, mem_attr_desc, handle);
 }
 EXPORT_SYMBOL(gh_rm_mem_lend);
+
+/**
+ * gh_rm_mem_donate: Donate memory to a single VM.
+ * @mem_type: The type of memory being lent (i.e. normal or I/O)
+ * @flags: Bitmask of values to influence the behavior of the RM when it lends
+ *         the memory
+ * @label: The label to assign to the memparcel that the RM will create
+ * @acl_desc: Describes the number of ACL entries and VMID and permission
+ *            pairs that the resource manager should consider when lending the
+ *            memory
+ * @sgl_desc: Describes the number of SG-List entries as well as
+ *            the location of the memory in the IPA space of the owner
+ * @mem_attr_desc: Describes the number of memory attribute entries and the
+ *                 memory attribute and VMID pairs that the RM should consider
+ *                 when lending the memory
+ * @handle: Pointer to where the memparcel handle should be stored
+
+ * On success, the function will return 0 and populate the memory referenced by
+ * @handle with the memparcel handle. Otherwise, a negative number will be
+ * returned.
+ *
+ * Restrictions:
+ * Only to or from HLOS.
+ * non-HLOS VM must only donate memory which was previously donated to them by
+ * HLOS.
+ * Physically contiguous.
+ * If Lend or Share operates on a sgl entry which contains memory which
+ * originated from donate, that sgl entry must be entirely contained within
+ * that donate operation.
+ */
+int gh_rm_mem_donate(u8 mem_type, u8 flags, gh_label_t label,
+		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
+		   struct gh_mem_attr_desc *mem_attr_desc,
+		   gh_memparcel_handle_t *handle)
+{
+	if (sgl_desc->n_sgl_entries != 1) {
+		pr_err("%s: Physically contiguous memory required\n", __func__);
+		return -EINVAL;
+	}
+
+	if (acl_desc->n_acl_entries != 1) {
+		pr_err("%s: Donate requires single destination VM\n", __func__);
+		return -EINVAL;
+	}
+
+	if (acl_desc->acl_entries[0].perms != (GH_RM_ACL_X | GH_RM_ACL_W | GH_RM_ACL_R)) {
+		pr_err("%s: Invalid permission argument\n", __func__);
+		return -EINVAL;
+	}
+
+	return gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_DONATE,
+					   mem_type, flags, label, acl_desc,
+					   sgl_desc, mem_attr_desc, handle);
+}
+EXPORT_SYMBOL(gh_rm_mem_donate);
 
 /**
  * gh_rm_mem_notify: Notify VMs about a change in state with respect to a

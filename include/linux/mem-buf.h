@@ -90,6 +90,7 @@ struct mem_buf_alloc_resp {
 	struct mem_buf_msg_hdr hdr;
 	s32 ret;
 	u32 hdl;
+	int gh_rm_trans_type;
 } __packed;
 
 /**

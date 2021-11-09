@@ -693,36 +693,37 @@ static const struct vsock_transport gunyah_transport = {
 
 static int ghvst_rm_cb(struct notifier_block *nb, unsigned long cmd, void *data)
 {
-	struct gh_rm_notif_vm_status_payload *vm_status_payload;
+	struct gh_rm_notif_vm_status_payload *vm_status_payload = data;
+	u8 vm_status = vm_status_payload->vm_status;
 	struct gh_transport_device *gdev;
-	gh_vmid_t peer_vmid;
-	gh_vmid_t self_vmid;
 
 	gdev = container_of(nb, struct gh_transport_device, rm_nb);
 
 	if (cmd != GH_RM_NOTIF_VM_STATUS)
 		return NOTIFY_DONE;
 
-	vm_status_payload = data;
-	if (vm_status_payload->vm_status != GH_RM_VM_STATUS_READY)
-		return NOTIFY_DONE;
-
-	if (gh_rm_get_vmid(gdev->peer_name, &peer_vmid))
-		return NOTIFY_DONE;
-	if (gh_rm_get_vmid(GH_PRIMARY_VM, &self_vmid))
-		return NOTIFY_DONE;
-	if (peer_vmid != vm_status_payload->vmid)
-		return NOTIFY_DONE;
-
-	if (gdev->msgq_hdl) {
-		dev_err(gdev->dev, "%s: already have msgq handle!\n", __func__);
-		return NOTIFY_DONE;
-	}
-
-	gdev->msgq_hdl = gh_msgq_register(gdev->msgq_label);
-	if (IS_ERR(gdev->msgq_hdl)) {
-		dev_err(gdev->dev, "%s: msgq registration failed: err:%d\n",
-			__func__, PTR_ERR(gdev->msgq_hdl));
+	switch (vm_status) {
+	case GH_RM_VM_STATUS_READY:
+		/* Use guid to check if this is the VM that this driver
+		 * is interested in communicating with, once changes are
+		 * available in resource manager and msgq framework.
+		 */
+		if (gdev->msgq_hdl) {
+			dev_err(gdev->dev, "Already have msgq handle!\n");
+			return NOTIFY_DONE;
+		}
+		gdev->msgq_hdl = gh_msgq_register(gdev->msgq_label);
+		if (IS_ERR(gdev->msgq_hdl)) {
+			dev_err(gdev->dev, "msgq registration failed: err:%d\n",
+				PTR_ERR(gdev->msgq_hdl));
+			return NOTIFY_DONE;
+		}
+		break;
+	case GH_RM_VM_STATUS_RUNNING:
+		break;
+	default:
+		pr_debug("Unknown notification for vmid = %d vm_status = %d\n",
+			 vm_status_payload->vmid, vm_status);
 	}
 
 	return NOTIFY_DONE;
@@ -766,11 +767,6 @@ static int gunyah_transport_probe(struct platform_device *pdev)
 
 	gdev->master = of_property_read_bool(node, "qcom,master");
 	if (gdev->master) {
-		rc = of_property_read_u32(node, "peer-name", &gdev->peer_name);
-		if (rc) {
-			dev_err(dev, "failed to read peer-name info %d\n", rc);
-			return rc;
-		}
 		gdev->rm_nb.notifier_call = ghvst_rm_cb;
 		gh_rm_register_notifier(&gdev->rm_nb);
 	} else {
@@ -831,8 +827,10 @@ static int __init gunyah_vsock_init(void)
 	int rc;
 
 	rc = vsock_core_register(&gunyah_transport, VSOCK_TRANSPORT_F_DGRAM);
-	if (rc)
+	if (rc) {
+		pr_err("%s: vsock_core_register failed: %d\n", __func__, rc);
 		return rc;
+	}
 
 	platform_driver_register(&gunyah_vsock_driver);
 

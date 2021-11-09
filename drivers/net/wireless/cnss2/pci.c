@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/cma.h>
 #include <linux/io.h>
@@ -2719,11 +2722,13 @@ retry:
 		if (ret == -EAGAIN && retry++ < POWER_ON_RETRY_MAX_TIMES) {
 			cnss_power_off_device(plat_priv);
 			/* Force toggle BT_EN GPIO low */
-			if (retry == POWER_ON_RETRY_MAX_TIMES &&
-			    bt_en_gpio >= 0) {
-				cnss_pr_info("Set BT_EN GPIO(%u) low\n",
-					     bt_en_gpio);
-				gpio_direction_output(bt_en_gpio, 0);
+			if (retry == POWER_ON_RETRY_MAX_TIMES) {
+				cnss_pr_dbg("Retry #%d. Set BT_EN GPIO(%u) low\n",
+					    retry, bt_en_gpio);
+				if (bt_en_gpio >= 0)
+					gpio_direction_output(bt_en_gpio, 0);
+				cnss_pr_dbg("BT_EN GPIO val: %d\n",
+					    gpio_get_value(bt_en_gpio));
 			}
 			cnss_pr_dbg("Retry to resume PCI link #%d\n", retry);
 			msleep(POWER_ON_RETRY_DELAY_MS * retry);
@@ -5193,6 +5198,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	rddm_image = pci_priv->mhi_ctrl->rddm_image;
 	dump_data->nentries = 0;
 
+	cnss_mhi_dump_sfr(pci_priv);
+
 	if (!dump_seg) {
 		cnss_pr_warn("FW image dump collection not setup");
 		goto skip_dump;
@@ -5223,8 +5230,6 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	}
 
 	dump_data->nentries += rddm_image->entries;
-
-	cnss_mhi_dump_sfr(pci_priv);
 
 	cnss_pr_dbg("Collect remote heap dump segment\n");
 
@@ -5766,6 +5771,8 @@ static irqreturn_t cnss_pci_wake_handler(int irq, void *data)
 {
 	struct cnss_pci_data *pci_priv = data;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	enum rpm_status status;
+	struct device *dev;
 
 	pci_priv->wake_counter++;
 	cnss_pr_dbg("WLAN PCI wake IRQ (%u) is asserted #%u\n",
@@ -5781,8 +5788,12 @@ static irqreturn_t cnss_pci_wake_handler(int irq, void *data)
 	 */
 	pm_system_wakeup();
 
-	if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
-	    cnss_pci_get_auto_suspended(pci_priv)) {
+	dev = &pci_priv->pci_dev->dev;
+	status = dev->power.runtime_status;
+
+	if ((cnss_pci_get_monitor_wake_intr(pci_priv) &&
+	     cnss_pci_get_auto_suspended(pci_priv)) ||
+	    (status == RPM_SUSPENDING || status == RPM_SUSPENDED)) {
 		cnss_pci_set_monitor_wake_intr(pci_priv, false);
 		cnss_pci_pm_request_resume(pci_priv);
 	}

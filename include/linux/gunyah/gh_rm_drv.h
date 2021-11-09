@@ -41,6 +41,7 @@
 
 #define GH_RM_MEM_SHARE_SANITIZE		BIT(0)
 #define GH_RM_MEM_LEND_SANITIZE			BIT(0)
+#define GH_RM_MEM_DONATE_SANITIZE		BIT(0)
 
 #define GH_RM_MEM_NOTIFY_RECIPIENT_SHARED	BIT(0)
 #define GH_RM_MEM_NOTIFY_RECIPIENT	GH_RM_MEM_NOTIFY_RECIPIENT_SHARED
@@ -318,10 +319,12 @@ int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr);
 int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid);
 int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid);
 int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid);
+int gh_rm_get_vm_id_info(gh_vmid_t vmid);
 int gh_rm_get_vm_name(gh_vmid_t vmid, enum gh_vm_names *vm_name);
 int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vminfo);
 int gh_rm_vm_start(int vmid);
-int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid);
+enum gh_vm_names gh_get_image_name(const char *str);
+enum gh_vm_names gh_get_vm_name(const char *str);
 int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags);
 int gh_rm_vm_reset(gh_vmid_t vmid);
 
@@ -363,6 +366,10 @@ int gh_rm_mem_share(u8 mem_type, u8 flags, gh_label_t label,
 		    struct gh_mem_attr_desc *mem_attr_desc,
 		    gh_memparcel_handle_t *handle);
 int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
+		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
+		   struct gh_mem_attr_desc *mem_attr_desc,
+		   gh_memparcel_handle_t *handle);
+int gh_rm_mem_donate(u8 mem_type, u8 flags, gh_label_t label,
 		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
 		   struct gh_mem_attr_desc *mem_attr_desc,
 		   gh_memparcel_handle_t *handle);
@@ -466,7 +473,7 @@ static inline int gh_rm_vm_start(int vmid)
 	return -EINVAL;
 }
 
-static inline int gh_rm_get_vm_id_info(enum gh_vm_names vm_name, gh_vmid_t vmid)
+static inline int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 {
 	return -EINVAL;
 }

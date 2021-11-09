@@ -51,6 +51,7 @@ struct ignored_warning {
 const struct ignored_warning ignored_warnings[] = {
 	IGNORE_WARNING("signal.c:51"),
 	IGNORE_WARNING("signal.c:95"),
+	IGNORE_WARNING("userfaultfd.c:1875"),
 	{ NULL, 0 }
 };
 

@@ -876,6 +876,7 @@ static int modify_dma_buf_addr(struct spcom_channel *ch, void *buf,
 	uint32_t buf_offset = 0;
 	int fd, ret = 0;
 	int i = 0;
+	bool found_handle = false;
 
 	fd = info->fd;
 	buf_offset = info->offset;
@@ -932,9 +933,18 @@ static int modify_dma_buf_addr(struct spcom_channel *ch, void *buf,
 		if (ch->dmabuf_array[i].handle == dma_buf) {
 			ch->dmabuf_array[i].attach = attach;
 			ch->dmabuf_array[i].sg = sg;
+			found_handle = true;
 			break;
 		}
 	}
+
+	if (!found_handle) {
+		spcom_pr_err("ch [%s]: trying to send modified command on unlocked buffer\n",
+						ch->name);
+		ret = -EPERM;
+		goto mem_map_sg_failed;
+	}
+
 	/* Set the physical address at the buffer offset */
 	spcom_pr_dbg("dma phys addr = [0x%lx]\n", (long) phy_addr);
 	memcpy(ptr, &phy_addr, sizeof(phy_addr));
@@ -1184,7 +1194,7 @@ static int spcom_dmabuf_unlock(struct dma_buf_info *info, bool verify_buf_owner)
 
 	spcom_pr_dbg("unlock dmbuf fd [%d], PID [%u]\n", info->fd, pid);
 
-	if (!info->attach) {
+	if (info->attach) {
 		dma_buf_unmap_attachment(info->attach, info->sg, DMA_BIDIRECTIONAL);
 		dma_buf_detach(info->handle, info->attach);
 		info->attach = NULL;

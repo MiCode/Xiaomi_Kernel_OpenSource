@@ -44,11 +44,11 @@ static struct pll_vco lucid_evo_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-/* 420MHz Configuration */
+/* 460MHz Configuration */
 static const struct alpha_pll_config gpu_cc_pll0_config = {
-	.l = 0x15,
+	.l = 0x17,
 	.cal_l = 0x44,
-	.alpha = 0xE000,
+	.alpha = 0xF555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00182261,
 	.config_ctl_hi1_val = 0x32AA299C,

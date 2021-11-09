@@ -16,6 +16,7 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <soc/qcom/icnss2.h>
 #include "wlan_firmware_service_v01.h"
+#include <linux/mailbox_client.h>
 
 #define WCN6750_DEVICE_ID 0x6750
 #define ADRASTEA_DEVICE_ID 0xabcd
@@ -144,11 +145,7 @@ struct icnss_vreg_info {
 };
 
 struct icnss_cpr_info {
-	resource_size_t tcs_cmd_base_addr;
-	resource_size_t tcs_cmd_data_addr;
-	void __iomem *tcs_cmd_base_addr_io;
-	void __iomem *tcs_cmd_data_addr_io;
-	u32 cpr_pmic_addr;
+	const char *vreg_ol_cpr;
 	u32 voltage;
 };
 
@@ -444,6 +441,8 @@ struct icnss_priv {
 	struct pdr_handle *pdr_handle;
 	struct pdr_service *pdr_service;
 	bool root_pd_shutdown;
+	struct mbox_client mbox_client_data;
+	struct mbox_chan *mbox_chan;
 };
 
 struct icnss_reg_info {
@@ -467,9 +466,9 @@ int icnss_soc_wake_event_post(struct icnss_priv *priv,
 			      u32 flags, void *data);
 int icnss_get_iova(struct icnss_priv *priv, u64 *addr, u64 *size);
 int icnss_get_iova_ipa(struct icnss_priv *priv, u64 *addr, u64 *size);
-int icnss_get_cpr_info(struct icnss_priv *priv);
 int icnss_update_cpr_info(struct icnss_priv *priv);
 void icnss_add_fw_prefix_name(struct icnss_priv *priv, char *prefix_name,
 			      char *name);
+int icnss_aop_mbox_init(struct icnss_priv *priv);
 #endif
 

@@ -1087,7 +1087,7 @@ static struct kgsl_process_private *kgsl_process_private_open(
 	 * private destroy is triggered but didn't complete. Retry creating
 	 * process private after sometime to allow previous destroy to complete.
 	 */
-	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 5); i++) {
+	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 50); i++) {
 		usleep_range(10, 100);
 		private = _process_private_open(device);
 	}

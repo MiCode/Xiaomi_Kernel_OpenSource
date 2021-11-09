@@ -83,6 +83,7 @@ obj-$(CONFIG_SDX_DEBUGCC_LEMUR) += debugcc-sdxlemur.o
 obj-$(CONFIG_SDX_GCC_LEMUR) += gcc-sdxlemur.o
 obj-$(CONFIG_SM_CAMCC_DIWALI) += camcc-diwali.o
 obj-$(CONFIG_SM_CAMCC_SHIMA) += camcc-shima.o
+obj-$(CONFIG_SM_DEBUGCC_DIWALI) += debugcc-diwali.o
 obj-$(CONFIG_SM_DEBUGCC_HOLI) += debugcc-holi.o
 obj-$(CONFIG_SM_DEBUGCC_SHIMA) += debugcc-shima.o
 obj-$(CONFIG_SM_DISPCC_DIWALI) += dispcc-diwali.o

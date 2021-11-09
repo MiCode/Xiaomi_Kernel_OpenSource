@@ -79,6 +79,19 @@ static const u32 gen7_ifpc_pwrup_reglist[] = {
 	GEN7_CP_PROTECT_REG+31,
 	GEN7_CP_PROTECT_REG+32,
 	GEN7_CP_PROTECT_REG+33,
+	GEN7_CP_PROTECT_REG+34,
+	GEN7_CP_PROTECT_REG+35,
+	GEN7_CP_PROTECT_REG+36,
+	GEN7_CP_PROTECT_REG+37,
+	GEN7_CP_PROTECT_REG+38,
+	GEN7_CP_PROTECT_REG+39,
+	GEN7_CP_PROTECT_REG+40,
+	GEN7_CP_PROTECT_REG+41,
+	GEN7_CP_PROTECT_REG+42,
+	GEN7_CP_PROTECT_REG+43,
+	GEN7_CP_PROTECT_REG+44,
+	GEN7_CP_PROTECT_REG+45,
+	GEN7_CP_PROTECT_REG+46,
 	GEN7_CP_PROTECT_REG+47,
 	GEN7_CP_AHB_CNTL,
 };
@@ -845,8 +858,17 @@ static void gen7_err_callback(struct adreno_device *adreno_dev, int bit)
 		dev_crit_ratelimited(dev, "UCHE: Trap interrupt\n");
 		break;
 	case GEN7_INT_TSBWRITEERROR:
-		dev_crit_ratelimited(dev, "TSB: Write error interrupt\n");
+		{
+		u32 lo, hi;
+
+		kgsl_regread(device, GEN7_RBBM_SECVID_TSB_STATUS_LO, &lo);
+		kgsl_regread(device, GEN7_RBBM_SECVID_TSB_STATUS_HI, &hi);
+
+		dev_crit_ratelimited(dev, "TSB: Write error interrupt: Address: 0x%llx MID: %d\n",
+			FIELD_GET(GENMASK(16, 0), hi) << 32 | lo,
+			FIELD_GET(GENMASK(31, 23), hi));
 		break;
+		}
 	default:
 		dev_crit_ratelimited(dev, "Unknown interrupt %d\n", bit);
 	}

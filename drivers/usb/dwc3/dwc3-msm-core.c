@@ -5880,7 +5880,12 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		} else if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST) {
 			dev_dbg(mdwc->dev, "still in a_host state. Resuming root hub.\n");
 			dbg_event(0xFF, "XHCIResume", 0);
-			pm_runtime_resume(&dwc->xhci->dev);
+			ret = pm_runtime_resume(&dwc->xhci->dev);
+			if (ret > 0) {
+				dbg_event(0xFF, "RT active",
+					hrtimer_active(&dwc->xhci->dev.power.suspend_timer));
+				pm_request_idle(&dwc->xhci->dev);
+			}
 		}
 		break;
 
