@@ -447,7 +447,7 @@ static TZ_RESULT KREE_OpenSysFd(uint32_t tee_id)
 static TZ_RESULT KREE_OpenFd(const char *port, int32_t *Fd)
 {
 
-	struct tipc_k_handle h;
+	struct tipc_k_handle h = {.dn = NULL};
 	TZ_RESULT ret = TZ_RESULT_SUCCESS;
 	int32_t tmp;
 
