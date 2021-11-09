@@ -74,6 +74,70 @@ static uint32_t apusys_pwr_smc_call(struct device *dev, uint32_t smc_id,
 	return res.a0;
 }
 
+static void aputop_check_pwr_data(void)
+{
+	uint32_t magicNum = 0x11223344;
+	uint32_t clearNum = 0x55667788;
+	uint32_t regValue = 0x0;
+
+	apu_writel(magicNum, apupw.regs[apu_md32_mbox] + PWR_DBG_REG);
+	regValue = apu_readl(apupw.regs[apu_md32_mbox] + PWR_DBG_REG);
+	pr_info("%s mbox_dbg_reg readback = 0x%08x\n", __func__, regValue);
+	apu_writel(clearNum, apupw.regs[apu_md32_mbox] + PWR_DBG_REG);
+}
+
+static void aputop_dump_rpc_data(void)
+{
+	char buf[32];
+
+	// reg dump for RPC
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "phys 0x%08x: ",
+			(u32)(apupw.phy_addr[apu_rpc]));
+	print_hex_dump(KERN_INFO, buf, DUMP_PREFIX_OFFSET, 16, 4,
+			apupw.regs[apu_rpc], 0x20, true);
+}
+
+static void aputop_dump_pll_data(void)
+{
+	// need to 1-1 in order mapping with array in __apu_pll_init func
+	uint32_t pll_base_arr[] = {MNOC_PLL_BASE};
+	uint32_t pll_offset_arr[] = {
+				PLL1UPLL_FHCTL_HP_EN, PLL1UPLL_FHCTL_RST_CON,
+				PLL1UPLL_FHCTL_CLK_CON, PLL1UPLL_FHCTL0_CFG,
+				PLL1U_PLL1_CON1, PLL1UPLL_FHCTL0_DDS};
+	int base_arr_size = sizeof(pll_base_arr) / sizeof(uint32_t);
+	int offset_arr_size = sizeof(pll_offset_arr) / sizeof(uint32_t);
+	int pll_idx;
+	int ofs_idx;
+	uint32_t phy_addr = 0x0;
+	char buf[256];
+
+	for (pll_idx = 0 ; pll_idx < base_arr_size ; pll_idx++) {
+
+		memset(buf, 0, sizeof(buf));
+
+		for (ofs_idx = 0 ; ofs_idx < offset_arr_size ; ofs_idx++) {
+
+			phy_addr = apupw.phy_addr[apu_pll] +
+				pll_base_arr[pll_idx] +
+				pll_offset_arr[ofs_idx];
+
+			snprintf(buf + strlen(buf),
+					sizeof(buf) - strlen(buf),
+					" 0x%08x",
+					apu_readl(apupw.regs[apu_pll] +
+						pll_base_arr[pll_idx] +
+						pll_offset_arr[ofs_idx]));
+
+		}
+
+		pr_info("%s pll_base:0x%08x = %s\n", __func__,
+				apupw.phy_addr[apu_pll] + pll_base_arr[pll_idx],
+				buf);
+	}
+}
+
 static int check_if_rpc_alive(void)
 {
 #if RPC_ALIVE_DBG
@@ -832,6 +896,11 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 {
 	int ret = 0, val = 0;
 
+	dev_info(dev, "%s before wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
+			__func__,
+			(u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
+			readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
+
 	/* TINFO="Enable AFC enable" */
 	apu_setl((0x1 << 16), apupw.regs[apu_rpc] + APU_RPC_TOP_SEL_1);
 
@@ -841,11 +910,11 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL), 50, 10000);
 	if (ret) {
-		pr_info("%s wake up apu_rpc fail, ret %d\n", __func__, ret);
+		pr_info("%s polling RPC RDY timeout, ret %d\n", __func__, ret);
 		goto out;
 	}
 
-	dev_info(dev, "%s RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
+	dev_info(dev, "%s after wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
 			__func__,
 			(u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
@@ -855,7 +924,7 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			(apupw.regs[apu_rpc] + APU_RPC_STATUS),
 			val, (val & (0x1 << 29)), 50, 10000);
 	if (ret) {
-		pr_info("%s wake up rcx_rpc fail, ret %d\n", __func__, ret);
+		pr_info("%s polling ARE FSM timeout, ret %d\n", __func__, ret);
 		goto out;
 	}
 
@@ -1049,12 +1118,19 @@ static int mt6895_apu_top_on(struct device *dev)
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(1);
 #endif
+	aputop_dump_pwr_res();
+	aputop_dump_rpc_data();
+	aputop_dump_pll_data();
+	aputop_check_pwr_data();
 	ret = __apu_wake_rpc_rcx(dev);
+	aputop_dump_pwr_res();
+	aputop_dump_rpc_data();
+	aputop_dump_pll_data();
+	aputop_check_pwr_data();
 
 	if (ret) {
 		pr_info("%s fail to wakeup RPC, ret %d, rpc_alive:%d\n",
 					__func__, ret, check_if_rpc_alive());
-		aputop_dump_pwr_res();
 		aputop_dump_pwr_reg(dev);
 		are_dump_config(0);
 		are_dump_config(1);
