@@ -1968,7 +1968,7 @@ static int _btif_state_set(struct _mtk_btif_ *p_btif,
 
 	if ((state >= B_S_OFF) && (state < B_S_MAX)) {
 		if (ori_state == state) {
-			BTIF_INFO_FUNC("already in %s state\n", g_state[state]);
+			BTIF_DBG_FUNC("already in %s state\n", g_state[state]);
 			return i_ret;
 		}
 
