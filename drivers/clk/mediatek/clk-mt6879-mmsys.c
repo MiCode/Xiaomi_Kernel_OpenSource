@@ -149,7 +149,7 @@ static const struct mtk_gate mm_clks[] = {
 			"disp0_ck"/* parent */, 9),
 	GATE_MM1(CLK_MM_DISP_DL0_ASYNC3, "mm_disp_dl0_async3",
 			"disp0_ck"/* parent */, 10),
-	GATE_HWV_MM(CLK_MM_SMI_LARB, "mm_smi_larb",
+	GATE_MM1(CLK_MM_SMI_LARB, "mm_smi_larb",
 			"disp0_ck"/* parent */, 20),
 	/* MM2 */
 	GATE_MM2(CLK_MM_DSI_CLK, "mm_dsi_clk",
