@@ -24,7 +24,7 @@
 
 static struct dentry *ispdvfs_debugfs_dir;
 static struct regulator *vmm_reg;
-DECLARE_WAIT_QUEUE_HEAD(vmm_wait_queue);
+static DECLARE_WAIT_QUEUE_HEAD(vmm_wait_queue);
 
 #define REGULATOR_ID_VMM 0
 #define AGING_MARGIN_MICROVOLT 12500
@@ -629,7 +629,7 @@ static void power_control_handler(struct work_struct *work)
 		atomic_set(&drv_data->ccu_power_on, false);
 	}
 
-	wake_up_interruptible(&vmm_wait_queue);
+	wake_up(&vmm_wait_queue);
 }
 
 static int vmm_enable_regulator(struct regulator_dev *rdev)
@@ -664,10 +664,10 @@ static int vmm_enable_regulator(struct regulator_dev *rdev)
 	drv_data->request_power_on = true;
 	schedule_work(&drv_data->work_structure);
 
-	ret = wait_event_interruptible_timeout(vmm_wait_queue,
+	ret = wait_event_timeout(vmm_wait_queue,
 			atomic_read(&drv_data->ccu_power_on),
 			msecs_to_jiffies(WAIT_POWER_ON_OFF_TIMEOUT_MS));
-	if (ret <= 0) {
+	if (ret == 0) {
 		ISP_LOGE("Wait CCU power on timeout\n");
 		return -EINVAL;
 	}
@@ -707,10 +707,10 @@ static int vmm_disable_regulator(struct regulator_dev *rdev)
 		dvfs_data->request_power_on = false;
 		schedule_work(&dvfs_data->work_structure);
 
-		ret = wait_event_interruptible_timeout(vmm_wait_queue,
+		ret = wait_event_timeout(vmm_wait_queue,
 			atomic_read(&dvfs_data->ccu_power_on) == false,
 			msecs_to_jiffies(WAIT_POWER_ON_OFF_TIMEOUT_MS));
-		if (ret <= 0)
+		if (ret == 0)
 			ISP_LOGE("Wait CCU power off timeout\n");
 	}
 
