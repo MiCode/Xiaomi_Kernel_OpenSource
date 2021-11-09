@@ -9106,6 +9106,10 @@
 			};
 		};
 
+		rt-pd-manager {
+			compatible = "mediatek,rt-pd-manager";
+		};
+
 		typec_mux_switch: typec_mux_switch {
 			compatible = "mediatek,typec_mux_switch";
 			status = "okay";
@@ -13006,9 +13010,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			tcpc-dual,supported_modes = <0>;
 			/* tcpc_device's name */
 			tcpc,name = "type_c_port0";
-			/* 0: SNK Only, 1: SRC Only, 2: DRP, */
-			/* 3: Try.SRC, 4: Try.SNK */
-			tcpc,role_def = <4>;
+			/* 0: Unknown, 1: SNK, 2: SRC, 3: DRP, 4: Try.SRC, 5: Try.SNK */
+			tcpc,role_def = <5>;
 			/* 0: Default, 1: 1.5, 2: 3.0 */
 			tcpc,rp_level = <0>;
 			/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
@@ -13037,15 +13040,39 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
 			wd,sbu_aud_ubound = <1600>;	/* mV */
 			pd-data {
+				pd,vid = <0x29cf>;
+				pd,pid = <0x6375>;
+				pd,source-cap-ext = <0x637529cf 0x00000000 0x00000000
+						     0x00000000 0x00000000 0x07010000 >;
+				pd,mfrs = "RichtekTCPC";
 				/*
 				 * VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
 				 * MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
 				 * MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
 				 */
 				pd,charging_policy= <0x21>;
+
+				/*
+				 * Fixed 5V, 500 mA <0x00019032>
+				 * Fixed 5V, 1A <0x00019064>
+				 * Fixed 5V, 2A <0x000190c8>
+				 * Fixed 5V, 3A <0x0001912c>
+				 * Fixed 9V, 500 mA <0x0002d032>
+				 * Fixed 9V, 1A <0x0002d064>
+				 * Fixed 5V, 1.5A <0x00019096>
+				 * Fixed 9V, 2A <0x0002d0c8>
+				 * Fixed 9V, 3A <0x0002d12c>
+				 * Variable 5-9V, 1A <0x8642d064>
+				 * Variable 5-9V, 2A <0x8642d0c8>
+				 * Variable 5-9V, 3A <0x8642d12c>
+				 * PPS 3V~5.9V, 3A <0xC0761E3C>
+				 */
+
+				/* 5V, 500mA */
 				pd,source-pdo-size = <1>;
 				pd,source-pdo-data = <0x00019032>;
-				/* 5V, 500 mA */
+
+				/* 5V, 2A */
 				pd,sink-pdo-size = <2>;
 				pd,sink-pdo-data = <0x000190c8 0x000190c8> ;
 				/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
@@ -13062,6 +13089,15 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				 */
 				pd,id-vdo-size = <4>;
 				pd,id-vdo-data = <0xec0029cf 0x0 0x00010000 0x11000001>;
+				bat,nr = <1>;
+				pd,country_nr = <0>;
+
+				bat-info0 {
+					bat,vid = <0x29cf>;
+					bat,pid = <0x5081>;
+					bat,mfrs = "bat1";
+					bat,design_cap = <3000>;
+				};
 			};
 			dpm_caps {
 				local_dr_power;
