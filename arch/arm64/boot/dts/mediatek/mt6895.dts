@@ -8702,6 +8702,9 @@
 			event_ir_mml_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_MML_READY>;
 			event_ir_disp_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_DISP_READY>;
 			event_ir_mml_stop = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_MML_STOP>;
+			event_racing_pipe0 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE0>;
+			event_racing_pipe1 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1>;
+			event_racing_pipe1_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1_NEXT>;
 			/* sys register offset */
 			ready-sel = /bits/ 16 <IN_LINE_READY_SEL>;
 			/* as dl component */
@@ -8894,7 +8897,9 @@
 				<CMDQ_EVENT_MDPSYS1_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
 			event_frame_done = /bits/ 16
 				<CMDQ_EVENT_MDPSYS1_MDP_WROT0_FRAME_DONE>;
-			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
+			event_bufa = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFA>;
+			event_bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
+			event_buf_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT2>;
 			interconnects =
@@ -8916,7 +8921,9 @@
 				<CMDQ_EVENT_MDPSYS1_MDP_WROT1_SW_RST_DONE_ENG_EVENT>;
 			event_frame_done = /bits/ 16
 				<CMDQ_EVENT_MDPSYS1_MDP_WROT1_FRAME_DONE>;
-			event_pipe_sync = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_WROT0_PIPE>;
+			event_bufa = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFA>;
+			event_bufb = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUFB>;
+			event_buf_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_BUF_NEXT>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&mdp_iommu M4U_LARB3_PORT3>;
 			interconnects =
