@@ -1930,6 +1930,12 @@
 			};
 		};
 
+		masp: masp@1c009000 {
+			compatible = "mediatek,masp";
+			reg = <0 0x1c009000 0 0x1000>;
+			interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		systimer: systimer@1c011000 {
 			compatible = "mediatek,mt6895-timer",
 				      "mediatek,mt6765-timer";
@@ -2083,9 +2089,9 @@
 			reg = <0 0x10019000 0 0x1000>;
 		};
 
-		security_ao@1001a000 {
+		security_ao@1c00b000 {
 			compatible = "mediatek,security_ao";
-			reg = <0 0x1001a000 0 0x1000>;
+			reg = <0 0x1c00b000 0 0x1000>;
 		};
 
 		topckgen_ao@1001b000 {
