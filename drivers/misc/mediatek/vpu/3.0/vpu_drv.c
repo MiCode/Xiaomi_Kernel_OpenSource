@@ -1767,8 +1767,8 @@ static int vpu_probe(struct platform_device *pdev)
 	vpu_device->vpu_base[core] = (unsigned long) of_iomap(node, 0);
 	/* get physical address of binary data loaded by LK */
 	if (vpu_num_devs == 0) {
-		uint32_t phy_addr;
-		uint32_t phy_size;
+		uint32_t phy_addr = 0;
+		uint32_t phy_size = 0;
 
 		if (of_property_read_u32(node, "bin-phy-addr", &phy_addr) ||
 			of_property_read_u32(node, "bin-size", &phy_size)) {
