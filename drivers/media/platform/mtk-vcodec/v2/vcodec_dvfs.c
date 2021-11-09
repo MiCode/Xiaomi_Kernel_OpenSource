@@ -332,10 +332,13 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 		if (inst->op_rate <= 0) {
 			/* Undefined priority + op_rate combination behavior, to be configurable */
 			freq = (inst->priority < 0) ?
-				0 : dev->vdec_dvfs_params.normal_max_freq;
+				(inst->width * inst->height / 256 * 30 *
+					perf->cy_per_mb_1) :
+				dev->vdec_dvfs_params.normal_max_freq;
 
-			mtk_v4l2_debug(6, "[VDVFS] VDEC priority: %d oprate: %d, set freq = %u",
-					inst->priority, inst->op_rate, freq);
+			mtk_v4l2_debug(6, "[VDVFS] VDEC priority:%d oprate:%d/%d, set freq = %u",
+					inst->priority, inst->op_rate,
+					((inst->priority < 0) ? 30 : inst->op_rate), freq);
 		}
 	} else if (inst->codec_type == MTK_INST_ENCODER) {
 		if (perf != 0) {
