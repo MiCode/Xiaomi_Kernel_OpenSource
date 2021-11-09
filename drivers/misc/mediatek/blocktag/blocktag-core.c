@@ -42,6 +42,10 @@
 #include "blocktag-ufs.h"
 #include "mtk_blocktag.h"
 
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+#include "blocktag-pm-trace.h"
+#endif
+
 /*
  * snprintf may return a value of size or "more" to indicate
  * that the output was truncated, thus be careful of "more"
@@ -1310,6 +1314,11 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 			btag->vops->seq_show(buff, size, seq);
 		}
 
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+	SPREAD_PRINTF(buff, size, seq, "[BLK_PM]\n");
+	mtk_btag_blk_pm_show(buff, size, seq);
+#endif
+
 	SPREAD_PRINTF(buff, size, seq, "[Memory Usage]\n");
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		used_mem += mtk_btag_seq_sub_show_usedmem(buff, size,
@@ -1777,6 +1786,57 @@ static struct tracepoints_table interests[] = {
 		.name = "writeback_dirty_page",
 		.func = btag_trace_writeback_dirty_page
 	},
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+	{
+		.name = "blk_pre_runtime_suspend_start",
+		.func = btag_blk_pre_runtime_suspend_start
+	},
+	{
+		.name = "blk_pre_runtime_suspend_end",
+		.func = btag_blk_pre_runtime_suspend_end
+	},
+	{
+		.name = "blk_post_runtime_suspend_start",
+		.func = btag_blk_post_runtime_suspend_start
+	},
+	{
+		.name = "blk_post_runtime_suspend_end",
+		.func = btag_blk_post_runtime_suspend_end
+	},
+	{
+		.name = "blk_pre_runtime_resume_start",
+		.func = btag_blk_pre_runtime_resume_start
+	},
+	{
+		.name = "blk_pre_runtime_resume_end",
+		.func = btag_blk_pre_runtime_resume_end
+	},
+	{
+		.name = "blk_post_runtime_resume_start",
+		.func = btag_blk_post_runtime_resume_start
+	},
+	{
+		.name = "blk_post_runtime_resume_end",
+		.func = btag_blk_post_runtime_resume_end
+	},
+	{
+		.name = "blk_set_runtime_active_start",
+		.func = btag_blk_set_runtime_active_start
+	},
+	{
+		.name = "blk_set_runtime_active_end",
+		.func = btag_blk_set_runtime_active_end
+	},
+	{
+		.name = "blk_queue_enter_sleep",
+		.func = btag_blk_queue_enter_sleep
+	},
+	{
+		.name = "blk_queue_enter_wakeup",
+		.func = btag_blk_queue_enter_wakeup
+	},
+#endif
+
 };
 
 #define FOR_EACH_INTEREST(i) \
@@ -1838,6 +1898,11 @@ static int __init mtk_btag_init(void)
 	mtk_btag_init_procfs();
 	mtk_btag_install_tracepoints();
 	mtk_btag_earaio_init();
+
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+	mtk_btag_blk_pm_init();
+#endif
+
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_BLOCKIO, mtk_btag_get_aee_buffer);
 
 	return 0;
