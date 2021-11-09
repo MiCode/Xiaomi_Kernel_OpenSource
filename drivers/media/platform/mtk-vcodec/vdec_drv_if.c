@@ -213,9 +213,11 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	if (ctx == NULL || hw_id >= MTK_VDEC_HW_NUM)
 		return;
 
+	mutex_lock(&ctx->hw_status);
 	if (ctx->dev->dec_sem[hw_id].count != 0) {
 		mtk_v4l2_err("HW not prepared, dec_sem[%d].count = %d",
 			hw_id, ctx->dev->dec_sem[hw_id].count);
+		mutex_unlock(&ctx->hw_status);
 		return;
 	}
 	if (hw_id == MTK_VDEC_CORE)
@@ -223,7 +225,6 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	else
 		vcodec_trace_count("VDEC_HW_LAT", 0);
 
-	mutex_lock(&ctx->hw_status);
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
 		disable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
