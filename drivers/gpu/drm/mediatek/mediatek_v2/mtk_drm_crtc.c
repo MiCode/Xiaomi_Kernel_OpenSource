@@ -7422,6 +7422,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			plane->index, comp->id, plane_state->comp_state.comp_id);
 
 	if (plane_state->pending.enable && !need_skip) {
+		mtk_dprec_mmp_dump_ovl_layer(plane_state);
 		if (mtk_crtc->is_dual_pipe) {
 			comp = mtk_crtc_get_plane_comp(crtc, plane_state);
 			mtk_crtc_dual_layer_config(mtk_crtc, comp, plane_index,

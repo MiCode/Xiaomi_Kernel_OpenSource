@@ -114,7 +114,7 @@ struct DRM_MMP_Events *get_drm_mmp_events(void);
 struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id);
 void drm_mmp_init(void);
 int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
-			  u32 downSampleX, u32 downSampleY);
+			  u32 downSampleX, u32 downSampleY, int global_lye_num);
 int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 	struct mtk_cwb_info *cwb_info,
 	void *buffer, unsigned int buf_idx);

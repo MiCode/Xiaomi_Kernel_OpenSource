@@ -1809,9 +1809,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		/* so far only report one qos BW, no need to separate FBDC or normal BW */
 		comp->qos_bw += temp_bw;
 #endif
-
-		mtk_dprec_mmp_dump_ovl_layer(state);
-
 	}
 }
 

@@ -93,6 +93,7 @@ int gCaptureOVLEn;
 int gCaptureWDMAEn;
 int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
+int gCaptureAssignLayer;
 u64 vfp_backup;
 
 static struct completion cwb_cmp;
@@ -1354,11 +1355,30 @@ done:
 
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 {
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	struct mtk_ddp_comp *comp;
+	int global_lye_num;
+
 	if (!gCaptureOVLEn)
 		return -1;
 
+	crtc = plane_state->crtc;
+	mtk_crtc = to_mtk_crtc(crtc);
+	ddp_ctx = mtk_crtc->ddp_ctx;
+	comp = ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[0][0];
+	global_lye_num = plane_state->comp_state.lye_id;
+	if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) {
+		if (plane_state->comp_state.comp_id != comp->id)
+			global_lye_num += mtk_ovl_layer_num(comp);
+	}
+
+	if ((gCaptureAssignLayer != global_lye_num) && (gCaptureAssignLayer != -1))
+		return -1;
+
 	mtk_drm_mmp_ovl_layer(plane_state, gCapturePriLayerDownX,
-			gCapturePriLayerDownY);
+			gCapturePriLayerDownY, global_lye_num);
 
 	DDPINFO("%s, gCapturePriLayerEnable is %d\n",
 		__func__, gCaptureOVLEn);
@@ -2411,11 +2431,12 @@ static void process_dbg_opt(const char *opt)
 		int ret;
 		unsigned int dump_en;
 		unsigned int downSampleX, downSampleY;
+		int layer_id;
 
 		DDPMSG("get dump\n");
-		ret = sscanf(opt, "dump_layer:%d,%d,%d\n", &dump_en,
-			     &downSampleX, &downSampleY);
-		if (ret != 3) {
+		ret = sscanf(opt, "dump_layer:%d,%d,%d,%d\n", &dump_en,
+			     &downSampleX, &downSampleY, &layer_id);
+		if (ret != 4) {
 			DDPMSG("error to parse cmd\n");
 			return;
 		}
@@ -2424,7 +2445,10 @@ static void process_dbg_opt(const char *opt)
 			gCapturePriLayerDownX = downSampleX;
 		if (downSampleY)
 			gCapturePriLayerDownY = downSampleY;
+		gCaptureAssignLayer = layer_id;
 		gCaptureOVLEn = dump_en;
+		DDPMSG("dump params (%d,%d,%d,%d)\n", gCaptureOVLEn,
+			gCapturePriLayerDownX, gCapturePriLayerDownY, gCaptureAssignLayer);
 	} else if (strncmp(opt, "dump_user_buffer:", 17) == 0) {
 		int ret;
 		unsigned int dump_en;
