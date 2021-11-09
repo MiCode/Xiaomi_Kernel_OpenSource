@@ -159,6 +159,21 @@ struct cmdq_buf_dump {
 	dma_addr_t		pa_offset; /* pa_curr - pa_base */
 };
 
+#define mmp_event unsigned int
+
+struct cmdq_mmp_event {
+	mmp_event cmdq;
+	mmp_event cmdq_irq;
+	mmp_event loop_irq;
+	mmp_event thread_en;
+	mmp_event thread_suspend;
+	mmp_event submit;
+	mmp_event wait;
+	mmp_event wait_done;
+	mmp_event warning;
+};
+struct cmdq_mmp_event	cmdq_mmp;
+
 struct cmdq {
 	struct mbox_controller	mbox;
 	void __iomem		*base;
@@ -205,21 +220,6 @@ struct gce_plat {
 
 #define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
 #endif
-
-#define mmp_event unsigned int
-struct cmdq_mmp_event {
-	mmp_event cmdq;
-	mmp_event cmdq_irq;
-	mmp_event loop_irq;
-	mmp_event thread_en;
-	mmp_event thread_suspend;
-	mmp_event submit;
-	mmp_event wait;
-	mmp_event wait_done;
-	mmp_event warning;
-};
-
-struct cmdq_mmp_event	cmdq_mmp;
 
 void cmdq_get_mminfra_cb(cmdq_mminfra_power cb)
 {
