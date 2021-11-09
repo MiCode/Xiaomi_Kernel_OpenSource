@@ -386,7 +386,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	ret = get_ctrl(ctrl);
 	dev_info(ctx->dev, "%s get_ctrl ret:%d num_entries:%d type:%d\n", __func__,
 		ret, fd.num_entries, fd.type);
-	if (ret || fd.type != MTK_MBUS_FRAME_DESC_TYPE_CSI2)
+	if (ret || fd.type != MTK_MBUS_FRAME_DESC_TYPE_CSI2 || !fd.num_entries)
 		return get_vcinfo_by_pad_fmt(ctx);
 
 	vcinfo->cnt = 0;

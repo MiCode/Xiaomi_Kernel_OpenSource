@@ -598,9 +598,10 @@ static int _get_frame_desc(struct adaptor_ctx *ctx, unsigned int pad,
 				if (desc_visited & (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc))
 					continue;
 
-				dev_info(ctx->dev, "[%s] scenario %u desc %d\n", __func__,
+				dev_info(ctx->dev, "[%s] scenario %u desc %d/%d/%d/%d\n", __func__,
 						scenario_id,
-						fd_tmp.entry[j].bus.csi2.user_data_desc);
+						fd_tmp.entry[j].bus.csi2.user_data_desc,
+						i, j, fd_tmp.num_entries);
 				memcpy(&fd->entry[write_to++], &fd_tmp.entry[j],
 					   sizeof(struct mtk_mbus_frame_desc_entry));
 

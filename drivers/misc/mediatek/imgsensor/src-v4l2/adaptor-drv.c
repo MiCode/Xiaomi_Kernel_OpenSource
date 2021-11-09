@@ -215,6 +215,8 @@ static int init_sensor_mode(struct adaptor_ctx *ctx)
 	memset(&res, 0, sizeof(res));
 	subdrv_call(ctx, get_resolution, &res);
 	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
+		ctx->seamless_scenarios[i] = SENSOR_SCENARIO_ID_NONE;
+
 		if (res.SensorWidth[i] > 0 && res.SensorHeight[i] > 0)
 			add_sensor_mode(ctx,
 			i,
