@@ -822,10 +822,11 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request *req, *req_prev;
-	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_cam_request_stream_data *s_data, *s_data_pipe;
 	struct list_head *pending = &cam->pending_job_list;
 	struct list_head *running = &cam->running_job_list;
 	struct list_head s_data_clean_list;
+	unsigned int other_pipes, done_status;
 	int i, num_s_data;
 	bool need_clean_s_data, need_clean_req;
 
@@ -959,7 +960,39 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 					   MTK_CAM_REQ_STATE_DELETING))
 				need_clean_req = true;
 		}
+
+		/* if being the last one, check other pipes in the ctx */
+		other_pipes = 0;
+		done_status = req->done_status;
+		if (need_clean_req)
+			other_pipes = ctx->streaming_pipe & ~(1 << pipe_id);
 		spin_unlock(&req->done_status_lock);
+
+		/**
+		 * Before remove the request, flush other pipe's done work
+		 * in the same ctx to make sure mtk_cam_dev_job_done finished
+		 */
+		if (other_pipes) {
+			for (i = 0; i < MTKCAM_SUBDEV_MAX; i++) {
+				if (!(1 << i & other_pipes & done_status))
+					continue;
+
+				s_data_pipe = mtk_cam_req_get_s_data(req, i, 0);
+				if (!s_data_pipe)
+					continue;
+
+				/**
+				 * if done_status is marked, it means the work
+				 * is running or complete
+				 */
+				if (flush_work(&s_data->frame_done_work.work))
+					dev_info(cam->dev,
+						 "%s:%s:pipe(%d):seq(%d): flush pipe(%d) frame_done_work\n",
+						 __func__, req->req.debug_str,
+						 pipe_id, s_data_pipe->frame_seq_no,
+						 i);
+			}
+		}
 
 		mtk_cam_complete_sensor_hdl(s_data);
 		mtk_cam_complete_raw_hdl(s_data);
