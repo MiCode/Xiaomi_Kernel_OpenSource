@@ -989,7 +989,7 @@ static void core_taskdone_pipe(struct work_struct *work, u32 pipe)
 {
 	struct mml_task *task;
 
-	task = container_of(work, struct mml_task, work_wait[pipe]);
+	task = container_of(work, struct mml_task, work_done[pipe]);
 	if (task->pkts[pipe])
 		core_taskdone(task, pipe);
 	else
@@ -1028,7 +1028,7 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 	else
 		mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
 
-	queue_work(task->config->wq_wait, &task->work_wait[pipe]);
+	queue_work(task->config->wq_done, &task->work_done[pipe]);
 }
 
 static s32 core_config(struct mml_task *task, u32 pipe)
@@ -1265,7 +1265,7 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	if (err < 0) {
 		mml_err("config fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		queue_work(task->config->wq_wait, &task->work_wait[pipe]);
+		queue_work(task->config->wq_done, &task->work_done[pipe]);
 		goto exit;
 	}
 
@@ -1279,14 +1279,14 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	if (err < 0) {
 		mml_err("command fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		queue_work(task->config->wq_wait, &task->work_wait[pipe]);
+		queue_work(task->config->wq_done, &task->work_done[pipe]);
 		goto exit;
 	}
 	err = core_flush(task, pipe);
 	if (err < 0) {
 		mml_err("flush fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		queue_work(task->config->wq_wait, &task->work_wait[pipe]);
+		queue_work(task->config->wq_done, &task->work_done[pipe]);
 	}
 
 	if (mml_pkt_dump == 1)
@@ -1355,12 +1355,8 @@ static void core_config_task(struct mml_task *task)
 	core_buffer_map(task);
 
 	/* create dual work_thread[1] */
-	if (cfg->dual) {
-		if (!cfg->wq_config[1])
-			cfg->wq_config[1] =
-				alloc_ordered_workqueue("mml_work1", 0, 0);
-		queue_work(cfg->wq_config[1], &task->work_config[1]);
-	}
+	if (cfg->dual)
+		cfg->task_ops->queue(task, 1);
 
 	/* ref count to 2 thus destroy can be one of
 	 * submit done and frame done
@@ -1400,8 +1396,8 @@ struct mml_task *mml_core_create_task(void)
 	INIT_LIST_HEAD(&task->pipe[1].entry_clt);
 	INIT_WORK(&task->work_config[0], core_config_task_work);
 	INIT_WORK(&task->work_config[1], core_config_pipe1_work);
-	INIT_WORK(&task->work_wait[0], core_taskdone0_work);
-	INIT_WORK(&task->work_wait[1], core_taskdone1_work);
+	INIT_WORK(&task->work_done[0], core_taskdone0_work);
+	INIT_WORK(&task->work_done[1], core_taskdone1_work);
 	kref_init(&task->ref);
 	task->pipe[0].task = task;
 	task->pipe[1].task = task;
@@ -1445,8 +1441,7 @@ void mml_core_init_config(struct mml_frame_config *cfg)
 	INIT_LIST_HEAD(&cfg->done_tasks);
 	mutex_init(&cfg->pipe_mutex);
 	/* create work_thread 0, wait thread */
-	cfg->wq_config[0] = alloc_ordered_workqueue("mml_work0", 0, 0);
-	cfg->wq_wait = alloc_ordered_workqueue("mml_wait", 0, 0);
+	cfg->wq_done = alloc_ordered_workqueue("mml_done", 0, 0);
 }
 
 void mml_core_deinit_config(struct mml_frame_config *cfg)
@@ -1459,9 +1454,7 @@ void mml_core_deinit_config(struct mml_frame_config *cfg)
 			kfree(cfg->cache[pipe].cfg[i].data);
 		destroy_tile_output(cfg->tile_output[pipe]);
 	}
-	for (i = 0; i < ARRAY_SIZE(cfg->wq_config); i++)
-		core_destroy_wq(&cfg->wq_config[i]);
-	core_destroy_wq(&cfg->wq_wait);
+	core_destroy_wq(&cfg->wq_done);
 }
 
 static void core_update_out(struct mml_frame_config *cfg)
@@ -1497,7 +1490,7 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task)
 	if (task->state == MML_TASK_INITIAL)
 		core_update_out(cfg);
 
-	queue_work(cfg->wq_config[0], &task->work_config[0]);
+	cfg->task_ops->queue(task, 0);
 }
 
 void mml_core_stop_racing(struct mml_frame_config *cfg, bool force)

@@ -103,6 +103,7 @@ struct mml_task;
 struct mml_tile_output;
 
 struct mml_task_ops {
+	void (*queue)(struct mml_task *task, u32 pipe);
 	void (*submit_done)(struct mml_task *task);
 	void (*frame_done)(struct mml_task *task);
 	/* optional: adaptor may use frame_done to handle error */
@@ -260,9 +261,8 @@ struct mml_frame_config {
 	/* core */
 	const struct mml_task_ops *task_ops;
 
-	/* workqueue */
-	struct workqueue_struct *wq_config[MML_PIPE_CNT];
-	struct workqueue_struct *wq_wait;
+	/* workqueue for handling task done */
+	struct workqueue_struct *wq_done;
 
 	/* use on context wq_destroy */
 	struct work_struct work_destroy;
@@ -355,7 +355,7 @@ struct mml_task {
 
 	/* workqueue */
 	struct work_struct work_config[MML_PIPE_CNT];
-	struct work_struct work_wait[MML_PIPE_CNT];
+	struct work_struct work_done[MML_PIPE_CNT];
 	atomic_t pipe_done;
 
 	/* mml pq task */

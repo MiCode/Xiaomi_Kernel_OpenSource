@@ -41,6 +41,7 @@ struct mml_drm_ctx {
 	struct mml_dev *mml;
 	const struct mml_task_ops *task_ops;
 	atomic_t job_serial;
+	struct workqueue_struct *wq_config[MML_PIPE_CNT];
 	struct workqueue_struct *wq_destroy;
 	struct sync_timeline *timeline;
 	bool disp_dual;
@@ -926,7 +927,15 @@ dup_command:
 	return 0;
 }
 
+void task_queue(struct mml_task *task, u32 pipe)
+{
+	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+
+	queue_work(ctx->wq_config[pipe], &task->work_config[pipe]);
+}
+
 const static struct mml_task_ops drm_task_ops = {
+	.queue = task_queue,
 	.submit_done = task_submit_done,
 	.frame_done = task_frame_done,
 	.dup_task = dup_task,
@@ -951,6 +960,8 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->disp_dual = disp->dual;
 	ctx->disp_vdo = disp->vdo_mode;
 	ctx->submit_cb = disp->submit_cb;
+	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", 0, 0);
+	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", 0, 0);
 
 	ctx->timeline = mtk_sync_timeline_create("mml_timeline");
 	if (!ctx->timeline)
@@ -1014,6 +1025,8 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 
 	mutex_unlock(&ctx->config_mutex);
 	destroy_workqueue(ctx->wq_destroy);
+	destroy_workqueue(ctx->wq_config[0]);
+	destroy_workqueue(ctx->wq_config[1]);
 	mtk_sync_timeline_destroy(ctx->timeline);
 	kfree(ctx);
 }
