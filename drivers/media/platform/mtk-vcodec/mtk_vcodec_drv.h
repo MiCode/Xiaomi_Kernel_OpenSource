@@ -563,7 +563,9 @@ struct mtk_vcodec_dev {
 	void __iomem *enc_reg_base[NUM_MAX_VENC_REG_BASE];
 
 	bool dec_is_power_on[MTK_VDEC_HW_NUM];
+	bool enc_is_power_on[MTK_VENC_HW_NUM];
 	spinlock_t dec_power_lock[MTK_VDEC_HW_NUM];
+	spinlock_t enc_power_lock[MTK_VENC_HW_NUM];
 	int dec_m4u_ports[NUM_MAX_VDEC_M4U_PORT];
 
 	unsigned long id_counter;

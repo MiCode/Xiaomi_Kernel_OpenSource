@@ -144,6 +144,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	int j, clk_id;
 	struct mtk_venc_clks_data *clks_data;
 	struct mtk_vcodec_dev *dev = NULL;
+	unsigned long flags;
 
 	dev = ctx->dev;
 
@@ -180,6 +181,11 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	}
 	time_check_end(MTK_FMT_ENC, core_id, 50);
 #endif
+
+	spin_lock_irqsave(&dev->enc_power_lock[core_id], flags);
+	dev->enc_is_power_on[core_id] = true;
+	spin_unlock_irqrestore(&dev->enc_power_lock[core_id], flags);
+
 	if (ctx->use_slbc == 1) {
 		time_check_start(MTK_FMT_ENC, core_id);
 		ret = slbc_power_on(&ctx->sram_data);
@@ -239,11 +245,20 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 	int i, clk_id;
 	int larb_index;
 	struct mtk_venc_clks_data *clks_data;
+	struct mtk_vcodec_dev *dev = NULL;
+	unsigned long flags;
+
+	dev = ctx->dev;
 
 	if (ctx->use_slbc == 1)
 		slbc_power_off(&ctx->sram_data);
 
 #ifndef FPGA_PWRCLK_API_DISABLE
+	/* avoid translation fault callback dump reg not done */
+	spin_lock_irqsave(&dev->enc_power_lock[core_id], flags);
+	dev->enc_is_power_on[core_id] = false;
+	spin_unlock_irqrestore(&dev->enc_power_lock[core_id], flags);
+
 	clks_data = &pm->venc_clks_data;
 
 	if (core_id == MTK_VENC_CORE_0 ||
@@ -270,13 +285,25 @@ static int mtk_venc_translation_fault_callback(
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
 	int larb_id = port >> 5;
 	void __iomem *reg_base = NULL;
+	int hw_id = 0;
+	unsigned long flags;
 
 	mtk_v4l2_err("larb port %d of m4u port %d", larb_id, port & 0x1F);
 
-	if (larb_id == 7)
+	if (larb_id == 7) {
 		reg_base = dev->enc_reg_base[VENC_SYS];
-	else if (larb_id == 8)
+		hw_id = MTK_VENC_CORE_0;
+	} else if (larb_id == 8) {
 		reg_base = dev->enc_reg_base[VENC_C1_SYS];
+		hw_id = MTK_VENC_CORE_1;
+	}
+
+	spin_lock_irqsave(&dev->enc_power_lock[hw_id], flags);
+	if (dev->enc_is_power_on[hw_id] == false) {
+		mtk_v4l2_err("hw %d power is off !!", hw_id);
+		spin_unlock_irqrestore(&dev->enc_power_lock[hw_id], flags);
+		return -1;
+	}
 
 	if (reg_base != NULL) {
 		mtk_v4l2_err("venc tf callback =>");
@@ -303,6 +330,8 @@ static int mtk_venc_translation_fault_callback(
 		mtk_v4l2_err("0x13c: 0x%x, 0x484: 0x%x, 0x568: 0x%x",
 			readl(reg_base + 0x13c), readl(reg_base + 0x484), readl(reg_base + 0x568));
 	}
+
+	spin_unlock_irqrestore(&dev->enc_power_lock[hw_id], flags);
 
 	return 0;
 }

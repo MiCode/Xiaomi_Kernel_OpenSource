@@ -392,8 +392,11 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	dev->venc_ports[1].total_port_num = k;
 	pr_info("after get port-def  port num %d %d\n", j, k);
 
-	for (i = 0; i < MTK_VENC_HW_NUM; i++)
+	for (i = 0; i < MTK_VENC_HW_NUM; i++) {
 		sema_init(&dev->enc_sem[i], 1);
+		spin_lock_init(&dev->enc_power_lock[i]);
+		dev->enc_is_power_on[i] = false;
+	}
 
 	mutex_init(&dev->ctx_mutex);
 	mutex_init(&dev->dev_mutex);
