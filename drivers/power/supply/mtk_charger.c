@@ -2400,6 +2400,9 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	charger_dev_set_mivr(info->chg1_dev, info->data.min_charger_voltage);
 	charger_dev_plug_out(info->chg1_dev);
 
+	if (info->enable_vbat_mon)
+		charger_dev_enable_6pin_battery_charging(info->chg1_dev, false);
+
 	return 0;
 }
 
