@@ -298,9 +298,9 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 
 	if (data != NULL) {
 		struct sugov_policy *sg_policy = (struct sugov_policy *)data;
+		struct cpufreq_policy *policy = sg_policy->policy;
 
 		if (sg_policy->need_freq_update) {
-			struct cpufreq_policy *policy = sg_policy->policy;
 			unsigned int idx_min, idx_max;
 			unsigned int min_freq, max_freq;
 
@@ -311,7 +311,10 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 			min_freq = policy->freq_table[idx_min].frequency;
 			max_freq = policy->freq_table[idx_max].frequency;
 			*next_freq = clamp_val(*next_freq, min_freq, max_freq);
+			j = clamp_val(j, idx_max, idx_min);
 		}
+		policy->cached_target_freq = *next_freq;
+		policy->cached_resolved_idx = j;
 		sg_policy->cached_raw_freq = map_util_freq(temp_util, freq, cap);
 	}
 }
