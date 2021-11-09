@@ -567,3 +567,126 @@ void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
 #endif
 }
 
+#if IS_ENABLED(CONFIG_UCLAMP_TASK)
+/*
+ * Verify the fitness of task @p to run on @cpu taking into account the uclamp
+ * settings.
+ *
+ * This check is only important for heterogeneous systems where uclamp_min value
+ * is higher than the capacity of a @cpu. For non-heterogeneous system this
+ * function will always return true.
+ *
+ * The function will return true if the capacity of the @cpu is >= the
+ * uclamp_min and false otherwise.
+ *
+ * Note that uclamp_min will be clamped to uclamp_max if uclamp_min
+ * > uclamp_max.
+ */
+static inline bool rt_task_fits_capacity(struct task_struct *p, int cpu)
+{
+	unsigned int min_cap;
+	unsigned int max_cap;
+	unsigned int cpu_cap;
+
+	/* Only heterogeneous systems can benefit from this check */
+	if (!likely(mtk_sched_asym_cpucapacity))
+		return true;
+
+	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
+	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
+
+	cpu_cap = capacity_orig_of(cpu);
+
+	return cpu_cap >= min(min_cap, max_cap);
+}
+#else
+static inline bool rt_task_fits_capacity(struct task_struct *p, int cpu)
+{
+	return true;
+}
+#endif
+
+#if IS_ENABLED(CONFIG_SMP)
+static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
+					bool sync)
+{
+	/*
+	 * If the waker is CFS, then an RT sync wakeup would preempt the waker
+	 * and force it to run for a likely small time after the RT wakee is
+	 * done. So, only honor RT sync wakeups from RT wakers.
+	 */
+	return sync && task_has_rt_policy(rq->curr) &&
+		p->prio <= rq->rt.highest_prio.next &&
+		rq->rt.rt_nr_running <= 2;
+}
+#else
+static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
+					bool sync)
+{
+	return 0;
+}
+#endif
+
+void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
+				int sd_flag, int flags, int *target_cpu)
+{
+	struct task_struct *curr;
+	struct rq *rq;
+	struct rq *this_cpu_rq;
+	int lowest_cpu = -1;
+	int lowest_prio = 0;
+	int cpu;
+	int select_reason = -1;
+	bool sync = !!(flags & WF_SYNC);
+	int this_cpu;
+
+	*target_cpu = -1;
+	/* For anything but wake ups, just return the task_cpu */
+	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK) {
+		select_reason = LB_RT_FAIL;
+		goto out;
+	}
+
+	rcu_read_lock();
+	this_cpu = smp_processor_id();
+	this_cpu_rq = cpu_rq(this_cpu);
+	/*
+	 * Respect the sync flag as long as the task can run on this CPU.
+	 */
+	if (should_honor_rt_sync(this_cpu_rq, p, sync) &&
+			cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
+		*target_cpu = this_cpu;
+		select_reason = LB_RT_SYNC;
+		goto out_unlock;
+	}
+
+	for_each_cpu_and(cpu, p->cpus_ptr,
+			cpu_active_mask) {
+		if (idle_cpu(cpu) && rt_task_fits_capacity(p, cpu)) {
+			*target_cpu = cpu;
+			select_reason = LB_RT_IDLE;
+			break;
+		}
+		rq = cpu_rq(cpu);
+		curr = rq->curr;
+		if (curr && (curr->policy == SCHED_NORMAL)
+				&& (curr->prio > lowest_prio)
+				&& (!task_may_not_preempt(curr, cpu))
+				&& (rt_task_fits_capacity(p, cpu))) {
+			lowest_prio = curr->prio;
+			lowest_cpu = cpu;
+		}
+	}
+
+	if (-1 == *target_cpu) {
+		*target_cpu =  lowest_cpu;
+		select_reason = LB_RT_LOWEST_PRIO;
+	}
+
+out_unlock:
+	rcu_read_unlock();
+out:
+
+	trace_sched_select_task_rq_rt(p, select_reason, *target_cpu, sd_flag, sync);
+}
+

@@ -13,6 +13,20 @@
 DECLARE_PER_CPU(unsigned long, max_freq_scale);
 DECLARE_PER_CPU(unsigned long, min_freq);
 
+#define LB_FAIL         (0x01)
+#define LB_SYNC         (0x02)
+#define LB_ZERO_UTIL    (0x04)
+#define LB_PREV         (0x08)
+#define LB_LATENCY_SENSITIVE_BEST_IDLE_CPU      (0x10)
+#define LB_LATENCY_SENSITIVE_IDLE_MAX_SPARE_CPU (0x20)
+#define LB_LATENCY_SENSITIVE_MAX_SPARE_CPU      (0x40)
+#define LB_BEST_ENERGY_CPU      (0x100)
+#define LB_MAX_SPARE_CPU        (0x200)
+#define LB_RT_FAIL      (0x1000)
+#define LB_RT_SYNC      (0x2000)
+#define LB_RT_IDLE      (0x4000)
+#define LB_RT_LOWEST_PRIO  (0x8000)
+
 #ifdef CONFIG_SMP
 /*
  * The margin used when comparing utilization with CPU capacity.
@@ -68,7 +82,10 @@ extern void rotat_task_stats(void *data, struct task_struct *p);
 extern void rotat_task_newtask(void __always_unused *data, struct task_struct *p,
 				unsigned long clone_flags);
 #endif
+extern bool check_freq_update_for_time(struct update_util_data *hook, u64 time);
 extern void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
 				struct task_struct *p);
-extern bool check_freq_update_for_time(struct update_util_data *hook, u64 time);
+extern void mtk_select_task_rq_rt(void *data, struct task_struct *p, int cpu, int sd_flag,
+				int flags, int *target_cpu);
+extern int mtk_sched_asym_cpucapacity;
 #endif

@@ -11,14 +11,6 @@
 #include <linux/types.h>
 #include <linux/tracepoint.h>
 
-#define LB_FAIL                   (0x01)
-#define LB_SYNC                   (0x02)
-#define LB_ZERO_UTIL              (0x04)
-#define LB_PREV                   (0x08)
-#define LB_LATENCY_SENSITIVE      (0x10)
-#define LB_NOT_PREV               (0x20)
-#define LB_BEST_ENERGY_CPU        (0x40)
-
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
 /*
  * Tracepoint for big task rotation
@@ -312,6 +304,41 @@ TRACE_EVENT(sched_task_uclamp,
 		__entry->min_req,
 		__entry->max_ud,
 		__entry->max_req)
+);
+
+TRACE_EVENT(sched_select_task_rq_rt,
+	TP_PROTO(struct task_struct *tsk, int policy,
+		int target_cpu,
+		int sd_flag, bool sync),
+	TP_ARGS(tsk, policy, target_cpu,
+		sd_flag, sync),
+	TP_STRUCT__entry(
+		__field(pid_t, pid)
+		__field(int, policy)
+		__field(int, target_cpu)
+		__field(unsigned long, uclamp_min)
+		__field(unsigned long, uclamp_max)
+		__field(int, sd_flag)
+		__field(bool, sync)
+	),
+	TP_fast_assign(
+		__entry->pid = tsk->pid;
+		__entry->policy = policy;
+		__entry->target_cpu = target_cpu;
+		__entry->uclamp_min = uclamp_eff_value(tsk, UCLAMP_MIN);
+		__entry->uclamp_max = uclamp_eff_value(tsk, UCLAMP_MAX);
+		__entry->sd_flag = sd_flag;
+		__entry->sync = sync;
+	),
+	TP_printk(
+		"pid=%4d policy=0x%08x target=%d uclamp_min=%lu uclamp_max=%lu sd_flag=%d sync=%d",
+		__entry->pid,
+		__entry->policy,
+		__entry->target_cpu,
+		__entry->uclamp_min,
+		__entry->uclamp_max,
+		__entry->sd_flag,
+		__entry->sync)
 );
 
 #endif /* _TRACE_SCHEDULER_H */

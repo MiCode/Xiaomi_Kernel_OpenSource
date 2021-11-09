@@ -12,6 +12,7 @@
 #include <linux/cpumask.h>
 #include <linux/seq_file.h>
 #include <linux/energy_model.h>
+#include <linux/jump_label.h>
 #include <trace/events/sched.h>
 #include <trace/events/task.h>
 #include <trace/hooks/sched.h>
@@ -22,6 +23,23 @@
 
 #define CREATE_TRACE_POINTS
 #include "eas_trace.h"
+
+int mtk_sched_asym_cpucapacity  =  1;
+
+static inline void sched_asym_cpucapacity_init(void)
+{
+	struct perf_domain *pd;
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	int pd_count = 0;
+
+	rcu_read_lock();
+	pd = rcu_dereference(rd->pd);
+	for (; pd; pd = pd->next)
+		pd_count++;
+	rcu_read_unlock();
+	if (pd_count <= 1)
+		mtk_sched_asym_cpucapacity = 0;
+}
 
 static void sched_task_util_hook(void *data, struct sched_entity *se)
 {
@@ -200,6 +218,11 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register trace_task_newtask failed, returned %d\n", ret);
 #endif
+	ret = register_trace_android_rvh_select_task_rq_rt(mtk_select_task_rq_rt, NULL);
+	if (ret)
+		pr_info("register mtk_select_task_rq_rt hooks failed, returned %d\n", ret);
+
+	sched_asym_cpucapacity_init();
 
 	mtk_sched_trace_init();
 
