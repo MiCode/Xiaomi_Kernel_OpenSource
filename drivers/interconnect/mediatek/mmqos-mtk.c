@@ -44,12 +44,20 @@ struct common_port_node {
 	struct list_head list;
 	u8 channel;
 	u8 hrt_type;
+	u32 write_peak_bw;
+	u32 write_avg_bw;
 };
 
 struct larb_port_node {
 	struct mmqos_base_node *base;
+	u32 old_r_avg_bw;
+	u32 old_r_peak_bw;
+	u32 old_w_avg_bw;
+	u32 old_w_peak_bw;
 	u16 bw_ratio;
+	u8 channel;
 	bool is_max_ostd;
+	bool is_write;
 };
 
 struct mtk_mmqos {
@@ -69,6 +77,11 @@ enum mmqos_log_level {
 	log_bw = 0,
 	log_comm_freq,
 };
+
+static u32 chn_hrt_r_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
+static u32 chn_srt_r_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
+static u32 chn_hrt_w_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
+static u32 chn_srt_w_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
 
 static void mmqos_update_comm_bw(struct device *dev,
 	u32 comm_port, u32 freq, u64 mix_bw, u64 bw_peak, bool qos_bound)
@@ -140,15 +153,6 @@ s32 mtk_mmqos_system_qos_update(unsigned short qos_status)
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_system_qos_update);
 
-static void set_chn_bw(u32 *bw_array, u8 chn_id, u32 bw)
-{
-	u32 i;
-
-	for (i = 0; i < MMQOS_COMM_CHANNEL_NUM; i++)
-		if (chn_id & (1 << i))
-			bw_array[i] += bw;
-}
-
 static unsigned long get_volt_by_freq(struct device *dev, unsigned long freq)
 {
 	struct dev_pm_opp *opp;
@@ -174,15 +178,11 @@ static unsigned long get_volt_by_freq(struct device *dev, unsigned long freq)
 //static void set_comm_icc_bw_handler(struct work_struct *work)
 static void set_comm_icc_bw(struct common_node *comm_node)
 {
-	//struct common_node *comm_node = container_of(
-	//			work, struct common_node, work);
 	struct common_port_node *comm_port_node;
 	u32 avg_bw = 0, peak_bw = 0, max_bw = 0;
-	u64 normalize_peak_bw, i;
-	u32 chn_hrt_bw[MMQOS_COMM_CHANNEL_NUM] = {0};
-	u32 chn_srt_bw[MMQOS_COMM_CHANNEL_NUM] = {0};
+	u64 normalize_peak_bw;
 	unsigned long smi_clk = 0;
-	u32 volt;
+	u32 volt, i, j;
 
 	list_for_each_entry(comm_port_node, &comm_node->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
@@ -191,27 +191,33 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 						/ mtk_mmqos_get_hrt_ratio(
 						comm_port_node->hrt_type);
 		peak_bw += normalize_peak_bw;
-		set_chn_bw(chn_hrt_bw, comm_port_node->channel,
-			       comm_port_node->latest_peak_bw);
-		set_chn_bw(chn_srt_bw, comm_port_node->channel,
-			       comm_port_node->latest_avg_bw);
 		mutex_unlock(&comm_port_node->bw_lock);
 	}
-	for (i = 0; i < MMQOS_COMM_CHANNEL_NUM; i++) {
-		max_bw = max_t(u32, max_bw, chn_hrt_bw[i]);
-		max_bw = max_t(u32, max_bw, chn_srt_bw[i]);
+
+	for (i = 0; i < MMQOS_MAX_COMM_NUM; i++) {
+		for (j = 0; j < MMQOS_COMM_CHANNEL_NUM; j++) {
+			max_bw = max_t(u32, max_bw, chn_hrt_r_bw[i][j]);
+			max_bw = max_t(u32, max_bw, chn_srt_r_bw[i][j]);
+			max_bw = max_t(u32, max_bw, chn_hrt_w_bw[i][j]);
+			max_bw = max_t(u32, max_bw, chn_srt_w_bw[i][j]);
+		}
 	}
+
 	if (max_bw)
 		smi_clk = SHIFT_ROUND(max_bw, 4) * 1000;
+
 	if (comm_node->comm_dev && smi_clk != comm_node->smi_clk) {
 		volt = get_volt_by_freq(comm_node->comm_dev, smi_clk);
 		if (volt > 0 && volt != comm_node->volt) {
 			if (log_level & 1 << log_comm_freq) {
-				for (i = 0; i < MMQOS_COMM_CHANNEL_NUM; i++)
-					dev_notice(comm_node->comm_dev,
-						"comm(%d) chn=%d srt=%u hrt=%u\n",
-						MASK_8(comm_node->base->icc_node->id),
-						i, chn_srt_bw[i], chn_hrt_bw[i]);
+				for (i = 0; i < MMQOS_MAX_COMM_NUM; i++) {
+					for (j = 0; j < MMQOS_COMM_CHANNEL_NUM; j++) {
+						dev_notice(comm_node->comm_dev,
+						"comm(%d) chn=%d s_r=%u h_r=%u s_w=%u h_w=%u\n",
+						i, j, chn_srt_r_bw[i][j], chn_hrt_r_bw[i][j],
+						chn_srt_w_bw[i][j], chn_hrt_w_bw[i][j]);
+					}
+				}
 				dev_notice(comm_node->comm_dev,
 					"comm(%d) max_bw=%u smi_clk=%u volt=%u\n",
 					MASK_8(comm_node->base->icc_node->id),
@@ -268,6 +274,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	struct mtk_mmqos *mmqos = container_of(dst->provider,
 					struct mtk_mmqos, prov);
 	u32 value = 1;
+	u32 comm_id, chnn_id;
 
 	switch (dst->id >> 16) {
 	case MTK_MMQOS_NODE_COMMON:
@@ -285,6 +292,26 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		larb_node = (struct larb_node *)src->data;
 		if (!comm_port_node || !larb_node)
 			break;
+		comm_id = (larb_node->channel >> 4) & 0xf;
+		chnn_id = larb_node->channel & 0xf;
+		if (chnn_id) {
+			chnn_id -= 1;
+			if (larb_node->is_write) {
+				chn_hrt_w_bw[comm_id][chnn_id] -= larb_node->old_w_peak_bw;
+				chn_srt_w_bw[comm_id][chnn_id] -= larb_node->old_w_avg_bw;
+				chn_hrt_w_bw[comm_id][chnn_id] += src->peak_bw;
+				chn_srt_w_bw[comm_id][chnn_id] += src->avg_bw;
+				larb_node->old_w_peak_bw = src->peak_bw;
+				larb_node->old_w_avg_bw = src->avg_bw;
+			} else {
+				chn_hrt_r_bw[comm_id][chnn_id] -= larb_node->old_r_peak_bw;
+				chn_srt_r_bw[comm_id][chnn_id] -= larb_node->old_r_avg_bw;
+				chn_hrt_r_bw[comm_id][chnn_id] += src->peak_bw;
+				chn_srt_r_bw[comm_id][chnn_id] += src->avg_bw;
+				larb_node->old_r_peak_bw = src->peak_bw;
+				larb_node->old_r_avg_bw = src->avg_bw;
+			}
+		}
 		mutex_lock(&comm_port_node->bw_lock);
 		if (comm_port_node->latest_mix_bw == comm_port_node->base->mix_bw
 			&& comm_port_node->latest_peak_bw == dst->peak_bw
@@ -308,6 +335,28 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		larb_node = (struct larb_node *)dst->data;
 		if (!larb_port_node || !larb_node || !larb_node->larb_dev)
 			break;
+		/* update channel BW */
+		comm_id = (larb_port_node->channel >> 4) & 0xf;
+		chnn_id = larb_port_node->channel & 0xf;
+		if (chnn_id) {
+			chnn_id -= 1;
+			if (larb_port_node->is_write) {
+				chn_hrt_w_bw[comm_id][chnn_id] -= larb_port_node->old_w_peak_bw;
+				chn_srt_w_bw[comm_id][chnn_id] -= larb_port_node->old_w_avg_bw;
+				chn_hrt_w_bw[comm_id][chnn_id] += src->peak_bw;
+				chn_srt_w_bw[comm_id][chnn_id] += src->avg_bw;
+				larb_port_node->old_w_peak_bw = src->peak_bw;
+				larb_port_node->old_w_avg_bw = src->avg_bw;
+			} else {
+				chn_hrt_r_bw[comm_id][chnn_id] -= larb_port_node->old_r_peak_bw;
+				chn_srt_r_bw[comm_id][chnn_id] -= larb_port_node->old_r_avg_bw;
+				chn_hrt_r_bw[comm_id][chnn_id] += src->peak_bw;
+				chn_srt_r_bw[comm_id][chnn_id] += src->avg_bw;
+				larb_port_node->old_r_peak_bw = src->peak_bw;
+				larb_port_node->old_r_avg_bw = src->avg_bw;
+			}
+		}
+
 		if (larb_port_node->base->mix_bw)
 			value = SHIFT_ROUND(
 				icc_to_MBps(larb_port_node->base->mix_bw),
@@ -597,6 +646,8 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 			}
 			//INIT_WORK(&larb_node->work, set_larb_icc_bw_handler);
 
+			larb_node->channel = node_desc->channel;
+			larb_node->is_write = node_desc->is_write;
 			larb_node->base = base_node;
 			node->data = (void *)larb_node;
 			break;
@@ -607,6 +658,8 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				ret = -ENOMEM;
 				goto err;
 			}
+			larb_port_node->channel = node_desc->channel;
+			larb_port_node->is_write = node_desc->is_write;
 			larb_port_node->bw_ratio = node_desc->bw_ratio;
 			larb_port_node->base = base_node;
 			node->data = (void *)larb_port_node;

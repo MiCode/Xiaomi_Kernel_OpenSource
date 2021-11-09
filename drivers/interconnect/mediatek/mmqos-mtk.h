@@ -59,6 +59,12 @@ struct larb_node {
 	struct device *larb_dev;
 	struct work_struct work;
 	struct icc_path *icc_path;
+	u32 old_r_avg_bw;
+	u32 old_r_peak_bw;
+	u32 old_w_avg_bw;
+	u32 old_w_peak_bw;
+	u8 channel;
+	bool is_write;
 };
 
 struct mtk_node_desc {
@@ -66,6 +72,8 @@ struct mtk_node_desc {
 	u32 id;
 	u32 link;
 	u16 bw_ratio;
+	u8 channel;
+	bool is_write;
 };
 
 struct mtk_mmqos_desc {
@@ -82,10 +90,12 @@ struct mtk_mmqos_desc {
 	const u8 comm_port_hrt_types[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
 };
 
-#define DEFINE_MNODE(_name, _id, _bw_ratio, _link) {	\
+#define DEFINE_MNODE(_name, _id, _bw_ratio, _is_write, _channel, _link) {	\
 	.name = #_name,	\
 	.id = _id,	\
 	.bw_ratio = _bw_ratio,	\
+	.is_write = _is_write,	\
+	.channel = _channel,	\
 	.link = _link,	\
 	}
 int mtk_mmqos_probe(struct platform_device *pdev);
