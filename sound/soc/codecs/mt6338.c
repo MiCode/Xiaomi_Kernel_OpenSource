@@ -944,7 +944,7 @@ static void mt6338_mtkaif_tx_enable(struct mt6338_priv *priv)
 
 		/* Set to VD105 = 1.5V */
 		regmap_update_bits(priv->regmap, MT6338_STRUP_ELR_1,
-			0x1f << 3, (priv->vd105 - 0x8) << 3);
+			0x1f << 3, (priv->vd105 - 0xc) << 3);
 
 
 		/* lpbk2 */
@@ -2503,7 +2503,7 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 	if (priv->hp_hifi_mode == 0) {
 		/* Set to VD105 = 1.5V */
 		regmap_update_bits(priv->regmap, MT6338_STRUP_ELR_1,
-			0x1f << 3, (priv->vd105 - 0x8) << 3);
+			0x1f << 3, (priv->vd105 - 0xc) << 3);
 	}
 
 	if (priv->hp_hifi_mode == 2) {
@@ -3480,16 +3480,10 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
 						RG_AUDPREAMPLMODE_MASK_SFT,
 						0x0 << RG_AUDPREAMPLMODE_SFT);
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
-						RG_AUDADCLMODE_MASK_SFT,
-						0x0 << RG_AUDADCLMODE_SFT);
 			} else {
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
 						RG_AUDPREAMPLMODE_MASK_SFT,
 						0x2 << RG_AUDPREAMPLMODE_SFT);
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
-						RG_AUDADCLMODE_MASK_SFT,
-						0x2 << RG_AUDADCLMODE_SFT);
 			}
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
 						RG_ADCL_CLKMODE_MASK_SFT,
@@ -3505,16 +3499,10 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
 						RG_AUDPREAMPRMODE_MASK_SFT,
 						0x0 << RG_AUDPREAMPRMODE_SFT);
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
-						RG_AUDADCRMODE_MASK_SFT,
-						0x0 << RG_AUDADCRMODE_SFT);
 			} else {
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON12,
 						RG_AUDPREAMPRMODE_MASK_SFT,
 						0x2 << RG_AUDPREAMPRMODE_SFT);
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
-						RG_AUDADCRMODE_MASK_SFT,
-						0x2 << RG_AUDADCRMODE_SFT);
 			}
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
 						RG_ADCR_CLKMODE_MASK_SFT,
@@ -3530,9 +3518,6 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
 						RG_AUDPREAMP3MODE_MASK_SFT,
 						0x0 << RG_AUDPREAMP3MODE_SFT);
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
-						RG_AUDADC3MODE_MASK_SFT,
-						0x0 << RG_AUDADC3MODE_SFT);
 			} else {
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
 						RG_AUDPREAMP3MODE_MASK_SFT,
@@ -3555,16 +3540,10 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
 						RG_AUDPREAMP4MODE_MASK_SFT,
 						0x0 << RG_AUDPREAMP4MODE_SFT);
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
-						RG_AUDADC4MODE_MASK_SFT,
-						0x0 << RG_AUDADC4MODE_SFT);
 			} else {
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
 						RG_AUDPREAMP4MODE_MASK_SFT,
 						0x2 << RG_AUDPREAMP4MODE_SFT);
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
-						RG_AUDADC4MODE_MASK_SFT,
-						0x2 << RG_AUDADC4MODE_SFT);
 			}
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
 						RG_ADC4_CLKMODE_MASK_SFT,
@@ -3624,9 +3603,6 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
 					RG_AUDPREAMP3MODE_MASK_SFT,
 					0x0 << RG_AUDPREAMP3MODE_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
-					RG_AUDADC3MODE_MASK_SFT,
-					0x0 << RG_AUDADC3MODE_SFT);
 		/* ADC4 */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON81,
 					RG_ADC4_CLKMODE_MASK_SFT,
@@ -3640,9 +3616,6 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON13,
 					RG_AUDPREAMP4MODE_MASK_SFT,
 					0x0 << RG_AUDPREAMP4MODE_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
-					RG_AUDADC4MODE_MASK_SFT,
-					0x0 << RG_AUDADC4MODE_SFT);
 		break;
 	default:
 		break;
@@ -3934,9 +3907,10 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON53,
 			RG_AUDSPAREVA30_MASK_SFT,
 			0x10 << RG_AUDSPAREVA30_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
-			RG_AUDRADCFLASHIDDTEST_MASK_SFT,
-			0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
+		if (priv->mic_hifi_mode)
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
+				RG_AUDRADCFLASHIDDTEST_MASK_SFT,
+				0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Disable MICBIAS0, MISBIAS0 = 1P7V */
@@ -3976,7 +3950,7 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 		/* HIFI MISBIAS1 = 1P9V/ NM MISBIAS1=2P7V */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
 			RG_AUDMICBIAS1VREF_MASK_SFT,
-			MIC_BIAS_2P7 << RG_AUDMICBIAS1VREF_SFT);
+			MIC_BIAS_1P9 << RG_AUDMICBIAS1VREF_SFT);
 		if (priv->vow_enable) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON61,
 				RG_AUDMICBIAS1LOWPEN_MASK_SFT,
@@ -3995,9 +3969,10 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON53,
 			RG_AUDSPAREVA30_MASK_SFT,
 			0x10 << RG_AUDSPAREVA30_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
-			RG_AUDRADCFLASHIDDTEST_MASK_SFT,
-			0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
+		if (priv->mic_hifi_mode)
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
+				RG_AUDRADCFLASHIDDTEST_MASK_SFT,
+				0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Disable MICBIAS1= 1P7V */
@@ -4071,9 +4046,10 @@ static int mt_mic_bias_2_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON53,
 			RG_AUDSPAREVA30_MASK_SFT,
 			0x10 << RG_AUDSPAREVA30_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
-			RG_AUDRADCFLASHIDDTEST_MASK_SFT,
-			0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
+		if (priv->mic_hifi_mode)
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
+				RG_AUDRADCFLASHIDDTEST_MASK_SFT,
+				0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Disable MICBIAS2, MISBIAS0 = 1P7V */
@@ -4147,9 +4123,10 @@ static int mt_mic_bias_3_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON53,
 			RG_AUDSPAREVA30_MASK_SFT,
 			0x10 << RG_AUDSPAREVA30_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
-			RG_AUDRADCFLASHIDDTEST_MASK_SFT,
-			0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
+		if (priv->mic_hifi_mode)
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON17,
+				RG_AUDRADCFLASHIDDTEST_MASK_SFT,
+				0x1 << RG_AUDRADCFLASHIDDTEST_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Disable MICBIAS3 = 1P7V */
@@ -5227,9 +5204,14 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADCWIDECM_MASK_SFT,
 				0x1 << RG_AUDADCWIDECM_SFT);
 			/* Input resistor selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
-				RG_AUDADCLRINOHM_MASK_SFT,
-				0x1 << RG_AUDADCLRINOHM_SFT);
+			if (priv->mic_hifi_mode)
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
+					RG_AUDADCLRINOHM_MASK_SFT,
+					0x1 << RG_AUDADCLRINOHM_SFT);
+			else
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
+					RG_AUDADCLRINOHM_MASK_SFT,
+					0x4 << RG_AUDADCLRINOHM_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_0,
 				RG_VCM_PGA_LPM_SEL_MASK_SFT,
 				0x9 << RG_VCM_PGA_LPM_SEL_SFT);
@@ -5237,14 +5219,9 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 				RG_VCM_PGA_HIFI_SEL_MASK_SFT,
 				0x8 << RG_VCM_PGA_HIFI_SEL_SFT);
 			/* Selection of vref cap in flash */
-			if ((priv->mic_hifi_mode == 0) && (priv->hw_ver == 3))
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_1,
-					RG_AUDLADCFLASHFFCAPVREF_SEL_MASK_SFT,
-					0x3 << RG_AUDLADCFLASHFFCAPVREF_SEL_SFT);
-			else
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_1,
-					RG_AUDLADCFLASHFFCAPVREF_SEL_MASK_SFT,
-					0x1 << RG_AUDLADCFLASHFFCAPVREF_SEL_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_1,
+				RG_AUDLADCFLASHFFCAPVREF_SEL_MASK_SFT,
+				0x1 << RG_AUDLADCFLASHFFCAPVREF_SEL_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON50,
 				RG_AUDADCLFLASHVREFRES_LPM_MASK_SFT,
 				0x0 << RG_AUDADCLFLASHVREFRES_LPM_SFT);
@@ -5252,9 +5229,14 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADCLFLASHVREFRES_LPM2_MASK_SFT,
 				0x0 << RG_AUDADCLFLASHVREFRES_LPM2_SFT);
 			/* RC tune value by SW */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON28,
-				RG_AUDRCTUNEL_MASK_SFT,
-				0x10 << RG_AUDRCTUNEL_SFT);
+			if (priv->mic_hifi_mode)
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON28,
+					RG_AUDRCTUNEL_MASK_SFT,
+					0x10 << RG_AUDRCTUNEL_SFT);
+			else
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON28,
+					RG_AUDRCTUNEL_MASK_SFT,
+					0x4 << RG_AUDRCTUNEL_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON28,
 				RG_AUDRCTUNELSEL_MASK_SFT,
 				0x0 << RG_AUDRCTUNELSEL_SFT);
@@ -5266,24 +5248,35 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
 				RG_AUDLADCHALFCLK_MASK_SFT,
 				0x0 << RG_AUDLADCHALFCLK_SFT);
-			/* ADC mode selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
-				RG_AUDLADCDACMODE_SEL_MASK_SFT,
-				0x0 << RG_AUDLADCDACMODE_SEL_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON8,
-				RG_AUDADC1STSTAGELPEN_MASK_SFT,
-				0x0 << RG_AUDADC1STSTAGELPEN_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON52,
-				RG_AUDLADC1STSTAGELPEN_0_MASK_SFT,
-				0x0 << RG_AUDLADC1STSTAGELPEN_0_SFT);
-			if (priv->mic_hifi_mode)
+			if (priv->mic_hifi_mode) {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
+					RG_AUDLADCDACMODE_SEL_MASK_SFT,
+					0x0 << RG_AUDLADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON8,
+					RG_AUDADC1STSTAGELPEN_MASK_SFT,
+					0x0 << RG_AUDADC1STSTAGELPEN_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON52,
+					RG_AUDLADC1STSTAGELPEN_0_MASK_SFT,
+					0x0 << RG_AUDLADC1STSTAGELPEN_0_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 					RG_AUDADCLMODE_MASK_SFT,
 					0x0 << RG_AUDADCLMODE_SFT);
-			else
+			} else {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
+					RG_AUDLADCDACMODE_SEL_MASK_SFT,
+					0x1 << RG_AUDLADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON8,
+					RG_AUDADC1STSTAGELPEN_MASK_SFT,
+					0x1 << RG_AUDADC1STSTAGELPEN_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON52,
+					RG_AUDLADC1STSTAGELPEN_0_MASK_SFT,
+					0x1 << RG_AUDLADC1STSTAGELPEN_0_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 					RG_AUDADCLMODE_MASK_SFT,
 					0x1 << RG_AUDADCLMODE_SFT);
+			}
 		}
 		/* Audio L preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
@@ -5468,9 +5461,11 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADCRWIDECM_MASK_SFT,
 				0x1 << RG_AUDADCRWIDECM_SFT);
 			/* Input resistor selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON46,
-				RG_AUDADCRRINOHM_MASK_SFT,
-				0x1 << RG_AUDADCRRINOHM_SFT);
+			if (priv->mic_hifi_mode)
+				regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON46, 0x1);
+			else
+				regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON46, 0x4);
+
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_2,
 				RG_VCMR_PGA_LPM_SEL_MASK_SFT,
 				0x9 << RG_VCMR_PGA_LPM_SEL_SFT);
@@ -5478,14 +5473,9 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 				RG_VCMR_PGA_HIFI_SEL_MASK_SFT,
 				0x8 << RG_VCMR_PGA_HIFI_SEL_SFT);
 			/* Selection of vref cap in flash */
-			if ((priv->mic_hifi_mode == 0) && (priv->hw_ver == 3))
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_1,
-					RG_AUDRADCFLASHFFCAPVREF_SEL_MASK_SFT,
-					0x3 << RG_AUDRADCFLASHFFCAPVREF_SEL_SFT);
-			else
-				regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_1,
-					RG_AUDRADCFLASHFFCAPVREF_SEL_MASK_SFT,
-					0x1 << RG_AUDRADCFLASHFFCAPVREF_SEL_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_1,
+				RG_AUDRADCFLASHFFCAPVREF_SEL_MASK_SFT,
+				0x1 << RG_AUDRADCFLASHFFCAPVREF_SEL_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON50,
 				RG_AUDADCRFLASHVREFRES_LPM_MASK_SFT,
 				0x0 << RG_AUDADCRFLASHVREFRES_LPM_SFT);
@@ -5493,9 +5483,14 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADCRFLASHVREFRES_LPM2_MASK_SFT,
 				0x0 << RG_AUDADCRFLASHVREFRES_LPM2_SFT);
 			/* RC tune value by SW */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON29,
-				RG_AUDRCTUNER_MASK_SFT,
-				0x10 << RG_AUDRCTUNER_SFT);
+			if (priv->mic_hifi_mode)
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON29,
+					RG_AUDRCTUNER_MASK_SFT,
+					0x10 << RG_AUDRCTUNER_SFT);
+			else
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON29,
+					RG_AUDRCTUNER_MASK_SFT,
+					0x4 << RG_AUDRCTUNER_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON29,
 				RG_AUDRCTUNERSEL_MASK_SFT,
 				0x0 << RG_AUDRCTUNERSEL_SFT);
@@ -5507,24 +5502,36 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
 				RG_AUDRADCHALFCLK_MASK_SFT,
 				0x0 << RG_AUDRADCHALFCLK_SFT);
-			/* ADC mode selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
-				RG_AUDRADCDACMODE_SEL_MASK_SFT,
-				0x0 << RG_AUDRADCDACMODE_SEL_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON16,
-				RG_AUDRADC1STSTAGELPEN_MASK_SFT,
-				0x0 << RG_AUDRADC1STSTAGELPEN_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON40,
-				RG_AUDRADC1STSTAGELPEN_0_MASK_SFT,
-				0x0 << RG_AUDRADC1STSTAGELPEN_0_SFT);
-			if (priv->mic_hifi_mode)
+
+			if (priv->mic_hifi_mode) {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
+					RG_AUDRADCDACMODE_SEL_MASK_SFT,
+					0x0 << RG_AUDRADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON16,
+					RG_AUDRADC1STSTAGELPEN_MASK_SFT,
+					0x0 << RG_AUDRADC1STSTAGELPEN_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON40,
+					RG_AUDRADC1STSTAGELPEN_0_MASK_SFT,
+					0x0 << RG_AUDRADC1STSTAGELPEN_0_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 					RG_AUDADCRMODE_MASK_SFT,
 					0x0 << RG_AUDADCRMODE_SFT);
-			else
+			} else {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
+					RG_AUDRADCDACMODE_SEL_MASK_SFT,
+					0x1 << RG_AUDRADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON16,
+					RG_AUDRADC1STSTAGELPEN_MASK_SFT,
+					0x1 << RG_AUDRADC1STSTAGELPEN_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON40,
+					RG_AUDRADC1STSTAGELPEN_0_MASK_SFT,
+					0x1 << RG_AUDRADC1STSTAGELPEN_0_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 					RG_AUDADCRMODE_MASK_SFT,
 					0x1 << RG_AUDADCRMODE_SFT);
+			}
 		}
 		/* Audio R preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
@@ -5703,9 +5710,11 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADC3WIDECM_MASK_SFT,
 				0x1 << RG_AUDADC3WIDECM_SFT);
 			/* Input resistor selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON47,
-				RG_AUDADC3RINOHM_MASK_SFT,
-				0x1 << RG_AUDADC3RINOHM_SFT);
+			if (priv->mic_hifi_mode)
+				regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON47, 0x1);
+			else
+				regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON47, 0x4);
+
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_3,
 				RG_VCM3_PGA_LPM_SEL_MASK_SFT,
 				0x9 << RG_VCM3_PGA_LPM_SEL_SFT);
@@ -5728,9 +5737,14 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADC3FLASHVREFRES_LPM_MASK_SFT,
 				0x0 << RG_AUDADC3FLASHVREFRES_LPM_SFT);
 			/* RC tune value by SW */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON30,
-				RG_AUDRCTUNE3_MASK_SFT,
-				0x10 << RG_AUDRCTUNE3_SFT);
+			if (priv->mic_hifi_mode)
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON30,
+					RG_AUDRCTUNE3_MASK_SFT,
+					0x10 << RG_AUDRCTUNE3_SFT);
+			else
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON30,
+					RG_AUDRCTUNE3_MASK_SFT,
+					0x4 << RG_AUDRCTUNE3_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON30,
 				RG_AUDRCTUNE3SEL_MASK_SFT,
 				0x0 << RG_AUDRCTUNE3SEL_SFT);
@@ -5742,21 +5756,29 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
 				RG_AUD3ADCHALFCLK_MASK_SFT,
 				0x0 << RG_AUD3ADCHALFCLK_SFT);
-			/* ADC mode selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
-				RG_AUD3ADCDACMODE_SEL_MASK_SFT,
-				0x0 << RG_AUD3ADCDACMODE_SEL_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON40,
-				RG_AUD3ADC1STSTAGELPEN_MASK_SFT,
-				0x0 << RG_AUD3ADC1STSTAGELPEN_SFT);
-			if (priv->mic_hifi_mode)
+			if (priv->mic_hifi_mode) {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
+					RG_AUD3ADCDACMODE_SEL_MASK_SFT,
+					0x0 << RG_AUD3ADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON40,
+					RG_AUD3ADC1STSTAGELPEN_MASK_SFT,
+					0x0 << RG_AUD3ADC1STSTAGELPEN_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 					RG_AUDADC3MODE_MASK_SFT,
 					0x0 << RG_AUDADC3MODE_SFT);
-			else
+			} else {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
+					RG_AUD3ADCDACMODE_SEL_MASK_SFT,
+					0x1 << RG_AUD3ADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON40,
+					RG_AUD3ADC1STSTAGELPEN_MASK_SFT,
+					0x3 << RG_AUD3ADC1STSTAGELPEN_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 					RG_AUDADC3MODE_MASK_SFT,
 					0x1 << RG_AUDADC3MODE_SFT);
+			}
 		}
 		/* Audio 3 preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
@@ -5935,9 +5957,12 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADC4WIDECM_MASK_SFT,
 				0x1 << RG_AUDADC4WIDECM_SFT);
 			/* Input resistor selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON48,
-				RG_AUDADC4RINOHM_MASK_SFT,
-				0x1 << RG_AUDADC4RINOHM_SFT);
+
+			if (priv->mic_hifi_mode)
+				regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON48, 0x1);
+			else
+				regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON48, 0x4);
+
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_ELR_4,
 				RG_VCM4_PGA_LPM_SEL_MASK_SFT,
 				0x9 << RG_VCM4_PGA_LPM_SEL_SFT);
@@ -5960,9 +5985,14 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 				RG_AUDADC4FLASHVREFRES_LPM_MASK_SFT,
 				0x0 << RG_AUDADC4FLASHVREFRES_LPM_SFT);
 			/* RC tune value by SW */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON31,
-				RG_AUDRCTUNE4_MASK_SFT,
-				0x10 << RG_AUDRCTUNE4_SFT);
+			if (priv->mic_hifi_mode)
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON31,
+					RG_AUDRCTUNE4_MASK_SFT,
+					0x10 << RG_AUDRCTUNE4_SFT);
+			else
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON31,
+					RG_AUDRCTUNE4_MASK_SFT,
+					0x4 << RG_AUDRCTUNE4_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON31,
 				RG_AUDRCTUNE4SEL_MASK_SFT,
 				0x0 << RG_AUDRCTUNE4SEL_SFT);
@@ -5974,21 +6004,29 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON44,
 				RG_AUD4ADCHALFCLK_MASK_SFT,
 				0x0 << RG_AUD4ADCHALFCLK_SFT);
-			/* ADC mode selection */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
-				RG_AUD4ADCDACMODE_SEL_MASK_SFT,
-				0x0 << RG_AUD4ADCDACMODE_SEL_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON41,
-				RG_AUD4ADC1STSTAGELPEN_MASK_SFT,
-				0x0 << RG_AUD4ADC1STSTAGELPEN_SFT);
-			if (priv->mic_hifi_mode)
+			if (priv->mic_hifi_mode) {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
+					RG_AUD4ADCDACMODE_SEL_MASK_SFT,
+					0x0 << RG_AUD4ADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON41,
+					RG_AUD4ADC1STSTAGELPEN_MASK_SFT,
+					0x0 << RG_AUD4ADC1STSTAGELPEN_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 					RG_AUDADC4MODE_MASK_SFT,
 					0x0 << RG_AUDADC4MODE_SFT);
-			else
+			} else {
+				/* ADC mode selection */
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON45,
+					RG_AUD4ADCDACMODE_SEL_MASK_SFT,
+					0x1 << RG_AUD4ADCDACMODE_SEL_SFT);
+				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON41,
+					RG_AUD4ADC1STSTAGELPEN_MASK_SFT,
+					0x3 << RG_AUD4ADC1STSTAGELPEN_SFT);
 				regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 					RG_AUDADC4MODE_MASK_SFT,
 					0x1 << RG_AUDADC4MODE_SFT);
+			}
 		}
 		/* Audio 4 preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
@@ -10644,7 +10682,7 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 
 	regmap_read(priv->regmap, MT6338_STRUP_ELR_1, &value);
 
-	priv->vd105 = ((value >> 0x3) & 0x1f) + 0x8;
+	priv->vd105 = ((value >> 0x3) & 0x1f) + 0xc;
 
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 5;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 5;
