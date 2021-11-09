@@ -1215,10 +1215,17 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
 			   ctx->sensor_ctrl.sof_time;
 	/*for 1st unsync, sensor setting will be set at enque thread*/
-	if (MTK_CAM_INITIAL_REQ_SYNC == 0 &&
-			ctx->pipe->feature_active == 0 &&
-			sensor_seq_no_next <= 2) {
-		return;
+	if (ctx->used_raw_num) {
+		if (MTK_CAM_INITIAL_REQ_SYNC == 0 &&
+				ctx->pipe->feature_active == 0 &&
+				sensor_seq_no_next <= 2) {
+			return;
+		}
+	} else {
+		if (MTK_CAM_INITIAL_REQ_SYNC == 0 &&
+				sensor_seq_no_next <= 2) {
+			return;
+		}
 	}
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	/* Check if previous state was without cq done */

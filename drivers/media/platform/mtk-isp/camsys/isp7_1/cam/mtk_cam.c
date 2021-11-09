@@ -617,11 +617,14 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_buffer *buf;
 	struct vb2_buffer *vb;
 	void *vaddr;
-	int subsample =
-		mtk_cam_get_subsample_ratio(ctx->pipe->res_config.raw_feature);
+	int subsample = 0;
 	uint64_t *pTimestamp;
 	u32 *fho_va;
 	int i;
+
+	if (ctx->used_raw_num != 0)
+		subsample =
+			mtk_cam_get_subsample_ratio(ctx->pipe->res_config.raw_feature);
 
 	buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_OUT_0);
 	if (!buf) {
@@ -869,18 +872,20 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 			continue;
 		}
 
-		if (s_data->index > 0)
-			dev_info(cam->dev,
-				 "%s:%s:pipe(%d):seq(%d): clean s_data_%d, raw_feature(%d)\n",
-				 __func__, req->req.debug_str, pipe_id,
-				 s_data->frame_seq_no, s_data->index,
-				 ctx->pipe->feature_pending);
-		else
-			dev_dbg(cam->dev,
-				"%s:%s:pipe(%d):seq(%d): clean s_data_%d, raw_feature(%d)\n",
-				__func__, req->req.debug_str, pipe_id,
-				s_data->frame_seq_no, s_data->index,
-				ctx->pipe->feature_pending);
+		if (ctx->used_raw_num != 0) {
+			if (s_data->index > 0)
+				dev_info(cam->dev,
+					"%s:%s:pipe(%d):seq(%d): clean s_data_%d, raw_feature(%d)\n",
+					__func__, req->req.debug_str, pipe_id,
+					s_data->frame_seq_no, s_data->index,
+					ctx->pipe->feature_pending);
+			else
+				dev_dbg(cam->dev,
+					"%s:%s:pipe(%d):seq(%d): clean s_data_%d, raw_feature(%d)\n",
+					__func__, req->req.debug_str, pipe_id,
+					s_data->frame_seq_no, s_data->index,
+					ctx->pipe->feature_pending);
+		}
 
 		 /* Cancel s_data's works before we clean up the data */
 		if (atomic_read(&s_data->sensor_work.is_queued)) {
@@ -3527,10 +3532,17 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
 			}
-			if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
-				ctx->pipe->feature_active == 0 &&
-				req_stream_data->frame_seq_no == 2) {
-				mtk_cam_initial_sensor_setup(req, ctx);
+			if (ctx->used_raw_num != 0) {
+				if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
+					ctx->pipe->feature_active == 0 &&
+					req_stream_data->frame_seq_no == 2) {
+					mtk_cam_initial_sensor_setup(req, ctx);
+				}
+			} else { // for single sv pipe stream
+				if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
+					req_stream_data->frame_seq_no == 2) {
+					mtk_cam_initial_sensor_setup(req, ctx);
+				}
 			}
 			/* Prepare CQ compose work */
 			if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
