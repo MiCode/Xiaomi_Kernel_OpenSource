@@ -341,6 +341,51 @@ TRACE_EVENT(sched_select_task_rq_rt,
 		__entry->sync)
 );
 
+TRACE_EVENT(sched_next_update_thermal_headroom,
+	TP_PROTO(unsigned long now, unsigned long next_update_thermal),
+	TP_ARGS(now, next_update_thermal),
+	TP_STRUCT__entry(
+		__field(unsigned long, now)
+		__field(unsigned long, next_update_thermal)
+	),
+	TP_fast_assign(
+		__entry->now = now;
+		__entry->next_update_thermal = next_update_thermal;
+	),
+	TP_printk(
+		"now_tick=%lu next_update_thermal=%lu",
+		__entry->now,
+		__entry->next_update_thermal)
+);
+
+TRACE_EVENT(sched_newly_idle_balance_interval,
+	TP_PROTO(unsigned int interval_us),
+	TP_ARGS(interval_us),
+	TP_STRUCT__entry(
+		__field(unsigned int, interval_us)
+	),
+	TP_fast_assign(
+		__entry->interval_us = interval_us;
+	),
+	TP_printk(
+		"interval_us=%u",
+		__entry->interval_us)
+);
+
+TRACE_EVENT(sched_headroom_interval_tick,
+	TP_PROTO(unsigned int tick),
+	TP_ARGS(tick),
+	TP_STRUCT__entry(
+		__field(unsigned int, tick)
+	),
+	TP_fast_assign(
+		__entry->tick = tick;
+	),
+	TP_printk(
+		"interval =%u",
+		__entry->tick)
+);
+
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH

@@ -768,6 +768,8 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	per_cpu(next_update_new_balance_time_ns, this_cpu) =
 		now_ns + new_idle_balance_interval_ns;
 
+	trace_sched_next_new_balance(now_ns, per_cpu(next_update_new_balance_time_ns, this_cpu));
+
 	/*
 	 * This is OK, because current is on_cpu, which avoids it being picked
 	 * for load-balance and preemption/IRQs are still disabled avoiding

@@ -151,6 +151,8 @@ static void update_thermal_headroom(int this_cpu)
 		}
 		spin_unlock(&thermal_headroom_lock);
 	}
+
+	trace_sched_next_update_thermal_headroom(jiffies, next_update_thermal);
 }
 
 int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
@@ -390,6 +392,8 @@ unsigned int thermal_headroom_interval_tick =  1;
 void set_newly_idle_balance_interval_us(unsigned int interval_us)
 {
 	new_idle_balance_interval_ns = interval_us * 1000;
+
+	trace_sched_newly_idle_balance_interval(interval_us);
 }
 EXPORT_SYMBOL_GPL(set_newly_idle_balance_interval_us);
 
@@ -402,6 +406,8 @@ EXPORT_SYMBOL_GPL(get_newly_idle_balance_interval_us);
 void set_get_thermal_headroom_interval_tick(unsigned int tick)
 {
 	thermal_headroom_interval_tick = tick;
+
+	trace_sched_headroom_interval_tick(tick);
 }
 EXPORT_SYMBOL_GPL(set_get_thermal_headroom_interval_tick);
 

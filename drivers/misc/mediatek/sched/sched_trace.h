@@ -221,6 +221,29 @@ TRACE_EVENT(sched_force_migrate,
 		__entry->dest, __entry->force)
 );
 
+/*
+ * Tracepoint for task force migrations.
+ */
+TRACE_EVENT(sched_next_new_balance,
+
+	TP_PROTO(u64 now_ns, u64 next_balance),
+
+	TP_ARGS(now_ns, next_balance),
+
+	TP_STRUCT__entry(
+		__field(u64, now_ns)
+		__field(u64, next_balance)
+		),
+
+	TP_fast_assign(
+		__entry->now_ns = now_ns;
+		__entry->next_balance = next_balance;
+		),
+
+	TP_printk("now_ns=%llu next_balance=%lld",
+		__entry->now_ns, __entry->next_balance)
+);
+
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH
