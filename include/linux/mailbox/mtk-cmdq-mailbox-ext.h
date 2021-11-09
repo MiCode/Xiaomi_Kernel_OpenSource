@@ -173,6 +173,8 @@ struct cmdq_thread {
 	bool			occupied;
 	bool			dirty;
 	u64			timer_mod;
+	u64			irq_time;
+	u32			irq_task;
 };
 
 extern int mtk_cmdq_log;
