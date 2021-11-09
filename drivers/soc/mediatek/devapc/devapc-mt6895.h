@@ -102,6 +102,7 @@ enum INFRACFG_MM2ND_OFFSET {
 enum BUSID_LENGTH {
 	INFRAAXI_MI_BIT_LENGTH = 16,
 	ADSPAXI_MI_BIT_LENGTH = 8,
+	MMINFRAAXI_MI_BIT_LENGTH = 19,
 };
 
 struct INFRAAXI_ID_INFO {
@@ -112,6 +113,11 @@ struct INFRAAXI_ID_INFO {
 struct ADSPAXI_ID_INFO {
 	const char	*master;
 	uint8_t		bit[ADSPAXI_MI_BIT_LENGTH];
+};
+
+struct MMINFRAAXI_ID_INFO {
+	const char	*master;
+	uint8_t		bit[MMINFRAAXI_MI_BIT_LENGTH];
 };
 
 enum DEVAPC_IRQ_TYPE {
@@ -185,6 +191,9 @@ enum ADSP_MI_SELECT {
 #define ADSP_INFRA_1_END			(0x4DFFFFFF)
 #define ADSP_OTHER_START			(0x1E000000)
 #define ADSP_OTHER_END				(0x1E01FFFF)
+
+#define MMUP_START_ADDR				(0x1EA00000)
+#define MMUP_END_ADDR				(0x1EFFFFFF)
 
 static const struct mtk_device_info mt6895_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */

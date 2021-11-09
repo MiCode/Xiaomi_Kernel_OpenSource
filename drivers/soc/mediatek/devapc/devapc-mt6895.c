@@ -78,6 +78,14 @@ static const struct ADSPAXI_ID_INFO ADSP_mi15_id_to_master[] = {
 	{"AFE_M",             { 0, 0, 2, 0, 0, 0, 0, 0 } },
 };
 
+static const struct MMINFRAAXI_ID_INFO mminfra_mi_id_to_master[] = {
+	{"INFRA2MM",    { 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
+	{"MMINFRA_HRE", { 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"GCED",        { 0, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"GCEM",        { 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"MMUP",        { 0, 0, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+};
+
 static const char * const adsp_domain[] = {
 	"AP",
 	"SSPM",
@@ -160,6 +168,33 @@ static const char *adsp_mi_trans(uint32_t bus_id, int mi)
 		return master;
 }
 
+static const char *mminfra_mi_trans(uint32_t bus_id)
+{
+	int master_count = ARRAY_SIZE(mminfra_mi_id_to_master);
+	const char *master = "UNKNOWN_MASTER_FROM_MMINFRA";
+	int i, j;
+
+	for (i = 0; i < master_count; i++) {
+		for (j = 0; j < MMINFRAAXI_MI_BIT_LENGTH; j++) {
+			if (mminfra_mi_id_to_master[i].bit[j] == 2)
+				continue;
+			if (((bus_id >> j) & 0x1) ==
+					mminfra_mi_id_to_master[i].bit[j])
+				continue;
+			break;
+		}
+		if (j == MMINFRAAXI_MI_BIT_LENGTH) {
+			pr_debug(PFX "%s %s %s\n",
+				"catch it from MMINFRAAXI_MI",
+				"Master is:",
+				mminfra_mi_id_to_master[i].master);
+			master = mminfra_mi_id_to_master[i].master;
+		}
+	}
+
+	return master;
+}
+
 static const char *mt6895_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit, int domain)
 {
@@ -230,6 +265,22 @@ static const char *mt6895_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			else
 				return adsp_mi_trans(bus_id, ADSP_MI15);
 		}
+#endif
+#if ENABLE_DEVAPC_MMINFRA
+	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
+		if (domain == 0x4)
+			return "GCE";
+		/* mmup */
+		if ((vio_addr >= MMUP_START_ADDR) && (vio_addr <= MMUP_END_ADDR)) {
+			if (domain < ARRAY_SIZE(mminfra_domain))
+				return mminfra_domain[domain];
+			return NULL;
+		}
+		/* mminfra */
+		if ((bus_id & 0x7) == 0x0)
+			return infra_mi_trans(bus_id >> 3);
+		else
+			return mminfra_mi_trans(bus_id);
 #endif
 #if ENABLE_DEVAPC_MMUP
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
