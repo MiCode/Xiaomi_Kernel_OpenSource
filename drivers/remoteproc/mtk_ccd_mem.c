@@ -496,14 +496,9 @@ int mtk_ccd_put_buffer(struct mtk_ccd *ccd,
 EXPORT_SYMBOL_GPL(mtk_ccd_put_buffer);
 
 
-int mtk_ccd_get_fd(struct mtk_ccd *ccd, struct mtk_ccd_buf *buf, int ori_fd)
+int mtk_ccd_get_fd(struct mtk_ccd *ccd, struct mtk_ccd_buf *buf)
 {
 	int target_fd = 0;
-
-	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
-	struct sighand_struct *sighand;
-	spinlock_t      siglock;
 	struct dma_buf *dbuf;
 
 	dbuf = mtk_ccd_get_dmabuf(buf, O_RDWR);
@@ -511,36 +506,23 @@ int mtk_ccd_get_fd(struct mtk_ccd *ccd, struct mtk_ccd_buf *buf, int ori_fd)
 	if (dbuf == NULL || dbuf->file == NULL)
 		return 0;
 
-	mtk_ccd_get_service(ccd, &task, &f);
-	if (task == NULL || f == NULL ||
-		get_kernel_nofault(sighand, &task->sighand) ||
-		get_kernel_nofault(siglock, &task->sighand->siglock))
-		return -EMFILE;
-
-	dev_dbg(ccd->dev, "Master pid: %d, tgid: %d\n", task->pid, task->tgid);
-	dev_dbg(ccd->dev, "Current pid: %d, tgid: %d\n",
-		 current->pid, current->tgid);
-	if (ori_fd > 0 && task->tgid == current->tgid)
-		return ori_fd;
-
 	target_fd = get_unused_fd_flags(O_CLOEXEC);
 
 	get_file(dbuf->file);
 	if (target_fd < 0)
 		return -EMFILE;
-	fd_install(target_fd, dbuf->file);
 
-	/* pr_info("get_mapped_fd: %d", target_fd); */
+	fd_install(target_fd, dbuf->file);
 	return target_fd;
 }
 
-int mtk_ccd_get_buffer_fd(struct mtk_ccd *ccd, void *mem_priv, int ori_fd)
+int mtk_ccd_get_buffer_fd(struct mtk_ccd *ccd, void *mem_priv)
 {
 	if (ccd == NULL || mem_priv == NULL) {
 		pr_info("mtk_ccd or mem_priv is NULL\n");
 		return -EINVAL;
 	}
-	return mtk_ccd_get_fd(ccd, mem_priv, ori_fd);
+	return mtk_ccd_get_fd(ccd, mem_priv);
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_get_buffer_fd);
 
@@ -555,8 +537,6 @@ int mtk_ccd_put_fd(struct mtk_ccd *ccd,
 	struct mtk_ccd_buf *buf = NULL;
 	struct mtk_ccd_mem *ccd_buffer = NULL;
 	struct mtk_ccd_memory *ccd_memory = ccd->ccd_memory;
-	struct files_struct *f = NULL;
-	struct task_struct *task = NULL;
 
 	num_buffers = ccd_memory->num_buffers;
 
@@ -574,12 +554,9 @@ int mtk_ccd_put_fd(struct mtk_ccd *ccd,
 		if (mem_buff_data->va == va &&
 			mem_buff_data->len == ccd_buffer->size) {
 
-			mtk_ccd_get_service(ccd, &task, &f);
-			if (task == NULL || f == NULL)
-				return -EINVAL;
-
-			if (atomic_long_read(&buf->dbuf->file->f_count) > 1)
-				__close_fd(f, target_fd);
+			if (atomic_long_read(&buf->dbuf->file->f_count) > 1 &&
+			    current->files)
+				__close_fd(current->files, target_fd);
 			else
 				dev_info(ccd_memory->dev,
 						 "%s user space signal exit to close fd already",
@@ -616,17 +593,6 @@ int mtk_ccd_put_buffer_fd(struct mtk_ccd *ccd,
 	return mtk_ccd_put_fd(ccd, mem_buff_data, target_fd);
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_put_buffer_fd);
-
-
-void mtk_ccd_get_service(struct mtk_ccd *ccd,
-			 struct task_struct **task,
-			 struct files_struct **f)
-{
-	dev_dbg(ccd->dev, "service: %p\n", ccd->ccd_masterservice);
-	*task = ccd->ccd_masterservice;
-	*f = ccd->ccd_files;
-}
-EXPORT_SYMBOL_GPL(mtk_ccd_get_service);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek ccd memory interface");

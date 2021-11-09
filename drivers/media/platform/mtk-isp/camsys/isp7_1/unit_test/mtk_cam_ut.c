@@ -572,7 +572,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ut->mem->size = round_up(session.cq_buffer_size, PAGE_SIZE);
 		smem.len = ut->mem->size;
 		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-		ut->mem->fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+		ut->mem->fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 		ut->mem->iova = smem.iova;
 		ut->mem->va = smem.va;
 
@@ -587,7 +587,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		smem_ipi.len = ut->msg_mem->size;
 		mem_ipi_priv = mtk_ccd_get_buffer(ccd, &smem_ipi);
 		ut->msg_mem->fd = dmabuf_ipi_fd =
-			mtk_ccd_get_buffer_fd(ccd, mem_ipi_priv, 0);
+			mtk_ccd_get_buffer_fd(ccd, mem_ipi_priv);
 		ut->msg_mem->iova = smem_ipi.iova;
 		ut->msg_mem->va = smem_ipi.va;
 
@@ -795,7 +795,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		workbuf.size = round_up(workbuf.size, PAGE_SIZE);
 		smem.len = workbuf.size;
 		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-		workbuf.ccd_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+		workbuf.ccd_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 		workbuf.iova = smem.iova;
 		workbuf.kva = smem.va;
 

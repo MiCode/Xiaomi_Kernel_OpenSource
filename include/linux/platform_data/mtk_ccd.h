@@ -68,9 +68,6 @@ struct mtk_ccd {
 	struct rproc_subdev *rpmsg_subdev;
 	struct ccd_master_status master_status;
 	struct mtk_ccd_memory *ccd_memory;
-
-	struct task_struct *ccd_masterservice;
-	struct files_struct *ccd_files;
 };
 
 /**
@@ -169,7 +166,7 @@ void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
 int mtk_ccd_put_buffer(struct mtk_ccd *ccd,
 			struct mem_obj *mem_buff_data);
 
-int mtk_ccd_get_buffer_fd(struct mtk_ccd *ccd, void *mem_priv, int ori_fd);
+int mtk_ccd_get_buffer_fd(struct mtk_ccd *ccd, void *mem_priv);
 int mtk_ccd_put_buffer_fd(struct mtk_ccd *ccd,
 			struct mem_obj *mem_buff_data,
 unsigned int target_fd);

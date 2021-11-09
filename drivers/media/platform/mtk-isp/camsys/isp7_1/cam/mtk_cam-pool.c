@@ -48,7 +48,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
-	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
 		mtk_dma_buf_set_name(dbuf, "CAM_MEM_CQ_ID");
@@ -61,7 +61,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
-	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
 		mtk_dma_buf_set_name(dbuf, "CAM_MEM_MSG_ID");
@@ -91,7 +91,7 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 		if (IS_ERR(mem_priv))
 			return PTR_ERR(mem_priv);
-		buf->meta_buffer.fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+		buf->meta_buffer.fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 		dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 		if (dbuf)
 			mtk_dma_buf_set_name(dbuf, "CAM_MEM_META_ID");
@@ -249,7 +249,7 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num)
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
-	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv, 0);
+	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
 		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");

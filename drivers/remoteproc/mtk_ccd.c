@@ -175,8 +175,6 @@ static int ccd_open(struct inode *inode,
 					   ccd_cdev);
 	filp->private_data = ccd;
 	dev_info(ccd->dev, "%s: %p\n", __func__, ccd);
-	ccd->ccd_masterservice = current;
-	ccd->ccd_files = ccd->ccd_masterservice->files;
 	return ret;
 }
 
@@ -347,18 +345,6 @@ static void ccd_unregcdev(struct mtk_ccd *ccd)
 	unregister_chrdev_region(ccd->ccd_devno, 1);
 }
 
-static void ccd_service_init(struct mtk_ccd *ccd)
-{
-	ccd->ccd_masterservice = NULL;
-	ccd->ccd_files = NULL;
-}
-
-static void ccd_service_release(struct mtk_ccd *ccd)
-{
-	ccd->ccd_masterservice = NULL;
-	ccd->ccd_files = NULL;
-}
-
 static int ccd_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -422,7 +408,6 @@ static int ccd_probe(struct platform_device *pdev)
 
 	ccd_add_rpmsg_subdev(ccd);
 
-	ccd_service_init(ccd);
 	ccd->ccd_memory = mtk_ccd_mem_init(ccd->dev);
 
 	ret = rproc_add(rproc);
@@ -443,7 +428,6 @@ static int ccd_remove(struct platform_device *pdev)
 {
 	struct mtk_ccd *ccd = platform_get_drvdata(pdev);
 
-	ccd_service_release(ccd);
 	mtk_ccd_mem_release(ccd);
 	ccd_unregcdev(ccd);
 	ccd_remove_rpmsg_subdev(ccd);
