@@ -1335,11 +1335,12 @@ static int __clk_buf_dev_pm_dump(void)
 		}
 
 		if (en)
-			pr_notice("%s en: %u\n",
-				clkbuf_dcxo_get_xo_name(i),
-				en);
+			len += snprintf(buf + len, CLKBUF_STATUS_INFO_SIZE - len,
+					", %s en: %u", clkbuf_dcxo_get_xo_name(i), en);
 		val |= (en << i);
 	}
+	pr_notice("%s\n", buf+2);
+	len = 0;
 
 	len += snprintf(buf + len, CLKBUF_STATUS_INFO_SIZE - len,
 		"xo_buf_en: 0x%x ", val);
