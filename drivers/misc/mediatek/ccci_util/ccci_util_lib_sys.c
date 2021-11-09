@@ -174,7 +174,7 @@ static ssize_t ccci_md_enable_show(char *buf)
 			md_en[3], md_en[4]);
 }
 
-CCCI_ATTR(md_en, 0660, &ccci_md_enable_show, NULL);
+CCCI_ATTR(md_en, 0444, &ccci_md_enable_show, NULL);
 
 /* Sys -- post fix */
 static ssize_t ccci_md1_post_fix_show(char *buf)
