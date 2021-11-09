@@ -3018,6 +3018,7 @@ enum {
 #define AFE_IRQ_MCU_CNT24                         0x634
 #define AFE_IRQ_MCU_CNT25                         0x638
 #define AFE_IRQ_MCU_CNT26                         0x63c
+#define AFE_IRQ_MCU_CNT31                         0x640
 #define AFE_SPM_CONTROL_REQ                       0x648
 #define AFE_SPM_CONTROL_ACK                       0x64c
 #define AFE_TINY_CONN6                            0x650

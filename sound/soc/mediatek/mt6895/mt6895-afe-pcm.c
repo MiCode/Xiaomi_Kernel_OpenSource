@@ -2926,6 +2926,23 @@ static const struct mtk_base_irq_data irq_data[MT6895_IRQ_NUM] = {
 		.irq_scp_en_reg = AFE_IRQ_MCU_SCP_EN,
 		.irq_scp_en_shift = IRQ26_MCU_SCP_EN_SFT,
 	},
+	[MT6895_IRQ_31] = {
+		.id = MT6895_IRQ_31,
+		.irq_cnt_reg = AFE_IRQ_MCU_CNT31,
+		.irq_cnt_shift = AFE_IRQ_CNT_SHIFT,
+		.irq_cnt_maskbit = AFE_IRQ_CNT_MASK,
+		.irq_fs_reg = -1,
+		.irq_fs_shift = -1,
+		.irq_fs_maskbit = -1,
+		.irq_en_reg = AFE_IRQ_MCU_CON0,
+		.irq_en_shift = IRQ31_MCU_ON_SFT,
+		.irq_clr_reg = AFE_IRQ_MCU_CLR,
+		.irq_clr_shift = IRQ31_MCU_CLR_SFT,
+		.irq_ap_en_reg = AFE_IRQ_MCU_EN,
+		.irq_ap_en_shift = IRQ31_MCU_EN_SFT,
+		.irq_scp_en_reg = AFE_IRQ_MCU_SCP_EN,
+		.irq_scp_en_shift = IRQ31_MCU_SCP_EN_SFT,
+	},
 };
 
 static const int memif_irq_usage[MT6895_MEMIF_NUM] = {
@@ -4530,6 +4547,9 @@ static ssize_t mt6895_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT26, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_IRQ_MCU_CNT26 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT31, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_IRQ_MCU_CNT31 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_SPM_CONTROL_REQ, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_SPM_CONTROL_REQ = 0x%x\n", value);
