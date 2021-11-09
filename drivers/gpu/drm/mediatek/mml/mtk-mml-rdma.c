@@ -910,6 +910,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u8 afbc_y2r = 0;
 	u8 hyfbc = 0;
 	u8 ufbdc = 0;
+	u8 ufbdc_sec_mode = 0;
 	u32 write_mask = 0;
 	u8 output_10bit = 0;
 	u64 iova[3];
@@ -1005,7 +1006,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       (alpharot << 25),
 		       0x038cfe0f);
 
-	write_mask |= 0xb0000000 | 0x0603000;
+	write_mask |= 0xb0000000 | 0x0643000;
 	if (rdma_frm->blk_10bit)
 		jump = MML_FMT_10BIT_JUMP(src->format);
 	else
@@ -1034,6 +1035,8 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 				base_pa + RDMA_MF_BKGD_H_SIZE_IN_PXL,
 				((src->height + 7) >> 3) << 3, U32_MAX);
 		}
+		if (src->secure)
+			ufbdc_sec_mode = 1;
 	}
 	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_COMP_CON,
 		       (rdma_frm->enable_ufo << 31) +
@@ -1041,6 +1044,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       (jump << 28) +
 		       (afbc << 22) +
 		       (afbc_y2r << 21) +
+		       (ufbdc_sec_mode << 18) +
 		       (hyfbc << 13) +
 		       (ufbdc << 12),
 		       write_mask);
