@@ -239,9 +239,11 @@ static int monitor_hang_show(struct seq_file *m, void *v)
 {
 	struct name_list *pList = NULL;
 #ifdef CONFIG_MTK_HANG_DETECT_DB
-	SEQ_printf(m, "[Hang_Detect] show Hang_info size %d\n ",
-			(int)strlen(Hang_Info));
-	SEQ_printf(m, "%s", Hang_Info);
+	SEQ_printf(m, "[Hang_Detect] show hang_detect_raw\n");
+	if (Hang_Info)
+		SEQ_printf(m, "%s", Hang_Info);
+	else
+		SEQ_printf(m, "hang_detect_raw buffer is not ready\n");
 #endif
 	raw_spin_lock(&white_list_lock);
 	pList = white_list;
