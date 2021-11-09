@@ -276,9 +276,11 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 			set_max_framerate(ctx, 146, 0);
 	}
 	/* Update Shutter*/
+	set_cmos_sensor_16(ctx, 0x0104, 0x01);//gph start
 	set_cmos_sensor_16(ctx, 0x0340, ctx->frame_length);
 	set_cmos_sensor_16(ctx, 0x0202, shutter);
-
+	if (!ctx->ae_ctrl_gph_en)
+		set_cmos_sensor_16(ctx, 0x0104, 0x00);//grouphold end
 	commit_write_sensor(ctx);
 
 	DEBUG_LOG(ctx, "shutter = %d, framelength = %d\n",
@@ -425,8 +427,10 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	ctx->gain = reg_gain;
 	DEBUG_LOG(ctx, "gain = %d , reg_gain = 0x%x\n", gain, reg_gain);
 
-	write_cmos_sensor_16(ctx, 0x0204, reg_gain);
-
+	set_cmos_sensor_16(ctx, 0x0204, reg_gain);
+	if (ctx->ae_ctrl_gph_en)
+		set_cmos_sensor_16(ctx, 0x0104, 0x00); //grouphold end
+	commit_write_sensor(ctx);
 	return gain;
 }	/*	set_gain  */
 
@@ -1715,6 +1719,7 @@ static const struct subdrv_ctx defctx = {
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /*sensor need support LE, SE with HDR feature*/
 	.i2c_write_id = 0x20,
+	.ae_ctrl_gph_en = 0,
 };
 
 static int init_ctx(struct subdrv_ctx *ctx,

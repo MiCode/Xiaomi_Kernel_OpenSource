@@ -429,7 +429,8 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 	set_cmos_sensor(ctx, 0x0350, 0x01);
 	set_cmos_sensor(ctx, 0x0202, (shutter >> 8) & 0xFF);
 	set_cmos_sensor(ctx, 0x0203, shutter & 0xFF);
-	set_cmos_sensor(ctx, 0x0104, 0x00);
+	if (!ctx->ae_ctrl_gph_en)
+		set_cmos_sensor(ctx, 0x0104, 0x00);
 
 	commit_write_sensor(ctx);
 
@@ -498,7 +499,8 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 		set_cmos_sensor(ctx, 0x0341, ctx->frame_length & 0xFF);
 		set_cmos_sensor(ctx, 0x0202, (shutters[0] >> 8) & 0xFF);
 		set_cmos_sensor(ctx, 0x0203, shutters[0] & 0xFF);
-		set_cmos_sensor(ctx, 0x0104, 0x00);
+		if (!ctx->ae_ctrl_gph_en)
+			set_cmos_sensor(ctx, 0x0104, 0x00);
 
 		commit_write_sensor(ctx);
 
@@ -624,7 +626,8 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	ctx->gain = reg_gain;
 	DEBUG_LOG(ctx, "gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
 
-	set_cmos_sensor(ctx, 0x0104, 0x01);
+	if (!ctx->ae_ctrl_gph_en)
+		set_cmos_sensor(ctx, 0x0104, 0x01);
 	/* Global analog Gain for Long expo */
 	set_cmos_sensor(ctx, 0x0204, (reg_gain >> 8) & 0xFF);
 	set_cmos_sensor(ctx, 0x0205, reg_gain & 0xFF);
@@ -2481,6 +2484,7 @@ static const struct subdrv_ctx defctx = {
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.hdr_mode = 0,/* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x20,/* record current sensor's i2c write id */
+	.ae_ctrl_gph_en = 0,
 };
 
 static int init_ctx(struct subdrv_ctx *ctx,

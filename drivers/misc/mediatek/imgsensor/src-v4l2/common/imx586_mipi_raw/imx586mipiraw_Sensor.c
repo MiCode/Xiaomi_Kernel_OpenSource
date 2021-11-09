@@ -682,7 +682,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 	if (!_is_seamless) {
 		set_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
 		set_cmos_sensor_8(ctx, 0x0203, shutter  & 0xFF);
-		set_cmos_sensor_8(ctx, 0x0104, 0x00);
+		if (!ctx->ae_ctrl_gph_en)
+			set_cmos_sensor_8(ctx, 0x0104, 0x00);
 		commit_write_sensor(ctx);
 	} else {
 		_i2c_data[_size_to_write++] = 0x0202;
@@ -767,7 +768,8 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 
 			set_cmos_sensor_8(ctx, 0x0202, (shutters[0] >> 8) & 0xFF);
 			set_cmos_sensor_8(ctx, 0x0203, shutters[0]  & 0xFF);
-			set_cmos_sensor_8(ctx, 0x0104, 0x00);
+			if (!ctx->ae_ctrl_gph_en)
+				set_cmos_sensor_8(ctx, 0x0104, 0x00);
 			commit_write_sensor(ctx);
 		} else {
 			_i2c_data[_size_to_write++] = 0x0340;
@@ -903,7 +905,8 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	DEBUG_LOG(ctx, "gain = %d, reg_gain = 0x%x, max_gain:%d\n ",
 		gain, reg_gain, max_gain);
 	if (!_is_seamless) {
-		set_cmos_sensor_8(ctx, 0x0104, 0x01);
+		if (!ctx->ae_ctrl_gph_en)
+			set_cmos_sensor_8(ctx, 0x0104, 0x01);
 		set_cmos_sensor_8(ctx, 0x0204, (reg_gain>>8) & 0xFF);
 		set_cmos_sensor_8(ctx, 0x0205, reg_gain & 0xFF);
 		set_cmos_sensor_8(ctx, 0x0104, 0x00);
@@ -5632,6 +5635,7 @@ static const struct subdrv_ctx defctx = {
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x34, /* record current sensor's i2c write id */
+	.ae_ctrl_gph_en = 0,
 };
 
 static int init_ctx(struct subdrv_ctx *ctx,

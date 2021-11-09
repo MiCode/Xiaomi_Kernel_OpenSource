@@ -492,7 +492,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 	write_cmos_sensor_8(ctx, 0x0350, 0x01); /* Enable auto extend */
 	write_cmos_sensor_8(ctx, 0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor_8(ctx, 0x0203, shutter  & 0xFF);
-	write_cmos_sensor_8(ctx, 0x0104, 0x00);
+	if (!ctx->ae_ctrl_gph_en)
+		write_cmos_sensor_8(ctx, 0x0104, 0x00);
 
 	LOG_INF("shutter =%d, framelength =%d\n",
 		shutter, ctx->frame_length);
@@ -667,8 +668,8 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	reg_gain = gain2reg(ctx, gain);
 	ctx->gain = reg_gain;
 	LOG_INF("gain = %d, reg_gain = 0x%x\n ", gain, reg_gain);
-
-	write_cmos_sensor_8(ctx, 0x0104, 0x01);
+	if (!ctx->ae_ctrl_gph_en)
+		write_cmos_sensor_8(ctx, 0x0104, 0x01);
 	write_cmos_sensor_8(ctx, 0x0204, (reg_gain>>8) & 0xFF);
 	write_cmos_sensor_8(ctx, 0x0205, reg_gain & 0xFF);
 	write_cmos_sensor_8(ctx, 0x0104, 0x00);
@@ -3764,6 +3765,7 @@ static const struct subdrv_ctx defctx = {
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x34, /* record current sensor's i2c write id */
 	.current_ae_effective_frame = 2,
+	.ae_ctrl_gph_en = 0,
 };
 
 static int init_ctx(struct subdrv_ctx *ctx,

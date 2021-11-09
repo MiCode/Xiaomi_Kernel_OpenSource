@@ -524,59 +524,14 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		} else if (realtime_fps >= 147 && realtime_fps <= 150) {
 			realtime_fps = 146;
 			set_max_framerate(ctx, realtime_fps, 0);
-		} else {
-#if SEAMLESS_NO_USE
-
-			if (!_is_seamless) {
-				//ctx->frame_length = (ctx->frame_length  >> 1) << 1;
-				//write_cmos_sensor_8(ctx, 0x3208, 0x00);
-				write_cmos_sensor_8(ctx, 0x3840, ctx->frame_length >> 16);
-				write_cmos_sensor_8(ctx, 0x380e, ctx->frame_length >> 8);
-				write_cmos_sensor_8(ctx, 0x380f, ctx->frame_length & 0xFF);
-				//write_cmos_sensor_8(ctx, 0x3208, 0x10);
-				//write_cmos_sensor_8(ctx, 0x3208, 0xa0);
-			}
-
-			else {
-				//_i2c_data[_size_to_write++] = 0x3840;
-				//_i2c_data[_size_to_write++] = ctx->frame_length >> 16;
-				_i2c_data[_size_to_write++] = 0x380e;
-				_i2c_data[_size_to_write++] = ctx->frame_length >> 8;
-				_i2c_data[_size_to_write++] = 0x380f;
-				_i2c_data[_size_to_write++] = ctx->frame_length & 0xFF;
-			}
-#endif
 		}
 	}
-#if SEAMLESS_NO_USE
-	else {
-		//ctx->frame_length = (ctx->frame_length  >> 1) << 1;
-		if (!_is_seamless) {
-
-			//write_cmos_sensor_8(ctx, 0x3208, 0x00);
-			write_cmos_sensor_8(ctx, 0x3840, ctx->frame_length >> 16);
-			write_cmos_sensor_8(ctx, 0x380e, ctx->frame_length >> 8);
-			write_cmos_sensor_8(ctx, 0x380f, ctx->frame_length & 0xFF);
-			//write_cmos_sensor_8(ctx, 0x3208, 0x10);
-			//write_cmos_sensor_8(ctx, 0x3208, 0xa0);
-		}
-#if SEAMLESS_NO_USE
-		else {
-			//_i2c_data[_size_to_write++] = 0x3840;
-			//_i2c_data[_size_to_write++] = ctx->frame_length >> 16;
-			_i2c_data[_size_to_write++] = 0x380e;
-			_i2c_data[_size_to_write++] = ctx->frame_length >> 8;
-			_i2c_data[_size_to_write++] = 0x380f;
-			_i2c_data[_size_to_write++] = ctx->frame_length & 0xFF;
-		}
-#endif
-	}
-#endif
 	/*Warning : shutter must be even. Odd might happen Unexpected Results */
 	if (!_is_seamless) {
-		//write_cmos_sensor_8(ctx, 0x3208, 0x01);
 		memset(_i2c_data, 0x0, sizeof(_i2c_data));
 		_size_to_write = 0;
+		_i2c_data[_size_to_write++] = 0x3208; //group 0 start
+		_i2c_data[_size_to_write++] = 0x00;
 		_i2c_data[_size_to_write++] = 0x3840;
 		_i2c_data[_size_to_write++] = ctx->frame_length >> 16;
 		_i2c_data[_size_to_write++] = 0x380e;
@@ -589,10 +544,14 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		_i2c_data[_size_to_write++] = (shutter >> 8) & 0xFF;
 		_i2c_data[_size_to_write++] = 0x3502;
 		_i2c_data[_size_to_write++] = (shutter)  & 0xFF;
+		if (!ctx->ae_ctrl_gph_en) { //group 0 end
+			_i2c_data[_size_to_write++] = 0x3208;
+			_i2c_data[_size_to_write++] = 0x10;
+			_i2c_data[_size_to_write++] = 0x3208;
+			_i2c_data[_size_to_write++] = 0xa0;
+		}
 		table_write_cmos_sensor(ctx, _i2c_data,
 		_size_to_write);
-		//write_cmos_sensor_8(ctx, 0x3208, 0x11);
-		//write_cmos_sensor_8(ctx, 0x3208, 0xa1);
 	} else {
 		_i2c_data[_size_to_write++] = 0x3840;
 		_i2c_data[_size_to_write++] = ctx->frame_length >> 16;
@@ -650,10 +609,18 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	if (!_is_seamless) {
 		memset(_i2c_data, 0x0, sizeof(_i2c_data));
 		_size_to_write = 0;
+		if (!ctx->ae_ctrl_gph_en) {
+			_i2c_data[_size_to_write++] = 0x3208;
+			_i2c_data[_size_to_write++] = 0x00;
+		}
 		_i2c_data[_size_to_write++] = 0x03508;
 		_i2c_data[_size_to_write++] =  reg_gain >> 8;
 		_i2c_data[_size_to_write++] = 0x03509;
 		_i2c_data[_size_to_write++] =  reg_gain & 0xff;
+		_i2c_data[_size_to_write++] = 0x3208;
+		_i2c_data[_size_to_write++] = 0x10;
+		_i2c_data[_size_to_write++] = 0x3208;
+		_i2c_data[_size_to_write++] = 0xa0;
 		table_write_cmos_sensor(ctx, _i2c_data,
 		_size_to_write);
 	} else {
@@ -2950,7 +2917,15 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
 		switch (*(feature_data + 1)) {
+		case SENSOR_SCENARIO_ID_CUSTOM1:
 		case SENSOR_SCENARIO_ID_CUSTOM4:
+		case SENSOR_SCENARIO_ID_CUSTOM5:
+		case SENSOR_SCENARIO_ID_CUSTOM6:
+		case SENSOR_SCENARIO_ID_CUSTOM7:
+		case SENSOR_SCENARIO_ID_CUSTOM8:
+		case SENSOR_SCENARIO_ID_CUSTOM9:
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+		case SENSOR_SCENARIO_ID_CUSTOM11:
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 			*feature_return_para_32 = 2; /*BINNING_SUMMED*/
 			LOG_INF("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
@@ -3294,6 +3269,7 @@ static const struct subdrv_ctx defctx = {
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	//.ihdr_en = 0,
 	.i2c_write_id = 0x20,
+	.ae_ctrl_gph_en = 0,
 };
 
 static int init_ctx(struct subdrv_ctx *ctx,
