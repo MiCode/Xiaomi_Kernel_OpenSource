@@ -3889,7 +3889,7 @@
 			reg = <0 0x1c400000 0 0x100000>, /* tcm */
 			      <0 0x1c724000 0 0x1000>, /* cfg */
 			      <0 0x1c721000 0 0x1000>, /* clk*/
-			      <0 0x1c730000 0 0x1000>, /* cfg core0 */
+			      <0 0x1c730000 0 0x2000>, /* cfg core0 */
 			      <0 0x1c740000 0 0x1000>, /* cfg core1 */
 			      <0 0x1c752000 0 0x1000>, /* bus tracker */
 			      <0 0x1c760000 0 0x40000>, /* llc */
@@ -4030,7 +4030,7 @@
 					  <12 100 1>,	/* vow dual mic barge in */
 					  <13 200 0>;	/* ultrasound */
 
-
+			debug_dumptimeout = "enable"; /*core dump timeout debug*/
 			secure_dump = "enable";	/* enable dump via secure world */
 			secure_dump_size = <0x280000>;
 
