@@ -730,6 +730,7 @@
 		compatible = "qcom,spmi-pmic-arb-debug";
 		reg = <0x10b14000 0x60>, <0x221c8784 0x4>;
 		reg-names = "core", "fuse";
+		clocks = <&aoss_qmp>;
 		clock-names = "core_clk";
 		qcom,fuse-enable-bit = <18>;
 		#address-cells = <2>;
@@ -962,6 +963,17 @@
 				compatible = "qcom,msm-fastrpc-rpmsg";
 				qcom,glink-channels = "fastrpcglink-apps-dsp";
 				qcom,intents = <0x64 64>;
+			};
+
+			qcom,pmic_glink_rpmsg {
+				qcom,glink-channels = "PMIC_RTR_ADSP_APPS";
+			};
+
+			qcom,pmic_glink_log_rpmsg {
+				qcom,glink-channels = "PMIC_LOGS_ADSP_APPS";
+				qcom,intents = <0x800 5
+						0xc00 3
+						0x2000 1>;
 			};
 		};
 	};
