@@ -329,7 +329,7 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 		} else
 			freq = 100000000;
 
-		if (inst->op_rate <= 0) {
+		if (perf != 0 && inst->op_rate <= 0) {
 			/* Undefined priority + op_rate combination behavior, to be configurable */
 			freq = (inst->priority < 0) ?
 				(inst->width * inst->height / 256 * 30 *
