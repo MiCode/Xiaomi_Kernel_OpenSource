@@ -142,6 +142,9 @@
 #define MT6895_WDMA0_AID_SEL	(0xB1CUL)
 #define MT6895_WDMA1_AID_SEL	(0xB20UL)
 
+#define MT6879_WDMA0_AID_SEL	(0xB1CUL)
+#define MT6879_WDMA1_AID_SEL	(0xB20UL)
+
 enum GS_WDMA_FLD {
 	GS_WDMA_SMI_CON = 0, /* whole reg */
 	GS_WDMA_BUF_CON1,    /* whole reg */
@@ -315,6 +318,16 @@ unsigned int mtk_wdma_aid_sel_MT6895(struct mtk_ddp_comp *comp)
 	switch (comp->id) {
 	case DDP_COMPONENT_WDMA1:
 		return MT6895_WDMA1_AID_SEL;
+	default:
+		return 0;
+	}
+}
+
+unsigned int mtk_wdma_aid_sel_MT6879(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA1:
+		return MT6879_WDMA1_AID_SEL;
 	default:
 		return 0;
 	}
@@ -1619,13 +1632,14 @@ static const struct mtk_disp_wdma_data mt6833_wdma_driver_data = {
 };
 
 static const struct mtk_disp_wdma_data mt6879_wdma_driver_data = {
-	.fifo_size_1plane = 578,
+	.fifo_size_1plane = 465,
 	.fifo_size_uv_1plane = 29,
-	.fifo_size_2plane = 402,
-	.fifo_size_uv_2plane = 201,
-	.fifo_size_3plane = 402,
-	.fifo_size_uv_3plane = 99,
-	.sodi_config = mt6853_mtk_sodi_config,
+	.fifo_size_2plane = 305,
+	.fifo_size_uv_2plane = 152,
+	.fifo_size_3plane = 302,
+	.fifo_size_uv_3plane = 74,
+	.sodi_config = mt6879_mtk_sodi_config,
+	.aid_sel = &mtk_wdma_aid_sel_MT6879,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = false,
