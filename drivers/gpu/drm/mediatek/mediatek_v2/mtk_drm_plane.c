@@ -365,6 +365,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	struct drm_crtc *crtc = plane->state->crtc;
 	struct mtk_crtc_state *crtc_state;
 	struct drm_framebuffer *fb = plane->state->fb;
+	struct drm_format_name_buf format_name;
 	int src_w, src_h, dst_x, dst_y, dst_w, dst_h, i;
 	struct mtk_drm_crtc *mtk_crtc;
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
@@ -446,11 +447,11 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	wmb(); /* Make sure the above parameters are set before update */
 	state->pending.dirty = true;
 
-	DDPINFO("%s:%d enable%d,pitch%d,format%d\n",
+	DDPINFO("%s:%d en%d,pitch%d,fmt:%s\n",
 		__func__, __LINE__, (unsigned int)state->pending.enable,
-		state->pending.pitch, state->pending.format);
-	DDPINFO("addr0x%lx,x%d,y%d,width%d,height%d\n",
-		(unsigned long)state->pending.addr, state->pending.dst_x,
+		state->pending.pitch, drm_get_format_name(state->pending.format, &format_name));
+	DDPINFO("addr:0x%llx,x%d,y%d,width%d,height%d\n",
+		state->pending.addr, state->pending.dst_x,
 		state->pending.dst_y, state->pending.width,
 		state->pending.height);
 
