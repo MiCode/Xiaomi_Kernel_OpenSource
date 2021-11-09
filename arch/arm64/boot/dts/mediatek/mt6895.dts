@@ -10955,8 +10955,8 @@
 
 	thermal_zones: thermal-zones {
 		soc_max {
-			polling-delay = <100>; /* milliseconds */
-			polling-delay-passive = <5>; /* milliseconds */
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 0>;
 
 			trips {
@@ -11033,24 +11033,9 @@
 			thermal-sensors = <&lvts 13>;
 		};
 		gpu2 {
-			polling-delay = <100>; /* milliseconds */
-			polling-delay-passive = <12>; /* milliseconds */
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 14>;
-
-			trips {
-				gpu_throttle: trip-point@0 {
-					temperature = <95000>;
-					hysteresis = <2000>;
-					type = "passive";
-				};
-			};
-			cooling-maps {
-				map0 {
-					trip = <&gpu_throttle>;
-					cooling-device = <&mali THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-					contribution = <1024>;
-				};
-			};
 		};
 		apu1 {
 			polling-delay = <0>; /* milliseconds */
