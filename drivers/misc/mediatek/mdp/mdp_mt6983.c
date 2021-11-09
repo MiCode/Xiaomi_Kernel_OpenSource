@@ -280,7 +280,7 @@ struct RegDef {
 	const char *name;
 };
 
-void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
+static void cmdq_core_dump_mmsys_config(void)
 {
 	int i = 0;
 	uint32_t value = 0;
@@ -367,10 +367,7 @@ void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
 		{0xFF8, "MDPSYS_DL_READY2"},
 	};
 
-	if (!(handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS))
-		return;
-
-	CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
+	CMDQ_ERR("============ [MDP] MMSYS_CONFIG ============\n");
 
 	if (!MMSYS_CONFIG_BASE) {
 		CMDQ_ERR("mmsys not porting\n");
@@ -416,6 +413,15 @@ void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
 	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD0", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x114);
 	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD1", value);
+
+}
+
+void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
+{
+	if (!(handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS))
+		return;
+
+	cmdq_core_dump_mmsys_config();
 }
 
 int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
@@ -487,9 +493,11 @@ int cmdq_TranslationFault_callback(
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 
 	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
-	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%x", port, mva);
+	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=%pa", port, &mva);
 
 	cmdq_core_dump_tasks_info();
+
+	cmdq_core_dump_mmsys_config();
 
 	switch (port) {
 	case M4U_PORT_L2_MDP_RDMA0:
