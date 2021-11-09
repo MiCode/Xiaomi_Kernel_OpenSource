@@ -104,6 +104,7 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 	u64 *inst;
 	dma_addr_t pc;
 	struct cmdq_client *clt = sec ? test->sec : test->clt;
+	size_t wfe_offset;
 
 	if (clk_prepare_enable(test->gce.clk)) {
 		cmdq_err("clk fail");
@@ -119,6 +120,7 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 #endif
 
 	cmdq_pkt_wfe(pkt, test->token_user0);
+	wfe_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 
 	init_completion(&cmplt.cmplt);
 	cmplt.pkt = pkt;
@@ -146,6 +148,12 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 	ret = cmdq_pkt_flush_async(pkt, cmdq_test_mbox_cb_dump, (void *)pkt);
 	cmdq_msg("flush pkt:0x%p ret:%d", pkt, ret);
 	ret = cmdq_pkt_wait_complete(pkt);
+	if (wfe_offset == pkt->err_data.offset)
+		cmdq_msg("pkt:0x%p right wfe_offset:%zu = err_offset:%zu",
+			pkt, wfe_offset, pkt->err_data.offset);
+	else
+		cmdq_err("pkt:0x%p wrong wfe_offset:%zu, err_offset:%zu",
+			pkt, wfe_offset, pkt->err_data.offset);
 	cmdq_msg("wait complete pkt:0x%p ret:%d", pkt, ret);
 
 	cmdq_pkt_destroy(pkt);

@@ -126,6 +126,7 @@ struct cmdq_buf_pool {
 struct cmdq_pkt_err {
 	bool	wfe_timeout;
 	u16		event;
+	size_t		offset;
 };
 
 struct cmdq_pkt {
@@ -258,6 +259,7 @@ void cmdq_init_cmds(void *dev_cmdq);
 void cmdq_mbox_channel_stop(struct mbox_chan *chan);
 void cmdq_dump_core(struct mbox_chan *chan);
 void cmdq_thread_dump_spr(struct cmdq_thread *thread);
+size_t cmdq_task_current_offset(dma_addr_t pa, struct cmdq_pkt *pkt);
 void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 **inst_out, dma_addr_t *pc_out);
 void cmdq_thread_dump_all(void *mbox_cmdq, const bool lock, const bool dump_pkt,

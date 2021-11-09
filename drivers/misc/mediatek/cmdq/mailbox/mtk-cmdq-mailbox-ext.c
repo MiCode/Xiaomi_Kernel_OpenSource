@@ -592,6 +592,27 @@ static void *cmdq_task_current_va(dma_addr_t pa, struct cmdq_pkt *pkt)
 	return NULL;
 }
 
+size_t cmdq_task_current_offset(dma_addr_t pa, struct cmdq_pkt *pkt)
+{
+	struct cmdq_pkt_buffer *buf;
+	dma_addr_t end;
+	size_t offset = 0;
+
+	list_for_each_entry(buf, &pkt->buf, list_entry) {
+		if (list_is_last(&buf->list_entry, &pkt->buf))
+			end = CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE -
+				pkt->avail_buf_size;
+		else
+			end = CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE;
+		if (pa >= CMDQ_BUF_ADDR(buf) && pa < end)
+			return offset + (pa - CMDQ_BUF_ADDR(buf));
+		offset += CMDQ_CMD_BUFFER_SIZE;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_task_current_offset);
+
 static bool cmdq_task_is_current_run(dma_addr_t pa, struct cmdq_pkt *pkt)
 {
 	if (cmdq_task_current_va(pa, pkt))

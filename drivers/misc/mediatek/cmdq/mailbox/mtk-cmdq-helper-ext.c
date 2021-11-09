@@ -2106,6 +2106,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_util_helper->dump_smi();
 #endif
 
+	pkt->err_data.offset = cmdq_task_current_offset(pc, pkt);
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		pkt->err_data.wfe_timeout = true;
 		pkt->err_data.event = inst->arg_a;
