@@ -122,6 +122,7 @@
 #define F_INT_MQ_OUT_FIFO_ERR			BIT(7)
 #define F_INT_MQ_IN_FIFO_ERR			BIT(8)
 #define F_INT_CDB_SLICE_ERR			BIT(9)
+#define F_REG_MMU_FAULT_ST0_MASK		GENMASK(9, 0)
 
 #define REG_MMU_FAULT_ST1			0x134
 #define F_INT_MMU_TF_ERR(MMU)			BIT(0+(MMU)*7)
@@ -682,9 +683,7 @@ static void mtk_iommu_bk0_intr_en(const struct mtk_iommu_data *data,
 
 	if (enable) {
 		regval = F_L2_MULIT_HIT_EN | F_TABLE_WALK_FAULT_INT_EN |
-			F_PREETCH_FIFO_OVERFLOW_INT_EN |
-			F_MISS_FIFO_OVERFLOW_INT_EN | F_PREFETCH_FIFO_ERR_INT_EN |
-			F_MISS_FIFO_ERR_INT_EN;
+			F_PREFETCH_FIFO_ERR_INT_EN | F_MISS_FIFO_ERR_INT_EN;
 		writel_relaxed(regval, base + REG_MMU_INT_CONTROL0);
 
 		regval = F_INT_TRANSLATION_FAULT | F_INT_MAIN_MULTI_HIT_FAULT |
@@ -1102,15 +1101,14 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 	int slave_id, mau, i;
 
 	if (!int_state0 && !int_state1) {
-		pr_info("%s, iommu:(%d, %d) no error\n", __func__, type, id);
+		pr_info("%s, iommu:(%d,%d) no error\n", __func__, type, id);
 		return;
 	}
 
-	pr_info("%s, reg_raw_data: int_status:0x%x,0x%x\n", __func__, int_state0, int_state1);
-
 	/* MMU Interrupt Status0 For L2 Related Interrupt Status */
-	if (int_state0 & F_INT_MHIT_ERR)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MHIT_ERR);
+	if (int_state0 & F_REG_MMU_FAULT_ST0_MASK)
+		pr_notice("%s, iommu:(%d,%d)_0 int_state0:0x%x happens\n",
+			  __func__, type, id, int_state0);
 
 	/* L2 table walk fault */
 	if (int_state0 & F_INT_TBW_FAULT) {
@@ -1127,62 +1125,15 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 			 fault_iova, layer);
 	}
 
-	if (int_state0 & F_INT_PFQ_FIFO_FULL)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_PFQ_FIFO_FULL);
-
-	if (int_state0 & F_INT_MQ_FIFO_FULL)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MQ_FIFO_FULL);
-
-	if (int_state0 & F_INT_INVLDT_DONE)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_INVLDT_DONE);
-
-	if (int_state0 & F_INT_PFQ_OUT_FIFO_ERR)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_PFQ_OUT_FIFO_ERR);
-
-	if (int_state0 & F_INT_PFQ_IN_FIFO_ERR)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_PFQ_IN_FIFO_ERR);
-
-	if (int_state0 & F_INT_MQ_OUT_FIFO_ERR)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MQ_OUT_FIFO_ERR);
-
-	if (int_state0 & F_INT_MQ_IN_FIFO_ERR)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_MQ_IN_FIFO_ERR);
-
-	if (int_state0 & F_INT_CDB_SLICE_ERR)
-		pr_notice("iommu%d_0 (0x%x) int happens\n", id, F_INT_CDB_SLICE_ERR);
-
 	/* MMU Interrupt Status1 for MTLB Related Interrupt Status */
-	if (int_state1 & F_REG_MMU0_FAULT_MASK)
-		slave_id = 0;
-	else if (int_state1 & F_REG_MMU1_FAULT_MASK)
-		slave_id = 1;
-	else
-		slave_id = 0;
-
-	if (int_state1 & F_INT_MMU_MHIT_ERR(slave_id))
-		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-			  F_INT_MMU_MHIT_ERR(slave_id));
-
-	if (int_state1 & F_INT_MMU_INV_PA_ERR(slave_id))
-		if (!(int_state1 & F_INT_MMU_TF_ERR(slave_id)))
-			pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-				  F_INT_MMU_INV_PA_ERR(slave_id));
-
-	if (int_state1 & F_INT_MMU_ENTR_REP_ERR(slave_id))
-		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-			  F_INT_MMU_ENTR_REP_ERR(slave_id));
-
-	if (int_state1 & F_INT_MMU_TLBM_ERR(slave_id))
-		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-			  F_INT_MMU_TLBM_ERR(slave_id));
-
-	if (int_state1 & F_INT_MMU_MQ_OVF_ERR(slave_id))
-		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-			  F_INT_MMU_MQ_OVF_ERR(slave_id));
-
-	if (int_state1 & F_INT_MMU_PFQ_OVF_ERR(slave_id))
-		pr_notice("iommu%d_%d (0x%x) int happens\n", id, slave_id,
-			  F_INT_MMU_PFQ_OVF_ERR(slave_id));
+	if ((int_state1 & F_INT_TRANSLATION_FAULT) == 0) {
+		if ((int_state1 & F_REG_MMU0_FAULT_MASK) ||
+		    (int_state1 & F_REG_MMU1_FAULT_MASK)) {
+			slave_id = (int_state1 & F_REG_MMU0_FAULT_MASK) ? 0 : 1;
+			pr_notice("%s, iommu:(%d,%d)_%d int_state1:0x%x happens\n",
+				  __func__, type, id, slave_id, int_state1);
+		}
+	}
 
 	/* MMU Interrupt Status1 for MAU Related Interrupt Status */
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_MAU_EN)) {
@@ -1196,11 +1147,10 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 		}
 
 		if (int_state1 & F_REG_MMU_MAU_INT_MASK(slave_id, mau_count)) {
-			pr_notice("iommu%d_%d (0x%x) mau int happens\n", id, slave_id,
-				  F_REG_MMU_MAU_INT_MASK(slave_id, mau_count));
+			pr_notice("%s, iommu:(%d,%d)_%d int_state1:0x%x mau int happens\n",
+				  __func__, type, id, slave_id, int_state1);
 			for (mau = 0; mau < mau_count; mau++) {
 				if (int_state1 & F_INT_MMU_MAU_INT_STA(slave_id, mau, mau_count)) {
-					pr_notice("iommu%d_%d mau:%d\n", id, slave_id, mau);
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 					mtk_iommu_mau_dump_status(data, slave_id, mau);
 #endif
@@ -1248,9 +1198,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			  __func__, type, id, ret);
 #endif
 
-	pr_info("%s start, type:%d, id:%d\n", __func__,
-		data->plat_data->iommu_type, data->plat_data->iommu_id);
-
 	table_base = readl_relaxed(base + REG_MMU_PT_BASE_ADDR);
 	/* Read error info from registers */
 	int_state0 = readl_relaxed(base + REG_MMU_FAULT_ST0);
@@ -1269,8 +1216,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 		write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
 
-		pr_info("%s, reg_raw_data: int_status:0x%x,0x%x, int_id:0x%x, int_va:0x%llx, int_pa:0x%llx\n",
-			__func__, int_state0, int_state1, regval, fault_iova, fault_pa);
+		pr_info("%s, iommu:(%d,%d) reg_raw_data: int_status:0x%x,0x%x, int_id:0x%x, int_va:0x%llx, int_pa:0x%llx\n",
+			__func__, type, id, int_state0, int_state1, regval, fault_iova, fault_pa);
 
 		if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOVA_34_EN)) {
 			va34_32 = FIELD_GET(F_MMU_INVAL_VA_34_32_MASK, fault_iova);
