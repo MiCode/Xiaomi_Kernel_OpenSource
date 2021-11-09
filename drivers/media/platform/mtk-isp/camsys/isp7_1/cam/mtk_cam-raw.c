@@ -42,8 +42,6 @@
 #include <dt-bindings/memory/mt6983-larb-port.h>
 #endif
 
-extern dump_cam_rawa(void);
-
 static unsigned int debug_raw;
 module_param(debug_raw, uint, 0644);
 MODULE_PARM_DESC(debug_raw, "activates debug info");
@@ -1199,7 +1197,6 @@ void apply_cq(struct mtk_raw_device *dev,
 
 void reset(struct mtk_raw_device *dev)
 {
-	struct mtk_cam_device *cam_dev = dev->cam;
 	int sw_ctl;
 	int ret;
 
@@ -1227,7 +1224,7 @@ void reset(struct mtk_raw_device *dev)
 		dev_info(dev->dev, "%s: timeout\n", __func__);
 
 		dev_info(dev->dev,
-			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x,stat:(0x%x,0x%x,0x%x,0x%x)\n",
+			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
 			 readl(dev->base + REG_TG_SEN_MODE),
 			 readl(dev->base + REG_CTL_EN),
 			 readl(dev->base + REG_CTL_MOD6_EN),
@@ -1235,13 +1232,7 @@ void reset(struct mtk_raw_device *dev)
 			 readl(dev->base + REG_FRAME_SEQ_NUM),
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT),
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT2),
-			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT),
-			 readl(cam_dev->base + REG_CAMSYS_CG_CON),
-			 readl(cam_dev->base + REG_CAMSYS_DBG_CG_CON),
-			 readl(cam_dev->base + REG_CAMSYS_SW_RST),
-			 readl(cam_dev->base + REG_CAMSYS_SW_RST1));
-
-		dump_cam_rawa();
+			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT));
 
 		goto RESET_FAILURE;
 	}
