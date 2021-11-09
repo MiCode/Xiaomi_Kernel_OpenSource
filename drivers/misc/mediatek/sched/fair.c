@@ -713,10 +713,10 @@ out_unlock:
 
 int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target, int reason)
 {
-	struct rq_flags dst_rf;
 	int active_balance = false;
+	unsigned long flags;
 
-	rq_lock_irqsave(target, &dst_rf);
+	raw_spin_lock_irqsave(&target->lock, flags);
 	if (!target->active_balance &&
 		(task_rq(p) == target) && p->state != TASK_DEAD) {
 		target->active_balance = 1;
@@ -724,7 +724,7 @@ int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
 		active_balance = true;
 		get_task_struct(p);
 	}
-	rq_unlock_irqrestore(target, &dst_rf);
+	raw_spin_unlock_irqrestore(&target->lock, flags);
 	if (active_balance) {
 		trace_sched_force_migrate(p, this_cpu, reason);
 		stop_one_cpu_nowait(cpu_of(target),
