@@ -353,11 +353,13 @@ static unsigned int vcp_A_log_enable_set(unsigned int enable)
 		do {
 			msg.cmd = VCP_LOGGER_IPI_ENABLE;
 			msg.u.flag.enable = enable;
-			ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
-				0, &msg, sizeof(msg)/MBOX_SLOT_SIZE, 0);
+			if (is_vcp_ready(VCP_A_ID)) {
+				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
+					0, &msg, sizeof(msg)/MBOX_SLOT_SIZE, 0);
 
-			if (ret == IPI_ACTION_DONE)
-				break;
+				if (ret == IPI_ACTION_DONE)
+					break;
+			}
 			retrytimes--;
 			udelay(1000);
 		} while (retrytimes > 0 && vcp_A_logger_inited);
@@ -399,11 +401,13 @@ static unsigned int vcp_A_log_wakeup_set(unsigned int enable)
 		do {
 			msg.cmd = VCP_LOGGER_IPI_WAKEUP;
 			msg.u.flag.enable = enable;
-			ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
-				0, &msg, sizeof(msg)/MBOX_SLOT_SIZE, 0);
+			if (is_vcp_ready(VCP_A_ID)) {
+				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
+					0, &msg, sizeof(msg)/MBOX_SLOT_SIZE, 0);
 
-			if (ret == IPI_ACTION_DONE)
-				break;
+				if (ret == IPI_ACTION_DONE)
+					break;
+			}
 			retrytimes--;
 			udelay(1000);
 		} while (retrytimes > 0 && vcp_A_logger_inited);
@@ -650,6 +654,7 @@ static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 	/*set a wq to enable vcp logger*/
 	vcp_logger_notify_work[VCP_A_ID].id = VCP_A_ID;
 #if VCP_LOGGER_ENABLE
+	vcp_logger_notify_work[VCP_A_ID].flags = 0;
 	vcp_schedule_logger_work(&vcp_logger_notify_work[VCP_A_ID]);
 #endif
 
@@ -697,6 +702,8 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 	unsigned long long ap_time;
 	struct vcp_logger_ctrl_msg msg;
 	phys_addr_t dma_addr;
+	struct vcp_work_struct *sws =
+		container_of(ws, struct vcp_work_struct, work);
 
 	vcp_ipi_id = IPI_OUT_LOGGER_CTRL;
 	msg.cmd = VCP_LOGGER_IPI_INIT;
@@ -707,19 +714,22 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 	msg.u.init.ap_time_l = (unsigned int)(ap_time & 0xFFFFFFFF);
 	msg.u.init.ap_time_h = (unsigned int)((ap_time >> 32) & 0xFFFFFFFF);
 
-	pr_debug("[VCP] %s: id=%u, ap_time %llu\n", __func__, vcp_ipi_id, ap_time);
+	pr_debug("[VCP] %s: id=%u, ap_time %llu flag %x\n",
+		__func__, vcp_ipi_id, ap_time, sws->flags);
 	/*
 	 *send ipi to invoke vcp logger
 	 */
 	retrytimes = VCP_IPI_RETRY_TIMES;
 	do {
-		ret = mtk_ipi_send(&vcp_ipidev, vcp_ipi_id, 0, &msg,
-				   sizeof(msg)/MBOX_SLOT_SIZE, 0);
+		if (is_vcp_ready(VCP_A_ID)) {
+			ret = mtk_ipi_send(&vcp_ipidev, vcp_ipi_id, 0, &msg,
+					   sizeof(msg)/MBOX_SLOT_SIZE, 0);
 
-		if ((retrytimes % 500) == 0)
-			pr_debug("[VCP] %s: ipi ret=%d\n", __func__, ret);
-		if (ret == IPI_ACTION_DONE)
-			break;
+			if ((retrytimes % 500) == 0)
+				pr_debug("[VCP] %s: ipi ret=%d\n", __func__, ret);
+			if (ret == IPI_ACTION_DONE)
+				break;
+		}
 		retrytimes--;
 		udelay(1000);
 	} while (retrytimes > 0 && vcp_A_logger_inited);
@@ -741,6 +751,7 @@ static int vcp_logger_notify_callback(struct notifier_block *this,
 	switch (event) {
 	case VCP_EVENT_READY:
 #if VCP_LOGGER_ENABLE
+	vcp_logger_notify_work[VCP_A_ID].flags = 1;
 	vcp_schedule_logger_work(&vcp_logger_notify_work[VCP_A_ID]);
 #endif
 	break;

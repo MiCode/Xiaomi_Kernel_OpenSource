@@ -20,79 +20,6 @@ struct vcp_ipi_legacy_pkt {
 };
 
 /*
- * This is a handler for handling legacy ipi callback function
- */
-static int vcp_legacy_handler(unsigned int id, void *prdata, void *data,
-			       unsigned int len)
-{
-	void (*handler)(int id, void *data, unsigned int len);
-	struct vcp_ipi_legacy_pkt pkt;
-
-	/* variation length will only support chre, chrex and sensor for
-	 * reducing slot and cpu time cost by memcpy.
-	 */
-	pkt.id = *(unsigned int *)data;
-	pkt.len = *(unsigned int *)(data + 4);
-	pkt.data = (void *)(data + 8);
-
-	if (pkt.id > IPI_MPOOL)
-		handler = mpool[pkt.id - IPI_MPOOL - 1].handler;
-	else
-		handler = prdata;
-	if (handler)
-		handler(pkt.id, pkt.data, pkt.len);
-
-	return 0;
-}
-
-/*
- * API let apps can register an ipi handler to receive IPI
- * @param id:	   IPI ID
- * @param handler:  IPI handler
- * @param name:	 IPI name
- */
-enum vcp_ipi_status vcp_ipi_registration(enum vcp_ipi_id id,
-	void (*ipi_handler)(int id, void *data, unsigned int len),
-	const char *name)
-{
-	int ret = VCP_IPI_ERROR;
-
-	if (id >= VCP_NR_IPI || id == IPI_MPOOL)
-		return VCP_IPI_ERROR;
-
-	if (ipi_handler == NULL)
-		return VCP_IPI_ERROR;
-
-	if (id > IPI_MPOOL) {
-		mpool[id - IPI_MPOOL - 1].handler = ipi_handler;
-		return VCP_IPI_DONE;
-	}
-
-	if (vcp_ipi_legacy_id[id].in_id_0 != IPI_NO_USE) {
-		ret =
-		    mtk_ipi_register(&vcp_ipidev, vcp_ipi_legacy_id[id].in_id_0,
-				    (void *)vcp_legacy_handler, ipi_handler,
-				    vcp_ipi_legacy_id[id].msg_0);
-
-		if (ret != IPI_ACTION_DONE)
-			return VCP_IPI_ERROR;
-	}
-
-	if (vcp_ipi_legacy_id[id].in_id_1 != IPI_NO_USE) {
-		ret =
-		    mtk_ipi_register(&vcp_ipidev, vcp_ipi_legacy_id[id].in_id_1,
-				    (void *)vcp_legacy_handler, ipi_handler,
-				    vcp_ipi_legacy_id[id].msg_1);
-
-		if (ret != IPI_ACTION_DONE)
-			return VCP_IPI_ERROR;
-	}
-
-	return VCP_IPI_DONE;
-}
-EXPORT_SYMBOL_GPL(vcp_ipi_registration);
-
-/*
  * API let apps unregister an ipi handler
  * @param id:	   IPI ID
  */
@@ -200,27 +127,6 @@ enum vcp_ipi_status vcp_ipi_send(enum vcp_ipi_id id, void *buf,
 	return VCP_IPI_ERROR;
 }
 EXPORT_SYMBOL_GPL(vcp_ipi_send);
-
-enum vcp_ipi_status vcp_legacy_ipi_init(void)
-{
-	int ret = 0;
-
-	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_MPOOL_0,
-			      (void *)vcp_legacy_handler, 0,
-			      vcp_ipi_legacy_id[0].msg_0);
-
-	if (ret != IPI_ACTION_DONE)
-		return VCP_IPI_ERROR;
-
-	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_MPOOL_1,
-			      (void *)vcp_legacy_handler, 0,
-			      vcp_ipi_legacy_id[0].msg_1);
-
-	if (ret != IPI_ACTION_DONE)
-		return VCP_IPI_ERROR;
-
-	return VCP_IPI_DONE;
-}
 
 void mbox_setup_pin_table(unsigned int mbox)
 {

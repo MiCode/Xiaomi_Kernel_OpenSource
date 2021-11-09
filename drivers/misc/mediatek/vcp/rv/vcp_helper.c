@@ -78,7 +78,6 @@ unsigned int vcp_enable[VCP_CORE_TOTAL];
 /* vcp dvfs variable*/
 unsigned int vcp_expected_freq;
 unsigned int vcp_current_freq;
-unsigned int vcp_dvfs_cali_ready;
 unsigned int vcp_support;
 unsigned int vcp_dbg_log;
 
@@ -142,7 +141,6 @@ static bool is_suspending;
 static DEFINE_MUTEX(vcp_pw_clk_mutex);
 static DEFINE_MUTEX(vcp_A_notify_mutex);
 static DEFINE_MUTEX(vcp_feature_mutex);
-static DEFINE_MUTEX(vcp_register_sensor_mutex);
 
 char *core_ids[VCP_CORE_TOTAL] = {"VCP A"};
 DEFINE_SPINLOCK(vcp_awake_spinlock);
@@ -434,23 +432,21 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 		container_of(ws, struct vcp_work_struct, work);
 	unsigned int vcp_notify_flag = sws->flags;
 
+	vcp_recovery_flag[VCP_A_ID] = VCP_A_RECOVERY_OK;
+	writel(0xff, VCP_TO_SPM_REG); /* patch: clear SPM interrupt */
 
-	if (vcp_notify_flag) {
-		vcp_recovery_flag[VCP_A_ID] = VCP_A_RECOVERY_OK;
-
-		writel(0xff, VCP_TO_SPM_REG); /* patch: clear SPM interrupt */
-		mutex_lock(&vcp_A_notify_mutex);
+	mutex_lock(&vcp_A_notify_mutex);
 #if VCP_RECOVERY_SUPPORT
-		atomic_set(&vcp_reset_status, RESET_STATUS_STOP);
+	atomic_set(&vcp_reset_status, RESET_STATUS_STOP);
 #endif
-		vcp_ready[VCP_A_ID] = 1;
-		vcp_dvfs_cali_ready = 1;
+	vcp_ready[VCP_A_ID] = 1;
+
+	if (vcp_notify_flag && (pwclkcnt > 0)) {
 		pr_debug("[VCP] notify blocking call\n");
 		blocking_notifier_call_chain(&vcp_A_notifier_list
 			, VCP_EVENT_READY, NULL);
-		mutex_unlock(&vcp_A_notify_mutex);
 	}
-
+	mutex_unlock(&vcp_A_notify_mutex);
 
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[VCP] clear vcp reset flag and unlock\n");
@@ -676,7 +672,28 @@ int reset_vcp(int reset)
 	return 0;
 }
 
-void vcp_enable_pm_clk(void)
+void vcp_wait_ready_sync(enum feature_id id)
+{
+	int i = 0;
+	int j = 0;
+
+	while (!is_vcp_ready(VCP_A_ID)) {
+		pr_info("[VCP] wait ready id %d\n", id);
+		i += 5;
+		mdelay(5);
+		if (i > VCP_SYNC_TIMEOUT_MS) {
+			pr_info("[VCP] wait ready timeout id %d\n", id);
+			vcp_dump_last_regs();
+			for (j = 0; j < NUM_FEATURE_ID; j++)
+				if (feature_table[j].enable)
+					pr_info("[VCP] Active feature id %d cnt\n",
+						j, feature_table[j].enable);
+			break;
+		}
+	}
+}
+
+void vcp_enable_pm_clk(enum feature_id id)
 {
 	int ret = 0;
 
@@ -707,13 +724,13 @@ void vcp_enable_pm_clk(void)
 			reset_vcp(VCP_ALL_ENABLE);
 	}
 	pwclkcnt++;
-	pr_notice("[VCP] %s done %d\n", __func__, pwclkcnt);
+	pr_notice("[VCP] %s id %d done %d\n", __func__, id, pwclkcnt);
 	mutex_unlock(&vcp_pw_clk_mutex);
 
 }
 EXPORT_SYMBOL_GPL(vcp_enable_pm_clk);
 
-void vcp_disable_pm_clk(void)
+void vcp_disable_pm_clk(enum feature_id id)
 {
 	int ret = 0;
 	int i = 0;
@@ -727,20 +744,11 @@ void vcp_disable_pm_clk(void)
 	}
 
 	mutex_lock(&vcp_pw_clk_mutex);
-	pr_notice("[VCP] %s entered %d ready %d\n", __func__,
+	pr_notice("[VCP] %s id %d entered %d ready %d\n", __func__, id,
 		pwclkcnt, is_vcp_ready(VCP_A_ID));
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
-		while (!is_vcp_ready(VCP_A_ID)) {
-			pr_info("[VCP] wait ready\n");
-			i += 5;
-			mdelay(5);
-			if (i > VCP_SYNC_TIMEOUT_MS) {
-				pr_info("[VCP] wait ready timeout\n");
-				vcp_dump_last_regs();
-				break;
-			}
-		}
+		vcp_wait_ready_sync(id);
 		vcp_disable_irqs();
 
 		flush_workqueue(vcp_workqueue);
@@ -765,6 +773,12 @@ void vcp_disable_pm_clk(void)
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
 	}
+	if (pwclkcnt < 0) {
+		for (i = 0; i < NUM_FEATURE_ID; i++)
+			pr_info("[VCP][Warning] %s Check feature id %d enable cnt %d\n",
+				__func__, feature_table[i].feature, feature_table[i].enable);
+		pwclkcnt = 0;
+	}
 	mutex_unlock(&vcp_pw_clk_mutex);
 
 }
@@ -773,13 +787,14 @@ EXPORT_SYMBOL_GPL(vcp_disable_pm_clk);
 static int vcp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
-	int retval, i;
+	int retval;
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		mutex_lock(&vcp_pw_clk_mutex);
 		pr_debug("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
+			vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
 
 			flush_workqueue(vcp_workqueue);
@@ -831,18 +846,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_RECOVERY_SUPPORT
 			cpuidle_pause_and_lock();
 			reset_vcp(VCP_ALL_ENABLE);
-
-			i = 0;
-			while (!is_vcp_ready(VCP_A_ID)) {
-				pr_info("[VCP] wait ready\n");
-				i += 5;
-				mdelay(5);
-				if (i > VCP_SYNC_TIMEOUT_MS) {
-					pr_info("[VCP] wait ready timeout\n");
-					vcp_dump_last_regs();
-					break;
-				}
-			}
+			vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			cpuidle_resume_and_unlock();
 #endif
 		}
@@ -1582,9 +1586,9 @@ void vcp_register_feature(enum feature_id id)
 	mutex_lock(&vcp_feature_mutex);
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (feature_table[i].feature == id)
-			feature_table[i].enable = 1;
+			feature_table[i].enable++;
 	}
-	vcp_enable_pm_clk();
+	vcp_enable_pm_clk(id);
 	mutex_unlock(&vcp_feature_mutex);
 }
 EXPORT_SYMBOL_GPL(vcp_register_feature);
@@ -1595,69 +1599,20 @@ void vcp_deregister_feature(enum feature_id id)
 
 	mutex_lock(&vcp_feature_mutex);
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (feature_table[i].feature == id)
-			feature_table[i].enable = 0;
+		if (feature_table[i].feature == id) {
+			if (feature_table[i].enable == 0) {
+				pr_info("[VCP][Warning] %s unbalanced feature id %d enable cnt %d\n",
+					__func__, id, feature_table[i].enable);
+				mutex_unlock(&vcp_feature_mutex);
+				return;
+			}
+			feature_table[i].enable--;
+		}
 	}
-	vcp_disable_pm_clk();
+	vcp_disable_pm_clk(id);
 	mutex_unlock(&vcp_feature_mutex);
 }
 EXPORT_SYMBOL_GPL(vcp_deregister_feature);
-
-/*vcp sensor type register*/
-void vcp_register_sensor(enum feature_id id, enum vcp_sensor_id sensor_id)
-{
-	uint32_t i;
-
-	/* prevent from access when vcp is down */
-	if (!vcp_ready[VCP_A_ID])
-		return;
-
-	if (id != SENS_FEATURE_ID) {
-		pr_debug("[VCP]register sensor id err");
-		return;
-	}
-	/* because feature_table is a global variable
-	 * use mutex lock to protect it from
-	 * accessing in the same time
-	 */
-	mutex_lock(&vcp_register_sensor_mutex);
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].feature == sensor_id)
-			sensor_type_table[i].enable = 1;
-	}
-
-	/* register sensor*/
-	vcp_register_feature(id);
-	mutex_unlock(&vcp_register_sensor_mutex);
-
-}
-
-/*vcp sensor type deregister*/
-void vcp_deregister_sensor(enum feature_id id, enum vcp_sensor_id sensor_id)
-{
-	uint32_t i;
-
-	/* prevent from access when vcp is down */
-	if (!vcp_ready[VCP_A_ID])
-		return;
-
-	if (id != SENS_FEATURE_ID) {
-		pr_debug("[VCP]deregister sensor id err");
-		return;
-	}
-	/* because feature_table is a global variable
-	 * use mutex lock to protect it from
-	 * accessing in the same time
-	 */
-	mutex_lock(&vcp_register_sensor_mutex);
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].feature == sensor_id)
-			sensor_type_table[i].enable = 0;
-	}
-	/* deregister sensor*/
-	vcp_deregister_feature(id);
-	mutex_unlock(&vcp_register_sensor_mutex);
-}
 
 /*
  * apps notification
@@ -1761,7 +1716,6 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	 *   VCP_PLATFORM_READY = 1,
 	 */
 	vcp_ready[VCP_A_ID] = 0;
-	vcp_dvfs_cali_ready = 0;
 
 	/* wake lock AP*/
 	__pm_stay_awake(vcp_reset_lock);
@@ -2518,7 +2472,6 @@ static int __init vcp_init(void)
 		vcp_enable[i] = 0;
 		vcp_ready[i] = 0;
 	}
-	vcp_dvfs_cali_ready = 0;
 	vcp_support = 1;
 	vcp_dbg_log = 0;
 
@@ -2574,7 +2527,6 @@ static int __init vcp_init(void)
 
 	INIT_WORK(&vcp_A_notify_work.work, vcp_A_notify_ws);
 
-	vcp_legacy_ipi_init();
 #ifdef VCP_DEBUG_REMOVED
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_READY_0,
 			(void *)vcp_A_ready_ipi_handler, NULL, &msg_vcp_ready0);

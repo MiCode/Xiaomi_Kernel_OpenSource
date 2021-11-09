@@ -151,9 +151,9 @@ enum vcp_reserve_mem_id_t {
 
 /* vcp feature ID list */
 enum feature_id {
-	SENS_FEATURE_ID,
 	RTOS_FEATURE_ID,
-	VCODEC_FEATURE_ID,
+	VDEC_FEATURE_ID,
+	VENC_FEATURE_ID,
 	GCE_FEATURE_ID,
 	NUM_FEATURE_ID,
 };

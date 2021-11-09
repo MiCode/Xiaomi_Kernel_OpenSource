@@ -50,21 +50,16 @@ extern struct vcp_status_reg *c0_m;
 extern struct vcp_status_reg *c0_t1_m;
 extern struct vcp_status_reg *c1_m;
 extern struct vcp_status_reg *c1_t1_m;
+extern uint32_t vcp_reg_base_phy;
 
-#define MDUMP_L2TCM_SIZE     0x40000 /* L2_TCM , for all vcp maximum sram size */
-#define MDUMP_L1C_SIZE       0x03c000
-#define MDUMP_REGDUMP_SIZE   0x003c00 /* register backup (max size) */
-#define MDUMP_TBUF_SIZE      0x000400
-#define MDUMP_DRAM_SIZE      VCP_DRAM_MAPSIZE
-
-struct MemoryDump {
-	/*vcp sram*/
-	char l2tcm[MDUMP_L2TCM_SIZE];
-	char l1c[MDUMP_L1C_SIZE];
-	/*vcp reg*/
-	char regdump[MDUMP_REGDUMP_SIZE];
-	char tbuf[MDUMP_TBUF_SIZE];
-	char dram[MDUMP_DRAM_SIZE];
+enum MDUMP {
+	MDUMP_DUMMY,
+	MDUMP_L2TCM,
+	MDUMP_L1C,
+	MDUMP_REGDUMP,
+	MDUMP_TBUF,
+	MDUMP_DRAM,
+	MDUMP_TOTAL
 };
 
 #endif

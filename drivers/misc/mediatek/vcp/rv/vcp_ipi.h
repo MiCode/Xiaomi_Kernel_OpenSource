@@ -25,6 +25,4 @@ extern struct mtk_ipi_device vcp_ipidev;
 extern struct mtk_mbox_info *vcp_mbox_info;
 extern struct vcp_ipi_wrapper vcp_ipi_legacy_id[1];
 
-extern enum vcp_ipi_status vcp_legacy_ipi_init(void);
-
 #endif

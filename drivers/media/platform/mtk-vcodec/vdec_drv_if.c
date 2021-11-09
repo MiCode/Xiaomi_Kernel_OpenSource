@@ -215,7 +215,7 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 
 	mutex_lock(&ctx->hw_status);
 	if (ctx->dev->dec_sem[hw_id].count != 0) {
-		mtk_v4l2_err("HW not prepared, dec_sem[%d].count = %d",
+		mtk_v4l2_debug(0, "HW not prepared, dec_sem[%d].count = %d",
 			hw_id, ctx->dev->dec_sem[hw_id].count);
 		mutex_unlock(&ctx->hw_status);
 		return;

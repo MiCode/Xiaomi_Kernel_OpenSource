@@ -14,18 +14,24 @@
 #include <linux/sched_clock.h>
 #include <linux/ratelimit.h>
 #include <linux/delay.h>
+#include <linux/of_reserved_mem.h>
 #include "vcp.h"
 #include "vcp_ipi_pin.h"
 #include "vcp_helper.h"
 #include "vcp_excep.h"
 #include "vcp_feature_define.h"
 #include "vcp_l1c.h"
+#include "vcp_reservedmem_define.h"
 
 struct vcp_dump_st {
 	uint8_t *detail_buff;
 	uint8_t *ramdump;
 	uint32_t ramdump_length;
+	/* use prefix to get size or offset in O(1) to save memory */
+	uint32_t prefix[MDUMP_TOTAL];
 };
+
+uint32_t vcp_reg_base_phy;
 
 struct reg_save_st {
 	uint32_t addr;
@@ -63,6 +69,41 @@ void (*vcp_do_tbufdump)(uint32_t*, uint32_t*) = NULL;
 static struct mutex vcp_excep_mutex;
 int vcp_ee_enable;
 unsigned int vcp_reset_counts = 0xFFFFFFFF;
+
+#ifdef VCP_DEBUG_REMOVED
+static atomic_t coredumping = ATOMIC_INIT(0);
+static DECLARE_COMPLETION(vcp_coredump_comp);
+static uint32_t get_MDUMP_size(MDUMP_t type)
+{
+	return vcp_dump.prefix[type] - vcp_dump.prefix[type - 1];
+}
+
+static uint32_t get_MDUMP_size_accumulate(MDUMP_t type)
+{
+	return vcp_dump.prefix[type];
+}
+
+static uint8_t *get_MDUMP_addr(MDUMP_t type)
+{
+	return (uint8_t *)(vcp_dump.ramdump + vcp_dump.prefix[type - 1]);
+}
+
+uint32_t memorydump_size_probe(struct platform_device *pdev)
+{
+	uint32_t i, ret;
+
+	for (i = MDUMP_L2TCM; i < MDUMP_TOTAL; ++i) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+			"memorydump", i - 1, &vcp_dump.prefix[i]);
+		if (ret) {
+			pr_notice("[VCP] %s:Cannot get memorydump size(%d)\n", __func__, i - 1);
+			return -1;
+		}
+		vcp_dump.prefix[i] += vcp_dump.prefix[i - 1];
+	}
+	return 0;
+}
+#endif
 
 void vcp_dump_last_regs(void)
 {
@@ -186,22 +227,25 @@ void vcp_do_regdump(uint32_t *out, uint32_t *out_end)
 #endif
 }
 
+#ifdef VCP_DEBUG_REMOVED
 void vcp_do_l1cdump(uint32_t *out, uint32_t *out_end)
 {
 	uint32_t *buf = out;
 	uint32_t tmp;
+	uint32_t l1c_size = get_MDUMP_size(MDUMP_L1C);
 
 	tmp = readl(R_SEC_CTRL);
 	/* enable cache debug */
 	writel(tmp | B_CORE0_CACHE_DBG_EN | B_CORE1_CACHE_DBG_EN, R_SEC_CTRL);
-	if ((void *)buf + MDUMP_L1C_SIZE > (void *)out_end) {
+	if ((void *)buf + l1c_size > (void *)out_end) {
 		pr_notice("[VCP] %s overflow\n", __func__);
 		return;
 	}
-	memcpy_from_vcp(buf, R_CORE0_CACHE_RAM, MDUMP_L1C_SIZE);
+	memcpy_from_vcp(buf, R_CORE0_CACHE_RAM, l1c_size);
 	/* disable cache debug */
 	writel(tmp, R_SEC_CTRL);
 }
+#endif
 
 void vcp_do_tbufdump_RV33(uint32_t *out, uint32_t *out_end)
 {
@@ -320,8 +364,7 @@ void vcp_do_tbufdump_RV55(uint32_t *out, uint32_t *out_end)
  * @param vcp_core_id:  core id
  * @return:             vcp dump size
  */
-static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
-		enum vcp_core_id id)
+static unsigned int vcp_crash_dump(enum vcp_core_id id)
 {
 	unsigned int vcp_dump_size = 0;
 	unsigned int vcp_awake_fail_flag;
@@ -339,19 +382,18 @@ static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
 		vcp_awake_fail_flag = 1;
 	}
 #ifdef VCP_DEBUG_REMOVED
-	memcpy_from_vcp((void *)&(pMemoryDump->l2tcm),
+	//TO DO: SMC aee dump
+	memcpy_from_vcp((void *)get_MDUMP_addr(MDUMP_L2TCM),
 		(void *)(VCP_TCM),
 		(VCP_A_TCM_SIZE));
-	vcp_do_l1cdump((void *)&(pMemoryDump->l1c),
-		(void *)&(pMemoryDump->regdump));
+	vcp_do_l1cdump((void *)get_MDUMP_addr(MDUMP_L1C),
+		(void *)get_MDUMP_addr(MDUMP_REGDUMP));
 	/* dump sys registers */
-	vcp_do_regdump((void *)&(pMemoryDump->regdump),
-		(void *)&(pMemoryDump->tbuf));
-	vcp_do_tbufdump((void *)&(pMemoryDump->tbuf),
-		(void *)&(pMemoryDump->dram));
-	vcp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_L1C_SIZE
-		+ MDUMP_REGDUMP_SIZE + MDUMP_TBUF_SIZE;
-
+	vcp_do_regdump((void *)&get_MDUMP_addr(MDUMP_REGDUMP),
+		(void *)get_MDUMP_addr(MDUMP_TBUF));
+	vcp_do_tbufdump((void *)get_MDUMP_addr(MDUMP_TBUF),
+		(void *)get_MDUMP_addr(MDUMP_DRAM));
+	vcp_dump_size = get_MDUMP_size_accumulate(MDUMP_TBUF);
 
 	/* dram support? */
 	if ((int)(vcp_region_info_copy.ap_dram_size) <= 0) {
@@ -383,10 +425,8 @@ static unsigned int vcp_crash_dump(struct MemoryDump *pMemoryDump,
  * @param aed_str:  exception description
  * @param id:       identify vcp core id
  */
-static void vcp_prepare_aed_dump(char *aed_str,
-		enum vcp_core_id id)
+static void vcp_prepare_aed_dump(char *aed_str, enum vcp_core_id id)
 {
-	struct MemoryDump *md = (struct MemoryDump *) vcp_dump.ramdump;
 	char *vcp_A_log = NULL;
 	size_t offset = 0;
 
@@ -440,11 +480,10 @@ end:
 
 	/*prepare vcp A db file*/
 	vcp_dump.ramdump_length = 0;
-	memset(md, 0x0, sizeof(*md));
-	vcp_dump.ramdump_length = vcp_crash_dump(md, VCP_A_ID);
+	vcp_dump.ramdump_length = vcp_crash_dump(VCP_A_ID);
 
 	pr_notice("[VCP] %s ends, @%p, size = %x\n", __func__,
-		md, vcp_dump.ramdump_length);
+		vcp_dump.ramdump, vcp_dump.ramdump_length);
 }
 
 /*
@@ -524,6 +563,24 @@ static ssize_t vcp_A_dump_show(struct file *filep,
 
 		memcpy(buf, vcp_dump.ramdump + offset, size);
 		length = size;
+
+		/* clean the buff after readed */
+		memset(vcp_dump.ramdump + offset, 0x0, size);
+		/* log for the first and latest cleanup */
+		if (offset == 0 || size == (vcp_dump.ramdump_length - offset))
+			pr_notice("[VCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
+				offset, size);
+#ifdef VCP_DEBUG_REMOVED
+		/* the last time read vcp_dump buffer has done
+		 * so the next coredump flow can be continued
+		 */
+		if (size == vcp_dump.ramdump_length - offset) {
+			atomic_set(&coredumping, false);
+			pr_notice("[VCP] coredumping:%d, coredump complete\n",
+				atomic_read(&coredumping));
+			complete(&vcp_coredump_comp);
+		}
+#endif
 	}
 
 	mutex_unlock(&vcp_excep_mutex);
@@ -553,10 +610,6 @@ int vcp_excep_init(void)
 	/* alloc dump memory */
 	vcp_dump.detail_buff = vmalloc(VCP_AED_STR_LEN);
 	if (!vcp_dump.detail_buff)
-		return -1;
-
-	vcp_dump.ramdump = vmalloc(sizeof(struct MemoryDump));
-	if (!vcp_dump.ramdump)
 		return -1;
 
 	/* vcp_status_reg init */
@@ -614,8 +667,6 @@ void vcp_ram_dump_init(void)
 void vcp_excep_cleanup(void)
 {
 	vfree(vcp_dump.detail_buff);
-	vfree(vcp_dump.ramdump);
-
 	vcp_A_task_context_addr = 0;
 
 	pr_debug("[VCP] %s ends\n", __func__);

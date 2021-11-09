@@ -166,9 +166,11 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	if (ctx == NULL || core_id >= MTK_VENC_HW_NUM)
 		return;
 
+	mutex_lock(&ctx->hw_status);
 	if (ctx->dev->enc_sem[core_id].count != 0) {
-		mtk_v4l2_err("HW not prepared, enc_sem[%d].count = %d",
+		mtk_v4l2_debug(0, "HW not prepared, enc_sem[%d].count = %d",
 			core_id, ctx->dev->enc_sem[core_id].count);
+		mutex_unlock(&ctx->hw_status);
 		return;
 	}
 	if (core_id == MTK_VENC_CORE_0)
@@ -176,7 +178,6 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	else
 		vcodec_trace_count("VENC_HW_CORE_1", 0);
 
-	mutex_lock(&ctx->hw_status);
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
 		disable_irq(ctx->dev->enc_irq[core_id]);
 	mtk_vcodec_enc_clock_off(ctx, core_id);
