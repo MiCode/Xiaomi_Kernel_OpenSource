@@ -2934,6 +2934,9 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->dec_params.operating_rate = ctrl->val;
 		ctx->dec_param_change |= MTK_DEC_PARAM_OPERATING_RATE;
 		break;
+	case V4L2_CID_MPEG_MTK_REAL_TIME_PRIORITY:
+		ctx->dec_params.priority = ctrl->val;
+		break;
 	case V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT:
 		ctx->dec_params.queued_frame_buf_count = ctrl->val;
 		break;
@@ -3161,6 +3164,18 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.max = 4096;
 	cfg.step = 1;
 	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_REAL_TIME_PRIORITY;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Vdec Real Time Priority";
+	cfg.min = -1;
+	cfg.max = 1;
+	cfg.step = 1;
+	cfg.def = -1;
 	cfg.ops = ops;
 	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
 

@@ -840,5 +840,7 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 	(V4L2_CID_MPEG_MTK_BASE+45)
 #define V4L2_CID_MPEG_MTK_ENCODE_ENABLE_DUMMY_NAL \
 	(V4L2_CID_MPEG_MTK_BASE+47)
+#define V4L2_CID_MPEG_MTK_REAL_TIME_PRIORITY \
+	(V4L2_CID_MPEG_MTK_BASE+48)
 
 #endif /* _MTK_VCODEC_DRV_H_ */

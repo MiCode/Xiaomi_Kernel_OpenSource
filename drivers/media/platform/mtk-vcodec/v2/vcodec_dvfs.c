@@ -111,11 +111,8 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 		new_inst->core_cnt = 1;
 	new_inst->op_rate = (new_inst->codec_type == MTK_INST_ENCODER) ?
 		ctx->enc_params.operationrate : ctx->dec_params.operating_rate;
-	new_inst->priority = -1;
-		/* Undefined priority to be passed from C2
-		 * (new_inst->codec_type == MTK_INST_ENCODER) ?
-		 * ctx->enc_params.priority : ctx->dec_params.priority;
-		 */
+	new_inst->priority = (new_inst->codec_type == MTK_INST_ENCODER) ?
+				ctx->enc_params.priority : ctx->dec_params.priority;
 	if (new_inst->op_rate == 0) {
 		new_inst->op_rate = (new_inst->codec_type == MTK_INST_ENCODER) ?
 			(ctx->enc_params.framerate_denom == 0 ? 0 :
@@ -137,9 +134,9 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 			mtk_v4l2_debug(0, "[VDVFS] VENC no config");
 	}
 
-	mtk_v4l2_debug(4, "[VDVFS] New inst id %d, type %u, fmt %u, cfg %d, ccnt %u, op_rate %d",
+	mtk_v4l2_debug(4, "[VDVFS] New inst id %d, type %u, fmt %u, cfg %d, ccnt %u, op_rate %d, priority %d",
 			new_inst->id, new_inst->codec_type, new_inst->codec_fmt, new_inst->config,
-			new_inst->core_cnt, new_inst->op_rate);
+			new_inst->core_cnt, new_inst->op_rate, new_inst->priority);
 	mtk_v4l2_debug(4, "[VDVFS] width %u, height %u, is_encoder %d",
 			new_inst->width, new_inst->height,
 			new_inst->codec_type == MTK_INST_ENCODER);
