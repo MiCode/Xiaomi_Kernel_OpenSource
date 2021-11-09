@@ -5618,6 +5618,8 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		mtk_crtc_ddp_prepare(mtk_crtc);
 	}
 
+	mtk_gce_backup_slot_init(mtk_crtc);
+
 #ifndef DRM_CMDQ_DISABLE
 	/* 3. power on cmdq client */
 	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
@@ -6153,6 +6155,8 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 				priv->data->sodi_config(crtc->dev, comp->id, NULL, &en);
 		}
 	}
+
+	mtk_gce_backup_slot_init(mtk_crtc);
 
 	/* 7. set vblank*/
 	drm_crtc_vblank_on(crtc);
@@ -8659,6 +8663,27 @@ unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int 
 		idx += EXTERNAL_INPUT_LAYER_NR;
 
 	return idx;
+}
+
+/* for platform that store information in register rather than mermory */
+void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc)
+{
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	size_t size;
+	struct dummy_mapping *table;
+	unsigned int mmsys_id = 0;
+	int i;
+
+	mmsys_id = mtk_get_mmsys_id(crtc);
+	if ((mmsys_id != MMSYS_MT6983) &&
+		(mmsys_id != MMSYS_MT6895))
+		return;
+
+	table = mt6983_dispsys_dummy_register;
+	size = MT6983_DUMMY_REG_CNT;
+
+	for (i = 0 ; i < size ; i++)
+		writel(0x0, table[i].addr + table[i].offset);
 }
 
 unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,

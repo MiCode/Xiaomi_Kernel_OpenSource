@@ -560,6 +560,8 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	mtk_drm_idlemgr_enable_connector(crtc);
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
+	mtk_gce_backup_slot_init(mtk_crtc);
+
 	/* 3. start trigger loop first to keep gce alive */
 	if (crtc_id == 0) {
 		if (mtk_crtc_with_sodi_loop(crtc) &&

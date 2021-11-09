@@ -1000,6 +1000,7 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index);
 
 unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int idx);
+void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
