@@ -17,6 +17,7 @@
 #include "mt6879_dcm_internal.h"
 #include "mtk_dcm.h"
 
+#define enable_core_stall 0
 #define DEBUGLINE dcm_pr_info("%s %d\n", __func__, __LINE__)
 
 static short dcm_cpu_cluster_stat;
@@ -166,7 +167,9 @@ int dcm_mcusys(int on)
 	dcm_mp_cpusys_top_adb_dcm(on);
 	dcm_mp_cpusys_top_apb_dcm(on);
 	dcm_mp_cpusys_top_bus_pll_div_dcm(on);
+#if enable_core_stall
 	dcm_mp_cpusys_top_core_stall_dcm(on);
+#endif
 	dcm_mp_cpusys_top_cpubiu_dcm(on);
 	dcm_mp_cpusys_top_fcm_stall_dcm(on);
 	dcm_mp_cpusys_top_last_cor_idle_dcm(on);
