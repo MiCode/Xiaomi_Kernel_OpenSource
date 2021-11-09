@@ -555,8 +555,8 @@ void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 	if (!ret) {
 		p_hdr_exp->mode_exp_cnt = info.count;
 		p_hdr_exp->ae_exp_cnt = ae_exp_cnt;
-		p_hdr_exp->readout_len_lc = (ctx->subctx.readout_length * info.count);
-		p_hdr_exp->read_margin_lc = (ctx->subctx.read_margin * info.count);
+		p_hdr_exp->readout_len_lc = ctx->subctx.readout_length;
+		p_hdr_exp->read_margin_lc = ctx->subctx.read_margin;
 
 		for (i = 0; i < ae_exp_cnt; ++i) {
 			int idx = hdr_exp_idx_map[ae_exp_cnt][i];

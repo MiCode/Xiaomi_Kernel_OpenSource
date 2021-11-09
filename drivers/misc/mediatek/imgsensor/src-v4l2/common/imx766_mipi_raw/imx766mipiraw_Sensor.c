@@ -201,7 +201,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 938060000,
 		.max_framerate = 300,
 		/* ((y_end - y_start + 1) / 4 + 35) * 2 */
-		.readout_length = 2374,
+		.readout_length = 2374 * 2,
+		.read_margin = 10 * 2,
 	},
 	.custom5 = { /* QBIN_HVBIN_V2H2_FHD_2048x1152_240FPS */
 		.pclk = 2716800000,
@@ -262,7 +263,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 591090000,
 		.max_framerate = 300,
-		.readout_length = 1580,
+		.readout_length = 1580 * 2,
+		.read_margin = 10 * 2,
 	},
 	.custom10 = { /* QBIN_HVBIN_V2H2_3DOL_2048x1536_30FPS */
 		.pclk = 1488000000,
@@ -275,7 +277,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 591090000,
 		.max_framerate = 300,
-		.readout_length = 1600,
+		.readout_length = 1600 * 3,
+		.read_margin = 10 * 3,
 	},
 	.custom11 = { /* QBIN_HVBIN_V1H1_4096x3072_30FPS */
 		.pclk = 1488000000,
@@ -1140,7 +1143,7 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	calc_fl2 += imgsensor_info.margin*shutter_cnt*shutter_cnt;
 
 	/* fl constraint 3: readout time cannot be overlapped */
-	calc_fl3 = (readoutLength + readMargin) * shutter_cnt;
+	calc_fl3 = (readoutLength + readMargin);
 	if (previous_exp_cnt == shutter_cnt) {
 		for (i = 1; i < shutter_cnt; i++) {
 			readoutDiff = previous_exp[i] - shutters[i];
@@ -1810,6 +1813,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->frame_length = imgsensor_info.normal_video.framelength;
 		ctx->min_frame_length = imgsensor_info.normal_video.framelength;
 		ctx->readout_length = imgsensor_info.normal_video.readout_length;
+		ctx->read_margin = imgsensor_info.normal_video.read_margin;
 
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_normal_video,
@@ -1833,6 +1837,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->frame_length = imgsensor_info.custom4.framelength;
 		ctx->min_frame_length = imgsensor_info.custom4.framelength;
 		ctx->readout_length = imgsensor_info.custom4.readout_length;
+		ctx->read_margin = imgsensor_info.custom4.read_margin;
 
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom4,
@@ -1861,6 +1866,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->frame_length = imgsensor_info.custom8.framelength;
 		ctx->min_frame_length = imgsensor_info.custom8.framelength;
 		ctx->readout_length = imgsensor_info.custom8.readout_length;
+		ctx->read_margin = imgsensor_info.custom8.read_margin;
 
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom8,
@@ -1884,6 +1890,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->frame_length = imgsensor_info.custom9.framelength;
 		ctx->min_frame_length = imgsensor_info.custom9.framelength;
 		ctx->readout_length = imgsensor_info.custom9.readout_length;
+		ctx->read_margin = imgsensor_info.custom9.read_margin;
 
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom9,
@@ -1910,6 +1917,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->frame_length = imgsensor_info.custom10.framelength;
 		ctx->min_frame_length = imgsensor_info.custom10.framelength;
 		ctx->readout_length = imgsensor_info.custom10.readout_length;
+		ctx->read_margin = imgsensor_info.custom10.read_margin;
 
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom10,
@@ -1936,6 +1944,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->frame_length = imgsensor_info.custom11.framelength;
 		ctx->min_frame_length = imgsensor_info.custom11.framelength;
 		ctx->readout_length = imgsensor_info.custom11.readout_length;
+		ctx->read_margin = imgsensor_info.custom11.read_margin;
 
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom11,
@@ -1959,6 +1968,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		ctx->frame_length = imgsensor_info.custom12.framelength;
 		ctx->min_frame_length = imgsensor_info.custom12.framelength;
 		ctx->readout_length = imgsensor_info.custom12.readout_length;
+		ctx->read_margin = imgsensor_info.custom12.read_margin;
 
 		FMC_GPH_START;
 		imx766_table_write_cmos_sensor_8(ctx, imx766_seamless_custom12,
@@ -2160,6 +2170,7 @@ static kal_uint32 preview(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->min_frame_length = imgsensor_info.pre.framelength;
 	ctx->readout_length = imgsensor_info.pre.readout_length;
+	ctx->read_margin = imgsensor_info.pre.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	preview_setting(ctx);
 
@@ -2191,6 +2202,7 @@ static kal_uint32 capture(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.cap.framelength;
 	ctx->min_frame_length = imgsensor_info.cap.framelength;
 	ctx->readout_length = imgsensor_info.cap.readout_length;
+	ctx->read_margin = imgsensor_info.cap.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	capture_setting(ctx);
 
@@ -2207,6 +2219,7 @@ static kal_uint32 normal_video(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.normal_video.framelength;
 	ctx->min_frame_length = imgsensor_info.normal_video.framelength;
 	ctx->readout_length = imgsensor_info.normal_video.readout_length;
+	ctx->read_margin = imgsensor_info.normal_video.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	normal_video_setting(ctx);
 
@@ -2223,6 +2236,7 @@ static kal_uint32 hs_video(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.hs_video.framelength;
 	ctx->min_frame_length = imgsensor_info.hs_video.framelength;
 	ctx->readout_length = imgsensor_info.hs_video.readout_length;
+	ctx->read_margin = imgsensor_info.hs_video.read_margin;
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
 	ctx->autoflicker_en = KAL_FALSE;
@@ -2241,6 +2255,7 @@ static kal_uint32 slim_video(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.slim_video.framelength;
 	ctx->min_frame_length = imgsensor_info.slim_video.framelength;
 	ctx->readout_length = imgsensor_info.slim_video.readout_length;
+	ctx->read_margin = imgsensor_info.slim_video.read_margin;
 	ctx->dummy_line = 0;
 	ctx->dummy_pixel = 0;
 	ctx->autoflicker_en = KAL_FALSE;
@@ -2259,6 +2274,7 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom1.framelength;
 	ctx->min_frame_length = imgsensor_info.custom1.framelength;
 	ctx->readout_length = imgsensor_info.custom1.readout_length;
+	ctx->read_margin = imgsensor_info.custom1.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom1_setting(ctx);
 
@@ -2275,6 +2291,7 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom2.framelength;
 	ctx->min_frame_length = imgsensor_info.custom2.framelength;
 	ctx->readout_length = imgsensor_info.custom2.readout_length;
+	ctx->read_margin = imgsensor_info.custom2.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom2_setting(ctx);
 
@@ -2291,6 +2308,7 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom3.framelength;
 	ctx->min_frame_length = imgsensor_info.custom3.framelength;
 	ctx->readout_length = imgsensor_info.custom3.readout_length;
+	ctx->read_margin = imgsensor_info.custom3.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom3_setting(ctx);
 
@@ -2307,6 +2325,7 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom4.framelength;
 	ctx->min_frame_length = imgsensor_info.custom4.framelength;
 	ctx->readout_length = imgsensor_info.custom4.readout_length;
+	ctx->read_margin = imgsensor_info.custom4.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom4_setting(ctx);
 
@@ -2323,6 +2342,7 @@ static kal_uint32 custom5(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom5.framelength;
 	ctx->min_frame_length = imgsensor_info.custom5.framelength;
 	ctx->readout_length = imgsensor_info.custom5.readout_length;
+	ctx->read_margin = imgsensor_info.custom5.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom5_setting(ctx);
 
@@ -2339,6 +2359,7 @@ static kal_uint32 custom6(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom6.framelength;
 	ctx->min_frame_length = imgsensor_info.custom6.framelength;
 	ctx->readout_length = imgsensor_info.custom6.readout_length;
+	ctx->read_margin = imgsensor_info.custom6.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom6_setting(ctx);
 
@@ -2355,6 +2376,7 @@ static kal_uint32 custom7(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom7.framelength;
 	ctx->min_frame_length = imgsensor_info.custom7.framelength;
 	ctx->readout_length = imgsensor_info.custom7.readout_length;
+	ctx->read_margin = imgsensor_info.custom7.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom7_setting(ctx);
 
@@ -2371,6 +2393,7 @@ static kal_uint32 custom8(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom8.framelength;
 	ctx->min_frame_length = imgsensor_info.custom8.framelength;
 	ctx->readout_length = imgsensor_info.custom8.readout_length;
+	ctx->read_margin = imgsensor_info.custom8.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom8_setting(ctx);
 
@@ -2387,6 +2410,7 @@ static kal_uint32 custom9(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom9.framelength;
 	ctx->min_frame_length = imgsensor_info.custom9.framelength;
 	ctx->readout_length = imgsensor_info.custom9.readout_length;
+	ctx->read_margin = imgsensor_info.custom9.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom9_setting(ctx);
 
@@ -2403,6 +2427,7 @@ static kal_uint32 custom10(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom10.framelength;
 	ctx->min_frame_length = imgsensor_info.custom10.framelength;
 	ctx->readout_length = imgsensor_info.custom10.readout_length;
+	ctx->read_margin = imgsensor_info.custom10.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom10_setting(ctx);
 
@@ -2419,6 +2444,7 @@ static kal_uint32 custom11(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom11.framelength;
 	ctx->min_frame_length = imgsensor_info.custom11.framelength;
 	ctx->readout_length = imgsensor_info.custom11.readout_length;
+	ctx->read_margin = imgsensor_info.custom11.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom11_setting(ctx);
 
@@ -2435,6 +2461,7 @@ static kal_uint32 custom12(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom12.framelength;
 	ctx->min_frame_length = imgsensor_info.custom12.framelength;
 	ctx->readout_length = imgsensor_info.custom12.readout_length;
+	ctx->read_margin = imgsensor_info.custom12.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom12_setting(ctx);
 
@@ -2451,6 +2478,7 @@ static kal_uint32 custom13(struct subdrv_ctx *ctx,
 	ctx->frame_length = imgsensor_info.custom13.framelength;
 	ctx->min_frame_length = imgsensor_info.custom13.framelength;
 	ctx->readout_length = imgsensor_info.custom13.readout_length;
+	ctx->read_margin = imgsensor_info.custom13.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
 	custom13_setting(ctx);
 

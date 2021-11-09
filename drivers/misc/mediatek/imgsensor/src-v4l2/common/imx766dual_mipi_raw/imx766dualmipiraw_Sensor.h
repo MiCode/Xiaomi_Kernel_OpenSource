@@ -65,6 +65,7 @@ struct imgsensor_mode_struct {
 	kal_uint16 max_framerate;
 	kal_uint32 mipi_pixel_rate;
 	kal_uint32 readout_length;
+	kal_uint8 read_margin; /* sensor read margin */
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/
