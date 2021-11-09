@@ -3700,6 +3700,30 @@
 			#clock-cells = <1>;
 		};
 
+		pda: pda@1a100000 {
+			compatible = "mediatek,camera-pda";
+			reg = <0 0x1a100000 0 0x1000>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			interrupts = <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&camsys_mraw_clk CLK_CAM_MR_PDA0>,
+				<&camsys_mraw_clk CLK_CAM_MR_PDA1>,
+				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2MM0_GALS_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM2MM1_GALS_CON>,
+				<&cam_main_r1a_clk CLK_CAM_MAIN_CAM_CON>;
+			clock-names = "camsys_mraw_pda0",
+					"camsys_mraw_pda1",
+					"mraw_larbx",
+					"cam_main_cam2mm0_gals_cg_con",
+					"cam_main_cam2mm1_gals_cg_con",
+					"cam_main_cam_cg_con";
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MRAW>;
+			mediatek,larbs = <&smi_larb25>;
+			iommus = <&disp_iommu M4U_LARB25_PORT11>,
+				<&disp_iommu M4U_LARB25_PORT12>,
+				<&disp_iommu M4U_LARB25_PORT13>;
+		};
+
 		camsys_mraw_clk: syscon@1a170000 {
 			compatible = "mediatek,mt6895-camsys_mraw", "syscon";
 			reg = <0 0x1a170000 0 0x1000>;
