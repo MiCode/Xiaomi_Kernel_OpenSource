@@ -22,7 +22,7 @@
 #include "cmdq-sec-iwc-common.h"
 #endif
 
-#define WPE_BWLOG_HW_COMB	(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
+#define WPE_BWLOG_HW_COMB (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
 #define WPE_BWLOG_HW_COMB_ninA (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_A)
 #define WPE_BWLOG_HW_COMB_ninB (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_B)
 
@@ -64,7 +64,7 @@ void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev
 	}
 
 	switch (nr_imgsys_dev) {
-	case 1:	/* DIP */
+	case 1: /* DIP */
 		/* request thread by index (in dts) 0 */
 		for (idx = 0; idx < IMGSYS_ENG_MAX; idx++) {
 			imgsys_clt[idx] = cmdq_mbox_create(dev, idx);
@@ -681,6 +681,17 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 
 	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
 		cmd_buf = (struct GCERecoder *)frm_info->user_info[frm_idx].g_swbuf;
+
+		if ((cmd_buf->header_code != 0x5A5A5A5A) ||
+				(cmd_buf->check_pre != 0x55AA55AA) ||
+				(cmd_buf->check_post != 0xAA55AA55) ||
+				(cmd_buf->footer_code != 0xA5A5A5A5)) {
+			pr_info("%s: Incorrect guard word: %08x/%08x/%08x/%08x", __func__,
+				cmd_buf->header_code, cmd_buf->check_pre, cmd_buf->check_post,
+				cmd_buf->footer_code);
+			return -1;
+		}
+
 		cmd_num = cmd_buf->curr_length / sizeof(struct Command);
 		cmd = (struct Command *)((unsigned long)(frm_info->user_info[frm_idx].g_swbuf) +
 			(unsigned long)(cmd_buf->cmd_offset));
@@ -861,7 +872,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				dev_dbg(imgsys_dev->dev,
 					"%s: cb(%p) gid(%d) in block(%d/%d) for frm(%d/%d) lst(%d/%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)\n",
 					__func__, cb_param, cb_param->group_id,
-					cb_param->blk_idx,	cb_param->blk_num,
+					cb_param->blk_idx,  cb_param->blk_num,
 					cb_param->frm_idx, cb_param->frm_num,
 					cb_param->isBlkLast, cb_param->isFrmLast,
 					cb_param->isTaskLast, cb_param->task_id,

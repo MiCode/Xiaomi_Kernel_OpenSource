@@ -796,11 +796,18 @@ enum GCE_REC_MODE_ENUM {
 };
 
 struct GCERecoder {
+	uint32_t            header_code;
+
 	// Record command offset
 	uint32_t            cmd_offset;
 
+	uint32_t            check_pre;
+
 	// Reocrd command buffer info
 	uint32_t            *pOutput;
+
+	uint32_t            check_post;
+
 	uint32_t            *pBuffer;
 	uint32_t            max_length;
 	uint32_t            curr_length;
@@ -836,6 +843,8 @@ struct GCERecoder {
 	// Each tile command label
 	uint32_t            tile_label[GCE_REC_MAX_LABEL_COUNT];
 	uint32_t            tile_count;
+
+	uint32_t            footer_code;
 };
 
 static struct imgsys_dvfs_group  dvfs_group[MTK_IMGSYS_DVFS_GROUP] = {

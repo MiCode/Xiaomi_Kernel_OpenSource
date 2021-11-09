@@ -534,6 +534,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				dma_buf_fd(mblock[id].d_buf,
 				O_RDWR | O_CLOEXEC);
 				dma_buf_get(mblock[id].fd);
+				dma_buf_begin_cpu_access(mblock[id].d_buf, DMA_BIDIRECTIONAL);
 				kref_init(&mblock[id].kref);
 				break;
 			default:
@@ -623,6 +624,7 @@ static void gce_release(struct kref *ref)
 	/* free iova */
 	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_TO_DEVICE);
 	dma_buf_detach(mblock->d_buf, mblock->attach);
+	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
 	dma_buf_put(mblock->d_buf);
 	// close fd in user space driver, you can't close fd in kernel site
 	// dma_heap_buffer_free(mblock[id].d_buf);

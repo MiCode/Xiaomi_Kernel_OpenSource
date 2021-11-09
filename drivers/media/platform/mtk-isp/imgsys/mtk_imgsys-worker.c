@@ -40,6 +40,8 @@ static int worker_func(void *data)
 	struct imgsys_queue *head = data;
 	struct imgsys_work *node;
 	struct list_head *list;
+	u64 start;
+	u64 end;
 
 	while (1) {
 		dev_dbg(head->dev, "%s: %s kthread sleeps\n", __func__,
@@ -66,8 +68,15 @@ static int worker_func(void *data)
 		node = list_entry(list, struct imgsys_work, entry);
 
 		IMGSYS_SYSTRACE_BEGIN("%s work:%p nr:%d\n", __func__, node, atomic_read(&head->nr));
+
+		start = ktime_get_boottime_ns();
 		if (node->run)
 			node->run(node);
+		end = ktime_get_boottime_ns();
+		if ((end - start) > 2000000)
+			dev_info(head->dev, "%s: work run time %lld > 2ms\n",
+			__func__, (end - start));
+
 		IMGSYS_SYSTRACE_END();
 
 next:
