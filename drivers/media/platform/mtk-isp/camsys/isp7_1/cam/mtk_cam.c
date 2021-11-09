@@ -4871,9 +4871,11 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			return -EPERM;
 		}
 	}
-	if (mtk_cam_is_stagger(ctx) || mtk_cam_is_mstream(ctx) ||
-		mtk_cam_is_time_shared(ctx))
+
+	if (ctx->img_buf_pool.working_img_buf_size > 0) {
 		mtk_cam_img_working_buf_pool_release(ctx);
+		ctx->img_buf_pool.working_img_buf_size = 0;
+	}
 
 	mtk_camsys_ctrl_stop(ctx);
 
