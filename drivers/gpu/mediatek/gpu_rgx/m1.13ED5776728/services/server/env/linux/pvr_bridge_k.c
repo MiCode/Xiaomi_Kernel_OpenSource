@@ -257,7 +257,10 @@ PVRSRV_ERROR OSPlatformBridgeInit(void)
 			.pfnStop = BridgeStatsDIStop,
 			.pfnNext = BridgeStatsDINext,
 			.pfnShow = BridgeStatsDIShow,
-			.pfnWrite = BridgeStatsWrite
+			.pfnWrite = BridgeStatsWrite,
+
+			//Expects '0' + Null terminator
+			.ui32WriteLenMax = ((1U)+1U)
 		};
 
 		eError = DICreateEntry("bridge_stats", NULL, &sIter,

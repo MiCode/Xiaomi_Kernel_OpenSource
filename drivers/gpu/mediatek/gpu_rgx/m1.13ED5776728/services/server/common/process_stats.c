@@ -1860,34 +1860,33 @@ PVRSRVStatsIncrMemAllocStatAndTrack(PVRSRV_MEM_ALLOC_TYPE eAllocType,
 
 	/* Alloc untracked memory for the new hash table entry */
 	psNewTrackingHashEntry = (_PVR_STATS_TRACKING_HASH_ENTRY *)OSAllocMemNoStats(sizeof(*psNewTrackingHashEntry));
-	if (psNewTrackingHashEntry)
+	if (psNewTrackingHashEntry == NULL)
 	{
-		/* Fill-in the size of the allocation and PID of the allocating process */
-		psNewTrackingHashEntry->uiSizeInBytes = uiBytes;
-		psNewTrackingHashEntry->uiPid = uiPid;
-		OSLockAcquire(gpsSizeTrackingHashTableLock);
-		/* Insert address of the new struct into the hash table */
-		bRes = HASH_Insert(gpsSizeTrackingHashTable, uiCpuVAddr, (uintptr_t)psNewTrackingHashEntry);
-		OSLockRelease(gpsSizeTrackingHashTableLock);
+		PVR_DPF((PVR_DBG_ERROR,
+				"*** %s : @ line %d Failed to alloc memory for psNewTrackingHashEntry!",
+				__func__, __LINE__));
+		return;
 	}
 
-	if (psNewTrackingHashEntry)
+	/* Fill-in the size of the allocation and PID of the allocating process */
+	psNewTrackingHashEntry->uiSizeInBytes = uiBytes;
+	psNewTrackingHashEntry->uiPid = uiPid;
+	OSLockAcquire(gpsSizeTrackingHashTableLock);
+	/* Insert address of the new struct into the hash table */
+	bRes = HASH_Insert(gpsSizeTrackingHashTable, uiCpuVAddr, (uintptr_t)psNewTrackingHashEntry);
+	OSLockRelease(gpsSizeTrackingHashTableLock);
+	if (bRes)
 	{
-		if (bRes)
-		{
-			PVRSRVStatsIncrMemAllocStat(eAllocType, uiBytes, uiPid);
-		}
-		else
-		{
-			PVR_DPF((PVR_DBG_ERROR, "*** %s : @ line %d HASH_Insert() failed!",
-					 __func__, __LINE__));
-		}
+		PVRSRVStatsIncrMemAllocStat(eAllocType, uiBytes, uiPid);
 	}
 	else
 	{
-		PVR_DPF((PVR_DBG_ERROR,
-				 "*** %s : @ line %d Failed to alloc memory for psNewTrackingHashEntry!",
+		PVR_DPF((PVR_DBG_ERROR, "*** %s : @ line %d HASH_Insert() failed!",
 				 __func__, __LINE__));
+		/* Free the memory allocated for psNewTrackingHashEntry, as we
+		 * failed to insert it into the Hash table.
+		 */
+		OSFreeMemNoStats(psNewTrackingHashEntry);
 	}
 }
 

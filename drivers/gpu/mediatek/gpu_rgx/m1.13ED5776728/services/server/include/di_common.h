@@ -207,22 +207,25 @@ typedef IMG_INT64 (*DI_PFN_WRITE)(const IMG_CHAR *pszBuffer,
  */
 typedef struct DI_ITERATOR_CB
 {
-    /* Generic entry interface. */
+	/* Generic entry interface. */
 
-    DI_PFN_START pfnStart; /*!< Starts iteration and returns first element
+	DI_PFN_START pfnStart; /*!< Starts iteration and returns first element
                                 of entry's data. */
-    DI_PFN_STOP pfnStop;   /*!< Stops iteration. */
-    DI_PFN_NEXT pfnNext;   /*!< Returns next element of entry's data. */
-    DI_PFN_SHOW pfnShow;   /*!< Shows current data element of an entry. */
+	DI_PFN_STOP pfnStop;   /*!< Stops iteration. */
+	DI_PFN_NEXT pfnNext;   /*!< Returns next element of entry's data. */
+	DI_PFN_SHOW pfnShow;   /*!< Shows current data element of an entry. */
 
-    /* Optional random access entry interface. */
+	/* Optional random access entry interface. */
 
-    DI_PFN_SEEK pfnSeek;   /*!< Sets data pointer in an entry. */
-    DI_PFN_READ pfnRead;   /*!< Reads data from an entry. */
+	DI_PFN_SEEK pfnSeek;   /*!< Sets data pointer in an entry. */
+	DI_PFN_READ pfnRead;   /*!< Reads data from an entry. */
 
-    /* Optional writing to entry interface. */
+	/* Optional writing to entry interface. Null terminated*/
 
-    DI_PFN_WRITE pfnWrite; /*!< Performs write operation on an entry. */
+	DI_PFN_WRITE pfnWrite; /*!< Performs write operation on an entry. */
+	IMG_UINT32   ui32WriteLenMax;  /*!< Maximum char length of entry
+					* accepted for write. Includes NULL
+					*/
 } DI_ITERATOR_CB;
 
 #endif /* DI_COMMON_H */
