@@ -217,19 +217,27 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 void mtk_gpueb_dvfs_commit(unsigned long ulNewFreqID,
 		GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited)
 {
-	int ret;
+	int ret = 0;
 
 	struct fdvfs_ipi_data ipi_data;
 	static unsigned long ulPreFreqID = -1;
 
 	if (ulNewFreqID != ulPreFreqID) {
+#ifdef FDVFS_REDUCE_IPI
+		mtk_gpueb_sysram_write(SYSRAM_GPU_COMMIT_PLATFORM_FREQ_IDX,
+			ulNewFreqID);
+		mtk_gpueb_sysram_write(SYSRAM_GPU_COMMIT_TYPE,
+			eCommitType);
+		mtk_gpueb_sysram_write(SYSRAM_GPU_COMMIT_VIRTUAL_FREQ,
+			0);
+#else
 		ipi_data.u.set_para.arg[0] = ulNewFreqID;
 		ipi_data.u.set_para.arg[1] = eCommitType;
 		ipi_data.u.set_para.arg[2] = 0;
 		ipi_data.u.set_para.arg[3] = 0xFFFFFFFF;
 
 		ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_NEW_FREQ, &ipi_data);
-
+#endif
 		if (pbCommited) {
 			if (ret == 0)
 				*pbCommited = true;
@@ -255,13 +263,21 @@ void mtk_gpueb_dvfs_dcs_commit(unsigned int platform_freq_idx,
 
 	if (platform_freq_idx != pre_platform_freq_idx ||
 		virtual_freq_in_MHz != pre_virtual_freq_in_MHz) {
-
+#ifdef FDVFS_REDUCE_IPI
+		mtk_gpueb_sysram_write(SYSRAM_GPU_COMMIT_PLATFORM_FREQ_IDX,
+			platform_freq_idx);
+		mtk_gpueb_sysram_write(SYSRAM_GPU_COMMIT_TYPE,
+			eCommitType);
+		mtk_gpueb_sysram_write(SYSRAM_GPU_COMMIT_VIRTUAL_FREQ,
+			virtual_freq_in_MHz);
+#else
 		ipi_data.u.set_para.arg[0] = platform_freq_idx;
 		ipi_data.u.set_para.arg[1] = eCommitType;
 		ipi_data.u.set_para.arg[2] = virtual_freq_in_MHz;
 		ipi_data.u.set_para.arg[3] = 0xFFFFFFFF;
 
 		ged_to_fdvfs_command(GPUFDVFS_IPI_SET_NEW_FREQ, &ipi_data);
+#endif
 	}
 
 	pre_platform_freq_idx = platform_freq_idx;
@@ -285,6 +301,20 @@ unsigned int mtk_gpueb_dvfs_set_feedback_info(int frag_done_interval_in_ns,
 	struct GpuUtilization_Ex util_ex, unsigned int curr_fps)
 {
 	int ret = 0;
+	unsigned int utils = 0;
+
+#ifdef FDVFS_REDUCE_IPI
+	utils = ((util_ex.util_active&0xff)|
+		((util_ex.util_3d&0xff)<<8)|
+		((util_ex.util_ta&0xff)<<16)|
+		((util_ex.util_compute&0xff)<<24));
+
+	mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_GPU_UTILS, utils);
+	mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_GPU_TIME,
+		frag_done_interval_in_ns);
+	mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_CURR_FPS,
+		curr_fps);
+#else
 	struct fdvfs_ipi_data ipi_data;
 
 	ipi_data.u.set_para.arg[0] = (unsigned int)frag_done_interval_in_ns;
@@ -298,6 +328,7 @@ unsigned int mtk_gpueb_dvfs_set_feedback_info(int frag_done_interval_in_ns,
 
 	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_FEEDBACK_INFO,
 		&ipi_data);
+#endif
 
 	return (ret > 0) ? ret:0xFFFFFFFF;
 }
@@ -328,8 +359,13 @@ int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time)
 	static unsigned int pre_target_frame_time;
 
 	if (target_frame_time != pre_target_frame_time) {
+#ifdef FDVFS_REDUCE_IPI
+		mtk_gpueb_sysram_write(SYSRAM_GPU_SET_TARGET_FRAME_TIME,
+			target_frame_time);
+#else
 		ipi_data.u.set_para.arg[0] = target_frame_time;
 		ret = ged_to_fdvfs_command(GPUFDVFS_IPI_SET_TARGET_FRAME_TIME, &ipi_data);
+#endif
 	}
 
 	pre_target_frame_time = target_frame_time;
@@ -409,21 +445,6 @@ unsigned int mtk_gpueb_dvfs_get_frame_loading(void)
 	return (ret > 0) ? ret:0xFFFF;
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_get_frame_loading);
-
-int mtk_gpueb_sysram_write(int offset, unsigned int val)
-{
-	if (!mtk_gpueb_dvfs_sysram_base_addr)
-		return -EADDRNOTAVAIL;
-
-	if ((offset % 4) != 0)
-		return -EINVAL;
-
-	__raw_writel(val, mtk_gpueb_dvfs_sysram_base_addr + offset);
-	mb(); /* make sure register access in order */
-
-	return 0;
-}
-EXPORT_SYMBOL(mtk_gpueb_sysram_write);
 
 int mtk_gpueb_sysram_batch_read(int max_read_count,
 	char *batch_string, int batch_str_size)
@@ -520,6 +541,26 @@ int mtk_gpueb_sysram_read(int offset)
 	return (int)(__raw_readl(mtk_gpueb_dvfs_sysram_base_addr + offset));
 }
 EXPORT_SYMBOL(mtk_gpueb_sysram_read);
+
+int mtk_gpueb_sysram_write(int offset, int val)
+{
+	if (!mtk_gpueb_dvfs_sysram_base_addr)
+		return -EADDRNOTAVAIL;
+
+	if ((offset % 4) != 0)
+		return -EINVAL;
+
+	__raw_writel(val, mtk_gpueb_dvfs_sysram_base_addr + offset);
+	mb(); /* make sure register access in order */
+
+	if (val != mtk_gpueb_sysram_read(offset))
+		GPUFDVFS_LOGE("%s(). failed to update sysram. addr: %p, val: %d/%d",
+		__func__, mtk_gpueb_dvfs_sysram_base_addr + offset, val,
+		mtk_gpueb_sysram_read(offset));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_gpueb_sysram_write);
 
 static int fastdvfs_proc_show(struct seq_file *m, void *v)
 {

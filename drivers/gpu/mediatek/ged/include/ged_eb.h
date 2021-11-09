@@ -52,6 +52,20 @@ enum gpu_fastdvfs_counter {
 	NR_FASTDVFS_COUNTER
 };
 
+enum gpu_fastdvfs_feedback_info {
+	FASTDVFS_FEEDBACK_INFO_UPDATED = 32,
+	FASTDVFS_FEEDBACK_INFO_GPU_TIME = 33,
+	FASTDVFS_FEEDBACK_INFO_GPU_UTILS = 34,
+	FASTDVFS_FEEDBACK_INFO_CURR_FPS = 35,
+	FASTDVFS_ENABLE_FRAME_BASE_DVFS = 36,
+	FASTDVFS_SET_TARGET_FRAME_TIME = 37,
+	FASTDVFS_COMMIT_PLATFORM_FREQ_IDX = 38,
+	FASTDVFS_COMMIT_VIRTUAL_FREQUENCY = 39,
+	FASTDVFS_COMMIT_TYPE = 40,
+
+	MAX_FASTDVFS_FEEDBACK_INFO
+};
+
 /* 6983 0x112000~0x112400 */
 #define FASTDVFS_POWERMODEL_SYSRAM_BASE 0x112000U
 
@@ -127,6 +141,42 @@ enum gpu_fastdvfs_counter {
 (                                      \
 (FASTDVFS_COUNTER_DCS*SYSRAM_LOG_SIZE) \
 )
+#define SYSRAM_GPU_FEEDBACK_INFO_UPDATED \
+(                                      \
+(FASTDVFS_FEEDBACK_INFO_UPDATED*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_FEEDBACK_INFO_GPU_TIME \
+(                                      \
+(FASTDVFS_FEEDBACK_INFO_GPU_TIME*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_FEEDBACK_INFO_GPU_UTILS \
+(                                      \
+(FASTDVFS_FEEDBACK_INFO_GPU_UTILS*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_FEEDBACK_INFO_CURR_FPS \
+(                                      \
+(FASTDVFS_FEEDBACK_INFO_CURR_FPS*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_ENABLE_FRAME_BASE_DVFS \
+(                                      \
+(FASTDVFS_ENABLE_FRAME_BASE_DVFS*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_SET_TARGET_FRAME_TIME \
+(                                      \
+(FASTDVFS_SET_TARGET_FRAME_TIME*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_COMMIT_PLATFORM_FREQ_IDX \
+(                                      \
+(FASTDVFS_COMMIT_PLATFORM_FREQ_IDX*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_COMMIT_VIRTUAL_FREQ \
+(                                      \
+(FASTDVFS_COMMIT_VIRTUAL_FREQUENCY*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_COMMIT_TYPE \
+(                                      \
+(FASTDVFS_COMMIT_TYPE*SYSRAM_LOG_SIZE) \
+)
 
 enum action_map {
 	ACTION_MAP_FASTDVFS = 0,
@@ -140,6 +190,7 @@ enum action_map {
  **************************************************/
 
 #define FASTDVFS_IPI_TIMEOUT 2000 //ms
+#define FDVFS_REDUCE_IPI 1
 
 enum {
 	GPUFDVFS_IPI_SET_FRAME_DONE         = 1,
@@ -211,7 +262,7 @@ extern void fdvfs_exit(void);
 extern int ged_to_fdvfs_command(unsigned int cmd,
 	struct fdvfs_ipi_data *fdvfs_d);
 extern int mtk_gpueb_sysram_read(int offset);
-
+extern int mtk_gpueb_sysram_write(int offset, int value);
 
 /**************************************************
  * GPU FAST DVFS EXPORTED API
