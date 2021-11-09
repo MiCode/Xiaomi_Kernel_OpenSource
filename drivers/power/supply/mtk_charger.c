@@ -2235,6 +2235,15 @@ static bool charger_init_algo(struct mtk_charger *info)
 	struct chg_alg_device *alg;
 	int idx = 0;
 
+	info->chg1_dev = get_charger_by_name("primary_chg");
+	if (info->chg1_dev)
+		chr_err("%s, Found primary charger\n", __func__);
+	else {
+		chr_err("%s, *** Error : can't find primary charger ***\n"
+			, __func__);
+		return false;
+	}
+
 	alg = get_chg_alg_by_name("pe5");
 	info->alg[idx] = alg;
 	if (alg == NULL)
@@ -2297,14 +2306,6 @@ static bool charger_init_algo(struct mtk_charger *info)
 		alg->alg_id = PE_ID;
 		chg_alg_init_algo(alg);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
-	}
-
-	info->chg1_dev = get_charger_by_name("primary_chg");
-	if (info->chg1_dev)
-		chr_err("Found primary charger\n");
-	else {
-		chr_err("*** Error : can't find primary charger ***\n");
-		return false;
 	}
 
 	chr_err("config is %d\n", info->config);
@@ -2580,6 +2581,7 @@ static int charger_routine_thread(void *arg)
 {
 	struct mtk_charger *info = arg;
 	unsigned long flags;
+	unsigned int init_times = 3;
 	static bool is_module_init_done;
 	bool is_charger_on;
 	int ret;
@@ -2604,8 +2606,14 @@ static int charger_routine_thread(void *arg)
 				}
 			}
 			else {
-				chr_err("charger_init fail\n");
-				msleep(5000);
+				if (init_times > 0) {
+					chr_err("retry to init charger\n");
+					init_times = init_times - 1;
+					msleep(10000);
+				} else {
+					chr_err("holding to init charger\n");
+					msleep(60000);
+				}
 			}
 		}
 
