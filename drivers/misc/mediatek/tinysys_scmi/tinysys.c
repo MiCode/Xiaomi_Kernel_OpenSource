@@ -217,7 +217,7 @@ static const struct scmi_event_ops tinysys_event_ops = {
 };
 
 static const struct scmi_protocol_events tinysys_protocol_events = {
-	.queue_sz = SCMI_PROTO_QUEUE_SZ,
+	.queue_sz = 4 * SCMI_PROTO_QUEUE_SZ,
 	.ops = &tinysys_event_ops,
 	.evts = tinysys_events,
 	.num_events = ARRAY_SIZE(tinysys_events),
