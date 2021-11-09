@@ -765,6 +765,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE28,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "dip1",
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_ISP_IPE] = {
@@ -774,6 +775,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"isp_ipe_0"},
+		.subsys_clk_prefix = "ipe",
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_MRAW] = {
@@ -782,6 +784,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE48,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "mraw",
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_SUBA] = {
@@ -790,6 +793,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE4C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "suba",
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_SUBB] = {
@@ -798,6 +802,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE50,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "subb",
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_SUBC] = {
@@ -806,6 +811,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.ctl_offs = 0xE54,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "subc",
 		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_APU] = {
