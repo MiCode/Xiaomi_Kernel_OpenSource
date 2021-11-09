@@ -11,7 +11,7 @@
 #include "mtk-sram-manager.h"
 
 #include "mtk-scp-vow.h"
-#include "mtk-mem-allocation-control.h"
+#include "mtk-afe-external.h"
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #include "scp.h"

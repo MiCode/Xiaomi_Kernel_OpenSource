@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2021 MediaTek Inc.
  */
 
-#include "mtk-mem-allocation-control.h"
+#include "mtk-afe-external.h"
+#include <linux/module.h>
 
 static RAW_NOTIFIER_HEAD(afe_mem_init_noitify_chain);
 
@@ -31,4 +32,6 @@ int notify_allocate_mem(unsigned long module, void *v)
 }
 EXPORT_SYMBOL_GPL(notify_allocate_mem);
 
-
+MODULE_DESCRIPTION("Mediatek afe external");
+MODULE_AUTHOR("Shane Chien <shane.chien@mediatek.com>");
+MODULE_LICENSE("GPL v2");

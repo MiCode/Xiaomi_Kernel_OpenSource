@@ -15,7 +15,7 @@
 #include <sound/pcm_params.h>
 #include "mtk-afe-fe-dai.h"
 #include "mtk-base-afe.h"
-#include "mtk-mem-allocation-control.h"
+#include "mtk-afe-external.h"
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
 #include "mtk-sram-manager.h"
