@@ -77,6 +77,12 @@ static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
 		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_IMGP_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_CQI_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_CQI_R2,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
 		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_FHO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
@@ -119,6 +125,12 @@ static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
 		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_IMGP_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_CQI_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_CQI_R2,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
 		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_FHO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
@@ -159,6 +171,12 @@ static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 	} else if (raw->id == RAW_C) {
 		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_IMGP_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_CQI_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_CQI_R2,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
 		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_FHO_R1,

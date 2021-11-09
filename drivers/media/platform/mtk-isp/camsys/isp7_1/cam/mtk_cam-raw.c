@@ -1640,7 +1640,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 #if USINGSCQ
 			val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
 			fps_ratio = get_fps_ratio(dev);
-			dev_info(dev->dev, "REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
+			dev_info(dev->dev, "VF on - REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
 			val, fps_ratio);
 			if (dev->stagger_en)
 				writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
@@ -1680,6 +1680,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			readl_relaxed(dev->base + REG_TG_VF_CON),
 			readl_relaxed(dev->base + REG_SCQ_START_PERIOD));
 	} else {
+		dev_info(dev->dev, "VF off\n");
 		atomic_set(&dev->vf_en, 0);
 
 		writel_relaxed(~CQ_THR0_EN, dev->base + REG_CQ_THR0_CTL);
@@ -5971,6 +5972,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 
 	unsigned int dequeued_frame_seq_no_inner;
 	unsigned int rawi_inner_addr, rawi_inner_addr_msb;
+	unsigned int inner_addr, inner_addr_msb, size;
 
 	dequeued_frame_seq_no_inner =
 		readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
@@ -6031,10 +6033,67 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
 
 	switch (port) {
+	case M4U_PORT_L16_CAM2_CQI_R1:
+	case M4U_PORT_L27_CAM2_CQI_R1:
+	case M4U_PORT_L28_CAM2_CQI_R1:
+	case M4U_PORT_L16_CAM2_CQI_R2:
+	case M4U_PORT_L27_CAM2_CQI_R2:
+	case M4U_PORT_L28_CAM2_CQI_R2:
+		// M4U_PORT CAM2_CQI_R1 + CAM2_CQI_R2
+		inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R1_BASE_MSB);
+		dev_info(raw_dev->dev,
+			 "cq_r1_inner_addr_msb:%d, cq_r1_inner_addr:%08x\n",
+			inner_addr_msb, inner_addr);
+
+		inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R2_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R2_BASE_MSB);
+		dev_info(raw_dev->dev,
+			 "cq_r2_inner_addr_msb:%d, cq_r2_inner_addr:%08x\n",
+			inner_addr_msb, inner_addr);
+
+		inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R3_BASE_MSB);
+		dev_info(raw_dev->dev,
+			 "cq_r3_inner_addr_msb:%d, cq_r3_inner_addr:%08x\n",
+			inner_addr_msb, inner_addr);
+
+		inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R4_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_CQI_R4_BASE_MSB);
+		dev_info(raw_dev->dev,
+			 "cq_r4_inner_addr_msb:%d, cq_r4_inner_addr:%08x\n",
+			inner_addr_msb, inner_addr);
+
+		inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_CQ_THR0_BASEADDR);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_CQ_THR0_BASEADDR_MSB);
+		size = readl_relaxed(raw_dev->base_inner + REG_CQ_THR0_DESC_SIZE);
+		dev_info(raw_dev->dev,
+			 "CQ_THR0_inner_addr_msb:%d, CQ_THR0_inner_addr:%08x, size:0x%x\n",
+			inner_addr_msb, inner_addr, size);
+
+		inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_CQ_SUB_THR0_BASEADDR_2);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
+		size = readl_relaxed(raw_dev->base_inner + REG_CQ_SUB_THR0_DESC_SIZE_2);
+		dev_info(raw_dev->dev,
+			 "CQ_SUB_THR0_2_inner_addr_msb:%d, CQ_SUB_THR0_2_inner_addr:%08x, size:0x%x\n",
+			inner_addr_msb, inner_addr, size);
+		break;
 	case M4U_PORT_L16_CAM2_RAWI_R2:
 	case M4U_PORT_L27_CAM2_RAWI_R2:
 	case M4U_PORT_L28_CAM2_RAWI_R2:
-		// M4U_PORT CAM3_RAWI_R2
+		// M4U_PORT CAM2_RAWI_R2
 		rawi_inner_addr =
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R2_BASE);
 		rawi_inner_addr_msb =
@@ -6049,7 +6108,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	case M4U_PORT_L16_CAM2_RAWI_R3:
 	case M4U_PORT_L27_CAM2_RAWI_R3:
 	case M4U_PORT_L28_CAM2_RAWI_R3:
-		// M4U_PORT CAM3_RAWI_R2
+		// M4U_PORT CAM2_RAWI_R2
 		rawi_inner_addr =
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R3_BASE);
 		rawi_inner_addr_msb =
