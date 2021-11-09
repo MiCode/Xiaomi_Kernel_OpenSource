@@ -58,9 +58,6 @@ static struct dentry *reviser_dbg_err_reg;
 static struct dentry *reviser_dbg_err_debug;
 
 
-static uint32_t g_session_test[2][5];
-static uint32_t g_sid_test[2];
-static int g_session_test_count[2];
 uint32_t g_rvr_klog;
 static uint32_t g_rvr_debug_op;
 static uint32_t g_rvr_remote_klog;
@@ -524,20 +521,6 @@ static const struct file_operations reviser_dbg_fops_err_reg = {
 	//.write = seq_write,
 };
 //----------------------------------------------
-static void reviser_print_session_test(void)
-{
-	uint32_t i, j;
-
-	for (i = 0; i < 2; i++)
-		LOG_INFO("g_sid_test[%u] %u\n", i, g_sid_test[i]);
-
-	for (i = 0; i < 2; i++)
-		LOG_INFO("g_session_test_count[%u] %u\n", i, g_session_test_count[i]);
-
-	for (i = 0; i < 2; i++)
-		for (j = 0; j < 5; j++)
-			LOG_INFO("g_session_test[%u][%u] %x\n", i, j, g_session_test[i][j]);
-}
 // Debug OP
 static int reviser_dbg_read_debug_op(void *data, u64 *val)
 {
@@ -551,10 +534,7 @@ static int reviser_dbg_read_debug_op(void *data, u64 *val)
 static int reviser_dbg_write_debug_op(void *data, u64 val)
 {
 	int ret = 0;
-	uint32_t type, size;
 
-	uint64_t session, addr;
-	uint32_t sid_idx = 0, sid_tmp, session_count;
 
 	g_rvr_debug_op = val;
 
@@ -789,9 +769,8 @@ static int reviser_dbg_write_debug_op(void *data, u64 val)
 		break;
 	default:
 		ret = -EINVAL;
-		break;
+		goto out;
 	}
-	reviser_print_session_test();
 out:
 	return ret;
 }
@@ -894,7 +873,6 @@ int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 	g_reviser_mem_dram_bank = 0;
 	g_reviser_mem_dram_ctx = 0;
 	g_rvr_debug_op = 0;
-	memset(g_session_test_count, 0, sizeof(g_session_test_count));
 
 
 	reviser_dbg_root = debugfs_create_dir(REVISER_DBG_DIR, apu_dbg_root);

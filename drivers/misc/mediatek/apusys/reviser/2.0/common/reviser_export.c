@@ -206,6 +206,10 @@ int reviser_alloc_mem(uint32_t type, uint32_t size, uint64_t *addr, uint32_t *si
 		input_addr = 0;
 		input_size = size;
 		break;
+	case REVISER_MEM_TYPE_VLM:
+		input_addr = 0;
+		input_size = size;
+		break;
 	default:
 		LOG_ERR("Invalid type %u\n", type);
 		ret = -EINVAL;
