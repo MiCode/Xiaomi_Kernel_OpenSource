@@ -22,11 +22,14 @@ struct clk_onecell_data;
 
 enum clk_evt_type {
 	CLK_EVT_HWV_CG_TIMEOUT = 0,
+	CLK_EVT_HWV_CG_CHK_PWR = 1,
+	CLK_EVT_LONG_BUS_LATENCY = 2,
 	CLK_EVT_NUM,
 };
 
 struct clk_event_data {
 	struct regmap *regmap;
+	struct regmap *hwv_regmap;
 	int event_type;
 	const char *name;
 	u32 ofs;
@@ -170,18 +173,12 @@ struct mtk_gate_regs {
 	u32 set_ofs;
 };
 
-struct mtk_hwv_gate_regs {
-	u32 sta_ofs;
-	u32 clr_ofs;
-	u32 set_ofs;
-};
-
 struct mtk_gate {
 	int id;
 	const char *name;
 	const char *parent_name;
 	const struct mtk_gate_regs *regs;
-	const struct mtk_hwv_gate_regs *hwv_regs;
+	const struct mtk_gate_regs *hwv_regs;
 	int shift;
 	const struct clk_ops *ops;
 	unsigned long flags;
@@ -288,7 +285,7 @@ struct mtk_clk_desc {
 int mtk_clk_simple_probe(struct platform_device *pdev);
 extern int register_mtk_clk_notifier(struct notifier_block *nb);
 extern int unregister_mtk_clk_notifier(struct notifier_block *nb);
-extern int mtk_clk_notify(struct regmap *regmap, const char *name, u32 ofs,
-		u32 id, u32 shift, int event_type);
+extern int mtk_clk_notify(struct regmap *regmap, struct regmap *hwv_regmap,
+		const char *name, u32 ofs, u32 id, u32 shift, int event_type);
 
 #endif /* __DRV_CLK_MTK_H */

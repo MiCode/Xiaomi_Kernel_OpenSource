@@ -1701,22 +1701,22 @@ static struct mtk_mux vlp_cksys_muxes[] = {
 
 #define HWV_CLK_CFG_1_SET		0x000
 #define HWV_CLK_CFG_1_CLR		0x004
-#define HWV_CLK_CFG_1_STA		0x1900
+#define HWV_CLK_CFG_1_STA		0x1C00
 #define HWV_CLK_CFG_2_SET		0x010
 #define HWV_CLK_CFG_2_CLR		0x014
-#define HWV_CLK_CFG_2_STA		0x1908
+#define HWV_CLK_CFG_2_STA		0x1C08
 #define HWV_CLK_CFG_15_SET		0x040
 #define HWV_CLK_CFG_15_CLR		0x044
-#define HWV_CLK_CFG_15_STA		0x1920
+#define HWV_CLK_CFG_15_STA		0x1C20
 #define HWV_CLK_CFG_16_SET		0x050
 #define HWV_CLK_CFG_16_CLR		0x054
-#define HWV_CLK_CFG_16_STA		0x1928
+#define HWV_CLK_CFG_16_STA		0x1C28
 #define HWV_CLK_CFG_20_SET		0x070
 #define HWV_CLK_CFG_20_CLR		0x074
-#define HWV_CLK_CFG_20_STA		0x1938
+#define HWV_CLK_CFG_20_STA		0x1C38
 #define HWV_CLK_CFG_21_SET		0x080
 #define HWV_CLK_CFG_21_CLR		0x084
-#define HWV_CLK_CFG_21_STA		0x1940
+#define HWV_CLK_CFG_21_STA		0x1C40
 static struct mtk_mux top_muxes[] = {
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_PERI_HD_FAXI_SEL /* dts */,
 		"peri_hd_faxi_sel", peri_hd_faxi_parents /* parents*/,

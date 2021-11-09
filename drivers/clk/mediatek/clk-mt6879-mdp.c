@@ -27,7 +27,7 @@ static const struct mtk_gate_regs mdp_cg_regs = {
 static const struct mtk_gate_regs mdp_hwv_regs = {
 	.set_ofs = 0x18,
 	.clr_ofs = 0x1C,
-	.sta_ofs = 0x190C,
+	.sta_ofs = 0x1C0C,
 };
 
 #define GATE_MDP(_id, _name, _parent, _shift) {	\
@@ -43,7 +43,8 @@ static const struct mtk_gate_regs mdp_hwv_regs = {
 		.id = _id,				\
 		.name = _name,				\
 		.parent_name = _parent,			\
-		.regs = &mdp_hwv_regs,			\
+		.regs = &mdp_cg_regs,			\
+		.hwv_regs = &mdp_hwv_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_hwv,			\
 		.flags = CLK_USE_HW_VOTER,				\

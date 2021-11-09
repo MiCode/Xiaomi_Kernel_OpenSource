@@ -42,13 +42,13 @@ static const struct mtk_gate_regs mminfra_config_1_cg_regs = {
 static const struct mtk_gate_regs mminfra_config_0_hwv_regs = {
 	.set_ofs = 0xB0,
 	.clr_ofs = 0xB4,
-	.sta_ofs = 0x1958,
+	.sta_ofs = 0x1C58,
 };
 
 static const struct mtk_gate_regs mminfra_config_1_hwv_regs = {
 	.set_ofs = 0xC0,
 	.clr_ofs = 0xC4,
-	.sta_ofs = 0x1960,
+	.sta_ofs = 0x1C60,
 };
 
 #define GATE_MMINFRA_CONFIG_0(_id, _name, _parent, _shift) {		\
@@ -79,7 +79,8 @@ static const struct mtk_gate_regs mminfra_config_1_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &mminfra_config_0_hwv_regs,			\
+		.regs = &mminfra_config_0_cg_regs,			\
+		.hwv_regs = &mminfra_config_0_hwv_regs,			\
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_hwv,			\
 		.flags = CLK_USE_HW_VOTER,				\
@@ -88,7 +89,8 @@ static const struct mtk_gate_regs mminfra_config_1_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &mminfra_config_1_hwv_regs,			\
+		.regs = &mminfra_config_1_cg_regs,			\
+		.hwv_regs = &mminfra_config_1_hwv_regs,			\
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_hwv,			\
 		.flags = CLK_USE_HW_VOTER,				\
@@ -97,7 +99,8 @@ static const struct mtk_gate_regs mminfra_config_1_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &mminfra_config_0_hwv_regs,			\
+		.regs = &mminfra_config_0_cg_regs,			\
+		.hwv_regs = &mminfra_config_0_hwv_regs,			\
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_hwv_dummy,		\
 		.flags = CLK_USE_HW_VOTER,				\
@@ -168,7 +171,7 @@ static const struct mtk_gate_regs dispsys_config_2_cg_regs = {
 static const struct mtk_gate_regs dispsys_config_hwv_regs = {
 	.set_ofs = 0x90,
 	.clr_ofs = 0x94,
-	.sta_ofs = 0x1948,
+	.sta_ofs = 0x1C48,
 };
 
 #define GATE_DISPSYS_CONFIG_0(_id, _name, _parent, _shift) {		\
@@ -207,7 +210,8 @@ static const struct mtk_gate_regs dispsys_config_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &dispsys_config_hwv_regs,			\
+		.regs = &dispsys_config_1_cg_regs,			\
+		.hwv_regs = &dispsys_config_hwv_regs,			\
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_hwv,			\
 		.flags = CLK_USE_HW_VOTER,				\
@@ -406,7 +410,7 @@ static const struct mtk_gate_regs dispsys1_config_2_cg_regs = {
 static const struct mtk_gate_regs dispsys1_config_hwv_regs = {
 	.set_ofs = 0xA0,
 	.clr_ofs = 0xA4,
-	.sta_ofs = 0x1950,
+	.sta_ofs = 0x1C50,
 };
 
 #define GATE_DISPSYS1_CONFIG_0(_id, _name, _parent, _shift) {		\
@@ -445,7 +449,8 @@ static const struct mtk_gate_regs dispsys1_config_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &dispsys1_config_hwv_regs,			\
+		.regs = &dispsys1_config_1_cg_regs,			\
+		.hwv_regs = &dispsys1_config_hwv_regs,			\
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_hwv,			\
 		.flags = CLK_USE_HW_VOTER,				\

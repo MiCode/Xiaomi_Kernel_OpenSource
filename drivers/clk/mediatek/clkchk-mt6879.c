@@ -25,6 +25,7 @@
 
 #define BUG_ON_CHK_ENABLE		0
 #define CHECK_VCORE_FREQ		0
+#define CG_CHK_PWRON_ENABLE		1
 
 #define HWV_ADDR_HISTORY_0		0x1F04
 #define HWV_DATA_HISTORY_0		0x1F44
@@ -87,6 +88,8 @@ static struct regbase rb[] = {
 	[mminfra_config] = REGBASE_V(0x1e800000, mminfra_config, MT6879_POWER_DOMAIN_MM_INFRA,
 		CLK_NULL),
 	[mdp] = REGBASE_V(0x1f000000, mdp, MT6879_POWER_DOMAIN_DISP, CLK_NULL),
+	[bcrm_ifr_ao] = REGBASE_V(0x10022000, bcrm_ifr_ao, PD_NULL, CLK_NULL),
+	[bcrm_ifr_pdn] = REGBASE_V(0x10215000, bcrm_ifr_pdn, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -127,6 +130,7 @@ static struct regname rn[] = {
 	REGNAME(ifrao, 0xC8, MODULE_CG_3),
 	REGNAME(ifrao, 0xE8, MODULE_CG_4),
 	/* INFRACFG_AO_BUS register */
+	REGNAME(infracfg, 0x0230, INFRA_APB_ASYNC_STA),
 	REGNAME(infracfg, 0x0C90, MCU_CONNSYS_PROTECT_EN_0),
 	REGNAME(infracfg, 0x0C9C, MCU_CONNSYS_PROTECT_RDY_STA_0),
 	REGNAME(infracfg, 0x0C50, INFRASYS_PROTECT_EN_1),
@@ -350,6 +354,13 @@ static struct regname rn[] = {
 	REGNAME(mminfra_config, 0x110, MMINFRA_CG_1),
 	/* MDPSYS_CONFIG register */
 	REGNAME(mdp, 0x100, MDPSYS_CG_0),
+
+	REGNAME(bcrm_ifr_ao, 0x0020, VDNR_DCM_TOP_INFRA_PAR_BUS),
+	REGNAME(bcrm_ifr_ao, 0x0024, SI18_CTRL_0),
+	REGNAME(bcrm_ifr_ao, 0x0028, SI18_CTRL_1),
+	REGNAME(bcrm_ifr_ao, 0x002C, SI18A_CTRL_0),
+
+	REGNAME(bcrm_ifr_pdn, 0x02b8, INFRA_QAXI_BUS_DOM8),
 	{},
 };
 
@@ -638,30 +649,49 @@ static bool is_pll_chk_bug_on(void)
 
 static void dump_hwv_history(struct regmap *regmap, u32 id)
 {
-	u32 val, val2;
-	u32 set, sta, set_sta, clr_sta, en, done;
+	u32 addr[16], val[16];
+	u32 idx, set, sta, set_sta, clr_sta, en, done;
 	int i;
 
 	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
-	for (i = 0; i < 16; i++) {
-		regmap_read(regmap, HWV_ADDR_HISTORY_0 + (0x4 * i), &val);
-		regmap_read(regmap, HWV_DATA_HISTORY_0 + (0x4 * i), &val2);
-		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, val, val2);
-	}
-	regmap_read(regmap, HWV_IDX_POINTER, &val);
-	pr_notice("idx: 0x%x\n", val);
 	regmap_read(regmap, HWV_CG_SET(id), &set);
 	regmap_read(regmap, HWV_CG_STA(id), &sta);
 	regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
 	regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
 	regmap_read(regmap, HWV_CG_EN(id), &en);
 	regmap_read(regmap, HWV_CG_DONE(id), &done);
+
+	for (i = 0; i < 16; i++) {
+		regmap_read(regmap, HWV_ADDR_HISTORY_0 + (0x4 * i), addr + i);
+		regmap_read(regmap, HWV_DATA_HISTORY_0 + (0x4 * i), val + i);
+	}
+	regmap_read(regmap, HWV_IDX_POINTER, &idx);
+	pr_notice("idx: 0x%x\n", val);
 	pr_notice("[%d](%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
 			id, HWV_CG_SET(id), set, HWV_CG_STA(id), sta,
 			HWV_CG_SET_STA(id), set_sta, HWV_CG_CLR_STA(id), clr_sta,
 			HWV_CG_EN(id), en, HWV_CG_DONE(id), done);
 
+	for (i = 0; i < 16; i++)
+		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, addr[i], val[i]);
+}
+
+static void dump_bus_reg(struct regmap *regmap, u32 ofs)
+{
+	print_subsys_reg_mt6879(infracfg);
+	print_subsys_reg_mt6879(bcrm_ifr_ao);
+	print_subsys_reg_mt6879(bcrm_ifr_pdn);
+	mdelay(50);
+
 	BUG_ON(1);
+}
+
+static bool is_cg_chk_pwr_on(void)
+{
+#if CG_CHK_PWRON_ENABLE
+	return true;
+#endif
+	return false;
 }
 
 /*
@@ -679,6 +709,8 @@ static struct clkchk_ops clkchk_mt6879_ops = {
 	.get_vcore_opp = get_vcore_opp,
 	.devapc_dump = devapc_dump,
 	.dump_hwv_history = dump_hwv_history,
+	.dump_bus_reg = dump_bus_reg,
+	.is_cg_chk_pwr_on = is_cg_chk_pwr_on,
 };
 
 static int clk_chk_mt6879_probe(struct platform_device *pdev)

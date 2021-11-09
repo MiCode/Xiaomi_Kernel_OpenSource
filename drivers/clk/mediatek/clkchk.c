@@ -45,48 +45,6 @@ void set_clkchk_ops(const struct clkchk_ops *ops)
 EXPORT_SYMBOL(set_clkchk_ops);
 
 /*
- * for clock exception event handling
- */
-
-static void clkchk_dump_hwv_history(struct regmap *regmap, u32 id)
-{
-	if (clkchk_ops == NULL || clkchk_ops->dump_hwv_history == NULL)
-		return;
-
-	clkchk_ops->dump_hwv_history(regmap, id);
-}
-
-static int clkchk_evt_handling(struct notifier_block *nb,
-			unsigned long flags, void *data)
-{
-	struct clk_event_data *clkd = (struct clk_event_data *)data;
-
-	switch (clkd->event_type) {
-	case CLK_EVT_HWV_CG_TIMEOUT:
-		clkchk_dump_hwv_history(clkd->regmap, clkd->id);
-		break;
-	default:
-		pr_notice("cannot get flags identify\n");
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-int set_clkchk_notify(void)
-{
-	int r = 0;
-
-	mtk_clkchk_notifier.notifier_call = clkchk_evt_handling;
-	r = register_mtk_clk_notifier(&mtk_clkchk_notifier);
-	if (r)
-		pr_err("clk-chk notifier register err(%d)\n", r);
-
-	return r;
-}
-EXPORT_SYMBOL(set_clkchk_notify);
-
-/*
  * for mtcmos debug
  */
 bool is_valid_reg(void __iomem *addr)
@@ -594,3 +552,77 @@ const struct dev_pm_ops clk_chk_dev_pm_ops = {
 	.resume_noirq = NULL,
 };
 EXPORT_SYMBOL(clk_chk_dev_pm_ops);
+
+/*
+ * for clock exception event handling
+ */
+
+static void clkchk_dump_hwv_history(struct regmap *regmap, u32 id)
+{
+	if (clkchk_ops == NULL || clkchk_ops->dump_hwv_history == NULL)
+		return;
+
+	clkchk_ops->dump_hwv_history(regmap, id);
+}
+
+static void clkchk_dump_bus_reg(struct regmap *regmap, u32 ofs)
+{
+	if (clkchk_ops == NULL || clkchk_ops->dump_bus_reg == NULL)
+		return;
+
+	clkchk_ops->dump_bus_reg(regmap, ofs);
+}
+
+static bool clkchk_is_cg_chk_pwr_on(void)
+{
+	if (clkchk_ops == NULL || clkchk_ops->is_cg_chk_pwr_on == NULL)
+		return false;
+
+	return clkchk_ops->is_cg_chk_pwr_on();
+}
+
+static void clkchk_cg_chk(const char *name)
+{
+	struct provider_clk *pvdck;
+
+	pvdck = __clk_chk_lookup_pvdck(name);
+	if (!clkchk_pvdck_is_on(pvdck))
+		pr_notice("clk %s access without power on\n", name);
+}
+
+static int clkchk_evt_handling(struct notifier_block *nb,
+			unsigned long flags, void *data)
+{
+	struct clk_event_data *clkd = (struct clk_event_data *)data;
+
+	switch (clkd->event_type) {
+	case CLK_EVT_HWV_CG_TIMEOUT:
+		clkchk_dump_hwv_history(clkd->hwv_regmap, clkd->id);
+		clkchk_dump_bus_reg(clkd->regmap, clkd->ofs);
+		break;
+	case CLK_EVT_HWV_CG_CHK_PWR:
+		if (clkchk_is_cg_chk_pwr_on())
+			clkchk_cg_chk(clkd->name);
+		break;
+	case CLK_EVT_LONG_BUS_LATENCY:
+		clkchk_dump_hwv_history(clkd->hwv_regmap, clkd->id);
+	default:
+		pr_notice("cannot get flags identify\n");
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+int set_clkchk_notify(void)
+{
+	int r = 0;
+
+	mtk_clkchk_notifier.notifier_call = clkchk_evt_handling;
+	r = register_mtk_clk_notifier(&mtk_clkchk_notifier);
+	if (r)
+		pr_err("clk-chk notifier register err(%d)\n", r);
+
+	return r;
+}
+EXPORT_SYMBOL(set_clkchk_notify);

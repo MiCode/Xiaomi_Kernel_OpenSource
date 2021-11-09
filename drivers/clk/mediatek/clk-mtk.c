@@ -20,33 +20,34 @@
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
-static BLOCKING_NOTIFIER_HEAD(mtk_clk_notifier_list);
+static ATOMIC_NOTIFIER_HEAD(mtk_clk_notifier_list);
 
 int register_mtk_clk_notifier(struct notifier_block *nb)
 {
-	return blocking_notifier_chain_register(&mtk_clk_notifier_list, nb);
+	return atomic_notifier_chain_register(&mtk_clk_notifier_list, nb);
 }
 EXPORT_SYMBOL_GPL(register_mtk_clk_notifier);
 
 int unregister_mtk_clk_notifier(struct notifier_block *nb)
 {
-	return blocking_notifier_chain_unregister(&mtk_clk_notifier_list, nb);
+	return atomic_notifier_chain_unregister(&mtk_clk_notifier_list, nb);
 }
 EXPORT_SYMBOL_GPL(unregister_mtk_clk_notifier);
 
-int mtk_clk_notify(struct regmap *regmap, const char *name, u32 ofs,
-		u32 id, u32 shift, int event_type)
+int mtk_clk_notify(struct regmap *regmap, struct regmap *hwv_regmap,
+		const char *name, u32 ofs, u32 id, u32 shift, int event_type)
 {
 	struct clk_event_data clke;
 
 	clke.event_type = event_type;
 	clke.regmap = regmap;
+	clke.hwv_regmap = hwv_regmap;
 	clke.name = name;
 	clke.ofs = ofs;
 	clke.id = id;
 	clke.shift = shift;
 
-	blocking_notifier_call_chain(&mtk_clk_notifier_list, 0, &clke);
+	atomic_notifier_call_chain(&mtk_clk_notifier_list, 0, &clke);
 
 	return 0;
 }
@@ -162,11 +163,15 @@ int mtk_clk_register_gates_with_dev(struct device_node *node,
 			continue;
 
 		if (hw_voter_regmap && gate->flags & CLK_USE_HW_VOTER)
-			clk = mtk_clk_register_gate(gate->name, gate->parent_name,
+			clk = mtk_clk_register_gate_hwv(gate->name, gate->parent_name,
+					regmap,
 					hw_voter_regmap,
 					gate->regs->set_ofs,
 					gate->regs->clr_ofs,
 					gate->regs->sta_ofs,
+					gate->hwv_regs->set_ofs,
+					gate->hwv_regs->clr_ofs,
+					gate->hwv_regs->sta_ofs,
 					gate->shift, gate->ops, gate->flags, dev);
 		else
 			clk = mtk_clk_register_gate(gate->name, gate->parent_name,

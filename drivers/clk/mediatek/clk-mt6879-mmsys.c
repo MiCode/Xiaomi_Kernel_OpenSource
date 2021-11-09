@@ -40,7 +40,7 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 static const struct mtk_gate_regs mm_hwv_regs = {
 	.set_ofs = 0x08,
 	.clr_ofs = 0x0C,
-	.sta_ofs = 0x1904,
+	.sta_ofs = 0x1C04,
 };
 
 #define GATE_MM0(_id, _name, _parent, _shift) {	\
@@ -74,7 +74,8 @@ static const struct mtk_gate_regs mm_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &mm_hwv_regs,					\
+		.regs = &mm1_cg_regs,					\
+		.hwv_regs = &mm_hwv_regs,				\
 		.shift = _shift,					\
 		.ops = &mtk_clk_gate_ops_hwv,				\
 		.flags = CLK_USE_HW_VOTER,				\
@@ -178,13 +179,13 @@ static const struct mtk_gate_regs mminfra_config1_cg_regs = {
 static const struct mtk_gate_regs mminfra_config0_hwv_regs = {
 	.set_ofs = 0x28,
 	.clr_ofs = 0x2C,
-	.sta_ofs = 0x1914,
+	.sta_ofs = 0x1C14,
 };
 
 static const struct mtk_gate_regs mminfra_config1_hwv_regs = {
 	.set_ofs = 0x38,
 	.clr_ofs = 0x3C,
-	.sta_ofs = 0x191C,
+	.sta_ofs = 0x1C1C,
 };
 
 #define GATE_MMINFRA_CONFIG0(_id, _name, _parent, _shift) {	\
@@ -209,7 +210,7 @@ static const struct mtk_gate_regs mminfra_config1_hwv_regs = {
 		.id = _id,				\
 		.name = _name,				\
 		.parent_name = _parent,			\
-		.regs = &mminfra_config1_cg_regs,			\
+		.regs = &mminfra_config1_cg_regs,	\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
@@ -218,9 +219,10 @@ static const struct mtk_gate_regs mminfra_config1_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &mminfra_config0_hwv_regs,			\
+		.regs = &mminfra_config0_cg_regs,			\
+		.hwv_regs = &mminfra_config0_hwv_regs,			\
 		.shift = _shift,					\
-		.ops = &mtk_clk_gate_ops_hwv,			\
+		.ops = &mtk_clk_gate_ops_hwv,				\
 		.flags = CLK_USE_HW_VOTER,				\
 	}
 
@@ -228,9 +230,10 @@ static const struct mtk_gate_regs mminfra_config1_hwv_regs = {
 		.id = _id,						\
 		.name = _name,						\
 		.parent_name = _parent,					\
-		.regs = &mminfra_config1_hwv_regs,			\
+		.regs = &mminfra_config1_cg_regs,			\
+		.hwv_regs = &mminfra_config1_hwv_regs,			\
 		.shift = _shift,					\
-		.ops = &mtk_clk_gate_ops_hwv,			\
+		.ops = &mtk_clk_gate_ops_hwv,				\
 		.flags = CLK_USE_HW_VOTER,				\
 	}
 

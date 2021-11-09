@@ -88,6 +88,8 @@ struct clkchk_ops {
 	bool (*is_pwr_on)(struct provider_clk *pvdck);
 	void (*devapc_dump)(void);
 	void (*dump_hwv_history)(struct regmap *regmap, u32 id);
+	void (*dump_bus_reg)(struct regmap *regmap, u32 ofs);
+	bool (*is_cg_chk_pwr_on)(void);
 };
 
 int clkchk_pvdck_is_on(struct provider_clk *pvdck);
