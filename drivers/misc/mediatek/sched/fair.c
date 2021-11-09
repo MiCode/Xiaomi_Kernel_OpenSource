@@ -443,7 +443,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 		int max_spare_cap_cpu = -1;
 		int max_spare_cap_cpu_ls_idle = -1;
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
-		int cpu_order[NR_CPUS], cnt, i;
+		int cpu_order[NR_CPUS]  ____cacheline_aligned, cnt, i;
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)

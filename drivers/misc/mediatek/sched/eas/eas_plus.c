@@ -134,25 +134,29 @@ void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 }
 
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
-
-struct thermal_struct {
-	int cpu_id;
-	int headroom;
-};
-
-static int cmp(const void *a, const void *b)
+int __read_mostly thermal_headroom[NR_CPUS]  ____cacheline_aligned;
+unsigned long next_update_thermal;
+static DEFINE_SPINLOCK(thermal_headroom_lock);
+static void update_thermal_headroom(int this_cpu)
 {
+	int cpu;
 
-	const struct thermal_struct *a1 = a;
-	const struct thermal_struct *b1 = b;
+	if (time_before(jiffies, next_update_thermal))
+		return;
 
-	return b1->headroom - a1->headroom;
+	if (spin_trylock(&thermal_headroom_lock)) {
+		next_update_thermal = jiffies + 1;
+		for_each_cpu(cpu, cpu_possible_mask) {
+			thermal_headroom[cpu] = get_thermal_headroom(cpu);
+		}
+		spin_unlock(&thermal_headroom_lock);
+	}
 }
 
 int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 {
-	int i, cpu, cnt = 0;
-	struct thermal_struct thermal_order[NR_CPUS];
+	int i, j, cpu, cnt = 0;
+	int headroom_order[NR_CPUS] ____cacheline_aligned;
 
 	if (cpumask_weight(cpus) == 1) {
 		cpu = cpumask_first(cpus);
@@ -162,18 +166,26 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 	}
 
 	for_each_cpu_and(cpu, cpus, cpu_online_mask) {
-		thermal_order[cnt].cpu_id = cpu;
-		thermal_order[cnt].headroom = get_thermal_headroom(cpu);
+		int headroom;
+
+		headroom = thermal_headroom[cpu];
+
+		for (i = 0; i < cnt; i++) {
+			if (headroom > headroom_order[i])
+				break;
+		}
+
+		for (j = cnt; j >= i; j--) {
+			headroom_order[j+1] = headroom_order[j];
+			cpu_order[j+1] = cpu_order[j];
+		}
+
+		headroom_order[i] = headroom;
+		cpu_order[i] = cpu;
 		cnt++;
 	}
 
-	sort(thermal_order, cnt, sizeof(struct thermal_struct), cmp, NULL);
-
-	for (i = 0; i < cnt; i++)
-		*cpu_order++ = thermal_order[i].cpu_id;
-
 	return cnt;
-
 }
 
 #endif
@@ -324,8 +336,11 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	u32 opp_ceiling;
 
 	this_cpu = cpu_of(rq);
-	pd = em_cpu_get(this_cpu);
+#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
+	update_thermal_headroom(this_cpu);
+#endif
 
+	pd = em_cpu_get(this_cpu);
 	if (!pd)
 		return;
 
