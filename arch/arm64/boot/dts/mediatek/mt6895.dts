@@ -752,6 +752,11 @@
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
 	};
 
+	teeperf {
+		compatible = "mediatek,teeperf";
+		cpu-map = <1>; /* 1: CPU_4_3_1_MAP, 2: CPU_6_2_MAP */
+	};
+
 	/* Trustonic Mobicore SW IRQ number 186 = 32 + 154 */
 	mobicore: mobicore {
 		compatible = "trustonic,mobicore";
