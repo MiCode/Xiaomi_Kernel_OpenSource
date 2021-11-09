@@ -162,7 +162,7 @@ struct a6xx_cp_smmu_info {
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
 
 /* Size of the CP_INIT pm4 stream in dwords */
-#define A6XX_CP_INIT_DWORDS 12
+#define A6XX_CP_INIT_DWORDS 11
 
 #define A6XX_INT_MASK \
 	((1 << A6XX_INT_CP_AHB_ERROR) |			\
