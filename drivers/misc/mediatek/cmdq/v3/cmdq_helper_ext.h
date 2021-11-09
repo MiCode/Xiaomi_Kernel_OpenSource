@@ -769,6 +769,9 @@ struct cmdqRecStruct {
 	void *sec_client_meta;
 	enum cmdq_sec_rec_meta_type sec_meta_type;
 	u32 sec_meta_size;
+
+	/* Readback slot protection */
+	s32 slot_ids[8];
 };
 
 /* TODO: add controller support */

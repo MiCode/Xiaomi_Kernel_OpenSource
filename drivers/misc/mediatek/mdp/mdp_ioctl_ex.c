@@ -130,11 +130,13 @@ static DEFINE_MUTEX(mdp_job_mapping_list_mutex);
 #define MAX_COUNT_IN_RB_SLOT 0x1000 /* 4KB */
 #define SLOT_ID_SHIFT 16
 #define SLOT_OFFSET_MASK 0xFFFF
+#define MAX_REF_COUNT 100000
 
 struct mdp_readback_slot {
 	u32 count;
 	dma_addr_t pa_start;
 	void *fp;
+	u32 ref_cnt;
 };
 
 static struct mdp_readback_slot rb_slot[MAX_RB_SLOT_NUM];
@@ -206,7 +208,7 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 		}
 
 		addrs = kcalloc(count, sizeof(u32), GFP_KERNEL);
-		if (!ids) {
+		if (!addrs) {
 			CMDQ_ERR("[READ_PA] fail to alloc addr buf\n");
 			status = -ENOMEM;
 			break;
@@ -424,7 +426,7 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 {
 	struct op_meta *metas;
 	s32 status = 0;
-	u32 i, copy_size, copy_count, remain_count;
+	u32 i, copy_size, copy_count, remain_count, slot_id = -1, j;
 	void *cur_src = CMDQ_U32_PTR(user_job->metas);
 	const u32 meta_count_in_page = PAGE_SIZE / sizeof(struct op_meta);
 
@@ -462,6 +464,33 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 					metas[i].value, metas[i].mask);
 				break;
 			}
+			mutex_lock(&rb_slot_list_mutex);
+			if (metas[i].op == CMDQ_MOP_READ) {
+				slot_id = metas[i].readback_id >> SLOT_ID_SHIFT;
+				if (unlikely(slot_id >= MAX_RB_SLOT_NUM)) {
+					mutex_unlock(&rb_slot_list_mutex);
+					continue;
+				}
+				if (rb_slot[slot_id].ref_cnt == MAX_REF_COUNT) {
+					CMDQ_ERR("readback slot [%d] reach maximum ref_cnt\n",
+						slot_id);
+					mutex_unlock(&rb_slot_list_mutex);
+					kfree(metas);
+					return -EINVAL;
+				}
+				for (j = 0; j < ARRAY_SIZE(handle->slot_ids); j++) {
+					if (slot_id == handle->slot_ids[j])
+						break;
+					if (handle->slot_ids[j] == -1) {
+						handle->slot_ids[j] = slot_id;
+						rb_slot[slot_id].ref_cnt++;
+						CMDQ_MSG("slot id %d, count++ > %d\n", slot_id,
+							rb_slot[slot_id].ref_cnt);
+						break;
+					}
+				}
+			}
+			mutex_unlock(&rb_slot_list_mutex);
 		}
 		remain_count -= copy_count;
 		cur_src += copy_size;
@@ -830,6 +859,16 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 
 		/* copy read result to user space */
 		status = mdp_process_read_request(&job_result.read_result);
+		mutex_lock(&rb_slot_list_mutex);
+		/* reference count for slot */
+		for (i = 0; i < ARRAY_SIZE(handle->slot_ids); i++) {
+			if (handle->slot_ids[i] != -1) {
+				rb_slot[handle->slot_ids[i]].ref_cnt--;
+				CMDQ_MSG("slot id %d, count-- by read > %d\n", handle->slot_ids[i],
+					rb_slot[handle->slot_ids[i]].ref_cnt);
+			}
+		}
+		mutex_unlock(&rb_slot_list_mutex);
 	} while (0);
 	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
 	if (exec_cost > 150000)
@@ -894,6 +933,12 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 		alloc_slot_group |= 1LL << free_slot_group;
 
 	alloc_slot_index = free_slot + free_slot_group * 64;
+	if (rb_slot[alloc_slot_index].ref_cnt) {
+		CMDQ_ERR("%s alloc slot which is being used, slot id: %d\n",
+			__func__, alloc_slot_index);
+		mutex_unlock(&rb_slot_list_mutex);
+		return -ENOMEM;
+	}
 	rb_slot[alloc_slot_index].count = rb_req.count;
 	rb_slot[alloc_slot_index].pa_start = paStart;
 	rb_slot[alloc_slot_index].fp = fp;
@@ -955,6 +1000,12 @@ s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param)
 			fp, rb_slot[free_slot_index].fp);
 		return -EINVAL;
 	}
+	if (rb_slot[free_slot_index].ref_cnt) {
+		CMDQ_ERR("%s slot id[%d] is in use, using slot count : %d\n", __func__,
+			free_slot_index, rb_slot[free_slot_index].ref_cnt);
+		mutex_unlock(&rb_slot_list_mutex);
+		return -EINVAL;
+	}
 	alloc_slot[free_slot_group] &= ~(1LL << free_slot);
 	if (alloc_slot[free_slot_group] != ~0UL)
 		alloc_slot_group &= ~(1LL << free_slot_group);
@@ -994,7 +1045,7 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 
 	mutex_lock(&rb_slot_list_mutex);
 	for (i = 0; i < ARRAY_SIZE(rb_slot); i++) {
-		if (rb_slot[i].fp != fp)
+		if (rb_slot[i].fp != fp || rb_slot[i].ref_cnt)
 			continue;
 
 		free_slot_group = i >> 6;

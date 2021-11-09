@@ -45,6 +45,9 @@ struct cmdqRecStruct {
 
 	struct cmdqSecDataStruct secData;	/* secure execution data */
 
+	/* Readback slot protection */
+	s32 slot_ids[8];
+
 	/* profile marker */
 #ifdef CMDQ_PROFILE_MARKER_SUPPORT
 	struct cmdqProfileMarkerStruct profileMarker;
