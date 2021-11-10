@@ -199,6 +199,33 @@
 	ARM64_FEATURE_MASK(ID_AA64ISAR1_I8MM) \
 	)
 
+/*
+ * Returns the maximum number of breakpoints supported for protected VMs.
+ */
+static inline int pkvm_get_max_brps(void)
+{
+	int num = FIELD_GET(ARM64_FEATURE_MASK(ID_AA64DFR0_BRPS),
+			    PVM_ID_AA64DFR0_ALLOW);
+
+	/*
+	 * If breakpoints are supported, the maximum number is 1 + the field.
+	 * Otherwise, return 0, which is not compliant with the architecture,
+	 * but is reserved and is used here to indicate no debug support.
+	 */
+	return num ? num + 1 : 0;
+}
+
+/*
+ * Returns the maximum number of watchpoints supported for protected VMs.
+ */
+static inline int pkvm_get_max_wrps(void)
+{
+	int num = FIELD_GET(ARM64_FEATURE_MASK(ID_AA64DFR0_WRPS),
+			    PVM_ID_AA64DFR0_ALLOW);
+
+	return num ? num + 1 : 0;
+}
+
 extern struct memblock_region kvm_nvhe_sym(hyp_memory)[];
 extern unsigned int kvm_nvhe_sym(hyp_memblock_nr);
 
