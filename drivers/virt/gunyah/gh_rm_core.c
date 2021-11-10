@@ -1415,6 +1415,7 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 		/* We must be GH_PRIMARY_VM */
 		temp_property.vmid = vmid;
 		gh_update_vm_prop_table(GH_PRIMARY_VM, &temp_property);
+		gh_rm_core_initialized = true;
 	} else {
 		/* We must be GH_TRUSTED_VM */
 		temp_property.vmid = vmid;
@@ -1422,11 +1423,12 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 		temp_property.vmid = owner_vmid;
 		gh_update_vm_prop_table(GH_PRIMARY_VM, &temp_property);
 
-		/* Query RM for available resources */
-		schedule_work(&gh_rm_get_svm_res_work);
 		/* check peer to see if any VM has been bootup */
 		gh_vm_check_peer(dev, node);
 		gh_rm_register_notifier(&gh_vm_status_nb);
+		gh_rm_core_initialized = true;
+		/* Query RM for available resources */
+		schedule_work(&gh_rm_get_svm_res_work);
 	}
 
 	return 0;
@@ -1485,7 +1487,6 @@ static int gh_rm_drv_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -ENODEV)
 		goto err_recv_task;
 
-	gh_rm_core_initialized = true;
 	return 0;
 
 err_recv_task:
