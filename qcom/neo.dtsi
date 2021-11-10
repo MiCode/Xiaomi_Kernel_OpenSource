@@ -1532,6 +1532,22 @@
 
 	thermal_zones: thermal-zones {
 	};
+
+	wpss_pas: remoteproc-wpss@8A00000 {
+		compatible = "qcom,neo-wpss-pas";
+		status = "ok";
+
+		memory-region = <&wpss_wlan_moselle_mem>;
+	};
+
+	icnss2: qcom,wcn6750 {
+		compatible = "qcom,wcn6750";
+
+		qcom,iommu-dma = "bypass";
+		qcom,fw-prefix;
+		qcom,wlan;
+		qcom,wlan-msa-fixed-region = <&wlan_msa_moselle_mem>;
+	};
 };
 
 #include "neo-pinctrl.dtsi"
