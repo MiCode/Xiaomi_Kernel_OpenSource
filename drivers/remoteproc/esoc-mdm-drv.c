@@ -506,7 +506,16 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 {
 	int ret;
 	struct mdm_drv *mdm_drv;
+	struct mdm_drv_data *data;
 	struct esoc_eng *esoc_eng;
+
+	data = esoc_device_get_match_data(&esoc_clink->dev);
+	if (IS_ERR(data)) {
+		dev_err(&esoc_clink->dev, "esoc match data failed: %d\n", PTR_ERR(data));
+		return PTR_ERR(data);
+	}
+
+	esoc_clink->fw = data->fw;
 
 	mdm_drv = devm_kzalloc(&esoc_clink->dev, sizeof(*mdm_drv), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(mdm_drv))

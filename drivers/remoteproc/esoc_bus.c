@@ -203,7 +203,7 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 	snprintf(rproc_name, len, "esoc%d", esoc_clink->id);
 	esoc_clink->dev.of_node = esoc_clink->np;
 	esoc_clink->rproc = rproc_alloc(&esoc_clink->dev, rproc_name,
-					&esoc_clink->ops, "xbl.elf", 0);
+					&esoc_clink->ops, esoc_clink->fw, 0);
 	if (!esoc_clink->rproc) {
 		dev_err(&esoc_clink->dev, "unable to allocate remoteproc\n");
 		ret = -ENOMEM;

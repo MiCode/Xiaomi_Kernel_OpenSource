@@ -87,6 +87,7 @@ struct esoc_clink {
 	spinlock_t notify_lock;
 	void *clink_data;
 	void *compat_data;
+	const char *fw;
 	struct rproc *rproc;
 	struct rproc_ops ops;
 	struct qcom_sysmon *rproc_sysmon;
