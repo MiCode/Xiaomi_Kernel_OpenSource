@@ -3025,6 +3025,10 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 	} else {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
 		del_timer(&plat_priv->fw_boot_timer);
+		if (plat_priv->charger_mode) {
+			cnss_pr_err("Ignore calibration timeout in charger mode\n");
+			return;
+		}
 		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
 			CNSS_ASSERT(0);
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
