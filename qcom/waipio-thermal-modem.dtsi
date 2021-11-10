@@ -7,92 +7,92 @@
 		modem {
 			qcom,instance-id = <QMI_MODEM_INST_ID>;
 
-			modem_lte_dsc: mmodem_lte_dsc {
+			modem_lte_dsc: mmodem_lte_dsc_kr {
 				qcom,qmi-dev-name = "modem_lte_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_nr_dsc: modem_nr_dsc {
+			modem_nr_dsc: modem_nr_dsc_kr {
 				qcom,qmi-dev-name = "modem_nr_dsc";
 				#cooling-cells = <2>;
 			};
 
-			modem_nr_scg_dsc: modem_nr_scg_dsc {
+			modem_nr_scg_dsc: modem_nr_scg_dsc_kr {
 				qcom,qmi-dev-name = "modem_nr_scg_dsc";
 				#cooling-cells = <2>;
 			};
 
-			sdr0_lte_dsc: sdr0_lte_dsc {
+			sdr0_lte_dsc: sdr0_lte_dsc_kr {
 				qcom,qmi-dev-name = "sdr0_lte_dsc";
 				#cooling-cells = <2>;
 			};
 
-			sdr1_lte_dsc: sdr1_lte_dsc {
+			sdr1_lte_dsc: sdr1_lte_dsc_kr {
 				qcom,qmi-dev-name = "sdr1_lte_dsc";
 				#cooling-cells = <2>;
 			};
 
-			sdr0_nr_dsc: sdr0_nr_dsc {
+			sdr0_nr_dsc: sdr0_nr_dsc_kr {
 				qcom,qmi-dev-name = "sdr0_nr_dsc";
 				#cooling-cells = <2>;
 			};
 
-			sdr1_nr_dsc: sdr1_nr_dsc {
+			sdr1_nr_dsc: sdr1_nr_dsc_kr {
 				qcom,qmi-dev-name = "sdr1_nr_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_lte_sdr0_dsc: pa_lte_sdr0_dsc {
+			pa_lte_sdr0_dsc: pa_lte_sdr0_dsc_kr {
 				qcom,qmi-dev-name = "pa_lte_sdr0_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_lte_sdr1_dsc: pa_lte_sdr1_dsc {
+			pa_lte_sdr1_dsc: pa_lte_sdr1_dsc_kr {
 				qcom,qmi-dev-name = "pa_lte_sdr1_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_nr_sdr0_dsc: pa_nr_sdr0_dsc {
+			pa_nr_sdr0_dsc: pa_nr_sdr0_dsc_kr {
 				qcom,qmi-dev-name = "pa_nr_sdr0_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_nr_sdr1_dsc: pa_nr_sdr1_dsc {
+			pa_nr_sdr1_dsc: pa_nr_sdr1_dsc_kr {
 				qcom,qmi-dev-name = "pa_nr_sdr1_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_nr_sdr0_scg_dsc: pa_nr_sdr0_scg_dsc {
+			pa_nr_sdr0_scg_dsc: pa_nr_sdr0_scg_kr {
 				qcom,qmi-dev-name = "pa_nr_sdr0_scg_dsc";
 				#cooling-cells = <2>;
 			};
 
-			pa_nr_sdr1_scg_dsc: pa_nr_sdr1_scg_dsc {
+			pa_nr_sdr1_scg_dsc: pa_nr_sdr1_scg_kr {
 				qcom,qmi-dev-name = "pa_nr_sdr1_scg_dsc";
 				#cooling-cells = <2>;
 			};
 
-			mmw0_dsc: mmw0_dsc {
+			mmw0_dsc: mmw0_dsc_kr {
 				qcom,qmi-dev-name = "mmw0_dsc";
 				#cooling-cells = <2>;
 			};
 
-			mmw1_dsc: mmw1_dsc {
+			mmw1_dsc: mmw1_dsc_kr {
 				qcom,qmi-dev-name = "mmw1_dsc";
 				#cooling-cells = <2>;
 			};
 
-			mmw2_dsc: mmw2_dsc {
+			mmw2_dsc: mmw2_dsc_kr {
 				qcom,qmi-dev-name = "mmw2_dsc";
 				#cooling-cells = <2>;
 			};
 
-			mmw3_dsc: mmw3_dsc {
+			mmw3_dsc: mmw3_dsc_kr {
 				qcom,qmi-dev-name = "mmw3_dsc";
 				#cooling-cells = <2>;
 			};
 
-			mmw_ific_dsc: mmw_ific_dsc {
+			mmw_ific_dsc: mmw_ific_dsc_kr {
 				qcom,qmi-dev-name = "mmw_ific_dsc";
 				#cooling-cells = <2>;
 			};
@@ -105,6 +105,82 @@
 			modem_vdd: modem_vdd {
 				qcom,qmi-dev-name = "cpuv_restriction_cold";
 				#cooling-cells = <2>;
+			};
+		};
+
+		modem_usr {
+			qcom,instance-id = <QMI_MODEM_INST_ID>;
+
+			mmodem_lte_dsc {
+				qcom,qmi-dev-name = "modem_lte_dsc";
+			};
+
+			modem_nr_dsc {
+				qcom,qmi-dev-name = "modem_nr_dsc";
+			};
+
+			modem_nr_scg_dsc {
+				qcom,qmi-dev-name = "modem_nr_scg_dsc";
+			};
+
+			sdr0_lte_dsc {
+				qcom,qmi-dev-name = "sdr0_lte_dsc";
+			};
+
+			sdr1_lte_dsc {
+				qcom,qmi-dev-name = "sdr1_lte_dsc";
+			};
+
+			sdr0_nr_dsc {
+				qcom,qmi-dev-name = "sdr0_nr_dsc";
+			};
+
+			sdr1_nr_dsc {
+				qcom,qmi-dev-name = "sdr1_nr_dsc";
+			};
+
+			pa_lte_sdr0_dsc {
+				qcom,qmi-dev-name = "pa_lte_sdr0_dsc";
+			};
+
+			pa_lte_sdr1_dsc {
+				qcom,qmi-dev-name = "pa_lte_sdr1_dsc";
+			};
+
+			pa_nr_sdr0_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr0_dsc";
+			};
+
+			pa_nr_sdr1_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr1_dsc";
+			};
+
+			pa_nr_sdr0_scg_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr0_scg_dsc";
+			};
+
+			pa_nr_sdr1_scg_dsc {
+				qcom,qmi-dev-name = "pa_nr_sdr1_scg_dsc";
+			};
+
+			mmw0_dsc {
+				qcom,qmi-dev-name = "mmw0_dsc";
+			};
+
+			mmw1_dsc {
+				qcom,qmi-dev-name = "mmw1_dsc";
+			};
+
+			mmw2_dsc {
+				qcom,qmi-dev-name = "mmw2_dsc";
+			};
+
+			mmw3_dsc {
+				qcom,qmi-dev-name = "mmw3_dsc";
+			};
+
+			mmw_ific_dsc {
+				qcom,qmi-dev-name = "mmw_ific_dsc";
 			};
 		};
 	};

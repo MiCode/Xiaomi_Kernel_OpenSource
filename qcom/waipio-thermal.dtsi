@@ -180,7 +180,7 @@
 		cdsp {
 			qcom,instance-id = <QMI_CDSP_INST_ID>;
 
-			cdsp_sw: cdsp {
+			cdsp_sw: cdsp_kr {
 				qcom,qmi-dev-name = "cdsp_sw";
 				#cooling-cells = <2>;
 			};
@@ -188,6 +188,14 @@
 			cdsp_hw: cdsp_hw {
 				qcom,qmi-dev-name = "cdsp_hw";
 				#cooling-cells = <2>;
+			};
+		};
+
+		cdsp_usr {
+			qcom,instance-id = <QMI_CDSP_INST_ID>;
+
+			cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
 			};
 		};
 	};
