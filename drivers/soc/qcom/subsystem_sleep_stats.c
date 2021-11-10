@@ -119,6 +119,7 @@ struct sleep_stats_data {
 };
 
 static DEFINE_MUTEX(sleep_stats_mutex);
+static bool rpmh_stats_present;
 
 static inline u64 get_time_in_msec(u64 counter)
 {
@@ -162,7 +163,7 @@ static int subsystem_sleep_stats(struct sleep_stats_data *stats_data, struct sle
 {
 	struct sleep_stats *subsystem_stats_data;
 
-	if (pid == SUBSYSTEM_STATS_OTHERS_NUM)
+	if (pid == SUBSYSTEM_STATS_OTHERS_NUM && rpmh_stats_present)
 		memcpy_fromio(stats, stats_data->reg[idx], sizeof(*stats));
 	else {
 		/* Check if HLOS already maintained APSS stats */
@@ -287,7 +288,7 @@ static long stats_data_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		ret = copy_to_user((void __user *)arg, temp, sizeof(struct sleep_stats));
-	} else {
+	} else if (rpmh_stats_present) {
 		ddr_stats_sleep_stat(drvdata, temp);
 		ret = copy_to_user((void __user *)arg, temp,
 					DDR_STATS_MAX_NUM_MODES * sizeof(struct sleep_stats));
@@ -360,8 +361,10 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = PTR_ERR(res);
-		goto fail_device_create;
-	}
+		rpmh_stats_present = false;
+		goto skip_stats;
+	} else
+		rpmh_stats_present = true;
 
 	offset_addr = devm_ioremap(&pdev->dev, res->start + config->offset_addr, sizeof(u32));
 	if (IS_ERR(offset_addr)) {
@@ -415,6 +418,7 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 		goto fail_device_create;
 	}
 
+skip_stats:
 	platform_set_drvdata(pdev, stats_data);
 
 	return 0;
