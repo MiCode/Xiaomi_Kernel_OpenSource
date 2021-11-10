@@ -997,15 +997,26 @@ static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 		 * the SecTAG, so we have to deduce which port to deliver to.
 		 */
 		if (macsec_is_offloaded(macsec) && netif_running(ndev)) {
-			if (ether_addr_equal_64bits(hdr->h_dest,
+			if (hdr->h_proto == htons(ETH_P_PAE))
+				continue;
+
+			if (ndev->flags & IFF_PROMISC) {
+				nskb = skb_clone(skb, GFP_ATOMIC);
+				if (!nskb)
+					break;
+
+				count_rx(ndev, nskb->len);
+				nskb->dev = ndev;
+				netif_rx(nskb);
+			} else if (ether_addr_equal_64bits(hdr->h_dest,
 						    ndev->dev_addr)) {
 				/* exact match, divert skb to this port */
 				skb->dev = ndev;
 				skb->pkt_type = PACKET_HOST;
+				count_rx(ndev, skb->len);
 				ret = RX_HANDLER_ANOTHER;
 				goto out;
-			} else if (is_multicast_ether_addr_64bits(
-					   hdr->h_dest)) {
+			} else if (is_multicast_ether_addr_64bits(hdr->h_dest)) {
 				/* multicast frame, deliver on this port too */
 				nskb = skb_clone(skb, GFP_ATOMIC);
 				if (!nskb)
@@ -1018,6 +1029,7 @@ static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 				else
 					nskb->pkt_type = PACKET_MULTICAST;
 
+				count_rx(ndev, nskb->len);
 				netif_rx(nskb);
 			}
 			continue;
@@ -3351,6 +3363,14 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
 	if (macsec_is_offloaded(netdev_priv(dev))) {
 		skb->dev = macsec->real_dev;
 		return dev_queue_xmit(skb);
+	}
+
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		skb->dev = macsec->real_dev;
+		ret = dev_queue_xmit(skb);
+		len = skb->len;
+		count_tx(dev, ret, len);
+		return ret;
 	}
 
 	/* 10.5 */
