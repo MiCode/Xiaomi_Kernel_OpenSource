@@ -1734,7 +1734,6 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	struct arm_smmu_smr *smrs = smmu->smrs;
 	int i, idx, ret;
 
-	mutex_lock(&smmu->iommu_group_mutex);
 	mutex_lock(&smmu->stream_map_mutex);
 	/* Figure out a viable stream map entry allocation */
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
@@ -1765,7 +1764,6 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	for_each_cfg_sme(cfg, fwspec, i, idx)
 		arm_smmu_write_sme(smmu, idx);
 
-	mutex_unlock(&smmu->iommu_group_mutex);
 	return 0;
 
 out_err:
@@ -1774,7 +1772,6 @@ out_err:
 		cfg->smendx[i] = INVALID_SMENDX;
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
-	mutex_unlock(&smmu->iommu_group_mutex);
 	return ret;
 }
 
@@ -3039,7 +3036,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 
 	smmu->num_mapping_groups = size;
 	mutex_init(&smmu->stream_map_mutex);
-	mutex_init(&smmu->iommu_group_mutex);
 	spin_lock_init(&smmu->global_sync_lock);
 
 	if (smmu->version < ARM_SMMU_V2 ||

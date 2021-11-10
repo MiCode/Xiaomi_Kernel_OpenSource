@@ -394,7 +394,6 @@ struct arm_smmu_device {
 	struct arm_smmu_smr		*smrs;
 	struct arm_smmu_s2cr		*s2crs;
 	struct mutex			stream_map_mutex;
-	struct mutex			iommu_group_mutex;
 
 	unsigned long			va_size;
 	unsigned long			ipa_size;
