@@ -514,7 +514,7 @@
 		reg = <0xaf20000 0x10000>;
 		reg-names = "drv-0";
 		interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
-		/* Add clock node here similar to clocks = <&clock_dispcc...> */
+		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
 		qcom,tcs-offset = <0x1c00>;
 		qcom,drv-id = <0>;
 		qcom,tcs-config = <ACTIVE_TCS    0>,
@@ -522,7 +522,6 @@
 				  <WAKE_TCS      1>,
 				  <CONTROL_TCS   0>,
 				  <FAST_PATH_TCS 0>;
-		status = "nok"; /* enable once get clock change*/
 
 		disp_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
