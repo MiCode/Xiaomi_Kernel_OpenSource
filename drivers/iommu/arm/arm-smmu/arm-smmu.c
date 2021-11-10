@@ -108,6 +108,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain);
 
 static int arm_smmu_setup_default_domain(struct device *dev,
 				struct iommu_domain *domain);
+static void __arm_smmu_qcom_tlb_sync(struct iommu_domain *domain);
 
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
@@ -1168,24 +1169,59 @@ static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
 		fast_smmu_put_dma_cookie(domain);
 }
 
-static void arm_smmu_tlb_add_walk(void *cookie, void *virt, unsigned long iova, size_t granule)
+static void arm_smmu_log_new_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_add(smmu_domain, iova, __pa(virt), granule);
+}
+
+static void arm_smmu_log_remove_table(void *cookie, void *virt, unsigned long iova, size_t granule)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	trace_iommu_pgtable_remove(smmu_domain, iova, __pa(virt), granule);
+}
+
+static void arm_smmu_tlb_add_walk_page(void *cookie, void *virt)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct page *page = virt_to_page(virt);
 	unsigned long flags;
-	struct iommu_iotlb_gather *gather = &smmu_domain->iotlb_gather;
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	iommu_iotlb_gather_add_range(gather, iova, granule);
-	page->freelist = gather->freelist;
-	gather->freelist = page;
+	smmu_domain->deferred_sync = true;
+	page->freelist = smmu_domain->freelist;
+	smmu_domain->freelist = page;
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
-
-	trace_tlb_add_walk(smmu_domain, iova, granule);
 }
 
+static void arm_smmu_qcom_tlb_add_inv(void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
+	smmu_domain->deferred_sync = true;
+	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+}
+
+static void arm_smmu_qcom_tlb_sync(void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	__arm_smmu_qcom_tlb_sync(&smmu_domain->domain);
+}
+
+static const struct qcom_iommu_pgtable_log_ops arm_smmu_pgtable_log_ops = {
+	.log_new_table = arm_smmu_log_new_table,
+	.log_remove_table = arm_smmu_log_remove_table,
+};
+
 static const struct qcom_iommu_flush_ops arm_smmu_iotlb_ops = {
-	.tlb_add_walk = arm_smmu_tlb_add_walk,
+	.tlb_add_walk_page = arm_smmu_tlb_add_walk_page,
+	.tlb_add_inv = arm_smmu_qcom_tlb_add_inv,
+	.tlb_sync = arm_smmu_qcom_tlb_sync,
 };
 
 static int arm_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
@@ -1361,6 +1397,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		cfg->asid = cfg->cbndx;
 
 	pgtbl_info.iommu_tlb_ops = &arm_smmu_iotlb_ops;
+	pgtbl_info.pgtable_log_ops = &arm_smmu_pgtable_log_ops;
 	pgtbl_info.cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
@@ -1529,7 +1566,6 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->cb_lock);
 	spin_lock_init(&smmu_domain->sync_lock);
-	iommu_iotlb_gather_init(&smmu_domain->iotlb_gather);
 	spin_lock_init(&smmu_domain->iotlb_gather_lock);
 	arm_smmu_domain_reinit(smmu_domain);
 
@@ -2019,16 +2055,22 @@ static int arm_smmu_map_pages(struct iommu_domain *domain, unsigned long iova,
 			      phys_addr_t paddr, size_t pgsize, size_t pgcount,
 			      int prot, gfp_t gfp, size_t *mapped)
 {
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	struct arm_smmu_device *smmu = to_smmu_domain(domain)->smmu;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret;
 
 	if (!ops)
 		return -ENODEV;
 
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
+
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	ret = ops->map_pages(ops, iova, paddr, pgsize, pgcount, prot, gfp, mapped);
 
+	arm_smmu_rpm_put(smmu);
 	if (!ret)
 		trace_map_pages(smmu_domain, iova, pgsize, pgcount);
 
@@ -2039,13 +2081,18 @@ static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned 
 					  struct scatterlist *sg, unsigned int nents, int prot,
 					  gfp_t gfp, size_t *mapped)
 {
-	int ret, i;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	struct arm_smmu_device *smmu = to_smmu_domain(domain)->smmu;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret, i;
 	struct scatterlist *tmp;
 
 	if (!ops)
 		return -ENODEV;
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
 
 	gfp = arm_smmu_domain_gfp_flags(smmu_domain);
 	/*
@@ -2061,6 +2108,7 @@ static int __maybe_unused arm_smmu_map_sg(struct iommu_domain *domain, unsigned 
 		*mapped += tmp->length;
 	}
 
+	arm_smmu_rpm_put(smmu);
 	if (!ret)
 		trace_map_sg(smmu_domain, iova, sg, nents);
 
@@ -2097,12 +2145,19 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 	}
 }
 
-static void __arm_smmu_iotlb_sync(struct iommu_domain *domain,
-				struct iommu_iotlb_gather *gather)
+/* Caller must call arm_smmu_rpm_get() beforehand. */
+static void __arm_smmu_qcom_tlb_sync(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct page *freelist, *page;
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
+	if (!smmu_domain->deferred_sync) {
+		spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+		return;
+	}
 
 	if (smmu->version == ARM_SMMU_V2 ||
 	    smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
@@ -2110,44 +2165,17 @@ static void __arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	else
 		arm_smmu_tlb_sync_global(smmu);
 
-	freelist = smmu_domain->iotlb_gather.freelist;
-	iommu_iotlb_gather_init(&smmu_domain->iotlb_gather);
+	smmu_domain->deferred_sync = false;
+
+	freelist = smmu_domain->freelist;
+	smmu_domain->freelist = NULL;
 
 	while (freelist) {
 		page = freelist;
 		freelist = page->freelist;
 		qcom_io_pgtable_free_page(page);
 	}
-}
-
-/*
- * When a old pagetable is free'd, a subsequent map operation
- * which installs a new pagetable in the same location as the old
- * must not return until TLBI on the old pagetable is completed.
- *
- * Since this check holds a common lock, non-overlapping map operations
- * will be delayed until tlb invalidate completes. Implementing a
- * lockless check may introduce hard-to-debug issues, so defer it for now.
- */
-static void arm_smmu_iotlb_sync_map(struct iommu_domain *domain,
-				unsigned long iova, size_t size)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	unsigned long flags;
-	unsigned long iova_end = iova + size - 1;
-
-	if (!smmu)
-		return;
-
-	arm_smmu_rpm_get(smmu);
-	/* Secure pages may be freed to the secure pool after TLB maintenance. */
-	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	if ((iova_end >= smmu_domain->iotlb_gather.start) &&
-	      (iova <= smmu_domain->iotlb_gather.end))
-		__arm_smmu_iotlb_sync(domain, NULL);
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
-	arm_smmu_rpm_put(smmu);
 }
 
 static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
@@ -2155,15 +2183,12 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	unsigned long flags;
 
 	if (!smmu)
 		return;
 
 	arm_smmu_rpm_get(smmu);
-	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	__arm_smmu_iotlb_sync(domain, NULL);
-	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
+	__arm_smmu_qcom_tlb_sync(domain);
 	arm_smmu_rpm_put(smmu);
 }
 
@@ -2711,7 +2736,6 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 		.map_pages		= arm_smmu_map_pages,
 		.unmap_pages		= arm_smmu_unmap_pages,
 		.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
-		.iotlb_sync_map		= arm_smmu_iotlb_sync_map,
 		.iotlb_sync		= arm_smmu_iotlb_sync,
 		.iova_to_phys		= arm_smmu_iova_to_phys,
 		.probe_device		= arm_smmu_probe_device,

@@ -157,6 +157,7 @@ struct arm_lpae_io_pgtable {
 	void			*pgd;
 	u32			vmid;
 	const struct qcom_iommu_flush_ops *iommu_tlb_ops;
+	const struct qcom_iommu_pgtable_log_ops *pgtable_log_ops;
 	/* Protects table refcounts */
 	spinlock_t		lock;
 };
@@ -303,12 +304,17 @@ out_free:
 
 static void __arm_lpae_free_pages(struct arm_lpae_io_pgtable *data,
 				  void *pages, size_t size,
-				  struct io_pgtable_cfg *cfg, void *cookie)
+				  struct io_pgtable_cfg *cfg, void *cookie,
+				  bool deferred_free)
 {
 	if (!cfg->coherent_walk)
 		dma_unmap_single(cfg->iommu_dev, __arm_lpae_dma_addr(pages),
 				 size, DMA_TO_DEVICE);
-	qcom_io_pgtable_free_page(virt_to_page(pages));
+
+	if (deferred_free)
+		qcom_io_pgtable_tlb_add_walk_page(data->iommu_tlb_ops, cookie, pages);
+	else
+		qcom_io_pgtable_free_page(virt_to_page(pages));
 }
 
 static void __arm_lpae_sync_pte(arm_lpae_iopte *ptep, int num_entries,
@@ -384,9 +390,13 @@ static arm_lpae_iopte arm_lpae_install_table(arm_lpae_iopte *table,
 					     arm_lpae_iopte *ptep,
 					     arm_lpae_iopte curr,
 					     struct io_pgtable_cfg *cfg,
-					     int refcount)
+					     int refcount,
+					     struct arm_lpae_io_pgtable *data)
 {
 	arm_lpae_iopte old, new;
+
+	/* Due to tlb maintenance in unmap being deferred */
+	qcom_io_pgtable_tlb_sync(data->iommu_tlb_ops, data->iop.cookie);
 
 	new = __pa(table) | ARM_LPAE_PTE_TYPE_TABLE;
 	if (cfg->quirks & IO_PGTABLE_QUIRK_ARM_NS)
@@ -515,9 +525,14 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 		if (!cptep)
 			return -ENOMEM;
 
-		pte = arm_lpae_install_table(cptep, ptep, 0, cfg, 0);
+		pte = arm_lpae_install_table(cptep, ptep, 0, cfg, 0, data);
 		if (pte)
-			__arm_lpae_free_pages(data, cptep, tblsz, cfg, cookie);
+			__arm_lpae_free_pages(data, cptep, tblsz, cfg, cookie, false);
+		else
+			qcom_io_pgtable_log_new_table(data->pgtable_log_ops,
+					data->iop.cookie, cptep,
+					iova & ~(block_size - 1),
+					block_size);
 	} else if (!cfg->coherent_walk && !(pte & ARM_LPAE_PTE_SW_SYNC)) {
 		__arm_lpae_sync_pte(ptep, 1, cfg);
 	}
@@ -798,7 +813,7 @@ static int __maybe_unused arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned l
 }
 
 static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
-				    arm_lpae_iopte *ptep)
+				    arm_lpae_iopte *ptep, bool deferred_free)
 {
 	arm_lpae_iopte *start, *end;
 	unsigned long table_size;
@@ -823,17 +838,24 @@ static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 		if (!pte || iopte_leaf(pte, lvl, data->iop.fmt))
 			continue;
 
-		__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
+		__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data),
+					deferred_free);
 	}
 
-	__arm_lpae_free_pages(data, start, table_size, &data->iop.cfg, cookie);
+	__arm_lpae_free_pages(data, start, table_size, &data->iop.cfg, cookie,
+			      deferred_free);
+
+	qcom_io_pgtable_log_remove_table(data->pgtable_log_ops,
+					data->iop.cookie, start,
+					0, /* iova unknown */
+					ARM_LPAE_BLOCK_SIZE(lvl - 1, data));
 }
 
 static void arm_lpae_free_pgtable(struct io_pgtable *iop)
 {
 	struct arm_lpae_io_pgtable *data = io_pgtable_to_data(iop);
 
-	__arm_lpae_free_pgtable(data, data->start_level, data->pgd);
+	__arm_lpae_free_pgtable(data, data->start_level, data->pgd, false);
 	qcom_io_pgtable_allocator_unregister(data->vmid);
 	kfree(data);
 }
@@ -879,9 +901,9 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 		child_cnt++;
 	}
 
-	pte = arm_lpae_install_table(tablep, ptep, blk_pte, cfg, child_cnt);
+	pte = arm_lpae_install_table(tablep, ptep, blk_pte, cfg, child_cnt, data);
 	if (pte != blk_pte) {
-		__arm_lpae_free_pages(data, tablep, tablesz, cfg, cookie);
+		__arm_lpae_free_pages(data, tablep, tablesz, cfg, cookie, false);
 		/*
 		 * We may race against someone unmapping another part of this
 		 * block, but anything else is invalid. We can't misinterpret
@@ -892,6 +914,16 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 
 		tablep = iopte_deref(pte, data);
 	} else if (unmap_idx_start >= 0) {
+		/*
+		 * note lvl + 1 due to split_sz above.
+		 * add 0xDEA as flag since split_block_unmap shouldn't ever be called
+		 */
+		size_t prev_block_size = ARM_LPAE_BLOCK_SIZE(lvl + 1, data);
+
+		qcom_io_pgtable_log_new_table(data->pgtable_log_ops,
+					data->iop.cookie, tablep,
+					iova & ~(prev_block_size - 1) + 0xDEA,
+					prev_block_size);
 		return num_entries * size;
 	}
 
@@ -931,7 +963,8 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			__arm_lpae_set_pte(ptep, 0, 1, &iop->cfg);
 
 			if (!iopte_leaf(pte, lvl, iop->fmt)) {
-				__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
+				__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data),
+							true);
 			} else if (!iommu_iotlb_gather_queued(gather)) {
 				/*
 				 * Order the PTE update against queueing the IOVA, to
@@ -965,11 +998,12 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			/*
 			 * no valid mappings left under this table.
 			 * Defer table free until after iommu_iotlb_sync, or
-			 * iotlb_sync_map, whichever occurs first.
+			 * qcom_io_pgtable_tlb_sync, whichever occurs first.
 			 */
 			__arm_lpae_set_pte(ptep, 0, 1, &iop->cfg);
+			__arm_lpae_free_pgtable(data, lvl + 1, table, true);
 
-			qcom_io_pgtable_tlb_add_walk(data->iommu_tlb_ops,
+			qcom_io_pgtable_log_remove_table(data->pgtable_log_ops,
 				data->iop.cookie, table,
 				iova & ~(block_size - 1),
 				block_size);
@@ -1012,6 +1046,7 @@ static size_t arm_lpae_unmap_pages(struct io_pgtable_ops *ops, unsigned long iov
 	spin_lock_irqsave(&data->lock, flags);
 	unmapped = __arm_lpae_unmap(data, gather, iova, pgsize, pgcount,
 				    data->start_level, ptep);
+	qcom_io_pgtable_tlb_add_inv(data->iommu_tlb_ops, data->iop.cookie);
 	spin_unlock_irqrestore(&data->lock, flags);
 
 	return unmapped;
@@ -1149,6 +1184,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 
 	spin_lock_init(&data->lock);
 	data->iommu_tlb_ops = pgtbl_info->iommu_tlb_ops;
+	data->pgtable_log_ops = pgtbl_info->pgtable_log_ops;
 	data->vmid = pgtbl_info->vmid;
 	if (qcom_io_pgtable_allocator_register(data->vmid)) {
 		kfree(data);

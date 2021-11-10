@@ -4,6 +4,35 @@
 #
 menu "Qualcomm SoC drivers"
 
+config SPS
+	tristate "SPS support"
+	select GENERIC_ALLOCATOR
+	help
+	  The SPS (Smart Peripheral Switch) is a DMA engine.
+	  It can move data in the following modes:
+		1. Peripheral-to-Peripheral.
+		2. Peripheral-to-Memory.
+		3. Memory-to-Memory.
+
+config SPS_SUPPORT_BAMDMA
+	bool "SPS supports BAM DMA"
+	depends on SPS
+	help
+	  The BAM-DMA is used for Memory-to-Memory transfers.
+	  The main use cases is RPC between processors.
+	  The BAM-DMA hardware has 2 registers sets:
+		1. A BAM HW like all the peripherals.
+		2. A DMA channel configuration (i.e. channel priority).
+
+config SPS_SUPPORT_NDP_BAM
+	bool "SPS supports NDP BAM"
+	depends on SPS
+	help
+	  No-Data-Path BAM is used to improve BAM performance.
+	  NDP BAMs enables peripherals with fast fabric connectivity
+	  to do the actual data transfer themselves, instead of the
+	  BAM.
+
 config QCOM_AOSS_QMP
 	tristate "Qualcomm AOSS Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -79,6 +108,16 @@ config QCOM_MSM_IPCC
 	  driver also provides a mailbox channel for outbound-communications.
 	  Say Y here to compile the driver as a part of kernel or M to compile
 	  as a module.
+
+config QCOM_RIMPS
+	tristate "Qualcomm Technologies, Inc. Rimps driver"
+	depends on MAILBOX
+	help
+	 Qualcomm Technologies, Inc. RIMPS driver for MSM devices. This driver
+	 acts as a mailbox controller to do doorbell between Apss and Rimps
+	 subsystem. Say yes here to enable rx and tx channel between both
+	 the subsystems.
+	 If unsure, say n.
 
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
@@ -337,6 +376,15 @@ config QCOM_SECURE_BUFFER
 	  use this memory and no unauthorized access is made to the
 	  buffer.
 
+config HYP_ASSIGN_DEBUG
+	bool "Enable caller tracking for hyp-assign"
+	depends on QCOM_SECURE_BUFFER
+	help
+	  Track all pages which are in the hyp-assigned state. Enable
+	  additional error checking on hyp-assign based on this state.
+	  Detects double-assign and double-unassign scenarios.
+	  If unsure, say 'N' here.
+
 config QCOM_MEM_HOOKS
        tristate "Memory trace hook callbacks"
        help
@@ -357,9 +405,24 @@ config QCOM_SOCINFO
 	tristate "Qualcomm socinfo driver"
 	depends on QCOM_SMEM
 	select SOC_BUS
+
 	help
 	 Say yes here to support the Qualcomm socinfo driver, providing
 	 information about the SoC to user space.
+
+source "drivers/soc/qcom/dcvs/Kconfig"
+
+config QTI_HW_MEMLAT_LOG
+	tristate "Qualcomm Technologies Inc. HW MEMLAT Logging"
+	depends on IPC_LOGGING && QCOM_RIMPS
+	default n
+	help
+	  Memlat hw logging driver, this driver has the infra to collect logs
+	  generated in MEMLAT HW and log the buffers.
+
+	  This driver register with IPC_Logging framework, to have dedicated
+	  buffer for memlat hw device.
+
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
@@ -586,6 +649,27 @@ config QCOM_PANEL_EVENT_NOTIFIER
 	panel events such as panel on , panel off, fps change etc.  Clients
 	can use these notifications for power saving or align its operations
 	with display panel power state.
+
+config QCOM_MEM_OFFLINE
+	tristate "Dynamic Memory Region Offline driver"
+	depends on MEMORY_HOTPLUG
+	help
+	  Add support for DDR Self-Refresh power management through the dynamic
+	  memory offline framework. This driver interfaces between the memory
+	  hotplug subsystem and AOP which hot adds or removes memory blocks and
+	  controls the start/stop of self-refresh of these DDR regions. This
+	  helps reduce power consumption during idle mode of the system.
+	  If unsure, say N
+
+config BUG_ON_HW_MEM_ONLINE_FAIL
+	bool "Trigger a BUG when HW memory online fails"
+	depends on QCOM_MEM_OFFLINE
+	help
+	  Select this option if kernel should BUG when the hardware
+	  onlining of memory hotplug blocks fails. This helps to catch
+	  online failures much quicker and avoids the later side effects
+	  of such memory online failures.
+	  If unsure, say N
 
 config QCOM_GUESTVM
         tristate "Enable Guest VM to be loaded by PIL"
