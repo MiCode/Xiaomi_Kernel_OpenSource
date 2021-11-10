@@ -166,6 +166,7 @@ void *get_esoc_clink_data(struct esoc_clink *esoc);
 void set_esoc_clink_data(struct esoc_clink *esoc, void *data);
 void esoc_clink_evt_notify(enum esoc_evt, struct esoc_clink *esoc_dev);
 void esoc_clink_queue_request(enum esoc_req req, struct esoc_clink *esoc_dev);
+void *esoc_device_get_match_data(struct device *dev);
 void esoc_for_each_dev(void *data, esoc_func_t fn);
 int esoc_clink_register_cmd_eng(struct esoc_clink *esoc_clink, struct esoc_eng *eng);
 void esoc_clink_unregister_cmd_eng(struct esoc_clink *esoc_clink, struct esoc_eng *eng);

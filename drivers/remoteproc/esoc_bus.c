@@ -60,6 +60,22 @@ static int esoc_bus_match(struct device *dev, struct device_driver *drv)
 	return 0;
 }
 
+void *esoc_device_get_match_data(struct device *dev)
+{
+	int i = 0;
+	struct esoc_clink *esoc_clink = to_esoc_clink(dev);
+	struct esoc_drv *esoc_drv = to_esoc_drv(dev->driver);
+	int entries = esoc_drv->compat_entries;
+	struct esoc_compat *table = esoc_drv->compat_table;
+
+	for (i = 0; i < entries; i++) {
+		if (strcasecmp(esoc_clink->name, table[i].name) == 0)
+			return table[i].data;
+	}
+
+	return ERR_PTR(-EINVAL);
+}
+
 static int esoc_bus_probe(struct device *dev)
 {
 	int ret;
