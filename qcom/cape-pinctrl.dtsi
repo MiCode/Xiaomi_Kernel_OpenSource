@@ -233,6 +233,19 @@
 		};
 	};
 
+	trigout_a: trigout_a {
+		mux {
+			pins = "gpio2";
+			function = "qdss_cti";
+		};
+
+		config {
+			pins = "gpio2";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
 	pri_tdm_clk {
 		pri_tdm_clk_sleep: pri_tdm_clk_sleep {
 			mux {
