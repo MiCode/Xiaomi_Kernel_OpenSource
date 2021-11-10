@@ -187,6 +187,13 @@
 			#thermal-sensor-cells = <1>;
 		};
 
+		pmk8350_sdam_1: sdam@7000 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x7000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+
 		pmk8350_sdam_2: sdam@7100 {
 			compatible = "qcom,spmi-sdam";
 			reg = <0x7100>;

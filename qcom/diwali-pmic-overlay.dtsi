@@ -51,6 +51,13 @@
 	};
 };
 
+&pmk8350_sdam_1 {
+	ufs_dev: ufs_dev@94 {
+		reg = <0x94 0x1>;
+		bits = <0 0>;
+	};
+};
+
 &pm7325_gpios {
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
