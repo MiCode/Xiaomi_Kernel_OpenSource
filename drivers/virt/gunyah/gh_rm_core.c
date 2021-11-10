@@ -1392,6 +1392,9 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 	struct device_node *node;
 	struct gh_vm_property temp_property = {0};
 	int vmid, owner_vmid, ret;
+	const char *vm_name;
+	enum gh_vm_names vm_name_index;
+
 
 	gh_init_vm_prop_table();
 
@@ -1417,9 +1420,28 @@ static int gh_vm_probe(struct device *dev, struct device_node *hyp_root)
 		gh_update_vm_prop_table(GH_PRIMARY_VM, &temp_property);
 		gh_rm_core_initialized = true;
 	} else {
-		/* We must be GH_TRUSTED_VM */
+		ret = of_property_read_string(node, "qcom,image-name",
+					      &vm_name);
+		if (ret) {
+			/* Just for compatible, if image-name cannot be found */
+			/* Assume we are trusted VM */
+			dev_dbg(dev,
+				"Could not find qcom,image-name assume we are trustedvm\n");
+			vm_name_index = GH_TRUSTED_VM;
+		} else {
+			vm_name_index = gh_get_vm_name(vm_name);
+			if (vm_name_index == GH_VM_MAX) {
+				dev_dbg(dev,
+					"Could not find vm_name:%s assume we are trustedvm\n",
+					vm_name);
+				vm_name_index = GH_TRUSTED_VM;
+			} else {
+				dev_dbg(dev, "VM name index is %d\n",
+					vm_name_index);
+			}
+		}
 		temp_property.vmid = vmid;
-		gh_update_vm_prop_table(GH_TRUSTED_VM, &temp_property);
+		gh_update_vm_prop_table(vm_name_index, &temp_property);
 		temp_property.vmid = owner_vmid;
 		gh_update_vm_prop_table(GH_PRIMARY_VM, &temp_property);
 
