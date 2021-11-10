@@ -174,6 +174,7 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num = 640, .den = 4100},	/* ICHG_SMB_new */
 	{.num = 1000, .den = 305185},	/* ICHG_FB */
 	{.num = 1000, .den = 610370},	/* ICHG_FB_2X */
+	{.num = 1000, .den = 762963},	/* ICHG_FB_2p5X */
 };
 
 static int adc5_read(struct adc5_chip *adc, u16 offset, u8 *data, int len)
