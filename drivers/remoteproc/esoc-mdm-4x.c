@@ -862,25 +862,17 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	return 0;
 }
 
-static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
-					const struct mdm_ops *ops,
-					struct platform_device *pdev)
+static int sdx_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
+			   struct platform_device *pdev, struct esoc_clink *esoc)
 {
 	int ret;
 	struct device_node *node;
-	struct esoc_clink *esoc;
 	const struct esoc_clink_ops *const clink_ops = ops->clink_ops;
 	const struct mdm_pon_ops *pon_ops = ops->pon_ops;
 
 	mdm->dev = &pdev->dev;
 	mdm->pon_ops = pon_ops;
 	node = pdev->dev.of_node;
-
-	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(esoc)) {
-		dev_err(mdm->dev, "cannot allocate esoc device\n");
-		return PTR_ERR(esoc);
-	}
 	esoc->pdev = pdev;
 
 	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
@@ -927,9 +919,7 @@ static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
 		goto err_release_ipc;
 	}
 
-	esoc->name = SDX50M_LABEL;
 	mdm->dual_interface = of_property_read_bool(node, "qcom,mdm-dual-link");
-	esoc->link_name = SDX50M_PCIE;
 	ret = of_property_read_string(node, "qcom,mdm-link-info", &esoc->link_info);
 	if (ret)
 		dev_info(mdm->dev, "esoc link info missing\n");
@@ -940,8 +930,6 @@ static int sdx50m_setup_hw(struct mdm_ctrl *mdm,
 	ret = of_property_read_u32(node, "qcom,ssctl-instance-id", &esoc->ssctl_id);
 	if (ret)
 		dev_info(mdm->dev, "esoc ssctl id missing\n");
-
-	esoc->sysmon_name = SDX50M_LABEL;
 
 	esoc->clink_ops = clink_ops;
 	esoc->parent = mdm->dev;
@@ -978,6 +966,24 @@ err_release_ipc:
 err_destroy_wrkq:
 	destroy_workqueue(mdm->mdm_queue);
 	return ret;
+}
+
+static int sdx50m_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
+			   struct platform_device *pdev)
+{
+	struct esoc_clink *esoc;
+
+	esoc = devm_kzalloc(&pdev->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(esoc)) {
+		dev_err(mdm->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+
+	esoc->name = SDX50M_LABEL;
+	esoc->link_name = SDX50M_PCIE;
+	esoc->sysmon_name = SDX50M_LABEL;
+
+	return sdx_setup_hw(mdm, ops, pdev, esoc);
 }
 
 static int sdx55m_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
@@ -1134,9 +1140,20 @@ static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 			  struct platform_device *pdev)
 {
 	int ret;
+	struct esoc_clink *esoc;
 
 	/* Same configuration as that of sdx50, except for the name */
-	ret = sdx50m_setup_hw(mdm, ops, pdev);
+	esoc = devm_kzalloc(&pdev->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(esoc)) {
+		dev_err(&pdev->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+
+	esoc->name = LEMUR_LABEL;
+	esoc->link_name = LEMUR_PCIE;
+	esoc->sysmon_name = LEMUR_LABEL;
+
+	ret = sdx_setup_hw(mdm, ops, pdev, esoc);
 	if (ret) {
 		dev_err(mdm->dev, "Hardware setup failed for lemur\n");
 		esoc_mdm_log("Hardware setup failed for lemur\n");
@@ -1149,7 +1166,6 @@ static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
 	}
 
-	mdm->esoc->name = LEMUR_LABEL;
 	esoc_mdm_log("Hardware setup done for lemur\n");
 
 	return ret;
