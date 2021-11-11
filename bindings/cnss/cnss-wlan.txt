@@ -102,7 +102,8 @@ Optional properties:
   - mboxes: Specifies mbox channel data for AOP messaging
   - qcom,vreg_ipa: Specifies voltage regulator used for WLAN device internal
                    power amp config
- - qcom,xo-clk-gpio: Added for QCA6490 XO CLK selection leakage prevention.
+  - qcom,xo-clk-gpio: Added for QCA6490 XO CLK selection leakage prevention.
+  - qcom,sw-ctrl-gpio: Switch control GPIO for device power control.
 
 Examples:
 
