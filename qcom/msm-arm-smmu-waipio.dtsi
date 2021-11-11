@@ -91,6 +91,7 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,context-fault-retry;
 		qcom,num-context-banks-override = <0x4e>;
 		qcom,num-smr-override = <0x78>;
 		qcom,handoff-smrs = <3>;
