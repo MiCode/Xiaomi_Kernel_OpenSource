@@ -48,6 +48,7 @@
 			dynamic-power-coefficient = <100>;
 			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -115,6 +116,7 @@
 			dynamic-power-coefficient = <257>;
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -169,6 +171,7 @@
 			dynamic-power-coefficient = <509>;
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
+			#cooling-cells = <2>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -2237,6 +2240,7 @@
 #include "msm-arm-smmu-waipio.dtsi"
 #include "cape-dma-heaps.dtsi"
 #include "cape-gpu.dtsi"
+#include "cape-thermal.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
