@@ -81,41 +81,93 @@ static void handle_pvm_entry_sys64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *
 	}
 }
 
-static void handle_pvm_entry_abt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
+static void handle_pvm_entry_iabt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	shadow_vcpu->arch.flags |= host_vcpu->arch.flags &
-		(KVM_ARM64_PENDING_EXCEPTION | KVM_ARM64_INCREMENT_PC);
+	unsigned long cpsr = *vcpu_cpsr(shadow_vcpu);
+	unsigned long host_flags;
+	u32 esr = ESR_ELx_IL;
 
-	if (shadow_vcpu->arch.flags & KVM_ARM64_PENDING_EXCEPTION) {
-		/* If the host wants to inject an exception, get syndrom and fault address. */
-		u32 far_el1 = kvm_vcpu_get_hfar(shadow_vcpu);
-		u32 esr_el1;
+	host_flags = READ_ONCE(host_vcpu->arch.flags);
 
-		esr_el1 = ESR_ELx_EC_IABT_CUR << ESR_ELx_EC_SHIFT;
-		esr_el1 |= ESR_ELx_FSC_EXTABT;
+	if (!(host_flags & KVM_ARM64_PENDING_EXCEPTION))
+		return;
 
-		__vcpu_sys_reg(shadow_vcpu, ESR_EL1) = esr_el1;
-		__vcpu_sys_reg(shadow_vcpu, FAR_EL1) = far_el1;
-	}
+	/*
+	 * If the host wants to inject an exception, get syndrom and
+	 * fault address.
+	 */
+	if ((cpsr & PSR_MODE_MASK) == PSR_MODE_EL0t)
+		esr |= (ESR_ELx_EC_IABT_LOW << ESR_ELx_EC_SHIFT);
+	else
+		esr |= (ESR_ELx_EC_IABT_CUR << ESR_ELx_EC_SHIFT);
+
+	esr |= ESR_ELx_FSC_EXTABT;
+
+	__vcpu_sys_reg(shadow_vcpu, ESR_EL1) = esr;
+	__vcpu_sys_reg(shadow_vcpu, FAR_EL1) = kvm_vcpu_get_hfar(shadow_vcpu);
+
+	/* Tell the run loop that we want to inject something */
+	shadow_vcpu->arch.flags &= ~(KVM_ARM64_PENDING_EXCEPTION |
+				     KVM_ARM64_EXCEPT_MASK);
+	shadow_vcpu->arch.flags |= (KVM_ARM64_PENDING_EXCEPTION |
+				    KVM_ARM64_EXCEPT_AA64_ELx_SYNC |
+				    KVM_ARM64_EXCEPT_AA64_EL1);
 }
 
 static void handle_pvm_entry_dabt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	bool pend_exception;
-	bool inc_pc;
+	unsigned long host_flags;
+	bool rd_update;
 
-	handle_pvm_entry_abt(host_vcpu, shadow_vcpu);
+	host_flags = READ_ONCE(host_vcpu->arch.flags);
 
-	pend_exception = shadow_vcpu->arch.flags & KVM_ARM64_PENDING_EXCEPTION;
-	inc_pc = shadow_vcpu->arch.flags & KVM_ARM64_INCREMENT_PC;
+	/* Exceptions have priority over anything else */
+	if (host_flags & KVM_ARM64_PENDING_EXCEPTION) {
+		unsigned long cpsr = *vcpu_cpsr(shadow_vcpu);
+		u32 esr = ESR_ELx_IL;
 
-	if (!pend_exception && inc_pc && !kvm_vcpu_dabt_iswrite(shadow_vcpu)) {
+		if ((cpsr & PSR_MODE_MASK) == PSR_MODE_EL0t)
+			esr |= (ESR_ELx_EC_DABT_LOW << ESR_ELx_EC_SHIFT);
+		else
+			esr |= (ESR_ELx_EC_DABT_CUR << ESR_ELx_EC_SHIFT);
+
+		esr |= ESR_ELx_FSC_EXTABT;
+
+		__vcpu_sys_reg(shadow_vcpu, ESR_EL1) = esr;
+		__vcpu_sys_reg(shadow_vcpu, FAR_EL1) = kvm_vcpu_get_hfar(shadow_vcpu);
+		/* Tell the run loop that we want to inject something */
+		shadow_vcpu->arch.flags &= ~(KVM_ARM64_PENDING_EXCEPTION |
+					     KVM_ARM64_EXCEPT_MASK);
+		shadow_vcpu->arch.flags |= (KVM_ARM64_PENDING_EXCEPTION |
+					    KVM_ARM64_EXCEPT_AA64_ELx_SYNC |
+					    KVM_ARM64_EXCEPT_AA64_EL1);
+
+		/* Cancel potential in-flight MMIO */
+		shadow_vcpu->mmio_needed = false;
+		return;
+	}
+
+	/* Handle PC increment on MMIO */
+	if ((host_flags & KVM_ARM64_INCREMENT_PC) && shadow_vcpu->mmio_needed) {
+		shadow_vcpu->arch.flags &= ~(KVM_ARM64_PENDING_EXCEPTION |
+					     KVM_ARM64_EXCEPT_MASK);
+		shadow_vcpu->arch.flags |= KVM_ARM64_INCREMENT_PC;
+	}
+
+	/* If we were doing an MMIO read access, update the register*/
+	rd_update = (shadow_vcpu->mmio_needed &&
+		     (host_flags & KVM_ARM64_INCREMENT_PC));
+	rd_update &= !kvm_vcpu_dabt_iswrite(shadow_vcpu);
+
+	if (rd_update) {
 		/* r0 as transfer register between the guest and the host. */
 		u64 rd_val = vcpu_get_reg(host_vcpu, 0);
 		int rd = kvm_vcpu_dabt_get_rd(shadow_vcpu);
 
 		vcpu_set_reg(shadow_vcpu, rd, rd_val);
 	}
+
+	shadow_vcpu->mmio_needed = false;
 }
 
 static void handle_pvm_exit_wfx(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
@@ -191,30 +243,43 @@ static void handle_pvm_exit_hvc64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *s
 		vcpu_set_reg(host_vcpu, i, vcpu_get_reg(shadow_vcpu, i));
 }
 
-static void handle_pvm_exit_abt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
+static void handle_pvm_exit_iabt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	host_vcpu->arch.ctxt.regs.pstate = shadow_vcpu->arch.ctxt.regs.pstate & PSR_MODE_MASK;
-	host_vcpu->arch.fault.esr_el2 = shadow_vcpu->arch.fault.esr_el2;
-	host_vcpu->arch.fault.far_el2 = shadow_vcpu->arch.fault.far_el2 & FAR_MASK;
-	host_vcpu->arch.fault.hpfar_el2 = shadow_vcpu->arch.fault.hpfar_el2;
-	__vcpu_sys_reg(host_vcpu, SCTLR_EL1) =
-		__vcpu_sys_reg(shadow_vcpu, SCTLR_EL1) & (SCTLR_ELx_EE | SCTLR_EL1_E0E);
+	WRITE_ONCE(host_vcpu->arch.fault.esr_el2,
+		   shadow_vcpu->arch.fault.esr_el2);
+	WRITE_ONCE(host_vcpu->arch.fault.hpfar_el2,
+		   shadow_vcpu->arch.fault.hpfar_el2);
 }
 
 static void handle_pvm_exit_dabt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	handle_pvm_exit_abt(host_vcpu, shadow_vcpu);
+	/* FIXME: Revisit once MMIO-guard is available */
+	shadow_vcpu->mmio_needed = true;
 
-	/* r0 as transfer register between the guest and the host. */
-	host_vcpu->arch.fault.esr_el2 &= ~ESR_ELx_SRT_MASK;
+	if (shadow_vcpu->mmio_needed) {
+		/* r0 as transfer register between the guest and the host. */
+		WRITE_ONCE(host_vcpu->arch.fault.esr_el2,
+			   shadow_vcpu->arch.fault.esr_el2 & ~ESR_ELx_SRT_MASK);
 
-	/* TODO: don't expose anything if !MMIO (clear ESR_EL2.ISV) */
-	if (kvm_vcpu_dabt_iswrite(shadow_vcpu)) {
-		int rt = kvm_vcpu_dabt_get_rd(shadow_vcpu);
-		u64 rt_val = vcpu_get_reg(shadow_vcpu, rt);
+		if (kvm_vcpu_dabt_iswrite(shadow_vcpu)) {
+			int rt = kvm_vcpu_dabt_get_rd(shadow_vcpu);
+			u64 rt_val = vcpu_get_reg(shadow_vcpu, rt);
 
-		vcpu_set_reg(host_vcpu, 0, rt_val);
+			vcpu_set_reg(host_vcpu, 0, rt_val);
+		}
+	} else {
+		WRITE_ONCE(host_vcpu->arch.fault.esr_el2,
+			   shadow_vcpu->arch.fault.esr_el2 & ~ESR_ELx_ISV);
 	}
+
+	WRITE_ONCE(host_vcpu->arch.ctxt.regs.pstate,
+		   shadow_vcpu->arch.ctxt.regs.pstate & PSR_MODE_MASK);
+	WRITE_ONCE(host_vcpu->arch.fault.far_el2,
+		   shadow_vcpu->arch.fault.far_el2 & FAR_MASK);
+	WRITE_ONCE(host_vcpu->arch.fault.hpfar_el2,
+		   shadow_vcpu->arch.fault.hpfar_el2);
+	WRITE_ONCE(__vcpu_sys_reg(host_vcpu, SCTLR_EL1),
+		   __vcpu_sys_reg(shadow_vcpu, SCTLR_EL1) & (SCTLR_ELx_EE | SCTLR_EL1_E0E));
 }
 
 static const shadow_entry_exit_handler_fn entry_shadow_handlers[] = {
@@ -222,7 +287,7 @@ static const shadow_entry_exit_handler_fn entry_shadow_handlers[] = {
 	[ESR_ELx_EC_WFx]		= handle_pvm_entry_wfx,
 	[ESR_ELx_EC_HVC64]		= handle_pvm_entry_hvc64,
 	[ESR_ELx_EC_SYS64]		= handle_pvm_entry_sys64,
-	[ESR_ELx_EC_IABT_LOW]		= handle_pvm_entry_abt,
+	[ESR_ELx_EC_IABT_LOW]		= handle_pvm_entry_iabt,
 	[ESR_ELx_EC_DABT_LOW]		= handle_pvm_entry_dabt,
 };
 
@@ -231,7 +296,7 @@ static const shadow_entry_exit_handler_fn exit_shadow_handlers[] = {
 	[ESR_ELx_EC_WFx]		= handle_pvm_exit_wfx,
 	[ESR_ELx_EC_HVC64]		= handle_pvm_exit_hvc64,
 	[ESR_ELx_EC_SYS64]		= handle_pvm_exit_sys64,
-	[ESR_ELx_EC_IABT_LOW]		= handle_pvm_exit_abt,
+	[ESR_ELx_EC_IABT_LOW]		= handle_pvm_exit_iabt,
 	[ESR_ELx_EC_DABT_LOW]		= handle_pvm_exit_dabt,
 };
 
