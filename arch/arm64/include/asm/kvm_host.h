@@ -157,6 +157,15 @@ struct kvm_protected_vcpu {
 
 	/* Tracks exit code for the protected guest. */
 	int exit_code;
+
+	/*
+	 * Track the power state transition of a protected vcpu.
+	 * Can be in one of three states:
+	 * PSCI_0_2_AFFINITY_LEVEL_ON
+	 * PSCI_0_2_AFFINITY_LEVEL_OFF
+	 * PSCI_0_2_AFFINITY_LEVEL_PENDING
+	 */
+	int power_state;
 };
 
 struct kvm_vcpu_fault_info {

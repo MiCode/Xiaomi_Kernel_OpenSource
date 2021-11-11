@@ -38,10 +38,48 @@ static void handle_pvm_entry_wfx(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *sh
 	shadow_vcpu->arch.flags |= host_vcpu->arch.flags & KVM_ARM64_INCREMENT_PC;
 }
 
+static void handle_pvm_entry_psci(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
+{
+	u32 psci_fn = smccc_get_function(shadow_vcpu);
+	u64 ret = vcpu_get_reg(host_vcpu, 0);
+
+	switch (psci_fn) {
+	case PSCI_0_2_FN_CPU_ON:
+	case PSCI_0_2_FN64_CPU_ON:
+		/*
+		 * Check whether the cpu_on request to the host was successful.
+		 * If not, reset the vcpu state from ON_PENDING to OFF.
+		 * This could happen if this vcpu attempted to turn on the other
+		 * vcpu while the other one is in the process of turning itself
+		 * off.
+		 */
+		if (ret != PSCI_RET_SUCCESS) {
+			struct kvm_shadow_vm *vm = shadow_vcpu->arch.pkvm.shadow_vm;
+			unsigned long cpu_id = smccc_get_arg1(shadow_vcpu);
+			struct kvm_vcpu *vcpu = pvm_mpidr_to_vcpu(vm, cpu_id);
+
+			if (vcpu && READ_ONCE(vcpu->arch.pkvm.power_state) == PSCI_0_2_AFFINITY_LEVEL_ON_PENDING)
+				WRITE_ONCE(vcpu->arch.pkvm.power_state, PSCI_0_2_AFFINITY_LEVEL_OFF);
+
+			ret = PSCI_RET_INTERNAL_FAILURE;
+		}
+		break;
+	default:
+		break;
+	}
+
+	vcpu_set_reg(shadow_vcpu, 0, ret);
+}
+
 static void handle_pvm_entry_hvc64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	/* HVCs for pvms either don't return or use only one register. */
-	vcpu_set_reg(shadow_vcpu, 0, vcpu_get_reg(host_vcpu, 0));
+	u32 fn = smccc_get_function(shadow_vcpu);
+
+	switch (fn) {
+	default:
+		handle_pvm_entry_psci(host_vcpu, shadow_vcpu);
+		break;
+	}
 }
 
 static void handle_pvm_entry_sys64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
@@ -202,34 +240,29 @@ static int get_num_hvc_args(struct kvm_vcpu *vcpu)
 	u32 psci_fn = smccc_get_function(vcpu);
 
 	switch (psci_fn) {
+	/*
+	 * CPU_ON takes 3 arguments, however, to wake up the target vcpu the
+	 * host only needs to know the target's cpu_id, which is passed as the
+	 * first argument. The processing of the reset state is done at hyp.
+	 */
 	case PSCI_0_2_FN_CPU_ON:
 	case PSCI_0_2_FN64_CPU_ON:
+		return 1;
+
+	case PSCI_0_2_FN_CPU_OFF:
+	case PSCI_0_2_FN_SYSTEM_OFF:
+
+	/* The KVM implementation of suspend doesn't use any arguments. */
 	case PSCI_0_2_FN_CPU_SUSPEND:
 	case PSCI_0_2_FN64_CPU_SUSPEND:
-		return 3;
-	case PSCI_0_2_FN_AFFINITY_INFO:
-	case PSCI_0_2_FN64_AFFINITY_INFO:
-	case PSCI_1_1_FN_SYSTEM_RESET2:
-	case PSCI_1_1_FN64_SYSTEM_RESET2:
-	case PSCI_1_0_FN_SYSTEM_SUSPEND:
-	case PSCI_1_0_FN64_SYSTEM_SUSPEND:
-		return 2;
-	case PSCI_1_0_FN_PSCI_FEATURES:
-	case PSCI_0_2_FN_MIGRATE:
-	case PSCI_0_2_FN64_MIGRATE:
-	case PSCI_1_0_FN_SET_SUSPEND_MODE:
-	case ARM_SMCCC_ARCH_FEATURES_FUNC_ID:
-	case ARM_SMCCC_TRNG_FEATURES:
-	case ARM_SMCCC_TRNG_RND32:
-	case ARM_SMCCC_TRNG_RND64:
-	case ARM_SMCCC_VENDOR_HYP_KVM_PTP_FUNC_ID:
-	case ARM_SMCCC_HV_PV_TIME_FEATURES:
-		return 1;
-	default:
 		return 0;
+
+	/* The rest are either blocked or handled by hyp. */
+	default:
+		return -1;
 	}
 
-	return 0;
+	return -1;
 }
 
 static void handle_pvm_exit_hvc64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
@@ -366,6 +399,9 @@ static void flush_shadow_state(struct kvm_vcpu *shadow_vcpu)
 	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 	u8 esr_ec;
 	shadow_entry_exit_handler_fn ec_handler;
+
+	if (READ_ONCE(shadow_vcpu->arch.pkvm.power_state) == PSCI_0_2_AFFINITY_LEVEL_ON_PENDING)
+		pkvm_reset_vcpu(shadow_vcpu);
 
 	flush_vgic_state(host_vcpu, shadow_vcpu);
 	flush_timer_state(shadow_vcpu);
