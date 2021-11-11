@@ -22,6 +22,10 @@
 
 	aliases { };
 
+	chosen {
+		bootargs = " console=ttyMSM0,115200n8 loglevel=8";
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -121,7 +125,6 @@
 
 	soc: soc { };
 
-	chosen { };
 };
 
 #include "neo-stub-regulator.dtsi"
