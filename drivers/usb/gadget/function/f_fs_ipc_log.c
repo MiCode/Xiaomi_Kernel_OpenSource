@@ -654,7 +654,7 @@ static int entry_ffs_func_bind(struct kretprobe_instance *ri,
 	void *context;
 
 	if (!ffs)
-		return 0;
+		return -ENODEV;
 
 	context = get_ipc_context(ffs);
 	data->x0 = ffs;
