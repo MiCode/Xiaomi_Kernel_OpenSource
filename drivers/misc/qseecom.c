@@ -3097,7 +3097,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		return -EINVAL;
 	}
 
-	pr_err("unload app %d(%s), app_crash flag %d\n", data->client.app_id,
+	pr_debug("unload app %d(%s), app_crash flag %d\n", data->client.app_id,
 			data->client.app_name, app_crash);
 
 	if (!memcmp(data->client.app_name, "keymaste", strlen("keymaste"))) {
@@ -3146,12 +3146,10 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 			 * If unload failed due to EBUSY, don't free mem
 			 * just restore app ref_cnt and return -EBUSY
 			 */
-			pr_err("unload ta %d(%s) EBUSY\n",
+			pr_warn("unload ta %d(%s) EBUSY\n",
 				data->client.app_id, data->client.app_name);
 			ptr_app->ref_cnt++;
 			return ret;
-		} else {
-			pr_err("__qseecom_unload_app %d succeeded\n", data->client.app_id);
 		}
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_del(&ptr_app->list);
@@ -3187,7 +3185,7 @@ static int qseecom_prepare_unload_app(struct qseecom_dev_handle *data)
 	list_add_tail(&entry->list,
 		&qseecom.unload_app_pending_list_head);
 	data->client.unload_pending = true;
-	pr_err("unload ta %d pending\n", data->client.app_id);
+	pr_debug("unload ta %d pending\n", data->client.app_id);
 	return 0;
 }
 
@@ -3228,7 +3226,7 @@ static void __qseecom_processing_pending_unload_app(void)
 		entry = list_entry(pos,
 			struct qseecom_unload_app_pending_list, list);
 		if (entry && entry->data) {
-			pr_err("process pending unload app %d (%s)\n",
+			pr_debug("process pending unload app %d (%s)\n",
 				entry->data->client.app_id,
 				entry->data->client.app_name);
 			mutex_unlock(&unload_app_pending_list_lock);
@@ -3237,8 +3235,6 @@ static void __qseecom_processing_pending_unload_app(void)
 			if (ret)
 				pr_err("unload app %d pending failed %d\n",
 					entry->data->client.app_id, ret);
-			else
-				pr_err("unload app %d has succeeded\n", entry->data->client.app_id);
 			mutex_unlock(&app_access_lock);
 			mutex_lock(&unload_app_pending_list_lock);
 			__qseecom_free_tzbuf(&entry->data->sglistinfo_shm);
@@ -3257,7 +3253,7 @@ static int __qseecom_unload_app_kthread_func(void *data)
 			qseecom.unload_app_kthread_wq,
 			atomic_read(&qseecom.unload_app_kthread_state)
 				== UNLOAD_APP_KT_WAKEUP);
-		pr_err("kthread to unload app is called, state %d\n",
+		pr_debug("kthread to unload app is called, state %d\n",
 			atomic_read(&qseecom.unload_app_kthread_state));
 		__qseecom_processing_pending_unload_app();
 		atomic_set(&qseecom.unload_app_kthread_state,
@@ -5213,7 +5209,6 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	else
 		ret = qseecom_unload_app(data, false);
 
-	pr_err("After qseecom_unload_app, ret : %d\n", ret);
 	mutex_unlock(&app_access_lock);
 	if (ret == 0) {
 		if (data->client.sb_virt)
@@ -7846,7 +7841,6 @@ long qseecom_ioctl(struct file *file,
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_unload_app(data, false);
-		pr_err("qseecom_unload_app, ret :%d\n", ret);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
 		if (ret)
@@ -8355,7 +8349,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 
 	__qseecom_release_disable_clk(data);
 	if (!data->released) {
-		pr_err("data: released=false, type=%d, mode=%d, data=0x%pK\n",
+		pr_debug("data: released=false, type=%d, mode=%d, data=0x%pK\n",
 			data->type, data->mode, data);
 		switch (data->type) {
 		case QSEECOM_LISTENER_SERVICE:
@@ -8369,7 +8363,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			__wakeup_unregister_listener_kthread();
 			break;
 		case QSEECOM_CLIENT_APP:
-			pr_err("release app %d (%s)\n",
+			pr_debug("release app %d (%s)\n",
 				data->client.app_id, data->client.app_name);
 			if (data->client.app_id) {
 				free_private_data = false;
