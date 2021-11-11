@@ -32,7 +32,7 @@ static void walt_attach_task(struct task_struct *p, struct rq *rq)
 	check_preempt_curr(rq, p, 0);
 }
 
-static int walt_lb_active_migration(void *data)
+static int stop_walt_lb_active_migration(void *data)
 {
 	struct rq *busiest_rq = data;
 	int busiest_cpu = cpu_of(busiest_rq);
@@ -102,11 +102,20 @@ static void walt_lb_rotate_work_func(struct work_struct *work)
 {
 	struct walt_lb_rotate_work *wr = container_of(work,
 					struct walt_lb_rotate_work, w);
+	struct rq *src_rq = cpu_rq(wr->src_cpu), *dst_rq = cpu_rq(wr->dst_cpu);
+	unsigned long flags;
 
 	migrate_swap(wr->src_task, wr->dst_task, wr->dst_cpu, wr->src_cpu);
 
 	put_task_struct(wr->src_task);
 	put_task_struct(wr->dst_task);
+
+	local_irq_save(flags);
+	double_rq_lock(src_rq, dst_rq);
+	dst_rq->active_balance = 0;
+	src_rq->active_balance = 0;
+	double_rq_unlock(src_rq, dst_rq);
+	local_irq_restore(flags);
 
 	clear_reserved(wr->src_cpu);
 	clear_reserved(wr->dst_cpu);
@@ -194,7 +203,10 @@ static void walt_lb_check_for_rotation(struct rq *src_rq)
 	dst_rq = cpu_rq(dst_cpu);
 
 	double_rq_lock(src_rq, dst_rq);
-	if (walt_fair_task(dst_rq->curr)) {
+	if (walt_fair_task(dst_rq->curr) &&
+		!src_rq->active_balance && !dst_rq->active_balance &&
+		cpumask_test_cpu(dst_cpu, src_rq->curr->cpus_ptr) &&
+		cpumask_test_cpu(src_cpu, dst_rq->curr->cpus_ptr)) {
 		get_task_struct(src_rq->curr);
 		get_task_struct(dst_rq->curr);
 
@@ -207,6 +219,9 @@ static void walt_lb_check_for_rotation(struct rq *src_rq)
 
 		wr->src_cpu = src_cpu;
 		wr->dst_cpu = dst_cpu;
+
+		dst_rq->active_balance = 1;
+		src_rq->active_balance = 1;
 	}
 	double_rq_unlock(src_rq, dst_rq);
 
@@ -306,10 +321,15 @@ static int walt_lb_pull_tasks(int dst_cpu, int src_cpu)
 	 * the push_task is really pulled onto this CPU.
 	 */
 	if (active_balance) {
+		bool success;
+
 		wts = (struct walt_task_struct *) p->android_vendor_data1;
 		trace_walt_active_load_balance(p, src_cpu, dst_cpu, wts);
-		stop_one_cpu_nowait(src_cpu, walt_lb_active_migration,
+		success = stop_one_cpu_nowait(src_cpu, stop_walt_lb_active_migration,
 				    src_rq, &src_rq->active_balance_work);
+		if (!success)
+			clear_reserved(dst_cpu);
+
 		return 0; /* we did not pull any task here */
 	}
 
@@ -499,6 +519,11 @@ void walt_lb_tick(struct rq *rq)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
+	raw_spin_lock(&rq->lock);
+	if (available_idle_cpu(prev_cpu) && is_reserved(prev_cpu) && !rq->active_balance)
+		clear_reserved(prev_cpu);
+	raw_spin_unlock(&rq->lock);
+
 	if (!walt_fair_task(p))
 		return;
 
@@ -542,7 +567,7 @@ void walt_lb_tick(struct rq *rq)
 
 	trace_walt_active_load_balance(p, prev_cpu, new_cpu, wts);
 	ret = stop_one_cpu_nowait(prev_cpu,
-			walt_lb_active_migration, rq,
+			stop_walt_lb_active_migration, rq,
 			&rq->active_balance_work);
 	if (!ret)
 		clear_reserved(new_cpu);
