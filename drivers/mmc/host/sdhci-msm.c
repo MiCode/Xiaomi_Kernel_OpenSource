@@ -2,7 +2,7 @@
 /*
  * drivers/mmc/host/sdhci-msm.c - Qualcomm SDHCI Platform driver
  *
- * Copyright (c) 2013-2014,2020. The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014,2020-2021 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -165,6 +165,13 @@
 
 /* Max load for eMMC Vdd-io supply */
 #define MMC_VQMMC_MAX_LOAD_UA	325000
+
+/*
+ * Due to level shifter insertion, HS mode frequency is reduced to 37.5MHz
+ * but clk's driver supply 37MHz only and uses ceil ops. So vote for
+ * 37MHz to avoid picking next ceil value.
+ */
+#define LEVEL_SHIFTER_HIGH_SPEED_FREQ	37000000
 
 #define msm_host_readl(msm_host, host, offset) \
 	msm_host->var_ops->msm_readl_relaxed(host, offset)
@@ -489,6 +496,7 @@ struct sdhci_msm_host {
 	u32 ice_clk_min;
 	u32 ice_clk_rate;
 	bool uses_tassadar_dll;
+	bool uses_level_shifter;
 	u32 dll_config;
 	u32 ddr_config;
 	u16 last_cmd;
@@ -578,6 +586,11 @@ static void msm_set_clock_rate_for_bus_mode(struct sdhci_host *host,
 	int rc;
 
 	clock = msm_get_clock_rate_for_bus_mode(host, clock);
+
+	if (curr_ios.timing == MMC_TIMING_SD_HS &&
+			msm_host->uses_level_shifter)
+		clock = LEVEL_SHIFTER_HIGH_SPEED_FREQ;
+
 	rc = dev_pm_opp_set_rate(mmc_dev(host->mmc), clock);
 	if (rc) {
 		pr_err("%s: Failed to set clock at rate %u at timing %d\n",
@@ -1839,6 +1852,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 
 	msm_host->regs_restore.is_supported =
 		of_property_read_bool(np, "qcom,restore-after-cx-collapse");
+
+	msm_host->uses_level_shifter =
+		of_property_read_bool(np, "qcom,uses_level_shifter");
 
 	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
 		goto out;
