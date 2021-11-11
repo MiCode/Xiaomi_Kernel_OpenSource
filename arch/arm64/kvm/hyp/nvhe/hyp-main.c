@@ -23,6 +23,8 @@
 #include <linux/irqchip/arm-gic-v3.h>
 #include <uapi/linux/psci.h>
 
+#include "../../sys_regs.h"
+
 DEFINE_PER_CPU(struct kvm_nvhe_init_params, kvm_init_params);
 
 struct kvm_iommu_ops kvm_iommu_ops;
@@ -44,18 +46,33 @@ static void handle_pvm_entry_hvc64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *
 
 static void handle_pvm_entry_sys64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	u32 esr_el2 = shadow_vcpu->arch.fault.esr_el2;
-	bool is_read = (esr_el2 & ESR_ELx_SYS64_ISS_DIR_MASK) == ESR_ELx_SYS64_ISS_DIR_READ;
+	unsigned long host_flags;
 
-	shadow_vcpu->arch.flags |= host_vcpu->arch.flags &
-		(KVM_ARM64_PENDING_EXCEPTION | KVM_ARM64_INCREMENT_PC);
+	host_flags = READ_ONCE(host_vcpu->arch.flags);
 
-	if (shadow_vcpu->arch.flags & KVM_ARM64_PENDING_EXCEPTION) {
+	/* Exceptions have priority on anything else */
+	if (host_flags & KVM_ARM64_PENDING_EXCEPTION) {
 		/* Exceptions caused by this should be undef exceptions. */
-		u32 esr_el1 = (ESR_ELx_EC_UNKNOWN << ESR_ELx_EC_SHIFT);
+		u32 esr = (ESR_ELx_EC_UNKNOWN << ESR_ELx_EC_SHIFT);
 
-		__vcpu_sys_reg(shadow_vcpu, ESR_EL1) = esr_el1;
-	} else if (is_read) {
+		__vcpu_sys_reg(shadow_vcpu, ESR_EL1) = esr;
+		shadow_vcpu->arch.flags &= ~(KVM_ARM64_PENDING_EXCEPTION |
+					     KVM_ARM64_EXCEPT_MASK);
+		shadow_vcpu->arch.flags |= (KVM_ARM64_PENDING_EXCEPTION |
+					    KVM_ARM64_EXCEPT_AA64_ELx_SYNC |
+					    KVM_ARM64_EXCEPT_AA64_EL1);
+
+		return;
+	}
+
+
+	if (host_flags & KVM_ARM64_INCREMENT_PC) {
+		shadow_vcpu->arch.flags &= ~(KVM_ARM64_PENDING_EXCEPTION |
+					     KVM_ARM64_EXCEPT_MASK);
+		shadow_vcpu->arch.flags |= KVM_ARM64_INCREMENT_PC;
+	}
+
+	if (!esr_sys64_to_params(shadow_vcpu->arch.fault.esr_el2).is_write) {
 		/* r0 as transfer register between the guest and the host. */
 		u64 rt_val = vcpu_get_reg(host_vcpu, 0);
 		int rt = kvm_vcpu_sys_get_rt(shadow_vcpu);
@@ -111,12 +128,16 @@ static void handle_pvm_exit_wfx(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *sha
 static void handle_pvm_exit_sys64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
 	u32 esr_el2 = shadow_vcpu->arch.fault.esr_el2;
-	bool is_write = (esr_el2 & ESR_ELx_SYS64_ISS_DIR_MASK) == ESR_ELx_SYS64_ISS_DIR_WRITE;
 
 	/* r0 as transfer register between the guest and the host. */
-	host_vcpu->arch.fault.esr_el2 = esr_el2 & ~ESR_ELx_SYS64_ISS_RT_MASK;
+	WRITE_ONCE(host_vcpu->arch.fault.esr_el2,
+		   esr_el2 & ~ESR_ELx_SYS64_ISS_RT_MASK);
 
-	if (is_write) {
+	/* The mode is required for the host to emulate some sysregs */
+	WRITE_ONCE(host_vcpu->arch.ctxt.regs.pstate,
+		   shadow_vcpu->arch.ctxt.regs.pstate & PSR_MODE_MASK);
+
+	if (esr_sys64_to_params(esr_el2).is_write) {
 		int rt = kvm_vcpu_sys_get_rt(shadow_vcpu);
 		u64 rt_val = vcpu_get_reg(shadow_vcpu, rt);
 
