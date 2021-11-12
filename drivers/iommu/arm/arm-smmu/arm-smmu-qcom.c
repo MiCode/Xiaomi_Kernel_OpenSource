@@ -751,8 +751,8 @@ static int __arm_tbu_micro_idle_cfg(struct arm_smmu_device *smmu,
 	reg += APPS_SMMU_TBU_REG_ACCESS_ACK_NS;
 	ret = readl_poll_timeout_atomic(reg, tmp, ((tmp & mask) == val), 0, 200);
 	if (ret)
-		WARN(1, "%s: Timed out configuring micro idle! %x instead of %x\n",
-			tmp, new);
+		dev_WARN(smmu->dev, "Timed out configuring micro idle! %x instead of %x\n", tmp,
+			 new);
 	/*
 	 * While the micro-idle guard sequence registers may have been configured
 	 * properly, it is possible that the intended effect has not been realized
