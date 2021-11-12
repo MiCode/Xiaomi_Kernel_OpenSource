@@ -1141,6 +1141,22 @@
 			#size-cells = <0>;
 			qcom,can-sleep;
 		};
+
+		qcom,pm8010-debug@8 {
+			compatible = "qcom,spmi-pmic";
+			reg = <8 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
+
+		qcom,pm8010-debug@9 {
+			compatible = "qcom,spmi-pmic";
+			reg = <9 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,can-sleep;
+		};
 	};
 
 	qcom,pmic_glink {

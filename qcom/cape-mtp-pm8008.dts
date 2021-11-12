@@ -2,9 +2,10 @@
 
 #include "cape.dtsi"
 #include "cape-mtp.dtsi"
+#include "waipio-pm8008.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Cape MTP";
+	model = "Qualcomm Technologies, Inc. Cape MTP with PM8008";
 	compatible = "qcom,cape-mtp", "qcom,cape", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <0x10008 0>;
 };
