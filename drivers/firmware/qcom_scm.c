@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 
 #include "qcom_scm.h"
+#include "qtee_shmbridge_internal.h"
 
 static bool download_mode = IS_ENABLED(CONFIG_QCOM_SCM_DOWNLOAD_MODE_DEFAULT);
 module_param(download_mode, bool, 0);
@@ -2689,7 +2690,13 @@ static struct platform_driver qcom_scm_driver = {
 
 static int __init qcom_scm_init(void)
 {
-	return platform_driver_register(&qcom_scm_driver);
+	int ret;
+
+	ret = platform_driver_register(&qcom_scm_driver);
+	if (ret)
+		return ret;
+
+	return qtee_shmbridge_driver_init();
 }
 subsys_initcall(qcom_scm_init);
 
@@ -2697,6 +2704,7 @@ subsys_initcall(qcom_scm_init);
 static void __exit qcom_scm_exit(void)
 {
 	platform_driver_unregister(&qcom_scm_driver);
+	qtee_shmbridge_driver_exit();
 }
 module_exit(qcom_scm_exit);
 #endif
