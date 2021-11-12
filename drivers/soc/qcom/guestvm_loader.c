@@ -57,35 +57,34 @@ struct guestvm_loader_private {
 	u8 vm_status;
 	u8 os_status;
 	u16 app_status;
+	struct timer_list guestvm_cpu_isolate_timer;
+	struct completion isolation_done;
+	struct work_struct unisolation_work;
+	cpumask_t guestvm_isolated_cpus;
+	cpumask_t guestvm_reserve_cpus;
+	u32 guestvm_unisolate_timeout;
 };
 
-static struct timer_list guestvm_cpu_isolate_timer;
-static struct completion isolation_done;
-static struct work_struct unisolation_work;
-static cpumask_t guestvm_isolated_cpus;
-static cpumask_t guestvm_reserve_cpus;
-static u32 guestvm_unisolate_timeout;
-
-static void guestvm_isolate_cpu(void)
+static void guestvm_isolate_cpu(struct guestvm_loader_private *priv)
 {
 	int cpu, ret;
 
-	for_each_cpu_and(cpu, &guestvm_reserve_cpus, cpu_online_mask) {
+	for_each_cpu_and(cpu, &priv->guestvm_reserve_cpus, cpu_online_mask) {
 		ret = remove_cpu(cpu);
 		if (ret) {
 			pr_err("fail to offline CPU%d. ret=%d\n", cpu, ret);
 			continue;
 		}
 		pr_info("%s: offlined cpu : %d\n", __func__, cpu);
-		cpumask_set_cpu(cpu, &guestvm_isolated_cpus);
+		cpumask_set_cpu(cpu, &priv->guestvm_isolated_cpus);
 	}
 }
 
-static void guestvm_unisolate_cpu(void)
+static void guestvm_unisolate_cpu(struct guestvm_loader_private *priv)
 {
 	int i, ret;
 
-	for_each_cpu(i, &guestvm_isolated_cpus) {
+	for_each_cpu(i, &priv->guestvm_isolated_cpus) {
 		ret = add_cpu(i);
 		if (ret) {
 			pr_err("fail to online CPU%d. ret=%d\n", i, ret);
@@ -93,24 +92,33 @@ static void guestvm_unisolate_cpu(void)
 		}
 		pr_info("%s: onlined cpu : %d\n", __func__, i);
 
-		cpumask_clear_cpu(i, &guestvm_isolated_cpus);
+		cpumask_clear_cpu(i, &priv->guestvm_isolated_cpus);
 	}
 
-	del_timer(&guestvm_cpu_isolate_timer);
+	del_timer(&priv->guestvm_cpu_isolate_timer);
 }
 
 static void guestvm_unisolate_work(struct work_struct *work)
 {
-	if (wait_for_completion_interruptible(&isolation_done))
+	struct guestvm_loader_private *priv;
+
+	priv = container_of(work, struct guestvm_loader_private, unisolation_work);
+
+	if (wait_for_completion_interruptible(&priv->isolation_done))
 		pr_err("%s: CPU unisolation is interrupted\n", __func__);
 
-	guestvm_unisolate_cpu();
+	guestvm_unisolate_cpu(priv);
 }
 
 static void guestvm_timer_callback(struct timer_list *t)
 {
+	struct guestvm_loader_private *priv;
+
+	priv = container_of(t, struct guestvm_loader_private,
+			    guestvm_cpu_isolate_timer);
+
 	pr_err("%s: expired: VM app status not set\n", __func__);
-	complete(&isolation_done);
+	complete(&priv->isolation_done);
 }
 
 static inline enum gh_vm_names get_gh_vm_name(const char *str)
@@ -194,7 +202,7 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 			delta = ktime_to_ns(ktime_sub(now, priv->vm_isol_start));
 			dev_info(priv->dev, "Unisolating VM(%d) cpus after %lu ns: VM app status = %d\n",
 					    priv->vmid, delta, app_status);
-			complete(&isolation_done);
+			complete(&priv->isolation_done);
 		}
 	}
 
@@ -312,11 +320,11 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 
 		priv->vm_isol_start = ktime_get();
 		if (priv->iso_needed) {
-			INIT_WORK(&unisolation_work, guestvm_unisolate_work);
-			schedule_work(&unisolation_work);
-			guestvm_isolate_cpu();
-			mod_timer(&guestvm_cpu_isolate_timer, jiffies +
-					msecs_to_jiffies(guestvm_unisolate_timeout));
+			INIT_WORK(&priv->unisolation_work, guestvm_unisolate_work);
+			schedule_work(&priv->unisolation_work);
+			guestvm_isolate_cpu(priv);
+			mod_timer(&priv->guestvm_cpu_isolate_timer, jiffies +
+					msecs_to_jiffies(priv->guestvm_unisolate_timeout));
 		}
 
 		ret = gh_rm_vm_start(priv->vmid);
@@ -375,7 +383,7 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&priv->vm_start);
-	init_completion(&isolation_done);
+	init_completion(&priv->isolation_done);
 	priv->guestvm_nb.notifier_call = guestvm_loader_nb_handler;
 	priv->guestvm_nb.priority = 1;
 	ret = gh_rm_register_notifier(&priv->guestvm_nb);
@@ -400,15 +408,15 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 					reserve_cpus, 0, NUM_RESERVED_CPUS);
 	for (i = 0; i < reserve_cpus_len; i++)
 		if (reserve_cpus[i] < num_possible_cpus())
-			cpumask_set_cpu(reserve_cpus[i], &guestvm_reserve_cpus);
+			cpumask_set_cpu(reserve_cpus[i], &priv->guestvm_reserve_cpus);
 
 	ret = of_property_read_u32(pdev->dev.of_node, "qcom,unisolate-timeout-ms",
-				&guestvm_unisolate_timeout);
+				&priv->guestvm_unisolate_timeout);
 	if (ret) {
 		pr_warn("%s: no unisolate timeout specified\n", __func__);
-		guestvm_unisolate_timeout = DEFAULT_UNISO_TIMEOUT_MS;
+		priv->guestvm_unisolate_timeout = DEFAULT_UNISO_TIMEOUT_MS;
 	}
-	timer_setup(&guestvm_cpu_isolate_timer, guestvm_timer_callback, 0);
+	timer_setup(&priv->guestvm_cpu_isolate_timer, guestvm_timer_callback, 0);
 
 no_iso:
 	priv->vm_status = GH_RM_VM_STATUS_NO_STATE;
