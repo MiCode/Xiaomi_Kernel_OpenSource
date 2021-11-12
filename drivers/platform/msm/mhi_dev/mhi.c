@@ -1482,7 +1482,7 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 			return;
 		}
 
-		mhi_log(MHI_MSG_CRITICAL, "Device in M0 State\n");
+		mhi_log(MHI_MSG_INFO, "Device in M0 State\n");
 		break;
 	case IPA_MHI_EVENT_DATA_AVAILABLE:
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_HW_ACC_WAKEUP);
@@ -3518,7 +3518,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 		 * Expected usage is when there is a write
 		 * to the MHI core -> notify SM.
 		 */
-		mhi_log(MHI_MSG_INFO, "Wakeup by chan:%d\n", ch->ch_id);
+		mhi_log(MHI_MSG_CRITICAL, "Wakeup by chan:%d\n", ch->ch_id);
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_CORE_WAKEUP);
 		if (rc) {
 			pr_err("error sending core wakeup event\n");
