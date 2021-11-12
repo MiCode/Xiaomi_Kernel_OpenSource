@@ -11,11 +11,11 @@
 #include <asm/kvm_pkvm.h>
 
 #include <nvhe/early_alloc.h>
-#include <nvhe/fixed_config.h>
 #include <nvhe/gfp.h>
 #include <nvhe/memory.h>
 #include <nvhe/mem_protect.h>
 #include <nvhe/mm.h>
+#include <nvhe/pkvm.h>
 #include <nvhe/trap_handler.h>
 
 unsigned long hyp_nr_cpus;

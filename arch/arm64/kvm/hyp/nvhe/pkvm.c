@@ -6,7 +6,7 @@
 
 #include <linux/kvm_host.h>
 #include <linux/mm.h>
-#include <nvhe/fixed_config.h>
+#include <nvhe/pkvm.h>
 #include <nvhe/trap_handler.h>
 
 /*
