@@ -3037,7 +3037,7 @@
 
 
 		qcom,icc-path-count = <2>;
-		qcom,bus-bw-cfg-count = <7>;
+		qcom,bus-bw-cfg-count = <8>;
 		qcom,bus-bw-cfg =
 		/** ICC Path 1 **/
 		<0 0>, /* no vote */
@@ -3051,11 +3051,12 @@
 		<100000 1600000>,
 		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 451.2 MHz */
 		<175000 6448000>,
+		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */
+		<175000 6448000>,
 		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz
 		 * ddr: 547.2 MHz
 		 */
 		<7500 3200000>,
-
 		/** ICC Path 2 **/
 		<0 0>,
 		<2250 1804800>,
@@ -3063,6 +3064,7 @@
 		<30000 1804800>,
 		<100000 1804800>,
 		<175000 6220800>,
+		<175000 8368000>,
 		<7500 2188800>;
 	};
 
