@@ -194,13 +194,7 @@ int mhi_controller_get_base(struct mhi_controller *mhi_cntrl,
 			    phys_addr_t *base);
 
 /**
- * mhi_controller_set_numeric_id - sets numeric ID for controller from pci_dev
- * @mhi_cntrl: MHI controller
- */
-void mhi_controller_set_numeric_id(struct mhi_controller *mhi_cntrl);
-
-/**
- * mhi_controller_set_numeric_id - set numeric ID for controller
+ * mhi_controller_get_numeric_id - set numeric ID for controller
  * @mhi_cntrl: MHI controller
  * returns value set as ID or 0 if no value was set
  */
@@ -499,15 +493,7 @@ int mhi_controller_get_base(struct mhi_controller *mhi_cntrl,
 }
 
 /**
- * mhi_controller_set_numeric_id - set numeric ID for controller from pci_dev
- * @mhi_cntrl: MHI controller
- */
-void mhi_controller_set_numeric_id(struct mhi_controller *mhi_cntrl)
-{
-}
-
-/**
- * mhi_controller_set_numeric_id - set numeric ID for controller
+ * mhi_controller_get_numeric_id - set numeric ID for controller
  * @mhi_cntrl: MHI controller
  * returns value set as ID or 0 if no value was set
  */
