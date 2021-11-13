@@ -335,6 +335,15 @@ config ARM_SMMU
 	  Say Y here if your SoC includes an IOMMU device implementing
 	  the ARM SMMU architecture.
 
+config ARM_SMMU_CONTEXT_FAULT_RETRY
+	bool "Context fault retry sequence"
+	depends on ARM_SMMU && ARCH_WAIPIO
+	help
+	  In some cases, issuing a tlb invalidate operation after a
+	  context fault may cause a subsequent retry of the failing
+	  address to succeed. Only applies to clients which have
+	  stall-on-fault enabled, like display.
+
 config ARM_SMMU_LEGACY_DT_BINDINGS
 	bool "Support the legacy \"mmu-masters\" devicetree bindings"
 	depends on ARM_SMMU=y && OF

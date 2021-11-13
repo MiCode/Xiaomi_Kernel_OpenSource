@@ -124,6 +124,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
+	{ ARM_SMMU_OPT_CONTEXT_FAULT_RETRY, "qcom,context-fault-retry" },
 	{ 0, NULL},
 };
 
@@ -906,6 +907,50 @@ static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
 	return 0;
 }
 
+#ifdef CONFIG_ARM_SMMU_CONTEXT_FAULT_RETRY
+/*
+ * Retry faulting address after tlb invalidate.
+ * Applicable to:  Waipio
+ */
+static irqreturn_t arm_smmu_context_fault_retry(struct arm_smmu_domain *smmu_domain)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx = smmu_domain->cfg.cbndx;
+	u64 iova;
+	u32 fsr;
+
+	if (!(smmu->options & ARM_SMMU_OPT_CONTEXT_FAULT_RETRY) ||
+	    (test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL, smmu_domain->attributes)))
+		return IRQ_NONE;
+
+	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+
+	if (iova != smmu_domain->prev_fault_address ||
+			!smmu_domain->fault_retry_counter) {
+		smmu_domain->prev_fault_address = iova;
+		smmu_domain->fault_retry_counter++;
+		arm_smmu_tlb_inv_context_s1(smmu_domain);
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+		/*
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation
+		 */
+		wmb();
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+					ARM_SMMU_RESUME_RESUME);
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_NONE;
+}
+#else
+static irqreturn_t arm_smmu_context_fault_retry(struct arm_smmu_domain *smmu_domain)
+{
+	return IRQ_NONE;
+}
+#endif
+
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	u32 fsr;
@@ -934,6 +979,10 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			"Took an address size fault.  Refusing to recover.\n");
 		BUG();
 	}
+
+	ret = arm_smmu_context_fault_retry(smmu_domain);
+	if (ret == IRQ_HANDLED)
+		goto out_power_off;
 
 	/*
 	 * If the fault helper returns -ENOSYS, then no client fault helper was
