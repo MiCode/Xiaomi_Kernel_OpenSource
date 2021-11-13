@@ -563,7 +563,7 @@ iommu_map_cmd_completion:
 			break;
 		}
 		default:
-			panic("Unhandled MHI satellite command!");
+			MSG_ERR("Unhandled MHI satellite command!");
 			break;
 		}
 	}
