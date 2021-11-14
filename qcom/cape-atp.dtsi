@@ -3,7 +3,7 @@
 &soc { };
 
 &ufsphy_mem {
-	compatible = "qcom,ufs-phy-qmp-v4-waipio";
+	compatible = "qcom,ufs-phy-qmp-v4-cape";
 
 	vdda-phy-supply = <&L7B>;
 	vdda-pll-supply = <&L9B>;
