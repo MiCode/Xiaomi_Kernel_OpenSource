@@ -846,4 +846,12 @@ config SXR_CAMCC_NEO
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config SM_VIDEOCC_PARROT
+	tristate "PARROT Video Clock Controller"
+	select SM_GCC_PARROT
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  PARROT devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
 endif
