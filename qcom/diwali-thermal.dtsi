@@ -159,6 +159,26 @@
 		};
 	};
 
+	thermal_ddr_freq_table: thermal-ddr-freq-table {
+		qcom,freq-tbl = < 2092800 >;
+	};
+
+	ddr_cdev: qcom,ddr-cdev {
+		compatible = "qcom,ddr-cooling-device";
+		#cooling-cells = <2>;
+		qcom,freq-table = <&thermal_ddr_freq_table>;
+		qcom,bus-width = <4>;
+		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
+	};
+
+	qcom,limits-dcvs {
+		compatible = "qcom,msm-hw-limits";
+		isens_vref_0p8-supply = <&pm8350c_l10_ao>;
+		isens-vref-0p8-settings = <880000 880000 30000>;
+		isens_vref_1p8-supply = <&pm7325_l6_ao>;
+		isens-vref-1p8-settings = <1200000 1200000 8000>;
+	};
+
 	qmi_tmd: qmi-tmd-devices {
 		compatible = "qcom,qmi-cooling-devices";
 		cdsp {
@@ -1004,6 +1024,10 @@
 					THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 			};
 
+			ddr_cdev {
+				trip = <&ddr_config0>;
+				cooling-device = <&ddr_cdev 1 1>;
+			};
 		};
 	};
 
