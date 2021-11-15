@@ -128,7 +128,7 @@ static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
 
 
 // Regulator structure for WCN7850 BT SoC series
-static struct bt_power_vreg_data bt_vregs_info_wcn7850[] = {
+static struct bt_power_vreg_data bt_vregs_info_kiwi[] = {
 	{NULL, "qcom,bt-vdd-io",      1800000, 1800000, 0, false, true,
 		{BT_VDD_IO_LDO, BT_VDD_IO_LDO_CURRENT}},
 	{NULL, "qcom,bt-vdd-aon",     950000,  950000,  0, false, true,
@@ -180,10 +180,10 @@ static struct bt_power bt_vreg_info_qca6490 = {
 	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
 };
 
-static struct bt_power bt_vreg_info_wcn7850 = {
-	.compatible = "qcom,wcn7850",
-	.vregs = bt_vregs_info_wcn7850,
-	.num_vregs = ARRAY_SIZE(bt_vregs_info_wcn7850),
+static struct bt_power bt_vreg_info_kiwi = {
+	.compatible = "qcom,kiwi",
+	.vregs = bt_vregs_info_kiwi,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_kiwi),
 };
 
 static const struct of_device_id bt_power_match_table[] = {
@@ -191,7 +191,7 @@ static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
 	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
 	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
-	{	.compatible = "qcom,wcn7850", .data = &bt_vreg_info_wcn7850},
+	{	.compatible = "qcom,kiwi",    .data = &bt_vreg_info_kiwi},
 	{},
 };
 
