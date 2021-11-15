@@ -72,8 +72,8 @@
 		<7500 2188800>;
 	};
 
-	bt_hmt: bt_wcn7850 {
-		compatible = "qcom,wcn7850";
+	bt_hmt: bt_kiwi {
+		compatible = "qcom,kiwi";
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_sleep>;
 		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
