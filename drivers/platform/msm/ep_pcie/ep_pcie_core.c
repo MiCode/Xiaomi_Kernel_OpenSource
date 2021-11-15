@@ -2079,7 +2079,7 @@ int ep_pcie_core_disable_endpoint(void)
 	 * code is to toggle WAKE in such sceanrios.
 	 */
 	if (atomic_read(&dev->host_wake_pending)) {
-		EP_PCIE_DBG(dev, "PCIe V%d: %s: wake pending, init wakeup\n",
+		EP_PCIE_DBG(dev, "PCIe V%d: wake pending, init wakeup\n",
 			dev->rev);
 		ep_pcie_core_wakeup_host_internal(EP_PCIE_EVENT_PM_D3_COLD);
 	}

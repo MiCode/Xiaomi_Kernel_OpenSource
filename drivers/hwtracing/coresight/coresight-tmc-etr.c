@@ -275,7 +275,7 @@ void tmc_free_sg_table(struct tmc_sg_table *sg_table)
 
 long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
 {
-	struct etr_buf *etr_buf = drvdata->etr_buf;
+	struct etr_buf *etr_buf = drvdata->sysfs_buf;
 	struct etr_sg_table *etr_table = etr_buf->private;
 	struct tmc_sg_table *table = etr_table->sg_table;
 	u64 rwp;

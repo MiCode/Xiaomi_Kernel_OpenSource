@@ -6062,21 +6062,29 @@ static int cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 	u32 link_speed;
 
 	/* For qca6490, read dts first to get default gen speed, if valid
-	 * setting existing, then use it, else use gen2.
+	 * setting existing, then use it; if not set, use gen2; if invalid
+	 * value, ignore it since can't set it for pcie switch platform
 	 */
 	if (plat_priv->device_id == QCA6490_DEVICE_ID) {
 		ret = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
 					   "default_gen_speed",
 					   &link_speed);
-		if (ret || link_speed < PCI_EXP_LNKSTA_CLS_2_5GB ||
-		    link_speed > PCI_EXP_LNKSTA_CLS_8_0GB)
+		if (ret) {
+			cnss_pr_dbg("no default_gen_speed, use gen2\n");
 			link_speed = PCI_EXP_LNKSTA_CLS_5_0GB;
-		cnss_pr_dbg("Set pci link speed: %u\n", link_speed);
-		ret = cnss_pci_set_max_link_speed(plat_priv->bus_priv, rc_num,
-						  link_speed);
-		if (ret && ret != -EPROBE_DEFER)
-			cnss_pr_err("Failed to set max PCIe RC%x link speed to Gen2, err = %d\n",
-				    rc_num, ret);
+		}
+
+		if (link_speed >= PCI_EXP_LNKSTA_CLS_2_5GB &&
+		    link_speed <= PCI_EXP_LNKSTA_CLS_8_0GB) {
+			cnss_pr_dbg("Set pci link speed: %u\n", link_speed);
+			ret = cnss_pci_set_max_link_speed(plat_priv->bus_priv, rc_num,
+							  link_speed);
+			if (ret && ret != -EPROBE_DEFER)
+				cnss_pr_err("Failed to set max PCIe RC%x link speed to Gen2, err = %d\n",
+					    rc_num, ret);
+		} else {
+			cnss_pr_dbg("default_gen_speed: %u\n", link_speed);
+		}
 	}
 
 	cnss_pr_dbg("Trying to enumerate with PCIe RC%x\n", rc_num);
