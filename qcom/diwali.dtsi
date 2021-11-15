@@ -3071,6 +3071,7 @@
 	clocks = <&gcc GCC_GPU_CFG_AHB_CLK>;
 	clock-names = "ahb_clk";
 	parent-supply = <&VDD_GFX_LEVEL>;
+	qcom,skip-disable-before-sw-enable;
 	status = "ok";
 };
 
