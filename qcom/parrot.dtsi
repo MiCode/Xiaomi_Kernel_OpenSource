@@ -484,6 +484,11 @@
 		compatible = "qcom,parrot-lpass_ag_noc";
 		#interconnect-cells = <1>;
 	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
 };
 
 #include "diwali-gdsc.dtsi"
