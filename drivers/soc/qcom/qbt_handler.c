@@ -181,12 +181,18 @@ static void qbt_touch_report_event(struct input_handle *handle,
 {
 	struct qbt_drvdata *drvdata = handle->handler->private;
 	struct finger_detect_touch *fd_touch = &drvdata->fd_touch;
-	struct touch_event *event =
-		&fd_touch->current_events[fd_touch->current_slot];
+	struct touch_event *event = NULL;
 	static bool report_event = true;
 
 	if (type != EV_SYN && type != EV_ABS)
 		return;
+
+	if (fd_touch->current_slot >= MT_MAX_FINGERS) {
+		pr_warn("Touch event current slot: %d received out of bound\n",
+			fd_touch->current_slot);
+		return;
+	}
+	event = &fd_touch->current_events[fd_touch->current_slot];
 
 	switch (code) {
 	case ABS_MT_SLOT:
