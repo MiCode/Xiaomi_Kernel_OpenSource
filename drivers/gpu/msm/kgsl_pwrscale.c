@@ -498,7 +498,15 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	/* Update bus vote if AB or IB is modified */
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
 		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
-		pwr->bus_ab_mbytes = ab_mbytes;
+		/*
+		 * When gpu is thermally throttled to its lowest power level,
+		 * drop GPU's AB vote as a last resort to lower CX voltage and
+		 * to prevent thermal reset.
+		 */
+		if (pwr->thermal_pwrlevel != pwr->num_pwrlevels - 1)
+			pwr->bus_ab_mbytes = ab_mbytes;
+		else
+			pwr->bus_ab_mbytes = 0;
 		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
 	}
 
