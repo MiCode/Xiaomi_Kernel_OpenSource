@@ -1,0 +1,37 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+/* Please set primary/secondary charger to corresponding I2C bus */
+&i2c1 {
+	rt9458@6a {
+		status = "okay";
+		compatible = "richtek,rt9458";
+		reg = <0x6a>;
+		rt,intr_gpio = <&pio 25 0x0>;
+		rt,intr_gpio_num = <25>; /* direct defined GPIO num */
+		/*
+		 * Charger name
+		 * Main charger: primary_chg
+		 * Slave charger: secondary_chg
+		 */
+		charger_name = "primary_chg";
+		ichg = <1550000>; /* uA */
+		aicr = <500000>;  /* uA */
+		mivr = <4500000>; /* uV */
+		ieoc = <200000>;  /* uA */
+		cv = <4350000>; /* uV */
+		vmreg = <4350000>; /* uV */
+		enable_te;
+		enable_eoc_shdn;
+	};
+};

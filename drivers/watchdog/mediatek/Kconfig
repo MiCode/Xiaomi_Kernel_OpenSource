@@ -1,0 +1,1 @@
+source "drivers/watchdog/mediatek/wdt/Kconfig"

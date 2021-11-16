@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0 OR MIT
+#
+# (C) COPYRIGHT 2020 Arm Limited or its affiliates. All rights reserved.
+#
+#
+
+obj-$(CONFIG_MALI_ARBITRATION) := mali_arbiter.o
+
+# Set up defaults if not defined by build system
+MALI_ARBITER_TEST_API ?= 0
+
+# Set up our defines, which will be passed to gcc
+DEFINES = \
+	-DMALI_ARBITER_TEST_API=$(MALI_ARBITER_TEST_API)
+
+# Use our defines when compiling
+ccflags-y += $(DEFINES)
+subdir-ccflags-y += $(DEFINES)

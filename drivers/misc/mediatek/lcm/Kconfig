@@ -1,0 +1,25 @@
+config MTK_LCM
+	bool "Enable LCM driver"
+	default n
+	help
+	  define LCM driver config to enable LCM driver.
+	  To set LCM driver which you choose avoid cannot driver LCM.
+	  Please make sure CONFIG_MTK_LCM in xxxxxx_defconfig.mk.
+	  And also make sure true on in ProjectConfig.mk
+
+config CUSTOM_KERNEL_LCM
+	string "define mediatek kernel LCM driver"
+	help
+	  To choose kernel LCM driver name.
+	  This config is to select which LCM driver you want to use.
+	  Please make sure CUSTOME_KERNEL_LCM in xxxxx_defconfig.mk.
+	  And also make sure turn on in ProjectConfig.mk
+
+config MTK_LCM_DEVICE_TREE_SUPPORT
+	bool "support LCM device tree connect with display drivers"
+	help
+	  Decide whether to support LCM device tree based configuration.
+	  This feature requires the connection between display driver and LCM devices.
+	  Please also turn on MTK_LCM_DEVICE_TREE_SUPPORT in ProjectConfig.mk.
+	  If not define MTK_LCM_DEVICE_TREE_SUPPORT
+	  there will not connect between display driver and LCM devices.

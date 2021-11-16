@@ -1,0 +1,9 @@
+#
+# MediaTek SPI SLAVE DRIVER
+#
+
+config MTK_SPI_SLAVE_SUPPORT
+    bool "Support Mediatek SPI Slave"
+    default y
+    help
+      spi slave driver for display

@@ -1,0 +1,8 @@
+config MTK_CQDMA
+	bool "Enable MTK CQDMA Driver"
+	default n
+	help
+	  The purpose of Mediatek cqdma is performing
+	  data transfer between external memory such as
+	  LPDDR3/on-chip SRAM/Memory-mapped I/O.
+	  CQDMA support more than one channel to transfer data.

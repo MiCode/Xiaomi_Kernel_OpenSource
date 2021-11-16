@@ -1,0 +1,78 @@
+config MFD_MT6370_PMU
+	bool "Support for MT6370 PMU part"
+	depends on I2C
+	select MFD_CORE
+	select RT_REGMAP
+	help
+	  This selects for MediaTek(R) Sub PMIC MT6370 PMU parts.
+	  It's cordinate some features like
+	  bled, fled, ldo, dsv, charger.
+	  Select Y to enable support for MT6370 PMU.
+
+
+config MT6370_PMU_CHARGER
+	bool "MT6370 PMU Charger Part"
+	depends on MFD_MT6370_PMU
+	help
+	  This selects for MT6370 PMU Charger driver.
+	  Usually used in primary charger by gauge and thermal.
+	  Depends on MFD_MT6370_PMU.
+	  Say Y here to enable support for MT6370 charger device.
+
+config MT6370_PMU_CHARGER_TYPE_DETECT
+	bool "MT6370 PMU Charger Type Detect"
+	depends on MT6370_PMU_CHARGER
+	depends on MTK_EXTERNAL_CHARGER_TYPE_DETECT
+	default MTK_EXTERNAL_CHARGER_TYPE_DETECT
+	help
+	  Depends on enable MT6370 PMU Charger
+	  Say Y here to enable support for
+	  MT6370 charger type detect instead of using PMIC.
+
+config MT6370_PMU_FLED
+	bool "MT6370 PMU FLED Part"
+	depends on LEDS_CLASS && MFD_MT6370_PMU
+	select FLASHLIGHT
+	select RT_FLASH_LED
+	help
+	  This selects for MT6370 PMU Flashlight LED driver.
+	  Support Normal/Strobe/Torch mode by camera.
+	  Say Y here to enable support for
+	  MT6370 flashlight LED device.
+
+config MT6370_PMU_BLED
+	bool "MT6370 PMU BLED Part"
+	depends on LEDS_CLASS && MFD_MT6370_PMU
+	help
+	  This selects for MT6370 PMU Backlight LED driver.
+	  Support use I2C/PWM mode control screen backlight.
+	  Say Y here to enable support for
+	  MT6370 Backlight LED device.
+
+config MT6370_PMU_RGBLED
+	bool "MT6370 PMU RGBLED Part"
+	depends on LEDS_CLASS && MFD_MT6370_PMU
+	help
+	  Support four channels and cc/pwm/breath mode.
+	  Isink4 can also use as CHG_VIN power good Indicator.
+	  Say Y here to enable support for
+	  MT6370 RGB LED device.
+
+config MT6370_PMU_LDO
+	bool "MT6370 PMU LDO Part"
+	depends on REGULATOR && MFD_MT6370_PMU
+	help
+	  Support Built-In low Dropout Linear Regulator.
+	  This selects for Regulator control by IRTX or Vibrator.
+	  Operation from Kernel Regulator Framework.
+	  Say Y here to enable support for
+	  MT6370 ldo device.
+
+config MT6370_PMU_DSV
+	bool "MT6370 PMU DSV Part"
+	depends on REGULATOR && MFD_MT6370_PMU
+	help
+	  This selects for Single High-Efficiency Boost Converter.
+	  Provide positive and negative voltage for LCD display bias.
+	  Say Y here to enable support for
+	  MT6370 dsv device.

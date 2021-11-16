@@ -1,0 +1,21 @@
+#
+# block tag trace
+#
+
+comment "Storage Block Tag"
+
+config MTK_BLOCK_TAG
+	bool "Storage Block Tag"
+	depends on BLOCK
+	depends on MEDIATEK_SOLUTION
+	depends on (MTK_GMO_RAM_OPTIMIZE && MTK_ENG_BUILD) || \
+		   !MTK_GMO_RAM_OPTIMIZE
+	depends on DEBUG_FS
+	default y
+	help
+	  Enable block tagging at block driver, tag requester pid to
+	  the accessing pages. This allows MMC/UFS Block IO log to obtian
+	  IO statistics of each process. The Block Tag also provides
+	  utility functions to MMC/UFS Block IO log, such as throughput
+	  calculation, log printing, and ring trace handling.
+

@@ -1,0 +1,6 @@
+ARCH=arm64
+CROSS_COMPILE=aarch64-linux-gnu-
+CC=gcc
+# DEFCONFIG=defconfig
+KERNEL_DIR=kernel-4.14
+LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1/bin

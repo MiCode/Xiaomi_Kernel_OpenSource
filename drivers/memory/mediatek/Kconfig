@@ -1,0 +1,26 @@
+config MEDIATEK_MC
+	bool "MediaTek Memory Controller support"
+	depends on MEMORY
+	select MEDIATEK_DRAMC
+	select MEDIATEK_EMI
+	help
+	  This driver supports the Memory Controller (MC) hardware found on
+	  MediaTek(R) SoCs. The config selects MEDIATEK_DRAMC and MEDIATEK_EMI
+	  for the control of DRAMC and EMI drivers respectively. This config
+	  will be enabled by default for MTK SoC.
+
+config MEDIATEK_DRAMC
+	tristate "MediaTek DRAMC driver"
+	help
+	  This selects the MediaTek(R) DRAMC driver.
+	  Provide the API for DRAMC low power scenario, and the interface
+	  for reporting DRAM information, e.g. DRAM mode register (MR) for
+	  DRAM vendor ID, temperature, and density.
+
+config MEDIATEK_EMI
+	tristate "MediaTek EMI driver"
+	help
+	  This selects the MediaTek(R) EMI driver.
+	  Provide the API for MPU register and handle EMI MPU violation,
+	  the API for EMI information, and the sysfs for EMI ISU control.
+

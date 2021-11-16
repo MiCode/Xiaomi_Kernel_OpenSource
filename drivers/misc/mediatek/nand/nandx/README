@@ -1,0 +1,2 @@
+nandx is the common nand driver, which can support different NAND types and
+system environment.
