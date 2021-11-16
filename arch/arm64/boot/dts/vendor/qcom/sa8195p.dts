@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "sa8195p.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8195P AU SoC";
+	compatible = "qcom,sa8195";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0 0>;
+};

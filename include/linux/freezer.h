@@ -28,7 +28,9 @@ static inline bool frozen(struct task_struct *p)
 }
 
 extern bool freezing_slow_path(struct task_struct *p);
-
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+extern bool freezing_slow_path_millet(struct task_struct *p);
+#endif
 /*
  * Check if there is a request to freeze a process
  */
@@ -39,6 +41,14 @@ static inline bool freezing(struct task_struct *p)
 	return freezing_slow_path(p);
 }
 
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+static inline bool freezing_millet(struct task_struct *p)
+{
+        if (likely(!atomic_read(&system_freezing_cnt)))
+                return false;
+        return freezing_slow_path_millet(p);
+}
+#endif
 /* Takes and releases task alloc lock using task_lock() */
 extern void __thaw_task(struct task_struct *t);
 
@@ -260,6 +270,9 @@ static inline int freezable_schedule_hrtimeout_range(ktime_t *expires,
 #else /* !CONFIG_FREEZER */
 static inline bool frozen(struct task_struct *p) { return false; }
 static inline bool freezing(struct task_struct *p) { return false; }
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+static inline bool freezing_millet(struct task_struct *p) { return false; }
+#endif
 static inline void __thaw_task(struct task_struct *t) {}
 
 static inline bool __refrigerator(bool check_kthr_stop) { return false; }

@@ -1,0 +1,336 @@
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+
+/ {
+	VDD_CX_LEVEL:
+	S1A_LEVEL:
+	pm5100_s1_level: regulator-pm5100-s1-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_s1_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	VDD_CX_LEVEL_AO:
+	S1A_LEVEL_AO:
+	pm5100_s1_level_ao: regulator-pm5100-s1-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_s1_level_ao";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	S3A:
+	pm5100_s3: regulator-pm5100-s3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_s3";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <790000>;
+		regulator-max-microvolt = <1374000>;
+	};
+
+	S4A:
+	pm5100_s4: regulator-pm5100-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_s4";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1574000>;
+		regulator-max-microvolt = <2040000>;
+	};
+
+	S5A:
+	pm5100_s5: regulator-pm5100-s5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_s5";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <320000>;
+		regulator-max-microvolt = <2040000>;
+	};
+
+	L1A:
+	pm5100_l1: regulator-pm5100-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l1";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	VDD_EBI_LEVEL:
+	VDD_MXA_LEVEL:
+	L3A_LEVEL:
+	pm5100_l3_level: regulator-pm5100-l3-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l3_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	VDD_MXA_LEVEL_AO:
+	L3A_LEVEL_AO:
+	pm5100_l3_level_ao: regulator-pm5100-l3-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l3_level_ao";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	VDD_LPI_CX_LEVEL:
+	L4A_LEVEL:
+	pm5100_l4_level: regulator-pm5100-l4-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l4_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	VDD_LPI_MX_LEVEL:
+	L5A_LEVEL:
+	pm5100_l5_level: regulator-pm5100-l5-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l5_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	VDD_MXC_LEVEL:
+	L6A_LEVEL:
+	pm5100_l6_level: regulator-pm5100-l6-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l6_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	VDD_MXC_LEVEL_AO:
+	L6A_LEVEL_AO:
+	pm5100_l6_level_ao: regulator-pm5100-l6-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l6_level_ao";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
+	};
+
+	L7A:
+	pm5100_l7: regulator-pm5100-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l7";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <570000>;
+		regulator-max-microvolt = <650000>;
+	};
+
+	L8A:
+	pm5100_l8: regulator-pm5100-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l8";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <516000>;
+		regulator-max-microvolt = <968000>;
+	};
+
+	L9A:
+	pm5100_l9: regulator-pm5100-l9 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l9";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1100000>;
+		regulator-max-microvolt = <1300000>;
+	};
+
+	L10A:
+	pm5100_l10: regulator-pm5100-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l10";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1060000>;
+		regulator-max-microvolt = <1170000>;
+	};
+
+	L11A:
+	pm5100_l11: regulator-pm5100-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l11";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <1150000>;
+	};
+
+	L12A:
+	pm5100_l12: regulator-pm5100-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l12";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <720000>;
+		regulator-max-microvolt = <1050000>;
+	};
+
+	L13A:
+	pm5100_l13: regulator-pm5100-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l13";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1150000>;
+		regulator-max-microvolt = <1304000>;
+	};
+
+	L14A:
+	pm5100_l14: regulator-pm5100-l14 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l14";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1504000>;
+		regulator-max-microvolt = <1980000>;
+	};
+
+	L15A:
+	pm5100_l15: regulator-pm5100-l15 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l15";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1700000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	L16A:
+	pm5100_l16: regulator-pm5100-l16 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l16";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1650000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	L17A:
+	pm5100_l17: regulator-pm5100-l17 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l17";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1504000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	L18A:
+	pm5100_l18: regulator-pm5100-l18 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l18";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1650000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	L19A:
+	pm5100_l19: regulator-pm5100-l19 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l19";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1700000>;
+		regulator-max-microvolt = <1950000>;
+	};
+
+	L20A:
+	pm5100_l20: regulator-pm5100-l20 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l20";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1620000>;
+		regulator-max-microvolt = <2000000>;
+	};
+
+	L21A:
+	pm5100_l21: regulator-pm5100-l21 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l21";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1650000>;
+		regulator-max-microvolt = <2000000>;
+	};
+
+	L22A:
+	pm5100_l22: regulator-pm5100-l22 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l22";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1620000>;
+		regulator-max-microvolt = <2000000>;
+	};
+
+	L23A:
+	pm5100_l23: regulator-pm5100-l23 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l23";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1710000>;
+		regulator-max-microvolt = <1890000>;
+	};
+
+	L24A:
+	pm5100_l24: regulator-pm5100-l24 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l24";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2650000>;
+		regulator-max-microvolt = <3544000>;
+	};
+
+	L25A:
+	pm5100_l25: regulator-pm5100-l25 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l25";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <3544000>;
+	};
+
+	L26A:
+	pm5100_l26: regulator-pm5100-l26 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l26";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3200000>;
+		regulator-max-microvolt = <3400000>;
+	};
+
+	L27A:
+	pm5100_l27: regulator-pm5100-l27 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l27";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2400000>;
+		regulator-max-microvolt = <3544000>;
+	};
+
+	L28A:
+	pm5100_l28: regulator-pm5100-l28 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l28";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <3544000>;
+	};
+
+	L29A:
+	pm5100_l29: regulator-pm5100-l29 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm5100_l29";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2650000>;
+		regulator-max-microvolt = <3544000>;
+	};
+};

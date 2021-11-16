@@ -1,0 +1,12 @@
+* VM Restart Driver
+
+VM restart driver supports virtual machine power down and restart.
+
+Required properties:
+- compatible:	      Must be "qcom,vm-restart"
+
+Example:
+	vm_restart: restart {
+		compatible = "qcom,vm-restart";
+	};
+

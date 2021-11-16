@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "yupik-idps-amoled.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Yupik IDPS + AMOLED";
+	compatible = "qcom,yupik-idp", "qcom,yupik", "qcom,idp";
+	qcom,msm-id = <475 0x10000>, <515 0x10000>;
+	qcom,board-id = <34 2>;
+};

@@ -1,0 +1,8 @@
+#include "sa8155-v1.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155P ";
+	qcom,msm-name = "SA8155P V1";
+	compatible = "qcom,sa8155p";
+	qcom,msm-id = <367 0x10000>;
+};

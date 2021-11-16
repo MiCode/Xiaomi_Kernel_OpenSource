@@ -1,0 +1,31 @@
+QTI BCM-Voter interconnect driver binding
+-----------------------------------------------------------
+
+The Bus Clock Manager (BCM) is a dedicated hardware accelerator
+that manages shared system resources by aggregating requests
+from multiple Resource State Coordinators (RSC). Interconnect
+providers are able to vote for aggregated thresholds values from
+consumers by communicating through their respective RSCs.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,sdm845-bcm-voter",
+			"qcom,bcm-voter",
+
+Examples:
+
+apps_rsc: interconnect@179c0000 {
+	compatible = "qcom,rpmh-rsc";
+
+	apps_bcm_voter: bcm_voter {
+		compatible = "qcom,sdm845-bcm-voter";
+	};
+}
+
+disp_rsc: interconnect@179d0000 {
+	compatible = "qcom,rpmh-rsc";
+
+	disp_bcm_voter: bcm_voter {
+		compatible = "qcom,sdm845-bcm-voter";
+	};
+}

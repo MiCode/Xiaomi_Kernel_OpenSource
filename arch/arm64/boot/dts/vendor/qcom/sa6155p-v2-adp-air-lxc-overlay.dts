@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "sa6155-adp-air.dtsi"
+#include "display/sa6155p-v2-adp-air-display-lxc-shd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA6155P ADP-AIR V2";
+	compatible = "qcom,sa6155p-adp-air", "qcom,sa6155p", "qcom,adp-air";
+	qcom,msm-id = <377 0x0>, <380 0>;
+	qcom,board-id = <0x03020019 0>;
+};

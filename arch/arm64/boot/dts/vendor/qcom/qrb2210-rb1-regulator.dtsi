@@ -1,0 +1,348 @@
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+
+&rpm_bus {
+	/* PM2250 S2 - VDD_CX supply */
+	rpm-regulator-smpa2 {
+		status = "okay";
+		qcom,resource-name = "rwcx";
+		qcom,resource-id = <0>;
+
+		VDD_CX_LEVEL:
+		VDD_GFX_LEVEL:
+		VDD_MSS_LEVEL:
+		S2A_LEVEL: pm2250_s2_level: regulator-s2-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_s2_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_CX_FLOOR_LEVEL:
+		VDD_MSS_FLOOR_LEVEL:
+		S2A_FLOOR_LEVEL:
+		pm2250_s2_floor_level: regulator-s2-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_s2_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+
+		VDD_CX_LEVEL_AO:
+		VDD_MSS_LEVEL_AO:
+		S2A_LEVEL_AO: pm2250_s2_level_ao: regulator-s2-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_s2_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	/* PM2250 L1 - VDD_MX/WCSS_MX supply */
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		qcom,resource-name = "rwmx";
+		qcom,resource-id = <0>;
+
+		VDD_MX_LEVEL:
+		L1A_LEVEL: pm2250_l1_level: regulator-l1-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_l1_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_MX_FLOOR_LEVEL:
+		L1A_FLOOR_LEVEL:
+		pm2250_l1_floor_level: regulator-l1-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_l1_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+
+		VDD_MX_LEVEL_AO:
+		L1A_LEVEL_AO: pm2250_l1_level_ao: regulator-l1-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_l1_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	rpm-regulator-smpa3 {
+		status = "okay";
+		S3A: pm2250_s3: regulator-s3 {
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1662500>;
+			qcom,init-voltage = <400000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		status = "okay";
+		S4A: pm2250_s4: regulator-s4 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <2350000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	/* VDD_LPI_CX supply */
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		qcom,resource-name = "rwlc";
+		qcom,resource-id = <0>;
+
+		VDD_LPI_CX_LEVEL:
+		L8A_LEVEL: pm2250_l8_level: regulator-l8-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_l8_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	/* VDD_LPI_MX supply */
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		qcom,resource-name = "rwlm";
+		qcom,resource-id = <0>;
+
+		VDD_LPI_MX_LEVEL:
+		L9A_LEVEL: pm2250_l9_level: regulator-l9-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm2250_l9_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		L2A: pm2250_l2: regulator-l2 {
+			regulator-min-microvolt = <1060000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,init-voltage = <1060000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		L3A: pm2250_l3: regulator-l3 {
+			regulator-min-microvolt = <570000>;
+			regulator-max-microvolt = <650000>;
+			qcom,init-voltage = <570000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa4 {
+		status = "okay";
+		L4A: pm2250_l4: regulator-l4 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <3050000>;
+			qcom,init-voltage = <1650000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		L5A: pm2250_l5: regulator-l5 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1312000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		L6A: pm2250_l6: regulator-l6 {
+			regulator-min-microvolt = <488000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <488000>;
+			status = "okay";
+		};
+	};
+
+	/* WCSS_CX */
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		WCSS_CX:
+		L7A: pm2250_l7: regulator-l7 {
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <728000>;
+			qcom,init-voltage = <400000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		L10A: pm2250_l10: regulator-l10 {
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1380000>;
+			qcom,init-voltage = <1150000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		L11A: pm2250_l11: regulator-l11 {
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <1150000>;
+			qcom,init-voltage = <950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		L12A: pm2250_l12: regulator-l12 {
+			regulator-min-microvolt = <488000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <488000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		L13A: pm2250_l13: regulator-l13 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <1950000>;
+			qcom,init-voltage = <1650000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		L14A: pm2250_l14: regulator-l14 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <1950000>;
+			qcom,init-voltage = <1700000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa15 {
+		status = "okay";
+		L15A: pm2250_l15: regulator-l15 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <2000000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		L16A: pm2250_l16: regulator-l16 {
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <1950000>;
+			qcom,init-voltage = <1500000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		status = "okay";
+		L17A: pm2250_l17: regulator-l17 {
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <3000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa18 {
+		status = "okay";
+		L18A: pm2250_l18: regulator-l18 {
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <1620000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa19 {
+		status = "okay";
+		L19A: pm2250_l19: regulator-l19 {
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <1620000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa20 {
+		status = "okay";
+		L20A: pm2250_l20: regulator-l20 {
+			regulator-min-microvolt = <2400000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <2400000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa21 {
+		status = "okay";
+		L21A: pm2250_l21: regulator-l21 {
+			regulator-min-microvolt = <2921000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <2921000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa22 {
+		status = "okay";
+		L22A: pm2250_l22: regulator-l22 {
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2850000>;
+			status = "okay";
+		};
+	};
+};

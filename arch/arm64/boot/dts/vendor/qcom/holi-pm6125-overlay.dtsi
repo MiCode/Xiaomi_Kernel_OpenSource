@@ -1,0 +1,18 @@
+/* Dummy LDO referenses */
+
+&mdss_dsi_phy0 {
+	vdda-0p9-supply = <&S6A>;
+};
+
+&soc {
+	icnss: qcom,icnss@C800000 {
+		vdd-cx-mx-supply = <&L2E>;
+		vdd-1.8-xo-supply = <&L16A>;
+		vdd-1.3-rfa-supply = <&L2A>;
+		vdd-3.3-ch1-supply = <&L21A>;
+		vdd-3.3-ch0-supply = <&L23A>;
+		qcom,vdd-cx-mx-config = <640000 640000>;
+		qcom,vdd-3.3-ch1-config = <3000000 3312000>;
+		qcom,vdd-3.3-ch0-config = <3000000 3312000>;
+	};
+};

@@ -1,0 +1,374 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include "display/lahaina-sde-display-qrd.dtsi"
+#include "camera/lahaina-camera-sensor-qrd.dtsi"
+#include "lahaina-audio-overlay.dtsi"
+#include "lahaina-thermal-overlay.dtsi"
+
+#include "lahaina-pmic-overlay.dtsi"
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-lahaina";
+
+	vdda-phy-supply = <&pm8350_l5>;
+	vdda-pll-supply = <&pm8350_l6>;
+	vdda-phy-max-microamp = <91600>;
+	vdda-pll-max-microamp = <19000>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+
+	vcc-supply = <&pm8350_l7>;
+	vcc-voltage-level = <2504000 2950000>;
+	vcc-max-microamp = <800000>;
+
+	vccq-supply = <&pm8350_l9>;
+	vccq-max-microamp = <900000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8350_l9>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,vccq-parent-supply = <&pm8350_s12>;
+	qcom,vccq-parent-max-microamp = <210000>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8350c_l9>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8350c_l6>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&swr_dmic_01 {
+	status = "disabled";
+};
+
+&swr_dmic_02 {
+	status = "disabled";
+};
+
+&swr_dmic_03 {
+	status = "disabled";
+};
+
+&swr_dmic_04 {
+	status = "disabled";
+};
+
+&tx_swr_clk_active {
+	config {
+		drive-strength = <2>;
+	};
+};
+
+&tx_swr_data0_active {
+	config {
+		drive-strength = <2>;
+	};
+};
+
+&tx_swr_data1_active {
+	config {
+		drive-strength = <2>;
+	};
+};
+
+&tx_swr_data2_active {
+	config {
+		drive-strength = <2>;
+	};
+};
+
+&q6core {
+	cdc_tert_mi2s_gpios: msm_cdc_pinctrl_tert {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&tert_mi2s_sck_active &tert_mi2s_ws_active
+				&tert_mi2s_sd0_active>;
+		pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
+				&tert_mi2s_sd0_sleep>;
+		#gpio-cells = <0>;
+	};
+};
+
+&lahaina_snd {
+	qcom,model = "lahaina-qrd-snd-card";
+
+	qcom,audio-routing =
+		"AMIC1", "Analog Mic1",
+		"Analog Mic1", "MIC BIAS1",
+		"AMIC2", "Analog Mic2",
+		"Analog Mic2", "MIC BIAS2",
+		"AMIC3", "Analog Mic3",
+		"Analog Mic3", "MIC BIAS3",
+		"AMIC4", "Analog Mic4",
+		"Analog Mic4", "MIC BIAS3",
+		"AMIC5", "Analog Mic5",
+		"Analog Mic5", "MIC BIAS4",
+		"TX DMIC0", "Digital Mic0",
+		"Digital Mic0", "MIC BIAS1",
+		"TX DMIC1", "Digital Mic1",
+		"Digital Mic1", "MIC BIAS1",
+		"TX DMIC2", "Digital Mic2",
+		"Digital Mic2", "MIC BIAS3",
+		"TX DMIC3", "Digital Mic3",
+		"Digital Mic3", "MIC BIAS3",
+		"TX DMIC4", "Digital Mic4",
+		"Digital Mic4", "MIC BIAS4",
+		"TX DMIC5", "Digital Mic5",
+		"Digital Mic5", "MIC BIAS4",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"HAP_IN", "PCM_OUT",
+		"WSA SRC0_INP", "SRC0",
+		"WSA_TX DEC0_INP", "TX DEC0 MUX",
+		"WSA_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"SpkrLeft IN", "WSA_SPK1 OUT",
+		"SpkrRight IN", "WSA_SPK2 OUT",
+		"TX SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA SWR_INPUT", "VA_SWR_CLK",
+		"VA SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA_AIF1 CAP", "VA_SWR_CLK",
+		"VA_AIF2 CAP", "VA_SWR_CLK",
+		"VA_AIF3 CAP", "VA_SWR_CLK",
+		"VA DMIC0", "Digital Mic0",
+		"VA DMIC1", "Digital Mic1",
+		"VA DMIC2", "Digital Mic2",
+		"VA DMIC3", "Digital Mic3",
+		"VA DMIC4", "Digital Mic4",
+		"VA DMIC5", "Digital Mic5",
+		"Digital Mic0", "VA MIC BIAS1",
+		"Digital Mic1", "VA MIC BIAS1",
+		"Digital Mic2", "VA MIC BIAS3",
+		"Digital Mic3", "VA MIC BIAS3",
+		"Digital Mic4", "VA MIC BIAS4",
+		"Digital Mic5", "VA MIC BIAS4";
+
+	qcom,swr-dmic-max-devs = <0>;
+
+	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
+	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
+	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
+
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+
+	qcom,tert-mi2s-gpios = <&cdc_tert_mi2s_gpios>;
+};
+
+&qupv3_se4_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	qcom,i2c-touch-active = "focaltech,fts_ts";
+
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <23 0x2008>;
+		focaltech,reset-gpio = <&tlmm 22 0x00>;
+		focaltech,irq-gpio = <&tlmm 23 0x2008>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+
+		vdd-supply = <&L3C>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		panel = <&dsi_r66451_amoled_cmd
+			 &dsi_r66451_amoled_video &dsi_r66451_amoled_144hz_cmd>;
+
+		focaltech,trusted-touch-mode = "vm_mode";
+		focaltech,touch-environment = "pvm";
+		focaltech,trusted-touch-spi-irq = <566>;
+		focaltech,trusted-touch-io-bases = <0xF114000 0xF115000 0xF116000 0xF117000 0x990000 0x00910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
+	};
+};
+
+&battery_charger {
+	qcom,thermal-mitigation = <10000000 9500000 9000000 8500000 8000000
+				7500000 7000000 6500000 6000000 5500000
+				5000000 4500000 4000000 3500000 3000000
+				2500000 2000000 1500000 1000000 500000>;
+	qcom,wireless-fw-name = "idt9412.bin";
+};
+
+&wil6210 {
+	status = "ok";
+};
+
+&qupv3_se15_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,sn-nci";
+		reg = <0x28>;
+		qcom,sn-irq = <&tlmm 87 0x00>;
+		qcom,sn-ven = <&tlmm 62 0x00>;
+		qcom,sn-firm = <&tlmm 86 0x00>;
+		qcom,sn-clkreq = <&tlmm 63 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <87 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_req_active &nfc_fwdl_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+				&nfc_clk_req_suspend &nfc_fwdl_suspend>;
+	};
+};
+
+&spmi_debug_bus {
+	status = "ok";
+};
+
+&spmi_glink_debug {
+	status = "ok";
+};
+
+&pm8350b_haptics {
+	qcom,vmax-mv = <1300>;
+	qcom,lra-period-us = <5880>;
+	status = "ok";
+
+	effect_0 {
+		/* CLICK */
+		qcom,wf-vmax-mv = <1800>;
+		qcom,wf-pattern-period-us = <5880>;
+	};
+
+	effect_1 {
+		/* DOUBLE_CLICK */
+		qcom,wf-vmax-mv = <1800>;
+		qcom,wf-pattern-period-us = <5880>;
+	};
+
+	effect_2 {
+		/* TICK */
+		qcom,wf-vmax-mv = <1800>;
+		qcom,wf-pattern-period-us = <5880>;
+	};
+
+	effect_3 {
+		/* THUD */
+		qcom,wf-vmax-mv = <1800>;
+		qcom,wf-pattern-period-us = <5880>;
+	};
+
+	effect_4 {
+		/* POP */
+		qcom,wf-vmax-mv = <1800>;
+		qcom,wf-pattern-period-us = <5880>;
+	};
+
+	effect_5 {
+		/* HEAVY CLICK */
+		qcom,wf-vmax-mv = <1800>;
+		qcom,wf-pattern-period-us = <5880>;
+	};
+};
+
+&pm8350b_amoled_ecm {
+	display-panels = <&dsi_r66451_amoled_cmd
+			  &dsi_r66451_amoled_video>;
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8350_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 38 0>;
+		qcom,finger-detect-gpio = <&tlmm 39 0>;
+	};
+};
+
+&pm8350c_switch0 {
+	qcom,led-mask = <9>; /* Channels 1 & 4 */
+	qcom,symmetry-en;
+};
+
+&pm8350c_switch1 {
+	qcom,led-mask = <6>; /* Channels 2 & 3 */
+	qcom,symmetry-en;
+};
+
+&pm8350c_switch2 {
+	qcom,led-mask = <15>; /* All Channels */
+	qcom,symmetry-en;
+};
+
+&pm8350c_flash {
+	status = "ok";
+};
+
+&thermal_zones {
+	gpu-skin-avg-step {
+		polling-delay-passive = <5000>;
+		polling-delay = <1000>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens1 1>, <&pmk8350_adc_tm PMK8350_ADC7_AMUX_THM1_100K_PU>;
+		sensor-aggregation = <AGGREGATE_COEFF_VALUE>;
+		coefficients = <3 7 0>;
+		trips {
+			gpuss_skin_config: active-config0 {
+				temperature = <570000>;
+				hysteresis = <20000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu_cdev {
+				trip = <&gpuss_skin_config>;
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT 5>;
+			};
+		};
+	};
+};

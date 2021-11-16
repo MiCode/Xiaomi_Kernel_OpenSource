@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "blair.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Blair SoC";
+	compatible = "qcom,blair";
+	qcom,board-id = <0 0>;
+};

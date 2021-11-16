@@ -1,0 +1,9 @@
+Qualcomm Technologies, Inc. Core Control for Hypervisor
+
+Required properties:
+- compatible: should be "qcom,hyp-core-ctl"
+
+Example:
+	hyp-core-ctl {
+		compatible = "qcom,hyp-core-ctl";
+	};

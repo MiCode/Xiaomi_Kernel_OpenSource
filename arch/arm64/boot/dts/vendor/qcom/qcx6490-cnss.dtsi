@@ -1,0 +1,209 @@
+
+&soc {
+	wlan: qcom,cnss-qca6490@b0000000 {
+		compatible = "qcom,cnss-qca6490";
+		reg = <0xb0000000 0x10000>;
+		reg-names = "smmu_iova_ipa";
+		wlan-en-gpio = <&tlmm 84 0>;
+		qcom,bt-en-gpio = <&tlmm 85 0>;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		qcom,wlan-rc-num = <0>;
+		qcom,wlan-ramdump-dynamic = <0x420000>;
+		qcom,wlan-cbc-enabled;
+
+		vdd-wlan-aon-supply = <&S7B>;
+		qcom,vdd-wlan-aon-config = <950000 952000 0 0 1>;
+		vdd-wlan-dig-supply = <&S7B>;
+		qcom,vdd-wlan-dig-config = <950000 952000 0 0 1>;
+		vdd-wlan-io-supply = <&L19B>;
+		qcom,vdd-wlan-io-config = <1800000 1800000 0 0 1>;
+		vdd-wlan-rfa1-supply = <&S1B>;
+		qcom,vdd-wlan-rfa1-config = <1880000 2040000 0 0 1>;
+		vdd-wlan-rfa2-supply = <&S8B>;
+		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
+		wlan-ant-switch-supply = <&L11C>;
+		qcom,wlan-ant-switch-config = <2800000 2800000 0 0 0>;
+
+		interconnects =
+		<&aggre1_noc MASTER_PCIE_0 &aggre1_noc SLAVE_ANOC_PCIE_GEM_NOC>,
+		<&gem_noc MASTER_ANOC_PCIE_GEM_NOC &mc_virt SLAVE_EBI1>;
+		interconnect-names = "pcie_to_memnoc", "memnoc_to_ddr";
+
+		qcom,icc-path-count = <2>;
+		qcom,bus-bw-cfg-count = <7>;
+		qcom,bus-bw-cfg =
+		/** ICC Path 1 **/
+		<0 0>, /* no vote */
+		/* idle: 0-18 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<2250 390000>,
+		/* low: 18-60 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<7500 390000>,
+		/* medium: 60-240 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
+		<30000 790000>,
+		/* high: 240-1080 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
+		<100000 790000>,
+		/* very high: > 1080 Mbps snoc/anoc: 403 Mhz ddr: 451.2 MHz */
+		<175000 1600000>,
+		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz
+		 * ddr: 547.2 MHz
+		 */
+		<7500 390000>,
+
+		/** ICC Path 2 **/
+		<0 0>,
+		<2250 1804800>,
+		<7500 1804800>,
+		<30000 1804800>,
+		<100000 1804800>,
+		<175000 6220800>,
+		<7500 2188800>;
+
+		mhi,max-channels = <30>;
+		mhi,timeout = <10000>;
+		mhi,buffer-len = <0x8000>;
+		mhi,m2-no-db-access;
+
+		mhi_channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mhi_chan@0 {
+				reg = <0>;
+				label = "LOOPBACK";
+				mhi,num-elements = <32>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x14>;
+			};
+
+			mhi_chan@1 {
+				reg = <1>;
+				label = "LOOPBACK";
+				mhi,num-elements = <32>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x14>;
+			};
+
+			mhi_chan@4 {
+				reg = <4>;
+				label = "DIAG";
+				mhi,num-elements = <32>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x14>;
+			};
+
+			mhi_chan@5 {
+				reg = <5>;
+				label = "DIAG";
+				mhi,num-elements = <32>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x14>;
+			};
+
+			mhi_chan@20 {
+				reg = <20>;
+				label = "IPCR";
+				mhi,num-elements = <32>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <1>;
+				mhi,data-type = <1>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x14>;
+				mhi,auto-start;
+			};
+
+			mhi_chan@21 {
+				reg = <21>;
+				label = "IPCR";
+				mhi,num-elements = <32>;
+				mhi,event-ring = <1>;
+				mhi,chan-dir = <2>;
+				mhi,data-type = <0>;
+				mhi,doorbell-mode = <2>;
+				mhi,ee = <0x14>;
+				mhi,auto-queue;
+				mhi,auto-start;
+			};
+		};
+
+		mhi_events {
+			mhi_event@0 {
+				mhi,num-elements = <32>;
+				mhi,intmod = <0>;
+				mhi,msi = <1>;
+				mhi,priority = <1>;
+				mhi,brstmode = <2>;
+				mhi,data-type = <1>;
+			};
+
+			mhi_event@1 {
+				mhi,num-elements = <256>;
+				mhi,intmod = <0>;
+				mhi,msi = <2>;
+				mhi,priority = <1>;
+				mhi,brstmode = <2>;
+			};
+
+			mhi_event@2 {
+				mhi,num-elements = <32>;
+				mhi,intmod = <0>;
+				mhi,msi = <0>;
+				mhi,priority = <2>;
+				mhi,brstmode = <2>;
+				mhi,data-type = <3>;
+			};
+		};
+
+		mhi_devices {
+			mhi_qrtr {
+				mhi,chan = "IPCR";
+				qcom,net-id = <0>;
+				qcom,low-latency;
+			};
+		};
+	};
+
+};
+
+&pcie0_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	cnss_pci: cnss_pci {
+		reg = <0 0 0 0 0>;
+		qcom,iommu-group = <&cnss_pci_iommu_group>;
+		memory-region = <&cnss_wlan_mem>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		cnss_pci_iommu_group: cnss_pci_iommu_group {
+			qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
+			qcom,iommu-dma = "fastmap";
+			qcom,iommu-pagetable = "coherent";
+			qcom,iommu-faults = "stall-disable", "HUPCF", "no-CFRE",
+					    "non-fatal";
+		};
+	};
+};
+
+&pil_wpss {
+	status = "disabled";
+};
+
+&icnss2 {
+	status = "disabled";
+};

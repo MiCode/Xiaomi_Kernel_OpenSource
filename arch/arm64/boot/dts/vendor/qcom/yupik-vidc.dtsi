@@ -1,0 +1,96 @@
+&soc {
+	msm_vidc: qcom,vidc {
+		compatible = "qcom,msm-vidc", "qcom,yupik-vidc";
+		status = "okay";
+		reg = <0x0aa00000 0x0100000>;
+		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+
+		/* IOMMU Config */
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/* Supply */
+		iris-ctl-supply = <&video_cc_mvsc_gdsc>;
+		vcodec-supply = <&video_cc_mvs0_gdsc>;
+
+		/* Clocks */
+		clock-names = "video_cc_mvsc_ctl_axi",
+			"video_cc_mvs0_ctl_axi", "core_clk",
+			"vcodec_clk", "iface_clk";
+		clocks = <&videocc VIDEO_CC_MVSC_CTL_AXI_CLK>,
+			<&videocc VIDEO_CC_MVS0_AXI_CLK>,
+			<&videocc VIDEO_CC_MVSC_CORE_CLK>,
+			<&videocc VIDEO_CC_MVS0_CORE_CLK>,
+			<&videocc VIDEO_CC_VENUS_AHB_CLK>;
+		qcom,proxy-clock-names = "video_cc_mvsc_ctl_axi",
+			"video_cc_mvs0_ctl_axi", "core_clk",
+			"vcodec_clk", "iface_clk";
+		/* Mask: Bit0: Clock Scaling, Bit1: Mem Retention*/
+		qcom,clock-configs = <0x0 0x0 0x1 0x1 0x0>;
+		qcom,allowed-clock-rates = <133330000 240000000
+			335000000 424000000 460000000>;
+
+		qcom,reg-presets = <0xB0088 0x0 0x11>;
+
+		/* Video Firmware ELF image name */
+		vidc,firmware-name = "vpu20_1v";
+
+		/* Bus Interconnects */
+		interconnect-names = "venus-cnoc", "venus-ddr";
+		interconnects = <&gem_noc MASTER_APPSS_PROC
+					&cnoc2 SLAVE_VENUS_CFG>,
+				<&mmss_noc MASTER_VIDEO_P0
+					&mc_virt SLAVE_EBI1>;
+		/* Bus BW range (low, high) for each bus */
+		qcom,bus-range-kbps = <1000 1000
+					1000 8000000>;
+
+		/* MMUs */
+		non_secure_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus = <&apps_smmu 0x2180 0x0020>;
+			qcom,iommu-dma-addr-pool = <0x25800000 0xba800000>;
+			qcom,iommu-faults = "non-fatal";
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x25800000 0xba800000>;
+			dma-coherent-hint-cached;
+		};
+
+		secure_non_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_non_pixel";
+			iommus = <&apps_smmu 0x2184 0x0020>;
+			qcom,iommu-dma-addr-pool = <0x01000000 0x24800000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0xB>; /* VMID_CP_NON_PIXEL */
+			buffer-types = <0x480>;
+			virtual-addr-pool = <0x01000000 0x24800000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_bitstream_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_bitstream";
+			iommus = <&apps_smmu 0x2181 0x0004>;
+			qcom,iommu-dma-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0x9>; /* VMID_CP_BITSTREAM */
+			buffer-types = <0x241>;
+			virtual-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,secure-context-bank;
+		};
+
+		secure_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_pixel";
+			iommus = <&apps_smmu 0x2183 0x0000>;
+			qcom,iommu-dma-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0xA>; /* VMID_CP_PIXEL */
+			buffer-types = <0x106>;
+			virtual-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,secure-context-bank;
+		};
+	};
+};

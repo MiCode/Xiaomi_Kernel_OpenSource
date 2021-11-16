@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "sm6150p.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SM6150P SoC";
+	compatible = "qcom,sm6150p";
+	qcom,pmic-name = "PM6150";
+	qcom,board-id = <0 0>;
+};

@@ -3,6 +3,7 @@
  *  linux/drivers/cpufreq/cpufreq.c
  *
  *  Copyright (C) 2001 Russell King
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
  *            (C) 2013 Viresh Kumar <viresh.kumar@linaro.org>
  *
@@ -1510,7 +1511,6 @@ static int cpufreq_online(unsigned int cpu)
 
 		cpufreq_stats_create_table(policy);
 		cpufreq_times_create_policy(policy);
-
 		write_lock_irqsave(&cpufreq_driver_lock, flags);
 		list_add(&policy->policy_list, &cpufreq_policy_list);
 		write_unlock_irqrestore(&cpufreq_driver_lock, flags);

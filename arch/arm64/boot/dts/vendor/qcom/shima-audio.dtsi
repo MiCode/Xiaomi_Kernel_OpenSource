@@ -1,0 +1,273 @@
+#include <dt-bindings/clock/qcom,audio-ext-clk.h>
+#include "msm-audio-lpass.dtsi"
+
+&msm_audio_ion {
+	iommus = <&apps_smmu 0x2001 0x0>;
+	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
+};
+
+&audio_apr {
+	msm_audio_ion_cma: qcom,msm-audio-ion-cma {
+		compatible = "qcom,msm-audio-ion-cma";
+	};
+
+	q6core: qcom,q6core-audio {
+		compatible = "qcom,q6core-audio";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		lpass_core_hw_vote: vote_lpass_core_hw {
+			compatible = "qcom,audio-ref-clk";
+			qcom,codec-ext-clk-src = <AUDIO_LPASS_CORE_HW_VOTE>;
+			#clock-cells = <1>;
+		};
+
+		lpass_audio_hw_vote: vote_lpass_audio_hw {
+			compatible = "qcom,audio-ref-clk";
+			qcom,codec-ext-clk-src = <AUDIO_LPASS_AUDIO_HW_VOTE>;
+			#clock-cells = <1>;
+		};
+
+		lpi_tlmm: lpi_pinctrl@33c0000 {
+			compatible = "qcom,lpi-pinctrl";
+			reg = <0x33c0000 0x0>;
+			qcom,slew-reg = <0x355a000 0x0>;
+			qcom,gpios-count = <15>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,lpi-offset-tbl = <0x00000000>, <0x00001000>,
+					      <0x00002000>, <0x00003000>,
+					      <0x00004000>, <0x00005000>,
+					      <0x00006000>, <0x00007000>,
+					      <0x00008000>, <0x00009000>,
+					      <0x0000A000>, <0x0000B000>,
+					      <0x0000C000>, <0x0000D000>,
+					      <0x0000E000>;
+			qcom,lpi-slew-offset-tbl = <0x00000000>, <0x00000002>,
+						   <0x00000004>, <0x00000008>,
+						   <0x0000000A>, <0x0000000C>,
+						   <0x00000000>, <0x00000000>,
+						   <0x00000000>, <0x00000000>,
+						   <0x00000010>, <0x00000012>,
+						   <0x00000000>, <0x00000000>,
+						   <0x00000006>;
+
+			clock-names = "lpass_core_hw_vote",
+					"lpass_audio_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>,
+					<&lpass_audio_hw_vote 0>;
+		};
+
+		bolero: bolero-cdc {
+			compatible = "qcom,bolero-codec";
+			clock-names = "lpass_core_hw_vote",
+					"lpass_audio_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>,
+					<&lpass_audio_hw_vote 0>;
+			bolero-clk-rsc-mngr {
+				compatible = "qcom,bolero-clk-rsc-mngr";
+			};
+
+			va_macro: va-macro@3370000 {
+			};
+
+			tx_macro: tx-macro@3220000 {
+				swr2: tx_swr_master {
+				};
+			};
+
+			rx_macro: rx-macro@3200000 {
+				swr1: rx_swr_master {
+				};
+			};
+
+			wsa_macro: wsa-macro@3240000 {
+				swr0: wsa_swr_master {
+				};
+			};
+		};
+	};
+};
+
+#include "shima-lpi.dtsi"
+
+&q6core {
+	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
+		pinctrl-1 = <&wsa_swr_clk_sleep &wsa_swr_data_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-pins = <179>;
+		#gpio-cells = <0>;
+	};
+
+	rx_swr_gpios: rx_swr_clk_data_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&rx_swr_clk_active &rx_swr_data_active
+				&rx_swr_data1_active>;
+		pinctrl-1 = <&rx_swr_clk_sleep &rx_swr_data_sleep
+				&rx_swr_data1_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-pins = <172>;
+		#gpio-cells = <0>;
+	};
+
+	tx_swr_gpios: tx_swr_clk_data_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&tx_swr_clk_active &tx_swr_data0_active
+			    &tx_swr_data1_active &tx_swr_data2_active>;
+		pinctrl-1 = <&tx_swr_clk_sleep &tx_swr_data0_sleep
+			    &tx_swr_data1_sleep &tx_swr_data2_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-pins = <169>;
+		#gpio-cells = <0>;
+	};
+
+	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
+		pinctrl-1 = <&cdc_dmic01_clk_sleep &cdc_dmic01_data_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-pins = <174 175>;
+		#gpio-cells = <0>;
+	};
+
+	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
+		pinctrl-1 = <&cdc_dmic23_clk_sleep &cdc_dmic23_data_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-pins = <177>;
+		#gpio-cells = <0>;
+	};
+
+	cdc_dmic45_gpios: cdc_dmic45_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic45_clk_active &cdc_dmic45_data_active>;
+		pinctrl-1 = <&cdc_dmic45_clk_sleep &cdc_dmic45_data_sleep>;
+		qcom,lpi-gpios;
+		qcom,tlmm-pins = <180>;
+		#gpio-cells = <0>;
+	};
+};
+
+&q6core {
+	shima_snd: sound {
+		compatible = "qcom,lahaina-asoc-snd";
+		qcom,mi2s-audio-intf = <1>;
+		qcom,auxpcm-audio-intf = <1>;
+		qcom,wcn-bt = <0>;
+		qcom,ext-disp-audio-rx = <0>;
+		qcom,afe-rxtx-lb = <0>;
+
+		clock-names = "lpass_audio_hw_vote";
+		clocks = <&lpass_audio_hw_vote 0>;
+
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&pcm_noirq>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-dsp-noirq";
+		asoc-cpu = <&dai_dp>, <&dai_dp1>,
+				<&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>,
+				<&dai_mi2s4>, <&dai_mi2s5>, <&dai_pri_auxpcm>,
+				<&dai_sec_auxpcm>, <&dai_tert_auxpcm>,
+				<&dai_quat_auxpcm>, <&dai_quin_auxpcm>,
+				<&dai_sen_auxpcm>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
+				<&afe_proxy_tx>, <&incall_record_rx>,
+				<&incall_record_tx>, <&incall_music_rx>,
+				<&incall_music_2_rx>,
+				<&afe_proxy_tx_1>,
+				<&proxy_rx>, <&proxy_tx>,
+				<&usb_audio_rx>, <&usb_audio_tx>,
+				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
+				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+				<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>,
+				<&dai_sen_tdm_rx_0>, <&dai_sen_tdm_tx_0>,
+				<&wsa_cdc_dma_0_rx>, <&wsa_cdc_dma_0_tx>,
+				<&wsa_cdc_dma_1_rx>, <&wsa_cdc_dma_1_tx>,
+				<&wsa_cdc_dma_2_tx>,
+				<&va_cdc_dma_0_tx>, <&va_cdc_dma_1_tx>,
+				<&va_cdc_dma_2_tx>,
+				<&rx_cdc_dma_0_rx>, <&tx_cdc_dma_0_tx>,
+				<&rx_cdc_dma_1_rx>, <&tx_cdc_dma_1_tx>,
+				<&rx_cdc_dma_2_rx>, <&tx_cdc_dma_2_tx>,
+				<&rx_cdc_dma_3_rx>, <&tx_cdc_dma_3_tx>,
+				<&rx_cdc_dma_4_rx>, <&tx_cdc_dma_4_tx>,
+				<&rx_cdc_dma_5_rx>, <&tx_cdc_dma_5_tx>,
+				<&rx_cdc_dma_6_rx>, <&rx_cdc_dma_7_rx>,
+				<&afe_loopback_tx>;
+		asoc-cpu-names = "msm-dai-q6-dp.0", "msm-dai-q6-dp.1",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-mi2s.4", "msm-dai-q6-mi2s.5",
+				"msm-dai-q6-auxpcm.1",
+				"msm-dai-q6-auxpcm.2", "msm-dai-q6-auxpcm.3",
+				"msm-dai-q6-auxpcm.4", "msm-dai-q6-auxpcm.5",
+				"msm-dai-q6-auxpcm.6", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770",
+				"msm-dai-q6-dev.242",
+				"msm-dai-q6-dev.8194", "msm-dai-q6-dev.8195",
+				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+				"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
+				"msm-dai-q6-dev.16401",
+				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+				"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929",
+				"msm-dai-q6-tdm.36944", "msm-dai-q6-tdm.36945",
+				"msm-dai-cdc-dma-dev.45056",
+				"msm-dai-cdc-dma-dev.45057",
+				"msm-dai-cdc-dma-dev.45058",
+				"msm-dai-cdc-dma-dev.45059",
+				"msm-dai-cdc-dma-dev.45061",
+				"msm-dai-cdc-dma-dev.45089",
+				"msm-dai-cdc-dma-dev.45091",
+				"msm-dai-cdc-dma-dev.45093",
+				"msm-dai-cdc-dma-dev.45104",
+				"msm-dai-cdc-dma-dev.45105",
+				"msm-dai-cdc-dma-dev.45106",
+				"msm-dai-cdc-dma-dev.45107",
+				"msm-dai-cdc-dma-dev.45108",
+				"msm-dai-cdc-dma-dev.45109",
+				"msm-dai-cdc-dma-dev.45110",
+				"msm-dai-cdc-dma-dev.45111",
+				"msm-dai-cdc-dma-dev.45112",
+				"msm-dai-cdc-dma-dev.45113",
+				"msm-dai-cdc-dma-dev.45114",
+				"msm-dai-cdc-dma-dev.45115",
+				"msm-dai-cdc-dma-dev.45116",
+				"msm-dai-cdc-dma-dev.45118",
+				"msm-dai-q6-dev.24577";
+				fsa4480-i2c-handle = <&fsa4480>;
+	};
+};
+
+&qupv3_se5_i2c {
+	status = "ok";
+	fsa4480: fsa4480@42 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
+	};
+};
+

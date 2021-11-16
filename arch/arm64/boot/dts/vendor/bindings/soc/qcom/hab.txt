@@ -1,0 +1,41 @@
+* HAB
+
+HAB(Hypervisor ABstraction) is meant to be a cross-platform abstraction layer
+for utilizing the underlying hypervisor system. This API can be accessed from
+both user and kernel sides.
+The intended users of this are primarily the multimedia drivers who want to
+communicate with the host OS to use the multimedia hardware.
+
+Required properties:
+- compatible: Must be "qcom,hab"
+- vmid: the local VM's ID
+  It should be unique in a system, and host's ID should be 0. Here is an
+  example for a system as qvm host + agl gvm + android gvm, and such below
+  setting is proper,
+    qvm host's vmid: 0
+    agl gvm's vmid: 1
+    android gvm's vmid: 2
+- mmid group properties:
+  - grp-start-id: mmid group starting ID, eg, 100 is for MM_AUD_1~4
+  - role: the local role of this group, and must be "fe" or "be"
+  - remote-vmids: When the local role is "fe", this is to tell which VM is the
+    relevant BE. When it is "be", this is to tell which VMs it will support as
+    BE.
+
+Example:
+	qcom,hab {
+		compatible = "qcom,hab";
+		vmid = <2>;
+
+		mmid100: mmid-grp@100 {
+			grp-start-id = <100>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmid200: mmid-grp@200 {
+			grp-start-id = <200>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+	}

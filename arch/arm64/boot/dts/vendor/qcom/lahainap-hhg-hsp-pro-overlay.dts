@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+
+#include "lahainap-hhg-hsp-pro.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahainap HHG-HSP-PRO";
+	compatible = "qcom,lahaina-hdk", "qcom,lahaina", "qcom,hdk";
+	qcom,board-id = <0x1001f 0x02>;
+};

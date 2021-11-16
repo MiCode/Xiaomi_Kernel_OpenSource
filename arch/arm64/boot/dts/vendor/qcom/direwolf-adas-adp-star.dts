@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "direwolf-adas.dtsi"
+#include "direwolf-adp-common.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DirewolfAU ADAS ADP-STAR";
+	compatible = "qcom,direwolf-adas-adp-star", "qcom,direwolf-adas",
+		"qcom,direwolf", "qcom,adp-star";
+	qcom,board-id = <25 0>;
+};

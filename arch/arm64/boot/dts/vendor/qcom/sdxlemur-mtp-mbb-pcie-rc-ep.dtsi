@@ -1,0 +1,146 @@
+#include "sdxlemur-mtp.dtsi"
+#include "sdxlemur-mtp-audio-overlay.dtsi"
+
+&soc {
+	ioss_aqc_eth0_rx: aqc_rx@eth0 {
+		qcom,dir-rx;
+		qcom,rx-filter-be;
+
+		qcom,ring-size = <1024>;
+		qcom,buff-size = <2048>;
+
+		qcom,mod-count-min = <15>;
+		qcom,mod-count-max = <25>;
+		qcom,mod-usecs-min = <64>;
+		qcom,mod-usecs-max = <128>;
+	};
+
+	ioss_aqc_eth0_tx: aqc_tx@eth0 {
+		qcom,dir-tx;
+		qcom,ring-size = <1024>;
+		qcom,buff-size = <2048>;
+
+		qcom,mod-count-min = <15>;
+		qcom,mod-count-max = <25>;
+		qcom,mod-usecs-min = <64>;
+		qcom,mod-usecs-max = <128>;
+	};
+
+	ioss_aqc_eth0: aqc@eth0 {
+		qcom,name = "eth0";
+		qcom,ioss_instance = <0>;
+
+		qcom,ioss_channels =
+			<&ioss_aqc_eth0_rx>,
+			<&ioss_aqc_eth0_tx>;
+	};
+
+	ioss_r8125_eth0_rx: r8125_rx@eth0 {
+		qcom,dir-rx;
+		qcom,rx-filter-ip;
+
+		qcom,ring-size = <1023>; /* Cannot be a power of 2 */
+		qcom,buff-size = <2048>;
+
+		qcom,mod-count-min = <32>;
+		qcom,mod-count-max = <64>;
+		qcom,mod-usecs-min = <30>;
+		qcom,mod-usecs-max = <60>;
+	};
+
+	ioss_r8125_eth0_tx: r8125_tx@eth0 {
+		qcom,dir-tx;
+		qcom,ring-size = <1024>;
+		qcom,buff-size = <2048>;
+
+		qcom,mod-count-min = <32>;
+		qcom,mod-count-max = <64>;
+		qcom,mod-usecs-min = <30>;
+		qcom,mod-usecs-max = <60>;
+	};
+
+	ioss_r8125_eth0: r8125@eth0 {
+		qcom,name = "eth0";
+		qcom,ioss_instance = <0>;
+
+		qcom,ioss_channels =
+			<&ioss_r8125_eth0_rx>,
+			<&ioss_r8125_eth0_tx>;
+	};
+};
+
+&pcie0_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	aquantia,aqc@pcie0_rp {
+		reg = <0 0 0 0 0>;
+
+		compatible = "qcom,ioss-v2-device";
+		qcom,ioss = <&ioss>;
+		/* ipa shares this group with aqc */
+		qcom,iommu-group = <&ipa_eth_group1>;
+		qcom,ioss_interfaces =
+			<&ioss_aqc_eth0>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pci-ids =
+			"1d6a:0001",
+			"1d6a:d107",
+			"1d6a:07b1",
+			"1d6a:87b1",
+			"1d6a:d108",
+			"1d6a:08b1",
+			"1d6a:88b1",
+			"1d6a:d109",
+			"1d6a:09b1",
+			"1d6a:89b1",
+			"1d6a:d100",
+			"1d6a:00b1",
+			"1d6a:80b1",
+			"1d6a:11b1",
+			"1d6a:91b1",
+			"1d6a:12b1",
+			"1d6a:92b1",
+			"1d6a:00c0",
+			"1d6a:04c0",
+			"1d6a:12c0",
+			"1d6a:14c0",
+			"1d6a:93c0",
+			"1d6a:94c0";
+
+	};
+
+	realtek,rtl8125@pcie0_rp {
+		reg = <0 0 0 0 0>;
+
+		compatible = "qcom,ioss-v2-device";
+		qcom,ioss = <&ioss>;
+		qcom,ioss_interfaces = <&ioss_r8125_eth0>;
+
+		/* ipa shares this group with rtl */
+		qcom,iommu-group = <&ipa_eth_group1>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pci-ids =
+			"10ec:8125",
+			"10ec:3000";
+
+	};
+
+	pcie0_generic_ep: pcie0_generic_ep {
+		reg = <0 0 0 0 0>;
+		qcom,iommu-group = <&pcie0_generic_ep_iommu_group>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pcie0_generic_ep_iommu_group: pcie0_generic_ep_iommu_group {
+			qcom,iommu-dma = "atomic";
+		};
+	};
+};

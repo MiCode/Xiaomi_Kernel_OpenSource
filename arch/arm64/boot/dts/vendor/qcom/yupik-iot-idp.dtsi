@@ -1,0 +1,62 @@
+#include "yupik-idp.dtsi"
+#include "qcx6490-cnss.dtsi"
+
+&pcie0 {
+	status = "ok";
+};
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie1 {
+	status = "ok";
+	qcom,boot-option = <0x0>;
+	qcom,ep-gpio = <&tlmm 19 0>;
+	pinctrl-0 = <&pcie1_perst_default
+			&pcie1_clkreq_default
+			&pcie1_wake_default
+			&pcie1_ep_default>;
+	pinctrl-1 = <&pcie1_perst_default
+			&pcie1_clkreq_sleep
+			&pcie1_wake_default
+			&pcie1_ep_default>;
+};
+
+&pcie1_msi {
+	status = "ok";
+};
+
+&pm7325_gpios {
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio8";
+			function = "normal";
+			output-low;
+			power-source = <0>;	/* 1.8V input supply */
+		};
+	};
+};
+
+&soc {
+	usb2_vbus_boost_reg: usb2_vbus_boost_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb2_vbus_boost_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpios = <&pm7325_gpios 8 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_boost_default>;
+	};
+};
+
+&usb1 {
+	vbus_dwc3-supply = <&usb2_vbus_boost_reg>;
+	qcom,default-mode-none;
+	status = "ok";
+};
+
+&usb2_phy1 {
+	status = "ok";
+};

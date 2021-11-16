@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/syscore_ops.h>
 #include <linux/cpufreq.h>
@@ -2160,6 +2161,7 @@ void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 				&rq->wrq.grp_time);
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
 				&rq->wrq.grp_time);
+
 
 done:
 	p->wts.mark_start = wallclock;

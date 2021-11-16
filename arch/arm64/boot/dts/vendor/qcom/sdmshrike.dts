@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "sdmshrike.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDMSHRIKE SoC";
+	compatible = "qcom,sdmshrike";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0 0>;
+};

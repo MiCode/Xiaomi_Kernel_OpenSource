@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "yupik.dtsi"
+#include "yupik-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Yupik QRD";
+	compatible = "qcom,yupik-idp", "qcom,yupik", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

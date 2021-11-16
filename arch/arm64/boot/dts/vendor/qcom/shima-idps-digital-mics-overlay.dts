@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "shima-idps-digital-mics.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima IDPS + DIGITAL MICS";
+	compatible = "qcom,shima-idp", "qcom,shima", "qcom,idp";
+	qcom,msm-id = <450 0x10000>;
+	qcom,board-id = <34 1>;
+};

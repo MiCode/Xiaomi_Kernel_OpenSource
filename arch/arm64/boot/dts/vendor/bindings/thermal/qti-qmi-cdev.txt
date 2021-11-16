@@ -1,0 +1,155 @@
+QMI thermal mitigation(TMD) cooling devices.
+
+The QMI TMD cooling device, will be used for various mitigations for remote
+subsystem including remote processor mitigation, rail voltage restriction etc.
+This cooling device uses kernel qti QMI interface to send the message to
+remote subsystem.
+
+Each child node of the QMI TMD devicetree node represents each remote
+subsystem and each child of this subsystem represents separate cooling
+devices. It requires minimum one remote subsystem node and each subsystem
+node requires minimum one cooling device node.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,qmi-cooling-devices"
+
+
+Subsystem properties:
+- qcom,instance-id:
+	Usage: required
+	Value type: <integer>
+	Definition: Remote subsystem QMI server instance id to be used for
+			communicating with QMI.
+
+	Minimum one child node is required. Child node name and its alias are
+	used as cooling device name and phandle for that cooling device.
+
+	cooling device node properties:
+	-qcom,qmi-dev-name:
+		Usage: required
+		Value type: <string>
+		Definition: Remote subsystem device identifier. Below strings
+			are the only acceptable device names,
+			"pa" -> for pa cooling device,
+			"pa_fr1" -> for pa cooling device,
+			"cpuv_restriction_cold" -> for vdd restriction,
+			"cx_vdd_limit" -> for vdd limit,
+			"modem" -> for processor passive cooling device,
+			"modem_current" -> for current limiting device,
+			"modem_bw" ->  for bus bandwidth limiting device,
+			"modem_bw_backoff" ->  for bus bandwidth limit device with
+						absolute bandwidth reduction from max bandwidth
+						in 100mbbs resolution,
+			"vbatt_low" -> BCL vbat mitigation device,
+			"mmw0" -> Millimeter wave limiting device 0,
+			"mmw1" -> Millimeter wave limiting device 1,
+			"mmw2" -> Millimeter wave limiting device 2,
+			"mmw3" -> Millimeter wave limiting device 3,
+			"modem_skin" -> Modem skin mitigation device,
+			"mmw_skin0" -> MMW skin mitigation device0,
+			"mmw_skin1" -> MMW skin mitigation device1,
+			"mmw_skin2" -> MMW skin mitigation device2,
+			"mmw_skin3" -> MMW skin mitigation device3,
+			"cpr_cold" -> for cpr restriction,
+			"wlan" -> for modem wlan mitigation device,
+			"wlan_bw" -> for bus bandwidth limiting device,
+			"cdsp_sw" -> for CDSP DCVS mitigation device,
+			"cdsp_hw" -> for CDSP hardware mitigation device,
+			"mmw_skin0_dsc" -> DSC based MMW skin mitigation
+						device0,
+			"mmw_skin1_dsc" -> DSC based MMW skin mitigation
+						device1,
+			"mmw_skin2_dsc" -> DSC based MMW skin mitigation
+						device2,
+			"mmw_skin3_dsc" -> DSC based MMW skin mitigation
+						device3,
+			"modem_skin_lte_dsc" -> DSC based LTE skin mitigation
+						device,
+			"modem_skin_nr_dsc" -> DSC based NR skin mitigation
+						device,
+			"pa_dsc" -> DSC based pa cooling device,
+			"pa_fr1_dsc" -> DSC based pa cooling device.
+
+	-#cooling-cells:
+		Usage: required
+		Value type: <integer>
+		Definition: Must be 2. Needed for of_thermal as cooling device
+			identifier. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+Example:
+
+	qmi-tmd-devices {
+		compatible = "qcom,qmi-cooling-devices";
+
+		modem {
+			qcom,instance-id = <0x0>;
+
+			modem_pa: modem_pa {
+				qcom,qmi-dev-name = "pa";
+				#cooling-cells = <2>;
+			};
+
+			modem_proc: modem_proc {
+				qcom,qmi-dev-name = "modem";
+				#cooling-cells = <2>;
+			};
+
+			modem_vdd: modem_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+
+			modem_current: modem_current {
+				qcom,qmi-dev-name = "modem_current";
+				#cooling-cells = <2>;
+			};
+
+			modem_cpr_cold: modem_cpr_cold {
+				qcom,qmi-dev-name = "cpr_cold";
+				#cooling-cells = <2>;
+			};
+		};
+
+		adsp {
+			qcom,instance-id = <0x1>;
+
+			adsp_vdd: adsp_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+
+		cdsp {
+			qcom,instance-id = <0x43>;
+
+			cdsp_vdd: cdsp_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: hvx {
+				qcom,qmi-dev-name = "cdsp_hw";
+				#cooling-cells = <2>;
+			};
+		};
+
+		slpi {
+			qcom,instance-id = <0x53>;
+
+			slpi_vdd: slpi_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+

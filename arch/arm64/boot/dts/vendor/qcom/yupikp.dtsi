@@ -1,0 +1,7 @@
+#include "yupik.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YupikP";
+	compatible = "qcom,yupikp";
+	qcom,msm-id = <499 0x10000>;
+};

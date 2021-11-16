@@ -1,0 +1,22 @@
+#include <dt-bindings/clock/qcom,audio-ext-clk.h>
+#include "msm-audio-lpass.dtsi"
+
+&soc {
+	spf_core_platform: spf_core_platform {
+		compatible = "qcom,spf-core-platform";
+	};
+};
+
+#include "monaco-lpi.dtsi"
+
+&spf_core_platform {
+	monaco_snd: sound {
+		compatible = "qcom,monaco-asoc-snd";
+		qcom,mi2s-audio-intf = <1>;
+	};
+};
+
+&msm_audio_ion {
+	iommus = <&apps_smmu 0x01c1 0x0>;
+	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
+};

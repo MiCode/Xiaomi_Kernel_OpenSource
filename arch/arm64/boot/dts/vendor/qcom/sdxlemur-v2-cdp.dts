@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxlemur-v2.dtsi"
+#include "sdxlemur-cdp.dtsi"
+#include "sdxlemur-1024mb.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR CDP V2";
+	compatible = "qcom,sdxlemur-cdp",
+		"qcom,sdxlemur", "qcom,cdp";
+	qcom,board-id = <0x20001 0x300>;
+};

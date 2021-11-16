@@ -1,0 +1,2 @@
+#include "lahaina-mtp.dtsi"
+#include "display/lahaina-sde-display-mtp-v2.1.dtsi"

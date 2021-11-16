@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "arm-memlat-mon: " fmt
@@ -356,6 +357,9 @@ static void memlat_monitor_work(struct work_struct *work)
 		container_of(work, struct memlat_cpu_grp, work.work);
 	struct memlat_mon *mon;
 	unsigned int i;
+
+	if(oops_in_progress)
+		return;
 
 	mutex_lock(&cpu_grp->mons_lock);
 	if (!cpu_grp->num_active_mons)

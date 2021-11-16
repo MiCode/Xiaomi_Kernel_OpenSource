@@ -1,0 +1,14 @@
+/dts-v1/;
+
+#include "holi.dtsi"
+#include "holi-pm6125-overlay.dtsi"
+#include "holi-regulators-pm6125.dtsi"
+#include "holi-mtp-usbc-pm6125.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi MTP USBC PM6125 audio";
+	compatible = "qcom,holi-mtp", "qcom,holi", "qcom,mtp";
+	qcom,board-id = <8 1>;
+	qcom,pmic-id-size = <4>;
+	qcom,pmic-id = <0x2D 0x0 0x2E 0x0>;
+};

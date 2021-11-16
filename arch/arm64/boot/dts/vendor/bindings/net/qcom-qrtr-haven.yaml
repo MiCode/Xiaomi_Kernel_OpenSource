@@ -1,0 +1,52 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/neuron.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: QRTR Haven Transport Configuration
+
+maintainers:
+  - Chris Lew <clew@quicinc.com>
+
+description: |
+  Configuration properties for the qrtr Haven Transport. This configuration is
+  to instantiate a transport for IPC Router protocol communication between
+  virtual machines on top of the Haven hypervisor.
+
+properties:
+  compatible:
+    const: qcom,qrtr-haven
+
+  qcom,master:
+    description: Specify if this device is on the primary virtual machine.
+
+  haven-label:
+    $ref: '/schemas/types.yaml#/definitions/u32'
+    maxItems: 1
+    description: The label qrtr should request interrupts with from the haven
+                 doorbell driver.
+
+  shared-buffer:
+    $ref: '/schemas/types.yaml#/definitions/phandle'
+    maxItems: 1
+    description: phandle reference to a reserved memory region for sharing
+                 between vms
+
+required:
+  -compatible
+  -haven-label
+  -shared-buffer
+
+examples:
+  - |
+    qrtr_shbuf: qrtr-shmem {
+        no-map;
+        reg = <0x0 0xd7ef7000 0x0 0x9000>;
+    };
+
+    qrtr-haven {
+        compatible = "qcom,qrtr-haven";
+	qcom,master;
+	haven-label = <0>;
+        shared-buffer = <&qrtr_shbuf>;
+    };

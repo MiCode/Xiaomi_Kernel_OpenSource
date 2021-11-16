@@ -1,0 +1,30 @@
+Qualcomm Technologies, Inc. CPUFREQ Hardware Debug Bindings
+--------------------------------------------------------------------
+
+CPUFREQ HW debug provide support to print the CPUFREQ_HW debug
+registers.
+
+Required Properties:
+- compatible: shall contain the following:
+		"qcom,cpufreq-hw-debug" or "qcom,cpufreq-hw-epss-debug".
+- reg: shall contain base register location and length.
+- reg-names: shall contain the frequency domain name.
+
+Optional Properties:
+- qcom,freq-hw-domain: phandle to the frequency domain device node.
+
+Usage :
+The following debug node would get created under qcom-cpufreq-hw directory.
+
+- print_cpufreq_debug_regs
+Function:	Print cpufreq hardware debug registers
+Input:		cat print_cpufreq_debug_regs
+
+Example:
+	cpufreq_hw_debug: qcom,cpufreq-hw-debug@18591000 {
+		compatible = "qcom,cpufreq-hw-debug";
+		reg = <0x18591000 0x800>;
+		reg-names = "domain-top";
+		qcom,freq-hw-domain = <&cpufreq_hw 0>, <&cpufreq_hw 1>,
+					<&cpufreq_hw 2>;
+	};

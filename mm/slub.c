@@ -6202,30 +6202,6 @@ static const struct file_operations slab_debug_alloc_fops = {
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
-#endif
-
-static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
-{
-	struct saved_alias *al;
-
-	if (slab_state == FULL) {
-		/*
-		 * If we have a leftover link then remove it.
-		 */
-		sysfs_remove_link(&slab_kset->kobj, name);
-		return sysfs_create_link(&slab_kset->kobj, &s->kobj, name);
-	}
-
-	al = kmalloc(sizeof(struct saved_alias), GFP_KERNEL);
-	if (!al)
-		return -ENOMEM;
-
-	al->s = s;
-	al->name = name;
-	al->next = alias_list;
-	alias_list = al;
-	return 0;
-}
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
 static ssize_t slab_owner_filter_write(struct file *file,
@@ -6310,6 +6286,33 @@ static const struct file_operations proc_slab_owner_handle_ops = {
 };
 #endif
 
+#endif
+
+static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
+{
+	struct saved_alias *al;
+
+	if (slab_state == FULL) {
+		/*
+		 * If we have a leftover link then remove it.
+		 */
+		sysfs_remove_link(&slab_kset->kobj, name);
+		return sysfs_create_link(&slab_kset->kobj, &s->kobj, name);
+	}
+
+	al = kmalloc(sizeof(struct saved_alias), GFP_KERNEL);
+	if (!al)
+		return -ENOMEM;
+
+	al->s = s;
+	al->name = name;
+	al->next = alias_list;
+	alias_list = al;
+	return 0;
+}
+
+
+
 static int __init slab_sysfs_init(void)
 {
 	struct kmem_cache *s;
@@ -6353,7 +6356,7 @@ static int __init slab_sysfs_init(void)
 		kfree(al);
 	}
 
-#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+#if defined (CONFIG_QCOM_MINIDUMP_PANIC_DUMP) && defined(CONFIG_SLUB_DEBUG)
 	if (slub_debug) {
 		int i;
 

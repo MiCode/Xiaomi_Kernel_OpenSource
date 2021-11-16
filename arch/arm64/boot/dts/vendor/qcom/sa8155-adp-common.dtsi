@@ -1,0 +1,116 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "sa8155-pmic-overlay.dtsi"
+#include "sa8155-cnss.dtsi"
+
+&qupv3_3 {
+	status = "ok";
+};
+
+&qupv3_se0_spi {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <38 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+
+	vdda-pll-supply = <&pm8150_2_l8>;
+	vdda-phy-max-microamp = <87100>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8150_1_l10>;
+	vcc-voltage-level = <2950000 2960000>;
+	vccq2-supply = <&pm8150_1_s4>;
+	vcc-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8150_2_l5>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
+&pcie1 {
+	qcom,boot-option = <0x0>;
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8150_1_l17>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8150_2_l13>;
+	qcom,vdd-io-voltage-level = <1808000 2960000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "default", "sleep";
+
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+	cd-gpios = <&pm8150_1_gpios 4 GPIO_ACTIVE_LOW>;
+
+	status = "ok";
+};
+
+&qupv3_se4_2uart {
+	status = "ok";
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&pil_modem {
+	status = "disabled";
+};
+
+&soc {
+	qcom,lpass@17300000 {
+		status = "ok";
+		qcom,pil-force-shutdown;
+	};
+
+	ss5_pwr_ctrl0 {
+		compatible = "qcom,gnss_sirf";
+		pinctrl-0 = <&ss5_pwr_ctrl_rst_on>;
+		ssVreset-gpio = <&tlmm 11 1>;
+		ssVonoff-gpio = <&tlmm 39 1>;
+		ssVboot-gpio = <&tlmm 40 1>;
+	};
+
+	qcom,turing@8300000 {
+		status = "ok";
+	};
+
+	qcom,venus@aae0000 {
+		status = "ok";
+	};
+
+	qcom,spss@1880000 {
+		status = "ok";
+	};
+
+	qcom,npu@9800000 {
+		status = "ok";
+	};
+};

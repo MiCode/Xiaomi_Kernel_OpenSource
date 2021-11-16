@@ -1,0 +1,132 @@
+&soc {
+	/* GDSCs in GCC */
+	gcc_camss_top_gdsc: qcom,gdsc@1458004 {
+		compatible = "qcom,gdsc";
+		reg = <0x1458004 0x4>;
+		regulator-name = "gcc_camss_top_gdsc";
+		status = "disabled";
+	};
+
+	gcc_ufs_phy_gdsc: qcom,gdsc@1445004 {
+		compatible = "qcom,gdsc";
+		reg = <0x1445004 0x4>;
+		regulator-name = "gcc_ufs_phy_gdsc";
+		status = "disabled";
+	};
+
+	gcc_usb30_prim_gdsc: qcom,gdsc@141a004 {
+		compatible = "qcom,gdsc";
+		reg = <0x141a004 0x4>;
+		regulator-name = "gcc_usb30_prim_gdsc";
+		status = "disabled";
+	};
+
+	gcc_vcodec0_gdsc: qcom,gdsc@1458098 {
+		compatible = "qcom,gdsc";
+		reg = <0x1458098 0x4>;
+		regulator-name = "gcc_vcodec0_gdsc";
+		status = "disabled";
+	};
+
+	gcc_venus_gdsc: qcom,gdsc@145807c {
+		compatible = "qcom,gdsc";
+		reg = <0x145807c 0x4>;
+		regulator-name = "gcc_venus_gdsc";
+		status = "disabled";
+	};
+
+	hlos1_vote_mm_snoc_mmu_tbu_rt_gdsc: qcom,gdsc@147d074 {
+		compatible = "qcom,gdsc";
+		reg = <0x147d074 0x4>;
+		regulator-name = "hlos1_vote_mm_snoc_mmu_tbu_rt_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_mm_snoc_mmu_tbu_nrt_gdsc: qcom,gdsc@147d078 {
+		compatible = "qcom,gdsc";
+		reg = <0x147d078 0x4>;
+		regulator-name = "hlos1_vote_mm_snoc_mmu_tbu_nrt_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_turing_mmu_tbu1_gdsc: qcom,gdsc@147d060 {
+		compatible = "qcom,gdsc";
+		reg = <0x147d060 0x4>;
+		regulator-name = "hlos1_vote_turing_mmu_tbu1_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_turing_mmu_tbu0_gdsc: qcom,gdsc@147d07c {
+		compatible = "qcom,gdsc";
+		reg = <0x147d07c 0x4>;
+		regulator-name = "hlos1_vote_turing_mmu_tbu0_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	/* GDSCs in DISPCC */
+	mdss_core_gdsc: qcom,gdsc@5f01004 {
+		compatible = "qcom,gdsc";
+		reg = <0x5f01004 0x4>;
+		regulator-name = "mdss_core_gdsc";
+		proxy-supply = <&mdss_core_gdsc>;
+		qcom,proxy-consumer-enable;
+		status = "disabled";
+	};
+
+	/* GDSCs in GPUCC */
+	gpu_gx_domain_addr: syscon@5991508 {
+		compatible = "syscon";
+		reg = <0x5991508 0x4>;
+	};
+
+	gpu_cx_hw_ctrl: syscon@5991540 {
+		compatible = "syscon";
+		reg = <0x5991540 0x4>;
+	};
+
+	gpu_gx_sw_reset: syscon@5991008 {
+		compatible = "syscon";
+		reg = <0x5991008 0x4>;
+	};
+
+	gpu_gx_acd_reset: syscon@5991160 {
+		compatible = "syscon";
+		reg = <0x5991160 0x4>;
+	};
+
+	gpu_gx_acd_misc_reset: syscon@5998004 {
+		compatible = "syscon";
+		reg = <0x5998004 0x4>;
+	};
+
+	gpu_cx_gdsc: qcom,gdsc@599106c {
+		compatible = "qcom,gdsc";
+		reg = <0x599106c 0x4>;
+		regulator-name = "gpu_cx_gdsc";
+		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		qcom,clk-dis-wait-val = <8>;
+		status = "disabled";
+	};
+
+	gpu_gx_gdsc: qcom,gdsc@599100c {
+		compatible = "qcom,gdsc";
+		reg = <0x599100c 0x4>;
+		regulator-name = "gpu_gx_gdsc";
+		sw-reset = <&gpu_gx_sw_reset>;
+		acd-reset = <&gpu_gx_acd_reset>;
+		acd-misc-reset = <&gpu_gx_acd_misc_reset>;
+		domain-addr = <&gpu_gx_domain_addr>;
+		qcom,reset-aon-logic;
+		status = "disabled";
+	};
+};

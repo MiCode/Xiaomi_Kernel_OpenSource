@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lahaina-vm.dtsi"
+#include "lahaina-vm-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina SVM QRD";
+	compatible = "qcom,lahaina-qrd", "qcom,lahaina", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

@@ -1,0 +1,30 @@
+#include "yupik.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YUPIK-IOT";
+	compatible = "qcom,yupik-iot";
+	qcom,msm-id = <497 0x10000>;
+};
+
+&gcc {
+	clocks = <&rpmhcc RPMH_CXO_CLK>, <&sleep_clk>,
+		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>,
+		<&pcie_0_pipe_clk>, <&pcie_1_pipe_clk>;
+	clock-names = "bi_tcxo", "sleep_clk",
+		"usb3_phy_wrapper_gcc_usb30_pipe_clk",
+		"pcie_0_pipe_clk", "pcie_1_pipe_clk";
+
+	/delete-property/ protected-clocks;
+};
+
+&gcc_pcie_0_gdsc {
+	status = "ok";
+};
+
+&gcc_pcie_1_gdsc {
+	status = "ok";
+};
+
+&gcc_usb30_sec_gdsc {
+	status = "ok";
+};

@@ -1,0 +1,7 @@
+#include "monaco.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MonacoP";
+	compatible = "qcom,monacop";
+	qcom,msm-id = <517 0x10000>;
+};

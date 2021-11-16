@@ -1,0 +1,40 @@
+#include <dt-bindings/clock/qcom,rpmh.h>
+
+&pmx65_gpios {
+	bt_en {
+		bt_en_default: bt_en_default {
+			pins = "gpio15";
+			function = "normal";
+			output-low;
+			bias-pull-down;
+			qcom,drive-strength = <2>;
+			power-source = <1>;
+		};
+	};
+};
+
+&soc {
+	bluetooth: bt_qca6490 {
+		compatible = "qcom,qca6490";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_default>;
+		qcom,bt-reset-gpio = <&pmx65_gpios 15 0>; /* BT_EN */
+		qcom,bt-sw-ctrl-gpio = <&pmx65_gpios 2 0>; /* SW_CTRL */
+
+		clocks = <&rpmhcc RPMH_RF_CLK3>;
+		clock-names = "ref3_clk";
+
+		qcom,bt-vdd-aon-supply = <&S7B>;
+		qcom,bt-vdd-aon-config = <1012000 1012000 0 0>;
+		qcom,bt-vdd-io-supply = <&L6B>;
+		qcom,bt-vdd-io-config = <1800000 1800000 0 0>;
+	};
+};
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
+
+&i2c_6 {
+	status = "disabled";
+};

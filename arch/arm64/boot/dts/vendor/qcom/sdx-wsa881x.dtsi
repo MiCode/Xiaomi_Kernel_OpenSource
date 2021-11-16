@@ -1,0 +1,17 @@
+&i2c_3 {
+	tavil_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+			qcom,swr-num-dev = <1>;
+
+			wsa881x_0214: wsa881x@21170214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170214>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd1>;
+				qcom,wsa-prefix = "SpkrLeft";
+			};
+		};
+	};
+};

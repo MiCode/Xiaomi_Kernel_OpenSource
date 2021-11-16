@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "sdxnightjar.dtsi"
+#include "sdxnightjar-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDX NIGHTJAR QRD";
+	compatible = "qcom,sdxnightjar-qrd",
+		   "qcom,sdxnightjar", "qcom,qrd";
+	qcom,board-id = <0xB 0>;
+};

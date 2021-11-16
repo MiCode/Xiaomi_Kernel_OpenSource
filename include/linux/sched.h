@@ -1356,6 +1356,10 @@ struct task_struct {
 	u64				timer_slack_ns;
 	u64				default_timer_slack_ns;
 
+#ifdef CONFIG_PERF_HUMANTASK
+	unsigned int			human_task;
+	unsigned int                    inherit_task;
+#endif
 #ifdef CONFIG_KASAN
 	unsigned int			kasan_depth;
 #endif
@@ -1462,7 +1466,6 @@ struct task_struct {
 #endif
 
 	ANDROID_VENDOR_DATA_ARRAY(1, 3);
-
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);

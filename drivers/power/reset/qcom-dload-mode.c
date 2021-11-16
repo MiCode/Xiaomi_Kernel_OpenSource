@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -38,7 +39,7 @@ struct qcom_dload {
 static bool enable_dump =
 	IS_ENABLED(CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT);
 static enum qcom_download_mode current_download_mode = QCOM_DOWNLOAD_NODUMP;
-static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_FULLDUMP;
+static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_BOTHDUMP;
 
 static int set_download_mode(enum qcom_download_mode mode)
 {
@@ -262,9 +263,7 @@ static int qcom_dload_reboot(struct notifier_block *this, unsigned long event,
 		set_download_mode(QCOM_DOWNLOAD_NODUMP);
 
 	if (cmd) {
-		if (!strcmp(cmd, "edl"))
-			set_download_mode(QCOM_DOWNLOAD_EDL);
-		else if (!strcmp(cmd, "qcom_dload"))
+		if (!strcmp(cmd, "qcom_dload"))
 			msm_enable_dump_mode(true);
 	}
 
@@ -311,6 +310,26 @@ static void store_kaslr_offset(void)
 static void store_kaslr_offset(void) {}
 #endif /* CONFIG_RANDOMIZE_BASE */
 
+#define DISPLAY_CONFIG_OFFSET_PROP "qcom,msm-imem-display_config_offset"
+/*
+ ** set display config imem first 4 bytes to 0xdead4ead, because imem context
+ ** will not lost when warm reset. if panic, xbl ramdump will display orange
+ ** screen, and framebuffer addr is determined by these four bytes in
+ ** MDP_GetDisplayBootConfig function. so set these four bytes to a invalid
+ ** value and let the framebuffer of orange screen use
+ ** RAMDUMP_FRAME_BUFFER_ADDRESS(0xE1000000)
+ **/
+static void clear_display_config(void)
+{
+	void *display_config_imem_addr = map_prop_mem(DISPLAY_CONFIG_OFFSET_PROP);
+
+	if (display_config_imem_addr) {
+		__raw_writel(0xdead4ead, display_config_imem_addr);
+		iounmap(display_config_imem_addr);
+		pr_err("%s clear display config\n", __func__);
+	}
+}
+
 static int qcom_dload_probe(struct platform_device *pdev)
 {
 	struct qcom_dload *poweroff;
@@ -340,6 +359,7 @@ static int qcom_dload_probe(struct platform_device *pdev)
 
 	poweroff->dload_dest_addr = map_prop_mem("qcom,msm-imem-dload-type");
 	store_kaslr_offset();
+	clear_display_config();
 
 	msm_enable_dump_mode(enable_dump);
 	if (!enable_dump)

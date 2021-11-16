@@ -1,0 +1,51 @@
+Qualcomm Technologies, Inc. Camera Clock & Reset Controller Binding
+-------------------------------------------------------------------
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,sdm845-camcc"
+			"qcom,lahaina-camcc"
+			"qcom,lahaina-camcc-v2"
+			"qcom,shima-camcc"
+			"qcom,sm8150-camcc"
+			"qcom,sm8150-camcc-v2"
+			"qcom,sa8155-camcc"
+			"qcom,sa8155-camcc-v2"
+			"qcom,yupik-camcc"
+			"qcom,scshrike-camcc"
+			"qcom,scshrike-camcc-v2"
+			"qcom,sm6150-camcc"
+			"qcom,sa6155-camcc"
+
+- reg : shall contain base register location and length.
+- reg-names: names of registers listed in the same order as in
+		the reg property.
+- vdd_<rail>-supply: The logic rail supply.
+- clock-names: Shall contain "cfg_ahb_clk"
+- clocks: phandle + clock reference to the GCC AHB clock.
+- #clock-cells : from common clock binding, shall contain 1.
+- #reset-cells : from common reset binding, shall contain 1.
+- #power-domain-cells : from generic power domain binding, shall contain 1.
+
+Example:
+1.
+	camcc: clock-controller@ad00000 {
+		compatible = "qcom,sdm845-camcc";
+		reg = <0xad00000 0x10000>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+	};
+2.
+	clock_camcc: qcom,camcc@ad00000 {
+		compatible = "qcom,camcc-kona";
+		reg = <0xad00000 0x10000>;
+		reg-names = "cc_base";
+		vdd_mm-supply = <&VDD_MM_LEVEL>;
+		vdd_mx-supply = <&VDD_MXA_LEVEL>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+	};

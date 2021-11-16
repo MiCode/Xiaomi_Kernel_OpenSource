@@ -3,6 +3,7 @@
  * This file contains common generic and tag-based KASAN code.
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Andrey Ryabinin <ryabinin.a.a@gmail.com>
  *
  * Some code borrowed from https://github.com/xairy/kasan-prototype by
@@ -470,7 +471,8 @@ static bool __kasan_slab_free(struct kmem_cache *cache, void *object,
 
 	kasan_set_free_info(cache, object, tag);
 
-	quarantine_put(get_free_info(cache, object), cache);
+	if (!quarantine_put(get_free_info(cache, object), cache))
+		return false;
 
 	return IS_ENABLED(CONFIG_KASAN_GENERIC);
 }

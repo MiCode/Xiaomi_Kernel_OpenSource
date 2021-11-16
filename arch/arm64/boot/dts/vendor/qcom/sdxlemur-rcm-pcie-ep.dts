@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxlemur.dtsi"
+#include "sdxlemur-rcm-pcie-ep.dtsi"
+#include "sdxlemur-512mb.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR RCM PCIe-EP";
+	compatible = "qcom,sdxlemur-rcm",
+		"qcom,sdxlemur", "qcom,rcm";
+	qcom,board-id = <0x1010015 0x201>;
+};

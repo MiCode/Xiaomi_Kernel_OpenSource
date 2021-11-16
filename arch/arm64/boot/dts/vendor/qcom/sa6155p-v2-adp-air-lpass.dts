@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sa6155p.dtsi"
+#include "sa6155-adp-air.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA6155P v2 LPASS Audio PLL sourced
+			from eMAC PPO ADP-Air";
+	compatible = "qcom,sa6155p-adp-air", "qcom,sa6155p", "qcom,adp-air";
+	qcom,board-id = <0x04010019 0>;
+};
+

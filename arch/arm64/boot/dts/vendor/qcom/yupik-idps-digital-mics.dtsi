@@ -1,0 +1,4 @@
+#include "yupik-idp.dtsi"
+
+&soc {
+};

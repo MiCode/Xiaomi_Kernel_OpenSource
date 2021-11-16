@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "subsys-pil-tz: %s(): " fmt, __func__
@@ -17,7 +18,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
-
+#include <linux/utsname.h>
 #include <linux/interconnect.h>
 #include <dt-bindings/interconnect/qcom,lahaina.h>
 #include <linux/dma-mapping.h>
@@ -30,7 +31,8 @@
 #include <linux/soc/qcom/smem_state.h>
 
 #include "peripheral-loader.h"
-
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
 #define PIL_TZ_AVG_BW  0
 #define PIL_TZ_PEAK_BW UINT_MAX
 
@@ -45,6 +47,9 @@
 
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
+
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_modem_sfr_entry;
 
 /**
  * struct reg_info - regulator info
@@ -779,7 +784,9 @@ static void log_failure_reason(const struct pil_tz_data *d)
 	}
 
 	strlcpy(reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
+    strlcpy(last_modem_sfr_reason, reason, MAX_SSR_REASON_LEN);
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
+	pr_err("kernel build date: %s.\n", init_uts_ns.name.version);
 }
 
 static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
@@ -1638,15 +1645,40 @@ static struct platform_driver pil_tz_driver = {
 		.of_match_table = pil_tz_match_table,
 	},
 };
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
 
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+
+static const struct file_operations last_modem_sfr_file_ops = {
+	.owner   = THIS_MODULE,
+	.open    = last_modem_sfr_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
 static int __init pil_tz_init(void)
 {
+    last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
 	return platform_driver_register(&pil_tz_driver);
 }
 module_init(pil_tz_init);
 
 static void __exit pil_tz_exit(void)
 {
+    if (last_modem_sfr_entry) {
+            remove_proc_entry("last_mcrash", NULL);
+            last_modem_sfr_entry = NULL;
+	}
 	platform_driver_unregister(&pil_tz_driver);
 }
 module_exit(pil_tz_exit);

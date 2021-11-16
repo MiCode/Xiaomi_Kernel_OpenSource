@@ -1,0 +1,25 @@
+&blsp1_uart3 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_console_active>;
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&sdc_vreg>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pmd9650_l7>;
+	qcom,vdd-io-voltage-level = <1800000 2848000>;
+	qcom,vdd-io-current-level = <0 10000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	status = "ok";
+};

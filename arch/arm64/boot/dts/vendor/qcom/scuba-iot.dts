@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "scuba-iot.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Scuba IOT SoC";
+	compatible = "qcom,scuba-iot";
+	qcom,board-id = <0 0>;
+};

@@ -1,0 +1,8 @@
+#
+# Nxp SPI SR100  devices
+#
+
+config NXP_SR100
+	tristate "Nxp SPI driver for SR100 devices"
+
+

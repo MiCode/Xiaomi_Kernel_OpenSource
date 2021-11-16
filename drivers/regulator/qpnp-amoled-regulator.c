@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"AMOLED: %s: " fmt, __func__
@@ -49,6 +50,12 @@
 #define STARTUP_PS_BIT		BIT(5)
 #define STEADY_STATE_PS_BIT		BIT(4)
 
+#define IBB_STATUS_2(chip)	(chip->ibb_base + 0x09)
+#define SOFT_START_DONE_BIT	BIT(6)
+
+#define IBB_STATUS_5(chip)	(chip->ibb_base + 0x0c)
+#define SWIRE_EN		BIT(0)
+
 #define IBB_DUAL_PHASE_CTL(chip)	(chip->ibb_base + 0x70)
 
 /* IBB_DUAL_PHASE_CTL */
@@ -56,6 +63,9 @@
 #define AUTO_DUAL_PHASE_BIT		BIT(2)
 #define FORCE_DUAL_PHASE_BIT		BIT(1)
 #define FORCE_SINGLE_PHASE_BIT		BIT(0)
+
+#define IBB_RETRY_COUNT	25
+#define IBB_POLL_DELAY_MS	20
 
 struct amoled_regulator {
 	struct regulator_desc	rdesc;
@@ -102,6 +112,9 @@ struct qpnp_amoled {
 	u32			oledb_base;
 	u32			ab_base;
 	u32			ibb_base;
+
+	struct work_struct		work;
+	struct wakeup_source	*wake_source;
 
 	struct work_struct		ibb_ccm_wa_work;
 };
@@ -523,8 +536,6 @@ static int qpnp_amoled_regulator_register(struct qpnp_amoled *chip,
 	return rc;
 }
 
-#define IBB_RETRY_COUNT	25
-#define IBB_POLL_DELAY_MS	20
 
 static void qpnp_amoled_toggle_ps_ctl(struct work_struct *work)
 {
@@ -534,6 +545,7 @@ static void qpnp_amoled_toggle_ps_ctl(struct work_struct *work)
 	u8 val;
 
 	if (chip->ibb.vreg.enabled) {
+
 		for (i = 0; i < IBB_RETRY_COUNT; i++) {
 			rc = qpnp_amoled_read(chip, IBB_STATUS_2(chip), &val, 1);
 			if (rc < 0)

@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "yupikp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YupikP SoC";
+	compatible = "qcom,yupikp";
+	qcom,board-id = <0 0>;
+};

@@ -1,0 +1,52 @@
+Qualcomm Technologies, Inc. Glink SPMI Debug Controller
+
+The Qualcomm Technologies, Inc. Glink SPMI debug controller device provides an
+interface to read and write PMIC registers over PMIC Glink using a remote
+subsytem (e.g. DSP).  This allows for debugging PMIC peripherals that would
+typically only be accessible to the charger and fuel gauging firmware running
+on the remote subsystem.
+
+Refer to Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.txt for
+information on "qcom,pmic_glink_log" device which is used in the example below.
+
+See spmi.txt for the generic SPMI controller binding requirements for grandchild
+nodes.
+
+Required device node structure:
+
+The Glink SPMI debug controller node must contain at least one child node.  Each
+child node corresponds to an SPMI bus accessible from the remote subsystem.
+
+Top Level Node Supported Properties:
+
+- compatible:
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Must be "qcom,spmi-glink-debug".
+
+Child Node Supported Properties:
+
+- reg
+	Usage:      required
+	Value type: <u32>
+	Definition: Bus ID of this SPMI bus.
+
+Example:
+
+&soc {
+	qcom,pmic_glink_log {
+		qcom,spmi_glink_debug {
+			compatible = "qcom,spmi-glink-debug";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			spmi@0 {
+				reg = <0>;
+			};
+
+			spmi@1 {
+				reg = <1>;
+			};
+		};
+	};
+};

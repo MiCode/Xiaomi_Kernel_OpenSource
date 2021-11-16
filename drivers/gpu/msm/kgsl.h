@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef __KGSL_H
 #define __KGSL_H
@@ -211,6 +212,9 @@ struct kgsl_memdesc {
 	unsigned long attrs;
 	struct page **pages;
 	unsigned int page_count;
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	struct page memgroup;
+#endif
 	/*
 	 * @lock: Spinlock to protect the gpuaddr from being accessed by
 	 * multiple entities trying to map the same SVM region at once

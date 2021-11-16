@@ -1,0 +1,20 @@
+/dts-v1/;
+/plugin/;
+
+#include "holi-pm6125-overlay.dtsi"
+#include "holi-regulators-pm6125.dtsi"
+#include "holi-cdp-pm6125.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi CDP PM6125";
+	compatible = "qcom,holi-cdp", "qcom,holi", "qcom,cdp";
+	qcom,msm-id = <454 0x10000>, <472 0x10000>;
+	qcom,board-id = <1 0>;
+	qcom,pmic-id-size = <4>;
+	qcom,pmic-id = <0x2D 0x0 0x2E 0x0>;
+};
+
+&wsa881x_analog_reset_gpio {
+	pinctrl-0 = <&spkr_1_sd_n_active>;
+	pinctrl-1 = <&spkr_1_sd_n_sleep>;
+};

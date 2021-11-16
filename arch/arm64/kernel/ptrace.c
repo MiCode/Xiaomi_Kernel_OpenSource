@@ -29,6 +29,10 @@
 #include <linux/regset.h>
 #include <linux/tracehook.h>
 #include <linux/elf.h>
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+#include <linux/freezer.h>
+#include "../../../drivers/mihw/millet.h"
+#endif
 
 #include <asm/compat.h>
 #include <asm/cpufeature.h>
@@ -1842,6 +1846,11 @@ int syscall_trace_enter(struct pt_regs *regs)
 {
 	unsigned long flags = READ_ONCE(current_thread_info()->flags);
 
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+	if (judge_millet_freeze_switch())
+		current->pkg.millet_freeze_flag = 1;
+#endif
+
 	if (flags & (_TIF_SYSCALL_EMU | _TIF_SYSCALL_TRACE)) {
 		tracehook_report_syscall(regs, PTRACE_SYSCALL_ENTER);
 		if (!in_syscall(regs) || (flags & _TIF_SYSCALL_EMU))
@@ -1864,6 +1873,12 @@ int syscall_trace_enter(struct pt_regs *regs)
 void syscall_trace_exit(struct pt_regs *regs)
 {
 	unsigned long flags = READ_ONCE(current_thread_info()->flags);
+
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+	if(judge_millet_freeze_switch()) {
+		current->pkg.millet_freeze_flag = 0;
+	}
+#endif
 
 	audit_syscall_exit(regs);
 

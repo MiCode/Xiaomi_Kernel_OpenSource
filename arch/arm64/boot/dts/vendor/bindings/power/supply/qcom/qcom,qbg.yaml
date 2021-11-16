@@ -1,0 +1,110 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/power/supply/qcom/qcom,qbg.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Qualcomm Technologies, Inc. Battery Gauge (QBG) binding
+
+maintainers:
+  - Shyam Kumar Thella <sthella@qti.qualcomm.com>
+
+description: |
+  Qualcomm Technologies, Inc. Battery Gauge (QBG) uses the periodic samples of
+  battery voltage and current to determine the battery state-of-charge (SOC)
+  and supports other battery management features.
+
+properties:
+  compatible:
+    const: qcom,qbg
+
+  reg:
+    description: Base address of QBG MAIN peripheral.
+    maxItems: 1
+
+  interrupts:
+    description: Specifies the interrupts for nvmem devices used by QBG.
+    maxItems: 1
+
+  interrupt-names:
+    description: Specifies the interrupt names for nvmem devices used by QBG.
+    minItems: 1
+    items:
+      - const: qbg-sdam
+    $ref: /schemas/types.yaml#/definitions/string-array
+
+  qcom,num-data-sdams:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Number of SDAMs used for storing QBG FIFO data.
+
+  qcom,sdam-base:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Base address of QBG SDAM peripheral.
+
+  qcom,vbat-cutoff-mv:
+    allOf:
+      - $ref: "/schemas/types.yaml#/definitions/uint32"
+    description: The battery voltage threshold (in mV) at which the battery
+      power cuts off. The SOC is forced to 0 when battery voltage reaches
+      this value.
+    default: 3100
+
+  qcom,ibat-cutoff-ma:
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+    description: The battery current threshold (in mA) at which the battery
+      power cuts off. The SOC is forced to 0 when battery current reaches
+      this value.
+    default: 150
+
+  qcom,vph-min-mv:
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+    description: Minimum sustainable system power (in mV).
+    default: 2700
+
+  qcom,iterm-ma:
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+    description: The battery current (in mA) at which the QBG algorithm
+      converges the SOC to 100% during charging and can be used to terminate
+      charging.
+    default: 100
+
+  qcom,rconn-mohm:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Resistance of the battery connector in mOhms.
+
+required:
+  - compatible
+  - reg
+  - interrupt-names
+  - interrupts
+  - qcom,num-data-sdams
+  - qcom,sdam-base
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    spmi_bus {
+      #address-cells = <2>;
+      #size-cells = <0>;
+      interrupt-controller;
+      #interrupt-cells = <4>;
+
+      qcom,pm5100@0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        qbg@4f00 {
+          compatible = "qcom,qbg";
+          reg = <0x4f00>;
+          #address-cells = <1>;
+          #size-cells = <1>;
+          interrupt-names = "qbg-sdam";
+          interrupts = <0x0 0x76 0x1 IRQ_TYPE_EDGE_RISING>;
+          qcom,num-data-sdams = <6>;
+          qcom,sdam-base = <0x7600>;
+        };
+      };
+    };
+...

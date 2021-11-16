@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -229,6 +230,7 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, drv);
+
 	return 0;
 }
 

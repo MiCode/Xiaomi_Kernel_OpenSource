@@ -3,6 +3,7 @@
  *  linux/kernel/fork.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -1919,7 +1920,6 @@ static __latent_entropy struct task_struct *copy_process(
 		goto fork_out;
 
 	cpufreq_task_times_init(p);
-
 	/*
 	 * This _must_ happen before we call free_task(), i.e. before we jump
 	 * to any of the bad_fork_* labels. This is to avoid freeing
@@ -2454,6 +2454,10 @@ long _do_fork(struct kernel_clone_args *args)
 		get_task_struct(p);
 	}
 
+#ifdef CONFIG_PERF_HUMANTASK
+	p->human_task = 0;
+	p->inherit_task = 0;
+#endif
 	wake_up_new_task(p);
 
 	/* forking complete and child started to run, tell ptracer */

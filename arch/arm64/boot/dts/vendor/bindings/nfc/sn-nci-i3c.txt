@@ -1,0 +1,37 @@
+Qualcomm Technologies, Inc SNxxx NFC NCI device
+
+Near Field Communication (NFC) device is based on NFC Controller Interface (NCI).
+Refer to I3C bindings file for more information.
+
+Required properties:
+
+- compatible: "qcom,sn-nci-i3c"
+- reg: NFC I3C device's PID.
+- qcom,sn-ven: specific gpio for hardware reset.
+- qcom,sn-firm: gpio for firmware download
+- qcom,sn-clkreq: gpio for clock.
+
+Optional properties:
+
+- pinctrl-names, pinctrl-0, pincntrl-1: references to our pincntrl settings.
+- clocks, clock-names: must contain the SNxxx's core clock.
+- qcom,clk-src: NFC clock for antenna.
+- assigned-address: If specific I3C dynamic address is required it can be specified here.
+
+Example:
+
+	sn@0,23600000000 {
+		compatible = "qcom,sn-nci-i3c";
+		reg = <0 0x236 0x00000000>;
+		assigned-address = <0xa>;
+		qcom,sn-ven = <&tlmm 62 0x01>;
+		qcom,sn-firm = <&tlmm 86 0x00>;
+		qcom,sn-clkreq = <&tlmm 63 0x00>;
+		qcom,clk-src = "BBCLK2";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&nfc_fwdl_active &nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_fwdl_suspend &nfc_clk_req_suspend>;
+		clocks = <&clock_rpm clk_bb_clk2_pin>;
+		clock-names = "ref_clk";
+		status = "ok";
+	};

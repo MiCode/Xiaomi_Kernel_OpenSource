@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxlemur-v2.dtsi"
+#include "sdxlemur-rcm-rc.dtsi"
+#include "sdxlemur-1024mb.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR RCM Root Complex V2";
+	compatible = "qcom,sdxlemur-rcm",
+		"qcom,sdxlemur", "qcom,rcm";
+	qcom,board-id = <0x20015 0x300>;
+};

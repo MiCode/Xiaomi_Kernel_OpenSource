@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -87,7 +88,12 @@
 #define USB_HSPHY_1P8_VOL_MAX			1800000 /* uV */
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
-#define USB_HSPHY_VDD_HPM_LOAD			30000	/* uA */
+#define USB_HSPHY_VDD_HPM_LOAD 30000 /* uA */
+
+#undef dev_dbg
+#undef pr_debug
+#define pr_debug pr_err
+#define dev_dbg dev_err
 
 struct msm_hsphy {
 	struct usb_phy		phy;
@@ -110,9 +116,13 @@ struct msm_hsphy {
 	bool			suspended;
 	bool			cable_connected;
 	bool			dpdm_enable;
+	bool			distinguish_host_device;
 
 	int			*param_override_seq;
 	int			param_override_seq_cnt;
+
+	int			*param_override_seq_host;
+	int			param_override_seq_host_cnt;
 
 	void __iomem		*phy_rcal_reg;
 	u32			rcal_mask;
@@ -129,6 +139,10 @@ struct msm_hsphy {
 	u8			param_ovrd1;
 	u8			param_ovrd2;
 	u8			param_ovrd3;
+	u8			param_ovrd0_host;
+	u8			param_ovrd1_host;
+	u8			param_ovrd2_host;
+	u8			param_ovrd3_host;
 };
 
 static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
@@ -287,6 +301,7 @@ put_vdd_lpm:
 	 */
 	if (!phy->power_enabled)
 		return -EINVAL;
+
 err_vdd:
 	phy->power_enabled = false;
 	dev_dbg(phy->phy.dev, "HSUSB PHY's regulators are turned OFF.\n");
@@ -397,9 +412,15 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 				VBUSVLDEXT0, VBUSVLDEXT0);
 
 	/* set parameter ovrride  if needed */
-	if (phy->param_override_seq)
-		hsusb_phy_write_seq(phy->base, phy->param_override_seq,
+	if (phy->distinguish_host_device && (phy->phy.flags & PHY_HOST_MODE)) {
+		if (phy->param_override_seq_host)
+			hsusb_phy_write_seq(phy->base, phy->param_override_seq_host,
+				phy->param_override_seq_host_cnt, 0);
+	} else {
+		if (phy->param_override_seq)
+			hsusb_phy_write_seq(phy->base, phy->param_override_seq,
 				phy->param_override_seq_cnt, 0);
+	}
 
 	if (phy->pre_emphasis) {
 		u8 val = TXPREEMPAMPTUNE0(phy->pre_emphasis) &
@@ -418,28 +439,55 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 			TXVREFTUNE0_MASK, val);
 	}
 
-	if (phy->param_ovrd0) {
-		msm_usb_write_readback(phy->base,
-			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X0,
-			PARAM_OVRD_MASK, phy->param_ovrd0);
-	}
+	if (phy->distinguish_host_device && (phy->phy.flags & PHY_HOST_MODE)) {
+		if (phy->param_ovrd0_host) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X0,
+				PARAM_OVRD_MASK, phy->param_ovrd0_host);
+		}
 
-	if (phy->param_ovrd1) {
-		msm_usb_write_readback(phy->base,
-			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
-			PARAM_OVRD_MASK, phy->param_ovrd1);
-	}
+		if (phy->param_ovrd1_host) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+				PARAM_OVRD_MASK, phy->param_ovrd1_host);
+		}
 
-	if (phy->param_ovrd2) {
-		msm_usb_write_readback(phy->base,
-			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X2,
-			PARAM_OVRD_MASK, phy->param_ovrd2);
-	}
+		if (phy->param_ovrd2_host) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X2,
+				PARAM_OVRD_MASK, phy->param_ovrd2_host);
+		}
 
-	if (phy->param_ovrd3) {
-		msm_usb_write_readback(phy->base,
-			USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X3,
-			PARAM_OVRD_MASK, phy->param_ovrd3);
+		if (phy->param_ovrd3_host) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X3,
+				PARAM_OVRD_MASK, phy->param_ovrd3_host);
+		}
+	} else {
+		if (phy->param_ovrd0) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X0,
+				PARAM_OVRD_MASK, phy->param_ovrd0);
+		}
+
+
+		if (phy->param_ovrd1) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X1,
+				PARAM_OVRD_MASK, phy->param_ovrd1);
+		}
+
+		if (phy->param_ovrd2) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X2,
+				PARAM_OVRD_MASK, phy->param_ovrd2);
+		}
+
+		if (phy->param_ovrd3) {
+			msm_usb_write_readback(phy->base,
+				USB2PHY_USB_PHY_PARAMETER_OVERRIDE_X3,
+				PARAM_OVRD_MASK, phy->param_ovrd3);
+		}
 	}
 
 	dev_dbg(uphy->dev, "x0:%08x x1:%08x x2:%08x x3:%08x\n",
@@ -739,6 +787,12 @@ static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
 	debugfs_create_x8("param_ovrd1", 0644, phy->root, &phy->param_ovrd1);
 	debugfs_create_x8("param_ovrd2", 0644, phy->root, &phy->param_ovrd2);
 	debugfs_create_x8("param_ovrd3", 0644, phy->root, &phy->param_ovrd3);
+	if (phy->distinguish_host_device) {
+		debugfs_create_x8("param_ovrd0_host", 0644, phy->root, &phy->param_ovrd0_host);
+		debugfs_create_x8("param_ovrd1_host", 0644, phy->root, &phy->param_ovrd1_host);
+		debugfs_create_x8("param_ovrd2_host", 0644, phy->root, &phy->param_ovrd2_host);
+		debugfs_create_x8("param_ovrd3_host", 0644, phy->root, &phy->param_ovrd3_host);
+	}
 }
 
 static int msm_hsphy_probe(struct platform_device *pdev)
@@ -823,6 +877,65 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->phy_reset))
 		return PTR_ERR(phy->phy_reset);
 
+#ifdef CONFIG_FACTORY_BUILD
+	if (of_property_read_bool(dev->of_node, "mi,factory-usb")) {
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+				dev->of_node,
+				"qcom,param-override-seq-fac",
+				sizeof(*phy->param_override_seq));
+		if (phy->param_override_seq_cnt > 0) {
+			phy->param_override_seq = devm_kcalloc(dev,
+					phy->param_override_seq_cnt,
+					sizeof(*phy->param_override_seq),
+					GFP_KERNEL);
+			if (!phy->param_override_seq)
+				return -ENOMEM;
+
+			if (phy->param_override_seq_cnt % 2) {
+				dev_err(dev, "invalid param_override_seq_len\n");
+				return -EINVAL;
+			}
+
+			ret = of_property_read_u32_array(dev->of_node,
+					"qcom,param-override-seq-fac",
+					phy->param_override_seq,
+					phy->param_override_seq_cnt);
+			if (ret) {
+				dev_err(dev, "qcom,param-override-seq-fac read failed %d\n",
+						ret);
+				return ret;
+			}
+		}
+	} else {
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+				dev->of_node,
+				"qcom,param-override-seq",
+				sizeof(*phy->param_override_seq));
+		if (phy->param_override_seq_cnt > 0) {
+			phy->param_override_seq = devm_kcalloc(dev,
+					phy->param_override_seq_cnt,
+					sizeof(*phy->param_override_seq),
+					GFP_KERNEL);
+			if (!phy->param_override_seq)
+				return -ENOMEM;
+
+			if (phy->param_override_seq_cnt % 2) {
+				dev_err(dev, "invalid param_override_seq_len\n");
+				return -EINVAL;
+			}
+
+			ret = of_property_read_u32_array(dev->of_node,
+					"qcom,param-override-seq",
+					phy->param_override_seq,
+					phy->param_override_seq_cnt);
+			if (ret) {
+				dev_err(dev, "qcom,param-override-seq read failed %d\n",
+						ret);
+				return ret;
+			}
+		}
+	}
+#else
 	phy->param_override_seq_cnt = of_property_count_elems_of_size(
 					dev->of_node,
 					"qcom,param-override-seq",
@@ -850,6 +963,38 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	phy->distinguish_host_device = of_property_read_bool(dev->of_node, "mi,usb-distinguish-host-deivice");
+	if (phy->distinguish_host_device) {
+		phy->param_override_seq_host_cnt = of_property_count_elems_of_size(
+						dev->of_node,
+						"qcom,param-override-seq-host",
+						sizeof(*phy->param_override_seq_host));
+		if (phy->param_override_seq_host_cnt > 0) {
+			phy->param_override_seq_host = devm_kcalloc(dev,
+						phy->param_override_seq_host_cnt,
+						sizeof(*phy->param_override_seq_host),
+						GFP_KERNEL);
+			if (!phy->param_override_seq_host)
+				return -ENOMEM;
+
+			if (phy->param_override_seq_host_cnt % 2) {
+				dev_err(dev, "invalid param_override_seq_host_len\n");
+				return -EINVAL;
+			}
+
+			ret = of_property_read_u32_array(dev->of_node,
+					"qcom,param-override-seq-host",
+					phy->param_override_seq_host,
+					phy->param_override_seq_host_cnt);
+			if (ret) {
+				dev_err(dev, "qcom,param-override-seq-host read failed %d\n",
+					ret);
+				return ret;
+			}
+		}
+	}
+#endif
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,

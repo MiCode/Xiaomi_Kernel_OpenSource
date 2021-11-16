@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "direwolf-ivi.dtsi"
+#include "direwolf-rumi-common.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DirewolfAU IVI SoC RUMI";
+	compatible = "qcom,direwolf-ivi-rumi", "qcom,direwolf-ivi",
+		"qcom,direwolf", "qcom,rumi";
+	qcom,board-id = <0xF 0>;
+};

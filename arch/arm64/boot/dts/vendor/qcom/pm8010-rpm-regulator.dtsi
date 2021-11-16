@@ -1,0 +1,120 @@
+&rpm_bus {
+	rpm-regulator-ldoc1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8010_l1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoc2 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8010_l2";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoc3 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8010_l3";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoc4 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <4>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l4 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8010_l4";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoc5 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <5>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l5 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8010_l5";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoc6 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <6>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l6 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8010_l6";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoc7 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoc";
+		qcom,resource-id = <7>;
+		qcom,regulator-type = <0>;
+		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l7 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8010_l7";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+};

@@ -3,6 +3,7 @@
  * ION Memory Allocator - dmabuf interface
  *
  * Copyright (c) 2019, Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/device.h>
@@ -10,8 +11,27 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/sched/task.h>
 
 #include "ion_private.h"
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+struct ion_caches_index {
+	char *comm;
+	int index;
+};
+
+static struct ion_caches_index ion_caches[] = {
+	{".android.camera", 0},
+	{"provider@2.4-se", 1},
+	{"cameraserver", 2},
+	{"mediaserver", 3},
+	{"omx@1.0-service", 4},
+	{"media.hwcodec", 5},
+	{"media.swcodec", 6},
+	{NULL, -1}
+};
+#endif
 
 static struct sg_table *dup_sg_table(struct sg_table *table)
 {
@@ -152,6 +172,7 @@ static void ion_dma_buf_release(struct dma_buf *dmabuf)
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_heap *heap = buffer->heap;
 
+	kfree(dmabuf->exp_name);
 	if (heap->buf_ops.release)
 		return heap->buf_ops.release(dmabuf);
 
@@ -362,6 +383,7 @@ struct dma_buf *ion_dmabuf_alloc(struct ion_device *dev, size_t len,
 	struct ion_buffer *buffer;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dmabuf;
+	char task_comm[TASK_COMM_LEN];
 
 	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
 		 len, heap_id_mask, flags);
@@ -370,14 +392,82 @@ struct dma_buf *ion_dmabuf_alloc(struct ion_device *dev, size_t len,
 	if (IS_ERR(buffer))
 		return ERR_CAST(buffer);
 
+	get_task_comm(task_comm, current->group_leader);
 	exp_info.ops = &dma_buf_ops;
 	exp_info.size = buffer->size;
 	exp_info.flags = O_RDWR;
 	exp_info.priv = buffer;
+	exp_info.exp_name = kasprintf(GFP_KERNEL, "%s-%s-%d-%s", KBUILD_MODNAME,
+		buffer->heap->name, current->tgid, task_comm);
 
 	dmabuf = dma_buf_export(&exp_info);
-	if (IS_ERR(dmabuf))
+	if (IS_ERR(dmabuf)) {
 		ion_buffer_destroy(dev, buffer);
+		kfree(exp_info.exp_name);
+	}
 
 	return dmabuf;
 }
+
+struct dma_buf *ion_dmabuf_alloc_with_caller_pid(struct ion_device *dev, size_t len,
+				 unsigned int heap_id_mask,
+				 unsigned int flags,
+				 int pid_info)
+{
+	struct ion_buffer *buffer;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+	char task_comm[TASK_COMM_LEN];
+	char caller_task_comm[TASK_COMM_LEN];
+	struct task_struct *p = NULL;
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	unsigned int id = -1;
+	unsigned int i = 0;
+#endif
+
+	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
+		len, heap_id_mask, flags);
+
+	get_task_comm(task_comm, current->group_leader);
+	if (pid_info)
+		p = find_get_task_by_vpid(pid_info);
+	if (p) {
+		get_task_comm(caller_task_comm, p);
+		put_task_struct(p);
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+		for (i = 0; NULL != ion_caches[i].comm; i++) {
+			if (!strcmp(caller_task_comm, ion_caches[i].comm)) {
+				if (ion_caches[i].index >= 0) {
+					id = ion_caches[i].index;
+					break;
+				}
+			}
+		}
+#endif
+	}
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	buffer = ion_buffer_alloc_id(dev, len, heap_id_mask, flags, id);
+#else
+	buffer = ion_buffer_alloc(dev, len, heap_id_mask, flags);
+#endif
+	if (IS_ERR(buffer))
+		return ERR_CAST(buffer);
+
+	exp_info.ops = &dma_buf_ops;
+	exp_info.size = buffer->size;
+	exp_info.flags = O_RDWR;
+	exp_info.priv = buffer;
+	exp_info.exp_name = kasprintf(GFP_KERNEL, "%s-%s-%d-%s-caller|%d-%s|",
+		KBUILD_MODNAME, buffer->heap->name, current->tgid, task_comm, pid_info,
+		p ? caller_task_comm : task_comm);
+
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf)) {
+		ion_buffer_destroy(dev, buffer);
+		kfree(exp_info.exp_name);
+	}
+
+	return dmabuf;
+}
+

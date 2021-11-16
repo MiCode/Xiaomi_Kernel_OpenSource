@@ -1,0 +1,172 @@
+&soc {
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		reg = <0xfd91060 0x20>, <0xfd92060 0x20>;
+		reg-names = "pwr", "perf";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			idle-state-name = "L3";
+			qcom,clstr-tmr-add = <1000>;
+			qcom,psci-mode-shift = <4>;
+			qcom,psci-mode-mask = <0xfff>;
+
+			CLUSTER_WFI: qcom,pm-cluster-level@0 { /* D1 */
+				reg = <0>;
+				compatible = "arm,idle-state";
+				idle-state-name = "l3-wfi";
+				entry-latency-us = <660>;
+				exit-latency-us = <600>;
+				min-residency-us = <1260>;
+				arm,psci-suspend-param = <0x10>;
+				qcom,psci-mode = <0x1>;
+			};
+
+			CLUSTER_OFF: qcom,pm-cluster-level@1 { /* D4 */
+				reg = <1>;
+				compatible = "arm,idle-state";
+				idle-state-name = "l3-pc";
+				entry-latency-us = <2752>;
+				exit-latency-us = <3048>;
+				min-residency-us = <6118>;
+				arm,psci-suspend-param = <0x40>;
+				qcom,psci-mode = <0x4>;
+				qcom,notify-rpm;
+				qcom,min-child-idx = <2>;
+				qcom,is-reset;
+			};
+
+			qcom,pm-cpu@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				label = "pwr";
+				qcom,ref-stddev = <500>;
+				qcom,tmr-add = <1000>;
+				qcom,ref-premature-cnt = <1>;
+				qcom,disable-ipi-prediction;
+				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4
+									&CPU5>;
+
+				SLVR_WFI: qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					compatible = "arm,idle-state";
+					idle-state-name = "wfi";
+					entry-latency-us = <61>;
+					exit-latency-us = <60>;
+					min-residency-us = <121>;
+					arm,psci-suspend-param = <0x1>;
+					qcom,psci-cpu-mode = <0x1>;
+				};
+
+				SLVR_PC: qcom,pm-cpu-level@1 {  /* C3 */
+					reg = <1>;
+					compatible = "arm,idle-state";
+					idle-state-name = "pc";
+					entry-latency-us = <549>;
+					exit-latency-us = <901>;
+					min-residency-us = <1774>;
+					qcom,psci-cpu-mode = <0x3>;
+					arm,psci-suspend-param = <0x40000003>;
+					local-timer-stop;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+
+				SLVR_RAIL_OFF: qcom,pm-cpu-level@2 {  /* C4 */
+					reg = <2>;
+					compatible = "arm,idle-state";
+					idle-state-name = "rail-pc";
+					entry-latency-us = <702>;
+					exit-latency-us = <915>;
+					min-residency-us = <4001>;
+					qcom,psci-cpu-mode = <0x4>;
+					arm,psci-suspend-param = <0x40000004>;
+					local-timer-stop;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+			};
+
+			qcom,pm-cpu@1 {
+				reg = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,psci-mode-shift = <0>;
+				qcom,psci-mode-mask = <0xf>;
+				label = "perf";
+				qcom,ref-stddev = <100>;
+				qcom,tmr-add = <100>;
+				qcom,ref-premature-cnt = <3>;
+				qcom,cpu = <&CPU6 &CPU7>;
+
+				GOLD_WFI: qcom,pm-cpu-level@0 { /* C1 */
+					reg = <0>;
+					idle-state-name = "wfi";
+					compatible = "arm,idle-state";
+					entry-latency-us = <55>;
+					exit-latency-us = <66>;
+					min-residency-us = <121>;
+					qcom,psci-cpu-mode = <0x1>;
+					arm,psci-suspend-param = <0x1>;
+				};
+
+				GOLD_PC: qcom,pm-cpu-level@1 {  /* C3 */
+					reg = <1>;
+					compatible = "arm,idle-state";
+					idle-state-name = "pc";
+					entry-latency-us = <523>;
+					exit-latency-us = <1244>;
+					min-residency-us = <2207>;
+					arm,psci-suspend-param = <0x40000003>;
+					local-timer-stop;
+					qcom,psci-cpu-mode = <0x3>;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+
+				GOLD_RAIL_OFF: qcom,pm-cpu-level@2 {  /* C4 */
+					reg = <2>;
+					compatible = "arm,idle-state";
+					idle-state-name = "rail-pc";
+					entry-latency-us = <526>;
+					exit-latency-us = <1854>;
+					min-residency-us = <5555>;
+					arm,psci-suspend-param = <0x40000004>;
+					local-timer-stop;
+					qcom,psci-cpu-mode = <0x4>;
+					qcom,is-reset;
+					qcom,use-broadcast-timer;
+				};
+			};
+		};
+	};
+
+	rpm_sleep_stats: soc-sleep-stats@4690000 {
+		compatible = "qcom,rpm-sleep-stats";
+		reg = <0x04690000 0x400>;
+	};
+
+	rpmh-master-stats {
+		compatible = "qcom,rpmh-master-stats-v1";
+	};
+
+	subsystem-sleep-stats {
+		compatible = "qcom,subsystem-sleep-stats";
+	};
+
+	qcom,rpm-master-stats@45f0150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x45f0150 0x5000>;
+		qcom,masters = "APSS", "MPSS", "ADSP", "CDSP", "TZ";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
+
+};

@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "yupik-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Yupik ATP";
+	compatible = "qcom,yupik-atp", "qcom,yupik", "qcom,atp";
+	qcom,msm-id = <475 0x10000>, <515 0x10000>;
+	qcom,board-id = <0x10021 0>;
+};

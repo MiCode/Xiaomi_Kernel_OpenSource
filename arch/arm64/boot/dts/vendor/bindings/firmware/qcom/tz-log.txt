@@ -1,0 +1,25 @@
+* TZLOG (Trust Zone Log)
+
+The tz_log driver is a platform device driver that exposes a debugfs
+interface for accessing and displaying diagnostic information
+related to secure code (Trustzone/QSEE).
+
+Required properties:
+- compatible : Should be "qcom,tz-log"
+- reg        : Offset and size of the register set for the device
+
+Optional properties:
+- qcom,hyplog-enabled   : (boolean) indicates if driver supports HYP logger service.
+- hyplog-address-offset : Register offset to get the HYP log base address.
+- hyplog-size-offset    : Register offset to get the HYP log size parameter.
+
+Example:
+
+	qcom,tz-log@146bf720 {
+		compatible = "qcom,tz-log";
+                reg = <0x146bf720, 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = 0x410;
+		hyplog-size-offset = 0x414;
+	};
+

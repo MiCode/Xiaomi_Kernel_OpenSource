@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "sdxlemur.dtsi"
+#include "sdxlemur-mtp-cpe.dtsi"
+#include "sdxlemur-1024mb-cpe.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR MTP CPE";
+	compatible = "qcom,sdxlemur-mtp",
+		"qcom,sdxlemur", "qcom,mtp";
+	qcom,board-id = <0x6010008 0x306>;
+};

@@ -1,0 +1,23 @@
+&soc {
+};
+
+&qupv3_se13_i2c {
+	status = "disabled";
+};
+
+&qupv3_se13_spi {
+	status = "ok";
+	focaltech@0 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x0>;
+		spi-max-frequency = <6000000>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+		focaltech,ic-type = <0x3658D488>;
+		focaltech,trusted-touch-mode = "vm_mode";
+		focaltech,touch-environment = "tvm";
+		focaltech,trusted-touch-spi-irq = <601>;
+		focaltech,trusted-touch-io-bases = <0xf134000 0xf135000 0xf136000 0xf137000 0xf169000 0xf151000 0xa94000 0x00a10000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
+	};
+};

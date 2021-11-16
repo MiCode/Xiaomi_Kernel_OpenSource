@@ -1,0 +1,56 @@
+* Bluetooth Controller
+Bluetooth controller communicates with the Bluetooth Host using HCI Transport
+layer. HCI Transport layer can be based on UART or USB serial communication
+protocol.
+
+Required properties:
+- compatible: "qcom,<chip>"
+	chip: Should be set to one of the following:
+		qcom,qca6174
+		qcom,wcn3990
+		qcom,qca6390
+		qcom,qca6490
+		qcom,wcn6750-bt
+		qcom,qca-auto-converged
+	- qcom,bt-reset-gpio: GPIO pin to bring BT Controller out of reset
+	- qcom,wl-reset-gpio: GPIO pin for WL_EN toggle
+
+Optional properties:
+	- qcom,bt-vdd-pa-supply: Bluetooth VDD PA regulator handle
+	- qcom,bt-vdd-io-supply: Bluetooth VDD IO regulator handle
+	- qcom,bt-vdd-ldo-supply: Bluetooth VDD LDO regulator handle. Kept under
+		optional parameters as some of the chipsets doesn't require ldo
+		or it may use from same vddio.
+	- qcom,bt-vdd-xtal-supply: Bluetooth VDD XTAL regulator handle
+	- qcom,bt-vdd-core-supply: Bluetooth VDD CORE regulator handle
+	- qcom,bt-vdd-asd-supply: Bluetooth VDD regulator handle for antenna switch
+	- reg: Memory regions defined as starting address and size
+	- reg-names: Names of the memory regions defined in reg entry
+    diversity.
+	- qcom,bt-chip-pwd-supply: Chip power down gpio is required when bluetooth
+		module and other modules like wifi co-exist in a singe chip and
+		shares a common gpio to bring chip out of reset.
+  - qcom,<supply>-config: Specifies voltage/current levels for supply. Should specified
+                          in pairs (min, max), units uV.  There can be optional
+                          load in curr, unit uA. Last entry specifies if the retention
+                          mode is supported for the regulator.
+  - qcom,tcs_offset_ipa: TCS CMD register offset for Voltage
+Example:
+	bluetooth: bt_qca6490 {
+		compatible = "qcom,qca6390", "qcom,qca6490";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,bt-reset-gpio = <&tlmm 21 0>; /* BT_EN */
+		qcom,wl-reset-gpio = <&tlmm 64 0>; /* WL_EN */
+		qcom,bt-vdd-aon-supply = <&pm8150_s6>;
+		qcom,bt-vdd-dig-supply = <&pm8009_s2>;
+		qcom,bt-vdd-rfa1-supply = <&pm8150_s5>;
+		qcom,bt-vdd-rfa2-supply = <&pm8150a_s8>;
+		qcom,bt-vdd-asd-supply = <&pm8150_l16>;
+
+		qcom,bt-vdd-aon-config = <950000 950000 0  1>;
+		qcom,bt-vdd-dig-config = <950000 952000 0  1>;
+		qcom,bt-vdd-rfa1-config = <1900000 1900000 0  1>;
+		qcom,bt-vdd-rfa2-config = <1350000 1350000 0  1>;
+		qcom,bt-vdd-asd-config = <3024000 3304000 10000  0>;
+	};

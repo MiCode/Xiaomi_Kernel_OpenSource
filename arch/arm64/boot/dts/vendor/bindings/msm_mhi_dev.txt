@@ -1,0 +1,63 @@
+MSM MHI DEV
+
+MSM MHI DEV enables communication with the host over a PCIe link using the
+Modem Host Interface protocol. The driver interfaces with the IPA for
+enabling the HW acceleration channel path and provides interface for
+software channels to communicate between Host and device.
+
+Required properties:
+  - compatible: should be "qcom,msm-mhi-dev" for MHI device driver.
+  - reg: MHI MMIO physical register space.
+  - reg-names: resource names used for the MHI MMIO physical address region,
+	       IPA uC command and event ring doorbell mail box address.
+	       Should be "mhi_mmio_base" for MHI MMIO physical address,
+	       "ipa_uc_mbox_crdb" for IPA uC Command Ring doorbell,
+	       "ipa_uc_mbox_erdb" for IPA uC Event Ring doorbell passed to
+	       the IPA driver.
+  - qcom,mhi-ifc-id: ID of HW interface via which MHI on device side
+		communicates with host side.
+  - qcom,mhi-ep-msi: End point MSI number.
+  - qcom,mhi-version: MHI specification version supported by the device.
+
+Optional property:
+  - qcom,use-ipa-software-channel: If property is present use IPA hardware
+		accelerated path for MHI software channel data transfers
+		between host and device.
+  - qcom,mhi-config-iatu: If property is present map the control and data region
+		between host and device using iatu.
+  - qcom,mhi-interrupt: If property is present register for mhi interrupt.
+  - qcom,mhi-local-pa-base: The physical base address on the device used by the
+		MHI device driver to map the control and data region with the
+		MHI driver on the host. This property is required if iatu
+		property qcom,mhi-config-iatu is present.
+  - qcom,enable-m2: If property is present M2 autonomous is enabled.
+
+MSM MHI DEV NET
+
+MSM MHI DEV enables communication with the host over a PCIe link using the
+Network Interface.
+
+Required properties:
+  - compatible: should be "qcom,msm-mhi-dev-net" for MHI net device driver.
+
+Optional property:
+  - qcom,mhi-ethernet-interface;: If property is present use ethernet packet
+	parsing support.
+
+Example:
+	mhi: qcom,msm-mhi-dev {
+		compatible = "qcom,msm-mhi-dev";
+		reg = <0xfc527000 0x1000>,
+		     <0xfd4fa000 0x1>,
+		     <0xfd4fa080 0x1>;
+		reg-names = "mhi_mmio_base", "ipa_uc_mbox_crdb",
+			    "ipa_uc_mbox_erdb";
+		qcom,mhi-ifc-id = <0x030017cb>;
+		qcom,mhi-ep-msi = <1>;
+		qcom,mhi-version = <0x1000000>;
+	};
+
+	qcom,mhi_net_dev {
+		compatible = "qcom,msm-mhi-dev-net";
+		qcom,mhi-ethernet-interface;
+	};

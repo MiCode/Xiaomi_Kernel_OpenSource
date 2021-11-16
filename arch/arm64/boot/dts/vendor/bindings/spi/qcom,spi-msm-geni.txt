@@ -1,0 +1,89 @@
+GENI based Qualcomm Technologies Inc Universal Peripheral version 3 (QUPv3)
+					Serial Peripheral Interface (SPI)
+
+The QUP v3 core is a GENI based AHB slave that provides a common data path
+(an output FIFO and an input FIFO) for serial peripheral interface (SPI)
+mini-core.
+
+SPI in master mode supports up to 50MHz, up to four chip selects, programmable
+data path from 4 bits to 32 bits and numerous protocol variants.
+
+Required properties:
+- compatible:	  Should contain "qcom,spi-geni"
+- reg:		  Should contain base register location and length
+- interrupts:	  Interrupt number used by this controller
+- clocks:	  Should contain the core clock and the AHB clock.
+- clock-names:	  Should be "core" for the core clock and "iface" for the
+		  AHB clock.
+- pinctrl-names:  Property should contain "default" and "sleep" for the
+		  pin configurations during the usecase and during idle.
+- pinctrl-x:	  phandle to the default/sleep pin configurations.
+- #address-cells: Number of cells required to define a chip select
+		  address on the SPI bus. Should be set to 1.
+- #size-cells:	  Should be zero.
+- spi-max-frequency: Specifies maximum SPI clock frequency,
+		     Units - Hz. Definition as per
+		     Documentation/devicetree/bindings/spi/spi-bus.txt
+- qcom,wrapper-core: Wrapper QUPv3 core containing this SPI controller.
+
+Optional properties:
+- qcom,rt:	Specifies if the framework worker thread for this
+		controller device should have "real-time" priority.
+- qcom,disable-autosuspend: Specifies to disable runtime PM auto suspend.
+- qcom,disable-dma: Set this flag to use FIFO mode only.
+- qcom,shared_ee: 	Specifies that this serial engine is shared between
+			execution environments.
+- qcom,shared_se: 	Specifies that this serial engine is shared simultaneously
+			between execution environments. A true multi-EE usecase.
+- qcom,le_vm:		Specifies that this serial engine is operating in a trusted VM.
+- qcom,use-fixed-timeout : Set this flag to use 250ms fixed timeout value. This
+			will improve overall SPI KPI value but not preferred
+			for large transfer.
+
+SPI slave nodes must be children of the SPI master node and can contain
+the following properties.
+
+Required properties:
+- compatible:     Should contain:
+                  "qcom,spi-msm-codec-slave" for external codec control
+
+- reg:            Chip select address of device.
+
+- spi-max-frequency: Maximum SPI clocking speed of device in Hz.
+
+Optional properties:
+- spi-cpha:       Empty property indicating device requires
+                  shifted clock phase (CPHA) mode.
+
+- qcom,slv-ctrl : Set this flag to configure QUPV3 as SPI slave controller.
+- slv-cross-connected : Set this flag only when SPI-Slave MISO pin is connected
+			to SPI-Master MOSI and vice-versa.
+
+Other optional properties described in
+Documentation/devicetree/bindings/spi/spi-bus.txt
+
+Example:
+
+	qupv3_spi10: spi@a84000 {
+		compatible = "qcom,spi-geni";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0xa84000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qup_1_spi_2_active>;
+		pinctrl-1 = <&qup_1_spi_2_sleep>;
+		interrupts = <GIC_SPI 354 0>;
+		spi-max-frequency = <19200000>;
+		qcom,wrapper-core = <&qupv3_0>;
+
+		dev@0 {
+			compatible = "dummy,slave";
+			reg = <0>;
+			spi-max-frequency = <9600000>;
+		};
+	};

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Copyright (C) 2018 Intel Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  * Manasi Navare <manasi.d.navare@intel.com>
@@ -246,6 +247,10 @@ struct drm_dsc_config {
 	 * @dsc_version_major: DSC major version
 	 */
 	u8 dsc_version_major;
+	/**
+	 * @dsc_panel_id: panel vendor
+	 */
+	u64 dsc_panel_id;
 	/**
 	 * @native_422: True if Native 4:2:2 supported, else false
 	 */

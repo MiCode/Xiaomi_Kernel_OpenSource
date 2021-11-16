@@ -1,0 +1,7 @@
+#include "sm8150.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SM8150P v1";
+	qcom,msm-name = "SM8150P v1";
+	qcom,msm-id = <361 0x10000>;
+};

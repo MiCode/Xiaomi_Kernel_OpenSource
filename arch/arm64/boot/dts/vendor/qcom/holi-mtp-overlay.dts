@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "holi-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi MTP";
+	compatible = "qcom,holi-mtp", "qcom,holi", "qcom,mtp";
+	qcom,msm-id = <454 0x10000>, <472 0x10000>;
+	qcom,board-id = <8 0>;
+};

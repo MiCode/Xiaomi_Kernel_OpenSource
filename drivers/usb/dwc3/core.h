@@ -3,6 +3,7 @@
  * core.h - DesignWare USB3 DRD Core Header
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -990,6 +991,11 @@ struct dwc3_request {
 #define DWC3_REQUEST_STATUS_COMPLETED	3
 #define DWC3_REQUEST_STATUS_UNKNOWN	-1
 
+/* Add the suitable Feedback status to interface*/
+#define DWC3_REQUEST_STATUS_DISCONNECTED	6
+#define DWC3_REQUEST_STATUS_DEQUEUED		5
+#define DWC3_REQUEST_STATUS_STALLED		4
+
 	u8			epnum;
 	struct dwc3_trb		*trb;
 	dma_addr_t		trb_dma;
@@ -1424,6 +1430,10 @@ struct dwc3 {
 	wait_queue_head_t	wait_linkstate;
 	struct work_struct	remote_wakeup_work;
 	bool			dual_port;
+#ifndef CONFIG_FACTORY_BUILD
+	struct work_struct 	check_cmd_work;
+	int			gs_cmd_status;
+#endif
 };
 
 #define INCRX_BURST_MODE 0
@@ -1731,6 +1741,10 @@ enum dwc3_notify_event {
 	DWC3_GSI_EVT_BUF_CLEAR,
 	DWC3_GSI_EVT_BUF_FREE,
 	DWC3_CONTROLLER_NOTIFY_CLEAR_DB,
+#ifndef CONFIG_FACTORY_BUILD
+	/*USB RESTART EVENT*/
+	DWC3_USB_RESTART_EVENT,
+#endif
 };
 
 extern void dwc3_set_notifier(void (*notify)(struct dwc3 *dwc3,

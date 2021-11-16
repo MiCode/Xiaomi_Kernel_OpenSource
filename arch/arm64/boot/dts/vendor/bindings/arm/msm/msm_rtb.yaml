@@ -1,0 +1,42 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/arm/msm/msm_rtb.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Register Trace Buffer (RTB)
+
+maintainers:
+  - Elliot Berman <eberman@quicinc.com>
+
+description: |
+  The RTB is used to log discrete events in the system in an uncached buffer that
+  can be post processed from RAM dumps. The RTB must reserve memory using
+  the msm specific memory reservation bindings.
+
+properties:
+  $nodename:
+    const: qcom,msm-rtb
+
+  compatible:
+    items:
+      -const: qcom,msm-rtb
+
+  qcom,rtb-size:
+    maxItems: 1
+    description: size of the RTB buffer in bytes
+
+  linux,contiguous-region:
+    $ref: '/schemas/types.yaml#/definitions/phandle'
+    maxItems: 1
+    description: phandle reference to a CMA region
+
+required:
+  - compatible
+  - qcom,rtb-size
+
+examples:
+  - |
+    qcom,msm-rtb {
+      compatible = "qcom,msm-rtb";
+      qcom,rtb-size = <0x100000>;
+    };

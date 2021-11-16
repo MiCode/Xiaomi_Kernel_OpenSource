@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "direwolf-rumi-common.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DirewolfAU IVI Rumi";
+	compatible = "qcom,direwolf-ivi-rumi", "qcom,direwolf-ivi",
+		"qcom,direwolf", "qcom,rumi";
+	qcom,msm-id = <460 0x10000>;
+	qcom,board-id = <0xF 0>;
+};

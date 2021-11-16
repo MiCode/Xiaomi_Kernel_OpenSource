@@ -1,0 +1,9 @@
+#include "lahaina-mtp.dtsi"
+&bluetooth {
+	pinctrl-1 = <&wcnss_en_sleep>;
+	qcom,xo-reset-gpio = <&tlmm 201 0>; /* XO */
+};
+
+&wlan {
+	qcom,xo-clk-gpio = <&tlmm 201 0>;
+};

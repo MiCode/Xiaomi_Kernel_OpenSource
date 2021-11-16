@@ -1,0 +1,19 @@
+
+&qupv3_se4_i2c {
+	status = "ok";
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+		focaltech,trusted-touch-mode = "vm_mode";
+		focaltech,touch-environment = "tvm";
+		focaltech,trusted-touch-spi-irq = <566>;
+		focaltech,trusted-touch-io-bases = <0xF114000 0xF115000 0xF116000 0xF117000 0x990000 0x00910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x1000 0x4000>;
+	};
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_r66451_amoled_cmd>;
+};

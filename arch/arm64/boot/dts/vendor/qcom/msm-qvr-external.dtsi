@@ -1,0 +1,9 @@
+&soc {
+
+	qcom,smp2p_interrupt_qvrexternal_5_out {
+		compatible = "qcom,smp2p-interrupt-qvrexternal-5-out";
+		qcom,smem-states = <&smp2p_qvrexternal5_out 0>;
+		qcom,smem-state-names = "qvrexternal-smp2p-out";
+	};
+
+};

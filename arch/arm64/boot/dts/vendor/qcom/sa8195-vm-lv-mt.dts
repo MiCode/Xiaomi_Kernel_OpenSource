@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "sa8195-vm.dtsi"
+#include "sa8195-vm-lv-mt.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8195 Multi LV Virtual Machine";
+	compatible = "qcom,sa8195p";
+	qcom,pmic-name = "PM8195";
+	qcom,board-id = <0x2000002 0>;
+};

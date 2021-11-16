@@ -1,0 +1,203 @@
+#include "sdmshrike-v2.dtsi"
+#include "sa8195-pmic.dtsi"
+#include "sa8195p-pcie.dtsi"
+#include "camera/sa8195p-camera.dtsi"
+#include "camera/sa8195p-camera-sensor.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8195P";
+	qcom,msm-name = "SA8195P";
+	qcom,msm-id = <405 0x20000>;
+	aliases {
+		hsuart0 = &qupv3_se13_4uart;
+	};
+};
+
+&reserved_memory {
+	/* pil_wlan_fw_mem is only used when iHelium is attached,
+	 * so remove the node for sa8195p
+	 */
+	/delete-node/ pil_wlan_fw_mem;
+};
+
+&soc {
+	qfprom: qfprom@780130 {
+		compatible = "qcom,qfprom";
+		reg = <0x00780130 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
+	};
+
+	hsi2s: qcom,hsi2s {
+		compatible = "qcom,sa8195-hsi2s", "qcom,hsi2s";
+		number-of-interfaces = <3>;
+		reg = <0x172C0000 0x28000>,
+		      <0x17080000 0xE000>;
+		reg-names = "lpa_if", "lpass_tcsr";
+		interrupts = <GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>;
+		number-of-rate-detectors = <2>;
+		rate-detector-interfaces = <0 1>;
+		iommus = <&apps_smmu 0x1B5C 0x1>,
+			 <&apps_smmu 0x1B5E 0x0>;
+		qcom,iommu-dma-addr-pool = <0x0 0xFFFFFFFF>;
+
+		sdr0: qcom,hs0_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <0>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs1_i2s_mclk_active &hs1_i2s_sck_active
+				     &hs1_i2s_ws_active &hs1_i2s_data0_active
+				     &hs1_i2s_data1_active>;
+			pinctrl-1 = <&hs1_i2s_mclk_sleep &hs1_i2s_sck_sleep
+				     &hs1_i2s_ws_sleep &hs1_i2s_data0_sleep
+				     &hs1_i2s_data1_sleep>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+
+		sdr1: qcom,hs1_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <1>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs2_i2s_mclk_active &hs2_i2s_sck_active
+				     &hs2_i2s_ws_active &hs2_i2s_data0_active
+				     &hs2_i2s_data1_active>;
+			pinctrl-1 = <&hs2_i2s_mclk_sleep &hs2_i2s_sck_sleep
+				     &hs2_i2s_ws_sleep &hs2_i2s_data0_sleep
+				     &hs2_i2s_data1_sleep>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+
+		sdr2: qcom,hs2_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <2>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs3_i2s_mclk_active &hs3_i2s_sck_active
+				     &hs3_i2s_ws_active &hs3_i2s_data0_active
+				     &hs3_i2s_data1_active>;
+			pinctrl-1 = <&hs3_i2s_mclk_sleep &hs3_i2s_sck_sleep
+				     &hs3_i2s_ws_sleep &hs3_i2s_data0_sleep
+				     &hs3_i2s_data1_sleep>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+	};
+};
+
+&scc {
+	vdd_scc_cx-supply = <&VDD_SCC_CX_LEVEL>;
+	status = "ok";
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+	vdda-phy-supply = <&pm8195_3_l5>;
+	vdda-pll-supply = <&pm8195_1_l9>;
+	vdda-phy-max-microamp = <138000>;
+	vdda-pll-max-microamp = <65100>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8195_3_l10>;
+	vcc-voltage-level = <2894000 2904000>;
+	vcc-low-voltage-sup;
+	vccq-supply = <&pm8195_1_l11>;
+	vccq2-supply = <&pm8195_3_l7>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8195_2_l5>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+	qcom,vccq-parent-supply = <&pm8195_1_s2>;
+	qcom,vccq-parent-max-microamp = <210000>;
+
+	status= "ok";
+};
+
+&usb2_phy0 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+};
+
+
+&usb2_phy1 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+};
+
+&usb2_phy2 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+};
+
+&usb_qmp_phy0 {
+	vdd-supply = <&pm8195_3_l9>;
+	core-supply = <&pm8195_1_l9>;
+};
+
+&usb2_phy3 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+};
+
+&usb_qmp_phy1 {
+	vdd-supply = <&pm8195_3_l9>;
+	core-supply = <&pm8195_1_l9>;
+};

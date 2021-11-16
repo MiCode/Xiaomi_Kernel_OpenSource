@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90f00000 0x00000100;
+
+#include "monaco.dtsi"
+#include "monaco-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Monaco RUMI";
+	compatible = "qcom,monaco-rumi", "qcom,monaco", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};

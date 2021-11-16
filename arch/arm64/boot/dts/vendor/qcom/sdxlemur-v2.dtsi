@@ -1,0 +1,151 @@
+#include "sdxlemur.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXLEMUR V2";
+	compatible = "qcom,sdxlemur";
+	qcom,msm-id = <458 0x20000>, <483 0x20000>;
+};
+
+&i2c_1 {
+	iommus = <&apps_smmu 0x148 0x0>,
+		<&apps_smmu 0x149 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&i2c_2 {
+	iommus = <&apps_smmu 0x14a 0x0>,
+		<&apps_smmu 0x14b 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&i2c_3 {
+	iommus = <&apps_smmu 0x14c 0x0>,
+		<&apps_smmu 0x14d 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&i2c_4 {
+	iommus = <&apps_smmu 0x14e 0x0>,
+		<&apps_smmu 0x14f 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&i2c_5 {
+	iommus = <&apps_smmu 0x148 0x0>,
+		<&apps_smmu 0x149 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&i2c_6 {
+	iommus = <&apps_smmu 0x14a 0x0>,
+		<&apps_smmu 0x14b 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&i2c_7 {
+	iommus = <&apps_smmu 0x14e 0x0>,
+		<&apps_smmu 0x14f 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&spi_1 {
+	iommus = <&apps_smmu 0x148 0x0>,
+		<&apps_smmu 0x149 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&spi_2 {
+	iommus = <&apps_smmu 0x14a 0x0>,
+		<&apps_smmu 0x14b 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&spi_3 {
+	iommus = <&apps_smmu 0x14c 0x0>,
+		<&apps_smmu 0x14d 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&spi_4 {
+	iommus = <&apps_smmu 0x14e 0x0>,
+		<&apps_smmu 0x14f 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&blsp1_uart1a_hs {
+	iommus = <&apps_smmu 0x140 0x0>,
+		<&apps_smmu 0x141 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&blsp1_uart1b_hs {
+	iommus = <&apps_smmu 0x140 0x0>,
+		<&apps_smmu 0x141 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&blsp1_uart2a_hs {
+	iommus = <&apps_smmu 0x142 0x0>,
+		<&apps_smmu 0x143 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&blsp1_uart2b_hs {
+	iommus = <&apps_smmu 0x142 0x0>,
+		<&apps_smmu 0x143 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&blsp1_uart3_hs {
+	iommus = <&apps_smmu 0x144 0x0>,
+		<&apps_smmu 0x145 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&blsp1_uart4a_hs {
+	iommus = <&apps_smmu 0x146 0x0>,
+		<&apps_smmu 0x147 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};
+
+&blsp1_uart4b_hs {
+	iommus = <&apps_smmu 0x146 0x0>,
+		<&apps_smmu 0x147 0x0>;
+	qcom,iommu-dma-addr-pool = <0x40000000 0x10000000>;
+	qcom,iommu-geometry = <0x40000000 0x10000000>;
+	qcom,iommu-dma = "fastmap";
+};

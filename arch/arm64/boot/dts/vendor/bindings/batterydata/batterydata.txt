@@ -1,0 +1,353 @@
+Battery Profile Data
+
+Battery Data is a collection of battery profile data made available to
+the QPNP Charger and BMS drivers via device tree.
+
+qcom,battery-data node required properties:
+- qcom,rpull-up-kohm : The vadc pullup resistor's resistance value in kOhms.
+- qcom,vref-batt-therm-uv : The vadc voltage used to make readings.
+			For Qualcomm Technologies, Inc. VADCs, this should be
+			1800000uV.
+
+qcom,battery-data node optional properties:
+- qcom,batt-id-range-pct : The area of variation between upper and lower bound
+			for which a given battery ID resistance is valid. This
+			value is expressed as a percentage of the specified kohm
+			resistance provided by qcom,batt-id-kohm.
+
+qcom,battery-data can also include any number of children nodes. These children
+nodes will be treated as battery profile data nodes.
+
+Profile data node required properties:
+- qcom,fcc-mah : Full charge count of the battery in milliamp-hours
+- qcom,default-rbatt-mohm : The nominal battery resistance value
+- qcom,rbatt-capacitive-mohm : The capacitive resistance of the battery.
+- qcom,flat-ocv-threshold-uv : The threshold under which the battery can be
+			considered to be in the flat portion of the discharge
+			curve.
+- qcom,max-voltage-uv : The maximum rated voltage of the battery
+- qcom,v-cutoff-uv : The cutoff voltage of the battery at which the device
+			should shutdown gracefully.
+- qcom,chg-term-ua : The termination charging current of the battery.
+- qcom,batt-id-kohm : The battery id resistance of the battery. It can be
+			used as an array which could support multiple IDs for one battery
+			module when the ID resistance of some battery modules goes across
+			several ranges.
+- qcom,battery-type : A string indicating the type of battery.
+- qcom,fg-profile-data : An array of hexadecimal values used to configure more
+			complex fuel gauge peripherals which have a large amount
+			of coefficients used in hardware state machines and thus
+			influencing the final output of the state of charge read
+			by software.
+- qcom,capacity : Maximum capacity of the battery (in mAH).
+- qcom,checksum : Checksum used to determine if loaded battery profile is valid.
+- qcom,recharge-soc-delta : Percentage of SOC delta dropped after end of charge
+			to enable recharge.
+- qcom,recharge-vflt-delta : Delta in Vfloat dropped from regular vfloat in
+			recharge.
+- qcom,recharge-iterm-ma : Termination current (in mA) in recharge.
+
+Profile data node optional properties:
+- qcom,chg-rslow-comp-c1 : A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+- qcom,chg-rslow-comp-c2 : A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+- qcom,chg-rslow-comp-thr : A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+- qcom,chg-rs-to-rslow: A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+- qcom,fastchg-current-ma: Specifies the maximum fastcharge current.
+- qcom,fg-cc-cv-threshold-mv: Voltage threshold in mV for transition from constant
+			charge (CC) to constant voltage (CV). This value should
+			be 10 mV less than the float voltage.
+			This property should only be specified if
+			"qcom,autoadjust-vfloat" property is specified in the
+			charger driver to ensure a proper operation.
+- qcom,thermal-coefficients: Byte array of thermal coefficients for reading
+			battery thermistor. This should be exactly 6 bytes
+			in length.
+			Example: [01 02 03 04 05 06]
+- qcom,therm-coefficients: Array of thermal coefficients that will be used in
+			battery profile for GEN4 FG. This should be exactly of
+			size 5.
+- qcom,therm-center-offset: Specifies the resistor divide ratio between pull-up
+			resistor and the thermistor for GEN4 FG.
+- qcom,therm-pull-up: Specifies the thermistor pull-up resistor value in
+			KOhms.
+- qcom,rslow-normal-coeffs: Array of Rslow coefficients that will be applied
+			when the battery temperature is greater than 0 degree
+			Celsius for GEN4 FG. This should be exactly of size 4.
+- qcom,rslow-low-coeffs: Array of Rslow coefficients that will be applied
+			when the battery temperature is lower than 0 degree
+			Celsius for GEN4 FG. This should be exactly of size 4.
+- qcom,soc-based-step-chg: A bool property to indicate if the battery will
+			perform SoC (State of Charge) based step charging.
+			If yes, the low and high thresholds defined in
+			"qcom,step-chg-ranges" tuples should be assigned as
+			SoC values in percentage.
+- qcom,ocv-based-step-chg: A bool property to indicate if the battery will
+			perform OCV (Open Circuit Voltage) based step charging.
+			If yes, the low and high thresholds defined in
+			"qcom,step-chg-ranges" tuples should be assigned as
+			OCV values in microvolts.
+- qcom,step-chg-ranges: Array of tuples in which a tuple describes a range
+			data of step charging setting.
+			A range contains following 3 integer elements:
+			[0]: the low threshold of battery voltage in uV
+			     or SoC (State of Charge) in percentage when
+			     SoC based step charge is used;
+			[1]: the high threshold of battery voltage in uV
+			     or SoC in percentage when SoC based step charge
+			     is used;
+			[2]: the FCC (full charging current) in uA when battery
+			     voltage or SoC falls between the low and high
+			     thresholds.
+			The threshold values in range should be in ascending
+			and shouldn't overlap. It support 8 ranges at max.
+- qcom,jeita-fcc-ranges: Array of tuples in which a tuple describes a range
+			data of sw-jeita FCC (full charging current) setting.
+			A range contains following 3 integer elements:
+			[0]: the low threshold of battery temperature in deci-degree;
+			[1]: the high threshold of battery temperature in deci-degree;
+			[2]: the FCC in uA when battery temperature falls between
+			     the low and high thresholds.
+			The threshold values in range should be in ascending
+			and shouldn't overlap. It support 8 ranges at max.
+- qcom,jeita-fv-ranges: Array of tuples in which a tuple describes a range
+			data of sw-jeita FV (float voltage) setting.
+			A range contains following 3 integer elements:
+			[0]: the low threshold of battery temperature in deci-degree;
+			[1]: the high threshold of battery temperature in deci-degree;
+			[3]: the FV in uV when battery temperature falls between
+			     the low and high thresholds.
+			The threshold values in range should be in ascending
+			and shouldn't overlap. It support 8 ranges at max.
+- qcom,jeita-soft-thresholds: A tuple entry to specify ADC code for battery's soft JEITA
+			threshold. <SOFT_COLD_ADC_CODE, SOFT_HOT_ADC_CODE>.
+- qcom,jeita-hard-thresholds: A tuple entry to specify ADC code for battery's hard JEITA
+			threshold. <HARD_COLD_ADC_CODE, HARD_HOT_ADC_CODE>.
+- qcom,jeita-soft-hys-thresholds: A tuple entry to specify ADC code for battery's soft JEITA
+			threshold with hysteresis adjustment.
+			<SOFT_COLD_ADC_CODE, SOFT_HOT_ADC_CODE>.
+			These "hysteresis" values should be specified if
+			"qcom,jeita-soft-thresholds" are specified. Without which SW JEITA
+			compensation won't function properly.
+- qcom,jeita-soft-fcc-ua: A tuple entry to specify the values of Fast
+			charging current (in uA) that needs to be applied during
+			soft JEITA conditions (cool/warm).
+			Element 0 - FCC value for soft cool.
+			Element 1 - FCC value for soft warm.
+- qcom,jeita-soft-fv-uv: A tuple entry to specify the values of Float
+			voltage (in uV) that needs to be applied during soft
+			JEITA conditions (cool/warm).
+			Element 0 - FV value for soft cool.
+			Element 1 - FV value for soft warm.
+- qcom,batt-age-level:  Battery age level. This is used only when multiple
+			profile loading is supported.
+- qcom,soh-range:	A tuple entry to specify the values of SOH range that
+			the battery profile has to be used for. This needs to
+			be specified along with "qcom,batt-age-level" for the
+			proper functionality.
+			Element 0 - SOH minimum level.
+			Element 1 - SOH maximum level.
+- qcom,step-jeita-hysteresis: A tuple entry to allow configuring the rising
+			and falling hysteresis for better fine tuning of the
+			charge current across battery temperature thresholds.
+			This should be in decidegree and if not specified
+			default select value is 10 DeciDegC.
+			<RISE_HYS_DECIDEG_C, FALL_HYS_DECIDEG_C>
+- qcom,jeita-fcc-scaling: A bool property to indicate if temperature based
+			jeita fcc scaling is enabled. If defined, enables
+			scaling of FCC based on battery-temperature. Scales
+			the FCC depending upon the granularity of increase in
+			battery temperature.
+- qcom,jeita-fcc-scaling-temp-threshold: A tuple entry to allow configuring the
+			min and max battery temperature threshold (in DeciDegC)
+			for jeita fcc scaling algorithm to kick in.
+			<MIN_BATT_TEMP_DECIDEG_C, MAX_BATT_TEMP_DECIDEG_C>
+- qcom,jeita-scaling-min-fcc-ua : This value corresponds to the minimum FCC (in uA) of
+			the battery to be applied when battery temperature hits the max
+			temperature indicated it "qcom,jeita-fcc-scaling-temp-threshold".
+			This value is selected based on profiling after making sure that
+			the battery-temperature does not rise at this FCC.
+
+Profile data node required subnodes:
+- qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
+			temperature to fcc lookup. The units for this lookup
+			table should be degrees celsius to milliamp-hours.
+- qcom,pc-temp-ocv-lut : A 2-dimensional lookup table node that encodes
+			temperature and percent charge to open circuit voltage
+			lookup. The units for this lookup table should be
+			degrees celsius and percent to millivolts.
+- qcom,rbatt-sf-lut : A 2-dimentional lookup table node that encodes
+			temperature and percent charge to battery internal
+			resistance lookup. The units for this lookup table
+			should be degrees celsius and percent to milliohms.
+
+Profile data node optional subnodes:
+- qcom,ibat-acc-luit: A 2-dimentional lookup table that encodes temperature
+			and battery current to battery ACC (apparent charge
+			capacity). The units for this lookup table should be
+			temperature in degrees celsius, ibat in milli-amps
+			and ACC in milli-ampere-hour.
+
+Lookup table required properties:
+- qcom,lut-col-legend : An array that encodes the legend of the lookup table's
+			columns. The length of this array will determine the
+			lookup table's width.
+- qcom,lut-data : An array that encodes the lookup table's data. The size of this
+			array should be equal to the size of qcom,lut-col-legend
+			multiplied by 1 if it's a 1-dimensional table, or
+			the size of qcom,lut-row-legend if it's a 2-dimensional
+			table. The data should be in a flattened row-major
+			representation.
+- qcom,bp-c-table0 : LUT table of the battery used for PON SOC estimation
+			during battery charge.
+- qcom,bp-d-table0 : LUT table of the battery used for PON SOC estimation
+			during battery discharge.
+- qcom,bp-c-table-X : LUT tables of the battery at different temperatures
+			used for SOC estimation during battery charge. Value
+			of X starts from 1.
+- qcom,bp-d-table-X : LUT tables of the battery at different temperatures
+			used for SOC estimation during battery charge. Value
+			of X starts from 1.
+
+Lookup table optional properties:
+- qcom,lut-row-legend : An array that encodes the legend of the lookup table's rows.
+			If this property exists, then it is assumed that the
+			lookup table is a 2-dimensional table.
+
+Example:
+
+In msm8974-mtp.dtsi:
+
+mtp_batterydata: qcom,battery-data {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm-uv = <1800000>;
+
+	/include/ "batterydata-palladium.dtsi"
+	/include/ "batterydata-mtp-3000mah.dtsi"
+};
+
+&pm8941_bms {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+In batterydata-palladium.dtsi:
+
+qcom,palladium-batterydata {
+	qcom,fcc-mah = <1500>;
+	qcom,default-rbatt-mohm = <236>;
+	qcom,rbatt-capacitive-mohm = <50>;
+	qcom,flat-ocv-threshold-uv = <3800000>;
+	qcom,max-voltage-uv = <4200000>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-id-kohm = <75>;
+	qcom,jeita-soft-thresholds = <0x3ecc 0x1bff>;
+	qcom,jeita-hard-thresholds = <0x4aff 0x15aa>;
+	qcom,step-chg-ranges = <3600000 4000000 3000000
+				4001000 4200000 2800000
+				4201000 4400000 2000000>;
+	qcom,jeita-fcc-ranges = <0      100     600000
+				 101    200     2000000
+				 201    450     3000000
+				 451    550     600000>;
+	qcom,jeita-fv-ranges = <0      100     4200000
+				101    450     4350000
+				451    550     4200000>;
+	qcom,battery-type = "palladium_1500mah";
+
+	qcom,fcc-temp-lut {
+		qcom,lut-col-legend = <(-20) 0 25 40 65>;
+		qcom,lut-data = <1492 1492 1493 1483 1502>;
+	};
+
+	qcom,pc-temp-ocv-lut {
+		qcom,lut-col-legend = <(-20) 0 25 40 65>;
+		qcom,lut-row-legend = <100 95 90 85 80 75 70>,
+				<65 60 55 50 45 40 35>,
+				<30 25 20 15 10 9 8>,
+				<7 6 5 4 3 2 1 0>;
+		qcom,lut-data = <4173 4167 4163 4156 4154>,
+			<4104 4107 4108 4102 4104>,
+			<4057 4072 4069 4061 4060>,
+			<3973 4009 4019 4016 4020>,
+			<3932 3959 3981 3982 3983>,
+			<3899 3928 3954 3950 3950>,
+			<3868 3895 3925 3921 3920>,
+			<3837 3866 3898 3894 3892>,
+			<3812 3841 3853 3856 3862>,
+			<3794 3818 3825 3823 3822>,
+			<3780 3799 3804 3804 3803>,
+			<3768 3787 3790 3788 3788>,
+			<3757 3779 3778 3775 3776>,
+			<3747 3772 3771 3766 3765>,
+			<3736 3763 3766 3760 3746>,
+			<3725 3749 3756 3747 3729>,
+			<3714 3718 3734 3724 3706>,
+			<3701 3703 3696 3689 3668>,
+			<3675 3695 3682 3675 3662>,
+			<3670 3691 3680 3673 3661>,
+			<3661 3686 3679 3672 3656>,
+			<3649 3680 3676 3669 3641>,
+			<3633 3669 3667 3655 3606>,
+			<3610 3647 3640 3620 3560>,
+			<3580 3607 3596 3572 3501>,
+			<3533 3548 3537 3512 3425>,
+			<3457 3468 3459 3429 3324>,
+			<3328 3348 3340 3297 3172>,
+			<3000 3000 3000 3000 3000>;
+	};
+
+	qcom,rbatt-sf-lut {
+		qcom,lut-col-legend = <(-20) 0 25 40 65>;
+		qcom,lut-row-legend = <100 95 90 85 80 75 70>,
+				<65 60 55 50 45 40 35>,
+				<30 25 20 15 10 9 8>,
+				<7 6 5 4 3 2 1 0>;
+		qcom,lut-data = <357 187 100 91 91>,
+			<400 208 105 94 94>,
+			<390 204 106 95 96>,
+			<391 201 108 98 98>,
+			<391 202 110 98 100>,
+			<390 200 110 99 102>,
+			<389 200 110 99 102>,
+			<393 202 101 93 100>,
+			<407 205 99 89 94>,
+			<428 208 100 91 96>,
+			<455 212 102 92 98>,
+			<495 220 104 93 101>,
+			<561 232 107 95 102>,
+			<634 245 112 98 98>,
+			<714 258 114 98 98>,
+			<791 266 114 97 100>,
+			<871 289 108 95 97>,
+			<973 340 124 108 105>,
+			<489 241 109 96 99>,
+			<511 246 110 96 99>,
+			<534 252 111 95 98>,
+			<579 263 112 96 96>,
+			<636 276 111 95 97>,
+			<730 294 109 96 99>,
+			<868 328 112 98 104>,
+			<1089 374 119 101 115>,
+			<1559 457 128 105 213>,
+			<12886 1026 637 422 3269>,
+			<170899 127211 98968 88907 77102>;
+	};
+
+	qcom,ibat-acc-lut {
+		qcom,lut-col-legend = <(-20) 0 25>;
+		qcom,lut-row-legend = <0 250 500 1000>;
+		qcom,lut-data = <1470 1470 1473>,
+				<1406 1406 1430>,
+				<1247 1247 1414>,
+				<764 764 1338>;
+	};
+};
+

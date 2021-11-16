@@ -1,0 +1,29 @@
+#include "sm8150.dtsi"
+#include "sa8155.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8155";
+	compatible = "qcom,sa8155";
+	qcom,msm-name = "SA8155 V1";
+	qcom,msm-id = <362 0x10000>;
+};
+
+&scc {
+	compatible = "qcom,sa8155-scc", "syscon";
+};
+
+&gcc {
+	compatible = "qcom,sa8155-gcc", "syscon";
+};
+
+&videocc {
+	compatible = "qcom,sa8155-videocc", "syscon";
+};
+
+&npucc {
+	compatible = "qcom,sa8155-npucc", "syscon";
+};
+
+&camcc {
+	compatible = "qcom,sa8155-camcc", "syscon";
+};

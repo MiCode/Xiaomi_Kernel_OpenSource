@@ -1,0 +1,50 @@
+/dts-v1/;
+/plugin/;
+
+#include "holi-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi ATP";
+	compatible = "qcom,holi-atp", "qcom,holi", "qcom,atp";
+	qcom,msm-id = <454 0x10000>, <472 0x10000>;
+	qcom,board-id = <33 0>;
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wcd937x_tx_slave {
+	status = "disabled";
+};
+
+&wcd937x_rx_slave {
+	status = "disabled";
+};
+
+&wcd937x_codec {
+	status = "disabled";
+};
+
+&holi_snd {
+	qcom,wcd-disabled = <1>;
+	qcom,audio-routing =
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"VA SWR_INPUT", "VA_SWR_CLK",
+		"VA_AIF1 CAP", "VA_SWR_CLK",
+		"VA_AIF2 CAP", "VA_SWR_CLK",
+		"VA_AIF3 CAP", "VA_SWR_CLK",
+		"VA DMIC0", "Digital Mic0",
+		"VA DMIC1", "Digital Mic1",
+		"VA DMIC2", "Digital Mic2",
+		"VA DMIC3", "Digital Mic3",
+		"VA DMIC4", "Digital Mic4",
+		"VA DMIC5", "Digital Mic5";
+};

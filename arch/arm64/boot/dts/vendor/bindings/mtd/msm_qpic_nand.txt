@@ -1,0 +1,77 @@
+Qualcomm Technologies, Inc. Parallel Interface controller (QPIC) for NAND devices
+
+Required properties:
+- compatible : "qcom,msm-nand".
+- reg : should specify QPIC NANDc and BAM physical address range.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should specify QPIC/BAM interrupt numbers.
+- interrupt-names : should specify relevant names to each interrupts property
+  defined.
+- qcom,reg-adjustment-offset : Specify the base adjustment offset value for the
+  version registers
+- qcom,qpic-clk-rpmh: Indicates whether QPIC clock is RPMH controlled clock or
+  not.
+
+MTD flash partition layout for NAND devices -
+
+Each partition is represented as a sub-node of the qcom,mtd-partitions device.
+Each node's name represents the name of the corresponding partition.
+
+This is now completely optional as the partition information is avaialble from
+bootloader.
+
+Optional properties:
+- reg : boot_cfg. This is needed only on the targets where both NAND and eMMC
+  devices are supported. On eMMC based builds, NAND cannot be enabled by
+  default due to the absence of some of its required resources.
+- reg : The partition offset and size
+- label : The label / name for this partition.
+- read-only: This parameter, if present, indicates that this partition
+  should only be mounted read-only.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,active-only
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
+Examples:
+
+	qcom,nand@f9af0000 {
+		compatible = "qcom,msm-nand";
+		reg = <0xf9af0000 0x1000>,
+		      <0xf9ac4000 0x8000>,
+		      <0x5e02c 0x4>;
+		reg-names = "nand_phys",
+			    "bam_phys",
+			    "boot_cfg";
+		qcom,reg-adjustment-offset = <0x4000>;
+
+		interrupts = <0 279 0>;
+		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <1>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <91 512 0 0>,
+		qcom,qpic-clk-rpmh;
+	};
+
+       qcom,mtd-partitions {
+	       #address-cells = <1>;
+	       #size-cells = <1>;
+               partition@0 {
+                       label = "boot";
+                       reg = <0x0 0x1000>;
+		       read-only;
+               };
+               partition@20000 {
+                       label = "userdata";
+                       reg = <0x20000 0x1000>;
+               };
+               partition@40000 {
+                       label = "system";
+                       reg = <0x40000 0x1000>;
+               };
+       };

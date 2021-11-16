@@ -1,0 +1,34 @@
+/ {
+	/delete-node/ cpus;
+};
+
+&hab {
+	vmid = <3>;
+};
+
+&reserved_memory {
+	pmem_shared: pmem_shared_region {
+		reg = <0x1 0x2c200000 0x0 0x53e00000>;
+		label = "pmem_shared_mem";
+	};
+};
+
+&usb0 {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	status = "ok";
+};
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};

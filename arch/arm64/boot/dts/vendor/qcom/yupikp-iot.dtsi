@@ -1,0 +1,17 @@
+#include "yupik-iot.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. YUPIKP-IOT";
+	compatible = "qcom,yupikp-iot";
+	qcom,msm-id = <498 0x10000>;
+};
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
