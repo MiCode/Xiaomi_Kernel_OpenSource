@@ -1529,6 +1529,7 @@
 		bus-width = <4>;
 		no-sdio;
 		no-mmc;
+		qcom,uses_level_shifter;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
