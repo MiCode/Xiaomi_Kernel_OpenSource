@@ -57,6 +57,7 @@ phy-generic.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qmp-v4-waipio.ko
 phy-qcom-ufs-qmp-v4-diwali.ko
+phy-qcom-ufs-qmp-v4-cape.ko
 pinctrl-cape.ko
 pinctrl-diwali.ko
 pinctrl-msm.ko
