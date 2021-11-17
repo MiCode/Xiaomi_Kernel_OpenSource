@@ -1005,6 +1005,35 @@
 		};
 	};
 
+	usb_phy_ps: usb_phy_ps {
+		usb3phy_portselect_default: usb3phy_portselect_default {
+			mux {
+				pins = "gpio91";
+				function = "usb_phy";
+			};
+
+			config {
+				pins = "gpio91";
+				bias-disable;
+				drive-strength = <2>;
+			};
+		};
+
+		usb3phy_portselect_gpio: usb3phy_portselect_gpio {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+
 	qupv3_se7_2uart_pins: qupv3_se7_2uart_pins {
 		qupv3_se7_2uart_active: qupv3_se7_2uart_active {
 			mux {
