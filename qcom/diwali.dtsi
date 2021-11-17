@@ -1340,6 +1340,7 @@
 	};
 
 	bwmon_llcc: qcom,bwmon-llcc@190b6400 {
+		status = "disabled";
 		compatible = "qcom,bwmon4";
 		reg = <0x190b6400 0x300>, <0x190b6300 0x200>;
 		reg-names = "base", "global_base";
