@@ -704,6 +704,7 @@ struct msm_pcie_dev_t {
 	uint32_t link_check_max_count;
 	uint32_t target_link_speed;
 	uint32_t dt_target_link_speed;
+	uint32_t link_speed_cap_offset;
 	uint32_t current_link_speed;
 	uint32_t target_link_width;
 	uint32_t current_link_width;
@@ -3951,6 +3952,19 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 			goto link_fail;
 	}
 
+	/**
+	 * set pcie max link speed in link capability register if
+	 * SW need to program the SNPS controller register to advertise
+	 * max speed supported by PHY.
+	 */
+	if (dev->link_speed_cap_offset) {
+		msm_pcie_write_reg_field(dev->dm_core,
+				PCIE20_CAP + PCI_EXP_LNKCAP,
+				PCI_EXP_LNKCAP_SLS, dev->link_speed_cap_offset);
+		PCIE_DBG(dev, "PCIe: RC%d: Set max link speed to %u\n",
+			 dev->rc_idx, dev->link_speed_cap_offset);
+	}
+
 	/* de-assert PCIe reset link to bring EP out of reset */
 
 	PCIE_INFO(dev, "PCIe: Release the reset of endpoint of RC%d.\n",
@@ -5385,6 +5399,11 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->dt_target_link_speed);
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: target-link-speed: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->dt_target_link_speed);
+
+	of_property_read_u32(of_node, "qcom,link-speed-cap-offset",
+				&pcie_dev->link_speed_cap_offset);
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: link-speed-cap-offset: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->link_speed_cap_offset);
 
 	pcie_dev->target_link_speed = pcie_dev->dt_target_link_speed;
 
