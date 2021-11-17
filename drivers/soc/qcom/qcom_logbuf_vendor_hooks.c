@@ -90,7 +90,7 @@ static size_t record_print_text(struct printk_info *pinfo, char *r_text, size_t 
 		 * Truncate the text if there is not enough space to add the
 		 * prefix and a trailing newline and a terminator.
 		 */
-		if ((len + prefix_len + line_len + 1 + 1) > buf_size)
+		if ((len + prefix_len + text_len + 1 + 1) > buf_size)
 			break;
 
 		memmove(text + prefix_len, text, text_len);
