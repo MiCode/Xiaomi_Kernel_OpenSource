@@ -510,7 +510,7 @@ static ssize_t perfmon_start_store(struct device *dev,
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
 	uint32_t val = 0, mask_val, offset;
 	unsigned long start;
-	int ret;
+	int ret = 0;
 
 	if (kstrtoul(buf, 0, &start))
 		return -EINVAL;
@@ -523,12 +523,14 @@ static ssize_t perfmon_start_store(struct device *dev,
 			return -EINVAL;
 		}
 
-		ret = clk_prepare_enable(llcc_priv->clock);
-		if (ret) {
-			mutex_unlock(&llcc_priv->mutex);
-			return -EINVAL;
+		if (llcc_priv->clock) {
+			ret = clk_prepare_enable(llcc_priv->clock);
+			if (ret) {
+				mutex_unlock(&llcc_priv->mutex);
+				pr_err("clock not enabled\n");
+				return -EINVAL;
+			}
 		}
-
 		val = MANUAL_MODE | MONITOR_EN;
 		if (llcc_priv->expires) {
 			if (hrtimer_is_queued(&llcc_priv->hrtimer))
@@ -553,7 +555,7 @@ static ssize_t perfmon_start_store(struct device *dev,
 	offset = PERFMON_MODE(llcc_priv->drv_ver);
 	llcc_bcast_modify(llcc_priv, offset, val, mask_val);
 
-	if (!start)
+	if (!start && llcc_priv->clock)
 		clk_disable_unprepare(llcc_priv->clock);
 
 	mutex_unlock(&llcc_priv->mutex);
@@ -1302,8 +1304,8 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 
 	llcc_priv->clock = devm_clk_get(&pdev->dev, "qdss_clk");
 	if (IS_ERR_OR_NULL(llcc_priv->clock)) {
-		pr_err("failed to get clock node\n");
-		return PTR_ERR(llcc_priv->clock);
+		pr_warn("failed to get qdss clock node\n");
+		llcc_priv->clock = NULL;
 	}
 
 	result = sysfs_create_group(&pdev->dev.kobj, &llcc_perfmon_group);
@@ -1333,6 +1335,8 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_2)
 		llcc_priv->version = REV_2;
 	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_3)
+		llcc_priv->version = REV_2;
+	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_4)
 		llcc_priv->version = REV_2;
 	pr_info("Revision <%x.%x.%x>, %d MEMORY CNTRLRS connected with LLCC\n",
 			MAJOR_REV_NO(val), BRANCH_NO(val), MINOR_NO(val),
