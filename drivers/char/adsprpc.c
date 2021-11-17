@@ -6959,7 +6959,9 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 			__func__, gcinfo[cid].subsys);
 		break;
 	case QCOM_SSR_BEFORE_POWERUP:
-		if (cid == CDSP_DOMAIN_ID && dump_enabled()) {
+		/* Skip ram dump collection in first boot */
+		if (cid == CDSP_DOMAIN_ID && dump_enabled() &&
+				ctx->ssrcount) {
 			mutex_lock(&me->channel[cid].smd_mutex);
 			fastrpc_print_debug_data(cid);
 			mutex_unlock(&me->channel[cid].smd_mutex);
