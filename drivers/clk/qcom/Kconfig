@@ -828,4 +828,13 @@ config SXR_GPUCC_NEO
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config SXR_VIDEOCC_NEO
+	tristate "NEO Video Clock Controller"
+	select SXR_GCC_NEO
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  NEO devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
 endif
