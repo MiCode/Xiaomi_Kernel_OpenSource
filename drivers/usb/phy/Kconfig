@@ -234,4 +234,15 @@ config JZ4770_PHY
 	  This driver provides PHY support for the USB controller found
 	  on the JZ-series and X-series SoCs from Ingenic.
 
+config USB_MSM_EUSB2_HSPHY
+	tristate "MSM EUSB2 PHY Driver"
+	depends on ARCH_QCOM
+	select USB_PHY
+	help
+	  Enable this to support the USB EUSB2 PHY on MSM chips. This driver
+	  supports reset and initialization sequence, and also perform required
+	  set of operations with used repeater for USB HS/FS/LS functionality.
+
+	  To compile this driver as a module, choose M here.
+
 endmenu

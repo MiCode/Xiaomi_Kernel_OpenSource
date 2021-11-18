@@ -12,4 +12,15 @@ config USB_REPEATER
 	  set of operations with repeater for USB2 functionality using eUSB2
 	  PHY and eUSB2 repeater.
 
+config NXP_EUSB2_REPEATER
+	tristate "NXP eUSB2 repeater driver"
+	depends on ARCH_QCOM
+	depends on USB_REPEATER
+	depends on I2C
+	help
+	  Enable this to support the USB EUSB2 REPEATER on PMIC chips. This driver
+	  provides support to reset, initialiated, power up and configure eUSB2
+	  repeater for USB HS/FS/LS functionality where eUSB2 repeater is used.
+
+	  To compile this driver as a module, choose M here.
 endmenu
