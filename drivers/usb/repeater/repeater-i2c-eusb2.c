@@ -5,6 +5,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/err.h>
+#include <linux/i2c.h>
 #include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -26,19 +27,119 @@
 #define EUSB2_1P2_VOL_MAX			1320000 /* uV */
 #define EUSB2_1P2_HPM_LOAD			18000	/* uA */
 
-struct eusb2_repeater {
-	struct usb_repeater	ur;
-	struct regmap		*regmap;
-	u16			reg_base;
-	struct regulator	*vdd12;
-	struct regulator	*vdd3;
-	bool			power_enabled;
+/* NXP eUSB2 repeater registers */
+#define RESET_CONTROL			0x01
+#define LINK_CONTROL1			0x02
+#define LINK_CONTROL2			0x03
+#define LINK_CONTROL3			0x04
+#define eUSB2_RX_CONTROL		0x05
+#define eUSB2_TX_CONTROL		0x06
+#define USB2_RX_CONTROL			0x07
+#define USB2_TX_CONTROL1		0x08
+#define USB2_TX_CONTROL2		0x09
+#define USB2_HS_TERMINATION		0x0A
+#define USB2_HS_DISCONNECT_THRESHOLD	0x0B
+#define RAP_SIGNATURE			0x0E
+#define DEVICE_STATUS			0x10
+#define LINK_STATUS			0x11
+#define REVISION_ID			0x14
+#define CHIP_ID_0			0x15
+#define CHIP_ID_1			0x16
+#define CHIP_ID_2			0x17
 
-	struct gpio_desc	*reset_gpiod;
-	int			reset_gpio_irq;
+/* TI eUSB2 repeater registers */
+#define GPIO0_CONFIG			0x00
+#define GPIO1_CONFIG			0x40
+#define UART_PORT1			0x50
+#define EXTRA_PORT1			0x51
+#define REV_ID				0xB0
+#define GLOBAL_CONFIG			0xB2
+#define INT_ENABLE_1			0xB3
+#define INT_ENABLE_2			0xB4
+#define BC_CONTROL			0xB6
+#define BC_STATUS_1			0xB7
+#define INT_STATUS_1			0xA3
+#define INT_STATUS_2			0xA4
 
-	struct dentry		*root;
+enum eusb2_repeater_type {
+	TI_REPEATER,
+	NXP_REPEATER,
 };
+
+struct i2c_repeater_chip {
+	enum eusb2_repeater_type repeater_type;
+};
+
+struct eusb2_repeater {
+	struct device			*dev;
+	struct usb_repeater		ur;
+	struct regmap			*regmap;
+	const struct i2c_repeater_chip	*chip;
+	u16				reg_base;
+	struct regulator		*vdd12;
+	struct regulator		*vdd3;
+	bool				power_enabled;
+
+	struct gpio_desc		*reset_gpiod;
+	int				reset_gpio_irq;
+	u8				*param_override_seq;
+	u8				param_override_seq_cnt;
+};
+
+static const struct regmap_config eusb2_i2c_regmap = {
+	.reg_bits = 8,
+	.val_bits = 8,
+};
+
+static int eusb2_i2c_read_reg(struct eusb2_repeater *er, u8 reg, u8 *val)
+{
+	int ret;
+	unsigned int reg_val;
+
+	ret = regmap_read(er->regmap, reg, &reg_val);
+	if (ret < 0) {
+		dev_err(er->dev, "Failed to read reg:0x%02x ret=%d\n", reg, ret);
+		return ret;
+	}
+
+	*val = reg_val;
+	dev_dbg(er->dev, "read reg:0x%02x val:0x%02x\n", reg, *val);
+
+	return 0;
+}
+
+static int eusb2_i2c_write_reg(struct eusb2_repeater *er, u8 reg, u8 mask, u8 val)
+{
+	int ret;
+	u8 reg_val;
+
+	ret = eusb2_i2c_read_reg(er, reg, &reg_val);
+	if (ret)
+		return ret;
+
+	val |= (reg_val & mask);
+	ret = regmap_write(er->regmap, reg, val);
+	if (ret < 0) {
+		dev_err(er->dev, "failed to write 0x%02x to reg: 0x%02x ret=%d\n", val, reg, ret);
+		return ret;
+	}
+
+	dev_dbg(er->dev, "write reg:0x%02x val:0x%02x\n", reg, val);
+
+	return 0;
+}
+
+static void eusb2_repeater_update_seq(struct eusb2_repeater *er, u8 *seq, u8 cnt)
+{
+	int i;
+	u8 mask = 0xFF;
+
+	dev_dbg(er->ur.dev, "param override seq count:%d\n", cnt);
+	for (i = 0; i < cnt; i = i+2) {
+		dev_dbg(er->ur.dev, "write 0x%02x to 0x%02x\n", seq[i], seq[i+1]);
+		eusb2_i2c_write_reg(er, seq[i+1], mask, seq[i]);
+	}
+}
 
 static int eusb2_repeater_power(struct eusb2_repeater *er, bool on)
 {
@@ -48,7 +149,7 @@ static int eusb2_repeater_power(struct eusb2_repeater *er, bool on)
 			__func__, on ? "on" : "off", er->power_enabled);
 
 	if (er->power_enabled == on) {
-		dev_dbg(er->ur.dev, "regulators' regulators are already ON.\n");
+		dev_dbg(er->ur.dev, "regulators are already ON.\n");
 		return 0;
 	}
 
@@ -143,18 +244,20 @@ err_vdd12:
 
 static int eusb2_repeater_init(struct usb_repeater *ur)
 {
-	u8 status;
 	struct eusb2_repeater *er =
 			container_of(ur, struct eusb2_repeater, ur);
 
-	/* Don't do anything as of now */
+	/* override init sequence using devicetree based values */
+	if (er->param_override_seq_cnt)
+		eusb2_repeater_update_seq(er, er->param_override_seq,
+					er->param_override_seq_cnt);
+
 	dev_info(er->ur.dev, "eUSB2 repeater init\n");
 
 	return 0;
 }
 
-static int eusb2_repeater_reset(struct usb_repeater *ur,
-				bool bring_out_of_reset)
+static int eusb2_repeater_reset(struct usb_repeater *ur, bool bring_out_of_reset)
 {
 	struct eusb2_repeater *er =
 			container_of(ur, struct eusb2_repeater, ur);
@@ -183,16 +286,43 @@ static int eusb2_repeater_powerdown(struct usb_repeater *ur)
 
 static irqreturn_t eusb2_reset_gpio_irq_handler(int irq, void *dev_id)
 {
+	/*
+	 * This IRQ handler is just returning IRQ_HANDLED to notify
+	 * interrupt framework to clear the interrupt.
+	 */
 	struct eusb2_repeater *er = dev_id;
 
 	dev_dbg(er->ur.dev, "reset gpio interrupt handled\n");
 	return IRQ_HANDLED;
 }
 
-static int eusb2_repeater_probe(struct platform_device *pdev)
+static struct i2c_repeater_chip repeater_chip[] = {
+	[NXP_REPEATER] = {
+		.repeater_type = NXP_REPEATER,
+	},
+	[TI_REPEATER] = {
+		.repeater_type = TI_REPEATER,
+	}
+};
+
+static const struct of_device_id eusb2_repeater_id_table[] = {
+	{
+		.compatible = "nxp,eusb2-repeater",
+		.data = &repeater_chip[NXP_REPEATER]
+	},
+	{
+		.compatible = "ti,eusb2-repeater",
+		.data = &repeater_chip[TI_REPEATER]
+	},
+	{ },
+};
+MODULE_DEVICE_TABLE(of, eusb2_repeater_id_table);
+
+static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 {
 	struct eusb2_repeater *er;
-	struct device *dev = &pdev->dev;
+	struct device *dev = &client->dev;
+	const struct of_device_id *match;
 	int ret = 0;
 
 	er = devm_kzalloc(dev, sizeof(*er), GFP_KERNEL);
@@ -201,16 +331,22 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	er->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	er->dev = dev;
+	match = of_match_node(eusb2_repeater_id_table, dev->of_node);
+	er->chip = match->data;
+
+	er->regmap = devm_regmap_init_i2c(client, &eusb2_i2c_regmap);
 	if (!er->regmap) {
-		dev_err(&pdev->dev, "failed to get parent's regmap\n");
+		dev_err(dev, "failed to allocate register map\n");
 		ret = -EINVAL;
 		goto err_probe;
 	}
 
-	ret = of_property_read_u16(pdev->dev.of_node, "reg", &er->reg_base);
+	i2c_set_clientdata(client, er);
+
+	ret = of_property_read_u16(dev->of_node, "reg", &er->reg_base);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to get reg base address:%d\n", ret);
+		dev_err(dev, "failed to get reg base address:%d\n", ret);
 		goto err_probe;
 	}
 
@@ -237,12 +373,13 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 	er->reset_gpio_irq = gpiod_to_irq(er->reset_gpiod);
 	if (er->reset_gpio_irq < 0) {
 		dev_err(dev, "failed to get reset gpio IRQ\n");
+		ret = er->reset_gpio_irq;
 		goto err_probe;
 	}
 
 	ret = devm_request_irq(dev, er->reset_gpio_irq,
 			eusb2_reset_gpio_irq_handler, IRQF_TRIGGER_RISING,
-			pdev->name, er);
+			client->name, er);
 	if (ret < 0) {
 		dev_err(dev, "failed to request reset gpio irq\n");
 		goto err_probe;
@@ -257,8 +394,28 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
+	if (er->param_override_seq_cnt > 0) {
+		er->param_override_seq = devm_kcalloc(dev,
+				er->param_override_seq_cnt,
+				sizeof(*er->param_override_seq), GFP_KERNEL);
+		if (!er->param_override_seq) {
+			ret = -ENOMEM;
+			goto err_probe;
+		}
+
+		ret = of_property_read_u8_array(dev->of_node,
+				"qcom,param-override-seq",
+				er->param_override_seq,
+				er->param_override_seq_cnt);
+		if (ret) {
+			dev_err(dev, "qcom,param-override-seq read failed %d\n",
+									ret);
+			goto err_probe;
+		}
+	}
+
+
 	er->ur.dev = dev;
-	platform_set_drvdata(pdev, er);
 
 	er->ur.init		= eusb2_repeater_init;
 	er->ur.reset		= eusb2_repeater_reset;
@@ -269,43 +426,34 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_probe;
 
-	eusb2_repeater_create_debugfs(er);
 	return 0;
 
 err_probe:
 	return ret;
 }
 
-static int eusb2_repeater_remove(struct platform_device *pdev)
+static int eusb2_repeater_i2c_remove(struct i2c_client *client)
 {
-	struct eusb2_repeater *er = platform_get_drvdata(pdev);
+	struct eusb2_repeater *er = i2c_get_clientdata(client);
 
 	if (!er)
 		return 0;
 
-	debugfs_remove_recursive(er->root);
 	usb_remove_repeater_dev(&er->ur);
 	eusb2_repeater_power(er, false);
 	return 0;
 }
 
-static const struct of_device_id eusb2_repeater_id_table[] = {
-	{
-		.compatible = "nxp,eusb2-repeater",
-	},
-	{ },
-};
-MODULE_DEVICE_TABLE(of, eusb2_repeater_id_table);
-
-static struct platform_driver eusb2_repeater_driver = {
-	.probe		= eusb2_repeater_probe,
-	.remove		= eusb2_repeater_remove,
+static struct i2c_driver eusb2_i2c_repeater_driver = {
+	.probe_new	= eusb2_repeater_i2c_probe,
+	.remove		= eusb2_repeater_i2c_remove,
 	.driver = {
 		.name	= "eusb2-repeater",
 		.of_match_table = of_match_ptr(eusb2_repeater_id_table),
 	},
 };
 
-module_platform_driver(eusb2_repeater_driver);
-MODULE_DESCRIPTION("NXP eUSB2 repeater driver");
+module_i2c_driver(eusb2_i2c_repeater_driver);
+
+MODULE_DESCRIPTION("eUSB2 i2c repeater driver");
 MODULE_LICENSE("GPL v2");
