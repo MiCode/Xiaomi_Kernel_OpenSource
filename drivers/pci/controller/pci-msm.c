@@ -6199,11 +6199,11 @@ static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
 		return;
 
 	ret = qcom_unregister_ssr_notifier(pcie_drv->notifier, &pcie_drv->nb);
-	if (ret) {
+	if (ret)
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: error %d unregistering notifier\n",
 			 pcie_dev->rc_idx, ret);
-		pcie_drv->notifier = NULL;
-	}
+
+	pcie_drv->notifier = NULL;
 }
 
 static int msm_pcie_drv_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
@@ -6370,7 +6370,7 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 		mutex_unlock(&pcie_dev->drv_pc_lock);
 	}
 
-	pcie_drv->notifier = qcom_register_ssr_notifier("lpass", &pcie_drv->nb);
+	pcie_drv->notifier = qcom_register_early_ssr_notifier("lpass", &pcie_drv->nb);
 	if (IS_ERR(pcie_drv->notifier)) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to register ssr notifier\n",
 			 pcie_dev->rc_idx);
