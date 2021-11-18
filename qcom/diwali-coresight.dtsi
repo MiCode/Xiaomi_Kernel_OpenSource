@@ -99,6 +99,23 @@
 		};
 	};
 
+	lpass_stm: lpass_stm {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-lpass-stm";
+		qcom,dummy-source;
+
+		atid = <25>;
+
+		out-ports {
+			port {
+				lpass_stm_out_funnel_lpass_lpi: endpoint {
+					remote-endpoint =
+					<&funnel_lpass_lpi_in_lpass_stm>;
+				};
+			};
+		};
+	};
+
 	tpdm_swao_prio_0: tpdm@10b09000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb968>;
@@ -1201,6 +1218,14 @@
 				funnel_lpass_lpi_in_audio_etm0: endpoint {
 					remote-endpoint =
 					<&audio_etm0_out_funnel_lpass_lpi>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				funnel_lpass_lpi_in_lpass_stm: endpoint {
+					remote-endpoint =
+					<&lpass_stm_out_funnel_lpass_lpi>;
 				};
 			};
 
