@@ -1430,7 +1430,7 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
 		obj = get_active_cmdobj(adreno_dev);
 
 	if (!obj) {
-		kgsl_device_snapshot(device, NULL, false);
+		kgsl_device_snapshot(device, NULL, fault & ADRENO_GMU_FAULT);
 		goto done;
 	}
 
