@@ -25,7 +25,7 @@
 	chosen: chosen {
 		stdout-path = "/soc/qcom,qup_uart@994000:115200n8";
 
-		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none kpti=0 swiotlb=noforce cgroup.memory=nokmem,nosocket mem_offline.bypass_send_msg=1";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none kpti=0 swiotlb=noforce cgroup.memory=nokmem,nosocket mem_offline.bypass_send_msg=1 cpufreq.default_governor=performance";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
@@ -1310,8 +1310,12 @@
 		compatible = "qcom,cpufreq-hw-epss";
 		reg = <0x17d91000 0x1000>,
 			<0x17d92000 0x1000>,
-			<0x17d93000 0x1000>;
-		reg-names = "freq-domain0", "freq-domain1", "freq-domain2";
+			<0x17d93000 0x1000>,
+			<0x17d09804 0x4>,
+			<0x17d09808 0x4>,
+			<0x17d0980c 0x4>;
+		reg-names = "freq-domain0", "freq-domain1", "freq-domain2",
+				"pdmem-domain0", "pdmem-domain1", "pdmem-domain2";
 		clocks = <&rpmhcc RPMH_CXO_CLK>, <&gcc GCC_GPLL0>;
 		clock-names = "xo", "alternate";
 		qcom,lut-row-size = <4>;
