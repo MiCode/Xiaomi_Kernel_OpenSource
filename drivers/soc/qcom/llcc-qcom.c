@@ -119,6 +119,11 @@ static u32 llcc_offsets_v21[] = {
 	0x500000
 };
 
+static u32 llcc_offsets_v21_diwali[] = {
+	0x0,
+	0x100000
+};
+
 enum {
 	LLCC_COMMON_STATUS0_num = 0,
 	LLCC_FEAC_C_AS_NC_num,
@@ -683,6 +688,8 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		drv_data->llcc_ver = 21;
 		llcc_regs = llcc_regs_v21;
 		drv_data->offsets = llcc_offsets_v21;
+		if (of_property_match_string(dev->of_node, "compatible", "qcom,diwali-llcc") >= 0)
+			drv_data->offsets = llcc_offsets_v21_diwali;
 	} else {
 		drv_data->llcc_ver = 20;
 		llcc_regs = llcc_regs_v2;
