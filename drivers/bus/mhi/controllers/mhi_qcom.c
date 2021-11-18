@@ -169,9 +169,9 @@ static const struct mhi_channel_config modem_qcom_sdx65_mhi_channels[] = {
 			      MHI_DB_BRST_DISABLE, true, 0, true, false,
 			      false, false, 0, 0),
 	MHI_CHANNEL_CONFIG_UL(109, "RMNET_CTL", 128, 13, MHI_EE_AMSS,
-			      MHI_DB_BRST_ENABLE, false, 0, false, true, 0),
+			      MHI_DB_BRST_DISABLE, false, 0, false, false, 0),
 	MHI_CHANNEL_CONFIG_DL(110, "RMNET_CTL", 128, 14, MHI_EE_AMSS,
-			      MHI_DB_BRST_ENABLE, false, 0, false, false,
+			      MHI_DB_BRST_DISABLE, false, 0, false, false,
 			      false, false, 0, 0),
 };
 
