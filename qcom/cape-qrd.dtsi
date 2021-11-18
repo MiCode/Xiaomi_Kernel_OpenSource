@@ -134,3 +134,41 @@
 				3000000 2500000 2000000 1500000 1000000 500000>;
 	qcom,wireless-fw-name = "idt9415.bin";
 };
+
+&qupv3_se4_spi {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	qcom,spi-touch-active = "focaltech,fts_ts";
+
+	focaltech@0 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x0>;
+		spi-max-frequency = <6000000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <21 0x2008>;
+		focaltech,reset-gpio = <&tlmm 20 0x00>;
+		focaltech,irq-gpio = <&tlmm 21 0x2008>;
+		focaltech,display-coords = <0 0 1080 2340>;
+		focaltech,max-touch-number = <5>;
+		focaltech,ic-type = <0x3658D488>;
+		focaltech,touch-type = "primary";
+
+		vdd-supply = <&L3C>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		focaltech,trusted-touch-mode = "vm_mode";
+		focaltech,touch-environment = "pvm";
+		focaltech,trusted-touch-type = "primary";
+		focaltech,trusted-touch-spi-irq = <754>;
+		focaltech,trusted-touch-io-bases = <0x990000 0x910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x4000>;
+		focaltech,trusted-touch-vm-gpio-list = <&tlmm 16 0 &tlmm 17 0 &tlmm 18 0
+						&tlmm 19 0 &tlmm 20 0 &tlmm 21 0x2008>;
+	};
+};
