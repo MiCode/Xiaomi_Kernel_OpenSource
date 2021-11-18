@@ -301,10 +301,10 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	dev_set_drvdata(dev, mhi_priv);
 
-	mhi_priv->numeric_id = MHI_NUMERIC_DEVICE_ID(pci_dev->device,
-						    pci_domain_nr(pci_dev->bus),
-						    pci_dev->bus->number,
-						    PCI_SLOT(pci_dev->devfn));
+	mhi_priv->numeric_id = MHI_NUMERIC_DEVICE_ID(parent->device,
+						    pci_domain_nr(parent->bus),
+						    parent->bus->number,
+						    PCI_SLOT(parent->devfn));
 
 	mhi_priv->offload_wq = alloc_ordered_workqueue("mhi_offload_wq",
 						       WQ_HIGHPRI);
