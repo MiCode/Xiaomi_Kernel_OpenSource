@@ -1898,7 +1898,8 @@ EXPORT_SYMBOL(should_remove_suid);
  * response to write or truncate. Return 0 if nothing has to be changed.
  * Negative value on error (change should be denied).
  */
-int dentry_needs_remove_privs(struct dentry *dentry)
+int dentry_needs_remove_privs(struct user_namespace *mnt_userns,
+			      struct dentry *dentry)
 {
 	struct inode *inode = d_inode(dentry);
 	int mask = 0;
@@ -1908,7 +1909,7 @@ int dentry_needs_remove_privs(struct dentry *dentry)
 		return 0;
 
 	mask = should_remove_suid(dentry);
-	ret = security_inode_need_killpriv(dentry);
+	ret = security_inode_need_killpriv(mnt_userns, dentry);
 	if (ret < 0)
 		return ret;
 	if (ret)
@@ -1949,7 +1950,7 @@ int file_remove_privs(struct file *file)
 	if (IS_NOSEC(inode) || !S_ISREG(inode->i_mode))
 		return 0;
 
-	kill = dentry_needs_remove_privs(dentry);
+	kill = dentry_needs_remove_privs(file_mnt_user_ns(file), dentry);
 	if (kill < 0)
 		return kill;
 	if (kill)

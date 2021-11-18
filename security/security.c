@@ -1403,9 +1403,10 @@ int security_inode_removexattr(struct user_namespace *mnt_userns,
 	return evm_inode_removexattr(mnt_userns, dentry, name);
 }
 
-int security_inode_need_killpriv(struct dentry *dentry)
+int security_inode_need_killpriv(struct user_namespace *mnt_userns,
+				 struct dentry *dentry)
 {
-	return call_int_hook(inode_need_killpriv, 0, dentry);
+	return call_int_hook(inode_need_killpriv, 0, mnt_userns, dentry);
 }
 
 int security_inode_killpriv(struct user_namespace *mnt_userns,

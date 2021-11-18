@@ -710,7 +710,7 @@ ssize_t ntfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 
 static int ntfs_getxattr(const struct xattr_handler *handler, struct dentry *de,
 			 struct inode *inode, const char *name, void *buffer,
-			 size_t size)
+			 size_t size, int flags)
 {
 	int err;
 	struct ntfs_inode *ni = ntfs_i(inode);
