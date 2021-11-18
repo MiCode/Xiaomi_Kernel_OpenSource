@@ -613,7 +613,6 @@ config MSM_BOOT_STATS
 
 config USB_BAM
 	tristate "USB BAM Driver"
-	depends on SPS && USB_GADGET
 	help
 	  Enabling this option adds USB BAM Driver.
 	  USB BAM driver was added to supports Smart Peripheral Subsystem
