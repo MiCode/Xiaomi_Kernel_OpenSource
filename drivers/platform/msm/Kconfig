@@ -37,4 +37,27 @@ config EP_PCIE_HW
 		3. Sideband signaling.
 		4. Power management.
 
+config MSM_MHI_DEV
+	tristate "Modem Device Interface Driver"
+	depends on EP_PCIE && IPA3
+	help
+	  This kernel module is used to interact with PCIe Root complex
+	  supporting MHI protocol. MHI is a data transmission protocol
+	  involving communication between a host and a device over shared
+	  memory. MHI interacts with the IPA for supporting transfers
+	  on the HW accelerated channels between Host and device.
+
+config IPA3
+	tristate "IPA3 support"
+	depends on NET
+	help
+	  This framework supports the Internet Packet Accelerator (IPA3) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
 endmenu
