@@ -15,6 +15,7 @@
 #include <linux/iommu.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
+#include <linux/clk/qcom.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -2777,7 +2778,9 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 			return ret;
 		}
 
+		qcom_clk_set_flags(mdwc->core_clk, CLKFLAG_RETAIN_MEM);
 	} else {
+		qcom_clk_set_flags(mdwc->core_clk, CLKFLAG_NORETAIN_MEM);
 		ret = regulator_disable(mdwc->dwc3_gdsc);
 		if (ret) {
 			dev_err(mdwc->dev, "unable to disable usb3 gdsc\n");
