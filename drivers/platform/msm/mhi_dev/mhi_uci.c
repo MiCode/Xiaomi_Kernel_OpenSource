@@ -654,7 +654,7 @@ static int mhi_uci_send_async(struct uci_client *uci_handle,
 	int bytes_to_write;
 	struct mhi_req *ureq;
 
-	uci_log(UCI_DBG_VERBOSE,
+	uci_log(UCI_DBG_DBG,
 		"Async write for ch %d size %d\n",
 		uci_handle->out_chan, size);
 
@@ -868,7 +868,7 @@ static int mhi_uci_read_async(struct uci_client *uci_handle, int *bytes_avail)
 	struct mhi_req *ureq;
 	struct mhi_dev_client *client_handle;
 
-	uci_log(UCI_DBG_ERROR,
+	uci_log(UCI_DBG_DBG,
 		"Async read for ch %d\n", uci_handle->in_chan);
 
 	ureq = mhi_uci_get_req(uci_handle);
@@ -1034,7 +1034,7 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 			uci_ctxt.event_notifier);
 	if (rc < 0) {
 		uci_log(UCI_DBG_ERROR,
-			"Failed to open chan %d, ret 0x%x\n",
+			"Failed to open chan %d, ret %d\n",
 			uci_client->out_chan, rc);
 		goto handle_in_err;
 	}
