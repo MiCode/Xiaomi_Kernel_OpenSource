@@ -1940,12 +1940,7 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 				mhi_log(MHI_MSG_VERBOSE,
 					"Failed to enable chdb for ch %d\n",
 						ch_id);
-				rc = mhi_dev_send_cmd_comp_event(mhi,
-					MHI_CMD_COMPL_CODE_UNDEFINED);
-				if (rc)
-					mhi_log(MHI_MSG_VERBOSE,
-						"Error with compl event\n");
-				return rc;
+				goto send_undef_completion_event;
 			}
 		}
 
@@ -1959,12 +1954,7 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
 				"start ring failed for ch %d\n", ch_id);
-			rc = mhi_dev_send_cmd_comp_event(mhi,
-						MHI_CMD_COMPL_CODE_UNDEFINED);
-			if (rc)
-				mhi_log(MHI_MSG_ERROR,
-					"Error with compl event\n");
-			return rc;
+			goto send_undef_completion_event;
 		}
 
 		mhi->ring[mhi->ch_ring_start + ch_id].state =
@@ -1990,13 +1980,19 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 					mhi_log(MHI_MSG_ERROR,
 					"error starting event ring %d\n",
 					mhi->ch_ctx_cache[ch_id].err_indx);
-					return rc;
+					goto send_undef_completion_event;
 				}
 			}
 			mutex_lock(&mhi->ch[ch_id].ch_lock);
-			mhi_dev_alloc_evt_buf_evt_req(mhi, &mhi->ch[ch_id],
+			rc = mhi_dev_alloc_evt_buf_evt_req(mhi, &mhi->ch[ch_id],
 					evt_ring);
 			mutex_unlock(&mhi->ch[ch_id].ch_lock);
+			if (rc) {
+				mhi_log(MHI_MSG_ERROR,
+					"Failed to alloc ereqs for er %d\n",
+					mhi->ch_ctx_cache[ch_id].err_indx);
+				goto send_undef_completion_event;
+			}
 		}
 
 		if (MHI_USE_DMA(mhi))
@@ -2022,6 +2018,20 @@ send_start_completion_event:
 		mhi_dev_trigger_cb(ch_id);
 		mhi_uci_chan_state_notify(mhi, ch_id, MHI_STATE_CONNECTED);
 		break;
+
+send_undef_completion_event:
+		mhi->ch_ctx_cache[ch_id].ch_state = MHI_DEV_CH_STATE_DISABLED;
+		mhi->ch[ch_id].state = MHI_DEV_CH_UNINT;
+
+		rc = mhi_dev_send_cmd_comp_event(mhi,
+				MHI_CMD_COMPL_CODE_UNDEFINED);
+		if (rc)
+			mhi_log(MHI_MSG_VERBOSE, "Error with compl event\n");
+
+		mhi_dev_mmio_disable_chdb_a7(mhi, ch_id);
+
+		return rc;
+
 	case MHI_DEV_RING_EL_STOP:
 		if (ch_id >= HW_CHANNEL_BASE) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
