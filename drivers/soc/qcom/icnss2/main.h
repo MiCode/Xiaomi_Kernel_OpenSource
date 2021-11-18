@@ -178,10 +178,13 @@ struct icnss_fw_mem {
 };
 
 enum icnss_smp2p_msg_id {
-	ICNSS_POWER_SAVE_ENTER = 1,
+	ICNSS_RESET_MSG,
+	ICNSS_POWER_SAVE_ENTER,
 	ICNSS_POWER_SAVE_EXIT,
 	ICNSS_TRIGGER_SSR,
-	ICNSS_PCI_EP_POWER_SAVE_ENTER = 6,
+	ICNSS_SOC_WAKE_REQ,
+	ICNSS_SOC_WAKE_REL,
+	ICNSS_PCI_EP_POWER_SAVE_ENTER,
 	ICNSS_PCI_EP_POWER_SAVE_EXIT,
 };
 
@@ -324,6 +327,19 @@ struct icnss_thermal_cdev {
 	struct thermal_cooling_device *tcdev;
 };
 
+enum smp2p_out_entry {
+	ICNSS_SMP2P_OUT_POWER_SAVE,
+	ICNSS_SMP2P_OUT_SOC_WAKE,
+	ICNSS_SMP2P_OUT_EP_POWER_SAVE,
+	ICNSS_SMP2P_OUT_MAX
+};
+
+static const char * const icnss_smp2p_str[] = {
+	[ICNSS_SMP2P_OUT_POWER_SAVE] = "wlan-smp2p-out",
+	[ICNSS_SMP2P_OUT_SOC_WAKE] = "wlan-soc-wake-smp2p-out",
+	[ICNSS_SMP2P_OUT_EP_POWER_SAVE] = "wlan-ep-powersave-smp2p-out",
+};
+
 struct smp2p_out_info {
 	unsigned short seq;
 	unsigned int smem_bit;
@@ -425,7 +441,7 @@ struct icnss_priv {
 	struct mutex dev_lock;
 	uint32_t fw_error_fatal_irq;
 	uint32_t fw_early_crash_irq;
-	struct smp2p_out_info smp2p_info;
+	struct smp2p_out_info smp2p_info[ICNSS_SMP2P_OUT_MAX];
 	struct completion unblock_shutdown;
 	struct adc_tm_param vph_monitor_params;
 	struct adc_tm_chip *adc_tm_dev;
@@ -462,6 +478,8 @@ struct icnss_priv {
 	u32 wlan_en_delay_ms;
 	struct class *icnss_ramdump_class;
 	dev_t icnss_ramdump_dev;
+	struct completion smp2p_soc_wake_wait;
+	uint32_t fw_soc_wake_ack_irq;
 };
 
 struct icnss_reg_info {
