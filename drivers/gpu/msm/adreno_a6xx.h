@@ -183,7 +183,6 @@ struct a6xx_cp_smmu_info {
 #define A6XX_HWSCHED_INT_MASK \
 	((1 << A6XX_INT_CP_AHB_ERROR) |			\
 	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
 	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
 	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
 	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
