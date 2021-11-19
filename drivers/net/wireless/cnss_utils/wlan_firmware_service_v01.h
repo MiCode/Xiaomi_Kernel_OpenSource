@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #ifndef WLAN_FIRMWARE_SERVICE_V01_H
 #define WLAN_FIRMWARE_SERVICE_V01_H
@@ -9,6 +11,8 @@
 #define WLFW_SERVICE_ID_V01 0x45
 #define WLFW_SERVICE_VERS_V01 0x01
 
+#define QMI_WLFW_SUBSYS_RESTART_LEVEL_RESP_V01 0x0055
+#define QMI_WLFW_SUBSYS_RESTART_LEVEL_REQ_V01 0x0055
 #define QMI_WLFW_POWER_SAVE_RESP_V01 0x0050
 #define QMI_WLFW_CAP_REQ_V01 0x0024
 #define QMI_WLFW_CAL_REPORT_REQ_V01 0x0026
@@ -166,6 +170,7 @@ enum wlfw_mem_type_enum_v01 {
 	QMI_WLFW_MEM_HANG_DATA_V01 = 7,
 	QMI_WLFW_MLO_GLOBAL_MEM_V01 = 8,
 	QMI_WLFW_PAGEABLE_MEM_V01 = 9,
+	QMI_WLFW_AFC_MEM_V01 = 10,
 	WLFW_MEM_TYPE_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
@@ -248,6 +253,7 @@ enum cnss_feature_v01 {
 	CNSS_FEATURE_MIN_VAL_V01 = INT_MIN,
 	BOOTSTRAP_CLOCK_SELECT_V01 = 0,
 	CNSS_DRV_SUPPORT_V01 = 1,
+	CNSS_WLAN_EN_SUPPORT_V01 = 2,
 	CNSS_MAX_FEATURE_V01 = 64,
 	CNSS_FEATURE_MAX_VAL_V01 = INT_MAX,
 };
@@ -530,8 +536,15 @@ struct wlfw_cap_resp_msg_v01 {
 	enum wlfw_rd_card_chain_cap_v01 rd_card_chain_cap;
 	u8 dev_mem_info_valid;
 	struct wlfw_dev_mem_info_s_v01 dev_mem_info[QMI_WLFW_MAX_DEV_MEM_NUM_V01];
+	u8 foundry_name_valid;
+	char foundry_name[QMI_WLFW_MAX_STR_LEN_V01 + 1];
+	u8 hang_data_addr_offset_valid;
+	u32 hang_data_addr_offset;
+	u8 hang_data_length_valid;
+	u16 hang_data_length;
 };
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 320
+
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 351
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
@@ -803,9 +816,11 @@ struct wlfw_host_cap_req_msg_v01 {
 	u8 num_wlan_vaps;
 	u8 wake_msi_addr_valid;
 	u32 wake_msi_addr;
+	u8 wlan_enable_delay_valid;
+	u32 wlan_enable_delay;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 389
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 396
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
@@ -1267,5 +1282,20 @@ struct wlfw_m3_dump_upload_segments_req_ind_msg_v01 {
 
 #define WLFW_M3_DUMP_UPLOAD_SEGMENTS_REQ_IND_MSG_V01_MAX_MSG_LEN 387
 extern struct qmi_elem_info wlfw_m3_dump_upload_segments_req_ind_msg_v01_ei[];
+
+struct wlfw_subsys_restart_level_req_msg_v01 {
+	u8 restart_level_type_valid;
+	u8 restart_level_type;
+};
+
+#define WLFW_SUBSYS_RESTART_LEVEL_REQ_MSG_V01_MAX_MSG_LEN 4
+extern struct qmi_elem_info wlfw_subsys_restart_level_req_msg_v01_ei[];
+
+struct wlfw_subsys_restart_level_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+
+#define WLFW_SUBSYS_RESTART_LEVEL_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct qmi_elem_info wlfw_subsys_restart_level_resp_msg_v01_ei[];
 
 #endif
