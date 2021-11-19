@@ -2047,9 +2047,7 @@ static int icnss_enable_recovery(struct icnss_priv *priv)
 		goto enable_pdr;
 	}
 
-	ret = icnss_create_ramdump_devices(priv);
-	if (ret)
-		return ret;
+	icnss_create_ramdump_devices(priv);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		icnss_wpss_ssr_register_notifier(priv);
