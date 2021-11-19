@@ -2390,12 +2390,14 @@
 		reset-names = "rst";
 
 		iommus = <&apps_smmu 0x20 0x0>;
+		qcom,iommu-dma = "fastmap";
 		dma-coherent;
 
 		status = "disabled";
 		qos0 {
 			mask = <0xf0>;
 			vote = <44>;
+			perf;
 		};
 
 		qos1 {
