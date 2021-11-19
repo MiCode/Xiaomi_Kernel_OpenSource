@@ -1792,6 +1792,14 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,tmecom-qmp-client {
+		compatible = "qcom,tmecom-qmp-client";
+		mboxes = <&qmp_tme 0>;
+		mbox-names = "tmecom";
+		label = "tmecom";
+		depends-on-supply = <&qmp_tme>;
+	};
+
 	adsp_pas: remoteproc-adsp@03000000 {
 		compatible = "qcom,diwali-adsp-pas";
 		reg = <0x03000000 0x10000>;
