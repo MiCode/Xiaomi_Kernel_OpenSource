@@ -386,7 +386,7 @@ out:
 }
 
 int ovl_xattr_get(struct dentry *dentry, struct inode *inode, const char *name,
-		  void *value, size_t size, int flags)
+		  void *value, size_t size)
 {
 	ssize_t res;
 	const struct cred *old_cred;
@@ -394,8 +394,7 @@ int ovl_xattr_get(struct dentry *dentry, struct inode *inode, const char *name,
 		ovl_i_dentry_upper(inode) ?: ovl_dentry_lower(dentry);
 
 	old_cred = ovl_override_creds(dentry->d_sb);
-	res = __vfs_getxattr(&init_user_ns, realdentry, d_inode(realdentry),
-			     name, value, size, flags);
+	res = vfs_getxattr(&init_user_ns, realdentry, name, value, size);
 	revert_creds(old_cred);
 	return res;
 }
