@@ -2190,15 +2190,14 @@ static void mhi_dev_process_ring_pending(struct work_struct *work)
 		}
 
 		ch = &mhi->ch[ring->id - mhi->ch_ring_start];
-		mutex_lock(&ch->ch_lock);
 
 		rc = mhi_dev_process_ring(ring);
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
 				"error processing ring %d\n", ring->id);
-			mutex_unlock(&ch->ch_lock);
 			goto exit;
 		}
+		mutex_lock(&ch->ch_lock);
 		ch->db_pending = false;
 		mutex_unlock(&ch->ch_lock);
 
@@ -3299,9 +3298,9 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 	mutex_lock(&ch->ch_lock);
 
 	do {
-		if (ch->state == MHI_DEV_CH_STOPPED) {
+		if (ch->state == MHI_DEV_CH_STOPPED || ch->reset_pending) {
 			mhi_log(MHI_MSG_VERBOSE,
-				"channel (%d) already stopped\n",
+				"channel (%d) already stopped or RST pending\n",
 				mreq->chan);
 			bytes_read = -1;
 			goto exit;
@@ -3481,9 +3480,10 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	}
 
 	ch->pend_wr_count++;
-	if (ch->state == MHI_DEV_CH_STOPPED) {
+	if (ch->state == MHI_DEV_CH_STOPPED || ch->reset_pending) {
 		mhi_log(MHI_MSG_ERROR,
-			"channel %d already stopped\n", wreq->chan);
+			"channel %d already stopped or RST pending\n",
+			wreq->chan);
 		bytes_written = -1;
 		goto exit;
 	}
