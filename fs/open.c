@@ -54,7 +54,7 @@ int do_truncate(struct user_namespace *mnt_userns, struct dentry *dentry,
 	}
 
 	/* Remove suid, sgid, and file capabilities on truncate too */
-	ret = dentry_needs_remove_privs(mnt_userns, dentry);
+	ret = dentry_needs_remove_privs(dentry);
 	if (ret < 0)
 		return ret;
 	if (ret)
