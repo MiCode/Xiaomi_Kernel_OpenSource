@@ -75,6 +75,8 @@ static DEFINE_SPINLOCK(idle_list_lock);
 static struct cpucp_hlos_map cpucp_map[MAX_CPUCP_EVT];
 static struct kobject pmu_kobj;
 static bool pmu_counters_enabled = true;
+static unsigned int pmu_enable_trace;
+
 /*
  * is_amu_valid: Check if AMUs are supported and if the id corresponds to the
  * four supported AMU counters i.e. SYS_AMEVCNTR0_CONST_EL0,
@@ -449,15 +451,16 @@ static int configure_cpucp_map(cpumask_t mask)
 	if (!qcom_pmu_inited)
 		return -EPROBE_DEFER;
 
+	if (!ops || !pmu_base)
+		return ret;
+
 	/*
 	 * Only set the hw cntrs for cpus that are part of the cpumask passed
 	 * in argument and cpucp_map events mask. Set rest of the memory with
 	 * INVALID_ID which is ignored on cpucp side.
 	 */
 	memset(pmu_map, INVALID_ID, MAX_NUM_CPUS * MAX_CPUCP_EVT);
-	for (cpu = 0; cpu < MAX_NUM_CPUS; cpu++) {
-		if (!cpumask_test_cpu(cpu, &mask))
-			continue;
+	for_each_cpu(cpu, &mask) {
 		cpu_data = per_cpu(cpu_ev_data, cpu);
 		for (i = 0; i < cpu_data->num_evs; i++) {
 			event = &cpu_data->events[i];
@@ -470,8 +473,7 @@ static int configure_cpucp_map(cpumask_t mask)
 		}
 	}
 
-	if (ops)
-		ret = ops->set_pmu_map(ph, pmu_map);
+	ret = ops->set_pmu_map(ph, pmu_map);
 
 	return ret;
 }
@@ -858,7 +860,7 @@ int rimps_pmu_init(struct scmi_device *sdev)
 	 * will be de-allocated. Make ops NULL to avoid further scmi calls.
 	 */
 	ret = configure_cpucp_map(*cpu_possible_mask);
-	if (ret)
+	if (ret < 0)
 		ops = NULL;
 
 	return ret;
@@ -957,7 +959,7 @@ struct qcom_pmu_attr {
 
 #define to_pmu_attr(_attr) \
 	container_of(_attr, struct qcom_pmu_attr, attr)
-#define PERF_ATTR_RW(_name)			\
+#define PMU_ATTR_RW(_name)			\
 static struct qcom_pmu_attr _name =		\
 __ATTR(_name, 0644, show_##_name, store_##_name)\
 
@@ -981,9 +983,40 @@ static ssize_t store_enable_counters(struct kobject *kobj,
 	return count;
 }
 
-PERF_ATTR_RW(enable_counters);
+static ssize_t show_enable_trace(struct kobject *kobj,
+				    struct attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pmu_enable_trace);
+}
+
+static ssize_t store_enable_trace(struct kobject *kobj,
+				     struct attribute *attr, const char *buf,
+				     size_t count)
+{
+	unsigned int var;
+	int ret;
+
+	if (!ops)
+		return -ENODEV;
+
+	ret = kstrtouint(buf, 10, &var);
+	if (ret < 0)
+		return ret;
+
+	ret = ops->set_enable_trace(ph, &var);
+	if (ret < 0)
+		return ret;
+
+	pmu_enable_trace = var;
+
+	return count;
+}
+
+PMU_ATTR_RW(enable_counters);
+PMU_ATTR_RW(enable_trace);
 static struct attribute *pmu_settings_attr[] = {
 	&enable_counters.attr,
+	&enable_trace.attr,
 	NULL,
 };
 

@@ -70,6 +70,8 @@ qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom_llcc_pmu.ko
 qcom-pmu-lib.ko
+pmu_vendor.ko
+pmu_scmi.ko
 qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
 qcom-reboot-reason.ko
