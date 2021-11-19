@@ -470,6 +470,35 @@
 		status = "disabled";
 	};
 
+	bluetooth: bt_qca6490 {
+		compatible = "qcom,qca6490";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_CTRL */
+		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
+		qcom,xo-clk-gpio = <&tlmm 204 0>; /* XO */
+
+		qcom,bt-vdd-io-supply = <&S10B>;  /* IO */
+		qcom,bt-vdd-aon-supply = <&S11B>;
+		qcom,bt-vdd-dig-supply = <&S11B>; /* BT_CX_MX */
+		qcom,bt-vdd-rfacmn-supply = <&S11B>;
+		qcom,bt-vdd-rfa-0p8-supply = <&S11B>;
+		qcom,bt-vdd-rfa1-supply = <&S1C>; /* RFA 1p7 */
+		qcom,bt-vdd-rfa2-supply = <&S12B>; /* RFA 1p2 */
+		qcom,bt-vdd-asd-supply = <&L7E>;
+
+		/* Max Voltages are derived from the buck Max Voltage */
+		qcom,bt-vdd-io-config = <1800000 1800000 0 1>;
+		qcom,bt-vdd-aon-config = <966000 1170000 0 1>;
+		qcom,bt-vdd-dig-config = <966000 1170000 0 1>;
+		qcom,bt-vdd-rfacmn-config  = <966000 1170000 0 1>;
+		qcom,bt-vdd-rfa-0p8-config  = <966000 1170000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1900000 2040000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1350000 2024000 0 1>;
+		qcom,bt-vdd-asd-config = <2800000 2800000 0 1>;
+	};
+
 	intc: interrupt-controller@17100000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
@@ -2760,6 +2789,10 @@
 #include "msm-rdbg.dtsi"
 
 &qupv3_se7_2uart {
+	status = "ok";
+};
+
+&qupv3_se20_4uart {
 	status = "ok";
 };
 
