@@ -72,15 +72,16 @@ static void qcom_q6v5_crash_handler_work(struct work_struct *work)
 
 	votes = atomic_xchg(&rproc->power, 0);
 	/* if votes are zero, rproc has already been shutdown */
-	if (votes == 0)
-		goto rproc_unlock;
+	if (votes == 0) {
+		mutex_unlock(&rproc->lock);
+		return;
+	}
 
 	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
 		if (subdev->stop)
 			subdev->stop(subdev, true);
 	}
 
-rproc_unlock:
 	mutex_unlock(&rproc->lock);
 
 	/*
