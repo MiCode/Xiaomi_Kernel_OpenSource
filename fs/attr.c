@@ -342,7 +342,7 @@ int notify_change(struct user_namespace *mnt_userns, struct dentry *dentry,
 		attr->ia_mtime = timestamp_truncate(attr->ia_mtime, inode);
 
 	if (ia_valid & ATTR_KILL_PRIV) {
-		error = security_inode_need_killpriv(dentry);
+		error = security_inode_need_killpriv(mnt_userns, dentry);
 		if (error < 0)
 			return error;
 		if (error == 0)
