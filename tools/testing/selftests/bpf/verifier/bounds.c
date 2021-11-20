@@ -506,3 +506,68 @@
 	.errstr = "map_value pointer and 1000000000000",
 	.result = REJECT
 },
+{
+	"bounds check mixed 32bit and 64bit arithmatic. test1",
+	.insns = {
+	BPF_MOV64_IMM(BPF_REG_0, 0),
+	BPF_MOV64_IMM(BPF_REG_1, -1),
+	BPF_ALU64_IMM(BPF_LSH, BPF_REG_1, 32),
+	BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 1),
+	/* r1 = 0xffffFFFF00000001 */
+	BPF_JMP32_IMM(BPF_JGT, BPF_REG_1, 1, 3),
+	/* check ALU64 op keeps 32bit bounds */
+	BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 1),
+	BPF_JMP32_IMM(BPF_JGT, BPF_REG_1, 2, 1),
+	BPF_JMP_A(1),
+	/* invalid ldx if bounds are lost above */
+	BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_0, -1),
+	BPF_EXIT_INSN(),
+	},
+	.errstr_unpriv = "R0 invalid mem access 'inv'",
+	.result_unpriv = REJECT,
+	.result = ACCEPT
+},
+{
+	"bounds check mixed 32bit and 64bit arithmatic. test2",
+	.insns = {
+	BPF_MOV64_IMM(BPF_REG_0, 0),
+	BPF_MOV64_IMM(BPF_REG_1, -1),
+	BPF_ALU64_IMM(BPF_LSH, BPF_REG_1, 32),
+	BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 1),
+	/* r1 = 0xffffFFFF00000001 */
+	BPF_MOV64_IMM(BPF_REG_2, 3),
+	/* r1 = 0x2 */
+	BPF_ALU32_IMM(BPF_ADD, BPF_REG_1, 1),
+	/* check ALU32 op zero extends 64bit bounds */
+	BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_2, 1),
+	BPF_JMP_A(1),
+	/* invalid ldx if bounds are lost above */
+	BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_0, -1),
+	BPF_EXIT_INSN(),
+	},
+	.errstr_unpriv = "R0 invalid mem access 'inv'",
+	.result_unpriv = REJECT,
+	.result = ACCEPT
+},
+{
+	"assigning 32bit bounds to 64bit for wA = 0, wB = wA",
+	.insns = {
+	BPF_LDX_MEM(BPF_W, BPF_REG_8, BPF_REG_1,
+		    offsetof(struct __sk_buff, data_end)),
+	BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1,
+		    offsetof(struct __sk_buff, data)),
+	BPF_MOV32_IMM(BPF_REG_9, 0),
+	BPF_MOV32_REG(BPF_REG_2, BPF_REG_9),
+	BPF_MOV64_REG(BPF_REG_6, BPF_REG_7),
+	BPF_ALU64_REG(BPF_ADD, BPF_REG_6, BPF_REG_2),
+	BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
+	BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, 8),
+	BPF_JMP_REG(BPF_JGT, BPF_REG_3, BPF_REG_8, 1),
+	BPF_LDX_MEM(BPF_W, BPF_REG_5, BPF_REG_6, 0),
+	BPF_MOV64_IMM(BPF_REG_0, 0),
+	BPF_EXIT_INSN(),
+	},
+	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+	.result = ACCEPT,
+	.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
+},

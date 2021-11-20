@@ -51,6 +51,7 @@
   regulator_set_voltage
   remove_proc_entry
   schedule_timeout
+  sdio_writeb_readb
   seq_printf
   seq_read
   simple_open
