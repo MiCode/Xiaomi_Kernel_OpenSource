@@ -823,7 +823,7 @@ static bool mhi_in_rddm(struct mhi_controller *mhi_cntrl)
 	    && mhi_is_active(mhi_cntrl)) {
 		mhi_cntrl->ee = MHI_EE_RDDM;
 
-		MHI_ERR("RDDM event occurred!\n");
+		MHI_ERR(dev, "RDDM event occurred!\n");
 
 		/* notify critical clients with early notifications */
 		mhi_report_error(mhi_cntrl);
