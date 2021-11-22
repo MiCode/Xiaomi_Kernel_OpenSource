@@ -130,7 +130,7 @@ prototypes::
 	bool (*list)(struct dentry *dentry);
 	int (*get)(const struct xattr_handler *handler, struct dentry *dentry,
 		   struct inode *inode, const char *name, void *buffer,
-		   size_t size, int flags);
+		   size_t size);
 	int (*set)(const struct xattr_handler *handler,
                    struct user_namespace *mnt_userns,
                    struct dentry *dentry, struct inode *inode, const char *name,
