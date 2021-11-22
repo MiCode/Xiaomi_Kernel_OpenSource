@@ -285,6 +285,9 @@ static void log_gpu_fault(struct adreno_device *adreno_dev)
 			cur, cur_rptr, cur_wptr, next, next_rptr, next_wptr);
 		}
 		break;
+	case GMU_CP_GPC_ERROR:
+		dev_crit_ratelimited(dev, "RBBM: GPC error\n");
+		break;
 	default:
 		dev_crit_ratelimited(dev, "Unknown GPU fault: %u\n",
 			cmd->error);
