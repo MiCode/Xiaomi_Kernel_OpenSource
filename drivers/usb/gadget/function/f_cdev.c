@@ -358,21 +358,28 @@ static inline struct f_cdev *cser_to_port(struct cserial *cser)
 	return container_of(cser, struct f_cdev, port_usb);
 }
 
-static unsigned int convert_uart_sigs_to_acm(unsigned int uart_sig)
+static unsigned int convert_uart_sigs_to_acm(struct cserial *cser, unsigned int uart_sig)
 {
-	unsigned int acm_sig = 0;
+	u16 state;
+
+	state = cser->serial_state;
+
+	/* Make sure that ACM bits from previous conversion are cleared */
+	state &= ~(ACM_CTRL_RI | ACM_CTRL_DCD | ACM_CTRL_DSR | ACM_CTRL_BRK);
 
 	/* should this needs to be in calling functions ??? */
-	uart_sig &= (TIOCM_RI | TIOCM_CD | TIOCM_DSR);
+	uart_sig &= (TIOCM_RI | TIOCM_CD | TIOCM_DSR | TIOCM_CTS);
 
 	if (uart_sig & TIOCM_RI)
-		acm_sig |= ACM_CTRL_RI;
+		state |= ACM_CTRL_RI;
 	if (uart_sig & TIOCM_CD)
-		acm_sig |= ACM_CTRL_DCD;
+		state |= ACM_CTRL_DCD;
 	if (uart_sig & TIOCM_DSR)
-		acm_sig |= ACM_CTRL_DSR;
+		state |= ACM_CTRL_DSR;
+	if (uart_sig & TIOCM_CTS)
+		state |= ACM_CTRL_BRK;
 
-	return acm_sig;
+	return state;
 }
 
 static unsigned int convert_acm_sigs_to_uart(unsigned int acm_sig)
@@ -1660,7 +1667,7 @@ static void usb_cser_notify_modem(void *fport, int ctrl_bits)
 		unsigned int cbits_to_laptop;
 
 		result = f_cdev_tiocmget(port);
-		cbits_to_laptop = convert_uart_sigs_to_acm(result);
+		cbits_to_laptop = convert_uart_sigs_to_acm(cser, result);
 		if (cser->send_modem_ctrl_bits)
 			cser->send_modem_ctrl_bits(cser, cbits_to_laptop);
 	}
