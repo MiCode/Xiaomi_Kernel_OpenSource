@@ -737,6 +737,7 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 		(dispatch_q->inflight < inflight)) {
 		struct kgsl_drawobj *drawobj;
 		struct kgsl_drawobj_cmd *cmdobj;
+		struct kgsl_context *context;
 
 		if (adreno_gpu_fault(adreno_dev) != 0)
 			break;
@@ -762,6 +763,9 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 
 		timestamp = drawobj->timestamp;
 		cmdobj = CMDOBJ(drawobj);
+		context = drawobj->context;
+		trace_adreno_cmdbatch_ready(context->id, context->priority,
+			drawobj->timestamp, cmdobj->requeue_cnt);
 		ret = sendcmd(adreno_dev, cmdobj);
 
 		/*
@@ -782,6 +786,7 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 					drawctxt, cmdobj);
 				if (r)
 					ret = r;
+				cmdobj->requeue_cnt++;
 			}
 
 			break;
@@ -2282,6 +2287,8 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	drawctxt->ticks_index = (drawctxt->ticks_index + 1) %
 		SUBMIT_RETIRE_TICKS_SIZE;
 
+	trace_adreno_cmdbatch_done(drawobj->context->id,
+		drawobj->context->priority, drawobj->timestamp);
 	kgsl_drawobj_destroy(drawobj);
 }
 
