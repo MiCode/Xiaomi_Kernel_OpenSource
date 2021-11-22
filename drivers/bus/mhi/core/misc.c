@@ -301,6 +301,11 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	dev_set_drvdata(dev, mhi_priv);
 
+	mhi_priv->numeric_id = MHI_NUMERIC_DEVICE_ID(parent->device,
+						    pci_domain_nr(parent->bus),
+						    parent->bus->number,
+						    PCI_SLOT(parent->devfn));
+
 	mhi_priv->offload_wq = alloc_ordered_workqueue("mhi_offload_wq",
 						       WQ_HIGHPRI);
 	if (!mhi_priv->offload_wq) {
@@ -1481,19 +1486,6 @@ int mhi_controller_get_base(struct mhi_controller *mhi_cntrl, phys_addr_t *base)
 	return -EINVAL;
 }
 EXPORT_SYMBOL(mhi_controller_get_base);
-
-void mhi_controller_set_numeric_id(struct mhi_controller *mhi_cntrl)
-{
-	struct device *dev = &mhi_cntrl->mhi_dev->dev;
-	struct pci_dev *pci_dev = to_pci_dev(mhi_cntrl->cntrl_dev);
-	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
-
-	mhi_priv->numeric_id = MHI_NUMERIC_DEVICE_ID(pci_dev->device,
-						    pci_domain_nr(pci_dev->bus),
-						    pci_dev->bus->number,
-						    PCI_SLOT(pci_dev->devfn));
-}
-EXPORT_SYMBOL(mhi_controller_set_numeric_id);
 
 u32 mhi_controller_get_numeric_id(struct mhi_controller *mhi_cntrl)
 {

@@ -563,7 +563,7 @@ iommu_map_cmd_completion:
 			break;
 		}
 		default:
-			panic("Unhandled MHI satellite command!");
+			MSG_ERR("Unhandled MHI satellite command!");
 			break;
 		}
 	}
@@ -1113,10 +1113,10 @@ static int mhi_sat_dev_probe(struct mhi_device *mhi_dev,
 
 /* .driver_data stores subsys id */
 static const struct mhi_device_id mhi_sat_dev_match_table[] = {
-	{ .chan = "CDSP_0", .driver_data = SUBSYS_CDSP },
-	{ .chan = "CDSP_1", .driver_data = SUBSYS_CDSP },
-	{ .chan = "CDSP_2", .driver_data = SUBSYS_CDSP },
-	{ .chan = "CDSP_3", .driver_data = SUBSYS_CDSP },
+	{ .chan = "ADSP_0", .driver_data = SUBSYS_ADSP },
+	{ .chan = "ADSP_1", .driver_data = SUBSYS_ADSP },
+	{ .chan = "ADSP_2", .driver_data = SUBSYS_ADSP },
+	{ .chan = "ADSP_3", .driver_data = SUBSYS_ADSP },
 	{},
 };
 
