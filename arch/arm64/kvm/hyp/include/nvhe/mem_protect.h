@@ -54,12 +54,14 @@ extern struct host_kvm host_kvm;
 typedef u32 pkvm_id;
 static const pkvm_id pkvm_host_id	= 0;
 static const pkvm_id pkvm_hyp_id	= (1 << 16);
+static const pkvm_id pkvm_host_poison	= pkvm_hyp_id + 1;
 
 extern unsigned long hyp_nr_cpus;
 
 int __pkvm_prot_finalize(void);
 int __pkvm_host_share_hyp(u64 pfn);
 int __pkvm_host_unshare_hyp(u64 pfn);
+int __pkvm_host_reclaim_page(u64 pfn);
 int __pkvm_host_donate_hyp(u64 pfn, u64 nr_pages);
 int __pkvm_hyp_donate_host(u64 pfn, u64 nr_pages);
 int __pkvm_host_share_guest(u64 pfn, u64 gfn, struct kvm_vcpu *vcpu);

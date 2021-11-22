@@ -304,12 +304,7 @@ static int reclaim_walker(u64 addr, u64 end, u32 level, kvm_pte_t *ptep,
 	 * stage-2 so no need to waste effort trying to keep it in sync.
 	 */
 	phys = kvm_pte_to_phys(pte);
-	BUG_ON(host_stage2_set_owner_locked(phys, PAGE_SIZE, pkvm_host_id));
-
-	/*
-	 * XXX: if protected guest mark the page 'dirty' instead, and zero it
-	 * lazily on host s2 aborts.
-	 */
+	BUG_ON(host_stage2_set_owner_locked(phys, PAGE_SIZE, pkvm_host_poison));
 
 	return 0;
 }
@@ -521,6 +516,11 @@ int host_stage2_idmap_locked(phys_addr_t addr, u64 size,
 static kvm_pte_t kvm_init_invalid_leaf_owner(pkvm_id owner_id)
 {
 	return FIELD_PREP(KVM_INVALID_PTE_OWNER_MASK, owner_id);
+}
+
+static pkvm_id kvm_get_owner_id(kvm_pte_t pte)
+{
+	return FIELD_GET(KVM_INVALID_PTE_OWNER_MASK, pte);
 }
 
 int host_stage2_set_owner_locked(phys_addr_t addr, u64 size,
@@ -1763,6 +1763,58 @@ int __pkvm_host_donate_guest(u64 pfn, u64 gfn, struct kvm_vcpu *vcpu)
 	ret = do_donate(&donation);
 
 	guest_unlock_component(vcpu);
+	host_unlock_component();
+
+	return ret;
+}
+
+static int hyp_zero_page(phys_addr_t phys)
+{
+	void *addr;
+
+	addr = hyp_fixmap_map(phys);
+	if (!addr)
+		return -EINVAL;
+	memset(addr, 0, PAGE_SIZE);
+	__clean_dcache_guest_page(addr, PAGE_SIZE);
+
+	return hyp_fixmap_unmap();
+}
+
+int __pkvm_host_reclaim_page(u64 pfn)
+{
+	u64 addr = hyp_pfn_to_phys(pfn);
+	enum pkvm_page_state state;
+	kvm_pte_t pte;
+	int ret;
+
+	host_lock_component();
+
+	ret = kvm_pgtable_get_leaf(&host_kvm.pgt, addr, &pte, NULL);
+	if (ret)
+		goto unlock;
+
+	if (kvm_pte_valid(pte)) {
+		state = host_get_page_state(pte);
+		ret = (state == PKVM_PAGE_OWNED) ? 0 : -EPERM;
+		goto unlock;
+	}
+
+	switch (kvm_get_owner_id(pte)) {
+	case pkvm_host_id:
+		ret = 0;
+		break;
+	case pkvm_host_poison:
+		ret = hyp_zero_page(addr);
+		if (ret)
+			goto unlock;
+		ret = host_stage2_set_owner_locked(addr, PAGE_SIZE, pkvm_host_id);
+		break;
+	default:
+		ret = -EPERM;
+	}
+
+unlock:
 	host_unlock_component();
 
 	return ret;
