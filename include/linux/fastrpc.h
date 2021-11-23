@@ -114,14 +114,14 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev,
 	enum fastrpc_driver_invoke_nums invoke_num, unsigned long invoke_param);
 
 #else
-int fastrpc_driver_register(struct fastrpc_driver *drv)
+static inline int fastrpc_driver_register(struct fastrpc_driver *drv)
 {   return 0;   }
 
-void fastrpc_driver_unregister(struct fastrpc_driver *drv)
+static inline void fastrpc_driver_unregister(struct fastrpc_driver *drv)
 {   return;     }
 
-long fastrpc_driver_invoke(struct fastrpc_device *dev,
-	enum fastrpc_driver_invoke_nums invoke_num, unsigned long invoke_param);
+static inline long fastrpc_driver_invoke(struct fastrpc_device *dev,
+	enum fastrpc_driver_invoke_nums invoke_num, unsigned long invoke_param)
 {   return 0;   }
 #endif
 
