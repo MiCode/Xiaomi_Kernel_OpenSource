@@ -81,13 +81,6 @@ do {									\
 #define CSR_MAX_ATID	128
 #define CSR_ATID_REG_SIZE	0xc
 
-#define CSR_ATID_REG_OFFSET(atid, atid_offset) \
-		((atid / 32) * 4 + atid_offset)
-
-#define CSR_ATID_REG_BIT(atid)	(atid % 32)
-#define CSR_MAX_ATID	128
-#define CSR_ATID_REG_SIZE	0xc
-
 struct csr_drvdata {
 	void __iomem		*base;
 	phys_addr_t		pbase;
