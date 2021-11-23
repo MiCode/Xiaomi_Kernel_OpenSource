@@ -1011,13 +1011,13 @@
 			silver {
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+				qcom,sampling-enabled;
 				ddr4-tbl {
 					qcom,ddr-type = <7>;
 					qcom,cpufreq-memfreq-tbl =
 						< 1094400  547000 >,
 						< 1555200  768000 >,
 						< 1804000 1017000 >;
-					qcom,sampling-enabled;
 				};
 
 				ddr5-tbl {
@@ -1026,13 +1026,13 @@
 						< 1094400  547000 >,
 						< 1555200  768000 >,
 						< 1804000 1555000 >;
-					qcom,sampling-enabled;
-					};
+				};
 			};
 
 			gold {
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
+				qcom,sampling-enabled;
 				ddr4-tbl {
 					qcom,ddr-type = <7>;
 					qcom,cpufreq-memfreq-tbl =
@@ -1041,7 +1041,6 @@
 						< 1651200 1555000 >,
 						< 2208000 1708000 >,
 						< 2361600 2092000 >;
-					qcom,sampling-enabled;
 				};
 
 				ddr5-tbl {
@@ -1053,13 +1052,13 @@
 						< 1804000 1708000 >,
 						< 2208000 2092000 >,
 						< 2361600 3196000 >;
-				 qcom,sampling-enabled;
 				};
 			};
 
 			prime {
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU7>;
+				qcom,sampling-enabled;
 				ddr4-tbl {
 					qcom,ddr-type = <7>;
 					qcom,cpufreq-memfreq-tbl =
@@ -1068,7 +1067,6 @@
 						< 1651200 1555000 >,
 						< 2208000 1708000 >,
 						< 2400000 2092000 >;
-					qcom,sampling-enabled;
 				};
 
 				ddr5-tbl {
@@ -1080,20 +1078,19 @@
 						< 1900000 1708000 >,
 						< 2208000 2092000 >,
 						< 2400000 3196000 >;
-					qcom,sampling-enabled;
 				};
 			};
 
 			silver-compute {
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+				qcom,sampling-enabled;
+				qcom,compute-mon;
 				ddr4-tbl {
 					qcom,ddr-type = <7>;
 					qcom,cpufreq-memfreq-tbl =
 						< 1552000  547000 >,
 						< 1804000  768000 >;
-					qcom,sampling-enabled;
-					qcom,compute-mon;
 				};
 
 				ddr5-tbl {
@@ -1101,14 +1098,14 @@
 					qcom,cpufreq-memfreq-tbl =
 						< 1552000  547000 >,
 						< 1804000  768000 >;
-					qcom,sampling-enabled;
-					qcom,compute-mon;
 				};
 			};
 
-		gold-compute {
+			gold-compute {
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+				qcom,sampling-enabled;
+				qcom,compute-mon;
 				ddr4-tbl {
 					qcom,ddr-type = <7>;
 					qcom,cpufreq-memfreq-tbl =
@@ -1118,8 +1115,6 @@
 						< 1804000 1555000 >,
 						< 2208000 1708000 >,
 						< 2361600 2092000 >;
-					qcom,sampling-enabled;
-					qcom,compute-mon;
 				};
 
 				ddr5-tbl {
@@ -1131,29 +1126,26 @@
 						< 1804000 1708000 >,
 						< 2208000 2092000 >,
 						< 2361600 3196000 >;
-					qcom,sampling-enabled;
-					qcom,compute-mon;
 				};
 			};
 
 			prime-latfloor {
-					compatible = "qcom,memlat-mon";
-					qcom,cpulist = <&CPU7>;
-					ddr4-tbl {
-						qcom,ddr-type = <7>;
-						qcom,cpufreq-memfreq-tbl =
-							< 2284800  547000 >,
-							< 2707200 2092300 >;
-						qcom,sampling-enabled;
-					};
+				compatible = "qcom,memlat-mon";
+				qcom,cpulist = <&CPU7>;
+				qcom,sampling-enabled;
+				ddr4-tbl {
+					qcom,ddr-type = <7>;
+					qcom,cpufreq-memfreq-tbl =
+						< 2284800  547000 >,
+						< 2707200 2092300 >;
+				};
 
-					ddr5-tbl {
-						qcom,ddr-type = <8>;
-						qcom,cpufreq-memfreq-tbl =
-							< 2284800  547000 >,
-							< 2707200 3196000 >;
-						qcom,sampling-enabled;
-					};
+				ddr5-tbl {
+					qcom,ddr-type = <8>;
+					qcom,cpufreq-memfreq-tbl =
+						< 2284800  547000 >,
+						< 2707200 3196000 >;
+				};
 			};
 		};
 
