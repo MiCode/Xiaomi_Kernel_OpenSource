@@ -150,6 +150,11 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	intc: interrupt-controller@0x17200000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
