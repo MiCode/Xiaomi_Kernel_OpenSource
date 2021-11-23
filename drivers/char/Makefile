@@ -50,4 +50,5 @@ ifdef CONFIG_COMPAT
   frpc-adsprpc-objs		+= adsprpc_compat.o
 endif
 obj-$(CONFIG_MSM_ADSPRPC)	+= frpc-adsprpc.o
+obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
 obj-$(CONFIG_ADI)		+= adi.o
