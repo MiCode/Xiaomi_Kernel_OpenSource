@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-contiguous.h>
@@ -364,7 +364,7 @@ static void fast_smmu_unmap_sg(struct device *dev,
 	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
 	unsigned long flags;
 	dma_addr_t start;
-	size_t len;
+	size_t len, offset;
 	struct scatterlist *tmp;
 	int i;
 
@@ -376,12 +376,13 @@ static void fast_smmu_unmap_sg(struct device *dev,
 	 * contiguous IOVA allocation, so this is incredibly easy.
 	 */
 	start = sg_dma_address(sg);
+	offset = start & ~FAST_PAGE_MASK;
 	for_each_sg(sg_next(sg), tmp, nelems - 1, i) {
 		if (sg_dma_len(tmp) == 0)
 			break;
 		sg = tmp;
 	}
-	len = ALIGN(sg_dma_address(sg) + sg_dma_len(sg) - start,
+	len = ALIGN(sg_dma_address(sg) + sg_dma_len(sg) - (start - offset),
 		    FAST_PAGE_SIZE);
 
 	av8l_fast_unmap_public(mapping->pgtbl_ops, start, len);
