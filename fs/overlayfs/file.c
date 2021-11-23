@@ -19,6 +19,7 @@
 
 struct ovl_aio_req {
 	struct kiocb iocb;
+	refcount_t ref;
 	struct kiocb *orig_iocb;
 	struct fd fd;
 };
@@ -56,14 +57,13 @@ static struct file *ovl_open_realfile(const struct file *file,
 	if (err) {
 		realfile = ERR_PTR(err);
 	} else {
-		if (old_cred && !inode_owner_or_capable(&init_user_ns,
-							realinode))
+		if (!inode_owner_or_capable(&init_user_ns, realinode))
 			flags &= ~O_NOATIME;
 
 		realfile = open_with_fake_path(&file->f_path, flags, realinode,
 					       current_cred());
 	}
-	ovl_revert_creds(inode->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	pr_debug("open(%p[%pD2/%c], 0%o) -> (%p, 0%o)\n",
 		 file, file, ovl_whatisit(inode, realinode), file->f_flags,
@@ -207,7 +207,7 @@ static loff_t ovl_llseek(struct file *file, loff_t offset, int whence)
 
 	old_cred = ovl_override_creds(inode->i_sb);
 	ret = vfs_llseek(real.file, offset, whence);
-	ovl_revert_creds(inode->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	file->f_pos = real.file->f_pos;
 	ovl_inode_unlock(inode);
@@ -239,6 +239,14 @@ static void ovl_file_accessed(struct file *file)
 	touch_atime(&file->f_path);
 }
 
+static inline void ovl_aio_put(struct ovl_aio_req *aio_req)
+{
+	if (refcount_dec_and_test(&aio_req->ref)) {
+		fdput(aio_req->fd);
+		kmem_cache_free(ovl_aio_request_cachep, aio_req);
+	}
+}
+
 static void ovl_aio_cleanup_handler(struct ovl_aio_req *aio_req)
 {
 	struct kiocb *iocb = &aio_req->iocb;
@@ -255,8 +263,7 @@ static void ovl_aio_cleanup_handler(struct ovl_aio_req *aio_req)
 	}
 
 	orig_iocb->ki_pos = iocb->ki_pos;
-	fdput(aio_req->fd);
-	kmem_cache_free(ovl_aio_request_cachep, aio_req);
+	ovl_aio_put(aio_req);
 }
 
 static void ovl_aio_rw_complete(struct kiocb *iocb, long res, long res2)
@@ -307,12 +314,14 @@ static ssize_t ovl_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 		aio_req->orig_iocb = iocb;
 		kiocb_clone(&aio_req->iocb, iocb, real.file);
 		aio_req->iocb.ki_complete = ovl_aio_rw_complete;
+		refcount_set(&aio_req->ref, 2);
 		ret = vfs_iocb_iter_read(real.file, &aio_req->iocb, iter);
+		ovl_aio_put(aio_req);
 		if (ret != -EIOCBQUEUED)
 			ovl_aio_cleanup_handler(aio_req);
 	}
 out:
-	ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+	revert_creds(old_cred);
 	ovl_file_accessed(file);
 out_fdput:
 	fdput(real);
@@ -378,12 +387,14 @@ static ssize_t ovl_write_iter(struct kiocb *iocb, struct iov_iter *iter)
 		kiocb_clone(&aio_req->iocb, iocb, real.file);
 		aio_req->iocb.ki_flags = ifl;
 		aio_req->iocb.ki_complete = ovl_aio_rw_complete;
+		refcount_set(&aio_req->ref, 2);
 		ret = vfs_iocb_iter_write(real.file, &aio_req->iocb, iter);
+		ovl_aio_put(aio_req);
 		if (ret != -EIOCBQUEUED)
 			ovl_aio_cleanup_handler(aio_req);
 	}
 out:
-	ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+	revert_creds(old_cred);
 out_fdput:
 	fdput(real);
 
@@ -429,7 +440,7 @@ static ssize_t ovl_splice_write(struct pipe_inode_info *pipe, struct file *out,
 	file_end_write(real.file);
 	/* Update size */
 	ovl_copyattr(realinode, inode);
-	ovl_revert_creds(inode->i_sb, old_cred);
+	revert_creds(old_cred);
 	fdput(real);
 
 out_unlock:
@@ -456,7 +467,7 @@ static int ovl_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 	if (file_inode(real.file) == ovl_inode_upper(file_inode(file))) {
 		old_cred = ovl_override_creds(file_inode(file)->i_sb);
 		ret = vfs_fsync_range(real.file, start, end, datasync);
-		ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+		revert_creds(old_cred);
 	}
 
 	fdput(real);
@@ -480,7 +491,7 @@ static int ovl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	old_cred = ovl_override_creds(file_inode(file)->i_sb);
 	ret = call_mmap(vma->vm_file, vma);
-	ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+	revert_creds(old_cred);
 	ovl_file_accessed(file);
 
 	return ret;
@@ -499,7 +510,7 @@ static long ovl_fallocate(struct file *file, int mode, loff_t offset, loff_t len
 
 	old_cred = ovl_override_creds(file_inode(file)->i_sb);
 	ret = vfs_fallocate(real.file, mode, offset, len);
-	ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	/* Update size */
 	ovl_copyattr(ovl_inode_real(inode), inode);
@@ -521,7 +532,7 @@ static int ovl_fadvise(struct file *file, loff_t offset, loff_t len, int advice)
 
 	old_cred = ovl_override_creds(file_inode(file)->i_sb);
 	ret = vfs_fadvise(real.file, offset, len, advice);
-	ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	fdput(real);
 
@@ -571,7 +582,7 @@ static loff_t ovl_copyfile(struct file *file_in, loff_t pos_in,
 						flags);
 		break;
 	}
-	ovl_revert_creds(file_inode(file_out)->i_sb, old_cred);
+	revert_creds(old_cred);
 
 	/* Update size */
 	ovl_copyattr(ovl_inode_real(inode_out), inode_out);
@@ -630,7 +641,7 @@ static int ovl_flush(struct file *file, fl_owner_t id)
 	if (real.file->f_op->flush) {
 		old_cred = ovl_override_creds(file_inode(file)->i_sb);
 		err = real.file->f_op->flush(real.file, id);
-		ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+		revert_creds(old_cred);
 	}
 	fdput(real);
 
