@@ -11,6 +11,7 @@ Required properties :
 		"qcom,waipio-camcc-v2"
 		"qcom,diwali-camcc"
 		"qcom,cape-camcc"
+		"qcom,neo-camcc"
 - reg : shall contain base register location and length.
 - #clock-cells : from common clock binding, shall contain 1.
 - #reset-cells : from common reset binding, shall contain 1.
