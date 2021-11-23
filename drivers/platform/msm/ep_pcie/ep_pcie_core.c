@@ -669,6 +669,11 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		}
 	}
 
+	if (!dev->enumerated) {
+		EP_PCIE_DBG2(dev, "PCIe V%d: Clear L23 READY after enumeration\n", dev->rev);
+		ep_pcie_write_reg_field(dev->parf, PCIE20_PARF_PM_CTRL, BIT(2), 0);
+	}
+
 	if (dev->active_config) {
 		struct resource *dbi = dev->res[EP_PCIE_RES_DM_CORE].resource;
 		u32 dbi_lo = dbi->start;
