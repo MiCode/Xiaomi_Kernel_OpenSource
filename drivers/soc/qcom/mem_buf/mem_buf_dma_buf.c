@@ -233,8 +233,8 @@ int mem_buf_vmperm_release(struct mem_buf_vmperm *vmperm)
 	else if (vmperm->flags & MEM_BUF_WRAPPER_FLAG_ACCEPT)
 		ret = mem_buf_vmperm_relinquish(vmperm);
 
-exit:
 	mutex_unlock(&vmperm->lock);
+exit:
 	kfree(vmperm->perms);
 	kfree(vmperm->vmids);
 	mutex_destroy(&vmperm->lock);
