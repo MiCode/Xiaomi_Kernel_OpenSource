@@ -39,6 +39,16 @@ static void handle_pvm_entry_wfx(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *sh
 	shadow_vcpu->arch.flags |= host_vcpu->arch.flags & KVM_ARM64_INCREMENT_PC;
 }
 
+static int pkvm_refill_memcache(struct kvm_vcpu *shadow_vcpu,
+				struct kvm_vcpu *host_vcpu)
+{
+	u64 nr_pages;
+
+	nr_pages = VTCR_EL2_LVLS(shadow_vcpu->arch.pkvm.shadow_vm->arch.vtcr) - 1;
+	return refill_memcache(&shadow_vcpu->arch.pkvm_memcache, nr_pages,
+			       &host_vcpu->arch.pkvm_memcache);
+}
+
 static void handle_pvm_entry_psci(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
 	u32 psci_fn = smccc_get_function(shadow_vcpu);
@@ -601,7 +611,6 @@ static void handle___pkvm_host_donate_guest(struct kvm_cpu_context *host_ctxt)
 	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 3);
 	struct pkvm_loaded_state *state;
 	int ret = -EINVAL;
-	u64 nr_pages;
 
 	if (!is_protected_kvm_enabled())
 		goto out;
@@ -612,9 +621,7 @@ static void handle___pkvm_host_donate_guest(struct kvm_cpu_context *host_ctxt)
 		goto out;
 
 	/* Topup shadow memcache with the host's */
-	nr_pages = VTCR_EL2_LVLS(state->vcpu->arch.pkvm.shadow_vm->arch.vtcr) - 1;
-	ret = refill_memcache(&state->vcpu->arch.pkvm_memcache, nr_pages,
-			      &vcpu->arch.pkvm_memcache);
+	ret = pkvm_refill_memcache(state->vcpu, vcpu);
 	if (!ret)
 		ret = __pkvm_host_donate_guest(pfn, gfn, state->vcpu);
 out:
