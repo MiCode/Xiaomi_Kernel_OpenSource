@@ -48,6 +48,7 @@ struct carveout_heap {
 	struct gen_pool *pool;
 	struct device *dev;
 	bool is_secure;
+	bool is_nomap;
 	phys_addr_t base;
 
 	void *pool_refcount_priv;
@@ -184,6 +185,8 @@ static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_h
 	buffer->heap = carveout_heap->heap;
 	buffer->len = len;
 	buffer->free = buffer_free;
+	if (carveout_heap->is_nomap)
+		buffer->uncached = true;
 
 	table = &buffer->sg_table;
 	ret = sg_alloc_table(table, 1, GFP_KERNEL);
@@ -198,7 +201,7 @@ static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_h
 
 	sg_set_page(table->sgl, pfn_to_page(PFN_DOWN(paddr)), len, 0);
 
-	if (!carveout_heap->is_secure)
+	if (!carveout_heap->is_secure & !carveout_heap->is_nomap)
 		pages_sync_for_device(dev, sg_page(table->sgl),
 				      buffer->len, DMA_FROM_DEVICE);
 
@@ -245,10 +248,13 @@ static void carveout_heap_free(struct qcom_sg_buffer *buffer)
 
 	dev = carveout_heap->dev;
 
-	carveout_pages_zero(page, buffer->len, PAGE_KERNEL);
-
-	pages_sync_for_device(dev, page,
+	if (!carveout_heap->is_nomap) {
+		carveout_pages_zero(page, buffer->len, PAGE_KERNEL);
+		pages_sync_for_device(dev, page,
 			      buffer->len, DMA_BIDIRECTIONAL);
+	} else {
+		carveout_pages_zero(page, buffer->len, pgprot_writecombine(PAGE_KERNEL));
+	}
 
 	carveout_free(carveout_heap, paddr, buffer->len);
 	sg_free_table(table);
@@ -465,11 +471,12 @@ int qcom_carveout_heap_create(struct platform_heap *heap_data)
 	if (!carveout_heap)
 		return -ENOMEM;
 
-	ret = __carveout_heap_init(heap_data, carveout_heap, true);
+	ret = __carveout_heap_init(heap_data, carveout_heap, !heap_data->is_nomap);
 	if (ret)
 		goto err;
 
 	carveout_heap->is_secure = false;
+	carveout_heap->is_nomap = heap_data->is_nomap;
 
 	exp_info.name = heap_data->name;
 	exp_info.ops = &carveout_heap_ops;
@@ -521,8 +528,12 @@ static void sc_heap_free(struct qcom_sg_buffer *buffer)
 
 	sc_heap = dma_heap_get_drvdata(buffer->heap);
 
-	if (qcom_is_buffer_hlos_accessible(sc_heap->token))
-		carveout_pages_zero(page, buffer->len, PAGE_KERNEL);
+	if (qcom_is_buffer_hlos_accessible(sc_heap->token)) {
+		if (!buffer->uncached)
+			carveout_pages_zero(page, buffer->len, PAGE_KERNEL);
+		else
+			carveout_pages_zero(page, buffer->len, pgprot_writecombine(PAGE_KERNEL));
+	}
 	carveout_free(&sc_heap->carveout_heap, paddr, buffer->len);
 	sg_free_table(table);
 	kfree(buffer);
