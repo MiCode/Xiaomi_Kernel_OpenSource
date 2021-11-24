@@ -321,6 +321,81 @@ struct ufs_qcom_thermal {
 	unsigned long curr_state;
 };
 
+/* Algorithm Selection */
+#define STATIC_ALLOC_ALG1 0x0
+#define FLOOR_BASED_ALG2 BIT(0)
+#define INSTANTANEOUS_ALG3 BIT(1)
+
+enum {
+	REG_UFS_MEM_ICE_NUM_AES_CORES = 0x2608,
+	REG_UFS_MEM_SHARED_ICE_CONFIG = 0x260C,
+	REG_UFS_MEM_SHARED_ICE_ALG1_NUM_CORE = 0x2610,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_0 = 0x2614,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_0 = 0x2618,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_1 = 0x261C,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_1 = 0x2620,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_2 = 0x2624,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_2 = 0x2628,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_3 = 0x262C,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_3 = 0x2630,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_4 = 0x2634,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_4 = 0x2638,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_5 = 0x263C,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_5 = 0x2640,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_6 = 0x2644,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_6 = 0x2648,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_7 = 0x264C,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_7 = 0x2650,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_8 = 0x2654,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_8 = 0x2658,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_CORE_9 = 0x265C,
+	REG_UFS_MEM_SHARED_ICE_ALG2_NUM_TASK_9 = 0x2660,
+	REG_UFS_MEM_SHARED_ICE_ALG3_NUM_CORE = 0x2664,
+};
+
+struct shared_ice_alg2_config {
+	/* group names */
+	char name[3];
+	/*
+	 * num_core_tx_stream, num_core_rx_stream, num_wr_task_max,
+	 * num_wr_task_min, num_rd_task_max, num_rd_task_min
+	 */
+	unsigned int val[6];
+};
+
+/*
+ * Default overrides:
+ * There're 10 sets of settings for floor-based algorithm
+ */
+static struct shared_ice_alg2_config alg2_config[] = {
+	{"G0", {5, 12, 0, 0, 32, 0}},
+	{"G1", {12, 5, 32, 0, 0, 0}},
+	{"G2", {6, 11, 4, 1, 32, 1}},
+	{"G3", {6, 11, 7, 1, 32, 1}},
+	{"G4", {7, 10, 11, 1, 32, 1}},
+	{"G5", {7, 10, 14, 1, 32, 1}},
+	{"G6", {8, 9, 18, 1, 32, 1}},
+	{"G7", {9, 8, 21, 1, 32, 1}},
+	{"G8", {10, 7, 24, 1, 32, 1}},
+	{"G9", {10, 7, 32, 1, 32, 1}},
+};
+
+/**
+ * Refer struct shared_ice_alg2_config
+ */
+static inline void __get_alg2_grp_params(unsigned int *val, int *c, int *t)
+{
+	*c = ((val[0] << 8) | val[1] | (1 << 31));
+	*t = ((val[2] << 24) | (val[3] << 16) | (val[4] << 8) | val[5]);
+}
+
+static inline void get_alg2_grp_params(unsigned int group, int *core, int *task)
+{
+	struct shared_ice_alg2_config *p = &alg2_config[group];
+
+	 __get_alg2_grp_params(p->val, core, task);
+}
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -347,6 +422,10 @@ struct ufs_qcom_host {
 	 */
 	#define UFS_QCOM_CAP_SVS2	0x8
 
+	/*
+	 * Set this capability if host controller supports shared ICE.
+	 */
+	#define UFS_QCOM_CAP_SHARED_ICE BIT(4)
 	u32 caps;
 
 	struct phy *generic_phy;
@@ -417,6 +496,9 @@ struct ufs_qcom_host {
 	int config_cpu;
 	void *ufs_ipc_log_ctx;
 	bool dbg_en;
+	unsigned int num_aes_cores;
+	struct device_node *np;
+	int chosen_algo;
 };
 
 static inline u32
@@ -453,6 +535,11 @@ static inline bool ufs_qcom_cap_qunipro_clk_gating(struct ufs_qcom_host *host)
 static inline bool ufs_qcom_cap_svs2(struct ufs_qcom_host *host)
 {
 	return !!(host->caps & UFS_QCOM_CAP_SVS2);
+}
+
+static inline bool is_shared_ice_supported(struct ufs_qcom_host *host)
+{
+	return !!(host->caps & UFS_QCOM_CAP_SHARED_ICE);
 }
 
 /**
