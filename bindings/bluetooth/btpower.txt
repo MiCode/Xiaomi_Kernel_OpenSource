@@ -10,7 +10,7 @@ Required properties:
 		qcom,wcn3990
 		qcom,qca6390
 		qcom,qca6490
-		qcom,wcn7850
+		qcom,kiwi
 	- qcom,bt-reset-gpio: GPIO pin to bring BT Controller out of reset
 
 Optional properties:
