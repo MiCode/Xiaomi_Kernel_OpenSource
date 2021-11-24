@@ -12,7 +12,9 @@
 CONFIG_DIR=arch/${ARCH}/configs
 
 BRANCH=msm-waipio
-CONFIG_TARGET=msm.${MSM_ARCH}
+if [ -z $CONFIG_TARGET ]; then
+	CONFIG_TARGET=msm.${MSM_ARCH}
+fi
 
 ################################################################################
 ##
