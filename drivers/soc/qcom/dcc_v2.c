@@ -723,6 +723,8 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
 			dcc_writel(drvdata, drvdata->qad_output[list],
 					DCC_QAD_OUTPUT(list));
+			dcc_writel(drvdata, drvdata->cti_trig[list],
+					DCC_CTI_TRIG(list));
 			dcc_writel(drvdata, BIT(8) | ((drvdata->data_sink[list] << 4) |
 				   (drvdata->func_type[list])), DCC_LL_CFG(list));
 		} else {
@@ -1536,11 +1538,6 @@ static ssize_t cti_trig_show(struct device *dev,
 {
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
-		dev_err(dev, "cti trig is not supported\n");
-		return -EINVAL;
-	}
-
 	return scnprintf(buf, PAGE_SIZE, "%d\n", drvdata->cti_trig[drvdata->curr_list]);
 }
 
@@ -1551,11 +1548,6 @@ static ssize_t cti_trig_store(struct device *dev,
 	unsigned long val;
 	int ret = 0;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
-
-	if (drvdata->mem_map_ver == DCC_MEM_MAP_VER3) {
-		dev_err(dev, "cti trig is not supported\n");
-		return -EINVAL;
-	}
 
 	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
