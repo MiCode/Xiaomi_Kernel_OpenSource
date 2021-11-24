@@ -2287,6 +2287,14 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 	} else if (dstate == 0) {
 		dev->l23_ready = false;
 		dev->d0_counter++;
+		/*
+		 * When device is trasistion back to D0 from D3hot
+		 * (without D3cold), REQ_EXIT_L1 bit won't get cleared.
+		 * And L1 would get blocked till next D3cold.
+		 * So clear it explicitly during D0.
+		 */
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(1), 0);
+
 		atomic_set(&dev->host_wake_pending, 0);
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: No. %ld change to D0 state, clearing wake pending:%d\n",
