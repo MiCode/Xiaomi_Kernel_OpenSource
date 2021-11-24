@@ -45,6 +45,8 @@
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
 #include <linux/soc/qcom/pdr.h>
+#include <linux/remoteproc.h>
+#include <trace/hooks/remoteproc.h>
 #include "main.h"
 #include "qmi.h"
 #include "debug.h"
@@ -195,6 +197,8 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "M3_DUMP_UPLOAD";
 	case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
 		return "QDSS_TRACE_REQ_DATA";
+	case ICNSS_DRIVER_EVENT_SUBSYS_RESTART_LEVEL:
+		return "SUBSYS_RESTART_LEVEL";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1445,6 +1449,24 @@ send_resp:
 	return ret;
 }
 
+static int icnss_subsys_restart_level(struct icnss_priv *priv, void *data)
+{
+	int ret = 0;
+	struct icnss_subsys_restart_level_data *event_data = data;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (!data)
+		return -EINVAL;
+
+	ret = wlfw_subsys_restart_level_msg(priv, event_data->restart_level);
+
+	kfree(data);
+
+	return ret;
+}
+
 static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_priv *priv =
@@ -1524,6 +1546,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 		case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
 			ret = icnss_qdss_trace_req_data_hdlr(priv,
 							     event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_SUBSYS_RESTART_LEVEL:
+			ret = icnss_subsys_restart_level(priv, event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
@@ -3759,6 +3784,28 @@ static inline bool icnss_use_nv_mac(struct icnss_priv *priv)
 				     "use-nv-mac");
 }
 
+static void rproc_restart_level_notifier(void *data, struct rproc *rproc)
+{
+	struct icnss_subsys_restart_level_data *restart_level_data;
+
+	icnss_pr_info("rproc name: %s recovery disable: %d",
+		      rproc->name, rproc->recovery_disabled);
+
+	restart_level_data = kzalloc(sizeof(*restart_level_data), GFP_ATOMIC);
+	if (!restart_level_data)
+		return;
+
+	if (strstr(rproc->name, "wpss")) {
+		if (rproc->recovery_disabled)
+			restart_level_data->restart_level = ICNSS_DISABLE_M3_SSR;
+		else
+			restart_level_data->restart_level = ICNSS_ENABLE_M3_SSR;
+
+		icnss_driver_event_post(penv, ICNSS_DRIVER_EVENT_SUBSYS_RESTART_LEVEL,
+					0, restart_level_data);
+	}
+}
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3875,6 +3922,7 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_pr_dbg("NV MAC feature is %s\n",
 			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");
 		INIT_WORK(&wpss_loader, icnss_wpss_load);
+		register_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
@@ -3908,6 +3956,7 @@ static int icnss_remove(struct platform_device *pdev)
 		icnss_runtime_pm_deinit(priv);
 		if (!IS_ERR_OR_NULL(priv->mbox_chan))
 			mbox_free_channel(priv->mbox_chan);
+		unregister_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 	}
 
 	device_init_wakeup(&priv->pdev->dev, false);
