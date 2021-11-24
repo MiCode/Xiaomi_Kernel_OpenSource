@@ -1870,6 +1870,20 @@
 		};
 	};
 
+	bt_en_sleep: bt_en_sleep {
+		mux {
+			pins = "gpio81";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio81";
+			drive-strength = <2>;
+			output-low;
+			bias-pull-down;
+		};
+	};
+
 	pcie0 {
 		pcie0_perst_default: pcie0_perst_default {
 			mux {

@@ -514,6 +514,36 @@
 		status = "disabled";
 	};
 
+	bluetooth: bt_wcn6x5x {
+		compatible = "qcom,wcn6750-bt";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,bt-reset-gpio = <&tlmm 114 0>; /* BT_EN */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 83 0>; /* SW_CTRL */
+		qcom,wl-reset-gpio = <&tlmm 49 0>; /* WL_EN */
+
+		qcom,bt-vdd-io-supply = <&L18B>;  /* IO */
+		qcom,bt-vdd-aon-supply = <&S7B>;
+		qcom,bt-vdd-dig-supply = <&S7B>; /* BT_CX_MX */
+		qcom,bt-vdd-rfacmn-supply = <&S7B>;
+		qcom,bt-vdd-rfa-0p8-supply = <&S7B>;
+		qcom,bt-vdd-rfa1-supply = <&S1B>; /*RFA 1p7*/
+		qcom,bt-vdd-rfa2-supply = <&S8B>; /*RFA 1p2*/
+		qcom,bt-vdd-ipa-2p2-supply = <&S1C>; /*IPA 2p2*/
+		qcom,bt-vdd-asd-supply = <&L11C>;
+
+		/* max voltage are set to regulator max voltage supported */
+		qcom,bt-vdd-io-config = <1800000 2000000 0 1>;
+		qcom,bt-vdd-aon-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-dig-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfacmn-config  = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfa-0p8-config  = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1872000 2040000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1256000 1500000 0 1>;
+		qcom,bt-vdd-ipa-2p2-config = <2200000 2210000 0 1>;
+		qcom,bt-vdd-asd-config = <2800000 3544000 0 1>;
+	};
+
 	intc: interrupt-controller@17100000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
@@ -3112,6 +3142,11 @@
 	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
+
+&qupv3_se7_4uart {
+	status = "ok";
+};
+
 #include "diwali-regulators.dtsi"
 #include "diwali-usb.dtsi"
 #include "diwali-gpu.dtsi"
