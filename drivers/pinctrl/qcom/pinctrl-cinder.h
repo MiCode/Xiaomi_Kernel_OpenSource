@@ -56,7 +56,7 @@
 		.name = #pg_name,			\
 		.pins = pg_name##_pins,			\
 		.npins = (unsigned int)ARRAY_SIZE(pg_name##_pins),	\
-		.ctl_reg = ctl,				\
+		.ctl_reg = REG_BASE + ctl,				\
 		.io_reg = 0,				\
 		.intr_cfg_reg = 0,			\
 		.intr_status_reg = 0,			\
@@ -1494,7 +1494,7 @@ static const struct msm_pingroup cinder_groups[] = {
 	[148] = PINGROUP(148, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[149] = PINGROUP(149, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[150] = PINGROUP(150, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[151] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x9d000, 15, 0),
+	[151] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x9e000, 0, 0),
 	[152] = SDC_QDSD_PINGROUP(sdc1_clk, 0x9d000, 13, 6),
 	[153] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x9d000, 11, 3),
 	[154] = SDC_QDSD_PINGROUP(sdc1_data, 0x9d000, 9, 0),
