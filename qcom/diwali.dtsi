@@ -2473,6 +2473,16 @@
 		feat_conf13: feat_conf13@0134 {
 			reg = <0x0134 0x4>;
 		};
+
+		gpu_speed_bin: gpu_speed_bin@119 {
+			reg = <0x119 0x2>;
+			bits = <5 8>;
+		};
+
+		gpu_gaming_bin: gpu_gaming_bin@130 {
+			reg = <0x130 0x1>;
+			bits = <6 1>;
+		};
 	};
 
 	qfprom_sys: qfprom@0 {
