@@ -489,6 +489,15 @@
 		compatible = "arm,psci-1.0";
 		method = "smc";
 	};
+
+	qcom_tzlog: tz-log@146AA720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146AA720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+		status = "disabled";
+	};
 };
 
 #include "diwali-gdsc.dtsi"
