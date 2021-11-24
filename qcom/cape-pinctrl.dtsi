@@ -1034,6 +1034,20 @@
 		};
 	};
 
+	bt_en_sleep: bt_en_sleep {
+		mux {
+			pins = "gpio81";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio81";
+			drive-strength = <2>;
+			output-low;
+			bias-pull-down;
+		};
+	};
+
 	qupv3_se7_2uart_pins: qupv3_se7_2uart_pins {
 		qupv3_se7_2uart_active: qupv3_se7_2uart_active {
 			mux {
