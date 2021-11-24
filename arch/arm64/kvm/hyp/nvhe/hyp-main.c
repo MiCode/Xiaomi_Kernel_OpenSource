@@ -251,11 +251,11 @@ static void handle_pvm_exit_sys64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *s
 	}
 }
 
-static int get_num_hvc_args(struct kvm_vcpu *vcpu)
+static void handle_pvm_exit_hvc64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
 {
-	u32 psci_fn = smccc_get_function(vcpu);
+	int n, i;
 
-	switch (psci_fn) {
+	switch (smccc_get_function(shadow_vcpu)) {
 	/*
 	 * CPU_ON takes 3 arguments, however, to wake up the target vcpu the
 	 * host only needs to know the target's cpu_id, which is passed as the
@@ -263,37 +263,34 @@ static int get_num_hvc_args(struct kvm_vcpu *vcpu)
 	 */
 	case PSCI_0_2_FN_CPU_ON:
 	case PSCI_0_2_FN64_CPU_ON:
-		return 1;
+		n = 2;
+		break;
 
 	case PSCI_0_2_FN_CPU_OFF:
 	case PSCI_0_2_FN_SYSTEM_OFF:
-
-	/* The KVM implementation of suspend doesn't use any arguments. */
 	case PSCI_0_2_FN_CPU_SUSPEND:
 	case PSCI_0_2_FN64_CPU_SUSPEND:
-		return 0;
+		n = 1;
+		break;
 
 	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_SHARE_FUNC_ID:
 		fallthrough;
 	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_UNSHARE_FUNC_ID:
-		return 3;
+		n = 4;
+		break;
 
-	/* The rest are either blocked or handled by hyp. */
+	/*
+	 * The rest are either blocked or handled by HYP, so we should
+	 * really never be here.
+	 */
 	default:
-		return -1;
+		BUG();
 	}
-
-	return -1;
-}
-
-static void handle_pvm_exit_hvc64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
-{
-	int i;
 
 	host_vcpu->arch.fault.esr_el2 = shadow_vcpu->arch.fault.esr_el2;
 
 	/* Pass the hvc function id (r0) as well as any potential arguments. */
-	for (i = 0; i < get_num_hvc_args(shadow_vcpu) + 1; i++)
+	for (i = 0; i < n; i++)
 		vcpu_set_reg(host_vcpu, i, vcpu_get_reg(shadow_vcpu, i));
 }
 
