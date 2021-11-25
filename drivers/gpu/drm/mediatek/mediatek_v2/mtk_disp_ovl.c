@@ -2123,7 +2123,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
 		0, ~0);
 
-	if (comp->id == DDP_COMPONENT_OVL0_2L) {
+	if (comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L) {
 		// setting SMI for read SRAM
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,

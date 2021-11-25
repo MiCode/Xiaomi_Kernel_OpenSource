@@ -6448,7 +6448,7 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 			mtk_crtc_is_frame_trigger_mode(crtc),
 			cmdq_handle,
 			mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode,
-				DDP_COMPONENT_OVL0_2L));
+				DDP_COMPONENT_OVL0));
 
 		if (mtk_crtc->is_dual_pipe) {
 			comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE1];
@@ -6462,7 +6462,7 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 				mtk_crtc_is_frame_trigger_mode(crtc),
 				cmdq_handle,
 				mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode,
-					DDP_COMPONENT_OVL0_2L));
+					DDP_COMPONENT_OVL0));
 		}
 
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
