@@ -122,4 +122,16 @@ void mtk_ccu_ipc_unregister(struct platform_device *pdev,
  * Return: Return NULL if it is failed, otherwise it is va in kernel.
  */
 void *mtk_ccu_da_to_va(struct rproc *rproc, u64 da, size_t lens, bool *is_iomem);
+
+/**
+ * mtk_ccu_rproc_get_inforeg - Query spare register value
+ *
+ * @pdev:  CCU platform device
+ * @regno: register number
+ * @data:  register value
+ *
+ * Return: Return 0 if succed, otherwise it has been failed.
+ */
+int mtk_ccu_rproc_get_inforeg(struct platform_device *pdev,
+	uint32_t regno, uint32_t *data);
 #endif /*__RPOC_MTK_CCU_H */

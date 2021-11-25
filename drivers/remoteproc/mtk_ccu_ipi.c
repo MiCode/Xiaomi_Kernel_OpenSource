@@ -381,5 +381,38 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(mtk_ccu_rproc_ipc_send);
 
+int mtk_ccu_rproc_get_inforeg(struct platform_device *pdev,
+	uint32_t regno, uint32_t *data)
+{
+	struct mtk_ccu *ccu;
+
+	if ((!pdev) || (!data))
+		return -EINVAL;
+
+	ccu = platform_get_drvdata(pdev);
+
+	if (!ccu)
+		return -EPROBE_DEFER;
+
+	if ((regno < 28) || (regno > 31))
+		return -EINVAL;
+
+	if (!spin_trylock(&ccu->ccu_poweron_lock))
+		return -EINVAL;
+
+	if (!ccu->poweron) {
+		spin_unlock(&ccu->ccu_poweron_lock);
+		return -EINVAL;
+	}
+
+	regno <<= 2;
+	*data = readl(ccu->ccu_base + MTK_CCU_SPARE_REG00 + regno);
+
+	spin_unlock(&ccu->ccu_poweron_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_ccu_rproc_get_inforeg);
+
 MODULE_DESCRIPTION("MTK CCU Rproc Driver");
 MODULE_LICENSE("GPL v2");
