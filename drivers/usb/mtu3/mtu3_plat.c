@@ -32,6 +32,8 @@ void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb)
 	if (ssusb->noise_still_tr) {
 		mtu3_setbits(ssusb->mac_base, U3D_USB_BUS_PERFORMANCE,
 			NOISE_STILL_TRANSFER);
+		mtu3_setbits(ssusb->ippc_base, U3D_SSUSB_IP_SPARE0,
+			SSUSB_SOF_KEEP);
 	}
 }
 

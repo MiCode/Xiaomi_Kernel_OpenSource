@@ -552,4 +552,7 @@
 /* U3D_SSUSB_IP_TRUNK_VERS */
 #define IP_TRUNK_VERS(x)		(((x) >> 16) & 0xffff)
 
+/* U3D_SSUSB_IP_SPARE0 */
+#define SSUSB_SOF_KEEP			BIT(0)
+
 #endif	/* _SSUSB_HW_REGS_H_ */
