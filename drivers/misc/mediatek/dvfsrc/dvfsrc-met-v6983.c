@@ -182,6 +182,7 @@ static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 	switch (dvfs->dvd->version) {
 	case 0x6983:
 	case 0x6895:
+	case 0x6855:
 		max_idx = 7;
 		level_mask = 0xFF;
 	break;
