@@ -2694,7 +2694,7 @@ fail:
 	return -ESCP_DVFS_INIT_FAILED;
 }
 
-void __exit scp_dvfs_exit(void)
+void scp_dvfs_exit(void)
 {
 	platform_driver_unregister(&mt_scp_dvfs_pdrv);
 }

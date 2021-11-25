@@ -2730,7 +2730,9 @@ static int __init scp_init(void)
 err:
 #if SCP_DVFS_INIT_ENABLE
 	/* remember to release pll */
+	scp_resource_req(SCP_REQ_RELEASE);
 	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	scp_dvfs_exit();
 #endif
 	return -1;
 }

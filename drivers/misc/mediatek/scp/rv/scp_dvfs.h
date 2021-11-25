@@ -266,7 +266,7 @@ extern void scp_pll_mux_set(unsigned int pll_ctrl_flag);
 extern void wait_scp_dvfs_init_done(void);
 extern void sync_ulposc_cali_data_to_scp(void);
 extern int __init scp_dvfs_init(void);
-extern void __exit scp_dvfs_exit(void);
+extern void scp_dvfs_exit(void);
 
 /* scp dvfs variable*/
 extern unsigned int last_scp_expected_freq;
