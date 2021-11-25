@@ -565,9 +565,9 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 		pram->param_key, pram->param_val);
 	list_add(&pram->list, &dev->log_param_list);
 
-	// remove disabled log param from list if value is 0 or empty
+	// remove disabled log param from list if value is empty
 	list_for_each_entry_safe(pram, tmp, &dev->log_param_list, list) {
-		if (strcmp(pram->param_val, "0") == 0 || strlen(pram->param_val) == 0) {
+		if (strlen(pram->param_val) == 0) {
 			mtk_v4l2_debug(8, "remove deprecated key: %s, value: %s\n",
 				pram->param_key, pram->param_val);
 			list_del_init(&pram->list);
@@ -607,11 +607,10 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev)
 
 void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
 {
-	int i, argc = 0, argcMex = 0;
-	char *argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2];
+	int i, argc;
+	char argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2][LOG_PARAM_INFO_SIZE];
 	char *temp = NULL;
 	char *token = NULL;
-	int max_cpy_len = 0;
 	long temp_val = 0;
 	char log[LOG_PROPERTY_SIZE] = {0};
 
@@ -620,49 +619,30 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
 		return;
 	}
 
-	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++)
-		argv[i] = kzalloc(LOG_PARAM_INFO_SIZE, GFP_KERNEL);
-
-	strcpy(log, val);
+	strncpy(log, val, LOG_PROPERTY_SIZE - 1);
 	temp = log;
-	for (token = strsep(&temp, " "); token != NULL; token = strsep(&temp, " ")) {
-		max_cpy_len = strnlen(token, LOG_PARAM_INFO_SIZE - 1);
-		if (argc >= 0 && argv[argc]) {
-			argcMex = (LOG_PARAM_INFO_SIZE-1 > max_cpy_len) ?
-				max_cpy_len : (LOG_PARAM_INFO_SIZE-2);
-			strncpy(argv[argc], token, argcMex);
-			argv[argc][argcMex+1] = '\0';
-		}
-		argc++;
-		if (argc >= MAX_SUPPORTED_LOG_PARAMS_COUNT * 2)
-			break;
+	for (token = strsep(&temp, "\n\r "), argc = 0;
+	     token != NULL && argc < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2;
+	     token = strsep(&temp, "\n\r "), argc++) {
+		if (strlen(token) == 0)
+			continue;
+		strncpy(argv[argc], token, LOG_PARAM_INFO_SIZE);
+		argv[argc][LOG_PARAM_INFO_SIZE - 1] = '\0';
 	}
 
-	argcMex = (argc >= MAX_SUPPORTED_LOG_PARAMS_COUNT * 2
-		? MAX_SUPPORTED_LOG_PARAMS_COUNT * 2 : argc);
-	for (i = 0; i < argcMex; i++) {
-		if (argv[i] != NULL)
-			argv[i][LOG_PARAM_INFO_SIZE-1] = '\0';
-		else
-			continue;
-		if ((i < argcMex-1) && strcmp("-mtk_vcodec_dbg", argv[i]) == 0) {
-			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+	for (i = 0; i < argc-1; i += 2) {
+		if (strcmp("-mtk_vcodec_dbg", argv[i]) == 0) {
+			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
 				mtk_vcodec_dbg = temp_val;
-		} else if ((i < argcMex-1) && strcmp("-mtk_vcodec_perf", argv[i]) == 0) {
-			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+		} else if (strcmp("-mtk_vcodec_perf", argv[i]) == 0) {
+			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
 				mtk_vcodec_perf = temp_val;
-		} else if ((i < argcMex-1) && strcmp("-mtk_v4l2_dbg_level", argv[i]) == 0) {
-			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+		} else if (strcmp("-mtk_v4l2_dbg_level", argv[i]) == 0) {
+			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
 				mtk_v4l2_dbg_level = temp_val;
-		} else {
+		} else if (argv[i][0] == '-') {
 			mtk_vcodec_sync_log(dev, argv[i], argv[i+1]);
 		}
-		i++;
-	}
-
-	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++) {
-		if (argv[i] != NULL)
-			kfree(argv[i]);
 	}
 
 	mtk_vcodec_build_log_string(dev);
