@@ -89,6 +89,8 @@
 #define I2C_CONTROL_WRAPPER             (0x1 << 0)
 
 #define I2C_OFFSET_SCP			0x200
+#define I2C_CCU_INTR_EN         0x2
+#define I2C_MCU_INTR_EN         0x1
 
 #define I2C_DRV_NAME		"i2c-mt65xx"
 
@@ -613,7 +615,9 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 		writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_RST);
 		mtk_i2c_writew(i2c, I2C_SOFT_RST, OFFSET_SOFTRESET);
 	}
-
+	/* config scp i2c ch2 intr to ap */
+	if (i2c->ch_offset_i2c == I2C_OFFSET_SCP)
+		mtk_i2c_writew(i2c, I2C_CCU_INTR_EN, OFFSET_MCU_INTR);
 	/* Set ioconfig */
 	if (i2c->use_push_pull)
 		mtk_i2c_writew(i2c, I2C_IO_CONFIG_PUSH_PULL, OFFSET_IO_CONFIG);
