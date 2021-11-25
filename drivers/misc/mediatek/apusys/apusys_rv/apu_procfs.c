@@ -15,42 +15,23 @@
 #include "apu.h"
 #include "apu_regdump.h"
 
-static struct platform_device *g_apu_pdev;
+#define PT_MAGIC (0x58901690)
 
+static struct platform_device *g_apu_pdev;
 static struct proc_dir_entry *procfs_root;
+static size_t coredump_len, xfile_len;
+static void *coredump_base, *xfile_base;
 
 static int coredump_seq_show(struct seq_file *s, void *v)
 {
-	struct mtk_apu *apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
-	size_t len;
-	void *base;
-
-	len = sizeof(struct apu_coredump);
-	if (apu->platdata->flags & F_SECURE_COREDUMP)
-		base = apu->apu_aee_coredump_mem_base +
-			apu->apusys_aee_coredump_info->up_coredump_ofs;
-	else
-		base = apu->coredump_buf;
-
-	seq_write(s, base, len);
+	seq_write(s, coredump_base, coredump_len);
 
 	return 0;
 }
 
 static int xfile_seq_show(struct seq_file *s, void *v)
 {
-	struct mtk_apu *apu = (struct mtk_apu *) platform_get_drvdata(g_apu_pdev);
-	size_t len;
-	void *base;
-
-	if (apu->platdata->flags & F_PRELOAD_FIRMWARE)
-		len = apu->apusys_aee_coredump_info->up_xfile_sz;
-	else
-		return 0;
-	base = apu->apu_aee_coredump_mem_base +
-		apu->apusys_aee_coredump_info->up_xfile_ofs;
-
-	seq_write(s, base, len);
+	seq_write(s, xfile_base, xfile_len);
 
 	return 0;
 }
@@ -165,13 +146,21 @@ static void apu_mrdump_register(struct mtk_apu *apu)
 	if (ret)
 		dev_info(dev, "%s: APUSYS_RV_COREDUMP add fail(%d)\n",
 			__func__, ret);
+	coredump_len = (size_t) size;
+	coredump_base = (void *) base_va;
 
 	if (apu->platdata->flags & F_PRELOAD_FIRMWARE) {
 		base_pa = apu->apusys_aee_coredump_mem_start +
 			apu->apusys_aee_coredump_info->up_xfile_ofs;
 		base_va = (unsigned long) apu->apu_aee_coredump_mem_base +
 			apu->apusys_aee_coredump_info->up_xfile_ofs;
-		size = apu->apusys_aee_coredump_info->up_xfile_sz;
+		if (ioread32((void *) base_va) != PT_MAGIC) {
+			dev_info(dev, "%s: reserve memory corrupted!\n", __func__);
+			size = 0;
+		} else {
+			size = apu->apusys_aee_coredump_info->up_xfile_sz;
+			dev_info(dev, "%s: up_xfile_sz = 0x%x\n", __func__, size);
+		}
 
 		ret = mrdump_mini_add_extra_file(base_va, base_pa, size,
 			"APUSYS_RV_XFILE");
@@ -179,6 +168,8 @@ static void apu_mrdump_register(struct mtk_apu *apu)
 			dev_info(dev, "%s: APUSYS_RV_XFILE add fail(%d)\n",
 				__func__, ret);
 	}
+	xfile_len = (size_t) size;
+	xfile_base = (void *) base_va;
 
 	base_pa = apu->apusys_aee_coredump_mem_start +
 		apu->apusys_aee_coredump_info->regdump_ofs;
