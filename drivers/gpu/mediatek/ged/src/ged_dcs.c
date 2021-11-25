@@ -10,6 +10,7 @@
 
 #include <ged_base.h>
 #include <ged_dcs.h>
+#include <ged_log.h>
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 #include <ged_gpufreq_v2.h>
@@ -71,6 +72,8 @@ GED_ERROR ged_dcs_init_platform_info(void)
 	int opp_setting = 0;
 	int ret = GED_OK;
 
+	mutex_init(&g_DCS_lock);
+
 	dcs_node = of_find_compatible_node(NULL, NULL, "mediatek,gpu_dcs");
 	if (unlikely(!dcs_node)) {
 		GED_LOGE("Failed to find gpu_dcs node");
@@ -96,6 +99,8 @@ GED_ERROR ged_dcs_init_platform_info(void)
 
 void ged_dcs_exit(void)
 {
+	mutex_destroy(&g_DCS_lock);
+
 	kfree(g_core_mask_table);
 	kfree(g_avail_mask_table);
 }
@@ -175,6 +180,20 @@ int dcs_set_core_mask(unsigned int core_mask, unsigned int core_num)
 	return GED_OK;
 }
 
+int dcs_restore_max_core_mask(void)
+{
+	if (!g_dcs_enable || g_core_mask_table == NULL)
+		return GED_OK;
+
+	if (g_cur_core_num == g_max_core_num)
+		return GED_OK;
+
+	ged_dvfs_set_gpu_core_mask_fp(g_core_mask_table[0].mask);
+	g_cur_core_num = g_max_core_num;
+
+	return GED_OK;
+}
+
 int is_dcs_enable(void)
 {
 	return g_dcs_enable;
@@ -182,10 +201,10 @@ int is_dcs_enable(void)
 
 void dcs_enable(int enable)
 {
-	mutex_lock(&g_DCS_lock);
-
 	if (g_core_mask_table == NULL)
 		return;
+
+	mutex_lock(&g_DCS_lock);
 
 	if (enable)
 		g_dcs_enable = enable;

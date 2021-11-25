@@ -236,6 +236,9 @@ unsigned long ged_query_info(GED_INFO eType)
 	gpu_block = 0;
 
 	switch (eType) {
+	case GED_LOADING:
+		mtk_get_gpu_loading(&gpu_loading);
+		return gpu_loading;
 	case GED_IDLE:
 		mtk_get_gpu_idle(&gpu_idle);
 		return gpu_idle;
@@ -1305,7 +1308,7 @@ static void ged_dvfs_set_bottom_gpu_freq(unsigned int ui32FreqLevel)
 
 static unsigned int ged_dvfs_get_gpu_freq_level_count(void)
 {
-	return ged_get_opp_num();
+	return ged_get_opp_num_real();
 }
 
 /* set buttom gpufreq from PowerHal by MIN_FREQ */
@@ -1313,7 +1316,7 @@ static void ged_dvfs_custom_boost_gpu_freq(unsigned int ui32FreqLevel)
 {
 	int minfreq_idx;
 
-	minfreq_idx = ged_get_min_oppidx();
+	minfreq_idx = ged_get_min_oppidx_real();
 
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
@@ -1343,7 +1346,7 @@ static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 {
 	int minfreq_idx;
 
-	minfreq_idx = ged_get_min_oppidx();
+	minfreq_idx = ged_get_min_oppidx_real();
 
 	if (gpu_debug_enable)
 		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
@@ -1635,7 +1638,9 @@ void ged_dvfs_save_loading_page(void)
 	g_ulWorkingPeriod_us = 0;
 }
 
-void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
+void ged_dvfs_run(
+	unsigned long t, long phase, unsigned long ul3DFenceDoneTime,
+	GED_DVFS_COMMIT_TYPE eCommitType)
 {
 	unsigned long ui32IRQFlags;
 	unsigned int gpu_freq_pre;
@@ -1702,7 +1707,7 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 				ged_dvfs_gpu_freq_commit(g_ui32FreqIDFromPolicy,
 						ged_get_freq_by_idx(
 						g_ui32FreqIDFromPolicy),
-						GED_DVFS_LOADING_BASE_COMMIT);
+						eCommitType);
 			}
 		}
 	}
@@ -1892,10 +1897,10 @@ GED_ERROR ged_dvfs_system_init(void)
 	g_minfreq = ged_get_freq_by_idx(g_minfreq_idx);
 	g_maxfreq = ged_get_freq_by_idx(g_maxfreq_idx);
 
-	g_bottom_freq_id = g_minfreq_idx;
+	g_bottom_freq_id = ged_get_min_oppidx_real();
 	gpu_bottom_freq = ged_get_freq_by_idx(g_bottom_freq_id);
 
-	g_cust_boost_freq_id = g_minfreq_idx;
+	g_cust_boost_freq_id = ged_get_min_oppidx_real();
 	gpu_cust_boost_freq = ged_get_freq_by_idx(g_cust_boost_freq_id);
 
 	g_cust_upbound_freq_id = 0;

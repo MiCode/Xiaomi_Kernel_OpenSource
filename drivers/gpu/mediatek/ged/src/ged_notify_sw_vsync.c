@@ -22,6 +22,8 @@
 #include "ged_base.h"
 #include "ged_monitor_3D_fence.h"
 #include "ged.h"
+#include "ged_dvfs.h"
+#include "ged_dcs.h"
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 #include <ged_gpufreq_v2.h>
@@ -29,8 +31,6 @@
 #else
 #include <ged_gpufreq_v1.h>
 #endif /* CONFIG_MTK_GPUFREQ_V2 */
-
-
 
 #define GED_DVFS_FB_TIMER_TIMEOUT 100000000
 #define GED_DVFS_TIMER_TIMEOUT g_fallback_time_out
@@ -103,6 +103,12 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 	struct GED_NOTIFY_SW_SYNC *psNotify =
 		GED_CONTAINER_OF(psWork, struct GED_NOTIFY_SW_SYNC, sWork);
 	unsigned long long temp;
+	GED_DVFS_COMMIT_TYPE eCommitType;
+
+	if (GED_DVFS_TIMER_TIMEOUT == GED_DVFS_FB_TIMER_TIMEOUT)
+		eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
+	else
+		eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
 
 	temp = 0;
 	if (psNotify) {
@@ -115,7 +121,7 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 			do_div(temp, 1000);
 			psNotify->t = temp;
 			ged_dvfs_run(psNotify->t, psNotify->phase,
-				psNotify->ul3DFenceDoneTime);
+				psNotify->ul3DFenceDoneTime, eCommitType);
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] Timer kicked	(ts=%llu) ", temp);
 		} else {
@@ -133,6 +139,7 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 static unsigned long long hw_vsync_ts;
 #endif
 static unsigned long long g_ns_gpu_on_ts;
+static unsigned long long g_ns_gpu_off_ts;
 
 static bool g_timer_on;
 static unsigned long long g_timer_on_ts;
@@ -311,7 +318,8 @@ GED_ERROR ged_notify_sw_vsync(GED_VSYNC_TYPE eType,
 				t = ul3DFenceDoneTime;
 		}
 		psQueryData->usT = t;
-		ged_dvfs_run(t, phase, ul3DFenceDoneTime);
+		ged_dvfs_run(t, phase, ul3DFenceDoneTime,
+			GED_DVFS_LOADING_BASE_COMMIT);
 		ged_dvfs_sw_vsync_query_data(psQueryData);
 	} else {
 		if (bHWEventKick) {
@@ -320,7 +328,7 @@ GED_ERROR ged_notify_sw_vsync(GED_VSYNC_TYPE eType,
 #endif							/// GED_DVFS_DEBUG
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] HW VSync: mending kick!");
-			ged_dvfs_run(0, 0, 0);
+			ged_dvfs_run(0, 0, 0, 0);
 		}
 	}
 #endif
@@ -370,6 +378,11 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 					ged_timer_switch_work_handle);
 				queue_work(g_psNotifyWorkQueue,
 					&psNotify->sWork);
+
+			/* update last freq. before timer off */
+				ged_log_perf_trace_counter("gpu_freq",
+				(long long)(ged_get_freq_by_idx(ged_get_min_oppidx()) / 1000),
+				5566, 0, 0);
 			}
 		ged_log_perf_trace_counter("gpu_freq",
 			(long long)(ged_get_freq_by_idx(ged_get_min_oppidx()) / 1000),
@@ -412,6 +425,12 @@ void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 		ged_gpu_power_on_notified = true;
 
 		g_ns_gpu_on_ts = ged_get_time();
+
+#ifdef GED_DCS_POLICY
+		if (g_ns_gpu_on_ts - g_ns_gpu_off_ts > GED_DVFS_FB_TIMER_TIMEOUT)
+			dcs_restore_max_core_mask();
+#endif /* GED_DCS_POLICY */
+
 		g_bGPUClock = true;
 		if (g_timer_on) {
 			ged_log_buf_print(ghLogBuf_DVFS,
@@ -426,11 +445,12 @@ void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 		ged_log_perf_trace_counter("gpu_state",
 			1, 5566, 0, 0);
 	} else {
+		g_ns_gpu_off_ts = ged_get_time();
 		ged_gpu_power_off_notified = true;
 		g_bGPUClock = false;
 		ged_log_buf_print(ghLogBuf_DVFS, "[GED_K] Buck-off");
 
-		// Update frequency in trace before timer disappeared.
+		// Update power on/off state
 		ged_log_perf_trace_counter("gpu_state",
 			0, 5566, 0, 0);
 	}

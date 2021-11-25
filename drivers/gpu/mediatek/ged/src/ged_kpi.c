@@ -1302,9 +1302,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			ged_log_perf_trace_counter("t_gpu",
 				psKPI->t_gpu, psTimeStamp->pid,
 				psTimeStamp->i32FrameID, ulID);
-			if (main_head == psHead)
-				ged_log_perf_trace_counter("t_gpu",
-					psKPI->t_gpu, 5566, 0, 0);
 
 			if (psHead->last_TimeStamp1
 				!= psKPI->ullTimeStamp1) {
