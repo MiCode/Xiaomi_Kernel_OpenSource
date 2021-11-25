@@ -88,6 +88,15 @@ static const struct mtk_gate_regs img_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_IMG_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &img_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate img_clks[] = {
 	GATE_IMG(CLK_IMG_LARB9, "img_larb9",
 			"img1_ck"/* parent */, 0),
@@ -115,6 +124,16 @@ static const struct mtk_gate img_clks[] = {
 			"img1_ck"/* parent */, 16),
 	GATE_IMG(CLK_IMG_GALS, "img_gals",
 			"img1_ck"/* parent */, 31),
+	GATE_IMG_NULL_OP(CLK_IMG_DIP0_DUMMY, "img_dip0_dummy",
+			"img1_ck"/* parent */, 8),
+	GATE_IMG_NULL_OP(CLK_IMG_WPE0_DUMMY, "img_wpe0_dummy",
+			"img1_ck"/* parent */, 9),
+	GATE_IMG_NULL_OP(CLK_IMG_IPE_DUMMY, "img_ipe_dummy",
+			"img1_ck"/* parent */, 10),
+	GATE_IMG_NULL_OP(CLK_IMG_WPE1_DUMMY, "img_wpe1_dummy",
+			"img1_ck"/* parent */, 12),
+	GATE_IMG_NULL_OP(CLK_IMG_WPE2_DUMMY, "img_wpe2_dummy",
+			"img1_ck"/* parent */, 13),
 };
 
 static const struct mtk_clk_desc img_mcd = {

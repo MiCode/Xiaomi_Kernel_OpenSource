@@ -34,6 +34,15 @@ static const struct mtk_gate_regs cam_mr_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_MR_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_mr_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate cam_mr_clks[] = {
 	GATE_CAM_MR(CLK_CAM_MR_LARBX, "cam_mr_larbx",
 			"cam_ck"/* parent */, 0),
@@ -51,6 +60,8 @@ static const struct mtk_gate cam_mr_clks[] = {
 			"cam_ck"/* parent */, 7),
 	GATE_CAM_MR(CLK_CAM_MR_PDA1, "cam_mr_pda1",
 			"cam_ck"/* parent */, 8),
+	GATE_CAM_MR(CLK_CAM_MR_LARBX_DUMMY, "cam_mr_larbx_dummy",
+			"cam_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc cam_mr_mcd = {
@@ -73,6 +84,15 @@ static const struct mtk_gate_regs cam_ra_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_RA_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_ra_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate cam_ra_clks[] = {
 	GATE_CAM_RA(CLK_CAM_RA_LARBX, "cam_ra_larbx",
 			"cam_ck"/* parent */, 0),
@@ -80,6 +100,8 @@ static const struct mtk_gate cam_ra_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_RA(CLK_CAM_RA_CAMTG, "cam_ra_camtg",
 			"camtm_ck"/* parent */, 2),
+	GATE_CAM_RA_NULL_OP(CLK_CAM_RA_LARBX_DUMMY, "cam_ra_larbx_dummy",
+			"cam_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc cam_ra_mcd = {
@@ -102,6 +124,15 @@ static const struct mtk_gate_regs cam_rb_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_RB_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_rb_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate cam_rb_clks[] = {
 	GATE_CAM_RB(CLK_CAM_RB_LARBX, "cam_rb_larbx",
 			"cam_ck"/* parent */, 0),
@@ -109,6 +140,8 @@ static const struct mtk_gate cam_rb_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_RB(CLK_CAM_RB_CAMTG, "cam_rb_camtg",
 			"camtm_ck"/* parent */, 2),
+	GATE_CAM_RB_NULL_OP(CLK_CAM_RB_LARBX_DUMMY, "cam_rb_larbx_dummy",
+			"cam_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc cam_rb_mcd = {
@@ -131,6 +164,15 @@ static const struct mtk_gate_regs cam_rc_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_RC_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_rc_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate cam_rc_clks[] = {
 	GATE_CAM_RC(CLK_CAM_RC_LARBX, "cam_rc_larbx",
 			"cam_ck"/* parent */, 0),
@@ -138,6 +180,8 @@ static const struct mtk_gate cam_rc_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_RC(CLK_CAM_RC_CAMTG, "cam_rc_camtg",
 			"camtm_ck"/* parent */, 2),
+	GATE_CAM_RC_NULL_OP(CLK_CAM_RC_LARBX_DUMMY, "cam_rc_larbx_dummy",
+			"cam_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc cam_rc_mcd = {
@@ -160,6 +204,15 @@ static const struct mtk_gate_regs cam_ya_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_YA_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_ya_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate cam_ya_clks[] = {
 	GATE_CAM_YA(CLK_CAM_YA_LARBX, "cam_ya_larbx",
 			"cam_ck"/* parent */, 0),
@@ -167,6 +220,8 @@ static const struct mtk_gate cam_ya_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_YA(CLK_CAM_YA_CAMTG, "cam_ya_camtg",
 			"camtm_ck"/* parent */, 2),
+	GATE_CAM_YA_NULL_OP(CLK_CAM_YA_LARBX_DUMMY, "cam_ya_larbx_dummy",
+			"cam_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc cam_ya_mcd = {
@@ -189,6 +244,15 @@ static const struct mtk_gate_regs cam_yb_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_YB_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_yb_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate cam_yb_clks[] = {
 	GATE_CAM_YB(CLK_CAM_YB_LARBX, "cam_yb_larbx",
 			"cam_ck"/* parent */, 0),
@@ -196,6 +260,8 @@ static const struct mtk_gate cam_yb_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_YB(CLK_CAM_YB_CAMTG, "cam_yb_camtg",
 			"camtm_ck"/* parent */, 2),
+	GATE_CAM_YB_NULL_OP(CLK_CAM_YB_LARBX_DUMMY, "cam_yb_larbx_dummy",
+			"cam_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc cam_yb_mcd = {
@@ -218,6 +284,15 @@ static const struct mtk_gate_regs cam_yc_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_CAM_YC_NULL_OP(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &cam_yc_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,	\
+	}
+
 static const struct mtk_gate cam_yc_clks[] = {
 	GATE_CAM_YC(CLK_CAM_YC_LARBX, "cam_yc_larbx",
 			"cam_ck"/* parent */, 0),
@@ -225,6 +300,8 @@ static const struct mtk_gate cam_yc_clks[] = {
 			"cam_ck"/* parent */, 1),
 	GATE_CAM_YC(CLK_CAM_YC_CAMTG, "cam_yc_camtg",
 			"camtm_ck"/* parent */, 2),
+	GATE_CAM_YC_NULL_OP(CLK_CAM_YC_LARBX_DUMMY, "cam_yc_larbx_dummy",
+			"cam_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc cam_yc_mcd = {
@@ -245,6 +322,15 @@ static const struct mtk_gate_regs cam_m_cg_regs = {
 		.regs = &cam_m_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+#define GATE_CAM_M_NULL_OP(_id, _name, _parent, _shift) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &cam_m_cg_regs,			\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_setclr_dummys,			\
 	}
 
 static const struct mtk_gate cam_m_clks[] = {
@@ -312,6 +398,14 @@ static const struct mtk_gate cam_m_clks[] = {
 			"cam_ck"/* parent */, 30),
 	GATE_CAM_M(CLK_CAM_MAIN_CAM2SYS_GALS_CON, "cam_m_cam2sys_gcon",
 			"cam_ck"/* parent */, 31),
+	GATE_CAM_M_NULL_OP(CLK_CAM_MAIN_CAM_SUBA_CON_DUMMY, "cam_m_cam_suba_con_dummy",
+			"cam_ck"/* parent */, 3),
+	GATE_CAM_M_NULL_OP(CLK_CAM_MAIN_CAM_SUBB_CON_DUMMY, "cam_m_cam_subb_con_dummy",
+			"cam_ck"/* parent */, 4),
+	GATE_CAM_M_NULL_OP(CLK_CAM_MAIN_CAM_SUBC_CON_DUMMY, "cam_m_cam_subc_con_dummy",
+			"cam_ck"/* parent */, 5),
+	GATE_CAM_M_NULL_OP(CLK_CAM_MAIN_CAM_MRAW_CON_DUMMY, "cam_m_cam_mraw_con_dummy",
+			"cam_ck"/* parent */, 6),
 };
 
 static const struct mtk_clk_desc cam_m_mcd = {
