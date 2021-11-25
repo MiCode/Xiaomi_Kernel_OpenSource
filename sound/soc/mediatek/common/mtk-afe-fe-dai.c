@@ -41,6 +41,22 @@
 #define AFE_AGENT_SET_OFFSET 4
 #define AFE_AGENT_CLR_OFFSET 8
 
+static bool is_semaphore_control_need(bool is_scp_sema_support)
+{
+	bool is_adsp_active = false;
+
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+	is_adsp_active = is_adsp_feature_in_active();
+#endif
+
+	/* If is_scp_sema_support is true,
+	 * scp semaphore is to ensure AP/SCP/ADSP synchronization.
+	 * Otherwise, using adsp semaphore for synchronization
+	 * if adsp feature is active.
+	 */
+	return is_scp_sema_support | is_adsp_active;
+}
+
 int mtk_regmap_update_bits(struct regmap *map, int reg,
 			   unsigned int mask,
 			   unsigned int val, int shift)
@@ -560,7 +576,7 @@ unsigned int is_afe_need_triggered(struct mtk_base_afe_memif *memif)
 }
 EXPORT_SYMBOL_GPL(is_afe_need_triggered);
 
-int __mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
+int raw_mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	int reg = 0;
@@ -580,7 +596,7 @@ int __mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 				      1, 1, memif->data->enable_shift);
 }
 
-int __mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
+int raw_mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	int reg = 0;
@@ -607,7 +623,6 @@ int __mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 int mtk_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
 {
 	int ret = 0;
-	bool is_adsp_active = false;
 	int adsp_sem_ret = NOTIFY_STOP;
 	int get_sema_type = afe->is_scp_sema_support ?
 			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
@@ -618,12 +633,8 @@ int mtk_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
 	if (!afe)
 		return -ENODEV;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-	is_adsp_active = is_adsp_feature_in_active();
-#endif
-
-	if (!is_adsp_active)
-		return __mtk_memif_set_enable(afe, afe_id);
+	if (!is_semaphore_control_need(afe->is_scp_sema_support))
+		return raw_mtk_memif_set_enable(afe, afe_id);
 
 	if (afe->is_memif_bit_banding == 0) {
 		adsp_sem_ret =
@@ -634,7 +645,7 @@ int mtk_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
 		}
 	}
 
-	ret = __mtk_memif_set_enable(afe, afe_id);
+	ret = raw_mtk_memif_set_enable(afe, afe_id);
 
 	if (afe->is_memif_bit_banding == 0)
 		notify_3way_semaphore_control(release_sema_type, NULL);
@@ -646,7 +657,6 @@ EXPORT_SYMBOL_GPL(mtk_memif_set_enable);
 int mtk_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
 {
 	int ret = 0;
-	bool is_adsp_active = false;
 	int adsp_sem_ret = NOTIFY_STOP;
 	int get_sema_type = afe->is_scp_sema_support ?
 			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
@@ -657,12 +667,8 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
 	if (!afe)
 		return -ENODEV;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-	is_adsp_active = is_adsp_feature_in_active();
-#endif
-
-	if (!is_adsp_active)
-		return __mtk_memif_set_disable(afe, afe_id);
+	if (!is_semaphore_control_need(afe->is_scp_sema_support))
+		return raw_mtk_memif_set_disable(afe, afe_id);
 
 	if (afe->is_memif_bit_banding == 0) {
 		adsp_sem_ret =
@@ -673,7 +679,7 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
 		}
 	}
 
-	ret = __mtk_memif_set_disable(afe, afe_id);
+	ret = raw_mtk_memif_set_disable(afe, afe_id);
 
 	if (afe->is_memif_bit_banding == 0)
 		notify_3way_semaphore_control(release_sema_type, NULL);
@@ -687,7 +693,6 @@ int mtk_irq_set_enable(struct mtk_base_afe *afe,
 		       int afe_id)
 {
 	int ret = 0;
-	bool is_adsp_active = false;
 	int adsp_sem_ret = NOTIFY_STOP;
 	int get_sema_type = afe->is_scp_sema_support ?
 			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
@@ -700,11 +705,7 @@ int mtk_irq_set_enable(struct mtk_base_afe *afe,
 	if (!irq_data)
 		return -ENODEV;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-	is_adsp_active = is_adsp_feature_in_active();
-#endif
-
-	if (!is_adsp_active)
+	if (!is_semaphore_control_need(afe->is_scp_sema_support))
 		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 					  1 << irq_data->irq_en_shift,
 					  1 << irq_data->irq_en_shift);
@@ -730,7 +731,6 @@ int mtk_irq_set_disable(struct mtk_base_afe *afe,
 			int afe_id)
 {
 	int ret = 0;
-	bool is_adsp_active = false;
 	int adsp_sem_ret = NOTIFY_STOP;
 	int get_sema_type = afe->is_scp_sema_support ?
 			    NOTIFIER_SCP_3WAY_SEMAPHORE_GET :
@@ -743,11 +743,7 @@ int mtk_irq_set_disable(struct mtk_base_afe *afe,
 	if (!irq_data)
 		return -EPERM;
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-	is_adsp_active = is_adsp_feature_in_active();
-#endif
-
-	if (!is_adsp_active)
+	if (!is_semaphore_control_need(afe->is_scp_sema_support))
 		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 					  1 << irq_data->irq_en_shift,
 					  0 << irq_data->irq_en_shift);
