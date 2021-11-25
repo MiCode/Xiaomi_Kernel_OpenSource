@@ -796,6 +796,12 @@
 			compatible = "arm,scmi-tx-shmem";
 			reg = <0x0 0x80>;
 		};
+
+		ktf_clkmgr_reserved: ktf_clkmgr_mem_region@50000000 {
+			reg = <0 0x50000000 0 0x1000>;
+			alignment = <0 0x1000>;
+			no-map;
+		};
 	};
 
 	ssram2@1C360000 {
@@ -11599,6 +11605,30 @@
 		mediatek,headset-codec = <&accdet>;
 		mediatek,platform = <&afe>;
 	};
+
+		clkmgr: syscon@50000000 {
+			compatible = "mediatek,ktf-clkmgr-clk", "syscon";
+			reg = <0 0x50000000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		ktf-clkmgr-test {
+			compatible = "mediatek,ktf-clkmgr-test";
+			clocks = <&clkmgr 0>,
+				 <&clkmgr 1>,
+				 <&clkmgr 2>,
+				 <&clkmgr 3>,
+				 <&clkmgr 4>,
+				 <&clkmgr 5>,
+				 <&clkmgr 6>,
+				 <&clkmgr 7>,
+				 <&clkmgr 15>;
+			clock-names = "pll_d2", "pll_d4", "mux0", "mux1",
+				      "gate_sc", "gate_sc_inv", "gate_nsc",
+				      "gate_nsc_inv", "pll";
+
+			power-domains = <&scpsys MT6895_POWER_DOMAIN_CONN>;
+		};
 
 	/* feature : $enable $dl_mem $ul_mem $ref_mem $size */
 	snd_audio_dsp: snd_audio_dsp {
