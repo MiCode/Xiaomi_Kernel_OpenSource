@@ -1372,6 +1372,80 @@
 			#dma-cells = <1>;
 		};
 
+		gpueb: gpueb@13c00000 {
+			compatible = "mediatek,gpueb";
+			gpueb-support = <0>;
+			gpueb-logger-support = <0>;
+			mbox_count = <1>;
+			mbox_size = <160>; /* slots */
+			slot_size = <4>;   /* bytes */
+			ts_mbox = <0>; /* mbox for timersync */
+
+			/* id, mbox, send_size */
+			send_table =
+				<0 0 4>,
+				<1 0 8>,
+				<2 0 3>,
+				<3 0 3>,
+				<4 0 9>,
+				<5 0 4>,
+				<6 0 6>,
+				<7 0 6>;
+			send_name_table =
+				"IPI_ID_FAST_DVFS_EVENT",
+				"IPI_ID_GPUFREQ",
+				"IPI_ID_SLEEP",
+				"IPI_ID_TIMER",
+				"IPI_ID_FHCTL",
+				"IPI_ID_CCF",
+				"IPI_ID_GPUMPU",
+				"IPI_ID_FAST_DVFS";
+
+			/* id, mbox, recv_size, recv_opt */
+			recv_table =
+				<0 0 4 0>,
+				<1 0 8 1>,
+				<2 0 1 0>,
+				<3 0 1 0>,
+				<4 0 1 1>,
+				<5 0 4 1>,
+				<6 0 1 1>,
+				<7 0 6 1>;
+			recv_name_table =
+				"IPI_ID_FAST_DVFS_EVENT",
+				"IPI_ID_GPUFREQ",
+				"IPI_ID_SLEEP",
+				"IPI_ID_TIMER",
+				"IPI_ID_FHCTL",
+				"IPI_ID_CCF",
+				"IPI_ID_GPUMPU",
+				"IPI_ID_FAST_DVFS";
+
+			reg = <0 0x13c40000 0 0x22000>,
+				<0 0x13c5fd80 0 0x280>,
+				<0 0x13c62004 0 0x4>,
+				<0 0x13c62074 0 0x4>,
+				<0 0x13c62000 0 0x4>,
+				<0 0x13c62078 0 0x4>;
+			reg-names = "gpueb_base",
+						"mbox0_base",
+						"mbox0_set",
+						"mbox0_clr",
+						"mbox0_send",
+						"mbox0_recv";
+
+			interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupt-names = "mbox0";
+
+			gpueb_mem_table =
+				<0 0x1000>,   /* 4KB */
+				<1 0x180000>; /* 1.5MB */
+
+			gpueb_mem_name_table =
+				"MEM_ID_GPUFREQ", /* GPUFREQ */
+				"MEM_ID_LOG";     /* LOGGER */
+		};
+
 		rgx: rgx@13000000 {
 			compatible = "mediatek,rgx";
 			clock-frequency = <480000000>; /* Hz */
