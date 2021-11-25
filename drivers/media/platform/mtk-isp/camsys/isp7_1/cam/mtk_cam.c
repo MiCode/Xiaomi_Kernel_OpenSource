@@ -3860,8 +3860,15 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
 	cfg_in_param->in_crop.s.w = img_fmt->fmt.pix_mp.width;
 	cfg_in_param->in_crop.s.h = img_fmt->fmt.pix_mp.height;
-	dev_dbg(dev, "sink pad code:0x%x, tg size:%d %d\n", mf->code,
-		cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h);
+
+	if (mtk_cam_is_pure_m2m(ctx)) {
+		mf = &pipe->cfg[MTK_RAW_RAWI_2_IN].mbus_fmt;
+		dev_dbg(dev, "[pure m2m] rawi2 pad code:0x%x, sink tg size:%d %d\n",
+			mf->code, cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h);
+	} else {
+		dev_dbg(dev, "sink pad code:0x%x, tg size:%d %d\n", mf->code,
+			cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h);
+	}
 
 	mf_code = mf->code & 0xffff; /* todo: sensor mode issue, need patch */
 	cfg_in_param->raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf_code);
