@@ -929,7 +929,7 @@ void dump_hist(struct DISP_AAL_HIST *data)
 	pr_notice("%d %d %d", data->aal0_yHist[30], data->aal0_yHist[31],
 			data->aal0_yHist[32]);
 	if (isDualPQ) {
-		pr_err("aal1_maxHist:\n");
+		pr_notice("aal1_maxHist:\n");
 		for (i = 0; i < 3; i++) {
 			pr_notice("%d %d %d %d %d %d %d %d %d %d",
 				data->aal1_maxHist[i*10 + 0], data->aal1_maxHist[i*10 + 1],

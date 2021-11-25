@@ -2718,7 +2718,7 @@ static void process_dbg_opt(const char *opt)
 					typeof(*crtc), head);
 
 		if (!crtc) {
-			pr_info("find crtc fail\n");
+			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
 
@@ -2778,7 +2778,7 @@ static void process_dbg_opt(const char *opt)
 					typeof(*crtc), head);
 
 		if (!crtc) {
-			pr_info("find crtc fail\n");
+			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
 

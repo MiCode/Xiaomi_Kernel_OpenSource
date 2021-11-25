@@ -1885,7 +1885,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				"[IRQ] %s: buffer underrun\n",
 				mtk_dump_comp_str(&dsi->ddp_comp));
 			if (__ratelimit(&ioctl_ratelimit))
-				pr_err(pr_fmt("[IRQ] %s: buffer underrun\n"),
+				DDPPR_ERR(pr_fmt("[IRQ] %s: buffer underrun\n"),
 					mtk_dump_comp_str(&dsi->ddp_comp));
 		}
 
