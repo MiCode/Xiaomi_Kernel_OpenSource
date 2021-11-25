@@ -226,6 +226,7 @@ static inline bool is_complex_sibling_idle(int cpu)
 	return false;
 }
 
+static inline int walt_get_mvp_task_prio(struct task_struct *p);
 static void walt_find_best_target(struct sched_domain *sd,
 					cpumask_t *candidates,
 					struct task_struct *p,
@@ -320,6 +321,10 @@ static void walt_find_best_target(struct sched_domain *sd,
 
 			if (per_task_boost(cpu_rq(i)->curr) ==
 					TASK_BOOST_STRICT_MAX)
+				continue;
+
+			if (walt_get_mvp_task_prio(p) == WALT_NOT_MVP &&
+			    walt_get_mvp_task_prio(cpu_rq(i)->curr) != WALT_NOT_MVP)
 				continue;
 
 			/*
