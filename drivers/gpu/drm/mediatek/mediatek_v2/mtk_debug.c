@@ -2786,6 +2786,30 @@ static void process_dbg_opt(const char *opt)
 
 		if (mtk_crtc)
 			mtk_crtc->is_force_mml_scen = force_mml_scen;
+	} else if (strncmp(opt, "mml_cmd_ir:", 11) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		bool mml_cmd_ir = false;
+
+		if (strncmp(opt + 11, "1", 1) == 0)
+			mml_cmd_ir = true;
+		else if (strncmp(opt + 11, "0", 1) == 0)
+			mml_cmd_ir = false;
+		DDPMSG("mml_cmd_ir:%d", mml_cmd_ir);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->mml_cmd_ir = mml_cmd_ir;
 	}
 }
 

@@ -2603,6 +2603,14 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 			}
 			mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev, crtc), mml_info);
 			DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
+
+			// temp patch for CMD mode not in MML IR
+			if (mtk_crtc_is_frame_trigger_mode(crtc) &&
+				!mtk_crtc->mml_cmd_ir &&
+				mode == MML_MODE_RACING)
+				mode = MML_MODE_MML_DECOUPLE;
+
+			DDPDBG("%s, final mml mode:%d\n", __func__, mode);
 		} else
 			DDPMSG("%s, mml_info is null\n", __func__);
 	}
