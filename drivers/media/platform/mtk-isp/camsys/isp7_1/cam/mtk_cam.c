@@ -3784,6 +3784,13 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	unsigned int i;
 	int ret;
 	u32 mf_code;
+	int feature_active; /* Used to know max exposure num */
+
+	feature_active = ctx->pipe->feature_active;
+	/**
+	 * If you wan't to get the first req's raw_feature (not the max exp. num),
+	 * you can use read ctx->pipe->feature_pending here.
+	 */
 
 	memset(&config_param, 0, sizeof(config_param));
 
@@ -3825,7 +3832,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	dev_dbg(dev, "%s: config_param flag:0x%x enabled_raw:0x%x\n", __func__,
 			config_param.flags, ctx->pipe->enabled_raw);
 
-	if (config_pipe && mtk_cam_is_stagger(ctx)) {
+	if (config_pipe && mtk_cam_feature_is_stagger(feature_active)) {
 		int master = (1 << MTKCAM_SUBDEV_RAW_0);
 		int hw_scen, req_amount, idle_pipes;
 
@@ -3837,16 +3844,16 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		}
 		if (ctx->pipe->stagger_path == STAGGER_ON_THE_FLY) {
 			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
-			req_amount = (mtk_cam_is_3_exposure(ctx)) ? 2 : 1;
+			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 2 : 1;
 		} else if (ctx->pipe->stagger_path == STAGGER_DCIF) {
 			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
-			req_amount = (mtk_cam_is_3_exposure(ctx)) ? 3 : 2;
+			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 3 : 2;
 		} else if (ctx->pipe->stagger_path == STAGGER_OFFLINE) {
 			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
-			req_amount = (mtk_cam_is_3_exposure(ctx)) ? 3 : 2;
+			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 3 : 2;
 		} else {
 			hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
-			req_amount = (mtk_cam_is_3_exposure(ctx)) ? 2 : 1;
+			req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 2 : 1;
 		}
 		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
 		/* cached used sv pipes */
@@ -3880,7 +3887,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		int hw_scen, req_amount;
 
 		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
-		req_amount = (mtk_cam_is_3_exposure(ctx)) ? 3 : 2;
+		req_amount = (mtk_cam_feature_is_3_exposure(feature_active)) ? 3 : 2;
 	} else if (mtk_cam_is_with_w_channel(ctx)) {
 		int master, hw_scen, req_amount, idle_pipes;
 
@@ -3900,12 +3907,13 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	}
 
 	update_hw_mapping(ctx, &config_param);
-	if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
+	if (mtk_cam_feature_is_mstream(feature_active) ||
+	    mtk_cam_feature_is_mstream_m2m(feature_active)) {
 		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR_MSTREAM;
 		dev_dbg(dev, "%s sw_feature:%d", __func__, config_param.sw_feature);
 	} else {
-		config_param.sw_feature = (mtk_cam_is_stagger(ctx) == 1 ||
-			mtk_cam_is_stagger_m2m(ctx) == 1) ?
+		config_param.sw_feature = (mtk_cam_feature_is_stagger(feature_active) == 1 ||
+			mtk_cam_feature_is_stagger_m2m(feature_active) == 1) ?
 			MTKCAM_IPI_SW_FEATURE_VHDR_STAGGER : MTKCAM_IPI_SW_FEATURE_NORMAL;
 	}
 
@@ -4437,6 +4445,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	int i, j, ret;
 	int tgo_pxl_mode;
 	bool need_dump_mem = false;
+	int feature_active;	/* Used to know max exposure num */
+	int feature_first_req;	/* Used to know first frame's exposure num */
 
 	dev_info(cam->dev, "ctx %d stream on\n", ctx->stream_id);
 	if (ctx->streaming) {
@@ -4454,18 +4464,20 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 
+	feature_active = ctx->pipe->feature_active;
+	feature_first_req = ctx->pipe->feature_pending;
 	if (ctx->used_raw_num) {
 		tgo_pxl_mode = ctx->pipe->res_config.tgo_pxl_mode;
 		/**
 		 * TODO: validate pad's setting of each pipes
 		 * return -EPIPE if failed
 		 */
-		if (mtk_cam_is_stagger(ctx))
+		if (mtk_cam_feature_is_stagger(feature_active))
 			ret = mtk_cam_img_working_buf_pool_init(ctx,
-				2 + mtk_cam_is_3_exposure(ctx));
-		if (mtk_cam_is_time_shared(ctx))
+				2 + mtk_cam_feature_is_3_exposure(feature_active));
+		if (mtk_cam_feature_is_time_shared(feature_active))
 			ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
-		if (mtk_cam_is_mstream(ctx))
+		if (mtk_cam_feature_is_mstream(feature_active))
 			ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 		if (ret) {
 			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
@@ -4485,10 +4497,10 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		if (mtk_cam_is_hsf(ctx)) {
 			initialize(raw_dev, 0);
 			/* Stagger */
-			if (mtk_cam_is_stagger(ctx))
+			if (mtk_cam_feature_is_stagger(feature_first_req))
 				stagger_enable(raw_dev);
 			/* Sub sample */
-			if (mtk_cam_is_subsample(ctx))
+			if (mtk_cam_feature_is_subsample(feature_active))
 				subsample_enable(raw_dev);
 			/* Twin */
 			if (ctx->pipe->res_config.raw_num_used != 1) {
@@ -4504,15 +4516,15 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 
 		/* stagger mode - use sv to output data to DRAM - online mode */
-		if (mtk_cam_is_stagger(ctx)) {
+		if (mtk_cam_feature_is_stagger(feature_active)) {
 			int used_pipes, src_pad_idx, exp_no;
 			unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
 			bool bDcif;
 
 			/* check exposure number */
-			if (mtk_cam_is_2_exposure(ctx))
+			if (mtk_cam_feature_is_2_exposure(feature_active))
 				exp_no = 2;
-			else if (mtk_cam_is_3_exposure(ctx))
+			else if (mtk_cam_feature_is_3_exposure(feature_active))
 				exp_no = 3;
 			else
 				exp_no = 1;
@@ -4554,7 +4566,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						goto fail_pipe_off;
 				}
 			}
-		} else if (mtk_cam_is_time_shared(ctx)) {
+		} else if (mtk_cam_feature_is_time_shared(feature_active)) {
 			int used_pipes, src_pad_idx, hw_scen;
 			hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
 			src_pad_idx = PAD_SRC_RAW0;
@@ -4610,10 +4622,17 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 
 		/*set cam mux camtg and pixel mode*/
-		if (mtk_cam_is_stagger(ctx)) {
+		if (mtk_cam_feature_is_stagger(feature_active)) {
 			if (ctx->pipe->stagger_path == STAGGER_ON_THE_FLY) {
-				int seninf_pad = (mtk_cam_is_2_exposure(ctx) == 1) ?
-						PAD_SRC_RAW1 : PAD_SRC_RAW2;
+				int seninf_pad;
+
+				if (mtk_cam_feature_is_2_exposure(feature_first_req))
+					seninf_pad = PAD_SRC_RAW1;
+				else if (mtk_cam_feature_is_3_exposure(feature_first_req))
+					seninf_pad = PAD_SRC_RAW2;
+				else
+					seninf_pad = PAD_SRC_RAW0;
+
 				/* todo: backend support one pixel mode only */
 				mtk_cam_call_seninf_set_pixelmode(ctx,
 								  ctx->seninf,
@@ -4622,8 +4641,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 				mtk_cam_seninf_set_camtg(ctx->seninf, seninf_pad,
 							PipeIDtoTGIDX(raw_dev->id));
 			}
-		} else if (!mtk_cam_is_m2m(ctx) &&
-					!mtk_cam_is_time_shared(ctx)) {
+		} else if (!mtk_cam_feature_is_m2m(feature_active) &&
+					!mtk_cam_feature_is_time_shared(feature_active)) {
 			if (mtk_cam_is_hsf(ctx)) {
 				//HSF control
 				dev_info(cam->dev, "enabled_hsf_raw =%d\n",
@@ -4650,7 +4669,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 
-	if (!mtk_cam_is_m2m(ctx)) {
+	if (!mtk_cam_feature_is_m2m(feature_active)) {
 		for (i = 0 ; i < ctx->used_sv_num ; i++) {
 			/* use 8-pixel mode as default */
 			mtk_cam_call_seninf_set_pixelmode(ctx,
@@ -4695,10 +4714,10 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		if (!mtk_cam_is_hsf(ctx)) {
 			initialize(raw_dev, 0);
 			/* Stagger */
-			if (mtk_cam_is_stagger(ctx))
+			if (mtk_cam_feature_is_stagger(feature_first_req))
 				stagger_enable(raw_dev);
 			/* Sub sample */
-			if (mtk_cam_is_subsample(ctx))
+			if (mtk_cam_feature_is_subsample(feature_active))
 				subsample_enable(raw_dev);
 			/* Twin */
 			if (ctx->pipe->res_config.raw_num_used != 1) {
@@ -4770,6 +4789,7 @@ fail_pipe_off:
 	v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 	return ret;
 }
+
 static int mtk_cam_ts_are_all_ctx_off(struct mtk_cam_device *cam,
 			struct mtk_cam_ctx *ctx)
 {
@@ -4809,6 +4829,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	struct mtk_raw_device *raw_dev;
 	unsigned int i, enabled_sv = 0;
 	int ret;
+	int feature = ctx->pipe->feature_active;
 
 	if (!ctx->streaming) {
 		dev_dbg(cam->dev, "ctx-%d is already streaming off\n",
@@ -4846,7 +4867,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		ctx->synced = 0;
 	}
 
-	if (!mtk_cam_is_m2m(ctx)) {
+	if (!mtk_cam_feature_is_m2m(feature)) {
 		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 		if (ret) {
 			dev_dbg(cam->dev, "failed to stream off %s:%d\n",
@@ -4870,7 +4891,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			goto fail_stream_off;
 		}
 		raw_dev = dev_get_drvdata(dev);
-		if (mtk_cam_is_time_shared(ctx)) {
+		if (mtk_cam_feature_is_time_shared(feature)) {
 			unsigned int hw_scen =
 				(1 << MTKCAM_IPI_HW_PATH_OFFLINE_M2M);
 			for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
@@ -4905,7 +4926,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		if (ret)
 			return ret;
 	}
-	if (mtk_cam_is_stagger(ctx)) {
+	if (mtk_cam_feature_is_stagger(feature)) {
 		unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
 
 		for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {

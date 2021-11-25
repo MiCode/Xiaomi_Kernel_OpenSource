@@ -2824,7 +2824,7 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		pipe->enabled_dmas = 0;
 		ctx->pipe = pipe;
 		ctx->used_raw_num++;
-		pipe->feature_active = pipe->feature_pending;
+		pipe->feature_active = pipe->user_res.raw_res.feature;
 		for (i = 0; i < ARRAY_SIZE(pipe->vdev_nodes); i++) {
 			if (!pipe->vdev_nodes[i].enabled)
 				continue;
