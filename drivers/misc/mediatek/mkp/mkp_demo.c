@@ -410,6 +410,18 @@ static void probe_android_vh_selinux_avc_lookup(void *ignore,
 					ro_avc_sharebuf_ptr->ae_allowed !=
 						temp_node->ae.avd.allowed) {
 					MKP_ERR("avc lookup is not matched\n");
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+					MKP_ERR("CURRENT-%16lx:%16lx:%16lx:%16lx\n",
+					       (unsigned long)ssid,
+					       (unsigned long)tsid,
+					       (unsigned long)tclass,
+					       (unsigned long)temp_node->ae.avd.allowed);
+					MKP_ERR("@EXPECT-%16lx:%16lx:%16lx:%16lx\n",
+					       (unsigned long)ro_avc_sharebuf_ptr->ssid,
+					       (unsigned long)ro_avc_sharebuf_ptr->tsid,
+					       (unsigned long)ro_avc_sharebuf_ptr->tclass,
+					       (unsigned long)ro_avc_sharebuf_ptr->ae_allowed);
+#endif
 					handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
 				} else {
 					return; // pass
@@ -483,8 +495,18 @@ static void check_selinux_state(struct ratelimit_state *rs)
 		(g_selinux_state->initialized != g_initialized ||
 		g_selinux_state->avc != g_avc ||
 		g_selinux_state->policy != g_policy)) {
-		MKP_ERR("%s:%d: cred is not matched\n", __func__, __LINE__);
-		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+		MKP_ERR("%s:%d: selinux_state is not matched\n", __func__, __LINE__);
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+		MKP_ERR("CURRENT-%16lx:%16lx:%16lx\n",
+				(unsigned long)g_selinux_state->initialized,
+				(unsigned long)g_selinux_state->avc,
+				(unsigned long)g_selinux_state->policy);
+		MKP_ERR("@EXPECT-%16lx:%16lx:%16lx\n",
+				(unsigned long)g_initialized,
+				(unsigned long)g_avc,
+				(unsigned long)g_policy);
+#endif
+		handle_mkp_err_action(MKP_POLICY_SELINUX_STATE);
 	}
 }
 static void check_cred(struct ratelimit_state *rs)
@@ -518,6 +540,24 @@ static void check_cred(struct ratelimit_state *rs)
 		target->csc.fsgid.val != cur->cred->fsgid.val ||
 		target->csc.security != cur->cred->security) {
 		MKP_ERR("%s:%d: cred is not matched\n", __func__, __LINE__);
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+		MKP_ERR("CURRENT-%16lx:%16lx:%16lx:%16lx:%16lx:%16lx:%16lx\n",
+				(unsigned long)cur->cred->uid.val,
+				(unsigned long)cur->cred->gid.val,
+				(unsigned long)cur->cred->euid.val,
+				(unsigned long)cur->cred->egid.val,
+				(unsigned long)cur->cred->fsuid.val,
+				(unsigned long)cur->cred->fsgid.val,
+				(unsigned long)cur->cred->security);
+		MKP_ERR("@EXPECT-%16lx:%16lx:%16lx:%16lx:%16lx:%16lx:%16lx\n",
+				(unsigned long)target->csc.uid.val,
+				(unsigned long)target->csc.gid.val,
+				(unsigned long)target->csc.euid.val,
+				(unsigned long)target->csc.egid.val,
+				(unsigned long)target->csc.fsuid.val,
+				(unsigned long)target->csc.fsgid.val,
+				(unsigned long)target->csc.security);
+#endif
 		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
 		return;
 	}
