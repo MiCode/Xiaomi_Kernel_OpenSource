@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_VMM_DBG
+	tristate "MediaTek VMM DBG driver"
+	help
+	  This driver is for VMM DVFS debug. It handshakes with SRAMRC driver
+	  and query ccu registers when it receives callback from SRAMRC.

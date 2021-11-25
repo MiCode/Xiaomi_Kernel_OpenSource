@@ -92,6 +92,7 @@ obj-$(CONFIG_INTERCONNECT_MTK_EXTENSION) += mtk-interconnect/
 obj-$(CONFIG_MTK_MMDVFS) += mmdvfs/
 obj-$(CONFIG_MTK_MMINFRA) += mminfra/
 obj-$(CONFIG_MTK_VMM_SPM) += vmm_spm/
+obj-$(CONFIG_MTK_VMM_DBG) += vmm_dbg/
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_MTK_USB_BOOST) += usb_boost/
 obj-$(CONFIG_MTK_USB_META) += usb_meta/
