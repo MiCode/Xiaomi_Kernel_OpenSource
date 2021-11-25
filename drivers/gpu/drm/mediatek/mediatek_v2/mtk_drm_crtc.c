@@ -6585,7 +6585,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 	struct mtk_panel_params *params =
 			mtk_drm_get_lcm_ext_params(crtc);
 
-	if (mtk_crtc_is_dc_mode(crtc))
+	if (mtk_crtc_is_dc_mode(crtc) || mtk_crtc->is_mml)
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]);
 	else
