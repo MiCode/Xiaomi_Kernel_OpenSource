@@ -1558,6 +1558,45 @@
 			#dma-cells = <1>;
 		};
 
+		efuse: efuse@11c10000 {
+			compatible = "mediatek,devinfo";
+			reg = <0 0x11c10000 0 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			u3_phy_data: u3_phy_data {
+				reg = <0x1ac 0x4>;
+			};
+
+			u2_phy_data: u2_phy_data {
+				reg = <0x1b0 0x4>;
+			};
+
+			lvts_e_data1: data1 {
+				reg = <0x1d0 0x10>;
+			};
+
+			lvts_e_data2: data2 {
+				reg = <0x2f8 0x50>;
+			};
+
+			csi_efuse0: csi_data0 {
+				reg = <0x1b4 0x4>;
+			};
+
+			csi_efuse1: csi_data1 {
+				reg = <0x1b8 0x4>;
+			};
+
+			csi_efuse2: csi_data2 {
+				reg = <0x1bc 0x4>;
+			};
+
+			csi_efuse3: csi_data3 {
+				reg = <0x1c0 0x4>;
+			};
+		};
+
 		gpueb: gpueb@13c00000 {
 			compatible = "mediatek,gpueb";
 			gpueb-support = <0>;
