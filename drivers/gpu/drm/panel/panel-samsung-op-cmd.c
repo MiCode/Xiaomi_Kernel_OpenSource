@@ -479,7 +479,7 @@ static const struct drm_display_mode display_mode[MODE_NUM] = {
 		.vsync_start = VAC_WQHD + VFP,
 		.vsync_end = VAC_WQHD + VFP + VSA,
 		.vtotal = VAC_WQHD + VFP + VSA + VBP,
-		.hskew = SDC_ADFR,
+		.hskew = SDC_MFR,
 	},
 	//fhd_sdc_60_mode
 	{
