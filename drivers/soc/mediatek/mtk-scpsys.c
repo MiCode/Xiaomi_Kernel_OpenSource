@@ -29,10 +29,12 @@
 #include <dt-bindings/power/mt8173-power.h>
 #include <dt-bindings/power/mt8192-power.h>
 
-#define MTK_POLL_DELAY_US   10
-#define MTK_POLL_TIMEOUT    USEC_PER_SEC
-#define MTK_POLL_IRQ_DELAY_US   3
-#define MTK_POLL_IRQ_TIMEOUT    USEC_PER_SEC
+#define MTK_POLL_DELAY_US		10
+#define MTK_POLL_TIMEOUT		USEC_PER_SEC
+#define MTK_POLL_IRQ_DELAY_US		3
+#define MTK_POLL_IRQ_TIMEOUT		USEC_PER_SEC
+#define MTK_POLL_HWV_PREPARE_CNT	100
+#define MTK_POLL_HWV_PREPARE_US		2
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -871,6 +873,36 @@ static int mtk_hwv_is_done(struct scp_domain *scpd)
 	return (val & BIT(scpd->data->hwv_shift));
 }
 
+static int mtk_hwv_is_enable_done(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+	u32 val = 0, val2 = 0, val3 = 0;
+
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_en_ofs, &val2);
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_set_sta_ofs, &val3);
+
+	if ((val & BIT(scpd->data->hwv_shift)) && (val2 & BIT(scpd->data->hwv_shift))
+			&& ((val3 & BIT(scpd->data->hwv_shift)) == 0x0))
+		return 1;
+
+	return 0;
+}
+
+static int mtk_hwv_is_disable_done(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+	u32 val = 0, val2 = 0;
+
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_clr_sta_ofs, &val2);
+
+	if ((val & BIT(scpd->data->hwv_shift)) && ((val2 & BIT(scpd->data->hwv_shift)) == 0x0))
+		return 1;
+
+	return 0;
+}
+
 static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 {
 	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
@@ -902,17 +934,18 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_set_ofs, val);
 	do {
 		regmap_read(scp->hwv_regmap, scpd->data->hwv_set_ofs, &val);
-		udelay(1);
-		if (i > 100)
-			goto err_hwv_vote;
-		i++;
-	} while ((val & BIT(scpd->data->hwv_shift)) == 0);
+		if ((val & BIT(scpd->data->hwv_shift)) != 0)
+			break;
 
-	/* delay 50us for stable status */
-	udelay(50);
+		if (i > MTK_POLL_HWV_PREPARE_CNT)
+			goto err_hwv_vote;
+
+		udelay(MTK_POLL_HWV_PREPARE_US);
+		i++;
+	} while (1);
 
 	/* wait until VOTER_ACK = 1 */
-	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_enable_done, scpd, tmp, tmp > 0,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_hwv_done;
@@ -963,18 +996,21 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 	val = BIT(scpd->data->hwv_shift);
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_clr_ofs, val);
 	do {
-		regmap_read(scp->hwv_regmap, scpd->data->hwv_set_ofs, &val);
-		udelay(1);
-		if (i > 100)
+		regmap_read(scp->hwv_regmap, scpd->data->hwv_clr_ofs, &val);
+		if ((val & BIT(scpd->data->hwv_shift)) == 0)
+			break;
+
+		if (i > MTK_POLL_HWV_PREPARE_CNT)
 			goto err_hwv_vote;
 		i++;
-	} while ((val & BIT(scpd->data->hwv_shift)) != 0);
+		udelay(MTK_POLL_HWV_PREPARE_US);
+	} while (1);
 
-	/* delay 50us for stable status */
-	udelay(50);
+	/* delay 100us for stable status */
+	udelay(100);
 
 	/* wait until VOTER_ACK = 0 */
-	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_disable_done, scpd, tmp, tmp > 0,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_hwv_done;

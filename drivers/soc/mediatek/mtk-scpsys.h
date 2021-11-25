@@ -73,6 +73,9 @@ struct scp_domain_data {
 	u32 hwv_done_ofs;
 	u32 hwv_set_ofs;
 	u32 hwv_clr_ofs;
+	u32 hwv_en_ofs;
+	u32 hwv_set_sta_ofs;
+	u32 hwv_clr_sta_ofs;
 	u8 hwv_shift;
 	u32 sram_pdn_bits;
 	u32 sram_pdn_ack_bits;
