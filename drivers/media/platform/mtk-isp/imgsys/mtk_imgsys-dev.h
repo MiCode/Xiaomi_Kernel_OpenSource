@@ -54,7 +54,7 @@
 #define MTK_DIP_DEV_META_BUF_POOL_MAX_SIZE	(1024 * 1024 * 16)
 #define MTK_IMGSYS_OPP_SET			2
 #define MTK_IMGSYS_CLK_LEVEL_CNT		5
-#define MTK_IMGSYS_DVFS_GROUP			2
+#define MTK_IMGSYS_DVFS_GROUP			3
 #define MTK_IMGSYS_QOS_GROUP			2
 
 #define MTK_IMGSYS_LOG_LENGTH			1024
@@ -234,9 +234,10 @@ struct mtk_imgsys_dvfs {
 	unsigned int clklv_idx[MTK_IMGSYS_OPP_SET];
 	unsigned int clklv_target[MTK_IMGSYS_OPP_SET];
 	unsigned int cur_volt;
-	u64 ts_end;
 	unsigned long pixel_size[MTK_IMGSYS_DVFS_GROUP];
 	unsigned long freq;
+	unsigned int vss_task_cnt;
+	unsigned int smvr_task_cnt;
 };
 
 struct mtk_imgsys_qos_path {
@@ -732,6 +733,7 @@ struct swfrm_info_t {
 	int earlycb_sidx;
 	uint8_t is_lastfrm;
 	int8_t group_id;
+	int8_t batchnum;
 	int8_t is_sent;	/*check the frame is sent to gce or not*/
 	void *req;		/*mtk_dip_request*/
 	void *pipe;
