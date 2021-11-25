@@ -3720,7 +3720,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 {
 	kal_uint32 frame_length;
 
-	LOG_INF("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
+	DEBUG_LOG(ctx, "scenario_id = %d, framerate = %d\n", scenario_id, framerate);
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -4220,7 +4220,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 				(MUINT32 *)(uintptr_t)(*(feature_data+1)));
 		break;
 	case SENSOR_FEATURE_GET_PDAF_DATA:
-		LOG_INF("SENSOR_FEATURE_GET_PDAF_DATA\n");
+		// LOG_INF("SENSOR_FEATURE_GET_PDAF_DATA\n");
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		set_test_pattern_mode(ctx, (BOOL)*feature_data);
@@ -4298,8 +4298,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 		break;
 	case SENSOR_FEATURE_GET_PDAF_INFO:
-		LOG_INF("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n",
-			(UINT16) *feature_data);
+		// LOG_INF("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n",
+			// (UINT16) *feature_data);
 
 		PDAFinfo =
 			(struct SET_PD_BLOCK_INFO_T *)
@@ -4323,9 +4323,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		}
 		break;
 	case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
-		LOG_INF(
-			"SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY scenarioId:%d\n",
-			(UINT16) *feature_data);
+		// LOG_INF(
+			// "SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY scenarioId:%d\n",
+			// (UINT16) *feature_data);
 
 		/*PDAF capacity enable or not, 2p8 only full size support PDAF*/
 		switch (*feature_data) {
@@ -4432,8 +4432,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
 			break;
 		}
-		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
-			 *feature_return_para_32);
+		// LOG_INF("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
+			 // *feature_return_para_32);
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_GET_AE_EFFECTIVE_FRAME_FOR_LE:

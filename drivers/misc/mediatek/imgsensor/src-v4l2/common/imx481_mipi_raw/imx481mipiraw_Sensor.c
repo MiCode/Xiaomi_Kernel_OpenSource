@@ -2275,9 +2275,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*feature_return_para_32 = 1;
 			break;
 		}
-		pr_debug(
-			"SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
-			*feature_return_para_32);
+		// pr_debug(
+			// "SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
+			// *feature_return_para_32);
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_GET_MIPI_PIXEL_RATE:

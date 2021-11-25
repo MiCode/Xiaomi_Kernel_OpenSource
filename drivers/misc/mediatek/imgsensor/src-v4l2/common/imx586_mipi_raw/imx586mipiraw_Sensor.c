@@ -2954,7 +2954,7 @@ static void capture_setting(struct subdrv_ctx *ctx, kal_uint16 currefps)
 	int _length = 0;
 
 	_length = sizeof(imx586_capture_setting) / sizeof(kal_uint16);
-	LOG_INF("%s 30 fps E! currefps:%d\n", __func__, currefps);
+	DEBUG_LOG(ctx, "%s fps E! currefps:%d\n", __func__, currefps);
 	/*************MIPI output setting************/
 	if (!_is_seamless)
 		imx586_table_write_cmos_sensor(ctx, imx586_capture_setting,
@@ -2972,7 +2972,7 @@ static void capture_setting(struct subdrv_ctx *ctx, kal_uint16 currefps)
 			sizeof(imx586_capture_setting));
 		_size_to_write += _length;
 	}
-	LOG_INF("%s 30 fpsX\n", __func__);
+	LOG_INF("%s fpsX\n", __func__);
 }
 
 static void normal_video_setting(struct subdrv_ctx *ctx, kal_uint16 currefps)
@@ -3677,10 +3677,11 @@ static kal_uint32 capture(struct subdrv_ctx *ctx,
 	ctx->sensor_mode = IMGSENSOR_MODE_CAPTURE;
 
 	if (ctx->current_fps != imgsensor_info.cap.max_framerate)
-		pr_debug(
+		DEBUG_LOG(ctx,
 			"Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n",
 			ctx->current_fps,
 			imgsensor_info.cap.max_framerate / 10);
+
 	ctx->pclk = imgsensor_info.cap.pclk;
 	ctx->line_length = imgsensor_info.cap.linelength;
 	ctx->frame_length = imgsensor_info.cap.framelength;
@@ -3911,7 +3912,7 @@ static int get_info(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_INFO_STRUCT *sensor_info,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("scenario_id = %d\n", scenario_id);
+	// LOG_INF("scenario_id = %d\n", scenario_id);
 
 	sensor_info->SensorClockPolarity = SENSOR_CLOCK_POLARITY_LOW;
 	sensor_info->SensorClockFallingPolarity = SENSOR_CLOCK_POLARITY_LOW;
@@ -4315,7 +4316,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 	if (ctx->current_fps != imgsensor_info.cap.max_framerate)
-		pr_debug(
+		DEBUG_LOG(ctx,
 			"Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n"
 			, framerate, imgsensor_info.cap.max_framerate/10);
 		frame_length = imgsensor_info.cap.pclk / framerate * 10
@@ -4461,7 +4462,7 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 		enum MSDK_SCENARIO_ID_ENUM scenario_id, MUINT32 *framerate)
 {
-	pr_debug("scenario_id = %d\n", scenario_id);
+	// pr_debug("scenario_id = %d\n", scenario_id);
 
 	switch (scenario_id) {
 
@@ -4932,8 +4933,8 @@ static int feature_control(
 		}
 		break;
 	case SENSOR_FEATURE_GET_PDAF_INFO:
-		pr_debug("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n",
-			(UINT16) *feature_data);
+		// pr_debug("SENSOR_FEATURE_GET_PDAF_INFO scenarioId:%d\n",
+			// (UINT16) *feature_data);
 		PDAFinfo =
 		  (struct SET_PD_BLOCK_INFO_T *)(uintptr_t)(*(feature_data+1));
 		switch (*feature_data) {
@@ -5003,9 +5004,9 @@ static int feature_control(
 		}
 		break;
 	case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
-		pr_debug(
-		"SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY scenarioId:%d\n",
-			(UINT16) *feature_data);
+		// pr_debug(
+		// "SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY scenarioId:%d\n",
+			// (UINT16) *feature_data);
 		/*PDAF capacity enable or not, 2p8 only full size support PDAF*/
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -5081,12 +5082,12 @@ static int feature_control(
 			(UINT16)*feature_data, (UINT16)*(feature_data+1));
 		break;
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
-		pr_debug("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
+		// pr_debug("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
 		streaming_control(ctx, KAL_FALSE);
 		break;
 	case SENSOR_FEATURE_SET_STREAMING_RESUME:
-		pr_debug("SENSOR_FEATURE_SET_STREAMING_RESUME, shutter:%llu\n",
-			*feature_data);
+		// pr_debug("SENSOR_FEATURE_SET_STREAMING_RESUME, shutter:%llu\n",
+			// *feature_data);
 		if (*feature_data != 0)
 			set_shutter(ctx, *feature_data);
 		streaming_control(ctx, KAL_TRUE);
@@ -5117,8 +5118,8 @@ static int feature_control(
 			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
 			break;
 		}
-		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
-			*feature_return_para_32);
+		// pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
+			// *feature_return_para_32);
 		*feature_para_len = 4;
 
 		break;
@@ -5339,8 +5340,8 @@ break;
 			*pScenarios = 0xff;
 			break;
 		}
-		LOG_INF("SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS %d %d\n",
-		*feature_data, *pScenarios);
+		// LOG_INF("SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS %d %d\n",
+		// *feature_data, *pScenarios);
 	break;
 	}
 	case SENSOR_FEATURE_SET_FRAMELENGTH:
