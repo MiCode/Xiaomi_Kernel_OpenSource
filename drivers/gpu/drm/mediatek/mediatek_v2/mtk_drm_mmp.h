@@ -54,6 +54,7 @@ struct DRM_MMP_Events {
 	mmp_event ion_import_fd;
 	mmp_event ion_import_free;
 	mmp_event set_mode;
+	mmp_event top_clk;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */
@@ -108,6 +109,7 @@ struct CRTC_MMP_Events {
 	mmp_event msync_enable;
 	/*Msync 2.0 mmp end*/
 	mmp_event mode_switch;
+	mmp_event ddp_clk;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

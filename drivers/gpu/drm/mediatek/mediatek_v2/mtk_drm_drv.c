@@ -3397,6 +3397,8 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 
 	spin_unlock_irqrestore(&top_clk_lock, flags);
 
+	DRM_MMP_MARK(top_clk, atomic_read(&top_clk_ref),
+			atomic_read(&top_isr_ref));
 	if (priv->data->sodi_config)
 		priv->data->sodi_config(drm, DDP_COMPONENT_ID_MAX, NULL, &en);
 }
@@ -3437,6 +3439,8 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 	pm_runtime_put_sync(priv->mmsys_dev);
 	if (priv->side_mmsys_dev)
 		pm_runtime_put_sync(priv->side_mmsys_dev);
+	DRM_MMP_MARK(top_clk, atomic_read(&top_clk_ref),
+			atomic_read(&top_isr_ref));
 }
 
 bool mtk_drm_top_clk_isr_get(char *master)

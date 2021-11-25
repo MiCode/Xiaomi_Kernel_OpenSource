@@ -27,6 +27,7 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_gem.h"
+#include "mtk_drm_mmp.h"
 #include "mtk_dump.h"
 
 #define MTK_SMI_CLK_CTRL
@@ -157,10 +158,6 @@
 
 #define MT6833_INFRA_DISP_DDR_CTL  0x2C
 #define MT6833_INFRA_FLD_DDR_MASK  REG_FLD_MSB_LSB(7, 4)
-
-#define MMSYS_CG_CON2              0x1A0
-#define MMSYS_CG_CLR2              0x1A8
-#define MT6895_CG_CLR2_FLD_URGENT_CLK             REG_FLD_MSB_LSB(11, 11)
 
 #define SMI_LARB_NON_SEC_CON 0x0380
 #define MMSYS_DUMMY0 0x0400
@@ -762,6 +759,7 @@ void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp)
 
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 {
+	unsigned int index = 0;
 	int ret;
 
 	if (comp == NULL)
@@ -780,10 +778,16 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 			DDPPR_ERR("clk prepare enable failed:%s\n",
 				mtk_dump_comp_str(comp));
 	}
+
+	if (comp->mtk_crtc)
+		index = drm_crtc_index(&comp->mtk_crtc->base);
+	CRTC_MMP_MARK(index, ddp_clk, comp->id, 1);
 }
 
 void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 {
+	unsigned int index = 0;
+
 	if (comp == NULL)
 		return;
 
@@ -797,6 +801,10 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #else
 		pm_runtime_put_sync(comp->dev);
 #endif
+
+	if (comp->mtk_crtc)
+		index = drm_crtc_index(&comp->mtk_crtc->base);
+	CRTC_MMP_MARK(index, ddp_clk, comp->id, 0);
 }
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
@@ -1506,7 +1514,6 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	struct mtk_drm_private *priv = drm->dev_private;
 	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
 	unsigned int emi_req_val = 0, emi_req_mask = 0;
-	unsigned int clk_urgent_val = 0, clk_urgent_mask = 0;
 	bool en = *((bool *)data);
 
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
@@ -1564,7 +1571,6 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	} else
 		return;
 
-	SET_VAL_MASK(clk_urgent_val, clk_urgent_mask, 1, MT6895_CG_CLR2_FLD_URGENT_CLK);
 	if (handle == NULL) {
 		unsigned int v;
 
@@ -1580,11 +1586,6 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
-
-		v = clk_urgent_val & clk_urgent_mask;
-		writel_relaxed(v, priv->config_regs +  MMSYS_CG_CLR2);
-		if (priv->side_config_regs)
-			writel_relaxed(v, priv->side_config_regs +  MMSYS_CG_CLR2);
 	} else {
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_SODI_REQ_MASK, 0xf500, ~0);
@@ -1592,8 +1593,6 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			MMSYS_DUMMY0, 0x7, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, 0xd8, ~0);
-		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_CG_CLR2, clk_urgent_val, clk_urgent_mask);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
@@ -1601,8 +1600,6 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 				MMSYS_DUMMY0, 0x7, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_EMI_REQ_CTL, 0xd8, ~0);
-			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_CG_CLR2, clk_urgent_val, clk_urgent_mask);
 		}
 	}
 }

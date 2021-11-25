@@ -88,6 +88,8 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_FREE");
 	g_DRM_MMP_Events.set_mode =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "SET_MODE");
+	g_DRM_MMP_Events.top_clk =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "TOP_CLK");
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
 	for (i = 0; i < DISP_MUTEX_DDP_COUNT; i++) {
@@ -260,6 +262,8 @@ void init_crtc_mmp_event(void)
 		/*Msync 2.0 mmp end*/
 		g_CRTC_MMP_Events[i].mode_switch = mmprofile_register_event(
 			crtc_mmp_root, "mode_switch");
+		g_CRTC_MMP_Events[i].ddp_clk = mmprofile_register_event(
+			crtc_mmp_root, "ddp_clk");
 	}
 }
 void drm_mmp_init(void)
