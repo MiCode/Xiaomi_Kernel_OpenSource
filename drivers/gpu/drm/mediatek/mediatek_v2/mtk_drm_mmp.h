@@ -112,6 +112,9 @@ struct CRTC_MMP_Events {
 	/*Msync 2.0 mmp end*/
 	mmp_event mode_switch;
 	mmp_event ddp_clk;
+	/*DRE30 mmp mark*/
+	mmp_event aal_sof_irq;
+	mmp_event aal_sof_rw;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

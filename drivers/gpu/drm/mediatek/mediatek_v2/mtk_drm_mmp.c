@@ -268,6 +268,11 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "mode_switch");
 		g_CRTC_MMP_Events[i].ddp_clk = mmprofile_register_event(
 			crtc_mmp_root, "ddp_clk");
+		/*DRE30 MMP MARK*/
+		g_CRTC_MMP_Events[i].aal_sof_irq = mmprofile_register_event(
+			crtc_mmp_root, "aal_sof_irq");
+		g_CRTC_MMP_Events[i].aal_sof_rw = mmprofile_register_event(
+			crtc_mmp_root, "aal_sof_rw");
 	}
 }
 void drm_mmp_init(void)
