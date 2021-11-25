@@ -524,6 +524,7 @@ int adsp_reset(void)
 		ret = wait_for_completion_timeout(&pdata->done, HZ);
 
 		if (unlikely(ret == 0)) {
+			adsp_core_stop(cid);
 			pr_warn("%s, core %d reset timeout\n", __func__, cid);
 			return -ETIME;
 		}
