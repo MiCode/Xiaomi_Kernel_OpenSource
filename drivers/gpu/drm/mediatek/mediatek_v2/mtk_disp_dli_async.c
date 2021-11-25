@@ -36,7 +36,6 @@ static void mtk_dli_async_addon_config(struct mtk_ddp_comp *comp,
 				 struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
-	// nothig to do
 }
 
 void mtk_dli_async_dump(struct mtk_ddp_comp *comp)
@@ -46,6 +45,7 @@ void mtk_dli_async_dump(struct mtk_ddp_comp *comp)
 
 	DDPINFO("%s\n", __func__);
 	DDPDUMP("== DISP %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("0x26C: 0x%08x\n", readl(baddr + 0x26C));
 	DDPDUMP("0x2C8: 0x%08x 0x%08x\n", readl(baddr + 0x2C8),
 		readl(baddr + 0x2CC));
 }

@@ -7895,7 +7895,7 @@ static int mtk_ddp_mout_en_MT6983(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6983_MMSYS_OVL_CON;
 		value = DISP_OVL0_2L_TO_DISP_OVL0_2L_BLEND_MOUT;
 	} else if (cur == DDP_COMPONENT_OVL0_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_INLINE_ROTATE0) {
+		next == DDP_COMPONENT_DLO_ASYNC) {
 		*addr = MT6983_DISP_OVL0_2L_BLEND_MOUT_EN;
 		value = DISP_OVL0_2L_BLEND_MOUT_EN_TO_DISP_MAIN_OVL_DMDP_SEL;
 	} else if (cur == DDP_COMPONENT_Y2R0 &&
@@ -8040,7 +8040,7 @@ static int mtk_ddp_sel_in_MT6983(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6983_DISP_OVL0_UFDO_SEL_IN;
 		value = DISP_OVL0_UFDO_SEL_IN_FROM_DISP_RSZ0_MAIN_OVL_SOUT_SEL;
 	} else if (cur == DDP_COMPONENT_OVL0_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_INLINE_ROTATE0) {
+		next == DDP_COMPONENT_DLO_ASYNC) {
 		*addr = MT6983_DISP_MAIN_OVL_DMDP_SEL_IN;
 		value = DISP_OVL0_2L_BLEND_MOUT_TO_DISP_MAIN_OVL_DMDP_SEL;
 	} else if (cur == DDP_COMPONENT_Y2R0_VIRTUAL0 &&

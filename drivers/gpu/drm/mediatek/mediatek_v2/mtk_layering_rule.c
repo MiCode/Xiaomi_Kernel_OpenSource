@@ -93,23 +93,12 @@ static void layering_rule_scenario_decision(struct drm_device *dev,
 	l_rule_info.primary_fps = 60;
 	l_rule_info.bound_tb_idx = HRT_BOUND_TYPE_LP4;
 
-	{
-		struct drm_crtc *crtc;
-		struct mtk_drm_crtc *mtk_crtc = NULL;
-
-		drm_for_each_crtc(crtc, dev)
-			if (drm_crtc_index(crtc) == 0)
-				break;
-		mtk_crtc = to_mtk_crtc(crtc);
-
-		if (crtc && mtk_crtc && mtk_crtc->is_force_mml_scen)
-			scn_decision_flag = SCN_MML;
-	}
-
 	if (scn_decision_flag & SCN_MML_SRAM_ONLY) {
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML_SRAM_ONLY;
 	} else if (scn_decision_flag & SCN_MML) {
-		l_rule_info.addon_scn[HRT_PRIMARY] = MML_WITH_PQ;
+		l_rule_info.addon_scn[HRT_PRIMARY] = MML;
+		DDPMSG("%s:%d + addon_scn:%d\n",
+			__func__, __LINE__, l_rule_info.addon_scn[HRT_PRIMARY]);
 	} else if (scn_decision_flag & SCN_NEED_GAME_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = GAME_PQ;
 	else if (scn_decision_flag & SCN_NEED_VP_PQ)

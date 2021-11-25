@@ -418,8 +418,10 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		state->pending.size = pitch  * height;
 		state->pending.src_x = 0;
 		state->pending.src_y = 0;
-		state->pending.dst_x = dst_x;
-		state->pending.dst_y = dst_y;
+		state->pending.dst_x = (mtk_crtc->is_force_mml_scen) ?
+			0 : dst_x;
+		state->pending.dst_y = (mtk_crtc->is_force_mml_scen) ?
+			0 : dst_y;
 		state->pending.width = width;
 		state->pending.height = height;
 	} else {

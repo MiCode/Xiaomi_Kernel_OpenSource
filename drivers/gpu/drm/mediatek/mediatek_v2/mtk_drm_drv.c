@@ -1096,6 +1096,33 @@ void mtk_free_mml_submit(struct mml_submit *temp)
 	kfree(temp);
 }
 
+int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst)
+{
+	struct mml_job *temp_job = NULL;
+	struct mml_pq_param *temp_pq_param[MML_MAX_OUTPUTS] = {NULL, NULL};
+	int i = 0;
+
+	temp_job = dst->job;
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+		temp_pq_param[i] = dst->pq_param[i];
+
+	memcpy(dst, src, sizeof(struct mml_submit));
+
+	if (temp_job) {
+		memcpy(temp_job, dst->job, sizeof(struct mml_job));
+		dst->job = temp_job;
+	}
+
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
+		if (temp_pq_param[i]) {
+			memcpy(temp_pq_param[i], dst->pq_param[i], sizeof(struct mml_pq_param));
+			dst->pq_param[i] = temp_pq_param[i];
+		}
+	}
+
+	return 0;
+}
+
 static int copy_mml_submit_from_user(struct mml_submit *src,
 	struct mml_submit *dst)
 {
@@ -1138,6 +1165,7 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct mml_submit *submit_user = NULL;
 	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(mtk_plane_state->crtc);
+	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(mtk_plane_state->crtc->state);
 	int i = 0, j = 0;
 	int ret = 0;
 
@@ -1156,7 +1184,7 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, &(mtk_crtc->base));
 		submit_pq = mtk_alloc_mml_submit();
 
-		{
+		if (!(mtk_crtc->is_force_mml_scen)) {
 			bool is_rotate =
 				(submit_kernel->info.dest[0].rotate & MML_ROT_90) == MML_ROT_90;
 			uint32_t min_w = min(submit_kernel->info.src.width,
@@ -1176,6 +1204,15 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 			submit_kernel->info.dest[0].crop.w_sub_px = 0;
 			submit_kernel->info.dest[0].crop.x_sub_px = 0;
 			submit_kernel->info.dest[0].crop.y_sub_px = 0;
+
+			submit_kernel->info.dest[0].compose.width =
+				submit_kernel->info.dest[0].crop.r.width;
+			submit_kernel->info.dest[0].compose.height =
+				submit_kernel->info.dest[0].crop.r.height;
+			submit_kernel->info.dest[0].compose.left =
+				submit_kernel->info.dest[0].crop.r.left;
+			submit_kernel->info.dest[0].compose.top =
+				submit_kernel->info.dest[0].crop.r.top;
 		}
 
 		{
@@ -1204,6 +1241,12 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 			if (mtk_crtc->mml_cfg)
 				mtk_free_mml_submit(mtk_crtc->mml_cfg);
 			mtk_crtc->mml_cfg = submit_kernel;
+			mtk_crtc->mml_cfg_pq = submit_pq;
+
+			crtc_state->mml_dst_roi.x = mtk_plane_state->base.dst.x1;
+			crtc_state->mml_dst_roi.y = mtk_plane_state->base.dst.y1;
+			crtc_state->mml_dst_roi.width = submit_pq->info.dest[0].compose.width;
+			crtc_state->mml_dst_roi.height = submit_pq->info.dest[0].compose.height;
 		}
 	}
 
@@ -1983,7 +2026,7 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 		[MML] = {
 				.module_num = ARRAY_SIZE(addon_mml_data),
 				.module_data = addon_mml_data,
-				.hrt_type = HRT_TB_TYPE_GENERAL1,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 		[MML_SRAM_ONLY] = {
 				.module_num = ARRAY_SIZE(addon_mml_sram_only_data),
@@ -5150,6 +5193,23 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DMDP_AAL},
 	{.compatible = "mediatek,mt6983-disp-y2r",
 	 .data = (void *)MTK_DISP_Y2R},
+	/* MML */
+	{.compatible = "mediatek,mt6983-mml_rsz",
+	 .data = (void *)MTK_MML_RSZ},
+	{.compatible = "mediatek,mt6983-mml_hdr",
+	 .data = (void *)MTK_MML_HDR},
+	{.compatible = "mediatek,mt6983-mml_aal",
+	 .data = (void *)MTK_MML_AAL},
+	{.compatible = "mediatek,mt6983-mml_tdshp",
+	 .data = (void *)MTK_MML_TDSHP},
+	{.compatible = "mediatek,mt6983-mml_color",
+	 .data = (void *)MTK_MML_COLOR},
+	{.compatible = "mediatek,mt6983-mml",
+	 .data = (void *)MTK_MML_MML},
+	{.compatible = "mediatek,mt6983-mml_mutex",
+	 .data = (void *)MTK_MML_MUTEX},
+	{.compatible = "mediatek,mt6983-mml_wrot",
+	 .data = (void *)MTK_MML_WROT},
 	{.compatible = "mediatek,mt6983-disp-dlo-async3",
 	 .data = (void *)MTK_DISP_DLO_ASYNC},
 	{.compatible = "mediatek,mt6983-disp-dli-async3",
@@ -5422,8 +5482,15 @@ SKIP_SIDE_DISP:
 		    comp_type == MTK_DMDP_AAL
 #endif
 		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
+		    || comp_type == MTK_DISP_Y2R || comp_type == MTK_DISP_DLO_ASYNC
+		    || comp_type == MTK_DISP_DLI_ASYNC
+		    || comp_type == MTK_MML_RSZ || comp_type == MTK_MML_HDR
+		    || comp_type == MTK_MML_AAL || comp_type == MTK_MML_TDSHP
+		    || comp_type == MTK_MML_COLOR
+		    || comp_type == MTK_MML_MML || comp_type == MTK_MML_MUTEX
+		    || comp_type == MTK_MML_WROT
 			|| comp_type == MTK_DISP_INLINE_ROTATE
-		    ) {
+		) {
 			dev_info(dev, "Adding component match for %s, comp_id:%d\n",
 				 node->full_name, comp_id);
 			component_match_add(dev, &match, compare_of, node);

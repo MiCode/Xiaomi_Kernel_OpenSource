@@ -2632,6 +2632,22 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 	return ret;
 }
 
+static bool is_force_mml_scen(struct drm_device *dev)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+
+	drm_for_each_crtc(crtc, dev)
+		if (drm_crtc_index(crtc) == 0)
+			break;
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	if (crtc && mtk_crtc && mtk_crtc->is_force_mml_scen)
+		return true;
+
+	return false;
+}
+
 static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layering_info *disp_info, struct drm_device *dev,
 	unsigned int *scn_decision_flag)
@@ -2656,7 +2672,11 @@ static void check_is_mml_layer(const int disp_idx,
 				// if layer can use MML direct link or inline rotate handle,
 				// we don't use DISP RSZ
 				c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
-				*scn_decision_flag |= SCN_MML_SRAM_ONLY;
+
+				if (is_force_mml_scen(dev))
+					*scn_decision_flag |= SCN_MML;
+				else
+					*scn_decision_flag |= SCN_MML_SRAM_ONLY;
 			} else if (MTK_MML_DISP_NOT_SUPPORT & c->layer_caps) {
 				if (disp_info->gles_head[disp_idx] == -1 ||
 					disp_info->gles_head[disp_idx] > i)

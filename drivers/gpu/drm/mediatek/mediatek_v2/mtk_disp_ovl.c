@@ -110,6 +110,8 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define L_CON_FLD_CLRFMT_MAN REG_FLD_MSB_LSB(23, 23)
 #define L_CON_FLD_BTSW REG_FLD_MSB_LSB(24, 24)
 #define L_CON_FLD_RGB_SWAP REG_FLD_MSB_LSB(25, 25)
+#define L_CON_FLD_MTX_AUTO_DIS REG_FLD_MSB_LSB(26, 26)
+#define L_CON_FLD_MTX_EN REG_FLD_MSB_LSB(27, 27)
 #define L_CON_FLD_LSRC REG_FLD_MSB_LSB(29, 28)
 #define L_CON_FLD_SKEN REG_FLD_MSB_LSB(30, 30)
 #define L_CON_FLD_DKEN REG_FLD_MSB_LSB(31, 31)
@@ -1713,6 +1715,14 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	else if (fmt == DRM_FORMAT_ABGR16161616F)
 		fmt_ex = 3;
 
+	if (pending->mml_mode == MML_MODE_RACING &&
+		(comp->id == DDP_COMPONENT_OVL0_2L ||
+		 comp->id == DDP_COMPONENT_OVL1_2L) &&
+		 comp->mtk_crtc->is_force_mml_scen) {
+		con |= REG_FLD_VAL(L_CON_FLD_MTX_AUTO_DIS, 1);
+		con |= REG_FLD_VAL(L_CON_FLD_MTX_EN, 0);
+	}
+
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
 
@@ -2344,7 +2354,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			 struct mtk_rect rsz_dst_roi, struct cmdq_pkt *handle)
 {
 	if (prev == DDP_COMPONENT_RSZ0 ||
-		prev == DDP_COMPONENT_RSZ1) {
+		prev == DDP_COMPONENT_RSZ1 ||
+		prev == DDP_COMPONENT_Y2R0) {
 		int lc_x = rsz_dst_roi.x, lc_y = rsz_dst_roi.y;
 		int lc_w = rsz_dst_roi.width, lc_h = rsz_dst_roi.height;
 
@@ -2405,6 +2416,17 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 
 		mtk_ovl_addon_rsz_config(comp, prev, next, config->rsz_src_roi,
 					 config->rsz_dst_roi, handle);
+	}
+
+	if (addon_config->config_type.module == DISP_INLINE_ROTATE &&
+		(addon_config->config_type.type == ADDON_CONNECT ||
+		addon_config->config_type.type == ADDON_DISCONNECT)) {
+		struct mtk_addon_mml_config *config =
+			&addon_config->addon_mml_config;
+
+		/* this rsz means enlarge/narrow, not component */
+		mtk_ovl_addon_rsz_config(comp, prev, next, config->mml_src_roi,
+			config->mml_dst_roi, handle);
 	}
 }
 

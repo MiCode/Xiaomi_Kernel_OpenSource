@@ -789,6 +789,7 @@ struct mtk_drm_crtc {
 	// MML inline rotate SRAM
 	struct slbc_data *mml_ir_sram;
 	struct mml_submit *mml_cfg;
+	struct mml_submit *mml_cfg_pq;
 	struct mtk_mml_cb_para mml_cb;
 
 	atomic_t mml_last_job_is_flushed;
@@ -815,6 +816,7 @@ struct mtk_crtc_state {
 	struct mtk_lye_ddp_state lye_state;
 	struct mtk_rect rsz_src_roi;
 	struct mtk_rect rsz_dst_roi;
+	struct mtk_rect mml_dst_roi;
 	struct mtk_rsz_param rsz_param[2];
 	atomic_t plane_enabled_num;
 
