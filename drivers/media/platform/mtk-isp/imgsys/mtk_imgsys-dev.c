@@ -1621,30 +1621,32 @@ void mtk_imgsys_singledevice_ipi_params_config(struct mtk_imgsys_request *req)
 
 void mtk_imgsys_pipe_try_enqueue(struct mtk_imgsys_pipe *pipe)
 {
-	struct mtk_imgsys_request *req, *tmp_req;
+	struct mtk_imgsys_request *req = NULL;
 	unsigned long flag;
 
 	if (!pipe->streaming)
 		return;
 
-	list_for_each_entry_safe(req, tmp_req,
-				 &pipe->pipe_job_pending_list, list) {
-		spin_lock_irqsave(&pipe->pending_job_lock, flag);
-		list_del(&req->list);
-		pipe->num_pending_jobs--;
+	spin_lock_irqsave(&pipe->pending_job_lock, flag);
+	if (list_empty(&pipe->pipe_job_pending_list)) {
 		spin_unlock_irqrestore(&pipe->pending_job_lock, flag);
-
-		spin_lock_irqsave(&pipe->running_job_lock, flag);
-		list_add_tail(&req->list,
-			      &pipe->pipe_job_running_list);
-		pipe->num_jobs++;
-		spin_unlock_irqrestore(&pipe->running_job_lock, flag);
-
-		mtk_imgsys_hw_enqueue(pipe->imgsys_dev, req);
-
-		dev_dbg(pipe->imgsys_dev->dev,
-			"%s:%s: pending jobs(%d), running jobs(%d)\n",
-			__func__, pipe->desc->name, pipe->num_pending_jobs,
-			pipe->num_jobs);
+		pr_info("%s: no requests", __func__);
+		return;
 	}
+	req = list_first_entry(&pipe->pipe_job_pending_list, struct mtk_imgsys_request, list);
+	list_del(&req->list);
+	pipe->num_pending_jobs--;
+	spin_unlock_irqrestore(&pipe->pending_job_lock, flag);
+
+	spin_lock_irqsave(&pipe->running_job_lock, flag);
+	list_add_tail(&req->list,
+		      &pipe->pipe_job_running_list);
+	pipe->num_jobs++;
+	spin_unlock_irqrestore(&pipe->running_job_lock, flag);
+
+	mtk_imgsys_hw_enqueue(pipe->imgsys_dev, req);
+	dev_dbg(pipe->imgsys_dev->dev,
+		"%s:%s: pending jobs(%d), running jobs(%d)\n",
+		__func__, pipe->desc->name, pipe->num_pending_jobs,
+		pipe->num_jobs);
 }

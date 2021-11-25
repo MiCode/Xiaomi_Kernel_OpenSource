@@ -1993,7 +1993,6 @@ int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe)
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s: started stream, id(%d), stream cnt(%d)\n",
 		__func__, pipe->desc->name, pipe->desc->id, count);
-	mtk_imgsys_pipe_try_enqueue(pipe);
 
 	return 0;
 }
