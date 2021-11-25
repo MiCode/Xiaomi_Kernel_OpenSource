@@ -1695,16 +1695,19 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 					* 256 + irq_info->write_cnt;
 		if (frame_idx_inner > atomic_read(&sensor_ctrl->isp_request_seq_no) ||
 			atomic_read(&req_stream_data->frame_done_work.is_queued) == 1) {
-			dev_dbg(raw_dev->dev, "[SOF] frame done work too late\n");
+			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done work too late frames. req(%d),ts(%lu)\n",
+				req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 		} else if (write_cnt >= req_stream_data->frame_seq_no) {
-			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost %d frames\n",
-				write_cnt - req_stream_data->frame_seq_no + 1);
+			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost %d frames. req(%d),ts(%lu)\n",
+				write_cnt - req_stream_data->frame_seq_no + 1,
+				req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 			mtk_cam_set_timestamp(req_stream_data,
 						      time_boot - 1000, time_mono - 1000);
 			mtk_camsys_frame_done(ctx, write_cnt, ctx->stream_id);
 		} else if ((write_cnt >= req_stream_data->frame_seq_no - 1)
 			&& irq_info->fbc_cnt == 0) {
-			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost frames\n");
+			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost frames. req(%d),ts(%lu)\n",
+				req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 			mtk_cam_set_timestamp(req_stream_data,
 						      time_boot - 1000, time_mono - 1000);
 			mtk_camsys_frame_done(ctx, write_cnt + 1, ctx->stream_id);
@@ -1720,8 +1723,9 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				 E_STATE_OUTER_HW_DELAY);
 			}
 			dev_info_ratelimited(raw_dev->dev,
-				"[SOF] HW_IMCOMPLETE state cnt(%d,%d),req(%d)\n",
-				write_cnt, irq_info->write_cnt, req_stream_data->frame_seq_no);
+				"[SOF] HW_IMCOMPLETE state cnt(%d,%d),req(%d),ts(%lu)\n",
+				write_cnt, irq_info->write_cnt, req_stream_data->frame_seq_no,
+				irq_info->ts_ns / 1000);
 			return STATE_RESULT_PASS_CQ_HW_DELAY;
 		}
 	}
@@ -1731,9 +1735,10 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		if (atomic_read(&sensor_ctrl->initial_drop_frame_cnt) == 0 &&
 			req_stream_data->frame_seq_no > frame_idx_inner) {
 			dev_info(raw_dev->dev,
-				"[SOF-noDBLOAD] HW delay outer_no:%d, inner_idx:%d <= processing_idx:%d\n",
+				"[SOF-noDBLOAD] HW delay outer_no:%d, inner_idx:%d <= processing_idx:%d,ts:%lu\n",
 				req_stream_data->frame_seq_no, frame_idx_inner,
-				atomic_read(&sensor_ctrl->isp_request_seq_no));
+				atomic_read(&sensor_ctrl->isp_request_seq_no),
+				irq_info->ts_ns / 1000);
 			return STATE_RESULT_PASS_CQ_HW_DELAY;
 		}
 
@@ -1749,8 +1754,9 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 						 E_STATE_INNER);
 				atomic_set(&sensor_ctrl->isp_request_seq_no, frame_idx_inner);
 				dev_dbg(raw_dev->dev,
-					"[SOF-DBLOAD] frame_seq_no:%d, OUTER->INNER state:%d\n",
-					req_stream_data->frame_seq_no, state_outer->estate);
+					"[SOF-DBLOAD] frame_seq_no:%d, OUTER->INNER state:%d,ts:%lu\n",
+					req_stream_data->frame_seq_no, state_outer->estate,
+					irq_info->ts_ns / 1000);
 			}
 		}
 	}
@@ -1799,7 +1805,8 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		}
 		if (working_req_found && state_rec[0]) {
 			if (state_rec[0]->estate == E_STATE_READY) {
-				dev_info(raw_dev->dev, "[SOF] sensor delay\n");
+				dev_info(raw_dev->dev, "[SOF] sensor delay ts:%lu\n",
+					irq_info->ts_ns / 1000);
 				req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[0]);
 				req_stream_data->flags |=
 					MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED;
@@ -1813,8 +1820,8 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			if (state_rec[0]->estate == E_STATE_CQ_SCQ_DELAY) {
 				state_transition(state_rec[0], E_STATE_CQ_SCQ_DELAY,
 						E_STATE_OUTER);
-				dev_info(raw_dev->dev, "[SOF] SCQ_DELAY state:%d\n",
-					state_rec[0]->estate);
+				dev_info(raw_dev->dev, "[SOF] SCQ_DELAY state:%d ts:%lu\n",
+					state_rec[0]->estate, irq_info->ts_ns / 1000);
 				return STATE_RESULT_PASS_CQ_SCQ_DELAY;
 			}
 		} else {
@@ -2316,7 +2323,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	/* Find request of this dequeued frame */
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
 	/* Detect no frame done and trigger camsys dump for debugging */
-	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 16, irq_info);
+	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 30, irq_info);
 	if (ctx->sensor) {
 		if (mtk_cam_is_subsample(ctx))
 			state_handle_ret =
@@ -2362,17 +2369,18 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	/* Update CQ base address if needed */
 	if (ctx->composed_frame_seq_no <= dequeued_frame_seq_no) {
 		dev_info_ratelimited(raw_dev->dev,
-			"SOF[ctx:%d-#%d], CQ isn't updated [composed_frame_deq (%d) ]\n",
+			"SOF[ctx:%d-#%d], CQ isn't updated [composed_frame_deq (%d) ts:%lu]\n",
 			ctx->stream_id, dequeued_frame_seq_no,
-			ctx->composed_frame_seq_no);
+			ctx->composed_frame_seq_no, irq_info->ts_ns / 1000);
 		return;
 	}
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
 	if (list_empty(&ctx->composed_buffer_list.list)) {
 		dev_info_ratelimited(raw_dev->dev,
-			"SOF_INT_ST, no buffer update, cq_num:%d, frame_seq:%d\n",
-			ctx->composed_frame_seq_no, dequeued_frame_seq_no);
+			"SOF_INT_ST, no buffer update, cq_num:%d, frame_seq:%d, ts:%lu\n",
+			ctx->composed_frame_seq_no, dequeued_frame_seq_no,
+			irq_info->ts_ns / 1000);
 		spin_unlock(&ctx->composed_buffer_list.lock);
 	} else {
 		is_apply = true;
