@@ -546,6 +546,7 @@ struct mtk_cam_uapi_pipeline_config {
 struct mtk_cam_uapi_ae_awb_stats {
 	__u32 awb_stat_en_status;
 	__u32 awb_qbn_acc;
+	__u32 ae_stat_en_status;
 	struct mtk_cam_uapi_meta_hw_buf aao_buf;
 	struct mtk_cam_uapi_meta_hw_buf aaho_buf;
 };
@@ -857,7 +858,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 2
-#define MTK_CAM_META_VERSION_MINOR 0
+#define MTK_CAM_META_VERSION_MINOR 1
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt6879"
 
