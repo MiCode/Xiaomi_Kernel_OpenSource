@@ -617,6 +617,7 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 		return -EINVAL;
 	}
 
+	mutex_lock(&mpriv->mdev->mctl_mtx);
 	mutex_lock(&mpriv->mtx);
 
 	/* query mem from apu's mem list */
@@ -654,6 +655,7 @@ out:
 	}
 	dma_buf_put(dbuf);
 	mutex_unlock(&mpriv->mtx);
+	mutex_unlock(&mpriv->mdev->mctl_mtx);
 
 	return ret;
 }
@@ -719,6 +721,7 @@ int mdw_mem_init(struct mdw_device *mdev)
 	int ret = 0;
 
 	mutex_init(&mdev->m_mtx);
+	mutex_init(&mdev->mctl_mtx);
 	INIT_LIST_HEAD(&mdev->m_list);
 	mdw_drv_info("set mem done\n");
 

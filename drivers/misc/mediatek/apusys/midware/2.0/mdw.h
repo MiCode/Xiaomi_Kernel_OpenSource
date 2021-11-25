@@ -209,9 +209,9 @@ struct mdw_device {
 	struct mdw_mem minfos[MDW_MEM_TYPE_MAX];
 
 	/* memory hlist */
-	//DECLARE_HASHTABLE(m_hlist, 5);
 	struct list_head m_list;
 	struct mutex m_mtx;
+	struct mutex mctl_mtx;
 
 	/* device functions */
 	const struct mdw_dev_func *dev_funcs;
