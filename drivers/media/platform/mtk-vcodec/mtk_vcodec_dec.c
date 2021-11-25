@@ -2488,8 +2488,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
-
-	ctx->dec_flush_buf->lastframe = NON_EOS;
+	ctx->input_max_ts = 0;
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (ctx->state >= MTK_STATE_HEADER)
 			mtk_vdec_flush_decoder(ctx);
@@ -2498,6 +2497,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 				!= &ctx->dec_flush_buf->vb)
 				v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf),
 					VB2_BUF_STATE_ERROR);
+		ctx->dec_flush_buf->lastframe = NON_EOS;
 		return;
 	}
 
