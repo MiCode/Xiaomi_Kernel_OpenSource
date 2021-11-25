@@ -1605,6 +1605,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 	dev->time_shared_busy = 0;
 	atomic_set(&dev->vf_en, 0);
 	dev->stagger_en = 0;
+	dev->error_happened_cnt = 0;
 	reset_msgfifo(dev);
 
 	init_dma_threshold(dev);
@@ -2197,7 +2198,9 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 			irq_info.frame_idx);
 
 		/* error case */
-		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_ERROR))) {
+		if (unlikely(irq_info.irq_type & (1 << CAMSYS_IRQ_ERROR))) {
+			if (raw_dev->stagger_en)
+				raw_dev->error_happened_cnt++;
 			raw_handle_error(raw_dev, &irq_info);
 			continue;
 		}

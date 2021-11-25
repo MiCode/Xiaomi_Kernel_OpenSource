@@ -3325,6 +3325,9 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 
 	if (mtk_cam_is_stagger(ctx) && is_raw_subdev(pipe_id)) {
 		req = mtk_cam_get_req(ctx, frame_seq_no + 1);
+		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+		if (raw_dev->error_happened_cnt)
+			raw_dev->error_happened_cnt = 0;
 		if (req) {
 			req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
 			switch_type = req_stream_data->feature.switch_feature_type;
@@ -3785,7 +3788,14 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 							camsv_dev_s->id, 1, hw_scen);
 					}
 				}
-				mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
+
+				if (raw_dev->error_happened_cnt == 0) {
+					mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
+				} else {
+					dev_info(camsv_dev->dev, "[%s] raw error counter:%d\n",
+						__func__, raw_dev->error_happened_cnt);
+					raw_dev->error_happened_cnt--;
+				}
 			} else if (camsv_dev->pipeline->exp_order == 2) {
 				dev_dbg(camsv_dev->dev, "dcif/offline stagger raw last sof:%d\n",
 						raw_dev->sof_count);
