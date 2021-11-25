@@ -1772,27 +1772,6 @@ void scp_reset_wait_timeout(void)
 
 }
 
-static void wait_scp_ready_to_reboot(void)
-{
-	int retry = 0;
-	unsigned long c0, c1;
-
-	/* clr after SCP side INT trigger,
-	 * or SCP may lost INT max wait = 200ms
-	 */
-	for (retry = 200; retry > 0; retry--) {
-		c0 = readl(SCP_GPR_CORE0_REBOOT);
-		c1 = scpreg.core_nums == 2 ? readl(SCP_GPR_CORE1_REBOOT) :
-			CORE_RDY_TO_REBOOT;
-
-		if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
-			break;
-		usleep_range(1000, 1100);
-	}
-
-	if (retry == 0)
-		pr_notice("[SCP] SCP don't stay in wfi c0:%x c1:%x\n", c0, c1);
-}
 /*
  * callback function for work struct
  * NOTE: this function may be blocked
@@ -1812,7 +1791,6 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	scp_extern_notify(SCP_EVENT_STOP);
 	if (scp_reset_type == RESET_TYPE_WDT)
 		scp_show_last_regs();
-	wait_scp_ready_to_reboot();
 	/*
 	 *   scp_ready:
 	 *   SCP_PLATFORM_STOP  = 0,

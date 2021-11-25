@@ -21,6 +21,29 @@ static inline void scp_wdt_clear(uint32_t coreid)
 		writel(B_WDT_IRQ, R_CORE1_WDT_IRQ);
 }
 
+static void wait_scp_ready_to_reboot(void)
+{
+	int retry = 0;
+	unsigned long c0, c1;
+
+	/* clr after SCP side INT trigger,
+	 * or SCP may lost INT max wait = 200ms
+	 */
+	for (retry = SCP_AWAKE_TIMEOUT; retry > 0; retry--) {
+		c0 = readl(SCP_GPR_CORE0_REBOOT);
+		c1 = scpreg.core_nums == 2 ? readl(SCP_GPR_CORE1_REBOOT) :
+			CORE_RDY_TO_REBOOT;
+
+		if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
+			break;
+		udelay(2);
+	}
+
+	if (retry == 0)
+		pr_notice("[SCP] SCP don't stay in wfi c0:%x c1:%x\n", c0, c1);
+	udelay(10);
+}
+
 /*
  * handler for wdt irq for scp
  * dump scp register
@@ -38,6 +61,7 @@ static void scp_A_wdt_handler(struct tasklet_struct *t)
 	} else
 		pr_notice("%s: scp resetting\n", __func__);
 #endif
+	wait_scp_ready_to_reboot();
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 	if (scpreg.secure_dump) {
 		if (reg0)
