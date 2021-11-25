@@ -119,7 +119,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				MT6895_TOP_AXI_PROT_EN_MMSYS2_ISP_MAIN),
 		},
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ISP_DIP1] = {
 		.name = "isp_dip1",
@@ -127,7 +127,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE28,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.subsys_clk_prefix = "dip1",
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ISP_IPE] = {
 		.name = "isp_ipe",
@@ -136,7 +137,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"ipe"},
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.subsys_clk_prefix = "ipe",
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_ISP_VCORE] = {
 		.name = "isp_vcore",
@@ -242,7 +244,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
 				MT6895_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN_2ND),
 		},
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_MRAW] = {
 		.name = "cam_mraw",
@@ -250,7 +252,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE48,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.subsys_clk_prefix = "cam_mraw",
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_SUBA] = {
 		.name = "cam_suba",
@@ -258,7 +261,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE4C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.subsys_clk_prefix = "cam_suba",
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_SUBB] = {
 		.name = "cam_subb",
@@ -266,7 +270,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE50,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.subsys_clk_prefix = "cam_subb",
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_SUBC] = {
 		.name = "cam_subc",
@@ -274,7 +279,8 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.ctl_offs = 0xE54,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.subsys_clk_prefix = "cam_subc",
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_VCORE] = {
 		.name = "cam_vcore",
