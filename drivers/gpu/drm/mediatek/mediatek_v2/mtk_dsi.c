@@ -1827,13 +1827,13 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	unsigned int doze_wait = 0;
 	static unsigned int cnt;
 
+	if (IS_ERR_OR_NULL(dsi))
+		return IRQ_NONE;
+
 	if (mtk_drm_top_clk_isr_get("dsi_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
 		return IRQ_NONE;
 	}
-
-	if (IS_ERR_OR_NULL(dsi))
-		return IRQ_NONE;
 
 	status = readl(dsi->regs + DSI_INTSTA);
 	if (!status) {

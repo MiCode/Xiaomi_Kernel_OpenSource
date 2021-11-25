@@ -725,17 +725,17 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
-	if (mtk_drm_top_clk_isr_get("ovl_irq") == false) {
-		DDPIRQ("%s, top clk off\n", __func__);
-		return IRQ_NONE;
-	}
-
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
 
 	ovl = &priv->ddp_comp;
 	if (IS_ERR_OR_NULL(ovl))
 		return IRQ_NONE;
+
+	if (mtk_drm_top_clk_isr_get("ovl_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
 
 	val = readl(ovl->regs + DISP_REG_OVL_INTSTA);
 	if (!val) {
