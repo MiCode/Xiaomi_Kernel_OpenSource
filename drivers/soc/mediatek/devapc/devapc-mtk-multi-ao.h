@@ -177,6 +177,19 @@ struct mtk_devapc_pd_desc {
 	uint32_t pd_shift_con_offset;
 };
 
+struct mtk_devapc_pd_reg {
+	uint32_t pd_vio_dbg0_reg;
+	uint32_t pd_vio_dbg1_reg;
+	uint32_t pd_vio_dbg2_reg;
+	uint32_t pd_vio_dbg3_reg;
+	uint32_t pd_apc_con_reg;
+	uint32_t pd_vio_shift_sta_reg;
+	uint32_t pd_vio_shift_sel_reg;
+	uint32_t pd_vio_shift_con_reg;
+	void __iomem *pd_vio_mask_reg;
+	void __iomem *pd_vio_sta_reg;
+};
+
 struct mtk_devapc_soc {
 	struct mtk_devapc_dbg_status *dbg_stat;
 	const char * const *slave_type_arr;
@@ -204,6 +217,8 @@ struct mtk_devapc_soc {
 	uint32_t (*shift_group_get)(int slave_type, uint32_t vio_index);
 };
 
+extern int devapc_suspend_noirq(struct device *dev);
+extern int devapc_resume_noirq(struct device *dev);
 extern int mtk_devapc_probe(struct platform_device *pdev,
 		struct mtk_devapc_soc *soc);
 extern int mtk_devapc_remove(struct platform_device *dev);

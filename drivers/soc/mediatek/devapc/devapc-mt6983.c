@@ -574,6 +574,11 @@ static const struct of_device_id mt6983_devapc_dt_match[] = {
 	{},
 };
 
+static const struct dev_pm_ops devapc_dev_pm_ops = {
+	.suspend_noirq	= devapc_suspend_noirq,
+	.resume_noirq = devapc_resume_noirq,
+};
+
 static int mt6983_devapc_probe(struct platform_device *pdev)
 {
 	return mtk_devapc_probe(pdev, &mt6983_data);
@@ -590,6 +595,7 @@ static struct platform_driver mt6983_devapc_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = mt6983_devapc_dt_match,
+		.pm = &devapc_dev_pm_ops,
 	},
 };
 
