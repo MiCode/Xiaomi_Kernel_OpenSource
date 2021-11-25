@@ -20,6 +20,7 @@ int irq_count_tracer_init(void);
 void irq_count_tracer_exit(void);
 const char *irq_to_name(int irq);
 const void *irq_to_handler(int irq);
+const int irq_to_ipi_type(int irq);
 void show_irq_count_info(unsigned int output);
 void irq_count_tracer_set(bool val);
 void irq_count_tracer_proc_init(struct proc_dir_entry *parent);

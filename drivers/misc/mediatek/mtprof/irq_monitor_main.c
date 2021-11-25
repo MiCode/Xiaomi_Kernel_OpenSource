@@ -358,6 +358,8 @@ static void probe_irq_handler_exit(void *ignore,
 	out = check_threshold(duration, tracer);
 	if (out) {
 		char msg[MAX_MSG_LEN];
+		char handler_name[64];
+		const char *irq_name = irq_to_name(irq);
 
 		scnprintf(msg, sizeof(msg),
 			"irq: %d [<%px>]%pS, duration %llu ms, from %llu ns to %llu ns on CPU:%d",
@@ -369,16 +371,24 @@ static void probe_irq_handler_exit(void *ignore,
 
 		irq_mon_msg(out, msg);
 
-		if (!strcmp(irq_to_name(irq), "arch_timer"))
+		scnprintf(handler_name, sizeof(handler_name), "%pS", (void *)action->handler);
+		if (!strncmp(handler_name, "mtk_syst_handler", strlen("mtk_syst_handler")))
+			/* skip mtk_syst_handler, let hrtimer handle it. */
+			irq_aee_state[irq] = 1;
+
+		if (!strcmp(irq_name, "IPI") && irq_to_ipi_type(irq) == 4) // IPI_TIMER
+			/* skip ipi timer handler, let hrtimer handle it. */
+			irq_aee_state[irq] = 1;
+
+		if (!strcmp(irq_name, "arch_timer"))
 			/* skip arch_timer aee, let hrtimer handle it. */
 			irq_aee_state[irq] = 1;
 
-		if (!strcmp(irq_to_name(irq), "ufshcd") && raw_smp_processor_id())
+		if (!strcmp(irq_name, "ufshcd") && raw_smp_processor_id())
 			/* skip ufshcd aee if CPU!=0 */
 			out &= ~TO_AEE;
 
-		if ((out & TO_AEE) && tracer->aee_limit &&
-				!irq_aee_state[irq]) {
+		if ((out & TO_AEE) && tracer->aee_limit && !irq_aee_state[irq]) {
 			if (!irq_mon_aee_debounce_check(true))
 				/* debounce period, skip */
 				irq_mon_msg(TO_FTRACE, "irq handler aee skip in debounce period");
@@ -798,6 +808,7 @@ static void irq_mon_tracepoint_lookup(struct tracepoint *tp, void *priv)
 }
 
 bool b_default_enabled; // default false
+bool b_count_tracer_default_enabled; // default false
 #if !IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
 static void irq_mon_boot(void)
 {
@@ -809,13 +820,17 @@ static void irq_mon_boot(void)
 
 	node = of_find_node_by_name(NULL, "mtk_irq_monitor");
 	if (node) {
-		if (!b_default_enabled)
-			b_default_enabled = of_property_read_bool(node,
-								"mediatek,default-enabled");
-		b_override_thresholds = of_property_read_bool(node,
-								"mediatek,override-thresholds");
-		pr_info("%s: default-enabled=%s, override-thresholds=%s",
-			__func__, b_default_enabled?"yes":"no", b_override_thresholds?"yes":"no");
+		b_default_enabled =
+			of_property_read_bool(node, "mediatek,default-enabled");
+		b_count_tracer_default_enabled =
+			of_property_read_bool(node, "mediatek,count-tracer-default-enabled");
+		b_override_thresholds =
+			of_property_read_bool(node, "mediatek,override-thresholds");
+		pr_info("%s: default-enabled=%s, count-tracer=%s, override-thresholds=%s",
+			__func__,
+			b_default_enabled?"yes":"no",
+			b_count_tracer_default_enabled?"yes":"no",
+			b_override_thresholds?"yes":"no");
 
 		if (b_override_thresholds) {
 			if (of_property_read_u32_index(node, "mediatek,override-thresholds",
@@ -856,6 +871,7 @@ static int irq_mon_tracepoint_init(void)
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEFAULT_ENABLED)
 	b_default_enabled = true;
+	b_count_tracer_default_enabled = true;
 #else
 	irq_mon_boot();
 #endif
