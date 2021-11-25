@@ -76,6 +76,15 @@ config MTK_GPUFREQ_V2
 	  CONFIG_MTK_GPUFREQ_V2 defines
 	  if the gpufreq driver should go to version 2
 
+config MTK_GPU_MT6855_SUPPORT
+	tristate "Specify Mediatek GPU Platform is mt6855"
+	depends on MTK_GPU_SUPPORT
+	help
+	  Select MediaTek GPU Platform is mt6855.
+	  Set Y or M to select this feature for specific platform-mt6855,
+	  and set N to disable.
+	  It is additional config to separate platforms.
+
 config MTK_GPU_MT6879_SUPPORT
 	tristate "Specify Mediatek GPU Platform is mt6879"
 	depends on MTK_GPU_SUPPORT
@@ -83,6 +92,7 @@ config MTK_GPU_MT6879_SUPPORT
 	  Select MediaTek GPU Platform is mt6879.
 	  Set Y or M to select this feature for specific platform-mt6879,
 	  and set N to disable.
+	  It is additional config to separate platforms.
 
 config MTK_GPU_MT6893_SUPPORT
 	tristate "Specify Mediatek GPU Platform is mt6893"
@@ -91,6 +101,7 @@ config MTK_GPU_MT6893_SUPPORT
 	  Select MediaTek GPU Platform is mt6893.
 	  Set Y or M to select this feature for specific platform-mt6893,
 	  and set N to disable.
+	  It is additional config to separate platforms.
 
 config MTK_GPU_MT6895_SUPPORT
 	tristate "Specify Mediatek GPU Platform is mt6895"
@@ -99,6 +110,7 @@ config MTK_GPU_MT6895_SUPPORT
 	  Select MediaTek GPU Platform is mt6895.
 	  Set Y or M to select this feature for specific platform-mt6895,
 	  and set N to disable.
+	  It is additional config to separate platforms.
 
 config MTK_GPU_MT6983_SUPPORT
 	tristate "Specify Mediatek GPU Platform is mt6983"
@@ -107,3 +119,4 @@ config MTK_GPU_MT6983_SUPPORT
 	  Select MediaTek GPU Platform is mt6983.
 	  Set Y or M to select this feature for specific platform-mt6983,
 	  and set N to disable.
+	  It is additional config to separate platforms.
