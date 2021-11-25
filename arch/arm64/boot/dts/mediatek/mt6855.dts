@@ -1343,6 +1343,17 @@
 			dma-names = "tx", "rx";
 		};
 
+		ufshci: ufshci@112b0000 {
+			compatible = "mediatek,mt8183-ufshci";
+			reg = <0 0x112b0000 0 0x2300>;
+			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH 0>;
+
+			bootmode = <&chosen>;
+
+			mediatek,ufs-disable-ah8;
+			mediatek,ufs-qos;
+		};
+
 		apdma: dma-controller@11300900 {
 			compatible = "mediatek,mt6779-uart-dma";
 			reg = <0 0x11300900 0 0x80>,
