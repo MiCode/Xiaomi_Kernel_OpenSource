@@ -131,6 +131,8 @@ struct mml_sys {
 	struct device *master;
 	/* adaptor for display addon config */
 	struct mml_dle_ctx *dle_ctx;
+	/* addon status */
+	bool ddp_connected[MML_PIPE_CNT];
 
 	/* racing mode pipe sync event */
 	u16 event_racing_pipe0;
@@ -165,29 +167,6 @@ static inline struct mml_sys *comp_to_sys(struct mml_comp *comp)
 static inline struct mml_sys *ddp_comp_to_sys(struct mtk_ddp_comp *ddp_comp)
 {
 	return container_of(ddp_comp, struct mml_sys, ddp_comps[ddp_comp->sub_idx]);
-}
-
-static inline struct mml_comp *ddp_to_mml_comp(struct mtk_ddp_comp *ddp_comp)
-{
-	return &ddp_comp_to_sys(ddp_comp)->comps[ddp_comp->sub_idx];
-}
-
-static void ddp_prepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = ddp_to_mml_comp(ddp_comp);
-
-	mml_log("%s", __func__);
-	return;
-	comp->hw_ops->clk_enable(comp);
-}
-
-static void ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = ddp_to_mml_comp(ddp_comp);
-
-	mml_log("%s", __func__);
-	return;
-	comp->hw_ops->clk_disable(comp);
 }
 
 u16 mml_sys_get_reg_ready_sel(struct mml_comp *comp)
@@ -665,6 +644,11 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 	for (i = 0; i + 1 < cnt; i += 2) {
 		of_property_read_u32_index(node, "aid-sel", i, &comp_id);
 		of_property_read_u32_index(node, "aid-sel", i + 1, &value);
+		if (comp_id >= MML_MAX_COMPONENTS) {
+			dev_err(dev, "component id %u is larger than max:%d\n",
+				comp_id, MML_MAX_COMPONENTS);
+			return -EINVAL;
+		}
 		sys->aid_sel[comp_id] = (u8)value;
 	}
 
@@ -675,7 +659,7 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 	return 0;
 }
 
-static void sys_submit_done_cb(struct mml_task *task, void *cb_param)
+static void sys_config_done_cb(struct mml_task *task, void *cb_param)
 {
 	struct mtk_addon_mml_config *cfg = cb_param;
 
@@ -689,7 +673,7 @@ static struct mml_dle_ctx *sys_get_dle_ctx(struct mml_sys *sys)
 
 	if (!sys->dle_ctx) {
 		dl.dual = false;
-		dl.submit_cb = sys_submit_done_cb;
+		dl.config_cb = sys_config_done_cb;
 		sys->dle_ctx = mml_dle_get_context(sys->master, &dl);
 	}
 	return sys->dle_ctx;
@@ -704,8 +688,8 @@ static struct mml_dle_ctx *sys_get_dle_ctx(struct mml_sys *sys)
 #define call_hw_op(_comp, op, ...) \
 	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp, ##__VA_ARGS__) : 0)
 
-static void addon_command_make(struct mml_task *task, u32 pipe,
-			       struct cmdq_pkt *pkt)
+static void ddp_command_make(struct mml_task *task, u32 pipe,
+			     struct cmdq_pkt *pkt)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_comp_config *ccfg = task->config->cache[pipe].cfg;
@@ -729,9 +713,7 @@ static void addon_command_make(struct mml_task *task, u32 pipe,
 	}
 }
 
-static u32 always_on_clk; /* TODO: remove */
-
-static void sys_hw_enable(struct mml_task *task, u32 pipe)
+static void sys_ddp_enable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_comp *comp;
@@ -740,10 +722,10 @@ static void sys_hw_enable(struct mml_task *task, u32 pipe)
 	mml_msg("%s task %p pipe %u", __func__, task, pipe);
 
 	mml_clock_lock(task->config->mml);
-	/* TODO: remove always-on */
-	if (always_on_clk)
-		goto already_enable;
-	always_on_clk = 1;
+
+	if (sys->ddp_connected[pipe])
+		goto enabled;
+	sys->ddp_connected[pipe] = true;
 
 	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
 	for (i = 0; i < path->node_cnt; i++) {
@@ -766,13 +748,52 @@ static void sys_hw_enable(struct mml_task *task, u32 pipe)
 	}
 	mml_trace_ex_end();
 
-already_enable:
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
 
+enabled:
 	mml_clock_unlock(task->config->mml);
 }
 
-static const struct mml_submit dl_submit = {
+static void sys_ddp_disable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
+	mml_clock_lock(task->config->mml);
+
+	if (!sys->ddp_connected[pipe])
+		goto disabled;
+	sys->ddp_connected[pipe] = false;
+
+	mml_trace_ex_begin("%s_%s_%u", __func__, "clk", pipe);
+	for (i = 0; i < path->node_cnt; i++) {
+		if (i == path->mmlsys_idx || i == path->mutex_idx)
+			continue;
+		comp = path->nodes[i].comp;
+		call_hw_op(comp, clk_disable);
+	}
+
+	if (path->mutex)
+		call_hw_op(path->mutex, clk_disable);
+	if (path->mmlsys)
+		call_hw_op(path->mmlsys, clk_disable);
+	mml_trace_ex_end();
+
+	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_hw_op(comp, pw_disable);
+	}
+	mml_trace_ex_end();
+
+disabled:
+	mml_clock_unlock(task->config->mml);
+
+	mml_msg("%s task %p pipe %u", __func__, task, pipe);
+}
+
+static const struct mml_submit bypass_submit = {
 	.info = {
 		.src = {
 			.width = U16_MAX,
@@ -816,7 +837,7 @@ static void sys_addon_connect(struct mml_sys *sys,
 
 	if (!cfg->submit.info.src.width) {
 		/* set test submit */
-		cfg->submit = dl_submit;
+		cfg->submit = bypass_submit;
 	}
 
 	if (cfg->config_type.module == MML_RSZ_v2) {
@@ -844,9 +865,9 @@ static void sys_addon_connect(struct mml_sys *sys,
 		return;
 	}
 
-	addon_command_make(cfg->task, pipe, pkt);
+	ddp_command_make(cfg->task, pipe, pkt);
 
-	sys_hw_enable(cfg->task, pipe);
+	sys_ddp_enable(sys, cfg->task, pipe);
 }
 
 static void sys_addon_disconnect(struct mml_sys *sys,
@@ -854,7 +875,6 @@ static void sys_addon_disconnect(struct mml_sys *sys,
 {
 	struct mml_dle_ctx *ctx;
 	u32 pipe;
-	s32 ret;
 
 	if (cfg->config_type.module == MML_RSZ_v2) {
 		pipe = 1;
@@ -867,9 +887,9 @@ static void sys_addon_disconnect(struct mml_sys *sys,
 			return;
 		}
 
-		ret = 0; /* TODO: mml_dle_stop(ctx, &cfg->task); */
-		if (ret) {
-			mml_err("%s fail to find config", __func__);
+		cfg->task = mml_dle_stop(ctx);
+		if (!cfg->task) {
+			mml_err("%s fail to find task", __func__);
 			return;
 		}
 	}
@@ -880,7 +900,7 @@ static void sys_addon_disconnect(struct mml_sys *sys,
 		return;
 	}
 
-	/* TODO: addon_disable(cfg->task->config->mml, cfg->task->config->path[pipe]); */
+	/* sys_ddp_disable(sys, cfg->task, pipe); */
 }
 
 static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
@@ -892,17 +912,54 @@ static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
 	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
 
-	mml_log("%s %d", __func__, cfg->config_type.type);
+	mml_msg("%s %d", __func__, cfg->config_type.type);
 	if (cfg->config_type.type == ADDON_DISCONNECT)
 		sys_addon_disconnect(sys, cfg);
 	else
 		sys_addon_connect(sys, cfg, pkt);
 }
 
+static void sys_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
+{
+	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
+	struct mml_dle_ctx *ctx;
+
+	ctx = sys_get_dle_ctx(sys);
+	if (IS_ERR(ctx)) {
+		mml_err("fail to get mml ctx for addon config");
+		return;
+	}
+
+	mml_dle_start(ctx);
+}
+
+static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
+	struct mml_dle_ctx *ctx;
+	struct mml_task *task;
+
+	ctx = sys_get_dle_ctx(sys);
+	if (IS_ERR(ctx)) {
+		mml_err("fail to get mml ctx for addon config");
+		return;
+	}
+
+	task = mml_dle_disable(ctx);
+	if (!task) {
+		mml_err("%s fail to find task", __func__);
+		return;
+	}
+
+	sys_ddp_disable(sys, task, 0);
+	if (task->config->dual)
+		sys_ddp_disable(sys, task, 1);
+}
+
 static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
 	.addon_config = sys_addon_config,
-	.prepare = ddp_prepare,
-	.unprepare = ddp_unprepare,
+	.start = sys_start,
+	.unprepare = sys_unprepare,
 };
 
 static s32 dli_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -922,17 +979,6 @@ static s32 dli_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 static const struct mml_comp_tile_ops dli_tile_ops = {
 	.prepare = dli_tile_prepare,
-};
-
-static const struct mml_comp_hw_ops dli_hw_ops = {
-	.pw_enable = mml_comp_pw_enable,	/* TODO: change to pm_runtime */
-	.pw_disable = mml_comp_pw_disable,	/* TODO: change to pm_runtime */
-	.clk_enable = mml_comp_clk_enable,
-	.clk_disable = mml_comp_clk_disable,
-	/* .qos_datasize_get = dli_datasize_get,
-	 * .qos_set = mml_comp_qos_set,
-	 * .qos_clear = mml_comp_qos_clear,
-	 */
 };
 
 static void dlo_config_left(struct mml_frame_dest *dest,
@@ -1000,6 +1046,18 @@ static const struct mml_comp_config_ops dl_config_ops = {
 	.tile = dl_config_tile,
 };
 
+static const struct mml_comp_hw_ops dl_hw_ops = {
+	.pw_enable = mml_comp_pw_enable,
+	.pw_disable = mml_comp_pw_disable,
+	.clk_enable = mml_comp_clk_enable,
+	.clk_disable = mml_comp_clk_disable,
+	/* TODO: pmqos_op
+	 * .qos_datasize_get = dl_datasize_get,
+	 * .qos_set = mml_comp_qos_set,
+	 * .qos_clear = mml_comp_qos_clear,
+	 */
+};
+
 static int dl_comp_init(struct device *dev, struct mml_sys *sys,
 			struct mml_comp *comp)
 {
@@ -1007,6 +1065,15 @@ static int dl_comp_init(struct device *dev, struct mml_sys *sys,
 	char name[32] = "";
 	u16 offset;
 	int ret;
+
+	/* init larb for mtcmos */
+	ret = mml_comp_init_larb(comp, dev);
+	if (ret) {
+		if (ret == -EPROBE_DEFER)
+			return ret;
+		dev_err(dev, "fail to init component %u larb ret %d",
+			comp->id, ret);
+	}
 
 	if (sys->dl_cnt >= ARRAY_SIZE(sys->dl_relays) - 1) {
 		dev_err(dev, "out of dl-relay size in component %s: %d\n",
@@ -1034,7 +1101,7 @@ static int dl_comp_init(struct device *dev, struct mml_sys *sys,
 	sys->dl_relays[++sys->dl_cnt] = offset;
 	sys->adjacency[comp->id][comp->id] = sys->dl_cnt;
 	comp->config_ops = &dl_config_ops;
-	/* TODO: pmqos_op */
+	comp->hw_ops = &dl_hw_ops;
 	return 0;
 }
 
@@ -1045,18 +1112,7 @@ static int dli_comp_init(struct device *dev, struct mml_sys *sys,
 
 	if (ret)
 		return ret;
-
-	/* TODO: change to pm_runtime; no larb on direct-link */
-	ret = mml_comp_init_larb(comp, dev);
-	if (ret) {
-		if (ret == -EPROBE_DEFER)
-			return ret;
-		mml_err("fail to init component %u larb ret %d",
-			comp->id, ret);
-	}
-
 	comp->tile_ops = &dli_tile_ops;
-	comp->hw_ops = &dli_hw_ops;
 	return 0;
 }
 
@@ -1072,8 +1128,6 @@ static int dlo_comp_init(struct device *dev, struct mml_sys *sys,
 }
 
 static const struct mtk_ddp_comp_funcs dl_ddp_funcs = {
-	.prepare = ddp_prepare,
-	.unprepare = ddp_unprepare,
 };
 
 static int subcomp_init(struct platform_device *pdev, struct mml_sys *sys,

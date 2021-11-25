@@ -331,7 +331,7 @@ static struct mml_frame_config *frame_config_create(
 		return ERR_PTR(-ENOMEM);
 	mml_core_init_config(cfg);
 
-	list_add_tail(&cfg->entry, &ctx->configs);
+	list_add(&cfg->entry, &ctx->configs);
 	ctx->config_cnt++;
 	cfg->info = *info;
 	cfg->disp_dual = ctx->disp_dual;
@@ -461,6 +461,22 @@ static void task_submit_done(struct mml_task *task)
 	mutex_unlock(&ctx->config_mutex);
 }
 
+static void task_buf_put(struct mml_task *task)
+{
+	u8 i;
+
+	mml_trace_ex_begin("%s_putbuf", __func__);
+	for (i = 0; i < task->buf.dest_cnt; i++) {
+		mml_msg("[drm]release dest %hhu iova %#011llx",
+			i, task->buf.dest[i].dma[0].iova);
+		mml_buf_put(&task->buf.dest[i]);
+	}
+	mml_msg("[drm]release src iova %#011llx",
+		task->buf.src.dma[0].iova);
+	mml_buf_put(&task->buf.src);
+	mml_trace_ex_end();
+}
+
 static void task_put_idles(struct mml_frame_config *cfg)
 {
 	struct mml_task *task, *task_tmp;
@@ -499,10 +515,9 @@ static void task_state_dec(struct mml_frame_config *cfg, struct mml_task *task,
 static void task_frame_done(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_config *cfg_tmp;
+	struct mml_frame_config *tmp;
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 	struct mml_dev *mml = cfg->mml;
-	u8 i;
 
 	mml_trace_ex_begin("%s", __func__);
 
@@ -510,20 +525,7 @@ static void task_frame_done(struct mml_task *task)
 		task, task->state, task->job.jobid);
 
 	/* clean up */
-	mml_trace_ex_begin("%s_putbuf", __func__);
-	for (i = 0; i < task->buf.dest_cnt; i++) {
-		mml_msg("[drm]release dest %hhu iova %#011llx",
-			i, task->buf.dest[i].dma[0].iova);
-		mml_buf_put(&task->buf.dest[i]);
-	}
-	mml_msg("[drm]release src iova %#011llx",
-		task->buf.src.dma[0].iova);
-	mml_buf_put(&task->buf.src);
-	mml_trace_ex_end();
-
-	/* TODO: Confirm buf file and fence release correctly,
-	 * after implement dmabuf and fence mechanism.
-	 */
+	task_buf_put(task);
 
 	mutex_lock(&ctx->config_mutex);
 
@@ -558,7 +560,7 @@ static void task_frame_done(struct mml_task *task)
 		goto done;
 
 	/* must pick cfg from list which is not running */
-	list_for_each_entry_safe(cfg, cfg_tmp, &ctx->configs, entry) {
+	list_for_each_entry_safe_reverse(cfg, tmp, &ctx->configs, entry) {
 		/* only remove config not running */
 		if (!list_empty(&cfg->tasks) || !list_empty(&cfg->await_tasks))
 			continue;
@@ -810,7 +812,6 @@ s32 mml_drm_stop(struct mml_drm_ctx *ctx, struct mml_submit *submit, bool force)
 	struct mml_frame_config *cfg;
 
 	mml_trace_begin("%s", __func__);
-
 	mutex_lock(&ctx->config_mutex);
 
 	cfg = frame_config_find_reuse(ctx, submit);
@@ -835,8 +836,8 @@ void mml_drm_config_rdone(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	struct mml_frame_config *cfg;
 
 	mml_trace_begin("%s", __func__);
-
 	mutex_lock(&ctx->config_mutex);
+
 	cfg = frame_config_find_reuse(ctx, submit);
 	if (!cfg) {
 		mml_err("[drm]The submit info not found for stop");
@@ -959,7 +960,7 @@ const static struct mml_task_ops drm_task_ops = {
 };
 
 static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
-	struct mml_drm_param *disp)
+					  struct mml_drm_param *disp)
 {
 	struct mml_drm_ctx *ctx;
 
@@ -993,7 +994,7 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 }
 
 struct mml_drm_ctx *mml_drm_get_context(struct platform_device *pdev,
-	struct mml_drm_param *disp)
+					struct mml_drm_param *disp)
 {
 	struct mml_dev *mml = platform_get_drvdata(pdev);
 
@@ -1035,7 +1036,7 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 	mml_msg("[drm]%s on ctx %p", __func__, ctx);
 
 	mutex_lock(&ctx->config_mutex);
-	list_for_each_entry_safe(cfg, tmp, &ctx->configs, entry) {
+	list_for_each_entry_safe_reverse(cfg, tmp, &ctx->configs, entry) {
 		/* check and remove configs/tasks in this context */
 		list_del_init(&cfg->entry);
 		frame_config_destroy(cfg);

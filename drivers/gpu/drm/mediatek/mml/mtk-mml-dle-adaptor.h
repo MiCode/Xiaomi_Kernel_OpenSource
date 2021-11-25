@@ -20,8 +20,8 @@ struct mml_dle_param {
 	/* [in]set true if direct-link uses dual pipe */
 	bool dual;
 
-	/* submit done callback api */
-	void (*submit_cb)(struct mml_task *task, void *cb_param);
+	/* config done callback api */
+	void (*config_cb)(struct mml_task *task, void *cb_param);
 };
 
 /*
@@ -50,24 +50,38 @@ void mml_dle_put_context(struct mml_dle_ctx *ctx);
  *
  * @ctx:	Context of mml dle adaptor. Get by mml_dle_get_context API.
  * @submit:	Frame info which want mml driver to configure.
- * @cb_param:	The parameter used in submit done callback (if registered).
+ * @cb_param:	The parameter used in config done callback (if registered).
  *
- * Return:	Result of config. In value < 0 case job did not send to mml
- *		driver core.
+ * Return:	Result of config. In value < 0 case job was not configured.
  */
 s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	void *cb_param);
 
 /*
- * mml_dle_task_done - tell mml the task is configured
+ * mml_dle_start - tell mml dle to start hw task
+ * The current configured task could be in idle then.
  *
  * @ctx:	Context of mml dle adaptor. Get by mml_dle_get_context API.
- * @submit:	Frame info which want mml driver to configure.
- *
- * Return:	Result of config. In value < 0 case job did not send to mml
- *		driver core.
  */
-void mml_dle_task_done(struct mml_task *task);
+void mml_dle_start(struct mml_dle_ctx *ctx);
+
+/*
+ * mml_dle_stop - tell mml dle to stop hw task
+ *
+ * @ctx:	Context of mml dle adaptor. Get by mml_dle_get_context API.
+ *
+ * Return:	Last task which was started or configured, maybe in idle.
+ */
+struct mml_task *mml_dle_stop(struct mml_dle_ctx *ctx);
+
+/*
+ * mml_dle_disable - tell mml dle ready to disable hw
+ *
+ * @ctx:	Context of mml dle adaptor. Get by mml_dle_get_context API.
+ *
+ * Return:	Last task which was stopped, maybe in idle.
+ */
+struct mml_task *mml_dle_disable(struct mml_dle_ctx *ctx);
 
 /*
  * mml_ddp_comp_init - initialize ddp component to drm

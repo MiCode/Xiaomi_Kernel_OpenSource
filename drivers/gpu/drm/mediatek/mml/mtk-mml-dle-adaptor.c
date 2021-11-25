@@ -17,7 +17,7 @@
 int dle_reuse = 1;
 module_param(dle_reuse, int, 0644);
 
-int dle_max_cache_task = 2;
+int dle_max_cache_task = 1;
 module_param(dle_max_cache_task, int, 0644);
 
 int dle_max_cache_cfg = 2;
@@ -30,9 +30,10 @@ struct mml_dle_ctx {
 	struct mml_dev *mml;
 	const struct mml_task_ops *task_ops;
 	atomic_t job_serial;
+	struct workqueue_struct *wq_config;
 	struct workqueue_struct *wq_destroy;
 	bool dl_dual;
-	void (*submit_cb)(struct mml_task *task, void *cb_param);
+	void (*config_cb)(struct mml_task *task, void *cb_param);
 	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
 };
 
@@ -67,6 +68,19 @@ static struct mml_frame_config *frame_config_find_reuse(
 done:
 	mml_trace_ex_end();
 	return cfg;
+}
+
+static struct mml_frame_config *frame_config_find_current(
+	struct mml_dle_ctx *ctx)
+{
+	return list_first_entry_or_null(
+		&ctx->configs, struct mml_frame_config, entry);
+}
+
+static struct mml_task *task_find_running(struct mml_frame_config *cfg)
+{
+	return list_first_entry_or_null(
+		&cfg->tasks, struct mml_task, entry);
 }
 
 static struct mml_task *task_get_idle(struct mml_frame_config *cfg)
@@ -136,7 +150,7 @@ static struct mml_frame_config *frame_config_create(
 		return ERR_PTR(-ENOMEM);
 	mml_core_init_config(cfg);
 
-	list_add_tail(&cfg->entry, &ctx->configs);
+	list_add(&cfg->entry, &ctx->configs);
 	ctx->config_cnt++;
 	cfg->info = *info;
 	cfg->disp_dual = ctx->dl_dual;
@@ -167,7 +181,7 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 
 	if (user_buf->fence >= 0) {
 		/* fbuf->fence = sync_file_get_fence(user_buf->fence); */
-		mml_err("[dle]ignore dma fence %d", user_buf->fence);
+		mml_log("[dle]ignore dma fence %d", user_buf->fence);
 	}
 }
 
@@ -234,16 +248,16 @@ static void task_move_to_destroy(struct kref *kref)
 	mml_core_destroy_task(task);
 }
 
-static void task_submit_done(struct mml_task *task)
+static void task_config_done(struct mml_task *task)
 {
 	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
 
 	mml_msg("[dle]%s task %p state %u", __func__, task, task->state);
 
-	/* mml_mmp(submit_cb, MMPROFILE_FLAG_PULSE, task->job.jobid, 0); */
+	/* mml_mmp(config_cb, MMPROFILE_FLAG_PULSE, task->job.jobid, 0); */
 
-	if (ctx->submit_cb)
-		ctx->submit_cb(task, task->cb_param);
+	if (ctx->config_cb)
+		ctx->config_cb(task, task->cb_param);
 
 	mutex_lock(&ctx->config_mutex);
 	task_move_to_running(task);
@@ -267,6 +281,41 @@ static void task_buf_put(struct mml_task *task)
 	mml_trace_ex_end();
 }
 
+static void task_put_idles(struct mml_frame_config *cfg)
+{
+	struct mml_task *task, *task_tmp;
+
+	list_for_each_entry_safe(task, task_tmp, &cfg->done_tasks, entry) {
+		list_del_init(&task->entry);
+		kref_put(&task->ref, task_move_to_destroy);
+	}
+}
+
+static void task_state_dec(struct mml_frame_config *cfg, struct mml_task *task,
+	const char *api)
+{
+	if (list_empty(&task->entry))
+		return;
+
+	list_del_init(&task->entry);
+
+	switch (task->state) {
+	case MML_TASK_INITIAL:
+	case MML_TASK_DUPLICATE:
+	case MML_TASK_REUSE:
+		cfg->await_task_cnt--;
+		break;
+	case MML_TASK_RUNNING:
+		cfg->run_task_cnt--;
+		break;
+	case MML_TASK_IDLE:
+		cfg->done_task_cnt--;
+		break;
+	default:
+		mml_err("%s conflict state %u", api, task->state);
+	}
+}
+
 static void task_frame_err(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
@@ -281,15 +330,14 @@ static void task_frame_err(struct mml_task *task)
 	task_buf_put(task);
 
 	mutex_lock(&ctx->config_mutex);
-	task_move_to_idle(task);
 
-	list_del_init(&task->entry);
-	cfg->done_task_cnt--;
-	mml_msg("[dle]%s task cnt (%u %u %hhu)",
+	task_state_dec(cfg, task, __func__);
+	mml_err("[dle]%s task cnt (%u %u %hhu) error from state %d",
 		__func__,
-		task->config->await_task_cnt,
-		task->config->run_task_cnt,
-		task->config->done_task_cnt);
+		cfg->await_task_cnt,
+		cfg->run_task_cnt,
+		cfg->done_task_cnt,
+		task->state);
 	kref_put(&task->ref, task_move_to_destroy);
 
 	mutex_unlock(&ctx->config_mutex);
@@ -299,36 +347,34 @@ static void task_frame_err(struct mml_task *task)
 	mml_trace_ex_end();
 }
 
-static void task_put_idles(struct mml_frame_config *cfg)
+void mml_dle_start(struct mml_dle_ctx *ctx)
 {
-	struct mml_task *task, *task_tmp;
-
-	list_for_each_entry_safe(task, task_tmp, &cfg->done_tasks, entry) {
-		list_del_init(&task->entry);
-		kref_put(&task->ref, task_move_to_destroy);
-	}
-}
-
-void mml_dle_task_done(struct mml_task *task)
-{
-	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_config *cfg_tmp;
-	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
+	struct mml_frame_config *cfg;
+	struct mml_frame_config *tmp;
+	struct mml_task *task = NULL;
 
 	mml_trace_ex_begin("%s", __func__);
 
-	mml_log("[dle]config done task %p state %u job %u",
+	mutex_lock(&ctx->config_mutex);
+
+	cfg = frame_config_find_current(ctx);
+	if (cfg)
+		task = task_find_running(cfg);
+	if (!task) {
+		mml_log("%s cannot find running task", __func__);
+		goto done;
+	}
+
+	mml_msg("[dle]config done task %p state %u job %u",
 		task, task->state, task->job.jobid);
 
 	/* clean up */
 	task_buf_put(task);
 
-	mutex_lock(&ctx->config_mutex);
 	task_move_to_idle(task);
 
 	if (cfg->done_task_cnt > dle_max_cache_task) {
-		task = list_first_entry(&cfg->done_tasks, typeof(*task),
-			entry);
+		task = list_first_entry(&cfg->done_tasks, typeof(*task), entry);
 		list_del_init(&task->entry);
 		cfg->done_task_cnt--;
 		mml_msg("[dle]%s task cnt (%u %u %hhu)",
@@ -344,7 +390,7 @@ void mml_dle_task_done(struct mml_task *task)
 		goto done;
 
 	/* must pick cfg from list which is not running */
-	list_for_each_entry_safe(cfg, cfg_tmp, &ctx->configs, entry) {
+	list_for_each_entry_safe_reverse(cfg, tmp, &ctx->configs, entry) {
 		/* only remove config not running */
 		if (!list_empty(&cfg->tasks) || !list_empty(&cfg->await_tasks))
 			continue;
@@ -376,11 +422,11 @@ static void dump_pq_en(u32 idx, struct mml_pq_param *pq_param,
 	memcpy(&pqen, pq_config, min(sizeof(*pq_config), sizeof(pqen)));
 
 	if (pq_param)
-		mml_log("[dle]PQ %u config %#x param en %u %s",
+		mml_msg("[dle]PQ %u config %#x param en %u %s",
 			idx, pqen, pq_param->enable,
 			mml_pq_disable ? "FORCE DISABLE" : "");
 	else
-		mml_log("[dle]PQ %u config %#x param NULL %s",
+		mml_msg("[dle]PQ %u config %#x param NULL %s",
 			idx, pqen,
 			mml_pq_disable ? "FORCE DISABLE" : "");
 }
@@ -412,7 +458,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	mml_trace_begin("%s", __func__);
 
 	if (mtk_mml_msg || mml_pq_disable) {
-		for (i = 0; i < submit->info.dest_cnt; i++) {
+		for (i = 0; i < MML_MAX_OUTPUTS; i++) {
 			dump_pq_en(i, submit->pq_param[i],
 				&submit->info.dest[i].pq_config);
 
@@ -446,6 +492,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 			task = mml_core_create_task();
 			if (IS_ERR(task)) {
 				result = PTR_ERR(task);
+				mml_err("%s create task for reuse frame fail", __func__);
 				goto err_unlock_exit;
 			}
 			task->config = cfg;
@@ -456,6 +503,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 		mml_msg("[dle]%s create config %p", __func__, cfg);
 		if (IS_ERR(cfg)) {
 			result = PTR_ERR(cfg);
+			mml_err("%s create frame config fail", __func__);
 			goto err_unlock_exit;
 		}
 		task = mml_core_create_task();
@@ -463,6 +511,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 			list_del_init(&cfg->entry);
 			frame_config_destroy(cfg);
 			result = PTR_ERR(task);
+			mml_err("%s create task fail", __func__);
 			goto err_unlock_exit;
 		}
 		task->config = cfg;
@@ -496,6 +545,10 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	mml_log("[dle]mml job %u task %p config %p mode %hhu",
 		task->job.jobid, task, cfg, cfg->info.mode);
 
+	/* copy job content back */
+	if (submit->job)
+		memcpy(submit->job, &task->job, sizeof(*submit->job));
+
 	/* copy pq parameters */
 	for (i = 0; i < submit->buffer.dest_cnt && submit->pq_param[i]; i++)
 		memcpy(&task->pq_param[i], submit->pq_param[i], sizeof(task->pq_param[i]));
@@ -506,34 +559,79 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	/* get config from core */
 	mml_core_config_task(cfg, task);
 
-	/* copy job content back */
-	if (submit->job)
-		memcpy(submit->job, &task->job, sizeof(*submit->job));
-
 	mml_trace_end();
 	return 0;
 
 err_unlock_exit:
 	mutex_unlock(&ctx->config_mutex);
 	mml_trace_end();
+	mml_log("%s fail result %d", __func__, result);
 	return result;
+}
+
+struct mml_task *mml_dle_stop(struct mml_dle_ctx *ctx)
+{
+	struct mml_frame_config *cfg;
+	struct mml_task *task = NULL;
+
+	mml_trace_begin("%s", __func__);
+	mutex_lock(&ctx->config_mutex);
+
+	cfg = frame_config_find_current(ctx);
+	if (!cfg) {
+		mml_err("[dle]The current cfg not found for stop");
+	} else {
+		task = list_first_entry_or_null(
+			&cfg->done_tasks, struct mml_task, entry);
+		if (!task)
+			task = task_find_running(cfg);
+	}
+
+	mutex_unlock(&ctx->config_mutex);
+	mml_trace_end();
+	return task;
+}
+
+struct mml_task *mml_dle_disable(struct mml_dle_ctx *ctx)
+{
+	struct mml_frame_config *cfg;
+	struct mml_task *task = NULL;
+
+	mml_trace_begin("%s", __func__);
+	mutex_lock(&ctx->config_mutex);
+
+	cfg = frame_config_find_current(ctx);
+	if (cfg) {
+		task = list_first_entry_or_null(
+			&cfg->done_tasks, struct mml_task, entry);
+		if (!task)
+			task = task_find_running(cfg);
+	}
+
+	mutex_unlock(&ctx->config_mutex);
+	mml_trace_end();
+	return task;
 }
 
 static s32 dup_task(struct mml_task *task, u32 pipe)
 {
-	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
-
-	mutex_lock(&ctx->config_mutex);
-
 	mml_msg("[dle]%s task cnt (%u %u %hhu) task %p pipe %u config %p",
 		__func__,
 		task->config->await_task_cnt,
 		task->config->run_task_cnt,
 		task->config->done_task_cnt,
 		task, pipe, task->config);
-
-	mutex_unlock(&ctx->config_mutex);
 	return 0;
+}
+
+static void task_queue(struct mml_task *task, u32 pipe)
+{
+	struct mml_dle_ctx *ctx = (struct mml_dle_ctx *)task->ctx;
+
+	if (pipe)
+		queue_work(ctx->wq_config, &task->work_config[pipe]);
+	else
+		mml_err("[dle] should not queue pipe %d", pipe);
 }
 
 static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pipe)
@@ -542,7 +640,8 @@ static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pip
 }
 
 const static struct mml_task_ops dle_task_ops = {
-	.submit_done = task_submit_done,
+	.queue = task_queue,
+	.submit_done = task_config_done,
 	.frame_err = task_frame_err,
 	.dup_task = dup_task,
 	.get_tile_cache = task_get_tile_cache,
@@ -563,9 +662,10 @@ static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
 	mutex_init(&ctx->config_mutex);
 	ctx->mml = mml;
 	ctx->task_ops = &dle_task_ops;
-	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy", 0, 0);
+	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy_dl", 0, 0);
 	ctx->dl_dual = dl->dual;
-	ctx->submit_cb = dl->submit_cb;
+	ctx->config_cb = dl->config_cb;
+	ctx->wq_config = alloc_ordered_workqueue("mml_work_dl", 0, 0);
 
 	return ctx;
 }
@@ -591,7 +691,7 @@ static void dle_ctx_release(struct mml_dle_ctx *ctx)
 	mml_msg("[dle]%s on ctx %p", __func__, ctx);
 
 	mutex_lock(&ctx->config_mutex);
-	list_for_each_entry_safe(cfg, tmp, &ctx->configs, entry) {
+	list_for_each_entry_safe_reverse(cfg, tmp, &ctx->configs, entry) {
 		/* check and remove configs/tasks in this context */
 		list_del_init(&cfg->entry);
 		frame_config_destroy(cfg);
@@ -599,6 +699,7 @@ static void dle_ctx_release(struct mml_dle_ctx *ctx)
 
 	mutex_unlock(&ctx->config_mutex);
 	destroy_workqueue(ctx->wq_destroy);
+	destroy_workqueue(ctx->wq_config);
 	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
 		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
 			kfree(ctx->tile_cache[i].func_list[j]);
