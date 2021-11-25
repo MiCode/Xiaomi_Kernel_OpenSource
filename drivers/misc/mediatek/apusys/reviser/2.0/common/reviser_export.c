@@ -191,7 +191,7 @@ int reviser_alloc_mem(uint32_t type, uint32_t size, uint64_t *addr, uint32_t *si
 	LOG_DBG_RVR_VLM("Alloc Mem (%lu/0x%lx)\n", type, size);
 
 	switch (type) {
-	case REVISER_MEM_TYPE_EXTERNAL:
+	case REVISER_MEM_TYPE_EXT:
 		/* TODO, should allocate via reviser function */
 		slb.uid = UID_SH_APU;
 		slb.type = TP_BUFFER;
@@ -205,6 +205,17 @@ int reviser_alloc_mem(uint32_t type, uint32_t size, uint64_t *addr, uint32_t *si
 	case REVISER_MEM_TYPE_RSV_T:
 		input_addr = 0;
 		input_size = size;
+		break;
+	case REVISER_MEM_TYPE_RSV_S:
+		/* TODO, should allocate via reviser function */
+		slb.uid = UID_AINR;
+		slb.type = TP_BUFFER;
+
+		slbc_request(&slb);
+
+		/*XXX get vlm addr from reviser */
+		input_addr = (size_t) slb.paddr;
+		input_size = slb.size;
 		break;
 	case REVISER_MEM_TYPE_VLM:
 		input_addr = 0;
@@ -252,10 +263,17 @@ int reviser_free_mem(uint32_t sid)
 	}
 
 	switch (out_type) {
+	case REVISER_MEM_TYPE_VLM:
 	case REVISER_MEM_TYPE_RSV_T:
 		break;
-	case REVISER_MEM_TYPE_EXTERNAL:
+	case REVISER_MEM_TYPE_EXT:
 		slb.uid = UID_SH_APU;
+		slb.type = TP_BUFFER;
+
+		slbc_release(&slb);
+		break;
+	case REVISER_MEM_TYPE_RSV_S:
+		slb.uid = UID_AINR;
 		slb.type = TP_BUFFER;
 
 		slbc_release(&slb);

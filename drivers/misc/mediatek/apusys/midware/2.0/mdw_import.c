@@ -70,7 +70,7 @@ static int mdw_rvs_type_convert(uint32_t type, uint32_t *out)
 		*out = REVISER_MEM_TYPE_RSV_T;
 		break;
 	case MDW_MEM_TYPE_SYSTEM_ISP:
-		*out = REVISER_MEM_TYPE_EXTERNAL;
+		*out = REVISER_MEM_TYPE_EXT;
 		break;
 
 	default:

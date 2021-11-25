@@ -531,10 +531,11 @@ static int reviser_dbg_read_debug_op(void *data, u64 *val)
 	return ret;
 }
 
+
+
 static int reviser_dbg_write_debug_op(void *data, u64 val)
 {
 	int ret = 0;
-
 
 	g_rvr_debug_op = val;
 
