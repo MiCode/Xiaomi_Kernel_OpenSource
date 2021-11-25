@@ -24,6 +24,8 @@ static int g_max_working_oppidx;       /* 0 */
 static int g_min_working_oppidx;       /* opp_num - 1 */
 static int g_min_virtual_oppidx;       /* opp_num - 1 + mask_num -1 */
 
+static int g_max_freq_in_mhz;         /* max freq in opp table */
+
 struct gpufreq_core_mask_info *g_mask_table;
 struct gpufreq_opp_info *g_working_table;
 struct gpufreq_opp_info *g_virtual_table;
@@ -45,6 +47,7 @@ GED_ERROR ged_gpufreq_init(void)
 	g_working_oppnum = gpufreq_get_opp_num(TARGET_DEFAULT);
 	g_min_working_oppidx = g_working_oppnum - 1;
 	g_max_working_oppidx = 0;
+	g_max_freq_in_mhz = gpufreq_get_freq_by_idx(TARGET_DEFAULT, 0) / 1000;
 
 	opp_table  = gpufreq_get_working_table(TARGET_DEFAULT);
 	g_working_table = kcalloc(g_working_oppnum,
@@ -182,6 +185,11 @@ int ged_get_cur_oppidx(void)
 	oppidx = g_min_working_oppidx + i;
 
 	return oppidx;
+}
+
+int ged_get_max_freq_in_opp(void)
+{
+	return g_max_freq_in_mhz;
 }
 
 int ged_get_max_oppidx(void)

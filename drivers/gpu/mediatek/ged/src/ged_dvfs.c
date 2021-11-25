@@ -144,8 +144,8 @@ static unsigned int g_lb_down_count = 1;
 
 /* need to sync to EB */
 #define BATCH_MAX_READ_COUNT 32
-/* formatted pattern |xxx|xxx 4x2 */
-#define BATCH_PATTERN_LEN 8
+/* formatted pattern |xxxx|yyyy 5x2 */
+#define BATCH_PATTERN_LEN 10
 #define BATCH_STR_SIZE (BATCH_PATTERN_LEN*BATCH_MAX_READ_COUNT)
 char batch_freq[BATCH_STR_SIZE];
 int avg_freq;

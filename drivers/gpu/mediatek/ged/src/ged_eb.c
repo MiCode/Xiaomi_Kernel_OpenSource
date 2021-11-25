@@ -486,23 +486,29 @@ int mtk_gpueb_sysram_batch_read(int max_read_count,
 
 		curr_str_len = 0;
 		avg_freq = 0;
-		for (index_freq = 0 ; index_freq < max_read_count; index_freq++) {
+		for (index_freq = 0 ; index_freq < max_read_count &&
+			curr_str_len <= batch_str_size; index_freq++) {
 			read_freq = (__raw_readl(mtk_gpueb_dvfs_sysram_base_addr +
 				SYSRAM_GPU_CURR_FREQ + (index_freq<<2)));
 
 			frequency1 = ((read_freq>>16)&0xffff);
 			if (frequency1 > 0) {
-				value_cnt++;
-				avg_freq += frequency1;
-				curr_str_len += scnprintf(batch_string + curr_str_len,
-					batch_str_size, "|%d", frequency1);
+				if (frequency1 <= ged_get_max_freq_in_opp()) {
+					value_cnt++;
+					avg_freq += frequency1;
+					curr_str_len += scnprintf(batch_string + curr_str_len,
+						batch_str_size, "|%d", frequency1);
+				}
 
 				frequency2 = ((read_freq)&0x0000ffff);
 				if (frequency2 > 0) {
-					value_cnt++;
-					avg_freq += frequency2;
-					curr_str_len += scnprintf(batch_string + curr_str_len,
-						batch_str_size, "|%d", frequency2);
+					if (frequency2 <= ged_get_max_freq_in_opp()) {
+						value_cnt++;
+						avg_freq += frequency2;
+						curr_str_len +=
+							scnprintf(batch_string + curr_str_len,
+							batch_str_size, "|%d", frequency2);
+					}
 				} else {
 					// Reset the rest data
 					for (; index_freq < max_read_count; index_freq++)

@@ -35,5 +35,6 @@ unsigned int ged_gpufreq_bringup(void);
 void ged_gpufreq_print_tables(void);
 
 unsigned int ged_gpufreq_get_power_state(void);
+int ged_get_max_freq_in_opp(void);
 
 #endif /* __GED_GPUFREQ_V2_H__ */

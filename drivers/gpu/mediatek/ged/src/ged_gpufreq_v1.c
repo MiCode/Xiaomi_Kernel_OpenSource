@@ -30,6 +30,11 @@ int ged_get_cur_oppidx(void)
 	return mt_gpufreq_get_cur_freq_index();
 }
 
+int ged_get_max_freq_in_opp(void)
+{
+	return mt_gpufreq_get_freq_by_idx(0);
+}
+
 int ged_get_max_oppidx(void)
 {
 	return 0;
