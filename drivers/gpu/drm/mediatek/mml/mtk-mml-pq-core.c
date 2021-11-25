@@ -1236,6 +1236,7 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d\n", ret);
 		kfree(job);
+		kfree(readback);
 		return -EINVAL;
 	}
 
@@ -1367,6 +1368,7 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d\n", ret);
 		kfree(job);
+		kfree(readback);
 		return -EINVAL;
 	}
 
