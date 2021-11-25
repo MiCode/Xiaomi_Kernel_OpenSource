@@ -18,6 +18,7 @@
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
+#include "cmdq-sec-mailbox.h"
 
 #define CMDQ_THR_SPR3(base, id)		((base) + (0x80 * (id)) + 0x16c)
 #define CMDQ_GPR_R32(base, id)		((base) + (0x4 * (id)) + 0x80)
@@ -1188,6 +1189,8 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 #endif
 	cmdq_mbox_enable(test->clt->chan);
 	cmdq_mbox_enable(test->loop->chan);
+	cmdq_sec_mbox_enable(test->sec->chan);
+
 	switch (id) {
 	case 0:
 		cmdq_test_mbox_write(test, sec, false);
@@ -1279,6 +1282,8 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	default:
 		break;
 	}
+
+	cmdq_sec_mbox_disable(test->sec->chan);
 	cmdq_mbox_disable(test->loop->chan);
 	cmdq_mbox_disable(test->clt->chan);
 	cmdq_thread_timeout_restore(thread, backup);
