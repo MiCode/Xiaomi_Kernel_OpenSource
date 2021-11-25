@@ -169,10 +169,8 @@ void sched_update_nr_prod(int cpu, unsigned long nr_running, int inc)
 	/* To prevent to add count, because already do outside */
 	per_cpu(nr, cpu) = nr_running;
 
-	spin_lock(&per_cpu(nr_over_thres_lock, cpu));
 	if (per_cpu(nr, cpu) > per_cpu(nr_max, cpu))
 		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
-	spin_unlock(&per_cpu(nr_over_thres_lock, cpu));
 	spin_unlock_irqrestore(&per_cpu(nr_lock, cpu), flags);
 }
 
@@ -363,6 +361,7 @@ int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 
 		/* get need spread cpus */
 		/* Only consider cpu_util in conservative policy */
+		spin_lock(&per_cpu(nr_lock, cpu));
 		tmp_need_spread_cpus = per_cpu(nr_max, cpu);
 		if (tmp_need_spread_cpus > MAX_NR_DOWN_THRESHOLD)
 			if (policy != CONSERVATIVE_POLICY ||
@@ -371,6 +370,7 @@ int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 
 		/* reset max_nr value */
 		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
+		spin_unlock(&per_cpu(nr_lock, cpu));
 
 		/* get sum of nr_over_thres */
 		*sum_nr_over_dn_thres += cpu_over_thres->nr_over_dn_thres;
