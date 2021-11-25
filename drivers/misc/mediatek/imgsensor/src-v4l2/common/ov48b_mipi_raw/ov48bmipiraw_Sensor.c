@@ -45,7 +45,7 @@
 #define SEAMLESS_ 1
 #define SEAMLESS_NO_USE 0
 static bool _is_seamless;
-
+#define OV48B_DEBUG_LOG 0
 
 #define LOG_INF(format, args...)    \
 	pr_debug(PFX "[%s] " format, __func__, ##args)
@@ -409,7 +409,7 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 	 .i4BlockNumX = 248,
 	 .i4BlockNumY = 187,
 	 .i4Crop = { {0, 0}, {0, 0}, {0, 200}, {0, 0}, {0, 0},
-				 {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} },
+			 {0, 0}, {80, 420}, {0, 0}, {0, 0}, {0, 0} },
 };
 #endif
 
@@ -2056,7 +2056,9 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 			enum MSDK_SCENARIO_ID_ENUM scenario_id,
 			MUINT32 *framerate)
 {
+#if OV48B_DEBUG_LOG
 	LOG_INF("[3058]scenario_id = %d\n", scenario_id);
+#endif
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -2338,8 +2340,10 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			*pScenarios = 0xff;
 			break;
 		}
+#if OV48B_DEBUG_LOG
 		LOG_INF("SENSOR_FEATURE_GET_SEAMLESS_SCENARIOS %d %d\n",
 			*feature_data, *pScenarios);
+#endif
 		break;
 	case SENSOR_FEATURE_SEAMLESS_SWITCH:
 		pAeCtrls = (MUINT32 *)((uintptr_t)(*(feature_data+1)));
@@ -2844,15 +2848,12 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
 			break;
+		case SENSOR_SCENARIO_ID_CUSTOM2:
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
+			break;
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
-			break;
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
-			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
-			break;
 		default:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
@@ -2876,9 +2877,14 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			memcpy((void *)PDAFinfo, (void *)&imgsensor_pd_info,
 				sizeof(struct SET_PD_BLOCK_INFO_T));
 			break;
+		case SENSOR_SCENARIO_ID_CUSTOM2:
+			imgsensor_pd_info.i4BlockNumX = 240;
+			imgsensor_pd_info.i4BlockNumY = 135;
+			memcpy((void *)PDAFinfo, (void *)&imgsensor_pd_info,
+				sizeof(struct SET_PD_BLOCK_INFO_T));
+			break;
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-
 		default:
 			break;
 		}
@@ -2926,8 +2932,10 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_CUSTOM11:
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 			*feature_return_para_32 = 2; /*BINNING_SUMMED*/
+#if OV48B_DEBUG_LOG
 			LOG_INF("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
 			*feature_return_para_32);
+#endif
 			break;
 		default:
 			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
@@ -3040,6 +3048,15 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.data_type = 0x2b,
 			.hsize = 0x0f00,
 			.vsize = 0x0870,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x2b,
+			.hsize = 0x1e0,
+			.vsize = 0x438,
+			.user_data_desc = VC_PDAF_STATS,
 		},
 	},
 };
