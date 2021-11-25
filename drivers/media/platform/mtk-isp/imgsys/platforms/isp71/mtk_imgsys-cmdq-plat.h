@@ -18,7 +18,7 @@
 /* Record info definitions */
 #define GCE_REC_MAX_FRAME_BLOCK     (40)
 #define GCE_REC_MAX_TILE_BLOCK      (40)
-#define GCE_REC_MAX_LABEL_COUNT     (256)
+#define GCE_REC_MAX_LABEL_COUNT     (2048)
 
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56

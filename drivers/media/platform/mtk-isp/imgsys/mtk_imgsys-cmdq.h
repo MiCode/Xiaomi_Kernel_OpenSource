@@ -120,22 +120,22 @@ struct Command {
 			uint32_t mask;
 			uint64_t target;
 			uint64_t source;
-		};
+		} __packed;
 
 		// For write and poll
 		struct {
 			uint32_t dummy;
 			uint64_t address;
 			uint32_t value;
-		};
+		} __packed;
 
 		// For wait and update event
 		struct {
 			uint32_t event;
 			uint32_t action;
-		};
+		} __packed;
 	} u;
-};
+} __packed;
 
 void imgsys_cmdq_init(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
 void imgsys_cmdq_release(struct mtk_imgsys_dev *imgsys_dev);
