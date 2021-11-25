@@ -4635,7 +4635,7 @@ static void fbt_update_pwd_tbl(void)
 
 
 	for (cluster = 0; cluster < cluster_num ; cluster++) {
-		if (cpu_dvfs[cluster].capacity_ratio[0] > max_cap) {
+		if (cpu_dvfs[cluster].capacity_ratio[0] >= max_cap) {
 			max_cap = cpu_dvfs[cluster].capacity_ratio[0];
 			max_cap_cluster = cluster;
 		}
