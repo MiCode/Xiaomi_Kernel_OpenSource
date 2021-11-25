@@ -219,6 +219,17 @@ enum CMDQ_CONDITION_ENUM {
 	CMDQ_CONDITION_MAX,
 };
 
+enum CMDQ_VCP_ENG_ENUM {
+	CMDQ_VCP_ENG_MDP_HDR0,
+	CMDQ_VCP_ENG_MDP_HDR1,
+	CMDQ_VCP_ENG_MDP_AAL0,
+	CMDQ_VCP_ENG_MDP_AAL1,
+	CMDQ_VCP_ENG_MML_HDR0,
+	CMDQ_VCP_ENG_MML_HDR1,
+	CMDQ_VCP_ENG_MML_AAL0,
+	CMDQ_VCP_ENG_MML_AAL1,
+};
+
 struct cmdq_flush_completion {
 	struct cmdq_pkt *pkt;
 	struct completion cmplt;
@@ -258,6 +269,12 @@ struct cmdq_base *cmdq_register_device(struct device *dev);
  */
 struct cmdq_client *cmdq_mbox_create(struct device *dev, int index);
 void cmdq_mbox_stop(struct cmdq_client *cl);
+
+void cmdq_vcp_enable(bool en);
+void *cmdq_get_vcp_buf(enum CMDQ_VCP_ENG_ENUM engine, dma_addr_t *pa_out);
+u32 cmdq_pkt_vcp_reuse_val(enum CMDQ_VCP_ENG_ENUM engine, u32 buf_offset, u16 size);
+s32 cmdq_pkt_readback(struct cmdq_pkt *pkt, enum CMDQ_VCP_ENG_ENUM engine,
+	u32 buf_offset, u16 size, u16 reg_gpr, u64 **curr_buf_va);
 
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit);
 void cmdq_mbox_pool_create(struct cmdq_client *cl);

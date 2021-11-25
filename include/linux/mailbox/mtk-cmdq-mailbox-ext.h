@@ -171,6 +171,7 @@ struct cmdq_pkt {
 	bool			task_alive;
 	struct cmdq_pkt_err	err_data;
 	cmdq_aee_cb		aee_cb;
+	u32			vcp_eng;
 };
 
 struct cmdq_thread {
