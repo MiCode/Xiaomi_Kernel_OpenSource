@@ -1758,7 +1758,6 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	struct mtk_q_data *q_data;
 	int ret = 0;
 	struct mtk_video_fmt *fmt;
-	unsigned long size[2];
 
 	mtk_v4l2_debug(4, "[%d] type %d", ctx->id, f->type);
 
@@ -1805,30 +1804,11 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
 		q_data->coded_width = pix_mp->width;
 		q_data->coded_height = pix_mp->height;
-		size[0] = pix_mp->width;
-		size[1] = pix_mp->height;
 
 		ctx->colorspace = f->fmt.pix_mp.colorspace;
 		ctx->ycbcr_enc = f->fmt.pix_mp.ycbcr_enc;
 		ctx->quantization = f->fmt.pix_mp.quantization;
 		ctx->xfer_func = f->fmt.pix_mp.xfer_func;
-
-		if (ctx->state == MTK_STATE_FREE) {
-			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
-			v4l2_m2m_set_dst_buffered(ctx->m2m_ctx,
-				ctx->input_driven != NON_INPUT_DRIVEN);
-			if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
-				init_waitqueue_head(&ctx->fm_wq);
-			if (ret) {
-				mtk_v4l2_err("[%d]: vdec_if_init() fail ret=%d",
-							 ctx->id, ret);
-				ctx->state = MTK_STATE_ABORT;
-				return -EINVAL;
-			}
-			vdec_if_set_param(ctx,
-				SET_PARAM_FRAME_SIZE, (void *) size);
-			ctx->state = MTK_STATE_INIT;
-		}
 	}
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
@@ -2264,6 +2244,26 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	mtk_v4l2_debug(4, "[%d] (%d) id=%d, vb=%p",
 				   ctx->id, vb->vb2_queue->type,
 				   vb->index, vb);
+
+	if (ctx->state == MTK_STATE_FREE) {
+		struct mtk_q_data *q_data;
+
+		q_data = mtk_vdec_get_q_data(ctx, vb->vb2_queue->type);
+
+		ret = vdec_if_init(ctx, q_data->fmt->fourcc);
+		v4l2_m2m_set_dst_buffered(ctx->m2m_ctx,
+			ctx->input_driven != NON_INPUT_DRIVEN);
+		if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
+			init_waitqueue_head(&ctx->fm_wq);
+		if (ret) {
+			mtk_v4l2_err("[%d]: vdec_if_init() fail ret=%d",
+						 ctx->id, ret);
+			ctx->state = MTK_STATE_ABORT;
+			return;
+		}
+		ctx->state = MTK_STATE_INIT;
+	}
+
 	/*
 	 * check if this buffer is ready to be used after decode
 	 */
