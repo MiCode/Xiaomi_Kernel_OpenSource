@@ -65,12 +65,39 @@ static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
 	{"MD_AP_M",                { 1, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0 } },
 };
 
+static const struct ADSPAXI_ID_INFO ADSP_mi13_id_to_master[] = {
+	{"DSP_M1",            { 0, 0, 0, 2, 2, 2, 2, 0 } },
+	{"DMA_M1",            { 0, 0, 1, 2, 0, 0, 0, 0 } },
+	{"DSP_M2",            { 1, 0, 0, 2, 2, 2, 2, 0 } },
+	{"DMA_M2",            { 1, 0, 1, 2, 0, 0, 0, 0 } },
+	{"AFE_M",             { 0, 1, 2, 0, 0, 0, 0, 0 } },
+};
+
+static const struct ADSPAXI_ID_INFO ADSP_mi15_id_to_master[] = {
+	{"DSP_M1",            { 1, 0, 0, 2, 2, 2, 2, 0 } },
+	{"DMA_M1",            { 1, 0, 1, 2, 0, 0, 0, 0 } },
+	{"DSP_M2",            { 1, 1, 0, 2, 2, 2, 2, 0 } },
+	{"DMA_M2",            { 1, 1, 1, 2, 0, 0, 0, 0 } },
+	{"AFE_M",             { 0, 0, 2, 0, 0, 0, 0, 0 } },
+};
+
 static const struct MMINFRAAXI_ID_INFO mminfra_mi_id_to_master[] = {
 	{"INFRA2MM",    { 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
 	{"MMINFRA_HRE", { 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 	{"GCED",        { 0, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 	{"GCEM",        { 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 	{"MMUP",        { 0, 0, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+};
+
+static const char * const adsp_domain[] = {
+	"AP",
+	"SSPM",
+	"CONN",
+	"SCP",
+	"MCUPM",
+	"CCU",
+	"others",
+	"others",
 };
 
 static const char * const mminfra_domain[] = {
@@ -108,6 +135,40 @@ static const char *infra_mi_trans(uint32_t bus_id)
 		}
 	}
 
+	return master;
+}
+
+
+static const char *adsp_mi_trans(uint32_t bus_id, int mi)
+{
+	int master_count = ARRAY_SIZE(infra_mi_id_to_master);
+	const char *master = "UNKNOWN_MASTER_FROM_ADSP";
+	int i, j;
+
+	const struct ADSPAXI_ID_INFO *ADSP_mi_id_to_master;
+
+	if (mi == ADSP_MI13)
+		ADSP_mi_id_to_master = ADSP_mi13_id_to_master;
+	else
+		ADSP_mi_id_to_master = ADSP_mi15_id_to_master;
+
+	for (i = 0; i < master_count; i++) {
+		for (j = 0; j < ADSPAXI_MI_BIT_LENGTH; j++) {
+			if (ADSP_mi_id_to_master[i].bit[j] == 2)
+				continue;
+			if (((bus_id >> j) & 0x1) ==
+				ADSP_mi_id_to_master[i].bit[j])
+				continue;
+			break;
+		}
+		if (j == ADSPAXI_MI_BIT_LENGTH) {
+			pr_debug(PFX "%s %s %s\n",
+				"catch it from ADSPAXI_MI",
+				"Master is:",
+				infra_mi_id_to_master[i].master);
+			master = infra_mi_id_to_master[i].master;
+		}
+	}
 	return master;
 }
 
@@ -187,6 +248,28 @@ static const char *mt6983_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			else
 				return infra_mi_trans(bus_id >> 2);
 		}
+#if ENABLE_DEVAPC_ADSP
+	} else if (slave_type == SLAVE_TYPE_ADSP) {
+		/* infra slave */
+		if ((vio_addr >= ADSP_INFRA_START && vio_addr <= ADSP_INFRA_END) ||
+			(vio_addr >= ADSP_INFRA_1_START && vio_addr <= ADSP_INFRA_1_END)) {
+			return adsp_mi_trans(bus_id, ADSP_MI13);
+		/* adsp misc slave */
+		} else if (vio_addr >= ADSP_OTHER_START && vio_addr <= ADSP_OTHER_END) {
+			if ((bus_id & 0x1) == 0x1)
+				return "HRE";
+			else if ((bus_id & 0x7) == 0x4)
+				return adsp_domain[domain];
+			else
+				return adsp_mi_trans(bus_id >> 1, ADSP_MI15);
+		/* adsp audio_pwr, dsp_pwr slave */
+		} else {
+			if ((bus_id & 0x3) == 0x2)
+				return adsp_domain[domain];
+			else
+				return adsp_mi_trans(bus_id, ADSP_MI15);
+		}
+#endif
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
 		if (domain == 0x4)
 			return "GCE";

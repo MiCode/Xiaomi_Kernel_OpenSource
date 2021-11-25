@@ -101,12 +101,18 @@ enum INFRACFG_MM2ND_OFFSET {
 
 enum BUSID_LENGTH {
 	INFRAAXI_MI_BIT_LENGTH = 16,
+	ADSPAXI_MI_BIT_LENGTH = 8,
 	MMINFRAAXI_MI_BIT_LENGTH = 19,
 };
 
 struct INFRAAXI_ID_INFO {
 	const char	*master;
 	uint8_t		bit[INFRAAXI_MI_BIT_LENGTH];
+};
+
+struct ADSPAXI_ID_INFO {
+	const char	*master;
+	uint8_t		bit[ADSPAXI_MI_BIT_LENGTH];
 };
 
 struct MMINFRAAXI_ID_INFO {
@@ -127,6 +133,11 @@ enum DEVAPC_IRQ_TYPE {
 	IRQ_TYPE_MMUP,
 #endif
 	IRQ_TYPE_NUM,
+};
+
+enum ADSP_MI_SELECT {
+	ADSP_MI13 = 0,
+	ADSP_MI15
 };
 
 /******************************************************************************
@@ -170,11 +181,18 @@ enum DEVAPC_IRQ_TYPE {
 /* For VLP Bus Parser */
 #define VLP_SCP_START_ADDR			(0x1C400000)
 #define VLP_SCP_END_ADDR			(0x1C7FFFFF)
-
 #define VLP_INFRA_START				(0x00000000)
 #define VLP_INFRA_END				(0x1BFFFFFF)
 #define VLP_INFRA_1_START			(0x1D000000)
 #define VLP_INFRA_1_END				(0x7FFFFFFFF)
+
+/* For ADSP Bus Parser */
+#define ADSP_INFRA_START			(0x00000000)
+#define ADSP_INFRA_END				(0x1CFFFFFF)
+#define ADSP_INFRA_1_START			(0x1E200000)
+#define ADSP_INFRA_1_END			(0x4DFFFFFF)
+#define ADSP_OTHER_START			(0x1E000000)
+#define ADSP_OTHER_END				(0x1E01FFFF)
 
 static const struct mtk_device_info mt6983_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
