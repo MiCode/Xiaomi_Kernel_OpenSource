@@ -39,6 +39,15 @@
 #define SPM_AOC_VMM_SRAM_LATCH_ENB 18
 #define SPM_HW_SEM_TIMEOUT_NS 1000000000 /* 1 sec for acquiring sem timeout */
 
+#define SPM_VMM_HW_SEM_REG_OFST_M0 0x69C
+#define SPM_VMM_HW_SEM_REG_OFST_M1 0x6A0
+#define SPM_VMM_HW_SEM_REG_OFST_M2 0x6A4
+#define SPM_VMM_HW_SEM_REG_OFST_M3 0x6A8
+#define SPM_VMM_HW_SEM_REG_OFST_M4 0x6AC
+#define SPM_VMM_HW_SEM_REG_OFST_M5 0x6B0
+#define SPM_VMM_HW_SEM_REG_OFST_M6 0x6B4
+#define SPM_VMM_HW_SEM_REG_OFST_M7 0x6B8
+
 struct vmm_spm_drv_data {
 	void __iomem *spm_reg;
 	struct notifier_block nb;
@@ -46,28 +55,46 @@ struct vmm_spm_drv_data {
 
 struct vmm_spm_drv_data g_drv_data;
 
+static void vmm_dump_spm_sem_reg(void __iomem *base)
+{
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M0 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M0));
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M1 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M1));
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M2 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M2));
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M3 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M3));
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M4 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M4));
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M5 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M5));
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M6 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M6));
+	ISP_LOGE("SPM_VMM_HW_SEM_REG_OFST_M7 0x(%x)\n",
+			readl_relaxed(base + SPM_VMM_HW_SEM_REG_OFST_M7));
+}
+
 static int acquire_hw_semaphore(void __iomem *hw_sem_addr)
 {
 	u32 hw_sem;
-	u64 w_timestamp, r_timestamp, time_remain;
+	u64 timestamp_start, r_timestamp, time_remain;
 
-	/* Try to acquire hw semaphore */
-	hw_sem = readl_relaxed(hw_sem_addr);
-	hw_sem |= 0x1;
-	writel_relaxed(hw_sem, hw_sem_addr);
-	w_timestamp = ktime_get_boottime_ns();
-
+	timestamp_start = ktime_get_boottime_ns();
 	do {
-		hw_sem = readl_relaxed(hw_sem_addr) & 0x1;
-
+		/* Spend too much time acquiring HW semaphore, error return */
 		r_timestamp = ktime_get_boottime_ns();
-		time_remain = r_timestamp - w_timestamp;
+		time_remain = r_timestamp - timestamp_start;
 		if (time_remain > SPM_HW_SEM_TIMEOUT_NS) {
 			ISP_LOGE("Acquire hw sem timeout (%lu)\n", time_remain);
-			WARN_ON(1);
 			return -EINVAL;
 		}
-	} while (hw_sem != 0x1);
+
+		hw_sem = readl_relaxed(hw_sem_addr);
+		hw_sem |= 0x1;
+		writel_relaxed(hw_sem, hw_sem_addr);
+		/* *hw_sem_addr == 0x1 means acquire succeed*/
+	} while ((readl_relaxed(hw_sem_addr) & 0x1) != 0x1);
 
 	return 0;
 }
@@ -89,6 +116,8 @@ static void vmm_buck_isolation_off(void __iomem *base)
 
 	if (acquire_hw_semaphore(hw_sem_addr)) {
 		ISP_LOGE("vmm_buck_isolation_off fail\n");
+		vmm_dump_spm_sem_reg(base);
+		WARN_ON(1);
 		return;
 	}
 
@@ -115,6 +144,8 @@ static void vmm_buck_isolation_on(void __iomem *base)
 
 	if (acquire_hw_semaphore(hw_sem_addr)) {
 		ISP_LOGE("vmm_buck_isolation_on fail\n");
+		vmm_dump_spm_sem_reg(base);
+		WARN_ON(1);
 		return;
 	}
 
