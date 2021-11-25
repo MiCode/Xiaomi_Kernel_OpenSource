@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/memory/mt6855-larb-port.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/gce/mt6855-gce.h>
 #include <dt-bindings/phy/phy.h>
@@ -1105,16 +1106,6 @@
 			reg = <0 0x10225000 0 0x1000>;
 		};
 
-		m4u@10220000 {
-			compatible = "mediatek,m4u";
-			reg = <0 0x10220000 0 0x1000>;
-		};
-
-		m4u@10224000 {
-			compatible = "mediatek,m4u";
-			reg = <0 0x10224000 0 0x1000>;
-		};
-
 		emi_mpu@10226000 {
 			compatible = "mediatek,emi_mpu";
 			reg = <0 0x10226000 0 0x1000>;
@@ -1962,6 +1953,70 @@
 		hre_top_mdpsys@1f017000 {
 			compatible = "mediatek,hre_top_mdpsys";
 			reg = <0 0x1f017000 0 0x1000>;
+		};
+
+		mtk_iommu_debug {
+			compatible = "mediatek,mt6855-iommu-debug";
+		};
+
+		mtk_sec_dmaheap {
+			compatible = "mediatek,dmaheap-region-base";
+			iommus = <&disp_iommu M4U_LARB0_PORT0>;
+		};
+
+		mtk_iommu_test0 {
+			compatible = "mediatek,iommu-test-dom0";
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&disp_iommu M4U_LARB0_PORT0>;
+		};
+
+		mtk_iommu_test_dmaheap_normal {
+			compatible = "mediatek,dmaheap-normal";
+			iommus = <&disp_iommu M4U_LARB0_PORT0>;
+		};
+
+		disp_iommu_bank1: iommu@1e803000 {
+			compatible = "mediatek,common-disp-iommu-bank1";
+			mediatek,bank-id = <1>;
+			reg = <0 0x1e803000 0 0x1000>;
+			interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+		disp_iommu_bank2: iommu@1e804000 {
+			compatible = "mediatek,common-disp-iommu-bank2";
+			mediatek,bank-id = <2>;
+			reg = <0 0x1e804000 0 0x1000>;
+			interrupts = <GIC_SPI 280 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+		disp_iommu_bank3: iommu@1e805000 {
+			compatible = "mediatek,common-disp-iommu-bank3";
+			mediatek,bank-id = <3>;
+			reg = <0 0x1e805000 0 0x1000>;
+			interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+		disp_iommu_bank4: iommu@1e806000 {
+			compatible = "mediatek,common-disp-iommu-bank4";
+			mediatek,bank-id = <4>;
+			reg = <0 0x1e806000 0 0x1000>;
+			interrupts = <GIC_SPI 282 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		disp_iommu: iommu@1e802000 {
+			compatible = "mediatek,mt6855-disp-iommu";
+			reg = <0 0x1e802000 0 0x1000>;
+			mediatek,iommu_banks = <&disp_iommu_bank1 &disp_iommu_bank2
+						&disp_iommu_bank3 &disp_iommu_bank4>;
+			interrupts = <GIC_SPI 278 IRQ_TYPE_LEVEL_HIGH 0>;
+			#iommu-cells = <1>;
+		};
+
+		mtk_dmabufheap_debug0: dmaheap_test0 {
+			compatible = "mediatek, mtk_dmabufheap, iommu0";
+			iommus = <&disp_iommu M4U_LARB0_PORT3>;
+		};
+
+		mtk_dmabufheap_debug1: dmaheap_test1 {
+			compatible = "mediatek, mtk_dmabufheap, iommu1";
+			iommus = <&disp_iommu M4U_LARB1_PORT7>;
 		};
 
 		odm: odm {
