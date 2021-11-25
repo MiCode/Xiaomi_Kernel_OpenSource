@@ -92,7 +92,18 @@ enum power_src_pos {
 	BT_VDD_IO_LDO_CURRENT,
 	BT_VDD_LDO_CURRENT,
 	BT_VDD_RFA_0p8_CURRENT,
-	BT_VDD_RFACMN_CURRENT
+	BT_VDD_RFACMN_CURRENT,
+	BT_VDD_IPA_2p2,
+	BT_VDD_IPA_2p2_CURRENT,
+	/* The below bucks are voted for HW WAR on some platform which supports
+	 * WNC39xx.
+	 */
+	BT_VDD_SMPS,
+	BT_VDD_SMPS_CURRENT,
+	/* New entries need to be added before PWR_SRC_SIZE.
+	 * Its hold the max size of power sources states.
+	 */
+	BT_POWER_SRC_SIZE,
 };
 
 // Regulator structure for QCA6174/QCA9377/QCA9379 BT SoC series
@@ -105,8 +116,8 @@ static struct bt_power_vreg_data bt_vregs_info_qca61x4_937x[] = {
 		{BT_VDD_CORE_LDO, BT_VDD_CORE_LDO_CURRENT}},
 };
 
-// Regulator structure for QCA6390 and QCA6490 BT SoC series
-static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
+// Regulator structure for QCA6390,QCA6490 and WCN6750 BT SoC series
+static struct bt_power_vreg_data bt_vregs_info_qca6xx0[] = {
 	{NULL, "qcom,bt-vdd-io",      1800000, 1800000, 0, false, true,
 		{BT_VDD_IO_LDO, BT_VDD_IO_LDO_CURRENT}},
 	{NULL, "qcom,bt-vdd-aon",     966000,  966000,  0, false, true,
@@ -124,6 +135,8 @@ static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
 		{BT_VDD_RFA2_LDO, BT_VDD_RFA2_LDO_CURRENT}},
 	{NULL, "qcom,bt-vdd-asd",      2800000, 2800000, 0, false, true,
 		{BT_VDD_ASD_LDO, BT_VDD_ASD_LDO_CURRENT}},
+	{NULL, "qcom,bt-vdd-ipa-2p2",  2200000, 2210000, 0, false, true,
+		{BT_VDD_IPA_2p2, BT_VDD_IPA_2p2_CURRENT}},
 };
 
 
@@ -150,6 +163,8 @@ static struct bt_power_vreg_data bt_vregs_info_kiwi[] = {
 static struct bt_power bt_vreg_info_wcn399x = {
 	.compatible = "qcom,wcn3990",
 	.vregs = (struct bt_power_vreg_data []) {
+		{NULL, "qcom,bt-vdd-smps", 984000,  984000, 0, false, false,
+			{BT_VDD_SMPS, BT_VDD_SMPS_CURRENT}},
 		{NULL, "qcom,bt-vdd-io",   1700000, 1900000, 0, false, false,
 			{BT_VDD_IO_LDO, BT_VDD_IO_LDO_CURRENT}},
 		{NULL, "qcom,bt-vdd-core", 1304000, 1304000, 0, false, false,
@@ -159,8 +174,9 @@ static struct bt_power bt_vreg_info_wcn399x = {
 		{NULL, "qcom,bt-vdd-xtal", 1700000, 1900000, 0, false, false,
 			{BT_VDD_XTAL_LDO, BT_VDD_XTAL_LDO_CURRENT}},
 	},
-	.num_vregs = 4,
+	.num_vregs = 5,
 };
+
 
 static struct bt_power bt_vreg_info_qca6174 = {
 	.compatible = "qcom,qca6174",
@@ -170,14 +186,14 @@ static struct bt_power bt_vreg_info_qca6174 = {
 
 static struct bt_power bt_vreg_info_qca6390 = {
 	.compatible = "qcom,qca6390",
-	.vregs = bt_vregs_info_qca6x9x,
-	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
+	.vregs = bt_vregs_info_qca6xx0,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
 };
 
 static struct bt_power bt_vreg_info_qca6490 = {
 	.compatible = "qcom,qca6490",
-	.vregs = bt_vregs_info_qca6x9x,
-	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
+	.vregs = bt_vregs_info_qca6xx0,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
 };
 
 static struct bt_power bt_vreg_info_kiwi = {
@@ -186,12 +202,20 @@ static struct bt_power bt_vreg_info_kiwi = {
 	.num_vregs = ARRAY_SIZE(bt_vregs_info_kiwi),
 };
 
+
+static struct bt_power bt_vreg_info_wcn6750 = {
+	.compatible = "qcom,wcn6750-bt",
+	.vregs = bt_vregs_info_qca6xx0,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6xx0),
+};
+
 static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qcom,qca6174", .data = &bt_vreg_info_qca6174},
 	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
 	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
 	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
 	{	.compatible = "qcom,kiwi",    .data = &bt_vreg_info_kiwi},
+	{	.compatible = "qcom,wcn6750-bt", .data = &bt_vreg_info_wcn6750},
 	{},
 };
 
