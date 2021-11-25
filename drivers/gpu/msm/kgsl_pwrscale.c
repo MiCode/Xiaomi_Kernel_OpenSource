@@ -645,6 +645,9 @@ static int thermal_max_notifier_call(struct notifier_block *nb, unsigned long va
 	u32 max_freq = val * 1000;
 	int level;
 
+	if (!device->pwrscale.devfreq_enabled)
+		return NOTIFY_DONE;
+
 	for (level = pwr->num_pwrlevels - 1; level >= 0; level--) {
 		/* get nearest power level with a maximum delta of 5MHz */
 		if (abs(pwr->pwrlevels[level].gpu_freq - max_freq) < 5000000)
