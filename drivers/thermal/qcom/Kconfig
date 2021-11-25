@@ -190,3 +190,12 @@ config QTI_CX_IPEAK_COOLING_DEVICE
 	  to CXIP LM hardware. When all pre-defined clients on CX rail including
 	  thermal client set their vote, CXIP LM hardware throttles the clients
 	  on the CX rail.
+
+config QTI_DEVFREQ_VDD_COOLING_DEVICE
+	tristate "Devfreq voltage floor cooling device"
+	depends on PM_DEVFREQ && PM_OPP && THERMAL_OF
+	help
+	  This implements a mitigation device to place a minimum frequency floor
+	  on a particular devfreq device. This mitigation device will be used by
+	  low temperature reliability rules to mitigate a devfreq device at
+	  minimum operating level.
