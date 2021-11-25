@@ -284,6 +284,10 @@ static const char *mt6983_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			return infra_mi_trans(bus_id >> 3);
 		else
 			return mminfra_mi_trans(bus_id);
+#if ENABLE_DEVAPC_MMUP
+	} else if (slave_type == SLAVE_TYPE_MMUP) {
+		return mminfra_domain[domain];
+#endif
 	} else {
 		return infra_mi_trans(bus_id);
 	}
