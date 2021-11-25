@@ -158,6 +158,9 @@ void RingBuf_Bridge_Reset(struct ringbuf_bridge *RingBuf1);
 int RingBuf_Clear(struct RingBuf *RingBuf1);
 int RingBuf_Bridge_Clear(struct ringbuf_bridge *RingBuf1);
 
+bool is_ringbuf_clear(struct RingBuf *ring_buf);
+bool is_ringbuf_bridge_clear(struct ringbuf_bridge *ring_buf);
+
 /* check if ringbur read write pointer */
 void Ringbuf_Bridge_Check(struct ringbuf_bridge *buf_bridge);
 /* check if ringbur read write pointer */

@@ -738,6 +738,40 @@ int RingBuf_Bridge_Clear(struct ringbuf_bridge *RingBuf1)
 	return 0;
 }
 
+bool is_ringbuf_clear(struct RingBuf *ring_buf)
+{
+	if (ring_buf == NULL) {
+		AUD_LOG_W("%s() ring_buf NULL\n", __func__);
+		return false;
+	}
+
+	if (ring_buf->pBufBase == 0 ||
+	    ring_buf->pBufEnd == 0 ||
+	    ring_buf->pWrite == 0 ||
+	    ring_buf->pRead == 0 ||
+	    ring_buf->bufLen == 0)
+		return true;
+
+	return false;
+}
+
+bool is_ringbuf_bridge_clear(struct ringbuf_bridge *ring_buf)
+{
+	if (ring_buf == NULL) {
+		AUD_LOG_W("%s() ring_buf bridge NULL\n", __func__);
+		return false;
+	}
+
+	if (ring_buf->pBufBase == 0 ||
+	    ring_buf->pBufEnd == 0 ||
+	    ring_buf->pWrite == 0 ||
+	    ring_buf->pRead == 0 ||
+	    ring_buf->bufLen == 0)
+		return true;
+
+	return false;
+}
+
 /* check if ringbur read write pointer*/
 void Ringbuf_Bridge_Check(struct ringbuf_bridge *buf_bridge)
 {
@@ -987,6 +1021,18 @@ int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
 		return -1;
 	}
 
+	if (is_ringbuf_clear(task_ring_buf)) {
+		dump_rbuf_s("sync ringbuf readidx, rbuf is clear",
+			    task_ring_buf);
+		return -1;
+	}
+
+	if (is_ringbuf_bridge_clear(buf_bridge)) {
+		dump_rbuf_bridge_s("sync ringbuf readidx, rbuf_bridge is clear",
+				   buf_bridge);
+		return -1;
+	}
+
 	/* buffer empty */
 	if (task_ring_buf->pRead == task_ring_buf->pWrite &&
 	    task_ring_buf->datacount == 0) {
@@ -1028,6 +1074,18 @@ int sync_ringbuf_writeidx(struct RingBuf *task_ring_buf,
 		return -1;
 	} else if (buf_bridge == NULL) {
 		AUD_LOG_D("%s buf_bridge == NULL", __func__);
+		return -1;
+	}
+
+	if (is_ringbuf_clear(task_ring_buf)) {
+		dump_rbuf_s("sync ringbuf writeidx, rbuf is clear",
+			    task_ring_buf);
+		return -1;
+	}
+
+	if (is_ringbuf_bridge_clear(buf_bridge)) {
+		dump_rbuf_bridge_s("sync ringbuf writeidx, rbuf_bridge is clear",
+				   buf_bridge);
 		return -1;
 	}
 
@@ -1129,7 +1187,7 @@ void dump_rbuf_bridge(struct ringbuf_bridge *ring_buffer_bridge)
 }
 
 void dump_rbuf_bridge_s(const char *appendingstring,
-				    struct ringbuf_bridge *ring_buffer_bridge)
+			struct ringbuf_bridge *ring_buffer_bridge)
 {
 	if (ring_buffer_bridge == NULL)
 		return;
