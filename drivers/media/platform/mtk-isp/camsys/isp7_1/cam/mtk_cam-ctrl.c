@@ -2357,7 +2357,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	/* Find request of this dequeued frame */
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
 	/* Detect no frame done and trigger camsys dump for debugging */
-	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 30, irq_info);
+	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 30, irq_info, raw_dev);
 	if (ctx->sensor) {
 		if (mtk_cam_is_subsample(ctx))
 			state_handle_ret =

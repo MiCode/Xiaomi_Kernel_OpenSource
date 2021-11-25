@@ -8,6 +8,7 @@
 #include <media/v4l2-event.h>
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
+#include "mtk_cam-regs.h"
 #include "mtk_cam-debug.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
@@ -1049,8 +1050,11 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 void
 mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 				    const unsigned int frame_no_update_limit,
-				    struct mtk_camsys_irq_info *irq_info)
+				    struct mtk_camsys_irq_info *irq_info,
+				    struct mtk_raw_device *raw_dev)
 {
+#define NO_P1_DONE_DEBUG_START 3
+
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request *req;
 
@@ -1080,6 +1084,40 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 			 ctx->dequeued_frame_seq_no,
 			 s_data->no_frame_done_cnt, irq_info->fbc_cnt,
 			 s_data->frame_seq_no, s_data->state.estate, irq_info->ts_ns / 1000);
+	}
+	if (s_data->no_frame_done_cnt >= NO_P1_DONE_DEBUG_START) {
+		dev_info(raw_dev->dev,
+			 "INT_EN %x\n",
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_EN));
+
+		dev_info(raw_dev->dev,
+			 "REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_REQ_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_REQ_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_REQ_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_REQ_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_REQ_STAT));
+		dev_info(raw_dev->dev,
+			 "RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD_RDY_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD2_RDY_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD3_RDY_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD5_RDY_STAT),
+			 readl_relaxed(raw_dev->base + REG_CTL_RAW_MOD6_RDY_STAT));
+		dev_info(raw_dev->dev,
+			 "REQ YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_REQ_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_REQ_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_REQ_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_REQ_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_REQ_STAT));
+		dev_info(raw_dev->dev,
+			 "RDY YUV/2/3/4 WDMA:%08x/%08x/%08x/%08x/%08x\n",
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD_RDY_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD2_RDY_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_RDY_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_RDY_STAT),
+			 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
 	}
 
 	if (s_data->no_frame_done_cnt > frame_no_update_limit &&
