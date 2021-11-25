@@ -861,13 +861,13 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	int ret = 0;
 
 	if (s_data == NULL)
-		return;
+		goto EXIT;
 
 	if (atomic_read(&s_data->dbg_exception_work.state) == MTK_CAM_REQ_DBGWORK_S_CANCEL) {
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d):used_raw(0x%x):exception dump canceled\n",
 			 __func__, ctx->stream_id, ctx->used_raw_dev);
-		return;
+		goto EXIT;
 	}
 
 	ret = mtk_cam_debug_init_dump_param(ctx, &dump_param, s_data,
@@ -895,6 +895,7 @@ static void mtk_cam_exception_work(struct work_struct *work)
 #endif
 
 	atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
+EXIT:
 	media_request_put(&req->req);
 }
 
@@ -943,7 +944,6 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 				__func__, ctx->stream_id, req->req.debug_str,
 				s_data->frame_seq_no);
 			atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
-			media_request_put(&req->req);
 		} else {
 			/**
 			 * Workaround for abnormal request release after
@@ -954,7 +954,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 				 "%s: skip dump work for stream off ctx:%d\n",
 				 __func__, ctx->stream_id);
 		}
-
+		media_request_put(&req->req);
 		return;
 	}
 
@@ -962,6 +962,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d):used_raw(0x%x):exception dump canceled\n",
 			 __func__, ctx->stream_id, ctx->used_raw_dev);
+		media_request_put(&req->req);
 		return;
 	}
 
@@ -975,6 +976,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 			 __func__);
 	}
 
+	/* media_request_put in the func */
 	mtk_cam_exception_work(work);
 }
 
