@@ -22,6 +22,7 @@ enum dvfs_apmcu_task_id {
 	DVFS_CCU_INIT = 0,
 	DVFS_VOLTAGE_UPDATE = 1,
 	DVFS_CCU_UNINIT = 2,
+	DVFS_CCU_QUERY_VB = 3,
 };
 
 enum dvfs_dbg_id {
@@ -80,6 +81,11 @@ struct dvfs_ipc_info {
 	u32 maxOppIdx;
 	u32 minOppIdx;
 	u32 curTickCnt;
+};
+
+struct dvfs_ipc_vb {
+	u32 efuseValue;
+	int voltage[MAX_OPP_STEP];
 };
 
 #endif
