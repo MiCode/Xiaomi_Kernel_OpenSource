@@ -903,11 +903,6 @@ static void write_frame_len(struct subdrv_ctx *ctx, kal_uint32 fll)
 		set_cmos_sensor_8(ctx, 0x0340, ctx->frame_length / exp_cnt >> 8);
 		set_cmos_sensor_8(ctx, 0x0341, ctx->frame_length / exp_cnt & 0xFF);
 	}
-
-	if (ctx->fast_mode_on == KAL_TRUE) {
-		ctx->fast_mode_on = KAL_FALSE;
-		set_cmos_sensor_8(ctx, 0x3010, 0x00);
-	}
 }
 
 static void set_dummy(struct subdrv_ctx *ctx)
@@ -2009,7 +2004,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 	}
 	}
 
-	ctx->fast_mode_on = KAL_TRUE;
+	set_cmos_sensor_8(ctx, 0x3010, 0x00);
 	LOG_DEBUG("%s success, scenario is switched to %d", __func__, scenario_id);
 	return 0;
 }
@@ -4788,7 +4783,6 @@ static const struct subdrv_ctx defctx = {
 	.read_margin = 10,
 	.current_ae_effective_frame = 2,
 	.extend_frame_length_en = KAL_FALSE,
-	.fast_mode_on = KAL_FALSE,
 	.ae_ctrl_gph_en = KAL_FALSE,
 };
 
