@@ -410,14 +410,8 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 				(long long)(avg_freq),
 				5566, 0, 0, batch_freq);
 		} else {
-			if (ged_gpufreq_get_power_state())
-				ged_log_perf_trace_counter("gpu_freq",
+			ged_log_perf_trace_counter("gpu_freq",
 				(long long)(ged_get_cur_freq() / 1000), 5566, 0, 0);
-			else
-				// Update min frequency when power off
-				ged_log_perf_trace_counter("gpu_freq",
-				(long long)(ged_get_freq_by_idx(ged_get_min_oppidx()) / 1000),
-				5566, 0, 0);
 		}
 
 		ged_log_perf_trace_counter("gpu_freq_max",
