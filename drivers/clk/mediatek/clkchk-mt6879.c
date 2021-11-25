@@ -38,6 +38,13 @@
 #define HWV_CG_SET_STA(id)		(0x1A00 + (id * 0x4))
 #define HWV_CG_CLR_STA(id)		(0x1B00 + (id * 0x4))
 #define HWV_CG_DONE(id)			(0x1C00 + (id * 0x4))
+#define HWV_PLL_SET			(0x190)
+#define HWV_PLL_CLR			(0x194)
+#define HWV_PLL_EN			(0x1400)
+#define HWV_PLL_STA			(0x1404)
+#define HWV_PLL_DONE			(0x140C)
+#define HWV_PLL_SET_STA			(0x1464)
+#define HWV_PLL_CLR_STA			(0x1468)
 
 /*
  * clkchk dump_regs
@@ -682,9 +689,31 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 	print_subsys_reg_mt6879(infracfg);
 	print_subsys_reg_mt6879(bcrm_ifr_ao);
 	print_subsys_reg_mt6879(bcrm_ifr_pdn);
-	mdelay(50);
+	mdelay(1000);
 
 	BUG_ON(1);
+}
+
+static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
+{
+	u32 val[7];
+
+	regmap_read(regmap, HWV_PLL_SET, &val[0]);
+	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
+	regmap_read(regmap, HWV_PLL_STA, &val[2]);
+	regmap_read(regmap, HWV_PLL_EN, &val[3]);
+	regmap_read(regmap, HWV_PLL_DONE, &val[4]);
+	regmap_read(regmap, HWV_PLL_SET_STA, &val[5]);
+	regmap_read(regmap, HWV_PLL_CLR_STA, &val[6]);
+	pr_notice("[%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x\n",
+			HWV_PLL_SET, val[0],
+			HWV_PLL_CLR, val[1],
+			HWV_PLL_STA, val[2],
+			HWV_PLL_EN, val[3],
+			HWV_PLL_DONE, val[4],
+			HWV_PLL_SET_STA, val[5],
+			HWV_PLL_CLR_STA, val[6]);
+	print_subsys_reg_mt6879(apmixed);
 }
 
 static bool is_cg_chk_pwr_on(void)
@@ -711,6 +740,7 @@ static struct clkchk_ops clkchk_mt6879_ops = {
 	.devapc_dump = devapc_dump,
 	.dump_hwv_history = dump_hwv_history,
 	.dump_bus_reg = dump_bus_reg,
+	.dump_hwv_pll_reg = dump_hwv_pll_reg,
 	.is_cg_chk_pwr_on = is_cg_chk_pwr_on,
 };
 

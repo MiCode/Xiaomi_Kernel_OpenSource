@@ -12,6 +12,17 @@
 #include <linux/clk-provider.h>
 #include <linux/platform_device.h>
 
+/* hw voter timeout configures */
+#define MTK_WAIT_HWV_PREPARE_CNT	100
+#define MTK_WAIT_HWV_PREPARE_US		2
+#define MTK_WAIT_HWV_DONE_CNT		100
+#define MTK_WAIT_HWV_DONE_US		5
+#define MTK_WAIT_HWV_STA_CNT		20
+#define MTK_HWV_ID_OFS			(0x8)
+#define MTK_HWV_PREPARE_TMROUT		(200000)
+#define MTK_HWV_DONE_TMROUT		(500000)
+#define MTK_HWV_STA_TMROUT		(100000)
+
 struct clk;
 struct clk_onecell_data;
 
@@ -24,6 +35,7 @@ enum clk_evt_type {
 	CLK_EVT_HWV_CG_TIMEOUT = 0,
 	CLK_EVT_HWV_CG_CHK_PWR = 1,
 	CLK_EVT_LONG_BUS_LATENCY = 2,
+	CLK_EVT_HWV_PLL_TIMEOUT = 3,
 	CLK_EVT_NUM,
 };
 
@@ -224,7 +236,7 @@ struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num);
 #define HAVE_RST_BAR	BIT(0)
 #define PLL_AO		BIT(1)
 #define CLK_USE_HW_VOTER	BIT(2)
-#define HWV_CHK_REAL_STA	BIT(3)
+#define HWV_CHK_FULL_STA	BIT(3)
 
 struct mtk_pll_div_table {
 	u32 div;
@@ -242,6 +254,8 @@ struct mtk_pll_data {
 	uint32_t hwv_clr_ofs;
 	uint32_t hwv_sta_ofs;
 	uint32_t hwv_done_ofs;
+	uint32_t hwv_set_sta_ofs;
+	uint32_t hwv_clr_sta_ofs;
 	int hwv_shift;
 	uint32_t pd_reg;
 	uint32_t tuner_reg;

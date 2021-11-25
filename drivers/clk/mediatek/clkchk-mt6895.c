@@ -25,6 +25,27 @@
 
 #define BUG_ON_CHK_ENABLE		0
 #define CHECK_VCORE_FREQ		0
+#define CG_CHK_PWRON_ENABLE		1
+
+#define HWV_ADDR_HISTORY_0		0x1F04
+#define HWV_DATA_HISTORY_0		0x1F44
+#define HWV_IDX_POINTER			0x1F84
+#define HWV_DOMAIN_KEY			0x155C
+#define HWV_SECURE_KEY			0x10907
+#define HWV_CG_SET(id)			(0x0 + (id * 0x8))
+#define HWV_CG_STA(id)			(0x1800 + (id * 0x4))
+#define HWV_CG_EN(id)			(0x1900 + (id * 0x4))
+#define HWV_CG_SET_STA(id)		(0x1A00 + (id * 0x4))
+#define HWV_CG_CLR_STA(id)		(0x1B00 + (id * 0x4))
+#define HWV_CG_DONE(id)			(0x1C00 + (id * 0x4))
+
+#define HWV_PLL_SET			(0x190)
+#define HWV_PLL_CLR			(0x194)
+#define HWV_PLL_EN			(0x1400)
+#define HWV_PLL_STA			(0x1404)
+#define HWV_PLL_DONE			(0x140C)
+#define HWV_PLL_SET_STA			(0x1464)
+#define HWV_PLL_CLR_STA			(0x1468)
 
 /*
  * clkchk dump_regs
@@ -703,6 +724,71 @@ static bool is_pll_chk_bug_on(void)
 	return false;
 }
 
+static void dump_hwv_history(struct regmap *regmap, u32 id)
+{
+	u32 addr[16], val[16];
+	u32 idx, set, sta, set_sta, clr_sta, en, done;
+	int i;
+
+	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+	regmap_read(regmap, HWV_CG_SET(id), &set);
+	regmap_read(regmap, HWV_CG_STA(id), &sta);
+	regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
+	regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
+	regmap_read(regmap, HWV_CG_EN(id), &en);
+	regmap_read(regmap, HWV_CG_DONE(id), &done);
+
+	for (i = 0; i < 16; i++) {
+		regmap_read(regmap, HWV_ADDR_HISTORY_0 + (0x4 * i), addr + i);
+		regmap_read(regmap, HWV_DATA_HISTORY_0 + (0x4 * i), val + i);
+	}
+	regmap_read(regmap, HWV_IDX_POINTER, &idx);
+	pr_notice("idx: 0x%x\n", val);
+	pr_notice("[%d](%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
+			id, HWV_CG_SET(id), set, HWV_CG_STA(id), sta,
+			HWV_CG_SET_STA(id), set_sta, HWV_CG_CLR_STA(id), clr_sta,
+			HWV_CG_EN(id), en, HWV_CG_DONE(id), done);
+
+	for (i = 0; i < 16; i++)
+		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, addr[i], val[i]);
+
+	mdelay(1000);
+
+	BUG_ON(1);
+}
+
+static bool is_cg_chk_pwr_on(void)
+{
+#if CG_CHK_PWRON_ENABLE
+	return true;
+#endif
+	return false;
+}
+
+static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
+{
+	u32 val[7];
+
+	regmap_read(regmap, HWV_PLL_SET, &val[0]);
+	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
+	regmap_read(regmap, HWV_PLL_STA, &val[2]);
+	regmap_read(regmap, HWV_PLL_EN, &val[3]);
+	regmap_read(regmap, HWV_PLL_DONE, &val[4]);
+	regmap_read(regmap, HWV_PLL_SET_STA, &val[5]);
+	regmap_read(regmap, HWV_PLL_CLR_STA, &val[6]);
+	pr_notice("[%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x\n",
+			HWV_PLL_SET, val[0],
+			HWV_PLL_CLR, val[1],
+			HWV_PLL_STA, val[2],
+			HWV_PLL_EN, val[3],
+			HWV_PLL_DONE, val[4],
+			HWV_PLL_SET_STA, val[5],
+			HWV_PLL_CLR_STA, val[6]);
+	print_subsys_reg_mt6895(apmixed);
+
+	BUG_ON(1);
+}
+
 /*
  * init functions
  */
@@ -717,11 +803,16 @@ static struct clkchk_ops clkchk_mt6895_ops = {
 	.get_vf_table = get_vf_table,
 	.get_vcore_opp = get_vcore_opp,
 	.devapc_dump = devapc_dump,
+	.dump_hwv_history = dump_hwv_history,
+	.is_cg_chk_pwr_on = is_cg_chk_pwr_on,
+	.dump_hwv_pll_reg = dump_hwv_pll_reg,
 };
 
 static int clk_chk_mt6895_probe(struct platform_device *pdev)
 {
 	init_regbase();
+
+	set_clkchk_notify();
 
 	set_clkchk_ops(&clkchk_mt6895_ops);
 

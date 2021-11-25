@@ -573,6 +573,14 @@ static void clkchk_dump_bus_reg(struct regmap *regmap, u32 ofs)
 	clkchk_ops->dump_bus_reg(regmap, ofs);
 }
 
+static void clkchk_dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
+{
+	if (clkchk_ops == NULL || clkchk_ops->dump_hwv_pll_reg == NULL)
+		return;
+
+	clkchk_ops->dump_hwv_pll_reg(regmap, shift);
+}
+
 static bool clkchk_is_cg_chk_pwr_on(void)
 {
 	if (clkchk_ops == NULL || clkchk_ops->is_cg_chk_pwr_on == NULL)
@@ -606,6 +614,8 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 		break;
 	case CLK_EVT_LONG_BUS_LATENCY:
 		clkchk_dump_hwv_history(clkd->hwv_regmap, clkd->id);
+	case CLK_EVT_HWV_PLL_TIMEOUT:
+		clkchk_dump_hwv_pll_reg(clkd->hwv_regmap, clkd->shift);
 	default:
 		pr_notice("cannot get flags identify\n");
 		break;

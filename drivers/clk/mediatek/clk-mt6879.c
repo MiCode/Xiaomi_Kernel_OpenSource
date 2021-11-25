@@ -283,6 +283,8 @@
 #define HWV_PLL_CLR				0x194
 #define HWV_PLL_EN				0x1400
 #define HWV_PLL_DONE				0x140C
+#define HWV_PLL_SET_STA				0x1464
+#define HWV_PLL_CLR_STA				0x1468
 #define HWV_CLK_CFG_1_DONE			0x1C08
 #define HWV_CLK_CFG_12_DONE			0x1C28
 #define HWV_CLK_CFG_16_DONE			0x1C40
@@ -2262,7 +2264,8 @@ static const struct mtk_composite top_composites[] = {
 			_tuner_en_reg, _tuner_en_bit,			\
 			_pcw_reg, _pcw_shift, _pcwbits,	\
 			_hwv_set_ofs, _hwv_clr_ofs, _hwv_sta_ofs,	\
-			_hwv_done_ofs, _hwv_shift) {		\
+			_hwv_done_ofs, _hwv_set_sta_ofs, _hwv_clr_sta_ofs,	\
+			_hwv_shift) {		\
 		.id = _id,						\
 		.name = _name,						\
 		.reg = _reg,						\
@@ -2270,8 +2273,8 @@ static const struct mtk_composite top_composites[] = {
 		.en_mask = _div_en_msk,					\
 		.pll_en_bit = _pll_en_bit,				\
 		.pwr_reg = _pwr_reg,					\
-		.flags = (_flags | PLL_CFLAGS | CLK_USE_HW_VOTER | HWV_CHK_REAL_STA),	\
-		.rst_bar_mask = _rst_bar_mask,				\
+		.flags = (_flags | PLL_CFLAGS | CLK_USE_HW_VOTER | HWV_CHK_FULL_STA),	\
+		.rst_bar_mask = _rst_bar_mask,			\
 		.fmax = MT6879_PLL_FMAX,				\
 		.fmin = MT6879_PLL_FMIN,				\
 		.pd_reg = _pd_reg,					\
@@ -2287,6 +2290,8 @@ static const struct mtk_composite top_composites[] = {
 		.hwv_clr_ofs = _hwv_clr_ofs,				\
 		.hwv_sta_ofs = _hwv_sta_ofs,				\
 		.hwv_done_ofs = _hwv_done_ofs,				\
+		.hwv_set_sta_ofs = _hwv_set_sta_ofs,			\
+		.hwv_clr_sta_ofs = _hwv_clr_sta_ofs,			\
 		.hwv_shift = _hwv_shift,				\
 	}
 
@@ -2321,7 +2326,8 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		UNIVPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		UNIVPLL_CON1, 0, 22/*pcw*/,
-		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE, 4),
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 4),
 	PLL(CLK_APMIXED_MSDCPLL, "msdcpll", MSDCPLL_CON0/*base*/,
 		MSDCPLL_CON0, 0, 0/*en*/,
 		MSDCPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
@@ -2334,7 +2340,8 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		MMPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		MMPLL_CON1, 0, 22/*pcw*/,
-		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE, 6),
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 6),
 	PLL(CLK_APMIXED_ADSPPLL, "adsppll", ADSPPLL_CON0/*base*/,
 		ADSPPLL_CON0, 0, 0/*en*/,
 		ADSPPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
@@ -2347,7 +2354,8 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		TVDPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		TVDPLL_CON1, 0, 22/*pcw*/,
-		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE, 8),
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 8),
 	PLL(CLK_APMIXED_APLL1, "apll1", APLL1_CON0/*base*/,
 		APLL1_CON0, 0, 0/*en*/,
 		APLL1_CON4/*pwr*/, 0, BIT(0)/*rstb*/,
@@ -2372,7 +2380,8 @@ static const struct mtk_pll_data apmixed_plls[] = {
 		IMGPLL_CON1, 24/*pd*/,
 		0, 0, 0/*tuner*/,
 		IMGPLL_CON1, 0, 22/*pcw*/,
-		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE, 12),
+		HWV_PLL_SET, HWV_PLL_CLR, HWV_PLL_EN, HWV_PLL_DONE,
+		HWV_PLL_SET_STA, HWV_PLL_CLR_STA, 12),
 };
 
 static const struct mtk_pll_data mfg_ao_plls[] = {

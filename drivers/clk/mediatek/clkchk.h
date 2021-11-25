@@ -89,6 +89,7 @@ struct clkchk_ops {
 	void (*devapc_dump)(void);
 	void (*dump_hwv_history)(struct regmap *regmap, u32 id);
 	void (*dump_bus_reg)(struct regmap *regmap, u32 ofs);
+	void (*dump_hwv_pll_reg)(struct regmap *regmap, u32 shift);
 	bool (*is_cg_chk_pwr_on)(void);
 };
 
