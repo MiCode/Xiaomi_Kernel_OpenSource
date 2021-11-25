@@ -23,6 +23,9 @@
 
 #define mem_slot_range 100*1024ULL //100KB
 
+#define LOG_PARAM_INFO_SIZE 64
+#define LOG_PROPERTY_SIZE 1024
+
 struct mtk_vcodec_mem {
 	size_t length;
 	size_t size;
@@ -74,6 +77,12 @@ struct mtk_vcodec_msg_node {
 	struct list_head list;
 };
 
+struct mtk_vcodec_log_param {
+	char param_key[LOG_PARAM_INFO_SIZE];
+	char param_val[LOG_PARAM_INFO_SIZE];
+	struct list_head list;
+};
+
 struct mtk_vcodec_ctx;
 struct mtk_vcodec_dev;
 
@@ -83,12 +92,12 @@ extern bool mtk_vcodec_perf;
 extern int mtk_vcodec_vcp;
 extern char *mtk_vdec_property;
 extern char *mtk_venc_property;
-extern char mtk_vdec_property_prev[1024];
-extern char mtk_venc_property_prev[1024];
+extern char mtk_vdec_property_prev[LOG_PROPERTY_SIZE];
+extern char mtk_venc_property_prev[LOG_PROPERTY_SIZE];
 extern char *mtk_vdec_vcp_log;
-extern char mtk_vdec_vcp_log_prev[1024];
+extern char mtk_vdec_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern char *mtk_venc_vcp_log;
-extern char mtk_venc_vcp_log_prev[1024];
+extern char mtk_venc_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern int mtk_vdec_sw_mem_sec;
 
 #define DEBUG   1
@@ -244,5 +253,7 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_buf_attachment *attach, struct sg_table *sgt);
 #endif
+
+void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

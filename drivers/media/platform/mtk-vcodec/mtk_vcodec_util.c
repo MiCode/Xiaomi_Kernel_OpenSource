@@ -17,6 +17,15 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 #include "mtk_vcodec_dec.h"
+#include "vdec_drv_if.h"
+#include "venc_drv_if.h"
+
+
+#define LOG_PARAM_INFO_SIZE 64
+#define MAX_SUPPORTED_LOG_PARAMS_COUNT 12
+char mtk_vdec_tmp_log[LOG_PROPERTY_SIZE];
+char mtk_venc_tmp_log[LOG_PROPERTY_SIZE];
+
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 extern phys_addr_t vcp_get_reserve_mem_phys(enum vcp_reserve_mem_id_t id);
@@ -526,6 +535,140 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_free_mem);
 #endif
+
+static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
+	const char *param_key, const char *param_val)
+{
+	struct mtk_vcodec_log_param *pram, *tmp;
+
+	list_for_each_entry(pram, &dev->log_param_list, list) {
+		// find existed param, replace its value
+		if (strcmp(pram->param_key, param_key) == 0) {
+			mtk_v4l2_debug(8, "replace old key: %s, value: %s -> %s\n",
+				pram->param_key, pram->param_val, param_val);
+			memset(pram->param_val, 0x00, LOG_PARAM_INFO_SIZE);
+			strncpy(pram->param_val, param_val, LOG_PARAM_INFO_SIZE - 1);
+			return;
+		}
+	}
+
+	// cannot find, add new
+	pram = kzalloc(sizeof(*pram), GFP_KERNEL);
+	strncpy(pram->param_key, param_key, LOG_PARAM_INFO_SIZE - 1);
+	strncpy(pram->param_val, param_val, LOG_PARAM_INFO_SIZE - 1);
+	mtk_v4l2_debug(8, "add new key: %s, value: %s\n",
+		pram->param_key, pram->param_val);
+	list_add(&pram->list, &dev->log_param_list);
+
+	// remove disabled log param from list if value is 0 or empty
+	list_for_each_entry_safe(pram, tmp, &dev->log_param_list, list) {
+		if (strcmp(pram->param_val, "0") == 0 || strlen(pram->param_val) == 0) {
+			mtk_v4l2_debug(8, "remove deprecated key: %s, value: %s\n",
+				pram->param_key, pram->param_val);
+			list_del_init(&pram->list);
+			kfree(pram);
+		}
+	}
+}
+
+static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev)
+{
+	struct mtk_vcodec_log_param *pram;
+
+	if (dev->vfd_dec) {
+		memset(mtk_vdec_tmp_log, 0x00, 1024);
+		list_for_each_entry(pram, &dev->log_param_list, list) {
+			mtk_v4l2_debug(8, "existed log param %s: %s\n",
+					pram->param_key, pram->param_val);
+
+			snprintf(mtk_vdec_tmp_log, LOG_PROPERTY_SIZE, "%s %s %s",
+				mtk_vdec_tmp_log, pram->param_key, pram->param_val);
+		}
+		mtk_vdec_vcp_log = mtk_vdec_tmp_log;
+		mtk_v4l2_debug(8, "build mtk_vdec_vcp_log: %s\n", mtk_vdec_vcp_log);
+	} else {
+		memset(mtk_venc_tmp_log, 0x00, 1024);
+		list_for_each_entry(pram, &dev->log_param_list, list) {
+			mtk_v4l2_debug(8, "existed log param %s: %s\n",
+					pram->param_key, pram->param_val);
+
+			snprintf(mtk_venc_tmp_log, LOG_PROPERTY_SIZE, "%s %s %s",
+				mtk_venc_tmp_log, pram->param_key, pram->param_val);
+		}
+		mtk_venc_vcp_log = mtk_venc_tmp_log;
+		mtk_v4l2_debug(8, "build mtk_venc_vcp_log: %s\n", mtk_venc_vcp_log);
+	}
+}
+
+void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
+{
+	int i, argc = 0, argcMex = 0;
+	char *argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2];
+	char *temp = NULL;
+	char *token = NULL;
+	int max_cpy_len = 0;
+	long temp_val = 0;
+	char log[LOG_PROPERTY_SIZE] = {0};
+
+	if (val == NULL || strlen(val) == 0) {
+		mtk_v4l2_err("cannot set log due to input is null");
+		return;
+	}
+
+	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++)
+		argv[i] = kzalloc(LOG_PARAM_INFO_SIZE, GFP_KERNEL);
+
+	strcpy(log, val);
+	temp = log;
+	for (token = strsep(&temp, " "); token != NULL; token = strsep(&temp, " ")) {
+		max_cpy_len = strnlen(token, LOG_PARAM_INFO_SIZE - 1);
+		if (argc >= 0 && argv[argc]) {
+			argcMex = (LOG_PARAM_INFO_SIZE-1 > max_cpy_len) ?
+				max_cpy_len : (LOG_PARAM_INFO_SIZE-2);
+			strncpy(argv[argc], token, argcMex);
+			argv[argc][argcMex+1] = '\0';
+		}
+		argc++;
+		if (argc >= MAX_SUPPORTED_LOG_PARAMS_COUNT * 2)
+			break;
+	}
+
+	argcMex = (argc >= MAX_SUPPORTED_LOG_PARAMS_COUNT * 2
+		? MAX_SUPPORTED_LOG_PARAMS_COUNT * 2 : argc);
+	for (i = 0; i < argcMex; i++) {
+		if (argv[i] != NULL)
+			argv[i][LOG_PARAM_INFO_SIZE-1] = '\0';
+		else
+			continue;
+		if ((i < argcMex-1) && strcmp("-mtk_vcodec_dbg", argv[i]) == 0) {
+			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+				mtk_vcodec_dbg = temp_val;
+		} else if ((i < argcMex-1) && strcmp("-mtk_vcodec_perf", argv[i]) == 0) {
+			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+				mtk_vcodec_perf = temp_val;
+		} else if ((i < argcMex-1) && strcmp("-mtk_v4l2_dbg_level", argv[i]) == 0) {
+			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+				mtk_v4l2_dbg_level = temp_val;
+		} else {
+			mtk_vcodec_sync_log(dev, argv[i], argv[i+1]);
+		}
+		i++;
+	}
+
+	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++) {
+		if (argv[i] != NULL)
+			kfree(argv[i]);
+	}
+
+	mtk_vcodec_build_log_string(dev);
+
+	pr_info("----------------Debug Config ----------------\n");
+	pr_info("mtk_vcodec_dbg: %d\n", mtk_vcodec_dbg);
+	pr_info("mtk_vcodec_perf: %d\n", mtk_vcodec_perf);
+	pr_info("mtk_v4l2_dbg_level: %d\n", mtk_v4l2_dbg_level);
+}
+EXPORT_SYMBOL_GPL(mtk_vcodec_set_log);
+
 
 MODULE_LICENSE("GPL v2");
 
