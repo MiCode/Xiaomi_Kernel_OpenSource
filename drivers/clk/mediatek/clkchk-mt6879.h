@@ -49,7 +49,8 @@ enum chk_sys_id {
 	mdp = 38,
 	bcrm_ifr_ao = 39,
 	bcrm_ifr_pdn = 40,
-	chk_sys_num = 41,
+	hfrp = 41,
+	chk_sys_num = 42,
 };
 
 #ifdef CONFIG_MTK_DVFSRC_HELPER

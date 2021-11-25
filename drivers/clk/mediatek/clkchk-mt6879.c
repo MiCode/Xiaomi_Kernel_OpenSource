@@ -90,6 +90,7 @@ static struct regbase rb[] = {
 	[mdp] = REGBASE_V(0x1f000000, mdp, MT6879_POWER_DOMAIN_DISP, CLK_NULL),
 	[bcrm_ifr_ao] = REGBASE_V(0x10022000, bcrm_ifr_ao, PD_NULL, CLK_NULL),
 	[bcrm_ifr_pdn] = REGBASE_V(0x10215000, bcrm_ifr_pdn, PD_NULL, CLK_NULL),
+	[hfrp] = REGBASE_V(0x1EC24000, hfrp, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -362,6 +363,8 @@ static struct regname rn[] = {
 	REGNAME(bcrm_ifr_ao, 0x002C, SI18A_CTRL_0),
 
 	REGNAME(bcrm_ifr_pdn, 0x02b8, INFRA_QAXI_BUS_DOM8),
+
+	REGNAME(hfrp, 0x0150, BUS_DBG_OUT),
 	{},
 };
 
