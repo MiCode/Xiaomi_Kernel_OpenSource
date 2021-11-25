@@ -323,14 +323,25 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
-	mtk_v4l2_debug(4, "[%d] tmp_frame_addr = 0x%p",
-				   ctx->id, free_frame_buffer);
 
 	dstbuf = container_of(free_frame_buffer, struct mtk_video_dec_buf,
 						  frame_buffer);
+	mtk_v4l2_debug(4, "[%d] tmp_frame_addr = 0x%p, status 0x%x, used %d flags 0x%x, id=%d %d %d %d",
+				   ctx->id, free_frame_buffer, free_frame_buffer->status,
+				   dstbuf->used, dstbuf->flags, dstbuf->vb.vb2_buf.index,
+				   dstbuf->queued_in_vb2, dstbuf->queued_in_v4l2,
+				   dstbuf->ready_to_display);
+
 	dstbuf->flags |= REF_FREED;
 
-	if (dstbuf->used) {
+	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM && ctx->is_flushing == false &&
+	    dstbuf->ready_to_display == false && !(free_frame_buffer->status & FB_ST_EOS)) {
+		free_frame_buffer->status &= ~FB_ST_FREE;
+		dstbuf->flags &= ~REF_FREED;
+		mtk_v4l2_debug(0, "[%d]status=%x not queue id=%d to rdy_queue %d %d since input driven (%d) not ready to display",
+			ctx->id, free_frame_buffer->status, dstbuf->vb.vb2_buf.index,
+			dstbuf->queued_in_vb2, dstbuf->queued_in_v4l2, ctx->input_driven);
+	} else if (dstbuf->used) {
 		for (i = 0; i < free_frame_buffer->num_planes; i++) {
 			fput(free_frame_buffer->fb_base[i].dmabuf->file);
 			mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref put dma %p",
@@ -551,6 +562,7 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 		memset(&drain_fb, 0, sizeof(struct vdec_fb));
 		ret = vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
 	} else {
+		ctx->is_flushing = true;
 		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
 			ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, NULL);
 			if (ret == -EIO) {
@@ -565,6 +577,7 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 	dstq = &ctx->m2m_ctx->cap_q_ctx.q;
 	srcq = &ctx->m2m_ctx->out_q_ctx.q;
 	if (ret) {
+		ctx->is_flushing = false;
 		mtk_v4l2_err("DecodeFinal failed, ret=%d", ret);
 
 		if (ret == -EIO) {
@@ -621,6 +634,7 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 			dstbuf->queued_in_v4l2, dstbuf->used);
 	}
 	mutex_unlock(&ctx->buf_lock);
+	ctx->is_flushing = false;
 }
 
 static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)

@@ -477,6 +477,7 @@ struct mtk_vcodec_ctx {
 	unsigned int errormap_info[VB2_MAX_FRAME];
 	s64 input_max_ts;
 
+	bool is_flushing;
 	unsigned int eos_type;
 	void *dec_eos_vb;
 	u64 early_eos_ts;
