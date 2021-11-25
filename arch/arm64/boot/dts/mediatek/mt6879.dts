@@ -2451,7 +2451,11 @@
 			<&mmqos MASTER_LARB_PORT(M4U_LARB23_PORT28)
 				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_LARB23_PORT29)
-				&mmqos SLAVE_COMMON(0)>;
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos SLAVE_LARB(9)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos SLAVE_LARB(12)
+				&mmqos SLAVE_COMMON(1)>;
 		interconnect-names =
 				"l9_imgi_t1_a",
 				"l9_ufdi_t1_a",
@@ -2608,7 +2612,9 @@
 				"l23_smto_t1_c",
 				"l23_smto_t4_c",
 				"l23_smto_t6_c",
-				"l23_dbgo_t1_c";
+				"l23_dbgo_t1_c",
+				"l9_common_0",
+				"l12_common_1";
 	};
 
 	ipesys_me: ipesys_me@15320000 {
