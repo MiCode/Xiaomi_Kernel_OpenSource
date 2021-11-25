@@ -9834,7 +9834,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,mraw-id = <0>;
 		mediatek,larbs = <&smi_larb25>;
 		mediatek,cammux-id = <10>;
-		interrupts = <GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 460 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_CAM_MRAW>;
 		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
@@ -9870,7 +9870,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,mraw-id = <1>;
 		mediatek,larbs = <&smi_larb26>;
 		mediatek,cammux-id = <11>;
-		interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_CAM_MRAW>;
 		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
@@ -9906,7 +9906,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,mraw-id = <2>;
 		mediatek,larbs = <&smi_larb25>;
 		mediatek,cammux-id = <12>;
-		interrupts = <GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_CAM_MRAW>;
 		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
@@ -9942,7 +9942,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,mraw-id = <3>;
 		mediatek,larbs = <&smi_larb26>;
 		mediatek,cammux-id = <13>;
-		interrupts = <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_CAM_MRAW>;
 		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX>,
