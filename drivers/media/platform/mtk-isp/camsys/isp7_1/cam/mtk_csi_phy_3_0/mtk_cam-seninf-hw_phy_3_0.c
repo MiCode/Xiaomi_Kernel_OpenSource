@@ -1041,19 +1041,20 @@ static int apply_efuse_data(struct seninf_ctx *ctx)
 	port = ctx->port;
 	base = ctx->reg_ana_csi_rx[port];
 	SENINF_BITS(base, CDPHY_RX_ANA_2,
-		RG_CSI0_L0P_T0A_HSRT_CODE, (m_csi_efuse>>0) & 0x1f);
+		RG_CSI0_L0P_T0A_HSRT_CODE, (m_csi_efuse>>27) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_2,
-		RG_CSI0_L0N_T0B_HSRT_CODE, (m_csi_efuse>>0) & 0x1f);
+		RG_CSI0_L0N_T0B_HSRT_CODE, (m_csi_efuse>>27) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_3,
-		RG_CSI0_L1P_T0C_HSRT_CODE, (m_csi_efuse>>5) & 0x1f);
+		RG_CSI0_L1P_T0C_HSRT_CODE, (m_csi_efuse>>22) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_3,
-		RG_CSI0_L1N_T1A_HSRT_CODE, (m_csi_efuse>>5) & 0x1f);
+		RG_CSI0_L1N_T1A_HSRT_CODE, (m_csi_efuse>>22) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_4,
-		RG_CSI0_L2P_T1B_HSRT_CODE, (m_csi_efuse>>10) & 0x1f);
+		RG_CSI0_L2P_T1B_HSRT_CODE, (m_csi_efuse>>17) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_4,
-		RG_CSI0_L2N_T1C_HSRT_CODE, (m_csi_efuse>>10) & 0x1f);
+		RG_CSI0_L2N_T1C_HSRT_CODE, (m_csi_efuse>>17) & 0x1f);
 	dev_info(ctx->dev,
-		"CSI%dA CDPHY_RX_ANA_2(0x%x) CDPHY_RX_ANA_3(0x%x) CDPHY_RX_ANA_4(0x%x)", ctx->port,
+		"CSI%dA CDPHY_RX_ANA_2(0x%x) CDPHY_RX_ANA_3(0x%x) CDPHY_RX_ANA_4(0x%x)",
+		ctx->port,
 		SENINF_READ_REG(base, CDPHY_RX_ANA_2),
 		SENINF_READ_REG(base, CDPHY_RX_ANA_3),
 		SENINF_READ_REG(base, CDPHY_RX_ANA_4));
@@ -1064,22 +1065,30 @@ static int apply_efuse_data(struct seninf_ctx *ctx)
 	port = ctx->portB;
 	base = ctx->reg_ana_csi_rx[port];
 	SENINF_BITS(base, CDPHY_RX_ANA_2,
-		RG_CSI0_L0P_T0A_HSRT_CODE, (m_csi_efuse>>15) & 0x1f);
+		RG_CSI0_L0P_T0A_HSRT_CODE, (m_csi_efuse>>12) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_2,
-		RG_CSI0_L0N_T0B_HSRT_CODE, (m_csi_efuse>>15) & 0x1f);
+		RG_CSI0_L0N_T0B_HSRT_CODE, (m_csi_efuse>>12) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_3,
-		RG_CSI0_L1P_T0C_HSRT_CODE, (m_csi_efuse>>20) & 0x1f);
+		RG_CSI0_L1P_T0C_HSRT_CODE, (m_csi_efuse>>7) & 0x1f);
 	SENINF_BITS(base, CDPHY_RX_ANA_3,
-		RG_CSI0_L1N_T1A_HSRT_CODE, (m_csi_efuse>>20) & 0x1f);
-	SENINF_BITS(base, CDPHY_RX_ANA_4,
-		RG_CSI0_L2P_T1B_HSRT_CODE, (m_csi_efuse>>25) & 0x1f);
-	SENINF_BITS(base, CDPHY_RX_ANA_4,
-		RG_CSI0_L2N_T1C_HSRT_CODE, (m_csi_efuse>>25) & 0x1f);
-	dev_info(ctx->dev,
-		"CSI%dB CDPHY_RX_ANA_2(0x%x) CDPHY_RX_ANA_3(0x%x) CDPHY_RX_ANA_4(0x%x)", ctx->port,
-		SENINF_READ_REG(base, CDPHY_RX_ANA_2),
-		SENINF_READ_REG(base, CDPHY_RX_ANA_3),
-		SENINF_READ_REG(base, CDPHY_RX_ANA_4));
+		RG_CSI0_L1N_T1A_HSRT_CODE, (m_csi_efuse>>7) & 0x1f);
+	if (port < CSI_PORT_2A) {
+		SENINF_BITS(base, CDPHY_RX_ANA_4,
+			RG_CSI0_L2P_T1B_HSRT_CODE, (m_csi_efuse>>2) & 0x1f);
+		SENINF_BITS(base, CDPHY_RX_ANA_4,
+			RG_CSI0_L2N_T1C_HSRT_CODE, (m_csi_efuse>>2) & 0x1f);
+		dev_info(ctx->dev,
+			"CSI%dB CDPHY_RX_ANA_2(0x%x) CDPHY_RX_ANA_3(0x%x) CDPHY_RX_ANA_4(0x%x)",
+			ctx->port,
+			SENINF_READ_REG(base, CDPHY_RX_ANA_2),
+			SENINF_READ_REG(base, CDPHY_RX_ANA_3),
+			SENINF_READ_REG(base, CDPHY_RX_ANA_4));
+	} else
+		dev_info(ctx->dev,
+			"CSI%dB CDPHY_RX_ANA_2(0x%x) CDPHY_RX_ANA_3(0x%x)",
+			ctx->port,
+			SENINF_READ_REG(base, CDPHY_RX_ANA_2),
+			SENINF_READ_REG(base, CDPHY_RX_ANA_3));
 
 	return ret;
 }
