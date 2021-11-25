@@ -165,6 +165,8 @@ static struct
 	unsigned int         vow_mic_number;
 	char                 alexa_engine_version[VOW_ENGINE_INFO_LENGTH_BYTE];
 	char                 google_engine_arch[VOW_ENGINE_INFO_LENGTH_BYTE];
+	unsigned int         custom_model_addr;
+	unsigned long        custom_model_size;
 } vowserv;
 
 struct vow_dump_info_t {
@@ -549,6 +551,8 @@ static void vow_service_Init(void)
 		vowserv.dump_pcm_flag = false;
 		vowserv.split_dumpfile_flag = false;
 		vowserv.interleave_pcmdata_ptr = NULL;
+		vowserv.custom_model_addr = 0;
+		vowserv.custom_model_size = 0;
 		// update here when vow support more than 2 mic
 		vowserv.vow_mic_number = VOW_MAX_MIC_NUM;
 		vow_pcm_dump_init();
@@ -875,6 +879,8 @@ static bool vow_service_SetCustomModel(unsigned long arg)
 		VOWDRV_DEBUG("vow copy cust model fail\n");
 		return false;
 	}
+	vowserv.custom_model_addr = (unsigned int)p_mdl_p;
+	vowserv.custom_model_size = (unsigned long)data_size;
 	vow_ipi_buf[0] = (unsigned int)p_mdl_p;
 	vow_ipi_buf[1] = (unsigned long)data_size;
 	ret = vow_ipi_send(IPIMSG_VOW_SET_CUSTOM_MODEL,
@@ -2968,6 +2974,8 @@ static int vow_scp_recover_event(struct notifier_block *this,
 	switch (event) {
 	case SCP_EVENT_READY: {
 		int I;
+		bool ret = false;
+		unsigned int vow_ipi_buf[2];
 
 		vowserv.vow_recovering = true;
 		vowserv.scp_recovering = false;
@@ -3030,6 +3038,15 @@ static int vow_scp_recover_event(struct notifier_block *this,
 				VOWDRV_DEBUG("send Model start, slot%d\n", I);
 			}
 		}
+
+		// send AEC custom model
+		vow_ipi_buf[0] = vowserv.custom_model_addr;
+		vow_ipi_buf[1] = vowserv.custom_model_size;
+		ret = vow_ipi_send(IPIMSG_VOW_SET_CUSTOM_MODEL,
+				   2, &vow_ipi_buf[0], VOW_IPI_BYPASS_ACK);
+		if (!ret)
+			VOWDRV_DEBUG("fail: vow_service_SetCustomModel\n");
+
 		vowserv.vow_recovering = false;
 		break;
 	}
