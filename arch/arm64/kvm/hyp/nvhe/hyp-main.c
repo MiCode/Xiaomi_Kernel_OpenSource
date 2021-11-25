@@ -77,6 +77,11 @@ static void handle_pvm_entry_hvc64(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *
 	u32 fn = smccc_get_function(shadow_vcpu);
 
 	switch (fn) {
+	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_SHARE_FUNC_ID:
+		fallthrough;
+	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_UNSHARE_FUNC_ID:
+		vcpu_set_reg(shadow_vcpu, 0, SMCCC_RET_SUCCESS);
+		break;
 	default:
 		handle_pvm_entry_psci(host_vcpu, shadow_vcpu);
 		break;
@@ -257,6 +262,11 @@ static int get_num_hvc_args(struct kvm_vcpu *vcpu)
 	case PSCI_0_2_FN_CPU_SUSPEND:
 	case PSCI_0_2_FN64_CPU_SUSPEND:
 		return 0;
+
+	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_SHARE_FUNC_ID:
+		fallthrough;
+	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_UNSHARE_FUNC_ID:
+		return 3;
 
 	/* The rest are either blocked or handled by hyp. */
 	default:

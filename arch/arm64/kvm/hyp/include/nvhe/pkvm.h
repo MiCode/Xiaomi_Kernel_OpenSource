@@ -64,7 +64,7 @@ int kvm_check_pvm_sysreg_table(void);
 
 void pkvm_reset_vcpu(struct kvm_vcpu *vcpu);
 
-bool pkvm_handle_hvc64(struct kvm_vcpu *vcpu);
+bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code);
 
 struct kvm_vcpu *pvm_mpidr_to_vcpu(struct kvm_shadow_vm *vm, unsigned long mpidr);
 

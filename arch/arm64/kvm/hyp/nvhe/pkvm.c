@@ -957,7 +957,89 @@ static bool pkvm_handle_psci(struct kvm_vcpu *vcpu)
 	return pvm_psci_not_supported(vcpu);
 }
 
-bool pkvm_handle_hvc64(struct kvm_vcpu *vcpu)
+static u64 __pkvm_memshare_page_req(struct kvm_vcpu *vcpu, u64 ipa)
+{
+	u64 elr;
+
+	/* Fake up a data abort (Level 3 translation fault on write) */
+	vcpu->arch.fault.esr_el2 = (u32)ESR_ELx_EC_DABT_LOW << ESR_ELx_EC_SHIFT |
+				   ESR_ELx_WNR | ESR_ELx_FSC_FAULT |
+				   FIELD_PREP(ESR_ELx_FSC_LEVEL, 3);
+
+	/* Shuffle the IPA around into the HPFAR */
+	vcpu->arch.fault.hpfar_el2 = (ipa >> 8) & HPFAR_MASK;
+
+	/* This is a virtual address. 0's good. Let's go with 0. */
+	vcpu->arch.fault.far_el2 = 0;
+
+	/* Rewind the ELR so we return to the HVC once the IPA is mapped */
+	elr = read_sysreg(elr_el2);
+	elr -=4;
+	write_sysreg(elr, elr_el2);
+
+	return ARM_EXCEPTION_TRAP;
+}
+
+static bool pkvm_memshare_call(struct kvm_vcpu *vcpu, u64 *exit_code)
+{
+	u64 ipa = smccc_get_arg1(vcpu);
+	u64 arg2 = smccc_get_arg2(vcpu);
+	u64 arg3 = smccc_get_arg3(vcpu);
+	int err;
+
+	if (arg2 || arg3)
+		goto out_guest_err;
+
+	err = __pkvm_guest_share_host(vcpu, ipa);
+	switch (err) {
+	case 0:
+		/* Success! Now tell the host. */
+		goto out_host;
+	case -EFAULT:
+		/*
+		 * Convert the exception into a data abort so that the page
+		 * being shared is mapped into the guest next time.
+		 */
+		*exit_code = __pkvm_memshare_page_req(vcpu, ipa);
+		goto out_host;
+	}
+
+out_guest_err:
+	smccc_set_retval(vcpu, SMCCC_RET_INVALID_PARAMETER, 0, 0, 0);
+	return true;
+
+out_host:
+	return false;
+}
+
+static bool pkvm_memunshare_call(struct kvm_vcpu *vcpu)
+{
+	u64 ipa = smccc_get_arg1(vcpu);
+	u64 arg2 = smccc_get_arg2(vcpu);
+	u64 arg3 = smccc_get_arg3(vcpu);
+	int err;
+
+	if (arg2 || arg3)
+		goto out_guest_err;
+
+	err = __pkvm_guest_unshare_host(vcpu, ipa);
+	if (err)
+		goto out_guest_err;
+
+	return false;
+
+out_guest_err:
+	smccc_set_retval(vcpu, SMCCC_RET_INVALID_PARAMETER, 0, 0, 0);
+	return true;
+}
+
+/*
+ * Handler for protected VM HVC calls.
+ *
+ * Returns true if the hypervisor has handled the exit, and control should go
+ * back to the guest, or false if it hasn't.
+ */
+bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code)
 {
 	u32 fn = smccc_get_function(vcpu);
 	u64 val[4] = { SMCCC_RET_NOT_SUPPORTED };
@@ -975,7 +1057,23 @@ bool pkvm_handle_hvc64(struct kvm_vcpu *vcpu)
 		break;
 	case ARM_SMCCC_VENDOR_HYP_KVM_FEATURES_FUNC_ID:
 		val[0] = BIT(ARM_SMCCC_KVM_FUNC_FEATURES);
+		val[0] |= BIT(ARM_SMCCC_KVM_FUNC_HYP_MEMINFO);
+		val[0] |= BIT(ARM_SMCCC_KVM_FUNC_MEM_SHARE);
+		val[0] |= BIT(ARM_SMCCC_KVM_FUNC_MEM_UNSHARE);
 		break;
+	case ARM_SMCCC_VENDOR_HYP_KVM_HYP_MEMINFO_FUNC_ID:
+		if (smccc_get_arg1(vcpu) ||
+		    smccc_get_arg2(vcpu) ||
+		    smccc_get_arg3(vcpu)) {
+			val[0] = SMCCC_RET_INVALID_PARAMETER;
+		} else {
+			val[0] = PAGE_SIZE;
+		}
+		break;
+	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_SHARE_FUNC_ID:
+		return pkvm_memshare_call(vcpu, exit_code);
+	case ARM_SMCCC_VENDOR_HYP_KVM_MEM_UNSHARE_FUNC_ID:
+		return pkvm_memunshare_call(vcpu);
 	default:
 		return pkvm_handle_psci(vcpu);
 	}

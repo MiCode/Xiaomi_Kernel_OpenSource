@@ -192,17 +192,6 @@ static bool kvm_handle_pvm_fpsimd(struct kvm_vcpu *vcpu, u64 *exit_code)
 	return kvm_hyp_handle_fpsimd(vcpu, exit_code);
 }
 
-/*
- * Handler for protected VM HVC calls.
- *
- * Returns true if the hypervisor has handled the exit, and control should go
- * back to the guest, or false if it hasn't.
- */
-static bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code)
-{
-	return pkvm_handle_hvc64(vcpu);
-}
-
 static const exit_handler_fn hyp_exit_handlers[] = {
 	[0 ... ESR_ELx_EC_MAX]		= NULL,
 	[ESR_ELx_EC_CP15_32]		= kvm_hyp_handle_cp15_32,
