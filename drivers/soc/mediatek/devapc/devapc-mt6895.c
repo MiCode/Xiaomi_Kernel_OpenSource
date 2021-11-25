@@ -297,42 +297,42 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 {
 	int i;
 
+	pr_debug(PFX "%s %s %d, %s %d, %s 0x%x\n",
+			__func__,
+			"slave_type", slave_type,
+			"vio_index", vio_index,
+			"vio_addr", vio_addr);
+
 	/* Filter by violation index */
-	if (slave_type == SLAVE_TYPE_INFRA &&
-			vio_index < VIO_SLAVE_NUM_INFRA) {
+	if (slave_type == SLAVE_TYPE_INFRA) {
 		for (i = 0; i < VIO_SLAVE_NUM_INFRA; i++) {
 			if (vio_index == mt6895_devices_infra[i].vio_index)
 				return mt6895_devices_infra[i].device;
 		}
-	} else if (slave_type == SLAVE_TYPE_INFRA1 &&
-			vio_index < VIO_SLAVE_NUM_INFRA1) {
+	} else if (slave_type == SLAVE_TYPE_INFRA1) {
 		for (i = 0; i < VIO_SLAVE_NUM_INFRA1; i++) {
 			if (vio_index == mt6895_devices_infra1[i].vio_index)
 				return mt6895_devices_infra1[i].device;
 		}
-	} else if (slave_type == SLAVE_TYPE_PERI_PAR &&
-			vio_index < VIO_SLAVE_NUM_PERI_PAR) {
+	} else if (slave_type == SLAVE_TYPE_PERI_PAR) {
 		for (i = 0; i < VIO_SLAVE_NUM_PERI_PAR; i++) {
 			if (vio_index == mt6895_devices_peri_par[i].vio_index)
 				return mt6895_devices_peri_par[i].device;
 		}
-	} else if (slave_type == SLAVE_TYPE_VLP &&
-			vio_index < VIO_SLAVE_NUM_VLP) {
+	} else if (slave_type == SLAVE_TYPE_VLP) {
 		for (i = 0; i < VIO_SLAVE_NUM_VLP; i++) {
 			if (vio_index == mt6895_devices_vlp[i].vio_index)
 				return mt6895_devices_vlp[i].device;
 		}
 #if ENABLE_DEVAPC_ADSP
-	} else if (slave_type == SLAVE_TYPE_ADSP &&
-			vio_index < VIO_SLAVE_NUM_ADSP) {
+	} else if (slave_type == SLAVE_TYPE_ADSP) {
 		for (i = 0; i < VIO_SLAVE_NUM_ADSP; i++) {
 			if (vio_index == mt6895_devices_adsp[i].vio_index)
 				return mt6895_devices_adsp[i].device;
 		}
 #endif
 #if ENABLE_DEVAPC_MMINFRA
-	} else if (slave_type == SLAVE_TYPE_MMINFRA &&
-			vio_index < VIO_SLAVE_NUM_MMINFRA) {
+	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
 		for (i = 0; i < VIO_SLAVE_NUM_MMINFRA; i++) {
 			if (vio_index == mt6895_devices_mminfra[i].vio_index)
 				return mt6895_devices_mminfra[i].device;
