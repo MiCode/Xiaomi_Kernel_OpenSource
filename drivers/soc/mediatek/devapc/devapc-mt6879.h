@@ -25,7 +25,7 @@
 #define ENABLE_DEVAPC_VLP		1
 #define ENABLE_DEVAPC_ADSP		1
 #define ENABLE_DEVAPC_MMINFRA		1
-#define ENABLE_DEVAPC_MMUP		0
+#define ENABLE_DEVAPC_MMUP		1
 
 /******************************************************************************
  * STRUCTURE DEFINITION
@@ -57,6 +57,9 @@ enum DEVAPC_VIO_MASK_STA_NUM {
 #endif
 #if ENABLE_DEVAPC_MMINFRA
 	VIO_MASK_STA_NUM_MMINFRA = 12,
+#endif
+#if ENABLE_DEVAPC_MMUP
+	VIO_MASK_STA_NUM_MMUP = 4,
 #endif
 };
 
@@ -1585,6 +1588,154 @@ static const struct mtk_device_info mt6879_devices_mminfra[] = {
 };
 #endif
 
+#if ENABLE_DEVAPC_MMUP
+static const struct mtk_device_info mt6879_devices_mmup[] = {
+	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
+	/* 0 */
+	{0, 0, 0, "ADSP_S", true},
+	{0, 1, 1, "ADSP_S-1", true},
+	{0, 2, 2, "ADSP_S-2", true},
+	{0, 3, 8, "hH2M", true},
+	{0, 4, 9, "p_par_top", true},
+	{0, 5, 10, "pslv_clk_ctrl", true},
+	{0, 6, 11, "pslv_pmicw", true},
+	{0, 7, 12, "pslv_vow", true},
+	{0, 8, 13, "pslv_cfgreg", true},
+	{0, 9, 14, "pslv_gpio", true},
+
+	/* 10 */
+	{0, 10, 15, "pslv_uart", true},
+	{0, 11, 16, "pslv_uart1", true},
+	{0, 12, 17, "pslv_i2c0", true},
+	{0, 13, 18, "pslv_i2c1", true},
+	{0, 14, 19, "pslv_spi0", true},
+	{0, 15, 20, "pslv_spi1", true},
+	{0, 16, 21, "pslv_spi2", true},
+	{0, 17, 22, "pslv_eint", true},
+	{0, 18, 23, "pslv_rsv00", true},
+	{0, 19, 24, "pslv_cfg_core0", true},
+
+	/* 20 */
+	{0, 20, 25, "pslv_dma_core0", true},
+	{0, 21, 26, "pslv_irq_core0", true},
+	{0, 22, 27, "pslv_tmr_core0", true},
+	{0, 23, 28, "pslv_dbg_core0", true},
+	{0, 24, 29, "pslv_rsv01", true},
+	{0, 25, 30, "pslv_i2c2", true},
+	{0, 26, 31, "pslv_i2c3", true},
+	{0, 27, 32, "pslv_i2c_wrap", true},
+	{0, 28, 33, "pslv_rsv02", true},
+	{0, 29, 34, "pslv_cfg_core1", true},
+
+	/* 30 */
+	{0, 30, 35, "pslv_dma_core1", true},
+	{0, 31, 36, "pslv_irq_core1", true},
+	{0, 32, 37, "pslv_tmr_core1", true},
+	{0, 33, 38, "pslv_dbg_core1", true},
+	{0, 34, 39, "pslv_rsv03", true},
+	{0, 35, 40, "p_main_BCRM", true},
+	{0, 36, 41, "p_main_DEBUG", true},
+	{0, 37, 42, "pbus_tracker", true},
+	{0, 38, 43, "pslv_dma_i2c", true},
+	{0, 39, 44, "pslv_backup1", true},
+
+	/* 40 */
+	{0, 40, 45, "pslv_backup2", true},
+	{0, 41, 46, "pslv_backup3", true},
+	{0, 42, 47, "pslv_backup4", true},
+	{0, 43, 48, "pslv_rsv10", true},
+	{0, 44, 49, "pC0CACHE", true},
+	{0, 45, 50, "pC1CACHE", true},
+	{0, 46, 51, "p_main_DEVAPCAO", true},
+	{0, 47, 52, "p_main_DEVAPC", true},
+	{0, 48, 53, "pslv_cfgreg_sec", true},
+	{0, 49, 54, "pslv_rsv11", true},
+
+	/* 50 */
+	{0, 50, 55, "p_mbox0", true},
+	{0, 51, 56, "p_mbox1", true},
+	{0, 52, 57, "p_mbox2", true},
+	{0, 53, 58, "p_mbox3", true},
+	{0, 54, 59, "p_mbox4", true},
+	{0, 55, 60, "pslv_rsv12", true},
+	{1, 0, 3, "AUDIO_S", true},
+	{1, 1, 4, "AUDIO_S-1", true},
+	{1, 2, 5, "AUDIO_S-2", true},
+
+	{-1, -1, 61, "OOB_way_en", true},
+	{-1, -1, 62, "OOB_way_en", true},
+	{-1, -1, 63, "OOB_way_en", true},
+	{-1, -1, 64, "OOB_way_en", true},
+	{-1, -1, 65, "OOB_way_en", true},
+	{-1, -1, 66, "OOB_way_en", true},
+	{-1, -1, 67, "OOB_way_en", true},
+	{-1, -1, 68, "OOB_way_en", true},
+	{-1, -1, 69, "OOB_way_en", true},
+
+	{-1, -1, 70, "OOB_way_en", true},
+	{-1, -1, 71, "OOB_way_en", true},
+	{-1, -1, 72, "OOB_way_en", true},
+	{-1, -1, 73, "OOB_way_en", true},
+	{-1, -1, 74, "OOB_way_en", true},
+	{-1, -1, 75, "OOB_way_en", true},
+	{-1, -1, 76, "OOB_way_en", true},
+	{-1, -1, 77, "OOB_way_en", true},
+	{-1, -1, 78, "OOB_way_en", true},
+	{-1, -1, 79, "OOB_way_en", true},
+
+	{-1, -1, 80, "OOB_way_en", true},
+	{-1, -1, 81, "OOB_way_en", true},
+	{-1, -1, 82, "OOB_way_en", true},
+	{-1, -1, 83, "OOB_way_en", true},
+	{-1, -1, 84, "OOB_way_en", true},
+	{-1, -1, 85, "OOB_way_en", true},
+	{-1, -1, 86, "OOB_way_en", true},
+	{-1, -1, 87, "OOB_way_en", true},
+	{-1, -1, 88, "OOB_way_en", true},
+	{-1, -1, 89, "OOB_way_en", true},
+
+	{-1, -1, 90, "OOB_way_en", true},
+	{-1, -1, 91, "OOB_way_en", true},
+	{-1, -1, 92, "OOB_way_en", true},
+	{-1, -1, 93, "OOB_way_en", true},
+	{-1, -1, 94, "OOB_way_en", true},
+	{-1, -1, 95, "OOB_way_en", true},
+	{-1, -1, 96, "OOB_way_en", true},
+	{-1, -1, 97, "OOB_way_en", true},
+	{-1, -1, 98, "OOB_way_en", true},
+	{-1, -1, 99, "OOB_way_en", true},
+
+	{-1, -1, 100, "OOB_way_en", true},
+	{-1, -1, 101, "OOB_way_en", true},
+	{-1, -1, 102, "OOB_way_en", true},
+	{-1, -1, 103, "OOB_way_en", true},
+	{-1, -1, 104, "OOB_way_en", true},
+	{-1, -1, 105, "OOB_way_en", true},
+	{-1, -1, 106, "OOB_way_en", true},
+	{-1, -1, 107, "OOB_way_en", true},
+	{-1, -1, 108, "OOB_way_en", true},
+	{-1, -1, 109, "OOB_way_en", true},
+
+	{-1, -1, 110, "OOB_way_en", true},
+	{-1, -1, 111, "OOB_way_en", true},
+	{-1, -1, 112, "OOB_way_en", true},
+	{-1, -1, 113, "OOB_way_en", true},
+	{-1, -1, 114, "OOB_way_en", true},
+	{-1, -1, 115, "OOB_way_en", true},
+	{-1, -1, 116, "OOB_way_en", true},
+	{-1, -1, 117, "OOB_way_en", true},
+	{-1, -1, 118, "OOB_way_en", true},
+	{-1, -1, 119, "OOB_way_en", true},
+
+	{-1, -1, 120, "Decode_error", true},
+	{-1, -1, 121, "Decode_error", true},
+	{-1, -1, 122, "Decode_error", true},
+
+	{-1, -1, 123, "DEVICE_APC_MMUP_AO", false},
+	{-1, -1, 124, "DEVICE_APC_MMUP_PDN", false},
+};
+#endif
+
 enum DEVAPC_VIO_SLAVE_NUM {
 	VIO_SLAVE_NUM_INFRA = ARRAY_SIZE(mt6879_devices_infra),
 	VIO_SLAVE_NUM_INFRA1 = ARRAY_SIZE(mt6879_devices_infra1),
@@ -1595,6 +1746,9 @@ enum DEVAPC_VIO_SLAVE_NUM {
 #endif
 #if ENABLE_DEVAPC_MMINFRA
 	VIO_SLAVE_NUM_MMINFRA = ARRAY_SIZE(mt6879_devices_mminfra),
+#endif
+#if ENABLE_DEVAPC_MMUP
+	VIO_SLAVE_NUM_MMUP = ARRAY_SIZE(mt6879_devices_mmup),
 #endif
 };
 
