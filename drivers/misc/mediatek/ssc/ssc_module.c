@@ -121,6 +121,8 @@ static int ssc_vlogic_bound_event(struct notifier_block *notifier, unsigned long
 			set_vcore_vlogic_bound(0);
 			set_gpu_vlogic_bound(0);
 			return NOTIFY_DONE;
+		case SSC_TIMEOUT:
+			return NOTIFY_DONE;
 		default:
 			return NOTIFY_BAD;
 	}
@@ -258,6 +260,9 @@ static void ssc_notification_handler(u32 feature_id, scmi_tinysys_report *report
 	pr_info("[SSC] %s\n", __func__);
 
 	if (report->p1 == SSC_STATUS_ERR) {
+		/* SSC timeout notifiy */
+		ssc_vlogic_bound_call_chain(SSC_TIMEOUT, SSC_ERR);
+
 		timeout = report->p2;
 
 		for (i = 0 ; i < SSC_TIMEOUT_NUM ; i++) {

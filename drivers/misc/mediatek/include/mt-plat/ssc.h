@@ -15,12 +15,14 @@
 enum ssc_notifier {
 	SSC_ENABLE_VLOGIC_BOUND = 1,
 	SSC_DISABLE_VLOGIC_BOUND,
+	SSC_TIMEOUT,
 };
 
 enum ssc_reqeust_id {
 	SSC_GPU = 0,
 	SSC_APU,
 	SSC_SW,
+	SSC_ERR,
 	SSC_REQUEST_NUM,
 };
 
