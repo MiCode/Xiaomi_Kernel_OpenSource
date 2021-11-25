@@ -7,6 +7,13 @@ s __ufshcd_issue_tm_cmd
 s ring_buffer_empty
 s ring_buffer_empty_cpu
 s ring_buffer_iter_peek
+s sync_entity_load_avg
+s unregister_fair_sched_group
+s task_dead_fair
+s select_task_rq_fair
+s select_idle_sibling
+s migrate_task_rq_fair
+s find_energy_efficient_cpu
 f arch/arm64/kernel/cpufeature.c
 f block/blk-core.c
 f block/blk-pm.c
@@ -27,6 +34,7 @@ f kernel/irq_work.c
 f kernel/printk/printk.c
 f kernel/printk/printk_ringbuffer.c
 f kernel/printk/printk_ringbuffer.h
+f kernel/sched/fair.c
 f kernel/signal.c
 f kernel/time/alarmtimer.c
 f kernel/time/tick-broadcast.c
