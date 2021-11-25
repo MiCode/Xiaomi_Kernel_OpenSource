@@ -177,9 +177,11 @@ struct mml_frame_size {
 
 struct mml_buffer {
 	int32_t fd[MML_MAX_PLANES];
+	void *dmabuf[MML_MAX_PLANES];
 	uint32_t size[MML_MAX_PLANES];
 	uint8_t cnt;
 	int32_t fence;
+	bool use_dma:1;
 	bool flush:1;
 	bool invalid:1;
 };

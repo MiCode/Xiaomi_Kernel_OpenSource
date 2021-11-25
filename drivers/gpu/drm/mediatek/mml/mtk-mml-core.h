@@ -43,14 +43,14 @@ do { \
 do { \
 	pr_notice("[mml]" fmt "\n", ##args); \
 	if (mml_cmdq_err) \
-		cmdq_util_error_save(fmt, ##args); \
+		cmdq_util_error_save("[mml]"fmt"\n", ##args); \
 } while (0)
 
 #define mml_err(fmt, args...) \
 do { \
 	pr_notice("[mml][err]" fmt "\n", ##args); \
 	if (mml_cmdq_err) \
-		cmdq_util_error_save(fmt, ##args); \
+		cmdq_util_error_save("[mml]"fmt"\n", ##args); \
 } while (0)
 
 /* mml ftrace */

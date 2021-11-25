@@ -344,23 +344,26 @@ static struct mml_frame_config *frame_config_create(
 }
 
 static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
-				  struct mml_buffer *fdbuf,
+				  struct mml_buffer *user_buf,
 				  const char *name)
 {
 	u8 i;
 
-	mml_buf_get(fbuf, fdbuf->fd, fdbuf->cnt, name);
+	if (user_buf->use_dma)
+		mml_buf_get(fbuf, user_buf->dmabuf, user_buf->cnt, name);
+	else
+		mml_buf_get_fd(fbuf, user_buf->fd, user_buf->cnt, name);
 
 	/* also copy size for later use */
-	for (i = 0; i < fdbuf->cnt; i++)
-		fbuf->size[i] = fdbuf->size[i];
-	fbuf->cnt = fdbuf->cnt;
-	fbuf->flush = fdbuf->flush;
-	fbuf->invalid = fdbuf->invalid;
+	for (i = 0; i < user_buf->cnt; i++)
+		fbuf->size[i] = user_buf->size[i];
+	fbuf->cnt = user_buf->cnt;
+	fbuf->flush = user_buf->flush;
+	fbuf->invalid = user_buf->invalid;
 
-	if (fdbuf->fence >= 0) {
-		fbuf->fence = sync_file_get_fence(fdbuf->fence);
-		mml_msg("[drm]get dma fence %p by %d", fbuf->fence, fdbuf->fence);
+	if (user_buf->fence >= 0) {
+		fbuf->fence = sync_file_get_fence(user_buf->fence);
+		mml_msg("[drm]get dma fence %p by %d", fbuf->fence, user_buf->fence);
 	}
 }
 

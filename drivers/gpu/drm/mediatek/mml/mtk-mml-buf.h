@@ -10,16 +10,27 @@
 
 struct mml_file_buf;
 
-/* mml_buf_get - get dma_buf instance from fd for later get iova
+/* mml_buf_get_fd - get dma_buf instance from fd for later get iova
  *
  * @buf:	the mml buffer struct
  * @fd:		fd array from client
  * @cnt:	count of fd array
  * @name:	set buf name for iommu heap debug
  *
+ * Note: Call mml_buf_put_fd for same mml_file_buf later to release it.
+ */
+void mml_buf_get_fd(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *name);
+
+/* mml_buf_get -  dma_buf instance
+ *
+ * @buf:	the mml buffer struct
+ * @dmabufs:	dma_buf array from client
+ * @cnt:	count of fd array
+ * @name:	set buf name for iommu heap debug
+ *
  * Note: Call mml_buf_put for same mml_file_buf later to release it.
  */
-void mml_buf_get(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *name);
+void mml_buf_get(struct mml_file_buf *buf, void **dmabufs, u32 cnt, const char *name);
 
 /* mml_buf_iova_get - get iova by device and dmabuf
  *
