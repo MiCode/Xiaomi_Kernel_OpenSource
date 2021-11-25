@@ -731,6 +731,12 @@ static const struct mtk_node_desc node_descs_mt6879[] = {
 		MASTER_LARB_PORT(M4U_LARB25_PORT9), 9, true, 0x2, SLAVE_LARB(25)),
 	DEFINE_MNODE(mraw0_afo_m1,
 		MASTER_LARB_PORT(M4U_LARB25_PORT10), 9, true, 0x2, SLAVE_LARB(25)),
+	DEFINE_MNODE(pdai_a_0,
+		MASTER_LARB_PORT(M4U_LARB25_PORT11), 8, false, 0x2, SLAVE_LARB(25)),
+	DEFINE_MNODE(pdai_a_1,
+		MASTER_LARB_PORT(M4U_LARB25_PORT12), 8, false, 0x2, SLAVE_LARB(25)),
+	DEFINE_MNODE(pdao_a,
+		MASTER_LARB_PORT(M4U_LARB25_PORT13), 9, true, 0x2, SLAVE_LARB(25)),
 	/*LARB 2*/
 	DEFINE_MNODE(mdp_rdma0,
 		MASTER_LARB_PORT(M4U_LARB2_PORT0), 8, false, 0x1, SLAVE_LARB(2)),
@@ -765,9 +771,9 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6879 = {
 		.emi_ratio = 705,
 	},
 	.hrt_LPDDR4 = {
-		.hrt_bw = {8500, 0, 0},
+		.hrt_bw = {8510, 0, 0},
 		.hrt_total_bw = 17064, /*Todo: Use DRAMC API 4266*2(channel)*2(io width)*/
-		.md_speech_bw = { 9086, 8500},
+		.md_speech_bw = { 9096, 8510},
 		.hrt_ratio = {1000, 880, 900, 900}, /* MD, CAM, DISP, MML */
 		.blocking = true,
 		.emi_ratio = 800,
