@@ -2623,6 +2623,36 @@
 			mediatek,platform = <&afe>;
 		};
 
+		usb: usb0@11210000 {
+			compatible = "mediatek,mt6855-usb20";
+			reg = <0 0x11210000 0 0x10000>,
+				<0 0x11e40000 0 0x10000>;
+			interrupts = <GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH  0>;
+			phys = <&u3fpgaport0 PHY_TYPE_USB2>;
+			mode = <2>;
+			multipoint = <1>;
+			num_eps = <16>;
+			interrupt-names = "mc";
+			dr_mode = "otg";
+			usb-role-switch;
+		};
+
+		u3fpgaphy: usb-phy {
+			compatible = "mediatek,fpga-u3phy";
+			mediatek,ippc = <0x11e40000>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			fpga_i2c_physical_base = <0x11ed2000>;
+			status = "okay";
+
+			u3fpgaport0: usb-phy@0 {
+				chip-id= <0xa60931a>;
+				port = <0>;
+				pclk_phase = <23>;
+				#phy-cells = <1>;
+			};
+		};
+
 	};
 };
 
@@ -2807,36 +2837,6 @@
 			pinmux = <PINMUX_GPIO49__FUNC_I2S3_DO>;
 			input-schmitt-enable;
 			bias-disable;
-		};
-
-		usb: usb0@11210000 {
-			compatible = "mediatek,mt6855-usb20";
-			reg = <0 0x11210000 0 0x10000>,
-				<0 0x11e40000 0 0x10000>;
-			interrupts = <GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH  0>;
-			phys = <&u3fpgaport0 PHY_TYPE_USB2>;
-			mode = <2>;
-			multipoint = <1>;
-			num_eps = <16>;
-			interrupt-names = "mc";
-			dr_mode = "otg";
-			usb-role-switch;
-		};
-
-		u3fpgaphy: usb-phy {
-			compatible = "mediatek,fpga-u3phy";
-			mediatek,ippc = <0x11e40000>;
-			#address-cells = <2>;
-			#size-cells = <2>;
-			fpga_i2c_physical_base = <0x11ed2000>;
-			status = "okay";
-
-			u3fpgaport0: usb-phy@0 {
-				chip-id= <0xa60931a>;
-				port = <0>;
-				pclk_phase = <23>;
-				#phy-cells = <1>;
-			};
 		};
 	};
 };
