@@ -8071,6 +8071,14 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IPESYS_ME>;
 		apu_sync_token =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_APUSYS_APU>;
+		vss_traw_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_VSS_TRAW>;
+		vss_ltraw_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_VSS_LTRAW>;
+		vss_xtraw_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_VSS_XTRAW>;
+		vss_dip_sync_token =
+			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_VSS_DIP>;
 		sw_sync_token_pool_1 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_1>;
 		sw_sync_token_pool_2 =
