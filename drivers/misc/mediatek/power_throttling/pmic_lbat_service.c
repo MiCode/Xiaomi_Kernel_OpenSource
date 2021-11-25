@@ -22,9 +22,6 @@
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 
-#include <linux/iio/consumer.h>
-#include <linux/power_supply.h>
-
 #include "pmic_lbat_service.h"
 
 #define USER_NAME_MAXLEN	30
@@ -145,13 +142,6 @@ static struct lbat_thd_t *cur_lv_ptr;
 static struct lbat_user *lbat_user_table[USER_SIZE];
 static unsigned int user_count;
 static unsigned int r_ratio[2];
-
-/* debug gauge auxadc vbat = 0 */
-static struct device *lbat_dev;
-static struct iio_channel *vbat_adc_chan;
-static struct power_supply *bat_psy;
-static void lbat_en_irq_work(struct work_struct *work);
-static DECLARE_DELAYED_WORK(en_irq_work, lbat_en_irq_work);
 
 static int __regmap_update_bits(struct regmap *regmap, const struct reg_t *reg,
 				unsigned int val)
@@ -570,20 +560,9 @@ unsigned int lbat_read_volt(void)
 }
 EXPORT_SYMBOL(lbat_read_volt);
 
-static void lbat_en_irq_work(struct work_struct *work)
-{
-	pr_info("%s: enable irq\n", __func__);
-	mutex_lock(&lbat_mutex);
-	lbat_irq_enable();
-	mutex_unlock(&lbat_mutex);
-}
-
 static irqreturn_t bat_h_int_handler(int irq, void *data)
 {
 	struct lbat_user *user;
-	int chg_vbat = 0, auxadc_vbat = 0;
-	union power_supply_propval val;
-	int ret = 0;
 
 	if (cur_hv_ptr == NULL) {
 		lbat_max_en_setting(0);
@@ -591,29 +570,6 @@ static irqreturn_t bat_h_int_handler(int irq, void *data)
 	}
 	mutex_lock(&lbat_mutex);
 	pr_info("[%s] cur_thd_volt=%d\n", __func__, cur_hv_ptr->thd_volt);
-
-	if (!vbat_adc_chan)
-		vbat_adc_chan = devm_iio_channel_get(lbat_dev, "chg_vbat");
-	if (!bat_psy)
-		bat_psy = power_supply_get_by_name("battery");
-	if (vbat_adc_chan && bat_psy) {
-		ret = iio_read_channel_processed(vbat_adc_chan, &chg_vbat);
-		chg_vbat /= 1000;
-		pr_info("[%s] chg_vbat = %d(%d)\n", __func__, chg_vbat, ret);
-
-		ret |= power_supply_get_property(bat_psy,
-					  POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
-		auxadc_vbat = val.intval / 1000;
-		pr_info("[%s] auxadc_vbat = %d(%d)\n", __func__, auxadc_vbat, ret);
-
-		if (!ret && abs(chg_vbat - auxadc_vbat) > 500) {
-			pr_notice("[%s] unexpected!! disable irq for 10 sec\n", __func__);
-			lbat_irq_disable();
-			schedule_delayed_work(&en_irq_work, HZ * 10);
-			mutex_unlock(&lbat_mutex);
-			return IRQ_HANDLED;
-		}
-	}
 
 	user = cur_hv_ptr->user;
 	list_del_init(&cur_hv_ptr->list);
@@ -649,9 +605,6 @@ out:
 static irqreturn_t bat_l_int_handler(int irq, void *data)
 {
 	struct lbat_user *user;
-	int chg_vbat = 0, auxadc_vbat = 0;
-	union power_supply_propval val;
-	int ret;
 
 	if (cur_lv_ptr == NULL) {
 		lbat_min_en_setting(0);
@@ -659,29 +612,6 @@ static irqreturn_t bat_l_int_handler(int irq, void *data)
 	}
 	mutex_lock(&lbat_mutex);
 	pr_info("[%s] cur_thd_volt=%d\n", __func__, cur_lv_ptr->thd_volt);
-
-	if (!vbat_adc_chan)
-		vbat_adc_chan = devm_iio_channel_get(lbat_dev, "chg_vbat");
-	if (!bat_psy)
-		bat_psy = power_supply_get_by_name("battery");
-	if (vbat_adc_chan && bat_psy) {
-		ret = iio_read_channel_processed(vbat_adc_chan, &chg_vbat);
-		chg_vbat /= 1000;
-		pr_info("[%s] chg_vbat = %d(%d)\n", __func__, chg_vbat, ret);
-
-		ret |= power_supply_get_property(bat_psy,
-					  POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
-		auxadc_vbat = val.intval / 1000;
-		pr_info("[%s] auxadc_vbat = %d(%d)\n", __func__, auxadc_vbat, ret);
-
-		if (!ret && abs(chg_vbat - auxadc_vbat) > 500) {
-			pr_notice("[%s] unexpected!! disable irq for 10 sec\n", __func__);
-			lbat_irq_disable();
-			schedule_delayed_work(&en_irq_work, HZ * 10);
-			mutex_unlock(&lbat_mutex);
-			return IRQ_HANDLED;
-		}
-	}
 
 	user = cur_lv_ptr->user;
 	list_del_init(&cur_lv_ptr->list);
@@ -721,8 +651,6 @@ static int pmic_lbat_service_probe(struct platform_device *pdev)
 	struct device_node *np;
 	struct mt6397_chip *chip;
 	const char *r_ratio_node_name;
-
-	lbat_dev = &pdev->dev;
 
 	lbat_regs = of_device_get_match_data(&pdev->dev);
 	if (!strcmp(lbat_regs->regmap_source, "parent_drvdata")) {
