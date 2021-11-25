@@ -1538,7 +1538,7 @@
 
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_ADSP_TOP_DORMANT>;
 			clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
-				<&clk26m>,
+				<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 				<&topckgen_clk CLK_TOP_ADSPPLL>;
 			clock-names = "clk_top_adsp_sel",
 				"clk_top_clk26m",
