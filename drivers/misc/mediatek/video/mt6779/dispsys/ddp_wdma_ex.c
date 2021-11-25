@@ -1163,6 +1163,8 @@ static inline int wdma_switch_to_sec(enum DISP_MODULE_ENUM module, void *handle)
 	enum CMDQ_ENG_ENUM cmdq_engine;
 	enum CMDQ_EVENT_ENUM cmdq_event;
 
+	DISPFUNC();
+
 	/* cmdq_engine = module_to_cmdq_engine(module); */
 	cmdq_engine = wdma_idx == 0 ?  CMDQ_ENG_DISP_WDMA0 :
 						CMDQ_ENG_DISP_WDMA1;
@@ -1190,6 +1192,8 @@ int wdma_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 	enum CMDQ_ENG_ENUM cmdq_engine;
 	enum CMDQ_EVENT_ENUM cmdq_event;
 	enum CMDQ_EVENT_ENUM cmdq_event_nonsec_end;
+
+	DISPFUNC();
 
 	cmdq_engine = wdma_idx == 0 ?  CMDQ_ENG_DISP_WDMA0 :
 						CMDQ_ENG_DISP_WDMA1;

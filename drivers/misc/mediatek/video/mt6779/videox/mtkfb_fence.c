@@ -1774,7 +1774,7 @@ int disp_sync_get_debug_info(char *stringbuf, int buf_len)
 	return len;
 }
 
-struct ion_handle *disp_snyc_get_ion_handle(unsigned int session_id,
+struct ion_handle *disp_sync_get_ion_handle(unsigned int session_id,
 					    unsigned int timeline_id,
 					    unsigned int idx)
 {
@@ -1794,7 +1794,7 @@ struct ion_handle *disp_snyc_get_ion_handle(unsigned int session_id,
 		if (buf->idx == idx) {
 			/* use local variable here to avoid polluted pointer */
 			handle = buf->hnd;
-			DISPMSG("%s, get handle", __func__);
+			DISPMSG("%s, get handle:0x%lx\n", __func__, (unsigned long)handle);
 			break;
 		}
 	}

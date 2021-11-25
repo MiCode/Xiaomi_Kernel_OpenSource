@@ -2970,7 +2970,7 @@ static int _convert_disp_input_to_ovl(struct OVL_CONFIG_STRUCT *dst,
 
 	/* only updated secure buffer handle for input */
 	if (dst->security != DISP_NORMAL_BUFFER) {
-		dst->hnd = disp_snyc_get_ion_handle(session_id, dst->layer, dst->buff_idx);
+		dst->hnd = disp_sync_get_ion_handle(session_id, dst->layer, dst->buff_idx);
 		DISPINFO("%s [SVP]ovl2mem sec layer id: %d, buf_idx:0x%x\n", __func__,
 			 dst->layer, dst->buff_idx);
 	}
@@ -5989,7 +5989,7 @@ static int config_wdma_output(disp_path_handle disp_handle,
 
 	/* only updated secure buffer handle for input */
 	if (wcfg->security == DISP_SECURE_BUFFER) {
-		wcfg->hnd = disp_snyc_get_ion_handle(cfg->session_id,
+		wcfg->hnd = disp_sync_get_ion_handle(cfg->session_id,
 						disp_sync_get_output_timeline_id(),
 						output->buff_idx);
 		DISPINFO("%s [SVP]ovl2mem sec layer id: %d, buf_idx:0x%x\n", __func__,

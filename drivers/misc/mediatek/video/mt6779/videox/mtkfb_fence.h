@@ -228,7 +228,7 @@ void mtkfb_release_session_fence(unsigned int session_id);
 struct disp_sync_info *disp_sync_get_layer_info(unsigned int session_id,
 						unsigned int timeline_id);
 
-struct ion_handle *disp_snyc_get_ion_handle(unsigned int session_id,
+struct ion_handle *disp_sync_get_ion_handle(unsigned int session_id,
 					    unsigned int timeline_id,
 					    unsigned int idx);
 
