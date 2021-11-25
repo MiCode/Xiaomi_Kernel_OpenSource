@@ -409,6 +409,18 @@ int is_raw_ufo(u32 pixelformat)
 	}
 }
 
+int is_fullg_rb(u32 pixelformat)
+{
+	switch (pixelformat) {
+	case V4L2_PIX_FMT_MTISP_SGRB8F:
+	case V4L2_PIX_FMT_MTISP_SGRB10F:
+	case V4L2_PIX_FMT_MTISP_SGRB12F:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 const struct mtk_format_info *mtk_format_info(u32 format)
 {
 	static const struct mtk_format_info formats[] = {
@@ -1873,8 +1885,14 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 					unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
 					if (plane->bytesperline > stride) {
-						plane->sizeimage += plane->bytesperline
-						* DIV_ROUND_UP(height, vdiv);
+						if (is_fullg_rb(pixelformat)) {
+							plane->sizeimage +=
+							DIV_ROUND_UP(plane->bytesperline, hdiv)
+							* DIV_ROUND_UP(height, vdiv);
+						} else {
+							plane->sizeimage += plane->bytesperline
+							* DIV_ROUND_UP(height, vdiv);
+						}
 					} else {
 						plane->sizeimage += info->bpp[i]
 						* DIV_ROUND_UP(aligned_width, hdiv)
