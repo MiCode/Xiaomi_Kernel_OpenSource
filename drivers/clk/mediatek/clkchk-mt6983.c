@@ -361,15 +361,12 @@ static u32 pwr_sta[STA_NUM];
 
 u32 *get_spm_pwr_status_array(void)
 {
-	static void __iomem *scpsys_base, *pwr_addr[STA_NUM];
+	static void __iomem *pwr_addr[STA_NUM];
 	int i;
 
 	for (i = 0; i < STA_NUM; i++) {
-		if (!scpsys_base)
-			scpsys_base = ioremap(0x1C001000, PAGE_SIZE);
-
 		if (pwr_ofs[i]) {
-			pwr_addr[i] = scpsys_base + pwr_ofs[i];
+			pwr_addr[i] = rb[spm].virt + pwr_ofs[i];
 			pwr_sta[i] = clk_readl(pwr_addr[i]);
 		}
 	}
