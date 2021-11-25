@@ -3057,7 +3057,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	/* use gpr low as poll gpr */
 	cmdq_pkt_poll_addr(pkt, MDP_AAL_SRAM_STATUS_BIT,
 		base + MDP_AAL_SRAM_STATUS,
-		MDP_AAL_SRAM_STATUS_BIT, idx_out);
+		MDP_AAL_SRAM_STATUS_BIT, idx_out - CMDQ_GPR_CNT_ID);
 	/* read to value gpr */
 	cmdq_pkt_read_addr(pkt, base + MDP_AAL_SRAM_RW_IF_3, idx_val);
 	/* and now assign addr low 32bit from spr to idx_out gpr */
@@ -3153,8 +3153,8 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	/* pipe 0: P6 (R12+R13)
 	 * pipe 1: P7 (R14+R15)
 	 */
-	u16 idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
-	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
+	u16 idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
+	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
 	struct cmdq_operand lop, rop;
 	struct cmdq_pkt_buffer *buf;
 
@@ -3162,8 +3162,8 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 		__func__, (unsigned long)pa, engine);
 
 	if (pipe == 1) {
-		idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_P7;
-		idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_R14;
+		idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R14;
+		idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P7;
 	}
 
 	rb->start = pa;
