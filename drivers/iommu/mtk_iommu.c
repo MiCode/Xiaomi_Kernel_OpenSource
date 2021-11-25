@@ -747,13 +747,12 @@ static int mtk_iommu_isr_pause_timer_init(struct mtk_iommu_data *data)
 
 static int mtk_iommu_isr_pause(struct mtk_iommu_data *data, int delay)
 {
-	if (!timer_pending(&data->iommu_isr_pause_timer)) {
-		/* disable all intr */
-		mtk_iommu_isr_setup(data, 0);
-		/* delay seconds */
-		data->iommu_isr_pause_timer.expires = jiffies + delay * HZ;
+	/* disable all intr */
+	mtk_iommu_isr_setup(data, 0);
+	/* delay seconds */
+	data->iommu_isr_pause_timer.expires = jiffies + delay * HZ;
+	if (!timer_pending(&data->iommu_isr_pause_timer))
 		add_timer(&data->iommu_isr_pause_timer);
-	}
 	return 0;
 }
 
@@ -977,6 +976,8 @@ static irqreturn_t mtk_iommu_dump_sec_bank(struct mtk_iommu_data *data,
 
 	mtk_iommu_tlb_flush_all(data);
 
+	mtk_iommu_isr_record(data);
+
 	return IRQ_HANDLED;
 }
 
@@ -1152,8 +1153,7 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 			for (mau = 0; mau < mau_count; mau++) {
 				if (int_state1 & F_INT_MMU_MAU_INT_STA(slave_id, mau, mau_count)) {
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
-					mtk_iommu_mau_dump_status(data, slave_id, mau,
-						((int_state1 & F_INT_TRANSLATION_FAULT) == 0));
+					mtk_iommu_mau_dump_status(data, slave_id, mau, false);
 #endif
 				}
 			}
