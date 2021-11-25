@@ -1650,17 +1650,17 @@
 			 <&disp_iommu M4U_LARB11_PORT0>,
 			 <&disp_iommu M4U_LARB12_PORT0>,
 			 <&disp_iommu M4U_LARB15_PORT0>;
-		mboxes = <&gce_m 0 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 1 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 2 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 3 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 4 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 5 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 16 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 17 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 18 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m 19 0 CMDQ_THR_PRIO_1>,
-			 <&gce_m_sec 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		mboxes = <&gce_m 0 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 1 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 2 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 3 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 4 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 5 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 16 3000 CMDQ_THR_PRIO_2>,
+			 <&gce_m 17 3000 CMDQ_THR_PRIO_1>,
+			 <&gce_m 18 3000 CMDQ_THR_PRIO_1>,
+			 <&gce_m 19 3000 CMDQ_THR_PRIO_1>,
+			 <&gce_m_sec 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>;
 		traw_cq_thread0_frame_done =
 			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0>;
 		traw_cq_thread1_frame_done =
@@ -4815,8 +4815,8 @@
 			compatible = "mediatek,mt8195-aie", "mediatek,aie-hw3.0";
 			reg = <0 0x15310000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_1>,
-				 <&gce_m_sec 11 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+			mboxes = <&gce_m 20 0 CMDQ_THR_PRIO_2>,
+				 <&gce_m_sec 11 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>;
 			fdvt_frame_done = <CMDQ_EVENT_IMG_IMGSYS_IPE_FDVT0_DONE>;
 			sw_sync_token_tzmp_aie_wait = <CMDQ_SYNC_TOKEN_TZMP_AIE_WAIT>;
 			sw_sync_token_tzmp_aie_set = <CMDQ_SYNC_TOKEN_TZMP_AIE_SET>;
