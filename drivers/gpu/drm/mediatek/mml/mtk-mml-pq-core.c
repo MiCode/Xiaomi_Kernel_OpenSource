@@ -1246,7 +1246,7 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 	new_sub_task = wait_next_sub_task(chan);
 	if (!new_sub_task) {
 		kfree(job);
-		mml_pq_log("%s Get sub task failed", __func__);
+		mml_pq_msg("%s Get sub task failed", __func__);
 		return -ERESTARTSYS;
 	}
 
