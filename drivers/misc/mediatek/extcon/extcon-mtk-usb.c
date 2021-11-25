@@ -262,12 +262,16 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		} else if (!(extcon->bypss_typec_sink) &&
 			noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			(noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
-			noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC)) {
+			noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC ||
+			noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
+			noti->typec_state.new_state == TYPEC_ATTACHED_DBGACC_SNK)) {
 			dev_info(dev, "Type-C SINK plug in\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC) &&
+			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
+			noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
+			noti->typec_state.old_state == TYPEC_ATTACHED_DBGACC_SNK) &&
 			noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			dev_info(dev, "Type-C plug out\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
