@@ -882,7 +882,7 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	kal_uint32 max_gain;
 
 	max_gain = imgsensor_info.max_gain;//setuphere for mode use
-	min_gain = imgsensor_info.min_gain;//setuphere for mode use
+	min_gain = BASEGAIN;//setuphere for mode use
 
 	if (ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM3 ||//16x for full size mode
 			ctx->sensor_mode == IMGSENSOR_MODE_CUSTOM4 ||
