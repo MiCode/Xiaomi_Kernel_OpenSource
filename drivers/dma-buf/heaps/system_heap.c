@@ -1019,7 +1019,9 @@ static int system_heap_create(void)
 	if (IS_ERR(mtk_mm_uncached_heap))
 		return PTR_ERR(mtk_mm_uncached_heap);
 
-	dma_coerce_mask_and_coherent(dma_heap_get_dev(mtk_mm_uncached_heap), DMA_BIT_MASK(64));
+	err = set_heap_dev_dma(dma_heap_get_dev(mtk_mm_uncached_heap));
+	if (err)
+		return err;
 	mb(); /* make sure we only set allocate after dma_mask is set */
 	mtk_mm_uncached_heap_ops.allocate = mtk_mm_uncached_heap_allocate;
 	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
