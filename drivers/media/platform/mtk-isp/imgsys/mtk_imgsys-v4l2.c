@@ -921,7 +921,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	req = media_request_get_by_fd(&pipe->imgsys_dev->mdev, buf->request_fd);
 	imgsys_req = mtk_imgsys_media_req_to_imgsys_req(req);
 	imgsys_req->tstate.time_qbuf = ktime_get_boottime_ns()/1000;
-
+	media_request_put(req);
 	if (!is_desc_fmt(node->dev_q.dev_fmt)) {
 		user_ptr =
 			(((unsigned long)(buf->m.planes[0].reserved[0]) << 32) |
