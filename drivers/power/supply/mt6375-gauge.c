@@ -3036,7 +3036,7 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
 	int i, ret, vbat_mon;
 	u32 data = 0;
-	static long long t1, t2;
+	static long long t1;
 	static int print_period = 3;
 	static int dump_reg[] = { 0x236, 0x237, 0x238, 0x31C, 0x31D, 0x338, 0x339,
 				  0x33A, 0x35D, 0x35E, 0x408, 0x409, 0x40A, 0x40B,
@@ -3054,18 +3054,11 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 		return ret;
 	}
 
-	bm_err("[%s] vbat_cell = %d\n", __func__, *val);
 	if (*val < 1000) {
 		if (t1 == 0) {
 			t1 = local_clock();
-			t2 = local_clock();
-		} else if ((local_clock() - t1) / NSEC_PER_SEC > 15) {
+		} else if ((local_clock() - t1) / NSEC_PER_SEC > print_period) {
 			t1 = local_clock();
-			aee_kernel_warning("GAUGE", "vbat cell < 1V");
-		}
-
-		if ((local_clock() - t2) / NSEC_PER_SEC > print_period) {
-			t2 = local_clock();
 			ret = mt6375_get_vbat_mon_rpt(priv, &vbat_mon);
 			bm_err("[%s] vbat_mon = %d(%d)\n", __func__, vbat_mon, ret);
 			for (i = 0; i < ARRAY_SIZE(dump_reg); i++) {
