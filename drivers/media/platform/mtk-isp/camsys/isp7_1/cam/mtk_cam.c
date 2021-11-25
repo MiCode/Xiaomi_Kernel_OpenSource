@@ -1957,7 +1957,8 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 					cfg_fmt, ctx->pipe->stagger_path);
 			if (mtk_cam_is_time_shared(ctx))
 				config_img_in_fmt_time_shared(cam, req_stream_data, node, cfg_fmt);
-			if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
+			if ((mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx))
+					&& node->desc.dma_port == MTKCAM_IPI_RAW_IMGO) {
 				ret = config_img_fmt_mstream(cam, ctx, req,
 							cfg_fmt, node,
 							sd_width, sd_height);
