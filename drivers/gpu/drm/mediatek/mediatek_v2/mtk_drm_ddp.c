@@ -12122,9 +12122,9 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		}
 	}
 
-	if (((sched_clock() - irq_debug[0]) > 1000000) &&
+	if (((sched_clock() - irq_debug[0]) > 850000) &&
 			__ratelimit(&irq_ratelimit)) {
-		DDPMSG("%s > 1 ms, %llu %llu %llu %llu\n",
+		DDPMSG("%s > 850 us, %llu %llu %llu %llu\n",
 			__func__,
 			(irq_debug[2] - irq_debug[1]),
 			(irq_debug[4] - irq_debug[3]),
