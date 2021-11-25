@@ -2209,7 +2209,7 @@
 		"mdp1_0",
 		"isp_ipe_0",
 		"isp-0", "isp-1", "isp-2", "isp-3", "isp-4", "isp-5",
-		"cam-0", "cam-1", "cam_lp-0", "cam_lp-1", "cam_lp-2",
+		"cam_lp-0", "cam_lp-1", "cam_lp-2", "cam_lp-3", "cam_lp-4",
 		"dis0-0", "dis1-0",
 		"mdp0-0", "mdp1-0",
 		"vde0-0",
