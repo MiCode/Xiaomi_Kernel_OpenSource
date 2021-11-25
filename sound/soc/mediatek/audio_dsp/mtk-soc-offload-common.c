@@ -262,7 +262,6 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 static int mtk_compr_offload_open(struct snd_soc_component *component,
 				  struct snd_compr_stream *stream)
 {
-	int ret = 0;
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(true);
 #endif
@@ -280,33 +279,6 @@ static int mtk_compr_offload_open(struct snd_soc_component *component,
 		dsp = (struct mtk_base_dsp *)get_dsp_base();
 		pr_debug("get_dsp_base again\n");
 	}
-
-	/* gen pool related */
-	dsp->dsp_mem[ID].gen_pool_buffer =
-			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
-	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			gen_pool_avail(
-				dsp->dsp_mem[ID].gen_pool_buffer),
-			gen_pool_size(
-				dsp->dsp_mem[ID].gen_pool_buffer));
-
-		/* allocate ring buffer wioth share memory*/
-		ret = mtk_adsp_genpool_allocate_sharemem_ring(
-			      &dsp->dsp_mem[ID],
-			      OFFLOAD_SIZE_BYTES,
-			      ID);
-
-		if (ret < 0) {
-			pr_debug("%s err\n", __func__);
-			return -1;
-		}
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			 gen_pool_avail(
-			 dsp->dsp_mem[ID].gen_pool_buffer),
-			 gen_pool_size(
-			 dsp->dsp_mem[ID].gen_pool_buffer));
-	}
 	return 0;
 }
 
@@ -317,7 +289,6 @@ static void mtk_compr_use_pause_in_drain(void *ignore, bool *use_pause_in_drain,
 	*leave_draining_state = true;
 	pr_info("%s\n", __func__);
 }
-
 
 static int mtk_afe_dloffload_probe(struct snd_soc_component *component)
 {
@@ -361,6 +332,7 @@ static int mtk_compr_offload_set_params(struct snd_soc_component *component,
 	struct mtk_base_dsp_mem *audio_dsp_mem;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
 	int ret = 0;
+	unsigned int offload_buffer_size;
 
 	audio_task_register_callback(
 			 TASK_SCENE_PLAYBACK_MP3,
@@ -368,6 +340,42 @@ static int mtk_compr_offload_set_params(struct snd_soc_component *component,
 
 	codec = params->codec;
 	afe_offload_block.samplerate = codec.sample_rate;
+	offload_buffer_size = codec.reserved[1];
+
+	if (offload_buffer_size < 262144) { // 256K
+		pr_debug("%s err offload_buffer_size = %u\n", __func__, offload_buffer_size);
+		return -1;
+	}
+
+	/* gen pool related */
+	if (dsp)
+		mtk_adsp_genpool_free_sharemem_ring(&dsp->dsp_mem[ID], ID);
+	dsp->dsp_mem[ID].gen_pool_buffer =
+			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
+	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			gen_pool_avail(
+				dsp->dsp_mem[ID].gen_pool_buffer),
+			gen_pool_size(
+				dsp->dsp_mem[ID].gen_pool_buffer));
+
+		/* allocate ring buffer wioth share memory*/
+		ret = mtk_adsp_genpool_allocate_sharemem_ring(
+			      &dsp->dsp_mem[ID],
+			      offload_buffer_size,
+			      ID);
+		pr_debug("%s() allocate offload bufsize = %u\n", __func__, offload_buffer_size);
+
+		if (ret < 0) {
+			pr_debug("%s err\n", __func__);
+			return -1;
+		}
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			 gen_pool_avail(
+			 dsp->dsp_mem[ID].gen_pool_buffer),
+			 gen_pool_size(
+			 dsp->dsp_mem[ID].gen_pool_buffer));
+	}
 
 	//set shared Dram meme
 	audio_hwbuf = &dsp->dsp_mem[ID].adsp_buf;
