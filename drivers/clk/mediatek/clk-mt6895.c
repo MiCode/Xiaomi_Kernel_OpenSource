@@ -288,18 +288,6 @@
 #define MFGSCPLL_CON1				0x00C
 #define MFGSCPLL_CON2				0x010
 #define MFGSCPLL_CON3				0x014
-#define APUPLL_CON0				0x008
-#define APUPLL_CON1				0x00C
-#define APUPLL_CON2				0x010
-#define APUPLL_CON3				0x014
-#define NPUPLL_CON0				0x008
-#define NPUPLL_CON1				0x00C
-#define NPUPLL_CON2				0x010
-#define NPUPLL_CON3				0x014
-#define APUPLL1_CON0				0x008
-#define APUPLL1_CON1				0x00C
-#define APUPLL1_CON2				0x010
-#define APUPLL1_CON3				0x014
 /* dummy register for simulate */
 #define USBPLL_CON0				0x318
 #define USBPLL_CON1				0x31C
@@ -2852,33 +2840,6 @@ static const struct mtk_pll_data mfg_ao_plls[] = {
 		MFGPLL_CON1, 0, 22/*pcw*/),
 };
 
-static const struct mtk_pll_data apu0_ao_plls[] = {
-	PLL(CLK_APU0_AO_APUPLL, "apu0_ao_apupll", APUPLL_CON0/*base*/,
-		APUPLL_CON0, 0, 0/*en*/,
-		APUPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL_CON1, 0, 22/*pcw*/),
-};
-
-static const struct mtk_pll_data npu_ao_plls[] = {
-	PLL(CLK_NPU_AO_NPUPLL, "npu_ao_npupll", NPUPLL_CON0/*base*/,
-		NPUPLL_CON0, 0, 0/*en*/,
-		NPUPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		NPUPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		NPUPLL_CON1, 0, 22/*pcw*/),
-};
-
-static const struct mtk_pll_data apu1_ao_plls[] = {
-	PLL(CLK_APU1_AO_APUPLL1, "apu1_ao_apupll1", APUPLL1_CON0/*base*/,
-		APUPLL1_CON0, 0, 0/*en*/,
-		APUPLL1_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL1_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL1_CON1, 0, 22/*pcw*/),
-};
-
 static const struct mtk_pll_data mfgsc_ao_plls[] = {
 	PLL(CLK_MFGSC_AO_MFGSCPLL, "mfgsc_ao_mfgscpll", MFGSCPLL_CON0/*base*/,
 		MFGSCPLL_CON0, 0, 0/*en*/,
@@ -2942,18 +2903,6 @@ static int clk_mt6895_apmixed_probe(struct platform_device *pdev)
 			pdev, ARRAY_SIZE(apmixed_plls));
 }
 
-static int clk_mt6895_apu1_ao_probe(struct platform_device *pdev)
-{
-	return clk_mt6895_pll_registration(APUPLL1_PLL_CTRL, apu1_ao_plls,
-			pdev, ARRAY_SIZE(apu1_ao_plls));
-}
-
-static int clk_mt6895_apu0_ao_probe(struct platform_device *pdev)
-{
-	return clk_mt6895_pll_registration(APUPLL_PLL_CTRL, apu0_ao_plls,
-			pdev, ARRAY_SIZE(apu0_ao_plls));
-}
-
 static int clk_mt6895_mfg_ao_probe(struct platform_device *pdev)
 {
 	return clk_mt6895_pll_registration(MFGPLL_PLL_CTRL, mfg_ao_plls,
@@ -2964,12 +2913,6 @@ static int clk_mt6895_mfgsc_ao_probe(struct platform_device *pdev)
 {
 	return clk_mt6895_pll_registration(MFGSCPLL_PLL_CTRL, mfgsc_ao_plls,
 			pdev, ARRAY_SIZE(mfgsc_ao_plls));
-}
-
-static int clk_mt6895_npu_ao_probe(struct platform_device *pdev)
-{
-	return clk_mt6895_pll_registration(NPUPLL_PLL_CTRL, npu_ao_plls,
-			pdev, ARRAY_SIZE(npu_ao_plls));
 }
 
 static int clk_mt6895_top_probe(struct platform_device *pdev)
@@ -3099,20 +3042,11 @@ static const struct of_device_id of_match_clk_mt6895[] = {
 		.compatible = "mediatek,mt6895-apmixedsys",
 		.data = clk_mt6895_apmixed_probe,
 	}, {
-		.compatible = "mediatek,mt6895-apupll1_pll_ctrl",
-		.data = clk_mt6895_apu1_ao_probe,
-	}, {
-		.compatible = "mediatek,mt6895-apupll_pll_ctrl",
-		.data = clk_mt6895_apu0_ao_probe,
-	}, {
 		.compatible = "mediatek,mt6895-mfgpll_pll_ctrl",
 		.data = clk_mt6895_mfg_ao_probe,
 	}, {
 		.compatible = "mediatek,mt6895-mfgscpll_pll_ctrl",
 		.data = clk_mt6895_mfgsc_ao_probe,
-	}, {
-		.compatible = "mediatek,mt6895-npupll_pll_ctrl",
-		.data = clk_mt6895_npu_ao_probe,
 	}, {
 		.compatible = "mediatek,mt6895-topckgen",
 		.data = clk_mt6895_top_probe,
