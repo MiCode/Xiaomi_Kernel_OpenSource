@@ -260,6 +260,7 @@ struct mdw_cmd {
 	uint64_t kid;
 	uint64_t uid;
 	uint64_t usr_id;
+	uint64_t rvid;
 	uint32_t priority;
 	uint32_t hardlimit;
 	uint32_t softlimit;
@@ -314,8 +315,16 @@ struct mdw_dev_func {
 			"\nCRDISPATCH_KEY:APUSYS_MIDDLEWARE\n" format, \
 			##args); \
 	} while (0)
+#define dma_exception(format, args...) \
+	do { \
+		pr_info("apusys mdw:" format, ##args); \
+		aee_kernel_warning("APUSYS_AP_EXCEPTION_APUSYS_MIDDLEWARE", \
+			"\nCRDISPATCH_KEY:APUSYS_EDMA\n" format, \
+	##args); \
+	} while (0)
 #else
 #define mdw_exception(format, args...)
+#define dma_exception(format, args...)
 #endif
 
 void mdw_ap_set_func(struct mdw_device *mdev);

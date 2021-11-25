@@ -10,9 +10,9 @@
 #include <linux/tracepoint.h>
 
 #define MDW_TAG_CMD_PRINT \
-	"%s,pid=%d,tgid=%d,uid=0x%llx,kid=0x%llx,"\
+	"%s,pid=%d,tgid=%d,uid=0x%llx,kid=0x%llx,rvid=0x%llx,"\
 	"num_subcmds=%u,num_cmdbufs=%u,"\
-	"priority=%u,softlimit=%u,hardlimit=%u,pwr_dtime=%u,"\
+	"priority=%u,softlimit=%u,pwr_dtime=%u,"\
 	"sc_rets=0x%llx"\
 
 TRACE_EVENT(mdw_rv_cmd,
@@ -21,17 +21,17 @@ TRACE_EVENT(mdw_rv_cmd,
 		pid_t tgid,
 		uint64_t uid,
 		uint64_t kid,
+		uint64_t rvid,
 		uint32_t num_subcmds,
 		uint32_t num_cmdbufs,
 		uint32_t priority,
 		uint32_t softlimit,
-		uint32_t hardlimit,
 		uint32_t pwr_dtime,
 		uint64_t sc_rets
 		),
-	TP_ARGS(done, pid, tgid, uid, kid,
+	TP_ARGS(done, pid, tgid, uid, kid, rvid,
 		num_subcmds, num_cmdbufs,
-		priority, softlimit, hardlimit,
+		priority, softlimit,
 		pwr_dtime, sc_rets
 		),
 	TP_STRUCT__entry(
@@ -40,11 +40,11 @@ TRACE_EVENT(mdw_rv_cmd,
 		__field(pid_t, tgid)
 		__field(uint64_t, uid)
 		__field(uint64_t, kid)
+		__field(uint64_t, rvid)
 		__field(uint32_t, num_subcmds)
 		__field(uint32_t, num_cmdbufs)
 		__field(uint32_t, priority)
 		__field(uint32_t, softlimit)
-		__field(uint32_t, hardlimit)
 		__field(uint32_t, pwr_dtime)
 		__field(uint32_t, sc_rets)
 	),
@@ -54,11 +54,11 @@ TRACE_EVENT(mdw_rv_cmd,
 		__entry->tgid = tgid;
 		__entry->uid = uid;
 		__entry->kid = kid;
+		__entry->rvid = rvid;
 		__entry->num_subcmds = num_subcmds;
 		__entry->num_cmdbufs = num_cmdbufs;
 		__entry->priority = priority;
 		__entry->softlimit = softlimit;
-		__entry->hardlimit = hardlimit;
 		__entry->pwr_dtime = pwr_dtime;
 		__entry->sc_rets = sc_rets;
 	),
@@ -69,11 +69,11 @@ TRACE_EVENT(mdw_rv_cmd,
 		__entry->tgid,
 		__entry->uid,
 		__entry->kid,
+		__entry->rvid,
 		__entry->num_subcmds,
 		__entry->num_cmdbufs,
 		__entry->priority,
 		__entry->softlimit,
-		__entry->hardlimit,
 		__entry->pwr_dtime,
 		__entry->sc_rets
 	)

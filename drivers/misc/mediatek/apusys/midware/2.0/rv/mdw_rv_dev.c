@@ -22,11 +22,11 @@ static inline void mdw_rv_dev_trace(struct mdw_rv_cmd *rc, bool done)
 		rc->c->tgid,
 		rc->c->uid,
 		rc->c->kid,
+		rc->c->rvid,
 		rc->c->num_subcmds,
 		rc->c->num_cmdbufs,
 		rc->c->priority,
 		rc->c->softlimit,
-		rc->c->hardlimit,
 		rc->c->power_dtime,
 		rc->c->einfos->c.sc_rets);
 }
@@ -208,8 +208,9 @@ static int mdw_rv_dev_send_cmd(struct mdw_rv_dev *mrdev, struct mdw_rv_cmd *rc)
 {
 	int ret = 0;
 
-	mdw_drv_debug("pid(%d) run cmd(0x%llx) dva(0x%llx) size(%u)\n",
-		current->pid, rc->c->kid, rc->cb->device_va, rc->cb->size);
+	mdw_drv_debug("pid(%d) run cmd(0x%llx/0x%llx) dva(0x%llx) size(%u)\n",
+		current->pid, rc->c->kid, rc->c->rvid,
+		rc->cb->device_va, rc->cb->size);
 
 	rc->s_msg.msg.id = MDW_IPI_APU_CMD;
 	rc->s_msg.msg.c.iova = rc->cb->device_va;

@@ -19,11 +19,11 @@ struct mdw_rv_tag {
 			pid_t tgid;
 			uint64_t uid;
 			uint64_t kid;
+			uint64_t rvid;
 			uint32_t num_subcmds;
 			uint32_t num_cmdbufs;
 			uint32_t priority;
 			uint32_t softlimit;
-			uint32_t hardlimit;
 			uint32_t pwr_dtime;
 			uint64_t sc_rets;
 		} cmd;

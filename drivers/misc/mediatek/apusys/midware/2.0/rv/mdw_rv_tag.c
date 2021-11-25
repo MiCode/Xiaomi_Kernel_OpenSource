@@ -25,11 +25,10 @@ enum mdw_tag_type {
 /* The parameters must aligned with trace_mdw_rv_cmd() */
 static void
 probe_rv_mdw_cmd(void *data, bool done, pid_t pid, pid_t tgid,
-		uint64_t uid, uint64_t kid,
+		uint64_t uid, uint64_t kid, uint64_t rvid,
 		uint32_t num_subcmds, uint32_t num_cmdbufs,
 		uint32_t priority,
 		uint32_t softlimit,
-		uint32_t hardlimit,
 		uint32_t pwr_dtime,
 		uint64_t sc_rets)
 {
@@ -44,11 +43,11 @@ probe_rv_mdw_cmd(void *data, bool done, pid_t pid, pid_t tgid,
 	t.d.cmd.tgid = tgid;
 	t.d.cmd.uid = uid;
 	t.d.cmd.kid = kid;
+	t.d.cmd.rvid = rvid;
 	t.d.cmd.num_subcmds = num_subcmds;
 	t.d.cmd.num_cmdbufs = num_cmdbufs;
 	t.d.cmd.priority = priority;
 	t.d.cmd.softlimit = softlimit;
-	t.d.cmd.hardlimit = hardlimit;
 	t.d.cmd.pwr_dtime = pwr_dtime;
 	t.d.cmd.sc_rets = sc_rets;
 
@@ -67,13 +66,13 @@ static void mdw_rv_tag_seq_cmd(struct seq_file *s, struct mdw_rv_tag *t)
 			return;
 	}
 	seq_printf(s, "%s,", status);
-	seq_printf(s, "pid=%d,tgid=%d,uid=0x%llx,kid=0x%llx,",
+	seq_printf(s, "pid=%d,tgid=%d,uid=0x%llx,kid=0x%llx,rvid=0x%llx,",
 		t->d.cmd.pid, t->d.cmd.tgid,
-		t->d.cmd.uid, t->d.cmd.kid);
+		t->d.cmd.uid, t->d.cmd.kid, t->d.cmd.rvid);
 	seq_printf(s, "num_subcmds=%u,num_cmdbufs=%u,",
 		t->d.cmd.num_subcmds, t->d.cmd.num_cmdbufs);
-	seq_printf(s, "priority=%u,softlimit=%u,hardlimit=%u,",
-		t->d.cmd.priority, t->d.cmd.softlimit, t->d.cmd.hardlimit);
+	seq_printf(s, "priority=%u,softlimit=%u,",
+		t->d.cmd.priority, t->d.cmd.softlimit);
 	seq_printf(s, "pwr_dtime=%u,sc_rets=0x%llx\n",
 		t->d.cmd.pwr_dtime,
 		t->d.cmd.sc_rets);

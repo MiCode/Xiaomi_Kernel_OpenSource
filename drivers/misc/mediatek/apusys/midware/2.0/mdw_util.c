@@ -14,7 +14,7 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data)
 	void *mem_ucmd = NULL;
 	int ret = 0;
 
-	mdw_flw_debug("mpriv(0x%llx) op::%d\n", (uint64_t)mpriv, args->in.op);
+	mdw_flw_debug("s(0x%llx) op::%d\n", (uint64_t)mpriv, args->in.op);
 
 	switch (args->in.op) {
 	case MDW_UTIL_IOCTL_SETPOWER:

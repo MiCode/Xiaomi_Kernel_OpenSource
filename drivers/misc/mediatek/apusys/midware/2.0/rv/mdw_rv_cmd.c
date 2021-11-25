@@ -81,7 +81,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
 
-	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
+	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->uid, c->kid);
 	mutex_lock(&mpriv->mtx);
 
 	/* check mem address for rv */
@@ -96,6 +96,7 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	if (!rc)
 		goto out;
 
+	c->rvid = (uint64_t)&rc->s_msg;
 	init_completion(&rc->s_msg.cmplt);
 	/* set start timestamp */
 	rc->start_ts_ns = c->start_ts.tv_sec * 1000000000 + c->start_ts.tv_nsec;
@@ -189,8 +190,8 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	c->einfos->c.sc_rets = 0;
 
 	if (mdw_mem_flush(mpriv, rc->cb))
-		mdw_drv_warn("s(0x%llx) c(0x%llx) flush rv cbs(%u) fail\n",
-			(uint64_t)c->mpriv, c->kid, rc->cb->size);
+		mdw_drv_warn("s(0x%llx) c(0x%llx/0x%llx) flush rv cbs(%u) fail\n",
+			(uint64_t)c->mpriv, c->kid, c->rvid, rc->cb->size);
 
 	mdw_rv_cmd_set_affinity(c, true);
 
@@ -201,7 +202,7 @@ free_rc:
 	rc = NULL;
 out:
 	mutex_unlock(&mpriv->mtx);
-	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, c->kid, c->uid);
+	mdw_trace_end("%s|cmd(0x%llx/0x%llx)", __func__, c->uid, c->kid);
 	return rc;
 }
 
@@ -219,13 +220,15 @@ int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 	mutex_lock(&mpriv->mtx);
 	/* invalidate */
 	if (mdw_mem_invalidate(c->mpriv, rc->cb))
-		mdw_drv_warn("s(0x%llx) c(0x%llx) invalidate rcbs(%u) fail\n",
-			(uint64_t)c->mpriv, c->kid, rc->cb->size);
+		mdw_drv_warn("s(0x%llx) c(0x%llx/0x%llx/0x%llx) invalidate rcbs(%u) fail\n",
+			(uint64_t)c->mpriv, c->uid, c->kid,
+			c->rvid, rc->cb->size);
 
 	/* copy exec infos */
 	rmc = (struct mdw_rv_msg_cmd *)rc->cb->vaddr;
 	if (rmc->exec_infos_offset + c->exec_infos->size != rc->cb->size) {
-		mdw_drv_warn("c(0x%llx) execinfos size(%u/%u) not matched\n",
+		mdw_drv_warn("c(0x%llx/0x%llx/0x%llx) execinfos size(%u/%u) not matched\n",
+			c->uid, c->kid, c->rvid,
 			rmc->exec_infos_offset + c->exec_infos->size,
 			rc->cb->size);
 	} else {

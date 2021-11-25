@@ -13,7 +13,7 @@ int mdw_hs_ioctl(struct mdw_fpriv *mpriv, void *data)
 	unsigned int type = 0;
 	int ret = 0;
 
-	mdw_flw_debug("op:%d\n", args->in.op);
+	mdw_flw_debug("s(0x%llx) op:%d\n", (uint64_t)mpriv, args->in.op);
 
 	switch (args->in.op) {
 	case MDW_HS_IOCTL_OP_BASIC:

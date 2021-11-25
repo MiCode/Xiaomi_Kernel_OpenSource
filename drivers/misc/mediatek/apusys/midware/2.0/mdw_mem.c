@@ -374,7 +374,7 @@ static struct mdw_mem_invoke *mdw_mem_invoke_find(struct mdw_fpriv *mpriv,
 
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
 		if (m_invoke->m == m) {
-			mdw_flw_debug("mpriv(0x%llx) find invoke(0x%llx) to mem(0x%llx)\n",
+			mdw_flw_debug("s(0x%llx) find invoke(0x%llx) to mem(0x%llx)\n",
 				(uint64_t)mpriv, (uint64_t)m_invoke,
 				(uint64_t)m);
 			return m_invoke;
@@ -502,7 +502,7 @@ int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	mdw_mem_show(m);
 	m_invoke = mdw_mem_invoke_find(mpriv, m);
 	if (m_invoke == NULL) {
-		mdw_drv_warn("mpriv(0x%llx) no invoke m(0x%llx)\n",
+		mdw_drv_warn("s(0x%llx) no invoke m(0x%llx)\n",
 			(uint64_t)mpriv, (uint64_t)m);
 		ret = -EINVAL;
 		goto out;
@@ -696,7 +696,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data)
 	union mdw_mem_args *args = (union mdw_mem_args *)data;
 	int ret = 0;
 
-	mdw_flw_debug("mpriv(0x%llx) op::%d\n", (uint64_t)mpriv, args->in.op);
+	mdw_flw_debug("s(0x%llx) op::%d\n", (uint64_t)mpriv, args->in.op);
 	switch (args->in.op) {
 	case MDW_MEM_IOCTL_ALLOC:
 		ret = mdw_mem_ioctl_alloc(mpriv, args);
