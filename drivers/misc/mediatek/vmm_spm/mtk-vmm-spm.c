@@ -37,7 +37,7 @@
 #define SPM_VMM_EXT_BUCK_ISO_BIT 16
 #define SPM_AOC_VMM_SRAM_ISO_DIN_BIT 17
 #define SPM_AOC_VMM_SRAM_LATCH_ENB 18
-#define SPM_HW_SEM_TIMEOUT_NS 1000000000 /* 1 sec for acquiring sem timeout */
+#define SPM_HW_SEM_TIMEOUT_MS 1000 /* 1 sec for acquiring sem timeout */
 
 #define SPM_VMM_HW_SEM_REG_OFST_M0 0x69C
 #define SPM_VMM_HW_SEM_REG_OFST_M1 0x6A0
@@ -78,23 +78,22 @@ static void vmm_dump_spm_sem_reg(void __iomem *base)
 static int acquire_hw_semaphore(void __iomem *hw_sem_addr)
 {
 	u32 hw_sem;
-	u64 timestamp_start, r_timestamp, time_remain;
+	unsigned long timeout = jiffies + msecs_to_jiffies(SPM_HW_SEM_TIMEOUT_MS);
 
-	timestamp_start = ktime_get_boottime_ns();
-	do {
-		/* Spend too much time acquiring HW semaphore, error return */
-		r_timestamp = ktime_get_boottime_ns();
-		time_remain = r_timestamp - timestamp_start;
-		if (time_remain > SPM_HW_SEM_TIMEOUT_NS) {
-			ISP_LOGE("Acquire hw sem timeout (%lu)\n", time_remain);
-			return -EINVAL;
-		}
-
+	for (;;) {
 		hw_sem = readl_relaxed(hw_sem_addr);
 		hw_sem |= 0x1;
 		writel_relaxed(hw_sem, hw_sem_addr);
-		/* *hw_sem_addr == 0x1 means acquire succeed*/
-	} while ((readl_relaxed(hw_sem_addr) & 0x1) != 0x1);
+
+		/* *hw_sem_addr == 0x1 means acquire succeed */
+		if (readl_relaxed(hw_sem_addr) & 0x1)
+			break;
+		if (time_is_before_eq_jiffies(timeout)) {
+			ISP_LOGE("Acquire hw sem timeout (%d) ms\n",
+					SPM_HW_SEM_TIMEOUT_MS);
+			return -ETIMEDOUT;
+		}
+	}
 
 	return 0;
 }
