@@ -704,7 +704,7 @@ static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 	/* use gpr low as poll gpr */
 	cmdq_pkt_poll_addr(pkt, AAL_SRAM_STATUS_BIT,
 		base_pa + AAL_SRAM_STATUS,
-		AAL_SRAM_STATUS_BIT, idx_out);
+		AAL_SRAM_STATUS_BIT, idx_out - CMDQ_GPR_CNT_ID);
 	/* read to value gpr */
 	cmdq_pkt_read_addr(pkt, base_pa + AAL_SRAM_RW_IF_3, idx_val);
 	/* and now assign addr low 32bit from spr to idx_out gpr */

@@ -166,6 +166,7 @@ struct mml_comp_hdr {
 /* meta data for each different frame config */
 struct hdr_frame_data {
 	u32 out_hist_xs;
+	u32 cut_pos_x;
 	u32 begin_offset;
 	u32 condi_offset;
 	u16 labels[HDR_CURVE_NUM + HDR_REG_NUM + CMDQ_GPR_UPDATE];
@@ -285,6 +286,7 @@ static s32 hdr_config_init(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
 	hdr_init(task->pkts[ccfg->pipe], comp->base_pa);
+
 	return 0;
 }
 
@@ -344,6 +346,7 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 				mml_pq_msg("[hdr][config][%x] = %#x mask(%#x)",
 					regs[i].offset, regs[i].value, regs[i].mask);
 			}
+
 			while (i < HDR_CURVE_NUM + result->hdr_reg_cnt) {
 				mml_write(pkt, base_pa + HDR_GAIN_TABLE_1, curve[curve_idx],
 					U32_MAX, reuse, cache, &hdr_frm->labels[i]);
@@ -352,6 +355,10 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 				i += 2;
 				curve_idx += 2;
 			}
+			cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_ADDR,
+					1 << 8, 1 << 8);
+			cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_2,
+					1 << 31, 1 << 31);
 			cmdq_pkt_write(pkt, NULL, base_pa + HDR_GAIN_TABLE_0,
 					1 << 11, 1 << 11);
 			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
@@ -420,16 +427,32 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_hdr)
 		return 0;
 
+	if (!idx) {
+		if (task->config->dual)
+			hdr_frm->cut_pos_x = (dest->crop.r.width/2) + dest->crop.r.left;
+		else
+			hdr_frm->cut_pos_x = dest->crop.r.left+dest->crop.r.width;
+		if (ccfg->pipe)
+			hdr_frm->out_hist_xs = hdr_frm->cut_pos_x;
+	}
+
 	hdr_hist_left_start =
 		(tile->out.xs > hdr_frm->out_hist_xs) ? tile->out.xs : hdr_frm->out_hist_xs;
 	hdr_hist_begin_x = hdr_hist_left_start - tile->in.xs;
-	hdr_hist_end_x = hdr_hist_begin_x+4000;/*tile->out.xe - tile->in.xs*/;
+
+	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
+		hdr_hist_end_x = hdr_frm->cut_pos_x - tile->in.xs - 1;
+	else
+		hdr_hist_end_x = tile->out.xe - tile->in.xs;
 
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_0, hdr_hist_begin_x, 0x0000ffff);
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_1, hdr_hist_end_x, 0x0000ffff);
 
 	if (!idx) {
-		hdr_frm->out_hist_xs = tile->out.xe + 1;
+		if (task->config->dual && ccfg->pipe)
+			hdr_frm->out_hist_xs = tile->in.xs + hdr_hist_end_x + 1;
+		else
+			hdr_frm->out_hist_xs = tile->out.xe + 1;
 		hdr_first_tile = 1;
 		hdr_last_tile = 0;
 	} else if (idx + 1 >= tile_cnt) {
@@ -437,21 +460,24 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 		hdr_first_tile = 0;
 		hdr_last_tile = 1;
 	} else {
-		hdr_frm->out_hist_xs = tile->out.xe + 1;
+		if (task->config->dual && ccfg->pipe)
+			hdr_frm->out_hist_xs = tile->in.xs + hdr_hist_end_x + 1;
+		else
+			hdr_frm->out_hist_xs = tile->out.xe + 1;
 		hdr_first_tile = 0;
 		hdr_last_tile = 0;
 	}
 
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TOP,
-		       (hdr_first_tile << 5) | (hdr_last_tile << 6), 0x00000060);
+		      (hdr_first_tile << 5) | (hdr_last_tile << 6), 0x00000060);
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_ADDR, (hdr_first_tile << 9), 0x00000200);
 
 	mml_pq_msg("%s %d: hdr_hist_begin_x[%d] hdr_hist_end_x[%d] out_hist_xs[%d]",
 		__func__, idx, hdr_hist_begin_x, hdr_hist_end_x,
 		hdr_frm->out_hist_xs);
-	mml_pq_msg("%s %d: hdr_first_tile[%d] hdr_last_tile[%d] out_hist_xs[%d]",
+	mml_pq_msg("%s %d: hdr_first_tile[%d] hdr_last_tile[%d] out_hist_xs[%d] cut_pos_x[%d]",
 		__func__, idx, hdr_first_tile, hdr_last_tile,
-		hdr_frm->out_hist_xs);
+		hdr_frm->out_hist_xs, hdr_frm->cut_pos_x);
 
 	return 0;
 }
@@ -677,6 +703,7 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	u8 pipe = ccfg->pipe;
 
+
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s is_hdr_need_readback[%d] id[%d] en_hdr[%d]", __func__,
 			hdr_frm->is_hdr_need_readback, comp->id, dest->pq_config.en_hdr);
@@ -685,9 +712,9 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		goto exit;
 
 	if (!dest->pq_config.en_hdr) {
-		void __iomem *base = comp->base;
 		s32 i;
 		u32 *phist = kmalloc(HDR_HIST_NUM*sizeof(u32), GFP_KERNEL);
+		void __iomem *base = comp->base;
 
 		for (i = 0; i < HDR_HIST_NUM; i++) {
 			if (i == 57) {
@@ -699,7 +726,7 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_hdr_readback(task, ccfg->pipe, phist);
 	}
 
-	mml_pq_msg("%s job_id[%d] id[%d] pipe[%d] en_hdr[%d] va[%p] pa[%08x]",
+	mml_pq_rb_msg("%s job_id[%d] id[%d] pipe[%d] en_hdr[%d] va[%p] pa[%08x]",
 		__func__, task->job.jobid, comp->id, ccfg->pipe,
 		dest->pq_config.en_hdr, task->pq_task->hdr_hist[pipe]->va,
 		task->pq_task->hdr_hist[pipe]->pa);
@@ -717,11 +744,33 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_hdr_readback(task, ccfg->pipe, task->pq_task->hdr_hist[pipe]->va);
 		if (mml_pq_rb_msg) {
 			u32 i = 0, sum = 0;
+			u32 expect_value = 0;
+			u32 letter_up = 0, letter_down = 0, letter_height = 0;
 
 			for (i = 0; i < HDR_HIST_CNT; i++)
 				sum = sum + task->pq_task->hdr_hist[pipe]->va[i];
 
-			mml_pq_rb_msg("%s sum[%u] job_id[%d]", __func__, sum, task->job.jobid);
+			letter_up = ((task->pq_task->hdr_hist[pipe]->va[57] &
+				0x0000FFFF) >> 0);
+			letter_down = ((task->pq_task->hdr_hist[pipe]->va[57] &
+				0xFFFF0000) >> 16);
+			letter_height = letter_down - letter_up;
+			if (task->config->dual) {
+				if (pipe)
+					expect_value = (letter_height+1) *
+						(task->config->info.dest[0].crop.r.width -
+						hdr_frm->cut_pos_x) * 8;
+				else
+					expect_value = (letter_height+1) * hdr_frm->cut_pos_x * 8;
+			} else
+				expect_value =
+					(letter_height+1) *
+					task->config->info.dest[0].crop.r.width * 8;
+			mml_pq_rb_msg("%s sum[%u] expect_value[%u] job_id[%d] pipe[%d]", __func__,
+				sum, expect_value, task->job.jobid, pipe);
+			mml_pq_rb_msg("%s job_id[%d] pipe[%d] letter_height[%d] down[%d] up[%d]",
+				__func__, task->job.jobid, pipe, letter_height, letter_down,
+				letter_up);
 		}
 	}
 	mml_pq_put_readback_buffer(task, pipe, task->pq_task->hdr_hist[pipe]);
