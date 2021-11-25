@@ -170,6 +170,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 		__print_once = true; \
 		_dynamic_func_call(fmt,	__dynamic_pr_emerg,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
 		printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__); \
 })
@@ -181,6 +182,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 		__print_once = true; \
 		_dynamic_func_call(fmt,	__dynamic_pr_alert,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
 		printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__); \
 })
@@ -192,6 +194,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 		__print_once = true; \
 		_dynamic_func_call(fmt,	__dynamic_pr_crit,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
 		printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__); \
 })
@@ -203,6 +206,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 		__print_once = true; \
 		_dynamic_func_call(fmt,	__dynamic_pr_err,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
 		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); \
 })
@@ -214,6 +218,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 		__print_once = true; \
 		_dynamic_func_call(fmt,	__dynamic_pr_warn,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
 		printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); \
 })
@@ -225,6 +230,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 		__print_once = true; \
 		_dynamic_func_call(fmt,	__dynamic_pr_notice,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
 		printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__); \
 })
@@ -236,6 +242,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 		__print_once = true; \
 		_dynamic_func_call(fmt,	__dynamic_pr_info,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
+		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
 		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__); \
 })
