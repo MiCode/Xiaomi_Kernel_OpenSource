@@ -1156,14 +1156,6 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 		handle->secData.enginesNeedPortSecurity = 0LL;
 	}
 
-	/* performance debug begin */
-	if (cmdq_core_profile_exec_enabled()) {
-		cmdq_pkt_write(handle->pkt, NULL, CMDQ_TPR_MASK_PA,
-			0xffffffff, 0x8000000);
-		cmdq_pkt_perf_begin(handle->pkt);
-		handle->profile_exec = true;
-	}
-
 	return 0;
 }
 

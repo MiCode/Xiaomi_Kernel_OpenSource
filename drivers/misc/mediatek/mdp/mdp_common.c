@@ -1327,16 +1327,6 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 
 	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n", __func__, handle->engineFlag);
 	CMDQ_MSG("%s %llx\n", __func__, handle->engineFlag);
-	if (handle->profile_exec)
-		cmdq_pkt_perf_end(handle->pkt);
-
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	if (handle->secData.is_secure) {
-		/* insert backup cookie cmd */
-		cmdq_sec_insert_backup_cookie(handle->pkt);
-		handle->thread = CMDQ_INVALID_THREAD;
-	}
-#endif
 
 	/* finalize it */
 	CMDQ_MSG("%s finalize\n", __func__);
@@ -1429,9 +1419,6 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		if (err < 0)
 			goto flush_err_end;
 	}
-
-	if (handle->profile_exec)
-		cmdq_pkt_perf_end(handle->pkt);
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure) {
