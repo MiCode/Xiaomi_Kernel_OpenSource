@@ -1791,6 +1791,7 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 		mtk_cam_get_feature_switch(raw_pipe, raw_fut_pre);
 	s_data->feature.raw_feature = raw_pipe->feature_pending;
 	s_data->feature.prev_feature = raw_fut_pre;
+	atomic_set(&s_data->first_setting_check, 0);
 	if (s_data->feature.switch_feature_type) {
 		s_data->feature.switch_prev_frame_done = 0;
 		s_data->feature.switch_curr_setting_done = 0;

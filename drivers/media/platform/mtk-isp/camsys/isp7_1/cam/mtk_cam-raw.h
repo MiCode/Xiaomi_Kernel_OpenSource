@@ -298,7 +298,6 @@ struct mtk_raw_device {
 	u8 time_shared_busy_ctx_id;
 	atomic_t vf_en;
 	u32 stagger_en;
-	int error_happened_cnt;
 	int overrun_debug_dump_cnt;
 };
 

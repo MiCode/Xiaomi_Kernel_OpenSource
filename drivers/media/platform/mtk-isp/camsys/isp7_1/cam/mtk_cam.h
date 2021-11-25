@@ -250,6 +250,7 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_dbg_work dbg_exception_work;
 	struct list_head deque_list_node;
 	struct list_head cleanup_list_node;
+	atomic_t first_setting_check;
 };
 
 struct mtk_cam_req_pipe {
