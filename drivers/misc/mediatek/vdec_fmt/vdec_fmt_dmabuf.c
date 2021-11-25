@@ -81,7 +81,7 @@ u64 fmt_translate_fd(u64 fd, u32 offset, struct dmabufmap map[], struct device *
 
 	for (i = 0; i < FMT_FD_RESERVE; i++) {
 		if (fd == map[i].fd) {
-			fmt_debug(1, "quick search iova 0x%llx",
+			fmt_debug(3, "quick search iova 0x%llx",
 				map[i].iova + offset);
 			return map[i].iova + offset;
 		}
