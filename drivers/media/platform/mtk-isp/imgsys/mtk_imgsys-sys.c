@@ -1754,6 +1754,8 @@ static void module_uninit(struct kref *kref)
 			"%s: [ERROR] reg is null or disabled\n", __func__);
 	else
 		regulator_disable(dvfs_info->reg);
+
+	pr_info("%s", __func__);
 }
 
 void mtk_imgsys_mod_put(struct mtk_imgsys_dev *imgsys_dev)

@@ -45,13 +45,7 @@ void __iomem *adlBRegBA;
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct resource adl;
-	pr_debug("%s: +.\n", __func__);
-	imgsysmainRegBA = 0L;
-	wpedip1RegBA = 0L;
-	wpedip2RegBA = 0L;
-	wpedip3RegBA = 0L;
-	dipRegBA = 0L;
-	dip1RegBA = 0L;
+	pr_info("%s: +.\n", __func__);
 
 	imgsysmainRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TOP);
 	if (!imgsysmainRegBA) {
@@ -132,7 +126,7 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		dev_info(imgsys_dev->dev, "%s Do not have ADL hardware.\n", __func__);
 	}
 
-	pr_debug("%s: -.\n", __func__);
+	pr_info("%s: -.\n", __func__);
 }
 
 void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
@@ -224,42 +218,42 @@ void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
 	pr_debug("%s: +.\n", __func__);
 
-	if (!imgsysmainRegBA) {
+	if (imgsysmainRegBA) {
 		iounmap(imgsysmainRegBA);
 		imgsysmainRegBA = 0L;
 	}
 
-	if (!wpedip1RegBA) {
+	if (wpedip1RegBA) {
 		iounmap(wpedip1RegBA);
 		wpedip1RegBA = 0L;
 	}
 
-	if (!wpedip2RegBA) {
+	if (wpedip2RegBA) {
 		iounmap(wpedip2RegBA);
 		wpedip2RegBA = 0L;
 	}
 
-	if (!wpedip3RegBA) {
+	if (wpedip3RegBA) {
 		iounmap(wpedip3RegBA);
 		wpedip3RegBA = 0L;
 	}
 
-	if (!dipRegBA) {
+	if (dipRegBA) {
 		iounmap(dipRegBA);
 		dipRegBA = 0L;
 	}
 
-	if (!dip1RegBA) {
+	if (dip1RegBA) {
 		iounmap(dip1RegBA);
 		dip1RegBA = 0L;
 	}
 
-	if (!adlARegBA) {
+	if (adlARegBA) {
 		iounmap(adlARegBA);
 		adlARegBA = 0L;
 	}
 
-	if (!adlBRegBA) {
+	if (adlBRegBA) {
 		iounmap(adlBRegBA);
 		adlBRegBA = 0L;
 	}
