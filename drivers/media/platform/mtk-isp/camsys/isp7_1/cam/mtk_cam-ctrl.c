@@ -1798,8 +1798,12 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			}
 		}
 		if (working_req_found && state_rec[0]) {
-			if (state_rec[0]->estate == E_STATE_READY)
+			if (state_rec[0]->estate == E_STATE_READY) {
 				dev_info(raw_dev->dev, "[SOF] sensor delay\n");
+				req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[0]);
+				req_stream_data->flags |=
+					MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED;
+			}
 			/* CQ triggering judgment*/
 			if (state_rec[0]->estate == E_STATE_SENSOR) {
 				*current_state = state_rec[0];
@@ -3104,13 +3108,14 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 void mtk_cam_meta1_done_work(struct work_struct *work)
 {
 	struct mtk_cam_req_work *meta1_done_work = (struct mtk_cam_req_work *)work;
-	struct mtk_cam_request_stream_data *s_data, *s_data_ctx;
+	struct mtk_cam_request_stream_data *s_data, *s_data_ctx, *s_data_mstream;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request *req;
 	struct mtk_cam_buffer *buf;
 	struct vb2_buffer *vb;
 	struct mtk_cam_video_device *node;
 	void *vaddr;
+	bool unreliable = false;
 
 	s_data = mtk_cam_req_work_get_s_data(meta1_done_work);
 	ctx = mtk_cam_s_data_get_ctx(s_data);
@@ -3133,6 +3138,18 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 			 "%s:ctx(%d): can't get s_data\n",
 			 __func__, ctx->stream_id);
 		return;
+	}
+
+	if (mtk_cam_is_mstream(ctx)) {
+		s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+
+		unreliable |= (s_data->flags &
+			MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+
+		if (s_data_mstream) {
+			unreliable |= (s_data_mstream->flags &
+				MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+		}
 	}
 
 	/* Copy the meta1 output content to user buffer */
@@ -3185,7 +3202,10 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_OUT_1);
 
 	/* Let user get the buffer */
-	vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
+	if (unreliable)
+		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_ERROR);
+	else
+		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
 
 	dev_info(ctx->cam->dev, "%s:%s: req(%d) done\n",
 		 __func__, req->req.debug_str, s_data->frame_seq_no);

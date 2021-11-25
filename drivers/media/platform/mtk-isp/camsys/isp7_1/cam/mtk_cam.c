@@ -688,6 +688,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	int feature;
 	int dequeue_cnt = 0;
 	bool del_job, del_req;
+	bool unreliable = false;
 
 	INIT_LIST_HEAD(&dequeue_list);
 
@@ -794,6 +795,16 @@ STOP_SCAN:
 			dequeue_cnt++;
 		}
 
+		if (mtk_cam_feature_is_mstream(feature)) {
+			unreliable |= (s_data->flags &
+						   MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+
+			if (s_data_mstream) {
+				unreliable |= (s_data_mstream->flags &
+					MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+			}
+		}
+
 		/* release vb2 buffers of the pipe */
 		s_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
 		if (s_data->frame_seq_no < dequeued_frame_seq_no) {
@@ -806,6 +817,11 @@ STOP_SCAN:
 			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_ERROR);
 			dev_dbg(ctx->cam->dev,
 				"%s:req(%d) state done mismatch",
+				__func__, s_data->frame_seq_no);
+		} else if (unreliable) {
+			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_ERROR);
+			dev_dbg(ctx->cam->dev,
+				"%s:req(%d) done (unreliable)",
 				__func__, s_data->frame_seq_no);
 		} else {
 			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_DONE);
