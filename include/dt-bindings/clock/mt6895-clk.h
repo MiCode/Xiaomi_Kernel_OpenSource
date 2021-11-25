@@ -460,7 +460,8 @@
 #define CLK_MM0_SMI_COMMON				44
 #define CLK_MM0_DISP_DSI				45
 #define CLK_MM0_DISP_DP_INTF0				46
-#define CLK_MM0_NR_CLK					47
+#define CLK_MM0_SIG_EMI					47
+#define CLK_MM0_NR_CLK					48
 
 /* MMSYS1_CONFIG */
 #define CLK_MM1_DISP_MUTEX0				0
@@ -510,7 +511,8 @@
 #define CLK_MM1_SMI_COMMON				44
 #define CLK_MM1_DISP_DSI				45
 #define CLK_MM1_DISP_DP_INTF0				46
-#define CLK_MM1_NR_CLK					47
+#define CLK_MM1_SIG_EMI					47
+#define CLK_MM1_NR_CLK					48
 
 /* IMGSYS_MAIN */
 #define CLK_IMG_LARB9					0
