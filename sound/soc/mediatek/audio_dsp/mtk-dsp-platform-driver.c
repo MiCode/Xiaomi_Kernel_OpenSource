@@ -1229,8 +1229,10 @@ void audio_irq_handler(int irq, void *data, int core_id)
 			dsp_scene = task_value - 1;
 			task_id = get_dspdaiid_by_dspscene(dsp_scene);
 #ifdef DEBUG_VERBOSE_IRQ
-			pr_info("+%s flag[%llx] task_id[%d] task_value[%lu] dsp_scene[%d]\n",
-				__func__, *pdtoa, task_id, task_value, dsp_scene);
+			pr_info("+%s flag[%llx] task[%s] task_value[%lu] dsp_scene[%d]\n",
+				__func__, *pdtoa,
+				get_str_by_dsp_dai_id(task_id),
+				task_value, dsp_scene);
 #endif
 			*pdtoa = clr_bit(dsp_scene, pdtoa);
 
@@ -1240,7 +1242,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 			pr_info("-%s flag[%llx] task_id[%d] task_value[%lu]\n",
 				__func__, *pdtoa, task_id, task_value);
 #endif
-			if (task_id >= 0)
+			if (task_id >= 0 && !dsp->dsp_mem[task_id].underflowed)
 				mtk_dsp_dl_consume_handler(dsp, NULL, task_id);
 		}
 		loop_count--;
@@ -1329,8 +1331,7 @@ static int mtk_dsp_probe(struct snd_soc_component *component)
 	}
 
 	for (id = 0; id < get_adsp_core_total(); id++) {
-		if (adsp_threaded_irq_registration(id, ADSP_IRQ_AUDIO_ID, NULL,
-						   audio_irq_handler, dsp) < 0)
+		if (adsp_irq_registration(id, ADSP_IRQ_AUDIO_ID, audio_irq_handler, dsp) < 0)
 			pr_info("%s, ADSP_IRQ_AUDIO not supported\n");
 	}
 #ifdef CFG_RECOVERY_SUPPORT
