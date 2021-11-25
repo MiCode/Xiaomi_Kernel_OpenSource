@@ -60,6 +60,7 @@ struct mtk_pd_adapter_info {
 	u32 ita_min;
 	u32 bootmode;
 	u32 boottype;
+	bool enable_pp;
 };
 
 struct apdo_pps_range {
@@ -77,6 +78,24 @@ static struct apdo_pps_range apdo_pps_tbl[] = {
 
 //void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 //	void *val);
+
+static int pd_adapter_enable_power_path(bool en)
+{
+	static struct power_supply *chg_psy;
+	union power_supply_propval val;
+
+	if (chg_psy == NULL)
+		chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		return -1;
+	}
+
+	val.intval = !en;
+	return power_supply_set_property(chg_psy,
+					 POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+					 &val);
+}
 
 static int pd_adapter_high_voltage_enable(int enable)
 {
@@ -153,7 +172,7 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 	struct tcp_notify *noti = data;
 	struct mtk_pd_adapter_info *pinfo;
 	struct adapter_device *adapter;
-	int ret = 0;
+	int ret = 0, sink_mv, sink_ma;
 
 	pinfo = container_of(pnb, struct mtk_pd_adapter_info, pd_nb);
 	adapter = pinfo->adapter_dev;
@@ -244,6 +263,23 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 			usb_dpdm_pulldown(adapter, true);
 			if (pinfo->bootmode == 8)
 				pd_adapter_high_voltage_enable(1);
+		}
+		break;
+	case TCP_NOTIFY_SINK_VBUS:
+		sink_mv = noti->vbus_state.mv;
+		sink_ma = noti->vbus_state.ma;
+		pr_info("%s: sink vbus %dmV %dmA type(0x%02x)\n", __func__,
+			sink_mv, sink_ma, noti->vbus_state.type);
+		if (!pinfo->enable_pp) {
+			if (sink_mv && sink_ma) {
+				pinfo->enable_pp = true;
+				pd_adapter_enable_power_path(true);
+			}
+		} else {
+			if (!sink_mv || !sink_ma) {
+				pinfo->enable_pp = false;
+				pd_adapter_enable_power_path(false);
+			}
 		}
 		break;
 	}
@@ -768,7 +804,8 @@ static int mtk_pd_adapter_probe(struct platform_device *pdev)
 
 	info->pd_nb.notifier_call = pd_tcp_notifier_call;
 	ret = register_tcp_dev_notifier(info->tcpc, &info->pd_nb,
-				TCP_NOTIFY_TYPE_USB | TCP_NOTIFY_TYPE_MISC);
+				TCP_NOTIFY_TYPE_USB | TCP_NOTIFY_TYPE_MISC |
+				TCP_NOTIFY_TYPE_VBUS);
 	if (ret < 0) {
 		pr_info("%s: register tcpc notifer fail\n", __func__);
 		ret = -EINVAL;

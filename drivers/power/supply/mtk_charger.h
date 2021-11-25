@@ -370,6 +370,10 @@ struct mtk_charger {
 	bool is_charging;
 
 	ktime_t uevent_time_check;
+
+	bool force_disable_pp[CHG2_SETTING + 1];
+	bool enable_pp[CHG2_SETTING + 1];
+	struct mutex pp_lock[CHG2_SETTING + 1];
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,

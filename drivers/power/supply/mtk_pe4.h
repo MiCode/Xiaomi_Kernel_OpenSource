@@ -204,6 +204,8 @@ extern int pe4_hal_get_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 *ua);
 extern int pe4_hal_enable_powerpath(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool enable);
+extern int pe4_hal_force_disable_powerpath(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool disable);
 extern int pe4_hal_get_charger_cnt(struct chg_alg_device *alg);
 extern bool pe4_hal_is_chip_enable(struct chg_alg_device *alg,
 	enum chg_idx chgidx);
