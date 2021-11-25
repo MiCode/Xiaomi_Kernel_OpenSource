@@ -58,6 +58,24 @@ static void kvm_ptp_get_time(struct kvm_vcpu *vcpu, u64 *val)
 	val[3] = lower_32_bits(cycles);
 }
 
+static int kvm_vcpu_exit_hcall(struct kvm_vcpu *vcpu, u32 nr, u32 nr_args)
+{
+	u64 mask = vcpu->kvm->arch.hypercall_exit_enabled;
+	u32 i;
+
+	if (nr_args > 6 || !(mask & BIT(nr)))
+		return -EINVAL;
+
+	vcpu->run->exit_reason		= KVM_EXIT_HYPERCALL;
+	vcpu->run->hypercall.nr		= nr;
+
+	for (i = 0; i < nr_args; ++i)
+		vcpu->run->hypercall.args[i] = vcpu_get_reg(vcpu, i + 1);
+
+	vcpu->run->hypercall.longmode = !vcpu_mode_is_32bit(vcpu);
+	return 0;
+}
+
 int kvm_hvc_call_handler(struct kvm_vcpu *vcpu)
 {
 	u32 func_id = smccc_get_function(vcpu);
