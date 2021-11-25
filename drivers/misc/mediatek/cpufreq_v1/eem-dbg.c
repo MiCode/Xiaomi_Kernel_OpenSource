@@ -422,10 +422,13 @@ static ssize_t eem_offset_proc_write(struct file *file,
 
 	cmd_str = strsep(&buf, " ");
 	if (cmd_str == NULL)
-		ret = -EINVAL;
+		return -EINVAL;
 	if (!kstrtoint(cmd_str, 10, &bank_id))
 		if (bank_id >= NR_EEMSN_DET)
 			goto out;
+
+	if (buf == NULL)
+		return -EINVAL;
 
 	if (!kstrtoint(buf, 10, &offset)) {
 		ret = 0;
@@ -475,7 +478,7 @@ static int eem_dbg_repo_proc_show(struct seq_file *m, void *v)
 	if ((void __iomem *)(eem_csram_base) != NULL) {
 		for (addr_ptr = (void __iomem *)(eem_csram_base)
 			, counter = 0; counter <
-			EEM_LOG_SIZE;
+			eem_log_size;
 			(addr_ptr += 4), counter += 4)
 			seq_printf(m, "%08X",
 				(unsigned int)__raw_readl(addr_ptr));
@@ -550,9 +553,10 @@ int mtk_eem_init(struct platform_device *pdev)
 	struct resource *eem_res;
 
 	eem_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	if (eem_res)
+	if (eem_res) {
+		eem_log_size = resource_size(eem_res);
 		eemsn_log = ioremap(eem_res->start, resource_size(eem_res));
-	else
+	} else
 		eemsn_log = ioremap(EEM_LOG_BASE, EEM_LOG_SIZE);
 	/* TODO: sn_base seems no use? */
 	/* sn_base = ioremap(SN_BASEADDR, SN_BASESIZE); */
