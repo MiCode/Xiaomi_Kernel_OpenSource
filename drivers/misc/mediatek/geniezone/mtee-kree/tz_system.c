@@ -301,7 +301,7 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 		if (unlikely(IS_RESTARTSYS_ERROR(rc))) {
 			struct tipc_dn_chan *dn = h->dn;
 
-			if (_is_tipc_channel_connected(dn)) {
+			if (dn && _is_tipc_channel_connected(dn)) {
 				KREE_DEBUG(
 					"%s: channel is connected already!\n",
 					__func__);
