@@ -630,6 +630,8 @@ int ut_mtk_cam_sv_top_disable(struct device *dev)
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, TG_DP_CK_EN, 0);
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
+		CAMSV_CLK_EN, QBN_DP_CK_EN, 0);
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, PAK_DP_CK_EN, 0);
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, IMGO_DP_CK_EN, 0);
@@ -668,6 +670,8 @@ int ut_mtk_cam_sv_toggle_db(
 
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, TG_DP_CK_EN, 1);
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
+		CAMSV_CLK_EN, QBN_DP_CK_EN, 1);
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
 		CAMSV_CLK_EN, PAK_DP_CK_EN, 1);
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_CLK_EN,
