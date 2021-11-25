@@ -1732,16 +1732,17 @@
 			nr_max_core = <8>;
 			nr_big_core = <4>;
 			nr_rs_entry_little = <8>;
-			nr_rs_entry_big = <16>;
+			nr_rs_entry_big = <0>;
 			nr_header_row = <0>;
 			chip_id_offset = <0x18>;
 			check_pattern_offset = <0x0>;
 			/* dfd_disable_efuse = <25 12>; */
 			dfd_disable_efuse = <(-1) (-1)>;
-			dfd_cache {
+			dfd_cache: dfd_cache {
 				enabled = <0>;
 				dfd_timeout = <0x5dc0>;
-				buffer_length = <0x2000000>;
+				buf_length = <0x2000000>;
+				tap_en = <0x43ff>;
 			};
 		};
 
