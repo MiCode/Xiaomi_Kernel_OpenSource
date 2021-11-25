@@ -1249,7 +1249,7 @@
 		};
 
 		ssusb: usb0@11201000 {
-				compatible = "mediatek,mtu3";
+				compatible = "mediatek,mtu3", "mediatek,mt6983-mtu3";
 			reg = <0 0x11201000 0 0x2e00>,
 				<0 0x11203e00 0 0x0100>;
 			reg-names = "mac", "ippc";
@@ -1292,7 +1292,7 @@
 		};
 
 		ssusb1: usb1@11211000 {
-			compatible = "mediatek,mtu3";
+			compatible = "mediatek,mtu3", "mediatek,mt6983-mtu3";
 			reg = <0 0x11211000 0 0x2e00>,
 				<0 0x11213e00 0 0x0100>;
 			reg-names = "mac", "ippc";
