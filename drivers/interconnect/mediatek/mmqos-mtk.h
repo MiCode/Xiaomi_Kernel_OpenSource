@@ -15,6 +15,7 @@
 #define MMQOS_MAX_COMM_NUM	(3)
 #define MMQOS_MAX_COMM_PORT_NUM	(10)
 #define MMQOS_COMM_CHANNEL_NUM (2)
+#define MMQOS_MAX_DUAL_PIPE_LARB_NUM (2)
 
 struct mmqos_hrt {
 	u32 hrt_bw[HRT_TYPE_NUM];
@@ -59,11 +60,10 @@ struct larb_node {
 	struct device *larb_dev;
 	struct work_struct work;
 	struct icc_path *icc_path;
-	u32 old_r_avg_bw;
-	u32 old_r_peak_bw;
-	u32 old_w_avg_bw;
-	u32 old_w_peak_bw;
+	u32 old_avg_bw;
+	u32 old_peak_bw;
 	u8 channel;
+	u8 dual_pipe_id;
 	bool is_write;
 };
 
@@ -86,6 +86,7 @@ struct mtk_mmqos_desc {
 	const u32 max_ratio;
 	const struct mmqos_hrt hrt;
 	const struct mmqos_hrt hrt_LPDDR4;
+	const u32 dual_pipe_larbs[MMQOS_MAX_DUAL_PIPE_LARB_NUM];
 	const u8 comm_port_channels[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
 	const u8 comm_port_hrt_types[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
 };
