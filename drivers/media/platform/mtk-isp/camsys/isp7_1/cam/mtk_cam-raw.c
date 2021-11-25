@@ -1234,6 +1234,8 @@ void reset(struct mtk_raw_device *dev)
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT2),
 			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT));
 
+		mtk_smi_dbg_hang_detect("camsys");
+
 		goto RESET_FAILURE;
 	}
 
@@ -2108,7 +2110,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->cur_vsync_idx = 0;
 		raw_dev->sof_count++;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
-		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 12;
+		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;
 		irq_info.e.err_status = err_status;
 	}
 

@@ -523,9 +523,10 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 	}
 
 	/* clear raw qos */
-	for (i = 0; i < MTK_CAM_RAW_PORT_NUM; i++) {
-		dvfs_info->qos_bw_avg[i] = 0;
-		dvfs_info->qos_bw_peak[i] = 0;
+	for (i = 0; i < raw_qos_port_num; i++) {
+		qos_port_id = engine_id * raw_qos_port_num + i;
+		dvfs_info->qos_bw_avg[qos_port_id] = 0;
+		dvfs_info->qos_bw_peak[qos_port_id] = 0;
 	}
 
 	for (i = 0; i < MTKCAM_IPI_RAW_ID_MAX; i++) {
@@ -623,8 +624,8 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
 						vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
 						plane_factor / 8 / 100;
-			dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
-			dvfs_info->qos_bw_avg[qos_port_id] = ABW_MB_s;
+			dvfs_info->qos_bw_peak[qos_port_id] += PBW_MB_s;
+			dvfs_info->qos_bw_avg[qos_port_id] += ABW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w/h : %2d/%2d/%d/%5d/%5d BW(B/s)(avg:%lu,peak:%lu)\n",
 				  raw_mmqos->port[qos_port_id % raw_qos_port_num],
@@ -653,8 +654,8 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
 						vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
 						plane_factor / 8 / 100;
-			dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
-			dvfs_info->qos_bw_avg[qos_port_id] = ABW_MB_s;
+			dvfs_info->qos_bw_peak[qos_port_id] += PBW_MB_s;
+			dvfs_info->qos_bw_avg[qos_port_id] += ABW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w/h : %2d/%2d/%d/%5d/%5d BW(B/s)(avg:%lu,peak:%lu)\n",
 				  raw_mmqos->port[qos_port_id % raw_qos_port_num],
@@ -683,8 +684,8 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
 						vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
 						plane_factor / 8 / 100;
-			dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
-			dvfs_info->qos_bw_avg[qos_port_id] = ABW_MB_s;
+			dvfs_info->qos_bw_peak[qos_port_id] += PBW_MB_s;
+			dvfs_info->qos_bw_avg[qos_port_id] += ABW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d ipifmt/bits/plane/w/h : %2d/%2d/%d/%5d/%5d BW(B/s)(avg:%lu,peak:%lu)\n",
 				  raw_mmqos->port[qos_port_id % raw_qos_port_num],

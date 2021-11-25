@@ -3159,14 +3159,15 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 				s_data->frame_seq_no);
 			mtk_cam_m2m_enter_cq_state(&s_data->state);
 		}
+
+		/* mmqos update */
+		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas);
+
 		apply_cq(raw_dev, 1, buf_entry->buffer.iova,
 			 buf_entry->cq_desc_size,
 			 buf_entry->cq_desc_offset,
 			 buf_entry->sub_cq_desc_size,
 			 buf_entry->sub_cq_desc_offset);
-
-		/* mmqos update */
-		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas);
 
 		if (mtk_cam_is_with_w_channel(ctx)) {
 			if (mtk_cam_sv_rgbw_apply_next_buffer(buf_entry->s_data) == 0)
