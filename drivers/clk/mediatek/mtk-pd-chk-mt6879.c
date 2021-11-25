@@ -416,6 +416,9 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	if (id >= MT6879_POWER_DOMAIN_NR)
 		return;
 
+	if (id == MT6879_POWER_DOMAIN_MM_PROC_DORMANT)
+		print_subsys_reg_mt6879(hfrp);
+
 	if (pwr_sta == PD_PWR_ON) {
 		for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
 			if (mtk_subsys_check[i].pd_id == id)
