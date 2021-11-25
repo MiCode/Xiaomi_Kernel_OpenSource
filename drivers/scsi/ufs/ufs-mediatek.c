@@ -2192,6 +2192,7 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (evt == UFS_EVT_ABORT && !ufs_abort_aee_count) {
+		cmd_hist_disable();
 		ufs_abort_aee_count++;
 		aee_kernel_warning_api(__FILE__,
 			__LINE__, DB_OPT_FS_IO_LOG,
