@@ -1513,7 +1513,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 
 	up(&imgsys_dev->sem);
 	/* TODO: log only safe to remove */
-	if (!WARN_ON(!req->working_buf)) {
+	if (!req->working_buf) {
 		dev_dbg(imgsys_dev->dev,
 			"%s: (reqfd-%d) composing\n",
 			__func__, req->tstate.req_fd);
