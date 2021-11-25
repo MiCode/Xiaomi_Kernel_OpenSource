@@ -635,6 +635,7 @@ __acquires(mtu->lock)
 	void __iomem *mbase = mtu->mac_base;
 	int handled = 0;
 
+	memset(&setup, 0, sizeof(setup));
 	ep0_read_setup(mtu, &setup);
 	trace_mtu3_handle_setup(&setup);
 
