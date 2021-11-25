@@ -430,7 +430,24 @@ static struct match mt6879_match = {
 };
 /*mt6879 end*/
 
+/*mt6855 begin*/
+struct hdlr_data_v1 hdlr_data_6855_gpueb = {
+	.reg_tr = NULL,
+	.map = NULL,
+};
+static struct fh_hdlr gpueb_hdlr_6855 = {
+	.ops = &gpueb_ops_v1,
+	.data = &hdlr_data_6855_gpueb,
+};
+static struct match mt6855_match = {
+	.name = "mediatek,mt6855-fhctl",
+	.hdlr = &gpueb_hdlr_6855,
+	.init = &gpueb_init_v1,
+};
+/*mt6855 end*/
+
 static struct match *matches[] = {
+	&mt6855_match,
 	&mt6879_match,
 	&mt6895_match,
 	&mt6983_match,

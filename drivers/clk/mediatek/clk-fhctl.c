@@ -214,6 +214,7 @@ static void fh_plt_drv_shutdown(struct platform_device *pdev)
 
 static const struct of_device_id fh_of_match[] = {
 	{ .compatible = "mediatek,mt6853-fhctl"},
+	{ .compatible = "mediatek,mt6855-fhctl"},
 	{ .compatible = "mediatek,mt6877-fhctl"},
 	{ .compatible = "mediatek,mt6873-fhctl"},
 	{ .compatible = "mediatek,mt6879-fhctl"},
