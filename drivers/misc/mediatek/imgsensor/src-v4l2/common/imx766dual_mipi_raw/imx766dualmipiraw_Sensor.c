@@ -1363,19 +1363,23 @@ static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 	kal_uint32 per_frame_ns = (kal_uint32)(((unsigned long long)ctx->frame_length *
 		(unsigned long long)ctx->line_length * 1000000000) / (unsigned long long)ctx->pclk);
 
+	/* NEED TO FIX start: support 1exp-2exp only; 3exp-?exp instead */
+	if (previous_exp_cnt == 1)
+		ns = 10000000;
+
 	if (ns)
 		ctx->frame_length = (kal_uint32)(((unsigned long long)(per_frame_ns + ns)) *
 			ctx->frame_length / per_frame_ns);
 
 	/* fl constraint: normal DOL behavior while stagger seamless switch */
-	if (previous_exp_cnt) {
+	if (previous_exp_cnt > 1) {
 		calc_fl = (readoutLength + readMargin) * previous_exp_cnt;
 		for (i = 1; i < previous_exp_cnt; i++)
 			calc_fl += (previous_exp[i] + imgsensor_info.margin * previous_exp_cnt);
-		calc_fl += 0; // for a safety delay (need?)
 
 		ctx->frame_length = max(calc_fl, ctx->frame_length);
 	}
+	/* NEED TO FIX end */
 
 	set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	write_frame_len(ctx, ctx->frame_length);
