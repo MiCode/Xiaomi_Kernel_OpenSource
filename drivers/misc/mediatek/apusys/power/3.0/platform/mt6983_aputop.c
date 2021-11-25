@@ -1153,24 +1153,17 @@ static int mt6983_apu_top_on(struct device *dev)
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(1);
 #endif
-	apusys_pwr_smc_call(dev,
-			MTK_APUSYS_KERNEL_OP_APUSYS_REGDUMP, 0);
-	aputop_dump_pwr_res();
-	aputop_dump_rpc_data();
-	aputop_dump_pcu_data(dev);
-	aputop_dump_pll_data();
-	aputop_check_pwr_data();
 	ret = __apu_wake_rpc_rcx(dev);
-	aputop_dump_pwr_res();
-	aputop_dump_rpc_data();
-	aputop_dump_pcu_data(dev);
-	aputop_dump_pll_data();
-	aputop_check_pwr_data();
 
 	if (ret) {
 		pr_info("%s fail to wakeup RPC, ret %d, rpc_alive:%d\n",
 					__func__, ret, check_if_rpc_alive());
 		aputop_dump_pwr_reg(dev);
+		aputop_dump_pwr_res();
+		aputop_dump_rpc_data();
+		aputop_dump_pcu_data(dev);
+		aputop_dump_pll_data();
+		aputop_check_pwr_data();
 #if APUPW_DUMP_FROM_APMCU
 		are_dump_config(0);
 		are_dump_config(1);
@@ -1212,10 +1205,10 @@ static int mt6983_apu_top_off(struct device *dev)
 	ret = readl_relaxed_poll_timeout_atomic(
 			(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY),
 			val, (val & 0x1UL) == 0x0, 50, rpc_timeout_val);
-	if (ret)
+	if (ret) {
 		pr_info("%s polling PWR RDY timeout\n", __func__);
 
-	if (!ret) {
+	} else {
 		ret = readl_relaxed_poll_timeout_atomic(
 				(apupw.regs[apu_rpc] + APU_RPC_STATUS),
 				val, (val & 0x1UL) == 0x1, 50, 10000);
@@ -1238,17 +1231,16 @@ static int mt6983_apu_top_off(struct device *dev)
 		}
 	}
 
-	aputop_dump_pwr_res();
-	aputop_dump_rpc_data();
-	aputop_dump_pcu_data(dev);
-	aputop_dump_pll_data();
-	aputop_check_pwr_data();
-
 	if (ret) {
 		pr_info(
 		"%s timeout to wait RPC sleep (val:%d), ret %d, rpc_alive:%d\n",
 			__func__, rpc_timeout_val, ret, check_if_rpc_alive());
 		aputop_dump_pwr_reg(dev);
+		aputop_dump_pwr_res();
+		aputop_dump_rpc_data();
+		aputop_dump_pcu_data(dev);
+		aputop_dump_pll_data();
+		aputop_check_pwr_data();
 #if APUPW_DUMP_FROM_APMCU
 		are_dump_config(0);
 		are_dump_config(1);
