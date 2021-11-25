@@ -726,14 +726,19 @@
 		spmi: spmi@1c804000 {
 			compatible = "mediatek,mt6855-spmi";
 			reg = <0 0x1c804000 0 0x0008ff>,
-			      <0 0x1c804000 0 0x000500>,
 			      <0 0x1c801000 0 0x000100>;
-			reg-names = "pmif", "pmifmpu", "spmimst";
-			interrupts = <233 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "rcs_irq";
+			reg-names = "pmif", "spmimst";
+			interrupts-extended = <&gic GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupt-names = "pmif_irq";
 			interrupt-controller;
 			#interrupt-cells = <1>;
-			irq_event_en = <0xe 0x0 0x0 0x0 0x0>;
+			irq_event_en = <0x80000000 0x0 0x0 0x0 0x0>;
+			clocks = <&vlp_cksys_clk CLK_VLP_CK_PWRAP_ULPOSC_SEL>,
+				 <&vlp_cksys_clk CLK_VLP_CK_SPMI_M_MST_SEL>,
+				 <&vlp_cksys_clk CLK_VLP_CK_SPMI_P_MST_SEL>;
+			clock-names = "vlp_pmif_clk_mux",
+				      "vlp_spmimst_m_clk_mux",
+				      "vlp_spmimst_p_clk_mux";
 			swinf_ch_start = <10>;
 			ap_swinf_no = <2>;
 			#address-cells = <2>;
