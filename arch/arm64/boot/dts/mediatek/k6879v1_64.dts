@@ -13,9 +13,7 @@
 
 &chosen {
 	bootargs_ext = "console=tty0 root=/dev/ram \
-	loglevel=8 \
-	androidboot.hardware=mt6879 \
-	initcall_debug=1";
+	androidboot.hardware=mt6879";
 	atag,videolfb-fb_base_l = <0x7e605000>;
 	atag,videolfb-fb_base_h = <0x0>;
 	atag,videolfb-islcmfound = <1>;
