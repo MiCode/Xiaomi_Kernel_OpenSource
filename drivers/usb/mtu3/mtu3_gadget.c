@@ -52,6 +52,7 @@ static void nuke(struct mtu3_ep *mep, const int status)
 	while (!list_empty(&mep->req_list)) {
 		mreq = list_first_entry(&mep->req_list,
 					struct mtu3_request, list);
+		mtu3_clean_gpd(mep, mreq);
 		mtu3_req_complete(mep, &mreq->request, status);
 	}
 }

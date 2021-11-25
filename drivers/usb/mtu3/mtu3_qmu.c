@@ -250,6 +250,9 @@ static int mtu3_prepare_tx_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
 	dma_addr_t enq_dma;
 	u32 ext_addr;
 
+	/* set all fields to zero */
+	memset(gpd, 0, sizeof(*gpd));
+
 	gpd->dw0_info = 0;	/* SW own it */
 	gpd->buffer = cpu_to_le32(lower_32_bits(req->dma));
 	ext_addr = GPD_EXT_BUF(mtu, upper_32_bits(req->dma));
@@ -290,6 +293,9 @@ static int mtu3_prepare_rx_gpd(struct mtu3_ep *mep, struct mtu3_request *mreq)
 	struct mtu3 *mtu = mep->mtu;
 	dma_addr_t enq_dma;
 	u32 ext_addr;
+
+	/* set all fields to zero */
+	memset(gpd, 0, sizeof(*gpd));
 
 	gpd->dw0_info = 0;	/* SW own it */
 	gpd->buffer = cpu_to_le32(lower_32_bits(req->dma));
@@ -502,6 +508,7 @@ static void qmu_done_tx(struct mtu3 *mtu, u8 epnum)
 
 		request = &mreq->request;
 		request->actual = GPD_DATA_LEN(mtu, le32_to_cpu(gpd->dw3_info));
+		mtu3_clean_gpd(mep, mreq);
 		trace_mtu3_complete_gpd(mep, gpd);
 		mtu3_req_complete(mep, request, 0);
 
@@ -542,6 +549,7 @@ static void qmu_done_rx(struct mtu3 *mtu, u8 epnum)
 		req = &mreq->request;
 
 		req->actual = GPD_DATA_LEN(mtu, le32_to_cpu(gpd->dw3_info));
+		mtu3_clean_gpd(mep, mreq);
 		trace_mtu3_complete_gpd(mep, gpd);
 		mtu3_req_complete(mep, req, 0);
 
