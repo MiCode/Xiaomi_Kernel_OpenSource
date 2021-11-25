@@ -3973,6 +3973,7 @@ struct mt6369_codec_ops {
 	int (*set_lch_dc_compensation)(int value);
 	int (*set_rch_dc_compensation)(int value);
 	int (*adda_dl_gain_control)(bool mute);
+	int (*set_adda_predistortion)(int hp_impedance);
 };
 
 struct mt6369_priv {
@@ -4018,6 +4019,7 @@ struct mt6369_priv {
 	/* vow dmic low power mode, 1: enable, 0: disable */
 	int vow_dmic_lp;
 	int vow_single_mic_select;
+	int hwcid0;
 };
 
 #define MT_SOC_ENUM_EXT_ID(xname, xenum, xhandler_get, xhandler_put, id) \

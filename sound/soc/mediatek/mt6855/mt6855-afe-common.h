@@ -243,5 +243,6 @@ int mt6855_enable_dc_compensation(bool enable);
 int mt6855_set_lch_dc_compensation(int value);
 int mt6855_set_rch_dc_compensation(int value);
 int mt6855_adda_dl_gain_control(bool mute);
+int mt6855_set_adda_predistortion(int hp_impedance);
 
 #endif

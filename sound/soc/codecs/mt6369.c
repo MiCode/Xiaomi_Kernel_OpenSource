@@ -1154,6 +1154,15 @@ static void mtk_hp_enable(struct mt6369_priv *priv)
 
 	/* Disable Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, false);
+
+	if (priv->hwcid0 == 0x10) {
+		if (priv->ops.set_adda_predistortion) {
+			priv->ops.set_adda_predistortion(priv->hp_impedance);
+		} else {
+			dev_warn(priv->dev, "%s(), set_adda_predistortion ops not ready\n",
+				 __func__);
+		}
+	}
 }
 
 static void mtk_hp_disable(struct mt6369_priv *priv)
@@ -1252,6 +1261,15 @@ static void mtk_hp_disable(struct mt6369_priv *priv)
 	/* Disable HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON2,
 			   0x3 << 2, 0x0);
+
+	if (priv->hwcid0 == 0x10) {
+		if (priv->ops.set_adda_predistortion) {
+			priv->ops.set_adda_predistortion(0);
+		} else {
+			dev_warn(priv->dev, "%s(), set_adda_predistortion ops not ready\n",
+				 __func__);
+		}
+	}
 }
 
 static int mtk_hp_impedance_enable(struct mt6369_priv *priv)
@@ -4531,6 +4549,7 @@ int mt6369_set_codec_ops(struct snd_soc_component *cmpnt,
 	priv->ops.set_lch_dc_compensation = ops->set_lch_dc_compensation;
 	priv->ops.set_rch_dc_compensation = ops->set_rch_dc_compensation;
 	priv->ops.adda_dl_gain_control = ops->adda_dl_gain_control;
+	priv->ops.set_adda_predistortion = ops->set_adda_predistortion;
 
 	return 0;
 }
@@ -5205,6 +5224,7 @@ static int mt6369_codec_init_reg(struct snd_soc_component *cmpnt)
 
 	/* set those not controlled by dapm widget */
 	regmap_read(priv->regmap, MT6369_HWCID0, &value);
+	priv->hwcid0 = value;
 	dev_info(priv->dev, "%s(), 0x%x MT6369_HWCID0 = 0x%x\n", __func__,
 		 MT6369_HWCID0, value);
 
