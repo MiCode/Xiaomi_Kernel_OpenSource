@@ -2054,6 +2054,11 @@ static const struct mtk_addon_scenario_data mt6895_addon_main[ADDON_SCN_NR] = {
 				.module_data = mt6895_addon_wdma0_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
+		[MML_SRAM_ONLY] = {
+				.module_num = ARRAY_SIZE(addon_mml_sram_only_data),
+				.module_data = addon_mml_sram_only_data,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
+			},
 };
 
 
@@ -2076,6 +2081,11 @@ static const struct mtk_addon_scenario_data mt6895_addon_main_dual[ADDON_SCN_NR]
 				.module_num = ARRAY_SIZE(mt6895_addon_wdma2_data),
 				.module_data = mt6895_addon_wdma2_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[MML_SRAM_ONLY] = {
+				.module_num = ARRAY_SIZE(addon_mml_sram_only_data_1),
+				.module_data = addon_mml_sram_only_data_1,
+				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 };
 
@@ -5137,6 +5147,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_INLINE_ROTATE},
 	{.compatible = "mediatek,mt6983-mmlsys-bypass",
 	 .data = (void *)MTK_MMLSYS_BYPASS},
+	{.compatible = "mediatek,mt6895-disp-inlinerotate",
+	 .data = (void *)MTK_DISP_INLINE_ROTATE},
 	{} };
 
 static struct disp_iommu_device disp_iommu;
