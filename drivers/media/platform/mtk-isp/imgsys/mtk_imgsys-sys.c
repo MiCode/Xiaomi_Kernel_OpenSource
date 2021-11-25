@@ -2020,6 +2020,7 @@ int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe)
 
 			return ret;
 		}
+		INIT_LIST_HEAD(&pipe->pipe_job_running_list);
 	}
 	count = imgsys_dev->imgsys_stream_cnt++;
 	atomic_set(&imgsys_dev->num_composing, 0);

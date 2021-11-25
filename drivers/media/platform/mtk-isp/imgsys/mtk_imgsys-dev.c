@@ -147,28 +147,32 @@ void mtk_imgsys_pipe_remove_job(struct mtk_imgsys_request *req)
 	prev = entry->prev;
 	next = entry->next;
 
+	spin_lock_irqsave(&req->imgsys_pipe->running_job_lock, flag);
+#ifdef JOB_RUN
 	if ((req->list.next == LIST_POISON1) ||
 					(req->list.prev == LIST_POISON2)) {
-		dev_info(req->imgsys_pipe->imgsys_dev->dev, "%s: req-fd %d already removed",
-						__func__, req->tstate.req_fd);
+		dev_info(req->imgsys_pipe->imgsys_dev->dev, "%s: req-fd %d already deleted, prev(0x%lx), next(0x%lx, entry(0x%lx))",
+			__func__, req->tstate.req_fd, req->list.prev, req->list.next, entry);
+		spin_unlock_irqrestore(&req->imgsys_pipe->running_job_lock, flag);
 		return;
 	}
 
 	if ((prev->next != entry) || (next->prev != entry)) {
-		dev_info(req->imgsys_pipe->imgsys_dev->dev, "%s: req-fd %d already removed",
-						__func__, req->tstate.req_fd);
+		dev_info(req->imgsys_pipe->imgsys_dev->dev, "%s: req-fd %d not in list, prev->next(0x%lx), next->prev(0x%lx), entry(0x%lx)",
+			__func__, req->tstate.req_fd, prev->next, next->prev, entry);
+		spin_unlock_irqrestore(&req->imgsys_pipe->running_job_lock, flag);
 		return;
 	}
 
-	spin_lock_irqsave(&req->imgsys_pipe->running_job_lock, flag);
 	list_del(&req->list);
-	req->imgsys_pipe->num_jobs = req->imgsys_pipe->num_jobs - 1;
+#endif
+	req->imgsys_pipe->num_jobs--;
 	spin_unlock_irqrestore(&req->imgsys_pipe->running_job_lock, flag);
 
 	dev_dbg(req->imgsys_pipe->imgsys_dev->dev,
-		"%s:%s:req->id(%d),num of running jobs(%d)\n", __func__,
+		"%s:%s:req->id(%d),num of running jobs(%d) entry(0x%lx)\n", __func__,
 		req->imgsys_pipe->desc->name, req->id,
-		req->imgsys_pipe->num_jobs);
+		req->imgsys_pipe->num_jobs, entry);
 }
 
 void mtk_imgsys_pipe_debug_job(struct mtk_imgsys_pipe *pipe,
@@ -1639,8 +1643,10 @@ void mtk_imgsys_pipe_try_enqueue(struct mtk_imgsys_pipe *pipe)
 	spin_unlock_irqrestore(&pipe->pending_job_lock, flag);
 
 	spin_lock_irqsave(&pipe->running_job_lock, flag);
+#ifdef JOB_RUN
 	list_add_tail(&req->list,
 		      &pipe->pipe_job_running_list);
+#endif
 	pipe->num_jobs++;
 	spin_unlock_irqrestore(&pipe->running_job_lock, flag);
 
