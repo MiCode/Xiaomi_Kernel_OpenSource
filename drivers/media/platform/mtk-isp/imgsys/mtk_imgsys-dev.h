@@ -735,6 +735,11 @@ struct swfrm_info_t {
 	int chan_id;
 	char *hw_ts_log;
 };
+#define HWTOKEN_MAX 100
+struct cleartoken_info_t {
+	int clearnum;
+	int token[HWTOKEN_MAX];
+};
 
 struct info_list_t {
 	struct mutex mymutex;

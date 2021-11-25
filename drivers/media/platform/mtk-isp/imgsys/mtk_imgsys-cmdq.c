@@ -1132,6 +1132,15 @@ void imgsys_cmdq_setevent(u64 u_id)
 	}
 }
 
+void imgsys_cmdq_clearevent(int event_id)
+{
+	cmdq_mbox_enable(imgsys_clt[0]->chan);
+	cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[event_id].event);
+	pr_debug("%s: cmdq_clear_event with (%d/%d)!\n",
+			__func__, event_id, imgsys_event[event_id].event);
+	cmdq_mbox_disable(imgsys_clt[0]->chan);
+}
+
 #if DVFS_QOS_READY
 void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev)
 {

@@ -1505,6 +1505,40 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 
 }
 
+static void imgsys_cleartoken_handler(void *data, unsigned int len, void *priv)
+{
+	struct mtk_imgsys_dev *imgsys_dev = (struct mtk_imgsys_dev *)priv;
+	struct img_sw_buffer *swbuf_data = NULL;
+	struct cleartoken_info_t *cleartoken_info = NULL;
+	int i = 0;
+	void *gce_virt = NULL;
+
+	if (!data) {
+		WARN_ONCE(!data, "%s: failed due to NULL data\n", __func__);
+		return;
+	}
+
+	if (WARN_ONCE(len != sizeof(struct img_sw_buffer),
+		      "%s: len(%d) not match img_sw_buffer\n", __func__, len))
+		return;
+
+	swbuf_data = (struct img_sw_buffer *)data;
+	gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
+	cleartoken_info = (struct cleartoken_info_t *)(gce_virt + (swbuf_data->offset));
+
+	if (!cleartoken_info) {
+		pr_info("%s: invalid swfrm_info\n", __func__);
+		return;
+	}
+
+	for (i = 0 ; i < cleartoken_info->clearnum ; i++) {
+		dev_info(imgsys_dev->dev,
+			"%s:force clear swevent(%d).\n",
+			__func__, cleartoken_info->token[i]);
+		imgsys_cmdq_clearevent(cleartoken_info->token[i]);
+	}
+}
+
 static void imgsys_set_smvr(struct mtk_imgsys_request *req,
 					struct img_ipi_param *ipi)
 {
@@ -1899,6 +1933,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		imgsys_init_handler, "imgsys_init_handler", imgsys_dev);
 	mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_FRAME_ID,
 		imgsys_scp_handler, "imgsys_scp_handler", imgsys_dev);
+	mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_CLEAR_HWTOKEN_ID,
+		imgsys_cleartoken_handler, "imgsys_cleartoken_handler", imgsys_dev);
 
 	return 0;
 }
