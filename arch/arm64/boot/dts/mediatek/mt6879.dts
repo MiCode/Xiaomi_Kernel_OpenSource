@@ -1392,6 +1392,11 @@
 		vmm-pmic-supply = <&mt6319_6_vbuck3>;
 	};
 
+	vmmdbg: vmmdbg {
+		compatible = "mediatek,vmm_dbg";
+		mediatek,ccu_rproc = <&ccu_rproc>;
+	};
+
 	ispdvfs: ispdvfs {
 		compatible = "mediatek,ispdvfs";
 		mediatek,ccu_rproc = <&ccu_rproc>;
