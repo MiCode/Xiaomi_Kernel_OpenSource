@@ -198,3 +198,26 @@ static void __exit clean(void)
 }
 module_exit(clean);
 MODULE_LICENSE("GPL v2");
+
+int audio_core_hold(void)
+{
+	USB_BOOST_NOTICE("\n");
+
+	/*Disable MCDI to save around 100us
+	 *"Power ON CPU -> CPU context restore"
+	 */
+
+	cpu_latency_qos_update_request(&pm_qos_req, 50);
+
+	return 0;
+}
+
+int audio_core_release(void)
+{
+	USB_BOOST_NOTICE("\n");
+
+	/*Enable MCDI*/
+	cpu_latency_qos_update_request(&pm_qos_req, PM_QOS_DEFAULT_VALUE);
+
+	return 0;
+}

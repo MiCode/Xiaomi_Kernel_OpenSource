@@ -31,6 +31,8 @@ void usb_boost_set_para_and_arg(int id, int *para, int para_range,
 void usb_boost_by_id(int id);
 void usb_boost(void);
 int usb_boost_init(void);
+int audio_core_hold(void);
+int audio_core_release(void);
 
 void register_usb_boost_act(int type_id, int action_id,
 	int (*func)(struct act_arg_obj *arg));

@@ -16,6 +16,7 @@
 #include <linux/kdev_t.h>
 #include <linux/timekeeping.h>
 #include <linux/usb/composite.h>
+#include <trace/hooks/sound.h>
 
 #include "usb_boost.h"
 #include "xhci-trace.h"
@@ -147,6 +148,13 @@ static struct mtk_usb_boost {
 	struct act_arg_obj act_arg;
 	void (*request_func)(int id);
 } boost_inst[_TYPE_MAXID];
+
+static struct mtk_usb_audio_boost {
+	struct work_struct	work;
+	struct workqueue_struct	*wq;
+	struct timespec64 tv_ref_time;
+	void (*request_func)(int id);
+} audio_boost_inst;
 
 static int update_time(int id);
 static bool check_timeout(int id);
@@ -338,6 +346,70 @@ static void boost_work(struct work_struct *work_struct)
 	ptr_inst->is_running = false;
 	USB_BOOST_NOTICE("id:%d, end of work\n", id);
 	/* dump_info(id); */
+}
+
+/* usb audio fine tune */
+static void __request_audio(int id)
+{
+	queue_work(audio_boost_inst.wq, &(audio_boost_inst.work));
+}
+
+static int update_time_audio(void)
+{
+	ktime_get_ts64(&audio_boost_inst.tv_ref_time);
+	return 1;
+}
+
+static bool check_timeout_audio(void)
+{
+	struct timespec64 tv, *ref;
+	int diff_sec;
+
+	ref = &audio_boost_inst.tv_ref_time;
+	ktime_get_ts64(&tv);
+	diff_sec = tv.tv_sec - ref->tv_sec;
+	/* 5 secs */
+	if (diff_sec >= 5) {
+		USB_BOOST_DBG("audio_boost, cur<%d,%d>, ref<%d,%d>\n",
+			(int)tv.tv_sec, (int)tv.tv_nsec,
+			(int)ref->tv_sec, (int)ref->tv_nsec);
+		return true;
+	}
+
+	return false;
+}
+
+static void audio_boost_work(struct work_struct *work_struct)
+{
+	audio_boost_inst.request_func = __request_empty;
+	USB_BOOST_NOTICE("audio_boost, begin of work\n");
+	audio_core_hold();
+
+	while (1) {
+		int timeout;
+
+		USB_BOOST_DBG("audio_boost, running of work\n");
+		timeout = check_timeout_audio();
+		if (timeout) {
+			/* dump_info(id); */
+			break;
+		}
+
+		msleep(500);
+	}
+
+	audio_core_release();
+	audio_boost_inst.request_func = __request_audio;
+	USB_BOOST_NOTICE("audio_boost, end of work\n");
+}
+
+static void vh_sound_usb_support_cpu_suspend(void *unused,
+	struct usb_device *udev, int direction, bool *is_support)
+{
+	USB_BOOST_DBG("%s enter\n", __func__);
+
+	update_time_audio();
+	audio_boost_inst.request_func(0);
 }
 
 static void default_setting(void)
@@ -744,6 +816,8 @@ static int mtu3_trace_init(void)
 		boost_ep_disable, NULL));
 	WARN_ON(register_trace_mtu3_req_complete(
 		mtu3_req_complete_boost, NULL));
+	WARN_ON(register_trace_android_vh_sound_usb_support_cpu_suspend(
+		vh_sound_usb_support_cpu_suspend, NULL));
 	return 0;
 }
 #endif
@@ -754,6 +828,10 @@ void xhci_urb_giveback_dbg(void *unused, struct urb *urb)
 	case USB_ENDPOINT_XFER_BULK:
 		if (urb->actual_length >= 8192)
 			usb_boost();
+		break;
+	case USB_ENDPOINT_XFER_ISOC:
+		update_time_audio();
+		break;
 	}
 }
 
@@ -784,6 +862,11 @@ int usb_boost_init(void)
 	/* hook workable interface */
 	__the_boost_ops.boost = __usb_boost;
 	enabled = 1;
+
+	/* usb audio fine tune */
+	audio_boost_inst.wq = create_singlethread_workqueue("usb_audio_wq");
+	INIT_WORK(&audio_boost_inst.work, audio_boost_work);
+	audio_boost_inst.request_func = __request_audio;
 
 	create_sys_fs();
 	default_setting();
