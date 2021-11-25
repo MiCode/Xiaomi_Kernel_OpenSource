@@ -264,12 +264,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 					dst_buf->planes[i].dbuf);
 			}
 		}
-		if (pfb->status == FB_ST_DISPLAY) {
-			/* get frame buffer after display again but before get free */
-			pfb->status |= FB_ST_OWN_BY_DRIVER;
-		} else {
-			pfb->status = FB_ST_INIT;
-		}
+		pfb->status = FB_ST_INIT;
 		dst_buf_info->used = true;
 
 		mtk_v4l2_debug(1, "[%d] id=%d pfb=0x%p %llx VA=%p dma_addr[0]=%lx dma_addr[1]=%lx Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
