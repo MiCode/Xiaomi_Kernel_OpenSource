@@ -2516,13 +2516,14 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
 	if (list_empty(&ctx->composed_buffer_list.list)) {
-		dev_info_ratelimited(raw_dev->dev,
+		dev_info(raw_dev->dev,
 			"SOF_INT_ST, no buffer update, cq_num:%d, frame_seq:%d\n",
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no);
 		spin_unlock(&ctx->composed_buffer_list.lock);
-	} else if (!atomic_read(&s_data->first_setting_check)) {
-		dev_info_ratelimited(raw_dev->dev,
-			"SOF_INT_ST, no buffer update, cq_num:%d, frame_seq:%d\n",
+	} else if (!atomic_read(&s_data->first_setting_check) &&
+			s_data->feature.switch_feature_type == 0) {
+		dev_info(raw_dev->dev,
+			"SOF_INT_ST, 1st cq check failed, cq_num:%d, frame_seq:%d\n",
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no);
 			spin_unlock(&ctx->composed_buffer_list.lock);
 	} else {
