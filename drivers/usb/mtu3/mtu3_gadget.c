@@ -49,10 +49,12 @@ static void nuke(struct mtu3_ep *mep, const int status)
 	if (mep->epnum)
 		mtu3_qmu_flush(mep);
 
+	list_for_each_entry(mreq, &mep->req_list, list)
+		mtu3_clean_gpd(mep, mreq);
+
 	while (!list_empty(&mep->req_list)) {
 		mreq = list_first_entry(&mep->req_list,
 					struct mtu3_request, list);
-		mtu3_clean_gpd(mep, mreq);
 		mtu3_req_complete(mep, &mreq->request, status);
 	}
 }
@@ -286,6 +288,9 @@ static int mtu3_gadget_queue(struct usb_ep *ep,
 	struct mtu3 *mtu = mep->mtu;
 	unsigned long flags;
 	int ret = 0;
+
+	if (!mtu->softconnect)
+		return -ESHUTDOWN;
 
 	if (!req->buf)
 		return -ENODATA;
