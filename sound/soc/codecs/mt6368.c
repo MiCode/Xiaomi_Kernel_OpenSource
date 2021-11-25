@@ -3109,9 +3109,9 @@ static int mt_ncp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int mt_aif_rx_event(struct snd_soc_dapm_widget *w,
-			   struct snd_kcontrol *kcontrol,
-			   int event)
+static int mt_dl_gpio_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
@@ -3129,9 +3129,9 @@ static int mt_aif_rx_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int mt_aif_tx_event(struct snd_soc_dapm_widget *w,
-			   struct snd_kcontrol *kcontrol,
-			   int event)
+static int mt_ul_gpio_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
@@ -3302,17 +3302,22 @@ static const struct snd_soc_dapm_widget mt6368_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("AFE_ON", SUPPLY_SEQ_AFE,
 			      MT6368_AFE_UL_DL_CON0, AFE_ON_SFT, 0,
 			      NULL, 0),
+	/* GPIO */
+	SND_SOC_DAPM_SUPPLY_S("DL_GPIO", SUPPLY_SEQ_DL_GPIO,
+			      SND_SOC_NOPM, 0, 0,
+			      mt_dl_gpio_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S("UL_GPIO", SUPPLY_SEQ_UL_GPIO,
+			      SND_SOC_NOPM, 0, 0,
+			      mt_ul_gpio_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* AIF Rx*/
-	SND_SOC_DAPM_AIF_IN_E("AIF_RX", "AIF1 Playback", 0,
-			      SND_SOC_NOPM, 0, 0,
-			      mt_aif_rx_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_IN("AIF_RX", "AIF1 Playback", 0,
+			      SND_SOC_NOPM, 0, 0),
 
-	SND_SOC_DAPM_AIF_IN_E("AIF2_RX", "AIF2 Playback", 0,
-			      SND_SOC_NOPM, 0, 0,
-			      mt_aif_rx_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_IN("AIF2_RX", "AIF2 Playback", 0,
+			      SND_SOC_NOPM, 0, 0),
 
 	SND_SOC_DAPM_SUPPLY_S("AFE_DL_SRC", SUPPLY_SEQ_DL_SRC,
 			      MT6368_AFE_DL_SRC2_CON0,
@@ -3421,14 +3426,10 @@ static const struct snd_soc_dapm_widget mt6368_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("SGEN DL"),
 
 	/* Uplinks */
-	SND_SOC_DAPM_AIF_OUT_E("AIF1TX", "AIF1 Capture", 0,
-			       SND_SOC_NOPM, 0, 0,
-			       mt_aif_tx_event,
-			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_AIF_OUT_E("AIF2TX", "AIF2 Capture", 0,
-			       SND_SOC_NOPM, 0, 0,
-			       mt_aif_tx_event,
-			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_OUT("AIF1TX", "AIF1 Capture", 0,
+			       SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("AIF2TX", "AIF2 Capture", 0,
+			       SND_SOC_NOPM, 0, 0),
 
 	SND_SOC_DAPM_SUPPLY_S("ADC_CLKGEN", SUPPLY_SEQ_ADC_CLKGEN,
 			      SND_SOC_NOPM, 0, 0,
@@ -3680,10 +3681,12 @@ static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 	{"AIF1TX", NULL, "AIF Out Mux"},
 	{"AIF1TX", NULL, "AIFTX_Supply"},
 	{"AIF1TX", NULL, "MTKAIF_TX"},
+	{"AIF1TX", NULL, "UL_GPIO"},
 
 	{"AIF2TX", NULL, "AIF2 Out Mux"},
 	{"AIF2TX", NULL, "AIFTX_Supply"},
 	{"AIF2TX", NULL, "MTKAIF_TX"},
+	{"AIF2TX", NULL, "UL_GPIO"},
 
 	{"AIF Out Mux", "Normal Path", "MISO0_MUX"},
 	{"AIF Out Mux", "Normal Path", "MISO1_MUX"},
@@ -3817,8 +3820,10 @@ static const struct snd_soc_dapm_route mt6368_dapm_routes[] = {
 	{"DL Digital Clock CH_3", NULL, "SDM_3RD"},
 
 	{"AIF_RX", NULL, "DL Digital Clock CH_1_2"},
+	{"AIF_RX", NULL, "DL_GPIO"},
 
 	{"AIF2_RX", NULL, "DL Digital Clock CH_3"},
+	{"AIF2_RX", NULL, "DL_GPIO"},
 
 	/* DL Path */
 	{"DAC In Mux", "Normal Path", "AIF_RX"},
