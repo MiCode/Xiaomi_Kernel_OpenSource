@@ -200,11 +200,6 @@ static void md_cd_get_md_bootup_status(
 		__func__, res.a0, res.a1, res.a2);
 }
 
-void __weak mtk_suspend_emiisu(void)
-{
-	CCCI_DEBUG_LOG(-1, TAG, "No %s\n", __func__);
-}
-
 static void md_cd_dump_debug_register(struct ccci_modem *md)
 {
 	/* MD no need dump because of bus hang happened - open for debug */
@@ -213,7 +208,9 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 		CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)] = { 0 };
 
 	/* EMI debug feature */
-	mtk_suspend_emiisu();
+#if IS_ENABLED(CONFIG_MTK_EMI)
+	mtk_emidbg_dump();
+#endif
 
 	md_cd_get_md_bootup_status(reg_value, 2);
 	md->ops->dump_info(md, DUMP_FLAG_CCIF, ccif_sram, 0);

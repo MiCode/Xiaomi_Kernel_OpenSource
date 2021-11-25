@@ -96,5 +96,5 @@ void md_dump_register_6873(unsigned int md_index);
 
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern void dump_emi_outstanding(void);
-
+extern void mtk_emidbg_dump(void);
 #endif				/* __MD_SYS1_PLATFORM_H__ */
