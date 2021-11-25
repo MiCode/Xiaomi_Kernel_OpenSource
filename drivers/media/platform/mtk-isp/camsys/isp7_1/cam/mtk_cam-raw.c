@@ -6013,6 +6013,9 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	dequeued_frame_seq_no_inner =
 		readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
 
+	if (atomic_read(&raw_dev->vf_en) == 0)
+		dequeued_frame_seq_no_inner = 1;
+
 	ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
 	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no_inner);
 
@@ -6076,38 +6079,6 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	case M4U_PORT_L27_CAM2_CQI_R2:
 	case M4U_PORT_L28_CAM2_CQI_R2:
 		// M4U_PORT CAM2_CQI_R1 + CAM2_CQI_R2
-		inner_addr =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R1_BASE);
-		inner_addr_msb =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R1_BASE_MSB);
-		dev_info(raw_dev->dev,
-			 "cq_r1_inner_addr_msb:%d, cq_r1_inner_addr:%08x\n",
-			inner_addr_msb, inner_addr);
-
-		inner_addr =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R2_BASE);
-		inner_addr_msb =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R2_BASE_MSB);
-		dev_info(raw_dev->dev,
-			 "cq_r2_inner_addr_msb:%d, cq_r2_inner_addr:%08x\n",
-			inner_addr_msb, inner_addr);
-
-		inner_addr =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R3_BASE);
-		inner_addr_msb =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R3_BASE_MSB);
-		dev_info(raw_dev->dev,
-			 "cq_r3_inner_addr_msb:%d, cq_r3_inner_addr:%08x\n",
-			inner_addr_msb, inner_addr);
-
-		inner_addr =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R4_BASE);
-		inner_addr_msb =
-				readl_relaxed(raw_dev->base_inner + REG_CQI_R4_BASE_MSB);
-		dev_info(raw_dev->dev,
-			 "cq_r4_inner_addr_msb:%d, cq_r4_inner_addr:%08x\n",
-			inner_addr_msb, inner_addr);
-
 		inner_addr =
 				readl_relaxed(raw_dev->base_inner + REG_CQ_THR0_BASEADDR);
 		inner_addr_msb =
@@ -6238,6 +6209,8 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	dev_info(dev, "=================== [CAMSYS M4U] Dump End ====================\n");
 	if (s_data)
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED, "M4U TF", false);
+	else
+		dev_info(raw_dev->dev, "s_data is null\n");
 
 	return 0;
 }
