@@ -3,7 +3,6 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
-#include <asm/cacheflush.h>
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/fs.h>
@@ -13,7 +12,6 @@
 #include <linux/of_address.h>
 #include <linux/proc_fs.h>
 #include <linux/sched/debug.h>
-#include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/devapc_public.h>
