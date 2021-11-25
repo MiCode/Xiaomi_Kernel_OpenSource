@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 #include <soc/mediatek/smi.h>
 #include <dt-bindings/memory/mt2701-larb-port.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
@@ -168,6 +169,20 @@ struct mtk_smi_larb { /* larb: local arbiter */
 	unsigned char			*bank;
 };
 
+#define MAX_COMMON_FOR_CLAMP		(3)
+#define MAX_LARB_FOR_CLAMP		(6)
+#define RESET_CELL_NUM			(2)
+struct mtk_smi_pd {
+	struct device			*dev;
+	struct device			*smi_common_dev[MAX_COMMON_FOR_CLAMP];
+	u32				set_comm_port_range[MAX_COMMON_FOR_CLAMP];
+	u32				power_reset_pa[MAX_LARB_FOR_CLAMP];
+	void __iomem			*power_reset_reg[MAX_LARB_FOR_CLAMP];
+	u32				power_reset_value[MAX_LARB_FOR_CLAMP];
+	struct notifier_block nb;
+	bool	is_main;
+};
+
 static u32 log_level;
 enum smi_log_level {
 	log_config_bit = 0,
@@ -177,6 +192,61 @@ enum smi_log_level {
 #define MAX_INIT_POWER_ON_DEV	(5)
 static struct mtk_smi *init_power_on_dev[MAX_INIT_POWER_ON_DEV];
 static unsigned int init_power_on_num;
+
+static void power_reset_imp(struct mtk_smi_pd *smi_pd)
+{
+	int i;
+
+	for (i = 0; (i < MAX_LARB_FOR_CLAMP) && smi_pd->power_reset_reg[i]; i++) {
+		writel(smi_pd->power_reset_value[i], smi_pd->power_reset_reg[i]);
+		writel(0, smi_pd->power_reset_reg[i]);
+	}
+}
+
+static int mtk_smi_pd_callback(struct notifier_block *nb,
+			unsigned long flags, void *data)
+{
+	struct mtk_smi_pd *smi_pd =
+		container_of(nb, struct mtk_smi_pd, nb);
+	struct mtk_smi *common;
+	int i, j;
+
+	if (flags == GENPD_NOTIFY_ON) {
+		/* enable related SMI common port */
+		dev_notice(smi_pd->dev, "[smi] pd enter callback on:\n");
+		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
+			if (!smi_pd->smi_common_dev[i])
+				break;
+			common = dev_get_drvdata(smi_pd->smi_common_dev[i]);
+			for (j = 0; j < SMI_COMMON_LARB_NR_MAX; j++) {
+				if ((smi_pd->set_comm_port_range[i] >> j) & 1) {
+					if (!smi_pd->is_main) {
+						power_reset_imp(smi_pd);
+						writel(1 << j, common->base + SMI_CLAMP_EN_CLR);
+					} else //disable SMI common port for main-power	on
+						writel(1 << j, common->base + SMI_CLAMP_EN_SET);
+				}
+			}
+		}
+	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
+		if (smi_pd->is_main)
+			return NOTIFY_OK;
+		/* disable related SMI common port */
+		dev_notice(smi_pd->dev, "[smi] pd enter callback pre-off:\n");
+		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
+			if (!smi_pd->smi_common_dev[i])
+				break;
+			common = dev_get_drvdata(smi_pd->smi_common_dev[i]);
+			for (j = 0; j < SMI_COMMON_LARB_NR_MAX; j++) {
+				if ((smi_pd->set_comm_port_range[i] >> j) & 1)
+					writel(1 << j, common->base + SMI_CLAMP_EN_SET);
+			}
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
 
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 {
@@ -2169,8 +2239,87 @@ static struct platform_driver mtk_smi_common_driver = {
 	}
 };
 
+static const struct of_device_id mtk_smi_pd_of_ids[] = {
+	{
+		.compatible = "mediatek,smi-pd",
+	},
+	{}
+};
+
+static int mtk_smi_pd_probe(struct platform_device *pdev)
+{
+	struct mtk_smi_pd *smi_pd;
+	struct device *dev = &pdev->dev;
+	struct device_node *smi_node;
+	struct platform_device *smi_pdev;
+	int ret, i;
+	u32 reset_tmp, reset_num, offset;
+
+	smi_pd = devm_kzalloc(&pdev->dev, sizeof(*smi_pd), GFP_KERNEL);
+	if (!smi_pd)
+		return -ENOMEM;
+
+	smi_pd->dev = dev;
+	if (of_property_read_bool(dev->of_node, "main-power"))
+		smi_pd->is_main = true;
+	else
+		smi_pd->is_main = false;
+
+	for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
+		smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", i);
+		if (!smi_node)
+			break;
+
+		smi_pdev = of_find_device_by_node(smi_node);
+		of_node_put(smi_node);
+		if (smi_pdev) {
+			if (!platform_get_drvdata(smi_pdev))
+				return -EPROBE_DEFER;
+			smi_pd->smi_common_dev[i] = &smi_pdev->dev;
+		} else {
+			dev_notice(dev, "Failed to get smi_comm dev for setting clamp:%d\n", i);
+			return -EINVAL;
+		}
+
+		of_property_read_u32_index(dev->of_node, "mediatek,comm-port-range",
+						i, &smi_pd->set_comm_port_range[i]);
+	}
+
+	if (of_get_property(dev->of_node, "power-reset", &reset_tmp)) {
+		reset_num = reset_tmp / (sizeof(u32) * RESET_CELL_NUM);
+		for (i = 0; i < reset_num; i++) {
+			offset = i * RESET_CELL_NUM;
+			if (of_property_read_u32_index(dev->of_node,
+					"power-reset", offset, &reset_tmp))
+				break;
+			smi_pd->power_reset_pa[i] = reset_tmp;
+			smi_pd->power_reset_reg[i] = ioremap(reset_tmp, 4);
+
+			if (of_property_read_u32_index(dev->of_node,
+					"power-reset", offset + 1, &reset_tmp))
+				break;
+			smi_pd->power_reset_value[i] = 1 << reset_tmp;
+		}
+	}
+
+	smi_pd->nb.notifier_call = mtk_smi_pd_callback;
+	ret = dev_pm_genpd_add_notifier(dev, &smi_pd->nb);
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+
+static struct platform_driver mtk_smi_pd_driver = {
+	.probe	= mtk_smi_pd_probe,
+	.driver	= {
+		.name = "mtk-smi-pd",
+		.of_match_table = mtk_smi_pd_of_ids,
+	}
+};
+
 static struct platform_driver * const smidrivers[] = {
 	&mtk_smi_common_driver,
+	&mtk_smi_pd_driver,
 	&mtk_smi_larb_driver,
 };
 
