@@ -1583,6 +1583,7 @@
 
 			up_code_buf_sz = <0x100000>;
 			up_coredump_buf_sz = <0x200000>;
+			regdump_buf_sz = <0x10000>;
 			mdla_coredump_buf_sz = <0x20000>;
 			mvpu_coredump_buf_sz = <0x20000>;
 			mvpu_sec_coredump_buf_sz = <0x20000>;
