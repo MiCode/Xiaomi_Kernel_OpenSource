@@ -3551,7 +3551,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 
 			if (req_stream_data->frame_seq_no == 1 ||
-					((mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) &&
+				((mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) &&
 					req_stream_data->frame_seq_no == 2))
 				initial_frame = 1;
 
@@ -3585,12 +3585,13 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
 			}
-			if (ctx->used_raw_num != 0) {
-				if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
-					ctx->pipe->feature_active == 0 &&
-					req_stream_data->frame_seq_no == 2) {
-					mtk_cam_initial_sensor_setup(req, ctx);
-				}
+
+			if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
+				(ctx->pipe->feature_active == 0 ||
+				req_stream_data->frame_params.raw_param.hardware_scenario
+				== MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) &&
+				req_stream_data->frame_seq_no == 2) {
+				mtk_cam_initial_sensor_setup(req, ctx);
 			} else { // for single sv pipe stream
 				if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
 					req_stream_data->frame_seq_no == 2) {
