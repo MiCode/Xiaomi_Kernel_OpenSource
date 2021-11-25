@@ -629,7 +629,7 @@ static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
 };
 
 static const struct mtk_disp_postmask_data mt6879_postmask_driver_data = {
-	.is_support_34bits = false,
+	.is_support_34bits = true,
 };
 
 static const struct mtk_disp_postmask_data mt6855_postmask_driver_data = {
