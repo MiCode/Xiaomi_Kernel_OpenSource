@@ -2375,7 +2375,7 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	struct device_node *boot_node = NULL;
 	struct tag_bootmode *tag = NULL;
 #endif
-	u32 val, len;
+	u32 val = -EINVAL, len;
 	const char *name = "default";
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
