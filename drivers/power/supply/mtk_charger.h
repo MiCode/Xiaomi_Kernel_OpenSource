@@ -331,8 +331,10 @@ struct mtk_charger {
 	/* vbat monitor, 6pin bat */
 	bool batpro_done;
 	bool enable_vbat_mon;
+	bool enable_vbat_mon_bak;
 	int old_cv;
 	bool stop_6pin_re_en;
+	int vbat0_flag;
 
 	/* sw jeita */
 	bool enable_sw_jeita;

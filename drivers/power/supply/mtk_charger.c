@@ -255,6 +255,7 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	if (info->enable_vbat_mon == true)
 		info->setting.vbat_mon_en = true;
 	chr_err("use 6pin bat, enable_vbat_mon:%d\n", info->enable_vbat_mon);
+	info->enable_vbat_mon_bak = of_property_read_bool(np, "enable_vbat_mon");
 
 	/* sw jeita */
 	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
@@ -3076,7 +3077,7 @@ int psy_charger_set_property(struct power_supply *psy,
 static void mtk_charger_external_power_changed(struct power_supply *psy)
 {
 	struct mtk_charger *info;
-	union power_supply_propval prop, prop2;
+	union power_supply_propval prop, prop2, vbat0;
 	struct power_supply *chg_psy = NULL;
 	int ret;
 
@@ -3085,7 +3086,7 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 
 	if (IS_ERR_OR_NULL(chg_psy)) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
-	chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
 		info->chg_psy = chg_psy;
 	} else {
@@ -3093,6 +3094,18 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_ENERGY_EMPTY, &vbat0);
+	}
+
+	if (info->vbat0_flag != vbat0.intval) {
+		if (vbat0.intval) {
+			info->enable_vbat_mon = false;
+			charger_dev_enable_6pin_battery_charging(info->chg1_dev, false);
+		} else
+			info->enable_vbat_mon = info->enable_vbat_mon_bak;
+
+		info->vbat0_flag = vbat0.intval;
 	}
 
 	pr_notice("%s event, name:%s online:%d type:%d vbus:%d\n", __func__,

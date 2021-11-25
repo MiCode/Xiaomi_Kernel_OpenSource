@@ -84,7 +84,7 @@ void enable_gauge_irq(struct mtk_gauge *gauge,
 		return;
 
 	desc = irq_to_desc(gauge->irq_no[irq]);
-	bm_err("%s irq_no:%d:%d depth:%d\n",
+	bm_debug("%s irq_no:%d:%d depth:%d\n",
 		__func__, irq, gauge->irq_no[irq],
 		desc->depth);
 	if (desc->depth == 1)
@@ -103,7 +103,7 @@ void disable_gauge_irq(struct mtk_gauge *gauge,
 		return;
 
 	desc = irq_to_desc(gauge->irq_no[irq]);
-	bm_err("%s irq_no:%d:%d depth:%d\n",
+	bm_debug("%s irq_no:%d:%d depth:%d\n",
 		__func__, irq, gauge->irq_no[irq],
 		desc->depth);
 	if (desc->depth == 0)
@@ -517,9 +517,9 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 {
 	struct mtk_battery *gm;
 	struct battery_data *bs_data;
-	union power_supply_propval online, status;
+	union power_supply_propval online, status, vbat0;
 	union power_supply_propval prop_type;
-	int cur_chr_type = 0;
+	int cur_chr_type = 0, old_vbat0 = 0;
 
 	struct power_supply *chg_psy = NULL;
 	struct power_supply *dv2_chg_psy = NULL;
@@ -546,6 +546,9 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_STATUS, &status);
+
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_ENERGY_EMPTY, &vbat0);
 
 		if (!online.intval) {
 			bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -600,11 +603,20 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
 		}
 
+		if (gm->vbat0_flag != vbat0.intval) {
+			old_vbat0 = gm->vbat0_flag;
+			gm->vbat0_flag = vbat0.intval;
+
+			bm_err("fuelgauge NAFG for calibration,vbat0[o:%d n:%d]\n",
+				old_vbat0, vbat0.intval);
+			wakeup_fg_algo(gm, FG_INTR_NAG_C_DLTV);
+		}
 	}
 
-	bm_err("%s event, name:%s online:%d, status:%d, EOC:%d, cur_chr_type:%d old:%d\n",
+	bm_err("%s event, name:%s online:%d, status:%d, EOC:%d, cur_chr_type:%d old:%d, vbat0:[o:%d n:%d]\n",
 		__func__, psy->desc->name, online.intval, status.intval,
-		gm->b_EOC, cur_chr_type, gm->chr_type);
+		gm->b_EOC, cur_chr_type, gm->chr_type,
+		old_vbat0, vbat0.intval);
 
 	gm->chr_type = cur_chr_type;
 
@@ -2651,7 +2663,7 @@ static void fg_drv_update_hw_status(struct mtk_battery *gm)
 
 	gm->tbat = force_get_tbat_internal(gm, true);
 
-	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d,boot:%d\n",
+	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d %d,boot:%d\n",
 		gauge_get_int_property(GAUGE_PROP_COULOMB),
 		gm->coulomb_plus.end, gm->coulomb_minus.end,
 		gm->uisoc_plus.end, gm->uisoc_minus.end,
@@ -2662,7 +2674,7 @@ static void fg_drv_update_hw_status(struct mtk_battery *gm)
 		gm->baton,
 		gm->algo.active,
 		gm->disableGM30, gm->fg_cust_data.disable_nafg,
-		gm->ntc_disable_nafg, gm->cmd_disable_nafg,
+		gm->ntc_disable_nafg, gm->cmd_disable_nafg, gm->vbat0_flag,
 		gm->bootmode);
 
 	fg_drv_update_daemon(gm);

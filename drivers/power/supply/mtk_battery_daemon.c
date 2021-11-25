@@ -2498,15 +2498,15 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	{
 		int ret = 0;
 
-		if (gm->ntc_disable_nafg == true)
+		if (gm->ntc_disable_nafg || gm->vbat0_flag)
 			ret = 1;
 		else
 			ret = 0;
 		ret_msg->fgd_data_len += sizeof(ret);
 		memcpy(ret_msg->fgd_data, &ret, sizeof(ret));
 		bm_debug(
-			"[K]FG_DAEMON_CMD_GET_DISABLE_NAFG=%d\n",
-			ret);
+			"[K]FG_DAEMON_CMD_GET_DISABLE_NAFG=%d, ntc_disable_nafg:%d vbat0_flag:%d\n",
+			ret, gm->ntc_disable_nafg, gm->vbat0_flag);
 	}
 	break;
 	case FG_DAEMON_CMD_GET_PTIM_VBAT:
