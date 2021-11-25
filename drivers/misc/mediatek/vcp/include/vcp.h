@@ -146,6 +146,7 @@ enum vcp_reserve_mem_id_t {
 	VENC_SET_PROP_MEM_ID,
 	VDEC_VCP_LOG_INFO_ID,
 	VENC_VCP_LOG_INFO_ID,
+	GCE_MEM_ID,
 	NUMS_MEM_ID,
 };
 

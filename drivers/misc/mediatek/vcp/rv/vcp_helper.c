@@ -189,6 +189,14 @@ struct vcp_ipi_irq vcp_ipi_irqs[] = {
 #define IRQ_NUMBER  (sizeof(vcp_ipi_irqs)/sizeof(struct vcp_ipi_irq))
 struct device *vcp_io_devs[VCP_IOMMU_DEV_NUM];
 
+struct vcp_status_fp vcp_helper_fp = {
+	.vcp_get_reserve_mem_phys	= vcp_get_reserve_mem_phys,
+	.vcp_get_reserve_mem_virt	= vcp_get_reserve_mem_virt,
+	.vcp_register_feature		= vcp_register_feature,
+	.vcp_deregister_feature		= vcp_deregister_feature,
+	.is_vcp_ready				= is_vcp_ready,
+};
+
 #undef pr_debug
 #define pr_debug(fmt, arg...) do { \
 		if (vcp_dbg_log) \
@@ -2494,6 +2502,8 @@ static int __init vcp_init(void)
 	/* vco io device initialise */
 	for (i = 0; i < VCP_IOMMU_DEV_NUM; i++)
 		vcp_io_devs[i] = NULL;
+
+	vcp_set_fp(&vcp_helper_fp);
 
 	if (platform_driver_register(&mtk_vcp_device)) {
 		pr_info("[VCP] vcp probe fail\n");

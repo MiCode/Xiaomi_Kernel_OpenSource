@@ -7,6 +7,8 @@
 #include "vcp_status.h"
 #include "vcp.h"
 
+struct vcp_status_fp *vcp_fp;
+
 int pwclkcnt;
 EXPORT_SYMBOL_GPL(pwclkcnt);
 
@@ -21,6 +23,54 @@ int mmup_enable_count(void)
 	return pwclkcnt;
 }
 EXPORT_SYMBOL_GPL(mmup_enable_count);
+
+void vcp_set_fp(struct vcp_status_fp *fp)
+{
+	if (!fp)
+		return;
+	vcp_fp = fp;
+}
+EXPORT_SYMBOL_GPL(vcp_set_fp);
+
+phys_addr_t vcp_get_reserve_mem_phys_ex(enum vcp_reserve_mem_id_t id)
+{
+	if (!vcp_fp || !vcp_fp->vcp_get_reserve_mem_phys)
+		return 0;
+	return vcp_fp->vcp_get_reserve_mem_phys(id);
+}
+EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_phys_ex);
+
+phys_addr_t vcp_get_reserve_mem_virt_ex(enum vcp_reserve_mem_id_t id)
+{
+	if (!vcp_fp || !vcp_fp->vcp_get_reserve_mem_virt)
+		return 0;
+	return vcp_fp->vcp_get_reserve_mem_virt(id);
+}
+EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_virt_ex);
+
+void vcp_register_feature_ex(enum feature_id id)
+{
+	if (!vcp_fp || !vcp_fp->vcp_register_feature)
+		return;
+	vcp_fp->vcp_register_feature(id);
+}
+EXPORT_SYMBOL_GPL(vcp_register_feature_ex);
+
+void vcp_deregister_feature_ex(enum feature_id id)
+{
+	if (!vcp_fp || !vcp_fp->vcp_deregister_feature)
+		return;
+	vcp_fp->vcp_deregister_feature(id);
+}
+EXPORT_SYMBOL_GPL(vcp_deregister_feature_ex);
+
+unsigned int is_vcp_ready_ex(enum vcp_core_id id)
+{
+	if (!vcp_fp || !vcp_fp->is_vcp_ready)
+		return 0;
+	return vcp_fp->is_vcp_ready(id);
+}
+EXPORT_SYMBOL_GPL(is_vcp_ready_ex);
 
 static void __exit mtk_vcp_status_exit(void)
 {
