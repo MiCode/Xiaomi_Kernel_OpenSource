@@ -960,14 +960,26 @@ static bool pkvm_handle_psci(struct kvm_vcpu *vcpu)
 bool pkvm_handle_hvc64(struct kvm_vcpu *vcpu)
 {
 	u32 fn = smccc_get_function(vcpu);
+	u64 val[4] = { SMCCC_RET_NOT_SUPPORTED };
 
 	switch (fn) {
 	case ARM_SMCCC_VERSION_FUNC_ID:
 		/* Nothing to be handled by the host. Go back to the guest. */
-		smccc_set_retval(vcpu, ARM_SMCCC_VERSION_1_1, 0, 0, 0);
-		return true;
-
+		val[0] = ARM_SMCCC_VERSION_1_1;
+		break;
+	case ARM_SMCCC_VENDOR_HYP_CALL_UID_FUNC_ID:
+		val[0] = ARM_SMCCC_VENDOR_HYP_UID_KVM_REG_0;
+		val[1] = ARM_SMCCC_VENDOR_HYP_UID_KVM_REG_1;
+		val[2] = ARM_SMCCC_VENDOR_HYP_UID_KVM_REG_2;
+		val[3] = ARM_SMCCC_VENDOR_HYP_UID_KVM_REG_3;
+		break;
+	case ARM_SMCCC_VENDOR_HYP_KVM_FEATURES_FUNC_ID:
+		val[0] = BIT(ARM_SMCCC_KVM_FUNC_FEATURES);
+		break;
 	default:
 		return pkvm_handle_psci(vcpu);
 	}
+
+	smccc_set_retval(vcpu, val[0], val[1], val[2], val[3]);
+	return true;
 }
