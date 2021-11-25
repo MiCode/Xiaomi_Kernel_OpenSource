@@ -813,18 +813,18 @@ static int ep0_queue(struct mtu3_ep *mep, struct mtu3_request *mreq)
 		return -EINVAL;
 	}
 
-	if (mtu->delayed_status) {
-
-		mtu->delayed_status = false;
-		ep0_do_status_stage(mtu);
-		/* needn't giveback the request for handling delay STATUS */
-		return 0;
-	}
-
 	if (!list_empty(&mep->req_list))
 		return -EBUSY;
 
 	list_add_tail(&mreq->list, &mep->req_list);
+
+	if (mtu->delayed_status) {
+
+		mtu->delayed_status = false;
+		ep0_do_status_stage(mtu);
+		ep0_req_giveback(mtu, &mreq->request);
+		return 0;
+	}
 
 	/* sequence #1, IN ... start writing the data */
 	if (mtu->ep0_state == MU3D_EP0_STATE_TX)
