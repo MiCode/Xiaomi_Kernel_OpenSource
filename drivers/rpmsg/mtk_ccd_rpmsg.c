@@ -81,7 +81,7 @@ __rpmsg_create_ept(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 	atomic_set(&mept->ccd_params_rdy, 0);
 	atomic_set(&mept->ccd_mep_state, CCD_MENDPOINT_CREATED);
 
-	dev_info(&pdev->dev, "%s: %d\n", __func__, ept->addr);
+	dev_dbg(&pdev->dev, "%s: %d\n", __func__, ept->addr);
 	return ept;
 }
 
@@ -297,7 +297,7 @@ mtk_rpmsg_create_rpmsgdev(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 		id_max = info->src + 5;
 	}
 
-	dev_info(&pdev->dev, "%s %p, info->src(%x), id_min(%d), id_max(%d)\n",
+	dev_dbg(&pdev->dev, "%s %p, info->src(%x), id_min(%d), id_max(%d)\n",
 		 __func__, rpdev, info->src, id_min, id_max);
 
 	mutex_lock(&mtk_subdev->endpoints_lock);
@@ -319,7 +319,7 @@ mtk_rpmsg_create_rpmsgdev(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 	rpdev->dev.of_node =
 		mtk_rpmsg_match_device_subnode(pdev->dev.of_node, info->name);
 
-	dev_info(&pdev->dev, "ccd msgdev addr: %d\n", rpdev->src);
+	dev_dbg(&pdev->dev, "ccd msgdev addr: %d\n", rpdev->src);
 
 	rpdev->dev.parent = &pdev->dev;
 	rpdev->dev.release = mtk_rpmsg_release_device;

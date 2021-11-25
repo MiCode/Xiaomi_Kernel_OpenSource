@@ -174,7 +174,7 @@ static int ccd_open(struct inode *inode,
 					   struct mtk_ccd,
 					   ccd_cdev);
 	filp->private_data = ccd;
-	dev_info(ccd->dev, "%s: %p\n", __func__, ccd);
+	dev_dbg(ccd->dev, "%s: %p\n", __func__, ccd);
 	return ret;
 }
 
@@ -203,7 +203,7 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 
 	switch (cmd) {
 	case IOCTL_CCD_MASTER_INIT:
-		dev_info(ccd->dev, "enter IOCTL_CCD_MASTER_INIT\n");
+		dev_dbg(ccd->dev, "enter IOCTL_CCD_MASTER_INIT\n");
 		memset(&master_obj, 0, sizeof(master_obj));
 		master_obj.state = CCD_MASTER_ACTIVE;
 		/*  TBD: Protect by lock? */
@@ -213,7 +213,7 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 				   sizeof(master_obj));
 		break;
 	case IOCTL_CCD_MASTER_DESTROY:
-		dev_info(ccd->dev, "enter IOCTL_CCD_MASTER_DESTROY\n");
+		dev_dbg(ccd->dev, "enter IOCTL_CCD_MASTER_DESTROY\n");
 		ret = copy_from_user(&master_obj, user_addr,
 				     sizeof(master_obj));
 		/*  TBD: Protect by lock? */

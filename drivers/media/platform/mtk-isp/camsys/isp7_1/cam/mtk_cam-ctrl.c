@@ -3222,7 +3222,7 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	else
 		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
 
-	dev_info(ctx->cam->dev, "%s:%s: req(%d) done\n",
+	dev_dbg(ctx->cam->dev, "%s:%s: req(%d) done\n",
 		 __func__, req->req.debug_str, s_data->frame_seq_no);
 }
 
