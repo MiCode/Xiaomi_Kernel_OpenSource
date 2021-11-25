@@ -146,8 +146,8 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 	int i = 0, index = 0;
 
 	DDPINFO("%s chist id:%d\n", __func__, caps_info->device_id);
-	// just call from pqservice
-	if (comp_to_chist(comp)->data->module_count > 1)
+	// just call from pqservice, device_id:low 16bit=module_id, high 16bit=panel_id
+	if (comp_to_chist(comp)->data->module_count > 1 && (caps_info->device_id & 0xffff))
 		index = 1;
 
 	caps_info->support_color = DISP_CHIST_COLOR_FORMAT;
@@ -174,7 +174,8 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	int i = 0;
 
 	if (comp_to_chist(comp)->data->module_count > 1
-		&& config->caller == MTK_DRM_CHIST_CALLER_PQ)
+		&& config->caller == MTK_DRM_CHIST_CALLER_PQ
+		&& (config->device_id & 0xffff))
 		comp = private->ddp_comp[DDP_COMPONENT_CHIST1];
 
 	DDPINFO("%s  chist id:%d, caller:%d, config count:%d\n", __func__,
@@ -188,6 +189,12 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 			config->chist_config[i].channel_id = channel_id;
 			channel_id++;
 		}
+	} else {
+#ifndef DEBUG_UT_TEST
+		if (index_of_chist(comp->id) == 0
+			&& config->config_channel_count > DISP_CHIST_HWC_CHANNEL_INDEX)
+			config->config_channel_count = DISP_CHIST_HWC_CHANNEL_INDEX;
+#endif
 	}
 
 	need_restore = 1;
@@ -216,7 +223,8 @@ static int disp_chist_copy_hist_to_user(struct drm_device *dev,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 
 	if (comp_to_chist(comp)->data->module_count > 1
-		&& hist->caller == MTK_DRM_CHIST_CALLER_PQ)
+		&& hist->caller == MTK_DRM_CHIST_CALLER_PQ
+		&& (hist->device_id & 0xffff))
 		comp = private->ddp_comp[DDP_COMPONENT_CHIST1];
 
 	index = index_of_chist(comp->id);
