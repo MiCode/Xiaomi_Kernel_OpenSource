@@ -23,6 +23,10 @@ int mtk_mml_msg;
 EXPORT_SYMBOL(mtk_mml_msg);
 module_param(mtk_mml_msg, int, 0644);
 
+int mml_cmdq_err;
+EXPORT_SYMBOL(mml_cmdq_err);
+module_param(mml_cmdq_err, int, 0644);
+
 int mml_pkt_dump;
 module_param(mml_pkt_dump, int, 0644);
 
@@ -30,7 +34,6 @@ int mml_comp_dump;
 module_param(mml_comp_dump, int, 0644);
 
 int mml_trace;
-EXPORT_SYMBOL(mml_trace);
 module_param(mml_trace, int, 0644);
 
 int mml_qos = 1;
@@ -1147,6 +1150,8 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 
 	mml_mmp(irq_err, MMPROFILE_FLAG_PULSE, task->job.jobid, cnt);
 
+	/* turn on cmdq save log */
+	mml_cmdq_err = 1;
 	core_comp_dump(task, pipe, cnt);
 	if (cnt < 3) {
 		mml_err("dump smi");
@@ -1157,6 +1162,7 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 	call_dbg_op(path->mmlsys, reset, task, pipe);
 
 	mml_err("error %d engine reset end", cnt);
+	mml_cmdq_err = 0;
 }
 
 static void core_taskdump0_cb(struct cmdq_cb_data data)

@@ -23,12 +23,15 @@
 #include <linux/time.h>
 #include <linux/workqueue.h>
 #include <mtk-interconnect.h>
+#include <cmdq-util.h>
 #include "mtk-mml.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-driver.h"
 #include "mtk-mml-pq.h"
 
 extern int mtk_mml_msg;
+
+extern int mml_cmdq_err;
 
 #define mml_msg(fmt, args...) \
 do { \
@@ -39,11 +42,15 @@ do { \
 #define mml_log(fmt, args...) \
 do { \
 	pr_notice("[mml]" fmt "\n", ##args); \
+	if (mml_cmdq_err) \
+		cmdq_util_error_save(fmt, ##args); \
 } while (0)
 
 #define mml_err(fmt, args...) \
 do { \
 	pr_notice("[mml][err]" fmt "\n", ##args); \
+	if (mml_cmdq_err) \
+		cmdq_util_error_save(fmt, ##args); \
 } while (0)
 
 /* mml ftrace */

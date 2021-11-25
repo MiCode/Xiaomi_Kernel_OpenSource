@@ -50,70 +50,54 @@ struct mml_test_case {
 static struct mml_test_case the_case;
 
 int mml_case;
-EXPORT_SYMBOL(mml_case);
 module_param(mml_case, int, 0644);
 
 /* how many submit for each ut */
 int mml_test_round = 1;
-EXPORT_SYMBOL(mml_test_round);
 module_param(mml_test_round, int, 0644);
 
 /* interval for each test run, in ms */
 int mml_test_interval = 16;
-EXPORT_SYMBOL(mml_test_interval);
 module_param(mml_test_interval, int, 0644);
 
 
 int mml_test_w = 1920;
-EXPORT_SYMBOL(mml_test_w);
 module_param(mml_test_w, int, 0644);
 
 int mml_test_h = 1088;
-EXPORT_SYMBOL(mml_test_h);
 module_param(mml_test_h, int, 0644);
 
 int mml_test_out_w = 1920;
-EXPORT_SYMBOL(mml_test_out_w);
 module_param(mml_test_out_w, int, 0644);
 
 int mml_test_out_h = 1088;
-EXPORT_SYMBOL(mml_test_out_h);
 module_param(mml_test_out_h, int, 0644);
 
 int mml_test_crop_left;
-EXPORT_SYMBOL(mml_test_crop_left);
 module_param(mml_test_crop_left, int, 0644);
 
 int mml_test_crop_top;
-EXPORT_SYMBOL(mml_test_crop_top);
 module_param(mml_test_crop_top, int, 0644);
 
 int mml_test_crop_width = 1920;
-EXPORT_SYMBOL(mml_test_crop_width);
 module_param(mml_test_crop_width, int, 0644);
 
 int mml_test_crop_height = 1088;
-EXPORT_SYMBOL(mml_test_crop_height);
 module_param(mml_test_crop_height, int, 0644);
 
 int mml_test_rot;
-EXPORT_SYMBOL(mml_test_rot);
 module_param(mml_test_rot, int, 0644);
 
 int mml_test_flip;
-EXPORT_SYMBOL(mml_test_flip);
 module_param(mml_test_flip, int, 0644);
 
 int mml_test_pq;
-EXPORT_SYMBOL(mml_test_pq);
 module_param(mml_test_pq, int, 0644);
 
 int mml_test_in_fmt = MML_FMT_RGB888;
-EXPORT_SYMBOL(mml_test_in_fmt);
 module_param(mml_test_in_fmt, int, 0644);
 
 int mml_test_out_fmt = MML_FMT_RGB888;
-EXPORT_SYMBOL(mml_test_out_fmt);
 module_param(mml_test_out_fmt, int, 0644);
 
 struct mml_test {
