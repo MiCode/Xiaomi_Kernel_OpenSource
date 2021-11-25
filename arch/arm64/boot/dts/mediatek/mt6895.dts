@@ -13403,6 +13403,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			interrupt-controller;
 			#interrupt-cells = <1>;
 			#io-channel-cells = <1>;
+			io-channels = <&mt6375_adc MT6375_ADC_VBAT>,
+				      <&mt6375_auxadc MT6375_AUXADC_BATSNS_DBG>;
+			io-channel-names = "chg_vbat", "auxadc_vbat";
+			charger = <&mt6375_chg>;
 			isink_load-supply = <&mt6363_isink_load>;
 			imix_r {
 				val = <90>;
@@ -13445,8 +13449,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			interrupts-extended = <&mt6375_auxadc RG_INT_STATUS_BAT_H>,
 					      <&mt6375_auxadc RG_INT_STATUS_BAT_L>;
 			interrupt-names = "bat_h", "bat_l";
-			io-channels = <&mt6375_adc MT6375_ADC_VBAT>;
-			io-channel-names = "chg_vbat";
 			resistance-ratio = <4 1>;
 		};
 		dbg {
