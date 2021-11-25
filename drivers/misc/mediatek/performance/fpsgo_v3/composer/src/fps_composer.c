@@ -229,19 +229,16 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 		ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 1);
 		if (!ret) {
 			goto exit;
-			return;
 		}
 
 		ret = fpsgo_com_update_render_api_info(f_render);
 		if (!ret) {
 			goto exit;
-			return;
 		}
 	} else if (identifier) {
 		ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 1);
 		if (!ret) {
 			goto exit;
-			return;
 		}
 	}
 
@@ -250,7 +247,6 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 
 	if (!f_render->queue_SF) {
 		goto exit;
-		return;
 	}
 
 	switch (f_render->frame_type) {
@@ -328,7 +324,6 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
 	if (!ret) {
 		goto exit;
-		return;
 	}
 
 	/* hwui */
@@ -347,7 +342,6 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 
 	if (!f_render->queue_SF) {
 		goto exit;
-		return;
 	}
 
 	switch (f_render->frame_type) {
@@ -458,12 +452,10 @@ void fpsgo_ctrl2comp_dequeue_start(int pid,
 	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
 	if (!ret) {
 		goto exit;
-		return;
 	}
 
 	if (!f_render->queue_SF) {
 		goto exit;
-		return;
 	}
 
 	switch (f_render->frame_type) {
@@ -532,12 +524,10 @@ void fpsgo_ctrl2comp_dequeue_end(int pid,
 	ret = fpsgo_com_refetch_buffer(f_render, pid, identifier, 0);
 	if (!ret) {
 		goto exit;
-		return;
 	}
 
 	if (!f_render->queue_SF) {
 		goto exit;
-		return;
 	}
 
 	switch (f_render->frame_type) {
@@ -802,6 +792,7 @@ static ssize_t connect_api_info_show
 					pos->api, pos->frame_type);
 			posi += length;
 
+			fpsgo_thread_unlock(&pos->thr_mlock);
 
 		}
 
