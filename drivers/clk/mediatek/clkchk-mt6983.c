@@ -235,6 +235,7 @@ static struct regname rn[] = {
 	REGNAME(ven1, 0x0, VENCSYS_CG),
 	/* SPM register */
 	REGNAME(spm, 0xE00, MD1_PWR_CON),
+	REGNAME(spm, 0xF30, SOC_BUCK_ISO_CON),
 	REGNAME(spm, 0xF34, PWR_STATUS),
 	REGNAME(spm, 0xF38, PWR_STATUS_2ND),
 	REGNAME(spm, 0xF2C, MD_BUCK_ISO_CON),
@@ -579,10 +580,6 @@ static const char * const notice_pll_names[] = {
 	"adsppll",
 	"apll1",
 	"apll2",
-	"apu_ao_apupll",
-	"apu_ao_npupll",
-	"apu_ao_apupll1",
-	"apu_ao_apupll2",
 	NULL
 };
 
