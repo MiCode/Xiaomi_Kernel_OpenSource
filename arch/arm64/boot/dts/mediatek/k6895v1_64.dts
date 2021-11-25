@@ -12,9 +12,7 @@
 
 &chosen {
 	bootargs_ext = "console=tty0 root=/dev/ram \
-loglevel=8 \
-androidboot.hardware=mt6895 \
-initcall_debug=1 ";
+androidboot.hardware=mt6895";
 };
 
 &odm {
