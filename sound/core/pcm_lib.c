@@ -2490,6 +2490,7 @@ int snd_pcm_add_chmap_ctls(struct snd_pcm *pcm, int stream,
 	pcm->streams[stream].chmap_kctl = info->kctl;
 	if (info_ret)
 		*info_ret = info;
+	kfree(info);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_pcm_add_chmap_ctls);
