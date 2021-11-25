@@ -75,6 +75,10 @@ static u64 alloc_slot[SLOT_GROUP_NUM];
 static u64 alloc_slot_group;
 static DEFINE_MUTEX(rb_slot_list_mutex);
 
+/* These are for pq vcp readback */
+dma_addr_t vcp_paStart;
+static u64 rb_slot_vcp[SLOT_GROUP_NUM];
+
 static dma_addr_t translate_read_id_ex(u32 read_id, u32 *slot_offset)
 {
 	u32 slot_id;
@@ -150,7 +154,7 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 		}
 
 		addrs = kcalloc(count, sizeof(dma_addr_t), GFP_KERNEL);
-		if (!ids) {
+		if (!addrs) {
 			CMDQ_ERR("[READ_PA] fail to alloc addr buf\n");
 			status = -ENOMEM;
 			break;
@@ -464,16 +468,39 @@ static s32 translate_meta(struct op_meta *meta,
 	{
 		dma_addr_t dram_addr;
 		u32 offset;
+		u32 vcp_offset = 0;
 
-		dram_addr = translate_read_id_ex(meta->readback_id, &offset);
-		if (!dram_addr)
-			return -EINVAL;
+		if (!cmdq_mdp_vcp_pq_readback_support()) {
+			dram_addr = translate_read_id_ex(meta->readback_id, &offset);
+			if (!dram_addr)
+				return -EINVAL;
 
-		/* flush first since readback add commands to pkt */
-		cmdq_handle_flush_cmd_buf(handle, cmd_buf);
+			/* flush first since readback add commands to pkt */
+			cmdq_handle_flush_cmd_buf(handle, cmd_buf);
 
-		cmdq_mdp_op_readback(handle, meta->engine,
-			dram_addr + offset * sizeof(u32) + gce_mminfra, meta->mask);
+			cmdq_mdp_op_readback(handle, meta->engine,
+				dram_addr + offset * sizeof(u32) + gce_mminfra, meta->mask);
+		} else {
+			dram_addr = translate_read_id_ex(meta->readback_id, &offset);
+			if (!dram_addr)
+				return -EINVAL;
+
+			/* flush first since readback add commands to pkt */
+			cmdq_handle_flush_cmd_buf(handle, cmd_buf);
+
+			vcp_offset = (dram_addr - vcp_paStart) + offset * sizeof(u32);
+
+			CMDQ_LOG_PQ("%s: engine:%d, rb_id:0x%x, dram_addr:%pa, offset:0x%x\n",
+				__func__, meta->engine, meta->readback_id,
+				&dram_addr, offset);
+			CMDQ_LOG_PQ("%s: engine:%d, rb_id:0x%x, vcp_offset:0x%x, vcp_pa:%#llx\n",
+				__func__, meta->engine, meta->readback_id,
+				vcp_offset, vcp_paStart + vcp_offset);
+
+			cmdq_mdp_vcp_pq_readback(handle, meta->engine,
+				vcp_offset, MAX_COUNT_IN_RB_SLOT);
+		}
+
 		break;
 	}
 	case CMDQ_MOP_POLL:
@@ -950,6 +977,45 @@ done:
 	return status;
 }
 
+
+static s32 mdp_get_free_slots(u32 *rb_slot_index)
+{
+	u32 free_slot, free_slot_group;
+
+	mutex_lock(&rb_slot_list_mutex);
+
+	CMDQ_MSG("%s: start, rb_slot_vcp[0]:0x%x, rb_slot_vcp[1]:0x%x\n",
+		__func__, rb_slot_vcp[0], rb_slot_vcp[1]);
+
+	if (rb_slot_vcp[0] != ULLONG_MAX) {
+		CMDQ_MSG("%s: group 0 is not full, use group 0\n", __func__);
+		free_slot_group = 0;
+	} else if (rb_slot_vcp[1] != ULLONG_MAX) {
+		CMDQ_MSG("%s: group 1 is not full, use group 1\n", __func__);
+		free_slot_group = 1;
+	} else {
+		CMDQ_ERR("%s: group 0 and group 1 are both full\n", __func__);
+		mutex_unlock(&rb_slot_list_mutex);
+		return -EFAULT;
+	}
+
+	/* find slot id */
+	free_slot = ffz(rb_slot_vcp[free_slot_group]);
+	*rb_slot_index = free_slot + free_slot_group * SLOT_GROUP_NUM;
+
+	/* set rb_slot_vcp[free_slot_group] is used */
+	rb_slot_vcp[free_slot_group] |= 1LL << free_slot;
+	if (rb_slot_vcp[free_slot_group] == ULLONG_MAX)
+		CMDQ_MSG("%s: group %d is full\n", __func__, free_slot_group);
+
+	CMDQ_MSG("%s: return alloc_slot_index:%x, free_slot:%u, free_slot_group:%u\n",
+		 __func__, *rb_slot_index, free_slot, free_slot_group);
+	mutex_unlock(&rb_slot_list_mutex);
+
+	return 0;
+
+}
+
 s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 {
 	struct mdp_readback rb_req;
@@ -957,6 +1023,8 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 	s32 status;
 	u32 free_slot, free_slot_group, alloc_slot_index;
 	u64 exec_cost = sched_clock(), alloc;
+	dma_addr_t vcp_iova_base;
+	void *vcp_va_base;
 
 	if (copy_from_user(&rb_req, (void *)param, sizeof(rb_req))) {
 		CMDQ_ERR("%s copy_from_user failed\n", __func__);
@@ -968,47 +1036,85 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 		return -EINVAL;
 	}
 
-	status = cmdq_alloc_write_addr(rb_req.count, &paStart,
-		CMDQ_CLT_MDP, fp);
-	if (status != 0) {
-		CMDQ_ERR("%s alloc write address failed\n", __func__);
-		return status;
-	}
-	alloc = div_u64(sched_clock() - exec_cost, 1000);
+	if (!cmdq_mdp_vcp_pq_readback_support()) {
+		status = cmdq_alloc_write_addr(rb_req.count, &paStart,
+			CMDQ_CLT_MDP, fp);
+		if (status != 0) {
+			CMDQ_ERR("%s alloc write address failed\n", __func__);
+			return status;
+		}
+		alloc = div_u64(sched_clock() - exec_cost, 1000);
 
-	mutex_lock(&rb_slot_list_mutex);
-	free_slot_group = ffz(alloc_slot_group);
-	if (unlikely(alloc_slot_group == ~0UL)) {
-		CMDQ_ERR("%s no free slot:%#llx\n", __func__, alloc_slot_group);
-		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+		mutex_lock(&rb_slot_list_mutex);
+		free_slot_group = ffz(alloc_slot_group);
+		if (unlikely(alloc_slot_group == ~0UL)) {
+			CMDQ_ERR("%s no free slot:%#llx\n", __func__, alloc_slot_group);
+			cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+			mutex_unlock(&rb_slot_list_mutex);
+			return -ENOMEM;
+		}
+		/* find slot id */
+		free_slot = ffz(alloc_slot[free_slot_group]);
+		if (unlikely(alloc_slot[free_slot_group] == ~0UL)) {
+			CMDQ_ERR("%s not found free slot in %u: %#llx\n", __func__,
+				free_slot_group, alloc_slot[free_slot_group]);
+			cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+			mutex_unlock(&rb_slot_list_mutex);
+			return -EFAULT;
+		}
+		alloc_slot[free_slot_group] |= 1LL << free_slot;
+		if (alloc_slot[free_slot_group] == ~0UL)
+			alloc_slot_group |= 1LL << free_slot_group;
+
+		alloc_slot_index = free_slot + free_slot_group * 64;
+
+		rb_slot[alloc_slot_index].count = rb_req.count;
+		rb_slot[alloc_slot_index].pa_start = paStart;
+		rb_slot[alloc_slot_index].fp = fp;
+		CMDQ_MSG("%s get 0x%pa in %d, fp:%p\n", __func__,
+			&paStart, alloc_slot_index, fp);
+		CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__, free_slot_group,
+			alloc_slot[free_slot_group], alloc_slot_group);
 		mutex_unlock(&rb_slot_list_mutex);
-		return -ENOMEM;
-	}
-	/* find slot id */
-	free_slot = ffz(alloc_slot[free_slot_group]);
-	if (unlikely(alloc_slot[free_slot_group] == ~0UL)) {
-		CMDQ_ERR("%s not found free slot in %u: %#llx\n", __func__,
-			free_slot_group, alloc_slot[free_slot_group]);
-		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
-		mutex_unlock(&rb_slot_list_mutex);
-		return -EFAULT;
-	}
-	alloc_slot[free_slot_group] |= 1LL << free_slot;
-	if (alloc_slot[free_slot_group] == ~0UL)
-		alloc_slot_group |= 1LL << free_slot_group;
 
-	alloc_slot_index = free_slot + free_slot_group * 64;
-	rb_slot[alloc_slot_index].count = rb_req.count;
-	rb_slot[alloc_slot_index].pa_start = paStart;
-	rb_slot[alloc_slot_index].fp = fp;
-	CMDQ_MSG("%s get 0x%pa in %d, fp:%p\n", __func__,
-		&paStart, alloc_slot_index, fp);
-	CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__, free_slot_group,
-		alloc_slot[free_slot_group], alloc_slot_group);
-	mutex_unlock(&rb_slot_list_mutex);
+		rb_req.start_id = alloc_slot_index << SLOT_ID_SHIFT;
+		CMDQ_MSG("%s get 0x%08x\n", __func__, rb_req.start_id);
 
-	rb_req.start_id = alloc_slot_index << SLOT_ID_SHIFT;
-	CMDQ_MSG("%s get 0x%08x\n", __func__, rb_req.start_id);
+	} else {
+
+		free_slot = 0;
+		free_slot_group = 0;
+
+		/* find vcp base addr (va/iova) */
+		cmdq_vcp_enable(true);
+		vcp_va_base = cmdq_get_vcp_buf(CMDQ_VCP_ENG_MDP_HDR0, &vcp_iova_base);
+		vcp_paStart = vcp_iova_base;
+		cmdq_vcp_enable(false);
+
+		/* find slot id */
+		status = mdp_get_free_slots(&alloc_slot_index);
+		if (status != 0) {
+			CMDQ_ERR("%s get free rb_slot failed\n", __func__);
+			return status;
+		}
+
+		/* update paStart, and store to cmdq_ctx.writeAddrList */
+		status = cmdqCoreWriteAddressVcpAlloc(rb_req.count, &paStart,
+			CMDQ_CLT_MDP, fp, vcp_iova_base, vcp_va_base, alloc_slot_index);
+
+		alloc = div_u64(sched_clock() - exec_cost, 1000);
+
+		/* store to rb_slot[] */
+		rb_slot[alloc_slot_index].count = rb_req.count;
+		rb_slot[alloc_slot_index].pa_start = paStart;
+		rb_slot[alloc_slot_index].fp = fp;
+
+		rb_req.start_id = alloc_slot_index << SLOT_ID_SHIFT;
+
+		CMDQ_LOG_PQ("%s: rb_slot[%d], fp:%p, start_id:0x%x => pa:%pa, vcp_paStart:%pa\n",
+			__func__, alloc_slot_index, fp, rb_req.start_id, &paStart, &vcp_paStart);
+
+	}
 
 	if (copy_to_user((void *)param, &rb_req, sizeof(rb_req))) {
 		CMDQ_ERR("%s copy_to_user failed\n", __func__);
@@ -1043,42 +1149,94 @@ s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param)
 		return -EINVAL;
 	}
 
-	mutex_lock(&rb_slot_list_mutex);
-	free_slot_group = free_slot_index >> 6;
-	free_slot = free_slot_index & 0x3f;
-	if (free_slot_group >= SLOT_GROUP_NUM) {
-		mutex_unlock(&rb_slot_list_mutex);
-		CMDQ_ERR("%s invalid group:%x\n", __func__, free_slot_group);
-		return -EINVAL;
-	}
-	if (!(alloc_slot[free_slot_group] & (1LL << free_slot))) {
-		mutex_unlock(&rb_slot_list_mutex);
-		CMDQ_ERR("%s %d not in group[%d]:%llx\n", __func__,
-			free_req.start_id, free_slot_group,
-			alloc_slot[free_slot_group]);
-		return -EINVAL;
-	}
-	if (rb_slot[free_slot_index].fp != fp) {
-		mutex_unlock(&rb_slot_list_mutex);
-		CMDQ_ERR("%s fp %p different:%p\n", __func__,
-			fp, rb_slot[free_slot_index].fp);
-		return -EINVAL;
-	}
-	alloc_slot[free_slot_group] &= ~(1LL << free_slot);
-	if (alloc_slot[free_slot_group] != ~0UL)
-		alloc_slot_group &= ~(1LL << free_slot_group);
+	if (!cmdq_mdp_vcp_pq_readback_support()) {
+		mutex_lock(&rb_slot_list_mutex);
+		free_slot_group = free_slot_index >> 6;
+		free_slot = free_slot_index & 0x3f;
+		if (free_slot_group >= SLOT_GROUP_NUM) {
+			mutex_unlock(&rb_slot_list_mutex);
+			CMDQ_ERR("%s invalid group:%x\n", __func__, free_slot_group);
+			return -EINVAL;
+		}
+		if (!(alloc_slot[free_slot_group] & (1LL << free_slot))) {
+			mutex_unlock(&rb_slot_list_mutex);
+			CMDQ_ERR("%s %d not in group[%d]:%llx\n", __func__,
+				free_req.start_id, free_slot_group,
+				alloc_slot[free_slot_group]);
+			return -EINVAL;
+		}
+		if (rb_slot[free_slot_index].fp != fp) {
+			mutex_unlock(&rb_slot_list_mutex);
+			CMDQ_ERR("%s fp %p different:%p\n", __func__,
+				fp, rb_slot[free_slot_index].fp);
+			return -EINVAL;
+		}
+		alloc_slot[free_slot_group] &= ~(1LL << free_slot);
+		if (alloc_slot[free_slot_group] != ~0UL)
+			alloc_slot_group &= ~(1LL << free_slot_group);
 
-	paStart = rb_slot[free_slot_index].pa_start;
-	rb_slot[free_slot_index].count = 0;
-	rb_slot[free_slot_index].pa_start = 0;
-	CMDQ_MSG("%s free 0x%pa in %d, fp:%p\n", __func__,
-		&paStart, free_slot_index, rb_slot[free_slot_index].fp);
-	rb_slot[free_slot_index].fp = NULL;
-	CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__, free_slot_group,
-		alloc_slot[free_slot_group], alloc_slot_group);
-	mutex_unlock(&rb_slot_list_mutex);
+		paStart = rb_slot[free_slot_index].pa_start;
 
-	return cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+		rb_slot[free_slot_index].count = 0;
+		rb_slot[free_slot_index].pa_start = 0;
+		CMDQ_MSG("%s free 0x%pa in %d, fp:%p\n", __func__,
+			&paStart, free_slot_index, rb_slot[free_slot_index].fp);
+		rb_slot[free_slot_index].fp = NULL;
+		CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__, free_slot_group,
+			alloc_slot[free_slot_group], alloc_slot_group);
+		mutex_unlock(&rb_slot_list_mutex);
+
+		return cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+
+	} else {
+
+		mutex_lock(&rb_slot_list_mutex);
+
+		if (free_slot_index < 64) {
+			free_slot_group = 0;
+			free_slot = free_slot_index;
+		} else if (free_slot_index < 128) {
+			free_slot_group = 1;
+			free_slot = free_slot_index - 64;
+		} else {
+			mutex_unlock(&rb_slot_list_mutex);
+			CMDQ_ERR("%s: wrong:%x, start:%x\n", __func__,
+				free_slot_index, free_req.start_id);
+			return -EINVAL;
+		}
+
+		if (!(rb_slot_vcp[free_slot_group] & (1LL << free_slot))) {
+			mutex_unlock(&rb_slot_list_mutex);
+			CMDQ_ERR("%s: %d not in group[%d]:%llx\n", __func__,
+				free_slot_index, free_slot_group,
+				rb_slot_vcp[free_slot_group]);
+			return -EINVAL;
+		}
+
+		if (rb_slot[free_slot_index].fp != fp) {
+			mutex_unlock(&rb_slot_list_mutex);
+			CMDQ_ERR("%s: free slot %d, fp:%p different:%p\n", __func__,
+				free_slot_index, fp, rb_slot[free_slot_index].fp);
+			return -EINVAL;
+		}
+
+		/* set rb_slot_vcp[free_slot_group] is un-used */
+		rb_slot_vcp[free_slot_group] &= ~(1LL << free_slot);
+
+		paStart = rb_slot[free_slot_index].pa_start;
+
+		CMDQ_LOG_PQ("%s: rb_slot[%d], fp:%p, start_id:0x%x => pa:%pa\n",
+			__func__, free_slot_index, rb_slot[free_slot_index].fp,
+			free_req.start_id, &paStart);
+
+		rb_slot[free_slot_index].count = 0;
+		rb_slot[free_slot_index].pa_start = 0;
+		rb_slot[free_slot_index].fp = NULL;
+		mutex_unlock(&rb_slot_list_mutex);
+
+		return cmdqCoreWriteAddressVcpFree(paStart, CMDQ_CLT_MDP);
+	}
+
 }
 
 s32 mdp_ioctl_read_readback_slots(unsigned long param)
@@ -1247,24 +1405,54 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 	CMDQ_MSG("%s, node:%p\n", __func__, fp);
 
 	mutex_lock(&rb_slot_list_mutex);
-	for (i = 0; i < ARRAY_SIZE(rb_slot); i++) {
-		if (rb_slot[i].fp != fp)
-			continue;
 
-		free_slot_group = i >> 6;
-		free_slot = i & 0x3f;
-		alloc_slot[free_slot_group] &= ~(1LL << free_slot);
-		if (alloc_slot[free_slot_group] != ~0UL)
-			alloc_slot_group &= ~(1LL << free_slot_group);
-		paStart = rb_slot[i].pa_start;
-		rb_slot[i].count = 0;
-		rb_slot[i].pa_start = 0;
-		rb_slot[i].fp = NULL;
-		CMDQ_MSG("%s free %pa in %u alloc slot[%d] %#llx, %#llx\n",
-			__func__, &paStart, i, free_slot_group,
-			alloc_slot[free_slot_group], alloc_slot_group);
-		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
-		count++;
+	if (!cmdq_mdp_vcp_pq_readback_support()) {
+		for (i = 0; i < ARRAY_SIZE(rb_slot); i++) {
+			if (rb_slot[i].fp != fp)
+				continue;
+
+			free_slot_group = i >> 6;
+			free_slot = i & 0x3f;
+			alloc_slot[free_slot_group] &= ~(1LL << free_slot);
+			if (alloc_slot[free_slot_group] != ~0UL)
+				alloc_slot_group &= ~(1LL << free_slot_group);
+			paStart = rb_slot[i].pa_start;
+			rb_slot[i].count = 0;
+			rb_slot[i].pa_start = 0;
+			rb_slot[i].fp = NULL;
+			CMDQ_MSG("%s free %pa in %u alloc slot[%d] %#llx, %#llx\n",
+				__func__, &paStart, i, free_slot_group,
+				alloc_slot[free_slot_group], alloc_slot_group);
+			cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+			count++;
+		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(rb_slot); i++) {
+			if (rb_slot[i].fp != fp)
+				continue;
+
+			if (i < 64) {
+				free_slot_group = 0;
+				free_slot = i;
+			} else if (i < 128) {
+				free_slot_group = 1;
+				free_slot = i - 64;
+			}
+
+			/* set rb_slot_vcp[free_slot_group] is un-used */
+			rb_slot_vcp[free_slot_group] &= ~(1LL << free_slot);
+
+			paStart = rb_slot[i].pa_start;
+			rb_slot[i].count = 0;
+			rb_slot[i].pa_start = 0;
+			rb_slot[i].fp = NULL;
+			CMDQ_LOG_PQ("%s free %pa in %u alloc slot[%d] %#llx\n",
+				__func__, &paStart, i, free_slot_group,
+				rb_slot_vcp[free_slot_group]);
+
+			cmdqCoreWriteAddressVcpFree(paStart, CMDQ_CLT_MDP);
+			count++;
+		}
 	}
 	mutex_unlock(&rb_slot_list_mutex);
 

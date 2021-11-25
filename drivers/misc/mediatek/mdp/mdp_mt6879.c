@@ -39,6 +39,8 @@ struct device *larb2;
 int gCmdqRdmaPrebuiltSupport = 1;
 /* support register MSB */
 int gMdpRegMSBSupport = 1;
+/* support vcp pq readback */
+static int gVcpPQReadbackSupport;
 
 /* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
 #define CMDQ_FOREACH_MODULE_PRINT(ACTION)\
@@ -1395,6 +1397,9 @@ void cmdqMdpInitialSetting(struct platform_device *pdev)
 	/* must porting in dts */
 	larb2 = mdp_init_larb(pdev, 0);
 
+	/* Query vcp pq readback setting in dts */
+	gVcpPQReadbackSupport = of_property_read_bool(pdev->dev.of_node, "vcp_pq_readback");
+
 }
 
 uint32_t cmdq_mdp_rdma_get_reg_offset_src_addr(void)
@@ -1706,6 +1711,11 @@ static bool mdp_check_camin_support_virtual(void)
 	return false;
 }
 
+
+static bool mdp_vcp_pq_readback_support(void)
+{
+	return gVcpPQReadbackSupport;
+}
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -1755,6 +1765,8 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
 	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset;
 	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
+	pFunc->mdpVcpPQReadbackSupport = mdp_vcp_pq_readback_support;
+
 }
 
 MODULE_LICENSE("GPL");

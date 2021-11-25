@@ -38,6 +38,8 @@ struct device *larb2;
 int gCmdqRdmaPrebuiltSupport;
 /* support register MSB */
 int gMdpRegMSBSupport = 1;
+/* support vcp pq readback */
+static int gVcpPQReadbackSupport;
 
 /* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
 #define CMDQ_FOREACH_MODULE_PRINT(ACTION)\
@@ -1516,6 +1518,9 @@ void cmdqMdpInitialSetting(struct platform_device *pdev)
 	/* must porting in dts */
 	larb2 = mdp_init_larb(pdev, 0);
 
+	/* Query vcp pq readback setting in dts */
+	gVcpPQReadbackSupport = of_property_read_bool(pdev->dev.of_node, "vcp_pq_readback");
+
 }
 
 uint32_t cmdq_mdp_rdma_get_reg_offset_src_addr(void)
@@ -1589,6 +1594,15 @@ static void mdp_enable_larb(bool enable, struct device *larb)
 		cmdq_mdp_enable_clock_APB(enable);
 		mtk_smi_larb_put(larb);
 	}
+
+
+	if (gVcpPQReadbackSupport) {
+		if (enable)
+			cmdq_vcp_enable(true);
+		else
+			cmdq_vcp_enable(false);
+	}
+
 #endif
 }
 
@@ -1839,6 +1853,41 @@ static bool mdp_check_camin_support_virtual(void)
 	return false;
 }
 
+
+static bool mdp_vcp_pq_readback_support(void)
+{
+	return gVcpPQReadbackSupport;
+}
+
+void mdp_vcp_pq_readback_impl(struct cmdqRecStruct *handle,
+	u16 engine, u32 vcp_offset, u32 count)
+{
+	u64 *reuse_va;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_AAL0,
+			vcp_offset, count, CMDQ_GPR_R12, &reuse_va);
+		break;
+	case CMDQ_ENG_MDP_AAL1:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_AAL1,
+			vcp_offset, count, CMDQ_GPR_R14, &reuse_va);
+		break;
+	case CMDQ_ENG_MDP_HDR0:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_HDR0,
+			vcp_offset, count, CMDQ_GPR_R12, &reuse_va);
+		break;
+	case CMDQ_ENG_MDP_HDR1:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_HDR1,
+			vcp_offset, count, CMDQ_GPR_R14, &reuse_va);
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%hu\n", __func__, engine);
+		break;
+	}
+
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -1888,6 +1937,8 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
 	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset;
 	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
+	pFunc->mdpVcpPQReadbackSupport = mdp_vcp_pq_readback_support;
+	pFunc->mdpVcpPQReadback = mdp_vcp_pq_readback_impl;
 
 }
 

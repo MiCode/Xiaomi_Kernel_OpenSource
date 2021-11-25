@@ -129,6 +129,11 @@ typedef u16 (*MdpGetRegMSBOffset) (u32, u16);
 
 typedef bool (*MdpCheckIsCaminSupport) (void);
 
+typedef bool (*MdpVcpPQReadbackSupport) (void);
+
+typedef void (*MdpVcpPQReadback) (struct cmdqRecStruct *handle,
+	u16 engine, u32 vcp_offset, u32 count);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -190,6 +195,8 @@ struct cmdqMDPFuncStruct {
 	MdpGetRDMAIndex getRDMAIndex;
 	MdpGetRegMSBOffset getRegMSBOffset;
 	MdpCheckIsCaminSupport mdpIsCaminSupport;
+	MdpVcpPQReadbackSupport mdpVcpPQReadbackSupport;
+	MdpVcpPQReadback mdpVcpPQReadback;
 
 };
 
@@ -318,6 +325,9 @@ u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset);
 u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset);
 u32 cmdq_mdp_get_hw_port(u32 base);
 s32 cmdq_mdp_get_rdma_idx(u32 base);
+u32 cmdq_mdp_vcp_pq_readback_support(void);
+void cmdq_mdp_vcp_pq_readback(struct cmdqRecStruct *handle, u16 engine,
+	u32 vcp_offset, u32 count);
 
 struct device *mdp_larb_dev_get(void);
 

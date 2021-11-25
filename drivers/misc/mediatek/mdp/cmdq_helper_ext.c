@@ -840,6 +840,11 @@ bool cmdq_core_should_secure_log(void)
 	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_SECURE);
 }
 
+bool cmdq_core_should_pqrb_log(void)
+{
+	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_PQ_READBACK);
+}
+
 bool cmdq_core_aee_enable(void)
 {
 	return cmdq_ctx.aee;
@@ -1542,6 +1547,168 @@ void cmdq_core_free_hw_buffer(struct device *dev, size_t size,
 	}
 }
 
+int cmdqCoreWriteAddressVcpAlloc(u32 count, dma_addr_t *vcp_paStart,
+	enum CMDQ_CLT_ENUM clt, void *fp,
+	dma_addr_t vcp_iova_base, void *vcp_va_base, u32 rb_slot_index)
+{
+	unsigned long flags;
+	struct WriteAddrStruct *pWriteAddr = NULL;
+	int status = 0;
+
+	do {
+		if (!vcp_paStart) {
+			CMDQ_ERR("invalid output argument\n");
+			status = -EINVAL;
+			break;
+		}
+		*vcp_paStart = 0;
+
+		if (!count || count > CMDQ_MAX_WRITE_ADDR_COUNT) {
+			CMDQ_ERR("invalid alloc write addr count:%u max:%u\n",
+				count, (u32)CMDQ_MAX_WRITE_ADDR_COUNT);
+			status = -EINVAL;
+			break;
+		}
+
+		pWriteAddr = kzalloc(sizeof(struct WriteAddrStruct),
+			GFP_KERNEL);
+		if (!pWriteAddr) {
+			CMDQ_ERR("failed to alloc WriteAddrStruct\n");
+			status = -ENOMEM;
+			break;
+		}
+		memset(pWriteAddr, 0, sizeof(struct WriteAddrStruct));
+
+		if (current)
+			pWriteAddr->user = current->pid;
+
+		pWriteAddr->fp = fp;
+		pWriteAddr->count = count;
+		pWriteAddr->pool = false;
+		pWriteAddr->pa = vcp_iova_base + rb_slot_index * sizeof(u32);
+		pWriteAddr->va = vcp_va_base + rb_slot_index * sizeof(u32);
+
+		CMDQ_LOG_PQ("%s: rb_slot[%u], alloc va:%p, pa:%pa, vcp va_base:%p, iova_base:%pa\n",
+			__func__, rb_slot_index, pWriteAddr->va, &pWriteAddr->pa,
+			vcp_va_base, &vcp_iova_base);
+
+		if (!pWriteAddr->va) {
+			CMDQ_ERR("failed to alloc write buffer\n");
+			status = -ENOMEM;
+			break;
+		}
+
+		/* assign output pa */
+		*vcp_paStart = pWriteAddr->pa;
+
+		spin_lock_irqsave(&cmdq_write_addr_lock, flags);
+		list_add_tail(&(pWriteAddr->list_node),
+			&cmdq_ctx.writeAddrList);
+		spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
+
+		status = 0;
+
+		atomic_inc(&cmdq_ctx.write_addr_cnt);
+	} while (0);
+
+
+	if (status != 0) {
+		/* release resources */
+		if (pWriteAddr && pWriteAddr->va)
+			memset(pWriteAddr, 0, sizeof(struct WriteAddrStruct));
+
+		kfree(pWriteAddr);
+		pWriteAddr = NULL;
+	}
+
+	return status;
+
+}
+
+int cmdqCoreWriteAddressVcpFree(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt)
+{
+	struct list_head *p, *n = NULL;
+	struct WriteAddrStruct *pWriteAddr = NULL;
+	bool foundEntry;
+	unsigned long flags;
+
+	foundEntry = false;
+
+	/* search for the entry */
+	spin_lock_irqsave(&cmdq_write_addr_lock, flags);
+	list_for_each_safe(p, n, &cmdq_ctx.writeAddrList) {
+		pWriteAddr = list_entry(p, struct WriteAddrStruct, list_node);
+		if (pWriteAddr && pWriteAddr->pa == paStart) {
+			list_del(&pWriteAddr->list_node);
+			foundEntry = true;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
+
+	/* when list is not empty, we always get a entry
+	 * even we don't found a valid entry
+	 * use foundEntry to confirm search result
+	 */
+	if (!foundEntry) {
+		CMDQ_ERR("%s no matching entry, paStart:%pa\n",
+			__func__, &paStart);
+		return -EINVAL;
+	}
+
+	/* release resources */
+	if (pWriteAddr && pWriteAddr->va)
+		memset(pWriteAddr, 0xda, sizeof(struct WriteAddrStruct));
+
+	kfree(pWriteAddr);
+	pWriteAddr = NULL;
+
+	atomic_dec(&cmdq_ctx.write_addr_cnt);
+
+	return 0;
+
+}
+
+int cmdqCoreWriteAddressVcpFreeByNode(void *fp, enum CMDQ_CLT_ENUM clt)
+{
+	struct WriteAddrStruct *write_addr, *tmp;
+	struct list_head free_list;
+	unsigned long flags;
+	u32 pid = 0;
+
+	INIT_LIST_HEAD(&free_list);
+
+	/* search for the entry */
+	spin_lock_irqsave(&cmdq_write_addr_lock, flags);
+
+	list_for_each_entry_safe(write_addr, tmp, &cmdq_ctx.writeAddrList,
+		list_node) {
+		if (write_addr->fp != fp)
+			continue;
+
+		list_del(&write_addr->list_node);
+		list_add_tail(&write_addr->list_node, &free_list);
+	}
+	spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
+
+	while (!list_empty(&free_list)) {
+		write_addr = list_first_entry(&free_list, typeof(*write_addr),
+			list_node);
+		if (pid != write_addr->user) {
+			pid = write_addr->user;
+			CMDQ_LOG("free write buf by node:%p clt:%d pid:%u\n",
+				fp, clt, pid);
+		}
+
+		list_del(&write_addr->list_node);
+		memset(write_addr, 0xda, sizeof(struct WriteAddrStruct));
+		kfree(write_addr);
+		atomic_dec(&cmdq_ctx.write_addr_cnt);
+	}
+
+	return 0;
+}
+
 int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 	enum CMDQ_CLT_ENUM clt, void *fp)
 {
@@ -1661,6 +1828,8 @@ void cmdqCoreReadWriteAddressBatch(dma_addr_t *addrs, u32 count, u32 *val_out)
 	u32 i;
 	dma_addr_t pa;
 
+	CMDQ_LOG_PQ("%s: PQ readback start, addrs[0]:%pa\n", __func__, &addrs[0]);
+
 	/* search for the entry */
 	spin_lock_irqsave(&cmdq_write_addr_lock, flags);
 
@@ -1690,6 +1859,12 @@ void cmdqCoreReadWriteAddressBatch(dma_addr_t *addrs, u32 count, u32 *val_out)
 				(pa - cur_waddr->pa)));
 		else
 			val_out[i] = 0;
+
+		if (i < count) {
+			CMDQ_LOG_PQ("PQ readback ==> va:%#lx, val_out[%d]:%d, pa:%pa\n",
+				(u32 *)(cur_waddr->va + (pa - cur_waddr->pa)),
+				i, val_out[i], &addrs[i]);
+		}
 	}
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->read_reg,

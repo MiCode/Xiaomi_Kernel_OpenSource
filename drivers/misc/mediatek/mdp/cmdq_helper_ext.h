@@ -57,6 +57,13 @@ extern struct ContextStruct cmdq_ctx; /* cmdq driver context */
 extern struct CmdqCBkStruct *cmdq_group_cb;
 extern struct CmdqDebugCBkStruct cmdq_debug_cb;
 
+#define CMDQ_LOG_PQ(string, args...) \
+do { \
+	if (cmdq_core_should_pqrb_log()) { \
+		pr_notice("[MDP][PQ]"string, ##args); \
+	} \
+} while (0)
+
 #define CMDQ_LOG(string, args...) \
 do {			\
 	pr_notice("[MDP]"string, ##args); \
@@ -321,6 +328,7 @@ enum CMDQ_LOG_LEVEL_ENUM {
 	CMDQ_LOG_LEVEL_EXTENSION = 3,
 	CMDQ_LOG_LEVEL_PMQOS = 4,
 	CMDQ_LOG_LEVEL_SECURE = 5,
+	CMDQ_LOG_LEVEL_PQ_READBACK = 6,
 
 	CMDQ_LOG_LEVEL_MAX	/* ALWAYS keep at the end */
 };
@@ -800,6 +808,7 @@ bool cmdq_core_should_print_msg(void);
 bool cmdq_core_should_full_error(void);
 bool cmdq_core_should_pmqos_log(void);
 bool cmdq_core_should_secure_log(void);
+bool cmdq_core_should_pqrb_log(void);
 bool cmdq_core_aee_enable(void);
 void cmdq_core_set_aee(bool enable);
 
@@ -840,6 +849,13 @@ s32 cmdq_core_free_pool_buf(struct cmdq_pkt_buffer *buf);
 void cmdq_delay_dump_thread(bool dump_sram);
 u32 cmdq_core_get_delay_start_cpr(void);
 s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario);
+
+int cmdqCoreWriteAddressVcpAlloc(u32 count, dma_addr_t *vcp_paStart,
+	enum CMDQ_CLT_ENUM clt, void *fp,
+	dma_addr_t vcp_iova_base, void *vcp_va_base, u32 rb_slot_index);
+int cmdqCoreWriteAddressVcpFree(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
+int cmdqCoreWriteAddressVcpFreeByNode(void *fp, enum CMDQ_CLT_ENUM clt);
+
 int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 	enum CMDQ_CLT_ENUM clt, void *fp);
 u32 cmdqCoreReadWriteAddress(dma_addr_t pa);
