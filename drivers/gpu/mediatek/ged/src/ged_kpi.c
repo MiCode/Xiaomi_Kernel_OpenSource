@@ -1209,14 +1209,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 					psKPI->gpu_done_interval = time_spent;
 
-					if (psKPI->t_gpu > time_spent)
-						time_spent =
-							psHead->t_gpu_latest =
-							psKPI->t_gpu;
-					else
-						psKPI->t_gpu =
-							psHead->t_gpu_latest =
-							time_spent;
+					psKPI->t_gpu =
+						psHead->t_gpu_latest =
+						time_spent;
 
 					if (ged_is_fdvfs_support())
 						g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
