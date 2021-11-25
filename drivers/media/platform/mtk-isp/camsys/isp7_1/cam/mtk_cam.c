@@ -48,6 +48,9 @@
 #include <dt-bindings/memory/mt6983-larb-port.h>
 #include "iommu_debug.h"
 #endif
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
 #include "mtk_cam-timesync.h"
 
 /* FIXME for CIO pad id */
@@ -5392,8 +5395,14 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 {
 	struct mtk_cam_ctx *ctx;
 	struct v4l2_subdev *seninf;
+	struct mtk_raw_device *raw;
 	u64 watchdog_cnt;
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	u64 watchdog_dump_cnt, watchdog_timeout_cnt;
+#endif
 	int timeout;
+	static u64 last_vsync_count;
+	bool is_abnormal_vsync = false;
 
 	ctx = container_of(work, struct mtk_cam_ctx, watchdog_work);
 	seninf = ctx->seninf;
@@ -5403,9 +5412,13 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			 __func__, ctx->stream_id);
 		return;
 	}
+	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
 	watchdog_cnt = atomic_read(&ctx->watchdog_cnt);
 	timeout = mtk_cam_seninf_check_timeout(seninf,
 		watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000);
+	if (last_vsync_count == raw->vsync_count)
+		is_abnormal_vsync = true;
+	last_vsync_count = raw->vsync_count;
 	/**
 	 * Current we just call seninf dump, but it is better to check
 	 * and restart the stream in the future.
@@ -5416,14 +5429,81 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			 __func__, ctx->stream_id);
 	} else {
 		if (timeout) {
-			dev_info(ctx->cam->dev, "%s:ctx(%d): timeout, start dump (%dx100ms)\n",
-				__func__, ctx->stream_id, watchdog_cnt);
+			dev_info(ctx->cam->dev, "%s:ctx(%d): timeout, VF(%d) vsync count(%d) sof count(%d) start dump (%dx100ms)\n",
+				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
+				raw->vsync_count, raw->sof_count, watchdog_cnt);
+			if (is_abnormal_vsync)
+				dev_info(ctx->cam->dev, "%s:abnormal vsync\n");
 			atomic_set(&ctx->watchdog_dumped, 1); // fixme
 			atomic_set(&ctx->watchdog_cnt, 0);
 			mtk_cam_seninf_dump(seninf);
 			atomic_set(&ctx->watchdog_cnt, 0);
 			atomic_inc(&ctx->watchdog_dump_cnt);
 			atomic_set(&ctx->watchdog_dumped, 0);
+	#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
+			watchdog_timeout_cnt = atomic_read(&ctx->watchdog_timeout_cnt);
+			if (watchdog_dump_cnt == watchdog_timeout_cnt) {
+				if (raw->vsync_count == 0) {
+					dev_info(ctx->cam->dev,
+						"vsync count(%d), VF(%d), INT_EN(0x%x)\n",
+						raw->vsync_count,
+						atomic_read(&raw->vf_en),
+						readl_relaxed(raw->base + REG_CTL_RAW_INT_EN));
+
+					aee_kernel_warning_api(
+						__FILE__, __LINE__, DB_OPT_DEFAULT,
+						"Camsys: Vsync timeout", "watchdog timeout");
+
+				} else if (atomic_read(&raw->vf_en) == 0) {
+					dev_info(ctx->cam->dev,
+						"vsync count(%d), frame inner index(%d) INT_EN(0x%x)\n",
+						raw->vsync_count,
+						readl_relaxed(raw->base_inner + REG_FRAME_SEQ_NUM),
+						readl_relaxed(raw->base + REG_CTL_RAW_INT_EN));
+
+					aee_kernel_warning_api(
+						__FILE__, __LINE__, DB_OPT_DEFAULT,
+						"Camsys: VF timeout", "watchdog timeout");
+
+				} else if (atomic_read(&raw->vf_en) == 1) {
+					dev_info(ctx->cam->dev,
+						"[Outer] TG PATHCFG/SENMODE/DCIF_CTL:0x%x/0x%x/0x%x\n",
+						readl_relaxed(raw->base + REG_TG_PATH_CFG),
+						readl_relaxed(raw->base + REG_TG_SEN_MODE),
+						readl_relaxed(raw->base + REG_TG_DCIF_CTL));
+
+					dev_info(ctx->cam->dev,
+						"REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD2_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD3_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD5_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD6_REQ_STAT));
+					dev_info(ctx->cam->dev,
+						"RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD2_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD3_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD5_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD6_RDY_STAT));
+
+					aee_kernel_warning_api(
+						__FILE__, __LINE__, DB_OPT_DEFAULT,
+						"Camsys: SOF timeout", "watchdog timeout");
+				}
+			}
+	#endif
 		} else {
 			dev_info(ctx->cam->dev, "%s:ctx(%d): not timeout, for long exp (%dx100ms)\n",
 				__func__, ctx->stream_id, watchdog_cnt);
@@ -5448,12 +5528,6 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 			 __func__, ctx->stream_id);
 		return;
 	}
-	if (atomic_read(&raw->vf_en) == 0) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):vf_en = 0\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
 
 	watchdog_cnt = atomic_inc_return(&ctx->watchdog_cnt);
 	watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
@@ -5468,8 +5542,9 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 		 * Nth time of running the watchdog timer.
 		 */
 		if (watchdog_dump_cnt < 4) {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! VF(%d) watcgdog_cnt(%d)(+%dms)\n",
-				__func__, ctx->stream_id, atomic_read(&raw->vf_en), watchdog_cnt,
+			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! VF(%d) vsync count(%d) sof count(%d) watcgdog_cnt(%d)(+%dms)\n",
+				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
+				raw->vsync_count, raw->sof_count, watchdog_cnt,
 				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
 
 			schedule_work(&ctx->watchdog_work);

@@ -1601,6 +1601,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 
 	dev->is_slave = is_slave;
 	dev->sof_count = 0;
+	dev->vsync_count = 0;
 	dev->sub_sensor_ctrl_en = false;
 	dev->time_shared_busy = 0;
 	atomic_set(&dev->vf_en, 0);
@@ -2122,6 +2123,9 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;
 	}
+	/* Vsync interrupt */
+	if (irq_status & VS_INT_ST)
+		raw_dev->vsync_count++;
 
 	if (raw_dev->sub_sensor_ctrl_en && irq_status & TG_VS_INT_ORG_ST
 	    && raw_dev->cur_vsync_idx >= 0) {

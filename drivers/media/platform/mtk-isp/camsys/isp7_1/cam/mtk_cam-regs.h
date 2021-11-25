@@ -107,6 +107,7 @@
 
 #define REG_CTL_START					0x00B0
 
+#define REG_CTL_RAW_INT_EN				0x0100
 #define REG_CTL_RAW_INT_STAT			0x0104
 #define REG_CTL_RAW_INT2_EN				0x0110
 #define REG_CTL_RAW_INT2_STAT			0x0114

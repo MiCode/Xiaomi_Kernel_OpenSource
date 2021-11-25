@@ -288,6 +288,7 @@ struct mtk_raw_device {
 	bool is_slave;
 
 	u64 sof_count;
+	u64 vsync_count;
 
 	/* for subsample, sensor-control */
 	bool sub_sensor_ctrl_en;
