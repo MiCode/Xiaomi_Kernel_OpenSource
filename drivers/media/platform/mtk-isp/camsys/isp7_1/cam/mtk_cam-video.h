@@ -131,10 +131,6 @@ struct mtk_cam_video_device {
 
 	/* cached ctx info */
 	struct mtk_cam_ctx *ctx;
-
-	/* Lock used to protect  buffer list */
-	spinlock_t buf_list_lock;
-	struct list_head buf_list;
 };
 
 struct mtk_format_info {

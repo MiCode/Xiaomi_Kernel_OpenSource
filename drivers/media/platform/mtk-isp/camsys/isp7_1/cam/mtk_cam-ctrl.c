@@ -1058,8 +1058,6 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 		if (req_stream_data->state.estate == E_STATE_READY) {
 			dev_dbg(cam->dev, "[%s] sensor_no:%d stream_no:%d\n", __func__,
 					sensor_seq_no_next, req_stream_data->frame_seq_no);
-			/* Increase the request ref count for camsys_state_list's usage*/
-			media_request_get(&req_stream_data->req->req);
 
 			/* EnQ this request's state element to state_list (STATE:READY) */
 			spin_lock(&sensor_ctrl->camsys_state_lock);
@@ -1152,8 +1150,6 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	int sv_i;
 	int is_mstream_last_exposure = 0;
 
-	/* Increase the request ref count for camsys_state_list's usage*/
-	media_request_get(&s_data->req->req);
 	/* EnQ this request's state element to state_list (STATE:READY) */
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	list_add_tail(&s_data->state.state_element,
@@ -3352,10 +3348,6 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	       s_data->working_buf->meta_buffer.size);
 	MTK_CAM_TRACE_END(BASIC);
 
-	spin_lock(&node->buf_list_lock);
-	list_del(&buf->list);
-	spin_unlock(&node->buf_list_lock);
-
 	/* Update the timestamp for the buffer*/
 	mtk_cam_s_data_update_timestamp(ctx, buf, s_data_ctx);
 
@@ -3586,7 +3578,6 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_ctrl_state *state_entry, *state_entry_prev;
 	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_camsys_ctrl_state *req_state;
-	struct mtk_cam_request *req_tmp;
 	int state_found = 0;
 
 	if (ctx->sensor) {
@@ -3599,9 +3590,6 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 
 			if (state_entry == req_state) {
 				list_del(&state_entry->state_element);
-				/* Decrease the request ref count for camsys_state_list's usage */
-				req_tmp = mtk_cam_ctrl_state_get_req(state_entry);
-				media_request_put(&req_tmp->req);
 				state_found = 1;
 			}
 
@@ -3614,8 +3602,6 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 				req_state = &s_data->state;
 				if (state_entry == req_state) {
 					list_del(&state_entry->state_element);
-					req_tmp = mtk_cam_ctrl_state_get_req(state_entry);
-					media_request_put(&req_tmp->req);
 					state_found = 1;
 				}
 			}
@@ -4271,16 +4257,12 @@ void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *state_entry, *state_entry_prev;
-	struct mtk_cam_request *req;
 
 	spin_lock(&camsys_sensor_ctrl->camsys_state_lock);
 	list_for_each_entry_safe(state_entry, state_entry_prev,
 				 &camsys_sensor_ctrl->camsys_state_list,
 				 state_element) {
 		list_del(&state_entry->state_element);
-		/* Decrease the request ref count for camsys_state_list's usage */
-		req = mtk_cam_ctrl_state_get_req(state_entry);
-		media_request_put(&req->req);
 	}
 	spin_unlock(&camsys_sensor_ctrl->camsys_state_lock);
 	if (ctx->sensor) {

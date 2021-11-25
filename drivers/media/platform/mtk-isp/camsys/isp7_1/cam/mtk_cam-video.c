@@ -191,20 +191,6 @@ static void mtk_cam_vb2_buf_finish(struct vb2_buffer *vb)
 	}
 }
 
-static void mtk_cam_vb2_return_all_buffers(struct mtk_cam_device *cam,
-					   struct mtk_cam_video_device *node,
-					   enum vb2_buffer_state state)
-{
-	struct mtk_cam_buffer *buf, *buf_prev;
-
-	spin_lock(&node->buf_list_lock);
-	list_for_each_entry_safe(buf, buf_prev, &node->buf_list, list) {
-		list_del(&buf->list);
-		vb2_buffer_done(&buf->vbb.vb2_buf, state);
-	}
-	spin_unlock(&node->buf_list_lock);
-}
-
 static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 				       unsigned int count)
 {
@@ -278,11 +264,10 @@ fail_stop_ctx:
 	ctx->streaming_node_cnt--;
 	ctx->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
-	mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
+	mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id, VB2_BUF_STATE_QUEUED);
 	mtk_cam_stop_ctx(ctx, entity);
 fail_return_buffer:
-	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_QUEUED);
-
+	/* relese bufs by request */
 	return ret;
 }
 
@@ -297,7 +282,6 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	if (WARN_ON(!ctx)) {
 		/* the ctx is stop, media_pipeline_stop is called */
 		mtk_cam_dev_req_clean_pending(cam, node->uid.pipe_id);
-		mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_ERROR);
 		return;
 	}
 
@@ -315,10 +299,10 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		/* Moreover, must clean bit mask before req cleanup       */
 		/* Otherwise, would cause req not removed in pending list */
 		cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
-		mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id);
+		mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id, VB2_BUF_STATE_ERROR);
 	}
 
-	mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_ERROR);
+	/* all bufs of node should be return by per requests */
 
 	/* NOTE: take multi-pipelines case into consideration */
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
@@ -1124,11 +1108,6 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	} else {
 		*s = node->pending_crop;
 	}
-
-	/* added the buffer into the tracking list */
-	spin_lock(&node->buf_list_lock);
-	list_add_tail(&buf->list, &node->buf_list);
-	spin_unlock(&node->buf_list_lock);
 
 	/* update buffer internal address */
 	switch (dma_port) {
@@ -2208,9 +2187,6 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 		goto error_video_register;
 	}
 	video_set_drvdata(vdev, cam);
-
-	INIT_LIST_HEAD(&video->buf_list);
-	spin_lock_init(&video->buf_list_lock);
 
 	dev_dbg(v4l2_dev->dev, "registered vdev:%d:%s\n",
 		video->desc.id, vdev->name);
