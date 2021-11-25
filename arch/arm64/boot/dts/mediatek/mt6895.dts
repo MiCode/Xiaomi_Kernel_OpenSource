@@ -9775,6 +9775,16 @@
 		compatible = "arm,physical-memory-group-manager";
 	};
 
+	gpu_protected_memory_allocator: protected-memory-allocator {
+		compatible = "arm,protected-memory-allocator";
+		reg = <0 0x13c40000 0 0x22000>;
+		reg-names = "gpueb_base";
+		gpr_offset = <0x1FD1C>;
+		gpr_id = <6>;
+		gmpu_table_size = <0x00400000>;
+		protected_reserve_size = <0x1000000>;
+	};
+
 	mali: mali@13000000 {
 		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13000000 0 0x480000>;
@@ -9791,6 +9801,7 @@
 			"JOB",
 			"EVENT",
 			"PWR";
+		protected-memory-allocator = <&gpu_protected_memory_allocator>;
 		operating-points-v2 = <&gpu_mali_opp>;
 		#cooling-cells = <2>;
 		ged-supply = <&ged>;
