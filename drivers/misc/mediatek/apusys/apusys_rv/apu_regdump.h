@@ -16,7 +16,7 @@ struct apusys_regdump_region_info {
 };
 
 struct apusys_regdump_info {
-	unsigned long size;
+	uint64_t size;
 	uint32_t region_info_num;
 	struct apusys_regdump_region_info region_info[REGION_MAX_NUM];
 };
