@@ -22,7 +22,7 @@
 #define CTRL_BLOCK_STATE_READY		2
 #define CTRL_BLOCK_STATE_READ		3
 
-void mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
+int mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
 				   struct mtk_cam_dump_param *param,
 				   struct mtk_cam_request_stream_data *stream_data,
 				   char *desc)
@@ -43,7 +43,7 @@ void mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
 		dev_info(cam->dev,
 			"%s:ctx(%d):req(%d):stream_data->working_buf is null\n",
 			__func__, ctx->stream_id, param->sequence);
-		return;
+		return -EINVAL;
 	}
 
 	buf = mtk_cam_s_data_get_vbuf(stream_data, MTK_RAW_META_IN);
@@ -83,6 +83,8 @@ void mtk_cam_debug_init_dump_param(struct mtk_cam_ctx *ctx,
 	dev_dbg(cam->dev, "%s:ctx(%d):req(%d), cofig_param size(%d)\n",
 		__func__, ctx->stream_id, param->sequence,
 		param->config_param_size);
+
+	return 0;
 }
 
 /* Dump single region to the buffer */
@@ -829,9 +831,16 @@ static void mtk_cam_debug_dump_work(struct work_struct *work)
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_REQUEST_DUMPED,
 	};
+	int ret = 0;
 
-	mtk_cam_debug_init_dump_param(ctx, &dump_param, s_data,
+	ret = mtk_cam_debug_init_dump_param(ctx, &dump_param, s_data,
 				      dbg_work->desc);
+	if (ret < 0) {
+		atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
+		media_request_put(&req->req);
+		return;
+	}
+
 	ctx->cam->debug_fs->ops->dump(ctx->cam->debug_fs, &dump_param);
 	atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 
@@ -849,6 +858,7 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	struct mtk_cam_dump_param dump_param;
 	char warn_desc[48];
 	char title_desc[48];
+	int ret = 0;
 
 	if (s_data == NULL)
 		return;
@@ -860,8 +870,14 @@ static void mtk_cam_exception_work(struct work_struct *work)
 		return;
 	}
 
-	mtk_cam_debug_init_dump_param(ctx, &dump_param, s_data,
+	ret = mtk_cam_debug_init_dump_param(ctx, &dump_param, s_data,
 				      dbg_work->desc);
+
+	if (ret < 0) {
+		atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
+		media_request_put(&req->req);
+		return;
+	}
 
 	ctx->cam->debug_fs->ops->exp_dump(ctx->cam->debug_fs, &dump_param);
 	snprintf(title_desc, 48, "Camsys:%s", dbg_work->desc);
