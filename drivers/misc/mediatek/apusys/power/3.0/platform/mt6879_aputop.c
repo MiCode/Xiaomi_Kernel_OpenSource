@@ -35,6 +35,7 @@ static const char *reg_name[APUPW_MAX_REGS] = {
 };
 
 static struct apu_power apupw;
+static uint32_t g_opp_cfg_acx0;
 
 static void aputop_dump_pwr_res(void);
 
@@ -1350,6 +1351,27 @@ static int mt6879_apu_top_rm(struct platform_device *pdev)
 	return 0;
 }
 
+static int mt6879_apu_top_suspend(struct device *dev)
+{
+	g_opp_cfg_acx0 = apu_readl(
+			apupw.regs[apu_md32_mbox] + ACX0_LIMIT_OPP_REG);
+
+	pr_info("%s backup data 0x%08x\n", __func__,
+			g_opp_cfg_acx0);
+	return 0;
+}
+
+static int mt6879_apu_top_resume(struct device *dev)
+{
+	pr_info("%s restore data 0x%08x\n", __func__,
+			g_opp_cfg_acx0);
+
+	apu_writel(g_opp_cfg_acx0,
+			apupw.regs[apu_md32_mbox] + ACX0_LIMIT_OPP_REG);
+
+	return 0;
+}
+
 static void aputop_dump_pwr_res(void)
 {
 	int vapu_en = 0, vapu_mode = 0;
@@ -1459,8 +1481,8 @@ const struct apupwr_plat_data mt6879_plat_data = {
 	.plat_aputop_off = mt6879_apu_top_off,
 	.plat_aputop_pb = mt6879_apu_top_pb,
 	.plat_aputop_rm = mt6879_apu_top_rm,
-	.plat_aputop_suspend = NULL,
-	.plat_aputop_resume = NULL,
+	.plat_aputop_suspend = mt6879_apu_top_suspend,
+	.plat_aputop_resume = mt6879_apu_top_resume,
 	.plat_aputop_func = mt6879_apu_top_func,
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	.plat_aputop_dbg_open = mt6879_apu_top_dbg_open,
