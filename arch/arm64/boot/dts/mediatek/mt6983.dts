@@ -11309,7 +11309,7 @@
 		mux_name = "cam";
 		clk_src = "TOP_MAINPLL_D4_D2",
 				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
-				"TOP_MAINPLL_D4";
+				"TOP_MAINPLL_D4", "TOP_MMPLL_D4";
 		clocks = <&topckgen_clk CLK_TOPCKGEN_CAM_SEL>,	        /* 0 */
 			 <&topckgen_clk CLK_TOPCKGEN_MAINPLL_D4_D2>,	/* 1 */
 			 <&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D4_D2>,	/* 2 */
@@ -13116,6 +13116,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			opp-hz = /bits/ 64 <546000000>;
 			opp-microvolt = <650000>;
 		};
+		opp-4 {
+			opp-hz = /bits/ 64 <688000000>;
+			opp-microvolt = <700000>;
+		};
 	};
 
 	opp_table_img: opp-table-img {
@@ -13135,6 +13139,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		opp-3 {
 			opp-hz = /bits/ 64 <546000000>;
 			opp-microvolt = <650000>;
+		};
+		opp-4 {
+			opp-hz = /bits/ 64 <660000000>;
+			opp-microvolt = <700000>;
 		};
 	};
 
@@ -13156,6 +13164,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			opp-hz = /bits/ 64 <458000000>;
 			opp-microvolt = <650000>;
 		};
+		opp-4 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <700000>;
+		};
 	};
 
 	opp_table_ccu: opp-table-ccu {
@@ -13175,6 +13187,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		opp-3 {
 			opp-hz = /bits/ 64 <499000000>;
 			opp-microvolt = <650000>;
+		};
+		opp-4 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <700000>;
 		};
 	};
 
@@ -13198,16 +13214,16 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					"img", "ipe", "ccu";
 		mediatek,mux_cam = "TOP_MAINPLL_D4_D2",
 				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
-				   "TOP_MAINPLL_D4";
+				   "TOP_MAINPLL_D4", "TOP_MMPLL_D4";
 		mediatek,mux_img = "TOP_IMGPLL_D5",
 				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
-				   "TOP_MAINPLL_D4";
+				   "TOP_MAINPLL_D4", "TOP_IMGPLL_D2";
 		mediatek,mux_ipe = "TOP_MAINPLL_D4_D2",
 				   "TOP_UNIVPLL_D4_D2", "TOP_MAINPLL_D6",
-				   "TOP_MMPLL_D6";
+				   "TOP_MMPLL_D6", "TOP_MAINPLL_D4";
 		mediatek,mux_ccu = "TOP_MAINPLL_D4_D2",
 				   "TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
-				   "TOP_UNIVPLL_D5";
+				   "TOP_UNIVPLL_D5", "TOP_MAINPLL_D4";
 		clocks = <&topckgen_clk CLK_TOPCKGEN_CAM_SEL>,	/* 0 */
 			 <&topckgen_clk CLK_TOPCKGEN_IMG1_SEL>,	/* 1 */
 			 <&topckgen_clk CLK_TOPCKGEN_IPE_SEL>,	/* 2 */
