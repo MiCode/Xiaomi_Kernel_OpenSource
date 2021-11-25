@@ -524,20 +524,6 @@
 			<&imp_iic_wrap_c_clk CLK_IMPC_AP_CLOCK_I2C6>;
 	};
 
-	disable-unused-clk-ssusb_sifslv_ippc_p1 {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&ssusb_sifslv_ippc_p1_clk CLK_USB_SIF_P1_USB_U2_P>,
-			<&ssusb_sifslv_ippc_p1_clk CLK_USB_SIF_P1_USB_U3_P>;
-	};
-
-	disable-unused-clk-ssusb_sifslv_ippc {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&ssusb_sifslv_ippc_clk CLK_USB_SIF_USB_U2_P>,
-			<&ssusb_sifslv_ippc_clk CLK_USB_SIF_USB_U3_P>;
-	};
-
 	disable-unused-clk-pericfg_ao {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
