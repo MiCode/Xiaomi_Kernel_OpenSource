@@ -76,6 +76,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6375_REG_CHG_STAT1	0x1E1
 
 #define MT6375_MSK_BATFET_DIS	0x40
+#define MT6375_MSK_BLEED_DIS_EN	BIT(7)
 #define MT6375_MSK_OTG_EN	0x04
 #define MT6375_MSK_OTG_CV	0x3F
 #define MT6375_MSK_OTG_CC	0x07
@@ -231,6 +232,7 @@ struct mt6375_chg_data {
 	u32 cv;
 	atomic_t eoc_cnt;
 	atomic_t tchg;
+	int vbat0_flag;
 };
 
 struct mt6375_chg_platform_data {
@@ -442,21 +444,24 @@ static int mt6375_set_boost_param(struct mt6375_chg_data *ddata, bool bst)
 {
 	int i, ret;
 	u8 val;
+
 	static const u16 regs[] = {
 		MT6375_REG_CHG_TOP2,
 		MT6375_REG_CHG_DUMY0,
 		MT6375_REG_CHG_HD_BUCK5,
+		MT6375_REG_CHG_VSYS,
 	};
 	static const u8 msks[] = {
 		MT6375_MSK_CLK_FREQ,
 		MT6375_MSK_COMP_CLAMP,
 		MT6375_MSK_BUCK_RAMPOFT,
+		MT6375_MSK_BLEED_DIS_EN,
 	};
 	static const u8 buck[] = {
-		0x01, 0x00, 0x01
+		0x01, 0x00, 0x01, 0x01,
 	};
 	static const u8 boost[] = {
-		0x00, 0x03, 0x03
+		0x00, 0x03, 0x03, 0x00,
 	};
 
 	ret = mt6375_enable_hm(ddata, true);
@@ -948,7 +953,7 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 			break;
 		case PORT_STAT_CDP:
 			ddata->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-			ddata->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+			ddata->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
 			break;
 		case PORT_STAT_UNKNOWN_TA:
 			ddata->psy_desc.type = POWER_SUPPLY_TYPE_USB;
@@ -995,6 +1000,7 @@ static enum power_supply_property mt6375_chg_psy_properties[] = {
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CALIBRATE,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY,
 };
 
 static int mt6375_chg_property_is_writeable(struct power_supply *psy,
@@ -1008,6 +1014,7 @@ static int mt6375_chg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
 	case POWER_SUPPLY_PROP_STATUS:
 	case POWER_SUPPLY_PROP_ONLINE:
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
 		return 1;
 	default:
 		return 0;
@@ -1102,6 +1109,9 @@ static int mt6375_chg_get_property(struct power_supply *psy,
 			dev_notice(ddata->dev, "failed to disable vbat monitor\n");
 		mutex_unlock(&ddata->cv_lock);
 		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		val->intval = ddata->vbat0_flag;
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -1145,6 +1155,9 @@ static int mt6375_chg_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
 		ret = mt6375_chg_field_set(ddata, F_IEOC, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		ddata->vbat0_flag = val->intval;
 		break;
 	default:
 		ret = -EINVAL;

@@ -328,7 +328,6 @@ static irqreturn_t gauge_irq_thread(int irq, void *data)
 	}
 
 	if (!memcmp(status_buf, no_status, NUM_IRQ_REG)) {
-		dev_err(priv->dev, "No gauge INT status\n");
 		return IRQ_HANDLED;
 	}
 
@@ -536,7 +535,6 @@ static void pre_gauge_update(struct mtk_gauge *gauge)
 	int ret = 0;
 
 	if (gauge->gm->disableGM30) {
-		pr_notice("%s disable gauge ,skip", __func__);
 		return;
 	}
 	ret = regmap_update_bits(gauge->regmap, RG_FGADC_CON3,
@@ -3013,7 +3011,7 @@ static int battery_temperature_adc_get(struct mtk_gauge *gauge,
 	return ret;
 }
 
-static int auxadc_reset(struct mt6375_priv *priv)
+static int __maybe_unused auxadc_reset(struct mt6375_priv *priv)
 {
 	int ret;
 
@@ -3036,14 +3034,14 @@ out:
 static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
 	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
-	int i = 0, ret = 0, vbat_mon;
+	int i, ret, vbat_mon;
 	u32 data = 0;
-	static long long t1;
-	static int print_period;
-	int dump_reg[] = { 0x236, 0x237, 0x238, 0x31C, 0x31D, 0x338, 0x339,
-			   0x33A, 0x35D, 0x35E, 0x408, 0x409, 0x40A, 0x40B,
-			   0x410, 0x411, 0x416, 0x417, 0x41E, 0x41F, 0x422,
-			   0x423, 0x45C, 0x46E, 0x46F, 0x470, 0x471 };
+	static long long t1, t2;
+	static int print_period = 3;
+	static int dump_reg[] = { 0x236, 0x237, 0x238, 0x31C, 0x31D, 0x338, 0x339,
+				  0x33A, 0x35D, 0x35E, 0x408, 0x409, 0x40A, 0x40B,
+				  0x410, 0x411, 0x416, 0x417, 0x41E, 0x41F, 0x422,
+				  0x423, 0x45C, 0x46E, 0x46F, 0x470, 0x471 };
 
 	if (IS_ERR(gauge->chan_bat_voltage)) {
 		bm_err("[%s]chan error\n", __func__);
@@ -3058,27 +3056,16 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 
 	bm_err("[%s] vbat_cell = %d\n", __func__, *val);
 	if (*val < 1000) {
-		if (t1 == 0)
+		if (t1 == 0) {
 			t1 = local_clock();
-		else if ((local_clock() - t1) / NSEC_PER_SEC > 15)
+			t2 = local_clock();
+		} else if ((local_clock() - t1) / NSEC_PER_SEC > 15) {
+			t1 = local_clock();
 			aee_kernel_warning("GAUGE", "vbat cell < 1V");
+		}
 
-		if ((local_clock() - t1) / NSEC_PER_SEC > print_period) {
-			print_period += 3;
-			ret = mt6375_get_vbat_mon_rpt(priv, &vbat_mon);
-			bm_err("[%s] vbat_mon = %d(%d)\n", __func__, vbat_mon, ret);
-			for (i = 0; i < ARRAY_SIZE(dump_reg); i++) {
-				ret = regmap_read(gauge->regmap, dump_reg[i], &data);
-				bm_err("[%s] addr:0x%4x, data:0x%x(%d)\n",
-					__func__, dump_reg[i], data, ret);
-			}
-
-			ret = auxadc_reset(priv);
-			if (ret)
-				bm_err("[%s] failed to reset auxadc(%d)\n", __func__, ret);
-			bm_err("[%s] after reset auxadc(%d)\n", __func__, ret);
-			ret = iio_read_channel_processed(gauge->chan_bat_voltage, val);
-			bm_err("[%s] vbat_cell = %d(%d)\n", __func__, *val, ret);
+		if ((local_clock() - t2) / NSEC_PER_SEC > print_period) {
+			t2 = local_clock();
 			ret = mt6375_get_vbat_mon_rpt(priv, &vbat_mon);
 			bm_err("[%s] vbat_mon = %d(%d)\n", __func__, vbat_mon, ret);
 			for (i = 0; i < ARRAY_SIZE(dump_reg); i++) {
