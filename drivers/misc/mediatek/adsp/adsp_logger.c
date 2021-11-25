@@ -74,6 +74,17 @@ ssize_t adsp_log_read(struct log_ctrl_s *ctrl, char __user *userbuf, size_t len)
 		data_len[1] = 0;
 	}
 
+	if (data_len[0] > log_info->buff_size ||
+	    data_len[1] > log_info->buff_size) {
+		pr_info("%s, warning: data_len(%u,%u) > buffersize(%u)",
+			__func__, data_len[0], data_len[1], log_info->buff_size);
+		r_pos = 0;
+		w_pos = 0;
+		memcpy_toio(&buf_info->r_pos, &r_pos, sizeof(r_pos));
+		memcpy_toio(&buf_info->w_pos, &w_pos, sizeof(w_pos));
+		goto error;
+	}
+
 	tmp_area = vmalloc(datalen);
 	if (tmp_area) {
 		addr += log_info->buff_ofs;
