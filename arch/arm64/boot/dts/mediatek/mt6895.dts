@@ -3792,6 +3792,16 @@
 			iommus = <&disp_iommu M4U_LARB25_PORT11>,
 				<&disp_iommu M4U_LARB25_PORT12>,
 				<&disp_iommu M4U_LARB25_PORT13>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT11)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT12)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB25_PORT13)
+					&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "l25_pdai_a0",
+					"l25_pdai_a1",
+					"l25_pdao_a";
 		};
 
 		camsys_mraw_clk: syscon@1a170000 {
