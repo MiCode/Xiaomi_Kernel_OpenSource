@@ -1614,6 +1614,12 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		if (IS_ERR(dmabuf))
 			continue;
 
+		spin_lock(&dmabuf->name_lock);
+		if (!strncmp("IMG_MEM_G_ID", dmabuf->name, 12))
+			dev_info(pipe->imgsys_dev->dev,
+			"[%s]%s: fd(%d) GCE buffer used\n", __func__, dmabuf->name, kfd[i]);
+		spin_unlock(&dmabuf->name_lock);
+
 		attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->dev);
 		if (IS_ERR(attach)) {
 			dma_buf_put(dmabuf);

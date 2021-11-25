@@ -536,6 +536,14 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				dma_buf_get(mblock[id].fd);
 				dma_buf_begin_cpu_access(mblock[id].d_buf, DMA_BIDIRECTIONAL);
 				kref_init(&mblock[id].kref);
+				pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
+					__func__, mblock[id].name, isp71_get_reserve_mem_phys(id),
+					isp71_get_reserve_mem_virt(id),
+					isp71_get_reserve_mem_dma(id),
+					isp71_get_reserve_mem_size(id),
+					mblock[id].is_dma_buf,
+					isp71_get_reserve_mem_fd(id),
+					mblock[id].d_buf);
 				break;
 			default:
 
@@ -626,6 +634,14 @@ static void gce_release(struct kref *ref)
 	dma_buf_detach(mblock->d_buf, mblock->attach);
 	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
 	dma_buf_put(mblock->d_buf);
+	pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
+		__func__, mblock->name, isp71_get_reserve_mem_phys(IMG_MEM_G_ID),
+		isp71_get_reserve_mem_virt(IMG_MEM_G_ID),
+		isp71_get_reserve_mem_dma(IMG_MEM_G_ID),
+		isp71_get_reserve_mem_size(IMG_MEM_G_ID),
+		mblock->is_dma_buf,
+		isp71_get_reserve_mem_fd(IMG_MEM_G_ID),
+		mblock->d_buf);
 	// close fd in user space driver, you can't close fd in kernel site
 	// dma_heap_buffer_free(mblock[id].d_buf);
 	//dma_buf_put(my_dma_buf);
