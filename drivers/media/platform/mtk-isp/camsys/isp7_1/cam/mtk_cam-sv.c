@@ -682,7 +682,7 @@ void sv_reset(struct mtk_camsv_device *dev)
 	int sw_ctl;
 	int ret;
 
-	dev_dbg(dev->dev, "%s\n", __func__);
+	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
 
 	writel(0, dev->base + REG_CAMSV_SW_CTL);
 	writel(1, dev->base + REG_CAMSV_SW_CTL);
@@ -706,8 +706,11 @@ void sv_reset(struct mtk_camsv_device *dev)
 		goto RESET_FAILURE;
 	}
 
-	// do hw rst
-	writel(4, dev->base + REG_CAMSV_SW_CTL);
+	/* hw issue: second channel dma's ck/rst not refer to its own status */
+	/* for above reason, merely do fbc reset rather than do hw reset */
+	/* writel(4, dev->base + REG_CAMSV_SW_CTL); */
+	writel(0x100, dev->base + REG_CAMSV_FBC_IMGO_CTL1);
+
 	writel(0, dev->base + REG_CAMSV_SW_CTL);
 	wmb(); /* make sure committed */
 
@@ -1259,6 +1262,7 @@ int mtk_cam_sv_top_disable(struct mtk_camsv_device *dev)
 			CAMSV_TG_VF_CON, VFDATA_EN)) {
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_VF_CON,
 			CAMSV_TG_VF_CON, VFDATA_EN, 0);
+		mtk_cam_sv_toggle_tg_db(dev);
 		sv_reset(dev);
 	}
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
@@ -2015,6 +2019,7 @@ void camsv_irq_handle_err(
 	struct mtk_cam_device *cam = camsv_dev->cam;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_raw_pipeline *raw_pipe;
+	unsigned int stream_id;
 
 	val = readl_relaxed(camsv_dev->base + REG_CAMSV_TG_PATH_CFG);
 	val = val | CAMSV_TG_PATH_TG_FULL_SEL;
@@ -2045,6 +2050,7 @@ void camsv_irq_handle_err(
 			dev_info(camsv_dev->dev, "%s: cannot find ctx\n", __func__);
 			return;
 		}
+		stream_id = camsv_dev->pipeline->master_pipe_id;
 	} else {
 		ctx = mtk_cam_find_ctx(camsv_dev->cam,
 			&camsv_dev->pipeline->subdev.entity);
@@ -2052,10 +2058,10 @@ void camsv_irq_handle_err(
 			dev_info(camsv_dev->dev, "%s: cannot find ctx\n", __func__);
 			return;
 		}
+		stream_id = camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
 	}
 
-	s_data = mtk_cam_get_req_s_data(ctx,
-		camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, dequeued_frame_seq_no);
+	s_data = mtk_cam_get_req_s_data(ctx, stream_id, dequeued_frame_seq_no);
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
 	} else {
@@ -2069,7 +2075,10 @@ void camsv_handle_err(
 	struct mtk_camsv_device *camsv_dev,
 	struct mtk_camsys_irq_info *data)
 {
+	int err_status = data->e.err_status;
 	int frame_idx_inner = data->frame_idx_inner;
+
+	dev_info_ratelimited(camsv_dev->dev, "error status:0x%x", err_status);
 
 	/* show more error detail */
 	camsv_irq_handle_err(camsv_dev, frame_idx_inner);
