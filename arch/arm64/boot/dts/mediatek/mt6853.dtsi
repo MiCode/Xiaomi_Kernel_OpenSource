@@ -2997,7 +2997,7 @@
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			disp-dev = <&dispsys_config>;
 			force-step0 = <1>;
-			release-step0 = <1>;
+			release-step0 = <0>;
 		};
 
 		mmdvfs {
@@ -3368,6 +3368,7 @@
 					  &larb13 &larb14 &larb16 &larb17
 					  &larb19 &larb20>;
 			mediatek,commons = <&smi_disp_common>;
+			disable-mmqos;
 			clocks = <&topckgen_clk CLK_TOP_DISP_SEL>;
 			clock-names = "mm";
 			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
