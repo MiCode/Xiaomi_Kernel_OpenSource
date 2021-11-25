@@ -83,6 +83,7 @@ static void cmdq_test_mbox_cb_destroy(struct cmdq_cb_data data)
 
 	if (data.err < 0)
 		cmdq_err("pkt:%p err:%d", pkt, data.err);
+	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_destroy(pkt);
 	cmdq_msg("%s: pkt:%#lx", __func__, pkt);
 }
@@ -1174,6 +1175,65 @@ static void cmdq_test_mbox_tzmp(struct cmdq_test *test, const s32 secure,
 	clk_disable_unprepare(test->gce.clk);
 }
 
+static void cmdq_test_mbox_vcp(struct cmdq_test *test, const bool reuse)
+{
+	struct cmdq_pkt	*pkt1 = cmdq_pkt_create(test->clt);
+	struct cmdq_pkt	*pkt2 = cmdq_pkt_create(test->loop);
+	struct cmdq_reuse reuse1, reuse2;
+	dma_addr_t iova;
+	void *va = cmdq_get_vcp_buf(CMDQ_VCP_ENG_MDP_HDR0, &iova);
+	u32 val[4], i, j;
+
+	for (i = 0; i < 4; i++)
+		writel(0xdeaddead, (void *)va + i * 4);
+
+	cmdq_vcp_enable(true);
+	for (i = 0; i < 4; i++) {
+		if (!i) {
+			cmdq_pkt_readback(pkt1, CMDQ_VCP_ENG_MDP_HDR0, 0, 0,
+				CMDQ_GPR_DEBUG_DUMMY, &reuse1.va);
+			cmdq_pkt_readback(pkt2, CMDQ_VCP_ENG_MDP_HDR1, 4, 0,
+				CMDQ_GPR_DEBUG_TIMER, &reuse2.va);
+		} else {
+			reuse1.val = cmdq_pkt_vcp_reuse_val(
+				CMDQ_VCP_ENG_MDP_HDR0, 0, i);
+			cmdq_pkt_reuse_buf_va(pkt1, &reuse1, 1);
+
+			reuse2.val = cmdq_pkt_vcp_reuse_val(
+				CMDQ_VCP_ENG_MDP_HDR1, 4, i);
+			cmdq_pkt_reuse_buf_va(pkt2, &reuse2, 1);
+		}
+
+		if (reuse) {
+			cmdq_pkt_refinalize(pkt1);
+			cmdq_pkt_flush(pkt1);
+
+			cmdq_pkt_refinalize(pkt2);
+			cmdq_pkt_flush(pkt2);
+
+			for (j = 0; j < 4; j++)
+				val[j] = readl(va + j * 4);
+			cmdq_msg("%s: i:%d va:%p iova:%pa val:%#x %#x %#x %#x",
+				__func__, i, va, &iova,
+				val[0], val[1], val[2], val[3]);
+		} else {
+			cmdq_pkt_flush_threaded(
+				pkt1, cmdq_test_mbox_cb_destroy, (void *)pkt1);
+			cmdq_pkt_flush_threaded(
+				pkt2, cmdq_test_mbox_cb_destroy, (void *)pkt2);
+			msleep(1000);
+			break;
+		}
+	}
+	cmdq_vcp_enable(false);
+
+	for (i = 0; i < 4; i++)
+		val[i] = readl(va + i * 4);
+	cmdq_msg("%s: va:%p iova:%pa", __func__, va, &iova);
+	cmdq_msg("%s: val:%#x %#x %#x %#x",
+		__func__, val[0], val[1], val[2], val[3]);
+}
+
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
@@ -1278,6 +1338,10 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	case 21:
 		cmdq_util_test_set_ostd();
 		cmdq_test_mbox_write_dma(test, sec, 10);
+		break;
+	case 22:
+		cmdq_test_mbox_vcp(test, false);
+		cmdq_test_mbox_vcp(test, true);
 		break;
 	default:
 		break;
