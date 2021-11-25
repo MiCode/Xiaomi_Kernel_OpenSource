@@ -1505,6 +1505,10 @@ static int mt6375_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 		tcpci_set_watchdog(tcpc, true);
 	}
 
+	/* Disable bleed dischg for IQ about 2mA consumption */
+	mt6375_clr_bits(ddata, TCPC_V10_REG_POWER_CTRL,
+			TCPC_V10_REG_BLEED_DISC_EN);
+
 	/* SHIPPING off, AUTOIDLE on */
 	mt6375_set_bits(ddata, MT6375_REG_SYSCTRL1,
 			MT6375_MSK_SHIPPING_OFF | MT6375_MSK_AUTOIDLE_EN);
