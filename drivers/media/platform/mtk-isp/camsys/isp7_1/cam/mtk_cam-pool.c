@@ -293,6 +293,7 @@ void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 	fd = ctx->img_buf_pool.working_img_buf_fd;
 	mtk_ccd_put_buffer_fd(ccd, &smem, fd);
 	mtk_ccd_put_buffer(ccd, &smem);
+	ctx->img_buf_pool.working_img_buf_size = 0;
 
 	dev_info(ctx->cam->dev,
 		"%s:ctx(%d):cq buffers release, mem iova(0x%x), sz(%d)\n",

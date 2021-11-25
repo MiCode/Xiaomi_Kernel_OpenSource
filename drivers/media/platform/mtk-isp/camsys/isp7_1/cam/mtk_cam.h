@@ -768,6 +768,7 @@ int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			     struct mtk_cam_request *req);
 void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id);
+void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id);
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
 

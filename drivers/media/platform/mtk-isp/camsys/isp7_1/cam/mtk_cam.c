@@ -834,19 +834,10 @@ STOP_SCAN:
 	return dequeue_cnt;
 }
 
-void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
+void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id)
 {
-	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request *req, *req_prev;
-	struct mtk_cam_request_stream_data *s_data, *s_data_pipe;
 	struct list_head *pending = &cam->pending_job_list;
-	struct list_head *running = &cam->running_job_list;
-	struct list_head s_data_clean_list;
-	unsigned int other_pipes, done_status;
-	int i, num_s_data;
-	bool need_clean_s_data, need_clean_req;
-
-	INIT_LIST_HEAD(&s_data_clean_list);
 
 	spin_lock(&cam->pending_job_lock);
 	list_for_each_entry_safe(req, req_prev, pending, list) {
@@ -858,6 +849,22 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		}
 	}
 	spin_unlock(&cam->pending_job_lock);
+}
+
+void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
+{
+	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_cam_request *req, *req_prev;
+	struct mtk_cam_request_stream_data *s_data, *s_data_pipe;
+	struct list_head *running = &cam->running_job_list;
+	struct list_head s_data_clean_list;
+	unsigned int other_pipes, done_status;
+	int i, num_s_data;
+	bool need_clean_s_data, need_clean_req;
+
+	INIT_LIST_HEAD(&s_data_clean_list);
+
+	mtk_cam_dev_req_clean_pending(cam, pipe_id);
 
 	spin_lock(&cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, running, list) {
@@ -4267,6 +4274,7 @@ fail_release_buffer_pool:
 fail_uninit_composer:
 #if CCD_READY
 	isp_composer_uninit(ctx);
+	cam->composer_cnt--;
 fail_shutdown:
 	if (is_first_ctx) {
 		pm_runtime_mark_last_busy(cam->dev);
@@ -4505,16 +4513,16 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 		if (ret) {
 			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
-			return ret;
+			goto fail_img_buf_release;
 		}
 
 		ret = mtk_cam_dev_config(ctx, false, true);
 		if (ret)
-			return ret;
+			goto fail_img_buf_release;
 		dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 		if (!dev) {
 			dev_info(cam->dev, "streamon raw device not found\n");
-			goto fail_pipe_off;
+			goto fail_img_buf_release;
 		}
 		raw_dev = dev_get_drvdata(dev);
 
@@ -4570,7 +4578,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					//HSF control
 					if (mtk_cam_is_hsf(ctx)) {
 						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
-						goto fail_pipe_off;
+						goto fail_img_buf_release;
 					}
 					mtk_cam_call_seninf_set_pixelmode(ctx, ctx->seninf,
 									  src_pad_idx,
@@ -4587,7 +4595,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						(bDcif && (src_pad_idx == exp_no)) ?
 						2 : src_pad_idx - PAD_SRC_RAW0);
 					if (ret)
-						goto fail_pipe_off;
+						goto fail_img_buf_release;
 				}
 			}
 		} else if (mtk_cam_feature_is_time_shared(feature_active)) {
@@ -4600,7 +4608,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					//HSF control
 					if (mtk_cam_is_hsf(ctx)) {
 						dev_info(cam->dev, "error: un-support hsf stagger mode\n");
-						goto fail_pipe_off;
+						goto fail_img_buf_release;
 					}
 					mtk_cam_call_seninf_set_pixelmode(ctx,
 									  ctx->seninf,
@@ -4613,7 +4621,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 						0);
 					if (ret)
-						goto fail_pipe_off;
+						goto fail_img_buf_release;
 					src_pad_idx++;
 					dev_info(cam->dev, "[TS] scen:0x%x/enabled_raw:0x%x/i(%d)",
 					hw_scen, ctx->pipe->enabled_raw, i);
@@ -4639,7 +4647,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 							i - MTKCAM_SUBDEV_CAMSV_START,
 							hw_scen, 0);
 					if (ret)
-						goto fail_pipe_off;
+						goto fail_img_buf_release;
 					break;
 				}
 			}
@@ -4674,7 +4682,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					ret = mtk_cam_hsf_config(ctx, raw_dev->id);
 					if (ret != 0) {
 						dev_info(cam->dev, "Error:enabled_hsf fail\n");
-						goto fail_pipe_off;
+						goto fail_img_buf_release;
 					}
 
 			}
@@ -4704,7 +4712,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						 ctx->sv_pipe[i]->cammux_id);
 			ret = mtk_cam_sv_dev_config(ctx, i, 1, 0);
 			if (ret)
-				goto fail_pipe_off;
+				goto fail_img_buf_release;
 		}
 
 		for (i = 0 ; i < ctx->used_mraw_num ; i++) {
@@ -4720,14 +4728,14 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 				ctx->mraw_pipe[i]->res_config.pixel_mode);
 			ret = mtk_cam_mraw_dev_config(ctx, i, 0);
 			if (ret)
-				goto fail_pipe_off;
+				goto fail_img_buf_release;
 		}
 
 		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
 		if (ret) {
-			dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
-				ctx->seninf->name, ret);
-			return ret;
+			dev_info(cam->dev, "failed to stream on seninf %s:%d\n",
+				 ctx->seninf->name, ret);
+			goto fail_img_buf_release;
 		}
 	} else {
 		ctx->processing_buffer_list.cnt = 0;
@@ -4775,13 +4783,11 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		mtk_cam_dvfs_update_clk(ctx->cam);
 
 	ret = mtk_camsys_ctrl_start(ctx);
-	if (ret) {
-		ctx->streaming = false;
-		cam->streaming_ctx &= ~(1 << ctx->stream_id);
-		goto fail_pipe_off;
-	}
+	if (ret)
+		goto fail_streaming_off;
+
 	mutex_lock(&cam->queue_lock);
-	mtk_cam_dev_req_try_queue(cam);
+	mtk_cam_dev_req_try_queue(cam);  /* request moved into working list */
 	mutex_unlock(&cam->queue_lock);
 	/* raw off, no cq done, so sv on after enque */
 	if (ctx->used_raw_num == 0) {
@@ -4790,7 +4796,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			camsv_dev->is_enqueued = 1;
 			ret = mtk_cam_sv_dev_stream_on(ctx, i, 1, 1);
 			if (ret)
-				goto fail_pipe_off;
+				goto fail_sv_stream_off;
 		}
 	}
 
@@ -4804,13 +4810,34 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 
 	return 0;
 
+fail_sv_stream_off:
+	if (ctx->used_raw_num == 0) {
+		for (i = 0 ; i < ctx->used_sv_num ; i++) {
+			camsv_dev = get_camsv_dev(cam, ctx->sv_pipe[i]);
+			camsv_dev->is_enqueued = 0;
+			ret = mtk_cam_sv_dev_stream_on(ctx, i, 0, 1);
+			if (ret)
+				dev_info(cam->dev,
+					 "%s:failed to stream off camsv(%d)\n",
+					 __func__, i);
+		}
+	}
+	mtk_camsys_ctrl_stop(ctx);
+fail_streaming_off:
+	spin_lock(&ctx->streaming_lock);
+	ctx->streaming = false;
+	cam->streaming_ctx &= ~(1 << ctx->stream_id);
+	spin_unlock(&ctx->streaming_lock);
+	/* reset dvfs/qos */
+	if (!mtk_cam_is_m2m(ctx))
+		v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
+fail_img_buf_release:
+	if (ctx->img_buf_pool.working_img_buf_size > 0)
+		mtk_cam_img_working_buf_pool_release(ctx);
 fail_pipe_off:
-#if CCD_READY
-	isp_composer_destroy_session(ctx);
-#endif
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++)
 		v4l2_subdev_call(ctx->pipe_subdevs[i], video, s_stream, 0);
-	v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
+
 	return ret;
 }
 
@@ -4998,10 +5025,8 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		}
 	}
 
-	if (ctx->img_buf_pool.working_img_buf_size > 0) {
+	if (ctx->img_buf_pool.working_img_buf_size > 0)
 		mtk_cam_img_working_buf_pool_release(ctx);
-		ctx->img_buf_pool.working_img_buf_size = 0;
-	}
 
 	mtk_camsys_ctrl_stop(ctx);
 

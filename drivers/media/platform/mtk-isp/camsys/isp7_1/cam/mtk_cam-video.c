@@ -294,8 +294,12 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	struct mtk_cam_ctx *ctx;
 
 	ctx = mtk_cam_find_ctx(cam, &node->vdev.entity);
-	if (WARN_ON(!ctx))
+	if (WARN_ON(!ctx)) {
+		/* the ctx is stop, media_pipeline_stop is called */
+		mtk_cam_dev_req_clean_pending(cam, node->uid.pipe_id);
+		mtk_cam_vb2_return_all_buffers(cam, node, VB2_BUF_STATE_ERROR);
 		return;
+	}
 
 	dev_dbg(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
 		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
