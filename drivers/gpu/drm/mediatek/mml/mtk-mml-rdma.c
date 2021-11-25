@@ -19,6 +19,7 @@
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
+#include "mtk-mml-mmp.h"
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -431,6 +432,10 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 			task->buf.src.size[1],
 			task->buf.src.dma[2].iova,
 			task->buf.src.size[2]);
+
+		mml_mmp(buf_map, MMPROFILE_FLAG_PULSE,
+			((u64)task->job.jobid << 16) | comp->id,
+			(unsigned long)task->buf.src.dma[0].iova);
 	}
 
 	mml_trace_ex_end();

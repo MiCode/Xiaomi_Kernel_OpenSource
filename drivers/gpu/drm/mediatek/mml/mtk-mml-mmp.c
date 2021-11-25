@@ -24,6 +24,7 @@ void mml_mmp_init(void)
 	mml_mmp_events.mml = mml;
 	mml_mmp_events.submit = mmprofile_register_event(mml, "submit");
 	mml_mmp_events.config = mmprofile_register_event(mml, "config");
+	mml_mmp_events.buf_map = mmprofile_register_event(mml, "buf_map");
 	mml_mmp_events.fence = mmprofile_register_event(mml, "fence");
 	mml_mmp_events.fence_timeout = mmprofile_register_event(mml, "fence_timeout");
 	mml_mmp_events.flush = mmprofile_register_event(mml, "flush");
@@ -34,6 +35,7 @@ void mml_mmp_init(void)
 	mml_mmp_events.irq_done = mmprofile_register_event(mml, "irq_done");
 	mml_mmp_events.irq_stop = mmprofile_register_event(mml, "irq_stop");
 	mml_mmp_events.fence_sig = mmprofile_register_event(mml, "fence_sig");
+	mml_mmp_events.exec = mmprofile_register_event(mml, "exec");
 
 	mmprofile_enable_event_recursive(mml, 1);
 	mmprofile_start(1);

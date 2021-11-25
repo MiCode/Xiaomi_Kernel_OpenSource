@@ -529,18 +529,22 @@ static s32 wrot_buf_map(struct mml_comp *comp, struct mml_task *task,
 		ret = mml_buf_iova_get(wrot->dev, dest_buf);
 		if (ret < 0)
 			mml_err("%s iova fail %d", __func__, ret);
+
+		mml_mmp(buf_map, MMPROFILE_FLAG_PULSE,
+			((u64)task->job.jobid << 16) | comp->id,
+			(unsigned long)dest_buf->dma[0].iova);
 	}
 
 	mml_trace_ex_end();
 
 	mml_msg("%s comp %u iova %#11llx (%u) %#11llx (%u) %#11llx (%u)",
 		__func__, comp->id,
-		task->buf.dest[node->out_idx].dma[0].iova,
-		task->buf.dest[node->out_idx].size[0],
-		task->buf.dest[node->out_idx].dma[1].iova,
-		task->buf.dest[node->out_idx].size[1],
-		task->buf.dest[node->out_idx].dma[2].iova,
-		task->buf.dest[node->out_idx].size[2]);
+		dest_buf->dma[0].iova,
+		dest_buf->size[0],
+		dest_buf->dma[1].iova,
+		dest_buf->size[1],
+		dest_buf->dma[2].iova,
+		dest_buf->size[2]);
 
 	return ret;
 }

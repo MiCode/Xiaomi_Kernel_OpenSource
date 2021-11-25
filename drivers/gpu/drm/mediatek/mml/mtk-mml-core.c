@@ -57,6 +57,9 @@ module_param(mml_racing_urgent, int, 0644);
 int mml_racing_wdone_eoc;
 module_param(mml_racing_wdone_eoc, int, 0644);
 
+int mml_hw_perf;
+module_param(mml_hw_perf, int, 0644);
+
 #define mml_msg_qos(fmt, args...) \
 do { \
 	if (mml_qos_log) \
@@ -905,6 +908,8 @@ static void core_taskerr(struct mml_task *task, u32 pipe)
 			mmp_data2_fence(task->fence->context, task->fence->seqno));
 	}
 
+	mml_mmp(exec, MMPROFILE_FLAG_END, task->job.jobid, 0);
+
 	core_buffer_unmap(task);
 	if (task->config->task_ops->frame_err)
 		task->config->task_ops->frame_err(task);
@@ -918,6 +923,7 @@ done:
 static void core_taskdone(struct mml_task *task, u32 pipe)
 {
 	u32 cnt, i;
+	u32 *perf, hw_time = 0;
 
 	mml_trace_begin("%s", __func__);
 
@@ -962,6 +968,16 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
 			mmp_data2_fence(task->fence->context, task->fence->seqno));
 	}
+
+	if (mml_hw_perf && task->pkts[0]) {
+		perf = cmdq_pkt_get_perf_ret(task->pkts[0]);
+		if (perf) {
+			hw_time = perf[1] > perf[0] ?
+				perf[1] - perf[0] : ~perf[0] + 1 + perf[1];
+			CMDQ_TICK_TO_US(hw_time);
+		}
+	}
+	mml_mmp(exec, MMPROFILE_FLAG_END, task->job.jobid, hw_time);
 
 	if (task->pkts[0])
 		core_taskdone_comp(task, 0);
@@ -1248,6 +1264,9 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	mml_mmp(flush, MMPROFILE_FLAG_PULSE, task->job.jobid,
 		(unsigned long)task->pkts[pipe]);
 	ret = cmdq_pkt_flush_async(pkt, core_taskdone_cb, (void *)task->pkts[pipe]);
+	/* only start at pipe 0 and end at receive both pipe irq */
+	if (pipe == 0)
+		mml_mmp(exec, MMPROFILE_FLAG_START, task->job.jobid, 0);
 	mml_trace_ex_end();
 
 	mml_trace_ex_end();
@@ -1333,8 +1352,7 @@ static void core_config_task(struct mml_task *task)
 	s32 err;
 
 	mml_trace_begin("%s", __func__);
-
-	mml_mmp(config, MMPROFILE_FLAG_PULSE, task->job.jobid, 0);
+	mml_mmp(config, MMPROFILE_FLAG_START, task->job.jobid, 0);
 
 	mml_msg("%s begin task %p config %p job %u",
 		__func__, task, cfg, task->job.jobid);
@@ -1371,6 +1389,7 @@ static void core_config_task(struct mml_task *task)
 	cfg->task_ops->submit_done(task);
 
 done:
+	mml_mmp(config, MMPROFILE_FLAG_END, task->job.jobid, 0);
 	mml_trace_end();
 }
 

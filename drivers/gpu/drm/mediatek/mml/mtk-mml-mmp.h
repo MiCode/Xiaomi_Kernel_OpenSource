@@ -19,6 +19,7 @@ struct mml_mmp_events_t {
 	mmp_event mml;
 	mmp_event submit;
 	mmp_event config;
+	mmp_event buf_map;
 	mmp_event fence;
 	mmp_event fence_timeout;
 	mmp_event flush;
@@ -29,6 +30,7 @@ struct mml_mmp_events_t {
 	mmp_event irq_done;
 	mmp_event irq_stop;
 	mmp_event fence_sig;
+	mmp_event exec;
 };
 
 void mml_mmp_init(void);
