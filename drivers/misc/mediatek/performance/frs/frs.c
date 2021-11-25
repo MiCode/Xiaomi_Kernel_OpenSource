@@ -3,6 +3,7 @@
  * Copyright (C) 2021 MediaTek Inc.
  */
 #include <net/genetlink.h>
+#include <linux/kobject.h>
 #include <linux/netlink.h>
 #include <linux/socket.h>
 #include <linux/skbuff.h>
@@ -15,9 +16,9 @@
 
 #define EARA_MAX_COUNT 10
 #define EARA_PROC_NAME_LEN 16
-#define NETLINK_FPS 29
-#define TAG "FPS_COOLER"
+#define TAG "FRS"
 
+static int frs_nl_id = 31;
 struct _EARA_THRM_PACKAGE {
 	__s32 type;
 	__s32 request;
@@ -188,9 +189,9 @@ int eara_netlink_init(void)
 	};
 
 	frs_nl_sk = NULL;
-	frs_nl_sk = netlink_kernel_create(&init_net, NETLINK_FPS, &cfg);
+	frs_nl_sk = netlink_kernel_create(&init_net, frs_nl_id, &cfg);
 
-	pr_debug(TAG "netlink_kernel_create protol= %d\n", NETLINK_FPS);
+	pr_debug(TAG "netlink_kernel_create protol= %d\n", frs_nl_id);
 
 	if (frs_nl_sk == NULL) {
 		pr_debug(TAG "netlink_kernel_create fail\n");
@@ -200,6 +201,25 @@ int eara_netlink_init(void)
 	return 0;
 }
 
+static ssize_t frs_nl_id_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", frs_nl_id);
+
+	return len;
+}
+static struct kobj_attribute frs_nl_id_attr = __ATTR_RO(frs_nl_id);
+static struct attribute *thermal_attrs[] = {
+	&frs_nl_id_attr.attr,
+	NULL
+};
+static struct attribute_group thermal_attr_group = {
+	.name	= "thermal",
+	.attrs	= thermal_attrs,
+};
+
 void __exit eara_thrm_pre_exit(void)
 {
 	eara_pre_change_fp = NULL;
@@ -208,15 +228,22 @@ void __exit eara_thrm_pre_exit(void)
 
 int __init eara_thrm_pre_init(void)
 {
+	int ret;
 	eara_pre_change_fp = pre_change_event;
 	eara_pre_change_single_fp =  pre_change_single_event;
 	eara_netlink_init();
+
+	ret = sysfs_merge_group(kernel_kobj, &thermal_attr_group);
+	if (ret) {
+		pr_info(TAG, "failed to create thermal sysfs, ret=%d!\n", ret);
+		return ret;
+	}
 	return 0;
 }
 
 module_init(eara_thrm_pre_init);
 module_exit(eara_thrm_pre_exit);
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek FPS COOLER");
+MODULE_DESCRIPTION("MediaTek Frame Rate Smoother");
 MODULE_AUTHOR("MediaTek Inc.");
 
