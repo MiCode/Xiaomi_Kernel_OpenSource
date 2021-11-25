@@ -83,7 +83,7 @@ static void set_tile_config(struct mml_task *task,
 
 	for (i = 0; i < eng_cnt; i++) {
 		const struct mml_path_node *e = get_tile_node(path, i);
-		struct tile_func_block *ptr_func = &tile_func->func_list[i];
+		struct tile_func_block *ptr_func = tile_func->func_list[i];
 
 		set_tile_engine(e, &tile->tile_engines[i], ptr_func);
 	}
@@ -110,7 +110,7 @@ static s32 prepare_tile(struct mml_task *task,
 
 	for (i = 0; i < eng_cnt; i++) {
 		struct mml_comp *comp = get_tile_node(path, i)->comp;
-		struct tile_func_block *ptr_func = &tile_func->func_list[i];
+		struct tile_func_block *ptr_func = tile_func->func_list[i];
 
 		if (unlikely(comp->id != ptr_func->func_num)) {
 			mml_err("[tile]mismatched tile_func(%d) and comp(%d) at [%d]",
@@ -205,8 +205,30 @@ static void destroy_tile_working(struct tile_ctx *ctx)
 	kfree(ctx->tile_func);
 }
 
-static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max)
+static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max,
+			   struct mml_tile_cache *tile_cache)
 {
+	u32 i;
+
+	if (!tile_cache->ready) {
+		if (ARRAY_SIZE(tile_cache->func_list) !=
+			ARRAY_SIZE(ctx->tile_func->func_list))
+			mml_err("%s tile func list count not match %u and %u",
+				__func__,
+				(u32)ARRAY_SIZE(tile_cache->func_list),
+				(u32)ARRAY_SIZE(ctx->tile_func->func_list));
+		for (i = 0; i < ARRAY_SIZE(tile_cache->func_list); i++) {
+			if (tile_cache->func_list[i])
+				continue;
+			tile_cache->func_list[i] = kmalloc(
+				sizeof(struct tile_func_block), GFP_KERNEL);
+			if (!tile_cache->func_list[i])
+				return -ENOMEM;
+		}
+
+		tile_cache->ready = true;
+	}
+
 	ctx->output = kzalloc(sizeof(*ctx->output), GFP_KERNEL);
 	if (!ctx->output)
 		return -ENOMEM;
@@ -223,6 +245,8 @@ static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max)
 	ctx->tile_func = kzalloc(sizeof(*ctx->tile_func), GFP_KERNEL);
 	if (!ctx->tile_func)
 		return -ENOMEM;
+	for (i = 0; i < ARRAY_SIZE(tile_cache->func_list); i++)
+		ctx->tile_func->func_list[i] = tile_cache->func_list[i];
 	return 0;
 }
 
@@ -332,7 +356,7 @@ static s32 calc_frame_mode(struct mml_task *task,
 	return 0;
 }
 
-s32 calc_tile(struct mml_task *task, u32 pipe_idx)
+s32 calc_tile(struct mml_task *task, u32 pipe_idx, struct mml_tile_cache *tile_cache)
 {
 	size_t tile_max;
 	const struct mml_frame_dest *dest = &task->config->info.dest[0];
@@ -357,7 +381,7 @@ s32 calc_tile(struct mml_task *task, u32 pipe_idx)
 		tile_max = MAX_DECOUPLE_TILE_NUM;
 	}
 
-	ret = create_tile_ctx(&ctx, eng_cnt, tile_max);
+	ret = create_tile_ctx(&ctx, eng_cnt, tile_max, tile_cache);
 	if (ret) {
 		mml_err("no memory to create tile context");
 		goto free_output;

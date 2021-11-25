@@ -47,6 +47,7 @@ struct mml_drm_ctx {
 	bool disp_dual;
 	bool disp_vdo;
 	void (*submit_cb)(void *cb_param);
+	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
 };
 
 enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
@@ -934,11 +935,16 @@ dup_command:
 	return 0;
 }
 
-void task_queue(struct mml_task *task, u32 pipe)
+static void task_queue(struct mml_task *task, u32 pipe)
 {
 	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
 
 	queue_work(ctx->wq_config[pipe], &task->work_config[pipe]);
+}
+
+static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pipe)
+{
+	return &((struct mml_drm_ctx *)task->ctx)->tile_cache[pipe];
 }
 
 const static struct mml_task_ops drm_task_ops = {
@@ -946,6 +952,7 @@ const static struct mml_task_ops drm_task_ops = {
 	.submit_done = task_submit_done,
 	.frame_done = task_frame_done,
 	.dup_task = dup_task,
+	.get_tile_cache = task_get_tile_cache,
 };
 
 static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
@@ -1020,6 +1027,7 @@ done:
 static void drm_ctx_release(struct mml_drm_ctx *ctx)
 {
 	struct mml_frame_config *cfg, *tmp;
+	u32 i, j;
 
 	mml_msg("[drm]%s on ctx %p", __func__, ctx);
 
@@ -1035,6 +1043,10 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 	destroy_workqueue(ctx->wq_config[0]);
 	destroy_workqueue(ctx->wq_config[1]);
 	mtk_sync_timeline_destroy(ctx->timeline);
+	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
+		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
+			kfree(ctx->tile_cache[i].func_list[j]);
+	}
 	kfree(ctx);
 }
 

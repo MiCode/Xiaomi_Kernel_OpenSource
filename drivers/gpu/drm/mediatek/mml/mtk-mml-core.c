@@ -1054,12 +1054,15 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 	int ret;
 
 	if (task->state == MML_TASK_INITIAL) {
+		struct mml_tile_cache *tile_cache =
+			task->config->task_ops->get_tile_cache(task, pipe);
+
 		/* prepare data in each component for later tile use */
 		core_prepare(task, pipe);
 
 		/* call to tile to calculate */
 		mml_trace_ex_begin("%s_%s_%u", __func__, "tile", pipe);
-		ret = calc_tile(task, pipe);
+		ret = calc_tile(task, pipe, tile_cache);
 		mml_trace_ex_end();
 		if (ret < 0) {
 			mml_err("calc tile fail %d", ret);

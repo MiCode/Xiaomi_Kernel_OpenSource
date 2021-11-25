@@ -86,7 +86,7 @@ union mml_tile_data {
 	struct dlo_tile_data dlo_data;
 };
 
-s32 calc_tile(struct mml_task *task, u32 pipe_idx);
+s32 calc_tile(struct mml_task *task, u32 pipe_idx, struct mml_tile_cache *tile_cache);
 
 void destroy_tile_output(struct mml_tile_output *output);
 

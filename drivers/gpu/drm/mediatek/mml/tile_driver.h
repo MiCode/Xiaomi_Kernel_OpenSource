@@ -13,7 +13,7 @@
 #define MAX_TILE_PREV_NO (10)
 #define MAX_TILE_BRANCH_NO (6)
 #define MIN_TILE_FUNC_NO (2)
-#define MAX_TILE_FUNC_NO (128) /* smaller or equal to (PREVIOUS_BLK_NO_OF_START-1) */
+#define MAX_TILE_FUNC_NO MML_MAX_PATH_NODES /* smaller or equal to (PREVIOUS_BLK_NO_OF_START-1) */
 #define MAX_INPUT_TILE_FUNC_NO (32)
 #define MAX_FORWARD_FUNC_CAL_LOOP_NO (16 * MAX_TILE_FUNC_NO)
 #define MAX_TILE_FUNC_EN_NO (192)
@@ -470,7 +470,7 @@ typedef struct func_description {
 	unsigned int for_recursive_count;
 	unsigned char scheduling_forward_order[MAX_TILE_FUNC_NO];
 	unsigned char scheduling_backward_order[MAX_TILE_FUNC_NO];
-	struct tile_func_block func_list[MAX_TILE_FUNC_NO];
+	struct tile_func_block *func_list[MAX_TILE_FUNC_NO];
 } FUNC_DESCRIPTION_STRUCT;
 
 #endif

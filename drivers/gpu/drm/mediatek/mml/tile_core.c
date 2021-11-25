@@ -126,7 +126,7 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 	module_no = path->tile_engine_cnt;
 	for (i = 0; i < module_no; i++) {
 		const struct mml_path_node *node = &path->nodes[path->tile_engines[i]];
-		struct tile_func_block *ptr_func = &ptr_tile_func_param->func_list[i];
+		struct tile_func_block *ptr_func = ptr_tile_func_param->func_list[i];
 
 		memset(ptr_func, 0x0, sizeof(*ptr_func));
 
@@ -157,7 +157,7 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 	}
 	/* connect modules with error check */
 	for (i = 0; i < module_no; i++) {
-		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[i];
 		int j;
 		int tot_prev_num = ptr_func->tot_prev_num;
 
@@ -195,7 +195,8 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 				}
 				for (k = 0; k < module_no; k++) {
 					if (i != k) { /* skip self */
-						TILE_FUNC_BLOCK_STRUCT *ptr_target = &ptr_tile_func_param->func_list[k];
+						TILE_FUNC_BLOCK_STRUCT *ptr_target =
+							ptr_tile_func_param->func_list[k];
 
 						/* find last */
 						if (last_func_num == ptr_target->func_num) {
@@ -317,8 +318,10 @@ ISP_TILE_MESSAGE_ENUM tile_proc_main_single(TILE_REG_MAP_STRUCT *ptr_tile_reg_ma
     if (ISP_MESSAGE_TILE_OK == result)
     {
         /* check tile end & update tile no */
-		bool x_end_flag = ptr_tile_func_param->func_list[ptr_tile_reg_map->first_func_en_no].h_end_flag;
-		bool y_end_flag = ptr_tile_func_param->func_list[ptr_tile_reg_map->first_func_en_no].v_end_flag;
+		bool x_end_flag = ptr_tile_func_param->func_list[
+			ptr_tile_reg_map->first_func_en_no]->h_end_flag;
+		bool y_end_flag = ptr_tile_func_param->func_list[
+			ptr_tile_reg_map->first_func_en_no]->v_end_flag;
         result = tile_check_x_end_pos_with_flag(ptr_tile_reg_map, ptr_tile_func_param, &x_end_flag, tile_no);
         if (ISP_MESSAGE_TILE_OK == result)
         {
@@ -368,7 +371,8 @@ static ISP_TILE_MESSAGE_ENUM tile_init_by_prev(TILE_FUNC_BLOCK_STRUCT *ptr_func,
     bool found_prev = false;
     for (j=0;j<ptr_func->tot_prev_num;j++)
     {
-        TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
+		TILE_FUNC_BLOCK_STRUCT *ptr_prev =
+			ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
         /* update only for main path */
         if (false == ptr_prev->output_disable_flag)
         {
@@ -426,7 +430,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
         for (i=0;i<module_no;i++)
         {
             unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-            TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[module_order];
             if (false == ptr_func->output_disable_flag)
             {
                 /* trace output disable */
@@ -457,7 +462,9 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                     int j;
                     for (j=0;j<ptr_func->tot_branch_num;j++)
                     {
-                        TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];
+					TILE_FUNC_BLOCK_STRUCT *ptr_next =
+						ptr_tile_func_param->func_list[
+						ptr_func->next_blk_num[j]];
                         /* find out branch enabled output */
                         if (false == ptr_next->output_disable_flag)
                         {
@@ -505,7 +512,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 		for (i=0;i<module_no;i++)
 		{
 			unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-			TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+					TILE_FUNC_BLOCK_STRUCT *ptr_func =
+						ptr_tile_func_param->func_list[module_order];
 			if (false == ptr_func->output_disable_flag)
 			{
 				/* start func disabled */
@@ -522,7 +530,9 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 					bool input_enable_count = false;
 					for (j=0;j<ptr_func->tot_prev_num;j++)
 					{
-						TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
+						TILE_FUNC_BLOCK_STRUCT *ptr_prev =
+							ptr_tile_func_param->func_list[
+							ptr_func->prev_blk_num[j]];
 						/* find input enabled */
 						if (false == ptr_prev->output_disable_flag)
 						{
@@ -564,7 +574,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
             if (ISP_MESSAGE_TILE_OK == result)
             {
                 unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-                TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[module_order];
                 if (ptr_func->output_disable_flag)
                 {
                     if (ISP_MESSAGE_TILE_OK == result)
@@ -905,7 +916,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
         for (i=0;i<module_no;i++)
         {
             unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-            TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+			TILE_FUNC_BLOCK_STRUCT *ptr_func =
+				ptr_tile_func_param->func_list[module_order];
             /* check run_mode */
             /* skip output disable func in following check */
             if (false == ptr_func->output_disable_flag)
@@ -930,7 +942,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                         bool found_main_input = false;
                         for (j=0;j<ptr_func->tot_prev_num;j++)
                         {
-                            TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_prev =
+					ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
                             if (false == ptr_prev->output_disable_flag)
                             {
                                 if (TILE_RUN_MODE_MAIN == ptr_prev->run_mode)
@@ -1035,7 +1048,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 			for (i=0;i<module_no;i++)
 			{
 				unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-				TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[module_order];
 				/* check run_mode */
 				/* skip output disable func in following check */
 				if (false == ptr_func->output_disable_flag)
@@ -1045,7 +1059,9 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 						int j;
 						for (j=0;j<ptr_func->tot_branch_num;j++)
 						{
-							TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];
+							TILE_FUNC_BLOCK_STRUCT *ptr_next =
+								ptr_tile_func_param->func_list[
+								ptr_func->next_blk_num[j]];
 							if ((TILE_RUN_MODE_SUB_OUT != ptr_next->run_mode) && (false == ptr_next->output_disable_flag))
 							{
 								break;
@@ -1068,7 +1084,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
         for (i=0;i<module_no;i++)
         {
             unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-            TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[module_order];
             /* skip output disable func in following check */
             if (false == ptr_func->output_disable_flag)
             {
@@ -1084,7 +1101,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 					int j;
                     for (j=0;j<ptr_func->tot_branch_num;j++)
                     {
-                        TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];
                         /* skip output disable func in following check */
                         if (false == ptr_next->output_disable_flag)
                         {
@@ -1178,7 +1196,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                     ptr_func->out_max_height = out_max_height;
                     for (j=0;j<ptr_func->tot_branch_num;j++)
                     {
-                        TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[j]];
                         /* skip output disable func in following update */
                         if (false == ptr_next->output_disable_flag)
                         {
@@ -1223,7 +1242,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
             for (i=0;i<module_no;i++)
             {
                 unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-                TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[module_order];
                 /* skip output disable func in following check */
                 if (false == ptr_func->output_disable_flag)
                 {
@@ -1239,7 +1259,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 						int j;
                         for (j=0;j<ptr_func->tot_prev_num;j++)
                         {
-                            TILE_FUNC_BLOCK_STRUCT *ptr_prev= &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_prev =
+					ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
                             /* skip output disable func in following check */
                             if (false == ptr_prev->output_disable_flag)
                             {
@@ -1333,7 +1354,8 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                         ptr_func->in_max_height = in_max_height;
                         for (j=0;j<ptr_func->tot_prev_num;j++)
                         {
-                            TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_prev =
+					ptr_tile_func_param->func_list[ptr_func->prev_blk_num[j]];
                             /* skip output disable func in following update */
                             if (false == ptr_prev->output_disable_flag)
                             {
@@ -1373,11 +1395,13 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
     {
         int i;
         /* clear valid flag */
-        memset(&ptr_tile_func_param->valid_flag, 0x0, 4*((unsigned int)(module_no+31)>>5));
+		memset(ptr_tile_func_param->valid_flag, 0x0,
+			4 * ((unsigned int)(module_no + 31) >> 5));
         for (i=0;i<module_no;i++)
         {
             unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-            TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+			TILE_FUNC_BLOCK_STRUCT *ptr_func =
+				ptr_tile_func_param->func_list[module_order];
             unsigned int *ptr_valid = &ptr_tile_func_param->valid_flag[module_order>>5];
             /* check broken path w/o main connected */
             if ((TILE_RUN_MODE_MAIN != ptr_func->run_mode) && (false == ptr_func->output_disable_flag))
@@ -1435,7 +1459,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_comp(TILE_REG_MAP_STRUCT *ptr_tile_re
 		if (ISP_MESSAGE_TILE_OK == result)
 		{
 			unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-			TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+			TILE_FUNC_BLOCK_STRUCT *ptr_func =
+				ptr_tile_func_param->func_list[module_order];
 			/* skip output disable func */
 			if (ptr_func->output_disable_flag)
 			{
@@ -1501,7 +1526,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_comp_min_tile(TILE_REG_MAP_STRUCT *pt
 		if (ISP_MESSAGE_TILE_OK == result)
 		{
 			unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-			TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+			TILE_FUNC_BLOCK_STRUCT *ptr_func =
+				ptr_tile_func_param->func_list[module_order];
 			/* skip output disable func */
 			if (ptr_func->output_disable_flag)
 			{
@@ -1546,11 +1572,13 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_comp_min_tile(TILE_REG_MAP_STRUCT *pt
 
 static ISP_TILE_MESSAGE_ENUM tile_schedule_backward(FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-    int module_no = ptr_tile_func_param->used_func_no;
-    int i;
-    /* clear valid flag */
-    memset(&ptr_tile_func_param->valid_flag, 0x0, 4*((unsigned int)(module_no+31)>>5));
+	ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
+	int module_no = ptr_tile_func_param->used_func_no;
+	int i;
+
+	/* clear valid flag */
+	memset(ptr_tile_func_param->valid_flag, 0x0,
+		4 * ((unsigned int)(module_no + 31) >> 5));
     /* scheduling backward */
     for (i=0;i<module_no;i++)
     {
@@ -1562,7 +1590,7 @@ static ISP_TILE_MESSAGE_ENUM tile_schedule_backward(FUNC_DESCRIPTION_STRUCT *ptr
 			unsigned int *ptr_valid = &ptr_tile_func_param->valid_flag[(unsigned int)j>>5];
             if (false == (*ptr_valid & (1<<(j & 0x1F))))/* skip valid */
             {
-	            TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[j];
+			TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[j];
 				/* non-branch to set valid if next valid */
                 if (1 == ptr_func->tot_branch_num)
                 {
@@ -1633,7 +1661,8 @@ ISP_TILE_MESSAGE_ENUM tile_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
             /* set all sub out to normal mode to prevent too small size in end tile of sub out */
             for (i=0;i<ptr_tile_func_param->used_func_no;i++)
             {
-                TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[i];
                 if (false  == ptr_func->output_disable_flag)
                 {
                     if (TILE_RUN_MODE_SUB_OUT == ptr_func->run_mode)
@@ -1671,7 +1700,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_valid_output(TILE_REG_MAP_STRUCT *ptr_ti
     {
 		/* faster stop by backward order */
 		unsigned char module_order = ptr_tile_func_param->scheduling_backward_order[i];
-		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[module_order];
 		if (ptr_func->output_disable_flag)
 		{
 			continue;
@@ -1816,7 +1845,7 @@ static ISP_TILE_MESSAGE_ENUM tile_check_min_tile(TILE_REG_MAP_STRUCT *ptr_tile_r
     {
 		/* must check by forward order */
 		unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[module_order];
 		if (ptr_func->output_disable_flag)
 		{
 			continue;
@@ -1922,7 +1951,7 @@ ISP_TILE_MESSAGE_ENUM tile_frame_mode_init(TILE_REG_MAP_STRUCT *ptr_tile_reg_map
         int i;
         for (i=0;i<ptr_tile_func_param->used_func_no;i++)
         {
-            TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[i];
 			if (false == ptr_func->output_disable_flag)
 			{
 				ptr_func->min_in_pos_xs = MAX_SIZE;/* init value */
@@ -1954,7 +1983,7 @@ ISP_TILE_MESSAGE_ENUM tile_frame_mode_close(TILE_REG_MAP_STRUCT *ptr_tile_reg_ma
     ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
     for (i=0;i<ptr_tile_func_param->used_func_no;i++)
     {
-        TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[i];
 		if (false == ptr_func->output_disable_flag)
 		{
 			ptr_func->in_tile_width = ptr_func->in_tile_width_backup;
@@ -2365,7 +2394,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_skip(TILE_REG_MAP_STRUC
 			ptr_tile_reg_map->skip_x_cal = true;
 			for (i=0;i<ptr_tile_func_param->used_func_no;i++)
 			{
-				TILE_FUNC_BLOCK_STRUCT *ptr_func_backup = &ptr_tile_func_param->func_list[i];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func_backup =
+					ptr_tile_func_param->func_list[i];
 				if (false == ptr_func_backup->output_disable_flag)
 				{
 					TILE_HORZ_BACKUP_BUFFER *ptr_para =
@@ -2480,7 +2510,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 			else if (1 == ptr_func->tot_branch_num)/* check non-branch */
 			{
 				/* set curr out with next in */
-				TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
 				ptr_func->h_end_flag = ptr_next->h_end_flag;
 				ptr_func->crop_h_end_flag = ptr_next->crop_h_end_flag;
 				/* tdr_h_disable_flag changed during back cal by sub-in */
@@ -2528,7 +2559,9 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x(TILE_FUNC_BLOCK_STRUC
 				/* min xs/ys & min xe/ye sorting for current support tile mode */
 				for (i=0;i<ptr_func->tot_branch_num;i++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
+					TILE_FUNC_BLOCK_STRUCT *ptr_next =
+						ptr_tile_func_param->func_list[
+						ptr_func->next_blk_num[i]];
 					int temp = ptr_next->max_in_pos_xe;
 					/* skip output disabled branch */
 					if (ptr_next->output_disable_flag)
@@ -3036,7 +3069,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 			else if (1 == ptr_func->tot_branch_num)/* check non-branch */
 			{
 				/* set curr out with next in */
-				TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
 				ptr_func->h_end_flag = ptr_next->h_end_flag;
 				ptr_func->crop_h_end_flag = ptr_next->crop_h_end_flag;
 				/* update tdr_h_disable_flag for change during back cal by sub-in */
@@ -3082,7 +3116,9 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv(TILE_FUNC_BLOCK_S
 				/* max xs/ys & max xe/ye sorting for current support tile mode */
 				for (i=0;i<ptr_func->tot_branch_num;i++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
+					TILE_FUNC_BLOCK_STRUCT *ptr_next =
+						ptr_tile_func_param->func_list[
+						ptr_func->next_blk_num[i]];
 					int temp = ptr_next->min_in_pos_xs;
 					/* skip output disabled branch */
 					if (ptr_next->output_disable_flag)
@@ -3470,7 +3506,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 			else if (1 == ptr_func->tot_branch_num)/* check non-branch */
 			{
 				/* set curr out with next in */
-				TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
 				ptr_func->v_end_flag = ptr_next->v_end_flag;
 				ptr_func->crop_v_end_flag = ptr_next->crop_v_end_flag;
 				/* update tdr_v_disable_flag for change during back cal by sub-in */
@@ -3510,7 +3547,9 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y(TILE_FUNC_BLOCK_STRUC
 				/* min xs/ys & min xe/ye sorting for current support tile mode */
 				for (i=0;i<ptr_func->tot_branch_num;i++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
+					TILE_FUNC_BLOCK_STRUCT *ptr_next =
+						ptr_tile_func_param->func_list[
+						ptr_func->next_blk_num[i]];
 					int temp = ptr_next->max_in_pos_ye;
 					/* skip output disabled branch */
 					if (ptr_next->output_disable_flag)
@@ -3964,7 +4003,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_min_tile(TILE_FUNC_BL
 		else if (1 == ptr_func->tot_branch_num)/* check non-branch */
 		{
 			/* set curr out with next in */
-			TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
+			TILE_FUNC_BLOCK_STRUCT *ptr_next =
+				ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
 			/* necessary info for backward */
 			ptr_func->tdr_h_disable_flag = ptr_next->tdr_h_disable_flag;
 			ptr_func->h_end_flag = ptr_next->h_end_flag;
@@ -3988,7 +4028,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_min_tile(TILE_FUNC_BL
 			/* min xs/ys & min xe/ye sorting for current support tile mode */
 			for (i=0;i<ptr_func->tot_branch_num;i++)
 			{
-				TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
 				/* skip output & tdr disabled branch */
 				if (ptr_next->output_disable_flag)
 				{
@@ -4138,7 +4179,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv_min_tile(TILE_FUN
 		else if (1 == ptr_func->tot_branch_num)/* check non-branch */
 		{
 			/* set curr out with next in */
-			TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
+			TILE_FUNC_BLOCK_STRUCT *ptr_next =
+				ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
 			/* update for backward */
 			ptr_func->tdr_h_disable_flag = ptr_next->tdr_h_disable_flag;
 			ptr_func->h_end_flag = ptr_next->h_end_flag;
@@ -4163,7 +4205,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_x_inv_min_tile(TILE_FUN
 			/* min xs/ys & min xe/ye sorting for current support tile mode */
 			for (i=0;i<ptr_func->tot_branch_num;i++)
 			{
-				TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
 				/* skip output & tdr disabled branch */
 				if (ptr_next->output_disable_flag)
 				{
@@ -4311,7 +4354,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y_min_tile(TILE_FUNC_BL
 		else if (1 == ptr_func->tot_branch_num)/* check non-branch */
 		{
 			/* set curr out with next in */
-			TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
+			TILE_FUNC_BLOCK_STRUCT *ptr_next =
+				ptr_tile_func_param->func_list[ptr_func->next_blk_num[0]];
 			/* update for backward */
 			ptr_func->tdr_v_disable_flag = ptr_next->tdr_v_disable_flag;
 			ptr_func->v_end_flag = ptr_next->v_end_flag;
@@ -4335,7 +4379,8 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_y_min_tile(TILE_FUNC_BL
 			/* min xs/ys & min xe/ye sorting for current support tile mode */
 			for (i=0;i<ptr_func->tot_branch_num;i++)
 			{
-				TILE_FUNC_BLOCK_STRUCT *ptr_next = &ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
+				TILE_FUNC_BLOCK_STRUCT *ptr_next =
+					ptr_tile_func_param->func_list[ptr_func->next_blk_num[i]];
 				/* skip output disabled branch */
 				if (ptr_next->output_disable_flag)
 				{
@@ -6863,7 +6908,7 @@ static ISP_TILE_MESSAGE_ENUM tile_schedule_forward(FUNC_DESCRIPTION_STRUCT *ptr_
     int module_no = ptr_tile_func_param->used_func_no;
     int i;
     /* clear valid flag */
-    memset(&ptr_tile_func_param->valid_flag, 0x0, 4*((unsigned int)(module_no+31)>>5));
+	memset(ptr_tile_func_param->valid_flag, 0x0, 4 * ((unsigned int)(module_no + 31) >> 5));
     /* scheduling forward */
     for (i=0;i<module_no;i++)
     {
@@ -6875,7 +6920,8 @@ static ISP_TILE_MESSAGE_ENUM tile_schedule_forward(FUNC_DESCRIPTION_STRUCT *ptr_
 			unsigned int *ptr_valid = &ptr_tile_func_param->valid_flag[(unsigned int)j>>5];
             if (false == (*ptr_valid & (1<<(j & 0x1F))))/* skip valid */
             {
-				TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[j];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[j];
 				int k;
                 for (k=0;k<ptr_func->tot_prev_num;k++)
                 {
@@ -6940,7 +6986,8 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_recusive_check(TILE_FUNC_BLOCK_STRUCT 
 						/* xe mis-alignment to reduce source xe */
 						for (i=0;i<ptr_tile_func_param->used_func_no;i++)
 						{
-							TILE_FUNC_BLOCK_STRUCT *ptr_start = &ptr_tile_func_param->func_list[i];
+							TILE_FUNC_BLOCK_STRUCT *ptr_start =
+								ptr_tile_func_param->func_list[i];
 							if (false == ptr_start->output_disable_flag)
 							{
 								if (tile_reg_map_run_mode == ptr_start->run_mode)
@@ -6981,7 +7028,8 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_recusive_check(TILE_FUNC_BLOCK_STRUCT 
 						/* xe mis-alignment to reduce source xe */
 						for (i=0;i<ptr_tile_func_param->used_func_no;i++)
 						{
-							TILE_FUNC_BLOCK_STRUCT *ptr_start = &ptr_tile_func_param->func_list[i];
+							TILE_FUNC_BLOCK_STRUCT *ptr_start =
+								ptr_tile_func_param->func_list[i];
 							if (false == ptr_start->output_disable_flag)
 							{
 								if (tile_reg_map_run_mode == ptr_start->run_mode)
@@ -7026,7 +7074,8 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_recusive_check(TILE_FUNC_BLOCK_STRUCT 
 					/* ye mis-alignment to reduce source ye */
 					for (i=0;i<ptr_tile_func_param->used_func_no;i++)
 					{
-						TILE_FUNC_BLOCK_STRUCT *ptr_start = &ptr_tile_func_param->func_list[i];
+						TILE_FUNC_BLOCK_STRUCT *ptr_start =
+							ptr_tile_func_param->func_list[i];
 						if (false == ptr_start->output_disable_flag)
 						{
 							if (tile_reg_map_run_mode == ptr_start->run_mode)
@@ -7072,7 +7121,9 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_comp_no_back(TILE_REG_MAP_STRUCT *ptr_
 			if (ISP_MESSAGE_TILE_OK == result)
 			{
 				unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-				TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+				TILE_FUNC_BLOCK_STRUCT *ptr_func =
+					ptr_tile_func_param->func_list[module_order];
+
 				/* skip output disable func */
 				if (ptr_func->output_disable_flag)
 				{
@@ -7116,8 +7167,9 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_comp(TILE_REG_MAP_STRUCT *ptr_tile_reg
         /* loop count can be reset for mis-alignment handle */
         for (i=0;i<ptr_tile_func_param->used_func_no;loop_count++)
         {
-            unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-			TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+		unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
+			TILE_FUNC_BLOCK_STRUCT *ptr_func =
+				ptr_tile_func_param->func_list[module_order];
 			/* skip output disable func */
 			if (false == ptr_func->output_disable_flag)
 			{
@@ -7186,7 +7238,10 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_input_config(TILE_FUNC_BLOCK_STRUCT *p
 				int tile_reg_map_run_mode = ptr_tile_reg_map->run_mode;
 				for (i=0;i<ptr_func->tot_prev_num;i++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[i]];
+					TILE_FUNC_BLOCK_STRUCT *ptr_prev =
+						ptr_tile_func_param->func_list[
+						ptr_func->prev_blk_num[i]];
+
 					if (ptr_prev->output_disable_flag)
 					{
 						continue;
@@ -7258,7 +7313,9 @@ static ISP_TILE_MESSAGE_ENUM tile_forward_input_config(TILE_FUNC_BLOCK_STRUCT *p
 				int tile_reg_map_run_mode = ptr_tile_reg_map->run_mode;
 				for (i=0;i<ptr_func->tot_prev_num;i++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_prev = &ptr_tile_func_param->func_list[ptr_func->prev_blk_num[i]];
+					TILE_FUNC_BLOCK_STRUCT *ptr_prev =
+						ptr_tile_func_param->func_list[
+						ptr_func->prev_blk_num[i]];
 					if (ptr_prev->output_disable_flag)
 					{
 						continue;
@@ -7343,7 +7400,7 @@ static ISP_TILE_MESSAGE_ENUM tile_init_tdr_ctrl_flag(TILE_REG_MAP_STRUCT *ptr_ti
 	}
 	for (i=0;i<ptr_tile_func_param->used_func_no;i++)
 	{
-		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[i];
 		if (false == ptr_func->output_disable_flag)
 		{
 			/* init end func */
@@ -7385,15 +7442,17 @@ static ISP_TILE_MESSAGE_ENUM tile_init_tdr_ctrl_flag(TILE_REG_MAP_STRUCT *ptr_ti
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_update_last_x_y(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-										   FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param, bool x_end_flag, bool y_end_flag)
+	FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
+	bool x_end_flag, bool y_end_flag)
 {
 	int curr_vertical_tile_no = ptr_tile_reg_map->curr_vertical_tile_no;
 	int curr_horizontal_tile_no = ptr_tile_reg_map->curr_horizontal_tile_no;
 	int first_frame = ptr_tile_reg_map->first_frame;
 	int i;
-    for (i=0;i<ptr_tile_func_param->used_func_no;i++)
-    {
-        TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[i];
+
+	for (i = 0; i < ptr_tile_func_param->used_func_no; i++) {
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[i];
+
 		if (false == ptr_func->output_disable_flag)
 		{
 			if ((false == ptr_func->tdr_v_disable_flag) && (false == ptr_func->tdr_h_disable_flag))
@@ -7642,7 +7701,7 @@ static ISP_TILE_MESSAGE_ENUM tile_compare_forward_back(TILE_REG_MAP_STRUCT *ptr_
 	{
 		/* check by forward order */
 		unsigned char module_order = ptr_tile_func_param->scheduling_forward_order[i];
-		TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[module_order];
+		TILE_FUNC_BLOCK_STRUCT *ptr_func = ptr_tile_func_param->func_list[module_order];
 		if (ptr_func->output_disable_flag)
 		{
 			continue;
@@ -7687,12 +7746,15 @@ static ISP_TILE_MESSAGE_ENUM tile_compare_forward_back(TILE_REG_MAP_STRUCT *ptr_
     return result;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-													 FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
-													 bool *ptr_x_end_flag, int curr_tile_no)
+static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(
+	TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
+	FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
+	bool *ptr_x_end_flag, int curr_tile_no)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-	bool x_end_flag = ptr_tile_func_param->func_list[ptr_tile_reg_map->first_func_en_no].h_end_flag;
+	ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
+	bool x_end_flag = ptr_tile_func_param->func_list[
+		ptr_tile_reg_map->first_func_en_no]->h_end_flag;
+
 	*ptr_x_end_flag = x_end_flag;
 	if (false == ptr_tile_reg_map->skip_x_cal)
 	{
@@ -7705,7 +7767,8 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 				int j;
 				for (j=0;j<ptr_tile_func_param->used_func_no;j++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[j];
+					TILE_FUNC_BLOCK_STRUCT *ptr_func =
+						ptr_tile_func_param->func_list[j];
 					if (false == ptr_func->output_disable_flag)
 					{
 				        /* not direct link */
@@ -7734,7 +7797,8 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 				int j;
 				for (j=0;j<ptr_tile_func_param->used_func_no;j++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[j];
+					TILE_FUNC_BLOCK_STRUCT *ptr_func =
+						ptr_tile_func_param->func_list[j];
 					if (false == ptr_func->output_disable_flag)
 					{
 						/* check only run mode & end functions */
@@ -7833,12 +7897,14 @@ static ISP_TILE_MESSAGE_ENUM tile_check_x_end_pos_with_flag(TILE_REG_MAP_STRUCT 
     return result;
 }
 
-static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
-													 FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param,
-													 bool *ptr_y_end_flag)
+static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(
+	TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
+	FUNC_DESCRIPTION_STRUCT *ptr_tile_func_param, bool *ptr_y_end_flag)
 {
-    ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
-	bool y_end_flag = ptr_tile_func_param->func_list[ptr_tile_reg_map->first_func_en_no].v_end_flag;
+	ISP_TILE_MESSAGE_ENUM result = ISP_MESSAGE_TILE_OK;
+	bool y_end_flag = ptr_tile_func_param->func_list[
+		ptr_tile_reg_map->first_func_en_no]->v_end_flag;
+
 	*ptr_y_end_flag = y_end_flag;
 	if (false == ptr_tile_reg_map->skip_y_cal)
 	{
@@ -7851,7 +7917,8 @@ static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 				int j;
 				for (j=0;j<ptr_tile_func_param->used_func_no;j++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[j];
+					TILE_FUNC_BLOCK_STRUCT *ptr_func =
+						ptr_tile_func_param->func_list[j];
 					if (false == ptr_func->output_disable_flag)
 					{
 				        /* not direct link */
@@ -7882,7 +7949,8 @@ static ISP_TILE_MESSAGE_ENUM tile_check_y_end_pos_with_flag(TILE_REG_MAP_STRUCT 
 				int j;
 				for (j=0;j<ptr_tile_func_param->used_func_no;j++)
 				{
-					TILE_FUNC_BLOCK_STRUCT *ptr_func = &ptr_tile_func_param->func_list[j];
+					TILE_FUNC_BLOCK_STRUCT *ptr_func =
+						ptr_tile_func_param->func_list[j];
 					if (false == ptr_func->output_disable_flag)
 					{
 						/* check only run mode & end functions */

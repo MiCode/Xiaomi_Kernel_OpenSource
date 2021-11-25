@@ -84,7 +84,7 @@ extern int mml_racing_urgent;
 extern int mml_racing_wdone_eoc;
 
 #define MML_PIPE_CNT		2
-#define MML_MAX_PATH_NODES	16
+#define MML_MAX_PATH_NODES	16 /* must align MAX_TILE_FUNC_NO in tile_driver.h */
 #define MML_MAX_PATH_CACHES	16
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
@@ -109,6 +109,7 @@ struct mml_task_ops {
 	/* optional: adaptor may use frame_done to handle error */
 	void (*frame_err)(struct mml_task *task);
 	s32 (*dup_task)(struct mml_task *task, u32 pipe);
+	struct mml_tile_cache *(*get_tile_cache)(struct mml_task *task, u32 pipe);
 };
 
 struct mml_cap {
@@ -442,6 +443,12 @@ struct mml_comp {
 	const struct mml_comp_debug_ops *debug_ops;
 	const char *name;
 	bool bound;
+};
+
+/* array size must align MAX_TILE_FUNC_NO in tile_driver.h */
+struct mml_tile_cache {
+	void *func_list[MML_MAX_PATH_NODES];
+	bool ready;
 };
 
 struct mml_tile_region {

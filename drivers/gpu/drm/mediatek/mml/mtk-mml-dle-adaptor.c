@@ -33,6 +33,7 @@ struct mml_dle_ctx {
 	struct workqueue_struct *wq_destroy;
 	bool dl_dual;
 	void (*submit_cb)(struct mml_task *task, void *cb_param);
+	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
 };
 
 static bool check_frame_change(struct mml_frame_info *info,
@@ -532,10 +533,16 @@ static s32 dup_task(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
+static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pipe)
+{
+	return &((struct mml_dle_ctx *)task->ctx)->tile_cache[pipe];
+}
+
 const static struct mml_task_ops dle_task_ops = {
 	.submit_done = task_submit_done,
 	.frame_err = task_frame_err,
 	.dup_task = dup_task,
+	.get_tile_cache = task_get_tile_cache,
 };
 
 static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
@@ -576,6 +583,7 @@ struct mml_dle_ctx *mml_dle_get_context(struct device *dev,
 static void dle_ctx_release(struct mml_dle_ctx *ctx)
 {
 	struct mml_frame_config *cfg, *tmp;
+	u32 i, j;
 
 	mml_msg("[dle]%s on ctx %p", __func__, ctx);
 
@@ -588,6 +596,10 @@ static void dle_ctx_release(struct mml_dle_ctx *ctx)
 
 	mutex_unlock(&ctx->config_mutex);
 	destroy_workqueue(ctx->wq_destroy);
+	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
+		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
+			kfree(ctx->tile_cache[i].func_list[j]);
+	}
 	kfree(ctx);
 }
 
