@@ -58,6 +58,13 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 	const u32 srch = info->src.height;
 	enum mml_mode mode;
 
+	if (mml_pq_disable) {
+		for (i = 0; i < MML_MAX_OUTPUTS; i++) {
+			memset(&info->dest[i].pq_config, 0,
+				sizeof(info->dest[i].pq_config));
+		}
+	}
+
 	if (!info->src.format) {
 		mml_err("[drm]invalid src mml color format %#010x", info->src.format);
 		goto not_support;
@@ -579,11 +586,11 @@ static void dump_pq_en(u32 idx, struct mml_pq_param *pq_param,
 	memcpy(&pqen, pq_config, min(sizeof(*pq_config), sizeof(pqen)));
 
 	if (pq_param)
-		mml_log("[drm]PQ %u config %#x param en %u %s",
+		mml_msg("[drm]PQ %u config %#x param en %u %s",
 			idx, pqen, pq_param->enable,
 			mml_pq_disable ? "FORCE DISABLE" : "");
 	else
-		mml_log("[drm]PQ %u config %#x param NULL %s",
+		mml_msg("[drm]PQ %u config %#x param NULL %s",
 			idx, pqen,
 			mml_pq_disable ? "FORCE DISABLE" : "");
 }
@@ -624,7 +631,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	mml_trace_begin("%s", __func__);
 
 	if (mtk_mml_msg || mml_pq_disable) {
-		for (i = 0; i < submit->info.dest_cnt; i++) {
+		for (i = 0; i < MML_MAX_OUTPUTS; i++) {
 			dump_pq_en(i, submit->pq_param[i],
 				&submit->info.dest[i].pq_config);
 

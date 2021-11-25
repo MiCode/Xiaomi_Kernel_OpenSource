@@ -636,10 +636,6 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (div_u64(pixel, freq) >= info->act_time)
 		goto decouple;
 
-	/* aal-dre(scltm) not support inline rot */
-	if (info->dest[0].pq_config.en && info->dest[0].pq_config.en_dre)
-		goto decouple;
-
 	/* only support FHD/2K with rotate 90/270 case for now */
 	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180)
 		goto decouple;
