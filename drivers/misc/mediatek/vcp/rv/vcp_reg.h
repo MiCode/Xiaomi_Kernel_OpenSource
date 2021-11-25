@@ -35,6 +35,8 @@
 	#define B_GIPC4_SETCLR_2	(1 << 18)
 	#define B_GIPC4_SETCLR_3	(1 << 19)
 
+#define VCP_BUS_DEBUG_OUT		(vcpreg.cfg + 0x0150)
+
 #define R_CORE0_SW_RSTN_CLR	(vcpreg.cfg_core0 + 0x0000)
 #define R_CORE1_SW_RSTN_CLR	(vcpreg.cfg_core1 + 0x0000)
 

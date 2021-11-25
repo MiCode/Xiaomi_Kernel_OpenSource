@@ -767,6 +767,8 @@ void vcp_disable_pm_clk(enum feature_id id)
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
 		vcp_wait_ready_sync(id);
+		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x\n", VCP_BUS_DEBUG_OUT,
+			readl(VCP_BUS_DEBUG_OUT));
 		vcp_disable_irqs();
 
 		flush_workqueue(vcp_workqueue);
