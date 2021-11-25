@@ -2033,6 +2033,8 @@ static kal_uint16 preview_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 capture_setting_array[] = {
@@ -2145,6 +2147,8 @@ static kal_uint16 normal_video_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 hs_video_setting_array[] = {
@@ -4773,7 +4777,7 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-		csi_param->dphy_trail = 0x26;
+		csi_param->dphy_trail = 0x1;
 		break;
 	default:
 		csi_param->dphy_trail = 0;
