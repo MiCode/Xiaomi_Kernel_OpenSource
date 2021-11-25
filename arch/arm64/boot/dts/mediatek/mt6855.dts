@@ -2902,6 +2902,11 @@
 			};
 		};
 
+		wifi: wifi@18000000 {
+			compatible = "mediatek,wifi";
+			reg = <0 0x18000000 0 0x100000>;
+			interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
 	};
 	gps: gps@18c00000 {
 		compatible = "mediatek,gps";
