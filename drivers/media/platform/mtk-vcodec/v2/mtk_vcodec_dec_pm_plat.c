@@ -304,7 +304,7 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		mtk_v4l2_debug(0, "[VDEC] freq %u, voltage %d", freq, volt);
+		mtk_v4l2_debug(4, "[VDEC] freq %u, voltage %d", freq, volt);
 
 		ret = regulator_set_voltage(dev->vdec_reg, volt, INT_MAX);
 		if (ret) {
