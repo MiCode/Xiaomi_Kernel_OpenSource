@@ -891,8 +891,9 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 			}
 		}
 	}
-	present_fence[index] = atomic_read(&priv->crtc_present[0]);
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
+	present_fence[index] = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_PRESENT_FENCE(0))) - 1;
 }
 
 static int mtk_chist_read_kthread(void *data)
