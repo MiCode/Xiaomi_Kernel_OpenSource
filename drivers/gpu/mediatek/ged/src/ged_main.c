@@ -468,17 +468,6 @@ GED_ERROR check_eb_config(void)
 	return ret;
 }
 
-void ged_dfrc_fps_limit_cb(unsigned int fps_limit)
-{
-	vGed_Tmp = GED_TARGET_UNLIMITED_FPS;
-
-	if (fps_limit > 0 && fps_limit <= GED_TARGET_UNLIMITED_FPS)
-		vGed_Tmp = fps_limit;
-
-	GED_LOGI("[GED_CTRL] dfrc_fps %d\n", vGed_Tmp);
-
-}
-
 /******************************************************************************
  * Module related
  *****************************************************************************/
@@ -582,10 +571,6 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		GED_LOGE("Failed to init GPU Tuner!\n");
 		goto ERROR;
 	}
-
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-	drm_register_fps_chg_callback(ged_dfrc_fps_limit_cb);
-#endif
 
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,
