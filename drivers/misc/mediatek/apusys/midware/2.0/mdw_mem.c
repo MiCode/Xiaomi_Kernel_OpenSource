@@ -153,11 +153,12 @@ static int mdw_mem_alloc_internal(struct mdw_mem *m)
 		ret = mdw_mem_dma_alloc(m);
 		break;
 	case MDW_MEM_TYPE_LOCAL:
-	case MDW_MEM_TYPE_SYSTEM:
 	case MDW_MEM_TYPE_VLM:
 	case MDW_MEM_TYPE_SYSTEM_ISP:
+	case MDW_MEM_TYPE_SYSTEM_APU:
 		ret = mdw_mem_aram_alloc(m);
 		break;
+	case MDW_MEM_TYPE_SYSTEM:
 	default:
 		ret = -EINVAL;
 		break;

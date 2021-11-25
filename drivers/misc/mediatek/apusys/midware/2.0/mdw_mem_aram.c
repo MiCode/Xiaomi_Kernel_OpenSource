@@ -140,6 +140,7 @@ static void mdw_mem_aram_unprepare(struct mdw_mem_aram *am)
 	case MDW_MEM_TYPE_LOCAL:
 	case MDW_MEM_TYPE_SYSTEM:
 	case MDW_MEM_TYPE_SYSTEM_ISP:
+	case MDW_MEM_TYPE_SYSTEM_APU:
 		if (mdw_rvs_mem_free(am->sid))
 			mdw_mem_debug("free apumem type(%u)sid(%u)m(0x%llx/0x%x) fail\n",
 				am->m->type, am->sid,
@@ -183,6 +184,7 @@ static int mdw_mem_aram_prepare(struct mdw_fpriv *mpriv,
 	case MDW_MEM_TYPE_LOCAL:
 	case MDW_MEM_TYPE_SYSTEM:
 	case MDW_MEM_TYPE_SYSTEM_ISP:
+	case MDW_MEM_TYPE_SYSTEM_APU:
 		ret = mdw_rvs_mem_alloc(am->m->type,
 			am->m->size, &am->addr, &am->sid);
 		if (ret) {

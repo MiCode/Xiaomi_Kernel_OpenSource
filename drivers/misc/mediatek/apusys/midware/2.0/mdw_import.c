@@ -72,6 +72,9 @@ static int mdw_rvs_type_convert(uint32_t type, uint32_t *out)
 	case MDW_MEM_TYPE_SYSTEM_ISP:
 		*out = REVISER_MEM_TYPE_EXT;
 		break;
+	case MDW_MEM_TYPE_SYSTEM_APU:
+		*out = REVISER_MEM_TYPE_RSV_S;
+		break;
 
 	default:
 		return -EINVAL;
@@ -90,8 +93,8 @@ int mdw_rvs_mem_alloc(uint32_t type, uint32_t size,
 		return -EINVAL;
 
 	ret = reviser_alloc_mem(mapped_type, size, addr, sid);
-	mdw_flw_debug("type(%u)size(%u)addr(0x%llx)sid(%u)\n",
-		type, size, *addr, *sid);
+	mdw_flw_debug("type(%u->%u)size(%u)addr(0x%llx)sid(%u)\n",
+		type, mapped_type, size, *addr, *sid);
 
 	return ret;
 }
