@@ -104,10 +104,12 @@ static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct 
 	}
 
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+	spin_lock(&per_cpu(cpufreq_idle_cpu_lock, cpu));
 	if ((type == dequeue) && dequeue_idle_cpu(cpu) && (flags & DEQUEUE_SLEEP))
 		per_cpu(cpufreq_idle_cpu, cpu) = 1;
 	else
 		per_cpu(cpufreq_idle_cpu, cpu) = 0;
+	spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, cpu));
 #endif
 }
 

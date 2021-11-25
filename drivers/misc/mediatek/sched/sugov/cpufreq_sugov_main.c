@@ -305,6 +305,9 @@ EXPORT_SYMBOL(mtk_cpu_util);
 
 DEFINE_PER_CPU(int, cpufreq_idle_cpu);
 EXPORT_SYMBOL(cpufreq_idle_cpu);
+
+DEFINE_PER_CPU(spinlock_t, cpufreq_idle_cpu_lock) = __SPIN_LOCK_UNLOCKED(cpufreq_idle_cpu_lock);
+EXPORT_SYMBOL(cpufreq_idle_cpu_lock);
 static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 {
 	struct rq *rq = cpu_rq(sg_cpu->cpu);
@@ -314,8 +317,13 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
-	if (per_cpu(cpufreq_idle_cpu, sg_cpu->cpu))
+	spin_lock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
+	if (per_cpu(cpufreq_idle_cpu, sg_cpu->cpu)) {
+		spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
 		return 0;
+	}
+
+	spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
 
 	return mtk_cpu_util(sg_cpu->cpu, util, max, FREQUENCY_UTIL, NULL);
 }
