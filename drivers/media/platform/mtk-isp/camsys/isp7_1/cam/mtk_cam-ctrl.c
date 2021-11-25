@@ -43,6 +43,7 @@ enum MTK_CAMSYS_STATE_RESULT {
 	STATE_RESULT_PASS_CQ_HW_DELAY,
 };
 
+
 #define v4l2_set_frame_interval_which(x, y) (x.reserved[0] = y)
 
 static void state_transition(struct mtk_camsys_ctrl_state *state_entry,
@@ -751,6 +752,47 @@ static bool mtk_cam_submit_kwork(struct kthread_worker *worker,
 	return kthread_queue_work(worker, &sensor_work->work);
 }
 
+static void mtk_cam_exp_switch_sensor(
+			struct mtk_cam_request_stream_data *req_stream_data)
+{
+	struct mtk_cam_request *req;
+	struct mtk_cam_device *cam;
+	struct mtk_cam_ctx *ctx;
+	unsigned int time_after_sof = 0;
+
+	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
+	cam = ctx->cam;
+	req = mtk_cam_s_data_get_req(req_stream_data);
+	dev_dbg(cam->dev, "%s:%s:ctx(%d):sensor try set start\n",
+		__func__, req->req.debug_str, ctx->stream_id);
+
+	if (mtk_cam_req_frame_sync_start(req))
+		dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
+			__func__, req->req.debug_str, ctx->stream_id);
+	/* request setup*/
+	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) {
+		v4l2_ctrl_request_setup(&req->req, req_stream_data->sensor->ctrl_handler);
+		time_after_sof = ktime_get_boottime_ns() / 1000000 -
+					ctx->sensor_ctrl.sof_time;
+		dev_dbg(cam->dev, "[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
+			time_after_sof, req_stream_data->frame_seq_no,
+			ctx->stream_id);
+	}
+
+	state_transition(&req_stream_data->state,
+		E_STATE_READY, E_STATE_SENSOR);
+	if (mtk_cam_req_frame_sync_end(req))
+		dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
+			__func__, ctx->stream_id);
+
+	dev_info(cam->dev, "%s:%s:ctx(%d)req(%d):sensor done at SOF+%dms\n",
+		 __func__, req->req.debug_str, ctx->stream_id,
+		 req_stream_data->frame_seq_no, time_after_sof);
+
+	mtk_cam_complete_sensor_hdl(req_stream_data);
+}
+
+
 static void mtk_cam_exp_switch_sensor_worker(struct kthread_work *work)
 {
 	struct mtk_cam_request *req;
@@ -808,6 +850,8 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 	 * since the latter one stores the exposure_num information,
 	 * not the max one.
 	 */
+	if (req_stream_data->feature.switch_done == 1)
+		return 0;
 	feature_active = ctx->pipe->feature_active;
 	if (feature_active == STAGGER_2_EXPOSURE_LE_SE ||
 	    feature_active == STAGGER_2_EXPOSURE_SE_LE)
@@ -886,6 +930,7 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		param.settings = &settings[0];
 		param.num = 3;
 		mtk_cam_seninf_streaming_mux_change(&param);
+		req_stream_data->feature.switch_done = 1;
 		dev_info(ctx->cam->dev,
 			"[%s] switch Req:%d, type:%d, cam_mux[0][1][2]:[%d/%d/%d][%d/%d/%d][%d/%d/%d]\n",
 			__func__, req_stream_data->frame_seq_no, type,
@@ -925,11 +970,13 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		param.settings = &settings[0];
 		param.num = 2;
 		mtk_cam_seninf_streaming_mux_change(&param);
+		req_stream_data->feature.switch_done = 1;
 		dev_info(ctx->cam->dev,
-			"[%s] switch Req:%d, type:%d, cam_mux[0][1]:[%d/%d/%d][%d/%d/%d]\n",
+			"[%s] switch Req:%d, type:%d, cam_mux[0][1]:[%d/%d/%d][%d/%d/%d] ts:%lu\n",
 			__func__, req_stream_data->frame_seq_no, type,
 			settings[0].source, settings[0].camtg, settings[0].enable,
-			settings[1].source, settings[1].camtg, settings[1].enable);
+			settings[1].source, settings[1].camtg, settings[1].enable,
+			ktime_get_boottime_ns() / 1000);
 	}
 	/*switch state*/
 	if (type == EXPOSURE_CHANGE_3_to_1 ||
@@ -947,20 +994,23 @@ static int mtk_cam_exp_sensor_switch(struct mtk_cam_ctx *ctx,
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_device *raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
-			   ctx->sensor_ctrl.sof_time;
+	int time_after_sof;
 	int type = req_stream_data->feature.switch_feature_type;
-
-	mtk_cam_submit_kwork(ctx->sensor_ctrl.sensorsetting_wq,
+	if (type == EXPOSURE_CHANGE_2_to_1 || type == EXPOSURE_CHANGE_3_to_1)
+		mtk_cam_submit_kwork(ctx->sensor_ctrl.sensorsetting_wq,
 			     &req_stream_data->sensor_work,
 			     mtk_cam_exp_switch_sensor_worker);
+	else
+		mtk_cam_exp_switch_sensor(req_stream_data);
+
 	/**
 	 * Normal to HDR switch case timing will be same as sensor mode
 	 * switch.
 	 */
 	if (type == EXPOSURE_CHANGE_1_to_2 || type == EXPOSURE_CHANGE_1_to_3)
 		mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
-
+	time_after_sof = ktime_get_boottime_ns() / 1000000 -
+			   ctx->sensor_ctrl.sof_time;
 	dev_dbg(cam->dev,
 		"[%s] [SOF+%dms]] ctx:%d, req:%d\n",
 		__func__, time_after_sof, ctx->stream_id, req_stream_data->frame_seq_no);
@@ -1450,17 +1500,24 @@ static void mtk_cam_sof_timer_setup(struct mtk_cam_ctx *ctx)
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	ktime_t m_kt;
 	struct mtk_seninf_sof_notify_param param;
+	int after_sof_ms = ktime_get_boottime_ns() / 1000000
+			- sensor_ctrl->sof_time;
 
 	/*notify sof to sensor*/
 	param.sd = ctx->seninf;
 	param.sof_cnt = atomic_read(&sensor_ctrl->sensor_request_seq_no);
 	mtk_cam_seninf_sof_notify(&param);
 
-	sensor_ctrl->sof_time = ktime_get_boottime_ns() / 1000000;
+	//sensor_ctrl->sof_time = ktime_get_boottime_ns() / 1000000;
 	sensor_ctrl->sensor_deadline_timer.function =
 		sensor_deadline_timer_handler;
 	sensor_ctrl->ctx = ctx;
-	m_kt = ktime_set(0, sensor_ctrl->timer_req_event * 1000000);
+	if (after_sof_ms < 0)
+		after_sof_ms = 0;
+	else if (after_sof_ms > sensor_ctrl->timer_req_event)
+		after_sof_ms = sensor_ctrl->timer_req_event - 1;
+	m_kt = ktime_set(0, sensor_ctrl->timer_req_event * 1000000
+			- after_sof_ms * 1000000);
 	hrtimer_start(&sensor_ctrl->sensor_deadline_timer, m_kt,
 		      HRTIMER_MODE_REL);
 }
@@ -1525,6 +1582,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	if (que_cnt >= STATE_NUM_AT_SOF)
 		dev_dbg(raw_dev->dev, "[SOF-subsample] HW_DELAY state\n");
 	/* Trigger high resolution timer to try sensor setting */
+	sensor_ctrl->sof_time = ktime_get_boottime_ns() / 1000000;
 	mtk_cam_sof_timer_setup(ctx);
 	/* Transit outer state to inner state */
 	if (state_outer && sensor_ctrl->sensorsetting_wq) {
@@ -1697,6 +1755,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		}
 	}
 	/* Trigger high resolution timer to try sensor setting */
+	sensor_ctrl->sof_time = irq_info->ts_ns / 1000000;
 	mtk_cam_sof_timer_setup(ctx);
 	/* Initial request case - 1st sensor wasn't set yet or initial drop wasn't finished*/
 	if (MTK_CAM_INITIAL_REQ_SYNC) {
@@ -1725,15 +1784,16 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	}
 	if (que_cnt > 0) {
 		/*handle exposure switch at frame start*/
-		if (state_sensor) {
-			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_sensor);
+		if (working_req_found && state_rec[0]) {
+			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[0]);
 			switch_type = req_stream_data->feature.switch_feature_type;
 			if (switch_type &&
+				req_stream_data->feature.switch_done == 0 &&
 			    !mtk_cam_feature_change_is_mstream(switch_type)) {
 				mtk_cam_exp_sensor_switch(ctx, req_stream_data);
-				state_transition(state_sensor, E_STATE_READY,
+				state_transition(state_rec[0], E_STATE_READY,
 						 E_STATE_SENSOR);
-				*current_state = state_sensor;
+				*current_state = state_rec[0];
 				return STATE_RESULT_TRIGGER_CQ;
 			}
 		}
@@ -1894,6 +1954,7 @@ static int mtk_camsys_ts_state_handle(
 		}
 	}
 	/* Trigger high resolution timer to try sensor setting */
+	sensor_ctrl->sof_time = ktime_get_boottime_ns() / 1000000;
 	mtk_cam_sof_timer_setup(ctx);
 	if (que_cnt > 0 && state_rec[0]) {
 		/* camsv enque judgment*/
@@ -2365,6 +2426,25 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	}
 }
 
+static int mtk_cam_hdr_last_frame_switch_check(
+		struct mtk_camsys_ctrl_state *state,
+		struct mtk_cam_request_stream_data *req_stream_data)
+{
+	int type = req_stream_data->feature.switch_feature_type;
+
+	if ((type == EXPOSURE_CHANGE_2_to_1 ||
+		type == EXPOSURE_CHANGE_3_to_1) &&
+			req_stream_data->feature.switch_done == 0) {
+		return 1;
+	} else if ((type == EXPOSURE_CHANGE_1_to_2 ||
+				type == EXPOSURE_CHANGE_1_to_3) &&
+				state->estate > E_STATE_SENSOR &&
+				state->estate < E_STATE_CAMMUX_OUTER) {
+		return 1;
+	}
+
+	return 0;
+}
 int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 			struct mtk_cam_ctx *ctx,
 			struct mtk_camsys_irq_info *irq_info)
@@ -2389,13 +2469,14 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 			   req_stream_data->frame_seq_no;
 		if (stateidx < STATE_NUM_AT_SOF && stateidx > -1) {
 			/* Find switch element for switch request*/
-			if (state_temp->estate > E_STATE_SENSOR &&
-			    state_temp->estate < E_STATE_CAMMUX_OUTER &&
-			    req_stream_data->feature.switch_feature_type) {
+			if (mtk_cam_hdr_last_frame_switch_check(state_temp,
+				req_stream_data)) {
 				state_switch = state_temp;
 			}
+
 			if (state_temp->estate == E_STATE_CQ)
 				state_cq = state_temp;
+
 			dev_dbg(ctx->cam->dev,
 			"[%s] STATE_CHECK [N-%d] Req:%d / State:%d\n",
 			__func__, stateidx, req_stream_data->frame_seq_no, state_temp->estate);
@@ -2732,6 +2813,16 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				type = req_stream_data->feature.switch_feature_type;
 				if (type != 0 && (!mtk_cam_is_mstream(ctx) &&
 						!mtk_cam_feature_change_is_mstream(type))) {
+					// check if need to tg db
+					req_stream_data->feature.switch_curr_setting_done = 1;
+					if (!mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+						req_stream_data->frame_seq_no - 1)) {
+						req_stream_data->feature.switch_prev_frame_done = 1;
+						dev_info(raw_dev->dev,
+						"[CQD-switch] req:%d, prev frame is done\n",
+						req_stream_data->frame_seq_no);
+					}
+
 					if (type == EXPOSURE_CHANGE_3_to_1 ||
 						type == EXPOSURE_CHANGE_2_to_1)
 						stagger_disable(raw_dev);
@@ -3402,6 +3493,7 @@ static int mtk_camsys_camsv_state_handle(
 	}
 
 	/* Trigger high resolution timer to try sensor setting */
+	sensor_ctrl->sof_time = ktime_get_boottime_ns() / 1000000;
 	mtk_cam_sof_timer_setup(ctx);
 
 	/* Transit outer state to inner state */

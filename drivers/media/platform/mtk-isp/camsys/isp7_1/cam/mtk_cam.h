@@ -184,6 +184,9 @@ struct mtk_cam_req_feature {
 	int raw_feature;
 	int prev_feature;
 	int switch_feature_type;
+	bool switch_prev_frame_done;
+	bool switch_curr_setting_done;
+	bool switch_done;
 };
 
 struct mtk_cam_sensor_work {

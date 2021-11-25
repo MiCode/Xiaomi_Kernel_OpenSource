@@ -1768,6 +1768,11 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 		mtk_cam_get_feature_switch(raw_pipe, raw_fut_pre);
 	s_data->feature.raw_feature = raw_pipe->feature_pending;
 	s_data->feature.prev_feature = raw_fut_pre;
+	if (s_data->feature.switch_feature_type) {
+		s_data->feature.switch_prev_frame_done = 0;
+		s_data->feature.switch_curr_setting_done = 0;
+		s_data->feature.switch_done = 0;
+	}
 	dev_dbg(raw_pipe->subdev.v4l2_dev->dev,
 		"%s:%s:%s:raw_feature(0x%0x), prev_feature(0x%0x), switch_feature_type(0x%0x), sensor_mode_update(0x%0x)\n",
 		__func__, raw_pipe->subdev.name, debug_str,
