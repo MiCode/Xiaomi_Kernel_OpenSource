@@ -8,7 +8,7 @@
 
 #include "mtk_apu_rpmsg.h"
 
-#define APU_FW_VER_LEN	       (32)
+#define APU_FW_VER_LEN	       (250)
 #define APU_SHARE_BUFFER_SIZE  (256)
 #define APU_SHARE_BUF_SIZE (round_up(sizeof(struct mtk_share_obj)*2, PAGE_SIZE))
 
