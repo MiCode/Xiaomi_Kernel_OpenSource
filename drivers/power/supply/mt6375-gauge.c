@@ -1067,7 +1067,7 @@ static int instant_current(struct mtk_gauge *gauge, int *val)
 	dvalue = reg_to_current(gauge, reg_value);
 
 	/* Auto adjust value */
-	if (r_fg_value != priv->default_r_fg)
+	if (r_fg_value != priv->default_r_fg && r_fg_value != 0)
 		dvalue = (dvalue * priv->default_r_fg) / r_fg_value;
 
 	dvalue = ((dvalue * car_tune_value) / 1000);
@@ -1571,7 +1571,7 @@ static int coulomb_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 		__func__, temp_car & 0xFFFF, (temp_car & 0xFFFF0000) >> 16, uvalue32_car, uvalue32_car_msb, dvalue_CAR);
 
 	/*Auto adjust value*/
-	if (r_fg_value != priv->default_r_fg) {
+	if (r_fg_value != priv->default_r_fg && r_fg_value != 0) {
 		bm_debug("[%s] Auto adjust value deu to the Rfg is %d\n Ori CAR=%d",
 			 __func__, r_fg_value, dvalue_CAR);
 
@@ -1662,7 +1662,7 @@ static int average_current_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sys
 #endif
 
 
-		if (r_fg_value != priv->default_r_fg) {
+		if (r_fg_value != priv->default_r_fg && r_fg_value != 0) {
 #if defined(__LP64__) || defined(_LP64)
 			fg_iavg_ma = (fg_iavg_ma * priv->default_r_fg / r_fg_value);
 #else
@@ -3171,7 +3171,7 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 	car = div_s64(car * 100000, priv->unit_charge);
 #endif
 
-	if (r_fg_value != priv->default_r_fg)
+	if (r_fg_value != priv->default_r_fg && priv->default_r_fg != 0)
 #if defined(__LP64__) || defined(_LP64)
 		car = (car * r_fg_value) / priv->default_r_fg;
 #else
@@ -3262,7 +3262,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	car = div_s64(car * 100000, priv->unit_charge);
 #endif
 
-	if (r_fg_value != priv->default_r_fg)
+	if (r_fg_value != priv->default_r_fg && priv->default_r_fg != 0)
 #if defined(__LP64__) || defined(_LP64)
 		car = (car * r_fg_value) /
 			priv->default_r_fg;
