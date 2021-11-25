@@ -2749,6 +2749,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *state_entry;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	int feature;
+	int toggle_db_check = false;
 	int type;
 
 	/* initial CQ done */
@@ -2826,13 +2828,18 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 						"[CQD-switch] req:%d, prev frame is done\n",
 						req_stream_data->frame_seq_no);
 					}
-
+					feature = req_stream_data->feature.raw_feature;
+					toggle_db_check =
+						req_stream_data->feature.switch_prev_frame_done &&
+						req_stream_data->feature.switch_curr_setting_done;
 					if (type == EXPOSURE_CHANGE_3_to_1 ||
 						type == EXPOSURE_CHANGE_2_to_1)
 						stagger_disable(raw_dev);
 					else if (type == EXPOSURE_CHANGE_1_to_2 ||
 						type == EXPOSURE_CHANGE_1_to_3)
 						stagger_enable(raw_dev);
+					if (toggle_db_check)
+						mtk_cam_hdr_switch_toggle(ctx, feature);
 					dev_dbg(raw_dev->dev,
 						"[CQD-switch] req:%d type:%d\n",
 						req_stream_data->frame_seq_no, type);
