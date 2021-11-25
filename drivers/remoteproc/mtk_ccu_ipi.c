@@ -2,6 +2,7 @@
 //
 // Copyright (c) 2021 MediaTek Inc.
 
+#include <linux/clocksource.h>
 #include <linux/remoteproc/mtk_ccu.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
@@ -180,7 +181,8 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 		ccu->mb->front = next;
 
 		LOG_DBG_IPI(
-		"received cmd: f(%d), r(%d), cmd(%d), in(%x)\n",
+		"[%u] received cmd: f(%d), r(%d), cmd(%d), in(%x)\n",
+		(uint32_t)arch_timer_read_counter(),
 		ccu->mb->front,
 		ccu->mb->rear,
 		ccu->mb->queue[next].msg_id,
@@ -341,7 +343,8 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	LOG_DBG_IPI("ft(%d), msgId(%d)\n", featureType, msgId);
+	LOG_DBG_IPI("[%u] ft(%d), msgId(%d)\n",
+		(uint32_t)arch_timer_read_counter(), featureType, msgId);
 
 	if ((inDataSize) && (!inDataPtr)) {
 		dev_err(ccu->dev, "inDataPtr is NULL\n");
