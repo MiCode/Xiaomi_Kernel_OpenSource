@@ -299,6 +299,7 @@ struct mtk_raw_device {
 	atomic_t vf_en;
 	u32 stagger_en;
 	int error_happened_cnt;
+	int overrun_debug_dump_cnt;
 };
 
 struct mtk_yuv_device {

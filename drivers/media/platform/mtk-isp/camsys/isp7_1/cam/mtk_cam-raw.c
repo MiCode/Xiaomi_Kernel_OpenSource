@@ -1657,10 +1657,10 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			       dev->base + REG_CQ_EN);
 			wmb(); /* TBC */
 #endif
-		/*
-		 * mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
-		 *                             TG_OVERRUN);
-		 */
+
+			mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
+				TG_OVERRUN);
+			dev->overrun_debug_dump_cnt = 0;
 			if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
 				feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK) {
 				dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
@@ -2037,8 +2037,17 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 	if (err_status & TG_GBERR_ST)
 		raw_irq_handle_tg_grab_err(raw_dev, frame_idx_inner);
 
-	if (err_status & TG_OVRUN_ST)
+	if (err_status & TG_OVRUN_ST) {
+		if (raw_dev->overrun_debug_dump_cnt < 4) {
+			mtk_cam_dump_topdebug_rdyreq(raw_dev->dev,
+				raw_dev->base, raw_dev->yuv_base);
+			raw_dev->overrun_debug_dump_cnt++;
+		} else {
+			dev_dbg(raw_dev->dev, "%s: TG_OVRUN_ST repeated skip dump raw_id:%d\n",
+				__func__, raw_dev->id);
+		}
 		raw_irq_handle_tg_overrun_err(raw_dev, frame_idx_inner);
+	}
 }
 
 static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
@@ -2101,9 +2110,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		/* enable AFO_DONE_EN at backend manually */
 	}
 	/* Frame done */
-	if (irq_status & SW_PASS1_DON_ST)
+	if (irq_status & SW_PASS1_DON_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
-
+		raw_dev->overrun_debug_dump_cnt = 0;
+	}
 	/* Frame start */
 	if (irq_status & SOF_INT_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
@@ -2326,6 +2336,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 	writel_relaxed(val, raw_dev->base + REG_TG_PATH_CFG);
 	writel_relaxed(val, raw_dev->base_inner + REG_TG_PATH_CFG);
 	wmb(); /* for dbg dump register */
+
 	val2 = readl_relaxed(raw_dev->base + REG_TG_SEN_MODE);
 	val2 = val2 | TG_CMOS_RDY_SEL;
 	writel_relaxed(val2, raw_dev->base + REG_TG_SEN_MODE);

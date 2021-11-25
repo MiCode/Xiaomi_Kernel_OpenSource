@@ -431,8 +431,10 @@ void mtk_cam_set_topdebug_rdyreq(struct device *dev,
 	u32 val = event << 16 | 0xa << 12;
 
 	writel(val, base + REG_CTL_DBG_SET);
+	writel(event, base + REG_CTL_DBG_SET2);
 	writel(val, yuvbase + REG_CTL_DBG_SET);
-	dev_info(dev, "set CAMCTL_DBG_SET 0x%08x\n", val);
+	dev_info(dev, "set CAMCTL_DBG_SET2/CAMCTL_DBG_SET (RAW/YUV) 0x%08x/0x%08x\n",
+		event, val);
 }
 
 void mtk_cam_dump_topdebug_rdyreq(struct device *dev,
