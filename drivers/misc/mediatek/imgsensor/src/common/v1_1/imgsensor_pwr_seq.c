@@ -11,6 +11,25 @@
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+#if defined(IMX766_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_IMX766_MIPI_RAW,
+		{
+			{PDN, Vol_Low, 0},
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_2800, 3},
+// #if IS_ENABLED(CONFIG_REGULATOR_RT5133)
+			// {AVDD1, Vol_1800, 0},
+// #endif
+			{AFVDD, Vol_2800, 3},
+			{DVDD, Vol_1100, 4},
+			{DOVDD, Vol_1800, 1},
+			{SensorMCLK, Vol_High, 6},
+			{PDN, Vol_High, 0},
+			{RST, Vol_High, 5}
+		},
+	},
+#endif
 #if defined(S5KJD1_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_S5KJD1_MIPI_RAW,

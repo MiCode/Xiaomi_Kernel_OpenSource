@@ -198,6 +198,22 @@ TEEC_Result _tee_cmd_feature_control(
 			sizeof(unsigned long long)*2;
 		teeOperation.params[2].tmpref.size = sizeof(UINT32);
 		break;
+	// case SENSOR_FEATURE_SET_REGISTER:
+		// teeOperation.paramTypes = TEEC_PARAM_TYPES(
+			// TEEC_VALUE_INOUT, TEEC_MEMREF_TEMP_INPUT,
+			// TEEC_MEMREF_TEMP_INPUT, TEEC_NONE);
+		// teeOperation.params[1].tmpref.size =
+			// sizeof(MSDK_SENSOR_REG_INFO_STRUCT);
+		// teeOperation.params[2].tmpref.size = sizeof(UINT32);
+		// break;
+	// case SENSOR_FEATURE_GET_REGISTER:
+		// teeOperation.paramTypes = TEEC_PARAM_TYPES(
+			// TEEC_VALUE_INOUT, TEEC_MEMREF_TEMP_OUTPUT,
+			// TEEC_MEMREF_TEMP_INPUT, TEEC_NONE);
+		// teeOperation.params[1].tmpref.size =
+			// sizeof(MSDK_SENSOR_REG_INFO_STRUCT);
+		// teeOperation.params[2].tmpref.size = sizeof(UINT32);
+		// break;
 	case SENSOR_FEATURE_GET_LENS_DRIVER_ID:
 		teeOperation.paramTypes = TEEC_PARAM_TYPES(
 				TEEC_VALUE_INOUT, TEEC_MEMREF_TEMP_OUTPUT,

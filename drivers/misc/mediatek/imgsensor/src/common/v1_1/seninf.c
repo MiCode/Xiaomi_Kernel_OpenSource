@@ -277,7 +277,6 @@ static long seninf_ioctl(struct file *pfile,
 		if (_IOC_WRITE & _IOC_DIR(cmd)) {
 			if (copy_from_user(pbuff,
 						(void *)arg, _IOC_SIZE(cmd))) {
-				kfree(pbuff);
 				PK_DBG("ioctl copy from user failed\n");
 				ret = -EFAULT;
 				goto SENINF_IOCTL_EXIT;
@@ -360,20 +359,22 @@ static long seninf_ioctl(struct file *pfile,
 	default:
 		PK_DBG("No such command %d\n", cmd);
 		ret = -EPERM;
+		goto SENINF_IOCTL_EXIT;
 		break;
 	}
 
 	if ((_IOC_READ & _IOC_DIR(cmd)) && copy_to_user((void __user *)arg,
 			pbuff, _IOC_SIZE(cmd))) {
-		kfree(pbuff);
 		PK_DBG("[CAMERA SENSOR] ioctl copy to user failed\n");
 		ret = -EFAULT;
 		goto SENINF_IOCTL_EXIT;
 	}
 
-	kfree(pbuff);
-
 SENINF_IOCTL_EXIT:
+	if (pbuff != NULL) {
+		kfree(pbuff);
+		pbuff = NULL;
+	}
 
 	return ret;
 }
