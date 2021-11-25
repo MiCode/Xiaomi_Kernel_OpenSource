@@ -513,7 +513,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 
 				mblock[id].sgt = dma_buf_map_attachment(attach,
-				DMA_TO_DEVICE);
+				DMA_BIDIRECTIONAL);
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -622,7 +622,7 @@ static void gce_release(struct kref *ref)
 
 	dma_buf_vunmap(mblock->d_buf, mblock->start_virt);
 	/* free iova */
-	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_TO_DEVICE);
+	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(mblock->d_buf, mblock->attach);
 	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
 	dma_buf_put(mblock->d_buf);
