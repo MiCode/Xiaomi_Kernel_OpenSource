@@ -187,6 +187,7 @@ static u32 log_level;
 enum smi_log_level {
 	log_config_bit = 0,
 	log_set_bw,
+	log_pd_callback,
 };
 
 #define MAX_INIT_POWER_ON_DEV	(5)
@@ -213,7 +214,8 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 
 	if (flags == GENPD_NOTIFY_ON) {
 		/* enable related SMI common port */
-		dev_notice(smi_pd->dev, "[smi] pd enter callback on:\n");
+		if (log_level & 1 << log_pd_callback)
+			dev_notice(smi_pd->dev, "[smi] pd enter callback on:\n");
 		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
 			if (!smi_pd->smi_common_dev[i])
 				break;
@@ -232,7 +234,8 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 		if (smi_pd->is_main)
 			return NOTIFY_OK;
 		/* disable related SMI common port */
-		dev_notice(smi_pd->dev, "[smi] pd enter callback pre-off:\n");
+		if (log_level & 1 << log_pd_callback)
+			dev_notice(smi_pd->dev, "[smi] pd enter callback pre-off:\n");
 		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
 			if (!smi_pd->smi_common_dev[i])
 				break;
