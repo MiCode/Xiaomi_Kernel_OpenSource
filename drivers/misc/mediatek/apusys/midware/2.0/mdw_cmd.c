@@ -102,10 +102,9 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 			c->kid, i, c->ksubcmds[i].info->num_cmdbufs);
 
 		acbs = kcalloc(c->ksubcmds[i].info->num_cmdbufs, sizeof(*acbs), GFP_KERNEL);
-		if (!acbs) {
-			mdw_drv_warn("alloc validate struct for acbs fail\n");
+		if (!acbs)
 			goto free_cmdbufs;
-		}
+
 		ksubcmd = &c->ksubcmds[i];
 		for (j = 0; j < ksubcmd->info->num_cmdbufs; j++) {
 			/* calc align */
@@ -167,7 +166,8 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 			acbs[j].size = ksubcmd->cmdbufs[j].size;
 		}
 
-		ret = mdw_dev_validation(mpriv, ksubcmd->info->type, acbs, ksubcmd->info->num_cmdbufs);
+		ret = mdw_dev_validation(mpriv, ksubcmd->info->type,
+			acbs, ksubcmd->info->num_cmdbufs);
 		kfree(acbs);
 		acbs = NULL;
 		if (ret)
@@ -183,8 +183,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 free_cmdbufs:
 	mdw_cmd_put_cmdbufs(mpriv, c);
-	if (acbs)
-		kfree(acbs);
+	kfree(acbs);
 out:
 	mdw_cmd_debug("ret(%d)\n", ret);
 	mdw_trace_end("get cbs|c(0x%llx) num_subcmds(%u) num_cmdbufs(%u)",
@@ -396,6 +395,33 @@ static int mdw_cmd_sanity_check(struct mdw_cmd *c)
 			sizeof(struct mdw_cmd_exec_info) +
 			c->num_subcmds * sizeof(struct mdw_subcmd_exec_info));
 		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mdw_cmd_adj_check(struct mdw_cmd *c)
+{
+	uint32_t i = 0, j = 0;
+
+	for (i = 0; i < c->num_subcmds; i++) {
+		for (j = 0; j < c->num_subcmds; j++) {
+			if (i == j) {
+				c->adj_matrix[i * c->num_subcmds + j] = 0;
+				continue;
+			}
+
+			if (i < j)
+				continue;
+
+			if (!c->adj_matrix[i * c->num_subcmds + j] ||
+				!c->adj_matrix[i + j * c->num_subcmds])
+				continue;
+
+			mdw_drv_err("s(0x%llx)c(0x%llx/0x%llx) adj matrix(%u/%u) fail\n",
+				(uint64_t)c->mpriv, c->uid, c->kid, i, j);
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -636,6 +662,9 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 			DUMP_PREFIX_OFFSET, 16, 1, c->adj_matrix,
 			c->num_subcmds * c->num_subcmds, 0);
 	}
+	if (mdw_cmd_adj_check(c))
+		goto free_adj;
+
 	/* create infos */
 	if (mdw_cmd_create_infos(mpriv, c)) {
 		mdw_drv_err("create cmd info fail\n");

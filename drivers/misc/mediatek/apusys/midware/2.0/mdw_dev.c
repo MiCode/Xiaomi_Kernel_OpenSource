@@ -62,7 +62,8 @@ void mdw_dev_session_delete(struct mdw_fpriv *mpriv)
 	}
 }
 
-int mdw_dev_validation(struct mdw_fpriv *mpriv, uint32_t dtype, struct apusys_cmdbuf *cbs, uint32_t num)
+int mdw_dev_validation(struct mdw_fpriv *mpriv, uint32_t dtype,
+	struct apusys_cmdbuf *cbs, uint32_t num)
 {
 	struct apusys_device *adev = NULL;
 	struct apusys_cmd_valid_handle v_hnd;
