@@ -427,6 +427,53 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	return ret;
 }
 
+static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int index)
+{
+	struct scp *scp = scpd->scp;
+	const struct bus_prot *bp_table = scpd->data->bp_table;
+	struct regmap *infracfg = scp->infracfg;
+	struct regmap *smi_common = scp->smi_common;
+	struct regmap *vlpcfg = scp->vlpcfg;
+	struct regmap *mfgrpc = scp->mfgrpc;
+	int i;
+
+	for (i = index; i >= 0; i--) {
+		struct regmap *map = NULL;
+		int ret;
+		struct bus_prot bp = bp_table[i];
+
+		if (bp.type == IFR_TYPE)
+			map = infracfg;
+		else if (bp.type == SMI_TYPE)
+			map = smi_common;
+		else if (bp.type == VLP_TYPE)
+			map = vlpcfg;
+		else if (bp.type == MFGRPC_TYPE)
+			map = mfgrpc;
+		else
+			continue;
+
+		if (index != (MAX_STEPS - 1)) {
+			unsigned int val, val2;
+
+			/* reserve bus register status */
+			regmap_read(map, bp.en_ofs, &val);
+			regmap_read(map, bp.sta_ofs, &val2);
+			pr_notice("[%d] bus en: 0x08%x, sta: 0x08%x before restore\n",
+					i, val, val2);
+			/* restore bus protect setting */
+			clear_bus_protection(map, &bp);
+		} else {
+			ret = clear_bus_protection(map, &bp);
+
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 {
 	struct scp *scp = scpd->scp;
@@ -455,43 +502,10 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 
 		ret = set_bus_protection(map, &bp);
 
-		if (ret)
+		if (ret) {
+			scpsys_bus_protect_disable(scpd, i);
 			return ret;
-	}
-
-	return 0;
-}
-
-static int scpsys_bus_protect_disable(struct scp_domain *scpd)
-{
-	struct scp *scp = scpd->scp;
-	const struct bus_prot *bp_table = scpd->data->bp_table;
-	struct regmap *infracfg = scp->infracfg;
-	struct regmap *smi_common = scp->smi_common;
-	struct regmap *vlpcfg = scp->vlpcfg;
-	struct regmap *mfgrpc = scp->mfgrpc;
-	int i;
-
-	for (i = MAX_STEPS - 1; i >= 0; i--) {
-		struct regmap *map = NULL;
-		int ret;
-		struct bus_prot bp = bp_table[i];
-
-		if (bp.type == IFR_TYPE)
-			map = infracfg;
-		else if (bp.type == SMI_TYPE)
-			map = smi_common;
-		else if (bp.type == VLP_TYPE)
-			map = vlpcfg;
-		else if (bp.type == MFGRPC_TYPE)
-			map = mfgrpc;
-		else
-			continue;
-
-		ret = clear_bus_protection(map, &bp);
-
-		if (ret)
-			return ret;
+		}
 	}
 
 	return 0;
@@ -527,16 +541,6 @@ static void scpsys_extb_iso_up(struct scp_domain *scpd)
 	writel(val, ctl_addr);
 }
 
-static int scpsys_dummy_power_on(struct generic_pm_domain *genpd)
-{
-	return 0;
-}
-
-static int scpsys_dummy_power_off(struct generic_pm_domain *genpd)
-{
-	return 0;
-}
-
 static int scpsys_power_on(struct generic_pm_domain *genpd)
 {
 	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
@@ -544,7 +548,6 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
 	u32 val;
 	int ret, tmp;
-	int i;
 
 	ret = scpsys_regulator_enable(scpd);
 	if (ret < 0)
@@ -604,12 +607,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_sram;
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_CHILD_OFF)) {
-		for (i = 0; i < MAX_CHILDREN; i++)
-			scpsys_power_on(&scp->domains[scpd->data->child[i]].genpd);
-	}
-
-	ret = scpsys_bus_protect_disable(scpd);
+	ret = scpsys_bus_protect_disable(scpd, MAX_STEPS - 1);
 	if (ret < 0)
 		goto err_sram;
 
@@ -641,7 +639,6 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
 	u32 val;
 	int ret, tmp;
-	int i;
 
 	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
 	if (ret)
@@ -654,11 +651,6 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	ret = scpsys_bus_protect_enable(scpd);
 	if (ret < 0)
 		goto out;
-
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_CHILD_OFF)) {
-		for (i = 0; i < MAX_CHILDREN; i++)
-			scpsys_power_off(&scp->domains[scpd->data->child[i]].genpd);
-	}
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
 		ret = scpsys_sram_table_disable(scpd);
@@ -764,7 +756,7 @@ static int scpsys_md_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_sram;
 
-	ret = scpsys_bus_protect_disable(scpd);
+	ret = scpsys_bus_protect_disable(scpd, MAX_STEPS - 1);
 	if (ret < 0)
 		goto err_sram;
 
@@ -1287,9 +1279,6 @@ struct scp *init_scp(struct platform_device *pdev,
 		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_HWV_OPS)) {
 			genpd->power_on = scpsys_hwv_power_on;
 			genpd->power_off = scpsys_hwv_power_off;
-		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CHILD)) {
-			genpd->power_off = scpsys_dummy_power_off;
-			genpd->power_on = scpsys_dummy_power_on;
 		} else {
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;

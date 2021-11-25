@@ -98,6 +98,7 @@ static struct regbase rb[] = {
 	[bcrm_ifr_ao] = REGBASE_V(0x10022000, bcrm_ifr_ao, PD_NULL, CLK_NULL),
 	[bcrm_ifr_pdn] = REGBASE_V(0x10215000, bcrm_ifr_pdn, PD_NULL, CLK_NULL),
 	[hfrp] = REGBASE_V(0x1EC24000, hfrp, MT6879_POWER_DOMAIN_MM_PROC_DORMANT, CLK_NULL),
+	[mminfra_smi] = REGBASE_V(0x1E801000, mminfra_smi, MT6879_POWER_DOMAIN_MM_INFRA, CLK_NULL),
 	{},
 };
 
@@ -363,15 +364,26 @@ static struct regname rn[] = {
 	REGNAME(mminfra_config, 0x110, MMINFRA_CG_1),
 	/* MDPSYS_CONFIG register */
 	REGNAME(mdp, 0x100, MDPSYS_CG_0),
-
+	/* bus latency debug */
 	REGNAME(bcrm_ifr_ao, 0x0020, VDNR_DCM_TOP_INFRA_PAR_BUS),
 	REGNAME(bcrm_ifr_ao, 0x0024, SI18_CTRL_0),
 	REGNAME(bcrm_ifr_ao, 0x0028, SI18_CTRL_1),
 	REGNAME(bcrm_ifr_ao, 0x002C, SI18A_CTRL_0),
-
 	REGNAME(bcrm_ifr_pdn, 0x02b8, INFRA_QAXI_BUS_DOM8),
-
+	/* mm proc debug */
 	REGNAME(hfrp, 0x0150, BUS_DBG_OUT),
+	/* mminfra debug */
+	REGNAME(mminfra_smi, 0x0400, SMI_DEBUG_S0),
+	REGNAME(mminfra_smi, 0x0404, SMI_DEBUG_S1),
+	REGNAME(mminfra_smi, 0x0408, SMI_DEBUG_S2),
+	REGNAME(mminfra_smi, 0x040C, SMI_DEBUG_S3),
+	REGNAME(mminfra_smi, 0x0410, SMI_DEBUG_S4),
+	REGNAME(mminfra_smi, 0x0414, SMI_DEBUG_S5),
+	REGNAME(mminfra_smi, 0x0418, SMI_DEBUG_S6),
+	REGNAME(mminfra_smi, 0x041C, SMI_DEBUG_S7),
+	REGNAME(mminfra_smi, 0x0430, SMI_DEBUG_M0),
+	REGNAME(mminfra_smi, 0x0434, SMI_DEBUG_M1),
+	REGNAME(mminfra_smi, 0x0440, SMI_DEBUG_MISC),
 	{},
 };
 
