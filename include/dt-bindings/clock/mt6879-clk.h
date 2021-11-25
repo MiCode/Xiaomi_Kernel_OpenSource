@@ -368,7 +368,8 @@
 #define CLK_MM_SMI_LARB					33
 #define CLK_MM_DSI_CLK					34
 #define CLK_MM_DPI_CLK					35
-#define CLK_MM_NR_CLK					36
+#define CLK_MM_SIG_EMI					36
+#define CLK_MM_NR_CLK					37
 
 /* IMGSYS_MAIN */
 #define CLK_IMG_LARB9					0
