@@ -37,6 +37,7 @@
 //#include <mt-plat/sync_write.h>
 //#include <mt-plat/aee.h>
 #include <linux/delay.h>
+#include <aee.h>
 #include "vcp_feature_define.h"
 #include "vcp_err_info.h"
 #include "vcp_helper.h"
@@ -135,6 +136,23 @@ static struct vcp_work_struct vcp_A_notify_work;
 
 #if VCP_BOOT_TIME_OUT_MONITOR
 static unsigned int vcp_timeout_times;
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define vcp_aee_print(string, args...) do {\
+	char vcp_name[100];\
+	int ret;\
+	ret = snprintf(vcp_name, 100, "[VCP] "string, ##args); \
+	if (ret > 0)\
+		aee_kernel_warning_api(__FILE__, __LINE__, \
+			DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
+			vcp_name, "[VCP] error:"string, ##args); \
+		pr_info("[VCP] error:"string, ##args);  \
+	} while (0)
+#else
+#define vcp_aee_print(string, args...) \
+	pr_info("[VCP] error:"string, ##args)
+
 #endif
 
 static bool is_suspending;
@@ -1014,7 +1032,6 @@ static inline ssize_t vcp_A_db_test_store(struct device *kobj
 
 DEVICE_ATTR_WO(vcp_A_db_test);
 
-#ifdef VCP_DEBUG_NODE_ENABLE
 static ssize_t vcp_ee_enable_show(struct device *kobj
 	, struct device_attribute *attr, char *buf)
 {
@@ -1036,6 +1053,7 @@ static ssize_t vcp_ee_enable_store(struct device *kobj
 }
 DEVICE_ATTR_RW(vcp_ee_enable);
 
+#ifdef VCP_DEBUG_NODE_ENABLE
 static inline ssize_t vcp_A_awake_lock_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
 {
@@ -1268,12 +1286,12 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#ifdef VCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(vcp_device.this_device
 					, &dev_attr_vcp_ee_enable);
 	if (unlikely(ret != 0))
 		return ret;
 
+#ifdef VCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(vcp_device.this_device
 					, &dev_attr_vcp_A_awake_lock);
 	if (unlikely(ret != 0))
@@ -1701,8 +1719,8 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	unsigned long spin_flags;
 	struct arm_smccc_res res;
 
-	pr_debug("[VCP] %s(): remain %d times, encnt %d\n", __func__,
-		vcp_reset_counts, mmup_enable_count());
+	pr_notice("[VCP] %s(): vcp_reset_type %d remain %x times, en_cnt %d\n",
+		__func__, vcp_reset_type, vcp_reset_counts, mmup_enable_count());
 
 	if (mmup_enable_count() == 0)
 		return;
@@ -1721,18 +1739,14 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	__pm_stay_awake(vcp_reset_lock);
 
 	/*workqueue for vcp ee, vcp reset by cmd will not trigger vcp ee*/
-	if (vcp_reset_by_cmd == 0) {
-		pr_debug("[VCP] %s(): vcp_aed_reset\n", __func__);
-		//vcp_aed(vcp_reset_type, VCP_A_ID);
+	if (vcp_reset_by_cmd == 0 && vcp_ee_enable) {
+		vcp_aee_print("[VCP] %s(): vcp_reset_type %d remain %d times, encnt %d\n",
+			__func__, vcp_reset_type, vcp_reset_counts, mmup_enable_count());
 	}
 	pr_debug("[VCP] %s(): disable logger\n", __func__);
 	/* logger disable must after vcp_aed() */
 	vcp_logger_init_set(0);
 
-	pr_debug("[VCP] %s(): vcp_pll_ctrl_set\n", __func__);
-	/*request pll clock before turn off vcp */
-
-	pr_notice("[VCP] %s(): vcp_reset_type %d\n", __func__, vcp_reset_type);
 	/* vcp reset by CMD, WDT or awake fail */
 	if ((vcp_reset_type == RESET_TYPE_TIMEOUT) ||
 		(vcp_reset_type == RESET_TYPE_AWAKE)) {

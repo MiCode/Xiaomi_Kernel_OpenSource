@@ -15,3 +15,4 @@ ccflags-y += -D DEBUG_DO -fno-pic -mcmodel=large
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/rv
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat

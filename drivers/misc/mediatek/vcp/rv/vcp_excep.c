@@ -640,7 +640,7 @@ int vcp_excep_init(void)
 	/* init global values */
 	vcp_dump.ramdump_length = 0;
 	/* 1: ee on, 0: ee disable */
-	vcp_ee_enable = 1;
+	vcp_ee_enable = 0;
 
 	return 0;
 }
