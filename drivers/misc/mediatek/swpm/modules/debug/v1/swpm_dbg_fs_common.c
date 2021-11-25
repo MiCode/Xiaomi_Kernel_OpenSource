@@ -58,11 +58,16 @@ static ssize_t gpu_debug_write(char *FromUser, size_t sz, void *priv)
 		return -EINVAL;
 
 	if (!kstrtouint(FromUser, 0, &enable_time)) {
-		/* TODO: TBD for swpm_gpu_debug */
+		if (enable_time > 0) {
+			mtk_gpueb_power_modle_cmd(1);
+			mtk_swpm_gpu_pm_start();
+		} else {
+			mtk_gpueb_power_modle_cmd(0);
+			mtk_ltr_gpu_pmu_stop();
+		}
 		swpm_gpu_debug = (enable_time) ? true : false;
-	} else {
-		/* swpm_dbg_log("echo 1/0 > /proc/swpm/gpu_debug\n"); */
 	}
+
 	return sz;
 }
 
