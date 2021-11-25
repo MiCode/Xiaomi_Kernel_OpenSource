@@ -179,11 +179,13 @@ void mrdump_regist_hang_bt(void (*fn)(void))
 EXPORT_SYMBOL_GPL(mrdump_regist_hang_bt);
 
 static int num_die;
+atomic_t first_cpu = ATOMIC_INIT(-1);
 int mrdump_common_die(int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
 {
 	int last_step;
 	int next_step;
+	int cpu_tmp;
 
 	if (!aee_is_enable()) {
 		pr_notice("%s: ipanic: mrdump is disable\n", __func__);
@@ -192,6 +194,16 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 	}
 
 	num_die++;
+
+	cpu_tmp = raw_smp_processor_id();
+	if (atomic_read(&first_cpu) == -1) {
+		atomic_set(&first_cpu, cpu_tmp);
+	} else if (atomic_read(&first_cpu) != cpu_tmp) {
+		pr_info("mrdump: first crash cpu %d, second crash cpu %d\n",
+			atomic_read(&first_cpu), cpu_tmp);
+		while (1)
+			cpu_relax();
+	}
 
 	last_step = aee_rr_curr_fiq_step();
 	if (num_die > 1) {
@@ -214,7 +226,7 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		mrdump_mini_ke_cpu_regs(regs);
 	case AEE_FIQ_STEP_COMMON_DIE_LOCK:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_LOCK);
-		/* release locks after stopping other cpus */
+		/* release locks after set up cblock */
 		aee_reinit_die_lock();
 	case AEE_FIQ_STEP_COMMON_DIE_KASLR:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_KASLR);
@@ -244,7 +256,8 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		check_last_ko();
 	case AEE_FIQ_STEP_COMMON_DIE_CS:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_CS);
-		console_unlock();
+		if (console_trylock())
+			console_unlock();
 	case AEE_FIQ_STEP_COMMON_DIE_DONE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_DONE);
 	default:
