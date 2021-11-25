@@ -13654,7 +13654,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 
 		irq-remain = <&edge_keypad>,
 				<&level_btif_tx &level_btif_rx &level_bt>,
-				<&level_usb_host>;
+				<&level_usb_host>,
+				<&level_apusys_rv>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -13703,6 +13704,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			level_usb_host: level_usb_host {
 				target = <&usb_host>;
 				value = <0 0 0 0>;
+			};
+			level_apusys_rv: level_apusys_rv {
+				target = <&apusys_rv>;
+				value = <0 1 0 0>;
 			};
 		};
 		resource-ctrl-list {
