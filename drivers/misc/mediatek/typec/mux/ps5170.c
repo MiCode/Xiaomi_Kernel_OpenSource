@@ -13,6 +13,8 @@
 #include <linux/platform_device.h>
 #include <linux/usb/typec.h>
 #include <linux/usb/typec_mux.h>
+#include <linux/atomic.h>
+#include <linux/interrupt.h>
 #include "tcpm.h"
 
 #if IS_ENABLED(CONFIG_MTK_USB_TYPEC_MUX)
@@ -28,6 +30,16 @@ struct ps5170 {
 	struct pinctrl_state *enable;
 	struct pinctrl_state *disable;
 	struct mutex lock;
+	struct typec_mux_state *dp_state;
+	struct tcp_notify dp_data;
+	int mode;
+
+	struct work_struct set_usb_work;
+	struct work_struct set_dp_work;
+
+	enum typec_orientation orientation;
+
+	atomic_t in_sleep;
 };
 
 #define ps5170_ORIENTATION_NONE                 0x80
@@ -143,14 +155,18 @@ static int ps5170_set_conf(struct ps5170 *ps, u8 new_conf, u8 polarity)
 	return 0;
 }
 
-static int ps5170_switch_set(struct typec_switch *sw,
-			enum typec_orientation orientation)
+static void ps5170_switch_set_work(struct work_struct *data)
 {
-	struct ps5170 *ps = typec_switch_get_drvdata(sw);
 
-	dev_info(ps->dev, "%s %d\n", __func__, orientation);
+	struct ps5170 *ps = container_of(data, struct ps5170, set_usb_work);
 
-	switch (orientation) {
+	if (atomic_read(&ps->in_sleep)) {
+		dev_info(ps->dev, "%s in sleep\n", __func__);
+		schedule_work(&ps->set_usb_work);
+		return;
+	}
+
+	switch (ps->orientation) {
 	case TYPEC_ORIENTATION_NONE:
 		/* switch off */
 		i2c_smbus_write_byte_data(ps->i2c, 0x40, 0x80);
@@ -183,6 +199,17 @@ static int ps5170_switch_set(struct typec_switch *sw,
 		break;
 	}
 
+}
+
+static int ps5170_switch_set(struct typec_switch *sw,
+			enum typec_orientation orientation)
+{
+	struct ps5170 *ps = typec_switch_get_drvdata(sw);
+
+	dev_info(ps->dev, "%s %d\n", __func__, orientation);
+
+	ps->orientation = orientation;
+	schedule_work(&ps->set_usb_work);
 	return 0;
 }
 
@@ -194,39 +221,45 @@ static int ps5170_switch_set(struct typec_switch *sw,
  * 32 Pin Assignment F 2-lans
  */
 
-static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
+static void ps5170_mux_set_work(struct work_struct *data)
 {
-	struct ps5170 *ps = typec_mux_get_drvdata(mux);
-	struct tcp_notify *data = state->data;
-	int ret = 0;
 
-	/* Debug Message
-	 *dev_info(ps->dev, "ps5170_mux_set\n");
-	 *dev_info(ps->dev, "EVENT = %lu", data->event_type);
-	 *dev_info(ps->dev, "state->mode : %d\n", state->mode);
-	 *dev_info(ps->dev, "data-> polarity : %d\n", data->ama_dp_state.polarity);
-	 *dev_info(ps->dev, "data-> signal : %d\n", data->ama_dp_state.signal);
-	 *dev_info(ps->dev, "data-> pin_assignment : %d\n", data->ama_dp_state.pin_assignment);
-	 *dev_info(ps->dev, "data-> active : %d\n", data->ama_dp_state.active);
-	 */
+	struct ps5170 *ps = container_of(data, struct ps5170, set_dp_work);
+	struct tcp_notify dp_data = ps->dp_data;
 
-	if (state->mode == TCP_NOTIFY_AMA_DP_STATE) {
-		switch (data->ama_dp_state.pin_assignment) {
+	 /*Debug Message
+	  *dev_info(ps->dev, "ps5170_mux_set\n");
+	  *dev_info(ps->dev, "state->mode : %d\n", state->mode);
+	  *dev_info(ps->dev, "ps->mode : %d\n", ps->mode);
+	  *dev_info(ps->dev, "data-> polarity : %d\n", dp_data.ama_dp_state.polarity);
+	  *dev_info(ps->dev, "data-> signal : %d\n", dp_data.ama_dp_state.signal);
+	  *dev_info(ps->dev, "data-> pin_assignment : %d\n", dp_data.ama_dp_state.pin_assignment);
+	  *dev_info(ps->dev, "data-> active : %d\n", dp_data.ama_dp_state.active);
+	  */
+
+	if (atomic_read(&ps->in_sleep)) {
+		dev_info(ps->dev, "%s in sleep\n", __func__);
+		schedule_work(&ps->set_dp_work);
+		return;
+	}
+
+	if (ps->mode == TCP_NOTIFY_AMA_DP_STATE) {
+		switch (dp_data.ama_dp_state.pin_assignment) {
 		case 4:
 		case 16:
-			ps5170_set_conf(ps, 2, data->ama_dp_state.polarity);
+			ps5170_set_conf(ps, 2, dp_data.ama_dp_state.polarity);
 			break;
 		case 8:
 		case 32:
-			ps5170_set_conf(ps, 4, data->ama_dp_state.polarity);
+			ps5170_set_conf(ps, 4, dp_data.ama_dp_state.polarity);
 			break;
 		default:
 			dev_info(ps->dev, "%s Pin Assignment not support\n", __func__);
 			break;
 		}
-	} else if (state->mode == TCP_NOTIFY_AMA_DP_HPD_STATE) {
-		uint8_t irq = data->ama_dp_hpd_state.irq;
-		uint8_t state = data->ama_dp_hpd_state.state;
+	} else if (ps->mode == TCP_NOTIFY_AMA_DP_HPD_STATE) {
+		uint8_t irq = dp_data.ama_dp_hpd_state.irq;
+		uint8_t state = dp_data.ama_dp_hpd_state.state;
 
 		dev_info(ps->dev, "TCP_NOTIFY_AMA_DP_HPD_STATE irq:%x state:%x\n",
 			irq, state);
@@ -240,10 +273,10 @@ static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
 		} else {
 			mtk_dp_SWInterruptSet(0x2);
 		}
-	} else if (state->mode == TCP_NOTIFY_TYPEC_STATE) {
-		if ((data->typec_state.old_state == TYPEC_ATTACHED_SRC ||
-			data->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
-			data->typec_state.new_state == TYPEC_UNATTACHED) {
+	} else if (ps->mode == TCP_NOTIFY_TYPEC_STATE) {
+		if ((dp_data.typec_state.old_state == TYPEC_ATTACHED_SRC ||
+			dp_data.typec_state.old_state == TYPEC_ATTACHED_SNK) &&
+			dp_data.typec_state.new_state == TYPEC_UNATTACHED) {
 			/* Call DP Event API Ready */
 			dev_info(ps->dev, "Plug Out\n");
 			mtk_dp_SWInterruptSet(0x2);
@@ -251,7 +284,38 @@ static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
 		}
 	}
 
-	return ret;
+}
+
+static int ps5170_mux_set(struct typec_mux *mux, struct typec_mux_state *state)
+{
+	struct ps5170 *ps = typec_mux_get_drvdata(mux);
+	struct tcp_notify *data = state->data;
+
+	/*dev_info(ps->dev, "B ps5170_mux_set\n");
+	 *dev_info(ps->dev, "B state->mode : %d\n", state->mode);
+	 *dev_info(ps->dev, "B data-> polarity : %d\n", data->ama_dp_state.polarity);
+	 *dev_info(ps->dev, "B data-> signal : %d\n", data->ama_dp_state.signal);
+	 *dev_info(ps->dev, "B data-> pin_assignment : %d\n", data->ama_dp_state.pin_assignment);
+	 *dev_info(ps->dev, "B data-> active : %d\n", data->ama_dp_state.active);
+	 */
+
+	/* ama_dp_state */
+	ps->dp_data.ama_dp_state.polarity  = data->ama_dp_state.polarity;
+	ps->dp_data.ama_dp_state.signal = data->ama_dp_state.signal;
+	ps->dp_data.ama_dp_state.pin_assignment = data->ama_dp_state.pin_assignment;
+	ps->dp_data.ama_dp_state.active = data->ama_dp_state.active;
+
+	/* ama_dp_hpd */
+	ps->dp_data.ama_dp_hpd_state.irq = data->ama_dp_hpd_state.irq;
+	ps->dp_data.ama_dp_hpd_state.state = data->ama_dp_hpd_state.state;
+
+	/* typec_state  */
+	ps->dp_data.typec_state.old_state = data->typec_state.old_state;
+	ps->dp_data.typec_state.new_state = data->typec_state.new_state;
+
+	ps->mode = state->mode;
+	schedule_work(&ps->set_dp_work);
+	return 0;
 }
 
 static int ps5170_pinctrl_init(struct ps5170 *ps)
@@ -302,6 +366,8 @@ static int ps5170_probe(struct i2c_client *client)
 	ps->i2c = client;
 	ps->dev = dev;
 
+	atomic_set(&ps->in_sleep, 0);
+
 	/* Setting Switch callback */
 	sw_desc.drvdata = ps;
 	sw_desc.fwnode = dev->fwnode;
@@ -342,6 +408,10 @@ static int ps5170_probe(struct i2c_client *client)
 		mtk_typec_switch_unregister(ps->sw);
 #endif
 	}
+
+	INIT_WORK(&ps->set_usb_work, ps5170_switch_set_work);
+	INIT_WORK(&ps->set_dp_work, ps5170_mux_set_work);
+
 	/* switch off after init done */
 	ps5170_switch_set(ps->sw, TYPEC_ORIENTATION_NONE);
 	dev_info(dev, "%s done\n", __func__);
@@ -358,6 +428,48 @@ static int ps5170_remove(struct i2c_client *client)
 	return 0;
 }
 
+static int __maybe_unused ps5170_suspend(struct device *dev)
+{
+	struct i2c_client *i2c = to_i2c_client(dev);
+
+	if (device_may_wakeup(dev))
+		enable_irq_wake(i2c->irq);
+	return 0;
+}
+
+static int __maybe_unused ps5170_resume(struct device *dev)
+{
+	struct i2c_client *i2c = to_i2c_client(dev);
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(i2c->irq);
+	return 0;
+}
+
+static int ps5170_suspend_noirq(struct device *dev)
+{
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct ps5170 *data = i2c_get_clientdata(i2c);
+
+	atomic_set(&data->in_sleep, 1);
+	return 0;
+}
+
+static int ps5170_resume_noirq(struct device *dev)
+{
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct ps5170 *data = i2c_get_clientdata(i2c);
+
+	atomic_set(&data->in_sleep, 0);
+	return 0;
+}
+
+static const struct dev_pm_ops ps5170_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(ps5170_suspend, ps5170_resume)
+		SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(ps5170_suspend_noirq,
+			ps5170_resume_noirq)
+};
+
 static const struct i2c_device_id ps5170_table[] = {
 	{ "ps5170" },
 	{ }
@@ -373,6 +485,7 @@ MODULE_DEVICE_TABLE(of, ps5170_of_match);
 static struct i2c_driver ps5170_driver = {
 	.driver = {
 		.name = "ps5170",
+		.pm = &ps5170_pm_ops,
 		.of_match_table = ps5170_of_match,
 	},
 	.probe_new = ps5170_probe,
