@@ -44,27 +44,23 @@ static int ufs_abort_aee_count;
 #include "ufs-mediatek-trace.h"
 #undef CREATE_TRACE_POINTS
 
-#define ufs_mtk_smc(cmd, val, res) \
-	arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
-		      cmd, val, 0, 0, 0, 0, 0, &(res))
-
 #define ufs_mtk_va09_pwr_ctrl(res, on) \
-	ufs_mtk_smc(UFS_MTK_SIP_VA09_PWR_CTRL, on, res)
+	ufs_mtk_smc(UFS_MTK_SIP_VA09_PWR_CTRL, res, on)
 
 #define ufs_mtk_crypto_ctrl(res, enable) \
-	ufs_mtk_smc(UFS_MTK_SIP_CRYPTO_CTRL, enable, res)
+	ufs_mtk_smc(UFS_MTK_SIP_CRYPTO_CTRL, res, enable)
 
 #define ufs_mtk_ref_clk_notify(on, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_REF_CLK_NOTIFICATION, on, res)
+	ufs_mtk_smc(UFS_MTK_SIP_REF_CLK_NOTIFICATION, res, on)
 
 #define ufs_mtk_device_reset_ctrl(high, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, high, res)
+	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, res, high)
 
-#define ufs_mtk_host_pwr_ctrl(on, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, on, res)
+#define ufs_mtk_host_pwr_ctrl(on, ufs_version, res) \
+	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, res, on, ufs_version)
 
 #define ufs_mtk_get_vcc_info(res) \
-	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_INFO, 0, res)
+	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_INFO, res)
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
@@ -1945,6 +1941,7 @@ static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
+	u64 ufs_version;
 	struct arm_smccc_res res;
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -1968,7 +1965,9 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ufshcd_is_link_off(hba))
 		ufs_mtk_device_reset_ctrl(0, res);
 
-	ufs_mtk_host_pwr_ctrl(false, res);
+	/* Transfer the ufs version to tfa */
+	ufs_version = (u64)hba->dev_info.wspecversion;
+	ufs_mtk_host_pwr_ctrl(false, ufs_version, res);
 
 	return 0;
 fail:
@@ -1984,9 +1983,12 @@ fail:
 static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
+	u64 ufs_version;
 	struct arm_smccc_res res;
 
-	ufs_mtk_host_pwr_ctrl(true, res);
+	/* Transfer the ufs version to tfa */
+	ufs_version = (u64)hba->dev_info.wspecversion;
+	ufs_mtk_host_pwr_ctrl(true, ufs_version, res);
 
 	err = ufs_mtk_mphy_power_on(hba, true);
 	if (err)
