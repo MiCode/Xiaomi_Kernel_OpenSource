@@ -4,6 +4,7 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/clock/mt6855-clk.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -69,6 +70,12 @@
 		dsc0 = &disp_dsc_wrap0;
 	};
 
+	topckgen_clk: syscon@10000000 {
+		compatible = "mediatek,mt6855-topckgen", "syscon";
+		reg = <0 0x10000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	dcm: dcm@10001000 {
 		compatible = "mediatek,mt6855-dcm";
 		reg = <0 0x10001000 0 0x1000>,
@@ -85,6 +92,24 @@
 			"vlp_ao_bcrm",
 			"mp_cpusys_top",
 			"cpccfg_reg";
+	};
+
+	infracfg_ao_clk: syscon@10001000 {
+		compatible = "mediatek,mt6855-infracfg_ao", "syscon", "simple-mfd";
+		reg = <0 0x10001000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	pericfg_ao_clk: syscon@11036000 {
+		compatible = "mediatek,mt6855-pericfg_ao", "syscon";
+		reg = <0 0x11036000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	vlp_cksys_clk: syscon@1C013000 {
+		compatible = "mediatek,mt6855-vlp_cksys", "syscon";
+		reg = <0 0x1C013000 0 0x1000>;
+		#clock-cells = <1>;
 	};
 
 	i2c0: i2c@11ed0000 {
