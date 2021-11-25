@@ -12,9 +12,6 @@
 #include "eeprom_i2c_custom_driver.h"
 #include "cam_cal_config.h"
 
-#define pr_debug_if(cond, ...)      do { if ((cond)) pr_debug(__VA_ARGS__); } while (0)
-#define pr_debug_err(...)    pr_debug("error: " __VA_ARGS__)
-
 static unsigned int do_2a_gain_default(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
 
@@ -62,7 +59,7 @@ static unsigned int do_2a_gain_default(struct EEPROM_DRV_FD_DATA *pdata,
 	pCamCalData->Single2A.S2aAF_t.AF_Macro_pattern_distance = 30;
 	pCamCalData->Single2A.S2aAF_t.AF_Middle_calibration = 447;
 
-	pr_debug("Load default cal data\n");
+	must_log("Load default cal data\n");
 
 	return CAM_CAL_ERR_NO_ERR;
 }

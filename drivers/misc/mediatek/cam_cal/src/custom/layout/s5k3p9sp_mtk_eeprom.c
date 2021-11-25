@@ -12,9 +12,6 @@
 #include "eeprom_i2c_custom_driver.h"
 #include "cam_cal_config.h"
 
-#define pr_debug_if(cond, ...)      do { if ((cond)) pr_debug(__VA_ARGS__); } while (0)
-#define pr_debug_err(...)    pr_debug("error: " __VA_ARGS__)
-
 static struct STRUCT_CALIBRATION_LAYOUT_STRUCT cal_layout_table = {
 	0x00000001, 0x010b00ff, CAM_CAL_SINGLE_EEPROM_DATA,
 	{

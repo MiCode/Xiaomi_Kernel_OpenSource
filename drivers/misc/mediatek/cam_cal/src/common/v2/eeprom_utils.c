@@ -6,7 +6,19 @@
 #define PFX "CAM_CAL"
 #define pr_fmt(fmt) PFX "[%s] " fmt, __func__
 
+#include <linux/moduleparam.h>
+
 #include "eeprom_utils.h"
+
+static unsigned int cam_eeprom_debug;
+
+module_param(cam_eeprom_debug, uint, 0644);
+MODULE_PARM_DESC(cam_eeprom_debug, "camera_eeprom_debug");
+
+unsigned int debug_flag(void)
+{
+	return cam_eeprom_debug;
+}
 
 #define EEPROM_PROF 1
 

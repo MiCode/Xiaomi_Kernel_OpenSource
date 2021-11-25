@@ -64,7 +64,7 @@ static int Read_I2C_CAM_CAL(struct i2c_client *client,
 	struct i2c_msg msg[EEPROM_I2C_MSG_SIZE_READ];
 
 	if (ui4_length > EEPROM_I2C_READ_MSG_LENGTH_MAX) {
-		pr_debug("exceed one transition %d bytes limitation\n",
+		must_log("exceed one transition %d bytes limitation\n",
 			 EEPROM_I2C_READ_MSG_LENGTH_MAX);
 		return -1;
 	}
@@ -84,7 +84,7 @@ static int Read_I2C_CAM_CAL(struct i2c_client *client,
 				EEPROM_I2C_MSG_SIZE_READ);
 
 	if (i4RetValue != EEPROM_I2C_MSG_SIZE_READ) {
-		pr_debug("I2C read data failed!!\n");
+		must_log("I2C read data failed!!\n");
 		return -1;
 	}
 
@@ -109,7 +109,7 @@ static int iReadData_CAM_CAL(struct i2c_client *client,
 
 		if (Read_I2C_CAM_CAL(client, (u16) u4CurrentOffset,
 				     u4Size, pBuff) != 0) {
-			pr_debug("I2C iReadData failed!!\n");
+			must_log("I2C iReadData failed!!\n");
 			return -1;
 		}
 
@@ -133,7 +133,7 @@ static int Write_I2C_CAM_CAL(struct i2c_client *client,
 	struct i2c_msg msg;
 
 	if (ui4_length > EEPROM_I2C_WRITE_MSG_LENGTH_MAX) {
-		pr_debug("exceed one transition %d bytes limitation\n",
+		must_log("exceed one transition %d bytes limitation\n",
 			 EEPROM_I2C_WRITE_MSG_LENGTH_MAX);
 		return -1;
 	}
@@ -150,7 +150,7 @@ static int Write_I2C_CAM_CAL(struct i2c_client *client,
 	i4RetValue = i2c_transfer(client->adapter, &msg, 1);
 
 	if (i4RetValue != 1) {
-		pr_debug("I2C write data failed!!\n");
+		must_log("I2C write data failed!!\n");
 		return -1;
 	}
 
@@ -178,7 +178,7 @@ static int iWriteData_CAM_CAL(struct i2c_client *client,
 
 		if (Write_I2C_CAM_CAL(client, (u16) u4CurrentOffset,
 				      u4Size, pBuff) != 0) {
-			pr_debug("I2C iWriteData failed!!\n");
+			must_log("I2C iWriteData failed!!\n");
 			return -1;
 		}
 
@@ -221,7 +221,7 @@ unsigned int Common_write_region(struct i2c_client *client, unsigned int addr,
 
 	EEPROM_PROFILE(&t, "common_write_time");
 #else
-	pr_debug("Write operation disabled\n");
+	must_log("Write operation disabled\n");
 #endif
 
 	return ret;

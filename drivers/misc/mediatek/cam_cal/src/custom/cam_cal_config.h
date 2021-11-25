@@ -9,11 +9,7 @@
 #include "eeprom_driver.h"
 #include "kd_imgsensor.h"
 #include "cam_cal_format.h"
-
-// #define DEBUG_CALIBRATION_LOAD
-// #define MTK_LOAD_DEBUG
-
-static unsigned int dump_enable;
+#include "eeprom_utils.h"
 
 /*****************************************************************************
  * Structures
