@@ -2480,6 +2480,21 @@ phys_addr_t cmdq_mbox_get_base_pa(void *chan)
 }
 EXPORT_SYMBOL(cmdq_mbox_get_base_pa);
 
+phys_addr_t cmdq_dev_get_base_pa(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (!res) {
+		cmdq_err("failed to get resource from dev:%p", dev);
+		return -EINVAL;
+	}
+	cmdq_log("%s: res:%p start:%pa", __func__, res, &res->start);
+
+	return res->start;
+}
+EXPORT_SYMBOL(cmdq_dev_get_base_pa);
+
 phys_addr_t cmdq_mbox_get_dummy_reg(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,

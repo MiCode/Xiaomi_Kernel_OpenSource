@@ -289,6 +289,7 @@ void cmdq_mbox_disable(void *chan);
 s32 cmdq_mbox_get_usage(void *chan);
 void *cmdq_mbox_get_base(void *chan);
 phys_addr_t cmdq_mbox_get_base_pa(void *chan);
+phys_addr_t cmdq_dev_get_base_pa(struct device *dev);
 phys_addr_t cmdq_mbox_get_dummy_reg(void *chan);
 phys_addr_t cmdq_mbox_get_spr_pa(void *chan, u8 spr);
 s32 cmdq_mbox_thread_reset(void *chan);

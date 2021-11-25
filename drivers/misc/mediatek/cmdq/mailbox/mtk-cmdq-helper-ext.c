@@ -1444,8 +1444,8 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 	const u16 event = (u16)CMDQ_EVENT_GPR_TIMER + reg_gpr;
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_operand lop, rop;
-	const u32 timeout_en = cmdq_mbox_get_base_pa(cl->chan) +
-		CMDQ_TPR_TIMEOUT_EN;
+	const u32 timeout_en = (cl ? cmdq_mbox_get_base_pa(cl->chan) :
+		cmdq_dev_get_base_pa(pkt->dev)) + CMDQ_TPR_TIMEOUT_EN;
 
 	/* set target gpr value to max to avoid event trigger
 	 * before new value write to gpr
