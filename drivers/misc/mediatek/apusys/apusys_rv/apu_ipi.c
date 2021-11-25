@@ -369,6 +369,13 @@ irqreturn_t apu_ipi_int_handler(int irq, void *priv)
 	struct mtk_share_obj *recv_obj = apu->recv_buf;
 	u32 id, len, calc_csum;
 	bool finish = false;
+	uint32_t status;
+
+	status = ioread32(apu->apu_mbox + 0xc4);
+	if (status != ((1 << APU_MBOX_HDR_SLOTS) - 1)) {
+		dev_info(dev, "abnormal isr call(0x%x), skip\n", status);
+		return IRQ_HANDLED;
+	}
 
 	apu_mbox_read_outbox(apu, &apu->hdr);
 	id = apu->hdr.id;
@@ -388,11 +395,6 @@ irqreturn_t apu_ipi_int_handler(int irq, void *priv)
 	if (apu->hdr.serial_no != rx_serial_no) {
 		dev_info(dev, "unmatched serial_no: curr=%u, recv=%u\n",
 			rx_serial_no, apu->hdr.serial_no);
-		dev_info(dev, "outbox irq=%x\n", ioread32(apu->apu_mbox + 0xc4));
-		if (ioread32(apu->apu_mbox + 0xc4) == 0) {
-			dev_info(dev, "abnormal isr call, skip\n");
-			goto done;
-		}
 		/* correct the serial no. */
 		rx_serial_no = apu->hdr.serial_no;
 		apusys_rv_aee_warn("APUSYS_RV", "IPI rx_serial_no unmatch");
