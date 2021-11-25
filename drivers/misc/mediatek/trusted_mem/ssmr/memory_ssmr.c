@@ -36,6 +36,7 @@
 #define SVP_FEATURES_DT_UNAME "SecureVideoPath"
 #define SVP_ON_MTEE_DT_UNAME "MTEE"
 #define SVP_STATIC_RESERVED_DT_UNAME "mediatek,reserve-memory-svp"
+#define GRANULARITY_SIZE 0x200000
 
 static u64 ssmr_upper_limit = UPPER_LIMIT64;
 
@@ -286,6 +287,16 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 					     &feature->phy_addr, GFP_KERNEL,
 					     DMA_ATTR_NO_KERNEL_MAPPING);
 
+		/* s2-map and s2-unamp must be 2MB alignment */
+		if (feature->phy_addr && (feature->phy_addr % GRANULARITY_SIZE)) {
+			pr_info("%s, re-try ssmr pa base=0x%lx, size=0x%lx\n", __func__,
+					feature->phy_addr, alloc_size);
+			dma_free_attrs(ssmr_dev, alloc_size, feature->virt_addr,
+					feature->phy_addr, DMA_ATTR_NO_KERNEL_MAPPING);
+			feature->phy_addr = 0;
+			offline_retry++;
+			msleep(300);
+		}
 #if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 		if (!feature->phy_addr) {
 			offline_retry++;
