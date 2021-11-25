@@ -12920,16 +12920,16 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"active,idle,off";
 
 			node_34 = "SSPM_SWPM_GPU__LOADING",
-				"loading";
+				"top_loading,stack_loading";
 
 			node_35 = "SSPM_SWPM_GPU__DVFS",
-				"vgpu,gpu_freq";
+				"top_freq,stack_freq,vgpu,vcore,mtcmos";
 
 			node_36 = "SSPM_SWPM_GPU__URATE",
 				"alu_fma,alu_cvt,alu_sfu,tex,lsc,l2c,vary,tiler,rast";
 
 			node_37 = "SSPM_SWPM_GPU__THERMAL",
-				"thermal,lkg";
+				"thermal,top_lkg,stack_lkg";
 
 			node_38 = "SSPM_SWPM_GPU__COUNTER",
 				"GPU_ACTIVE,EXEC_INSTR_FMA,EXEC_INSTR_CVT,EXEC_INSTR_SFU,",
