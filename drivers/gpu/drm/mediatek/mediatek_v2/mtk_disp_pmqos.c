@@ -175,6 +175,13 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
+	/* No need to repaint when display suspend */
+	if (!mtk_crtc->enabled) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		return 0;
+	}
+
 	switch (value) {
 	case BW_THROTTLE_START: /* CAM on */
 		DDPMSG("DISP BW Throttle start\n");
