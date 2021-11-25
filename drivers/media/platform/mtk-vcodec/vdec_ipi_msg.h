@@ -183,6 +183,7 @@ struct vdec_ap_ipi_cmd {
  */
 struct vdec_vcu_ipi_ack {
 	__u32 msg_id;
+	__u32 ctx_id;
 	__s32 status;
 #ifndef CONFIG_64BIT
 	union {

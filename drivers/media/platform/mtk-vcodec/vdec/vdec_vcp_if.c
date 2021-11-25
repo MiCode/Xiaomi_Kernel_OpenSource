@@ -552,8 +552,11 @@ int vcp_dec_ipi_handler(void *arg)
 				msg->status = -1;
 
 			msg->msg_id = AP_IPIMSG_DEC_CHECK_CODEC_ID_DONE;
+			msg->ctx_id = inst->ctx->id;
 			vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 		} else if (msg->status == VDEC_IPI_MSG_STATUS_OK) {
+			if ((msg->msg_id & 0xF000) == VCU_IPIMSG_VDEC_SEND_BASE)
+				msg->ctx_id = inst->ctx->id;
 			switch (msg->msg_id) {
 			case VCU_IPIMSG_DEC_DONE:
 				vcu->signaled_res = true;
@@ -652,6 +655,7 @@ int vcp_dec_ipi_handler(void *arg)
 					MTK_INST_IRQ_RECEIVED,
 					WAIT_INTR_TIMEOUT_MS);
 				msg->msg_id = AP_IPIMSG_DEC_WAITISR_DONE;
+				msg->ctx_id = inst->ctx->id;
 				msg->status = ret;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				vcodec_trace_count("VDEC_HW_LAT", 1);
