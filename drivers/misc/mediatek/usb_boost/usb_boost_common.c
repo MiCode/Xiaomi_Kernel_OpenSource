@@ -866,7 +866,8 @@ int usb_boost_init(void)
 	/* usb audio fine tune */
 	audio_boost_inst.wq = create_singlethread_workqueue("usb_audio_wq");
 	INIT_WORK(&audio_boost_inst.work, audio_boost_work);
-	audio_boost_inst.request_func = __request_audio;
+	/* default off */
+	audio_boost_inst.request_func = __request_empty;
 
 	create_sys_fs();
 	default_setting();
@@ -880,6 +881,17 @@ int usb_boost_init(void)
 
 	return 0;
 }
+
+void usb_audio_boost(bool enable)
+{
+	USB_BOOST_NOTICE("%s: enable:%d\n", __func__, enable);
+
+	if (enable) {
+		/* hook workable interface */
+		audio_boost_inst.request_func = __request_audio;
+	}
+}
+
 module_param(trigger_cnt_disabled, int, 0400);
 module_param(enabled, int, 0400);
 module_param(inited, int, 0400);

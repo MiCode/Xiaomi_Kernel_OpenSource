@@ -127,6 +127,7 @@ static int vcorefs_release(struct act_arg_obj *arg)
 static int usb_boost_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	bool audio_boost;
 
 	USB_BOOST_NOTICE("\n");
 
@@ -151,6 +152,9 @@ static int usb_boost_probe(struct platform_device *pdev)
 
 	peak_bw = dvfsrc_get_required_opp_peak_bw(node, 0);
 	USB_BOOST_NOTICE("%s: peak_bw(%x)\n", __func__, peak_bw);
+
+	audio_boost = of_property_read_bool(node, "usb-audio");
+	usb_audio_boost(audio_boost);
 
 	return 0;
 }
