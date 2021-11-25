@@ -23,6 +23,8 @@
 enum {
 	MTU3_SMC_INFRA_REQUEST = 0,
 	MTU3_SMC_INFRA_RELEASE,
+	MTU3_SMC_INFRA_RESUME,
+	MTU3_SMC_INFRA_SUSPEND,
 	MTU3_SMC_INFRA_NUM,
 };
 
@@ -64,6 +66,12 @@ static void ssusb_smc_request(struct ssusb_mtk *ssusb,
 		break;
 	case MTU3_STATE_POWER_ON:
 		op = MTU3_SMC_INFRA_REQUEST;
+		break;
+	case MTU3_STATE_RESUME:
+		op = MTU3_SMC_INFRA_RESUME;
+		break;
+	case MTU3_STATE_SUSPEND:
+		op = MTU3_SMC_INFRA_SUSPEND;
 		break;
 	default:
 		return;
@@ -116,6 +124,41 @@ void ssusb_set_power_state(struct ssusb_mtk *ssusb,
 		ssusb_hw_request(ssusb, state);
 	else
 		ssusb_smc_request(ssusb, state);
+}
+
+void ssusb_set_host_power_state(struct ssusb_mtk *ssusb,
+	enum mtu3_power_state state)
+{
+	u32 req;
+	u32 spm_ctrl;
+
+	if (ssusb->plat_type == PLAT_FPGA || !ssusb->clk_mgr)
+		return;
+
+	dev_info(ssusb->dev, "%s state = %d\n", __func__, state);
+
+	/* restore spm setting */
+	switch (state) {
+	case MTU3_STATE_RESUME:
+		req = SSUSB_SPM_DDR_EN | SSUSB_SPM_VRF18_REQ |
+			SSUSB_SPM_APSRC_REQ | SSUSB_SPM_INFRE_REQ |
+			SSUSB_SPM_SRCCLKENA;
+		break;
+	case MTU3_STATE_SUSPEND:
+		req = 0x0;
+		break;
+	default:
+		return;
+	}
+
+	spm_ctrl = mtu3_readl(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL);
+	spm_ctrl &= ~SSUSB_SPM_REQ_MSK;
+	spm_ctrl |= req;
+	mtu3_writel(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL, spm_ctrl);
+	/* wait 2ms */
+	mdelay(2);
+
+	ssusb_smc_request(ssusb, state);
 }
 
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on)
@@ -639,6 +682,7 @@ static int mtu3_remove(struct platform_device *pdev)
 static int __maybe_unused mtu3_suspend(struct device *dev)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct device_node *node = ssusb->dev->of_node;
 
 	dev_dbg(dev, "%s\n", __func__);
 
@@ -646,7 +690,10 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
-	ssusb_set_power_state(ssusb, MTU3_STATE_SUSPEND);
+	if (of_device_is_compatible(node, "mediatek,mt6983-mtu3"))
+		ssusb_set_host_power_state(ssusb, MTU3_STATE_SUSPEND);
+	else
+		ssusb_set_power_state(ssusb, MTU3_STATE_SUSPEND);
 
 	ssusb_host_disable(ssusb, true);
 	ssusb_phy_power_off(ssusb);
@@ -659,6 +706,7 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 static int __maybe_unused mtu3_resume(struct device *dev)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct device_node *node = ssusb->dev->of_node;
 	int ret;
 
 	dev_dbg(dev, "%s\n", __func__);
@@ -677,7 +725,10 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 
 	ssusb_host_enable(ssusb);
 
-	ssusb_set_power_state(ssusb, MTU3_STATE_RESUME);
+	if (of_device_is_compatible(node, "mediatek,mt6983-mtu3"))
+		ssusb_set_host_power_state(ssusb, MTU3_STATE_RESUME);
+	else
+		ssusb_set_power_state(ssusb, MTU3_STATE_RESUME);
 
 	return 0;
 
