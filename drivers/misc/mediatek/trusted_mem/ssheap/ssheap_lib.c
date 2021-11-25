@@ -56,9 +56,9 @@ static phys_addr_t ssheap_phys_size;
 static atomic64_t total_alloced_size;
 static DEFINE_MUTEX(ssheap_alloc_lock);
 
-// static u32 cache_count;
+//static u32 cache_count;
 static struct list_head cache_list;
-// static DEFINE_MUTEX(cache_lock);
+//static DEFINE_MUTEX(cache_lock);
 static DEFINE_SPINLOCK(cache_lock);
 
 struct ssheap_page {
@@ -106,8 +106,7 @@ static inline struct page *alloc_system_mem(u32 block_size)
 #if ENABLE_CACHE_PAGE
 	spin_lock_irqsave(&cache_lock, flags);
 	if (!list_empty(&cache_list)) {
-		s_page = list_first_entry(&cache_list, struct ssheap_page,
-					  entry);
+		s_page = list_first_entry(&cache_list, struct ssheap_page, entry);
 		list_del(&s_page->entry);
 		page = s_page->page;
 		kfree(s_page);
@@ -143,7 +142,7 @@ static u64 free_blocks(struct ssheap_buf_info *info)
 			block->block_size);
 
 		free_system_mem(block->page, block->block_size);
-		// cma_release(ssheap_dev->cma_area, block->page,
+		//cma_release(ssheap_dev->cma_area, block->page,
 		//	    block->block_size >> PAGE_SHIFT);
 		freed_size += block->block_size;
 		list_del(&block->entry);
@@ -155,7 +154,7 @@ static u64 free_blocks(struct ssheap_buf_info *info)
 int ssheap_free_non_contig(struct ssheap_buf_info *info)
 {
 	unsigned long freed_size;
-#if ENABLE_CACHE_PAGE
+# if ENABLE_CACHE_PAGE
 	struct ssheap_page *s_page = NULL;
 	struct page *page = NULL;
 	u32 size;
@@ -170,14 +169,13 @@ int ssheap_free_non_contig(struct ssheap_buf_info *info)
 	if (info->pmm_msg_page)
 		__free_pages(info->pmm_msg_page, get_order(PAGE_SIZE));
 
-#if ENABLE_CACHE_PAGE
+# if ENABLE_CACHE_PAGE
 	// TODO need to check!!!!
 	if (atomic64_sub_return(freed_size, &total_alloced_size) == 0x0) {
 		spin_lock_irqsave(&cache_lock, flags);
 		pr_info("free all pooling pages");
 		while (!list_empty(&cache_list)) {
-			s_page = list_first_entry(&cache_list,
-						  struct ssheap_page, entry);
+			s_page = list_first_entry(&cache_list, struct ssheap_page, entry);
 			list_del(&s_page->entry);
 			page = s_page->page;
 			size = s_page->size;
@@ -186,8 +184,7 @@ int ssheap_free_non_contig(struct ssheap_buf_info *info)
 			if (!ssheap_dev->cma_area)
 				__free_pages(page, get_order(size));
 			else
-				cma_release(ssheap_dev->cma_area, page,
-					    size >> PAGE_SHIFT);
+				cma_release(ssheap_dev->cma_area, page, size >> PAGE_SHIFT);
 			page = NULL;
 		}
 		spin_unlock_irqrestore(&cache_lock, flags);
@@ -244,7 +241,7 @@ struct ssheap_buf_info *ssheap_alloc_non_contig(u32 req_size, u32 prefer_align,
 		return NULL;
 	INIT_LIST_HEAD(&info->block_list);
 
-	// mutex_lock(&ssheap_alloc_lock);
+	//mutex_lock(&ssheap_alloc_lock);
 
 	info->alignment = prefer_align;
 	info->table = kmalloc(sizeof(*info->table), GFP_KERNEL);
@@ -255,8 +252,8 @@ struct ssheap_buf_info *ssheap_alloc_non_contig(u32 req_size, u32 prefer_align,
 
 	/* check available size */
 	if (use_cma) {
-		if (atomic64_read(&total_alloced_size) + aligned_req_size
-		    > ssheap_phys_size) {
+		if (atomic64_read(&total_alloced_size) + aligned_req_size >
+		    ssheap_phys_size) {
 			pr_err("ssheap cma memory not enough!\n");
 			goto out_err;
 		}
@@ -306,7 +303,7 @@ retry:
 	info->aligned_req_size = aligned_req_size;
 	info->allocated_size = allocated_size;
 	info->elems = elems;
-	// mutex_unlock(&ssheap_alloc_lock);
+	//mutex_unlock(&ssheap_alloc_lock);
 
 	/* setting sg_table */
 	ret = sg_alloc_table(info->table, elems, GFP_KERNEL);
@@ -326,7 +323,7 @@ retry:
 
 	return info;
 out_err:
-	// mutex_unlock(&ssheap_alloc_lock);
+	//mutex_unlock(&ssheap_alloc_lock);
 out_err2:
 	/* free blocks */
 	free_blocks(info);
@@ -390,28 +387,29 @@ unsigned long mtee_assign_buffer(struct ssheap_buf_info *info, uint8_t mem_type)
 	pmm_attr = PGLIST_SET_ATTR(paddr, mem_type);
 	arm_smccc_smc(HYP_PMM_ASSIGN_BUFFER, lower_32_bits(pmm_attr),
 		      upper_32_bits(pmm_attr), count, 0, 0, 0, 0, &smc_res);
-	pr_debug("paddr=%#llx, count=%#lu, smc_res.a0=%#x\n", paddr, count);
-	if (smc_res.a0 < 0) {
-		pr_debug("get handle failed smc_res.a0=%d\n", smc_res.a0);
-		return -EINVAL;
-	}
-	info->handle = (int)smc_res.a0;
-	return 0;
+	pr_debug("pmm_msg_page paddr=%pa smc_res.a0=%x\n", &paddr, smc_res.a0);
+
+	return smc_res.a0;
 }
 
 unsigned long mtee_unassign_buffer(struct ssheap_buf_info *info,
 				   uint8_t mem_type)
 {
 	struct arm_smccc_res smc_res;
+	phys_addr_t paddr;
+	uint64_t pmm_attr;
+	uint32_t count;
 
-	if (!info || !info->handle)
+	if (!info || !info->pmm_msg_page)
 		return -EINVAL;
 
-	pr_debug("info->handle=%#x\n", info->handle);
-	arm_smccc_smc(HYP_PMM_UNASSIGN_BUFFER, info->handle, 0, 0, 0, 0, 0, 0,
-		      &smc_res);
-	pr_debug("smc_res.a0=%#x\n", smc_res.a0);
-	info->handle = -1;
+	paddr = page_to_phys(info->pmm_msg_page);
+	count = info->elems;
+	pmm_attr = PGLIST_SET_ATTR(paddr, mem_type);
+	pr_debug("pmm_msg_page paddr=%pa\n", &paddr);
+	arm_smccc_smc(HYP_PMM_UNASSIGN_BUFFER, lower_32_bits(paddr),
+		      upper_32_bits(paddr), count, 0, 0, 0, 0, &smc_res);
+	pr_debug("smc_res.a0=%x\n", smc_res.a0);
 	return smc_res.a0;
 }
 
