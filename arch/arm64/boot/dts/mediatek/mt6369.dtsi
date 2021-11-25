@@ -83,6 +83,14 @@
 			#size-cells = <1>;
 		};
 
+		mt6369codec: mt6369codec {
+			compatible = "mediatek,mt6369-sound";
+			io-channels = <&mt6369_adc AUXADC_HPOFS_CAL>;
+			io-channel-names = "pmic_hpofs_cal";
+			nvmem = <&mt6369_efuse>;
+			nvmem-names = "pmic-hp-efuse";
+		};
+
 		regulators {
 			mt6369_vbuck1: VBUCK1 {
 				regulator-compatible = "VBUCK1";
