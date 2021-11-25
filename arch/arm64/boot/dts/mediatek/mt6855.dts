@@ -367,6 +367,11 @@
 */		};
 	};
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	lastbus: lastbus {
 		compatible = "mediatek,lastbus";
 		enabled = <0>;
