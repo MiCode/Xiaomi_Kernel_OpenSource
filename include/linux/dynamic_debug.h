@@ -58,13 +58,7 @@ int ddebug_add_module(struct _ddebug *tab, unsigned int n,
 extern int ddebug_remove_module(const char *mod_name);
 extern __printf(2, 3)
 #if defined(CONFIG_MTK_PRINTK_DEBUG)
-void __dynamic_pr_emerg(struct _ddebug *descriptor, const char *fmt, ...);
-void __dynamic_pr_alert(struct _ddebug *descriptor, const char *fmt, ...);
-void __dynamic_pr_crit(struct _ddebug *descriptor, const char *fmt, ...);
-void __dynamic_pr_err(struct _ddebug *descriptor, const char *fmt, ...);
-void __dynamic_pr_warn(struct _ddebug *descriptor, const char *fmt, ...);
-void __dynamic_pr_notice(struct _ddebug *descriptor, const char *fmt, ...);
-void __dynamic_pr_info(struct _ddebug *descriptor, const char *fmt, ...);
+void __dynamic_no_printk(struct _ddebug *descriptor, const char *fmt, ...);
 #endif
 void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...);
 
@@ -168,7 +162,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 	static bool __print_once __read_mostly; \
 	if (!__print_once) { \
 		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_pr_emerg,		\
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
 		printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
@@ -180,7 +174,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 	static bool __print_once __read_mostly; \
 	if (!__print_once) { \
 		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_pr_alert,		\
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
 		printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
@@ -192,7 +186,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 	static bool __print_once __read_mostly; \
 	if (!__print_once) { \
 		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_pr_crit,		\
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
 		printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
@@ -204,7 +198,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 	static bool __print_once __read_mostly; \
 	if (!__print_once) { \
 		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_pr_err,		\
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
 		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
@@ -216,7 +210,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 	static bool __print_once __read_mostly; \
 	if (!__print_once) { \
 		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_pr_warn,		\
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
 		printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
@@ -228,7 +222,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 	static bool __print_once __read_mostly; \
 	if (!__print_once) { \
 		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_pr_notice,		\
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
 		printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
@@ -240,7 +234,7 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 	static bool __print_once __read_mostly; \
 	if (!__print_once) { \
 		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_pr_info,		\
+		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
 			   pr_fmt(fmt), ##__VA_ARGS__); \
 		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__); \
 	}   else \
