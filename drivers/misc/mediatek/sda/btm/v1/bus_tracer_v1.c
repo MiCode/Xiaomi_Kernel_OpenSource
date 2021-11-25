@@ -165,12 +165,12 @@ static int enable(struct bus_tracer_plt *plt, unsigned char force_enable,
 
 	writel(plt->err_flag, plt->dbgao_base + DBG_ERR_FLAG_IRQ_POLARITY);
 	dsb(sy);
-
+/*
 	writel(0x0, plt->dbgao_base + DBG_ERR_FLAG_CON);
 	dsb(sy);
 	writel(0x3, plt->dbgao_base + DBG_ERR_FLAG_CON);
 	dsb(sy);
-
+*/
 	/* replicator 1 setup */
 	CS_UNLOCK(plt->funnel_base + REPLICATOR1_BASE);
 
