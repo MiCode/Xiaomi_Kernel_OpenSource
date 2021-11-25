@@ -5,6 +5,7 @@
 
 /dts-v1/;
 #include <dt-bindings/clock/mt6855-clk.h>
+#include <dt-bindings/power/mt6855-power.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -41,6 +42,11 @@
 			clock-frequency = <13000000>;
 		};
 
+		ulposc: ulposc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <260000000>;
+		};
 	};
 
 	aliases {
@@ -102,15 +108,142 @@
 		#clock-cells = <1>;
 	};
 
+	apmixedsys_clk: syscon@1000C000 {
+		compatible = "mediatek,mt6855-apmixedsys", "syscon";
+		reg = <0 0x1000C000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap0_clk: syscon@11281000 {
+		compatible = "mediatek,mt6855-imp_iic_wrap0", "syscon";
+		reg = <0 0x11281000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap1_clk: syscon@11ED5000 {
+		compatible = "mediatek,mt6855-imp_iic_wrap1", "syscon";
+		reg = <0 0x11ED5000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap2_clk: syscon@11DB5000 {
+		compatible = "mediatek,mt6855-imp_iic_wrap2", "syscon";
+		reg = <0 0x11DB5000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap3_clk: syscon@11B21000 {
+		compatible = "mediatek,mt6983-imp_iic_wrap2", "syscon";
+		reg = <0 0x11B21000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	pericfg_ao_clk: syscon@11036000 {
 		compatible = "mediatek,mt6855-pericfg_ao", "syscon";
 		reg = <0 0x11036000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
+	afe_clk: syscon@11050000 {
+		compatible = "mediatek,mt6855-afe", "syscon";
+		reg = <0 0x11050000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mfg_pll_ctrl_clk: syscon@13fa0000 {
+		compatible = "mediatek,mt6855-mfg_pll_ctrl", "syscon";
+		reg = <0 0x13fa0000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	dispsys_config_clk: syscon@14000000 {
+		compatible = "mediatek,mt6855-dispsys", "syscon";
+		reg = <0 0x14000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imgsys1_clk: syscon@15020000 {
+		compatible = "mediatek,mt6855-imgsys1", "syscon";
+		reg = <0 0x15020000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imgsys2_clk: syscon@15820000 {
+		compatible = "mediatek,mt6855-imgsys2", "syscon";
+		reg = <0 0x15820000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	vdec_gcon_base_clk: syscon@1602f000 {
+		compatible = "mediatek,mt6855-vdec_gcon_base", "syscon";
+		reg = <0 0x1602f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	venc_gcon_clk: syscon@17000000 {
+		compatible = "mediatek,mt6855-vencsys", "syscon";
+		reg = <0 0x17000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	scpsys: power-controller@1C001000 {
+		compatible = "mediatek,mt6855-scpsys", "syscon";
+		reg = <0 0x1C001000 0 0x1000>;
+		#power-domain-cells = <1>;
+		infracfg = <&infracfg_ao_clk>;
+		vlpcfg = <&vlpcfg_bus_clk>;
+	};
+
+	vlpcfg_bus_clk: syscon@1C00C000 {
+		compatible = "mediatek,mt6855-vlpcfg_bus", "syscon";
+		reg = <0 0x1C00C000 0 0x1000>;
+	};
+
 	vlp_cksys_clk: syscon@1C013000 {
 		compatible = "mediatek,mt6855-vlp_cksys", "syscon";
 		reg = <0 0x1C013000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_main_clk: syscon@1a000000 {
+		compatible = "mediatek,mt6855-camsys_main", "syscon";
+		reg = <0 0x1a000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_rawa_clk: syscon@1a04f000 {
+		compatible = "mediatek,mt6855-camsys_rawa", "syscon";
+		reg = <0 0x1a04f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_rawb_clk: syscon@1a06f000 {
+		compatible = "mediatek,mt6855-camsys_rawb", "syscon";
+		reg = <0 0x1a06f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	ipesys_clk: syscon@1b000000 {
+		compatible = "mediatek,mt6855-ipesys", "syscon";
+		reg = <0 0x1b000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mminfra_config_clk: syscon@1e800000 {
+		compatible = "mediatek,mt6855-mminfra_config", "syscon";
+		reg = <0 0x1e800000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mdpsys_config_clk: syscon@1f000000 {
+		compatible = "mediatek,mt6855-mdpsys", "syscon";
+		reg = <0 0x1f000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mdpsys1_config_clk: syscon@1f800000 {
+		compatible = "mediatek,mt6855-mdpsys1_config", "syscon";
+		reg = <0 0x1f800000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
