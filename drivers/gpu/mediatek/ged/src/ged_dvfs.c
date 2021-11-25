@@ -300,6 +300,10 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 		memcpy((void *)&g_Util_Ex, (void *)Util_Ex,
 			sizeof(struct GpuUtilization_Ex));
 
+		if (g_ged_gpueb_support)
+			mtk_gpueb_dvfs_set_feedback_info(
+				0, g_Util_Ex, 0);
+
 		if (pui32Loading) {
 			ged_log_perf_trace_counter("gpu_loading",
 				(long long)*pui32Loading,

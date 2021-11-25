@@ -310,10 +310,14 @@ unsigned int mtk_gpueb_dvfs_set_feedback_info(int frag_done_interval_in_ns,
 		((util_ex.util_compute&0xff)<<24));
 
 	mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_GPU_UTILS, utils);
-	mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_GPU_TIME,
-		frag_done_interval_in_ns);
-	mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_CURR_FPS,
-		curr_fps);
+
+	if (frag_done_interval_in_ns > 0)
+		mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_GPU_TIME,
+			frag_done_interval_in_ns);
+
+	if (curr_fps > 0)
+		mtk_gpueb_sysram_write(SYSRAM_GPU_FEEDBACK_INFO_CURR_FPS,
+			curr_fps);
 #else
 	struct fdvfs_ipi_data ipi_data;
 
@@ -422,6 +426,18 @@ unsigned int mtk_gpueb_dvfs_get_mode(unsigned int *pAction)
 	return fastdvfs_mode;
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_get_mode);
+
+int mtk_gpueb_power_modle_cmd(unsigned int enable)
+{
+	int ret = 0;
+	struct fdvfs_ipi_data ipi_data;
+
+	ipi_data.u.set_para.arg[0] = enable;
+	ret = ged_to_fdvfs_command(GPUFDVFS_IPI_PMU_START, &ipi_data);
+	return ret;
+}
+EXPORT_SYMBOL(mtk_gpueb_power_modle_cmd);
+
 
 unsigned int is_fdvfs_enable(void)
 {
