@@ -5458,7 +5458,10 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
+		if (cmdq_handle != NULL)
+			cmdq_pkt_destroy(cmdq_handle);
+		else
+			DDPPR_ERR("%s %d null cmdq_handle\n", __func__, __LINE__);
 	}
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
@@ -5511,7 +5514,10 @@ skip:
 	}
 
 	cmdq_pkt_flush(cmdq_handle);
-	cmdq_pkt_destroy(cmdq_handle);
+	if (cmdq_handle != NULL)
+		cmdq_pkt_destroy(cmdq_handle);
+	else
+		DDPPR_ERR("%s %d null cmdq_handle\n", __func__, __LINE__);
 
 	/* 4. Set QOS BW to 0 */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
