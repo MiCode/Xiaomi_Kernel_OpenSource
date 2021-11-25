@@ -13,6 +13,11 @@
 struct mmqos_hrt *mmqos_hrt;
 static bool disp_report_bw;
 
+static u32 mmqos_log_hrt_level;
+enum mmqos_log_hrt_level {
+	log_hrt_bw = 0,
+};
+
 s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 {
 	u32 i, used_bw = 0;
@@ -88,7 +93,8 @@ s32 mtk_mmqos_set_hrt_bw(enum hrt_type type, u32 bw)
 		return -ENOENT;
 	if (mmqos_hrt->hrt_bw[type] != bw) {
 		mmqos_hrt->hrt_bw[type] = bw;
-		pr_notice("%s: type=%d bw=%d\n", __func__, type, bw);
+		if (mmqos_log_hrt_level & 1 << log_hrt_bw)
+			pr_notice("%s: type=%d bw=%d\n", __func__, type, bw);
 	}
 	if (unlikely(!disp_report_bw) && type == HRT_DISP) {
 		disp_report_bw = true;
@@ -267,4 +273,8 @@ void  mtk_mmqos_unregister_hrt_sysfs(struct device *dev)
 	sysfs_remove_group(&dev->kobj, &mmqos_hrt_sysfs_attr_group);
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_unregister_hrt_sysfs);
+
+module_param(mmqos_log_hrt_level, uint, 0644);
+MODULE_PARM_DESC(mmqos_log_hrt_level, "mmqos hrt log level");
+
 MODULE_LICENSE("GPL v2");
