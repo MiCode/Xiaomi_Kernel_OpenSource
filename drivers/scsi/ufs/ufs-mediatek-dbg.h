@@ -70,6 +70,7 @@ enum cmd_hist_event {
 struct tm_cmd_struct {
 	u8 lun;
 	u8 tag;
+	u8 task_tag;
 	u16 tm_func;
 };
 

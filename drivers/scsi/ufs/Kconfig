@@ -205,4 +205,10 @@ config SCSI_UFS_HPB
 	  read command by piggybacking physical page number for bypassing FTL (flash
 	  translation layer)'s L2P address translation.
 
+config MTK_UFS_DEBUG
+	bool "Support Mediatek UFS debug feature"
+	depends on SCSI_UFSHCD
+	help
+	  If it is enabled, UFS flow will change for GKI
+
 source "drivers/scsi/ufs/vendor/Kconfig"

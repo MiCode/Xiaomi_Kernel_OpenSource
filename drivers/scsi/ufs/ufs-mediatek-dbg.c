@@ -218,12 +218,13 @@ static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba
 						 unsigned int tag, const char *str)
 {
 	u8 tm_func;
-	int ptr, lun;
+	int ptr, lun, task_tag;
 	unsigned long flags;
 	enum cmd_hist_event event;
 	struct utp_task_req_desc *d = &hba->utmrdl_base_addr[tag];
 
 	lun = (be32_to_cpu(d->req_header.dword_0) >> 8) & 0xFF;
+	task_tag = be32_to_cpu(d->req_header.dword_0) & 0xFF;
 	tm_func = (be32_to_cpu(d->req_header.dword_1) >> 16) & 0xFFFF;
 
 	if (!strcmp(str, "tm_send"))
@@ -246,6 +247,7 @@ static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba
 	cmd_hist[ptr].event = event;
 	cmd_hist[ptr].cmd.tm.lun = lun;
 	cmd_hist[ptr].cmd.tm.tag = tag;
+	cmd_hist[ptr].cmd.tm.task_tag = task_tag;
 	cmd_hist[ptr].cmd.tm.tm_func = tm_func;
 
 	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
@@ -570,7 +572,7 @@ static void ufs_mtk_dbg_print_tm_event(char **buff, unsigned long *size,
 	if (cmd_hist[ptr].cmd.utp.lba == 0xFFFFFFFFFFFFFFFF)
 		cmd_hist[ptr].cmd.utp.lba = 0;
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-r(%d),%6llu.%lu,%5d,%2d,0x%2x,lun=%d,tag=%d\n",
+		"%3d-r(%d),%6llu.%lu,%5d,%2d,0x%2x,lun=%d,tag=%d,task_tag=%d\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -578,7 +580,8 @@ static void ufs_mtk_dbg_print_tm_event(char **buff, unsigned long *size,
 		cmd_hist[ptr].event,
 		cmd_hist[ptr].cmd.tm.tm_func,
 		cmd_hist[ptr].cmd.tm.lun,
-		cmd_hist[ptr].cmd.tm.tag
+		cmd_hist[ptr].cmd.tm.tag,
+		cmd_hist[ptr].cmd.tm.task_tag
 		);
 }
 

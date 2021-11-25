@@ -51,7 +51,12 @@
 #define QUERY_REQ_TIMEOUT 1500 /* 1.5 seconds */
 
 /* Task management command timeout */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+/* Max TM cmd timeout = 1.3s * 8QueueDepth = 10.4s */
+#define TM_CMD_TIMEOUT	10400 /* msecs */
+#else
 #define TM_CMD_TIMEOUT	100 /* msecs */
+#endif
 
 /* maximum number of retries for a general UIC command  */
 #define UFS_UIC_COMMAND_RETRIES 3
@@ -7038,6 +7043,12 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		ufshcd_set_req_abort_skip(hba, hba->outstanding_reqs);
 		goto release;
 	}
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	ufshcd_outstanding_req_clear(hba, tag);
+	scsi_dma_unmap(cmd);
+	lrbp->cmd = NULL;
+#endif
 
 	err = SUCCESS;
 
