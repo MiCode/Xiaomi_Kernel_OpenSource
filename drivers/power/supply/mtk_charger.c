@@ -2604,7 +2604,6 @@ static int charger_routine_thread(void *arg)
 			if (charger_init_algo(info) == true) {
 				is_module_init_done = true;
 				if (info->charger_unlimited) {
-					info->usb_unlimited = true;
 					info->enable_sw_safety_timer = false;
 					charger_dev_enable_safety_timer(info->chg1_dev, false);
 				}

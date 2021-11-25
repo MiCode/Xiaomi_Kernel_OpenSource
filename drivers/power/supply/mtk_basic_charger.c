@@ -304,7 +304,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	} else
 		info->setting.input_current_limit2 = -1;
 
-	if (is_basic == true && pdata->input_current_limit_by_aicl != -1) {
+	if (is_basic == true && pdata->input_current_limit_by_aicl != -1
+		&& !info->charger_unlimited) {
 		if (pdata->input_current_limit_by_aicl <
 		    pdata->input_current_limit)
 			pdata->input_current_limit =
