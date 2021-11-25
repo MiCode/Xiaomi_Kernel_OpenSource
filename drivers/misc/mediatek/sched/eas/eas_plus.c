@@ -167,6 +167,7 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 		return 1;
 	}
 
+	spin_lock(&thermal_headroom_lock);
 	for_each_cpu_and(cpu, cpus, cpu_online_mask) {
 		int headroom;
 
@@ -186,6 +187,7 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 		cpu_order[i] = cpu;
 		cnt++;
 	}
+	spin_unlock(&thermal_headroom_lock);
 
 	return cnt;
 }
