@@ -997,6 +997,14 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 		mtk_cam_complete_sensor_hdl(s_data);
 		mtk_cam_complete_raw_hdl(s_data);
 
+		/*
+		 * reset fs state, if one sensor off and another one alive,
+		 * Let the req be the single sensor case.
+		 */
+		mutex_lock(&req->fs.op_lock);
+		mtk_cam_fs_reset(&req->fs);
+		mutex_unlock(&req->fs.op_lock);
+
 		if (need_clean_s_data) {
 			dev_dbg(cam->dev,
 				 "%s:%s:pipe(%d):seq(%d): clean s_data\n",
@@ -1967,7 +1975,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		if (mtk_cam_is_mstream(ctx))
 			check_mstream_buffer(cam, ctx, req);
 	}
-	req->fs_state = ctx_cnt > 1 ? ctx_cnt : 0;
+	req->fs.target = ctx_cnt > 1 ? ctx_cnt : 0;
 
 	return 0;
 }
@@ -2411,7 +2419,7 @@ static struct media_request *mtk_cam_req_alloc(struct media_device *mdev)
 
 	cam_req = vzalloc(sizeof(*cam_req));
 	spin_lock_init(&cam_req->done_status_lock);
-	mutex_init(&cam_req->fs_op_lock);
+	mutex_init(&cam_req->fs.op_lock);
 
 	return &cam_req->req;
 }
@@ -2522,10 +2530,9 @@ static void mtk_cam_req_queue(struct media_request *req)
 	/* reset done status */
 	cam_req->done_status = 0;
 	cam_req->pipe_used = mtk_cam_req_get_pipe_used(req);
-	cam_req->fs_on_cnt = 0;
-	cam_req->fs_off_cnt = 0;
 	cam_req->flags = 0;
 	cam_req->ctx_used = 0;
+	mtk_cam_fs_reset(&cam_req->fs);
 
 	MTK_CAM_TRACE_BEGIN(BASIC, "vb2_request_queue");
 
@@ -4821,6 +4828,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	spin_unlock(&ctx->streaming_lock);
 
 	if (ctx->synced) {
+		/* after streaming being off, no one can do V4L2_CID_FRAME_SYNC */
 		struct v4l2_ctrl *ctrl;
 
 		ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler,

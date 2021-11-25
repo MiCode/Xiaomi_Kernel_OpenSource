@@ -259,6 +259,22 @@ enum mtk_cam_request_state {
 	MTK_CAM_REQ_STATE_COMPLETE,
 	NR_OF_MTK_CAM_REQ_STATE,
 };
+
+/**
+ * mtk_cam_frame_sync: the frame sync state of one request
+ *
+ * @target: the num of ctx(sensor) which should be synced
+ * @on_cnt: the count of frame sync on called by ctx
+ * @off_cnt: the count of frame sync off called by ctx
+ * @op_lock: protect frame sync state variables
+ */
+struct mtk_cam_frame_sync {
+	unsigned int target;
+	unsigned int on_cnt;
+	unsigned int off_cnt;
+	struct mutex op_lock;
+};
+
 /*
  * struct mtk_cam_request - MTK camera request.
  *
@@ -272,10 +288,7 @@ enum mtk_cam_request_state {
  * @list: List entry of the object for @struct mtk_cam_device:
  *        pending_job_list or running_job_list.
  * @mtk_cam_request_stream_data: stream context related to the request
- * @fs_op_lock: protect frame sync state variables
- * @fs_state: the number of ctx in a request
- * @fs_on_cnt: the count of frame sync on called by ctx
- * @fs_off_cnt: the count of frame sync off called by ctx
+ * @fs: the frame sync state
  */
 struct mtk_cam_request {
 	struct media_request req;
@@ -286,10 +299,7 @@ struct mtk_cam_request {
 	unsigned int done_status;
 	spinlock_t done_status_lock;
 	atomic_t state;
-	unsigned int fs_state;
-	unsigned int fs_on_cnt;
-	unsigned int fs_off_cnt;
-	struct mutex fs_op_lock;
+	struct mtk_cam_frame_sync fs;
 	struct list_head list;
 	struct work_struct link_work;
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
@@ -721,6 +731,13 @@ static inline bool
 mtk_cam_is_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt)
 {
 	return framefmt->flags & V4L2_MBUS_FRAMEFMT_PAD_ENABLE;
+}
+
+static inline void mtk_cam_fs_reset(struct mtk_cam_frame_sync *fs)
+{
+	fs->target = 0;
+	fs->on_cnt = 0;
+	fs->off_cnt = 0;
 }
 
 //TODO: with spinlock or not? depends on how request works [TBD]
