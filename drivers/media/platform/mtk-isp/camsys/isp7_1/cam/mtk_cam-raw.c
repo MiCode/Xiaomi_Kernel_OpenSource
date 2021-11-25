@@ -1234,16 +1234,16 @@ void reset(struct mtk_raw_device *dev)
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT2),
 			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT));
 
+		/* check dma cmd cnt before hw rst */
+		mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
+			dbg_ulc_cmd_cnt, ARRAY_SIZE(dbg_ulc_cmd_cnt));
+		mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
+			dbg_ori_cmd_cnt, ARRAY_SIZE(dbg_ori_cmd_cnt));
+
 		mtk_smi_dbg_hang_detect("camsys");
 
 		goto RESET_FAILURE;
 	}
-
-	/* check dma cmd cnt before hw rst */
-	mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
-			dbg_ulc_cmd_cnt, ARRAY_SIZE(dbg_ulc_cmd_cnt));
-	mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
-			dbg_ori_cmd_cnt, ARRAY_SIZE(dbg_ori_cmd_cnt));
 
 	/* do hw rst */
 	writel(4, dev->base + REG_CTL_SW_CTL);
