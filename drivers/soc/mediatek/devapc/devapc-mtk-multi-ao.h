@@ -9,6 +9,11 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 
+#ifdef KBUILD_MODNAME
+#undef KBUILD_MODNAME
+#define KBUILD_MODNAME	"devapc"
+#endif
+
 /******************************************************************************
  * VARIABLE DEFINATION
  ******************************************************************************/
