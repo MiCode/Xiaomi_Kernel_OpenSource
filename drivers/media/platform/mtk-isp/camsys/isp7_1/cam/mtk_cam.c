@@ -1963,8 +1963,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				if (ret)
 					return ret;
 			}
-			/* mmqos record */
-			req_stream_data->raw_dmas |= (1ULL << node->desc.dma_port);
 			break;
 		case MTKCAM_IPI_CAMSV_MAIN_OUT:
 			if (req_stream_data->vdev_fmt_update) {
@@ -1976,8 +1974,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		case MTKCAM_IPI_RAW_META_STATS_0:
 		case MTKCAM_IPI_RAW_META_STATS_1:
 		case MTKCAM_IPI_RAW_META_STATS_2:
-			/* mmqos record */
-			req_stream_data->raw_dmas |= (1ULL << node->desc.dma_port);
 			break;
 		default:
 			/* Do nothing for the ports not related to crop settings */
@@ -3455,6 +3451,33 @@ static void isp_tx_frame_worker(struct work_struct *work)
 			req_stream_data->frame_params.raw_param.hardware_scenario,
 			req_stream_data->frame_params.raw_param.exposure_num,
 			req_stream_data->frame_params.raw_param.previous_exposure_num);
+
+	/* record mmqos (skip mstream 1exp) */
+	if (!(mtk_cam_is_mstream(ctx) &&
+		req_stream_data->frame_params.raw_param.exposure_num == 1)) {
+		frame_param = &req_stream_data->frame_params;
+		for (i = 0; i < CAM_MAX_IMAGE_INPUT; i++) {
+			if (frame_param->img_ins[i].buf[0].iova != 0)
+				req_stream_data->raw_dmas |=
+					(1ULL << frame_param->img_ins[i].uid.id);
+		}
+		for (i = 0; i < CAM_MAX_IMAGE_OUTPUT; i++) {
+			if (frame_param->img_outs[i].buf[0][0].iova != 0)
+				req_stream_data->raw_dmas |=
+					(1ULL << frame_param->img_outs[i].uid.id);
+		}
+		for (i = 0; i < CAM_MAX_META_OUTPUT; i++) {
+			if (frame_param->meta_outputs[i].buf.iova != 0)
+				req_stream_data->raw_dmas |=
+					(1ULL << frame_param->meta_outputs[i].uid.id);
+		}
+		for (i = 0; i < CAM_MAX_PIPE_USED; i++) {
+			if (frame_param->meta_inputs[i].buf.iova != 0) {
+				req_stream_data->raw_dmas |=
+					(1ULL << frame_param->meta_inputs[i].uid.id);
+			}
+		}
+	}
 
 	memcpy(frame_data, &req_stream_data->frame_params,
 	       sizeof(req_stream_data->frame_params));
