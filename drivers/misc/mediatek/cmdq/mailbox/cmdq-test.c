@@ -319,7 +319,7 @@ u32 *cmdq_test_mbox_polling_timeout_unit(struct cmdq_pkt *pkt,
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	// last 1k as output buffer
-	out_pa = CMDQ_BUF_ADDR(buf) + 3096;
+	out_pa = CMDQ_BUF_ADDR(buf) + 3096 + gce_mminfra;
 	out_va = (u32 *)(buf->va_base + 3096);
 	*out_va = 0;
 	*(out_va + 1) = 0;
