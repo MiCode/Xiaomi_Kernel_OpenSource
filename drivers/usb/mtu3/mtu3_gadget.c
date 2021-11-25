@@ -49,9 +49,6 @@ static void nuke(struct mtu3_ep *mep, const int status)
 	if (mep->epnum)
 		mtu3_qmu_flush(mep);
 
-	list_for_each_entry(mreq, &mep->req_list, list)
-		mtu3_clean_gpd(mep, mreq);
-
 	while (!list_empty(&mep->req_list)) {
 		mreq = list_first_entry(&mep->req_list,
 					struct mtu3_request, list);
@@ -375,7 +372,6 @@ static int mtu3_gadget_dequeue(struct usb_ep *ep, struct usb_request *req)
 	}
 
 	mtu3_qmu_flush(mep);  /* REVISIT: set BPS ?? */
-	mtu3_clean_gpd(mep, mreq);
 	mtu3_req_complete(mep, req, -ECONNRESET);
 	mtu3_qmu_start(mep);
 
