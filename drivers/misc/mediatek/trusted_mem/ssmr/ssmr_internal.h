@@ -43,6 +43,7 @@
  *  enable :           show feature status
  */
 struct SSMR_Feature {
+	bool must_2MB_alignment;
 	bool is_page_based;
 	bool is_unmapping;
 	bool use_cache_memory;
@@ -144,7 +145,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #endif
 		.scheme_flag = SVP_FLAGS,
 		.req_size = 0,
-		.is_page_based = false
+		.is_page_based = false,
+		.must_2MB_alignment = true
 	},
 	[SSMR_FEAT_PROT_REGION] = {
 		.dt_prop_name = "prot-region-based-size",
@@ -159,7 +161,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
 				FACE_UNLOCK_FLAGS | SVP_FLAGS,
 		.req_size = 0,
-		.is_page_based = false
+		.is_page_based = false,
+		.must_2MB_alignment = true
 	},
 	[SSMR_FEAT_WFD_REGION] = {
 		.dt_prop_name = "wfd-region-based-size",
@@ -174,7 +177,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "off",
 #endif
 		.scheme_flag = SVP_FLAGS,
-		.is_page_based = false
+		.is_page_based = false,
+		.must_2MB_alignment = true
 	},
 	[SSMR_FEAT_TA_ELF] = {
 		.dt_prop_name = "ta-elf-size",
@@ -258,7 +262,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 #endif
 		.scheme_flag = TUI_FLAGS,
 		.req_size = 0,
-		.is_page_based = false
+		.is_page_based = false,
+		.must_2MB_alignment = false
 	},
 	[SSMR_FEAT_SVP_PAGE] = {
 		.dt_prop_name = "svp-page-based-size",
@@ -316,7 +321,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
-		.is_page_based = false
+		.is_page_based = false,
+		.must_2MB_alignment = true
 	},
 	[SSMR_FEAT_SAPU_ENGINE_SHM] = {
 		.dt_prop_name = "sapu-engine-shm-size",
@@ -327,7 +333,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
-		.is_page_based = false
+		.is_page_based = false,
+		.must_2MB_alignment = true
 	},
 };
 /* clang-format on */

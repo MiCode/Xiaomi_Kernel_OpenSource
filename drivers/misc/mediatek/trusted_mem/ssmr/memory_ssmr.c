@@ -270,7 +270,8 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	}
 
 	/* Determine alloc size by feature */
-	alloc_size = feature->req_size;
+	/* s2-map and s2-unamp must be 2MB alignment, so size add 2MB */
+	alloc_size = feature->req_size + GRANULARITY_SIZE;
 
 	feature->alloc_size = alloc_size;
 
@@ -287,16 +288,6 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 					     &feature->phy_addr, GFP_KERNEL,
 					     DMA_ATTR_NO_KERNEL_MAPPING);
 
-		/* s2-map and s2-unamp must be 2MB alignment */
-		if (feature->phy_addr && (feature->phy_addr % GRANULARITY_SIZE)) {
-			pr_info("%s, re-try ssmr pa base=0x%lx, size=0x%lx\n", __func__,
-					feature->phy_addr, alloc_size);
-			dma_free_attrs(ssmr_dev, alloc_size, feature->virt_addr,
-					feature->phy_addr, DMA_ATTR_NO_KERNEL_MAPPING);
-			feature->phy_addr = 0;
-			offline_retry++;
-			msleep(300);
-		}
 #if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 		if (!feature->phy_addr) {
 			offline_retry++;
@@ -321,10 +312,20 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 		return -1;
 	}
 
-	if (pa)
+	if (pa) {
 		*pa = dma_to_phys(ssmr_dev, feature->phy_addr);
+
+		/* s2-map and s2-unamp must be 2MB alignment */
+		if (feature->must_2MB_alignment && (feature->phy_addr % GRANULARITY_SIZE)) {
+			/* pa add 1MB, then pa is 2MB alignment */
+			*pa = *pa + GRANULARITY_SIZE/2;
+			pr_info("%s: feature: %s, adjust 2MB alignment: pa=0x%lx, retry = %d\n",
+				__func__, feature->feat_name, *pa, offline_retry);
+		}
+	}
+
 	if (size)
-		*size = alloc_size;
+		*size = feature->req_size;
 
 	return 0;
 }
