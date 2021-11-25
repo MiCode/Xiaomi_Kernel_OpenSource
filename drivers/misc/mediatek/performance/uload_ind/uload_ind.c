@@ -44,9 +44,10 @@ static int under_threshold; /*threshold value for sent uevent*/
 static bool uevent_enable; /*sent uevent switch*/
 static int curr_cpu_loading; /*cat curr cpu loading node*/
 static int specify_cpus; /*specify cpus*/
-static struct cpumask *specify_cpu_mask; /*specify cpus' mask*/
 static int nr_cpus;/*cpu numbers*/
 static int state;
+
+static cpumask_t specify_cpu_mask = CPU_MASK_NONE; /*specify cpus' mask*/
 
 #define show_debug(fmt, x...) \
 	do { \
@@ -196,16 +197,15 @@ static void start_calculate_loading(void)
 	cl_unlock(__func__);
 
 	if (specify_cpus != 0) {
-		specify_cpu_mask = kzalloc(nr_cpus, GFP_KERNEL);
-		cpumask_clear(specify_cpu_mask);
+		cpumask_clear(&specify_cpu_mask);
 
 		start = specify_cpus%10;
 		end = specify_cpus/10;
 
 		for (i = start; i <= end; i++)
-			cpumask_set_cpu(i, specify_cpu_mask);
+			cpumask_set_cpu(i, &specify_cpu_mask);
 		ret_reg = reg_loading_tracking(calculat_loading_callback, poll_ms,
-				specify_cpu_mask);
+				&specify_cpu_mask);
 	} else {
 		ret_reg = reg_loading_tracking(calculat_loading_callback, poll_ms,
 				cpu_possible_mask);
