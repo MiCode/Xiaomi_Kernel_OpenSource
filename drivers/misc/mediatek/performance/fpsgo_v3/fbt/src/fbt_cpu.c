@@ -5632,16 +5632,23 @@ static ssize_t enable_ceiling_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(enable_ceiling);
 
-static void update_cfreq_rfreq_status_locked(void)
+static int is_cfreq_rfreq_limited(void)
 {
-	int i, enable = 0;
+	int i;
 
 	for (i = 0; i < cluster_num; i++) {
-		if (limit_clus_ceil[i].cfreq > 0 || limit_clus_ceil[i].rfreq > 0) {
-			enable = 1;
-			break;
-		}
+		if (limit_clus_ceil[i].cfreq > 0 || limit_clus_ceil[i].rfreq > 0)
+			return 1;
 	}
+
+	return 0;
+}
+
+static void update_cfreq_rfreq_status_locked(void)
+{
+	int enable = 0;
+
+	enable = is_cfreq_rfreq_limited();
 
 	if (enable)
 		enable_ceiling |= (1 << FPSGO_CEILING_LIMIT_FREQ);
@@ -5702,10 +5709,13 @@ static ssize_t limit_cfreq_store(struct kobject *kobj,
 	if (val == 0) {
 		limit->cfreq = 0;
 		limit->copp = INVALID_NUM;
-		limit_policy = FPSGO_LIMIT_NONE;
+		limit_cap = 0;
+		if (is_cfreq_rfreq_limited())
+			limit_policy = FPSGO_LIMIT_CAPACITY;
+		else
+			limit_policy = FPSGO_LIMIT_NONE;
 		goto EXIT;
 	}
-
 
 	opp = fbt_get_opp_by_freq(cluster, val);
 	if (opp == INVALID_NUM)
@@ -5713,8 +5723,8 @@ static ssize_t limit_cfreq_store(struct kobject *kobj,
 
 	limit->cfreq = cpu_dvfs[cluster].power[opp];
 	limit->copp = opp;
-	limit_cap = check_limit_cap(0);
 	limit_policy = FPSGO_LIMIT_CAPACITY;
+	limit_cap = check_limit_cap(0);
 
 EXIT:
 	update_cfreq_rfreq_status_locked();
@@ -5766,7 +5776,7 @@ static ssize_t limit_cfreq_m_store(struct kobject *kobj,
 	}
 
 	mutex_lock(&fbt_mlock);
-	if (limit_policy != FPSGO_LIMIT_CAPACITY || !limit_clus_ceil)
+	if (!limit_clus_ceil)
 		goto EXIT;
 
 	cluster = (max_cap_cluster > min_cap_cluster)
@@ -5780,6 +5790,11 @@ static ssize_t limit_cfreq_m_store(struct kobject *kobj,
 	if (val == 0) {
 		limit->cfreq = 0;
 		limit->copp = INVALID_NUM;
+		if (is_cfreq_rfreq_limited())
+			limit_policy = FPSGO_LIMIT_CAPACITY;
+		else
+			limit_policy = FPSGO_LIMIT_NONE;
+		limit_cap = check_limit_cap(0);
 		goto EXIT;
 	}
 
@@ -5790,6 +5805,7 @@ static ssize_t limit_cfreq_m_store(struct kobject *kobj,
 
 	limit->cfreq = cpu_dvfs[cluster].power[opp];
 	limit->copp = opp;
+	limit_policy = FPSGO_LIMIT_CAPACITY;
 	limit_cap = check_limit_cap(0);
 
 EXIT:
@@ -5854,9 +5870,13 @@ static ssize_t limit_rfreq_store(struct kobject *kobj,
 	if (val == 0) {
 		limit->rfreq = 0;
 		limit->ropp = INVALID_NUM;
+		limit_rcap = 0;
+		if (is_cfreq_rfreq_limited())
+			limit_policy = FPSGO_LIMIT_CAPACITY;
+		else
+			limit_policy = FPSGO_LIMIT_NONE;
 		goto EXIT;
 	}
-
 
 	opp = fbt_get_opp_by_freq(cluster, val);
 	if (opp == INVALID_NUM)
@@ -5931,9 +5951,13 @@ static ssize_t limit_rfreq_m_store(struct kobject *kobj,
 	if (val == 0) {
 		limit->rfreq = 0;
 		limit->ropp = INVALID_NUM;
+		limit_rcap = check_limit_cap(1);
+		if (is_cfreq_rfreq_limited())
+			limit_policy = FPSGO_LIMIT_CAPACITY;
+		else
+			limit_policy = FPSGO_LIMIT_NONE;
 		goto EXIT;
 	}
-
 
 	opp = fbt_get_opp_by_freq(cluster, val);
 	if (opp == INVALID_NUM)
