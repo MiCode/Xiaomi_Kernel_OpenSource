@@ -1354,13 +1354,14 @@ static void core_buffer_map(struct mml_task *task)
 static void core_config_task(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
+	const u32 jobid = task->job.jobid;
 	s32 err;
 
 	mml_trace_begin("%s", __func__);
-	mml_mmp(config, MMPROFILE_FLAG_START, task->job.jobid, 0);
+	mml_mmp(config, MMPROFILE_FLAG_START, jobid, 0);
 
 	mml_msg("%s begin task %p config %p job %u",
-		__func__, task, cfg, task->job.jobid);
+		__func__, task, cfg, jobid);
 
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
@@ -1394,7 +1395,7 @@ static void core_config_task(struct mml_task *task)
 	cfg->task_ops->submit_done(task);
 
 done:
-	mml_mmp(config, MMPROFILE_FLAG_END, task->job.jobid, 0);
+	mml_mmp(config, MMPROFILE_FLAG_END, jobid, 0);
 	mml_trace_end();
 }
 
