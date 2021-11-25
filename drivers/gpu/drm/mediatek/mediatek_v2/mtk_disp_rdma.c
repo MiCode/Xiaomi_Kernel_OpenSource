@@ -1622,7 +1622,7 @@ static const struct mtk_disp_rdma_data mt6879_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
-	.dsi_buffer = false,
+	.dsi_buffer = true,
 };
 
 static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {

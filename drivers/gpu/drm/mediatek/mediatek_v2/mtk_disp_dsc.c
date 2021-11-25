@@ -810,7 +810,7 @@ static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
 static const struct mtk_disp_dsc_data mt6879_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
-	.dsi_buffer = false,
+	.dsi_buffer = true,
 };
 
 static const struct mtk_disp_dsc_data mt6855_dsc_driver_data = {
