@@ -307,7 +307,11 @@ void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *s_data;
-	int i, buf_start = 0, buf_end = 0, pipe_id;
+	struct mtk_cam_buffer *buf_ret[MTK_RAW_TOTAL_NODES];
+	struct mtk_cam_buffer *buf;
+	struct mtk_cam_video_device *node;
+	struct vb2_buffer *vb;
+	int i, buf_start = 0, buf_end = 0, pipe_id, buf_ret_cnt = 0;
 
 	ctx = mtk_cam_s_data_get_ctx(s_data_pipe);
 	if (!ctx) {
@@ -360,18 +364,22 @@ void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 		buf_end = MTK_MRAW_PIPELINE_PADS_NUM;
 	}
 
-	/* clean the req_stream_data being used right after request reinit */
-	mtk_cam_req_s_data_clean(s_data_pipe);
-
 	for (i = buf_start; i < buf_end; i++) {
-		struct mtk_cam_buffer *buf;
-		struct vb2_buffer *vb;
-		struct mtk_cam_video_device *node;
-
 		buf = mtk_cam_s_data_get_vbuf(s_data_pipe, i);
 		if (!buf)
 			continue;
+		buf_ret[buf_ret_cnt++] = buf;
 
+		/* clean the stream data for req reinit case */
+		mtk_cam_s_data_reset_vbuf(s_data_pipe, i);
+	}
+
+	/* clean the req_stream_data being used right after request reinit */
+	mtk_cam_req_s_data_clean(s_data_pipe);
+
+	/* return the buffer and we should not  touch the request anymore */
+	for (i = 0; i < buf_ret_cnt; i++) {
+		buf = buf_ret[i];
 		vb = &buf->vbb.vb2_buf;
 		node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 		if (node->uid.pipe_id != pipe_id) {
@@ -388,9 +396,6 @@ void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 
 		// TODO(mstream): fill timestamp
 		mtk_cam_s_data_update_timestamp(ctx, buf, s_data);
-
-		/* clean the stream data for req reinit case */
-		mtk_cam_s_data_reset_vbuf(s_data_pipe, i);
 
 		vb2_buffer_done(&buf->vbb.vb2_buf, state);
 	}
@@ -684,17 +689,18 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			      unsigned int dequeued_frame_seq_no,
 			      int pipe_id)
 {
-	struct list_head dequeue_list;
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream;
+	struct mtk_cam_request_stream_data *deq_s_data[18];
+	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
-	int feature;
-	int dequeue_cnt = 0;
+	int feature, buf_state;
+	int dequeue_cnt, s_data_cnt, handled_cnt;
 	bool del_job, del_req;
 	bool unreliable = false;
 
-	INIT_LIST_HEAD(&dequeue_list);
-
+	dequeue_cnt = 0;
+	s_data_cnt = 0;
 	spin_lock(&ctx->cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
 		if (!(req->pipe_used & (1 << pipe_id)))
@@ -711,24 +717,37 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 		if (s_data->frame_seq_no > dequeued_frame_seq_no)
 			goto STOP_SCAN;
 
-		list_add_tail(&s_data->deque_list_node, &dequeue_list);
+		deq_s_data[s_data_cnt++] = s_data;
+		if (s_data_cnt >= 18) {
+			dev_info(ctx->cam->dev,
+				 "%s:%s:ctx(%d):pipe(%d):seq(%d/%d) dequeue s_data over local buffer cnt(%d)\n",
+				 __func__, req->req.debug_str, ctx->stream_id, pipe_id,
+				 s_data->frame_seq_no, dequeued_frame_seq_no,
+				 s_data->frame_seq_no, s_data_cnt);
+			goto STOP_SCAN;
+		}
 	}
 
 STOP_SCAN:
 	spin_unlock(&ctx->cam->running_job_lock);
 
-	list_for_each_entry(s_data, &dequeue_list, deque_list_node) {
+	for (handled_cnt = 0; handled_cnt < s_data_cnt; handled_cnt++) {
+		s_data = deq_s_data[handled_cnt];
 		del_req = false;
 		del_job = false;
 		feature = s_data->feature.raw_feature;
 		req = mtk_cam_s_data_get_req(s_data);
+		if (!req) {
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d):pipe(%d):seq(%d) req not found\n",
+				__func__, ctx->stream_id, pipe_id,
+				s_data->frame_seq_no);
+			continue;
+		}
 
 		spin_lock(&req->done_status_lock);
 
-		if (!(1 << pipe_id & req->pipe_used) ||
-		    ((req->done_status & 1 << pipe_id) &&
-		     (req->done_status & ctx->cam->streaming_pipe) ==
-		     (req->pipe_used & ctx->cam->streaming_pipe))) {
+		if (req->done_status & 1 << pipe_id) {
 			/* already handled by another job done work */
 			spin_unlock(&req->done_status_lock);
 			continue;
@@ -810,28 +829,42 @@ STOP_SCAN:
 
 		/* release vb2 buffers of the pipe */
 		s_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
-		if (s_data->frame_seq_no < dequeued_frame_seq_no) {
-			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_ERROR);
-			dev_dbg(ctx->cam->dev,
-				"req:%d, time:%lld drop, ctx:%d, pipe:%d\n",
-				s_data->frame_seq_no, s_data->timestamp,
-				ctx->stream_id, pipe_id);
-		} else if (s_data->state.estate == E_STATE_DONE_MISMATCH) {
-			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_ERROR);
-			dev_dbg(ctx->cam->dev,
-				"%s:req(%d) state done mismatch",
-				__func__, s_data->frame_seq_no);
-		} else if (unreliable) {
-			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_ERROR);
-			dev_dbg(ctx->cam->dev,
-				"%s:req(%d) done (unreliable)",
-				__func__, s_data->frame_seq_no);
-		} else {
-			mtk_cam_dev_job_done(s_data_pipe, VB2_BUF_STATE_DONE);
-			dev_dbg(ctx->cam->dev,
-				"%s:req(%d) done success",
-				__func__, s_data->frame_seq_no);
+		if (!s_data_pipe) {
+			dev_info(ctx->cam->dev,
+				"%s:%s:ctx(%d):pipe(%d):seq(%d) s_data_pipe not found\n",
+				__func__, req->req.debug_str, ctx->stream_id, pipe_id,
+				s_data->frame_seq_no);
+			continue;
 		}
+
+		if (s_data->frame_seq_no < dequeued_frame_seq_no) {
+			buf_state = VB2_BUF_STATE_ERROR;
+			dev_dbg(ctx->cam->dev,
+				"%s:%s:pipe(%d) seq:%d, time:%lld drop, ctx:%d\n",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no, s_data->timestamp,
+				ctx->stream_id);
+		} else if (s_data->state.estate == E_STATE_DONE_MISMATCH) {
+			buf_state = VB2_BUF_STATE_ERROR;
+			dev_dbg(ctx->cam->dev,
+				"%s:%s:pipe(%d) seq:%d, state done mismatch",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no);
+		} else if (unreliable) {
+			buf_state = VB2_BUF_STATE_ERROR;
+			dev_dbg(ctx->cam->dev,
+				"%s:%s:pipe(%d) seq:%d, done (unreliable)",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no);
+		} else {
+			buf_state = VB2_BUF_STATE_DONE;
+			dev_dbg(ctx->cam->dev,
+				"%s:%s:pipe(%d) seq:%d, done success",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no);
+		}
+
+		mtk_cam_dev_job_done(s_data_pipe, buf_state);
 	}
 
 	return dequeue_cnt;
@@ -859,16 +892,16 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data, *s_data_pipe;
+	struct mtk_cam_request_stream_data *clean_s_data[18];
+	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
 	struct list_head *running = &cam->running_job_list;
-	struct list_head s_data_clean_list;
 	unsigned int other_pipes, done_status;
-	int i, num_s_data;
+	int i, num_s_data, s_data_cnt, handled_cnt;
 	bool need_clean_s_data, need_clean_req;
-
-	INIT_LIST_HEAD(&s_data_clean_list);
 
 	mtk_cam_dev_req_clean_pending(cam, pipe_id);
 
+	s_data_cnt = 0;
 	spin_lock(&cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, running, list) {
 		/* only handle requests belong to current ctx */
@@ -881,8 +914,13 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 			if (s_data) {
 				/* for s_data_clean_list */
 				media_request_get(&req->req);
-				list_add_tail(&s_data->cleanup_list_node,
-					      &s_data_clean_list);
+				clean_s_data[s_data_cnt++] = s_data;
+				if (s_data_cnt >= 18) {
+					dev_info(cam->dev,
+						 "%s: over local buffer cnt(%d)\n",
+						 __func__,  s_data_cnt);
+					goto STOP_SCAN;
+				}
 			} else {
 				dev_info(cam->dev,
 					 "%s:%s:pipe(%d): get s_data failed\n",
@@ -890,9 +928,11 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id)
 			}
 		}
 	}
+STOP_SCAN:
 	spin_unlock(&cam->running_job_lock);
 
-	list_for_each_entry(s_data, &s_data_clean_list, cleanup_list_node) {
+	for (handled_cnt = 0; handled_cnt < s_data_cnt; handled_cnt++) {
+		s_data = clean_s_data[handled_cnt];
 		req = mtk_cam_s_data_get_req(s_data);
 		if (!req) {
 			pr_info("ERR can't be recovered: invalid req found in s_data_clean_list\n");
