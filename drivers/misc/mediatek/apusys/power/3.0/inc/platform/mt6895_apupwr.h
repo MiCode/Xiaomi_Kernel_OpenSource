@@ -16,6 +16,7 @@
 #define ENABLE_SOC_CLK_MUX	(0)	// 1: enable soc clk in rpm resume
 #define DEBUG_DUMP_REG		(0)	// dump overall apu registers for debug
 #define APMCU_REQ_RPC_SLEEP	(0)	// rpm suspend trigger sleep req to rpc
+#define APUPW_DUMP_FROM_APMCU	(0)	// 1: dump reg from APMCU, 0: from ATF
 
 #define VAPU_DEF_VOLT		(750000)	// 0.75v
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
@@ -24,6 +25,19 @@
 #define TURBO_BOOST_VAL		(110)
 #define MTK_POLL_DELAY_US	(10)
 #define MTK_POLL_TIMEOUT	USEC_PER_SEC
+
+enum smc_rcx_pwr_op {
+	SMC_RCX_PWR_AFC_EN = 0,
+	SMC_RCX_PWR_WAKEUP_RPC,
+	SMC_RCX_PWR_CG_EN,
+};
+
+enum smc_pwr_dump {
+	SMC_PWR_DUMP_RPC = 0,
+	SMC_PWR_DUMP_PCU,
+	SMC_PWR_DUMP_ARE,
+	SMC_PWR_DUMP_ALL,
+};
 
 enum t_acx_id {
 	ACX0 = 0,
@@ -97,6 +111,9 @@ void mt6895_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define APU_RPC_LITE_CON          0x0020
 #define APU_RPC_INTF_PWR_RDY_REG  0x0040
 #define APU_RPC_INTF_PWR_RDY      0x0044
+#define RPC_TOP_SEL_HW_DEF	(0x012b0000) // cfg in hw default
+#define RPC_TOP_SEL_SW_CFG1	(0x1800531e) // cfg in cold boot
+#define RPC_TOP_SEL_SW_CFG2	(0x192b531e) // cfg in warm boot
 
 /* APU PLL1U offset define */
 #define MDLA_PLL_BASE		0x000 // 0x190F3000
