@@ -37,7 +37,9 @@ void mtk_smi_add_device_link(struct device *dev, struct device *larbdev);
 void mtk_smi_init_power_off(void);
 s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,
 			const bool enable, const char *user);
-
+s32 mtk_smi_dbg_cg_status(void);
+void mtk_smi_check_comm_ref_cnt(struct device *dev);
+void mtk_smi_check_larb_ref_cnt(struct device *dev);
 #else
 
 
@@ -66,6 +68,14 @@ static inline s32 mtk_smi_dbg_hang_detect(const char *user)
 {
 	return 0;
 }
+
+static inline s32 mtk_smi_dbg_cg_status(void)
+{
+	return 0;
+}
+static inline  void mtk_smi_check_comm_ref_cnt(struct device *dev) {}
+static inline  void mtk_smi_check_larb_ref_cnt(struct device *dev) {}
+
 static inline void
 mtk_smi_add_device_link(struct device *dev, struct device *larbdev) { }
 

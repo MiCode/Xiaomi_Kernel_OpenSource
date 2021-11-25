@@ -291,6 +291,32 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
 }
 EXPORT_SYMBOL_GPL(mtk_smi_larb_bw_set);
 
+void mtk_smi_check_comm_ref_cnt(struct device *dev)
+{
+	struct mtk_smi *common = dev_get_drvdata(dev);
+	int ref_count;
+
+	if (common) {
+		ref_count = atomic_read(&common->ref_count);
+		if (ref_count > 0)
+			pr_notice("%s comm:%u ref_cnt=%d\n", __func__, common->commid, ref_count);
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_smi_check_comm_ref_cnt);
+
+void mtk_smi_check_larb_ref_cnt(struct device *dev)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
+	int ref_count;
+
+	if (larb) {
+		ref_count = atomic_read(&larb->smi.ref_count);
+		if (ref_count > 0)
+			pr_notice("%s larb:%u ref_cnt=%d\n", __func__, larb->larbid, ref_count);
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_smi_check_larb_ref_cnt);
+
 void mtk_smi_init_power_off(void)
 {
 	int i;

@@ -834,6 +834,44 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
 
+
+
+
+s32 mtk_smi_dbg_cg_status(void)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	struct mtk_smi_dbg_node	node;
+	s32			i, ret = 0;
+
+	if (!smi->probe) {
+		ret = mtk_smi_dbg_probe(smi);
+		if (ret)
+			return ret;
+
+		smi->probe = true;
+	}
+
+	//check LARB status
+	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
+		node = smi->larb[i];
+		if (!node.dev || !node.va)
+			continue;
+		mtk_smi_check_larb_ref_cnt(node.dev);
+	}
+
+	//check COMM status
+	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
+		node = smi->comm[i];
+		if (!node.dev || !node.va)
+			continue;
+		mtk_smi_check_comm_ref_cnt(node.dev);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_dbg_cg_status);
+
+
 static int mtk_smi_dbg_get(void *data, u64 *val)
 {
 	pr_info("%s: val:%llu\n", __func__, *val);
