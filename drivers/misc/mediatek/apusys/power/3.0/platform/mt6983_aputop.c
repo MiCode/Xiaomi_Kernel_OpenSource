@@ -1142,6 +1142,8 @@ static int mt6983_apu_top_on(struct device *dev)
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(1);
 #endif
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_REGDUMP, 0);
 	aputop_dump_pwr_res();
 	aputop_dump_rpc_data();
 	aputop_dump_pcu_data(dev);
