@@ -23,6 +23,7 @@
 
 struct mminfra_dbg {
 	void __iomem *ctrl_base;
+	void __iomem *mminfra_base;
 	ssize_t ctrl_size;
 	struct device *comm_dev;
 	struct notifier_block nb;
@@ -121,12 +122,9 @@ static bool is_mminfra_power_on(void)
 
 static bool is_gce_cg_on(u32 hw_id)
 {
-	void __iomem *cg_base;
 	u32 con0_val;
 
-	cg_base = ioremap(MMINFRA_BASE + MMINFRA_CG_CON0, 4);
-	con0_val = readl_relaxed(cg_base);
-	iounmap(cg_base);
+	con0_val = readl_relaxed(dbg->mminfra_base + MMINFRA_CG_CON0);
 
 	if (con0_val & (hw_id == GCED ? GCED_CG_BIT : GCEM_CG_BIT))
 		return false;
@@ -136,16 +134,11 @@ static bool is_gce_cg_on(u32 hw_id)
 
 static void mminfra_cg_check(bool on)
 {
-	void __iomem *cg_base;
 	u32 con0_val;
 	u32 con1_val;
 
-	cg_base = ioremap(MMINFRA_BASE + MMINFRA_CG_CON0, 4);
-	con0_val = readl_relaxed(cg_base);
-	iounmap(cg_base);
-	cg_base = ioremap(MMINFRA_BASE + MMINFRA_CG_CON1, 4);
-	con1_val = readl_relaxed(cg_base);
-	iounmap(cg_base);
+	con0_val = readl_relaxed(dbg->mminfra_base + MMINFRA_CG_CON0);
+	con1_val = readl_relaxed(dbg->mminfra_base + MMINFRA_CG_CON1);
 
 	if (on) {
 		/* SMI CG still off */
@@ -437,6 +430,8 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 		}
 		cmdq_util_mminfra_cmd(0);
 	}
+
+	dbg->mminfra_base = ioremap(MMINFRA_BASE, 0x8f4);
 
 	cmdq_get_mminfra_cb(is_mminfra_power_on);
 	cmdq_get_mminfra_gce_cg_cb(is_gce_cg_on);
