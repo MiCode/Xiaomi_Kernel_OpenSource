@@ -58,8 +58,8 @@ const struct module_ops imgsys_isp7_modules[] = {
 	},
 	[IMGSYS_MOD_ADL] = {
 		.module_id = IMGSYS_MOD_ADL,
-		.init = imgsys_adl_set_initial_value,
-		.set = NULL,
+		.init = imgsys_adl_init,
+		.set = imgsys_adl_set,
 		.dump = imgsys_adl_debug_dump,
 		.uninit = imgsys_adl_uninit,
 	},

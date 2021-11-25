@@ -570,8 +570,8 @@ int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 				return -1;
 			}
 
-			dev_info(hcp_dev->dev, "%s: SLB buffer base(%p), size(%ld): %x",
-				__func__, slb.paddr, slb.size);
+			dev_info(hcp_dev->dev, "%s: SLB buffer base(0x%x), size(%ld): %x",
+				__func__, (uintptr_t)slb.paddr, slb.size);
 
 			ctrl.id    = CTRL_ID_SLB_BASE;
 			ctrl.value = ((slb.size << 32) |

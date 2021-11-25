@@ -39,7 +39,9 @@
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Public Functions
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void imgsys_adl_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_adl_init(struct mtk_imgsys_dev *imgsys_dev);
+
+void imgsys_adl_set(struct mtk_imgsys_dev *imgsys_dev);
 
 void imgsys_adl_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	uint32_t engine);
