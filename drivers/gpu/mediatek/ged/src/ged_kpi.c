@@ -290,6 +290,7 @@ unsigned int g_eb_workload;
 unsigned int g_eb_coef;
 
 int pid_sysui;
+int pid_sf;
 
 /* ------------------------------------------------------------------- */
 void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu, unsigned int cur_freq
@@ -1111,7 +1112,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				psKPI->cpu_gpu_info.gpu.tb_dvfs_margin =
 					ged_dvfs_get_tb_dvfs_margin_cur();
 
-				/* calculate gpu time */
+				/* calculate gpu_pipe time */
 				if (psKPI->ullTimeStamp1 >
 					psHead->last_TimeStamp2
 					&& psKPI->ullTimeStamp1 >
@@ -1154,7 +1155,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						&psKPI->gpu_loading);
 
 				psKPI->cpu_gpu_info.gpu.t_gpu_real =
-					((unsigned int)
+					((unsigned long long)
 					(psHead->last_TimeStamp2
 					- psHead->pre_TimeStamp2))
 					* psKPI->gpu_loading / 100U;
@@ -1165,8 +1166,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					ged_get_cur_limiter_floor();
 
 				cur_3D_done = psKPI->ullTimeStamp2;
-				if (psTimeStamp->i32GPUloading
-					|| psHead->pid != pid_sysui) {
+				if (psTimeStamp->i32GPUloading) {
 					/* not fallback mode */
 
 					/* choose which loading to calc. t_gpu */
@@ -1207,16 +1207,19 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 					time_spent = psKPI->cpu_gpu_info.gpu.t_gpu_real;
 
-					psKPI->gpu_done_interval = time_spent;
+					psKPI->gpu_done_interval = cur_3D_done - last_3D_done;
 
 					psKPI->t_gpu =
 						psHead->t_gpu_latest =
 						time_spent;
 
-					if (ged_is_fdvfs_support())
+					if (ged_is_fdvfs_support() &&
+						psTimeStamp->pid != pid_sf &&
+						psTimeStamp->pid != pid_sysui) {
 						g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
 							psKPI->gpu_done_interval, util_ex,
 							ged_kpi_get_cur_fps());
+					}
 				} else {
 					psKPI->t_gpu
 						= time_spent
@@ -1242,13 +1245,15 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			((((unsigned long) ged_get_dvfs_margin_mode()) & 0xFF)
 				<< 16);
 
-			if (!g_force_gpu_dvfs_fallback) {
-				psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
-				if (ged_is_fdvfs_support())
-					mtk_gpueb_dvfs_set_frame_base_dvfs(1);
-			} else {
-				if (ged_is_fdvfs_support())
-					mtk_gpueb_dvfs_set_frame_base_dvfs(0);
+			if (psTimeStamp->pid != pid_sf && psTimeStamp->pid != pid_sysui) {
+				if (main_head == psHead && !g_force_gpu_dvfs_fallback) {
+					psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
+					if (ged_is_fdvfs_support())
+						mtk_gpueb_dvfs_set_frame_base_dvfs(1);
+				} else {
+					if (ged_is_fdvfs_support())
+						mtk_gpueb_dvfs_set_frame_base_dvfs(0);
+				}
 			}
 
 			if (main_head == psHead)
@@ -1523,7 +1528,8 @@ static GED_ERROR ged_kpi_push_timestamp(
 			spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
 
 			if (!ged_kpi_check_if_fallback_mode()
-				&& !g_force_gpu_dvfs_fallback && pid != pid_sysui) {
+				&& !g_force_gpu_dvfs_fallback && pid != pid_sysui
+				&& pid != pid_sf) {
 				struct GpuUtilization_Ex util_ex;
 				ged_kpi_trigger_fb_dvfs();
 				ged_dvfs_cal_gpu_utilization_ex(
@@ -1651,7 +1657,8 @@ void ged_kpi_gpu_3d_fence_sync_cb(struct dma_fence *sFence,
 
 	// Hint frame boundary
 	if (g_ged_gpueb_support &&
-		(!ged_kpi_check_if_fallback_mode() && !g_force_gpu_dvfs_fallback))
+		(!ged_kpi_check_if_fallback_mode() && !g_force_gpu_dvfs_fallback)
+			&& psMonitor->pid != pid_sf && psMonitor->pid != pid_sysui)
 		g_eb_workload = mtk_gpueb_dvfs_set_frame_done();
 
 	dma_fence_put(psMonitor->psSyncFence);
@@ -1706,6 +1713,9 @@ GED_ERROR ged_kpi_dequeue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 
 	if (isSF == -1 && pid != pid_sysui)
 		pid_sysui = pid;
+
+	if (isSF == 1 && pid != pid_sf)
+		pid_sf = pid;
 
 	return ret;
 #else
