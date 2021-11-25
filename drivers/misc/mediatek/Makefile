@@ -64,6 +64,7 @@ obj-$(CONFIG_MTK_IRTX_PWM_SUPPORT) += irtx/
 obj-$(CONFIG_MTK_PBM) += pbm/
 obj-$(CONFIG_MTK_CCU) += ccu/src/
 obj-$(CONFIG_MEDIATEK_CPUFREQ_DEBUG) += cpufreq_v1/
+obj-$(CONFIG_MEDIATEK_CPUFREQ_DEBUG_LITE) += cpufreq_lite/
 obj-$(CONFIG_MTK_PTPOD_GPU) += eemgpu/
 obj-$(CONFIG_MTK_MKP) += mkp/
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table/
