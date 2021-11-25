@@ -94,7 +94,7 @@ static void __iomem *systimer_base;
 static unsigned int systimer_irq;
 #endif
 static unsigned int cpus_kick_bit;
-static atomic_t plug_mask = ATOMIC_INIT(0xFF);
+static atomic_t plug_mask = ATOMIC_INIT(0x0);
 
 static struct pt_regs saved_regs;
 
@@ -341,11 +341,11 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%lld,%lld,[%lld,%ld] %d\n",
+	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%x,%d,%d,%lld,%x,%lld,%lld,[%lld,%ld] %d\n",
 	 cpu, original_kicker, local_bit, get_check_bit(),
 	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
-	 lasthpg_act, lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
-	 curInterval, r_counter);
+	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t,
+	 lastresume_t, wk_tsk_kick_time[cpu], curInterval, r_counter);
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		msg_buf[5] = 'k';
@@ -547,6 +547,7 @@ static int start_kicker(void)
 			}
 			/* wk_cpu_update_bit_flag(i,1); */
 			wk_start_kick_cpu(i);
+			atomic_or(1 << i, &plug_mask);
 		} else
 			atomic_andnot(1 << i, &plug_mask);
 	}
@@ -589,10 +590,15 @@ static void wdk_work_callback(struct work_struct *work)
 
 	cpu_hotplug_disable();
 
-	res = cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ONLINE_DYN,
-		"watchdog:wdkctrl:hp", wk_cpu_callback_online, wk_cpu_callback_offline);
+	res = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+		"watchdog:wdkctrl:online", wk_cpu_callback_online, NULL);
 	if (res < 0)
-		pr_info("[wdk]setup CPUHP fail %d\n", res);
+		pr_info("[wdk]setup CPUHP_AP_ONLINE_DYN fail %d\n", res);
+
+	res = cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
+		"watchdog:wdkctrl:offline", NULL, wk_cpu_callback_offline);
+	if (res < 0)
+		pr_info("[wdk]setup CPUHP_BP_PREPARE_DYN fail %d\n", res);
 
 	for (i = 0; i < CPU_NR; i++) {
 		if (cpu_online(i)) {
@@ -638,8 +644,10 @@ static int __init init_wk_check_bit(void)
 	int i = 0;
 
 	pr_debug("[wdk]arch init check_bit=0x%x+++++\n", cpus_kick_bit);
-	for (i = 0; i < CPU_NR; i++)
-		wk_cpu_update_bit_flag(i, 1, 1);
+	for (i = 0; i < CPU_NR; i++) {
+		if (cpu_online(i))
+			wk_cpu_update_bit_flag(i, 1, 1);
+	}
 
 	pr_debug("[wdk]arch init check_bit=0x%x-----\n", cpus_kick_bit);
 	return 0;
