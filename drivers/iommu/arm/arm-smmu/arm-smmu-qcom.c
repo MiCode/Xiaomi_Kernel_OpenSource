@@ -515,6 +515,14 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 	sync_inv_ack = arm_smmu_readl(smmu,
 				      ARM_SMMU_IMPL_DEF5,
 				      ARM_SMMU_STATS_SYNC_INV_TBU_ACK);
+
+	if (sync_inv_ack) {
+		tbu_inv_pending = FIELD_GET(TBU_INV_REQ, sync_inv_ack);
+		tbu_inv_acked = FIELD_GET(TBU_INV_ACK, sync_inv_ack);
+		tbu_sync_pending = FIELD_GET(TBU_SYNC_REQ, sync_inv_ack);
+		tbu_sync_acked = FIELD_GET(TBU_SYNC_ACK, sync_inv_ack);
+	}
+
 	ret = qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
 				ARM_SMMU_TBU_PWR_STATUS), &tbu_pwr_status);
 	if (ret) {
@@ -532,13 +540,6 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 				    "SCM read of TBU sync/inv prog fails: %d\n",
 				    ret);
 		goto out;
-	}
-
-	if (sync_inv_ack) {
-		tbu_inv_pending = FIELD_GET(TBU_INV_REQ, sync_inv_ack);
-		tbu_inv_acked = FIELD_GET(TBU_INV_ACK, sync_inv_ack);
-		tbu_sync_pending = FIELD_GET(TBU_SYNC_REQ, sync_inv_ack);
-		tbu_sync_acked = FIELD_GET(TBU_SYNC_ACK, sync_inv_ack);
 	}
 
 	if (tbu_pwr_status) {
@@ -586,6 +587,24 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 		return;
 	}
 out:
+	if (ret) {
+		if (sync_inv_ack) {
+			/* TBU PWR status is not available so just dump raw
+			 * fields
+			 */
+			dev_err(smmu->dev,
+				"TBU %s ack pending, got ack for TBUs %d, %s\n",
+				tbu_sync_pending ? "sync" : "inv",
+				tbu_sync_pending ? tbu_sync_acked:tbu_inv_acked,
+				tbu_sync_pending ?
+				"check pending transactions on TBU"
+				: "check for TBU power status");
+
+		}
+
+		dev_err(smmu->dev, "TBU SYNC_INV_ACK reg 0x%x\n", sync_inv_ack);
+	}
+
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 }
 
