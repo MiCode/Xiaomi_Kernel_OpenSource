@@ -22,7 +22,7 @@
 #define FMT_CORE_NUM            2
 #define GCE_EVENT_MAX           8
 #define FMT_MAP_HW_REG_NUM      6
-#define FMT_INST_MAX            64
+#define FMT_INST_MAX            1024
 #define GCE_PENDING_CNT         10
 #define MAP_PA_BASE_1GB  0x40000000 /* < 1GB registers */
 #define SUSPEND_TIMEOUT_CNT     5000
