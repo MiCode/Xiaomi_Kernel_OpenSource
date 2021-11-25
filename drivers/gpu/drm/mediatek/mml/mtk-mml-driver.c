@@ -140,7 +140,7 @@ static void mml_qos_init(struct mml_dev *mml)
 void mml_qos_update_tput(struct mml_dev *mml)
 {
 	struct mml_topology_cache *tp = mml_topology_get_cache(mml);
-	u32 tput = 0, i;
+	u32 tput = 0, i, ni;
 	int volt, ret;
 
 	if (!tp || !tp->reg)
@@ -155,6 +155,8 @@ void mml_qos_update_tput(struct mml_dev *mml)
 		if (tput <= tp->opp_speeds[i])
 			break;
 	}
+	ni = i + 1 > tp->opp_cnt - 1 ? tp->opp_cnt - 1 : i + 1;
+	tp->freq_max = tp->opp_speeds[ni];
 	volt = tp->opp_volts[min(i, tp->opp_cnt - 1)];
 	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
 	if (ret)
