@@ -442,7 +442,6 @@ static int imgsensor_enum_mbus_code(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	code->code = to_mtk_ext_fmt_code(ctx->fmt_code, ctx->mode[code->index].id);
-	dev_info(ctx->dev, "enum mbus fmt code = 0x%x\n", code->code);
 
 	return 0;
 }

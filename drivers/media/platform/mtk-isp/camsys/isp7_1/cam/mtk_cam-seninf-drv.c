@@ -1475,7 +1475,8 @@ static int seninf_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	ctx->open_refcnt++;
 	core->pid = find_get_pid(current->pid);
 
-	dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
+	if (ctx->open_refcnt == 1)
+		dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
 
 	mutex_unlock(&ctx->mutex);
 
@@ -1489,9 +1490,9 @@ static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	mutex_lock(&ctx->mutex);
 	ctx->open_refcnt--;
 
-	dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
 
 	if (!ctx->open_refcnt) {
+		dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
 #ifdef SENINF_DEBUG
 		if (ctx->is_test_streamon)
 			seninf_test_streamon(ctx, 0);

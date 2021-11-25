@@ -508,7 +508,7 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 	memcpy(&ctx->ae_memento, ae_ctrl,
 		   sizeof(ctx->ae_memento));
 	if (!ctx->is_streaming) {
-		dev_info(ctx->dev, "%s streaming off, retore ae_ctrl later\n", __func__);
+		//dev_info(ctx->dev, "%s streaming off, retore ae_ctrl later\n", __func__);
 		return 0;
 	}
 
@@ -1621,7 +1621,7 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx)
 		return;
 	}
 
-	dev_dbg(ctx->dev, "%s\n", __func__);
+	//dev_dbg(ctx->dev, "%s\n", __func__);
 
 	do_set_ae_ctrl(ctx, &ctx->ae_memento);
 }

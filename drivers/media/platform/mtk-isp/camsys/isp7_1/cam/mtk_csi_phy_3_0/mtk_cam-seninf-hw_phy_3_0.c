@@ -296,13 +296,14 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 0);
+#if LOG_MORE
 	dev_info(ctx->dev, "%s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
 	__func__,
 	cam_mux,
 	SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL),
 	SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_EN),
 	SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
-
+#endif
 	return 0;
 }
 
@@ -767,7 +768,7 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 			break;
 		}
 	}
-
+#if LOG_MORE
 	dev_info(ctx->dev, "DI_CTRL 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 		 SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S0_DI_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S1_DI_CTRL),
@@ -783,7 +784,7 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH1_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH2_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH3_CTRL));
-
+#endif
 	return 0;
 }
 
@@ -2548,6 +2549,9 @@ static int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx)
 			ctx->pad2cam[vc->out_pad] = 0xff;
 		}
 	}
+#if LOG_MORE != 1
+	dev_info(ctx->dev, "%s	rlease all mux & cam mux\n", __func__);
+#endif
 
 	return 0;
 }
