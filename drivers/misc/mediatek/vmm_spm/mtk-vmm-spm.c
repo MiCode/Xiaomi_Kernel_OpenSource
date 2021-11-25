@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
+#include <linux/timekeeping.h>
 
 #define ISPDVFS_DBG
 #ifdef ISPDVFS_DBG
@@ -31,10 +32,12 @@
 	pr_notice("[ISPDVFS] fatal %s(),%d: " fmt "\n", \
 		__func__, __LINE__, ##args)
 
+#define SPM_VMM_HW_SEM_REG_OFST 0x6A8
 #define SPM_VMM_ISO_REG_OFST 0xF30
 #define SPM_VMM_EXT_BUCK_ISO_BIT 16
 #define SPM_AOC_VMM_SRAM_ISO_DIN_BIT 17
 #define SPM_AOC_VMM_SRAM_LATCH_ENB 18
+#define SPM_HW_SEM_TIMEOUT_NS 1000000000 /* 1 sec for acquiring sem timeout */
 
 struct vmm_spm_drv_data {
 	void __iomem *spm_reg;
@@ -43,10 +46,51 @@ struct vmm_spm_drv_data {
 
 struct vmm_spm_drv_data g_drv_data;
 
+static int acquire_hw_semaphore(void __iomem *hw_sem_addr)
+{
+	u32 hw_sem;
+	u64 w_timestamp, r_timestamp, time_remain;
+
+	/* Try to acquire hw semaphore */
+	hw_sem = readl_relaxed(hw_sem_addr);
+	hw_sem |= 0x1;
+	writel_relaxed(hw_sem, hw_sem_addr);
+	w_timestamp = ktime_get_boottime_ns();
+
+	do {
+		hw_sem = readl_relaxed(hw_sem_addr) & 0x1;
+
+		r_timestamp = ktime_get_boottime_ns();
+		time_remain = r_timestamp - w_timestamp;
+		if (time_remain > SPM_HW_SEM_TIMEOUT_NS) {
+			ISP_LOGE("Acquire hw sem timeout (%lu)\n", time_remain);
+			WARN_ON(1);
+			return -EINVAL;
+		}
+	} while (hw_sem != 0x1);
+
+	return 0;
+}
+
+static void release_hw_semaphore(void __iomem *hw_sem_addr)
+{
+	u32 hw_sem;
+
+	hw_sem = readl_relaxed(hw_sem_addr);
+	hw_sem |= 0x1;
+	writel_relaxed(hw_sem, hw_sem_addr);
+}
+
 static void vmm_buck_isolation_off(void __iomem *base)
 {
 	void __iomem *reg_buck_iso_addr = base + SPM_VMM_ISO_REG_OFST;
+	void __iomem *hw_sem_addr = base + SPM_VMM_HW_SEM_REG_OFST;
 	u32 reg_buck_iso_val;
+
+	if (acquire_hw_semaphore(hw_sem_addr)) {
+		ISP_LOGE("vmm_buck_isolation_off fail\n");
+		return;
+	}
 
 	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
 	reg_buck_iso_val &= ~(1UL << SPM_VMM_EXT_BUCK_ISO_BIT);
@@ -59,12 +103,20 @@ static void vmm_buck_isolation_off(void __iomem *base)
 	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
 	reg_buck_iso_val &= ~(1UL << SPM_AOC_VMM_SRAM_LATCH_ENB);
 	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	release_hw_semaphore(hw_sem_addr);
 }
 
 static void vmm_buck_isolation_on(void __iomem *base)
 {
 	void __iomem *reg_buck_iso_addr = base + SPM_VMM_ISO_REG_OFST;
+	void __iomem *hw_sem_addr = base + SPM_VMM_HW_SEM_REG_OFST;
 	u32 reg_buck_iso_val;
+
+	if (acquire_hw_semaphore(hw_sem_addr)) {
+		ISP_LOGE("vmm_buck_isolation_on fail\n");
+		return;
+	}
 
 	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
 	reg_buck_iso_val |= (1UL << SPM_AOC_VMM_SRAM_LATCH_ENB);
@@ -77,6 +129,8 @@ static void vmm_buck_isolation_on(void __iomem *base)
 	reg_buck_iso_val = readl_relaxed(reg_buck_iso_addr);
 	reg_buck_iso_val |= (1UL << SPM_VMM_EXT_BUCK_ISO_BIT);
 	writel_relaxed(reg_buck_iso_val, reg_buck_iso_addr);
+
+	release_hw_semaphore(hw_sem_addr);
 }
 
 static int regulator_event_notify(struct notifier_block *nb,
