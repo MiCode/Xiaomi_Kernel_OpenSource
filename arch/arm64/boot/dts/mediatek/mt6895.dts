@@ -586,6 +586,13 @@
 		clock-frequency = <13000000>;
 	};
 
+	hwrng: hwrng {
+		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
+	};
+
 	qos:qos@0011bb00 {
 		compatible = "mediatek,mt6893-qos";
 		mediatek,qos_enable = <1>;
