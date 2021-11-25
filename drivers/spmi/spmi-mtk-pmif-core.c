@@ -964,7 +964,10 @@ static int mtk_spmi_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct spmi_controller *ctrl;
 	int err = 0;
-
+#if defined(CONFIG_FPGA_EARLY_PORTING)
+	u8 id_l = 0, id_h = 0, val = 0, test_id = 0x5;
+	u16 hwcid_l_addr = 0x8, hwcid_h_addr = 0x9, test_w_addr = 0x3a7;
+#endif
 	ctrl = spmi_controller_alloc(&pdev->dev, sizeof(*arb));
 	if (!ctrl)
 		return -ENOMEM;
@@ -1112,6 +1115,25 @@ static int mtk_spmi_probe(struct platform_device *pdev)
 				   "Failed to register rcs_irq, ret = %d\n", arb->rcs_irq);
 		}
 	}
+#if defined(CONFIG_FPGA_EARLY_PORTING)
+	/* pmif/spmi initial setting */
+	pmif_writel(arb, 0xffffffff, PMIF_INF_EN);
+	pmif_writel(arb, 0xffffffff, PMIF_ARB_EN);
+	pmif_writel(arb, 0x1, PMIF_CMDISSUE_EN);
+	pmif_writel(arb, 0x1, PMIF_INIT_DONE);
+
+	mtk_spmi_writel(arb, 0x1, SPMI_MST_REQ_EN);
+	/* r/w verification */
+	ctrl->read_cmd(ctrl, 0x38, test_id, hwcid_l_addr, &id_l, 1);
+	ctrl->read_cmd(ctrl, 0x38, test_id, hwcid_h_addr, &id_h, 1);
+	dev_notice(&pdev->dev, "%s PMIC=[0x%x%x]\n", __func__, id_h, id_l);
+	val = 0x5a;
+	ctrl->write_cmd(ctrl, 0x30, test_id, test_w_addr, &val, 1);
+	val = 0x0;
+	ctrl->read_cmd(ctrl, 0x38, test_id, test_w_addr, &val, 1);
+	dev_notice(&pdev->dev, "%s check [0x%x] = 0x%x\n", __func__, test_w_addr, val);
+
+#endif
 	platform_set_drvdata(pdev, ctrl);
 
 	err = spmi_controller_add(ctrl);
