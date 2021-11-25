@@ -16,6 +16,9 @@
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 #include "vcp_helper.h"
 #endif
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+#include "mtk_vcu.h"
+#endif
 #include <linux/trace_events.h>
 
 /* #define FPGA_PWRCLK_API_DISABLE */
@@ -101,6 +104,7 @@ extern char mtk_venc_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern int mtk_vdec_sw_mem_sec;
 
 #define DEBUG   1
+#define VCU_FPTR(x) (vcu_func.x)
 
 #if defined(DEBUG)
 

@@ -34,7 +34,7 @@ static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)
 
 	/* mapping VCU address to kernel virtual address */
 	/* the content in vsi is initialized to 0 in VCU */
-	vcu->vsi = vcu_mapping_dm_addr(vcu->dev, msg->vcu_inst_addr);
+	vcu->vsi = VCU_FPTR(vcu_mapping_dm_addr)(vcu->dev, msg->vcu_inst_addr);
 	vcu->inst_addr = msg->vcu_inst_addr;
 	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%x", vcu->inst_addr);
 }
@@ -50,7 +50,7 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 	mtk_vcodec_debug(vcu, "+ ap_inst_addr = 0x%lx, vcu_data_addr = 0x%x, id = %d",
 		(uintptr_t)msg->ap_inst_addr, msg->vcu_data_addr, msg->id);
 	/* mapping VCU address to kernel virtual address */
-	data = vcu_mapping_dm_addr(vcu->dev, msg->vcu_data_addr);
+	data = VCU_FPTR(vcu_mapping_dm_addr)(vcu->dev, msg->vcu_data_addr);
 	if (data == NULL)
 		return;
 	switch (msg->id) {
@@ -170,7 +170,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	BUILD_BUG_ON(
 		sizeof(struct vdec_vcu_ipi_query_cap_ack) > SHARE_BUF_SIZE);
 
-	vcu_get_task(&task, 0);
+	VCU_FPTR(vcu_get_task)(&task, 0);
 	if (msg == NULL || task == NULL ||
 	   task->tgid != current->tgid ||
 	   (struct vdec_vcu_inst *)msg->ap_inst_addr == NULL) {
@@ -414,7 +414,7 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 		usleep_range(10000, 20000);
 	}
 
-	vcu_get_task(&task, 0);
+	VCU_FPTR(vcu_get_task)(&task, 0);
 	if (task == NULL ||
 		vcu->daemon_pid != task->tgid) {
 		if (task)
@@ -428,9 +428,9 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 	vcu->signaled = 0;
 
 	if (*(__u32 *)msg == AP_IPIMSG_DEC_FRAME_BUFFER)
-		err = vcu_ipi_send(vcu->dev, IPI_VDEC_RESOURCE, msg, len, vcu->ctx->dev);
+		err = VCU_FPTR(vcu_ipi_send)(vcu->dev, IPI_VDEC_RESOURCE, msg, len, vcu->ctx->dev);
 	else
-		err = vcu_ipi_send(vcu->dev, vcu->id, msg, len, vcu->ctx->dev);
+		err = VCU_FPTR(vcu_ipi_send)(vcu->dev, vcu->id, msg, len, vcu->ctx->dev);
 
 	if (err) {
 		mtk_vcodec_err(vcu, "send fail vcu_id=%d msg_id=%X status=%d",
@@ -464,7 +464,7 @@ void vcu_dec_set_pid(struct vdec_vcu_inst *vcu)
 {
 	struct task_struct *task = NULL;
 
-	vcu_get_task(&task, 0);
+	VCU_FPTR(vcu_get_task)(&task, 0);
 	if (task != NULL)
 		vcu->daemon_pid = task->tgid;
 	else
@@ -488,7 +488,7 @@ int vcu_dec_set_ctx(struct vdec_vcu_inst *vcu,
 		temp = container_of(fb, struct mtk_video_dec_buf, frame_buffer);
 		dst_vb = &temp->vb.vb2_buf;
 	}
-	vcu_set_codec_ctx(vcu->dev,
+	VCU_FPTR(vcu_set_codec_ctx)(vcu->dev,
 		(void *)vcu->ctx,
 		src_vb, dst_vb,
 		VCU_VDEC);
@@ -500,7 +500,7 @@ int vcu_dec_clear_ctx(struct vdec_vcu_inst *vcu)
 {
 	int err = 0;
 
-	vcu_clear_codec_ctx(vcu->dev,
+	VCU_FPTR(vcu_clear_codec_ctx)(vcu->dev,
 		(void *)vcu->ctx, VCU_VDEC);
 
 	return err;
@@ -514,15 +514,16 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	mtk_vcodec_debug_enter(vcu);
 	vcu->signaled = 0;
 	vcu->failure = 0;
-	vcu_get_ctx_ipi_binding_lock(vcu->dev, &vcu->ctx_ipi_lock, VCU_VDEC);
+	VCU_FPTR(vcu_get_ctx_ipi_binding_lock)(vcu->dev, &vcu->ctx_ipi_lock, VCU_VDEC);
 
-	err = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler, NULL, vcu->ctx->dev);
+	err = VCU_FPTR(vcu_ipi_register)(vcu->dev, vcu->id, vcu->handler, NULL, vcu->ctx->dev);
 	if (err != 0) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register %d fail status=%d", vcu->id, err);
 		return err;
 	}
 
-	err = vcu_ipi_register(vcu->dev, IPI_VDEC_RESOURCE, vcu->handler, NULL, vcu->ctx->dev);
+	err = VCU_FPTR(vcu_ipi_register)(vcu->dev, IPI_VDEC_RESOURCE,
+		vcu->handler, NULL, vcu->ctx->dev);
 	if (err != 0) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register resource fail status=%d", err);
 		return err;
@@ -612,7 +613,7 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 	int err = 0;
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_DEC_QUERY_CAP);
-	vcu->dev = vcu_get_plat_device(vcu->ctx->dev->plat_dev);
+	vcu->dev = VCU_FPTR(vcu_get_plat_device)(vcu->ctx->dev->plat_dev);
 	if (vcu->dev  == NULL) {
 		mtk_vcodec_err(vcu, "vcu device in not ready");
 		return -EPROBE_DEFER;
@@ -621,7 +622,7 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 	vcu->id = (vcu->id == IPI_VCU_INIT) ? IPI_VDEC_COMMON : vcu->id;
 	vcu->handler = vcu_dec_ipi_handler;
 
-	err = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler, NULL, vcu->ctx->dev);
+	err = VCU_FPTR(vcu_ipi_register)(vcu->dev, vcu->id, vcu->handler, NULL, vcu->ctx->dev);
 	if (err != 0) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register fail status=%d", err);
 		return err;

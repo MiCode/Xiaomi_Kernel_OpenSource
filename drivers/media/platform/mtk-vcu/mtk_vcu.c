@@ -1348,22 +1348,6 @@ int vcu_clear_codec_ctx(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_GPL(vcu_clear_codec_ctx);
 
-unsigned int vcu_get_vdec_hw_capa(struct platform_device *pdev)
-{
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
-
-	return vcu->run.dec_capability;
-}
-EXPORT_SYMBOL_GPL(vcu_get_vdec_hw_capa);
-
-unsigned int vcu_get_venc_hw_capa(struct platform_device *pdev)
-{
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
-
-	return vcu->run.enc_capability;
-}
-EXPORT_SYMBOL_GPL(vcu_get_venc_hw_capa);
-
 void *vcu_mapping_dm_addr(struct platform_device *pdev,
 			  uintptr_t dtcm_dmem_addr)
 {
@@ -1479,24 +1463,6 @@ int vcu_compare_version(struct platform_device *pdev,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(vcu_compare_version);
-
-int vcu_get_sig_lock(unsigned long *flags)
-{
-	return spin_trylock_irqsave(&vcu_ptr->vpud_sig_lock, *flags);
-}
-EXPORT_SYMBOL_GPL(vcu_get_sig_lock);
-
-void vcu_put_sig_lock(unsigned long flags)
-{
-	spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
-}
-EXPORT_SYMBOL_GPL(vcu_put_sig_lock);
-
-int vcu_check_vpud_alive(void)
-{
-	return (vcu_ptr->vpud_is_going_down > 0) ? 0:1;
-}
-EXPORT_SYMBOL_GPL(vcu_check_vpud_alive);
 
 void vcu_get_task(struct task_struct **task, int reset)
 {
@@ -2646,8 +2612,19 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	//register_trace_signal_generate(probe_death_signal, NULL);
 	spin_lock_init(&vcu_ptr->vpud_sig_lock);
 	vcu_ptr->vpud_is_going_down = 0;
-
 	vcu_ptr->enable_vcu_dbg_log = 0;
+
+	vcu_func.vcu_get_plat_device = vcu_get_plat_device;
+	vcu_func.vcu_load_firmware = vcu_load_firmware;
+	vcu_func.vcu_compare_version = vcu_compare_version;
+	vcu_func.vcu_get_task = vcu_get_task;
+	vcu_func.vcu_set_v4l2_callback = vcu_set_v4l2_callback;
+	vcu_func.vcu_get_ctx_ipi_binding_lock = vcu_get_ctx_ipi_binding_lock;
+	vcu_func.vcu_clear_codec_ctx = vcu_clear_codec_ctx;
+	vcu_func.vcu_mapping_dm_addr = vcu_mapping_dm_addr;
+	vcu_func.vcu_ipi_register = vcu_ipi_register;
+	vcu_func.vcu_ipi_send = vcu_ipi_send;
+	vcu_func.vcu_set_codec_ctx = vcu_set_codec_ctx;
 
 	dev_dbg(dev, "[VCU] initialization completed\n");
 	return 0;

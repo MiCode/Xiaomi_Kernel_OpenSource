@@ -106,12 +106,12 @@ static int fops_vcodec_open(struct file *file)
 	mtk_vcodec_dec_set_default_params(ctx);
 
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
-	if (v4l2_fh_is_singular(&ctx->fh)) {
+	if (v4l2_fh_is_singular(&ctx->fh) && VCU_FPTR(vcu_load_firmware)) {
 		/*
 		 * vcu_load_firmware checks if it was loaded already and
 		 * does nothing in that case
 		 */
-		ret = vcu_load_firmware(dev->vcu_plat_dev);
+		ret = VCU_FPTR(vcu_load_firmware)(dev->vcu_plat_dev);
 		if (ret < 0) {
 			/*
 			 * Return 0 if downloading firmware successfully,
@@ -121,17 +121,13 @@ static int fops_vcodec_open(struct file *file)
 			goto err_load_fw;
 		}
 
-		if (vcu_compare_version(dev->vcu_plat_dev,
+		if (VCU_FPTR(vcu_compare_version)(dev->vcu_plat_dev,
 			MTK_VCU_FW_VERSION) != 0) {
 			mtk_v4l2_err("Invalid vcu firmware, should be %s!",
 						 MTK_VCU_FW_VERSION);
 			ret = -EPERM;
 			goto err_load_fw;
 		}
-
-		dev->dec_capability =
-			vcu_get_vdec_hw_capa(dev->vcu_plat_dev);
-		mtk_v4l2_debug(0, "decoder capability %x", dev->dec_capability);
 	}
 #endif
 	dev->dec_cnt++;
@@ -300,10 +296,12 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	dev->plat_dev = pdev;
 
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
-	dev->vcu_plat_dev = vcu_get_plat_device(dev->plat_dev);
-	if (dev->vcu_plat_dev == NULL) {
-		mtk_v4l2_err("[VCU] vcu device in not ready");
-		return -EPROBE_DEFER;
+	if (VCU_FPTR(vcu_get_plat_device)) {
+		dev->vcu_plat_dev = VCU_FPTR(vcu_get_plat_device)(dev->plat_dev);
+		if (dev->vcu_plat_dev == NULL) {
+			mtk_v4l2_err("[VCU] vcu device in not ready");
+			return -EPROBE_DEFER;
+		}
 	}
 #endif
 

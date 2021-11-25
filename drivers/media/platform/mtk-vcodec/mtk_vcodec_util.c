@@ -71,6 +71,9 @@ EXPORT_SYMBOL(mtk_venc_vcp_log);
 int mtk_vdec_sw_mem_sec;
 EXPORT_SYMBOL_GPL(mtk_vdec_sw_mem_sec);
 
+struct vcu_v4l2_func vcu_func = { NULL };
+EXPORT_SYMBOL_GPL(vcu_func);
+
 /* VCODEC FTRACE */
 unsigned long vcodec_get_tracing_mark(void)
 {

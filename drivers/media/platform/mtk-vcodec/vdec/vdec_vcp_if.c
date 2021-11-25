@@ -690,7 +690,7 @@ static int vdec_vcp_ipi_isr(unsigned int id, void *prdata, void *data,
 		list_add_tail(&mq_node->list, &dev->mq.head);
 		atomic_inc(&dev->mq.cnt);
 		spin_unlock_irqrestore(&dev->mq.lock, flags);
-		mtk_v4l2_debug(2, "push ipi_id %x msg_id %x, ml_cnt %d",
+		mtk_v4l2_debug(8, "push ipi_id %x msg_id %x, ml_cnt %d",
 			obj->id, msg->msg_id, atomic_read(&dev->mq.cnt));
 		wake_up(&dev->mq.wq);
 	} else {

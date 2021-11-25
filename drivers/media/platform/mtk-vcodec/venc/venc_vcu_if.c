@@ -21,7 +21,7 @@ static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 	if (vcu == NULL)
 		return;
 	vcu->inst_addr = msg->vcu_inst_addr;
-	vcu->vsi = vcu_mapping_dm_addr(vcu->dev, msg->vcu_inst_addr);
+	vcu->vsi = VCU_FPTR(vcu_mapping_dm_addr)(vcu->dev, msg->vcu_inst_addr);
 }
 
 static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
@@ -35,7 +35,7 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 	mtk_vcodec_debug(vcu, "+ ap_inst_addr = 0x%lx, vcu_data_addr = 0x%x, id = %d",
 		(uintptr_t)msg->ap_inst_addr, msg->vcu_data_addr, msg->id);
 	/* mapping VCU address to kernel virtual address */
-	data = vcu_mapping_dm_addr(vcu->dev, msg->vcu_data_addr);
+	data = VCU_FPTR(vcu_mapping_dm_addr)(vcu->dev, msg->vcu_data_addr);
 	if (data == NULL)
 		return;
 	switch (msg->id) {
@@ -131,7 +131,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_deinit) > SHARE_BUF_SIZE);
 	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_waitisr) > SHARE_BUF_SIZE);
 
-	vcu_get_task(&task, 0);
+	VCU_FPTR(vcu_get_task)(&task, 0);
 	if (msg == NULL || task == NULL ||
 	   task->tgid != current->tgid ||
 	   (struct venc_vcu_inst *)(unsigned long)msg->venc_inst == NULL) {
@@ -263,7 +263,7 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 		usleep_range(10000, 20000);
 	}
 
-	vcu_get_task(&task, 0);
+	VCU_FPTR(vcu_get_task)(&task, 0);
 	if (task == NULL ||
 		vcu->daemon_pid != task->tgid) {
 		if (task)
@@ -273,7 +273,7 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 		return -EIO;
 	}
 
-	status = vcu_ipi_send(vcu->dev, vcu->id, msg, len, vcu);
+	status = VCU_FPTR(vcu_ipi_send)(vcu->dev, vcu->id, msg, len, vcu);
 	if (status) {
 		mtk_vcodec_err(vcu, "vcu_ipi_send msg_id %x len %d fail %d",
 					   *(uint32_t *)msg, len, status);
@@ -297,7 +297,7 @@ void vcu_enc_set_pid(struct venc_vcu_inst *vcu)
 {
 	struct task_struct *task = NULL;
 
-	vcu_get_task(&task, 0);
+	VCU_FPTR(vcu_get_task)(&task, 0);
 	if (task != NULL)
 		vcu->daemon_pid = task->tgid;
 	else
@@ -321,7 +321,7 @@ int vcu_enc_set_ctx(struct venc_vcu_inst *vcu,
 		temp = container_of(bs_buf, struct mtk_video_enc_buf, bs_buf);
 		dst_vb = &temp->vb.vb2_buf;
 	}
-	vcu_set_codec_ctx(vcu->dev,
+	VCU_FPTR(vcu_set_codec_ctx)(vcu->dev,
 		(void *)vcu->ctx,
 		src_vb, dst_vb,
 		VCU_VENC);
@@ -333,7 +333,7 @@ int vcu_enc_clear_ctx(struct venc_vcu_inst *vcu)
 {
 	int err = 0;
 
-	vcu_clear_codec_ctx(vcu->dev,
+	VCU_FPTR(vcu_clear_codec_ctx)(vcu->dev,
 		(void *)vcu->ctx, VCU_VENC);
 
 	return err;
@@ -354,9 +354,9 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 
 	vcu->signaled = 0;
 	vcu->failure = 0;
-	vcu_get_ctx_ipi_binding_lock(vcu->dev, &vcu->ctx_ipi_lock, VCU_VENC);
+	VCU_FPTR(vcu_get_ctx_ipi_binding_lock)(vcu->dev, &vcu->ctx_ipi_lock, VCU_VENC);
 
-	status = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler,
+	status = VCU_FPTR(vcu_ipi_register)(vcu->dev, vcu->id, vcu->handler,
 							  NULL, vcu);
 	if (status) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register fail %d", status);
@@ -391,7 +391,7 @@ int vcu_enc_query_cap(struct venc_vcu_inst *vcu, unsigned int id, void *out)
 	}
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_ENC_QUERY_CAP);
-	vcu->dev = vcu_get_plat_device(vcu->ctx->dev->plat_dev);
+	vcu->dev = VCU_FPTR(vcu_get_plat_device)(vcu->ctx->dev->plat_dev);
 	if (vcu->dev  == NULL) {
 		mtk_vcodec_err(vcu, "vcu device in not ready");
 		return -EPROBE_DEFER;
@@ -400,7 +400,7 @@ int vcu_enc_query_cap(struct venc_vcu_inst *vcu, unsigned int id, void *out)
 	vcu->id = (vcu->id == IPI_VCU_INIT) ? IPI_VENC_COMMON : vcu->id;
 	vcu->handler = vcu_enc_ipi_handler;
 
-	err = vcu_ipi_register(vcu->dev,
+	err = VCU_FPTR(vcu_ipi_register)(vcu->dev,
 		vcu->id, vcu->handler, NULL, vcu);
 	if (err != 0) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register fail status=%d", err);

@@ -110,12 +110,12 @@ static int fops_vcodec_open(struct file *file)
 	mtk_vcodec_enc_set_default_params(ctx);
 
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
-	if (v4l2_fh_is_singular(&ctx->fh)) {
+	if (v4l2_fh_is_singular(&ctx->fh) && VCU_FPTR(vcu_load_firmware)) {
 		/*
 		 * vcu_load_firmware checks if it was loaded already and
 		 * does nothing in that case
 		 */
-		ret = vcu_load_firmware(dev->vcu_plat_dev);
+		ret = VCU_FPTR(vcu_load_firmware)(dev->vcu_plat_dev);
 		if (ret < 0) {
 			/*
 			 * Return 0 if downloading firmware successfully,
@@ -124,10 +124,6 @@ static int fops_vcodec_open(struct file *file)
 			mtk_v4l2_err("vcu_load_firmware failed!");
 			goto err_load_fw;
 		}
-
-		dev->enc_capability =
-			vcu_get_venc_hw_capa(dev->vcu_plat_dev);
-		mtk_v4l2_debug(0, "encoder capability %x", dev->enc_capability);
 	}
 #endif
 	mtk_v4l2_debug(2, "Create instance [%d]@%p m2m_ctx=%p ",
@@ -288,10 +284,12 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&dev->ctx_list);
 	dev->plat_dev = pdev;
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
-	dev->vcu_plat_dev = vcu_get_plat_device(dev->plat_dev);
-	if (dev->vcu_plat_dev == NULL) {
-		mtk_v4l2_err("[VCU] vcu device in not ready");
-		return -EPROBE_DEFER;
+	if (VCU_FPTR(vcu_get_plat_device)) {
+		dev->vcu_plat_dev = VCU_FPTR(vcu_get_plat_device)(dev->plat_dev);
+		if (dev->vcu_plat_dev == NULL) {
+			mtk_v4l2_err("[VCU] vcu device in not ready");
+			return -EPROBE_DEFER;
+		}
 	}
 #endif
 	ret = of_property_read_string(pdev->dev.of_node, "mediatek,platform", &dev->platform);

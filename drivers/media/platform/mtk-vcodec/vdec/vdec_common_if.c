@@ -98,7 +98,7 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst->ctx = ctx;
 	inst->vcu.id = IPI_VDEC_COMMON;
-	inst->vcu.dev = vcu_get_plat_device(ctx->dev->plat_dev);
+	inst->vcu.dev = VCU_FPTR(vcu_get_plat_device)(ctx->dev->plat_dev);
 	if (inst->vcu.dev  == NULL) {
 		mtk_vcodec_err(inst, "vcu device is not ready");
 		goto error_free_inst;
@@ -117,7 +117,7 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	memset(&cb, 0, sizeof(struct vcu_v4l2_callback_func));
 	cb.gce_timeout_dump = mtk_vcodec_gce_timeout_dump;
 	cb.vdec_realease_lock = vdec_check_release_lock;
-	vcu_set_v4l2_callback(inst->vcu.dev, &cb);
+	VCU_FPTR(vcu_set_v4l2_callback)(inst->vcu.dev, &cb);
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
 	ctx->input_driven = inst->vsi->input_driven;

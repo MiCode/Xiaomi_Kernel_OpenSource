@@ -95,6 +95,32 @@ struct vcu_v4l2_callback_func {
 	void (*vdec_realease_lock)(void *ctx);
 };
 
+struct vcu_v4l2_func {
+	struct platform_device *(*vcu_get_plat_device)(struct platform_device *pdev);
+	int (*vcu_load_firmware)(struct platform_device *pdev);
+	int (*vcu_compare_version)(struct platform_device *pdev,
+				const char *expected_version);
+	void (*vcu_get_task)(struct task_struct **task, int reset);
+	int (*vcu_set_v4l2_callback)(struct platform_device *pdev,
+		struct vcu_v4l2_callback_func *call_back);
+	int (*vcu_get_ctx_ipi_binding_lock)(struct platform_device *pdev,
+		struct mutex **mutex, unsigned long type);
+	int (*vcu_set_codec_ctx)(struct platform_device *pdev,
+			 void *codec_ctx, struct vb2_buffer *src_vb,
+			 struct vb2_buffer *dst_vb, unsigned long type);
+	int (*vcu_clear_codec_ctx)(struct platform_device *pdev,
+			 void *codec_ctx, unsigned long type);
+	void *(*vcu_mapping_dm_addr)(struct platform_device *pdev,
+				  uintptr_t dtcm_dmem_addr);
+	int (*vcu_ipi_register)(struct platform_device *pdev,
+				 enum ipi_id id, ipi_handler_t handler,
+				 const char *name, void *priv);
+	int (*vcu_ipi_send)(struct platform_device *pdev,
+			 enum ipi_id id, void *buf,
+			 unsigned int len, void *priv);
+};
+extern struct vcu_v4l2_func vcu_func;
+
 /**
  * vcu_ipi_register - register an ipi function
  *
@@ -140,24 +166,6 @@ int vcu_ipi_send(struct platform_device *pdev,
  * otherwise it is VCU's platform device
  **/
 struct platform_device *vcu_get_plat_device(struct platform_device *pdev);
-
-/**
- * vcu_get_vdec_hw_capa - get video decoder hardware capability
- *
- * @pdev:       VCU platform device
- *
- * Return: video decoder hardware capability
- **/
-unsigned int vcu_get_vdec_hw_capa(struct platform_device *pdev);
-
-/**
- * vcu_get_venc_hw_capa - get video encoder hardware capability
- *
- * @pdev:       VCU platform device
- *
- * Return: video encoder hardware capability
- **/
-unsigned int vcu_get_venc_hw_capa(struct platform_device *pdev);
 
 /**
  * vcu_load_firmware - download VCU firmware and boot it
@@ -209,10 +217,6 @@ void *vcu_mapping_dm_addr(struct platform_device *pdev,
  *
  **/
 void vcu_get_task(struct task_struct **task, int reset);
-int vcu_get_sig_lock(unsigned long *flags);
-void vcu_put_sig_lock(unsigned long flags);
-int vcu_check_vpud_alive(void);
-extern void smp_inner_dcache_flush_all(void);
 int vcu_set_v4l2_callback(struct platform_device *pdev,
 	struct vcu_v4l2_callback_func *call_back);
 int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,

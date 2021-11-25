@@ -616,9 +616,6 @@ struct mtk_vcodec_dev {
 	struct mutex enc_dvfs_mutex;
 
 	struct mtk_vcodec_pm pm;
-	unsigned int dec_capability;
-	unsigned int enc_capability;
-
 	struct notifier_block pm_notifier;
 	bool is_codec_suspending;
 

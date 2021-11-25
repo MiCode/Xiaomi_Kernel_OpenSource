@@ -1842,12 +1842,9 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 	struct v4l2_frmsizeenum *fsize)
 {
 	int i = 0;
-	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
 
 	if (fsize->index != 0)
 		return -EINVAL;
-
-
 
 	for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT &&
 		 mtk_vdec_framesizes[i].fourcc != 0; ++i) {
@@ -1859,8 +1856,7 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 		fsize->reserved[1] = mtk_vdec_framesizes[i].level;
 		fsize->stepwise = mtk_vdec_framesizes[i].stepwise;
 
-		mtk_v4l2_debug(1, "%x, %d %d %d %d %d %d %d %d",
-					   ctx->dev->dec_capability,
+		mtk_v4l2_debug(1, "%d %d %d %d %d %d %d %d",
 					   fsize->stepwise.min_width,
 					   fsize->stepwise.max_width,
 					   fsize->stepwise.step_width,
