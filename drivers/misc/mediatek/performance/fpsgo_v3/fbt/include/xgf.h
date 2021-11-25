@@ -372,6 +372,7 @@ extern int fstb_target_fps_margin_high_fps;
 extern int fstb_separate_runtime_enable;
 extern int fstb_fps_num;
 extern int fstb_fps_choice[];
+extern int fstb_consider_deq;
 
 int __init init_xgf(void);
 

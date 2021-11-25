@@ -78,6 +78,8 @@ int fstb_fps_num = TARGET_FPS_LEVEL;
 EXPORT_SYMBOL(fstb_fps_num);
 int fstb_fps_choice[TARGET_FPS_LEVEL] = {20, 25, 30, 40, 45, 60, 90, 120, 144, 240};
 EXPORT_SYMBOL(fstb_fps_choice);
+int fstb_consider_deq = 1;
+EXPORT_SYMBOL(fstb_consider_deq);
 
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
@@ -97,6 +99,7 @@ module_param(fstb_can_update_thr, int, 0644);
 module_param(fstb_target_fps_margin_low_fps, int, 0644);
 module_param(fstb_target_fps_margin_high_fps, int, 0644);
 module_param(fstb_separate_runtime_enable, int, 0644);
+module_param(fstb_consider_deq, int, 0644);
 
 HLIST_HEAD(xgf_renders);
 HLIST_HEAD(xgf_hw_events);
