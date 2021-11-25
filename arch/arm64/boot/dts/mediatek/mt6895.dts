@@ -7291,7 +7291,11 @@
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L23_IMG2_SMTO_T6_C)
 					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L23_IMG2_DBGO_T1_C)
-					&mmqos SLAVE_COMMON(0)>;
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos SLAVE_LARB(9)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos SLAVE_LARB(12)
+					&mmqos SLAVE_COMMON(1)>;
 			interconnect-names =
 					"l9_imgi_t1_a",
 					"l9_ufdi_t1_a",
@@ -7448,7 +7452,9 @@
 					"l23_smto_t1_c",
 					"l23_smto_t4_c",
 					"l23_smto_t6_c",
-					"l23_dbgo_t1_c";
+					"l23_dbgo_t1_c",
+					"l9_common_0",
+					"l12_common_1";
 	#endif
 		};
 
