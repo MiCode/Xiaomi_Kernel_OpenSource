@@ -140,7 +140,7 @@ config MTK_TRUSTED_MEMORY_SUBSYSTEM
 
 config TEST_MTK_TRUSTED_MEMORY
 	tristate "MTK Trusted Memory UT SUITE"
-	default y
+	default n
 	depends on MTK_TRUSTED_MEMORY_SUBSYSTEM
 	help
 	  This is a test module doing various nasty things like

@@ -38,8 +38,6 @@
 #define SVP_STATIC_RESERVED_DT_UNAME "mediatek,reserve-memory-svp"
 #define GRANULARITY_SIZE 0x200000
 
-static u64 ssmr_upper_limit = UPPER_LIMIT64;
-
 static struct device *ssmr_dev;
 
 static struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
@@ -472,117 +470,6 @@ bool is_svp_enabled(void)
 	return true;
 }
 
-#if IS_ENABLED(CONFIG_SYSFS)
-static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,
-			 char *buf)
-{
-	int ret = 0;
-	int i = 0;
-
-	if (__MAX_NR_SSMR_FEATURES <= 0) {
-		ret += sprintf(buf + ret, "no SSMR user enable\n");
-		return ret;
-	}
-
-	for (; i < __MAX_NR_SSMR_FEATURES; i++) {
-		unsigned long region_pa;
-
-		region_pa = (unsigned long)page_to_phys(_ssmr_feats[i].page);
-
-		ret += sprintf(
-			buf + ret, "%s base:0x%lx, size 0x%lx, ",
-			_ssmr_feats[i].feat_name,
-			_ssmr_feats[i].phy_addr == 0
-				? 0
-				: (unsigned long)dma_to_phys(
-					  ssmr_dev, _ssmr_feats[i].phy_addr),
-			_ssmr_feats[i].alloc_size);
-		ret += sprintf(buf + ret, "alloc_pages %lu, state %s.%s\n",
-			       _ssmr_feats[i].alloc_size >> PAGE_SHIFT,
-			       ssmr_state_text[_ssmr_feats[i].state],
-			       _ssmr_feats[i].use_cache_memory
-				       ? " (cache memory)"
-				       : "");
-	}
-
-	ret += sprintf(buf + ret, "[CONFIG]:\n");
-	ret += sprintf(buf + ret, "ssmr_upper_limit: 0x%llx\n",
-		       ssmr_upper_limit);
-
-	return ret;
-}
-
-static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
-			  const char *cmd, size_t count)
-{
-	char buf[64];
-	int buf_size;
-	int feat = 0, ret;
-
-	ret = sscanf(cmd, "%s", buf);
-	if (ret) {
-
-		buf_size = min(count - 1, (sizeof(buf) - 1));
-		buf[buf_size] = 0;
-
-		pr_info("%s[%d]: cmd> %s\n", __func__, __LINE__, buf);
-
-		if (0 == __MAX_NR_SSMR_FEATURES)
-			return -EINVAL;
-
-		for (feat = 0; feat < __MAX_NR_SSMR_FEATURES; feat++) {
-			if (!strncmp(buf, _ssmr_feats[feat].cmd_offline,
-				     strlen(buf))) {
-				ssmr_offline(NULL, NULL, ssmr_upper_limit,
-					     feat);
-				break;
-			} else if (!strncmp(buf, _ssmr_feats[feat].cmd_online,
-					    strlen(buf))) {
-				ssmr_online(feat);
-				break;
-			}
-		}
-	} else {
-		pr_info("%s[%d]: get invalid cmd\n", __func__, __LINE__);
-	}
-
-	return count;
-}
-
-/* clang-format off */
-static struct kobj_attribute ssmr_attribute = {
-	.attr = {
-		.name = "ssmr_state",
-		.mode = 0644,
-	},
-	.show = ssmr_show,
-	.store = ssmr_store,
-};
-/* clang-format on */
-
-static struct kobject *ssmr_kobject;
-
-static int memory_ssmr_sysfs_init(void)
-{
-	int error = 0;
-
-	ssmr_kobject = kobject_create_and_add("memory_ssmr", kernel_kobj);
-
-	if (ssmr_kobject) {
-		error = sysfs_create_file(ssmr_kobject, &ssmr_attribute.attr);
-		if (error) {
-			pr_info("SSMR: sysfs create failed\n");
-			return -ENOMEM;
-		}
-	} else {
-		pr_info("SSMR: Cannot find module %s object\n", KBUILD_MODNAME);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-#endif /* end of CONFIG_SYSFS */
-
 int ssmr_init(struct platform_device *pdev)
 {
 	int i;
@@ -608,11 +495,6 @@ int ssmr_init(struct platform_device *pdev)
 			_ssmr_feats[i].feat_name, _ssmr_feats[i].req_size,
 			&_ssmr_feats[i], _ssmr_feats[i].proc_entry_fops);
 	}
-
-	/* ssmr sys file init */
-#if IS_ENABLED(CONFIG_SYSFS)
-	memory_ssmr_sysfs_init();
-#endif
 
 	get_reserved_cma_memory(&pdev->dev);
 
