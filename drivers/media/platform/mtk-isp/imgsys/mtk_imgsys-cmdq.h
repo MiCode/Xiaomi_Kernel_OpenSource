@@ -165,9 +165,15 @@ void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+void mtk_imgsys_mmqos_bw_cal(struct mtk_imgsys_dev *imgsys_dev,
+				void *smi_port, uint32_t hw_comb,
+				uint32_t port_st, uint32_t port_num, uint32_t port_id);
+void mtk_imgsys_mmqos_ts_cal(struct mtk_imgsys_dev *imgsys_dev,
+				struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb);
 void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
 
 void mtk_imgsys_pwr(struct platform_device *pdev, bool on);

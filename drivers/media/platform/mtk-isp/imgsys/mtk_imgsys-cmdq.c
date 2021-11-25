@@ -38,6 +38,15 @@ module_param(imgsys_cmdq_ts_dbg_en, int, 0644);
 int imgsys_dvfs_dbg_en;
 module_param(imgsys_dvfs_dbg_en, int, 0644);
 
+int imgsys_qos_update_freq;
+module_param(imgsys_qos_update_freq, int, 0644);
+
+int imgsys_qos_blank_int;
+module_param(imgsys_qos_blank_int, int, 0644);
+
+int imgsys_qos_factor;
+module_param(imgsys_qos_factor, int, 0644);
+
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
@@ -138,6 +147,9 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 
 	memset((void *)event_hist, 0x0,
 		sizeof(struct imgsys_event_history)*IMGSYS_CMDQ_SYNC_POOL_NUM);
+#if DVFS_QOS_READY
+	mtk_imgsys_mmqos_reset(imgsys_dev);
+#endif
 }
 
 void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
@@ -166,6 +178,10 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
+
+	#if DVFS_QOS_READY
+	mtk_imgsys_mmqos_reset(imgsys_dev);
+	#endif
 }
 
 static void imgsys_cmdq_cmd_dump(struct swfrm_info_t *frm_info, u32 frm_idx)
@@ -421,6 +437,7 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			mtk_imgsys_mmdvfs_mmqos_cal(imgsys_dev, cb_param->frm_info, 0);
 			mtk_imgsys_mmdvfs_set(imgsys_dev, cb_param->frm_info, 0);
 			#if IMGSYS_QOS_SET_REAL
+			mtk_imgsys_mmqos_ts_cal(imgsys_dev, cb_param, hw_comb);
 			mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
 			#endif
 			#endif
@@ -1277,6 +1294,7 @@ void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev)
 			qos_info->qos_path[idx].dts_name,
 			qos_info->qos_path[idx].bw);
 	}
+	mtk_imgsys_mmqos_reset(imgsys_dev);
 }
 
 void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev)
@@ -1304,9 +1322,12 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 {
 	struct mtk_imgsys_qos *qos_info = &imgsys_dev->qos_info;
 	u32 hw_comb = 0;
-	u32 port_st = 0, port_num = 0, port_idx = 0;
+	//u32 port_st = 0, port_num = 0, port_idx = 0;
 	u32 frm_num = 0, frm_idx = 0;
 	u32 bw;
+	u32 dvfs_idx = 0, qos_idx = 0;
+	u64 bw_cal[MTK_IMGSYS_DVFS_GROUP][MTK_IMGSYS_QOS_GROUP] = {0};
+	u64 bw_final[MTK_IMGSYS_QOS_GROUP] = {0};
 
 	bw = 0;
 	frm_num = frm_info->total_frmnum;
@@ -1314,155 +1335,60 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		hw_comb |= frm_info->user_info[frm_idx].hw_comb;
 
 	#if IMGSYS_QOS_ENABLE
-	if (hw_comb & IMGSYS_ENG_WPE_EIS) {
-		port_st = IMGSYS_M4U_PORT_WPE_EIS_START;
-		port_num = WPE_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
+	if (is_stream_off == 0) {
+		if (isSet == 0) {
+			qos_info->req_cnt++;
+			if (qos_info->req_cnt < imgsys_qos_update_freq)
+				/* Do nothing */
+				bw = 0;
+			else if (qos_info->req_cnt == imgsys_qos_update_freq) {
+				for (qos_idx = 0; qos_idx < MTK_IMGSYS_QOS_GROUP; qos_idx++) {
+					for (dvfs_idx = 0; dvfs_idx < MTK_IMGSYS_DVFS_GROUP;
+						dvfs_idx++) {
+						bw_cal[dvfs_idx][qos_idx] =
+							qos_info->bw_total[dvfs_idx][qos_idx] /
+							qos_info->ts_total[dvfs_idx];
+						bw_final[qos_idx] += bw_cal[dvfs_idx][qos_idx];
+					}
+					bw_final[qos_idx] =
+						(bw_final[qos_idx] * imgsys_qos_factor) / 10;
+				}
+				dev_info(qos_info->dev,
+					"%s: bw_final(%lld/%lld) bw_cal_a(%lld/%lld) bw_cal_b(%lld/%lld) bw_a(%lld/%lld) bw_b(%lld/%lld) ts(%d/%lld) para(%d/%d/%d)\n",
+					__func__, bw_final[0], bw_final[1],
+					bw_cal[0][0], bw_cal[0][1], bw_cal[1][0], bw_cal[1][1],
+					qos_info->bw_total[0][0], qos_info->bw_total[0][1],
+					qos_info->bw_total[1][0], qos_info->bw_total[1][1],
+					qos_info->ts_total[0], qos_info->ts_total[1],
+					imgsys_qos_update_freq, imgsys_qos_blank_int,
+					imgsys_qos_factor);
+				/* Add update bw api */
+				mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(bw_final[0]),
+					0);
+				mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(bw_final[1]),
+					0);
+			} else if ((qos_info->req_cnt > imgsys_qos_update_freq) &&
+					(qos_info->req_cnt <=
+					(imgsys_qos_update_freq + imgsys_qos_blank_int))) {
+				qos_info->isIdle = 1;
+			} else {
+				for (dvfs_idx = 0; dvfs_idx < MTK_IMGSYS_DVFS_GROUP; dvfs_idx++) {
+					for (qos_idx = 0; qos_idx < MTK_IMGSYS_QOS_GROUP; qos_idx++)
+						qos_info->bw_total[dvfs_idx][qos_idx] = 0;
+					qos_info->ts_total[dvfs_idx] = 0;
+				}
+				qos_info->req_cnt = 0;
+				qos_info->isIdle = 0;
 			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
 		}
-	}
-	if (hw_comb & IMGSYS_ENG_WPE_TNR) {
-		port_st = IMGSYS_M4U_PORT_WPE_TNR_START;
-		port_num = WPE_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_WPE_LITE) {
-		port_st = IMGSYS_M4U_PORT_WPE_LITE_START;
-		port_num = WPE_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_TRAW) {
-		port_st = IMGSYS_M4U_PORT_TRAW_START;
-		port_num = TRAW_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_LTR) {
-		port_st = IMGSYS_M4U_PORT_LTRAW_START;
-		port_num = LTRAW_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_XTR) {
-		port_st = IMGSYS_M4U_PORT_XTRAW_START;
-		port_num = XTRAW_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_DIP) {
-		port_st = IMGSYS_M4U_PORT_DIP_START;
-		port_num = DIP_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_PQDIP_A) {
-		port_st = IMGSYS_M4U_PORT_PQDIP_A_START;
-		port_num = PQ_DIP_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_PQDIP_B) {
-		port_st = IMGSYS_M4U_PORT_PQDIP_B_START;
-		port_num = PQ_DIP_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
-	}
-	if (hw_comb & IMGSYS_ENG_ME) {
-		port_st = IMGSYS_M4U_PORT_ME_START;
-		port_num = ME_SMI_PORT_NUM;
-		for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-			if (IS_ERR_OR_NULL(qos_info->qos_path[port_idx].path)) {
-				dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
-					__func__, port_idx);
-				continue;
-			}
-			mtk_icc_set_bw(
-				qos_info->qos_path[port_idx].path,
-				Bps_to_icc(qos_info->qos_path[port_idx].bw),
-				0);
-		}
+	} else {
+		/* Set bw to zero */
+		mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_0].path, 0, 0);
+		mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_1].path, 0, 0);
 	}
 	#else
 	bw = 10240;
@@ -1489,6 +1415,33 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 	#endif
 }
 
+void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev)
+{
+	u32 dvfs_idx = 0, qos_idx = 0;
+	struct mtk_imgsys_qos *qos_info = NULL;
+
+	qos_info = &imgsys_dev->qos_info;
+
+	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_0].path, 0, 0);
+	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_1].path, 0, 0);
+
+	for (dvfs_idx = 0; dvfs_idx < MTK_IMGSYS_DVFS_GROUP; dvfs_idx++) {
+		for (qos_idx = 0; qos_idx < MTK_IMGSYS_QOS_GROUP; qos_idx++)
+			qos_info->bw_total[dvfs_idx][qos_idx] = 0;
+		qos_info->ts_total[dvfs_idx] = 0;
+	}
+	qos_info->req_cnt = 0;
+	qos_info->isIdle = 0;
+
+	if (imgsys_qos_update_freq == 0)
+		imgsys_qos_update_freq = IMGSYS_QOS_UPDATE_FREQ;
+	if (imgsys_qos_blank_int == 0)
+		imgsys_qos_blank_int = IMGSYS_QOS_BLANK_INT;
+	if (imgsys_qos_factor == 0)
+		imgsys_qos_factor = IMGSYS_QOS_FACTOR;
+
+}
+
 void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet)
@@ -1508,7 +1461,7 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 	#endif
 	#if IMGSYS_QOS_ENABLE
 	struct frame_bw_t *bw_buf = NULL;
-	struct smi_port_t *smi_port = NULL;
+	void *smi_port = NULL;
 	u32 port_st = 0, port_num = 0, port_idx = 0;
 	#endif
 
@@ -1617,193 +1570,125 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* Calculate QOS*/
 	#if IMGSYS_QOS_ENABLE
-	for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
-		hw_comb = frm_info->user_info[frm_idx].hw_comb;
-		bw_buf = (struct frame_bw_t *)frm_info->user_info[frm_idx].bw_swbuf;
-		//pixel_size += frm_info->user_info[frm_idx].pixel_bw;
-		if (hw_comb & IMGSYS_ENG_WPE_EIS) {
-			port_st = IMGSYS_M4U_PORT_WPE_EIS_START;
-			port_num = WPE_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->wpe_eis.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] WPE_EIS idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+	if ((isSet == 0) && (qos_info->isIdle == 0) && (is_stream_off == 0)) {
+		for (frm_idx = 0; frm_idx < frm_num; frm_idx++) {
+			hw_comb = frm_info->user_info[frm_idx].hw_comb;
+			bw_buf = (struct frame_bw_t *)frm_info->user_info[frm_idx].bw_swbuf;
+			//pixel_size += frm_info->user_info[frm_idx].pixel_bw;
+			if (hw_comb & IMGSYS_ENG_WPE_EIS) {
+				port_st = IMGSYS_M4U_PORT_WPE_EIS_START;
+				port_num = WPE_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->wpe_eis.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 0);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_WPE_TNR) {
-			port_st = IMGSYS_M4U_PORT_WPE_TNR_START;
-			port_num = WPE_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->wpe_tnr.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] WPE_TNR idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_WPE_TNR) {
+				port_st = IMGSYS_M4U_PORT_WPE_TNR_START;
+				port_num = WPE_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->wpe_tnr.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 1);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_WPE_LITE) {
-			port_st = IMGSYS_M4U_PORT_WPE_LITE_START;
-			port_num = WPE_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->wpe_lite.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] WPE_LITE idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_WPE_LITE) {
+				port_st = IMGSYS_M4U_PORT_WPE_LITE_START;
+				port_num = WPE_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->wpe_lite.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 0);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_TRAW) {
-			port_st = IMGSYS_M4U_PORT_TRAW_START;
-			port_num = TRAW_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->traw.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] TRAW idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_TRAW) {
+				port_st = IMGSYS_M4U_PORT_TRAW_START;
+				port_num = TRAW_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->traw.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 0);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_LTR) {
-			port_st = IMGSYS_M4U_PORT_LTRAW_START;
-			port_num = LTRAW_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->ltraw.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] LTRAW idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_LTR) {
+				port_st = IMGSYS_M4U_PORT_LTRAW_START;
+				port_num = LTRAW_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->ltraw.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 0);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_XTR) {
-			port_st = IMGSYS_M4U_PORT_XTRAW_START;
-			port_num = XTRAW_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->xtraw.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] XTRAW idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_XTR) {
+				port_st = IMGSYS_M4U_PORT_XTRAW_START;
+				port_num = XTRAW_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->xtraw.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 0);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_DIP) {
-			port_st = IMGSYS_M4U_PORT_DIP_START;
-			port_num = DIP_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->dip.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] DIP idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_DIP) {
+				port_st = IMGSYS_M4U_PORT_DIP0_START;
+				port_num = DIP0_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->dip.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 0);
+				port_st = IMGSYS_M4U_PORT_DIP1_START;
+				port_num = DIP1_SMI_PORT_NUM;
+				port_idx = IMGSYS_M4U_PORT_DIP1_START -
+						IMGSYS_M4U_PORT_DIP0_START;
+				smi_port =
+					(void *)(bw_buf->dip.smiport+port_idx);
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 1);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_PQDIP_A) {
-			port_st = IMGSYS_M4U_PORT_PQDIP_A_START;
-			port_num = PQ_DIP_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->pqdip_a.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] PQDIP_A idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						(smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_PQDIP_A) {
+				port_st = IMGSYS_M4U_PORT_PQDIP_A_START;
+				port_num = PQ_DIP_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->pqdip_a.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 0);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_PQDIP_B) {
-			port_st = IMGSYS_M4U_PORT_PQDIP_B_START;
-			port_num = PQ_DIP_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->pqdip_b.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] PQDIP_B idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						 (smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						 (smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_PQDIP_B) {
+				port_st = IMGSYS_M4U_PORT_PQDIP_B_START;
+				port_num = PQ_DIP_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->pqdip_b.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 1);
 			}
-		}
-		if (hw_comb & IMGSYS_ENG_ME) {
-			port_st = IMGSYS_M4U_PORT_ME_START;
-			port_num = ME_SMI_PORT_NUM;
-			smi_port = (struct smi_port_t *)bw_buf->me.smiport;
-			for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++) {
-				if (isSet == 1) {
-					dev_dbg(qos_info->dev,
-						"[%s] ME idx(%d) fps(%d) bw_exe(%d) bw(%d/%d)\n",
-						__func__, port_idx, fps, bw_exe,
-						smi_port[port_idx-port_st].portbw,
-						qos_info->qos_path[port_idx].bw);
-					qos_info->qos_path[port_idx].bw +=
-						 (smi_port[port_idx-port_st].portbw * bw_exe);
-				} else if (isSet == 0)
-					qos_info->qos_path[port_idx].bw -=
-						 (smi_port[port_idx-port_st].portbw * bw_exe);
+			if (hw_comb & IMGSYS_ENG_ME) {
+				port_st = IMGSYS_M4U_PORT_ME_START;
+				port_num = ME_SMI_PORT_NUM;
+				smi_port = (void *)bw_buf->me.smiport;
+				mtk_imgsys_mmqos_bw_cal(imgsys_dev, smi_port, hw_comb,
+					port_st, port_num, 1);
 			}
 		}
 	}
 	#endif
 
+}
+
+void mtk_imgsys_mmqos_bw_cal(struct mtk_imgsys_dev *imgsys_dev,
+					void *smi_port, uint32_t hw_comb,
+					uint32_t port_st, uint32_t port_num, uint32_t port_id)
+{
+	struct mtk_imgsys_qos *qos_info = NULL;
+	struct smi_port_t *smi = NULL;
+	uint32_t port_idx = 0, g_idx = 0;
+
+	qos_info = &imgsys_dev->qos_info;
+	smi = (struct smi_port_t *)smi_port;
+	for (port_idx = port_st; port_idx < (port_num + port_st); port_idx++)
+		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++)
+			if (hw_comb & dvfs_group[g_idx].g_hw)
+				qos_info->bw_total[g_idx][port_id] += smi[port_idx-port_st].portbw;
+}
+
+void mtk_imgsys_mmqos_ts_cal(struct mtk_imgsys_dev *imgsys_dev,
+				struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb)
+{
+	struct mtk_imgsys_qos *qos_info = NULL;
+	uint32_t g_idx = 0;
+	u64 ts_hw = 0;
+
+	if (is_stream_off == 0) {
+		qos_info = &imgsys_dev->qos_info;
+		ts_hw = cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart;
+		for (g_idx = 0; g_idx < MTK_IMGSYS_DVFS_GROUP; g_idx++)
+			if (hw_comb & dvfs_group[g_idx].g_hw)
+				qos_info->ts_total[g_idx] += ts_hw;
+	}
 }
 
 void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
