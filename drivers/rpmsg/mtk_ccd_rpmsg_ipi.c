@@ -217,7 +217,7 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	mutex_lock(&mtk_subdev->endpoints_lock);
 	srcmdev = idr_find(&mtk_subdev->endpoints, read_obj->src);
 	if (!srcmdev) {
-		dev_info(ccd->dev, "src ept is not exist\n");
+		dev_dbg(ccd->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
