@@ -113,6 +113,8 @@
 		dsc1 = &disp_dsc1_wrap;
 		merge0 = &disp_merge0;
 		merge1 = &disp_merge1;
+		inlinerotate0 = &inlinerot0;
+		inlinerotate1 = &inlinerot1;
 	};
 
 	clk_ao: clk_ao {
@@ -5974,7 +5976,9 @@
 		};
 
 		inlinerot0: inlinerot@14020000 {
-			compatible = "mediatek,inlinerot";
+			compatible = "mediatek,inlinerot",
+						"mediatek,mt6895-disp-inlinerotate";
+			clocks = <&mmsys0_config_clk CLK_MM0_INLINEROT0>;
 			reg = <0 0x14020000 0 0x1000>;
 		};
 
@@ -6273,7 +6277,9 @@
 		};
 
 		inlinerot1: inlinerot@14420000 {
-			compatible = "mediatek,inlinerot";
+			compatible = "mediatek,inlinerot",
+						"mediatek,mt6895-disp-inlinerotate";
+			clocks = <&mmsys1_config_clk CLK_MM1_INLINEROT0>;
 			reg = <0 0x14420000 0 0x1000>;
 		};
 
