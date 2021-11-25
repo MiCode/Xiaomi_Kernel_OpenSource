@@ -10023,7 +10023,7 @@
 
 		/* feature, frequecy, coreid */
 		scp_feature_tbl = < 0  40 1>,	/* vow */
-				  < 1  29 0>,	/* sensor */
+				  < 1 350 0>,	/* sensor */
 				  < 2  26 0>,	/* flp */
 				  < 3   0 0>,	/* rtos */
 				  < 4 200 1>,	/* speaker */
