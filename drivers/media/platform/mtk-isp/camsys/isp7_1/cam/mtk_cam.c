@@ -4392,6 +4392,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		}
 	}
 
+	for (i = 0 ; i < ctx->used_mraw_num ; i++)
+		ctx->mraw_pipe[i]->res_config.is_initial = 1;
+
 	ctx->session_created = 0;
 	ctx->enabled_node_cnt = 0;
 	ctx->streaming_node_cnt = 0;
