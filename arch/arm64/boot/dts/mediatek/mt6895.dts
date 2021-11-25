@@ -412,6 +412,7 @@
 				monitor_name = "debug_ctrl_ao_INFRA_AO";
 				base = <0x10023000>;
 				num_ports = <71>;
+				idle_masks = <0x20 0x00000100>;
 				bus_freq_mhz = <78>;
 			};
 			monitor2 {
