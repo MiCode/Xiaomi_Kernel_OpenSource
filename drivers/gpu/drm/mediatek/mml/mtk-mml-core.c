@@ -754,18 +754,23 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	task_pipe_cur = list_first_entry_or_null(&path_clt->tasks, typeof(*task_pipe_cur),
 		entry_clt);
 	if (task_pipe_cur) {
+		/* calculate remaining time to complete pixels */
+		max_pixel = task_pipe_cur->task->config->cache[pipe].max_pixel;
+
+		/* for racing mode, use throughput from act time directly */
+		if (task_pipe_cur->task->config->info.mode == MML_MODE_RACING) {
+			throughput = task_pipe_cur->task->throughput;
+			goto done;
+		}
+
 		if (timespec64_compare(&curr_time, &task_pipe_cur->task->end_time) >= 0) {
 			/* this task must done right now, skip all compare */
 			throughput = tp->freq_max;
 			goto done;
 		}
 
-		/* calculate remaining time to complete pixels */
-		max_pixel = task_pipe_cur->task->config->cache[pipe].max_pixel;
-
-		if (task->config->info.mode != MML_MODE_RACING)
-			mml_core_calc_tput(task_pipe_cur->task, max_pixel,
-				&task->end_time, &curr_time);
+		mml_core_calc_tput(task_pipe_cur->task, max_pixel,
+			&task->end_time, &curr_time);
 
 		throughput = 0;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
