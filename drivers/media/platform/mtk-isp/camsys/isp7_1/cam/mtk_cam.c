@@ -4555,10 +4555,12 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	int i, j, ret;
 	int tgo_pxl_mode;
 	bool need_dump_mem = false;
-	int feature_active;	/* Used to know max exposure num */
-	int feature_first_req;	/* Used to know first frame's exposure num */
+	int feature_active = 0;	/* Used to know max exposure num */
+	int feature_first_req = 0;	/* Used to know first frame's exposure num */
 
-	dev_info(cam->dev, "ctx %d stream on\n", ctx->stream_id);
+	dev_info(cam->dev, "ctx %d stream on, streaming_pipe:0x%x\n",
+		 ctx->stream_id, ctx->streaming_pipe);
+
 	if (ctx->streaming) {
 		dev_info(cam->dev, "ctx-%d is already streaming on\n", ctx->stream_id);
 		return 0;
@@ -4574,8 +4576,11 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 
-	feature_active = ctx->pipe->feature_active;
-	feature_first_req = ctx->pipe->feature_pending;
+	if (ctx->pipe) {
+		feature_active = ctx->pipe->feature_active;
+		feature_first_req = ctx->pipe->feature_pending;
+	}
+
 	if (ctx->used_raw_num) {
 		tgo_pxl_mode = ctx->pipe->res_config.tgo_pxl_mode;
 		/**
@@ -4958,7 +4963,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	struct mtk_raw_device *raw_dev;
 	unsigned int i, enabled_sv = 0;
 	int ret;
-	int feature = ctx->pipe->feature_active;
+	int feature = 0;
 
 	if (!ctx->streaming) {
 		dev_info(cam->dev, "ctx-%d is already streaming off\n",
@@ -4966,11 +4971,14 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		return 0;
 	}
 
+	if (ctx->pipe)
+		feature = ctx->pipe->feature_active;
+
 	if (watchdog_scenario(ctx))
 		mtk_ctx_watchdog_stop(ctx);
 
-	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d\n",
-		__func__, ctx->stream_id, cam->composer_cnt);
+	dev_info(cam->dev, "%s: ctx-%d:  composer_cnt:%d, streaming_pipe:0x%x\n",
+		__func__, ctx->stream_id, cam->composer_cnt, ctx->streaming_pipe);
 
 	spin_lock(&ctx->streaming_lock);
 	ctx->streaming = false;
