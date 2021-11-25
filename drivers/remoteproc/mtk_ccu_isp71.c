@@ -317,8 +317,8 @@ static int mtk_ccu_start(struct rproc *rproc)
 	writel((uint32_t)((ccu->log_info[2].mva) >> 8), ccu_base + MTK_CCU_SPARE_REG07);
 
 #if defined(CCU_SET_MMQOS)
-	mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(20), MBps_to_icc(20));
-	mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(10), MBps_to_icc(10));
+	mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(20), MBps_to_icc(30));
+	mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(10), MBps_to_icc(30));
 	mtk_icc_set_bw(ccu->path_ccug, MBps_to_icc(30), MBps_to_icc(30));
 #endif
 
