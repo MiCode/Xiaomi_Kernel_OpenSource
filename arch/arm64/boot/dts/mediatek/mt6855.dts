@@ -4,6 +4,7 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
@@ -2625,3 +2626,66 @@
 };
 #endif
 #include "mediatek/cust_mt6855_msdc.dtsi"
+#include "mediatek/mt6363.dtsi"
+#include "mediatek/mt6369.dtsi"
+
+&mt6363_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck4 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck5 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck6 {
+	regulator-always-on;
+};
+
+&mt6363_vsram_digrf {
+	regulator-always-on;
+};
+
+&mt6363_vsram_modem {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpub {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpul {
+	regulator-always-on;
+};
+
+&mt6363_vm18 {
+	regulator-always-on;
+};
+
+&mt6363_vio075 {
+	/delete-property/ regulator-always-on;
+};
+
+&mt6363_vrf12 {
+	regulator-always-on;
+};
+
+&mt6369_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6369_vsram_core {
+	regulator-always-on;
+};
+
+&mt6369_vdigrf {
+	regulator-always-on;
+};
+
