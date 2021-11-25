@@ -323,14 +323,22 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
-	mtk_v4l2_debug(4, "[%d] tmp_frame_addr = 0x%p",
-				   ctx->id, free_frame_buffer);
 
 	dstbuf = container_of(free_frame_buffer, struct mtk_video_dec_buf,
 						  frame_buffer);
-	dstbuf->flags |= REF_FREED;
+	mtk_v4l2_debug(4, "[%d] tmp_frame_addr = 0x%p, status 0x%x, used %d flags 0x%x, id=%d %d %d",
+				   ctx->id, free_frame_buffer, free_frame_buffer->status,
+				   dstbuf->used, dstbuf->flags, dstbuf->vb.vb2_buf.index,
+				   dstbuf->queued_in_vb2, dstbuf->queued_in_v4l2);
 
-	if (dstbuf->used) {
+	if (free_frame_buffer->status & FB_ST_OWN_BY_DRIVER) {
+		free_frame_buffer->status = FB_ST_INIT;
+		mtk_v4l2_debug(2, "[%d] status=%x already send id=%d %d %d",
+			ctx->id, free_frame_buffer->status, dstbuf->vb.vb2_buf.index,
+			dstbuf->queued_in_vb2, dstbuf->queued_in_v4l2);
+	} else if (dstbuf->used) {
+		dstbuf->flags |= REF_FREED;
+
 		for (i = 0; i < free_frame_buffer->num_planes; i++) {
 			fput(free_frame_buffer->fb_base[i].dmabuf->file);
 			mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref put dma %p",
@@ -409,6 +417,8 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 				dstbuf->queued_in_vb2,
 				dstbuf->queued_in_v4l2);
 		}
+	} else {
+		dstbuf->flags |= REF_FREED;
 	}
 	mutex_unlock(&ctx->buf_lock);
 
