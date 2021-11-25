@@ -755,13 +755,13 @@ STOP_SCAN:
 
 		spin_unlock(&req->done_status_lock);
 
-		mtk_cam_get_timestamp(ctx, s_data);
 		if (mtk_cam_feature_is_mstream(feature) || mtk_cam_feature_is_mstream_m2m(feature))
 			s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 		else
 			s_data_mstream = NULL;
 
 		if (is_raw_subdev(pipe_id)) {
+			mtk_cam_get_timestamp(ctx, s_data);
 			mtk_cam_req_dbg_works_clean(s_data);
 			mtk_cam_req_works_clean(s_data);
 
