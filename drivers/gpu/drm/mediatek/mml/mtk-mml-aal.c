@@ -1115,28 +1115,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static inline struct mml_comp_aal *ddp_comp_to_aal(struct mtk_ddp_comp *ddp_comp)
-{
-	return container_of(ddp_comp, struct mml_comp_aal, ddp_comp);
-}
-
-static void aal_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_aal(ddp_comp)->comp;
-
-	comp->hw_ops->clk_enable(comp);
-}
-
-static void aal_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_aal(ddp_comp)->comp;
-
-	comp->hw_ops->clk_disable(comp);
-}
-
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.prepare = aal_ddp_prepare,
-	.unprepare = aal_ddp_unprepare,
 };
 
 static struct mml_comp_aal *dbg_probed_components[4];

@@ -820,28 +820,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static inline struct mml_comp_hdr *ddp_comp_to_hdr(struct mtk_ddp_comp *ddp_comp)
-{
-	return container_of(ddp_comp, struct mml_comp_hdr, ddp_comp);
-}
-
-static void hdr_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_hdr(ddp_comp)->comp;
-
-	comp->hw_ops->clk_enable(comp);
-}
-
-static void hdr_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_hdr(ddp_comp)->comp;
-
-	comp->hw_ops->clk_disable(comp);
-}
-
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.prepare = hdr_ddp_prepare,
-	.unprepare = hdr_ddp_unprepare,
 };
 
 static struct mml_comp_hdr *dbg_probed_components[2];

@@ -280,24 +280,8 @@ static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
 		mutex_enable(mutex, pkt, path, get_mutex_sof(&cfg->mutex));
 }
 
-static void mutex_prepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_mutex(ddp_comp)->comp;
-
-	comp->hw_ops->clk_enable(comp);
-}
-
-static void mutex_unprepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_mutex(ddp_comp)->comp;
-
-	comp->hw_ops->clk_disable(comp);
-}
-
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
 	.addon_config = mutex_addon_config,
-	.prepare = mutex_prepare,
-	.unprepare = mutex_unprepare,
 };
 
 static struct mml_mutex *dbg_probed_components[2];

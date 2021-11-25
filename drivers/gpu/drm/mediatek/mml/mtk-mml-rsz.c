@@ -628,28 +628,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static inline struct mml_comp_rsz *ddp_comp_to_rsz(struct mtk_ddp_comp *ddp_comp)
-{
-	return container_of(ddp_comp, struct mml_comp_rsz, ddp_comp);
-}
-
-static void rsz_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_rsz(ddp_comp)->comp;
-
-	comp->hw_ops->clk_enable(comp);
-}
-
-static void rsz_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_rsz(ddp_comp)->comp;
-
-	comp->hw_ops->clk_disable(comp);
-}
-
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.prepare = rsz_ddp_prepare,
-	.unprepare = rsz_ddp_unprepare,
 };
 
 static struct mml_comp_rsz *dbg_probed_components[4];

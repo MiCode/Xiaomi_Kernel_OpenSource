@@ -2142,32 +2142,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static inline struct mml_comp_wrot *ddp_comp_to_wrot(struct mtk_ddp_comp *ddp_comp)
-{
-	return container_of(ddp_comp, struct mml_comp_wrot, ddp_comp);
-}
-
-static void wrot_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_wrot(ddp_comp)->comp;
-
-	mml_log("%s", __func__);
-	return;
-	comp->hw_ops->clk_enable(comp);
-}
-
-static void wrot_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_wrot(ddp_comp)->comp;
-
-	mml_log("%s", __func__);
-	return;
-	comp->hw_ops->clk_disable(comp);
-}
-
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.prepare = wrot_ddp_prepare,
-	.unprepare = wrot_ddp_unprepare,
 };
 
 phys_addr_t mml_get_node_base_pa(struct platform_device *pdev, const char *name,

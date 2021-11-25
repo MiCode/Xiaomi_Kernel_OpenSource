@@ -419,28 +419,7 @@ static const struct component_ops mml_comp_ops = {
 	.unbind = mml_unbind,
 };
 
-static inline struct mml_comp_color *ddp_comp_to_color(struct mtk_ddp_comp *ddp_comp)
-{
-	return container_of(ddp_comp, struct mml_comp_color, ddp_comp);
-}
-
-static void color_ddp_prepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_color(ddp_comp)->comp;
-
-	comp->hw_ops->clk_enable(comp);
-}
-
-static void color_ddp_unprepare(struct mtk_ddp_comp *ddp_comp)
-{
-	struct mml_comp *comp = &ddp_comp_to_color(ddp_comp)->comp;
-
-	comp->hw_ops->clk_disable(comp);
-}
-
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
-	.prepare = color_ddp_prepare,
-	.unprepare = color_ddp_unprepare,
 };
 
 static struct mml_comp_color *dbg_probed_components[2];
