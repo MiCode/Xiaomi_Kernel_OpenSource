@@ -10,7 +10,8 @@
 
 #include "user.h"
 
-static void teeperf_set_cpu_to_high_freq(int target_cpu, u32 high_freq)
+static void teeperf_set_cpu_to_high_freq(int target_cpu, u32 high_freq,
+	unsigned int freq_level_index)
 {
 	struct cpufreq_policy *policy;
 	unsigned int index, max_index, min_index;
@@ -31,7 +32,7 @@ static void teeperf_set_cpu_to_high_freq(int target_cpu, u32 high_freq)
 	min_index = cpufreq_table_find_index_dl(policy, 0);
 	if (high_freq) {
 		/* set min_freq to selected freq */
-		index = max_index + FREQ_LEVEL_INDEX;
+		index = max_index + freq_level_index;
 		if (index > min_index)
 			index = min_index;
 	} else {
@@ -42,6 +43,58 @@ static void teeperf_set_cpu_to_high_freq(int target_cpu, u32 high_freq)
 	up_write(&policy->rwsem);
 	cpufreq_cpu_put(policy);
 	cpufreq_update_limits(target_cpu);
+}
+
+static void teeperf_set_cpu_group_to_high_freq(enum teeperf_cpu_group group,
+	u32 high_freq)
+{
+	enum teeperf_cpu_map map = cpu_map;
+	unsigned int freq_level_index = 0;
+	int cpu;
+
+	if (group == CPU_SUPER_GROUP) {
+		freq_level_index = SUPER_CPU_FREQ_LEVEL_INDEX;
+		if (map == CPU_4_3_1_MAP) {
+			teeperf_set_cpu_to_high_freq(7, high_freq, freq_level_index);
+		} else {
+			for (cpu = 0; cpu < 8; cpu++)
+				teeperf_set_cpu_to_high_freq(cpu, high_freq, 0);
+		}
+	} else if (group == CPU_BIG_GROUP) {
+		freq_level_index = BIG_CPU_FREQ_LEVEL_INDEX;
+		if (map == CPU_4_3_1_MAP) {
+			teeperf_set_cpu_to_high_freq(4, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(5, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(6, high_freq, freq_level_index);
+		} else if (map == CPU_6_2_MAP) {
+			teeperf_set_cpu_to_high_freq(6, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(7, high_freq, freq_level_index);
+		} else {
+			for (cpu = 0; cpu < 8; cpu++)
+				teeperf_set_cpu_to_high_freq(cpu, high_freq, 0);
+		}
+	} else if (group == CPU_LITTLE_GROUP) {
+		freq_level_index = LITTLE_CPU_FREQ_LEVEL_INDEX;
+		if (map == CPU_4_3_1_MAP) {
+			teeperf_set_cpu_to_high_freq(0, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(1, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(2, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(3, high_freq, freq_level_index);
+		} else if (map == CPU_6_2_MAP) {
+			teeperf_set_cpu_to_high_freq(0, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(1, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(2, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(3, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(4, high_freq, freq_level_index);
+			teeperf_set_cpu_to_high_freq(5, high_freq, freq_level_index);
+		} else {
+			for (cpu = 0; cpu < 8; cpu++)
+				teeperf_set_cpu_to_high_freq(cpu, high_freq, 0);
+		}
+	} else {
+		for (cpu = 0; cpu < 8; cpu++)
+			teeperf_set_cpu_to_high_freq(cpu, high_freq, 0);
+	}
 }
 
 static int teeperf_user_open(struct inode *inode, struct file *file)
@@ -77,26 +130,23 @@ static long teeperf_user_ioctl(struct file *file, unsigned int id, unsigned long
 
 	switch (id) {
 	case TEEPERF_IO_HIGH_FREQ: {
-		enum cpu_map_type map_type = cpu_map;
+		enum teeperf_cpu_type type = cpu_type;
 		u32 high_freq;
-		int cpu;
 
 		if (copy_from_user(&high_freq, uarg, sizeof(high_freq))) {
 			ret = -EFAULT;
 			break;
 		}
 
-		if (map_type == CPU_4_3_1_MAP) {
-			teeperf_set_cpu_to_high_freq(4, high_freq);
-			teeperf_set_cpu_to_high_freq(5, high_freq);
-			teeperf_set_cpu_to_high_freq(6, high_freq);
-		} else if (map_type == CPU_6_2_MAP) {
-			teeperf_set_cpu_to_high_freq(6, high_freq);
-			teeperf_set_cpu_to_high_freq(7, high_freq);
-		} else {
-			for (cpu = 0; cpu < 8; cpu++)
-				teeperf_set_cpu_to_high_freq(cpu, high_freq);
-		}
+		teeperf_set_cpu_to_high_freq(TEE_CPU, high_freq, BIG_CPU_FREQ_LEVEL_INDEX);
+
+		if (type == CPU_V9_TYPE)
+			teeperf_set_cpu_group_to_high_freq(CPU_BIG_GROUP, high_freq);
+		else if (type == CPU_V8_TYPE)
+			teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
+		else
+			teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
+
 		ret = 0;
 		break;
 	}

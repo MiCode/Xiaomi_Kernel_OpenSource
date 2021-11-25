@@ -14,6 +14,7 @@
 #define TEEPERF_DEVICE_PROPNAME "mediatek,teeperf"
 #endif
 
+u32 cpu_type;
 u32 cpu_map;
 
 static struct {
@@ -91,6 +92,12 @@ static int teeperf_probe(struct platform_device *pdev)
 	if (IS_ERR(node)) {
 		pr_info(PFX "cannot find device node\n");
 		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(node, "cpu-type", &cpu_type);
+	if (ret || !cpu_type) {
+		pr_info(PFX "invalid cpu type\n");
+		return -EINVAL;
 	}
 
 	ret = of_property_read_u32(node, "cpu-map", &cpu_map);
