@@ -113,6 +113,9 @@ void mt6983_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define APU_RPC_LITE_CON          0x0020
 #define APU_RPC_INTF_PWR_RDY_REG  0x0040
 #define APU_RPC_INTF_PWR_RDY      0x0044
+#define RPC_TOP_SEL_HW_DEF	(0x012b0000) // cfg in hw default
+#define RPC_TOP_SEL_SW_CFG1	(0x1800531e) // cfg in cold boot
+#define RPC_TOP_SEL_SW_CFG2	(0x192b531e) // cfg in warm boot
 
 /* APU PLL1U offset define */
 #define MDLA_PLL_BASE		0x000 // 0x190F3000

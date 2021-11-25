@@ -922,6 +922,17 @@ static int __apu_sleep_rpc_rcx(struct device *dev)
 static int __apu_wake_rpc_rcx(struct device *dev)
 {
 	int ret = 0, val = 0;
+	uint32_t cfg = 0x0;
+
+	// check rpc register is correct or not
+	cfg = apu_readl(apupw.regs[apu_rpc] + APU_RPC_TOP_SEL);
+	if (cfg == RPC_TOP_SEL_HW_DEF ||
+		(cfg != RPC_TOP_SEL_SW_CFG1 && cfg != RPC_TOP_SEL_SW_CFG2)) {
+		ret = -EIO;
+		pr_info("%s error return since RPC cfg is incorrect : 0x%08x\n",
+				__func__, cfg);
+		goto out;
+	}
 
 	dev_info(dev, "%s before wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
 			__func__,
@@ -1165,7 +1176,12 @@ static int mt6983_apu_top_on(struct device *dev)
 		are_dump_config(1);
 		are_dump_config(2);
 #endif
-		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_WAKEUP_FAIL");
+		if (ret == -EIO)
+			apupw_aee_warn("APUSYS_POWER",
+					"APUSYS_POWER_RPC_CFG_ERR");
+		else
+			apupw_aee_warn("APUSYS_POWER",
+					"APUSYS_POWER_WAKEUP_FAIL");
 		return -1;
 	}
 
