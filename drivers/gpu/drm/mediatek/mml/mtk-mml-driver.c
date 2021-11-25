@@ -633,6 +633,8 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 		bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
 	}
 
+	/* store for debug log */
+	task->pipe[ccfg->pipe].bandwidth = bandwidth;
 	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth),
 		hrt ? MBps_to_icc(bandwidth) : 0);
 

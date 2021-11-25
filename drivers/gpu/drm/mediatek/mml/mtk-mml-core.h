@@ -335,6 +335,8 @@ struct mml_task_reuse {
 struct mml_task_pipe {
 	struct mml_task *task;	/* back to task */
 	struct list_head entry_clt;
+	u32 throughput;
+	u32 bandwidth;
 };
 
 struct mml_task {
@@ -349,7 +351,6 @@ struct mml_task {
 	enum mml_task_state state;
 	struct kref ref;
 	struct mml_task_pipe pipe[MML_PIPE_CNT];
-	u32 throughput;
 
 	/* mml context */
 	void *ctx;

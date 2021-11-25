@@ -591,7 +591,7 @@ static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rh
 	return div_u64((u64)delta.tv_sec * 1000000000 + delta.tv_nsec, 1000);
 }
 
-static void mml_core_calc_tput_racing(struct mml_task *task, u32 pixel)
+static void mml_core_calc_tput_racing(struct mml_task *task, u32 pixel, u32 pipe)
 {
 	u32 act_time_us = div_u64(task->config->info.act_time, 1000);
 
@@ -600,10 +600,10 @@ static void mml_core_calc_tput_racing(struct mml_task *task, u32 pixel)
 	/* in inline rotate case mml must complete 1 frame in disp
 	 * giving act time, thus calc tput by act_time directly.
 	 */
-	task->throughput = div_u64(pixel, act_time_us);
+	task->pipe[pipe].throughput = div_u64(pixel, act_time_us);
 }
 
-static void mml_core_calc_tput(struct mml_task *task, u32 pixel,
+static void mml_core_calc_tput(struct mml_task *task, u32 pixel, u32 pipe,
 	const struct timespec64 *end, const struct timespec64 *start)
 {
 	u64 duration = time_dur_us(end, start);
@@ -612,7 +612,7 @@ static void mml_core_calc_tput(struct mml_task *task, u32 pixel,
 		duration = 1;
 
 	/* truoughput by end time */
-	task->throughput = (u32)div_u64(pixel, duration);
+	task->pipe[pipe].throughput = (u32)div_u64(pixel, duration);
 }
 
 static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe)
@@ -659,34 +659,34 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	else
 		task->submit_time = curr_time;
 
-	task->throughput = 0;
+	task->pipe[pipe].throughput = 0;
 	if (task->config->info.mode == MML_MODE_RACING) {
 		/* racing mode uses different calculation since start time
 		 * consistent with disp
 		 */
-		mml_core_calc_tput_racing(task, max_pixel);
+		mml_core_calc_tput_racing(task, max_pixel, pipe);
 
 	} else if (timespec64_compare(&task->submit_time, &task->end_time) < 0) {
 		/* calculate remaining time to complete pixels */
-		mml_core_calc_tput(task, max_pixel,
+		mml_core_calc_tput(task, max_pixel, pipe,
 			&task->end_time, &task->submit_time);
 	}
 
-	if (task->throughput) {
-		throughput = task->throughput;
+	if (task->pipe[pipe].throughput) {
+		throughput = task->pipe[pipe].throughput;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
 			/* find the max throughput (frequency) between tasks on same client */
-			throughput = max(throughput, task_pipe_tmp->task->throughput);
+			throughput = max(throughput, task_pipe_tmp->throughput);
 		}
 	} else {
 		/* there is no time for this task, use mas throughput */
-		task->throughput = tp->freq_max;
+		task->pipe[pipe].throughput = tp->freq_max;
 		/* make sure end time >= submit time to ensure
 		 * next task calculate correct duration
 		 */
 		task->end_time = task->submit_time;
 		/* use max as throughput this round */
-		throughput = task->throughput;
+		throughput = task->pipe[pipe].throughput;
 	}
 
 	/* now append at tail, this order should same as cmdq exec order */
@@ -700,8 +700,9 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 		typeof(*task_pipe_tmp), entry_clt);
 	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput);
 
-	mml_msg_qos("task dvfs begin %p pipe %u throughput %u (%u) pixel %u",
-		task, pipe, throughput, task->throughput, max_pixel);
+	mml_msg_qos("task dvfs begin %p pipe %u throughput %u (%u) bandwidth %u pixel %u",
+		task, pipe, throughput, task_pipe_tmp->throughput,
+		task_pipe_tmp->bandwidth, max_pixel);
 done:
 	mutex_unlock(&path_clt->clt_mutex);
 	mml_trace_ex_end();
@@ -713,7 +714,8 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_cur, *task_pipe_tmp;
 	struct timespec64 curr_time;
-	u32 throughput = 0, max_pixel = 0;
+	u32 throughput = 0, max_pixel = 0, bandwidth = 0;
+	bool racing_mode = true;
 
 	mml_trace_ex_begin("%s", __func__);
 	mutex_lock(&path_clt->clt_mutex);
@@ -732,6 +734,13 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		goto exit;
 	}
 
+	list_for_each_entry(task_pipe_cur, &path_clt->tasks, entry_clt) {
+		if (task_pipe_cur->task->config->info.mode == MML_MODE_RACING)
+			continue;
+		racing_mode = false;
+		break;
+	}
+
 	list_for_each_entry_safe(task_pipe_cur, task_pipe_tmp, &path_clt->tasks,
 		entry_clt) {
 		/* remove task from list include tasks before current
@@ -739,16 +748,18 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		 */
 		list_del_init(&task_pipe_cur->entry_clt);
 
-		/* clear port qos */
-		mml_core_qos_clear(task_pipe_cur->task, pipe);
+		/* clear port qos, skip for racing mode since ports are same */
+		if (!racing_mode)
+			mml_core_qos_clear(task_pipe_cur->task, pipe);
 
 		if (task == task_pipe_cur->task) {
 			/* found ending one, stops delete */
 			break;
 		}
 
-		mml_msg_qos("task dvfs end %p pipe %u clear qos (pre-end)",
-			task_pipe_cur->task, pipe);
+		if (!racing_mode)
+			mml_msg_qos("task dvfs end %p pipe %u clear qos (pre-end)",
+				task_pipe_cur->task, pipe);
 	}
 
 	task_pipe_cur = list_first_entry_or_null(&path_clt->tasks, typeof(*task_pipe_cur),
@@ -758,9 +769,12 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		max_pixel = task_pipe_cur->task->config->cache[pipe].max_pixel;
 
 		/* for racing mode, use throughput from act time directly */
-		if (task_pipe_cur->task->config->info.mode == MML_MODE_RACING) {
-			throughput = task_pipe_cur->task->throughput;
-			goto done;
+		if (racing_mode) {
+			throughput = task_pipe_cur->throughput;
+			if (task->pipe[pipe].throughput != task_pipe_cur->throughput)
+				goto done;
+			else
+				goto keep;
 		}
 
 		if (timespec64_compare(&curr_time, &task_pipe_cur->task->end_time) >= 0) {
@@ -769,13 +783,13 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 			goto done;
 		}
 
-		mml_core_calc_tput(task_pipe_cur->task, max_pixel,
+		mml_core_calc_tput(task_pipe_cur->task, max_pixel, pipe,
 			&task->end_time, &curr_time);
 
 		throughput = 0;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
 			/* find the max throughput (frequency) between tasks on same client */
-			throughput = max(throughput, task_pipe_tmp->task->throughput);
+			throughput = max(throughput, task_pipe_tmp->throughput);
 		}
 	} else {
 		/* no task anymore, clear */
@@ -783,13 +797,16 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	}
 
 done:
-	mml_msg_qos("task dvfs end update new task %p throughput %u pixel %u",
-		task_pipe_cur ? task_pipe_cur->task : NULL, throughput, max_pixel);
 	path_clt->throughput = throughput;
 	mml_qos_update_tput(task->config->mml);
-
-	if (throughput)
+	if (throughput) {
 		mml_core_qos_set(task_pipe_cur->task, pipe, throughput);
+		bandwidth = task_pipe_cur->bandwidth;
+	}
+keep:
+	mml_msg_qos("task dvfs end %s new task %p throughput %u bandwidth %u pixel %u",
+		racing_mode ? "racing" : "update",
+		task_pipe_cur ? task_pipe_cur->task : NULL, throughput, bandwidth, max_pixel);
 exit:
 	mutex_unlock(&path_clt->clt_mutex);
 	mml_trace_ex_end();
