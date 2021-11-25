@@ -540,17 +540,21 @@ static int transceiver_enable(struct hf_device *hf_dev,
 	state = &dev->state[sensor_type];
 	mutex_lock(&dev->enable_lock);
 	if (en) {
+		scp_register_sensor(SENS_FEATURE_ID, sensor_type);
 		ret = transceiver_comm_with(sensor_type,
 			SENS_COMM_CTRL_ENABLE_CMD,
 			&state->batch, sizeof(state->batch));
 		if (ret >= 0)
 			state->enable = true;
+		else
+			scp_deregister_sensor(SENS_FEATURE_ID, sensor_type);
 	} else {
 		ret = transceiver_comm_with(sensor_type,
 			SENS_COMM_CTRL_DISABLE_CMD, NULL, 0);
 		state->batch.delay = S64_MAX;
 		state->batch.latency = S64_MAX;
 		state->enable = false;
+		scp_deregister_sensor(SENS_FEATURE_ID, sensor_type);
 	}
 	mutex_unlock(&dev->enable_lock);
 	return ret;
