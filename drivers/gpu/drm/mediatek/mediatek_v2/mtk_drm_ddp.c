@@ -1197,10 +1197,6 @@
 #define MT6873_DISP_REG_CONFIG_SMI_LARB0_GREQ 0x8dc
 #define MT6873_DISP_REG_CONFIG_SMI_LARB1_GREQ 0x8e0
 
-struct mtk_disp_mutex {
-	int id;
-	bool claimed;
-};
 
 /*For MT6853*/
 #define MT6853_DISP_OVL0_MOUT_EN 0xf04
@@ -1839,29 +1835,6 @@ enum mtk_ddp_mutex_sof_id {
 	DDP_MUTEX_SOF_MAX,
 };
 
-struct mtk_disp_ddp_data {
-	const unsigned int *mutex_mod;
-	const unsigned int *mutex_sof;
-	unsigned int mutex_mod_reg;
-	unsigned int mutex_sof_reg;
-	const unsigned int *dispsys_map;
-};
-
-struct mtk_ddp {
-	struct device *dev;
-	struct clk *clk;
-	void __iomem *regs;
-	resource_size_t regs_pa;
-
-	unsigned int dispsys_num;
-	struct clk *side_clk;
-	void __iomem *side_regs;
-	resource_size_t side_regs_pa;
-	struct mtk_disp_mutex mutex[10];
-	const struct mtk_disp_ddp_data *data;
-	struct cmdq_base *cmdq_base;
-};
-
 struct mtk_mmsys_reg_data {
 	unsigned int ovl0_mout_en;
 	unsigned int rdma0_sout_sel_in;
@@ -1945,6 +1918,82 @@ struct dummy_mapping mt6983_dispsys_dummy_register[MT6983_DUMMY_REG_CNT] = {
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x654},//[0:5]
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x34},//[0:14]
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6]
+};
+
+struct dummy_mapping mt6879_dispsys_dummy_register[MT6879_DUMMY_REG_CNT] = {
+	//DISP_SLOT_CUR_CONFIG_FENCE(0 ~ 15)
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x170},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x174},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x190},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x194},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1B0},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1B4},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1D0},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1D4},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1F0},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1F4},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x210},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x214},
+	{0, NULL, DDP_COMPONENT_OVL0, 0x200},
+	{0, NULL, DDP_COMPONENT_OVL0_2L, 0x200},
+	{0, NULL, DDP_COMPONENT_OVL0_2L_NWCG, 0x200},
+	{0, NULL, DDP_COMPONENT_RDMA0, 0x090},
+
+	//DISP_SLOT_PRESENT_FENCE(0 ~ 2)
+	{0, NULL, DDP_COMPONENT_RDMA1, 0x090},
+	{0, NULL, DDP_COMPONENT_WDMA0, 0x100},
+	{0, NULL, DDP_COMPONENT_WDMA1, 0x100},
+
+	//DISP_SLOT_SUBTRACTOR_WHEN_FREE(0 ~ 15)
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x334},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x344},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x354},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x374},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x384},
+	{0, NULL, DDP_COMPONENT_C3D0, 0x028},
+	{0, NULL, DDP_COMPONENT_CCORR0, 0x0C0},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x338},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x33C},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x340},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x358},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x368},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x36C},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x388},
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x228},
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x20c},
+
+	//DISP_SLOT_RDMA_FB_IDX
+	{0, NULL, DDP_COMPONENT_AAL0, 0x0C0},
+
+	//DISP_SLOT_RDMA_FB_ID
+	{0, NULL, DDP_COMPONENT_CCORR1, 0x0C0},
+
+	//DISP_SLOT_CUR_HRT_IDX
+	{0, NULL, DDP_COMPONENT_CM0, 0x0C0},
+
+	//DISP_SLOT_CUR_HRT_LEVEL
+	{0, NULL, DDP_COMPONENT_SPR0, 0x038},
+
+	//DISP_SLOT_CUR_OUTPUT_FENCE
+	{0, NULL, DDP_COMPONENT_DSI0, 0x0F4},
+
+	//DISP_SLOT_CUR_INTERFACE_FENCE
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x208},
+
+	//DISP_SLOT_OVL_STATUS
+	{0, NULL, DDP_COMPONENT_DITHER0, 0x0C0},
+
+	//DISP_SLOT_READ_DDIC_BASE(0 ~ 3)
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x214},
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x224},
+	{0, NULL, DDP_COMPONENT_DSC0, 0x220},
+	{0, NULL, DDP_COMPONENT_DSC0, 0x620},
+
+	//DISP_SLOT_OVL_DSI_SEQ
+	{0, NULL, DDP_COMPONENT_SPR0, 0x030},
+
+	//DISP_SLOT_OVL_WDMA_SEQ
+	{0, NULL, DDP_COMPONENT_SPR0, 0x030},
 };
 
 static const unsigned int mt2701_mutex_mod[DDP_COMPONENT_ID_MAX] = {

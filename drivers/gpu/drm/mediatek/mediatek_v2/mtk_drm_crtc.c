@@ -8792,11 +8792,19 @@ void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc)
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
 	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6895))
+		(mmsys_id != MMSYS_MT6895) &&
+		(mmsys_id != MMSYS_MT6879))
 		return;
 
-	table = mt6983_dispsys_dummy_register;
-	size = MT6983_DUMMY_REG_CNT;
+	if ((mmsys_id == MMSYS_MT6983) ||
+		(mmsys_id == MMSYS_MT6895)) {
+		table = mt6983_dispsys_dummy_register;
+		size = MT6983_DUMMY_REG_CNT;
+	} else if (mmsys_id == MMSYS_MT6879) {
+		table = mt6879_dispsys_dummy_register;
+		size = MT6879_DUMMY_REG_CNT;
+	} else
+		return;
 
 	for (i = 0 ; i < size ; i++)
 		writel(0x0, table[i].addr + table[i].offset);
@@ -8818,7 +8826,8 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
 	if ((mmsys_id != MMSYS_MT6983) &&
-	    (mmsys_id != MMSYS_MT6895)) {
+	    (mmsys_id != MMSYS_MT6895) &&
+	    (mmsys_id != MMSYS_MT6879)) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
 		if (cmdq_buf == NULL) {
@@ -8830,8 +8839,16 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 	}
 
 	idx = slot_index / sizeof(unsigned int);
-	table = mt6983_dispsys_dummy_register;
-	size = MT6983_DUMMY_REG_CNT;
+
+	if ((mmsys_id == MMSYS_MT6983) ||
+		(mmsys_id == MMSYS_MT6895)) {
+		table = mt6983_dispsys_dummy_register;
+		size = MT6983_DUMMY_REG_CNT;
+	} else if (mmsys_id == MMSYS_MT6879) {
+		table = mt6879_dispsys_dummy_register;
+		size = MT6879_DUMMY_REG_CNT;
+	} else
+		return NULL;
 
 	if (idx < size) {
 		offset = table[idx].offset;
@@ -8863,7 +8880,8 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
 	if ((mmsys_id != MMSYS_MT6983) &&
-	    (mmsys_id != MMSYS_MT6895)) {
+	    (mmsys_id != MMSYS_MT6895) &&
+	    (mmsys_id != MMSYS_MT6879)) {
 		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
 		if (cmdq_buf == NULL) {
@@ -8875,8 +8893,15 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 	}
 
 	idx = slot_index / sizeof(unsigned int);
-	table = mt6983_dispsys_dummy_register;
-	size = MT6983_DUMMY_REG_CNT;
+	if ((mmsys_id == MMSYS_MT6983) ||
+		(mmsys_id == MMSYS_MT6895)) {
+		table = mt6983_dispsys_dummy_register;
+		size = MT6983_DUMMY_REG_CNT;
+	} else if (mmsys_id == MMSYS_MT6879) {
+		table = mt6879_dispsys_dummy_register;
+		size = MT6879_DUMMY_REG_CNT;
+	} else
+		return 0;
 
 	if (idx < size) {
 		offset = table[idx].offset;

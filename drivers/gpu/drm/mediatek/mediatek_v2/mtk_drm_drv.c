@@ -4346,6 +4346,10 @@ static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 		table = mt6983_dispsys_dummy_register;
 		size = MT6983_DUMMY_REG_CNT;
 		break;
+	case MMSYS_MT6879:
+		table = mt6879_dispsys_dummy_register;
+		size = MT6879_DUMMY_REG_CNT;
+		break;
 	default:
 		DDPMSG("no dummy table\n");
 		return;
@@ -4353,8 +4357,16 @@ static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 
 	for (i = 0; i < size; i++) {
 		if (table[i].comp_id == DDP_COMPONENT_ID_MAX) {
-			table[i].pa_addr = priv->config_regs_pa;
-			table[i].addr = priv->config_regs;
+			if (priv->data->mmsys_id == MMSYS_MT6879) {
+				//MT6879 can't use dispsys dummy reg, so change to use mutex
+				struct mtk_ddp *ddp = dev_get_drvdata(priv->mutex_dev);
+
+				table[i].pa_addr = ddp->regs_pa;
+				table[i].addr = ddp->regs;
+			} else {
+				table[i].pa_addr = priv->config_regs_pa;
+				table[i].addr = priv->config_regs;
+			}
 		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(31))) {
 			table[i].pa_addr = priv->side_config_regs_pa;
 			table[i].addr = priv->side_config_regs;
