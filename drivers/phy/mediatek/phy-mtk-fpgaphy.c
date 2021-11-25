@@ -315,6 +315,10 @@ unsigned int I2cWriteReg(unsigned char dev_id, unsigned char addr, unsigned char
 	writew(0x1303, REG_I2C_HTIMING);
 	writew(0x13C3, REG_I2C_LTIMING);
 
+	/* suggest by i2c owne, prevent stuck in while */
+	writew(0x0, i2c_base + 0x08);
+	writew(0x22, i2c_base + 0x10);
+
 	writeb(addr, ADDR_I2C_DATA_PORT);
 	writeb(val, ADDR_I2C_DATA_PORT);
 
@@ -322,6 +326,8 @@ unsigned int I2cWriteReg(unsigned char dev_id, unsigned char addr, unsigned char
 
 	while ((readw(ADDR_I2C_START) & REG_I2C_START_BIT))
 		;
+
+	writew(0x3ff, i2c_base + 0x0c); /* suggest by i2c owner */
 
 	return PHY_TRUE;
 }
@@ -334,6 +340,10 @@ unsigned int I2cReadReg(unsigned char dev_id, unsigned char addr, unsigned char 
 	writew((dev_id << 1), ADDR_I2C_SLAVE_ADDR);
 	writew(1, ADDR_I2C_TRANSFER_LEN);
 
+	/* suggest by i2c owner, prevent stuck in while */
+	writew(0x0, i2c_base + 0x08);
+	writew(0x22, i2c_base + 0x10);
+
 	/* ADDITIONAL CONTROL */
 	writew(0x1, REG_I2C_TRANSAC_LEN);
 	writew(0x1303, REG_I2C_HTIMING);
@@ -344,6 +354,8 @@ unsigned int I2cReadReg(unsigned char dev_id, unsigned char addr, unsigned char 
 
 	while ((readw(ADDR_I2C_START) & REG_I2C_START_BIT))
 		;
+
+	writew(0x3ff, i2c_base + 0x0c); /* suggest by i2c owner */
 
 	writew((dev_id << 1) | I2C_READ_BIT, ADDR_I2C_SLAVE_ADDR);
 	writew(1, ADDR_I2C_TRANSFER_LEN);
@@ -357,6 +369,8 @@ unsigned int I2cReadReg(unsigned char dev_id, unsigned char addr, unsigned char 
 
 	while ((readw(ADDR_I2C_START) & REG_I2C_START_BIT))
 		;
+
+	writew(0x3ff, i2c_base + 0x0c); /* suggest by i2c owner */
 
 	*data = readb(ADDR_I2C_DATA_PORT);
 
@@ -1324,7 +1338,6 @@ static int fpga_u3phy_probe(struct platform_device *pdev)
 	}
 
 	provider = devm_of_phy_provider_register(dev, fpga_phy_xlate);
-
 	return PTR_ERR_OR_ZERO(provider);
 put_child:
 	of_node_put(child_np);

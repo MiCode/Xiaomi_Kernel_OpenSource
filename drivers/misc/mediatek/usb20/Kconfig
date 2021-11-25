@@ -1,0 +1,96 @@
+config USB_MTK_HDRC
+	tristate "MediaTek MUSB support"
+	select USB_GADGET_SELECTED
+	select USB_GADGET_DUALSPEED
+	help
+	  Say Y here if your system has a high speed USB
+	  controller based on the MTK MUSB IP.  Then
+	  configure options to match your silicon and the board
+	  it's being used with, including the USB peripheral role,
+	  or the USB host role, or both.
+
+config MTK_MUSB_QMU_SUPPORT
+	bool "QMU Transfer mode of MediaTek MUSB"
+	depends on USB_MTK_HDRC
+	help
+	  Say Y here if your system has a QMU capability for USB
+	  controller based on the MTK MUSB IP.
+	  QMU is some kind of enhanced DMA mode by HW queeu rather
+	  than SW queue to reduce SW effort.
+
+config MTK_MUSB_QMU_PURE_ZLP_SUPPORT
+	bool "Transfer ZLP by GDP of MediaTek MUSB"
+	depends on MTK_MUSB_QMU_SUPPORT
+	help
+	  Say Y here if QMU IP supports sending zero
+	  length packet(ZLP) by setting ZLP flag in GDP
+	  and the driver can enable by internal register.
+	  After MT6763 should support this feature.
+
+config MTK_MUSB_DRV_36BIT
+	bool "MediaTek MUSB 36bits addressing support"
+	default n
+	help
+	  This selects the MediaTek MUSB support 36-bits
+	  address accessing.
+	  Say Y here if you want to enable 36-bits addressing support.
+	  If unsure, say N.
+
+config USB_MTK_OTG
+	bool "MediaTek MUSB OTG support"
+	help
+	  Enable Mediatek USB Host OTG detection mechanism
+	  and USB-IF Compliance Test Program.
+	  1. IDDIG - OTG cable attachment detection.
+	  2. DRVVBUS - provides the VBUS for the attached devices
+
+config USB_MTK_CHARGER_DETECT
+	bool "MediaTek MUSB charger detect"
+	depends on MTK_USBFSH
+	help
+	  If make port1 enable in mt8163, please open the config.
+	  When port0 is using, plug in device to port1,
+	  port0 will get the disconnect. fix the issue, need open
+	  the config.
+
+config MTK_UART_USB_SWITCH
+	bool "MediaTek UART could use USB DATA pins"
+	help
+	  This is a feature for debugging purpose.
+	  It uses the USB TX/RX as UART TX/RX.
+	  A USB to UART cable is needed to use this feature.
+	  Using the UI in the EngineerMode to switch between USB and UART mode.
+	  After switching to UART mode and connect to the PC with a USB to UART cable,
+	  you can connect to a Virtual COM port on the PC and get the log output to the UART console.
+
+config MTK_MUSB_CARPLAY_SUPPORT
+	bool "MediaTek MUSB Carplay support"
+	help
+	  Say Y here if your want to use carplay.
+
+config MTK_MUSB_SW_WITCH_MODE
+	bool "MediaTek MUSB provide user space interface to switch usb role without id pin"
+	help
+	  Usb host/device/idle mode switch through command, not only depend on ID pin.
+	  Say Y here if your want to use software to switch usb mode.
+
+config MTK_MUSB_PORT0_LOWPOWER_MODE
+	bool "MediaTek MUSB PORT0 low power mode support"
+	help
+	  Dynamic control the usb port0 clock when PORT1 not exist.
+	  Say Y here if your want to enable port0 low power mode for saving power.
+
+config MTK_MUSB_DUAL_ROLE
+	bool "Mediatek MUSB Dual Role mode support"
+	select USB_ROLE_SWITCH
+	help
+	  This is the default mode of working of MTK MUSB controller
+	  where both host and gadget
+	  features are enabled.
+	  It is better to be used with Mediatek extcon and tphy support.
+	  Say Y here if your want to use usb role switch.
+
+config MTK_MUSB_PHY
+	tristate "MediaTek USB20 PHY support"
+        help
+          MediaTek USB20 PHY support.
