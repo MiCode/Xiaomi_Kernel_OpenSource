@@ -87,7 +87,7 @@ static struct mtk_base_dsp *dsp;
  * Function  Declaration
  */
 static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg);
-static bool OffloadService_TsWait(unsigned int id);
+static bool offloadservice_tswait(unsigned int id);
 static int offloadservice_copydatatoram(void __user *buf, size_t count);
 #ifdef use_wake_lock
 static void mtk_compr_offload_int_wakelock(bool enable);
@@ -561,7 +561,10 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		afe_offload_block.copied_total = ipi_msg->param1;
 		afe_offload_block.time_pcm = ktime_get();
 		afe_offload_block.time_pcm_delay_ms = ipi_msg->param2;
+		mutex_lock(&afe_offload_service.ts_lock);
 		afe_offload_service.tswait = false;
+		wake_up_interruptible(&afe_offload_service.ts_wq);
+		mutex_unlock(&afe_offload_service.ts_lock);
 		break;
 	case OFFLOAD_DRAINDONE:
 		pr_info("%s mtk_compr_offload_draindone\n", __func__);
@@ -580,19 +583,18 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 }
 
 
-static bool OffloadService_TsWait(unsigned int id)
+static bool offloadservice_tswait(unsigned int id)
 {
-	int timeout = 0;
+	int retval;
 
-	while (afe_offload_service.tswait) {
-		usleep_range(1 * 1000, 1 * 1000);
-		if (timeout++ > MP3_IPIMSG_TIMEOUT) {
-			pr_info("%s tswait timeout:id_%x\n", __func__, id);
-			afe_offload_service.tswait = false;
-			return false;
-		}
-	}
-	return true;
+	retval = wait_event_interruptible_timeout(
+		 afe_offload_service.ts_wq,
+		 !afe_offload_service.tswait,
+		 msecs_to_jiffies(OFFLOAD_IPIMSG_TIMEOUT));
+	if (!retval)
+		pr_info("%s time out\n", __func__);
+
+	return retval;
 }
 
 static int offloadservice_copydatatoram(void __user *buf, size_t count)
@@ -708,12 +710,14 @@ Error:
 
 static int mtk_compr_send_query_tstamp(void)
 {
+	mutex_lock(&afe_offload_service.ts_lock);
 	if (!afe_offload_service.tswait && !offload_playback_pause) {
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 		AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
 		OFFLOAD_TSTAMP, 0, 0, NULL);
 		afe_offload_service.tswait = true;
 	}
+	mutex_unlock(&afe_offload_service.ts_lock);
 	return 0;
 }
 
@@ -737,7 +741,7 @@ static int mtk_compr_offload_pointer(struct snd_soc_component *component,
 	}
 
 	if (afe_offload_block.state == OFFLOAD_STATE_RUNNING)
-		OffloadService_TsWait(OFFLOAD_PCMCONSUMED);
+		offloadservice_tswait(OFFLOAD_PCMCONSUMED);
 
 	if (!afe_offload_service.needdata) {
 		tstamp->copied_total  =
@@ -843,6 +847,20 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 	return 0;
 }
 
+static int mtk_compr_deinit_offload_service(struct afe_offload_service_t *service)
+{
+	if (!service)
+		return -1;
+	service->write_blocked = false;
+	service->enable = false;
+	service->drain = false;
+	service->tswait = false;
+	service->needdata = false;
+	service->decode_error = false;
+	service->pcmdump = false;
+	return 0;
+}
+
 static int mtk_compr_offload_stop(struct snd_compr_stream *stream)
 {
 	int ret = 0;
@@ -859,7 +877,7 @@ static int mtk_compr_offload_stop(struct snd_compr_stream *stream)
 	afe_offload_block.copied_total      = 0;
 	afe_offload_block.write_blocked_idx = 0;
 	afe_offload_block.drain_state       = AUDIO_DRAIN_NONE;
-	memset(&afe_offload_service, 0, sizeof(afe_offload_service));
+	mtk_compr_deinit_offload_service(&afe_offload_service);
 	offloadservice_setwriteblocked(false);
 	offloadservice_releasewriteblocked();
 	clear_audiobuffer_hw(&dsp->dsp_mem[ID].adsp_buf);
@@ -933,6 +951,13 @@ static const struct snd_soc_component_driver mtk_dloffload_soc_platform = {
 	.probe      = mtk_afe_dloffload_probe,
 };
 
+static int mtk_offload_init(void)
+{
+	mutex_init(&afe_offload_service.ts_lock);
+	init_waitqueue_head(&afe_offload_service.ts_wq);
+	return 0;
+}
+
 static int mtk_dloffload_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -958,6 +983,8 @@ static int mtk_dloffload_probe(struct platform_device *pdev)
 					 NULL, 0);
 	if (ret)
 		dev_info(offload_dev, "%s() err_offload_platform: %d\n", __func__, ret);
+
+	mtk_offload_init();
 
 	return 0;
 }

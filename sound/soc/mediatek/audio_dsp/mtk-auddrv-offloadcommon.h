@@ -18,7 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/time.h>
 #include <linux/timer.h>
-// #include "mtk-auddrv-def.h"
+#include <linux/wait.h>
 #include <linux/clk.h>
 
 #include <sound/compress_driver.h>
@@ -33,8 +33,7 @@
 #include "mtk-dsp-platform-driver.h"
 #endif
 
-#define MP3_IPIMSG_TIMEOUT             2
-#define MP3_WAITCHECK_INTERVAL_MS      1
+#define OFFLOAD_IPIMSG_TIMEOUT             25
 
 enum {
 	OFFLOAD_STATE_INIT = 0x1,
@@ -68,6 +67,8 @@ struct afe_offload_service_t {
 	bool enable;
 	bool drain;
 	bool tswait;
+	struct mutex ts_lock;
+	wait_queue_head_t ts_wq;
 	bool needdata;
 	bool decode_error;
 	unsigned int pcmdump;
