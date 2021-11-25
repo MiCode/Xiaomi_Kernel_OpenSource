@@ -100,7 +100,7 @@ static const char *infra_mi_trans(uint32_t bus_id)
 			break;
 		}
 		if (j == INFRAAXI_MI_BIT_LENGTH) {
-			pr_debug(PFX "%s %s %s\n",
+			pr_info(PFX "%s %s %s\n",
 				"catch it from INFRAAXI_MI",
 				"Master is:",
 				infra_mi_id_to_master[i].master);
