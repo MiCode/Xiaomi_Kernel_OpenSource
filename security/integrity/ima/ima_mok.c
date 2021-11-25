@@ -21,7 +21,7 @@ struct key *ima_blacklist_keyring;
 /*
  * Allocate the IMA blacklist keyring
  */
-static __init int ima_mok_init(void)
+__init int ima_mok_init(void)
 {
 	struct key_restriction *restriction;
 

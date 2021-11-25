@@ -36,7 +36,7 @@ class SubPlugin(TdcPlugin):
         for k in scapy_keys:
             if k not in scapyinfo:
                 keyfail = True
-                missing_keys.append(k)
+                missing_keys.add(k)
         if keyfail:
             print('{}: Scapy block present in the test, but is missing info:'
                 .format(self.sub_class))

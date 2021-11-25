@@ -203,8 +203,8 @@ static int __init afs_init(void)
 		goto error_fs;
 
 	afs_proc_symlink = proc_symlink("fs/afs", NULL, "../self/net/afs");
-	if (!afs_proc_symlink) {
-		ret = -ENOMEM;
+	if (IS_ERR(afs_proc_symlink)) {
+		ret = PTR_ERR(afs_proc_symlink);
 		goto error_proc;
 	}
 

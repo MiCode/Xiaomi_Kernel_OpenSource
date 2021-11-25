@@ -299,7 +299,10 @@ static void __gen8_ppgtt_alloc(struct i915_address_space * const vm,
 			__i915_gem_object_pin_pages(pt->base);
 			i915_gem_object_make_unshrinkable(pt->base);
 
-			fill_px(pt, vm->scratch[lvl]->encode);
+			if (lvl ||
+			    gen8_pt_count(*start, end) < I915_PDES ||
+			    intel_vgpu_active(vm->i915))
+				fill_px(pt, vm->scratch[lvl]->encode);
 
 			spin_lock(&pd->lock);
 			if (likely(!pd->entry[idx])) {

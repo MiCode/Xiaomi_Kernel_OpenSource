@@ -151,6 +151,7 @@ enum edca_queue {
 };
 
 struct security_info {
+	bool security_enable;
 	u32 ptk_cipher;
 	u32 gtk_cipher;
 };

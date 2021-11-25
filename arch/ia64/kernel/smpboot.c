@@ -440,6 +440,7 @@ start_secondary (void *unused)
 #endif
 	efi_map_pal_code();
 	cpu_init();
+	preempt_disable();
 	smp_callin();
 
 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);

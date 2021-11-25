@@ -1382,10 +1382,8 @@ int btrfs_defrag_root(struct btrfs_root *root)
 
 	while (1) {
 		trans = btrfs_start_transaction(root, 0);
-		if (IS_ERR(trans)) {
-			ret = PTR_ERR(trans);
-			break;
-		}
+		if (IS_ERR(trans))
+			return PTR_ERR(trans);
 
 		ret = btrfs_defrag_leaves(trans, root);
 

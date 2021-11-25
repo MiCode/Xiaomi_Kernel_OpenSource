@@ -10,7 +10,6 @@
 #include <asm/ptrace.h>
 #include <asm/syscall.h>
 #include <asm/thread_info.h>
-#include <asm/switch_to.h>
 #include <linux/audit.h>
 #include <linux/ptrace.h>
 #include <linux/elf.h>
@@ -56,9 +55,6 @@ static int riscv_fpr_get(struct task_struct *target,
 			 struct membuf to)
 {
 	struct __riscv_d_ext_state *fstate = &target->thread.fstate;
-
-	if (target == current)
-		fstate_save(current, task_pt_regs(current));
 
 	membuf_write(&to, fstate, offsetof(struct __riscv_d_ext_state, fcsr));
 	membuf_store(&to, fstate->fcsr);

@@ -53,6 +53,7 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #define TURBO_ENABLE		1
 #define TURBO_DISABLE		0
 #define INHERIT_THRESHOLD	4
+#define UTIL_AVG_UNCHANGED	0x1
 #define type_offset(type)		 (type * 4)
 #define task_turbo_nice(nice) (nice == 0xbeef || nice == 0xbeee)
 #define task_restore_nice(nice) (nice == 0xbeee)
@@ -495,7 +496,7 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 {
 	struct util_est ue = READ_ONCE(p->se.avg.util_est);
 
-	return max(ue.ewma, (ue.enqueued & ~UTIL_AVG_UNCHANGED));
+	return (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
 }
 
 int find_best_turbo_cpu(struct task_struct *p)

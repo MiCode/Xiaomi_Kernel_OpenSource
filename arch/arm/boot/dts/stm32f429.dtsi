@@ -283,6 +283,8 @@
 		};
 
 		timers13: timers@40001c00 {
+			#address-cells = <1>;
+			#size-cells = <0>;
 			compatible = "st,stm32-timers";
 			reg = <0x40001C00 0x400>;
 			clocks = <&rcc 0 STM32F4_APB1_CLOCK(TIM13)>;
@@ -297,6 +299,8 @@
 		};
 
 		timers14: timers@40002000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
 			compatible = "st,stm32-timers";
 			reg = <0x40002000 0x400>;
 			clocks = <&rcc 0 STM32F4_APB1_CLOCK(TIM14)>;
@@ -629,6 +633,8 @@
 		};
 
 		timers10: timers@40014400 {
+			#address-cells = <1>;
+			#size-cells = <0>;
 			compatible = "st,stm32-timers";
 			reg = <0x40014400 0x400>;
 			clocks = <&rcc 0 STM32F4_APB2_CLOCK(TIM10)>;
@@ -643,6 +649,8 @@
 		};
 
 		timers11: timers@40014800 {
+			#address-cells = <1>;
+			#size-cells = <0>;
 			compatible = "st,stm32-timers";
 			reg = <0x40014800 0x400>;
 			clocks = <&rcc 0 STM32F4_APB2_CLOCK(TIM11)>;
@@ -701,7 +709,7 @@
 			status = "disabled";
 		};
 
-		rcc: rcc@40023800 {
+		rcc: rcc@40023810 {
 			#reset-cells = <1>;
 			#clock-cells = <2>;
 			compatible = "st,stm32f42xx-rcc", "st,stm32-rcc";

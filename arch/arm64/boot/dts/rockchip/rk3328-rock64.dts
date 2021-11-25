@@ -384,11 +384,6 @@
 	status = "okay";
 };
 
-&usbdrd3 {
-	dr_mode = "host";
-	status = "okay";
-};
-
 &usb_host0_ehci {
 	status = "okay";
 };

@@ -9,7 +9,6 @@
 #include "hnae3.h"
 
 #define HCLGE_CMDQ_TX_TIMEOUT		30000
-#define HCLGE_CMDQ_CLEAR_WAIT_TIME	200
 #define HCLGE_DESC_DATA_LEN		6
 
 struct hclge_dev;
@@ -262,9 +261,6 @@ enum hclge_opcode_type {
 
 	/* Led command */
 	HCLGE_OPC_LED_STATUS_CFG	= 0xB000,
-
-	/* clear hardware resource command */
-	HCLGE_OPC_CLEAR_HW_RESOURCE	= 0x700B,
 
 	/* NCL config command */
 	HCLGE_OPC_QUERY_NCL_CONFIG	= 0x7011,

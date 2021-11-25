@@ -76,12 +76,14 @@ static int mtu3_ep_enable(struct mtu3_ep *mep)
 	u32 interval = 0;
 	u32 mult = 0;
 	u32 burst = 0;
+	int max_packet;
 	int ret;
 
 	desc = mep->desc;
 	comp_desc = mep->comp_desc;
 	mep->type = usb_endpoint_type(desc);
-	mep->maxp = usb_endpoint_maxp(desc);
+	max_packet = usb_endpoint_maxp(desc);
+	mep->maxp = max_packet & GENMASK(10, 0);
 
 	switch (mtu->g.speed) {
 	case USB_SPEED_SUPER:
@@ -102,7 +104,7 @@ static int mtu3_ep_enable(struct mtu3_ep *mep)
 				usb_endpoint_xfer_int(desc)) {
 			interval = desc->bInterval;
 			interval = clamp_val(interval, 1, 16) - 1;
-			mult = usb_endpoint_maxp_mult(desc) - 1;
+			burst = (max_packet & GENMASK(12, 11)) >> 11;
 		}
 		break;
 	default:

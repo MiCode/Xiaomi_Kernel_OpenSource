@@ -147,16 +147,11 @@ static inline bool xp_desc_crosses_non_contig_pg(struct xsk_buff_pool *pool,
 {
 	bool cross_pg = (addr & (PAGE_SIZE - 1)) + len > PAGE_SIZE;
 
-	if (likely(!cross_pg))
-		return false;
-
-	if (pool->dma_pages_cnt) {
+	if (pool->dma_pages_cnt && cross_pg) {
 		return !(pool->dma_pages[addr >> PAGE_SHIFT] &
 			 XSK_NEXT_PG_CONTIG_MASK);
 	}
-
-	/* skb path */
-	return addr + len > pool->addrs_cnt;
+	return false;
 }
 
 static inline u64 xp_aligned_extract_addr(struct xsk_buff_pool *pool, u64 addr)

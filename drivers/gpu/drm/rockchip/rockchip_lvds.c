@@ -499,11 +499,11 @@ static int px30_lvds_probe(struct platform_device *pdev,
 	if (IS_ERR(lvds->dphy))
 		return PTR_ERR(lvds->dphy);
 
-	ret = phy_init(lvds->dphy);
+	phy_init(lvds->dphy);
 	if (ret)
 		return ret;
 
-	ret = phy_set_mode(lvds->dphy, PHY_MODE_LVDS);
+	phy_set_mode(lvds->dphy, PHY_MODE_LVDS);
 	if (ret)
 		return ret;
 

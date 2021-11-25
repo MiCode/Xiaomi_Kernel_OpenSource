@@ -648,7 +648,7 @@
 	status = "okay";
 };
 
-&gpio0_target {
+&gpio0 {
 	ti,no-reset-on-init;
 };
 

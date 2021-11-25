@@ -2500,6 +2500,13 @@ nvmet_fc_handle_fcp_rqst(struct nvmet_fc_tgtport *tgtport,
 	int ret;
 
 	/*
+	 * if there is no nvmet mapping to the targetport there
+	 * shouldn't be requests. just terminate them.
+	 */
+	if (!tgtport->pe)
+		goto transport_error;
+
+	/*
 	 * Fused commands are currently not supported in the linux
 	 * implementation.
 	 *
@@ -2526,8 +2533,7 @@ nvmet_fc_handle_fcp_rqst(struct nvmet_fc_tgtport *tgtport,
 
 	fod->req.cmd = &fod->cmdiubuf.sqe;
 	fod->req.cqe = &fod->rspiubuf.cqe;
-	if (tgtport->pe)
-		fod->req.port = tgtport->pe->port;
+	fod->req.port = tgtport->pe->port;
 
 	/* clear any response payload */
 	memset(&fod->rspiubuf, 0, sizeof(fod->rspiubuf));

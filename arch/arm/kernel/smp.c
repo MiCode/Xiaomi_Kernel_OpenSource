@@ -435,6 +435,7 @@ asmlinkage void secondary_start_kernel(void)
 #endif
 	pr_debug("CPU%u: Booted secondary processor\n", cpu);
 
+	preempt_disable();
 	trace_hardirqs_off();
 
 	/*

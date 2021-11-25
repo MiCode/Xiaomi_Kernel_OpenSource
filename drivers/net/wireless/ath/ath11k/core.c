@@ -329,8 +329,7 @@ static int ath11k_core_fetch_board_data_api_n(struct ath11k_base *ab,
 		if (len < ALIGN(ie_len, 4)) {
 			ath11k_err(ab, "invalid length for board ie_id %d ie_len %zu len %zu\n",
 				   ie_id, ie_len, len);
-			ret = -EINVAL;
-			goto err;
+			return -EINVAL;
 		}
 
 		switch (ie_id) {

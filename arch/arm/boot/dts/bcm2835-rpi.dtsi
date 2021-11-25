@@ -4,7 +4,7 @@
 	leds {
 		compatible = "gpio-leds";
 
-		led-act {
+		act {
 			label = "ACT";
 			default-state = "keep";
 			linux,default-trigger = "heartbeat";

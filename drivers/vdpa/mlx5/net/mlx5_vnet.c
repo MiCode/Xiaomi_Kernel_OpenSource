@@ -511,6 +511,7 @@ static int cq_create(struct mlx5_vdpa_net *ndev, u16 idx, u32 num_ent)
 	void __iomem *uar_page = ndev->mvdev.res.uar->map;
 	u32 out[MLX5_ST_SZ_DW(create_cq_out)];
 	struct mlx5_vdpa_cq *vcq = &mvq->cq;
+	unsigned int irqn;
 	__be64 *pas;
 	int inlen;
 	void *cqc;
@@ -550,7 +551,7 @@ static int cq_create(struct mlx5_vdpa_net *ndev, u16 idx, u32 num_ent)
 	/* Use vector 0 by default. Consider adding code to choose least used
 	 * vector.
 	 */
-	err = mlx5_vector2eqn(mdev, 0, &eqn);
+	err = mlx5_vector2eqn(mdev, 0, &eqn, &irqn);
 	if (err)
 		goto err_vec;
 
@@ -595,8 +596,8 @@ static void cq_destroy(struct mlx5_vdpa_net *ndev, u16 idx)
 	mlx5_db_free(ndev->mvdev.mdev, &vcq->db);
 }
 
-static void set_umem_size(struct mlx5_vdpa_net *ndev, struct mlx5_vdpa_virtqueue *mvq, int num,
-			  struct mlx5_vdpa_umem **umemp)
+static int umem_size(struct mlx5_vdpa_net *ndev, struct mlx5_vdpa_virtqueue *mvq, int num,
+		     struct mlx5_vdpa_umem **umemp)
 {
 	struct mlx5_core_dev *mdev = ndev->mvdev.mdev;
 	int p_a;
@@ -619,7 +620,7 @@ static void set_umem_size(struct mlx5_vdpa_net *ndev, struct mlx5_vdpa_virtqueue
 		*umemp = &mvq->umem3;
 		break;
 	}
-	(*umemp)->size = p_a * mvq->num_ent + p_b;
+	return p_a * mvq->num_ent + p_b;
 }
 
 static void umem_frag_buf_free(struct mlx5_vdpa_net *ndev, struct mlx5_vdpa_umem *umem)
@@ -635,10 +636,15 @@ static int create_umem(struct mlx5_vdpa_net *ndev, struct mlx5_vdpa_virtqueue *m
 	void *in;
 	int err;
 	__be64 *pas;
+	int size;
 	struct mlx5_vdpa_umem *umem;
 
-	set_umem_size(ndev, mvq, num, &umem);
-	err = umem_frag_buf_alloc(ndev, umem, umem->size);
+	size = umem_size(ndev, mvq, num, &umem);
+	if (size < 0)
+		return size;
+
+	umem->size = size;
+	err = umem_frag_buf_alloc(ndev, umem, size);
 	if (err)
 		return err;
 
@@ -808,9 +814,9 @@ static int create_virtqueue(struct mlx5_vdpa_net *ndev, struct mlx5_vdpa_virtque
 	MLX5_SET(virtio_q, vq_ctx, umem_1_id, mvq->umem1.id);
 	MLX5_SET(virtio_q, vq_ctx, umem_1_size, mvq->umem1.size);
 	MLX5_SET(virtio_q, vq_ctx, umem_2_id, mvq->umem2.id);
-	MLX5_SET(virtio_q, vq_ctx, umem_2_size, mvq->umem2.size);
+	MLX5_SET(virtio_q, vq_ctx, umem_2_size, mvq->umem1.size);
 	MLX5_SET(virtio_q, vq_ctx, umem_3_id, mvq->umem3.id);
-	MLX5_SET(virtio_q, vq_ctx, umem_3_size, mvq->umem3.size);
+	MLX5_SET(virtio_q, vq_ctx, umem_3_size, mvq->umem1.size);
 	MLX5_SET(virtio_q, vq_ctx, pd, ndev->mvdev.res.pdn);
 	if (MLX5_CAP_DEV_VDPA_EMULATION(ndev->mvdev.mdev, eth_frame_offload_type))
 		MLX5_SET(virtio_q, vq_ctx, virtio_version_1_0, 1);
@@ -1751,14 +1757,6 @@ out:
 	mutex_unlock(&ndev->reslock);
 }
 
-static void clear_vqs_ready(struct mlx5_vdpa_net *ndev)
-{
-	int i;
-
-	for (i = 0; i < ndev->mvdev.max_vqs; i++)
-		ndev->vqs[i].ready = false;
-}
-
 static void mlx5_vdpa_set_status(struct vdpa_device *vdev, u8 status)
 {
 	struct mlx5_vdpa_dev *mvdev = to_mvdev(vdev);
@@ -1769,7 +1767,6 @@ static void mlx5_vdpa_set_status(struct vdpa_device *vdev, u8 status)
 	if (!status) {
 		mlx5_vdpa_info(mvdev, "performing device reset\n");
 		teardown_driver(ndev);
-		clear_vqs_ready(ndev);
 		mlx5_vdpa_destroy_mr(&ndev->mvdev);
 		ndev->mvdev.status = 0;
 		ndev->mvdev.mlx_features = 0;

@@ -655,13 +655,9 @@ static int __init omap_pm_init(void)
 		irq = INT_7XX_WAKE_UP_REQ;
 	else if (cpu_is_omap16xx())
 		irq = INT_1610_WAKE_UP_REQ;
-	else
-		irq = -1;
-
-	if (irq >= 0) {
-		if (request_irq(irq, omap_wakeup_interrupt, 0, "peripheral wakeup", NULL))
-			pr_err("Failed to request irq %d (peripheral wakeup)\n", irq);
-	}
+	if (request_irq(irq, omap_wakeup_interrupt, 0, "peripheral wakeup",
+			NULL))
+		pr_err("Failed to request irq %d (peripheral wakeup)\n", irq);
 
 	/* Program new power ramp-up time
 	 * (0 for most boards since we don't lower voltage when in deep sleep)

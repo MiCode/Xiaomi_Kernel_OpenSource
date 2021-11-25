@@ -441,12 +441,6 @@ int stmmac_mdio_register(struct net_device *ndev)
 		found = 1;
 	}
 
-	if (!found && !mdio_node) {
-		dev_warn(dev, "No PHY found\n");
-		err = -ENODEV;
-		goto no_phy_found;
-	}
-
 	/* Try to probe the XPCS by scanning all addresses. */
 	if (priv->hw->xpcs) {
 		struct mdio_xpcs_args *xpcs = &priv->hw->xpcs_args;
@@ -455,7 +449,6 @@ int stmmac_mdio_register(struct net_device *ndev)
 
 		xpcs->bus = new_bus;
 
-		found = 0;
 		for (addr = 0; addr < max_addr; addr++) {
 			xpcs->addr = addr;
 
@@ -465,12 +458,13 @@ int stmmac_mdio_register(struct net_device *ndev)
 				break;
 			}
 		}
+	}
 
-		if (!found && !mdio_node) {
-			dev_warn(dev, "No XPCS found\n");
-			err = -ENODEV;
-			goto no_xpcs_found;
-		}
+	if (!found && !mdio_node) {
+		dev_warn(dev, "No PHY found\n");
+		mdiobus_unregister(new_bus);
+		mdiobus_free(new_bus);
+		return -ENODEV;
 	}
 
 bus_register_done:
@@ -478,9 +472,6 @@ bus_register_done:
 
 	return 0;
 
-no_xpcs_found:
-no_phy_found:
-	mdiobus_unregister(new_bus);
 bus_register_fail:
 	mdiobus_free(new_bus);
 	return err;

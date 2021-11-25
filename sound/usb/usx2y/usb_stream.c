@@ -142,11 +142,8 @@ void usb_stream_free(struct usb_stream_kernel *sk)
 	if (!s)
 		return;
 
-	if (sk->write_page) {
-		free_pages_exact(sk->write_page, s->write_size);
-		sk->write_page = NULL;
-	}
-
+	free_pages_exact(sk->write_page, s->write_size);
+	sk->write_page = NULL;
 	free_pages_exact(s, s->read_size);
 	sk->s = NULL;
 }

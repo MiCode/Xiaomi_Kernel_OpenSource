@@ -90,7 +90,6 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
 				  efx->pci_dev->irq);
 			goto fail1;
 		}
-		efx->irqs_hooked = true;
 		return 0;
 	}
 

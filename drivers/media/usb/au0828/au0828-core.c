@@ -199,8 +199,8 @@ static int au0828_media_device_init(struct au0828_dev *dev,
 	struct media_device *mdev;
 
 	mdev = media_device_usb_allocate(udev, KBUILD_MODNAME, THIS_MODULE);
-	if (IS_ERR(mdev))
-		return PTR_ERR(mdev);
+	if (!mdev)
+		return -ENOMEM;
 
 	dev->media_dev = mdev;
 #endif

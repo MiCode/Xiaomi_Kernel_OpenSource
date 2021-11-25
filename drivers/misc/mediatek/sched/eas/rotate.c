@@ -28,6 +28,7 @@ int sched_min_cap_orig_cpu = -1;
 #define TASK_ROTATION_THRESHOLD_NS 6000000
 #define HEAVY_TASK_NUM 4
 
+#define UTIL_AVG_UNCHANGED 0x1
 unsigned int capacity_margin = 1280;
 
 struct task_rotate_work {

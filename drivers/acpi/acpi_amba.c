@@ -76,7 +76,6 @@ static int amba_handler_attach(struct acpi_device *adev,
 		case IORESOURCE_MEM:
 			if (!address_found) {
 				dev->res = *rentry->res;
-				dev->res.name = dev_name(&dev->dev);
 				address_found = true;
 			}
 			break;

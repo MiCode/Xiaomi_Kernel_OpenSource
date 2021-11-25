@@ -197,11 +197,12 @@ static void ionic_rx_clean(struct ionic_queue *q,
 		}
 	}
 
-	if (likely(netdev->features & NETIF_F_RXCSUM) &&
-	    (comp->csum_flags & IONIC_RXQ_COMP_CSUM_F_CALC)) {
-		skb->ip_summed = CHECKSUM_COMPLETE;
-		skb->csum = (__force __wsum)le16_to_cpu(comp->csum);
-		stats->csum_complete++;
+	if (likely(netdev->features & NETIF_F_RXCSUM)) {
+		if (comp->csum_flags & IONIC_RXQ_COMP_CSUM_F_CALC) {
+			skb->ip_summed = CHECKSUM_COMPLETE;
+			skb->csum = (__force __wsum)le16_to_cpu(comp->csum);
+			stats->csum_complete++;
+		}
 	} else {
 		stats->csum_none++;
 	}
@@ -416,12 +417,11 @@ void ionic_rx_empty(struct ionic_queue *q)
 	}
 }
 
-static void ionic_dim_update(struct ionic_qcq *qcq, int napi_mode)
+static void ionic_dim_update(struct ionic_qcq *qcq)
 {
 	struct dim_sample dim_sample;
 	struct ionic_lif *lif;
 	unsigned int qi;
-	u64 pkts, bytes;
 
 	if (!qcq->intr.dim_coal_hw)
 		return;
@@ -429,23 +429,14 @@ static void ionic_dim_update(struct ionic_qcq *qcq, int napi_mode)
 	lif = qcq->q.lif;
 	qi = qcq->cq.bound_q->index;
 
-	switch (napi_mode) {
-	case IONIC_LIF_F_TX_DIM_INTR:
-		pkts = lif->txqstats[qi].pkts;
-		bytes = lif->txqstats[qi].bytes;
-		break;
-	case IONIC_LIF_F_RX_DIM_INTR:
-		pkts = lif->rxqstats[qi].pkts;
-		bytes = lif->rxqstats[qi].bytes;
-		break;
-	default:
-		pkts = lif->txqstats[qi].pkts + lif->rxqstats[qi].pkts;
-		bytes = lif->txqstats[qi].bytes + lif->rxqstats[qi].bytes;
-		break;
-	}
+	ionic_intr_coal_init(lif->ionic->idev.intr_ctrl,
+			     lif->rxqcqs[qi]->intr.index,
+			     qcq->intr.dim_coal_hw);
 
 	dim_update_sample(qcq->cq.bound_intr->rearm_count,
-			  pkts, bytes, &dim_sample);
+			  lif->txqstats[qi].pkts,
+			  lif->txqstats[qi].bytes,
+			  &dim_sample);
 
 	net_dim(&qcq->dim, dim_sample);
 }
@@ -466,7 +457,7 @@ int ionic_tx_napi(struct napi_struct *napi, int budget)
 				     ionic_tx_service, NULL, NULL);
 
 	if (work_done < budget && napi_complete_done(napi, work_done)) {
-		ionic_dim_update(qcq, IONIC_LIF_F_TX_DIM_INTR);
+		ionic_dim_update(qcq);
 		flags |= IONIC_INTR_CRED_UNMASK;
 		cq->bound_intr->rearm_count++;
 	}
@@ -502,7 +493,7 @@ int ionic_rx_napi(struct napi_struct *napi, int budget)
 		ionic_rx_fill(cq->bound_q);
 
 	if (work_done < budget && napi_complete_done(napi, work_done)) {
-		ionic_dim_update(qcq, IONIC_LIF_F_RX_DIM_INTR);
+		ionic_dim_update(qcq);
 		flags |= IONIC_INTR_CRED_UNMASK;
 		cq->bound_intr->rearm_count++;
 	}
@@ -544,7 +535,7 @@ int ionic_txrx_napi(struct napi_struct *napi, int budget)
 		ionic_rx_fill_cb(rxcq->bound_q);
 
 	if (rx_work_done < budget && napi_complete_done(napi, rx_work_done)) {
-		ionic_dim_update(qcq, 0);
+		ionic_dim_update(qcq);
 		flags |= IONIC_INTR_CRED_UNMASK;
 		rxcq->bound_intr->rearm_count++;
 	}

@@ -41,7 +41,6 @@
 #include <linux/nsproxy.h>
 #include <linux/slab.h>
 #include <linux/jhash.h>
-#include <linux/siphash.h>
 #include <net/net_namespace.h>
 #include <net/snmp.h>
 #include <net/ipv6.h>
@@ -1483,24 +1482,17 @@ static void rt6_exception_remove_oldest(struct rt6_exception_bucket *bucket)
 static u32 rt6_exception_hash(const struct in6_addr *dst,
 			      const struct in6_addr *src)
 {
-	static siphash_key_t rt6_exception_key __read_mostly;
-	struct {
-		struct in6_addr dst;
-		struct in6_addr src;
-	} __aligned(SIPHASH_ALIGNMENT) combined = {
-		.dst = *dst,
-	};
-	u64 val;
+	static u32 seed __read_mostly;
+	u32 val;
 
-	net_get_random_once(&rt6_exception_key, sizeof(rt6_exception_key));
+	net_get_random_once(&seed, sizeof(seed));
+	val = jhash2((const u32 *)dst, sizeof(*dst)/sizeof(u32), seed);
 
 #ifdef CONFIG_IPV6_SUBTREES
 	if (src)
-		combined.src = *src;
+		val = jhash2((const u32 *)src, sizeof(*src)/sizeof(u32), val);
 #endif
-	val = siphash(&combined, sizeof(combined), &rt6_exception_key);
-
-	return hash_64(val, FIB6_EXCEPTION_BUCKET_SIZE_SHIFT);
+	return hash_32(val, FIB6_EXCEPTION_BUCKET_SIZE_SHIFT);
 }
 
 /* Helper function to find the cached rt in the hash table
@@ -1655,7 +1647,6 @@ static int rt6_insert_exception(struct rt6_info *nrt,
 	struct in6_addr *src_key = NULL;
 	struct rt6_exception *rt6_ex;
 	struct fib6_nh *nh = res->nh;
-	int max_depth;
 	int err = 0;
 
 	spin_lock_bh(&rt6_exception_lock);
@@ -1710,9 +1701,7 @@ static int rt6_insert_exception(struct rt6_info *nrt,
 	bucket->depth++;
 	net->ipv6.rt6_stats->fib_rt_cache++;
 
-	/* Randomize max depth to avoid some side channels attacks. */
-	max_depth = FIB6_MAX_DEPTH + prandom_u32_max(FIB6_MAX_DEPTH);
-	while (bucket->depth > max_depth)
+	if (bucket->depth > FIB6_MAX_DEPTH)
 		rt6_exception_remove_oldest(bucket);
 
 out:
@@ -3651,7 +3640,7 @@ static struct fib6_info *ip6_route_info_create(struct fib6_config *cfg,
 		err = PTR_ERR(rt->fib6_metrics);
 		/* Do not leave garbage there. */
 		rt->fib6_metrics = (struct dst_metrics *)&dst_default_metrics;
-		goto out_free;
+		goto out;
 	}
 
 	if (cfg->fc_flags & RTF_ADDRCONF)

@@ -1913,8 +1913,7 @@ static inline u32 net_tx_rndhash(void)
 
 static inline void sk_set_txhash(struct sock *sk)
 {
-	/* This pairs with READ_ONCE() in skb_set_hash_from_sk() */
-	WRITE_ONCE(sk->sk_txhash, net_tx_rndhash());
+	sk->sk_txhash = net_tx_rndhash();
 }
 
 static inline bool sk_rethink_txhash(struct sock *sk)
@@ -2186,12 +2185,9 @@ static inline void sock_poll_wait(struct file *filp, struct socket *sock,
 
 static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
 {
-	/* This pairs with WRITE_ONCE() in sk_set_txhash() */
-	u32 txhash = READ_ONCE(sk->sk_txhash);
-
-	if (txhash) {
+	if (sk->sk_txhash) {
 		skb->l4_hash = 1;
-		skb->hash = txhash;
+		skb->hash = sk->sk_txhash;
 	}
 }
 
@@ -2249,13 +2245,8 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk);
 static inline int sock_error(struct sock *sk)
 {
 	int err;
-
-	/* Avoid an atomic operation for the common case.
-	 * This is racy since another cpu/thread can change sk_err under us.
-	 */
-	if (likely(data_race(!sk->sk_err)))
+	if (likely(!sk->sk_err))
 		return 0;
-
 	err = xchg(&sk->sk_err, 0);
 	return -err;
 }

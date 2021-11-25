@@ -117,8 +117,7 @@ MODULE_SUPPORTED_DEVICE("PEAK-System PCAN-USB adapter");
 #define PCAN_USB_BERR_MASK	(PCAN_USB_ERR_RXERR | PCAN_USB_ERR_TXERR)
 
 /* identify bus event packets with rx/tx error counters */
-#define PCAN_USB_ERR_CNT_DEC		0x00	/* counters are decreasing */
-#define PCAN_USB_ERR_CNT_INC		0x80	/* counters are increasing */
+#define PCAN_USB_ERR_CNT		0x80
 
 /* private to PCAN-USB adapter */
 struct pcan_usb {
@@ -612,12 +611,11 @@ static int pcan_usb_handle_bus_evt(struct pcan_usb_msg_context *mc, u8 ir)
 
 	/* acccording to the content of the packet */
 	switch (ir) {
-	case PCAN_USB_ERR_CNT_DEC:
-	case PCAN_USB_ERR_CNT_INC:
+	case PCAN_USB_ERR_CNT:
 
 		/* save rx/tx error counters from in the device context */
-		pdev->bec.rxerr = mc->ptr[1];
-		pdev->bec.txerr = mc->ptr[2];
+		pdev->bec.rxerr = mc->ptr[0];
+		pdev->bec.txerr = mc->ptr[1];
 		break;
 
 	default:

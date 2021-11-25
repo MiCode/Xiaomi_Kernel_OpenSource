@@ -1004,20 +1004,12 @@ inline struct open_how build_open_how(int flags, umode_t mode)
 
 inline int build_open_flags(const struct open_how *how, struct open_flags *op)
 {
-	u64 flags = how->flags;
-	u64 strip = FMODE_NONOTIFY | O_CLOEXEC;
+	int flags = how->flags;
 	int lookup_flags = 0;
 	int acc_mode = ACC_MODE(flags);
 
-	BUILD_BUG_ON_MSG(upper_32_bits(VALID_OPEN_FLAGS),
-			 "struct open_flags doesn't yet handle flags > 32 bits");
-
-	/*
-	 * Strip flags that either shouldn't be set by userspace like
-	 * FMODE_NONOTIFY or that aren't relevant in determining struct
-	 * open_flags like O_CLOEXEC.
-	 */
-	flags &= ~strip;
+	/* Must never be set by userspace */
+	flags &= ~(FMODE_NONOTIFY | O_CLOEXEC);
 
 	/*
 	 * Older syscalls implicitly clear all of the invalid flags or argument

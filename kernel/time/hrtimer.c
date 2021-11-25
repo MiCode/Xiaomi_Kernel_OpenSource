@@ -758,6 +758,22 @@ static void hrtimer_switch_to_hres(void)
 	retrigger_next_event(NULL);
 }
 
+static void clock_was_set_work(struct work_struct *work)
+{
+	clock_was_set();
+}
+
+static DECLARE_WORK(hrtimer_work, clock_was_set_work);
+
+/*
+ * Called from timekeeping and resume code to reprogram the hrtimer
+ * interrupt device on all cpus.
+ */
+void clock_was_set_delayed(void)
+{
+	schedule_work(&hrtimer_work);
+}
+
 #else
 
 static inline int hrtimer_is_hres_enabled(void) { return 0; }
@@ -873,22 +889,6 @@ void clock_was_set(void)
 	on_each_cpu(retrigger_next_event, NULL, 1);
 #endif
 	timerfd_clock_was_set();
-}
-
-static void clock_was_set_work(struct work_struct *work)
-{
-	clock_was_set();
-}
-
-static DECLARE_WORK(hrtimer_work, clock_was_set_work);
-
-/*
- * Called from timekeeping and resume code to reprogram the hrtimer
- * interrupt device on all cpus and to notify timerfd.
- */
-void clock_was_set_delayed(void)
-{
-	schedule_work(&hrtimer_work);
 }
 
 /*
@@ -1030,13 +1030,12 @@ static void __remove_hrtimer(struct hrtimer *timer,
  * remove hrtimer, called with base lock held
  */
 static inline int
-remove_hrtimer(struct hrtimer *timer, struct hrtimer_clock_base *base,
-	       bool restart, bool keep_local)
+remove_hrtimer(struct hrtimer *timer, struct hrtimer_clock_base *base, bool restart)
 {
 	u8 state = timer->state;
 
 	if (state & HRTIMER_STATE_ENQUEUED) {
-		bool reprogram;
+		int reprogram;
 
 		/*
 		 * Remove the timer and force reprogramming when high
@@ -1049,16 +1048,8 @@ remove_hrtimer(struct hrtimer *timer, struct hrtimer_clock_base *base,
 		debug_deactivate(timer);
 		reprogram = base->cpu_base == this_cpu_ptr(&hrtimer_bases);
 
-		/*
-		 * If the timer is not restarted then reprogramming is
-		 * required if the timer is local. If it is local and about
-		 * to be restarted, avoid programming it twice (on removal
-		 * and a moment later when it's requeued).
-		 */
 		if (!restart)
 			state = HRTIMER_STATE_INACTIVE;
-		else
-			reprogram &= !keep_local;
 
 		__remove_hrtimer(timer, base, state, reprogram);
 		return 1;
@@ -1112,31 +1103,9 @@ static int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 				    struct hrtimer_clock_base *base)
 {
 	struct hrtimer_clock_base *new_base;
-	bool force_local, first;
 
-	/*
-	 * If the timer is on the local cpu base and is the first expiring
-	 * timer then this might end up reprogramming the hardware twice
-	 * (on removal and on enqueue). To avoid that by prevent the
-	 * reprogram on removal, keep the timer local to the current CPU
-	 * and enforce reprogramming after it is queued no matter whether
-	 * it is the new first expiring timer again or not.
-	 */
-	force_local = base->cpu_base == this_cpu_ptr(&hrtimer_bases);
-	force_local &= base->cpu_base->next_timer == timer;
-
-	/*
-	 * Remove an active timer from the queue. In case it is not queued
-	 * on the current CPU, make sure that remove_hrtimer() updates the
-	 * remote data correctly.
-	 *
-	 * If it's on the current CPU and the first expiring timer, then
-	 * skip reprogramming, keep the timer local and enforce
-	 * reprogramming later if it was the first expiring timer.  This
-	 * avoids programming the underlying clock event twice (once at
-	 * removal and once after enqueue).
-	 */
-	remove_hrtimer(timer, base, true, force_local);
+	/* Remove an active timer from the queue: */
+	remove_hrtimer(timer, base, true);
 
 	if (mode & HRTIMER_MODE_REL)
 		tim = ktime_add_safe(tim, base->get_time());
@@ -1146,24 +1115,9 @@ static int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 	hrtimer_set_expires_range_ns(timer, tim, delta_ns);
 
 	/* Switch the timer base, if necessary: */
-	if (!force_local) {
-		new_base = switch_hrtimer_base(timer, base,
-					       mode & HRTIMER_MODE_PINNED);
-	} else {
-		new_base = base;
-	}
+	new_base = switch_hrtimer_base(timer, base, mode & HRTIMER_MODE_PINNED);
 
-	first = enqueue_hrtimer(timer, new_base, mode);
-	if (!force_local)
-		return first;
-
-	/*
-	 * Timer was forced to stay on the current CPU to avoid
-	 * reprogramming on removal and enqueue. Force reprogram the
-	 * hardware by evaluating the new first expiring timer.
-	 */
-	hrtimer_force_reprogram(new_base->cpu_base, 1);
-	return 0;
+	return enqueue_hrtimer(timer, new_base, mode);
 }
 
 /**
@@ -1229,7 +1183,7 @@ int hrtimer_try_to_cancel(struct hrtimer *timer)
 	base = lock_hrtimer_base(timer, &flags);
 
 	if (!hrtimer_callback_running(timer))
-		ret = remove_hrtimer(timer, base, false, false);
+		ret = remove_hrtimer(timer, base, false);
 
 	unlock_hrtimer_base(timer, &flags);
 

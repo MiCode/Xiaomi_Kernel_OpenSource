@@ -276,13 +276,11 @@ static bool __mptcp_move_skb(struct mptcp_sock *msk, struct sock *ssk,
 
 	/* try to fetch required memory from subflow */
 	if (!sk_rmem_schedule(sk, skb, skb->truesize)) {
-		int amount = sk_mem_pages(skb->truesize) << SK_MEM_QUANTUM_SHIFT;
-
-		if (ssk->sk_forward_alloc < amount)
+		if (ssk->sk_forward_alloc < skb->truesize)
 			goto drop;
-
-		ssk->sk_forward_alloc -= amount;
-		sk->sk_forward_alloc += amount;
+		__sk_mem_reclaim(ssk, skb->truesize);
+		if (!sk_rmem_schedule(sk, skb, skb->truesize))
+			goto drop;
 	}
 
 	/* the skb map_seq accounts for the skb offset:

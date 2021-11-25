@@ -193,11 +193,7 @@ static void otg_start_hnp_polling(struct otg_fsm *fsm)
 	if (!fsm->host_req_flag)
 		return;
 
-	if (!fsm->hnp_work_inited) {
-		INIT_DELAYED_WORK(&fsm->hnp_polling_work, otg_hnp_polling_work);
-		fsm->hnp_work_inited = true;
-	}
-
+	INIT_DELAYED_WORK(&fsm->hnp_polling_work, otg_hnp_polling_work);
 	schedule_delayed_work(&fsm->hnp_polling_work,
 					msecs_to_jiffies(T_HOST_REQ_POLL));
 }

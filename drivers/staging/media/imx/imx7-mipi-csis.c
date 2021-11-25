@@ -597,15 +597,13 @@ static void mipi_csis_clear_counters(struct csi_state *state)
 
 static void mipi_csis_log_counters(struct csi_state *state, bool non_errors)
 {
-	unsigned int num_events = non_errors ? MIPI_CSIS_NUM_EVENTS
-				: MIPI_CSIS_NUM_EVENTS - 6;
+	int i = non_errors ? MIPI_CSIS_NUM_EVENTS : MIPI_CSIS_NUM_EVENTS - 4;
 	struct device *dev = &state->pdev->dev;
 	unsigned long flags;
-	unsigned int i;
 
 	spin_lock_irqsave(&state->slock, flags);
 
-	for (i = 0; i < num_events; ++i) {
+	for (i--; i >= 0; i--) {
 		if (state->events[i].counter > 0 || state->debug)
 			dev_info(dev, "%s events: %d\n", state->events[i].name,
 				 state->events[i].counter);
@@ -1006,7 +1004,7 @@ static int mipi_csis_async_register(struct csi_state *state)
 	struct v4l2_fwnode_endpoint vep = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY,
 	};
-	struct v4l2_async_subdev *asd;
+	struct v4l2_async_subdev *asd = NULL;
 	struct fwnode_handle *ep;
 	int ret;
 
@@ -1026,12 +1024,16 @@ static int mipi_csis_async_register(struct csi_state *state)
 	dev_dbg(state->dev, "data lanes: %d\n", state->bus.num_data_lanes);
 	dev_dbg(state->dev, "flags: 0x%08x\n", state->bus.flags);
 
-	asd = v4l2_async_notifier_add_fwnode_remote_subdev(
-		&state->notifier, ep, sizeof(*asd));
-	if (IS_ERR(asd)) {
-		ret = PTR_ERR(asd);
+	asd = kzalloc(sizeof(*asd), GFP_KERNEL);
+	if (!asd) {
+		ret = -ENOMEM;
 		goto err_parse;
 	}
+
+	ret = v4l2_async_notifier_add_fwnode_remote_subdev(
+		&state->notifier, ep, asd);
+	if (ret)
+		goto err_parse;
 
 	fwnode_handle_put(ep);
 
@@ -1046,6 +1048,7 @@ static int mipi_csis_async_register(struct csi_state *state)
 
 err_parse:
 	fwnode_handle_put(ep);
+	kfree(asd);
 
 	return ret;
 }

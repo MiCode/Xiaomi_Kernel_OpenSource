@@ -1533,19 +1533,16 @@ static struct v4l2_ctrl_config mt9m114_controls[] = {
 static int mt9m114_detect(struct mt9m114_device *dev, struct i2c_client *client)
 {
 	struct i2c_adapter *adapter = client->adapter;
-	u32 model;
-	int ret;
+	u32 retvalue;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "%s: i2c error", __func__);
 		return -ENODEV;
 	}
-	ret = mt9m114_read_reg(client, MISENSOR_16BIT, MT9M114_PID, &model);
-	if (ret)
-		return ret;
-	dev->real_model_id = model;
+	mt9m114_read_reg(client, MISENSOR_16BIT, (u32)MT9M114_PID, &retvalue);
+	dev->real_model_id = retvalue;
 
-	if (model != MT9M114_MOD_ID) {
+	if (retvalue != MT9M114_MOD_ID) {
 		dev_err(&client->dev, "%s: failed: client->addr = %x\n",
 			__func__, client->addr);
 		return -ENODEV;

@@ -270,31 +270,28 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
 		rawaddr = (union sctp_addr_param *)raw_addr_list;
 
 		af = sctp_get_af_specific(param_type2af(param->type));
-		if (unlikely(!af) ||
-		    !af->from_addr_param(&addr, rawaddr, htons(port), 0)) {
+		if (unlikely(!af)) {
 			retval = -EINVAL;
-			goto out_err;
+			sctp_bind_addr_clean(bp);
+			break;
 		}
 
+		af->from_addr_param(&addr, rawaddr, htons(port), 0);
 		if (sctp_bind_addr_state(bp, &addr) != -1)
 			goto next;
 		retval = sctp_add_bind_addr(bp, &addr, sizeof(addr),
 					    SCTP_ADDR_SRC, gfp);
-		if (retval)
+		if (retval) {
 			/* Can't finish building the list, clean up. */
-			goto out_err;
+			sctp_bind_addr_clean(bp);
+			break;
+		}
 
 next:
 		len = ntohs(param->length);
 		addrs_len -= len;
 		raw_addr_list += len;
 	}
-
-	return retval;
-
-out_err:
-	if (retval)
-		sctp_bind_addr_clean(bp);
 
 	return retval;
 }

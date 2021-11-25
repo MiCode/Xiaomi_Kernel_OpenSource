@@ -943,8 +943,7 @@ static bool should_skip_region(struct memblock_type *type,
 		return true;
 
 	/* skip hotpluggable memory regions if needed */
-	if (movable_node_is_enabled() && memblock_is_hotpluggable(m) &&
-	    !(flags & MEMBLOCK_HOTPLUG))
+	if (movable_node_is_enabled() && memblock_is_hotpluggable(m))
 		return true;
 
 	/* if we want mirror memory skip non-mirror memory regions */

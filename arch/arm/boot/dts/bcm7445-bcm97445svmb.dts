@@ -14,10 +14,10 @@
 	};
 };
 
-&nand_controller {
+&nand {
 	status = "okay";
 
-	nand@1 {
+	nandcs@1 {
 		compatible = "brcm,nandcs";
 		reg = <1>;
 		nand-ecc-step-size = <512>;

@@ -7,8 +7,6 @@
  * Author: Wu Zhangjin <wuzhangjin@gmail.com>
  */
 
-#define DISABLE_BRANCH_PROFILING
-
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/string.h>

@@ -478,9 +478,11 @@ static int fimc_capture_open(struct file *file)
 		goto unlock;
 
 	set_bit(ST_CAPT_BUSY, &fimc->state);
-	ret = pm_runtime_resume_and_get(&fimc->pdev->dev);
-	if (ret < 0)
+	ret = pm_runtime_get_sync(&fimc->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_sync(&fimc->pdev->dev);
 		goto unlock;
+	}
 
 	ret = v4l2_fh_open(file);
 	if (ret) {

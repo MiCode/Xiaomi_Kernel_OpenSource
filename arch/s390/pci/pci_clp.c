@@ -213,19 +213,15 @@ out:
 }
 
 static int clp_refresh_fh(u32 fid);
-/**
- * clp_set_pci_fn() - Execute a command on a PCI function
- * @zdev: Function that will be affected
- * @nr_dma_as: DMA address space number
- * @command: The command code to execute
- *
- * Returns: 0 on success, < 0 for Linux errors (e.g. -ENOMEM), and
- * > 0 for non-success platform responses
+/*
+ * Enable/Disable a given PCI function and update its function handle if
+ * necessary
  */
 static int clp_set_pci_fn(struct zpci_dev *zdev, u8 nr_dma_as, u8 command)
 {
 	struct clp_req_rsp_set_pci *rrb;
 	int rc, retries = 100;
+	u32 fid = zdev->fid;
 
 	rrb = clp_alloc_block(GFP_KERNEL);
 	if (!rrb)
@@ -249,16 +245,17 @@ static int clp_set_pci_fn(struct zpci_dev *zdev, u8 nr_dma_as, u8 command)
 		}
 	} while (rrb->response.hdr.rsp == CLP_RC_SETPCIFN_BUSY);
 
-	if (!rc && rrb->response.hdr.rsp == CLP_RC_OK) {
-		zdev->fh = rrb->response.fh;
-	} else if (!rc && rrb->response.hdr.rsp == CLP_RC_SETPCIFN_ALRDY) {
-		/* Function is already in desired state - update handle */
-		rc = clp_refresh_fh(zdev->fid);
-	} else {
+	if (rc || rrb->response.hdr.rsp != CLP_RC_OK) {
 		zpci_err("Set PCI FN:\n");
 		zpci_err_clp(rrb->response.hdr.rsp, rc);
-		if (!rc)
-			rc = rrb->response.hdr.rsp;
+	}
+
+	if (!rc && rrb->response.hdr.rsp == CLP_RC_OK) {
+		zdev->fh = rrb->response.fh;
+	} else if (!rc && rrb->response.hdr.rsp == CLP_RC_SETPCIFN_ALRDY &&
+			rrb->response.fh == 0) {
+		/* Function is already in desired state - update handle */
+		rc = clp_refresh_fh(fid);
 	}
 	clp_free_block(rrb);
 	return rc;
@@ -304,13 +301,17 @@ int clp_enable_fh(struct zpci_dev *zdev, u8 nr_dma_as)
 
 	rc = clp_set_pci_fn(zdev, nr_dma_as, CLP_SET_ENABLE_PCI_FN);
 	zpci_dbg(3, "ena fid:%x, fh:%x, rc:%d\n", zdev->fid, zdev->fh, rc);
-	if (!rc && zpci_use_mio(zdev)) {
+	if (rc)
+		goto out;
+
+	if (zpci_use_mio(zdev)) {
 		rc = clp_set_pci_fn(zdev, nr_dma_as, CLP_SET_ENABLE_MIO);
 		zpci_dbg(3, "ena mio fid:%x, fh:%x, rc:%d\n",
 				zdev->fid, zdev->fh, rc);
 		if (rc)
 			clp_disable_fh(zdev);
 	}
+out:
 	return rc;
 }
 

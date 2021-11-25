@@ -23,9 +23,7 @@ static int ice_info_pba(struct ice_pf *pf, char *buf, size_t len)
 
 	status = ice_read_pba_string(hw, (u8 *)buf, len);
 	if (status)
-		/* We failed to locate the PBA, so just skip this entry */
-		dev_dbg(ice_pf_to_dev(pf), "Failed to read Product Board Assembly string, status %s\n",
-			ice_stat_str(status));
+		return -EIO;
 
 	return 0;
 }

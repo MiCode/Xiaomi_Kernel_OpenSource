@@ -623,8 +623,7 @@ static int vhost_vdpa_process_iotlb_update(struct vhost_vdpa *v,
 	long pinned;
 	int ret = 0;
 
-	if (msg->iova < v->range.first || !msg->size ||
-	    msg->iova > U64_MAX - msg->size + 1 ||
+	if (msg->iova < v->range.first ||
 	    msg->iova + msg->size - 1 > v->range.last)
 		return -EINVAL;
 

@@ -103,7 +103,6 @@ struct mmdc_pmu {
 	struct perf_event *mmdc_events[MMDC_NUM_COUNTERS];
 	struct hlist_node node;
 	struct fsl_mmdc_devtype_data *devtype_data;
-	struct clk *mmdc_ipg_clk;
 };
 
 /*
@@ -463,14 +462,11 @@ static int imx_mmdc_remove(struct platform_device *pdev)
 
 	cpuhp_state_remove_instance_nocalls(cpuhp_mmdc_state, &pmu_mmdc->node);
 	perf_pmu_unregister(&pmu_mmdc->pmu);
-	iounmap(pmu_mmdc->mmdc_base);
-	clk_disable_unprepare(pmu_mmdc->mmdc_ipg_clk);
 	kfree(pmu_mmdc);
 	return 0;
 }
 
-static int imx_mmdc_perf_init(struct platform_device *pdev, void __iomem *mmdc_base,
-			      struct clk *mmdc_ipg_clk)
+static int imx_mmdc_perf_init(struct platform_device *pdev, void __iomem *mmdc_base)
 {
 	struct mmdc_pmu *pmu_mmdc;
 	char *name;
@@ -498,7 +494,6 @@ static int imx_mmdc_perf_init(struct platform_device *pdev, void __iomem *mmdc_b
 	}
 
 	mmdc_num = mmdc_pmu_init(pmu_mmdc, mmdc_base, &pdev->dev);
-	pmu_mmdc->mmdc_ipg_clk = mmdc_ipg_clk;
 	if (mmdc_num == 0)
 		name = "mmdc";
 	else
@@ -534,7 +529,7 @@ pmu_free:
 
 #else
 #define imx_mmdc_remove NULL
-#define imx_mmdc_perf_init(pdev, mmdc_base, mmdc_ipg_clk) 0
+#define imx_mmdc_perf_init(pdev, mmdc_base) 0
 #endif
 
 static int imx_mmdc_probe(struct platform_device *pdev)
@@ -572,13 +567,7 @@ static int imx_mmdc_probe(struct platform_device *pdev)
 	val &= ~(1 << BP_MMDC_MAPSR_PSD);
 	writel_relaxed(val, reg);
 
-	err = imx_mmdc_perf_init(pdev, mmdc_base, mmdc_ipg_clk);
-	if (err) {
-		iounmap(mmdc_base);
-		clk_disable_unprepare(mmdc_ipg_clk);
-	}
-
-	return err;
+	return imx_mmdc_perf_init(pdev, mmdc_base);
 }
 
 int imx_mmdc_get_ddr_type(void)

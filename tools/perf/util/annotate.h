@@ -32,7 +32,6 @@ struct ins {
 struct ins_operands {
 	char	*raw;
 	char	*raw_comment;
-	char	*raw_func_start;
 	struct {
 		char	*raw;
 		char	*name;

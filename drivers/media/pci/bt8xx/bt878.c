@@ -300,8 +300,7 @@ static irqreturn_t bt878_irq(int irq, void *dev_id)
 		}
 		if (astat & BT878_ARISCI) {
 			bt->finished_block = (stat & BT878_ARISCS) >> 28;
-			if (bt->tasklet.callback)
-				tasklet_schedule(&bt->tasklet);
+			tasklet_schedule(&bt->tasklet);
 			break;
 		}
 		count++;
@@ -477,9 +476,6 @@ static int bt878_probe(struct pci_dev *dev, const struct pci_device_id *pci_id)
 	bt878_make_risc(bt);
 	btwrite(0, BT878_AINT_MASK);
 	bt878_num++;
-
-	if (!bt->tasklet.func)
-		tasklet_disable(&bt->tasklet);
 
 	return 0;
 

@@ -5,7 +5,7 @@
 
 / {
 	leds {
-		led-act {
+		act {
 			gpios = <&gpio 47 GPIO_ACTIVE_LOW>;
 		};
 	};

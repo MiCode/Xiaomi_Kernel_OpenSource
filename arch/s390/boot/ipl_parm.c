@@ -28,25 +28,22 @@ static inline int __diag308(unsigned long subcode, void *addr)
 	register unsigned long _addr asm("0") = (unsigned long)addr;
 	register unsigned long _rc asm("1") = 0;
 	unsigned long reg1, reg2;
-	psw_t old;
+	psw_t old = S390_lowcore.program_new_psw;
 
 	asm volatile(
-		"	mvc	0(16,%[psw_old]),0(%[psw_pgm])\n"
 		"	epsw	%0,%1\n"
-		"	st	%0,0(%[psw_pgm])\n"
-		"	st	%1,4(%[psw_pgm])\n"
+		"	st	%0,%[psw_pgm]\n"
+		"	st	%1,%[psw_pgm]+4\n"
 		"	larl	%0,1f\n"
-		"	stg	%0,8(%[psw_pgm])\n"
+		"	stg	%0,%[psw_pgm]+8\n"
 		"	diag	%[addr],%[subcode],0x308\n"
-		"1:	mvc	0(16,%[psw_pgm]),0(%[psw_old])\n"
+		"1:	nopr	%%r7\n"
 		: "=&d" (reg1), "=&a" (reg2),
-		  "+Q" (S390_lowcore.program_new_psw),
-		  "=Q" (old),
+		  [psw_pgm] "=Q" (S390_lowcore.program_new_psw),
 		  [addr] "+d" (_addr), "+d" (_rc)
-		: [subcode] "d" (subcode),
-		  [psw_old] "a" (&old),
-		  [psw_pgm] "a" (&S390_lowcore.program_new_psw)
+		: [subcode] "d" (subcode)
 		: "cc", "memory");
+	S390_lowcore.program_new_psw = old;
 	return _rc;
 }
 

@@ -1166,7 +1166,7 @@ set_sndbuf:
 			if (val < 0)
 				ret = -EINVAL;
 			else
-				WRITE_ONCE(sk->sk_ll_usec, val);
+				sk->sk_ll_usec = val;
 		}
 		break;
 #endif

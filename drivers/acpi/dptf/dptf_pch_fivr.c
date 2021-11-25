@@ -9,42 +9,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 
-struct pch_fivr_resp {
-	u64 status;
-	u64 result;
-};
-
-static int pch_fivr_read(acpi_handle handle, char *method, struct pch_fivr_resp *fivr_resp)
-{
-	struct acpi_buffer resp = { sizeof(struct pch_fivr_resp), fivr_resp};
-	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
-	struct acpi_buffer format = { sizeof("NN"), "NN" };
-	union acpi_object *obj;
-	acpi_status status;
-	int ret = -EFAULT;
-
-	status = acpi_evaluate_object(handle, method, NULL, &buffer);
-	if (ACPI_FAILURE(status))
-		return ret;
-
-	obj = buffer.pointer;
-	if (!obj || obj->type != ACPI_TYPE_PACKAGE)
-		goto release_buffer;
-
-	status = acpi_extract_package(obj, &format, &resp);
-	if (ACPI_FAILURE(status))
-		goto release_buffer;
-
-	if (fivr_resp->status)
-		goto release_buffer;
-
-	ret = 0;
-
-release_buffer:
-	kfree(buffer.pointer);
-	return ret;
-}
-
 /*
  * Presentation of attributes which are defined for INT1045
  * They are:
@@ -59,14 +23,15 @@ static ssize_t name##_show(struct device *dev,\
 			   char *buf)\
 {\
 	struct acpi_device *acpi_dev = dev_get_drvdata(dev);\
-	struct pch_fivr_resp fivr_resp;\
-	int status;\
+	unsigned long long val;\
+	acpi_status status;\
 \
-	status = pch_fivr_read(acpi_dev->handle, #method, &fivr_resp);\
-	if (status)\
-		return status;\
-\
-	return sprintf(buf, "%llu\n", fivr_resp.result);\
+	status = acpi_evaluate_integer(acpi_dev->handle, #method,\
+				       NULL, &val);\
+	if (ACPI_SUCCESS(status))\
+		return sprintf(buf, "%d\n", (int)val);\
+	else\
+		return -EINVAL;\
 }
 
 #define PCH_FIVR_STORE(name, method) \

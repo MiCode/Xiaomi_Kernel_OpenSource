@@ -12,16 +12,13 @@ SYSCALL_DEFINE3(cacheflush,
 		int, cache)
 {
 	switch (cache) {
-	case BCACHE:
-	case DCACHE:
-		dcache_wb_range((unsigned long)addr,
-				(unsigned long)addr + bytes);
-		if (cache != BCACHE)
-			break;
-		fallthrough;
 	case ICACHE:
+	case BCACHE:
 		flush_icache_mm_range(current->mm,
 				(unsigned long)addr,
+				(unsigned long)addr + bytes);
+	case DCACHE:
+		dcache_wb_range((unsigned long)addr,
 				(unsigned long)addr + bytes);
 		break;
 	default:

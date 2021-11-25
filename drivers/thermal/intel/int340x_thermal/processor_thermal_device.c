@@ -156,27 +156,24 @@ static ssize_t tcc_offset_degree_celsius_show(struct device *dev,
 	if (err)
 		return err;
 
-	val = (val >> 24) & 0x3f;
+	val = (val >> 24) & 0xff;
 	return sprintf(buf, "%d\n", (int)val);
 }
 
-static int tcc_offset_update(unsigned int tcc)
+static int tcc_offset_update(int tcc)
 {
 	u64 val;
 	int err;
 
-	if (tcc > 63)
+	if (!tcc)
 		return -EINVAL;
 
 	err = rdmsrl_safe(MSR_IA32_TEMPERATURE_TARGET, &val);
 	if (err)
 		return err;
 
-	if (val & BIT(31))
-		return -EPERM;
-
-	val &= ~GENMASK_ULL(29, 24);
-	val |= (tcc & 0x3f) << 24;
+	val &= ~GENMASK_ULL(31, 24);
+	val |= (tcc & 0xff) << 24;
 
 	err = wrmsrl_safe(MSR_IA32_TEMPERATURE_TARGET, val);
 	if (err)
@@ -185,15 +182,14 @@ static int tcc_offset_update(unsigned int tcc)
 	return 0;
 }
 
-static unsigned int tcc_offset_save;
+static int tcc_offset_save;
 
 static ssize_t tcc_offset_degree_celsius_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t count)
 {
-	unsigned int tcc;
 	u64 val;
-	int err;
+	int tcc, err;
 
 	err = rdmsrl_safe(MSR_PLATFORM_INFO, &val);
 	if (err)
@@ -202,7 +198,7 @@ static ssize_t tcc_offset_degree_celsius_store(struct device *dev,
 	if (!(val & BIT(30)))
 		return -EACCES;
 
-	if (kstrtouint(buf, 0, &tcc))
+	if (kstrtoint(buf, 0, &tcc))
 		return -EINVAL;
 
 	err = tcc_offset_update(tcc);

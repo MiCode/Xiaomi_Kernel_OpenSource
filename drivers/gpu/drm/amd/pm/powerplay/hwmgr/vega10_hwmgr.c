@@ -5122,13 +5122,6 @@ static int vega10_get_power_profile_mode(struct pp_hwmgr *hwmgr, char *buf)
 	return size;
 }
 
-static bool vega10_get_power_profile_mode_quirks(struct pp_hwmgr *hwmgr)
-{
-	struct amdgpu_device *adev = hwmgr->adev;
-
-	return (adev->pdev->device == 0x6860);
-}
-
 static int vega10_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, uint32_t size)
 {
 	struct vega10_hwmgr *data = hwmgr->backend;
@@ -5165,15 +5158,9 @@ static int vega10_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, ui
 	}
 
 out:
-	if (vega10_get_power_profile_mode_quirks(hwmgr))
-		smum_send_msg_to_smc_with_parameter(hwmgr, PPSMC_MSG_SetWorkloadMask,
-						1 << power_profile_mode,
-						NULL);
-	else
-		smum_send_msg_to_smc_with_parameter(hwmgr, PPSMC_MSG_SetWorkloadMask,
+	smum_send_msg_to_smc_with_parameter(hwmgr, PPSMC_MSG_SetWorkloadMask,
 						(!power_profile_mode) ? 0 : 1 << (power_profile_mode - 1),
 						NULL);
-
 	hwmgr->power_profile_mode = power_profile_mode;
 
 	return 0;

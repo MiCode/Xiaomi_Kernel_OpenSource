@@ -379,10 +379,10 @@ static void nvmet_keep_alive_timer(struct work_struct *work)
 {
 	struct nvmet_ctrl *ctrl = container_of(to_delayed_work(work),
 			struct nvmet_ctrl, ka_work);
-	bool reset_tbkas = ctrl->reset_tbkas;
+	bool cmd_seen = ctrl->cmd_seen;
 
-	ctrl->reset_tbkas = false;
-	if (reset_tbkas) {
+	ctrl->cmd_seen = false;
+	if (cmd_seen) {
 		pr_debug("ctrl %d reschedule traffic based keep-alive timer\n",
 			ctrl->cntlid);
 		schedule_delayed_work(&ctrl->ka_work, ctrl->kato * HZ);
@@ -792,13 +792,6 @@ void nvmet_sq_destroy(struct nvmet_sq *sq)
 	percpu_ref_exit(&sq->ref);
 
 	if (ctrl) {
-		/*
-		 * The teardown flow may take some time, and the host may not
-		 * send us keep-alive during this period, hence reset the
-		 * traffic based keep-alive timer so we don't trigger a
-		 * controller teardown as a result of a keep-alive expiration.
-		 */
-		ctrl->reset_tbkas = true;
 		nvmet_ctrl_put(ctrl);
 		sq->ctrl = NULL; /* allows reusing the queue later */
 	}
@@ -949,7 +942,7 @@ bool nvmet_req_init(struct nvmet_req *req, struct nvmet_cq *cq,
 	}
 
 	if (sq->ctrl)
-		sq->ctrl->reset_tbkas = true;
+		sq->ctrl->cmd_seen = true;
 
 	return true;
 

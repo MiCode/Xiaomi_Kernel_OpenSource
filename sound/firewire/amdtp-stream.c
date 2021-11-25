@@ -804,7 +804,7 @@ static void generate_pkt_descs(struct amdtp_stream *s, struct pkt_desc *descs,
 static inline void cancel_stream(struct amdtp_stream *s)
 {
 	s->packet_index = -1;
-	if (in_interrupt())
+	if (current_work() == &s->period_work)
 		amdtp_stream_pcm_abort(s);
 	WRITE_ONCE(s->pcm_buffer_pointer, SNDRV_PCM_POS_XRUN);
 }
@@ -1404,17 +1404,14 @@ int amdtp_domain_start(struct amdtp_domain *d, unsigned int ir_delay_cycle)
 	unsigned int queue_size;
 	struct amdtp_stream *s;
 	int cycle;
-	bool found = false;
 	int err;
 
 	// Select an IT context as IRQ target.
 	list_for_each_entry(s, &d->streams, list) {
-		if (s->direction == AMDTP_OUT_STREAM) {
-			found = true;
+		if (s->direction == AMDTP_OUT_STREAM)
 			break;
-		}
 	}
-	if (!found)
+	if (!s)
 		return -ENXIO;
 	d->irq_target = s;
 

@@ -138,6 +138,9 @@ void smp_callin(void)
 
 	set_cpu_online(cpuid, true);
 
+	/* idle thread is expected to have preempt disabled */
+	preempt_disable();
+
 	local_irq_enable();
 
 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);

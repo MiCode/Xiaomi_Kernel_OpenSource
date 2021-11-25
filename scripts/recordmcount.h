@@ -192,20 +192,15 @@ static unsigned int get_symindex(Elf_Sym const *sym, Elf32_Word const *symtab,
 				 Elf32_Word const *symtab_shndx)
 {
 	unsigned long offset;
-	unsigned short shndx = w2(sym->st_shndx);
 	int index;
 
-	if (shndx > SHN_UNDEF && shndx < SHN_LORESERVE)
-		return shndx;
+	if (sym->st_shndx != SHN_XINDEX)
+		return w2(sym->st_shndx);
 
-	if (shndx == SHN_XINDEX) {
-		offset = (unsigned long)sym - (unsigned long)symtab;
-		index = offset / sizeof(*sym);
+	offset = (unsigned long)sym - (unsigned long)symtab;
+	index = offset / sizeof(*sym);
 
-		return w(symtab_shndx[index]);
-	}
-
-	return 0;
+	return w(symtab_shndx[index]);
 }
 
 static unsigned int get_shnum(Elf_Ehdr const *ehdr, Elf_Shdr const *shdr0)

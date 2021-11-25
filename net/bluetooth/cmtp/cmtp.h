@@ -26,7 +26,7 @@
 #include <linux/types.h>
 #include <net/bluetooth/bluetooth.h>
 
-#define BTNAMSIZ 21
+#define BTNAMSIZ 18
 
 /* CMTP ioctl defines */
 #define CMTPCONNADD	_IOW('C', 200, int)

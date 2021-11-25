@@ -340,8 +340,8 @@ retry:
 		inode->i_generation = generation;
 		fuse_init_inode(inode, attr);
 		unlock_new_inode(inode);
-	} else if (fuse_stale_inode(inode, generation, attr)) {
-		/* nodeid was reused, any I/O on the old inode should fail */
+	} else if ((inode->i_mode ^ attr->mode) & S_IFMT) {
+		/* Inode has changed type, any I/O on the old should fail */
 		fuse_make_bad(inode);
 		iput(inode);
 		goto retry;

@@ -272,8 +272,6 @@ static void __init test_monitor_call(void)
 {
 	int val = 1;
 
-	if (!IS_ENABLED(CONFIG_BUG))
-		return;
 	asm volatile(
 		"	mc	0,0\n"
 		"0:	xgr	%0,%0\n"

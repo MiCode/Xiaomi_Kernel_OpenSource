@@ -106,11 +106,16 @@ static int tpm_ibmvtpm_recv(struct tpm_chip *chip, u8 *buf, size_t count)
 {
 	struct ibmvtpm_dev *ibmvtpm = dev_get_drvdata(&chip->dev);
 	u16 len;
+	int sig;
 
 	if (!ibmvtpm->rtce_buf) {
 		dev_err(ibmvtpm->dev, "ibmvtpm device is not ready\n");
 		return 0;
 	}
+
+	sig = wait_event_interruptible(ibmvtpm->wq, !ibmvtpm->tpm_processing_cmd);
+	if (sig)
+		return -EINTR;
 
 	len = ibmvtpm->res_len;
 
@@ -232,7 +237,7 @@ static int tpm_ibmvtpm_send(struct tpm_chip *chip, u8 *buf, size_t count)
 	 * set the processing flag before the Hcall, since we may get the
 	 * result (interrupt) before even being able to check rc.
 	 */
-	ibmvtpm->tpm_processing_cmd = 1;
+	ibmvtpm->tpm_processing_cmd = true;
 
 again:
 	rc = ibmvtpm_send_crq(ibmvtpm->vdev,
@@ -250,7 +255,7 @@ again:
 			goto again;
 		}
 		dev_err(ibmvtpm->dev, "tpm_ibmvtpm_send failed rc=%d\n", rc);
-		ibmvtpm->tpm_processing_cmd = 0;
+		ibmvtpm->tpm_processing_cmd = false;
 	}
 
 	spin_unlock(&ibmvtpm->rtce_lock);
@@ -264,9 +269,7 @@ static void tpm_ibmvtpm_cancel(struct tpm_chip *chip)
 
 static u8 tpm_ibmvtpm_status(struct tpm_chip *chip)
 {
-	struct ibmvtpm_dev *ibmvtpm = dev_get_drvdata(&chip->dev);
-
-	return ibmvtpm->tpm_processing_cmd;
+	return 0;
 }
 
 /**
@@ -456,7 +459,7 @@ static const struct tpm_class_ops tpm_ibmvtpm = {
 	.send = tpm_ibmvtpm_send,
 	.cancel = tpm_ibmvtpm_cancel,
 	.status = tpm_ibmvtpm_status,
-	.req_complete_mask = 1,
+	.req_complete_mask = 0,
 	.req_complete_val = 0,
 	.req_canceled = tpm_ibmvtpm_req_canceled,
 };
@@ -549,7 +552,7 @@ static void ibmvtpm_crq_process(struct ibmvtpm_crq *crq,
 		case VTPM_TPM_COMMAND_RES:
 			/* len of the data in rtce buffer */
 			ibmvtpm->res_len = be16_to_cpu(crq->len);
-			ibmvtpm->tpm_processing_cmd = 0;
+			ibmvtpm->tpm_processing_cmd = false;
 			wake_up_interruptible(&ibmvtpm->wq);
 			return;
 		default:
@@ -687,15 +690,8 @@ static int tpm_ibmvtpm_probe(struct vio_dev *vio_dev,
 		goto init_irq_cleanup;
 	}
 
-
-	if (!strcmp(id->compat, "IBM,vtpm20"))
+	if (!strcmp(id->compat, "IBM,vtpm20")) {
 		chip->flags |= TPM_CHIP_FLAG_TPM2;
-
-	rc = tpm_get_timeouts(chip);
-	if (rc)
-		goto init_irq_cleanup;
-
-	if (chip->flags & TPM_CHIP_FLAG_TPM2) {
 		rc = tpm2_get_cc_attrs_tbl(chip);
 		if (rc)
 			goto init_irq_cleanup;

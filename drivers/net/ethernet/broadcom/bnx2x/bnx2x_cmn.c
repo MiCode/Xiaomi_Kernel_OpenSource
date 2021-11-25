@@ -2669,8 +2669,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
 	}
 
 	/* Allocated memory for FW statistics  */
-	rc = bnx2x_alloc_fw_stats_mem(bp);
-	if (rc)
+	if (bnx2x_alloc_fw_stats_mem(bp))
 		LOAD_ERROR_EXIT(bp, load_error0);
 
 	/* request pf to initialize status blocks */

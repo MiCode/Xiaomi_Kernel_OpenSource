@@ -394,7 +394,6 @@ struct xilinx_dma_tx_descriptor {
  * @genlock: Support genlock mode
  * @err: Channel has errors
  * @idle: Check for channel idle
- * @terminating: Check for channel being synchronized by user
  * @tasklet: Cleanup work after irq
  * @config: Device configuration info
  * @flush_on_fsync: Flush on Frame sync
@@ -432,7 +431,6 @@ struct xilinx_dma_chan {
 	bool genlock;
 	bool err;
 	bool idle;
-	bool terminating;
 	struct tasklet_struct tasklet;
 	struct xilinx_vdma_config config;
 	bool flush_on_fsync;
@@ -1051,13 +1049,6 @@ static void xilinx_dma_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 		/* Run any dependencies, then free the descriptor */
 		dma_run_dependencies(&desc->async_tx);
 		xilinx_dma_free_tx_descriptor(chan, desc);
-
-		/*
-		 * While we ran a callback the user called a terminate function,
-		 * which takes care of cleaning up any remaining descriptors
-		 */
-		if (chan->terminating)
-			break;
 	}
 
 	spin_unlock_irqrestore(&chan->lock, flags);
@@ -1974,8 +1965,6 @@ static dma_cookie_t xilinx_dma_tx_submit(struct dma_async_tx_descriptor *tx)
 	if (desc->cyclic)
 		chan->cyclic = true;
 
-	chan->terminating = false;
-
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	return cookie;
@@ -2447,7 +2436,6 @@ static int xilinx_dma_terminate_all(struct dma_chan *dchan)
 
 	xilinx_dma_chan_reset(chan);
 	/* Remove and free all of the descriptors in the lists */
-	chan->terminating = true;
 	xilinx_dma_free_descriptors(chan);
 	chan->idle = true;
 

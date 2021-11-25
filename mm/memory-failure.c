@@ -1445,12 +1445,7 @@ int memory_failure(unsigned long pfn, int flags)
 		return 0;
 	}
 
-	/*
-	 * __munlock_pagevec may clear a writeback page's LRU flag without
-	 * page_lock. We need wait writeback completion for this page or it
-	 * may trigger vfs BUG while evict inode.
-	 */
-	if (!PageTransTail(p) && !PageLRU(p) && !PageWriteback(p))
+	if (!PageTransTail(p) && !PageLRU(p))
 		goto identify_page_state;
 
 	/*
@@ -1856,11 +1851,11 @@ static int __soft_offline_page(struct page *page)
 			pr_info("soft offline: %#lx: %s migration failed %d, type %lx (%pGp)\n",
 				pfn, msg_page[huge], ret, page->flags, &page->flags);
 			if (ret > 0)
-				ret = -EBUSY;
+				ret = -EIO;
 		}
 	} else {
-		pr_info("soft offline: %#lx: %s isolation failed, page count %d, type %lx (%pGp)\n",
-			pfn, msg_page[huge], page_count(page), page->flags, &page->flags);
+		pr_info("soft offline: %#lx: %s isolation failed: %d, page count %d, type %lx (%pGp)\n",
+			pfn, msg_page[huge], ret, page_count(page), page->flags, &page->flags);
 		ret = -EBUSY;
 	}
 	return ret;

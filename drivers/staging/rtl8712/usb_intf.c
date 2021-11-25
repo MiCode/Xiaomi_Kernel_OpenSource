@@ -361,7 +361,7 @@ static int r871xu_drv_init(struct usb_interface *pusb_intf,
 	/* step 1. */
 	pnetdev = r8712_init_netdev();
 	if (!pnetdev)
-		goto put_dev;
+		goto error;
 	padapter = netdev_priv(pnetdev);
 	disable_ht_for_spec_devid(pdid, padapter);
 	pdvobjpriv = &padapter->dvobjpriv;
@@ -381,16 +381,16 @@ static int r871xu_drv_init(struct usb_interface *pusb_intf,
 	 * initialize the dvobj_priv
 	 */
 	if (!padapter->dvobj_init) {
-		goto put_dev;
+		goto error;
 	} else {
 		status = padapter->dvobj_init(padapter);
 		if (status != _SUCCESS)
-			goto free_netdev;
+			goto error;
 	}
 	/* step 4. */
 	status = r8712_init_drv_sw(padapter);
 	if (status)
-		goto dvobj_deinit;
+		goto error;
 	/* step 5. read efuse/eeprom data and get mac_addr */
 	{
 		int i, offset;
@@ -570,20 +570,17 @@ static int r871xu_drv_init(struct usb_interface *pusb_intf,
 	}
 	/* step 6. Load the firmware asynchronously */
 	if (rtl871x_load_fw(padapter))
-		goto deinit_drv_sw;
+		goto error;
 	spin_lock_init(&padapter->lock_rx_ff0_filter);
 	mutex_init(&padapter->mutex_start);
 	return 0;
-
-deinit_drv_sw:
-	r8712_free_drv_sw(padapter);
-dvobj_deinit:
-	padapter->dvobj_deinit(padapter);
-free_netdev:
-	free_netdev(pnetdev);
-put_dev:
+error:
 	usb_put_dev(udev);
 	usb_set_intfdata(pusb_intf, NULL);
+	if (padapter && padapter->dvobj_deinit)
+		padapter->dvobj_deinit(padapter);
+	if (pnetdev)
+		free_netdev(pnetdev);
 	return -ENODEV;
 }
 
@@ -594,30 +591,34 @@ static void r871xu_dev_remove(struct usb_interface *pusb_intf)
 {
 	struct net_device *pnetdev = usb_get_intfdata(pusb_intf);
 	struct usb_device *udev = interface_to_usbdev(pusb_intf);
-	struct _adapter *padapter = netdev_priv(pnetdev);
 
-	/* never exit with a firmware callback pending */
-	wait_for_completion(&padapter->rtl8712_fw_ready);
-	usb_set_intfdata(pusb_intf, NULL);
-	release_firmware(padapter->fw);
-	if (drvpriv.drv_registered)
-		padapter->surprise_removed = true;
-	if (pnetdev->reg_state != NETREG_UNINITIALIZED)
-		unregister_netdev(pnetdev); /* will call netdev_close() */
-	r8712_flush_rwctrl_works(padapter);
-	r8712_flush_led_works(padapter);
-	udelay(1);
-	/* Stop driver mlme relation timer */
-	r8712_stop_drv_timers(padapter);
-	r871x_dev_unload(padapter);
-	r8712_free_drv_sw(padapter);
-	free_netdev(pnetdev);
+	if (pnetdev) {
+		struct _adapter *padapter = netdev_priv(pnetdev);
 
-	/* decrease the reference count of the usb device structure
-	 * when disconnect
-	 */
-	usb_put_dev(udev);
+		/* never exit with a firmware callback pending */
+		wait_for_completion(&padapter->rtl8712_fw_ready);
+		pnetdev = usb_get_intfdata(pusb_intf);
+		usb_set_intfdata(pusb_intf, NULL);
+		if (!pnetdev)
+			goto firmware_load_fail;
+		release_firmware(padapter->fw);
+		if (drvpriv.drv_registered)
+			padapter->surprise_removed = true;
+		if (pnetdev->reg_state != NETREG_UNINITIALIZED)
+			unregister_netdev(pnetdev); /* will call netdev_close() */
+		flush_scheduled_work();
+		udelay(1);
+		/* Stop driver mlme relation timer */
+		r8712_stop_drv_timers(padapter);
+		r871x_dev_unload(padapter);
+		r8712_free_drv_sw(padapter);
 
+		/* decrease the reference count of the usb device structure
+		 * when disconnect
+		 */
+		usb_put_dev(udev);
+	}
+firmware_load_fail:
 	/* If we didn't unplug usb dongle and remove/insert module, driver
 	 * fails on sitesurvey for the first time when device is up.
 	 * Reset usb port for sitesurvey fail issue.

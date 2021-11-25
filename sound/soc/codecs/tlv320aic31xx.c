@@ -35,9 +35,6 @@
 
 #include "tlv320aic31xx.h"
 
-static int aic31xx_set_jack(struct snd_soc_component *component,
-                            struct snd_soc_jack *jack, void *data);
-
 static const struct reg_default aic31xx_reg_defaults[] = {
 	{ AIC31XX_CLKMUX, 0x00 },
 	{ AIC31XX_PLLPR, 0x11 },
@@ -1258,13 +1255,6 @@ static int aic31xx_power_on(struct snd_soc_component *component)
 				       aic31xx->supplies);
 		return ret;
 	}
-
-	/*
-	 * The jack detection configuration is in the same register
-	 * that is used to report jack detect status so is volatile
-	 * and not covered by the cache sync, restore it separately.
-	 */
-	aic31xx_set_jack(component, aic31xx->jack, NULL);
 
 	return 0;
 }

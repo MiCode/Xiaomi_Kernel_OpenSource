@@ -95,8 +95,7 @@ static int keembay_emmc_phy_power(struct phy *phy, bool on_off)
 	else
 		freqsel = 0x0;
 
-	/* Check for EMMC clock rate*/
-	if (mhz > 175)
+	if (mhz < 50 || mhz > 200)
 		dev_warn(&phy->dev, "Unsupported rate: %d MHz\n", mhz);
 
 	/*

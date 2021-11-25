@@ -326,8 +326,6 @@ struct cpu_hw_events {
 	int				n_pair; /* Large increment events */
 
 	void				*kfree_on_online[X86_PERF_KFREE_MAX];
-
-	struct pmu			*pmu;
 };
 
 #define __EVENT_CONSTRAINT_RANGE(c, e, n, m, w, o, f) {	\
@@ -899,7 +897,7 @@ static struct perf_pmu_events_ht_attr event_attr_##v = {		\
 	.event_str_ht	= ht,						\
 }
 
-struct pmu *x86_get_pmu(unsigned int cpu);
+struct pmu *x86_get_pmu(void);
 extern struct x86_pmu x86_pmu __read_mostly;
 
 static __always_inline struct x86_perf_task_context_opt *task_context_opt(void *ctx)
@@ -1009,10 +1007,9 @@ void x86_pmu_stop(struct perf_event *event, int flags);
 
 static inline void x86_pmu_disable_event(struct perf_event *event)
 {
-	u64 disable_mask = __this_cpu_read(cpu_hw_events.perf_ctr_virt_mask);
 	struct hw_perf_event *hwc = &event->hw;
 
-	wrmsrl(hwc->config_base, hwc->config & ~disable_mask);
+	wrmsrl(hwc->config_base, hwc->config);
 
 	if (is_counter_pair(hwc))
 		wrmsrl(x86_pmu_config_addr(hwc->idx + 1), 0);
@@ -1124,8 +1121,6 @@ void release_ds_buffers(void);
 void reserve_ds_buffers(void);
 
 void release_lbr_buffers(void);
-
-void reserve_lbr_buffers(void);
 
 extern struct event_constraint bts_constraint;
 extern struct event_constraint vlbr_constraint;
@@ -1269,10 +1264,6 @@ static inline void release_ds_buffers(void)
 }
 
 static inline void release_lbr_buffers(void)
-{
-}
-
-static inline void reserve_lbr_buffers(void)
 {
 }
 

@@ -61,8 +61,6 @@
 	BPF_MOV64_IMM(BPF_REG_0, 0),
 	BPF_EXIT_INSN(),
 	},
-	.errstr_unpriv = "R1 !read_ok",
-	.result_unpriv = REJECT,
 	.result = ACCEPT,
 	.retval = 0
 },

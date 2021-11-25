@@ -362,7 +362,7 @@ static int video_mux_async_register(struct video_mux *vmux,
 
 	for (i = 0; i < num_input_pads; i++) {
 		struct v4l2_async_subdev *asd;
-		struct fwnode_handle *ep, *remote_ep;
+		struct fwnode_handle *ep;
 
 		ep = fwnode_graph_get_endpoint_by_id(
 			dev_fwnode(vmux->subdev.dev), i, 0,
@@ -370,21 +370,19 @@ static int video_mux_async_register(struct video_mux *vmux,
 		if (!ep)
 			continue;
 
-		/* Skip dangling endpoints for backwards compatibility */
-		remote_ep = fwnode_graph_get_remote_endpoint(ep);
-		if (!remote_ep) {
+		asd = kzalloc(sizeof(*asd), GFP_KERNEL);
+		if (!asd) {
 			fwnode_handle_put(ep);
-			continue;
+			return -ENOMEM;
 		}
-		fwnode_handle_put(remote_ep);
 
-		asd = v4l2_async_notifier_add_fwnode_remote_subdev(
-			&vmux->notifier, ep, sizeof(*asd));
+		ret = v4l2_async_notifier_add_fwnode_remote_subdev(
+			&vmux->notifier, ep, asd);
 
 		fwnode_handle_put(ep);
 
-		if (IS_ERR(asd)) {
-			ret = PTR_ERR(asd);
+		if (ret) {
+			kfree(asd);
 			/* OK if asd already exists */
 			if (ret != -EEXIST)
 				return ret;

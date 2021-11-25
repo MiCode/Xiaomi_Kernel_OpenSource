@@ -532,7 +532,7 @@ static inline s32 igc_read_phy_reg(struct igc_hw *hw, u32 offset, u16 *data)
 	if (hw->phy.ops.read_reg)
 		return hw->phy.ops.read_reg(hw, offset, data);
 
-	return -EOPNOTSUPP;
+	return 0;
 }
 
 void igc_reinit_locked(struct igc_adapter *);

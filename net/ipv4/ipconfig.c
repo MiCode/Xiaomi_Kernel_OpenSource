@@ -870,7 +870,7 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
 
 
 /*
- *  Copy BOOTP-supplied string
+ *  Copy BOOTP-supplied string if not already set.
  */
 static int __init ic_bootp_string(char *dest, char *src, int len, int max)
 {
@@ -919,15 +919,12 @@ static void __init ic_do_bootp_ext(u8 *ext)
 		}
 		break;
 	case 12:	/* Host name */
-		if (!ic_host_name_set) {
-			ic_bootp_string(utsname()->nodename, ext+1, *ext,
-					__NEW_UTS_LEN);
-			ic_host_name_set = 1;
-		}
+		ic_bootp_string(utsname()->nodename, ext+1, *ext,
+				__NEW_UTS_LEN);
+		ic_host_name_set = 1;
 		break;
 	case 15:	/* Domain name (DNS) */
-		if (!ic_domain[0])
-			ic_bootp_string(ic_domain, ext+1, *ext, sizeof(ic_domain));
+		ic_bootp_string(ic_domain, ext+1, *ext, sizeof(ic_domain));
 		break;
 	case 17:	/* Root path */
 		if (!root_server_path[0])

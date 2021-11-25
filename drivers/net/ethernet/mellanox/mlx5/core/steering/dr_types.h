@@ -597,8 +597,7 @@ struct mlx5dr_esw_caps {
 	u64 drop_icm_address_tx;
 	u64 uplink_icm_address_rx;
 	u64 uplink_icm_address_tx;
-	u8 sw_owner:1;
-	u8 sw_owner_v2:1;
+	bool sw_owner;
 };
 
 struct mlx5dr_cmd_vport_cap {
@@ -631,9 +630,6 @@ struct mlx5dr_cmd_caps {
 	bool rx_sw_owner;
 	bool tx_sw_owner;
 	bool fdb_sw_owner;
-	u8 rx_sw_owner_v2:1;
-	u8 tx_sw_owner_v2:1;
-	u8 fdb_sw_owner_v2:1;
 	u32 num_vports;
 	struct mlx5dr_esw_caps esw_caps;
 	struct mlx5dr_cmd_vport_cap *vports_caps;

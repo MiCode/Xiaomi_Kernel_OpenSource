@@ -361,15 +361,12 @@ static inline bool mem_cgroup_disabled(void)
 	return !cgroup_subsys_enabled(memory_cgrp_subsys);
 }
 
-static inline void mem_cgroup_protection(struct mem_cgroup *root,
-					 struct mem_cgroup *memcg,
-					 unsigned long *min,
-					 unsigned long *low)
+static inline unsigned long mem_cgroup_protection(struct mem_cgroup *root,
+						  struct mem_cgroup *memcg,
+						  bool in_low_reclaim)
 {
-	*min = *low = 0;
-
 	if (mem_cgroup_disabled())
-		return;
+		return 0;
 
 	/*
 	 * There is no reclaim protection applied to a targeted reclaim.
@@ -405,10 +402,13 @@ static inline void mem_cgroup_protection(struct mem_cgroup *root,
 	 *
 	 */
 	if (root == memcg)
-		return;
+		return 0;
 
-	*min = READ_ONCE(memcg->memory.emin);
-	*low = READ_ONCE(memcg->memory.elow);
+	if (in_low_reclaim)
+		return READ_ONCE(memcg->memory.emin);
+
+	return max(READ_ONCE(memcg->memory.emin),
+		   READ_ONCE(memcg->memory.elow));
 }
 
 void mem_cgroup_calculate_protection(struct mem_cgroup *root,
@@ -988,12 +988,11 @@ static inline void memcg_memory_event_mm(struct mm_struct *mm,
 {
 }
 
-static inline void mem_cgroup_protection(struct mem_cgroup *root,
-					 struct mem_cgroup *memcg,
-					 unsigned long *min,
-					 unsigned long *low)
+static inline unsigned long mem_cgroup_protection(struct mem_cgroup *root,
+						  struct mem_cgroup *memcg,
+						  bool in_low_reclaim)
 {
-	*min = *low = 0;
+	return 0;
 }
 
 static inline void mem_cgroup_calculate_protection(struct mem_cgroup *root,

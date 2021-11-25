@@ -1680,8 +1680,7 @@ static int xs_bind(struct sock_xprt *transport, struct socket *sock)
 		err = kernel_bind(sock, (struct sockaddr *)&myaddr,
 				transport->xprt.addrlen);
 		if (err == 0) {
-			if (transport->xprt.reuseport)
-				transport->srcport = port;
+			transport->srcport = port;
 			break;
 		}
 		last = port;

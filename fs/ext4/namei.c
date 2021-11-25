@@ -2515,7 +2515,7 @@ again:
 				goto journal_error;
 			err = ext4_handle_dirty_dx_node(handle, dir,
 							frame->bh);
-			if (restart || err)
+			if (err)
 				goto journal_error;
 		} else {
 			struct dx_root *dxroot;

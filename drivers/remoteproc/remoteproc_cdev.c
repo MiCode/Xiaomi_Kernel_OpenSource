@@ -111,7 +111,7 @@ int rproc_char_device_add(struct rproc *rproc)
 
 void rproc_char_device_remove(struct rproc *rproc)
 {
-	cdev_del(&rproc->cdev);
+	__unregister_chrdev(MAJOR(rproc->dev.devt), rproc->index, 1, "remoteproc");
 }
 
 void __init rproc_init_cdev(void)

@@ -448,7 +448,7 @@ struct zone {
 	 */
 	long lowmem_reserve[MAX_NR_ZONES];
 
-#ifdef CONFIG_NEED_MULTIPLE_NODES
+#ifdef CONFIG_NUMA
 	int node;
 #endif
 	struct pglist_data	*zone_pgdat;
@@ -922,7 +922,7 @@ static inline bool populated_zone(struct zone *zone)
 	return zone->present_pages;
 }
 
-#ifdef CONFIG_NEED_MULTIPLE_NODES
+#ifdef CONFIG_NUMA
 static inline int zone_to_nid(struct zone *zone)
 {
 	return zone->node;

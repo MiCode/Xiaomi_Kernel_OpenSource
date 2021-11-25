@@ -1224,13 +1224,12 @@ static ssize_t quad8_count_ceiling_write(struct counter_device *counter,
 	case 1:
 	case 3:
 		quad8_preset_register_set(priv, count->id, ceiling);
-		mutex_unlock(&priv->lock);
-		return len;
+		break;
 	}
 
 	mutex_unlock(&priv->lock);
 
-	return -EINVAL;
+	return len;
 }
 
 static ssize_t quad8_count_preset_enable_read(struct counter_device *counter,

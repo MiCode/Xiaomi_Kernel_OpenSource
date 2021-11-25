@@ -2527,7 +2527,7 @@ static void deactivate_labels(void *region)
 
 static int init_active_labels(struct nd_region *nd_region)
 {
-	int i, rc = 0;
+	int i;
 
 	for (i = 0; i < nd_region->ndr_mappings; i++) {
 		struct nd_mapping *nd_mapping = &nd_region->mapping[i];
@@ -2546,14 +2546,13 @@ static int init_active_labels(struct nd_region *nd_region)
 			else if (test_bit(NDD_LABELING, &nvdimm->flags))
 				/* fail, labels needed to disambiguate dpa */;
 			else
-				continue;
+				return 0;
 
 			dev_err(&nd_region->dev, "%s: is %s, failing probe\n",
 					dev_name(&nd_mapping->nvdimm->dev),
 					test_bit(NDD_LOCKED, &nvdimm->flags)
 					? "locked" : "disabled");
-			rc = -ENXIO;
-			goto out;
+			return -ENXIO;
 		}
 		nd_mapping->ndd = ndd;
 		atomic_inc(&nvdimm->busy);
@@ -2587,17 +2586,13 @@ static int init_active_labels(struct nd_region *nd_region)
 			break;
 	}
 
-	if (i < nd_region->ndr_mappings)
-		rc = -ENOMEM;
-
-out:
-	if (rc) {
+	if (i < nd_region->ndr_mappings) {
 		deactivate_labels(nd_region);
-		return rc;
+		return -ENOMEM;
 	}
 
 	return devm_add_action_or_reset(&nd_region->dev, deactivate_labels,
-					nd_region);
+			nd_region);
 }
 
 int nd_region_register_namespaces(struct nd_region *nd_region, int *err)

@@ -549,8 +549,7 @@ int dm_btree_remove(struct dm_btree_info *info, dm_block_t root,
 		delete_at(n, index);
 	}
 
-	if (!r)
-		*new_root = shadow_root(&spine);
+	*new_root = shadow_root(&spine);
 	exit_shadow_spine(&spine);
 
 	return r;

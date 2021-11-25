@@ -60,8 +60,8 @@ struct ti_syscon_reset_data {
 	unsigned int reset_duration_us;
 };
 
-#define to_ti_syscon_reset_data(_rcdev)	\
-	container_of(_rcdev, struct ti_syscon_reset_data, rcdev)
+#define to_ti_syscon_reset_data(rcdev)	\
+	container_of(rcdev, struct ti_syscon_reset_data, rcdev)
 
 /**
  * ti_syscon_reset_assert() - assert device reset

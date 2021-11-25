@@ -78,8 +78,7 @@ struct rm3100_data {
 	bool use_interrupt;
 	int conversion_time;
 	int scale;
-	/* Ensure naturally aligned timestamp */
-	u8 buffer[RM3100_SCAN_BYTES] __aligned(8);
+	u8 buffer[RM3100_SCAN_BYTES];
 	struct iio_trigger *drdy_trig;
 
 	/*

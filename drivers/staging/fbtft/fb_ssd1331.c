@@ -81,7 +81,8 @@ static void write_reg8_bus8(struct fbtft_par *par, int len, ...)
 	va_start(args, len);
 
 	*buf = (u8)va_arg(args, unsigned int);
-	gpiod_set_value(par->gpio.dc, 0);
+	if (par->gpio.dc)
+		gpiod_set_value(par->gpio.dc, 0);
 	ret = par->fbtftops.write(par, par->buf, sizeof(u8));
 	if (ret < 0) {
 		va_end(args);
@@ -103,7 +104,8 @@ static void write_reg8_bus8(struct fbtft_par *par, int len, ...)
 			return;
 		}
 	}
-	gpiod_set_value(par->gpio.dc, 1);
+	if (par->gpio.dc)
+		gpiod_set_value(par->gpio.dc, 1);
 	va_end(args);
 }
 

@@ -616,12 +616,7 @@ static int qed_enable_msix(struct qed_dev *cdev,
 			rc = cnt;
 	}
 
-	/* For VFs, we should return with an error in case we didn't get the
-	 * exact number of msix vectors as we requested.
-	 * Not doing that will lead to a crash when starting queues for
-	 * this VF.
-	 */
-	if ((IS_PF(cdev) && rc > 0) || (IS_VF(cdev) && rc == cnt)) {
+	if (rc > 0) {
 		/* MSI-x configuration was achieved */
 		int_params->out.int_mode = QED_INT_MODE_MSIX;
 		int_params->out.num_vectors = rc;

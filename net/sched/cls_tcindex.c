@@ -278,8 +278,6 @@ static int tcindex_filter_result_init(struct tcindex_filter_result *r,
 			     TCA_TCINDEX_POLICE);
 }
 
-static void tcindex_free_perfect_hash(struct tcindex_data *cp);
-
 static void tcindex_partial_destroy_work(struct work_struct *work)
 {
 	struct tcindex_data *p = container_of(to_rcu_work(work),
@@ -287,8 +285,7 @@ static void tcindex_partial_destroy_work(struct work_struct *work)
 					      rwork);
 
 	rtnl_lock();
-	if (p->perfect)
-		tcindex_free_perfect_hash(p);
+	kfree(p->perfect);
 	kfree(p);
 	rtnl_unlock();
 }
@@ -307,7 +304,7 @@ static int tcindex_alloc_perfect_hash(struct net *net, struct tcindex_data *cp)
 	int i, err = 0;
 
 	cp->perfect = kcalloc(cp->hash, sizeof(struct tcindex_filter_result),
-			      GFP_KERNEL | __GFP_NOWARN);
+			      GFP_KERNEL);
 	if (!cp->perfect)
 		return -ENOMEM;
 

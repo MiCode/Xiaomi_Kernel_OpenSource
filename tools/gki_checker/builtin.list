@@ -188,7 +188,6 @@ block/partitions/core.o
 block/partitions/efi.o
 block/partitions/msdos.o
 block/scsi_ioctl.o
-certs/common.o
 certs/system_keyring.o
 crypto/acompress.o
 crypto/adiantum.o

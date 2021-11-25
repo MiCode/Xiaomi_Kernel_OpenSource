@@ -79,17 +79,10 @@ static int sm2_ec_ctx_init(struct mpi_ec_ctx *ec)
 		goto free;
 
 	rc = -ENOMEM;
-
-	ec->Q = mpi_point_new(0);
-	if (!ec->Q)
-		goto free;
-
 	/* mpi_ec_setup_elliptic_curve */
 	ec->G = mpi_point_new(0);
-	if (!ec->G) {
-		mpi_point_release(ec->Q);
+	if (!ec->G)
 		goto free;
-	}
 
 	mpi_set(ec->G->x, x);
 	mpi_set(ec->G->y, y);
@@ -98,7 +91,6 @@ static int sm2_ec_ctx_init(struct mpi_ec_ctx *ec)
 	rc = -EINVAL;
 	ec->n = mpi_scanval(ecp->n);
 	if (!ec->n) {
-		mpi_point_release(ec->Q);
 		mpi_point_release(ec->G);
 		goto free;
 	}
@@ -127,6 +119,12 @@ static void sm2_ec_ctx_deinit(struct mpi_ec_ctx *ec)
 	memset(ec, 0, sizeof(*ec));
 }
 
+static int sm2_ec_ctx_reset(struct mpi_ec_ctx *ec)
+{
+	sm2_ec_ctx_deinit(ec);
+	return sm2_ec_ctx_init(ec);
+}
+
 /* RESULT must have been initialized and is set on success to the
  * point given by VALUE.
  */
@@ -134,48 +132,55 @@ static int sm2_ecc_os2ec(MPI_POINT result, MPI value)
 {
 	int rc;
 	size_t n;
-	unsigned char *buf;
+	const unsigned char *buf;
+	unsigned char *buf_memory;
 	MPI x, y;
 
-	n = MPI_NBYTES(value);
-	buf = kmalloc(n, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
+	n = (mpi_get_nbits(value)+7)/8;
+	buf_memory = kmalloc(n, GFP_KERNEL);
+	rc = mpi_print(GCRYMPI_FMT_USG, buf_memory, n, &n, value);
+	if (rc) {
+		kfree(buf_memory);
+		return rc;
+	}
+	buf = buf_memory;
 
-	rc = mpi_print(GCRYMPI_FMT_USG, buf, n, &n, value);
-	if (rc)
-		goto err_freebuf;
-
-	rc = -EINVAL;
-	if (n < 1 || ((n - 1) % 2))
-		goto err_freebuf;
-	/* No support for point compression */
-	if (*buf != 0x4)
-		goto err_freebuf;
-
-	rc = -ENOMEM;
-	n = (n - 1) / 2;
+	if (n < 1) {
+		kfree(buf_memory);
+		return -EINVAL;
+	}
+	if (*buf != 4) {
+		kfree(buf_memory);
+		return -EINVAL; /* No support for point compression.  */
+	}
+	if (((n-1)%2)) {
+		kfree(buf_memory);
+		return -EINVAL;
+	}
+	n = (n-1)/2;
 	x = mpi_read_raw_data(buf + 1, n);
-	if (!x)
-		goto err_freebuf;
+	if (!x) {
+		kfree(buf_memory);
+		return -ENOMEM;
+	}
 	y = mpi_read_raw_data(buf + 1 + n, n);
-	if (!y)
-		goto err_freex;
+	kfree(buf_memory);
+	if (!y) {
+		mpi_free(x);
+		return -ENOMEM;
+	}
 
 	mpi_normalize(x);
 	mpi_normalize(y);
+
 	mpi_set(result->x, x);
 	mpi_set(result->y, y);
 	mpi_set_ui(result->z, 1);
 
-	rc = 0;
-
-	mpi_free(y);
-err_freex:
 	mpi_free(x);
-err_freebuf:
-	kfree(buf);
-	return rc;
+	mpi_free(y);
+
+	return 0;
 }
 
 struct sm2_signature_ctx {
@@ -394,15 +399,31 @@ static int sm2_set_pub_key(struct crypto_akcipher *tfm,
 	MPI a;
 	int rc;
 
+	rc = sm2_ec_ctx_reset(ec);
+	if (rc)
+		return rc;
+
+	ec->Q = mpi_point_new(0);
+	if (!ec->Q)
+		return -ENOMEM;
+
 	/* include the uncompressed flag '0x04' */
+	rc = -ENOMEM;
 	a = mpi_read_raw_data(key, keylen);
 	if (!a)
-		return -ENOMEM;
+		goto error;
 
 	mpi_normalize(a);
 	rc = sm2_ecc_os2ec(ec->Q, a);
 	mpi_free(a);
+	if (rc)
+		goto error;
 
+	return 0;
+
+error:
+	mpi_point_release(ec->Q);
+	ec->Q = NULL;
 	return rc;
 }
 

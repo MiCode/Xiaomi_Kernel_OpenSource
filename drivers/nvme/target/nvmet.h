@@ -166,7 +166,7 @@ struct nvmet_ctrl {
 	struct nvmet_subsys	*subsys;
 	struct nvmet_sq		**sqs;
 
-	bool			reset_tbkas;
+	bool			cmd_seen;
 
 	struct mutex		lock;
 	u64			cap;

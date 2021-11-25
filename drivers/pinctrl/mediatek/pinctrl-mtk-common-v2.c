@@ -1113,10 +1113,12 @@ int mtk_pinconf_adv_pull_set(struct mtk_pinctrl *hw,
 			err = hw->soc->bias_set(hw, desc, pullup);
 			if (err)
 				return err;
-		} else {
-			err = mtk_pinconf_bias_set_rev1(hw, desc, pullup);
+		} else if (hw->soc->bias_set_combo) {
+			err = hw->soc->bias_set_combo(hw, desc, pullup, arg);
 			if (err)
-				err = mtk_pinconf_bias_set(hw, desc, pullup);
+				return err;
+		} else {
+			return -ENOTSUPP;
 		}
 	}
 

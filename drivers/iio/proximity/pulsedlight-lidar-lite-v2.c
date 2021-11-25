@@ -44,11 +44,7 @@ struct lidar_data {
 	int (*xfer)(struct lidar_data *data, u8 reg, u8 *val, int len);
 	int i2c_enabled;
 
-	/* Ensure timestamp is naturally aligned */
-	struct {
-		u16 chan;
-		s64 timestamp __aligned(8);
-	} scan;
+	u16 buffer[8]; /* 2 byte distance + 8 byte timestamp */
 };
 
 static const struct iio_chan_spec lidar_channels[] = {
@@ -234,9 +230,9 @@ static irqreturn_t lidar_trigger_handler(int irq, void *private)
 	struct lidar_data *data = iio_priv(indio_dev);
 	int ret;
 
-	ret = lidar_get_measurement(data, &data->scan.chan);
+	ret = lidar_get_measurement(data, data->buffer);
 	if (!ret) {
-		iio_push_to_buffers_with_timestamp(indio_dev, &data->scan,
+		iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
 						   iio_get_time_ns(indio_dev));
 	} else if (ret != -EINVAL) {
 		dev_err(&data->client->dev, "cannot read LIDAR measurement");

@@ -217,11 +217,9 @@ resv_iova:
 			lo = iova_pfn(iovad, start);
 			hi = iova_pfn(iovad, end);
 			reserve_iova(iovad, lo, hi);
-		} else if (end < start) {
+		} else {
 			/* dma_ranges list should be sorted */
-			dev_err(&dev->dev,
-				"Failed to reserve IOVA [%pa-%pa]\n",
-				&start, &end);
+			dev_err(&dev->dev, "Failed to reserve IOVA\n");
 			return -EINVAL;
 		}
 

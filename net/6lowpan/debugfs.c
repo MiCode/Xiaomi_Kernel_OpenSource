@@ -170,8 +170,7 @@ static void lowpan_dev_debugfs_ctx_init(struct net_device *dev,
 	struct dentry *root;
 	char buf[32];
 
-	if (WARN_ON_ONCE(id >= LOWPAN_IPHC_CTX_TABLE_SIZE))
-		return;
+	WARN_ON_ONCE(id > LOWPAN_IPHC_CTX_TABLE_SIZE);
 
 	sprintf(buf, "%d", id);
 

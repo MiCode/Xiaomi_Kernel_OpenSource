@@ -15,7 +15,7 @@
 	};
 
 	leds {
-		led-act {
+		act {
 			gpios = <&gpio 16 GPIO_ACTIVE_LOW>;
 		};
 	};

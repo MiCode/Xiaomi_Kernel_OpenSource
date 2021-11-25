@@ -60,8 +60,7 @@ static int panfrost_clk_init(struct panfrost_device *pfdev)
 	if (IS_ERR(pfdev->bus_clock)) {
 		dev_err(pfdev->dev, "get bus_clock failed %ld\n",
 			PTR_ERR(pfdev->bus_clock));
-		err = PTR_ERR(pfdev->bus_clock);
-		goto disable_clock;
+		return PTR_ERR(pfdev->bus_clock);
 	}
 
 	if (pfdev->bus_clock) {

@@ -395,14 +395,10 @@ static irqreturn_t ads1015_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ads1015_data *data = iio_priv(indio_dev);
-	/* Ensure natural alignment of timestamp */
-	struct {
-		s16 chan;
-		s64 timestamp __aligned(8);
-	} scan;
+	s16 buf[8]; /* 1x s16 ADC val + 3x s16 padding +  4x s16 timestamp */
 	int chan, ret, res;
 
-	memset(&scan, 0, sizeof(scan));
+	memset(buf, 0, sizeof(buf));
 
 	mutex_lock(&data->lock);
 	chan = find_first_bit(indio_dev->active_scan_mask,
@@ -413,10 +409,10 @@ static irqreturn_t ads1015_trigger_handler(int irq, void *p)
 		goto err;
 	}
 
-	scan.chan = res;
+	buf[0] = res;
 	mutex_unlock(&data->lock);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &scan,
+	iio_push_to_buffers_with_timestamp(indio_dev, buf,
 					   iio_get_time_ns(indio_dev));
 
 err:

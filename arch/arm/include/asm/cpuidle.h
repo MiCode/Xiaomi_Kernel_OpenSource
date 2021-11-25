@@ -7,11 +7,9 @@
 #ifdef CONFIG_CPU_IDLE
 extern int arm_cpuidle_simple_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int index);
-#define __cpuidle_method_section __used __section("__cpuidle_method_of_table")
 #else
 static inline int arm_cpuidle_simple_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int index) { return -ENODEV; }
-#define __cpuidle_method_section __maybe_unused /* drop silently */
 #endif
 
 /* Common ARM WFI state */
@@ -44,7 +42,8 @@ struct of_cpuidle_method {
 
 #define CPUIDLE_METHOD_OF_DECLARE(name, _method, _ops)			\
 	static const struct of_cpuidle_method __cpuidle_method_of_table_##name \
-	__cpuidle_method_section = { .method = _method, .ops = _ops }
+	__used __section("__cpuidle_method_of_table")			\
+	= { .method = _method, .ops = _ops }
 
 extern int arm_cpuidle_suspend(int index);
 

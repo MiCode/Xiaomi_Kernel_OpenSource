@@ -48,85 +48,51 @@ static const struct hfi_core_ops venus_core_ops = {
 	.event_notify = venus_event_notify,
 };
 
-#define RPM_WAIT_FOR_IDLE_MAX_ATTEMPTS 10
-
 static void venus_sys_error_handler(struct work_struct *work)
 {
 	struct venus_core *core =
 			container_of(work, struct venus_core, work.work);
-	int ret, i, max_attempts = RPM_WAIT_FOR_IDLE_MAX_ATTEMPTS;
-	const char *err_msg = "";
-	bool failed = false;
+	int ret = 0;
 
-	ret = pm_runtime_get_sync(core->dev);
-	if (ret < 0) {
-		err_msg = "resume runtime PM";
-		max_attempts = 0;
-		failed = true;
-	}
+	pm_runtime_get_sync(core->dev);
 
 	hfi_core_deinit(core, true);
 
+	dev_warn(core->dev, "system error has occurred, starting recovery!\n");
+
 	mutex_lock(&core->lock);
 
-	for (i = 0; i < max_attempts; i++) {
-		if (!pm_runtime_active(core->dev_dec) && !pm_runtime_active(core->dev_enc))
-			break;
+	while (pm_runtime_active(core->dev_dec) || pm_runtime_active(core->dev_enc))
 		msleep(10);
-	}
 
 	venus_shutdown(core);
 
 	pm_runtime_put_sync(core->dev);
 
-	for (i = 0; i < max_attempts; i++) {
-		if (!core->pmdomains[0] || !pm_runtime_active(core->pmdomains[0]))
-			break;
+	while (core->pmdomains[0] && pm_runtime_active(core->pmdomains[0]))
 		usleep_range(1000, 1500);
-	}
 
 	hfi_reinit(core);
 
-	ret = pm_runtime_get_sync(core->dev);
-	if (ret < 0) {
-		err_msg = "resume runtime PM";
-		failed = true;
-	}
+	pm_runtime_get_sync(core->dev);
 
-	ret = venus_boot(core);
-	if (ret && !failed) {
-		err_msg = "boot Venus";
-		failed = true;
-	}
-
-	ret = hfi_core_resume(core, true);
-	if (ret && !failed) {
-		err_msg = "resume HFI";
-		failed = true;
-	}
+	ret |= venus_boot(core);
+	ret |= hfi_core_resume(core, true);
 
 	enable_irq(core->irq);
 
 	mutex_unlock(&core->lock);
 
-	ret = hfi_core_init(core);
-	if (ret && !failed) {
-		err_msg = "init HFI";
-		failed = true;
-	}
+	ret |= hfi_core_init(core);
 
 	pm_runtime_put_sync(core->dev);
 
-	if (failed) {
+	if (ret) {
 		disable_irq_nosync(core->irq);
-		dev_warn_ratelimited(core->dev,
-				     "System error has occurred, recovery failed to %s\n",
-				     err_msg);
+		dev_warn(core->dev, "recovery failed (%d)\n", ret);
 		schedule_delayed_work(&core->work, msecs_to_jiffies(10));
 		return;
 	}
-
-	dev_warn(core->dev, "system error has occurred (recovered)\n");
 
 	mutex_lock(&core->lock);
 	core->sys_error = false;

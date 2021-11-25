@@ -36,7 +36,7 @@ extern pte_t *pkmap_page_table;
  * easily, subsequent pte tables have to be allocated in one physical
  * chunk of RAM.
  */
-#if defined(CONFIG_PHYS_ADDR_T_64BIT) || defined(CONFIG_MIPS_HUGE_TLB_SUPPORT)
+#ifdef CONFIG_PHYS_ADDR_T_64BIT
 #define LAST_PKMAP 512
 #else
 #define LAST_PKMAP 1024

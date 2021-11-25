@@ -78,6 +78,10 @@ static int ceph_set_page_dirty(struct page *page)
 	struct inode *inode;
 	struct ceph_inode_info *ci;
 	struct ceph_snap_context *snapc;
+	int ret;
+
+	if (unlikely(!mapping))
+		return !TestSetPageDirty(page);
 
 	if (PageDirty(page)) {
 		dout("%p set_page_dirty %p idx %lu -- already dirty\n",
@@ -123,7 +127,11 @@ static int ceph_set_page_dirty(struct page *page)
 	page->private = (unsigned long)snapc;
 	SetPagePrivate(page);
 
-	return __set_page_dirty_nobuffers(page);
+	ret = __set_page_dirty_nobuffers(page);
+	WARN_ON(!PageLocked(page));
+	WARN_ON(!page->mapping);
+
+	return ret;
 }
 
 /*
@@ -1294,45 +1302,6 @@ ceph_find_incompatible(struct page *page)
 	return NULL;
 }
 
-/**
- * prep_noread_page - prep a page for writing without reading first
- * @page: page being prepared
- * @pos: starting position for the write
- * @len: length of write
- *
- * In some cases, write_begin doesn't need to read at all:
- * - full page write
- * - file is currently zero-length
- * - write that lies in a page that is completely beyond EOF
- * - write that covers the the page from start to EOF or beyond it
- *
- * If any of these criteria are met, then zero out the unwritten parts
- * of the page and return true. Otherwise, return false.
- */
-static bool skip_page_read(struct page *page, loff_t pos, size_t len)
-{
-	struct inode *inode = page->mapping->host;
-	loff_t i_size = i_size_read(inode);
-	size_t offset = offset_in_page(pos);
-
-	/* Full page write */
-	if (offset == 0 && len >= PAGE_SIZE)
-		return true;
-
-	/* pos beyond last page in the file */
-	if (pos - offset >= i_size)
-		goto zero_out;
-
-	/* write that covers the whole page from start to EOF or beyond it */
-	if (offset == 0 && (pos + len) >= i_size)
-		goto zero_out;
-
-	return false;
-zero_out:
-	zero_user_segments(page, 0, offset, offset + len, PAGE_SIZE);
-	return true;
-}
-
 /*
  * We are only allowed to write into/dirty the page if the page is
  * clean, or already dirty within the same snap context.
@@ -1346,6 +1315,7 @@ static int ceph_write_begin(struct file *file, struct address_space *mapping,
 	struct ceph_snap_context *snapc;
 	struct page *page = NULL;
 	pgoff_t index = pos >> PAGE_SHIFT;
+	int pos_in_page = pos & ~PAGE_MASK;
 	int r = 0;
 
 	dout("write_begin file %p inode %p page %p %d~%d\n", file, inode, page, (int)pos, (int)len);
@@ -1380,9 +1350,19 @@ static int ceph_write_begin(struct file *file, struct address_space *mapping,
 			break;
 		}
 
-		/* No need to read in some cases */
-		if (skip_page_read(page, pos, len))
+		/*
+		 * In some cases we don't need to read at all:
+		 * - full page write
+		 * - write that lies completely beyond EOF
+		 * - write that covers the the page from start to EOF or beyond it
+		 */
+		if ((pos_in_page == 0 && len == PAGE_SIZE) ||
+		    (pos >= i_size_read(inode)) ||
+		    (pos_in_page == 0 && (pos + len) >= i_size_read(inode))) {
+			zero_user_segments(page, 0, pos_in_page,
+					   pos_in_page + len, PAGE_SIZE);
 			break;
+		}
 
 		/*
 		 * We need to read it. If we get back -EINPROGRESS, then the page was

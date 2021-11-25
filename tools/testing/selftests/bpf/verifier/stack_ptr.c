@@ -44,7 +44,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.result = REJECT,
-	.errstr = "invalid write to stack R1 off=-79992 size=8",
+	.errstr = "invalid stack off=-79992 size=8",
 	.errstr_unpriv = "R1 stack pointer arithmetic goes out of range",
 },
 {
@@ -57,7 +57,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.result = REJECT,
-	.errstr = "invalid write to stack R1 off=0 size=8",
+	.errstr = "invalid stack off=0 size=8",
 },
 {
 	"PTR_TO_STACK check high 1",
@@ -106,7 +106,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.errstr_unpriv = "R1 stack pointer arithmetic goes out of range",
-	.errstr = "invalid write to stack R1 off=0 size=1",
+	.errstr = "invalid stack off=0 size=1",
 	.result = REJECT,
 },
 {
@@ -119,8 +119,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.result = REJECT,
-	.errstr_unpriv = "R1 stack pointer arithmetic goes out of range",
-	.errstr = "invalid write to stack R1",
+	.errstr = "invalid stack off",
 },
 {
 	"PTR_TO_STACK check high 6",
@@ -132,8 +131,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.result = REJECT,
-	.errstr_unpriv = "R1 stack pointer arithmetic goes out of range",
-	.errstr = "invalid write to stack",
+	.errstr = "invalid stack off",
 },
 {
 	"PTR_TO_STACK check high 7",
@@ -185,7 +183,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.errstr_unpriv = "R1 stack pointer arithmetic goes out of range",
-	.errstr = "invalid write to stack R1 off=-513 size=1",
+	.errstr = "invalid stack off=-513 size=1",
 	.result = REJECT,
 },
 {
@@ -210,8 +208,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.result = REJECT,
-	.errstr_unpriv = "R1 stack pointer arithmetic goes out of range",
-	.errstr = "invalid write to stack",
+	.errstr = "invalid stack off",
 },
 {
 	"PTR_TO_STACK check low 6",
@@ -223,8 +220,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.result = REJECT,
-	.errstr = "invalid write to stack",
-	.errstr_unpriv = "R1 stack pointer arithmetic goes out of range",
+	.errstr = "invalid stack off",
 },
 {
 	"PTR_TO_STACK check low 7",
@@ -295,6 +291,8 @@
 	BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1, 0),
 	BPF_EXIT_INSN(),
 	},
+	.result_unpriv = REJECT,
+	.errstr_unpriv = "invalid stack off=0 size=1",
 	.result = ACCEPT,
 	.retval = 42,
 },

@@ -225,9 +225,8 @@ static int cros_ec_regulator_probe(struct platform_device *pdev)
 
 	drvdata->dev = devm_regulator_register(dev, &drvdata->desc, &cfg);
 	if (IS_ERR(drvdata->dev)) {
-		ret = PTR_ERR(drvdata->dev);
 		dev_err(&pdev->dev, "Failed to register regulator: %d\n", ret);
-		return ret;
+		return PTR_ERR(drvdata->dev);
 	}
 
 	platform_set_drvdata(pdev, drvdata);

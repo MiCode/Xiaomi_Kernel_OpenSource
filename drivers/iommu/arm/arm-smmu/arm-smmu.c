@@ -74,7 +74,7 @@ static bool using_legacy_binding, using_generic_binding;
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
 	if (pm_runtime_enabled(smmu->dev))
-		return pm_runtime_resume_and_get(smmu->dev);
+		return pm_runtime_get_sync(smmu->dev);
 
 	return 0;
 }
@@ -1278,7 +1278,6 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	u64 phys;
 	unsigned long va, flags;
 	int ret, idx = cfg->cbndx;
-	phys_addr_t addr = 0;
 
 	ret = arm_smmu_rpm_get(smmu);
 	if (ret < 0)
@@ -1298,7 +1297,6 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		dev_err(dev,
 			"iova to phys timed out on %pad. Falling back to software table walk.\n",
 			&iova);
-		arm_smmu_rpm_put(smmu);
 		return ops->iova_to_phys(ops, iova);
 	}
 
@@ -1307,14 +1305,12 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (phys & ARM_SMMU_CB_PAR_F) {
 		dev_err(dev, "translation fault!\n");
 		dev_err(dev, "PAR = 0x%llx\n", phys);
-		goto out;
+		return 0;
 	}
 
-	addr = (phys & GENMASK_ULL(39, 12)) | (iova & 0xfff);
-out:
 	arm_smmu_rpm_put(smmu);
 
-	return addr;
+	return (phys & GENMASK_ULL(39, 12)) | (iova & 0xfff);
 }
 
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,

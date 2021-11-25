@@ -698,6 +698,7 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 	if (xfer->tx_buf) {
 		cnt = xfer->len / 4;
 		iowrite32_rep(mdata->base + SPI_TX_DATA_REG, xfer->tx_buf, cnt);
+
 		remainder = xfer->len % 4;
 		if (remainder > 0) {
 			reg_val = 0;

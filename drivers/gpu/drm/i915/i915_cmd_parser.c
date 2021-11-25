@@ -1143,30 +1143,27 @@ find_reg(const struct intel_engine_cs *engine, u32 addr)
 /* Returns a vmap'd pointer to dst_obj, which the caller must unmap */
 static u32 *copy_batch(struct drm_i915_gem_object *dst_obj,
 		       struct drm_i915_gem_object *src_obj,
-		       u32 offset, u32 length)
+		       unsigned long offset, unsigned long length)
 {
-	unsigned int src_needs_clflush;
-	unsigned int dst_needs_clflush;
+	bool needs_clflush;
 	void *dst, *src;
 	int ret;
 
-	ret = i915_gem_object_prepare_write(dst_obj, &dst_needs_clflush);
-	if (ret)
-		return ERR_PTR(ret);
-
 	dst = i915_gem_object_pin_map(dst_obj, I915_MAP_FORCE_WB);
-	i915_gem_object_finish_access(dst_obj);
 	if (IS_ERR(dst))
 		return dst;
 
-	ret = i915_gem_object_prepare_read(src_obj, &src_needs_clflush);
+	ret = i915_gem_object_pin_pages(src_obj);
 	if (ret) {
 		i915_gem_object_unpin_map(dst_obj);
 		return ERR_PTR(ret);
 	}
 
+	needs_clflush =
+		!(src_obj->cache_coherent & I915_BO_CACHE_COHERENT_FOR_READ);
+
 	src = ERR_PTR(-ENODEV);
-	if (src_needs_clflush && i915_has_memcpy_from_wc()) {
+	if (needs_clflush && i915_has_memcpy_from_wc()) {
 		src = i915_gem_object_pin_map(src_obj, I915_MAP_WC);
 		if (!IS_ERR(src)) {
 			i915_unaligned_memcpy_from_wc(dst,
@@ -1188,7 +1185,7 @@ static u32 *copy_batch(struct drm_i915_gem_object *dst_obj,
 		 * validate up to the end of the batch.
 		 */
 		remain = length;
-		if (dst_needs_clflush & CLFLUSH_BEFORE)
+		if (!(dst_obj->cache_coherent & I915_BO_CACHE_COHERENT_FOR_READ))
 			remain = round_up(remain,
 					  boot_cpu_data.x86_clflush_size);
 
@@ -1198,7 +1195,7 @@ static u32 *copy_batch(struct drm_i915_gem_object *dst_obj,
 			int len = min(remain, PAGE_SIZE - x);
 
 			src = kmap_atomic(i915_gem_object_get_page(src_obj, n));
-			if (src_needs_clflush)
+			if (needs_clflush)
 				drm_clflush_virt_range(src + x, len);
 			memcpy(ptr, src + x, len);
 			kunmap_atomic(src);
@@ -1209,10 +1206,11 @@ static u32 *copy_batch(struct drm_i915_gem_object *dst_obj,
 		}
 	}
 
-	i915_gem_object_finish_access(src_obj);
+	i915_gem_object_unpin_pages(src_obj);
 
 	memset32(dst + length, 0, (dst_obj->base.size - length) / sizeof(u32));
 
+	/* dst_obj is returned with vmap pinned */
 	return dst;
 }
 
@@ -1419,7 +1417,6 @@ static unsigned long *alloc_whitelist(u32 batch_length)
  * Return: non-zero if the parser finds violations or otherwise fails; -EACCES
  * if the batch appears legal but should use hardware parsing
  */
-
 int intel_engine_cmd_parser(struct intel_engine_cs *engine,
 			    struct i915_vma *batch,
 			    unsigned long batch_offset,
@@ -1440,8 +1437,7 @@ int intel_engine_cmd_parser(struct intel_engine_cs *engine,
 				     batch->size));
 	GEM_BUG_ON(!batch_length);
 
-	cmd = copy_batch(shadow->obj, batch->obj,
-			 batch_offset, batch_length);
+	cmd = copy_batch(shadow->obj, batch->obj, batch_offset, batch_length);
 	if (IS_ERR(cmd)) {
 		DRM_DEBUG("CMD: Failed to copy batch\n");
 		return PTR_ERR(cmd);

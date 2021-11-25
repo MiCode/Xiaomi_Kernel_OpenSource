@@ -24,9 +24,9 @@ allOf:
 select:
   properties:
     compatible:
-      contains:
-        enum:
-          - sifive,fu540-c000-ccache
+      items:
+        - enum:
+            - sifive,fu540-c000-ccache
 
   required:
     - compatible

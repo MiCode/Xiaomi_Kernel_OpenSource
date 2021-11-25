@@ -4,7 +4,7 @@
 	BPF_ST_MEM(BPF_DW, BPF_REG_10, 8, 0),
 	BPF_EXIT_INSN(),
 	},
-	.errstr = "invalid write to stack",
+	.errstr = "invalid stack",
 	.result = REJECT,
 },
 {

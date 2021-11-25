@@ -416,13 +416,13 @@ radeon_pci_shutdown(struct pci_dev *pdev)
 	if (radeon_device_is_virtual())
 		radeon_pci_remove(pdev);
 
-#if defined(CONFIG_PPC64) || defined(CONFIG_MACH_LOONGSON64)
+#ifdef CONFIG_PPC64
 	/*
 	 * Some adapters need to be suspended before a
 	 * shutdown occurs in order to prevent an error
-	 * during kexec, shutdown or reboot.
-	 * Make this power and Loongson specific because
-	 * it breaks some other boards.
+	 * during kexec.
+	 * Make this power specific becauase it breaks
+	 * some non-power boards.
 	 */
 	radeon_suspend_kms(pci_get_drvdata(pdev), true, true, false);
 #endif
