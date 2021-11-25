@@ -7,7 +7,7 @@
 #define APU_REGDUMP_H
 
 #define NAME_MAX_LEN   30
-#define REGION_MAX_NUM 30
+#define REGION_MAX_NUM 50
 
 struct apusys_regdump_region_info {
 	char name[NAME_MAX_LEN + 1];
