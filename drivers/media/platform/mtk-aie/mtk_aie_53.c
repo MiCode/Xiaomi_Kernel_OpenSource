@@ -103,6 +103,7 @@ static struct mtk_aie_qos_path aie_qos_path[AIE_QOS_MAX] = {
 	{NULL, "l12_fdvt_wrb", 0}
 };
 #endif
+
 static int mtk_aie_suspend(struct device *dev)
 {
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
@@ -703,6 +704,7 @@ static signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
 {
 	signed int ret = 0;
 	int fld_face_num = fd->aie_cfg->fld_face_num;
+	unsigned int loop_num = 1;
 	int i = 0;
 
 	if (fd->aie_cfg->sel_mode == 3) {
@@ -924,7 +926,7 @@ static signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
 			(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_1));
 #if CHECK_SERVICE_1
 		dev_info(fd->dev,
-			"fdmode_fdvt_fd_config:	0x%x, fdmode_fdvt_yuv2rgb_config_size:	%d",
+			"fdmode_fdvt_yuv2rgb_config:	0x%x, fdmode_fdvt_yuv2rgb_config_size:	%d",
 			fd->base_para->fd_yuv2rgb_cfg_va, fd->fd_yuv2rgb_cfg_size);
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_yuv2rgb_cfg_va,
 								fd->fd_yuv2rgb_cfg_size);
@@ -932,12 +934,17 @@ static signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
 			"fdmode_fdvt_rs_config:	  0x%x, fdmode_fdvt_rs_config_size:	 %d",
 			fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
-#if CHECK_SERVICE_0
+
+		loop_num = (unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0) & 0xFF;
+		if (!loop_num)
+			loop_num = 1;
 		dev_info(fd->dev,
 			"fdmode_fdvt_fd_config:	0x%x, fdmode_fdvt_fd_config_size:	%d",
-			fd->base_para->fd_fd_cfg_va, fd->fd_fd_cfg_size);
-		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va, fd->fd_fd_cfg_size);
-#endif
+			(unsigned int *)fd->base_para->fd_fd_cfg_va + (loop_num - 1) * 56,
+			(fd->fd_fd_cfg_size)/87);
+		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va + (loop_num - 1) * 56,
+			(fd->fd_fd_cfg_size)/87);
+
 		dev_info(fd->dev, "FDVT DMA Debug Info\n");
 
 		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00B,
