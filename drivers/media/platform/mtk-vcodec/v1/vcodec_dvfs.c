@@ -107,8 +107,12 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 		ctx->enc_params.num_b_frame : 0;
 	new_inst->wp = (new_inst->codec_type == MTK_INST_ENCODER) ?
 		ctx->enc_params.scenario : 0;
+	if (new_inst->wp == WP_SCENARIO)
+		new_inst->core_cnt = 1;
 	new_inst->op_rate = (new_inst->codec_type == MTK_INST_ENCODER) ?
 		ctx->enc_params.operationrate : ctx->dec_params.operating_rate;
+	new_inst->priority = (new_inst->codec_type == MTK_INST_ENCODER) ?
+				ctx->enc_params.priority : ctx->dec_params.priority;
 	if (new_inst->op_rate == 0) {
 		new_inst->op_rate = (new_inst->codec_type == MTK_INST_ENCODER) ?
 			(ctx->enc_params.framerate_denom == 0 ? 0 :
@@ -130,9 +134,9 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 			mtk_v4l2_debug(0, "[VDVFS] VENC no config");
 	}
 
-	mtk_v4l2_debug(4, "[VDVFS] New inst id %d, type %u, fmt %u, cfg %d, ccnt %u, op_rate %d",
+	mtk_v4l2_debug(4, "[VDVFS] New inst id %d, type %u, fmt %u, cfg %d, ccnt %u, op_rate %d, priority %d",
 			new_inst->id, new_inst->codec_type, new_inst->codec_fmt, new_inst->config,
-			new_inst->core_cnt, new_inst->op_rate);
+			new_inst->core_cnt, new_inst->op_rate, new_inst->priority);
 	mtk_v4l2_debug(4, "[VDVFS] width %u, height %u, is_encoder %d",
 			new_inst->width, new_inst->height,
 			new_inst->codec_type == MTK_INST_ENCODER);
@@ -325,11 +329,16 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 		} else
 			freq = 100000000;
 
-		if (inst->op_rate <= 0) {
-			freq = dev->vdec_dvfs_params.normal_max_freq;
+		if (perf != 0 && inst->op_rate <= 0) {
+			/* Undefined priority + op_rate combination behavior, to be configurable */
+			freq = (inst->priority < 0) ?
+				(inst->width * inst->height / 256 * 30 *
+					perf->cy_per_mb_1) :
+				dev->vdec_dvfs_params.normal_max_freq;
 
-			mtk_v4l2_debug(6, "[VDVFS] VDEC oprate: %d, set freq = %u",
-					inst->op_rate, freq);
+			mtk_v4l2_debug(6, "[VDVFS] VDEC priority:%d oprate:%d/%d, set freq = %u",
+					inst->priority, inst->op_rate,
+					((inst->priority < 0) ? 30 : inst->op_rate), freq);
 		}
 	} else if (inst->codec_type == MTK_INST_ENCODER) {
 		if (perf != 0) {
@@ -340,6 +349,12 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 				freq = freq * perf->cy_per_mb_2;
 
 			freq = freq / inst->core_cnt;
+			/* SW overhead */
+			if (inst->width * inst->height <= 1920 * 1088)
+				freq = freq / 10 * 11;
+			else if (inst->width * inst->height <= 1280 * 736)
+				freq = freq / 10 * 12;
+
 			mtk_v4l2_debug(6, "[VDVFS] VENC w:%u x h:%u / 256 x oprate: %d x mb %u",
 				inst->width, inst->height, inst->op_rate,
 				inst->b_frame == 0 ? perf->cy_per_mb_1 : perf->cy_per_mb_2);
@@ -383,8 +398,10 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 			if (freq > dev->vdec_dvfs_params.normal_max_freq)
 				dev->vdec_dvfs_params.allow_oc = 1;
 
+			/* Undefined priority + op_rate combination behavior, to be configurable
 			if (inst->op_rate == 0)
 				no_op_rate_max_freq = true;
+			*/
 
 			freq_sum += freq;
 			op_rate_sum += inst->op_rate;

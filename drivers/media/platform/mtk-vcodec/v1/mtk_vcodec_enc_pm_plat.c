@@ -377,16 +377,81 @@ void set_venc_opp(struct mtk_vcodec_dev *dev, u32 freq)
 
 void mtk_venc_dvfs_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
+	mtk_v4l2_debug(6, "[VENC] ctx = %p",  ctx);
+
+	if (need_update(ctx)) {
+		update_freq(ctx->dev, MTK_INST_ENCODER);
+		mtk_v4l2_debug(4, "[VENC] freq %u", ctx->dev->venc_dvfs_params.target_freq);
+		set_venc_opp(ctx->dev, ctx->dev->venc_dvfs_params.target_freq);
+	}
 }
 
 void mtk_venc_dvfs_end_inst(struct mtk_vcodec_ctx *ctx)
 {
+	mtk_v4l2_debug(6, "[VENC] ctx = %p",  ctx);
+
+	if (remove_update(ctx)) {
+		update_freq(ctx->dev, MTK_INST_ENCODER);
+		mtk_v4l2_debug(4, "[VENC] freq %u", ctx->dev->venc_dvfs_params.target_freq);
+		set_venc_opp(ctx->dev, ctx->dev->venc_dvfs_params.target_freq);
+	}
 }
 
 void mtk_venc_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
+	int i;
+	struct mtk_vcodec_dev *dev = 0;
+	u64 target_bw = 0;
+
+	dev = ctx->dev;
+
+	for (i = 0; i < dev->venc_port_cnt; i++) {
+		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
+			dev->venc_dvfs_params.target_freq /
+			dev->venc_dvfs_params.min_freq;
+
+		if (dev->venc_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
+			mtk_icc_set_bw_not_update(dev->venc_qos_req[i],
+					MBps_to_icc((u32)target_bw), 0);
+			mtk_v4l2_debug(6, "[VENC] port %d bw %lu MB/s", i, (u32)target_bw);
+		} else if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
+			mtk_icc_set_bw(dev->venc_qos_req[i], 0, 0);
+			mtk_v4l2_debug(6, "[VENC] port %d set larb %u bw",
+					i, dev->venc_port_bw[i].larb);
+		} else {
+			mtk_v4l2_debug(6, "[VENC] unknown port type %d\n",
+					dev->venc_port_bw[i].port_type);
+		}
+	}
 }
 
 void mtk_venc_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 {
+	int i;
+	struct mtk_vcodec_dev *dev = 0;
+	u64 target_bw = 0;
+
+	dev = ctx->dev;
+
+	for (i = 0; i < dev->venc_port_cnt; i++) {
+		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
+			dev->venc_dvfs_params.target_freq /
+			dev->venc_dvfs_params.min_freq;
+
+		if (list_empty(&dev->venc_dvfs_inst)) /* no more instances */
+			target_bw = 0;
+
+		if (dev->venc_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
+			mtk_icc_set_bw_not_update(dev->venc_qos_req[i],
+					MBps_to_icc((u32)target_bw), 0);
+			mtk_v4l2_debug(6, "[VENC] port %d bw %lu MB/s", i, (u32)target_bw);
+		} else if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
+			mtk_icc_set_bw(dev->venc_qos_req[i], 0, 0);
+			mtk_v4l2_debug(6, "[VENC] port %d set larb %u bw",
+					i, dev->venc_port_bw[i].larb);
+		} else {
+			mtk_v4l2_debug(6, "[VENC] unknown port type %d\n",
+					dev->venc_port_bw[i].port_type);
+		}
+	}
 }
