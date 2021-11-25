@@ -574,7 +574,9 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 	default:
 		break;
 	}
+#ifdef DEBUG_VERBOSE
 	pr_debug("%s msg_id :  %d\n", __func__, ipi_msg->msg_id);
+#endif
 }
 
 
