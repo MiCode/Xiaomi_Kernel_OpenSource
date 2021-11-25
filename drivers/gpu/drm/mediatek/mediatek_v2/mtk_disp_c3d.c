@@ -431,7 +431,9 @@ void disp_c3d_on_start_of_frame(void)
 	if (!default_comp)
 		return;
 	atomic_set(&g_c3d_get_irq, 1);
-	wake_up_interruptible(&g_c3d_get_irq_wq);
+
+	if (atomic_read(&g_c3d_eventctl) == 1)
+		wake_up_interruptible(&g_c3d_get_irq_wq);
 }
 
 void disp_c3d_on_end_of_frame_mutex(void)

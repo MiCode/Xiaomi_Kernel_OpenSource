@@ -2695,6 +2695,8 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *ccorr_comp =
 		private->ddp_comp[DDP_COMPONENT_CCORR0];
 #endif
+	struct mtk_ddp_comp *disp_tdshp_comp =
+		private->ddp_comp[DDP_COMPONENT_TDSHP0];
 	unsigned int ret = 0;
 	unsigned int reg_id = rParams->reg;
 	struct resource res;
@@ -2739,6 +2741,11 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 			break;
 		}
 #endif
+	case SWREG_DISP_TDSHP_BASE_ADDRESS:
+		{
+			ret = disp_tdshp_comp->regs_pa;
+			break;
+		}
 	case SWREG_MML_TDSHP_BASE_ADDRESS:
 		{
 			if (color_get_MML_TDSHP0_REG(&res))
