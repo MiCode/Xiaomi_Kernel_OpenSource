@@ -151,7 +151,7 @@ void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
 	int ret;
 
-	ret = pm_runtime_get_sync(pm->dev);
+	ret = pm_runtime_resume_and_get(pm->dev);
 	if (ret)
 		mtk_v4l2_err("pm_runtime_get_sync fail");
 }

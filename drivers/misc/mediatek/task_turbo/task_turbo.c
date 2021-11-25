@@ -53,7 +53,6 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #define TURBO_ENABLE		1
 #define TURBO_DISABLE		0
 #define INHERIT_THRESHOLD	4
-#define UTIL_AVG_UNCHANGED	0x1
 #define type_offset(type)		 (type * 4)
 #define task_turbo_nice(nice) (nice == 0xbeef || nice == 0xbeee)
 #define task_restore_nice(nice) (nice == 0xbeee)
