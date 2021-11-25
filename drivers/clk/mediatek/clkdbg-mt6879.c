@@ -288,6 +288,7 @@ const char * const *get_mt6879_all_clk_names(void)
 		"mm_smi_larb",
 		"mm_dsi_clk",
 		"mm_dpi_clk",
+		"mm_sig_emi",
 
 		/* imgsys_main */
 		"img_larb9",

@@ -194,6 +194,7 @@ struct pd_check_swcg dispsys_config_swcgs[] = {
 	SWCG("mm_smi_larb"),
 	SWCG("mm_dsi_clk"),
 	SWCG("mm_dpi_clk"),
+	SWCG("mm_sig_emi"),
 	SWCG(NULL),
 };
 /* imgsys_main */
