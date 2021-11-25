@@ -35,6 +35,7 @@ static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
 static unsigned int g_gpm_enable;
 static unsigned int g_debug_power_state;
+static unsigned int g_test_mode;
 static struct gpufreq_debug_status g_debug_gpu;
 static struct gpufreq_debug_status g_debug_stack;
 static DEFINE_MUTEX(gpufreq_debug_lock);
@@ -163,10 +164,46 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		gpu_opp_info.avs_enable ? "Enable" : "Disable",
 		g_stress_test_enable ? "Enable" : "Disable",
 		gpu_opp_info.gpm_enable ? "Enable" : "Disable");
+	seq_printf(m,
+		"%-15s GPU_SB_Version: 0x%04x, GPU_PTP_Version: 0x%04x\n",
+		"[Common-Status]",
+		gpu_opp_info.sb_version,
+		gpu_opp_info.ptp_version);
 
 	mutex_unlock(&gpufreq_debug_lock);
 
 	return GPUFREQ_SUCCESS;
+}
+
+static ssize_t gpufreq_status_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *data)
+{
+	int ret = GPUFREQ_SUCCESS;
+	char buf[64];
+	unsigned int len = 0;
+	unsigned int value = 0;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+	if (copy_from_user(buf, buffer, len)) {
+		ret = GPUFREQ_EINVAL;
+		goto done;
+	}
+	buf[len] = '\0';
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (sscanf(buf, "%8x", &value) == 1) {
+		ret = gpufreq_set_test_mode(value);
+		if (!ret)
+			g_test_mode = true;
+		else
+			g_test_mode = false;
+	}
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+done:
+	return (ret < 0) ? ret : count;
 }
 
 static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
@@ -277,7 +314,10 @@ static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	opp_num = g_debug_stack.signed_opp_num;
+	if (g_test_mode)
+		opp_num = g_debug_stack.signed_opp_num;
+	else
+		opp_num = g_debug_stack.opp_num;
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
@@ -348,7 +388,7 @@ static ssize_t limit_table_proc_write(struct file *file,
 
 	if (sscanf(buf, "%6s %2d %2d %2d", cmd, &limiter, &ceiling, &floor) == 4) {
 		if (sysfs_streq(cmd, "set")) {
-			ret = gpufreq_set_limit(TARGET_DEFAULT, LIMIT_DEBUG, ceiling, floor);
+			ret = gpufreq_set_limit(TARGET_DEFAULT, limiter, ceiling, floor);
 			if (ret)
 				GPUFREQ_LOGE("fail to set debug limit index (%d)", ret);
 		}
@@ -785,7 +825,7 @@ done:
 }
 
 /* PROCFS : initialization */
-PROC_FOPS_RO(gpufreq_status);
+PROC_FOPS_RW(gpufreq_status);
 PROC_FOPS_RO(gpu_working_opp_table);
 PROC_FOPS_RO(gpu_signed_opp_table);
 PROC_FOPS_RO(stack_working_opp_table);
@@ -883,6 +923,9 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support)
 	g_aging_enable = gpu_opp_info.aging_enable;
 	g_gpm_enable = gpu_opp_info.gpm_enable;
 	g_debug_power_state = POWER_OFF;
+	/* always enable test mode when AP mode */
+	if (!g_gpueb_support)
+		g_test_mode = true;
 
 #if defined(CONFIG_PROC_FS)
 	ret = gpufreq_create_procfs();

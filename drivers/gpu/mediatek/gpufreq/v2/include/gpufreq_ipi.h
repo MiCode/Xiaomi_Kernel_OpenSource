@@ -44,7 +44,8 @@ static char *gpufreq_ipi_cmd_name[] = {
 	"CMD_SET_STRESS_TEST",        // 16
 	"CMD_SET_AGING_MODE",         // 17
 	"CMD_SET_GPM_MODE",           // 18
-	"CMD_NUM"                     // 19
+	"CMD_SET_TEST_MODE",          // 19
+	"CMD_NUM",                    // 20
 };
 
 enum gpufreq_ipi_cmd {
@@ -69,7 +70,8 @@ enum gpufreq_ipi_cmd {
 	CMD_SET_STRESS_TEST           = 16,
 	CMD_SET_AGING_MODE            = 17,
 	CMD_SET_GPM_MODE              = 18,
-	CMD_NUM                       = 19,
+	CMD_SET_TEST_MODE             = 19,
+	CMD_NUM                       = 20,
 };
 
 /**************************************************
@@ -135,6 +137,8 @@ struct gpufreq_shared_status {
 	int power_count;
 	unsigned int aging_enable;
 	unsigned int avs_enable;
+	unsigned int sb_version;
+	unsigned int ptp_version;
 	struct gpufreq_debug_opp_info opp_info;
 	struct gpufreq_debug_limit_info limit_info;
 	struct gpufreq_asensor_info asensor_info;

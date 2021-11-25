@@ -291,6 +291,7 @@ int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 int gpufreq_set_stress_test(unsigned int mode);
 int gpufreq_set_aging_mode(unsigned int mode);
 int gpufreq_set_gpm_mode(unsigned int mode);
+int gpufreq_set_test_mode(unsigned int mode);
 struct gpufreq_asensor_info gpufreq_get_asensor_info(void);
 
 #endif /* __GPUFREQ_V2_H__ */

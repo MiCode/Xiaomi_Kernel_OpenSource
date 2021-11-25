@@ -86,6 +86,8 @@ struct gpufreq_debug_opp_info {
 	unsigned int aging_enable;
 	unsigned int avs_enable;
 	unsigned int gpm_enable;
+	unsigned int sb_version;
+	unsigned int ptp_version;
 };
 
 struct gpufreq_debug_limit_info {

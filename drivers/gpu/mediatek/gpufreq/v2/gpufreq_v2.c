@@ -1634,6 +1634,29 @@ int gpufreq_set_gpm_mode(unsigned int mode)
 }
 
 /***********************************************************************************
+ * Function Name      : gpufreq_set_test_mode
+ * Description        : Only for GPUFREQ internal debug purpose
+ ***********************************************************************************/
+int gpufreq_set_test_mode(unsigned int mode)
+{
+	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_SUCCESS;
+
+	/* implement on EB */
+	if (g_gpueb_support) {
+		send_msg.cmd_id = CMD_SET_TEST_MODE;
+		send_msg.u.mode = mode;
+
+		if (!gpufreq_ipi_to_gpueb(send_msg))
+			ret = g_recv_msg.u.return_value;
+		else
+			ret = GPUFREQ_EINVAL;
+	}
+
+	return ret;
+}
+
+/***********************************************************************************
  * Function Name      : gpufreq_get_asensor_info
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
@@ -1742,6 +1765,8 @@ static void gpufreq_dump_dvfs_status(void)
 		GPUFREQ_LOGI("Power Count: %d, Aging Enable: %d, AVS Enable: %d",
 			shared_status->power_count, shared_status->aging_enable,
 			shared_status->avs_enable);
+		GPUFREQ_LOGI("GPU_SB_Version: 0x%04x, GPU_PTP_Version: 0x%04x",
+			shared_status->sb_version, shared_status->ptp_version);
 	}
 }
 
