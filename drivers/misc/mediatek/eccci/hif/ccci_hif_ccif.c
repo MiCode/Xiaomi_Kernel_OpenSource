@@ -384,13 +384,6 @@ static void md_cd_dump_ccif_reg(unsigned char hif_id)
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	int idx;
 
-	if (ccif_ctrl->ccif_state == HIFCCIF_STATE_PWROFF
-		|| ccif_ctrl->ccif_state == HIFCCIF_STATE_MIN) {
-		CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG,
-			"CCIF not power on, skip dump\n");
-		return;
-	}
-
 	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "AP_CON(%p)=%x\n",
 		ccif_ctrl->ccif_ap_base + APCCIF_CON,
 		ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_CON));
@@ -479,6 +472,13 @@ static int md_ccif_op_dump_status(unsigned char hif_id,
 
 	if (!ccif_ctrl)
 		return -1;
+
+	if (ccif_ctrl->ccif_state == HIFCCIF_STATE_PWROFF
+		|| ccif_ctrl->ccif_state == HIFCCIF_STATE_MIN) {
+		CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG,
+			"CCIF not power on, skip dump\n");
+		return -2;
+	}
 
 	/*runtime data, boot, long time no response EE */
 	if (flag & DUMP_FLAG_CCIF) {
