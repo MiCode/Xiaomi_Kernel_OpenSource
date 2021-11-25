@@ -501,7 +501,7 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	struct mtk_mbox_device *mbdev = minfo->mbdev;
 	struct mtk_ipi_msg_hd *ipihead;
 	unsigned long flags;
-	const uint64_t timeout_time = 50 * 1000 * 1000; /* 50ms */
+	const uint64_t timeout_time = 1 * 1000 * 1000; /* 1ms */
 	uint64_t start_time, end_time, cbtimediff;
 	uint32_t execute_count = 0;
 	//void *user_data;
