@@ -12175,7 +12175,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		cam_mux_num = <23>;
 		pref_mux_num = <13>;
 
-		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH 0>;
 
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_MAIN>,
 		<&scpsys MT6895_POWER_DOMAIN_CAM_MAIN>;
