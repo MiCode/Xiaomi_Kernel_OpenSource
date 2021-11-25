@@ -1586,6 +1586,42 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 	}
 }
 
+static void u3_phy_instance_power_on(struct mtk_tphy *tphy,
+	struct mtk_phy_instance *instance)
+{
+	struct u3phy_banks *bank = &instance->u3_banks;
+	u32 index = instance->index;
+	u32 tmp;
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+	tmp &= ~(P3C_FORCE_IP_SW_RST | P3C_REG_IP_SW_RST);
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+	tmp &= ~(P3C_RG_SWRST_U3_PHYD_FORCE_EN | P3C_RG_SWRST_U3_PHYD);
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+
+	dev_info(tphy->dev, "%s(%d)\n", __func__, index);
+}
+
+static void u3_phy_instance_power_off(struct mtk_tphy *tphy,
+	struct mtk_phy_instance *instance)
+{
+	struct u3phy_banks *bank = &instance->u3_banks;
+	u32 index = instance->index;
+	u32 tmp;
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+	tmp |= P3C_FORCE_IP_SW_RST | P3C_REG_IP_SW_RST;
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+	tmp |= P3C_RG_SWRST_U3_PHYD_FORCE_EN | P3C_RG_SWRST_U3_PHYD;
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+
+	dev_info(tphy->dev, "%s(%d)\n", __func__, index);
+}
+
 static void pcie_phy_instance_init(struct mtk_tphy *tphy,
 	struct mtk_phy_instance *instance)
 {
@@ -1965,9 +2001,10 @@ static int mtk_phy_power_on(struct phy *phy)
 	if (instance->type == PHY_TYPE_USB2) {
 		u2_phy_instance_power_on(tphy, instance);
 		hs_slew_rate_calibrate(tphy, instance);
-	} else if (instance->type == PHY_TYPE_PCIE) {
+	} else if (instance->type == PHY_TYPE_USB3)
+		u3_phy_instance_power_on(tphy, instance);
+	else if (instance->type == PHY_TYPE_PCIE)
 		pcie_phy_instance_power_on(tphy, instance);
-	}
 
 	return 0;
 }
@@ -1979,6 +2016,8 @@ static int mtk_phy_power_off(struct phy *phy)
 
 	if (instance->type == PHY_TYPE_USB2)
 		u2_phy_instance_power_off(tphy, instance);
+	else if (instance->type == PHY_TYPE_USB3)
+		u3_phy_instance_power_off(tphy, instance);
 	else if (instance->type == PHY_TYPE_PCIE)
 		pcie_phy_instance_power_off(tphy, instance);
 
