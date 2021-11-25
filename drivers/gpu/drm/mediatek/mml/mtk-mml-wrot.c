@@ -1147,9 +1147,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       0x00000007);
 
 	if (MML_FMT_COMPRESS(dest_fmt)) {
-		pvric = pvric | BIT(0);
+		pvric |= BIT(0);
 		if (MML_FMT_10BIT(dest_fmt))
-			pvric = pvric | BIT(1);
+			pvric |= BIT(1);
 	}
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_PVRIC, pvric, U32_MAX);
 

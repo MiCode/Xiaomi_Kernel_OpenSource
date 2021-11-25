@@ -959,7 +959,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		    BIT(16);		/* PRE_ULTRA_EN */
 	/* racing case also enable urgent/ultra to not blocking disp */
 	if (unlikely(mml_racing_urgent)) {
-		gmcif_con = gmcif_con ^ (BIT(16) | BIT(15));
+		gmcif_con ^= BIT(16) | BIT(15);	/* URGENT_EN: always */
 		for (i = 0; i < MML_FMT_PLANE(src->format); i++)
 			cmdq_pkt_write(pkt, NULL,
 				base_pa + RDMA_URGENT_TH_CON_0 + i * 0x10,
@@ -967,7 +967,6 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	} else if (cfg->info.mode == MML_MODE_RACING) {
 		gmcif_con |= BIT(12) |	/* ULTRA_EN */
 			     BIT(14);	/* URGENT_EN */
-
 		rdma_select_threshold(rdma, pkt, base_pa, src->format,
 			src->width, src->height);
 	} else {
@@ -977,7 +976,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 				0, U32_MAX);
 	}
 
-	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_GMCIF_CON, gmcif_con, 0x00031071);
+	cmdq_pkt_write(pkt, NULL, base_pa + RDMA_GMCIF_CON, gmcif_con, 0x0003f0f1);
 
 	if (MML_FMT_IS_ARGB(src->format) &&
 	    cfg->info.dest[0].pq_config.en_hdr &&

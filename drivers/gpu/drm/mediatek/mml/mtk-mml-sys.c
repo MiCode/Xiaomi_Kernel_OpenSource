@@ -9,6 +9,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <mtk_drm_ddp_comp.h>
+#include <cmdq-util.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
@@ -18,6 +19,7 @@
 #include "mtk-mml-tile.h"
 #include "tile_mdp_func.h"
 
+#define SYS_MISC_REG		0x0f0
 #define SYS_SW0_RST_B_REG	0x700
 #define SYS_SW1_RST_B_REG	0x704
 #define SYS_AID_SEL		0xfa8
@@ -263,8 +265,12 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
 	u32 i;
 
-	if (cfg->info.mode == MML_MODE_RACING)
+	if (cfg->info.mode == MML_MODE_RACING) {
 		sys_config_frame_racing(comp, task, ccfg);
+	} else if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+		/* use hw reset flow */
+		cmdq_pkt_write(pkt, NULL, comp->base_pa + SYS_MISC_REG, 0, 0x80000000);
+	}
 
 	if (cfg->info.src.secure)
 		aid_sel |= 1 << sys->aid_sel[in_engine_id];
@@ -695,6 +701,9 @@ static struct mml_dle_ctx *sys_get_dle_ctx(struct mml_sys *sys)
 	(has_cfg_op(_comp, op) ? \
 		_comp->config_ops->op(_comp, ##__VA_ARGS__) : 0)
 
+#define call_hw_op(_comp, op, ...) \
+	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp, ##__VA_ARGS__) : 0)
+
 static void addon_command_make(struct mml_task *task, u32 pipe,
 			       struct cmdq_pkt *pkt)
 {
@@ -720,47 +729,95 @@ static void addon_command_make(struct mml_task *task, u32 pipe,
 	}
 }
 
-static u32 src_w = 1080;
-static u32 src_h = 1920;
+static u32 always_on_clk; /* TODO: remove */
 
-static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
-			     enum mtk_ddp_comp_id prev,
-			     enum mtk_ddp_comp_id next,
-			     union mtk_addon_config *addon_config,
-			     struct cmdq_pkt *pkt)
+static void sys_hw_enable(struct mml_task *task, u32 pipe)
 {
-	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
-	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
+	const struct mml_topology_path *path = task->config->path[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
+	mml_msg("%s task %p pipe %u", __func__, task, pipe);
+
+	mml_clock_lock(task->config->mml);
+	/* TODO: remove always-on */
+	if (always_on_clk)
+		goto already_enable;
+	always_on_clk = 1;
+
+	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_hw_op(comp, pw_enable);
+	}
+	mml_trace_ex_end();
+
+	mml_trace_ex_begin("%s_%s_%u", __func__, "clk", pipe);
+	if (path->mmlsys)
+		call_hw_op(path->mmlsys, clk_enable);
+	if (path->mutex)
+		call_hw_op(path->mutex, clk_enable);
+
+	for (i = 0; i < path->node_cnt; i++) {
+		if (i == path->mmlsys_idx || i == path->mutex_idx)
+			continue;
+		comp = path->nodes[i].comp;
+		call_hw_op(comp, clk_enable);
+	}
+	mml_trace_ex_end();
+
+already_enable:
+	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
+
+	mml_clock_unlock(task->config->mml);
+}
+
+static const struct mml_submit dl_submit = {
+	.info = {
+		.src = {
+			.width = U16_MAX,
+			.height = U16_MAX,
+			.format = MML_FMT_YUV4441010102,
+			.profile = MML_YCBCR_PROFILE_BT709,
+		},
+		.dest[0] = {
+			.data = {
+				.width = U16_MAX,
+				.height = U16_MAX,
+				.format = MML_FMT_YUV4441010102,
+				.profile = MML_YCBCR_PROFILE_BT709,
+			},
+			.crop.r = {
+				.width = U16_MAX,
+				.height = U16_MAX,
+			},
+			.compose = {
+				.width = U16_MAX,
+				.height = U16_MAX,
+			},
+		},
+		.dest_cnt = 1,
+		.mode = MML_MODE_DDP_ADDON,
+	},
+	.buffer = {
+		.src.fence = -1,
+		.dest[0].fence = -1,
+		.dest_cnt = 1,
+	},
+};
+
+static void sys_addon_connect(struct mml_sys *sys,
+			      struct mtk_addon_mml_config *cfg,
+			      struct cmdq_pkt *pkt)
+{
 	struct mml_dle_ctx *ctx;
 	u32 pipe;
 	s32 ret;
 
-	mml_log("%s %d", __func__, cfg->config_type.type);
-	if (cfg->config_type.type == ADDON_DISCONNECT)
-		return;
-
-	/* >>>>>> TEST: begin submit here */
-	memset(&cfg->submit, 0, sizeof(cfg->submit));
-	//cfg->submit.info.src.format;
-	cfg->submit.info.src.width = src_w++;
-	cfg->submit.info.src.height = src_h++;
-	//cfg->submit.info.src.plane_cnt;
-	//cfg->submit.info.src.y_stride;
-	//cfg->submit.info.dest[0].data.format;
-	cfg->submit.info.dest[0].data.width = cfg->submit.info.src.width-640;
-	cfg->submit.info.dest[0].data.height = cfg->submit.info.src.height-360;
-	//cfg->submit.info.dest[0].data.plane_cnt;
-	//cfg->submit.info.dest[0].data.y_stride;
-	cfg->submit.info.dest[0].crop.r.width = cfg->submit.info.src.width;
-	cfg->submit.info.dest[0].crop.r.height = cfg->submit.info.src.height;
-	cfg->submit.info.dest[0].compose.width = cfg->submit.info.dest[0].data.width;
-	cfg->submit.info.dest[0].compose.height = cfg->submit.info.dest[0].data.height;
-	cfg->submit.info.dest_cnt = 1;
-	cfg->submit.info.mode = MML_MODE_DDP_ADDON;
-	cfg->submit.buffer.dest_cnt = 1;
-	cfg->submit.buffer.src.fence = -1;
-	cfg->submit.buffer.dest[0].fence = -1;
-	/* TEST: end submit here <<<<<< */
+	if (!cfg->submit.info.src.width) {
+		/* set test submit */
+		cfg->submit = dl_submit;
+	}
 
 	if (cfg->config_type.module == MML_RSZ_v2) {
 		pipe = 1;
@@ -788,6 +845,58 @@ static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
 	}
 
 	addon_command_make(cfg->task, pipe, pkt);
+
+	sys_hw_enable(cfg->task, pipe);
+}
+
+static void sys_addon_disconnect(struct mml_sys *sys,
+				 struct mtk_addon_mml_config *cfg)
+{
+	struct mml_dle_ctx *ctx;
+	u32 pipe;
+	s32 ret;
+
+	if (cfg->config_type.module == MML_RSZ_v2) {
+		pipe = 1;
+	} else {
+		pipe = 0;
+
+		ctx = sys_get_dle_ctx(sys);
+		if (IS_ERR(ctx)) {
+			mml_err("fail to get mml ctx for addon config");
+			return;
+		}
+
+		ret = 0; /* TODO: mml_dle_stop(ctx, &cfg->task); */
+		if (ret) {
+			mml_err("%s fail to find config", __func__);
+			return;
+		}
+	}
+
+	if (!cfg->task || !cfg->task->config->path[pipe]) {
+		mml_err("%s no path for task %p pipe %u", __func__,
+			cfg->task, pipe);
+		return;
+	}
+
+	/* TODO: addon_disable(cfg->task->config->mml, cfg->task->config->path[pipe]); */
+}
+
+static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
+			     enum mtk_ddp_comp_id prev,
+			     enum mtk_ddp_comp_id next,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *pkt)
+{
+	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
+	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
+
+	mml_log("%s %d", __func__, cfg->config_type.type);
+	if (cfg->config_type.type == ADDON_DISCONNECT)
+		sys_addon_disconnect(sys, cfg);
+	else
+		sys_addon_connect(sys, cfg, pkt);
 }
 
 static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
@@ -813,6 +922,17 @@ static s32 dli_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 static const struct mml_comp_tile_ops dli_tile_ops = {
 	.prepare = dli_tile_prepare,
+};
+
+static const struct mml_comp_hw_ops dli_hw_ops = {
+	.pw_enable = mml_comp_pw_enable,	/* TODO: change to pm_runtime */
+	.pw_disable = mml_comp_pw_disable,	/* TODO: change to pm_runtime */
+	.clk_enable = mml_comp_clk_enable,
+	.clk_disable = mml_comp_clk_disable,
+	/* .qos_datasize_get = dli_datasize_get,
+	 * .qos_set = mml_comp_qos_set,
+	 * .qos_clear = mml_comp_qos_clear,
+	 */
 };
 
 static void dlo_config_left(struct mml_frame_dest *dest,
@@ -925,7 +1045,18 @@ static int dli_comp_init(struct device *dev, struct mml_sys *sys,
 
 	if (ret)
 		return ret;
+
+	/* TODO: change to pm_runtime; no larb on direct-link */
+	ret = mml_comp_init_larb(comp, dev);
+	if (ret) {
+		if (ret == -EPROBE_DEFER)
+			return ret;
+		mml_err("fail to init component %u larb ret %d",
+			comp->id, ret);
+	}
+
 	comp->tile_ops = &dli_tile_ops;
+	comp->hw_ops = &dli_hw_ops;
 	return 0;
 }
 
