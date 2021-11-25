@@ -917,9 +917,7 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 	} else if (disp_ccorr_linear&0x01) {
 		g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
 	} else {
-		DDPPR_ERR("%s: no available ccorr", __func__);
-		ret = -1;
-		return ret;
+		g_disp_ccorr_without_gamma = CCORR_BYASS_GAMMA;
 	}
 
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
