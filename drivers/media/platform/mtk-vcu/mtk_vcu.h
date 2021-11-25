@@ -53,58 +53,8 @@ typedef int (*ipi_handler_t)(void *data,
  *                      to VCU to trigger the interrupt.
  * @IPI_VDEC_COMMON:    The interrupt from vcu is to notify kernel to
  *                      handle video codecs job, and vice versa.
- * @IPI_VDEC_H264:      The interrupt from vcu is to notify kernel to
- *                      handle H264 vidoe decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_H265:      The interrupt from vcu is to notify kernel to
- *                      handle H265 vidoe decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_VP8:       The interrupt from is to notify kernel to
- *                      handle VP8 video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_VP9:       The interrupt from vcu is to notify kernel to
- *                      handle VP9 video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_MPEG4:     The interrupt from vcu is to notify kernel to
- *                      handle MPEG4 video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_MPEG12:    The interrupt from vcu is to notify kernel to
- *                      handle MPEG1/2 video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_WMV:       The interrupt from vcu is to notify kernel to
- *                      handle WMV video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_RV30:      The interrupt from vcu is to notify kernel to
- *                      handle RV30 video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_RV40:      The interrupt from vcu is to notify kernel to
- *                      handle RV40 video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
- * @IPI_VDEC_AV1:       The interrupt from vcu is to notify kernel to
- *                      handle AV1 video decoder job, and vice versa.
- *                      Decode output format is always MT21 no matter what
- *                      the input format is.
  * @IPI_VENC_COMMON:    The interrupt from vcu is to notify kernel to
  *                      handle video codecs job, and vice versa.
- * @IPI_VENC_H264:      The interrupt from vcu is to notify kernel to
- *                      handle H264 video encoder job, and vice versa.
- * @IPI_VENC_H265:      The interrupt from vcu is to notify kernel to
- *                      handle H265 video encoder job, and vice versa.
- * @IPI_VENC_VP8:       The interrupt fro vcu is to notify kernel to
- *                      handle VP8 video encoder job,, and vice versa.
- * @IPI_VENC_MPEG4 The interrupt from vcu is to notify kernel to
- *          handle MPEG4 video encoder job, and vice versa.
- * @IPI_VENC_HYBRID_H264:       The interrupt from vcu is to notify kernel
- *                      to handle hybrid H264 video encoder job, and vice versa.
  * @IPI_MDP:            The interrupt from vcu is to notify kernel to
  *                      handle MDP (Media Data Path) job, and vice versa.
  * @IPI_CAMERA: The interrupt from vcu is to notify kernel to
@@ -115,33 +65,14 @@ typedef int (*ipi_handler_t)(void *data,
 enum ipi_id {
 	IPI_VCU_INIT = 0,
 	IPI_VDEC_COMMON,
-	IPI_VDEC_H264,
-	IPI_VDEC_H265,
-	IPI_VDEC_HEIF,
-	IPI_VDEC_VP8,
-	IPI_VDEC_VP9,
-	IPI_VDEC_MPEG4,
-	IPI_VDEC_H263,
-	IPI_VDEC_MPEG12,
-	IPI_VDEC_WMV,
-	IPI_VDEC_RV30,
-	IPI_VDEC_RV40,
-	IPI_VDEC_AV1,
 	IPI_VDEC_RESOURCE,
 	IPI_VENC_COMMON,
-	IPI_VENC_H264,
-	IPI_VENC_H265,
-	IPI_VENC_HEIF,
-	IPI_VENC_VP8,
-	IPI_VENC_MPEG4,
-	IPI_VENC_HYBRID_H264,
-	IPI_VENC_H263,
 	IPI_MDP,
 	IPI_MDP_1,
 	IPI_MDP_2,
 	IPI_MDP_3,
 	IPI_CAMERA,
-	IPI_MAX = 50,
+	IPI_MAX = 20,
 };
 
 enum vcu_codec_ipi_type {

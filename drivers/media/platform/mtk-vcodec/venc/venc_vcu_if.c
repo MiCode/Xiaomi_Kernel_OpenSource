@@ -65,6 +65,48 @@ static void handle_enc_waitisr_msg(struct venc_vcu_inst *vcu,
 	msg->timeout = timeout;
 }
 
+static int check_codec_id(struct venc_vcu_ipi_msg_common *msg, unsigned int fmt)
+{
+	int codec_id = 0, ret = 0;
+
+	switch (fmt) {
+	case V4L2_PIX_FMT_H264:
+		codec_id = VENC_H264;
+		break;
+	case V4L2_PIX_FMT_VP8:
+		codec_id = VENC_VP8;
+		break;
+	case V4L2_PIX_FMT_MPEG4:
+		codec_id = VENC_MPEG4;
+		break;
+	case V4L2_PIX_FMT_H263:
+		codec_id = VENC_H263;
+		break;
+	case V4L2_PIX_FMT_H265:
+		codec_id = VENC_H265;
+		break;
+	case V4L2_PIX_FMT_HEIF:
+		codec_id = VENC_HEIF;
+		break;
+	default:
+		pr_info("%s fourcc not supported", __func__);
+		break;
+	}
+
+	if (codec_id == 0) {
+		mtk_v4l2_err("[error] venc unsupported fourcc\n");
+		ret = -1;
+	} else if (msg->codec_id == codec_id) {
+		pr_info("%s ipi id %d is correct\n", __func__, msg->codec_id);
+		ret = 0;
+	} else {
+		mtk_v4l2_debug(2, "[Info] ipi id %d is incorrect\n", msg->codec_id);
+		ret = -1;
+	}
+
+	return ret;
+}
+
 int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct venc_vcu_ipi_msg_common *msg = data;
@@ -170,6 +212,13 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_ENCODE_DONE:
+		break;
+	case VCU_IPIMSG_ENC_CHECK_CODEC_ID:
+		if (check_codec_id(msg, ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc) == 0)
+			msg->status = 0;
+		else
+			msg->status = -1;
+		ret = 1;
 		break;
 	default:
 		mtk_vcodec_err(vcu, "unknown msg id %x", msg->msg_id);

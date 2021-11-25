@@ -82,6 +82,30 @@ enum mtk_instance_state {
 	MTK_STATE_ABORT = 4,
 };
 
+enum mtk_codec_type {
+	VDEC_VENC_UNKNOWN = 0,
+	VDEC_H264,
+	VDEC_H265,
+	VDEC_HEIF,
+	VDEC_VP8,
+	VDEC_VP9,
+	VDEC_MPEG4,
+	VDEC_H263,
+	VDEC_MPEG12,
+	VDEC_WMV,
+	VDEC_RV30,
+	VDEC_RV40,
+	VDEC_AV1,
+	VENC_H264,
+	VENC_H265,
+	VENC_HEIF,
+	VENC_VP8,
+	VENC_MPEG4,
+	VENC_HYBRID_H264,
+	VENC_H263,
+	VDEC_VENC_MAX
+};
+
 /**
  * struct mtk_encode_param - General encoding parameters type
  */

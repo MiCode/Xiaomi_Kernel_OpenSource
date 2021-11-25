@@ -70,6 +70,72 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%x", vcu->inst_addr);
 }
 
+static int check_codec_id(struct vdec_vcu_ipi_ack *msg, unsigned int fmt, unsigned int svp)
+{
+	int codec_id = 0, ret = 0;
+
+	switch (fmt) {
+	case V4L2_PIX_FMT_H264:
+		codec_id = VDEC_H264;
+		break;
+	case V4L2_PIX_FMT_H265:
+		codec_id = VDEC_H265;
+		break;
+	case V4L2_PIX_FMT_HEIF:
+		codec_id = VDEC_HEIF;
+		break;
+	case V4L2_PIX_FMT_VP8:
+		codec_id = VDEC_VP8;
+		break;
+	case V4L2_PIX_FMT_VP9:
+		codec_id = VDEC_VP9;
+		break;
+	case V4L2_PIX_FMT_MPEG4:
+		codec_id = VDEC_MPEG4;
+		break;
+	case V4L2_PIX_FMT_H263:
+		codec_id = VDEC_H263;
+		break;
+	case V4L2_PIX_FMT_MPEG1:
+	case V4L2_PIX_FMT_MPEG2:
+		codec_id = VDEC_MPEG12;
+		break;
+	case V4L2_PIX_FMT_WMV1:
+	case V4L2_PIX_FMT_WMV2:
+	case V4L2_PIX_FMT_WMV3:
+	case V4L2_PIX_FMT_WMVA:
+	case V4L2_PIX_FMT_WVC1:
+		codec_id = VDEC_WMV;
+		break;
+	case V4L2_PIX_FMT_RV30:
+		codec_id = VDEC_RV30;
+		break;
+	case V4L2_PIX_FMT_RV40:
+		codec_id = VDEC_RV40;
+		break;
+	case V4L2_PIX_FMT_AV1:
+		codec_id = VDEC_AV1;
+		break;
+	default:
+		pr_info("%s no fourcc", __func__);
+		break;
+	}
+
+	if (codec_id == 0) {
+		pr_info("[error] vdec unsupported fourcc\n");
+		ret = -1;
+	} else if (msg->codec_id == codec_id && msg->status == svp) {
+		pr_info("%s ipi id %d svp %d is correct\n", __func__, msg->codec_id, msg->status);
+		ret = 0;
+	} else {
+		mtk_v4l2_debug(2, "[Info] ipi id %d svp %d is incorrect\n",
+			msg->codec_id, msg->status);
+		ret = -1;
+	}
+
+	return ret;
+}
+
 /*
  * This function runs in interrupt context and it means there's a IPI MSG
  * from VCU.
@@ -144,7 +210,15 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 		return -EINVAL;
 	}
 
-	if (msg->msg_id == VCU_IPIMSG_DEC_WAITISR) {
+	if (msg->msg_id == VCU_IPIMSG_DEC_CHECK_CODEC_ID) {
+
+		if (check_codec_id(msg, vcu->ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc,
+				vcu->ctx->dec_params.svp_mode) == 0)
+			msg->status = 0;
+		else
+			msg->status = -1;
+		ret = 1;
+	} else if (msg->msg_id == VCU_IPIMSG_DEC_WAITISR) {
 		if (msg->status == MTK_VDEC_CORE)
 			vcodec_trace_count("VDEC_HW_CORE", 2);
 		else
@@ -459,10 +533,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	msg.ctx_id = vcu->ctx->id;
 	msg.ap_inst_addr = (unsigned long)vcu;
 
-	if (vcu->ctx->dec_params.svp_mode)
-		msg.reserved = vcu->ctx->dec_params.svp_mode;
-
-	mtk_vcodec_debug(vcu, "vdec_inst=%p svp_mode=%d", vcu, msg.reserved);
+	mtk_vcodec_debug(vcu, "vdec_inst=%p svp_mode=%d", vcu, vcu->ctx->dec_params.svp_mode);
 
 	vcu_dec_set_pid(vcu);
 

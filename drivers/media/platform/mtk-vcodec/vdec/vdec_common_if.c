@@ -97,54 +97,7 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	mtk_vcodec_add_ctx_list(ctx);
 
 	inst->ctx = ctx;
-
-	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
-	case V4L2_PIX_FMT_H264:
-		inst->vcu.id = IPI_VDEC_H264;
-		break;
-	case V4L2_PIX_FMT_H265:
-		inst->vcu.id = IPI_VDEC_H265;
-		break;
-	case V4L2_PIX_FMT_HEIF:
-		inst->vcu.id = IPI_VDEC_HEIF;
-		break;
-	case V4L2_PIX_FMT_VP8:
-		inst->vcu.id = IPI_VDEC_VP8;
-		break;
-	case V4L2_PIX_FMT_VP9:
-		inst->vcu.id = IPI_VDEC_VP9;
-		break;
-	case V4L2_PIX_FMT_MPEG4:
-		inst->vcu.id = IPI_VDEC_MPEG4;
-		break;
-	case V4L2_PIX_FMT_H263:
-		inst->vcu.id = IPI_VDEC_H263;
-		break;
-	case V4L2_PIX_FMT_MPEG1:
-	case V4L2_PIX_FMT_MPEG2:
-		inst->vcu.id = IPI_VDEC_MPEG12;
-		break;
-	case V4L2_PIX_FMT_WMV1:
-	case V4L2_PIX_FMT_WMV2:
-	case V4L2_PIX_FMT_WMV3:
-	case V4L2_PIX_FMT_WMVA:
-	case V4L2_PIX_FMT_WVC1:
-		inst->vcu.id = IPI_VDEC_WMV;
-		break;
-	case V4L2_PIX_FMT_RV30:
-		inst->vcu.id = IPI_VDEC_RV30;
-		break;
-	case V4L2_PIX_FMT_RV40:
-		inst->vcu.id = IPI_VDEC_RV40;
-		break;
-	case V4L2_PIX_FMT_AV1:
-		inst->vcu.id = IPI_VDEC_AV1;
-		break;
-	default:
-		mtk_vcodec_err(inst, "%s no fourcc", __func__);
-		break;
-	}
-
+	inst->vcu.id = IPI_VDEC_COMMON;
 	inst->vcu.dev = vcu_get_plat_device(ctx->dev->plat_dev);
 	if (inst->vcu.dev  == NULL) {
 		mtk_vcodec_err(inst, "vcu device is not ready");

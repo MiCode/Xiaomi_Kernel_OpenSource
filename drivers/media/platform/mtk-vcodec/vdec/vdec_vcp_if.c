@@ -369,6 +369,71 @@ static void handle_vdec_mem_free(struct vdec_vcu_ipi_mem_op *msg)
 			msg->mem.iova, msg->mem.len,  msg->mem.type);
 }
 
+static int check_codec_id(struct vdec_vcu_ipi_ack *msg, unsigned int fmt, unsigned int svp)
+{
+	int codec_id = 0, ret = 0;
+
+	switch (fmt) {
+	case V4L2_PIX_FMT_H264:
+		codec_id = VDEC_H264;
+		break;
+	case V4L2_PIX_FMT_H265:
+		codec_id = VDEC_H265;
+		break;
+	case V4L2_PIX_FMT_HEIF:
+		codec_id = VDEC_HEIF;
+		break;
+	case V4L2_PIX_FMT_VP8:
+		codec_id = VDEC_VP8;
+		break;
+	case V4L2_PIX_FMT_VP9:
+		codec_id = VDEC_VP9;
+		break;
+	case V4L2_PIX_FMT_MPEG4:
+		codec_id = VDEC_MPEG4;
+		break;
+	case V4L2_PIX_FMT_H263:
+		codec_id = VDEC_H263;
+		break;
+	case V4L2_PIX_FMT_MPEG1:
+	case V4L2_PIX_FMT_MPEG2:
+		codec_id = VDEC_MPEG12;
+		break;
+	case V4L2_PIX_FMT_WMV1:
+	case V4L2_PIX_FMT_WMV2:
+	case V4L2_PIX_FMT_WMV3:
+	case V4L2_PIX_FMT_WMVA:
+	case V4L2_PIX_FMT_WVC1:
+		codec_id = VDEC_WMV;
+		break;
+	case V4L2_PIX_FMT_RV30:
+		codec_id = VDEC_RV30;
+		break;
+	case V4L2_PIX_FMT_RV40:
+		codec_id = VDEC_RV40;
+		break;
+	case V4L2_PIX_FMT_AV1:
+		codec_id = VDEC_AV1;
+		break;
+	default:
+		pr_info("%s no fourcc", __func__);
+		break;
+	}
+
+	if (codec_id == 0) {
+		pr_info("[error] vdec unsupported fourcc\n");
+		ret = -1;
+	} else if (msg->codec_id == codec_id && msg->status == svp) {
+		pr_info("%s ipi id %d svp %d is correct\n", __func__, msg->codec_id, msg->status);
+		ret = 0;
+	} else {
+		mtk_v4l2_debug(2, "[Info] ipi id %d svp %d is incorrect\n",
+			msg->codec_id, msg->status);
+		ret = -1;
+	}
+	return ret;
+}
+
 int vcp_dec_ipi_handler(void *arg)
 {
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)arg;
@@ -478,7 +543,17 @@ int vcp_dec_ipi_handler(void *arg)
 		vsi = (struct vdec_vsi *)vcu->vsi;
 		inst = container_of(vcu, struct vdec_inst, vcu);
 
-		if (msg->status == VDEC_IPI_MSG_STATUS_OK) {
+		if (msg->msg_id == VCU_IPIMSG_DEC_CHECK_CODEC_ID) {
+
+			if (check_codec_id(msg, vcu->ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc,
+				vcu->ctx->dec_params.svp_mode) == 0)
+				msg->status = 0;
+			else
+				msg->status = -1;
+
+			msg->msg_id = AP_IPIMSG_DEC_CHECK_CODEC_ID_DONE;
+			vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
+		} else if (msg->status == VDEC_IPI_MSG_STATUS_OK) {
 			switch (msg->msg_id) {
 			case VCU_IPIMSG_DEC_DONE:
 				vcu->signaled_res = true;
@@ -666,53 +741,7 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	inst->ctx = ctx;
 	fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
-	switch (fourcc) {
-	case V4L2_PIX_FMT_H264:
-		inst->vcu.id = IPI_VDEC_H264;
-		break;
-	case V4L2_PIX_FMT_H265:
-		inst->vcu.id = IPI_VDEC_H265;
-		break;
-	case V4L2_PIX_FMT_HEIF:
-		inst->vcu.id = IPI_VDEC_HEIF;
-		break;
-	case V4L2_PIX_FMT_VP8:
-		inst->vcu.id = IPI_VDEC_VP8;
-		break;
-	case V4L2_PIX_FMT_VP9:
-		inst->vcu.id = IPI_VDEC_VP9;
-		break;
-	case V4L2_PIX_FMT_MPEG4:
-		inst->vcu.id = IPI_VDEC_MPEG4;
-		break;
-	case V4L2_PIX_FMT_H263:
-		inst->vcu.id = IPI_VDEC_H263;
-		break;
-	case V4L2_PIX_FMT_MPEG1:
-	case V4L2_PIX_FMT_MPEG2:
-		inst->vcu.id = IPI_VDEC_MPEG12;
-		break;
-	case V4L2_PIX_FMT_WMV1:
-	case V4L2_PIX_FMT_WMV2:
-	case V4L2_PIX_FMT_WMV3:
-	case V4L2_PIX_FMT_WMVA:
-	case V4L2_PIX_FMT_WVC1:
-		inst->vcu.id = IPI_VDEC_WMV;
-		break;
-	case V4L2_PIX_FMT_RV30:
-		inst->vcu.id = IPI_VDEC_RV30;
-		break;
-	case V4L2_PIX_FMT_RV40:
-		inst->vcu.id = IPI_VDEC_RV40;
-		break;
-	case V4L2_PIX_FMT_AV1:
-		inst->vcu.id = IPI_VDEC_AV1;
-		break;
-	default:
-		mtk_vcodec_err(inst, "%s no fourcc", __func__);
-		break;
-	}
-
+	inst->vcu.id = IPI_VDEC_COMMON;
 	inst->vcu.ctx = ctx;
 	init_waitqueue_head(&inst->vcu.wq);
 	init_waitqueue_head(&inst->vcu.wq_res);
@@ -722,9 +751,6 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	msg.ctx_id = inst->ctx->id;
 	msg.ap_inst_addr = (unsigned long)&inst->vcu;
 
-	if (ctx->dec_params.svp_mode)
-		msg.reserved = ctx->dec_params.svp_mode;
-
 	inst->vcu.ctx_ipi_lock = kzalloc(sizeof(struct mutex),
 		GFP_KERNEL);
 	if (!inst->vcu.ctx_ipi_lock)
@@ -732,7 +758,8 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	mutex_init(inst->vcu.ctx_ipi_lock);
 	INIT_LIST_HEAD(&inst->vcu.bufs);
 
-	mtk_vcodec_debug(inst, "vdec_inst=%p svp_mode=%d", &inst->vcu, msg.reserved);
+	mtk_vcodec_debug(inst, "vdec_inst=%p svp_mode=%d",
+		&inst->vcu, ctx->dec_params.svp_mode);
 	*h_vdec = (unsigned long)inst;
 	inst->vcu.daemon_pid = get_vcp_generation();
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);

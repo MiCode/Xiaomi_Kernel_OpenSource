@@ -217,7 +217,6 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 {
 	int ret = 0;
 	struct venc_inst *inst;
-	u32 fourcc = ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 	struct vcu_v4l2_callback_func cb;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
@@ -231,45 +230,7 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	inst->ctx = ctx;
 	inst->vcu_inst.ctx = ctx;
 	inst->vcu_inst.dev = ctx->dev->vcu_plat_dev;
-
-	switch (fourcc) {
-	case V4L2_PIX_FMT_H264: {
-		if (ctx->oal_vcodec == 1)
-			inst->vcu_inst.id = IPI_VENC_HYBRID_H264;
-		else
-			inst->vcu_inst.id = IPI_VENC_H264;
-		break;
-	}
-
-	case V4L2_PIX_FMT_VP8: {
-		inst->vcu_inst.id = IPI_VENC_VP8;
-		break;
-	}
-
-	case V4L2_PIX_FMT_MPEG4: {
-		inst->vcu_inst.id = IPI_VENC_MPEG4;
-		break;
-	}
-
-	case V4L2_PIX_FMT_H263: {
-		inst->vcu_inst.id = IPI_VENC_H263;
-		break;
-	}
-	case V4L2_PIX_FMT_H265: {
-		inst->vcu_inst.id = IPI_VENC_H265;
-		break;
-	}
-	case V4L2_PIX_FMT_HEIF: {
-		inst->vcu_inst.id = IPI_VENC_HEIF;
-		break;
-	}
-
-	default: {
-		mtk_vcodec_err(inst, "%s fourcc not supported", __func__);
-		break;
-	}
-	}
-
+	inst->vcu_inst.id = IPI_VENC_COMMON;
 	inst->hw_base = mtk_vcodec_get_enc_reg_addr(inst->ctx, VENC_SYS);
 	inst->vcu_inst.handler = vcu_enc_ipi_handler;
 
@@ -463,7 +424,7 @@ static int venc_set_param(unsigned long handle,
 	if (inst == NULL)
 		return -EINVAL;
 
-	mtk_vcodec_debug(inst, "->type=%d, ipi_id=%d", type, inst->vcu_inst.id);
+	mtk_vcodec_debug(inst, "->type=%d, codec_id=%d", type, inst->vcu_inst.id);
 
 	switch (type) {
 	case VENC_SET_PARAM_ENC:
@@ -508,18 +469,18 @@ static int venc_set_param(unsigned long handle,
 				sizeof(struct mtk_color_desc));
 		}
 
-		if (inst->vcu_inst.id == IPI_VENC_H264 ||
-			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {
+		if (inst->vcu_inst.id == VENC_H264 ||
+			inst->vcu_inst.id == VENC_HYBRID_H264) {
 			inst->vsi->config.profile = enc_prm->profile;
 			inst->vsi->config.level = enc_prm->level;
-		} else if (inst->vcu_inst.id == IPI_VENC_H265 ||
-				inst->vcu_inst.id == IPI_VENC_HEIF) {
+		} else if (inst->vcu_inst.id == VENC_H265 ||
+				inst->vcu_inst.id == VENC_HEIF) {
 			inst->vsi->config.profile =
 				venc_h265_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =
 				venc_h265_get_level(inst, enc_prm->level,
 					enc_prm->tier);
-		} else if (inst->vcu_inst.id == IPI_VENC_MPEG4) {
+		} else if (inst->vcu_inst.id == VENC_MPEG4) {
 			inst->vsi->config.profile =
 				venc_mpeg4_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =

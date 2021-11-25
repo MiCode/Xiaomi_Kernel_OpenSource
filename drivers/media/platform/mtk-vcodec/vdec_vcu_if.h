@@ -14,7 +14,7 @@
 /**
  * struct vdec_vcu_inst - VCU instance for video codec
  * @wq          : wait queue to wait VCU message ack
- * @ipi_id      : ipi id for each decoder
+ * @ipi_id      : ipi id for decoder or encoder
  * @vsi         : driver structure allocated by VCU side and shared to AP side
  *                for control and info share
  * @failure     : VCU execution result status, 0: success, others: fail
