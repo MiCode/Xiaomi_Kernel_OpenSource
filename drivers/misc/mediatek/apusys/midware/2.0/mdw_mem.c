@@ -656,6 +656,8 @@ out:
 	dma_buf_put(dbuf);
 	mutex_unlock(&mpriv->mtx);
 	mutex_unlock(&mpriv->mdev->mctl_mtx);
+	if (ret || !m)
+		mdw_drv_err("handle(%llu) m(%p) ret(%d)\n", handle, m, ret);
 
 	return ret;
 }
@@ -669,6 +671,7 @@ static int mdw_mem_ioctl_unmap(struct mdw_fpriv *mpriv,
 
 	memset(args, 0, sizeof(*args));
 
+	mutex_lock(&mpriv->mdev->mctl_mtx);
 	mutex_lock(&mpriv->mtx);
 	m = mdw_mem_get(mpriv, handle);
 	if (!m)
@@ -681,6 +684,9 @@ static int mdw_mem_ioctl_unmap(struct mdw_fpriv *mpriv,
 
 out:
 	mutex_unlock(&mpriv->mtx);
+	mutex_unlock(&mpriv->mdev->mctl_mtx);
+	if (ret)
+		mdw_drv_err("handle(%llu) ret(%d)\n", handle, ret);
 
 	return ret;
 }
