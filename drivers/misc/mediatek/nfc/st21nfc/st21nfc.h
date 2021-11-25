@@ -6,15 +6,6 @@
  * Copyright (C) 2010 Trusted Logic S.A.
  */
 
-
-// Options for the kernel driver -- to be unifdef before release optionally.
-//#define ST21NFCD_MTK // MTK platform up to kernel release 4.19
-#define ST21NFCD_MTK // MTK platform up to kernel release 4.19
-//#define ST21NFCD_MTK58 // MTK platform kernel 5.8
-//#define ST21NFCD_QCOM // QCOM platform  up to kernel release 4.19
-//#define ST21NFCD_QCOM54 // QCOM platform kernel 5.4
-
-
 #define ST21NFC_MAGIC 0xEA
 
 #define ST21NFC_NAME "st21nfc"
@@ -33,8 +24,8 @@
 // Keep compatibility with older user applications.
 #define ST21NFC_LEGACY_GET_WAKEUP _IOR(ST21NFC_MAGIC, 0x01, unsigned int)
 #define ST21NFC_LEGACY_PULSE_RESET _IOR(ST21NFC_MAGIC, 0x02, unsigned int)
-#define ST21NFC_LEGACY_SET_POLARITY_RISING \
-  _IOR(ST21NFC_MAGIC, 0x03, unsigned int)
+#define ST21NFC_LEGACY_SET_POLARITY_RISING                                     \
+	_IOR(ST21NFC_MAGIC, 0x03, unsigned int)
 #define ST21NFC_LEGACY_SET_POLARITY_HIGH _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
 #define ST21NFC_LEGACY_GET_POLARITY _IOR(ST21NFC_MAGIC, 0x07, unsigned int)
 #define ST21NFC_LEGACY_RECOVERY _IOR(ST21NFC_MAGIC, 0x08, unsigned int)
@@ -46,5 +37,5 @@
 void st21nfc_register_st54spi_cb(void (*cb)(int, void *), void *data);
 void st21nfc_unregister_st54spi_cb(void);
 
-#define ACCESS_OK(x,y,z) access_ok(y,z)
+#define ACCESS_OK(x, y, z) access_ok(y, z)
 

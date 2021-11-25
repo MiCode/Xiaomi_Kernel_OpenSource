@@ -31,7 +31,22 @@
 
 #include <linux/uaccess.h>
 
+// Do we need to control the clock of SPI master ?
 // #define WITH_SPI_CLK_MNGT 1
+
+// Does this driver support ST54H chip generation ?
+#define ST54H_SUPPORTED 1
+
+// Is the SPI_NSS signal highZ from platform side when SPI not used
+// (i.e. used as open-drain)
+#define WITH_SPI_NSS_HIGHZ 1
+// Note:
+// if SPI_NSS is open-drain, the eSE will drive the line high
+// when powered on and low when off.
+// If it is not open-drain, we will keep the eSE powered always when EE_MODE_SET
+// is set to enabled in CLF.
+// This is the only way to avoid SPI_NSS high from host when VCC_SE is low
+// AND avoid SPI_NSS low when VCC_SE is high but SPI not used.
 
 #include "st21nfc/st21nfc.h"
 
@@ -71,11 +86,10 @@ static DECLARE_BITMAP(minors, N_SPI_MINORS);
  *
  * REVISIT should changing those flags be privileged?
  */
-#define SPI_MODE_MASK				\
-	(SPI_CPHA | SPI_CPOL | SPI_CS_HIGH |	\
-	SPI_LSB_FIRST | SPI_3WIRE | SPI_LOOP |	\
-	SPI_NO_CS | SPI_READY | SPI_TX_DUAL |	\
-	SPI_TX_QUAD | SPI_RX_DUAL | SPI_RX_QUAD)
+#define SPI_MODE_MASK                                                          \
+	(SPI_CPHA | SPI_CPOL | SPI_CS_HIGH | SPI_LSB_FIRST | SPI_3WIRE |       \
+	 SPI_LOOP | SPI_NO_CS | SPI_READY | SPI_TX_DUAL | SPI_TX_QUAD |        \
+	 SPI_RX_DUAL | SPI_RX_QUAD)
 
 struct st54spi_data {
 	dev_t devt;
@@ -94,15 +108,15 @@ struct st54spi_data {
 	/* GPIO for SE_POWER_REQ / SE_nRESET */
 	int power_or_nreset_gpio_mode;
 	int power_or_nreset_gpio;
-	int nfcc_needs_poweron;
+	int nfcc_needs_poweron; // not used when WITH_SPI_NSS_HIGHZ==1
 	int sehal_needs_poweron;
 	int se_is_poweron;
+	int se_is_poweron_for_comm;
 	struct pinctrl *pctrl;
 	struct pinctrl_state *pctrl_mode_spi_csb, *pctrl_mode_spi_clk;
 	struct pinctrl_state *pctrl_mode_spi_mi, *pctrl_mode_spi_mo;
 	struct pinctrl_state *pctrl_mode_spi_csb_idle, *pctrl_mode_spi_clk_idle;
 	struct pinctrl_state *pctrl_mode_spi_mi_idle, *pctrl_mode_spi_mo_idle;
-
 };
 
 #define POWER_MODE_NONE -1
@@ -119,10 +133,11 @@ MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 static bool debug_enabled = true;
 #define VERBOSE 1
 
+#define DEV (st54spi->spi ? &st54spi->spi->dev : &st54spi->spi_reset->dev)
 /*-------------------------------------------------------------------------*/
 
-static ssize_t st54spi_sync(
-	struct st54spi_data *st54spi, struct spi_message *message)
+static ssize_t st54spi_sync(struct st54spi_data *st54spi,
+			    struct spi_message *message)
 {
 	DECLARE_COMPLETION_ONSTACK(done);
 	int status;
@@ -143,8 +158,8 @@ static ssize_t st54spi_sync(
 	return status;
 }
 
-static inline ssize_t st54spi_sync_write(
-	struct st54spi_data *st54spi, size_t len)
+static inline ssize_t st54spi_sync_write(struct st54spi_data *st54spi,
+					 size_t len)
 {
 	struct spi_transfer t = {
 		.tx_buf = st54spi->tx_buffer,
@@ -158,8 +173,8 @@ static inline ssize_t st54spi_sync_write(
 	return st54spi_sync(st54spi, &m);
 }
 
-static inline ssize_t st54spi_sync_read(
-	struct st54spi_data *st54spi, size_t len)
+static inline ssize_t st54spi_sync_read(struct st54spi_data *st54spi,
+					size_t len)
 {
 	struct spi_transfer t = {
 		.rx_buf = st54spi->rx_buffer,
@@ -176,8 +191,8 @@ static inline ssize_t st54spi_sync_read(
 /*-------------------------------------------------------------------------*/
 
 /* Read-only message with current device setup */
-static ssize_t st54spi_read(
-	struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+static ssize_t st54spi_read(struct file *filp, char __user *buf, size_t count,
+			    loff_t *f_pos)
 {
 	struct st54spi_data *st54spi;
 	ssize_t status = 0;
@@ -189,7 +204,7 @@ static ssize_t st54spi_read(
 	st54spi = filp->private_data;
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi Read: %d bytes\n", count);
+		dev_info(DEV, "st54spi Read: %d bytes\n", count);
 
 	mutex_lock(&st54spi->buf_lock);
 	status = st54spi_sync_read(st54spi, count);
@@ -205,14 +220,14 @@ static ssize_t st54spi_read(
 	mutex_unlock(&st54spi->buf_lock);
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi Read: status: %d\n", status);
+		dev_info(DEV, "st54spi Read: status: %d\n", status);
 
 	return status;
 }
 
 /* Write-only message with current device setup */
-static ssize_t st54spi_write(
-	struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+static ssize_t st54spi_write(struct file *filp, const char __user *buf,
+			     size_t count, loff_t *f_pos)
 {
 	struct st54spi_data *st54spi;
 	ssize_t status = 0;
@@ -225,7 +240,7 @@ static ssize_t st54spi_write(
 	st54spi = filp->private_data;
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi Write: %d bytes\n", count);
+		dev_info(DEV, "st54spi Write: %d bytes\n", count);
 
 	mutex_lock(&st54spi->buf_lock);
 	missing = copy_from_user(st54spi->tx_buffer, buf, count);
@@ -236,15 +251,14 @@ static ssize_t st54spi_write(
 	mutex_unlock(&st54spi->buf_lock);
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi Write: status: %d\n", status);
+		dev_info(DEV, "st54spi Write: status: %d\n", status);
 
 	return status;
 }
 
-static int st54spi_message(
-	struct st54spi_data *st54spi,
-	struct spi_ioc_transfer *u_xfers,
-	unsigned int n_xfers)
+static int st54spi_message(struct st54spi_data *st54spi,
+			   struct spi_ioc_transfer *u_xfers,
+			   unsigned int n_xfers)
 {
 	struct spi_message msg;
 	struct spi_transfer *k_xfers;
@@ -268,8 +282,8 @@ static int st54spi_message(
 	total = 0;
 	tx_total = 0;
 	rx_total = 0;
-	for (n = n_xfers, k_tmp = k_xfers, u_tmp = u_xfers;
-		n; n--, k_tmp++, u_tmp++) {
+	for (n = n_xfers, k_tmp = k_xfers, u_tmp = u_xfers; n;
+	     n--, k_tmp++, u_tmp++) {
 		k_tmp->len = u_tmp->len;
 
 		total += k_tmp->len;
@@ -292,8 +306,8 @@ static int st54spi_message(
 			}
 			k_tmp->rx_buf = rx_buf;
 			if (!ACCESS_OK(VERIFY_WRITE,
-				(u8 __user *)(uintptr_t)u_tmp->rx_buf,
-				u_tmp->len))
+				       (u8 __user *)(uintptr_t)u_tmp->rx_buf,
+				       u_tmp->len))
 				goto done;
 			rx_buf += k_tmp->len;
 		}
@@ -305,9 +319,10 @@ static int st54spi_message(
 				goto done;
 			}
 			k_tmp->tx_buf = tx_buf;
-			if (copy_from_user(tx_buf,
-				(const u8 __user *)(uintptr_t)u_tmp->tx_buf,
-				u_tmp->len))
+			if (copy_from_user(
+				    tx_buf,
+				    (const u8 __user *)(uintptr_t)u_tmp->tx_buf,
+				    u_tmp->len))
 				goto done;
 			tx_buf += k_tmp->len;
 		}
@@ -321,11 +336,13 @@ static int st54spi_message(
 		if (!k_tmp->speed_hz)
 			k_tmp->speed_hz = st54spi->speed_hz;
 #ifdef VERBOSE
-		dev_dbg(&st54spi->spi->dev, "  xfer len %u %s%s%s%dbits %u usec %uHz\n",
-			u_tmp->len, u_tmp->rx_buf ? "rx " : "", u_tmp->tx_buf ? "tx " : "",
+		dev_dbg(DEV, "  xfer len %u %s%s%s%dbits %u usec %uHz\n",
+			u_tmp->len, u_tmp->rx_buf ? "rx " : "",
+			u_tmp->tx_buf ? "tx " : "",
 			u_tmp->cs_change ? "cs " : "",
 			u_tmp->bits_per_word ?: st54spi->spi->bits_per_word,
-			u_tmp->delay_usecs, u_tmp->speed_hz ?: st54spi->spi->max_speed_hz);
+			u_tmp->delay_usecs,
+			u_tmp->speed_hz ?: st54spi->spi->max_speed_hz);
 #endif
 		spi_message_add_tail(k_tmp, &msg);
 	}
@@ -338,9 +355,8 @@ static int st54spi_message(
 	rx_buf = st54spi->rx_buffer;
 	for (n = n_xfers, u_tmp = u_xfers; n; n--, u_tmp++) {
 		if (u_tmp->rx_buf) {
-			if (__copy_to_user(
-				(u8 __user *)(uintptr_t)u_tmp->rx_buf,
-				rx_buf, u_tmp->len)) {
+			if (__copy_to_user((u8 __user *)(uintptr_t)u_tmp->rx_buf,
+					   rx_buf, u_tmp->len)) {
 				status = -EFAULT;
 				goto done;
 			}
@@ -354,18 +370,17 @@ done:
 	return status;
 }
 
-static struct spi_ioc_transfer *st54spi_get_ioc_message(
-	unsigned int cmd,
-	struct spi_ioc_transfer __user *u_ioc,
-	unsigned int *n_ioc)
+static struct spi_ioc_transfer *
+st54spi_get_ioc_message(unsigned int cmd, struct spi_ioc_transfer __user *u_ioc,
+			unsigned int *n_ioc)
 {
 	struct spi_ioc_transfer *ioc;
 	u32 tmp;
 
 	/* Check type, command number and direction */
 	if (_IOC_TYPE(cmd) != SPI_IOC_MAGIC ||
-		_IOC_NR(cmd) != _IOC_NR(SPI_IOC_MESSAGE(0)) ||
-		_IOC_DIR(cmd) != _IOC_WRITE)
+	    _IOC_NR(cmd) != _IOC_NR(SPI_IOC_MESSAGE(0)) ||
+	    _IOC_DIR(cmd) != _IOC_WRITE)
 		return ERR_PTR(-ENOTTY);
 
 	tmp = _IOC_SIZE(cmd);
@@ -390,38 +405,79 @@ static struct spi_ioc_transfer *st54spi_get_ioc_message(
 
 static void st54spi_power_off(struct st54spi_data *st54spi)
 {
+#ifdef ST54H_SUPPORTED
 	int ret;
+#endif // ST54H_SUPPORTED
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "%s\n", __func__);
+		dev_info(DEV, "%s\n", __func__);
 
-	// Set NSS pin as highZ (ST54H and ST54J).
-
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_csb_idle);
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change SPI management(CSB) to High Z failed!\n", __func__);
+	if (st54spi->se_is_poweron == 0) {
+		dev_info(DEV, "%s - nothing to do\n", __func__);
+		return;
 	}
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_clk_idle);
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change SPI management(CLK) to High Z failed!\n", __func__);
-	}
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mi_idle);
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change SPI management(MI) to High Z failed!\n", __func__);
-	}
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mo_idle);
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change SPI management(MO) to High Z failed!\n", __func__);
-	}
-
 	// Set SE_PWR_REQ / SE_nRESET to low
 	if (st54spi->power_or_nreset_gpio)
 		gpio_set_value(st54spi->power_or_nreset_gpio, 0);
 
+	// Set NSS pin as highZ (ST54H and ST54J).
+
+	if (st54spi->power_or_nreset_gpio_mode == POWER_MODE_ST54H) {
+#ifdef ST54H_SUPPORTED
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_csb_idle);
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change SPI management(CSB) to High Z failed!\n",
+				__func__);
+		}
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_clk_idle);
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change SPI management(CLK) to High Z failed!\n",
+				__func__);
+		}
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_mi_idle);
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change SPI management(MI) to High Z failed!\n",
+				__func__);
+		}
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_mo_idle);
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change SPI management(MO) to High Z failed!\n",
+				__func__);
+		}
+#else // ST54H_SUPPORTED
+		dev_info(DEV, "%s : ST54H is not supported\n", __func__);
+#endif // ST54H_SUPPORTED
+	}
+
+	st54spi->se_is_poweron = 0;
+}
+
+static void st54spi_power_off_for_comm(struct st54spi_data *st54spi)
+{
+	if (debug_enabled)
+		dev_info(DEV, "%s\n", __func__);
+
+	if (st54spi->se_is_poweron_for_comm == 0) {
+		dev_info(DEV, "%s - nothing to do\n", __func__);
+		return;
+	}
+
+#ifdef WITH_SPI_CLK_MNGT
+	// no need for the SPI clock to be enabled.
+	dev_info(DEV, "%s : disabling PMU clock of SPI subsystem\n", __func__);
+	mt_spi_disable_master_clk(st54spi->spi ?: st54spi->spi_reset);
+#endif // WITH_SPI_CLK_MNGT
+	// Set NSS pin as highZ (ST54H and ST54J).
+
+	// for set spi register
 	// if ST54H block access to SPI in case this is done during a CLF reset
 	if (st54spi->power_or_nreset_gpio_mode == POWER_MODE_ST54H) {
 		// disallow access to SPI r/w
@@ -436,27 +492,17 @@ static void st54spi_power_off(struct st54spi_data *st54spi)
 		// and pull down the line before continue.
 		usleep_range(2000, 4500);
 	}
-
-#ifdef WITH_SPI_CLK_MNGT
-	// no need for the SPI clock to be enabled.
-	dev_info(&st54spi->spi->dev, "%s : disabling PMU clock of SPI subsystem\n", __func__);
-	mt_spi_disable_master_clk(st54spi->spi);
-#endif  // WITH_SPI_CLK_MNGT
-
-	st54spi->se_is_poweron = 0;
+	st54spi->se_is_poweron_for_comm = 0;
 }
 
 static void st54spi_power_on(struct st54spi_data *st54spi)
 {
+#ifdef ST54H_SUPPORTED
 	int ret;
+#endif // ST54H_SUPPORTED
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "%s\n", __func__);
-#ifdef WITH_SPI_CLK_MNGT
-	// the SPI clock needs to be enabled.
-	dev_info(&st54spi->spi->dev, "%s : enabling PMU clock of SPI subsystem\n", __func__);
-	mt_spi_enable_master_clk(st54spi->spi);
-#endif  // WITH_SPI_CLK_MNGT
+		dev_info(DEV, "%s\n", __func__);
 
 	// set SE_PWR_REQ / SE_nRESET to high and wait for CLF + eSE reaction
 	if (st54spi->power_or_nreset_gpio) {
@@ -464,36 +510,58 @@ static void st54spi_power_on(struct st54spi_data *st54spi)
 		usleep_range(1000, 1500);
 	}
 
-	// Set NSS pin for the SPI function.
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_csb);
+	if (st54spi->power_or_nreset_gpio_mode == POWER_MODE_ST54H) {
+#ifdef ST54H_SUPPORTED
+		// Set NSS pin for the SPI function.
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_csb);
 
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change management to SPI-CSB failed!\n", __func__);
-	}
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change management to SPI-CSB failed!\n",
+				__func__);
+		}
 
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_clk);
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_clk);
 
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change management to SPI-CLK failed!\n", __func__);
-	}
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change management to SPI-CLK failed!\n",
+				__func__);
+		}
 
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mi);
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_mi);
 
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change management to SPI-MI failed!\n", __func__);
-	}
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change management to SPI-MI failed!\n",
+				__func__);
+		}
 
-	ret = pinctrl_select_state(st54spi->pctrl, st54spi->pctrl_mode_spi_mo);
+		ret = pinctrl_select_state(st54spi->pctrl,
+					   st54spi->pctrl_mode_spi_mo);
 
-	if (ret < 0) {
-		dev_err(&st54spi->spi->dev,
-				"%s : change management to SPI-MO failed!\n", __func__);
+		if (ret < 0) {
+			dev_info(DEV,
+				"%s : change management to SPI-MO failed!\n",
+				__func__);
+		}
+#else // ST54H_SUPPORTED
+		dev_info(DEV, "%s : ST54H is not supported\n", __func__);
+#endif // ST54H_SUPPORTED
 	}
 
 	usleep_range(4000, 5000);
+
+	st54spi->se_is_poweron = 1;
+}
+
+static void st54spi_power_on_for_comm(struct st54spi_data *st54spi)
+{
+	if (debug_enabled)
+		dev_info(DEV, "%s\n", __func__);
 
 	if (st54spi->power_or_nreset_gpio_mode == POWER_MODE_ST54H) {
 		// re-allow SPI xfers
@@ -505,7 +573,14 @@ static void st54spi_power_on(struct st54spi_data *st54spi)
 		}
 	}
 
-	st54spi->se_is_poweron = 1;
+#ifdef WITH_SPI_CLK_MNGT
+	// the SPI clock needs to be enabled.
+	dev_info(DEV, "%s : enabling PMU clock of SPI subsystem\n", __func__);
+	mt_spi_enable_master_clk(st54spi->spi);
+	dev_info(DEV, "%s : after enabling PMU clock of SPI subsystem\n",
+		 __func__);
+#endif // WITH_SPI_CLK_MNGT
+	st54spi->se_is_poweron_for_comm = 1;
 }
 
 static void st54spi_power_set(struct st54spi_data *st54spi, int val)
@@ -514,16 +589,24 @@ static void st54spi_power_set(struct st54spi_data *st54spi, int val)
 		return;
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi sehal pwr_req: %d\n", val);
+		dev_info(
+			DEV,
+			"st54spi sehal pwr_req: %d, se_is_poweron = %d, nfcc_needs_poweron = %d\n",
+			val, st54spi->se_is_poweron,
+			st54spi->nfcc_needs_poweron);
 
 	if (val) {
 		st54spi->sehal_needs_poweron = 1;
 		if (st54spi->se_is_poweron == 0)
 			st54spi_power_on(st54spi);
+		if (st54spi->se_is_poweron_for_comm == 0)
+			st54spi_power_on_for_comm(st54spi);
 	} else {
 		st54spi->sehal_needs_poweron = 0;
+		if (st54spi->se_is_poweron_for_comm == 1)
+			st54spi_power_off_for_comm(st54spi);
 		if ((st54spi->se_is_poweron == 1) &&
-			(st54spi->nfcc_needs_poweron == 0))
+		    (st54spi->nfcc_needs_poweron == 0))
 			// we don t need power anymore
 			st54spi_power_off(st54spi);
 	}
@@ -536,8 +619,8 @@ static int st54spi_power_get(struct st54spi_data *st54spi)
 	return 0;
 }
 
-static long st54spi_ioctl(
-	struct file *filp, unsigned int cmd, unsigned long arg)
+static long st54spi_ioctl(struct file *filp, unsigned int cmd,
+			  unsigned long arg)
 {
 	int err = 0;
 	int retval = 0;
@@ -556,11 +639,11 @@ static long st54spi_ioctl(
 	 * from the kernel perspective; so they look reversed.
 	 */
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		err = !ACCESS_OK(VERIFY_WRITE,
-			(void __user *)arg, _IOC_SIZE(cmd));
+		err = !ACCESS_OK(VERIFY_WRITE, (void __user *)arg,
+				 _IOC_SIZE(cmd));
 	if (err == 0 && _IOC_DIR(cmd) & _IOC_WRITE)
-		err = !ACCESS_OK(VERIFY_READ,
-			(void __user *)arg, _IOC_SIZE(cmd));
+		err = !ACCESS_OK(VERIFY_READ, (void __user *)arg,
+				 _IOC_SIZE(cmd));
 	if (err)
 		return -EFAULT;
 
@@ -573,7 +656,7 @@ static long st54spi_ioctl(
 	spin_unlock_irq(&st54spi->spi_lock);
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi ioctl cmd %d\n", cmd);
+		dev_info(DEV, "st54spi ioctl cmd %d\n", cmd);
 
 	if (spi == NULL)
 		return -ESHUTDOWN;
@@ -587,34 +670,31 @@ static long st54spi_ioctl(
 	mutex_lock(&st54spi->buf_lock);
 
 	switch (cmd) {
-    /* read requests */
+		/* read requests */
 	case SPI_IOC_RD_MODE:
-		retval = __put_user(
-			spi->mode & SPI_MODE_MASK, (__u8 __user *)arg);
+		retval = __put_user(spi->mode & SPI_MODE_MASK,
+				    (__u8 __user *)arg);
 		break;
 	case SPI_IOC_RD_MODE32:
-		retval = __put_user(
-			spi->mode & SPI_MODE_MASK, (__u32 __user *)arg);
+		retval = __put_user(spi->mode & SPI_MODE_MASK,
+				    (__u32 __user *)arg);
 		break;
 	case SPI_IOC_RD_LSB_FIRST:
-		retval = __put_user(
-			(spi->mode & SPI_LSB_FIRST) ?
-				1 : 0, (__u8 __user *)arg);
+		retval = __put_user((spi->mode & SPI_LSB_FIRST) ? 1 : 0,
+				    (__u8 __user *)arg);
 		break;
 	case SPI_IOC_RD_BITS_PER_WORD:
-		retval = __put_user(
-			spi->bits_per_word, (__u8 __user *)arg);
+		retval = __put_user(spi->bits_per_word, (__u8 __user *)arg);
 		break;
 	case SPI_IOC_RD_MAX_SPEED_HZ:
-		retval = __put_user(
-			st54spi->speed_hz, (__u32 __user *)arg);
+		retval = __put_user(st54spi->speed_hz, (__u32 __user *)arg);
 		break;
 	case ST54SPI_IOC_RD_POWER:
-		retval = __put_user(
-			st54spi_power_get(st54spi), (__u32 __user *)arg);
+		retval = __put_user(st54spi_power_get(st54spi),
+				    (__u32 __user *)arg);
 		break;
 
-    /* write requests */
+		/* write requests */
 	case SPI_IOC_WR_MODE:
 	case SPI_IOC_WR_MODE32:
 		if (cmd == SPI_IOC_WR_MODE)
@@ -651,9 +731,8 @@ static long st54spi_ioctl(
 			if (retval < 0)
 				spi->mode = save;
 			else
-				dev_dbg(&spi->dev,
-					"%csb first\n", tmp ?
-					'l' : 'm');
+				dev_dbg(&spi->dev, "%csb first\n",
+					tmp ? 'l' : 'm');
 		}
 		break;
 	case SPI_IOC_WR_BITS_PER_WORD:
@@ -687,7 +766,8 @@ static long st54spi_ioctl(
 		retval = __get_user(tmp, (__u32 __user *)arg);
 		if (retval == 0) {
 			st54spi_power_set(st54spi, tmp ? 1 : 0);
-			dev_dbg(&spi->dev, "SE_POWER_REQ/SE_NRESET set: %d\n", tmp);
+			dev_dbg(&spi->dev, "SE_POWER_REQ/SE_NRESET set: %d\n",
+				tmp);
 		}
 		break;
 
@@ -719,8 +799,9 @@ static long st54spi_ioctl(
 }
 
 #ifdef CONFIG_COMPAT
-static long st54spi_compat_ioc_message(
-	struct file *filp, unsigned int cmd, unsigned long arg) {
+static long st54spi_compat_ioc_message(struct file *filp, unsigned int cmd,
+				       unsigned long arg)
+{
 	struct spi_ioc_transfer __user *u_ioc;
 	int retval = 0;
 	struct st54spi_data *st54spi;
@@ -741,7 +822,7 @@ static long st54spi_compat_ioc_message(
 	spin_unlock_irq(&st54spi->spi_lock);
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi compat_ioctl cmd %d\n", cmd);
+		dev_info(DEV, "st54spi compat_ioctl cmd %d\n", cmd);
 	if (spi == NULL)
 		return -ESHUTDOWN;
 
@@ -771,16 +852,16 @@ done:
 	mutex_unlock(&st54spi->buf_lock);
 	spi_dev_put(spi);
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi compat_ioctl retval %d\n", retval);
+		dev_info(DEV, "st54spi compat_ioctl retval %d\n", retval);
 	return retval;
 }
 
-static long st54spi_compat_ioctl(
-	struct file *filp, unsigned int cmd, unsigned long arg)
+static long st54spi_compat_ioctl(struct file *filp, unsigned int cmd,
+				 unsigned long arg)
 {
 	if (_IOC_TYPE(cmd) == SPI_IOC_MAGIC &&
-		_IOC_NR(cmd) == _IOC_NR(SPI_IOC_MESSAGE(0)) &&
-		_IOC_DIR(cmd) == _IOC_WRITE)
+	    _IOC_NR(cmd) == _IOC_NR(SPI_IOC_MESSAGE(0)) &&
+	    _IOC_DIR(cmd) == _IOC_WRITE)
 		return st54spi_compat_ioc_message(filp, cmd, arg);
 
 	return st54spi_ioctl(filp, cmd, (unsigned long)compat_ptr(arg));
@@ -804,24 +885,24 @@ static int st54spi_open(struct inode *inode, struct file *filp)
 	}
 
 	if (status) {
-		dev_dbg(&st54spi->spi->dev, "st54spi: nothing for minor %d\n", iminor(inode));
+		dev_dbg(DEV, "st54spi: nothing for minor %d\n", iminor(inode));
 		goto err_find_dev;
 	}
 
 	// Authorize only 1 process to open the device.
 	if (st54spi->users > 0) {
-		dev_err(&st54spi->spi->dev, "%d: already open\n");
+		dev_info(DEV, "%d: already open\n");
 		mutex_unlock(&device_list_lock);
 		return -EBUSY;
 	}
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi: open\n");
+		dev_info(DEV, "st54spi: open\n");
 
 	if (!st54spi->tx_buffer) {
 		st54spi->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
 		if (!st54spi->tx_buffer) {
-			// dev_dbg(&st54spi->spi->dev, "open/ENOMEM\n");
+			// dev_dbg(DEV, "open/ENOMEM\n");
 			status = -ENOMEM;
 			goto err_find_dev;
 		}
@@ -830,7 +911,7 @@ static int st54spi_open(struct inode *inode, struct file *filp)
 	if (!st54spi->rx_buffer) {
 		st54spi->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
 		if (!st54spi->rx_buffer) {
-			// dev_dbg(&st54spi->spi->dev, "open/ENOMEM\n");
+			// dev_dbg(DEV, "open/ENOMEM\n");
 			status = -ENOMEM;
 			goto err_alloc_rx_buf;
 		}
@@ -843,8 +924,9 @@ static int st54spi_open(struct inode *inode, struct file *filp)
 	mutex_unlock(&device_list_lock);
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi: open - force power on\n");
-	st54spi_power_set(st54spi, 1);
+		dev_info(DEV, "st54spi: open - force power on\n");
+	st54spi_power_on(st54spi);
+	st54spi_power_on_for_comm(st54spi);
 	return 0;
 
 err_alloc_rx_buf:
@@ -864,35 +946,18 @@ static int st54spi_release(struct inode *inode, struct file *filp)
 	filp->private_data = NULL;
 
 	if (debug_enabled)
-		dev_info(&st54spi->spi->dev, "st54spi: release\n");
+		dev_info(DEV, "st54spi: release\n");
 
 	/* last close? */
 	st54spi->users--;
 	if (!st54spi->users) {
-		int dofree;
-
 		if (debug_enabled)
-			dev_info(&st54spi->spi->dev, "st54spi: release - may allow power off\n");
+			dev_info(DEV,
+				 "st54spi: release - may allow power off\n");
 
-		st54spi_power_set(st54spi, 0);
-
-		kfree(st54spi->tx_buffer);
-		st54spi->tx_buffer = NULL;
-
-		kfree(st54spi->rx_buffer);
-		st54spi->rx_buffer = NULL;
-
-		spin_lock_irq(&st54spi->spi_lock);
-		if (st54spi->spi)
-			st54spi->speed_hz = st54spi->spi->max_speed_hz;
-
-		/* ... after we unbound from the underlying device? */
-		dofree = ((st54spi->spi == NULL) &&
-			(st54spi->spi_reset == NULL));
-		spin_unlock_irq(&st54spi->spi_lock);
-
-		if (dofree)
-			kfree(st54spi);
+		st54spi_power_off_for_comm(st54spi);
+		if (!st54spi->sehal_needs_poweron)
+			st54spi_power_off(st54spi);
 	}
 	mutex_unlock(&device_list_lock);
 
@@ -924,7 +989,7 @@ static const struct file_operations st54spi_fops = {
 static struct class *st54spi_class;
 
 static const struct of_device_id st54spi_dt_ids[] = {
-	{.compatible = "st,st54spi"},
+	{ .compatible = "st,st54spi" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, st54spi_dt_ids);
@@ -941,9 +1006,9 @@ static const struct acpi_device_id st54spi_acpi_ids[] = {
      * description of the connected peripheral and they should also use
      * a proper driver instead of poking directly to the SPI bus.
      */
-	{"SPT0001", SPIDEV_ACPI_DUMMY},
-	{"SPT0002", SPIDEV_ACPI_DUMMY},
-	{"SPT0003", SPIDEV_ACPI_DUMMY},
+	{ "SPT0001", SPIDEV_ACPI_DUMMY },
+	{ "SPT0002", SPIDEV_ACPI_DUMMY },
+	{ "SPT0003", SPIDEV_ACPI_DUMMY },
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, st54spi_acpi_ids);
@@ -960,7 +1025,9 @@ static void st54spi_probe_acpi(struct spi_device *spi)
 		return;
 }
 #else
-static inline void st54spi_probe_acpi(struct spi_device *spi) {}
+static inline void st54spi_probe_acpi(struct spi_device *spi)
+{
+}
 #endif
 
 /*-------------------------------------------------------------------------*/
@@ -982,114 +1049,149 @@ static int st54spi_parse_dt(struct device *dev, struct st54spi_data *pdata)
 			pdata->power_or_nreset_gpio = r;
 		r = 0;
 #else
-		of_property_read_u32_array(
-			np, "gpio-power_nreset", &(pdata->power_or_nreset_gpio), 1);
+		of_property_read_u32_array(np, "gpio-power_nreset",
+					   &(pdata->power_or_nreset_gpio), 1);
 #endif
 
 		// Read power mode.
 		power_mode = of_get_property(np, "power_mode", NULL);
 		if (!power_mode) {
-			dev_info(dev, "%s: Default power mode: ST54H\n", __FILE__);
+#ifdef ST54H_SUPPORTED
+			dev_info(dev, "%s: Default power mode: ST54H\n",
+				 __FILE__);
 			pdata->power_or_nreset_gpio_mode = POWER_MODE_ST54H;
+#else // ST54H_SUPPORTED
+			dev_info(dev, "%s: Default power mode: ST54J\n",
+				 __FILE__);
+			pdata->power_or_nreset_gpio_mode = POWER_MODE_ST54J;
+#endif // ST54H_SUPPORTED
 		} else if (!strcmp(power_mode, "ST54J")) {
 			dev_info(dev, "%s: Power mode: ST54J\n", __FILE__);
 			pdata->power_or_nreset_gpio_mode = POWER_MODE_ST54J;
 		} else if (!strcmp(power_mode, "ST54H")) {
+#ifdef ST54H_SUPPORTED
 			dev_info(dev, "%s: Power mode: ST54H\n", __FILE__);
 			pdata->power_or_nreset_gpio_mode = POWER_MODE_ST54H;
+#else // ST54H_SUPPORTED
+			dev_info(dev, "%s : ST54H is not supported\n", __func__);
+			return -EINVAL;
+#endif // ST54H_SUPPORTED
 		} else if (!strcmp(power_mode, "none")) {
 			dev_info(dev, "%s: Power mode: none\n", __FILE__);
 			pdata->power_or_nreset_gpio_mode = POWER_MODE_NONE;
 		} else {
-			dev_err(dev, "%s: Power mode unknown: %s\n", __FILE__, power_mode);
-			return -1;
+			dev_info(dev, "%s: Power mode unknown: %s\n", __FILE__,
+				power_mode);
+			return -EINVAL;
 		}
 	} else {
 		dev_info(dev, "%s : get num err.\n", __func__);
-		return -1;
+		return -EINVAL;
 	}
 
 	// We need to use pinmux to control NSS
-	pdata->pctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(pdata->pctrl)) {
-		dev_err(dev, "%s: Unable to allocate pinctrl: %d\n",
+	if (pdata->power_or_nreset_gpio_mode == POWER_MODE_ST54H) {
+#ifdef ST54H_SUPPORTED
+		pdata->pctrl = devm_pinctrl_get(dev);
+		if (IS_ERR(pdata->pctrl)) {
+			dev_info(dev, "%s: Unable to allocate pinctrl: %d\n",
 				__FILE__, PTR_ERR(pdata->pctrl));
-		return -1;
+			return -EINVAL;
+		}
+
+		pdata->pctrl_mode_spi_csb = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_csb");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_csb)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_csb: %d\n",
+				__FILE__, PTR_ERR(pdata->pctrl_mode_spi_csb));
+			return -EINVAL;
+		}
+
+		pdata->pctrl_mode_spi_clk = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_clk");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_clk)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_clk: %d\n",
+				__FILE__, PTR_ERR(pdata->pctrl_mode_spi_clk));
+			return -EINVAL;
+		}
+
+		pdata->pctrl_mode_spi_mi = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_mi");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_mi)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_mi: %d\n",
+				__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mi));
+			return -EINVAL;
+		}
+
+		pdata->pctrl_mode_spi_mo = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_mo");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_mo)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_mo: %d\n",
+				__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mo));
+			return -EINVAL;
+		}
+
+
+		pdata->pctrl_mode_spi_csb_idle = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_csb_idle");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_csb_idle)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_csb_idle: %d\n",
+				__FILE__,
+				PTR_ERR(pdata->pctrl_mode_spi_csb_idle));
+			return -EINVAL;
+		}
+
+		pdata->pctrl_mode_spi_clk_idle = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_clk_idle");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_clk_idle)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_clk_idle: %d\n",
+				__FILE__,
+				PTR_ERR(pdata->pctrl_mode_spi_clk_idle));
+			return -EINVAL;
+		}
+
+		pdata->pctrl_mode_spi_mi_idle = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_mi_idle");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_mi_idle)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_mi_idle: %d\n",
+				__FILE__,
+				PTR_ERR(pdata->pctrl_mode_spi_mi_idle));
+			return -EINVAL;
+		}
+
+		pdata->pctrl_mode_spi_mo_idle = pinctrl_lookup_state(
+			pdata->pctrl, "pinctrl_nfc_spi_mo_idle");
+
+		if (IS_ERR(pdata->pctrl_mode_spi_mo_idle)) {
+			dev_info(dev,
+				"%s: Unable to find pinctrl_nfc_spi_mo_idle: %d\n",
+				__FILE__,
+				PTR_ERR(pdata->pctrl_mode_spi_mo_idle));
+			return -EINVAL;
+		}
+
+		dev_info(dev, "[dsc]%s : pinctrl initialized\n", __func__);
+#else // ST54H_SUPPORTED
+		dev_info(dev, "%s : ST54H is not supported\n", __func__);
+#endif // ST54H_SUPPORTED
 	}
 
-	pdata->pctrl_mode_spi_csb = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_csb");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_csb)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_csb: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_csb));
-		return -1;
-	}
-
-	pdata->pctrl_mode_spi_clk = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_clk");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_clk)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_clk: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_clk));
-		return -1;
-	}
-
-	pdata->pctrl_mode_spi_mi = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mi");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_mi)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mi: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mi));
-		return -1;
-	}
-
-	pdata->pctrl_mode_spi_mo = pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mo");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_mo)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mo: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mo));
-		return -1;
-	}
-
-
-	pdata->pctrl_mode_spi_csb_idle =
-		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_csb_idle");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_csb_idle)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_csb_idle: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_csb_idle));
-		return -1;
-	}
-
-	pdata->pctrl_mode_spi_clk_idle =
-		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_clk_idle");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_clk_idle)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_clk_idle: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_clk_idle));
-		return -1;
-	}
-
-	pdata->pctrl_mode_spi_mi_idle =
-		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mi_idle");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_mi_idle)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mi_idle: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mi_idle));
-		return -1;
-	}
-
-	pdata->pctrl_mode_spi_mo_idle =
-		pinctrl_lookup_state(pdata->pctrl, "pinctrl_nfc_spi_mo_idle");
-
-	if (IS_ERR(pdata->pctrl_mode_spi_mo_idle)) {
-		dev_err(dev, "%s: Unable to find pinctrl_nfc_spi_mo_idle: %d\n",
-			__FILE__, PTR_ERR(pdata->pctrl_mode_spi_mo_idle));
-		return -1;
-	}
-
-	dev_info(dev, "[dsc]%s : pinctrl initialized\n", __func__);
-
-	dev_info(dev, "[dsc]%s : get power_or_nreset_gpio[%d]\n",
-				__func__, pdata->power_or_nreset_gpio);
+	dev_info(dev, "[dsc]%s : get power_or_nreset_gpio[%d]\n", __func__,
+		 pdata->power_or_nreset_gpio);
 	return r;
 }
 
@@ -1100,41 +1202,64 @@ static void st54spi_st21nfc_cb(int dir, void *data)
 
 	if (!st54spi)
 		return;
-	dev_info(&st54spi->spi->dev, "%s : dir %d data %p\n", __func__, dir, st54spi);
+	dev_info(DEV, "%s : dir %d data %p\n", __func__, dir, st54spi);
 
 	switch (dir) {
 	case ST54SPI_CB_RESET_START:
-		if (st54spi->se_is_poweron)
+		if (st54spi->se_is_poweron_for_comm) {
+			st54spi_power_off_for_comm(st54spi);
+			st54spi->se_is_poweron_for_comm = 1; // so we restore it
+		}
+		if (st54spi->se_is_poweron) {
 			st54spi_power_off(st54spi);
+			st54spi->se_is_poweron = 1; // so we restore it
+		}
 		break;
 
 	case ST54SPI_CB_RESET_END:
 		// wait for the CLF to boot once nRESET is released
 		usleep_range(4000, 8000);
 
-		st54spi_power_on(st54spi);
+		if (st54spi->se_is_poweron) {
+			st54spi->se_is_poweron = 0; // restore it
+			st54spi_power_on(st54spi);
+		}
+		if (st54spi->se_is_poweron_for_comm) {
+			st54spi->se_is_poweron_for_comm = 0; // restore it
+			st54spi_power_on_for_comm(st54spi);
+		}
 		break;
 
 	case ST54SPI_CB_ESE_USED:
+#if (WITH_SPI_NSS_HIGHZ != 1)
 		st54spi->nfcc_needs_poweron = 1;
 		if (st54spi->se_is_poweron == 0)
 			st54spi_power_on(st54spi);
+#else
+		dev_dbg(DEV,
+			"%s : Ignored ST54SPI_CB_ESE_USED because WITH_SPI_NSS_HIGHZ\n",
+			__func__);
+#endif
 		break;
 
 	case ST54SPI_CB_ESE_NOT_USED:
+#if (WITH_SPI_NSS_HIGHZ != 1)
 		st54spi->nfcc_needs_poweron = 0;
 		if ((st54spi->se_is_poweron == 1) &&
-			(st54spi->sehal_needs_poweron == 0))
+		    (st54spi->sehal_needs_poweron == 0))
 			// we don t need power anymore
 			st54spi_power_off(st54spi);
+#else
+		dev_dbg(DEV,
+			"%s : Ignored ST54SPI_CB_ESE_NOT_USED because WITH_SPI_NSS_HIGHZ\n",
+			__func__);
+#endif
 		break;
 	}
 }
-#endif  // !MODULE
+#endif // !MODULE
 
 /* Change CS_TIME for ST54 */
-#if ((defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54)) && \
-	!defined(ST21NFCD_MTK58))
 // Unit is 1/109.2 us.
 static struct mtk_chip_config st54spi_chip_info = {
 	.sample_sel = 0,
@@ -1143,8 +1268,6 @@ static struct mtk_chip_config st54spi_chip_info = {
 	.cs_holdtime = 0,
 	.cs_idletime = 0,
 };
-#endif
-
 static int st54spi_probe(struct spi_device *spi)
 {
 	struct st54spi_data *st54spi;
@@ -1182,9 +1305,9 @@ static int st54spi_probe(struct spi_device *spi)
 
 		st54spi->devt = MKDEV(spidev_major, minor);
 		dev = device_create(st54spi_class, &spi->dev, st54spi->devt,
-			// spidev, "spidev%d.%d",
-			// spi->master->bus_num, spi->chip_select);
-			st54spi, "st54spi");
+				    // spidev, "spidev%d.%d",
+				    // spi->master->bus_num, spi->chip_select);
+				    st54spi, "st54spi");
 		status = PTR_ERR_OR_ZERO(dev);
 	} else {
 		dev_dbg(&spi->dev, "no minor number available!\n");
@@ -1206,9 +1329,7 @@ static int st54spi_probe(struct spi_device *spi)
 	// st54spi_chip_info.cs_holdtime = period;
 	// }
 
-#if ((defined(ST21NFCD_MTK) || defined(ST21NFCD_MTK54)) && \
-	!defined(ST21NFCD_MTK58))
-	// set timings for ST54
+	// set timings for ST54, legacy method
 	if (chip_config == NULL) {
 		spi->controller_data = (void *)&st54spi_chip_info;
 		dev_dbg(&spi->dev, "Replaced chip_info!\n");
@@ -1218,12 +1339,6 @@ static int st54spi_probe(struct spi_device *spi)
 		chip_config->cs_holdtime = st54spi_chip_info.cs_holdtime;
 		dev_dbg(&spi->dev, "Added into chip_info!\n");
 	}
-#else // ST21NFCD_QCOM or ST21NFCD_QCOM54
-	dev_err(&spi->dev, "%s : TSU_NSS configuration be implemented!\n", __func__);
-	// platform-specific method to configure the delay beween NSS slave
-	// selection and the start of data transfer (clk).
-	// If no specific method required, you can comment above line.
-#endif
 
 	if (status == 0)
 		spi_set_drvdata(spi, st54spi);
@@ -1237,20 +1352,23 @@ static int st54spi_probe(struct spi_device *spi)
 
 		ret = gpio_request(st54spi->power_or_nreset_gpio,
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
-			"gpio-power_nreset-std"
+				   "gpio-power_nreset-std"
 #else
-			"gpio-power_nreset"
+				   "gpio-power_nreset"
 #endif
 		);
 		if (ret)
 			dev_info(&spi->dev, "%s : power request failed (%d)\n",
-				__FILE__, ret);
+				 __FILE__, ret);
 
 		dev_info(&spi->dev, "%s : power/nreset GPIO = %d\n", __func__,
-			st54spi->power_or_nreset_gpio);
-		ret = gpio_direction_output(st54spi->power_or_nreset_gpio, default_value);
+			 st54spi->power_or_nreset_gpio);
+		ret = gpio_direction_output(st54spi->power_or_nreset_gpio,
+					    default_value);
 		if (ret)
-			dev_info(&spi->dev, "%s : reset direction_output failed\n", __FILE__);
+			dev_info(&spi->dev,
+				 "%s : reset direction_output failed\n",
+				 __FILE__);
 
 		/* active high */
 		gpio_set_value(st54spi->power_or_nreset_gpio, default_value);
@@ -1259,10 +1377,11 @@ static int st54spi_probe(struct spi_device *spi)
 	if (st54spi->power_or_nreset_gpio_mode == POWER_MODE_ST54H) {
 #ifndef MODULE
 		dev_info(&spi->dev, "%s : Register with st21nfc driver, %p\n",
-			__func__, st54spi);
+			 __func__, st54spi);
 		st21nfc_register_st54spi_cb(st54spi_st21nfc_cb, st54spi);
 #else
-		dev_err(&spi->dev, "%s : st54spi as module cannot use ST54H fully\n",
+		dev_info(&spi->dev,
+			"%s : st54spi as module cannot use ST54H fully\n",
 			__func__);
 #endif
 	}
@@ -1276,12 +1395,12 @@ static int st54spi_remove(struct spi_device *spi)
 
 	if (st54spi->power_or_nreset_gpio_mode == POWER_MODE_ST54H) {
 #ifndef MODULE
-		dev_info(&st54spi->spi->dev, "%s : Unregister from st21nfc driver\n",
-			__func__);
+		dev_info(DEV, "%s : Unregister from st21nfc driver\n",
+			 __func__);
 		st21nfc_unregister_st54spi_cb();
 #endif
 	}
-    /* make sure ops on existing fds can abort cleanly */
+	/* make sure ops on existing fds can abort cleanly */
 	spin_lock_irq(&st54spi->spi_lock);
 	st54spi->spi = NULL;
 	st54spi->spi_reset = NULL;
@@ -1329,11 +1448,11 @@ static int __init st54spi_init(void)
 	 * the driver which manages those device numbers.
 	 */
 	BUILD_BUG_ON(N_SPI_MINORS > 256);
-	spidev_major = __register_chrdev(0, 0, N_SPI_MINORS,
-		"spi", &st54spi_fops);
+	spidev_major =
+		__register_chrdev(0, 0, N_SPI_MINORS, "spi", &st54spi_fops);
 	pr_info("Loading st54spi driver, major: %d\n", spidev_major);
 
-	st54spi_class = class_create(THIS_MODULE, "spidev");
+	st54spi_class = class_create(THIS_MODULE, "st54spi");
 	if (IS_ERR(st54spi_class)) {
 		unregister_chrdev(spidev_major, st54spi_spi_driver.driver.name);
 		return PTR_ERR(st54spi_class);
