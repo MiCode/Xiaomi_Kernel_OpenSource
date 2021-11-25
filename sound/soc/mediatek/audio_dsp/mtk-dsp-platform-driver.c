@@ -1038,12 +1038,20 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 		&(dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 	unsigned long flags = 0;
 	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
+	const char *task_name = get_str_by_dsp_dai_id(id);
 
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s(__func__, &dsp_mem->ring_buf);
 	dump_rbuf_bridge_s(__func__,
 			   &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 #endif
+
+	if (substream->runtime->status->state == SNDRV_PCM_STATE_XRUN) {
+		pr_info_ratelimited("%s() %s state[%d]\n",
+				    __func__, task_name,
+				    substream->runtime->status->state);
+		return -1;
+	}
 
 	Ringbuf_Check(ringbuf);
 	Ringbuf_Bridge_Check(
