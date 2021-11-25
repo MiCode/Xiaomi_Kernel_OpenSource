@@ -5492,6 +5492,48 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	mtk_ctx_watchdog_init(ctx);
 }
 
+static int mtk_cam_v4l2_subdev_link_validate(struct v4l2_subdev *sd,
+				      struct media_link *link,
+				      struct v4l2_subdev_format *source_fmt,
+				      struct v4l2_subdev_format *sink_fmt)
+{
+	bool pass = true;
+
+	/* The width, height and code must match. */
+	if (source_fmt->format.width != sink_fmt->format.width) {
+		dev_dbg(sd->entity.graph_obj.mdev->dev,
+			"%s: width does not match (source %u, sink %u)\n",
+			__func__,
+			source_fmt->format.width, sink_fmt->format.width);
+		pass = false;
+	}
+
+	if (source_fmt->format.height != sink_fmt->format.height) {
+		dev_dbg(sd->entity.graph_obj.mdev->dev,
+			"%s: height does not match (source %u, sink %u)\n",
+			__func__,
+			source_fmt->format.height, sink_fmt->format.height);
+		pass = false;
+	}
+
+	if (source_fmt->format.code != sink_fmt->format.code) {
+		dev_info(sd->entity.graph_obj.mdev->dev,
+			"%s: warn: media bus code does not match (source 0x%8.8x, sink 0x%8.8x)\n",
+			__func__,
+			source_fmt->format.code, sink_fmt->format.code);
+	}
+
+	if (pass)
+		return 0;
+
+	dev_dbg(sd->entity.graph_obj.mdev->dev,
+		"%s: link was \"%s\":%u -> \"%s\":%u\n", __func__,
+		link->source->entity->name, link->source->index,
+		link->sink->entity->name, link->sink->index);
+
+	return -EPIPE;
+}
+
 int mtk_cam_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,
 			  struct v4l2_subdev_format *source_fmt,
@@ -5502,7 +5544,7 @@ int mtk_cam_link_validate(struct v4l2_subdev *sd,
 
 	dev = sd->v4l2_dev->dev;
 
-	ret = v4l2_subdev_link_validate_default(sd, link, source_fmt, sink_fmt);
+	ret = mtk_cam_v4l2_subdev_link_validate(sd, link, source_fmt, sink_fmt);
 	if (ret)
 		dev_info(dev, "%s: link validate failed pad/code/w/h: SRC(%d/0x%x/%d/%d), SINK(%d:0x%x/%d/%d)\n",
 			 sd->name, source_fmt->pad, source_fmt->format.code,
