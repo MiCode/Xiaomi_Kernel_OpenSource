@@ -602,8 +602,8 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev)
 
 void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
 {
-	int i, argc;
-	char argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2][LOG_PARAM_INFO_SIZE];
+	int i, argc = 0;
+	char argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2][LOG_PARAM_INFO_SIZE] = {0};
 	char *temp = NULL;
 	char *token = NULL;
 	long temp_val = 0;
@@ -616,16 +616,19 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
 
 	strncpy(log, val, LOG_PROPERTY_SIZE - 1);
 	temp = log;
-	for (token = strsep(&temp, "\n\r "), argc = 0;
+	for (token = strsep(&temp, "\n\r ");
 	     token != NULL && argc < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2;
-	     token = strsep(&temp, "\n\r "), argc++) {
+	     token = strsep(&temp, "\n\r ")) {
 		if (strlen(token) == 0)
 			continue;
 		strncpy(argv[argc], token, LOG_PARAM_INFO_SIZE);
 		argv[argc][LOG_PARAM_INFO_SIZE - 1] = '\0';
+		argc++;
 	}
 
 	for (i = 0; i < argc-1; i += 2) {
+		if (argv[i] == NULL || strlen(argv[i]) == 0)
+			continue;
 		if (strcmp("-mtk_vcodec_dbg", argv[i]) == 0) {
 			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
 				mtk_vcodec_dbg = temp_val;
