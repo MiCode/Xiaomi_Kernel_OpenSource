@@ -55,6 +55,7 @@ properties:
 	Definition: must be "slim<MANUFATURE_ID>,<PRODUCT_ID>"
 	must be one of the following.
 	"slim217,221" for SM8450
+	"slim217,221" for SM7450
 
 - reg:
 	Usage: required
