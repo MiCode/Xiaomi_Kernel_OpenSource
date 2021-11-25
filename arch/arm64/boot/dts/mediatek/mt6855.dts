@@ -764,8 +764,9 @@
 			reg = <0 0x1c804000 0 0x0008ff>,
 			      <0 0x1c801000 0 0x000100>;
 			reg-names = "pmif", "spmimst";
-			interrupts-extended = <&gic GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH 0>;
-			interrupt-names = "pmif_irq";
+			interrupts-extended = <&pio 222 IRQ_TYPE_LEVEL_HIGH>,
+					     <&gic GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupt-names = "rcs_irq", "pmif_irq";
 			interrupt-controller;
 			#interrupt-cells = <1>;
 			irq_event_en = <0x80000000 0x0 0x0 0x0 0x0>;
