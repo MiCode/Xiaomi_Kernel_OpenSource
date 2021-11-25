@@ -210,6 +210,8 @@ static const struct mtk_gate mm0_clks[] = {
 			"disp0_ck"/* parent */, 0),
 	GATE_MM02(CLK_MM0_DISP_DP_INTF0, "mm0_dp_clk",
 			"disp0_ck"/* parent */, 1),
+	GATE_MM02(CLK_MM0_SIG_EMI, "mm0_sig_emi",
+			"disp0_ck"/* parent */, 11),
 };
 
 static const struct mtk_clk_desc mm0_mcd = {
@@ -360,6 +362,8 @@ static const struct mtk_gate mm1_clks[] = {
 			"disp1_ck"/* parent */, 0),
 	GATE_MM12(CLK_MM1_DISP_DP_INTF0, "mm1_dp_clk",
 			"disp1_ck"/* parent */, 1),
+	GATE_MM12(CLK_MM1_SIG_EMI, "mm1_sig_emi",
+			"hf_fdisp2_ck"/* parent */, 11),
 };
 
 static const struct mtk_clk_desc mm1_mcd = {

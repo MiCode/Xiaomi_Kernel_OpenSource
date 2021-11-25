@@ -21,7 +21,7 @@
 #define MTK_WAIT_HWV_DONE_CNT		200
 #define MTK_WAIT_HWV_DONE_US		5
 #define MTK_HWV_ID_OFS			(0x8)
-#define MTK_HWV_BUS_TMROUT		(20)
+#define MTK_HWV_BUS_TMROUT		(20000)
 #define MTK_HWV_DONE_TMROUT		(100000)
 
 static unsigned long long profile_time[4];

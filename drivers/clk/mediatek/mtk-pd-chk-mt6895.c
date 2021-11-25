@@ -68,6 +68,8 @@ struct pd_check_swcg camsys_mraw_swcgs[] = {
 	SWCG("cam_mr_mraw1"),
 	SWCG("cam_mr_mraw2"),
 	SWCG("cam_mr_mraw3"),
+	SWCG("cam_mr_pda0"),
+	SWCG("cam_mr_pda1"),
 	SWCG(NULL),
 };
 /* camsys_rawa */
@@ -317,6 +319,7 @@ struct pd_check_swcg mmsys0_config_swcgs[] = {
 	SWCG("mm0_smi_common"),
 	SWCG("mm0_clk"),
 	SWCG("mm0_dp_clk"),
+	SWCG("mm0_sig_emi"),
 	SWCG(NULL),
 };
 /* mmsys1_config */
@@ -368,6 +371,7 @@ struct pd_check_swcg mmsys1_config_swcgs[] = {
 	SWCG("mm1_smi_common"),
 	SWCG("mm1_clk"),
 	SWCG("mm1_dp_clk"),
+	SWCG("mm1_sig_emi"),
 	SWCG(NULL),
 };
 /* vdec_gcon_base */

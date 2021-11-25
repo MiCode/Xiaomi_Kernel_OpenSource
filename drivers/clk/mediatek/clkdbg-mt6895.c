@@ -335,6 +335,7 @@ const char * const *get_mt6895_all_clk_names(void)
 		"mm0_smi_common",
 		"mm0_clk",
 		"mm0_dp_clk",
+		"mm0_sig_emi",
 
 		/* mmsys1_config */
 		"mm1_disp_mutex0",
@@ -384,6 +385,7 @@ const char * const *get_mt6895_all_clk_names(void)
 		"mm1_smi_common",
 		"mm1_clk",
 		"mm1_dp_clk",
+		"mm1_sig_emi",
 
 		/* imgsys_main */
 		"img_larb9",
@@ -562,6 +564,8 @@ const char * const *get_mt6895_all_clk_names(void)
 		"cam_mr_mraw1",
 		"cam_mr_mraw2",
 		"cam_mr_mraw3",
+		"cam_mr_pda0",
+		"cam_mr_pda1",
 
 		/* ccu_main */
 		"ccu_larb19",
