@@ -600,7 +600,8 @@ static u32 mml_calc_bw(u64 data, u32 pixel, u64 throughput)
 	data = (u64)div_u64(data * 4 * throughput, 3);
 	if (!pixel)
 		pixel = 1;
-	return (u32)div_u64(data, pixel);
+	/* 1536 is the worst bw calculated by DE */
+	return min_t(u32, div_u64(data, pixel), 1536);
 }
 
 static u32 mml_calc_bw_hrt(u32 datasize)
@@ -610,7 +611,7 @@ static u32 mml_calc_bw_hrt(u32 datasize)
 	 * the 1.25 separate to * 10 / 8
 	 * and width * height * bpp = datasize in bytes
 	 */
-	return (datasize * 60 * 10) >> 20;
+	return (u32)div_u64((u64)(datasize * 60 * 10) >> 2, 1000000);
 }
 
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
