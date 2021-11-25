@@ -7172,8 +7172,9 @@
 			<&smi_larb1 M4U_LARB1_PORT7>;
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_DISP>;
 		clocks = <&dispsys_config_clk CLK_MM_DISPSYS_CONFIG>,
-			   <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
-		clock-num = <2>;
+			   <&dispsys_config_clk CLK_MM_DISP_MUTEX0>,
+			   <&dispsys_config_clk CLK_MM_SIG_EMI>;
+		clock-num = <3>;
 		operating-points-v2 = <&opp_table_disp>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects = <&mmqos SLAVE_LARB(30) &mmqos SLAVE_COMMON(0)>;
