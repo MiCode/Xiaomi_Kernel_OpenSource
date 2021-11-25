@@ -34,9 +34,9 @@ def get_config_in_defconfig(file_name, kernel_dir):
 
 def help():
     print 'Usage:'
-    print '  python scripts/gen_build_config.py --project <project> --kernel-defconfig <kernel project defconfig file> --build-mode <mode> --out-file <gen build.config>'
+    print '  python scripts/gen_build_config.py --project <project> --kernel-defconfig <kernel project defconfig file> --kernel-defconfig-overlays <kernel project overlay defconfig files> --build-mode <mode> --out-file <gen build.config>'
     print 'Or:'
-    print '  python scripts/gen_build_config.py -p <project> --kernel-defconfig <kernel project defconfig file> -m <mode> -o <gen build.config>'
+    print '  python scripts/gen_build_config.py -p <project> --kernel-defconfig <kernel project defconfig file> --kernel-defconfig-overlays <kernel project overlay defconfig files> -m <mode> -o <gen build.config>'
     print ''
     print 'Attention: Must set generated build.config, and project or kernel project defconfig file!!'
     sys.exit(2)
@@ -45,6 +45,7 @@ def main(**args):
 
     project = args["project"]
     kernel_defconfig = args["kernel_defconfig"]
+    kernel_defconfig_overlays = args["kernel_defconfig_overlays"]
     build_mode = args["build_mode"]
     abi_mode = args["abi_mode"]
     out_file = args["out_file"]
@@ -124,12 +125,12 @@ def main(**args):
     all_defconfig = ''
     pre_defconfig_cmds = ''
     if not special_defconfig:
-        all_defconfig = '%s %s' % (project_defconfig_name, mode_config)
+        all_defconfig = '%s %s %s' % (project_defconfig_name, kernel_defconfig_overlays, mode_config)
     else:
         # get relative path from {kernel dir} to curret working dir
         rel_kernel_path = 'REL_KERNEL_PATH=`./${KERNEL_DIR}/scripts/get_rel_path.sh ${ROOT_DIR} %s`' % (kernel_dir)
         file_text.append(rel_kernel_path)
-        all_defconfig = '%s ../../../${REL_KERNEL_PATH}/${OUT_DIR}/%s.config %s' % (special_defconfig, project, mode_config)
+        all_defconfig = '%s ../../../${REL_KERNEL_PATH}/${OUT_DIR}/%s.config %s %s' % (special_defconfig, project, kernel_defconfig_overlays, mode_config)
         pre_defconfig_cmds = 'PRE_DEFCONFIG_CMDS=\"cp -p ${KERNEL_DIR}/%s/%s ${OUT_DIR}/%s.config\"' % (defconfig_dir, project_defconfig_name, project)
     all_defconfig = 'DEFCONFIG=\"%s\"' % (all_defconfig.strip())
     file_text.append(all_defconfig)
@@ -198,6 +199,7 @@ if __name__ == '__main__':
 
     parser.add_argument("-p","--project", dest="project", help="specify the project to build kernel.", default="")
     parser.add_argument("--kernel-defconfig", dest="kernel_defconfig", help="special kernel project defconfig file.",default="")
+    parser.add_argument("--kernel-defconfig-overlays", dest="kernel_defconfig_overlays", help="special kernel project overlay defconfig files.",default="")
     parser.add_argument("-m","--build-mode", dest="build_mode", help="specify the build mode to build kernel.", default="user")
     parser.add_argument("--abi", dest="abi_mode", help="specify whether build.config is used to check ABI.", default="no")
     parser.add_argument("-o","--out-file", dest="out_file", help="specify the generated build.config file.", required=True)
