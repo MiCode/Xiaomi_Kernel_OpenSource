@@ -18,7 +18,7 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
-
+#include <soc/mediatek/smi.h>
 #define MMINFRA_MAX_CLK_NUM	(4)
 
 struct mminfra_dbg {
@@ -36,6 +36,18 @@ static atomic_t clk_ref_cnt = ATOMIC_INIT(0);
 static struct device *dev;
 static struct mminfra_dbg *dbg;
 
+#define MMINFRA_BASE		0x1e800000
+
+#define MMINFRA_CG_CON0		0x100
+#define GCED_CG_BIT			BIT(0)
+#define GCEM_CG_BIT			BIT(1)
+#define SMI_CG_BIT			BIT(2)
+
+#define MMINFRA_CG_CON1		0x110
+#define GCE26M_CG_BIT		BIT(17)
+
+#define GCED				0
+#define GCEM				1
 
 static bool mminfra_check_scmi_status(void)
 {
@@ -107,6 +119,64 @@ static bool is_mminfra_power_on(void)
 	return (atomic_read(&clk_ref_cnt) > 0);
 }
 
+static bool is_gce_cg_on(u32 hw_id)
+{
+	void __iomem *cg_base;
+	u32 con0_val;
+
+	cg_base = ioremap(MMINFRA_BASE + MMINFRA_CG_CON0, 4);
+	con0_val = readl_relaxed(cg_base);
+	iounmap(cg_base);
+
+	if (con0_val & (hw_id == GCED ? GCED_CG_BIT : GCEM_CG_BIT))
+		return false;
+
+	return true;
+}
+
+static void mminfra_cg_check(bool on)
+{
+	void __iomem *cg_base;
+	u32 con0_val;
+	u32 con1_val;
+
+	cg_base = ioremap(MMINFRA_BASE + MMINFRA_CG_CON0, 4);
+	con0_val = readl_relaxed(cg_base);
+	iounmap(cg_base);
+	cg_base = ioremap(MMINFRA_BASE + MMINFRA_CG_CON1, 4);
+	con1_val = readl_relaxed(cg_base);
+	iounmap(cg_base);
+
+	if (on) {
+		/* SMI CG still off */
+		if ((con0_val & (SMI_CG_BIT))) {
+			pr_notice("%s SMI cg still off, CG_CON0:0x%x\n", __func__, con0_val);
+			mtk_smi_dbg_cg_status();
+		}
+		/* GCE CG still off */
+		if ((con0_val & GCEM_CG_BIT) || (con0_val & GCED_CG_BIT)
+			|| (con1_val & GCE26M_CG_BIT)) {
+			pr_notice("%s GCE cg still off, CG_CON0:0x%x CG_CON1:0x%x\n",
+				__func__, con0_val, con1_val);
+			cmdq_dump_usage();
+		}
+	} else {
+		/* SMI CG still on */
+		if (!(con0_val & (SMI_CG_BIT))) {
+			pr_notice("%s SMI cg still on, CG_CON0:0x%x\n", __func__, con0_val);
+			mtk_smi_dbg_cg_status();
+		}
+		/* GCE CG still on */
+		if (!(con0_val & GCEM_CG_BIT) || !(con0_val & GCED_CG_BIT)
+			|| !(con1_val & GCE26M_CG_BIT)) {
+			pr_notice("%s GCE cg still on, CG_CON0:0x%x CG_CON1:0x%x\n",
+				__func__, con0_val, con1_val);
+			cmdq_dump_usage();
+		}
+	}
+}
+
+
 static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
@@ -116,6 +186,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 
 	if (flags == GENPD_NOTIFY_ON) {
 		mminfra_clk_set(true);
+		mminfra_cg_check(true);
 		count = atomic_inc_return(&clk_ref_cnt);
 		cmdq_util_mminfra_cmd(0);
 		do_mminfra_bkrs(true);
@@ -141,6 +212,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			return NOTIFY_OK;
 		}
 		mminfra_clk_set(false);
+		mminfra_cg_check(false);
 		count = atomic_dec_return(&clk_ref_cnt);
 		pr_notice("%s: disable clk ref_cnt=%d\n", __func__, count);
 	}
@@ -367,6 +439,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	}
 
 	cmdq_get_mminfra_cb(is_mminfra_power_on);
+	cmdq_get_mminfra_gce_cg_cb(is_gce_cg_on);
 
 	if (mminfra_bkrs == 1) {
 		mtk_pd_notifier.notifier_call = mtk_mminfra_pd_callback;
