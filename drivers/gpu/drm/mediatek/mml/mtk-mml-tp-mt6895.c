@@ -18,7 +18,7 @@
 /* 2k size and pixel as upper bound */
 #define MML_IR_WIDTH_2K		(2560 + 30)
 #define MML_IR_HEIGHT_2K	(1440 + 30)
-#define MML_IR_2k		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
+#define MML_IR_2K		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
 /* fhd size and pixel as lower bound */
 #define MML_IR_WIDTH		(1920 - 30)
 #define MML_IR_HEIGHT		(1088 - 30)
@@ -572,10 +572,9 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	cfg->path[1] = path[1];
 
 	if (path[0]->alpharot) {
-		u8 fmt_in = MML_FMT_HW_FORMAT(cfg->info.src.format);
-		u8 i;
+		u32 i;
 
-		cfg->alpharot = MML_FMT_IS_ARGB(fmt_in);
+		cfg->alpharot = MML_FMT_IS_ARGB(cfg->info.src.format);
 		for (i = 0; i < cfg->info.dest_cnt && cfg->alpharot; i++)
 			if (!MML_FMT_IS_ARGB(cfg->info.dest[i].data.format))
 				cfg->alpharot = false;
@@ -615,6 +614,10 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (info->dest_cnt > 1)
 		goto decouple;
 
+	/* rgb should not go racing mode */
+	if (MML_FMT_IS_RGB(info->dest[0].data.format))
+		goto decouple;
+
 	/* get mid opp frequency */
 	tp = mml_topology_get_cache(mml);
 	if (!tp || !tp->opp_cnt) {
@@ -641,7 +644,7 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		goto decouple;
 	if (info->dest[0].crop.r.width > MML_IR_WIDTH_2K ||
 		info->dest[0].crop.r.height > MML_IR_HEIGHT_2K ||
-		pixel > MML_IR_2k)
+		pixel > MML_IR_2K)
 		goto decouple;
 	if (info->dest[0].crop.r.width < MML_IR_WIDTH ||
 		info->dest[0].crop.r.height < MML_IR_HEIGHT ||

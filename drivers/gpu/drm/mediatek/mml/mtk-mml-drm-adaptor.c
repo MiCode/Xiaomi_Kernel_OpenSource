@@ -1159,6 +1159,7 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	info_pq->dest[0].rotate = 0;
 	info_pq->dest[0].flip = 0;
 	info_pq->mode = MML_MODE_DDP_ADDON;
+	submit_pq->buffer.src = submit->buffer.dest[0];
 
 	if (MML_FMT_PLANE(info->dest[0].data.format) > 1)
 		mml_err("%s dest plane should be 1 but format %#010x",

@@ -178,11 +178,6 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	fbuf->cnt = user_buf->cnt;
 	fbuf->flush = user_buf->flush;
 	fbuf->invalid = user_buf->invalid;
-
-	if (user_buf->fence >= 0) {
-		/* fbuf->fence = sync_file_get_fence(user_buf->fence); */
-		mml_log("[dle]ignore dma fence %d", user_buf->fence);
-	}
 }
 
 static void task_move_to_running(struct mml_task *task)
