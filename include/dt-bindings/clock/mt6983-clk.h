@@ -481,55 +481,44 @@
 #define CLK_CAMSYS_MRAW_MRAW3					(5)
 #define CLK_CAMSYS_MRAW_PDA0					(6)
 #define CLK_CAMSYS_MRAW_PDA1					(7)
-#define CLK_CAMSYS_MRAW_NR_CLK					8
+#define CLK_CAMSYS_MRAW_LARBXT					(8)
+#define CLK_CAMSYS_MRAW_NR_CLK					9
 
 #define CLK_CAM_RA_LARBX					(0)
 #define CLK_CAM_RA_CAM						(1)
 #define CLK_CAM_RA_CAMTG					(2)
-//#define CLK_CAMSYS_RAWA_LARBX_CGPDN				(3)
-//#define CLK_CAMSYS_RAWA_CAM_CGPDN				(4)
-//#define CLK_CAMSYS_RAWA_CAMTG_CGPDN				(5)
-#define CLK_CAM_RA_NR_CLK					3//6
+#define CLK_CAM_RA_LARBXT					(3)
+#define CLK_CAM_RA_NR_CLK					4
 
 #define CLK_CAM_RB_LARBX					(0)
 #define CLK_CAM_RB_CAM						(1)
 #define CLK_CAM_RB_CAMTG					(2)
-//#define CLK_CAMSYS_RAWB_LARBX_CGPDN				(3)
-//#define CLK_CAMSYS_RAWB_CAM_CGPDN				(4)
-//#define CLK_CAMSYS_RAWB_CAMTG_CGPDN				(5)
-#define CLK_CAM_RB_NR_CLK					3//6
+#define CLK_CAM_RB_LARBXT					(3)
+#define CLK_CAM_RB_NR_CLK					4
 
 #define CLK_CAM_RC_LARBX					(0)
 #define CLK_CAM_RC_CAM						(1)
 #define CLK_CAM_RC_CAMTG					(2)
-//#define CLK_CAMSYS_RAWC_LARBX_CGPDN				(3)
-//#define CLK_CAMSYS_RAWC_CAM_CGPDN				(4)
-//#define CLK_CAMSYS_RAWC_CAMTG_CGPDN				(5)
-#define CLK_CAM_RC_NR_CLK					3//6
+#define CLK_CAM_RC_LARBXT					(3)
+#define CLK_CAM_RC_NR_CLK					4
 
 #define CLK_CAMSYS_YUVA_LARBX					(0)
 #define CLK_CAMSYS_YUVA_CAM					(1)
 #define CLK_CAMSYS_YUVA_CAMTG					(2)
-//#define CLK_CAMSYS_YUVA_LARBX_CGPDN				(3)
-//#define CLK_CAMSYS_YUVA_CAM_CGPDN				(4)
-//#define CLK_CAMSYS_YUVA_CAMTG_CGPDN				(5)
-#define CLK_CAMSYS_YUVA_NR_CLK					3//6
+#define CLK_CAMSYS_YUVA_LARBXT					(3)
+#define CLK_CAMSYS_YUVA_NR_CLK					4
 
 #define CLK_CAMSYS_YUVB_LARBX					(0)
 #define CLK_CAMSYS_YUVB_CAM					(1)
 #define CLK_CAMSYS_YUVB_CAMTG					(2)
-//#define CLK_CAMSYS_YUVB_LARBX_CGPDN				(3)
-//#define CLK_CAMSYS_YUVB_CAM_CGPDN				(4)
-//#define CLK_CAMSYS_YUVB_CAMTG_CGPDN				(5)
-#define CLK_CAMSYS_YUVB_NR_CLK					3//6
+#define CLK_CAMSYS_YUVB_LARBXT					(3)
+#define CLK_CAMSYS_YUVB_NR_CLK					4
 
 #define CLK_CAMSYS_YUVC_LARBX					(0)
 #define CLK_CAMSYS_YUVC_CAM					(1)
 #define CLK_CAMSYS_YUVC_CAMTG					(2)
-//#define CLK_CAMSYS_YUVC_LARBX_CGPDN				(3)
-//#define CLK_CAMSYS_YUVC_CAM_CGPDN				(4)
-//#define CLK_CAMSYS_YUVC_CAMTG_CGPDN				(5)
-#define CLK_CAMSYS_YUVC_NR_CLK					3//6
+#define CLK_CAMSYS_YUVC_LARBXT					(3)
+#define CLK_CAMSYS_YUVC_NR_CLK					4
 
 #define CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON			(0)
 #define CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON			(1)
