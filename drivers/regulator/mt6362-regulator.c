@@ -46,6 +46,14 @@
 #define MT6362_DEFAULT_BUCKSTEP		(6250)
 #define MT6362_VOLFBD2_BUCKSTEP		(8333)
 
+#define MT6362_REG_SPMI_CFG		(0x210)
+#define MT6362_MASK_BUCK1_SPMI_CFG	BIT(1)
+#define MT6362_MASK_BUCK2_SPMI_CFG	BIT(2)
+#define MT6362_MASK_BUCK4_SPMI_CFG	BIT(4)
+#define MT6362_MASK_MD_SPMI_CFG	\
+	((MT6362_MASK_BUCK1_SPMI_CFG) | (MT6362_MASK_BUCK2_SPMI_CFG) |	\
+	(MT6362_MASK_BUCK4_SPMI_CFG))
+
 struct mt6362_regulator_desc {
 	struct regulator_desc desc;
 	unsigned int mode_reg;
@@ -165,6 +173,30 @@ static unsigned int mt6362_general_of_map_mode(unsigned int mode)
 	}
 }
 
+static int mt6362_buck_set_voltage_sel(struct regulator_dev *rdev,
+				       unsigned int sel)
+{
+	int ret;
+
+	/* set buck 1/2/4 spmi control by SPMI_M */
+	ret = regmap_update_bits(rdev->regmap, MT6362_REG_SPMI_CFG,
+				 MT6362_MASK_MD_SPMI_CFG, 0);
+	if (ret < 0) {
+		dev_notice(&rdev->dev, "%s: set spmi_m ctrl fail\n", __func__);
+		return ret;
+	}
+
+	sel <<= ffs(rdev->desc->vsel_mask) - 1;
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->vsel_reg,
+				 rdev->desc->vsel_mask, sel);
+	if (ret)
+		dev_notice(&rdev->dev, "%s: fail to set voltage\n", __func__);
+
+	/* recover buck 1/2/4 spmi control by SPMI_P */
+	return regmap_update_bits(rdev->regmap, MT6362_REG_SPMI_CFG,
+				  MT6362_MASK_MD_SPMI_CFG, 0xff);
+}
+
 static const struct regulator_ops mt6362_ldo_regulator_ops = {
 	.list_voltage		= regulator_list_voltage_linear_range,
 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
@@ -179,7 +211,7 @@ static const struct regulator_ops mt6362_ldo_regulator_ops = {
 
 static const struct regulator_ops mt6362_buck_regulator_ops = {
 	.list_voltage		= regulator_list_voltage_linear,
-	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+	.set_voltage_sel	= mt6362_buck_set_voltage_sel,
 	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
 	.enable			= regulator_enable_regmap,
 	.disable		= regulator_disable_regmap,
