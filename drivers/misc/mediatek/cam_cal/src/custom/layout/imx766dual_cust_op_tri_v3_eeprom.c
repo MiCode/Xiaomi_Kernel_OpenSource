@@ -23,7 +23,7 @@ static unsigned int do_lens_id_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
 
 static struct STRUCT_CALIBRATION_LAYOUT_STRUCT cal_layout_table = {
-	0x00000006, 0x01470005, CAM_CAL_SINGLE_EEPROM_DATA,
+	0x00000006, 0x0147000E, CAM_CAL_SINGLE_EEPROM_DATA,
 	{
 		{0x00000001, 0x00000000, 0x00000000, do_module_version},
 		{0x00000001, 0x00000000, 0x00000002, do_part_number},
@@ -36,8 +36,8 @@ static struct STRUCT_CALIBRATION_LAYOUT_STRUCT cal_layout_table = {
 	}
 };
 
-struct STRUCT_CAM_CAL_CONFIG_STRUCT imx766dual_cust_op_tri_eeprom = {
-	.name = "imx766dual_cust_op_tri_eeprom",
+struct STRUCT_CAM_CAL_CONFIG_STRUCT imx766dual_cust_op_tri_v3_eeprom = {
+	.name = "imx766dual_cust_op_tri_v3_eeprom",
 	.check_layout_function = layout_check,
 	.read_function = Common_read_region,
 	.layout = &cal_layout_table,
