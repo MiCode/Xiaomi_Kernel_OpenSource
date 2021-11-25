@@ -1533,7 +1533,7 @@ mtk_cam_set_timestamp(struct mtk_cam_request_stream_data *stream_data,
 int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				   struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 		struct mtk_camsys_ctrl_state **current_state,
-		int frame_idx_inner)
+		struct mtk_camsys_irq_info *irq_info)
 {
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
@@ -1541,6 +1541,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
+	int frame_idx_inner = irq_info->frame_idx_inner;
 	int stateidx;
 	int que_cnt = 0;
 	u64 time_boot = ktime_get_boottime_ns();
@@ -1582,6 +1583,19 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 		dev_dbg(raw_dev->dev, "[SOF-subsample] HW_DELAY state\n");
 	/* Trigger high resolution timer to try sensor setting */
 	sensor_ctrl->sof_time = ktime_get_boottime_ns() / 1000000;
+	/*check if no dbload happended*/
+	if (state_ready && sensor_ctrl->sensorsetting_wq) {
+		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_ready);
+		if (atomic_read(&sensor_ctrl->initial_drop_frame_cnt) == 0 &&
+			irq_info->frame_idx > frame_idx_inner) {
+			dev_info(raw_dev->dev,
+				"[SOF-noDBLOAD] HW delay outer_no:%d, inner_idx:%d <= processing_idx:%d,ts:%lu\n",
+				req_stream_data->frame_seq_no, frame_idx_inner,
+				atomic_read(&sensor_ctrl->isp_request_seq_no),
+				irq_info->ts_ns / 1000);
+			return STATE_RESULT_PASS_CQ_HW_DELAY;
+		}
+	}
 	mtk_cam_sof_timer_setup(ctx);
 	/* Transit outer state to inner state */
 	if (state_outer && sensor_ctrl->sensorsetting_wq) {
@@ -2348,8 +2362,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		if (mtk_cam_is_subsample(ctx))
 			state_handle_ret =
 			mtk_camsys_raw_subspl_state_handle(raw_dev, sensor_ctrl,
-						&current_state,
-						dequeued_frame_seq_no);
+						&current_state, irq_info);
 		else
 			state_handle_ret =
 			mtk_camsys_raw_state_handle(raw_dev, sensor_ctrl,
