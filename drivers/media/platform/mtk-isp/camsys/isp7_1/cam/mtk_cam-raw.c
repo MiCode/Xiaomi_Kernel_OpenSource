@@ -5277,7 +5277,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl_hdlr = &pipe->ctrl_handler;
 	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 5);
 	if (ret) {
-		dev_dbg(dev, "v4l2_ctrl_handler init failed\n");
+		dev_info(dev, "v4l2_ctrl_handler init failed\n");
 		return;
 	}
 	mutex_init(&pipe->res_config.resource_lock);

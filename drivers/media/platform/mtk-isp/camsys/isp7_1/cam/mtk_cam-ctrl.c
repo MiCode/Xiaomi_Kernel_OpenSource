@@ -3072,7 +3072,7 @@ static void mtk_cam_handle_frame_done(struct mtk_cam_ctx *ctx,
 	 */
 	spin_lock(&ctx->streaming_lock);
 	if (!ctx->streaming) {
-		dev_dbg(ctx->cam->dev,
+		dev_info(ctx->cam->dev,
 			 "%s: skip frame done for stream off ctx:%d\n",
 			 __func__, ctx->stream_id);
 		spin_unlock(&ctx->streaming_lock);
@@ -3379,7 +3379,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	if (req_stream_data) {
 		req = mtk_cam_s_data_get_req(req_stream_data);
 	} else {
-		dev_dbg(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
+		dev_info(ctx->cam->dev, "%s:ctx-%d:pipe-%d:req(%d) not found!\n",
 			 __func__, ctx->stream_id, pipe_id, frame_seq_no);
 		return;
 	}
