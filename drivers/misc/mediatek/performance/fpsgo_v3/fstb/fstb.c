@@ -342,7 +342,7 @@ int switch_margin_mode_gpu_dbnc_b(int val)
 
 int switch_jump_check_num(int val)
 {
-	if (val < 1 || val > JUMP_VOTE_MAX_I)
+	if (val < 0 || val > JUMP_VOTE_MAX_I)
 		return -EINVAL;
 
 	mutex_lock(&fstb_lock);
