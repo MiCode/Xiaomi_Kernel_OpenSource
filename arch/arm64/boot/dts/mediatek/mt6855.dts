@@ -2994,6 +2994,10 @@
 	regulator-always-on;
 };
 
+&mt6363_vaux18 {
+	regulator-always-on;
+};
+
 &mt6369_vbuck1 {
 	regulator-always-on;
 };
