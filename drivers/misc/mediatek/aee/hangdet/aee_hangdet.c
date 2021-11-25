@@ -393,8 +393,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
 			pr_info("SYST0 CON%x VAL%x affin time %lld\n",
 				ioread32(systimer_base + SYST0_CON),
-				ioread32(systimer_base + SYST0_VAL),
-				systimer_set_affin_time);
+				ioread32(systimer_base + SYST0_VAL));
 #else
 			pr_info("SYST0 CON%x VAL%x\n",
 				ioread32(systimer_base + SYST0_CON),

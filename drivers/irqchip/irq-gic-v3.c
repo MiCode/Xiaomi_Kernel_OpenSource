@@ -10,9 +10,6 @@
 #include <linux/cpu.h>
 #include <linux/cpu_pm.h>
 #include <linux/delay.h>
-#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
-#include <linux/sched/clock.h>
-#endif
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/of.h>
@@ -118,43 +115,6 @@ enum gic_intid_range {
 	LPI_RANGE,
 	__INVALID_RANGE__
 };
-
-#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
-static inline unsigned int gic_irq(struct irq_data *d);
-static unsigned int systimer_irq;
-unsigned long long systimer_set_affin_time;
-EXPORT_SYMBOL_GPL(systimer_set_affin_time);
-
-static const struct of_device_id systimer_of_match[] = {
-	{ .compatible = "mediatek,mt6765-timer" },
-	{},
-};
-
-static void get_systimer_id(void)
-{
-	unsigned int systirq = 0;
-	struct device_node *np_systimer;
-
-	for_each_matching_node(np_systimer, systimer_of_match) {
-		pr_info("%s: compatible node found: %s\n",
-			 __func__, np_systimer->name);
-		break;
-	}
-
-	systirq = irq_of_parse_and_map(np_systimer, 0);
-	if (systirq <= 0)
-		systimer_irq = 0;
-	else {
-		struct irq_desc *desc;
-
-		desc = irq_to_desc(systirq);
-		if (desc)
-			systimer_irq = gic_irq(&desc->irq_data);
-		else
-			systimer_irq = 0;
-	}
-}
-#endif
 
 static enum gic_intid_range __get_intid_range(irq_hw_number_t hwirq)
 {
@@ -384,24 +344,8 @@ static void gic_poke_irq(struct irq_data *d, u32 offset)
 
 static void gic_mask_irq(struct irq_data *d)
 {
-#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
-	if (d->hwirq == systimer_irq) {
-		pr_info("%s mask systimer hwirq%lu\n", __func__, d->hwirq);
-		WARN_ON(1);
-	}
-#endif
 	gic_poke_irq(d, GICD_ICENABLER);
 }
-
-#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
-static void gic_mask_irq_affin(struct irq_data *d)
-{
-	if (d->hwirq == systimer_irq)
-		systimer_set_affin_time = sched_clock();
-
-	gic_poke_irq(d, GICD_ICENABLER);
-}
-#endif
 
 static void gic_eoimode1_mask_irq(struct irq_data *d)
 {
@@ -1247,11 +1191,7 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	/* If interrupt was enabled, disable it first */
 	enabled = gic_peek_irq(d, GICD_ISENABLER);
 	if (enabled)
-#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
-		gic_mask_irq_affin(d);
-#else
 		gic_mask_irq(d);
-#endif
 
 	offset = convert_offset_index(d, GICD_IROUTER, &index);
 	reg = gic_dist_base(d) + offset + (index * 8);
@@ -1791,9 +1731,6 @@ static int __init gic_init_bases(void __iomem *dist_base,
 	gic_smp_init();
 	gic_cpu_pm_init();
 	gic_syscore_init();
-#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
-	get_systimer_id();
-#endif
 
 	if (gic_dist_supports_lpis()) {
 		its_init(handle, &gic_data.rdists, gic_data.domain);

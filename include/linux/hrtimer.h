@@ -558,7 +558,6 @@ struct tick_broadcast_dump_buf {
 };
 
 extern struct tick_broadcast_dump_buf bc_dump_buf;
-extern unsigned long long systimer_set_affin_time;
 extern struct cpumask *bc_tick_get_broadcast_oneshot_mask(void);
 extern struct cpumask *bc_tick_get_broadcast_pending_mask(void);
 extern struct cpumask *bc_tick_get_broadcast_force_mask(void);

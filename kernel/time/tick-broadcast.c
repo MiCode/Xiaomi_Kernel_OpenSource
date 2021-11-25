@@ -811,7 +811,6 @@ static void tick_handle_oneshot_broadcast(struct clock_event_device *dev)
 		tick_broadcast_set_event(dev, next_cpu, next_event);
 		tick_broadcast_history[0].affin_handle_cpu = next_cpu;
 		tick_broadcast_history[1].handle_time = sched_clock();
-		tick_broadcast_history[4].handle_time = systimer_set_affin_time;
 	}
 #else
 	if (next_event != KTIME_MAX)
@@ -915,7 +914,6 @@ static int ___tick_broadcast_oneshot_control(enum tick_broadcast_state state,
 				tick_broadcast_set_event(bc, cpu, dev->next_event);
 				tick_broadcast_history[0].affin_enter_cpu = cpu;
 				tick_broadcast_history[2].handle_time = sched_clock();
-				tick_broadcast_history[3].handle_time = systimer_set_affin_time;
 #else
 				tick_broadcast_set_event(bc, cpu, dev->next_event);
 #endif
