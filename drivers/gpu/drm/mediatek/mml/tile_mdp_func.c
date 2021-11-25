@@ -82,11 +82,6 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 	ptr_func->in_tile_height  = 65535;
 	ptr_func->out_tile_height = 65535;
 
-	if (!MML_FMT_BLOCK(data->src_fmt)) {
-		/* Enable MAV for MDP tile */
-		ptr_tile_reg_map->tdr_ctrl_en = true;
-	}
-
 	ptr_func->crop_bias_x = data->crop.left;
 	ptr_func->crop_bias_y = data->crop.top;
 
