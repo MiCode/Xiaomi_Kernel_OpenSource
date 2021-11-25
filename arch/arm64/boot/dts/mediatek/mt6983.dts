@@ -2584,6 +2584,7 @@
 			power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_DIP1>;
 			power-reset = <0x1513000C 4>,
 					<0x1511000C 4>,
+					<0x1511000C 6>,
 					<0x1522000C 0>,
 					<0x1552000C 0>,
 					<0x1562000C 0>;
