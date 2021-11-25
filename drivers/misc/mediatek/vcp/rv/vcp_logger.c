@@ -629,17 +629,17 @@ static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 		pr_notice("[VCP] last_log_info.vcp_log_dram_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_dram_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_buf_addr > vcpreg.total_tcmsize)
-		pr_notice("[VCP] last_log_info.vcp_log_buf_addr %x is over tcm_size %x\n",
+		pr_debug("[VCP] last_log_info.vcp_log_buf_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_buf_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_start_addr > vcpreg.total_tcmsize)
-		pr_notice("[VCP] last_log_info.vcp_log_start_addr %x is over tcm_size %x\n",
+		pr_debug("[VCP] last_log_info.vcp_log_start_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_start_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_end_addr > vcpreg.total_tcmsize)
-		pr_notice("[VCP] last_log_info.vcp_log_end_addr %x is over tcm_size %x\n",
+		pr_debug("[VCP] last_log_info.vcp_log_end_addr %x is over tcm_size %x\n",
 			last_log_info.vcp_log_end_addr, vcpreg.total_tcmsize);
 	if (last_log_info.vcp_log_buf_addr + last_log_info.vcp_log_buf_maxlen >
 		vcpreg.total_tcmsize)
-		pr_notice("[VCP]  end of last_log_info.vcp_last_log_buf %x is over tcm_size %x\n",
+		pr_debug("[VCP]  end of last_log_info.vcp_last_log_buf %x is over tcm_size %x\n",
 			last_log_info.vcp_log_buf_addr + last_log_info.vcp_log_buf_maxlen,
 				vcpreg.total_tcmsize);
 

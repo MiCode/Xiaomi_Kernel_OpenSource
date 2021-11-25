@@ -567,6 +567,8 @@ void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 	init_waitqueue_head(&dev->mq.wq);
 	atomic_set(&dev->mq.cnt, 0);
 
+	mtk_vcodec_vcp |= 1 << MTK_INST_ENCODER;
+
 	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VENC_0,
 		venc_vcp_ipi_isr, dev, &dev->enc_ipi_data);
 	if (ret) {

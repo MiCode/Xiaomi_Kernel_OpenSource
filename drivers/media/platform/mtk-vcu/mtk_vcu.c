@@ -1305,7 +1305,7 @@ EXPORT_SYMBOL_GPL(vcu_set_v4l2_callback);
 int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,
 	struct mutex **mutex, unsigned long type)
 {
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+	struct mtk_vcu *vcu = vcu_ptr;
 
 	*mutex = &vcu->ctx_ipi_binding[type];
 
@@ -1408,10 +1408,6 @@ EXPORT_SYMBOL_GPL(vcu_get_plat_device);
 
 int vcu_load_firmware(struct platform_device *pdev)
 {
-	if (pdev == NULL) {
-		dev_info(&pdev->dev, "[VCU] VCU platform device is invalid\n");
-		return -EINVAL;
-	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(vcu_load_firmware);
@@ -1419,47 +1415,6 @@ EXPORT_SYMBOL_GPL(vcu_load_firmware);
 int vcu_compare_version(struct platform_device *pdev,
 			const char *expected_version)
 {
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
-	int cur_major, cur_minor, cur_build, cur_rel, cur_ver_num;
-	int major, minor, build, rel, ver_num;
-	char *cur_version = vcu->run.fw_ver;
-
-	cur_ver_num = sscanf(cur_version, "%d.%d.%d-rc%d",
-			     &cur_major, &cur_minor, &cur_build, &cur_rel);
-	if (cur_ver_num < 3)
-		return -1;
-	ver_num = sscanf(expected_version, "%d.%d.%d-rc%d",
-			 &major, &minor, &build, &rel);
-	if (ver_num < 3)
-		return -1;
-
-	if (cur_major < major)
-		return -1;
-	if (cur_major > major)
-		return 1;
-
-	if (cur_minor < minor)
-		return -1;
-	if (cur_minor > minor)
-		return 1;
-
-	if (cur_build < build)
-		return -1;
-	if (cur_build > build)
-		return 1;
-
-	if (cur_ver_num < ver_num)
-		return -1;
-	if (cur_ver_num > ver_num)
-		return 1;
-
-	if (ver_num > 3) {
-		if (cur_rel < rel)
-			return -1;
-		if (cur_rel > rel)
-			return 1;
-	}
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(vcu_compare_version);

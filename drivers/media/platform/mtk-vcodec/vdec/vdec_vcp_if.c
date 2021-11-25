@@ -710,6 +710,8 @@ void vdec_vcp_probe(struct mtk_vcodec_dev *dev)
 	init_waitqueue_head(&dev->mq.wq);
 	atomic_set(&dev->mq.cnt, 0);
 
+	mtk_vcodec_vcp |= 1 << MTK_INST_DECODER;
+
 	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VDEC_1,
 		vdec_vcp_ipi_isr, dev, &dev->dec_ipi_data);
 	if (ret) {
