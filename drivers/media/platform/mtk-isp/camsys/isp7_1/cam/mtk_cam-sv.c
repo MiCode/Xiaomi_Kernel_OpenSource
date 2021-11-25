@@ -36,6 +36,11 @@
 #include "mach/pseudo_m4u.h"
 #endif
 
+#ifdef CAMSYS_TF_DUMP_71_1
+#include <dt-bindings/memory/mt6983-larb-port.h>
+#include "iommu_debug.h"
+#endif
+
 #define MTK_CAMSV_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
 
 static const struct of_device_id mtk_camsv_of_ids[] = {
@@ -43,6 +48,111 @@ static const struct of_device_id mtk_camsv_of_ids[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_camsv_of_ids);
+
+static void mtk_camsv_register_iommu_tf_callback(struct mtk_camsv_device *sv)
+{
+#ifdef CAMSYS_TF_DUMP_71_1
+	dev_dbg(sv->dev, "%s : sv->id:%d\n", __func__, sv->id);
+
+	switch (sv->id) {
+	case CAMSV_0:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_A_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_1:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_A_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_2:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_B_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_3:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_B_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_4:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_C_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_5:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_C_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_6:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_D_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_7:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_D_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_8:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_E_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_9:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_E_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_10:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_F_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_11:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_F_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_12:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_G_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_13:
+		mtk_iommu_register_fault_callback(M4U_PORT_L13_CAM1_GCAMSV_G_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_14:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_H_IMGO_1,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	case CAMSV_15:
+		mtk_iommu_register_fault_callback(M4U_PORT_L14_CAM1_GCAMSV_H_IMGO_2,
+			mtk_camsv_translation_fault_callback, (void *)sv, false);
+		break;
+	}
+#endif
+};
+
+#ifdef CAMSYS_TF_DUMP_71_1
+int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data)
+{
+	struct mtk_camsv_device *sv_dev = (struct mtk_camsv_device *)data;
+
+	dev_info(sv_dev->dev, "mod_en:0x%x fmt_sel:0x%x imgo_fbc_ctrl1:0x%x imgo_fbc_ctrl2:0x%x",
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_MODULE_EN),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_FMT_SEL),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_FBC_IMGO_CTL1),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_FBC_IMGO_CTL2));
+
+	dev_info(sv_dev->dev, "tg_sen_mode:0x%x tg_vf_con:0x%x tg_path_cfg:0x%x tg_grab_pxl:0x%x tg_grab_lin:0x%x",
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_TG_SEN_MODE),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_TG_VF_CON),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_TG_PATH_CFG),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_TG_SEN_GRAB_PXL),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_TG_SEN_GRAB_LIN));
+
+	dev_info(sv_dev->dev, "imgo_xsize:0x%x imgo_ysize:0x%x imgo_stride:0x%x imgo_addr:0x%x_%x imgo_ofst_addr:0x%x_%x",
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_IMGO_XSIZE),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_IMGO_YSIZE),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_IMGO_STRIDE),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_IMGO_BASE_ADDR_MSB),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_IMGO_BASE_ADDR),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_IMGO_OFST_ADDR_MSB),
+		readl_relaxed(sv_dev->base_inner + REG_CAMSV_IMGO_OFST_ADDR));
+
+	return 0;
+}
+#endif
 
 static const struct v4l2_mbus_framefmt sv_mfmt_default = {
 	.code = MEDIA_BUS_FMT_SBGGR10_1X10,
@@ -860,14 +970,11 @@ int mtk_cam_sv_tg_config(struct mtk_camsv_device *dev, struct mtkcam_ipi_input_p
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_TG_SEN_GRAB_PXL, pxl);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_TG_SEN_GRAB_LIN, lin);
 
-	dev_info(dev->dev, "pixel mode:%d\n", cfg_in_param->pixel_mode);
-	dev_info(dev->dev, "sub-sample:%d\n", cfg_in_param->subsample);
-	dev_info(dev->dev, "fmt:%d\n", cfg_in_param->fmt);
-	dev_info(dev->dev, "crop_x:%d\n", cfg_in_param->in_crop.p.x);
-	dev_info(dev->dev, "crop_y:%d\n", cfg_in_param->in_crop.p.y);
-	dev_info(dev->dev, "crop_w:%d\n", cfg_in_param->in_crop.s.w);
-	dev_info(dev->dev, "crop_h:%d\n", cfg_in_param->in_crop.s.h);
-
+	dev_info(dev->dev, "pxl mode:%d sub:%d fmt:0x%x x:%d y:%d w:%d h:%d\n",
+		cfg_in_param->pixel_mode, cfg_in_param->subsample,
+		cfg_in_param->fmt, cfg_in_param->in_crop.p.x,
+		cfg_in_param->in_crop.p.y, cfg_in_param->in_crop.s.w,
+		cfg_in_param->in_crop.s.h);
 EXIT:
 	return ret;
 }
@@ -988,11 +1095,9 @@ int mtk_cam_sv_dmao_config(
 		}
 	}
 
-	dev_info(dev->dev, "xsize:%d\n",
-		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_XSIZE));
-	dev_info(dev->dev, "ysize:%d\n",
-		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_YSIZE));
-	dev_info(dev->dev, "stride:%d\n",
+	dev_info(dev->dev, "xsize:%d ysize:%d stride:%d\n",
+		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_XSIZE),
+		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_YSIZE),
 		CAMSV_READ_REG(dev->base + REG_CAMSV_IMGO_STRIDE));
 
 	/* imgo crop */
@@ -1617,6 +1722,8 @@ int mtk_cam_sv_dev_config(
 	mtk_cam_sv_tg_enable(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_dmao_enable(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_fbc_enable(camsv_dev, &cfg_in_param);
+
+	mtk_camsv_register_iommu_tf_callback(camsv_dev);
 
 	dev_info(dev, "camsv %d %s done\n", camsv_dev->id, __func__);
 
