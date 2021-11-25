@@ -2550,6 +2550,52 @@ s32 cmdq_mbox_chan_id(void *chan)
 }
 EXPORT_SYMBOL(cmdq_mbox_chan_id);
 
+void cmdq_mbox_check_buffer(struct mbox_chan *chan,
+	struct cmdq_pkt_buffer *buffer)
+{
+	struct cmdq *cmdq = container_of(chan->mbox, typeof(*cmdq), mbox);
+	bool err = false;
+	s32 i;
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread) && !err; i++) {
+		struct cmdq_thread *thread = &cmdq->thread[i];
+		struct cmdq_task *task;
+		struct cmdq_pkt_buffer *buf;
+		unsigned long flags;
+
+		if (!thread->occupied && !thread->chan)
+			continue;
+
+		spin_lock_irqsave(&thread->chan->lock, flags);
+		list_for_each_entry(task, &thread->task_busy_list, list_entry) {
+			list_for_each_entry(buf, &task->pkt->buf, list_entry) {
+				if (CMDQ_BUF_ADDR(buffer) ==
+					CMDQ_BUF_ADDR(buf)) {
+					cmdq_util_err(
+						"hwid:%hu thread:%u cur:%p va:%p iova:%pa pa:%pa alloc_time:%llu",
+						cmdq->hwid, thread->idx, buffer,
+						buffer->va_base,
+						&buffer->iova_base,
+						&buffer->pa_base,
+						buffer->alloc_time);
+					cmdq_util_err(
+						"hwid:%hu thread:%u buf:%p va:%p iova:%pa pa:%pa alloc_time:%llu allocated",
+						cmdq->hwid, thread->idx, buf,
+						buf->va_base, &buf->iova_base,
+						&buf->pa_base, buf->alloc_time);
+					err = true;
+					break;
+				}
+			}
+			if (err)
+				break;
+		}
+		spin_unlock_irqrestore(&thread->chan->lock, flags);
+	}
+
+}
+EXPORT_SYMBOL(cmdq_mbox_check_buffer);
+
 s32 cmdq_task_get_thread_pc(struct mbox_chan *chan, dma_addr_t *pc_out)
 {
 	struct cmdq_thread *thread;

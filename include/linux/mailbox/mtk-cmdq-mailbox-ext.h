@@ -296,6 +296,8 @@ void cmdq_mbox_thread_disable(void *chan);
 u32 cmdq_mbox_get_thread_timeout(void *chan);
 u32 cmdq_mbox_set_thread_timeout(void *chan, u32 timeout);
 s32 cmdq_mbox_chan_id(void *chan);
+void cmdq_mbox_check_buffer(struct mbox_chan *chan,
+	struct cmdq_pkt_buffer *buffer);
 s32 cmdq_task_get_thread_pc(struct mbox_chan *chan, dma_addr_t *pc_out);
 s32 cmdq_task_get_thread_irq(struct mbox_chan *chan, u32 *irq_out);
 s32 cmdq_task_get_thread_irq_en(struct mbox_chan *chan, u32 *irq_en_out);
