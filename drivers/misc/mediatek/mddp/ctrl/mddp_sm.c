@@ -5,7 +5,6 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/completion.h>
 #include <linux/slab.h>
 #include <linux/mutex.h>
 
@@ -44,7 +43,6 @@ static const mddp_sm_init_func_t mddp_sm_init_func_list_s[] = {
 //------------------------------------------------------------------------------
 static struct mddp_app_t mddp_app_inst_s[MDDP_APP_TYPE_CNT];
 static struct mutex mddp_state_handler_mtx;
-static struct completion mddp_md_resp_comp;
 
 //------------------------------------------------------------------------------
 // Private functions.
@@ -133,7 +131,6 @@ int32_t mddp_sm_init(void)
 		atomic_set(&app->feature, 0);
 	}
 	mutex_init(&mddp_state_handler_mtx);
-	init_completion(&mddp_md_resp_comp);
 
 	return 0;
 }
@@ -180,7 +177,7 @@ enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 	enum mddp_state_e       new_state = MDDP_STATE_DUMMY;
 	enum mddp_event_e       event;
 
-	complete(&mddp_md_resp_comp);
+	complete(&app->md_resp_comp);
 	curr_state = mddp_get_state(app);
 	event = (md_rsp_result) ? MDDP_EVT_MD_RSP_OK : MDDP_EVT_MD_RSP_FAIL;
 
@@ -291,6 +288,11 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 	return new_state;
 }
 
+void mddp_sm_wait_pre(struct mddp_app_t *app)
+{
+	init_completion(&app->md_resp_comp);
+}
+
 void mddp_sm_wait(struct mddp_app_t *app, enum mddp_event_e event)
 {
 	enum mddp_state_e state;
@@ -301,7 +303,7 @@ void mddp_sm_wait(struct mddp_app_t *app, enum mddp_event_e event)
 	if ((state ==  MDDP_STATE_DEACTIVATED) && (event == MDDP_EVT_FUNC_DEACT))
 		return;
 
-	if (wait_for_completion_timeout(&mddp_md_resp_comp, msecs_to_jiffies(100)) == 0)
+	if (wait_for_completion_timeout(&app->md_resp_comp, msecs_to_jiffies(150)) == 0)
 		mddp_sm_on_event(app, MDDP_EVT_MD_RSP_TIMEOUT);
 }
 

@@ -8,6 +8,7 @@
 #ifndef __MDDP_SM_H
 #define __MDDP_SM_H
 
+#include <linux/completion.h>
 #include <linux/workqueue.h>
 
 #include "mddp_export.h"
@@ -102,6 +103,7 @@ struct mddp_app_t {
 	atomic_t                    feature;
 	uint32_t                    abnormal_flags;
 	uint32_t                    reset_cnt;
+	struct completion           md_resp_comp;
 };
 
 
@@ -143,6 +145,7 @@ void mddp_dump_sm_table(struct mddp_app_t *app);
 #define mddp_dump_sm_table(...)
 #endif
 enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app, enum mddp_event_e event);
+void mddp_sm_wait_pre(struct mddp_app_t *app);
 void mddp_sm_wait(struct mddp_app_t *app, enum mddp_event_e event);
 
 void mddp_check_feature(void);

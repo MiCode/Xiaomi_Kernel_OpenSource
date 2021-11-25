@@ -16,6 +16,7 @@
 
 #define MDDP_RESET_READY_TIME_MS (100)
 static struct work_struct wfpm_reset_work;
+static struct work_struct md_rsp_fail_work;
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -218,7 +219,7 @@ static void mddpwh_sm_deact(struct mddp_app_t *app)
 	md_msg->msg_id = IPC_MSG_ID_WFPM_DEACTIVATE_MD_FAST_PATH_REQ;
 	md_msg->data_len = sizeof(struct wfpm_activate_md_func_req_t);
 	if (mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) < 0)
-		mddp_sm_on_event(app, MDDP_EVT_MD_RSP_FAIL);
+		schedule_work(&md_rsp_fail_work);
 }
 
 static void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
@@ -332,7 +333,7 @@ static struct mddp_sm_entry_t mddpwh_deactivating_state_machine_s[] = {
 {MDDP_EVT_FUNC_ACT,       MDDP_STATE_ACTIVATING,   mddpwh_sm_act},
 {MDDP_EVT_FUNC_DEACT,     MDDP_STATE_DEACTIVATING, NULL},
 {MDDP_EVT_MD_RSP_OK,      MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
-{MDDP_EVT_MD_RSP_FAIL,    MDDP_STATE_DEACTIVATED,  NULL},
+{MDDP_EVT_MD_RSP_FAIL,    MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
 {MDDP_EVT_MD_RSP_TIMEOUT, MDDP_STATE_DEACTIVATED,  mddpwh_sm_rsp_deact},
 {MDDP_EVT_DUMMY,          MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */
 };
@@ -909,6 +910,14 @@ static void wfpm_reset_work_func(struct work_struct *work)
 	}
 }
 
+static void md_rsp_fail_work_func(struct work_struct *work)
+{
+	struct mddp_app_t       *app;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	mddp_sm_on_event(app, MDDP_EVT_MD_RSP_FAIL);
+}
+
 int32_t mddpwh_sm_init(struct mddp_app_t *app)
 {
 	memcpy(&app->state_machines,
@@ -929,6 +938,7 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 	app->is_config = 1;
 
 	INIT_WORK(&wfpm_reset_work, wfpm_reset_work_func);
+	INIT_WORK(&md_rsp_fail_work, md_rsp_fail_work_func);
 
 	return 0;
 }
