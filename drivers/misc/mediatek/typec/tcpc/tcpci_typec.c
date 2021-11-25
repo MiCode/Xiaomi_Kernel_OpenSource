@@ -2095,7 +2095,8 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 		typec_attach_wait_entry(tcpc);
 		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND)
 			tcpci_set_floating_ground(tcpc, false);
-		if (tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP)
+		if ((tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP) &&
+			((typec_get_cc1() + typec_get_cc2()) >= TYPEC_CC_VOLT_SNK_DFT))
 			tcpci_set_otp_fwen(tcpc, true);
 #if CONFIG_WATER_DETECTION
 		if ((tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION) &&
