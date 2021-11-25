@@ -1498,6 +1498,9 @@
 		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
 			 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 		clock-names = "gce","gce-timer";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&disp_iommu M4U_LARB32_GCE_DM>;
+		dma_mask_bit = <34>;
 	};
 
 	gce_m: gce@1e990000 {
@@ -1529,6 +1532,9 @@
 		clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>,
 			 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 		clock-names = "gce","gce-timer";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&disp_iommu M4U_LARB32_GCE_MM>;
+		dma_mask_bit = <34>;
 	};
 
 	gce_m_sec: gce_mbox_m_sec@1e990000 {
