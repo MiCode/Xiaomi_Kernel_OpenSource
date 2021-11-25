@@ -384,6 +384,7 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 hdr_input_h;
 	u32 hdr_crop_xs;
 	u32 hdr_crop_xe;
+	u32 hdr_crop_ys;
 	u32 hdr_crop_ye;
 	u32 hdr_hist_left_start = 0;
 	u32 hdr_hist_begin_x = 0;
@@ -398,7 +399,8 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	hdr_input_h = tile->in.ye - tile->in.ys + 1;
 	hdr_crop_xs = tile->out.xs - tile->in.xs;
 	hdr_crop_xe = tile->out.xe - tile->in.xs;
-	hdr_crop_ye = tile->in.ye - tile->in.ys;
+	hdr_crop_ys = tile->out.ys - tile->in.ys;
+	hdr_crop_ye = tile->out.ye - tile->in.ys;
 
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_TILE_POS,
 		(tile->out.ys << 16) + tile->out.xs, U32_MAX);
@@ -407,7 +409,7 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_SIZE_1,
 		(hdr_crop_xe << 16) + hdr_crop_xs, U32_MAX);
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_SIZE_2,
-		hdr_crop_ye << 16, U32_MAX);
+		(hdr_crop_ye << 16) + hdr_crop_ys, U32_MAX);
 
 	mml_pq_msg("%s %d: [input] [xs, xe] = [%d, %d], [ys, ye] = [%d, %d]",
 			__func__, idx, tile->in.xs, tile->in.xe, tile->in.ys, tile->in.ye);
