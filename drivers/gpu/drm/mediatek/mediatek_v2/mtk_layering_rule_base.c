@@ -2239,6 +2239,7 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	INIT_LIST_HEAD(&lyeblob_ids->list);
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	list_add_tail(&lyeblob_ids->list, &mtk_drm->lyeblob_head);
+	DRM_MMP_MARK(layering_blob, lyeblob_ids->lye_idx, lyeblob_ids->frame_weight);
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }
 

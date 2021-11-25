@@ -2368,6 +2368,7 @@ static void mtk_crtc_free_ddpblob_ids(struct drm_crtc *crtc,
 	struct drm_property_blob *blob;
 
 	if (lyeblob_ids->ddp_blob_id) {
+		DRM_MMP_MARK(layering_blob, 0xffffffff, lyeblob_ids->lye_idx);
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
 		drm_property_blob_put(blob);
 		drm_property_blob_put(blob);
@@ -3094,6 +3095,8 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			cmdq_handle);
 		mtk_crtc_update_hrt_state(crtc, pan_disp_frame_weight, NULL,
 			cmdq_handle);
+		DRM_MMP_MARK(layering_blob, 0,
+			pan_disp_frame_weight | 0xffff0000);
 	}
 	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
 				 list) {
@@ -3106,9 +3109,15 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 					old_crtc_state, crtc_state,
 					cmdq_handle);
 			if (index == 0) {
+				if (prop_lye_idx < 4 && lyeblob_ids->frame_weight == 0)
+					DDPMSG("%s, invalid hrt:%u of frame:%u\n",
+						__func__, lyeblob_ids->frame_weight,
+						lyeblob_ids->lye_idx);
 				mtk_crtc_update_hrt_state(
 					crtc, lyeblob_ids->frame_weight,
 					lyeblob_ids, cmdq_handle);
+				DRM_MMP_MARK(layering_blob, lyeblob_ids->lye_idx,
+					lyeblob_ids->frame_weight | 0xffff0000);
 			}
 			if (index == 2 && need_skip)
 				break;
