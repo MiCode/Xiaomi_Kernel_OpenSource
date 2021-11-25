@@ -759,8 +759,10 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 
 		/* calculate remaining time to complete pixels */
 		max_pixel = task_pipe_cur->task->config->cache[pipe].max_pixel;
-		mml_core_calc_tput(task_pipe_cur->task, max_pixel,
-			&task->end_time, &curr_time);
+
+		if (task->config->info.mode != MML_MODE_RACING)
+			mml_core_calc_tput(task_pipe_cur->task, max_pixel,
+				&task->end_time, &curr_time);
 
 		throughput = 0;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
