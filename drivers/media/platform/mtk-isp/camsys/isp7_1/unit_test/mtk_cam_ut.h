@@ -58,8 +58,9 @@ enum tg_enum {
 enum testmdl_enum {
 	disable = -1,
 	normal = 0,
-	stagger_2exp = 1U << 1,
-	stagger_3exp = 1U << 2
+	stagger_1exp = 1U << 1,
+	stagger_2exp = 1U << 2,
+	stagger_3exp = 1U << 3,
 };
 
 struct mtk_cam_ut_mem_obj {
