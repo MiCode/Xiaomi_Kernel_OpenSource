@@ -10851,6 +10851,7 @@
 		dli1-dl-relay = /bits/ 16 <DL_IN_RELAY1_SIZE>;
 		dlo0-dl-relay = /bits/ 16 <DL_OUT_RELAY0_SIZE>;
 		dlo1-dl-relay = /bits/ 16 <DL_OUT_RELAY1_SIZE>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_DISP_FAKE1)>;
 	};
 
 	mml_mutex0@1f801000 {
