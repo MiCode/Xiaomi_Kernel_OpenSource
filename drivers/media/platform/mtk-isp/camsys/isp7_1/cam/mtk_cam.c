@@ -3105,18 +3105,18 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		    mstream_s_data->frame_seq_no) {
 			mtk_cam_req_dump(s_data,
 					 MTK_CAM_REQ_DUMP_FORCE,
-					 "Camsys Force Dump");
+					 "Camsys Force Dump", false);
 		}
 	} else {
 		mtk_cam_req_dump(s_data,
 				 MTK_CAM_REQ_DUMP_FORCE,
-				 "Camsys Force Dump");
+				 "Camsys Force Dump", false);
 	}
 
 	if (ipi_msg->ack_data.ret) {
 		mtk_cam_req_dump(s_data,
 			MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
-			"Camsys compose error");
+			"Camsys compose error", false);
 	}
 
 	/* assign mraw using buf */

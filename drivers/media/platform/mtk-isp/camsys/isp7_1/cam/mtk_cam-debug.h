@@ -95,6 +95,7 @@ struct mtk_cam_req_dbg_work {
 	unsigned int dump_flags;
 	int buffer_state;
 	char desc[MTK_CAM_DEBUG_DUMP_DESC_SIZE];
+	bool smi_dump;
 };
 
 struct mtk_cam_dump_header {
@@ -210,7 +211,7 @@ static inline struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void)
 }
 
 static inline int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
-				   unsigned int dump_flag, char *desc)
+				   unsigned int dump_flag, char *desc, bool smi_dump)
 {
 	return 0;
 }
@@ -245,7 +246,7 @@ mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data)
 struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void);
 
 int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
-		     unsigned int dump_flag, char *desc);
+		     unsigned int dump_flag, char *desc, bool smi_dump);
 void
 mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 				    const unsigned int frame_no_update_limit,

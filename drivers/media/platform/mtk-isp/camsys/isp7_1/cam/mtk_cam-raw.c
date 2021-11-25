@@ -2122,7 +2122,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->sof_count++;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;
-		irq_info.e.err_status = err_status;
 	}
 
 	if (raw_dev->sub_sensor_ctrl_en && irq_status & TG_VS_INT_ORG_ST
@@ -2277,7 +2276,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 
 		if (tg_full_sel == 1)
 			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-					"TG Grab Err");
+					"TG Grab Err", false);
 		else
 			dev_info(raw_dev->dev, "tg_full_sel 0x%x\n", __func__, tg_full_sel);
 	} else {
@@ -2410,7 +2409,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
 		if (tg_full_sel == 1)
 			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-					"TG Overrun Err");
+					"TG Overrun Err", true);
 		else
 			dev_info(raw_dev->dev, "tg_full_sel 0x%x:\n", __func__, tg_full_sel);
 	} else {
@@ -6238,7 +6237,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	}
 	dev_info(dev, "=================== [CAMSYS M4U] Dump End ====================\n");
 	if (s_data)
-		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED, "M4U TF");
+		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED, "M4U TF", false);
 
 	return 0;
 }

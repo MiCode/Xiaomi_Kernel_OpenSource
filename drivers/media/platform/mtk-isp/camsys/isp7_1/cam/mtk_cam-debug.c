@@ -11,6 +11,7 @@
 #include "mtk_cam-debug.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
+#include <soc/mediatek/smi.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
@@ -887,6 +888,9 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	dev_info(ctx->cam->dev, "%s:camsys dump, %s\n",
 		 __func__, warn_desc);
 
+	if (dbg_work->smi_dump)
+		mtk_smi_dbg_hang_detect("camsys");
+
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, title_desc,
 			       warn_desc);
@@ -981,7 +985,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 }
 
 int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
-		     unsigned int dump_flag, char *desc)
+		     unsigned int dump_flag, char *desc, bool smi_dump)
 {
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
@@ -1027,6 +1031,7 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 	INIT_WORK(&dbg_work->work, work_func);
 	dbg_work->s_data = s_data;
 	dbg_work->dump_flags = dump_flag;
+	dbg_work->smi_dump = smi_dump;
 	atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_PREPARED);
 	snprintf(dbg_work->desc, MTK_CAM_DEBUG_DUMP_DESC_SIZE - 1, desc);
 	media_request_get(&req->req);
@@ -1069,7 +1074,8 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 	    s_data->state.estate == E_STATE_INNER_HW_DELAY)
 		s_data->no_frame_done_cnt++;
 
-	if (s_data->no_frame_done_cnt > frame_no_update_limit && irq_info->e.err_status == 0) {
+	if (s_data->no_frame_done_cnt > frame_no_update_limit &&
+		s_data->dbg_work.dump_flags == 0) {
 		dev_info(ctx->cam->dev,
 			 "%s:SOF[ctx:%d-#%d] no p1 done for %d sofs, FBC_CNT %d dump req(%d)\n",
 			 req->req.debug_str, ctx->stream_id,
@@ -1077,8 +1083,14 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 			 s_data->no_frame_done_cnt, irq_info->fbc_cnt,
 			 s_data->frame_seq_no);
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
-				 "No P1 done");
-	}
+				 "No P1 done", false);
+	} else if (s_data->no_frame_done_cnt > frame_no_update_limit &&
+		s_data->dbg_work.dump_flags != 0)
+		dev_info(ctx->cam->dev,
+			 "%s:SOF[ctx:%d-#%d] no p1 done for %d sofs, s_data->dbg_work.dump_flags(%d)\n",
+			 req->req.debug_str, ctx->stream_id,
+			 ctx->dequeued_frame_seq_no,
+			 s_data->no_frame_done_cnt, s_data->dbg_work.dump_flags);
 }
 
 void mtk_cam_debug_wakeup(struct wait_queue_head *wq_head)
