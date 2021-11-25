@@ -41,6 +41,7 @@ struct cmdq_util_controller_fp *cmdq_util_controller;
 #endif
 
 cmdq_mminfra_power mminfra_power_cb;
+cmdq_mminfra_gce_cg mminfra_gce_cg;
 
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)
@@ -227,6 +228,28 @@ void cmdq_get_mminfra_cb(cmdq_mminfra_power cb)
 }
 EXPORT_SYMBOL(cmdq_get_mminfra_cb);
 
+void cmdq_get_mminfra_gce_cg_cb(cmdq_mminfra_gce_cg cb)
+{
+	mminfra_gce_cg = cb;
+}
+EXPORT_SYMBOL(cmdq_get_mminfra_gce_cg_cb);
+
+static struct cmdq *g_cmdq[2];
+
+void cmdq_dump_usage(void)
+{
+	s32 i;
+
+	for (i = 0; i < 2; i++)
+		cmdq_msg(
+			"%s: hwid:%d suspend:%d usage:%d mbox_usage:%d wake_lock:%d",
+			__func__, g_cmdq[i]->hwid, g_cmdq[i]->suspended,
+			atomic_read(&g_cmdq[i]->usage),
+			atomic_read(&g_cmdq[i]->mbox_usage),
+			g_cmdq[i]->wake_locked);
+}
+EXPORT_SYMBOL(cmdq_dump_usage);
+
 static void cmdq_init_cpu(struct cmdq *cmdq)
 {
 	int i;
@@ -319,6 +342,7 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 {
 	s32 usage, err, err_timer;
 	unsigned long flags;
+	u32 id;
 
 	cmdq_trace_ex_begin("%s", __func__);
 
@@ -331,6 +355,14 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			usage, err, cmdq->suspended ? "true" : "false");
 	else if (usage == 1) {
 		cmdq_log("cmdq begin mbox");
+		id = cmdq_util_get_hw_id((u32)cmdq->base_pa);
+
+		if (mminfra_gce_cg && !mminfra_gce_cg(id)) {
+			cmdq_err("gce cg is off,cmdq:%pa id:%u usage:%d",
+			&cmdq->base_pa, cmdq->hwid, atomic_read(&cmdq->usage));
+			dump_stack();
+		}
+
 		if (cmdq->prefetch)
 			writel(cmdq->prefetch,
 				cmdq->base + CMDQ_PREFETCH_GSIZE);
@@ -2218,6 +2250,7 @@ static int cmdq_probe(struct platform_device *pdev)
 			cmdq_msg("failed to create device link with smi");
 	}
 
+	g_cmdq[hwid] = cmdq;
 	cmdq->hwid = hwid++;
 	cmdq->prebuilt_enable =
 		of_property_read_bool(dev->of_node, "prebuilt-enable");
