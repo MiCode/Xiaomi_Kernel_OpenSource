@@ -2244,6 +2244,7 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	} else {
 		DISP_PR_ERR("[dsi_dsi.c] PLL clock should not be 0!\n");
 		ASSERT(0);
+		return;
 	}
 
 #define NS_TO_CYCLE(n, c)	((n) / (c))
@@ -4068,7 +4069,7 @@ int ddp_dsi_start(enum DISP_MODULE_ENUM module, void *cmdq)
 			      DSI_REG[i]->DSI_SHADOW_DEBUG, READ_WORKING, 0);
 	}
 
-	if (!_dsi_context[i].dsi_params.mode) {
+	if (_dsi_context[i].dsi_params.mode != CMD_MODE) {
 		DSI_Send_ROI(module, cmdq, g_lcm_x, g_lcm_y,
 			     _dsi_context[i].lcm_width,
 			     _dsi_context[i].lcm_height);

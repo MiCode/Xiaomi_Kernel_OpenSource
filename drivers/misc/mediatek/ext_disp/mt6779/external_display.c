@@ -1448,7 +1448,7 @@ int ext_disp_is_sleepd(void)
 
 	/* EXT_DISP_FUNC(); */
 	_ext_disp_path_lock();
-	temp = !pgc->state;
+	temp = (pgc->state == 0) ? 1 : 0;
 	_ext_disp_path_unlock();
 
 	return temp;

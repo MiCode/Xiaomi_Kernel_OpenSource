@@ -695,8 +695,14 @@ int disp_validate_ioctl_params(struct disp_frame_cfg_t *cfg)
 static int disp_input_get_dirty_roi(struct disp_frame_cfg_t *frm_cfg)
 {
 	int i;
+	int input_layer_num = frm_cfg->input_layer_num;
 
-	for (i = 0; i < frm_cfg->input_layer_num; i++) {
+	if (input_layer_num <= 0 || input_layer_num > 12) {
+		DISP_PR_INFO("%s, err layer num:%d\n", __func__, input_layer_num);
+		return 0;
+	}
+
+	for (i = 0; i < input_layer_num; i++) {
 		void *addr;
 		unsigned long size;
 		struct disp_input_config *cfg = &frm_cfg->input_cfg[i];
