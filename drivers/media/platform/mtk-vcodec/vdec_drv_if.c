@@ -198,6 +198,8 @@ void vdec_decode_prepare(void *ctx_prepare,
 	mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
 	if (ret == 0 && !(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
 		enable_irq(ctx->dev->dec_irq[hw_id]);
+	mtk_vdec_dvfs_begin_frame(ctx, hw_id);
+	mtk_vdec_pmqos_begin_frame(ctx);
 	if (hw_id == MTK_VDEC_CORE)
 		vcodec_trace_count("VDEC_HW_CORE", 1);
 	else
@@ -214,6 +216,8 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 		return;
 
 	mutex_lock(&ctx->hw_status);
+	mtk_vdec_dvfs_end_frame(ctx, hw_id);
+	mtk_vdec_pmqos_end_frame(ctx);
 	if (ctx->dev->dec_sem[hw_id].count != 0) {
 		mtk_v4l2_debug(0, "HW not prepared, dec_sem[%d].count = %d",
 			hw_id, ctx->dev->dec_sem[hw_id].count);

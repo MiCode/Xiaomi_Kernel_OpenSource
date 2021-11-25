@@ -324,3 +324,21 @@ void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 {
 }
+
+void mtk_vdec_dvfs_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
+{
+}
+
+void mtk_vdec_dvfs_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
+{
+}
+
+void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx)
+{
+}
+
+void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
+{
+}
+
+

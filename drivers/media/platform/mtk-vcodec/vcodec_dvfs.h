@@ -3,6 +3,7 @@
 
 #include <linux/types.h>
 #include <linux/list.h>
+#include "vcodec_ipi_msg.h"
 
 #define DEFAULT_VENC_CONFIG -1000
 #define MAX_VCODEC_FREQ 9999
@@ -54,6 +55,8 @@ struct dvfs_params {
 	u32 min_freq;		/* min freq */
 	u32 normal_max_freq;	/*normal max freq (no oc) */
 	u32 target_freq;	/* target freq */
+	u8 lock_cnt[MTK_VDEC_HW_NUM]; /* lock cnt */
+	u8 frame_need_update;	/* this frame begin / end needs update */
 };
 
 struct vcodec_inst *get_inst(struct mtk_vcodec_ctx *ctx);
