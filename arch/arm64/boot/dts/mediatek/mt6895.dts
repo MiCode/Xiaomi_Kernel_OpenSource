@@ -5441,6 +5441,8 @@
 				<&mmsys1_config_clk CLK_MM1_DISP_MUTEX0>,
 				<&mmsys0_config_clk CLK_MM0_APB_BUS>,
 				<&mmsys1_config_clk CLK_MM1_APB_BUS>,
+				<&mmsys0_config_clk CLK_MM0_SIG_EMI>,
+				<&mmsys1_config_clk CLK_MM1_SIG_EMI>,
 				<&mmsys0_config_clk CLK_MM0_DISP_DLI_ASYNC0>,
 				<&mmsys0_config_clk CLK_MM0_DISP_DLO_ASYNC0>,
 				<&mmsys0_config_clk CLK_MM0_DISP_DLI_ASYNC1>,
@@ -5457,7 +5459,7 @@
 				<&mmsys1_config_clk CLK_MM1_DISP_DLO_ASYNC2>,
 				<&mmsys1_config_clk CLK_MM1_DISP_DLI_ASYNC3>,
 				<&mmsys1_config_clk CLK_MM1_DISP_DLO_ASYNC3>;
-			clock-num = <20>;
+			clock-num = <22>;
 
 			operating-points-v2 = <&opp_table_disp0>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
