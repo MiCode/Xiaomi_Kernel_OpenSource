@@ -79,7 +79,7 @@ static void transceiver_notify_func(struct sensor_comm_notify *n,
 	uint32_t wp = 0;
 	struct transceiver_device *dev = private_data;
 	struct data_notify *dnotify = (struct data_notify *)n->value;
-	uint64_t start_time = 0, end_time = 0, timeout_ns = 5000000;
+	uint64_t start_time = 0, end_time = 0, timeout_ns = 1000000;
 	uint64_t wait_spin_lock_end_time = 0, timesync_end_time = 0;
 	uint64_t kfifo_end_time = 0, complete_end_time = 0;
 
