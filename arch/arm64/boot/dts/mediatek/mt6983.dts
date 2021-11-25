@@ -6277,6 +6277,8 @@
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_APB_BUS>,
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_APB_BUS>,
+			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_26M_CLK>,
+			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_26M_CLK>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC0>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLO_ASYNC0>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC1>,
@@ -6293,7 +6295,7 @@
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC2>,
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLI_ASYNC3>,
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC3>;
-		clock-num = <20>;
+		clock-num = <22>;
 		operating-points-v2 = <&opp_table_disp0>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
