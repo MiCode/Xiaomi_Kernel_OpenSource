@@ -940,12 +940,11 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		/* RSZ uses YUV422, RDMA could use V filter unless cropping */
 		filterMode = 3;
 
-	if (cfg->alpharot) {
+	if (cfg->alpharot)
 		rdma_frm->color_tran = 0;
-	}
 
 	if (rdma_frm->blk_10bit && MML_FMT_IS_YUV(src->format)) {
-		rdma_frm->matrix_sel = 0xf;
+		rdma_frm->matrix_sel = 15;
 		rdma_frm->color_tran = 1;
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_RESV_DUMMY_0,
 			       0x7, 0x00000007);

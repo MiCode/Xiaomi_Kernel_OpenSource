@@ -55,6 +55,8 @@ module_param(mml_racing, int, 0644);
 enum topology_scenario {
 	PATH_MML_NOPQ_P0 = 0,
 	PATH_MML_NOPQ_P1,
+	PATH_MML_NOPQ_DD0,
+	PATH_MML_NOPQ_DD1,
 	PATH_MML_PQ_P0,
 	PATH_MML_PQ_P1,
 	PATH_MML_PQ_DD0,
@@ -91,6 +93,22 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_MUTEX,},
 		{MML_RDMA1, MML_WROT1,},
 		{MML_WROT1,},
+	},
+	[PATH_MML_NOPQ_DD0] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_DLI0, MML_DLI0_SEL,},
+		{MML_DLI0_SEL, MML_DLO0_SOUT,},
+		{MML_DLO0_SOUT, MML_DLO0,},
+		{MML_DLO0,},
+	},
+	[PATH_MML_NOPQ_DD1] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_DLI1, MML_DLI1_SEL,},
+		{MML_DLI1_SEL, MML_DLO1_SOUT,},
+		{MML_DLO1_SOUT, MML_DLO1,},
+		{MML_DLO1,},
 	},
 	[PATH_MML_PQ_P0] = {
 		{MML_MMLSYS,},
@@ -199,6 +217,8 @@ enum cmdq_clt_usage {
 static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P0] = MML_CLT_PIPE0,
 	[PATH_MML_NOPQ_P1] = MML_CLT_PIPE1,
+	[PATH_MML_NOPQ_DD0] = MML_CLT_PIPE0,
+	[PATH_MML_NOPQ_DD1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_P0] = MML_CLT_PIPE0,
 	[PATH_MML_PQ_P1] = MML_CLT_PIPE1,
 	[PATH_MML_PQ_DD0] = MML_CLT_PIPE0,
@@ -224,6 +244,8 @@ enum mux_sof_group {
 static const u8 grp_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_NOPQ_P0] = MUX_SOF_GRP1,
 	[PATH_MML_NOPQ_P1] = MUX_SOF_GRP2,
+	[PATH_MML_NOPQ_DD0] = MUX_SOF_GRP3,
+	[PATH_MML_NOPQ_DD1] = MUX_SOF_GRP4,
 	[PATH_MML_PQ_P0] = MUX_SOF_GRP1,
 	[PATH_MML_PQ_P1] = MUX_SOF_GRP2,
 	[PATH_MML_PQ_DD0] = MUX_SOF_GRP3,
@@ -479,25 +501,35 @@ static void tp_select_path(struct mml_topology_cache *cache,
 	struct mml_topology_path **path)
 {
 	enum topology_scenario scene[2];
-	bool en_rsz;
+	bool en_rsz, en_pq;
 
 	if (cfg->info.mode == MML_MODE_RACING) {
 		/* always rdma to wrot for racing case */
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;
 		goto done;
-	} else if (cfg->info.mode == MML_MODE_DDP_ADDON) {
-		/* direct-link in/out for addon case */
-		scene[0] = PATH_MML_PQ_DD0;
-		scene[1] = PATH_MML_PQ_DD1;
-		goto done;
 	}
 
 	en_rsz = tp_need_resize(&cfg->info);
 	if (mml_force_rsz)
 		en_rsz = true;
+	en_pq = en_rsz || cfg->info.dest[0].pq_config.en;
 
-	if (!en_rsz && !cfg->info.dest[0].pq_config.en) {
+	if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+		/* direct-link in/out for addon case */
+		if (!en_pq) {
+			/* dli0_sel/rdma_mout to wrot_sel/dlo0_sout */
+			scene[0] = PATH_MML_NOPQ_DD0;
+			scene[1] = PATH_MML_NOPQ_DD1;
+		} else if (cfg->info.dest_cnt == 2) {
+			/* TODO: ddp addon 2out */
+			scene[0] = PATH_MML_PQ_DD0; /* PATH_MML_2OUT_DD0 */
+			scene[1] = PATH_MML_PQ_DD1; /* PATH_MML_2OUT_DD1 */
+		} else {
+			scene[0] = PATH_MML_PQ_DD0;
+			scene[1] = PATH_MML_PQ_DD1;
+		}
+	} else if (!en_pq) {
 		/* dual pipe, rdma to wrot */
 		scene[0] = PATH_MML_NOPQ_P0;
 		scene[1] = PATH_MML_NOPQ_P1;

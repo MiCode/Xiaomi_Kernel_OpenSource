@@ -85,7 +85,7 @@ extern int mml_racing_wdone_eoc;
 
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	16
-#define MML_MAX_PATH_CACHES	12
+#define MML_MAX_PATH_CACHES	16
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
 #define MML_MAX_TPUT		800

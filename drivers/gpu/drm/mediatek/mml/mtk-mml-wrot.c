@@ -805,9 +805,7 @@ static void wrot_color_fmt(struct mml_frame_config *cfg,
 		if (!wrot_frm->mat_sel) // if didn't set profile
 			wrot_frm->mat_sel = 15;
 		wrot_frm->dither_con = (0x1 << 10) +
-			 (0x0 << 9) +
 			 (0x0 << 8) +
-			 (0x0 << 5) +
 			 (0x0 << 4) +
 			 (0x1 << 2) +
 			 (0x1 << 1) +
