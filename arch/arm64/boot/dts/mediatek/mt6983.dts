@@ -10397,7 +10397,8 @@
 			      <3 0x400>, /* VDEC_SET_PROP_MEM_ID 1KB */
 			      <4 0x400>, /* VENC_SET_PROP_MEM_ID 1KB */
 			      <5 0x400>, /* VDEC_VCP_LOG_INFO_ID 1KB */
-			      <6 0x400>; /* VENC_VCP_LOG_INFO_ID 1KB */
+			      <6 0x400>, /* VENC_VCP_LOG_INFO_ID 1KB */
+			      <7 0x100000>; /* GCE_MEM_ID 256*4KB */
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_MMUP_SEL>,
