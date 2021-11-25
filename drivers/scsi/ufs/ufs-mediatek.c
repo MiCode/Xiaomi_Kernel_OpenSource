@@ -2068,36 +2068,37 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 
 static int ufs_mtk_fixup_vcc_regulator(struct ufs_hba *hba)
 {
-	int ret = 0;
+	int err = 0;
 	u16 ufs_ver;
 	char vcc_name[MAX_PROP_SIZE];
 	struct device *dev = hba->dev;
-	struct ufs_vreg_info *vreg_info = &hba->vreg_info;
+	struct ufs_vreg_info *vcc_info = &hba->vreg_info;
 
 	/* Get UFS version to setting VCC */
 	ufs_ver = (hba->dev_info.wspecversion & 0xF00) >> 8;
 	snprintf(vcc_name, MAX_PROP_SIZE, "vcc_ufs%u", ufs_ver);
 
-	ret = ufs_mtk_populate_vreg(dev, vcc_name, &vreg_info->vcc);
-	if (ret) {
+	err = ufs_mtk_populate_vreg(dev, vcc_name, &vcc_info->vcc);
+	if (err || !vcc_info->vcc) {
 		dev_info(dev, "%s: Unable to find %s\n", __func__, vcc_name);
 		goto out;
 	}
 
-	ret = ufs_mtk_get_vreg(dev, vreg_info->vcc);
-	if (ret)
+	err = ufs_mtk_get_vreg(dev, vcc_info->vcc);
+	if (err)
 		goto out;
 
-	ret = regulator_enable(vreg_info->vcc->reg);
-	if (!ret)
-		vreg_info->vcc->enabled = true;
+	err = regulator_enable(vcc_info->vcc->reg);
+	if (!err)
+		vcc_info->vcc->enabled = true;
 	else
 		dev_info(dev, "%s: %s enable failed, err=%d\n",
-				__func__, vreg_info->vcc->name, ret);
+					__func__, vcc_info->vcc->name, err);
 
 out:
-	dev_info(hba->dev, "%s: No combo ufs pmic setting\n", __func__);
-	return ret;
+	if (err)
+		dev_info(hba->dev, "%s: No combo ufs pmic setting\n", __func__);
+	return err;
 }
 
 static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
