@@ -675,6 +675,63 @@ unsigned int mtk_drm_find_possible_crtc_by_comp(struct drm_device *drm,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+static int mtk_ddp_iommu_callback(int port, dma_addr_t mva, void *data)
+{
+	struct mtk_ddp_comp *comp = (struct mtk_ddp_comp *)data;
+
+	DDPPR_ERR("fault call port=0x%x, mva=0x%lx, data=0x%p\n", port,
+		  (unsigned long)mva, data);
+
+	DRM_MMP_EVENT_START(iova_tf, port, mva);
+	if (comp) {
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG_DETAIL
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		struct drm_crtc *crtc = NULL;
+
+		if (mtk_crtc == NULL) {
+			mtk_dump_analysis(comp);
+			mtk_dump_reg(comp);
+		} else {
+			crtc = &mtk_crtc->base;
+			mtk_drm_crtc_analysis(crtc);
+			mtk_drm_crtc_dump(crtc);
+		}
+#else
+		mtk_dump_analysis(comp);
+		mtk_dump_reg(comp);
+#endif
+		DRM_MMP_EVENT_END(iova_tf, comp->id, comp->regs_pa);
+	} else
+		DRM_MMP_EVENT_END(iova_tf, 0, 0);
+
+	return 0;
+}
+
+static void mtk_ddp_comp_iommu_register(struct mtk_ddp_comp *comp)
+{
+	int port = 0, index = 0, ret = 0;
+
+	if (!comp || !comp->dev)
+		return;
+
+	while (1) {
+		ret = of_property_read_u32_index(comp->dev->of_node,
+				"iommus", index * 2 + 1, &port);
+		if (ret < 0)
+			break;
+		if (disp_helper_get_stage() ==
+			DISP_HELPER_STAGE_NORMAL)
+			mtk_iommu_register_fault_callback(
+						port, mtk_ddp_iommu_callback,
+						comp, false);
+		DDPINFO("%s, comp:%u, register the %d port:0x%x\n",
+			__func__, comp->id, index, port);
+		index++;
+	}
+}
+#endif
+
 int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 		      struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id comp_id,
 		      const struct mtk_ddp_comp_funcs *funcs)
@@ -744,6 +801,10 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 
 	/* handle larb resources */
 	mtk_ddp_comp_set_larb(dev, node, comp);
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	mtk_ddp_comp_iommu_register(comp);
+#endif
 
 	DDPINFO("%s-\n", __func__);
 
@@ -833,23 +894,6 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 	CRTC_MMP_MARK(index, ddp_clk, comp->id, 0);
 }
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-static int mtk_ddp_m4u_callback(int port, dma_addr_t mva, void *data)
-{
-	struct mtk_ddp_comp *comp = (struct mtk_ddp_comp *)data;
-
-	DDPPR_ERR("fault call port=0x%x, mva=0x%lx, data=0x%p\n", port,
-		  (unsigned long)mva, data);
-
-	if (comp) {
-		mtk_dump_analysis(comp);
-		mtk_dump_reg(comp);
-	}
-
-	return 0;
-}
-#endif
-
 #define GET_M4U_PORT 0x1F
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			       struct cmdq_pkt *handle)
@@ -869,14 +913,6 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 				"iommus", index * 2 + 1, &port);
 		if (ret < 0)
 			break;
-
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-			if (disp_helper_get_stage() ==
-					DISP_HELPER_STAGE_NORMAL)
-				mtk_iommu_register_fault_callback(
-					port, mtk_ddp_m4u_callback,
-					comp, false);
-#endif
 
 		port &= (unsigned int)GET_M4U_PORT;
 		if (of_address_to_resource(comp->larb_dev->of_node, 0, &res) !=

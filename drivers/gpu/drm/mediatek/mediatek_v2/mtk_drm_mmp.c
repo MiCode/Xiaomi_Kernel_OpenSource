@@ -108,6 +108,8 @@ void init_drm_mmp_event(void)
 		g_DRM_MMP_Events.postmask, "POSTMASK0");
 	g_DRM_MMP_Events.abnormal_irq =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "ABNORMAL_IRQ");
+	g_DRM_MMP_Events.iova_tf =
+		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "IOVA_TF");
 	g_DRM_MMP_Events.dp_intf0 =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "dp_intf0");
 }

@@ -1093,7 +1093,7 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 	gsc = addon_config->addon_wdma_config.p_golden_setting_context;
 	mtk_wdma_golden_setting(comp, gsc, handle);
 
-	DDPMSG("[capture] config addr:0x%lx, roi:(%d,%d,%d,%d)\n",
+	DDPINFO("[capture] config addr:0x%lx, roi:(%d,%d,%d,%d)\n",
 		(unsigned long)addr, clip_x, clip_y, clip_w, clip_h);
 	cfg_info->width = clip_w;
 	cfg_info->height = clip_h;
@@ -1426,7 +1426,6 @@ static int mtk_wdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		dma_addr_t addr = *(dma_addr_t *)params;
 
 		write_dst_addr(comp, handle, 0, addr);
-		DDPMSG("[capture] update addr:0x%x\n", addr);
 		wdma->cfg_info.addr = addr;
 	}
 		break;

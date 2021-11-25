@@ -5674,7 +5674,7 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 	}
 }
 
-static void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
+void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
