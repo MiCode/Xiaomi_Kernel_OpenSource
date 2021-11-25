@@ -28,6 +28,9 @@ void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util);
 /* see also gce platform binding header */
 #define CMDQ_NO_TIMEOUT			0xffffffff
 #define CMDQ_TIMEOUT_DEFAULT		1000
+#define CMDQ_PREDUMP_DEFAULT_MS		200
+#define CMDQ_PREDUMP_MS(timeout_ms)	\
+	((timeout_ms == CMDQ_NO_TIMEOUT) ? CMDQ_PREDUMP_DEFAULT_MS : timeout_ms / 5)
 
 #define CMDQ_THR_MAX_COUNT		24
 

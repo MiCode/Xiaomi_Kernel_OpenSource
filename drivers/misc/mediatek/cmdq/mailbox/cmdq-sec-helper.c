@@ -14,8 +14,6 @@
 #define CMDQ_IMMEDIATE_VALUE		(0)
 #define CMDQ_REG_TYPE			(1)
 
-#define CMDQ_PREDUMP_TIMEOUT_MS		200
-
 static s32 cmdq_sec_realloc_addr_list(struct cmdq_pkt *pkt, const u32 count)
 {
 	struct cmdq_sec_data *sec_data =
@@ -306,7 +304,7 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 		}
 
 		ret = wait_for_completion_timeout(&pkt->cmplt,
-			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
+			msecs_to_jiffies(CMDQ_PREDUMP_MS(timeout_ms)));
 		if (ret)
 			break;
 
