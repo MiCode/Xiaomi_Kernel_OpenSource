@@ -99,6 +99,7 @@ int imgsys_queue_enable(struct imgsys_queue *que)
 	mutex_lock(&que->task_lock);
 	que->task = kthread_create(worker_func, (void *)que, que->name);
 	if (IS_ERR(que->task)) {
+		mutex_unlock(&que->task_lock);
 		dev_info(que->dev, "%s: kthread_run failed\n", __func__);
 		return PTR_ERR(que->task);
 	}
