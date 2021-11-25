@@ -31,6 +31,9 @@
 #define SENSOR_SET_RESERVED_MS  7
 #define SENSOR_SET_DEADLINE_MS_60FPS  6
 #define SENSOR_SET_RESERVED_MS_60FPS  6
+#define SENSOR_SET_STAGGER_DEADLINE_MS  23
+#define SENSOR_SET_STAGGER_RESERVED_MS  6
+
 
 #define STATE_NUM_AT_SOF 3
 #define INITIAL_DROP_FRAME_CNT 1
@@ -4226,6 +4229,13 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 		timer_reqdrained_chk(fps_factor, sub_ratio);
 	camsys_sensor_ctrl->timer_req_sensor =
 		timer_setsensor(fps_factor, sub_ratio);
+	if (mtk_cam_is_stagger(ctx) &&
+		fps_factor == 1 && sub_ratio == 0) {
+		camsys_sensor_ctrl->timer_req_event =
+			SENSOR_SET_STAGGER_DEADLINE_MS;
+		camsys_sensor_ctrl->timer_req_sensor =
+			SENSOR_SET_STAGGER_RESERVED_MS;
+	}
 	INIT_LIST_HEAD(&camsys_sensor_ctrl->camsys_state_list);
 	spin_lock_init(&camsys_sensor_ctrl->camsys_state_lock);
 	if (ctx->sensor) {
