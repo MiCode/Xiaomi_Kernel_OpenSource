@@ -250,14 +250,16 @@ static const char * const ssc_timeout_name[] = {
 #if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
 static int ssc_scmi_feature_id;
 static int plt_scmi_feature_id;
+
+#define SSC_TIMEOUT_MASK_SHIFT (16)
+
 static void ssc_notification_handler(u32 feature_id, scmi_tinysys_report *report)
 {
 #define LOG_BUF_SIZE 30
 	char log_buf[LOG_BUF_SIZE] = { 0 };
 	int log_size = 0;
 	int i, timeout;
-
-	pr_info("[SSC] %s\n", __func__);
+	int timeout_mask_shift = SSC_TIMEOUT_MASK_SHIFT;
 
 	if (report->p1 == SSC_STATUS_ERR) {
 		/* SSC timeout notifiy */
@@ -265,17 +267,20 @@ static void ssc_notification_handler(u32 feature_id, scmi_tinysys_report *report
 
 		timeout = report->p2;
 
-		for (i = 0 ; i < SSC_TIMEOUT_NUM ; i++) {
-			if (timeout & 0x1) {
+		pr_info("[SSC] %s, timeout_sta = 0x%x, sram_sta = 0x%x, misc = 0x%x\n",
+			__func__, report->p2, report->p3, report->p4);
+
+		for (i = 1 ; i < SSC_TIMEOUT_NUM ; i++) {
+			timeout_mask_shift = (i - 1) * 2 + SSC_TIMEOUT_MASK_SHIFT;
+			if ((timeout & (0x1U << i)) &&
+			    ((timeout & (0x3 << timeout_mask_shift)) == 0x0)) {
 				log_size += scnprintf(log_buf + log_size,
-				LOG_BUF_SIZE - log_size, "%s/",
+				LOG_BUF_SIZE - log_size, "%s",
 				ssc_timeout_name[i]);
 			}
-			timeout = timeout >> 1;
 		}
-		ssc_aee_print("[SSC] timeout_sta = 0x%x, sram_sta = 0x%x, misc = 0x%x\n"
-			      "CRDISPATCH_KEY:  SSC VIOLATION: %s\n",
-				report->p2, report->p3, report->p4,  log_buf);
+		pr_info("[SSC] CRDISPATCH_KEY:  SSC VIOLATION: %s\n", log_buf);
+		BUG_ON(1);
 
 	}
 
