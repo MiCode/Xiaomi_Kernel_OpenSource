@@ -717,6 +717,7 @@ struct swfrm_info_t {
 	int fps;
 	int cb_frmcnt;
 	int total_taskcnt;
+	int exp_totalcb_cnt;
 	int handle;
 	uint64_t req_vaddr;
 	int sync_id;
@@ -739,6 +740,18 @@ struct swfrm_info_t {
 struct cleartoken_info_t {
 	int clearnum;
 	int token[HWTOKEN_MAX];
+};
+
+#define REQ_FD_MAX 65536
+struct reqfd_cbinfo_t {
+	int req_fd;
+	int exp_cnt;
+	int cur_cnt;
+};
+DECLARE_VLIST(reqfd_cbinfo_t);
+struct reqfd_cbinfo_list_t {
+	struct mutex mymutex;
+	struct list_head mylist;
 };
 
 struct info_list_t {
