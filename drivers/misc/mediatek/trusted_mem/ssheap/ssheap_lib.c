@@ -30,14 +30,20 @@
 
 #include <private/ssheap_priv.h>
 #include <public/trusted_mem_api.h>
+#include <ssmr/memory_ssmr.h>
 
 #define independent_ssheap 0
 
 #define HYP_PMM_ASSIGN_BUFFER (0XBB00FFA0)
 #define HYP_PMM_UNASSIGN_BUFFER (0XBB00FFA1)
 #define HYP_PMM_SET_CMA_REGION (0XBB00FFA8)
+#define HYP_PMM_ENABLE_CMA (0XBB00FFA9)
+#define HYP_PMM_DISABLE_CMA (0XBB00FFAA)
 
 #define ENABLE_CACHE_PAGE 1
+
+#define USE_SSMR_ZONE 1
+#define MAX_SSMR_RETRY 10
 
 #define PREFER_GRANULE SZ_2M
 #define MIN_GRANULE SZ_2M
@@ -56,9 +62,7 @@ static phys_addr_t ssheap_phys_size;
 static atomic64_t total_alloced_size;
 static DEFINE_MUTEX(ssheap_alloc_lock);
 
-//static u32 cache_count;
 static struct list_head cache_list;
-//static DEFINE_MUTEX(cache_lock);
 static DEFINE_SPINLOCK(cache_lock);
 
 struct ssheap_page {
@@ -74,6 +78,142 @@ struct ssheap_block {
 	struct page *page;
 	unsigned long block_size;
 };
+
+
+#if USE_SSMR_ZONE
+static DEFINE_MUTEX(ssmr_lock);
+static struct page *cma_page;
+static uint32_t hyp_pmm_cma_cookie;
+
+static int hyp_pmm_enable_cma(void)
+{
+	struct arm_smccc_res smc_res;
+	long ret;
+
+	arm_smccc_smc(HYP_PMM_ENABLE_CMA, 0, 0, 0, 0, 0, 0, 0, &smc_res);
+
+	ret = (long)smc_res.a0;
+	if (ret <= 0) {
+		pr_err("%s: enable cma failed %llx\n", __func__, smc_res.a0);
+		return -EFAULT;
+	}
+
+	hyp_pmm_cma_cookie = (uint32_t)smc_res.a0;
+	return 0;
+}
+
+static int hyp_pmm_disable_cma(void)
+{
+	struct arm_smccc_res smc_res;
+	uint32_t cookie;
+
+	cookie = hyp_pmm_cma_cookie;
+	arm_smccc_smc(HYP_PMM_DISABLE_CMA, cookie, 0, 0, 0, 0, 0, 0, &smc_res);
+
+	if (smc_res.a0 != 0) {
+		pr_err("%s: enable cma failed %llx\n", __func__, smc_res.a0);
+		return -EFAULT;
+	}
+
+	hyp_pmm_cma_cookie = 0;
+	return 0;
+}
+
+static void ssmr_zone_offline(void)
+{
+	unsigned long long start, end;
+	int retry = 0;
+	uint64_t size;
+	void *kaddr;
+	unsigned long flags;
+	struct ssheap_page *s_page = NULL;
+	int res = 0;
+
+	if (!ssheap_dev->cma_area) {
+		pr_info("%s: no cma_area", __func__);
+		return;
+	}
+
+	if (cma_page) {
+		pr_info("%s: already offline", __func__);
+		return;
+	}
+retry:
+	/* get start time */
+	start = sched_clock();
+	pr_info("%s: cma_alloc size=%llx\n", __func__, ssheap_phys_size);
+
+	cma_page = cma_alloc(ssheap_dev->cma_area, ssheap_phys_size >> PAGE_SHIFT,
+			 get_order(SZ_2M), GFP_KERNEL);
+
+	/* get end time */
+	end = sched_clock();
+	pr_info("%s: duration: %d ns (%d ms)\n", __func__, end - start, (end - start) / 1000000);
+
+	if (cma_page == NULL) {
+		pr_warn("%s: cma_alloc failed retry:%d\n", __func__, retry);
+		retry++;
+		if (retry <= MAX_SSMR_RETRY) {
+			pr_warn("%s: sleep, then retry: %d\n", __func__, retry);
+			msleep(100);
+			goto retry;
+		} else {
+			pr_err("%s: retry failed\n", __func__);
+			return;
+		}
+	}
+
+	/* enable cma */
+	pr_info("%s: enable cma\n", __func__);
+	res = hyp_pmm_enable_cma();
+	if (res) {
+		pr_err("%s: enable cma failed %d\n", __func__, res);
+		cma_release(ssheap_dev->cma_area, cma_page, ssheap_phys_size >> PAGE_SHIFT);
+		cma_page = NULL;
+		return;
+	}
+
+	pr_info("%s: cma_alloc success, cma_page=%llx pa=%llx, size=%llx\n", __func__,
+		(u64)cma_page, page_to_phys(cma_page), ssheap_phys_size);
+	size = (uint64_t)ssheap_phys_size;
+	kaddr = page_address(cma_page);
+
+	spin_lock_irqsave(&cache_lock, flags);
+	/* put into cache page list */
+	do {
+		s_page = kzalloc(sizeof(struct ssheap_page), GFP_KERNEL);
+		s_page->page = virt_to_page(kaddr);
+		s_page->size = SZ_2M;
+		list_add_tail(&s_page->entry, &cache_list);
+
+		size -= SZ_2M;
+		kaddr += SZ_2M;
+	} while (size);
+	pr_info("%s: ssmr page base enable: %d\n", __func__, res);
+	spin_unlock_irqrestore(&cache_lock, flags);
+}
+
+static void ssmr_zone_online(void)
+{
+	if (!ssheap_dev->cma_area) {
+		pr_info("%s: no cma_area", __func__);
+		return;
+	}
+
+	if (!cma_page) {
+		pr_info("%s: already online\n", __func__);
+		return;
+	}
+
+	pr_info("%s: free %llx cma_page=%llx\n", __func__, ssheap_phys_size, (u64)cma_page);
+	if (hyp_pmm_disable_cma() == 0) {
+		cma_release(ssheap_dev->cma_area, cma_page, ssheap_phys_size >> PAGE_SHIFT);
+		cma_page = NULL;
+	} else {
+		pr_err("%s: disable cma failed\n", __func__);
+	}
+}
+#endif
 
 static inline void free_system_mem(struct page *page, u32 size)
 {
@@ -103,6 +243,10 @@ static inline struct page *alloc_system_mem(u32 block_size)
 	unsigned long flags;
 #endif
 
+#if USE_SSMR_ZONE
+again:
+#endif
+
 #if ENABLE_CACHE_PAGE
 	spin_lock_irqsave(&cache_lock, flags);
 	if (!list_empty(&cache_list)) {
@@ -116,14 +260,30 @@ static inline struct page *alloc_system_mem(u32 block_size)
 
 	if (page)
 		return page;
-	pr_info("TMEM_INFO: not in cache\n");
+
+#if USE_SSMR_ZONE
+	mutex_lock(&ssmr_lock);
+	if (!cma_page)
+		ssmr_zone_offline();
+	mutex_unlock(&ssmr_lock);
+
+	if (cma_page)
+		goto again;
+	else
+		return NULL;
+#endif
+
 #endif
 
 	if (!ssheap_dev->cma_area)
 		page = alloc_pages(GFP_KERNEL, get_order(SZ_2M));
 	else {
+#if USE_SSMR_ZONE
+		/* SSMR allocation, no need to call cma_alloc */
+#else
 		page = cma_alloc(ssheap_dev->cma_area, block_size >> PAGE_SHIFT,
 				 get_order(block_size), GFP_KERNEL);
+#endif
 	}
 
 	return page;
@@ -142,8 +302,6 @@ static u64 free_blocks(struct ssheap_buf_info *info)
 			block->block_size);
 
 		free_system_mem(block->page, block->block_size);
-		//cma_release(ssheap_dev->cma_area, block->page,
-		//	    block->block_size >> PAGE_SHIFT);
 		freed_size += block->block_size;
 		list_del(&block->entry);
 		kfree(block);
@@ -169,10 +327,16 @@ int ssheap_free_non_contig(struct ssheap_buf_info *info)
 	if (info->pmm_msg_page)
 		__free_pages(info->pmm_msg_page, get_order(PAGE_SIZE));
 
-# if ENABLE_CACHE_PAGE
-	// TODO need to check!!!!
+#if ENABLE_CACHE_PAGE
+
+#if USE_SSMR_ZONE
+	mutex_lock(&ssmr_lock);
+#endif
+
+	spin_lock_irqsave(&cache_lock, flags);
+
+	/* Free cache pages if size is 0 */
 	if (atomic64_sub_return(freed_size, &total_alloced_size) == 0x0) {
-		spin_lock_irqsave(&cache_lock, flags);
 		pr_info("free all pooling pages");
 		while (!list_empty(&cache_list)) {
 			s_page = list_first_entry(&cache_list, struct ssheap_page, entry);
@@ -183,12 +347,25 @@ int ssheap_free_non_contig(struct ssheap_buf_info *info)
 			s_page = NULL;
 			if (!ssheap_dev->cma_area)
 				__free_pages(page, get_order(size));
-			else
+			else {
+#if USE_SSMR_ZONE
+				/* No need for ssmr zone */
+#else
 				cma_release(ssheap_dev->cma_area, page, size >> PAGE_SHIFT);
+#endif
+			}
 			page = NULL;
 		}
-		spin_unlock_irqrestore(&cache_lock, flags);
+#if USE_SSMR_ZONE
+		ssmr_zone_online();
+#endif
 	}
+	spin_unlock_irqrestore(&cache_lock, flags);
+
+#if USE_SSMR_ZONE
+	mutex_unlock(&ssmr_lock);
+#endif
+
 #else
 	atomic64_sub(freed_size, &total_alloced_size);
 #endif
@@ -283,8 +460,10 @@ retry:
 
 		/* allocated and add to block_list */
 		block = kzalloc(sizeof(*block), GFP_KERNEL);
-		if (!block)
+		if (!block) {
+			free_system_mem(page, block_size);
 			goto out_err;
+		}
 
 		block->cpu_addr = cpu_addr;
 		block->dma_addr = page_to_phys(page);
@@ -303,7 +482,6 @@ retry:
 	info->aligned_req_size = aligned_req_size;
 	info->allocated_size = allocated_size;
 	info->elems = elems;
-	//mutex_unlock(&ssheap_alloc_lock);
 
 	/* setting sg_table */
 	ret = sg_alloc_table(info->table, elems, GFP_KERNEL);
@@ -323,7 +501,6 @@ retry:
 
 	return info;
 out_err:
-	//mutex_unlock(&ssheap_alloc_lock);
 out_err2:
 	/* free blocks */
 	free_blocks(info);
