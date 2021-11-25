@@ -62,6 +62,16 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	// Temp code. This flow will only enter by debug command
+	// (CMD mode will enter MML IR by debug command), we don't
+	// have to worry about it will effect the original flow.
+	if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->mml_cfg &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		return;
+	}
+
 	mtk_drm_idlemgr_disable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
 }
@@ -98,6 +108,16 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	// Temp code. This flow will only enter by debug command
+	// (CMD mode will enter MML IR by debug command), we don't
+	// have to worry about it will effect the original flow.
+	if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->mml_cfg &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		return;
+	}
+
 	mtk_drm_idlemgr_enable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
 }

@@ -826,6 +826,14 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 
+	// Temp code. This flow will only enter by debug command
+	// (CMD mode will enter MML IR by debug command), we don't
+	// have to worry about it will effect the original flow.
+	if (is_frame_mode && mtk_crtc->is_mml && mtk_crtc->mml_cfg) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return 0;
+	}
+
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
 		sb_cmdq_handle != NULL) {
 		cmdq_handle = sb_cmdq_handle;
@@ -5190,6 +5198,14 @@ void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
+
+	// Temp code. This flow will only enter by debug command
+	// (CMD mode will enter MML IR by debug command), we don't
+	// have to worry about it will effect the original flow.
+	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+		mtk_crtc->is_mml && mtk_crtc->mml_cfg) {
+		return;
+	}
 
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
