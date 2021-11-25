@@ -610,7 +610,7 @@ static u32 mml_calc_bw_hrt(u32 datasize)
 	 * the 1.25 separate to * 10 / 8
 	 * and width * height * bpp = datasize in bytes
 	 */
-	return (datasize * 60 * 10) >> 3;
+	return (datasize * 60 * 10) >> 20;
 }
 
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
