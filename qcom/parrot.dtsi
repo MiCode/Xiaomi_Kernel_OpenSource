@@ -190,6 +190,10 @@
 };
 
 &firmware {
+	qcom_scm {
+		compatible = "qcom,scm";
+	};
+
 	android {
 		compatible = "android,firmware";
 		fstab {
