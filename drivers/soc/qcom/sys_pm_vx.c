@@ -91,6 +91,14 @@ static const char * const drv_names_waipio[] = {
 	""
 };
 
+static const char * const drv_names_kalama[] = {
+	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "AOP", "DEBUG",
+	"GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW", "MDM SW",
+	"MDM HW", "WLAN RF", "WLAN BB", "CAM_IFE0", "CAM_IFE1", "CAM_IFE2",
+	"DDR AUX", "ARC CPRF",
+	""
+};
+
 static int read_vx_data(struct vx_platform_data *pd, struct vx_log *log)
 {
 	void __iomem *base = pd->base;
@@ -253,6 +261,8 @@ static const struct of_device_id drv_match_table[] = {
 	  .data = drv_names_lahaina },
 	{ .compatible = "qcom,sys-pm-waipio",
 	  .data = drv_names_waipio },
+	{ .compatible = "qcom,sys-pm-kalama",
+	  .data = drv_names_kalama },
 	{ }
 };
 
