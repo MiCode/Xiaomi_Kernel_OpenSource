@@ -3071,7 +3071,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 
 	ret = of_property_read_u32(smmu->dev->of_node, "qcom,num-smr-override",
 		&num_mapping_groups_override);
-	if (!ret && size != num_mapping_groups_override) {
+	if (!ret && size > num_mapping_groups_override) {
 		dev_dbg(smmu->dev, "%d mapping groups overridden to %d\n",
 			size, num_mapping_groups_override);
 
@@ -3109,7 +3109,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 		"qcom,num-context-banks-override",
 		&num_context_banks_override);
 
-	if (!ret && smmu->num_context_banks != num_context_banks_override) {
+	if (!ret && smmu->num_context_banks > num_context_banks_override) {
 		dev_dbg(smmu->dev, "%d context banks overridden to %d\n",
 			smmu->num_context_banks,
 			num_context_banks_override);
