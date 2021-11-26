@@ -367,11 +367,11 @@ static void update_md_stack(struct md_region *stack_mdr,
 	}
 }
 
-static void update_md_cpu_stack(u32 cpu, u64 sp)
+static void update_md_cpu_stack(struct task_struct *tsk, u32 cpu, u64 sp)
 {
 	struct md_stack_cpu_data *md_stack_cpu_d = &per_cpu(md_stack_data, cpu);
 
-	if (is_idle_task(current) || !md_current_stack_init)
+	if (is_idle_task(tsk) || !md_current_stack_init)
 		return;
 
 	update_md_stack(md_stack_cpu_d->stack_mdr,
@@ -384,7 +384,7 @@ void md_current_stack_notifer(void *ignore, bool preempt,
 	u32 cpu = task_cpu(next);
 	u64 sp = (u64)next->stack;
 
-	update_md_cpu_stack(cpu, sp);
+	update_md_cpu_stack(next, cpu, sp);
 }
 
 void md_current_stack_ipi_handler(void *data)
@@ -399,7 +399,7 @@ void md_current_stack_ipi_handler(void *data)
 		stack_vm_area = task_stack_vm_area(current);
 		sp = (u64)stack_vm_area->addr;
 	}
-	update_md_cpu_stack(cpu, sp);
+	update_md_cpu_stack(current, cpu, sp);
 }
 
 static void update_md_current_task(struct md_region *mdr, int mdno)
