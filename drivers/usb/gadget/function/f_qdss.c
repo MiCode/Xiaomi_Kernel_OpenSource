@@ -246,19 +246,16 @@ static void qdss_write_complete(struct usb_ep *ep,
 	struct qdss_req *qreq = req->context;
 	struct qdss_request *d_req = qreq->qdss_req;
 	struct usb_ep *in;
-	struct list_head *list_pool;
 	enum qdss_state state;
 	unsigned long flags;
 
 	in = qdss->port.data;
-	list_pool = &qdss->data_write_pool;
 	state = USB_QDSS_DATA_WRITE_DONE;
 
 	qdss_log("channel:%s ep:%s req:%pK req->status:%d req->length:%d\n",
 		qdss->ch.name, ep->name, req, req->status, req->length);
 	spin_lock_irqsave(&qdss->lock, flags);
-	list_del(&qreq->list);
-	list_add_tail(&qreq->list, list_pool);
+	list_move_tail(&qreq->list, &qdss->data_write_pool);
 	complete(&qreq->write_done);
 	if (req->length != 0) {
 		d_req->actual = req->actual;
@@ -918,7 +915,8 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	struct usb_gadget *gadget;
 	unsigned long flags;
 	int status;
-	struct qdss_req *qreq;
+	struct qdss_req *qreq = NULL;
+	LIST_HEAD(dequeued);
 
 	spin_lock_irqsave(&channel_lock, flags);
 	if (!ch->priv_usb) {
@@ -935,17 +933,26 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	while (!list_empty(&qdss->queued_data_pool)) {
 		qreq = list_first_entry(&qdss->queued_data_pool,
 				struct qdss_req, list);
+		list_move_tail(&qreq->list, &dequeued);
 		spin_unlock(&qdss->lock);
 		spin_unlock_irqrestore(&channel_lock, flags);
 		qdss_log("dequeue req:%pK\n", qreq->usb_req);
-		if (!usb_ep_dequeue(qdss->port.data, qreq->usb_req))
-			wait_for_completion(&qreq->write_done);
+		usb_ep_dequeue(qdss->port.data, qreq->usb_req);
 		spin_lock_irqsave(&channel_lock, flags);
 		spin_lock(&qdss->lock);
 	}
 
 	spin_unlock(&qdss->lock);
 	spin_unlock_irqrestore(&channel_lock, flags);
+
+	/* wait for the last qreq to be completed before freeing them */
+	if (qreq) {
+		qdss_log("waiting for completion on %pK\n", qreq->usb_req);
+		wait_for_completion(&qreq->write_done);
+	}
+
+	WARN_ON(!list_empty(&dequeued));
+
 	usb_qdss_free_req(ch);
 	spin_lock_irqsave(&channel_lock, flags);
 	ch->priv_usb = NULL;
