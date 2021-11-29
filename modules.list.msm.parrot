@@ -26,3 +26,5 @@ smem.ko
 socinfo.ko
 stub-regulator.ko
 msm-geni-se.ko
+cqhci.ko
+sdhci-msm.ko
