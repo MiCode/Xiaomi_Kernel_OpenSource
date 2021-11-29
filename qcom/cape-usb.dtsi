@@ -61,7 +61,7 @@
 			dma-coherent;
 
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
-			usb-phy = <&eusb2_phy0>, <&usb_qmp_dp_phy>;
+			usb-phy = <&usb_nop_phy>, <&usb_qmp_dp_phy>;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
@@ -74,6 +74,10 @@
 			dr_mode = "otg";
 			maximum-speed = "super-speed-plus";
 		};
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
 	};
 
 	/* USB port related High Speed PHY */
