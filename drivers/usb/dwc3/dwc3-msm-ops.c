@@ -14,9 +14,8 @@
 #include "gadget.h"
 
 struct kprobe_data {
-	void *x0;
-	void *x1;
-	void *x2;
+	struct dwc3 *dwc;
+	int xi0;
 };
 
 static int entry_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
@@ -84,9 +83,8 @@ static int entry_dwc3_gadget_conndone_interrupt(struct kretprobe_instance *ri,
 				   struct pt_regs *regs)
 {
 	struct kprobe_data *data = (struct kprobe_data *)ri->data;
-	struct dwc3 *dwc = (struct dwc3 *)regs->regs[0];
 
-	data->x0 = dwc;
+	data->dwc = (struct dwc3 *)regs->regs[0];
 	return 0;
 }
 
@@ -94,9 +92,8 @@ static int exit_dwc3_gadget_conndone_interrupt(struct kretprobe_instance *ri,
 				   struct pt_regs *regs)
 {
 	struct kprobe_data *data = (struct kprobe_data *)ri->data;
-	struct dwc3 *dwc = (struct dwc3 *)data->x0;
 
-	dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_CONNDONE_EVENT, 0);
+	dwc3_msm_notify_event(data->dwc, DWC3_CONTROLLER_CONNDONE_EVENT, 0);
 
 	return 0;
 }
