@@ -388,17 +388,12 @@ static void mhi_dev_event_msi_cb(void *req)
 	spin_unlock_irqrestore(&mhi->lock, flags);
 }
 
-static void msi_trigger_completion_cb(void *data)
-{
-	mhi_log(MHI_MSG_VERBOSE,
-			"%s invoked\n", __func__);
-}
-
-static int mhi_trigger_msi_edma(struct mhi_dev_ring *ring, u32 idx)
+static int mhi_trigger_msi_edma(struct mhi_dev_ring *ring, u32 idx, struct event_req *ereq)
 {
 	struct dma_async_tx_descriptor *descriptor;
 	struct ep_pcie_msi_config cfg;
 	struct msi_buf_cb_data *msi_buffer;
+	struct mhi_dev_channel *ch;
 	int rc;
 	unsigned long flags;
 
@@ -433,8 +428,18 @@ static int mhi_trigger_msi_edma(struct mhi_dev_ring *ring, u32 idx)
 		return -EFAULT;
 	}
 
-	descriptor->callback_param = msi_buffer;
-	descriptor->callback = msi_trigger_completion_cb;
+	if (ereq) {
+		ereq->event_type = SEND_MSI;
+		descriptor->callback_param = ereq;
+		if (!ereq->is_cmd_cpl) {
+			ch = ereq->context;
+			descriptor->callback = mhi_dev_event_msi_cb;
+			ch->msi_cnt++;
+		} else {
+			descriptor->callback = mhi_dev_cmd_event_msi_cb;
+		}
+	}
+
 	dma_async_issue_pending(mhi_ctx->tx_dma_chan);
 
 	spin_unlock_irqrestore(&mhi_ctx->msi_lock, flags);
@@ -550,7 +555,7 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 	mhi_ctx->write_to_host(mhi, &transfer_addr, ereq, MHI_DEV_DMA_ASYNC);
 
 	if (mhi_ctx->use_edma) {
-		rc = mhi_trigger_msi_edma(ring, ctx->ev.msivec);
+		rc = mhi_trigger_msi_edma(ring, ctx->ev.msivec, ereq);
 		if (rc)
 			pr_err("%s: error sending in msi\n", __func__);
 	} else {
@@ -1023,6 +1028,7 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 	uint64_t host_addr_pa = 0, offset = 0;
 	dma_addr_t dma;
 	struct dma_async_tx_descriptor *descriptor;
+	void (*cb_func)(void *req);
 
 	if (mhi->config_iatu) {
 		offset = (uint64_t) transfer->host_pa - mhi->ctrl_base.host_pa;
@@ -1057,7 +1063,8 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		if (ereq->event_type == SEND_EVENT_BUFFER) {
 			ereq->dma = dma;
 			ereq->dma_len = transfer->size;
-		} else {
+			cb_func = ereq->client_cb;
+		} else if (ereq->event_type == SEND_EVENT_RD_OFFSET) {
 			/*
 			 * Event read pointer memory is dma_alloc_coherent
 			 * memory. Don't need to dma_unmap.
@@ -1066,6 +1073,9 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 				ereq->event_rd_dma = 0;
 			else
 				ereq->event_rd_dma = dma;
+			cb_func = ereq->rd_offset_cb;
+		} else {
+			cb_func = ereq->msi_cb;
 		}
 
 		descriptor = dmaengine_prep_dma_memcpy(
@@ -1080,7 +1090,7 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 			return;
 		}
 		descriptor->callback_param = ereq;
-		descriptor->callback = ereq->client_cb;
+		descriptor->callback = cb_func;
 		dma_async_issue_pending(mhi->tx_dma_chan);
 	} else if (tr_type == MHI_DEV_DMA_SYNC) {
 		reinit_completion(&write_to_host);
@@ -1124,6 +1134,9 @@ int mhi_transfer_host_to_device_edma(void *dev, uint64_t host_pa, uint32_t len,
 	struct dma_async_tx_descriptor *descriptor;
 	struct mhi_dev_channel *ch;
 	int rc;
+
+	if (WARN_ON(!mhi || !dev || !host_pa || !mreq))
+		return -EINVAL;
 
 	if (mhi->config_iatu) {
 		offset = (uint64_t)host_pa - mhi->data_base.host_pa;
@@ -1220,8 +1233,12 @@ int mhi_transfer_device_to_host_edma(uint64_t host_addr, void *dev,
 	struct mhi_dev_ring *ring;
 	struct dma_async_tx_descriptor *descriptor;
 	bool flush;
+	u32 snd_cmpl;
 	struct mhi_dev_channel *ch;
 	int rc;
+
+	if (WARN_ON(!mhi || !dev || !req  || !host_addr))
+		return -EINVAL;
 
 	if (mhi->config_iatu) {
 		offset = (uint64_t)host_addr - mhi->data_base.host_pa;
@@ -1267,6 +1284,7 @@ int mhi_transfer_device_to_host_edma(uint64_t host_addr, void *dev,
 		mhi_dev_ring_inc_index(ring, ring->rd_offset);
 		if (ring->rd_offset == ring->wr_offset)
 			req->snd_cmpl = 1;
+		snd_cmpl = req->snd_cmpl;
 
 		/* Queue the completion event for the current transfer */
 		rc = mhi_dev_queue_transfer_completion(req, &flush);
@@ -1292,7 +1310,7 @@ int mhi_transfer_device_to_host_edma(uint64_t host_addr, void *dev,
 
 		dma_async_issue_pending(mhi->tx_dma_chan);
 
-		if (flush) {
+		if (snd_cmpl || flush) {
 			rc = mhi_dev_flush_transfer_completion_events(mhi, ch);
 			if (rc) {
 				mhi_log(MHI_MSG_ERROR,
@@ -1665,7 +1683,7 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	mhi_log(MHI_MSG_VERBOSE, "evnt chid :0x%x\n", el->evt_tr_comp.chid);
 
 	if (mhi_ctx->use_edma)
-		rc = mhi_trigger_msi_edma(ring, ctx->ev.msivec);
+		rc = mhi_trigger_msi_edma(ring, ctx->ev.msivec, NULL);
 	else
 		rc = ep_pcie_trigger_msi(mhi_ctx->phandle, ctx->ev.msivec);
 
@@ -3266,10 +3284,10 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 	} while (++count < MHI_DEV_CH_CLOSE_TIMEOUT_COUNT);
 
 	if (ch->pend_wr_count)
-		mhi_log(MHI_MSG_ERROR, "%d writes pending for channel %d\n",
+		mhi_log(MHI_MSG_INFO, "%d writes pending for channel %d\n",
 			ch->pend_wr_count, ch->ch_id);
 	if (!list_empty(&ch->event_req_buffers))
-		mhi_log(MHI_MSG_ERROR, "%d pending flush for channel %d\n",
+		mhi_log(MHI_MSG_INFO, "%d pending flush for channel %d\n",
 			ch->pend_wr_count, ch->ch_id);
 
 	if (ch->state != MHI_DEV_CH_PENDING_START)
