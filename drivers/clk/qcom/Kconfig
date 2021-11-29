@@ -999,4 +999,13 @@ config SA_GCC_LEMANS
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
 
+config SA_CAMCC_LEMANS
+	tristate "LEMANS Camera Clock Controller"
+	select SA_GCC_LEMANS
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  Lemans devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 endif
