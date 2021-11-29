@@ -1093,6 +1093,12 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 		}
 		spin_unlock(&channel->recv_lock);
 
+		if (qcom_glink_is_wakeup(true)) {
+			pr_info("%s[%d:%d] %s: wakeup packet size:%d\n",
+				channel->name, channel->lcid, channel->rcid,
+				__func__, intent->offset);
+		}
+
 		intent->offset = 0;
 		channel->buf = NULL;
 
