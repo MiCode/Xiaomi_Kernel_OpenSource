@@ -1,3 +1,5 @@
+#include <dt-bindings/gpio/gpio.h>
+
 &soc {
 	timer {
 		clock-frequency = <500000>;
@@ -37,4 +39,47 @@
 		dr_mode = "peripheral";
 		maximum-speed = "high-speed";
 	};
+};
+
+&sdhc_1 {
+	status = "disabled";
+
+	vdd-supply = <&L24B>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&L19B>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	/delete-property/ mmc-ddr-1_8v;
+	/delete-property/ mmc-hs200-1_8v;
+	/delete-property/ mmc-hs400-1_8v;
+	/delete-property/ mmc-hs400-enhanced-strobe;
+	max-frequency = <100000000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+};
+
+&sdhc_2 {
+	status = "ok";
+	vdd-supply = <&L9E>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6E>;
+	qcom,vdd-io-voltage-level = <2960000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	max-frequency = <100000000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 107 GPIO_ACTIVE_LOW>;
 };
