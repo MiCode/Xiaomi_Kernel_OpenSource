@@ -21,6 +21,7 @@
 
 	chosen: chosen {
 		stdout-path = "/soc/qcom,qup_uart@98C000:115200n8";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
