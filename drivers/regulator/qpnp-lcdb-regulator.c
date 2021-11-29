@@ -2230,8 +2230,7 @@ static int qpnp_lcdb_regulator_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	lcdb->subtype = (u8)of_device_get_match_data(&pdev->dev);
-
+	lcdb->subtype = (u8)(unsigned long)of_device_get_match_data(&pdev->dev);
 	lcdb->dev = &pdev->dev;
 	lcdb->pdev = pdev;
 	mutex_init(&lcdb->lcdb_mutex);
