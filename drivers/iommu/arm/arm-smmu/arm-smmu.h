@@ -443,6 +443,7 @@ struct qsmmuv500_tbu_device {
 	u32				halt_count;
 
 	bool				has_micro_idle;
+	unsigned int			*irqs;
 };
 
 enum arm_smmu_context_fmt {
