@@ -2,9 +2,9 @@
 ## Inheriting MSM configs
 . ${KERNEL_DIR}/build.config.msm.waipio.vm
 ################################################################################
-## Setting parameter to build only TUIVM images
+## Setting parameter to build only OEMVM images
 
 MKDTIMGDTBS=()
-MKDTIMGDTBS["waipio_tuivm"]="waipio-vm"
+MKDTIMGDTBS["waipio_oemvm"]="waipio-oemvm"
 
 ################################################################################
