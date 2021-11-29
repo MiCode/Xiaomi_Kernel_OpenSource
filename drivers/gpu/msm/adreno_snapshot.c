@@ -839,13 +839,16 @@ static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
 }
 
 static void adreno_snapshot_os(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot, struct kgsl_context *guilty,
-		bool dump_contexts)
+		struct kgsl_snapshot *snapshot, struct kgsl_context *guilty)
 {
 	struct kgsl_snapshot_section_header *sect =
 		(struct kgsl_snapshot_section_header *) snapshot->ptr;
 	struct kgsl_snapshot_linux_v2 *header = (struct kgsl_snapshot_linux_v2 *)
 		(snapshot->ptr + sizeof(*sect));
+	struct kgsl_context *context;
+	u32 remain;
+	void *mem;
+	int id;
 
 	if (snapshot->remain < (sizeof(*sect) + sizeof(*header))) {
 		SNAPSHOT_ERR_NOMEM(device, "OS");
@@ -869,41 +872,37 @@ static void adreno_snapshot_os(struct kgsl_device *device,
 
 	/* If we know the guilty context then dump it */
 	if (guilty) {
+		header->current_context = guilty->id;
 		header->pid = guilty->tid;
 		strlcpy(header->comm, guilty->proc_priv->comm,
 			sizeof(header->comm));
 	}
 
-	if (dump_contexts) {
-		u32 remain = snapshot->remain - sizeof(*sect) + sizeof(*header);
-		void *mem = snapshot->ptr + sizeof(*sect) + sizeof(*header);
-		struct kgsl_context *context;
-		int id;
+	remain = snapshot->remain - sizeof(*sect) + sizeof(*header);
+	mem = snapshot->ptr + sizeof(*sect) + sizeof(*header);
 
-		read_lock(&device->context_lock);
-		idr_for_each_entry(&device->context_idr, context, id) {
-			struct kgsl_snapshot_linux_context_v2 *c = mem;
+	read_lock(&device->context_lock);
+	idr_for_each_entry(&device->context_idr, context, id) {
+		struct kgsl_snapshot_linux_context_v2 *c = mem;
 
-			if (remain < sizeof(*c))
-				break;
+		if (remain < sizeof(*c))
+			break;
 
-			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED,
-				&c->timestamp_queued);
+		kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED,
+			&c->timestamp_queued);
 
-			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_CONSUMED,
-				&c->timestamp_consumed);
+		kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_CONSUMED,
+			&c->timestamp_consumed);
 
-			kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
-				&c->timestamp_retired);
+		kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
+			&c->timestamp_retired);
 
-			header->ctxtcount++;
+		header->ctxtcount++;
 
-			mem += sizeof(*c);
-			remain -= sizeof(*c);
-
-		}
-		read_unlock(&device->context_lock);
+		mem += sizeof(*c);
+		remain -= sizeof(*c);
 	}
+	read_unlock(&device->context_lock);
 
 	sect->magic = SNAPSHOT_SECTION_MAGIC;
 	sect->id = KGSL_SNAPSHOT_SECTION_OS;
@@ -943,7 +942,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	snapshot->size += sizeof(*header);
 
 	/* Write the OS section */
-	adreno_snapshot_os(device, snapshot, context, device->gmu_fault);
+	adreno_snapshot_os(device, snapshot, context);
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
