@@ -722,7 +722,7 @@
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
-
+		qcom,cmb-msr-skip;
 		out-ports {
 			port {
 				tpdm_rdpm_out_funnel_dl_center_1: endpoint {
@@ -744,7 +744,7 @@
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
-
+		qcom,cmb-msr-skip;
 		out-ports {
 			port {
 				tpdm_rdpm_mx_out_funnel_dl_center_1: endpoint {
