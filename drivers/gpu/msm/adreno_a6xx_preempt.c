@@ -491,14 +491,17 @@ u32 a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 		u32 *cmds)
 {
 	unsigned int *cmds_orig = cmds;
+	uint64_t gpuaddr = 0;
 
 	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
 
-	if (test_and_set_bit(ADRENO_RB_SET_PSEUDO_DONE, &rb->flags))
-		goto done;
-
-	*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
+	if (drawctxt) {
+		gpuaddr = drawctxt->base.user_ctxt_record->memdesc.gpuaddr;
+		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 15);
+	} else {
+		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
+	}
 
 	/* NULL SMMU_INFO buffer - we track in KMD */
 	*cmds++ = SET_PSEUDO_SMMU_INFO;
@@ -511,6 +514,11 @@ u32 a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->secure_preemption_desc->gpuaddr);
 
+	if (drawctxt) {
+		*cmds++ = SET_PSEUDO_NON_PRIV_SAVE_ADDR;
+		cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
+	}
+
 	/*
 	 * There is no need to specify this address when we are about to
 	 * trigger preemption. This is because CP internally stores this
@@ -522,12 +530,10 @@ u32 a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->perfcounter_save_restore_desc->gpuaddr);
 
-done:
 	if (drawctxt) {
 		struct adreno_ringbuffer *rb = drawctxt->rb;
 		uint64_t dest = adreno_dev->preempt.scratch->gpuaddr
 			+ (rb->id * sizeof(u64));
-		u64 gpuaddr = drawctxt->base.user_ctxt_record->memdesc.gpuaddr;
 
 		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 2);
 		cmds += cp_gpuaddr(adreno_dev, cmds, dest);
@@ -607,8 +613,6 @@ void a6xx_preemption_start(struct adreno_device *adreno_dev)
 
 		adreno_ringbuffer_set_pagetable(device, rb,
 			device->mmu.defaultpagetable);
-
-		clear_bit(ADRENO_RB_SET_PSEUDO_DONE, &rb->flags);
 	}
 }
 
