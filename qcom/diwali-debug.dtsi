@@ -24,7 +24,6 @@
 
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0>;
-		status = "disabled";
 	};
 
 	mem_dump {
