@@ -482,14 +482,14 @@
 			};
 		};
 
-		qupv3_se7_ctsrx: qupv3_se7_ctsrx {
+		qupv3_se7_cts: qupv3_se7_cts {
 			mux {
-				pins = "gpio28", "gpio31";
+				pins = "gpio28";
 				function = "qup0_se7";
 			};
 
 			config {
-				pins = "gpio28", "gpio31";
+				pins = "gpio28";
 				drive-strength = <2>;
 				bias-disable;
 			};
@@ -518,6 +518,33 @@
 				pins = "gpio30";
 				drive-strength = <2>;
 				bias-pull-up;
+			};
+		};
+
+		/* RX to be in gpio mode for sleep config */
+		qupv3_se7_rx_wake: qupv3_se7_rx_wake {
+			mux {
+				pins = "gpio31";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio31";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		qupv3_se7_rx_active: qupv3_se7_rx_active {
+			mux {
+				pins = "gpio31";
+				function = "qup0_se7";
+			};
+
+			config {
+				pins = "gpio31";
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 	};
