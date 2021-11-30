@@ -41,6 +41,7 @@ obj-$(CONFIG_QCOM_SUBSYSTEM_SLEEP_STATS) += subsystem_sleep_stats.o
 obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
 obj-$(CONFIG_QCOM_MSM_IPCC) += qcom_ipcc.o
 obj-$(CONFIG_QCOM_RIMPS) += qcom_rimps.o
+obj-$(CONFIG_QCOM_TLMM_VM_IRQCHIP) += qcom_tlmm_vm_irqchip.o
 obj-$(CONFIG_QCOM_APR) += apr.o
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QCOM_LLCC) += llcc-qcom.o
