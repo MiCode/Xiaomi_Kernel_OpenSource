@@ -348,13 +348,15 @@
 		clocks = <&gcc GCC_QUPV3_WRAP0_S7_CLK>,
 			<&gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
-		pinctrl-names = "default", "active", "sleep";
+		pinctrl-names = "default", "active", "sleep", "shutdown";
 		pinctrl-0 = <&qupv3_se7_default_cts>,
 			<&qupv3_se7_default_rtsrx>, <&qupv3_se7_default_tx>;
-		pinctrl-1 = <&qupv3_se7_ctsrx>, <&qupv3_se7_rts>,
-						<&qupv3_se7_tx>;
-		pinctrl-2 = <&qupv3_se7_ctsrx>, <&qupv3_se7_rts>,
-						<&qupv3_se7_tx>;
+		pinctrl-1 = <&qupv3_se7_cts>, <&qupv3_se7_rts>,
+			<&qupv3_se7_tx>, <&qupv3_se7_rx_active>;
+		pinctrl-2 = <&qupv3_se7_cts>, <&qupv3_se7_rts>,
+			<&qupv3_se7_tx>, <&qupv3_se7_rx_wake>;
+		pinctrl-3 = <&qupv3_se7_default_cts>,
+			<&qupv3_se7_default_rtsrx>, <&qupv3_se7_default_tx>;
 		qcom,wakeup-byte = <0xFD>;
 		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
