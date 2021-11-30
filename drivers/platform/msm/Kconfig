@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "Qualcomm technologies inc. MSM specific device drivers"
+	depends on ARCH_QCOM
+
+config IPA3
+	tristate "IPA3 support"
+	depends on NET
+	help
+	  This framework supports the Internet Packet Accelerator (IPA3) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
+endmenu
