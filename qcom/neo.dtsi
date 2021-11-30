@@ -18,6 +18,11 @@
 
 	#address-cells = <2>;
 	#size-cells = <2>;
+
+	chosen: chosen {
+		bootargs = " rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off console=ttyMSM0,115200,n8 loglevel=8";
+	};
+
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
 	reserved_memory: reserved-memory { };
@@ -26,10 +31,6 @@
 		mmc0 = &sdhc_1; /*SDC1 eMMC slot*/
 		serial0 = &qupv3_se11_2uart;
 		hsuart0 = &qupv3_se7_4uart;
-	};
-
-	chosen {
-		bootargs = " console=ttyMSM0,115200n8 loglevel=8";
 	};
 
 	firmware: firmware { };
