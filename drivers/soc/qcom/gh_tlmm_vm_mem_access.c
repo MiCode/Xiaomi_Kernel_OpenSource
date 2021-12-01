@@ -6,6 +6,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/io.h>
 #include <linux/types.h>
 #include "linux/gunyah/gh_mem_notifier.h"
@@ -180,7 +181,7 @@ static int gh_tlmm_vm_mem_reclaim(struct gh_tlmm_vm_info *gh_tlmm_vm_info_data)
 
 static int gh_tlmm_vm_populate_vm_info(struct platform_device *dev, struct gh_tlmm_vm_info *vm_info)
 {
-	int rc = 0, i;
+	int rc = 0, i, gpio;
 	struct device_node *np = dev->dev.of_node;
 	int num_regs = 0;
 	struct resource *res;
@@ -202,9 +203,8 @@ static int gh_tlmm_vm_populate_vm_info(struct platform_device *dev, struct gh_tl
 	}
 
 	vm_info->vm_name = GH_TRUSTED_VM;
-	num_regs = of_property_count_u32_elems(np,
+	num_regs = of_gpio_named_count(np,
 			"tlmm-vm-gpio-list");
-
 	if (num_regs < 0) {
 		dev_err(gh_tlmm_dev, "Invalid number of gpios specified\n");
 		rc = -EINVAL;
@@ -214,11 +214,15 @@ static int gh_tlmm_vm_populate_vm_info(struct platform_device *dev, struct gh_tl
 	gpios = kmalloc_array(num_regs, sizeof(*gpios), GFP_KERNEL);
 	if (!gpios)
 		return -ENOMEM;
-	rc = of_property_read_u32_array(np, "tlmm-vm-gpio-list",
-			gpios, num_regs);
-	if (rc) {
-		dev_err(gh_tlmm_dev, "Failed to receive shared gpios rc:%d\n", rc);
-		goto gpios_error;
+
+	for (i = 0; i < num_regs; i++) {
+		gpio = of_get_named_gpio(np, "tlmm-vm-gpio-list", i);
+		if (gpio < 0) {
+			rc = gpio;
+			dev_err(gh_tlmm_dev, "Failed to receive shared gpios %d\n", rc);
+			goto gpios_error;
+		}
+		gpios[i] = gpio;
 	}
 
 	vm_info->iomem_list_size = num_regs;
