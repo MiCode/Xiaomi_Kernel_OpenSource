@@ -28,6 +28,8 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/arm_ffa.h>
+#include <asm/kvm_pkvm.h>
+
 #include <nvhe/ffa.h>
 #include <nvhe/trap_handler.h>
 
@@ -36,6 +38,13 @@
  * We share this ID with the host.
  */
 #define HOST_FFA_ID	0
+
+/*
+ * Note that we don't currently lock these buffers explicitly, instead
+ * relying on the locking of the host FFA buffers as we only have one
+ * client.
+ */
+static struct kvm_ffa_buffers ffa_buffers;
 
 static void ffa_to_smccc_error(struct arm_smccc_res *res, u64 ffa_errno)
 {
@@ -162,7 +171,7 @@ out_handled:
 	return true;
 }
 
-int hyp_ffa_init(void)
+int hyp_ffa_init(void *pages)
 {
 	struct arm_smccc_res res;
 
@@ -182,6 +191,12 @@ int hyp_ffa_init(void)
 
 	if (res.a2 != HOST_FFA_ID)
 		return -EINVAL;
+
+	ffa_buffers = (struct kvm_ffa_buffers) {
+		.lock	= __HYP_SPIN_LOCK_UNLOCKED,
+		.tx	= pages,
+		.rx	= pages + (KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE),
+	};
 
 	return 0;
 }
