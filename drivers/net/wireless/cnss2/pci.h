@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #ifndef _CNSS_PCI_H
 #define _CNSS_PCI_H
 
+#include <linux/cma.h>
 #include <linux/iommu.h>
 #include <linux/mhi.h>
 #if IS_ENABLED(CONFIG_MHI_BUS_MISC)
@@ -12,9 +16,15 @@
 #if IS_ENABLED(CONFIG_PCI_MSM)
 #include <linux/msm_pcie.h>
 #endif
+#include <linux/of_reserved_mem.h>
 #include <linux/pci.h>
 
 #include "main.h"
+
+#define PM_OPTIONS_DEFAULT		0
+#define PCI_LINK_DOWN			0
+#define LINK_TRAINING_RETRY_MAX_TIMES		3
+#define LINK_TRAINING_RETRY_DELAY_MS		500
 
 enum cnss_mhi_state {
 	CNSS_MHI_INIT,
@@ -261,4 +271,6 @@ int cnss_pci_get_iova_ipa(struct cnss_pci_data *pci_priv, u64 *addr,
 			  u64 *size);
 int cnss_pci_update_time_sync_period(struct cnss_pci_data *pci_priv,
 				     unsigned int time_sync_period);
+void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv);
+
 #endif /* _CNSS_PCI_H */
