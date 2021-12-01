@@ -487,7 +487,7 @@ void mhi_controller_set_base(struct mhi_controller *mhi_cntrl,
  * @base: Pointer to physical address to be populated
  */
 int mhi_controller_get_base(struct mhi_controller *mhi_cntrl,
-			    phys_addr_t *base);
+			    phys_addr_t *base)
 {
 	return -EINVAL;
 }
