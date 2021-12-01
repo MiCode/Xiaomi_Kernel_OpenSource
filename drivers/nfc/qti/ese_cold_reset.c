@@ -76,6 +76,7 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 		 * if response's OID doesn't match with the CMD's OID
 		 */
 		if (!(rsp_buf[0] & NCI_RSP_PKT_TYPE) ||
+			(!cold_rst->cmd_buf) ||
 			(rsp_buf[1] != cold_rst->cmd_buf[1])) {
 
 			dev_err(nfc_dev->nfc_device,
