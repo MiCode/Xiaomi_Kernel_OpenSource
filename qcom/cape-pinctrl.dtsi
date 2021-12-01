@@ -2607,7 +2607,7 @@
 		};
 	};
 
-	cnss_pins {
+	cnss_pins: cnss_pins {
 		cnss_wlan_en_active: cnss_wlan_en_active {
 			mux {
 				pins = "gpio80";
