@@ -140,9 +140,14 @@
 		pm7325_l7: regulator-pm7325-l7 {
 			regulator-name = "pm7325_l7";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2400000>;
-			regulator-max-microvolt = <3544000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			/*
+			 * Remove min/max voltages for this regulator as initial
+			 * voltage of  L7B is set to be 2.504v/2.952v during PON
+			 * depending upon the UFS mode 3.x/2.x. UFS is the only
+			 * client on this and this regulator will only be voted
+			 * for enabling/disabling conditions.
+			 */
 		};
 	};
 
@@ -178,25 +183,6 @@
 			regulator-name = "pm7325_l9";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1080000>;
-			regulator-max-microvolt = <1304000>;
-			qcom,init-voltage = <1200000>;
-			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-	};
-
-	rpmh-regulator-ldob10 {
-		compatible = "qcom,rpmh-vrm-regulator";
-		qcom,resource-name = "ldob10";
-		qcom,regulator-type = "pmic5-ldo";
-		qcom,supported-modes =
-			<RPMH_REGULATOR_MODE_LPM
-			RPMH_REGULATOR_MODE_HPM>;
-		qcom,mode-threshold-currents = <0 30000>;
-		L10B:
-		pm7325_l10: regulator-pm7325-l10 {
-			regulator-name = "pm7325_l10";
-			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1170000>;
 			regulator-max-microvolt = <1304000>;
 			qcom,init-voltage = <1200000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
@@ -470,24 +456,6 @@
 			regulator-min-microvolt = <1620000>;
 			regulator-max-microvolt = <1980000>;
 			qcom,init-voltage = <1800000>;
-			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-	};
-
-	rpmh-regulator-ldoc2 {
-		compatible = "qcom,rpmh-vrm-regulator";
-		qcom,resource-name = "ldoc2";
-		qcom,regulator-type = "pmic5-ldo";
-		qcom,supported-modes =
-			<RPMH_REGULATOR_MODE_LPM
-			 RPMH_REGULATOR_MODE_HPM>;
-		qcom,mode-threshold-currents = <0 10000>;
-		L2C: pm8350c_l2: regulator-pm8350c-l2 {
-			regulator-name = "pm8350c_l2";
-			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1620000>;
-			regulator-max-microvolt = <1980000>;
-			qcom,init-voltage = <1620000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -816,10 +784,10 @@
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_NOM>;
 			qcom,proxy-consumer-enable;
 			qcom,proxy-consumer-voltage =
-				<RPMH_REGULATOR_LEVEL_TURBO
+				<RPMH_REGULATOR_LEVEL_NOM
 				 RPMH_REGULATOR_LEVEL_MAX>;
 		};
 
