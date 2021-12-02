@@ -5611,7 +5611,7 @@ static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present)
 static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	int timeout = 10;
+	int timeout = 1000;
 	int ret;
 
 	pm_runtime_get_sync(mdwc->dev);
