@@ -36,6 +36,10 @@ enum {
 	RUN,
 };
 
+struct mdm_drv_data {
+	const char *fw;
+};
+
 struct mdm_drv {
 	unsigned int mode;
 	struct esoc_eng cmd_eng;
@@ -502,7 +506,16 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 {
 	int ret;
 	struct mdm_drv *mdm_drv;
+	struct mdm_drv_data *data;
 	struct esoc_eng *esoc_eng;
+
+	data = esoc_device_get_match_data(&esoc_clink->dev);
+	if (IS_ERR(data)) {
+		dev_err(&esoc_clink->dev, "esoc match data failed: %d\n", PTR_ERR(data));
+		return PTR_ERR(data);
+	}
+
+	esoc_clink->fw = data->fw;
 
 	mdm_drv = devm_kzalloc(&esoc_clink->dev, sizeof(*mdm_drv), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(mdm_drv))
@@ -569,22 +582,38 @@ int esoc_ssr_remove(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 	return 0;
 }
 
+struct mdm_drv_data mdm_9x55 = {
+	.fw = "mdm9x55/sbl1.mbn",
+};
+
+struct mdm_drv_data sdx_50m = {
+	.fw = "sdx50m/sbl1.mbn",
+};
+
+struct mdm_drv_data sdx_55m = {
+	.fw = "sdx55m/sbl1.mbn",
+};
+
+struct mdm_drv_data sdx_lemur = {
+	.fw = "sdx65m/xbl.elf",
+};
+
 struct esoc_compat compat_table[] = {
 	{
 		.name = "MDM9x55",
-		.data = NULL,
+		.data = &mdm_9x55,
 	},
 	{
 		.name = "SDX50M",
-		.data = NULL,
+		.data = &sdx_50m,
 	},
 	{
 		.name = "SDX55M",
-		.data = NULL,
+		.data = &sdx_55m,
 	},
 	{
 		.name = "SDXLEMUR",
-		.data = NULL,
+		.data = &sdx_lemur,
 	},
 };
 

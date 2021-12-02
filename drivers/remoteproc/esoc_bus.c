@@ -60,6 +60,22 @@ static int esoc_bus_match(struct device *dev, struct device_driver *drv)
 	return 0;
 }
 
+void *esoc_device_get_match_data(struct device *dev)
+{
+	int i = 0;
+	struct esoc_clink *esoc_clink = to_esoc_clink(dev);
+	struct esoc_drv *esoc_drv = to_esoc_drv(dev->driver);
+	int entries = esoc_drv->compat_entries;
+	struct esoc_compat *table = esoc_drv->compat_table;
+
+	for (i = 0; i < entries; i++) {
+		if (strcasecmp(esoc_clink->name, table[i].name) == 0)
+			return table[i].data;
+	}
+
+	return ERR_PTR(-EINVAL);
+}
+
 static int esoc_bus_probe(struct device *dev)
 {
 	int ret;
@@ -187,7 +203,7 @@ int esoc_clink_register_rproc(struct esoc_clink *esoc_clink)
 	snprintf(rproc_name, len, "esoc%d", esoc_clink->id);
 	esoc_clink->dev.of_node = esoc_clink->np;
 	esoc_clink->rproc = rproc_alloc(&esoc_clink->dev, rproc_name,
-					&esoc_clink->ops, "xbl.elf", 0);
+					&esoc_clink->ops, esoc_clink->fw, 0);
 	if (!esoc_clink->rproc) {
 		dev_err(&esoc_clink->dev, "unable to allocate remoteproc\n");
 		ret = -ENOMEM;
