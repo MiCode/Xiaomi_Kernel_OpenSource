@@ -1753,7 +1753,7 @@ static int adc5_gen3_exit(struct platform_device *pdev)
 
 static struct platform_driver adc5_gen3_driver = {
 	.driver = {
-		.name = "qcom-spmi-adc5-gen3.c",
+		.name = "qcom-spmi-adc5-gen3",
 		.of_match_table = adc5_match_table,
 	},
 	.probe = adc5_gen3_probe,
