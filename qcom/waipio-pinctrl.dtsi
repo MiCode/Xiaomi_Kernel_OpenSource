@@ -1023,13 +1023,13 @@
 		qupv3_se15_i3c_sleep: qupv3_se15_i3c_sleep {
 			mux {
 				pins = "gpio56", "gpio57";
-				function = "gpio";
+				function = "ibi_i3c";
 			};
 
 			config {
 				pins = "gpio56", "gpio57";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-up;
 			};
 		};
 
