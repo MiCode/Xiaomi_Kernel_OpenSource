@@ -160,6 +160,7 @@ static int hidinput_setkeycode(struct input_dev *dev,
 	if (usage) {
 		*old_keycode = usage->type == EV_KEY ?
 				usage->code : KEY_RESERVED;
+		usage->type = EV_KEY;
 		usage->code = ke->keycode;
 
 		clear_bit(*old_keycode, dev->keybit);
@@ -650,10 +651,9 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 						code += KEY_MACRO1;
 					else
 						code += BTN_TRIGGER_HAPPY - 0x1e;
-				} else {
-					goto ignore;
+					break;
 				}
-				break;
+				fallthrough;
 		default:
 			switch (field->physical) {
 			case HID_GD_MOUSE:
