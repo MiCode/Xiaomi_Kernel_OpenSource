@@ -124,8 +124,10 @@ static void update_vcpu_state(struct kvm_vcpu *vcpu, int shadow_handle)
  */
 static int __create_el2_shadow(struct kvm *kvm)
 {
+	struct kvm_vcpu *vcpu, **vcpu_array;
 	size_t pgd_sz, shadow_sz;
 	void *pgd, *shadow_addr;
+	unsigned long idx;
 	int shadow_handle;
 	int ret, i;
 
@@ -150,6 +152,12 @@ static int __create_el2_shadow(struct kvm *kvm)
 		ret = -ENOMEM;
 		goto free_pgd;
 	}
+
+	/* Stash the vcpu pointers into the PGD */
+	BUILD_BUG_ON(KVM_MAX_VCPUS > (PAGE_SIZE / sizeof(u64)));
+	vcpu_array = pgd;
+	kvm_for_each_vcpu(idx, vcpu, kvm)
+		vcpu_array[idx] = vcpu;
 
 	/* Donate the shadow memory to hyp and let hyp initialize it. */
 	ret = kvm_call_hyp_nvhe(__pkvm_init_shadow, kvm, shadow_addr, shadow_sz,

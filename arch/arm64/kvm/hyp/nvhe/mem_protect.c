@@ -249,15 +249,11 @@ int kvm_guest_prepare_stage2(struct kvm_shadow_vm *vm, void *pgd)
 	unsigned long nr_pages;
 	int ret;
 
-	vm->arch.vtcr = host_kvm.arch.vtcr;
 	nr_pages = kvm_pgtable_stage2_pgd_size(vm->arch.vtcr) >> PAGE_SHIFT;
-	ret = __pkvm_host_donate_hyp(hyp_virt_to_pfn(pgd), nr_pages);
-	if (ret)
-		return ret;
 
 	ret = hyp_pool_init(&vm->pool, hyp_virt_to_pfn(pgd), nr_pages, 0);
 	if (ret)
-		goto err;
+		return ret;
 
 	hyp_spin_lock_init(&vm->lock);
 	vm->mm_ops = (struct kvm_pgtable_mm_ops) {
@@ -278,15 +274,11 @@ int kvm_guest_prepare_stage2(struct kvm_shadow_vm *vm, void *pgd)
 					guest_stage2_force_pte_cb);
 	__guest_unlock(vm);
 	if (ret)
-		goto err;
+		return ret;
 
 	vm->arch.mmu.pgd_phys = __hyp_pa(vm->pgt.pgd);
 
 	return 0;
-
-err:
-	WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(pgd), nr_pages));
-	return ret;
 }
 
 static int reclaim_walker(u64 addr, u64 end, u32 level, kvm_pte_t *ptep,
