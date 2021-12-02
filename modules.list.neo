@@ -11,6 +11,7 @@ icc-bcm-voter.ko
 icc-debug.ko
 qnoc-neo.ko
 icc-rpmh.ko
+qcom_ipcc.ko
 qnoc-qos.ko
 msm-geni-se.ko
 qcom-pdc.ko
