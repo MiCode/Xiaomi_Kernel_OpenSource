@@ -119,7 +119,7 @@
 		};
 	};
 
-	pm8350b-bcl-lvl0 {
+	pm7250b-bcl-lvl0 {
 		cooling-maps {
 			vbat_lte0 {
 				trip = <&b_bcl_lvl0>;
@@ -153,7 +153,7 @@
 		};
 	};
 
-	pm8350b-bcl-lvl1 {
+	pm7250b-bcl-lvl1 {
 		cooling-maps {
 			vbat_lte1 {
 				trip = <&b_bcl_lvl1>;
@@ -187,7 +187,7 @@
 		};
 	};
 
-	pm8350b-bcl-lvl2 {
+	pm7250b-bcl-lvl2 {
 		cooling-maps {
 			vbat_cdsp2 {
 				trip = <&b_bcl_lvl2>;
@@ -204,9 +204,15 @@
 	conn-therm {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
-		thermal-sensors =  <&pm7250b_vadc ADC5_AMUX_THM3_100K_PU>;
+		thermal-sensors =  <&pm7250b_adc_tm ADC5_AMUX_THM3_100K_PU>;
 		trips {
 			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			active-config1 {
 				temperature = <125000>;
 				hysteresis = <1000>;
 				type = "passive";
@@ -217,9 +223,15 @@
 	chg-skin-therm {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
-		thermal-sensors =  <&pm7250b_vadc ADC5_AMUX_THM1_100K_PU>;
+		thermal-sensors =  <&pm7250b_adc_tm ADC5_AMUX_THM1_100K_PU>;
 		trips {
 			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
+			active-config1 {
 				temperature = <125000>;
 				hysteresis = <1000>;
 				type = "passive";
