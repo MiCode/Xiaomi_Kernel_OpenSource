@@ -1,2 +1,17 @@
 &soc {
 };
+
+&qupv3_se0_i2c {
+	status = "ok";
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+		novatek,trusted-touch-mode = "vm_mode";
+		novatek,touch-environment = "tvm";
+		novatek,trusted-touch-spi-irq = <566>;
+		novatek,trusted-touch-io-bases = <0x980000 0x910000>;
+		novatek,trusted-touch-io-sizes = <0x1000 0x4000>;
+		novatek,trusted-touch-vm-gpio-list = <&tlmm 0 0 &tlmm 1 0 &tlmm 2 0
+						&tlmm 3 0 &tlmm 17 0 &tlmm 51 0x2008>;
+	};
+};
