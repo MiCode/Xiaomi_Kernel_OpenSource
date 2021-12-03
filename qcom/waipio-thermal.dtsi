@@ -1456,7 +1456,7 @@
 	};
 
 	mx-pe {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-sensors = <&mx_pe>;
 		trips {
