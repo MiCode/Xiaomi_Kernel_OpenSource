@@ -415,6 +415,14 @@
 		size = <0x0 0xC00000>;
 	};
 
+	sdsp_mem: sdsp_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x400000>;
+	};
+
 	user_contig_mem: user_contig_region {
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
