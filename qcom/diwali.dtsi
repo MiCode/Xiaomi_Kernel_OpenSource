@@ -2575,8 +2575,12 @@
 	qfprom_sys: qfprom@0 {
 		compatible = "qcom,qfprom-sys";
 
-		nvmem-cells = <&adsp_variant>;
-		nvmem-cell-names = "adsp_variant";
+		nvmem-cells = <&adsp_variant>,
+				<&feat_conf12>,
+				<&feat_conf13>;
+		nvmem-cell-names = "adsp_variant",
+				"feat_conf12",
+				"feat_conf13";
 	};
 
 	qcom,msm-cdsp-loader {
