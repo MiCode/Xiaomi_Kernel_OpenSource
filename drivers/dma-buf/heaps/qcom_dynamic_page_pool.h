@@ -32,7 +32,7 @@
  * We add __GFP_NOWARN for order 4 allocations since the core mm/ framework
  * makes no guarantee of these allocations succeeding.
  */
-static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP | __GFP_NOWARN,
+static gfp_t order_flags[] = {HIGH_ORDER_GFP, HIGH_ORDER_GFP,
 			      LOW_ORDER_GFP};
 #if defined(CONFIG_IOMMU_IO_PGTABLE_ARMV7S) && !defined(CONFIG_64BIT) && !defined(CONFIG_ARM_LPAE)
 static const unsigned int orders[] = {8, 4, 0};
