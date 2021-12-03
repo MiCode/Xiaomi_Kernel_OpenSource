@@ -23,12 +23,10 @@
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH_L1 + 1, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_HIGH_L1 + 1, 1, vdd_corner);
-static DEFINE_VDD_REGULATORS(vdd_gx, VDD_HIGH_L1 + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_gx, VDD_NUM, 2, vdd_gx_corner);
 
 static struct clk_vdd_class *gpu_cc_blair_regulators[] = {
-	&vdd_cx,
 	&vdd_mx,
-	&vdd_gx,
 };
 
 enum {
@@ -467,6 +465,22 @@ static int gpu_cc_blair_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret;
+
+	vdd_gx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_gx");
+	if (IS_ERR(vdd_gx.regulator[0])) {
+		if (!(PTR_ERR(vdd_gx.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev, "Unable to get vdd_gx regulator\n");
+		return PTR_ERR(vdd_gx.regulator[0]);
+	}
+
+	vdd_gx.regulator[1] = devm_regulator_get(&pdev->dev, "vdd_cx");
+	if (IS_ERR(vdd_gx.regulator[1])) {
+		if (!(PTR_ERR(vdd_gx.regulator[1]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev, "Unable to get vdd_cx regulator\n");
+			return PTR_ERR(vdd_gx.regulator[1]);
+	}
+
+	vdd_cx.regulator[0] = vdd_gx.regulator[1];
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_blair_desc);
 	if (IS_ERR(regmap))
