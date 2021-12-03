@@ -270,12 +270,10 @@ void kgsl_timeline_signal(struct kgsl_timeline *timeline, u64 seqno)
 	timeline->value = seqno;
 
 	spin_lock(&timeline->fence_lock);
-	list_for_each_entry_safe(fence, tmp, &timeline->fences, node) {
-		if (timeline_fence_signaled(&fence->base)) {
-			dma_fence_get(&fence->base);
+	list_for_each_entry_safe(fence, tmp, &timeline->fences, node)
+		if (timeline_fence_signaled(&fence->base) &&
+				kref_get_unless_zero(&fence->base.refcount))
 			list_move(&fence->node, &temp);
-		}
-	}
 	spin_unlock(&timeline->fence_lock);
 
 	list_for_each_entry_safe(fence, tmp, &temp, node) {
@@ -548,7 +546,8 @@ long kgsl_ioctl_timeline_destroy(struct kgsl_device_private *dev_priv,
 
 	spin_lock(&timeline->fence_lock);
 	list_for_each_entry_safe(fence, tmp, &timeline->fences, node)
-		dma_fence_get(&fence->base);
+		if (!kref_get_unless_zero(&fence->base.refcount))
+			list_del_init(&fence->node);
 	list_replace_init(&timeline->fences, &temp);
 	spin_unlock(&timeline->fence_lock);
 
