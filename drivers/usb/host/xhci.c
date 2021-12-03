@@ -1013,12 +1013,12 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 			xhci->shared_hcd->state != HC_STATE_SUSPENDED)
 		return -EINVAL;
 
+	if (!HCD_HW_ACCESSIBLE(hcd))
+		return 0;
+
 	/* Clear root port wake on bits if wakeup not allowed. */
 	xhci_disable_hub_port_wake(xhci, &xhci->usb3_rhub, do_wakeup);
 	xhci_disable_hub_port_wake(xhci, &xhci->usb2_rhub, do_wakeup);
-
-	if (!HCD_HW_ACCESSIBLE(hcd))
-		return 0;
 
 	xhci_dbc_suspend(xhci);
 

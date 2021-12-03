@@ -144,6 +144,8 @@
 #define IPA_IOCTL_DEL_EoGRE_MAPPING             89
 #define IPA_IOCTL_SET_IPPT_SW_FLT               90
 #define IPA_IOCTL_FLT_MEM_PERIPHERAL_SET_PRIO_HIGH 91
+#define IPA_IOCTL_ADD_MACSEC_MAPPING            92
+#define IPA_IOCTL_DEL_MACSEC_MAPPING            93
 
 /**
  * max size of the header to be inserted
@@ -905,7 +907,14 @@ enum ipa_ippt_sw_flt_event {
 #define IPA_IPPT_SW_FLT_EVENT_MAX IPA_IPPT_SW_FLT_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_IPPT_SW_FLT_EVENT_MAX)
+enum ipa_macsec_event {
+	IPA_MACSEC_ADD_EVENT = IPA_IPPT_SW_FLT_EVENT_MAX,
+	IPA_MACSEC_DEL_EVENT,
+	IPA_MACSEC_EVENT_MAX
+#define IPA_MACSEC_EVENT_MAX IPA_MACSEC_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_MACSEC_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -3329,6 +3338,29 @@ struct ipa_ioc_sw_flt_list_type {
 };
 
 /**
+ * struct ipa_macsec_map - mapping between ethX to macsecY
+ * @phy_name: name of the physical NIC (ethX)
+ *	- must be equal to an existing physical NIC name
+ * @macsec_name: name of the macsec NIC (macsecY)
+ */
+struct ipa_macsec_map {
+	char phy_name[IPA_RESOURCE_NAME_MAX];
+	char macsec_name[IPA_RESOURCE_NAME_MAX];
+};
+
+/**
+ * struct ipa_ioc_macsec_info - provide macsec info
+ * @ioctl_ptr: has to be typecasted to (__u64)(uintptr_t)
+ * @ioctl_data_size:
+ * Eg: For ipa_macsec_map = sizeof(ipa_macsec_map)
+ */
+struct ipa_ioc_macsec_info {
+	__u64 ioctl_ptr;
+	__u32 ioctl_data_size;
+	__u32 padding;
+};
+
+/**
  *   actual IOCTLs supported by IPA driver
  */
 #define IPA_IOC_ADD_HDR _IOWR(IPA_IOC_MAGIC, \
@@ -3631,9 +3663,18 @@ struct ipa_ioc_sw_flt_list_type {
 #define IPA_IOC_SET_IPPT_SW_FLT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_SET_IPPT_SW_FLT, \
 				struct ipa_ioc_sw_flt_list_type)
+
 #define IPA_IOC_FLT_MEM_PERIPHERAL_SET_PRIO_HIGH _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_FLT_MEM_PERIPHERAL_SET_PRIO_HIGH, \
 				enum ipa_client_type)
+
+#define IPA_IOC_ADD_MACSEC_MAPPING _IOWR(IPA_IOC_MAGIC,	\
+				IPA_IOCTL_ADD_MACSEC_MAPPING, \
+				struct ipa_ioc_macsec_info)
+#define IPA_IOC_DEL_MACSEC_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_MACSEC_MAPPING, \
+				struct ipa_ioc_macsec_info)
+
 /*
  * unique magic number of the Tethering bridge ioctls
  */
