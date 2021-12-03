@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+#
+# Makefile for the MSM specific device drivers.
+#
+
+obj-$(CONFIG_IPA3) += ipa_fmwk/
