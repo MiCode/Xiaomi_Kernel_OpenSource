@@ -235,6 +235,16 @@
 		};
 	};
 
+	tlmm: pinctrl@f000000 {
+		compatible = "qcom,anorak-pinctrl";
+		reg = <0xf000000 0x1000000>;
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 	clocks {
 		xo_board: xo_board {
 			compatible = "fixed-clock";
@@ -517,6 +527,8 @@
 	compatible = "regulator-fixed";
 	reg = <0xaaf8074 0x4>;
 	status = "ok";
+
 };
 
 #include "anorak-usb.dtsi"
+#include "anorak-pinctrl.dtsi"
