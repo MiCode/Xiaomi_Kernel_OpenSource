@@ -17,7 +17,7 @@
 	};
 
 	chosen {
-		bootargs = "cpuidle.off=1 console=hvc0 nokaslr log_buf_len=256K root=/dev/ram rw init=/init loglevel=8";
+		bootargs = "console=hvc0 nokaslr log_buf_len=256K root=/dev/ram rw init=/init loglevel=8";
 	};
 
 	cpus {
