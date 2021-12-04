@@ -1929,7 +1929,7 @@
 
 		cx-supply = <&VDD_CX_LEVEL>;
 		cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
-		mx-supply = <&VDD_MXA_LEVEL>;
+		mx-supply = <&VDD_MXC_LEVEL>;
 		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		reg-names = "cx","mx";
 
