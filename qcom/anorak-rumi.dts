@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00010000;
+
+#include "anorak.dtsi"
+#include "anorak-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Anorak RUMI";
+	compatible = "qcom,anorak-rumi", "qcom,anorak", "qcom,rumi";
+	qcom,board-id = <0xF 0x0>;
+};
