@@ -365,8 +365,18 @@ static int verify_sensor_and_register(struct qmi_ts_instance *ts)
 				 * Send a temperature request notification.
 				 */
 				qmi_ts_request(qmi_sens, true);
-				if (!qmi_sens->tz_dev)
+				if (!qmi_sens->tz_dev) {
 					ret = qmi_register_sensor_device(qmi_sens);
+				} else {
+					ret = qmi_ts_request(qmi_sens, false);
+					if (ret)
+						pr_err(
+						"sensor:%s trips:%d %d err%d\n",
+							qmi_sens->tz_dev->type,
+							qmi_sens->high_thresh,
+							qmi_sens->low_thresh,
+							ret);
+				}
 				break;
 			}
 		}
