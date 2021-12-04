@@ -94,7 +94,7 @@ dtbo-$(CONFIG_ARCH_WAIPIO) += waipio-rumi-overlay.dtbo \
 	waipio-kiwi-mtp-pm8008-overlay.dtbo \
 	waipio-kiwi-mtp-pm8010-overlay.dtbo \
 	waipio-kiwi-cdp-pm8008-overlay.dtbo \
-	waipio-kiwi-cdp-pm8010-overlay.dtbo \
+	waipio-kiwi-cdp-pm8010-overlay.dtbo
 
 waipio-rumi-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
 waipio-mtp-pm8008-overlay.dtbo-base := waipio.dtb waipiop.dtb waipio-v2.dtb waipiop-v2.dtb
@@ -203,6 +203,10 @@ dtbo-$(CONFIG_ARCH_CAPE) += cape-mtp-pm8008-overlay.dtbo \
         cape-cdp-pm8010-overlay.dtbo \
         cape-atp-pm8010-overlay.dtbo \
         cape-qrd-pm8010-overlay.dtbo \
+	cape-kiwi-mtp-pm8008-overlay.dtbo \
+	cape-kiwi-mtp-pm8010-overlay.dtbo \
+	cape-kiwi-cdp-pm8008-overlay.dtbo \
+	cape-kiwi-cdp-pm8010-overlay.dtbo
 
 cape-mtp-pm8008-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
 cape-cdp-pm8008-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
@@ -212,6 +216,10 @@ cape-mtp-pm8010-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
 cape-cdp-pm8010-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
 cape-atp-pm8010-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
 cape-qrd-pm8010-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
+cape-kiwi-mtp-pm8008-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
+cape-kiwi-mtp-pm8010-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
+cape-kiwi-cdp-pm8008-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
+cape-kiwi-cdp-pm8010-overlay.dtbo-base := cape.dtb cape-v2.dtb capep.dtb
 
 else
 dtb-$(CONFIG_ARCH_CAPE) += cape-mtp-pm8008.dtb \
