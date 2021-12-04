@@ -5,6 +5,8 @@
  * Copyright (c) 2020, Linaro Ltd.
  */
 
+#define pr_fmt(fmt) "qrtr: %s(): " fmt, __func__
+
 #include <linux/module.h>
 #include <linux/qrtr.h>
 #include <linux/workqueue.h>
