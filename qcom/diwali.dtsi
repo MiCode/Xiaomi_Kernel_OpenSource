@@ -1,3 +1,4 @@
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,camcc-diwali.h>
 #include <dt-bindings/clock/qcom,dispcc-diwali.h>
 #include <dt-bindings/clock/qcom,gcc-diwali.h>
@@ -1510,6 +1511,11 @@
 		reg-names = "llcc_base", "llcc_broadcast_base";
 		interrupts = <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>;
 		cap-based-alloc-and-pwr-collapse;
+		llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+			clocks = <&aoss_qmp QDSS_CLK>;
+			clock-names = "qdss_clk";
+		};
 	};
 
 	qcom,secure-buffer {
