@@ -4035,13 +4035,13 @@
 				    "mbox4_clr",
 				    "mbox4_init";
 
-			interrupts = <GIC_SPI 569 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH 0>,
+			interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 517 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 518 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 519 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 520 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 521 IRQ_TYPE_LEVEL_HIGH 0>;
+				     <GIC_SPI 521 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 522 IRQ_TYPE_LEVEL_HIGH 0>;
 
 			interrupt-names = "ipc0",
 					  "ipc1",
