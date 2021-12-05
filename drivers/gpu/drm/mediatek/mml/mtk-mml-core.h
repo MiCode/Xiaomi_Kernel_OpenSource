@@ -453,13 +453,6 @@ struct mml_comp {
 	bool bound;
 };
 
-/* array size must align MAX_TILE_FUNC_NO in tile_driver.h */
-struct mml_tile_cache {
-	void *func_list[MML_MAX_PATH_NODES];
-	void *tiles;
-	bool ready;
-};
-
 struct mml_tile_region {
 	u16 xs;
 	u16 xe;
@@ -501,6 +494,13 @@ struct mml_tile_config {
 
 	/* assign by wrot, end of current tile line */
 	bool eol;
+};
+
+/* array size must align MAX_TILE_FUNC_NO in tile_driver.h */
+struct mml_tile_cache {
+	void *func_list[MML_MAX_PATH_NODES];
+	struct mml_tile_config *tiles;
+	bool ready;
 };
 
 struct mml_tile_output {

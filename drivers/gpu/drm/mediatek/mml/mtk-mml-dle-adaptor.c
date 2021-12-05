@@ -37,6 +37,13 @@ struct mml_dle_ctx {
 	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
 };
 
+/* dle extension of mml_frame_config */
+struct mml_dle_frame_config {
+	struct mml_frame_config c;
+	/* tile struct in frame mode for each pipe */
+	struct mml_tile_config tile[MML_PIPE_CNT];
+};
+
 static bool check_frame_change(struct mml_frame_info *info,
 			       struct mml_frame_config *cfg)
 {
@@ -127,7 +134,7 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 	}
 
 	mml_core_deinit_config(cfg);
-	kfree(cfg);
+	kfree(container_of(cfg, struct mml_dle_frame_config, c));
 
 	mml_msg("[dle]%s frame config %p destroy done", __func__, cfg);
 }
@@ -144,10 +151,12 @@ static struct mml_frame_config *frame_config_create(
 	struct mml_dle_ctx *ctx,
 	struct mml_frame_info *info)
 {
-	struct mml_frame_config *cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
+	struct mml_dle_frame_config *dle_cfg = kzalloc(sizeof(*dle_cfg), GFP_KERNEL);
+	struct mml_frame_config *cfg;
 
-	if (!cfg)
+	if (!dle_cfg)
 		return ERR_PTR(-ENOMEM);
+	cfg = &dle_cfg->c;
 	mml_core_init_config(cfg);
 
 	list_add(&cfg->entry, &ctx->configs);
@@ -631,7 +640,12 @@ static void task_queue(struct mml_task *task, u32 pipe)
 
 static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pipe)
 {
-	return &((struct mml_dle_ctx *)task->ctx)->tile_cache[pipe];
+	struct mml_dle_ctx *ctx = task->ctx;
+	struct mml_dle_frame_config *dle_cfg = container_of(task->config,
+		struct mml_dle_frame_config, c);
+
+	ctx->tile_cache[pipe].tiles = &dle_cfg->tile[pipe];
+	return &ctx->tile_cache[pipe];
 }
 
 const static struct mml_task_ops dle_task_ops = {
@@ -698,8 +712,9 @@ static void dle_ctx_release(struct mml_dle_ctx *ctx)
 	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
 		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
 			kfree(ctx->tile_cache[i].func_list[j]);
-		if (ctx->tile_cache[i].tiles)
-			vfree(ctx->tile_cache[i].tiles);
+		/* no need for ctx->tile_cache[i].tiles, since dle adaptor
+		 * use tile struct in mml_dle_frame_config
+		 */
 	}
 	kfree(ctx);
 }
