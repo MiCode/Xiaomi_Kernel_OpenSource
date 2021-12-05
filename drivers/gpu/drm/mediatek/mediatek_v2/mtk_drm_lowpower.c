@@ -561,8 +561,11 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	mtk_gce_backup_slot_init(mtk_crtc);
 
+#ifndef DRM_CMDQ_DISABLE
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
 		mtk_crtc_prepare_instr(crtc);
+#endif
+
 	/* 3. start trigger loop first to keep gce alive */
 	if (crtc_id == 0) {
 		if (mtk_crtc_with_sodi_loop(crtc) &&

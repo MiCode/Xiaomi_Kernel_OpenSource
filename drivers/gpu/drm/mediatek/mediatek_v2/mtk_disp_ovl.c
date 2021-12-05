@@ -1886,6 +1886,22 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 			       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			       lx_fbdc_en << (lye_idx + 4), BIT(lye_idx + 4));
 
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_CFG(lye_idx), 0,
+		~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF0_ADDR(lye_idx),
+		0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
+		0, ~0);
+
+	if (comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L) {
+		// setting SMI for read SRAM
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
+			0x00000000, GENMASK(19, 16));
+	}
 	/* if no compress, do common config and return */
 	if (compress == 0) {
 		_ovl_common_config(comp, idx, state, handle);

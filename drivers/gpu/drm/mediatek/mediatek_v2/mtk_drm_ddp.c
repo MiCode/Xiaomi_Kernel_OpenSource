@@ -12063,6 +12063,7 @@ void mtk_disp_mutex_acquire(struct mtk_disp_mutex *mutex)
 
 	writel(1, ddp->regs + DISP_REG_MUTEX_EN(mutex->id));
 	writel(1, ddp->regs + DISP_REG_MUTEX(mutex->id));
+
 	if (readl_poll_timeout_atomic(ddp->regs + DISP_REG_MUTEX(mutex->id),
 				      tmp, tmp & INT_MUTEX, 1, 10000))
 		DDPPR_ERR("could not acquire mutex %d\n", mutex->id);
@@ -12131,6 +12132,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	}
 
 	val = readl(ddp->regs + DISP_REG_MUTEX_INTSTA) & DISP_MUTEX_INT_MSK;
+
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
@@ -12785,7 +12787,7 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex)
 		}
 
 		mod1 = readl_relaxed(ddp->regs +
-			DISP_REG_MUTEX_MOD(ddp->data, i));
+			DISP_REG_MUTEX_MOD2(mutex->id));
 		for (j = 0; j < 32; j++) {
 			if ((mod1 & (1 << j))) {
 				len = sprintf(p, "%s,",
@@ -14253,6 +14255,7 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 	ddp->dispsys_num = dispsys_num;
 
 	irq = platform_get_irq(pdev, 0);
+
 	if (irq < 0)
 		return irq;
 

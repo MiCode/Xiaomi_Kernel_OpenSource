@@ -4085,7 +4085,9 @@ int mtk_drm_disp_test_show(struct drm_crtc *crtc, bool enable)
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 	}
 
+#ifndef DRM_CMDQ_DISABLE
 	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
+#endif
 	cmdq_pkt_wait_complete(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);

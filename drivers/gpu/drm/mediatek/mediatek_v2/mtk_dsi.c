@@ -868,7 +868,8 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 
 	if ((priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
-		priv->data->mmsys_id == MMSYS_MT6879) &&
+		priv->data->mmsys_id == MMSYS_MT6879 ||
+		priv->data->mmsys_id == MMSYS_MT6855) &&
 		(dsi->d_rate != 0)) {
 		data_rate = dsi->d_rate;
 		DDPMSG("%s, data rate=%d\n", __func__, data_rate);
@@ -1181,6 +1182,7 @@ static void mtk_dsi_clk_hs_mode(struct mtk_dsi *dsi, bool enter)
 		else
 			writel(0x55, dsi->regs + DSI_PHY_LCPAT);
 	}
+
 	if (enter && !mtk_dsi_clk_hs_state(dsi))
 		mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_HS_TX_EN, LC_HS_TX_EN);
 	else if (!enter && mtk_dsi_clk_hs_state(dsi))
@@ -1850,7 +1852,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		DRM_MMP_MARK(dsi1, status, 0);
 
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(&dsi->ddp_comp), status);
-
 	/*
 	 * rd_rdy don't clear and wait for ESD &
 	 * Read LCM will clear the bit.
@@ -3449,14 +3450,23 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	struct mtk_panel_ext *ext = dsi->ext;
+	struct mtk_drm_private *priv = NULL;
 
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
 	switch (flag) {
 	case MTK_TRIG_FLAG_TRIGGER:
 		/* TODO: avoid hardcode: 0xF0 register offset  */
 		if (!ext->params->lp_perline_en &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
-				       0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+			if (priv->data->mmsys_id == MMSYS_MT6855)
+				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
+						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
+						0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+
 			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMD_TYPE1_HS,
 					CMD_HS_HFP_BLANKING_HS_EN, CMD_HS_HFP_BLANKING_HS_EN);
 		}
