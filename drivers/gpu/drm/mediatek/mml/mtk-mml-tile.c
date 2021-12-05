@@ -128,6 +128,7 @@ static s32 prepare_tile(struct mml_task *task,
 #define MAX_DECOUPLE_TILE_NUM 8
 #define MAX_RACING_90_270_TILE_NUM 64
 #define MAX_RACING_0_180_TILE_NUM 128
+#define MAX_TILE_NUM 128 /* must be max value of above cases */
 
 static s32 tile_message_to_errno(enum isp_tile_message result)
 {
@@ -225,14 +226,18 @@ static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max,
 				return -ENOMEM;
 		}
 
+		if (!tile_cache->tiles) {
+			tile_cache->tiles = vmalloc(
+				MAX_TILE_NUM * sizeof(*ctx->output->tiles));
+			if (!tile_cache->tiles)
+				return -ENOMEM;
+		}
+
 		tile_cache->ready = true;
 	}
 
 	ctx->output = kzalloc(sizeof(*ctx->output), GFP_KERNEL);
 	if (!ctx->output)
-		return -ENOMEM;
-	ctx->output->tiles = vmalloc(tile_max * sizeof(*ctx->output->tiles));
-	if (!ctx->output->tiles)
 		return -ENOMEM;
 	ctx->tile_datas = kcalloc(eng_cnt, sizeof(*ctx->tile_datas), GFP_KERNEL);
 	if (!ctx->tile_datas)
@@ -246,6 +251,8 @@ static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max,
 		return -ENOMEM;
 	for (i = 0; i < ARRAY_SIZE(tile_cache->func_list); i++)
 		ctx->tile_func->func_list[i] = tile_cache->func_list[i];
+	ctx->output->tiles = tile_cache->tiles;
+	memset(ctx->output->tiles, 0, tile_max * sizeof(*ctx->output->tiles));
 	return 0;
 }
 
@@ -417,9 +424,6 @@ static struct mml_tile_output *get_tile_output(
 
 void destroy_tile_output(struct mml_tile_output *output)
 {
-	if (!output)
-		return;
-	vfree(output->tiles);
 	kfree(output);
 	return;
 }

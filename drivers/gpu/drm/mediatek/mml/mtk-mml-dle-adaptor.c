@@ -698,6 +698,8 @@ static void dle_ctx_release(struct mml_dle_ctx *ctx)
 	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
 		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
 			kfree(ctx->tile_cache[i].func_list[j]);
+		if (ctx->tile_cache[i].tiles)
+			vfree(ctx->tile_cache[i].tiles);
 	}
 	kfree(ctx);
 }

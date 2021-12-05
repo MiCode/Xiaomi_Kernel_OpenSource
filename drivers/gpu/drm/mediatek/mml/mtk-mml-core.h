@@ -456,6 +456,7 @@ struct mml_comp {
 /* array size must align MAX_TILE_FUNC_NO in tile_driver.h */
 struct mml_tile_cache {
 	void *func_list[MML_MAX_PATH_NODES];
+	void *tiles;
 	bool ready;
 };
 
