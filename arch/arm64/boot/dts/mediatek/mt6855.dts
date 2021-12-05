@@ -3483,6 +3483,69 @@
 			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 		};
 
+		btif@1100c000 {
+			compatible = "mediatek,btif";
+				/*btif base*/
+			reg = <0 0x1100c000 0 0x1000>,
+				/*btif tx dma base*/
+				<0 0x11300c00 0 0x80>,
+				/*btif rx dma base*/
+				<0 0x11300c80 0 0x80>;
+				/*btif irq, IRQS_Sync ID, btif_irq_b*/
+			interrupts = <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*btif tx dma irq*/
+				<GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*btif rx dma irq*/
+				<GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&pericfg_ao_clk CLK_PERAOP_BTIF_BCLK>,
+				/*btif clock*/
+				<&pericfg_ao_clk CLK_PERAOP_APDMA>;
+				/*ap dma clock*/
+			clock-names = "btifc","apdmac";
+		};
+
+		consys: consys@18002000 {
+			compatible = "mediatek,mt6855-consys";
+			#thermal-sensor-cells = <0>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+				/*CONN_MCU_CONFIG_BASE */
+			reg = <0 0x18002000 0 0x1000>,
+				/*TOP_RGU_BASE */
+			    <0 0x1C007000 0 0x0100>,
+				/*INFRACFG_AO_BASE */
+			    <0 0x10001000 0 0x1000>,
+				/*SPM_BASE */
+			    <0 0x1C001000 0 0x1000>,
+				/*CONN_HIF_ON_BASE */
+			    <0 0x18007000 0 0x1000>,
+				/*CONN_TOP_MISC_OFF_BASE */
+			    <0 0x180b1000 0 0x1000>,
+				/*CONN_MCU_CFG_ON_BASE */
+			    <0 0x180a3000 0 0x1000>,
+				/*CONN_MCU_CIRQ_BASE */
+			    <0 0x180a5000 0 0x800>,
+				/*CONN_TOP_MISC_ON_BASE */
+			    <0 0x180c1000 0 0x1000>,
+				/*CONN_HIF_PDMA_BASE */
+			    <0 0x18004000 0 0x1000>,
+				/* INFRASYS_COMMON AP2MD_PCCIF4_BASE */
+			    <0 0x1024C000 0 0x40>;
+				/*BGF_EINT */
+			interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*WDT_EINT */
+				   <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*conn2ap_sw_irq*/
+				   <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_CONN>;
+			emi-addr = <0>;
+			emi-size = <0x500000>;
+			emi-alignment = <0x1000000>;
+			emi-max-addr = <0x80000000>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF4_AP>;
+			clock-names = "ccif";
+		};
+
 		disp_pwm: disp_pwm0@1100e000 {
 			compatible = "mediatek,disp_pwm0",
 					"mediatek,mt6855-disp-pwm";
@@ -4880,6 +4943,9 @@
 				reg = <2 0x1>;
 				bits = <6 1>;
 			};
+		};
+		mt6685_consys: mt6685_consys {
+			compatible = "mediatek,mt6685-consys";
 		};
 	};
 };
