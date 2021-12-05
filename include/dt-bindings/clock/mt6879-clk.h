@@ -381,8 +381,14 @@
 #define CLK_IMG_IPE					6
 #define CLK_IMG_WPE1					7
 #define CLK_IMG_WPE2					8
-#define CLK_IMG_GALS					9
-#define CLK_IMG_NR_CLK					10
+#define CLK_IMG_ADL_LARB18_CGPDN_DUMMY			9
+#define CLK_IMG_GALS					10
+#define CLK_IMG_DIP0_DUMMY				11
+#define CLK_IMG_WPE0_DUMMY				12
+#define CLK_IMG_IPE_DUMMY				13
+#define CLK_IMG_WPE1_DUMMY				14
+#define CLK_IMG_WPE2_DUMMY				15
+#define CLK_IMG_NR_CLK					16
 
 /* DIP_TOP_DIP1 */
 #define CLK_DIP_TOP_DIP1_LARB10				0
@@ -490,31 +496,39 @@
 #define CLK_CAM_MAIN_CAM2MM0_GALS_CON			29
 #define CLK_CAM_MAIN_CAM2MM1_GALS_CON			30
 #define CLK_CAM_MAIN_CAM2SYS_GALS_CON			31
-#define CLK_CAM_M_NR_CLK				32
+#define CLK_CAM_MAIN_CAM_SUBA_CON_DUMMY			32
+#define CLK_CAM_MAIN_CAM_SUBB_CON_DUMMY			33
+#define CLK_CAM_MAIN_CAM_SUBC_CON_DUMMY			34
+#define CLK_CAM_MAIN_CAM_MRAW_CON_DUMMY			35
+#define CLK_CAM_M_NR_CLK				36
 
 /* CAMSYS_RAWA */
 #define CLK_CAM_RA_LARBX				0
 #define CLK_CAM_RA_CAM					1
 #define CLK_CAM_RA_CAMTG				2
-#define CLK_CAM_RA_NR_CLK				3
+#define CLK_CAM_RA_LARBX_DUMMY				3
+#define CLK_CAM_RA_NR_CLK				4
 
 /* CAMSYS_YUVA */
 #define CLK_CAM_YA_LARBX				0
 #define CLK_CAM_YA_CAM					1
 #define CLK_CAM_YA_CAMTG				2
-#define CLK_CAM_YA_NR_CLK				3
+#define CLK_CAM_YA_LARBX_DUMMY				3
+#define CLK_CAM_YA_NR_CLK				4
 
 /* CAMSYS_RAWB */
 #define CLK_CAM_RB_LARBX				0
 #define CLK_CAM_RB_CAM					1
 #define CLK_CAM_RB_CAMTG				2
-#define CLK_CAM_RB_NR_CLK				3
+#define CLK_CAM_RB_LARBX_DUMMY				3
+#define CLK_CAM_RB_NR_CLK				4
 
 /* CAMSYS_YUVB */
 #define CLK_CAM_YB_LARBX				0
 #define CLK_CAM_YB_CAM					1
 #define CLK_CAM_YB_CAMTG				2
-#define CLK_CAM_YB_NR_CLK				3
+#define CLK_CAM_YB_LARBX_DUMMY				3
+#define CLK_CAM_YB_NR_CLK				4
 
 /* CAMSYS_MRAW */
 #define CLK_CAM_MR_LARBX				0
@@ -525,7 +539,8 @@
 #define CLK_CAM_MR_MRAW3				5
 #define CLK_CAM_MR_PDA0					6
 #define CLK_CAM_MR_PDA1					7
-#define CLK_CAM_MR_NR_CLK				8
+#define CLK_CAM_MR_LARBX_DUMMY				8
+#define CLK_CAM_MR_NR_CLK				9
 
 /* CCU_MAIN */
 #define CLK_CCU_LARB19					0
