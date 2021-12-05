@@ -1738,7 +1738,7 @@
 			enabled = <1>;
 			hw_version = <30>;
 			sw_version = <1>;
-			dfd_timeout = <0xc8>;
+			dfd_timeout = <0x190>;
 			buf_length = <0x280000>;
 			buf_addr_align = <0x1000000>;
 			nr_max_core = <8>;
@@ -1752,7 +1752,7 @@
 			dfd_disable_efuse = <(-1) (-1)>;
 			dfd_cache: dfd_cache {
 				enabled = <0>;
-				dfd_timeout = <0x5dc0>;
+				dfd_timeout = <0x1770>;
 				buf_length = <0x2000000>;
 				tap_en = <0x43ff>;
 			};
