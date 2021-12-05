@@ -5973,6 +5973,19 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+
+	if (dev->dma_parms) {
+		ret = dma_set_max_seg_size(dev, UINT_MAX);
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_info(dev, "failed to get mem\n");

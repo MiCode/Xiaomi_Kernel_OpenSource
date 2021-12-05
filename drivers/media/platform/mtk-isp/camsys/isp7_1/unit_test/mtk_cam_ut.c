@@ -1239,6 +1239,20 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 #endif
 #endif
 
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+
+	if (dev->dma_parms) {
+		ret = dma_set_max_seg_size(dev, UINT_MAX);
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
+
+
 	ret = cam_of_rproc(ut);
 	if (ret)
 		return ret;
