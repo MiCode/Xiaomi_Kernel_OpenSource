@@ -13448,15 +13448,6 @@ void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs)
 	}
 
 	DDPDUMP("%s\n", clock_on);
-
-#ifdef CONFIG_MTK_SMI_EXT
-	if (greq0 || greq1) {
-		if (!in_interrupt())
-			smi_debug_bus_hang_detect(false, "DISP");
-		else
-			DDPDUMP("%s, Can't smi dump in IRQ\n", __func__);
-	}
-#endif
 }
 
 void mmsys_config_dump_analysis_mt6873(void __iomem *config_regs)

@@ -31,6 +31,7 @@
 #include "mtk-cmdq-ext.h"
 #endif
 #include <linux/ratelimit.h>
+#include <soc/mediatek/smi.h>
 
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
@@ -1867,9 +1868,11 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				priv = mtk_crtc->base.dev->dev_private;
 			if (dsi_underrun_trigger == 1 && priv &&
 					mtk_drm_helper_get_opt(priv->helper_opt,
-					MTK_DRM_OPT_DSI_UNDERRUN_AEE))
+					MTK_DRM_OPT_DSI_UNDERRUN_AEE)) {
 				DDPAEE("[IRQ] %s:buffer underrun\n",
 					mtk_dump_comp_str(&dsi->ddp_comp));
+				mtk_smi_dbg_hang_detect("dsi-underrun");
+			}
 
 			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
