@@ -823,6 +823,7 @@ struct mtk_cam_uapi_meta_raw_stats_0 {
  */
 struct mtk_cam_uapi_meta_raw_stats_1 {
 	__u8 af_stats_enabled;
+	__u8 af_qbn_r6_enabled;
 	struct mtk_cam_uapi_af_stats af_stats;
 };
 
