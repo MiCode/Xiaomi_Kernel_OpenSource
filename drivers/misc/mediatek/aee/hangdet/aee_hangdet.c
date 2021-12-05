@@ -431,6 +431,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 		}
 #endif
+		preempt_disable();
 		for (i = 0; i < CHG_TMO_DLY; i++) {
 			mdelay(1);
 			spin_lock(&lock);
@@ -472,6 +473,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			spin_unlock(&lock);
 			iowrite32(tmo_len | WDT_LENGTH_KEY, toprgu_base + WDT_LENGTH);
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
+			preempt_enable();
 		}
 	}
 }
