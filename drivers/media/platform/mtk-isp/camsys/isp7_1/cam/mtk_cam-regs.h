@@ -220,6 +220,16 @@
 
 #define REG_DMA_SOFT_RST_STAT               0x4068
 #define REG_DMA_SOFT_RST_STAT2              0x406C
+#define REG_DMA_DBG_CHASING_STATUS          0x4098
+#define REG_DMA_DBG_CHASING_STATUS2         0x409c
+
+#define RAWI_R2_SMI_REQ_ST		BIT(0)
+#define RAWI_R3_SMI_REQ_ST		BIT(16)
+#define RAWI_R5_SMI_REQ_ST		BIT(16)
+
+#define RST_STAT_RAWI_R2		BIT(0)
+#define RST_STAT_RAWI_R3		BIT(2)
+#define RST_STAT_RAWI_R5		BIT(5)
 
 /* use spare register FH_SPARE_5 */
 
@@ -239,6 +249,10 @@
 #define DMA_OFFSET_CON3        0x02c
 #define DMA_OFFSET_CON4        0x030
 #define DMA_OFFSET_ERR_STAT    0x034
+
+#define DMA_OFFSET_SPECIAL_DCIF    0x03c
+#define DC_CAMSV_STAGER_EN         BIT(16)
+
 
 #define FBC_R1A_BASE               0x2c00
 #define FBC_R2A_BASE               0x3780

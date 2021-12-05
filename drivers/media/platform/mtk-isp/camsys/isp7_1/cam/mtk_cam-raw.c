@@ -1195,6 +1195,56 @@ void apply_cq(struct mtk_raw_device *dev,
 	MTK_CAM_TRACE_END(BASIC);
 }
 
+/* sw check again for rawi dcif case */
+bool is_dma_idle(struct mtk_raw_device *dev)
+{
+	bool ret = false;
+	int chasing_stat;
+	int raw_rst_stat = readl(dev->base + REG_DMA_SOFT_RST_STAT);
+	int raw_rst_stat2 = readl(dev->base + REG_DMA_SOFT_RST_STAT2);
+	int yuv_rst_stat = readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT);
+
+	if (raw_rst_stat2 != 0x7 || yuv_rst_stat != 0xfffffff)
+		return false;
+
+	/* check beside rawi_r2/r3/r5*/
+	if (~raw_rst_stat & 0x7fffffda)
+		return false;
+
+	if (~raw_rst_stat & RST_STAT_RAWI_R2) { /* RAWI_R2 */
+		chasing_stat = readl(dev->base + REG_DMA_DBG_CHASING_STATUS);
+		ret = ((chasing_stat & RAWI_R2_SMI_REQ_ST) == 0 &&
+		 (readl(dev->base + REG_RAWI_R2_BASE + DMA_OFFSET_SPECIAL_DCIF)
+			& DC_CAMSV_STAGER_EN) &&
+		 (readl(dev->base + REG_CTL_MOD6_EN) & 0x1))
+			? true:false;
+		dev_info(dev->dev, "%s: chasing_stat: 0x%llx ret=%d\n",
+				__func__, chasing_stat, ret);
+	}
+	if (~raw_rst_stat & RST_STAT_RAWI_R3) {
+		chasing_stat = readl(dev->base + REG_DMA_DBG_CHASING_STATUS);
+		ret = ((chasing_stat & RAWI_R3_SMI_REQ_ST) == 0 &&
+		 (readl(dev->base + REG_RAWI_R3_BASE + DMA_OFFSET_SPECIAL_DCIF)
+			& DC_CAMSV_STAGER_EN) &&
+		 (readl(dev->base + REG_CTL_MOD6_EN) & 0x80))
+			? true:false;
+		dev_info(dev->dev, "%s: chasing_stat: 0x%llx, ret=%d\n",
+				__func__, chasing_stat, ret);
+	}
+	if (~raw_rst_stat & RST_STAT_RAWI_R5) {
+		chasing_stat = readl(dev->base + REG_DMA_DBG_CHASING_STATUS2);
+		ret = ((chasing_stat & RAWI_R5_SMI_REQ_ST) == 0 &&
+		 (readl(dev->base + REG_RAWI_R5_BASE + DMA_OFFSET_SPECIAL_DCIF)
+			& DC_CAMSV_STAGER_EN) &&
+		 (readl(dev->base + REG_CTL_MOD6_EN) & 0x1000))
+			? true:false;
+		dev_info(dev->dev, "%s: chasing_stat: 0x%llx, ret=%d\n",
+				__func__, chasing_stat, ret);
+	}
+
+	return ret;
+}
+
 void reset(struct mtk_raw_device *dev)
 {
 	int sw_ctl;
@@ -1219,12 +1269,12 @@ void reset(struct mtk_raw_device *dev)
 	ret = readx_poll_timeout(readl, dev->base + REG_CTL_SW_CTL, sw_ctl,
 				 sw_ctl & 0x2,
 				 1 /* delay, us */,
-				 100000 /* timeout, us */);
-	if (ret < 0) {
-		dev_info(dev->dev, "%s: timeout\n", __func__);
+				 5000 /* timeout, us */);
 
+	if (ret < 0 && !is_dma_idle(dev)) {
 		dev_info(dev->dev,
-			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
+			 "%s: timeout: tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
+			 __func__,
 			 readl(dev->base + REG_TG_SEN_MODE),
 			 readl(dev->base + REG_CTL_EN),
 			 readl(dev->base + REG_CTL_MOD6_EN),
@@ -1234,7 +1284,7 @@ void reset(struct mtk_raw_device *dev)
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT2),
 			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT));
 
-		/* check dma cmd cnt before hw rst */
+		/* check dma cmd cnt */
 		mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
 			dbg_ulc_cmd_cnt, ARRAY_SIZE(dbg_ulc_cmd_cnt));
 		mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
