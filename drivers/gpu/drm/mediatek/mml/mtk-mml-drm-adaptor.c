@@ -978,8 +978,8 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->disp_dual = disp->dual;
 	ctx->disp_vdo = disp->vdo_mode;
 	ctx->submit_cb = disp->submit_cb;
-	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", 0, 0);
-	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", 0, 0);
+	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
+	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 
 	ctx->timeline = mtk_sync_timeline_create("mml_timeline");
 	if (!ctx->timeline)

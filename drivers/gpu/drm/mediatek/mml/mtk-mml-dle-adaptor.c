@@ -674,7 +674,7 @@ static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
 	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy_dl", 0, 0);
 	ctx->dl_dual = dl->dual;
 	ctx->config_cb = dl->config_cb;
-	ctx->wq_config = alloc_ordered_workqueue("mml_work_dl", 0, 0);
+	ctx->wq_config = alloc_ordered_workqueue("mml_work_dl", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 
 	return ctx;
 }
