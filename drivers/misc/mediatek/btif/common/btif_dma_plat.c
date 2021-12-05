@@ -1523,34 +1523,3 @@ int hal_rx_dma_lock(bool enable)
 		spin_unlock_irqrestore(&g_clk_cg_spinlock, flag);
 	return 0;
 }
-
-int hal_btif_dma_check_status(struct _MTK_DMA_INFO_STR_ *p_dma_info)
-{
-	enum _ENUM_DMA_DIR_ dir = p_dma_info->dir;
-	unsigned long base = p_dma_info->base;
-	unsigned int enable;
-	unsigned int vfifo_size;
-
-	if (dir == DMA_DIR_RX) {
-		enable = BTIF_READ32(RX_DMA_EN(base));
-		vfifo_size = BTIF_READ32(RX_DMA_VFF_LEN(base));
-	} else if (dir == DMA_DIR_TX) {
-		enable = BTIF_READ32(TX_DMA_EN(base));
-		vfifo_size = BTIF_READ32(TX_DMA_VFF_LEN(base));
-	} else {
-		BTIF_ERR_FUNC("dir %d is unexpected.", dir);
-		return -1;
-	}
-
-	if (enable == 0 || vfifo_size == 0) {
-		if (dir == DMA_DIR_RX)
-			hal_rx_dma_dump_reg(p_dma_info, REG_ALL);
-		else
-			hal_tx_dma_dump_reg(p_dma_info, REG_ALL);
-
-		return -1;
-	}
-
-	return 0;
-}
-
