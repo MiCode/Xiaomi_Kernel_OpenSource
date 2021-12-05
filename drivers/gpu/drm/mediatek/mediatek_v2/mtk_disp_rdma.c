@@ -349,8 +349,10 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			atomic_set(&mtk_crtc->pf_event, 1);
-			wake_up_interruptible(&mtk_crtc->present_fence_wq);
+			if (rdma->id == DDP_COMPONENT_RDMA0) {
+				atomic_set(&mtk_crtc->pf_event, 1);
+				wake_up_interruptible(&mtk_crtc->present_fence_wq);
+			}
 		}
 	}
 

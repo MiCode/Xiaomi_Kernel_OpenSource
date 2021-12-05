@@ -3859,9 +3859,11 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc)
 	int id = drm_crtc_index(crtc);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int vrefresh = 0;
+	bool is_frame_mode;
 	ktime_t cur_time, prev_time;
 	ktime_t start_time, wait_time;
 
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(crtc);
 	cur_time = mtk_crtc->pf_time;
 	prev_time = mtk_crtc->prev_pf_time;
 
@@ -3873,11 +3875,13 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc)
 		}
 
 		start_time = ktime_get();
-		wait_event_interruptible_timeout(
-			mtk_crtc->signal_irq_for_pre_fence_wq
-			, atomic_read(&mtk_crtc->signal_irq_for_pre_fence)
-			, msecs_to_jiffies(1000 / vrefresh));
-		atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
+		do {
+			wait_event_interruptible_timeout(
+				mtk_crtc->signal_irq_for_pre_fence_wq
+				, atomic_read(&mtk_crtc->signal_irq_for_pre_fence)
+				, msecs_to_jiffies(1000 / vrefresh));
+			atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
+		} while (mtk_crtc->pf_time == prev_time && is_frame_mode);
 		wait_time = ktime_get();
 
 		if ((start_time - wait_time) / 100000 > vrefresh / 2) {
@@ -9202,6 +9206,7 @@ static int mtk_drm_pf_release_thread(void *data)
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
 	unsigned int fence_idx = 0, crtc_idx;
+	ktime_t pf_time;
 
 	crtc = &mtk_crtc->base;
 	private = crtc->dev->dev_private;
@@ -9213,11 +9218,12 @@ static int mtk_drm_pf_release_thread(void *data)
 				 atomic_read(&mtk_crtc->pf_event));
 		atomic_set(&mtk_crtc->pf_event, 0);
 
+		pf_time = mtk_check_preset_fence_timestamp(crtc);
 #ifndef DRM_CMDQ_DISABLE
 		mutex_lock(&private->commit.lock);
 		if (private->power_state == false) {
 			mtk_release_present_fence(private->session_id[crtc_idx],
-						  atomic_read(&private->crtc_present[crtc_idx]), 0);
+				atomic_read(&private->crtc_present[crtc_idx]), pf_time);
 			mutex_unlock(&private->commit.lock);
 			continue;
 		}
@@ -9226,7 +9232,7 @@ static int mtk_drm_pf_release_thread(void *data)
 				DISP_SLOT_PRESENT_FENCE(crtc_idx)));
 
 		mtk_release_present_fence(private->session_id[crtc_idx],
-					  fence_idx, 0);
+					  fence_idx, pf_time);
 		mutex_unlock(&private->commit.lock);
 		if (crtc_idx == 0)
 			ktime_get_real_ts64(&rdma_sof_tval);

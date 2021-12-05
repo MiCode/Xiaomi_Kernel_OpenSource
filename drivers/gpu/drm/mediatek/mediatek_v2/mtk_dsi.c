@@ -1904,6 +1904,13 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				lcm_fps_ctx_update(ext_te_time, 0, 0);
 			}
 
+			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 &&
+				mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mtk_crtc) {
+				mtk_crtc->pf_time = ktime_get();
+				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
+				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
+			}
+
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
 			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
