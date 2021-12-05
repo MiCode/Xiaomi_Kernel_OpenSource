@@ -3501,6 +3501,86 @@ static void dpmaif_hw_reset(void)
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
 }
 
+static void dpmaif_hw_reset_v1(void)
+{
+	unsigned char md_id = 0;
+	unsigned int value;
+	int ret;
+
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	value &= ~(1<<15);
+
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x0208, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read infra_ao_base ret=%d\n",
+		__func__, __LINE__, ret);
+	udelay(500);
+
+	/* DPMAIF HW reset */
+	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
+	/* reset dpmaif hw: PD Domain */
+	dpmaif_write32(dpmaif_ctrl->dpmaif_reset_pd_base, 0xF50, 1<<22);
+
+	value = dpmaif_read32(dpmaif_ctrl->dpmaif_reset_pd_base, 0xF50);
+	CCCI_NORMAL_LOG(0, TAG, "[%s]-%d read 0xF50 value=%d\n",
+			__func__, __LINE__, value);
+
+	udelay(500);
+
+	/* reset dpmaif hw: AO Domain */
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x130, 1<<0);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s]-%d write 0x130 ret=%d\n",
+			__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x130, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read 0x130 ret=%d\n",
+		__func__, __LINE__, ret);
+
+	udelay(500);
+
+	/* reset dpmaif clr */
+	ret = regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x134, 1<<0);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d write 0x134 ret=%d\n",
+		__func__, __LINE__, ret);
+	ret = regmap_read(dpmaif_ctrl->plat_val.infra_ao_base,
+			0x134, &value);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG,
+		"[%s]-%d read 0x134 ret=%d\n",
+		__func__, __LINE__, ret);
+	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
+
+	udelay(500);
+
+	/* reset dpmaif clr */
+	dpmaif_write32(dpmaif_ctrl->dpmaif_reset_pd_base, 0xF54, 1<<22);
+
+	value = dpmaif_read32(dpmaif_ctrl->dpmaif_reset_pd_base, 0xF54);
+	CCCI_NORMAL_LOG(0, TAG, "[%s]-%d read 0xF54 value=%d\n",
+			__func__, __LINE__, value);
+}
+
 static int dpmaif_stop(unsigned char hif_id)
 {
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
@@ -3527,7 +3607,8 @@ static int dpmaif_stop(unsigned char hif_id)
 	/* 3. todo: reset IP */
 	/* CG set */
 	ccci_dpmaif_set_clk(0, g_clk_tbs);
-	g_plt_ops.hw_reset();
+	if (g_plt_ops.hw_reset)
+		g_plt_ops.hw_reset();
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
@@ -3651,9 +3732,11 @@ static void dpmaif_total_spd_cb(u64 total_speed)
 		dpmaif_ctrl->enable_pit_debug = 0;
 }
 
-static void dpmaif_init_cap(struct device *dev)
+static int dpmaif_init_cap(struct device *dev)
 {
 	unsigned int dpmaif_cap = 0;
+	struct device_node *node;
+	int ret;
 
 	if (of_property_read_u32(dev->of_node,
 			"mediatek,dpmaif_cap", &dpmaif_cap)) {
@@ -3676,6 +3759,29 @@ static void dpmaif_init_cap(struct device *dev)
 
 	if (dpmaif_ctrl->enable_pit_debug > -1)
 		mtk_ccci_register_dl_speed_1s_callback(dpmaif_total_spd_cb);
+
+	ret = of_property_read_u32(dev->of_node, "hw_reset_ver",
+			&dpmaif_ctrl->hw_reset_ver);
+	if (ret < 0)
+		dpmaif_ctrl->hw_reset_ver = 0;
+
+	if (dpmaif_ctrl->hw_reset_ver == 1) {
+		node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg");
+		if (!node) {
+			CCCI_NORMAL_LOG(-1, TAG,
+				"[%s] error: infracfg node is not exist.\n",
+				__func__);
+			return -1;
+		}
+		dpmaif_ctrl->dpmaif_reset_pd_base = of_iomap(node, 0);
+	}
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] hw_reset_ver: %d; dpmaif_reset_pd_base: %p\n",
+		__func__, dpmaif_ctrl->hw_reset_ver,
+		dpmaif_ctrl->dpmaif_reset_pd_base);
+
+	return 0;
 }
 
 /* =======================================================
@@ -3807,7 +3913,9 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 			hif_ctrl->dpmaif_irq_id);
 
 	mtk_ccci_net_speed_init();
-	dpmaif_init_cap(dev);
+	ret = dpmaif_init_cap(dev);
+	if (ret)
+		goto DPMAIF_INIT_FAIL;
 
 	ret = ccci_dl_pool_init(DPMAIF_RXQ_NUM);
 	if (ret)
@@ -3844,7 +3952,10 @@ DPMAIF_INIT_FAIL:
 
 static void dpmaif_init_plat_ops(void)
 {
-	g_plt_ops.hw_reset = dpmaif_hw_reset;
+	if (dpmaif_ctrl->hw_reset_ver == 1)
+		g_plt_ops.hw_reset = dpmaif_hw_reset_v1;
+	else
+		g_plt_ops.hw_reset = dpmaif_hw_reset;
 }
 
 int ccci_dpmaif_suspend_noirq_v3(struct device *dev)
@@ -3890,13 +4001,13 @@ int ccci_dpmaif_hif_init_v3(struct platform_device *pdev)
 {
 	int ret;
 
-	dpmaif_init_plat_ops();
-
 	ret = ccci_dpmaif_hif_init(&pdev->dev);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(-1, TAG, "ccci dpmaif init fail");
 		return ret;
 	}
+
+	dpmaif_init_plat_ops();
 
 	dpmaif_ctrl->plat_dev = pdev;
 

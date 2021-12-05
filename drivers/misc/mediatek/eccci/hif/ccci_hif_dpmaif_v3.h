@@ -398,6 +398,9 @@ struct hif_dpmaif_ctrl {
 	int bat_alloc_running;
 
 	int enable_pit_debug;
+
+	int hw_reset_ver;
+	void __iomem *dpmaif_reset_pd_base;
 };
 
 #ifndef CCCI_KMODULE_ENABLE
