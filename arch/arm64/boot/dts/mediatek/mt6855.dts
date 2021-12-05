@@ -4788,6 +4788,7 @@
 			te_en;
 			vbus_ov = <14500>;
 			vrec = <100>;
+			otg_lbp = <2800>;
 			ircmp_r = <16700>;
 			ircmp_v = <32>;
 			chg_tmr = <10>;
