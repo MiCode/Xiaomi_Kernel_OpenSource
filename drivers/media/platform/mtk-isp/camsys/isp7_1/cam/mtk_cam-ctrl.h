@@ -113,6 +113,7 @@ struct mtk_camsys_sensor_ctrl {
 	atomic_t sensor_request_seq_no;
 	atomic_t isp_request_seq_no;
 	atomic_t isp_enq_seq_no;
+	atomic_t last_drained_seq_no;
 	int initial_cq_done;
 	atomic_t initial_drop_frame_cnt;
 	struct list_head camsys_state_list;
@@ -149,6 +150,8 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			 enum MTK_CAMSYS_ENGINE_TYPE engine_type,
 			 unsigned int engine_id,
 			 struct mtk_camsys_irq_info *irq_info);
+bool mtk_cam_submit_kwork_in_sensorctrl(struct kthread_worker *worker,
+				 struct mtk_camsys_sensor_ctrl *sensor_ctrl);
 
 void mtk_cam_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);

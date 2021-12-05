@@ -3726,6 +3726,8 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			struct mtk_cam_request_stream_data *req_stream_data;
 			struct mtk_cam_request_stream_data *pipe_stream_data;
 			struct mtk_cam_ctx *ctx = &cam->ctxs[stream_id];
+			struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
+			unsigned int drained_seq_no = 0;
 			unsigned int initial_frame = 0;
 
 			/**
@@ -3738,6 +3740,15 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				continue;
 			atomic_set(&ctx->sensor_ctrl.sensor_enq_seq_no,
 				atomic_read(&ctx->enqueued_frame_seq_no));
+			/*sensor setting after request drained check*/
+			if (ctx->pipe->feature_active == 0 &&
+				ctx->dequeued_frame_seq_no > 3) {
+				drained_seq_no = atomic_read(&sensor_ctrl->last_drained_seq_no);
+				if (atomic_read(&sensor_ctrl->sensor_enq_seq_no) ==
+					drained_seq_no)
+					mtk_cam_submit_kwork_in_sensorctrl(
+						sensor_ctrl->sensorsetting_wq, sensor_ctrl);
+			}
 			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 
 			if (req_stream_data->frame_seq_no == 1 ||

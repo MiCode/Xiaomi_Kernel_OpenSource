@@ -1414,7 +1414,7 @@ static void mtk_cam_sensor_worker_in_sensorctrl(struct kthread_work *work)
 		mtk_cam_try_set_sensor(ctx);
 }
 
-static bool mtk_cam_submit_kwork_in_sensorctrl(struct kthread_worker *worker,
+bool mtk_cam_submit_kwork_in_sensorctrl(struct kthread_worker *worker,
 				 struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 {
 	if (!worker) {
@@ -1490,6 +1490,13 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 		dev_dbg(cam->dev,
 			"[TimerIRQ [SOF+%dms]] ctx:%d, enq:%d/sensor_enq:%d\n",
 			time_after_sof, ctx->stream_id, enq_no, sen_no);
+	}
+	/*using enque timing for sensor setting*/
+	if (ctx->pipe->feature_active == 0) {
+		int drained_seq_no =
+			atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
+		atomic_set(&sensor_ctrl->last_drained_seq_no, drained_seq_no);
+		return HRTIMER_NORESTART;
 	}
 	hrtimer_forward_now(&sensor_ctrl->sensor_deadline_timer, m_kt);
 
@@ -4283,6 +4290,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	atomic_set(&camsys_sensor_ctrl->sensor_request_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_request_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_enq_seq_no, 0);
+	atomic_set(&camsys_sensor_ctrl->last_drained_seq_no, 0);
 	camsys_sensor_ctrl->initial_cq_done = 0;
 	camsys_sensor_ctrl->sof_time = 0;
 	if (ctx->used_raw_num) {
