@@ -183,6 +183,7 @@ struct vdec_ap_ipi_cmd {
  */
 struct vdec_vcu_ipi_ack {
 	__u32 msg_id;
+	__u32 ctx_id;
 	__s32 status;
 #ifndef CONFIG_64BIT
 	union {
@@ -204,6 +205,7 @@ struct vdec_vcu_ipi_ack {
  */
 struct vdec_vcu_ipi_mem_op {
 	__u32 msg_id;
+	__u32 ctx_id;
 	__s32 status;
 	__u64 ap_inst_addr;
 	struct vcodec_mem_obj mem;
@@ -238,6 +240,7 @@ struct vdec_ap_ipi_init {
  */
 struct vdec_vcu_ipi_init_ack {
 	__u32 msg_id;
+	__u32 ctx_id;
 	__s32 status;
 #ifndef CONFIG_64BIT
 	union {
@@ -315,6 +318,7 @@ struct vdec_ap_ipi_query_cap {
  */
 struct vdec_vcu_ipi_query_cap_ack {
 	__u32 msg_id;
+	__u32 ctx_id;
 	__s32 status;
 #ifndef CONFIG_64BIT
 	union {
