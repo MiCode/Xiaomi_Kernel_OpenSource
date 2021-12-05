@@ -25,6 +25,7 @@ static void mdw_drv_priv_delete(struct kref *ref)
 			container_of(ref, struct mdw_fpriv, ref);
 
 	mdw_drv_debug("mpriv(0x%llx) free\n", (uint64_t) mpriv);
+	mdw_dev_session_delete(mpriv);
 	kfree(mpriv);
 }
 
@@ -101,7 +102,6 @@ static int mdw_drv_close(struct inode *inode, struct file *filp)
 
 	mpriv = filp->private_data;
 	mdw_flw_debug("mpriv(0x%llx)\n", (uint64_t)mpriv);
-	mdw_dev_session_delete(mpriv);
 	mutex_lock(&mpriv->mtx);
 	atomic_set(&mpriv->active, 0);
 	mdw_mem_pool_destroy(&mpriv->cmd_buf_pool);

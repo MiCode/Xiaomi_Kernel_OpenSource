@@ -80,13 +80,15 @@ out:
 /* removes a memory chunk from pool, and free it */
 static void mdw_mem_pool_chunk_del(struct mdw_mem *m)
 {
-	mdw_trace_begin("%s|size(%u)", __func__, m->size);
+	uint32_t size = m->size;
+
+	mdw_trace_begin("%s|size(%u)", __func__, size);
 	list_del(&m->p_chunk);
 	mdw_mem_debug("free chunk: pool: 0x%llx, mem: 0x%llx",
 		(uint64_t)m->pool, (uint64_t)m);
 	mdw_mem_unmap(m->mpriv, m);
 	mdw_mem_free(m->mpriv, m);
-	mdw_trace_end("%s|size(%u)", __func__, m->size);
+	mdw_trace_end("%s|size(%u)", __func__, size);
 }
 
 /* create memory pool */
@@ -306,6 +308,7 @@ out:
 void mdw_mem_pool_free(struct mdw_mem *m)
 {
 	struct mdw_mem_pool *pool;
+	uint32_t size = 0, align = 0;
 
 	if (!m)
 		return;
@@ -315,8 +318,11 @@ void mdw_mem_pool_free(struct mdw_mem *m)
 	if (!pool || !pool->gp)
 		return;
 
+	size = m->size;
+	align = m->align;
+
 	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		__func__, size, align);
 
 	mdw_mem_debug("pool: 0x%llx, mem: 0x%llx, size: %d, kva: 0x%llx, iova: 0x%llx",
 		(uint64_t)pool, (uint64_t)m, m->size,
@@ -332,7 +338,7 @@ void mdw_mem_pool_free(struct mdw_mem *m)
 	m->release(m);
 
 	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		__func__, size, align);
 }
 
 /* flush a memory, do nothing, if it's non-cacheable */

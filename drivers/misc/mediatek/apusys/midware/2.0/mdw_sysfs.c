@@ -233,9 +233,39 @@ static ssize_t klog_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(klog);
 
+static ssize_t tlog_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	uint32_t log_lv = 0;
+
+	log_lv = cfg_apusys_trace;
+	ret = sprintf(buf, "%u\n", log_lv);
+	if (ret < 0)
+		mdw_drv_warn("show tlog fail(%d)\n", log_lv);
+
+	return ret;
+}
+
+static ssize_t tlog_store(struct device *dev,
+	struct device_attribute *attr, const char *buf,
+	size_t count)
+{
+	uint32_t val = 0;
+
+	if (!kstrtouint(buf, 10, &val)) {
+		mdw_drv_info("set tlog(%u)\n", val);
+		cfg_apusys_trace = val;
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(tlog);
+
 static struct attribute *mdw_log_attrs[] = {
 	&dev_attr_ulog.attr,
 	&dev_attr_klog.attr,
+	&dev_attr_tlog.attr,
 	NULL,
 };
 

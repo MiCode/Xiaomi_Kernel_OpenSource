@@ -13,6 +13,7 @@
 #include "mdw.h"
 
 extern u32 g_mdw_klog;
+extern u8 cfg_apusys_trace;
 
 enum {
 	MDW_DBG_DRV = 0x01,
