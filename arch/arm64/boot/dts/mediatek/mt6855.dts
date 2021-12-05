@@ -2543,14 +2543,6 @@
 			reg = <0 0x0d100000 0 0x100000>;
 		};
 
-		mmc0: mmc@11230000 {
-			compatible = "mediatek,common-mmc";
-			reg = <0 0x11230000 0 0x1000>,
-			      <0 0x11e70000 0 0x1000>;
-			interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH 0>;
-			status = "disabled";
-		};
-
 		uart0: serial@11001000 {
 			compatible = "mediatek,mt6577-uart";
 			reg = <0 0x11001000 0 0x1000>;
@@ -2664,6 +2656,36 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		mmc0: mmc@11230000 {
+			compatible = "mediatek,common-mmc-v2";
+			reg = <0 0x11230000 0 0x1000>,
+			      <0 0x11e70000 0 0x1000>;
+			interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MSDC50_0_HCLK_SEL>,
+				 <&topckgen_clk CLK_TOP_MSDC50_0_SEL>,
+				 <&topckgen_clk CLK_TOP_AES_MSDCFDE_SEL>,
+				 <&pericfg_ao_clk CLK_PERAOP_FMSDC50>,
+				 <&pericfg_ao_clk CLK_PERAOP_FMSDC50_HCLK>,
+				 <&pericfg_ao_clk CLK_PERAOP_FAES_MSDCFDE>,
+				 <&pericfg_ao_clk CLK_PERAOP_MSDC50_XCLK>,
+				 <&pericfg_ao_clk CLK_PERAOP_MSDC50_HCLK>;
+			clock-names = "bus_clk", "source", "crypto_clk",
+					"source_cg", "hclk", "crypto_cg",
+					"axi_cg", "ahb_cg";
+			status = "disabled";
+		};
+
+		mmc1: mmc@11240000 {
+			compatible = "mediatek,common-mmc-v2";
+			reg = <0 0x11240000 0 0x1000>,
+			      <0 0x11c00000 0 0x1000>;
+			interrupts = <GIC_SPI 388 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
+				 <&pericfg_ao_clk CLK_PERAOP_MSDC1_HCLK>,
+				 <&pericfg_ao_clk CLK_PERAOP_MSDC1>;
+			clock-names = "source", "hclk", "source_cg";
+			status = "disabled";
+		};
 
 		ufshci: ufshci@112b0000 {
 			compatible = "mediatek,mt8183-ufshci";
