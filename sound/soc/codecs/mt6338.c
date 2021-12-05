@@ -4294,7 +4294,7 @@ static int mt_vowpll_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		regmap_write(priv->regmap, MT6338_VOWPLL_PMU_CON4, 0x20);
+		regmap_write(priv->regmap, MT6338_VOWPLL_PMU_CON4, 0x1E);
 		regmap_write(priv->regmap, MT6338_VOWPLL_PMU_CON5, 0x03);
 		regmap_write(priv->regmap, MT6338_VOWPLL_PMU_CON1, 0x4A);
 		regmap_write(priv->regmap, MT6338_VOWPLL_PMU_CON3, 0x60);
