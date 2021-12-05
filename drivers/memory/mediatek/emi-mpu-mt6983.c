@@ -14,7 +14,7 @@ static bool axi_id_is_gpu(unsigned int axi_id)
 	unsigned int port;
 	unsigned int id;
 
-	port = axi_id & BIT_MASK(3);
+	port = axi_id & (BIT_MASK(3) - 1);
 	id = axi_id >> 3;
 
 	if (port == 6 && ((id & 0x7F80) == 0x2000))
@@ -43,17 +43,17 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 
 		if (srinfo_w == 3) {
 			if (dump[i].offset == 0x1E4) {
-				axi_id_w |= dump[i].value & BIT_MASK(16);
+				axi_id_w |= dump[i].value & (BIT_MASK(16) - 1);
 			} else if (dump[i].offset == 0x1E8) {
 				axi_id_w |=
-					(dump[i].value & BIT_MASK(4)) << 16;
+				(dump[i].value & (BIT_MASK(4) - 1)) << 16;
 			}
 		} else if (srinfo_r == 3) {
 			if (dump[i].offset == 0x3E4) {
-				axi_id_r |= dump[i].value & BIT_MASK(16);
+				axi_id_r |= dump[i].value & (BIT_MASK(16) - 1);
 			} else if (dump[i].offset == 0x3E8) {
 				axi_id_r |=
-					(dump[i].value & BIT_MASK(4)) << 16;
+				(dump[i].value & (BIT_MASK(4) - 1)) << 16;
 			}
 		}
 	}
