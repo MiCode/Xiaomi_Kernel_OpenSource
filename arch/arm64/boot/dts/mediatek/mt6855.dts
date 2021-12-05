@@ -4822,3 +4822,9 @@
 		};
 	};
 };
+
+&mtk_gauge {
+	charger = <&mt6375_chg>;
+};
+
+#include "mediatek/bat_setting/mt6855_battery_prop.dtsi"
