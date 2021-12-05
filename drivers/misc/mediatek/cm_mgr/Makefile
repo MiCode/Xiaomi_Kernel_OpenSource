@@ -33,6 +33,9 @@ obj-${CONFIG_MTK_CM_IPI} += mtk_cm_ipi.o
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6853.c),)
 obj-${CONFIG_MTK_CM_MGR_MT6853} += mtk_cm_mgr_mt6853.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6855.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6873} += mtk_cm_mgr_mt6855.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6873.c),)
 obj-${CONFIG_MTK_CM_MGR_MT6873} += mtk_cm_mgr_mt6873.o
 endif
