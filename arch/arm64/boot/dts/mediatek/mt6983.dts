@@ -8935,11 +8935,14 @@
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L12_IPE_FDVT_WRA0)
 				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L12_IPE_FDVT_WR0B)
+				&mmqos SLAVE_COMMON(1)>,
+			<&mmqos SLAVE_LARB(12)
 				&mmqos SLAVE_COMMON(1)>;
 		interconnect-names = "l12_fdvt_rda",
 							 "l12_fdvt_rdb",
 							 "l12_fdvt_wra",
-							 "l12_fdvt_wrb";
+							 "l12_fdvt_wrb",
+							 "l12_subcommon_1";
 	};
 
 
