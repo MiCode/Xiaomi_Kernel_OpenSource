@@ -1669,6 +1669,7 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 	unsigned int desc_id;
 	unsigned int pipe_id;
 	int in_node;
+	int is_m2m = mtk_cam_is_mstream_m2m(ctx);
 
 	desc_id = MTKCAM_IPI_RAW_IMGO - MTK_RAW_RAWI_2_IN;
 	in_node = MTKCAM_IPI_RAW_RAWI_2;
@@ -1725,17 +1726,21 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 
 		if (raw_feature == MSTREAM_NE_SE) {
 			frame_param->raw_param.hardware_scenario =
+				is_m2m ? MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER :
 			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE;
 
-			dev_dbg(cam->dev, "%s: mstream ne_se ne imgo:0x%x se rawi:0x%x\n",
-				__func__, out_fmt->buf[0][0].iova,
+			dev_dbg(cam->dev,
+				"%s: mstream (m2m %d) ne_se ne imgo:0x%x se rawi:0x%x\n",
+				__func__, is_m2m, out_fmt->buf[0][0].iova,
 				in_fmt->buf[0].iova);
 		} else {
 			frame_param->raw_param.hardware_scenario =
+				is_m2m ? MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER :
 			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE;
 
-			dev_dbg(cam->dev, "%s: mstream se_ne se imgo:0x%x ne rawi:0x%x\n",
-				__func__, out_fmt->buf[0][0].iova,
+			dev_dbg(cam->dev,
+				"%s: mstream (m2m %d) se_ne se imgo:0x%x ne rawi:0x%x\n",
+				__func__, is_m2m, out_fmt->buf[0][0].iova,
 				in_fmt->buf[0].iova);
 		}
 	}
@@ -2068,7 +2073,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			check_stagger_buffer(cam, ctx, req);
 		if (mtk_cam_is_time_shared(ctx))
 			check_timeshared_buffer(cam, ctx, req);
-		if (mtk_cam_is_mstream(ctx))
+		if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx))
 			check_mstream_buffer(cam, ctx, req);
 	}
 	req->fs.target = ctx_cnt > 1 ? ctx_cnt : 0;
