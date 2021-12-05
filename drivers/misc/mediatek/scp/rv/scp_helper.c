@@ -2451,15 +2451,10 @@ static int scpsys_device_probe(struct platform_device *pdev)
 	scpreg.scpsys = devm_ioremap_resource(dev, res);
 	//pr_notice("[SCP] scpreg.scpsys = %x\n", scpreg.scpsys);
 	if (IS_ERR((void const *) scpreg.scpsys)) {
-		pr_notice("[SCP] scpreg.sram error\n");
+		pr_notice("[SCP] scpreg.scpsys error\n");
 		return -1;
 	}
 	return ret;
-}
-
-static int scpsys_device_remove(struct platform_device *dev)
-{
-	return 0;
 }
 
 static const struct dev_pm_ops scp_ipi_dbg_pm_ops = {
@@ -2490,8 +2485,6 @@ static const struct of_device_id scpsys_of_ids[] = {
 };
 
 static struct platform_driver mtk_scpsys_device = {
-	.probe = scpsys_device_probe,
-	.remove = scpsys_device_remove,
 	.driver = {
 		.name = "scpsys",
 		.owner = THIS_MODULE,
@@ -2556,7 +2549,7 @@ static int __init scp_init(void)
 	if (platform_driver_register(&mtk_scp_device))
 		pr_notice("[SCP] scp probe fail\n");
 
-	if (platform_driver_register(&mtk_scpsys_device))
+	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe))
 		pr_notice("[SCP] scpsys probe fail\n");
 
 	/* skip initial if dts status = "disable" */
