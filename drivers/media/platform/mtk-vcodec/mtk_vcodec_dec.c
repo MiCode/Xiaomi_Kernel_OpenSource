@@ -534,7 +534,7 @@ static void mtk_vdec_queue_noseqheader_event(struct mtk_vcodec_ctx *ctx)
 	v4l2_event_queue_fh(&ctx->fh, &ev_eos);
 }
 
-static void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 {
 	static const struct v4l2_event ev_error = {
 		.type = V4L2_EVENT_MTK_VDEC_ERROR,

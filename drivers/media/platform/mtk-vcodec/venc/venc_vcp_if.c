@@ -557,6 +557,33 @@ static int venc_vcp_ipi_isr(unsigned int id, void *prdata, void *data,
 	return 0;
 }
 
+static int vcp_venc_notify_callback(struct notifier_block *this,
+	unsigned long event, void *ptr)
+{
+	struct mtk_vcodec_dev *dev;
+	struct list_head *p, *q;
+	struct mtk_vcodec_ctx *ctx;
+
+	dev = container_of(this, struct mtk_vcodec_dev, vcp_notify);
+
+	switch (event) {
+	case VCP_EVENT_STOP:
+		mutex_lock(&dev->ctx_mutex);
+		// check release all ctx lock
+		list_for_each_safe(p, q, &dev->ctx_list) {
+			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (ctx != NULL && ctx->state != MTK_STATE_ABORT) {
+				ctx->state = MTK_STATE_ABORT;
+				venc_check_release_lock(ctx);
+				mtk_venc_queue_error_event(ctx);
+			}
+		}
+		mutex_unlock(&dev->ctx_mutex);
+	break;
+	}
+	return NOTIFY_DONE;
+}
+
 void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 {
 	int ret;
@@ -576,6 +603,9 @@ void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 	}
 
 	kthread_run(vcp_enc_ipi_handler, dev, "venc_ipi_recv");
+
+	dev->vcp_notify.notifier_call = vcp_venc_notify_callback;
+	vcp_A_register_notify(&dev->vcp_notify);
 
 	mtk_v4l2_debug_leave();
 }
