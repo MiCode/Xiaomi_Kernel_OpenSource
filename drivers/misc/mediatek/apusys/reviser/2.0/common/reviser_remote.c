@@ -78,6 +78,8 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 	struct reviser_msg *rmesg, *snd_rmesg;
 	int retry = 0;
 	bool find = false;
+	//uint32_t *ptr;
+	uint32_t cnt = 50, i = 0;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -93,9 +95,28 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 	snd_rmesg->sn = g_rvr_msg->send_sn;
 	g_rvr_msg->send_sn++;
 
-	ret = rpmsg_send(rdv->rpdev->ept, request, sizeof(struct reviser_msg));
+	//ptr = (uint32_t *)request;
+	//LOG_INFO("Send [%x][%x][%x][%x]\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+
+	/* send & retry */
+	for (i = 0; i < cnt; i++) {
+		ret = rpmsg_send(rdv->rpdev->ept, request, sizeof(struct reviser_msg));
+		/* send busy, retry */
+		if (ret == -EBUSY) {
+			if (!(i % 5))
+				LOG_INFO("re-send ipi(%u/%u)\n", i, cnt);
+			msleep(20);
+			continue;
+		}
+		break;
+	}
 
 	mutex_unlock(&g_rvr_msg->lock.mutex_ipi);
+
+	if (ret) {
+		LOG_ERR("Send Reviser IPI Fail %d\n", ret);
+		goto out;
+	}
 
 wait:
 	LOG_DBG_RVR_FLW("Wait for Getting cmd\n");
@@ -146,6 +167,7 @@ int reviser_remote_rx_cb(void *data, int len)
 {
 	unsigned long flags;
 	struct reviser_msg_item *item;
+	//uint32_t *ptr;
 
 	if (len != sizeof(struct reviser_msg)) {
 		LOG_ERR("invalid len %d / %d\n", len, sizeof(struct reviser_msg));
@@ -155,6 +177,10 @@ int reviser_remote_rx_cb(void *data, int len)
 	item = vzalloc(sizeof(*item));
 
 	memcpy(&item->msg, data, len);
+
+	//ptr = (uint32_t *)data;
+	//LOG_INFO("Rcv [%x][%x][%x][%x]\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+
 
 	spin_lock_irqsave(&g_rvr_msg->lock.lock_rx, flags);
 	list_add_tail(&item->list, &g_rvr_msg->list_rx);
