@@ -279,7 +279,7 @@ static const char *slave_type_to_string(uint32_t slave_type)
 		return slave_type_arr[slave_type_num];
 }
 
-static void print_vio_mask_sta(bool debug)
+static void print_vio_mask_sta(bool force)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
@@ -288,7 +288,7 @@ static void print_vio_mask_sta(bool debug)
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 		/* Only dump the info of subsystem which got violation */
-		if (!is_matched_devapc_type(slave_type))
+		if (!is_matched_devapc_type(slave_type) && !force)
 			continue;
 
 		if (slave_type == DEVAPC_TYPE_MMUP &&
@@ -309,26 +309,15 @@ static void print_vio_mask_sta(bool debug)
 		       );
 
 		for (i = 0; i < vio_info->vio_mask_sta_num[slave_type]; i++) {
-			if (debug)
-				pr_info(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
-					slave_type_to_string(slave_type),
-					"VIO_MASK", i,
-					readl(mtk_devapc_pd_get(slave_type,
-							VIO_MASK, i)),
-					"VIO_STA", i,
-					readl(mtk_devapc_pd_get(slave_type,
-							VIO_STA, i))
-					);
-			else
-				pr_debug(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
-					slave_type_to_string(slave_type),
-					"VIO_MASK", i,
-					readl(mtk_devapc_pd_get(slave_type,
-							VIO_MASK, i)),
-					"VIO_STA", i,
-					readl(mtk_devapc_pd_get(slave_type,
-							VIO_STA, i))
-					);
+			pr_info(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
+				slave_type_to_string(slave_type),
+				"VIO_MASK", i,
+				readl(mtk_devapc_pd_get(slave_type,
+						VIO_MASK, i)),
+				"VIO_STA", i,
+				readl(mtk_devapc_pd_get(slave_type,
+						VIO_STA, i))
+				);
 		}
 	}
 }
@@ -742,9 +731,7 @@ static void start_devapc(void)
 	int slave_type, i, vio_idx, index;
 	uint32_t retry = RETRY_COUNT;
 
-	print_vio_mask_sta(false);
 	ndevices = mtk_devapc_ctx->soc->ndevices;
-
 	device_info = mtk_devapc_ctx->soc->device_info;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
@@ -811,7 +798,7 @@ static void start_devapc(void)
 		}
 	}
 
-	print_vio_mask_sta(true);
+	print_vio_mask_sta(false);
 
 	/* register subsys test cb */
 	register_devapc_violation_callback(&devapc_test_handle);
@@ -1051,7 +1038,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	}
 #endif
 
-	print_vio_mask_sta(true);
+	print_vio_mask_sta(false);
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
@@ -1134,7 +1121,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	/* It's an abnormal status */
 	pr_info(PFX "WARNING: Abnormal Status\n");
-	print_vio_mask_sta(true);
+	print_vio_mask_sta(false);
 	BUG_ON(1);
 
 	spin_unlock_irqrestore(&devapc_lock, flags);
@@ -1778,8 +1765,6 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		}
 	}
 
-	start_devapc();
-
 	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
 		ret = devm_request_irq(&pdev->dev,
 			mtk_devapc_ctx->devapc_irq[irq_type],
@@ -1797,6 +1782,8 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		pr_info(PFX "hre init failed, ret %d\n", ret);
 		return ret;
 	}
+
+	start_devapc();
 
 	return 0;
 }
