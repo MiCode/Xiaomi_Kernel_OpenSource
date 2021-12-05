@@ -614,10 +614,6 @@ SND_SOC_DAILINK_DEFS(hostless_ul6,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_UL6 DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
-SND_SOC_DAILINK_DEFS(hostless_dsp_dl,
-	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_DSP_DL DAI")),
-	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(hostless_hw_gain_aaudio,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless HW Gain AAudio DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -639,7 +635,7 @@ SND_SOC_DAILINK_DEFS(vow,
 				      "mt6369-snd-codec-vow")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
 SND_SOC_DAILINK_DEFS(ultra,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1083,13 +1079,6 @@ static struct snd_soc_dai_link mt6855_mt6369_dai_links[] = {
 		SND_SOC_DAILINK_REG(hostless_ul6),
 	},
 	{
-		.name = "Hostless_DSP_DL",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.ignore_suspend = 1,
-		SND_SOC_DAILINK_REG(hostless_dsp_dl),
-	},
-	{
 		.name = "Hostless_HW_Gain_AAudio",
 		.stream_name = "Hostless_HW_Gain_AAudio",
 		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
@@ -1128,7 +1117,7 @@ static struct snd_soc_dai_link mt6855_mt6369_dai_links[] = {
 		SND_SOC_DAILINK_REG(vow),
 	},
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
 	{
 		.name = "SCP_ULTRA_Playback",
 		.stream_name = "SCP_ULTRA_Playback",

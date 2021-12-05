@@ -387,18 +387,6 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 		.ops = &mtk_dai_hostless_ops,
 	},
 	{
-		.name = "Hostless_DSP_DL DAI",
-		.id = MT6855_DAI_HOSTLESS_DSP_DL,
-		.playback = {
-			.stream_name = "Hostless_DSP_DL DL",
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = MTK_HOSTLESS_RATES,
-			.formats = MTK_HOSTLESS_FORMATS,
-		},
-		.ops = &mtk_dai_hostless_ops,
-	},
-	{
 		.name = "Hostless_UL6 DAI",
 		.id = MT6855_DAI_HOSTLESS_UL6,
 		.capture = {

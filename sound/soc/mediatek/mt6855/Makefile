@@ -5,10 +5,6 @@ ifeq ($(CONFIG_MTK_ACAO_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
 endif
 
-# adsp include path
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
-
 # spm include path
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
