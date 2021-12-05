@@ -1212,7 +1212,6 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		dev_info(ctx->dev, "no sensor\n");
 		return -EFAULT;
 	}
-	mutex_lock(&ctx->pwr_mutex);
 
 	if (enable) {
 		debug_err_detect_initialize(ctx);
@@ -1227,7 +1226,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
-			dev_info(ctx->dev, "pm_runtime_get_sync ret %d\n", ret);
+			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
 			return ret;
 		}
@@ -1278,7 +1277,6 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	ctx->streaming = enable;
-	mutex_unlock(&ctx->pwr_mutex);
 	return 0;
 }
 
@@ -1710,7 +1708,6 @@ static int seninf_probe(struct platform_device *pdev)
 
 	ctx->open_refcnt = 0;
 	mutex_init(&ctx->mutex);
-	mutex_init(&ctx->pwr_mutex);
 
 	ret = get_csi_port(dev, &port);
 	if (ret) {
@@ -1971,7 +1968,13 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
 	int ret = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 
-	mutex_lock(&ctx->pwr_mutex);
+	ret = pm_runtime_get_sync(ctx->dev);
+	if (ret < 0) {
+		dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+		pm_runtime_put_noidle(ctx->dev);
+		return ret;
+	}
+
 	if (ctx->streaming) {
 		ret = g_seninf_ops->_debug(sd_to_ctx(sd));
 #if ESD_RESET_SUPPORT
@@ -1982,7 +1985,8 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
 			reset_sensor(sd_to_ctx(sd));
 	} else
 		dev_info(ctx->dev, "%s should not dump during stream off\n", __func__);
-	mutex_unlock(&ctx->pwr_mutex);
+
+	pm_runtime_put_sync(ctx->dev);
 	return ret;
 }
 
