@@ -2786,8 +2786,7 @@
 				<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
 				<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
 				<0 0x11c10000 0 0x1000>,  /* EFUSE */
-				<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CONTROL */
-				<0 0x13fb6000 0 0x1000>;  /* MFG_CPE_SENSOR */
+				<0 0x13fcf000 0 0x1000>;  /* MFG_CPE_SENSOR */
 			reg-names =
 				"mfg_top_config",
 				"mfg_pll",
@@ -2801,22 +2800,21 @@
 				"infra_ao_debug_ctrl",
 				"infra_ao1_debug_ctrl",
 				"efuse",
-				"mfg_cpe_control",
 				"mfg_cpe_sensor";
-			// clocks =
-			// <&mfg_pll_ctrl_clk CLK_MFG_AO_MFGPLL>, /* TBD */
-			// <&mfg_pll_ctrl_clk CLK_MFG_AO_MFGSCPLL>; /* TBD */
-			// clock-names =
-			// "clk_main_parent",
-			// "clk_sub_parent";
-			// power-domains =
-			// <&scpsys MT6855_POWER_DOMAIN_MFG1>, /* TBD */
-			// <&scpsys MT6855_POWER_DOMAIN_MFG2>; /* TBD */
-			// power-domain-names =
-			// "pd_mfg1",
-			// "pd_mfg2";
-			// _vgpu-supply = <&mt6368_vbuck2>; /* TBD */
-			// _vsram-supply = <&mt6363_vbuck4>; /* TBD */
+			clocks =
+				<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGPLL>,
+				<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGSCPLL>;
+			clock-names =
+				"clk_main_parent",
+				"clk_sub_parent";
+			power-domains =
+				<&scpsys MT6855_POWER_DOMAIN_MFG1>,
+				<&scpsys MT6855_POWER_DOMAIN_MFG2>;
+			power-domain-names =
+				"pd_mfg1",
+				"pd_mfg2";
+			_vgpu-supply = <&mt6363_vbuck5>;
+			_vsram-supply = <&mt6369_vsram_core>;
 			// fhctl-supply = <&fhctl>; /* TBD */
 			gpufreq_wrapper-supply = <&gpufreq_wrapper>;
 		};
