@@ -22,6 +22,8 @@
 #include <linux/kthread.h>
 #include <linux/sched/signal.h>
 #include <linux/spinlock.h>
+#include <linux/cpuidle.h>
+#include <linux/pm_qos.h>
 #include <uapi/linux/sched/types.h>
 
 #include <lpm.h>
@@ -39,9 +41,12 @@ unsigned int lpm_suspend_status;
 struct cpumask s2idle_cpumask;
 static struct cpumask abort_cpumask;
 static DEFINE_SPINLOCK(lpm_abort_locker);
+static struct pm_qos_request lpm_qos_request;
 
 long long before_md_sleep_time;
 long long after_md_sleep_time;
+
+#define S2IDLE_STATE_NAME "s2idle"
 
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 #define MD_SLEEP_INFO_SMEM_OFFEST (4)
@@ -425,6 +430,28 @@ FINISHED:
 
 #endif
 
+static int lpm_s2idle_barrier(void)
+{
+	int i;
+	struct cpuidle_driver *drv = cpuidle_get_driver();
+	unsigned int s2idle_block_value;
+
+	if (!drv)
+		return -1;
+
+	i = drv->state_count - 1;
+	if (strcmp(drv->states[i].name, S2IDLE_STATE_NAME))
+		return -1;
+
+	/* request PM QoS between S2ilde and mcusys off */
+	s2idle_block_value = (drv->states[i].exit_latency +
+			      drv->states[i-1].exit_latency)/2;
+
+	cpu_latency_qos_add_request(&lpm_qos_request, s2idle_block_value);
+
+	return 0;
+}
+
 int __init lpm_model_suspend_init(void)
 {
 	int ret;
@@ -437,6 +464,10 @@ int __init lpm_model_suspend_init(void)
 					NULL,
 					lpm_suspend_s2idle_reflect);
 		lpm_suspend_registry("s2idle", &lpm_model_suspend);
+
+		ret = lpm_s2idle_barrier();
+		if (ret)
+			pr_debug("[name:spm&][SPM] Failed to set s2idle barrier.\n");
 	} else {
 		LPM_SUSPEND_OP_INIT(lpm_suspend_system_prompt,
 					NULL,
