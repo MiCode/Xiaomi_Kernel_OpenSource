@@ -107,8 +107,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 23),
 	GATE_IFRAO1(CLK_IFRAO_CCIF_MD, "ifrao_ccif_md",
 			"axi_ck"/* parent */, 26),
-	GATE_IFRAO1(CLK_IFRAO_DXCC_SEC_CORE, "ifrao_secore",
-			"dxcc_ck"/* parent */, 27),
 	/* IFRAO2 */
 	GATE_IFRAO2(CLK_IFRAO_CLDMA_BCLK, "ifrao_cldmabclk",
 			"axi_ck"/* parent */, 3),

@@ -218,9 +218,6 @@ static const struct mtk_gate perao_clks[] = {
 			"msdc30_2_ck"/* parent */, 23),
 	GATE_PERAO1(CLK_PERAOP_1_MSDC2_HCLK, "peraop_1_msdc2_hclk",
 			"peri_axi_ck"/* parent */, 24),
-	/* PERAO2 */
-	GATE_PERAO2(CLK_PERAOP_2_CONP_BUS_MCLK, "perao_p_2_conbus_mck",
-			"peri_axi_ck"/* parent */, 2),
 };
 
 static const struct mtk_clk_desc perao_mcd = {
