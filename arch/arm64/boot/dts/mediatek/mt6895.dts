@@ -8805,10 +8805,10 @@
 			/* as mml device */
 			comp-count = <MML_ENGINE_TOTAL>;
 			topology = "mt6895";
-			mboxes = <&gce 16 0 CMDQ_THR_PRIO_1>,
-				<&gce 17 0 CMDQ_THR_PRIO_1>,
-				<&gce 18 0 CMDQ_THR_PRIO_1>,
-				<&gce 19 0 CMDQ_THR_PRIO_1>;
+			mboxes = <&gce 16 400 CMDQ_THR_PRIO_1>,
+				<&gce 17 500 CMDQ_THR_PRIO_1>,
+				<&gce 18 400 CMDQ_THR_PRIO_1>,
+				<&gce 19 500 CMDQ_THR_PRIO_1>;
 			/* as mmlsys */
 			comp-ids = <MML_MMLSYS>,
 				<MML_DLI0>, <MML_DLI1>,
@@ -8932,6 +8932,8 @@
 			event_ir_mml_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_MML_READY>;
 			event_ir_disp_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_DISP_READY>;
 			event_ir_mml_stop = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_MML_STOP>;
+			event_ir_eof =
+				/bits/ 16 <CMDQ_EVENT_MMSYS_DISP_RDMA0_TARGET_LINE_ENG_EVENT>;
 			event_racing_pipe0 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE0>;
 			event_racing_pipe1 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1>;
 			event_racing_pipe1_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1_NEXT>;
