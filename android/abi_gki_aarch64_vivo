@@ -54,6 +54,8 @@
   __bitmap_set
   blk_alloc_queue
   blk_bio_list_merge
+  blkcg_policy_register
+  blkcg_policy_unregister
   blk_cleanup_queue
   blk_execute_rq
   blk_execute_rq_nowait
@@ -1001,6 +1003,7 @@
   of_count_phandle_with_args
   of_cpufreq_cooling_register
   of_cpu_node_to_id
+  of_css
   of_devfreq_cooling_register
   of_device_get_match_data
   of_device_is_available
@@ -1711,8 +1714,12 @@
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_set_priority
   __traceiter_android_vh_binder_wakeup_ilocked
+  __traceiter_android_vh_blk_alloc_rqs
+  __traceiter_android_vh_blk_rq_ctx_init
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
+  __traceiter_android_vh_filemap_fault_cache_page
+  __traceiter_android_vh_filemap_fault_get_page
   __traceiter_android_vh_ftrace_dump_buffer
   __traceiter_android_vh_ftrace_format_check
   __traceiter_android_vh_ftrace_oops_enter
@@ -1721,10 +1728,12 @@
   __traceiter_android_vh_iommu_setup_dma_ops
   __traceiter_android_vh_ipi_stop
   __traceiter_android_vh_jiffies_update
+  __traceiter_android_vh_mmap_region
   __traceiter_android_vh_mmc_attach_sd
   __traceiter_android_vh_mmc_blk_mq_rw_recovery
   __traceiter_android_vh_mmc_blk_reset
   __traceiter_android_vh_mmc_gpio_cd_irqt
+  __traceiter_android_vh_mm_dirty_limits
   __traceiter_android_vh_printk_hotplug
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_sdhci_get_cd
@@ -1732,7 +1741,9 @@
   __traceiter_android_vh_show_max_freq
   __traceiter_android_vh_show_resume_epoch_val
   __traceiter_android_vh_show_suspend_epoch_val
+  __traceiter_android_vh_shrink_slab_bypass
   __traceiter_android_vh_timer_calc_index
+  __traceiter_android_vh_try_to_unmap_one
   __traceiter_android_vh_ufs_check_int_errors
   __traceiter_android_vh_ufs_compl_command
   __traceiter_android_vh_ufs_send_command
@@ -1782,10 +1793,15 @@
   __tracepoint_android_rvh_set_readahead_gfp_mask
   __tracepoint_android_rvh_set_skip_swapcache_flags
   __tracepoint_android_rvh_set_task_cpu
+  __tracepoint_android_rvh_tcp_recvmsg
+  __tracepoint_android_rvh_tcp_recvmsg_stat
+  __tracepoint_android_rvh_tcp_sendmsg_locked
   __tracepoint_android_rvh_tick_entry
   __tracepoint_android_rvh_try_to_wake_up
   __tracepoint_android_rvh_try_to_wake_up_success
   __tracepoint_android_rvh_ttwu_cond
+  __tracepoint_android_rvh_udp_recvmsg
+  __tracepoint_android_rvh_udp_sendmsg
   __tracepoint_android_rvh_update_cpu_capacity
   __tracepoint_android_rvh_update_cpus_allowed
   __tracepoint_android_rvh_update_misfit_status
@@ -1796,9 +1812,13 @@
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_trans
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_blk_alloc_rqs
+  __tracepoint_android_vh_blk_rq_ctx_init
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_dup_task_struct
+  __tracepoint_android_vh_filemap_fault_cache_page
+  __tracepoint_android_vh_filemap_fault_get_page
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter
@@ -1808,10 +1828,12 @@
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_irqtime_account_process_tick
   __tracepoint_android_vh_jiffies_update
+  __tracepoint_android_vh_mmap_region
   __tracepoint_android_vh_mmc_attach_sd
   __tracepoint_android_vh_mmc_blk_mq_rw_recovery
   __tracepoint_android_vh_mmc_blk_reset
   __tracepoint_android_vh_mmc_gpio_cd_irqt
+  __tracepoint_android_vh_mm_dirty_limits
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_sdhci_get_cd
@@ -1819,7 +1841,9 @@
   __tracepoint_android_vh_show_max_freq
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
+  __tracepoint_android_vh_shrink_slab_bypass
   __tracepoint_android_vh_timer_calc_index
+  __tracepoint_android_vh_try_to_unmap_one
   __tracepoint_android_vh_tune_scan_type
   __tracepoint_android_vh_tune_swappiness
   __tracepoint_android_vh_ufs_check_int_errors
