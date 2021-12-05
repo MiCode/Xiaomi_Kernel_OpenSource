@@ -9,6 +9,9 @@
 #include <linux/types.h>
 #include <soc/mediatek/emi.h>
 
+typedef irqreturn_t (*emimpu_isr_hook)(
+	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
+
 struct emi_mpu {
 	unsigned long long dram_start;
 	unsigned long long dram_end;
@@ -53,6 +56,7 @@ struct emi_mpu {
 	emimpu_post_clear post_clear;
 	emimpu_md_handler md_handler;
 	emimpu_iommu_handler iommu_handler;
+	emimpu_isr_hook by_plat_isr_hook;
 
 	/* debugging log for EMI MPU violation */
 	char *vio_msg;
@@ -66,5 +70,7 @@ struct emi_mpu {
 };
 
 extern struct emi_mpu *global_emi_mpu;
+
+int mtk_emimpu_isr_hook_register(emimpu_isr_hook hook);
 
 #endif /* __EMI_MPU_H__ */

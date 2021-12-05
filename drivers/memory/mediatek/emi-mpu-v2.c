@@ -67,6 +67,32 @@ int mtk_emimpu_iommu_handling_register(emimpu_iommu_handler iommu_handling_func)
 }
 EXPORT_SYMBOL_GPL(mtk_emimpu_iommu_handling_register);
 
+/*
+ * mtk_emimpu_isr_hook_register - register the by-platform hook function for ISR
+ * @hook: the by-platform hook function
+ *
+ * Return 0 for success, -EINVAL for fail
+ */
+int mtk_emimpu_isr_hook_register(emimpu_isr_hook hook)
+{
+	struct emi_mpu *mpu_v2;
+
+	mpu_v2 = global_emi_mpu;
+
+	if (!mpu_v2)
+		return -EINVAL;
+
+	if (!hook) {
+		pr_info("%s: hook is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	mpu_v2->by_plat_isr_hook = hook;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_emimpu_isr_hook_register);
+
 static void clear_violation(
 	struct emi_mpu *mpu, unsigned int emi_id)
 {
@@ -116,8 +142,9 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	unsigned int emi_id, i;
 	ssize_t msg_len;
 	int nr_vio;
-	bool violation;
-	unsigned int hp_mask = 0x600000;
+	bool violation, miu_violation;
+	irqreturn_t irqret;
+	const unsigned int hp_mask = 0x600000;
 	char md_str[MTK_EMI_MAX_CMD_LEN + 13] = {'\0'};
 
 	nr_vio = 0;
@@ -125,6 +152,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
 		violation = false;
+		miu_violation = false;
 		emi_cen_base = mpu->emi_cen_base[emi_id];
 		for (i = 0; i < mpu->dump_cnt; i++) {
 			dump_reg[i].value = readl(
@@ -135,29 +163,58 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 		if (!violation)
 			continue;
+
+		/*
+		 * The hardware interrupt to service will be triggered by
+		 * two sources: one is the new MIUMPU violation, another is
+		 * the legacy EMIMPU violation.
+		 * Determine whether this is a MIUMPU violation or a EMIMPU
+		 * violation by checking HP_MODE.
+		 * If this is a MIUMPU violation, the info to dump is from
+		 * another set of registers.
+		 */
+		miu_violation = (dump_reg[2].value & hp_mask) ? true : false;
+		if (miu_violation) {
+			miu_mpu_base = mpu->miu_mpu_base[emi_id];
+			for (i = 0; i < mpu->miumpu_dump_cnt; i++)
+				miumpu_dump_reg[i].value = readl(
+				miu_mpu_base + miumpu_dump_reg[i].offset);
+		}
+
+		/*
+		 * Have one hook function for one platform for handling
+		 * by-platform problems. For example, bypass this violation
+		 * since it is a false alarm.
+		 * If the violation needs to be bypassed, clear the violation
+		 * but do NOT write logs in the vio_msg buffer to avoid generate
+		 * a violation report.
+		 */
+		if (mpu->by_plat_isr_hook) {
+			irqret = mpu->by_plat_isr_hook(emi_id,
+			(miu_violation) ? miumpu_dump_reg : dump_reg,
+			(miu_violation) ? mpu->miumpu_dump_cnt : mpu->dump_cnt);
+
+			if (irqret == IRQ_HANDLED)
+				goto clear_violation;
+		}
+
 		nr_vio++;
 
-
-		/* Check HP_MODE violation */
-		if (dump_reg[2].value & hp_mask) {
-			miu_mpu_base = mpu->miu_mpu_base[emi_id];
-			/* Dump MIUMPU violation info*/
+		if (miu_violation) {
+			/* Dump MIUMPU violation info */
 			if (msg_len < MTK_EMI_MAX_CMD_LEN)
 				msg_len += scnprintf(mpu->vio_msg + msg_len,
 					MTK_EMI_MAX_CMD_LEN - msg_len,
 					"\n[MIUMPU]emiid%d\n", emi_id);
-			for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
-				miumpu_dump_reg[i].value = readl(
-					miu_mpu_base + miumpu_dump_reg[i].offset);
+			for (i = 0; i < mpu->miumpu_dump_cnt; i++)
 				if (msg_len < MTK_EMI_MAX_CMD_LEN)
 					msg_len += scnprintf(mpu->vio_msg + msg_len,
 						MTK_EMI_MAX_CMD_LEN - msg_len,
 						"[%x]%x;",
 						miumpu_dump_reg[i].offset,
 						miumpu_dump_reg[i].value);
-			}
 		} else {
-			/* Dump EMIMPU violation info*/
+			/* Dump EMIMPU violation info */
 			if (msg_len < MTK_EMI_MAX_CMD_LEN)
 				msg_len += scnprintf(mpu->vio_msg + msg_len,
 						MTK_EMI_MAX_CMD_LEN - msg_len,
@@ -201,14 +258,17 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 				dump_reg, mpu->dump_cnt);
 		}
 
+clear_violation:
 		clear_violation(mpu, emi_id);
 
 	}
+
 	if (nr_vio) {
 		printk_deferred("%s: %s", __func__, mpu->vio_msg);
 		mpu->in_msg_dump = 1;
 		schedule_work(&emimpu_work);
 	}
+
 	return IRQ_HANDLED;
 }
 
@@ -572,4 +632,3 @@ module_init(emimpu_init);
 
 MODULE_DESCRIPTION("MediaTek EMI MPU V2 Driver");
 MODULE_LICENSE("GPL v2");
-
