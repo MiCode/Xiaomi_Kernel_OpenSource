@@ -71,6 +71,8 @@ enum MTK_DRM_HELPER_OPT {
 	/* Resolution switch */
 	MTK_DRM_OPT_RES_SWITCH,
 	MTK_DRM_OPT_PRE_TE,
+	/* Virtual Display via DISP HW */
+	MTK_DRM_OPT_VIRTUAL_DISP,
 	MTK_DRM_OPT_NUM
 };
 
