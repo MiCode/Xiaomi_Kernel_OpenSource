@@ -1676,9 +1676,8 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	 * [SPM] pwr_status_2nd: 0x1C001F40
 	 * Power ON: 0000 1110 (0xE) [3:1]: MFG0-2
 	 */
-	GPUFREQ_LOGI("[GPU] RGX_CR_CORE_ID: (0x%08x, 0x%08x), MFG_TOP_CONFIG: 0x%08x",
-		readl(g_rgx_base + 0x024), readl(g_rgx_base + 0x020),
-		readl(g_mfg_top_base + 0x000));
+	GPUFREQ_LOGI("[GPU] RGX_CR_CORE_ID: (0x%08x, 0x%08x), RGX_CR_SYS_BUS_SECURE: 0x%08x",
+		readl(g_rgx_base + 0x024), readl(g_rgx_base + 0x020), readl(g_rgx_base + 0xA100));
 	GPUFREQ_LOGI("[MFG0-2] PWR_STATUS: 0x%08x, PWR_STATUS_2ND: 0x%08x",
 		readl(g_sleep + PWR_STATUS_OFS) & MFG_0_2_PWR_MASK,
 		readl(g_sleep + PWR_STATUS_2ND_OFS) & MFG_0_2_PWR_MASK);
