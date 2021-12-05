@@ -4473,6 +4473,9 @@ void fpsgo_base2fbt_stop_boost(struct render_info *thr)
 	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 1, "stop_boost");
 	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 0, "stop_boost");
 
+	if (thr->boost_info.last_blc == 0)
+		return;
+
 	fbt_reset_boost(thr);
 }
 
