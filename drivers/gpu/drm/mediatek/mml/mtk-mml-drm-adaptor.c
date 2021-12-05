@@ -776,7 +776,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	} else {
 		task->job.fence = -1;
 	}
-	mml_log("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu%s act_t %u",
+	mml_msg("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu%s act_t %u",
 		task->job.jobid, task->job.fence, task, task->fence, cfg,
 		cfg->info.mode,
 		(cfg->info.mode == MML_MODE_RACING && cfg->disp_dual) ? " disp dual" : "",
