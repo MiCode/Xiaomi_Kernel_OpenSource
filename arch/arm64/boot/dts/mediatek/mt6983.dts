@@ -6466,6 +6466,7 @@
 			"MTK_DRM_OPT_MML_PRIMARY",
 			"MTK_DRM_OPT_DUAL_TE",
 			"MTK_DRM_OPT_RES_SWITCH",
+			"MTK_DRM_OPT_VIRTUAL_DISP",
 			"MTK_DRM_OPT_PRE_TE";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
@@ -6516,6 +6517,7 @@
 			<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
 			<1>, /*MTK_DRM_OPT_DUAL_TE*/
 			<1>, /*MTK_DRM_OPT_RES_SWITCH*/
+			<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
 			<0>; /*MTK_DRM_OPT_PRE_TE*/
 	};
 	disp_mutex0: disp_mutex@14001000 {
