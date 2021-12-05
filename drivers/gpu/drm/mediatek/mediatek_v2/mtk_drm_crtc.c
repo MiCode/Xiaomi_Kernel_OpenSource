@@ -826,14 +826,6 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 
-	// Temp code. This flow will only enter by debug command
-	// (CMD mode will enter MML IR by debug command), we don't
-	// have to worry about it will effect the original flow.
-	if (is_frame_mode && mtk_crtc->is_mml && mtk_crtc->mml_cfg) {
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		return 0;
-	}
-
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
 		sb_cmdq_handle != NULL) {
 		cmdq_handle = sb_cmdq_handle;
@@ -863,7 +855,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		 */
 		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
 					MTK_DRM_OPT_MSYNC2_0) &&
-			params->msync2_enable))
+			params->msync2_enable) &&
+			!mtk_crtc->is_mml)
 			cmdq_pkt_clear_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 	}
@@ -880,7 +873,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		 */
 		if (!(mtk_drm_helper_get_opt(priv->helper_opt,
 					MTK_DRM_OPT_MSYNC2_0) &&
-			params->msync2_enable))
+			params->msync2_enable) &&
+			!mtk_crtc->is_mml)
 			cmdq_pkt_set_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_set_event(cmdq_handle,
