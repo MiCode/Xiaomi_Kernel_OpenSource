@@ -40,6 +40,10 @@ const u32 pmif_chip_to_hw_ver[CLKBUF_CHIP_ID_MAX][MAX_PMIF_NUM] = {
 		CLKBUF_PMIF_VERSION_1,
 		CLKBUF_PMIF_VERSION_1,
 	},
+	[MT6855] = {
+		CLKBUF_PMIF_VERSION_2,
+		CLKBUF_PMIF_VERSION_2,
+	},
 };
 
 static struct pmif_hw pmif_hws[CLKBUF_PMIF_VER_MAX] = {
