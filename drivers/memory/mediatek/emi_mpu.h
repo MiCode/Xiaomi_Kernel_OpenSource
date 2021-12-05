@@ -60,6 +60,9 @@ struct emi_mpu {
 
 	/* hook functions in worker thread */
 	struct emimpu_dbg_cb *dbg_cb_list;
+
+	/* EMIMPU VERSION */
+	unsigned int version;
 };
 
 extern struct emi_mpu *global_emi_mpu;

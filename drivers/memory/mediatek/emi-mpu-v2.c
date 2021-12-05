@@ -61,6 +61,8 @@ int mtk_emimpu_iommu_handling_register(emimpu_iommu_handler iommu_handling_func)
 
 	mpu_v2->iommu_handler = iommu_handling_func;
 
+	pr_info("%s: iommu_handling_func registered!!\n", __func__);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_emimpu_iommu_handling_register);
@@ -516,6 +518,8 @@ static int emimpu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to request irq");
 		return -EINVAL;
 	}
+
+	mpu->version = EMIMPUVER2;
 
 	devm_kfree(&pdev->dev, dump_list);
 	devm_kfree(&pdev->dev, miukp_dump_list);

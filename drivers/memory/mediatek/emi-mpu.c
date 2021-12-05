@@ -486,6 +486,8 @@ int mtk_emimpu_md_handling_register(emimpu_md_handler md_handling_func)
 
 	mpu->md_handler = md_handling_func;
 
+	pr_info("%s: md_handling_func registered!!\n", __func__);
+
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emimpu_md_handling_register);
@@ -500,17 +502,29 @@ void mtk_clear_md_violation(void)
 	struct emi_mpu *mpu;
 	void __iomem *emi_cen_base;
 	unsigned int emi_id;
+	struct arm_smccc_res smc_res;
 
 	mpu = global_emi_mpu;
 	if (!mpu)
 		return;
+	if (mpu->version == EMIMPUVER2) {
+		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR_MD,
+			0, 0, 0, 0, 0, 0, &smc_res);
+		if (smc_res.a0) {
+			pr_info("%s:%d failed to clear md violation, ret=0x%lx\n",
+				__func__, __LINE__, smc_res.a0);
+			return;
+		}
+	} else {
+		for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
+			emi_cen_base = mpu->emi_cen_base[emi_id];
 
-	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
-		emi_cen_base = mpu->emi_cen_base[emi_id];
-
-		set_regs(mpu->clear_md_reg,
-			mpu->clear_md_reg_cnt, emi_cen_base);
+			set_regs(mpu->clear_md_reg,
+				mpu->clear_md_reg_cnt, emi_cen_base);
+		}
 	}
+
+	pr_info("%s:version %d\n", __func__, mpu->version);
 }
 EXPORT_SYMBOL(mtk_clear_md_violation);
 
@@ -805,6 +819,8 @@ static int emimpu_probe(struct platform_device *pdev)
 				goto free_ap_rg_info;
 			}
 		}
+
+	mpu->version = EMIMPUVER1;
 
 	devm_kfree(&pdev->dev, ap_apc);
 	devm_kfree(&pdev->dev, dump_list);

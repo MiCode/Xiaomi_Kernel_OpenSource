@@ -25,6 +25,7 @@
 #define MTK_EMIMPU_SLVERR		3
 #define MTK_EMIDBG_DUMP			4
 #define MTK_EMIDBG_MSG			5
+#define MTK_EMIMPU_CLEAR_MD             7
 
 #define MTK_EMIMPU_READ_SA		0
 #define MTK_EMIMPU_READ_EA		1
@@ -34,6 +35,9 @@
 
 #define MTK_EMI_MAX_TOKEN		4
 #define MTK_EMI_MAX_CMD_LEN		4096
+
+#define EMIMPUVER1			1
+#define EMIMPUVER2			2
 
 struct emi_addr_map {
 	int emi;
