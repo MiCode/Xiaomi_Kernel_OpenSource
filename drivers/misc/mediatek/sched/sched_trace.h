@@ -39,10 +39,9 @@ TRACE_EVENT(sched_select_task_rq,
 
 	TP_PROTO(struct task_struct *tsk,
 		int policy, int prev_cpu, int target_cpu,
-		int task_util, int task_util_est, int boost, bool prefer, int sync_flag),
+		bool prefer, int sync_flag),
 
-	TP_ARGS(tsk, policy, prev_cpu, target_cpu, task_util, task_util_est, boost,
-		prefer, sync_flag),
+	TP_ARGS(tsk, policy, prev_cpu, target_cpu, prefer, sync_flag),
 
 	TP_STRUCT__entry(
 		__field(pid_t, pid)
@@ -64,9 +63,9 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->policy     = policy;
 		__entry->prev_cpu   = prev_cpu;
 		__entry->target_cpu = target_cpu;
-		__entry->task_util      = task_util;
-		__entry->task_util_est  = task_util_est;
-		__entry->boost          = boost;
+		__entry->task_util      = task_util(tsk);
+		__entry->task_util_est  = task_util_est(tsk);
+		__entry->boost          = uclamp_task_util(tsk);
 		__entry->task_mask      = tsk->cpus_ptr->bits[0];
 		__entry->prefer         = prefer;
 		__entry->sync_flag     = sync_flag;

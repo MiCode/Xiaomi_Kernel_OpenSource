@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
+#include <sched/pelt.h>
 
 #ifndef _EAS_PLUS_H
 #define _EAS_PLUS_H
@@ -90,3 +91,37 @@ extern void mtk_select_task_rq_rt(void *data, struct task_struct *p, int cpu, in
 				int flags, int *target_cpu);
 extern int mtk_sched_asym_cpucapacity;
 #endif
+
+#ifdef CONFIG_SMP
+static inline unsigned long task_util(struct task_struct *p)
+{
+	return READ_ONCE(p->se.avg.util_avg);
+}
+
+static inline unsigned long _task_util_est(struct task_struct *p)
+{
+	struct util_est ue = READ_ONCE(p->se.avg.util_est);
+
+	return max(ue.ewma, (ue.enqueued & ~UTIL_AVG_UNCHANGED));
+}
+
+static inline unsigned long task_util_est(struct task_struct *p)
+{
+	return max(task_util(p), _task_util_est(p));
+}
+
+#ifdef CONFIG_UCLAMP_TASK
+static inline unsigned long uclamp_task_util(struct task_struct *p)
+{
+	return clamp(task_util_est(p),
+			uclamp_eff_value(p, UCLAMP_MIN),
+			uclamp_eff_value(p, UCLAMP_MAX));
+}
+#else
+static inline unsigned long uclamp_task_util(struct task_struct *p)
+{
+	return task_util_est(p);
+}
+#endif
+#endif
+

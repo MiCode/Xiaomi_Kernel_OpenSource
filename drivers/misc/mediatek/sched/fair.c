@@ -8,7 +8,6 @@
 #include <sched/sched.h>
 #include "eas/eas_plus.h"
 #include "common.h"
-#include <sched/pelt.h>
 #include <linux/stop_machine.h>
 #include <linux/kthread.h>
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
@@ -64,37 +63,6 @@ static inline struct task_struct *task_of(struct sched_entity *se)
 } while (0)
 
 #ifdef CONFIG_SMP
-static inline unsigned long task_util(struct task_struct *p)
-{
-	return READ_ONCE(p->se.avg.util_avg);
-}
-
-static inline unsigned long _task_util_est(struct task_struct *p)
-{
-	struct util_est ue = READ_ONCE(p->se.avg.util_est);
-
-	return max(ue.ewma, (ue.enqueued & ~UTIL_AVG_UNCHANGED));
-}
-
-static inline unsigned long task_util_est(struct task_struct *p)
-{
-	return max(task_util(p), _task_util_est(p));
-}
-
-#ifdef CONFIG_UCLAMP_TASK
-static inline unsigned long uclamp_task_util(struct task_struct *p)
-{
-	return clamp(task_util_est(p),
-		     uclamp_eff_value(p, UCLAMP_MIN),
-		     uclamp_eff_value(p, UCLAMP_MAX));
-}
-#else
-static inline unsigned long uclamp_task_util(struct task_struct *p)
-{
-	return task_util_est(p);
-}
-#endif
-
 int task_fits_capacity(struct task_struct *p, long capacity)
 {
 	return fits_capacity(uclamp_task_util(p), capacity);
@@ -611,7 +579,6 @@ done:
 	trace_sched_find_energy_efficient_cpu(best_delta, best_energy_cpu,
 			best_idle_cpu, idle_max_spare_cap_cpu, sys_max_spare_cap_cpu);
 	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
-			task_util(p), task_util_est(p), uclamp_task_util(p),
 			latency_sensitive, sync);
 
 	return;
