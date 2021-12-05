@@ -10,6 +10,12 @@ device-apc-mt6853-$(CONFIG_DEVAPC_MT6853) += devapc-mt6853.o
 device-apc-mt6853-$(CONFIG_DEVAPC_ARCH_MULTI) += devapc-mtk-multi-ao.o
 endif
 
+ifneq ($(wildcard $(srctree)/$(src)/devapc-mt6855.c),)
+obj-$(CONFIG_DEVAPC_MT6855) += device-apc-mt6855.o
+device-apc-mt6855-$(CONFIG_DEVAPC_MT6855) += devapc-mt6855.o
+device-apc-mt6855-$(CONFIG_DEVAPC_ARCH_MULTI) += devapc-mtk-multi-ao.o
+endif
+
 ifneq ($(wildcard $(srctree)/$(src)/devapc-mt6873.c),)
 obj-$(CONFIG_DEVAPC_MT6873) += device-apc-mt6873.o
 device-apc-mt6873-$(CONFIG_DEVAPC_MT6873) += devapc-mt6873.o
