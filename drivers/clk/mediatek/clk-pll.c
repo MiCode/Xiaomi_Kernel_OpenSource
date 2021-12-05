@@ -37,6 +37,8 @@
 #define MTK_WAIT_HWV_PLL_DONE_US		10
 
 static bool hwv_pll_prepared = true;
+static bool is_registered;
+
 /*
  * MediaTek PLLs are configured through their pcw value. The pcw value describes
  * a divider in the PLL feedback loop which consists of 7 bits for the integer
@@ -69,6 +71,9 @@ static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
 static int mtk_pll_is_prepared(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+
+	if (!is_registered)
+		return 0;
 
 	return (readl(pll->en_addr) & BIT(pll->data->pll_en_bit)) != 0;
 }
@@ -313,17 +318,15 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 
 static int mtk_hwv_pll_is_prepared_done(struct mtk_clk_pll *pll)
 {
-	u32 val, val2, pll_sta;
+	u32 val, pll_sta;
 
 	regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
 
 	if ((val & BIT(pll->data->hwv_shift))) {
 		if (pll->data->flags & HWV_CHK_FULL_STA) {
-			regmap_read(pll->hwv_regmap, pll->data->hwv_sta_ofs, &val);
-			regmap_read(pll->hwv_regmap, pll->data->hwv_set_sta_ofs, &val2);
+			regmap_read(pll->hwv_regmap, pll->data->hwv_set_sta_ofs, &val);
 			pll_sta = readl(pll->en_addr) & BIT(pll->data->pll_en_bit);
-			if ((val & BIT(pll->data->hwv_shift))
-					&& ((val2 & BIT(pll->data->hwv_shift)) == 0x0)
+			if (((val & BIT(pll->data->hwv_shift)) == 0x0)
 					&& ((pll_sta & BIT(pll->data->pll_en_bit)))) {
 				hwv_pll_prepared = true;
 				return 1;
@@ -367,7 +370,7 @@ static int mtk_hwv_pll_is_prepared(struct clk_hw *hw)
 static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
-	u32 val;
+	u32 val, val2;
 	int i = 0;
 
 	/* wait for irq idle */
@@ -414,8 +417,10 @@ static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 	return 0;
 
 err_hwv_done:
-	pr_err("%s pll enable timeout(%dus)(0x%x)\n", pll->data->name,
-			i * MTK_WAIT_HWV_PLL_DONE_US, val);
+	regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
+	regmap_read(pll->hwv_regmap, pll->data->hwv_clr_sta_ofs, &val2);
+	pr_err("%s pll enable timeout(%dus)(%x %x)\n", pll->data->name,
+			i * MTK_WAIT_HWV_PLL_DONE_US, val, val2);
 err_hwv_vote:
 	pr_err("%s pll vote timeout(%dus)(0x%x)\n", pll->data->name,
 			i * MTK_WAIT_HWV_PLL_VOTE_US, val);
@@ -432,7 +437,7 @@ err_hwv_prepare:
 static void mtk_hwv_pll_unprepare(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
-	u32 val;
+	u32 val, val2;
 	int i = 0;
 
 	/* wait for irq idle */
@@ -481,8 +486,10 @@ static void mtk_hwv_pll_unprepare(struct clk_hw *hw)
 	return;
 
 err_hwv_done:
-	pr_err("%s pll disable timeout(%dus)(0x%x)\n", pll->data->name,
-			i * MTK_WAIT_HWV_PLL_DONE_US, val);
+	regmap_read(pll->hwv_regmap, pll->data->hwv_done_ofs, &val);
+	regmap_read(pll->hwv_regmap, pll->data->hwv_clr_sta_ofs, &val2);
+	pr_err("%s pll disable timeout(%dus)(%x %x)\n", pll->data->name,
+			i * MTK_WAIT_HWV_PLL_DONE_US, val, val2);
 err_hwv_vote:
 	pr_err("%s pll unvote timeout(%dus)(0x%x)\n", pll->data->name,
 			i * MTK_WAIT_HWV_PLL_PREPARE_US, val);
@@ -579,6 +586,8 @@ void mtk_clk_register_plls(struct device_node *node,
 	struct clk *clk;
 	struct regmap *hw_voter_regmap;
 
+	is_registered = false;
+
 	base = of_iomap(node, 0);
 	if (!base) {
 		pr_err("%s(): ioremap failed\n", __func__);
@@ -604,6 +613,8 @@ void mtk_clk_register_plls(struct device_node *node,
 			clk_data->clks[pll->id] = clk;
 		}
 	}
+
+	is_registered = true;
 }
 EXPORT_SYMBOL(mtk_clk_register_plls);
 

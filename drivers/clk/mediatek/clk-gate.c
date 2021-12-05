@@ -18,12 +18,15 @@
 #include "clk-gate.h"
 
 static unsigned long long profile_time[4];
-
+static bool is_registered;
 
 static int mtk_cg_bit_is_cleared(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val;
+
+	if (!is_registered)
+		return 0;
 
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
 
@@ -36,6 +39,9 @@ static int mtk_cg_bit_is_set(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val;
+
+	if (!is_registered)
+		return 0;
 
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
 
@@ -119,6 +125,9 @@ static int mtk_cg_is_set_hwv(struct clk_hw *hw)
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val;
 
+	if (!is_registered)
+		return 0;
+
 	regmap_read(cg->hwv_regmap, cg->hwv_set_ofs, &val);
 
 	val &= BIT(cg->bit);
@@ -197,10 +206,10 @@ hwv_sta_fail:
 hwv_done_fail:
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
 	regmap_read(cg->hwv_regmap, cg->hwv_sta_ofs, &val2);
-	pr_err("%s cg enable timeout(%x %x %x %x)\n", clk_hw_get_name(hw), val, val2);
+	pr_err("%s cg enable timeout(%x %x)\n", clk_hw_get_name(hw), val, val2);
 hwv_prepare_fail:
 	regmap_read(cg->regmap, cg->hwv_sta_ofs, &val);
-	pr_err("%s cg prepare timeout(%dus)\n", clk_hw_get_name(hw), val);
+	pr_err("%s cg prepare timeout(%x)\n", clk_hw_get_name(hw), val);
 
 	for (i = 0; i < 4; i++)
 		pr_err("[%d]%lld us", i, profile_time[i]);
@@ -394,6 +403,8 @@ struct clk *mtk_clk_register_gate_hwv(
 	struct clk *clk;
 	struct clk_init_data init = {};
 
+	is_registered = false;
+
 	cg = kzalloc(sizeof(*cg), GFP_KERNEL);
 	if (!cg)
 		return ERR_PTR(-ENOMEM);
@@ -420,6 +431,8 @@ struct clk *mtk_clk_register_gate_hwv(
 	if (IS_ERR(clk))
 		kfree(cg);
 
+	is_registered = true;
+
 	return clk;
 }
 EXPORT_SYMBOL(mtk_clk_register_gate_hwv);
@@ -439,6 +452,8 @@ struct clk *mtk_clk_register_gate(
 	struct mtk_clk_gate *cg;
 	struct clk *clk;
 	struct clk_init_data init = {};
+
+	is_registered = false;
 
 	cg = kzalloc(sizeof(*cg), GFP_KERNEL);
 	if (!cg)
@@ -461,6 +476,8 @@ struct clk *mtk_clk_register_gate(
 	clk = clk_register(dev, &cg->hw);
 	if (IS_ERR(clk))
 		kfree(cg);
+
+	is_registered = true;
 
 	return clk;
 }
