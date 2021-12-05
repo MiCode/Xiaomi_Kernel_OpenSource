@@ -460,9 +460,22 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write_mask(comp, RDMA_ENGINE_EN, DISP_REG_RDMA_GLOBAL_CON,
 			   RDMA_ENGINE_EN, handle);
 
-	if (priv->data->mmsys_id == MMSYS_MT6879) {
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6879:
 		mtk_ddp_write_relaxed(comp, 0x01, DISP_REG_RDMA_MEM_GMC_S4,
 			handle);
+		break;
+	case MMSYS_MT6895:
+		/* mmsys0 consider dsi ultra signal if dsi buffer is enabled
+		 * mmsys1 ignore dsi ultra signal since HW unconnected
+		 */
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0))
+			mtk_ddp_write_relaxed(comp, 0x1,
+					DISP_REG_RDMA_MEM_GMC_S4, handle);
+		break;
+	default:
+		break;
 	}
 
 	if (data && data->sodi_config)
@@ -482,9 +495,20 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_GLOBAL_CON, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_INT_STATUS, handle);
 
-	if (priv->data->mmsys_id == MMSYS_MT6879) {
-		mtk_ddp_write_relaxed(comp, 0x00, DISP_REG_RDMA_MEM_GMC_S4,
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6879:
+		mtk_ddp_write_relaxed(comp, 0x0, DISP_REG_RDMA_MEM_GMC_S4,
 			handle);
+		break;
+	case MMSYS_MT6895:
+		/*consider dsi ultra signal if dsi buffer is enabled*/
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0))
+			mtk_ddp_write_relaxed(comp, 0x0,
+					DISP_REG_RDMA_MEM_GMC_S4, handle);
+		break;
+	default:
+		break;
 	}
 
 	if (data && data->sodi_config)

@@ -161,6 +161,10 @@
 
 #define SMI_LARB_NON_SEC_CON 0x0380
 #define MMSYS_DUMMY0 0x0400
+#define DISP_REG_CONFIG_MMSYS_MISC 0x0F0
+#define MT6895_FLD_OVL0_RDMA_ULTRA_SEL   REG_FLD_MSB_LSB(5, 2)
+#define MT6895_FLD_OVL0_2L_RDMA_ULTRA_SEL   REG_FLD_MSB_LSB(9, 6)
+#define MT6895_FLD_OVL1_2L_RDMA_ULTRA_SEL   REG_FLD_MSB_LSB(13, 10)
 
 #define MTK_DDP_COMP_USER "DISP"
 
@@ -1576,6 +1580,7 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	struct mtk_drm_private *priv = drm->dev_private;
 	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
 	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	unsigned int ultra_ovl_val = 0, ultra_ovl_mask = 0;
 	bool en = *((bool *)data);
 
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
@@ -1644,24 +1649,55 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			writel_relaxed(0x7, priv->side_config_regs + MMSYS_DUMMY0);
 		}
 
-		v = 0xd8;
-		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+		/* enable urgent signal from mmsys0 dsi buffer*/
+		writel_relaxed(0xdf, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
-			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+			writel_relaxed(0xff, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+
+		/* enable ultra signal from rdma to ovl0 and ovl1_2l */
+		v = readl(priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL0_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL1_2L_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		writel_relaxed(v, priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
+		if (priv->side_config_regs)
+			writel_relaxed(v, priv->side_config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
 	} else {
+		/* enable ultra signal from rdma to ovl0 */
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL0_RDMA_ULTRA_SEL);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+		if (priv->side_config_regs_pa)
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+
+		/* enable ultra signal from rdma to ovl1_2l */
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL1_2L_RDMA_ULTRA_SEL);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+		if (priv->side_config_regs_pa)
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+
+		/* enable urgent signal from mmsys0 dsi buffer*/
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_SODI_REQ_MASK, 0xf500, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_DUMMY0, 0x7, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_EMI_REQ_CTL, 0xd8, ~0);
+			MMSYS_EMI_REQ_CTL, 0xdf, ~0);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_DUMMY0, 0x7, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_EMI_REQ_CTL, 0xd8, ~0);
+				MMSYS_EMI_REQ_CTL, 0xff, ~0);
 		}
 	}
 }
