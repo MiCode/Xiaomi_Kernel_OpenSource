@@ -382,7 +382,6 @@ struct venc_vcu_ipi_msg_waitisr {
  */
 struct venc_vcu_ipi_mem_op {
 	__u32 msg_id;
-	__u32 ctx_id;
 	__s32 status;
 	__u64 venc_inst;
 	struct vcodec_mem_obj mem;
