@@ -141,10 +141,12 @@ static void update_thermal_headroom(int this_cpu)
 {
 	int cpu;
 
-	if (time_before(jiffies, next_update_thermal))
-		return;
-
 	if (spin_trylock(&thermal_headroom_lock)) {
+		if (time_before(jiffies, next_update_thermal)) {
+			spin_unlock(&thermal_headroom_lock);
+			return;
+		}
+
 		next_update_thermal = jiffies + thermal_headroom_interval_tick;
 		for_each_cpu(cpu, cpu_possible_mask) {
 			thermal_headroom[cpu] = get_thermal_headroom(cpu);
