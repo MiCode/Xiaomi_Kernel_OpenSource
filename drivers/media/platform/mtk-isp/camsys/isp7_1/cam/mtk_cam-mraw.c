@@ -1106,7 +1106,8 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
 							struct mtk_mraw_working_buf_entry,
 							list_entry);
-		if (buf_entry->s_data->req->pipe_used &
+		if (mtk_cam_mraw_is_vf_on(mraw_dev) &&
+			buf_entry->s_data->req->pipe_used &
 			(1 << ctx->mraw_pipe[i]->id)) {
 			if ((buf_entry->ts_mraw == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
