@@ -1429,7 +1429,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 		    RG_CDPHY_RX_LD3_TRIO3_HS_PREPARE_PARAMETER, 2);
 
-	hs_trail = ctx->core->hs_trail_parameter;
+	hs_trail = ctx->hs_trail_parameter;
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, hs_trail);
