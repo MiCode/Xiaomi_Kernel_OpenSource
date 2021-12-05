@@ -179,7 +179,7 @@ int dcs_set_core_mask(unsigned int core_mask, unsigned int core_num)
 		goto done_unlock;
 
 	ged_dvfs_set_gpu_core_mask_fp(core_mask);
-	g_cur_core_num = g_max_core_num;
+	g_cur_core_num = core_num;
 
 	/* TODO: set return error */
 	if (ret) {
