@@ -229,12 +229,13 @@ static const struct v4l2_ctrl_ops ak7377a_vcm_ctrl_ops = {
 static int ak7377a_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int ret;
+	struct ak7377a_device *ak7377a = sd_to_ak7377a_vcm(sd);
 
 	LOG_INF("%s\n", __func__);
 
-	ret = pm_runtime_get_sync(sd->dev);
+	ret = ak7377a_power_on(ak7377a);
 	if (ret < 0) {
-		pm_runtime_put_noidle(sd->dev);
+		LOG_INF("power on fail, ret = %d\n", ret);
 		return ret;
 	}
 
@@ -243,9 +244,11 @@ static int ak7377a_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static int ak7377a_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+	struct ak7377a_device *ak7377a = sd_to_ak7377a_vcm(sd);
+
 	LOG_INF("%s\n", __func__);
 
-	pm_runtime_put(sd->dev);
+	ak7377a_power_off(ak7377a);
 
 	return 0;
 }
@@ -357,8 +360,6 @@ static int ak7377a_probe(struct i2c_client *client)
 	if (ret < 0)
 		goto err_cleanup;
 
-	pm_runtime_enable(dev);
-
 	return 0;
 
 err_cleanup:
@@ -374,30 +375,8 @@ static int ak7377a_remove(struct i2c_client *client)
 	LOG_INF("%s\n", __func__);
 
 	ak7377a_subdev_cleanup(ak7377a);
-	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev))
-		ak7377a_power_off(ak7377a);
-	pm_runtime_set_suspended(&client->dev);
 
 	return 0;
-}
-
-static int __maybe_unused ak7377a_vcm_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct ak7377a_device *ak7377a = sd_to_ak7377a_vcm(sd);
-
-	return ak7377a_power_off(ak7377a);
-}
-
-static int __maybe_unused ak7377a_vcm_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct ak7377a_device *ak7377a = sd_to_ak7377a_vcm(sd);
-
-	return ak7377a_power_on(ak7377a);
 }
 
 static const struct i2c_device_id ak7377a_id_table[] = {
@@ -412,16 +391,9 @@ static const struct of_device_id ak7377a_of_table[] = {
 };
 MODULE_DEVICE_TABLE(of, ak7377a_of_table);
 
-static const struct dev_pm_ops ak7377a_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-	SET_RUNTIME_PM_OPS(ak7377a_vcm_suspend, ak7377a_vcm_resume, NULL)
-};
-
 static struct i2c_driver ak7377a_i2c_driver = {
 	.driver = {
 		.name = AK7377A_NAME,
-		.pm = &ak7377a_pm_ops,
 		.of_match_table = ak7377a_of_table,
 	},
 	.probe_new  = ak7377a_probe,

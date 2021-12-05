@@ -258,12 +258,14 @@ static const struct v4l2_ctrl_ops dw9718_vcm_ctrl_ops = {
 static int dw9718_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int ret;
+	struct dw9718_device *dw9718 = sd_to_dw9718_vcm(sd);
 
 	pr_info("%s\n", __func__);
 
-	ret = pm_runtime_get_sync(sd->dev);
+	ret = dw9718_power_on(dw9718);
 	if (ret < 0) {
-		pm_runtime_put_noidle(sd->dev);
+		pr_info("%s power on fail, ret = %d",
+			__func__, ret);
 		return ret;
 	}
 
@@ -272,9 +274,11 @@ static int dw9718_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static int dw9718_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+	struct dw9718_device *dw9718 = sd_to_dw9718_vcm(sd);
+
 	pr_info("%s\n", __func__);
 
-	pm_runtime_put(sd->dev);
+	dw9718_power_off(dw9718);
 
 	return 0;
 }
@@ -386,8 +390,6 @@ static int dw9718_probe(struct i2c_client *client)
 	if (ret < 0)
 		goto err_cleanup;
 
-	pm_runtime_enable(dev);
-
 	return 0;
 
 err_cleanup:
@@ -403,30 +405,8 @@ static int dw9718_remove(struct i2c_client *client)
 	pr_info("%s\n", __func__);
 
 	dw9718_subdev_cleanup(dw9718);
-	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev))
-		dw9718_power_off(dw9718);
-	pm_runtime_set_suspended(&client->dev);
 
 	return 0;
-}
-
-static int __maybe_unused dw9718_vcm_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct dw9718_device *dw9718 = sd_to_dw9718_vcm(sd);
-
-	return dw9718_power_off(dw9718);
-}
-
-static int __maybe_unused dw9718_vcm_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct dw9718_device *dw9718 = sd_to_dw9718_vcm(sd);
-
-	return dw9718_power_on(dw9718);
 }
 
 static const struct i2c_device_id dw9718_id_table[] = {
@@ -441,16 +421,9 @@ static const struct of_device_id dw9718_of_table[] = {
 };
 MODULE_DEVICE_TABLE(of, dw9718_of_table);
 
-static const struct dev_pm_ops dw9718_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-	SET_RUNTIME_PM_OPS(dw9718_vcm_suspend, dw9718_vcm_resume, NULL)
-};
-
 static struct i2c_driver dw9718_i2c_driver = {
 	.driver = {
 		.name = DW9718_NAME,
-		.pm = &dw9718_pm_ops,
 		.of_match_table = dw9718_of_table,
 	},
 	.probe_new  = dw9718_probe,

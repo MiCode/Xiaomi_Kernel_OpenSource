@@ -213,12 +213,13 @@ static const struct v4l2_ctrl_ops gt9772b_vcm_ctrl_ops = {
 static int gt9772b_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int ret;
+	struct gt9772b_device *gt9772b = sd_to_gt9772b_vcm(sd);
 
 	LOG_INF("%s\n", __func__);
 
-	ret = pm_runtime_get_sync(sd->dev);
+	ret = gt9772b_power_on(gt9772b);
 	if (ret < 0) {
-		pm_runtime_put_noidle(sd->dev);
+		LOG_INF("power on fail, ret = %d\n", ret);
 		return ret;
 	}
 
@@ -227,9 +228,11 @@ static int gt9772b_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static int gt9772b_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+	struct gt9772b_device *gt9772b = sd_to_gt9772b_vcm(sd);
+
 	LOG_INF("%s\n", __func__);
 
-	pm_runtime_put(sd->dev);
+	gt9772b_power_off(gt9772b);
 
 	return 0;
 }
@@ -341,8 +344,6 @@ static int gt9772b_probe(struct i2c_client *client)
 	if (ret < 0)
 		goto err_cleanup;
 
-	pm_runtime_enable(dev);
-
 	return 0;
 
 err_cleanup:
@@ -358,30 +359,8 @@ static int gt9772b_remove(struct i2c_client *client)
 	LOG_INF("%s\n", __func__);
 
 	gt9772b_subdev_cleanup(gt9772b);
-	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev))
-		gt9772b_power_off(gt9772b);
-	pm_runtime_set_suspended(&client->dev);
 
 	return 0;
-}
-
-static int __maybe_unused gt9772b_vcm_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct gt9772b_device *gt9772b = sd_to_gt9772b_vcm(sd);
-
-	return gt9772b_power_off(gt9772b);
-}
-
-static int __maybe_unused gt9772b_vcm_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct gt9772b_device *gt9772b = sd_to_gt9772b_vcm(sd);
-
-	return gt9772b_power_on(gt9772b);
 }
 
 static const struct i2c_device_id gt9772b_id_table[] = {
@@ -396,16 +375,9 @@ static const struct of_device_id gt9772b_of_table[] = {
 };
 MODULE_DEVICE_TABLE(of, gt9772b_of_table);
 
-static const struct dev_pm_ops gt9772b_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-	SET_RUNTIME_PM_OPS(gt9772b_vcm_suspend, gt9772b_vcm_resume, NULL)
-};
-
 static struct i2c_driver gt9772b_i2c_driver = {
 	.driver = {
 		.name = GT9772B_NAME,
-		.pm = &gt9772b_pm_ops,
 		.of_match_table = gt9772b_of_table,
 	},
 	.probe_new  = gt9772b_probe,

@@ -211,12 +211,13 @@ static const struct v4l2_ctrl_ops gt9764_vcm_ctrl_ops = {
 static int gt9764_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int ret;
+	struct gt9764_device *gt9764 = sd_to_gt9764_vcm(sd);
 
 	LOG_INF("%s\n", __func__);
 
-	ret = pm_runtime_get_sync(sd->dev);
+	ret = gt9764_power_on(gt9764);
 	if (ret < 0) {
-		pm_runtime_put_noidle(sd->dev);
+		LOG_INF("power on fail, ret = %d\n", ret);
 		return ret;
 	}
 
@@ -225,9 +226,11 @@ static int gt9764_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static int gt9764_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+	struct gt9764_device *gt9764 = sd_to_gt9764_vcm(sd);
+
 	LOG_INF("%s\n", __func__);
 
-	pm_runtime_put(sd->dev);
+	gt9764_power_off(gt9764);
 
 	return 0;
 }
@@ -339,8 +342,6 @@ static int gt9764_probe(struct i2c_client *client)
 	if (ret < 0)
 		goto err_cleanup;
 
-	pm_runtime_enable(dev);
-
 	return 0;
 
 err_cleanup:
@@ -356,30 +357,8 @@ static int gt9764_remove(struct i2c_client *client)
 	LOG_INF("%s\n", __func__);
 
 	gt9764_subdev_cleanup(gt9764);
-	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev))
-		gt9764_power_off(gt9764);
-	pm_runtime_set_suspended(&client->dev);
 
 	return 0;
-}
-
-static int __maybe_unused gt9764_vcm_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct gt9764_device *gt9764 = sd_to_gt9764_vcm(sd);
-
-	return gt9764_power_off(gt9764);
-}
-
-static int __maybe_unused gt9764_vcm_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct gt9764_device *gt9764 = sd_to_gt9764_vcm(sd);
-
-	return gt9764_power_on(gt9764);
 }
 
 static const struct i2c_device_id gt9764_id_table[] = {
@@ -394,16 +373,9 @@ static const struct of_device_id gt9764_of_table[] = {
 };
 MODULE_DEVICE_TABLE(of, gt9764_of_table);
 
-static const struct dev_pm_ops gt9764_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-	SET_RUNTIME_PM_OPS(gt9764_vcm_suspend, gt9764_vcm_resume, NULL)
-};
-
 static struct i2c_driver gt9764_i2c_driver = {
 	.driver = {
 		.name = GT9764_NAME,
-		.pm = &gt9764_pm_ops,
 		.of_match_table = gt9764_of_table,
 	},
 	.probe_new  = gt9764_probe,
