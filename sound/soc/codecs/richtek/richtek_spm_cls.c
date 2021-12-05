@@ -539,13 +539,12 @@ static int rt_spm_classdev_ampoff(struct richtek_spm_classdev *rdc)
 	rdc->xmax = ric.data[2];
 	rdc->xmaxcnt = ric.data[3];
 
-	pr_info("%s richtek tmax = %d, tmaxcnt = %d, xmax = %d, xmaxcnt = %d\n",
-		__func__, rdc->tmax, rdc->tmaxcnt, rdc->xmax, rdc->xmaxcnt);
-
 	mutex_lock(&rdc->var_lock);
 	rdc->boot_on_xmax = max(rdc->xmax, rdc->boot_on_xmax);
 	rdc->boot_on_tmax = max(rdc->tmax, rdc->boot_on_tmax);
 	mutex_unlock(&rdc->var_lock);
+	pr_info("%s richtek tmax = %d, tmaxcnt = %d, xmax = %d, xmaxcnt = %d\n",
+		__func__, rdc->tmax, rdc->tmaxcnt, rdc->xmax, rdc->xmaxcnt);
 	return (ret < 0) ? ret : 0;
 }
 
