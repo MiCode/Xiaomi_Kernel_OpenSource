@@ -391,8 +391,12 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 
 static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
 {
+	bool afbc = MML_FMT_ARGB_COMPRESS(data->format) ||
+		    MML_FMT_YUV_COMPRESS(data->format);
+
 	snprintf(frame, sz, "%u %u (%u %u) C%#010x%s%s%s%s%s%s%s%s P%hu",
-		data->width, data->height, data->y_stride, data->uv_stride,
+		data->width, data->height, data->y_stride,
+		afbc ? data->vert_stride : data->uv_stride,
 		data->format,
 		MML_FMT_SWAP(data->format) ? "s" : "",
 		MML_FMT_BLOCK(data->format) ? "b" : "",
