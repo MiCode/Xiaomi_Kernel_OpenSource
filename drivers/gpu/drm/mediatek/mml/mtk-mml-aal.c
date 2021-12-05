@@ -271,7 +271,10 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	func->enable_flag = dest->pq_config.en_dre;
 
-	if (cfg->info.dest_cnt == 1 &&
+	if ((cfg->info.dest_cnt == 1 ||
+	     !memcmp(&cfg->info.dest[0].crop,
+		     &cfg->info.dest[1].crop,
+		     sizeof(struct mml_crop))) &&
 	    (dest->crop.r.width != src->width ||
 	    dest->crop.r.height != src->height)) {
 		u32 in_crop_w, in_crop_h;

@@ -266,7 +266,10 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		in_crop_w = src->width - dest->crop.r.left;
 	if (in_crop_h + dest->crop.r.top > src->height)
 		in_crop_h = src->height - dest->crop.r.top;
-	if (cfg->info.dest_cnt == 1 &&
+	if ((cfg->info.dest_cnt == 1 ||
+	     !memcmp(&cfg->info.dest[0].crop,
+		     &cfg->info.dest[1].crop,
+		     sizeof(struct mml_crop))) &&
 	    (dest->crop.r.width != src->width ||
 	    dest->crop.r.height != src->height)) {
 		func->full_size_x_in = in_crop_w;
