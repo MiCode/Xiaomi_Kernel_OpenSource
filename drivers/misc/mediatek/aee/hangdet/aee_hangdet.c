@@ -61,6 +61,9 @@ extern void mt_irq_dump_status(unsigned int irq);
 #define SYST0_CON		0x40
 #define SYST0_VAL		0x44
 
+#define SYSTIMER_CNTCV_L	(0x8)
+#define SYSTIMER_CNTCV_H	(0xC)
+
 /* Delay to change RGU timeout in ms */
 #define CHG_TMO_DLY		2000
 #define CHG_TMO_EN		0
@@ -453,7 +456,6 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		if (dump) {
 			dump_wdk_bind_info();
 
-			mrdump_mini_add_extra_misc();
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
 			if (p_mt_aee_dump_irq_info)
 				p_mt_aee_dump_irq_info();
@@ -720,6 +722,24 @@ static int __init hangdet_init(void)
 
 	wdt_pm_nb.notifier_call = wdt_pm_notify;
 	register_pm_notifier(&wdt_pm_nb);
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	if (systimer_base) {
+		uint64_t cnt;
+		uint32_t low;
+
+		low = readl(systimer_base + SYSTIMER_CNTCV_L);
+		cnt = readl(systimer_base + SYSTIMER_CNTCV_H);
+		cnt = cnt << 32 | low;
+
+		aee_rr_rec_wdk_systimer_cnt(cnt);
+		pr_info("%s systimer_cnt %lld\n", __func__, cnt);
+
+		cnt = sched_clock();
+		aee_rr_rec_wdk_ktime(cnt);
+		pr_info("%s set wdk_ktime %lld\n", __func__, cnt);
+	}
+#endif
 
 	return 0;
 }

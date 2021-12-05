@@ -213,6 +213,8 @@ extern void aee_rr_rec_cpu_dying_ktime(u64 val);
 extern void aee_rr_rec_cpu_dead_ktime(u64 val);
 extern void aee_rr_rec_cpu_post_dead_ktime(u64 val);
 extern void aee_sram_fiq_log(const char *msg);
+extern void aee_rr_rec_wdk_ktime(u64 val);
+extern void aee_rr_rec_wdk_systimer_cnt(u64 val);
 
 #else
 static inline void aee_rr_rec_clk(int id, u32 val)
@@ -1000,6 +1002,14 @@ static inline void aee_rr_rec_cpu_post_dead_ktime(u64 val)
 }
 
 static inline void aee_sram_fiq_log(const char *msg)
+{
+}
+
+static inline void aee_rr_rec_wdk_ktime(u64 val)
+{
+}
+
+static inline void aee_rr_rec_wdk_systimer_cnt(u64 val)
 {
 }
 

@@ -15,6 +15,8 @@
 	DF(check, "check=0x%x\n"),
 	DF(kaslr_offset, "Kernel Offset: 0x%llx\n"),
 	DF(oops_in_progress_addr, "&oops_in_progress: 0x%llx\n"),
+	DF(wdk_ktime, "wdk_ktime=%lld\n"),
+	DF(wdk_systimer_cnt, "wdk_systimer_cnt=%lld\n"),
 	/* ensure info related to HWT always be bottom and keep their order*/
 	DF(mcdi_wfi, "mcdi_wfi: 0x%x\n"),
 	DF(mcdi_r15, "mcdi_r15: 0x%x\n"),
