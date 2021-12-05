@@ -22,6 +22,7 @@ DECLARE_PER_CPU(unsigned long, min_freq);
 #define LB_LATENCY_SENSITIVE_MAX_SPARE_CPU      (0x40)
 #define LB_BEST_ENERGY_CPU      (0x100)
 #define LB_MAX_SPARE_CPU        (0x200)
+#define LB_IN_INTERRUPT		(0x400)
 #define LB_RT_FAIL      (0x1000)
 #define LB_RT_SYNC      (0x2000)
 #define LB_RT_IDLE      (0x4000)

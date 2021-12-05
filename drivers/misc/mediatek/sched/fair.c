@@ -391,6 +391,23 @@ static void attach_one_task(struct rq *rq, struct task_struct *p)
 }
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
+int mtk_find_idle_cpu(struct task_struct *p)
+{
+	int target_cpu = -1, cpu;
+	unsigned long task_util = uclamp_task_util(p);
+
+	for_each_cpu_and(cpu, p->cpus_ptr,
+			cpu_active_mask) {
+		if (idle_cpu(cpu) && fits_capacity(task_util, capacity_of(cpu))) {
+			target_cpu = cpu;
+			break;
+		}
+
+	}
+
+	return target_cpu;
+}
+
 void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_cpu, int sync, int *new_cpu)
 {
 	unsigned long best_delta = ULONG_MAX;
@@ -407,7 +424,6 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	struct cpuidle_state *idle;
 	struct perf_domain *pd;
 	int select_reason = -1;
-
 
 	rcu_read_lock();
 	if (!uclamp_min_ls)
@@ -428,6 +444,13 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 		rcu_read_unlock();
 		*new_cpu = cpu;
 		select_reason = LB_SYNC;
+		goto done;
+	}
+
+	if (in_interrupt()) {
+		*new_cpu = mtk_find_idle_cpu(p);
+		rcu_read_unlock();
+		select_reason = LB_IN_INTERRUPT;
 		goto done;
 	}
 
