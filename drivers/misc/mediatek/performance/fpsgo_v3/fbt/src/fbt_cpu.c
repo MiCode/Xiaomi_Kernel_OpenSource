@@ -251,6 +251,7 @@ static int gcc_deq_bound_thrs;
 static int gcc_deq_bound_quota;
 static int gcc_positive_clamp;
 static int boost_LR;
+static int aa_retarget;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -319,6 +320,7 @@ module_param(gcc_deq_bound_thrs, int, 0644);
 module_param(gcc_deq_bound_quota, int, 0644);
 module_param(gcc_positive_clamp, int, 0644);
 module_param(boost_LR, int, 0644);
+module_param(aa_retarget, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -3209,7 +3211,10 @@ static int fbt_boost_policy(
 		new_aa = div64_s64(new_aa, t_Q2Q);
 		aa = new_aa;
 		temp_blc = new_aa;
-		do_div(temp_blc, (unsigned int)t2);
+		if (t2 > t_Q2Q && aa_retarget)
+			do_div(temp_blc, (unsigned int)t_Q2Q);
+		else
+			do_div(temp_blc, (unsigned int)t2);
 		blc_wt = (unsigned int)temp_blc;
 	} else {
 		temp_blc = aa;
