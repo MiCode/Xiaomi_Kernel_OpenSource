@@ -35,15 +35,17 @@
 #include "mtk_imgsys-cmdq.h"
 
 #define FLD
-#define AIE_QOS_MAX 4
+#define AIE_QOS_MAX 5
 #define AIE_QOS_RA_IDX 0
 #define AIE_QOS_RB_IDX 1
 #define AIE_QOS_WA_IDX 2
 #define AIE_QOS_WB_IDX 3
+#define AIE_QOS_LARB12 4
 #define AIE_READ0_AVG_BW 511
 #define AIE_READ1_AVG_BW 255
 #define AIE_WRITE2_AVG_BW 255
 #define AIE_WRITE3_AVG_BW 127
+#define AIE_LARB12_AVG_BW 568
 #define CHECK_SERVICE_0 0
 #define CHECK_SERVICE_1 1
 #define CLK_SINGLE 1
@@ -97,14 +99,15 @@ struct clk_bulk_data ipesys_isp7_aie_clks[] = {
 	{ .id = "IPE_TOP" },
 	{ .id = "IPE_SMI_LARB12" },
 };
-
+#if CHECK_SERVICE_0
 static struct mtk_aie_qos_path aie_qos_path[AIE_QOS_MAX] = {
 	{NULL, "l12_fdvt_rda", 0},
 	{NULL, "l12_fdvt_rdb", 0},
 	{NULL, "l12_fdvt_wra", 0},
-	{NULL, "l12_fdvt_wrb", 0}
+	{NULL, "l12_fdvt_wrb", 0},
+	{NULL, "l12_subcommon_1", 0}
 };
-
+#endif
 static int mtk_aie_suspend(struct device *dev)
 {
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
@@ -297,7 +300,7 @@ static void mtk_aie_mmdvfs_set(struct mtk_aie_dev *fd,
 	}
 }
 #endif
-
+#if CHECK_SERVICE_0
 static void mtk_aie_mmqos_init(struct mtk_aie_dev *fd)
 {
 	struct mtk_aie_qos *qos_info = &fd->qos_info;
@@ -346,15 +349,20 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 				bool isSet)
 {
 	struct mtk_aie_qos *qos_info = &fd->qos_info;
+#if CHECK_SERVICE_0
 	int r0_bw = 0, r1_bw = 0;
 	int w2_bw = 0, w3_bw = 0;
-	int idx = 0;
+#endif
+	int idx = 0, larb12_bw = 0;
 
 	if (isSet) {
+#if CHECK_SERVICE_0
 		r0_bw = AIE_READ0_AVG_BW;
 		r1_bw = AIE_READ1_AVG_BW;
 		w2_bw = AIE_WRITE2_AVG_BW;
 		w3_bw = AIE_WRITE3_AVG_BW;
+#endif
+		larb12_bw = AIE_LARB12_AVG_BW;
 	}
 
 	for (idx = 0; idx < AIE_QOS_MAX; idx++) {
@@ -363,7 +371,7 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 				 __func__, idx);
 			continue;
 		}
-
+#if CHECK_SERVICE_0
 		if (idx == AIE_QOS_RA_IDX &&
 		    qos_info->qos_path[idx].bw != r0_bw) {
 			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
@@ -411,10 +419,21 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 			mtk_icc_set_bw(qos_info->qos_path[idx].path,
 					MBps_to_icc(qos_info->qos_path[idx].bw), 0);
 		}
+#endif
+		if (idx == AIE_QOS_LARB12 &&
+		    qos_info->qos_path[idx].bw != larb12_bw) {
+			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
+				__func__, idx,
+				qos_info->qos_path[idx].path,
+				qos_info->qos_path[idx].bw, larb12_bw);
+			qos_info->qos_path[idx].bw = larb12_bw;
 
+			mtk_icc_set_bw(qos_info->qos_path[idx].path,
+					MBps_to_icc(qos_info->qos_path[idx].bw), 0);
+		}
 	}
 }
-
+#endif
 #if CHECK_SERVICE_0
 static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 				    struct user_init *user_init,
@@ -550,7 +569,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 		if (ret)
 			return -EINVAL;
 		//mtk_aie_mmdvfs_set(fd, 1, 0);
-		mtk_aie_mmqos_set(fd, 1);
+		//mtk_aie_mmqos_set(fd, 1);
 
 		fd->map_count = 0;
 	}
@@ -571,7 +590,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 			fd->fd_stream_count, fd->map_count);
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) { //have hw_connect
-		mtk_aie_mmqos_set(fd, 0);
+		//mtk_aie_mmqos_set(fd, 0);
 		cmdq_mbox_disable(fd->fdvt_clt->chan);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		if (fd->map_count == 1) { //have qbuf + map memory
@@ -1928,6 +1947,19 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+
+	if (dev->dma_parms) {
+		ret = dma_set_max_seg_size(dev, UINT_MAX);
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
+
 	dev_set_drvdata(dev, fd);
 	fd->dev = dev;
 #if CHECK_SERVICE_0
@@ -2054,7 +2086,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	fd->req_work.fd_dev = fd;
 
 	//mtk_aie_mmdvfs_init(fd);
-	mtk_aie_mmqos_init(fd);
+	//mtk_aie_mmqos_init(fd);
 	pm_runtime_enable(dev);
 	ret = mtk_aie_dev_v4l2_init(fd);
 	if (ret) {
@@ -2093,7 +2125,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 err_destroy_mutex:
 	pm_runtime_disable(fd->dev);
 	//mtk_aie_mmdvfs_uninit(fd);
-	mtk_aie_mmqos_uninit(fd);
+	//mtk_aie_mmqos_uninit(fd);
 	destroy_workqueue(fd->frame_done_wq);
 	mutex_destroy(&fd->vfd_lock);
 
@@ -2107,7 +2139,7 @@ static int mtk_aie_remove(struct platform_device *pdev)
 	mtk_aie_dev_v4l2_release(fd);
 	pm_runtime_disable(&pdev->dev);
 	//mtk_aie_mmdvfs_uninit(fd);
-	mtk_aie_mmqos_uninit(fd);
+	//mtk_aie_mmqos_uninit(fd);
 	destroy_workqueue(fd->frame_done_wq);
 	fd->frame_done_wq = NULL;
 	mutex_destroy(&fd->vfd_lock);
