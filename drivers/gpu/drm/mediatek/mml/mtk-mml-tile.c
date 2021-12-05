@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
+#include <linux/vmalloc.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-tile.h"
@@ -230,7 +231,7 @@ static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max,
 	ctx->output = kzalloc(sizeof(*ctx->output), GFP_KERNEL);
 	if (!ctx->output)
 		return -ENOMEM;
-	ctx->output->tiles = kcalloc(tile_max, sizeof(*ctx->output->tiles), GFP_KERNEL);
+	ctx->output->tiles = vmalloc(tile_max * sizeof(*ctx->output->tiles));
 	if (!ctx->output->tiles)
 		return -ENOMEM;
 	ctx->tile_datas = kcalloc(eng_cnt, sizeof(*ctx->tile_datas), GFP_KERNEL);
@@ -418,7 +419,7 @@ void destroy_tile_output(struct mml_tile_output *output)
 {
 	if (!output)
 		return;
-	kfree(output->tiles);
+	vfree(output->tiles);
 	kfree(output);
 	return;
 }
