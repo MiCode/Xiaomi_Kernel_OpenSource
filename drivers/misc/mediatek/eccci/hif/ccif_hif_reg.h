@@ -8,16 +8,6 @@
 
 #include <linux/io.h>
 
-extern unsigned int devapc_check_flag;
-
-#define ccif_write32(b, a, v) \
-do {\
-	if (devapc_check_flag == 1) {\
-		writel(v, (b) + (a));\
-		mb(); /* make sure register access in order */ \
-	} \
-} while (0)
-
 #define ccif_write16(b, a, v) \
 do {\
 	writew(v, (b) + (a));\
@@ -30,12 +20,11 @@ do {\
 	mb(); /* make sure register access in order */ \
 } while (0)
 
-
-#define ccif_read32(b, a) \
-	((devapc_check_flag == 1) ? ioread32((void __iomem *)((b)+(a))):0)
-
 #define ccif_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
 #define ccif_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
+
+int ccif_read32(void *b, unsigned long a);
+void ccif_write32(void *b, unsigned long a, unsigned int v);
 
 /*CCIF */
 #define APCCIF_CON    (0x00)

@@ -46,7 +46,34 @@
 
 #define TAG "cif"
 /* struct md_ccif_ctrl *ccif_ctrl; */
+
 unsigned int devapc_check_flag;
+spinlock_t devapc_flag_lock;
+
+int ccif_read32(void *b, unsigned long a)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&devapc_flag_lock, flags);
+	ret = ((devapc_check_flag == 1) ?
+			ioread32((void __iomem *)((b)+(a))) : 0);
+	spin_unlock_irqrestore(&devapc_flag_lock, flags);
+
+	return ret;
+}
+
+void ccif_write32(void *b, unsigned long a, unsigned int v)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&devapc_flag_lock, flags);
+	if (devapc_check_flag == 1) {
+		writel(v, (b) + (a));
+		mb();
+	}
+	spin_unlock_irqrestore(&devapc_flag_lock, flags);
+}
 
 /* this table maybe can be set array when multi, or else. */
 static struct ccci_clk_node ccif_clk_table[] = {
@@ -1916,6 +1943,7 @@ static void ccif_set_clk_on(unsigned char hif_id)
 	struct md_ccif_ctrl *ccif_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	int idx, ret = 0;
+	unsigned long flags;
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s start\n", __func__);
 
@@ -1927,7 +1955,9 @@ static void ccif_set_clk_on(unsigned char hif_id)
 			CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
 				"%s,ret=%d\n",
 				__func__, ret);
+		spin_lock_irqsave(&devapc_flag_lock, flags);
 		devapc_check_flag = 1;
+		spin_unlock_irqrestore(&devapc_flag_lock, flags);
 	}
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s end\n", __func__);
@@ -1943,6 +1973,7 @@ static void ccif_set_clk_off(unsigned char hif_id)
 	struct md_ccif_ctrl *ccif_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	int idx;
+	unsigned long flags;
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s start\n", __func__);
 
@@ -1979,14 +2010,18 @@ static void ccif_set_clk_off(unsigned char hif_id)
 				ccci_write32(ccif_ctrl->md_ccif5_base, 0x14,
 					0xFF); /* special use ccci_write32 */
 			}
+			spin_lock_irqsave(&devapc_flag_lock, flags);
 			devapc_check_flag = 0;
+			spin_unlock_irqrestore(&devapc_flag_lock, flags);
 			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
 		}
 	} else if (ccif_ctrl->plat_val.md_gen >= 6298) {
 		/* write 1 clear register */
 		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
 			0xBF0, 0xF7FF);
+		spin_lock_irqsave(&devapc_flag_lock, flags);
 		devapc_check_flag = 0;
+		spin_unlock_irqrestore(&devapc_flag_lock, flags);
 		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
 			if (ccif_clk_table[idx].clk_ref == NULL)
 				continue;
@@ -2221,6 +2256,8 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 	int i, ret;
 	struct device_node *node_md;
 	struct md_ccif_ctrl *md_ctrl;
+
+	spin_lock_init(&devapc_flag_lock);
 
 	md_ctrl = kzalloc(sizeof(struct md_ccif_ctrl), GFP_KERNEL);
 	if (!md_ctrl) {
