@@ -4846,10 +4846,10 @@ static int get_hp_current_calibrate_val(struct mt6369_priv *priv)
 
 #if IS_ENABLED(CONFIG_MT635X_EFUSE)
 	/* set eFuse register index */
-	/* HPDET_COMP[6:0] @ efuse bit 1616 ~ 1622 */
-	/* HPDET_COMP_SIGN @ efuse bit 1623 */
-	/* 1616 / 8 = 202(0xCA) bytes */
-	ret = nvmem_device_read(priv->hp_efuse, 0xCA, 1, &efuse_val);
+	/* HPDET_COMP[6:0] @ efuse bit 1264 ~ 1270 */
+	/* HPDET_COMP_SIGN @ efuse bit 1271 */
+	/* 1264 / 8 = 158(0x9e) bytes */
+	ret = nvmem_device_read(priv->hp_efuse, 0x9e, 1, &efuse_val);
 	if (ret < 0) {
 		dev_err(priv->dev, "%s(), efuse read fail: %d\n", __func__,
 			ret);
