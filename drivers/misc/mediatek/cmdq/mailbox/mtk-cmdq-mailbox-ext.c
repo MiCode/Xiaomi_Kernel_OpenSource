@@ -181,6 +181,8 @@ struct cmdq {
 	phys_addr_t		base_pa;
 	u8			hwid;
 	u32			irq;
+	struct list_head	irq_removes;
+	spinlock_t		irq_removes_lock;
 	struct wait_queue_head	err_irq_wq;
 	unsigned long		err_irq_idx;
 	struct workqueue_struct	*buf_dump_wq;
@@ -985,6 +987,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	u32 irq_flag;
 	dma_addr_t curr_pa, task_end_pa;
 	s32 err = 0;
+	unsigned long flags;
 
 	if (atomic_read(&cmdq->usage) <= 0) {
 		cmdq_log("irq handling during gce off gce:%lx thread:%u",
@@ -1101,14 +1104,18 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 					curr_task->pkt, &curr_pa, &task_end_pa);
 			}
 			cmdq_task_exec_done(task, 0);
-			list_add_tail(&task->list_entry, removes);
+			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
+			list_add_tail(&task->list_entry, &cmdq->irq_removes);
+			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
 		} else if (err) {
 			cmdq_err("pkt:0x%p thread:%u err:%d",
 				curr_task->pkt, thread->idx, err);
 			cmdq_buf_dump_schedule(task, false, curr_pa);
 			cmdq_task_exec_done(task, err);
 			cmdq_task_handle_error(curr_task);
-			list_add_tail(&task->list_entry, removes);
+			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
+			list_add_tail(&task->list_entry, &cmdq->irq_removes);
+			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
 		}
 
 		if (curr_task)
@@ -1137,8 +1144,6 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	unsigned long irq_status, flags = 0L;
 	int bit, i;
 	bool secure_irq = false;
-	struct cmdq_task *task, *tmp;
-	struct list_head removes;
 	u64 start = sched_clock(), end[4];
 	u32 end_cnt = 0, thd_cnt = 0;
 
@@ -1182,7 +1187,6 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 		cmdq->thread[i].irq_task = 0;
 	}
 
-	INIT_LIST_HEAD(&removes);
 	for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK)) {
 		struct cmdq_thread *thread = &cmdq->thread[bit];
 		u64 irq_time;
@@ -1195,7 +1199,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 
 		irq_time = sched_clock();
 		spin_lock_irqsave(&thread->chan->lock, flags);
-		cmdq_thread_irq_handler(cmdq, thread, &removes);
+		cmdq_thread_irq_handler(cmdq, thread, &cmdq->irq_removes);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		thread->irq_time = sched_clock() - irq_time;
 		thd_cnt += 1;
@@ -1203,15 +1207,13 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 
 	end[end_cnt++] = sched_clock();
 
-	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
-		list_del(&task->list_entry);
-		kfree(task);
-	}
+	set_bit(CMDQ_THR_MAX_COUNT, &cmdq->err_irq_idx);
+	wake_up_interruptible(&cmdq->err_irq_wq);
 
 	end[end_cnt] = sched_clock();
 	if (end[end_cnt] - start >= 1000000) { /* 1ms */
 		cmdq_util_err(
-			"IRQ_LONG:%llu atomic:%llu readl:%llu bit:%llu del:%llu",
+			"IRQ_LONG:%llu atomic:%llu readl:%llu bit:%llu wakeup:%llu",
 			end[end_cnt] - start, end[0] - start,
 			end[1] - end[0], end[2] - end[1], end[3] - end[2]);
 		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i += 8) {
@@ -1237,11 +1239,33 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 static int cmdq_irq_handler_thread(void *data)
 {
 	struct cmdq *cmdq = data;
-	unsigned long irq = cmdq->err_irq_idx, flags;
+	unsigned long irq, flags;
 	u32 bit;
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(cmdq->err_irq_wq, cmdq->err_irq_idx);
+		irq = cmdq->err_irq_idx;
+
+		if (irq & BIT(CMDQ_THR_MAX_COUNT)) {
+			struct cmdq_task *task, *tmp;
+
+			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
+			list_for_each_entry_safe(task, tmp, &cmdq->irq_removes,
+				list_entry) {
+				list_del(&task->list_entry);
+
+				spin_unlock_irqrestore(
+					&cmdq->irq_removes_lock, flags);
+				kfree(task);
+				spin_lock_irqsave(
+					&cmdq->irq_removes_lock, flags);
+			}
+			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
+
+			clear_bit(CMDQ_THR_MAX_COUNT, &cmdq->err_irq_idx);
+			if (irq == BIT(CMDQ_THR_MAX_COUNT))
+				continue;
+		}
 
 		for_each_set_bit(bit, &cmdq->err_irq_idx, fls(CMDQ_IRQ_MASK)) {
 			struct cmdq_thread *thread = &cmdq->thread[bit];
@@ -2193,6 +2217,9 @@ static int cmdq_probe(struct platform_device *pdev)
 		cmdq_err("failed to register ISR (%d)", err);
 		return err;
 	}
+
+	INIT_LIST_HEAD(&cmdq->irq_removes);
+	spin_lock_init(&cmdq->irq_removes_lock);
 
 	init_waitqueue_head(&cmdq->err_irq_wq);
 	kthr = kthread_run(cmdq_irq_handler_thread, cmdq, "cmdq_irq_thread");
