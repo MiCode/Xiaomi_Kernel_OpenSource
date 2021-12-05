@@ -23,6 +23,9 @@
 #if IS_ENABLED(CONFIG_SND_SOC_MT6369_ACCDET)
 #include "mt6369-accdet.h"
 #endif
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+#include <linux/mfd/mt6685-audclk.h>
+#endif
 
 #define MAX_DEBUG_WRITE_INPUT 256
 #define CODEC_SYS_DEBUG_SIZE (1024 * 32)
@@ -225,6 +228,10 @@ void mt6369_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 	mt6369_set_capture_gpio(priv);
 	mt6369_mtkaif_tx_enable(priv);
 
+	/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
+#endif
 	mt6369_set_aud_global_bias(priv, true);
 	mt6369_set_clksq(priv, true);
 	mt6369_set_topck(priv, true);
@@ -260,7 +267,10 @@ void mt6369_mtkaif_calibration_disable(struct snd_soc_component *cmpnt)
 	mt6369_set_topck(priv, false);
 	mt6369_set_clksq(priv, false);
 	mt6369_set_aud_global_bias(priv, false);
-
+	/* disable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(false);
+#endif
 	mt6369_mtkaif_tx_disable(priv);
 	mt6369_reset_playback_gpio(priv);
 	mt6369_reset_capture_gpio(priv);
@@ -908,6 +918,35 @@ static SOC_VALUE_ENUM_SINGLE_DECL(pga_right_mux_map_enum,
 
 static const struct snd_kcontrol_new pga_right_mux_control =
 	SOC_DAPM_ENUM("PGA R Select", pga_right_mux_map_enum);
+
+static int mt_dcxo_event(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *kcontrol,
+			  int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+		mt6685_set_dcxo(true);
+#endif
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* disable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+		mt6685_set_dcxo(false);
+#endif
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
 
 static int mt_sgen_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *kcontrol,
@@ -2836,6 +2875,10 @@ static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
 /* DAPM Widgets */
 static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
 	/* Global Supply*/
+	SND_SOC_DAPM_SUPPLY_S("CLK_BUF", SUPPLY_SEQ_CLK_BUF,
+			      SND_SOC_NOPM, 0, 0,
+			      mt_dcxo_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY_S("LDO_VAUD28", SUPPLY_SEQ_LDO_VAUD28,
 			      MT6369_LDO_VAUD28_CON0,
 			      RG_LDO_VAUD28_EN_SFT, 0, NULL, 0),
@@ -3707,6 +3750,11 @@ static void start_trim_hardware(struct mt6369_priv *priv)
 	/* Pull-down HPL/R to AVSS30_AUD */
 	hp_pull_down(priv, true);
 
+	/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
+#endif
+
 	/* Enable CLKSQ */
 	/* audio clk source from internal dcxo */
 	mt6369_set_clksq(priv, true);
@@ -3950,6 +3998,11 @@ static void stop_trim_hardware(struct mt6369_priv *priv)
 
 	/* Disable CLKSQ */
 	mt6369_set_clksq(priv, false);
+
+	/* disable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(false);
+#endif
 
 	/* Disable Pull-down HPL/R to AVSS30_AUD  */
 	hp_pull_down(priv, false);
@@ -4971,7 +5024,10 @@ static int mt6369_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 	mt6369_set_playback_gpio(priv);
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
 			   RG_AUDGLB_PWRDN_VA28_MASK_SFT, 0x0);
-
+	/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
+#endif
 	regmap_update_bits(priv->regmap, MT6369_LDO_VAUD28_CON0,
 			   RG_LDO_VAUD28_EN_MASK_SFT,
 			   1 << RG_LDO_VAUD28_EN_SFT);
@@ -5161,6 +5217,10 @@ static int mt6369_codec_init_reg(struct snd_soc_component *cmpnt)
 	unsigned int value = 0;
 
 	dev_info(priv->dev, "+%s()\n", __func__);
+	/* enable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(true);
+#endif
 
 	/* set those not controlled by dapm widget */
 	regmap_read(priv->regmap, MT6369_HWCID0, &value);
@@ -5209,6 +5269,10 @@ static int mt6369_codec_init_reg(struct snd_soc_component *cmpnt)
 	/* Disable AUD_ZCD */
 	zcd_disable(priv);
 
+	/* disable clk buf */
+#if IS_ENABLED(CONFIG_MT6685_AUDCLK)
+	mt6685_set_dcxo(false);
+#endif
 	/* this will trigger widget "DC trim" power down event */
 	enable_trim_buf(priv, true);
 	dev_info(priv->dev, "-%s()\n", __func__);
