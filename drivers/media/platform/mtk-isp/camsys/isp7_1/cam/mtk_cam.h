@@ -9,7 +9,6 @@
 #include <linux/list.h>
 #include <linux/of.h>
 #include <linux/rpmsg.h>
-#include <linux/kref.h>
 #include <media/media-device.h>
 #include <media/media-request.h>
 #include <media/v4l2-async.h>
@@ -315,7 +314,7 @@ struct mtk_cam_request {
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
 	struct mtk_cam_resource raw_res[MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
 	s64 sync_id;
-	struct kref ref_cnt;
+	atomic_t ref_cnt;
 };
 
 struct mtk_cam_working_buf_pool {

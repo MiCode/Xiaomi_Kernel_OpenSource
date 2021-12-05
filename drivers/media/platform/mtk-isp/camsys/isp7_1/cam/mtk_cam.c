@@ -1125,28 +1125,19 @@ STOP_SCAN:
 		__func__, cam->streaming_ctx, cam->streaming_pipe);
 }
 
-static void mtk_cam_dev_req_release(struct kref *kref)
-{
-	/**
-	 * after this function, the request is complete and DO NOT touch anymore,
-	 * the request might be re-init
-	 */
-	struct mtk_cam_request *req =
-		container_of(kref, struct mtk_cam_request, ref_cnt);
-
-	mtk_cam_req_clean(req);
-}
-
 void mtk_cam_req_get(struct mtk_cam_request *req, int pipe_id)
 {
-	kref_get(&req->ref_cnt);
+	atomic_inc(&req->ref_cnt);
 }
 
 bool mtk_cam_req_put(struct mtk_cam_request *req, int pipe_id)
 {
-	bool ret;
+	bool ret = false;
 
-	ret = kref_put(&req->ref_cnt, mtk_cam_dev_req_release);
+	if (!atomic_dec_return(&req->ref_cnt)) {
+		mtk_cam_req_clean(req);
+		ret = true;
+	}
 
 	/* release the pipe buf with s_data_pipe buf state */
 	mtk_cam_req_return_pipe_buffers(req, pipe_id, 0);
@@ -2585,7 +2576,7 @@ static void mtk_cam_req_p_data_init(struct mtk_cam_request *req,
 
 static inline void mtk_cam_req_cnt_init(struct mtk_cam_request *req)
 {
-	refcount_set(&req->ref_cnt.refcount, 0);
+	atomic_set(&req->ref_cnt, 0);
 }
 
 static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
