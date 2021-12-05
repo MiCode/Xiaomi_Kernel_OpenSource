@@ -369,12 +369,18 @@ static int ccd_probe(struct platform_device *pdev)
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		dev_dbg(dev, "No suitable DMA available\n");
 
-#ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-	*dev->dma_mask = DMA_BIT_MASK(34);
-	dev->coherent_dma_mask = DMA_BIT_MASK(34);
-#endif
-#endif
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+
+	if (dev->dma_parms) {
+		ret = dma_set_max_seg_size(dev, UINT_MAX);
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
 
 	ccd = (struct mtk_ccd *)rproc->priv;
 	ccd->rproc = rproc;
