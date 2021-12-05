@@ -78,6 +78,21 @@ obj-$(CONFIG_COMMON_CLK_MT6853_SCP_ADSP) += clk-mt6853-scp_par.o
 obj-$(CONFIG_COMMON_CLK_MT6853_VDEC_GCON) += clk-mt6853-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT6853_VENC_GCON) += clk-mt6853-venc.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6855.c),)
+obj-$(CONFIG_COMMON_CLK_MT6855) += clk-mt6855.o clk-bringup.o
+obj-$(CONFIG_COMMON_CLK_MT6855_ADSP) += clk-mt6855-adsp.o
+obj-$(CONFIG_COMMON_CLK_MT6855_CAMSYS_MAIN) += clk-mt6855-cam_m.o
+obj-$(CONFIG_COMMON_CLK_MT6855_CAM) += clk-mt6855-cam.o
+obj-$(CONFIG_COMMON_CLK_MT6855_MMSYS) += clk-mt6855-mmsys.o
+obj-$(CONFIG_COMMON_CLK_MT6855_IMGSYS1) += clk-mt6855-imgsys1.o
+obj-$(CONFIG_COMMON_CLK_MT6855_IMGSYS2) += clk-mt6855-imgsys2.o
+obj-$(CONFIG_COMMON_CLK_MT6855_PERI) += clk-mt6855-peri.o
+obj-$(CONFIG_COMMON_CLK_MT6855_BUS) += clk-mt6855-bus.o
+obj-$(CONFIG_COMMON_CLK_MT6855_IMG) += clk-mt6855-img.o
+obj-$(CONFIG_COMMON_CLK_MT6855_MDPSYS1_CONFIG) += clk-mt6855-mdp1.o
+obj-$(CONFIG_COMMON_CLK_MT6855_MDPSYS) += clk-mt6855-mdp.o
+obj-$(CONFIG_COMMON_CLK_MT6855_VCODEC) += clk-mt6855-vcodec.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6879.c),)
 obj-$(CONFIG_COMMON_CLK_MT6879) += clk-mt6879.o clk-bringup.o
 obj-$(CONFIG_COMMON_CLK_MT6879_ADSP) += clk-mt6879-adsp.o
