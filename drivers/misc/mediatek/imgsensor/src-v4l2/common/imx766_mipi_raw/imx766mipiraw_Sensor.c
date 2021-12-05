@@ -1389,7 +1389,7 @@ static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 
 	/* fl constraint: normal DOL behavior while stagger seamless switch */
 	if (previous_exp_cnt > 1) {
-		calc_fl = (readoutLength + readMargin) * previous_exp_cnt;
+		calc_fl = (readoutLength + readMargin);
 		for (i = 1; i < previous_exp_cnt; i++)
 			calc_fl += (previous_exp[i] + imgsensor_info.margin * previous_exp_cnt);
 
