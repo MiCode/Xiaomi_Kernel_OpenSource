@@ -1697,20 +1697,29 @@ int _btif_exit_dpidle_from_dpidle(struct _mtk_btif_ *p_btif)
 {
 	int i_ret = 0;
 
-/*in dpidle state, only need to open related clock*/
-	if (p_btif->tx_mode == BTIF_MODE_DMA) {
+	if (p_btif->tx_mode == BTIF_MODE_DMA &&
+			hal_btif_dma_check_status(p_btif->p_tx_dma->p_dma_info) < 0) {
+		BTIF_ERR_FUNC("tx dma is reset. re-init btif");
+		i_ret = _btif_init(p_btif);
+	} else if (p_btif->rx_mode == BTIF_MODE_DMA &&
+			hal_btif_dma_check_status(p_btif->p_rx_dma->p_dma_info) < 0) {
+		BTIF_ERR_FUNC("rx dma is reset. re-init btif");
+		i_ret = _btif_init(p_btif);
+	} else {
+	/*in dpidle state, only need to open related clock*/
+		if (p_btif->tx_mode == BTIF_MODE_DMA) {
 		/*enable BTIF Tx DMA's clock*/
-		i_ret += hal_btif_dma_clk_ctrl(p_btif->p_tx_dma->p_dma_info,
+			i_ret += hal_btif_dma_clk_ctrl(p_btif->p_tx_dma->p_dma_info,
 					       CLK_OUT_ENABLE);
-	}
-	if (p_btif->rx_mode == BTIF_MODE_DMA) {
+		}
+		if (p_btif->rx_mode == BTIF_MODE_DMA) {
 		/*enable BTIF Rx DMA's clock*/
-		i_ret += hal_btif_dma_clk_ctrl(p_btif->p_rx_dma->p_dma_info,
+			i_ret += hal_btif_dma_clk_ctrl(p_btif->p_rx_dma->p_dma_info,
 					       CLK_OUT_ENABLE);
+		}
+	/*enable BTIF's clock*/
+		i_ret += hal_btif_clk_ctrl(p_btif->p_btif_info, CLK_OUT_ENABLE);
 	}
-/*enable BTIF's clock*/
-	i_ret += hal_btif_clk_ctrl(p_btif->p_btif_info, CLK_OUT_ENABLE);
-
 	if (i_ret != 0)
 		BTIF_WARN_FUNC("failed, i_ret:%d\n", i_ret);
 	return i_ret;
