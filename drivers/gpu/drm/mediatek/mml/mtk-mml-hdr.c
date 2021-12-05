@@ -448,7 +448,14 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_0, hdr_hist_begin_x, 0x0000ffff);
 	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_1, hdr_hist_end_x, 0x0000ffff);
 
-	if (!idx) {
+	if (tile_cnt == 1) {
+		if (task->config->dual && ccfg->pipe)
+			hdr_frm->out_hist_xs = tile->in.xs + hdr_hist_end_x + 1;
+		else
+			hdr_frm->out_hist_xs = tile->out.xe + 1;
+		hdr_first_tile = 1;
+		hdr_last_tile = 1;
+	} else if (!idx) {
 		if (task->config->dual && ccfg->pipe)
 			hdr_frm->out_hist_xs = tile->in.xs + hdr_hist_end_x + 1;
 		else
