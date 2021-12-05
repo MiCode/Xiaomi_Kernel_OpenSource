@@ -586,7 +586,7 @@ struct mtk_cam_uapi_af_stats {
 #define MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM (6)
 
 /* Maximum height (in pixel) that driver can support */
-#define MTK_CAM_UAPI_FLK_MAX_FRAME_HEIGHT (6000)
+#define MTK_CAM_UAPI_FLK_MAX_FRAME_HEIGHT (9000)
 #define MTK_CAM_UAPI_FLK_MAX_BUF_SIZE                              \
 	(MTK_CAM_UAPI_FLK_BLK_SIZE * MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM * \
 	MTK_CAM_UAPI_FLK_MAX_FRAME_HEIGHT)
@@ -859,7 +859,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 8
+#define MTK_CAM_META_VERSION_MINOR 9
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt6983"
 
