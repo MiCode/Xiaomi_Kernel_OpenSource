@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021 MediaTek Inc.
+ */
+#include <dt-bindings/spmi/spmi.h>
+
+&spmi {
+	mt6685:	mt6685_mfd {
+		compatible = "mediatek,mt6685";
+		reg = <0x9 SPMI_USID>;
+		mt6685_clock_buffer: mt6685_clock_buffer {
+			compatible = "mediatek,clock_buffer";
+			mediatek,xo-mode-num = <3>;
+			mediatek,xo-buf-name = "XO_BBCK1", "XO_BBCK2",
+					"XO_BBCK3", "XO_BBCK4", "XO_BBCK5",
+					"XO_RFCK1A", "XO_RFCK1B", "XO_RFCK1C",
+					"XO_RFCK2A", "XO_RFCK2B", "XO_RFCK2C",
+					"XO_CONCK1", "XO_CONCK2";
+		};
+
+		mt6685_consys: mt6685_consys {
+			compatible = "mediatek,mt6685-consys";
+		};
+
+		mt6685_rtc: mt6685_rtc {
+			compatible = "mediatek,mt6685-rtc";
+		};
+
+		mt6685_audclk: mt6685_audclk {
+			compatible = "mediatek,mt6685_audclk";
+		};
+	};
+};

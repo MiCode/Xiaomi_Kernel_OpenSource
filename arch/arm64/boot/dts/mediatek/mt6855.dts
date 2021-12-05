@@ -1852,6 +1852,48 @@
 			reg = <0 0x1000f000 0 0x1000>;
 		};
 
+		srclken_rc: srclken-rc@1c00d000 {
+			compatible = "mediatek,srclken-rc";
+			reg = <0 0x1c00d000 0 0x100>,
+				<0 0x1c00d100 0 0x700>;
+			mediatek,subsys-ctl = "suspend", "md1", "md2",
+					"md3", "rf", "mmwave",
+					"gps", "bt", "wifi",
+					"conn_mcu", "co-ant", "nfc",
+					"rsv", "ufs";
+			suspend-ctl = "XO_BBCK1";
+			md1-ctl = "XO_RFCK2A";
+			gps-ctl = "XO_RFCK1B";
+			bt-ctl = "XO_RFCK1B";
+			wifi-ctl = "XO_BBCK2";
+			mcu-ctl = "XO_BBCK2";
+			nfc-ctl = "XO_BBCK4";
+			ufs-ctl = "XO_BBCK3";
+
+			mediatek,srclken-rc-broadcast;
+			mediatek,enable;
+		};
+
+		clock_buffer_ctrl: clock_buffer_ctrl {
+			compatible = "mediatek,clock_buffer_ctrl";
+			mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0>,
+						<0 0 0>,
+						<0 0 0>,
+						<0 0>;
+			mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0>,
+						<0 0 0>,
+						<0 0 0>,
+						<0 0>;
+			mediatek,xo-bbck4 = <0>;
+
+			mediatek,enable;
+
+			pmif = <&spmi 0>;
+			srclken_rc = <&srclken_rc>;
+			// consys = <&consys>;
+			// pcie = <&pcie_ckm_xtal_ck>;
+		};
+
 		keypad: kp@1c00e000 {
 			compatible = "mediatek,kp";
 			reg = <0 0x1c00e000 0 0x1000>;
@@ -4958,6 +5000,50 @@
 	regulator-always-on;
 };
 
+#include "mediatek/mt6685.dtsi"
+
+&mt6685_clock_buffer {
+	mediatek,xo-buf-support = <1 1 1 1 0> /* BBCK */,
+				<0 1 0> /* RFCK1 */,
+				<1 0 0> /* RFCK2 */,
+				<0 0> /* CONCK */;
+	mediatek,xo-buf-allow-control = <0 1 1 1 1>,
+				<1 1 1>,
+				<1 1 1>,
+				<1 1>;
+	mediatek,bblpm-support;
+	mediatek,xo-voter-support;
+	mediatek,dcxo-de-sense-support;
+	mediatek,dcxo-impedance-support;
+	mediatek,dcxo-spmi-rw;
+	mediatek,pmrc-en-support;
+
+	mediatek,enable;
+
+	clkbuf_ctl = <&clock_buffer_ctrl>;
+};
+
+&mt6685_rtc {
+	compatible = "mediatek,mt6685-rtc";
+	interrupts = <0x9 IRQ_TYPE_NONE>;
+	interrupt-names = "rtc";
+	base = <0x580>;
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	fg_init: fg_init {
+		reg = <0 0x1>;
+	};
+	fg_soc: fg_soc {
+		reg = <1 0x1>;
+	};
+	ext_32k: ext_32k {
+		reg = <2 0x1>;
+		bits = <6 1>;
+	};
+};
+
 &i2c5 {
 	clock-frequency = <1000000>;
 	mt6375: mt6375@34 {
@@ -5243,39 +5329,6 @@
 			interrupt-names = "fg_cur_h", "fg_cur_l";
 			oc-thd-h = <5950>;
 			oc-thd-l = <7000>;
-		};
-	};
-};
-
-&spmi {
-	mt6685:	mt6685_mfd {
-		compatible = "mediatek,mt6685";
-		reg = <0x9 SPMI_USID>;
-		mt6685_rtc: mt6685_rtc {
-			compatible = "mediatek,mt6685-rtc";
-			interrupts = <0x9 IRQ_TYPE_NONE>;
-			interrupt-names = "rtc";
-			base = <0x580>;
-
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			fg_init: fg_init {
-				reg = <0 0x1>;
-			};
-			fg_soc: fg_soc {
-				reg = <1 0x1>;
-			};
-			ext_32k: ext_32k {
-				reg = <2 0x1>;
-				bits = <6 1>;
-			};
-		};
-		mt6685_consys: mt6685_consys {
-			compatible = "mediatek,mt6685-consys";
-		};
-		mt6685_audclk: mt6685_audclk {
-			compatible = "mediatek,mt6685_audclk";
 		};
 	};
 };
