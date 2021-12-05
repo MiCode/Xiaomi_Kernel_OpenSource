@@ -301,6 +301,11 @@ const char * const *get_mt6879_all_clk_names(void)
 		"img_wpe1",
 		"img_wpe2",
 		"img_gals",
+		"img_dip0_dummy",
+		"img_wpe0_dummy",
+		"img_ipe_dummy",
+		"img_wpe1_dummy",
+		"img_wpe2_dummy",
 
 		/* dip_top_dip1 */
 		"dip_dip1_larb10",
@@ -396,26 +401,34 @@ const char * const *get_mt6879_all_clk_names(void)
 		"cam_m_cam2mm0_gcon",
 		"cam_m_cam2mm1_gcon",
 		"cam_m_cam2sys_gcon",
+		"cam_m_cam_suba_con_dummy",
+		"cam_m_cam_subb_con_dummy",
+		"cam_m_cam_subc_con_dummy",
+		"cam_m_cam_mraw_con_dummy",
 
 		/* camsys_rawa */
 		"cam_ra_larbx",
 		"cam_ra_cam",
 		"cam_ra_camtg",
+		"cam_ra_larbx_dummy",
 
 		/* camsys_yuva */
 		"cam_ya_larbx",
 		"cam_ya_cam",
 		"cam_ya_camtg",
+		"cam_ya_larbx_dummy",
 
 		/* camsys_rawb */
 		"cam_rb_larbx",
 		"cam_rb_cam",
 		"cam_rb_camtg",
+		"cam_rb_larbx_dummy",
 
 		/* camsys_yuvb */
 		"cam_yb_larbx",
 		"cam_yb_cam",
 		"cam_yb_camtg",
+		"cam_yb_larbx_dummy",
 
 		/* camsys_mraw */
 		"cam_mr_larbx",
@@ -426,6 +439,7 @@ const char * const *get_mt6879_all_clk_names(void)
 		"cam_mr_mraw3",
 		"cam_mr_pda0",
 		"cam_mr_pda1",
+		"cam_mr_larbx_dummy",
 
 		/* ccu_main */
 		"ccu_larb19",
