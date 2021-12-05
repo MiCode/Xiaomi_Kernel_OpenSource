@@ -3309,6 +3309,21 @@
 			/* reserved for overlay by odm */
 		};
 
+		extcon_usb: extcon_usb {
+			compatible = "mediatek,extcon-usb";
+			/*vbus-supply = <&mt6375_otg_vbus>;*/
+			vbus-voltage = <5000000>;
+			vbus-current = <1800000>;
+			/*charger = <&mt6375_chg>;*/
+			tcpc = "type_c_port0";
+			mediatek,bypss-typec-sink = <1>;
+			port {
+				usb_role: endpoint@0 {
+					remote-endpoint = <&musb_drd_switch>;
+				};
+			};
+		};
+
 		rt-pd-manager {
 			compatible = "mediatek,rt-pd-manager";
 		};
@@ -4172,8 +4187,8 @@
 			interrupts = <GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH  0>;
 			clocks =  <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
 				<&topckgen_clk CLK_TOP_UNIVPLL_D5_D4>;
-			clock-names = "usb0_clk_top_sel",
-				"usb0_clk_univpll";
+			clock-names = "sys_clk",
+				"ref_clk";
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			mode = <2>;
 			multipoint = <1>;
@@ -4181,6 +4196,11 @@
 			interrupt-names = "mc";
 			dr_mode = "otg";
 			usb-role-switch;
+			port {
+				musb_drd_switch: endpoint@0 {
+					remote-endpoint = <&usb_role>;
+				};
+			};
 		};
 
 		u2phy0: usb-phy@11e40000 {
@@ -4195,9 +4215,6 @@
 				clocks = <&clk26m>;
 				clock-names = "ref";
 				#phy-cells = <1>;
-				nvmem-cells = <&u2_phy_data>;
-				nvmem-cell-names = "intr_cal";
-				nvmem-cell-masks = <0x1f>;
 				status = "okay";
 			};
 		};
