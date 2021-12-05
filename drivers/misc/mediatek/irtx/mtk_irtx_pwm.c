@@ -67,8 +67,13 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	pr_info("%s() irtx len=0x%x, pwm=%d\n", __func__,
 		(unsigned int)count, (unsigned int)pwm_ir->pwm_ch);
 
-	/* lirc txbuf is odd, the last one is null appeneded by userspace */
-	if (--count == 0)
+	/* lirc txbuf is odd, consumerir will append a "1" at last
+	 * if original pattern_len is even.
+	 */
+	if ((count > 0) && (txbuf[count-1] == 1))
+		count--;
+
+	if (count == 0)
 		return 0;
 
 	// pwm_ir.cycle: whole cycle,  pwm_ir.duty_cycle: high period
