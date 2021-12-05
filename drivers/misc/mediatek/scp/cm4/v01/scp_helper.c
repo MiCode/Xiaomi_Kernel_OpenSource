@@ -638,16 +638,9 @@ int reset_scp(int reset)
 static int scp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
-	int retval;
 
 		switch (pm_event) {
 		case PM_POST_HIBERNATION:
-			pr_debug("[SCP] %s: reboot\n", __func__);
-			retval = reset_scp(1);
-			if (retval < 0) {
-				retval = -EINVAL;
-				pr_debug("[SCP] %s: reboot fail\n", __func__);
-			}
 			return NOTIFY_DONE;
 		}
 	return NOTIFY_OK;
