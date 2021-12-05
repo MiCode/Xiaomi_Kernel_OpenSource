@@ -400,8 +400,129 @@
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
 	};
+
+	pio: pinctrl {
+	};
+
+	clock_buffer_ctrl: clock_buffer_ctrl {
+	};
+
+	pwrap: pwrap@10026000 {
+	};
+
+	spmi: spmi@10027000 {
+	};
 };
 
 #include "mediatek/mt6833-clkitg.dtsi"
 #include "mediatek/mt6833-disable-unused.dtsi"
+#include "mediatek/mt6359p.dtsi"
 
+&pmic {
+	interrupt-parent = <&pio>;
+	interrupts = <118 IRQ_TYPE_LEVEL_HIGH 118 0>;
+
+	mt6359p_batoc_throttle: mtk_battery_oc_throttling {
+		compatible = "mediatek,mt6359p-battery_oc_throttling";
+		oc-thd-h = <6800>;
+		oc-thd-l = <8000>;
+	};
+};
+
+&mt6359p_vsram_others_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vsram_md_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vgpu11_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vcore_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vpu_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vrf12_reg {
+	regulator-always-on;
+};
+
+&mt6359p_va09_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vbbck_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vrfck_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vemc_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vufs_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vproc1_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vproc2_reg {
+	regulator-always-on;
+};
+
+&spmi {
+	mt6315_3: mt6315@3 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x3 0 0xb 1>;
+
+		extbuck_debug {
+			compatible = "mediatek,extbuck-debug";
+		};
+		mt6315_3_regulator: mt6315_3_regulator {
+			compatible = "mediatek,mt6315_3-regulator";
+			buck-size = <3>;
+			buck1-modeset-mask = <0x3>;
+
+			mt6315_3_vbuck1: 3_vbuck1 {
+				regulator-compatible = "vbuck1";
+				regulator-name = "3_vbuck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+
+			mt6315_3_vbuck3: 3_vbuck3 {
+				regulator-compatible = "vbuck3";
+				regulator-name = "3_vbuck3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+
+			mt6315_3_vbuck4: 3_vbuck4 {
+				regulator-compatible = "vbuck4";
+				regulator-name = "3_vbuck4";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+		};
+	};
+};
