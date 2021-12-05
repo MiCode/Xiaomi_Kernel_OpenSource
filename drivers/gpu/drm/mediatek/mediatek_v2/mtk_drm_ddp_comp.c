@@ -686,7 +686,19 @@ static int mtk_ddp_iommu_callback(int port, dma_addr_t mva, void *data)
 
 	DDPPR_ERR("fault call port=0x%x, mva=0x%lx, data=0x%p\n", port,
 		  (unsigned long)mva, data);
-
+	if (mva == 0x0) {
+		/*
+		 * when ovl underflow, ovl maybe send 0x0 header address to iommu, can cause
+		 * translation fault
+		 * please check :1)ovl header address != 0
+		 *				2)ovl fifo underflow
+		 *				3)mva == 0
+		 * ignore the translation fault, just resolve the ovl underflow issue
+		 */
+		DDPPR_ERR(
+			"When had translation fault & mva = 0, check the code comment:[%s] line (%d)\n"
+			, __func__, __LINE__);
+	}
 	DRM_MMP_EVENT_START(iova_tf, port, mva);
 	if (comp) {
 #ifdef CONFIG_MTK_IOMMU_MISC_DBG_DETAIL
