@@ -29,6 +29,14 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	clkitg: clkitg {
+		compatible = "simple-bus";
+	};
+
+	disable_unused: disable_unused {
+		compatible = "simple-bus";
+	};
+
 	clocks {
 		clk32k: clk32k {
 			compatible = "fixed-clock";
@@ -4656,6 +4664,7 @@
 };
 
 #include "mediatek/cust_mt6855_msdc.dtsi"
+#include "mediatek/mt6855-clkitg.dtsi"
 #include "mediatek/rt5133.dtsi"
 #include "mediatek/rt6160.dtsi"
 #include "mediatek/mt6363.dtsi"
