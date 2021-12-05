@@ -34,6 +34,7 @@
 static DEFINE_MUTEX(xgf_main_lock);
 static int xgf_enable;
 int xgf_trace_enable;
+EXPORT_SYMBOL(xgf_trace_enable);
 static int xgf_log_trace_enable;
 static int xgf_ko_ready;
 static struct kobject *xgf_kobj;
@@ -2523,7 +2524,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 		if (new_spid != -1) {
 			xgf_trace("xgf spid:%d => %d", r->spid, new_spid);
 			r->spid = new_spid;
-			fpsgo_systrace_c_fbt(rpid, bufID, new_spid, "spid");
+			/* fpsgo_systrace_c_fbt(rpid, bufID, new_spid, "spid"); */
 		}
 
 		t_dequeue_time = r->deque.end_ts - r->deque.start_ts;
@@ -2537,6 +2538,8 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 		}
 
 		ret = xgf_enter_est_runtime(rpid, r, &raw_runtime, ts);
+
+		fpsgo_systrace_c_fbt(rpid, bufID, ret, "xgf_ret");
 
 		if (do_extra_sub)
 			cur_xgf_extra_sub = 0;
