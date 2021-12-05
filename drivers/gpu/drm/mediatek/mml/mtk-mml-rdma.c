@@ -877,7 +877,7 @@ static void rdma_select_threshold(struct mml_comp_rdma *rdma,
 	else
 		golden = &rdma->data->golden[GOLDEN_FMT_YUV420];
 
-	for (idx = 0; idx < golden->cnt; idx++)
+	for (idx = 0; idx < golden->cnt - 1; idx++)
 		if (golden->settings[idx].pixel > pixel)
 			break;
 	golden_set = &golden->settings[idx];
