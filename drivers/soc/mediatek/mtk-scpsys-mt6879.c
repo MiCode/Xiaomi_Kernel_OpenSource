@@ -403,16 +403,20 @@ static int mt6879_scpsys_probe(struct platform_device *pdev)
 	if (IS_ERR(scp))
 		return PTR_ERR(scp);
 
-	mtk_register_power_domains(pdev, scp, soc->num_domains);
+	ret = mtk_register_power_domains(pdev, scp, soc->num_domains);
+	if (ret)
+		return ret;
 
 	pd_data = &scp->pd_data;
 
 	for (i = 0, sd = soc->subdomains; i < soc->num_subdomains; i++, sd++) {
 		ret = pm_genpd_add_subdomain(pd_data->domains[sd->origin],
 					     pd_data->domains[sd->subdomain]);
-		if (ret && IS_ENABLED(CONFIG_PM))
+		if (ret && IS_ENABLED(CONFIG_PM)) {
 			dev_err(&pdev->dev, "Failed to add subdomain: %d\n",
 				ret);
+			return ret;
+		}
 	}
 
 	return 0;

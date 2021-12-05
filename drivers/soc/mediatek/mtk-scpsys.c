@@ -91,6 +91,7 @@
 #define PWR_STATUS_HIF1			BIT(26)	/* MT7622 */
 #define PWR_STATUS_WB			BIT(27)	/* MT7622 */
 
+static bool scpsys_init_flag;
 static BLOCKING_NOTIFIER_HEAD(scpsys_notifier_list);
 
 int register_scpsys_notifier(struct notifier_block *nb)
@@ -587,7 +588,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	val |= PWR_RST_B_BIT;
 	writel(val, ctl_addr);
 
-	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK)) {
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK) || scpsys_init_flag) {
 		ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
 		if (ret < 0)
 			goto err_pwr_ack;
@@ -1302,12 +1303,13 @@ struct scp *init_scp(struct platform_device *pdev,
 }
 EXPORT_SYMBOL(init_scp);
 
-void mtk_register_power_domains(struct platform_device *pdev,
+int mtk_register_power_domains(struct platform_device *pdev,
 				struct scp *scp, int num)
 {
 	struct genpd_onecell_data *pd_data;
 	int i, ret;
 
+	scpsys_init_flag = true;
 	for (i = 0; i < num; i++) {
 		struct scp_domain *scpd = &scp->domains[i];
 		struct generic_pm_domain *genpd = &scpd->genpd;
@@ -1327,6 +1329,8 @@ void mtk_register_power_domains(struct platform_device *pdev,
 		pm_genpd_init(genpd, NULL, !on);
 	}
 
+	scpsys_init_flag = false;
+
 	/*
 	 * We are not allowed to fail here since there is no way to unregister
 	 * a power domain. Once registered above we have to keep the domains
@@ -1338,6 +1342,8 @@ void mtk_register_power_domains(struct platform_device *pdev,
 	ret = of_genpd_add_provider_onecell(pdev->dev.of_node, pd_data);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to add OF provider: %d\n", ret);
+
+	return ret;
 }
 EXPORT_SYMBOL(mtk_register_power_domains);
 

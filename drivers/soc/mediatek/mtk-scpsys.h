@@ -160,6 +160,6 @@ struct scp *init_scp(struct platform_device *pdev,
 			const struct scp_domain_data *scp_domain_data, int num,
 			const struct scp_ctrl_reg *scp_ctrl_reg);
 
-void mtk_register_power_domains(struct platform_device *pdev,
+int mtk_register_power_domains(struct platform_device *pdev,
 				struct scp *scp, int num);
 #endif /* __MTK_SCPSYS_H__ */
