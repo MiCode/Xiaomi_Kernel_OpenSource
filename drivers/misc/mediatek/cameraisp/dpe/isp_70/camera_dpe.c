@@ -1348,16 +1348,16 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_lock(&gFDMutex);
 		if ((DVS_only_en == 0) && (DVS_Num == 0)) {
 			//DVS_mmu = kzalloc(sizeof(struct tee_mmu) * 20, GFP_KERNEL);
-			SrcImg_Y_L_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			SrcImg_Y_R_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			ValidMap_L_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			ValidMap_R_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			OutBuf_OCC_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			OutBuf_OCC_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			SrcImg_Y_L_Pre_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			SrcImg_Y_R_Pre_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			InBuf_P4_L_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			InBuf_P4_R_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			SrcImg_Y_L_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			SrcImg_Y_R_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			ValidMap_L_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			ValidMap_R_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			OutBuf_OCC_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			OutBuf_OCC_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			SrcImg_Y_L_Pre_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			SrcImg_Y_R_Pre_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			InBuf_P4_L_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			InBuf_P4_R_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1637,16 +1637,16 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_lock(&gFDMutex);
 		if ((DVP_only_en == 0) && (DVP_Num == 0)) {
 			//DVP_mmu = kzalloc(sizeof(struct tee_mmu) * 10, GFP_KERNEL);
-			SrcImg_Y_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			SrcImg_C_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			InBuf_OCC_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			OutBuf_CRM_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			ASF_RD_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			ASF_HF_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			WMF_FILT_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			InBuf_OCC_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			ASF_RD_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
-			ASF_HF_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 3, GFP_KERNEL);
+			SrcImg_Y_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			SrcImg_C_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			InBuf_OCC_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			OutBuf_CRM_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			ASF_RD_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			ASF_HF_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			WMF_FILT_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			InBuf_OCC_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			ASF_RD_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
+			ASF_HF_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1958,12 +1958,14 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			Dpe_OutBuf_OCC_Ext =
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext;
 			LOG_INF("Dpe_OutBuf_OCC_Ext = 0x%lx\n", Dpe_OutBuf_OCC_Ext);
+	mutex_lock(&gFDMutex);
 	if (DPE_P4_EN == 1) {
 		Dpe_InBuf_SrcImg_Y_L_Pre = _req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L_Pre;
 		LOG_INF("Dpe_InBuf_SrcImg_Y_L_Pre = 0x%lx\n", Dpe_InBuf_SrcImg_Y_L_Pre);
 		Dpe_InBuf_SrcImg_Y_R_Pre = _req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R_Pre;
 		LOG_INF("Dpe_InBuf_SrcImg_Y_R_Pre = 0x%lx\n", Dpe_InBuf_SrcImg_Y_R_Pre);
 	}
+	mutex_unlock(&gFDMutex);
 
 	for (t = 0; t < pd_frame_num; t++) {
 		_req->m_pDpeConfig[ucnt].Dpe_DVSSettings.input_offset = ((t) *
@@ -2070,7 +2072,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 }
 void mmu_release(struct tee_mmu *mmu, int fd_cnt)
 {
-	//LOG_INF("fd_cnt = %d\n", fd_cnt);
+	//LOG_INF("mmu_release fd_cnt = %d\n", fd_cnt);
 	if (mmu->dma_buf) {
 		//LOG_INF("put mmu->dma_buf = %x\n", mmu->dma_buf);
 		dma_buf_unmap_attachment(mmu->attach, mmu->sgt, DMA_BIDIRECTIONAL);
@@ -2118,7 +2120,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 									fcnt);
 		#endif
 #ifdef dpe_dump_read_en
-		LOG_ERR(
+		LOG_INF(
 		"[%s] request queued with  frame(%d)", __func__, f);
 		LOG_DBG(
 		"[%s] DPE_CTRL_REG:0x%x!\n",
@@ -2131,7 +2133,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	dvs_put = 0;
 	//spin_lock(&(DPEInfo.SpinLockFD));
 		#ifdef DPE_debug_log_en
-		LOG_INF("put fd DVS_only_en =%d DVP_only_en =%d\n", DVS_only_en, DVP_only_en);
+		LOG_INF("put fd DVS_only_en =%d, DVP_only_en =%d\n", DVS_only_en, DVP_only_en);
 		//LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n",DVS_Num,DVP_Num);
 		//LOG_INF("[dpe_deque_cb] Dpe_engineSelect %d\n",pDpeConfig->Dpe_engineSelect);
 		#endif
@@ -2141,87 +2143,100 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		LOG_INF("dpe_deque DVS put fd\n");
 		#endif
 		mutex_lock(&gFDMutex);
-
+		LOG_INF("put fd DVS_only_en =%d, get_dvs_iova =%d\n", DVS_only_en, get_dvs_iova[0]);
 		if (DVS_only_en > 0)
 			i = DVS_only_en - 1;
 
 		mutex_unlock(&gFDMutex);
 
 		//spin_unlock(&(DPEInfo.SpinLockFD));
+		mutex_lock(&gFDMutex);
 		if (get_dvs_iova[0] >= 1) {
-			mutex_lock(&gFDMutex);
 			get_dvs_iova[0]--;
 			memcpy(&temp_dvs, &SrcImg_Y_L_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			mmu_release(&temp_dvs, 0);
 			#ifdef DPE_debug_log_en
 			LOG_INF("dpe_deque SrcImg_Y_L_mmu put fd\n");
 			#endif
-			mmu_release(&temp_dvs, 0);
 			dvs_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvs_iova[1] >= 1) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			get_dvs_iova[1]--;
 			memcpy(&temp_dvs, &SrcImg_Y_R_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			mmu_release(&temp_dvs, 1);
+			//mutex_unlock(&gFDMutex);
+			//#ifdef DPE_debug_log_en
 			#ifdef DPE_debug_log_en
 			LOG_INF("dpe_deque SrcImg_Y_R_mmu put fd\n");
 			#endif
-			mmu_release(&temp_dvs, 1);
+			//#endif
 			dvs_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvs_iova[2] >= 1) {
-			mutex_lock(&gFDMutex);
 			get_dvs_iova[2]--;
 			memcpy(&temp_dvs, &ValidMap_L_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvs, 2);
+			#ifdef DPE_debug_log_en
+			LOG_INF("dpe_deque ValidMap_L_mmu put fd\n");
+			#endif
 			//mmu_release(&ValidMap_L_mmu[i], 2);
 			//get_dvs_iova[2]--;
 			dvs_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvs_iova[3] >= 1) {
-			mutex_lock(&gFDMutex);
 			get_dvs_iova[3]--;
 			memcpy(&temp_dvs, &ValidMap_R_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvs, 3);
+			#ifdef DPE_debug_log_en
+			LOG_INF("dpe_deque ValidMap_R_mmu put fd\n");
+			#endif
 			//mmu_release(&ValidMap_R_mmu[i], 3);
 			//get_dvs_iova[3]--;
 			dvs_cnt++;
 		}
+		mutex_unlock(&gFDMutex);
 
+		mutex_lock(&gFDMutex);
 		if (get_dvs_iova[4] >= 1) {
-			mutex_lock(&gFDMutex);
 			get_dvs_iova[4]--;
 			memcpy(&temp_dvs, &OutBuf_OCC_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvs, 4);
+			#ifdef DPE_debug_log_en
+			LOG_INF("dpe_deque OutBuf_OCC_mmu put fd\n");
+			#endif
 			//mmu_release(&OutBuf_OCC_mmu[i], 4);
 			//get_dvs_iova[4]--;
 			dvs_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvs_iova[5] >= 1) {
-			mutex_lock(&gFDMutex);
 			get_dvs_iova[5]--;
 			memcpy(&temp_dvs, &OutBuf_OCC_Ext_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvs, 5);
+			#ifdef DPE_debug_log_en
+			LOG_INF("dpe_deque OutBuf_OCC_mmu put fd\n");
+			#endif
 			//mmu_release(&OutBuf_OCC_Ext_mmu[i], 5);
 			//get_dvs_iova[5]--;
 			dvs_cnt++;
 		}
+		mutex_unlock(&gFDMutex);
 
+		mutex_lock(&gFDMutex);
 		if (DPE_P4_EN == 1) {
 			if (get_dvs_iova[6] >= 1) {
-				mutex_lock(&gFDMutex);
+				//mutex_lock(&gFDMutex);
 				get_dvs_iova[6]--;
 				memcpy(&temp_dvs, &SrcImg_Y_L_Pre_mmu[i], sizeof(struct tee_mmu));
-				mutex_unlock(&gFDMutex);
+				//mutex_unlock(&gFDMutex);
 				mmu_release(&temp_dvs, 6);
 				//mmu_release(&SrcImg_Y_L_Pre_mmu[i], 6);
 				//get_dvs_iova[6]--;
@@ -2229,10 +2244,10 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			}
 
 			if (get_dvs_iova[7] >= 1) {
-				mutex_lock(&gFDMutex);
+				//mutex_lock(&gFDMutex);
 				get_dvs_iova[7]--;
 				memcpy(&temp_dvs, &SrcImg_Y_R_Pre_mmu[i], sizeof(struct tee_mmu));
-				mutex_unlock(&gFDMutex);
+				//mutex_unlock(&gFDMutex);
 				mmu_release(&temp_dvs, 7);
 				//mmu_release(&SrcImg_Y_R_Pre_mmu[i], 7);
 				//get_dvs_iova[7]--;
@@ -2240,10 +2255,10 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			}
 
 			if (get_dvs_iova[8] >= 1) {
-				mutex_lock(&gFDMutex);
+				//mutex_lock(&gFDMutex);
 				get_dvs_iova[8]--;
 				memcpy(&temp_dvs, &InBuf_P4_L_mmu[i], sizeof(struct tee_mmu));
-				mutex_unlock(&gFDMutex);
+				//mutex_unlock(&gFDMutex);
 				mmu_release(&temp_dvs, 8);
 				//mmu_release(&InBuf_P4_L_mmu[i], 8);
 				//get_dvs_iova[8]--;
@@ -2251,21 +2266,22 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			}
 
 			if (get_dvs_iova[9] >= 1) {
-				mutex_lock(&gFDMutex);
+				//mutex_lock(&gFDMutex);
 				get_dvs_iova[9]--;
 				memcpy(&temp_dvs, &InBuf_P4_R_mmu[i], sizeof(struct tee_mmu));
-				mutex_unlock(&gFDMutex);
+				//mutex_unlock(&gFDMutex);
 				mmu_release(&temp_dvs, 9);
 				//mmu_release(&InBuf_P4_R_mmu[i], 9);
 				//get_dvs_iova[9]--;
 				dvs_cnt++;
 			}
 		}
+		mutex_unlock(&gFDMutex);
 		mutex_lock(&gFDMutex);
 		DVS_only_en--;
-		mutex_unlock(&gFDMutex);
+		//mutex_unlock(&gFDMutex);
 		if (DVS_only_en == 0) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			DVS_Num = 0;
 			kfree((struct tee_mmu *)SrcImg_Y_L_mmu);
 			kfree((struct tee_mmu *)SrcImg_Y_R_mmu);
@@ -2277,8 +2293,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			kfree((struct tee_mmu *)SrcImg_Y_R_Pre_mmu);
 			kfree((struct tee_mmu *)InBuf_P4_L_mmu);
 			kfree((struct tee_mmu *)InBuf_P4_R_mmu);
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 		}
+		mutex_unlock(&gFDMutex);
 	}
 
 	if ((pDpeConfig->Dpe_engineSelect == MODE_DVP_ONLY) ||
@@ -2289,12 +2306,10 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			i = DVP_only_en - 1;
 
 		mutex_unlock(&gFDMutex);
-
+		mutex_lock(&gFDMutex);
 		if (get_dvp_iova[0] >= 1) {
-			mutex_lock(&gFDMutex);
 			get_dvp_iova[0]--;
 			memcpy(&temp_dvp, &SrcImg_Y_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 0);
 			#ifdef DPE_debug_log_en
 			LOG_INF("dpe_deque SrcImg_Y_mmu put fd\n");
@@ -2303,80 +2318,86 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			//get_dvp_iova[0]--;
 			dvp_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvp_iova[1] >= 1) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			get_dvp_iova[1]--;
 			memcpy(&temp_dvp, &SrcImg_C_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 1);
 			//mmu_release(&SrcImg_C_mmu[i], 1);
 			//get_dvp_iova[1]--;
 			dvp_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvp_iova[2] >= 1) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			get_dvp_iova[2]--;
 			memcpy(&temp_dvp, &InBuf_OCC_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 2);
 			//mmu_release(&InBuf_OCC_mmu[i], 2);
 			//get_dvp_iova[2]--;
 			dvp_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvp_iova[3] >= 1) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			get_dvp_iova[3]--;
 			memcpy(&temp_dvp, &OutBuf_CRM_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 3);
 			//mmu_release(&OutBuf_CRM_mmu[i], 3);
 			//get_dvp_iova[3]--;
 			dvp_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvp_iova[4] >= 1) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			get_dvp_iova[4]--;
 			memcpy(&temp_dvp, &ASF_RD_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 4);
 			//mmu_release(&ASF_RD_mmu[i], 4);
 			//get_dvp_iova[4]--;
 			dvp_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (get_dvp_iova[5] >= 1) {
-			mutex_lock(&gFDMutex);
+			///mutex_lock(&gFDMutex);
 			get_dvp_iova[5]--;
 			memcpy(&temp_dvp, &ASF_HF_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 5);
 			//mmu_release(&ASF_HF_mmu[i], 5);
 			//get_dvp_iova[5]--;
 			dvp_cnt++;
 		}
-
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if ((get_dvp_iova[6] >= 1) && (DVP_is16BitMode == 0)) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			get_dvp_iova[6]--;
 			memcpy(&temp_dvp, &WMF_FILT_mmu[i], sizeof(struct tee_mmu));
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 			mmu_release(&temp_dvp, 6);
 			//mmu_release(&WMF_FILT_mmu[i], 6);
 			//get_dvp_iova[6]--;
 			dvp_cnt++;
 		}
-
+		mutex_unlock(&gFDMutex);
+		mutex_lock(&gFDMutex);
 		if (DVP_is16BitMode == 1) {
 			if (get_dvp_iova[7] >= 1) {
-				mutex_lock(&gFDMutex);
+				//mutex_lock(&gFDMutex);
 				get_dvp_iova[7]--;
 				memcpy(&temp_dvp, &InBuf_OCC_Ext_mmu[i], sizeof(struct tee_mmu));
-				mutex_unlock(&gFDMutex);
+				//mutex_unlock(&gFDMutex);
 				mmu_release(&temp_dvp, 7);
 				//mmu_release(&InBuf_OCC_Ext_mmu[i], 7);
 				//get_dvp_iova[7]--;
@@ -2384,10 +2405,10 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			}
 
 			if (get_dvp_iova[8] >= 1) {
-				mutex_lock(&gFDMutex);
+				//mutex_lock(&gFDMutex);
 				get_dvp_iova[8]--;
 				memcpy(&temp_dvp, &ASF_RD_Ext_mmu[i], sizeof(struct tee_mmu));
-				mutex_unlock(&gFDMutex);
+				//mutex_unlock(&gFDMutex);
 				mmu_release(&temp_dvp, 8);
 				//mmu_release(&ASF_RD_Ext_mmu[i], 8);
 				//get_dvp_iova[8]--;
@@ -2395,21 +2416,22 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			}
 
 			if (get_dvp_iova[9] >= 1) {
-				mutex_lock(&gFDMutex);
+				//mutex_lock(&gFDMutex);
 				get_dvp_iova[9]--;
 				memcpy(&temp_dvp, &ASF_HF_Ext_mmu[i], sizeof(struct tee_mmu));
-				mutex_unlock(&gFDMutex);
+				//mutex_unlock(&gFDMutex);
 				mmu_release(&temp_dvp, 9);
 				//mmu_release(&ASF_HF_Ext_mmu[i], 9);
 				//get_dvp_iova[9]--;
 				dvp_cnt++;
 			}
 		}
+		mutex_unlock(&gFDMutex);
 		mutex_lock(&gFDMutex);
 		DVP_only_en--;
-		mutex_unlock(&gFDMutex);
+		//mutex_unlock(&gFDMutex);
 		if (DVP_only_en == 0) {
-			mutex_lock(&gFDMutex);
+			//mutex_lock(&gFDMutex);
 			kfree((struct tee_mmu *)SrcImg_Y_mmu);
 			kfree((struct tee_mmu *)SrcImg_C_mmu);
 			kfree((struct tee_mmu *)InBuf_OCC_mmu);
@@ -2421,8 +2443,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			kfree((struct tee_mmu *)ASF_RD_Ext_mmu);
 			kfree((struct tee_mmu *)ASF_HF_Ext_mmu);
 			DVP_Num = 0;
-			mutex_unlock(&gFDMutex);
+			//mutex_unlock(&gFDMutex);
 		}
+		mutex_unlock(&gFDMutex);
 	}
 
 	LOG_INF("put end put_dvs = %d put_dvp = %d\n", dvs_cnt, dvp_cnt);
@@ -2451,8 +2474,9 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	// pitch / 16
 	unsigned int pitch = pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch >> 4;
 	unsigned int full_tile_width = pDpeConfig->Dpe_DVSSettings.dram_out_pitch >> 4;
-
+	mutex_lock(&gFDMutex);
 	DPE_P4_EN = ((pDpeConfig->Dpe_DVSSettings.TuningBuf_ME.DVS_ME_28 & 0x400)>>10);
+	mutex_unlock(&gFDMutex);
 	//if (DVS_OUT_ADJ_En == 0)
 	//	DVS_OUT_ADJ_Dv_WIDTH = occWidth;
 
@@ -2572,7 +2596,7 @@ if (pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
 
 	//LOG_INF("DVS_SRC_09_R_FRM0 =(0x%lx)",
 	//pConfigToKernel->DVS_SRC_09_R_FRM0);
-
+	mutex_lock(&gFDMutex);
 	if (DPE_P4_EN == 1) {
 		LOG_INF("dpe_p4_enable == 1\n");
 		if (pDpeConfig->Dpe_InBuf_SrcImg_Y_L_Pre != 0x0) {
@@ -2629,6 +2653,7 @@ if (pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
 	LOG_INF("DVS_SRC_34_P4_R_DV_ADR =(0x%lx)",
 	pConfigToKernel->DVS_SRC_34_P4_R_DV_ADR);
 	}
+	mutex_unlock(&gFDMutex);
 
 	if (pDpeConfig->Dpe_InBuf_ValidMap_L != 0x0) {
 		pConfigToKernel->DVS_SRC_13_L_VMAP0 =
