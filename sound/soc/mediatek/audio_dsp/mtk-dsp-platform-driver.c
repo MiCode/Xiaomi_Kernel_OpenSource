@@ -1186,27 +1186,11 @@ static int mtk_dsp_pcm_copy(struct snd_soc_component *component,
 	return ret;
 }
 
-void audio_irq_handler(int irq, void *data, int core_id)
+static void audio_dsp_tasklet(struct mtk_base_dsp *dsp, unsigned int core_id)
 {
-	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)data;
 	unsigned long task_value;
 	int dsp_scene, task_id, loop_count;
 	unsigned long *pdtoa;
-
-	if (!dsp) {
-		pr_info("%s dsp[%p]\n", __func__, dsp);
-		goto IRQ_ERROR;
-	}
-	if (core_id >= get_adsp_core_total()) {
-		pr_info("%s core_id[%d]\n", __func__, core_id);
-		goto IRQ_ERROR;
-	}
-	if (!dsp->core_share_mem.ap_adsp_core_mem[core_id]) {
-		pr_info("%s core_id [%d] ap_adsp_core_mem[%p]\n",
-			__func__, core_id,
-			dsp->core_share_mem.ap_adsp_core_mem[core_id]);
-		goto IRQ_ERROR;
-	}
 
 	/* using semaphore to sync ap <=> adsp */
 	if (get_adsp_semaphore(SEMA_AUDIO))
@@ -1253,6 +1237,44 @@ void audio_irq_handler(int irq, void *data, int core_id)
 	pr_info("leave %s\n", __func__);
 #endif
 	release_adsp_semaphore(SEMA_AUDIO);
+	return;
+
+}
+
+static void audio_dsp_tasklet_core0(struct tasklet_struct *t)
+{
+	struct mtk_base_dsp *dsp = from_tasklet(dsp, t, dsp_tasklet[ADSP_A_ID]);
+
+	audio_dsp_tasklet(dsp, ADSP_A_ID);
+}
+
+static void audio_dsp_tasklet_core1(struct tasklet_struct *t)
+{
+	struct mtk_base_dsp *dsp = from_tasklet(dsp, t, dsp_tasklet[ADSP_B_ID]);
+
+	audio_dsp_tasklet(dsp, ADSP_B_ID);
+}
+
+void audio_irq_handler(int irq, void *data, int core_id)
+{
+	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)data;
+
+	if (!dsp) {
+		pr_info("%s dsp[%p]\n", __func__, dsp);
+		goto IRQ_ERROR;
+	}
+	if (core_id >= get_adsp_core_total()) {
+		pr_info("%s core_id[%d]\n", __func__, core_id);
+		goto IRQ_ERROR;
+	}
+	if (!dsp->core_share_mem.ap_adsp_core_mem[core_id]) {
+		pr_info("%s core_id [%d] ap_adsp_core_mem[%p]\n",
+			__func__, core_id,
+			dsp->core_share_mem.ap_adsp_core_mem[core_id]);
+		goto IRQ_ERROR;
+	}
+
+	tasklet_schedule(&dsp->dsp_tasklet[core_id]);
 	return;
 IRQ_ERROR:
 	pr_info("IRQ_ERROR irq[%d] data[%p] core_id[%d] dsp[%p]\n",
@@ -1336,6 +1358,10 @@ static int mtk_dsp_probe(struct snd_soc_component *component)
 		if (adsp_irq_registration(id, ADSP_IRQ_AUDIO_ID, audio_irq_handler, dsp) < 0)
 			pr_info("%s, ADSP_IRQ_AUDIO not supported\n");
 	}
+
+	tasklet_setup(&dsp->dsp_tasklet[ADSP_A_ID], audio_dsp_tasklet_core0);
+	tasklet_setup(&dsp->dsp_tasklet[ADSP_B_ID], audio_dsp_tasklet_core1);
+
 #ifdef CFG_RECOVERY_SUPPORT
 	adsp_register_notify(&adsp_audio_notifier);
 #endif

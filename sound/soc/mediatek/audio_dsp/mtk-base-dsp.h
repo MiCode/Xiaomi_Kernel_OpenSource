@@ -20,6 +20,7 @@ struct gen_pool;
 
 #include <linux/genalloc.h>
 #include <sound/soc.h>
+#include <linux/interrupt.h>
 
 #include "audio_buf.h"
 #include <audio_messenger_ipi.h>
@@ -86,6 +87,7 @@ struct mtk_base_dsp {
 	struct mtk_dsp_ipi_ops dsp_ipi_ops;
 
 	struct mtk_ap_adsp_mem core_share_mem;
+	struct tasklet_struct dsp_tasklet[ADSP_CORE_TOTAL];
 
 	/*
 	 * 0: playback task direct to AFE DL ,
