@@ -310,6 +310,7 @@ struct mtk_cam_request {
 	atomic_t state;
 	struct mtk_cam_frame_sync fs;
 	struct list_head list;
+	struct list_head cleanup_list;
 	struct work_struct link_work;
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
 	struct mtk_cam_resource raw_res[MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
@@ -786,15 +787,15 @@ int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			     struct mtk_cam_request *req);
 void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state);
-void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id);
+void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
+				   int buf_state);
 
 void mtk_cam_req_get(struct mtk_cam_request *req, int pipe_id);
 bool mtk_cam_req_put(struct mtk_cam_request *req, int pipe_id);
 
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
 
-void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
-				     struct mtk_cam_buffer *buf,
+void mtk_cam_s_data_update_timestamp(struct mtk_cam_buffer *buf,
 				     struct mtk_cam_request_stream_data *s_data);
 
 int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,

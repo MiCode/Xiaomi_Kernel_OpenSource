@@ -3380,7 +3380,7 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	MTK_CAM_TRACE_END(BASIC);
 
 	/* Update the timestamp for the buffer*/
-	mtk_cam_s_data_update_timestamp(ctx, buf, s_data_ctx);
+	mtk_cam_s_data_update_timestamp(buf, s_data_ctx);
 
 	/* clean the stream data for req reinit case */
 	mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_OUT_1);

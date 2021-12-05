@@ -222,9 +222,9 @@ mtk_cam_tg_flash_req_setup(struct mtk_cam_ctx *ctx,
 }
 
 void
-mtk_cam_tg_flash_req_done(struct mtk_cam_ctx *ctx,
-			  struct mtk_cam_request_stream_data *req_stream_data)
+mtk_cam_tg_flash_req_done(struct mtk_cam_request_stream_data *req_stream_data)
 {
+	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_tg_flash_config *tg_config;
 	struct mtk_raw_device *raw;
 
@@ -234,6 +234,12 @@ mtk_cam_tg_flash_req_done(struct mtk_cam_ctx *ctx,
 	tg_config = &req_stream_data->tg_flash_config;
 	if (tg_config->flash_mode != V4L2_MTK_CAM_TG_FLASH_MODE_SINGLE)
 		return;
+
+	ctx = mtk_cam_s_data_get_ctx(req_stream_data);
+	if (!ctx) {
+		pr_info("%s: get ctx from s_data failed", __func__);
+		return;
+	}
 
 	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
 	mtk_cam_tg_flash_stop(raw, tg_config);

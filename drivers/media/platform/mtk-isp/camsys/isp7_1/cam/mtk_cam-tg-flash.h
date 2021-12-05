@@ -18,8 +18,7 @@ mtk_cam_tg_flash_req_setup(struct mtk_cam_ctx *ctx,
 			   struct mtk_cam_request_stream_data *s_data);
 
 void
-mtk_cam_tg_flash_req_done(struct mtk_cam_ctx *ctx,
-			  struct mtk_cam_request_stream_data *s_data);
+mtk_cam_tg_flash_req_done(struct mtk_cam_request_stream_data *s_data);
 
 int mtk_cam_tg_flash_try_ctrl(struct v4l2_ctrl *ctrl);
 

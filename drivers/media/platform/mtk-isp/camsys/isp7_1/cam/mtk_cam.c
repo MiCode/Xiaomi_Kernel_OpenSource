@@ -272,12 +272,18 @@ mtk_cam_req_pipe_s_data_clean(struct mtk_cam_request *req, int pipe_id,
 	}
 }
 
-void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
-				     struct mtk_cam_buffer *buf,
+void mtk_cam_s_data_update_timestamp(struct mtk_cam_buffer *buf,
 				     struct mtk_cam_request_stream_data *s_data)
 {
+	struct mtk_cam_ctx *ctx;
 	struct vb2_buffer *vb;
 	struct mtk_cam_video_device *node;
+
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	if (!ctx) {
+		pr_info("%s: get ctx from s_data failed", __func__);
+		return;
+	}
 
 	vb = &buf->vbb.vb2_buf;
 	node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
@@ -300,7 +306,8 @@ void mtk_cam_s_data_update_timestamp(struct mtk_cam_ctx *ctx,
 static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 					    int pipe_id, int index)
 {
-	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
 	struct mtk_cam_request_stream_data *s_data_pipe;
 	struct mtk_cam_buffer *buf_ret[MTK_RAW_TOTAL_NODES];
 	struct mtk_cam_buffer *buf;
@@ -314,14 +321,9 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 		return;
 	}
 
-	ctx = mtk_cam_s_data_get_ctx(s_data_pipe);
-	if (!ctx) {
-		pr_info("%s: get ctx from s_data failed", __func__);
-		return;
-	}
-
 	if (is_raw_subdev(pipe_id)) {
-		mtk_cam_tg_flash_req_done(ctx, s_data_pipe);
+		if (atomic_read(&req->state) > MTK_CAM_REQ_STATE_PENDING)
+			mtk_cam_tg_flash_req_done(s_data_pipe);
 		buf_start = MTK_RAW_SINK_NUM;
 		buf_end = MTK_RAW_PIPELINE_PADS_NUM;
 	}
@@ -354,7 +356,7 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 	if (buf_state == -1)
 		buf_state = VB2_BUF_STATE_ERROR;
 
-	dev_dbg(ctx->cam->dev,
+	dev_dbg(cam->dev,
 		"%s:%s: pipe_id(%d) buf_state(%d) buf_ret_cnt(%d)\n", __func__,
 		req->req.debug_str, pipe_id, buf_state, buf_ret_cnt);
 
@@ -363,7 +365,7 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 		vb = &buf->vbb.vb2_buf;
 		node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 		if (node->uid.pipe_id != pipe_id) {
-			dev_info(ctx->cam->dev,
+			dev_info(cam->dev,
 				"%s:%s:node(%s): invalid pipe id (%d), should be (%d)\n",
 				__func__, req->req.debug_str,
 				node->desc.name, node->uid.pipe_id, pipe_id);
@@ -371,41 +373,10 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 		}
 
 		// TODO(mstream): fill timestamp
-		mtk_cam_s_data_update_timestamp(ctx, buf, s_data_pipe);
+		if (atomic_read(&req->state) > MTK_CAM_REQ_STATE_PENDING)
+			mtk_cam_s_data_update_timestamp(buf, s_data_pipe);
 
 		vb2_buffer_done(&buf->vbb.vb2_buf, buf_state);
-	}
-}
-
-static void mtk_cam_req_return_all_pipes(struct mtk_cam_request *req)
-{
-	struct mtk_cam_request_stream_data *s_data_pipe;
-	int i, j, num_s_data;
-
-	for (i = 0; i < MTKCAM_SUBDEV_MAX; i++) {
-		if (!(req->pipe_used & 1 << i))
-			continue;
-
-		num_s_data = mtk_cam_req_get_num_s_data(req, i);
-		for (j = num_s_data - 1; j >= 0; j--) {
-			s_data_pipe = mtk_cam_req_get_s_data(req, i, j);
-			if (!s_data_pipe)
-				continue;
-
-			if (mtk_cam_s_data_set_buf_state(s_data_pipe,
-							 VB2_BUF_STATE_ERROR)) {
-				if (j > 0) {
-					mtk_cam_req_return_pipe_buffers(req, i, j);
-				} else {
-					/* handle vb2_buffer_done */
-					if (mtk_cam_req_put(req, i))
-						dev_dbg(s_data_pipe->ctx->cam->dev,
-							"%s:%s:pipe(%d) return request",
-							__func__,
-							req->req.debug_str, i);
-				}
-			}
-		}
 	}
 }
 
@@ -882,29 +853,52 @@ STOP_SCAN:
 	return dequeue_cnt;
 }
 
-void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id)
+void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
+				   int buf_state)
 {
 	struct mtk_cam_request *req, *req_prev;
+	struct mtk_cam_request_stream_data *s_data_pipe;
 	struct list_head *pending = &cam->pending_job_list;
 	struct list_head req_clean_list;
+
+	/* Consider pipe bufs and pipe_used only */
 
 	INIT_LIST_HEAD(&req_clean_list);
 
 	spin_lock(&cam->pending_job_lock);
 	list_for_each_entry_safe(req, req_prev, pending, list) {
-		/* TODO: update the parameters related to multi cam */
-		/* e.g. fs, pipe_used */
+		/* update pipe_used */
+		req->pipe_used &= ~(1 << pipe_id);
+		list_add_tail(&req->cleanup_list, &req_clean_list);
 		if (!(req->pipe_used & cam->streaming_pipe)) {
+			/* the last pipe */
 			list_del(&req->list);
-			list_add_tail(&req->list, &req_clean_list);
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d) remove req from pending list\n",
+				 __func__, req->req.debug_str, pipe_id);
 		}
 	}
 	spin_unlock(&cam->pending_job_lock);
 
-	list_for_each_entry_safe(req, req_prev, pending, list) {
-		list_del(&req->list);
-		mtk_cam_req_return_all_pipes(req);
-		/* DO NOT touch req after here */
+	list_for_each_entry_safe(req, req_prev, &req_clean_list, cleanup_list) {
+		list_del(&req->cleanup_list);
+		s_data_pipe = mtk_cam_req_get_s_data(req, pipe_id, 0);
+		if (!s_data_pipe) {
+			dev_dbg(cam->dev,
+				"%s:%s:pipe_used(0x%x):pipe(%d) s_data_pipe not found\n",
+				__func__, req->req.debug_str, req->pipe_used,
+				pipe_id);
+			continue;
+		}
+		if (mtk_cam_s_data_set_buf_state(s_data_pipe, buf_state)) {
+			/* handle vb2_buffer_done */
+			if (mtk_cam_req_put(req, pipe_id))
+				dev_dbg(cam->dev,
+					"%s:%s:pipe_used(0x%x):pipe(%d) return request",
+					__func__, req->req.debug_str,
+					req->pipe_used, pipe_id);
+			/* DO NOT touch req after here */
+		}
 	}
 }
 
@@ -920,7 +914,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 	int i, num_s_data, s_data_cnt, handled_cnt;
 	bool need_clean_req;
 
-	mtk_cam_dev_req_clean_pending(cam, pipe_id);
+	mtk_cam_dev_req_clean_pending(cam, pipe_id, buf_state);
 
 	s_data_cnt = 0;
 	spin_lock(&cam->running_job_lock);
