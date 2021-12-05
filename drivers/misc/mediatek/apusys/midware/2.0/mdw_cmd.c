@@ -322,6 +322,15 @@ static void mdw_cmd_delete_infos(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	}
 }
 
+void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
+{
+	if (!atomic_read(&mpriv->active) &&
+		list_empty_careful(&mpriv->cmds)) {
+		mdw_flw_debug("s(0x%llx) release mem\n", (uint64_t)mpriv);
+		mdw_mem_mpriv_release(mpriv);
+	}
+}
+
 //--------------------------------------------
 static const char *mdw_fence_get_driver_name(struct dma_fence *fence)
 {
@@ -483,6 +492,7 @@ static void mdw_cmd_delete(struct mdw_cmd *c)
 	mutex_lock(&mpriv->mtx);
 	mdw_cmd_delete_infos(c->mpriv, c);
 	list_del(&c->u_item);
+	mdw_cmd_mpriv_release(c->mpriv);
 	mutex_unlock(&mpriv->mtx);
 	mdw_mem_put(c->mpriv, c->exec_infos);
 	dma_fence_signal(f);

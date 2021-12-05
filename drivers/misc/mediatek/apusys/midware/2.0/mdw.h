@@ -228,6 +228,7 @@ struct mdw_fpriv {
 	struct mdw_mem_pool cmd_buf_pool;
 
 	/* ref count for cmd/mem */
+	atomic_t active;
 	struct kref ref;
 	void (*get)(struct mdw_fpriv *mpriv);
 	void (*put)(struct mdw_fpriv *mpriv);
@@ -336,6 +337,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
+void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);
 
 void mdw_mem_all_print(struct mdw_fpriv *mpriv);
