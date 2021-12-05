@@ -9328,13 +9328,13 @@
 				clock-names = "ref";
 				#phy-cells = <1>;
 				usb2jtag = <&vlpcfg_bus_clk 2>;
-				/*nvmem-cells = <&u2_phy_data>, <&u2_phy_data>;*/
-				/*nvmem-cell-names = "intr_cal", "term_cal";*/
-				/*nvmem-cell-masks = <0x3f 0xf00>;*/
-				/*mediatek,efuse-intr = <0x26>;*/
-				/*mediatek,eye-vrt = <2>;*/
-				/*mediatek,eye-vrt-host = <2>;*/
-				/*mediatek,discth= <0x9>;*/
+				nvmem-cells = <&u2_phy_data>, <&u2_phy_data>;
+				nvmem-cell-names = "intr_cal", "term_cal";
+				nvmem-cell-masks = <0x3f 0xf00>;
+				mediatek,efuse-intr = <0x26>;
+				mediatek,eye-vrt = <2>;
+				mediatek,eye-vrt-host = <2>;
+				mediatek,discth= <0x9>;
 			};
 
 			u3port0: usb3-phy0@11e43000 {
@@ -9356,13 +9356,13 @@
 				clocks = <&clk26m>;
 				clock-names = "ref";
 				#phy-cells = <1>;
-				/*nvmem-cells = <&u2_phy_data>, <&u2_phy_data>;*/
-				/*nvmem-cell-names = "intr_cal", "term_cal";*/
-				/*nvmem-cell-masks = <0x1f8000 0x7800000>;*/
-				/*mediatek,efuse-intr = <0x26>;*/
-				/*mediatek,eye-vrt = <2>;*/
-				/*mediatek,eye-vrt-host = <2>;*/
-				/*mediatek,discth= <0x9>;*/
+				nvmem-cells = <&u2_phy_data>, <&u2_phy_data>;
+				nvmem-cell-names = "intr_cal", "term_cal";
+				nvmem-cell-masks = <0x1f8000 0x7800000>;
+				mediatek,efuse-intr = <0x26>;
+				mediatek,eye-vrt = <2>;
+				mediatek,eye-vrt-host = <2>;
+				mediatek,discth= <0x9>;
 			};
 		};
 
@@ -10609,6 +10609,10 @@
 		#size-cells = <1>;
 		efuse_segment: segment@78 {
 			reg = <0x78 0x4>;
+		};
+
+		u2_phy_data: u2_phy_data {
+			reg = <0x1b0 0x4>;
 		};
 
 		lvts_e_data1: data1 {
