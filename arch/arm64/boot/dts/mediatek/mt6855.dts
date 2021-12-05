@@ -3893,6 +3893,9 @@
 		subpmic_pmu_eint: subpmic_pmu_eint {
 		};
 
+		smart_pa: smart_pa {
+		};
+
 		afe: mt6855-afe-pcm@11050000 {
 			compatible = "mediatek,mt6855-sound";
 			reg = <0 0x11050000 0 0x2000>;
@@ -4271,7 +4274,6 @@
 };
 
 /* AUDIO GPIO standardization start */
-#if 0
 &pio {
 	aud_clk_mosi_off: aud_clk_mosi_off {
 		pins_cmd0_dat {
@@ -4454,7 +4456,6 @@
 		};
 	};
 };
-#endif
 /* AUDIO GPIO standardization end */
 
 #if 0
