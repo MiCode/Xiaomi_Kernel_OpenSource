@@ -744,7 +744,7 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, irq, val);
+	DRM_MMP_MARK(IRQ, ovl->regs_pa, val);
 
 	mtk_crtc = ovl->mtk_crtc;
 
@@ -3089,7 +3089,7 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 	if (comp->blank_mode)
 		return 0;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -3364,7 +3364,7 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
 	addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
 
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",
 		readl(DISP_REG_OVL_EN + baddr) & 0x1, src_con & 0x1,
 		(src_con >> 1) & 0x1, (src_con >> 2) & 0x1,

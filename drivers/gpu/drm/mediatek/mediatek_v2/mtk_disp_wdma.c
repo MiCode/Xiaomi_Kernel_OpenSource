@@ -252,7 +252,7 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, irq, val);
+	DRM_MMP_MARK(IRQ, wdma->regs_pa, val);
 
 	if (wdma->id == DDP_COMPONENT_WDMA0)
 		DRM_MMP_MARK(wdma0, val, 0);
@@ -1259,7 +1259,7 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 		DDPDUMP("Skip dump secure wdma!\n");
@@ -1360,7 +1360,7 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== DISP %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== DISP %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 		DDPDUMP("Skip dump secure wdma!\n");

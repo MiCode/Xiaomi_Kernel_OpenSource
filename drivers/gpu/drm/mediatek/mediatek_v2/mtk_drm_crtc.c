@@ -281,9 +281,14 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 			mtk_dump_reg(comp);
 		break;
 	case MMSYS_MT6895:
+		DDPDUMP("== DISP pipe0 MMSYS_CONFIG REGS:0x%x ==\n",
+					mtk_crtc->config_regs_pa);
 		mmsys_config_dump_reg_mt6895(mtk_crtc->config_regs);
-		if (mtk_crtc->side_config_regs)
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("== DISP pipe1 MMSYS_CONFIG REGS:0x%x ==\n",
+				mtk_crtc->side_config_regs_pa);
 			mmsys_config_dump_reg_mt6895(mtk_crtc->side_config_regs);
+		}
 		mutex_dump_reg_mt6895(mtk_crtc->mutex[0]);
 
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
@@ -430,10 +435,12 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		}
 		break;
 	case MMSYS_MT6895:
-		DDPDUMP("DUMP DISPSYS0\n");
+		DDPDUMP("== DUMP DISP pipe0 ANALYSIS:0x%x ==\n",
+			mtk_crtc->config_regs_pa);
 		mmsys_config_dump_analysis_mt6895(mtk_crtc->config_regs);
 		if (mtk_crtc->side_config_regs) {
-			DDPDUMP("DUMP DISPSYS1\n");
+			DDPDUMP("== DUMP DISP pipe1 ANALYSIS:0x%x ==\n",
+				mtk_crtc->side_config_regs_pa);
 			mmsys_config_dump_analysis_mt6895(mtk_crtc->side_config_regs);
 		}
 		mutex_dump_analysis_mt6895(mtk_crtc->mutex[0]);
@@ -3054,6 +3061,28 @@ int free_fb_buf(void)
 	return 0;
 }
 
+static void mtk_crtc_frame_buffer_release(struct drm_crtc *crtc,
+		int index, bool hrt_valid)
+{
+#ifndef CONFIG_MTK_DISP_NO_LK
+	struct drm_device *dev = NULL;
+
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (already_free == true || IS_ERR_OR_NULL(crtc))
+			return;
+
+		if (index == 0 && hrt_valid == true) {
+			/*free fb buf after the 1st valid input buffer is unused*/
+			DDPMSG("%s, free frame buffer\n", __func__);
+			dev = crtc->dev;
+			mtk_drm_fb_gem_release(dev);
+			free_fb_buf();
+			already_free = true;
+		}
+	}
+#endif
+}
+
 static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state,
 				      struct mtk_crtc_state *crtc_state,
@@ -3068,68 +3097,36 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	int need_skip = crtc_state->prop_val[CRTC_PROP_SKIP_CONFIG];
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
-#ifndef CONFIG_MTK_DISP_NO_LK
-	struct drm_device *dev = crtc->dev;
-#endif
+	bool hrt_valid = false;
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
-	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
-	if (index == 0 && prop_lye_idx == 0) {
-		DDPINFO("%s prop_lye_idx is 0, mode switch from %u to %u\n",
-			__func__,
-			old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
-			crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
-		/*
-		 * prop_lye_idx is 0 when suspend. Update display mode to avoid
-		 * the dsi params not sync with the mode of new crtc state.
-		 */
-		mtk_crtc_disp_mode_switch_begin(crtc,
-			old_crtc_state, crtc_state,
-			cmdq_handle);
-		mtk_crtc_update_hrt_state(crtc, pan_disp_frame_weight, NULL,
-			cmdq_handle);
-		DRM_MMP_MARK(layering_blob, 0,
-			pan_disp_frame_weight | 0xffff0000);
-	}
 	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
 				 list) {
 		if (lyeblob_ids->lye_idx > prop_lye_idx) {
 			DDPMSG("lyeblob lost ID:%d\n", prop_lye_idx);
 			break;
 		} else if (lyeblob_ids->lye_idx == prop_lye_idx) {
-			if (index == 0)
+			if (index == 0) {
 				mtk_crtc_disp_mode_switch_begin(crtc,
 					old_crtc_state, crtc_state,
 					cmdq_handle);
-			if (index == 0) {
-				if (prop_lye_idx < 4 && lyeblob_ids->frame_weight == 0)
-					DDPMSG("%s, invalid hrt:%u of frame:%u\n",
-						__func__, lyeblob_ids->frame_weight,
-						lyeblob_ids->lye_idx);
-				mtk_crtc_update_hrt_state(
-					crtc, lyeblob_ids->frame_weight,
-					lyeblob_ids, cmdq_handle);
-				DRM_MMP_MARK(layering_blob, lyeblob_ids->lye_idx,
-					lyeblob_ids->frame_weight | 0xffff0000);
+
+				hrt_valid = lyeblob_ids->hrt_valid;
+				if (hrt_valid == true) {
+					mtk_crtc_update_hrt_state(
+						crtc, lyeblob_ids->frame_weight,
+						lyeblob_ids, cmdq_handle);
+					DRM_MMP_MARK(layering_blob, lyeblob_ids->lye_idx,
+						lyeblob_ids->frame_weight | 0xffff0000);
+				}
 			}
+
 			if (index == 2 && need_skip)
 				break;
 			mtk_crtc_get_plane_comp_state(crtc, cmdq_handle);
 			mtk_crtc_atmoic_ddp_config(crtc, lyeblob_ids,
 						   cmdq_handle);
-#ifndef CONFIG_MTK_DISP_NO_LK
-			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
-				if (lyeblob_ids->lye_idx == 2 && !already_free) {
-					/*free fb buf in second query valid*/
-					DDPMSG("%s, %d release frame buffer\n",
-						__func__, __LINE__);
-					mtk_drm_fb_gem_release(dev);
-					free_fb_buf();
-					already_free = true;
-				}
-			}
-#endif
 			break;
 		} else if (lyeblob_ids->lye_idx < prop_lye_idx) {
 			if (lyeblob_ids->ref_cnt) {
@@ -3147,6 +3144,8 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 						 lyeblob_ids->ref_cnt);
 				}
 				if (!lyeblob_ids->ref_cnt) {
+					mtk_crtc_frame_buffer_release(crtc, index,
+						lyeblob_ids->hrt_valid);
 					DDPINFO("free lyeblob:(%d,%d)\n",
 						lyeblob_ids->lye_idx,
 						prop_lye_idx);
@@ -3157,6 +3156,24 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				}
 			}
 		}
+	}
+	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
+	if (index == 0 && hrt_valid == false) {
+		DDPMSG("%s frame:%u correct invalid hrt to:%u, mode:%u->%u\n",
+			__func__, prop_lye_idx, pan_disp_frame_weight,
+			old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+			crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+		/*
+		 * prop_lye_idx is 0 when suspend. Update display mode to avoid
+		 * the dsi params not sync with the mode of new crtc state.
+		 */
+		mtk_crtc_disp_mode_switch_begin(crtc,
+			old_crtc_state, crtc_state,
+			cmdq_handle);
+		mtk_crtc_update_hrt_state(crtc, pan_disp_frame_weight, NULL,
+			cmdq_handle);
+		DRM_MMP_MARK(layering_blob, 0,
+			pan_disp_frame_weight | 0xffff0000);
 	}
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }

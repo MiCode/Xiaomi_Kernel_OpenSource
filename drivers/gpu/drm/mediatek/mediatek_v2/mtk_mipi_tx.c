@@ -409,7 +409,7 @@ int mtk_mipi_tx_dump(struct phy *phy)
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	int k;
 
-	DDPDUMP("== MIPI REGS ==\n");
+	DDPDUMP("== MIPI REGS:0x%x ==\n", mipi_tx->regs_pa);
 	for (k = 0; k < 0x6A0; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
 			readl(mipi_tx->regs + k),

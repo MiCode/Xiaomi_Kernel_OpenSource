@@ -243,7 +243,7 @@ void mtk_cm_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	DDPDUMP("en=%d, cm_bypass=%d\n",
 		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_EN,
@@ -262,7 +262,7 @@ int mtk_cm_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("en=%d, cm_bypass=%d\n",
 		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_EN,
 				baddr + DISP_REG_CM_EN),

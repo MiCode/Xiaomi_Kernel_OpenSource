@@ -12138,7 +12138,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		goto out;
 	}
 
-	DRM_MMP_MARK(IRQ, irq, val);
+	DRM_MMP_MARK(IRQ, ddp->regs_pa, val);
 	DDPIRQ("MM_MUTEX irq, val:0x%x\n", val);
 
 	writel(~val, ddp->regs + DISP_REG_MUTEX_INTSTA);
@@ -12284,7 +12284,7 @@ void mutex_dump_reg_mt6895(struct mtk_disp_mutex *mutex)
 	int cnt = 0;
 
 REDUMP:
-	DDPDUMP("== DISP%d MUTEX REGS ==\n", cnt);
+	DDPDUMP("== DISP%d MUTEX REGS:0x%x ==\n", cnt, ddp->regs_pa);
 	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x0, readl_relaxed(module_base + 0x0), 0x4,
 		readl_relaxed(module_base + 0x4), 0x8,
@@ -12545,7 +12545,7 @@ void mutex_dump_analysis_mt6895(struct mtk_disp_mutex *mutex)
 	unsigned int val;
 
 REDUMP:
-	DDPDUMP("== DISP%d Mutex Analysis ==\n", cnt);
+	DDPDUMP("== DISP%d Mutex Analysis:0x%x ==\n", cnt, ddp->regs_pa);
 	for (i = 0; i < 5; i++) {
 		unsigned int mod0, mod1;
 

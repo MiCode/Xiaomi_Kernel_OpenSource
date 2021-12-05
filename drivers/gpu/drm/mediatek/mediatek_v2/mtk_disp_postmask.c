@@ -155,7 +155,7 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 		goto out;
 	}
 
-	DRM_MMP_MARK(IRQ, irq, val);
+	DRM_MMP_MARK(IRQ, postmask->regs_pa, val);
 	DRM_MMP_MARK(postmask0, val, 0);
 
 	if (val & 0x110)
@@ -376,7 +376,7 @@ int mtk_postmask_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	mtk_serial_dump_reg(baddr, 0x0, 4);
 	mtk_serial_dump_reg(baddr, 0x20, 1);
@@ -399,7 +399,7 @@ int mtk_postmask_analysis(struct mtk_ddp_comp *comp)
 	struct mtk_disp_postmask *postmask = comp_to_postmask(comp);
 	dma_addr_t addr = 0;
 
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("en=%d,cfg=0x%x,size=(%dx%d)\n",
 		readl(DISP_POSTMASK_EN + baddr) & 0x1,
 		readl(DISP_POSTMASK_CFG + baddr),

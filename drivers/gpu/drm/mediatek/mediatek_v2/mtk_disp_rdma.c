@@ -291,15 +291,21 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, irq, val);
+	DRM_MMP_MARK(IRQ, rdma->regs_pa, val);
 
 	mtk_crtc = rdma->mtk_crtc;
 
 	if (rdma->id == DDP_COMPONENT_RDMA0)
 		DRM_MMP_MARK(rdma0, val, 0);
-	if (rdma->id == DDP_COMPONENT_RDMA4)
+	else if (rdma->id == DDP_COMPONENT_RDMA1)
+		DRM_MMP_MARK(rdma1, val, 0);
+	else if (rdma->id == DDP_COMPONENT_RDMA2)
+		DRM_MMP_MARK(rdma2, val, 0);
+	else if (rdma->id == DDP_COMPONENT_RDMA3)
+		DRM_MMP_MARK(rdma3, val, 0);
+	else if (rdma->id == DDP_COMPONENT_RDMA4)
 		DRM_MMP_MARK(rdma4, val, 0);
-	if (rdma->id == DDP_COMPONENT_RDMA5)
+	else if (rdma->id == DDP_COMPONENT_RDMA5)
 		DRM_MMP_MARK(rdma5, val, 0);
 
 	if (val & 0x18)
@@ -1114,7 +1120,7 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -1236,7 +1242,7 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 	unsigned int fifo = readl(baddr + DISP_REG_RDMA_FIFO_CON);
 
 	global_ctrl = readl(DISP_REG_RDMA_GLOBAL_CON + baddr);
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("en=%d,mode:%s,smi_busy:%d\n",
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_ENGINE_EN, global_ctrl),
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_MODE_SEL, global_ctrl)

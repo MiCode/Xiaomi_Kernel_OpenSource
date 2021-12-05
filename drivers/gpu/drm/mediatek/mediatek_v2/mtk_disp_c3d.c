@@ -828,7 +828,7 @@ void mtk_c3d_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem  *baddr = comp->regs;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_cust_dump_reg(baddr, 0x0, 0x4, 0x18, 0x8C);
 	mtk_cust_dump_reg(baddr, 0x24, 0x30, 0x34, 0x38);
 	mtk_cust_dump_reg(baddr, 0x3C, 0x40, 0x44, 0x48);

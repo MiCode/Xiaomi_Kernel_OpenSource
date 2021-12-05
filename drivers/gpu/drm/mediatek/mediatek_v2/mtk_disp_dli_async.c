@@ -44,7 +44,7 @@ void mtk_dli_async_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = mtk_crtc->config_regs;
 
 	DDPINFO("%s\n", __func__);
-	DDPDUMP("== DISP %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), mtk_crtc->config_regs_pa);
 	DDPDUMP("0x26C: 0x%08x\n", readl(baddr + 0x26C));
 	DDPDUMP("0x2C8: 0x%08x 0x%08x\n", readl(baddr + 0x2C8),
 		readl(baddr + 0x2CC));
