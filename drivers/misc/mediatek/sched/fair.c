@@ -660,6 +660,7 @@ static int mtk_active_load_balance_cpu_stop(void *data)
 	struct rq_flags rf;
 	int deactivated = 0;
 
+	raw_spin_lock(&target_task->pi_lock);
 	rq_lock_irq(busiest_rq, &rf);
 
 	if (task_cpu(target_task) != busiest_cpu ||
@@ -695,6 +696,7 @@ out_unlock:
 	if (deactivated)
 		attach_one_task(target_rq, target_task);
 
+	raw_spin_unlock(&target_task->pi_lock);
 	put_task_struct(target_task);
 
 	local_irq_enable();
