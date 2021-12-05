@@ -580,6 +580,180 @@
 #include "mediatek/mt6833-disable-unused.dtsi"
 #include "mediatek/mt6359p.dtsi"
 
+&i2c5 {
+	status = "okay";
+	clock-frequency = <3400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	subpmic_mtk: mt6360_pmu@34 {
+		#interrupt-cells = <2>;
+		status = "ok";
+		compatible = "mediatek,mt6360_pmu";
+		reg = <0x34>;
+		wakeup-source;
+		interrupt-controller;
+		interrupt-parent = <&pio>;
+		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "IRQB";
+		mt6360_chg: chg {
+			compatible = "mediatek,mt6360_chg";
+			vinovp = <14500000>;
+			io-channels = <&mt6360_adc 0>, <&mt6360_adc 1>,
+				      <&mt6360_adc 3>, <&mt6360_adc 4>,
+				      <&mt6360_adc 5>, <&mt6360_adc 6>,
+				      <&mt6360_adc 8>, <&mt6360_adc 10>;
+			io-channel-names = "USBID", "VBUSDIV5", "VSYS", "VBAT",
+					   "IBUS", "IBAT", "TEMP_JC", "TS";
+			chg_name = "primary_chg";
+			ichg = <2000000>;		/* uA */
+			aicr = <500000>;		/* uA */
+			mivr = <4400000>;		/* uV */
+			cv = <4350000>;			/* uA */
+			ieoc = <150000>;		/* uA */
+			safety_timer = <12>;		/* hour */
+			ircmp_resistor = <25000>;	/* uohm */
+			ircmp_vclamp = <32000>;		/* uV */
+			en_te = <1>;
+			en_wdt = <1>;
+			aicc_once = <1>;
+			post_aicc = <1>;
+			batoc_notify = <0>;
+			charger = <&mt6360_chg>;
+			//phys = <&u2port0 PHY_TYPE_USB2>;
+			//phy-names = "usb2-phy";
+			//usb = <&ssusb>;
+			//bc12_ref = <&mtk_ctd>;
+			otg_vbus: usb-otg-vbus {
+				regulator-compatible = "usb-otg-vbus";
+				regulator-name = "usb-otg-vbus";
+				regulator-min-microvolt = <4425000>;
+				regulator-max-microvolt = <5825000>;
+				regulator-min-microamp = <500000>;
+				regulator-max-microamp = <3000000>;
+			};
+		};
+		mt6360_adc: adc {
+			compatible = "mediatek,mt6360_adc";
+			#io-channel-cells = <1>;
+		};
+		mt6360_led: led {
+			compatible = "mediatek,mt6360_led";
+			rgbon_sync = <1>;
+			iled  {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				led@0 {
+					reg = <0>;
+					label = "isink1";
+				};
+				led@1 {
+					reg = <1>;
+					label = "isink2";
+				};
+				led@2 {
+					reg = <2>;
+					label = "isink3";
+				};
+				led@3 {
+					reg = <3>;
+					label = "isink4";
+				};
+			};
+			fled {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				flash@0 {
+					reg = <0>;
+					label = "mt6360_flash_ch1";
+					led-max-microamp = <400000>;
+					flash-max-microamp = <1500000>;
+					flash-max-timeout = <1248000>;
+					type = <0>;
+					ct = <0>;
+					part = <0>;
+				};
+				flash@1 {
+					reg = <1>;
+					label = "mt6360_flash_ch2";
+					led-max-microamp = <400000>;
+					flash-max-microamp = <1500000>;
+					flash-max-timeout = <1248000>;
+					type = <0>;
+					ct = <1>;
+					part = <0>;
+				};
+			};
+		};
+		pmic {
+			compatible = "mediatek,mt6360_pmic";
+			mt6360_mdla_buck_reg: buck1 {
+				regulator-compatible = "BUCK1";
+				regulator-name = "mt6360,buck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1300000>;
+				regulator-allowed-modes = <0 2 3>;
+				regulator-always-on;
+			};
+			buck2 {
+				regulator-compatible = "BUCK2";
+				regulator-name = "mt6360,buck2";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1300000>;
+				regulator-allowed-modes = <0 2 3>;
+				regulator-always-on;
+			};
+			ldo6 {
+				regulator-compatible = "LDO6";
+				regulator-name = "mt6360,ldo6";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <2100000>;
+				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
+			};
+			ldo7 {
+				regulator-compatible = "LDO7";
+				regulator-name = "mt6360,ldo7";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <2100000>;
+				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
+			};
+		};
+		ldo {
+			compatible = "mediatek,mt6360_ldo";
+			mt_pmic_vfp_ldo_reg: ldo1 {
+				regulator-compatible = "LDO1";
+				regulator-name = "mt6360,ldo1";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+			mt_pmic_vtp_ldo_reg: ldo2 {
+				regulator-compatible = "LDO2";
+				regulator-name = "vtp";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+			mt_pmic_vmc_ldo_reg: ldo3 {
+				regulator-compatible = "LDO3";
+				regulator-name = "mt6360,ldo3";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+			mt_pmic_vmch_ldo_reg: ldo5 {
+				regulator-compatible = "LDO5";
+				regulator-name = "mt6360,ldo5";
+				regulator-min-microvolt = <2700000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+		};
+	};
+};
+
 &pmic {
 	interrupt-parent = <&pio>;
 	interrupts = <118 IRQ_TYPE_LEVEL_HIGH 118 0>;
