@@ -154,6 +154,9 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (curr_task &&
 			!task_fits_capacity(curr_task, cpu_rq(i)->cpu_capacity))
 			heavy_task += 1;
+
+		if (heavy_task >= HEAVY_TASK_NUM)
+			break;
 	}
 
 	if (heavy_task < HEAVY_TASK_NUM)
@@ -166,11 +169,11 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (!is_min_capacity_cpu(i))
 			continue;
 
-		if (is_reserved(i))
-			continue;
-
 		if (!rq->misfit_task_load ||
 			(rq->curr->policy != SCHED_NORMAL))
+			continue;
+
+		if (is_reserved(i))
 			continue;
 
 		wait = wc - rq->curr->android_vendor_data1[3];
@@ -190,13 +193,13 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (capacity_orig_of(i) <= capacity_orig_of(src_cpu))
 			continue;
 
-		if (is_reserved(i))
-			continue;
-
 		if (rq->curr->policy != SCHED_NORMAL)
 			continue;
 
 		if (rq->nr_running > 1)
+			continue;
+
+		if (is_reserved(i))
 			continue;
 
 		run = wc - rq->curr->android_vendor_data1[3];

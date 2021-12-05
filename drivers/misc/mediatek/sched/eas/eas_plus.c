@@ -539,7 +539,19 @@ void check_for_migration(struct task_struct *p)
 			migrate_running_task(new_cpu, p, rq, MIGR_TICK_PULL_MISFIT_RUNNING);
 		} else {
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
-			task_check_for_rotation(rq);
+			struct cpufreq_policy *policy;
+			int opp_curr = 0, opp_max = 0, opp_min = 0;
+
+			policy = cpufreq_cpu_get(cpu);
+			if (policy) {
+				opp_curr = policy->cur;
+				opp_max = policy->cpuinfo.max_freq;
+				opp_min = policy->cpuinfo.min_freq;
+				cpufreq_cpu_put(policy);
+			}
+
+			if (opp_curr > ((opp_max + opp_min) / 2))
+				task_check_for_rotation(rq);
 #endif
 			raw_spin_unlock(&migration_lock);
 		}
