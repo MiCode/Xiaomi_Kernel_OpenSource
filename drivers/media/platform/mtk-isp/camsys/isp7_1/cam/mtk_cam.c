@@ -1910,6 +1910,8 @@ static void mtk_cam_update_s_data_exp(struct mtk_cam_ctx *ctx,
 		req_stream_data_1st->mtk_cam_exposure = exp->exposure[1];
 	}
 
+	exp->valid = 0;
+
 	dev_dbg(ctx->cam->dev,
 		"update mstream(%d) exposure 1st:%d 2nd:%d gain 1st:%d 2nd:%d\n",
 		raw_feature,
@@ -2310,6 +2312,8 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 		   sizeof(req_stream_data->frame_params));
 	memset(&req_stream_data->sv_frame_params, 0,
 		   sizeof(req_stream_data->sv_frame_params));
+	memset(&req_stream_data->mtk_cam_exposure, 0,
+		   sizeof(req_stream_data->mtk_cam_exposure));
 
 	/* generally is single exposure */
 	req_stream_data->frame_params.raw_param.exposure_num = 1;
