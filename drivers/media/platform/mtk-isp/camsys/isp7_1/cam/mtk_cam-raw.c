@@ -1691,6 +1691,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		if (!pipe->res_config.enable_hsf_raw) {
 #if USINGSCQ
 			val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
+			val = (val == 0) ? 1 : val;
 			fps_ratio = get_fps_ratio(dev);
 			dev_info(dev->dev, "VF on - REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
 			val, fps_ratio);
