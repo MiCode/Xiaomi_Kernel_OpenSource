@@ -2636,6 +2636,17 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 #endif
 	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34)))
 		dev_info(&pdev->dev, "%s:No DMA available\n", __func__);
+
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(imgsys_dev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(imgsys_dev->dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			dev_info(imgsys_dev->dev, "Failed to set DMA segment size\n");
+	}
+
 #if MTK_CM4_SUPPORT
 	imgsys_dev->scp_pdev = scp_get_pdev(pdev);
 	if (!imgsys_dev->scp_pdev) {
