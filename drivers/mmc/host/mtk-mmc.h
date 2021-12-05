@@ -654,7 +654,6 @@ struct msdc_host {
 	u32 req_vcore;
 	u32 ocr_volt;
 	struct regulator *dvfsrc_vcore_power;
-	int old_signal_voltage;
 	bool use_cmd_intr;
 	struct pm_qos_request pm_qos_req;
 };

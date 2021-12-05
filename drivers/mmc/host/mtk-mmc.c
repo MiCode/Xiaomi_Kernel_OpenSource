@@ -521,6 +521,14 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
 		cpu_relax();
+	if (host->mclk == 0 && (mmc->caps2 & MMC_CAP2_NO_MMC)
+		&& mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+		dev_info(host->dev, "[%s]:enable clk free run 1ms+ for switch to 1.8v\n",
+			__func__);
+		sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+		usleep_range(1000, 1500);
+		sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
+	}
 	mmc->actual_clock = sclk;
 	host->mclk = hz;
 	host->timing = timing;
@@ -1626,19 +1634,8 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		msdc_init_tune_setting(host);
 #endif
 
-	if (host->mclk != ios->clock || host->timing != ios->timing) {
+	if (host->mclk != ios->clock || host->timing != ios->timing)
 		msdc_set_mclk(host, ios->timing, ios->clock);
-		if ((mmc->caps2 & MMC_CAP2_NO_MMC)
-			&& host->old_signal_voltage == MMC_SIGNAL_VOLTAGE_330
-			&& mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
-			dev_info(host->dev, "[%s]:enable clk free run 1ms+ for switch to 1.8v\n",
-				__func__);
-			sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
-			usleep_range(1000, 1500);
-			sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
-		}
-		host->old_signal_voltage = mmc->ios.signal_voltage;
-	}
 #if IS_ENABLED(CONFIG_MMC_AUTOK)
 	if (ios->timing == MMC_TIMING_MMC_HS400 &&
 		ios->clock > 52000000) {
