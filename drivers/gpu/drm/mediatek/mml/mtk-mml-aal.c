@@ -493,9 +493,9 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	if (!idx) {
 		if (task->config->dual)
-			aal_frm->cut_pos_x = (dest->crop.r.width/2) + dest->crop.r.left;
+			aal_frm->cut_pos_x = dest->crop.r.width / 2;
 		else
-			aal_frm->cut_pos_x = dest->crop.r.left+dest->crop.r.width;
+			aal_frm->cut_pos_x = dest->crop.r.width;
 		if (ccfg->pipe)
 			aal_frm->out_hist_xs = aal_frm->cut_pos_x;
 	}

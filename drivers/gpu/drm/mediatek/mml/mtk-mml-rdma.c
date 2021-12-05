@@ -510,8 +510,8 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 		if (dest->crop.r.width != src->width ||
 		    dest->crop.r.height != src->height) {
-				func->full_size_x_out = in_crop_w;
-				func->full_size_y_out = in_crop_h;
+			func->full_size_x_out = in_crop_w;
+			func->full_size_y_out = in_crop_h;
 		}
 	} else {
 		data->rdma_data.crop.left = 0;
@@ -900,7 +900,6 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u8 filterMode;
 	u8 loose = 0;
 	u8 bit_number = 0;
-	u8 alpharot = 0;
 	u8 auo = 0;
 	u8 jump = 0;
 	u8 afbc = 0;
@@ -916,9 +915,6 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u32 u4pic_size_bs = 0;
 	u32 u4pic_size_y_bs = 0;
 	u32 gmcif_con;
-
-	if (cfg->alpharot)
-		alpharot = 1;
 
 	mml_msg("use config %p rdma %p", cfg, rdma);
 
@@ -998,7 +994,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       (bit_number << 18) +
 		       (rdma_frm->blk_tile << 23) +
 		       (0 << 24) +
-		       (alpharot << 25),
+		       (cfg->alpharot << 25),
 		       0x038cfe0f);
 
 	write_mask |= 0xb0000000 | 0x0643000;

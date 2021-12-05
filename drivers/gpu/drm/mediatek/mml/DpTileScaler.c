@@ -4,7 +4,11 @@
  * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 #include "DpTileScaler.h"
-#include "DpTileScalerConfig.h"
+
+#define TILE_SCALER_FORMAT_YUV422	1
+#define TILE_SCALER_FORMAT_YUV422_VER_2	1
+#define TILE_SCALER_NEGATIVE_OFFSET	1
+#define TILE_SCALER_6N_TAP_CUB_ACC	0
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 

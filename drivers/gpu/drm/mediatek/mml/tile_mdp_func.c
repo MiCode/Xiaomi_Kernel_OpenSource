@@ -183,27 +183,8 @@ enum isp_tile_message tile_prz_init(struct tile_func_block *ptr_func,
 		}
 	}
 
-	ptr_func->in_tile_height  = 65535;
+	ptr_func->in_tile_height = 65535;
 	ptr_func->out_tile_height = 65535;
-
-	if (ptr_func->in_stream_order & TILE_ORDER_BOTTOM_TO_TOP) {
-		/* For Y Flip read, and then t bottom to top */
-		s32 bias_y;
-		s32 offset_y;
-
-		if (data->crop.y_sub_px) {
-			bias_y = ptr_func->full_size_y_in - data->crop.r.height -
-				 data->crop.r.top - 1;
-			offset_y = (1 << TILE_SCALER_SUBPIXEL_SHIFT) - data->crop.y_sub_px;
-		} else {
-			bias_y = ptr_func->full_size_y_in - data->crop.r.height -
-				 data->crop.r.top;
-			offset_y = 0;
-		}
-
-		data->crop.r.top = bias_y;
-		data->crop.y_sub_px = offset_y;
-	}
 
 	// urs: C24 upsampler input frame width
 	data->c24_in_frame_w = (ptr_func->full_size_x_out + 0x01) & ~0x1;
@@ -498,17 +479,10 @@ enum isp_tile_message tile_prz_for(struct tile_func_block *ptr_func,
 			return MDP_MESSAGE_RESIZER_SCALING_ERROR;
 		}
 
-		if (ptr_func->out_cal_order & TILE_ORDER_RIGHT_TO_LEFT) {
+		C24InXLeft = data->prz_back_xs;
+
+		if (C24InXRight > data->prz_back_xe)
 			C24InXRight = data->prz_back_xe;
-
-			if (C24InXLeft < data->prz_back_xs)
-				C24InXLeft = data->prz_back_xs;
-		} else {
-			C24InXLeft = data->prz_back_xs;
-
-			if (C24InXRight > data->prz_back_xe)
-				C24InXRight = data->prz_back_xe;
-		}
 
 		/* urs: C24 upsampler forward */
 		ptr_func->out_pos_xs = C24InXLeft;
@@ -518,13 +492,8 @@ enum isp_tile_message tile_prz_for(struct tile_func_block *ptr_func,
 		if (C24InXRight >= data->c24_in_frame_w - 1)
 			ptr_func->out_pos_xe = ptr_func->full_size_x_out - 1;
 
-		if (ptr_func->out_cal_order & TILE_ORDER_RIGHT_TO_LEFT) {
-			if (ptr_func->out_pos_xs < ptr_func->backward_output_xs_pos)
-				ptr_func->out_pos_xs = ptr_func->backward_output_xs_pos;
-		} else {
-			if (ptr_func->out_pos_xe > ptr_func->backward_output_xe_pos)
-				ptr_func->out_pos_xe = ptr_func->backward_output_xe_pos;
-		}
+		if (ptr_func->out_pos_xe > ptr_func->backward_output_xe_pos)
+			ptr_func->out_pos_xe = ptr_func->backward_output_xe_pos;
 	}
 
 	if (!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag) {
@@ -641,7 +610,7 @@ static enum isp_tile_message tile_wrot_align_out_width(
 						  alignment);
 		}
 		if (remain)
-			ptr_func->out_pos_xe = ptr_func->out_pos_xe - remain;
+			ptr_func->out_pos_xe -= remain;
 	}
 
 	return ISP_MESSAGE_TILE_OK;
@@ -678,50 +647,26 @@ enum isp_tile_message tile_wrot_for(struct tile_func_block *ptr_func,
 		ptr_func->out_pos_xs = ptr_func->in_pos_xs;
 		ptr_func->out_pos_xe = ptr_func->in_pos_xe;
 
-		if (ptr_func->out_cal_order & TILE_ORDER_RIGHT_TO_LEFT) {
-			if (ptr_func->backward_output_xe_pos < ptr_func->out_pos_xe)
-				ptr_func->out_pos_xe = ptr_func->backward_output_xe_pos;
+		if (ptr_func->backward_output_xs_pos >= ptr_func->out_pos_xs) {
+			ptr_func->bias_x = ptr_func->backward_output_xs_pos -
+					   ptr_func->out_pos_xs;
+			ptr_func->out_pos_xs = ptr_func->backward_output_xs_pos;
+		}
 
-			if (ptr_func->out_pos_xs < ptr_func->backward_output_xs_pos) {
-				ptr_func->bias_x = ptr_func->backward_output_xs_pos -
-						   ptr_func->out_pos_xs;
-				ptr_func->out_pos_xs = ptr_func->backward_output_xs_pos;
-			} else {
-				ptr_func->bias_x = 0;
-				/* Check out xs alignment */
-				if (ptr_func->out_const_x > 1) {
-					remain = TILE_MOD(ptr_func->out_pos_xs,
-							  ptr_func->out_const_x);
-					if (remain) {
-						ptr_func->out_pos_xs +=
-							ptr_func->out_const_x - remain;
-						ptr_func->bias_x =
-							ptr_func->out_const_x - remain;
-					}
-				}
-			}
+		if (ptr_func->out_pos_xe > ptr_func->backward_output_xe_pos) {
+			ptr_func->out_pos_xe = ptr_func->backward_output_xe_pos;
 		} else {
-			if (ptr_func->backward_output_xs_pos >= ptr_func->out_pos_xs) {
-				ptr_func->bias_x = ptr_func->backward_output_xs_pos -
-						   ptr_func->out_pos_xs;
-				ptr_func->out_pos_xs = ptr_func->backward_output_xs_pos;
+			/* Check out xe alignment */
+			if (ptr_func->out_const_x > 1) {
+				remain = TILE_MOD(ptr_func->out_pos_xe + 1,
+						  ptr_func->out_const_x);
+				if (remain)
+					ptr_func->out_pos_xe -= remain;
 			}
 
-			if (ptr_func->out_pos_xe > ptr_func->backward_output_xe_pos) {
-				ptr_func->out_pos_xe = ptr_func->backward_output_xe_pos;
-			} else {
-				/* Check out xe alignment */
-				if (ptr_func->out_const_x > 1) {
-					remain = TILE_MOD(ptr_func->out_pos_xe + 1,
-							  ptr_func->out_const_x);
-					if (remain)
-						ptr_func->out_pos_xe -= remain;
-				}
-
-				/* Check out width alignment */
-				tile_wrot_align_out_width(ptr_func, data,
-							  ptr_func->full_size_x_out);
-			}
+			/* Check out width alignment */
+			tile_wrot_align_out_width(ptr_func, data,
+						  ptr_func->full_size_x_out);
 		}
 	}
 
@@ -772,7 +717,7 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 
 	/* frame mode */
 	if (ptr_tile_reg_map->first_frame) {
-		/* Specific handle for block and ring buffer mode */
+		/* Specific handle for block format */
 		if (ptr_func->in_pos_xe + 1 > data->crop.left + data->crop.width)
 			ptr_func->in_pos_xe = data->crop.left + data->crop.width - 1;
 
@@ -788,7 +733,8 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 		if (ptr_func->in_const_x > 1) {
 			remain = TILE_MOD(ptr_func->in_pos_xe + 1, ptr_func->in_const_x);
 			if (remain)
-				ptr_func->in_pos_xe += remain;
+				ptr_func->in_pos_xe += ptr_func->in_const_x - remain;
+
 			remain = TILE_MOD(ptr_func->in_pos_xs, ptr_func->in_const_x);
 			if (remain)
 				ptr_func->in_pos_xs -= remain;
@@ -798,7 +744,7 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 			ptr_func->in_pos_ye = data->crop.top + data->crop.height - 1;
 
 		if (MML_FMT_BLOCK(data->src_fmt)) {
-			/* Alignment x bottom in block boundary */
+			/* Alignment y bottom in block boundary */
 			ptr_func->in_pos_ye = ((1 + (ptr_func->in_pos_ye >>
 				data->blk_shift_h)) << data->blk_shift_h) - 1;
 
@@ -809,7 +755,8 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 		if (ptr_func->in_const_y > 1) {
 			remain = TILE_MOD(ptr_func->in_pos_ye + 1, ptr_func->in_const_y);
 			if (remain)
-				ptr_func->in_pos_ye += remain;
+				ptr_func->in_pos_ye += ptr_func->in_const_y - remain;
+
 			remain = TILE_MOD(ptr_func->in_pos_ys, ptr_func->in_const_y);
 			if (remain)
 				ptr_func->in_pos_ys -= remain;
@@ -817,7 +764,7 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 		return ISP_MESSAGE_TILE_OK;
 	}
 
-	/* Specific handle for block and ring buffer mode */
+	/* Specific handle for block format */
 	if (!ptr_tile_reg_map->skip_x_cal && !ptr_func->tdr_h_disable_flag) {
 		if (ptr_func->in_pos_xe + 1 > data->crop.left + data->crop.width)
 			ptr_func->in_pos_xe = data->crop.left + data->crop.width - 1;
@@ -841,13 +788,15 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 		if (ptr_func->in_const_x > 1) {
 			remain = TILE_MOD(ptr_func->in_pos_xe + 1, ptr_func->in_const_x);
 			if (remain)
-				ptr_func->in_pos_xe += remain;
+				ptr_func->in_pos_xe += ptr_func->in_const_x - remain;
+
 			remain = TILE_MOD(ptr_func->in_pos_xs, ptr_func->in_const_x);
 			if (remain)
 				ptr_func->in_pos_xs -= remain;
+
 			if (ptr_func->in_tile_width &&
-			    (ptr_func->in_pos_xe - ptr_func->in_pos_xs + 1 >
-			     ptr_func->in_tile_width))
+			    ptr_func->in_pos_xe + 1 >
+					ptr_func->in_pos_xs + ptr_func->in_tile_width)
 				ptr_func->in_pos_xe =
 					ptr_func->in_pos_xs + ptr_func->in_tile_width - 1;
 		}
@@ -876,7 +825,8 @@ enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 		if (ptr_func->in_const_y > 1) {
 			remain = TILE_MOD(ptr_func->in_pos_ye + 1, ptr_func->in_const_y);
 			if (remain)
-				ptr_func->in_pos_ye += remain;
+				ptr_func->in_pos_ye += ptr_func->in_const_y - remain;
+
 			remain = TILE_MOD(ptr_func->in_pos_ys, ptr_func->in_const_y);
 			if (remain)
 				ptr_func->in_pos_ys -= remain;
@@ -922,14 +872,9 @@ enum isp_tile_message tile_prz_back(struct tile_func_block *ptr_func,
 		}
 
 		/* prz */
-		if (data->prz_out_tile_w && ptr_func->out_tile_width) {
-			if (C24InXRight + 1 > C24InXLeft + data->prz_out_tile_w) {
-				if (ptr_func->out_cal_order & TILE_ORDER_RIGHT_TO_LEFT)
-					C24InXLeft = C24InXRight - data->prz_out_tile_w + 1;
-				else
-					C24InXRight = C24InXLeft + data->prz_out_tile_w - 1;
-			}
-		}
+		if (data->prz_out_tile_w && ptr_func->out_tile_width)
+			if (C24InXRight + 1 > C24InXLeft + data->prz_out_tile_w)
+				C24InXRight = C24InXLeft + data->prz_out_tile_w - 1;
 
 		if (C24InXRight + 1 > data->c24_in_frame_w)
 			C24InXRight = data->c24_in_frame_w - 1;
@@ -981,14 +926,9 @@ enum isp_tile_message tile_prz_back(struct tile_func_block *ptr_func,
 			return MDP_MESSAGE_RESIZER_SCALING_ERROR;
 		}
 
-		if (ptr_func->in_tile_width) {
-			if (C42OutXRight + 1 > C42OutXLeft + ptr_func->in_tile_width) {
-				if (ptr_func->in_cal_order & TILE_ORDER_RIGHT_TO_LEFT)
-					C42OutXLeft = C42OutXRight - ptr_func->in_tile_width + 1;
-				else
-					C42OutXRight = C42OutXLeft + ptr_func->in_tile_width - 1;
-			}
-		}
+		if (ptr_func->in_tile_width)
+			if (C42OutXRight + 1 > C42OutXLeft + ptr_func->in_tile_width)
+				C42OutXRight = C42OutXLeft + ptr_func->in_tile_width - 1;
 		data->prz_back_xs = C24InXLeft;
 		data->prz_back_xe = C24InXRight;
 
