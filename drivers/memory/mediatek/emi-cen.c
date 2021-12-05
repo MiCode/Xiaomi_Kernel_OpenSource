@@ -39,7 +39,7 @@ struct a2d_s6s_v1 {
 struct a2d_s6s_v2 {
 	unsigned int chn_bit_position;
 	unsigned int chn_en;
-	unsigned int magics[8];
+	unsigned int magics[11];
 
 	unsigned int dual_rank_en;
 	unsigned int dw32_en;
@@ -160,8 +160,8 @@ static const struct mtk_emi_compatible mt6877_compat = {
 #define MTK_EMI_DISPATCH 0x0
 
 static unsigned int emi_a2d_con_offset[] = {
-	/* central EMI CONA, CONF, CONH, CONH_2ND, CONK */
-	0x00, 0x28, 0x38, 0x3c, 0x50
+	/* central EMI CONA, CONF, CONH, CONH_2ND, CONK, SCRM_EXT */
+	0x00, 0x28, 0x38, 0x3c, 0x50, 0x7b4
 };
 
 static unsigned int emi_a2d_chn_con_offset[] = {
@@ -643,10 +643,10 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
  */
 static inline void prepare_a2d_v2(struct emi_cen *cen)
 {
-	const unsigned int mask_4b = 0xf, mask_2b = 0x3;
+	const unsigned int mask_6b = 0x3f, mask_4b = 0xf, mask_2b = 0x3;
 	struct a2d_s6s_v2 *s6s;
 	void __iomem *emi_cen_base, *emi_chn_base;
-	unsigned long emi_cona, emi_conf, emi_conh, emi_conh_2nd, emi_conk;
+	unsigned long emi_cona, emi_conf, emi_conh, emi_conh_2nd, emi_conk, emi_scrm_ext;
 	unsigned long emi_chn_cona, emi_chn_conc, emi_chn_conc_2nd;
 	int tmp;
 	int col, col2nd, row, row2nd, row_ext0, row2nd_ext0;
@@ -667,6 +667,7 @@ static inline void prepare_a2d_v2(struct emi_cen *cen)
 	emi_conh = readl(emi_cen_base + emi_a2d_con_offset[2]);
 	emi_conh_2nd = readl(emi_cen_base + emi_a2d_con_offset[3]);
 	emi_conk = readl(emi_cen_base + emi_a2d_con_offset[4]);
+	emi_scrm_ext = readl(emi_cen_base + emi_a2d_con_offset[5]);
 
 	emi_chn_base = cen->emi_chn_base[0];
 	emi_chn_cona = readl(emi_chn_base + emi_a2d_chn_con_offset[0]);
@@ -691,15 +692,26 @@ static inline void prepare_a2d_v2(struct emi_cen *cen)
 
 	s6s->chn_en = (emi_cona >> EMI_CONA_CHN_EN) & mask_2b;
 
-	s6s->magics[0] = emi_conf & mask_4b;
-	s6s->magics[1] = (emi_conf >> 4) & mask_4b;
-	s6s->magics[2] = (emi_conf >> 8) & mask_4b;
-	s6s->magics[3] = (emi_conf >> 12) & mask_4b;
-	s6s->magics[4] = (emi_conf >> 16) & mask_4b;
-	s6s->magics[5] = (emi_conf >> 20) & mask_4b;
-	s6s->magics[6] = (emi_conf >> 24) & mask_4b;
-	s6s->magics[7] = (emi_conf >> 28) & mask_4b;
-
+	s6s->magics[2] = (emi_conh_2nd >> 24) & mask_4b;
+	s6s->magics[3] = emi_conf & mask_4b;
+	s6s->magics[4] = (emi_conf >> 4) & mask_4b;
+	s6s->magics[5] = (emi_conf >> 8) & mask_4b;
+	s6s->magics[6] = (emi_conf >> 12) & mask_4b;
+	s6s->magics[7] = (emi_conf >> 16) & mask_4b;
+	s6s->magics[8] = (emi_conf >> 20) & mask_4b;
+	s6s->magics[9] = (emi_conf >> 24) & mask_4b;
+	s6s->magics[10] = (emi_conf >> 28) & mask_4b;
+	s6s->magics[0] = emi_scrm_ext & mask_6b;
+	s6s->magics[1] = (emi_scrm_ext >> 6) & mask_6b;
+	s6s->magics[2] += ((emi_scrm_ext >> 12) & mask_2b) << 4;
+	s6s->magics[3] += ((emi_scrm_ext >> 14) & mask_2b) << 4;
+	s6s->magics[4] += ((emi_scrm_ext >> 16) & mask_2b) << 4;
+	s6s->magics[5] += ((emi_scrm_ext >> 18) & mask_2b) << 4;
+	s6s->magics[6] += ((emi_scrm_ext >> 20) & mask_2b) << 4;
+	s6s->magics[7] += ((emi_scrm_ext >> 22) & mask_2b) << 4;
+	s6s->magics[8] += ((emi_scrm_ext >> 24) & mask_2b) << 4;
+	s6s->magics[9] += ((emi_scrm_ext >> 26) & mask_2b) << 4;
+	s6s->magics[10] += ((emi_scrm_ext >> 28) & mask_2b) << 4;
 
 	s6s->dual_rank_en =
 		test_bit(EMI_CHN_CONA_DUAL_RANK_EN, &emi_chn_cona) ?  1 : 0;
@@ -740,7 +752,7 @@ static inline void prepare_a2d_v2(struct emi_cen *cen)
 	b14s_ext = (emi_chn_conc_2nd >> 10) & mask_2b;
 	b15s_ext = (emi_chn_conc_2nd >> 12) & mask_2b;
 	b16s_ext = (emi_chn_conc_2nd >> 14) & mask_2b;
-	b8s = (emi_chn_conc_2nd >> 16) & mask_2b;
+	b8s = (emi_chn_conc_2nd >> 16) & mask_6b;
 
 	s6s->magics2[0] = b8s;
 	s6s->magics2[1] = b11s_ext * 16 + b11s;
@@ -927,6 +939,9 @@ static int mtk_emicen_addr2dram_v2(unsigned long addr,
 	hash = global_emi_cen->hash;
 
 	saddr = addr;
+	clear_bit(6, &saddr);
+	clear_bit(7, &saddr);
+	clear_bit(8, &saddr);
 	clear_bit(9, &saddr);
 	clear_bit(10, &saddr);
 	clear_bit(11, &saddr);
@@ -935,14 +950,17 @@ static int mtk_emicen_addr2dram_v2(unsigned long addr,
 	clear_bit(14, &saddr);
 	clear_bit(15, &saddr);
 	clear_bit(16, &saddr);
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[0], 9) << 9;
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[1], 10) << 10;
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[2], 11) << 11;
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[3], 12) << 12;
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[4], 13) << 13;
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[5], 14) << 14;
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[6], 15) << 15;
-	saddr |= use_a2d_magic_v2(addr, s6s->magics[7], 16) << 16;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[0], 6) << 6;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[1], 7) << 7;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[2], 8) << 8;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[3], 9) << 9;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[4], 10) << 10;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[5], 11) << 11;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[6], 12) << 12;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[7], 13) << 13;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[8], 14) << 14;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[9], 15) << 15;
+	saddr |= use_a2d_magic_v2(addr, s6s->magics[10], 16) << 16;
 
 	if (!hash) {
 		map->channel = test_bit(s6s->chn_bit_position, &saddr) ? 1 : 0;
