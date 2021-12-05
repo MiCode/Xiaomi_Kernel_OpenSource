@@ -1674,6 +1674,11 @@ void vcp_reset_wait_timeout(void)
 	/* make sure vcp is in idle state */
 	int timeout = 50; /* max wait 1s */
 
+	if (mmup_enable_count() == 0) {
+		pr_notice("[VCP] power off, do not wait reset done\n");
+		return;
+	}
+
 	while (timeout--) {
 		core0_halt = readl(R_CORE0_STATUS) & B_CORE_HALT;
 		core1_halt = (vcpreg.core_nums == 2) ?

@@ -22,6 +22,7 @@
 #include "vcp_feature_define.h"
 #include "vcp_l1c.h"
 #include "vcp_reservedmem_define.h"
+#include "vcp_status.h"
 
 struct vcp_dump_st {
 	uint8_t *detail_buff;
@@ -107,6 +108,11 @@ uint32_t memorydump_size_probe(struct platform_device *pdev)
 
 void vcp_dump_last_regs(void)
 {
+	if (mmup_enable_count() == 0) {
+		pr_notice("[VCP] power off, do not vcp_dump_last_regs\n");
+		return;
+	}
+
 	c0_m->status = readl(R_CORE0_STATUS);
 	c0_m->pc = readl(R_CORE0_MON_PC);
 	c0_m->lr = readl(R_CORE0_MON_LR);
