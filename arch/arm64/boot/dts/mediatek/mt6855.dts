@@ -19,6 +19,7 @@
 #include <dt-bindings/iio/adc/mediatek,mt6375_adc.h>
 #include <dt-bindings/mfd/mt6375.h>
 #include <dt-bindings/power/mt6375-gauge.h>
+#include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 
 / {
 	model = "MT6855";
@@ -2130,6 +2131,78 @@
 			};
 		};
 
+		dvfsrc: dvfsrc@1c00f000 {
+			compatible = "mediatek,mt6855-dvfsrc";
+			reg = <0 0x1c00f000 0 0x1000>,
+				<0 0x1c001000 0 0x1000>;
+			reg-names = "dvfsrc", "spm";
+			dvfsrc,bringup = <1>;
+			dvfsrc_flag = <0x3>;
+			#interconnect-cells = <1>;
+
+			dvfsrc_vcore: dvfsrc-vcore {
+				regulator-name = "dvfsrc-vcore";
+				regulator-min-microvolt = <550000>;
+				regulator-max-microvolt = <725000>;
+				regulator-always-on;
+			};
+
+			dvfsrc_freq_opp7: opp7 {
+				opp-peak-KBps = <0>;
+			};
+			dvfsrc_freq_opp6: opp6 {
+				opp-peak-KBps = <2500000>;
+			};
+			dvfsrc_freq_opp5: opp5 {
+				opp-peak-KBps = <3800000>;
+			};
+			dvfsrc_freq_opp4: opp4 {
+				opp-peak-KBps = <5100000>;
+			};
+			dvfsrc_freq_opp3: opp3 {
+				opp-peak-KBps = <5900000>;
+			};
+			dvfsrc_freq_opp2: opp2 {
+				opp-peak-KBps = <7400000>;
+			};
+			dvfsrc_freq_opp1: opp1 {
+				opp-peak-KBps = <10200000>;
+			};
+			dvfsrc_freq_opp0: opp0 {
+				opp-peak-KBps = <13600000>;
+			};
+
+			dvfsrc-helper {
+				compatible = "mediatek,dvfsrc-helper";
+				vcore-supply = <&mt6363_vbuck4>;
+				rc-vcore-supply = <&dvfsrc_vcore>;
+				interconnects = <&dvfsrc MT6873_MASTER_DBGIF
+							&dvfsrc MT6873_SLAVE_DDR_EMI>,
+						<&dvfsrc MT6873_MASTER_DBGIF
+							&dvfsrc MT6873_SLAVE_DDR_EMI>,
+						<&dvfsrc MT6873_MASTER_HRT_DBGIF
+							&dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+				interconnect-names = "icc-bw", "icc-perf-bw", "icc-hrt-bw";
+				required-opps = <&dvfsrc_freq_opp0>,
+						<&dvfsrc_freq_opp1>,
+						<&dvfsrc_freq_opp2>,
+						<&dvfsrc_freq_opp3>,
+						<&dvfsrc_freq_opp4>,
+						<&dvfsrc_freq_opp5>,
+						<&dvfsrc_freq_opp6>;
+			};
+
+			dvfsrc-met {
+				rc-vcore-supply = <&dvfsrc_vcore>;
+				interconnects = <&dvfsrc MT6873_MASTER_DBGIF
+							&dvfsrc MT6873_SLAVE_DDR_EMI>,
+						<&dvfsrc MT6873_MASTER_HRT_DBGIF
+							&dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+				interconnect-names = "icc-bw", "icc-hrt-bw";
+				compatible = "mediatek,dvfsrc-met";
+			};
+		};
+
 		systimer: systimer@1c011000 {
 			compatible = "mediatek,mt6855-timer",
 				      "mediatek,mt6765-timer";
@@ -3338,6 +3411,7 @@
 	};
 };
 #endif
+
 #include "mediatek/cust_mt6855_msdc.dtsi"
 #include "mediatek/rt5133.dtsi"
 #include "mediatek/rt6160.dtsi"
