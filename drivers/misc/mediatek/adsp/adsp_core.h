@@ -63,7 +63,6 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst, int cou
 void adsp_extern_notify_chain(enum ADSP_NOTIFY_EVENT event);
 
 /* wakelock */
-int adsp_awake_init(struct adsp_priv *pdata);
 int adsp_awake_lock(u32 cid);
 int adsp_awake_unlock(u32 cid);
 #endif
