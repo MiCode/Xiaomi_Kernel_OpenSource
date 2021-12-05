@@ -28,6 +28,9 @@ inline unsigned int calcLineTimeInNs(
 {
 	unsigned int val = 0;
 
+	if ((pclk / 1000) == 0 || (pclk / 1000) == 1)
+		return 0;
+
 	val = ((unsigned long long)linelength * 1000000 + ((pclk / 1000) - 1))
 		/ (pclk / 1000);
 
@@ -55,6 +58,9 @@ inline unsigned int convert2TotalTime(
 inline unsigned int convert2LineCount(
 	unsigned int lineTimeInNs, unsigned int val)
 {
+	if (lineTimeInNs == 0)
+		return 0;
+
 	return ((1000 * (unsigned long long)val) / lineTimeInNs) +
 		((1000 * (unsigned long long)val) % lineTimeInNs ? 1 : 0);
 }
