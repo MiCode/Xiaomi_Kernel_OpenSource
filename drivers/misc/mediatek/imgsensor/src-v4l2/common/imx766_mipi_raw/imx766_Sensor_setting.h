@@ -3128,10 +3128,14 @@ static kal_uint16 imx766_custom13_setting[] = {
 // video stagger seamless switch (1exp-2exp)
 static kal_uint16 imx766_seamless_normal_video[] = {
 	PHASE_PIX_OUT_EN, 0x01,
+	FRAME_LEN_UPPER, 0x12,
+	FRAME_LEN_LOWER, 0xBA,
 	DOL_EN, 0x00,
 };
 static kal_uint16 imx766_seamless_custom4[] = {
 	PHASE_PIX_OUT_EN, 0x03,
+	FRAME_LEN_UPPER, 0x09,
+	FRAME_LEN_LOWER, 0x5C,
 	DOL_EN, 0x01,
 };
 
@@ -3141,6 +3145,8 @@ static kal_uint16 imx766_seamless_custom8[] = {
 	PHASE_PIX_OUT_EN, 0x01,
 	LINE_LEN_UPPER, 0x22,
 	LINE_LEN_LOWER, 0x70,
+	FRAME_LEN_UPPER, 0x15,
+	FRAME_LEN_LOWER, 0xF8,
 	DOL_EN, 0x00,
 	DOL_MODE, 0x00,
 	BINNING_TYPE, 0x44,
@@ -3163,6 +3169,8 @@ static kal_uint16 imx766_seamless_custom9[] = {
 	PHASE_PIX_OUT_EN, 0x03,
 	LINE_LEN_UPPER, 0x22,
 	LINE_LEN_LOWER, 0x70,
+	FRAME_LEN_UPPER, 0x0A,
+	FRAME_LEN_LOWER, 0xFC,
 	DOL_EN, 0x01,
 	DOL_MODE, 0x00,
 	0x3121, 0x00,
@@ -3184,6 +3192,8 @@ static kal_uint16 imx766_seamless_custom10[] = {
 	PHASE_PIX_OUT_EN, 0x07,
 	LINE_LEN_UPPER, 0x22,
 	LINE_LEN_LOWER, 0x70,
+	FRAME_LEN_UPPER, 0x07,
+	FRAME_LEN_LOWER, 0x50,
 	DOL_EN, 0x01,
 	DOL_MODE, 0x01,
 	0x3121, 0x00,
@@ -3205,6 +3215,8 @@ static kal_uint16 imx766_seamless_custom11[] = {
 	PHASE_PIX_OUT_EN, 0x01,
 	LINE_LEN_UPPER, 0x3D,
 	LINE_LEN_LOWER, 0x00,
+	FRAME_LEN_UPPER, 0x0C,
+	FRAME_LEN_LOWER, 0x68,
 	DOL_EN, 0x00,
 	DOL_MODE, 0x00,
 	BINNING_TYPE, 0x22,
@@ -3227,6 +3239,8 @@ static kal_uint16 imx766_seamless_custom12[] = {
 	PHASE_PIX_OUT_EN, 0x01,
 	LINE_LEN_UPPER, 0x3D,
 	LINE_LEN_LOWER, 0x00,
+	FRAME_LEN_UPPER, 0x0C,
+	FRAME_LEN_LOWER, 0x68,
 	DOL_EN, 0x00,
 	DOL_MODE, 0x00,
 	BINNING_TYPE, 0x22,

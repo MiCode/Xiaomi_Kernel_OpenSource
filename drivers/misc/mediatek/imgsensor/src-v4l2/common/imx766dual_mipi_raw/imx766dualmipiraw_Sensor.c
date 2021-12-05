@@ -992,6 +992,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 			set_max_framerate(ctx, 146, 0);
 	}
 
+	ctx->shutter = shutter;
+
 	/* long expsoure */
 	if (shutter >
 		(imgsensor_info.max_frame_length - imgsensor_info.margin)) {
@@ -1055,8 +1057,6 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
  *************************************************************************/
 static void set_shutter_w_gph(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool gph)
 {
-	ctx->shutter = shutter;
-
 	write_shutter(ctx, shutter, gph);
 }
 static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
@@ -2705,8 +2705,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.pre.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		if (ctx->current_fps != imgsensor_info.cap.max_framerate)
@@ -2732,8 +2732,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.cap.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		if (framerate == 0)
@@ -2749,8 +2749,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.normal_video.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		frame_length = imgsensor_info.hs_video.pclk / framerate * 10
@@ -2763,8 +2763,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.hs_video.framelength
 				+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 		frame_length = imgsensor_info.slim_video.pclk / framerate * 10
@@ -2777,8 +2777,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.slim_video.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 		frame_length = imgsensor_info.custom1.pclk / framerate * 10
@@ -2791,8 +2791,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom1.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
 		frame_length = imgsensor_info.custom2.pclk / framerate * 10
@@ -2805,8 +2805,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom2.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 		frame_length = imgsensor_info.custom3.pclk / framerate * 10
@@ -2819,8 +2819,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom3.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM4:
 		frame_length = imgsensor_info.custom4.pclk / framerate * 10
@@ -2833,8 +2833,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom4.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM5:
 		frame_length = imgsensor_info.custom5.pclk / framerate * 10
@@ -2847,8 +2847,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom5.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM6:
 		frame_length = imgsensor_info.custom6.pclk / framerate * 10
@@ -2861,8 +2861,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom6.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM7:
 		frame_length = imgsensor_info.custom7.pclk / framerate * 10
@@ -2875,8 +2875,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom7.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM8:
 		frame_length = imgsensor_info.custom8.pclk / framerate * 10
@@ -2889,8 +2889,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom8.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM9:
 		frame_length = imgsensor_info.custom9.pclk / framerate * 10
@@ -2903,8 +2903,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom9.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM10:
 		frame_length = imgsensor_info.custom10.pclk / framerate * 10
@@ -2917,8 +2917,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom10.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM11:
 		frame_length = imgsensor_info.custom11.pclk / framerate * 10
@@ -2931,8 +2931,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom11.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM12:
 		frame_length = imgsensor_info.custom12.pclk / framerate * 10
@@ -2945,8 +2945,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom12.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM13:
 		frame_length = imgsensor_info.custom13.pclk / framerate * 10
@@ -2959,8 +2959,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			imgsensor_info.custom13.framelength
 			+ ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		break;
 	default:  /*coding with  preview scenario by default*/
 		frame_length = imgsensor_info.pre.pclk / framerate * 10
@@ -2971,8 +2971,8 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->frame_length =
 			imgsensor_info.pre.framelength + ctx->dummy_line;
 		ctx->min_frame_length = ctx->frame_length;
-		if (ctx->frame_length > ctx->shutter)
-			set_dummy(ctx);
+		// if (ctx->frame_length > ctx->shutter)
+		set_dummy(ctx);
 		LOG_INF("error scenario_id = %d, we use preview scenario\n",
 			scenario_id);
 		break;
