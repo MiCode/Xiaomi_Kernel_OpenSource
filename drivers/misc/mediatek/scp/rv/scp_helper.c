@@ -1911,7 +1911,7 @@ void scp_recovery_init(void)
 	scp_loader_virt = ioremap_wc(
 		scp_region_info_copy.ap_loader_start,
 		scp_region_info_copy.ap_loader_size);
-	pr_debug("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
+	pr_notice("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
 		(uint64_t)(phys_addr_t)scp_loader_virt,
 		(uint64_t)(phys_addr_t)scp_loader_virt +
 		(phys_addr_t)scp_region_info_copy.ap_loader_size);
@@ -1922,7 +1922,7 @@ void scp_recovery_init(void)
 	/* init reset by cmd flag */
 	scp_reset_by_cmd = 0;
 
-	scp_regdump_virt = ioremap_wc(
+	scp_regdump_virt = ioremap(
 			scp_region_info_copy.regdump_start,
 			scp_region_info_copy.regdump_size);
 	pr_debug("[SCP] scp_regdump_virt map: 0x%x + 0x%x\n",
@@ -1935,7 +1935,7 @@ void scp_recovery_init(void)
 		scp_region_info_copy.ap_dram_start,
 		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
 
-	pr_notice("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
+	pr_debug("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
 		scp_region_info_copy.ap_dram_start,
 		scp_region_info_copy.ap_dram_size);
 	}
