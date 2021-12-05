@@ -192,6 +192,10 @@
 		#clock-cells = <1>;
 	};
 
+	touch: touch {
+		compatible = "mediatek,touch";
+	};
+
 	scpsys: power-controller@1C001000 {
 		compatible = "mediatek,mt6855-scpsys", "syscon";
 		reg = <0 0x1C001000 0 0x1000>;
