@@ -347,7 +347,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	/* set DAL config and trigger display */
-	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL);
+	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL, false);
 
 	disable_attached_layer(crtc, ovl_comp, layer_id, cmdq_handle);
 

@@ -4057,7 +4057,7 @@ int mtk_drm_disp_test_show(struct drm_crtc *crtc, bool enable)
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL);
+	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL, false);
 
 	if (mtk_crtc->is_dual_pipe) {
 		struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;

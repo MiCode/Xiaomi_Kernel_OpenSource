@@ -911,7 +911,8 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv);
 struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 						struct drm_crtc_state *old_crtc_state,
-						struct mtk_crtc_state *crtc_state);
+						struct mtk_crtc_state *crtc_state,
+						bool need_sync_mml);
 void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle,
 	struct drm_crtc *crtc, struct cmdq_client *cl);
 int mtk_crtc_get_mutex_id(struct drm_crtc *crtc, unsigned int ddp_mode,
