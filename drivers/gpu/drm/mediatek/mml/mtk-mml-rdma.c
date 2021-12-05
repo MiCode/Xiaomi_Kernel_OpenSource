@@ -189,6 +189,27 @@ static const enum cpr_reg_idx lsb_to_msb[CPR_RDMA_COUNT] = {
 	[CPR_RDMA_UFO_DEC_LENGTH_BASE_C] = CPR_RDMA_UFO_DEC_LENGTH_BASE_C_MSB,
 };
 
+static const u32 rdma_urgent_th[4] = {
+	[0] = RDMA_URGENT_TH_CON_0,
+	[1] = RDMA_URGENT_TH_CON_1,
+	[2] = RDMA_URGENT_TH_CON_2,
+	[3] = RDMA_URGENT_TH_CON_3,
+};
+
+static const u32 rdma_ultra_th[4] = {
+	[0] = RDMA_ULTRA_TH_CON_0,
+	[1] = RDMA_ULTRA_TH_CON_1,
+	[2] = RDMA_ULTRA_TH_CON_2,
+	[3] = RDMA_ULTRA_TH_CON_3,
+};
+
+static const u32 rdma_preultra_th[4] = {
+	[0] = RDMA_PREULTRA_TH_CON_0,
+	[1] = RDMA_PREULTRA_TH_CON_1,
+	[2] = RDMA_PREULTRA_TH_CON_2,
+	[3] = RDMA_PREULTRA_TH_CON_3,
+};
+
 /* SMI offset */
 #define SMI_LARB_NON_SEC_CON		0x380
 
@@ -864,13 +885,13 @@ static void rdma_select_threshold(struct mml_comp_rdma *rdma,
 	/* config threshold for all plane */
 	for (i = 0; i < MML_FMT_PLANE(format); i++) {
 		cmdq_pkt_write(pkt, NULL,
-			base_pa + RDMA_URGENT_TH_CON_0 + i * 0x14,
+			base_pa + rdma_urgent_th[i],
 			golden_set->plane[i].urgent, U32_MAX);
 		cmdq_pkt_write(pkt, NULL,
-			base_pa + RDMA_ULTRA_TH_CON_0 + i * 0x14,
+			base_pa + rdma_ultra_th[i],
 			golden_set->plane[i].ultra, U32_MAX);
 		cmdq_pkt_write(pkt, NULL,
-			base_pa + RDMA_PREULTRA_TH_CON_0 + i * 0x14,
+			base_pa + rdma_preultra_th[i],
 			golden_set->plane[i].preultra, U32_MAX);
 	}
 }
@@ -951,7 +972,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		gmcif_con ^= BIT(16) | BIT(15);	/* URGENT_EN: always */
 		for (i = 0; i < MML_FMT_PLANE(src->format); i++)
 			cmdq_pkt_write(pkt, NULL,
-				base_pa + RDMA_URGENT_TH_CON_0 + i * 0x14,
+				base_pa + rdma_urgent_th[i],
 				0, U32_MAX);
 	} else if (cfg->info.mode == MML_MODE_RACING) {
 		gmcif_con |= BIT(12) |	/* ULTRA_EN */
@@ -961,7 +982,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	} else {
 		for (i = 0; i < MML_FMT_PLANE(src->format); i++)
 			cmdq_pkt_write(pkt, NULL,
-				base_pa + RDMA_PREULTRA_TH_CON_0 + i * 0x14,
+				base_pa + rdma_preultra_th[i],
 				0, U32_MAX);
 	}
 
