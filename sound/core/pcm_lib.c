@@ -2485,8 +2485,10 @@ int snd_pcm_add_chmap_ctls(struct snd_pcm *pcm, int stream,
 	}
 	info->kctl->private_free = pcm_chmap_ctl_private_free;
 	err = snd_ctl_add(pcm->card, info->kctl);
-	if (err < 0)
-		return err;
+	if (err < 0) {
+		kfree(info);
+		return -ENOMEM;
+	}
 	pcm->streams[stream].chmap_kctl = info->kctl;
 	if (info_ret)
 		*info_ret = info;
