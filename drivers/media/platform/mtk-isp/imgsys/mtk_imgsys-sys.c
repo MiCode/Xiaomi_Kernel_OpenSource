@@ -1807,7 +1807,7 @@ static int mtk_imgsys_hw_flush_pipe_jobs(struct mtk_imgsys_pipe *pipe)
 	pipe->num_jobs = 0;
 	spin_unlock_irqrestore(&pipe->running_job_lock, flag);
 
-	ret = wait_event_freezable_timeout
+	ret = wait_event_timeout
 		(pipe->imgsys_dev->flushing_waitq,
 		 !(num = atomic_read(&pipe->imgsys_dev->num_composing)),
 		 msecs_to_jiffies(1000 / 30 * DIP_COMPOSING_MAX_NUM * 3));

@@ -925,7 +925,7 @@ static void mtk_imgsys_desc_fill_ipi_param(struct mtk_imgsys_pipe *pipe,
 	}
 
 	/*fd2iova : need 2D array parsing*/
-	if (tnum >= tmax || !tnum) {
+	if (tnum >= tmax) {
 		tnum = tmax;
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
@@ -1019,7 +1019,7 @@ static void mtk_imgsys_desc_set(struct mtk_imgsys_pipe *pipe,
 		break;
 	}
 	/*fd2iova : need 2D array parsing*/
-	if (tnum >= tmax || !tnum) {
+	if (tnum >= tmax) {
 		tnum = tmax;
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
@@ -1091,7 +1091,7 @@ static void mtk_imgsys_desc_set_skip(struct mtk_imgsys_pipe *pipe,
 		break;
 	}
 	/*fd2iova : need 2D array parsing*/
-	if (tnum >= tmax || !tnum) {
+	if (tnum >= tmax) {
 		tnum = tmax;
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
@@ -1465,7 +1465,7 @@ static void mtk_imgsys_singledevice_fill_ipi_param(struct mtk_imgsys_pipe *pipe,
 		break;
 	}
 	/*fd2iova : need 2D array parsing*/
-	if (tnum >= tmax || !tnum) {
+	if (tnum >= tmax) {
 		tnum = tmax;
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
@@ -1516,7 +1516,7 @@ static void mtk_imgsys_sd_fill_dmas(struct mtk_imgsys_pipe *pipe, int dma,
 		break;
 	}
 	/*fd2iova : need 2D array parsing*/
-	if (tnum >= tmax || !tnum) {
+	if (tnum >= tmax) {
 		tnum = tmax;
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
