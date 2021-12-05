@@ -1046,6 +1046,8 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request *req;
 
+	if (irq_info->fbc_cnt == 0)
+		return;
 	/**
 	 * If the requset is already dequeued (for example, the p1 done and sof
 	 * interrupt come almost together), skip the check.
