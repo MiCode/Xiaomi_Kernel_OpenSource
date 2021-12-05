@@ -139,7 +139,7 @@
 	};
 
 	imp_iic_wrap3_clk: syscon@11B21000 {
-		compatible = "mediatek,mt6983-imp_iic_wrap2", "syscon";
+		compatible = "mediatek,mt6855-imp_iic_wrap3", "syscon";
 		reg = <0 0x11B21000 0 0x1000>;
 		#clock-cells = <1>;
 	};
