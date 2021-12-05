@@ -3279,6 +3279,26 @@ static long mt_accdet_unlocked_ioctl(struct file *file, unsigned int cmd,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480)
+void accdet_eint_callback_wrapper(unsigned int plug_status)
+{
+	int ret = 0;
+
+	pr_info("%s: call ex eint handler, plug_status %d\n", __func__, plug_status);
+
+	accdet->cur_eint_state = (plug_status == 1 ? EINT_PLUG_IN : EINT_PLUG_OUT);
+
+	disable_irq_nosync(accdet->gpioirq);//
+
+	pr_info("accdet %s(), cur_eint_state=%d\n", __func__, accdet->cur_eint_state);
+
+	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+
+	pr_info("%s: exit queue work\n", __func__);
+}
+EXPORT_SYMBOL(accdet_eint_callback_wrapper);
+#endif
+
 static const struct file_operations accdet_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = mt_accdet_unlocked_ioctl,
