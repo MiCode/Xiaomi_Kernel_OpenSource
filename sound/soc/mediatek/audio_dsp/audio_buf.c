@@ -909,7 +909,6 @@ int clear_audiobuffer_hw(struct audio_hw_buffer *audio_hwbuf)
 		return -1;
 
 	RingBuf_Bridge_Reset(&audio_hwbuf->aud_buffer.buf_bridge);
-	audio_hwbuf->counter = 0;
 
 	return ret;
 }
@@ -1295,20 +1294,18 @@ void dump_audio_hwbuffer(struct audio_hw_buffer *audio_hwbuf)
 		return;
 #if defined(__linux__)
 	pr_info(
-		"%s hw_buffer = %d audio_memiftype = %d irq_num = %d memory_type = %d counter = %d",
+		"%s hw_buffer = %d audio_memiftype = %d irq_num = %d memory_type = %d",
 		__func__, audio_hwbuf->hw_buffer,
 		audio_hwbuf->audio_memiftype,
 		audio_hwbuf->irq_num,
-		audio_hwbuf->memory_type,
-		audio_hwbuf->counter);
+		audio_hwbuf->memory_type);
 #else
 	AUD_LOG_D(
-		"%s hw_buffer = %d audio_memiftype = %d irq_num = %d memory_type = %d counter = %d",
+		"%s hw_buffer = %d audio_memiftype = %d irq_num = %d memory_type = %d",
 		__func__, audio_hwbuf->hw_buffer,
 		audio_hwbuf->audio_memiftype,
 		audio_hwbuf->irq_num,
-		audio_hwbuf->memory_type,
-		audio_hwbuf->counter);
+		audio_hwbuf->memory_type);
 
 #endif
 	dump_audio_buffer(&audio_hwbuf->aud_buffer);

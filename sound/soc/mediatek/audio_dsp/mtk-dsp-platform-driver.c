@@ -1077,11 +1077,6 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	memcpy((void *)ipi_audio_buf, (void *)&dsp_mem->adsp_buf,
 	       sizeof(struct audio_hw_buffer));
 
-	Ringbuf_Check(ringbuf);
-	Ringbuf_Bridge_Check(
-		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
-	dsp_mem->adsp_buf.counter++;
-
 	if (substream->runtime->status->state != SNDRV_PCM_STATE_RUNNING)
 		ack_type = AUDIO_IPI_MSG_NEED_ACK;
 	else
@@ -1139,7 +1134,6 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 	sync_bridge_ringbuf_readidx(&dsp_mem->adsp_buf.aud_buffer.buf_bridge,
 				    &dsp_mem->ring_buf);
 	spin_unlock_irqrestore(ringbuf_lock, flags);
-	dsp_mem->adsp_buf.counter++;
 
 	ipi_audio_buf = (void *)dsp_mem->msg_atod_share_buf.va_addr;
 	memcpy((void *)ipi_audio_buf, (void *)&dsp_mem->adsp_buf,

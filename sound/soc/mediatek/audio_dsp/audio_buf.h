@@ -75,7 +75,6 @@ struct audio_hw_buffer {
 	int audio_memiftype;   /*DL 1,2,3 */
 	int irq_num; /* irq with this hw buffer */
 	int memory_type; /* sram,dram */
-	int counter;
 	int ignore_irq;
 };
 
