@@ -362,6 +362,17 @@ int mtk_init_adsp_msg_sharemem(struct audio_dsp_dram *share_buf,
 	return 0;
 }
 
+bool is_adsp_genpool_addr_valid(struct snd_pcm_substream *substream)
+{
+	struct gen_pool *gen_pool_dsp =
+		mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
+
+	return gen_pool_has_addr(gen_pool_dsp,
+				 (unsigned long)substream->runtime->dma_area,
+				 substream->runtime->dma_bytes);
+}
+EXPORT_SYMBOL(is_adsp_genpool_addr_valid);
+
 int mtk_adsp_genpool_allocate_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 					    unsigned int size, int id)
 {

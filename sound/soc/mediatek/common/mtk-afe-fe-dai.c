@@ -24,6 +24,7 @@
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "../audio_dsp/mtk-dsp-common_define.h"
 #include "../audio_dsp/mtk-dsp-common.h"
+#include "../audio_dsp/mtk-dsp-mem-control.h"
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
@@ -272,8 +273,10 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 MEM_ALLOCATE_DONE:
-	dev_info(afe->dev, "%s(), %s, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
+	dev_info(afe->dev,
+		 "%s(), %s, use_adsp_share_mem %d, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
 		 __func__, memif->data->name,
+		 memif->use_adsp_share_mem,
 		 memif->using_sram, memif->use_dram_only,
 		 channels, rate, format,
 		 &substream->runtime->dma_addr,
@@ -357,7 +360,7 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 #endif
 	{
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-		if (memif->use_adsp_share_mem)
+		if (is_adsp_genpool_addr_valid(substream))
 			return mtk_adsp_free_mem(substream);
 #endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
