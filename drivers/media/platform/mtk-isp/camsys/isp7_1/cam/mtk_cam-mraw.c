@@ -1099,7 +1099,8 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
 							struct mtk_mraw_working_buf_entry,
 							list_entry);
-		if (mtk_cam_mraw_is_vf_on(mraw_dev)) {
+		if (buf_entry->s_data->req->pipe_used &
+			(1 << ctx->mraw_pipe[i]->id)) {
 			if ((buf_entry->ts_mraw == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
@@ -1800,8 +1801,8 @@ int mtk_cam_mraw_dev_stream_on(
 		ret = mtk_cam_mraw_cq_enable(ctx, mraw_dev) ||
 			mtk_cam_mraw_top_enable(mraw_dev);
 	else {
-		ret = mtk_cam_mraw_cq_disable(mraw_dev) ||
-			mtk_cam_mraw_top_disable(mraw_dev) ||
+		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
+			mtk_cam_mraw_cq_disable(mraw_dev) ||
 			mtk_cam_mraw_fbc_disable(mraw_dev) ||
 			mtk_cam_mraw_dma_disable(mraw_dev) ||
 			mtk_cam_mraw_tg_disable(mraw_dev);

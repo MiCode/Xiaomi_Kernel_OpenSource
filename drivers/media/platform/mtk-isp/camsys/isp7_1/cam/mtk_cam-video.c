@@ -91,13 +91,21 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 			return -EINVAL;
 	} else {
 		/* TBC: subsampling configuration */
-		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-		if (raw_pipeline && raw_pipeline->feature_pending &&
-		    fmt->fmt.pix_mp.num_planes > 1) {
-			*num_planes = fmt->fmt.pix_mp.num_planes;
-			for (i = 0; i < *num_planes; i++)
-				sizes[i] = fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
-		} else {
+		if (is_raw_subdev(node->uid.pipe_id)) {
+			raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+			if (raw_pipeline && raw_pipeline->feature_pending &&
+				fmt->fmt.pix_mp.num_planes > 1) {
+				*num_planes = fmt->fmt.pix_mp.num_planes;
+				for (i = 0; i < *num_planes; i++)
+					sizes[i] = fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
+			} else {
+				*num_planes = 1;
+				sizes[0] = size;
+			}
+		} else if (is_camsv_subdev(node->uid.pipe_id)) {
+			*num_planes = 1;
+			sizes[0] = size;
+		} else if (is_mraw_subdev(node->uid.pipe_id)) {
 			*num_planes = 1;
 			sizes[0] = size;
 		}
@@ -2450,7 +2458,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 	/* TODO: support camsv meta header */
 #if PDAF_READY
 	/* add header size for vc channel */
-	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT)
+	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
+		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT)
 		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
 		mtk_cam_get_meta_size(MTKCAM_IPI_CAMSV_MAIN_OUT);
 #endif
