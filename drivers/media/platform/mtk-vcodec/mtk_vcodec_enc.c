@@ -1171,6 +1171,8 @@ static int vidioc_venc_s_fmt_cap(struct file *file, void *priv,
 		}
 		ctx->state = MTK_STATE_INIT;
 	}
+	if (ctx->state == MTK_STATE_ABORT)
+		ctx->state = MTK_STATE_INIT; // format change, trigger encode header
 
 	return 0;
 }
@@ -1618,12 +1620,17 @@ static int vb2ops_venc_queue_setup(struct vb2_queue *vq,
 			sizes[i] = q_data->sizeimage[i];
 	}
 
-	mtk_v4l2_debug(2, "[%d] nplanes %d sizeimage %d %d %d",
+	mtk_v4l2_debug(2, "[%d] nplanes %d sizeimage %d %d %d, state=%d",
 		       ctx->id,
 		       *nplanes,
 		       q_data->sizeimage[0],
 		       q_data->sizeimage[1],
-		       q_data->sizeimage[2]);
+		       q_data->sizeimage[2],
+			   ctx->state);
+
+	if (ctx->state == MTK_STATE_ABORT) { // previously stream off with task not empty
+		ctx->state = MTK_STATE_FLUSH;
+	}
 
 	return 0;
 }
@@ -1816,6 +1823,9 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 			goto err_set_param;
 		}
 		ctx->state = MTK_STATE_HEADER;
+	} else if (ctx->state == MTK_STATE_FLUSH) {
+		mtk_v4l2_debug(1, "recover from flush");
+		ctx->state = MTK_STATE_HEADER; // flush and reset
 	} else {
 		ctx->state = MTK_STATE_INIT;
 	}
@@ -1879,7 +1889,6 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 			       vb2_is_streaming(&ctx->m2m_ctx->cap_q_ctx.q));
 		return;
 	}
-
 }
 
 static const struct vb2_ops mtk_venc_vb2_ops = {
