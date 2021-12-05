@@ -85,3 +85,6 @@ subdir-ccflags-y += -DCAMSYS_MRAW_V3
 mtk-cam-plat-mt6895-objs :=  mtk_cam-plat-mt6895.o
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-plat-mt6895.o
 endif
+ifneq ($(wildcard $(PLATFORM_PATH)/mtk_cam-plat-dummy.c),)
+subdir-ccflags-y += -DCAMSYS_MRAW_DUMMY
+endif

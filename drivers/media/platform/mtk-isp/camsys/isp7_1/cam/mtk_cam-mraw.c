@@ -32,6 +32,13 @@
 #ifdef CAMSYS_MRAW_V3
 #include "mtk_cam-meta-mt6895.h"
 #endif
+#ifndef CAMSYS_MRAW_V1
+#ifndef CAMSYS_MRAW_V2
+#ifndef CAMSYS_MRAW_V3
+#include "mtk_cam-meta-dummy.h"  // TODO: temp for other platform build pass
+#endif
+#endif
+#endif
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
