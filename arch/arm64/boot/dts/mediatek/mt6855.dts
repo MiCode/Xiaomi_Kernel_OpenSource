@@ -2148,6 +2148,31 @@
 			reg = <0 0x1023a000 0 0x2000>;
 		};
 
+		dpmaif:dpmaif@10014000 {
+			compatible = "mediatek,dpmaif";
+			reg = <0 0x10014000 0 0x1000>, /*AO_UL*/
+				<0 0x1022d000 0 0x1000>, /*PD_UL*/
+				<0 0x1022c000 0 0x1000>, /*PD_MD_MISC*/
+				<0 0x1022e000 0 0x1000>; /*SRAM*/
+			/* rxq0 irq: 142 238 270 */
+			interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH 0>; /* new rxq1 irq: 163 259 291 */
+			mediatek,dpmaif_ver = <3>;
+			mediatek,dpmaif_cap = <0x00000004>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
+					<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
+				    <&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>;
+			clock-names = "infra-dpmaif-clk",
+				    "infra-dpmaif-blk-clk",
+				    "infra-dpmaif-rg-mmw-clk";
+			interconnects = <&dvfsrc MT6873_MASTER_NETSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "icc-mdspd-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>;
+			net_spd_ver = <4>;
+			hw_reset_ver = <1>;
+		};
+
 		ccifdriver:ccifdriver@10209000 {
 			compatible = "mediatek,ccci_ccif";
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
