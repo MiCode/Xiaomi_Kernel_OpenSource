@@ -41,6 +41,17 @@ obj-$(CONFIG_COMMON_CLK_MT2712_MFGCFG) += clk-mt2712-mfg.o
 obj-$(CONFIG_COMMON_CLK_MT2712_MMSYS) += clk-mt2712-mm.o
 obj-$(CONFIG_COMMON_CLK_MT2712_VDECSYS) += clk-mt2712-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT2712_VENCSYS) += clk-mt2712-venc.o
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6833.c),)
+obj-$(CONFIG_COMMON_CLK_MT6833) += clk-mt6833.o clk-bringup.o
+obj-$(CONFIG_COMMON_CLK_MT6833_AUDIOSYS) += clk-mt6833-audiosys.o
+obj-$(CONFIG_COMMON_CLK_MT6833_CAM) += clk-mt6833-cam.o
+obj-$(CONFIG_COMMON_CLK_MT6833_MMSYS) += clk-mt6833-mmsys.o
+obj-$(CONFIG_COMMON_CLK_MT6833_IMG) += clk-mt6833-img.o
+obj-$(CONFIG_COMMON_CLK_MT6833_I2C) += clk-mt6833-i2c.o
+obj-$(CONFIG_COMMON_CLK_MT6833_BUS) += clk-mt6833-bus.o
+obj-$(CONFIG_COMMON_CLK_MT6833_MFG) += clk-mt6833-mfgcfg.o
+obj-$(CONFIG_COMMON_CLK_MT6833_VCODEC) += clk-mt6833-vcodec.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-mt6853.o
 obj-$(CONFIG_COMMON_CLK_MT6853_APU0) += clk-mt6853-apu0.o
@@ -212,6 +223,19 @@ ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/
+
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6833.c),)
+obj-$(CONFIG_COMMON_CLK_MT6833) += clk-chk-mt6833.o
+clk-chk-mt6833-$(CONFIG_COMMON_CLK_MT6833) += clkchk-mt6833.o
+obj-$(CONFIG_COMMON_CLK_MT6833) += clk-fmeter-mt6833.o
+clk-fmeter-mt6833-$(CONFIG_COMMON_CLK_MT6833) += clk-fmeter-mt6833.o
+obj-$(CONFIG_COMMON_CLK_MT6833) += pd-chk-mt6833.o
+pd-chk-mt6833-$(CONFIG_COMMON_CLK_MT6833) += mtk-pd-chk-mt6833.o
+ifeq ($(CONFIG_DEBUG_FS), y)
+obj-$(CONFIG_COMMON_CLK_MT6833) += clk-dbg-mt6833.o
+clk-dbg-mt6833-$(CONFIG_COMMON_CLK_MT6833) += clkdbg-mt6833.o
+endif
+endif
 
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6853.c),)
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-chk-mt6853.o

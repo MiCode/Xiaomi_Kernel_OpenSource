@@ -286,6 +286,89 @@ config COMMON_CLK_MT6797_VENCSYS
 	help
 	  This driver supports MediaTek MT6797 vencsys clocks.
 
+config COMMON_CLK_MT6833
+	tristate "Clock driver for MediaTek MT6833"
+	depends on ARM64 || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6833
+	help
+	  This driver supports MediaTek MT6833 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6833 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_AUDIOSYS
+	tristate "Clock driver for MediaTek MT6833 audiosys"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 audiosys clocks,
+	  which is used to control audiosys clock output.
+	  If you wish to use clock resources from the audiosys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_CAM
+	tristate "Clock driver for MediaTek MT6833 cam"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 cam clocks,
+	  which is used to control cam clock output.
+	  If you wish to use clock resources from the cam device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_MMSYS
+	tristate "Clock driver for MediaTek MT6833 mmsys"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 mmsys clocks,
+	  which is used to control mmsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_IMG
+	tristate "Clock driver for MediaTek MT6833 img"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 img clocks,
+	  which is used to control img clock output.
+	  If you wish to use clock resources from the img device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_I2C
+	tristate "Clock driver for MediaTek MT6833 i2c"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 i2c clocks,
+	  which is used to control i2c clock output.
+	  If you wish to use clock resources from the i2c device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_BUS
+	tristate "Clock driver for MediaTek MT6833 bus"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 bus clocks,
+	  which is used to control bus clock output.
+	  If you wish to use clock resources from the bus device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_MFG
+	tristate "Clock driver for MediaTek MT6833 mfg"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 mfg clocks,
+	  which is used to control mfg clock output.
+	  If you wish to use clock resources from the mfg device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6833_VCODEC
+	tristate "Clock driver for MediaTek MT6833 vcodec"
+	depends on COMMON_CLK_MT6833
+	help
+	  This driver supports MediaTek MT6833 vcodec clocks,
+	  which is used to control vcodec clock output.
+	  If you wish to use clock resources from the vcodec device,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT6853
 	tristate "Clock driver for MediaTek MT6853"
 	depends on ARM64 || COMPILE_TEST
