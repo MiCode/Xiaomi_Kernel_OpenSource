@@ -596,6 +596,39 @@ static void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
 	}
 }
 
+void *mtk_cam_get_vbuf_va(struct mtk_cam_ctx *ctx,
+		struct mtk_cam_request_stream_data *s_data, int node_id)
+{
+	struct mtk_cam_buffer *buf;
+	struct vb2_buffer *vb;
+	void *vaddr;
+
+	buf = mtk_cam_s_data_get_vbuf(s_data, node_id);
+	if (!buf) {
+		dev_info(ctx->cam->dev,
+			 "ctx(%d): can't get MTK_RAW_META_OUT_0 buf from req(%d)\n",
+			 ctx->stream_id, s_data->frame_seq_no);
+		return NULL;
+	}
+
+	vb = &buf->vbb.vb2_buf;
+	if (!vb) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get vb2 buf\n",
+			 __func__, ctx->stream_id);
+		return NULL;
+	}
+
+	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+	if (!vaddr) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): can't get plane_vadd\n",
+			 __func__, ctx->stream_id);
+		return NULL;
+	}
+	return vaddr;
+}
+
 void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		struct mtk_cam_request_stream_data *s_data)
 {
@@ -675,6 +708,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	int dequeue_cnt, s_data_cnt, handled_cnt;
 	bool del_job, del_req;
 	bool unreliable = false;
+	void *vaddr = NULL;
 
 	dequeue_cnt = 0;
 	s_data_cnt = 0;
@@ -744,13 +778,15 @@ STOP_SCAN:
 					   MTK_CAM_REQ_STATE_DELETING))
 				del_req = true;
 		}
+		if (is_raw_subdev(pipe_id))
+			vaddr = mtk_cam_get_vbuf_va(ctx, s_data, MTK_RAW_META_OUT_0);
 
 		dev_info(ctx->cam->dev,
-			"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),del_req(%d)\n",
+			"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),del_req(%d), meta out va(0x%llx)\n",
 			__func__, req->req.debug_str, ctx->stream_id, pipe_id,
 			dequeued_frame_seq_no, s_data->frame_seq_no, req->done_status,
 			req->pipe_used, ctx->streaming_pipe, ctx->cam->streaming_pipe,
-			del_job, del_req);
+			del_job, del_req, vaddr);
 
 		spin_unlock(&req->done_status_lock);
 
