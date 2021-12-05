@@ -4137,6 +4137,18 @@ int aie_init(struct mtk_aie_dev *fd)
 
 	fd->fd_state = STATE_NA;
 
+	writel(0x00400020, fd->fd_base + FDVT_RDA_0_CON3_REG);
+	writel(0x00400020, fd->fd_base + FDVT_RDA_1_CON3_REG);
+
+	writel(0x00400020, fd->fd_base + FDVT_RDB_0_CON3_REG);
+	writel(0x00400020, fd->fd_base + FDVT_RDB_1_CON3_REG);
+
+	writel(0x00400020, fd->fd_base + FDVT_WRA_0_CON3_REG);
+	writel(0x00400020, fd->fd_base + FDVT_WRA_1_CON3_REG);
+
+	writel(0x00400020, fd->fd_base + FDVT_WRB_0_CON3_REG);
+	writel(0x00400020, fd->fd_base + FDVT_WRB_0_CON3_REG);
+
 #if CHECK_SERVICE_IF_0
 	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_RDA0,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
