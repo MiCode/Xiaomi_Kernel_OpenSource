@@ -20,6 +20,9 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+#define PHY_MODE_DPPULLUP_SET 5
+#define PHY_MODE_DPPULLUP_CLR 6
+
 enum {
 	MTU3_SMC_INFRA_REQUEST = 0,
 	MTU3_SMC_INFRA_RELEASE,
@@ -272,6 +275,17 @@ void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode)
 
 	for (i = 0; i < ssusb->num_phys; i++)
 		phy_set_mode(ssusb->phys[i], mode);
+}
+
+void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb, int is_on)
+{
+	int mode = is_on ? PHY_MODE_DPPULLUP_SET : PHY_MODE_DPPULLUP_CLR;
+
+	if (ssusb->u2_dp_pullup == is_on)
+		return;
+
+	ssusb->u2_dp_pullup = is_on;
+	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE, mode);
 }
 
 int ssusb_clks_enable(struct ssusb_mtk *ssusb)
