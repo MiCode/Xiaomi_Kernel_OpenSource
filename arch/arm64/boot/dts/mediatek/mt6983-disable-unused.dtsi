@@ -10,6 +10,16 @@
 	disable-unused-clk-topckgen {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
+			<&topckgen_clk CLK_TOP_DISP0_SEL>,
+			<&topckgen_clk CLK_TOP_DISP1_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG2_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG5_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG6_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG7_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG8_SEL>,
 			<&topckgen_clk CLK_TOPCKGEN_DSP_SEL>,
 			<&topckgen_clk CLK_TOPCKGEN_DSP1_SEL>,
 			<&topckgen_clk CLK_TOPCKGEN_DSP2_SEL>,
