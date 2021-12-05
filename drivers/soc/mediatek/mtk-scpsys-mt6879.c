@@ -130,6 +130,7 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.ctl_offs = 0xE28,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "dip1",
 	},
 	[MT6879_POWER_DOMAIN_ISP_IPE] = {
 		.name = "isp_ipe",
@@ -138,6 +139,7 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"ipe"},
+		.subsys_clk_prefix = "ipe",
 	},
 	[MT6879_POWER_DOMAIN_ISP_VCORE] = {
 		.name = "isp_vcore",
@@ -198,6 +200,7 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.ctl_offs = 0xE48,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "cam_mraw",
 	},
 	[MT6879_POWER_DOMAIN_CAM_SUBA] = {
 		.name = "cam_suba",
@@ -205,6 +208,7 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.ctl_offs = 0xE4C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "cam_suba",
 	},
 	[MT6879_POWER_DOMAIN_CAM_SUBB] = {
 		.name = "cam_subb",
@@ -212,6 +216,7 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.ctl_offs = 0xE50,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "cam_subb",
 	},
 	[MT6879_POWER_DOMAIN_CAM_VCORE] = {
 		.name = "cam_vcore",
