@@ -632,7 +632,7 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			ctrl->val =
 				(mode->linetime_in_ns / 1000) * ctx->shutter_for_timeout;
 		}
-		dev_info(ctx->dev, "[%s] sof timeout value %d|%llu|%d|%d\n",
+		dev_info(ctx->dev, "[%s] sof timeout value in us %d|%llu|%d|%d\n",
 			__func__,
 			ctx->shutter_for_timeout,
 			mode->linetime_in_ns,

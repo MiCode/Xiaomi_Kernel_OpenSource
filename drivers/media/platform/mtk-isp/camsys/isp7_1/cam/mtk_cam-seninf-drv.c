@@ -1937,7 +1937,8 @@ int mtk_cam_seninf_get_pixelrate(struct v4l2_subdev *sd, s64 *p_pixel_rate)
 int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_after_sof)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
-	int frame_time = 400;//400ms
+	u64 frame_time = 400000;//400ms
+	int val = 0;
 	int ret = 0;
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
@@ -1948,17 +1949,22 @@ int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_after_sof)
 		return -EINVAL;
 	}
 
-	frame_time = v4l2_ctrl_g_ctrl(ctrl);
+	val = v4l2_ctrl_g_ctrl(ctrl);
 
-	if ((time_after_sof / 1000) > ((frame_time * SOF_TIMEOUT_RATIO) / 100))
+	if (val > 0)
+		frame_time = val;
+	time_after_sof /= 1000;// covert into us
+
+	if ((time_after_sof) > ((frame_time * SOF_TIMEOUT_RATIO) / 100))
 		ret = -1;
 
-	dev_info(ctx->dev, "%s time_after_sof %llu frame_time %llu ret %d ratio %d\n",
+	dev_info(ctx->dev, "%s time_after_sof %llu frame_time %llu in us ret %d ratio %d val %d\n",
 		__func__,
-		time_after_sof / 1000,
+		time_after_sof,
 		frame_time,
+		ret,
 		SOF_TIMEOUT_RATIO,
-		ret);
+		val);
 	return ret;
 }
 
