@@ -2855,7 +2855,7 @@ void mtk_vcodec_enc_set_default_params(struct mtk_vcodec_ctx *ctx)
 {
 	struct mtk_q_data *q_data;
 
-	ctx->m2m_ctx->q_lock = &ctx->dev->dev_mutex;
+	ctx->m2m_ctx->q_lock = &ctx->q_mutex;
 	ctx->fh.m2m_ctx = ctx->m2m_ctx;
 	ctx->fh.ctrl_handler = &ctx->ctrl_hdl;
 	INIT_WORK(&ctx->encode_work, mtk_venc_worker);
@@ -3377,7 +3377,7 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	mtk_v4l2_debug(4, "src_vq use vb2_dma_contig_memops");
 #endif
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-	src_vq->lock            = &ctx->dev->dev_mutex;
+	src_vq->lock            = &ctx->q_mutex;
 	src_vq->allow_zero_bytesused = 1;
 	src_vq->dev             = &ctx->dev->plat_dev->dev;
 
@@ -3398,7 +3398,7 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	mtk_v4l2_debug(4, "dst_vq use vb2_dma_contig_memops");
 #endif
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-	dst_vq->lock            = &ctx->dev->dev_mutex;
+	dst_vq->lock            = &ctx->q_mutex;
 	dst_vq->allow_zero_bytesused = 1;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	if (ctx->dev->enc_cnt & 1) {
