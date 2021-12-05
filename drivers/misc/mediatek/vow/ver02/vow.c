@@ -3070,15 +3070,6 @@ static struct notifier_block vow_scp_recover_notifier = {
 static int VowDrv_probe(struct platform_device *dev)
 {
 	VOWDRV_DEBUG("%s()\n", __func__);
-	vow_suspend_lock = wakeup_source_register(NULL, "vow wakelock");
-	vow_ipi_suspend_lock = wakeup_source_register(NULL, "vow ipi wakelock");
-
-	if (!vow_suspend_lock)
-		pr_debug("vow wakeup source init failed.\n");
-
-	if (!vow_ipi_suspend_lock)
-		pr_debug("vow ipi wakeup source init failed.\n");
-
 	VowDrv_setup_smartdev_eint(dev);
 	return 0;
 }
@@ -3086,8 +3077,6 @@ static int VowDrv_probe(struct platform_device *dev)
 static int VowDrv_remove(struct platform_device *dev)
 {
 	VOWDRV_DEBUG("%s()\n", __func__);
-	wakeup_source_unregister(vow_suspend_lock);
-	wakeup_source_unregister(vow_ipi_suspend_lock);
 	return 0;
 }
 
@@ -3233,6 +3222,14 @@ static int __init VowDrv_mod_init(void)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	scp_A_register_notify(&vow_scp_recover_notifier);
 #endif
+	vow_suspend_lock = wakeup_source_register(NULL, "vow wakelock");
+	vow_ipi_suspend_lock = wakeup_source_register(NULL, "vow ipi wakelock");
+
+	if (!vow_suspend_lock)
+		pr_debug("vow wakeup source init failed.\n");
+
+	if (!vow_ipi_suspend_lock)
+		pr_debug("vow ipi wakeup source init failed.\n");
 	VOWDRV_DEBUG("-%s(): Init Audio WakeLock\n", __func__);
 
 	return 0;
@@ -3241,6 +3238,8 @@ static int __init VowDrv_mod_init(void)
 static void __exit VowDrv_mod_exit(void)
 {
 	VOWDRV_DEBUG("+%s()\n", __func__);
+	wakeup_source_unregister(vow_suspend_lock);
+	wakeup_source_unregister(vow_ipi_suspend_lock);
 	vow_pcm_dump_deinit();
 	VOWDRV_DEBUG("-%s()\n", __func__);
 }
