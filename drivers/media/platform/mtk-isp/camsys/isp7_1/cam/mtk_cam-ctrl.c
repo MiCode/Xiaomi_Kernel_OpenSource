@@ -37,7 +37,10 @@
 
 #define STATE_NUM_AT_SOF 3
 #define INITIAL_DROP_FRAME_CNT 1
+/*stagger sensor stability option for camsys*/
 #define STAGGER_CQ_LAST_SOF 1
+#define STAGGER_DYNAMIC_SWITCH 1
+
 enum MTK_CAMSYS_STATE_RESULT {
 	STATE_RESULT_TRIGGER_CQ = 0,
 	STATE_RESULT_PASS_CQ_INIT,
@@ -1803,12 +1806,30 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			switch_type = req_stream_data->feature.switch_feature_type;
 			if (switch_type &&
 				req_stream_data->feature.switch_done == 0 &&
-			    !mtk_cam_feature_change_is_mstream(switch_type)) {
-				mtk_cam_exp_sensor_switch(ctx, req_stream_data);
-				state_transition(state_rec[0], E_STATE_READY,
-						 E_STATE_SENSOR);
-				*current_state = state_rec[0];
-				return STATE_RESULT_TRIGGER_CQ;
+				!mtk_cam_feature_change_is_mstream(switch_type)) {
+				int res = 0;
+
+				if (STAGGER_DYNAMIC_SWITCH) {
+					mtk_cam_exp_sensor_switch(ctx, req_stream_data);
+					state_transition(state_rec[0], E_STATE_READY,
+							E_STATE_SENSOR);
+					*current_state = state_rec[0];
+					res = STATE_RESULT_TRIGGER_CQ;
+				} else {
+					/* trigger sensor switch and cam mux switch when*/
+					if (req_stream_data->feature.switch_prev_frame_done) {
+						mtk_cam_exp_sensor_switch(ctx, req_stream_data);
+						state_transition(state_rec[0], E_STATE_READY,
+							 E_STATE_SENSOR);
+						*current_state = state_rec[0];
+						res = STATE_RESULT_TRIGGER_CQ;
+					} else {
+						dev_info(raw_dev->dev, "[switch] prev not done :%lu\n",
+							irq_info->ts_ns / 1000);
+						res = STATE_RESULT_PASS_CQ_SW_DELAY;
+					}
+				}
+				return res;
 			}
 		}
 		if (working_req_found && state_rec[0]) {
@@ -2635,6 +2656,16 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 	if (!raw_dev->stagger_en && !state_switch) {
 		mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
 		return 0;
+	}
+	/* trigger sensor switch and cam mux switch when*/
+	if (state_switch && STAGGER_DYNAMIC_SWITCH == 0) {
+		req = mtk_cam_ctrl_state_get_req(state_switch);
+		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		if (req_stream_data->feature.switch_prev_frame_done == 0) {
+			dev_info(raw_dev->dev, "[%s] prev not done :%lu\n",
+			__func__, irq_info->ts_ns / 1000);
+			return 0;
+		}
 	}
 	/*HDR to Normal cam mux switch case timing will be at last sof*/
 	if (state_switch) {
@@ -3503,8 +3534,11 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 			switch_type = req_stream_data->feature.switch_feature_type;
 			feature = req_stream_data->feature.raw_feature;
 			if (switch_type &&
-			    !mtk_cam_feature_change_is_mstream(switch_type)) {
-				mtk_cam_hdr_switch_toggle(ctx, feature);
+				!mtk_cam_feature_change_is_mstream(switch_type)) {
+				req_stream_data->feature.switch_prev_frame_done = 1;
+				if (req_stream_data->feature.switch_prev_frame_done &&
+					req_stream_data->feature.switch_curr_setting_done)
+					mtk_cam_hdr_switch_toggle(ctx, feature);
 				dev_dbg(ctx->cam->dev,
 					"[SWD] switch req toggle check req:%d type:%d\n",
 					req_stream_data->frame_seq_no,
