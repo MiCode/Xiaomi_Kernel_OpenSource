@@ -7361,6 +7361,9 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 	if (plane_state_l->pending.width == 0)
 		plane_state_l->pending.height = 0;
 
+	if (plane_state_l->pending.width > w/2)
+		plane_state_l->pending.width = w/2;
+
 	DDPDBG("plane_l (%u,%u) (%u,%u), (%u,%u)\n",
 		plane_state_l->pending.src_x, plane_state_l->pending.src_y,
 		plane_state_l->pending.dst_x, plane_state_l->pending.dst_y,
@@ -7396,6 +7399,9 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 
 	if (plane_state_r->pending.width == 0)
 		plane_state_r->pending.height = 0;
+
+	if (plane_state_r->pending.width > w/2)
+		plane_state_r->pending.width = w/2;
 
 	DDPDBG("plane_r (%u,%u) (%u,%u), (%u,%u)\n",
 		plane_state_r->pending.src_x, plane_state_r->pending.src_y,
