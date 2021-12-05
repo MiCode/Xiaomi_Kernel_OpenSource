@@ -1224,8 +1224,8 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		msg = "Flip without rotation";
 	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
-		ofst->y = ((out_xs / 8) + 1) *
-			  ((wrot_frm->y_stride / 128) - 1) * 1024;
+		ofst->y = (((out_xs / 8) + 1) *
+			  (wrot_frm->y_stride / 128) - 1) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
@@ -1271,8 +1271,8 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		msg = "Rotate 270 degree only";
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
-		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8)) *
-			  ((wrot_frm->y_stride / 128) - 1) * 1024;
+		ofst->y = (((wrot_frm->out_w / 8) - (out_xs / 8)) *
+			  (wrot_frm->y_stride / 128) - 1) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;

@@ -128,6 +128,8 @@ static void check_fence(int32_t fd, const char *func)
 	put_unused_fd(fd);
 }
 
+#define mml_afbc_align(p) (((p + 31) >> 5) << 5)
+
 static void fillin_info_data(u32 format, u32 width, u32 height,
 	struct mml_frame_data *data)
 {
@@ -139,7 +141,7 @@ static void fillin_info_data(u32 format, u32 width, u32 height,
 	if (data->plane_cnt >= 2)
 		data->uv_stride = mml_color_get_min_uv_stride(
 			data->format, data->width);
-	data->vert_stride = 0;
+	data->vert_stride = mml_afbc_align(height);
 	data->profile = 0;
 	data->secure = false;
 }
@@ -521,8 +523,6 @@ static void case_run_block_to_nv12(struct mml_test *test, struct mml_test_case *
  * format in: RGB888
  * format out: AFBC_RGBA8888
  */
-#define mml_afbc_align(p) (((p + 31) >> 5) << 5)
-
 static void case_config_afbc(void)
 {
 	the_case.cfg_src_format = MML_FMT_RGB888;
@@ -1020,6 +1020,7 @@ static void setup_crop_manual(struct mml_submit *task, struct mml_test_case *cur
 	task->info.dest[0].crop.r.width = mml_test_crop_width;
 	task->info.dest[0].crop.r.height = mml_test_crop_height;
 	task->info.dest[0].rotate = mml_test_rot;
+	task->info.dest[0].flip = mml_test_flip;
 
 	/* check dest 0 with 2 plane size */
 	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
