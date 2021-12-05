@@ -1,5 +1,5 @@
-export MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-subdir-ccflags-y += -Werror
+export MTK_PLATFORM := $(subst $(quote),,$(CONFIG_MTK_PLATFORM))
+subdir-ccflags-y := -Werror $(call cc-disable-warning, unused-but-set-variable)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
@@ -12,7 +12,7 @@ obj-$(CONFIG_MTK_IRTX_PWM_SUPPORT) += irtx/
 obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += adsp/
 obj-$(CONFIG_MTK_AUDIO_IPI) += audio_ipi/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
-ifeq ($(subst ",,$(CONFIG_MTK_SENSOR_ARCHITECTURE)), 1.0)
+ifeq ($(subst $(quote),,$(CONFIG_MTK_SENSOR_ARCHITECTURE)), 1.0)
 obj-y += sensors-1.0/
 endif
 

@@ -1,0 +1,18 @@
+ARCH=arm64
+CROSS_COMPILE=aarch64-linux-gnu-
+LLVM=1
+LLVM_IAS=1
+LD_LIBRARY_PATH=prebuilts/clang/host/linux-x86/clang-r433403b/lib64:$$LD_LIBRARY_PATH
+# DEFCONFIG=defconfig
+KERNEL_DIR=kernel-4.19
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r433403b/bin
+# for check scripts
+CC=clang
+LD=ld.lld
+AR=llvm-ar
+NM=llvm-nm
+OBJCOPY=llvm-objcopy
+OBJDUMP=llvm-objdump
+READELF=llvm-readelf
+OBJSIZE=llvm-size
+STRIP=llvm-strip

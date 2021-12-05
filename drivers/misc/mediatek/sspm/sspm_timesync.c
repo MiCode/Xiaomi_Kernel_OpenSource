@@ -35,7 +35,7 @@
 /* sched_clock wrap time is 4398 seconds for arm arch timer
  * applying a period less than it for tinysys timesync
  */
-#define TIMESYNC_WRAP_TIME (4000*NSEC_PER_SEC)
+#define TIMESYNC_WRAP_TIME (4000ULL * NSEC_PER_SEC)
 
 struct timesync_context_t {
 	spinlock_t lock;
