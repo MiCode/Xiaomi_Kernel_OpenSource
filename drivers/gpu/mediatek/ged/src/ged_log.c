@@ -1000,6 +1000,7 @@ unsigned int is_gpu_ged_log_enable(void)
 {
 	return gpu_debug_log_enable;
 }
+EXPORT_SYMBOL(is_gpu_ged_log_enable);
 
 static ssize_t gpu_debug_log_store(struct kobject *kobj, struct kobj_attribute *attr,
 		const char *buf, size_t count)
