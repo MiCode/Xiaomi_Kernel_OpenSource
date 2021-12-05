@@ -758,7 +758,7 @@ static void pq_bypass_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
-static void mtk_atomit_doze_bypass_pq(struct drm_crtc *crtc)
+static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage, bool old_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state;
@@ -766,128 +766,79 @@ static void mtk_atomit_doze_bypass_pq(struct drm_crtc *crtc)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
 	int i, j;
+	unsigned int bypass = 0;
 
-#ifndef DRM_CMDQ_DISABLE
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
-#endif
-
-	DDPINFO("%s\n", __func__);
+	DDPINFO("%s+: new crtc state = %d, old crtc state = %d, stage = %d\n", __func__,
+		crtc->state->active, old_state, stage);
 	mtk_state = to_mtk_crtc_state(crtc->state);
 
 	if (!crtc->state->active) {
-		DDPINFO("%s: crtc is not active\n", __func__);
+		if (mtk_state->doze_changed &&
+			!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+			DDPINFO("%s: doze switch to suspend, need enable pq first\n", __func__);
+		} else {
+			DDPINFO("%s: crtc is not active\n", __func__);
+			return;
+		}
+	}
+
+	if (mtk_state->doze_changed) {
+		if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+			if (!crtc->state->active && stage == 1)
+				return;
+			else if (crtc->state->active && stage == 0)
+				return;
+			bypass = 0;
+		} else {
+			if (!old_state && stage == 0)
+				return;
+			else if (old_state && stage == 1)
+				return;
+			bypass = 1;
+		}
+	} else {
+		DDPINFO("%s: doze not change, skip update pq\n", __func__);
 		return;
 	}
 
-	if (mtk_state->doze_changed &&
-		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
-		DDPINFO("%s: enable doze, bypass pq\n", __func__);
-
-		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-		if (!cb_data) {
-			DDPPR_ERR("cb data creation failed\n");
-			return;
-		}
-
-		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-		cb_data->crtc = crtc;
-		cb_data->cmdq_handle = cmdq_handle;
-
-#ifndef DRM_CMDQ_DISABLE
-		cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
-#endif
-
-		if (mtk_crtc_is_frame_trigger_mode(crtc))
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-		else
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-
-		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
-			if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
-					mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
-				if (comp->funcs && comp->funcs->bypass)
-					mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
-			}
-		}
-
-		if (mtk_crtc->is_dual_pipe) {
-			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
-				if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
-					mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
-					if (comp->funcs && comp->funcs->bypass)
-						mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
-				}
-			}
-		}
-
-		if (cmdq_pkt_flush_threaded(cmdq_handle, pq_bypass_cmdq_cb, cb_data) < 0)
-			DDPPR_ERR("failed to flush user_cmd\n");
-	}
-}
-
-static void mtk_atomit_doze_enable_pq(struct drm_crtc *crtc)
-{
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_state *mtk_state;
-	struct mtk_ddp_comp *comp;
-	struct cmdq_pkt *cmdq_handle;
-	struct mtk_cmdq_cb_data *cb_data;
-	int i, j;
-
-	DDPINFO("%s\n", __func__);
-	mtk_state = to_mtk_crtc_state(crtc->state);
-
-	if (!crtc->state->active) {
-		DDPINFO("%s: crtc is not active\n", __func__);
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		DDPPR_ERR("cb data creation failed\n");
 		return;
 	}
 
-	if (mtk_state->doze_changed &&
-		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
-		DDPINFO("%s: disable doze, enable pq\n", __func__);
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	cb_data->crtc = crtc;
+	cb_data->cmdq_handle = cmdq_handle;
 
-		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-		if (!cb_data) {
-			DDPPR_ERR("cb data creation failed\n");
-			return;
+	if (mtk_crtc_is_frame_trigger_mode(crtc))
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	else
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
+				mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
+			if (comp->funcs && comp->funcs->bypass)
+				mtk_ddp_comp_bypass(comp, bypass, cmdq_handle);
 		}
-
-		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-		cb_data->crtc = crtc;
-		cb_data->cmdq_handle = cmdq_handle;
-
-		if (mtk_crtc_is_frame_trigger_mode(crtc))
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-		else
-			cmdq_pkt_wait_no_clear(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-
-		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
-			if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
-					mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
-				if (comp->funcs && comp->funcs->bypass)
-					mtk_ddp_comp_bypass(comp, 0, cmdq_handle);
-			}
-		}
-
-		if (mtk_crtc->is_dual_pipe) {
-			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
-				if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
-					mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
-					if (comp->funcs && comp->funcs->bypass)
-						mtk_ddp_comp_bypass(comp, 0, cmdq_handle);
-				}
-			}
-		}
-
-		if (cmdq_pkt_flush_threaded(cmdq_handle, pq_bypass_cmdq_cb, cb_data) < 0)
-			DDPPR_ERR("failed to flush user_cmd\n");
 	}
+
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
+				mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
+				if (comp->funcs && comp->funcs->bypass)
+					mtk_ddp_comp_bypass(comp, bypass, cmdq_handle);
+			}
+		}
+	}
+
+	if (cmdq_pkt_flush_threaded(cmdq_handle, pq_bypass_cmdq_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush user_cmd\n");
 }
 
 static void mtk_atomic_doze_preparation(struct drm_device *dev,
@@ -907,7 +858,7 @@ static void mtk_atomic_doze_preparation(struct drm_device *dev,
 			continue;
 		}
 
-		mtk_atomit_doze_bypass_pq(crtc);
+		mtk_atomit_doze_update_pq(crtc, 0, old_state->crtcs[i].old_state->active);
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 1);
 
@@ -935,7 +886,7 @@ static void mtk_atomic_doze_finish(struct drm_device *dev,
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 0);
 
-		mtk_atomit_doze_enable_pq(crtc);
+		mtk_atomit_doze_update_pq(crtc, 1, old_state->crtcs[i].old_state->active);
 	}
 }
 
