@@ -3438,17 +3438,18 @@
 
 		disp_pwm: disp_pwm0@1100e000 {
 			compatible = "mediatek,disp_pwm0",
-					"mediatek,mt6855dis-disp-pwm";
+					"mediatek,mt6855-disp-pwm";
 			reg = <0 0x1100e000 0 0x1000>;
 			interrupts = <GIC_SPI 471 IRQ_TYPE_LEVEL_HIGH 0>;
 			#pwm-cells = <2>;
 		};
 
 		dispsys_config: dispsys_config@14000000 {
-			compatible = "mediatek,mt6855dis-mmsys";
+			compatible = "mediatek,mt6855-mmsys";
 			reg = <0 0x14000000 0 0x1000>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 #if 0
 			iommus = <&disp_iommu M4U_LARB0_PORT1>;
 			fake-engine = <&smi_larb0 M4U_LARB0_PORT4>,
@@ -3621,7 +3622,7 @@
 
 		disp_mutex0: disp_mutex0@14001000 {
 			compatible = "mediatek,disp_mutex0",
-					"mediatek,mt6855dis-disp-mutex";
+					"mediatek,mt6855-disp-mutex";
 			reg = <0 0x14001000 0 0x1000>;
 			interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH 0>;
 			//clocks = <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
@@ -3629,11 +3630,12 @@
 
 		disp_ovl0: disp_ovl0@14002000 {
 			compatible = "mediatek,disp_ovl0",
-					"mediatek,mt6855dis-disp-ovl";
+					"mediatek,mt6855-disp-ovl";
 			reg = <0 0x14002000 0 0x1000>;
 			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 #if 0
 			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL0>;
 			iommus = <&disp_iommu M4U_LARB0_PORT1>,
@@ -3653,11 +3655,12 @@
 
 		disp_ovl1_2l: disp_ovl1_2l@14004000 {
 			compatible = "mediatek,disp_ovl1_2l",
-					"mediatek,mt6855dis-disp-ovl";
+					"mediatek,mt6855-disp-ovl";
 			reg = <0 0x14004000 0 0x1000>;
 			interrupts = <GIC_SPI 306 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,larb = <&smi_larb1>;
 			mediatek,smi-id = <1>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 #if 0
 			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL1_2L>;
 			iommus = <&disp_iommu M4U_LARB1_PORT1>,
@@ -3677,7 +3680,7 @@
 
 		disp_rsz0: disp_rsz0@14005000 {
 			compatible = "mediatek,disp_rsz0",
-				"mediatek,mt6855dis-disp-rsz";
+				"mediatek,mt6855-disp-rsz";
 			reg = <0 0x14005000 0 0x1000>;
 			interrupts = <GIC_SPI 307 IRQ_TYPE_LEVEL_HIGH 0>;
 			//clocks = <&dispsys_config_clk CLK_MM_DISP_RSZ0>;
@@ -3685,11 +3688,12 @@
 
 		disp_rdma0: disp_rdma0@14006000 {
 			compatible = "mediatek,disp_rdma0",
-				"mediatek,mt6855dis-disp-rdma";
+				"mediatek,mt6855-disp-rdma";
 			reg = <0 0x14006000 0 0x1000>;
 			interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,larb = <&smi_larb1>;
 			mediatek,smi-id = <1>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 #if 0
 			clocks = <&dispsys_config_clk CLK_MM_DISP_RDMA0>;
 			iommus = <&disp_iommu M4U_LARB1_PORT0>;
@@ -3777,7 +3781,7 @@
 
 		disp_dsc_wrap0: disp_dsc_wrap0@14015000 {
 			compatible = "mediatek,disp_dsc_wrap",
-					"mediatek,mt6855dis-disp-dsc";
+					"mediatek,mt6855-disp-dsc";
 			reg = <0 0x14015000 0 0x1000>;
 			interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH 0>;
 			//clocks = <&dispsys_config_clk CLK_MM_DISP_DSC_WRAP0>;
@@ -3789,7 +3793,7 @@
 
 		mipi_tx_config0: mipi_tx_config@11e50000 {
 			compatible = "mediatek,mipi_tx_config0",
-					"mediatek,mt6855dis-mipi-tx";
+					"mediatek,mt6855-mipi-tx";
 			reg = <0 0x11e50000 0 0x1000>;
 			clocks = <&clk26m>;
 			#clock-cells = <0>;
@@ -3799,7 +3803,7 @@
 
 		dsi0: dsi@14017000 {
 			compatible = "mediatek,dsi0",
-					"mediatek,mt6855dis-dsi";
+					"mediatek,mt6855-dsi";
 			reg = <0 0x14017000 0 0x1000>;
 			interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH 0>;
 			phys = <&mipi_tx_config0>;
@@ -3819,9 +3823,10 @@
 
 		disp_wdma0: disp_wdma0@14018000 {
 			compatible = "mediatek,disp_wdma0",
-					"mediatek,mt6855dis-disp-wdma";
+					"mediatek,mt6855-disp-wdma";
 			reg = <0 0x14018000 0 0x1000>;
 			interrupts = <GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH 0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 #if 0
 			clocks = <&dispsys_config_clk CLK_MM_DISP_WDMA0>;
 			mediatek,larb = <&smi_larb0>;
@@ -3832,7 +3837,7 @@
 
 		disp_ufbc_wdma: disp_ufbc_wdma@14019000 {
 			compatible = "mediatek,disp_ufbc_wdma",
-					"mediatek,mt6855dis-disp-ufbc-wdma";
+					"mediatek,mt6855-disp-ufbc-wdma";
 			reg = <0 0x14019000 0 0x10000>;
 			interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH 0>;
 #if 0
