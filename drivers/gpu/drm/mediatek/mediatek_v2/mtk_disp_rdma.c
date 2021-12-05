@@ -329,7 +329,13 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				lcm_fps_ctx_update(rdma_end_time,
 						   mtk_crtc->base.index, 1);
 			}
-			mtk_crtc->eof_time = ktime_get();
+			if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+				(rdma->id == DDP_COMPONENT_RDMA0 ||
+					rdma->id == DDP_COMPONENT_RDMA3)) {
+				mtk_crtc->pf_time = ktime_get();
+				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
+				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
+			}
 		}
 		mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
