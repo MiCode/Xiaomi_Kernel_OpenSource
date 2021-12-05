@@ -1184,11 +1184,13 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	dev_dbg(cam->dev, "%s:%s:ctx(%d) req(%d):sensor try set start\n",
 		__func__, req->req.debug_str, ctx->stream_id, s_data->frame_seq_no);
 
-	MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_start");
-	if (mtk_cam_req_frame_sync_start(req))
-		dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
-			__func__, req->req.debug_str, ctx->stream_id);
-	MTK_CAM_TRACE_END(BASIC); /* frame_sync_start */
+	if (ctx->used_raw_num) {
+		MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_start");
+		if (mtk_cam_req_frame_sync_start(req))
+			dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
+				__func__, req->req.debug_str, ctx->stream_id);
+		MTK_CAM_TRACE_END(BASIC); /* frame_sync_start */
+	}
 
 	if (mtk_cam_is_mstream(ctx))
 		is_mstream_last_exposure =
@@ -1222,11 +1224,13 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		state_transition(&s_data->state,
 		E_STATE_READY, E_STATE_SENSOR);
 
-	MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_end");
-	if (mtk_cam_req_frame_sync_end(req))
-		dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
-			__func__, ctx->stream_id);
-	MTK_CAM_TRACE_END(BASIC); /* frame_sync_end */
+	if (ctx->used_raw_num) {
+		MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_end");
+		if (mtk_cam_req_frame_sync_end(req))
+			dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
+				__func__, ctx->stream_id);
+		MTK_CAM_TRACE_END(BASIC); /* frame_sync_end */
+	}
 
 	if (ctx->used_raw_num) {
 		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
