@@ -190,4 +190,22 @@ initcall_debug=1";
 
 #include "mediatek/cust_mt6855_touch_1080x2400.dtsi"
 #include "mediatek/cust_mt6855_camera_v4l2.dtsi"
+
+&i2c6 {
+	spk: speaker_amp@5c {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5c>;
+		status = "okay";
+		sound-name-prefix = "Left";
+	};
+};
+
+&sound {
+	mediatek,spk-i2s = <3 0>;
+	mediatek,speaker-codec {
+		sound-dai = <&spk>;
+	};
+};
+
 /*End of this file, DO NOT ADD ANYTHING HERE*/
