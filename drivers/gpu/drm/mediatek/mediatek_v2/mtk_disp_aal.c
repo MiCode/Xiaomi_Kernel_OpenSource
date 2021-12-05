@@ -1802,11 +1802,8 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 		if (result) {
 			AALIRQ_LOG("wake_up_interruptible");
 			wake_up_interruptible(&g_aal_hist_wq);
-		} else if (!(comp->mtk_crtc->is_dual_pipe)) {
-			if (atomic_read(&g_aal_first_frame) == 1) {
-				AALIRQ_LOG("single pipe g_aal_first_frame[1] queue_work");
-				queue_work(aal_flip_wq, &g_aal_data->aal_flip_task);
-			}
+		} else {
+			AALIRQ_LOG("result fail");
 		}
 	}
 
@@ -2429,10 +2426,14 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&aal_data->is_clock_on, 1);
-	if (comp->id == DDP_COMPONENT_AAL0)
+	if (comp->id == DDP_COMPONENT_AAL0) {
 		atomic_set(&g_aal_data->is_clock_on, 1);
-	if (comp->id == DDP_COMPONENT_AAL1)
+		atomic_set(&g_aal_first_frame, 1);
+	}
+	if (comp->id == DDP_COMPONENT_AAL1) {
 		atomic_set(&g_aal1_data->is_clock_on, 1);
+		atomic_set(&g_aal1_first_frame, 1);
+	}
 	AALFLOW_LOG("[aal_data, g_aal_data] addr[%x, %x] val[%d, %d]\n",
 			&aal_data->is_clock_on, &g_aal_data->is_clock_on,
 			atomic_read(&aal_data->is_clock_on),
@@ -2476,13 +2477,11 @@ static void mtk_aal_unprepare(struct mtk_ddp_comp *comp)
 	AALFLOW_LOG("\n");
 	spin_lock_irqsave(&g_aal_clock_lock, flags);
 	atomic_set(&aal_data->is_clock_on, 0);
-	if (comp->id == DDP_COMPONENT_AAL0) {
+	if (comp->id == DDP_COMPONENT_AAL0)
 		atomic_set(&g_aal_data->is_clock_on, 0);
-		atomic_set(&g_aal_first_frame, 1);
-	} else if (comp->id == DDP_COMPONENT_AAL1) {
+
+	if (comp->id == DDP_COMPONENT_AAL1)
 		atomic_set(&g_aal1_data->is_clock_on, 0);
-		atomic_set(&g_aal1_first_frame, 1);
-	}
 
 	spin_unlock_irqrestore(&g_aal_clock_lock, flags);
 	if (first_backup || debug_skip_first_br)
@@ -2593,20 +2592,6 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 		disp_aal_dre3_irq_handle(comp);
 	else
 		disp_aal_single_pipe_hist_update(comp);
-
-	if (isDualPQ) {
-		if (atomic_read(&g_aal_first_frame) == 1
-			&& atomic_read(&g_aal1_first_frame) == 1) {
-			atomic_set(&g_aal_first_frame, 0);
-			atomic_set(&g_aal1_first_frame, 0);
-			queue_work(aal_refresh_wq, &g_aal_data->aal_refresh_task);
-		}
-	} else {
-		if (atomic_read(&g_aal_first_frame) == 1) {
-			atomic_set(&g_aal_first_frame, 0);
-			queue_work(aal_refresh_wq, &g_aal_data->aal_refresh_task);
-		}
-	}
 }
 
 static void disp_aal_wait_sof_irq(void)
@@ -2660,7 +2645,13 @@ static void disp_aal_wait_sof_irq(void)
 			mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
 			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
 		}
-
+	} else {
+		if (atomic_read(&g_aal_first_frame) == 1) {
+			AALIRQ_LOG("aal_refresh_task");
+			atomic_set(&g_aal_first_frame, 0);
+			mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+		}
 	}
 
 	if (atomic_read(&g_aal_interrupt_enabled) == 1) {
