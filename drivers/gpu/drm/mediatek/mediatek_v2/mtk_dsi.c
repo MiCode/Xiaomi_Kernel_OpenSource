@@ -250,6 +250,9 @@
 #define DSI_STATE_DBG7 0x164
 #define FLD_VFP_PERIOD REG_FLD_MSB_LSB(12, 12)
 
+#define DSI_DEBUG_SEL 0x170
+#define MM_RST_SEL BIT(10)
+
 #define DSI_SHADOW_DEBUG 0x190
 #define DSI_BYPASS_SHADOW BIT(1)
 #define DSI_READ_WORKING BIT(2)
@@ -1439,6 +1442,7 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
 			DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 	mtk_dsi_mask(dsi, DSI_BUF_CON1, 0x7fff, tmp);
+	mtk_dsi_mask(dsi, DSI_DEBUG_SEL, MM_RST_SEL, MM_RST_SEL);
 
 	fill_rate = mmsys_clk * 3 / 18;
 	tmp = readl(dsi->regs + DSI_BUF_CON1) >> 16;
