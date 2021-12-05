@@ -237,4 +237,5 @@ initcall_debug=1";
 /* GPS GPIO standardization end */
 
 #include "mediatek/cust_mt6855_touch_1080x2400.dtsi"
+#include "mediatek/cust_mt6855_camera_v4l2.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
