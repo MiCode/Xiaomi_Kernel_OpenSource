@@ -5485,6 +5485,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	int timeout;
 	static u64 last_vsync_count;
 	bool is_abnormal_vsync = false;
+	unsigned int int_en;
 
 	ctx = container_of(work, struct mtk_cam_ctx, watchdog_work);
 	seninf = ctx->seninf;
@@ -5526,16 +5527,23 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
 			watchdog_timeout_cnt = atomic_read(&ctx->watchdog_timeout_cnt);
 			if (watchdog_dump_cnt == watchdog_timeout_cnt) {
+				int_en = readl_relaxed(raw->base + REG_CTL_RAW_INT_EN);
 				if (raw->vsync_count == 0) {
 					dev_info(ctx->cam->dev,
 						"vsync count(%d), VF(%d), INT_EN(0x%x)\n",
 						raw->vsync_count,
 						atomic_read(&raw->vf_en),
-						readl_relaxed(raw->base + REG_CTL_RAW_INT_EN));
-
-					aee_kernel_warning_api(
-						__FILE__, __LINE__, DB_OPT_DEFAULT,
-						"Camsys: Vsync timeout", "watchdog timeout");
+						int_en);
+					if (int_en == 0)
+						aee_kernel_warning_api(
+							__FILE__, __LINE__, DB_OPT_DEFAULT,
+							"Camsys: Request release timeout",
+							"watchdog timeout");
+					else
+						aee_kernel_warning_api(
+							__FILE__, __LINE__, DB_OPT_DEFAULT,
+							"Camsys: Vsync timeout",
+							"watchdog timeout");
 
 				} else if (atomic_read(&raw->vf_en) == 0) {
 					dev_info(ctx->cam->dev,
