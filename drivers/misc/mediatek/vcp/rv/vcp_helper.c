@@ -775,8 +775,6 @@ void vcp_disable_pm_clk(enum feature_id id)
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
 		vcp_wait_ready_sync(id);
-		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x\n", VCP_BUS_DEBUG_OUT,
-			readl(VCP_BUS_DEBUG_OUT));
 		vcp_disable_irqs();
 
 		flush_workqueue(vcp_workqueue);
@@ -790,6 +788,8 @@ void vcp_disable_pm_clk(enum feature_id id)
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
 		wait_vcp_wdt_irq_done();
+		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x\n", VCP_BUS_DEBUG_OUT,
+			readl(VCP_BUS_DEBUG_OUT));
 		vcp_ready[VCP_A_ID] = 0;
 #if VCP_BOOT_TIME_OUT_MONITOR
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);

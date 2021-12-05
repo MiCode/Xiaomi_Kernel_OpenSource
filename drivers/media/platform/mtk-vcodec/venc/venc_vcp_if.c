@@ -9,6 +9,7 @@
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 #include <linux/mtk_vcu_controls.h>
 #include <linux/delay.h>
+#include <soc/mediatek/smi.h>
 
 #include "../mtk_vcodec_drv.h"
 #include "../mtk_vcodec_util.h"
@@ -112,6 +113,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		timeout++;
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {
 			mtk_vcodec_err(inst, "VCP_A_ID not ready");
+			mtk_smi_dbg_hang_detect("VENC VCP");
 			break;
 		}
 	}
