@@ -1188,6 +1188,7 @@ static const struct adsp_data diwali_wpss_resource = {
 	.minidump_id = 4,
 	.ssr_name = "wpss",
 	.sysmon_name = "wpss",
+	.qmp_name = "wpss",
 	.ssctl_id = 0x19,
 };
 
