@@ -1711,6 +1711,17 @@ int _btif_exit_dpidle_from_dpidle(struct _mtk_btif_ *p_btif)
 /*enable BTIF's clock*/
 	i_ret += hal_btif_clk_ctrl(p_btif->p_btif_info, CLK_OUT_ENABLE);
 
+	if ((p_btif->tx_mode == BTIF_MODE_DMA &&
+			hal_btif_dma_check_status(p_btif->p_tx_dma->p_dma_info) < 0) ||
+		(p_btif->rx_mode == BTIF_MODE_DMA &&
+			hal_btif_dma_check_status(p_btif->p_rx_dma->p_dma_info) < 0)) {
+		BTIF_ERR_FUNC("tx or rx dma is reset. re-init btif");
+		_btif_controller_free(p_btif);
+		_btif_controller_tx_free(p_btif);
+		_btif_controller_rx_free(p_btif);
+		i_ret = _btif_init(p_btif);
+	}
+
 	if (i_ret != 0)
 		BTIF_WARN_FUNC("failed, i_ret:%d\n", i_ret);
 	return i_ret;
