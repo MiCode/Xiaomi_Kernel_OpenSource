@@ -68,6 +68,7 @@
 #define MT6369_AUXADC_ACCDET0                0x11bf
 #define MT6369_AUXADC_ACCDET1                0x11c0
 #define MT6369_LDO_VUSB_OP_EN2               0x1c2a
+#define MT6369_LDO_VANT18_CON0               0x1cb2
 #define MT6369_LDO_VAUD28_CON0               0x1c31
 
 /* audio register */
@@ -492,6 +493,14 @@
 #define MT6369_ACCDET_CON72                  0x26d0
 #define MT6369_ACCDET_CON73                  0x26d1
 
+
+/* LDO_VANT18_CON0 */
+#define RG_LDO_VANT18_EN_SFT                             0
+#define RG_LDO_VANT18_EN_MASK                            0x1
+#define RG_LDO_VANT18_EN_MASK_SFT                        (0x1 << 0)
+#define RG_LDO_VANT18_LP_SFT                             1
+#define RG_LDO_VANT18_LP_MASK                            0x1
+#define RG_LDO_VANT18_LP_MASK_SFT                        (0x1 << 1)
 
 /* LDO_VAUD28_CON0 */
 #define RG_LDO_VAUD28_EN_SFT                             0
@@ -5116,8 +5125,11 @@ enum {
 enum {
 	/* common */
 	SUPPLY_SEQ_CLK_BUF,
+	SUPPLY_SEQ_LDO_VANT18,
 	SUPPLY_SEQ_LDO_VAUD28,
 	SUPPLY_SEQ_AUD_GLB,
+	SUPPLY_SEQ_DL_GPIO,
+	SUPPLY_SEQ_UL_GPIO,
 	SUPPLY_SEQ_HP_PULL_DOWN,
 	SUPPLY_SEQ_CLKSQ,
 	SUPPLY_SEQ_ADC_CLKGEN,
@@ -5137,8 +5149,11 @@ enum {
 	SUPPLY_SEQ_DL_ESD_RESIST,
 	SUPPLY_SEQ_HP_DAMPING_OFF_RESET_CMFB,
 	SUPPLY_SEQ_HP_MUTE,
-	SUPPLY_SEQ_DL_LDO_REMOTE_SENSE,
-	SUPPLY_SEQ_DL_LDO,
+	SUPPLY_SEQ_DL_LDO_VA33REFGEN,
+	SUPPLY_SEQ_DL_LCLDO_REMOTE_SENSE,
+	SUPPLY_SEQ_DL_HCLDO_REMOTE_SENSE,
+	SUPPLY_SEQ_DL_LCLDO,
+	SUPPLY_SEQ_DL_HCLDO,
 	SUPPLY_SEQ_DL_NV,
 	SUPPLY_SEQ_HP_ANA_TRIM,
 	SUPPLY_SEQ_DL_IBIST,
@@ -5255,13 +5270,14 @@ enum {
 	PGA_L_MUX_NONE = 0,
 	PGA_L_MUX_AIN0,
 	PGA_L_MUX_AIN1,
+	PGA_L_MUX_AIN2,
 };
 
 enum {
 	PGA_R_MUX_NONE = 0,
-	PGA_R_MUX_AIN2,
-	PGA_R_MUX_AIN3,
 	PGA_R_MUX_AIN0,
+	PGA_R_MUX_AIN1,
+	PGA_R_MUX_AIN2,
 };
 
 enum {
@@ -5456,10 +5472,7 @@ struct mt6369_priv {
 #define IBIAS_ZCD_MASK_SFT (IBIAS_MASK << IBIAS_ZCD_SFT)
 
 /* dl pga gain */
-#define DL_GAIN_N_10DB_REG (DL_GAIN_N_10DB << 7 | DL_GAIN_N_10DB)
-#define DL_GAIN_N_22DB_REG (DL_GAIN_N_22DB << 7 | DL_GAIN_N_22DB)
-#define DL_GAIN_N_40DB_REG (DL_GAIN_N_40DB << 7 | DL_GAIN_N_40DB)
-#define DL_GAIN_REG_MASK 0x0f9f
+#define DL_GAIN_REG_MASK 0xff
 
 /* mic type */
 
