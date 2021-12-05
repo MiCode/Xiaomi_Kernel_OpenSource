@@ -84,6 +84,10 @@
 #define P2A6_RG_U2_DISCTH_MASK	(0xf)
 #define P2A6_RG_U2_DISCTH_OFET	(4)
 
+#define XSP_USBPHYACR3		((SSUSB_SIFSLV_U2PHY_COM) + 0x01c)
+#define P2A3_RG_USB20_PUPD_BIST_EN	BIT(12)
+#define P2A3_RG_USB20_EN_PU_DP		BIT(9)
+
 #define XSP_USBPHYACR4		((SSUSB_SIFSLV_U2PHY_COM) + 0x020)
 #define P2A4_RG_USB20_GPIO_CTL		BIT(9)
 #define P2A4_USB20_GPIO_MODE		BIT(8)
@@ -226,6 +230,8 @@
 #define PHY_MODE_BC11_SW_CLR 2
 #define PHY_MODE_DPDMPULLDOWN_SET 3
 #define PHY_MODE_DPDMPULLDOWN_CLR 4
+#define PHY_MODE_DPPULLUP_SET 5
+#define PHY_MODE_DPPULLUP_CLR 6
 
 #define MTK_USB_STR "mtk_usb"
 #define U2_PHY_STR "u2_phy"
@@ -1186,6 +1192,18 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 			tmp = readl(inst->port_base + XSP_USBPHYACR6);
 			tmp |= P2A6_RG_U2_PHY_REV1;
 			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			break;
+		case PHY_MODE_DPPULLUP_SET:
+			tmp = readl(inst->port_base + XSP_USBPHYACR3);
+			tmp |= P2A3_RG_USB20_PUPD_BIST_EN |
+				P2A3_RG_USB20_EN_PU_DP;
+			writel(tmp, inst->port_base + XSP_USBPHYACR3);
+			break;
+		case PHY_MODE_DPPULLUP_CLR:
+			tmp = readl(inst->port_base + XSP_USBPHYACR3);
+			tmp &= ~(P2A3_RG_USB20_PUPD_BIST_EN |
+				P2A3_RG_USB20_EN_PU_DP);
+			writel(tmp, inst->port_base + XSP_USBPHYACR3);
 			break;
 		default:
 			return;
