@@ -80,6 +80,8 @@ bool mtk_dvfs_loading_mode(int i32LoadingMode);
 bool mtk_get_dvfs_loading_mode(unsigned int *pui32LoadingMode);
 bool mtk_set_fastdvfs_mode(unsigned int u32Mode);
 bool mtk_get_fastdvfs_mode(unsigned int *pui32Mode);
+bool mtk_set_gpu_idle(unsigned int val);
+
 
 /* GPU PMU should be implemented by GPU IP-dep code */
 struct GPU_PMU {

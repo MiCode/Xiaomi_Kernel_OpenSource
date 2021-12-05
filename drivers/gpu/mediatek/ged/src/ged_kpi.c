@@ -1904,6 +1904,10 @@ void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 #ifdef GED_KPI_DEBUG
 	GED_LOGI("[GED_KPI] dfrc_fps %d\n", g_target_fps_default);
 #endif /* GED_KPI_DEBUG */
+	if (target_fps <= 60)
+		mtk_set_gpu_idle(0);
+	else
+		mtk_set_gpu_idle(5);
 }
 /* ------------------------------------------------------------------- */
 GED_ERROR ged_kpi_system_init(void)
