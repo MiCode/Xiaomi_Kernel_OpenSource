@@ -665,44 +665,34 @@ static int asensor_info_proc_show(struct seq_file *m, void *v)
 	mutex_lock(&gpufreq_debug_lock);
 
 	seq_printf(m,
-		"[GPUFREQ-DEBUG] Aging: %s\n"
-		"choosed_aging_table_id = %d, most_agrresive_aging_table_id = %d\n"
-		"efuse_val1(0x%08x) = 0x%08x\n"
-		"efuse_val2(0x%08x) = 0x%08x\n"
-		"efuse_val3(0x%08x) = 0x%08x\n"
-		"efuse_val4(0x%08x) = 0x%08x\n"
-		"a_t0_lvt_rt = %d, "
-		"a_t0_ulvt_rt = %d, "
-		"a_t0_ulvtll_rt = %d\n"
-		"a_tn_lvt_cnt = %d, "
-		"a_tn_ulvt_cnt = %d, "
-		"a_tn_ulvtll_cnt = %d\n"
-		"lvts5_0_y_temperature = %d\n"
-		"tj1 = %d, tj2 = %d\n"
-		"adiff1 = %d, adiff2 = %d, adiff3 = %d, leakage_power = %d\n",
-		(g_aging_enable) ? "Enable" : "Disable",
-		asensor_info.aging_table_idx_choosed,
-		asensor_info.aging_table_idx_most_agrresive,
-		asensor_info.efuse_val1_addr,
-		asensor_info.efuse_val1,
-		asensor_info.efuse_val2_addr,
-		asensor_info.efuse_val2,
-		asensor_info.efuse_val3_addr,
-		asensor_info.efuse_val3,
-		asensor_info.efuse_val4_addr,
-		asensor_info.efuse_val4,
-		asensor_info.a_t0_lvt_rt,
-		asensor_info.a_t0_ulvt_rt,
-		asensor_info.a_t0_ulvtll_rt,
-		asensor_info.a_tn_lvt_cnt,
-		asensor_info.a_tn_ulvt_cnt,
-		asensor_info.a_tn_ulvtll_cnt,
-		asensor_info.lvts5_0_y_temperature,
-		asensor_info.tj1,
-		asensor_info.tj2,
-		asensor_info.adiff1,
-		asensor_info.adiff2,
-		asensor_info.adiff3,
+		"[GPUFREQ-DEBUG] Aging: %s\n",
+		(g_aging_enable) ? "Enable" : "Disable");
+	seq_printf(m,
+		"Aging table index: %d, MOST_AGRRESIVE_AGING_TABLE_ID: %d\n",
+		asensor_info.aging_table_idx, asensor_info.aging_table_idx_agrresive);
+	seq_printf(m,
+		"efuse1(0x%08x): 0x%08x, efuse2(0x%08x): 0x%08x\n",
+		asensor_info.efuse1_addr, asensor_info.efuse1,
+		asensor_info.efuse2_addr, asensor_info.efuse2);
+	seq_printf(m,
+		"efuse3(0x%08x): 0x%08x, efuse4(0x%08x): 0x%08x\n",
+		asensor_info.efuse3_addr, asensor_info.efuse3,
+		asensor_info.efuse4_addr, asensor_info.efuse4);
+	seq_printf(m,
+		"a_t0_efuse1: %d, a_t0_efuse2: %d, a_t0_efuse3: %d, a_t0_efuse4: %d\n",
+		asensor_info.a_t0_efuse1, asensor_info.a_t0_efuse2,
+		asensor_info.a_t0_efuse3, asensor_info.a_t0_efuse4);
+	seq_printf(m,
+		"a_tn_sensor1: %d, a_tn_sensor2: %d, a_tn_sensor3: %d, a_tn_sensor4: %d\n",
+		asensor_info.a_tn_sensor1, asensor_info.a_tn_sensor2,
+		asensor_info.a_tn_sensor3, asensor_info.a_tn_sensor4);
+	seq_printf(m,
+		"a_diff1: %d, a_diff2: %d, a_diff3: %d, a_diff4: %d\n",
+		asensor_info.a_diff1, asensor_info.a_diff2,
+		asensor_info.a_diff3, asensor_info.a_diff4);
+	seq_printf(m,
+		"tj_max: %d, lvts5_0_y_temperature: %d, leakage_power: %d\n",
+		asensor_info.tj_max, asensor_info.lvts5_0_y_temperature,
 		asensor_info.leakage_power);
 
 	mutex_unlock(&gpufreq_debug_lock);

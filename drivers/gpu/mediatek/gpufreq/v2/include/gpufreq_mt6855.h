@@ -126,7 +126,7 @@
 #define GPUFREQ_ASENSOR_ENABLE          (0)
 #define GPUFREQ_AGING_KEEP_FGPU         (660000)
 #define GPUFREQ_AGING_KEEP_VGPU         (65000)
-#define GPUFREQ_AGING_LKG_VGPU          (80000)
+#define GPUFREQ_AGING_LKG_VGPU          (70000)
 #define GPUFREQ_AGING_GAP_MIN           (-3)
 #define GPUFREQ_AGING_GAP_1             (2)
 #define GPUFREQ_AGING_GAP_2             (4)
