@@ -2999,10 +2999,18 @@ static int vow_scp_recover_event(struct notifier_block *this,
 			if (!vow_service_SendSpeakerModel(I, VOW_SET_MODEL))
 				VOWDRV_DEBUG("fail: SendSpeakerModel\n");
 		}
+		// send AEC custom model
+		vow_ipi_buf[0] = vowserv.custom_model_addr;
+		vow_ipi_buf[1] = vowserv.custom_model_size;
+		ret = vow_ipi_send(IPIMSG_VOW_SET_CUSTOM_MODEL,
+				   2, &vow_ipi_buf[0], VOW_IPI_BYPASS_ACK);
+		if (!ret)
+			VOWDRV_DEBUG("fail: vow_service_SetCustomModel\n");
 
 		/* if vow is not enable, then return */
 		if (VowDrv_GetHWStatus() != VOW_PWR_ON) {
 			vowserv.vow_recovering = false;
+			VOWDRV_DEBUG("fail: vow not enable\n");
 			break;
 		}
 		if (vowserv.scp_recovering) {
@@ -3038,14 +3046,6 @@ static int vow_scp_recover_event(struct notifier_block *this,
 				VOWDRV_DEBUG("send Model start, slot%d\n", I);
 			}
 		}
-
-		// send AEC custom model
-		vow_ipi_buf[0] = vowserv.custom_model_addr;
-		vow_ipi_buf[1] = vowserv.custom_model_size;
-		ret = vow_ipi_send(IPIMSG_VOW_SET_CUSTOM_MODEL,
-				   2, &vow_ipi_buf[0], VOW_IPI_BYPASS_ACK);
-		if (!ret)
-			VOWDRV_DEBUG("fail: vow_service_SetCustomModel\n");
 
 		vowserv.vow_recovering = false;
 		break;
