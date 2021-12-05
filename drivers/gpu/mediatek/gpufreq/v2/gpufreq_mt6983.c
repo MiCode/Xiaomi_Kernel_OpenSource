@@ -3279,12 +3279,11 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 	u32 val = 0;
 
 	/* wait HW semaphore: SPM_SEMA_M4 0x1C0016AC [0] = 1'b1 */
-	val = readl(g_sleep + 0x6AC);
-	val |= (1UL << 0);
-	writel(val, g_sleep + 0x6AC);
 	do {
-		val = readl(g_sleep + 0x6AC) & 0x1;
-	} while (val != 0x1);
+		val = readl(g_sleep + 0x6AC);
+		val |= (1UL << 0);
+		writel(val, g_sleep + 0x6AC);
+	} while ((readl(g_sleep + 0x6AC) & 0x1) != 0x1);
 
 	/* power on: AOCISO -> AOCLHENB */
 	if (power == POWER_ON) {
