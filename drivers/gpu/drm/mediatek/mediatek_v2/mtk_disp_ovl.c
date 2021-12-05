@@ -1120,10 +1120,10 @@ static enum mtk_ovl_transfer mtk_ovl_map_transfer(enum mtk_drm_dataspace ds)
 		break;
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_6:
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_8:
-		DDPPR_ERR("%s: ovl does not support gamma 2.6/2.8\n", __func__);
+		DDPINFO("%s: ovl does not support gamma 2.6/2.8, use gamma 2.2\n", __func__);
 	case MTK_DRM_DATASPACE_TRANSFER_ST2084:
 	case MTK_DRM_DATASPACE_TRANSFER_HLG:
-		DDPPR_ERR("%s: HDR transfer\n", __func__);
+		DDPINFO("%s: HDR transfer\n", __func__);
 	default:
 		xfr = OVL_GAMMA2_2;
 		break;
