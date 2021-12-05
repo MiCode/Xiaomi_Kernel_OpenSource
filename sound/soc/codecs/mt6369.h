@@ -11,10 +11,6 @@
 
 /*************Register Bit Define*************/
 
-/* MT6685_DCXO_EXTBUF5_CW0 */
-#define MT6685_DCXO_EXTBUF5_CW0 0x79e
-#define RG_XO_BBCK5_EN_M_SFT 2
-
 /* MT6369 */
 #define MT6369_HWCID0                        0x8
 #define MT6369_SMT_CON0                      0x21
