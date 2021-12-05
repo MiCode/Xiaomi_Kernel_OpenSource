@@ -1537,6 +1537,7 @@ static int lvts_resume_noirq(struct device *dev)
 	lvts_data = (struct lvts_data *) dev_get_drvdata(dev);
 	dev_info(dev, "[Thermal/LVTS]%s\n", __func__);
 
+
 	ret = lvts_init(lvts_data);
 	if (ret)
 		return ret;
@@ -1591,7 +1592,7 @@ static void device_enable_and_init_v4(struct lvts_data *lvts_data)
 						| 0xFC)
 #define TSV2F_CHOP_CKSEL_AND_TSV2F_EN_V5 (DEVICE_WRITE | RG_TSV2F_CTRL_2 << 8	\
 						| 0x8C)
-#define SET_TS_EN_V5 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF1)
+#define SET_TS_CHOP_CTRL_V5 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF1)
 
 static void device_enable_and_init_v5(struct lvts_data *lvts_data)
 {
@@ -1605,7 +1606,7 @@ static void device_enable_and_init_v5(struct lvts_data *lvts_data)
 		lvts_write_device(lvts_data, TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_V5, i);//0CFC
 		lvts_write_device(lvts_data, TSV2F_CHOP_CKSEL_AND_TSV2F_EN_V5, i);//0A8C
 		lvts_write_device(lvts_data, SET_TS_RSV_V4, i); //098D
-		lvts_write_device(lvts_data, SET_TS_EN_V5, i);//08F1
+		lvts_write_device(lvts_data, SET_TS_CHOP_CTRL_V5, i);//08F1
 	}
 
 	lvts_data->counting_window_us = 20;
@@ -1732,14 +1733,16 @@ static int device_read_count_rc_n_v5(struct lvts_data *lvts_data)
 	int refine_data_idx[4] = {0};
 	int count_rc_delta = 0;
 
+
 	if (lvts_data->init_done) {
 
-		for (i = 0; i < lvts_data->num_tc; i++)
-			lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);
-
+		for (i = 0; i < lvts_data->num_tc; i++) {
+			lvts_write_device(lvts_data, SET_LVTS_MANUAL_RCK_OPERATION_V5, i);//0E00
+			lvts_write_device(lvts_data, SET_SENSOR_NO_RCK_V4, i);//0d10
+			lvts_write_device(lvts_data, SET_DEVICE_SINGLE_MODE_V5, i);//06f8
+		}
 		return 0;
 	}
-
 
 	cal_data->count_rc_now =
 		devm_kcalloc(dev, lvts_data->num_sensor,
@@ -1802,15 +1805,7 @@ static int device_read_count_rc_n_v5(struct lvts_data *lvts_data)
 				}
 			}
 
-			/* Disable TS_EN */
-			lvts_write_device(lvts_data, SET_TS_DIS_V5, i);
-			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
-				!(data & DEVICE_ACCESS_STARTUS),
-				2, 200);
-			if (ret)
-				dev_info(dev,
-					"Error: LVTS %d DEVICE_ACCESS_START didn't ready\n",
-					i);
+
 
 			if (refine_data_idx[j] != 0xff) {
 				dev_info(dev, "refine_data_idx[%d]=%d\n", j, refine_data_idx[j]);
