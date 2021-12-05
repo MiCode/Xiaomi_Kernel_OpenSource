@@ -175,9 +175,6 @@ enum ADSP_MI_SELECT {
 #define SRAM_START_ADDR				(0x100000)
 #define SRAM_END_ADDR				(0x1FFFFF)
 
-#define MMUP_START_ADDR				(0x1EA00000)
-#define MMUP_END_ADDR				(0x1EFFFFFF)
-
 /* For VLP Bus Parser */
 #define VLP_SCP_START_ADDR			(0x1C400000)
 #define VLP_SCP_END_ADDR			(0x1C7FFFFF)
@@ -193,6 +190,20 @@ enum ADSP_MI_SELECT {
 #define ADSP_INFRA_1_END			(0x4DFFFFFF)
 #define ADSP_OTHER_START			(0x1E000000)
 #define ADSP_OTHER_END				(0x1E01FFFF)
+
+/* For MMINFRA Bus Parser */
+#define DISP_START_ADDR				(0x14000000)
+#define DISP_END_ADDR				(0x141FFFFF)
+#define DISP2_START_ADDR			(0x14400000)
+#define DISP2_END_ADDR				(0x145FFFFF)
+#define DPTX_START_ADDR				(0x14800000)
+#define DPTX_END_ADDR				(0x14FFFFFF)
+#define CODEC_START_ADDR			(0x16000000)
+#define CODEC_END_ADDR				(0x17FFFFFF)
+#define MMUP_START_ADDR				(0x1EA00000)
+#define MMUP_END_ADDR				(0x1EFFFFFF)
+#define MDP_START_ADDR				(0x1F000000)
+#define MDP_END_ADDR				(0x1FFFFFFF)
 
 static const struct mtk_device_info mt6983_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */

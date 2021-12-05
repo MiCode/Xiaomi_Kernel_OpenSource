@@ -272,19 +272,44 @@ static const char *mt6895_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 #endif
 #if ENABLE_DEVAPC_MMINFRA
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
-		if (domain == 0x4)
-			return "GCE";
-		/* mmup */
+		/* MMUP slave */
 		if ((vio_addr >= MMUP_START_ADDR) && (vio_addr <= MMUP_END_ADDR)) {
 			if (domain < ARRAY_SIZE(mminfra_domain))
 				return mminfra_domain[domain];
 			return NULL;
+
+		/* CODEC slave*/
+		} else if ((vio_addr >= CODEC_START_ADDR) && (vio_addr <= CODEC_END_ADDR)) {
+			if ((bus_id & 0x1) == 0x0)
+				return "MMUP";
+			else
+				return infra_mi_trans(bus_id >> 4);
+
+		/* DISP / MDP / DMDP slave*/
+		} else if (((vio_addr >= DISP_START_ADDR) && (vio_addr <= DISP_END_ADDR)) ||
+			((vio_addr >= MDP_START_ADDR) && (vio_addr <= MDP_END_ADDR))) {
+			if ((bus_id & 0x1) == 0x0)
+				return "GCED";
+			else
+				return infra_mi_trans(bus_id >> 4);
+
+		/* DISP2 / DPTX slave*/
+		} else if (((vio_addr >= DISP2_START_ADDR) && (vio_addr <= DISP2_END_ADDR)) ||
+			((vio_addr >= DPTX_START_ADDR) && (vio_addr <= DPTX_END_ADDR))) {
+			if ((bus_id & 0x3) == 0x0)
+				return "GCED";
+			else if ((bus_id & 0x3) == 0x1)
+				return "GCEM";
+			else
+				return infra_mi_trans(bus_id >> 5);
+
+		/* other mminfra slave*/
+		} else {
+			if ((bus_id & 0x7) == 0x0)
+				return infra_mi_trans(bus_id >> 3);
+			else
+				return mminfra_mi_trans(bus_id);
 		}
-		/* mminfra */
-		if ((bus_id & 0x7) == 0x0)
-			return infra_mi_trans(bus_id >> 3);
-		else
-			return mminfra_mi_trans(bus_id);
 #endif
 #if ENABLE_DEVAPC_MMUP
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
