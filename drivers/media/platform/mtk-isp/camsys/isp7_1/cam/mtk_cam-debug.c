@@ -1231,6 +1231,7 @@ void mtk_cam_req_dbg_works_clean(struct mtk_cam_request_stream_data *s_data)
 		atomic_set(&s_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 	} else {
 		mtk_cam_debug_wakeup(&ctx->cam->debug_exception_waitq);
+		atomic_set(&s_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
 	}
 
 	/* clean debug dump work */
