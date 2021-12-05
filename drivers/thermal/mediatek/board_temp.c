@@ -122,6 +122,10 @@ static const struct of_device_id board_ntc_of_match[] = {
 		.compatible = "mediatek,mt6895-board-ntc",
 		.data = (void *)&mt6685_pmic_auxadc_data,
 	},
+	{
+		.compatible = "mediatek,mt6855-board-ntc",
+		.data = (void *)&mt6685_pmic_auxadc_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, board_ntc_of_match);
