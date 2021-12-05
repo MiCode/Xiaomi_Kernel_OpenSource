@@ -138,6 +138,7 @@ struct mml_sys {
 	u16 event_racing_pipe0;
 	u16 event_racing_pipe1;
 	u16 event_racing_pipe1_next;
+	u16 event_ir_eof;
 };
 
 struct sys_frame_data {
@@ -438,6 +439,12 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	/* do eoc to avoid task timeout during self-loop */
 	if (likely(!mml_racing_timeout) && likely(!mml_racing_wdone_eoc))
 		cmdq_pkt_eoc(pkt, false);
+
+	/* wait display frame done before checking next, so disp driver has
+	 * chance to tell mml to entering next task.
+	 */
+	if (task->config->disp_vdo)
+		cmdq_pkt_wfe(task->pkts[0], sys->event_ir_eof);
 
 	/* reserve assign inst for jump addr */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
@@ -1221,7 +1228,8 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 			     &sys->event_racing_pipe1);
 	of_property_read_u16(dev->of_node, "event_racing_pipe1_next",
 			     &sys->event_racing_pipe1_next);
-
+	of_property_read_u16(dev->of_node, "event_ir_eof",
+			     &sys->event_ir_eof);
 	return 0;
 
 err_comp_add:
