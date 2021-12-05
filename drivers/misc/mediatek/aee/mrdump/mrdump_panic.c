@@ -256,8 +256,6 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		check_last_ko();
 	case AEE_FIQ_STEP_COMMON_DIE_CS:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_CS);
-		if (console_trylock())
-			console_unlock();
 	case AEE_FIQ_STEP_COMMON_DIE_DONE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_DONE);
 	default:

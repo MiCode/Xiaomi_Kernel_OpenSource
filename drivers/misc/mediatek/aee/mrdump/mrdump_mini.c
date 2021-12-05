@@ -446,7 +446,7 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 {
 #define MAX_STACK_TRACE_DEPTH 64
 	unsigned long ipanic_stack_entries[MAX_STACK_TRACE_DEPTH];
-	char symbol[96] = {'\0'};
+	char symbol[SZ_128] = {'\0'};
 	int sz;
 #ifdef CONFIG_STACKTRACE
 	unsigned int nr_entries;
@@ -475,8 +475,12 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 			break;
 		}
 		/* FIXME: Check overflow ? */
-		sz += snprintf(symbol + sz, 96 - sz, "[%s, %d]", tsk->comm,
+		sz += snprintf(symbol + sz, SZ_128 - sz, "[%s, %d]", tsk->comm,
 				tsk->pid);
+		if (sz >= SZ_128) {
+			sz = SZ_128;
+			break;
+		}
 		previous = tsk;
 		tsk = tsk->real_parent;
 		if (!mrdump_virt_addr_valid(tsk)) {
@@ -515,15 +519,19 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		if (plen > 16) {
 			if (ipanic_stack_entries[i] != cur_proc->ke_frame.pc)
 				ipanic_stack_entries[i] -= 4;
-			sz = snprintf(symbol, 96, "[<%px>] %pS\n",
+			sz = snprintf(symbol, SZ_128, "[<%px>] %pS\n",
 				      (void *)ipanic_stack_entries[i],
 				      (void *)ipanic_stack_entries[i]);
+			if (sz >= SZ_128) {
+				sz = SZ_128;
+				memset_io(symbol + ALIGN(sz, 8) - 1, '\n', 1);
+			}
 			if (ALIGN(sz, 8) - sz) {
 				memset_io(symbol + sz - 1, ' ',
 						ALIGN(sz, 8) - sz);
 				memset_io(symbol + ALIGN(sz, 8) - 1, '\n', 1);
 			}
-			if (ALIGN(sz, 8) <= plen)
+			if (ALIGN(sz, 8) < plen)
 				memcpy(cur_proc->backtrace + ALIGN(off, 8),
 						symbol, ALIGN(sz, 8));
 		}
