@@ -35,9 +35,7 @@ static struct mtk_codec_framesizes
 	mtk_venc_framesizes[MTK_MAX_ENC_CODECS_SUPPORT] = { {0} };
 static unsigned int default_out_fmt_idx;
 static unsigned int default_cap_fmt_idx;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
-static struct vb2_mem_ops venc_ion_dma_contig_memops;
-#endif
+static struct vb2_mem_ops venc_dma_contig_memops;
 
 inline unsigned int log2_enc(__u32 value)
 {
@@ -274,6 +272,7 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
 	struct mtk_enc_params *p = &ctx->enc_params;
+	struct vb2_queue *src_vq;
 	int ret = 0;
 
 	mtk_v4l2_debug(4, "[%d] id %d val %d array[0] %d array[1] %d",
@@ -395,6 +394,11 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			ctrl->val);
 		p->scenario = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_SCENARIO;
+		if (p->scenario == 3) {
+			src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+			src_vq->mem_ops = &venc_dma_contig_memops;
+		}
 		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_NONREFP:
 		mtk_v4l2_debug(2,
@@ -3343,12 +3347,40 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	return 0;
 }
 
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
-static int venc_dc_ion_map_dmabuf(void *mem_priv)
+static void *mtk_venc_dc_attach_dmabuf(struct device *dev, struct dma_buf *dbuf,
+	unsigned long size, enum dma_data_direction dma_dir)
 {
-	return mtk_dma_contig_memops.map_dmabuf(mem_priv);
+	struct vb2_dc_buf *buf;
+	struct dma_buf_attachment *dba;
+
+	if (dbuf->size < size)
+		return ERR_PTR(-EFAULT);
+
+	if (WARN_ON(!dev))
+		return ERR_PTR(-EINVAL);
+
+	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
+	if (!buf)
+		return ERR_PTR(-ENOMEM);
+
+	buf->dev = dev;
+	/* create attachment for the dmabuf with the user device */
+	dba = dma_buf_attach(dbuf, buf->dev);
+	if (IS_ERR(dba)) {
+		pr_info("failed to attach dmabuf\n");
+		kfree(buf);
+		return dba;
+	}
+
+	/* always skip cache operations, we handle it manually */
+	dba->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
+	buf->dma_dir = dma_dir;
+	buf->size = size;
+	buf->db_attach = dba;
+
+	return buf;
 }
-#endif
 
 int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 			      struct vb2_queue *dst_vq)
@@ -3366,16 +3398,10 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->drv_priv        = ctx;
 	src_vq->buf_struct_size = sizeof(struct mtk_video_enc_buf);
 	src_vq->ops             = &mtk_venc_vb2_ops;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
-	venc_ion_dma_contig_memops = mtk_dma_contig_memops;
-	venc_ion_dma_contig_memops.map_dmabuf = venc_dc_ion_map_dmabuf;
-
-	src_vq->mem_ops         = &venc_ion_dma_contig_memops;
-	mtk_v4l2_debug(4, "src_vq use mtk_dma_contig_memops");
-#else
+	venc_dma_contig_memops = vb2_dma_contig_memops;
+	venc_dma_contig_memops.attach_dmabuf = mtk_venc_dc_attach_dmabuf;
 	src_vq->mem_ops         = &vb2_dma_contig_memops;
 	mtk_v4l2_debug(4, "src_vq use vb2_dma_contig_memops");
-#endif
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock            = &ctx->q_mutex;
 	src_vq->allow_zero_bytesused = 1;
@@ -3390,13 +3416,8 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->drv_priv        = ctx;
 	dst_vq->buf_struct_size = sizeof(struct mtk_video_enc_buf);
 	dst_vq->ops             = &mtk_venc_vb2_ops;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
-	dst_vq->mem_ops         = &venc_ion_dma_contig_memops;
-	mtk_v4l2_debug(4, "dst_vq use mtk_dma_contig_memops");
-#else
-	dst_vq->mem_ops         = &vb2_dma_contig_memops;
-	mtk_v4l2_debug(4, "dst_vq use vb2_dma_contig_memops");
-#endif
+	dst_vq->mem_ops         = &venc_dma_contig_memops;
+	mtk_v4l2_debug(4, "dst_vq use venc_dma_contig_memops");
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock            = &ctx->q_mutex;
 	dst_vq->allow_zero_bytesused = 1;

@@ -24,12 +24,7 @@
 #include "mtk_vcodec_pm.h"
 #include "vcodec_dvfs.h"
 #include "vcodec_bw.h"
-
 #include "mtk_dma_contig.h"
-#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
-#include "mtkbuf-dma-cache-sg.h"
-#endif
-
 #include "slbc_ops.h"
 
 #define MTK_VCODEC_DRV_NAME     "mtk_vcodec_drv"
