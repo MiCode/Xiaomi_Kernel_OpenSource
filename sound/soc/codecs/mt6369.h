@@ -3650,6 +3650,1415 @@
 #define RG_AUDINTGAIN2_MASK_SFT                          (0x3f << 0)
 
 
+#define AUD_TOP_ANA_ID_ADDR                           \
+	MT6369_AUD_TOP_ANA_ID
+#define RG_ACCDET_CK_PDN_ADDR                         \
+	MT6369_AUD_TOP_CKPDN_CON0
+#define RG_ACCDET_RST_ADDR                            \
+	MT6369_AUD_TOP_RST_CON0
+#define RG_INT_EN_ACCDET_ADDR                         \
+	MT6369_AUD_TOP_INT_CON0
+#define RG_INT_MASK_ACCDET_ADDR                       \
+	MT6369_AUD_TOP_INT_MASK_CON0
+#define RG_INT_STATUS_ACCDET_ADDR                     \
+	MT6369_AUD_TOP_INT_STATUS0
+#define RG_NCP_PDDIS_EN_ADDR                          \
+	MT6369_AFE_NCP_CFG4
+#define RG_AUDPREAMPLON_ADDR                          \
+	MT6369_AUDENC_ANA_CON0
+#define RG_AUDHPROUTPWRUP_VAUDP15_ADDR                \
+	MT6369_AUDDEC_ANA_CON2
+#define RG_HPLOUTPUTSTBENH_VAUDP15_ADDR               \
+	MT6369_AUDDEC_ANA_CON4
+#define RG_HPROUTPUTSTBENH_VAUDP15_ADDR               \
+	MT6369_AUDDEC_ANA_CON4
+#define RG_CLKSQ_EN_ADDR                              \
+	MT6369_AUDENC_ANA_CON12
+#define RG_AUDMICBIAS0LOWPEN_ADDR                     \
+	MT6369_AUDENC_ANA_CON17
+#define RG_AUDPWDBMICBIAS0_ADDR                       \
+	MT6369_AUDENC_ANA_CON17
+#define RG_AUDMICBIAS1LOWPEN_ADDR                     \
+	MT6369_AUDENC_ANA_CON19
+#define RG_AUDPWDBMICBIAS1_ADDR                       \
+	MT6369_AUDENC_ANA_CON19
+#define RG_AUDMICBIAS1VREF_ADDR                       \
+	MT6369_AUDENC_ANA_CON19
+#define RG_AUDMICBIAS1DCSW1PEN_ADDR                   \
+	MT6369_AUDENC_ANA_CON20
+#define RG_AUDACCDETMICBIAS0PULLLOW_ADDR              \
+	MT6369_AUDENC_ANA_CON21
+#define RG_AUDACCDETMICBIAS1PULLLOW_ADDR              \
+	MT6369_AUDENC_ANA_CON21
+#define RG_ACCDET2AUXSWEN_ADDR                        \
+	MT6369_AUDENC_ANA_CON22
+#define RG_EINT0NOHYS_ADDR                            \
+	MT6369_AUDENC_ANA_CON22
+#define RG_EINT0HIRENB_ADDR                           \
+	MT6369_AUDENC_ANA_CON22
+#define RG_EINT0CONFIGACCDET_ADDR                     \
+	MT6369_AUDENC_ANA_CON22
+#define RG_EINT1CONFIGACCDET_ADDR                     \
+	MT6369_AUDENC_ANA_CON23
+#define RG_EINTCOMPVTH_ADDR                           \
+	MT6369_AUDENC_ANA_CON23
+#define RG_MTEST_EN_ADDR                              \
+	MT6369_AUDENC_ANA_CON24
+#define RG_MTEST_SEL_ADDR                             \
+	MT6369_AUDENC_ANA_CON24
+#define RG_ANALOGFDEN_ADDR                            \
+	MT6369_AUDENC_ANA_CON24
+#define RG_EINT0EN_ADDR                               \
+	MT6369_AUDENC_ANA_CON25
+#define RG_EINT0CMPEN_ADDR                            \
+	MT6369_AUDENC_ANA_CON25
+#define RG_EINT1EN_ADDR                               \
+	MT6369_AUDENC_ANA_CON26
+#define RG_EINT0CTURBO_ADDR                           \
+	MT6369_AUDENC_ANA_CON27
+#define RG_EINT1CTURBO_ADDR                           \
+	MT6369_AUDENC_ANA_CON28
+#define RG_ACCDETSPARE_L_ADDR                         \
+	MT6369_AUDENC_ANA_CON31
+#define RG_ACCDETSPARE_H_ADDR                         \
+	MT6369_AUDENC_ANA_CON32
+
+#define AUXADC_RQST_CH5_ADDR                          \
+	MT6369_AUXADC_RQST0
+#define AUXADC_RQST_CH5_SFT                           5
+#define AUXADC_RQST_CH5_MASK                          0x1
+#define AUXADC_RQST_CH5_MASK_SFT                      (0x1 << 5)
+#define AUXADC_ACCDET_AUTO_SPL_ADDR                   \
+	MT6369_AUXADC_ACCDET1
+#define AUXADC_ACCDET_AUTO_SPL_SFT                    0
+#define AUXADC_ACCDET_AUTO_SPL_MASK                   0x1
+#define AUXADC_ACCDET_AUTO_SPL_MASK_SFT               (0x1 << 0)
+#define RG_LDO_VUSB_HW0_OP_EN_ADDR                    \
+	MT6369_LDO_VUSB_OP_EN2
+#define RG_LDO_VUSB_HW0_OP_EN_SFT                     0
+#define RG_LDO_VUSB_HW0_OP_EN_MASK                    0x1
+#define RG_LDO_VUSB_HW0_OP_EN_MASK_SFT                (0x1 << 0)
+
+#define ACCDET_ANA_ID_ADDR                            \
+	MT6369_ACCDET_ANA_ID
+#define ACCDET_ANA_ID_SFT                             0
+#define ACCDET_ANA_ID_MASK                            0xFF
+#define ACCDET_ANA_ID_MASK_SFT                        (0xFF << 0)
+#define ACCDET_DIG_ID_ADDR                            \
+	MT6369_ACCDET_DIG_ID
+#define ACCDET_DIG_ID_SFT                             0
+#define ACCDET_DIG_ID_MASK                            0xFF
+#define ACCDET_DIG_ID_MASK_SFT                        (0xFF << 0)
+#define ACCDET_ANA_MINOR_REV_ADDR                     \
+	MT6369_ACCDET_ANA_REV
+#define ACCDET_ANA_MINOR_REV_SFT                      0
+#define ACCDET_ANA_MINOR_REV_MASK                     0xF
+#define ACCDET_ANA_MINOR_REV_MASK_SFT                 (0xF << 0)
+#define ACCDET_ANA_MAJOR_REV_ADDR                     \
+	MT6369_ACCDET_ANA_REV
+#define ACCDET_ANA_MAJOR_REV_SFT                      4
+#define ACCDET_ANA_MAJOR_REV_MASK                     0xF
+#define ACCDET_ANA_MAJOR_REV_MASK_SFT                 (0xF << 4)
+#define ACCDET_DIG_MINOR_REV_ADDR                     \
+	MT6369_ACCDET_DIG_REV
+#define ACCDET_DIG_MINOR_REV_SFT                      0
+#define ACCDET_DIG_MINOR_REV_MASK                     0xF
+#define ACCDET_DIG_MINOR_REV_MASK_SFT                 (0xF << 0)
+#define ACCDET_DIG_MAJOR_REV_ADDR                     \
+	MT6369_ACCDET_DIG_REV
+#define ACCDET_DIG_MAJOR_REV_SFT                      4
+#define ACCDET_DIG_MAJOR_REV_MASK                     0xF
+#define ACCDET_DIG_MAJOR_REV_MASK_SFT                 (0xF << 4)
+#define ACCDET_DSN_CBS_ADDR                           \
+	MT6369_ACCDET_DSN_DBI
+#define ACCDET_DSN_CBS_SFT                            0
+#define ACCDET_DSN_CBS_MASK                           0x3
+#define ACCDET_DSN_CBS_MASK_SFT                       (0x3 << 0)
+#define ACCDET_DSN_BIX_ADDR                           \
+	MT6369_ACCDET_DSN_DBI
+#define ACCDET_DSN_BIX_SFT                            2
+#define ACCDET_DSN_BIX_MASK                           0x3
+#define ACCDET_DSN_BIX_MASK_SFT                       (0x3 << 2)
+#define ACCDET_DSN_ESP_ADDR                           \
+	MT6369_ACCDET_DSN_ESP
+#define ACCDET_DSN_ESP_SFT                            0
+#define ACCDET_DSN_ESP_MASK                           0xFF
+#define ACCDET_DSN_ESP_MASK_SFT                       (0xFF << 0)
+#define ACCDET_DSN_FPI_ADDR                           \
+	MT6369_ACCDET_DSN_FPI
+#define ACCDET_DSN_FPI_SFT                            0
+#define ACCDET_DSN_FPI_MASK                           0xFF
+#define ACCDET_DSN_FPI_MASK_SFT                       (0xFF << 0)
+#define ACCDET_DSN_DXI_ADDR                           \
+	MT6369_ACCDET_DSN_DXI
+#define ACCDET_DSN_DXI_SFT                            0
+#define ACCDET_DSN_DXI_MASK                           0xFF
+#define ACCDET_DSN_DXI_MASK_SFT                       (0xFF << 0)
+#define ACCDET_AUXADC_SEL_ADDR                        \
+	MT6369_ACCDET_CON0
+#define ACCDET_AUXADC_SEL_SFT                         0
+#define ACCDET_AUXADC_SEL_MASK                        0x1
+#define ACCDET_AUXADC_SEL_MASK_SFT                    (0x1 << 0)
+#define ACCDET_AUXADC_SW_ADDR                         \
+	MT6369_ACCDET_CON0
+#define ACCDET_AUXADC_SW_SFT                          1
+#define ACCDET_AUXADC_SW_MASK                         0x1
+#define ACCDET_AUXADC_SW_MASK_SFT                     (0x1 << 1)
+#define ACCDET_TEST_AUXADC_ADDR                       \
+	MT6369_ACCDET_CON0
+#define ACCDET_TEST_AUXADC_SFT                        2
+#define ACCDET_TEST_AUXADC_MASK                       0x1
+#define ACCDET_TEST_AUXADC_MASK_SFT                   (0x1 << 2)
+#define ACCDET_AUXADC_ANASWCTRL_SEL_ADDR              \
+	MT6369_ACCDET_CON1
+#define ACCDET_AUXADC_ANASWCTRL_SEL_SFT               0
+#define ACCDET_AUXADC_ANASWCTRL_SEL_MASK              0x1
+#define ACCDET_AUXADC_ANASWCTRL_SEL_MASK_SFT          (0x1 << 0)
+#define AUDACCDETAUXADCSWCTRL_SEL_ADDR                \
+	MT6369_ACCDET_CON1
+#define AUDACCDETAUXADCSWCTRL_SEL_SFT                 1
+#define AUDACCDETAUXADCSWCTRL_SEL_MASK                0x1
+#define AUDACCDETAUXADCSWCTRL_SEL_MASK_SFT            (0x1 << 1)
+#define AUDACCDETAUXADCSWCTRL_SW_ADDR                 \
+	MT6369_ACCDET_CON1
+#define AUDACCDETAUXADCSWCTRL_SW_SFT                  2
+#define AUDACCDETAUXADCSWCTRL_SW_MASK                 0x1
+#define AUDACCDETAUXADCSWCTRL_SW_MASK_SFT             (0x1 << 2)
+#define ACCDET_TEST_ANA_ADDR                          \
+	MT6369_ACCDET_CON1
+#define ACCDET_TEST_ANA_SFT                           3
+#define ACCDET_TEST_ANA_MASK                          0x1
+#define ACCDET_TEST_ANA_MASK_SFT                      (0x1 << 3)
+#define RG_AUDACCDETRSV_ADDR                          \
+	MT6369_ACCDET_CON1
+#define RG_AUDACCDETRSV_SFT                           4
+#define RG_AUDACCDETRSV_MASK                          0x3
+#define RG_AUDACCDETRSV_MASK_SFT                      (0x3 << 4)
+#define ACCDET_SW_EN_ADDR                             \
+	MT6369_ACCDET_CON2
+#define ACCDET_SW_EN_SFT                              0
+#define ACCDET_SW_EN_MASK                             0x1
+#define ACCDET_SW_EN_MASK_SFT                         (0x1 << 0)
+#define ACCDET_SEQ_INIT_ADDR                          \
+	MT6369_ACCDET_CON2
+#define ACCDET_SEQ_INIT_SFT                           1
+#define ACCDET_SEQ_INIT_MASK                          0x1
+#define ACCDET_SEQ_INIT_MASK_SFT                      (0x1 << 1)
+#define ACCDET_EINT0_SW_EN_ADDR                       \
+	MT6369_ACCDET_CON2
+#define ACCDET_EINT0_SW_EN_SFT                        2
+#define ACCDET_EINT0_SW_EN_MASK                       0x1
+#define ACCDET_EINT0_SW_EN_MASK_SFT                   (0x1 << 2)
+#define ACCDET_EINT0_SEQ_INIT_ADDR                    \
+	MT6369_ACCDET_CON2
+#define ACCDET_EINT0_SEQ_INIT_SFT                     3
+#define ACCDET_EINT0_SEQ_INIT_MASK                    0x1
+#define ACCDET_EINT0_SEQ_INIT_MASK_SFT                (0x1 << 3)
+#define ACCDET_EINT1_SW_EN_ADDR                       \
+	MT6369_ACCDET_CON2
+#define ACCDET_EINT1_SW_EN_SFT                        4
+#define ACCDET_EINT1_SW_EN_MASK                       0x1
+#define ACCDET_EINT1_SW_EN_MASK_SFT                   (0x1 << 4)
+#define ACCDET_EINT1_SEQ_INIT_ADDR                    \
+	MT6369_ACCDET_CON2
+#define ACCDET_EINT1_SEQ_INIT_SFT                     5
+#define ACCDET_EINT1_SEQ_INIT_MASK                    0x1
+#define ACCDET_EINT1_SEQ_INIT_MASK_SFT                (0x1 << 5)
+#define ACCDET_EINT0_INVERTER_SW_EN_ADDR              \
+	MT6369_ACCDET_CON2
+#define ACCDET_EINT0_INVERTER_SW_EN_SFT               6
+#define ACCDET_EINT0_INVERTER_SW_EN_MASK              0x1
+#define ACCDET_EINT0_INVERTER_SW_EN_MASK_SFT          (0x1 << 6)
+#define ACCDET_EINT0_INVERTER_SEQ_INIT_ADDR           \
+	MT6369_ACCDET_CON2
+#define ACCDET_EINT0_INVERTER_SEQ_INIT_SFT            7
+#define ACCDET_EINT0_INVERTER_SEQ_INIT_MASK           0x1
+#define ACCDET_EINT0_INVERTER_SEQ_INIT_MASK_SFT       (0x1 << 7)
+#define ACCDET_EINT1_INVERTER_SW_EN_ADDR              \
+	MT6369_ACCDET_CON3
+#define ACCDET_EINT1_INVERTER_SW_EN_SFT               0
+#define ACCDET_EINT1_INVERTER_SW_EN_MASK              0x1
+#define ACCDET_EINT1_INVERTER_SW_EN_MASK_SFT          (0x1 << 0)
+#define ACCDET_EINT1_INVERTER_SEQ_INIT_ADDR           \
+	MT6369_ACCDET_CON3
+#define ACCDET_EINT1_INVERTER_SEQ_INIT_SFT            1
+#define ACCDET_EINT1_INVERTER_SEQ_INIT_MASK           0x1
+#define ACCDET_EINT1_INVERTER_SEQ_INIT_MASK_SFT       (0x1 << 1)
+#define ACCDET_EINT0_M_SW_EN_ADDR                     \
+	MT6369_ACCDET_CON3
+#define ACCDET_EINT0_M_SW_EN_SFT                      2
+#define ACCDET_EINT0_M_SW_EN_MASK                     0x1
+#define ACCDET_EINT0_M_SW_EN_MASK_SFT                 (0x1 << 2)
+#define ACCDET_EINT1_M_SW_EN_ADDR                     \
+	MT6369_ACCDET_CON3
+#define ACCDET_EINT1_M_SW_EN_SFT                      3
+#define ACCDET_EINT1_M_SW_EN_MASK                     0x1
+#define ACCDET_EINT1_M_SW_EN_MASK_SFT                 (0x1 << 3)
+#define ACCDET_EINT_M_DETECT_EN_ADDR                  \
+	MT6369_ACCDET_CON3
+#define ACCDET_EINT_M_DETECT_EN_SFT                   4
+#define ACCDET_EINT_M_DETECT_EN_MASK                  0x1
+#define ACCDET_EINT_M_DETECT_EN_MASK_SFT              (0x1 << 4)
+#define ACCDET_CMP_PWM_EN_ADDR                        \
+	MT6369_ACCDET_CON4
+#define ACCDET_CMP_PWM_EN_SFT                         0
+#define ACCDET_CMP_PWM_EN_MASK                        0x1
+#define ACCDET_CMP_PWM_EN_MASK_SFT                    (0x1 << 0)
+#define ACCDET_VTH_PWM_EN_ADDR                        \
+	MT6369_ACCDET_CON4
+#define ACCDET_VTH_PWM_EN_SFT                         1
+#define ACCDET_VTH_PWM_EN_MASK                        0x1
+#define ACCDET_VTH_PWM_EN_MASK_SFT                    (0x1 << 1)
+#define ACCDET_MBIAS_PWM_EN_ADDR                      \
+	MT6369_ACCDET_CON4
+#define ACCDET_MBIAS_PWM_EN_SFT                       2
+#define ACCDET_MBIAS_PWM_EN_MASK                      0x1
+#define ACCDET_MBIAS_PWM_EN_MASK_SFT                  (0x1 << 2)
+#define ACCDET_EINT_EN_PWM_EN_ADDR                    \
+	MT6369_ACCDET_CON4
+#define ACCDET_EINT_EN_PWM_EN_SFT                     3
+#define ACCDET_EINT_EN_PWM_EN_MASK                    0x1
+#define ACCDET_EINT_EN_PWM_EN_MASK_SFT                (0x1 << 3)
+#define ACCDET_EINT_CMPEN_PWM_EN_ADDR                 \
+	MT6369_ACCDET_CON4
+#define ACCDET_EINT_CMPEN_PWM_EN_SFT                  4
+#define ACCDET_EINT_CMPEN_PWM_EN_MASK                 0x1
+#define ACCDET_EINT_CMPEN_PWM_EN_MASK_SFT             (0x1 << 4)
+#define ACCDET_EINT_CMPMEN_PWM_EN_ADDR                \
+	MT6369_ACCDET_CON4
+#define ACCDET_EINT_CMPMEN_PWM_EN_SFT                 5
+#define ACCDET_EINT_CMPMEN_PWM_EN_MASK                0x1
+#define ACCDET_EINT_CMPMEN_PWM_EN_MASK_SFT            (0x1 << 5)
+#define ACCDET_EINT_CTURBO_PWM_EN_ADDR                \
+	MT6369_ACCDET_CON4
+#define ACCDET_EINT_CTURBO_PWM_EN_SFT                 6
+#define ACCDET_EINT_CTURBO_PWM_EN_MASK                0x1
+#define ACCDET_EINT_CTURBO_PWM_EN_MASK_SFT            (0x1 << 6)
+#define ACCDET_CMP_PWM_IDLE_ADDR                      \
+	MT6369_ACCDET_CON5
+#define ACCDET_CMP_PWM_IDLE_SFT                       0
+#define ACCDET_CMP_PWM_IDLE_MASK                      0x1
+#define ACCDET_CMP_PWM_IDLE_MASK_SFT                  (0x1 << 0)
+#define ACCDET_VTH_PWM_IDLE_ADDR                      \
+	MT6369_ACCDET_CON5
+#define ACCDET_VTH_PWM_IDLE_SFT                       1
+#define ACCDET_VTH_PWM_IDLE_MASK                      0x1
+#define ACCDET_VTH_PWM_IDLE_MASK_SFT                  (0x1 << 1)
+#define ACCDET_MBIAS_PWM_IDLE_ADDR                    \
+	MT6369_ACCDET_CON5
+#define ACCDET_MBIAS_PWM_IDLE_SFT                     2
+#define ACCDET_MBIAS_PWM_IDLE_MASK                    0x1
+#define ACCDET_MBIAS_PWM_IDLE_MASK_SFT                (0x1 << 2)
+#define ACCDET_EINT0_CMPEN_PWM_IDLE_ADDR              \
+	MT6369_ACCDET_CON5
+#define ACCDET_EINT0_CMPEN_PWM_IDLE_SFT               3
+#define ACCDET_EINT0_CMPEN_PWM_IDLE_MASK              0x1
+#define ACCDET_EINT0_CMPEN_PWM_IDLE_MASK_SFT          (0x1 << 3)
+#define ACCDET_EINT1_CMPEN_PWM_IDLE_ADDR              \
+	MT6369_ACCDET_CON5
+#define ACCDET_EINT1_CMPEN_PWM_IDLE_SFT               4
+#define ACCDET_EINT1_CMPEN_PWM_IDLE_MASK              0x1
+#define ACCDET_EINT1_CMPEN_PWM_IDLE_MASK_SFT          (0x1 << 4)
+#define ACCDET_PWM_EN_SW_ADDR                         \
+	MT6369_ACCDET_CON5
+#define ACCDET_PWM_EN_SW_SFT                          5
+#define ACCDET_PWM_EN_SW_MASK                         0x1
+#define ACCDET_PWM_EN_SW_MASK_SFT                     (0x1 << 5)
+#define ACCDET_PWM_EN_SEL_ADDR                        \
+	MT6369_ACCDET_CON5
+#define ACCDET_PWM_EN_SEL_SFT                         6
+#define ACCDET_PWM_EN_SEL_MASK                        0x3
+#define ACCDET_PWM_EN_SEL_MASK_SFT                    (0x3 << 6)
+#define ACCDET_PWM_WIDTH_L_ADDR                       \
+	MT6369_ACCDET_CON6
+#define ACCDET_PWM_WIDTH_L_SFT                        0
+#define ACCDET_PWM_WIDTH_L_MASK                       0xFF
+#define ACCDET_PWM_WIDTH_L_MASK_SFT                   (0xFF << 0)
+#define ACCDET_PWM_WIDTH_H_ADDR                       \
+	MT6369_ACCDET_CON7
+#define ACCDET_PWM_WIDTH_H_SFT                        0
+#define ACCDET_PWM_WIDTH_H_MASK                       0xFF
+#define ACCDET_PWM_WIDTH_H_MASK_SFT                   (0xFF << 0)
+#define ACCDET_PWM_THRESH_L_ADDR                      \
+	MT6369_ACCDET_CON8
+#define ACCDET_PWM_THRESH_L_SFT                       0
+#define ACCDET_PWM_THRESH_L_MASK                      0xFF
+#define ACCDET_PWM_THRESH_L_MASK_SFT                  (0xFF << 0)
+#define ACCDET_PWM_THRESH_H_ADDR                      \
+	MT6369_ACCDET_CON9
+#define ACCDET_PWM_THRESH_H_SFT                       0
+#define ACCDET_PWM_THRESH_H_MASK                      0xFF
+#define ACCDET_PWM_THRESH_H_MASK_SFT                  (0xFF << 0)
+#define ACCDET_RISE_DELAY_L_ADDR                      \
+	MT6369_ACCDET_CON10
+#define ACCDET_RISE_DELAY_L_SFT                       0
+#define ACCDET_RISE_DELAY_L_MASK                      0xFF
+#define ACCDET_RISE_DELAY_L_MASK_SFT                  (0xFF << 0)
+#define ACCDET_RISE_DELAY_H_ADDR                      \
+	MT6369_ACCDET_CON11
+#define ACCDET_RISE_DELAY_H_SFT                       0
+#define ACCDET_RISE_DELAY_H_MASK                      0x7F
+#define ACCDET_RISE_DELAY_H_MASK_SFT                  (0x7F << 0)
+#define ACCDET_FALL_DELAY_ADDR                        \
+	MT6369_ACCDET_CON11
+#define ACCDET_FALL_DELAY_SFT                         7
+#define ACCDET_FALL_DELAY_MASK                        0x1
+#define ACCDET_FALL_DELAY_MASK_SFT                    (0x1 << 7)
+#define ACCDET_EINT_CMPMEN_PWM_THRESH_ADDR            \
+	MT6369_ACCDET_CON12
+#define ACCDET_EINT_CMPMEN_PWM_THRESH_SFT             0
+#define ACCDET_EINT_CMPMEN_PWM_THRESH_MASK            0x7
+#define ACCDET_EINT_CMPMEN_PWM_THRESH_MASK_SFT        (0x7 << 0)
+#define ACCDET_EINT_CMPMEN_PWM_WIDTH_ADDR             \
+	MT6369_ACCDET_CON12
+#define ACCDET_EINT_CMPMEN_PWM_WIDTH_SFT              4
+#define ACCDET_EINT_CMPMEN_PWM_WIDTH_MASK             0x7
+#define ACCDET_EINT_CMPMEN_PWM_WIDTH_MASK_SFT         (0x7 << 4)
+#define ACCDET_EINT_EN_PWM_THRESH_ADDR                \
+	MT6369_ACCDET_CON13
+#define ACCDET_EINT_EN_PWM_THRESH_SFT                 0
+#define ACCDET_EINT_EN_PWM_THRESH_MASK                0x7
+#define ACCDET_EINT_EN_PWM_THRESH_MASK_SFT            (0x7 << 0)
+#define ACCDET_EINT_EN_PWM_WIDTH_ADDR                 \
+	MT6369_ACCDET_CON13
+#define ACCDET_EINT_EN_PWM_WIDTH_SFT                  4
+#define ACCDET_EINT_EN_PWM_WIDTH_MASK                 0x3
+#define ACCDET_EINT_EN_PWM_WIDTH_MASK_SFT             (0x3 << 4)
+#define ACCDET_EINT_CMPEN_PWM_THRESH_ADDR             \
+	MT6369_ACCDET_CON14
+#define ACCDET_EINT_CMPEN_PWM_THRESH_SFT              0
+#define ACCDET_EINT_CMPEN_PWM_THRESH_MASK             0x7
+#define ACCDET_EINT_CMPEN_PWM_THRESH_MASK_SFT         (0x7 << 0)
+#define ACCDET_EINT_CMPEN_PWM_WIDTH_ADDR              \
+	MT6369_ACCDET_CON14
+#define ACCDET_EINT_CMPEN_PWM_WIDTH_SFT               4
+#define ACCDET_EINT_CMPEN_PWM_WIDTH_MASK              0x3
+#define ACCDET_EINT_CMPEN_PWM_WIDTH_MASK_SFT          (0x3 << 4)
+#define ACCDET_DEBOUNCE0_L_ADDR                       \
+	MT6369_ACCDET_CON15
+#define ACCDET_DEBOUNCE0_L_SFT                        0
+#define ACCDET_DEBOUNCE0_L_MASK                       0xFF
+#define ACCDET_DEBOUNCE0_L_MASK_SFT                   (0xFF << 0)
+#define ACCDET_DEBOUNCE0_H_ADDR                       \
+	MT6369_ACCDET_CON16
+#define ACCDET_DEBOUNCE0_H_SFT                        0
+#define ACCDET_DEBOUNCE0_H_MASK                       0xFF
+#define ACCDET_DEBOUNCE0_H_MASK_SFT                   (0xFF << 0)
+#define ACCDET_DEBOUNCE1_L_ADDR                       \
+	MT6369_ACCDET_CON17
+#define ACCDET_DEBOUNCE1_L_SFT                        0
+#define ACCDET_DEBOUNCE1_L_MASK                       0xFF
+#define ACCDET_DEBOUNCE1_L_MASK_SFT                   (0xFF << 0)
+#define ACCDET_DEBOUNCE1_H_ADDR                       \
+	MT6369_ACCDET_CON18
+#define ACCDET_DEBOUNCE1_H_SFT                        0
+#define ACCDET_DEBOUNCE1_H_MASK                       0xFF
+#define ACCDET_DEBOUNCE1_H_MASK_SFT                   (0xFF << 0)
+#define ACCDET_DEBOUNCE2_L_ADDR                       \
+	MT6369_ACCDET_CON19
+#define ACCDET_DEBOUNCE2_L_SFT                        0
+#define ACCDET_DEBOUNCE2_L_MASK                       0xFF
+#define ACCDET_DEBOUNCE2_L_MASK_SFT                   (0xFF << 0)
+#define ACCDET_DEBOUNCE2_H_ADDR                       \
+	MT6369_ACCDET_CON20
+#define ACCDET_DEBOUNCE2_H_SFT                        0
+#define ACCDET_DEBOUNCE2_H_MASK                       0xFF
+#define ACCDET_DEBOUNCE2_H_MASK_SFT                   (0xFF << 0)
+#define ACCDET_DEBOUNCE3_L_ADDR                       \
+	MT6369_ACCDET_CON21
+#define ACCDET_DEBOUNCE3_L_SFT                        0
+#define ACCDET_DEBOUNCE3_L_MASK                       0xFF
+#define ACCDET_DEBOUNCE3_L_MASK_SFT                   (0xFF << 0)
+#define ACCDET_DEBOUNCE3_H_ADDR                       \
+	MT6369_ACCDET_CON22
+#define ACCDET_DEBOUNCE3_H_SFT                        0
+#define ACCDET_DEBOUNCE3_H_MASK                       0xFF
+#define ACCDET_DEBOUNCE3_H_MASK_SFT                   (0xFF << 0)
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_L_ADDR         \
+	MT6369_ACCDET_CON23
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_L_SFT          0
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_L_MASK         0xFF
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_L_MASK_SFT     (0xFF << 0)
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_H_ADDR         \
+	MT6369_ACCDET_CON24
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_H_SFT          0
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_H_MASK         0xFF
+#define ACCDET_CONNECT_AUXADC_TIME_DIG_H_MASK_SFT     (0xFF << 0)
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_L_ADDR         \
+	MT6369_ACCDET_CON25
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_L_SFT          0
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_L_MASK         0xFF
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_L_MASK_SFT     (0xFF << 0)
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_H_ADDR         \
+	MT6369_ACCDET_CON26
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_H_SFT          0
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_H_MASK         0xFF
+#define ACCDET_CONNECT_AUXADC_TIME_ANA_H_MASK_SFT     (0xFF << 0)
+#define ACCDET_EINT_DEBOUNCE0_ADDR                    \
+	MT6369_ACCDET_CON27
+#define ACCDET_EINT_DEBOUNCE0_SFT                     0
+#define ACCDET_EINT_DEBOUNCE0_MASK                    0xF
+#define ACCDET_EINT_DEBOUNCE0_MASK_SFT                (0xF << 0)
+#define ACCDET_EINT_DEBOUNCE1_ADDR                    \
+	MT6369_ACCDET_CON27
+#define ACCDET_EINT_DEBOUNCE1_SFT                     4
+#define ACCDET_EINT_DEBOUNCE1_MASK                    0xF
+#define ACCDET_EINT_DEBOUNCE1_MASK_SFT                (0xF << 4)
+#define ACCDET_EINT_DEBOUNCE2_ADDR                    \
+	MT6369_ACCDET_CON28
+#define ACCDET_EINT_DEBOUNCE2_SFT                     0
+#define ACCDET_EINT_DEBOUNCE2_MASK                    0xF
+#define ACCDET_EINT_DEBOUNCE2_MASK_SFT                (0xF << 0)
+#define ACCDET_EINT_DEBOUNCE3_ADDR                    \
+	MT6369_ACCDET_CON28
+#define ACCDET_EINT_DEBOUNCE3_SFT                     4
+#define ACCDET_EINT_DEBOUNCE3_MASK                    0xF
+#define ACCDET_EINT_DEBOUNCE3_MASK_SFT                (0xF << 4)
+#define ACCDET_EINT_INVERTER_DEBOUNCE_ADDR            \
+	MT6369_ACCDET_CON29
+#define ACCDET_EINT_INVERTER_DEBOUNCE_SFT             0
+#define ACCDET_EINT_INVERTER_DEBOUNCE_MASK            0xF
+#define ACCDET_EINT_INVERTER_DEBOUNCE_MASK_SFT        (0xF << 0)
+#define ACCDET_IVAL_CUR_IN_ADDR                       \
+	MT6369_ACCDET_CON30
+#define ACCDET_IVAL_CUR_IN_SFT                        0
+#define ACCDET_IVAL_CUR_IN_MASK                       0x3
+#define ACCDET_IVAL_CUR_IN_MASK_SFT                   (0x3 << 0)
+#define ACCDET_IVAL_SAM_IN_ADDR                       \
+	MT6369_ACCDET_CON30
+#define ACCDET_IVAL_SAM_IN_SFT                        2
+#define ACCDET_IVAL_SAM_IN_MASK                       0x3
+#define ACCDET_IVAL_SAM_IN_MASK_SFT                   (0x3 << 2)
+#define ACCDET_IVAL_MEM_IN_ADDR                       \
+	MT6369_ACCDET_CON30
+#define ACCDET_IVAL_MEM_IN_SFT                        4
+#define ACCDET_IVAL_MEM_IN_MASK                       0x3
+#define ACCDET_IVAL_MEM_IN_MASK_SFT                   (0x3 << 4)
+#define ACCDET_EINT_IVAL_CUR_IN_ADDR                  \
+	MT6369_ACCDET_CON30
+#define ACCDET_EINT_IVAL_CUR_IN_SFT                   6
+#define ACCDET_EINT_IVAL_CUR_IN_MASK                  0x3
+#define ACCDET_EINT_IVAL_CUR_IN_MASK_SFT              (0x3 << 6)
+#define ACCDET_EINT_IVAL_SAM_IN_ADDR                  \
+	MT6369_ACCDET_CON31
+#define ACCDET_EINT_IVAL_SAM_IN_SFT                   0
+#define ACCDET_EINT_IVAL_SAM_IN_MASK                  0x3
+#define ACCDET_EINT_IVAL_SAM_IN_MASK_SFT              (0x3 << 0)
+#define ACCDET_EINT_IVAL_MEM_IN_ADDR                  \
+	MT6369_ACCDET_CON31
+#define ACCDET_EINT_IVAL_MEM_IN_SFT                   2
+#define ACCDET_EINT_IVAL_MEM_IN_MASK                  0x3
+#define ACCDET_EINT_IVAL_MEM_IN_MASK_SFT              (0x3 << 2)
+#define ACCDET_IVAL_SEL_ADDR                          \
+	MT6369_ACCDET_CON31
+#define ACCDET_IVAL_SEL_SFT                           4
+#define ACCDET_IVAL_SEL_MASK                          0x1
+#define ACCDET_IVAL_SEL_MASK_SFT                      (0x1 << 4)
+#define ACCDET_EINT_IVAL_SEL_ADDR                     \
+	MT6369_ACCDET_CON31
+#define ACCDET_EINT_IVAL_SEL_SFT                      5
+#define ACCDET_EINT_IVAL_SEL_MASK                     0x1
+#define ACCDET_EINT_IVAL_SEL_MASK_SFT                 (0x1 << 5)
+#define ACCDET_EINT_INVERTER_IVAL_CUR_IN_ADDR         \
+	MT6369_ACCDET_CON32
+#define ACCDET_EINT_INVERTER_IVAL_CUR_IN_SFT          0
+#define ACCDET_EINT_INVERTER_IVAL_CUR_IN_MASK         0x1
+#define ACCDET_EINT_INVERTER_IVAL_CUR_IN_MASK_SFT     (0x1 << 0)
+#define ACCDET_EINT_INVERTER_IVAL_SAM_IN_ADDR         \
+	MT6369_ACCDET_CON32
+#define ACCDET_EINT_INVERTER_IVAL_SAM_IN_SFT          1
+#define ACCDET_EINT_INVERTER_IVAL_SAM_IN_MASK         0x1
+#define ACCDET_EINT_INVERTER_IVAL_SAM_IN_MASK_SFT     (0x1 << 1)
+#define ACCDET_EINT_INVERTER_IVAL_MEM_IN_ADDR         \
+	MT6369_ACCDET_CON32
+#define ACCDET_EINT_INVERTER_IVAL_MEM_IN_SFT          2
+#define ACCDET_EINT_INVERTER_IVAL_MEM_IN_MASK         0x1
+#define ACCDET_EINT_INVERTER_IVAL_MEM_IN_MASK_SFT     (0x1 << 2)
+#define ACCDET_EINT_INVERTER_IVAL_SEL_ADDR            \
+	MT6369_ACCDET_CON32
+#define ACCDET_EINT_INVERTER_IVAL_SEL_SFT             3
+#define ACCDET_EINT_INVERTER_IVAL_SEL_MASK            0x1
+#define ACCDET_EINT_INVERTER_IVAL_SEL_MASK_SFT        (0x1 << 3)
+#define ACCDET_IRQ_ADDR                               \
+	MT6369_ACCDET_CON33
+#define ACCDET_IRQ_SFT                                0
+#define ACCDET_IRQ_MASK                               0x1
+#define ACCDET_IRQ_MASK_SFT                           (0x1 << 0)
+#define ACCDET_EINT0_IRQ_ADDR                         \
+	MT6369_ACCDET_CON33
+#define ACCDET_EINT0_IRQ_SFT                          2
+#define ACCDET_EINT0_IRQ_MASK                         0x1
+#define ACCDET_EINT0_IRQ_MASK_SFT                     (0x1 << 2)
+#define ACCDET_EINT1_IRQ_ADDR                         \
+	MT6369_ACCDET_CON33
+#define ACCDET_EINT1_IRQ_SFT                          3
+#define ACCDET_EINT1_IRQ_MASK                         0x1
+#define ACCDET_EINT1_IRQ_MASK_SFT                     (0x1 << 3)
+#define ACCDET_EINT_IN_INVERSE_ADDR                   \
+	MT6369_ACCDET_CON33
+#define ACCDET_EINT_IN_INVERSE_SFT                    4
+#define ACCDET_EINT_IN_INVERSE_MASK                   0x1
+#define ACCDET_EINT_IN_INVERSE_MASK_SFT               (0x1 << 4)
+#define ACCDET_IRQ_CLR_ADDR                           \
+	MT6369_ACCDET_CON34
+#define ACCDET_IRQ_CLR_SFT                            0
+#define ACCDET_IRQ_CLR_MASK                           0x1
+#define ACCDET_IRQ_CLR_MASK_SFT                       (0x1 << 0)
+#define ACCDET_EINT0_IRQ_CLR_ADDR                     \
+	MT6369_ACCDET_CON34
+#define ACCDET_EINT0_IRQ_CLR_SFT                      2
+#define ACCDET_EINT0_IRQ_CLR_MASK                     0x1
+#define ACCDET_EINT0_IRQ_CLR_MASK_SFT                 (0x1 << 2)
+#define ACCDET_EINT1_IRQ_CLR_ADDR                     \
+	MT6369_ACCDET_CON34
+#define ACCDET_EINT1_IRQ_CLR_SFT                      3
+#define ACCDET_EINT1_IRQ_CLR_MASK                     0x1
+#define ACCDET_EINT1_IRQ_CLR_MASK_SFT                 (0x1 << 3)
+#define ACCDET_EINT_M_PLUG_IN_NUM_ADDR                \
+	MT6369_ACCDET_CON34
+#define ACCDET_EINT_M_PLUG_IN_NUM_SFT                 4
+#define ACCDET_EINT_M_PLUG_IN_NUM_MASK                0x7
+#define ACCDET_EINT_M_PLUG_IN_NUM_MASK_SFT            (0x7 << 4)
+#define ACCDET_DA_STABLE_ADDR                         \
+	MT6369_ACCDET_CON35
+#define ACCDET_DA_STABLE_SFT                          0
+#define ACCDET_DA_STABLE_MASK                         0x1
+#define ACCDET_DA_STABLE_MASK_SFT                     (0x1 << 0)
+#define ACCDET_EINT0_EN_STABLE_ADDR                   \
+	MT6369_ACCDET_CON35
+#define ACCDET_EINT0_EN_STABLE_SFT                    1
+#define ACCDET_EINT0_EN_STABLE_MASK                   0x1
+#define ACCDET_EINT0_EN_STABLE_MASK_SFT               (0x1 << 1)
+#define ACCDET_EINT0_CMPEN_STABLE_ADDR                \
+	MT6369_ACCDET_CON35
+#define ACCDET_EINT0_CMPEN_STABLE_SFT                 2
+#define ACCDET_EINT0_CMPEN_STABLE_MASK                0x1
+#define ACCDET_EINT0_CMPEN_STABLE_MASK_SFT            (0x1 << 2)
+#define ACCDET_EINT0_CMPMEN_STABLE_ADDR               \
+	MT6369_ACCDET_CON35
+#define ACCDET_EINT0_CMPMEN_STABLE_SFT                3
+#define ACCDET_EINT0_CMPMEN_STABLE_MASK               0x1
+#define ACCDET_EINT0_CMPMEN_STABLE_MASK_SFT           (0x1 << 3)
+#define ACCDET_EINT0_CTURBO_STABLE_ADDR               \
+	MT6369_ACCDET_CON35
+#define ACCDET_EINT0_CTURBO_STABLE_SFT                4
+#define ACCDET_EINT0_CTURBO_STABLE_MASK               0x1
+#define ACCDET_EINT0_CTURBO_STABLE_MASK_SFT           (0x1 << 4)
+#define ACCDET_EINT0_CEN_STABLE_ADDR                  \
+	MT6369_ACCDET_CON35
+#define ACCDET_EINT0_CEN_STABLE_SFT                   5
+#define ACCDET_EINT0_CEN_STABLE_MASK                  0x1
+#define ACCDET_EINT0_CEN_STABLE_MASK_SFT              (0x1 << 5)
+#define ACCDET_EINT1_EN_STABLE_ADDR                   \
+	MT6369_ACCDET_CON35
+#define ACCDET_EINT1_EN_STABLE_SFT                    6
+#define ACCDET_EINT1_EN_STABLE_MASK                   0x1
+#define ACCDET_EINT1_EN_STABLE_MASK_SFT               (0x1 << 6)
+#define ACCDET_EINT1_CMPEN_STABLE_ADDR                \
+	MT6369_ACCDET_CON35
+#define ACCDET_EINT1_CMPEN_STABLE_SFT                 7
+#define ACCDET_EINT1_CMPEN_STABLE_MASK                0x1
+#define ACCDET_EINT1_CMPEN_STABLE_MASK_SFT            (0x1 << 7)
+#define ACCDET_EINT1_CMPMEN_STABLE_ADDR               \
+	MT6369_ACCDET_CON36
+#define ACCDET_EINT1_CMPMEN_STABLE_SFT                0
+#define ACCDET_EINT1_CMPMEN_STABLE_MASK               0x1
+#define ACCDET_EINT1_CMPMEN_STABLE_MASK_SFT           (0x1 << 0)
+#define ACCDET_EINT1_CTURBO_STABLE_ADDR               \
+	MT6369_ACCDET_CON36
+#define ACCDET_EINT1_CTURBO_STABLE_SFT                1
+#define ACCDET_EINT1_CTURBO_STABLE_MASK               0x1
+#define ACCDET_EINT1_CTURBO_STABLE_MASK_SFT           (0x1 << 1)
+#define ACCDET_EINT1_CEN_STABLE_ADDR                  \
+	MT6369_ACCDET_CON36
+#define ACCDET_EINT1_CEN_STABLE_SFT                   2
+#define ACCDET_EINT1_CEN_STABLE_MASK                  0x1
+#define ACCDET_EINT1_CEN_STABLE_MASK_SFT              (0x1 << 2)
+#define ACCDET_HWMODE_EN_ADDR                         \
+	MT6369_ACCDET_CON37
+#define ACCDET_HWMODE_EN_SFT                          0
+#define ACCDET_HWMODE_EN_MASK                         0x1
+#define ACCDET_HWMODE_EN_MASK_SFT                     (0x1 << 0)
+#define ACCDET_HWMODE_SEL_ADDR                        \
+	MT6369_ACCDET_CON37
+#define ACCDET_HWMODE_SEL_SFT                         1
+#define ACCDET_HWMODE_SEL_MASK                        0x3
+#define ACCDET_HWMODE_SEL_MASK_SFT                    (0x3 << 1)
+#define ACCDET_PLUG_OUT_DETECT_ADDR                   \
+	MT6369_ACCDET_CON37
+#define ACCDET_PLUG_OUT_DETECT_SFT                    3
+#define ACCDET_PLUG_OUT_DETECT_MASK                   0x1
+#define ACCDET_PLUG_OUT_DETECT_MASK_SFT               (0x1 << 3)
+#define ACCDET_EINT0_REVERSE_ADDR                     \
+	MT6369_ACCDET_CON37
+#define ACCDET_EINT0_REVERSE_SFT                      4
+#define ACCDET_EINT0_REVERSE_MASK                     0x1
+#define ACCDET_EINT0_REVERSE_MASK_SFT                 (0x1 << 4)
+#define ACCDET_EINT1_REVERSE_ADDR                     \
+	MT6369_ACCDET_CON37
+#define ACCDET_EINT1_REVERSE_SFT                      5
+#define ACCDET_EINT1_REVERSE_MASK                     0x1
+#define ACCDET_EINT1_REVERSE_MASK_SFT                 (0x1 << 5)
+#define ACCDET_EINT_HWMODE_EN_ADDR                    \
+	MT6369_ACCDET_CON38
+#define ACCDET_EINT_HWMODE_EN_SFT                     0
+#define ACCDET_EINT_HWMODE_EN_MASK                    0x1
+#define ACCDET_EINT_HWMODE_EN_MASK_SFT                (0x1 << 0)
+#define ACCDET_EINT_PLUG_OUT_BYPASS_DEB_ADDR          \
+	MT6369_ACCDET_CON38
+#define ACCDET_EINT_PLUG_OUT_BYPASS_DEB_SFT           1
+#define ACCDET_EINT_PLUG_OUT_BYPASS_DEB_MASK          0x1
+#define ACCDET_EINT_PLUG_OUT_BYPASS_DEB_MASK_SFT      (0x1 << 1)
+#define ACCDET_EINT_M_PLUG_IN_EN_ADDR                 \
+	MT6369_ACCDET_CON38
+#define ACCDET_EINT_M_PLUG_IN_EN_SFT                  2
+#define ACCDET_EINT_M_PLUG_IN_EN_MASK                 0x1
+#define ACCDET_EINT_M_PLUG_IN_EN_MASK_SFT             (0x1 << 2)
+#define ACCDET_EINT_M_HWMODE_EN_ADDR                  \
+	MT6369_ACCDET_CON38
+#define ACCDET_EINT_M_HWMODE_EN_SFT                   3
+#define ACCDET_EINT_M_HWMODE_EN_MASK                  0x1
+#define ACCDET_EINT_M_HWMODE_EN_MASK_SFT              (0x1 << 3)
+#define ACCDET_TEST_CMPEN_ADDR                        \
+	MT6369_ACCDET_CON39
+#define ACCDET_TEST_CMPEN_SFT                         0
+#define ACCDET_TEST_CMPEN_MASK                        0x1
+#define ACCDET_TEST_CMPEN_MASK_SFT                    (0x1 << 0)
+#define ACCDET_TEST_VTHEN_ADDR                        \
+	MT6369_ACCDET_CON39
+#define ACCDET_TEST_VTHEN_SFT                         1
+#define ACCDET_TEST_VTHEN_MASK                        0x1
+#define ACCDET_TEST_VTHEN_MASK_SFT                    (0x1 << 1)
+#define ACCDET_TEST_MBIASEN_ADDR                      \
+	MT6369_ACCDET_CON39
+#define ACCDET_TEST_MBIASEN_SFT                       2
+#define ACCDET_TEST_MBIASEN_MASK                      0x1
+#define ACCDET_TEST_MBIASEN_MASK_SFT                  (0x1 << 2)
+#define ACCDET_EINT_TEST_EN_ADDR                      \
+	MT6369_ACCDET_CON39
+#define ACCDET_EINT_TEST_EN_SFT                       3
+#define ACCDET_EINT_TEST_EN_MASK                      0x1
+#define ACCDET_EINT_TEST_EN_MASK_SFT                  (0x1 << 3)
+#define ACCDET_EINT_TEST_INVEN_ADDR                   \
+	MT6369_ACCDET_CON39
+#define ACCDET_EINT_TEST_INVEN_SFT                    4
+#define ACCDET_EINT_TEST_INVEN_MASK                   0x1
+#define ACCDET_EINT_TEST_INVEN_MASK_SFT               (0x1 << 4)
+#define ACCDET_EINT_TEST_CMPEN_ADDR                   \
+	MT6369_ACCDET_CON39
+#define ACCDET_EINT_TEST_CMPEN_SFT                    5
+#define ACCDET_EINT_TEST_CMPEN_MASK                   0x1
+#define ACCDET_EINT_TEST_CMPEN_MASK_SFT               (0x1 << 5)
+#define ACCDET_EINT_TEST_CMPMEN_ADDR                  \
+	MT6369_ACCDET_CON39
+#define ACCDET_EINT_TEST_CMPMEN_SFT                   6
+#define ACCDET_EINT_TEST_CMPMEN_MASK                  0x1
+#define ACCDET_EINT_TEST_CMPMEN_MASK_SFT              (0x1 << 6)
+#define ACCDET_EINT_TEST_CTURBO_ADDR                  \
+	MT6369_ACCDET_CON39
+#define ACCDET_EINT_TEST_CTURBO_SFT                   7
+#define ACCDET_EINT_TEST_CTURBO_MASK                  0x1
+#define ACCDET_EINT_TEST_CTURBO_MASK_SFT              (0x1 << 7)
+#define ACCDET_EINT_TEST_CEN_ADDR                     \
+	MT6369_ACCDET_CON40
+#define ACCDET_EINT_TEST_CEN_SFT                      0
+#define ACCDET_EINT_TEST_CEN_MASK                     0x1
+#define ACCDET_EINT_TEST_CEN_MASK_SFT                 (0x1 << 0)
+#define ACCDET_TEST_B_ADDR                            \
+	MT6369_ACCDET_CON40
+#define ACCDET_TEST_B_SFT                             1
+#define ACCDET_TEST_B_MASK                            0x1
+#define ACCDET_TEST_B_MASK_SFT                        (0x1 << 1)
+#define ACCDET_TEST_A_ADDR                            \
+	MT6369_ACCDET_CON40
+#define ACCDET_TEST_A_SFT                             2
+#define ACCDET_TEST_A_MASK                            0x1
+#define ACCDET_TEST_A_MASK_SFT                        (0x1 << 2)
+#define ACCDET_EINT_TEST_CMPOUT_ADDR                  \
+	MT6369_ACCDET_CON40
+#define ACCDET_EINT_TEST_CMPOUT_SFT                   3
+#define ACCDET_EINT_TEST_CMPOUT_MASK                  0x1
+#define ACCDET_EINT_TEST_CMPOUT_MASK_SFT              (0x1 << 3)
+#define ACCDET_EINT_TEST_CMPMOUT_ADDR                 \
+	MT6369_ACCDET_CON40
+#define ACCDET_EINT_TEST_CMPMOUT_SFT                  4
+#define ACCDET_EINT_TEST_CMPMOUT_MASK                 0x1
+#define ACCDET_EINT_TEST_CMPMOUT_MASK_SFT             (0x1 << 4)
+#define ACCDET_EINT_TEST_INVOUT_ADDR                  \
+	MT6369_ACCDET_CON40
+#define ACCDET_EINT_TEST_INVOUT_SFT                   5
+#define ACCDET_EINT_TEST_INVOUT_MASK                  0x1
+#define ACCDET_EINT_TEST_INVOUT_MASK_SFT              (0x1 << 5)
+#define ACCDET_CMPEN_SEL_ADDR                         \
+	MT6369_ACCDET_CON41
+#define ACCDET_CMPEN_SEL_SFT                          0
+#define ACCDET_CMPEN_SEL_MASK                         0x1
+#define ACCDET_CMPEN_SEL_MASK_SFT                     (0x1 << 0)
+#define ACCDET_VTHEN_SEL_ADDR                         \
+	MT6369_ACCDET_CON41
+#define ACCDET_VTHEN_SEL_SFT                          1
+#define ACCDET_VTHEN_SEL_MASK                         0x1
+#define ACCDET_VTHEN_SEL_MASK_SFT                     (0x1 << 1)
+#define ACCDET_MBIASEN_SEL_ADDR                       \
+	MT6369_ACCDET_CON41
+#define ACCDET_MBIASEN_SEL_SFT                        2
+#define ACCDET_MBIASEN_SEL_MASK                       0x1
+#define ACCDET_MBIASEN_SEL_MASK_SFT                   (0x1 << 2)
+#define ACCDET_EINT_EN_SEL_ADDR                       \
+	MT6369_ACCDET_CON41
+#define ACCDET_EINT_EN_SEL_SFT                        3
+#define ACCDET_EINT_EN_SEL_MASK                       0x1
+#define ACCDET_EINT_EN_SEL_MASK_SFT                   (0x1 << 3)
+#define ACCDET_EINT_INVEN_SEL_ADDR                    \
+	MT6369_ACCDET_CON41
+#define ACCDET_EINT_INVEN_SEL_SFT                     4
+#define ACCDET_EINT_INVEN_SEL_MASK                    0x1
+#define ACCDET_EINT_INVEN_SEL_MASK_SFT                (0x1 << 4)
+#define ACCDET_EINT_CMPEN_SEL_ADDR                    \
+	MT6369_ACCDET_CON41
+#define ACCDET_EINT_CMPEN_SEL_SFT                     5
+#define ACCDET_EINT_CMPEN_SEL_MASK                    0x1
+#define ACCDET_EINT_CMPEN_SEL_MASK_SFT                (0x1 << 5)
+#define ACCDET_EINT_CMPMEN_SEL_ADDR                   \
+	MT6369_ACCDET_CON41
+#define ACCDET_EINT_CMPMEN_SEL_SFT                    6
+#define ACCDET_EINT_CMPMEN_SEL_MASK                   0x1
+#define ACCDET_EINT_CMPMEN_SEL_MASK_SFT               (0x1 << 6)
+#define ACCDET_EINT_CTURBO_SEL_ADDR                   \
+	MT6369_ACCDET_CON41
+#define ACCDET_EINT_CTURBO_SEL_SFT                    7
+#define ACCDET_EINT_CTURBO_SEL_MASK                   0x1
+#define ACCDET_EINT_CTURBO_SEL_MASK_SFT               (0x1 << 7)
+#define ACCDET_B_SEL_ADDR                             \
+	MT6369_ACCDET_CON42
+#define ACCDET_B_SEL_SFT                              1
+#define ACCDET_B_SEL_MASK                             0x1
+#define ACCDET_B_SEL_MASK_SFT                         (0x1 << 1)
+#define ACCDET_A_SEL_ADDR                             \
+	MT6369_ACCDET_CON42
+#define ACCDET_A_SEL_SFT                              2
+#define ACCDET_A_SEL_MASK                             0x1
+#define ACCDET_A_SEL_MASK_SFT                         (0x1 << 2)
+#define ACCDET_EINT_CMPOUT_SEL_ADDR                   \
+	MT6369_ACCDET_CON42
+#define ACCDET_EINT_CMPOUT_SEL_SFT                    3
+#define ACCDET_EINT_CMPOUT_SEL_MASK                   0x1
+#define ACCDET_EINT_CMPOUT_SEL_MASK_SFT               (0x1 << 3)
+#define ACCDET_EINT_CMPMOUT_SEL_ADDR                  \
+	MT6369_ACCDET_CON42
+#define ACCDET_EINT_CMPMOUT_SEL_SFT                   4
+#define ACCDET_EINT_CMPMOUT_SEL_MASK                  0x1
+#define ACCDET_EINT_CMPMOUT_SEL_MASK_SFT              (0x1 << 4)
+#define ACCDET_EINT_INVOUT_SEL_ADDR                   \
+	MT6369_ACCDET_CON42
+#define ACCDET_EINT_INVOUT_SEL_SFT                    5
+#define ACCDET_EINT_INVOUT_SEL_MASK                   0x1
+#define ACCDET_EINT_INVOUT_SEL_MASK_SFT               (0x1 << 5)
+#define ACCDET_CMPEN_SW_ADDR                          \
+	MT6369_ACCDET_CON43
+#define ACCDET_CMPEN_SW_SFT                           0
+#define ACCDET_CMPEN_SW_MASK                          0x1
+#define ACCDET_CMPEN_SW_MASK_SFT                      (0x1 << 0)
+#define ACCDET_VTHEN_SW_ADDR                          \
+	MT6369_ACCDET_CON43
+#define ACCDET_VTHEN_SW_SFT                           1
+#define ACCDET_VTHEN_SW_MASK                          0x1
+#define ACCDET_VTHEN_SW_MASK_SFT                      (0x1 << 1)
+#define ACCDET_MBIASEN_SW_ADDR                        \
+	MT6369_ACCDET_CON43
+#define ACCDET_MBIASEN_SW_SFT                         2
+#define ACCDET_MBIASEN_SW_MASK                        0x1
+#define ACCDET_MBIASEN_SW_MASK_SFT                    (0x1 << 2)
+#define ACCDET_EINT0_EN_SW_ADDR                       \
+	MT6369_ACCDET_CON43
+#define ACCDET_EINT0_EN_SW_SFT                        3
+#define ACCDET_EINT0_EN_SW_MASK                       0x1
+#define ACCDET_EINT0_EN_SW_MASK_SFT                   (0x1 << 3)
+#define ACCDET_EINT0_INVEN_SW_ADDR                    \
+	MT6369_ACCDET_CON43
+#define ACCDET_EINT0_INVEN_SW_SFT                     4
+#define ACCDET_EINT0_INVEN_SW_MASK                    0x1
+#define ACCDET_EINT0_INVEN_SW_MASK_SFT                (0x1 << 4)
+#define ACCDET_EINT0_CMPEN_SW_ADDR                    \
+	MT6369_ACCDET_CON43
+#define ACCDET_EINT0_CMPEN_SW_SFT                     5
+#define ACCDET_EINT0_CMPEN_SW_MASK                    0x1
+#define ACCDET_EINT0_CMPEN_SW_MASK_SFT                (0x1 << 5)
+#define ACCDET_EINT0_CMPMEN_SW_ADDR                   \
+	MT6369_ACCDET_CON43
+#define ACCDET_EINT0_CMPMEN_SW_SFT                    6
+#define ACCDET_EINT0_CMPMEN_SW_MASK                   0x1
+#define ACCDET_EINT0_CMPMEN_SW_MASK_SFT               (0x1 << 6)
+#define ACCDET_EINT0_CTURBO_SW_ADDR                   \
+	MT6369_ACCDET_CON43
+#define ACCDET_EINT0_CTURBO_SW_SFT                    7
+#define ACCDET_EINT0_CTURBO_SW_MASK                   0x1
+#define ACCDET_EINT0_CTURBO_SW_MASK_SFT               (0x1 << 7)
+#define ACCDET_EINT1_EN_SW_ADDR                       \
+	MT6369_ACCDET_CON44
+#define ACCDET_EINT1_EN_SW_SFT                        0
+#define ACCDET_EINT1_EN_SW_MASK                       0x1
+#define ACCDET_EINT1_EN_SW_MASK_SFT                   (0x1 << 0)
+#define ACCDET_EINT1_INVEN_SW_ADDR                    \
+	MT6369_ACCDET_CON44
+#define ACCDET_EINT1_INVEN_SW_SFT                     1
+#define ACCDET_EINT1_INVEN_SW_MASK                    0x1
+#define ACCDET_EINT1_INVEN_SW_MASK_SFT                (0x1 << 1)
+#define ACCDET_EINT1_CMPEN_SW_ADDR                    \
+	MT6369_ACCDET_CON44
+#define ACCDET_EINT1_CMPEN_SW_SFT                     2
+#define ACCDET_EINT1_CMPEN_SW_MASK                    0x1
+#define ACCDET_EINT1_CMPEN_SW_MASK_SFT                (0x1 << 2)
+#define ACCDET_EINT1_CMPMEN_SW_ADDR                   \
+	MT6369_ACCDET_CON44
+#define ACCDET_EINT1_CMPMEN_SW_SFT                    3
+#define ACCDET_EINT1_CMPMEN_SW_MASK                   0x1
+#define ACCDET_EINT1_CMPMEN_SW_MASK_SFT               (0x1 << 3)
+#define ACCDET_EINT1_CTURBO_SW_ADDR                   \
+	MT6369_ACCDET_CON44
+#define ACCDET_EINT1_CTURBO_SW_SFT                    4
+#define ACCDET_EINT1_CTURBO_SW_MASK                   0x1
+#define ACCDET_EINT1_CTURBO_SW_MASK_SFT               (0x1 << 4)
+#define ACCDET_B_SW_ADDR                              \
+	MT6369_ACCDET_CON45
+#define ACCDET_B_SW_SFT                               0
+#define ACCDET_B_SW_MASK                              0x1
+#define ACCDET_B_SW_MASK_SFT                          (0x1 << 0)
+#define ACCDET_A_SW_ADDR                              \
+	MT6369_ACCDET_CON45
+#define ACCDET_A_SW_SFT                               1
+#define ACCDET_A_SW_MASK                              0x1
+#define ACCDET_A_SW_MASK_SFT                          (0x1 << 1)
+#define ACCDET_EINT0_CMPOUT_SW_ADDR                   \
+	MT6369_ACCDET_CON45
+#define ACCDET_EINT0_CMPOUT_SW_SFT                    2
+#define ACCDET_EINT0_CMPOUT_SW_MASK                   0x1
+#define ACCDET_EINT0_CMPOUT_SW_MASK_SFT               (0x1 << 2)
+#define ACCDET_EINT0_CMPMOUT_SW_ADDR                  \
+	MT6369_ACCDET_CON45
+#define ACCDET_EINT0_CMPMOUT_SW_SFT                   3
+#define ACCDET_EINT0_CMPMOUT_SW_MASK                  0x1
+#define ACCDET_EINT0_CMPMOUT_SW_MASK_SFT              (0x1 << 3)
+#define ACCDET_EINT0_INVOUT_SW_ADDR                   \
+	MT6369_ACCDET_CON45
+#define ACCDET_EINT0_INVOUT_SW_SFT                    4
+#define ACCDET_EINT0_INVOUT_SW_MASK                   0x1
+#define ACCDET_EINT0_INVOUT_SW_MASK_SFT               (0x1 << 4)
+#define ACCDET_EINT1_CMPOUT_SW_ADDR                   \
+	MT6369_ACCDET_CON45
+#define ACCDET_EINT1_CMPOUT_SW_SFT                    5
+#define ACCDET_EINT1_CMPOUT_SW_MASK                   0x1
+#define ACCDET_EINT1_CMPOUT_SW_MASK_SFT               (0x1 << 5)
+#define ACCDET_EINT1_CMPMOUT_SW_ADDR                  \
+	MT6369_ACCDET_CON45
+#define ACCDET_EINT1_CMPMOUT_SW_SFT                   6
+#define ACCDET_EINT1_CMPMOUT_SW_MASK                  0x1
+#define ACCDET_EINT1_CMPMOUT_SW_MASK_SFT              (0x1 << 6)
+#define ACCDET_EINT1_INVOUT_SW_ADDR                   \
+	MT6369_ACCDET_CON45
+#define ACCDET_EINT1_INVOUT_SW_SFT                    7
+#define ACCDET_EINT1_INVOUT_SW_MASK                   0x1
+#define ACCDET_EINT1_INVOUT_SW_MASK_SFT               (0x1 << 7)
+#define AD_AUDACCDETCMPOB_ADDR                        \
+	MT6369_ACCDET_CON46
+#define AD_AUDACCDETCMPOB_SFT                         0
+#define AD_AUDACCDETCMPOB_MASK                        0x1
+#define AD_AUDACCDETCMPOB_MASK_SFT                    (0x1 << 0)
+#define AD_AUDACCDETCMPOA_ADDR                        \
+	MT6369_ACCDET_CON46
+#define AD_AUDACCDETCMPOA_SFT                         1
+#define AD_AUDACCDETCMPOA_MASK                        0x1
+#define AD_AUDACCDETCMPOA_MASK_SFT                    (0x1 << 1)
+#define ACCDET_CUR_IN_ADDR                            \
+	MT6369_ACCDET_CON46
+#define ACCDET_CUR_IN_SFT                             2
+#define ACCDET_CUR_IN_MASK                            0x3
+#define ACCDET_CUR_IN_MASK_SFT                        (0x3 << 2)
+#define ACCDET_SAM_IN_ADDR                            \
+	MT6369_ACCDET_CON46
+#define ACCDET_SAM_IN_SFT                             4
+#define ACCDET_SAM_IN_MASK                            0x3
+#define ACCDET_SAM_IN_MASK_SFT                        (0x3 << 4)
+#define ACCDET_MEM_IN_ADDR                            \
+	MT6369_ACCDET_CON46
+#define ACCDET_MEM_IN_SFT                             6
+#define ACCDET_MEM_IN_MASK                            0x3
+#define ACCDET_MEM_IN_MASK_SFT                        (0x3 << 6)
+#define ACCDET_STATE_ADDR                             \
+	MT6369_ACCDET_CON47
+#define ACCDET_STATE_SFT                              0
+#define ACCDET_STATE_MASK                             0x7
+#define ACCDET_STATE_MASK_SFT                         (0x7 << 0)
+#define DA_AUDACCDETMBIASCLK_ADDR                     \
+	MT6369_ACCDET_CON47
+#define DA_AUDACCDETMBIASCLK_SFT                      4
+#define DA_AUDACCDETMBIASCLK_MASK                     0x1
+#define DA_AUDACCDETMBIASCLK_MASK_SFT                 (0x1 << 4)
+#define DA_AUDACCDETVTHCLK_ADDR                       \
+	MT6369_ACCDET_CON47
+#define DA_AUDACCDETVTHCLK_SFT                        5
+#define DA_AUDACCDETVTHCLK_MASK                       0x1
+#define DA_AUDACCDETVTHCLK_MASK_SFT                   (0x1 << 5)
+#define DA_AUDACCDETCMPCLK_ADDR                       \
+	MT6369_ACCDET_CON47
+#define DA_AUDACCDETCMPCLK_SFT                        6
+#define DA_AUDACCDETCMPCLK_MASK                       0x1
+#define DA_AUDACCDETCMPCLK_MASK_SFT                   (0x1 << 6)
+#define DA_AUDACCDETAUXADCSWCTRL_ADDR                 \
+	MT6369_ACCDET_CON47
+#define DA_AUDACCDETAUXADCSWCTRL_SFT                  7
+#define DA_AUDACCDETAUXADCSWCTRL_MASK                 0x1
+#define DA_AUDACCDETAUXADCSWCTRL_MASK_SFT             (0x1 << 7)
+#define AD_EINT0CMPMOUT_ADDR                          \
+	MT6369_ACCDET_CON48
+#define AD_EINT0CMPMOUT_SFT                           0
+#define AD_EINT0CMPMOUT_MASK                          0x1
+#define AD_EINT0CMPMOUT_MASK_SFT                      (0x1 << 0)
+#define AD_EINT0CMPOUT_ADDR                           \
+	MT6369_ACCDET_CON48
+#define AD_EINT0CMPOUT_SFT                            1
+#define AD_EINT0CMPOUT_MASK                           0x1
+#define AD_EINT0CMPOUT_MASK_SFT                       (0x1 << 1)
+#define ACCDET_EINT0_CUR_IN_ADDR                      \
+	MT6369_ACCDET_CON48
+#define ACCDET_EINT0_CUR_IN_SFT                       2
+#define ACCDET_EINT0_CUR_IN_MASK                      0x3
+#define ACCDET_EINT0_CUR_IN_MASK_SFT                  (0x3 << 2)
+#define ACCDET_EINT0_SAM_IN_ADDR                      \
+	MT6369_ACCDET_CON48
+#define ACCDET_EINT0_SAM_IN_SFT                       4
+#define ACCDET_EINT0_SAM_IN_MASK                      0x3
+#define ACCDET_EINT0_SAM_IN_MASK_SFT                  (0x3 << 4)
+#define ACCDET_EINT0_MEM_IN_ADDR                      \
+	MT6369_ACCDET_CON48
+#define ACCDET_EINT0_MEM_IN_SFT                       6
+#define ACCDET_EINT0_MEM_IN_MASK                      0x3
+#define ACCDET_EINT0_MEM_IN_MASK_SFT                  (0x3 << 6)
+#define ACCDET_EINT0_STATE_ADDR                       \
+	MT6369_ACCDET_CON49
+#define ACCDET_EINT0_STATE_SFT                        0
+#define ACCDET_EINT0_STATE_MASK                       0x7
+#define ACCDET_EINT0_STATE_MASK_SFT                   (0x7 << 0)
+#define DA_EINT0CMPEN_ADDR                            \
+	MT6369_ACCDET_CON49
+#define DA_EINT0CMPEN_SFT                             5
+#define DA_EINT0CMPEN_MASK                            0x1
+#define DA_EINT0CMPEN_MASK_SFT                        (0x1 << 5)
+#define DA_EINT0CMPMEN_ADDR                           \
+	MT6369_ACCDET_CON49
+#define DA_EINT0CMPMEN_SFT                            6
+#define DA_EINT0CMPMEN_MASK                           0x1
+#define DA_EINT0CMPMEN_MASK_SFT                       (0x1 << 6)
+#define DA_EINT0CTURBO_ADDR                           \
+	MT6369_ACCDET_CON49
+#define DA_EINT0CTURBO_SFT                            7
+#define DA_EINT0CTURBO_MASK                           0x1
+#define DA_EINT0CTURBO_MASK_SFT                       (0x1 << 7)
+#define AD_EINT1CMPMOUT_ADDR                          \
+	MT6369_ACCDET_CON50
+#define AD_EINT1CMPMOUT_SFT                           0
+#define AD_EINT1CMPMOUT_MASK                          0x1
+#define AD_EINT1CMPMOUT_MASK_SFT                      (0x1 << 0)
+#define AD_EINT1CMPOUT_ADDR                           \
+	MT6369_ACCDET_CON50
+#define AD_EINT1CMPOUT_SFT                            1
+#define AD_EINT1CMPOUT_MASK                           0x1
+#define AD_EINT1CMPOUT_MASK_SFT                       (0x1 << 1)
+#define ACCDET_EINT1_CUR_IN_ADDR                      \
+	MT6369_ACCDET_CON50
+#define ACCDET_EINT1_CUR_IN_SFT                       2
+#define ACCDET_EINT1_CUR_IN_MASK                      0x3
+#define ACCDET_EINT1_CUR_IN_MASK_SFT                  (0x3 << 2)
+#define ACCDET_EINT1_SAM_IN_ADDR                      \
+	MT6369_ACCDET_CON50
+#define ACCDET_EINT1_SAM_IN_SFT                       4
+#define ACCDET_EINT1_SAM_IN_MASK                      0x3
+#define ACCDET_EINT1_SAM_IN_MASK_SFT                  (0x3 << 4)
+#define ACCDET_EINT1_MEM_IN_ADDR                      \
+	MT6369_ACCDET_CON50
+#define ACCDET_EINT1_MEM_IN_SFT                       6
+#define ACCDET_EINT1_MEM_IN_MASK                      0x3
+#define ACCDET_EINT1_MEM_IN_MASK_SFT                  (0x3 << 6)
+#define ACCDET_EINT1_STATE_ADDR                       \
+	MT6369_ACCDET_CON51
+#define ACCDET_EINT1_STATE_SFT                        0
+#define ACCDET_EINT1_STATE_MASK                       0x7
+#define ACCDET_EINT1_STATE_MASK_SFT                   (0x7 << 0)
+#define DA_EINT1CMPEN_ADDR                            \
+	MT6369_ACCDET_CON51
+#define DA_EINT1CMPEN_SFT                             5
+#define DA_EINT1CMPEN_MASK                            0x1
+#define DA_EINT1CMPEN_MASK_SFT                        (0x1 << 5)
+#define DA_EINT1CMPMEN_ADDR                           \
+	MT6369_ACCDET_CON51
+#define DA_EINT1CMPMEN_SFT                            6
+#define DA_EINT1CMPMEN_MASK                           0x1
+#define DA_EINT1CMPMEN_MASK_SFT                       (0x1 << 6)
+#define DA_EINT1CTURBO_ADDR                           \
+	MT6369_ACCDET_CON51
+#define DA_EINT1CTURBO_SFT                            7
+#define DA_EINT1CTURBO_MASK                           0x1
+#define DA_EINT1CTURBO_MASK_SFT                       (0x1 << 7)
+#define AD_EINT0INVOUT_ADDR                           \
+	MT6369_ACCDET_CON52
+#define AD_EINT0INVOUT_SFT                            0
+#define AD_EINT0INVOUT_MASK                           0x1
+#define AD_EINT0INVOUT_MASK_SFT                       (0x1 << 0)
+#define ACCDET_EINT0_INVERTER_CUR_IN_ADDR             \
+	MT6369_ACCDET_CON52
+#define ACCDET_EINT0_INVERTER_CUR_IN_SFT              1
+#define ACCDET_EINT0_INVERTER_CUR_IN_MASK             0x1
+#define ACCDET_EINT0_INVERTER_CUR_IN_MASK_SFT         (0x1 << 1)
+#define ACCDET_EINT0_INVERTER_SAM_IN_ADDR             \
+	MT6369_ACCDET_CON52
+#define ACCDET_EINT0_INVERTER_SAM_IN_SFT              2
+#define ACCDET_EINT0_INVERTER_SAM_IN_MASK             0x1
+#define ACCDET_EINT0_INVERTER_SAM_IN_MASK_SFT         (0x1 << 2)
+#define ACCDET_EINT0_INVERTER_MEM_IN_ADDR             \
+	MT6369_ACCDET_CON52
+#define ACCDET_EINT0_INVERTER_MEM_IN_SFT              3
+#define ACCDET_EINT0_INVERTER_MEM_IN_MASK             0x1
+#define ACCDET_EINT0_INVERTER_MEM_IN_MASK_SFT         (0x1 << 3)
+#define ACCDET_EINT0_INVERTER_STATE_ADDR              \
+	MT6369_ACCDET_CON53
+#define ACCDET_EINT0_INVERTER_STATE_SFT               0
+#define ACCDET_EINT0_INVERTER_STATE_MASK              0x7
+#define ACCDET_EINT0_INVERTER_STATE_MASK_SFT          (0x7 << 0)
+#define DA_EINT0EN_ADDR                               \
+	MT6369_ACCDET_CON53
+#define DA_EINT0EN_SFT                                4
+#define DA_EINT0EN_MASK                               0x1
+#define DA_EINT0EN_MASK_SFT                           (0x1 << 4)
+#define DA_EINT0INVEN_ADDR                            \
+	MT6369_ACCDET_CON53
+#define DA_EINT0INVEN_SFT                             5
+#define DA_EINT0INVEN_MASK                            0x1
+#define DA_EINT0INVEN_MASK_SFT                        (0x1 << 5)
+#define DA_EINT0CEN_ADDR                              \
+	MT6369_ACCDET_CON53
+#define DA_EINT0CEN_SFT                               6
+#define DA_EINT0CEN_MASK                              0x1
+#define DA_EINT0CEN_MASK_SFT                          (0x1 << 6)
+#define AD_EINT1INVOUT_ADDR                           \
+	MT6369_ACCDET_CON54
+#define AD_EINT1INVOUT_SFT                            0
+#define AD_EINT1INVOUT_MASK                           0x1
+#define AD_EINT1INVOUT_MASK_SFT                       (0x1 << 0)
+#define ACCDET_EINT1_INVERTER_CUR_IN_ADDR             \
+	MT6369_ACCDET_CON54
+#define ACCDET_EINT1_INVERTER_CUR_IN_SFT              1
+#define ACCDET_EINT1_INVERTER_CUR_IN_MASK             0x1
+#define ACCDET_EINT1_INVERTER_CUR_IN_MASK_SFT         (0x1 << 1)
+#define ACCDET_EINT1_INVERTER_SAM_IN_ADDR             \
+	MT6369_ACCDET_CON54
+#define ACCDET_EINT1_INVERTER_SAM_IN_SFT              2
+#define ACCDET_EINT1_INVERTER_SAM_IN_MASK             0x1
+#define ACCDET_EINT1_INVERTER_SAM_IN_MASK_SFT         (0x1 << 2)
+#define ACCDET_EINT1_INVERTER_MEM_IN_ADDR             \
+	MT6369_ACCDET_CON54
+#define ACCDET_EINT1_INVERTER_MEM_IN_SFT              3
+#define ACCDET_EINT1_INVERTER_MEM_IN_MASK             0x1
+#define ACCDET_EINT1_INVERTER_MEM_IN_MASK_SFT         (0x1 << 3)
+#define ACCDET_EINT1_INVERTER_STATE_ADDR              \
+	MT6369_ACCDET_CON55
+#define ACCDET_EINT1_INVERTER_STATE_SFT               0
+#define ACCDET_EINT1_INVERTER_STATE_MASK              0x7
+#define ACCDET_EINT1_INVERTER_STATE_MASK_SFT          (0x7 << 0)
+#define DA_EINT1EN_ADDR                               \
+	MT6369_ACCDET_CON55
+#define DA_EINT1EN_SFT                                4
+#define DA_EINT1EN_MASK                               0x1
+#define DA_EINT1EN_MASK_SFT                           (0x1 << 4)
+#define DA_EINT1INVEN_ADDR                            \
+	MT6369_ACCDET_CON55
+#define DA_EINT1INVEN_SFT                             5
+#define DA_EINT1INVEN_MASK                            0x1
+#define DA_EINT1INVEN_MASK_SFT                        (0x1 << 5)
+#define DA_EINT1CEN_ADDR                              \
+	MT6369_ACCDET_CON55
+#define DA_EINT1CEN_SFT                               6
+#define DA_EINT1CEN_MASK                              0x1
+#define DA_EINT1CEN_MASK_SFT                          (0x1 << 6)
+#define ACCDET_EN_ADDR                                \
+	MT6369_ACCDET_CON56
+#define ACCDET_EN_SFT                                 0
+#define ACCDET_EN_MASK                                0x1
+#define ACCDET_EN_MASK_SFT                            (0x1 << 0)
+#define ACCDET_EINT0_EN_ADDR                          \
+	MT6369_ACCDET_CON56
+#define ACCDET_EINT0_EN_SFT                           1
+#define ACCDET_EINT0_EN_MASK                          0x1
+#define ACCDET_EINT0_EN_MASK_SFT                      (0x1 << 1)
+#define ACCDET_EINT1_EN_ADDR                          \
+	MT6369_ACCDET_CON56
+#define ACCDET_EINT1_EN_SFT                           2
+#define ACCDET_EINT1_EN_MASK                          0x1
+#define ACCDET_EINT1_EN_MASK_SFT                      (0x1 << 2)
+#define ACCDET_EINT0_M_EN_ADDR                        \
+	MT6369_ACCDET_CON56
+#define ACCDET_EINT0_M_EN_SFT                         3
+#define ACCDET_EINT0_M_EN_MASK                        0x1
+#define ACCDET_EINT0_M_EN_MASK_SFT                    (0x1 << 3)
+#define ACCDET_EINT0_DETECT_MOISTURE_ADDR             \
+	MT6369_ACCDET_CON56
+#define ACCDET_EINT0_DETECT_MOISTURE_SFT              4
+#define ACCDET_EINT0_DETECT_MOISTURE_MASK             0x1
+#define ACCDET_EINT0_DETECT_MOISTURE_MASK_SFT         (0x1 << 4)
+#define ACCDET_EINT0_PLUG_IN_ADDR                     \
+	MT6369_ACCDET_CON56
+#define ACCDET_EINT0_PLUG_IN_SFT                      5
+#define ACCDET_EINT0_PLUG_IN_MASK                     0x1
+#define ACCDET_EINT0_PLUG_IN_MASK_SFT                 (0x1 << 5)
+#define ACCDET_EINT0_M_PLUG_IN_ADDR                   \
+	MT6369_ACCDET_CON56
+#define ACCDET_EINT0_M_PLUG_IN_SFT                    6
+#define ACCDET_EINT0_M_PLUG_IN_MASK                   0x1
+#define ACCDET_EINT0_M_PLUG_IN_MASK_SFT               (0x1 << 6)
+#define ACCDET_EINT1_M_EN_ADDR                        \
+	MT6369_ACCDET_CON56
+#define ACCDET_EINT1_M_EN_SFT                         7
+#define ACCDET_EINT1_M_EN_MASK                        0x1
+#define ACCDET_EINT1_M_EN_MASK_SFT                    (0x1 << 7)
+#define ACCDET_EINT1_DETECT_MOISTURE_ADDR             \
+	MT6369_ACCDET_CON57
+#define ACCDET_EINT1_DETECT_MOISTURE_SFT              0
+#define ACCDET_EINT1_DETECT_MOISTURE_MASK             0x1
+#define ACCDET_EINT1_DETECT_MOISTURE_MASK_SFT         (0x1 << 0)
+#define ACCDET_EINT1_PLUG_IN_ADDR                     \
+	MT6369_ACCDET_CON57
+#define ACCDET_EINT1_PLUG_IN_SFT                      1
+#define ACCDET_EINT1_PLUG_IN_MASK                     0x1
+#define ACCDET_EINT1_PLUG_IN_MASK_SFT                 (0x1 << 1)
+#define ACCDET_EINT1_M_PLUG_IN_ADDR                   \
+	MT6369_ACCDET_CON57
+#define ACCDET_EINT1_M_PLUG_IN_SFT                    2
+#define ACCDET_EINT1_M_PLUG_IN_MASK                   0x1
+#define ACCDET_EINT1_M_PLUG_IN_MASK_SFT               (0x1 << 2)
+#define ACCDET_CUR_DEB_L_ADDR                         \
+	MT6369_ACCDET_CON58
+#define ACCDET_CUR_DEB_L_SFT                          0
+#define ACCDET_CUR_DEB_L_MASK                         0xFF
+#define ACCDET_CUR_DEB_L_MASK_SFT                     (0xFF << 0)
+#define ACCDET_CUR_DEB_H_ADDR                         \
+	MT6369_ACCDET_CON59
+#define ACCDET_CUR_DEB_H_SFT                          0
+#define ACCDET_CUR_DEB_H_MASK                         0xFF
+#define ACCDET_CUR_DEB_H_MASK_SFT                     (0xFF << 0)
+#define ACCDET_EINT0_CUR_DEB_L_ADDR                   \
+	MT6369_ACCDET_CON60
+#define ACCDET_EINT0_CUR_DEB_L_SFT                    0
+#define ACCDET_EINT0_CUR_DEB_L_MASK                   0xFF
+#define ACCDET_EINT0_CUR_DEB_L_MASK_SFT               (0xFF << 0)
+#define ACCDET_EINT0_CUR_DEB_H_ADDR                   \
+	MT6369_ACCDET_CON61
+#define ACCDET_EINT0_CUR_DEB_H_SFT                    0
+#define ACCDET_EINT0_CUR_DEB_H_MASK                   0x7F
+#define ACCDET_EINT0_CUR_DEB_H_MASK_SFT               (0x7F << 0)
+#define ACCDET_EINT1_CUR_DEB_L_ADDR                   \
+	MT6369_ACCDET_CON62
+#define ACCDET_EINT1_CUR_DEB_L_SFT                    0
+#define ACCDET_EINT1_CUR_DEB_L_MASK                   0xFF
+#define ACCDET_EINT1_CUR_DEB_L_MASK_SFT               (0xFF << 0)
+#define ACCDET_EINT1_CUR_DEB_H_ADDR                   \
+	MT6369_ACCDET_CON63
+#define ACCDET_EINT1_CUR_DEB_H_SFT                    0
+#define ACCDET_EINT1_CUR_DEB_H_MASK                   0x7F
+#define ACCDET_EINT1_CUR_DEB_H_MASK_SFT               (0x7F << 0)
+#define ACCDET_EINT0_INVERTER_CUR_DEB_L_ADDR          \
+	MT6369_ACCDET_CON64
+#define ACCDET_EINT0_INVERTER_CUR_DEB_L_SFT           0
+#define ACCDET_EINT0_INVERTER_CUR_DEB_L_MASK          0xFF
+#define ACCDET_EINT0_INVERTER_CUR_DEB_L_MASK_SFT      (0xFF << 0)
+#define ACCDET_EINT0_INVERTER_CUR_DEB_H_ADDR          \
+	MT6369_ACCDET_CON65
+#define ACCDET_EINT0_INVERTER_CUR_DEB_H_SFT           0
+#define ACCDET_EINT0_INVERTER_CUR_DEB_H_MASK          0x7F
+#define ACCDET_EINT0_INVERTER_CUR_DEB_H_MASK_SFT      (0x7F << 0)
+#define ACCDET_EINT1_INVERTER_CUR_DEB_L_ADDR          \
+	MT6369_ACCDET_CON66
+#define ACCDET_EINT1_INVERTER_CUR_DEB_L_SFT           0
+#define ACCDET_EINT1_INVERTER_CUR_DEB_L_MASK          0xFF
+#define ACCDET_EINT1_INVERTER_CUR_DEB_L_MASK_SFT      (0xFF << 0)
+#define ACCDET_EINT1_INVERTER_CUR_DEB_H_ADDR          \
+	MT6369_ACCDET_CON67
+#define ACCDET_EINT1_INVERTER_CUR_DEB_H_SFT           0
+#define ACCDET_EINT1_INVERTER_CUR_DEB_H_MASK          0x7F
+#define ACCDET_EINT1_INVERTER_CUR_DEB_H_MASK_SFT      (0x7F << 0)
+#define AD_AUDACCDETCMPOB_MON_ADDR                    \
+	MT6369_ACCDET_CON68
+#define AD_AUDACCDETCMPOB_MON_SFT                     0
+#define AD_AUDACCDETCMPOB_MON_MASK                    0x1
+#define AD_AUDACCDETCMPOB_MON_MASK_SFT                (0x1 << 0)
+#define AD_AUDACCDETCMPOA_MON_ADDR                    \
+	MT6369_ACCDET_CON68
+#define AD_AUDACCDETCMPOA_MON_SFT                     1
+#define AD_AUDACCDETCMPOA_MON_MASK                    0x1
+#define AD_AUDACCDETCMPOA_MON_MASK_SFT                (0x1 << 1)
+#define AD_EINT0CMPMOUT_MON_ADDR                      \
+	MT6369_ACCDET_CON68
+#define AD_EINT0CMPMOUT_MON_SFT                       2
+#define AD_EINT0CMPMOUT_MON_MASK                      0x1
+#define AD_EINT0CMPMOUT_MON_MASK_SFT                  (0x1 << 2)
+#define AD_EINT0CMPOUT_MON_ADDR                       \
+	MT6369_ACCDET_CON68
+#define AD_EINT0CMPOUT_MON_SFT                        3
+#define AD_EINT0CMPOUT_MON_MASK                       0x1
+#define AD_EINT0CMPOUT_MON_MASK_SFT                   (0x1 << 3)
+#define AD_EINT0INVOUT_MON_ADDR                       \
+	MT6369_ACCDET_CON68
+#define AD_EINT0INVOUT_MON_SFT                        4
+#define AD_EINT0INVOUT_MON_MASK                       0x1
+#define AD_EINT0INVOUT_MON_MASK_SFT                   (0x1 << 4)
+#define AD_EINT1CMPMOUT_MON_ADDR                      \
+	MT6369_ACCDET_CON68
+#define AD_EINT1CMPMOUT_MON_SFT                       5
+#define AD_EINT1CMPMOUT_MON_MASK                      0x1
+#define AD_EINT1CMPMOUT_MON_MASK_SFT                  (0x1 << 5)
+#define AD_EINT1CMPOUT_MON_ADDR                       \
+	MT6369_ACCDET_CON68
+#define AD_EINT1CMPOUT_MON_SFT                        6
+#define AD_EINT1CMPOUT_MON_MASK                       0x1
+#define AD_EINT1CMPOUT_MON_MASK_SFT                   (0x1 << 6)
+#define AD_EINT1INVOUT_MON_ADDR                       \
+	MT6369_ACCDET_CON68
+#define AD_EINT1INVOUT_MON_SFT                        7
+#define AD_EINT1INVOUT_MON_MASK                       0x1
+#define AD_EINT1INVOUT_MON_MASK_SFT                   (0x1 << 7)
+#define DA_AUDACCDETCMPCLK_MON_ADDR                   \
+	MT6369_ACCDET_CON69
+#define DA_AUDACCDETCMPCLK_MON_SFT                    0
+#define DA_AUDACCDETCMPCLK_MON_MASK                   0x1
+#define DA_AUDACCDETCMPCLK_MON_MASK_SFT               (0x1 << 0)
+#define DA_AUDACCDETVTHCLK_MON_ADDR                   \
+	MT6369_ACCDET_CON69
+#define DA_AUDACCDETVTHCLK_MON_SFT                    1
+#define DA_AUDACCDETVTHCLK_MON_MASK                   0x1
+#define DA_AUDACCDETVTHCLK_MON_MASK_SFT               (0x1 << 1)
+#define DA_AUDACCDETMBIASCLK_MON_ADDR                 \
+	MT6369_ACCDET_CON69
+#define DA_AUDACCDETMBIASCLK_MON_SFT                  2
+#define DA_AUDACCDETMBIASCLK_MON_MASK                 0x1
+#define DA_AUDACCDETMBIASCLK_MON_MASK_SFT             (0x1 << 2)
+#define DA_AUDACCDETAUXADCSWCTRL_MON_ADDR             \
+	MT6369_ACCDET_CON69
+#define DA_AUDACCDETAUXADCSWCTRL_MON_SFT              3
+#define DA_AUDACCDETAUXADCSWCTRL_MON_MASK             0x1
+#define DA_AUDACCDETAUXADCSWCTRL_MON_MASK_SFT         (0x1 << 3)
+#define DA_EINT0CTURBO_MON_ADDR                       \
+	MT6369_ACCDET_CON70
+#define DA_EINT0CTURBO_MON_SFT                        0
+#define DA_EINT0CTURBO_MON_MASK                       0x1
+#define DA_EINT0CTURBO_MON_MASK_SFT                   (0x1 << 0)
+#define DA_EINT0CMPMEN_MON_ADDR                       \
+	MT6369_ACCDET_CON70
+#define DA_EINT0CMPMEN_MON_SFT                        1
+#define DA_EINT0CMPMEN_MON_MASK                       0x1
+#define DA_EINT0CMPMEN_MON_MASK_SFT                   (0x1 << 1)
+#define DA_EINT0CMPEN_MON_ADDR                        \
+	MT6369_ACCDET_CON70
+#define DA_EINT0CMPEN_MON_SFT                         2
+#define DA_EINT0CMPEN_MON_MASK                        0x1
+#define DA_EINT0CMPEN_MON_MASK_SFT                    (0x1 << 2)
+#define DA_EINT0INVEN_MON_ADDR                        \
+	MT6369_ACCDET_CON70
+#define DA_EINT0INVEN_MON_SFT                         3
+#define DA_EINT0INVEN_MON_MASK                        0x1
+#define DA_EINT0INVEN_MON_MASK_SFT                    (0x1 << 3)
+#define DA_EINT0CEN_MON_ADDR                          \
+	MT6369_ACCDET_CON70
+#define DA_EINT0CEN_MON_SFT                           4
+#define DA_EINT0CEN_MON_MASK                          0x1
+#define DA_EINT0CEN_MON_MASK_SFT                      (0x1 << 4)
+#define DA_EINT0EN_MON_ADDR                           \
+	MT6369_ACCDET_CON70
+#define DA_EINT0EN_MON_SFT                            5
+#define DA_EINT0EN_MON_MASK                           0x1
+#define DA_EINT0EN_MON_MASK_SFT                       (0x1 << 5)
+#define DA_EINT1CTURBO_MON_ADDR                       \
+	MT6369_ACCDET_CON71
+#define DA_EINT1CTURBO_MON_SFT                        0
+#define DA_EINT1CTURBO_MON_MASK                       0x1
+#define DA_EINT1CTURBO_MON_MASK_SFT                   (0x1 << 0)
+#define DA_EINT1CMPMEN_MON_ADDR                       \
+	MT6369_ACCDET_CON71
+#define DA_EINT1CMPMEN_MON_SFT                        1
+#define DA_EINT1CMPMEN_MON_MASK                       0x1
+#define DA_EINT1CMPMEN_MON_MASK_SFT                   (0x1 << 1)
+#define DA_EINT1CMPEN_MON_ADDR                        \
+	MT6369_ACCDET_CON71
+#define DA_EINT1CMPEN_MON_SFT                         2
+#define DA_EINT1CMPEN_MON_MASK                        0x1
+#define DA_EINT1CMPEN_MON_MASK_SFT                    (0x1 << 2)
+#define DA_EINT1INVEN_MON_ADDR                        \
+	MT6369_ACCDET_CON71
+#define DA_EINT1INVEN_MON_SFT                         3
+#define DA_EINT1INVEN_MON_MASK                        0x1
+#define DA_EINT1INVEN_MON_MASK_SFT                    (0x1 << 3)
+#define DA_EINT1CEN_MON_ADDR                          \
+	MT6369_ACCDET_CON71
+#define DA_EINT1CEN_MON_SFT                           4
+#define DA_EINT1CEN_MON_MASK                          0x1
+#define DA_EINT1CEN_MON_MASK_SFT                      (0x1 << 4)
+#define DA_EINT1EN_MON_ADDR                           \
+	MT6369_ACCDET_CON71
+#define DA_EINT1EN_MON_SFT                            5
+#define DA_EINT1EN_MON_MASK                           0x1
+#define DA_EINT1EN_MON_MASK_SFT                       (0x1 << 5)
+#define ACCDET_EINT0_M_PLUG_IN_COUNT_ADDR             \
+	MT6369_ACCDET_CON72
+#define ACCDET_EINT0_M_PLUG_IN_COUNT_SFT              0
+#define ACCDET_EINT0_M_PLUG_IN_COUNT_MASK             0x7
+#define ACCDET_EINT0_M_PLUG_IN_COUNT_MASK_SFT         (0x7 << 0)
+#define ACCDET_EINT1_M_PLUG_IN_COUNT_ADDR             \
+	MT6369_ACCDET_CON72
+#define ACCDET_EINT1_M_PLUG_IN_COUNT_SFT              4
+#define ACCDET_EINT1_M_PLUG_IN_COUNT_MASK             0x7
+#define ACCDET_EINT1_M_PLUG_IN_COUNT_MASK_SFT         (0x7 << 4)
+#define ACCDET_MON_FLAG_EN_ADDR                       \
+	MT6369_ACCDET_CON73
+#define ACCDET_MON_FLAG_EN_SFT                        0
+#define ACCDET_MON_FLAG_EN_MASK                       0x1
+#define ACCDET_MON_FLAG_EN_MASK_SFT                   (0x1 << 0)
+#define ACCDET_MON_FLAG_SEL_ADDR                      \
+	MT6369_ACCDET_CON73
+#define ACCDET_MON_FLAG_SEL_SFT                       4
+#define ACCDET_MON_FLAG_SEL_MASK                      0xF
+#define ACCDET_MON_FLAG_SEL_MASK_SFT                  (0xF << 4)
+
+
+/* AUDENC_ANA_CON21 */
+#define RG_ACCDET_MODE_MODE1            (0x0007)
+#define RG_ACCDET_MODE_MODE2            (0x0087)
+#define RG_ACCDET_MODE_MODE6            (0x0087)
+
+#define ACCDET_CALI_MASK0               (0xFF)
+#define ACCDET_CALI_MASK1               (0xFF << 8)
+#define ACCDET_CALI_MASK2               (0xFF)
+#define ACCDET_CALI_MASK3               (0xFF << 8)
+#define ACCDET_CALI_MASK4               (0xFF)
+
+#define ACCDET_EINT_IRQ_B2_B3           (0x03 << ACCDET_EINT0_IRQ_SFT)
+
+/* ACCDET_CON46: RO, accdet FSM state, etc.*/
+#define ACCDET_STATE_MEM_IN_OFFSET      (ACCDET_MEM_IN_SFT)
+#define ACCDET_STATE_AB_MASK            (0x03)
+#define ACCDET_STATE_AB_00              (0x00)
+#define ACCDET_STATE_AB_01              (0x01)
+#define ACCDET_STATE_AB_10              (0x02)
+#define ACCDET_STATE_AB_11              (0x03)
+
+/* ACCDET_CON35 */
+#define ACCDET_EINT0_STABLE_VAL ((ACCDET_DA_STABLE_MASK_SFT) | \
+				(ACCDET_EINT0_EN_STABLE_MASK_SFT) | \
+				(ACCDET_EINT0_CMPEN_STABLE_MASK_SFT) | \
+				(ACCDET_EINT0_CEN_STABLE_MASK_SFT))
+
+#define ACCDET_EINT1_STABLE_VAL ((ACCDET_DA_STABLE_MASK_SFT) | \
+				(ACCDET_EINT1_EN_STABLE_MASK_SFT) | \
+				(ACCDET_EINT1_CMPEN_STABLE_MASK_SFT) | \
+				(ACCDET_EINT1_CEN_STABLE_MASK_SFT))
+
+
 enum {
 	MT6369_MTKAIF_PROTOCOL_1 = 0,
 	MT6369_MTKAIF_PROTOCOL_2,
