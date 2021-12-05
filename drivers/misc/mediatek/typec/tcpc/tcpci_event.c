@@ -1287,7 +1287,7 @@ void pd_notify_pe_src_explicit_contract(struct pd_port *pd_port)
 	}
 
 	if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT)
-		pull = TYPEC_CC_RP_1_5;
+		pull = TYPEC_CC_RP_3_0;
 
 #if CONFIG_USB_PD_REV30_COLLISION_AVOID
 	if (pd_check_rev30(pd_port)) {
