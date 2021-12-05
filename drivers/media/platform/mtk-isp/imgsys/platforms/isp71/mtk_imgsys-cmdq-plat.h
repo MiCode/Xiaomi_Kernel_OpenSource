@@ -11,7 +11,7 @@
 
 #define IMGSYS_DVFS_ENABLE     (1)
 #define IMGSYS_QOS_ENABLE      (1)
-#define IMGSYS_QOS_SET_REAL    (1)
+#define IMGSYS_QOS_SET_REAL    (0)
 
 #define IMGSYS_SECURE_ENABLE   (1)
 
