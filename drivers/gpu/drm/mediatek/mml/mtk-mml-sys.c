@@ -1006,9 +1006,9 @@ static s32 dlo_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	if (task->config->dual) {
 		if (ccfg->pipe == 0)
-			dlo_config_left(dest, &data->dlo_data);
+			dlo_config_left(dest, &data->dlo);
 		else
-			dlo_config_right(dest, &data->dlo_data);
+			dlo_config_right(dest, &data->dlo);
 	}
 	func->full_size_x_in = dest->data.width;
 	func->full_size_y_in = dest->data.height;
@@ -1016,8 +1016,8 @@ static s32 dlo_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	func->full_size_y_out = dest->data.height;
 
 	func->type = TILE_TYPE_WDMA;
-	func->back_func_ptr = tile_dlo_back;
-	func->func_data = data;
+	func->back_func = tile_dlo_back;
+	func->data = data;
 	return 0;
 }
 

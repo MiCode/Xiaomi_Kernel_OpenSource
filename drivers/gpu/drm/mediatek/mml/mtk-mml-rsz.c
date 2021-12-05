@@ -188,7 +188,7 @@ static struct mml_pq_tile_init_result *get_tile_init_result(struct mml_task *tas
 	return task->pq_task->tile_init.result;
 }
 
-static s32 prepare_tile_data(union mml_tile_data *data, struct mml_task *task,
+static s32 prepare_tile_data(struct rsz_tile_data *data, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
 	struct mml_pq_tile_init_result *result;
@@ -202,20 +202,20 @@ static s32 prepare_tile_data(union mml_tile_data *data, struct mml_task *task,
 			mml_log("%s read rsz param index: %d job_id[%d]",
 				__func__, ccfg->node->out_idx, task->job.jobid);
 			init_param = &(result->rsz_param[ccfg->node->out_idx]);
-			data->rsz_data.coeff_step_x = init_param->coeff_step_x;
-			data->rsz_data.coeff_step_y = init_param->coeff_step_y;
-			data->rsz_data.precision_x = init_param->precision_x;
-			data->rsz_data.precision_y = init_param->precision_y;
-			data->rsz_data.crop.r.left = init_param->crop_offset_x;
-			data->rsz_data.crop.x_sub_px = init_param->crop_subpix_x;
-			data->rsz_data.crop.r.top = init_param->crop_offset_y;
-			data->rsz_data.crop.y_sub_px = init_param->crop_subpix_y;
-			data->rsz_data.hor_scale = init_param->hor_dir_scale;
-			data->rsz_data.hor_algo = init_param->hor_algorithm;
-			data->rsz_data.ver_scale = init_param->ver_dir_scale;
-			data->rsz_data.ver_algo = init_param->ver_algorithm;
-			data->rsz_data.ver_first = init_param->vertical_first;
-			data->rsz_data.ver_cubic_trunc = init_param->ver_cubic_trunc;
+			data->coeff_step_x = init_param->coeff_step_x;
+			data->coeff_step_y = init_param->coeff_step_y;
+			data->precision_x = init_param->precision_x;
+			data->precision_y = init_param->precision_y;
+			data->crop.r.left = init_param->crop_offset_x;
+			data->crop.x_sub_px = init_param->crop_subpix_x;
+			data->crop.r.top = init_param->crop_offset_y;
+			data->crop.y_sub_px = init_param->crop_subpix_y;
+			data->hor_scale = init_param->hor_dir_scale;
+			data->hor_algo = init_param->hor_algorithm;
+			data->ver_scale = init_param->ver_dir_scale;
+			data->ver_algo = init_param->ver_algorithm;
+			data->ver_first = init_param->vertical_first;
+			data->ver_cubic_trunc = init_param->ver_cubic_trunc;
 		} else if (result) {
 			mml_err("%s read rsz param index: %d out of count %d",
 				__func__, ccfg->node->out_idx, result->rsz_param_cnt);
@@ -245,18 +245,18 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	mml_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__, ccfg->pipe, comp->id);
 
-	data->rsz_data.crop = dest->crop;
+	data->rsz.crop = dest->crop;
 	if (!rsz_frm->relay_mode) {
-		data->rsz_data.use_121filter = rsz_frm->use121filter;
-		prepare_tile_data(data, task, ccfg);
+		data->rsz.use_121filter = rsz_frm->use121filter;
+		prepare_tile_data(&data->rsz, task, ccfg);
 	}
-	data->rsz_data.max_width = rsz->data->tile_width;
+	data->rsz.max_width = rsz->data->tile_width;
 	/* RSZ support crop capability */
 	func->type = TILE_TYPE_CROP_EN;
-	func->init_func_ptr = tile_prz_init;
-	func->for_func_ptr = tile_prz_for;
-	func->back_func_ptr = tile_prz_back;
-	func->func_data = data;
+	func->init_func = tile_prz_init;
+	func->for_func = tile_prz_for;
+	func->back_func = tile_prz_back;
+	func->data = data;
 
 	func->enable_flag = !rsz_frm->relay_mode;
 
@@ -271,8 +271,8 @@ static s32 rsz_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	    dest->crop.r.height != src->height)) {
 		func->full_size_x_in = in_crop_w;
 		func->full_size_y_in = in_crop_h;
-		data->rsz_data.crop.r.top -= dest->crop.r.top;
-		data->rsz_data.crop.r.left -= dest->crop.r.left;
+		data->rsz.crop.r.left -= dest->crop.r.left;
+		data->rsz.crop.r.top -= dest->crop.r.top;
 	} else {
 		func->full_size_x_in = src->width;
 		func->full_size_y_in = src->height;

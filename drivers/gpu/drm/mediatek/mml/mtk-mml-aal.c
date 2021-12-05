@@ -262,12 +262,12 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_aal *aal = comp_to_aal(comp);
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	data->aal_data.max_width = aal->data->tile_width;
-	data->aal_data.min_hist_width = aal->data->min_hist_width;
-	data->aal_data.min_width = aal->data->min_tile_width;
-	func->init_func_ptr = tile_aal_init;
-	func->for_func_ptr = tile_aal_for;
-	func->func_data = data;
+	data->aal.max_width = aal->data->tile_width;
+	data->aal.min_hist_width = aal->data->min_hist_width;
+	data->aal.min_width = aal->data->min_tile_width;
+	func->init_func = tile_aal_init;
+	func->for_func = tile_aal_for;
+	func->data = data;
 
 	func->enable_flag = dest->pq_config.en_dre;
 

@@ -229,10 +229,7 @@ struct wrot_frame_data {
 	/* calculate in prepare and use as tile input */
 	bool en_x_crop;
 	bool en_y_crop;
-	u32 out_crop_x;
-	u32 out_crop_w;
-	u32 out_crop_y;
-	u32 out_crop_h;
+	struct mml_rect out_crop;
 
 	/* following data calculate in init and use in tile command */
 	u8 mat_en;
@@ -352,18 +349,17 @@ static void wrot_config_left(struct mml_frame_dest *dest,
 			     struct wrot_frame_data *wrot_frm)
 {
 	wrot_frm->en_x_crop = true;
-	wrot_frm->out_crop_x = 0;
-	wrot_frm->out_crop_w = wrot_frm->out_w >> 1;
+	wrot_frm->out_crop.left = 0;
+	wrot_frm->out_crop.width = wrot_frm->out_w >> 1;
 
 	if (MML_FMT_10BIT_PACKED(dest->data.format) &&
-	    wrot_frm->out_crop_w & 3) {
-		wrot_frm->out_crop_w = (wrot_frm->out_crop_w & ~3) + 4;
+	    wrot_frm->out_crop.width & 3) {
+		wrot_frm->out_crop.width = (wrot_frm->out_crop.width & ~3) + 4;
 		if (is_change_wx(dest->rotate, dest->flip))
-			wrot_frm->out_crop_w = wrot_frm->out_w -
-					       wrot_frm->out_crop_w;
-
-	} else if (wrot_frm->out_crop_w & 1) {
-		wrot_frm->out_crop_w++;
+			wrot_frm->out_crop.width = wrot_frm->out_w -
+						   wrot_frm->out_crop.width;
+	} else if (wrot_frm->out_crop.width & 1) {
+		wrot_frm->out_crop.width++;
 	}
 }
 
@@ -371,40 +367,39 @@ static void wrot_config_right(struct mml_frame_dest *dest,
 			      struct wrot_frame_data *wrot_frm)
 {
 	wrot_frm->en_x_crop = true;
-	wrot_frm->out_crop_x = wrot_frm->out_w >> 1;
+	wrot_frm->out_crop.left = wrot_frm->out_w >> 1;
 
 	if (MML_FMT_10BIT_PACKED(dest->data.format) &&
-	    wrot_frm->out_crop_x & 3) {
-		wrot_frm->out_crop_x = (wrot_frm->out_crop_x & ~3) + 4;
+	    wrot_frm->out_crop.left & 3) {
+		wrot_frm->out_crop.left = (wrot_frm->out_crop.left & ~3) + 4;
 		if (is_change_wx(dest->rotate, dest->flip))
-			wrot_frm->out_crop_x = wrot_frm->out_w -
-					       wrot_frm->out_crop_x;
-
-	} else if (wrot_frm->out_crop_x & 1) {
-		wrot_frm->out_crop_x++;
+			wrot_frm->out_crop.left = wrot_frm->out_w -
+						  wrot_frm->out_crop.left;
+	} else if (wrot_frm->out_crop.left & 1) {
+		wrot_frm->out_crop.left++;
 	}
 
-	wrot_frm->out_crop_w = wrot_frm->out_w - wrot_frm->out_crop_x;
+	wrot_frm->out_crop.width = wrot_frm->out_w - wrot_frm->out_crop.left;
 }
 
 static void wrot_config_top(struct mml_frame_dest *dest,
 			    struct wrot_frame_data *wrot_frm)
 {
 	wrot_frm->en_y_crop = true;
-	wrot_frm->out_crop_y = 0;
-	wrot_frm->out_crop_h = wrot_frm->out_h >> 1;
-	if (wrot_frm->out_crop_h & 0x1)
-		wrot_frm->out_crop_h++;
+	wrot_frm->out_crop.top = 0;
+	wrot_frm->out_crop.height = wrot_frm->out_h >> 1;
+	if (wrot_frm->out_crop.height & 0x1)
+		wrot_frm->out_crop.height++;
 }
 
 static void wrot_config_bottom(struct mml_frame_dest *dest,
 			       struct wrot_frame_data *wrot_frm)
 {
 	wrot_frm->en_y_crop = true;
-	wrot_frm->out_crop_y = wrot_frm->out_h >> 1;
-	if (wrot_frm->out_crop_y & 0x1)
-		wrot_frm->out_crop_y++;
-	wrot_frm->out_crop_h = wrot_frm->out_h - wrot_frm->out_crop_y;
+	wrot_frm->out_crop.top = wrot_frm->out_h >> 1;
+	if (wrot_frm->out_crop.top & 0x1)
+		wrot_frm->out_crop.top++;
+	wrot_frm->out_crop.height = wrot_frm->out_h - wrot_frm->out_crop.top;
 }
 
 static void wrot_config_pipe0(struct mml_frame_config *cfg,
@@ -596,32 +591,29 @@ static s32 wrot_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 
-	data->wrot_data.dest_fmt = dest->data.format;
-	data->wrot_data.rotate = dest->rotate;
-	data->wrot_data.flip = dest->flip;
-	data->wrot_data.alpharot = cfg->alpharot;
-	data->wrot_data.racing = cfg->info.mode == MML_MODE_RACING;
-	data->wrot_data.racing_h = max(mml_racing_h, MML_WROT_RACING_MIN);
+	data->wrot.dest_fmt = dest->data.format;
+	data->wrot.rotate = dest->rotate;
+	data->wrot.flip = dest->flip;
+	data->wrot.alpharot = cfg->alpharot;
+	data->wrot.racing = cfg->info.mode == MML_MODE_RACING;
+	data->wrot.racing_h = max(mml_racing_h, MML_WROT_RACING_MIN);
 
 	/* reuse wrot_frm data which processed with rotate and dual */
-	data->wrot_data.enable_x_crop = wrot_frm->en_x_crop;
-	data->wrot_data.enable_y_crop = wrot_frm->en_y_crop;
-	data->wrot_data.crop.left = wrot_frm->out_crop_x;
-	data->wrot_data.crop.width = wrot_frm->out_crop_w;
-	data->wrot_data.crop.top = wrot_frm->out_crop_y;
-	data->wrot_data.crop.height = wrot_frm->out_crop_h;
+	data->wrot.enable_x_crop = wrot_frm->en_x_crop;
+	data->wrot.enable_y_crop = wrot_frm->en_y_crop;
+	data->wrot.crop = wrot_frm->out_crop;
 	func->full_size_x_in = wrot_frm->out_w;
 	func->full_size_y_in = wrot_frm->out_h;
 	func->full_size_x_out = wrot_frm->out_w;
 	func->full_size_y_out = wrot_frm->out_h;
 
-	data->wrot_data.max_width = wrot->data->tile_width;
+	data->wrot.max_width = wrot->data->tile_width;
 	/* WROT support crop capability */
 	func->type = TILE_TYPE_WDMA | TILE_TYPE_CROP_EN;
-	func->init_func_ptr = tile_wrot_init;
-	func->for_func_ptr = tile_wrot_for;
-	func->back_func_ptr = tile_wrot_back;
-	func->func_data = data;
+	func->init_func = tile_wrot_init;
+	func->for_func = tile_wrot_for;
+	func->back_func = tile_wrot_back;
+	func->data = data;
 	func->enable_flag = true;
 
 	return 0;

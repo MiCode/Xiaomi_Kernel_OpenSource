@@ -4,7 +4,6 @@
  * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 #include "tile_driver.h"
-#include "tile_param.h"
 #include "tile_mdp_func.h"
 #include "mtk-mml-color.h"
 
@@ -21,7 +20,7 @@
 enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 				     struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
+	struct rdma_tile_data *data = &ptr_func->data->rdma;
 
 	if (unlikely(!data))
 		return MDP_MESSAGE_NULL_DATA;
@@ -91,7 +90,7 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_hdr_init(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct hdr_tile_data *data = &ptr_func->func_data->hdr_data;
+	struct hdr_tile_data *data = &ptr_func->data->hdr;
 
 	if (unlikely(!data))
 		return MDP_MESSAGE_NULL_DATA;
@@ -114,7 +113,7 @@ enum isp_tile_message tile_hdr_init(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_aal_init(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct aal_tile_data *data = &ptr_func->func_data->aal_data;
+	struct aal_tile_data *data = &ptr_func->data->aal;
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
@@ -139,7 +138,7 @@ enum isp_tile_message tile_aal_init(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_prz_init(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct rsz_tile_data *data = &ptr_func->func_data->rsz_data;
+	struct rsz_tile_data *data = &ptr_func->data->rsz;
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
@@ -195,7 +194,7 @@ enum isp_tile_message tile_prz_init(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_tdshp_init(struct tile_func_block *ptr_func,
 				      struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct tdshp_tile_data *data = &ptr_func->func_data->tdshp_data;
+	struct tdshp_tile_data *data = &ptr_func->data->tdshp;
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
@@ -216,7 +215,7 @@ enum isp_tile_message tile_tdshp_init(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_wrot_init(struct tile_func_block *ptr_func,
 				     struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct wrot_tile_data *data = &ptr_func->func_data->wrot_data;
+	struct wrot_tile_data *data = &ptr_func->data->wrot;
 
 	UNUSED(ptr_tile_reg_map);
 	if (unlikely(!data))
@@ -383,7 +382,7 @@ enum isp_tile_message tile_prz_for(struct tile_func_block *ptr_func,
 	s32 C42OutXRight;
 	s32 C24InXLeft;
 	s32 C24InXRight;
-	struct rsz_tile_data *data = &ptr_func->func_data->rsz_data;
+	struct rsz_tile_data *data = &ptr_func->data->rsz;
 
 	if (unlikely(!data))
 		return MDP_MESSAGE_NULL_DATA;
@@ -619,7 +618,7 @@ static enum isp_tile_message tile_wrot_align_out_width(
 enum isp_tile_message tile_wrot_for(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct wrot_tile_data *data = &ptr_func->func_data->wrot_data;
+	struct wrot_tile_data *data = &ptr_func->data->wrot;
 	s32 remain;
 
 	if (unlikely(!data))
@@ -699,7 +698,7 @@ enum isp_tile_message tile_wrot_for(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_rdma_back(struct tile_func_block *ptr_func,
 				     struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct rdma_tile_data *data = &ptr_func->func_data->rdma_data;
+	struct rdma_tile_data *data = &ptr_func->data->rdma;
 	s32 remain, start;
 
 	if (unlikely(!data))
@@ -842,7 +841,7 @@ enum isp_tile_message tile_prz_back(struct tile_func_block *ptr_func,
 	s32 C24InXRight;
 	s32 C42OutXLeft;
 	s32 C42OutXRight;
-	struct rsz_tile_data *data = &ptr_func->func_data->rsz_data;
+	struct rsz_tile_data *data = &ptr_func->data->rsz;
 
 	if (unlikely(!data))
 		return MDP_MESSAGE_NULL_DATA;
@@ -1005,7 +1004,7 @@ enum isp_tile_message tile_prz_back(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_wrot_back(struct tile_func_block *ptr_func,
 				     struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct wrot_tile_data *data = &ptr_func->func_data->wrot_data;
+	struct wrot_tile_data *data = &ptr_func->data->wrot;
 
 	if (unlikely(!data))
 		return MDP_MESSAGE_NULL_DATA;
@@ -1103,7 +1102,7 @@ enum isp_tile_message tile_wrot_back(struct tile_func_block *ptr_func,
 enum isp_tile_message tile_dlo_back(struct tile_func_block *ptr_func,
 				    struct tile_reg_map *ptr_tile_reg_map)
 {
-	struct dlo_tile_data *data = &ptr_func->func_data->dlo_data;
+	struct dlo_tile_data *data = &ptr_func->data->dlo;
 
 	if (unlikely(!data))
 		return MDP_MESSAGE_NULL_DATA;

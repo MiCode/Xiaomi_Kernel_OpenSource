@@ -9,9 +9,7 @@
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-tile.h"
-
 #include "tile_driver.h"
-#include "tile_param.h"
 
 static const struct mml_topology_path *get_topology_path(
 	struct mml_task *task, u32 pipe_idx)

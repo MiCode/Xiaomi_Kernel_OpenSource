@@ -4,7 +4,6 @@
  * Author: Chris-YC Chen <chris-yc.chen@mediatek.com>
  */
 #include "tile_driver.h"
-#include "tile_param.h"
 
 /* lut function */
 static ISP_TILE_MESSAGE_ENUM tile_init_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map);
@@ -92,22 +91,22 @@ const char *tile_print_error_message(ISP_TILE_MESSAGE_ENUM err)
 
 static ISP_TILE_MESSAGE_ENUM tile_init_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
 {
-	return ptr_func->init_func_ptr ?
-		ptr_func->init_func_ptr(ptr_func, ptr_tile_reg_map) :
+	return ptr_func->init_func ?
+		ptr_func->init_func(ptr_func, ptr_tile_reg_map) :
 		ISP_MESSAGE_TILE_OK;
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_for_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
 {
-	return ptr_func->for_func_ptr ?
-		ptr_func->for_func_ptr(ptr_func, ptr_tile_reg_map) :
+	return ptr_func->for_func ?
+		ptr_func->for_func(ptr_func, ptr_tile_reg_map) :
 		ISP_MESSAGE_TILE_OK;
 }
 
 static ISP_TILE_MESSAGE_ENUM tile_back_func_run(TILE_FUNC_BLOCK_STRUCT *ptr_func, TILE_REG_MAP_STRUCT *ptr_tile_reg_map)
 {
-	return ptr_func->back_func_ptr ?
-		ptr_func->back_func_ptr(ptr_func, ptr_tile_reg_map) :
+	return ptr_func->back_func ?
+		ptr_func->back_func(ptr_func, ptr_tile_reg_map) :
 		ISP_MESSAGE_TILE_OK;
 }
 
@@ -784,17 +783,16 @@ ISP_TILE_MESSAGE_ENUM tile_init_config(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
                     }
                     if (ISP_MESSAGE_TILE_OK == result)
                     {
-                        /* set output size */
-                        if (!ptr_func->init_func_ptr
-                            || !ptr_func->enable_flag)
-                        {
-                            /* copy for null init func */
-                            ptr_func->out_pos_xs = ptr_func->in_pos_xs;
-                            ptr_func->out_pos_ys = ptr_func->in_pos_ys;
-                            ptr_func->out_pos_xe = ptr_func->in_pos_xe;
-                            ptr_func->out_pos_ye = ptr_func->in_pos_ye;
-                            ptr_func->full_size_x_out = ptr_func->full_size_x_in;
-                            ptr_func->full_size_y_out = ptr_func->full_size_y_in;
+			/* set output size */
+			if (!ptr_func->init_func
+			    || !ptr_func->enable_flag) {
+				/* copy for null init func */
+				ptr_func->out_pos_xs = ptr_func->in_pos_xs;
+				ptr_func->out_pos_ys = ptr_func->in_pos_ys;
+				ptr_func->out_pos_xe = ptr_func->in_pos_xe;
+				ptr_func->out_pos_ye = ptr_func->in_pos_ye;
+				ptr_func->full_size_x_out = ptr_func->full_size_x_in;
+				ptr_func->full_size_y_out = ptr_func->full_size_y_in;
                         }
                         else
                         {
@@ -2398,9 +2396,11 @@ static ISP_TILE_MESSAGE_ENUM tile_backward_output_config_skip(TILE_REG_MAP_STRUC
 					ptr_tile_func_param->func_list[i];
 				if (false == ptr_func_backup->output_disable_flag)
 				{
-					TILE_HORZ_BACKUP_BUFFER *ptr_para =
-						&ptr_func_backup->horz_para[curr_horizontal_tile_no];
-					TILE_FUNC_BLOCK_LUT(TILE_WRAPPER_HORZ_PARA_RESTORE, ptr_para, ptr_func_backup,,,);
+					struct tile_horz_backup *ptr_para =
+						&ptr_func_backup->horz_para[
+						curr_horizontal_tile_no];
+
+					HORZ_PARA_RESTORE(ptr_para, ptr_func_backup);
 				}
 			}
 		}
@@ -7473,8 +7473,11 @@ static ISP_TILE_MESSAGE_ENUM tile_update_last_x_y(TILE_REG_MAP_STRUCT *ptr_tile_
 					/* assign parameter pointer if there is enough buffer */
 					if(curr_horizontal_tile_no < MAX_TILE_BACKUP_HORZ_NO)
 					{
-						TILE_HORZ_BACKUP_BUFFER *ptr_para = &ptr_func->horz_para[curr_horizontal_tile_no];
-						TILE_FUNC_BLOCK_LUT(TILE_WRAPPER_HORZ_PARA_BACKUP, ptr_para, ptr_func,,,);
+						struct tile_horz_backup *ptr_para =
+							&ptr_func->horz_para[
+							curr_horizontal_tile_no];
+
+						HORZ_PARA_BACKUP(ptr_para, ptr_func);
 					}
 				}
 			}

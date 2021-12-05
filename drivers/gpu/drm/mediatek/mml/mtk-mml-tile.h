@@ -77,13 +77,13 @@ struct dlo_tile_data {
 };
 
 union mml_tile_data {
-	struct rdma_tile_data rdma_data;
-	struct hdr_tile_data hdr_data;
-	struct aal_tile_data aal_data;
-	struct rsz_tile_data rsz_data;
-	struct tdshp_tile_data tdshp_data;
-	struct wrot_tile_data wrot_data;
-	struct dlo_tile_data dlo_data;
+	struct rdma_tile_data rdma;
+	struct hdr_tile_data hdr;
+	struct aal_tile_data aal;
+	struct rsz_tile_data rsz;
+	struct tdshp_tile_data tdshp;
+	struct wrot_tile_data wrot;
+	struct dlo_tile_data dlo;
 };
 
 s32 calc_tile(struct mml_task *task, u32 pipe_idx, struct mml_tile_cache *tile_cache);

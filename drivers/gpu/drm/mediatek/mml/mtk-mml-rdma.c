@@ -468,19 +468,17 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_data *src = &cfg->info.src;
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 
-	data->rdma_data.src_fmt = src->format;
-	data->rdma_data.blk_shift_w =
-		MML_FMT_BLOCK(src->format) ? 4 : 0;
-	data->rdma_data.blk_shift_h =
-		MML_FMT_BLOCK(src->format) ? 5 : 0;
-	data->rdma_data.max_width = rdma->data->tile_width;
+	data->rdma.src_fmt = src->format;
+	data->rdma.blk_shift_w = MML_FMT_BLOCK(src->format) ? 4 : 0;
+	data->rdma.blk_shift_h = MML_FMT_BLOCK(src->format) ? 5 : 0;
+	data->rdma.max_width = rdma->data->tile_width;
 
 	/* RDMA support crop capability */
 	func->type = TILE_TYPE_RDMA | TILE_TYPE_CROP_EN;
-	func->init_func_ptr = tile_rdma_init;
-	func->for_func_ptr = tile_rdma_for;
-	func->back_func_ptr = tile_rdma_back;
-	func->func_data = data;
+	func->init_func = tile_rdma_init;
+	func->for_func = tile_rdma_for;
+	func->back_func = tile_rdma_back;
+	func->data = data;
 	func->enable_flag = true;
 
 	func->full_size_x_in = src->width;
@@ -492,14 +490,7 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		struct mml_frame_dest *dest = &cfg->info.dest[0];
 		u32 in_crop_w, in_crop_h;
 
-		data->rdma_data.crop.left =
-			dest->crop.r.left;
-		data->rdma_data.crop.top =
-			dest->crop.r.top;
-		data->rdma_data.crop.width =
-			dest->crop.r.width;
-		data->rdma_data.crop.height =
-			dest->crop.r.height;
+		data->rdma.crop = dest->crop.r;
 
 		in_crop_w = dest->crop.r.width;
 		in_crop_h = dest->crop.r.height;
@@ -514,10 +505,10 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			func->full_size_y_out = in_crop_h;
 		}
 	} else {
-		data->rdma_data.crop.left = 0;
-		data->rdma_data.crop.top = 0;
-		data->rdma_data.crop.width = src->width;
-		data->rdma_data.crop.height = src->height;
+		data->rdma.crop.left = 0;
+		data->rdma.crop.top = 0;
+		data->rdma.crop.width = src->width;
+		data->rdma.crop.height = src->height;
 	}
 	return 0;
 }

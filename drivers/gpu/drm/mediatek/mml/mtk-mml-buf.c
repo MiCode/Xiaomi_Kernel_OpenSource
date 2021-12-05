@@ -8,11 +8,11 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-heap.h>
 #include <linux/scatterlist.h>
+#include <mtk_heap.h>
 
 #include "mtk-mml.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-core.h"
-#include "mtk_heap.h"
 
 void mml_buf_get_fd(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *name)
 {
