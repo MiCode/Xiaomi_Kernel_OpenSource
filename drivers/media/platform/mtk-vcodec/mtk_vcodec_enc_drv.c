@@ -369,7 +369,8 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "Failed to get port-def!");
 
 	pr_info("after get port-def port_data_len %d\n", port_data_len);
-	total_port_num = port_data_len / (sizeof(u32) * port_args_num);
+	if (port_args_num)
+		total_port_num = port_data_len / (sizeof(u32) * port_args_num);
 
 	for (i = 0; i < total_port_num; i++) {
 		offset = i * port_args_num;
