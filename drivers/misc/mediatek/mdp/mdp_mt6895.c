@@ -489,27 +489,9 @@ int cmdq_TranslationFault_callback(
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 
 	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
-	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%x", port, mva);
+	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=%pa", port, &mva);
 
 	cmdq_core_dump_tasks_info();
-
-	switch (port) {
-	case M4U_LARB2_PORT0:
-		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
-		break;
-	case M4U_LARB2_PORT1:
-		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
-		break;
-	case M4U_LARB2_PORT2:
-		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
-		break;
-	case M4U_LARB2_PORT3:
-		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
-		break;
-	default:
-		CMDQ_ERR("[MDP M4U]fault callback function");
-		break;
-	}
 
 	CMDQ_ERR(
 		"=============== [MDP] Frame Information Begin ===============================\n");

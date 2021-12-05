@@ -499,26 +499,6 @@ int cmdq_TranslationFault_callback(
 
 	cmdq_core_dump_tasks_info();
 
-	cmdq_core_dump_mmsys_config();
-
-	switch (port) {
-	case M4U_PORT_L2_MDP_RDMA0:
-		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
-		break;
-	case M4U_PORT_L2_MDP_RDMA2:
-		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
-		break;
-	case M4U_PORT_L2_MDP_WROT0:
-		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
-		break;
-	case M4U_PORT_L2_MDP_WROT2:
-		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
-		break;
-	default:
-		CMDQ_ERR("[MDP M4U]fault callback function");
-		break;
-	}
-
 	CMDQ_ERR(
 		"=============== [MDP] Frame Information Begin ===============================\n");
 	/* find dispatch module and assign dispatch key */
