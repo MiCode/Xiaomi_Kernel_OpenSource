@@ -962,10 +962,8 @@ int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 			txdiv = 4;
 			div3  = 3;
 		} else {
-			DDPINFO("%s: data rate is too low\n", __func__);
-			data_rate = 510;
-			txdiv = 4;
-			div3  = 3;
+			DDPPR_ERR("data rate is too low\n");
+			return -EINVAL;
 		}
 
 		pdelta1 = data_rate / 2 * txdiv * div3 * 5 / 26 * 262144 / 1000 / 433;
@@ -1161,9 +1159,8 @@ static unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
 	else if (data_rate >= 510)
 		div3 = 3;
 	else {
-		DDPINFO("%s: data rate is too low\n", __func__);
-		data_rate = 510;
-		div3 = 3;
+		DDPPR_ERR("invalid data rate %u\n");
+		return -EINVAL;
 	}
 
 	data_rate = data_rate >> 1;
@@ -1450,13 +1447,8 @@ static int mtk_mipi_tx_pll_prepare_mt6983(struct clk_hw *hw)
 		div3 = 3;
 		div3_en = 1;
 	} else {
-		DDPINFO("%s: data rate is too low\n", __func__);
-		rate = 510;
-		txdiv = 4;
-		txdiv0 = 2;
-		txdiv1 = 0;
-		div3 = 3;
-		div3_en = 1;
+		DDPPR_ERR("data rate is too low\n");
+		return -EINVAL;
 	}
 	if (rate < 2500)
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
@@ -1668,13 +1660,8 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6983(struct clk_hw *hw)
 		div3 = 1;
 		div3_en = 0;
 	} else {
-		DDPINFO("%s: data rate is too low\n", __func__);
-		rate = 450;
-		txdiv = 16;
-		txdiv0 = 4;
-		txdiv1 = 0;
-		div3 = 1;
-		div3_en = 0;
+		DDPPR_ERR("data rate is too low\n");
+		return -EINVAL;
 	}
 	/*set volate: cphy need 500mV*/
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
