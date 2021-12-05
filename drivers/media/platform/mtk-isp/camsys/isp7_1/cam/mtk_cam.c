@@ -2557,6 +2557,18 @@ static int mtk_cam_req_chk_job_list(struct mtk_cam_device *cam,
 	return 0;
 }
 
+/* only init extend s_data and update s_data_num */
+static void mtk_cam_req_p_data_extend_init(struct mtk_cam_request *req,
+				    int pipe_id,
+				    int s_data_num)
+{
+	int i;
+
+	req->p_data[pipe_id].s_data_num = s_data_num;
+	for (i = 1; i < s_data_num; i++)
+		mtk_cam_req_s_data_init(req, pipe_id, i);
+}
+
 static void mtk_cam_req_p_data_init(struct mtk_cam_request *req,
 				    int pipe_id,
 				    int s_data_num)
@@ -2870,11 +2882,11 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 	if (mtk_cam_feature_is_mstream(current_feature)) {
 		/* for 1->2, 2->2 */
 		/* init stream data for mstream */
-		mtk_cam_req_p_data_init(req, pipe_id, 2);
+		mtk_cam_req_p_data_extend_init(req, pipe_id, 2);
 	} else {
 		/* for 2->1 */
 		/* init stream data for normal exp */
-		mtk_cam_req_p_data_init(req, pipe_id, 1);
+		mtk_cam_req_p_data_extend_init(req, pipe_id, 1);
 	}
 
 	/* recover main stream buffer */
