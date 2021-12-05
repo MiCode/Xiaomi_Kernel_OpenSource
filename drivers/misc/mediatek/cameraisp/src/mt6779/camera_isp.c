@@ -10210,7 +10210,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 			if (sec_on) {
 				IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x,en=0x%x,bpci=0x%x,cq4:0x%08x,cq8:0x%08x,cq12:0x%08x,rawSel=0x%x,misc=0x%x\n",
+				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x,en=0x%x,bpci=0x%x,cq4:0x%08x,cq8:0x%08x,cq12:0x%08x,misc=0x%x\n",
 				'A'+cardinalNum, sof_count[module], cur_v_cnt,
 				(unsigned int)(ISP_RD32(
 				CAM_REG_FBC_IMGO_CTL1(reg_module))),
@@ -10232,7 +10232,6 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				ISP_RD32(CAM_REG_CQ_THR8_BASEADDR(reg_module)),
 				ISP_RD32(CAM_REG_CQ_THR12_BASEADDR(
 					reg_module)),
-				ISP_RD32(CAM_REG_CTL_SEL(reg_module)),
 				ISP_RD32(CAM_REG_CTL_MISC(reg_module)));
 			} else {
 				IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
