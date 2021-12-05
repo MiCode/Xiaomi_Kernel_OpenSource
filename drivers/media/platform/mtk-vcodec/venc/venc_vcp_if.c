@@ -940,6 +940,7 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	if (ret) {
 		mtk_vcodec_del_ctx_list(ctx);
+		kfree(inst->vcu_inst.ctx_ipi_lock);
 		kfree(inst);
 		(*handle) = (unsigned long)NULL;
 	}
