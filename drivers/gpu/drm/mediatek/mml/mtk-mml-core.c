@@ -1232,7 +1232,6 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	mml_trace_ex_begin("%s", __func__);
 
 	core_enable(task, pipe);
-	mml_core_dvfs_begin(task, pipe);
 
 	/* before flush, wait buffer fence being signaled */
 	wait_dma_fence("src", task->buf.src.fence, task->job.jobid);
@@ -1292,6 +1291,9 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	/* force stop current running racing */
 	if (task->config->info.mode == MML_MODE_RACING)
 		task->pkts[pipe]->self_loop = true;
+
+	/* do dvfs/bandwidth calc right before flush to cmdq */
+	mml_core_dvfs_begin(task, pipe);
 
 	mml_trace_ex_begin("%s_cmdq", __func__);
 	mml_mmp(flush, MMPROFILE_FLAG_PULSE, task->job.jobid,

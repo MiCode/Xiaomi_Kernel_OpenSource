@@ -1853,12 +1853,12 @@ static s32 wrot_post(struct mml_comp *comp, struct mml_task *task,
 	cache->total_datasize += wrot_frm->datasize;
 	cache->max_pixel = max(cache->max_pixel, wrot_frm->pixel_acc);
 
+	mml_msg("%s task %p pipe %hhu data %u pixel %u eol %u",
+		__func__, task, ccfg->pipe, wrot_frm->datasize, wrot_frm->pixel_acc,
+		wrot_frm->wdone_cnt);
+
 	if (task->config->info.mode == MML_MODE_RACING) {
 		struct mml_comp_wrot *wrot = comp_to_wrot(comp);
-
-		mml_log("%s task %p pipe %hhu data %u pixel %u eol %u",
-			__func__, task, ccfg->pipe, wrot_frm->datasize, wrot_frm->pixel_acc,
-			wrot_frm->wdone_cnt);
 
 		/* clear path sel back to dram */
 		cmdq_pkt_write(task->pkts[ccfg->pipe], NULL, wrot->smi_larb_con,
