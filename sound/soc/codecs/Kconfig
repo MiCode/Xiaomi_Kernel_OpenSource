@@ -209,6 +209,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_TDA7419
 	imply SND_SOC_TFA9874
         imply SND_SOC_AA006
+	imply SND_SOC_BB007
 	imply SND_SOC_TFA9879
 	imply SND_SOC_TLV320ADCX140
 	imply SND_SOC_TLV320AIC23_I2C
@@ -1379,6 +1380,15 @@ config SND_SOC_AA006
 config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
 	depends on I2C
+
+config SND_SOC_BB007
+	tristate "Support BB007 driver"
+	depends on I2C
+	help
+	  This option enables support for BB007 boards.
+	  Speaker amp use NXP TFA9874 codec,
+	  USB headset use fsa44xx codec,
+	  This only using on special project phone.
 
 config SND_SOC_TLV320AIC23
 	tristate
