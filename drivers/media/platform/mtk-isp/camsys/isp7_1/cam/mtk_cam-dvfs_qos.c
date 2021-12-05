@@ -476,36 +476,20 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 	unsigned int ipi_fmt;
 	int i, j, pixel_bits, plane_factor;
 	unsigned long vblank, fps, height, PBW_MB_s, ABW_MB_s;
-	unsigned long cal_raw_dmas;
 
 	raw_mmqos = raw_qos + engine_id;
 
-	if (dvfs_info->postpone_dmas[engine_id] == 0) {
-		/* mstream may no settings */
-		if (raw_dmas == 0)
-			return;
-		/* postpone when dma on -> off */
-		if (dvfs_info->updated_raw_dmas[engine_id] != 0 &&
-			(dvfs_info->updated_raw_dmas[engine_id] & ~raw_dmas) != 0) {
-			dvfs_info->postpone_dmas[engine_id] = raw_dmas;
-			return;
-		}
-		/* pass same config*/
-		if (dvfs_info->updated_raw_dmas[engine_id] == raw_dmas)
-			return;
+	raw_dmas |= dvfs_info->updated_raw_dmas[engine_id];
 
-		cal_raw_dmas = raw_dmas;
-		dvfs_info->updated_raw_dmas[engine_id] = raw_dmas;
-	} else {
-		cal_raw_dmas = dvfs_info->postpone_dmas[engine_id];
-		/* update dvfs info */
-		dvfs_info->updated_raw_dmas[engine_id] = cal_raw_dmas;
-		dvfs_info->postpone_dmas[engine_id] = 0;
-	}
+	/* mstream may no settings */
+	if (raw_dmas == 0 || dvfs_info->updated_raw_dmas[engine_id] == raw_dmas)
+		return;
 
-	dev_info(cam->dev, "[%s] engine_id(%d) enable_dmas(0x%lx) raw_dmas(0x%lx), updated_raw_dmas(0x%lx), postpone(0x%lx)\n",
+	dev_info(cam->dev, "[%s] engine_id(%d) enable_dmas(0x%lx) raw_dmas(0x%lx), updated_raw_dmas(0x%lx)\n",
 		__func__, engine_id, pipe->enabled_dmas, raw_dmas,
-		dvfs_info->updated_raw_dmas[engine_id], dvfs_info->postpone_dmas[engine_id]);
+		dvfs_info->updated_raw_dmas[engine_id]);
+
+	dvfs_info->updated_raw_dmas[engine_id] = raw_dmas;
 
 	if (ctx->sensor) {
 		fi.pad = 0;
@@ -533,7 +517,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 	}
 
 	for (i = 0; i < MTKCAM_IPI_RAW_ID_MAX; i++) {
-		if (cal_raw_dmas & 1ULL<<i)
+		if (raw_dmas & 1ULL<<i)
 			ipi_video_id = i;
 		else
 			continue;
@@ -879,6 +863,16 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 	}
 
 	if (mtk_cam_is_stagger(ctx)) {
+		vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
+		ipi_fmt = mtk_cam_get_img_fmt(vdev->active_fmt.fmt.pix_mp.pixelformat);
+		pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
+		plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
+		PBW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+					(vblank + height) * pixel_bits *
+					plane_factor / 8 / 100;
+		ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
+					plane_factor / 8 / 100;
 		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
 			if (ctx->pipe->enabled_raw & (1 << i)) {
 				qos_port_id =
@@ -898,6 +892,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 			}
 		}
 	}
+
 	for (i = 0; i < ctx->used_sv_num; i++) {
 		qos_port_id = ((ctx->sv_pipe[i]->id - MTKCAM_SUBDEV_CAMSV_START)
 						* sv_qos_port_num)
@@ -972,7 +967,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 				qos_port_id = ((ctx->mraw_pipe[i]->id - MTKCAM_SUBDEV_MRAW_START)
 								* mraw_qos_port_num)
 								+ mraw_cqi_m1;
-				PBW_MB_s = CQ_BUF_SIZE * fps / 10;
+				PBW_MB_s = ABW_MB_s = CQ_BUF_SIZE * fps / 10;
 				dvfs_info->mraw_qos_bw_peak[qos_port_id] = PBW_MB_s;
 				dvfs_info->mraw_qos_bw_avg[qos_port_id] = ABW_MB_s;
 				if (unlikely(debug_mmqos))
@@ -982,7 +977,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 				qos_port_id = ((ctx->mraw_pipe[i]->id - MTKCAM_SUBDEV_MRAW_START)
 								* mraw_qos_port_num)
 								+ mraw_cqi_m2;
-				PBW_MB_s = CQ_BUF_SIZE * fps / 10;
+				PBW_MB_s = ABW_MB_s = CQ_BUF_SIZE * fps / 10;
 				dvfs_info->mraw_qos_bw_peak[qos_port_id] = PBW_MB_s;
 				dvfs_info->mraw_qos_bw_avg[qos_port_id] = ABW_MB_s;
 				if (unlikely(debug_mmqos))
@@ -1097,7 +1092,6 @@ void mtk_cam_qos_init(struct mtk_cam_device *cam)
 			i++;
 		}
 		dvfs_info->updated_raw_dmas[engine_id] = 0;
-		dvfs_info->postpone_dmas[engine_id] = 0;
 		dev_info(raw_dev->dev, "[%s] raw_engine_id=%d, port_num=%d\n",
 			 __func__, engine_id, i);
 	}
@@ -1143,7 +1137,6 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv)
 		__func__, ctx->pipe->enabled_raw, ctx->used_sv_num, ctx->used_mraw_num);
 
 	dvfs_info->updated_raw_dmas[engine_id] = 0;
-	dvfs_info->postpone_dmas[engine_id] = 0;
 
 	for (i = 0; i < raw_qos_port_num; i++) {
 		qos_port_id = engine_id * raw_qos_port_num + i;

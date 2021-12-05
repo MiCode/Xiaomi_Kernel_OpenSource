@@ -30,7 +30,6 @@ struct mtk_camsys_dvfs {
 	unsigned int clklv_target;
 	struct clk *mux;
 	struct clk *clk_src[MAX_CAM_OPP_STEP];
-	unsigned long postpone_dmas[RAW_NUM];
 	unsigned long updated_raw_dmas[RAW_NUM];
 	struct icc_path *qos_req[MTK_CAM_RAW_PORT_NUM];
 	unsigned long qos_bw_avg[MTK_CAM_RAW_PORT_NUM];
