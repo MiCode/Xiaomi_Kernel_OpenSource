@@ -161,6 +161,7 @@ struct mtk_smi_larb { /* larb: local arbiter */
 	struct mtk_smi			smi;
 	void __iomem			*base;
 	struct device			*smi_common_dev[LARB_MAX_COMMON];
+	struct device			*smi_common;
 	const struct mtk_smi_larb_gen	*larb_gen;
 	int				larbid;
 	int				comm_port_id[LARB_MAX_COMMON];
@@ -254,7 +255,7 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
-	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev[0]);
+	struct mtk_smi *common = dev_get_drvdata(larb->smi_common);
 
 	if (port >= SMI_COMMON_LARB_NR_MAX) { /* max: 8 input larbs. */
 		dev_err(dev, "%s port invalid:%d, val:%u.\n", __func__,
@@ -1482,7 +1483,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 {
 	struct mtk_smi_larb *larb;
 	struct resource *res;
-	struct device *dev = &pdev->dev;
+	struct device *dev = &pdev->dev, *smi_dev = &pdev->dev;
 	struct device_node *smi_node;
 	struct platform_device *smi_pdev;
 	struct device_link *link;
@@ -1541,6 +1542,34 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 		larb->comm_port_id[i] = -1;
 		of_property_read_u32_index(dev->of_node, "mediatek,comm-port-id",
 						i, &larb->comm_port_id[i]);
+	}
+
+
+	/* find smi common dev for mmqos */
+	larb->smi_common = larb->smi_common_dev[0];
+	for (;;) {
+		smi_node = smi_dev->of_node;
+		smi_node = of_parse_phandle(smi_node, "mediatek,smi", 0);
+		if (smi_node) {
+			smi_pdev = of_find_device_by_node(smi_node);
+			of_node_put(smi_node);
+			if (smi_pdev) {
+				if (of_property_read_bool(smi_pdev->dev.of_node, "smi-common")) {
+					larb->smi_common = &smi_pdev->dev;
+					dev_notice(dev, "Succeed to get smi-comm dev for mmqos\n");
+					break;
+					/* find smi-common dev successfully */
+				} else
+					smi_dev = &smi_pdev->dev;
+			} else {
+				dev_notice(dev, "Failed to get smi-comm dev for mmqos\n");
+				return -EINVAL;
+			}
+		} else {
+			/* skip mmqos fix */
+			dev_notice(dev, "Can not find smi-comm for mmqos\n");
+			break;
+		}
 	}
 
 	pm_runtime_enable(dev);
