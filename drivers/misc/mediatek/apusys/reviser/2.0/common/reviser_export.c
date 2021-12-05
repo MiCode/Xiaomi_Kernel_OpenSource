@@ -12,7 +12,7 @@
 #include "reviser_hw_mgt.h"
 #include "reviser_drv.h"
 #include "reviser_remote_cmd.h"
-#include "slbc_ops.h"
+#include "reviser_import.h"
 
 /**
  * reviser_get_vlm - get continuous memory which is consists of TCM/DRAM/System-Memory
@@ -178,45 +178,30 @@ out:
 
 int reviser_alloc_mem(uint32_t type, uint32_t size, uint64_t *addr, uint32_t *sid)
 {
-	int ret = 0;
+	int ret = 0, check = 0;
 	uint64_t input_addr = 0, ret_addr = 0, input_size = 0;
 	uint32_t ret_id = 0;
-	struct slbc_data slb;
+
 
 	if (g_rdv == NULL) {
 		LOG_ERR("Invalid reviser_device\n");
 		ret = -EINVAL;
 		return ret;
 	}
-	LOG_DBG_RVR_VLM("Alloc Mem (%lu/0x%lx)\n", type, size);
+	LOG_DBG_RVR_VLM("[Alloc] Mem (%lu/0x%lx)\n", type, size);
 
 	switch (type) {
 	case REVISER_MEM_TYPE_EXT:
-		/* TODO, should allocate via reviser function */
-		slb.uid = UID_SH_APU;
-		slb.type = TP_BUFFER;
-
-		slbc_request(&slb);
-
-		/*XXX get vlm addr from reviser */
-		input_addr = (size_t) slb.paddr;
-		input_size = slb.size;
+	case REVISER_MEM_TYPE_RSV_S:
+		ret = reviser_alloc_slb(type, size, &input_addr, &input_size);
+		if (ret)
+			goto out;
 		break;
 	case REVISER_MEM_TYPE_RSV_T:
 		input_addr = 0;
 		input_size = size;
 		break;
-	case REVISER_MEM_TYPE_RSV_S:
-		/* TODO, should allocate via reviser function */
-		slb.uid = UID_AINR;
-		slb.type = TP_BUFFER;
 
-		slbc_request(&slb);
-
-		/*XXX get vlm addr from reviser */
-		input_addr = (size_t) slb.paddr;
-		input_size = slb.size;
-		break;
 	case REVISER_MEM_TYPE_VLM:
 		input_addr = 0;
 		input_size = size;
@@ -226,19 +211,32 @@ int reviser_alloc_mem(uint32_t type, uint32_t size, uint64_t *addr, uint32_t *si
 		ret = -EINVAL;
 		goto out;
 	}
-	LOG_DBG_RVR_VLM("Alloc Mem (%lu/0x%lx/0x%llx/0x%lx)\n", type, size, input_addr, input_size);
+	LOG_DBG_RVR_VLM("[Alloc] Mem (%lu/0x%lx/0x%llx/0x%lx)\n",
+				type, size, input_addr, input_size);
 
 	ret = reviser_remote_alloc_mem(g_rdv, type, input_addr, input_size, &ret_addr, &ret_id);
 	if (ret) {
 		LOG_ERR("Remote Handshake fail %d\n", ret);
+
+		// Free SLB if fail
+		if ((type == REVISER_MEM_TYPE_EXT) || (type == REVISER_MEM_TYPE_RSV_S)) {
+			check = reviser_free_slb(type, input_addr);
+			if (check)
+				goto out;
+		}
+
 		goto out;
 	}
 
 	*addr = ret_addr;
 	*sid = ret_id;
 
-	LOG_DBG_RVR_VLM("Alloc Mem Done (%lu/0x%lx/0x%llx/0x%lx)\n", type, size, ret_addr, ret_id);
+	LOG_DBG_RVR_VLM("[Alloc][Done] Mem (%lu/0x%lx/0x%llx/0x%lx)\n",
+			type, size, ret_addr, ret_id);
+
+	return ret;
 out:
+	LOG_ERR("[Alloc][Fail] Mem (%lu/0x%lx/0x%llx/0x%lx)\n", type, size, ret_addr, ret_id);
 	return ret;
 }
 
@@ -247,14 +245,13 @@ int reviser_free_mem(uint32_t sid)
 	int ret = 0;
 	uint32_t out_type = 0, out_size = 0;
 	uint64_t out_addr = 0;
-	struct slbc_data slb;
 
 	if (g_rdv == NULL) {
 		LOG_ERR("Invalid reviser_device\n");
 		ret = -EINVAL;
 		return ret;
 	}
-	LOG_DBG_RVR_VLM("Free Mem (0x%x)\n", sid);
+	LOG_DBG_RVR_VLM("[Free] Mem (0x%x)\n", sid);
 
 	ret = reviser_remote_free_mem(g_rdv, sid, &out_type, &out_addr, &out_size);
 	if (ret) {
@@ -267,16 +264,10 @@ int reviser_free_mem(uint32_t sid)
 	case REVISER_MEM_TYPE_RSV_T:
 		break;
 	case REVISER_MEM_TYPE_EXT:
-		slb.uid = UID_SH_APU;
-		slb.type = TP_BUFFER;
-
-		slbc_release(&slb);
-		break;
 	case REVISER_MEM_TYPE_RSV_S:
-		slb.uid = UID_AINR;
-		slb.type = TP_BUFFER;
-
-		slbc_release(&slb);
+		ret = reviser_free_slb(out_type, out_addr);
+		if (ret)
+			goto out;
 		break;
 	default:
 		LOG_ERR("Invalid type %u\n", out_type);
@@ -284,9 +275,13 @@ int reviser_free_mem(uint32_t sid)
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("Free Mem Done (0x%x) (%lu/0x%x/0x%x)\n",
+	LOG_DBG_RVR_VLM("[Free][Done] Mem (0x%x) (%lu/0x%x/0x%x)\n",
 				sid, out_type, out_addr, out_size);
+	return ret;
 out:
+	LOG_ERR("[Free][Fail] Mem (0x%x) (%lu/0x%x/0x%x)\n",
+			sid, out_type, out_addr, out_size);
+
 	return ret;
 }
 
@@ -299,7 +294,7 @@ int reviser_import_mem(uint64_t session, uint32_t sid)
 		ret = -EINVAL;
 		return ret;
 	}
-	LOG_DBG_RVR_VLM("Import Mem (0x%llx/0x%x)\n", session, sid);
+	LOG_DBG_RVR_VLM("[Import] Mem (0x%llx/0x%x)\n", session, sid);
 
 	ret = reviser_remote_import_mem(g_rdv, session, sid);
 	if (ret) {
@@ -307,8 +302,11 @@ int reviser_import_mem(uint64_t session, uint32_t sid)
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("Import Mem Done (0x%llx/0x%x)\n", session, sid);
+	LOG_DBG_RVR_VLM("[Import][Done] Mem (0x%llx/0x%x)\n", session, sid);
+
+	return ret;
 out:
+	LOG_ERR("[Import][Fail] Mem (0x%llx/0x%x)\n", session, sid);
 	return ret;
 }
 
@@ -322,7 +320,7 @@ int reviser_unimport_mem(uint64_t session, uint32_t sid)
 		return ret;
 	}
 
-	LOG_DBG_RVR_VLM("UnImport Mem (0x%llx/0x%x)\n", session, sid);
+	LOG_DBG_RVR_VLM("[UnImport] Mem (0x%llx/0x%x)\n", session, sid);
 
 	ret = reviser_remote_unimport_mem(g_rdv, session, sid);
 	if (ret) {
@@ -330,9 +328,11 @@ int reviser_unimport_mem(uint64_t session, uint32_t sid)
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("UnImport Mem Done (0x%llx/0x%x)\n", session, sid);
+	LOG_DBG_RVR_VLM("[UnImport][Done] Mem (0x%llx/0x%x)\n", session, sid);
+	return ret;
 out:
-	return 0;
+	LOG_ERR("[UnImport][Fail] Mem (0x%llx/0x%x)\n", session, sid);
+	return ret;
 }
 
 
@@ -348,7 +348,7 @@ int reviser_map_mem(uint64_t session, uint32_t sid, uint64_t *addr)
 		return ret;
 	}
 
-	LOG_DBG_RVR_VLM("Map mem (0x%llx/0x%x/0x%x)\n", session, sid, ret_addr);
+	LOG_DBG_RVR_VLM("[Map] mem (0x%llx/0x%x/0x%x)\n", session, sid, ret_addr);
 
 	ret = reviser_remote_map_mem(g_rdv, session, sid, &ret_addr);
 	if (ret) {
@@ -357,9 +357,11 @@ int reviser_map_mem(uint64_t session, uint32_t sid, uint64_t *addr)
 	}
 	*addr = ret_addr;
 
-	LOG_DBG_RVR_VLM("Map mem Done (0x%llx/0x%x/0x%llx)\n", session, sid, ret_addr);
-
+	LOG_DBG_RVR_VLM("[Map][Done] Mem (0x%llx/0x%x/0x%llx)\n", session, sid, ret_addr);
+	return ret;
 out:
+
+	LOG_ERR("[Map][Fail] Mem (0x%llx/0x%x/0x%llx)\n", session, sid, ret_addr);
 	return ret;
 }
 
@@ -373,7 +375,7 @@ int reviser_unmap_mem(uint64_t session, uint32_t sid)
 		return ret;
 	}
 
-	LOG_DBG_RVR_VLM("Unmap mem (0x%llx/0x%x)\n", session, sid);
+	LOG_DBG_RVR_VLM("[Unmap] mem (0x%llx/0x%x)\n", session, sid);
 
 	ret = reviser_remote_unmap_mem(g_rdv, session, sid);
 	if (ret) {
@@ -381,8 +383,9 @@ int reviser_unmap_mem(uint64_t session, uint32_t sid)
 		goto out;
 	}
 
-	LOG_DBG_RVR_VLM("Unmap mem Done (0x%llx/0x%x)\n", session, sid);
-
+	LOG_DBG_RVR_VLM("[Unmap][Done] Mem (0x%llx/0x%x)\n", session, sid);
+	return ret;
 out:
+	LOG_ERR("[Unmap][Fail] Mem (0x%llx/0x%x)\n", session, sid);
 	return ret;
 }

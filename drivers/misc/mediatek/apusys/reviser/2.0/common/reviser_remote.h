@@ -24,6 +24,7 @@ struct reviser_msg_mgr {
 	struct reviser_remote_lock lock;
 	struct reviser_remote_info info;
 	struct list_head list_rx;
+	uint32_t count;
 	uint32_t send_sn;
 };
 

@@ -101,6 +101,7 @@ ccflags-y += -I$(REVISER)/$(REVISER_PLAT)/v_1_0
 apusys-objs += $(REVISER_COMN)/reviser_drv.o
 apusys-objs += $(REVISER_COMN)/reviser_dbg.o
 apusys-objs += $(REVISER_COMN)/reviser_export.o
+apusys-objs += $(REVISER_COMN)/reviser_import.o
 apusys-objs += $(REVISER_COMN)/reviser_hw_mgt.o
 apusys-objs += $(REVISER_COMN)/reviser_mem.o
 apusys-objs += $(REVISER_COMN)/reviser_power.o

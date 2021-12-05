@@ -7,6 +7,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/rpmsg.h>
+#include <linux/delay.h>
 #include "reviser_cmn.h"
 #include "reviser_drv.h"
 #include "reviser_remote.h"
@@ -51,6 +52,7 @@ int reviser_remote_init(void)
 
 	g_reply = &g_reviser_msg_reply;
 	g_reply->sn = 0;
+	g_msg_mgr.count = 0;
 	g_rvr_msg = &g_msg_mgr;
 	g_msg_mgr.info.init = true;
 
@@ -73,7 +75,7 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 	unsigned long flags;
 	struct reviser_msg_item *item;
 	struct list_head *tmp = NULL, *pos = NULL;
-	struct reviser_msg *rmesg;
+	struct reviser_msg *rmesg, *snd_rmesg;
 	int retry = 0;
 	bool find = false;
 
@@ -85,7 +87,11 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 
+	snd_rmesg = (struct reviser_msg *) request;
 	mutex_lock(&g_rvr_msg->lock.mutex_ipi);
+
+	snd_rmesg->sn = g_rvr_msg->send_sn;
+	g_rvr_msg->send_sn++;
 
 	ret = rpmsg_send(rdv->rpdev->ept, request, sizeof(struct reviser_msg));
 
@@ -93,24 +99,16 @@ int reviser_remote_send_cmd_sync(void *drvinfo, void *request, void *reply, uint
 
 wait:
 	LOG_DBG_RVR_FLW("Wait for Getting cmd\n");
-	//wait_event_interruptible(g_rvr_msg->lock.wait_rx,
-	//		!list_empty(&g_rvr_msg->list_rx));
 	ret = wait_event_interruptible_timeout(
 				g_rvr_msg->lock.wait_rx,
-				!list_empty(&g_rvr_msg->list_rx),
+				g_rvr_msg->count,
 				msecs_to_jiffies(REVISER_REMOTE_TIMEOUT));
 
 	if (ret == -ERESTARTSYS) {
-		if (retry > 5) {
-			LOG_ERR("Wake up by signal!, retry again");
-			retry++;
-			goto wait;
-		} else {
-			LOG_ERR("Wake up by signal!, Fail because it retry too many times!");
-			ret = -ETIME;
-			goto out;
-		}
-
+		LOG_ERR("Wake up by signal!, retry again %d\n", retry);
+		msleep(20);
+		retry++;
+		goto wait;
 	}
 	if (ret == 0) {
 		LOG_ERR("wait command timeout!!\n");
@@ -123,6 +121,7 @@ wait:
 	list_for_each_safe(pos, tmp, &g_rvr_msg->list_rx) {
 		item = list_entry(pos, struct reviser_msg_item, list);
 		list_del(pos);
+		g_rvr_msg->count--;
 		rmesg = (struct reviser_msg *) &item->msg;
 		LOG_DBG_RVR_FLW("item sn(%d) cmd(%x) option(%x) ack (%x)\n",
 				rmesg->sn, rmesg->cmd, rmesg->option, rmesg->ack);
@@ -159,7 +158,10 @@ int reviser_remote_rx_cb(void *data, int len)
 
 	spin_lock_irqsave(&g_rvr_msg->lock.lock_rx, flags);
 	list_add_tail(&item->list, &g_rvr_msg->list_rx);
+	g_rvr_msg->count++;
 	spin_unlock_irqrestore(&g_rvr_msg->lock.lock_rx, flags);
+
+
 
 	wake_up_interruptible(&g_rvr_msg->lock.wait_rx);
 
