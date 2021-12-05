@@ -9,6 +9,9 @@ obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys.o mtk-pm-domain-disable-unused.o
 ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6833.c),)
 obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6833.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6855.c),)
+obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6855.o mtk-scpsys-bringup.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6893.c),)
 obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6893.o
 endif
