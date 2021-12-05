@@ -856,12 +856,10 @@ int ovl2mem_deinit(void)
 			__func__, atomic_read(&g_trigger_ticket),
 			atomic_read(&g_release_ticket));
 
-
-	dpmgr_path_stop(pgcl->dpmgr_handle, CMDQ_DISABLE);
-
 	/*[SVP]switch ddp mosule to nonsec when deinit the extension path*/
 	switch_module_to_nonsec(pgcl->dpmgr_handle, NULL, DISP_MODULE_NUM,
 				__func__);
+	dpmgr_path_stop(pgcl->dpmgr_handle, CMDQ_DISABLE);
 	dpmgr_path_reset(pgcl->dpmgr_handle, CMDQ_DISABLE);
 	dpmgr_path_deinit(pgcl->dpmgr_handle, CMDQ_DISABLE);
 

@@ -205,6 +205,8 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 	unsigned int index = 0;
 	unsigned int reg_temp_val = 0;
 
+	DDPIRQ("%s in, irq = 0x%x\n", __func__, irq);
+
 	if (irq == ddp_get_module_irq(DISP_MODULE_DSI0)) {
 		if (ddp_get_module_irq(DISP_MODULE_DSI0) == irq) {
 			index = 0;
