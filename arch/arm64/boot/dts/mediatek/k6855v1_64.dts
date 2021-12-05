@@ -41,7 +41,7 @@ initcall_debug=1";
 	};
 };
 
-#if 0
+
 &pio {
 	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
 		pins_cmd_dat {
@@ -81,10 +81,8 @@ initcall_debug=1";
 		};
 	};
 };
-#endif
 
 &mtkfb {
-#if 0
 	pinctrl-names = "lcm_led_en1_gpio", "lcm_led_en0_gpio",
 		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
 		"mode_te_te";
@@ -93,73 +91,28 @@ initcall_debug=1";
 	pinctrl-2 = <&mtkfb_pins_lcm_rst_out1_gpio>;
 	pinctrl-3 = <&mtkfb_pins_lcm_rst_out0_gpio>;
 	pinctrl-4 = <&mtkfb_pins_lcm_dsi_te>;
-#endif
 	status = "okay";
 };
 
 &dispsys_config {
-#if 0
 	pinctrl-names =
 		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
 		"mode_te_te";
 	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
 	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
 	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
-#endif
 	status = "okay";
 };
-
-#if 0
-&gate_ic {
-	compatible = "mediatek,i2c_lcd_bias";
-};
-
-&gateic0 {
-	compatible = "mediatek,mtk-drm-gateic-drv-rt4831a";
-	pm-enable-gpios = <&pio 161 0>;
-	reset-gpios = <&pio 95 0>;
-	pinctrl-names = "default";
-	backlight_mode = <BL_I2C_MODE>;
-	panel-list = "default";
-};
-
-&dsi0 {
-	status = "okay";
-	#address-cells = <1>;
-	#size-cells = <0>;
-	panel_dconfig = <0>;
-	panel@0 {
-		compatible = "mediatek,mtk-drm-panel-drv-dsi";
-		reg = <0>;
-		panel_resource = <&nt36672e_fhdp_dphy_vdo_jdi_60hz>;
-		port {
-			panel_in: endpoint {
-				remote-endpoint = <&dsi_out>;
-			};
-		};
-	};
-	ports {
-		port {
-			dsi_out: endpoint {
-				remote-endpoint = <&panel_in>;
-			};
-		};
-	};
-};
-
-#else
 
 &dsi0 {
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "truly,nt35595,cmd";
+		compatible = "jdi,nt36672e,vdo,60hz";
 		reg = <0>;
-#if 0
 		pm-enable-gpios = <&pio 161 0>;
 		reset-gpios = <&pio 95 0>;
-#endif
 		gate-ic = <4831>;
 		pinctrl-names = "default";
 		port {
@@ -176,7 +129,6 @@ initcall_debug=1";
 		};
 	};
 };
-#endif
 
 /* GPS GPIO standardization start */
 &pio {

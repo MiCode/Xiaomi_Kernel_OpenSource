@@ -4560,7 +4560,6 @@
 };
 /* AUDIO GPIO standardization end */
 
-#if 0
 &i2c6 {
 	gate_ic: gate_ic@11 {
 		compatible = "mediatek,gate-ic-i2c";
@@ -4570,7 +4569,6 @@
 		status = "okay";
 	};
 };
-#endif
 
 #include "mediatek/cust_mt6855_msdc.dtsi"
 #include "mediatek/rt5133.dtsi"
