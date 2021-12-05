@@ -839,29 +839,28 @@ static void calc_afbc_block(u32 bits_per_pixel, u32 y_stride, u32 vert_stride,
 	*addr = *addr_c + header_sz;
 }
 
-static void wrot_calc_hw_buf_setting(struct mml_comp_wrot *wrot,
-				     struct mml_frame_config *cfg,
-				     struct mml_frame_dest *dest,
+static void wrot_calc_hw_buf_setting(const struct mml_comp_wrot *wrot,
+				     const struct mml_frame_config *cfg,
+				     const struct mml_frame_dest *dest,
 				     struct wrot_frame_data *wrot_frm)
 {
-	const u32 h_sub = MML_FMT_H_SUBSAMPLE(dest->data.format);
-	const u32 v_sub = MML_FMT_V_SUBSAMPLE(dest->data.format);
+	const u32 dest_fmt = dest->data.format;
 
-	if (h_sub && !v_sub) {
-		if (MML_FMT_PLANE(dest->data.format) == 1) {
+	if (MML_FMT_YUV422(dest_fmt)) {
+		if (MML_FMT_PLANE(dest_fmt) == 1) {
 			wrot_frm->fifo_max_sz = wrot->data->tile_width * 32;
 			wrot_frm->max_line_cnt = 32;
 		} else {
 			wrot_frm->fifo_max_sz = wrot->data->tile_width * 48;
 			wrot_frm->max_line_cnt = 48;
 		}
-	} else if (h_sub && v_sub) {
+	} else if (MML_FMT_YUV420(dest_fmt)) {
 		wrot_frm->fifo_max_sz = wrot->data->tile_width * 64;
 		wrot_frm->max_line_cnt = 64;
-	} else if (dest->data.format == MML_FMT_GREY) {
+	} else if (dest_fmt == MML_FMT_GREY) {
 		wrot_frm->fifo_max_sz = wrot->data->tile_width * 64;
 		wrot_frm->max_line_cnt = 64;
-	} else if (MML_FMT_GROUP(dest->data.format) == 0) {
+	} else if (MML_FMT_IS_RGB(dest_fmt)) {
 		if (cfg->alpharot) {
 			wrot_frm->fifo_max_sz = wrot->data->tile_width * 16;
 			wrot_frm->max_line_cnt = 16;
@@ -871,7 +870,7 @@ static void wrot_calc_hw_buf_setting(struct mml_comp_wrot *wrot,
 		}
 	} else {
 		mml_err("%s fail set fifo max size, max line count for %#x",
-			__func__, dest->data.format);
+			__func__, dest_fmt);
 	}
 }
 
@@ -1025,7 +1024,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	/* Enable shadow */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SHADOW_CTRL, 0x1, U32_MAX);
 
-	if (h_subsample == 1) {    /* YUV422/420 out */
+	if (h_subsample) {	/* YUV422/420 out */
 		wrot_frm->filt_v = MML_FMT_V_SUBSAMPLE(src_fmt) ||
 			 MML_FMT_GROUP(src_fmt) == 2 ?
 			 0 : uv_table[v_subsample][rotate][flip][1];
@@ -1534,12 +1533,11 @@ static void wrot_check_buf(const struct mml_frame_dest *dest,
 	}
 
 	/* Checking UV buffer usage */
-	if (MML_FMT_H_SUBSAMPLE(dest->data.format) == 0) {
+	if (!MML_FMT_H_SUBSAMPLE(dest->data.format)) {
 		buf->uv_blk_width = setting->main_blk_width;
 		buf->uv_blk_line = setting->main_buf_line_num;
 	} else {
-		/* MML_FMT_H_SUBSAMPLE(dest->data.format) == 1 */
-		if (MML_FMT_V_SUBSAMPLE(dest->data.format) == 0) {
+		if (!MML_FMT_V_SUBSAMPLE(dest->data.format)) {
 			/* YUV422 */
 			if (dest->rotate == MML_ROT_0 ||
 			    dest->rotate == MML_ROT_180) {
@@ -1552,9 +1550,7 @@ static void wrot_check_buf(const struct mml_frame_dest *dest,
 					setting->main_buf_line_num >> 1;
 			}
 		} else {
-			/* MML_FMT_V_SUBSAMPLE(dest->data.format) == 1
-			 * YUV420
-			 */
+			/* YUV420 */
 			buf->uv_blk_width = setting->main_blk_width >> 1;
 			buf->uv_blk_line = setting->main_buf_line_num >> 1;
 		}

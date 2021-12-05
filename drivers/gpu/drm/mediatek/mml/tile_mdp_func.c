@@ -45,14 +45,10 @@ enum isp_tile_message tile_rdma_init(struct tile_func_block *ptr_func,
 		ptr_func->in_tile_width = ((data->max_width >> 4) - 1) << 4;
 	} else if (MML_FMT_BLOCK(data->src_fmt)) {
 		ptr_func->in_tile_width = (data->max_width >> 6) << 6;
-	} else if ((MML_FMT_H_SUBSAMPLE(data->src_fmt) &&
-		    MML_FMT_V_SUBSAMPLE(data->src_fmt)) ||
+	} else if (MML_FMT_YUV420(data->src_fmt) ||
 		   MML_FMT_COMPRESS(data->src_fmt)) {
-		/* YUV420, or compression */
 		ptr_func->in_tile_width = data->max_width;
-	} else if (MML_FMT_H_SUBSAMPLE(data->src_fmt) &&
-		   !MML_FMT_V_SUBSAMPLE(data->src_fmt)) {
-		/* YUV422 */
+	} else if (MML_FMT_YUV422(data->src_fmt)) {
 		ptr_func->in_tile_width = data->max_width * 2;
 	} else {
 		ptr_func->in_tile_width = data->max_width * 4;
@@ -249,8 +245,7 @@ enum isp_tile_message tile_wrot_init(struct tile_func_block *ptr_func,
 		ptr_func->out_tile_width = MIN(128, ptr_func->out_tile_width);
 
 	/* For tile calculation */
-	if (MML_FMT_H_SUBSAMPLE(data->dest_fmt) &&
-	    !MML_FMT_V_SUBSAMPLE(data->dest_fmt)) {
+	if (MML_FMT_YUV422(data->dest_fmt)) {
 		/* To update with rotation */
 		if (data->rotate == MML_ROT_90 ||
 		    data->rotate == MML_ROT_270) {
@@ -260,8 +255,7 @@ enum isp_tile_message tile_wrot_init(struct tile_func_block *ptr_func,
 		} else {
 			ptr_func->out_const_x = 2;
 		}
-	} else if (MML_FMT_H_SUBSAMPLE(data->dest_fmt) &&
-		   MML_FMT_V_SUBSAMPLE(data->dest_fmt)) {
+	} else if (MML_FMT_YUV420(data->dest_fmt)) {
 		ptr_func->out_const_x = 2;
 		ptr_func->out_const_y = 2;
 	} else if (data->dest_fmt != MML_FMT_GREY &&
