@@ -1740,9 +1740,6 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	if (mmup_enable_count() == 0)
 		return;
 
-	/*notify vcp functions stop*/
-	pr_debug("[VCP] %s(): vcp_extern_notify\n", __func__);
-	vcp_extern_notify(VCP_EVENT_STOP);
 	/*
 	 *   vcp_ready:
 	 *   VCP_PLATFORM_STOP  = 0,
@@ -1755,7 +1752,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 	/*workqueue for vcp ee, vcp reset by cmd will not trigger vcp ee*/
 	if (vcp_reset_by_cmd == 0 && vcp_ee_enable) {
-		vcp_aee_print("[VCP] %s(): vcp_reset_type %d remain %d times, encnt %d\n",
+		vcp_aee_print("[VCP] %s(): vcp_reset_type %d remain %x times, encnt %d\n",
 			__func__, vcp_reset_type, vcp_reset_counts, mmup_enable_count());
 	}
 	pr_debug("[VCP] %s(): disable logger\n", __func__);
@@ -1785,6 +1782,10 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 		pr_notice("[VCP] rstn core0 %x core1 %x ret %lu\n",
 		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET), res.a0);
 	}
+
+	/*notify vcp functions stop*/
+	pr_debug("[VCP] %s(): vcp_extern_notify\n", __func__);
+	vcp_extern_notify(VCP_EVENT_STOP);
 
 #ifdef VCP_PARAMS_TO_VCP_SUPPORT
 	/* The function, sending parameters to vcp must be anchored before
