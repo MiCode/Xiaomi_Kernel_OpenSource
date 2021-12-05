@@ -394,9 +394,11 @@ static void msdc_gate_clock(struct msdc_host *host)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	clk_bulk_disable_unprepare(MSDC_NR_CLOCKS, host->bulk_clks);
 	clk_disable_unprepare(host->src_clk_cg);
+	clk_disable_unprepare(host->crypto_cg);
 	clk_disable_unprepare(host->src_clk);
 	clk_disable_unprepare(host->bus_clk);
 	clk_disable_unprepare(host->h_clk);
+	clk_disable_unprepare(host->crypto_clk);
 #endif
 }
 
@@ -405,9 +407,11 @@ static void msdc_ungate_clock(struct msdc_host *host)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	int ret;
 
+	clk_prepare_enable(host->crypto_clk);
 	clk_prepare_enable(host->h_clk);
 	clk_prepare_enable(host->bus_clk);
 	clk_prepare_enable(host->src_clk);
+	clk_prepare_enable(host->crypto_cg);
 	clk_prepare_enable(host->src_clk_cg);
 	ret = clk_bulk_prepare_enable(MSDC_NR_CLOCKS, host->bulk_clks);
 	if (ret) {
@@ -2545,6 +2549,10 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 	if (IS_ERR(host->bus_clk))
 		host->bus_clk = NULL;
 
+	host->crypto_clk = devm_clk_get_optional(&pdev->dev, "crypto_clk");
+	if (IS_ERR(host->crypto_clk))
+		host->crypto_clk = NULL;
+
 	/*source clock control gate is optional clock*/
 	host->src_clk_cg = devm_clk_get_optional(&pdev->dev, "source_cg");
 	if (IS_ERR(host->src_clk_cg))
@@ -2553,6 +2561,10 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 	host->sys_clk_cg = devm_clk_get_optional(&pdev->dev, "sys_cg");
 	if (IS_ERR(host->sys_clk_cg))
 		host->sys_clk_cg = NULL;
+
+	host->crypto_cg = devm_clk_get_optional(&pdev->dev, "crypto_cg");
+	if (IS_ERR(host->crypto_cg))
+		host->crypto_cg = NULL;
 
 	/* If present, always enable for this clock gate */
 	clk_prepare_enable(host->sys_clk_cg);
@@ -2752,6 +2764,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		host->dma_mask = DMA_BIT_MASK(32);
 	mmc_dev(mmc)->dma_mask = &host->dma_mask;
 
+	/* here ungate due to cqhci init will access registers */
+	msdc_ungate_clock(host);
 	if (mmc->caps2 & MMC_CAP2_CQE) {
 		host->cq_host = devm_kzalloc(mmc->parent,
 					     sizeof(*host->cq_host),
@@ -2788,7 +2802,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	spin_lock_init(&host->lock);
 
 	platform_set_drvdata(pdev, mmc);
-	msdc_ungate_clock(host);
 	msdc_init_hw(host);
 
 	ret = devm_request_irq(&pdev->dev, host->irq, msdc_irq,

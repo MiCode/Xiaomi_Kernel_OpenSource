@@ -614,6 +614,8 @@ struct msdc_host {
 	struct clk *src_clk;	/* msdc source clock */
 	struct clk *h_clk;      /* msdc h_clk */
 	struct clk *bus_clk;	/* bus clock which used to access register */
+	struct clk *crypto_clk;    /* msdc crypto clock */
+	struct clk *crypto_cg;     /* msdc crypto clock control gate */
 	struct clk *src_clk_cg; /* msdc source clock control gate */
 	struct clk *sys_clk_cg;	/* msdc subsys clock control gate */
 	struct clk_bulk_data bulk_clks[MSDC_NR_CLOCKS];
