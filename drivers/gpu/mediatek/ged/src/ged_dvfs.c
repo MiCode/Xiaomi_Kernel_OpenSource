@@ -987,7 +987,7 @@ static bool ged_dvfs_policy(
 		unsigned long t, long phase, unsigned long ul3DFenceDoneTime,
 		bool bRefreshed)
 {
-	unsigned int ui32GPUFreq = ged_get_cur_oppidx();
+	int ui32GPUFreq = ged_get_cur_oppidx();
 	unsigned int sentinalLoading = 0;
 	unsigned int ui32GPULoading_avg;
 
@@ -999,7 +999,7 @@ static bool ged_dvfs_policy(
 	int minfreq_idx;
 	int idx_diff;
 
-	if (ui32GPUFreq == -1)
+	if (ui32GPUFreq < 0 || ui32GPUFreq > ged_get_min_oppidx())
 		return GED_FALSE;
 
 	g_um_gpu_tar_freq = 0;
