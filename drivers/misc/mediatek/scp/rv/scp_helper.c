@@ -1784,6 +1784,9 @@ void scp_sys_reset_ws(struct work_struct *ws)
 			pr_notice("[SCP] rstn core0 %x core1 %x\n",
 			readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
 		} else {
+			/* reset type scp WDT or CMD*/
+			/* make sure scp is in idle state */
+			scp_reset_wait_timeout();
 			scp_do_rstn_set(1); /* write CORE_REBOOT_OK to SCP_GPR_CORE0_REBOOT */
 			pr_notice("[SCP] rstn core0 %x core1 %x\n",
 			readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));

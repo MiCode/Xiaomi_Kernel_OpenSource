@@ -485,6 +485,10 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 #if SCP_SECURE_DUMP_DEBUG
 				pr_notice("[SCP] Dump timeout dump once again.\n");
 				print_clk_registers();
+
+				scp_do_tbuf_dump();
+				scp_do_reg_dump();
+				/* scp_do_l2tcm_dump(); */
 #endif
 			}
 		}
