@@ -50,12 +50,12 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 				MT6855_TOP_AXI_PROT_EN_INFRASYS0_CONN),
 		},
 	},
-	[MT6855_POWER_DOMAIN_UFS0_DORMANT] = {
-		.name = "ufs0_dormant",
+	[MT6855_POWER_DOMAIN_UFS0_SHUTDOWN] = {
+		.name = "ufs0_shutdown",
 		.sta_mask = BIT(4),
 		.ctl_offs = 0xE10,
-		.sram_slp_bits = GENMASK(9, 9),
-		.sram_slp_ack_bits = GENMASK(13, 13),
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6855_VLP_AXI_PROT_EN_UFS0),
@@ -64,7 +64,6 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6855_VLP_AXI_PROT_EN_UFS0_2ND),
 		},
-		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
 	},
 	[MT6855_POWER_DOMAIN_AUDIO] = {
 		.name = "audio",
