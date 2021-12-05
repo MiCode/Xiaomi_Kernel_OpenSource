@@ -1573,14 +1573,14 @@ static void pll_force_off_internal(const struct mtk_pll_data *plls,
 	}
 }
 
-void pll_force_off(void)
+void mt6855_pll_force_off(void)
 {
 	int i;
 
 	for (i = 0; i < PLL_SYS_NUM; i++)
 		pll_force_off_internal(plls_data[i], plls_base[i]);
 }
-EXPORT_SYMBOL(pll_force_off);
+EXPORT_SYMBOL(mt6855_pll_force_off);
 
 static const struct of_device_id of_match_clk_mt6855[] = {
 	{
