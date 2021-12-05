@@ -9,6 +9,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/power/mt6833-power.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/phy/phy.h>
+
 
 / {
 	model = "MT6833";
@@ -573,6 +575,62 @@
 	};
 
 	spmi: spmi@10027000 {
+	};
+
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+		/*vbus-supply = <&mt6375_otg_vbus>;*/
+		vbus-voltage = <5000000>;
+		vbus-current = <1800000>;
+		/*charger = <&mt6375_chg>;*/
+		tcpc = "type_c_port0";
+		mediatek,bypss-typec-sink = <1>;
+		port {
+			usb_role: endpoint@0 {
+				remote-endpoint = <&musb_drd_switch>;
+			};
+		};
+	};
+
+	usb: usb0@0x11200000 {
+		compatible = "mediatek,mt6833-usb20";
+		reg = <0 0x11200000 0 0x10000>,
+			<0 0x11e40000 0 0x10000>;
+		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH  0>;
+		clocks = <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_D5_D4>,
+			<&apmixedsys_clk CLK_APMIXED_USBPLL>;
+		clock-names = "sys_clk",
+			"ref_clk",
+			"src_ref";
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		mode = <2>;
+		multipoint = <1>;
+		num_eps = <16>;
+		interrupt-names = "mc";
+		dr_mode = "otg";
+		usb-role-switch;
+		port {
+			musb_drd_switch: endpoint@0 {
+				remote-endpoint = <&usb_role>;
+			};
+		};
+	};
+
+	u2phy0: usb-phy@11e40000 {
+		compatible = "mediatek,generic-tphy-v2";
+		/* reg = <0 0x11e40000 0 0x0300>; */
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		status = "okay";
+		u2port0: usb-phy@11e40000 {
+			reg = <0 0x11e40000 0 0x700>;
+			clocks = <&clk26m>;
+			clock-names = "ref";
+			#phy-cells = <1>;
+			status = "okay";
+		};
 	};
 };
 
