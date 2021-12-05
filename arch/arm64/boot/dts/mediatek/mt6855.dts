@@ -397,6 +397,12 @@
 		clock-div = <1>;
 	};
 
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
+	};
+
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
