@@ -1419,5 +1419,13 @@ config REGULATOR_MT6983_ALPHA_SUPPORT
 	  Set Y or M to select this feature for specific platform-mt6983,
 	  and set N to disable.
 
+config REGULATOR_MT6895_ALPHA_SUPPORT
+	tristate "Specify Alpha REGULATOR Platform is mt6895"
+	help
+	  Select Alpha REGULATOR Platform is mt6895.
+	  To compile this dirver for used camera.
+	  Set Y or M to select this feature for specific platform-mt6895,
+	  and set N to disable.
+
 endif
 
