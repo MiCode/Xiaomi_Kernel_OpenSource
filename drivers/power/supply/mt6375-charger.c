@@ -56,6 +56,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6375_REG_CHG_PUMPX	0x12B
 #define MT6375_REG_CHG_AICC1	0x12C
 #define MT6375_REG_CHG_AICC2	0x12D
+#define MT6375_REG_OTG_LBP	0x130
 #define MT6375_REG_OTG_V	0x131
 #define MT6375_REG_OTG_C	0x132
 #define MT6375_REG_BAT_COMP	0x133
@@ -122,6 +123,8 @@ enum mt6375_chg_reg_field {
 	F_AICC_VTH, F_AICC_EN,
 	/* MT6375_REG_CHG_AICC2 */
 	F_AICC_RPT, F_AICC_ONESHOT,
+	/* MT6375_REG_OTG_LBP */
+	F_OTG_LBP,
 	/* MT6375_REG_OTG_C */
 	F_OTG_CC,
 	/* MT6375_REG_BAT_COMP */
@@ -242,6 +245,7 @@ struct mt6375_chg_platform_data {
 	u32 ieoc;
 	u32 cv;
 	u32 wdt;
+	u32 otg_lbp;
 	u32 ircmp_v;
 	u32 ircmp_r;
 	u32 vbus_ov;
@@ -338,6 +342,7 @@ static const struct mt6375_chg_range mt6375_chg_ranges[F_MAX] = {
 	[F_PE20_CODE] = MT6375_CHG_RANGE(5500, 20000, 500, 0, false),
 	[F_AICC_VTH] = MT6375_CHG_RANGE(3900, 13400, 100, 0, true),
 	[F_AICC_RPT] = MT6375_CHG_RANGE(100, 3225, 25, 2, false),
+	[F_OTG_LBP] = MT6375_CHG_RANGE(2700, 3800, 100, 4, false),
 	[F_OTG_CC] = MT6375_CHG_RANGE_T(mt6375_chg_otg_cc, true),
 	[F_IRCMP_V] = MT6375_CHG_RANGE(0, 224, 32, 0, false),
 	[F_IRCMP_R] = MT6375_CHG_RANGE(0, 116900, 16700, 0, false),
@@ -390,6 +395,7 @@ static const struct mt6375_chg_field mt6375_chg_fields[F_MAX] = {
 	MT6375_CHG_FIELD(F_AICC_RPT, MT6375_REG_CHG_AICC2, 0, 6),
 	MT6375_CHG_FIELD(F_AICC_ONESHOT, MT6375_REG_CHG_AICC2, 7, 7),
 	MT6375_CHG_FIELD(F_OTG_CC, MT6375_REG_OTG_C, 0, 2),
+	MT6375_CHG_FIELD(F_OTG_LBP, MT6375_REG_OTG_LBP, 0, 3),
 	MT6375_CHG_FIELD(F_IRCMP_V, MT6375_REG_BAT_COMP, 0, 2),
 	MT6375_CHG_FIELD(F_IRCMP_R, MT6375_REG_BAT_COMP, 4, 6),
 	MT6375_CHG_FIELD_RANGE(F_IC_STAT, MT6375_REG_CHG_STAT, 0, 3, false),
@@ -2185,6 +2191,7 @@ static const struct mt6375_chg_dtprop mt6375_chg_dtprops[] = {
 	MT6375_CHG_DTPROP(vbus_ov, F_VBUS_OV, DTPROP_U32, false),
 	MT6375_CHG_DTPROP(chg_tmr, F_CHG_TMR, DTPROP_U32, false),
 	MT6375_CHG_DTPROP(chg_tmr_en, F_CHG_TMR_EN, DTPROP_BOOL, false),
+	MT6375_CHG_DTPROP(otg_lbp, F_OTG_LBP, DTPROP_U32, false),
 	MT6375_CHG_DTPROP(ircmp_v, F_IRCMP_V, DTPROP_U32, false),
 	MT6375_CHG_DTPROP(ircmp_r, F_IRCMP_R, DTPROP_U32, false),
 	MT6375_CHG_DTPROP(wdt, F_WDT, DTPROP_U32, false),
