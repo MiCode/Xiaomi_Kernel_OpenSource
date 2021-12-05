@@ -27,9 +27,8 @@ struct mt_usb_glue {
 	struct platform_device *musb_pdev;
 	struct musb *mtk_musb;
 	/* common power & clock */
-	struct clk *musb_clk;
 	struct clk *musb_clk_top_sel;
-	struct clk *musb_clk_univpll3_d4;
+	struct clk *musb_clk_univpll;
 #if IS_ENABLED(CONFIG_PHY_MTK_TPHY)
 	struct platform_device *usb_phy;
 	struct phy *phy;

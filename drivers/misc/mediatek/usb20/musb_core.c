@@ -3261,9 +3261,8 @@ bool usb_prepare_clock(bool enable)
 
 	mutex_lock(&prepare_lock);
 
-	if (IS_ERR_OR_NULL(glue->musb_clk) ||
-			IS_ERR_OR_NULL(glue->musb_clk_top_sel) ||
-			IS_ERR_OR_NULL(glue->musb_clk_univpll3_d4)) {
+	if (IS_ERR_OR_NULL(glue->musb_clk_top_sel) ||
+			IS_ERR_OR_NULL(glue->musb_clk_univpll)) {
 		DBG(0, "clk not ready\n");
 		mutex_unlock(&prepare_lock);
 		return 0;
@@ -3274,16 +3273,13 @@ bool usb_prepare_clock(bool enable)
 			DBG(0, "musb_clk_top_sel prepare fail\n");
 		} else {
 			if (clk_set_parent(glue->musb_clk_top_sel,
-						glue->musb_clk_univpll3_d4))
+						glue->musb_clk_univpll))
 				DBG(0, "musb_clk_top_sel set_parent fail\n");
 		}
-		if (clk_prepare(glue->musb_clk))
-			DBG(0, "musb_clk prepare fail\n");
 
 		atomic_inc(&clk_prepare_cnt);
 	} else {
 		clk_unprepare(glue->musb_clk_top_sel);
-		clk_unprepare(glue->musb_clk);
 
 		atomic_dec(&clk_prepare_cnt);
 	}
@@ -3329,17 +3325,10 @@ bool usb_enable_clock(bool enable)
 			goto exit;
 		}
 
-		if (clk_enable(glue->musb_clk)) {
-			DBG(0, "musb_clk enable fail\n");
-			clk_disable(glue->musb_clk_top_sel);
-			goto exit;
-		}
-
 		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
 		real_enable++;
 
 	} else if (!enable && count == 1) {
-		clk_disable(glue->musb_clk);
 		clk_disable(glue->musb_clk_top_sel);
 
 		usb_hal_dpidle_request(USB_DPIDLE_ALLOWED);
@@ -4316,11 +4305,6 @@ static int musb_probe(struct platform_device *pdev)
 	mtk_usb_power = false;
 
 #ifndef FPGA_PLATFORM
-	glue->musb_clk = devm_clk_get(&pdev->dev, "usb0");
-	if (IS_ERR(glue->musb_clk)) {
-		DBG(0, "cannot get musb_clk clock\n");
-		goto err2;
-	}
 
 	glue->musb_clk_top_sel = devm_clk_get(&pdev->dev, "usb0_clk_top_sel");
 	if (IS_ERR(glue->musb_clk_top_sel)) {
@@ -4328,10 +4312,10 @@ static int musb_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	glue->musb_clk_univpll3_d4 =
-		devm_clk_get(&pdev->dev, "usb0_clk_univpll3_d4");
-	if (IS_ERR(glue->musb_clk_univpll3_d4)) {
-		DBG(0, "cannot get musb_clk_univpll3_d4 clock\n");
+	glue->musb_clk_univpll =
+		devm_clk_get(&pdev->dev, "usb0_clk_univpll");
+	if (IS_ERR(glue->musb_clk_univpll)) {
+		DBG(0, "cannot get musb_clk_univpll clock\n");
 		goto err2;
 	}
 
