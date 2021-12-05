@@ -3262,7 +3262,8 @@ bool usb_prepare_clock(bool enable)
 	mutex_lock(&prepare_lock);
 
 	if (IS_ERR_OR_NULL(glue->sys_clk) ||
-			IS_ERR_OR_NULL(glue->ref_clk)) {
+			IS_ERR_OR_NULL(glue->ref_clk) ||
+			IS_ERR_OR_NULL(glue->src_clk)) {
 		DBG(0, "clk not ready\n");
 		mutex_unlock(&prepare_lock);
 		return 0;
@@ -3276,10 +3277,13 @@ bool usb_prepare_clock(bool enable)
 						glue->ref_clk))
 				DBG(0, "musb sys_clk set_parent fail\n");
 		}
+		if (clk_prepare(glue->src_clk))
+			DBG(0, "musb_clk prepare fail\n");
 
 		atomic_inc(&clk_prepare_cnt);
 	} else {
 		clk_unprepare(glue->sys_clk);
+		clk_unprepare(glue->src_clk);
 
 		atomic_dec(&clk_prepare_cnt);
 	}
@@ -3325,11 +3329,18 @@ bool usb_enable_clock(bool enable)
 			goto exit;
 		}
 
+		if (clk_enable(glue->src_clk)) {
+			DBG(0, "musb_clk enable fail\n");
+			clk_disable(glue->sys_clk);
+			goto exit;
+		}
+
 		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
 		real_enable++;
 
 	} else if (!enable && count == 1) {
 		clk_disable(glue->sys_clk);
+		clk_disable(glue->src_clk);
 
 		usb_hal_dpidle_request(USB_DPIDLE_ALLOWED);
 		real_disable++;
@@ -4319,6 +4330,12 @@ static int musb_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
+	glue->src_clk = devm_clk_get_optional(&pdev->dev, "src_ref");
+	if (IS_ERR(glue->src_clk)) {
+		DBG(0, "cannot get src_clk  clock\n");
+		goto err2;
+	}
+
 	if (init_sysfs(&pdev->dev)) {
 		DBG(0, "failed to init_sysfs\n");
 		goto err2;
@@ -4447,6 +4464,7 @@ static int mt_usb_remove(struct platform_device *pdev)
 
 static const struct of_device_id apusb_of_ids[] = {
 	{.compatible = "mediatek,mt6855-usb20",},
+	{.compatible = "mediatek,mt6833-usb20",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, apusb_of_ids);
