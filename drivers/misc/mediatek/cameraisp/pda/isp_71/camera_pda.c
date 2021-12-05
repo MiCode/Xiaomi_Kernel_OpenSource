@@ -260,14 +260,17 @@ static void pda_mmqos_bw_set(void)
 	IMAGE_TABLE_RDMA_PEAK_BW = 0;
 	WDMA_PEAK_BW = 0;
 
+	LOG_INF("RDMA_BW AVG/PEAK: %d/%d, WDMA_BW AVG/PEAK: %d/%d\n",
+		(int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
+		(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW),
+		(int)MBps_to_icc(WDMA_AVG_BW),
+		(int)MBps_to_icc(WDMA_PEAK_BW));
+
 	// MMQOS set bw
 	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
 		if (icc_path_pda_rdma[i]) {
 			mtk_icc_set_bw(icc_path_pda_rdma[i],
 				(int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
-				(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW));
-			LOG_INF("rdma index: %d, RDMA_AVG_BW: %d, RDMA_PEAK_BW: %d\n",
-				i, (int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
 				(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW));
 		}
 	}
@@ -277,9 +280,6 @@ static void pda_mmqos_bw_set(void)
 			mtk_icc_set_bw(icc_path_pda_wdma[i],
 				(int)MBps_to_icc(WDMA_AVG_BW),
 				(int)MBps_to_icc(WDMA_PEAK_BW));
-			LOG_INF("wdma index: %d, WDMA_AVG_BW: %d, WDMA_PEAK_BW: %d\n",
-				i, (int)MBps_to_icc(WDMA_AVG_BW),
-				(int)MBps_to_icc(WDMA_PEAK_BW));
 		}
 	}
 }
@@ -288,7 +288,10 @@ static void pda_mmqos_bw_reset(void)
 {
 	int i = 0;
 
+#ifdef FOR_DEBUG
 	LOG_INF("mmqos reset\n");
+#endif
+
 	// MMQOS set bw
 	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
 		if (icc_path_pda_rdma[i])
