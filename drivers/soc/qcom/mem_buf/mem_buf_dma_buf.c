@@ -22,8 +22,6 @@ struct mem_buf_vmperm {
 	struct sg_table *sgt;
 	gh_memparcel_handle_t memparcel_hdl;
 	struct mutex lock;
-	mem_buf_dma_buf_destructor dtor;
-	void *dtor_data;
 	bool has_lookup_sgl;
 };
 
@@ -221,12 +219,6 @@ int mem_buf_vmperm_release(struct mem_buf_vmperm *vmperm)
 {
 	int ret = 0;
 
-	if (vmperm->dtor) {
-		ret = vmperm->dtor(vmperm->dtor_data);
-		if (ret)
-			goto exit;
-	}
-
 	mutex_lock(&vmperm->lock);
 	if (vmperm->flags & MEM_BUF_WRAPPER_FLAG_LENDSHARE)
 		ret = __mem_buf_vmperm_reclaim(vmperm);
@@ -234,7 +226,6 @@ int mem_buf_vmperm_release(struct mem_buf_vmperm *vmperm)
 		ret = mem_buf_vmperm_relinquish(vmperm);
 
 	mutex_unlock(&vmperm->lock);
-exit:
 	kfree(vmperm->perms);
 	kfree(vmperm->vmids);
 	mutex_destroy(&vmperm->lock);
@@ -263,22 +254,6 @@ struct mem_buf_vmperm *to_mem_buf_vmperm(struct dma_buf *dmabuf)
 	return ops->lookup(dmabuf);
 }
 EXPORT_SYMBOL(to_mem_buf_vmperm);
-
-int mem_buf_dma_buf_set_destructor(struct dma_buf *buf,
-				   mem_buf_dma_buf_destructor dtor,
-				   void *dtor_data)
-{
-	struct mem_buf_vmperm *vmperm = to_mem_buf_vmperm(buf);
-
-	if (IS_ERR(vmperm))
-		return PTR_ERR(vmperm);
-
-	vmperm->dtor = dtor;
-	vmperm->dtor_data = dtor_data;
-
-	return 0;
-}
-EXPORT_SYMBOL(mem_buf_dma_buf_set_destructor);
 
 /*
  * With CFI enabled, ops->attach must be set from *this* modules in order
