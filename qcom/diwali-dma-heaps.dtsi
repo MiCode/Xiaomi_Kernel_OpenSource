@@ -11,6 +11,12 @@
 			qcom,token = <0x20000000>;
 		};
 
+		qcom,adsp {
+			qcom,dma-heap-name = "qcom,adsp";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&sdsp_mem>;
+		};
+
 		qcom,user_contig {
 			qcom,dma-heap-name = "qcom,user-contig";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
