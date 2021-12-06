@@ -67,6 +67,7 @@ qcom-spmi-pmic.ko
 qcom_dma_heaps.ko
 qcom_gic_intr_routing.ko
 qcom_hwspinlock.ko
+qcom_logbuf_vh.ko
 qcom_iommu_util.ko
 qcom_llcc_pmu.ko
 qcom_rpmh.ko
