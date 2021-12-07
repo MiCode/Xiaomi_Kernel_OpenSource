@@ -75,7 +75,7 @@
 	qcom,vdd-io-voltage-level = <2960000 2960000>;
 	qcom,vdd-io-current-level = <0 22000>;
 
-	max-frequency = <100000000>;
+	is_rumi;
 
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&sdc2_on>;
