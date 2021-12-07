@@ -2,6 +2,7 @@
 #include <dt-bindings/interconnect/qcom,parrot.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
+#include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,camcc-parrot.h>
 #include <dt-bindings/clock/qcom,dispcc-parrot.h>
@@ -259,6 +260,53 @@
 			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
 		clock-frequency = <19200000>;
+	};
+
+	apps_rsc: rsc@17a00000 {
+		label = "apps_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0x17a00000 0x10000>,
+		      <0x17a10000 0x10000>,
+		      <0x17a20000 0x10000>;
+		reg-names = "drv-0", "drv-1", "drv-2";
+		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,tcs-offset = <0xd00>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <ACTIVE_TCS    3>,
+				  <SLEEP_TCS     2>,
+				  <WAKE_TCS      2>,
+				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
+				  <FAST_PATH_TCS 1>;
+
+	};
+
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,pdc";
+		reg = <0xb220000 0x30000>, <0x174000f0 0x64>;
+		reg-names = "pdc-interrupt-base", "apss-shared-spi-cfg";
+		qcom,pdc-ranges = <0 480 94>, <94 609 31>,
+				  <125 63 1>, <126 716 12>;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
+
+	disp_rsc: rsc@af20000 {
+		label = "disp_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0xaf20000 0x10000>;
+		reg-names = "drv-0";
+		interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
+		qcom,tcs-offset = <0x1c00>;
+		qcom,drv-id = <0>;
+		qcom,tcs-config = <ACTIVE_TCS    0>,
+				  <SLEEP_TCS     1>,
+				  <WAKE_TCS      1>,
+				  <CONTROL_TCS   0>,
+				  <FAST_PATH_TCS 0>;
 	};
 
 	memtimer: timer@17420000 {
