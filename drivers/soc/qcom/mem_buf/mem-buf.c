@@ -1231,8 +1231,10 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 
 	op = membuf->gh_rm_trans_type;
 	sgl_desc = mem_buf_map_mem_s2(op, &membuf->memparcel_hdl, membuf->acl_desc, VMID_HLOS);
-	if (IS_ERR(sgl_desc))
+	if (IS_ERR(sgl_desc)) {
+		ret = PTR_ERR(sgl_desc);
 		goto err_map_mem_s2;
+	}
 	membuf->sgl_desc = sgl_desc;
 
 	ret = mem_buf_map_mem_s1(membuf->sgl_desc);
