@@ -227,6 +227,9 @@ struct kvm_protected_vcpu {
 	 * PSCI_0_2_AFFINITY_LEVEL_PENDING
 	 */
 	int power_state;
+
+	/* True if this vcpu is currently loaded on a cpu. */
+	bool loaded_on_cpu;
 };
 
 struct kvm_vcpu_fault_info {
