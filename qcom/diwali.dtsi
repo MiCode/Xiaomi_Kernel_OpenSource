@@ -2267,8 +2267,7 @@
 		reg = <0x1700000 0x31080>;
 		compatible = "qcom,diwali-aggre2_noc";
 		#interconnect-cells = <1>;
-		clocks = <&gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
-			 <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+		clocks = <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
 			 <&rpmhcc RPMH_IPA_CLK>;
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
