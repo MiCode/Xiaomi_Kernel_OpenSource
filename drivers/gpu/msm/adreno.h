@@ -827,6 +827,10 @@ struct adreno_gpudev {
 	int (*setproperty)(struct kgsl_device_private *priv, u32 type,
 		void __user *value, u32 sizebytes);
 	int (*add_to_va_minidump)(struct adreno_device *adreno_dev);
+	/**
+	 * @gx_is_on - Return true if both gfx clock and gxgdsc are enabled.
+	 */
+	bool (*gx_is_on)(struct adreno_device *adreno_dev);
 };
 
 /**
@@ -938,6 +942,7 @@ void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
 		unsigned int mask, unsigned int bits);
 void adreno_isense_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
+bool adreno_gx_is_on(struct adreno_device *adreno_dev);
 
 /**
  * adreno_active_count_get - Wrapper for target specific active count get

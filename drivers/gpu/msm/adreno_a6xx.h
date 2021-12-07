@@ -273,6 +273,7 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev);
 int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev);
 void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev);
 bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev);
+bool a619_holi_gx_is_on(struct adreno_device *adreno_dev);
 
 /**
  * a6xx_read_alwayson - Read the current always on clock value

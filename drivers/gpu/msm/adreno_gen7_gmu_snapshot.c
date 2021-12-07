@@ -302,7 +302,7 @@ void gen7_gmu_device_snapshot(struct kgsl_device *device,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2, snapshot,
 		gen7_snapshot_rscc_registers, (void *) gen7_rscc_registers);
 
-	if (!gen7_gmu_gx_is_on(device))
+	if (!gen7_gmu_gx_is_on(adreno_dev))
 		goto dtcm;
 
 	/* Set fence to ALLOW mode so registers can be read */

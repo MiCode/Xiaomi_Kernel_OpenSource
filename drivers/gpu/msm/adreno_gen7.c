@@ -1365,6 +1365,7 @@ const struct gen7_gpudev adreno_gen7_gmu_gpudev = {
 		.power_stats = gen7_power_stats,
 		.setproperty = gen7_setproperty,
 		.add_to_va_minidump = gen7_gmu_add_to_minidump,
+		.gx_is_on = gen7_gmu_gx_is_on,
 	},
 	.hfi_probe = gen7_gmu_hfi_probe,
 	.handle_watchdog = gen7_gmu_handle_watchdog,
