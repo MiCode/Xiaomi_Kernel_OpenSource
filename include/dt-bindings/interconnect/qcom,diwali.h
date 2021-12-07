@@ -55,6 +55,7 @@
 #define MASTER_SDCC_2				46
 #define MASTER_UFS_MEM				47
 #define MASTER_USB3_0				48
+#define MASTER_CNOC_DATAPATH				49
 #define SLAVE_EBI1				512
 #define SLAVE_AHB2PHY_SOUTH				513
 #define SLAVE_AHB2PHY_NORTH				514
