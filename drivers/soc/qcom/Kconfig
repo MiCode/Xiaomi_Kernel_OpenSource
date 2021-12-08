@@ -804,6 +804,14 @@ config GH_TLMM_VM_MEM_ACCESS
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config MSM_PERFORMANCE
+        tristate "msm performance driver to support userspace fmin/fmax request"
+        help
+          This driver can restrict max freq or min freq of cpu cluster
+          when requested by the userspace by changing the cpufreq policy
+          fmin and fmax. The user space can request  the cpu freq change by
+          writing cpu#:freq values
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 
 endmenu

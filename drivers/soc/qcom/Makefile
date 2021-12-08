@@ -77,3 +77,5 @@ obj-$(CONFIG_GH_TLMM_VM_MEM_ACCESS) += gh_tlmm_vm_mem_access.o
 obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_MSM_SPSS_UTILS) += spss_utils.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
+obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
+
