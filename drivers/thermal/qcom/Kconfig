@@ -131,3 +131,12 @@ config QTI_QMI_COOLING_DEVICE
 	   The QMI cooling device will interface with remote subsystem
 	   using QTI QMI interface.
 
+config QTI_QMI_SENSOR_V2
+	tristate "QTI QMI TS V2 sensor driver"
+	depends on QCOM_QMI_HELPERS && THERMAL_OF
+	help
+	   This enables to list the QTI remote subsystem temperature sensors
+	   with QMI TS V2 interface. This driver can read the temperature of
+	   the remote sensor. These sensors can take thresholds and notify the
+	   thermal framework when the threshold is reached.
+
