@@ -126,9 +126,14 @@ enum hdr_total_len_or_pad_type {
  * @nat_en:	This defines the default NAT mode for the pipe: in case of
  *		filter miss - the default NAT mode defines the NATing operation
  *		on the packet. Valid for Input Pipes only (IPA consumer)
+ * @nat_exc_suppress: 1 - NAT exception is supressed and packet will be
+ * routed using configured routing tables.
+ *	0 - NAT exception is allowed and packets will be routed to exception
+ * pipe. Valid for input pipes only (IPA consumer)
  */
 struct ipa_ep_cfg_nat {
 	enum ipa_nat_en_type nat_en;
+	bool nat_exc_suppress;
 };
 
 /**
@@ -310,6 +315,9 @@ struct ipa_ep_cfg_mode {
  *			granularity.
  *			For internal use
  *			Supported starting IPA4.5
+ * @aggr_coal_l2: enable L2  coalescing on the specifid dest pipe,
+ *			work only if AGGR_TYPE set to AGGR_TYPE_COALESCING.
+ *			Supported starting IPA5.5
  */
 struct ipa_ep_cfg_aggr {
 	enum ipa_aggr_en_type aggr_en;
@@ -321,6 +329,7 @@ struct ipa_ep_cfg_aggr {
 	bool aggr_sw_eof_active;
 	u8 pulse_generator;
 	u8 scaled_time;
+	bool aggr_coal_l2;
 };
 
 /**
@@ -435,6 +444,10 @@ enum ipa_cs_offload {
  *	separate DDR & PCIe transactions in-order to limit them as
  *	a group (using MAX_WRITES/READS limiation). Valid for input and
  *	output pipes (IPA consumer+producer)
+ * @pipe_replicate_en: 1 - For consumer pipe - consumer DPL will be active.
+ *	For producer pipe - producer DPL will be active.
+ *	0 - packet replication disabled for both consumer and producer pipe.
+ *	Supported from IPA5.5 onwards.
  */
 struct ipa_ep_cfg_cfg {
 	bool frag_offload_en;
@@ -442,6 +455,34 @@ struct ipa_ep_cfg_cfg {
 	u8 cs_metadata_hdr_offset;
 	u8 gen_qmb_master_sel;
 	u8 tx_instance;
+	bool pipe_replicate_en;
+};
+
+/**
+ * struct ipa_ep_cfg_prod_cfg - IPA ENDP_INIT Producer Configuration register
+ * @tx_instance: - 0 - select TX_0 instance.
+ * 1 - select TX_1 instance.
+ * @tsp_enable: boolean to indicate TSP-enablement per producer pipe.
+ * @max_output_size_drop_enable: enable policing by max output size for TSP
+ * feature. In case of TSP_ENABLE == 1 + valid egress_tc, max output size
+ * policing will be valid regardless to this bit.
+ * @tsp_idx: TSP producer-index. Controls pointer to producer-rate database.
+ * Valid only when TSP_ENABLE field is set. Value should be unique.
+ * @max_output_size: max output size allowed per producer. Value is in 64-byte
+ * resolution for TSP feature
+ * @egress_tc_lowest: Lowest egress traffic-class index assignes to this
+ * producer.
+ * @egress_tc_highest: Highest egress traffic-class index assignes to this
+ * producer.
+ */
+struct ipa_ep_cfg_prod_cfg {
+	u8 tx_instance;
+	bool tsp_enable;
+	bool max_output_size_drop_enable;
+	u8 tsp_idx;
+	u8 max_output_size;
+	u8 egress_tc_lowest;
+	u8 egress_tc_highest;
 };
 
 /**
@@ -505,6 +546,7 @@ struct ipa_ep_cfg_ulso {
  * @meta:		Metadata
  * @seq:		HPS/DPS sequencers configuration
  * @ulso:		ULSO configuration
+ * @prod_cfg:	Producer specific Configuration register data
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
@@ -520,6 +562,7 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_metadata meta;
 	struct ipa_ep_cfg_seq seq;
 	struct ipa_ep_cfg_ulso ulso;
+	struct ipa_ep_cfg_prod_cfg prod_cfg;
 };
 
 /**
