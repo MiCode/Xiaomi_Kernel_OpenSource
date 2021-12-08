@@ -92,3 +92,12 @@ config QTI_CPU_VOLTAGE_COOLING_DEVICE
 	    decrease or increase the voltages in a cluster based on thermal
 	    conditions.
 
+config QTI_DDR_COOLING_DEVICE
+	tristate "QTI DDR cooling devices"
+	depends on THERMAL && INTERCONNECT
+	help
+	   This enables the QTI DDR cooling devices. These cooling
+	   devices will be used by QTI chipset to place a DDR state request
+	   to meet the performance requirement under thermally constrained
+	   conditions.
+

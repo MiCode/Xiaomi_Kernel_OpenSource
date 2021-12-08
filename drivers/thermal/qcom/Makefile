@@ -11,3 +11,4 @@ obj-$(CONFIG_QTI_BCL_PMIC5) += bcl_pmic5.o
 obj-$(CONFIG_QTI_BCL_SOC_DRIVER) += bcl_soc.o
 obj-$(CONFIG_QTI_CPU_HOTPLUG_COOLING_DEVICE) += cpu_hotplug.o
 obj-$(CONFIG_QTI_CPU_VOLTAGE_COOLING_DEVICE) += cpu_voltage_cooling.o
+obj-$(CONFIG_QTI_DDR_COOLING_DEVICE) += ddr_cdev.o
