@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+
+#include "cape-qrd.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape QRD with PM8008";
+	compatible = "qcom,cape-qrd", "qcom,cape", "qcom,qrd";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+};
+

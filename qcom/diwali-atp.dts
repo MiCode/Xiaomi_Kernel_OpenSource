@@ -7,4 +7,6 @@
 	model = "Qualcomm Technologies, Inc. Diwali ATP";
 	compatible = "qcom,diwali-atp", "qcom,diwali", "qcom,atp";
 	qcom,board-id = <33 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
 };

@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "capep.dtsi"
+#include "cape-cdp.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. CapeP CDP with PM8008";
+	compatible = "qcom,capep-cdp", "qcom,capep", "qcom,cdp";
+	qcom,board-id = <0x10001 0>;
+};

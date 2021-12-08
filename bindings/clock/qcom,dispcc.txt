@@ -12,6 +12,7 @@ Required properties :
 			"qcom,waipio-dispcc"
 			"qcom,diwali-dispcc"
 			"qcom,cape-dispcc"
+			"qcom,neo-dispcc"
 
 - reg : shall contain base register location and length.
 - #clock-cells : from common clock binding, shall contain 1.

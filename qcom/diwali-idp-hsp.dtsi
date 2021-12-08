@@ -1,4 +1,5 @@
 #include "diwali-idp.dtsi"
+#include "diwali-idp-pm7250b.dtsi"
 
 &soc {
 };

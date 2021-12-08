@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "cape-v2.dtsi"
+#include "cape-atp.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape LTE Only ATP with PM8008";
+	compatible = "qcom,cape-v2-atp", "qcom,cape-v2", "qcom,atp";
+	qcom,board-id = <0x10021 0>;
+};

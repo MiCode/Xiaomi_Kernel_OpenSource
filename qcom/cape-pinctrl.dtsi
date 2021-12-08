@@ -17,7 +17,7 @@
 		pri_aux_pcm_clk_active: pri_aux_pcm_clk_active {
 			mux {
 				pins = "gpio126";
-				function = "mi2s0_sck";
+				function = "i2s0_sck";
 			};
 
 			config {
@@ -47,7 +47,7 @@
 		pri_aux_pcm_sync_active: pri_aux_pcm_sync_active {
 			mux {
 				pins = "gpio129";
-				function = "mi2s0_ws";
+				function = "i2s0_ws";
 			};
 
 			config {
@@ -77,7 +77,7 @@
 		pri_aux_pcm_din_active: pri_aux_pcm_din_active {
 			mux {
 				pins = "gpio127";
-				function = "mi2s0_data0";
+				function = "i2s0_data0";
 			};
 
 			config {
@@ -106,7 +106,7 @@
 		pri_aux_pcm_dout_active: pri_aux_pcm_dout_active {
 			mux {
 				pins = "gpio128";
-				function = "mi2s0_data1";
+				function = "i2s0_data1";
 			};
 
 			config {
@@ -135,7 +135,7 @@
 		tert_aux_pcm_clk_active: tert_aux_pcm_clk_active {
 			mux {
 				pins = "gpio121";
-				function = "mi2s2_sck";
+				function = "i2s2_sck";
 			};
 
 			config {
@@ -163,7 +163,7 @@
 		tert_aux_pcm_ws_active: tert_aux_pcm_ws_active {
 			mux {
 				pins = "gpio123";
-				function = "mi2s2_ws";
+				function = "i2s2_ws";
 			};
 
 			config {
@@ -193,7 +193,7 @@
 		tert_aux_pcm_din_active: tert_aux_pcm_din_active {
 			mux {
 				pins = "gpio122";
-				function = "mi2s2_data0";
+				function = "i2s2_data0";
 			};
 
 			config {
@@ -222,7 +222,7 @@
 		tert_aux_pcm_dout_active: tert_aux_pcm_dout_active {
 			mux {
 				pins = "gpio124";
-				function = "mi2s2_data1";
+				function = "i2s2_data1";
 			};
 
 			config {
@@ -230,6 +230,19 @@
 				drive-strength = <8>;   /* 8 mA */
 				bias-disable;           /* NO PULL */
 			};
+		};
+	};
+
+	trigout_a: trigout_a {
+		mux {
+			pins = "gpio2";
+			function = "qdss_cti";
+		};
+
+		config {
+			pins = "gpio2";
+			drive-strength = <2>;
+			bias-disable;
 		};
 	};
 
@@ -251,7 +264,7 @@
 		pri_tdm_clk_active: pri_tdm_clk_active {
 			mux {
 				pins = "gpio126";
-				function = "mi2s0_sck";
+				function = "i2s0_sck";
 			};
 
 			config {
@@ -281,7 +294,7 @@
 		pri_tdm_sync_active: pri_tdm_sync_active {
 			mux {
 				pins = "gpio129";
-				function = "mi2s0_ws";
+				function = "i2s0_ws";
 			};
 
 			config {
@@ -311,7 +324,7 @@
 		pri_tdm_din_active: pri_tdm_din_active {
 			mux {
 				pins = "gpio127";
-				function = "mi2s0_data0";
+				function = "i2s0_data0";
 			};
 
 			config {
@@ -340,7 +353,7 @@
 		pri_tdm_dout_active: pri_tdm_dout_active {
 			mux {
 				pins = "gpio128";
-				function = "mi2s0_data1";
+				function = "i2s0_data1";
 			};
 
 			config {
@@ -369,7 +382,7 @@
 		tert_tdm_clk_active: tert_tdm_clk_active {
 			mux {
 				pins = "gpio121";
-				function = "mi2s2_sck";
+				function = "i2s2_sck";
 			};
 
 			config {
@@ -397,7 +410,7 @@
 		tert_tdm_ws_active: tert_tdm_ws_active {
 			mux {
 				pins = "gpio123";
-				function = "mi2s2_ws";
+				function = "i2s2_ws";
 			};
 
 			config {
@@ -427,7 +440,7 @@
 		tert_tdm_din_active: tert_tdm_din_active {
 			mux {
 				pins = "gpio122";
-				function = "mi2s2_data0";
+				function = "i2s2_data0";
 			};
 
 			config {
@@ -456,7 +469,7 @@
 		tert_tdm_dout_active: tert_tdm_dout_active {
 			mux {
 				pins = "gpio124";
-				function = "mi2s2_data1";
+				function = "i2s2_data1";
 			};
 
 			config {
@@ -485,7 +498,7 @@
 		pri_mi2s_mclk_active: pri_mi2s_mclk_active {
 			mux {
 				pins = "gpio125";
-				function = "pri_mi2s";
+				function = "pri_i2s";
 			};
 
 			config {
@@ -515,7 +528,7 @@
 		pri_mi2s_sck_active: pri_mi2s_sck_active {
 			mux {
 				pins = "gpio126";
-				function = "mi2s0_sck";
+				function = "i2s0_sck";
 			};
 
 			config {
@@ -545,7 +558,7 @@
 		pri_mi2s_ws_active: pri_mi2s_ws_active {
 			mux {
 				pins = "gpio129";
-				function = "mi2s0_ws";
+				function = "i2s0_ws";
 			};
 
 			config {
@@ -575,7 +588,7 @@
 		pri_mi2s_sd0_active: pri_mi2s_sd0_active {
 			mux {
 				pins = "gpio127";
-				function = "mi2s0_data0";
+				function = "i2s0_data0";
 			};
 
 			config {
@@ -605,7 +618,7 @@
 		pri_mi2s_sd1_active: pri_mi2s_sd1_active {
 			mux {
 				pins = "gpio128";
-				function = "mi2s0_data1";
+				function = "i2s0_data1";
 			};
 
 			config {
@@ -635,7 +648,7 @@
 		sec_mi2s_mclk_active: sec_mi2s_mclk_active {
 			mux {
 				pins = "gpio124";
-				function = "sec_mi2s";
+				function = "sec_i2s";
 			};
 
 			config {
@@ -665,7 +678,7 @@
 		tert_mi2s_sck_active: tert_mi2s_sck_active {
 			mux {
 				pins = "gpio121";
-				function = "mi2s2_sck";
+				function = "i2s2_sck";
 			};
 
 			config {
@@ -694,7 +707,7 @@
 		tert_mi2s_ws_active: tert_mi2s_ws_active {
 			mux {
 				pins = "gpio123";
-				function = "mi2s2_ws";
+				function = "i2s2_ws";
 			};
 
 			config {
@@ -723,7 +736,7 @@
 		tert_mi2s_sd0_active: tert_mi2s_sd0_active {
 			mux {
 				pins = "gpio122";
-				function = "mi2s2_data0";
+				function = "i2s2_data0";
 			};
 
 			config {
@@ -752,7 +765,7 @@
 		tert_mi2s_sd1_active: tert_mi2s_sd1_active {
 			mux {
 				pins = "gpio124";
-				function = "mi2s2_data1";
+				function = "i2s2_data1";
 			};
 
 			config {
@@ -763,14 +776,66 @@
 		};
 	};
 
+	sdc2_on: sdc2_on {
+		clk {
+			pins = "sdc2_clk";
+			bias-disable;
+			drive-strength = <16>;
+		};
+
+		cmd {
+			pins = "sdc2_cmd";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
+
+		data {
+			pins = "sdc2_data";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
+
+		sd-cd {
+			pins = "gpio92";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+	};
+
+	sdc2_off: sdc2_off {
+		clk {
+			pins = "sdc2_clk";
+			bias-disable;
+			drive-strength = <2>;
+		};
+
+		cmd {
+			pins = "sdc2_cmd";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+
+		data {
+			pins = "sdc2_data";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+
+		sd-cd {
+			pins = "gpio92";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+	};
+
 	pm8008i_active: pm8008i_active {
 		mux {
-			pins = "gpio7";
+			pins = "gpio6";
 			function = "gpio";
 		};
 
 		config {
-			pins = "gpio7";
+			pins = "gpio6";
 			bias-disable;
 			output-high;
 			drive-strength = <2>;
@@ -937,6 +1002,49 @@
 			drive-strength = <16>;
 			bias-disable;
 			output-low;
+		};
+	};
+
+	usb_phy_ps: usb_phy_ps {
+		usb3phy_portselect_default: usb3phy_portselect_default {
+			mux {
+				pins = "gpio91";
+				function = "usb_phy";
+			};
+
+			config {
+				pins = "gpio91";
+				bias-disable;
+				drive-strength = <2>;
+			};
+		};
+
+		usb3phy_portselect_gpio: usb3phy_portselect_gpio {
+			mux {
+				pins = "gpio91";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio91";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+
+	bt_en_sleep: bt_en_sleep {
+		mux {
+			pins = "gpio81";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio81";
+			drive-strength = <2>;
+			output-low;
+			bias-pull-down;
 		};
 	};
 
@@ -2379,6 +2487,65 @@
 		};
 	};
 
+	nfc {
+		nfc_int_active: nfc_int_active {
+			/* active state */
+			mux {
+				/* NFC Read Interrupt */
+				pins = "gpio46";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio46";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down;
+			};
+		};
+
+		nfc_int_suspend: nfc_int_suspend {
+			/* sleep state */
+			mux {
+				/* NFC Read Interrupt */
+				pins = "gpio46";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio46";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down;
+			};
+		};
+
+		nfc_enable_active: nfc_enable_active {
+			mux {
+				/* Enable, Firmware and Clock request gpios */
+				pins = "gpio34", "gpio45", "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio34", "gpio45", "gpio35";
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;
+			};
+		};
+
+		nfc_enable_suspend: nfc_enable_suspend {
+			mux {
+				pins = "gpio34", "gpio45", "gpio35";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio34", "gpio45", "gpio35";
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;
+			};
+		};
+	};
+
 	/* touchscreen pins */
 	pmx_ts_active {
 		ts_active: ts_active {
@@ -2438,5 +2605,144 @@
 				bias-disable;
 			};
 		};
+	};
+
+	cnss_pins {
+		cnss_wlan_en_active: cnss_wlan_en_active {
+			mux {
+				pins = "gpio80";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio80";
+				drive-strength = <16>;
+				output-high;
+				bias-pull-up;
+			};
+		};
+
+		cnss_wlan_en_sleep: cnss_wlan_en_sleep {
+			mux {
+				pins = "gpio80";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio80";
+				drive-strength = <2>;
+				output-low;
+				bias-pull-down;
+			};
+		};
+	};
+
+	pcie0 {
+		pcie0_perst_default: pcie0_perst_default {
+			mux {
+				pins = "gpio94";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio94";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie0_clkreq_default: pcie0_clkreq_default {
+			mux {
+				pins = "gpio95";
+				function = "pcie0_clkreqn";
+			};
+
+			config {
+				pins = "gpio95";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie0_wake_default: pcie0_wake_default {
+			mux {
+				pins = "gpio96";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio96";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie0_clkreq_sleep: pcie0_clkreq_sleep {
+			mux {
+				pins = "gpio95";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio95";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pcie1 {
+		pcie1_perst_default: pcie1_perst_default {
+			mux {
+				pins = "gpio97";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio97";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie1_clkreq_default: pcie1_clkreq_default {
+			mux {
+				pins = "gpio98";
+				function = "pcie1_clkreqn";
+			};
+
+			config {
+				pins = "gpio98";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie1_wake_default: pcie1_wake_default {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie1_clkreq_sleep: pcie1_clkreq_sleep {
+			mux {
+				pins = "gpio98";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio98";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
 	};
 };

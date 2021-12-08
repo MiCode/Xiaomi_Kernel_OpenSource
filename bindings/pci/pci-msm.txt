@@ -196,6 +196,16 @@ interconnects:
 		- 0x2	GEN 2
 		- 0x3	GEN 3
 
+- qcom,link-speed-cap-offset:
+	Usage: optional
+	Value type: <u32>
+	Definition: Set PCIE max link speed in capability register.
+		SW need to program the SNPS controller register to advertise
+		max speed supported by PHY. Options:
+		- 0x1   GEN 1
+		- 0x2   GEN 2
+		- 0x3   GEN 3
+
 - qcom,link-check-max-count
 	Usage: optional
 	Value type: <u32>

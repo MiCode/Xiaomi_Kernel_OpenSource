@@ -1,28 +1,100 @@
+#include "cape-pmic-overlay.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
 &soc { };
 
-&qupv3_se4_i2c {
-	#address-cells = <1>;
-	#size-cells = <0>;
+&sdhc_2 {
+	status = "ok";
+	vdd-supply = <&L9C>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6C>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 125000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-cape";
+
+	vdda-phy-supply = <&L7B>;
+	vdda-pll-supply = <&L9B>;
+	vdda-phy-max-microamp = <197000>;
+	vdda-pll-max-microamp = <23700>;
 
 	status = "ok";
-	qcom,i2c-touch-active = "focaltech,fts_ts";
+};
 
-	focaltech@38 {
+&ufshc_mem {
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+
+	vcc-supply = <&L7B>;
+	vcc-max-microamp = <1100000>;
+
+	vccq-supply = <&L9B>;
+	vccq-max-microamp = <1200000>;
+
+	qcom,vddp-ref-clk-supply = <&L9B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
+&qupv3_se4_spi {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	qcom,spi-touch-active = "focaltech,fts_ts";
+
+	focaltech@0 {
 		compatible = "focaltech,fts_ts";
-		reg = <0x38>;
+		reg = <0x0>;
+		spi-max-frequency = <6000000>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <21 0x2008>;
 		focaltech,reset-gpio = <&tlmm 20 0x00>;
 		focaltech,irq-gpio = <&tlmm 21 0x2008>;
-		focaltech,max-touch-number = <5>;
 		focaltech,display-coords = <0 0 1080 2340>;
+		focaltech,max-touch-number = <5>;
+		focaltech,ic-type = <0x3658D488>;
 		focaltech,touch-type = "primary";
 
 		vdd-supply = <&L3C>;
 
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_release";
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
+	};
+};
+
+&qupv3_se9_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,sn-nci";
+		reg = <0x28>;
+		qcom,sn-irq = <&tlmm 46 0x00>;
+		qcom,sn-ven = <&tlmm 34 0x00>;
+		qcom,sn-firm = <&tlmm 45 0x00>;
+		qcom,sn-clkreq = <&tlmm 35 0x00>;
+		qcom,sn-vdd-1p8-supply = <&S10B>;
+		qcom,sn-vdd-1p8-voltage = <1800000 1800000>;
+		qcom,sn-vdd-1p8-current = <157000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <46 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
 	};
 };

@@ -25,7 +25,7 @@
 		reset-names = "core_reset";
 
 		interrupts-extended = <&pdc 14 IRQ_TYPE_EDGE_RISING>,
-				      <&intc 130 IRQ_TYPE_LEVEL_HIGH>,
+				      <&intc GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
 				      <&pdc 17 IRQ_TYPE_LEVEL_HIGH>,
 				      <&pdc 15 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",

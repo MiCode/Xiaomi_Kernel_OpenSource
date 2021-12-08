@@ -5,6 +5,9 @@
 #include <dt-bindings/clock/qcom,camcc-neo.h>
 #include <dt-bindings/clock/qcom,dispcc-neo.h>
 #include <dt-bindings/clock/qcom,videocc-neo.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
+#include <dt-bindings/interconnect/qcom,neo.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. NEO";
@@ -16,7 +19,15 @@
 	#size-cells = <2>;
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
-	aliases { };
+	reserved_memory: reserved-memory { };
+
+	aliases {
+		mmc0 = &sdhc_1; /*SDC1 eMMC slot*/
+	};
+
+	chosen {
+		bootargs = " console=ttyMSM0,115200n8 loglevel=8";
+	};
 
 	cpus {
 		#address-cells = <2>;
@@ -117,16 +128,38 @@
 
 	soc: soc { };
 
-	chosen { };
 };
 
 #include "neo-stub-regulator.dtsi"
+#include "neo-reserved-memory.dtsi"
+
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	/* global autoconfigured region for contiguous allocations */
+	system_cma: linux,cma {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x2000000>;
+		linux,cma-default;
+	};
+
+};
 
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
 
 	intc: interrupt-controller@0x17200000 {
 		compatible = "arm,gic-v3";
@@ -308,9 +341,100 @@
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
+
+	sdhc_1: sdhci@7C4000 {
+		status = "disabled";
+
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x007C4000 0x1000>, <0x007C5000 0x1000>;
+		reg-names = "hc", "cqhci";
+
+		interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		bus-width = <8>;
+		non-removable;
+		supports-cqe;
+
+		no-sd;
+		no-sdio;
+
+		mmc-ddr-1_8v;
+		mmc-hs200-1_8v;
+		mmc-hs400-1_8v;
+		mmc-hs400-enhanced-strobe;
+
+		clocks = <&gcc GCC_SDCC1_AHB_CLK>,
+			<&gcc GCC_SDCC1_APPS_CLK>,
+			<&gcc GCC_SDCC1_ICE_CORE_CLK>;
+		clock-names = "iface", "core", "ice_core";
+
+		qcom,ice-clk-rates = <300000000 100000000>;
+
+		qos0 {
+			mask = <0x0f>;
+			vote = <44>;
+		};
+	};
+
+	clk_virt: interconnect@0 {
+		compatible = "qcom,neo-clk_virt";
+		#interconnect-cells = <1>;
+	};
+
+	mc_virt: interconnect@1 {
+		compatible = "qcom,neo-mc_virt";
+		#interconnect-cells = <1>;
+	};
+
+	config_noc: interconnect@1500000 {
+		compatible = "qcom,neo-config_noc";
+		#interconnect-cells = <1>;
+	};
+
+	system_noc: interconnect@1680000 {
+		compatible = "qcom,neo-system_noc";
+		#interconnect-cells = <1>;
+	};
+
+	pcie_noc: interconnect@16c0000 {
+		compatible = "qcom,neo-pcie_anoc";
+		#interconnect-cells = <1>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		compatible = "qcom,neo-mmss_noc";
+		#interconnect-cells = <1>;
+	};
+
+	gem_noc: interconnect@19100000 {
+		compatible = "qcom,neo-gem_noc";
+		#interconnect-cells = <1>;
+	};
+
+	nsp_noc: interconnect@320C0000 {
+		compatible = "qcom,neo-nsp_noc";
+		#interconnect-cells = <1>;
+	};
+
+	lpass_ag_noc: interconnect@3c40000 {
+		compatible = "qcom,neo-lpass_ag_noc";
+		#interconnect-cells = <1>;
+	};
+
+	ipcc_mproc: qcom,ipcc@ed18000 {
+		compatible = "qcom,ipcc";
+		reg = <0xed18000 0x1000>;
+		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		#mbox-cells = <2>;
+	};
 };
 
 #include "neo-pinctrl.dtsi"
+#include "neo-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 
 &gcc_apcs_gdsc_vote_ctrl {

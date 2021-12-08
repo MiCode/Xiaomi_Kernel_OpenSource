@@ -1,6 +1,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 
+#include "diwali-pm7250b.dtsi"
 #include "diwali-pmic-overlay.dtsi"
 
 &soc {
@@ -54,4 +55,74 @@
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
 	};
+};
+
+&qupv3_se9_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,sn-nci";
+		reg = <0x28>;
+		qcom,sn-irq = <&tlmm 41 0x00>;
+		qcom,sn-ven = <&tlmm 38 0x00>;
+		qcom,sn-firm = <&tlmm 40 0x00>;
+		qcom,sn-clkreq = <&tlmm 39 0x00>;
+		qcom,sn-vdd-1p8-supply = <&L18B>;
+		qcom,sn-vdd-1p8-voltage = <1800000 1800000>;
+		qcom,sn-vdd-1p8-current = <157000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <41 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+	};
+};
+
+&sdhc_2 {
+	status = "ok";
+	vdd-supply = <&L9C>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6C>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cd-gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-diwali";
+
+	vdda-phy-supply = <&L10C>;
+	vdda-pll-supply = <&L6B>;
+	vdda-phy-max-microamp = <88100>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+
+	vcc-supply = <&L7B>;
+	vcc-max-microamp = <1100000>;
+
+	vccq-supply = <&L9B>;
+	vccq-max-microamp = <1200000>;
+
+	vccq2-supply = <&L19B>;
+	vccq2-max-microamp = <800000>;
+
+	qcom,vddp-ref-clk-supply = <&L9B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
 };

@@ -14,10 +14,6 @@
 		status = "disabled";
 	};
 
-	disp_rsc: rsc@af20000 {
-		status = "disabled";
-	};
-
 	usb_nop_phy: usb_nop_phy {
 		compatible = "usb-nop-xceiv";
 	};
@@ -199,4 +195,12 @@
 		<&bi_tcxo_ao>,
 		<&sleep_clk>,
 		<&gcc GCC_DISP_AHB_CLK>;
+};
+
+&cpufreq_hw {
+	clocks = <&bi_tcxo>, <&gcc GCC_GPLL0>;
+};
+
+&debugcc {
+	clocks = <&bi_tcxo>;
 };

@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "cape-cdp.dtsi"
+#include "waipio-pm8010-spmi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape CDP with PM8010";
+	compatible = "qcom,cape-cdp", "qcom,cape", "qcom,cdp";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+	qcom,board-id = <0x10001 0>;
+};

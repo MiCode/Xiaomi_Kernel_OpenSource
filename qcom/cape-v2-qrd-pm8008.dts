@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "cape-v2.dtsi"
+#include "cape-qrd.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape LTE Only QRD with PM8008";
+	compatible = "qcom,cape-v2-qrd", "qcom,cape-v2", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

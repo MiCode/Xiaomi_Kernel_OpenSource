@@ -131,6 +131,10 @@ conditions.
 		  a four level page table configuration. Set to use a three
 		  level page table instead.
 
+- qcom,context-fault-retry:
+		  Retry iommu faults after a tlb invalidate, if stall-on-fault
+		  is enabled.
+
 - qcom,no-asid-retention:
 		  Some hardware may lose internal state for asid after
 		  retention. No cache invalidation operations involving asid

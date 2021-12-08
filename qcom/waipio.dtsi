@@ -3002,6 +3002,7 @@
 		reg-names = "smmu_iova_ipa";
 		wlan-en-gpio = <&tlmm 80 0>;
 		qcom,bt-en-gpio = <&tlmm 81 0>;
+		qcom,sw-ctrl-gpio = <&tlmm 82 0>;
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
@@ -3036,7 +3037,7 @@
 
 
 		qcom,icc-path-count = <2>;
-		qcom,bus-bw-cfg-count = <7>;
+		qcom,bus-bw-cfg-count = <9>;
 		qcom,bus-bw-cfg =
 		/** ICC Path 1 **/
 		<0 0>, /* no vote */
@@ -3048,8 +3049,12 @@
 		<30000 1600000>,
 		/* high: 240-1200 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
 		<100000 1600000>,
-		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 451.2 MHz */
+		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 1555 MHz */
 		<175000 6448000>,
+		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */
+		<175000 6448000>,
+		/* super high: DBS mode snoc/anoc: 533 Mhz ddr: 3.2GHz */
+		<175000 8528000>,
 		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz
 		 * ddr: 547.2 MHz
 		 */
@@ -3057,11 +3062,21 @@
 
 		/** ICC Path 2 **/
 		<0 0>,
+		/* ddr: 451.2 MHz */
 		<2250 1804800>,
+		/* ddr: 451.2 MHz */
 		<7500 1804800>,
+		/* ddr: 451.2 MHz */
 		<30000 1804800>,
+		/* ddr: 451.2 MHz */
 		<100000 1804800>,
+		/* ddr: 1555 MHz */
 		<175000 6220800>,
+		/* ddr: 2092 MHz */
+		<175000 8368000>,
+		/* ddr: 3.2 GHz */
+		<175000 12800000>,
+		/* ddr: 547.2 MHz */
 		<7500 2188800>;
 	};
 
@@ -3222,7 +3237,6 @@
 #include "waipio-debug.dtsi"
 #include "waipio-eva.dtsi"
 #include "waipio-pcie.dtsi"
-#include "waipio-mhi.dtsi"
 #include "msm-rdbg.dtsi"
 #include "waipio-gpu.dtsi"
 #include "waipio-thermal.dtsi"

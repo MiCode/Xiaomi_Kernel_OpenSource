@@ -10,6 +10,7 @@ Required properties :
 			"qcom,waipio-videocc"
 			"qcom,diwali-videocc"
 			"qcom,cape-videocc"
+			"qcom,neo-videocc"
 
 - reg : shall contain base register location and length
 - #clock-cells : from common clock binding, shall contain 1.

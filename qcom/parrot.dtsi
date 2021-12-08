@@ -1,3 +1,5 @@
+#include <dt-bindings/interconnect/qcom,icc.h>
+#include <dt-bindings/interconnect/qcom,parrot.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
@@ -22,7 +24,10 @@
 
 	reserved_memory: reserved-memory { };
 
-	aliases { };
+	aliases {
+		mmc0 = &sdhc_1; /*SDC1 eMMC slot*/
+		mmc1 = &sdhc_2; /* SDC2 SD card slot */
+	};
 
 	firmware: firmware {};
 
@@ -181,7 +186,42 @@
 
 };
 
+&firmware {
+	android {
+		compatible = "android,firmware";
+		fstab {
+			compatible = "android,fstab";
+			vendor {
+				compatible = "android,vendor";
+				dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
+				type = "ext4";
+				mnt_flags = "ro,barrier=1,discard";
+				fsmgr_flags = "wait,slotselect";
+				status = "ok";
+			};
+		};
+	};
+};
+
 #include "parrot-stub-regulator.dtsi"
+#include "parrot-usb.dtsi"
+#include "parrot-reserved-memory.dtsi"
+
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	/* global autoconfigured region for contiguous allocations */
+	system_cma: linux,cma {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x2000000>;
+		linux,cma-default;
+	};
+};
 
 &soc {
 	#address-cells = <1>;
@@ -287,6 +327,170 @@
 		interrupt-controller;
 		#interrupt-cells = <3>;
 		#mbox-cells = <2>;
+	};
+
+	tcsr_mutex_block: syscon@1f40000 {
+		compatible = "syscon";
+		reg = <0x1f40000 0x20000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	smem: qcom,smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
+	qcom,smp2p-modem {
+		compatible = "qcom,smp2p";
+		qcom,smem = <435>, <428>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_MPSS IPCC_MPROC_SIGNAL_SMP2P
+				IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_MPSS IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p-adsp {
+		compatible = "qcom,smp2p";
+		qcom,smem = <443>, <429>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_LPASS IPCC_MPROC_SIGNAL_SMP2P
+			      IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_LPASS
+			  IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <2>;
+
+		adsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		adsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		sleepstate_smp2p_out: sleepstate-out {
+			qcom,entry-name = "sleepstate";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		sleepstate_smp2p_in: qcom,sleepstate-in {
+			qcom,entry-name = "sleepstate_see";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p_sleepstate {
+		compatible = "qcom,smp2p-sleepstate";
+		qcom,smem-states = <&sleepstate_smp2p_out 0>;
+		interrupt-parent = <&sleepstate_smp2p_in>;
+		interrupts = <0 0>;
+		interrupt-names = "smp2p-sleepstate-in";
+	};
+
+	qcom,smp2p-cdsp {
+		compatible = "qcom,smp2p";
+		qcom,smem = <94>, <432>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_CDSP IPCC_MPROC_SIGNAL_SMP2P
+				IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_CDSP IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <5>;
+
+		cdsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		cdsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smp2p-wpss {
+		compatible = "qcom,smp2p";
+		qcom,smem = <617>, <616>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_WPSS IPCC_MPROC_SIGNAL_SMP2P
+			IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_WPSS IPCC_MPROC_SIGNAL_SMP2P>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <13>;
+
+		wpss_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		wpss_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	aoss_qmp: power-controller@c300000 {
+		compatible = "qcom,diwali-aoss-qmp";
+		reg = <0xc300000 0x400>;
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_AOP
+				IPCC_MPROC_SIGNAL_GLINK_QMP
+				IRQ_TYPE_EDGE_RISING>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_AOP
+				IPCC_MPROC_SIGNAL_GLINK_QMP>;
+
+		#power-domain-cells = <1>;
+		#clock-cells = <0>;
+	};
+
+	qmp_aop: qcom,qmp-aop {
+		compatible = "qcom,qmp-mbox";
+		qcom,qmp = <&aoss_qmp>;
+		label = "aop";
+		#mbox-cells = <1>;
+	};
+
+	qmp_tme: qcom,qmp-tme {
+		compatible = "qcom,qmp-mbox";
+		qcom,remote-pid = <14>;
+		mboxes = <&ipcc_mproc IPCC_CLIENT_TME
+				IPCC_MPROC_SIGNAL_GLINK_QMP>;
+		mbox-names = "tme_qmp";
+		interrupt-parent = <&ipcc_mproc>;
+		interrupts = <IPCC_CLIENT_TME
+				IPCC_MPROC_SIGNAL_GLINK_QMP
+				IRQ_TYPE_EDGE_RISING>;
+
+		label = "tme";
+		qcom,early-boot;
+		priority = <0>;
+		mbox-desc-offset = <0x0>;
+		#mbox-cells = <1>;
 	};
 
 	clocks {
@@ -398,11 +602,157 @@
 		#reset-cells = <1>;
 	};
 
+	sdhc_1: sdhci@7C4000 {
+		status = "disabled";
+
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x007C4000 0x1000>, <0x007C5000 0x1000>;
+		reg-names = "hc", "cqhci";
+
+		interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		bus-width = <8>;
+		non-removable;
+		supports-cqe;
+
+		no-sd;
+		no-sdio;
+
+		mmc-ddr-1_8v;
+		mmc-hs200-1_8v;
+		mmc-hs400-1_8v;
+		mmc-hs400-enhanced-strobe;
+
+		clocks = <&gcc GCC_SDCC1_AHB_CLK>,
+			<&gcc GCC_SDCC1_APPS_CLK>,
+			<&gcc GCC_SDCC1_ICE_CORE_CLK>;
+		clock-names = "iface", "core", "ice_core";
+
+		qcom,ice-clk-rates = <300000000 100000000>;
+
+		qos0 {
+			mask = <0xf0>;
+			vote = <44>;
+		};
+
+		qos1 {
+			mask = <0x0f>;
+			vote = <44>;
+		};
+	};
+
+	sdhc_2: sdhci@8804000 {
+		status = "disabled";
+
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x08804000 0x1000>;
+		reg-names = "hc";
+
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		bus-width = <4>;
+		no-sdio;
+		no-mmc;
+		qcom,restore-after-cx-collapse;
+
+		clocks = <&gcc GCC_SDCC2_AHB_CLK>,
+			<&gcc GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface", "core";
+
+		qos0 {
+			mask = <0xf0>;
+			vote = <44>;
+		};
+
+		qos1 {
+			mask = <0x0f>;
+			vote = <44>;
+		};
+	};
+
 	qcom,rmtfs_sharedmem@0 {
 		compatible = "qcom,sharedmem-uio";
 		reg = <0x0 0x280000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
+	};
+
+	clk_virt: interconnect@0 {
+		compatible = "qcom,parrot-clk_virt";
+		#interconnect-cells = <1>;
+	};
+
+	mc_virt: interconnect@1 {
+		compatible = "qcom,parrot-mc_virt";
+		#interconnect-cells = <1>;
+	};
+
+	cnoc2: interconnect@1500000 {
+		compatible = "qcom,parrot-cnoc2";
+		#interconnect-cells = <1>;
+	};
+
+	cnoc3: interconnect@1502000 {
+		compatible = "qcom,parrot-cnoc3";
+		#interconnect-cells = <1>;
+	};
+
+	system_noc: interconnect@1680000 {
+		compatible = "qcom,parrot-system_noc";
+		#interconnect-cells = <1>;
+	};
+
+	pcie_noc: interconnect@16c0000 {
+		compatible = "qcom,parrot-pcie_anoc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		compatible = "qcom,parrot-aggre1_noc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		compatible = "qcom,parrot-aggre2_noc";
+		#interconnect-cells = <1>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		compatible = "qcom,parrot-mmss_noc";
+		#interconnect-cells = <1>;
+	};
+
+	gem_noc: interconnect@19100000 {
+		compatible = "qcom,parrot-gem_noc";
+		#interconnect-cells = <1>;
+	};
+
+	nsp_noc: interconnect@320C0000 {
+		compatible = "qcom,parrot-nsp_noc";
+		#interconnect-cells = <1>;
+	};
+
+	lpass_ag_noc: interconnect@3c40000 {
+		compatible = "qcom,parrot-lpass_ag_noc";
+		#interconnect-cells = <1>;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	qcom_tzlog: tz-log@146AA720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146AA720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+		status = "disabled";
 	};
 };
 
@@ -489,3 +839,4 @@
 };
 
 #include "parrot-pinctrl.dtsi"
+#include "parrot-dma-heaps.dtsi"

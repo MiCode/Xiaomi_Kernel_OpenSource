@@ -57,7 +57,8 @@
 			<GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,gpii-mask = <0x7f>;
+		qcom,static-gpii-mask = <0x1>;
+		qcom,gpii-mask = <0x7e>;
 		qcom,ev-factor = <2>;
 		qcom,iommu-dma-addr-pool = <0x100000 0x100000>;
 		dma-coherent;

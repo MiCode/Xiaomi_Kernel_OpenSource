@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "cape-atp.dtsi"
+#include "waipio-pm8010-spmi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape ATP with PM8010";
+	compatible = "qcom,cape-atp", "qcom,cape", "qcom,atp";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+	qcom,board-id = <0x10021 0>;
+};
