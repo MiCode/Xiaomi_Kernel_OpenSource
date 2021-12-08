@@ -2756,7 +2756,6 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	void *cmd_buf = NULL;
 	size_t cmd_len;
 	bool first_time = false;
-	int cont = 0;
 
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(&load_img_req,
@@ -3031,7 +3030,7 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 {
 	struct qseecom_unload_app_ireq req;
 	struct qseecom_command_scm_resp resp;
-	int ret = 0, cont = 0;
+	int ret = 0;
 
 	/* Populate the structure for sending scm call to load image */
 	req.qsee_cmd_id = QSEOS_APP_SHUTDOWN_COMMAND;
