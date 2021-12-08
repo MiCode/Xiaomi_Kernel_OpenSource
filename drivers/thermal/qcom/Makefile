@@ -22,3 +22,4 @@ obj-$(CONFIG_QTI_QMI_SENSOR_V2) += qti_qmi_sensor_v2.o
 qti_qmi_sensor_v2-y += thermal_sensor_service_v02.o qmi_sensors_v2.o
 
 obj-$(CONFIG_QTI_CPUFREQ_CDEV) += qti_cpufreq_cdev.o
+obj-$(CONFIG_QTI_DEVFREQ_CDEV) += qti_devfreq_cdev.o
