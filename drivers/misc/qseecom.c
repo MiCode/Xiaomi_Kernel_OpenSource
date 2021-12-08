@@ -2896,45 +2896,45 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 
 		do {
-		cont = 0;
-		if (resp.result == QSEOS_RESULT_FAILURE) {
-			pr_err("scm_call rsp.result is QSEOS_RESULT_FAILURE\n");
-			ret = -EFAULT;
-			goto loadapp_err;
-		}
-
-		if (resp.result == QSEOS_RESULT_INCOMPLETE) {
-			ret = __qseecom_process_incomplete_cmd(data, &resp);
-			if (ret) {
-				/* TZ has created app_id, need to unload it */
-				pr_err("incomp_cmd err %d, %d, unload %d %s\n",
-					ret, resp.result, resp.data,
-					load_img_req.img_name);
-				__qseecom_unload_app(data, resp.data);
+			if (resp.result == QSEOS_RESULT_FAILURE) {
+				pr_err("scm_call rsp.result is QSEOS_RESULT_FAILURE\n");
 				ret = -EFAULT;
 				goto loadapp_err;
 			}
-		}
 
-		if (resp.result == QSEOS_RESULT_BLOCKED_ON_LISTENER) {
-			pr_err("unload app blocked on listener");
-			cont = 1;
-			ret = __qseecom_process_reentrancy_blocked_on_listener(&resp, NULL, data);
-			if(ret) {
-				 pr_err("__qseecom_process_reentrancy_blocked_on_listener failed, with ret :%d",ret);
-				 cont = 0;
-				 ret = -EFAULT;
-				 goto loadapp_err;
+			if (resp.result == QSEOS_RESULT_INCOMPLETE) {
+				ret = __qseecom_process_incomplete_cmd(data, &resp);
+				if (ret) {
+					/* TZ has created app_id, need to unload it */
+					pr_err("incomp_cmd err %d, %d, unload %d %s\n",
+						ret, resp.result, resp.data,
+						load_img_req.img_name);
+					__qseecom_unload_app(data, resp.data);
+					ret = -EFAULT;
+					goto loadapp_err;
+				}
 			}
-		}
 
-		if (resp.result != QSEOS_RESULT_SUCCESS) {
-			pr_err("scm_call failed resp.result unknown, %d\n",
-				resp.result);
-			ret = -EFAULT;
-			goto loadapp_err;
-		}
-		} while (cont == 1);
+			if (resp.result == QSEOS_RESULT_BLOCKED_ON_LISTENER) {
+				pr_err("load app blocked on listener\n");
+				ret = __qseecom_process_reentrancy_blocked_on_listener(&resp,
+					NULL, data);
+				if (ret) {
+					pr_err("load app fail proc block on listener,ret :%d\n",
+						ret);
+					ret = -EFAULT;
+					goto loadapp_err;
+				}
+			}
+
+			if (resp.result != QSEOS_RESULT_SUCCESS) {
+				pr_err("scm_call failed resp.result unknown, %d\n",
+					resp.result);
+				ret = -EFAULT;
+				goto loadapp_err;
+			}
+		} while ((resp.result == QSEOS_RESULT_BLOCKED_ON_LISTENER) ||
+			(resp.result == QSEOS_RESULT_INCOMPLETE));
 		app_id = resp.data;
 
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
@@ -3047,41 +3047,39 @@ static int __qseecom_unload_app(struct qseecom_dev_handle *data,
 	}
 
 	do {
-	cont = 0;
-
-	switch (resp.result) {
-	case QSEOS_RESULT_SUCCESS:
-		pr_warn("App (%d) is unloaded\n", app_id);
-		break;
-	case QSEOS_RESULT_INCOMPLETE:
-		ret = __qseecom_process_incomplete_cmd(data, &resp);
-		if (ret)
-			pr_err("unload app %d fail proc incom cmd: %d,%d,%d\n",
-				app_id, ret, resp.result, resp.data);
-		else
+		switch (resp.result) {
+		case QSEOS_RESULT_SUCCESS:
 			pr_warn("App (%d) is unloaded\n", app_id);
-		break;
-	case QSEOS_RESULT_FAILURE:
-		pr_err("app (%d) unload_failed!!\n", app_id);
-		ret = -EFAULT;
-		break;
-	case QSEOS_RESULT_BLOCKED_ON_LISTENER:
-		pr_err("unload app blocked on listener");
-		cont = 1;
-		ret = __qseecom_process_reentrancy_blocked_on_listener(&resp, NULL, data);
-		if(ret) {
-			 pr_err("__qseecom_process_reentrancy_blocked_on_listener failed, with ret :%d",ret);
-			 cont = 0;
-			 ret = -EFAULT;
+			break;
+		case QSEOS_RESULT_INCOMPLETE:
+			ret = __qseecom_process_incomplete_cmd(data, &resp);
+			if (ret)
+				pr_err("unload app %d fail proc incom cmd: %d,%d,%d\n",
+					app_id, ret, resp.result, resp.data);
+			else
+				pr_warn("App (%d) is unloaded\n", app_id);
+			break;
+		case QSEOS_RESULT_FAILURE:
+			pr_err("app (%d) unload_failed!!\n", app_id);
+			ret = -EFAULT;
+			break;
+		case QSEOS_RESULT_BLOCKED_ON_LISTENER:
+			pr_err("unload app (%d) blocked on listener\n", app_id);
+			ret = __qseecom_process_reentrancy_blocked_on_listener(&resp, NULL, data);
+			if (ret) {
+				pr_err("unload app fail proc block on listener cmd,ret :%d\n",
+					ret);
+				ret = -EFAULT;
+			}
+			break;
+		default:
+			pr_err("unload app %d get unknown resp.result %d\n",
+					app_id, resp.result);
+			ret = -EFAULT;
+			break;
 		}
-		break;
-	default:
-		pr_err("unload app %d get unknown resp.result %d\n",
-				app_id, resp.result);
-		ret = -EFAULT;
-		break;
-	}
-	} while (cont == 1);
+	} while ((resp.result == QSEOS_RESULT_INCOMPLETE) ||
+			(resp.result == QSEOS_RESULT_BLOCKED_ON_LISTENER));
 	return ret;
 }
 static int qseecom_unload_app(struct qseecom_dev_handle *data,

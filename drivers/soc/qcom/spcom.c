@@ -149,6 +149,12 @@
 #define INITIAL_TXN_ID	0x12345678
 
 /*
+ * Maximum number of control channels between spcom driver and
+ * user-mode processes
+ */
+#define SPCOM_MAX_CONTROL_CHANNELS  SPCOM_MAX_CHANNELS
+
+/*
  * To be used for ioctl copy arg from user if the IOCTL direction is _IOC_WRITE
  * Update the union when new ioctl struct is added
  */
@@ -161,6 +167,12 @@ union spcom_ioctl_arg {
 	struct spcom_ioctl_next_request_size next_req_size;
 	struct spcom_ioctl_dmabuf_lock dmabuf_lock;
 } __packed;
+
+/*
+ * Max time to keep PM from suspend.
+ * From receive RPMSG packet till wakeup source will be deactivated.
+ */
+#define SPCOM_PM_PACKET_HANDLE_TIMEOUT  (2 * MSEC_PER_SEC)
 
 /**
  * struct spcom_msg_hdr - Request/Response message header between HLOS and SP.
@@ -270,6 +282,14 @@ struct rx_buff_list {
 };
 
 /**
+ * struct spcom_channel - control channel information
+ */
+struct spcom_control_channel_info {
+	u32 pid;
+	u32 ref_cnt;
+} spcom_control_channel_info;
+
+/**
  * struct spcom_device - device state structure.
  */
 struct spcom_device {
@@ -281,6 +301,7 @@ struct spcom_device {
 	struct class *driver_class;
 	struct device *class_dev;
 	struct platform_device *pdev;
+	struct wakeup_source *ws;
 
 	/* rpmsg channels */
 	struct spcom_channel channels[SPCOM_MAX_CHANNELS];
@@ -295,13 +316,15 @@ struct spcom_device {
 	/* rx data path */
 	struct list_head    rx_list_head;
 	spinlock_t          rx_lock;
-	atomic_t            rx_active_count;
 
 	int32_t nvm_ion_fd;
 	uint32_t     rmb_error;    /* PBL error value storet here */
 	atomic_t subsys_req;
 	struct rproc *spss_rproc;
 	struct property *rproc_prop;
+
+	/* Control channels */
+	struct spcom_control_channel_info control_channels[SPCOM_MAX_CONTROL_CHANNELS];
 };
 
 /* Device Driver State */
@@ -314,34 +337,9 @@ static int spcom_destroy_channel_chardev(const char *name);
 static struct spcom_channel *spcom_find_channel_by_name(const char *name);
 static int spcom_register_rpmsg_drv(struct spcom_channel *ch);
 static int spcom_unregister_rpmsg_drv(struct spcom_channel *ch);
-
-/**
- * spcom_suspend() - spcom vote for PM runtime-suspend
- *
- * Suspend callback for the device
- * Return 0 on Success, -EBUSY on rx in progress.
- */
-static int spcom_suspend(struct device *dev)
-{
-	(void) *dev;
-	if (atomic_read(&spcom_dev->rx_active_count) > 0) {
-		spcom_pr_dbg("ch [%s]: rx_active_count\n",
-					 spcom_dev->rx_active_count);
-		return -EBUSY;
-	}
-
-	spcom_pr_err("channel voten\n");
-	return 0;
-}
-
-/**
- * struct spcom_dev_pm_ops
- *
- * Set PM operations : Suspend, Resume, Idle
- */
-static const struct dev_pm_ops spcom_dev_pm_ops = {
-	SET_RUNTIME_PM_OPS(spcom_suspend, NULL, NULL)
-};
+static void spcom_release_all_channels_of_process(u32 pid);
+static int spom_control_channel_add_client(u32 pid);
+static int spom_control_channel_remove_client(u32 pid);
 
 /**
  * spcom_is_channel_open() - channel is open on this side.
@@ -522,7 +520,6 @@ static int spcom_rx(struct spcom_channel *ch,
 	if (!ch->actual_rx_size) {
 		reinit_completion(&ch->rx_done);
 
-		atomic_inc(&spcom_dev->rx_active_count);
 		mutex_unlock(&ch->lock); /* unlock while waiting */
 		/* wait for rx response */
 		if (timeout_msec)
@@ -531,7 +528,7 @@ static int spcom_rx(struct spcom_channel *ch,
 		else
 			ret = wait_for_completion_interruptible(&ch->rx_done);
 		mutex_lock(&ch->lock);
-		atomic_dec(&spcom_dev->rx_active_count);
+
 		if (timeout_msec && timeleft == 0) {
 			spcom_pr_err("ch[%s]: timeout expired %d ms, set txn_id=%d\n",
 			       ch->name, timeout_msec, ch->txn_id);
@@ -577,6 +574,7 @@ static int spcom_rx(struct spcom_channel *ch,
 	return size;
 exit_err:
 	mutex_unlock(&ch->lock);
+
 	return ret;
 }
 
@@ -848,6 +846,12 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 	if (ret)
 		spcom_pr_err("ch [%s] rpmsg_trysend() error (%d), timeout_msec=%d\n",
 		       ch->name, ret, timeout_msec);
+
+	if (ch->is_server) {
+		__pm_relax(spcom_dev->ws);
+		spcom_pr_dbg("ch[%s]:pm_relax() called for server, after tx\n",
+			     ch->name);
+	}
 	mutex_unlock(&ch->lock);
 
 	kfree(tx_buf);
@@ -1084,6 +1088,11 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 		spcom_pr_err("ch [%s] rpmsg_trysend() error (%d), timeout_msec=%d\n",
 		       ch->name, ret, timeout_msec);
 
+	if (ch->is_server) {
+		__pm_relax(spcom_dev->ws);
+		spcom_pr_dbg("ch[%s]:pm_relax() called for server, after tx\n",
+			     ch->name);
+	}
 	mutex_unlock(&ch->lock);
 	memset(tx_buf, 0, tx_buf_size);
 	kfree(tx_buf);
@@ -1509,6 +1518,14 @@ static int spcom_handle_read(struct spcom_channel *ch,
 		ret = spcom_handle_read_req_resp(ch, buf, size);
 	}
 
+	mutex_lock(&ch->lock);
+	if (!ch->is_server) {
+		__pm_relax(spcom_dev->ws);
+		spcom_pr_dbg("ch[%s]:pm_relax() called for client\n",
+			     ch->name);
+	}
+	mutex_unlock(&ch->lock);
+
 	return ret;
 }
 
@@ -1579,10 +1596,6 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 		return -EINVAL;
 	}
 
-	if (strcmp(name, DEVICE_NAME) == 0) {
-		return 0;
-	}
-
 	if (strcmp(name, "sp_ssr") == 0) {
 		spcom_pr_dbg("sp_ssr dev node skipped\n");
 		return 0;
@@ -1591,6 +1604,11 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 	if (pid == 0) {
 		spcom_pr_err("unknown PID\n");
 		return -EINVAL;
+	}
+
+	if (strcmp(name, DEVICE_NAME) == 0) {
+		spcom_pr_dbg("control channel is opened by pid %u\n", pid);
+		return  spom_control_channel_add_client(pid);
 	}
 
 	ch = spcom_find_channel_by_name(name);
@@ -1685,11 +1703,6 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 		return -EINVAL;
 	}
 
-	if (strcmp(name, DEVICE_NAME) == 0) {
-		spcom_pr_dbg("PID [%d] release control channel\n", pid);
-		return 0;
-	}
-
 	if (strcmp(name, "sp_ssr") == 0) {
 		spcom_pr_dbg("sp_ssr dev node skipped\n");
 		return 0;
@@ -1698,6 +1711,11 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	if (pid == 0) {
 		spcom_pr_err("unknown PID\n");
 		return -EINVAL;
+	}
+
+	if (strcmp(name, DEVICE_NAME) == 0) {
+		spcom_pr_dbg("PID [%d] release control channel\n", pid);
+		return spom_control_channel_remove_client(pid);
 	}
 
 	ch = filp->private_data;
@@ -1746,7 +1764,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	ch->active_pid = 0;
 
 	if (ch->rpmsg_rx_buf) {
-		spcom_pr_dbg("ch [%s] discarting unconsumed rx packet actual_rx_size=%zd\n",
+		spcom_pr_dbg("ch [%s] discarding unconsumed rx packet actual_rx_size=%zd\n",
 		       name, ch->actual_rx_size);
 		kfree(ch->rpmsg_rx_buf);
 		ch->rpmsg_rx_buf = NULL;
@@ -2017,7 +2035,6 @@ static int spcom_register_channel(struct spcom_channel *ch)
 	u32 pid = current_pid();
 	u32 i = 0;
 
-
 	ch_name = ch->name;
 
 	mutex_lock(&ch->lock);
@@ -2095,34 +2112,23 @@ static inline bool is_control_channel_name(const char *ch_name)
 }
 
 /**
- * spcom_channel_deinit
+ * spcom_channel_deinit_locked
  *
- * @brief      Helper function to handle deinit of SPCOM channel
+ * @brief      Helper function to handle deinit of SPCOM channel while holding the channel's lock
  *
  * @param[in]  ch    SPCOM channel
  *
  * @return     zero on successful operation, negative value otherwise.
  */
-static int spcom_channel_deinit(struct spcom_channel *ch)
+static int spcom_channel_deinit_locked(struct spcom_channel *ch, u32 pid)
 {
-	const char *ch_name = NULL;
-	uint32_t pid = current_pid();
+	const char *ch_name = ch->name;
 	bool found = false;
-	uint32_t i = 0;
-
-	ch_name = ch->name;
-
-	if (!pid) {
-		spcom_pr_err("unknown PID\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(&ch->lock);
+	u32 i = 0;
 
 	/* channel might be already closed or disconnected */
 	if (!spcom_is_channel_open(ch)) {
 		spcom_pr_dbg("ch [%s] already closed\n", ch_name);
-		mutex_unlock(&ch->lock);
 		return 0;
 	}
 
@@ -2139,7 +2145,6 @@ static int spcom_channel_deinit(struct spcom_channel *ch)
 	/* if the current process is not a valid client of this channel, return an error */
 	if (!found) {
 		spcom_pr_dbg("pid [%d] is not a client of ch [%s]\n", pid, ch_name);
-		mutex_unlock(&ch->lock);
 		return -EFAULT;
 	}
 
@@ -2157,16 +2162,40 @@ static int spcom_channel_deinit(struct spcom_channel *ch)
 	ch->is_busy = false;
 
 	if (ch->rpmsg_rx_buf) {
-		spcom_pr_dbg("ch [%s] discarting unconsumed rx packet actual_rx_size=%zd\n",
+		spcom_pr_dbg("ch [%s] discarding unconsumed rx packet actual_rx_size=%zd\n",
 			ch_name, ch->actual_rx_size);
 		kfree(ch->rpmsg_rx_buf);
 		ch->rpmsg_rx_buf = NULL;
 	}
 	ch->actual_rx_size = 0;
 
+	return 0;
+}
+
+/**
+ * spcom_channel_deinit
+ *
+ * @brief      Helper function to handle deinit of SPCOM channel
+ *
+ * @param[in]  ch    SPCOM channel
+ *
+ * @return     zero on successful operation, negative value otherwise.
+ */
+static int spcom_channel_deinit(struct spcom_channel *ch)
+{
+	uint32_t pid = current_pid();
+	int ret;
+
+	if (!pid) {
+		spcom_pr_err("unknown PID\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ch->lock);
+	ret = spcom_channel_deinit_locked(ch, pid);
 	mutex_unlock(&ch->lock);
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -3626,6 +3655,10 @@ static int spcom_rpdev_cb(struct rpmsg_device *rpdev,
 	rx_item->rx_buf_size = len;
 	rx_item->ch = ch;
 
+	pm_wakeup_ws_event(spcom_dev->ws, SPCOM_PM_PACKET_HANDLE_TIMEOUT, true);
+	spcom_pr_dbg("%s:got new packet, wakeup requested\n", ch->name);
+
+
 	spin_lock_irqsave(&spcom_dev->rx_lock, flags);
 	list_add(&rx_item->list, &spcom_dev->rx_list_head);
 	spin_unlock_irqrestore(&spcom_dev->rx_lock, flags);
@@ -3820,7 +3853,6 @@ static int spcom_probe(struct platform_device *pdev)
 	spcom_dev->pdev = pdev;
 	spcom_dev->rproc_prop = prop;
 
-	atomic_set(&spcom_dev->rx_active_count, 0);
 	/* start counting exposed channel char devices from 1 */
 	spcom_dev->chdev_count = 1;
 	mutex_init(&spcom_dev->chdev_count_lock);
@@ -3833,6 +3865,15 @@ static int spcom_probe(struct platform_device *pdev)
 	spcom_dev->nvm_ion_fd = -1;
 	spcom_dev->rmb_error = 0;
 	mutex_init(&spcom_dev->ch_list_lock);
+
+	// register wakeup source
+	spcom_dev->ws =
+		wakeup_source_register(&spcom_dev->pdev->dev, "spcom_wakeup");
+	if (!spcom_dev->ws)  {
+		pr_err("failed to register wakeup source\n");
+		ret = -ENOMEM;
+		goto fail_while_chardev_reg;
+	}
 
 	ret = spcom_register_chardev();
 	if (ret) {
@@ -3919,7 +3960,7 @@ static int spcom_remove(struct platform_device *pdev)
 		kfree(rx_item);
 	}
 	spin_unlock_irqrestore(&spcom_dev->rx_lock, flags);
-	spcom_pr_dbg("released uncompleted rx\n");
+	wakeup_source_unregister(spcom_dev->ws);
 
 	if (spcom_ipc_log_context)
 		ipc_log_context_destroy(spcom_ipc_log_context);
@@ -3931,6 +3972,110 @@ static int spcom_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+static void spcom_release_all_channels_of_process(u32 pid)
+{
+	u32 i;
+
+	/* Iterate over all channels and release all channels that belong to
+	 * the given process
+	 */
+	for (i = 0; i < SPCOM_MAX_CHANNELS; i++) {
+		struct spcom_channel *ch = &spcom_dev->channels[i];
+
+		if (ch->name[0] != '\0') {
+			u32 j;
+
+			/* Check if the given process is a client of the current channel, and
+			 * if so release the channel
+			 */
+			for (j = 0; j < SPCOM_MAX_CHANNEL_CLIENTS; j++) {
+				if (ch->pid[j] == pid) {
+					mutex_lock(&ch->lock);
+					spcom_channel_deinit_locked(ch, pid);
+					mutex_unlock(&ch->lock);
+					break;
+				}
+			}
+		}
+	}
+}
+
+static int spom_control_channel_add_client(u32 pid)
+{
+	u32 i;
+	int  free_index;
+	struct spcom_control_channel_info *ch_info;
+
+	mutex_lock(&spcom_dev->ch_list_lock);
+
+	for (i = 0, free_index = -1; i < SPCOM_MAX_CONTROL_CHANNELS; i++) {
+		ch_info = &spcom_dev->control_channels[i];
+
+		/* A process may open only a single control channel */
+		if (ch_info->pid == pid) {
+			ch_info->ref_cnt++;
+			spcom_pr_dbg("Control channel for pid %u already exists, ref_cnt=%u\n",
+					pid, ch_info->ref_cnt);
+			mutex_unlock(&spcom_dev->ch_list_lock);
+			return 0;
+		}
+
+		/* Remember the first free entry */
+		if (free_index < 0 && ch_info->pid == 0)
+			free_index = i;
+	}
+
+	/* If no free entry was found then the control channel can't be opened */
+	if (free_index < 0) {
+		mutex_unlock(&spcom_dev->ch_list_lock);
+		spcom_pr_err("Too many open control channels\n");
+		return -EMFILE;
+	}
+
+	/* Add the process opening the control channel in the free entry */
+	ch_info = &spcom_dev->control_channels[free_index];
+	ch_info->pid = pid;
+	ch_info->ref_cnt = 1;
+
+	spcom_pr_dbg("Add pid %u at index %u\n", pid, free_index);
+
+	mutex_unlock(&spcom_dev->ch_list_lock);
+
+	return 0;
+}
+
+static int spom_control_channel_remove_client(u32 pid)
+{
+	u32 i;
+	int ret = -ESRCH;
+
+	mutex_lock(&spcom_dev->ch_list_lock);
+
+	for (i = 0; i < SPCOM_MAX_CONTROL_CHANNELS; i++) {
+		struct spcom_control_channel_info *ch_info = &spcom_dev->control_channels[i];
+
+		/* When a process closes the control channel we release all its channels
+		 * to allow re-registration if another instance of the process will be created
+		 */
+		if (ch_info->pid == pid) {
+			ch_info->ref_cnt--;
+			spcom_pr_dbg("Remove pid %u from index %u, ref_cnt=%u\n",
+					pid, i, ch_info->ref_cnt);
+			if (ch_info->ref_cnt == 0) {
+				ch_info->pid = 0;
+				spcom_release_all_channels_of_process(pid);
+			}
+			ret = 0;
+			break;
+		}
+	}
+
+	mutex_unlock(&spcom_dev->ch_list_lock);
+
+	return ret;
+}
+
 static const struct of_device_id spcom_match_table[] = {
 	{ .compatible = "qcom,spcom", },
 	{ },
@@ -3942,7 +4087,6 @@ static struct platform_driver spcom_driver = {
 	.remove = spcom_remove,
 	.driver = {
 			.name = DEVICE_NAME,
-			.pm = &spcom_dev_pm_ops,
 			.of_match_table = of_match_ptr(spcom_match_table),
 	},
 };

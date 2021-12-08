@@ -174,6 +174,7 @@ enum arm_smmu_cbar_type {
 
 #define ARM_SMMU_CB_RESUME		0x8
 #define ARM_SMMU_RESUME_TERMINATE	BIT(0)
+#define ARM_SMMU_RESUME_RESUME		0
 
 #define ARM_SMMU_CB_TCR2		0x10
 #define ARM_SMMU_TCR2_SEP		GENMASK(17, 15)
@@ -377,6 +378,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 2)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 3)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 4)
+#define ARM_SMMU_OPT_CONTEXT_FAULT_RETRY	(1 << 5)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -441,6 +443,7 @@ struct qsmmuv500_tbu_device {
 	u32				halt_count;
 
 	bool				has_micro_idle;
+	unsigned int			*irqs;
 };
 
 enum arm_smmu_context_fmt {
@@ -524,6 +527,11 @@ struct arm_smmu_domain {
 	 * runtime power management should be disabled.
 	 */
 	bool				rpm_always_on;
+
+#ifdef CONFIG_ARM_SMMU_CONTEXT_FAULT_RETRY
+	u64				prev_fault_address;
+	u32				fault_retry_counter;
+#endif
 };
 
 struct arm_smmu_master_cfg {

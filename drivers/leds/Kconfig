@@ -967,6 +967,14 @@ config LEDS_ACER_A500
 	  This option enables support for the Power Button LED of
 	  Acer Iconia Tab A500.
 
+config LEDS_QPNP_VIBRATOR_LDO
+	tristate "Vibrator-LDO support for QPNP PMIC"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC
+	help
+	  This option enables device driver support for the vibrator-ldo
+	  peripheral found on Qualcomm Technologies, Inc. QPNP PMICs.
+	  The vibrator-ldo peripheral is capable of driving ERM vibrators.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 

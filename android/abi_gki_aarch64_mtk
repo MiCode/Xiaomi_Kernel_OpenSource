@@ -292,6 +292,7 @@
   destroy_workqueue
   dev_alloc_name
   dev_base_lock
+  dev_change_flags
   dev_change_net_namespace
   dev_close
   dev_driver_string
@@ -1940,6 +1941,7 @@
   __traceiter_android_vh_rwsem_wake
   __traceiter_android_vh_rwsem_write_finished
   __traceiter_android_vh_scheduler_tick
+  __traceiter_android_vh_scmi_timeout_sync
   __traceiter_android_vh_selinux_avc_insert
   __traceiter_android_vh_selinux_avc_lookup
   __traceiter_android_vh_selinux_avc_node_delete
@@ -1952,6 +1954,7 @@
   __traceiter_android_vh_set_module_permit_after_init
   __traceiter_android_vh_set_module_permit_before_init
   __traceiter_android_vh_set_wake_flags
+  __traceiter_android_vh_snd_soc_card_get_comp_chain
   __traceiter_android_vh_syscall_prctl_finished
   __traceiter_android_vh_ufs_send_command
   __traceiter_android_vh_ufs_send_tm_command
@@ -2018,6 +2021,7 @@
   __tracepoint_android_vh_rwsem_wake
   __tracepoint_android_vh_rwsem_write_finished
   __tracepoint_android_vh_scheduler_tick
+  __tracepoint_android_vh_scmi_timeout_sync
   __tracepoint_android_vh_selinux_avc_insert
   __tracepoint_android_vh_selinux_avc_lookup
   __tracepoint_android_vh_selinux_avc_node_delete
@@ -2030,6 +2034,7 @@
   __tracepoint_android_vh_set_module_permit_after_init
   __tracepoint_android_vh_set_module_permit_before_init
   __tracepoint_android_vh_set_wake_flags
+  __tracepoint_android_vh_snd_soc_card_get_comp_chain
   __tracepoint_android_vh_syscall_prctl_finished
   __tracepoint_android_vh_ufs_send_command
   __tracepoint_android_vh_ufs_send_tm_command

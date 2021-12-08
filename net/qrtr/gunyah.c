@@ -393,17 +393,8 @@ static int qrtr_gunyah_share_mem(struct qrtr_gunyah_dev *qdev, gh_vmid_t self,
 	sgl->sgl_entries[0].ipa_base = qdev->res.start;
 	sgl->sgl_entries[0].size = resource_size(&qdev->res);
 
-	/* gh_rm_mem_qcom_lookup_sgl is no longer supported and is replaced with
-	 * gh_rm_mem_share. To ease this transition, fall back to the later on error.
-	 */
-	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL,
-					qdev->label,
-					acl, sgl, NULL,
-					&qdev->memparcel);
-	if (ret) {
-		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, qdev->label,
-				      acl, sgl, NULL, &qdev->memparcel);
-	}
+	ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, qdev->label,
+			      acl, sgl, NULL, &qdev->memparcel);
 	if (ret) {
 		pr_err("%s: gh_rm_mem_share failed addr=%x size=%u err=%d\n",
 		       __func__, qdev->res.start, qdev->size, ret);

@@ -62,6 +62,7 @@
 #include "linux/gunyah/gh_msgq.h"
 #include "linux/gunyah/gh_rm_drv.h"
 #include <linux/sort.h>
+#include <linux/pinctrl/qcom-pinctrl.h>
 #endif
 
 #if NVT_TOUCH_ESD_PROTECT
@@ -196,10 +197,11 @@ static struct gh_sgl_desc *nvt_ts_vm_get_sgl(
 
 static int nvt_ts_populate_vm_info(struct nvt_ts_data *ts)
 {
-	int rc = 0;
+	int rc = 0, i, gpio;
 	struct trusted_touch_vm_info *vm_info;
 	struct device_node *np = ts->client->dev.of_node;
-	int num_regs, num_sizes = 0;
+	int num_regs, num_gpios, list_size, num_sizes = 0;
+	struct resource res;
 
 	vm_info = kzalloc(sizeof(struct trusted_touch_vm_info), GFP_KERNEL);
 	if (!vm_info) {
@@ -240,31 +242,53 @@ static int nvt_ts_populate_vm_info(struct nvt_ts_data *ts)
 		goto vm_error;
 	}
 
-	vm_info->iomem_list_size = num_regs;
+	num_gpios = of_gpio_named_count(np, "novatek,trusted-touch-vm-gpio-list");
+	if (num_gpios < 0) {
+		dev_warn(&ts->client->dev, "Ignoring invalid trusted gpio list: %d\n", num_gpios);
+		num_gpios = 0;
+	}
 
-	vm_info->iomem_bases = kcalloc(num_regs, sizeof(*vm_info->iomem_bases),
+	list_size = num_regs + num_gpios;
+	vm_info->iomem_list_size = list_size;
+
+	vm_info->iomem_bases = kcalloc(list_size, sizeof(*vm_info->iomem_bases),
 								GFP_KERNEL);
 	if (!vm_info->iomem_bases) {
 		rc = -ENOMEM;
 		goto vm_error;
 	}
 
+	vm_info->iomem_sizes = kcalloc(list_size, sizeof(*vm_info->iomem_sizes),
+								GFP_KERNEL);
+	if (!vm_info->iomem_sizes) {
+		rc = -ENOMEM;
+		goto vm_error;
+	}
+
+	for (i = 0; i < num_gpios; ++i) {
+		gpio = of_get_named_gpio(np, "novatek,trusted-touch-vm-gpio-list", i);
+		if (gpio < 0 || !gpio_is_valid(gpio)) {
+			pr_err("Invalid gpio %d at position %d\n", gpio, i);
+			return gpio;
+		}
+
+		if (!msm_gpio_get_pin_address(gpio, &res)) {
+			pr_err("Failed to retrieve gpio-%d resource\n", gpio);
+			return -ENODATA;
+		}
+		vm_info->iomem_bases[i] = res.start;
+		vm_info->iomem_sizes[i] = resource_size(&res);
+	}
+
 	rc = of_property_read_u32_array(np, "novatek,trusted-touch-io-bases",
-			vm_info->iomem_bases, vm_info->iomem_list_size);
+			&vm_info->iomem_bases[i], list_size-i);
 	if (rc) {
 		pr_err("Failed to read trusted touch io bases:%d\n", rc);
 		goto io_bases_error;
 	}
 
-	vm_info->iomem_sizes = kzalloc(
-			sizeof(*vm_info->iomem_sizes) * num_sizes, GFP_KERNEL);
-	if (!vm_info->iomem_sizes) {
-		rc = -ENOMEM;
-		goto io_bases_error;
-	}
-
 	rc = of_property_read_u32_array(np, "novatek,trusted-touch-io-sizes",
-			vm_info->iomem_sizes, vm_info->iomem_list_size);
+			&vm_info->iomem_sizes[i], list_size-i);
 	if (rc) {
 		pr_err("Failed to read trusted touch io sizes:%d\n", rc);
 		goto io_sizes_error;
@@ -2070,20 +2094,24 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-	atomic_set(&ts->pvm_interrupt_underway, 1);
-	reinit_completion(&ts->trusted_touch_interrupt);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		atomic_set(&ts->pvm_interrupt_underway, 1);
+		reinit_completion(&ts->trusted_touch_interrupt);
+	}
 #endif
 #endif
 	mutex_lock(&ts->lock);
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-	if (atomic_read(&ts->trusted_touch_underway)) {
-		mutex_unlock(&ts->lock);
-		atomic_set(&ts->pvm_interrupt_underway, 0);
-		input_report_key(ts->input_dev, BTN_TOUCH, 0);
-		input_sync(ts->input_dev);
-		return IRQ_HANDLED;
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		if (atomic_read(&ts->trusted_touch_underway)) {
+			mutex_unlock(&ts->lock);
+			atomic_set(&ts->pvm_interrupt_underway, 0);
+			input_report_key(ts->input_dev, BTN_TOUCH, 0);
+			input_sync(ts->input_dev);
+			return IRQ_HANDLED;
+		}
 	}
 #endif
 #endif
@@ -2108,8 +2136,10 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		mutex_unlock(&ts->lock);
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-		complete(&ts->trusted_touch_interrupt);
-		atomic_set(&ts->pvm_interrupt_underway, 0);
+		if (atomic_read(&ts->trusted_touch_initialized)) {
+			complete(&ts->trusted_touch_interrupt);
+			atomic_set(&ts->pvm_interrupt_underway, 0);
+		}
 #endif
 #endif
 		return IRQ_HANDLED;
@@ -2212,8 +2242,10 @@ XFER_ERROR:
 	mutex_unlock(&ts->lock);
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
 #ifndef CONFIG_ARCH_QTI_VM
-	complete(&ts->trusted_touch_interrupt);
-	atomic_set(&ts->pvm_interrupt_underway, 0);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		complete(&ts->trusted_touch_interrupt);
+		atomic_set(&ts->pvm_interrupt_underway, 0);
+	}
 #endif
 #endif
 
@@ -3106,8 +3138,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	atomic_set(&ts->suspend_resume_underway, 1);
-	reinit_completion(&ts->touch_suspend_resume);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		atomic_set(&ts->suspend_resume_underway, 1);
+		reinit_completion(&ts->touch_suspend_resume);
+	}
 #endif
 
 #if !WAKEUP_GESTURE
@@ -3141,8 +3175,9 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	buf[0] = EVENT_MAP_HOST_CMD;
 	buf[1] = 0x11;
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (!atomic_read(&ts->trusted_touch_underway))
-		CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+	if (atomic_read(&ts->trusted_touch_initialized))
+		if (!atomic_read(&ts->trusted_touch_underway))
+			CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
 #endif
 #endif // WAKEUP_GESTURE
 
@@ -3165,8 +3200,10 @@ static int32_t nvt_ts_suspend(struct device *dev)
 
 	msleep(50);
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	complete(&ts->touch_suspend_resume);
-	atomic_set(&ts->suspend_resume_underway, 0);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		complete(&ts->touch_suspend_resume);
+		atomic_set(&ts->suspend_resume_underway, 0);
+	}
 #endif
 	NVT_LOG("end\n");
 
@@ -3191,12 +3228,14 @@ static int32_t nvt_ts_resume(struct device *dev)
 	}
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	if (atomic_read(&ts->trusted_touch_underway))
-		wait_for_completion_interruptible(
-			&ts->trusted_touch_powerdown);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		if (atomic_read(&ts->trusted_touch_underway))
+			wait_for_completion_interruptible(
+				&ts->trusted_touch_powerdown);
 
-	atomic_set(&ts->suspend_resume_underway, 1);
-	reinit_completion(&ts->touch_suspend_resume);
+		atomic_set(&ts->suspend_resume_underway, 1);
+		reinit_completion(&ts->touch_suspend_resume);
+	}
 #endif
 	mutex_lock(&ts->lock);
 
@@ -3228,8 +3267,10 @@ static int32_t nvt_ts_resume(struct device *dev)
 	mutex_unlock(&ts->lock);
 
 #ifdef CONFIG_NOVATEK_TRUSTED_TOUCH
-	complete(&ts->touch_suspend_resume);
-	atomic_set(&ts->suspend_resume_underway, 0);
+	if (atomic_read(&ts->trusted_touch_initialized)) {
+		complete(&ts->touch_suspend_resume);
+		atomic_set(&ts->suspend_resume_underway, 0);
+	}
 #endif
 	NVT_LOG("end\n");
 

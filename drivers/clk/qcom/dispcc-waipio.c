@@ -60,7 +60,7 @@ static struct pll_vco lucid_evo_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config disp_cc_pll0_config = {
+static struct alpha_pll_config disp_cc_pll0_config = {
 	.l = 0xD,
 	.cal_l = 0x44,
 	.alpha = 0x6492,
@@ -69,6 +69,15 @@ static const struct alpha_pll_config disp_cc_pll0_config = {
 	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
+};
+
+static struct clk_init_data disp_cc_pll0_cape_init = {
+	.name = "disp_cc_pll0",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
 };
 
 static struct clk_alpha_pll disp_cc_pll0 = {
@@ -101,7 +110,7 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 	},
 };
 
-static const struct alpha_pll_config disp_cc_pll1_config = {
+static struct alpha_pll_config disp_cc_pll1_config = {
 	.l = 0x1F,
 	.cal_l = 0x44,
 	.alpha = 0x4000,
@@ -110,6 +119,15 @@ static const struct alpha_pll_config disp_cc_pll1_config = {
 	.config_ctl_hi1_val = 0x32AA299C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
+};
+
+static struct clk_init_data disp_cc_pll1_cape_init = {
+	.name = "disp_cc_pll1",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
 };
 
 static struct clk_alpha_pll disp_cc_pll1 = {
@@ -1969,9 +1987,74 @@ static struct qcom_cc_desc disp_cc_waipio_desc = {
 
 static const struct of_device_id disp_cc_waipio_match_table[] = {
 	{ .compatible = "qcom,waipio-dispcc" },
+	{ .compatible = "qcom,cape-dispcc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, disp_cc_waipio_match_table);
+
+static void disp_cc_cape_fixup(struct regmap *regmap)
+{
+	/* Update DISPCC PLL0 Config */
+	disp_cc_pll0_config.l = 0xD;
+	disp_cc_pll0_config.cal_l = 0x44;
+	disp_cc_pll0_config.cal_l_ringosc = 0x44;
+	disp_cc_pll0_config.alpha = 0x6492;
+	disp_cc_pll0_config.config_ctl_val = 0x20485699;
+	disp_cc_pll0_config.config_ctl_hi_val = 0x00182261;
+	disp_cc_pll0_config.config_ctl_hi1_val = 0x82AA299C;
+	disp_cc_pll0_config.test_ctl_val = 0x00000000;
+	disp_cc_pll0_config.test_ctl_hi_val = 0x00000003;
+	disp_cc_pll0_config.test_ctl_hi1_val = 0x00009000;
+	disp_cc_pll0_config.test_ctl_hi2_val = 0x00000034;
+	disp_cc_pll0_config.user_ctl_val = 0x00000000;
+	disp_cc_pll0_config.user_ctl_hi_val = 0x00000005;
+
+	disp_cc_pll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	disp_cc_pll0.clkr.hw.init = &disp_cc_pll0_cape_init;
+	disp_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	disp_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	disp_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	disp_cc_pll0.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	disp_cc_pll0.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	/* Update DISPCC PLL1 Config */
+	disp_cc_pll1_config.l = 0x1F;
+	disp_cc_pll1_config.cal_l = 0x44;
+	disp_cc_pll1_config.cal_l_ringosc = 0x44;
+	disp_cc_pll1_config.alpha = 0x4000;
+	disp_cc_pll1_config.config_ctl_val = 0x20485699;
+	disp_cc_pll1_config.config_ctl_hi_val = 0x00182261;
+	disp_cc_pll1_config.config_ctl_hi1_val = 0x82AA299C;
+	disp_cc_pll1_config.test_ctl_val = 0x00000000;
+	disp_cc_pll1_config.test_ctl_hi_val = 0x00000003;
+	disp_cc_pll1_config.test_ctl_hi1_val = 0x00009000;
+	disp_cc_pll1_config.test_ctl_hi2_val = 0x00000034;
+	disp_cc_pll1_config.user_ctl_val = 0x00000000;
+	disp_cc_pll1_config.user_ctl_hi_val = 0x00000005;
+
+	disp_cc_pll1.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	disp_cc_pll1.clkr.hw.init = &disp_cc_pll1_cape_init;
+	disp_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	disp_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	disp_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	disp_cc_pll1.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	disp_cc_pll1.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+}
+
+static int disp_cc_waipio_fixup(struct platform_device *pdev, struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || compatlen <= 0)
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,cape-dispcc"))
+		disp_cc_cape_fixup(regmap);
+
+	return 0;
+}
 
 static int disp_cc_waipio_probe(struct platform_device *pdev)
 {
@@ -1987,6 +2070,10 @@ static int disp_cc_waipio_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		return ret;
+
+	ret = disp_cc_waipio_fixup(pdev, regmap);
 	if (ret)
 		return ret;
 

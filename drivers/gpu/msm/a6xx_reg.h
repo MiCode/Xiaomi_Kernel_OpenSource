@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _A6XX_REG_H
@@ -1105,6 +1105,11 @@
 #define A6XX_GPU_CC_GX_DOMAIN_MISC             0x24542
 #define A6XX_GPU_CC_GX_DOMAIN_MISC3            0x24563
 #define A6XX_GPU_CC_CX_GDSCR                   0x2441B
+
+/* GPUCC offsets are different for A662 */
+#define A662_GPU_CC_GX_GDSCR                   0x26417
+#define A662_GPU_CC_GX_DOMAIN_MISC3            0x26541
+#define A662_GPU_CC_CX_GDSCR                   0x26442
 
 /* GPU CPR registers */
 #define A6XX_GPU_CPR_FSM_CTL			0x26801

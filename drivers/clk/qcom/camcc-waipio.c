@@ -66,7 +66,11 @@ static struct pll_vco rivian_evo_vco[] = {
 	{ 864000000, 1056000000, 0 },
 };
 
-static const struct alpha_pll_config cam_cc_pll0_config = {
+static struct pll_vco rivian_ole_vco[] = {
+	{ 864000000, 1075000000, 0 },
+};
+
+static struct alpha_pll_config cam_cc_pll0_config = {
 	.l = 0x3E,
 	.cal_l = 0x44,
 	.alpha = 0x8000,
@@ -77,11 +81,21 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll0_cape_init = {
+	.name = "cam_cc_pll0",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll0 = {
 	.offset = 0x0,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll0",
@@ -110,6 +124,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll0_out_even[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll0_out_even_cape_init = {
+	.name = "cam_cc_pll0_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll0.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll0_out_even = {
 	.offset = 0x0,
 	.post_div_shift = 10,
@@ -133,6 +157,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll0_out_odd[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll0_out_odd_cape_init = {
+	.name = "cam_cc_pll0_out_odd",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll0.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll0_out_odd = {
 	.offset = 0x0,
 	.post_div_shift = 14,
@@ -151,7 +185,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_odd = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll1_config = {
+static struct alpha_pll_config cam_cc_pll1_config = {
 	.l = 0x25,
 	.cal_l = 0x44,
 	.alpha = 0xEAAA,
@@ -162,11 +196,21 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll1_cape_init = {
+	.name = "cam_cc_pll1",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll1 = {
 	.offset = 0x1000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll1",
@@ -195,6 +239,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll1_out_even[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll1_out_even_cape_init = {
+	.name = "cam_cc_pll1_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll1.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll1_out_even = {
 	.offset = 0x1000,
 	.post_div_shift = 10,
@@ -213,7 +267,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll1_out_even = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll2_config = {
+static struct alpha_pll_config cam_cc_pll2_config = {
 	.l = 0x32,
 	.cal_l = 0x32,
 	.alpha = 0x0,
@@ -222,7 +276,7 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.config_ctl_hi1_val = 0x00000217,
 };
 
-static const struct alpha_pll_config cam_cc_pll2_config_waipio_v2 = {
+static struct alpha_pll_config cam_cc_pll2_config_waipio_v2 = {
 	.l = 0x32,
 	.cal_l = 0x32,
 	.alpha = 0x0,
@@ -231,11 +285,21 @@ static const struct alpha_pll_config cam_cc_pll2_config_waipio_v2 = {
 	.config_ctl_hi1_val = 0x00000217,
 };
 
+static struct clk_init_data cam_cc_pll2_cape_init = {
+	.name = "cam_cc_pll2",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_rivian_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll2 = {
 	.offset = 0x2000,
 	.vco_table = rivian_evo_vco,
 	.num_vco = ARRAY_SIZE(rivian_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_RIVIAN_EVO],
+	.config = &cam_cc_pll2_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll2",
@@ -254,7 +318,7 @@ static struct clk_alpha_pll cam_cc_pll2 = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll3_config = {
+static struct alpha_pll_config cam_cc_pll3_config = {
 	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -265,11 +329,21 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll3_cape_init = {
+	.name = "cam_cc_pll3",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll3 = {
 	.offset = 0x3000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll3_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll3",
@@ -298,6 +372,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll3_out_even[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll3_out_even_cape_init = {
+	.name = "cam_cc_pll3_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll3.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll3_out_even = {
 	.offset = 0x3000,
 	.post_div_shift = 10,
@@ -316,7 +400,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll3_out_even = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll4_config = {
+static struct alpha_pll_config cam_cc_pll4_config = {
 	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -327,11 +411,21 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll4_cape_init = {
+	.name = "cam_cc_pll4",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll4 = {
 	.offset = 0x4000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll4_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll4",
@@ -360,6 +454,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll4_out_even[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll4_out_even_cape_init = {
+	.name = "cam_cc_pll4_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll4.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll4_out_even = {
 	.offset = 0x4000,
 	.post_div_shift = 10,
@@ -378,7 +482,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll4_out_even = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll5_config = {
+static struct alpha_pll_config cam_cc_pll5_config = {
 	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -389,11 +493,21 @@ static const struct alpha_pll_config cam_cc_pll5_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll5_cape_init = {
+	.name = "cam_cc_pll5",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll5 = {
 	.offset = 0x5000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll5_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll5",
@@ -422,6 +536,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll5_out_even[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll5_out_even_cape_init = {
+	.name = "cam_cc_pll5_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll5.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll5_out_even = {
 	.offset = 0x5000,
 	.post_div_shift = 10,
@@ -440,7 +564,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll5_out_even = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll6_config = {
+static struct alpha_pll_config cam_cc_pll6_config = {
 	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -451,11 +575,21 @@ static const struct alpha_pll_config cam_cc_pll6_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll6_cape_init = {
+	.name = "cam_cc_pll6",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll6 = {
 	.offset = 0x6000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll6_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll6",
@@ -484,6 +618,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll6_out_even[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll6_out_even_cape_init = {
+	.name = "cam_cc_pll6_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll6.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll6_out_even = {
 	.offset = 0x6000,
 	.post_div_shift = 10,
@@ -502,7 +646,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll6_out_even = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll7_config = {
+static struct alpha_pll_config cam_cc_pll7_config = {
 	.l = 0x2D,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -513,11 +657,21 @@ static const struct alpha_pll_config cam_cc_pll7_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll7_cape_init = {
+	.name = "cam_cc_pll7",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll7 = {
 	.offset = 0x7000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll7_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll7",
@@ -546,6 +700,16 @@ static const struct clk_div_table post_div_table_cam_cc_pll7_out_even[] = {
 	{ }
 };
 
+static struct clk_init_data cam_cc_pll7_out_even_cape_init = {
+	.name = "cam_cc_pll7_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll7.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll_postdiv cam_cc_pll7_out_even = {
 	.offset = 0x7000,
 	.post_div_shift = 10,
@@ -564,7 +728,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll7_out_even = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll8_config = {
+static struct alpha_pll_config cam_cc_pll8_config = {
 	.l = 0x32,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -575,11 +739,21 @@ static const struct alpha_pll_config cam_cc_pll8_config = {
 	.user_ctl_hi_val = 0x00000805,
 };
 
+static struct clk_init_data cam_cc_pll8_cape_init = {
+	.name = "cam_cc_pll8",
+	.parent_data = &(const struct clk_parent_data){
+		.fw_name = "bi_tcxo",
+	},
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_lucid_ole_ops,
+};
+
 static struct clk_alpha_pll cam_cc_pll8 = {
 	.offset = 0x8000,
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &cam_cc_pll8_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_pll8",
@@ -606,6 +780,16 @@ static struct clk_alpha_pll cam_cc_pll8 = {
 static const struct clk_div_table post_div_table_cam_cc_pll8_out_even[] = {
 	{ 0x1, 2 },
 	{ }
+};
+
+static struct clk_init_data cam_cc_pll8_out_even_cape_init = {
+	.name = "cam_cc_pll8_out_even",
+	.parent_data = &(const struct clk_parent_data){
+		.hw = &cam_cc_pll8.clkr.hw,
+	},
+	.num_parents = 1,
+	.flags = CLK_SET_RATE_PARENT,
+	.ops = &clk_alpha_pll_postdiv_lucid_ole_ops,
 };
 
 static struct clk_alpha_pll_postdiv cam_cc_pll8_out_even = {
@@ -3230,13 +3414,305 @@ static struct qcom_cc_desc cam_cc_waipio_desc = {
 static const struct of_device_id cam_cc_waipio_match_table[] = {
 	{ .compatible = "qcom,waipio-camcc" },
 	{ .compatible = "qcom,waipio-camcc-v2" },
+	{ .compatible = "qcom,cape-camcc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_waipio_match_table);
 
+static void cam_cc_cape_fixup(struct regmap *regmap)
+{
+	/* Update CAMCC PLL0 Config */
+	cam_cc_pll0_config.l = 0x3E;
+	cam_cc_pll0_config.cal_l = 0x44;
+	cam_cc_pll0_config.cal_l_ringosc = 0x44;
+	cam_cc_pll0_config.alpha = 0x8000;
+	cam_cc_pll0_config.config_ctl_val = 0x20485699;
+	cam_cc_pll0_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll0_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll0_config.test_ctl_val = 0x00000000;
+	cam_cc_pll0_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll0_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll0_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll0_config.user_ctl_val = 0x00008400;
+	cam_cc_pll0_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll0.clkr.hw.init = &cam_cc_pll0_cape_init;
+	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll0_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll0_out_even.clkr.hw.init = &cam_cc_pll0_out_even_cape_init;
+	cam_cc_pll0_out_odd.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll0_out_odd.clkr.hw.init = &cam_cc_pll0_out_odd_cape_init;
+
+	/* Update CAMCC PLL1 Config */
+	cam_cc_pll1_config.l = 0x25;
+	cam_cc_pll1_config.cal_l = 0x44;
+	cam_cc_pll1_config.cal_l_ringosc = 0x44;
+	cam_cc_pll1_config.alpha = 0xEAAA;
+	cam_cc_pll1_config.config_ctl_val = 0x20485699;
+	cam_cc_pll1_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll1_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll1_config.test_ctl_val = 0x00000000;
+	cam_cc_pll1_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll1_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll1_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll1_config.user_ctl_val = 0x00000400;
+	cam_cc_pll1_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll1.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll1.clkr.hw.init = &cam_cc_pll1_cape_init;
+	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll1_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll1_out_even.clkr.hw.init = &cam_cc_pll1_out_even_cape_init;
+
+	/* Update CAMCC PLL2 Config */
+	cam_cc_pll2_config.l = 0x32;
+	cam_cc_pll2_config.cal_l = 0x32;
+	cam_cc_pll2_config.alpha = 0x0;
+	cam_cc_pll2_config.config_ctl_val = 0x10000030;
+	cam_cc_pll2_config.config_ctl_hi_val = 0x80890263;
+	cam_cc_pll2_config.config_ctl_hi1_val = 0x00000217;
+	cam_cc_pll2_config.user_ctl_val = 0x00000001;
+	cam_cc_pll2_config.user_ctl_hi_val = 0x00000000;
+
+	cam_cc_pll2.vco_table = rivian_ole_vco;
+	cam_cc_pll2.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_RIVIAN_OLE];
+	cam_cc_pll2.clkr.hw.init = &cam_cc_pll2_cape_init;
+	cam_cc_pll2.clkr.vdd_data.rate_max[VDD_LOW] = 1075000000;
+
+	/* Update CAMCC PLL3 Config */
+	cam_cc_pll3_config.l = 0x2D;
+	cam_cc_pll3_config.cal_l = 0x44;
+	cam_cc_pll3_config.cal_l_ringosc = 0x44;
+	cam_cc_pll3_config.alpha = 0x0;
+	cam_cc_pll3_config.config_ctl_val = 0x20485699;
+	cam_cc_pll3_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll3_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll3_config.test_ctl_val = 0x00000000;
+	cam_cc_pll3_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll3_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll3_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll3_config.user_ctl_val = 0x00000400;
+	cam_cc_pll3_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll3.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll3.clkr.hw.init = &cam_cc_pll3_cape_init;
+	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll3_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll3_out_even.clkr.hw.init = &cam_cc_pll3_out_even_cape_init;
+
+	/* Update CAMCC PLL4 Config */
+	cam_cc_pll4_config.l = 0x2D;
+	cam_cc_pll4_config.cal_l = 0x44;
+	cam_cc_pll4_config.cal_l_ringosc = 0x44;
+	cam_cc_pll4_config.alpha = 0x0;
+	cam_cc_pll4_config.config_ctl_val = 0x20485699;
+	cam_cc_pll4_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll4_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll4_config.test_ctl_val = 0x00000000;
+	cam_cc_pll4_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll4_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll4_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll4_config.user_ctl_val = 0x00000400;
+	cam_cc_pll4_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll4.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll4.clkr.hw.init = &cam_cc_pll4_cape_init;
+	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll4_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll4_out_even.clkr.hw.init = &cam_cc_pll4_out_even_cape_init;
+
+	/* Update CAMCC PLL5 Config */
+	cam_cc_pll5_config.l = 0x2D;
+	cam_cc_pll5_config.cal_l = 0x44;
+	cam_cc_pll5_config.cal_l_ringosc = 0x44;
+	cam_cc_pll5_config.alpha = 0x0;
+	cam_cc_pll5_config.config_ctl_val = 0x20485699;
+	cam_cc_pll5_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll5_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll5_config.test_ctl_val = 0x00000000;
+	cam_cc_pll5_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll5_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll5_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll5_config.user_ctl_val = 0x00000400;
+	cam_cc_pll5_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll5.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll5.clkr.hw.init = &cam_cc_pll5_cape_init;
+	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll5_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll5_out_even.clkr.hw.init = &cam_cc_pll5_out_even_cape_init;
+
+
+	/* Update CAMCC PLL6 Config */
+	cam_cc_pll6_config.l = 0x2D;
+	cam_cc_pll6_config.cal_l = 0x44;
+	cam_cc_pll6_config.cal_l_ringosc = 0x44;
+	cam_cc_pll6_config.alpha = 0x0;
+	cam_cc_pll6_config.config_ctl_val = 0x20485699;
+	cam_cc_pll6_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll6_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll6_config.test_ctl_val = 0x00000000;
+	cam_cc_pll6_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll6_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll6_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll6_config.user_ctl_val = 0x00000400;
+	cam_cc_pll6_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll6.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll6.clkr.hw.init = &cam_cc_pll6_cape_init;
+	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll6_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll6_out_even.clkr.hw.init = &cam_cc_pll6_out_even_cape_init;
+
+	/* Update CAMCC PLL7 Config */
+	cam_cc_pll7_config.l = 0x2D;
+	cam_cc_pll7_config.cal_l = 0x44;
+	cam_cc_pll7_config.cal_l_ringosc = 0x44;
+	cam_cc_pll7_config.alpha = 0x0;
+	cam_cc_pll7_config.config_ctl_val = 0x20485699;
+	cam_cc_pll7_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll7_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll7_config.test_ctl_val = 0x00000000;
+	cam_cc_pll7_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll7_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll7_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll7_config.user_ctl_val = 0x00000400;
+	cam_cc_pll7_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll7.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll7.clkr.hw.init = &cam_cc_pll7_cape_init;
+	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll7_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll7_out_even.clkr.hw.init = &cam_cc_pll7_out_even_cape_init;
+
+	/* Update CAMCC PLL8 Config */
+	cam_cc_pll8_config.l = 0x32;
+	cam_cc_pll8_config.cal_l = 0x44;
+	cam_cc_pll8_config.cal_l_ringosc = 0x44;
+	cam_cc_pll8_config.alpha = 0x0;
+	cam_cc_pll8_config.config_ctl_val = 0x20485699;
+	cam_cc_pll8_config.config_ctl_hi_val = 0x00182261;
+	cam_cc_pll8_config.config_ctl_hi1_val = 0x82AA299C;
+	cam_cc_pll8_config.test_ctl_val = 0x00000000;
+	cam_cc_pll8_config.test_ctl_hi_val = 0x00000003;
+	cam_cc_pll8_config.test_ctl_hi1_val = 0x00009000;
+	cam_cc_pll8_config.test_ctl_hi2_val = 0x00000034;
+	cam_cc_pll8_config.user_ctl_val = 0x00000400;
+	cam_cc_pll8_config.user_ctl_hi_val = 0x00000005;
+
+	cam_cc_pll8.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll8.clkr.hw.init = &cam_cc_pll8_cape_init;
+	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
+	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
+	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
+	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_HIGH] = 0;
+
+	cam_cc_pll8_out_even.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
+	cam_cc_pll8_out_even.clkr.hw.init = &cam_cc_pll8_out_even_cape_init;
+
+	cam_cc_bps_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
+	cam_cc_bps_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_camnoc_axi_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 300000000;
+	cam_cc_camnoc_axi_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_cci_0_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 37500000;
+	cam_cc_cci_0_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_cci_1_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 37500000;
+	cam_cc_cci_1_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_cphy_rx_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_cphy_rx_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_csi0phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_csi0phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_csi1phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_csi1phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_csi2phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_csi2phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_csi3phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_csi3phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_csi4phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_csi4phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_csi5phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_csi5phytimer_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_csid_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_csid_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_fast_ahb_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 100000000;
+	cam_cc_fast_ahb_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_icp_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_icp_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_ife_0_clk_src.freq_tbl = ftbl_cam_cc_ife_0_clk_src_waipio_v2;
+	cam_cc_ife_0_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 432000000;
+	cam_cc_ife_0_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_ife_0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_ife_1_clk_src.freq_tbl = ftbl_cam_cc_ife_1_clk_src_waipio_v2;
+	cam_cc_ife_1_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 432000000;
+	cam_cc_ife_1_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_ife_1_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_ife_2_clk_src.freq_tbl = ftbl_cam_cc_ife_2_clk_src_waipio_v2;
+	cam_cc_ife_2_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 432000000;
+	cam_cc_ife_2_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_ife_2_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_ife_lite_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_ife_lite_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_ife_lite_csid_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 400000000;
+	cam_cc_ife_lite_csid_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_ipe_nps_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 364000000;
+	cam_cc_ipe_nps_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_jpeg_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 200000000;
+	cam_cc_jpeg_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_qdss_debug_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 75000000;
+	cam_cc_qdss_debug_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_sfe_0_clk_src.freq_tbl = ftbl_cam_cc_sfe_0_clk_src_waipio_v2;
+	cam_cc_sfe_0_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 432000000;
+	cam_cc_sfe_0_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_sfe_0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_sfe_1_clk_src.freq_tbl = ftbl_cam_cc_sfe_1_clk_src_waipio_v2;
+	cam_cc_sfe_1_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 432000000;
+	cam_cc_sfe_1_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+	cam_cc_sfe_1_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
+	cam_cc_slow_ahb_clk_src.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 80000000;
+	cam_cc_slow_ahb_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
+}
+
 static void cam_cc_waipio_fixup_waipiov2(struct regmap *regmap)
 {
-	clk_rivian_evo_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config_waipio_v2);
+	cam_cc_pll2.config = &cam_cc_pll2_config_waipio_v2;
+
 	cam_cc_ife_0_clk_src.freq_tbl = ftbl_cam_cc_ife_0_clk_src_waipio_v2;
 	cam_cc_ife_0_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 727000000;
 	cam_cc_ife_1_clk_src.freq_tbl = ftbl_cam_cc_ife_1_clk_src_waipio_v2;
@@ -3261,6 +3737,9 @@ static int cam_cc_waipio_fixup(struct platform_device *pdev, struct regmap *regm
 	if (!strcmp(compat, "qcom,waipio-camcc-v2"))
 		cam_cc_waipio_fixup_waipiov2(regmap);
 
+	if (!strcmp(compat, "qcom,cape-camcc"))
+		cam_cc_cape_fixup(regmap);
+
 	return 0;
 }
 
@@ -3281,19 +3760,19 @@ static int cam_cc_waipio_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_lucid_evo_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
-	clk_lucid_evo_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
-	clk_rivian_evo_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config);
-	clk_lucid_evo_pll_configure(&cam_cc_pll3, regmap, &cam_cc_pll3_config);
-	clk_lucid_evo_pll_configure(&cam_cc_pll4, regmap, &cam_cc_pll4_config);
-	clk_lucid_evo_pll_configure(&cam_cc_pll5, regmap, &cam_cc_pll5_config);
-	clk_lucid_evo_pll_configure(&cam_cc_pll6, regmap, &cam_cc_pll6_config);
-	clk_lucid_evo_pll_configure(&cam_cc_pll7, regmap, &cam_cc_pll7_config);
-	clk_lucid_evo_pll_configure(&cam_cc_pll8, regmap, &cam_cc_pll8_config);
-
 	ret = cam_cc_waipio_fixup(pdev, regmap);
 	if (ret)
 		return ret;
+
+	clk_lucid_evo_pll_configure(&cam_cc_pll0, regmap, cam_cc_pll0.config);
+	clk_lucid_evo_pll_configure(&cam_cc_pll1, regmap, cam_cc_pll1.config);
+	clk_rivian_evo_pll_configure(&cam_cc_pll2, regmap, cam_cc_pll2.config);
+	clk_lucid_evo_pll_configure(&cam_cc_pll3, regmap, cam_cc_pll3.config);
+	clk_lucid_evo_pll_configure(&cam_cc_pll4, regmap, cam_cc_pll4.config);
+	clk_lucid_evo_pll_configure(&cam_cc_pll5, regmap, cam_cc_pll5.config);
+	clk_lucid_evo_pll_configure(&cam_cc_pll6, regmap, cam_cc_pll6.config);
+	clk_lucid_evo_pll_configure(&cam_cc_pll7, regmap, cam_cc_pll7.config);
+	clk_lucid_evo_pll_configure(&cam_cc_pll8, regmap, cam_cc_pll8.config);
 
 	/*
 	 * Keep clocks always enabled:

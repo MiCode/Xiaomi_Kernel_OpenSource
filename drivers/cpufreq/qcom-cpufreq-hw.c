@@ -589,7 +589,7 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 		c->dcvsh_irq = of_irq_get(dev->of_node, index);
 		if (c->dcvsh_irq > 0) {
 			mutex_init(&c->dcvsh_lock);
-			INIT_DEFERRABLE_WORK(&c->freq_poll_work,
+			INIT_DELAYED_WORK(&c->freq_poll_work,
 					limits_dcvsh_poll);
 		}
 	}

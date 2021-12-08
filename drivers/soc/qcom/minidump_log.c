@@ -367,11 +367,11 @@ static void update_md_stack(struct md_region *stack_mdr,
 	}
 }
 
-static void update_md_cpu_stack(u32 cpu, u64 sp)
+static void update_md_cpu_stack(struct task_struct *tsk, u32 cpu, u64 sp)
 {
 	struct md_stack_cpu_data *md_stack_cpu_d = &per_cpu(md_stack_data, cpu);
 
-	if (is_idle_task(current) || !md_current_stack_init)
+	if (is_idle_task(tsk) || !md_current_stack_init)
 		return;
 
 	update_md_stack(md_stack_cpu_d->stack_mdr,
@@ -384,7 +384,7 @@ void md_current_stack_notifer(void *ignore, bool preempt,
 	u32 cpu = task_cpu(next);
 	u64 sp = (u64)next->stack;
 
-	update_md_cpu_stack(cpu, sp);
+	update_md_cpu_stack(next, cpu, sp);
 }
 
 void md_current_stack_ipi_handler(void *data)
@@ -399,7 +399,7 @@ void md_current_stack_ipi_handler(void *data)
 		stack_vm_area = task_stack_vm_area(current);
 		sp = (u64)stack_vm_area->addr;
 	}
-	update_md_cpu_stack(cpu, sp);
+	update_md_cpu_stack(current, cpu, sp);
 }
 
 static void update_md_current_task(struct md_region *mdr, int mdno)
@@ -545,6 +545,42 @@ static void register_suspend_context(void)
 	register_pm_notifier(&minidump_pm_nb);
 	md_suspend_context.init = true;
 }
+#endif
+
+#ifdef CONFIG_ARM64
+static void register_irq_stack(void)
+{
+	int cpu;
+	unsigned int i;
+	int irq_stack_pages_count;
+	u64 irq_stack_base;
+	struct md_region irq_sp_entry;
+	u64 sp;
+	u64 *irq_stack_ptr = android_debug_per_cpu_symbol(ADS_IRQ_STACK_PTR);
+
+	for_each_possible_cpu(cpu) {
+		irq_stack_base = *(u64 *)(per_cpu_ptr((void *)irq_stack_ptr, cpu));
+		if (is_vmap_stack) {
+			irq_stack_pages_count = IRQ_STACK_SIZE / PAGE_SIZE;
+			sp = irq_stack_base & ~(PAGE_SIZE - 1);
+			for (i = 0; i < irq_stack_pages_count; i++) {
+				scnprintf(irq_sp_entry.name,
+					  sizeof(irq_sp_entry.name),
+					  "KISTACK%d_%d", cpu, i);
+				register_stack_entry(&irq_sp_entry, sp,
+						     PAGE_SIZE);
+				sp += PAGE_SIZE;
+			}
+		} else {
+			sp = irq_stack_base;
+			scnprintf(irq_sp_entry.name, sizeof(irq_sp_entry.name),
+				  "KISTACK%d", cpu);
+			register_stack_entry(&irq_sp_entry, sp, IRQ_STACK_SIZE);
+		}
+	}
+}
+#else
+static inline void register_irq_stack(void) {}
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
@@ -1262,6 +1298,7 @@ int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
 	is_vmap_stack = IS_ENABLED(CONFIG_VMAP_STACK);
+	register_irq_stack();
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
 	register_current_stack();
 	register_suspend_context();

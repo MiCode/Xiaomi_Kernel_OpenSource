@@ -13,6 +13,7 @@
 #include <linux/reset-controller.h>
 #include <linux/interconnect.h>
 #include <linux/phy/phy-qcom-ufs.h>
+#include <linux/clk/qcom.h>
 #include <linux/devfreq.h>
 #include <linux/cpu.h>
 #include <linux/blk-mq.h>
@@ -672,6 +673,36 @@ out:
 	return err;
 }
 
+static void ufs_qcom_force_mem_config(struct ufs_hba *hba)
+{
+	struct ufs_clk_info *clki;
+
+	/*
+	 * Configure the behavior of ufs clocks core and peripheral
+	 * memory state when they are turned off.
+	 * This configuration is required to allow retaining
+	 * ICE crypto configuration (including keys) when
+	 * core_clk_ice is turned off, and powering down
+	 * non-ICE RAMs of host controller.
+	 *
+	 * This is applicable only to gcc clocks.
+	 */
+	list_for_each_entry(clki, &hba->clk_list_head, list) {
+
+		/* skip it for non-gcc (rpmh) clocks */
+		if (!strcmp(clki->name, "ref_clk"))
+			continue;
+
+		if (!strcmp(clki->name, "core_clk_ice") ||
+			!strcmp(clki->name, "core_clk_ice_hw_ctl"))
+			qcom_clk_set_flags(clki->clk, CLKFLAG_RETAIN_MEM);
+		else
+			qcom_clk_set_flags(clki->clk, CLKFLAG_NORETAIN_MEM);
+		qcom_clk_set_flags(clki->clk, CLKFLAG_NORETAIN_PERIPH);
+		qcom_clk_set_flags(clki->clk, CLKFLAG_PERIPH_OFF_CLEAR);
+	}
+}
+
 static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 				      enum ufs_notify_change_status status)
 {
@@ -680,6 +711,7 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
+		ufs_qcom_force_mem_config(hba);
 		ufs_qcom_power_up_sequence(hba);
 		/*
 		 * The PHY PLL output is the source of tx/rx lane symbol
@@ -1021,6 +1053,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	struct device *dev = hba->dev;
+	u32 temp;
 
 	switch (status) {
 	case PRE_CHANGE:
@@ -1048,6 +1081,17 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 		err = ufs_qcom_enable_hw_clk_gating(hba);
 		if (err)
 			goto out;
+
+		/*
+		 * Controller checks ICE configuration error without
+		 * checking if the command is SCSI command
+		 */
+		temp = readl_relaxed(host->dev_ref_clk_ctrl_mmio);
+		temp |= BIT(31);
+		writel_relaxed(temp, host->dev_ref_clk_ctrl_mmio);
+		/* ensure that UTP_SCASI_CHECK_DIS is enabled before link startup */
+		wmb();
+
 		/*
 		 * Some UFS devices (and may be host) have issues if LCC is
 		 * enabled. So we are setting PA_Local_TX_LCC_Enable to 0
@@ -3695,8 +3739,9 @@ static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 
 	d = (struct devfreq_simple_ondemand_data *)data;
 	p->polling_ms = 60;
+	p->timer = DEVFREQ_TIMER_DELAYED;
 	d->upthreshold = 70;
-	d->downdifferential = 5;
+	d->downdifferential = 65;
 }
 
 static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {

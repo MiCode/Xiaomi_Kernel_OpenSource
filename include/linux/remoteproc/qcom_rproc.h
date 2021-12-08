@@ -27,12 +27,18 @@ struct qcom_ssr_notify_data {
 };
 
 void *qcom_register_ssr_notifier(const char *name, struct notifier_block *nb);
+void *qcom_register_early_ssr_notifier(const char *name, struct notifier_block *nb);
 int qcom_unregister_ssr_notifier(void *notify, struct notifier_block *nb);
 
 #else
 
 static inline void *qcom_register_ssr_notifier(const char *name,
 					       struct notifier_block *nb)
+{
+	return NULL;
+}
+
+static inline void *qcom_register_early_ssr_notifier(const char *name, struct notifier_block *nb)
 {
 	return NULL;
 }

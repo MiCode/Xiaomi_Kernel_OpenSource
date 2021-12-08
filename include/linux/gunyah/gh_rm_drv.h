@@ -286,6 +286,13 @@ typedef int (*gh_vcpu_affinity_reset_cb_t)(gh_vmid_t vmid, gh_label_t label);
 typedef int (*gh_vpm_grp_set_cb_t)(gh_vmid_t vmid, gh_capid_t cap_id, int linux_irq);
 typedef int (*gh_vpm_grp_reset_cb_t)(gh_vmid_t vmid, int *linux_irq);
 
+/* Client APIs for VM Services */
+struct gh_vm_status {
+	u8 vm_status;
+	u8 os_status;
+	u16 app_status;
+} __packed;
+
 #if IS_ENABLED(CONFIG_GH_RM_DRV)
 /* RM client registration APIs */
 int gh_rm_register_notifier(struct notifier_block *nb);
@@ -331,13 +338,6 @@ int gh_rm_vm_reset(gh_vmid_t vmid);
 /* Client APIs for VM query */
 int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name);
 int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name);
-
-/* Client APIs for VM Services */
-struct gh_vm_status {
-	u8 vm_status;
-	u8 os_status;
-	u16 app_status;
-} __packed;
 
 struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid);
 int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status);

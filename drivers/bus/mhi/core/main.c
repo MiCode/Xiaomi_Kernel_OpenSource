@@ -1798,9 +1798,7 @@ static int mhi_update_transfer_state(struct mhi_device *mhi_dev,
 				     enum mhi_ch_state_type to_state)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
-	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_chan *mhi_chan;
-	struct mhi_chan_ctxt *chan_ctxt;
 	int dir, ret;
 
 	for (dir = 0; dir < 2; dir++) {
@@ -1814,13 +1812,6 @@ static int mhi_update_transfer_state(struct mhi_device *mhi_dev,
 		 * both upon failure
 		 */
 		mutex_lock(&mhi_chan->mutex);
-		chan_ctxt = &mhi_cntrl->mhi_ctxt->chan_ctxt[mhi_chan->chan];
-		if (!(chan_ctxt->chcfg & CHAN_CTX_CHSTATE_MASK)) {
-			mutex_unlock(&mhi_chan->mutex);
-			MHI_ERR("Channel %s(%u) context not initialized\n",
-				mhi_chan->name, mhi_chan->chan);
-			return -EINVAL;
-		}
 		ret = mhi_update_channel_state(mhi_cntrl, mhi_chan, to_state);
 		if (ret) {
 			mutex_unlock(&mhi_chan->mutex);

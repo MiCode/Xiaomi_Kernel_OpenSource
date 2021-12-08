@@ -199,6 +199,7 @@ enum adreno_gpurev {
 	 */
 	ADRENO_REV_GEN7_0_0 = 0x070000,
 	ADRENO_REV_GEN7_0_1 = 0x070001,
+	ADRENO_REV_GEN7_4_0 = 0x070400,
 };
 
 #define ADRENO_SOFT_FAULT BIT(0)

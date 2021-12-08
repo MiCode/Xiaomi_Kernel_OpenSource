@@ -48,6 +48,7 @@
 #endif
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
 #define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
+#define CNSS_MIN_TIME_SYNC_PERIOD	2000
 #define CNSS_DMS_QMI_CONNECTION_WAIT_MS 50
 #define CNSS_DMS_QMI_CONNECTION_WAIT_RETRY 200
 #define CNSS_DAEMON_CONNECT_TIMEOUT_MS  30000
@@ -2844,6 +2845,37 @@ static ssize_t enable_hds_store(struct device *dev,
 	return count;
 }
 
+static ssize_t time_sync_period_show(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%u ms\n",
+			plat_priv->ctrl_params.time_sync_period);
+}
+
+static ssize_t time_sync_period_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	unsigned int time_sync_period = 0;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (sscanf(buf, "%du", &time_sync_period) != 1) {
+		cnss_pr_err("Invalid time sync sysfs command\n");
+		return -EINVAL;
+	}
+
+	if (time_sync_period >= CNSS_MIN_TIME_SYNC_PERIOD)
+		cnss_bus_update_time_sync_period(plat_priv, time_sync_period);
+
+	return count;
+}
+
 static ssize_t recovery_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -2984,6 +3016,21 @@ static ssize_t hw_trace_override_store(struct device *dev,
 	return count;
 }
 
+static ssize_t charger_mode_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	int tmp = 0;
+
+	if (sscanf(buf, "%du", &tmp) != 1)
+		return -EINVAL;
+
+	plat_priv->charger_mode = tmp;
+	cnss_pr_dbg("Received Charger Mode: %d\n", tmp);
+	return count;
+}
+
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
@@ -2992,6 +3039,8 @@ static DEVICE_ATTR_WO(qdss_trace_start);
 static DEVICE_ATTR_WO(qdss_trace_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
 static DEVICE_ATTR_WO(hw_trace_override);
+static DEVICE_ATTR_WO(charger_mode);
+static DEVICE_ATTR_RW(time_sync_period);
 
 static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
@@ -3002,6 +3051,8 @@ static struct attribute *cnss_attrs[] = {
 	&dev_attr_qdss_trace_stop.attr,
 	&dev_attr_qdss_conf_download.attr,
 	&dev_attr_hw_trace_override.attr,
+	&dev_attr_charger_mode.attr,
+	&dev_attr_time_sync_period.attr,
 	NULL,
 };
 

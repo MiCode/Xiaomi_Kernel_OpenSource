@@ -2430,7 +2430,9 @@ static void fastrpc_ramdump_collection(int cid)
 
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
-		if (fl->cid == cid && fl->init_mem) {
+		if (fl->cid == cid && fl->init_mem &&
+				fl->file_close < FASTRPC_PROCESS_DSP_EXIT_COMPLETE &&
+				fl->dsp_proc_init) {
 			hlist_add_head(&fl->init_mem->hn_init, &chan->initmems);
 			fl->is_ramdump_pend = true;
 		}
@@ -3502,7 +3504,7 @@ static int fastrpc_wait_on_async_queue(
 read_async_job:
 	interrupted = wait_event_interruptible(fl->async_wait_queue,
 				atomic_read(&fl->async_queue_job_count));
-	if (!fl || fl->file_close == 1) {
+	if (!fl || fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
 		err = -EBADF;
 		goto bail;
 	}
@@ -3581,7 +3583,7 @@ static int fastrpc_wait_on_notif_queue(
 read_notif_status:
 	interrupted = wait_event_interruptible(fl->proc_state_notif.notif_wait_queue,
 				atomic_read(&fl->proc_state_notif.notif_queue_count));
-	if (!fl || fl->file_close == 1) {
+	if (!fl || fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
 		err = -EBADF;
 		goto bail;
 	}
@@ -4511,6 +4513,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.perf_kernel = NULL;
 	ioctl.perf_dsp = NULL;
 	ioctl.job = NULL;
+	spin_lock(&fl->apps->hlock);
+	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_INIT;
+	spin_unlock(&fl->apps->hlock);
 	/*
 	 * Pass 2 for "kernel" arg to send kernel msg to DSP
 	 * with non-zero msg PID for the DSP to directly use
@@ -4518,6 +4523,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	 */
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_NONZERO_PID, &ioctl)));
+	spin_lock(&fl->apps->hlock);
+	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_COMPLETE;
+	spin_unlock(&fl->apps->hlock);
 	if (err && fl->dsp_proc_init)
 		ADSPRPC_ERR(
 			"releasing DSP process failed with %d (0x%x) for %s\n",
@@ -5018,8 +5026,13 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 	mutex_unlock(&fl->map_mutex);
 	if (err)
 		goto bail;
+	VERIFY(err, map != NULL);
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
 	VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
-				map->phys, map->size, map->flags)));
+			map->phys, map->size, map->flags)));
 	if (err)
 		goto bail;
 	mutex_lock(&fl->map_mutex);
@@ -5110,7 +5123,7 @@ static int fastrpc_internal_mem_map(struct fastrpc_file *fl,
 
 	/* create DSP mapping */
 	VERIFY(err, !(err = fastrpc_mem_map_to_dsp(fl, ud->m.fd, ud->m.offset,
-		ud->m.flags, map->va, map->phys, ud->m.length, &map->raddr)));
+		ud->m.flags, map->va, map->phys, map->size, &map->raddr)));
 	if (err)
 		goto bail;
 	ud->m.vaddrout = map->raddr;
@@ -5526,11 +5539,8 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 			hlist_del_init(&fl->device->hn);
 		}
 	}
+	fl->file_close = FASTRPC_PROCESS_EXIT_START;
 	spin_unlock(&me->hlock);
-
-	spin_lock(&fl->hlock);
-	fl->file_close = 1;
-	spin_unlock(&fl->hlock);
 
 	(void)fastrpc_release_current_dsp_process(fl);
 
@@ -5969,6 +5979,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->in_process_create = false;
 	fl->is_unsigned_pd = false;
 	init_completion(&fl->work);
+	fl->file_close = FASTRPC_PROCESS_DEFAULT_STATE;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
 	mutex_init(&fl->map_mutex);
@@ -6562,7 +6573,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		goto bail;
 
 	spin_lock(&fl->hlock);
-	if (fl->file_close == 1) {
+	if (fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
 		err = -ESHUTDOWN;
 		pr_warn("adsprpc: fastrpc_device_release is happening, So not sending any new requests to DSP\n");
 		spin_unlock(&fl->hlock);
@@ -6960,7 +6971,9 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 				me->channel[RH_CID].ramdumpenabled = 0;
 			}
 		}
-		if (cid == CDSP_DOMAIN_ID && dump_enabled()) {
+		/* Skip ram dump collection in first boot */
+		if (cid == CDSP_DOMAIN_ID && dump_enabled() &&
+				ctx->ssrcount) {
 			mutex_lock(&me->channel[cid].smd_mutex);
 			fastrpc_print_debug_data(cid);
 			mutex_unlock(&me->channel[cid].smd_mutex);

@@ -18,6 +18,8 @@
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
 #include <linux/thermal.h>
+#include <linux/slab.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/ipc_logging.h>
 
 #define BCL_DRIVER_NAME       "bcl_pmic5"
@@ -28,6 +30,7 @@
 #define BCL_IBAT_TOO_HIGH     0x4C
 #define BCL_IBAT_READ         0x86
 #define BCL_IBAT_SCALING_UA   78127
+#define BCL_IBAT_CCM_SCALING_UA   15625
 
 #define BCL_VBAT_READ         0x76
 #define BCL_VBAT_ADC_LOW      0x48
@@ -49,6 +52,10 @@
 #define BCL_VBAT_INC_MV       25
 #define BCL_VBAT_MAX_MV       3600
 #define BCL_VBAT_THRESH_BASE  2250
+
+#define BCL_IBAT_CCM_OFFSET   800
+#define BCL_IBAT_CCM_LSB      100
+#define BCL_IBAT_CCM_MAX_VAL  14
 
 #define MAX_PERPH_COUNT       2
 #define IPC_LOGPAGES          2
@@ -84,6 +91,19 @@ static char bcl_int_names[BCL_TYPE_MAX][25] = {
 	"bcl-lvl2",
 };
 
+enum bcl_ibat_ext_range_type {
+	BCL_IBAT_RANGE_LVL0,
+	BCL_IBAT_RANGE_LVL1,
+	BCL_IBAT_RANGE_LVL2,
+	BCL_IBAT_RANGE_MAX,
+};
+
+static uint32_t bcl_ibat_ext_ranges[BCL_IBAT_RANGE_MAX] = {
+	10,		/* default range factor */
+	20,
+	25
+};
+
 struct bcl_device;
 
 struct bcl_peripheral_data {
@@ -104,6 +124,8 @@ struct bcl_device {
 	struct regmap			*regmap;
 	uint16_t			fg_bcl_addr;
 	void				*ipc_log;
+	bool				ibat_ccm_enabled;
+	uint32_t			ibat_ext_range_factor;
 	struct bcl_peripheral_data	param[BCL_TYPE_MAX];
 };
 
@@ -175,28 +197,47 @@ static void convert_adc_to_vbat_val(int *val)
 	*val = (*val * BCL_VBAT_SCALING_UV) / 1000;
 }
 
-static void convert_ibat_to_adc_val(int *val)
+static void convert_ibat_to_adc_val(int *val, int scaling_factor)
 {
 	/*
 	 * Threshold register can be bit shifted from ADC MSB.
 	 * So the scaling factor is half in those cases.
 	 */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * 2000 * 2, BCL_IBAT_SCALING_UA);
+		*val = (int)div_s64(*val * 2000 * 2, scaling_factor);
 	else if (no_bit_shift)
-		*val = (int)div_s64(*val * 1000, BCL_IBAT_SCALING_UA);
+		*val = (int)div_s64(*val * 1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
+				scaling_factor);
 	else
-		*val = (int)div_s64(*val * 2000, BCL_IBAT_SCALING_UA);
+		*val = (int)div_s64(*val * 2000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
+				scaling_factor);
 
 }
 
-static void convert_adc_to_ibat_val(int *val)
+static void convert_adc_to_ibat_val(int *val, int scaling_factor)
 {
 	/* Scaling factor will be half if ibat_use_qg_adc is true */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 2 * 1000);
+		*val = (int)div_s64(*val * scaling_factor, 2 * 1000);
 	else
-		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 1000);
+		*val = (int)div_s64(*val * scaling_factor,
+				1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0]);
+}
+
+static int8_t convert_ibat_to_ccm_val(int ibat)
+{
+	int8_t val = BCL_IBAT_CCM_MAX_VAL;
+
+	val = (int8_t)((ibat - BCL_IBAT_CCM_OFFSET) / BCL_IBAT_CCM_LSB);
+
+	if (val > BCL_IBAT_CCM_MAX_VAL) {
+		pr_err(
+		"CCM thresh:%d is invalid, use MAX supported threshold\n",
+			ibat);
+		val = BCL_IBAT_CCM_MAX_VAL;
+	}
+
+	return val;
 }
 
 static int bcl_set_ibat(void *data, int low, int high)
@@ -222,7 +263,12 @@ static int bcl_set_ibat(void *data, int low, int high)
 	}
 
 	ibat_ua = thresh_value;
-	convert_ibat_to_adc_val(&thresh_value);
+	if (bat_data->dev->ibat_ccm_enabled)
+		convert_ibat_to_adc_val(&thresh_value,
+				BCL_IBAT_CCM_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
+	else
+		convert_ibat_to_adc_val(&thresh_value,
+				BCL_IBAT_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
 	val = (int8_t)thresh_value;
 	switch (bat_data->type) {
 	case BCL_IBAT_LVL0:
@@ -232,6 +278,8 @@ static int bcl_set_ibat(void *data, int low, int high)
 		break;
 	case BCL_IBAT_LVL1:
 		addr = BCL_IBAT_TOO_HIGH;
+		if (bat_data->dev->ibat_ccm_enabled)
+			val = convert_ibat_to_ccm_val(ibat_ua);
 		pr_debug("ibat too high threshold:%d mA ADC:0x%02x\n",
 				ibat_ua, val);
 		break;
@@ -274,7 +322,12 @@ static int bcl_read_ibat(void *data, int *adc_value)
 		 */
 		*adc_value = bat_data->last_val;
 	} else {
-		convert_adc_to_ibat_val(adc_value);
+		if (bat_data->dev->ibat_ccm_enabled)
+			convert_adc_to_ibat_val(adc_value,
+				BCL_IBAT_CCM_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
+		else
+			convert_adc_to_ibat_val(adc_value,
+				BCL_IBAT_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
 		bat_data->last_val = *adc_value;
 	}
 	pr_debug("ibat:%d mA ADC:0x%02x\n", bat_data->last_val, val);
@@ -502,6 +555,56 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int bcl_get_ibat_ext_range_factor(struct platform_device *pdev,
+		uint32_t *ibat_range_factor)
+{
+	int ret = 0;
+	const char *name;
+	struct nvmem_cell *cell;
+	size_t len;
+	char *buf;
+	uint32_t ext_range_index = 0;
+
+	ret = of_property_read_string(pdev->dev.of_node, "nvmem-cell-names", &name);
+	if (ret) {
+		*ibat_range_factor = bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0];
+		pr_debug("Default ibat range factor enabled %u\n", *ibat_range_factor);
+		return 0;
+	}
+
+	cell = nvmem_cell_get(&pdev->dev, name);
+	if (IS_ERR(cell)) {
+		dev_err(&pdev->dev, "failed to get nvmem cell %s\n", name);
+		return PTR_ERR(cell);
+	}
+
+	buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+	if (IS_ERR_OR_NULL(buf)) {
+		dev_err(&pdev->dev, "failed to read nvmem cell %s\n", name);
+		return PTR_ERR(buf);
+	}
+
+	if (len <= 0 || len > sizeof(uint32_t)) {
+		dev_err(&pdev->dev, "nvmem cell length out of range %d\n", len);
+		kfree(buf);
+		return -EINVAL;
+	}
+	memcpy(&ext_range_index, buf, min(len, sizeof(ext_range_index)));
+	kfree(buf);
+
+	if (ext_range_index >= BCL_IBAT_RANGE_MAX) {
+		dev_err(&pdev->dev, "invalid BCL ibat scaling factor %d\n", ext_range_index);
+		return -EINVAL;
+	}
+
+	*ibat_range_factor = bcl_ibat_ext_ranges[ext_range_index];
+	pr_debug("ext_range_index %u, ibat range factor %u\n",
+			ext_range_index, *ibat_range_factor);
+
+	return 0;
+}
+
 static int bcl_get_devicetree_data(struct platform_device *pdev,
 					struct bcl_device *bcl_perph)
 {
@@ -522,6 +625,11 @@ static int bcl_get_devicetree_data(struct platform_device *pdev,
 				"qcom,ibat-use-qg-adc-5a");
 	no_bit_shift =  of_property_read_bool(dev_node,
 				"qcom,pmic7-threshold");
+	bcl_perph->ibat_ccm_enabled =  of_property_read_bool(dev_node,
+						"qcom,ibat-ccm-hw-support");
+
+	ret = bcl_get_ibat_ext_range_factor(pdev,
+					&bcl_perph->ibat_ext_range_factor);
 
 	return ret;
 }
@@ -689,6 +797,7 @@ static int bcl_probe(struct platform_device *pdev)
 {
 	struct bcl_device *bcl_perph = NULL;
 	char bcl_name[40];
+	int err = 0;
 
 	if (bcl_device_ct >= MAX_PERPH_COUNT) {
 		dev_err(&pdev->dev, "Max bcl peripheral supported already.\n");
@@ -708,7 +817,11 @@ static int bcl_probe(struct platform_device *pdev)
 	}
 
 	bcl_device_ct++;
-	bcl_get_devicetree_data(pdev, bcl_perph);
+	err = bcl_get_devicetree_data(pdev, bcl_perph);
+	if (err) {
+		bcl_device_ct--;
+		return err;
+	}
 	bcl_probe_vbat(pdev, bcl_perph);
 	bcl_probe_ibat(pdev, bcl_perph);
 	bcl_probe_lvls(pdev, bcl_perph);

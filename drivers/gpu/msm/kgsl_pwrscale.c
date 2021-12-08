@@ -259,8 +259,6 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
 	level = pwr->active_pwrlevel;
 
-	kgsl_pwrctrl_update_thermal_pwrlevel(device);
-
 	/* If the governor recommends a new frequency, update it here */
 	if (rec_freq != cur_freq) {
 		for (i = 0; i < pwr->num_pwrlevels; i++)
@@ -340,6 +338,7 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 		last_b->ram_time = device->pwrscale.accum_stats.ram_time;
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;
 		last_b->buslevel = device->pwrctrl.cur_buslevel;
+		last_b->gpu_minfreq = pwrctrl->pwrlevels[pwrctrl->min_pwrlevel].gpu_freq;
 	}
 
 	kgsl_pwrctrl_busy_time(device, stat->total_time, stat->busy_time);
@@ -406,6 +405,7 @@ int kgsl_busmon_get_dev_status(struct device *dev,
 		b->ram_time = last_b->ram_time;
 		b->ram_wait = last_b->ram_wait;
 		b->buslevel = last_b->buslevel;
+		b->gpu_minfreq = last_b->gpu_minfreq;
 	}
 	return 0;
 }
@@ -498,7 +498,15 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	/* Update bus vote if AB or IB is modified */
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
 		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
-		pwr->bus_ab_mbytes = ab_mbytes;
+		/*
+		 * When gpu is thermally throttled to its lowest power level,
+		 * drop GPU's AB vote as a last resort to lower CX voltage and
+		 * to prevent thermal reset.
+		 */
+		if (pwr->thermal_pwrlevel != pwr->num_pwrlevels - 1)
+			pwr->bus_ab_mbytes = ab_mbytes;
+		else
+			pwr->bus_ab_mbytes = 0;
 		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
 	}
 
@@ -621,6 +629,49 @@ static void pwrscale_of_ca_aware(struct kgsl_device *device)
 	of_node_put(node);
 }
 
+/*
+ * thermal_max_notifier_call - Callback function registered to receive qos max
+ * frequency events.
+ * @nb: The notifier block
+ * @val: Max frequency value in KHz for GPU
+ *
+ * The function subscribes to GPU max frequency change and updates thermal
+ * power level accordingly.
+ */
+static int thermal_max_notifier_call(struct notifier_block *nb, unsigned long val, void *data)
+{
+	struct kgsl_pwrctrl *pwr = container_of(nb, struct kgsl_pwrctrl, nb_max);
+	struct kgsl_device *device = container_of(pwr, struct kgsl_device, pwrctrl);
+	u32 max_freq = val * 1000;
+	int level;
+
+	if (!device->pwrscale.devfreq_enabled)
+		return NOTIFY_DONE;
+
+	for (level = pwr->num_pwrlevels - 1; level >= 0; level--) {
+		/* get nearest power level with a maximum delta of 5MHz */
+		if (abs(pwr->pwrlevels[level].gpu_freq - max_freq) < 5000000)
+			break;
+	}
+
+	if (level < 0)
+		return NOTIFY_DONE;
+
+	if (level == pwr->thermal_pwrlevel)
+		return NOTIFY_OK;
+
+	trace_kgsl_thermal_constraint(max_freq);
+	pwr->thermal_pwrlevel = level;
+
+	mutex_lock(&device->mutex);
+
+	/* Update the current level using the new limit */
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
+
+	mutex_unlock(&device->mutex);
+	return NOTIFY_OK;
+}
+
 int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 		const char *governor)
 {
@@ -703,6 +754,16 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 		return ret;
 	}
 
+	pwr->nb_max.notifier_call = thermal_max_notifier_call;
+	ret = dev_pm_qos_add_notifier(&pdev->dev, &pwr->nb_max, DEV_PM_QOS_MAX_FREQUENCY);
+
+	if (ret) {
+		dev_err(device->dev, "Unable to register notifier call for thermal: %d\n", ret);
+		device->pwrscale.enabled = false;
+		msm_adreno_tz_exit();
+		return ret;
+	}
+
 	devfreq = devfreq_add_device(&pdev->dev, &gpu_profile->profile,
 			governor, &adreno_tz_data);
 	if (IS_ERR_OR_NULL(devfreq)) {
@@ -767,6 +828,7 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 
 	devfreq_remove_device(device->pwrscale.devfreqptr);
 	device->pwrscale.devfreqptr = NULL;
+	dev_pm_qos_remove_notifier(&device->pdev->dev, &pwr->nb_max, DEV_PM_QOS_MAX_FREQUENCY);
 	msm_adreno_tz_exit();
 }
 

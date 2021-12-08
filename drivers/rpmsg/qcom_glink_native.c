@@ -56,8 +56,7 @@ do {									     \
 #define RPM_GLINK_CID_MAX	65536
 
 static int should_wake;
-int glink_resume_pkt;
-EXPORT_SYMBOL(glink_resume_pkt);
+static int glink_resume_pkt;
 
 struct glink_msg {
 	__le16 cmd;
@@ -971,6 +970,18 @@ static int qcom_glink_rx_defer(struct qcom_glink *glink, size_t extra)
 	return 0;
 }
 
+bool qcom_glink_is_wakeup(bool reset)
+{
+	if (!glink_resume_pkt)
+		return false;
+
+	if (reset)
+		glink_resume_pkt = false;
+
+	return true;
+}
+EXPORT_SYMBOL(qcom_glink_is_wakeup);
+
 static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 {
 	struct glink_core_rx_intent *intent;
@@ -1081,6 +1092,12 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 			CH_ERR(channel, "callback not present\n");
 		}
 		spin_unlock(&channel->recv_lock);
+
+		if (qcom_glink_is_wakeup(true)) {
+			pr_info("%s[%d:%d] %s: wakeup packet size:%d\n",
+				channel->name, channel->lcid, channel->rcid,
+				__func__, intent->offset);
+		}
 
 		intent->offset = 0;
 		channel->buf = NULL;

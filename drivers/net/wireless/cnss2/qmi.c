@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
@@ -2176,7 +2179,8 @@ static void cnss_wlfw_request_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 			    ind_msg->mem_seg[i].size, ind_msg->mem_seg[i].type);
 		plat_priv->fw_mem[i].type = ind_msg->mem_seg[i].type;
 		plat_priv->fw_mem[i].size = ind_msg->mem_seg[i].size;
-		if (plat_priv->fw_mem[i].type == CNSS_MEM_TYPE_DDR)
+		if (!plat_priv->fw_mem[i].va &&
+		    plat_priv->fw_mem[i].type == CNSS_MEM_TYPE_DDR)
 			plat_priv->fw_mem[i].attrs |=
 				DMA_ATTR_FORCE_CONTIGUOUS;
 		if (plat_priv->fw_mem[i].type == CNSS_MEM_CAL_V01)

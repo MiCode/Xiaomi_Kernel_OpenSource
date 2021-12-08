@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# USB eUSB2 repeater driver configuration
+#
+menu "USB eUSB2 repeater drivers"
+
+config USB_REPEATER
+	tristate "usb repeater framework"
+	help
+	  Enable this to allow eUSB2 PHY driver and connected repeater driver
+	  to bind with together, and provide eUS2 PHY driver ways to perform
+	  set of operations with repeater for USB2 functionality using eUSB2
+	  PHY and eUSB2 repeater.
+
+config I2C_EUSB2_REPEATER
+	tristate "eUSB2 i2c repeater driver"
+	depends on ARCH_QCOM
+	depends on USB_REPEATER
+	depends on I2C
+	help
+	  Enable this to support the I2C EUSB2 REPEATER. This driver provides
+	  support to reset, initialize, power up and configure eUSB2 repeater
+	  for USB HS/FS/LS functionality where eUSB2 repeater is used.
+
+	  To compile this driver as a module, choose M here.
+endmenu

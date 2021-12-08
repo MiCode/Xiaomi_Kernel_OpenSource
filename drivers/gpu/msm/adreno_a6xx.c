@@ -50,6 +50,7 @@ static u32 a6xx_pwrup_reglist[] = {
 	A6XX_SP_NC_MODE_CNTL,
 	A6XX_PC_DBG_ECO_CNTL,
 	A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
+	A6XX_UCHE_GBIF_GX_CONFIG,
 };
 
 /* IFPC only static powerup restore list */
@@ -321,7 +322,12 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 void a6xx_cx_regulator_disable_wait(struct regulator *reg,
 				struct kgsl_device *device, u32 timeout)
 {
-	if (!adreno_regulator_disable_poll(device, reg, A6XX_GPU_CC_CX_GDSCR, timeout)) {
+	u32 offset;
+
+	offset = adreno_is_a662(ADRENO_DEVICE(device)) ?
+			 A662_GPU_CC_CX_GDSCR : A6XX_GPU_CC_CX_GDSCR;
+
+	if (!adreno_regulator_disable_poll(device, reg, offset, timeout)) {
 		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
 		/* Dump the cx regulator consumer list */
 		qcom_clk_dump(NULL, reg, false);
@@ -383,6 +389,10 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	for (i = 0; i < a6xx_core->hwcg_count; i++)
 		kgsl_regwrite(device, a6xx_core->hwcg[i].offset,
 			on ? a6xx_core->hwcg[i].val : 0);
+
+	/* GBIF L2 CGC control is not part of the UCHE */
+	kgsl_regrmw(device, A6XX_UCHE_GBIF_GX_CONFIG, 0x70000,
+			FIELD_PREP(GENMASK(18, 16), on ? 2 : 0));
 
 	/*
 	 * Enable SP clock after programming HWCG registers.

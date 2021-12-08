@@ -383,8 +383,9 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 
 	delta = wallclock - wrq->window_start;
 	if (delta < 0) {
-		printk_deferred("WALT-BUG CPU%d; wallclock=%llu is lesser than window_start=%llu",
-				rq->cpu, wallclock, wrq->window_start);
+		printk_deferred("WALT-BUG CPU%d; wallclock=%llu(0x%llx) is lesser than window_start=%llu(0x%llx)",
+				rq->cpu, wallclock, wallclock,
+				wrq->window_start, wrq->window_start);
 		WALT_PANIC(1);
 	}
 	if (delta < sched_ravg_window)
@@ -500,7 +501,7 @@ unsigned int walt_big_tasks(int cpu)
 	return wrq->walt_stats.nr_big_tasks;
 }
 
-void clear_walt_request(int cpu)
+static void clear_walt_request(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
@@ -2123,9 +2124,9 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 			time_delta = wallclock - wts->mark_start;
 
 		if ((s64)time_delta < 0) {
-			printk_deferred("WALT-BUG pid=%u CPU%d wallclock=%llu < mark_start=%llu event=%d irqtime=%llu",
-					 p->pid, rq->cpu, wallclock,
-					 wts->mark_start, event, irqtime);
+			printk_deferred("WALT-BUG pid=%u CPU%d wallclock=%llu(0x%llx) < mark_start=%llu(0x%llx) event=%d irqtime=%llu",
+					 p->pid, rq->cpu, wallclock, wallclock,
+					 wts->mark_start, wts->mark_start, event, irqtime);
 			WALT_PANIC((s64)time_delta < 0);
 		}
 
@@ -2195,7 +2196,7 @@ done:
 	run_walt_irq_work(old_window_start, rq);
 }
 
-static void __sched_fork_init(struct task_struct *p)
+static inline void __sched_fork_init(struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
@@ -3774,6 +3775,9 @@ static void android_rvh_update_cpu_capacity(void *unused, int cpu, unsigned long
 
 	cpu_rq(cpu)->cpu_capacity_orig = min(max_capacity, thermal_cap);
 	*capacity = cpu_rq(cpu)->cpu_capacity_orig - rt_pressure;
+
+	if (max_capacity != arch_scale_cpu_capacity(cpu))
+		trace_update_cpu_capacity(cpu, rt_pressure, *capacity);
 }
 
 static void android_rvh_sched_cpu_starting(void *unused, int cpu)
@@ -3988,9 +3992,13 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 {
 	unsigned long flags;
 	int cpu = p->cpu;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
+
+	if (wts->mvp_list.prev == NULL && wts->mvp_list.next == NULL)
+		init_new_task_load(p);
 
 	raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
 	if (do_pl_notif(cpu_rq(cpu)))

@@ -111,6 +111,7 @@ static int heap_dt_init(struct device_node *mem_node,
 			of_reserved_mem_device_release(dev);
 		}
 	}
+	heap->is_nomap =  of_property_read_bool(mem_node, "no-map");
 
 	return ret;
 }

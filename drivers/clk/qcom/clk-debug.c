@@ -56,6 +56,9 @@ static int _clk_runtime_get_debug_mux(struct clk_debug_mux *mux, bool get)
 	int i, ret = 0;
 
 	for (i = 0; i < clk_hw_get_num_parents(&mux->hw); i++) {
+		if (i < mux->num_mux_sels && mux->mux_sels[i] == INVALID_MUX_SEL)
+			continue;
+
 		parent = clk_hw_get_parent_by_index(&mux->hw, i);
 		if (clk_is_regmap_clk(parent)) {
 			rclk = to_clk_regmap(parent);
@@ -291,7 +294,7 @@ err:
 	return ret;
 }
 
-static void clk_debug_mux_init(struct clk_hw *hw, struct dentry *dentry)
+static int clk_debug_mux_init(struct clk_hw *hw)
 {
 	struct clk_debug_mux *mux;
 	struct clk_hw *parent;
@@ -309,13 +312,14 @@ static void clk_debug_mux_init(struct clk_hw *hw, struct dentry *dentry)
 		}
 	}
 
-	clk_debug_measure_add(hw, dentry);
+	return 0;
 }
 
 const struct clk_ops clk_debug_mux_ops = {
 	.get_parent = clk_debug_mux_get_parent,
 	.set_parent = clk_debug_mux_set_parent,
-	.debug_init = clk_debug_mux_init,
+	.debug_init = clk_debug_measure_add,
+	.init = clk_debug_mux_init,
 };
 EXPORT_SYMBOL(clk_debug_mux_ops);
 

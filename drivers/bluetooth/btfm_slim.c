@@ -25,6 +25,7 @@
 #define SLIM_PROD_CODE		0x221
 
 static bool btfm_is_port_opening_delayed = true;
+static int btfm_num_ports_open;
 
 int btfm_slim_write(struct btfmslim *btfmslim,
 		uint16_t reg, uint8_t reg_val, uint8_t pgd)
@@ -175,7 +176,11 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		BTFMSLIM_ERR("slim_stream_enable failed = %d", ret);
 		goto error;
 	}
+
+	if (ret == 0)
+		btfm_num_ports_open++;
 error:
+	BTFMSLIM_INFO("btfm_num_ports_open: %d", btfm_num_ports_open);
 	kfree(chan->dai.sconfig.chs);
 	return ret;
 }
@@ -215,6 +220,10 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	}
 	ch->dai.sconfig.port_mask = 0;
 	kfree(ch->dai.sconfig.chs);
+
+	if (btfm_num_ports_open > 0)
+		btfm_num_ports_open--;
+	BTFMSLIM_INFO("btfm_num_ports_open: %d", btfm_num_ports_open);
 	return ret;
 }
 
@@ -378,10 +387,10 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 			slim_ifd->e_addr.manf_id, slim_ifd->e_addr.prod_code,
 			slim_ifd->e_addr.dev_index, slim_ifd->e_addr.instance);
 
-	if (chipset_ver == QCA_HSP_SOC_ID_0200 ||
+	if (btfm_num_ports_open == 0 && (chipset_ver == QCA_HSP_SOC_ID_0200 ||
 		chipset_ver == QCA_HSP_SOC_ID_0210 ||
 		chipset_ver == QCA_HSP_SOC_ID_1201 ||
-		chipset_ver == QCA_HSP_SOC_ID_1211) {
+		chipset_ver == QCA_HSP_SOC_ID_1211)) {
 		BTFMSLIM_INFO("SB reset needed before getting LA, sleeping");
 		msleep(DELAY_FOR_PORT_OPEN_MS);
 	}

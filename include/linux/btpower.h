@@ -81,7 +81,4 @@ int btpower_aop_mbox_init(struct btpower_platform_data *pdata);
 #define BT_CMD_GETVAL_POWER_SRCS	0xbfb1
 #define BT_CMD_SET_IPA_TCS_INFO  0xbfc0
 
-/* total number of power src */
-#define BT_POWER_SRC_SIZE           28
-
 #endif /* __LINUX_BLUETOOTH_POWER_H */

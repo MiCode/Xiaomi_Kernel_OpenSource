@@ -766,7 +766,7 @@ static int icnss_control_params_debug_show(struct seq_file *s, void *data)
 
 	seq_puts(s, "\nCurrent value:\n");
 
-	seq_printf(s, "qmi_timeout: %u\n", priv->ctrl_params.qmi_timeout);
+	seq_printf(s, "qmi_timeout: %u\n", jiffies_to_msecs(priv->ctrl_params.qmi_timeout));
 
 	return 0;
 }

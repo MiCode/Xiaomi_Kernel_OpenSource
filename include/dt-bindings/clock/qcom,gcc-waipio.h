@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_WAIPIO_H
@@ -194,6 +194,8 @@
 #define GCC_VIDEO_AXI0_CLK					182
 #define GCC_VIDEO_AXI1_CLK					183
 #define GCC_VIDEO_XO_CLK					184
+#define GCC_GPLL2						185
+#define GCC_GPLL3						186
 
 /* GCC resets */
 #define GCC_CAMERA_BCR						0
