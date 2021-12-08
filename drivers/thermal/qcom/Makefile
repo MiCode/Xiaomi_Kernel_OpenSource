@@ -14,3 +14,6 @@ obj-$(CONFIG_QTI_CPU_VOLTAGE_COOLING_DEVICE) += cpu_voltage_cooling.o
 obj-$(CONFIG_QTI_DDR_COOLING_DEVICE) += ddr_cdev.o
 obj-$(CONFIG_QTI_THERMAL_LIMITS_DCVS) += msm_lmh_dcvs.o
 obj-$(CONFIG_QTI_POLICY_ENGINE_SENSOR) += policy_engine.o
+
+obj-$(CONFIG_QTI_QMI_COOLING_DEVICE) += qti_qmi_cdev.o
+qti_qmi_cdev-y += thermal_mitigation_device_service_v01.o qmi_cooling.o
