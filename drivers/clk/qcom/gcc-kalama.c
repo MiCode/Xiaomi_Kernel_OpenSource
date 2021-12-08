@@ -1352,9 +1352,10 @@ static struct clk_rcg2 gcc_qupv3_wrap2_s7_clk_src = {
 static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
 	F(25000000, P_GCC_GPLL0_OUT_EVEN, 12, 0, 0),
+	F(37500000, P_GCC_GPLL0_OUT_EVEN, 8, 0, 0),
 	F(50000000, P_GCC_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(100000000, P_GCC_GPLL0_OUT_EVEN, 3, 0, 0),
-	F(202000000, P_GCC_GPLL9_OUT_MAIN, 4, 0, 0),
+	F(148000000, P_GCC_GPLL9_OUT_MAIN, 4, 0, 0),
 	{ }
 };
 
@@ -1386,7 +1387,8 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 static const struct freq_tbl ftbl_gcc_sdcc4_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
 	F(25000000, P_GCC_GPLL0_OUT_EVEN, 12, 0, 0),
-	F(100000000, P_GCC_GPLL0_OUT_EVEN, 3, 0, 0),
+	F(37500000, P_GCC_GPLL0_OUT_EVEN, 8, 0, 0),
+	F(75000000, P_GCC_GPLL0_OUT_EVEN, 4, 0, 0),
 	{ }
 };
 
@@ -1410,7 +1412,7 @@ static struct clk_rcg2 gcc_sdcc4_apps_clk_src = {
 		.num_vdd_classes = ARRAY_SIZE(gcc_kalama_regulators),
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 100000000},
+			[VDD_LOWER] = 75000000},
 	},
 };
 
@@ -3786,7 +3788,7 @@ static const struct regmap_config gcc_kalama_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = 0x1f1030,
+	.max_register = 0x1f41f0,
 	.fast_io = true,
 };
 
