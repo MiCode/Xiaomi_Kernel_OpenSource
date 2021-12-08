@@ -1707,13 +1707,37 @@ struct arm_smmu_device *qsmmuv500_create(struct arm_smmu_device *smmu,
 	return &data->smmu;
 }
 
+static struct arm_smmu_device *qsmmuv500_virt_create(struct arm_smmu_device *smmu,
+		const struct arm_smmu_impl *impl)
+{
+	struct device *dev = smmu->dev;
+	struct qsmmuv500_archdata *data;
+	int ret;
+
+	data = devm_krealloc(dev, smmu, sizeof(*data), GFP_KERNEL | __GFP_ZERO);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+
+	INIT_LIST_HEAD(&data->tbus);
+	spin_lock_init(&data->atos_lock);
+	INIT_WORK(&data->outstanding_tnx_work,
+		  qsmmuv500_log_outstanding_transactions);
+	data->smmu.impl = impl;
+
+	ret = qsmmuv500_read_actlr_tbl(data);
+	if (ret)
+		return ERR_PTR(ret);
+
+	return &data->smmu;
+}
+
 struct arm_smmu_device *qsmmuv500_impl_init(struct arm_smmu_device *smmu)
 {
 	if (of_device_is_compatible(smmu->dev->of_node, "qcom,adreno-smmu"))
 		return qsmmuv500_create(smmu, &qsmmuv500_adreno_impl);
 
 	if (of_device_is_compatible(smmu->dev->of_node, "qcom,virt-smmu"))
-		return qsmmuv500_create(smmu, &qsmmuv500_virt_impl);
+		return qsmmuv500_virt_create(smmu, &qsmmuv500_virt_impl);
 
 	return qsmmuv500_create(smmu, &qsmmuv500_impl);
 }
