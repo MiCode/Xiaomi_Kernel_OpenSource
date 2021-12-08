@@ -298,7 +298,7 @@
 			};
 
 			qtm_config2: qtm-config2 {
-				temperature = <65000>;
+				temperature = <75000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
@@ -318,112 +318,6 @@
 			mmw2_cdev2 {
 				trip = <&qtm_config2>;
 				cooling-device = <&mmw2_dsc 4 4>;
-			};
-		};
-	};
-
-	skin-msm-therm {
-		trips {
-			skin_config0: skin-config0 {
-				temperature = <49000>;
-				hysteresis = <1500>;
-				type = "passive";
-			};
-
-			skin_config1: skin-config1 {
-				temperature = <51500>;
-				hysteresis = <1500>;
-				type = "passive";
-			};
-
-			skin_config2: skin-config2 {
-				temperature = <53000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-
-			skin_config3: skin-config3 {
-				temperature = <55000>;
-				hysteresis = <1500>;
-				type = "passive";
-			};
-
-			skin_config4: skin-config4 {
-				temperature = <60000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
-		};
-
-		cooling-maps {
-			lte_cdev0 {
-				trip = <&skin_config0>;
-				cooling-device = <&modem_lte_dsc 7 7>;
-			};
-
-			nr_scg_cdev0 {
-				trip = <&skin_config0>;
-				cooling-device = <&modem_nr_scg_dsc 2 2>;
-			};
-
-			nr_cdev0 {
-				trip = <&skin_config0>;
-				cooling-device = <&modem_nr_dsc 4 4>;
-			};
-
-			lte_cdev1 {
-				trip = <&skin_config1>;
-				cooling-device = <&modem_lte_dsc 9 9>;
-			};
-
-			nr_scg_cdev1 {
-				trip = <&skin_config1>;
-				cooling-device = <&modem_nr_scg_dsc 6 6>;
-			};
-
-			nr_cdev1 {
-				trip = <&skin_config1>;
-				cooling-device = <&modem_nr_dsc 5 5>;
-			};
-
-			lte_cdev2 {
-				trip = <&skin_config2>;
-				cooling-device = <&modem_lte_dsc 11 11>;
-			};
-
-			nr_scg_cdev2 {
-				trip = <&skin_config2>;
-				cooling-device = <&modem_nr_scg_dsc 7 7>;
-			};
-
-			nr_cdev2 {
-				trip = <&skin_config2>;
-				cooling-device = <&modem_nr_dsc 7 7>;
-			};
-
-			lte_cdev3 {
-				trip = <&skin_config3>;
-				cooling-device = <&modem_lte_dsc 11 11>;
-			};
-
-			nr_scg_cdev3 {
-				trip = <&skin_config3>;
-				cooling-device = <&modem_nr_scg_dsc 10 10>;
-			};
-
-			nr_cdev3 {
-				trip = <&skin_config3>;
-				cooling-device = <&modem_nr_dsc 9 9>;
-			};
-
-			lte_cdev4 {
-				trip = <&skin_config4>;
-				cooling-device = <&modem_lte_dsc 255 255>;
-			};
-
-			nr_cdev4 {
-				trip = <&skin_config4>;
-				cooling-device = <&modem_nr_dsc 255 255>;
 			};
 		};
 	};
