@@ -26,6 +26,8 @@ EXPORT_TRACEPOINT_SYMBOL(receive_relinquish_msg);
 EXPORT_TRACEPOINT_SYMBOL(send_alloc_resp_msg);
 EXPORT_TRACEPOINT_SYMBOL(receive_alloc_resp_msg);
 EXPORT_TRACEPOINT_SYMBOL(mem_buf_alloc_info);
+EXPORT_TRACEPOINT_SYMBOL(send_relinquish_resp_msg);
+EXPORT_TRACEPOINT_SYMBOL(receive_relinquish_resp_msg);
 
 struct device *mem_buf_dev;
 EXPORT_SYMBOL(mem_buf_dev);
