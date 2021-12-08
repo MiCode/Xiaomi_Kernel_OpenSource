@@ -53,14 +53,19 @@ static struct pll_vco lucid_ole_vco[] = {
 };
 
 static const struct alpha_pll_config gpu_cc_pll0_config = {
-	.l = 0xF,
+	.l = 0x1E,
 	.cal_l = 0x44,
-	.alpha = 0x5D55,
+	.cal_l_ringosc = 0x44,
+	.alpha = 0xBAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00182261,
 	.config_ctl_hi1_val = 0x82AA299C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000003,
+	.test_ctl_hi1_val = 0x00009000,
+	.test_ctl_hi2_val = 0x00000034,
 	.user_ctl_val = 0x00000000,
-	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi_val = 0x00000005,
 };
 
 static struct clk_alpha_pll gpu_cc_pll0 = {
@@ -82,10 +87,9 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_LOWER_D1] = 615000000,
-				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1500000000,
-				[VDD_NOMINAL] = 1750000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_LOW] = 1100000000,
+				[VDD_LOW_L1] = 1600000000,
+				[VDD_NOMINAL] = 2000000000},
 		},
 	},
 };
@@ -93,12 +97,17 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 static const struct alpha_pll_config gpu_cc_pll1_config = {
 	.l = 0x16,
 	.cal_l = 0x44,
+	.cal_l_ringosc = 0x44,
 	.alpha = 0xEAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00182261,
 	.config_ctl_hi1_val = 0x82AA299C,
+	.test_ctl_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000003,
+	.test_ctl_hi1_val = 0x00009000,
+	.test_ctl_hi2_val = 0x00000034,
 	.user_ctl_val = 0x00000000,
-	.user_ctl_hi_val = 0x00000805,
+	.user_ctl_hi_val = 0x00000005,
 };
 
 static struct clk_alpha_pll gpu_cc_pll1 = {
@@ -120,10 +129,9 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_LOWER_D1] = 615000000,
-				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1500000000,
-				[VDD_NOMINAL] = 1750000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_LOW] = 1100000000,
+				[VDD_LOW_L1] = 1600000000,
+				[VDD_NOMINAL] = 2000000000},
 		},
 	},
 };
@@ -171,7 +179,7 @@ static const struct clk_parent_data gpu_cc_parent_data_2[] = {
 };
 
 static const struct freq_tbl ftbl_gpu_cc_ff_clk_src[] = {
-	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	{ }
 };
 
@@ -201,7 +209,7 @@ static struct clk_rcg2 gpu_cc_ff_clk_src = {
 static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(220000000, P_GPU_CC_PLL1_OUT_MAIN, 2, 0, 0),
-	F(550000000, P_GPU_CC_PLL1_OUT_MAIN, 1, 0, 0),
+	F(550000000, P_GPU_CC_PLL1_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -231,7 +239,6 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gpu_cc_hub_clk_src[] = {
-	F(150000000, P_GPLL0_OUT_MAIN_DIV, 2, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(400000000, P_GPLL0_OUT_MAIN, 1.5, 0, 0),
@@ -257,8 +264,7 @@ static struct clk_rcg2 gpu_cc_hub_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER_D1] = 150000000,
-			[VDD_LOWER] = 200000000,
+			[VDD_LOWER_D1] = 200000000,
 			[VDD_LOW] = 300000000,
 			[VDD_NOMINAL] = 400000000},
 	},
@@ -608,7 +614,7 @@ static const struct regmap_config gpu_cc_kalama_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = 0x98fc,
+	.max_register = 0x9988,
 	.fast_io = true,
 };
 
