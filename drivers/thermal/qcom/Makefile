@@ -20,3 +20,5 @@ qti_qmi_cdev-y += thermal_mitigation_device_service_v01.o qmi_cooling.o
 
 obj-$(CONFIG_QTI_QMI_SENSOR_V2) += qti_qmi_sensor_v2.o
 qti_qmi_sensor_v2-y += thermal_sensor_service_v02.o qmi_sensors_v2.o
+
+obj-$(CONFIG_QTI_CPUFREQ_CDEV) += qti_cpufreq_cdev.o
