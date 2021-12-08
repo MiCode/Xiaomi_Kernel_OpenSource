@@ -677,6 +677,7 @@ struct fastrpc_file {
 	uint32_t poll_timeout;
 	/* Flag to indicate dynamic process creation status*/
 	bool in_process_create;
+	bool is_unsigned_pd;
 };
 
 static struct fastrpc_apps gfa;
@@ -3777,6 +3778,9 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	inbuf.filelen = init->filelen;
 	fl->pd = 1;
 
+	if (uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE)
+		fl->is_unsigned_pd = true;
+
 	/* Check if file memory passed by userspace is valid */
 	VERIFY(err, access_ok((void __user *)init->file, init->filelen));
 	if (err)
@@ -3794,7 +3798,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 
 	/* Untrusted apps are not allowed to offload to signedPD on DSP. */
 	if (fl->untrusted_process) {
-		VERIFY(err, uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE);
+		VERIFY(err, fl->is_unsigned_pd);
 		if (err) {
 			err = -ECONNREFUSED;
 			ADSPRPC_ERR(
@@ -3848,7 +3852,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	 * Unsigned PD requires additional memory because of the
 	 * additional static heap initialized within the process.
 	 */
-	if (uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE)
+	if (fl->is_unsigned_pd)
 		dsp_userpd_memlen += 2*one_mb;
 	memlen = ALIGN(max(dsp_userpd_memlen, init->filelen * 4), one_mb);
 	imem_dma_attr = DMA_ATTR_DELAYED_UNMAP | DMA_ATTR_NO_KERNEL_MAPPING;
@@ -4114,7 +4118,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		/* Make sure third party applications */
 		/* can spawn only unsigned PD when */
 		/* channel configured as secure. */
-		if (chan->secure && !(uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE)) {
+		if (chan->secure && !(fl->is_unsigned_pd)) {
 			err = -ECONNREFUSED;
 			goto bail;
 		}
@@ -4991,8 +4995,15 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		return err;
 	}
 	mutex_lock(&fl->internal_map_mutex);
-	if ((ud->flags == ADSP_MMAP_ADD_PAGES) ||
-	    (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)) {
+	/* Pages for unsigned PD's user-heap should be allocated in userspace */
+	if (((ud->flags == ADSP_MMAP_ADD_PAGES) ||
+	    (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)) && !fl->is_unsigned_pd) {
+		if (ud->vaddrin) {
+			err = -EINVAL;
+			ADSPRPC_ERR(
+				"adding user allocated pages is not supported\n");
+			goto bail;
+		}
 		dma_attr = DMA_ATTR_DELAYED_UNMAP | DMA_ATTR_NO_KERNEL_MAPPING;
 		if (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)
 			dma_attr |= DMA_ATTR_SYS_CACHE_ONLY;
@@ -5739,6 +5750,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->dsp_proc_init = 0;
 	fl->is_ramdump_pend = false;
 	fl->in_process_create = false;
+	fl->is_unsigned_pd = false;
 	init_completion(&fl->work);
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
