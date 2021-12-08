@@ -4087,7 +4087,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct fastrpc_ioctl_init *init = &uproc->init;
 	int cid = fl->cid;
 	struct fastrpc_apps *me = &gfa;
-	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 
 	VERIFY(err, init->filelen < INIT_FILELEN_MAX
 			&& init->memlen < INIT_MEMLEN_MAX);
@@ -4101,7 +4101,12 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		err = -EFBIG;
 		goto bail;
 	}
-
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
+	chan = &me->channel[cid];
 	if (chan->unsigned_support && fl->dev_minor == MINOR_NUM_DEV) {
 		/* Make sure third party applications */
 		/* can spawn only unsigned PD when */
