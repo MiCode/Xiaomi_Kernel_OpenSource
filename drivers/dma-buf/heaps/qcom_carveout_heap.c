@@ -201,7 +201,7 @@ static struct dma_buf *__carveout_heap_allocate(struct carveout_heap *carveout_h
 
 	sg_set_page(table->sgl, pfn_to_page(PFN_DOWN(paddr)), len, 0);
 
-	if (!carveout_heap->is_secure & !carveout_heap->is_nomap)
+	if (!carveout_heap->is_secure && !carveout_heap->is_nomap)
 		pages_sync_for_device(dev, sg_page(table->sgl),
 				      buffer->len, DMA_FROM_DEVICE);
 
