@@ -3498,7 +3498,7 @@ static bool cnss_is_valid_dt_node_found(void)
 {
 	struct device_node *dn = NULL;
 
-	for_each_matching_node(dn, cnss_of_match_table) {
+	for_each_node_with_property(dn, "qcom,wlan") {
 		if (of_device_is_available(dn))
 			break;
 	}
