@@ -220,6 +220,7 @@
 	};
 
 	cx_sdpm@634000 {
+		status = "disabled";
 		compatible = "qcom,sdpm";
 		reg = <0x00634000 0x1000>;
 		clock-names = "cam_cc_csiphy0", "ufs_phy_axi";
@@ -239,6 +240,7 @@
 	};
 
 	cx_pe: cx_rdpm_pe@635000 {
+		status = "disabled";
 		compatible = "qcom,policy-engine";
 		#thermal-sensor-cells = <0>;
 		reg = <0x635000 0x1000>;
@@ -1389,6 +1391,8 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&cx_pe>;
+		status = "disabled";
+
 		trips {
 			cx_pe_config1: cx-pe-config1 {
 				temperature = <1>;
