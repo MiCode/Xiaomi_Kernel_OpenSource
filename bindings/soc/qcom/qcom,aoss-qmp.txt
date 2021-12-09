@@ -22,6 +22,7 @@ power-domains.
 		    "qcom,sm8250-aoss-qmp"
 		    "qcom,waipio-aoss-qmp"
 		    "qcom,diwali-aoss-qmp"
+		    "qcom,neo-aoss-qmp"
 
 - reg:
 	Usage: required
