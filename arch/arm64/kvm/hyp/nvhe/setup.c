@@ -21,6 +21,9 @@
 
 unsigned long hyp_nr_cpus;
 
+phys_addr_t pvmfw_base;
+phys_addr_t pvmfw_size;
+
 #define hyp_percpu_size ((unsigned long)__per_cpu_end - \
 			 (unsigned long)__per_cpu_start)
 
@@ -132,6 +135,13 @@ static int recreate_hyp_mappings(phys_addr_t phys, unsigned long size,
 		return ret;
 
 	ret = pkvm_create_mappings(__hyp_bss_end, __bss_stop, prot);
+	if (ret)
+		return ret;
+
+	start = hyp_phys_to_virt(pvmfw_base);
+	end = start + pvmfw_size;
+	prot = pkvm_mkstate(PAGE_HYP, PKVM_PAGE_OWNED);
+	ret = pkvm_create_mappings(start, end, prot);
 	if (ret)
 		return ret;
 
