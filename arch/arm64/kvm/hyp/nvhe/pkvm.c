@@ -356,6 +356,7 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm, int nr
 
 	vm->host_kvm = kvm;
 	vm->created_vcpus = 0;
+	vm->arch.pkvm.pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
 
 	for (i = 0; i < nr_vcpus; i++) {
 		struct kvm_vcpu *host_vcpu = kern_hyp_va(kvm->vcpus[i]);
@@ -651,6 +652,43 @@ int __pkvm_teardown_shadow(struct kvm *kvm)
 err_unlock:
 	hyp_spin_unlock(&shadow_lock);
 	return err;
+}
+
+int pkvm_load_pvmfw_pages(struct kvm_shadow_vm *vm, u64 ipa, phys_addr_t phys,
+			  u64 size)
+{
+	struct kvm_protected_vm *pkvm = &vm->arch.pkvm;
+	u64 npages, offset = ipa - pkvm->pvmfw_load_addr;
+	void *src = hyp_phys_to_virt(pvmfw_base) + offset;
+
+	if (offset >= pvmfw_size)
+		return -EINVAL;
+
+	size = min(size, pvmfw_size - offset);
+	if (!PAGE_ALIGNED(size) || !PAGE_ALIGNED(src))
+		return -EINVAL;
+
+	npages = size >> PAGE_SHIFT;
+	while (npages--) {
+		void *dst;
+
+		dst = hyp_fixmap_map(phys);
+		if (!dst)
+			return -EINVAL;
+
+		/*
+		 * No need for cache maintenance here, as the pgtable code will
+		 * take care of this when installing the pte in the guest's
+		 * stage-2 page table.
+		 */
+		memcpy(dst, src, PAGE_SIZE);
+
+		hyp_fixmap_unmap();
+		src += PAGE_SIZE;
+		phys += PAGE_SIZE;
+	}
+
+	return 0;
 }
 
 /*

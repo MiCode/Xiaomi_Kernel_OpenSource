@@ -166,6 +166,7 @@ struct kvm_protected_vm {
 	struct mutex shadow_lock;
 	struct kvm_hyp_memcache teardown_mc;
 	struct list_head pinned_pages;
+	gpa_t pvmfw_load_addr;
 };
 
 struct kvm_arch {

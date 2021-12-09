@@ -51,6 +51,9 @@ struct kvm_shadow_vm {
 
 extern struct kvm_shadow_vm **shadow_table;
 
+extern phys_addr_t pvmfw_base;
+extern phys_addr_t pvmfw_size;
+
 int __pkvm_init_shadow(struct kvm *kvm, void *shadow_va, size_t size, void *pgd);
 int __pkvm_teardown_shadow(struct kvm *kvm);
 struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, int vcpu_idx);
@@ -67,5 +70,23 @@ void pkvm_reset_vcpu(struct kvm_vcpu *vcpu);
 bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code);
 
 struct kvm_vcpu *pvm_mpidr_to_vcpu(struct kvm_shadow_vm *vm, unsigned long mpidr);
+
+static inline bool pvm_has_pvmfw(struct kvm_shadow_vm *vm)
+{
+	return vm->arch.pkvm.pvmfw_load_addr != PVMFW_INVALID_LOAD_ADDR;
+}
+
+static inline bool ipa_in_pvmfw_region(struct kvm_shadow_vm *vm, u64 ipa)
+{
+	struct kvm_protected_vm *pkvm = &vm->arch.pkvm;
+
+	if (!pvm_has_pvmfw(vm))
+		return false;
+
+	return ipa - pkvm->pvmfw_load_addr < pvmfw_size;
+}
+
+int pkvm_load_pvmfw_pages(struct kvm_shadow_vm *vm, u64 ipa, phys_addr_t phys,
+			  u64 size);
 
 #endif /* __ARM64_KVM_NVHE_PKVM_H__ */
