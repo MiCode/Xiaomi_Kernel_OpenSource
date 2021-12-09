@@ -244,3 +244,18 @@ static int __init pkvm_firmware_rmem_clear(void)
 	return 0;
 }
 device_initcall_sync(pkvm_firmware_rmem_clear);
+
+int kvm_init_pvm(struct kvm *kvm, unsigned long type)
+{
+	mutex_init(&kvm->arch.pkvm.shadow_lock);
+	kvm->arch.pkvm.pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+
+	if (!(type & KVM_VM_TYPE_ARM_PROTECTED))
+		return 0;
+
+	if (!is_protected_kvm_enabled())
+		return -EINVAL;
+
+	kvm->arch.pkvm.enabled = true;
+	return 0;
+}

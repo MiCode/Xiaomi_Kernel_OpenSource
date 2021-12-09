@@ -17,6 +17,7 @@
 #define HYP_MEMBLOCK_REGIONS 128
 #define PVMFW_INVALID_LOAD_ADDR	(-1)
 
+int kvm_init_pvm(struct kvm *kvm, unsigned long type);
 int create_el2_shadow(struct kvm *kvm);
 
 /*
