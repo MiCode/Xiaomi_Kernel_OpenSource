@@ -38,6 +38,7 @@ obj-$(CONFIG_QCOM_SYSMON_SUBSYSTEM_STATS) += sysmon_subsystem_stats.o
 obj-$(CONFIG_QCOM_WDT_CORE) += qcom_wdt_core.o
 obj-$(CONFIG_QCOM_SOC_WATCHDOG) += qcom_soc_wdt.o
 obj-$(CONFIG_QCOM_SUBSYSTEM_SLEEP_STATS) += subsystem_sleep_stats.o
+obj-$(CONFIG_QCOM_ADSP_SLEEPMON) += adsp_sleepmon.o
 obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
 obj-$(CONFIG_QCOM_MSM_IPCC) += qcom_ipcc.o
 obj-$(CONFIG_QCOM_RIMPS) += qcom_rimps.o
