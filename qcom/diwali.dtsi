@@ -3085,6 +3085,10 @@
 		};
 	};
 
+	hyp_core_ctl: qcom,hyp-core-ctl {
+		compatible = "qcom,hyp-core-ctl";
+		status = "ok";
+	};
 };
 
 #include "diwali-qupv3.dtsi"
