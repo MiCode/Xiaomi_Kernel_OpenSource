@@ -13,6 +13,10 @@
 	};
 };
 
+&pcie0 {
+	status = "ok";
+};
+
 &soc {
 	bluetooth: bt_wcn6x5x {
 		compatible = "qcom,qca6490";
