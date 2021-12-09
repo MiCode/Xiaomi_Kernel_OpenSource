@@ -40,13 +40,11 @@ mac80211.ko
 mem-hooks.ko
 mem-offline.ko
 mem_buf.ko
-mem_buf.ko
 mem_buf_dev.ko
-mem_buf_dev.ko
+mem_buf_msgq.ko
 memory_dump_v2.ko
 minidump.ko
 msm-geni-se.ko
-msm_dma_iommu_mapping.ko
 msm_dma_iommu_mapping.ko
 msm_geni_serial.ko
 msm_rtb.ko
@@ -66,7 +64,6 @@ qcom-pmu-lib.ko
 qcom-reboot-reason.ko
 qcom-scm.ko
 qcom-spmi-pmic.ko
-qcom_dma_heaps.ko
 qcom_dma_heaps.ko
 qcom_gic_intr_routing.ko
 qcom_hwspinlock.ko
