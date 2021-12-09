@@ -166,6 +166,8 @@ struct gh_notify_vmid_desc {
 #define GH_RM_OS_STATUS_INIT		3
 #define GH_RM_OS_STATUS_RUN		4
 
+#define GH_RM_APP_STATUS_TUI_SERVICE_BOOT	1
+
 #define GH_RM_VM_STOP_FLAG_FORCE_STOP				0x01
 
 #define GH_RM_VM_EXIT_TYPE_VM_EXIT				0

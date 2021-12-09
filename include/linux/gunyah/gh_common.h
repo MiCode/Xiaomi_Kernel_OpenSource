@@ -38,6 +38,7 @@ enum gh_vm_names {
 	GH_PRIMARY_VM,
 	GH_TRUSTED_VM,
 	GH_CPUSYS_VM,
+	GH_OEM_VM,
 	GH_VM_MAX
 };
 
