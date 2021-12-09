@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2008-2011,2013,2015,2017,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef _KGSL_DEBUGFS_H
 #define _KGSL_DEBUGFS_H
@@ -21,6 +22,8 @@ static inline struct dentry *kgsl_get_debugfs_dir(void)
 	return kgsl_debugfs_dir;
 }
 
+void kgsl_pool_init_debugfs(struct dentry *pool_debugfs,
+					char *name, void *pool);
 void kgsl_process_init_debugfs(struct kgsl_process_private *priv);
 #else
 static inline void kgsl_core_debugfs_init(void) { }
@@ -28,6 +31,8 @@ static inline void kgsl_device_debugfs_init(struct kgsl_device *device) { }
 static inline void kgsl_device_debugfs_close(struct kgsl_device *device) { }
 static inline void kgsl_core_debugfs_close(void) { }
 static inline struct dentry *kgsl_get_debugfs_dir(void) { return NULL; }
+static inline void kgsl_pool_init_debugfs(struct dentry *pool_debugfs,
+					char *name, void *pool) { }
 static inline void kgsl_process_init_debugfs(struct kgsl_process_private *priv)
 {
 }
