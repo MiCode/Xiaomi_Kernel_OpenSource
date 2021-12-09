@@ -777,6 +777,9 @@ int kvm_arch_vcpu_run_pid_change(struct kvm_vcpu *vcpu)
 		static_branch_inc(&userspace_irqchip_in_use);
 	}
 
+	if (is_protected_kvm_enabled())
+		ret = create_el2_shadow(kvm);
+
 	return ret;
 }
 

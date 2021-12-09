@@ -163,6 +163,7 @@ struct kvm_pinned_page {
 struct kvm_protected_vm {
 	bool enabled;
 	int shadow_handle;
+	struct mutex shadow_lock;
 	struct kvm_hyp_memcache teardown_mc;
 	struct list_head pinned_pages;
 };

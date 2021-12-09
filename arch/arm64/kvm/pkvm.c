@@ -115,15 +115,12 @@ static void update_vcpu_state(struct kvm_vcpu *vcpu, int shadow_handle)
  *
  * Return 0 on success, negative error code on failure.
  */
-static int create_el2_shadow(struct kvm *kvm)
+static int __create_el2_shadow(struct kvm *kvm)
 {
 	size_t pgd_sz, shadow_sz;
 	void *pgd, *shadow_addr;
 	int shadow_handle;
 	int ret, i;
-
-	if (kvm->arch.pkvm.shadow_handle)
-		return -EEXIST;
 
 	if (kvm->created_vcpus < 1)
 		return -EINVAL;
@@ -171,20 +168,14 @@ free_pgd:
 	return ret;
 }
 
-int pkvm_init_el2_context(struct kvm *kvm)
+int create_el2_shadow(struct kvm *kvm)
 {
 	int ret = 0;
 
-	mutex_lock(&kvm->lock);
-	ret = create_el2_shadow(kvm);
-	mutex_unlock(&kvm->lock);
+	mutex_lock(&kvm->arch.pkvm.shadow_lock);
+	if (!kvm->arch.pkvm.shadow_handle)
+		ret = __create_el2_shadow(kvm);
+	mutex_unlock(&kvm->arch.pkvm.shadow_lock);
 
-	if (ret < 0) {
-		kvm_err("Creating shadow structures for protected VM failed: %d\n",
-			ret);
-		return ret;
-	}
-
-	kvm_pr_unimpl("Stage-2 protection is a work-in-progress: civilization phase III\n");
-	return 0;
+	return ret;
 }

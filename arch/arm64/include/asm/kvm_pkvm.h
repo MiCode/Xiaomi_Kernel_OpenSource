@@ -16,6 +16,8 @@
 
 #define HYP_MEMBLOCK_REGIONS 128
 
+int create_el2_shadow(struct kvm *kvm);
+
 /*
  * Definitions for features to be allowed or restricted for guest virtual
  * machines, depending on the mode KVM is running in and on the type of guest
