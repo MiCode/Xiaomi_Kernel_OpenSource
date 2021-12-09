@@ -1017,4 +1017,13 @@ config SA_VIDEOCC_LEMANS
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config SA_GPUCC_LEMANS
+	tristate "LEMANS Graphics Clock Controllers"
+	select SA_GCC_LEMANS
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  LEMANS devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 endif

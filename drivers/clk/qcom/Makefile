@@ -68,6 +68,7 @@ obj-$(CONFIG_QDRU_GCC_CINDER) += gcc-cinder.o
 obj-$(CONFIG_QDRU_DEBUGCC_CINDER) += debugcc-cinder.o
 obj-$(CONFIG_SA_CAMCC_LEMANS) += camcc-lemans.o
 obj-$(CONFIG_SA_GCC_LEMANS) += gcc-lemans.o
+obj-$(CONFIG_SA_GPUCC_LEMANS) += gpucc-lemans.o
 obj-$(CONFIG_SA_VIDEOCC_LEMANS) += videocc-lemans.o
 obj-$(CONFIG_SC_CAMCC_7180) += camcc-sc7180.o
 obj-$(CONFIG_SC_CAMCC_8180X) += camcc-sc8180x.o
