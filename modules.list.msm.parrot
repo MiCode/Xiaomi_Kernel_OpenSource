@@ -21,6 +21,7 @@ ns.ko
 phy-generic.ko
 pinctrl-msm.ko
 qcom_dma_heaps.ko
+qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom_llcc_pmu.ko
 qcom_rpmh.ko
