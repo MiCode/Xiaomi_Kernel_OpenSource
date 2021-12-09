@@ -35,6 +35,20 @@
 			memory-region = <&qseecom_ta_mem>;
 		};
 
+		qcom,display {
+			qcom,dma-heap-name = "qcom,display";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			qcom,max-align = <9>;
+			memory-region = <&non_secure_display_memory>;
+		};
+
+		qcom,demura {
+			qcom,dma-heap-name = "qcom,demura";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			qcom,max-align = <9>;
+			memory-region = <&demura_heap_memory>;
+		};
+
 		qcom,audio_ml {
 			qcom,dma-heap-name = "qcom,audio-ml";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
