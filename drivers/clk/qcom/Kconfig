@@ -1008,4 +1008,13 @@ config SA_CAMCC_LEMANS
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config SA_VIDEOCC_LEMANS
+	tristate "LEMANS Video Clock Controller"
+	select SA_GCC_LEMANS
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  LEMANS devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
 endif
