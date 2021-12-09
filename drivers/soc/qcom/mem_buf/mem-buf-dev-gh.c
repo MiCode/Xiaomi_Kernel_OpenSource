@@ -223,7 +223,7 @@ out:
 	for (i--; i >= 0; i--) {
 		base = sgl_desc->sgl_entries[i].ipa_base;
 		size = sgl_desc->sgl_entries[i].size;
-		remove_memory_subsection(numa_node_id(), base, size);
+		remove_memory_subsection(base, size);
 	}
 
 	return ret;
@@ -239,7 +239,7 @@ int mem_buf_unmap_mem_s1(struct gh_sgl_desc *sgl_desc)
 		base = sgl_desc->sgl_entries[i].ipa_base;
 		size = sgl_desc->sgl_entries[i].size;
 
-		ret = remove_memory_subsection(numa_node_id(), base, size);
+		ret = remove_memory_subsection(base, size);
 		if (ret)
 			pr_err("%s: failed to remove memory base=%llx, size=%llx\n, ret=%d\n",
 				__func__, base, size, ret);
