@@ -3,6 +3,7 @@ qcom_cpu_vendor_hooks.ko
 clk-rpmh.ko
 gcc-kalama.ko
 icc-rpmh.ko
+camcc-kalama.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
