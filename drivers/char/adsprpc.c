@@ -64,7 +64,6 @@
 
 #define FASTRPC_ENOSUCH 39
 #define DEBUGFS_SIZE 3072
-#define UL_SIZE 25
 #define PID_SIZE 10
 
 #define AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME        "qcom,fastrpc-adsp-audio-pdr"
@@ -793,8 +792,8 @@ static inline int64_t get_timestamp_in_ns(void)
 
 static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t timeout)
 {
-	int ii, jj, err = -EIO;
-	uint32_t sc = ctx->sc;
+	int err = -EIO;
+	uint32_t sc = ctx->sc, ii = 0, jj = 0;
 	struct smq_invoke_buf *list;
 	struct smq_phy_page *pages;
 	uint64_t *fdlist = NULL;
@@ -812,7 +811,7 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 	poll = (uint32_t *)(crclist + M_CRCLIST);
 
 	/* poll on memory for DSP response. Return failure on timeout */
-	for (ii = 0, jj = 0; ii < FASTRPC_POLL_TIME; ii++, jj++) {
+	for (ii = 0, jj = 0; ii < timeout; ii++, jj++) {
 		if (*poll == FASTRPC_EARLY_WAKEUP_POLL) {
 			/* Remote processor sent early response */
 			err = 0;
@@ -3099,8 +3098,8 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 				goto bail;
 			}
 			trace_fastrpc_msg("early_response: poll_timeout");
-			ADSPRPC_INFO("poll timeout for handle 0x%x, sc 0x%x\n",
-				ctx->handle, ctx->sc);
+			ADSPRPC_INFO("early rsp poll timeout (%u us) for handle 0x%x, sc 0x%x\n",
+				FASTRPC_POLL_TIME, ctx->handle, ctx->sc);
 			if (async) {
 				spin_lock_irqsave(&ctx->fl->aqlock, flags);
 				if (!ctx->is_work_done) {
@@ -3145,6 +3144,8 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 			/* If polling timed out, move to normal response state */
 			if (err) {
 				trace_fastrpc_msg("poll_mode: timeout");
+				ADSPRPC_INFO("poll mode timeout (%u us) for handle 0x%x, sc 0x%x\n",
+					ctx->fl->poll_timeout, ctx->handle, ctx->sc);
 				ctx->rsp_flags = NORMAL_RESPONSE;
 			} else {
 				*ptr_interrupted = 0;
@@ -5410,8 +5411,8 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 	unsigned int len = 0;
 	int i, j, sess_used = 0, ret = 0;
 	char *fileinfo = NULL;
-	char single_line[UL_SIZE] = "----------------";
-	char title[UL_SIZE] = "=========================";
+	char single_line[] = "----------------";
+	char title[] = "=========================";
 
 	fileinfo = kzalloc(DEBUGFS_SIZE, GFP_KERNEL);
 	if (!fileinfo) {
