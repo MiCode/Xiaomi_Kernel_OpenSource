@@ -356,7 +356,7 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm, int nr
 
 	vm->host_kvm = kvm;
 	vm->created_vcpus = 0;
-	vm->arch.pkvm.pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+	vm->arch.pkvm.pvmfw_load_addr = kvm->arch.pkvm.pvmfw_load_addr;
 
 	for (i = 0; i < nr_vcpus; i++) {
 		struct kvm_vcpu *host_vcpu = kern_hyp_va(kvm->vcpus[i]);

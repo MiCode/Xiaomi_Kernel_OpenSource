@@ -245,6 +245,54 @@ static int __init pkvm_firmware_rmem_clear(void)
 }
 device_initcall_sync(pkvm_firmware_rmem_clear);
 
+static int pkvm_vm_ioctl_set_fw_ipa(struct kvm *kvm, u64 ipa)
+{
+	int ret = 0;
+
+	if (!pkvm_firmware_mem)
+		return -EINVAL;
+
+	mutex_lock(&kvm->arch.pkvm.shadow_lock);
+	if (kvm->arch.pkvm.shadow_handle) {
+		ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	kvm->arch.pkvm.pvmfw_load_addr = ipa;
+out_unlock:
+	mutex_unlock(&kvm->arch.pkvm.shadow_lock);
+	return ret;
+}
+
+static int pkvm_vm_ioctl_info(struct kvm *kvm,
+			      struct kvm_protected_vm_info __user *info)
+{
+	struct kvm_protected_vm_info kinfo = {
+		.firmware_size = pkvm_firmware_mem ?
+				 pkvm_firmware_mem->size :
+				 0,
+	};
+
+	return copy_to_user(info, &kinfo, sizeof(kinfo)) ? -EFAULT : 0;
+}
+
+int kvm_arm_vm_ioctl_pkvm(struct kvm *kvm, struct kvm_enable_cap *cap)
+{
+	if (cap->args[1] || cap->args[2] || cap->args[3])
+		return -EINVAL;
+
+	switch (cap->flags) {
+	case KVM_CAP_ARM_PROTECTED_VM_FLAGS_SET_FW_IPA:
+		return pkvm_vm_ioctl_set_fw_ipa(kvm, cap->args[0]);
+	case KVM_CAP_ARM_PROTECTED_VM_FLAGS_INFO:
+		return pkvm_vm_ioctl_info(kvm, (void __force __user *)cap->args[0]);
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int kvm_init_pvm(struct kvm *kvm, unsigned long type)
 {
 	mutex_init(&kvm->arch.pkvm.shadow_lock);

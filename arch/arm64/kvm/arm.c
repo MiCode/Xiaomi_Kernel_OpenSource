@@ -88,9 +88,16 @@ int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
 {
 	int r;
 
-	if (cap->flags)
-		return -EINVAL;
+	/* Capabilities with flags */
+	switch (cap->cap) {
+	case KVM_CAP_ARM_PROTECTED_VM:
+		return kvm_arm_vm_ioctl_pkvm(kvm, cap);
+	default:
+		if (cap->flags)
+			return -EINVAL;
+	}
 
+	/* Capabilities without flags */
 	switch (cap->cap) {
 	case KVM_CAP_ARM_NISV_TO_USER:
 		r = 0;
@@ -107,9 +114,6 @@ int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
 		mutex_unlock(&kvm->lock);
 		break;
 	case KVM_CAP_EXIT_HYPERCALL:
-		if (cap->flags)
-			return -EINVAL;
-
 		if (cap->args[0] & ~KVM_EXIT_HYPERCALL_VALID_MASK)
 			return -EINVAL;
 
@@ -389,6 +393,9 @@ static int pkvm_check_extension(struct kvm *kvm, long ext, int kvm_cap)
 			      PVM_ID_AA64ISAR1_ALLOW) &&
 		    FIELD_GET(ARM64_FEATURE_MASK(ID_AA64ISAR1_GPA),
 			      PVM_ID_AA64ISAR1_ALLOW);
+		break;
+	case KVM_CAP_ARM_PROTECTED_VM:
+		r = 1;
 		break;
 	default:
 		r = 0;
