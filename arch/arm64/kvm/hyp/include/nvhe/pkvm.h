@@ -33,6 +33,9 @@ struct kvm_shadow_vm {
 	/* Pointers to the shadow vcpus of the shadow vm. */
 	struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
 
+	/* Primary vCPU pending entry to the pvmfw */
+	struct kvm_vcpu *pvmfw_entry_vcpu;
+
 	/* The host's kvm structure. */
 	struct kvm *host_kvm;
 

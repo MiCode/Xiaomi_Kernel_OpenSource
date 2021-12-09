@@ -391,6 +391,13 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm, int nr
 
 		if (test_bit(KVM_ARM_VCPU_POWER_OFF, shadow_vcpu->arch.features)) {
 			shadow_vcpu->arch.pkvm.power_state = PSCI_0_2_AFFINITY_LEVEL_OFF;
+		} else if (pvm_has_pvmfw(vm)) {
+			if (vm->pvmfw_entry_vcpu)
+				return -EINVAL;
+
+			vm->pvmfw_entry_vcpu = shadow_vcpu;
+			shadow_vcpu->arch.reset_state.reset = true;
+			shadow_vcpu->arch.pkvm.power_state = PSCI_0_2_AFFINITY_LEVEL_ON_PENDING;
 		} else {
 			struct vcpu_reset_state *reset_state = &shadow_vcpu->arch.reset_state;
 
@@ -700,6 +707,7 @@ int pkvm_load_pvmfw_pages(struct kvm_shadow_vm *vm, u64 ipa, phys_addr_t phys,
 void pkvm_reset_vcpu(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_reset_state *reset_state = &vcpu->arch.reset_state;
+	struct kvm_shadow_vm *vm = vcpu->arch.pkvm.shadow_vm;
 
 	WARN_ON(!reset_state->reset);
 
@@ -724,8 +732,26 @@ void pkvm_reset_vcpu(struct kvm_vcpu *vcpu)
 	if (reset_state->be)
 		kvm_vcpu_set_be(vcpu);
 
-	*vcpu_pc(vcpu) = reset_state->pc;
-	vcpu_set_reg(vcpu, 0, reset_state->r0);
+	if (vm->pvmfw_entry_vcpu == vcpu) {
+		struct kvm_vcpu *host_vcpu = vcpu->arch.pkvm.host_vcpu;
+		u64 entry = vm->arch.pkvm.pvmfw_load_addr;
+		int i;
+
+		/* X0 - X14 provided by the VMM (preserved) */
+		for (i = 0; i <= 14; ++i)
+			vcpu_set_reg(vcpu, i, vcpu_get_reg(host_vcpu, i));
+
+		/* X15: Boot protocol version */
+		vcpu_set_reg(vcpu, 15, 0);
+
+		/* PC: IPA of pvmfw base */
+		*vcpu_pc(vcpu) = entry;
+
+		vm->pvmfw_entry_vcpu = NULL;
+	} else {
+		*vcpu_pc(vcpu) = reset_state->pc;
+		vcpu_set_reg(vcpu, 0, reset_state->r0);
+	}
 
 	reset_state->reset = false;
 
