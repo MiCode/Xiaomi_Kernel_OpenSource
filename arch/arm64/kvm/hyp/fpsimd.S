@@ -24,8 +24,3 @@ SYM_FUNC_START(__sve_restore_state)
 	__sve_load 0, x1, 2
 	ret
 SYM_FUNC_END(__sve_restore_state)
-
-SYM_FUNC_START(__sve_save_state)
-	sve_save 0, x1, 2
-	ret
-SYM_FUNC_END(__sve_save_state)
