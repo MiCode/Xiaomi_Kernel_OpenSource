@@ -22,7 +22,6 @@ struct mem_buf_vmperm {
 	struct sg_table *sgt;
 	gh_memparcel_handle_t memparcel_hdl;
 	struct mutex lock;
-	bool has_lookup_sgl;
 };
 
 /*
@@ -184,8 +183,7 @@ static int __mem_buf_vmperm_reclaim(struct mem_buf_vmperm *vmperm)
 
 	ret = mem_buf_unassign_mem(vmperm->sgt, vmperm->vmids,
 				   vmperm->nr_acl_entries,
-				   vmperm->memparcel_hdl,
-				   vmperm->has_lookup_sgl);
+				   vmperm->memparcel_hdl);
 	if (ret) {
 		pr_err_ratelimited("Reclaim failed\n");
 		mem_buf_vmperm_set_err(vmperm);
@@ -453,8 +451,7 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	if (ret)
 		goto err_resize;
 
-	ret = mem_buf_assign_mem(is_lend, vmperm->sgt, arg,
-				 &vmperm->has_lookup_sgl);
+	ret = mem_buf_assign_mem(is_lend, vmperm->sgt, arg);
 	if (ret) {
 		if (ret == -EADDRNOTAVAIL)
 			mem_buf_vmperm_set_err(vmperm);

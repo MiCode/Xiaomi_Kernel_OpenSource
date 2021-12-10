@@ -21,12 +21,10 @@ extern struct device *mem_buf_dev;
 
 /* Hypervisor Interface */
 int mem_buf_assign_mem(bool is_lend, struct sg_table *sgt,
-		       struct mem_buf_lend_kernel_arg *arg,
-		       bool *has_lookup_sgl);
+		       struct mem_buf_lend_kernel_arg *arg);
 int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 			 unsigned int nr_acl_entries,
-			 gh_memparcel_handle_t hdl,
-			 bool has_lookup_sgl);
+			 gh_memparcel_handle_t hdl);
 
 #define MEM_BUF_API_HYP_ASSIGN BIT(0)
 #define MEM_BUF_API_GUNYAH BIT(1)
@@ -73,8 +71,7 @@ struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_desc);
 int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 			      int *src_vmids, int *src_perms,
 			      unsigned int nr_src_acl_entries,
-			      struct mem_buf_lend_kernel_arg *arg,
-			      bool *has_lookup_sgl);
+			      struct mem_buf_lend_kernel_arg *arg);
 int mem_buf_unassign_mem_gunyah(struct sg_table *sgt, int *src_vmids,
 				unsigned int nr_src_acl_entries,
 				int *dst_vmids, int *dst_perms,
@@ -132,8 +129,7 @@ static inline struct sg_table *dup_gh_sgl_desc_to_sgt(struct gh_sgl_desc *sgl_de
 static inline int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 			      int *src_vmids, int *src_perms,
 			      unsigned int nr_src_acl_entries,
-			      struct mem_buf_lend_kernel_arg *arg,
-			      bool *has_lookup_sgl)
+			      struct mem_buf_lend_kernel_arg *arg)
 {
 	return -EINVAL;
 }
