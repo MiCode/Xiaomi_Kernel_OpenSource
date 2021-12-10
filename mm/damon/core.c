@@ -457,7 +457,7 @@ int damon_start(struct damon_ctx **ctxs, int nr_ctxs)
 static void kdamond_usleep(unsigned long usecs)
 {
 	/* See Documentation/timers/timers-howto.rst for the thresholds */
-	if (usecs > 20 * 1000)
+	if (usecs > 20 * USEC_PER_MSEC)
 		schedule_timeout_idle(usecs_to_jiffies(usecs));
 	else
 		usleep_idle_range(usecs, usecs + 1);
