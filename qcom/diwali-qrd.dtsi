@@ -72,6 +72,16 @@
 	qcom,vddp-ref-clk-supply = <&L9B>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
 
+	/*
+	 * ufs-dev-types and nvmem entries are for ufs device
+	 * identification using nvmem interface. Use number of
+	 * ufs devices supported for ufs-dev-types, and nvmem handle
+	 * added by pmic for sdam register.
+	 */
+	ufs-dev-types = <2>;
+	nvmem-cells = <&ufs_dev>;
+	nvmem-cell-names = "ufs_dev";
+
 	status = "ok";
 };
 
