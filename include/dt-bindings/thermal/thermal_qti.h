@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <dt-bindings/thermal/thermal.h>
 
@@ -62,6 +65,18 @@
 #define QMI_MMW2		48
 #define QMI_MMW3		49
 #define QMI_MMW_IFIC0		50
+#define QMI_SUB1_MODEM_CFG	51
+#define QMI_SUB1_LTE_CC		52
+#define QMI_SUB1_MCG_FR1_CC	53
+#define QMI_SUB1_MCG_FR2_CC	54
+#define QMI_SUB1_SCG_FR1_CC	55
+#define QMI_SUB1_SCG_FR2_CC	56
+#define QMI_SUB2_MODEM_CFG	57
+#define QMI_SUB2_LTE_CC		58
+#define QMI_SUB2_MCG_FR1_CC	59
+#define QMI_SUB2_MCG_FR2_CC	60
+#define QMI_SUB2_SCG_FR1_CC	61
+#define QMI_SUB2_SCG_FR2_CC	62
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1
