@@ -252,13 +252,13 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 					msecs_to_jiffies(1000))) {
 			u32 fsr;
 
-			fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+			fsr = arm_smmu_cb_read(smmu, cb, ARM_SMMU_CB_FSR);
 			dev_info(smmu->dev, "timeout cb:%d, irq:%d, fsr:0x%x\n",
 				 cb, irq_cnt, fsr);
 
 			if (!fsr)
 				dev_err(smmu->dev, "SCTLR  = 0x%08x\n",
-					arm_smmu_cb_read(smmu, idx,
+					arm_smmu_cb_read(smmu, cb,
 							 ARM_SMMU_CB_SCTLR));
 		}
 
