@@ -260,6 +260,12 @@ int mem_buf_assign_mem_gunyah(bool is_lend, struct sg_table *sgt,
 	size_t size;
 	struct scatterlist *sgl;
 
+	/* Physically contiguous memory only */
+	if (sgt->nents > 1) {
+		pr_err_ratelimited("Operation requires physically contiguous memory\n");
+		return -EINVAL;
+	}
+
 	/* Due to memory-hotplug */
 	size = 0;
 	for_each_sgtable_sg(sgt, sgl, i)
