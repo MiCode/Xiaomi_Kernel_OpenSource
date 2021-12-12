@@ -326,6 +326,7 @@ static int qfprom_reg_read(void *context,
 	int buf_start, buf_end, index, i = 0;
 	void __iomem *base = priv->qfpcorrected;
 	char *buffer = NULL;
+	u32 read_val;
 
 	if (read_raw_data && priv->qfpraw)
 		base = priv->qfpraw;
@@ -337,8 +338,10 @@ static int qfprom_reg_read(void *context,
 		return -ENOMEM;
 	}
 
-	for (index = buf_start; index < buf_end; index += 4, i += 4)
-		*(buffer + i) = readl_relaxed(base + index);
+	for (index = buf_start; index < buf_end; index += 4, i += 4) {
+		read_val = readl_relaxed(base + index);
+		memcpy(buffer + i, &read_val, 4);
+	}
 
 	memcpy(val, buffer + reg % 4, bytes);
 	kfree(buffer);
