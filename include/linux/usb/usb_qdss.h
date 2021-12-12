@@ -10,6 +10,7 @@
 #include <linux/errno.h>
 #include <linux/kernel.h>
 
+#define USB_QDSS_CH_EBC	"qdss_ebc"
 #define USB_QDSS_CH_MDM	"qdss_mdm"
 #define USB_QDSS_CH_MSM	"qdss"
 #define USB_QDSS_CH_SW	"qdss_sw"
@@ -33,6 +34,7 @@ struct usb_qdss_ch {
 	void *priv;
 	void *priv_usb;
 	int app_conn;
+	int ch_type;
 };
 
 enum qdss_state {

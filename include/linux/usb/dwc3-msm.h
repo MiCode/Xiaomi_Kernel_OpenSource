@@ -37,6 +37,9 @@
 #define MSM_INTERNAL_MEM		BIT(10)
 #define MSM_VENDOR_ID			BIT(16)
 
+/* EBC TRB parameters */
+#define EBC_TRB_SIZE			16384
+
 /* Operations codes for GSI enabled EPs */
 enum gsi_ep_op {
 	GSI_EP_OP_CONFIG = 0,
@@ -59,6 +62,7 @@ enum usb_hw_ep_mode {
 	USB_EP_NONE,
 	USB_EP_BAM,
 	USB_EP_GSI,
+	USB_EP_EBC,
 };
 
 enum dwc3_notify_event {
