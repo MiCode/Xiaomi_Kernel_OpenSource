@@ -61,7 +61,6 @@ struct ese_ioctl_arg {
 struct cold_reset {
 	wait_queue_head_t read_wq;
 	char *cmd_buf;
-	struct ese_cold_reset_arg *arg;
 	uint16_t cmd_len;
 	uint16_t rsp_len;
 	/* Source of last ese protection command */
