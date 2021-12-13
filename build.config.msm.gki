@@ -29,10 +29,10 @@ function build_defconfig_fragments() {
 			return
 		fi
 		GKI_BUILD_CONFIG=common/build.config.gki-debug.aarch64
-		GKI_GKI_BUILD_CONFIG_FRAGMENT=common/build.config.gki_consolidate.aarch64
+		GKI_GKI_BUILD_CONFIG_FRAGMENT=msm-kernel/build.config.gki_consolidate.aarch64
 		# ABI comparison isn't applicable on consolidate variant
 		unset ABI_DEFINITION
-		apply_defconfig_fragment common/arch/${ARCH}/configs/consolidate.fragment consolidate_defconfig
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/consolidate.fragment consolidate_defconfig
 		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_consolidate.config vendor/${MSM_ARCH}-consolidate_defconfig
 	elif [ "${VARIANT}" = gki-ack ]; then
 		# In gki-only, then using ACK's GKI config directly
