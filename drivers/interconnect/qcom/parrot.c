@@ -1996,7 +1996,7 @@ static struct qcom_icc_bcm bcm_sn7 = {
 
 static struct qcom_icc_bcm bcm_acv_disp = {
 	.name = "ACV",
-	.voter_idx = 1,
+	.voter_idx = 0,
 	.enable_mask = 0x1,
 	.perf_mode_mask = 0x2,
 	.num_nodes = 1,
@@ -2005,21 +2005,21 @@ static struct qcom_icc_bcm bcm_acv_disp = {
 
 static struct qcom_icc_bcm bcm_mc0_disp = {
 	.name = "MC0",
-	.voter_idx = 1,
+	.voter_idx = 0,
 	.num_nodes = 1,
 	.nodes = { &ebi_disp },
 };
 
 static struct qcom_icc_bcm bcm_mm0_disp = {
 	.name = "MM0",
-	.voter_idx = 1,
+	.voter_idx = 0,
 	.num_nodes = 1,
 	.nodes = { &qns_mem_noc_hf_disp },
 };
 
 static struct qcom_icc_bcm bcm_mm1_disp = {
 	.name = "MM1",
-	.voter_idx = 1,
+	.voter_idx = 0,
 	.enable_mask = 0x1,
 	.num_nodes = 1,
 	.nodes = { &qnm_mdp_disp },
@@ -2027,14 +2027,14 @@ static struct qcom_icc_bcm bcm_mm1_disp = {
 
 static struct qcom_icc_bcm bcm_sh0_disp = {
 	.name = "SH0",
-	.voter_idx = 1,
+	.voter_idx = 0,
 	.num_nodes = 1,
 	.nodes = { &qns_llcc_disp },
 };
 
 static struct qcom_icc_bcm bcm_sh1_disp = {
 	.name = "SH1",
-	.voter_idx = 1,
+	.voter_idx = 0,
 	.enable_mask = 0x1,
 	.num_nodes = 1,
 	.nodes = { &qnm_pcie_disp },
@@ -2256,7 +2256,6 @@ static struct qcom_icc_node *gem_noc_nodes[] = {
 
 static char *gem_noc_voters[] = {
 	"hlos",
-	"disp",
 };
 
 static struct qcom_icc_desc parrot_gem_noc = {
@@ -2314,7 +2313,6 @@ static struct qcom_icc_node *mc_virt_nodes[] = {
 
 static char *mc_virt_voters[] = {
 	"hlos",
-	"disp",
 };
 
 static struct qcom_icc_desc parrot_mc_virt = {
@@ -2351,7 +2349,6 @@ static struct qcom_icc_node *mmss_noc_nodes[] = {
 
 static char *mmss_noc_voters[] = {
 	"hlos",
-	"disp",
 };
 
 static struct qcom_icc_desc parrot_mmss_noc = {
@@ -2453,11 +2450,7 @@ static struct qcom_icc_desc parrot_system_noc = {
 static int qnoc_probe(struct platform_device *pdev)
 {
 	const struct qcom_icc_desc *desc;
-	struct icc_onecell_data *data;
-	struct icc_provider *provider;
 	struct qcom_icc_node **qnodes;
-	struct qcom_icc_provider *qp;
-	struct icc_node *node;
 	size_t num_nodes, i;
 	int ret;
 
@@ -2468,87 +2461,21 @@ static int qnoc_probe(struct platform_device *pdev)
 	qnodes = desc->nodes;
 	num_nodes = desc->num_nodes;
 
-	qp = devm_kzalloc(&pdev->dev, sizeof(*qp), GFP_KERNEL);
-	if (!qp)
-		return -ENOMEM;
-
-	data = devm_kcalloc(&pdev->dev, num_nodes, sizeof(*node), GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
-
-	provider = &qp->provider;
-	provider->dev = &pdev->dev;
-	provider->set = qcom_icc_set_stub;
-	provider->pre_aggregate = qcom_icc_pre_aggregate;
-	provider->aggregate = qcom_icc_aggregate_stub;
-	provider->xlate = of_icc_xlate_onecell;
-	INIT_LIST_HEAD(&provider->nodes);
-	provider->data = data;
-
-	qp->dev = &pdev->dev;
-	qp->bcms = desc->bcms;
-	qp->num_bcms = desc->num_bcms;
-
-	ret = icc_provider_add(provider);
-	if (ret) {
-		dev_err(&pdev->dev, "error adding interconnect provider\n");
-		return ret;
-	}
-
 	for (i = 0; i < num_nodes; i++) {
-		size_t j;
-
 		if (!qnodes[i])
 			continue;
 
-		node = icc_node_create(qnodes[i]->id);
-		if (IS_ERR(node)) {
-			ret = PTR_ERR(node);
-			goto err;
-		}
-
-		node->name = qnodes[i]->name;
-		node->data = qnodes[i];
-		icc_node_add(node, provider);
-
-		dev_dbg(&pdev->dev, "registered node %pK %s %d\n", node,
-			qnodes[i]->name, node->id);
-
-		/* populate links */
-		for (j = 0; j < qnodes[i]->num_links; j++)
-			icc_link_create(node, qnodes[i]->links[j]);
-
-		data->nodes[i] = node;
+		if (qnodes[i]->qosbox)
+			qnodes[i]->qosbox = NULL;
 	}
-	data->num_nodes = num_nodes;
 
-	platform_set_drvdata(pdev, qp);
-
-	dev_err(&pdev->dev, "Registered PARROT ICC\n");
+	ret = qcom_icc_rpmh_probe(pdev);
+	if (ret)
+		dev_err(&pdev->dev, "failed to register ICC provider\n");
+	else
+		dev_info(&pdev->dev, "Registered PARROT ICC\n");
 
 	return ret;
-err:
-	list_for_each_entry(node, &provider->nodes, node_list) {
-		icc_node_del(node);
-		icc_node_destroy(node->id);
-	}
-
-	icc_provider_del(provider);
-	return ret;
-}
-
-static int qnoc_remove(struct platform_device *pdev)
-{
-	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
-	struct icc_provider *provider = &qp->provider;
-	struct icc_node *n;
-
-	list_for_each_entry(n, &provider->nodes, node_list) {
-		icc_node_del(n);
-		icc_node_destroy(n->id);
-	}
-
-	return icc_provider_del(provider);
 }
 
 static const struct of_device_id qnoc_of_match[] = {
@@ -2582,7 +2509,7 @@ MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
-	.remove = qnoc_remove,
+	.remove = qcom_icc_rpmh_remove,
 	.driver = {
 		.name = "qnoc-parrot",
 		.of_match_table = qnoc_of_match,
