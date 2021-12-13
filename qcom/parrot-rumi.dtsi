@@ -86,3 +86,42 @@
 
 	cd-gpios = <&tlmm 107 GPIO_ACTIVE_LOW>;
 };
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&L5B>;
+	vdda-pll-supply = <&L17B>;
+	vdda-phy-max-microamp = <85800>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+	limit-rate = <2>; /* HS Rate-B */
+
+	vdd-hba-fixed-regulator;
+
+	vcc-supply = <&L24B>;
+	vcc-max-microamp = <1200000>;
+
+	vccq-supply = <&L13B>;
+	vccq-max-microamp = <1200000>;
+
+	vccq2-supply = <&L19B>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&L13B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+
+	qcom,iommu-dma = "bypass";
+
+	status = "ok";
+};
