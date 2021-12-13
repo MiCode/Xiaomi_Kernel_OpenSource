@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2010-2011, 2019-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2010-2011, 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/of.h>
 #include <linux/module.h>
@@ -20,8 +23,7 @@
 /* RTC_CTRL register bit fields */
 #define PM8xxx_RTC_ENABLE		BIT(7)
 #define PM8xxx_RTC_ALARM_CLEAR		BIT(0)
-#define PM8xxx_RTC_ALARM_ENABLE	BIT(7)
-
+#define PM8xxx_RTC_ALARM_ENABLE		BIT(7)
 #define NUM_8_BIT_RTC_REGS		0x4
 
 /**
@@ -63,6 +65,62 @@ struct pm8xxx_rtc {
 	struct device *rtc_dev;
 	spinlock_t ctrl_reg_lock;
 };
+
+static int pm8xxx_rtc_read_rtc_data(struct pm8xxx_rtc *rtc_dd, unsigned long *rtc_data)
+{
+	int rc;
+	u8 value[NUM_8_BIT_RTC_REGS];
+	unsigned int reg;
+	const struct pm8xxx_rtc_regs *regs = rtc_dd->regs;
+
+	rc = regmap_bulk_read(rtc_dd->regmap, regs->read, value, sizeof(value));
+	if (rc) {
+		dev_err(rtc_dd->rtc_dev, "RTC read rtc data register failed\n");
+		return rc;
+	}
+
+	/*
+	 * Read the LSB again and check if there has been a carry over.
+	 * If there is, redo the read operation.
+	 */
+	rc = regmap_read(rtc_dd->regmap, regs->read, &reg);
+	if (rc < 0) {
+		dev_err(rtc_dd->rtc_dev, "RTC read rtc data register failed\n");
+		return rc;
+	}
+
+	if (unlikely(reg < value[0])) {
+		rc = regmap_bulk_read(rtc_dd->regmap, regs->read,
+				      value, sizeof(value));
+		if (rc) {
+			dev_err(rtc_dd->rtc_dev, "RTC read rtc data register failed\n");
+			return rc;
+		}
+	}
+
+	*rtc_data = value[0] | (value[1] << 8) | (value[2] << 16) |
+			((unsigned long)value[3] << 24);
+
+	return 0;
+}
+
+static int pm8xxx_rtc_read_alarm_data(struct pm8xxx_rtc *rtc_dd, unsigned long *alarm_data)
+{
+	int rc;
+	u8 value[NUM_8_BIT_RTC_REGS];
+
+	rc = regmap_bulk_read(rtc_dd->regmap, rtc_dd->regs->alarm_rw, value,
+			      sizeof(value));
+	if (rc) {
+		dev_err(rtc_dd->rtc_dev, "RTC read alarm data failed\n");
+		return rc;
+	}
+
+	*alarm_data = value[0] | (value[1] << 8) | (value[2] << 16) |
+			((unsigned long)value[3] << 24);
+
+	return 0;
+}
 
 /*
  * Steps to write the RTC registers.
@@ -175,39 +233,14 @@ rtc_rw_fail:
 static int pm8xxx_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	int rc;
-	u8 value[NUM_8_BIT_RTC_REGS];
 	unsigned long secs;
-	unsigned int reg;
 	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
-	const struct pm8xxx_rtc_regs *regs = rtc_dd->regs;
 
-	rc = regmap_bulk_read(rtc_dd->regmap, regs->read, value, sizeof(value));
+	rc = pm8xxx_rtc_read_rtc_data(rtc_dd, &secs);
 	if (rc) {
-		dev_err(dev, "RTC read data register failed\n");
+		dev_err(dev, "RTC read time failed\n");
 		return rc;
 	}
-
-	/*
-	 * Read the LSB again and check if there has been a carry over.
-	 * If there is, redo the read operation.
-	 */
-	rc = regmap_read(rtc_dd->regmap, regs->read, &reg);
-	if (rc < 0) {
-		dev_err(dev, "RTC read data register failed\n");
-		return rc;
-	}
-
-	if (unlikely(reg < value[0])) {
-		rc = regmap_bulk_read(rtc_dd->regmap, regs->read,
-				      value, sizeof(value));
-		if (rc) {
-			dev_err(dev, "RTC read data register failed\n");
-			return rc;
-		}
-	}
-
-	secs = value[0] | (value[1] << 8) | (value[2] << 16) |
-	       ((unsigned long)value[3] << 24);
 
 	rtc_time64_to_tm(secs, tm);
 
@@ -267,54 +300,30 @@ static int pm8xxx_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 {
 	int rc;
 	unsigned int ctrl_reg;
-	unsigned long irq_flags;
-	u8 value[NUM_8_BIT_RTC_REGS];
 	unsigned long secs;
 	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
 	const struct pm8xxx_rtc_regs *regs = rtc_dd->regs;
 
-	spin_lock_irqsave(&rtc_dd->ctrl_reg_lock, irq_flags);
-
-	rc = regmap_bulk_read(rtc_dd->regmap, regs->alarm_rw, value,
-			      sizeof(value));
+	rc = pm8xxx_rtc_read_alarm_data(rtc_dd, &secs);
 	if (rc) {
-		dev_err(dev, "RTC alarm time read failed\n");
-		goto rtc_rw_fail;
+		dev_err(dev, "RTC alarm data read failed\n");
+		return rc;
 	}
-
-	secs = value[0] | (value[1] << 8) | (value[2] << 16) |
-	       ((unsigned long)value[3] << 24);
 
 	rtc_time64_to_tm(secs, &alarm->time);
 
 	rc = regmap_read(rtc_dd->regmap, regs->alarm_ctrl, &ctrl_reg);
 	if (rc) {
 		dev_err(dev, "Read from RTC alarm control register failed\n");
-		goto rtc_rw_fail;
-	}
-
-	if (ctrl_reg && (rtc_tm_to_ktime(alarm->time) >=
-				rtc_dd->rtc->aie_timer.node.expires)) {
-		ctrl_reg &= ~regs->alarm_en;
-		rc = regmap_write(rtc_dd->regmap, regs->alarm_ctrl, ctrl_reg);
-		if (rc) {
-			dev_err(dev, "Update RTC control register failed\n");
-			goto rtc_rw_fail;
-		}
+		return rc;
 	}
 
 	alarm->enabled = !!(ctrl_reg & PM8xxx_RTC_ALARM_ENABLE);
-
-	spin_unlock_irqrestore(&rtc_dd->ctrl_reg_lock, irq_flags);
 
 	dev_dbg(dev, "Alarm set for - h:m:s=%ptRt, y-m-d=%ptRdr\n",
 		&alarm->time, &alarm->time);
 
 	return 0;
-
-rtc_rw_fail:
-	spin_unlock_irqrestore(&rtc_dd->ctrl_reg_lock, irq_flags);
-	return rc;
 }
 
 static int pm8xxx_rtc_alarm_irq_enable(struct device *dev, unsigned int enable)
@@ -413,6 +422,52 @@ static irqreturn_t pm8xxx_alarm_trigger(int irq, void *dev_id)
 
 rtc_alarm_handled:
 	return IRQ_HANDLED;
+}
+
+/*
+ * Trigger the alarm event and clear the alarm settings
+ * if the alarm data has been behind the RTC data which
+ * means the alarm has been triggered before the driver
+ * is probed.
+ */
+static int pm8xxx_rtc_init_alarm(struct pm8xxx_rtc *rtc_dd)
+{
+	int rc;
+	unsigned long rtc_data, alarm_data, irq_flags;
+	unsigned int ctrl_reg, alarm_en;
+	const struct pm8xxx_rtc_regs *regs = rtc_dd->regs;
+
+	spin_lock_irqsave(&rtc_dd->ctrl_reg_lock, irq_flags);
+
+	rc = pm8xxx_rtc_read_rtc_data(rtc_dd, &rtc_data);
+	if (rc) {
+		spin_unlock_irqrestore(&rtc_dd->ctrl_reg_lock, irq_flags);
+		dev_err(rtc_dd->rtc_dev, "rtc read rtc data failed\n");
+		return rc;
+	}
+
+	rc = pm8xxx_rtc_read_alarm_data(rtc_dd, &alarm_data);
+	if (rc) {
+		spin_unlock_irqrestore(&rtc_dd->ctrl_reg_lock, irq_flags);
+		dev_err(rtc_dd->rtc_dev, "rtc read alarm data failed\n");
+		return rc;
+	}
+
+	rc = regmap_read(rtc_dd->regmap, regs->alarm_ctrl, &ctrl_reg);
+	if (rc) {
+		spin_unlock_irqrestore(&rtc_dd->ctrl_reg_lock, irq_flags);
+		dev_err(rtc_dd->rtc_dev, "Read from RTC alarm control register failed\n");
+		return rc;
+	}
+
+	spin_unlock_irqrestore(&rtc_dd->ctrl_reg_lock, irq_flags);
+
+	alarm_en = !!(ctrl_reg & PM8xxx_RTC_ALARM_ENABLE);
+
+	if (alarm_en && rtc_data >= alarm_data)
+		pm8xxx_alarm_trigger(0, rtc_dd);
+
+	return 0;
 }
 
 static int pm8xxx_rtc_enable(struct pm8xxx_rtc *rtc_dd)
@@ -559,7 +614,13 @@ static int pm8xxx_rtc_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	return rtc_register_device(rtc_dd->rtc);
+	rc =  rtc_register_device(rtc_dd->rtc);
+	if (rc < 0) {
+		dev_err(&pdev->dev, "Register RTC device failed\n");
+		return rc;
+	}
+
+	return pm8xxx_rtc_init_alarm(rtc_dd);
 }
 
 #ifdef CONFIG_PM_SLEEP
