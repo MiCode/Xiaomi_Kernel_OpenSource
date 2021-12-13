@@ -873,7 +873,7 @@ static irqreturn_t arm_smmu_context_fault_retry(struct arm_smmu_domain *smmu_dom
 	u32 fsr;
 
 	if (!(smmu->options & ARM_SMMU_OPT_CONTEXT_FAULT_RETRY) ||
-	    (test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL, smmu_domain->attributes)))
+	    (smmu_domain->fault_model.no_stall))
 		return IRQ_NONE;
 
 	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
