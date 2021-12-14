@@ -815,6 +815,37 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 	return NULL;
 }
 
+static void kgsl_iommu_add_fault_info(struct kgsl_context *context,
+		unsigned long addr, int flags)
+{
+	struct kgsl_pagefault_report *report;
+	u32 fault_flag = 0;
+
+	if (!context || !(context->flags & KGSL_CONTEXT_FAULT_INFO))
+		return;
+
+	report = kzalloc(sizeof(struct kgsl_pagefault_report), GFP_KERNEL);
+	if (!report)
+		return;
+
+	if (flags & IOMMU_FAULT_TRANSLATION)
+		fault_flag = KGSL_PAGEFAULT_TYPE_TRANSLATION;
+	else if (flags & IOMMU_FAULT_PERMISSION)
+		fault_flag = KGSL_PAGEFAULT_TYPE_PERMISSION;
+	else if (flags & IOMMU_FAULT_EXTERNAL)
+		fault_flag = KGSL_PAGEFAULT_TYPE_EXTERNAL;
+	else if (flags & IOMMU_FAULT_TRANSACTION_STALLED)
+		fault_flag = KGSL_PAGEFAULT_TYPE_TRANSACTION_STALLED;
+
+	fault_flag |= (flags & IOMMU_FAULT_WRITE) ? KGSL_PAGEFAULT_TYPE_WRITE :
+			KGSL_PAGEFAULT_TYPE_READ;
+
+	report->fault_addr = addr;
+	report->fault_type = fault_flag;
+	if (kgsl_add_fault(context, KGSL_FAULT_TYPE_PAGEFAULT, report))
+		kfree(report);
+}
+
 static void kgsl_iommu_print_fault(struct kgsl_mmu *mmu,
 		struct kgsl_iommu_context *ctxt, unsigned long addr,
 		u64 ptbase, u32 contextid,
@@ -977,6 +1008,7 @@ static int kgsl_iommu_fault_handler(struct kgsl_mmu *mmu,
 
 	kgsl_iommu_print_fault(mmu, ctx, addr, ptbase, contextidr, flags, private,
 		context);
+	kgsl_iommu_add_fault_info(context, addr, flags);
 
 	if (stall) {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
