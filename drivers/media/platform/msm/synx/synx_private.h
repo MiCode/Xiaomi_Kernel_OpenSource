@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SYNX_PRIVATE_H__
@@ -181,6 +181,7 @@ struct synx_device;
  * @import_refcount   : References for external clients for import
  * @id                : Synx object handle for the client
  * @key               : Key for import authentication
+ * @rel_count         : No of allowed release counts
  */
 struct synx_handle_coredata {
 	struct synx_client *client;
@@ -189,6 +190,7 @@ struct synx_handle_coredata {
 	struct kref import_refcount;
 	u32 handle;
 	u16 key;
+	u32 rel_count;
 };
 
 /**
