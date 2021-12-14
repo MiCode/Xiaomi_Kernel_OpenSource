@@ -113,3 +113,21 @@
 		};
 	};
 };
+
+&gcc {
+	clocks = <&rpmhcc RPMH_CXO_CLK>, <&sleep_clk>,
+		<&pcie_0_pipe_clk>, <&ufs_phy_rx_symbol_0_clk>,
+		<&ufs_phy_rx_symbol_1_clk>, <&ufs_phy_tx_symbol_0_clk>,
+		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+	clock-names = "bi_tcxo", "sleep_clk",
+		"pcie_0_pipe_clk", "ufs_phy_rx_symbol_0_clk",
+		"ufs_phy_rx_symbol_1_clk", "ufs_phy_tx_symbol_0_clk",
+		"usb3_phy_wrapper_gcc_usb30_pipe_clk";
+
+	/delete-property/ protected-clocks;
+};
+
+&gcc_pcie_0_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
