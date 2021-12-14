@@ -567,6 +567,29 @@ config QCOM_WATCHDOG_USERSPACE_PET
 	  interval that matches the time set in the pet-time config.
 	  The feature is supported through device sysfs files.
 
+config MSM_SPCOM
+         depends on QCOM_SPSS
+         tristate "Secure Processor Communication over RPMSG"
+         help
+	   SPCOM driver allows loading Secure Processor Applications and sending
+	   messages to Secure Processor Applications. SPCOM implements logic of RPMSG
+	   client of SPSS edge. SPCOM provides interface to both user space app and
+	   kernel driver. It is using glink as the transport layer, which provides
+	   multiple logical channels over single physical channel. The physical layer
+	   is based on shared memory and interrupts. SPCOM provides clients/server API
+	   although currently only one client/server is allowed per logical channel.
+
+config MSM_SPSS_UTILS
+	depends on QCOM_SPSS
+	tristate "Secure Processor Utilities"
+	help
+	  spss-utils driver selects Secure Processor firmware file name.name
+	  The firmware file name for dev, test or production is selected
+	  based on two fuses.fuses
+	  Different file name is used for differnt SPSS HW versions,versions
+	  because the SPSS firmware size is too small to support multiple
+	  HW versions.
+
 config QCOM_WCNSS_CTRL
 	tristate "Qualcomm WCNSS control driver"
 	depends on ARCH_QCOM || COMPILE_TEST
