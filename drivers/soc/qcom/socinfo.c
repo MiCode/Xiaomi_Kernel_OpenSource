@@ -800,6 +800,8 @@ static const struct soc_id soc_id[] = {
 	{ 482, "WAIPIOP" },
 	{ 519, "KALAMA" },
 	{ 536, "KALAMAP" },
+	{ 539, "CINDERRU"},
+	{ 545, "CINDERDU"},
 };
 
 struct soc_sku {
