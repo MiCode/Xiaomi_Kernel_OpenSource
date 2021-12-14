@@ -869,6 +869,7 @@
 };
 
 #include "diwali-gdsc.dtsi"
+#include "ipcc-test-parrot.dtsi"
 
 &gcc_pcie_0_gdsc {
 	compatible = "regulator-fixed";
