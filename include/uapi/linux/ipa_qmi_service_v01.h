@@ -385,6 +385,22 @@ struct ipa_init_modem_driver_req_msg_v01 {
 	 */
 	__u8 hw_fiter_stats_info_valid;
 	struct ipa_filter_stats_info_type_v01 hw_filter_stats_info;
+
+	/* optional
+	 * Filter table smem info
+	 * Must be set to true if smem_info
+	 * is being passed(Currently not using it)
+	 */
+	__u8 smem_info_valid;
+	struct ipa_modem_mem_info_type_v01 smem_info;
+
+	/* optional
+	 * IPA Peripheral stats info
+	 * Must be set to true if per_stats_info
+	 * is being passed
+	 */
+	__u8 per_stats_smem_info_valid;
+	struct ipa_modem_mem_info_type_v01 per_stats_smem_info;
 };  /* Message */
 
 /* Response Message; Requests the modem IPA driver about initialization */
@@ -2825,7 +2841,7 @@ struct ipa_move_nat_table_complt_ind_msg_v01 {
 #define QMI_IPA_MOVE_NAT_COMPLETE_IND_V01 0x0046
 
 /* add for max length*/
-#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 186
+#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 210
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
 #define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 16
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7
