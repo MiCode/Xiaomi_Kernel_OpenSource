@@ -625,6 +625,7 @@
   flow_rule_match_ports
   flow_rule_match_vlan
   flush_dcache_page
+  flush_delayed_fput
   flush_delayed_work
   flush_work
   flush_workqueue
