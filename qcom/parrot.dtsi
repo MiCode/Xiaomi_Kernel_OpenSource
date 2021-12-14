@@ -19,7 +19,9 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
-	chosen: chosen { };
+	chosen: chosen {
+		stdout-path = "/soc/qcom,qup_uart@98C000:115200n8";
+	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
