@@ -3,6 +3,14 @@
 / {
 };
 
+&wpss_pas {
+	status = "disabled";
+};
+
+&icnss2 {
+	status = "disabled";
+};
+
 &reserved_memory {
 	cnss_wlan_mem: cnss_wlan_region {
 		compatible = "shared-dma-pool";
@@ -23,7 +31,6 @@
 	};
 
 	wlan: qcom,cnss-qca6490@b0000000 {
-		status = "disabled";
 		compatible = "qcom,cnss-qca6490";
 		reg = <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_ipa";
