@@ -2323,21 +2323,23 @@
 			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			      <0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 			mediatek,sram_size = <512>;
+			/* ccif hw reset version */
+			mediatek,ccif_hw_reset_ver = <1>;
 			/* DTS/GIC_ID: CCIF0 228/260; CCIF0 229/261 */
 			interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF1_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF1_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF4_MD_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF5_MD_CG>;
-//			clock-names = "infra-ccif-ap",
-//				"infra-ccif-md",
-//				"infra-ccif1-ap",
-//				"infra-ccif1-md",
-//				"infra-ccif4-md",
-//				"infra-ccif5-md";
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF_AP>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF1_AP>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF1_MD>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>;
+			clock-names = "infra-ccif-ap",
+				"infra-ccif-md",
+				"infra-ccif1-ap",
+				"infra-ccif1-md",
+				"infra-ccif4-md",
+				"infra-ccif5-md";
 		};
 
 		mddriver:mddriver {
@@ -2351,7 +2353,7 @@
 			/* 0x06: once a value[1] exist, means in l2sram */
 			/* value[1] not exist means in mddbgsys. the value(6) has no meaningful */
 			mediatek,offset_epon_md1 = <0x2844>;
-			mediatek,cldma_capability = <14>; //???
+			mediatek,cldma_capability = <14>;
 			/* bit0:srcclkena|bit1:srclken_o1_on|bit2:revert_sequencer */
 			mediatek,power_flow_config = <0x2>;
 			/* srclken_o1 set value |= 1<<14 */
@@ -2360,9 +2362,9 @@
 			interrupts = <GIC_SPI 111 IRQ_TYPE_EDGE_RISING 0>,
 				     <GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH  0>,
 				     <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH  0>;
-//			power-domains = <&scpsys MT6855_POWER_DOMAIN_MD>;
-//			ccci-infracfg = <&infracfg_ao_clk>;
-//			ccci-topckgen = <&topckgen_clk>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_MD>;
+			ccci-infracfg = <&infracfg_ao_clk>;
+			ccci-topckgen = <&topckgen_clk>;
 			/* ccci_spmsleep = <&sleep>; */
 		};
 
@@ -2375,10 +2377,10 @@
 
 		ccci_scp:ccci_scp {
 			compatible = "mediatek,ccci_md_scp";
-//			clocks = <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF2_AP_CG>,
-//				 <&infracfg_ao_clk CLK_INFRACFG_AO_CCIF2_MD_CG>;
-//			clock-names = "infra-ccif2-ap",
-//				"infra-ccif2-md";
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF2_AP>,
+				 <&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>;
+			clock-names = "infra-ccif2-ap",
+				"infra-ccif2-md";
 		};
 
 		gpio_usage_mapping:gpio {
@@ -5341,6 +5343,20 @@
 
 &mtk_gauge {
 	charger = <&mt6375_chg>;
+};
+
+&mddriver {
+	/* for md pmic voltage setting*/
+	md_vmodem-supply = <&mt6363_vbuck6>;
+	md_vmodem = <825000 825000>;
+	md_vsram-supply = <&mt6363_vsram_modem>;
+	md_vsram = <825000 825000>;
+	md_vdigrf-supply = <&mt6369_vdigrf>;
+	md_vdigrf = <700000 700000>;
+};
+
+&md_auxadc {
+	io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN1)>;
 };
 
 #include "mediatek/bat_setting/mt6855_battery_prop.dtsi"
