@@ -101,6 +101,8 @@ static int dsu_enable = 1;
 static int dsu_opp_send = 0xff;
 static int dsu_mode;
 static int cm_aggr;
+static int cm_mgr_dram_opp_ceiling = -1;
+static int cm_mgr_dram_opp_floor = -1;
 unsigned int cm_hint;
 #endif
 int debounce_times_reset_adb;
@@ -518,6 +520,10 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			cm_aggr);
 	len += cm_mgr_print("cm_hint %d\n",
 			cm_hint);
+	len += cm_mgr_print("cm_mgr_dram_opp_ceiling %d\n",
+			    cm_mgr_dram_opp_ceiling);
+	len += cm_mgr_print("cm_mgr_dram_opp_floor %d\n",
+			    cm_mgr_dram_opp_floor);
 #endif
 	len += cm_mgr_print("\n");
 
@@ -683,6 +689,12 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_AGGRESSIVE, val_1);
 	} else if (!strcmp(cmd, "cm_hint")) {
 		cm_hint = val_1;
+	} else if (!strcmp(cmd, "cm_mgr_dram_opp_ceiling")) {
+		cm_mgr_dram_opp_ceiling = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_OPP_CEILING, val_1);
+	} else if (!strcmp(cmd, "cm_mgr_dram_opp_floor")) {
+		cm_mgr_dram_opp_floor = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_OPP_FLOOR, val_1);
 #endif
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
