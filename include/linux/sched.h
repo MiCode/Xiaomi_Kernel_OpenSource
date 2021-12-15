@@ -1321,8 +1321,6 @@ struct task_struct {
 #ifdef CONFIG_MTK_TASK_TURBO
 	unsigned char turbo:1;
 	unsigned char render:1;
-	atomic_t inherit_types;
-	unsigned int inherit_cnt;
 #endif
 
 	/*

@@ -14,9 +14,6 @@
 #include <linux/atomic.h>
 
 #include "rwsem.h"
-#ifdef CONFIG_MTK_TASK_TURBO
-#include <mt-plat/turbo_common.h>
-#endif
 
 /*
  * lock for reading
@@ -136,9 +133,6 @@ void up_write(struct rw_semaphore *sem)
 	DEBUG_RWSEMS_WARN_ON(sem->owner != current);
 
 	rwsem_clear_owner(sem);
-#ifdef CONFIG_MTK_TASK_TURBO
-	rwsem_stop_turbo_inherit(sem);
-#endif
 	__up_write(sem);
 }
 
@@ -153,9 +147,6 @@ void downgrade_write(struct rw_semaphore *sem)
 	DEBUG_RWSEMS_WARN_ON(sem->owner != current);
 
 	rwsem_set_reader_owned(sem);
-#ifdef CONFIG_MTK_TASK_TURBO
-	rwsem_stop_turbo_inherit(sem);
-#endif
 	__downgrade_write(sem);
 }
 

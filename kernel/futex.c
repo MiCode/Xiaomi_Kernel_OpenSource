@@ -268,10 +268,6 @@ struct futex_hash_bucket {
 	struct plist_head chain;
 } ____cacheline_aligned_in_smp;
 
-#ifdef CONFIG_MTK_TASK_TURBO
-#include <mt-plat/task_turbo_futex.h>
-#endif
-
 /*
  * The base of the bucket array and its size are always used together
  * (after initialization only in hash_futex()), so ensure that they
@@ -2355,11 +2351,7 @@ static inline void __queue_me(struct futex_q *q, struct futex_hash_bucket *hb)
 	prio = min(current->normal_prio, MAX_RT_PRIO);
 
 	plist_node_init(&q->list, prio);
-#ifdef CONFIG_MTK_TASK_TURBO
-	futex_plist_add(q, hb);
-#else
 	plist_add(&q->list, &hb->chain);
-#endif
 	q->task = current;
 }
 

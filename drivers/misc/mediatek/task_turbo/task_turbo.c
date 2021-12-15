@@ -6,13 +6,10 @@
 #define pr_fmt(fmt) "Task-Turbo: " fmt
 
 #include <linux/list.h>
-#include <linux/sched.h>
 #include <linux/module.h>
 #include <uapi/linux/sched/types.h>
 #include <mt-plat/turbo_common.h>
 #include <task_turbo.h>
-#define CREATE_TRACE_POINTS
-#include <trace_task_turbo.h>
 
 #define TOP_APP_GROUP_ID	4
 #define TURBO_PID_COUNT		8
@@ -42,24 +39,17 @@ void init_turbo_attr(struct task_struct *p)
 {
 	p->turbo = TURBO_DISABLE;
 	p->render = 0;
-	atomic_set(&(p->inherit_types), 0);
-	p->inherit_cnt = 0;
 }
 
 bool is_turbo_task(struct task_struct *p)
 {
-	return p && (p->turbo || atomic_read(&p->inherit_types));
+	return p->turbo;
 }
 EXPORT_SYMBOL(is_turbo_task);
 
 int get_turbo_feats(void)
 {
 	return task_turbo_feats;
-}
-
-inline bool sub_feat_enable(int type)
-{
-	return get_turbo_feats() & type;
 }
 
 /*
@@ -83,7 +73,6 @@ static int set_turbo_task(int pid, int val)
 		get_task_struct(p);
 		p->turbo = val;
 		/*TODO: scheduler tuning */
-		trace_turbo_set(p);
 		put_task_struct(p);
 	} else
 		retval = -ESRCH;
@@ -299,7 +288,6 @@ static void add_turbo_list(struct task_struct *p)
 	if (add_turbo_list_locked(p->pid)) {
 		p->turbo = TURBO_ENABLE;
 		/* TODO: scheduler tuninng */
-		trace_turbo_set(p);
 	}
 	mutex_unlock(&TURBO_MUTEX_LOCK);
 }
@@ -324,8 +312,6 @@ static void remove_turbo_list(struct task_struct *p)
 	mutex_lock(&TURBO_MUTEX_LOCK);
 	remove_turbo_list_locked(p->pid);
 	p->turbo = TURBO_DISABLE;
-	/* TODO scheduler tuning */
-	trace_turbo_set(p);
 	mutex_unlock(&TURBO_MUTEX_LOCK);
 }
 
@@ -355,209 +341,4 @@ extern void sys_set_turbo_task(struct task_struct *p)
 
 	p->render = 1;
 	add_turbo_list(p);
-}
-
-/**************************************
- *                                    *
- * inherit turbo function             *
- *                                    *
- *************************************/
-
-#define INHERIT_THRESHOLD	4
-
-#define type_offset(type)		 (type * 4)
-#define type_number(type)		 (1U << type_offset(type))
-#define get_value_with_type(value, type)				\
-	(value & ((unsigned int)(0x0000000f) << (type_offset(type))))
-
-static inline void sub_inherit_types(struct task_struct *task, int type)
-{
-	atomic_sub(type_number(type), &task->inherit_types);
-}
-
-static inline void add_inherit_types(struct task_struct *task, int type)
-{
-	atomic_add(type_number(type), &task->inherit_types);
-}
-
-bool test_turbo_cnt(struct task_struct *task)
-{
-	/* TODO:limit number should be disscuss */
-	return task->inherit_cnt < INHERIT_THRESHOLD;
-}
-
-bool is_inherit_turbo(struct task_struct *task, int type)
-{
-	unsigned int inherit_types;
-
-	if (!task)
-		return false;
-
-	inherit_types = atomic_read(&task->inherit_types);
-
-	if (inherit_types == 0)
-		return false;
-
-	return get_value_with_type(inherit_types, type) > 0;
-}
-
-inline bool should_set_inherit_turbo(struct task_struct *task)
-{
-	return is_turbo_task(task) && test_turbo_cnt(task);
-}
-
-bool start_turbo_inherit(struct task_struct *task,
-			int type,
-			int cnt)
-{
-	if (type <= START_INHERIT && type >= END_INHERIT)
-		return false;
-
-	add_inherit_types(task, type);
-	if (task->inherit_cnt < cnt + 1)
-		task->inherit_cnt = cnt + 1;
-
-	/* TODO scheduler tuning start */
-	return true;
-}
-
-bool stop_turbo_inherit(struct task_struct *task,
-			 int type)
-{
-	unsigned int inherit_types;
-	bool ret = false;
-
-	if (type <= START_INHERIT && type >= END_INHERIT)
-		goto done;
-
-	inherit_types = atomic_read(&task->inherit_types);
-	if (inherit_types == 0)
-		goto done;
-
-	sub_inherit_types(task, type);
-	inherit_types = atomic_read(&task->inherit_types);
-	if (inherit_types > 0)
-		goto done;
-
-	/* TODO scheduler tuning stop */
-	task->inherit_cnt = 0;
-	ret = true;
-done:
-	return ret;
-}
-
-bool binder_start_turbo_inherit(struct task_struct *from,
-			   struct task_struct *to)
-{
-	bool ret = false;
-
-	if (!sub_feat_enable(SUB_FEAT_BINDER))
-		goto done;
-
-	if (!from || !to)
-		goto done;
-
-	if (!is_turbo_task(from) ||
-		!test_turbo_cnt(from))
-		goto done;
-
-	if (!is_turbo_task(to)) {
-		ret = start_turbo_inherit(to, BINDER_INHERIT,
-					from->inherit_cnt);
-		trace_turbo_inherit_start(from, to);
-	}
-done:
-	return ret;
-}
-
-void binder_stop_turbo_inherit(struct task_struct *p)
-{
-	if (is_inherit_turbo(p, BINDER_INHERIT))
-		stop_turbo_inherit(p, BINDER_INHERIT);
-	trace_turbo_inherit_end(p);
-}
-
-enum rwsem_waiter_type {
-	RWSEM_WAITING_FOR_WRITE,
-	RWSEM_WAITING_FOR_READ
-};
-
-struct rwsem_waiter {
-	struct list_head list;
-	struct task_struct *task;
-	enum rwsem_waiter_type type;
-};
-
-#define RWSEM_ANONYMOUSLY_OWNED	(1UL << 0)
-#define RWSEM_READER_OWNED	((struct task_struct *)RWSEM_ANONYMOUSLY_OWNED)
-
-static inline bool rwsem_owner_is_writer(struct task_struct *owner)
-{
-	return owner && owner != RWSEM_READER_OWNED;
-}
-
-void rwsem_start_turbo_inherit(struct rw_semaphore *sem)
-{
-	bool should_inherit;
-	struct task_struct *owner;
-	struct task_struct *cur = current;
-
-	if (!sub_feat_enable(SUB_FEAT_LOCK))
-		return;
-
-	owner = READ_ONCE(sem->owner);
-	should_inherit = should_set_inherit_turbo(cur);
-	if (should_inherit) {
-		if (rwsem_owner_is_writer(owner) &&
-				!is_turbo_task(owner) &&
-				!sem->turbo_owner) {
-			start_turbo_inherit(owner,
-					    RWSEM_INHERIT,
-					    cur->inherit_cnt);
-			sem->turbo_owner = owner;
-			trace_turbo_inherit_start(cur, owner);
-		}
-	}
-}
-
-void rwsem_stop_turbo_inherit(struct rw_semaphore *sem)
-{
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&sem->wait_lock, flags);
-	if (sem->turbo_owner == current) {
-		stop_turbo_inherit(current, RWSEM_INHERIT);
-		sem->turbo_owner = NULL;
-		trace_turbo_inherit_end(current);
-	}
-	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
-}
-
-void rwsem_list_add(struct task_struct *task,
-		    struct list_head *entry,
-		    struct list_head *head)
-{
-
-	if (!sub_feat_enable(SUB_FEAT_LOCK)) {
-		list_add_tail(entry, head);
-		return;
-	}
-
-	if (is_turbo_task(task)) {
-		struct list_head *pos = NULL;
-		struct list_head *n = NULL;
-		struct rwsem_waiter *waiter = NULL;
-
-		/* insert turbo task pior to first non-turbo task */
-		list_for_each_safe(pos, n, head) {
-			waiter = list_entry(pos,
-					struct rwsem_waiter, list);
-			if (!is_turbo_task(waiter->task)) {
-				list_add(entry, waiter->list.prev);
-				return;
-			}
-		}
-	}
-
-	list_add_tail(entry, head);
 }
