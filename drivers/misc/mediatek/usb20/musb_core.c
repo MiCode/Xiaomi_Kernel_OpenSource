@@ -3263,7 +3263,7 @@ bool usb_prepare_clock(bool enable)
 
 	if (IS_ERR_OR_NULL(glue->sys_clk) ||
 			IS_ERR_OR_NULL(glue->ref_clk) ||
-			IS_ERR_OR_NULL(glue->src_clk)) {
+			IS_ERR(glue->src_clk)) {
 		DBG(0, "clk not ready\n");
 		mutex_unlock(&prepare_lock);
 		return 0;
@@ -3278,7 +3278,7 @@ bool usb_prepare_clock(bool enable)
 				DBG(0, "musb sys_clk set_parent fail\n");
 		}
 		if (clk_prepare(glue->src_clk))
-			DBG(0, "musb_clk prepare fail\n");
+			DBG(0, "musb src_clk prepare fail\n");
 
 		atomic_inc(&clk_prepare_cnt);
 	} else {
@@ -3330,7 +3330,7 @@ bool usb_enable_clock(bool enable)
 		}
 
 		if (clk_enable(glue->src_clk)) {
-			DBG(0, "musb_clk enable fail\n");
+			DBG(0, "musb src_clk enable fail\n");
 			clk_disable(glue->sys_clk);
 			goto exit;
 		}
@@ -4326,13 +4326,13 @@ static int musb_probe(struct platform_device *pdev)
 	glue->ref_clk =
 		devm_clk_get(&pdev->dev, "ref_clk");
 	if (IS_ERR(glue->ref_clk)) {
-		DBG(0, "cannot get musb ref clk\n");
+		DBG(0, "cannot get musb ref_clk\n");
 		goto err2;
 	}
 
 	glue->src_clk = devm_clk_get_optional(&pdev->dev, "src_ref");
 	if (IS_ERR(glue->src_clk)) {
-		DBG(0, "cannot get src_clk  clock\n");
+		DBG(0, "cannot get musb src_clk\n");
 		goto err2;
 	}
 

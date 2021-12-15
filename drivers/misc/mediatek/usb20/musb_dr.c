@@ -256,9 +256,9 @@ EXPORT_SYMBOL(mt_usb_mode_switch);
 
 static int mt_usb_role_sx_set(struct usb_role_switch *sw, enum usb_role role)
 {
-	struct device *dev = usb_role_switch_get_drvdata(sw);
-	struct mt_usb_glue *glue = dev_get_drvdata(dev);
+	struct mt_usb_glue *glue = usb_role_switch_get_drvdata(sw);
 	struct otg_switch_mtk *otg_sx = &glue->otg_sx;
+	struct device *dev = glue->dev;
 	bool id_event, vbus_event;
 	static bool first_init = true;
 
@@ -334,8 +334,7 @@ static int mt_usb_role_sx_set(struct usb_role_switch *sw, enum usb_role role)
 
 static enum usb_role mt_usb_role_sx_get(struct usb_role_switch *sw)
 {
-	struct device *dev = usb_role_switch_get_drvdata(sw);
-	struct mt_usb_glue *glue = dev_get_drvdata(dev);
+	struct mt_usb_glue *glue = usb_role_switch_get_drvdata(sw);
 	struct musb *musb = glue->mtk_musb;
 	enum usb_role role;
 
