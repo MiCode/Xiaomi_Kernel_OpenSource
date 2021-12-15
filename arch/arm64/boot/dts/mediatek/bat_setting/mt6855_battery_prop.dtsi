@@ -6,7 +6,6 @@
  */
 
 &mtk_gauge {
-	DISABLE_MTKBATTERY = <(1)>;
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(5)>;
