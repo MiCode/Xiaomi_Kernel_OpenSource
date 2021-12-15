@@ -133,6 +133,7 @@ int mtk_ccu_sw_hw_reset(struct mtk_ccu *ccu)
 		if (duration > 1000) {
 			dev_err(ccu->dev,
 			"polling CCU halt, timeout: (0x%08x)\n", ccu_status);
+			mtk_smi_dbg_hang_detect("CCU");
 			break;
 		}
 		udelay(10);
