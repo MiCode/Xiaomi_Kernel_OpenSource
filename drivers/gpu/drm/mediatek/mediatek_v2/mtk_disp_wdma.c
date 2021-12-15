@@ -367,13 +367,14 @@ static void mtk_wdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	unsigned int aid_sel_offset = 0;
 	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 	resource_size_t mmsys_reg = priv->config_regs_pa;
+	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
 
 	inten = REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
 		REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
 	mtk_ddp_write(comp, WDMA_EN, DISP_REG_WDMA_EN, handle);
 	mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
 
-	if (data->use_larb_control_sec) {
+	if (data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL) {
 			if (disp_sec_cb.cb(DISP_SEC_START, NULL, 0))
 				wdma->wdma_sec_first_time_install = 1;
@@ -396,6 +397,7 @@ static void mtk_wdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	const struct mtk_disp_wdma_data *data = wdma->data;
 	bool en = 0;
+	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
 
 	mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_INTEN, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_EN, handle);
@@ -407,7 +409,7 @@ static void mtk_wdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write(comp, 0x01, DISP_REG_WDMA_RST, handle);
 	mtk_ddp_write(comp, 0x00, DISP_REG_WDMA_RST, handle);
 
-	if (data->use_larb_control_sec) {
+	if (data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL)
 			disp_sec_cb.cb(DISP_SEC_STOP, NULL, 0);
 	}
