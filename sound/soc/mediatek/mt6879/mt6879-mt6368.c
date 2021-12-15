@@ -38,10 +38,6 @@ static const char *const
 				     MTK_SPK_I2S_2_STR,
 				     MTK_SPK_I2S_3_STR,
 				     MTK_SPK_I2S_5_STR,
-				     MTK_SPK_I2S_6_STR,
-				     MTK_SPK_I2S_7_STR,
-				     MTK_SPK_I2S_8_STR,
-				     MTK_SPK_I2S_9_STR,
 				     MTK_SPK_TINYCONN_I2S_0_STR};
 
 static const struct soc_enum mt6879_spk_type_enum[] = {

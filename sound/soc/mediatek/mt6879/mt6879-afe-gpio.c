@@ -215,30 +215,6 @@ int mt6879_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 		else
 			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S5_OFF);
 		break;
-	case MT6879_DAI_I2S_6:
-		if (enable)
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S6_ON);
-		else
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S6_OFF);
-		break;
-	case MT6879_DAI_I2S_7:
-		if (enable)
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S7_ON);
-		else
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S7_OFF);
-		break;
-	case MT6879_DAI_I2S_8:
-		if (enable)
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S8_ON);
-		else
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S8_OFF);
-		break;
-	case MT6879_DAI_I2S_9:
-		if (enable)
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S9_ON);
-		else
-			mt6879_afe_gpio_select(afe, MT6879_AFE_GPIO_I2S9_OFF);
-		break;
 	case MT6879_DAI_VOW:
 		if (enable) {
 			mt6879_afe_gpio_select(afe,
