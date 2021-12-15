@@ -3840,10 +3840,10 @@
 
 		extcon_usb: extcon_usb {
 			compatible = "mediatek,extcon-usb";
-			/*vbus-supply = <&mt6375_otg_vbus>;*/
+			vbus-supply = <&mt6375_otg_vbus>;
 			vbus-voltage = <5000000>;
 			vbus-current = <1800000>;
-			/*charger = <&mt6375_chg>;*/
+			charger = <&mt6375_chg>;
 			tcpc = "type_c_port0";
 			mediatek,bypss-typec-sink = <1>;
 			port {
@@ -5342,8 +5342,8 @@
 			reg = <0 0x11210000 0 0x10000>,
 				<0 0x11e40000 0 0x10000>;
 			interrupts = <GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH  0>;
-			clocks =  <&clk26m>,
-				<&clk26m>;
+			clocks =  <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D5_D4>;
 			clock-names = "sys_clk",
 				"ref_clk";
 			phys = <&u2port0 PHY_TYPE_USB2>;
