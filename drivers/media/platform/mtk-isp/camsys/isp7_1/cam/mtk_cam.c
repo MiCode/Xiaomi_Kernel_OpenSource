@@ -1637,17 +1637,18 @@ static int config_img_in_fmt(struct mtk_cam_device *cam,
 {
 	/* Check output & input image size dimension */
 	if (node->desc.dma_port != MTKCAM_IPI_RAW_RAWI_2) {
-		dev_info(cam->dev, "pipe(%d):dam_port(%d) only support MTKCAM_IPI_RAW_RAWI_2 now\n",
-			node->uid.pipe_id, node->desc.dma_port);
+		dev_info(cam->dev,
+			 "pipe(%d):dam_port(%d) only support MTKCAM_IPI_RAW_RAWI_2 now\n",
+			 node->uid.pipe_id, node->desc.dma_port);
 		return -EINVAL;
 	}
 
 	in_fmt->fmt.format =
 		mtk_cam_get_img_fmt(cfg_fmt->fmt.pix_mp.pixelformat);
 	if (in_fmt->fmt.format == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
-		dev_dbg(cam->dev, "pipe: %d, node:%d unknown pixel fmt:%d\n",
-			node->uid.pipe_id, node->desc.dma_port,
-			cfg_fmt->fmt.pix_mp.pixelformat);
+		dev_info(cam->dev, "pipe: %d, node:%d unknown pixel fmt:%d\n",
+			 node->uid.pipe_id, node->desc.dma_port,
+			 cfg_fmt->fmt.pix_mp.pixelformat);
 		return -EINVAL;
 	}
 
@@ -1773,7 +1774,8 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 		struct mtkcam_ipi_img_output *out_fmt;
 		feature = req_stream_data->feature.raw_feature &
 				MTK_CAM_FEATURE_HDR_MASK;
-		is_m2m = mtk_cam_feature_is_mstream_m2m(feature);
+		is_m2m = mtk_cam_feature_is_mstream_m2m(
+				req_stream_data->feature.raw_feature);
 
 		/* prepare working buffer */
 		buf_entry = mtk_cam_img_working_buf_get(ctx);
@@ -1846,7 +1848,7 @@ static void mtk_cam_req_set_vfmt(struct mtk_cam_device *cam,
 	req = mtk_cam_s_data_get_req(s_data);
 
 	/* force update format to every video device before re-streamon */
-	for (i = MTK_RAW_SOURCE_BEGIN; i < MTK_RAW_META_OUT_BEGIN; i++) {
+	for (i = MTK_RAW_SINK_NUM + 1; i < MTK_RAW_META_OUT_BEGIN; i++) {
 		node = &raw_pipeline->vdev_nodes[i - MTK_RAW_SINK_NUM];
 		f = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
 		if (!f) {
@@ -1857,7 +1859,8 @@ static void mtk_cam_req_set_vfmt(struct mtk_cam_device *cam,
 			} else {
 				if (s_data->vdev_fmt_update &
 				    (1 << node->desc.id)) {
-					mtk_cam_video_set_fmt(node, f, true);
+					mtk_cam_video_set_fmt(node, f,
+							      s_data->feature.raw_feature);
 					node->active_fmt = *f;
 					dev_dbg(cam->dev,
 						"%s:%s:pipe(%d):%s:apply pending v4l2 fmt: pixelfmt(0x%x), w(%d), h(%d)\n",

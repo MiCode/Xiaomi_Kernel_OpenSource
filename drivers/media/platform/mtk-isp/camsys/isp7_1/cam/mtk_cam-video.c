@@ -102,7 +102,7 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 					*num_planes = raw_pipeline->dynamic_exposure_num_max;
 					for (i = 0; i < *num_planes; i++)
 						sizes[i] = size;
-				} else if (raw_pipeline && raw_pipeline->feature_pending &&
+				} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature &&
 					fmt->fmt.pix_mp.num_planes > 1) {
 					*num_planes = fmt->fmt.pix_mp.num_planes;
 
@@ -112,7 +112,7 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 					*num_planes = 1;
 					sizes[0] = size;
 				}
-			} else if (raw_pipeline && raw_pipeline->feature_pending
+			} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature
 				&& fmt->fmt.pix_mp.num_planes > 1) {
 				*num_planes = fmt->fmt.pix_mp.num_planes;
 				for (i = 0; i < *num_planes; i++)
@@ -1625,10 +1625,17 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	struct v4l2_format *vfmt;
 	struct mtk_cam_request_stream_data *stream_data;
 	s32 fd;
+	struct mtk_raw_pipeline *raw_pipeline;
+	int raw_feature = 0;
 
 	if (!vb2_is_busy(node->vdev.queue)) {
 		/* Get the valid format */
-		mtk_cam_video_set_fmt(node, f, true);
+		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+		if (raw_pipeline)
+			raw_feature = raw_pipeline->user_res.raw_res.feature;
+
+		mtk_cam_video_set_fmt(node, f, raw_feature);
+
 		/* Configure to video device */
 		node->active_fmt = *f;
 		return 0;
@@ -1662,33 +1669,18 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	return 0;
 }
 
-int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, bool active)
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int raw_feature)
 {
 	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
-	struct mtk_raw_pipeline *raw_pipeline;
 	const struct v4l2_format *dev_fmt;
 	struct v4l2_format try_fmt;
 	s32 request_fd, i;
 	u32 bytesperline, sizeimage;
-	int raw_feature = 0;
 	u32 is_hdr = 0, is_hdr_m2m = 0;
 
-	raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-	if (raw_pipeline) {
-		if (active) {
-			/* set format */
-			raw_feature = raw_pipeline->feature_pending;
-			dev_dbg(cam->dev,
-				"%s:pipe(%d) read feature(0x%x) from pending\n",
-				__func__, raw_pipeline->id, raw_feature);
-		} else {
-			/* try format */
-			raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
-			dev_dbg(cam->dev,
-				"%s:pipe(%d) read feature(0x%x) from pix_mp\n",
-				__func__, raw_pipeline->id, raw_feature);
-		}
-	}
+	dev_dbg(cam->dev,
+			"%s:pipe(%d):%s:feature(0x%x)\n",
+			__func__, node->uid.pipe_id, node->desc.name, raw_feature);
 
 	request_fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
 	memset(&try_fmt, 0, sizeof(try_fmt));
@@ -1811,8 +1803,13 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 			   struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	int raw_feature = 0;
 
-	mtk_cam_video_set_fmt(node, f, false);
+	if (is_raw_subdev(node->uid.pipe_id))
+		raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
+
+	mtk_cam_video_set_fmt(node, f, raw_feature);
+
 	return 0;
 }
 
