@@ -1502,7 +1502,7 @@
 	};
 
 	dispsys_config: dispsys_config@14000000 {
-		compatible = "mediatek,mt6833-mmsys";
+		compatible = "mediatek,mt6833-disp";
 		reg = <0 0x14000000 0 0x1000>;
 		#clock-cells = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0>;

@@ -7391,7 +7391,7 @@
 	};
 
 	dispsys_config: dispsys_config@14000000 {
-		compatible = "mediatek,mt6879-mmsys";
+		compatible = "mediatek,mt6879-disp";
 		mediatek,mml = <&mmlsys_config>;
 		reg = <0 0x14000000 0 0x1000>;
 		mediatek,larb = <&smi_larb1>;
