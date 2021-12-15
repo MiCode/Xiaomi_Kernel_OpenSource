@@ -17,6 +17,16 @@
 #define MAX_MUX_NUM (10)
 #define MAX_HOPPING_CLK_NUM (2)
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+#include "../../misc/mediatek/mmp/mmprofile.h"
+
+struct mmdvfs_mmp_events_t {
+	mmp_event mmdvfs;
+	mmp_event freq_change;
+};
+static struct mmdvfs_mmp_events_t mmdvfs_mmp_events;
+#endif
+
 enum {
 	ACTION_DEFAULT,
 	ACTION_IHDM, /* Voltage Increase: Hopping First, Decrease: MUX First*/
@@ -162,6 +172,11 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 	blocking_notifier_call_chain(&mmdvfs_notifier_list, opp_level, NULL);
 	if (log_level & 1 << log_freq)
 		pr_notice("set clk to opp level:%d\n", opp_level);
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(
+		mmdvfs_mmp_events.freq_change,
+		MMPROFILE_FLAG_PULSE, vol_inc, opp_level);
+#endif
 }
 
 static int regulator_event_notify(struct notifier_block *nb,
@@ -412,6 +427,18 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	s32 ret;
 	unsigned long freq;
 	struct dev_pm_opp *opp;
+
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_enable(1);
+	if (mmdvfs_mmp_events.mmdvfs == 0) {
+		mmdvfs_mmp_events.mmdvfs =
+			mmprofile_register_event(MMP_ROOT_EVENT, "MMDVFS");
+		mmdvfs_mmp_events.freq_change =	mmprofile_register_event(
+			mmdvfs_mmp_events.mmdvfs, "freq_change");
+		mmprofile_enable_event_recursive(mmdvfs_mmp_events.mmdvfs, 1);
+	}
+	mmprofile_start(1);
+#endif
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
