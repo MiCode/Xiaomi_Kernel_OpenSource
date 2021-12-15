@@ -611,6 +611,18 @@ static const struct mtk_mmc_compatible mt8666_compat = {
 	.support_64g = true,
 };
 
+static const struct mtk_mmc_compatible mt6833_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+};
+
 static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt8135-mmc", .data = &mt8135_compat},
 	{ .compatible = "mediatek,mt8173-mmc", .data = &mt8173_compat},
@@ -623,6 +635,7 @@ static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt6781-mmc", .data = &mt6781_compat},
 	{ .compatible = "mediatek,mt6877-mmc", .data = &mt6877_compat},
 	{ .compatible = "mediatek,mt8666-mmc", .data = &mt8666_compat},
+	{ .compatible = "mediatek,mt6833-mmc", .data = &mt6833_compat},
 	{}
 };
 MODULE_DEVICE_TABLE(of, msdc_of_ids);
@@ -2750,7 +2763,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	msdc_init_hw(host);
 
 	ret = devm_request_irq(&pdev->dev, host->irq, msdc_irq,
-		IRQF_TRIGGER_LOW | IRQF_ONESHOT, pdev->name, host);
+		IRQF_TRIGGER_NONE | IRQF_ONESHOT, pdev->name, host);
 	if (ret)
 		goto release;
 
