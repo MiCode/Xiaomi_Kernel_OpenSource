@@ -6951,7 +6951,7 @@
 
 		power-domains = <&scpsys MT6879_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOP_MMUP_SEL>,
-			<&topckgen_clk CLK_TOP_MAINPLL_D3>;
+			<&topckgen_clk CLK_TOP_MAINPLL_D4>;
 		clock-names = "mmup-clk", "mmup-pll";
 	};
 
