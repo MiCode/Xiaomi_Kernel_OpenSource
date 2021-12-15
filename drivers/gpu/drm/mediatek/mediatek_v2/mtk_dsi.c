@@ -5960,8 +5960,10 @@ static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
 		if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
 			comp->id == DDP_COMPONENT_DSI1)) {
 			dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+			DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 			if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
 				dsi->driver_data->mmclk_by_datarate(dsi, mtk_crtc, 1);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		}
 	}
 
