@@ -710,6 +710,25 @@
 	};
 
 	pwrap: pwrap@10026000 {
+		compatible = "mediatek,mt6833-pwrap";
+		reg = <0 0x10026000 0 0x1000>;
+		reg-names = "pwrap";
+		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_PMIC_AP>,
+			 <&infracfg_ao_clk CLK_IFRAO_PMIC_TMR>,
+			 <&topckgen_clk CLK_TOP_PWRAP_ULPOSC_SEL>,
+			 <&topckgen_clk CLK_TOP_OSC_D10>;
+		clock-names = "spi", "wrap", "ulposc", "ulposc_osc";
+	};
+
+	pwraph: pwraphal@10026000 {
+		compatible = "mediatek,pwraph";
+		mediatek,pwrap-regmap = <&pwrap>;
+	};
+
+	pwrap_mpu@10026000 {
+		compatible = "mediatek,pwrap_mpu";
+		reg = <0 0x10026000 0 0x1000>;
 	};
 
 	spmi: spmi@10027000 {
