@@ -1628,8 +1628,10 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 	writel(aal_data->data->aal_dre_hist_start,
 		dre3_va + DISP_AAL_SRAM_RW_IF_2);
 	if (disp_aal_reg_poll(comp, DISP_AAL_SRAM_STATUS,
-		(0x1 << 17), (0x1 << 17)) != true)
+		(0x1 << 17), (0x1 << 17)) != true) {
+		AALERR("DISP_AAL_SRAM_STATUS ERROR\n");
 		return false;
+	}
 
 	AALIRQ_LOG("start\n");
 	if (dump_blk_x >= 0 && dump_blk_x < 16
@@ -1702,8 +1704,10 @@ static bool disp_aal_write_dre3(struct mtk_ddp_comp *comp)
 	writel(aal_data->data->aal_dre_gain_start,
 		dre3_va + DISP_AAL_SRAM_RW_IF_0);
 	if (disp_aal_reg_poll(comp, DISP_AAL_SRAM_STATUS,
-		(0x1 << 16), (0x1 << 16)) != true)
+		(0x1 << 16), (0x1 << 16)) != true) {
+		AALERR("DISP_AAL_SRAM_STATUS ERROR\n");
 		return false;
+	}
 	for (gain_offset = aal_data->data->aal_dre_gain_start;
 		gain_offset <= aal_data->data->aal_dre_gain_end;
 			gain_offset += 4) {
@@ -2011,7 +2015,7 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 	bool read_success = false;
 
 	do {
-		CRTC_MMP_EVENT_START(0, aal_dre20_rh, 0, 0);
+		CRTC_MMP_EVENT_START(0, aal_dre20_rh, comp->id, 0);
 		intsta = readl(comp->regs + DISP_AAL_INTSTA);
 		/* Only process end of frame state */
 		if ((intsta & 0x2) == 0x0) {
@@ -2027,7 +2031,7 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 		/* Allow to disable interrupt */
 		atomic_set(&aal_data->dirty_frame_retrieved, 1);
 
-		CRTC_MMP_MARK(0, aal_dre20_rh, 0, 1);
+		CRTC_MMP_MARK(0, aal_dre20_rh, comp->id, 1);
 		if (spin_trylock_irqsave(&g_aal_hist_lock, flags)) {
 			read_success = disp_aal_read_single_hist(comp);
 
@@ -2052,7 +2056,7 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 			 * See: disp_aal_set_interrupt()
 			 */
 		}
-		CRTC_MMP_MARK(0, aal_dre20_rh, 0, 2);
+		CRTC_MMP_MARK(0, aal_dre20_rh, comp->id, 2);
 		if (atomic_read(&g_aal_is_init_regs_valid) == 0) {
 			/*
 			 * AAL service is not running, not need per-frame wakeup
@@ -2067,7 +2071,7 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 					flags);
 			}
 		}
-		CRTC_MMP_EVENT_END(0, aal_dre20_rh, 0, 3);
+		CRTC_MMP_EVENT_END(0, aal_dre20_rh, comp->id, 3);
 	} while (0);
 }
 
@@ -2563,23 +2567,10 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 		return;
 	}
 
-	DRM_MMP_MARK(IRQ, 0, 0);
-
-	if (comp->id == DDP_COMPONENT_AAL0)
-		DRM_MMP_MARK(aal0, 0, 1);
-	else if (comp->id == DDP_COMPONENT_AAL1)
-		DRM_MMP_MARK(aal1, 1, 1);
-
-
 	if (g_aal_fo->mtk_dre30_support)
 		disp_aal_dre3_irq_handle(comp);
 	else
 		disp_aal_single_pipe_hist_update(comp);
-
-	if (comp->id == DDP_COMPONENT_AAL0)
-		DRM_MMP_MARK(aal0, 0, 1);
-	else if (comp->id == DDP_COMPONENT_AAL1)
-		DRM_MMP_MARK(aal1, 1, 1);
 }
 
 static void disp_aal_wait_sof_irq(void)
@@ -2713,10 +2704,20 @@ static int mtk_aal_sof_irq_trigger(void *data)
 static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 {
 	unsigned long flags;
+	unsigned int val;
 	irqreturn_t ret = IRQ_NONE;
 	struct mtk_disp_aal *priv = dev_id;
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
+
+	val = readl(comp->regs + DISP_AAL_INTSTA);
+
+	DRM_MMP_MARK(IRQ, irq, val);
+	if (comp->id == DDP_COMPONENT_AAL0)
+		DRM_MMP_MARK(aal0, val, 0);
+	else if (comp->id == DDP_COMPONENT_AAL1)
+		DRM_MMP_MARK(aal1, val, 0);
+
 	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
 		if (atomic_read(&aal_data->is_clock_on) != 1)
 			AALIRQ_LOG("clock is off\n");
@@ -2726,6 +2727,10 @@ static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 		}
 		spin_unlock_irqrestore(&g_aal_clock_lock, flags);
 	}
+	if (comp->id == DDP_COMPONENT_AAL0)
+		DRM_MMP_MARK(aal0, val, 1);
+	else if (comp->id == DDP_COMPONENT_AAL1)
+		DRM_MMP_MARK(aal1, val, 1);
 
 	return ret;
 }
