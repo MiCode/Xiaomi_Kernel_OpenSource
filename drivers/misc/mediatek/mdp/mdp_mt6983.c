@@ -1849,24 +1849,22 @@ static bool mdp_vcp_pq_readback_support(void)
 void mdp_vcp_pq_readback_impl(struct cmdqRecStruct *handle,
 	u16 engine, u32 vcp_offset, u32 count)
 {
-	u64 *reuse_va;
-
 	switch (engine) {
 	case CMDQ_ENG_MDP_AAL0:
 		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_AAL0,
-			vcp_offset, count, CMDQ_GPR_R12, &reuse_va);
+			vcp_offset, count, CMDQ_GPR_R12, NULL, NULL);
 		break;
 	case CMDQ_ENG_MDP_AAL1:
 		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_AAL1,
-			vcp_offset, count, CMDQ_GPR_R14, &reuse_va);
+			vcp_offset, count, CMDQ_GPR_R14, NULL, NULL);
 		break;
 	case CMDQ_ENG_MDP_HDR0:
 		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_HDR0,
-			vcp_offset, count, CMDQ_GPR_R12, &reuse_va);
+			vcp_offset, count, CMDQ_GPR_R12, NULL, NULL);
 		break;
 	case CMDQ_ENG_MDP_HDR1:
 		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_HDR1,
-			vcp_offset, count, CMDQ_GPR_R14, &reuse_va);
+			vcp_offset, count, CMDQ_GPR_R14, NULL, NULL);
 		break;
 	default:
 		CMDQ_ERR("%s engine not support:%hu\n", __func__, engine);
