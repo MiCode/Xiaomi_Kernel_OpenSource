@@ -2945,12 +2945,15 @@ static int proc_turbo_task_show(struct seq_file *m, struct pid_namespace *ns,
 		struct pid *pid, struct task_struct *p)
 {
 	unsigned int is_turbo;
+	unsigned int is_inherit_turbo;
 
 	if (!p)
 		return -ESRCH;
 	task_lock(p);
 	is_turbo = p->turbo;
-	seq_printf(m, "%d\n", is_turbo);
+	is_inherit_turbo = atomic_read(&p->inherit_types);
+	seq_printf(m, "tid=%d turbo = %d,inherit turbo = %d\n",
+			p->pid, is_turbo, is_inherit_turbo);
 	task_unlock(p);
 	return 0;
 }

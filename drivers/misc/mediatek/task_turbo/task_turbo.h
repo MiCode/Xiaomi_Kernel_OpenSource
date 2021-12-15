@@ -6,4 +6,11 @@
 #ifndef _TASK_TURBO_H_
 #define _TASK_TURBO_H_
 
+enum {
+	START_INHERIT   = -1,
+	RWSEM_INHERIT   = 0,
+	BINDER_INHERIT,
+	END_INHERIT,
+};
+
 #endif
