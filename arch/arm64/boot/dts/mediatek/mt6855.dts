@@ -1202,7 +1202,6 @@
 
 	mt6363_temp: mt6363_temp {
 		compatible = "mediatek,mt6363-pmic-temp";
-		status = "disabled";
 		io-channels =
 			<&pmic_adc AUXADC_CHIP_TEMP>,
 			<&pmic_adc AUXADC_VCORE_TEMP>,
@@ -1221,7 +1220,6 @@
 
 	mt6369_temp: mt6369_temp {
 		compatible = "mediatek,mt6369-pmic-temp";
-		status = "disabled";
 		io-channels =
 			<&mt6369_adc AUXADC_CHIP_TEMP>,
 			<&mt6369_adc AUXADC_VCORE_TEMP>,
@@ -1767,7 +1765,6 @@
 
 		lvts: lvts@10315000 {
 			compatible = "mediatek,mt6855-lvts";
-			status = "disabled";
 			#thermal-sensor-cells = <1>;
 			reg = <0 0x10315000 0 0x1000>,  /* AP domain */
 			      <0 0x10316000 0 0x1000>;  /* MCU domain */
