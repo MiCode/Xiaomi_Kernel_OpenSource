@@ -9781,8 +9781,8 @@
 		emi-addr = <0 0>;
 		emi-size = <0 0x100000>;
 		emi-alignment = <0 0x100000>;
-		emi-min-addr = <0x2 0x40000000>;
-		emi-max-addr = <0x3 0x40000000>;
+		emi-min-addr = <0 0>;
+		emi-max-addr = <0 0xc0000000>;
 	};
 
 	watchdog: watchdog@1c007000 {
