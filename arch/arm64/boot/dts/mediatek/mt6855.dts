@@ -3813,6 +3813,11 @@
 			reg = <0 0x1f017000 0 0x1000>;
 		};
 
+		iommu_test {
+			compatible = "mediatek,ktf-iommu-test";
+			iommus = <&disp_iommu M4U_LARB0_PORT0>;
+		};
+
 		mtk_iommu_debug {
 			compatible = "mediatek,mt6855-iommu-debug";
 		};
