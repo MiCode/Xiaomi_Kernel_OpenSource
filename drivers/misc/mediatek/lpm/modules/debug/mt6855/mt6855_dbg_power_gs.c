@@ -101,16 +101,16 @@ struct lpm_gs_pmic mt6855_pmic6363 = {
 	.regulator = "mediatek,mt6363-regulator",
 	.pwr_domain = "6363",
 };
-struct lpm_gs_pmic mt6855_pmic6368 = {
+struct lpm_gs_pmic mt6855_pmic6369 = {
 	.type = GS_PMIC,
-	.regulator = "mediatek,mt6368-regulator",
-	.pwr_domain = "6368",
+	.regulator = "mediatek,mt6369-regulator",
+	.pwr_domain = "6369",
 };
 
 
 struct lpm_gs_pmic *mt6855_pmic[] = {
 	&mt6855_pmic6363,
-	&mt6855_pmic6368,
+	&mt6855_pmic6369,
 	NULL,
 };
 int mt6855_power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
@@ -119,7 +119,7 @@ int mt6855_power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
 		return -EINVAL;
 	/* Set compare golden setting for scenario */
 	pr_info("p regulaor %s\n", p->regulator);
-	/*FIXME mediatek,mt6368-regulator*/
+	/*FIXME mediatek,mt6369-regulator*/
 	if (!strcmp(p->regulator, "mediatek,mt6363-regulator")) {
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].name = "suspend";
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].array =
@@ -136,22 +136,22 @@ int mt6855_power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
 			AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless;
 		p->user[LPM_PWR_GS_TYPE_VCORELP].array_sz =
 			AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless_len;
-	} else if (!strcmp(p->regulator, "mediatek,mt6368-regulator")) {
+	} else if (!strcmp(p->regulator, "mediatek,mt6369-regulator")) {
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].name = "suspend";
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].array =
-			AP_PMIC_REG_6368_gs_suspend_32kless;
+			AP_PMIC_REG_6369_gs_suspend_32kless;
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].array_sz =
-			AP_PMIC_REG_6368_gs_suspend_32kless_len;
+			AP_PMIC_REG_6369_gs_suspend_32kless_len;
 		p->user[LPM_PWR_GS_TYPE_VCORELP_26M].name = "sodi3";
 		p->user[LPM_PWR_GS_TYPE_VCORELP_26M].array =
-			AP_PMIC_REG_6368_gs_sodi3p0_32kless;
+			AP_PMIC_REG_6369_gs_sodi3p0_32kless;
 		p->user[LPM_PWR_GS_TYPE_VCORELP_26M].array_sz =
-			AP_PMIC_REG_6368_gs_sodi3p0_32kless_len;
+			AP_PMIC_REG_6369_gs_sodi3p0_32kless_len;
 		p->user[LPM_PWR_GS_TYPE_VCORELP].name = "dpidle";
 		p->user[LPM_PWR_GS_TYPE_VCORELP].array =
-			AP_PMIC_REG_6368_gs_deepidle___lp_mp3_32kless;
+			AP_PMIC_REG_6369_gs_deepidle___lp_mp3_32kless;
 		p->user[LPM_PWR_GS_TYPE_VCORELP].array_sz =
-			AP_PMIC_REG_6368_gs_deepidle___lp_mp3_32kless_len;
+			AP_PMIC_REG_6369_gs_deepidle___lp_mp3_32kless_len;
 	} else
 		return -EINVAL;
 	return 0;

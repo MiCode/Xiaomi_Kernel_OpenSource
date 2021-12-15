@@ -10,7 +10,7 @@
 extern void mt_power_gs_sp_dump(void);
 extern unsigned int golden_read_reg(unsigned int addr);
 
-/* PMIC 6368 */
+/* PMIC 6369 */
 extern const unsigned int *AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless;
 extern unsigned int AP_PMIC_REG_6363_gs_deepidle___lp_mp3_32kless_len;
 
@@ -20,15 +20,15 @@ extern unsigned int AP_PMIC_REG_6363_gs_sodi3p0_32kless_len;
 extern const unsigned int *AP_PMIC_REG_6363_gs_suspend_32kless;
 extern unsigned int AP_PMIC_REG_6363_gs_suspend_32kless_len;
 
-/* PMIC 6368 */
-extern const unsigned int *AP_PMIC_REG_6368_gs_deepidle___lp_mp3_32kless;
-extern unsigned int AP_PMIC_REG_6368_gs_deepidle___lp_mp3_32kless_len;
+/* PMIC 6369 */
+extern const unsigned int *AP_PMIC_REG_6369_gs_deepidle___lp_mp3_32kless;
+extern unsigned int AP_PMIC_REG_6369_gs_deepidle___lp_mp3_32kless_len;
 
-extern const unsigned int *AP_PMIC_REG_6368_gs_sodi3p0_32kless;
-extern unsigned int AP_PMIC_REG_6368_gs_sodi3p0_32kless_len;
+extern const unsigned int *AP_PMIC_REG_6369_gs_sodi3p0_32kless;
+extern unsigned int AP_PMIC_REG_6369_gs_sodi3p0_32kless_len;
 
-extern const unsigned int *AP_PMIC_REG_6368_gs_suspend_32kless;
-extern unsigned int AP_PMIC_REG_6368_gs_suspend_32kless_len;
+extern const unsigned int *AP_PMIC_REG_6369_gs_suspend_32kless;
+extern unsigned int AP_PMIC_REG_6369_gs_suspend_32kless_len;
 
 extern const unsigned int *AP_CG_Golden_Setting_tcl_gs_dpidle;
 extern unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_len;
