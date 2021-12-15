@@ -255,12 +255,14 @@ struct mml_frame_config {
 	u8 done_task_cnt;
 	/* mutex to join operations of task pipes, like buffer flush */
 	struct mutex pipe_mutex;
+	struct kref ref;
 
 	/* display parameter */
 	bool disp_dual;
 	bool disp_vdo;
 
 	/* platform driver */
+	void *ctx;
 	struct mml_dev *mml;
 
 	/* adaptor */

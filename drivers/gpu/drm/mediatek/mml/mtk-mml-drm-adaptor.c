@@ -333,6 +333,14 @@ static void frame_config_destroy_work(struct work_struct *work)
 	frame_config_destroy(cfg);
 }
 
+static void frame_config_queue_destroy(struct kref *kref)
+{
+	struct mml_frame_config *cfg = container_of(kref, struct mml_frame_config, ref);
+	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)cfg->ctx;
+
+	queue_work(ctx->wq_destroy, &cfg->work_destroy);
+}
+
 static struct mml_frame_config *frame_config_create(
 	struct mml_drm_ctx *ctx,
 	struct mml_frame_info *info)
@@ -348,9 +356,11 @@ static struct mml_frame_config *frame_config_create(
 	cfg->info = *info;
 	cfg->disp_dual = ctx->disp_dual;
 	cfg->disp_vdo = ctx->disp_vdo;
+	cfg->ctx = ctx;
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
 	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
+	kref_init(&cfg->ref);
 
 	return cfg;
 }
@@ -452,6 +462,9 @@ static void task_move_to_destroy(struct kref *kref)
 {
 	struct mml_task *task = container_of(kref,
 		struct mml_task, ref);
+
+	if (task->config)
+		kref_put(&task->config->ref, frame_config_queue_destroy);
 
 	mml_core_destroy_task(task);
 }
@@ -578,7 +591,7 @@ static void task_frame_done(struct mml_task *task)
 			continue;
 		list_del_init(&cfg->entry);
 		task_put_idles(cfg);
-		queue_work(ctx->wq_destroy, &cfg->work_destroy);
+		kref_put(&cfg->ref, frame_config_queue_destroy);
 		ctx->config_cnt--;
 		mml_msg("[drm]config %p send destroy remain %u",
 			cfg, ctx->config_cnt);
@@ -750,6 +763,9 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	/* maintain racing ref count for easy query mode */
 	if (cfg->info.mode == MML_MODE_RACING)
 		atomic_inc(&ctx->racing_cnt);
+
+	/* add more count for new task create */
+	kref_get(&cfg->ref);
 
 	/* make sure id unique and cached last */
 	task->job.jobid = atomic_fetch_inc(&ctx->job_serial);
