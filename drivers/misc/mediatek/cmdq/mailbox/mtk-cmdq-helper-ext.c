@@ -459,6 +459,13 @@ static void cmdq_dump_vcp_reg(struct cmdq_pkt *pkt)
 	}
 }
 
+static bool cmdq_pkt_is_exec(struct cmdq_pkt *pkt)
+{
+	if (pkt && pkt->task_alloc && !pkt->rec_irq)
+		return true;
+	return false;
+}
+
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit)
 {
 	struct client_priv *priv = (struct client_priv *)cl->cl_priv;
@@ -860,7 +867,7 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 	if (client)
 		mutex_lock(&client->chan_mutex);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (pkt && pkt->task_alloc && !pkt->rec_irq) {
+	if (cmdq_pkt_is_exec(pkt)) {
 		if (client && client->chan) {
 			s32 thread_id = cmdq_mbox_chan_id(client->chan);
 
@@ -1275,7 +1282,6 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	cmd_size = src->cmd_buf_size;
 
 	if (cmdq_pkt_is_finalized(src)) {
-		reduce_size = 2 * CMDQ_INST_SIZE;
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
 			reduce_size += 2 * CMDQ_INST_SIZE;
@@ -1333,6 +1339,10 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 		dst->avail_buf_size -= CMDQ_CMD_BUFFER_SIZE;
 		dst->buf_size -= CMDQ_CMD_BUFFER_SIZE;
 	}
+
+	dst->task_alloc = false;
+	dst->rec_irq = 0;
+	cmdq_pkt_refinalize(dst);
 
 	dst->cl = cl;
 	dst->dev = dev;
@@ -2064,16 +2074,27 @@ s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 {
 	struct cmdq_pkt_buffer *buf;
 	struct cmdq_instruction *inst;
+	s64 off = CMDQ_JUMP_PASS >> gce_shift_bit;
+
+	if (!cmdq_pkt_is_finalized(pkt))
+		return 0;
+
+	if (cmdq_pkt_is_exec(pkt)) {
+		cmdq_err("pkt still running, skip refinalize");
+		dump_stack();
+		return 0;
+	}
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	inst = buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size - CMDQ_INST_SIZE;
 	if (inst->op != CMDQ_CODE_JUMP || inst->arg_a != 1)
 		return 0;
 
-	pkt->cmd_buf_size -= CMDQ_INST_SIZE;
-	pkt->avail_buf_size += CMDQ_INST_SIZE;
+	inst->arg_a = 0;
+	inst->arg_c = CMDQ_GET_ARG_C(off);
+	inst->arg_b = CMDQ_GET_ARG_B(off);
 
-	return cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
+	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_refinalize);
 
@@ -2443,6 +2464,7 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	pkt->err_cb.cb = cmdq_pkt_err_dump_cb;
 	pkt->err_cb.data = pkt;
 
+	pkt->rec_irq = 0;
 	pkt->rec_submit = sched_clock();
 #else
 	pkt->cb.cb = cb;
