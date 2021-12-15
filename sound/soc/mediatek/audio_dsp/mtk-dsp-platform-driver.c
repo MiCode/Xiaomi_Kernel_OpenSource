@@ -788,7 +788,6 @@ static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 	int id = cpu_dai->id;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
 	int ret = 0;
-	struct mtk_base_dsp_mem *dsp_memif = &dsp->dsp_mem[id];
 
 	pr_info("%s(), task_id: %d\n", __func__, id);
 
@@ -865,9 +864,8 @@ static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 	/* send to task with hw_param information , buffer and pcm attribute */
 	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_PAYLOAD,
 			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_HWPARAM,
-			 sizeof(unsigned int),
-			 (unsigned int)
-			 dsp_memif->msg_atod_share_buf.phy_addr,
+			 sizeof(dsp->dsp_mem[id].msg_atod_share_buf.phy_addr),
+			 0,
 			 (char *)&dsp->dsp_mem[id].msg_atod_share_buf.phy_addr);
 
 	return ret;
@@ -922,7 +920,6 @@ static int mtk_dsp_pcm_hw_prepare(struct snd_soc_component *component,
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	int id = cpu_dai->id;
 	void *ipi_audio_buf; /* dsp <-> audio data struct */
-	struct mtk_base_dsp_mem *dsp_memif = &dsp->dsp_mem[id];
 	struct audio_hw_buffer *adsp_buf = &dsp->dsp_mem[id].adsp_buf;
 	const char *task_name = get_str_by_dsp_dai_id(id);
 
@@ -958,9 +955,8 @@ static int mtk_dsp_pcm_hw_prepare(struct snd_soc_component *component,
 	/* send to task with prepare status */
 	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_PAYLOAD,
 			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_PREPARE,
-			 sizeof(unsigned int),
-			 (unsigned int)
-			 dsp_memif->msg_atod_share_buf.phy_addr,
+			 sizeof(dsp->dsp_mem[id].msg_atod_share_buf.phy_addr),
+			 0,
 			 (char *)&dsp->dsp_mem[id].msg_atod_share_buf.phy_addr);
 	return ret;
 }
@@ -1084,8 +1080,8 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	ret = mtk_scp_ipi_send(
 			get_dspscene_by_dspdaiid(id), AUDIO_IPI_PAYLOAD,
 			ack_type, AUDIO_DSP_TASK_DLCOPY,
-			sizeof(unsigned int),
-			(unsigned int)dsp_mem->msg_atod_share_buf.phy_addr,
+			sizeof(dsp_mem->msg_atod_share_buf.phy_addr),
+			0,
 			(char *)&dsp_mem->msg_atod_share_buf.phy_addr);
 
 #ifdef DEBUG_VERBOSE
@@ -1141,8 +1137,8 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 	ret = mtk_scp_ipi_send(
 			get_dspscene_by_dspdaiid(id), AUDIO_IPI_PAYLOAD,
 			AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_ULCOPY,
-			sizeof(unsigned int),
-			(unsigned int)dsp_mem->msg_atod_share_buf.phy_addr,
+			sizeof(dsp_mem->msg_atod_share_buf.phy_addr),
+			0,
 			(char *)&dsp_mem->msg_atod_share_buf.phy_addr);
 
 #ifdef DEBUG_VERBOSE

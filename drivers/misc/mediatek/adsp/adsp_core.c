@@ -354,7 +354,7 @@ static int adsp_pm_suspend_prepare(void)
 		adsp_timesync_suspend(APTIME_FREEZE);
 		pr_info("%s, time sync freeze", __func__);
 
-		adsp_smc_send(MTK_ADSP_SMC_OP_ENTER_LP, 0, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_ENTER_LP, 0, 0);
 	}
 
 	return NOTIFY_DONE;
@@ -366,7 +366,7 @@ static int adsp_pm_post_suspend(void)
 		adsp_timesync_resume();
 		pr_info("%s, time sync unfreeze", __func__);
 
-		adsp_smc_send(MTK_ADSP_SMC_OP_LEAVE_LP, 0, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_LEAVE_LP, 0, 0);
 	}
 
 	return NOTIFY_DONE;
@@ -427,9 +427,9 @@ void adsp_latch_dump_region(bool en)
 	/* MUST! latch/unlatch region symmetric */
 	if (en) {
 		mutex_lock(&access_lock);
-		adsp_smc_send(MTK_ADSP_SMC_OP_CFG_LATCH, true, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_LATCH, true, 0);
 	} else {
-		adsp_smc_send(MTK_ADSP_SMC_OP_CFG_LATCH, false, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_LATCH, false, 0);
 		mutex_unlock(&access_lock);
 	}
 }
@@ -437,13 +437,13 @@ void adsp_latch_dump_region(bool en)
 void adsp_core_start(u32 cid)
 {
 	mutex_lock(&access_lock);
-	adsp_smc_send(MTK_ADSP_SMC_OP_CORE_START, cid, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_CORE_START, cid, 0);
 	mutex_unlock(&access_lock);
 }
 
 void adsp_core_stop(u32 cid)
 {
-	adsp_smc_send(MTK_ADSP_SMC_OP_CORE_STOP, cid, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_CORE_STOP, cid, 0);
 }
 
 static void adsp_set_dram_remap(void)
@@ -459,7 +459,7 @@ static void adsp_set_dram_remap(void)
 		size += adsp_cores[cid]->sysram_size;
 	}
 
-	adsp_smc_send(MTK_ADSP_SMC_OP_CFG_REMAP,
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_REMAP,
 		      adsp_cores[ADSP_A_ID]->sysram_phys, size);
 }
 
@@ -503,7 +503,7 @@ int adsp_reset(void)
 	}
 
 	/* clear adsp cfg */
-	adsp_smc_send(MTK_ADSP_SMC_OP_SYS_CLEAR, 0, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, 0, 0);
 
 	/* choose default clk mux */
 	adsp_select_clock_mode(CLK_LOW_POWER);
@@ -631,7 +631,7 @@ int adsp_system_bootup(void)
 		goto ERROR;
 
 	switch_adsp_power(true);
-	adsp_smc_send(MTK_ADSP_SMC_OP_SYS_CLEAR, 0, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, 0, 0);
 
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
