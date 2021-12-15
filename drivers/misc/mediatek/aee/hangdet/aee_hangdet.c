@@ -637,7 +637,6 @@ static int wdt_pm_notify(struct notifier_block *notify_block,
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		aee_rr_rec_wdk_ktime(cnt);
 #endif
-		pr_info("%s set wdk_ktime %lld\n", __func__, cnt);
 
 		low = readl(systimer_base + SYSTIMER_CNTCV_L);
 		cnt = readl(systimer_base + SYSTIMER_CNTCV_H);
@@ -645,7 +644,6 @@ static int wdt_pm_notify(struct notifier_block *notify_block,
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		aee_rr_rec_wdk_systimer_cnt(cnt);
 #endif
-		pr_info("%s systimer_cnt %lld\n", __func__, cnt);
 	}
 
 	switch (mode) {
