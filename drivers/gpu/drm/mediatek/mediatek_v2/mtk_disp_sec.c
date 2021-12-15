@@ -122,7 +122,7 @@ static int mtk_drm_disp_sec_cb_event(int value, struct cmdq_pkt *handle,
 }
 
 
-static int __init disp_sec_probe(struct platform_device *pdev)
+static int disp_sec_probe(struct platform_device *pdev)
 {
 	void **ret;
 	struct device_node *node = pdev->dev.of_node;
@@ -145,7 +145,7 @@ static int __init disp_sec_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __exit disp_sec_remove(struct platform_device *pdev)
+static int disp_sec_remove(struct platform_device *pdev)
 {
 	DDPMSG("%s\n", __func__);
 	return 0;
@@ -173,7 +173,7 @@ static int __init mtk_disp_sec_init(void)
 
 	status = platform_driver_register(&disp_sec_drv);
 	if (status) {
-		pr_notice("Failed to register MMDVFS debug driver(%d)\n", status);
+		DDPMSG("Failed to register disp sec driver(%d)\n", status);
 		return -ENODEV;
 	}
 	return 0;
