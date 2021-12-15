@@ -2420,6 +2420,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
+			ctx->state = MTK_STATE_ABORT;
 			mtk_vdec_queue_error_event(ctx);
 		} else if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
