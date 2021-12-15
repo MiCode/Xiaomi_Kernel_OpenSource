@@ -7,6 +7,7 @@
 #include <dt-bindings/clock/mt6833-clk.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/power/mt6833-power.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/phy/phy.h>
@@ -661,6 +662,34 @@
 	};
 
 	spmi: spmi@10027000 {
+		compatible = "mediatek,mt6833-spmi";
+		reg = <0 0x10027000 0 0x0008ff>,
+		      <0 0x10027900 0 0x000500>,
+		      <0 0x10029000 0 0x000100>;
+		reg-names = "pmif", "pmifmpu", "spmimst";
+		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pmif_irq";
+		irq_event_en = <0x0 0x0 0x0 0x0 0x0>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_PMIC_AP>,
+			<&infracfg_ao_clk CLK_IFRAO_PMIC_TMR>,
+			<&topckgen_clk CLK_TOP_PWRAP_ULPOSC_SEL>,
+			<&topckgen_clk CLK_TOP_OSC_D10>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+			<&topckgen_clk CLK_TOP_SPMI_MST_SEL>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+			<&topckgen_clk CLK_TOP_OSC_D10>;
+		clock-names = "pmif_sys_ck",
+			"pmif_tmr_ck",
+			"pmif_clk_mux",
+			"pmif_clk_osc_d10",
+			"pmif_clk26m",
+			"spmimst_clk_mux",
+			"spmimst_clk26m",
+			"spmimst_clk_osc_d10";
+		swinf_ch_start = <4>;
+		ap_swinf_no = <2>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 	};
 
 	extcon_usb: extcon_usb {
