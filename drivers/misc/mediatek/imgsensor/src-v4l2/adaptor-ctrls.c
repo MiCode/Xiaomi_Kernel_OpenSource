@@ -1223,7 +1223,10 @@ static const struct v4l2_ctrl_ops ctrl_ops = {
 static const char * const test_pattern_menu[] = {
 	"Disabled",
 	"Solid Color",
-	"Colour Bars",
+	"COLOR_BARS",
+	"COLOR_BARS_FADE_TO_GRAY",
+	"PN9",
+	"BLACK",
 };
 
 #ifdef V4L2_CID_PD_PIXEL_REGION
