@@ -92,6 +92,11 @@
 		dsc0 = &disp_dsc_wrap0;
 	};
 
+	/* ATF logger */
+	atf_logger: atf_logger {
+		compatible = "mediatek,tfa_debug";
+	};
+
 	topckgen_clk: syscon@10000000 {
 		compatible = "mediatek,mt6855-topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
