@@ -137,7 +137,7 @@ static int auxadc_get_chg_vbat(struct mt6375_priv *priv, int *chg_vbat)
 	static struct iio_channel *chg_vbat_chan;
 	int ret = 0, vbat;
 
-	if (!chg_vbat_chan)
+	if (IS_ERR_OR_NULL(chg_vbat_chan))
 		chg_vbat_chan = devm_iio_channel_get(priv->dev, "chg_vbat");
 	if (IS_ERR(chg_vbat_chan))
 		return PTR_ERR(chg_vbat_chan);
@@ -410,7 +410,7 @@ static int auxadc_vbat_is_valid(struct mt6375_priv *priv, bool *valid)
 	static struct iio_channel *auxadc_vbat_chan;
 	int ret = 0, chg_vbat = 0, auxadc_vbat = 0;
 
-	if (!auxadc_vbat_chan)
+	if (IS_ERR_OR_NULL(auxadc_vbat_chan))
 		auxadc_vbat_chan = devm_iio_channel_get(priv->dev, "auxadc_vbat");
 	if (IS_ERR(auxadc_vbat_chan))
 		return PTR_ERR(auxadc_vbat_chan);
