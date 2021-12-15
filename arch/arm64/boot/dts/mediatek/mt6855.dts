@@ -593,6 +593,32 @@
 		reg = <0 0x40000000 0 0x40000000>;
 	};
 
+	firmware: firmware {
+		scmi: scmi {
+			compatible = "arm,scmi";
+			mboxes = <&tinysys_mbox 0>, <&tinysys_mbox 1>;
+			shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
+			mbox-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_tinysys: protocol@80 {
+				reg = <0x80>;
+				scmi_qos = <1>;
+				scmi_pmic = <2>;
+				scmi_met = <3>;
+				scmi_gpupm = <6>;
+				scmi_plt = <7>;
+				scmi_smi = <8>;
+				scmi_cm = <9>;
+				scmi_slbc = <10>;
+				scmi_ssc = <11>;
+				scmi_apmcupm = <12>;
+				scmi_mminfra = <13>;
+			};
+		};
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1561,7 +1587,6 @@
 		interrupt-names = "ipc";
 		sspm_res_ram_start = <0x0>;
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
-		mediatek,fake_sspm = <1>;
 	};
 
 	/* Trustonic Mobicore SW IRQ number 156 = 32 + 124 */
