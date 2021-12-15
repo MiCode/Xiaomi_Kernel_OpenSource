@@ -33,7 +33,7 @@ const static struct {
 	{GH_PRIMARY_VM, "pvm"},
 	{GH_TRUSTED_VM, "trustedvm"},
 	{GH_CPUSYS_VM, "cpusys_vm"},
-	{GH_OEM_VM, "oem_vm"},
+	{GH_OEM_VM, "oemvm"},
 };
 
 static struct kobj_type guestvm_kobj_type = {
