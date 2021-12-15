@@ -31,9 +31,13 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.name = "md",
 		.sta_mask = BIT(0),
 		.ctl_offs = 0xE00,
-		.caps = MTK_SCPD_MD_OPS,
+		.caps = MTK_SCPD_MD_OPS | MTK_SCPD_BYPASS_INIT_ON,
 		.extb_iso_offs = 0xF2C,
 		.extb_iso_bits = 0x3,
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C54, 0x0C58, 0x0C50, 0x0C5C,
+				MT6855_TOP_AXI_PROT_EN_INFRASYS1_MD),
+		},
 	},
 	[MT6855_POWER_DOMAIN_CONN] = {
 		.name = "conn",
@@ -49,6 +53,7 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
 				MT6855_TOP_AXI_PROT_EN_INFRASYS0_CONN),
 		},
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6855_POWER_DOMAIN_UFS0_SHUTDOWN] = {
 		.name = "ufs0_shutdown",
@@ -64,6 +69,7 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6855_VLP_AXI_PROT_EN_UFS0_2ND),
 		},
+		.caps = MTK_SCPD_SRAM_ISO,
 	},
 	[MT6855_POWER_DOMAIN_AUDIO] = {
 		.name = "audio",
@@ -78,10 +84,6 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.ctl_offs = 0xE24,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.bp_table = {
-			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
-				MT6855_TOP_AXI_PROT_EN_MMSYS2_ISP_MAIN),
-		},
 	},
 	[MT6855_POWER_DOMAIN_ISP_DIP1] = {
 		.name = "isp_dip1",
@@ -89,6 +91,10 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.ctl_offs = 0xE28,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MT6855_TOP_AXI_PROT_EN_MMSYS0_ISP_DIP1),
+		},
 	},
 	[MT6855_POWER_DOMAIN_ISP_IPE] = {
 		.name = "isp_ipe",
@@ -96,6 +102,10 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.ctl_offs = 0xE2C,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				MT6855_TOP_AXI_PROT_EN_MMSYS2_ISP_IPE),
+		},
 	},
 	[MT6855_POWER_DOMAIN_VDE0] = {
 		.name = "vde0",
@@ -132,12 +142,6 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6855_TOP_AXI_PROT_EN_MMSYS0_CAM_MAIN),
-			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
-				MT6855_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN),
-			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
-				MT6855_TOP_AXI_PROT_EN_MMSYS2_CAM_MAIN),
-			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
-				MT6855_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN_2ND),
 		},
 	},
 	[MT6855_POWER_DOMAIN_CAM_SUBA] = {
@@ -180,8 +184,6 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 				MT6855_TOP_AXI_PROT_EN_MMSYS1_MM_INFRA_2ND),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
 				MT6855_TOP_AXI_PROT_EN_INFRASYS0_MM_INFRA),
-			BUS_PROT_IGN(IFR_TYPE, 0x0C64, 0x0C68, 0x0C60, 0x0C6C,
-				MT6855_TOP_AXI_PROT_EN_EMISYS0_MM_INFRA),
 		},
 	},
 	[MT6855_POWER_DOMAIN_MM_PROC_DORMANT] = {
@@ -215,14 +217,12 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 				MT6855_TOP_AXI_PROT_EN_MD0_MFG1),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
 				MT6855_TOP_AXI_PROT_EN_MD0_MFG1_2ND),
-			BUS_PROT_IGN(IFR_TYPE, 0x0C64, 0x0C68, 0x0C60, 0x0C6C,
-				MT6855_TOP_AXI_PROT_EN_EMISYS0_MFG1),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
 				MT6855_TOP_AXI_PROT_EN_MD0_MFG1_3RD),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CA4, 0x0CA8, 0x0CA0, 0x0CAC,
 				MT6855_TOP_AXI_PROT_EN_MD0_MFG1_4RD),
 		},
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6855_POWER_DOMAIN_MFG2] = {
 		.name = "mfg2",
