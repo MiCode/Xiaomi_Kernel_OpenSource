@@ -187,6 +187,9 @@ static int mtu3_gadget_ep_enable(struct usb_ep *ep,
 	mep = to_mtu3_ep(ep);
 	mtu = mep->mtu;
 
+	if (!mtu->softconnect)
+		return -ESHUTDOWN;
+
 	/* check ep number and direction against endpoint */
 	if (usb_endpoint_num(desc) != mep->epnum)
 		return -EINVAL;
