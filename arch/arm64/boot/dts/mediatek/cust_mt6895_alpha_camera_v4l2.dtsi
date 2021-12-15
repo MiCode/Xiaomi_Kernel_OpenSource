@@ -405,7 +405,7 @@
 &pio {
 	ktd2687_pins_hwen_high: hwen_high {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			pinmux = <PINMUX_GPIO119__FUNC_GPIO119>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -413,7 +413,7 @@
 
 	ktd2687_pins_hwen_low: hwen_low {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			pinmux = <PINMUX_GPIO119__FUNC_GPIO119>;
 			slew-rate = <1>;
 			output-low;
 		};
