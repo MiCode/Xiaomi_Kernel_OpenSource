@@ -3474,12 +3474,13 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
-			else
+			else {
 				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
 						0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
-
-			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMD_TYPE1_HS,
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DSI_CMD_TYPE1_HS,
 					CMD_HS_HFP_BLANKING_HS_EN, CMD_HS_HFP_BLANKING_HS_EN);
+			}
 		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
