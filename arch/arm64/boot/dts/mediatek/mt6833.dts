@@ -146,6 +146,73 @@
 		#clock-cells = <1>;
 	};
 
+	dsi_te: dsi_te {
+		compatible = "mediatek, dsi_te-eint";
+		status = "disabled";
+	};
+
+	kd_camera_hw1:kd_camera_hw1@1a004000 {
+		compatible = "mediatek,imgsensor";
+	};
+
+	subpmic_pmu_eint:subpmic_pmu_eint {
+	};
+
+	auxadc: auxadc@11001000 {
+		compatible = "mediatek,mt6768-auxadc";
+		reg = <0 0x11001000 0 0x1000>;
+		interrupts = <GIC_SPI 64 IRQ_TYPE_EDGE_RISING>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_AUXADC>;
+		clock-names = "main";
+		#io-channel-cells = <1>;
+		/* Auxadc efuse calibration */
+		/* 1. Auxadc cali on/off bit shift */
+		mediatek,cali-en-bit = <20>;
+		/* 2. Auxadc cali ge bits shift */
+		mediatek,cali-ge-bit = <10>;
+		/* 3. Auxadc cali oe bits shift */
+		mediatek,cali-oe-bit = <0>;
+		/* 4. Auxadc cali efuse index */
+		mediatek,cali-efuse-index = <113>;
+	};
+
+	gpio: gpio@10005000 {
+		compatible = "mediatek,gpio";
+		reg = <0 0x10005000 0 0x1000>;
+	};
+
+	keypad:kp@10010000 {
+		compatible = "mediatek,kp";
+		reg = <0 0x10010000 0 0x1000>;
+		interrupts = <GIC_SPI 74 IRQ_TYPE_EDGE_RISING>;
+		mediatek,key-debounce-ms = <1024>;
+		mediatek,hw-map-num = <72>;
+		mediatek,hw-init-map = <114 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0 0 0 0 0 0 0 0 0 0 0 0
+					0 0 0>;
+		clocks = <&clk26m>;
+		clock-names = "kpd";
+	};
+
+	md_auxadc:md_auxadc {
+		compatible = "mediatek,md_auxadc";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "md-channel";
+	};
+
+	gpio_usage_mapping:gpio_usage_mapping {
+		compatible = "mediatek,gpio_usage_mapping";
+	};
+
+	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint {
+	};
+
+	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
+	};
+
 	watchdog: watchdog@10007000 {
 		compatible = "mediatek,mt6833-wdt",
 				"mediatek,mt6589-wdt",
@@ -212,6 +279,10 @@
 		dmas = <&apdma 2
 				&apdma 3>;
 		dma-names = "tx", "rx";
+	};
+
+	touch:touch {
+		compatible = "goodix,touch";
 	};
 
 	ufshci: ufshci@11270000 {
@@ -558,6 +629,21 @@
 				<&infracfg_ao_clk CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <1>;
+	};
+
+	pmic_clock_buffer_ctrl:pmic_clock_buffer_ctrl {
+		compatible = "mediatek,pmic_clock_buffer";
+		mediatek,clkbuf-quantity = <7>;
+		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
+		mediatek,clkbuf-output_impedance = <6 4 4 4 0 0 4>;
+		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
+		tcxo_support = "false";
+	};
+
+	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
 	};
 
 	odm: odm {
