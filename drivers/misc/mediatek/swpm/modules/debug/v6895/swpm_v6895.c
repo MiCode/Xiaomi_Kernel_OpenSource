@@ -30,8 +30,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <swpm_tracker_trace.h>
-//EXPORT_TRACEPOINT_SYMBOL(swpm_power);
-//EXPORT_TRACEPOINT_SYMBOL(swpm_power_idx);
+/* EXPORT_TRACEPOINT_SYMBOL(swpm_power); */
+/* EXPORT_TRACEPOINT_SYMBOL(swpm_power_idx); */
 
 #include <mtk_swpm_common_sysfs.h>
 #include <mtk_swpm_sysfs.h>
@@ -673,16 +673,17 @@ static inline void swpm_pass_to_sspm(void)
 
 static void swpm_update_temp(void)
 {
-	unsigned int temp = 30, i;
+	unsigned int i;
+	int tz_temp = 0;
 
-	for (i = 0; i < NR_CPU_CORE; i++) {
+	if (cpu_ptr) {
+		for (i = 0; i < NR_CPU_CORE; i++) {
 #if IS_ENABLED(CONFIG_MTK_THERMAL)
-		temp = get_cpu_temp(i) / 1000;
-		if (temp > 100)
-			temp = 100;
+			tz_temp = get_cpu_temp(i);
+			tz_temp = (tz_temp > 0) ? tz_temp : 0;
 #endif
-		if (cpu_ptr)
-			cpu_ptr->cpu_temp[i] = (unsigned short)temp;
+			cpu_ptr->cpu_temp[i] = (unsigned int)tz_temp;
+		}
 	}
 }
 
@@ -709,11 +710,11 @@ static void swpm_init_retry(struct work_struct *work)
 #endif
 }
 
+static char pwr_buf[POWER_CHAR_SIZE] = { 0 };
 static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
 static void swpm_log_loop(struct timer_list *t)
 {
-	char buf[256] = {0};
-	char *ptr = buf;
+	char *ptr = pwr_buf;
 	char *idx_ptr = idx_buf;
 	int i;
 #ifdef LOG_LOOP_TIME_PROFILE
@@ -772,7 +773,7 @@ static void swpm_log_loop(struct timer_list *t)
 		trace_swpm_power_idx(idx_buf);
 	}
 	/* put power data to ftrace */
-	trace_swpm_power(buf);
+	trace_swpm_power(pwr_buf);
 
 #ifdef LOG_LOOP_TIME_PROFILE
 	t2 = ktime_get();

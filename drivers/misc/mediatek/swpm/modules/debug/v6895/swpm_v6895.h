@@ -13,7 +13,6 @@
 #define SWPM_TEST (0)
 #define SWPM_DEPRECATED (0)
 
-#define GET_UW_LKG                              (1)
 #define MAX_RECORD_CNT				(64)
 #define MAX_APHY_CORE_PWR			(12)
 #define MAX_APHY_OTHERS_PWR			(16)
@@ -23,10 +22,12 @@
 /* VPROC3 + VPROC2 + VPROC1 + VDRAM + VGPU + VCORE */
 #define DEFAULT_LOG_MASK			(0x3F)
 
+#define POWER_CHAR_SIZE				(256)
 #define POWER_INDEX_CHAR_SIZE			(4096)
 
 #define NR_CORE_VOLT				(5)
-#define NR_CPU_OPP				(32)
+#define NR_CPU_OPP				(36)
+#define NR_CPU_LKG				(9)
 #define NR_CPU_CORE				(8)
 #define NR_CPU_L_CORE				(4)
 
@@ -194,7 +195,7 @@ struct cpu_swpm_index {
 	unsigned int l3_bw;
 	unsigned int cpu_emi_bw;
 	struct cpu_swpm_vf_index vf;
-	unsigned int cpu_lkg[NR_CPU_LKG_TYPE];
+	unsigned int cpu_lkg[NR_CPU_LKG];
 	unsigned int cpu_pwr[NR_CPU_PWR_TYPE];
 };
 
@@ -333,11 +334,11 @@ struct dram_pwr_conf {
 };
 
 /* numbers of unsigned int for cpu reserved memory */
-#define CPU_SWPM_RESERVED_SIZE (4)
+#define CPU_SWPM_RESERVED_SIZE (8)
 
 struct cpu_swpm_rec_data {
-	/* 2(short) * 8(cores) = 16 bytes */
-	unsigned short cpu_temp[NR_CPU_CORE];
+	/* 4(int) * 8(cores) = 32 bytes */
+	unsigned int cpu_temp[NR_CPU_CORE];
 };
 
 /* numbers of unsigned int for mem reserved memory */
@@ -396,7 +397,7 @@ struct swpm_rec_data {
 	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
 	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
-	/* 16/16 bytes */
+	/* 32/32 bytes */
 	unsigned int cpu_reserved[CPU_SWPM_RESERVED_SIZE];
 
 	/* 2200/2200 bytes */
