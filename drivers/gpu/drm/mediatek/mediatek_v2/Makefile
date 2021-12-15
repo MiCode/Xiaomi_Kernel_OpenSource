@@ -80,8 +80,6 @@ obj-$(CONFIG_DRM_MEDIATEK) += mtk_panel_ext.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_notify.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_aod_scp.o
 
-obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_sec.o
-
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\

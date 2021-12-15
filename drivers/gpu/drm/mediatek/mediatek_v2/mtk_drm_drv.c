@@ -116,16 +116,6 @@ void **mtk_aod_scp_ipi_init(void)
 }
 EXPORT_SYMBOL(mtk_aod_scp_ipi_init);
 
-struct mtk_drm_disp_sec_cb disp_sec_cb;
-EXPORT_SYMBOL(disp_sec_cb);
-
-void **mtk_drm_disp_sec_cb_init(void)
-{
-	DDPMSG("%s+\n", __func__);
-	return (void **)&disp_sec_cb.cb;
-}
-EXPORT_SYMBOL(mtk_drm_disp_sec_cb_init);
-
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 
