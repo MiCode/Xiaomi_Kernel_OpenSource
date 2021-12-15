@@ -718,7 +718,6 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 static void cmdq_cb_done_worker(struct work_struct *work)
 {
 	struct mtk_imgsys_pipe *pipe;
-	struct mtk_imgsys_request *req = mtk_imgsys_hw_gce_done_work_to_req(work);
 	struct swfrm_info_t *gwfrm_info = NULL;
 	struct gce_cb_work *gwork = NULL;
 	struct img_sw_buffer swbuf_data;
@@ -731,16 +730,12 @@ static void cmdq_cb_done_worker(struct work_struct *work)
 		goto release_work;
 	}
 
-	if (!req) {
-		pr_info("%s NULL request Address\n", __func__);
-		goto release_work;
-	}
 	/* send to HCP after frame done & del node from list */
 	gwfrm_info = (struct swfrm_info_t *)gwork->req_sbuf_kva;
 	swbuf_data.offset = gwfrm_info->req_sbuf_goft;
-	imgsys_send(req->imgsys_pipe->imgsys_dev->scp_pdev, HCP_IMGSYS_DEQUE_DONE_ID,
+	imgsys_send(pipe->imgsys_dev->scp_pdev, HCP_IMGSYS_DEQUE_DONE_ID,
 		&swbuf_data, sizeof(struct img_sw_buffer),
-		req->tstate.req_fd, 0);
+		gwork->reqfd, 0);
 
 	wake_up_interruptible(&frm_info_waitq);
 
@@ -1033,7 +1028,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 
 		if (need_notify_daemon) {
-			gwork.req = req;
+			gwork.reqfd = swfrminfo_cb->request_fd;
 			//memcpy((void *)(&(gwork->user_info)), (void *)(&(frm_info_cb->user_info)),
 			//	sizeof(struct img_swfrm_info));
 			gwork.req_sbuf_kva = swfrminfo_cb->req_sbuf_kva;
