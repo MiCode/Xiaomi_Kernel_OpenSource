@@ -126,6 +126,9 @@ EXPORT_SYMBOL(gce_mminfra);
 bool gce_insert_dummy;
 EXPORT_SYMBOL(gce_insert_dummy);
 
+bool gce_in_vcp;
+EXPORT_SYMBOL(gce_in_vcp);
+
 /* CMDQ log flag */
 int mtk_cmdq_log;
 EXPORT_SYMBOL(mtk_cmdq_log);
@@ -2238,6 +2241,9 @@ static int cmdq_probe(struct platform_device *pdev)
 	gce_mminfra = plat_data->mminfra;
 	if (of_property_read_bool(dev->of_node, "insert-dummy"))
 		gce_insert_dummy = true;
+
+	if (of_property_read_bool(dev->of_node, "gce_in_vcp"))
+		gce_in_vcp = true;
 
 	dev_notice(dev,
 		"cmdq thread:%u shift:%u mminfra:%#x base:0x%lx pa:0x%lx\n",

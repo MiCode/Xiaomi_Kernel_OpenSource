@@ -88,17 +88,18 @@ struct cmdq_sec_helper_fp *cmdq_sec_helper;
 
 #define VCP_TO_SPM_REG_PA			(0x1ec24098)
 #define VCP_USER_CNT		(8)
-#define MMINFRA_BASE			(0x1e800000)
-#define MMINFRA_MBIST_DELSEL10	(MMINFRA_BASE + 0xa28)
-#define MMINFRA_MBIST_DELSEL11	(MMINFRA_BASE + 0xa2c)
-#define MMINFRA_MBIST_DELSEL12	(MMINFRA_BASE + 0xa30)
-#define MMINFRA_MBIST_DELSEL13	(MMINFRA_BASE + 0xa34)
-#define MMINFRA_MBIST_DELSEL14	(MMINFRA_BASE + 0xa38)
-#define MMINFRA_MBIST_DELSEL15	(MMINFRA_BASE + 0xa3c)
-#define MMINFRA_MBIST_DELSEL16	(MMINFRA_BASE + 0xa40)
-#define MMINFRA_MBIST_DELSEL17	(MMINFRA_BASE + 0xa44)
-#define MMINFRA_MBIST_DELSEL18	(MMINFRA_BASE + 0xa48)
-#define MMINFRA_MBIST_DELSEL19	(MMINFRA_BASE + 0xa4c)
+#define MMINFRA_BASE		((dma_addr_t)0x1e800000)
+#define MMINFRA_MBIST_DELSEL10	0xa28
+#define MMINFRA_MBIST_DELSEL11	0xa2c
+#define MMINFRA_MBIST_DELSEL12	0xa30
+#define MMINFRA_MBIST_DELSEL13	0xa34
+#define MMINFRA_MBIST_DELSEL14	0xa38
+#define MMINFRA_MBIST_DELSEL15	0xa3c
+#define MMINFRA_MBIST_DELSEL16	0xa40
+#define MMINFRA_MBIST_DELSEL17	0xa44
+#define MMINFRA_MBIST_DELSEL18	0xa48
+#define MMINFRA_MBIST_DELSEL19	0xa4c
+
 
 #define	MDP_VCP_BUF_SIZE 0x80000
 
@@ -111,6 +112,7 @@ struct vcp_control {
 	struct workqueue_struct *vcp_wq;
 	atomic_t		vcp_usage;
 	atomic_t		vcp_power;
+	void __iomem	*mminfra_base;
 };
 struct vcp_control vcp;
 
@@ -316,6 +318,10 @@ static void cmdq_vcp_is_ready(void)
 
 void cmdq_vcp_enable(bool en)
 {
+	if (!vcp.mminfra_base) {
+		cmdq_msg("%s not support", __func__);
+		return;
+	}
 	mutex_lock(&vcp.vcp_mutex);
 	if (en) {
 		if (atomic_inc_return(&vcp.vcp_usage) == 1)
@@ -323,15 +329,13 @@ void cmdq_vcp_enable(bool en)
 		if (atomic_read(&vcp.vcp_power) <= 0) {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 			dma_addr_t buf_pa = vcp_get_reserve_mem_phys_ex(GCE_MEM_ID);
-			void __iomem	*rg_base;
 
 			vcp_register_feature_ex(GCE_FEATURE_ID);
 			atomic_inc(&vcp.vcp_power);
 			mutex_unlock(&vcp.vcp_mutex);
 			cmdq_msg("[VCP] power on VCP");
 			cmdq_vcp_is_ready();
-			rg_base = ioremap(MMINFRA_MBIST_DELSEL10, 0x1000);
-			writel(CMDQ_PACK_IOVA(buf_pa), rg_base);
+			writel(CMDQ_PACK_IOVA(buf_pa), vcp.mminfra_base + MMINFRA_MBIST_DELSEL10);
 #endif
 			return;
 		}
@@ -368,7 +372,7 @@ EXPORT_SYMBOL(cmdq_get_vcp_buf);
 
 static dma_addr_t cmdq_get_vcp_dummy(enum CMDQ_VCP_ENG_ENUM engine)
 {
-	const u32 reg[VCP_USER_CNT] = {
+	const dma_addr_t offset[VCP_USER_CNT] = {
 		MMINFRA_MBIST_DELSEL12, MMINFRA_MBIST_DELSEL13,
 		MMINFRA_MBIST_DELSEL14, MMINFRA_MBIST_DELSEL15,
 		MMINFRA_MBIST_DELSEL16, MMINFRA_MBIST_DELSEL17,
@@ -376,7 +380,8 @@ static dma_addr_t cmdq_get_vcp_dummy(enum CMDQ_VCP_ENG_ENUM engine)
 
 	if (engine < 0 || engine >= VCP_USER_CNT)
 		return 0;
-	return reg[engine];
+
+	return MMINFRA_BASE + offset[engine];
 }
 
 u32 cmdq_pkt_vcp_reuse_val(enum CMDQ_VCP_ENG_ENUM engine, u32 buf_offset, u16 size)
@@ -438,10 +443,14 @@ static void cmdq_dump_vcp_reg(struct cmdq_pkt *pkt)
 {
 	int eng;
 	unsigned long eng_bit;
-	void __iomem	*rg_base;
 	dma_addr_t addr;
 	u32 val;
 	struct cmdq_vcp_inst *vcp_inst = (struct cmdq_vcp_inst *)&val;
+
+	if (!vcp.mminfra_base) {
+		cmdq_msg("%s not support", __func__);
+		return;
+	}
 
 	if (!pkt)
 		return;
@@ -451,8 +460,7 @@ static void cmdq_dump_vcp_reg(struct cmdq_pkt *pkt)
 		addr = cmdq_get_vcp_dummy(eng);
 		if (!addr)
 			continue;
-		rg_base = ioremap(addr, 0x1000);
-		val = readl(rg_base);
+		val = readl(vcp.mminfra_base + (addr - MMINFRA_BASE));
 		cmdq_msg("%s vcp eng:%d, addr[%pa]=%#x enable:%d enter:%d error:%d",
 			__func__, eng, &addr, val,
 			vcp_inst->enable, vcp_inst->enter, vcp_inst->error);
@@ -3208,6 +3216,9 @@ int cmdq_helper_init(void)
 {
 	cmdq_msg("%s enter", __func__);
 	mutex_init(&vcp.vcp_mutex);
+	if (gce_in_vcp)
+		vcp.mminfra_base = ioremap(MMINFRA_BASE, 0x1000);
+
 	timer_setup(&vcp.vcp_timer, cmdq_vcp_off, 0);
 	INIT_WORK(&vcp.vcp_work, cmdq_vcp_off_work);
 	vcp.vcp_wq = create_singlethread_workqueue(
