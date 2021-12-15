@@ -28,13 +28,56 @@ ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/m
 
 obj-y := camera_mfb_dummy.o
 
+ifeq ($(CONFIG_MACH_MT6771),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_50/camera_mfb.o
+endif
+
+ifeq ($(CONFIG_MACH_MT6775),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_50/camera_mfb.o
+endif
+
+ifeq ($(CONFIG_MACH_MT6785),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_50/camera_mfb.o
+endif
+
+ifeq ($(CONFIG_MACH_MT6779),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mt6779/camera_mfb.o
+endif
+
+ifeq ($(CONFIG_MACH_MT6885),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 1
+endif
+
+ifeq ($(CONFIG_MACH_MT6873),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 2
+endif
+
+ifeq ($(CONFIG_MACH_MT6853),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 3
+endif
+
+ifeq ($(CONFIG_MACH_MT6893),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 1
+endif
+
 ifeq ($(CONFIG_MACH_MT6833),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
   obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
   MTK_MFB_REG_VERSION := 3
 endif
 
+ifeq ($(CONFIG_MACH_MT6781),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 3
+endif
+
 subdir-ccflags-y += -DMTK_MFB_REG_VERSION=$(MTK_MFB_REG_VERSION)
-
-#obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += $(MTK_PLATFORM)/camera_mfb.o
-
