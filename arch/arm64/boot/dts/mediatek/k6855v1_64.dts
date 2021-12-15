@@ -206,4 +206,6 @@ initcall_debug=1";
 &pdc {
 	pd_vbus_upper_bound = <12000000>;
 };
+
+#include <k6855v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
