@@ -1190,6 +1190,11 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 	struct mml_test *test = (struct mml_test *)filp->f_inode->i_private;
 	struct mml_test_case cur;
 
+	if (count > sizeof(cur)) {
+		mml_err("buf count not match %zu %zu", count, sizeof(cur));
+		return -EFAULT;
+	}
+
 	if (copy_from_user(&cur, buf, count)) {
 		mml_err("copy_from_user failed len:%zu", count);
 		return -EFAULT;
