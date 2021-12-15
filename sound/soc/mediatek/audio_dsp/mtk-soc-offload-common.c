@@ -227,9 +227,8 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 					AUDIO_IPI_PAYLOAD,
 					AUDIO_IPI_MSG_BYPASS_ACK,
 					AUDIO_DSP_TASK_DLCOPY,
-					sizeof(unsigned int),
-					(unsigned int)
-					dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+					sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+					0,
 					(char *)
 					&dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 			pr_debug("%s(),MSG_DECODER_START, Update the final data, TRANSFERRED %lld\n",
@@ -705,9 +704,8 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
 				AUDIO_DSP_TASK_DLCOPY,
-				sizeof(unsigned int),
-				(unsigned int)
-				dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+				sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+				0,
 				(char *)
 				&dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 #ifdef DEBUG_VERBOSE
