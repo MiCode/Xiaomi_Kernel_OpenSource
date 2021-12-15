@@ -170,7 +170,6 @@ static void kpd_keymap_handler(unsigned long data)
 	int32_t pressed;
 	u16 new_state[KPD_NUM_MEMS], change, mask;
 	u16 hw_keycode, linux_keycode;
-	void *dest;
 
 	kpd_get_keymap_state(new_state);
 #ifdef CONFIG_PM_SLEEP
@@ -224,7 +223,7 @@ static void kpd_keymap_handler(unsigned long data)
 		}
 	}
 
-	dest = memcpy(kpd_keymap_state, new_state, sizeof(new_state));
+	memcpy(kpd_keymap_state, new_state, sizeof(new_state));
 	enable_irq(kp_irqnr);
 }
 
