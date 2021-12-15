@@ -120,3 +120,4 @@ obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
 obj-$(CONFIG_MTK_SYS_CIRQ) += cirq/
 obj-$(CONFIG_MTK_SECURITY_SW_SUPPORT) += masp/
 obj-y += rps/
+obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
