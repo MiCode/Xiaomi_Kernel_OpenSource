@@ -57,6 +57,15 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_CPR_TPR_MASK		0x8000
 #define CMDQ_CPR_DISP_CNT		0x8001
 #define CMDQ_CPR_DDR_USR_CNT		0x8002
+/* 0x8128 to 0x812f use by MML */
+#define CMDQ_CPR_MML_PQ0_ADDR		0x8128
+#define CMDQ_CPR_MML_PQ0_ADDRH		0x8129
+#define CMDQ_CPR_MML_PQ1_ADDR		0x812a
+#define CMDQ_CPR_MML_PQ1_ADDRH		0x812b
+#define CMDQ_CPR64			0x4e0
+
+#define CMDQ_CPR_TO_CPR64(cpr)		(((cpr - CMDQ_CPR_STRAT_ID) >> 1) + \
+					 CMDQ_CPR_STRAT_ID + CMDQ_CPR64)
 
 /* ATF PREBUILT */
 #define CMDQ_CPR_PREBUILT_PIPE_CNT	2

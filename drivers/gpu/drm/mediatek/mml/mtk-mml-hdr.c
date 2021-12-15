@@ -148,12 +148,12 @@
 
 struct hdr_data {
 	u32 min_tile_width;
-	u16 gpr[MML_PIPE_CNT];
+	u16 cpr[MML_PIPE_CNT];
 };
 
 static const struct hdr_data hdr10_hdr_data = {
 	.min_tile_width = 16,
-	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 };
 
 struct mml_comp_hdr {
@@ -512,9 +512,8 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 
 	const u16 idx_counter = CMDQ_THR_SPR_IDX1;
 	const u16 idx_val = CMDQ_THR_SPR_IDX2;
-	const u16 idx_out = hdr->data->gpr[ccfg->pipe] + CMDQ_GPR_CNT_ID;
-	const u16 idx_out64 = (hdr->data->gpr[ccfg->pipe] >> 1) +
-			      CMDQ_GPR_P0 + CMDQ_GPR_CNT_ID;
+	const u16 idx_out = hdr->data->cpr[ccfg->pipe];
+	const u16 idx_out64 = CMDQ_CPR_TO_CPR64(idx_out);
 
 	if (!dest->pq_config.en_hdr)
 		goto exit;
@@ -542,9 +541,9 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 	hdr_frm->begin_offset = pkt->cmd_buf_size;
 	begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
 
-	/* read to value gpr */
+	/* read to value cpr */
 	cmdq_pkt_read_addr(pkt, base_pa + HDR_HIST_DATA, idx_val);
-	/* write value spr to dst gpr */
+	/* write value spr to dst cpr */
 	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	/* jump forward end if match, if spr1 >= 57 - 1	*/
@@ -577,9 +576,9 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
-	/* read to value gpr */
+	/* read to value cpr */
 	cmdq_pkt_read_addr(pkt, base_pa + HDR_LBOX_DET_4, idx_val);
-	/* write value spr to dst gpr */
+	/* write value spr to dst cpr */
 	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p]",
