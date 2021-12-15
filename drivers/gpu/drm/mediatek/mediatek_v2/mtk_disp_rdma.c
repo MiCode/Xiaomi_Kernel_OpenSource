@@ -141,6 +141,10 @@ int disp_met_set(void *data, u64 val);
 #define DISP_REG_RDMA_DBG_OUT4 0x0118
 #define DISP_REG_RDMA_DBG_OUT5 0x011c
 
+#define DISP_REG_RDMA_ULTRA_SRC_SEL     0x01a0
+#define FLD_RG_PREULTRA_RDMA_SEL        REG_FLD_MSB_LSB(7, 6)
+#define FLD_RG_ULTRA_RDMA_SEL           REG_FLD_MSB_LSB(15, 14)
+
 #define DISP_REG_RDMA_GREQ_URG_NUM_SEL 0x01a8
 #define FLD_RG_LAYER_SMI_ID_EN REG_FLD_MSB_LSB(29, 29)
 
@@ -468,8 +472,20 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	switch (priv->data->mmsys_id) {
 	case MMSYS_MT6879:
-		mtk_ddp_write_relaxed(comp, 0x01, DISP_REG_RDMA_MEM_GMC_S4,
-			handle);
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0)) {
+			mtk_ddp_write_relaxed(comp, 0x01,
+				DISP_REG_RDMA_MEM_GMC_S4,
+				handle);
+			mtk_ddp_write_mask(comp, 0x00,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_PREULTRA_RDMA_SEL,
+				handle);
+			mtk_ddp_write_mask(comp, 0x00,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_ULTRA_RDMA_SEL,
+				handle);
+		}
 		break;
 	case MMSYS_MT6895:
 		/* mmsys0 consider dsi ultra signal if dsi buffer is enabled
@@ -503,8 +519,18 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	switch (priv->data->mmsys_id) {
 	case MMSYS_MT6879:
-		mtk_ddp_write_relaxed(comp, 0x0, DISP_REG_RDMA_MEM_GMC_S4,
-			handle);
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0)) {
+			mtk_ddp_write_relaxed(comp, 0x0,
+				DISP_REG_RDMA_MEM_GMC_S4,
+				handle);
+			mtk_ddp_write_mask(comp, 0x01,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_PREULTRA_RDMA_SEL, handle);
+			mtk_ddp_write_mask(comp, 0x02,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_ULTRA_RDMA_SEL, handle);
+		}
 		break;
 	case MMSYS_MT6895:
 		/*consider dsi ultra signal if dsi buffer is enabled*/
@@ -622,8 +648,19 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 0;
 	else
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
-	gs[GS_RDMA_FIFO_SIZE] = fifo_size;
-	gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 0;
+
+	if (rdma->data->dsi_buffer) {
+		struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+		if (priv->data->mmsys_id == MMSYS_MT6879)
+			gs[GS_RDMA_FIFO_SIZE] = 0x20;
+		else
+			gs[GS_RDMA_FIFO_SIZE] = fifo_size;
+		gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 0;
+	} else {
+		gs[GS_RDMA_FIFO_SIZE] = fifo_size;
+		gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 1;
+	}
 
 	/* DISP_RDMA_MEM_GMC_SETTING_2 */
 	/* do not min this value with 256 to avoid hrt fail in
@@ -1219,12 +1256,20 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_OUT_P_CNT + baddr));
 		DDPDUMP("(0x0fc)R_OUT_LINE_CNT=0x%x\n",
 			readl(DISP_REG_RDMA_OUT_LINE_CNT + baddr));
-		DDPDUMP("(0x100)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT + baddr));
-		DDPDUMP("(0x10c)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT1 + baddr));
-		DDPDUMP("(0x110)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT2 + baddr));
-		DDPDUMP("(0x114)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT3 + baddr));
-		DDPDUMP("(0x118)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT4 + baddr));
-		DDPDUMP("(0x11c)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT5 + baddr));
+		DDPDUMP("(0x100)DISP_REG_RDMA_DBG_OUT=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT + baddr));
+		DDPDUMP("(0x10c)DISP_REG_RDMA_DBG_OUT1=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT1 + baddr));
+		DDPDUMP("(0x110)DISP_REG_RDMA_DBG_OUT2=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT2 + baddr));
+		DDPDUMP("(0x114)DISP_REG_RDMA_DBG_OUT3=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT3 + baddr));
+		DDPDUMP("(0x118)DISP_REG_RDMA_DBG_OUT4=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT4 + baddr));
+		DDPDUMP("(0x11c)DISP_REG_RDMA_DBG_OUT5=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT5 + baddr));
+		DDPDUMP("(0x1a0)DISP_REG_RDMA_ULTRA_SRC_SEL=0x%x\n",
+			readl(DISP_REG_RDMA_ULTRA_SRC_SEL + baddr));
 	}
 
 	mtk_rdma_dump_golden_setting(comp);
