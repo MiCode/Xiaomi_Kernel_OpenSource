@@ -705,7 +705,8 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 		return 0;
 
 	if (of_device_is_compatible(node, "mediatek,mt6983-mtu3") ||
-			of_device_is_compatible(node, "mediatek,mt6895-mtu3"))
+			of_device_is_compatible(node, "mediatek,mt6895-mtu3") ||
+			of_device_is_compatible(node, "mediatek,mt6879-mtu3"))
 		ssusb_set_host_power_state(ssusb, MTU3_STATE_SUSPEND);
 	else
 		ssusb_set_power_state(ssusb, MTU3_STATE_SUSPEND);
