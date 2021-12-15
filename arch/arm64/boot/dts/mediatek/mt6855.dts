@@ -5183,6 +5183,10 @@
 			compatible = "mediatek,mtk_composite_v4l2_1";
 		};
 
+		camera_af_hw_node: camera_af_hw_node {
+			compatible = "mediatek,camera_af_lens";
+		};
+
 		mtk_ctd: mtk_ctd {
 			compatible = "mediatek,mtk_ctd";
 			bc12 = <&mt6375_chg>;
