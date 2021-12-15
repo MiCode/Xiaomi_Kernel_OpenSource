@@ -1698,7 +1698,7 @@
 				  <0 0x0d040800 0 0x100>, /* ap bus tracer base */
 				  <0 0x0d040900 0 0x100>; /* infra bus tracer base */
 
-			mediatek,err_flag = <0xe7fcffff>;
+			mediatek,err_flag = <0xe7f8ffff>;
 
 			/*
 			 * index 0 for ap bus tracer
