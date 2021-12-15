@@ -14,6 +14,7 @@
 #include <linux/vmalloc.h>
 #include <linux/suspend.h>
 #include <linux/rtc.h>
+#include <mtk_printk_ctrl.h>
 
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -69,6 +70,7 @@ MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 #define MTK_CAMSYS_RES_FRZ_TAG		0x20
 #define MTK_CAMSYS_RES_HWN_TAG		0x30
 #define MTK_CAMSYS_RES_CLK_TAG		0x40
+#define KERNEL_LOG_MAX	                400
 
 #define MTK_CAMSYS_RES_PLAN_NUM		10
 #define TGO_MAX_PXLMODE		8
@@ -5934,6 +5936,8 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	if (!raw_dev->msg_buffer)
 		return -ENOMEM;
 
+	raw_dev->default_printk_cnt = get_detect_count();
+
 	pm_runtime_enable(dev);
 
 	return component_add(dev, &mtk_raw_component_ops);
@@ -5962,10 +5966,16 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i;
+	unsigned int pr_detect_count;
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
+	dev_dbg(dev, "%s:drvdata->default_printk_cnt = %d\n", __func__,
+			drvdata->default_printk_cnt);
 
 	disable_irq(drvdata->irq);
+	pr_detect_count = get_detect_count();
+	if (pr_detect_count > drvdata->default_printk_cnt)
+		set_detect_count(drvdata->default_printk_cnt);
 
 	reset(drvdata);
 
@@ -5979,6 +5989,7 @@ static int mtk_raw_runtime_resume(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
+	unsigned int pr_detect_count;
 
 	/* reset_msgfifo before enable_irq */
 	ret = reset_msgfifo(drvdata);
@@ -5986,6 +5997,12 @@ static int mtk_raw_runtime_resume(struct device *dev)
 		return ret;
 
 	enable_irq(drvdata->irq);
+	dev_dbg(dev, "%s:drvdata->default_printk_cnt = %d\n", __func__,
+			drvdata->default_printk_cnt);
+
+	pr_detect_count = get_detect_count();
+	if (pr_detect_count < KERNEL_LOG_MAX)
+		set_detect_count(KERNEL_LOG_MAX);
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 
