@@ -18,6 +18,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 
+#include <soc/mediatek/smi.h>
+
 #include "mtk_cam.h"
 #include "mtk_cam_pm.h"
 #include "mtk_cam-pool.h"
@@ -1244,6 +1246,8 @@ void mraw_reset(struct mtk_mraw_device *dev)
 			 readl(dev->base + REG_MRAW_FRAME_SEQ_NUM)
 			);
 
+		mtk_smi_dbg_hang_detect("camsys-mraw");
+
 		goto RESET_FAILURE;
 	}
 
@@ -1811,8 +1815,8 @@ int mtk_cam_mraw_dev_stream_on(
 		/* reset enqueued status */
 		mraw_dev->is_enqueued = 0;
 
-		ret = mtk_cam_mraw_cq_disable(mraw_dev) ||
-			mtk_cam_mraw_top_disable(mraw_dev) ||
+		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
+			mtk_cam_mraw_cq_disable(mraw_dev) ||
 			mtk_cam_mraw_fbc_disable(mraw_dev) ||
 			mtk_cam_mraw_dma_disable(mraw_dev) ||
 			mtk_cam_mraw_tg_disable(mraw_dev);

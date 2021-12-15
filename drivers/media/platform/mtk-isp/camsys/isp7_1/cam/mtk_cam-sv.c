@@ -18,6 +18,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 
+#include <soc/mediatek/smi.h>
+
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam_pm.h"
@@ -702,6 +704,8 @@ void sv_reset(struct mtk_camsv_device *dev)
 			 readl(dev->base + REG_CAMSV_SW_CTL),
 			 readl(dev->base + REG_CAMSV_FRAME_SEQ_NO)
 			);
+
+		mtk_smi_dbg_hang_detect("camsys-camsv");
 
 		goto RESET_FAILURE;
 	}
