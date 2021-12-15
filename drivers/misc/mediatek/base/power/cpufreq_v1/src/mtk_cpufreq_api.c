@@ -81,6 +81,9 @@ unsigned int mt_cpufreq_find_Vboot_idx(unsigned int cluster_id)
 	struct mt_cpu_dvfs *p = id_to_cpu_dvfs(id);
 	int idx = -1;
 
+	if (p == NULL)
+		return 0;
+
 	idx = _search_available_freq_idx_under_v(p, VBOOT_VOLT);
 
 	if (idx > p->nr_opp_tbl)
