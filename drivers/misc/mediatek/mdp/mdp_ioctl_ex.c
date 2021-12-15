@@ -552,11 +552,23 @@ static s32 mdp_init_secure_id(struct cmdqRecStruct *handle)
 	if (!handle->secData.is_secure)
 		return 0;
 	secMetadatas = (struct cmdqSecAddrMetadataStruct *)handle->secData.addrMetadatas;
-
 	for (i = 0; i < handle->secData.addrMetadataCount; i++) {
 		secMetadatas[i].useSecIdinMeta = 1;
 		if (secMetadatas[i].ionFd <= 0) {
 			secMetadatas[i].sec_id = 0;
+#ifdef MDP_M4U_TEE_SUPPORT
+			// if camera scenario and type is DP_SECURE, set sec id as MEM_2D_FR
+			if ((handle->engineFlag & ((1LL << CMDQ_ENG_MDP_CAMIN)
+			| CMDQ_ENG_ISP_GROUP_BITS))
+			&& secMetadatas[i].type == CMDQ_SAM_H_2_MVA) {
+				secMetadatas[i].sec_id = 3;
+				CMDQ_LOG("%s,port:%d,ionFd:%d,sec_id:%d,sec_handle:0x%#llx",
+						__func__, secMetadatas[i].port,
+						secMetadatas[i].ionFd,
+						secMetadatas[i].sec_id,
+						secMetadatas[i].baseHandle);
+			}
+#endif
 			continue;
 		}
 
