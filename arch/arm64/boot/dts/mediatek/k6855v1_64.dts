@@ -26,11 +26,6 @@ initcall_debug=1";
 		"nt35595_fhd_dsi_cmd_truly_nt50358_drv";
 };
 
-&timer {
-	clock-frequency = <150000000>;
-};
-
-
 &mtk_leds {
 	compatible = "mediatek,mtk-leds";
 
