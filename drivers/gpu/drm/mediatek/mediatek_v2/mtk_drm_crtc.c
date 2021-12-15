@@ -3840,7 +3840,8 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 		mtk_crtc_fill_fb_para(mtk_crtc);
 
 #ifndef DRM_CMDQ_DISABLE
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+						MTK_DRM_OPT_USE_M4U)) {
 		if (priv->data->mmsys_id == MMSYS_MT6983 ||
 			priv->data->mmsys_id == MMSYS_MT6879 ||
 			priv->data->mmsys_id == MMSYS_MT6895 ||
