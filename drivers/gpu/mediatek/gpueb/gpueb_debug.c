@@ -71,6 +71,9 @@ void gpueb_dump_status(void)
 		/* 0x13C60634 */
 		gpueb_pr_info("@%s: GPUEB_CFGREG_MDSP_CFG (0x%x): 0x%08x\n", __func__,
 			(0x13C40000 + 0x20634), readl(g_gpueb_base + 0x20634));
+		/* 0x13C607E8 */
+		gpueb_pr_info("@%s: GPUEB_CFGREG_SRAMRC_MASTER_CFG (0x%x): 0x%08x\n", __func__,
+			(0x13C40000 + 0x207E8), readl(g_gpueb_base + 0x207E8));
 	} else
 		gpueb_pr_info("@%s: skip null g_gpueb_base\n", __func__);
 
