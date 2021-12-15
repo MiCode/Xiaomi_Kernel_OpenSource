@@ -39,7 +39,6 @@ TRACE_EVENT(swpm_power_idx,
 
 /* This part must be outside protection */
 #undef TRACE_INCLUDE_PATH
-#undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_PATH ./
+#define TRACE_INCLUDE_PATH .
 #define TRACE_INCLUDE_FILE swpm_tracker_trace
 #include <trace/define_trace.h>
