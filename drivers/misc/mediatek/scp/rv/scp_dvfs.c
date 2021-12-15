@@ -49,6 +49,8 @@
 #include "scp.h"
 #include "mtk_pmic_info.h"
 #include "mtk_pmic_api_buck.h"
+#include <linux/pm_qos.h>
+#include "helio-dvfsrc-opp.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -97,9 +99,7 @@ static struct mt_scp_pll_t mt_scp_pll;
 static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 
-#if 1 /* TBD, waiting for VCORE DVFS owner's confirm */
 static struct mtk_pm_qos_request dvfsrc_scp_vcore_req;
-#endif
 
 static struct scp_dvfs_hw dvfs;
 
@@ -303,6 +303,10 @@ static int scp_set_pmic_vcore(unsigned int cur_freq)
 		if (dvfs.pmic_sshub_en) {
 			unsigned int ret_vc = 0;
 
+			ret = get_vcore_uv_table(dvfs.opp[idx].uv_idx);
+			if (ret > 0)
+				dvfs.opp[idx].tuned_vcore = ret;
+
 			ret_vc = pmic_scp_set_vcore(dvfs.opp[idx].tuned_vcore);
 			if (ret_vc) {
 				ret = -1;
@@ -462,9 +466,7 @@ static void scp_vcore_request(unsigned int clk_opp)
 	 * if opp[idx].dvfsrc_opp == 0xff, means that
 	 * opp[idx] is not supported by DVFSRC
 	 */
-#if 1 /* TBD, waiting for VCORE DVFS owner's confirm */
 	mtk_pm_qos_update_request(&dvfsrc_scp_vcore_req, dvfs.opp[idx].dvfsrc_opp);
-#endif
 
 	/* SCP vcore request to SPM */
 	DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, dvfs.opp[idx].spm_opp);
@@ -1927,6 +1929,7 @@ static int __init mt_scp_dts_init_dvfs_data(struct device_node *node,
 			pr_notice("Cannot get property vcore(%d)\n", ret);
 			goto OPP_INIT_FAILED;
 		}
+		(*opp)[i].tuned_vcore = (*opp)[i].vcore;
 
 		ret = of_property_read_u32_index(node, "dvfs-opp",
 				(i * OPP_ELEM_CNT) + 1,
@@ -1984,13 +1987,6 @@ static int __init mt_scp_dts_init_dvfs_data(struct device_node *node,
 			pr_notice("Cannot get property vcore opp(%d)\n", ret);
 			goto OPP_INIT_FAILED;
 		}
-#if 0 /* TBD, waiting for VCORE DVFS owner to porting API */
-		ret = get_vcore_uv_table((*opp)[i].uv_idx);
-#endif
-		if (ret > 0)
-			(*opp)[i].tuned_vcore = ret;
-		else
-			(*opp)[i].tuned_vcore = (*opp)[i].vcore;
 	}
 	return ret;
 
@@ -2173,11 +2169,9 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	if (!dvfs.vlp_support)
 		mt_pmic_sshub_init();
 
-#if 1 /* TBD, waiting for VCORE DVFS owner's confirm */
 	mtk_pm_qos_add_request(&dvfsrc_scp_vcore_req,
 			MTK_PM_QOS_SCP_VCORE_REQUEST,
 			MTK_PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
-#endif
 
 	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
 
