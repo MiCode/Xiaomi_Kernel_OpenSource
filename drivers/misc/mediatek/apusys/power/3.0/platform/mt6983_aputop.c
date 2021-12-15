@@ -1310,18 +1310,21 @@ static int init_plat_chip_data(struct platform_device *pdev)
 {
 	struct plat_cfg_data plat_cfg;
 	uint32_t aging_attr = 0x0;
+	uint32_t vsram_vb_attr = 0x0;
 
 	memset(&plat_cfg, 0, sizeof(plat_cfg));
 
 	of_property_read_u32(pdev->dev.of_node, "aging_load", &aging_attr);
+	of_property_read_u32(pdev->dev.of_node, "vsram_vb_en", &vsram_vb_attr);
 
 	plat_cfg.aging_flag = (aging_attr & 0xf);
 	plat_cfg.hw_id = 0x0;
+	plat_cfg.vsram_vb_en = (vsram_vb_attr & 0xf);
 
-	pr_info("%s 0x%08x 0x%08x 0x%08x\n", __func__,
-		plat_cfg.aging_flag,
-		plat_cfg.hw_id,
-		aging_attr);
+	pr_info("%s 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", __func__,
+		aging_attr, plat_cfg.aging_flag,
+		vsram_vb_attr, plat_cfg.vsram_vb_en,
+		plat_cfg.hw_id);
 
 	return mt6983_chip_data_remote_sync(&plat_cfg);
 }
