@@ -11,14 +11,12 @@
 
 /* iova region definition */
 #define NORMAL_DOM				(0)
-#define VDEC_DOM				(1)
-#define LK_RESV_DOM				(2)
-#define CCU0_DOM				(3)
-#define CCU1_DOM				(4)
-#define VDO_REGION1				(5)
-#define VDO_REGION2				(6)
-#define VDO_REGION3				(7)
-#define VDO_REGION4				(8)
+#define LK_RESV_DOM				(1)
+#define VDO_REGION1				(2)
+#define VDO_REGION2				(3)
+#define VDO_REGION3				(4)
+#define VDO_REGION4				(5)
+#define VDEC_DOM				(6)
 
 /* larb0 */
 #define M4U_LARB0_PORT0				MTK_M4U_DOM_ID(NORMAL_DOM, 0, 0)
@@ -225,20 +223,9 @@
 #define M4U_LARB17_PORT16			MTK_M4U_DOM_ID(NORMAL_DOM, 17, 16)
 
 /* larb18--dummy */
+/* larb19--dummy */
+/* larb20--dummy */
 
-/* larb19 */
-#define M4U_LARB19_PORT0			MTK_M4U_DOM_ID(CCU0_DOM, 19, 0)
-#define M4U_LARB19_PORT1			MTK_M4U_DOM_ID(CCU0_DOM, 19, 1)
-#define M4U_LARB19_PORT2			MTK_M4U_DOM_ID(CCU1_DOM, 19, 2)
-#define M4U_LARB19_PORT3			MTK_M4U_DOM_ID(CCU1_DOM, 19, 3)
-
-/* larb20 */
-#define M4U_LARB20_PORT0			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 0)
-#define M4U_LARB20_PORT1			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 1)
-#define M4U_LARB20_PORT2			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 2)
-#define M4U_LARB20_PORT3			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 3)
-#define M4U_LARB20_PORT4			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 4)
-#define M4U_LARB20_PORT5			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 5)
 
 /* fake larb32 */
 #define M4U_LARB32_GCE_DM			MTK_M4U_DOM_ID(NORMAL_DOM, 32, 1)
