@@ -52,6 +52,9 @@ module_param(mml_path_mode, int, 0644);
 int mml_racing;
 module_param(mml_racing, int, 0644);
 
+int mml_racing_rsz;
+module_param(mml_racing_rsz, int, 0644);
+
 enum topology_scenario {
 	PATH_MML_NOPQ_P0 = 0,
 	PATH_MML_NOPQ_P1,
@@ -632,6 +635,10 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		if (mml_racing == 2)
 			goto decouple;
 	} else if (!mml_racing_enable(mml))
+		goto decouple;
+
+	/* TODO: should REMOVE after inlinerot resize ready */
+	if (unlikely(!mml_racing_rsz) && tp_need_resize(info))
 		goto decouple;
 
 	/* secure content cannot output to sram */
