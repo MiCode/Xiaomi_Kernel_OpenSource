@@ -1330,15 +1330,19 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 	scp_mem_base_phys = (phys_addr_t) rmem->base;
 	scp_mem_size = (phys_addr_t) rmem->size;
 
-	pr_notice("[SCP] %s is called, 0x%x, 0x%x",
+	pr_notice("[SCP] %s is called, 0x%llx, 0x%x",
 		__func__,
-		(unsigned int)scp_mem_base_phys,
+		scp_mem_base_phys,
 		(unsigned int)scp_mem_size);
 
-	if ((scp_mem_base_phys >= (0x90000000ULL)) ||
-			 (scp_mem_base_phys <= 0x0)) {
-		/* The scp remapped region is fixed, only
+	if (!(((scp_mem_base_phys >= (0x40000000ULL)) && (scp_mem_base_phys < (0xA0000000ULL))) ||
+	     ((scp_mem_base_phys >= (0x150000000ULL)) && (scp_mem_base_phys < (0x1A0000000ULL))) ||
+	     ((scp_mem_base_phys >= (0x250000000ULL)) && (scp_mem_base_phys < (0x2A0000000ULL))))
+			 || (scp_mem_base_phys <= 0x0)) {
+		/*
+		 * The scp remapped region is fixed, only
 		 * 0x4000_0000ULL ~ 0x8FFF_FFFFULL is accessible.
+		 * Embed-remap supports for high dram (5.25GB~6.5GB)(9.25GB~10.5GB).
 		 */
 		pr_notice("[SCP] Error: Wrong Address (0x%llx)\n",
 			    (uint64_t)scp_mem_base_phys);
@@ -1915,15 +1919,22 @@ void scp_region_info_init(void) {}
 void scp_recovery_init(void)
 {
 #if SCP_RECOVERY_SUPPORT
+	uint64_t ap_loader_start = scp_region_info_copy.ap_loader_start;
+
 	/*create wq for scp reset*/
 	scp_reset_workqueue = create_singlethread_workqueue("SCP_RESET_WQ");
 	/*init reset work*/
 	INIT_WORK(&scp_sys_reset_work.work, scp_sys_reset_ws);
 
-	scp_loader_virt = ioremap_wc(
-		scp_region_info_copy.ap_loader_start,
-		scp_region_info_copy.ap_loader_size);
-	pr_notice("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
+	if (ap_loader_start & SCP_DRAM_RESV_EMBED)
+		scp_loader_virt = ioremap_wc(
+			SCP_DRAM_RESV_NO_EMBED(scp_region_info_copy.ap_loader_start),
+			scp_region_info_copy.ap_loader_size);
+	else
+		scp_loader_virt = ioremap_wc(
+			scp_region_info_copy.ap_loader_start,
+			scp_region_info_copy.ap_loader_size);
+	pr_debug("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
 		(uint64_t)(phys_addr_t)scp_loader_virt,
 		(uint64_t)(phys_addr_t)scp_loader_virt +
 		(phys_addr_t)scp_region_info_copy.ap_loader_size);
@@ -1944,12 +1955,11 @@ void scp_recovery_init(void)
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		/*if l1c enable, map it (include backup) */
 		scp_ap_dram_virt = ioremap_wc(
-		scp_region_info_copy.ap_dram_start,
-		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
-
-	pr_debug("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
-		scp_region_info_copy.ap_dram_start,
-		scp_region_info_copy.ap_dram_size);
+				scp_region_info_copy.ap_dram_start,
+				ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
+		pr_notice("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
+				scp_region_info_copy.ap_dram_start,
+				scp_region_info_copy.ap_dram_size);
 	}
 #endif
 }
