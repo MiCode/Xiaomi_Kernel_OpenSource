@@ -335,7 +335,7 @@ static const struct mtk_iommu_iova_region mt8192_multi_dom[] = {
 
 /* use the same data as mt6853 */
 static const struct mtk_iommu_iova_region mt6833_multi_dom[] = {
-	{ .iova_base = SZ_4K, .size = SZ_4G - SZ_4K},	      /* disp : 0 ~ 4G */
+	{ .iova_base = 0x0, .size = SZ_4G},	      /* disp : 0 ~ 4G */
 	{ .iova_base = SZ_4G, .size = SZ_4G},     /* vdec : 4G ~ 8G */
 	{ .iova_base = SZ_4G * 2, .size = SZ_4G}, /* CAM/MDP: 8G ~ 12G */
 	{ .iova_base = 0x240000000ULL, .size = 0x4000000}, /* CCU0 */

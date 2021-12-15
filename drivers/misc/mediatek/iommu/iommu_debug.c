@@ -4463,6 +4463,11 @@ static const struct mtk_m4u_plat_data mt6779_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6779),
 };
 
+static const struct mtk_m4u_plat_data mt6833_data = {
+	.port_list[MM_IOMMU] = mm_port_mt6853,
+	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6853),
+};
+
 static const struct mtk_m4u_plat_data mt6873_data = {
 	.port_list[MM_IOMMU] = mm_port_mt6873,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6873),
@@ -4528,6 +4533,7 @@ static const struct mtk_m4u_plat_data mt6895_data = {
 
 static const struct of_device_id mtk_m4u_dbg_of_ids[] = {
 	{ .compatible = "mediatek,mt6779-iommu-debug", .data = &mt6779_data},
+	{ .compatible = "mediatek,mt6833-iommu-debug", .data = &mt6833_data},
 	{ .compatible = "mediatek,mt6853-iommu-debug", .data = &mt6853_data},
 	{ .compatible = "mediatek,mt6855-iommu-debug", .data = &mt6855_data},
 	{ .compatible = "mediatek,mt6873-iommu-debug", .data = &mt6873_data},
