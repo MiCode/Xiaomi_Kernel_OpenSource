@@ -7,6 +7,7 @@
 
 #define DEFAULT_VENC_CONFIG -1000
 #define MAX_VCODEC_FREQ 9999
+#define MAX_OP_CNT 5
 
 struct mtk_vcodec_dev;
 struct mtk_vcodec_ctx;
@@ -27,6 +28,14 @@ struct vcodec_config {
 	u32 mb_thresh; /* applicable mb threshold */
 	s32 config_1; /* low power config */
 	s32 config_2; /* hgih quality config */
+};
+
+struct vcodec_op_rate {
+	u8 codec_type;
+	u32 codec_fmt;
+	u32 max_op_cnt;
+	u32 pixel_per_frame[MAX_OP_CNT];
+	u32 max_op_rate[MAX_OP_CNT];
 };
 
 /* instance info for dvfs */
