@@ -2659,25 +2659,23 @@ void disp_aal_on_start_of_frame(void)
 	if (!default_comp)
 		return;
 
-	AALIRQ_LOG("%s start\n", __func__);
-
-	if (isDualPQ) {
-		if (atomic_read(&g_aal0_dre20_hist_is_ready) &&
-			atomic_read(&g_aal1_dre20_hist_is_ready)) {
-			AALIRQ_LOG("wake_up_interruptible g_aal_hist_wq\n");
-			atomic_set(&g_aal0_hist_available, 1);
-			atomic_set(&g_aal1_hist_available, 1);
-			wake_up_interruptible(&g_aal_hist_wq);
+	if (!g_aal_fo->mtk_dre30_support) {
+		if (isDualPQ) {
+			if (atomic_read(&g_aal0_dre20_hist_is_ready) &&
+				atomic_read(&g_aal1_dre20_hist_is_ready)) {
+				atomic_set(&g_aal0_hist_available, 1);
+				atomic_set(&g_aal1_hist_available, 1);
+				wake_up_interruptible(&g_aal_hist_wq);
+			}
+		} else {
+			if (atomic_read(&g_aal0_dre20_hist_is_ready)) {
+				atomic_set(&g_aal0_hist_available, 1);
+				wake_up_interruptible(&g_aal_hist_wq);
+			}
 		}
-	} else {
-		if (atomic_read(&g_aal0_dre20_hist_is_ready)) {
-			AALIRQ_LOG("wake_up_interruptible g_aal_hist_wq\n");
-			atomic_set(&g_aal0_hist_available, 1);
-			wake_up_interruptible(&g_aal_hist_wq);
-		}
-	}
-	if (!g_aal_fo->mtk_dre30_support)
 		return;
+	}
+
 	if (atomic_read(&g_aal_force_relay) == 1 &&
 		!m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
 		!m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])
@@ -2689,7 +2687,6 @@ void disp_aal_on_start_of_frame(void)
 
 	if (!atomic_read(&g_aal_sof_irq_available)) {
 		atomic_set(&g_aal_sof_irq_available, 1);
-		AALIRQ_LOG("wake_up_interruptible g_aal_sof_irq_wq\n");
 		wake_up_interruptible(&g_aal_sof_irq_wq);
 	}
 }
