@@ -904,7 +904,7 @@
 		secured = "yes";
 		ccu_sramSize = <0x00020000>;
 		ccu_sramOffset = <0x00020000>;
-		ccu_dramSize = <0x00400000>;
+		ccu_dramSize = <0x00100000>;
 		ccu_dramAddr = <0x80000000>;
 		ccu_emiRegion = <20>;
 	};
