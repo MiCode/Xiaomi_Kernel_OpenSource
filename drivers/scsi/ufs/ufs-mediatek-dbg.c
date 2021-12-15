@@ -104,9 +104,10 @@ void ufsdbg_print_info(char **buff, unsigned long *size, struct seq_file *m)
 
 	/* Device info */
 	SPREAD_PRINTF(buff, size, m,
-		      "Device vendor=0x%X, model=%s\n",
+		      "Device vendor=0x%X, model=%s, ufs version=0x%X\n",
 		      hba->dev_info.wmanufacturerid,
-		      hba->dev_info.model);
+		      hba->dev_info.model,
+			  hba->dev_info.wspecversion);
 
 	/* Error history */
 	ufshcd_print_all_evt_hist(hba, m, buff, size);

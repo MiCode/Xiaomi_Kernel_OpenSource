@@ -17,7 +17,7 @@
 #define UFS_IOCTL_GET_FW_VER    0x5390  /* Query production revision level */
 #define UFS_IOCTL_RPMB          0x5391  /* For RPMB access */
 
-#if defined(CONFIG_UFSFEATURE)
+#if defined(CONFIG_SCSI_UFS_FEATURE)
 #define UFSFEATURE_QUERY_OPCODE		0x5500
 #endif
 

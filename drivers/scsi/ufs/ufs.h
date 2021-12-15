@@ -40,6 +40,7 @@
 #include <linux/types.h>
 #include <uapi/scsi/scsi_bsg_ufs.h>
 
+#define MAX_CDB_SIZE	16
 #define GENERAL_UPIU_REQUEST_SIZE (sizeof(struct utp_upiu_req))
 #define QUERY_DESC_MAX_SIZE       255
 #define QUERY_DESC_MIN_SIZE       2
@@ -63,6 +64,7 @@
 #define UFS_UPIU_MAX_UNIT_NUM_ID	0x7F
 #define UFS_MAX_LUNS		(SCSI_W_LUN_BASE + UFS_UPIU_MAX_UNIT_NUM_ID)
 #define UFS_UPIU_WLUN_ID	(1 << 7)
+#define UFS_UPIU_MAX_GENERAL_LUN	8
 
 /* Well known logical unit id in LUN field of UPIU */
 enum {
@@ -140,6 +142,14 @@ enum flag_idn {
 	QUERY_FLAG_IDN_BUSY_RTC				= 0x09,
 	QUERY_FLAG_IDN_RESERVED3			= 0x0A,
 	QUERY_FLAG_IDN_PERMANENTLY_DISABLE_FW_UPDATE	= 0x0B,
+#if defined(CONFIG_SCSI_UFS_TW)
+	QUERY_FLAG_IDN_TW_EN				= 0x0E,
+	QUERY_FLAG_IDN_TW_BUF_FLUSH_EN			= 0x0F,
+	QUERY_FLAG_IDN_TW_FLUSH_DURING_HIBERN = 0x10,
+#endif
+#if defined(CONFIG_SCSI_SKHPB)
+	QUERY_FLAG_IDN_HPB_RESET	= 0x11,  /* JEDEC version */
+#endif
 };
 
 /* Attribute idn for Query requests */
@@ -168,6 +178,15 @@ enum attr_idn {
 	QUERY_ATTR_IDN_PSA_STATE		= 0x15,
 	QUERY_ATTR_IDN_PSA_DATA_SIZE		= 0x16,
 	QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME	= 0x17,
+#if defined(CONFIG_SCSI_UFS_TW)
+	QUERY_ATTR_IDN_TW_FLUSH_STATUS		= 0x1C,
+	QUERY_ATTR_IDN_TW_BUF_SIZE		= 0x1D,
+	QUERY_ATTR_IDN_TW_BUF_LIFETIME_EST	= 0x1E,
+	QUERY_ATTR_CUR_TW_BUF_SIZE		= 0x1F,
+#endif
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+	QUERY_ATTR_IDN_SUP_VENDOR_OPTIONS	= 0xFF,
+#endif
 };
 
 /* Descriptor idn for Query requests */
@@ -219,6 +238,14 @@ enum unit_desc_param {
 	UNIT_DESC_PARAM_PHY_MEM_RSRC_CNT	= 0x18,
 	UNIT_DESC_PARAM_CTX_CAPABILITIES	= 0x20,
 	UNIT_DESC_PARAM_LARGE_UNIT_SIZE_M1	= 0x22,
+#if defined(CONFIG_SCSI_UFS_HPB) || defined(CONFIG_SCSI_SKHPB)
+	UNIT_DESC_HPB_LU_MAX_ACTIVE_REGIONS 	= 0x23,
+	UNIT_DESC_HPB_LU_PIN_REGION_START_OFFSET	= 0x25,
+	UNIT_DESC_HPB_LU_NUM_PIN_REGIONS		= 0x27,
+#endif
+#if defined(CONFIG_SCSI_UFS_TW)
+	UNIT_DESC_TW_LU_MAX_BUF_SIZE			= 0x29,
+#endif
 };
 
 /* Device descriptor parameters offsets in bytes*/
@@ -258,6 +285,18 @@ enum device_desc_param {
 	DEVICE_DESC_PARAM_PSA_MAX_DATA		= 0x25,
 	DEVICE_DESC_PARAM_PSA_TMT		= 0x29,
 	DEVICE_DESC_PARAM_PRDCT_REV		= 0x2A,
+#if defined(CONFIG_SCSI_UFS_HPB) || defined(CONFIG_SCSI_SKHPB)
+	DEVICE_DESC_PARAM_HPB_VER		= 0x40,
+	DEVICE_DESC_PARAM_HPB_CONTROL		= 0x42, /* JEDEC version */
+#endif
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+	DEVICE_DESC_PARAM_EX_FEAT_SUP		= 0x4F,
+#endif
+#if defined(CONFIG_SCSI_UFS_TW)
+	DEVICE_DESC_PARAM_TW_RETURN_TO_USER = 0x53,
+	DEVICE_DESC_PARAM_TW_BUF_TYPE		= 0x54,
+	DEVICE_DESC_PARAM_NUM_SHARED_WB_BUF_AU	= 0x55, /* JEDEC version */
+#endif
 };
 
 /* Interconnect descriptor parameters offsets in bytes*/
@@ -302,6 +341,20 @@ enum geometry_desc_param {
 	GEOMETRY_DESC_PARAM_ENM4_MAX_NUM_UNITS	= 0x3E,
 	GEOMETRY_DESC_PARAM_ENM4_CAP_ADJ_FCTR	= 0x42,
 	GEOMETRY_DESC_PARAM_OPT_LOG_BLK_SIZE	= 0x44,
+#if defined(CONFIG_SCSI_UFS_HPB) || defined(CONFIG_SCSI_SKHPB)
+	GEOMETRY_DESC_HPB_REGION_SIZE			= 0x48,
+	GEOMETRY_DESC_HPB_NUMBER_LU			= 0x49,
+	GEOMETRY_DESC_HPB_SUBREGION_SIZE		= 0x4A,
+	GEOMETRY_DESC_HPB_DEVICE_MAX_ACTIVE_REGIONS	= 0x4B,
+#endif
+#if defined(CONFIG_SCSI_UFS_TW)
+	GEOMETRY_DESC_TW_MAX_SIZE			= 0x4F,
+	GEOMETRY_DESC_TW_NUMBER_LU			= 0x53,
+	GEOMETRY_DESC_TW_CAP_ADJ_FAC			= 0x54,
+	GEOMETRY_DESC_TW_SUPPORT_USER_REDUCTION_TYPES	= 0x55,
+	GEOMETRY_DESC_TW_SUPPORT_BUF_TYPE		= 0x56,
+	GEOMETRY_DESC_TW_GROUP_NUM_CAP			= 0x57,
+#endif
 };
 
 /* Health descriptor parameters offsets in bytes*/
@@ -354,7 +407,19 @@ enum power_desc_param_offset {
 enum {
 	MASK_EE_STATUS		= 0xFFFF,
 	MASK_EE_URGENT_BKOPS	= (1 << 2),
+#if defined(CONFIG_SCSI_UFS_TW)
+	MASK_EE_TW		= (1 << 5),
+#endif
 };
+
+#if defined(CONFIG_SCSI_UFS_TW)
+/* TW buffer type */
+enum {
+		WB_LU_DEDICATED_BUFFER_TYPE	= 0x0,
+		WB_SINGLE_SHARE_BUFFER_TYPE	= 0x1
+};
+#endif
+
 
 /* Background operation status */
 enum bkops_status {
@@ -429,6 +494,9 @@ enum {
 	MASK_RSP_EXCEPTION_EVENT        = 0x10000,
 	MASK_TM_SERVICE_RESP		= 0xFF,
 	MASK_TM_FUNC			= 0xFF,
+#if defined(CONFIG_SCSI_UFS_HPB) || defined(CONFIG_SCSI_SKHPB)
+	MASK_RSP_UPIU_HPB_UPDATE_ALERT	= 0x20000, /* JEDEC version */
+#endif
 };
 
 /* Task management service response */
@@ -575,15 +643,9 @@ struct ufs_dev_info {
  * @lun: LU number to check
  * @return: true if the lun has a matching unit descriptor, false otherwise
  */
-static inline bool ufs_is_valid_unit_desc_lun(struct ufs_dev_info *dev_info,
-		u8 lun)
+static inline bool ufs_is_valid_unit_desc_lun(u8 lun)
 {
-	if (!dev_info || !dev_info->max_lu_supported) {
-		pr_err("Max General LU supported by UFS isn't initialized\n");
-		return false;
-	}
-
-	return lun == UFS_UPIU_RPMB_WLUN || (lun < dev_info->max_lu_supported);
+	return (lun == UFS_UPIU_RPMB_WLUN || (lun < UFS_UPIU_MAX_GENERAL_LUN));
 }
 
 #endif /* End of Header */

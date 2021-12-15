@@ -71,6 +71,13 @@
 
 #include "ufs.h"
 #include "ufshci.h"
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+#include "ufsfeature.h"
+#endif
+#if defined(CONFIG_SCSI_SKHPB)
+#include "ufshpb_skh.h"
+#endif
+
 
 #define UFSHCD "ufshcd"
 #define UFSHCD_DRIVER_VERSION "0.2"
@@ -239,6 +246,10 @@ struct ufshcd_lrb {
 	u64 data_unit_num;
 
 	bool req_abort_skip;
+#if defined(CONFIG_SCSI_UFS_FEATURE) && defined(CONFIG_SCSI_UFS_HPB)
+	int hpb_ctx_id;
+#endif
+
 };
 
 /**
@@ -747,6 +758,7 @@ struct ufs_hba {
 	u16 ee_ctrl_mask;
 	u16 hba_enable_delay_us;
 	bool is_powered;
+	struct semaphore eh_sem;
 
 	/* Work Queues */
 	struct work_struct eh_work;
@@ -830,6 +842,24 @@ struct ufs_hba {
 
 	struct device		bsg_dev;
 	struct request_queue	*bsg_queue;
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+	struct ufsf_feature ufsf;
+#endif
+#if defined(CONFIG_SCSI_SKHPB)
+	/* HPB support */
+	u32 skhpb_feat;
+	int skhpb_state;
+	int skhpb_max_regions;
+	struct delayed_work skhpb_init_work;
+	bool issue_ioctl;
+	struct skhpb_lu *skhpb_lup[UFS_UPIU_MAX_GENERAL_LUN];
+	struct work_struct skhpb_eh_work;
+	u32 skhpb_quirk;
+	u8 hpb_control_mode;
+#define SKHPB_U8_MAX 0xFF
+	u8 skhpb_quicklist_lu_enable[UFS_UPIU_MAX_GENERAL_LUN];
+	struct scsi_device *sdev_ufs_lu[UFS_UPIU_MAX_GENERAL_LUN];
+#endif
 
 #ifdef CONFIG_SCSI_UFS_CRYPTO
 	/* crypto */
@@ -1073,6 +1103,17 @@ int ufshcd_read_string_desc(struct ufs_hba *hba, u8 desc_index,
 
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
+						enum dev_cmd_type cmd_type, int timeout);
+int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+#endif
+
+#if defined(CONFIG_SCSI_SKHPB)
+int ufshcd_query_flag_retry(struct ufs_hba *hba,
+							enum query_opcode opcode, enum flag_idn idn, bool *flag_res);
+#endif
 
 int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
 	int *desc_length);

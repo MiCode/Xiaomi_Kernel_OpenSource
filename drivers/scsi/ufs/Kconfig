@@ -145,6 +145,30 @@ config SCSI_UFS_BSG
 	  Select this if you need a bsg device node for your UFS controller.
 	  If unsure, say N.
 
+config SCSI_UFS_FEATURE
+	bool "UFS feature activate"
+	depends on SCSI_UFSHCD
+	---help---
+	UFS feature activate such as hpb, tw and etc.
+
+config SCSI_UFS_HPB
+	bool "UFSHPB"
+	depends on SCSI_UFSHCD && SCSI_UFS_FEATURE
+	---help---
+	UFS HPB Feature Enable
+
+config SCSI_UFS_TW
+	bool "UFSTW"
+	depends on SCSI_UFSHCD && SCSI_UFS_FEATURE
+	---help---
+	UFS TW Feature Enable
+
+config SCSI_SKHPB
+	bool "Activate HPB Host-aware Performance Booster"
+	depends on SCSI_UFSHCD
+	help
+	  Activate or deactive SKHPB driver
+
 config SCSI_UFS_CRYPTO
 	bool "UFS Crypto Engine Support"
 	depends on SCSI_UFSHCD && BLK_INLINE_ENCRYPTION
