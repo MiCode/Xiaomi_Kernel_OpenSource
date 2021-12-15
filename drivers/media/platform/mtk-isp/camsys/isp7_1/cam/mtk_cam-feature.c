@@ -45,11 +45,7 @@ bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx)
 	if (!ctx->used_raw_num)
 		return false;
 
-	if (ctx->pipe->feature_pending & MTK_CAM_FEATURE_OFFLINE_M2M_MASK ||
-			ctx->pipe->feature_pending & MTK_CAM_FEATURE_PURE_OFFLINE_M2M_MASK)
-		return true;
-	else
-		return false;
+	return mtk_cam_feature_is_m2m(ctx->pipe->feature_pending);
 }
 
 bool mtk_cam_is_stagger_m2m(struct mtk_cam_ctx *ctx)

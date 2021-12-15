@@ -284,6 +284,12 @@ struct mtk_cam_frame_sync {
 	struct mutex op_lock;
 };
 
+struct mtk_cam_req_raw_pipe_data {
+	struct mtk_cam_resource res;
+	struct mtk_raw_stagger_select stagger_select;
+	int enabled_raw;
+};
+
 /*
  * struct mtk_cam_request - MTK camera request.
  *
@@ -313,7 +319,8 @@ struct mtk_cam_request {
 	struct list_head cleanup_list;
 	struct work_struct link_work;
 	struct mtk_cam_req_pipe p_data[MTKCAM_SUBDEV_MAX];
-	struct mtk_cam_resource raw_res[MTKCAM_SUBDEV_RAW_END - MTKCAM_SUBDEV_RAW_START];
+	struct mtk_cam_req_raw_pipe_data raw_pipe_data[MTKCAM_SUBDEV_RAW_END -
+						       MTKCAM_SUBDEV_RAW_START];
 	s64 sync_id;
 	atomic_t ref_cnt;
 };
@@ -598,6 +605,15 @@ mtk_cam_s_data_get_req(struct mtk_cam_request_stream_data *s_data)
 	return s_data->req;
 }
 
+static inline struct mtk_cam_req_raw_pipe_data*
+mtk_cam_s_data_get_raw_pipe_data(struct mtk_cam_request_stream_data *s_data)
+{
+	if (!is_raw_subdev(s_data->pipe_id))
+		return NULL;
+
+	return &s_data->req->raw_pipe_data[s_data->pipe_id];
+}
+
 static inline struct mtk_cam_resource*
 mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 {
@@ -607,7 +623,7 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 	if (!is_raw_subdev(s_data->pipe_id))
 		return NULL;
 
-	return &s_data->req->raw_res[s_data->pipe_id];
+	return &s_data->req->raw_pipe_data[s_data->pipe_id].res;
 }
 
 static inline int
@@ -722,6 +738,9 @@ mtk_cam_s_data_set_buf_state(struct mtk_cam_request_stream_data *s_data,
 	return false;
 }
 
+int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
+			      struct mtkcam_ipi_input_param *cfg_in_param);
+
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_sensor_work_to_s_data(struct kthread_work *work)
 {
@@ -762,6 +781,23 @@ static inline void mtk_cam_fs_reset(struct mtk_cam_frame_sync *fs)
 	fs->target = 0;
 	fs->on_cnt = 0;
 	fs->off_cnt = 0;
+}
+
+static inline struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,
+						  unsigned int raw_mask)
+{
+	struct mtk_cam_ctx *ctx;
+	unsigned int i;
+
+	for (i = 0; i < cam->num_raw_drivers; i++) {
+		if (raw_mask & (1 << i)) {
+			ctx = cam->ctxs + i;
+			/* FIXME: correct TWIN case */
+			return cam->raw.devs[i];
+		}
+	}
+
+	return NULL;
 }
 
 //TODO: with spinlock or not? depends on how request works [TBD]
@@ -806,6 +842,9 @@ void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 			  enum vb2_buffer_state state);
 
 int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe);
+void mtk_cam_apply_pending_dev_config(struct mtk_cam_request_stream_data *s_data);
+int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
+	bool streaming, bool config_pipe);
 
 int mtk_cam_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,

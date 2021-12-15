@@ -587,7 +587,6 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
 
 	ret = mtk_cam_raw_res_store(pipeline, res_user);
-	pipeline->feature_pending = res_user->raw_res.feature;
 	pipeline->user_res = *res_user;
 	if (pipeline->subdev.entity.stream_count) {
 		/* If the pipeline is streaming, pending the change */
@@ -597,9 +596,10 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	}
 
 	dev_dbg(dev,
-		"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
+		"%s:pipe(%d):streaming(%d), feature_pending(0x%x), raw_res.feature(0x%x), feature_active(0x%x)\n",
 		__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-		pipeline->feature_pending, pipeline->feature_active);
+		pipeline->feature_pending, pipeline->user_res.raw_res.feature,
+		pipeline->feature_active);
 
 	ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user, &sink_fmt);
 	if (ret)
@@ -1326,8 +1326,12 @@ static void reset_reg(struct mtk_raw_device *dev)
 	sw_done = readl_relaxed(dev->base_inner + REG_CTL_SW_PASS1_DONE);
 	sw_sub_ctl = readl_relaxed(dev->base_inner + REG_CTL_SW_SUB_CTL);
 
-	writel(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base_inner + REG_CQ_EN);
-	writel(cq_en & (~SCQ_SUBSAMPLE_EN), dev->base + REG_CQ_EN);
+	cq_en = cq_en & (~SCQ_SUBSAMPLE_EN) & (~SCQ_STAGGER_MODE);
+	writel(cq_en, dev->base_inner + REG_CQ_EN);
+	writel(cq_en, dev->base + REG_CQ_EN);
+
+	dev_dbg(dev->dev, "[--] try to disable SCQ_STAGGER_MODE: CQ_EN(0x%x)\n",
+		cq_en);
 
 	writel(sw_done & (~SW_DONE_SAMPLE_EN), dev->base_inner + REG_CTL_SW_PASS1_DONE);
 	writel(sw_done & (~SW_DONE_SAMPLE_EN), dev->base + REG_CTL_SW_PASS1_DONE);
@@ -1481,7 +1485,7 @@ void toggle_db(struct mtk_raw_device *dev)
 	wmb(); /* TBC */
 	writel_relaxed(value | CTL_DB_EN, dev->base + REG_CTL_MISC);
 	wmb(); /* TBC */
-	dev_dbg(dev->dev, "%s,  read inner AsIs->ToBe TG_PATH_CFG:0x%x->0x%x, TG_DCIF:0x%x->0x%x, TG_SEN:0x%x->0x%x\n",
+	dev_info(dev->dev, "%s,  read inner AsIs->ToBe TG_PATH_CFG:0x%x->0x%x, TG_DCIF:0x%x->0x%x, TG_SEN:0x%x->0x%x\n",
 		__func__,
 			val_cfg,
 			readl_relaxed(dev->base_inner + REG_TG_PATH_CFG),
@@ -1754,6 +1758,105 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 
 }
 
+static void immediate_stream_off_log(struct mtk_raw_device *dev, char *reg_name,
+				     void __iomem *base,
+				     void __iomem *base_inner,
+				     u32 offset, u32 cur_val, u32 cfg_val)
+{
+	u32 read_val, read_val_2;
+
+	read_val = readl_relaxed(base_inner + offset);
+	read_val_2 = readl_relaxed(base + offset);
+	dev_dbg(dev->dev,
+		"%s:%s: before: r(0x%x), w(0x%x), after:in(0x%llx:0x%x),out(0x%llx:0x%x)\n",
+		__func__, reg_name, cur_val, cfg_val,
+		base_inner + offset, read_val,
+		base + offset, read_val_2);
+}
+
+void immediate_stream_off(struct mtk_raw_device *dev)
+
+{
+	u32 chk_val, cur_val, cfg_val;
+	u32 offset;
+
+	atomic_set(&dev->vf_en, 0);
+
+
+	writel_relaxed(~CQ_THR0_EN, dev->base + REG_CQ_THR0_CTL);
+	wmb(); /* make sure committed */
+
+	/* Disable Double Buffer */
+	offset = REG_TG_PATH_CFG;
+	cur_val = readl_relaxed(dev->base + offset);
+	cfg_val = cur_val | 0x100; /* clear TG_DB_LOAD_DIS */
+	writel(cfg_val, dev->base + offset); // has double buffer
+	wmb(); /* make sure committed */
+	immediate_stream_off_log(dev, "TG_PATH_CFG", dev->base, dev->base_inner,
+				 offset, cur_val, cfg_val);
+
+
+	/* Disable MISC CTRL */
+	offset = REG_CTL_MISC;
+	cur_val = readl_relaxed(dev->base + offset);
+	cfg_val = cur_val & ~CTL_DB_EN;
+	writel_relaxed(cfg_val, dev->base + offset);
+	wmb(); /* make sure committed */
+	immediate_stream_off_log(dev, "CTL_MISC", dev->base, dev->base_inner,
+				 offset, cur_val, cfg_val);
+
+	/* Disable VF */
+	offset = REG_TG_VF_CON;
+	cur_val = readl_relaxed(dev->base + offset);
+	cfg_val = cur_val & ~TG_VFDATA_EN;
+	writel(cfg_val, dev->base + offset);
+	wmb(); /* make sure committed */
+	if (readx_poll_timeout(readl, dev->base_inner + offset,
+			       chk_val, chk_val == cfg_val,
+			       1 /* sleep, us */,
+			       10000 /* timeout, us*/) < 0) {
+		dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
+			 __func__, chk_val);
+		immediate_stream_off_log(dev, "TG_VF_CON", dev->base,
+					 dev->base_inner, offset,
+					 cur_val, cfg_val);
+	} else {
+		dev_dbg(dev->dev, "%s: VF OFF success\n", __func__);
+	}
+
+	/* Disable CMOS */
+	offset = REG_TG_SEN_MODE;
+	cur_val = readl_relaxed(dev->base + offset);
+	cfg_val = cur_val & ~TG_SEN_MODE_CMOS_EN;
+	writel(cfg_val, dev->base + offset);
+	wmb(); /* make sure committed */
+	immediate_stream_off_log(dev, "TG_SEN_MODE", dev->base, dev->base_inner,
+				 offset, cur_val, cfg_val);
+
+	reset_reg(dev);
+	reset(dev);
+
+	wmb(); /* make sure committed */
+
+	/* Enable MISC CTRL */
+	offset = REG_CTL_MISC;
+	cur_val = readl_relaxed(dev->base + offset);
+	cfg_val = cur_val | CTL_DB_EN;
+	writel_relaxed(cfg_val, dev->base + offset);
+	wmb(); /* make sure committed */
+	immediate_stream_off_log(dev, "CTL_MISC", dev->base, dev->base_inner,
+				 offset, cur_val, cfg_val);
+
+	/* nable Double Buffer */
+	offset = REG_TG_PATH_CFG;
+	cur_val = readl_relaxed(dev->base + offset);
+	cfg_val = cur_val & ~0x100;
+	writel(cfg_val, dev->base + offset);
+	wmb(); /* make sure committed */
+	immediate_stream_off_log(dev, "TG_PATH_CFG", dev->base, dev->base_inner,
+				 offset, cur_val, cfg_val);
+}
+
 void stream_on(struct mtk_raw_device *dev, int on)
 {
 	u32 val;
@@ -1838,7 +1941,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		if (readx_poll_timeout(readl, dev->base_inner + REG_TG_VF_CON,
 				       chk_val, chk_val == val,
 				       1 /* sleep, us */,
-				       10000 /* timeout, us*/) < 0) {
+				       33000 /* timeout, us*/) < 0) {
 
 			dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
 				 __func__, chk_val);
@@ -2809,8 +2912,10 @@ static int mtk_raw_available_resource(struct mtk_raw *raw)
 	return res_status;
 }
 
-int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
-			struct mtk_raw_pipeline *pipe, int raw_status)
+static int raw_stagger_select(struct mtk_cam_ctx *ctx,
+			int raw_status,
+			int pipe_hw_mode,
+			struct mtk_raw_stagger_select *result)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct cam_stagger_order stagger_order;
@@ -2829,10 +2934,10 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 	/* to run for following stagger sensor         */
 	for (i = 0;  i < cam->max_stream_num; i++) {
 		ctx_chk = &cam->ctxs[i];
-		if (ctx_chk->streaming && mtk_cam_is_stagger(ctx_chk)) {
+		if (ctx_chk != ctx && ctx_chk->streaming && mtk_cam_is_stagger(ctx_chk)) {
 			for (m = 0; m < STAGGER_MAX_STREAM_NUM; m++) {
-				mode = (pipe->hw_mode) ?
-					mtk_cam_get_stagger_path(pipe->hw_mode) :
+				mode = (pipe_hw_mode) ?
+					mtk_cam_get_stagger_path(pipe_hw_mode) :
 					stagger_order.stagger_select[m].mode_decision;
 				dev_info(cam->dev, "[%s:stagger check] i:%d/m:%d; mode:%d\n",
 				__func__, i, m, mode);
@@ -2848,23 +2953,26 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 		__func__, stagger_ctx_num, stagger_ctx_num + 1,
 		stagger_order_mask[0], stagger_order_mask[1],
 		stagger_order_mask[2], stagger_order_mask[3]);
-	/*check this ctx should use which raw_select_mask and mode*/
+
+	/* check this ctx should use which raw_select_mask and mode */
 	for (i = 0; i < stagger_ctx_num + 1; i++) {
 		if (stagger_order_mask[i] == 0) {
 			stagger_select = stagger_order.stagger_select[i];
-			ctx->pipe->stagger_path = (pipe->hw_mode) ?
-				mtk_cam_get_stagger_path(pipe->hw_mode) :
+			result->stagger_path = (pipe_hw_mode) ?
+				mtk_cam_get_stagger_path(pipe_hw_mode) :
 				stagger_select.mode_decision;
 			dev_info(cam->dev, "[%s:plan:%d] raw_status 0x%x, stagger_select_raw_mask:0x%x mode:0x%x\n",
 				__func__, i, raw_status, stagger_select.raw_select,
-				ctx->pipe->stagger_path);
+				result->stagger_path);
 		}
 	}
-	for (m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
+
+	result->enabled_raw = 0;
+	for (m = MTKCAM_SUBDEV_RAW_0; m < RAW_PIPELINE_NUM; m++) {
 		mask = 1 << m;
 		if (stagger_select.raw_select & mask) { /*check stagger raw select mask*/
 			if (!(raw_status & mask)) { /*check available raw select mask*/
-				pipe->enabled_raw |= mask;
+				result->enabled_raw |= mask;
 				selected = true;
 				break;
 			}
@@ -2875,6 +2983,86 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 	}
 
 	return selected;
+}
+
+int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
+			struct mtk_raw_pipeline *pipe, int raw_status)
+{
+	bool selected;
+	struct mtk_raw_stagger_select result;
+
+	selected = raw_stagger_select(ctx,
+				raw_status,
+				pipe->hw_mode,
+				&result);
+
+	ctx->pipe->stagger_path_pending = result.stagger_path;
+	ctx->pipe->stagger_path = ctx->pipe->stagger_path_pending;
+	pipe->enabled_raw |= result.enabled_raw;
+
+	return selected;
+}
+
+int mtk_cam_s_data_raw_stagger_select(struct mtk_cam_request_stream_data *s_data,
+			    int raw_status)
+{
+	struct mtk_cam_ctx *ctx;
+	struct mtk_raw_pipeline *pipe;
+	bool selected;
+	struct mtk_raw_stagger_select *result;
+	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
+
+
+	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	result = &s_raw_pipe_data->stagger_select;
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	pipe = ctx->pipe;
+
+	selected = raw_stagger_select(ctx,
+				raw_status,
+				pipe->hw_mode,
+				result);
+
+	ctx->pipe->stagger_path_pending = result->stagger_path;
+	s_raw_pipe_data->enabled_raw |= result->enabled_raw;
+
+	return selected;
+
+}
+
+int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
+			    struct mtkcam_ipi_input_param *cfg_in_param)
+{
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_device *cam;
+	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
+	struct mtk_raw_pipeline *pipe;
+	int raw_status = 0;
+	bool selected = false;
+	//int pipe_enable_dev = pipe->enabled_raw;
+	//int pipe_enable_raw = 0;
+	//int i;
+
+	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	cam = ctx->cam;
+	pipe = ctx->pipe;
+
+	//for (int i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++)
+	//	pipe_enable_raw |= pipe->enabled_raw & (1 << i);
+
+	raw_status = mtk_raw_available_resource(pipe->raw);
+	raw_status &= ~pipe->enabled_raw;
+
+	if (mtk_cam_feature_is_stagger(s_raw_pipe_data->res.raw_res.feature))
+		selected = mtk_cam_s_data_raw_stagger_select(s_data, raw_status);
+
+	mtk_raw_available_resource(pipe->raw);
+
+	if (!selected)
+		return -EINVAL;
+
+	return 0;
 }
 
 int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
@@ -2980,6 +3168,7 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		return -EINVAL;
 
 	if (enable) {
+		pipe->feature_active = pipe->user_res.raw_res.feature;
 		pipe->enabled_dmas = 0;
 		ctx->pipe = pipe;
 		ctx->used_raw_num++;
@@ -2997,7 +3186,6 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 				pm_runtime_put_sync(raw->devs[i]);
 			}
 		}
-		pipe->feature_active = 0;
 	}
 
 	dev_info(raw->cam_dev, "%s:raw-%d: en %d, dev 0x%x dmas 0x%x\n",
@@ -3762,8 +3950,9 @@ static int mtk_cam_media_link_setup(struct media_entity *entity,
 		pipe->vdev_nodes[pad - MTK_RAW_SINK_NUM].enabled =
 			!!(flags & MEDIA_LNK_FL_ENABLED);
 
-	if (!(flags & MEDIA_LNK_FL_ENABLED))
+	if (!entity->stream_count && !(flags & MEDIA_LNK_FL_ENABLED))
 		memset(pipe->cfg, 0, sizeof(pipe->cfg));
+
 	if (pad == MTK_RAW_SINK && flags & MEDIA_LNK_FL_ENABLED)
 		pipe->res_config.seninf =
 			media_entity_to_v4l2_subdev(remote->entity);
@@ -5530,6 +5719,7 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	int ret;
 
 	pipe->id = id;
+	pipe->dynamic_exposure_num_max = 3;
 
 	/* Initialize subdev */
 	v4l2_subdev_init(sd, &mtk_raw_subdev_ops);
