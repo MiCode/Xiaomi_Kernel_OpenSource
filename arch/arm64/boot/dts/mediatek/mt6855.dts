@@ -4603,8 +4603,11 @@
 
 		pd_adapter: pd_adapter {
 			compatible = "mediatek,pd_adapter";
+			boot_mode = <&chosen>;
 			adapter_name = "pd_adapter";
 			force_cv;
+			phys = <&u2port0 PHY_TYPE_USB2>;
+			phy-names = "usb2-phy";
 		};
 
 		flashlight_core: flashlight_core {
