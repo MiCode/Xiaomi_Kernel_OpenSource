@@ -8347,7 +8347,7 @@
 			compatible = "mediatek,venc";
 			reg = <0 0x17820000 0 0x10000>;
 		};
-#if 0
+
 		jpgenc@17830000 {
 			compatible = "mediatek,mtk-jpgenc_c1";
 			reg = <0 0x17830000 0 0x10000>;
@@ -8376,7 +8376,7 @@
 			operating-points-v2 = <&opp_table_venc>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
-#endif
+
 		mbist@17860000 {
 			compatible = "mediatek,mbist";
 			reg = <0 0x17860000 0 0x10000>;
