@@ -175,10 +175,18 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		 */
 		miu_violation = (dump_reg[2].value & hp_mask) ? true : false;
 		if (miu_violation) {
+			violation = false;
 			miu_mpu_base = mpu->miu_mpu_base[emi_id];
-			for (i = 0; i < mpu->miumpu_dump_cnt; i++)
+			for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
 				miumpu_dump_reg[i].value = readl(
 				miu_mpu_base + miumpu_dump_reg[i].offset);
+
+				if (miumpu_dump_reg[i].value)
+					violation = true;
+			}
+
+			if (!violation)
+				continue;
 		}
 
 		/*
