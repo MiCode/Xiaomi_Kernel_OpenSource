@@ -1596,11 +1596,13 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 			time_after_sof, ctx->stream_id, enq_no, sen_no);
 	}
 	/*using enque timing for sensor setting*/
-	if (ctx->pipe->feature_active == 0) {
-		int drained_seq_no =
-			atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
-		atomic_set(&sensor_ctrl->last_drained_seq_no, drained_seq_no);
-		return HRTIMER_NORESTART;
+	if (ctx->used_raw_num) {
+		if (ctx->pipe->feature_active == 0) {
+			int drained_seq_no =
+				atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
+			atomic_set(&sensor_ctrl->last_drained_seq_no, drained_seq_no);
+			return HRTIMER_NORESTART;
+		}
 	}
 	hrtimer_forward_now(&sensor_ctrl->sensor_deadline_timer, m_kt);
 

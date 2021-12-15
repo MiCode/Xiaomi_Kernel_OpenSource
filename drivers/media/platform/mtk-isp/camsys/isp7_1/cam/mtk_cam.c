@@ -4901,13 +4901,17 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			atomic_set(&ctx->sensor_ctrl.sensor_enq_seq_no,
 				atomic_read(&ctx->enqueued_frame_seq_no));
 			/*sensor setting after request drained check*/
-			if (ctx->pipe->feature_active == 0 &&
-				ctx->dequeued_frame_seq_no > 3) {
-				drained_seq_no = atomic_read(&sensor_ctrl->last_drained_seq_no);
-				if (atomic_read(&sensor_ctrl->sensor_enq_seq_no) ==
-					drained_seq_no)
-					mtk_cam_submit_kwork_in_sensorctrl(
-						sensor_ctrl->sensorsetting_wq, sensor_ctrl);
+			if (ctx->used_raw_num) {
+				if (ctx->pipe->feature_active == 0 &&
+				    ctx->dequeued_frame_seq_no > 3) {
+					drained_seq_no =
+						atomic_read(&sensor_ctrl->last_drained_seq_no);
+					if (atomic_read(&sensor_ctrl->sensor_enq_seq_no) ==
+						drained_seq_no)
+						mtk_cam_submit_kwork_in_sensorctrl(
+							sensor_ctrl->sensorsetting_wq,
+							sensor_ctrl);
+				}
 			}
 			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 
