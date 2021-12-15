@@ -353,7 +353,7 @@ static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 		for (i = 0; i < ctx->used_sv_num; i++)
 			mtk_cam_sv_dev_stream_on(ctx, i, 1, 1);
 		for (i = 0; i < ctx->used_mraw_num; i++)
-			mtk_cam_mraw_dev_stream_on(ctx, i, 1, 0);
+			mtk_cam_mraw_dev_stream_on(ctx, i, 1);
 		for (i = MTKCAM_SUBDEV_CAMSV_END - 1;
 				i >= MTKCAM_SUBDEV_CAMSV_START; i--) {
 			if (hw_scen &&
@@ -585,37 +585,27 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		for (i = 0 ; i < ctx->used_sv_num ; i++) {
 			/* use 8-pixel mode as default */
 			mtk_cam_call_seninf_set_pixelmode(ctx,
-							  s_data->seninf_new,
-							  ctx->sv_pipe[i]->seninf_padidx, 2);
+							s_data->seninf_new,
+							ctx->sv_pipe[i]->seninf_padidx, 3);
 			mtk_cam_seninf_set_camtg(s_data->seninf_old,
 						 ctx->sv_pipe[i]->seninf_padidx,
 						 0xFF);
 			mtk_cam_seninf_set_camtg(s_data->seninf_new,
 						 ctx->sv_pipe[i]->seninf_padidx,
 						 ctx->sv_pipe[i]->cammux_id);
-			ret = mtk_cam_sv_dev_config(ctx, i, 1, 0);
-			if (ret)
-				goto fail_switch_stop;
 		}
 
 		for (i = 0 ; i < ctx->used_mraw_num ; i++) {
 			/* use 1-pixel mode as default */
-			ctx->mraw_pipe[i]->res_config.pixel_mode = 1;
-			mtk_cam_call_seninf_set_pixelmode(ctx, s_data->seninf_new,
-							  ctx->mraw_pipe[i]->seninf_padidx, 0);
+			mtk_cam_call_seninf_set_pixelmode(ctx,
+							s_data->seninf_new,
+							ctx->mraw_pipe[i]->seninf_padidx, 0);
 			mtk_cam_seninf_set_camtg(s_data->seninf_old,
 						 ctx->mraw_pipe[i]->seninf_padidx,
 						 0xFF);
 			mtk_cam_seninf_set_camtg(s_data->seninf_new,
 						 ctx->mraw_pipe[i]->seninf_padidx,
 						 ctx->mraw_pipe[i]->cammux_id);
-
-			dev_dbg(cam->dev, "Set mraw pad(%d) to pixel_mode(%d)\n",
-				ctx->mraw_pipe[i]->seninf_padidx,
-				ctx->mraw_pipe[i]->res_config.pixel_mode);
-			ret = mtk_cam_mraw_dev_config(ctx, i, 0);
-			if (ret)
-				goto fail_switch_stop;
 		}
 	} else {
 		ctx->processing_buffer_list.cnt = 0;
@@ -2960,7 +2950,9 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_src,
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_raw_device *raw_dev;
-	int i, stream_id;
+	struct mtk_mraw_device *mraw_dev;
+	struct mtk_camsv_device *sv_dev;
+	int i, j, stream_id;
 
 
 	if (!(req->ctx_used & cam->streaming_ctx & req->ctx_link_update))
@@ -2981,6 +2973,18 @@ static void mtk_cam_handle_mux_switch(struct mtk_raw_device *raw_src,
 				enable_tg_db(raw_dev, 0);
 				enable_tg_db(raw_dev, 1);
 				toggle_db(raw_dev);
+
+				for (j = 0; j < ctx->used_sv_num; j++) {
+					sv_dev = get_camsv_dev(cam, ctx->sv_pipe[j]);
+					mtk_cam_sv_toggle_tg_db(sv_dev);
+					mtk_cam_sv_toggle_db(sv_dev);
+				}
+
+				for (j = 0; j < ctx->used_mraw_num; j++) {
+					mraw_dev = get_mraw_dev(cam, ctx->mraw_pipe[j]);
+					mtk_cam_mraw_toggle_tg_db(mraw_dev);
+					mtk_cam_mraw_toggle_db(mraw_dev);
+				}
 			}
 		}
 

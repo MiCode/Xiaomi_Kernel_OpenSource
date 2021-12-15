@@ -2002,14 +2002,16 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 				stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
 				sd = &cam->mraw.pipelines[
 					pipe_id - MTKCAM_SUBDEV_MRAW_START].subdev;
-				for (pad = MTK_MRAW_SOURCE_BEGIN;
-					 pad < MTK_MRAW_PIPELINE_PADS_NUM; pad++)
-					if (stream_data->pad_fmt_update & (1 << pad))
-						mtk_mraw_call_pending_set_fmt
-							(sd,
-							 &stream_data->pad_fmt[pad]);
-				if (stream_data->pad_fmt_update)
+				pad = MTK_MRAW_SINK;
+				if (stream_data->pad_fmt_update & (1 << pad)) {
+					mtk_mraw_call_pending_set_fmt
+						(sd,
+						 &stream_data->pad_fmt[pad]);
+					mtk_cam_mraw_update_param(&stream_data->frame_params,
+						&cam->mraw.pipelines[pipe_id -
+								     MTKCAM_SUBDEV_MRAW_START]);
 					mtk_cam_mraw_cal_cfg_info(cam, pipe_id, stream_data, 1);
+				}
 			}
 		}
 	}
@@ -4117,6 +4119,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	bool is_mux_change_with_apply_cq = false;
 	int i;
 	struct mtk_raw_device *raw_dev;
+	struct mtk_mraw_device *mraw_dev;
 
 	ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 
@@ -4256,7 +4259,6 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 
 	if ((ctx->composed_frame_seq_no == 1 && !mtk_cam_is_time_shared(ctx)) ||
 	    is_m2m_apply_cq || is_mux_change_with_apply_cq) {
-		struct mtk_mraw_device *mraw_dev;
 		struct device *dev;
 		/* apply raw CQ */
 		spin_lock(&ctx->processing_buffer_list.lock);
@@ -4304,19 +4306,23 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 				dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
 		}
 
+		if (is_mux_change_with_apply_cq)
+			mtk_cam_sv_apply_switch_buffers(ctx);
+
 		/* apply mraw CQ for all streams */
 		for (i = 0; i < ctx->used_mraw_num; i++) {
-			dev = mtk_cam_find_mraw_dev(cam,
-				ctx->mraw_pipe[i]->enabled_mraw);
-			if (!dev) {
-				dev_info(dev, "frm#1 mraw device not found\n");
-				return -EINVAL;
+			mraw_dev = get_mraw_dev(ctx->cam, ctx->mraw_pipe[i]);
+			if (mraw_buf_entry[i]->s_data->req->pipe_used &
+				(1 << ctx->mraw_pipe[i]->id)) {
+				mraw_dev->is_enqueued = 1;
+				apply_mraw_cq(mraw_dev,
+					mraw_buf_entry[i]->buffer.iova,
+					mraw_buf_entry[i]->mraw_cq_desc_size,
+					mraw_buf_entry[i]->mraw_cq_desc_offset,
+					(ctx->composed_frame_seq_no == 1) ? 1 : 0);
+			} else {
+				mtk_cam_mraw_vf_on(mraw_dev, 0);
 			}
-			mraw_dev = dev_get_drvdata(dev);
-			apply_mraw_cq(mraw_dev,
-				mraw_buf_entry[i]->buffer.iova,
-				mraw_buf_entry[i]->mraw_cq_desc_size,
-				mraw_buf_entry[i]->mraw_cq_desc_offset, 1);
 		}
 
 		s_data->timestamp = ktime_get_boottime_ns();
@@ -4700,6 +4706,8 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request *req;
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
 	struct mtk_raw_device *raw_dev;
+	struct mtk_camsv_device *sv_dev;
+	struct mtk_mraw_device *mraw_dev;
 	int i;
 	int sof_count;
 	int ret;
@@ -4770,7 +4778,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		}
 	}
 
-	/* stop the camsv */
+	/* stop the camsv for special scenario */
 	if (mtk_cam_is_stagger(ctx)) {
 		unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
 
@@ -4795,9 +4803,18 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		}
 	}
 
-	/* stop the mraw */
-	for (i = 0 ; i < ctx->used_mraw_num ; i++)
-		mtk_cam_mraw_dev_stream_on(ctx, i, 0, 0);
+	/* stop the camsv */
+	for (i = 0 ; i < ctx->used_sv_num ; i++) {
+		sv_dev = get_camsv_dev(cam, ctx->sv_pipe[i]);
+		mtk_cam_sv_vf_on(sv_dev, 0);
+		sv_dev->is_enqueued = 0;
+	}
+
+	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
+		mraw_dev = get_mraw_dev(cam, ctx->mraw_pipe[i]);
+		mtk_cam_mraw_vf_on(mraw_dev, 0);
+		mraw_dev->is_enqueued = 0;
+	}
 
 	/* apply sensor setting if needed */
 	if ((s_data->frame_seq_no == 1) &&
@@ -6334,7 +6351,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			dev_dbg(cam->dev, "Set mraw pad(%d) to pixel_mode(%d)\n",
 				ctx->mraw_pipe[i]->seninf_padidx,
 				ctx->mraw_pipe[i]->res_config.pixel_mode);
-			ret = mtk_cam_mraw_dev_config(ctx, i, 0);
+			ret = mtk_cam_mraw_dev_config(ctx, i);
 			if (ret)
 				goto fail_img_buf_release;
 		}
@@ -6615,7 +6632,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	}
 
 	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
-		ret = mtk_cam_mraw_dev_stream_on(ctx, i, 0, 0);
+		ret = mtk_cam_mraw_dev_stream_on(ctx, i, 0);
 		if (ret)
 			return ret;
 	}

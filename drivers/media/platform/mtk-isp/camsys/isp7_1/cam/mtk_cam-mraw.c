@@ -866,23 +866,10 @@ static void mtk_cam_mraw_copy_user_input_param(
 	struct device *dev,
 	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf,
 	struct mtkcam_ipi_frame_param *frame_param,
-	struct mtk_mraw_pipeline *mraw_pipline, int mraw_param_num)
+	struct mtk_mraw_pipeline *mraw_pipline)
 {
 	/* Set tg/crp param from kernel info. */
-	frame_param->mraw_param[mraw_param_num].tg_pos_x = 0;
-	frame_param->mraw_param[mraw_param_num].tg_pos_y = 0;
-	frame_param->mraw_param[mraw_param_num].tg_size_w
-		= mraw_pipline->res_config.width;
-	frame_param->mraw_param[mraw_param_num].tg_size_h
-		= mraw_pipline->res_config.height;
-	frame_param->mraw_param[mraw_param_num].tg_fmt
-		= mraw_pipline->res_config.img_fmt;
-	frame_param->mraw_param[mraw_param_num].crop_pos_x = 0;
-	frame_param->mraw_param[mraw_param_num].crop_pos_y = 0;
-	frame_param->mraw_param[mraw_param_num].crop_size_w
-		= mraw_pipline->res_config.width;
-	frame_param->mraw_param[mraw_param_num].crop_size_h
-		= mraw_pipline->res_config.height;
+	mtk_cam_mraw_update_param(frame_param, mraw_pipline);
 
 	/* Set mraw res_config */
 	mraw_pipline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
@@ -1032,7 +1019,7 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 		meta_in->uid.id = dma_port;
 		meta_in->uid.pipe_id = node->uid.pipe_id;
 		mtk_cam_mraw_copy_user_input_param(cam->dev, mraw_meta_in_buf,
-			frame_param, mraw_pipline, 0);
+			frame_param, mraw_pipline);
 		mraw_pipline->res_config.enque_num++;
 		break;
 	case MTKCAM_IPI_MRAW_META_STATS_0:
@@ -1080,6 +1067,20 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 			- MTKCAM_IPI_MRAW_ID_START], &mraw_dmao_info);
 
 	return 0;
+}
+
+void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
+	struct mtk_mraw_pipeline *mraw_pipline)
+{
+	frame_param->mraw_param[0].tg_pos_x = 0;
+	frame_param->mraw_param[0].tg_pos_y = 0;
+	frame_param->mraw_param[0].tg_size_w = mraw_pipline->res_config.width;
+	frame_param->mraw_param[0].tg_size_h = mraw_pipline->res_config.height;
+	frame_param->mraw_param[0].tg_fmt = mraw_pipline->res_config.img_fmt;
+	frame_param->mraw_param[0].crop_pos_x = 0;
+	frame_param->mraw_param[0].crop_pos_y = 0;
+	frame_param->mraw_param[0].crop_size_w = mraw_pipline->res_config.width;
+	frame_param->mraw_param[0].crop_size_h = mraw_pipline->res_config.height;
 }
 
 int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
@@ -1725,8 +1726,7 @@ int mtk_cam_find_mraw_dev_index(
 
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx,
-	unsigned int idx,
-	unsigned int stag_en)
+	unsigned int idx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1781,8 +1781,7 @@ int mtk_cam_mraw_dev_config(
 int mtk_cam_mraw_dev_stream_on(
 	struct mtk_cam_ctx *ctx,
 	unsigned int idx,
-	unsigned int streaming,
-	unsigned int stag_en)
+	unsigned int streaming)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1809,8 +1808,11 @@ int mtk_cam_mraw_dev_stream_on(
 		ret = mtk_cam_mraw_cq_enable(ctx, mraw_dev) ||
 			mtk_cam_mraw_top_enable(mraw_dev);
 	else {
-		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
-			mtk_cam_mraw_cq_disable(mraw_dev) ||
+		/* reset enqueued status */
+		mraw_dev->is_enqueued = 0;
+
+		ret = mtk_cam_mraw_cq_disable(mraw_dev) ||
+			mtk_cam_mraw_top_disable(mraw_dev) ||
 			mtk_cam_mraw_fbc_disable(mraw_dev) ||
 			mtk_cam_mraw_dma_disable(mraw_dev) ||
 			mtk_cam_mraw_tg_disable(mraw_dev);
