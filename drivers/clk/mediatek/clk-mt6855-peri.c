@@ -20,27 +20,27 @@
 #define INV_BIT			-1
 
 static const struct mtk_gate_regs imp0_cg_regs = {
-	.set_ofs = 0x281E00,
-	.clr_ofs = 0x281E00,
-	.sta_ofs = 0x281E00,
+	.set_ofs = 0xE08,
+	.clr_ofs = 0xE04,
+	.sta_ofs = 0xE00,
 };
 
 static const struct mtk_gate_regs imp1_cg_regs = {
-	.set_ofs = 0xB21E00,
-	.clr_ofs = 0xB21E00,
-	.sta_ofs = 0xB21E00,
+	.set_ofs = 0xE08,
+	.clr_ofs = 0xE04,
+	.sta_ofs = 0xE00,
 };
 
 static const struct mtk_gate_regs imp2_cg_regs = {
-	.set_ofs = 0xDB5E00,
-	.clr_ofs = 0xDB5E00,
-	.sta_ofs = 0xDB5E00,
+	.set_ofs = 0xE08,
+	.clr_ofs = 0xE04,
+	.sta_ofs = 0xE00,
 };
 
 static const struct mtk_gate_regs imp3_cg_regs = {
-	.set_ofs = 0xED5E00,
-	.clr_ofs = 0xED5E00,
-	.sta_ofs = 0xED5E00,
+	.set_ofs = 0xE08,
+	.clr_ofs = 0xE04,
+	.sta_ofs = 0xE00,
 };
 
 #define GATE_IMP0(_id, _name, _parent, _shift) {	\
@@ -49,7 +49,7 @@ static const struct mtk_gate_regs imp3_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &imp0_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 #define GATE_IMP1(_id, _name, _parent, _shift) {	\
@@ -58,7 +58,7 @@ static const struct mtk_gate_regs imp3_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &imp1_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 #define GATE_IMP2(_id, _name, _parent, _shift) {	\
@@ -67,7 +67,7 @@ static const struct mtk_gate_regs imp3_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &imp2_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 #define GATE_IMP3(_id, _name, _parent, _shift) {	\
@@ -76,16 +76,22 @@ static const struct mtk_gate_regs imp3_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &imp3_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
-static const struct mtk_gate imp_clks[] = {
+static const struct mtk_gate imp0_clks[] = {
 	/* IMP0 */
 	GATE_IMP0(CLK_IMP_AP_CLOCK_I2C11, "imp_ap_clock_i2c11",
 			"i2c_ck"/* parent */, 0),
+};
+
+static const struct mtk_gate imp3_clks[] = {
 	/* IMP1 */
-	GATE_IMP1(CLK_IMP_AP_CLOCK_I2C5, "imp_ap_clock_i2c5",
+	GATE_IMP3(CLK_IMP_AP_CLOCK_I2C5, "imp_ap_clock_i2c5",
 			"i2c_ck"/* parent */, 0),
+};
+
+static const struct mtk_gate imp2_clks[] = {
 	/* IMP2 */
 	GATE_IMP2(CLK_IMP_AP_CLOCK_I2C3, "imp_ap_clock_i2c3",
 			"i2c_ck"/* parent */, 0),
@@ -97,22 +103,40 @@ static const struct mtk_gate imp_clks[] = {
 			"i2c_ck"/* parent */, 3),
 	GATE_IMP2(CLK_IMP_AP_CLOCK_I2C10, "imp_ap_clock_i2c10",
 			"i2c_ck"/* parent */, 4),
+};
+
+static const struct mtk_gate imp1_clks[] = {
 	/* IMP3 */
-	GATE_IMP3(CLK_IMP_AP_CLOCK_I2C0, "imp_ap_clock_i2c0",
+	GATE_IMP1(CLK_IMP_AP_CLOCK_I2C0, "imp_ap_clock_i2c0",
 			"i2c_ck"/* parent */, 0),
-	GATE_IMP3(CLK_IMP_AP_CLOCK_I2C1, "imp_ap_clock_i2c1",
+	GATE_IMP1(CLK_IMP_AP_CLOCK_I2C1, "imp_ap_clock_i2c1",
 			"i2c_ck"/* parent */, 1),
-	GATE_IMP3(CLK_IMP_AP_CLOCK_I2C2, "imp_ap_clock_i2c2",
+	GATE_IMP1(CLK_IMP_AP_CLOCK_I2C2, "imp_ap_clock_i2c2",
 			"i2c_ck"/* parent */, 2),
-	GATE_IMP3(CLK_IMP_AP_CLOCK_I2C4, "imp_ap_clock_i2c4",
+	GATE_IMP1(CLK_IMP_AP_CLOCK_I2C4, "imp_ap_clock_i2c4",
 			"i2c_ck"/* parent */, 3),
-	GATE_IMP3(CLK_IMP_AP_CLOCK_I2C9, "imp_ap_clock_i2c9",
+	GATE_IMP1(CLK_IMP_AP_CLOCK_I2C9, "imp_ap_clock_i2c9",
 			"i2c_ck"/* parent */, 4),
 };
 
-static const struct mtk_clk_desc imp_mcd = {
-	.clks = imp_clks,
-	.num_clks = CLK_IMP_NR_CLK,
+static const struct mtk_clk_desc imp_mcd0 = {
+	.clks = imp0_clks,
+	.num_clks = CLK_IMP0_NR_CLK,
+};
+
+static const struct mtk_clk_desc imp_mcd1 = {
+	.clks = imp1_clks,
+	.num_clks = CLK_IMP1_NR_CLK,
+};
+
+static const struct mtk_clk_desc imp_mcd2 = {
+	.clks = imp2_clks,
+	.num_clks = CLK_IMP2_NR_CLK,
+};
+
+static const struct mtk_clk_desc imp_mcd3 = {
+	.clks = imp3_clks,
+	.num_clks = CLK_IMP3_NR_CLK,
 };
 
 static const struct mtk_gate_regs perao0_cg_regs = {
@@ -215,8 +239,17 @@ static const struct mtk_clk_desc perao_mcd = {
 
 static const struct of_device_id of_match_clk_mt6855_peri[] = {
 	{
-		.compatible = "mediatek,mt6855-imp_iic_wrap",
-		.data = &imp_mcd,
+		.compatible = "mediatek,mt6855-imp_iic_wrap0",
+		.data = &imp_mcd0,
+	}, {
+		.compatible = "mediatek,mt6855-imp_iic_wrap1",
+		.data = &imp_mcd1,
+	}, {
+		.compatible = "mediatek,mt6855-imp_iic_wrap2",
+		.data = &imp_mcd2,
+	}, {
+		.compatible = "mediatek,mt6855-imp_iic_wrap3",
+		.data = &imp_mcd3,
 	}, {
 		.compatible = "mediatek,mt6855-pericfg_ao",
 		.data = &perao_mcd,
