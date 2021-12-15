@@ -1112,7 +1112,6 @@ static int __init power_supply_class_init(void)
 
 	if (IS_ERR(power_supply_class))
 		return PTR_ERR(power_supply_class);
-
 	power_supply_class->dev_uevent = power_supply_uevent;
 	power_supply_init_attrs(&power_supply_dev_type);
 
@@ -1124,11 +1123,7 @@ static void __exit power_supply_class_exit(void)
 	class_destroy(power_supply_class);
 }
 
-#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6833)
-early_initcall(power_supply_class_init)	
-#else
-subsys_initcall(power_supply_class_init);	
-#endif
+subsys_initcall(power_supply_class_init);
 module_exit(power_supply_class_exit);
 
 MODULE_DESCRIPTION("Universal power supply monitor class");

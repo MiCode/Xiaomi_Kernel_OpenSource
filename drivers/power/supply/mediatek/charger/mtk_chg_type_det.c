@@ -817,7 +817,7 @@ static void __exit mt_charger_det_exit(void)
 	platform_driver_unregister(&mt_charger_driver);
 }
 
-subsys_initcall(mt_charger_det_init);
+device_initcall(mt_charger_det_init);
 module_exit(mt_charger_det_exit);
 
 #ifdef CONFIG_TCPC_CLASS
