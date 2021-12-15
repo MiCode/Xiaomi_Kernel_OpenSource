@@ -749,7 +749,7 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 	},
 	//WQHD_SDC90
 	{
-		.data_rate = 1100,
+		.data_rate = 1372,
 		.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 		.dsc_params = {
 			.enable = 1,
@@ -899,7 +899,7 @@ static struct mtk_panel_params ext_params[MODE_NUM] = {
 	},
 	//FHD_SDC90
 	{
-		.data_rate = 620,
+		.data_rate = 826,
 		.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 		.dsc_params = {
 			.enable = 1,
