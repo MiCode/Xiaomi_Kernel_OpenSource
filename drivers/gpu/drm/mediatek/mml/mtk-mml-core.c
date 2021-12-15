@@ -70,8 +70,17 @@ do { \
 } while (0)
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+/* Assign bit to dump in/out buffer frame
+ * bit 0: dump input
+ * bit 1: dump output
+ */
 int mml_frame_dump;
 module_param(mml_frame_dump, int, 0644);
+enum mml_bufdump_opt {
+	MML_DUMPBUF_IN = 0x1,
+	MML_DUMPBUF_OUT = 0x2,
+};
+
 static struct mml_frm_dump_data mml_frm_dumps[2] = {
 	{.prefix = "in", },
 	{.prefix = "out", },
@@ -968,10 +977,10 @@ static void core_taskdone(struct work_struct *work)
 	mml_trace_begin("%s", __func__);
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	if (mml_frame_dump == 2) {
+	if (mml_frame_dump & MML_DUMPBUF_IN) {
 		core_dump_buf(task, &task->config->info.dest[0].data,
 			&task->buf.dest[0], &mml_frm_dumps[1]);
-		mml_frame_dump = 0;
+		mml_frame_dump &= ~MML_DUMPBUF_IN;
 	}
 #endif
 
@@ -1154,6 +1163,11 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 		mml_err("dump smi");
 	}
 
+	/* record current fail task and do dump
+	 * note: so this task maybe record multiple times due to error record
+	 * and frame done record
+	 */
+	mml_record_track(task->config->mml, task);
 	mml_record_dump(task->config->mml);
 	mml_err("error dump %d end", cnt);
 
@@ -1250,11 +1264,11 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	/* buffer dump always do in pipe 0 */
-	if (pipe == 0 && mml_frame_dump == 1) {
+	if (pipe == 0 && (mml_frame_dump & MML_DUMPBUF_OUT)) {
 		mml_buf_invalid(&task->buf.src);
 		core_dump_buf(task, &task->config->info.src,
 			&task->buf.src, &mml_frm_dumps[0]);
-		mml_frame_dump = 0;
+		mml_frame_dump &= ~MML_DUMPBUF_OUT;
 	}
 #endif
 
