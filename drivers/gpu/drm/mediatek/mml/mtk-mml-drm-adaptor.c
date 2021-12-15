@@ -242,6 +242,7 @@ static struct mml_frame_config *frame_config_find_reuse(
 	struct mml_submit *submit)
 {
 	struct mml_frame_config *cfg;
+	u32 idx = 0, mode = MML_MODE_UNKNOWN;
 
 	if (!mml_reuse)
 		return NULL;
@@ -249,17 +250,28 @@ static struct mml_frame_config *frame_config_find_reuse(
 	mml_trace_ex_begin("%s", __func__);
 
 	list_for_each_entry(cfg, &ctx->configs, entry) {
+		if (!idx)
+			mode = cfg->info.mode;
+
 		if (submit->update && cfg->last_jobid == submit->job->jobid)
 			goto done;
 
 		if (check_frame_change(&submit->info, cfg))
 			goto done;
+
+		idx++;
 	}
 
 	/* not found, give return value to NULL */
 	cfg = NULL;
 
 done:
+	if (cfg && idx) {
+		if (mode != cfg->info.mode)
+			mml_log("[drm]mode change to %hhu", cfg->info.mode);
+		list_rotate_to_front(&cfg->entry, &ctx->configs);
+	}
+
 	mml_trace_ex_end();
 	return cfg;
 }

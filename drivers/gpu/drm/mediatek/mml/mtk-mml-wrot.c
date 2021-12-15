@@ -1096,6 +1096,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 				 wrot_frm, pkt, reuse, cache);
 		/* always turn off ready to wrot */
 		wrot_config_ready(wrot, cfg, wrot_frm, ccfg->pipe, pkt, false);
+
+		/* and clear inlinerot enable since last frame maybe racing mode */
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_IN_LINE_ROT, 0, U32_MAX);
 	}
 
 	/* Write frame related registers */
