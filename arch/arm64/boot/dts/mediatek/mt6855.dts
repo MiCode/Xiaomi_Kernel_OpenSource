@@ -3843,7 +3843,7 @@
 
 			gpio-base = <&scp_gpio>;
 			gpio-vreq = <0x458 0x7 4>;
-			gpio-vreq-mode = <1>;
+			gpio-vreq-mode = <0>;
 
 			do-ulposc-cali;
 			fmeter_clksys = <&vlp_cksys_clk>;
