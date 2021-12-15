@@ -572,6 +572,6 @@
 };
 /* AUDIO end */
 
-#include <k39tv1_bsp_1g/cust.dtsi>
+#include <k39tv1_bsp_1g_k419/cust.dtsi>
 #include "cust_mt6739_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
