@@ -1319,10 +1319,11 @@ struct task_struct {
 	ANDROID_KABI_RESERVE(7);
 	ANDROID_KABI_RESERVE(8);
 #ifdef CONFIG_MTK_TASK_TURBO
-	unsigned char turbo:1;
-	unsigned char render:1;
+	unsigned short turbo:1;
+	unsigned short render:1;
+	unsigned short inherit_cnt:14;
+	short nice_backup;
 	atomic_t inherit_types;
-	unsigned int inherit_cnt;
 #endif
 
 	/*

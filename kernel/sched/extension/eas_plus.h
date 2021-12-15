@@ -178,3 +178,4 @@ static inline unsigned long map_util_freq_with_margin(
 	return freq;
 }
 #endif
+extern unsigned long capacity_spare_without(int cpu, struct task_struct *p);
