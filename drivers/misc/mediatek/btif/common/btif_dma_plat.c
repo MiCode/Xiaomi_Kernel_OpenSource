@@ -143,6 +143,15 @@ static int hal_dma_receive_data(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 /***********************************Function***********************************/
 #endif
 
+void hal_dma_dump_clk_reg(void)
+{
+	if (!g_btif[0].dma_clk_addr) {
+		BTIF_INFO_FUNC("g_btif[0].dma_clk_addr is NULL");
+		return;
+	}
+	BTIF_INFO_FUNC("clk reg = 0x%x\n", BTIF_READ32(g_btif[0].dma_clk_addr));
+}
+
 #ifdef CONFIG_OF
 static void hal_dma_set_default_setting(enum _ENUM_DMA_DIR_ dma_dir)
 {
@@ -154,25 +163,32 @@ static void hal_dma_set_default_setting(enum _ENUM_DMA_DIR_ dma_dir)
 		return;
 	}
 
-	if (dma_dir == DMA_DIR_RX) {
-		node = ((struct device *)(g_btif[0].private_data))->of_node;
-		if (node) {
-			mtk_btif_rx_dma.p_irq->irq_id =
-					irq_of_parse_and_map(node, 2);
-			/*fixme, be compitable arch 64bits*/
-			mtk_btif_rx_dma.base = (unsigned long)of_iomap(node, 2);
-			BTIF_INFO_FUNC("rx_dma irq(%d),register base(0x%lx)\n",
-					mtk_btif_rx_dma.p_irq->irq_id,
-					mtk_btif_rx_dma.base);
+	node = ((struct device *)(g_btif[0].private_data))->of_node;
+	if (!node) {
+		BTIF_ERR_FUNC("get device node fail\n");
+		return;
+	}
 
-			/* get the IRQ flags */
-			mtk_btif_rx_dma.p_irq->irq_flags =
-					irq_get_trigger_type(mtk_btif_rx_dma.p_irq->irq_id);
-			BTIF_INFO_FUNC("get interrupt flag(0x%x)\n",
-				mtk_btif_rx_dma.p_irq->irq_flags);
-		} else {
-			BTIF_ERR_FUNC("get rx_dma device node fail\n");
-		}
+	if (!g_btif[0].dma_clk_addr) {
+		g_btif[0].dma_clk_addr = of_iomap(node, 3);
+		BTIF_INFO_FUNC("dma clock reg (0x%lx)\n", g_btif[0].dma_clk_addr);
+	}
+
+	if (dma_dir == DMA_DIR_RX) {
+		mtk_btif_rx_dma.p_irq->irq_id =
+				irq_of_parse_and_map(node, 2);
+		/*fixme, be compitable arch 64bits*/
+		mtk_btif_rx_dma.base = (unsigned long)of_iomap(node, 2);
+		BTIF_INFO_FUNC("rx_dma irq(%d),register base(0x%lx)\n",
+				mtk_btif_rx_dma.p_irq->irq_id,
+				mtk_btif_rx_dma.base);
+
+		/* get the IRQ flags */
+		mtk_btif_rx_dma.p_irq->irq_flags =
+				irq_get_trigger_type(mtk_btif_rx_dma.p_irq->irq_id);
+		BTIF_INFO_FUNC("get interrupt flag(0x%x)\n",
+			mtk_btif_rx_dma.p_irq->irq_flags);
+
 		if (of_property_read_u32_index(node, "reg", 9, &phy_base)) {
 			BTIF_ERR_FUNC("get phy base fail,dma_dir(%d)\n",
 					dma_dir);
@@ -181,24 +197,19 @@ static void hal_dma_set_default_setting(enum _ENUM_DMA_DIR_ dma_dir)
 					dma_dir, (unsigned int)phy_base);
 		}
 	} else if (dma_dir == DMA_DIR_TX) {
-		node = ((struct device *)(g_btif[0].private_data))->of_node;
-		if (node) {
-			mtk_btif_tx_dma.p_irq->irq_id =
-					irq_of_parse_and_map(node, 1);
-			/*fixme, be compitable arch 64bits*/
-			mtk_btif_tx_dma.base = (unsigned long)of_iomap(node, 1);
-			BTIF_INFO_FUNC("tx_dma irq(%d),register base(0x%lx)\n",
-					mtk_btif_tx_dma.p_irq->irq_id,
-					mtk_btif_tx_dma.base);
+		mtk_btif_tx_dma.p_irq->irq_id =
+				irq_of_parse_and_map(node, 1);
+		/*fixme, be compitable arch 64bits*/
+		mtk_btif_tx_dma.base = (unsigned long)of_iomap(node, 1);
+		BTIF_INFO_FUNC("tx_dma irq(%d),register base(0x%lx)\n",
+				mtk_btif_tx_dma.p_irq->irq_id,
+				mtk_btif_tx_dma.base);
 
-			/* get the IRQ flags */
-			mtk_btif_tx_dma.p_irq->irq_flags =
-					irq_get_trigger_type(mtk_btif_tx_dma.p_irq->irq_id);
-			BTIF_INFO_FUNC("get interrupt flag(0x%x)\n",
-				mtk_btif_tx_dma.p_irq->irq_flags);
-		} else {
-			BTIF_ERR_FUNC("get tx_dma device node fail\n");
-		}
+		/* get the IRQ flags */
+		mtk_btif_tx_dma.p_irq->irq_flags =
+				irq_get_trigger_type(mtk_btif_tx_dma.p_irq->irq_id);
+		BTIF_INFO_FUNC("get interrupt flag(0x%x)\n",
+			mtk_btif_tx_dma.p_irq->irq_flags);
 
 		if (of_property_read_u32_index(node, "reg", 5, &phy_base)) {
 			BTIF_ERR_FUNC("get phy base fail,dma_dir(%d)\n",

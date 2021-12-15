@@ -217,6 +217,7 @@ struct _mtk_btif_ {
 
 	struct _mtk_btif_dma_ *p_tx_dma;	/*BTIF Tx channel DMA */
 	struct _mtk_btif_dma_ *p_rx_dma;	/*BTIF Rx channel DMA */
+	void __iomem *dma_clk_addr;		/*BTIF DMA clock address */
 
 	MTK_WCN_BTIF_RX_CB rx_cb;	/*Rx callback function */
 	MTK_BTIF_RX_NOTIFY rx_notify;

@@ -2892,6 +2892,8 @@ int btif_dump_reg(struct _mtk_btif_ *p_btif, enum _ENUM_BTIF_REG_ID_ flag)
 		BTIF_ERR_FUNC("switch to B_S_ON failed\n");
 		goto dmp_reg_err;
 	}
+/*dump APDMA register*/
+	hal_dma_dump_clk_reg();
 
 /*dump BTIF register*/
 	hal_btif_dump_reg(p_btif->p_btif_info, flag);

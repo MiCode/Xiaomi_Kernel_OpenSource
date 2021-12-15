@@ -197,4 +197,5 @@ int hal_rx_dma_lock(bool enable);
 
 int hal_btif_dma_check_status(struct _MTK_DMA_INFO_STR_ *p_dma_info);
 
+void hal_dma_dump_clk_reg(void);
 #endif /*__HAL_BTIFD_DMA_PUB_H_*/
