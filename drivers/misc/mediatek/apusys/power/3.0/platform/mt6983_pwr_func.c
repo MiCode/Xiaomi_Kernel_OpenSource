@@ -257,13 +257,13 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 	size = tbl.tbl_size;
 
 	// first line
-	seq_printf(s, "\n| # | %s | %s |", buck_name[0], buck_name[1]);
+	seq_printf(s, "\n| # | %s | %s|", buck_name[0], buck_name[1]);
 	for (i = 0 ; i < PLL_NUM ; i++)
 		seq_printf(s, " %s |", pll_name[i]);
 
 	seq_puts(s, "\n");
 	for (i = 0 ; i < size ; i++) {
-		seq_printf(s, "| %d |   %d  |   %d  |",
+		seq_printf(s, "| %d |   %06d  |   %06d  |",
 			i, tbl.opp[i].vapu, tbl.opp[i].vsram);
 
 		for (j = 0 ; j < PLL_NUM ; j++)
@@ -298,7 +298,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	}
 
 	for (i = 0 ; i < BUCK_NUM ; i++) {
-		seq_printf(s, "%s : opp %d , %d(mV)\n",
+		seq_printf(s, "%s : opp %d , %d(uV)\n",
 				buck_name[i],
 				info.buck_opp[i],
 				info.buck_volt[i]);
