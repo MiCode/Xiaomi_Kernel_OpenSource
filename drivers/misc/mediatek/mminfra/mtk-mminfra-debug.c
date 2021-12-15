@@ -247,7 +247,6 @@ int mminfra_scmi_test(const char *val, const struct kernel_param *kp)
 
 static struct kernel_param_ops scmi_test_ops = {
 	.set = mminfra_scmi_test,
-	.get = param_get_int,
 };
 module_param_cb(scmi_test, &scmi_test_ops, NULL, 0644);
 MODULE_PARM_DESC(scmi_test, "scmi test");
@@ -292,7 +291,6 @@ int mminfra_ut(const char *val, const struct kernel_param *kp)
 
 static struct kernel_param_ops mminfra_ut_ops = {
 	.set = mminfra_ut,
-	.get = param_get_int,
 };
 module_param_cb(mminfra_ut, &mminfra_ut_ops, NULL, 0644);
 MODULE_PARM_DESC(mminfra_ut, "mminfra ut");
