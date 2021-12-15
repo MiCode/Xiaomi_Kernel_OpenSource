@@ -1592,8 +1592,7 @@ s32 mml_assign(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
 		return -ENOMEM;
 
 	cmdq_pkt_assign_command_reuse(pkt, reg_idx, value,
-		&reuse->labels[reuse->label_idx].va,
-		&reuse->labels[reuse->label_idx].offset);
+		&reuse->labels[reuse->label_idx]);
 
 	add_reuse_label(reuse, label_idx, value);
 	return 0;
@@ -1608,8 +1607,7 @@ s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
 		return -ENOMEM;
 
 	cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
-		&reuse->labels[reuse->label_idx].va,
-		&reuse->labels[reuse->label_idx].offset);
+		&reuse->labels[reuse->label_idx]);
 
 	add_reuse_label(reuse, label_idx, value);
 	return 0;
