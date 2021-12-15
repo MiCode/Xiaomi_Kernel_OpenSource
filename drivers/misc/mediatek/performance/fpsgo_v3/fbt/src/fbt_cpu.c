@@ -390,6 +390,8 @@ static int _gdfrc_fps_limit;
 
 static struct fbt_sjerk sjerk;
 
+static struct workqueue_struct *wq_jerk;
+
 static int nsec_to_100usec(unsigned long long nsec)
 {
 	unsigned long long husec;
@@ -2233,7 +2235,10 @@ static enum hrtimer_restart fbt_jerk_tfn(struct hrtimer *timer)
 	struct fbt_jerk *jerk;
 
 	jerk = container_of(timer, struct fbt_jerk, timer);
-	schedule_work(&jerk->work);
+	if (wq_jerk)
+		queue_work(wq_jerk, &jerk->work);
+	else
+		schedule_work(&jerk->work);
 	return HRTIMER_NORESTART;
 }
 
@@ -6301,6 +6306,8 @@ int __init fbt_cpu_init(void)
 
 	INIT_LIST_HEAD(&loading_list);
 	INIT_LIST_HEAD(&blc_list);
+
+	wq_jerk = alloc_workqueue("fbt_cpu", WQ_HIGHPRI | WQ_MEM_RECLAIM | WQ_UNBOUND, 0);
 
 	/* sub-module initialization */
 	init_xgf();
