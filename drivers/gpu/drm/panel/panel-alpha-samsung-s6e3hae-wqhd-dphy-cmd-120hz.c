@@ -158,6 +158,7 @@ module_exit(_lcm_i2c_exit);
 
 
 #define DATA_RATE		1360
+#define DYN_DATA_RATE		650
 #define MODE0_FPS		60
 #define MODE1_FPS		120
 #define MODE2_FPS		60
@@ -603,15 +604,6 @@ static int lcm_prepare(struct drm_panel *panel)
 	if (ctx->prepared)
 		return 0;
 
-	// lcd reset H -> L -> L
-	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->reset_gpio, 1);
-	usleep_range(10000, 10001);
-	gpiod_set_value(ctx->reset_gpio, 0);
-	msleep(20);
-	gpiod_set_value(ctx->reset_gpio, 1);
-	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
-	// end
 	if (ctx->gate_ic == 0) {
 		ctx->bias_pos =
 			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
@@ -667,8 +659,8 @@ static int lcm_enable(struct drm_panel *panel)
 }
 
 #if (SUPPORT_RES_SWITCH)
-static const struct drm_display_mode default_mode = {
-	.clock = 288750,
+static const struct drm_display_mode wqhd_120hz_mode = {
+	.clock = 582000,
 	.hdisplay = HACT_WQHD,
 	.hsync_start = HACT_WQHD + MODE1_HFP,
 	.hsync_end = HACT_WQHD + MODE1_HFP + MODE1_HSA,
@@ -679,8 +671,8 @@ static const struct drm_display_mode default_mode = {
 	.vtotal = VACT_WQHD + MODE1_VFP + MODE1_VSA + MODE1_VBP,
 };
 
-static const struct drm_display_mode performence_mode = {
-	.clock = 582000,
+static const struct drm_display_mode wqhd_60hz_mode = {
+	.clock = 288750,
 	.hdisplay = HACT_WQHD,
 	.hsync_start = HACT_WQHD + MODE1_HFP,
 	.hsync_end = HACT_WQHD + MODE1_HFP + MODE1_HSA,
@@ -771,6 +763,13 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = DYN_DATA_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = DYN_DATA_RATE + 10,
+	},
 };
 
 static struct mtk_panel_params ext_params_120hz = {
@@ -822,6 +821,13 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = DATA_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = DATA_RATE + 10,
+	},
 };
 #endif
 
@@ -874,6 +880,13 @@ static struct mtk_panel_params ext_params_fhdp = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = DYN_DATA_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = DYN_DATA_RATE + 10,
+	},
 };
 
 #if (SUPPORT_RES_SWITCH)
@@ -926,6 +939,13 @@ static struct mtk_panel_params ext_params_120hz_fhdp = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = DATA_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = DATA_RATE + 10,
+	},
 };
 #endif
 
@@ -1166,26 +1186,26 @@ static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connecto
 #endif
 
 #if (SUPPORT_RES_SWITCH)
-	mode0 = drm_mode_duplicate(connector->dev, &default_mode);
+	mode0 = drm_mode_duplicate(connector->dev, &wqhd_120hz_mode);
 	if (!mode0) {
 		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			default_mode.hdisplay, default_mode.vdisplay,
-			drm_mode_vrefresh(&default_mode));
+			wqhd_120hz_mode.hdisplay, wqhd_120hz_mode.vdisplay,
+			drm_mode_vrefresh(&wqhd_120hz_mode));
 		return -ENOMEM;
 	}
 	drm_mode_set_name(mode0);
-	mode0->type = DRM_MODE_TYPE_DRIVER;
+	mode0->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode0);
 
-	mode1 = drm_mode_duplicate(connector->dev, &performence_mode);
+	mode1 = drm_mode_duplicate(connector->dev, &wqhd_60hz_mode);
 	if (!mode1) {
 		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			performence_mode.hdisplay, performence_mode.vdisplay,
-			drm_mode_vrefresh(&performence_mode));
+			wqhd_60hz_mode.hdisplay, wqhd_60hz_mode.vdisplay,
+			drm_mode_vrefresh(&wqhd_60hz_mode));
 		return -ENOMEM;
 	}
 	drm_mode_set_name(mode1);
-	mode1->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	mode1->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode1);
 #endif
 
@@ -1326,7 +1346,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 #if defined(CONFIG_MTK_PANEL_EXT)
 	//mtk_panel_tch_handle_reg(&ctx->panel);
 #if (PANEL_2K)
-	ret = mtk_panel_ext_create(dev, &ext_params, &ext_funcs, &ctx->panel);
+	ret = mtk_panel_ext_create(dev, &ext_params_120hz, &ext_funcs, &ctx->panel);
 #else
 	ret = mtk_panel_ext_create(dev, &ext_params_fhdp, &ext_funcs, &ctx->panel);
 #endif
