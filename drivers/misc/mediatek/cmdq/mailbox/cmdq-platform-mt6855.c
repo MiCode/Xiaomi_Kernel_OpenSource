@@ -125,7 +125,7 @@ u32 cmdq_test_get_subsys_list(u32 **regs_out)
 		0x1f003000,	/* mdp_rdma0 */
 		0x14000100,	/* mmsys_config */
 		0x14001000,	/* dispsys */
-		0x15101200,	/* imgsys */
+		0x15020000,	/* imgsys */
 		0x1000106c,	/* infra */
 	};
 
@@ -136,26 +136,27 @@ u32 cmdq_test_get_subsys_list(u32 **regs_out)
 void cmdq_test_set_ostd(void)
 {
 	void __iomem	*va_base;
+
 	u32 val = 0x01014000;
 	u32 pa_base;
 	u32 preval, newval;
 
 	cmdq_msg("%s in", __func__);
-	/* 1. set mdp_smi_common outstanding to 1 : 0x1E80F120 = 0x01014000 */
-	pa_base = 0x1E80F120;
-	va_base = ioremap(pa_base, 0x1000);
+	/* 1. set mminfra_smi_u_disp_comm_SMI_COMMON outstanding to 1 : 0x1E801000 = 0x01014000 */
+	pa_base = 0x1E801000;
+	va_base = ioremap(pa_base + 0x10C, 0x1000);
 	preval = readl(va_base);
 	writel(val, va_base);
 	newval = readl(va_base);
-	cmdq_msg("%s addr0x%#x: 0x%#x -> 0x%#x  ", __func__, pa_base, preval, newval);
+	cmdq_msg("%s addr%#x: %#x -> %#x  ", __func__, pa_base, preval, newval);
 
-	/* 2. set mdp_sub_common outstanding to 1 : 0x1E818120 = 0x01014000 */
-	pa_base = 0x1E818120;
-	va_base = ioremap(pa_base, 0x1000);
+	/* 2. set MMINFRA_SMI_U_MDP_SUB_COMM0 outstanding to 1 : 0x1e809000 = 0x01014000 */
+	pa_base = 0x1e809000;
+	va_base = ioremap(pa_base + 0x104, 0x1000);
 	preval = readl(va_base);
 	writel(val, va_base);
 	newval = readl(va_base);
-	cmdq_msg("%s addr0x%#x: 0x%#x -> 0x%#x  ", __func__, pa_base, preval, newval);
+	cmdq_msg("%s addr%#x: %#x -> %#x  ", __func__, pa_base, preval, newval);
 }
 
 const char *cmdq_util_hw_name(void *chan)
