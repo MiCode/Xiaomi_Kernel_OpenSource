@@ -8,15 +8,10 @@
 
 #define EEM_TAG	 "[CPU][EEM]"
 
-extern void __iomem *eem_base;
 extern void __iomem *eem_csram_base;
-extern void __iomem *sn_base;
 
 
-//#define EEMSN_CSRAM_BASE	0x0011BC00  /* EB View:0x0011BC00 */
-//#define EEMSN_CSRAM_SIZE	0x1000
 
-//#define SN_BASESIZE			0x1000
 #define EEM_LOG_BASE		0x00112400
 #define EEM_LOG_SIZE		0x1800 /* 6k size 0x1800 */
 

@@ -29,18 +29,13 @@
 #include "../mcupm/include/mcupm_driver.h"
 #include "../mcupm/include/mcupm_ipi_id.h"
 
-#define EEM_LOG_ENABLE 1
 
 int ipi_ackdata;
-unsigned int eem_seq;
 static struct eemsn_log *eemsn_log;
-phys_addr_t picachu_sn_mem_base_phys;
-phys_addr_t eem_log_phy_addr, eem_log_virt_addr;
 uint32_t eem_log_size;
 static int eem_log_en;
 
 
-void __iomem *eem_base;
 void __iomem *eem_csram_base;
 
 static unsigned int eem_to_up(unsigned int cmd,
@@ -92,14 +87,19 @@ static ssize_t eem_debug_proc_write(struct file *file,
 
 	cmd_str = strsep(&buf, " ");
 	if (cmd_str == NULL)
-		ret = -EINVAL;
+		return -EINVAL;
 
 	if (!kstrtoint(cmd_str, 10, &bank_id))
 		if (bank_id >= NR_EEMSN_DET)
 			goto out;
 
+	if (buf == NULL)
+		return -EINVAL;
+
 	if (!kstrtoint(buf, 10, &disable)) {
 		ret = 0;
+		if ((disable < 0) || (disable > 1))
+			goto out;
 
 		memset(&eem_data, 0, sizeof(struct eemsn_ipi_data));
 		eem_data.u.data.arg[0] = bank_id;
@@ -149,19 +149,25 @@ static ssize_t eem_setclamp_proc_write(struct file *file,
 
 	cmd_str = strsep(&buf, " ");
 	if (cmd_str == NULL)
-		ret = -EINVAL;
+		return -EINVAL;
 
 	if (!kstrtoint(cmd_str, 10, &bank_id))
 		if (bank_id >= NR_EEMSN_DET)
 			goto out;
 
+	if (buf == NULL)
+		return -EINVAL;
+
 	if (!kstrtoint(buf, 10, &volt_clamp)) {
 		ret = 0;
+		if ((volt_clamp < -30) || (volt_clamp > 30))
+			goto out;
+
 		memset(&eem_data, 0, sizeof(struct eemsn_ipi_data));
 		eem_data.u.data.arg[0] = bank_id;
 		eem_data.u.data.arg[1] = volt_clamp;
 		eem_to_up(IPI_EEMSN_SETCLAMP_PROC_WRITE, &eem_data);
-		/* to show in eem_offset_proc_show */
+
 		pr_debug("set volt_offset %d\n", volt_clamp);
 	} else {
 		ret = -EINVAL;
@@ -355,17 +361,6 @@ out:
 	return (ret < 0) ? ret : count;
 }
 
-static int eem_force_sensing_proc_show(struct seq_file *m, void *v)
-{
-	struct eemsn_ipi_data eem_data;
-	unsigned int ipi_ret = 0;
-
-	memset(&eem_data, 0, sizeof(struct eemsn_ipi_data));
-	ipi_ret = eem_to_up(IPI_EEMSN_FORCE_SN_SENSING, &eem_data);
-	seq_printf(m, "ret:%d\n", ipi_ret);
-	return 0;
-}
-
 static int eem_pull_data_proc_show(struct seq_file *m, void *v)
 {
 	struct eemsn_ipi_data eem_data;
@@ -423,6 +418,7 @@ static ssize_t eem_offset_proc_write(struct file *file,
 	cmd_str = strsep(&buf, " ");
 	if (cmd_str == NULL)
 		return -EINVAL;
+
 	if (!kstrtoint(cmd_str, 10, &bank_id))
 		if (bank_id >= NR_EEMSN_DET)
 			goto out;
@@ -432,6 +428,9 @@ static ssize_t eem_offset_proc_write(struct file *file,
 
 	if (!kstrtoint(buf, 10, &offset)) {
 		ret = 0;
+		if ((offset < -30) || (offset > 30))
+			goto out;
+
 		memset(&eem_data, 0, sizeof(struct eemsn_ipi_data));
 		eem_data.u.data.arg[0] = bank_id;
 		eem_data.u.data.arg[1] = offset;
@@ -493,7 +492,6 @@ PROC_FOPS_RW(eem_offset);
 PROC_FOPS_RW(eem_log_en);
 PROC_FOPS_RW(eem_disable);
 PROC_FOPS_RW(eem_sn_disable);
-PROC_FOPS_RO(eem_force_sensing);
 PROC_FOPS_RO(eem_pull_data);
 PROC_FOPS_RW(eem_setclamp);
 
@@ -517,7 +515,6 @@ static int create_debug_fs(void)
 		PROC_ENTRY(eem_log_en),
 		PROC_ENTRY(eem_disable),
 		PROC_ENTRY(eem_sn_disable),
-		PROC_ENTRY(eem_force_sensing),
 		PROC_ENTRY(eem_pull_data),
 		PROC_ENTRY(eem_dbg_repo),
 	};
@@ -534,22 +531,10 @@ static int create_debug_fs(void)
 
 	return 0;
 }
-static void init_mcl50_setting(void)
-{
-	struct eemsn_ipi_data eem_data;
-
-	memset(&eem_data, 0, sizeof(struct eemsn_ipi_data));
-	eem_data.u.data.arg[0] = 1;
-
-	eem_to_up(IPI_EEMSN_INIT, &eem_data);
-
-}
 
 int mtk_eem_init(struct platform_device *pdev)
 {
 	int err = 0;
-	struct device_node *node = NULL;
-	int enable;
 	struct resource *eem_res;
 
 	eem_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
@@ -558,8 +543,6 @@ int mtk_eem_init(struct platform_device *pdev)
 		eemsn_log = ioremap(eem_res->start, resource_size(eem_res));
 	} else
 		eemsn_log = ioremap(EEM_LOG_BASE, EEM_LOG_SIZE);
-	/* TODO: sn_base seems no use? */
-	/* sn_base = ioremap(SN_BASEADDR, SN_BASESIZE); */
 
 	eem_csram_base = eemsn_log;
 
@@ -570,12 +553,6 @@ int mtk_eem_init(struct platform_device *pdev)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,cpufreq-hw");
-	if (node) {
-		err = of_property_read_u32(node, "mcl50_load", &enable);
-		if (!err && enable)
-			init_mcl50_setting();
-	}
 	return create_debug_fs();
 }
 
