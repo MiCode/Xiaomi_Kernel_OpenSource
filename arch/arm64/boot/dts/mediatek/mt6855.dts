@@ -208,6 +208,39 @@
 		compatible = "mediatek,mt6855-scpsys", "syscon";
 		reg = <0 0x1C001000 0 0x1000>;
 		#power-domain-cells = <1>;
+		clocks = <&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
+			<&topckgen_clk CLK_TOP_CAM_SEL>,
+			<&topckgen_clk CLK_TOP_DISP0_SEL>,
+			<&topckgen_clk CLK_TOP_MDP0_SEL>,
+			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,
+			<&topckgen_clk CLK_TOP_MMUP_SEL>,
+			<&topckgen_clk CLK_TOP_IMG1_SEL>,
+			<&topckgen_clk CLK_TOP_IPE_SEL>,
+			<&topckgen_clk CLK_TOP_VDEC_SEL>,
+			<&topckgen_clk CLK_TOP_VENC_SEL>,
+			<&camsys_main_clk CLK_CAM_M_LARB13>,
+			<&camsys_main_clk CLK_CAM_M_LARB14>,
+			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
+			<&camsys_main_clk CLK_CAM_M_CCU_GALS>,
+			<&dispsys_config_clk CLK_MM_SMI_COMMON>,
+			<&mdpsys_config_clk CLK_MDP_SMI0>,
+			<&mminfra_config_clk CLK_MMINFRA_SMI>,
+			<&imgsys1_clk CLK_IMGSYS1_LARB9>,
+			<&imgsys1_clk CLK_IMGSYS1_LARB10>,
+			<&imgsys1_clk CLK_IMGSYS1_GALS>,
+			<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+			<&imgsys2_clk CLK_IMGSYS2_LARB10>,
+			<&imgsys2_clk CLK_IMGSYS2_GALS>,
+			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
+			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
+			<&camsys_rawb_clk CLK_CAM_RB_LARBX>;
+		clock-names = "audio", "cam", "disp", "mdp",
+			"mm_infra", "mmup", "isp", "ipe", "vde", "ven",
+			"cam-0", "cam-1", "cam_lp-0", "cam_lp-1",
+			"disp-0", "mdp_lp-0", "mm_infra_lp-0",
+			"isp-0", "isp-1", "isp-2",
+			"dip1-0", "dip1-1", "dip1-2",
+			"vde-0", "cam_suba-0", "cam_subb-0";
 		infracfg = <&infracfg_ao_clk>;
 		vlpcfg = <&vlpcfg_bus_clk>;
 	};
