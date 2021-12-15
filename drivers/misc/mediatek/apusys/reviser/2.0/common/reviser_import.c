@@ -25,14 +25,20 @@ int reviser_alloc_slb(uint32_t type, uint32_t size, uint64_t *ret_addr, uint64_t
 		/* TODO, should allocate via reviser function */
 		slb.uid = UID_AINR;
 		slb.type = TP_BUFFER;
-		break;
+		LOG_ERR("Unsupported type %u\n", type);
+		ret = -EINVAL;
+		goto out;
 	default:
 		LOG_ERR("Invalid type %u\n", type);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	slbc_request(&slb);
+	ret = slbc_request(&slb);
+	if (ret < 0) {
+		LOG_ERR("slbc_request Fail %d\n", ret);
+		goto out;
+	}
 
 
 	*ret_addr = (size_t) slb.paddr;
@@ -53,14 +59,20 @@ int reviser_free_slb(uint32_t type, uint64_t addr)
 	case REVISER_MEM_TYPE_RSV_S:
 		slb.uid = UID_AINR;
 		slb.type = TP_BUFFER;
-		break;
+		LOG_ERR("Unsupported type %u\n", type);
+		ret = -EINVAL;
+		goto out;
 	default:
 		LOG_ERR("Invalid type %u\n", type);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	slbc_release(&slb);
+	ret = slbc_release(&slb);
+	if (ret < 0) {
+		LOG_ERR("slbc_release Fail %d\n", ret);
+		goto out;
+	}
 out:
 	return ret;
 }
