@@ -1094,8 +1094,10 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	int ret;
 
 	DDPDBG("%s+\n", __func__);
-	if (++dsi->clk_refcnt != 1)
-		return 0;
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (++dsi->clk_refcnt != 1)
+			return 0;
+	}
 
 	ret = mtk_dsi_set_data_rate(dsi);
 	if (ret < 0) {
@@ -2001,17 +2003,18 @@ static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)
 static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 {
 	DDPDBG("%s +\n", __func__);
-	if (dsi->clk_refcnt == 0) {
-		DDPAEE("%s:%d, invalid cnt:%d\n",
-			__func__, __LINE__,
-			dsi->clk_refcnt);
-		return;
-	}
-
-	if (--dsi->clk_refcnt != 0)
-		return;
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (dsi->clk_refcnt == 0) {
+			DDPAEE("%s:%d, invalid cnt:%d\n",
+				__func__, __LINE__,
+				dsi->clk_refcnt);
+			return;
+		}
+
+		if (--dsi->clk_refcnt != 0)
+			return;
+
 		clk_disable_unprepare(dsi->engine_clk);
 		clk_disable_unprepare(dsi->digital_clk);
 
