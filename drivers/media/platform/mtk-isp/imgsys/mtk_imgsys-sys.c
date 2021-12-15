@@ -571,6 +571,7 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s imgenq:%lld tskdlr2gce:%lld tskhdlr2done:%lld\n",
 		req->tstate.req_fd, ((char *)&frm_owner), imgenq, req_enq, req_done);
 	IMGSYS_SYSTRACE_END();
+	media_request_put(&req->req);
 }
 
 static void cmdq_cb_timeout_worker(struct work_struct *work)
@@ -1666,7 +1667,7 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 		"%s:(reqfd-%d) to send frame_no(%d)\n",
 		__func__, req->tstate.req_fd,
 		req->img_fparam.frameparam.frame_no);
-
+	media_request_get(&req->req);
 	down(&imgsys_dev->sem);
 #if MTK_CM4_SUPPORT == 0
 
