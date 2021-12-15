@@ -8,6 +8,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/pinctrl/mt6833-pinfunc.h>
 #include <dt-bindings/power/mt6833-power.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/phy/phy.h>
@@ -180,6 +181,59 @@
 	gpio: gpio@10005000 {
 		compatible = "mediatek,gpio";
 		reg = <0 0x10005000 0 0x1000>;
+	};
+
+	iocfg_rb: iocfg_rb@11c30000 {
+		compatible = "mediatek,iocfg_rb";
+		reg = <0 0x11c30000 0 0x1000>;
+	};
+
+	iocfg_bm: iocfg_bm@11d10000 {
+		compatible = "mediatek,iocfg_bm";
+		reg = <0 0x11d10000 0 0x1000>;
+	};
+
+	iocfg_br: iocfg_br@11d40000 {
+		compatible = "mediatek,iocfg_br";
+		reg = <0 0x11d40000 0 0x1000>;
+	};
+
+	iocfg_lm: iocfg_lm@11e20000 {
+		compatible = "mediatek,iocfg_lm";
+		reg = <0 0x11e20000 0 0x1000>;
+	};
+
+	iocfg_bl: iocfg_bl@11e60000 {
+		compatible = "mediatek,iocfg_bl";
+		reg = <0 0x11e60000 0 0x1000>;
+	};
+
+	iocfg_rt: iocfg_rt@11ea0000 {
+		compatible = "mediatek,iocfg_rt";
+		reg = <0 0x11ea0000 0 0x1000>;
+	};
+
+	pio: pinctrl {
+		compatible = "mediatek,mt6833-pinctrl";
+		reg = <0 0x10005000 0 0x1000>,
+		      <0 0x11c30000 0 0x1000>,
+		      <0 0x11d10000 0 0x1000>,
+		      <0 0x11d40000 0 0x1000>,
+		      <0 0x11e20000 0 0x1000>,
+		      <0 0x11e60000 0 0x1000>,
+		      <0 0x11ea0000 0 0x1000>;
+		reg-names = "gpio",
+			    "iocfg_rb",
+			    "iocfg_bm",
+			    "iocfg_br",
+			    "iocfg_lm",
+			    "iocfg_bl",
+			    "iocfg_rt";
+		gpio-controller;
+		gpio-ranges = <&pio 0 0 201>;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 	};
 
 	keypad:kp@10010000 {
@@ -650,9 +704,6 @@
 	odm: odm {
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
-	};
-
-	pio: pinctrl {
 	};
 
 	clock_buffer_ctrl: clock_buffer_ctrl {
