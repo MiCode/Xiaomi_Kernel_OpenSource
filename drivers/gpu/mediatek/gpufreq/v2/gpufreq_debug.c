@@ -444,6 +444,7 @@ static ssize_t fix_target_opp_index_proc_write(struct file *file,
 	char buf[64];
 	unsigned int len = 0;
 	int value = 0;
+	int opp_num = -1;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {
@@ -454,7 +455,24 @@ static ssize_t fix_target_opp_index_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sscanf(buf, "%2d", &value) == 1) {
+	if (sysfs_streq(buf, "min")) {
+		if (g_dual_buck)
+			opp_num = g_debug_stack.opp_num;
+		else
+			opp_num = g_debug_gpu.opp_num;
+		if (opp_num > 0) {
+			value = opp_num - 1;
+			ret = gpufreq_fix_target_oppidx(TARGET_DEFAULT, value);
+			if (ret) {
+				GPUFREQ_LOGE("fail to fix OPP index (%d)", ret);
+			} else {
+				if (g_dual_buck)
+					g_debug_stack.fixed_oppidx = value;
+				else
+					g_debug_gpu.fixed_oppidx = value;
+			}
+		}
+	} else if (sscanf(buf, "%2d", &value) == 1) {
 		ret = gpufreq_fix_target_oppidx(TARGET_DEFAULT, value);
 		if (ret) {
 			GPUFREQ_LOGE("fail to fix OPP index (%d)", ret);
