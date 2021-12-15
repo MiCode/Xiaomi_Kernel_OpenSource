@@ -2401,6 +2401,11 @@
 				"infra-ccif5-md";
 		};
 
+		apccci_mdo1:md_power_o1 {
+			compatible = "mediatek,md_power_o1", "syscon";
+			reg = <0 0x1c001000 0 0x1000>;
+		};
+
 		mddriver:mddriver {
 			compatible = "mediatek,mddriver";
 			/* bit0~3: CLDMA|CCIF|DPMAIF */
@@ -2424,7 +2429,7 @@
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_MD>;
 			ccci-infracfg = <&infracfg_ao_clk>;
 			ccci-topckgen = <&topckgen_clk>;
-			/* ccci_spmsleep = <&sleep>; */
+			ccci_spmsleep = <&apccci_mdo1>;
 		};
 
 		md_auxadc:md_auxadc {
