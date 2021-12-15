@@ -26,10 +26,13 @@ void __ept_release(struct kref *kref)
 						  refcount);
 	struct mtk_ccd_rpmsg_endpoint *mept = to_mtk_rpmsg_endpoint(ept);
 	struct mtk_rpmsg_rproc_subdev *mtk_subdev = mept->mtk_subdev;
+	struct rpmsg_device *rpdev = ept->rpdev;
 
 	dev_info(&mtk_subdev->pdev->dev, "free mtk rpmsg endpoint: %p\n",
 		 mept);
 	kfree(to_mtk_rpmsg_endpoint(ept));
+
+	put_device(&rpdev->dev);
 }
 
 void mtk_rpmsg_ipi_handler(void *data, unsigned int len, void *priv)
@@ -109,7 +112,6 @@ static void mtk_rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
 	struct mtk_ccd_params *ccd_params;
 	struct mtk_ccd_rpmsg_endpoint *mept = to_mtk_rpmsg_endpoint(ept);
 	struct mtk_rpmsg_rproc_subdev *mtk_subdev = mept->mtk_subdev;
-	struct rpmsg_device *rpdev = ept->rpdev;
 
 	dev_info(&mtk_subdev->pdev->dev,
 		 "%s: src[%d] worker_read_rdy: %d, ccd_cmd_sent: %d\n",
@@ -144,8 +146,12 @@ static void mtk_rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
 		mutex_unlock(&ept->cb_lock);
 	}
 
+	/* make sure new inbound messages can't find this ept anymore */
+	mutex_lock(&mtk_subdev->endpoints_lock);
+	idr_remove(&mtk_subdev->endpoints, ept->addr);
+	mutex_unlock(&mtk_subdev->endpoints_lock);
+
 	kref_put(&ept->refcount, __ept_release);
-	put_device(&rpdev->dev);
 }
 
 static int mtk_rpmsg_send(struct rpmsg_endpoint *ept, void *data, int len)
@@ -179,13 +185,8 @@ static void mtk_rpmsg_release_device(struct device *dev)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
 	struct mtk_rpmsg_device *mdev = to_mtk_rpmsg_device(rpdev);
-	struct mtk_rpmsg_rproc_subdev *mtk_subdev = mdev->mtk_subdev;
 
 	dev_dbg(dev, "%s: rpdev %p\n", __func__, rpdev);
-
-	mutex_lock(&mtk_subdev->endpoints_lock);
-	idr_remove(&mtk_subdev->endpoints, rpdev->src);
-	mutex_unlock(&mtk_subdev->endpoints_lock);
 
 	kfree(mdev);
 }
