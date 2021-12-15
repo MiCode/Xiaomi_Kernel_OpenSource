@@ -22,6 +22,8 @@ Required properties:
    and reset lines used by this controller.
  - reset-names: reset signal name strings sorted in the same order as the resets
    property.
+ - usb-repeater: phandle to eUSB2 repeater which is used with eUSB2 HSPHY for USB
+   functionality.
 
 Optional properties:
  - qcom,param-override-seq: parameter override sequence with value, reg offset
@@ -29,6 +31,8 @@ Optional properties:
  - reg: Address and length of the register set for the device
    Optional regs are:
         "eud_enable_reg" : register address to read eud enable/disable status.
+ - dummy-supply: phandle to eUSB2 repeater for enforcing probe ordering for
+   eUSB2 repeater and eUSB2 PHY driver.
 
 Example:
 	hsphy@88e3000 {
@@ -38,4 +42,5 @@ Example:
 		vdda12-supply = <&pm8941_l6>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,param-override-seq = <0x43 0x70>;
+		usb-repeater= <&pm8550b_eusb2_repeater>;
 	};
