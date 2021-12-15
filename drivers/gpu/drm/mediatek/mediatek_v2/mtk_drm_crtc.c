@@ -7185,6 +7185,42 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 }
 /******************Msync 2.0 function end**********************/
 
+static void update_frame_weight(struct drm_crtc *crtc,
+		struct mtk_crtc_state *crtc_state)
+{
+	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
+	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct drm_plane *plane;
+	struct mtk_plane_state *plane_state;
+	struct mtk_plane_pending_state *pending;
+	unsigned int prop_lye_idx;
+	int phy_lay_num = 0;
+	int i;
+
+	if (drm_crtc_index(crtc) != 0)
+		return;
+
+	for (i = 0; i < OVL_LAYER_NR; i++) {
+		plane = &mtk_crtc->planes[i].base;
+		plane_state = to_mtk_plane_state(plane->state);
+		pending = &plane_state->pending;
+		if ((pending->enable == true &&
+				plane_state->comp_state.ext_lye_id == LYE_NORMAL) ||
+				((mtk_crtc->fake_layer.fake_layer_mask & BIT(i)) &&
+				i < PRIMARY_OVL_PHY_LAYER_NR))
+			phy_lay_num++;
+	}
+
+	mutex_lock(&mtk_drm->lyeblob_list_mutex);
+	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
+	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head, list) {
+		if (lyeblob_ids->lye_idx == prop_lye_idx)
+			lyeblob_ids->frame_weight = phy_lay_num * 2;
+	}
+	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
+}
+
 static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state)
 {
@@ -7296,6 +7332,8 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	}
 
 #ifdef MTK_DRM_ADVANCE
+	if (mtk_crtc->fake_layer.fake_layer_mask)
+		update_frame_weight(crtc, state);
 	mtk_crtc_update_ddp_state(crtc, old_crtc_state, state,
 				  state->cmdq_handle);
 #endif
