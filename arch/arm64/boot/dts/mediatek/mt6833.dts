@@ -938,6 +938,35 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x11d40000 0 0x1000>;
 	};
 
+
+	mmc0: mmc@11230000 {
+		compatible = "mediatek,mt6833-mmc";
+		reg = <0 0x11230000 0 0x10000>,
+		      <0 0x11f50000 0 0x1000>;
+		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&topckgen CLK_TOP_MSDC50_0_HCLK_SEL>,
+			 <&infracfg_ao CLK_IFRAO_MSDC0>,
+			 <&infracfg_ao CLK_IFRAO_MSDC0_SRC>,
+			 <&infracfg_ao CLK_IFRAO_MSDC0_AES>;
+		clock-names = "source", "hclk", "source_cg",
+			"crypto_clk";
+		status = "disabled";
+	};
+
+	mmc1: mmc@11240000 {
+		compatible = "mediatek,mt6833-mmc";
+		reg = <0 0x11240000 0 0x1000>,
+		      <0 0x11c70000 0 0x1000>;
+		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&topckgen CLK_TOP_MSDC30_1>,
+			 <&infracfg_ao CLK_IFRAO_MSDC1>,
+			 <&infracfg_ao CLK_IFRAO_MSDC1_SRC>;
+		clock-names = "source", "hclk", "source_cg";
+		status = "disabled";
+	};
+
+
+
 	iocfg_lm: iocfg_lm@11e20000 {
 		compatible = "mediatek,iocfg_lm";
 		reg = <0 0x11e20000 0 0x1000>;
@@ -951,6 +980,16 @@ page_owner=on loop.max_part=7";
 	iocfg_rt: iocfg_rt@11ea0000 {
 		compatible = "mediatek,iocfg_rt";
 		reg = <0 0x11ea0000 0 0x1000>;
+	};
+
+	msdc0_top@11f50000 {
+		compatible = "mediatek,msdc0_top";
+		reg = <0 0x11f50000 0 0x1000>;
+	};
+
+	msdc1_top@11c70000 {
+		compatible = "mediatek,msdc1_top";
+		reg = <0 0x11c70000 0 0x1000>;
 	};
 
 	gpio: gpio@10005000 {
@@ -2003,6 +2042,8 @@ page_owner=on loop.max_part=7";
 		      <0 0x10245000 0 0x1000>;
 	};
 
+	msdc1_ins:msdc1_ins {
+	};
 	ap_ccif2@1023c000 {
 		compatible = "mediatek,ap_ccif2";
 		reg = <0 0x1023c000 0 0x1000>;
@@ -5653,28 +5694,6 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
 	};
 
-	msdc0: msdc@11230000 {
-		compatible = "mediatek,msdc";
-		reg = <0 0x11230000 0 0x10000>;
-		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	msdc1: msdc@11240000 {
-		compatible = "mediatek,msdc";
-		reg = <0 0x11240000 0 0x1000>;
-		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	msdc0_top@11f50000 {
-		compatible = "mediatek,msdc0_top";
-		reg = <0 0x11f50000 0 0x1000>;
-	};
-
-	msdc1_top@11c70000 {
-		compatible = "mediatek,msdc1_top";
-		reg = <0 0x11c70000 0 0x1000>;
-	};
-
 	pmic_clock_buffer_ctrl:pmic_clock_buffer_ctrl {
 		compatible = "mediatek,pmic_clock_buffer";
 		mediatek,clkbuf-quantity = <7>;
@@ -6142,6 +6161,7 @@ page_owner=on loop.max_part=7";
 };
 
 #include "mediatek/mt6315_s3.dtsi"
+#include "mediatek/cust_mt6833_msdc.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "mediatek/trusty.dtsi"
 #endif
