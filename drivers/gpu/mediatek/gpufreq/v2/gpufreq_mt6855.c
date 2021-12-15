@@ -1715,44 +1715,35 @@ static unsigned int __gpufreq_execute_fmeter(enum gpufreq_clk_src clksrc)
 	unsigned int freq = 0;
 	int i = 0;
 
-	/* clear FMETER */
-	writel(0x0, PLL4H_FQMTR_CON0);
-
 	/* de-asset FMETER reset */
-	/* PLL4H_FQMTR_CON0 0x13FA0200 [15] CLK26CALI_0: 0 -> 1 */
-	val = readl(PLL4H_FQMTR_CON0);
-	val |= (1UL << 15);
-	writel(val, PLL4H_FQMTR_CON0);
+	/* PLL4H_FQMTR_CON0 0x13FA0200 [15] CLK26CALI_0: 1 -> 0 -> 1 */
+	writel((readl(PLL4H_FQMTR_CON0) & 0xFFFF7FFF), PLL4H_FQMTR_CON0);
+	writel((readl(PLL4H_FQMTR_CON0) | 0x00008000), PLL4H_FQMTR_CON0);
 
 	/* choose target PLL */
 	/* PLL4H_FQMTR_CON0 0x13FA0200 [2:0] FQMTR_CKSEL */
-	val = readl(PLL4H_FQMTR_CON0);
+	val = readl(PLL4H_FQMTR_CON0) & 0xFFFFFFF8;
 	if (clksrc == CLOCK_MAIN)
 		val |= FQMTR_PLL1_ID;
 	else if (clksrc == CLOCK_SUB)
 		val |= FQMTR_PLL4_ID;
 	writel(val, PLL4H_FQMTR_CON0);
 
-	/* PLL4H_FQMTR_CON1 0x13FA0204 [25:16] CKGEN_LOAD_CNT = 0x1FF */
-	val = readl(PLL4H_FQMTR_CON1);
-	val |= (0x1FF << 16);
+	/* PLL4H_FQMTR_CON1 0x13FA0204 [25:16] CKGEN_LOAD_CNT = 0x3FF */
+	val = (readl(PLL4H_FQMTR_CON1) & 0xFC00FFFF) | (0x3FF << 16);
 	writel(val, PLL4H_FQMTR_CON1);
 
 	/* PLL4H_FQMTR_CON0 0x13FA0200 [31:24] CKGEN_K1 = 0x00 */
-	val = readl(PLL4H_FQMTR_CON0);
-	val &= 0x00FFFFFF;
-	writel(val, PLL4H_FQMTR_CON0);
+	writel((readl(PLL4H_FQMTR_CON0) & 0x00FFFFFF), PLL4H_FQMTR_CON0);
 
 	/* enable FMETER */
-	/* PLL4H_FQMTR_CON0 0x13FA0200 [12] CKGEN_CLK_EXC = 1'b1 */
-	val = readl(PLL4H_FQMTR_CON0);
-	val |= (1UL << 12);
+	/* PLL4H_FQMTR_CON0 0x13FA0200 [12] FMETER_EN = 1'b1 */
+	val = (readl(PLL4H_FQMTR_CON0) & 0xFFFFEFFF) | (1UL << 12);
 	writel(val, PLL4H_FQMTR_CON0);
 
 	/* trigger FMETER, auto-clear when calibration is done */
 	/* PLL4H_FQMTR_CON0 0x13FA0200 [4] CKGEN_TRI_CAL = 1'b1 */
-	val = readl(PLL4H_FQMTR_CON0);
-	val |= (1UL << 4);
+	val = (readl(PLL4H_FQMTR_CON0) & 0xFFFFFFEF) | (1UL << 4);
 	writel(val, PLL4H_FQMTR_CON0);
 
 	/* wait FMETER calibration finish */
@@ -1768,7 +1759,7 @@ static unsigned int __gpufreq_execute_fmeter(enum gpufreq_clk_src clksrc)
 	/* read CAL_CNT and CKGEN_LOAD_CNT */
 	val = readl(PLL4H_FQMTR_CON1) & 0xFFFF;
 	/* Khz */
-	freq = ((val * 26000)) / 512;
+	freq = ((val * 26000)) / 1024;
 
 	/* reset FMETER */
 	writel(0x8000, PLL4H_FQMTR_CON0);
