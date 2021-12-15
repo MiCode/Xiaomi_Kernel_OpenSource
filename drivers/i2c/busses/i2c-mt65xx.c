@@ -1037,6 +1037,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		if (i2c->ch_offset_i2c == I2C_OFFSET_SCP) {
 			dev_dbg(i2c->dev, "Not_support_dma! msgs->len:%d,fifo_size:%d\n",
 					msgs->len, i2c->dev_comp->fifo_size);
+			if (i2c->op == I2C_MASTER_CONTINUOUS_WR)
+				kfree(msgs->buf);
 			return -EPERM;
 		}
 		isDMA = true;
@@ -1294,8 +1296,6 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		} else if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
 			dma_unmap_single(i2c->dev, wpaddr,
 					 msgs->len, DMA_TO_DEVICE);
-
-			kfree(msgs->buf);
 		} else if (i2c->op == I2C_MASTER_WRRD) {
 			dma_unmap_single(i2c->dev, wpaddr, msgs->len,
 					 DMA_TO_DEVICE);
@@ -1305,6 +1305,10 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, true);
 			i2c_put_dma_safe_msg_buf(dma_rd_buf, (msgs + 1), true);
 		}
+	}
+
+	if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
+		kfree(msgs->buf);
 	}
 
 	if (ret == 0) {
@@ -1335,7 +1339,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		}
 		return -ENXIO;
 	}
-	if ((i2c->op != I2C_MASTER_WR) && (isDMA == false)) {
+	if ((i2c->op != I2C_MASTER_WR) &&
+			(i2c->op != I2C_MASTER_CONTINUOUS_WR) && (isDMA == false)) {
 		if (i2c->op == I2C_MASTER_WRRD) {
 			data_size = (msgs + 1)->len;
 			ptr = (msgs + 1)->buf;
