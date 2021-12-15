@@ -733,7 +733,6 @@ int mt6855_init_clock(struct mtk_base_afe *afe)
 	if (IS_ERR(afe_priv->apmixed)) {
 		dev_err(afe->dev, "%s() Cannot find apmixedsys: %ld\n",
 			__func__, PTR_ERR(afe_priv->apmixed));
-		return PTR_ERR(afe_priv->apmixed);
 	}
 
 	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(afe->dev->of_node,
@@ -741,7 +740,6 @@ int mt6855_init_clock(struct mtk_base_afe *afe)
 	if (IS_ERR(afe_priv->topckgen)) {
 		dev_err(afe->dev, "%s() Cannot find topckgen controller: %ld\n",
 			__func__, PTR_ERR(afe_priv->topckgen));
-		return PTR_ERR(afe_priv->topckgen);
 	}
 
 	afe_priv->infracfg = syscon_regmap_lookup_by_phandle(
@@ -750,7 +748,6 @@ int mt6855_init_clock(struct mtk_base_afe *afe)
 	if (IS_ERR(afe_priv->infracfg)) {
 		dev_err(afe->dev, "%s() Cannot find infracfg: %ld\n",
 			__func__, PTR_ERR(afe_priv->infracfg));
-		return PTR_ERR(afe_priv->infracfg);
 	}
 
 	return 0;
