@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2013-2017 ARM Limited, All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
  */
 
@@ -26,6 +27,7 @@
 #include <linux/irqchip/arm-gic-common.h>
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/irqchip/irq-partition-percpu.h>
+
 
 #include <asm/cputype.h>
 #include <asm/exception.h>
@@ -637,6 +639,7 @@ static int __init gic_init_sys(void)
 arch_initcall(gic_init_sys);
 
 #endif
+
 
 static u64 gic_mpidr_to_affinity(unsigned long mpidr)
 {
@@ -1847,6 +1850,7 @@ static int __init gicv3_of_init(struct device_node *node, struct device_node *pa
 		goto out_unmap_rdist;
 
 	gic_populate_ppi_partitions(node);
+
 
 	if (static_branch_likely(&supports_deactivate_key))
 		gic_of_setup_kvm_info(node);

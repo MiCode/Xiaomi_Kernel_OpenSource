@@ -623,6 +623,9 @@ struct cfs_rq {
 
 	u64			exec_clock;
 	u64			min_vruntime;
+#ifdef CONFIG_PERF_HUMANTASK
+	u64			min_vruntimex;
+#endif
 #ifndef CONFIG_64BIT
 	u64			min_vruntime_copy;
 #endif

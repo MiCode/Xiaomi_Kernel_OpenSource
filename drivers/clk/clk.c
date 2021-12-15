@@ -21,7 +21,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/clkdev.h>
-
 #include "clk.h"
 
 static DEFINE_SPINLOCK(enable_lock);
@@ -107,6 +106,8 @@ struct clk {
 	struct hlist_node clks_node;
 };
 
+extern int in_panic;
+
 /***           runtime pm          ***/
 static int clk_pm_runtime_get(struct clk_core *core)
 {
@@ -134,6 +135,8 @@ static void clk_pm_runtime_put(struct clk_core *core)
 /***           locking             ***/
 static void clk_prepare_lock(void)
 {
+	if(oops_in_progress)
+		return;
 	if (!mutex_trylock(&prepare_lock)) {
 		if (prepare_owner == current) {
 			prepare_refcnt++;
@@ -149,6 +152,8 @@ static void clk_prepare_lock(void)
 
 static void clk_prepare_unlock(void)
 {
+	if(oops_in_progress)
+		return;
 	WARN_ON_ONCE(prepare_owner != current);
 	WARN_ON_ONCE(prepare_refcnt == 0);
 
@@ -163,6 +168,8 @@ static unsigned long clk_enable_lock(void)
 {
 	unsigned long flags;
 
+	if(oops_in_progress)
+		return 1;
 	/*
 	 * On UP systems, spin_trylock_irqsave() always returns true, even if
 	 * we already hold the lock. So, in that case, we rely only on
@@ -189,6 +196,9 @@ static unsigned long clk_enable_lock(void)
 static void clk_enable_unlock(unsigned long flags)
 	__releases(enable_lock)
 {
+	if(oops_in_progress)
+		return;
+
 	WARN_ON_ONCE(enable_owner != current);
 	WARN_ON_ONCE(enable_refcnt == 0);
 
@@ -922,9 +932,11 @@ static int clk_core_prepare_lock(struct clk_core *core)
 {
 	int ret;
 
-	clk_prepare_lock();
+	if (!oops_in_progress)
+		clk_prepare_lock();
 	ret = clk_core_prepare(core);
-	clk_prepare_unlock();
+	if (!oops_in_progress)
+		clk_prepare_unlock();
 
 	return ret;
 }
@@ -3423,6 +3435,8 @@ static void clock_debug_print_enabled_clocks(struct seq_file *s)
 	else
 		clock_debug_output(s, 0, "No clocks enabled.\n");
 }
+
+
 
 static int enabled_clocks_show(struct seq_file *s, void *unused)
 {

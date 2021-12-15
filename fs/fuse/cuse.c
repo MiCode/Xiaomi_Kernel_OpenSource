@@ -34,7 +34,11 @@
 
 #define pr_fmt(fmt) "CUSE: " fmt
 
+#if defined(CONFIG_PASSTHROUGH_SYSTEM) && defined(CONFIG_REGION_IS_CN)
+#include "fuse.h"
+#else
 #include <linux/fuse.h>
+#endif
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/file.h>

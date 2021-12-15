@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
@@ -104,25 +105,29 @@ static ssize_t msm_rpmh_master_stats_print_data(char *prvbuf, ssize_t length,
 				const char *name)
 {
 	uint64_t accumulated_duration = record->accumulated_duration;
+	bool is_sleep = false;
 	/*
 	 * If a master is in sleep when reading the sleep stats from SMEM
 	 * adjust the accumulated sleep duration to show actual sleep time.
 	 * This ensures that the displayed stats are real when used for
 	 * the purpose of computing battery utilization.
 	 */
-	if (record->last_entered > record->last_exited)
+	if (record->last_entered > record->last_exited) {
 		accumulated_duration +=
 				(__arch_counter_get_cntvct()
 				- record->last_entered);
+		is_sleep = true;
+	}
 
 	return scnprintf(prvbuf, length, "%s\n\tVersion:0x%x\n"
 			"\tSleep Count:0x%x\n"
 			"\tSleep Last Entered At:0x%llx\n"
 			"\tSleep Last Exited At:0x%llx\n"
-			"\tSleep Accumulated Duration:0x%llx\n\n",
+			"\tSleep Accumulated Duration:0x%llx\n"
+			"\tSleeping: %d\n\n",
 			name, record->version_id, record->counts,
 			record->last_entered, record->last_exited,
-			accumulated_duration);
+			accumulated_duration, is_sleep?1:0);
 }
 
 static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
@@ -206,6 +211,7 @@ void msm_rpmh_master_stats_update(void)
 }
 EXPORT_SYMBOL(msm_rpmh_master_stats_update);
 
+
 static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 {
 	struct rpmh_master_stats_prv_data *prvdata = NULL;
@@ -244,6 +250,7 @@ static int msm_rpmh_master_stats_probe(struct platform_device *pdev)
 
 	apss_master_stats.version_id = 0x1;
 	platform_set_drvdata(pdev, prvdata);
+
 	return ret;
 
 fail_sysfs:

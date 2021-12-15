@@ -4,6 +4,7 @@
  * Based on arch/arm/kernel/smp.c
  *
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/acpi.h>
@@ -853,13 +854,14 @@ static DEFINE_RAW_SPINLOCK(stop_lock);
 
 static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 
+int in_long_press = 0;
 static void local_cpu_stop(void)
 {
 	unsigned int cpu = smp_processor_id();
 	struct pt_regs *regs = get_irq_regs();
 
-	if (system_state == SYSTEM_BOOTING ||
-	    system_state == SYSTEM_RUNNING) {
+	if ((system_state == SYSTEM_BOOTING ||
+	    system_state == SYSTEM_RUNNING) && (!in_long_press)) {
 		per_cpu(regs_before_stop, cpu) = *regs;
 		raw_spin_lock(&stop_lock);
 		pr_crit("CPU%u: stopping\n", cpu);

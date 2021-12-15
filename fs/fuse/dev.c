@@ -1,6 +1,7 @@
 /*
   FUSE: Filesystem in Userspace
   Copyright (C) 2001-2008  Miklos Szeredi <miklos@szeredi.hu>
+  Copyright (C) 2021 XiaoMi, Inc.
 
   This program can be distributed under the terms of the GNU GPL.
   See the file COPYING.
@@ -1037,13 +1038,13 @@ __releases(fiq->lock)
 	unsigned reqsize = sizeof(ih) + sizeof(arg);
 	int err;
 
-	list_del_init(&req->intr_entry);
 	memset(&ih, 0, sizeof(ih));
 	memset(&arg, 0, sizeof(arg));
 	ih.len = reqsize;
 	ih.opcode = FUSE_INTERRUPT;
 	ih.unique = (req->in.h.unique | FUSE_INT_REQ_BIT);
 	arg.unique = req->in.h.unique;
+	list_del_init(&req->intr_entry);
 
 	spin_unlock(&fiq->lock);
 	if (nbytes < reqsize)
@@ -2262,6 +2263,22 @@ static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
 			}
 		}
 	}
+	#if defined(CONFIG_PASSTHROUGH_SYSTEM) && defined(CONFIG_REGION_IS_CN)
+	else if (cmd == FUSE_DEV_IOC_PASSTHROUGH_OPEN) {
+		struct fuse_dev *fud;
+		struct fuse_passthrough_out pto;
+
+		err = -EFAULT;
+		if (!copy_from_user(&pto,
+				    (struct fuse_passthrough_out __user *)arg,
+				    sizeof(pto))) {
+			err = -EINVAL;
+			fud = fuse_get_dev(file);
+			if (fud)
+				err = fuse_passthrough_open(fud, &pto);
+		}
+	}
+	#endif
 	return err;
 }
 

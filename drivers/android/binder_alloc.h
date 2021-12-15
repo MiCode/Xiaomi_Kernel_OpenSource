@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2017 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _LINUX_BINDER_ALLOC_H
@@ -156,6 +157,16 @@ binder_alloc_get_free_async_space(struct binder_alloc *alloc)
 	mutex_unlock(&alloc->mutex);
 	return free_async_space;
 }
+
+//MIUI ADD:
+/**
+ * binder_alloc_get_free_space() - get free space available
+ * @alloc:      binder_alloc for this proc
+ *
+ * Return:      the bytes remaining in the address-space
+*/
+size_t binder_alloc_get_free_space(struct binder_alloc *alloc);
+//END
 
 unsigned long
 binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc,

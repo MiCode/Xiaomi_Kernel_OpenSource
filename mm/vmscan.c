@@ -3,6 +3,7 @@
  *  linux/mm/vmscan.c
  *
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  *  Swap reorganised 29.12.95, Stephen Tweedie.
  *  kswapd added: 7.1.96  sct
@@ -4093,6 +4094,96 @@ void wakeup_kswapd(struct zone *zone, gfp_t gfp_flags, int order,
 				      gfp_flags);
 	wake_up_interruptible(&pgdat->kswapd_wait);
 }
+
+#ifdef CONFIG_COMPACTION
+static long reclaim_setcpuaffinity(struct task_struct *task, struct cpumask *newmask, struct cpumask *prevmask)
+{
+	long rc = -1;
+
+	if (prevmask) {
+		if (sched_getaffinity(task->pid, prevmask))
+			return rc;
+	}
+
+	if (newmask && !cpumask_equal(newmask, &task->cpus_mask)) {
+		cpumask_t cpumask_temp;
+		cpumask_and(&cpumask_temp, newmask, cpu_online_mask);
+		if (0 == cpumask_weight(&cpumask_temp))
+			return rc;
+		rc = sched_setaffinity(task->pid, newmask);
+		if (rc != 0)
+			pr_err("%s sched_setaffinity() failed", __func__);
+	}
+	return rc;
+}
+
+/*
+ * Try to free `nr_to_reclaim' of memory, system-wide, and return the number of
+ * freed pages.
+ *
+ * Rather than trying to age LRUs the aim is to preserve the overall
+ * LRU order by reclaiming preferentially
+ * inactive > active > active referenced > active mapped
+ */
+unsigned long reclaim_all_pages(unsigned long nr_to_reclaim)
+{
+	DECLARE_BITMAP(cpu_bitmap, NR_CPUS);
+	struct cpumask prevmask = {0};
+	long rc = 0;
+
+	struct scan_control sc = {
+		.nr_to_reclaim = nr_to_reclaim,
+		.gfp_mask = GFP_HIGHUSER_MOVABLE,
+		.reclaim_idx = MAX_NR_ZONES - 1,
+		.priority = DEF_PRIORITY,
+		.may_writepage = 1,
+		.may_unmap = 1,
+		.may_swap = 1,
+	};
+	struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
+	unsigned long nr_reclaimed;
+	unsigned int noreclaim_flag;
+
+	fs_reclaim_acquire(sc.gfp_mask);
+	noreclaim_flag = memalloc_noreclaim_save();
+	set_task_reclaim_state(current, &sc.reclaim_state);
+
+	cpu_bitmap[0] = 15;  // 0-3
+	rc = reclaim_setcpuaffinity(current, to_cpumask(cpu_bitmap), &prevmask);
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+	if (rc == 0) {
+		reclaim_setcpuaffinity(current, &prevmask, NULL);
+	}
+
+	set_task_reclaim_state(current, NULL);
+	memalloc_noreclaim_restore(noreclaim_flag);
+	fs_reclaim_release(sc.gfp_mask);
+
+	return nr_reclaimed;
+}
+
+/* The written value is actually unused, the number of pages is reclaimed */
+unsigned long sysctl_reclaim_pages;
+
+/*
+ * This is the entry point for compacting all nodes via
+ * /proc/sys/vm/reclaim_pages
+ */
+int sysctl_reclaim_pages_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *length, loff_t *ppos)
+{
+	int ret;
+	unsigned long nr_reclaimed;
+
+	ret = proc_doulongvec_minmax(table, write, buffer, length, ppos);
+	if (!ret && write) {
+		nr_reclaimed = reclaim_all_pages(sysctl_reclaim_pages);
+		pr_err("%s (%d): reclaim_pages: %ld %ld\n", current->comm, task_pid_nr(current), sysctl_reclaim_pages, nr_reclaimed);
+	}
+
+	return ret;
+}
+#endif
 
 #ifdef CONFIG_HIBERNATION
 /*

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
+#ifdef CONFIG_FACTORY_BUILD
+#define DEBUG
+#endif
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -166,6 +170,11 @@
 
 /* BAM pipe mask */
 #define MSM_PIPE_ID_MASK	(0x1F)
+
+#undef dev_dbg
+#undef pr_debug
+#define pr_debug pr_err
+#define dev_dbg dev_err
 
 enum dbm_reg {
 	DBM_EP_CFG,
@@ -2605,11 +2614,11 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc,
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_CLEAR_DB\n");
 		if (mdwc->gsi_reg) {
 			dwc3_msm_write_reg_field(mdwc->base,
-				GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
-				BLOCK_GSI_WR_GO_MASK, true);
+			GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
+			BLOCK_GSI_WR_GO_MASK, true);
 			dwc3_msm_write_reg_field(mdwc->base,
-				GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
-				GSI_EN_MASK, 0);
+			GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
+			GSI_EN_MASK, 0);
 		}
 		break;
 	default:
@@ -4168,6 +4177,7 @@ static int dwc3_msm_usb_set_role(struct device *dev, enum usb_role role)
 	 * previous role value to allow resetting USB controller and
 	 * PHYs.
 	 */
+
 	if (mdwc->drd_state != DRD_STATE_UNDEFINED && cur_role == role) {
 		dbg_log_string("no USB role change");
 		return 0;
@@ -5590,6 +5600,9 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 		return 0;
 
 	if (mdwc->apsd_source == IIO && chg_type != POWER_SUPPLY_TYPE_USB)
+		return 0;
+
+	if (mA < 100)
 		return 0;
 
 	/* Set max current limit in uA */

@@ -538,16 +538,6 @@ config ARM_SMMU_TESTBUS_DEBUGFS
 	  on an SMMU. This also exposes debugfs nodes to read testbus output
 	  after the output has been selected.
 
-config ARM_SMMU_SKIP_MAP_POWER_ON
-	bool "Skip power on in map/map_sg path"
-	depends on ARM_SMMU && QGKI
-	help
-	  Support for skipping domain power on in arm_smmu_map/map_sg path.
-	  This is required to be enabled if no tlb flush needs to be performed
-	  in map/map_sg path.
-
-	  If unsure, say N here.
-
 config ARM_SMMU_POWER_ALWAYS_ON
 	bool "Never remove SMMU power resource votes"
 	depends on ARM_SMMU && !QGKI

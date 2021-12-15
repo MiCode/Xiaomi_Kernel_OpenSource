@@ -174,5 +174,9 @@ config HIGH_RES_TIMERS
 	  hardware is not capable then this option only increases
 	  the size of the kernel image.
 
+config DEBUG_POWER_MI
+		bool "QGKI POWER config"
+		default n
+
 endmenu
 endif

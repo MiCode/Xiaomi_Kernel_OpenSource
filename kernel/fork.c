@@ -3,6 +3,7 @@
  *  linux/kernel/fork.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /*
@@ -2454,6 +2455,10 @@ long _do_fork(struct kernel_clone_args *args)
 		get_task_struct(p);
 	}
 
+#ifdef CONFIG_PERF_HUMANTASK
+	p->human_task = 0;
+	p->inherit_task = 0;
+#endif
 	wake_up_new_task(p);
 
 	/* forking complete and child started to run, tell ptracer */

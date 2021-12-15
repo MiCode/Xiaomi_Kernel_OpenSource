@@ -3,10 +3,15 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  */
+
+#ifdef CONFIG_FACTORY_BUILD
+#define DEBUG
+#endif
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
@@ -26,6 +31,11 @@
 #include "core.h"
 #include "gadget.h"
 #include "io.h"
+
+#undef dev_dbg
+#undef pr_debug
+#define pr_debug pr_err
+#define dev_dbg dev_err
 
 #define DWC3_ALIGN_FRAME(d, n)	(((d)->frame_number + ((d)->interval * (n))) \
 					& ~((d)->interval - 1))
@@ -273,7 +283,7 @@ static void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 {
 	struct dwc3			*dwc = dep->dwc;
 
-	list_del(&req->list);
+	list_del_init(&req->list);
 	req->remaining = 0;
 	req->needs_extra_trb = false;
 
@@ -313,7 +323,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	spin_lock(&dwc->lock);
 }
 
-#define DWC_CMD_TIMEOUT 5000
+#define DWC_CMD_TIMEOUT 6000
 /**
  * dwc3_send_gadget_generic_command - issue a generic command for the controller
  * @dwc: pointer to the controller context
@@ -933,7 +943,7 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 
 	if (pm_runtime_suspended(dwc->sysdev)) {
 		dev_err(dwc->dev, "fail ep_enable %s device is into LPM\n",
-					dep->name);
+			dep->name);
 		return -EINVAL;
 	}
 
@@ -990,6 +1000,7 @@ static struct usb_request *dwc3_gadget_ep_alloc_request(struct usb_ep *ep,
 	req->epnum	= dep->number;
 	req->dep	= dep;
 	req->status	= DWC3_REQUEST_STATUS_UNKNOWN;
+	INIT_LIST_HEAD(&req->list);
 
 	trace_dwc3_alloc_request(req);
 
@@ -1484,7 +1495,7 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep)
 		dwc3_stop_active_transfer(dep, true, true);
 
 		list_for_each_entry_safe(req, tmp, &dep->started_list, list)
-			dwc3_gadget_move_cancelled_request(req);
+			dwc3_gadget_move_cancelled_request(req, DWC3_REQUEST_STATUS_DEQUEUED);
 
 		/* If ep isn't started, then there's no end transfer pending */
 		if (!(dep->flags & DWC3_EP_END_TRANSFER_PENDING))
@@ -1805,10 +1816,21 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 	unsigned long			flags;
 	int				ret = 0;
 
+	if (!ep || !request){
+		dev_err(dwc->dev, "Unable to dequeue while no source\n");
+		return -EINVAL;
+	}
+
 	trace_dwc3_ep_dequeue(req);
 	dbg_ep_dequeue(dep->number, req);
 
 	spin_lock_irqsave(&dwc->lock, flags);
+
+	if (list_empty(&req->list)){
+		dev_err(dwc->dev, "No need to dequeue while in NULL req list\n");
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return ret;
+	}
 
 	list_for_each_entry(r, &dep->cancelled_list, list) {
 		if (r == req) {
@@ -1841,7 +1863,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 			 * cancelled.
 			 */
 			list_for_each_entry_safe(r, t, &dep->started_list, list)
-				dwc3_gadget_move_cancelled_request(r);
+				dwc3_gadget_move_cancelled_request(r, DWC3_REQUEST_STATUS_DEQUEUED);
 
 			/* If ep isn't started, then there's no end transfer
 			 * pending
@@ -1853,9 +1875,16 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 		}
 	}
 
-	dev_err_ratelimited(dwc->dev, "request %pK was not queued to %s\n",
-			request, ep->name);
-	ret = -EINVAL;
+	if(request->status == -ECONNRESET && request->actual == 0){
+		dev_err(dwc->dev, "No need to  queued request:%p to %s\n",request,ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return 0;
+	}else{
+		dev_err(dwc->dev, "dwc3_gadget_ep_dequeue return -EINVAL\n");
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
 out:
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -1870,6 +1899,12 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol)
 	struct dwc3_request			*tmp;
 	int					ret;
 
+#ifndef CONFIG_FACTORY_BUILD
+	if (dep->flags & DWC3_EP_STALL){
+		dev_dbg(dwc->dev, "Check the STALL\n");
+		return 0;
+	}
+#endif
 	if (!dep->endpoint.desc) {
 		dev_dbg(dwc->dev, "(%s)'s desc is NULL.\n", dep->name);
 		return -EINVAL;
@@ -1913,6 +1948,12 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol)
 		else
 			dep->flags |= DWC3_EP_STALL;
 	} else {
+#ifndef CONFIG_FACTORY_BUILD
+		if (!(dep->flags & DWC3_EP_STALL)){
+			dev_dbg(dwc->dev, "Do not care about the STALL\n");
+			return 0;
+		}
+#endif
 		/*
 		 * Don't issue CLEAR_STALL command to control endpoints. The
 		 * controller automatically clears the STALL when it receives
@@ -1927,7 +1968,7 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol)
 			dwc3_stop_active_transfer(dep, true, true);
 
 			list_for_each_entry_safe(req, tmp, &dep->started_list, list)
-				dwc3_gadget_move_cancelled_request(req);
+			    dwc3_gadget_move_cancelled_request(req, DWC3_REQUEST_STATUS_STALLED);
 
 			if (dep->flags & DWC3_EP_END_TRANSFER_PENDING) {
 				dep->flags |= DWC3_EP_PENDING_CLEAR_STALL;
@@ -2505,8 +2546,8 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	dwc->softconnect = is_on;
 
 	if (((dwc->dr_mode > USB_DR_MODE_HOST) && !dwc->vbus_active)
-			|| !dwc->gadget_driver || (dwc->err_evt_seen &&
-				dwc->softconnect)) {
+		|| !dwc->gadget_driver || (dwc->err_evt_seen &&
+		dwc->softconnect)) {
 		/*
 		 * Need to wait for vbus_session(on) from otg driver or to
 		 * the udc_start.
@@ -3987,8 +4028,8 @@ static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
 {
 	enum dwc3_link_state next = evtinfo & DWC3_LINK_STATE_MASK;
 
-	dbg_event(0xFF, "SUSPEND INT", next);
-	dev_dbg(dwc->dev, "%s Entry to %d\n", __func__, next);
+	/* dbg_event(0xFF, "SUSPEND INT", next);
+	dev_dbg(dwc->dev, "%s Entry to %d\n", __func__, next); */
 
 	if (dwc->link_state != next && next == DWC3_LINK_STATE_U3) {
 		/*

@@ -87,6 +87,9 @@ static inline unsigned long compact_gap(unsigned int order)
 extern int sysctl_compact_memory;
 extern int sysctl_compaction_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *length, loff_t *ppos);
+extern unsigned long sysctl_reclaim_pages;
+extern int sysctl_reclaim_pages_handler(struct ctl_table *table, int write,
+            void __user *buffer, size_t *length, loff_t *ppos);
 extern int sysctl_extfrag_threshold;
 extern int sysctl_compact_unevictable_allowed;
 

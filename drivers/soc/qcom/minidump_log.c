@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/cache.h>
@@ -1001,9 +1002,10 @@ dump_rq:
 #endif
 	if (md_meminfo_seq_buf)
 		md_dump_meminfo();
-
+#if defined(CONFIG_SLAB) || defined(CONFIG_SLUB_DEBUG)
 	if (md_slabinfo_seq_buf)
 		md_dump_slabinfo();
+#endif
 
 #ifdef CONFIG_SLUB_DEBUG
 	if (md_slabowner_dump_addr)
@@ -1076,6 +1078,7 @@ err_seq_buf:
 	return ret;
 }
 
+#if defined (CONFIG_PAGE_OWNER) || defined (CONFIG_SLUB_DEBUG)
 static bool md_register_memory_dump(int size, char *name)
 {
 	void *buffer_start;
@@ -1175,6 +1178,7 @@ static void update_dump_size(char *name, size_t size,
 		pr_err_ratelimited("Failed to unregister %s Minidump\n", name);
 	}
 }
+#endif
 
 #ifdef CONFIG_PAGE_OWNER
 static DEFINE_MUTEX(page_owner_dump_size_lock);

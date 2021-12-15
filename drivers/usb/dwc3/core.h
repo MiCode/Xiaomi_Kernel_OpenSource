@@ -3,6 +3,7 @@
  * core.h - DesignWare USB3 DRD Core Header
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -989,6 +990,11 @@ struct dwc3_request {
 #define DWC3_REQUEST_STATUS_CANCELLED	2
 #define DWC3_REQUEST_STATUS_COMPLETED	3
 #define DWC3_REQUEST_STATUS_UNKNOWN	-1
+
+/* Add the suitable Feedback status to interface*/
+#define DWC3_REQUEST_STATUS_DISCONNECTED	6
+#define DWC3_REQUEST_STATUS_DEQUEUED		5
+#define DWC3_REQUEST_STATUS_STALLED		4
 
 	u8			epnum;
 	struct dwc3_trb		*trb;
