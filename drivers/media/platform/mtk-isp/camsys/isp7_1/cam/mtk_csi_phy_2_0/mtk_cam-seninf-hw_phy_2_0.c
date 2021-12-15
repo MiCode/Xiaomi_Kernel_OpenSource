@@ -1394,9 +1394,10 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	int bit_per_pixel;
 	u64 data_rate;
 
-	settle_delay_dt = ctx->is_cphy ? ctx->core->cphy_settle_delay_dt :
-		ctx->core->dphy_settle_delay_dt;
+	settle_delay_dt = ctx->is_cphy ? ctx->cphy_settle_delay_dt :
+		ctx->dphy_settle_delay_dt;
 
+	/* settle delay */
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_CDPHY_RX_LD0_TRIO0_HS_SETTLE_PARAMETER,
 		    settle_delay_dt);
@@ -1410,16 +1411,18 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		    RG_CDPHY_RX_LD3_TRIO3_HS_SETTLE_PARAMETER,
 		    settle_delay_dt);
 
-	settle_delay_ck = ctx->core->settle_delay_ck;
+	settle_delay_ck = ctx->settle_delay_ck;
 
-	SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
-		    RG_DPHY_RX_LC0_HS_SETTLE_PARAMETER,
-		    settle_delay_ck);
-	SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
-		    RG_DPHY_RX_LC1_HS_SETTLE_PARAMETER,
-		    settle_delay_ck);
+/*	align legacy phy setting: no need to set clock lane settle
+ *	SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
+ *			RG_DPHY_RX_LC0_HS_SETTLE_PARAMETER,
+ *			settle_delay_ck);
+ *	SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
+ *			RG_DPHY_RX_LC1_HS_SETTLE_PARAMETER,
+ *			settle_delay_ck);
+ */
 
-	/*Settle delay by lane*/
+	/* Settle delay by lane */
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_CDPHY_RX_LD0_TRIO0_HS_PREPARE_PARAMETER, 2);
 	SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
