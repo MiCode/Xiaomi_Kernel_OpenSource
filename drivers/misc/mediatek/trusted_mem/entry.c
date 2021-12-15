@@ -618,8 +618,8 @@ int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 	ret = KREE_TeeServiceCall(session, TZCMD_MEM_Query_SECUREMEM_INFO,
 			TZ_ParamTypes2(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT), p);
 	if (ret != TZ_RESULT_SUCCESS) {
-		pr_info("[%s] query pa Fail(0x%x)\n", __func__, ret);
-		return ret;
+		pr_info("[%s] KREE_TeeServiceCall query pa Fail(0x%x)\n", __func__, ret);
+		return TMEM_MTEE_QUERY_PA_FAIL;
 	}
 
 	*phy_addr = (uint64_t)p[1].value.a << SECMEM_64BIT_PHYS_SHIFT;
