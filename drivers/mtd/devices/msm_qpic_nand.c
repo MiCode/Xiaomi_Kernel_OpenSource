@@ -20,36 +20,6 @@
 #define ONE_CODEWORD_SIZE 516
 
 static struct device *dev_node;
-static int msm_nand_bam_panic_notifier(struct notifier_block *this,
-					unsigned long event, void *ptr)
-{
-	struct msm_nand_info *info = dev_get_drvdata(dev_node);
-
-	pr_info("Dumping APSS bam pipes register dumps\n");
-	sps_get_bam_debug_info(info->sps.bam_handle, 93,
-			(SPS_BAM_PIPE(0) |
-			 SPS_BAM_PIPE(1) |
-			 SPS_BAM_PIPE(2) |
-			 SPS_BAM_PIPE(3)),
-			 0, 2);
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block msm_nand_bam_panic_blk = {
-	.notifier_call = msm_nand_bam_panic_notifier,
-};
-
-void msm_nand_bam_register_panic_handler(void)
-{
-	atomic_notifier_chain_register(&panic_notifier_list,
-			&msm_nand_bam_panic_blk);
-}
-
-void msm_nand_bam_unregister_panic_handler(void)
-{
-	atomic_notifier_chain_unregister(&panic_notifier_list,
-					&msm_nand_bam_panic_blk);
-}
 
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
@@ -4368,6 +4338,46 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	return 0;
 out:
 	return -EINVAL;
+}
+
+static int msm_nand_bam_panic_notifier(struct notifier_block *this,
+					unsigned long event, void *ptr)
+{
+	struct msm_nand_info *info = dev_get_drvdata(dev_node);
+	struct msm_nand_chip *chip = &info->nand_chip;
+	int err;
+
+	err = msm_nand_get_device(chip->dev);
+	if (err)
+		goto out;
+	pr_info("Dumping APSS bam pipes register dumps\n");
+	sps_get_bam_debug_info(info->sps.bam_handle, 93,
+			(SPS_BAM_PIPE(0) |
+			 SPS_BAM_PIPE(1) |
+			 SPS_BAM_PIPE(2) |
+			 SPS_BAM_PIPE(3)),
+			 0, 2);
+	err = msm_nand_put_device(chip->dev);
+out:
+	if (err)
+		pr_err("Failed to get/put the device.\n");
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block msm_nand_bam_panic_blk = {
+	.notifier_call = msm_nand_bam_panic_notifier,
+};
+
+void msm_nand_bam_register_panic_handler(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&msm_nand_bam_panic_blk);
+}
+
+void msm_nand_bam_unregister_panic_handler(void)
+{
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					&msm_nand_bam_panic_blk);
 }
 
 #define BOOT_DEV_MASK 0x1E
