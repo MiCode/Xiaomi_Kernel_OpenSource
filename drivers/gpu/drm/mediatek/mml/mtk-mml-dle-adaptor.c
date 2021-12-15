@@ -4,6 +4,8 @@
  * Author: Ping-Hsun Wu <ping-hsun.wu@mediatek.com>
  */
 
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <mtk_drm_drv.h>
 
 #include "mtk-mml-dle-adaptor.h"
@@ -32,6 +34,8 @@ struct mml_dle_ctx {
 	atomic_t job_serial;
 	struct workqueue_struct *wq_config;
 	struct workqueue_struct *wq_destroy;
+	struct kthread_worker kt_done;
+	struct task_struct *kt_done_task;
 	bool dl_dual;
 	void (*config_cb)(struct mml_task *task, void *cb_param);
 	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
@@ -165,6 +169,7 @@ static struct mml_frame_config *frame_config_create(
 	cfg->disp_dual = ctx->dl_dual;
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
+	cfg->ctx_kt_done = &ctx->kt_done;
 	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
 
 	return cfg;
@@ -660,12 +665,28 @@ static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
 					  struct mml_dle_param *dl)
 {
 	struct mml_dle_ctx *ctx;
+	struct task_struct *taskdone_task;
+	struct sched_param kt_param = { .sched_priority = MAX_RT_PRIO - 1 };
+	int ret;
 
 	mml_msg("[dle]%s on dev %p", __func__, mml);
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
+
+	/* create taskdone kthread first cause it is more easy for fail case */
+	kthread_init_worker(&ctx->kt_done);
+	taskdone_task = kthread_run(kthread_worker_fn, &ctx->kt_done, "mml_dle_done");
+	if (IS_ERR(taskdone_task)) {
+		mml_err("[dle]fail to create kt taskdone %d", (s32)PTR_ERR(taskdone_task));
+		kfree(ctx);
+		return ERR_PTR(-EIO);
+	}
+	ctx->kt_done_task = taskdone_task;
+	ret = sched_setscheduler(ctx->kt_done_task, SCHED_FIFO, &kt_param);
+	if (ret < 0)
+		mml_log("[dle]%s set kt done prio fail %d", __func__, ret);
 
 	INIT_LIST_HEAD(&ctx->configs);
 	mutex_init(&ctx->config_mutex);
@@ -709,6 +730,9 @@ static void dle_ctx_release(struct mml_dle_ctx *ctx)
 	mutex_unlock(&ctx->config_mutex);
 	destroy_workqueue(ctx->wq_destroy);
 	destroy_workqueue(ctx->wq_config);
+	kthread_flush_worker(&ctx->kt_done);
+	kthread_stop(ctx->kt_done_task);
+	kthread_destroy_worker(&ctx->kt_done);
 	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
 		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
 			kfree(ctx->tile_cache[i].func_list[j]);

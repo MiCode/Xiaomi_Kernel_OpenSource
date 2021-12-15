@@ -9,6 +9,8 @@
 #include <linux/module.h>
 #include <linux/sync_file.h>
 #include <linux/time64.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <mtk_sync.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
@@ -43,6 +45,8 @@ struct mml_drm_ctx {
 	atomic_t job_serial;
 	struct workqueue_struct *wq_config[MML_PIPE_CNT];
 	struct workqueue_struct *wq_destroy;
+	struct kthread_worker kt_done;
+	struct task_struct *kt_done_task;
 	struct sync_timeline *timeline;
 	bool disp_dual;
 	bool disp_vdo;
@@ -359,6 +363,7 @@ static struct mml_frame_config *frame_config_create(
 	cfg->ctx = ctx;
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
+	cfg->ctx_kt_done = &ctx->kt_done;
 	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
 	kref_init(&cfg->ref);
 
@@ -992,12 +997,28 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 					  struct mml_drm_param *disp)
 {
 	struct mml_drm_ctx *ctx;
+	struct task_struct *taskdone_task;
+	struct sched_param kt_param = { .sched_priority = MAX_RT_PRIO - 1 };
+	int ret;
 
 	mml_msg("[drm]%s on dev %p", __func__, mml);
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
+
+	/* create taskdone kthread first cause it is more easy for fail case */
+	kthread_init_worker(&ctx->kt_done);
+	taskdone_task = kthread_run(kthread_worker_fn, &ctx->kt_done, "mml_drm_done");
+	if (IS_ERR(taskdone_task)) {
+		mml_err("[drm]fail to create kt taskdone %d", (s32)PTR_ERR(taskdone_task));
+		kfree(ctx);
+		return ERR_PTR(-EIO);
+	}
+	ctx->kt_done_task = taskdone_task;
+	ret = sched_setscheduler(ctx->kt_done_task, SCHED_FIFO, &kt_param);
+	if (ret < 0)
+		mml_log("[drm]%s set kt done prio fail %d", __func__, ret);
 
 	INIT_LIST_HEAD(&ctx->configs);
 	mutex_init(&ctx->config_mutex);
@@ -1075,6 +1096,9 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 	destroy_workqueue(ctx->wq_destroy);
 	destroy_workqueue(ctx->wq_config[0]);
 	destroy_workqueue(ctx->wq_config[1]);
+	kthread_flush_worker(&ctx->kt_done);
+	kthread_stop(ctx->kt_done_task);
+	kthread_destroy_worker(&ctx->kt_done);
 	mtk_sync_timeline_destroy(ctx->timeline);
 	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
 		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
