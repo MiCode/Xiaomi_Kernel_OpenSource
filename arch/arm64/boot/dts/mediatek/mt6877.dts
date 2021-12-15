@@ -421,19 +421,12 @@
 		#size-cells = <2>;
 		ranges;
 
-		reserve-memory-ssmr {
-			compatible = "mediatek,reserve-memory-ssmr";
-			no-map;
-			size = <0 0x1000>;
-			alignment = <0 0x1000>;
-			alloc-ranges = <0 0xc0000000 4 0x00000000>;
-		};
-
-		zmc-default {
-			compatible = "mediatek,zone_movable_cma";
-			size = <0 0x35000000>;
+		ssmr_cma_mem: ssmr-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
 			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0xc0000000 4 0x00000000>;
+			alloc-range = <0 0xc0000000 0 0x10000000>;
 		};
 
 		reserve-memory-mcupm_share {
@@ -1441,6 +1434,11 @@
 
 	gpio_usage_mapping:gpio_usage_mapping {
 		compatible = "mediatek,gpio_usage_mapping";
+	};
+
+	ssmr {
+		compatible = "mediatek,trusted_mem";
+		memory-region = <&ssmr_cma_mem>;
 	};
 
 	radio_md_cfg:radio_md_cfg {
