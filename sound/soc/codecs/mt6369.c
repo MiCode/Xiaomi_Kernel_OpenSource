@@ -1714,7 +1714,7 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* Enable audio ADC CLKGEN */
-		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON24,
+		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
 				   RG_RSTB_ENCODER_VA28_MASK_SFT,
 				   0x1 << RG_RSTB_ENCODER_VA28_SFT);
 
@@ -1766,7 +1766,7 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON6,
 				   RG_AUDADCCLKSEL_MASK_SFT,
 				   0x0 << RG_AUDADCCLKSEL_SFT);
-		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON24,
+		regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON24,
 				   RG_RSTB_ENCODER_VA28_MASK_SFT,
 				   0x0 << RG_RSTB_ENCODER_VA28_SFT);
 		break;
@@ -3339,7 +3339,6 @@ static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("AIN0"),
 	SND_SOC_DAPM_INPUT("AIN1"),
 	SND_SOC_DAPM_INPUT("AIN2"),
-	SND_SOC_DAPM_INPUT("AIN3"),
 
 	SND_SOC_DAPM_INPUT("AIN0_DMIC"),
 	SND_SOC_DAPM_INPUT("AIN2_DMIC"),
@@ -3531,7 +3530,6 @@ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
 
 	{"PGA_R_Mux", "AIN0", "AIN0"},
 	{"PGA_R_Mux", "AIN2", "AIN2"},
-	{"PGA_R_Mux", "AIN3", "AIN3"},
 
 	{"AIN0", NULL, "MIC_BIAS_0"},
 	{"AIN1", NULL, "MIC_BIAS_1"},
