@@ -154,6 +154,7 @@
 
 		gcc_enable = <1>;
 		fbt_cpu_mask = <255 192 63 63>;
+		sbe_resceue_enable = <1>;
 	};
 
 	infracfg_ao_clk: syscon@10001000 {
