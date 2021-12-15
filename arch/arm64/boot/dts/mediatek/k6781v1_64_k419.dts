@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2016 MediaTek Inc.
  */
@@ -297,7 +297,7 @@
 #endif
 
 
-#include <k6781v1_64/cust.dtsi>
+#include <k6781v1_64_k419/cust.dtsi>
 #include "mediatek/cust_mt6781_camera.dtsi"
 #include "mediatek/cust_mt6781_touch_1080x2300.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
