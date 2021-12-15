@@ -4524,9 +4524,9 @@
 				 <&topckgen_clk CLK_TOP_CAMTM_SEL>;
 			clock-names = "CAMSYS_CAM_CGPDN",
 				      "CAMSYS_CAMTG_CGPDN",
-				      "CAMSYS_CAMSV0_CGPDN",
 				      "CAMSYS_CAMSV1_CGPDN",
 				      "CAMSYS_CAMSV2_CGPDN",
+				      "CAMSYS_CAMSV3_CGPDN",
 				      "CAMSYS_LARB13_CGPDN",
 				      "CAMSYS_LARB14_CGPDN",
 				      "CAMSYS_CCU0_CGPDN",
@@ -4590,8 +4590,6 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,cam3_legacy";
 			reg = <0 0x1a070000 0 0x8000>;
-			power-domains = <&scpsys MT6853_POWER_DOMAIN_CAM_RAWB>;
-			mediatek,larb = <&larb18>;
 		};
 
 		cam3_inner_legacy@1a078000 {
@@ -4607,44 +4605,44 @@
 			#clock-cells = <1>;
 		};
 
-		camsv3_legacy@1a092000 {
+		camsv2_legacy@1a092000 {
 			/* non-v4l2 legacy camera */
-			compatible = "mediatek,camsv3_legacy";
+			compatible = "mediatek,camsv2_legacy";
 			reg = <0 0x1a092000 0 0x1000>;
 			interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		camsv4_legacy@1a093000 {
+		camsv3_legacy@1a093000 {
 			/* non-v4l2 legacy camera */
-			compatible = "mediatek,camsv4_legacy";
+			compatible = "mediatek,camsv3_legacy";
 			reg = <0 0x1a093000 0 0x1000>;
 			interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		camsv5_legacy@1a094000 {
+		camsv4_legacy@1a094000 {
 			/* non-v4l2 legacy camera */
-			compatible = "mediatek,camsv5_legacy";
+			compatible = "mediatek,camsv4_legacy";
 			reg = <0 0x1a094000 0 0x1000>;
 			interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		camsv6_legacy@1a095000 {
+		camsv5_legacy@1a095000 {
 			/* non-v4l2 legacy camera */
-			compatible = "mediatek,camsv6_legacy";
+			compatible = "mediatek,camsv5_legacy";
 			reg = <0 0x1a095000 0 0x1000>;
 			interrupts = <GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		camsv7_legacy@1a096000 {
+		camsv6_legacy@1a096000 {
 			/* non-v4l2 legacy camera */
-			compatible = "mediatek,camsv7_legacy";
+			compatible = "mediatek,camsv6_legacy";
 			reg = <0 0x1a096000 0 0x1000>;
 			interrupts = <GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		camsv8_legacy@1a097000 {
+		camsv7_legacy@1a097000 {
 			/* non-v4l2 legacy camera */
-			compatible = "mediatek,camsv8_legacy";
+			compatible = "mediatek,camsv7_legacy";
 			reg = <0 0x1a097000 0 0x1000>;
 			interrupts = <GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
