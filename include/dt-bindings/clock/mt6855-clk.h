@@ -244,18 +244,25 @@
 
 /* IMP_IIC_WRAP */
 #define CLK_IMP_AP_CLOCK_I2C11				0
-#define CLK_IMP_AP_CLOCK_I2C0				1
-#define CLK_IMP_AP_CLOCK_I2C1				2
-#define CLK_IMP_AP_CLOCK_I2C2				3
-#define CLK_IMP_AP_CLOCK_I2C4				4
-#define CLK_IMP_AP_CLOCK_I2C9				5
-#define CLK_IMP_AP_CLOCK_I2C3				6
-#define CLK_IMP_AP_CLOCK_I2C6				7
-#define CLK_IMP_AP_CLOCK_I2C7				8
-#define CLK_IMP_AP_CLOCK_I2C8				9
-#define CLK_IMP_AP_CLOCK_I2C10				10
-#define CLK_IMP_AP_CLOCK_I2C5				11
-#define CLK_IMP_NR_CLK					12
+#define CLK_IMP0_NR_CLK					1
+
+#define CLK_IMP_AP_CLOCK_I2C5				0
+#define CLK_IMP3_NR_CLK					1
+
+#define CLK_IMP_AP_CLOCK_I2C3				0
+#define CLK_IMP_AP_CLOCK_I2C6				1
+#define CLK_IMP_AP_CLOCK_I2C7				2
+#define CLK_IMP_AP_CLOCK_I2C8				3
+#define CLK_IMP_AP_CLOCK_I2C10				4
+#define CLK_IMP2_NR_CLK					5
+
+#define CLK_IMP_AP_CLOCK_I2C1				0
+#define CLK_IMP_AP_CLOCK_I2C2				1
+#define CLK_IMP_AP_CLOCK_I2C4				2
+#define CLK_IMP_AP_CLOCK_I2C9				3
+#define CLK_IMP_AP_CLOCK_I2C0				4
+#define CLK_IMP1_NR_CLK					5
+
 
 /* PERICFG_AO */
 #define CLK_PERAOP_UART0				0
