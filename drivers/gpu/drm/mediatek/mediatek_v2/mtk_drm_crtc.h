@@ -433,6 +433,7 @@ enum MTK_CRTC_COLOR_FMT {
 	EXPR(CLIENT_SODI_LOOP)                                                 \
 	EXPR(CLIENT_SUB_CFG)                                                   \
 	EXPR(CLIENT_DSI_CFG)                                                   \
+	EXPR(CLIENT_SEC_CFG)                                                   \
 	EXPR(CLIENT_TYPE_MAX)
 
 enum CRTC_GCE_CLIENT_TYPE { DECLARE_GCE_CLIENT(DECLARE_NUM) };
@@ -684,6 +685,7 @@ struct mtk_drm_crtc {
 	struct mtk_crtc_gce_obj gce_obj;
 	struct cmdq_pkt *trig_loop_cmdq_handle;
 	struct cmdq_pkt *sodi_loop_cmdq_handle;
+	struct cmdq_pkt *sec_cmdq_handle;
 	struct mtk_drm_plane *planes;
 	unsigned int layer_nr;
 	bool pending_planes;
@@ -803,6 +805,9 @@ struct mtk_drm_crtc {
 
 	atomic_t signal_irq_for_pre_fence;
 	wait_queue_head_t signal_irq_for_pre_fence_wq;
+
+	u32 tzmp_disp_sec_wait;
+	u32 tzmp_disp_sec_set;
 };
 
 struct mtk_crtc_state {

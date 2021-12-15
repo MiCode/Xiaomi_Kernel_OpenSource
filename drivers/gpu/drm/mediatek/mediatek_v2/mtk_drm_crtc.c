@@ -8802,6 +8802,15 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 	/* mtk_crtc_init_color_matrix_data_slot(mtk_crtc); */
 
 	mtk_crtc->gce_obj.base = cmdq_register_device(dev);
+
+	if (mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]) {
+		of_property_read_u32(dev->of_node, "sw_sync_token_tzmp_disp_wait",
+					&(mtk_crtc->tzmp_disp_sec_wait));
+		of_property_read_u32(dev->of_node, "sw_sync_token_tzmp_disp_set",
+					&(mtk_crtc->tzmp_disp_sec_set));
+		DDPMSG("tzmp_disp_sec_wait %d tzmp_disp_sec_set %d\n",
+					mtk_crtc->tzmp_disp_sec_wait, mtk_crtc->tzmp_disp_sec_set);
+	}
 #endif
 }
 
