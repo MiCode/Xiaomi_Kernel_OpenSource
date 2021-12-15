@@ -1050,6 +1050,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 			 * point, so call flush decode here
 			 */
 			mtk_vdec_reset_decoder(ctx, 1, NULL);
+			if (ctx->input_driven != NON_INPUT_DRIVEN)
+				*(ctx->ipi_blocked) = true;
 			/*
 			 * After all buffers containing decoded frames from
 			 * before the resolution change point ready to be
@@ -2654,6 +2656,9 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	//SET_PARAM_TOTAL_FRAME_BUFQ_COUNT for SW DEC
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (ctx->input_driven != NON_INPUT_DRIVEN)
+			*(ctx->ipi_blocked) = false;
+
 		total_frame_bufq_count = q->num_buffers;
 		if (vdec_if_set_param(ctx,
 			SET_PARAM_TOTAL_FRAME_BUFQ_COUNT,
@@ -2681,7 +2686,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
-;
+
 	ctx->input_max_ts = 0;
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {

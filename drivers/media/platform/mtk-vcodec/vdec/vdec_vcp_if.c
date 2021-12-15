@@ -307,12 +307,12 @@ static void handle_vdec_mem_alloc(struct vdec_vcu_ipi_mem_op *msg)
 		if (IS_ERR_OR_NULL(vcu))
 			return;
 
-		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
-			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
-
 		inst = container_of(vcu, struct vdec_inst, vcu);
 		dev = get_dev_by_mem_type(inst, &msg->mem);
 		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev, &attach, &sgt);
+
+		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
+			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 	}
 
 	/* check memory bound */
