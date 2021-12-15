@@ -3081,7 +3081,6 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 	bool selected = false;
 	int m;
 
-	pipe->enabled_raw = 0;
 	raw_status = mtk_raw_available_resource(pipe->raw);
 
 	if (mtk_cam_is_stagger(ctx)) {
