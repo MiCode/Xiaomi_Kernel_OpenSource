@@ -2630,6 +2630,16 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	struct drm_crtc *crtc = encoder->crtc;
 	int index = drm_crtc_index(crtc);
 	int data = MTK_DISP_BLANK_POWERDOWN;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	//Temp workaround for MT6855 suspend/resume issue
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6855:
+		DDPMSG("%s force return\n", __func__);
+		return;
+	default:
+		break;
+	}
 
 	CRTC_MMP_EVENT_START(index, dsi_suspend,
 			(unsigned long)crtc, index);
