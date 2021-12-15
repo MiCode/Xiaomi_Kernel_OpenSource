@@ -20,7 +20,12 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/mcdi_v1/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+#for mt6768
+ifeq ($(CONFIG_MACH_MT6768),y))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/$(CONFIG_MTK_PLATFORM)/
 
 obj-y += mtk_mcdi_main.o

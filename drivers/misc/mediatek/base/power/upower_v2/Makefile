@@ -29,7 +29,12 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(platform)/include/mach	\
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
+#for mt6768
+ifeq ($(CONFIG_MACH_MT6768),y))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(platform)
 ccflags-y += -I$(srctree)/drivers/devfreq
 endif

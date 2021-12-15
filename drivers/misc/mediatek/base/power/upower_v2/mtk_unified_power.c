@@ -28,7 +28,11 @@
 #endif
 
 #if UPOWER_ENABLE_TINYSYS_SSPM
+#if defined(CONFIG_MACH_MT6768)
+#include <sspm_reservedmem_define.h>
+#else
 #include <sspm_reservedmem_define_mt6779.h>
+#endif
 #endif
 
 #ifndef EARLY_PORTING_SPOWER
