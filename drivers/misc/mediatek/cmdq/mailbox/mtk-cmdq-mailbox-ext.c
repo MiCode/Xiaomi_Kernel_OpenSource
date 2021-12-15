@@ -1146,6 +1146,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	bool secure_irq = false;
 	u64 start = sched_clock(), end[4];
 	u32 end_cnt = 0, thd_cnt = 0;
+	static u8 time;
 
 	if (atomic_read(&cmdq->usage) == -1)
 		cmdq_util_aee("CMDQ", "%s irq:%d cmdq:%pa suspend:%d usage:%d",
@@ -1211,7 +1212,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	wake_up_interruptible(&cmdq->err_irq_wq);
 
 	end[end_cnt] = sched_clock();
-	if (end[end_cnt] - start >= 1000000) { /* 1ms */
+	if (end[end_cnt] - start >= 1000000 && !time) { /* 1ms */
 		cmdq_util_err(
 			"IRQ_LONG:%llu atomic:%llu readl:%llu bit:%llu wakeup:%llu",
 			end[end_cnt] - start, end[0] - start,
@@ -1232,6 +1233,9 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 				(thread + 7)->irq_time, (thread + 7)->irq_task);
 		}
 	}
+
+	if (end[end_cnt] - start >= 1000000)
+		time += 1;
 
 	return secure_irq ? IRQ_NONE : IRQ_HANDLED;
 }
