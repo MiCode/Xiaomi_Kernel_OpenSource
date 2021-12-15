@@ -109,9 +109,8 @@ def main(**args):
         print 'Please check whether ' + project_defconfig + ' defined CONFIG_BUILD_CONFIG_FILE.'
         sys.exit(2)
 
-    file_text.append("PATH=${ROOT_DIR}/../prebuilts/perl/linux-x86/bin:${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/bin:/usr/bin:/bin:$PATH")
+    file_text.append("PATH=${ROOT_DIR}/../prebuilts/perl/linux-x86/bin:${ROOT_DIR}/build/build-tools/path/linux-x86:/usr/bin:/bin")
     file_text.append("MAKE_GOALS=\"all\"")
-    file_text.append("HERMETIC_TOOLCHAIN=")
     file_text.append("TRIM_NONLISTED_KMI=")
     file_text.append("KMI_SYMBOL_LIST_STRICT_MODE=")
     file_text.append("MODULES_ORDER=")
@@ -195,6 +194,7 @@ def main(**args):
     file_handle.write(build_config_fragments + '"\n')
     file_handle.write('if [ "x${ENABLE_GKI_CHECKER}" == "xtrue" ] || [ -d "${ROOT_DIR}/../vendor/mediatek/internal" ] && [ "${KERNEL_BUILD_MODE}" == "user" ]; then\n')
     file_handle.write('  BUILD_CONFIG_FRAGMENTS="${BUILD_CONFIG_FRAGMENTS} ${KERNEL_DIR}/build.config.mtk.check_gki"\n')
+    file_handle.write('  ADDITIONAL_HOST_TOOLS="${ADDITIONAL_HOST_TOOLS} strings less"\n')
     file_handle.write('fi\n')
     file_handle.close()
 
