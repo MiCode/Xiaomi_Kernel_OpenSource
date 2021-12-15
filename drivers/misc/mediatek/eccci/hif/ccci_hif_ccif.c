@@ -1812,10 +1812,20 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 {
 	int i;
 	struct ccci_smem_region *region;
+	int reset_bit = -1;
 
-	{
-		int reset_bit = -1;
+	CCCI_NORMAL_LOG(md_id, TAG, "%s, ccif_hw_reset_ver = %d\n",
+			__func__, md_ctrl->ccif_hw_reset_ver);
 
+	if (md_ctrl->ccif_hw_reset_ver == 1) {
+		reset_bit = 26;
+
+		/* set ccif0 reset bit */
+		ccci_write32(md_ctrl->infracfg_base, 0xF50, 1 << reset_bit);
+
+		/* set ccif0 reset bit */
+		ccci_write32(md_ctrl->infracfg_base, 0xF54, 1 << reset_bit);
+	} else {
 		switch (ccif_id) {
 		case AP_MD1_CCIF:
 			reset_bit = 8;
@@ -2246,6 +2256,26 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"irq_set_irq_wake ccif ap_ccif_irq0_id(%d) error %d\n",
 			md_ctrl->ap_ccif_irq0_id, ret);
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,ccif_hw_reset_ver",
+			&md_ctrl->ccif_hw_reset_ver);
+	if (ret < 0)
+		md_ctrl->ccif_hw_reset_ver = 0;
+
+	if (md_ctrl->ccif_hw_reset_ver == 1) {
+		node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg");
+
+		if (node) {
+			md_ctrl->infracfg_base = of_iomap(node, 0);
+			if (!md_ctrl->infracfg_base) {
+				CCCI_ERROR_LOG(-1, TAG,
+					"infracfg_base fail: 0x%p!\n");
+				return -8;
+			}
+		}
+	}
+	CCCI_DEBUG_LOG(-1, TAG, "ccif_hw_reset_ver:%d\n", md_ctrl->ccif_hw_reset_ver);
+
 	return 0;
 
 }
