@@ -22,11 +22,11 @@
 #define APLL2_CON4 0x034c
 #define APLL2_TUNER_CON0 0x0044
 
-#define CLK_CFG_6 0x0070
-#define CLK_CFG_7 0x0080
+#define CLK_CFG_5 0x0060
+#define CLK_CFG_8 0x0090
+#define CLK_CFG_9 0x00a0
 #define CLK_CFG_10 0x00b0
 #define CLK_CFG_11 0x00c0
-#define CLK_CFG_13 0x00e0
 #define CLK_CFG_UPDATE 0x004
 #define CLK_CFG_UPDATE1 0x008
 
@@ -35,7 +35,6 @@
 #define CLK_AUDDIV_2 0x0328
 #define CLK_AUDDIV_3 0x0334
 #define CLK_AUDDIV_4 0x0338
-#define CLK_AUDDIV_5 0x033c
 
 #define CKSYS_AUD_TOP_CFG 0x032c
 #define CKSYS_AUD_TOP_MON 0x0330
@@ -92,6 +91,7 @@
 #define APLL_I2S7_MCK_SEL_SFT              23
 #define APLL_I2S7_MCK_SEL_MASK             0x1
 #define APLL_I2S7_MCK_SEL_MASK_SFT         (0x1 << 23)
+
 /* CLK_AUDDIV_1 */
 #define APLL12_DIV0_INV_SFT                0
 #define APLL12_DIV0_INV_MASK               0x1
@@ -158,14 +158,6 @@
 #define AUD_TOP_MON_MASK                   0xffffffff
 #define AUD_TOP_MON_MASK_SFT               (0xffffffff << 0)
 
-/* CLK_AUDDIV_3 */
-#define APLL12_CK_DIV5_MSB_SFT             0
-#define APLL12_CK_DIV5_MSB_MASK            0xf
-#define APLL12_CK_DIV5_MSB_MASK_SFT        (0xf << 0)
-#define RESERVED0_SFT                      4
-#define RESERVED0_MASK                     0xfffffff
-#define RESERVED0_MASK_SFT                 (0xfffffff << 4)
-
 /* APLL */
 #define APLL1_W_NAME "APLL1"
 #define APLL2_W_NAME "APLL2"
@@ -187,9 +179,18 @@ enum {
 	CLK_TDM,
 	CLK_TML,
 	CLK_NLE,
+	CLK_GENERAL3_ASRC,
+	CLK_CONNSYS_I2S_ASRC,
+	CLK_GENERAL1_ASRC,
+	CLK_GENERAL2_ASRC,
 	CLK_DAC_HIRES,
 	CLK_ADC_HIRES,
 	CLK_ADC_HIRES_TML,
+	CLK_I2S1_BCLK,
+	CLK_I2S2_BCLK,
+	CLK_I2S3_BCLK,
+	CLK_I2S4_BCLK,
+	CLK_I2S5_BCLK,
 	CLK_ADDA6_ADC_HIRES,
 	CLK_3RD_DAC,
 	CLK_3RD_DAC_PREDIS,

@@ -3473,22 +3473,22 @@ static ssize_t mt6855_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 			       "memif[%d], irq_usage %d\n",
 			       i, afe->memif[i].irq_usage);
 	}
-#if 0
-	regmap_read(afe_priv->topckgen, CLK_CFG_6, &value);
+
+	regmap_read(afe_priv->topckgen, CLK_CFG_5, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_CFG_6 = 0x%x\n", value);
-	regmap_read(afe_priv->topckgen, CLK_CFG_7, &value);
+		       "CLK_CFG_5 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_8, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "CLK_CFG_7 = 0x%x\n", value);
+		       "CLK_CFG_8 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_CFG_9, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_CFG_9 = 0x%x\n", value);
 	regmap_read(afe_priv->topckgen, CLK_CFG_10, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_10 = 0x%x\n", value);
 	regmap_read(afe_priv->topckgen, CLK_CFG_11, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_11 = 0x%x\n", value);
-	regmap_read(afe_priv->topckgen, CLK_CFG_13, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "CLK_CFG_13 = 0x%x\n", value);
 	regmap_read(afe_priv->topckgen, CLK_CFG_UPDATE, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_UPDATE = 0x%x\n", value);
@@ -3504,6 +3504,9 @@ static ssize_t mt6855_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe_priv->topckgen, CLK_AUDDIV_3, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_AUDDIV_3 = 0x%x\n", value);
+	regmap_read(afe_priv->topckgen, CLK_AUDDIV_4, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "CLK_AUDDIV_4 = 0x%x\n", value);
 
 	regmap_read(afe_priv->apmixed, AP_PLL_CON3, &value);
 	n += scnprintf(buffer + n, size - n,
@@ -3538,7 +3541,6 @@ static ssize_t mt6855_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe_priv->apmixed, APLL2_TUNER_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "APLL2_TUNER_CON0 = 0x%x\n", value);
-#endif
 	regmap_read(afe->regmap, AUDIO_TOP_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AUDIO_TOP_CON0 = 0x%x\n", value);
