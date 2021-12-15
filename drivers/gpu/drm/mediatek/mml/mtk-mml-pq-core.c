@@ -47,7 +47,10 @@ struct mml_pq_mbox {
 static struct mml_pq_mbox *pq_mbox;
 static struct mutex rb_buf_list_mutex;
 static struct list_head rb_buf_list;
-static uint32_t buffer_num;
+static u32 buffer_num;
+static u32 rb_buf_pool[TOTAL_RB_BUF_NUM];
+static struct mutex rb_buf_pool_mutex;
+
 
 static void init_pq_chan(struct mml_pq_chan *chan)
 {
@@ -304,6 +307,50 @@ static void release_pq_task(struct kref *ref)
 	mml_pq_trace_ex_end();
 }
 
+void mml_pq_get_vcp_buf_offset(struct mml_task *task, u32 engine,
+			       struct mml_pq_readback_buffer *hist)
+{
+	s32 engine_start = engine*MAX_ENG_RB_BUF;
+
+	mml_pq_rb_msg("%s get offset job_id[%d] engine_start[%d]",
+				__func__, task->job.jobid, engine_start);
+	mutex_lock(&rb_buf_pool_mutex);
+	while (engine_start < (engine+1)*MAX_ENG_RB_BUF) {
+		if (rb_buf_pool[engine_start] != INVALID_OFFSET_ADDR) {
+			hist->va_offset = rb_buf_pool[engine_start];
+			rb_buf_pool[engine_start] = INVALID_OFFSET_ADDR;
+			 mml_pq_rb_msg("%s get offset job_id[%d]engine[%d]offset[%d]eng_start[%d]",
+				__func__, task->job.jobid, engine, hist->va_offset, engine_start);
+			break;
+		}
+		engine_start++;
+	}
+	mutex_unlock(&rb_buf_pool_mutex);
+
+	mml_pq_rb_msg("%s all end job_id[%d] engine[%d] hist_va[%p] hist_pa[%llx]",
+		__func__, task->job.jobid, engine, hist->va, hist->pa);
+}
+
+void mml_pq_put_vcp_buf_offset(struct mml_task *task, u32 engine,
+			       struct mml_pq_readback_buffer *hist)
+{
+	s32 engine_start = engine*MAX_ENG_RB_BUF;
+
+	mml_pq_rb_msg("%s start job_id[%d] hist_va[%p] engine_start[%08x] offset[%d]",
+		__func__, task->job.jobid, hist->va, engine_start, hist->va_offset);
+
+	mutex_lock(&rb_buf_pool_mutex);
+	while (engine_start < (engine+1)*MAX_ENG_RB_BUF) {
+		if (rb_buf_pool[engine_start] == INVALID_OFFSET_ADDR) {
+			rb_buf_pool[engine_start] = hist->va_offset;
+			hist->va_offset = INVALID_OFFSET_ADDR;
+			break;
+		}
+		engine_start++;
+	}
+	mutex_unlock(&rb_buf_pool_mutex);
+}
+
 void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 				 struct mml_pq_readback_buffer **hist)
 {
@@ -342,14 +389,14 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 		temp_buffer->va = (u32 *)cmdq_mbox_buf_alloc(clt, &temp_buffer->pa);
 		mutex_unlock(&task->pq_task->buffer_mutex);
 	}
-	mml_pq_rb_msg("%s job_id[%d] va[%p] pa[%08x] buffer_num[%d]", __func__,
+	mml_pq_rb_msg("%s job_id[%d] va[%p] pa[%llx] buffer_num[%d]", __func__,
 			task->job.jobid, temp_buffer->va, temp_buffer->pa, buffer_num);
 }
 
 void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,
 				 struct mml_pq_readback_buffer *hist)
 {
-	mml_pq_rb_msg("%s all end job_id[%d] hist_va[%p] hist_pa[%08x]",
+	mml_pq_rb_msg("%s all end job_id[%d] hist_va[%p] hist_pa[%llx]",
 		__func__, task->job.jobid, hist->va, hist->pa);
 	mutex_lock(&rb_buf_list_mutex);
 	list_add_tail(&hist->buffer_list, &rb_buf_list);
@@ -1640,9 +1687,12 @@ static struct miscdevice mml_pq_dev = {
 int mml_pq_core_init(void)
 {
 	s32 ret;
+	s32 buf_idx = 0;
+
 
 	INIT_LIST_HEAD(&rb_buf_list);
 	mutex_init(&rb_buf_list_mutex);
+	mutex_init(&rb_buf_pool_mutex);
 
 	pq_mbox = kzalloc(sizeof(*pq_mbox), GFP_KERNEL);
 	if (unlikely(!pq_mbox))
@@ -1653,6 +1703,9 @@ int mml_pq_core_init(void)
 	init_pq_chan(&pq_mbox->hdr_readback_chan);
 	init_pq_chan(&pq_mbox->rsz_callback_chan);
 	buffer_num = 0;
+
+	for (buf_idx = 0; buf_idx < TOTAL_RB_BUF_NUM; buf_idx++)
+		rb_buf_pool[buf_idx] = buf_idx*4096;
 
 	ret = misc_register(&mml_pq_dev);
 	mml_pq_log("%s result: %d", __func__, ret);
