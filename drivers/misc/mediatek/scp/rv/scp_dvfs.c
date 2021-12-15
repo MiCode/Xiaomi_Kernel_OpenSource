@@ -80,6 +80,12 @@ struct ipi_tx_data_t {
 	unsigned int arg2;
 };
 
+/*
+ * -1  : SCP Debug CMD: off,
+ * >=0 : SCP DVFS Debug OPP.
+ */
+static int scp_dvfs_debug_flag = -1;
+
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 static int scp_dvfs_flag = 1;
 
@@ -380,26 +386,93 @@ static int scp_set_pmic_vcore(unsigned int cur_freq)
 	return ret;
 }
 
+static uint32_t sum_required_freq(uint32_t core_id)
+{
+	uint32_t i = 0;
+	uint32_t sum = 0;
+
+	if (core_id >= dvfs.core_nums) {
+		pr_notice("[%s]: ERROR: core_id is invalid: %u\n",
+				__func__, core_id);
+		WARN_ON(1);
+		core_id = SCPSYS_CORE0;
+	}
+
+	/*
+	 * calculate scp frequence for core_id
+	 */
+	for (i = 0; i < NUM_FEATURE_ID; i++) {
+		if (i != VCORE_TEST_FEATURE_ID &&
+			feature_table[i].enable == 1 &&
+			feature_table[i].sys_id == core_id)
+			sum += feature_table[i].freq;
+	}
+
+	/*
+	 * calculate scp sensor frequence (core0 only)
+	 */
+	if (core_id == SCPSYS_CORE0)
+		for (i = 0; i < NUM_SENSOR_TYPE; i++)
+			if (sensor_type_table[i].enable == 1)
+				sum += sensor_type_table[i].freq;
+
+	return sum;
+}
+
+static uint32_t _mt_scp_dvfs_set_test_freq(uint32_t sum)
+{
+	uint32_t freq = 0, added_freq = 0, i = 0;
+
+	if (scp_dvfs_debug_flag == -1)
+		return 0;
+
+	pr_info("manually set opp = %d\n", scp_dvfs_debug_flag);
+
+	for (i = 0; i < dvfs.scp_opp_nums; i++) {
+		freq = dvfs.opp[i].freq;
+
+		if (scp_dvfs_debug_flag == i && sum < freq) {
+			added_freq = freq - sum;
+			break;
+		}
+	}
+	feature_table[VCORE_TEST_FEATURE_ID].freq = added_freq;
+	pr_notice("[%s]test freq: %d + %d = %d (MHz)\n",
+			__func__,
+			sum,
+			added_freq,
+			sum + added_freq);
+
+	return added_freq;
+}
+
 uint32_t scp_get_freq(void)
 {
 	uint32_t i;
+	uint32_t sum_core0 = 0;
+	uint32_t sum_core1 = 0;
 	uint32_t sum = 0;
 	uint32_t return_freq = 0;
 
 	/*
-	 * calculate scp frequence
+	 * calculate scp frequence requirement
 	 */
-	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (feature_table[i].enable == 1)
-			sum += feature_table[i].freq;
+	sum_core0 += sum_required_freq(SCPSYS_CORE0);
+	if (dvfs.core_nums > SCPSYS_CORE1)
+		sum_core1 = sum_required_freq(SCPSYS_CORE1);
+
+	if (sum_core0 > sum_core1) {
+		sum = sum_core0;
+		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE0;
+	} else {
+		sum = sum_core1;
+		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
 	}
+
 	/*
-	 * calculate scp sensor frequence
+	 * add scp test cmd frequence
 	 */
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].enable == 1)
-			sum += sensor_type_table[i].freq;
-	}
+	sum += _mt_scp_dvfs_set_test_freq(sum);
 
 	for (i = 0; i < dvfs.scp_opp_nums; i++) {
 		if (sum <= dvfs.opp[i].freq) {
@@ -1078,7 +1151,6 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 	char desc[64], cmd[32];
 	unsigned int len = 0;
 	int dvfs_opp;
-	int freq;
 	int n;
 
 	if (count <= 0)
@@ -1100,60 +1172,16 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 			pr_info("SCP DVFS: OFF\n");
 		} else if (!strcmp(cmd, "opp")) {
 			if (dvfs_opp == -1) {
+				/* deregister dvfs debug feature */
 				pr_info("remove the opp setting of command\n");
 				feature_table[VCORE_TEST_FEATURE_ID].freq = 0;
 				scp_deregister_feature(
 						VCORE_TEST_FEATURE_ID);
+				scp_dvfs_debug_flag = dvfs_opp;
 			} else if (dvfs_opp >= 0 &&
 					dvfs_opp < dvfs.scp_opp_nums) {
-				uint32_t i;
-				uint32_t sum = 0, added_freq = 0;
-
-				pr_info("manually set opp = %d\n", dvfs_opp);
-
-				/*
-				 * calculate scp frequence
-				 */
-				for (i = 0; i < NUM_FEATURE_ID; i++) {
-					if (i != VCORE_TEST_FEATURE_ID &&
-						feature_table[i].enable == 1)
-						sum += feature_table[i].freq;
-				}
-
-				/*
-				 * calculate scp sensor frequence
-				 */
-				for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-					if (sensor_type_table[i].enable == 1)
-						sum +=
-						sensor_type_table[i].freq;
-				}
-
-				for (i = 0; i < dvfs.scp_opp_nums; i++) {
-					freq = dvfs.opp[i].freq;
-
-					if (dvfs_opp == i && sum < freq) {
-						added_freq = freq - sum;
-						break;
-					}
-				}
-
-				for (i = 0; i < NUM_FEATURE_ID; i++)
-					if (VCORE_TEST_FEATURE_ID ==
-						feature_table[i].feature) {
-						feature_table[i].freq =
-							added_freq;
-						pr_notice("[%s]: test freq: %d\n",
-							__func__,
-							feature_table[i].freq);
-						break;
-					}
-
-				pr_debug("request freq: %d + %d = %d (MHz)\n",
-						sum,
-						added_freq,
-						sum + added_freq);
-
+				/* register dvfs debug feature */
+				scp_dvfs_debug_flag = dvfs_opp;
 				scp_register_feature(
 						VCORE_TEST_FEATURE_ID);
 			} else {
