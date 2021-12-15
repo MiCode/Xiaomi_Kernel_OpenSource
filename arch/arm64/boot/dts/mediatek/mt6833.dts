@@ -526,6 +526,206 @@
 		#clock-cells = <1>;
 	};
 
+	opp_table_disp: opp-table-disp {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <208000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <312000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_cam: opp-table-cam {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <286000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <392000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <624000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_img: opp-table-img {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <229000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <343000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <458000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <624000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_img2: opp-table-img2 {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <229000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <343000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <458000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <624000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_dpe: opp-table-dpe {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <249000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <364000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <458000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_ipe: opp-table-ipe {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <229000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <312000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_venc: opp-table-venc {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <249000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <364000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <458000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <624000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_vdec: opp-table-vdec {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <218000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <312000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_mdp: opp-table-mdp {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <229000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <343000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <436000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <594000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
+	opp_table_ccu: opp-table-ccu {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <229000000>;
+			opp-microvolt = <550000>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <364000000>;
+			opp-microvolt = <600000>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <392000000>;
+			opp-microvolt = <650000>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <499000000>;
+			opp-microvolt = <725000>;
+		};
+	};
+
 	dispsys_config_clk: syscon@14000000 {
 		compatible = "mediatek,mt6833-mmsys", "syscon";
 		reg = <0 0x14000000 0 0x1000>;
