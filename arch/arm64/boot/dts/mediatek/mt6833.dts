@@ -337,6 +337,11 @@
 		};
 	};
 
+	infracfg_ao_mem@10002000 {
+		compatible = "mediatek,infracfg_ao_mem";
+		reg = <0 0x10002000 0 0x1000>;
+	};
+
 	md_auxadc:md_auxadc {
 		compatible = "mediatek,md_auxadc";
 		io-channels = <&auxadc 2>;
