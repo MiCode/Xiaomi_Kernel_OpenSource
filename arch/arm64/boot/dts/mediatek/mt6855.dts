@@ -4033,6 +4033,7 @@
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			interconnects = <&mmqos SLAVE_LARB(30) &mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "disp_hrt_qos";
+#endif
 
 			/* define threads, see mt6855-gce.h */
 			mediatek,mailbox-gce = <&gce>;
@@ -4072,23 +4073,22 @@
 				"disp_token_disp_va_end2";
 
 			gce-events =
-				<&gce CMDQ_EVENT_MMSYS_STREAM_DONE_ENG_EVENT_0>,
+				<&gce CMDQ_EVENT_DISPSYS_STREAM_DONE_ENG_EVENT_0>,
 				<&gce CMDQ_SYNC_TOKEN_CONFIG_DIRTY>,
-				<&gce CMDQ_EVENT_MMSYS_DSI0_TE_ENG_EVENT>,
+				<&gce CMDQ_EVENT_DISPSYS_DSI0_TE_ENG_EVENT>,
 				<&gce CMDQ_SYNC_TOKEN_STREAM_EOF>,
-				<&gce CMDQ_EVENT_MMSYS_DSI0_FRAME_DONE>,
+				<&gce CMDQ_EVENT_DISPSYS_DSI0_FRAME_DONE>,
 				<&gce CMDQ_SYNC_TOKEN_ESD_EOF>,
-				<&gce CMDQ_EVENT_MMSYS_DISP_RDMA0_FRAME_DONE>,
-				<&gce CMDQ_EVENT_MMSYS_DISP_WDMA0_FRAME_DONE>,
+				<&gce CMDQ_EVENT_DISPSYS_DISP_RDMA0_FRAME_DONE>,
+				<&gce CMDQ_EVENT_DISPSYS_DISP_WDMA0_FRAME_DONE>,
 				<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
 				<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
-				<&gce CMDQ_EVENT_MMSYS_DISP_WDMA0_FRAME_DONE>,
-				<&gce CMDQ_EVENT_MMSYS_DISP_DSI0_SOF>,
+				<&gce CMDQ_EVENT_DISPSYS_DISP_WDMA0_FRAME_DONE>,
+				<&gce CMDQ_EVENT_DISPSYS_DISP_DSI0_SOF>,
 				<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 				<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
 				<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 				<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>;
-#endif
 
 			helper-name = "MTK_DRM_OPT_STAGE",
 				"MTK_DRM_OPT_USE_CMDQ",
@@ -4141,7 +4141,7 @@
 				"MTK_DRM_OPT_RES_SWITCH";
 
 			helper-value = <1>, /*MTK_DRM_OPT_STAGE*/
-				<0>, /*MTK_DRM_OPT_USE_CMDQ*/
+				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
 				<0>, /*MTK_DRM_OPT_USE_M4U*/
 				<0>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
 				<0>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
