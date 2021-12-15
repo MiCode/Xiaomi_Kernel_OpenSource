@@ -5802,6 +5802,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	regulator-always-on;
 };
 
+&mt6363_vcn15 {
+	regulator-always-on;
+};
+
 &mt6363_vm18 {
 	regulator-always-on;
 };
