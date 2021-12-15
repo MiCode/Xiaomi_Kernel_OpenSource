@@ -671,6 +671,9 @@ static u8 get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
 	struct nvmem_cell *cell;
 	u8 *buf, data;
 
+	if (gauge->gm->disableGM30)
+		return 0;
+
 	cell = nvmem_cell_get(&gauge->pdev->dev, "initialization");
 	if (IS_ERR(cell)) {
 		bm_err("[%s]get rtc cell fail\n", __func__);
@@ -697,6 +700,9 @@ static void set_rtc_spare0_fg_value(struct mtk_gauge *gauge, u8 val)
 	u32 length = 1;
 	int ret;
 
+	if (gauge->gm->disableGM30)
+		return;
+
 	cell = nvmem_cell_get(&gauge->pdev->dev, "initialization");
 	if (IS_ERR(cell)) {
 		bm_err("[%s]get rtc cell fail\n", __func__);
@@ -713,6 +719,9 @@ static u8 get_rtc_spare_fg_value(struct mtk_gauge *gauge)
 {
 	struct nvmem_cell *cell;
 	u8 *buf, data;
+
+	if (gauge->gm->disableGM30)
+		return 0;
 
 	cell = nvmem_cell_get(&gauge->pdev->dev, "state-of-charge");
 	if (IS_ERR(cell)) {
@@ -740,6 +749,9 @@ static void set_rtc_spare_fg_value(struct mtk_gauge *gauge, u8 val)
 	struct nvmem_cell *cell;
 	u32 length = 1;
 	int ret;
+
+	if (gauge->gm->disableGM30)
+		return;
 
 	cell = nvmem_cell_get(&gauge->pdev->dev, "state-of-charge");
 	if (IS_ERR(cell)) {
@@ -2146,6 +2158,9 @@ static int reset_fg_rtc_set(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_fiel
 	int temp_value;
 	u8 spare0_reg, after_rst_spare0_reg;
 	u8 spare3_reg, after_rst_spare3_reg;
+
+	if (gauge->gm->disableGM30)
+		return 0;
 
 	fgauge_read_RTC_boot_status(gauge);
 
