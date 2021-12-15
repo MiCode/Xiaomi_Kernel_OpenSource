@@ -5581,8 +5581,8 @@
 			mmsys_config = <&dispsys_config>;
 			mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 			mboxes = <&gce 14 0 CMDQ_THR_PRIO_1>,
-				 <&gce_m 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-			//	 <&gce_m_sec 9 0 CMDQ_THR_PRIO_1>;
+				 <&gce_m 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+				 <&gce_m_sec 9 0 CMDQ_THR_PRIO_1>;
 			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 		};
