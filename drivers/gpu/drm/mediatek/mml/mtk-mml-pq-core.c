@@ -422,6 +422,7 @@ static void mml_pq_check_dup_node(struct mml_pq_chan *chan, struct mml_pq_sub_ta
 				mml_pq_msg("%s find sub_task:%p id:%llx",
 					__func__, tmp_sub_task, job_id);
 				list_del(&tmp_sub_task->mbox_list);
+				atomic_dec_if_positive(&chan->msg_cnt);
 				break;
 			}
 		}
