@@ -10,6 +10,7 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
 #include <linux/timekeeping.h>
+#include <linux/delay.h>
 
 #define ISPDVFS_DBG
 #ifdef ISPDVFS_DBG
@@ -38,6 +39,7 @@
 #define SPM_AOC_VMM_SRAM_ISO_DIN_BIT 17
 #define SPM_AOC_VMM_SRAM_LATCH_ENB 18
 #define SPM_HW_SEM_TIMEOUT_MS 1000 /* 1 sec for acquiring sem timeout */
+#define SPM_HW_SEM_SET_DELAY_US 10
 
 #define SPM_VMM_HW_SEM_REG_OFST_M0 0x69C
 #define SPM_VMM_HW_SEM_REG_OFST_M1 0x6A0
@@ -85,6 +87,8 @@ static int acquire_hw_semaphore(void __iomem *hw_sem_addr)
 		hw_sem |= 0x1;
 		writel_relaxed(hw_sem, hw_sem_addr);
 
+		udelay(SPM_HW_SEM_SET_DELAY_US);
+
 		/* *hw_sem_addr == 0x1 means acquire succeed */
 		if (readl_relaxed(hw_sem_addr) & 0x1)
 			break;
@@ -105,6 +109,12 @@ static void release_hw_semaphore(void __iomem *hw_sem_addr)
 	hw_sem = readl_relaxed(hw_sem_addr);
 	hw_sem |= 0x1;
 	writel_relaxed(hw_sem, hw_sem_addr);
+
+	udelay(SPM_HW_SEM_SET_DELAY_US);
+	if (readl_relaxed(hw_sem_addr) & 0x1) {
+		ISP_LOGE("Release hw semaphore fail\n");
+		WARN_ON(1);
+	}
 }
 
 static void vmm_buck_isolation_off(void __iomem *base)
