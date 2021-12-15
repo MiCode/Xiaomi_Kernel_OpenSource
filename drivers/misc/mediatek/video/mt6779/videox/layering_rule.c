@@ -956,7 +956,7 @@ static void clear_layer(struct disp_layer_info *disp_info)
 
 		disp_info->gles_head[di] = 0;
 		disp_info->gles_tail[di] = disp_info->layer_num[di] - 1;
-		for (i = 0; i < disp_info->layer_num[di]; i) {
+		for (i = 0; i < disp_info->layer_num[di]; i++) {
 			c = &disp_info->input_config[di][i];
 
 			c->ext_sel_layer = -1;
