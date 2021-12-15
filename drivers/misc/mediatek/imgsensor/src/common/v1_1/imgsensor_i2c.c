@@ -307,6 +307,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_init(
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 
+#ifndef NO_I2C_MTK
 enum IMGSENSOR_RETURN imgsensor_i2c_buffer_mode(int enable)
 {
 	struct IMGSENSOR_I2C_INST *pinst =
@@ -326,6 +327,13 @@ enum IMGSENSOR_RETURN imgsensor_i2c_buffer_mode(int enable)
 
 	return ret;
 }
+#else
+enum IMGSENSOR_RETURN imgsensor_i2c_buffer_mode(int enable)
+{
+	pr_info("not support i2c_buf_mode\n");
+	return IMGSENSOR_RETURN_SUCCESS;
+}
+#endif
 
 enum IMGSENSOR_RETURN imgsensor_i2c_read(
 		struct IMGSENSOR_I2C_CFG *pi2c_cfg,
@@ -338,6 +346,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_read(
 {
 	struct IMGSENSOR_I2C_INST *pinst = pi2c_cfg->pinst;
 	enum   IMGSENSOR_RETURN    ret   = IMGSENSOR_RETURN_SUCCESS;
+	int i2c_ret = 0;
 
 	if (pinst->pi2c_client == NULL) {
 		PK_PR_ERR("pi2c_client is NULL!\n");
@@ -356,21 +365,20 @@ enum IMGSENSOR_RETURN imgsensor_i2c_read(
 	pi2c_cfg->msg[1].len   = read_length;
 	pi2c_cfg->msg[1].buf   = pread_data;
 
-	if (mtk_i2c_transfer(
+	i2c_ret = mtk_i2c_transfer(
 			pinst->pi2c_client->adapter,
 			pi2c_cfg->msg,
 			IMGSENSOR_I2C_MSG_SIZE_READ,
 			(pi2c_cfg->pinst->status.filter_msg)
 				? I2C_A_FILTER_MSG : 0,
 			((speed > 0) && (speed <= 1000))
-				? speed * 1000 : IMGSENSOR_I2C_SPEED * 1000)
-			!= IMGSENSOR_I2C_MSG_SIZE_READ) {
+				? speed * 1000 : IMGSENSOR_I2C_SPEED * 1000);
+	if (i2c_ret != IMGSENSOR_I2C_MSG_SIZE_READ) {
 		static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 30);
 
 		if (__ratelimit(&ratelimit))
-			PK_PR_ERR(
-			"I2C read failed (0x%x)! speed(0=%d) (0x%x)\n",
-			ret, speed, *pwrite_data);
+			pr_info("I2C read failed (%d)! speed(0=%d) (0x%x)\n",
+				i2c_ret, speed, *pwrite_data);
 		ret = IMGSENSOR_RETURN_ERROR;
 	}
 
@@ -393,6 +401,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_write(
 	u8                 *pdata = pwrite_data;
 	u8                 *pend  = pwrite_data + write_length;
 	int i   = 0;
+	int i2c_ret = 0;
 
 	if (pinst->pi2c_client == NULL) {
 		PK_PR_ERR("pi2c_client is NULL!\n");
@@ -412,21 +421,20 @@ enum IMGSENSOR_RETURN imgsensor_i2c_write(
 		pdata += write_per_cycle;
 	}
 
-	if (mtk_i2c_transfer(
+	i2c_ret = mtk_i2c_transfer(
 			pinst->pi2c_client->adapter,
 			pi2c_cfg->msg,
 			i,
 			(pi2c_cfg->pinst->status.filter_msg)
 				? I2C_A_FILTER_MSG : 0,
 			((speed > 0) && (speed <= 1000))
-				? speed * 1000 : IMGSENSOR_I2C_SPEED * 1000)
-			!= i) {
+				? speed * 1000 : IMGSENSOR_I2C_SPEED * 1000);
+	if (i2c_ret != i) {
 		static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 30);
 
 		if (__ratelimit(&ratelimit))
-			PK_PR_ERR(
-				"I2C write failed (0x%x)! speed(0=%d) (0x%x)\n",
-				ret, speed, *pwrite_data);
+			pr_info("I2C write failed (%d)! speed(0=%d) (0x%x)\n",
+				i2c_ret, speed, *pwrite_data);
 		ret = IMGSENSOR_RETURN_ERROR;
 	}
 
@@ -495,7 +503,7 @@ void imgsensor_i2c_set_device(struct IMGSENSOR_I2C_CFG *pi2c_cfg)
 
 struct IMGSENSOR_I2C_CFG *imgsensor_i2c_get_device(void)
 {
-// #ifndef SENSOR_PARALLEISM
+// #ifdef SENSOR_PARALLEISM
 // 	int i = 0;
 // 	struct IMGSENSOR_I2C_CFG *pi2c_cfg = NULL;
 // 	pid_t _tid = sys_gettid();

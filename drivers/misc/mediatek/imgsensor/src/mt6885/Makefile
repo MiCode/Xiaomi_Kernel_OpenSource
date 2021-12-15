@@ -10,6 +10,11 @@ subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
 	-I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/seninf/ \
 	-I$(MTK_DRIVER_PATH)/mmdvfs \
 	-I$(srctree)/drivers/i2c/busses/
+
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6885")
+subdir-ccflags-y += -DIMGSENSOR_MT6885
+endif
+
 obj-y += ../common/$(COMMON_VERSION)/imgsensor.o
 obj-y += ../common/$(COMMON_VERSION)/imgsensor_hw.o
 obj-y += ../common/$(COMMON_VERSION)/imgsensor_i2c.o
@@ -56,7 +61,7 @@ endif
 subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/camera_hw
 
 # Enable parallelism
-subdir-ccflags-y += -DSENSOR_PARALLEISM
+subdir-ccflags-y += -DNO_I2C_MTK -DSENSOR_PARALLEISM
 
 obj-y += seninf/
 
