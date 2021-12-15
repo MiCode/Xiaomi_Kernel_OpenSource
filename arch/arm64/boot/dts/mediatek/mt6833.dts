@@ -12,6 +12,7 @@
 #include <dt-bindings/pinctrl/mt6833-pinfunc.h>
 #include <dt-bindings/power/mt6833-power.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/phy/phy.h>
 
 
@@ -261,6 +262,79 @@
 					0 0 0>;
 		clocks = <&clk26m>;
 		clock-names = "kpd";
+	};
+
+	dvfsrc: dvfsrc@10012000 {
+		compatible = "mediatek,mt6833-dvfsrc";
+		reg = <0 0x10012000 0 0x1000>;
+		reg-names = "dvfsrc";
+		dvfsrc,bringup = <1>;
+		dvfsrc_flag = <0x3>;
+		#interconnect-cells = <1>;
+
+		dvfsrc_vcore: dvfsrc-vcore {
+			regulator-name = "dvfsrc-vcore";
+			regulator-min-microvolt = <550000>;
+			regulator-max-microvolt = <725000>;
+			regulator-always-on;
+		};
+		dvfsrc_vscp: dvfsrc-vscp {
+			regulator-name = "dvfsrc-vscp";
+			regulator-min-microvolt = <550000>;
+			regulator-max-microvolt = <725000>;
+			regulator-always-on;
+		};
+
+		dvfsrc_freq_opp7: opp7 {
+			opp-peak-KBps = <0>;
+		};
+		dvfsrc_freq_opp6: opp6 {
+			opp-peak-KBps = <1200000>;
+		};
+		dvfsrc_freq_opp5: opp5 {
+			opp-peak-KBps = <2500000>;
+		};
+		dvfsrc_freq_opp4: opp4 {
+			opp-peak-KBps = <3800000>;
+		};
+		dvfsrc_freq_opp3: opp3 {
+			opp-peak-KBps = <5100000>;
+		};
+		dvfsrc_freq_opp2: opp2 {
+			opp-peak-KBps = <5900000>;
+		};
+		dvfsrc_freq_opp1: opp1 {
+			opp-peak-KBps = <7600000>;
+		};
+		dvfsrc_freq_opp0: opp0 {
+			opp-peak-KBps = <10200000>;
+		};
+
+		dvfsrc-helper {
+			compatible = "mediatek,dvfsrc-helper";
+			vcore-supply = <&mt6359p_vcore_reg>;
+			rc-vcore-supply = <&dvfsrc_vcore>;
+			rc-vscp-supply = <&dvfsrc_vscp>;
+			interconnects = <&dvfsrc MT6873_MASTER_DBGIF
+					 &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_DBGIF
+					 &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_HRT_DBGIF
+					 &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-perf-bw", "icc-hrt-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>,
+					<&dvfsrc_freq_opp2>,
+					<&dvfsrc_freq_opp3>,
+					<&dvfsrc_freq_opp4>,
+					<&dvfsrc_freq_opp5>,
+					<&dvfsrc_freq_opp6>,
+					<&dvfsrc_freq_opp7>;
+		};
+
+		dvfsrc-met {
+			compatible = "mediatek,dvfsrc-met";
+		};
 	};
 
 	md_auxadc:md_auxadc {
