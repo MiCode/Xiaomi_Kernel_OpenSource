@@ -4,10 +4,10 @@
  */
 
 /******************************************************************************
- * camera_isp.c - MT6769 Linux ISP Device Driver
+ * camera_isp.c - isp6s Linux ISP Device Driver
  *
  * DESCRIPTION:
- *     This file provid the other drivers ISP relative functions
+ *     This file provides the other drivers ISP relative functions.
  *
  ******************************************************************************/
 #include <linux/atomic.h>
@@ -41,12 +41,6 @@
 
 /* GKI: no need to adjust upper bound of kernel log count due to no supported related API. */
 #define EP_NO_K_LOG_ADJUST
-
-/* Device link is not ready. So, we should use smi api to get smi. */
-#define USE_MTK_SMI_LARB_API
-#ifdef USE_MTK_SMI_LARB_API
-#include <soc/mediatek/smi.h>
-#endif
 
 /* #define EP_STAGE */
 #ifdef EP_STAGE
@@ -108,11 +102,8 @@
 #define MFALSE 0
 #endif
 
-#define CAMERA_SMI_ENABLE 1
-#define CAMERA_SMI_DISABLE 0
-
 #define ISP_DEV_NAME "camera-isp"
-#define SMI_LARB_MMU_CTL (0)
+
 /*#define ENABLE_WAITIRQ_LOG*/ /* wait irq debug logs */
 /*#define ENABLE_STT_IRQ_LOG*/ /*show STT irq debug logs */
 
@@ -392,10 +383,6 @@ struct isp_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
-#ifdef USE_MTK_SMI_LARB_API
-	struct device *larb;
-	struct device *larb_2nd;
-#endif
 };
 
 struct isp_sec_dapc_reg {
@@ -449,9 +436,6 @@ static struct mutex open_isp_mutex;
 
 #include "inc/cam_regs.h"
 
-#if (SMI_LARB_MMU_CTL == 1)
-void __iomem *SMI_LARB_BASE[21];
-#endif
 
 #endif
 
@@ -562,7 +546,7 @@ struct UserKeyInfo {
 static struct UserKeyInfo IrqUserKey_UserInfo[IRQ_USER_NUM_MAX];
 
 struct ISP_IRQ_INFO_STRUCT {
-	/* Add an extra index for status type in mt6797 -> signal or dma */
+	/* Add an extra index for status type -> signal or dma */
 	unsigned int Status[ISP_IRQ_TYPE_AMOUNT][ISP_IRQ_ST_AMOUNT]
 			   [IRQ_USER_NUM_MAX];
 
@@ -1379,7 +1363,7 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 				"twin module is invalid! recover fail\n");
 		}
 
-		if (IS_MT6853(g_platform_id)) {
+		if (IS_2RAW_PLATFORM(g_platform_id)) {
 			if (twinStatus.Bits.TWIN_MODULE == CAM_C)
 				LOG_NOTICE("twin module(CAM_C) is invalid! recover fail\n");
 		}
@@ -2238,55 +2222,7 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 
 	/* must keep this clk open order: */
 	/* ISP PM domain -> CAMTG/CAMSV clock */
-#ifdef USE_MTK_SMI_LARB_API
 
-	if (module == ISP_CAM_A_IDX) {
-		if (isp_devs[ISP_CAM_A_IDX].larb) {
-			ret = mtk_smi_larb_get(isp_devs[ISP_CAM_A_IDX].larb);
-			if (ret)
-				LOG_NOTICE("mtk_smi_larb_get cam a larb fail %d\n", ret);
-		} else
-			LOG_NOTICE("No larb device for cam a\n");
-	}
-
-	if (module == ISP_CAM_B_IDX) {
-		if (isp_devs[ISP_CAM_B_IDX].larb) {
-			ret = mtk_smi_larb_get(isp_devs[ISP_CAM_B_IDX].larb);
-			if (ret)
-				LOG_NOTICE("mtk_smi_larb_get cam b larb fail %d\n", ret);
-		} else
-			LOG_NOTICE("No larb device for cam b\n");
-	}
-
-	if (module == ISP_CAM_C_IDX) {
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
-			if (isp_devs[ISP_CAM_C_IDX].larb) {
-				ret = mtk_smi_larb_get(isp_devs[ISP_CAM_C_IDX].larb);
-				if (ret)
-					LOG_NOTICE("mtk_smi_larb_get cam c larb fail %d\n", ret);
-			} else
-				LOG_NOTICE("No larb device for cam c\n");
-		}
-	}
-
-	if (module >= ISP_CAMSV1_IDX) {
-		if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb) {
-			ret = mtk_smi_larb_get(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb);
-			if (ret)
-				LOG_NOTICE("mtk_smi_larb_get CAMSYS larb fail %d\n", ret);
-		} else
-			LOG_NOTICE("No larb device for camsys\n");
-	}
-
-	if (module == ISP_CAMSV0_IDX) {
-		if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd) {
-			ret = mtk_smi_larb_get(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd);
-			if (ret)
-				LOG_NOTICE("mtk_smi_larb_get CAMSYS larb_2nd fail %d\n", ret);
-		} else
-			LOG_NOTICE("No 2nd larb device for camsys\n");
-	}
-#endif
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
 	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAMSYS_CONFIG_IDX mtcmos\n");
@@ -2303,7 +2239,7 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 			LOG_NOTICE("cannot pm runtime get ISP_CAM_B_IDX mtcmos\n");
 	}
 
-	if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+	if (IS_3RAW_PLATFORM(g_platform_id)) {
 		if (module == ISP_CAM_C_IDX) {
 			ret = pm_runtime_get_sync(isp_devs[ISP_CAM_C_IDX].dev);
 			if (ret < 0)
@@ -2312,18 +2248,23 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 	}
 
 	if (module >= ISP_CAMSV1_IDX) {
+		/* ISP_CAMSV0_IDX's ufeo needs larb13, but ufeo is not supported in isp6s SW.
+		 * Don't control larb13 for ISP_CAMSV0_IDX so far.
+		 */
 		ret = clk_prepare_enable(isp_clk.CAMSYS_LARB13_CGPDN);
 		if (ret)
 			LOG_NOTICE("cannot pre-en CAMSYS_LARB13_CGPDN clock\n");
 	}
 
 	if (module == ISP_CAMSV0_IDX) {
-		ret = clk_prepare_enable(isp_clk.CAMSYS_LARB14_CGPDN);
-		if (ret)
-			LOG_NOTICE("cannot pre-en CAMSYS_LARB14_CGPDN clock\n");
+		if (IS_LARB14_CGPDN_NECESSARY(g_platform_id)) {
+			ret = clk_prepare_enable(isp_clk.CAMSYS_LARB14_CGPDN);
+			if (ret)
+				LOG_NOTICE("cannot pre-en CAMSYS_LARB14_CGPDN clock\n");
+		}
 	}
 
-	if (IS_MT6893(g_platform_id)) {
+	if (IS_LARB15_CGPDN_NECESSARY(g_platform_id)) {
 		ret = clk_prepare_enable(isp_clk.CAMSYS_LARB15_CGPDN);
 		if (ret)
 			LOG_NOTICE("cannot pre-en CAMSYS_LARB15_CGPDN clock\n");
@@ -2333,19 +2274,21 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_SENINF_CGPDN clock\n");
 
-	if (IS_MT6873(g_platform_id) || IS_MT6853(g_platform_id)) {
+	if (IS_CAM2MM_GALS_CGPDN_NECESSARY(g_platform_id)) {
 		ret = clk_prepare_enable(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
 		if (ret)
 			LOG_NOTICE("cannot pre-en CAMSYS_CAM2MM_GALS_CGPDN clock\n");
 	}
 
-	ret = clk_prepare_enable(isp_clk.CAMSYS_TOP_MUX_CCU);
-	if (ret)
-		LOG_NOTICE("cannot pre-en CAMSYS_TOP_MUX_CCU clock\n");
+	if (IS_CCU_AVAILABLE(g_platform_id)) {
+		ret = clk_prepare_enable(isp_clk.CAMSYS_TOP_MUX_CCU);
+		if (ret)
+			LOG_NOTICE("cannot pre-en CAMSYS_TOP_MUX_CCU clock\n");
 
-	ret = clk_prepare_enable(isp_clk.CAMSYS_CCU0_CGPDN);
-	if (ret)
-		LOG_NOTICE("cannot pre-en CAMSYS_CCU0_CGPDN clock\n");
+		ret = clk_prepare_enable(isp_clk.CAMSYS_CCU0_CGPDN);
+		if (ret)
+			LOG_NOTICE("cannot pre-en CAMSYS_CCU0_CGPDN clock\n");
+	}
 
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSYS);
 	if (ret)
@@ -2355,7 +2298,7 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_CAM_CAMTG clock\n");
 
-	if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+	if (IS_CAMSV_TOP0_AVAILABLE(g_platform_id)) {
 		if (module == ISP_CAMSV0_IDX || module == ISP_CAMSV1_IDX) {
 			ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV0);
 			if (ret)
@@ -2404,7 +2347,7 @@ static inline void Prepare_Enable_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 	}
 
 	if (module == ISP_CAM_C_IDX) {
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_3RAW_PLATFORM(g_platform_id)) {
 			ret = clk_prepare_enable(isp_clk.ISP_CAM_LARB18_RAWC);
 			if (ret)
 				LOG_NOTICE("cannot pre-en ISP_CAM_LARB18_RAWC clock\n");
@@ -2431,7 +2374,7 @@ static inline void Disable_Unprepare_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 	clk_disable_unprepare(isp_clk.ISP_TOP_MUX_CAMTM);
 
 	if (module == ISP_CAM_C_IDX) {
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_3RAW_PLATFORM(g_platform_id)) {
 			clk_disable_unprepare(isp_clk.ISP_CAM_TG_RAWC);
 			clk_disable_unprepare(isp_clk.ISP_CAM_SUBSYS_RAWC);
 			clk_disable_unprepare(isp_clk.ISP_CAM_LARB18_RAWC);
@@ -2450,7 +2393,7 @@ static inline void Disable_Unprepare_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 		clk_disable_unprepare(isp_clk.ISP_CAM_LARB16_RAWA);
 	}
 
-	if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+	if (IS_CAMSV_TOP0_AVAILABLE(g_platform_id)) {
 		if (module == ISP_CAMSV0_IDX || module == ISP_CAMSV1_IDX)
 			clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV0);
 	}
@@ -2465,24 +2408,33 @@ static inline void Disable_Unprepare_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
-	clk_disable_unprepare(isp_clk.CAMSYS_CCU0_CGPDN);
-	clk_disable_unprepare(isp_clk.CAMSYS_TOP_MUX_CCU);
 
-	if (IS_MT6873(g_platform_id) || IS_MT6853(g_platform_id))
+	if (IS_CCU_AVAILABLE(g_platform_id)) {
+		clk_disable_unprepare(isp_clk.CAMSYS_CCU0_CGPDN);
+		clk_disable_unprepare(isp_clk.CAMSYS_TOP_MUX_CCU);
+	}
+
+	if (IS_CAM2MM_GALS_CGPDN_NECESSARY(g_platform_id))
 		clk_disable_unprepare(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
 
 	clk_disable_unprepare(isp_clk.CAMSYS_SENINF_CGPDN);
 
-	if (IS_MT6893(g_platform_id))
+	if (IS_LARB15_CGPDN_NECESSARY(g_platform_id))
 		clk_disable_unprepare(isp_clk.CAMSYS_LARB15_CGPDN);
 
-	if (module == ISP_CAMSV0_IDX)
-		clk_disable_unprepare(isp_clk.CAMSYS_LARB14_CGPDN);
-	if (module >= ISP_CAMSV1_IDX)
+	if (module == ISP_CAMSV0_IDX) {
+		if (IS_LARB14_CGPDN_NECESSARY(g_platform_id))
+			clk_disable_unprepare(isp_clk.CAMSYS_LARB14_CGPDN);
+	}
+	if (module >= ISP_CAMSV1_IDX) {
+		/* ISP_CAMSV0_IDX's ufeo needs larb13, but ufeo is not supported in isp6s SW.
+		 * Don't control larb13 for ISP_CAMSV0_IDX so far.
+		 */
 		clk_disable_unprepare(isp_clk.CAMSYS_LARB13_CGPDN);
+	}
 
 	if (module == ISP_CAM_C_IDX) {
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_3RAW_PLATFORM(g_platform_id)) {
 			ret = pm_runtime_put_sync(isp_devs[ISP_CAM_C_IDX].dev);
 			if (ret < 0)
 				LOG_NOTICE("cannot pm runtime put ISP_CAM_C_IDX mtcmos\n");
@@ -2504,39 +2456,6 @@ static inline void Disable_Unprepare_ccf_clock(enum ISP_DEV_NODE_ENUM module)
 	ret = pm_runtime_put_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
 	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime put ISP_CAMSYS_CONFIG_IDX mtcmos\n");
-
-#ifdef USE_MTK_SMI_LARB_API
-	if (module == ISP_CAM_C_IDX) {
-		if (isp_devs[ISP_CAM_C_IDX].larb)
-			mtk_smi_larb_put(isp_devs[ISP_CAM_C_IDX].larb);
-		else
-			LOG_NOTICE("isp_devs[ISP_CAM_C_IDX].larb is NULL!\n");
-	}
-	if (module == ISP_CAM_B_IDX) {
-		if (isp_devs[ISP_CAM_B_IDX].larb)
-			mtk_smi_larb_put(isp_devs[ISP_CAM_B_IDX].larb);
-		else
-			LOG_NOTICE("isp_devs[ISP_CAM_B_IDX].larb is NULL!\n");
-	}
-	if (module == ISP_CAM_A_IDX) {
-		if (isp_devs[ISP_CAM_A_IDX].larb)
-			mtk_smi_larb_put(isp_devs[ISP_CAM_A_IDX].larb);
-		else
-			LOG_NOTICE("isp_devs[ISP_CAM_A_IDX].larb is NULL!\n");
-	}
-	if (module == ISP_CAMSV0_IDX) {
-		if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd)
-			mtk_smi_larb_put(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd);
-		else
-			LOG_NOTICE("isp_devs[ISP_CAMSYS_CONFIG_IDX].larb_2nd is NULL!\n");
-	}
-	if (module >= ISP_CAMSV1_IDX) {
-		if (isp_devs[ISP_CAMSYS_CONFIG_IDX].larb)
-			mtk_smi_larb_put(isp_devs[ISP_CAMSYS_CONFIG_IDX].larb);
-		else
-			LOG_NOTICE("isp_devs[ISP_CAMSYS_CONFIG_IDX].larb is NULL!\n");
-	}
-#endif
 }
 
 /*******************************************************************************
@@ -2568,7 +2487,7 @@ static void ISP_ConfigDMAControl(enum ISP_DEV_NODE_ENUM module)
 	}
 
 	/* WDMA */
-	if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+	if (IS_ISP6S_V1(g_platform_id) || IS_ISP6S_V2(g_platform_id)) {
 		ISP_WR32(CAM_REG_IMGO_CON(module), 0x80000800);//IMGO 2048
 		ISP_WR32(CAM_REG_IMGO_CON2(module), 0x04000300);//1/2~3/8
 		ISP_WR32(CAM_REG_IMGO_CON3(module), 0x02000100);//1/4~1/8
@@ -2578,7 +2497,7 @@ static void ISP_ConfigDMAControl(enum ISP_DEV_NODE_ENUM module)
 		ISP_WR32(CAM_REG_RRZO_CON2(module), 0x028001E0);//1/2~3/8
 		ISP_WR32(CAM_REG_RRZO_CON3(module), 0x014000A0);//1/4~1/8
 		ISP_WR32(CAM_REG_RRZO_DRS(module), 0x835502B5);//2/3~13/24
-	} else if (IS_MT6853(g_platform_id)) {
+	} else if (IS_ISP6S_V3(g_platform_id)) {
 		ISP_WR32(CAM_REG_IMGO_CON(module), 0x80000600);//IMGO 1536
 		ISP_WR32(CAM_REG_IMGO_CON2(module), 0x03000300);//1/2~3/8
 		ISP_WR32(CAM_REG_IMGO_CON3(module), 0x01800180);//1/4~1/8
@@ -2758,6 +2677,13 @@ static void ISP_ConfigDMAControl(enum ISP_DEV_NODE_ENUM module)
  ******************************************************************************/
 static void ISP_EnableClock(enum ISP_DEV_NODE_ENUM module, bool En)
 {
+	if (IS_2RAW_PLATFORM(g_platform_id)) {
+		if (module == ISP_CAM_C_IDX) {
+			LOG_NOTICE("Not supported to ctrl clock: ISP_CAM_C_IDX\n");
+			return;
+		}
+	}
+
 	if (En) {
 #if defined(EP_NO_CLKMGR)
 		int cg_con1 = 0, cg_con2 = 0;
@@ -2856,7 +2782,7 @@ static inline void ISP_Reset(int module)
 	unsigned long long timeoutMs = 5000; /*5ms */
 	bool bDumped = MFALSE;
 
-	if (IS_MT6853(g_platform_id)) {
+	if (IS_2RAW_PLATFORM(g_platform_id)) {
 		if (module == ISP_CAM_C_IDX) {
 			LOG_NOTICE("Not support reset module: ISP_CAM_C_IDX\n");
 			return;
@@ -4009,6 +3935,11 @@ static inline void ISP_StopHW(int module)
 	unsigned long long timeoutMsRst = 3000000; /*3ms */
 	char moduleName[128];
 
+	if (IS_2RAW_PLATFORM(g_platform_id)) {
+		if (module == ISP_CAM_C_IDX)
+			return;
+	}
+
 	/* wait TG idle */
 	switch (module) {
 	case ISP_CAM_A_IDX:
@@ -4858,7 +4789,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			/* CAMSV */
 			case 11: {
-				LOG_INF("CAMSV_%d viewFinder is ON\n", module);
+				LOG_INF("CAMSV_%d viewFinder is ON\n",
+					(DebugFlag[1] - ISP_CAMSV_START_IDX));
 
 				cam_dmao = (ISP_RD32(CAMSV_REG_MODULE_EN(
 						    DebugFlag[1])) &
@@ -5272,7 +5204,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 		}
 
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_3RAW_PLATFORM(g_platform_id)) {
 			index = cq0_note.cq0_data[CAM_C][0] - ISP_CAM_A_IDX;
 			if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 				if (cq0_note.cq0_data[CAM_C][1] != 0) {
@@ -5477,50 +5409,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			break;
 		};
 	} break;
-#if (SMI_LARB_MMU_CTL == 1)
-	case ISP_LARB_MMU_CTL: {
-
-		struct ISP_LARB_MMU_STRUCT larbInfo;
-
-		if (copy_from_user(&larbInfo, (void *)Param,
-				   sizeof(struct ISP_LARB_MMU_STRUCT)) != 0) {
-			LOG_NOTICE("copy_from_user LARB_MMU_CTL failed\n");
-			Ret = -EFAULT;
-			goto EXIT;
-		}
-
-		switch (larbInfo.LarbNum) {
-		case 13:
-		case 14:
-		case 16:
-		case 17:
-		case 18:
-			break;
-		default:
-			LOG_NOTICE("Wrong SMI_LARB port=%d\n",
-				   larbInfo.LarbNum);
-
-			Ret = -EFAULT;
-			goto EXIT;
-		}
-
-		if ((SMI_LARB_BASE[larbInfo.LarbNum] == NULL) ||
-		    (larbInfo.regOffset >= 0x1000)) {
-			LOG_NOTICE(
-				"Wrong SMI_LARB port=%d base addr=%pK offset=0x%x\n",
-				larbInfo.LarbNum,
-				SMI_LARB_BASE[larbInfo.LarbNum],
-				larbInfo.regOffset);
-
-			Ret = -EFAULT;
-			goto EXIT;
-		}
-
-		*(unsigned int *)((char *)SMI_LARB_BASE[larbInfo.LarbNum] +
-				  larbInfo.regOffset) = larbInfo.regVal;
-
-	} break;
-#endif
 	case ISP_SET_SEC_DAPC_REG:
 		if (copy_from_user(Dapc_Reg, (void *)Param,
 				   sizeof(unsigned int) * 10) != 0) {
@@ -5657,7 +5545,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			} else {
 				if (pwrctl[0] >= ISP_CAMSV_START_IDX)
 					ISP_StopSVHW(pwrctl[0]);
-				else if (pwrctl[0] < ISP_CAM_C_IDX)
+				else if (pwrctl[0] <= ISP_CAM_C_IDX)
 					ISP_StopHW(pwrctl[0]);
 
 				/* Disable clock.
@@ -6520,56 +6408,67 @@ static unsigned int NodeName_to_DevIdx(const char *name)
 		return ISP_DEV_NODE_NUM;
 
 }
-#ifdef USE_MTK_SMI_LARB_API
-/*******************************************************************************
- *
- ******************************************************************************/
-/*
- * Before common kernel iommu's device link ready.
- * we need to use SMI API to power on bus directly.
- */
-void ISP_get_larb(struct platform_device *pDev, unsigned int dev_idx, int larb_num)
-{
-	struct device_node *node;
-	struct platform_device *larb_pdev;
-	unsigned int larb_id = 0;
-	int i = 0;
 
-	if ((larb_num > 2) || (larb_num < 1)) {
-		LOG_NOTICE("larb num is invalid. Not to get larb.\n");
+/*******************************************************************************
+ * Add isp p1 device link.
+ ******************************************************************************/
+static void ISP_add_device_link(struct platform_device *pDev)
+{
+	char mtk_larb_str[32];
+	int i = 0, mtk_larb = 0, mtk_larbs = 0, larb_num = 0;
+	unsigned int larb_id = 0;
+	struct device_node *larb_node;
+	struct device_link *link;
+	struct platform_device *larb_pdev;
+
+	mtk_larb = of_count_phandle_with_args(pDev->dev.of_node, "mediatek,larb", NULL);
+	mtk_larbs = of_count_phandle_with_args(pDev->dev.of_node, "mediatek,larbs", NULL);
+
+	if (mtk_larb > mtk_larbs) {
+		larb_num = mtk_larb;
+		strncpy(mtk_larb_str, "mediatek,larb", 14);
+	} else {
+		larb_num = mtk_larbs;
+		strncpy(mtk_larb_str, "mediatek,larbs", 15);
+	}
+
+	LOG_INF("larb_num: %d; (%d, %d)\n", larb_num, mtk_larb, mtk_larbs);
+
+	if (larb_num <= 0) {
+		LOG_INF("%s: find no larb", pDev->dev.of_node->name);
 		return;
 	}
+
 	for (i = 0; i < larb_num; i++) {
-		if (larb_num > 1)
-			node = of_parse_phandle(pDev->dev.of_node, "mediatek,larbs", i);
-		else
-			node = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", i);
-		if (!node) {
-			LOG_NOTICE("%s: no mediatek,larb found\n",
-				pDev->dev.of_node->name);
-			return;
+		larb_node = of_parse_phandle(pDev->dev.of_node, mtk_larb_str, i);
+		if (!larb_node) {
+			LOG_NOTICE("%s: [%d]: failed to get larb from %s\n",
+				pDev->dev.of_node->name, i, mtk_larb_str);
+			continue;
 		}
-		larb_pdev = of_find_device_by_node(node);
-		if (of_property_read_u32(node, "mediatek,larb-id", &larb_id))
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(larb_node);
+			LOG_NOTICE("%s: failed to get larb pdev\n", pDev->dev.of_node->name);
+			continue;
+		}
+
+		if (of_property_read_u32(larb_node, "mediatek,larb-id", &larb_id))
 			LOG_NOTICE("Error: get larb id from DTS fail!!\n");
 		else
-			LOG_NOTICE("%s gets larb_id=%d\n",
+			LOG_INF("%s gets larb_id=%d\n",
 				pDev->dev.of_node->name, larb_id);
-		of_node_put(node);
-		if (!larb_pdev) {
-			LOG_NOTICE("%s: no mediatek,larb device found\n",
-				pDev->dev.of_node->name);
-			return;
-		}
-		if (i == 0)
-			isp_devs[dev_idx].larb = &larb_pdev->dev;
-		else
-			isp_devs[dev_idx].larb_2nd = &larb_pdev->dev;
-		LOG_NOTICE("%s: get %s\n", pDev->dev.of_node->name,
-			larb_pdev->dev.of_node->name);
+
+		of_node_put(larb_node);
+
+		link = device_link_add(&pDev->dev, &larb_pdev->dev,
+				DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			LOG_NOTICE("%s: [%d]: unable to link smi larb %d\n",
+				pDev->dev.of_node->name, i, larb_id);
 	}
 }
-#endif
+
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -6708,15 +6607,7 @@ static int ISP_probe(struct platform_device *pDev)
 			isp_devs[dev_idx].irq);
 	}
 
-#ifdef USE_MTK_SMI_LARB_API
-	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", strlen("cam1_legacy")) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam2_legacy", strlen("cam2_legacy")) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "cam3_legacy", strlen("cam3_legacy")) == 0))
-		ISP_get_larb(pDev, dev_idx, 1);
-	else if (strncmp(pDev->dev.of_node->name, "camisp_legacy",
-		strlen("camisp_legacy")) == 0)
-		ISP_get_larb(pDev, dev_idx, 2);
-#endif
+	ISP_add_device_link(pDev);
 
 	/* Only register char driver in the 1st time */
 	if (atomic_read(&G_u4DevNodeCt) == 1) {
@@ -6764,10 +6655,12 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.CAMSYS_LARB13_CGPDN =
 			devm_clk_get(&pDev->dev, "CAMSYS_LARB13_CGPDN");
 
-		isp_clk.CAMSYS_LARB14_CGPDN =
-			devm_clk_get(&pDev->dev, "CAMSYS_LARB14_CGPDN");
+		if (IS_LARB14_CGPDN_NECESSARY(g_platform_id)) {
+			isp_clk.CAMSYS_LARB14_CGPDN =
+				devm_clk_get(&pDev->dev, "CAMSYS_LARB14_CGPDN");
+		}
 
-		if (IS_MT6893(g_platform_id)) {
+		if (IS_LARB15_CGPDN_NECESSARY(g_platform_id)) {
 			isp_clk.CAMSYS_LARB15_CGPDN =
 				devm_clk_get(&pDev->dev, "CAMSYS_LARB15_CGPDN");
 		}
@@ -6775,17 +6668,19 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.CAMSYS_SENINF_CGPDN =
 			devm_clk_get(&pDev->dev, "CAMSYS_SENINF_CGPDN");
 
-		if (IS_MT6873(g_platform_id) || IS_MT6853(g_platform_id)) {
+		if (IS_CAM2MM_GALS_CGPDN_NECESSARY(g_platform_id)) {
 			isp_clk.CAMSYS_CAM2MM_GALS_CGPDN =
 				devm_clk_get(&pDev->dev,
 					"CAMSYS_MAIN_CAM2MM_GALS_CGPDN");
 		}
 
-		isp_clk.CAMSYS_TOP_MUX_CCU =
-			devm_clk_get(&pDev->dev, "TOPCKGEN_TOP_MUX_CCU");
+		if (IS_CCU_AVAILABLE(g_platform_id)) {
+			isp_clk.CAMSYS_TOP_MUX_CCU =
+				devm_clk_get(&pDev->dev, "TOPCKGEN_TOP_MUX_CCU");
 
-		isp_clk.CAMSYS_CCU0_CGPDN =
-			devm_clk_get(&pDev->dev, "CAMSYS_CCU0_CGPDN");
+			isp_clk.CAMSYS_CCU0_CGPDN =
+				devm_clk_get(&pDev->dev, "CAMSYS_CCU0_CGPDN");
+		}
 
 		isp_clk.ISP_CAM_CAMSYS =
 			devm_clk_get(&pDev->dev, "CAMSYS_CAM_CGPDN");
@@ -6793,7 +6688,7 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.ISP_CAM_CAMTG =
 			devm_clk_get(&pDev->dev, "CAMSYS_CAMTG_CGPDN");
 
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_CAMSV_TOP0_AVAILABLE(g_platform_id)) {
 			isp_clk.ISP_CAM_CAMSV0 =
 				devm_clk_get(&pDev->dev, "CAMSYS_CAMSV0_CGPDN");
 		}
@@ -6819,7 +6714,7 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.ISP_CAM_TG_RAWB =
 			devm_clk_get(&pDev->dev, "CAMSYS_RAWBTG_CGPDN");
 
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_3RAW_PLATFORM(g_platform_id)) {
 			isp_clk.ISP_CAM_LARB18_RAWC =
 				devm_clk_get(&pDev->dev, "CAMSYS_RAWCLARB18_CGPDN");
 			isp_clk.ISP_CAM_SUBSYS_RAWC =
@@ -6835,12 +6730,15 @@ static int ISP_probe(struct platform_device *pDev)
 			LOG_NOTICE("cannot get CAMSYS_LARB13_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_LARB13_CGPDN);
 		}
-		if (IS_ERR(isp_clk.CAMSYS_LARB14_CGPDN)) {
-			LOG_NOTICE("cannot get CAMSYS_LARB14_CGPDN clock\n");
-			return PTR_ERR(isp_clk.CAMSYS_LARB14_CGPDN);
+
+		if (IS_LARB14_CGPDN_NECESSARY(g_platform_id)) {
+			if (IS_ERR(isp_clk.CAMSYS_LARB14_CGPDN)) {
+				LOG_NOTICE("cannot get CAMSYS_LARB14_CGPDN clock\n");
+				return PTR_ERR(isp_clk.CAMSYS_LARB14_CGPDN);
+			}
 		}
 
-		if (IS_MT6893(g_platform_id)) {
+		if (IS_LARB15_CGPDN_NECESSARY(g_platform_id)) {
 			if (IS_ERR(isp_clk.CAMSYS_LARB15_CGPDN)) {
 				LOG_NOTICE("cannot get CAMSYS_LARB15_CGPDN clock\n");
 				return PTR_ERR(isp_clk.CAMSYS_LARB15_CGPDN);
@@ -6852,7 +6750,7 @@ static int ISP_probe(struct platform_device *pDev)
 			return PTR_ERR(isp_clk.CAMSYS_SENINF_CGPDN);
 		}
 
-		if (IS_MT6873(g_platform_id) || IS_MT6853(g_platform_id)) {
+		if (IS_CAM2MM_GALS_CGPDN_NECESSARY(g_platform_id)) {
 			if (IS_ERR(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN)) {
 				LOG_NOTICE(
 					"cannot get CAMSYS_CAM2MM_GALS_CGPDN clock\n");
@@ -6860,14 +6758,17 @@ static int ISP_probe(struct platform_device *pDev)
 			}
 		}
 
-		if (IS_ERR(isp_clk.CAMSYS_TOP_MUX_CCU)) {
-			LOG_NOTICE("cannot get CAMSYS_TOP_MUX_CCU clock\n");
-			return PTR_ERR(isp_clk.CAMSYS_TOP_MUX_CCU);
+		if (IS_CCU_AVAILABLE(g_platform_id)) {
+			if (IS_ERR(isp_clk.CAMSYS_TOP_MUX_CCU)) {
+				LOG_NOTICE("cannot get CAMSYS_TOP_MUX_CCU clock\n");
+				return PTR_ERR(isp_clk.CAMSYS_TOP_MUX_CCU);
+			}
+			if (IS_ERR(isp_clk.CAMSYS_CCU0_CGPDN)) {
+				LOG_NOTICE("cannot get CAMSYS_CCU0_CGPDN clock\n");
+				return PTR_ERR(isp_clk.CAMSYS_CCU0_CGPDN);
+			}
 		}
-		if (IS_ERR(isp_clk.CAMSYS_CCU0_CGPDN)) {
-			LOG_NOTICE("cannot get CAMSYS_CCU0_CGPDN clock\n");
-			return PTR_ERR(isp_clk.CAMSYS_CCU0_CGPDN);
-		}
+
 		if (IS_ERR(isp_clk.ISP_CAM_CAMSYS)) {
 			LOG_NOTICE("cannot get ISP_CAM_CAMSYS clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_CAMSYS);
@@ -6877,7 +6778,7 @@ static int ISP_probe(struct platform_device *pDev)
 			return PTR_ERR(isp_clk.ISP_CAM_CAMTG);
 		}
 
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_CAMSV_TOP0_AVAILABLE(g_platform_id)) {
 			if (IS_ERR(isp_clk.ISP_CAM_CAMSV0)) {
 				LOG_NOTICE("cannot get ISP_CAM_CAMSV0 clock\n");
 				return PTR_ERR(isp_clk.ISP_CAM_CAMSV0);
@@ -6921,7 +6822,7 @@ static int ISP_probe(struct platform_device *pDev)
 			return PTR_ERR(isp_clk.ISP_CAM_TG_RAWB);
 		}
 
-		if (IS_MT6873(g_platform_id) || IS_MT6893(g_platform_id)) {
+		if (IS_3RAW_PLATFORM(g_platform_id)) {
 			if (IS_ERR(isp_clk.ISP_CAM_LARB18_RAWC)) {
 				LOG_NOTICE("cannot get ISP_CAM_LARB18_RAWC clock\n");
 				return PTR_ERR(isp_clk.ISP_CAM_LARB18_RAWC);
@@ -7244,7 +7145,7 @@ static int ISP_pm_event_suspend(void)
 
 	for (i = ISP_CAM_A_IDX; i < ISP_DEV_NODE_NUM; i++) {
 		if (i == ISP_CAM_C_IDX) {
-			if (IS_MT6853(g_platform_id))
+			if (IS_2RAW_PLATFORM(g_platform_id))
 				continue;
 		}
 
@@ -7432,69 +7333,12 @@ static struct notifier_block ISP_suspend_pm_notifier_func = {
 /*******************************************************************************
  *
  ******************************************************************************/
-static ssize_t ISP_DumpRegToProc(struct file *pFile, char *pStart, size_t off,
-				 loff_t *Count)
-{
-	LOG_NOTICE("ISP_DumpRegToProc_Func: Not implement");
-	return 0;
-}
-
-/*******************************************************************************
- *
- ******************************************************************************/
-static ssize_t ISP_RegDebug(struct file *pFile, const char *pBuffer,
-			    size_t Count, loff_t *pData)
-{
-	LOG_NOTICE("ISP_RegDebug_Func: Not implement");
-	return 0;
-}
-
-/*******************************************************************************
- *
- ******************************************************************************/
-static ssize_t CAMIO_DumpRegToProc(struct file *pFile, char *pStart, size_t off,
-				   loff_t *Count)
-{
-	LOG_NOTICE("CAMIO_DumpRegToProc_Func: Not implement");
-	return 0;
-}
-
-/*******************************************************************************
- *
- ******************************************************************************/
-static ssize_t CAMIO_RegDebug(struct file *pFile, const char *pBuffer,
-			      size_t Count, loff_t *pData)
-{
-	LOG_NOTICE("CAMIO_RegDebug_Func: Not implement");
-	return 0;
-}
-
-/*******************************************************************************
- *
- ******************************************************************************/
-static const struct proc_ops fcameraisp_proc_fops = {
-	.proc_read = ISP_DumpRegToProc,
-	.proc_write = ISP_RegDebug,
-};
-
-static const struct proc_ops fcameraio_proc_fops = {
-	.proc_read = CAMIO_DumpRegToProc,
-	.proc_write = CAMIO_RegDebug,
-};
-
-/*******************************************************************************
- *
- ******************************************************************************/
 
 static int __init ISP_Init(void)
 {
 	int Ret = 0, i, j, k;
 	void *tmp;
-//	struct device_node *isp_dev_node = NULL;
 
-#if (SMI_LARB_MMU_CTL == 1)
-	struct device_node *node = NULL;
-#endif
 	/*  */
 	LOG_DBG("- E.");
 	mutex_init(&open_isp_mutex);
@@ -7514,56 +7358,6 @@ static int __init ISP_Init(void)
 		LOG_NOTICE("platform_driver_register failed\n");
 		return Ret;
 	}
-
-/* Use of_find_compatible_node() sensor registers from device tree */
-/* Don't use compatitble define in probe(). */
-/* Otherwise, probe() of Seninf driver cannot be called. */
-#if (SMI_LARB_MMU_CTL == 1)
-	do {
-		unsigned int larb_id = 0;
-
-		for (i = 0; i < ARRAY_SIZE(SMI_LARB_BASE); i++)
-			SMI_LARB_BASE[i] = 0;
-
-		for (i = 0; i < ARRAY_SIZE(SMI_LARB_BASE); i++) {
-
-			if (IS_MT6873(g_platform_id))
-				node = of_find_compatible_node(node, NULL, "mediatek,mt6873-smi-larb");
-			else if (IS_MT6853(g_platform_id))
-				node = of_find_compatible_node(node, NULL, "mediatek,mt6853-smi-larb");
-			else if (IS_MT6893(g_platform_id))
-				node = of_find_compatible_node(node, NULL, "mediatek,mt6893-smi-larb");
-
-			if (!node) {
-				if (i == 0) {
-					LOG_NOTICE("find no larb node\n");
-					break;
-				}
-
-				LOG_NOTICE("Found %d larb and Search done\n", i);
-				break;
-			}
-
-			if (of_property_read_u32(node, "mediatek,larb-id", &larb_id)) {
-				LOG_NOTICE("Error: get larb id from DTS fail!!\n");
-				break;
-			} else {
-				SMI_LARB_BASE[larb_id] = of_iomap(node, 0);
-
-				if (!SMI_LARB_BASE[larb_id]) {
-					LOG_NOTICE(
-						"unable to map SMI_LARB_BASE registers!!!\n");
-					break;
-				}
-				LOG_INF("SMI_LARB%d_BASE: 0x%p\n", larb_id, SMI_LARB_BASE[larb_id]);
-			}
-		}
-	} while (0);
-#endif
-
-	/* FIX-ME: linux-3.10 procfs API changed */
-	proc_create("driver/isp_reg", 0000, NULL, &fcameraisp_proc_fops);
-	proc_create("driver/camio_reg", 0000, NULL, &fcameraio_proc_fops);
 
 #ifdef CAM_ISP_DBGFS
 	camisp_dbg_root = debugfs_create_dir("camera_isp", NULL);
@@ -11552,69 +11346,6 @@ irqreturn_t ISP_Irq_CAM(
 			}
 #endif /* (TIMESTAMP_QUEUE_EN == 1) */
 
-#if 0
-			IRQ_LOG_KEEPER(
-				module, m_CurrentPPB, _LOG_INF,
-				"%s,%s,CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x, DMA 0x%x,0x%x, LTMS/FLK/AA/AAH/TSFS(0x%x, 0x%x, 0x%x, 0x%x, 0x%x) pa(0x%x,0x%x,0x%x,0x%x,0x%x),0x%x,0x%x,0x%x)\n",
-				gPass1doneLog[module]._str,
-				gLostPass1doneLog[module]._str,
-				'A' + cardinalNum, sof_count[module], cur_v_cnt,
-				(unsigned int)(ISP_RD32(
-					CAM_REG_FBC_IMGO_CTL1(reg_module))),
-				(unsigned int)(ISP_RD32(
-					CAM_REG_FBC_IMGO_CTL2(reg_module))),
-				(unsigned int)(ISP_RD32(
-					CAM_REG_FBC_RRZO_CTL1(reg_module))),
-				(unsigned int)(ISP_RD32(
-					CAM_REG_FBC_RRZO_CTL2(reg_module))),
-				ISP_RD32(CAM_REG_IMGO_BASE_ADDR(reg_module)),
-				ISP_RD32(CAM_REG_RRZO_BASE_ADDR(reg_module)),
-				magic_num,
-				(unsigned int)((sec * 1000000 + usec) -
-				(1000000 * m_sec[module] + m_usec[module])),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CQ_THR0_BASEADDR(reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CTL_DMA_EN(reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CTL_DMA_EN(
-						inner_reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_LTMSO_CTL2(reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_FLKO_CTL2(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_AAO_CTL2(reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_AAHO_CTL2(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FBC_TSFSO_CTL2(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_LTMSO_BASE_ADDR(reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_BASE_ADDR(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_AAO_BASE_ADDR(reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_AAHO_BASE_ADDR(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_TSFSO_BASE_ADDR(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_FLKO_FH_BASE_ADDR(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_AAO_FH_BASE_ADDR(
-						reg_module)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_AAHO_FH_BASE_ADDR(
-						reg_module)));
-#else
 			if (sec_on)
 				IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
@@ -11880,7 +11611,6 @@ irqreturn_t ISP_Irq_CAM(
 					CAM_REG_CTL_EN2(
 						ISP_CAM_C_INNER_IDX)));
 			}
-#endif
 
 			if (snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
 				LOG_NOTICE("Error: snprintf fail\n");

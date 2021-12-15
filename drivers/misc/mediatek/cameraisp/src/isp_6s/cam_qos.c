@@ -129,7 +129,7 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 /* if module and portID are valid, return true. */
 bool check_module_and_portID(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 {
-	if (IS_MT6853(g_cam_qos_platform_id)) {
+	if (IS_2RAW_PLATFORM(g_cam_qos_platform_id)) {
 		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
 			return false;
 	}
@@ -171,14 +171,7 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 	if (check_module_and_portID(module, portID) == false)
 		return;
 
-	if (IS_MT6893(g_cam_qos_platform_id)) {
-		/* mt6893 exists 2 slave_common. Larb13/16/18 must use slave_common(1);
-		 * Others use slave_common(0).
-		 */
-		slave_common_id = SLAVE_COMMON(1);
-	} else {
-		slave_common_id = SLAVE_COMMON(0);
-	}
+	SET_2ND_SLAVE_COMMON(g_cam_qos_platform_id, slave_common_id);
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
@@ -189,6 +182,7 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 				SLAVE_COMMON(0));
 			break;
 		case _camsv_ufeo_:
+			/* isp6s HW exists, but sw no supports. */
 			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
 				MASTER_LARB_PORT(m4u_port.l13_cam_camsv1),
 				slave_common_id);
@@ -649,7 +643,7 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 
 void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 {
-	if (IS_MT6853(g_cam_qos_platform_id)) {
+	if (IS_2RAW_PLATFORM(g_cam_qos_platform_id)) {
 		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
 			return;
 	}
@@ -769,6 +763,11 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 {
 	unsigned short portID = 0;
+
+	if (IS_2RAW_PLATFORM(g_cam_qos_platform_id)) {
+		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
+			return;
+	}
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
@@ -1250,40 +1249,42 @@ static void cam_qos_parse_m4u_port(struct platform_device *pdev)
 	of_property_read_u32(pdev->dev.of_node,
 		"l17_cam_lsci_r1_b", &(m4u_port.l17_cam_lsci_r1_b));
 
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_imgo_r1_c", &(m4u_port.l18_cam_imgo_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_rrzo_r1_c", &(m4u_port.l18_cam_rrzo_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_cqi_r1_c", &(m4u_port.l18_cam_cqi_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_bpci_r1_c", &(m4u_port.l18_cam_bpci_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_yuvo_r1_c", &(m4u_port.l18_cam_yuvo_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_ufdi_r2_c", &(m4u_port.l18_cam_ufdi_r2_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_rawi_r2_c", &(m4u_port.l18_cam_rawi_r2_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_rawi_r3_c", &(m4u_port.l18_cam_rawi_r3_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_aao_r1_c", &(m4u_port.l18_cam_aao_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_afo_r1_c", &(m4u_port.l18_cam_afo_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_flko_r1_c", &(m4u_port.l18_cam_flko_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_lceso_r1_c", &(m4u_port.l18_cam_lceso_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_crzo_r1_c", &(m4u_port.l18_cam_crzo_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_ltmso_r1_c", &(m4u_port.l18_cam_ltmso_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_rsso_r1_c", &(m4u_port.l18_cam_rsso_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_aaho_r1_c", &(m4u_port.l18_cam_aaho_r1_c));
-	of_property_read_u32(pdev->dev.of_node,
-		"l18_cam_lsci_r1_c", &(m4u_port.l18_cam_lsci_r1_c));
+	if (IS_3RAW_PLATFORM(g_cam_qos_platform_id)) {
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_imgo_r1_c", &(m4u_port.l18_cam_imgo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rrzo_r1_c", &(m4u_port.l18_cam_rrzo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_cqi_r1_c", &(m4u_port.l18_cam_cqi_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_bpci_r1_c", &(m4u_port.l18_cam_bpci_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_yuvo_r1_c", &(m4u_port.l18_cam_yuvo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_ufdi_r2_c", &(m4u_port.l18_cam_ufdi_r2_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rawi_r2_c", &(m4u_port.l18_cam_rawi_r2_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rawi_r3_c", &(m4u_port.l18_cam_rawi_r3_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_aao_r1_c", &(m4u_port.l18_cam_aao_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_afo_r1_c", &(m4u_port.l18_cam_afo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_flko_r1_c", &(m4u_port.l18_cam_flko_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_lceso_r1_c", &(m4u_port.l18_cam_lceso_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_crzo_r1_c", &(m4u_port.l18_cam_crzo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_ltmso_r1_c", &(m4u_port.l18_cam_ltmso_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rsso_r1_c", &(m4u_port.l18_cam_rsso_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_aaho_r1_c", &(m4u_port.l18_cam_aaho_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_lsci_r1_c", &(m4u_port.l18_cam_lsci_r1_c));
+	}
 }
 
 static int cam_qos_probe(struct platform_device *pdev)
