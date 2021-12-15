@@ -61,6 +61,7 @@ struct mtu3_request;
 #define MTU3_EP_BUSY		BIT(3)
 
 #define MTU3_U3_IP_SLOT_DEFAULT 2
+#define MTU3_U3_IP_SLOT_MAX 4
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
 #define MTU3_SW_ID_GROUND	BIT(0)
@@ -151,6 +152,12 @@ enum mtu3_power_state {
 	MTU3_STATE_POWER_ON,
 	MTU3_STATE_SUSPEND,
 	MTU3_STATE_RESUME,
+};
+
+enum mtu3_ep_slot_mode {
+	MTU3_EP_SLOT_DEFAULT = 0,
+	MTU3_EP_SLOT_MIN,
+	MTU3_EP_SLOT_MAX,
 };
 
 enum mtu3_plat_type {
@@ -421,7 +428,7 @@ struct mtu3 {
 	u32 hw_version;
 
 	unsigned is_gadget_ready:1;
-	unsigned is_ep_saving:1;
+	int ep_slot_mode;
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)
