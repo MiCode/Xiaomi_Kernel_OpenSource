@@ -752,6 +752,7 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 	for (i = 0; i < 16; i++)
 		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, addr[i], val[i]);
 
+	/* sspm need some time to run isr */
 	mdelay(1000);
 
 	BUG_ON(1);
@@ -769,6 +770,7 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
 	u32 val[7];
 
+	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
 	regmap_read(regmap, HWV_PLL_SET, &val[0]);
 	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
 	regmap_read(regmap, HWV_PLL_STA, &val[2]);
