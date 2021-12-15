@@ -1281,9 +1281,6 @@ static irqreturn_t mtk_jpeg_enc_irq(int irq, void *priv)
 	if (irq_status & JPEG_ENC_INT_STATUS_STALL)
 		pr_info("irq stall need to check output buffer size");
 
-	if (!(irq_status & JPEG_ENC_INT_STATUS_DONE))
-		return ret;
-
 	ret = mtk_jpeg_enc_done(jpeg);
 	return ret;
 }
