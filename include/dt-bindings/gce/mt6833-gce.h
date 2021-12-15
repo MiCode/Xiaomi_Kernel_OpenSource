@@ -366,6 +366,9 @@
 /* DISP sw token */
 #define CMDQ_SYNC_TOKEN_SODI				671
 
+#define CMDQ_SYNC_TOKEN_DISP_VA_START			692
+#define CMDQ_SYNC_TOKEN_DISP_VA_END			693
+
 /* GPR access tokens (for register backup)
  * There are 15 32-bit GPR, 3 GPR form a set
  * (64-bit for address, 32-bit for value)
