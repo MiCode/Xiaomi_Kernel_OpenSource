@@ -403,6 +403,7 @@ static int mtk_usb_extcon_id_pin_init(struct mtk_extcon_info *extcon)
 }
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
+#define PROC_FILE_SMT "mtk_typec"
 #define FILE_SMT_U2_CC_MODE "mtk_typec/smt_u2_cc_mode"
 
 static int usb_cc_smt_procfs_show(struct seq_file *s, void *unused)
@@ -451,7 +452,9 @@ static const struct  proc_ops usb_cc_smt_procfs_fops = {
 static int mtk_usb_extcon_procfs_init(struct mtk_extcon_info *extcon)
 {
 	struct proc_dir_entry *file;
+	struct proc_dir_entry *root;
 
+	root = proc_mkdir(PROC_FILE_SMT, NULL);
 	file = proc_create_data(FILE_SMT_U2_CC_MODE, 0400, NULL,
 		&usb_cc_smt_procfs_fops, extcon);
 
@@ -463,6 +466,7 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_extcon_info *extcon;
+	const char *tcpc_name;
 	int ret;
 
 	extcon = devm_kzalloc(&pdev->dev, sizeof(*extcon), GFP_KERNEL);
@@ -521,7 +525,9 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 			"mediatek,bypss-typec-sink");
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
-	mtk_usb_extcon_procfs_init(extcon);
+	ret = of_property_read_string(dev->of_node, "tcpc", &tcpc_name);
+	if (ret == 0 && strcmp(tcpc_name, "type_c_port0") == 0)
+		mtk_usb_extcon_procfs_init(extcon);
 #endif
 
 	extcon->extcon_wq = create_singlethread_workqueue("extcon_usb");
