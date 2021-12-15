@@ -8,8 +8,13 @@
 		compatible = "mediatek,subpmic";
 		reg = <0x34>;
 		status = "ok";
+#if defined (CONFIG_MACH_MT6877)
+		mt6360,intr_gpio_num = <4>; /* direct defined GPIO num */
+		mt6360,intr_gpio = <&pio 4 0x0>; /* GPIO */
+#else
 		mt6360,intr_gpio_num = <3>; /* direct defined GPIO num */
 		mt6360,intr_gpio = <&pio 3 0x0>; /* GPIO */
+#endif
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		adc: adc {
@@ -58,7 +63,7 @@
 			batoc_notify = <0>;
 			charger = <&mt6360_chg>;
 			bc12_sel = <0>;
-#if !defined (CONFIG_MACH_MT6893) && !defined (CONFIG_MACH_MT6833) && !defined (CONFIG_MACH_MT6877)
+#if !defined (CONFIG_MACH_MT6893) && !defined (CONFIG_MACH_MT6833)
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			phy-names = "usb2-phy";
 			usb = <&ssusb>;
