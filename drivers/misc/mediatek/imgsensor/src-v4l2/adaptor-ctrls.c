@@ -643,7 +643,22 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			ctrl->val = 10000000 / mode->max_framerate;
 		break;
 	case V4L2_CID_VBLANK:
-		ctrl->val = mode->fll - mode->height;
+		if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
+			ctrl->val = mode->fll - (mode->height *
+				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
+				(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0)));
+			dev_info(ctx->dev, "[%s] V4L2_CID_VBLANK %d|%d|%d|%d|%d\n",
+				__func__,
+				ctrl->val,
+				mode->linetime_in_ns_readout,
+				mode->linetime_in_ns,
+				mode->fll,
+				(mode->height *
+				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
+			(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0))));
+		} else {
+			ctrl->val = mode->fll - mode->height;
+		}
 		break;
 	case V4L2_CID_HBLANK:
 		ctrl->val =
@@ -753,7 +768,15 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 						para.u8, &len);
 
 			info->fps = val / 10;
-			info->vblank = mode->fll - mode->height;
+
+			if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
+				info->vblank = mode->fll - mode->height *
+				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
+				(mode->linetime_in_ns_readout % mode->linetime_in_ns) ? 1 : 0);
+			} else {
+				info->vblank = mode->fll - mode->height;
+			}
+
 			info->hblank =
 				(((mode->linetime_in_ns_readout *
 					mode->mipi_pixel_rate)/1000000000) - mode->width);
@@ -765,7 +788,7 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 			info->cust_pixelrate = mode->cust_pixel_rate;
 		}
 
-		dev_info(ctx->dev,
+		dev_dbg(ctx->dev,
 				"%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d cust_pixel_rate: %d\n",
 				__func__, info->scenario_id, info->fps, info->vblank,
 				info->hblank, info->pixelrate, info->cust_pixelrate);
@@ -1121,7 +1144,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 #endif
 	case V4L2_CID_MTK_SENSOR_POWER:
-		dev_info(dev, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
+		dev_dbg(dev, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
 		if (ctrl->val)
 			adaptor_hw_power_on(ctx);
 		else
