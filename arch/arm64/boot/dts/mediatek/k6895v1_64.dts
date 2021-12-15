@@ -680,6 +680,10 @@ androidboot.hardware=mt6895";
 	pd_vbus_upper_bound = <12000000>;
 };
 
+&mmlsys_config {
+	racing-enable;
+};
+
 #include "mediatek/cust_mt6895_touch_1080x2400.dtsi"
 #include "mediatek/cust_mt6895_camera_v4l2.dtsi"
 #include <k6895v1_64/cust.dtsi>
