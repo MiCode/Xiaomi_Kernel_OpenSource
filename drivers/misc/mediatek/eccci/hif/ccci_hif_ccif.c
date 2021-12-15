@@ -1987,7 +1987,20 @@ static void ccif_set_clk_off(unsigned char hif_id)
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s start\n", __func__);
 
-	if (ccif_ctrl->plat_val.md_gen <= 6297) {
+	if ((ccif_ctrl->plat_val.md_gen >= 6298) ||
+	    (ccif_ctrl->ccif_hw_reset_ver == 1)) {
+		/* write 1 clear register */
+		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
+			0xBF0, 0xF7FF);
+		spin_lock_irqsave(&devapc_flag_lock, flags);
+		devapc_check_flag = 0;
+		spin_unlock_irqrestore(&devapc_flag_lock, flags);
+		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+			if (ccif_clk_table[idx].clk_ref == NULL)
+				continue;
+			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
+		}
+	} else if (ccif_ctrl->plat_val.md_gen <= 6297) {
 		/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
 		if (!IS_ERR(ccif_ctrl->pericfg_base)) {
 			CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:pericfg_base:0x%p\n",
@@ -2023,18 +2036,6 @@ static void ccif_set_clk_off(unsigned char hif_id)
 			spin_lock_irqsave(&devapc_flag_lock, flags);
 			devapc_check_flag = 0;
 			spin_unlock_irqrestore(&devapc_flag_lock, flags);
-			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
-		}
-	} else if (ccif_ctrl->plat_val.md_gen >= 6298) {
-		/* write 1 clear register */
-		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
-			0xBF0, 0xF7FF);
-		spin_lock_irqsave(&devapc_flag_lock, flags);
-		devapc_check_flag = 0;
-		spin_unlock_irqrestore(&devapc_flag_lock, flags);
-		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
-			if (ccif_clk_table[idx].clk_ref == NULL)
-				continue;
 			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
 		}
 	}
@@ -2265,16 +2266,21 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 	if (md_ctrl->ccif_hw_reset_ver == 1) {
 		node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg");
 
-		if (node) {
-			md_ctrl->infracfg_base = of_iomap(node, 0);
-			if (!md_ctrl->infracfg_base) {
-				CCCI_ERROR_LOG(-1, TAG,
-					"infracfg_base fail: 0x%p!\n");
-				return -8;
-			}
+		if (!node) {
+			CCCI_ERROR_LOG(-1, TAG,
+				       "[%s] error: infracfg node is not exist\n",
+				       __func__);
+			return -8;
+		}
+
+		md_ctrl->infracfg_base = of_iomap(node, 0);
+		if (!md_ctrl->infracfg_base) {
+			CCCI_ERROR_LOG(-1, TAG,
+				       "[%s] error: infracfg_base fail\n",
+				       __func__);
+			return -8;
 		}
 	}
-	CCCI_DEBUG_LOG(-1, TAG, "ccif_hw_reset_ver:%d\n", md_ctrl->ccif_hw_reset_ver);
 
 	return 0;
 
