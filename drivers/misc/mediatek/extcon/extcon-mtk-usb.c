@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/usb/role.h>
 #include <linux/workqueue.h>
+#include <linux/proc_fs.h>
 
 #include "extcon-mtk-usb.h"
 
@@ -401,6 +402,63 @@ static int mtk_usb_extcon_id_pin_init(struct mtk_extcon_info *extcon)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
+#define FILE_SMT_U2_CC_MODE "mtk_typec/smt_u2_cc_mode"
+
+static int usb_cc_smt_procfs_show(struct seq_file *s, void *unused)
+{
+	struct mtk_extcon_info *extcon = s->private;
+	struct device_node *np = extcon->dev->of_node;
+	const char *tcpc_name;
+	uint8_t cc1, cc2;
+	char buf[2];
+	int ret;
+
+	ret = of_property_read_string(np, "tcpc", &tcpc_name);
+	if (ret < 0)
+		return -ENODEV;
+
+	extcon->tcpc_dev = tcpc_dev_get_by_name(tcpc_name);
+	if (!extcon->tcpc_dev)
+		return -ENODEV;
+
+	tcpm_inquire_remote_cc(extcon->tcpc_dev, &cc1, &cc2, false);
+	dev_info(extcon->dev, "cc1=%d, cc2=%d\n", cc1, cc2);
+
+	if (cc1 == TYPEC_CC_VOLT_OPEN || cc1 == TYPEC_CC_DRP_TOGGLING)
+		seq_puts(s, "0\n");
+	else if (cc2 == TYPEC_CC_VOLT_OPEN || cc2 == TYPEC_CC_DRP_TOGGLING)
+		seq_puts(s, "0\n");
+	else
+		seq_puts(s, "1\n");
+	buf[1] = '\0';
+
+	return 0;
+}
+
+static int usb_cc_smt_procfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, usb_cc_smt_procfs_show, PDE_DATA(inode));
+}
+
+static const struct  proc_ops usb_cc_smt_procfs_fops = {
+	.proc_open = usb_cc_smt_procfs_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int mtk_usb_extcon_procfs_init(struct mtk_extcon_info *extcon)
+{
+	struct proc_dir_entry *file;
+
+	file = proc_create_data(FILE_SMT_U2_CC_MODE, 0400, NULL,
+		&usb_cc_smt_procfs_fops, extcon);
+
+	return 0;
+}
+#endif
+
 static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -461,6 +519,10 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 	extcon->bypss_typec_sink =
 		of_property_read_bool(dev->of_node,
 			"mediatek,bypss-typec-sink");
+
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
+	mtk_usb_extcon_procfs_init(extcon);
+#endif
 
 	extcon->extcon_wq = create_singlethread_workqueue("extcon_usb");
 	if (!extcon->extcon_wq)
