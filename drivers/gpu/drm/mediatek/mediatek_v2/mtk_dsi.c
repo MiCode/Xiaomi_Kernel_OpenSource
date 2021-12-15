@@ -114,7 +114,6 @@
 #define TXRX_CTRL_FLD_REG_HSTX_CKLP_EN REG_FLD_MSB_LSB(16, 16)
 
 #define DSI_PSCTRL 0x1c
-#define CMD_HS_HFP_BLANKING_HS_EN BIT(16)
 #define DSI_PS_WC	REG_FLD_MSB_LSB(14, 0)
 #define DSI_PS_SEL	REG_FLD_MSB_LSB(19, 16)
 #define RG_XY_SWAP  REG_FLD_MSB_LSB(21, 21)
@@ -164,6 +163,7 @@
 #define CMDQ_SIZE_SEL BIT(15)
 
 #define DSI_CMD_TYPE1_HS 0x6c
+#define CMD_HS_HFP_BLANKING_HS_EN BIT(16)
 #define CMD_CPHY_6BYTE_EN BIT(18)
 
 #define DSI_HSTX_CKL_WC 0x64
@@ -305,6 +305,8 @@
 
 #define NS_TO_CYCLE(n, c) ((n) / (c))
 
+#define CEILING(n, s) ((n) + ((s) - ((n) % (s))))
+
 #define MTK_DSI_HOST_IS_READ(type)                                             \
 	((type == MIPI_DSI_GENERIC_READ_REQUEST_0_PARAM) ||                    \
 	 (type == MIPI_DSI_GENERIC_READ_REQUEST_1_PARAM) ||                    \
@@ -365,6 +367,8 @@ struct mtk_dsi_driver_data {
 	bool need_wait_fifo;
 	bool dsi_buffer;
 	u32 max_vfp;
+	void (*mmclk_by_datarate)(struct mtk_dsi *dsi,
+		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
 };
 
 struct t_condition_wq {
@@ -5404,7 +5408,7 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
  * CPHY     | data_rate x (16/7) x lane_num x compress_ratio / bpp
  * DPHY     | data_rate x lane_num x compress_ratio / bpp
  ******************************************************************************/
-void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
+void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
@@ -5476,6 +5480,266 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	DDPMSG("%s, data_rate =%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
 			data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+}
+
+/******************************************************************************
+ * MMclock
+ * RDMA BUFFER:
+ *	In Video Mode:
+ *	In Command Mode:
+ *		DPHY
+ *		CPHY
+ * DSI BUFFER:
+ *	In Video Mode:
+ *	In Command Mode:
+ *		DPHY:
+ *			LP per line
+ *			Keep HS
+ *			Keep HS + Dummy Cycle
+ *		CPHY:
+ *			LP per line
+ *			Keep HS
+ *			Keep HS + Dummy Cycle
+ ******************************************************************************/
+void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
+{
+	struct mtk_panel_ext *ext = dsi->ext;
+	unsigned int compress_rate;
+	unsigned int bubble_rate = 110;
+	unsigned int data_rate;
+	unsigned int pixclk = 0;
+	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
+	unsigned int pixclk_min = 0;
+	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
+	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	unsigned int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+	unsigned int vrefresh =
+		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+	unsigned int image_time;
+	unsigned int line_time;
+
+	if (!en) {
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
+					__func__);
+		return;
+	}
+	//for FPS change,update dsi->ext
+	dsi->ext = find_panel_ext(dsi->panel);
+	data_rate = mtk_dsi_default_rate(dsi);
+
+	if (!dsi->ext) {
+		DDPPR_ERR("DSI panel ext is NULL\n");
+		return;
+	}
+
+	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
+
+	if (!data_rate) {
+		DDPPR_ERR("DSI data_rate is NULL\n");
+		return;
+	}
+
+	/* RDMA BUFFER */
+	if (!dsi->driver_data->dsi_buffer) {
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+			//VDO mode
+			if (ext->params->is_cphy) {
+			//data_rate * lanes / 7(symbols) * 16(bits) / 8(bits/byte) / 3(bytes/pixel)
+				pixclk_min = data_rate * dsi->lanes * 2 / 7 / 3;
+			} else {
+			//data_rate * lanes / 8(bits/byte) / 3(bytes/pixel)
+				pixclk_min = data_rate * dsi->lanes / 8 / 3;
+			}
+
+			pixclk_min = pixclk_min * bubble_rate / 100;
+
+			pixclk = vact * hact * vrefresh / 1000;
+			if (ext->params->dsc_params.enable)
+				pixclk = pixclk * vtotal / vact;
+			else
+				pixclk = pixclk * (vtotal * htotal * 100 /
+					(vact * hact)) / 100;
+			pixclk = pixclk * bubble_rate / 100;
+			pixclk = (unsigned int)(pixclk / 1000);
+			if (mtk_crtc->is_dual_pipe)
+				pixclk /= 2;
+
+			pixclk = (pixclk_min > pixclk) ? pixclk_min : pixclk;
+		} else {
+			//CMD mode
+			pixclk = data_rate * dsi->lanes * compress_rate;
+			if (data_rate && ext->params->is_cphy)
+				pixclk = pixclk * 16 / 7;
+			pixclk = pixclk / bpp / 100;
+			if (mtk_crtc->is_dual_pipe)
+				pixclk /= 2;
+			pixclk = pixclk * bubble_rate / 100;
+		}
+
+		DDPMSG("%s, data_rate=%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
+				data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+	} else {
+	/* DSI BUFFER */
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+			//VDO mode
+			pixclk = vact * hact * vrefresh / 1000;
+			if (ext->params->dsc_params.enable)
+				pixclk = pixclk * vtotal / vact;
+			else
+				pixclk = pixclk * (vtotal * htotal * 100 /
+					(vact * hact)) / 100;
+			pixclk = pixclk * bubble_rate / 100;
+			pixclk = (unsigned int)(pixclk / 1000);
+			if (mtk_crtc->is_dual_pipe)
+				pixclk /= 2;
+		} else {
+			u32 ps_wc = 0, lpx = 0, hs_prpr = 0;
+			u32 hs_zero = 0, hs_trail = 0, da_hs_exit = 0;
+			u32 ui = 0, cycle_time = 0;
+			struct mtk_dsi_phy_timcon *phy_timcon = NULL;
+			u32 dsi_buf_bpp = 0;
+			struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
+			struct mtk_panel_spr_params *spr_params = &ext->params->spr_params;
+
+			//CMD mode
+			pixclk = data_rate * dsi->lanes * compress_rate;
+			if (data_rate && ext->params->is_cphy)
+				pixclk = pixclk * 16 / 7;
+			pixclk = pixclk / bpp / 100;
+			if (mtk_crtc->is_dual_pipe)
+				pixclk /= 2;
+			pixclk = pixclk * bubble_rate / 100;
+
+			if (dsi->format == MIPI_DSI_FMT_RGB565)
+				dsi_buf_bpp = 2;
+			else
+				dsi_buf_bpp = 3;
+
+			if (dsi->is_slave || dsi->slave_dsi)
+				hact /= 2;
+
+			if (dsc_params->enable == 0) {
+				if (spr_params->enable == 1 && spr_params->relay == 0
+					&& disp_spr_bypass == 0) {
+					switch (ext->params->spr_output_mode) {
+					case MTK_PANEL_PACKED_SPR_8_BITS:
+						dsi_buf_bpp = 2;
+						break;
+					case MTK_PANEL_lOOSELY_SPR_8_BITS:
+						dsi_buf_bpp = 3;
+						break;
+					case MTK_PANEL_lOOSELY_SPR_10_BITS:
+						dsi_buf_bpp = 3;
+						break;
+					case MTK_PANEL_PACKED_SPR_12_BITS:
+						dsi_buf_bpp = 2;
+						break;
+					default:
+						break;
+					}
+					ps_wc = hact * dsi_buf_bpp;
+				} else {
+					ps_wc = hact * dsi_buf_bpp;
+				}
+			} else {
+				ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
+				if (dsc_params->slice_mode == 1)
+					ps_wc *= 2;
+			}
+
+			if (ext->params->is_cphy) {
+				/* CPHY */
+				ui = (1000 / data_rate > 0) ? 1000 / data_rate : 1;
+				cycle_time = 7000 / data_rate;
+
+				lpx = NS_TO_CYCLE(75, cycle_time) + 1;
+				hs_prpr = NS_TO_CYCLE(64, cycle_time) + 1;
+				hs_zero = NS_TO_CYCLE((336 * ui), cycle_time);
+				hs_trail = NS_TO_CYCLE((203 * ui), cycle_time);
+				da_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
+
+				phy_timcon = &ext->params->phy_timcon;
+
+				lpx = CHK_SWITCH(phy_timcon->lpx, lpx);
+				hs_prpr = CHK_SWITCH(phy_timcon->hs_prpr, hs_prpr);
+				hs_zero = CHK_SWITCH(phy_timcon->hs_zero, hs_zero);
+				hs_trail = CHK_SWITCH(phy_timcon->hs_trail, hs_trail);
+				da_hs_exit = CHK_SWITCH(phy_timcon->da_hs_exit, da_hs_exit);
+
+				image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
+
+				if (ext->params->lp_perline_en) {
+					/* LP per line */
+					line_time =
+						lpx + hs_prpr + hs_zero + 2 + 1 +
+						DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
+							(CEILING(1 + ps_wc + 2, 2) / 2)),
+								dsi->lanes) +
+						hs_trail + 1 + da_hs_exit + 1;
+				} else {
+					/* Keep HS */
+					line_time =
+						DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
+							(CEILING(1 + ps_wc + 2, 2) / 2)),
+								dsi->lanes);
+
+					/* TODO: Keep HS + Dummy cycle */
+				}
+			} else {
+				/* DPHY */
+				ui = (1000 / data_rate > 0) ? 1000 / data_rate : 1;
+				cycle_time = 8000 / data_rate;
+
+				lpx = NS_TO_CYCLE(75, cycle_time) + 1;
+				hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
+				hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
+				hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
+				hs_trail =
+					NS_TO_CYCLE((9 * ui), cycle_time) >
+						NS_TO_CYCLE((80 + 5 * ui), cycle_time) ?
+						NS_TO_CYCLE((9 * ui), cycle_time) :
+						NS_TO_CYCLE((80 + 5 * ui), cycle_time);
+				da_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
+
+				phy_timcon = &ext->params->phy_timcon;
+
+				lpx = CHK_SWITCH(phy_timcon->lpx, lpx);
+				hs_prpr = CHK_SWITCH(phy_timcon->hs_prpr, hs_prpr);
+				hs_zero = CHK_SWITCH(phy_timcon->hs_zero, hs_zero);
+				hs_trail = CHK_SWITCH(phy_timcon->hs_trail, hs_trail);
+				da_hs_exit = CHK_SWITCH(phy_timcon->da_hs_exit, da_hs_exit);
+
+				image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
+
+				if (ext->params->lp_perline_en) {
+					/* LP per line */
+					line_time = lpx + hs_prpr + hs_zero + 1 +
+						DIV_ROUND_UP((5 + ps_wc + 6), dsi->lanes) +
+						hs_trail + 1 + da_hs_exit + 1;
+				} else {
+					/* Keep HS */
+					line_time = DIV_ROUND_UP((5 + ps_wc + 2), dsi->lanes);
+
+					/* TODO: Keep HS + Dummy cycle */
+				}
+			}
+			DDPDBG(
+				"%s, ps_wc=%d, lpx=%d, hs_prpr=%d, hs_zero=%d, hs_trail=%d, da_hs_exit=%d\n",
+				__func__, ps_wc, lpx, hs_prpr,
+				hs_zero, hs_trail, da_hs_exit);
+
+			DDPDBG("%s, image_time=%d, line_time=%d\n",
+				__func__, image_time, line_time);
+			pixclk = pixclk * image_time / line_time;
+		}
+
+		DDPMSG("%s, data_rate=%d, mmclk=%u dual=%u\n", __func__,
+				data_rate, pixclk,  mtk_crtc->is_dual_pipe);
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+	}
 }
 
 /******************************************************************************
@@ -5643,8 +5907,10 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	mtk_dsi_set_mode(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 1);
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
-			MTK_DRM_OPT_MMDVFS_SUPPORT))
-		mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
+			MTK_DRM_OPT_MMDVFS_SUPPORT)) {
+		if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
+			dsi->driver_data->mmclk_by_datarate(dsi, mtk_crtc, 1);
+	}
 skip_change_mipi:
 	/*  send lcm cmd after DSI power on if needed */
 	if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->mode_switch_hs) {
@@ -5687,7 +5953,8 @@ static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
 		if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
 			comp->id == DDP_COMPONENT_DSI1)) {
 			dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-			mtk_dsi_set_mmclk_by_datarate(dsi, mtk_crtc, 1);
+			if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
+				dsi->driver_data->mmclk_by_datarate(dsi, mtk_crtc, 1);
 		}
 	}
 
@@ -6415,8 +6682,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_private *priv = (crtc->base).dev->dev_private;
 
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
-				MTK_DRM_OPT_MMDVFS_SUPPORT))
-			mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
+				MTK_DRM_OPT_MMDVFS_SUPPORT)) {
+			if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
+				dsi->driver_data->mmclk_by_datarate(dsi, crtc, *pixclk);
+		}
 	}
 		break;
 	case GET_FRAME_HRT_BW_BY_DATARATE:
@@ -6725,6 +6994,7 @@ static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt6779_dsi_driver_data = {
@@ -6743,6 +7013,7 @@ static const struct mtk_dsi_driver_data mt6779_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt6885_dsi_driver_data = {
@@ -6761,6 +7032,7 @@ static const struct mtk_dsi_driver_data mt6885_dsi_driver_data = {
 	.need_wait_fifo = false,
 	.dsi_buffer = false,
 	.max_vfp = 0xffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt6983_dsi_driver_data = {
@@ -6779,6 +7051,7 @@ static const struct mtk_dsi_driver_data mt6983_dsi_driver_data = {
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
 	.max_vfp = 0xffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
@@ -6797,6 +7070,7 @@ static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
 	.max_vfp = 0xffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
 
 static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
@@ -6815,6 +7089,7 @@ static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt6853_dsi_driver_data = {
@@ -6833,6 +7108,7 @@ static const struct mtk_dsi_driver_data mt6853_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
@@ -6851,6 +7127,7 @@ static const struct mtk_dsi_driver_data mt6833_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt6879_dsi_driver_data = {
@@ -6869,6 +7146,7 @@ static const struct mtk_dsi_driver_data mt6879_dsi_driver_data = {
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
 	.max_vfp = 0xffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
 
 static const struct mtk_dsi_driver_data mt6855_dsi_driver_data = {
@@ -6887,6 +7165,7 @@ static const struct mtk_dsi_driver_data mt6855_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.max_vfp = 0xffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
 
 static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
@@ -6901,6 +7180,7 @@ static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct of_device_id mtk_dsi_of_match[] = {
