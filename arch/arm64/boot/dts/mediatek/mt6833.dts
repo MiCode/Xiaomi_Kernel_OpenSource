@@ -5861,7 +5861,7 @@ page_owner=on loop.max_part=7";
 
 	scp_dvfs {
 		compatible = "mediatek,scp_dvfs";
-		scp-dvfs-feature = "disable";
+		scp-dvfs-feature = "enable";
 		clocks =
 			<&topckgen CLK_TOP_SCP_SEL>,
 			<&topckgen CLK_TOP_TCK_26M_MX9>,
