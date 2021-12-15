@@ -1845,9 +1845,9 @@
 			mediatek,eint = <&eint>;
 		};
 
-		eint: apirq@1000d000 {
+		eint: apirq@11e60000 {
 			compatible = "mediatek,mt6983-eint";
-			reg = <0 0x1000d000 0 0x1000>,
+			reg = <0 0x11e60000 0 0x1000>,
 				<0 0x11ce0000 0 0x1000>,
 				<0 0x11de0000 0 0x1000>,
 				<0 0x1c01e000 0 0x1000>;
