@@ -578,6 +578,9 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 	struct list_head *p, *q;
 	struct mtk_vcodec_ctx *ctx;
 
+	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
+		return 0;
+
 	dev = container_of(this, struct mtk_vcodec_dev, vcp_notify);
 
 	switch (event) {

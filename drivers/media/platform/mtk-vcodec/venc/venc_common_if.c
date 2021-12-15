@@ -229,7 +229,7 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	inst->ctx = ctx;
 	inst->vcu_inst.ctx = ctx;
-	inst->vcu_inst.dev = ctx->dev->vcu_plat_dev;
+	inst->vcu_inst.dev = VCU_FPTR(vcu_get_plat_device)(ctx->dev->plat_dev);
 	inst->vcu_inst.id = IPI_VENC_COMMON;
 	inst->hw_base = mtk_vcodec_get_enc_reg_addr(inst->ctx, VENC_SYS);
 	inst->vcu_inst.handler = vcu_enc_ipi_handler;
