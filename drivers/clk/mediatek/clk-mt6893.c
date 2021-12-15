@@ -414,7 +414,7 @@ static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_MMPLL_D9, "mmpll_d9",
 			"mmpll", 1, 9),
 	FACTOR(CLK_TOP_APUPLL, "apupll_ck",
-			"apupll", 1, 1),
+			"apupll", 1, 2),
 	FACTOR(CLK_TOP_TVDPLL, "tvdpll_ck",
 			"tvdpll", 1, 1),
 	FACTOR(CLK_TOP_TVDPLL_D2, "tvdpll_d2",
