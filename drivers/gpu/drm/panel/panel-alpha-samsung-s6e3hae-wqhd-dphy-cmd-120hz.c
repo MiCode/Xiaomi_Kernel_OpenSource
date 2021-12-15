@@ -159,6 +159,8 @@ module_exit(_lcm_i2c_exit);
 
 #define DATA_RATE		1360
 #define DYN_DATA_RATE		650
+#define FHDP_120HZ_DYN_RATE	750
+#define FHDP_60HZ_DYN_RATE	510
 #define MODE0_FPS		60
 #define MODE1_FPS		120
 #define MODE2_FPS		60
@@ -881,11 +883,11 @@ static struct mtk_panel_params ext_params_fhdp = {
 		},
 	.data_rate = DATA_RATE,
 	.dyn_fps = {
-		.data_rate = DYN_DATA_RATE,
+		.data_rate = FHDP_60HZ_DYN_RATE,
 	},
 	.dyn = {
 		.switch_en = 1,
-		.data_rate = DYN_DATA_RATE + 10,
+		.data_rate = FHDP_60HZ_DYN_RATE + 10,
 	},
 };
 
@@ -940,11 +942,11 @@ static struct mtk_panel_params ext_params_120hz_fhdp = {
 		},
 	.data_rate = DATA_RATE,
 	.dyn_fps = {
-		.data_rate = DATA_RATE,
+		.data_rate = FHDP_120HZ_DYN_RATE,
 	},
 	.dyn = {
 		.switch_en = 1,
-		.data_rate = DATA_RATE + 10,
+		.data_rate = FHDP_120HZ_DYN_RATE + 10,
 	},
 };
 #endif
