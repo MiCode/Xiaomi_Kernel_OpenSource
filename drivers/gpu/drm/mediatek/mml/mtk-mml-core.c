@@ -956,21 +956,9 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 
 	mml_trace_begin("%s", __func__);
 
-	/* do task ending for this pipe to make sure hw run on necessary freq
-	 * and must lock path clt to ensure tasks in list not handle by others
-	 *
-	 * and note we always lock pipe 0
-	 */
-
-	/* remove task in qos list and setup next */
-	if (task->pkts[pipe])
-		mml_core_dvfs_end(task, pipe);
-
-	cnt = atomic_inc_return(&task->pipe_done);
-
-	mml_msg("%s task %p cnt %d", __func__, task, cnt);
-
 	/* cnt can be 1 or 2, if dual on and count 2 means pipes done */
+	cnt = atomic_inc_return(&task->pipe_done);
+	mml_msg("%s task %p cnt %d", __func__, task, cnt);
 	if (task->config->dual && cnt == 1)
 		goto done;
 
@@ -982,6 +970,14 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		}
 	}
 
+	/* before clean up, signal buffer fence */
+	if (task->fence) {
+		dma_fence_signal(task->fence);
+		dma_fence_put(task->fence);
+		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
+			mmp_data2_fence(task->fence->context, task->fence->seqno));
+	}
+
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	if (mml_frame_dump == 2) {
 		core_dump_buf(task, &task->config->info.dest[0].data,
@@ -990,13 +986,11 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 	}
 #endif
 
-	/* before clean up, signal buffer fence */
-	if (task->fence) {
-		dma_fence_signal(task->fence);
-		dma_fence_put(task->fence);
-		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
-			mmp_data2_fence(task->fence->context, task->fence->seqno));
-	}
+	/* remove task in qos list and setup next */
+	if (task->pkts[0])
+		mml_core_dvfs_end(task, 0);
+	if (task->config->dual && task->pkts[1])
+		mml_core_dvfs_end(task, 1);
 
 	if (mml_hw_perf && task->pkts[0]) {
 		perf = cmdq_pkt_get_perf_ret(task->pkts[0]);
