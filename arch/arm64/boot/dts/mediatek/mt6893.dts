@@ -2326,12 +2326,6 @@ page_owner=on loop.max_part=7";
 		vccq2-supply = <&mt_pmic_vufs_ldo_reg>;
 	};
 
-	ufs_mphy@11fa0000 {
-		compatible = "mediatek,mt8183-ufsphy";
-		reg = <0 0x11fa0000 0 0xc000>;
-		#phy-cells = <0>;
-	};
-
 	md_ccif2@1023d000 {
 		compatible = "mediatek,md_ccif2";
 		reg = <0 0x1023d000 0 0x1000>;
