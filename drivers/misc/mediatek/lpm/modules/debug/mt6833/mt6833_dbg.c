@@ -21,6 +21,7 @@ static void __exit mt6833_dbg_exit(void)
 #ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
 	mt6833_power_gs_deinit();
 #endif
+	mtk_dbg_common_fs_exit();
 }
 
 static int __init mt6833_dbg_init(void)
@@ -31,6 +32,7 @@ static int __init mt6833_dbg_init(void)
 #ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
 	mt6833_power_gs_init();
 #endif
+	mtk_dbg_common_fs_init();
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }
