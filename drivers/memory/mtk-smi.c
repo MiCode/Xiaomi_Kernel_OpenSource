@@ -299,7 +299,8 @@ void mtk_smi_check_comm_ref_cnt(struct device *dev)
 
 	if (common) {
 		ref_count = atomic_read(&common->ref_count);
-		pr_notice("%s comm:%u ref_cnt=%d\n", __func__, common->commid, ref_count);
+		if (ref_count > 0)
+			pr_notice("%s comm:%u ref_cnt=%d\n", __func__, common->commid, ref_count);
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_check_comm_ref_cnt);
@@ -311,7 +312,8 @@ void mtk_smi_check_larb_ref_cnt(struct device *dev)
 
 	if (larb) {
 		ref_count = atomic_read(&larb->smi.ref_count);
-		pr_notice("%s larb:%u ref_cnt=%d\n", __func__, larb->larbid, ref_count);
+		if (ref_count > 0)
+			pr_notice("%s larb:%u ref_cnt=%d\n", __func__, larb->larbid, ref_count);
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_check_larb_ref_cnt);
