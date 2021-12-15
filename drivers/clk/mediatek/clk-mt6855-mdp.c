@@ -19,14 +19,14 @@
 #define INV_BIT			-1
 
 static const struct mtk_gate_regs mdp0_cg_regs = {
-	.set_ofs = 0x100,
-	.clr_ofs = 0x100,
+	.set_ofs = 0x104,
+	.clr_ofs = 0x108,
 	.sta_ofs = 0x100,
 };
 
 static const struct mtk_gate_regs mdp1_cg_regs = {
-	.set_ofs = 0x110,
-	.clr_ofs = 0x110,
+	.set_ofs = 0x114,
+	.clr_ofs = 0x118,
 	.sta_ofs = 0x110,
 };
 

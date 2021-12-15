@@ -22,31 +22,31 @@
 static const struct mtk_gate_regs ifrao0_cg_regs = {
 	.set_ofs = 0x80,
 	.clr_ofs = 0x84,
-	.sta_ofs = 0x80,
+	.sta_ofs = 0x90,
 };
 
 static const struct mtk_gate_regs ifrao1_cg_regs = {
 	.set_ofs = 0x88,
 	.clr_ofs = 0x8C,
-	.sta_ofs = 0x88,
+	.sta_ofs = 0x94,
 };
 
 static const struct mtk_gate_regs ifrao2_cg_regs = {
 	.set_ofs = 0xA4,
 	.clr_ofs = 0xA8,
-	.sta_ofs = 0xA4,
+	.sta_ofs = 0xAC,
 };
 
 static const struct mtk_gate_regs ifrao3_cg_regs = {
 	.set_ofs = 0xC0,
 	.clr_ofs = 0xC4,
-	.sta_ofs = 0xC0,
+	.sta_ofs = 0xC8,
 };
 
 static const struct mtk_gate_regs ifrao4_cg_regs = {
 	.set_ofs = 0xE0,
 	.clr_ofs = 0xE4,
-	.sta_ofs = 0xE0,
+	.sta_ofs = 0xE8,
 };
 
 #define GATE_IFRAO0(_id, _name, _parent, _shift) {	\

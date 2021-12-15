@@ -20,20 +20,20 @@
 #define INV_BIT			-1
 
 static const struct mtk_gate_regs mm0_cg_regs = {
-	.set_ofs = 0x100,
-	.clr_ofs = 0x100,
+	.set_ofs = 0x104,
+	.clr_ofs = 0x108,
 	.sta_ofs = 0x100,
 };
 
 static const struct mtk_gate_regs mm1_cg_regs = {
-	.set_ofs = 0x110,
-	.clr_ofs = 0x110,
+	.set_ofs = 0x114,
+	.clr_ofs = 0x118,
 	.sta_ofs = 0x110,
 };
 
 static const struct mtk_gate_regs mm2_cg_regs = {
-	.set_ofs = 0x1A0,
-	.clr_ofs = 0x1A0,
+	.set_ofs = 0x1A4,
+	.clr_ofs = 0x1A8,
 	.sta_ofs = 0x1A0,
 };
 
