@@ -1945,12 +1945,18 @@ static int __gpufreq_clock_control(enum gpufreq_power_state power)
 static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 {
 	u32 val = 0;
+	int i = 0;
 
 	/* wait HW semaphore: SPM_SEMA_M4 0x1C0016AC [0] = 1'b1 */
 	do {
 		val = readl(g_sleep + 0x6AC);
 		val |= (1UL << 0);
 		writel(val, g_sleep + 0x6AC);
+		udelay(10);
+		if (++i > 5000) {
+			/* 50ms timeout */
+			goto hw_semaphore_timeout;
+		}
 	} while ((readl(g_sleep + 0x6AC) & 0x1) != 0x1);
 
 	/* power on: AOCISO -> AOCLHENB */
@@ -1985,6 +1991,24 @@ static void __gpufreq_aoc_control(enum gpufreq_power_state power)
 	val = readl(g_sleep + 0x6AC);
 	val |= (1UL << 0);
 	writel(val, g_sleep + 0x6AC);
+	/* read back to check SPM_SEMA_M4 is truly released */
+	udelay(10);
+	if (readl(g_sleep + 0x6AC) & 0x1)
+		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
+			"fail to release SPM_SEMA_M4: 0x%08x", readl(g_sleep + 0x6AC));
+
+	return;
+
+hw_semaphore_timeout:
+	GPUFREQ_LOGE("M0(0x1C00169C): 0x%08x, M1(0x1C0016A0): 0x%08x",
+		readl(g_sleep + 0x69C), readl(g_sleep + 0x6A0));
+	GPUFREQ_LOGE("M2(0x1C0016A4): 0x%08x, M3(0x1C0016A8): 0x%08x",
+		readl(g_sleep + 0x6A4), readl(g_sleep + 0x6A8));
+	GPUFREQ_LOGE("M4(0x1C0016AC): 0x%08x, M5(0x1C0016B0): 0x%08x",
+		readl(g_sleep + 0x6AC), readl(g_sleep + 0x6B0));
+	GPUFREQ_LOGE("M6(0x1C0016B4): 0x%08x, M7(0x1C0016B8): 0x%08x",
+		readl(g_sleep + 0x6B4), readl(g_sleep + 0x6B8));
+	__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "acquire SPM_SEMA_M4 timeout");
 }
 
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
