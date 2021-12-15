@@ -40,7 +40,7 @@ uint32_t connsys_scp_shm_get_addr(void)
 {
 	if (g_adp_shm_ptr == NULL)
 		return 0;
-	return g_emi_phy_base + g_adp_shm_ptr->conap_scp_shm_offset;
+	return (g_emi_phy_base + g_adp_shm_ptr->conap_scp_shm_offset) & 0xFFFFFFFF;
 }
 
 uint32_t connsys_scp_shm_get_size(void)
