@@ -853,7 +853,6 @@ STOP_SCAN:
 
 			if (s_data_mstream) {
 				finish_cq_buf(s_data_mstream);
-				finish_img_buf(s_data);
 				mtk_cam_sv_finish_buf(s_data_mstream);
 				mtk_cam_mraw_finish_buf(s_data_mstream);
 			}
@@ -1784,13 +1783,6 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 			WARN_ON(1);
 			return;
 		}
-		mtk_cam_img_wbuf_set_s_data(buf_entry, req_stream_data);
-		/* put to processing list */
-		spin_lock(&ctx->processing_img_buffer_list.lock);
-		list_add_tail(&buf_entry->list_entry,
-			&ctx->processing_img_buffer_list.list);
-		ctx->processing_img_buffer_list.cnt++;
-		spin_unlock(&ctx->processing_img_buffer_list.lock);
 
 		/* config format */
 		vdev = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
@@ -1815,6 +1807,9 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 		out_fmt->buf[0][0].size =
 			vdev->active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
 		in_fmt->buf[0].size = out_fmt->buf[0][0].size;
+
+		/* reuse padding img working buffer to reduce memory use */
+		mtk_cam_img_working_buf_put(buf_entry);
 
 		if (feature == MSTREAM_NE_SE) {
 			frame_param->raw_param.hardware_scenario =
@@ -6135,7 +6130,12 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		 * TODO: validate pad's setting of each pipes
 		 * return -EPIPE if failed
 		 */
-		ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
+		if (ctx->pipe->dynamic_exposure_num_max > 1 ||
+		    mtk_cam_feature_is_switchable_hdr(feature_active))
+			ret = mtk_cam_img_working_buf_pool_init(ctx,
+				2 + mtk_cam_feature_is_3_exposure(feature_active));
+		if (mtk_cam_feature_is_time_shared(feature_active))
+			ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 		if (ret) {
 			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
 			goto fail_img_buf_release;
