@@ -41,8 +41,11 @@ enum fs_console_cmd_id {
 	FS_CON_DEFAULT_EN_SET_SYNC,
 	FS_CON_SET_SYNC_TYPE, /* TBD */
 
-	FS_CON_AUTO_LISTEN_EXT_VSYNC = 40,
-	FS_CON_FORCE_LISTEN_EXT_VSYNC = 41,
+	FS_CON_AUTO_LISTEN_EXT_VSYNC = 30,
+	FS_CON_FORCE_LISTEN_EXT_VSYNC = 31,
+
+	FS_CON_PF_LOG_TRACER = 41,
+
 	/* last one (max value is 42) */
 	FS_CON_LOG_TRACER = 42
 };
@@ -58,6 +61,7 @@ enum fs_console_cmd_id {
 /* --- frame sync user control variables --- */
 /* control enable/disable some log */
 unsigned int log_tracer;
+unsigned int pf_log_tracer;
 
 /* force disable frame-sync / set sync */
 static unsigned int force_to_ignore_set_sync;
@@ -88,6 +92,7 @@ static inline void fs_console_init_def_value(void)
 {
 	// *pdev = NULL;
 	log_tracer = LOG_TRACER_DEF;
+	pf_log_tracer = PF_LOG_TRACER_DEF;
 	force_to_ignore_set_sync = 0;
 	default_en_set_sync = 0;
 	auto_listen_ext_vsync = ALGO_AUTO_LISTEN_VSYNC;
@@ -174,6 +179,12 @@ static void fs_console_set_log_tracer(unsigned int cmd)
 }
 
 
+static void fs_console_set_pf_log_tracer(unsigned int cmd)
+{
+	pf_log_tracer = fs_console_get_cmd_value(cmd);
+}
+
+
 static void fs_console_set_force_disable_frame_sync(unsigned int cmd)
 {
 	int len = 0;
@@ -253,6 +264,12 @@ static ssize_t fsync_console_show(
 
 
 	SHOW(buf, len,
+		"\t\t[ %u : PF_LOG_TRACER ] pf_log_tracer : %u\n",
+		(unsigned int)FS_CON_PF_LOG_TRACER,
+		pf_log_tracer);
+
+
+	SHOW(buf, len,
 		"\t\t[ %u : LOG_TRACER ] log_tracer : %u\n",
 		(unsigned int)FS_CON_LOG_TRACER,
 		log_tracer);
@@ -298,6 +315,10 @@ static ssize_t fsync_console_store(
 
 	case FS_CON_LOG_TRACER:
 		fs_console_set_log_tracer(cmd);
+		break;
+
+	case FS_CON_PF_LOG_TRACER:
+		fs_console_set_pf_log_tracer(cmd);
 		break;
 
 	case FS_CON_AUTO_LISTEN_EXT_VSYNC:
