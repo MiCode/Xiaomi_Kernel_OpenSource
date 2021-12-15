@@ -325,6 +325,13 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	if (size)
 		*size = feature->req_size;
 
+	/* check pa must be 2MB alignment */
+	if (feature->must_2MB_alignment && (*pa % GRANULARITY_SIZE)) {
+		pr_info("%s: feature: %s, pa=%pad is not 2MB alignment\n",
+				__func__, feature->feat_name, *pa);
+		return -1;
+	}
+
 	return 0;
 }
 
