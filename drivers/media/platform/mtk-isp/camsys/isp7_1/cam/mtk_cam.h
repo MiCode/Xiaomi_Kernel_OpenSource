@@ -402,6 +402,7 @@ struct mtk_cam_ctx {
 	struct completion session_complete;
 	struct completion m2m_complete;
 	int session_created;
+	struct work_struct session_work;
 
 	struct rpmsg_channel_info rpmsg_channel;
 	struct mtk_rpmsg_device *rpmsg_dev;

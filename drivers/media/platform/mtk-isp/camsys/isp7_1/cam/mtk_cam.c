@@ -5065,8 +5065,26 @@ void isp_composer_destroy_session(struct mtk_cam_ctx *ctx)
 	event.cmd_id = CAM_CMD_DESTROY_SESSION;
 	session->session_id = ctx->stream_id;
 	rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-	dev_info(cam->dev, "rpmsg_send id: %d\n", event.cmd_id);
+
+	dev_info(cam->dev, "rpmsg_send: DESTROY_SESSION\n");
 }
+
+static void isp_destroy_session_wq(struct work_struct *work)
+{
+	struct mtk_cam_ctx *ctx = container_of(work, struct mtk_cam_ctx,
+					       session_work);
+
+	isp_composer_destroy_session(ctx);
+}
+
+static void isp_composer_destroy_session_async(struct mtk_cam_ctx *ctx)
+{
+	struct work_struct *w = &ctx->session_work;
+
+	INIT_WORK(w, isp_destroy_session_wq);
+	queue_work(ctx->composer_wq, w);
+}
+
 #endif
 
 static void
@@ -6670,7 +6688,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 fail_stream_off:
 #if CCD_READY
 	if (ctx->used_raw_num)
-		isp_composer_destroy_session(ctx);
+		isp_composer_destroy_session_async(ctx);
 #endif
 
 	dev_dbg(cam->dev, "streamed off camsys ctx:%d\n", ctx->stream_id);
