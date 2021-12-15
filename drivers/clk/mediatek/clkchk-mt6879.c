@@ -99,6 +99,7 @@ static struct regbase rb[] = {
 	[bcrm_ifr_pdn] = REGBASE_V(0x10215000, bcrm_ifr_pdn, PD_NULL, CLK_NULL),
 	[hfrp] = REGBASE_V(0x1EC24000, hfrp, MT6879_POWER_DOMAIN_MM_PROC_DORMANT, CLK_NULL),
 	[mminfra_smi] = REGBASE_V(0x1E801000, mminfra_smi, MT6879_POWER_DOMAIN_MM_INFRA, CLK_NULL),
+	[sspm] = REGBASE_V(0x1C342000, sspm, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -384,6 +385,21 @@ static struct regname rn[] = {
 	REGNAME(mminfra_smi, 0x0430, SMI_DEBUG_M0),
 	REGNAME(mminfra_smi, 0x0434, SMI_DEBUG_M1),
 	REGNAME(mminfra_smi, 0x0440, SMI_DEBUG_MISC),
+	/* sspm debug */
+	REGNAME(sspm, 0x0000, INTC_IRQ_RAW_STA0),
+	REGNAME(sspm, 0x0004, INTC_IRQ_RAW_STA1),
+	REGNAME(sspm, 0x0010, INTC_IRQ_STA0),
+	REGNAME(sspm, 0x0014, INTC_IRQ_STA1),
+	REGNAME(sspm, 0x0020, INTC_IRQ_EN0),
+	REGNAME(sspm, 0x0024, INTC_IRQ_EN1),
+	REGNAME(sspm, 0x0070, INTC_IRQ_GRP2_0),
+	REGNAME(sspm, 0x0074, INTC_IRQ_GRP2_1),
+	REGNAME(sspm, 0x00C0, INTC_IRQ_GRP7_0),
+	REGNAME(sspm, 0x00C4, INTC_IRQ_GRP7_1),
+	REGNAME(sspm, 0x0170, INTC_IRQ_GRP2_STA0),
+	REGNAME(sspm, 0x0174, INTC_IRQ_GRP2_STA1),
+	REGNAME(sspm, 0x01C0, INTC_IRQ_GRP7_STA0),
+	REGNAME(sspm, 0x01C4, INTC_IRQ_GRP7_STA1),
 	{},
 };
 
@@ -701,6 +717,8 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 	print_subsys_reg_mt6879(infracfg);
 	print_subsys_reg_mt6879(bcrm_ifr_ao);
 	print_subsys_reg_mt6879(bcrm_ifr_pdn);
+
+	/* sspm need some time to run isr */
 	mdelay(1000);
 
 	BUG_ON(1);
@@ -710,6 +728,7 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
 	u32 val[7];
 
+	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
 	regmap_read(regmap, HWV_PLL_SET, &val[0]);
 	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
 	regmap_read(regmap, HWV_PLL_STA, &val[2]);
@@ -717,6 +736,9 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 	regmap_read(regmap, HWV_PLL_DONE, &val[4]);
 	regmap_read(regmap, HWV_PLL_SET_STA, &val[5]);
 	regmap_read(regmap, HWV_PLL_CLR_STA, &val[6]);
+
+	print_subsys_reg_mt6879(sspm);
+	print_subsys_reg_mt6879(apmixed);
 	pr_notice("[%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x\n",
 			HWV_PLL_SET, val[0],
 			HWV_PLL_CLR, val[1],
@@ -725,7 +747,8 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 			HWV_PLL_DONE, val[4],
 			HWV_PLL_SET_STA, val[5],
 			HWV_PLL_CLR_STA, val[6]);
-	print_subsys_reg_mt6879(apmixed);
+
+	BUG_ON(1);
 }
 
 static bool is_cg_chk_pwr_on(void)
