@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
-
+ * Copyright (c) 2021 MediaTek Inc.
+ * Author: Fred-YC Yu <fred-yc.yu@mediatek.com>
+ */
 #ifndef __MCUPM_IPI_TABLE_H__
 #define __MCUPM_IPI_TABLE_H__
 
@@ -144,7 +144,7 @@ struct mtk_mbox_pin_send mcupm_mbox_pin_send[] = {
 	{4, PIN_S_OFFSET_SUSPEND, 1, 0, PIN_S_MSG_SIZE_SUSPEND,
 		4, CH_S_SUSPEND,
 		{ { 0 } }, { 0 }, { { { { 0 } } } } },
-	{5, PIN_S_OFFSET_RMET, 1, 0, PIN_S_MSG_SIZE_RMET,
+	{5, PIN_S_OFFSET_RMET, 0, 0, PIN_S_MSG_SIZE_RMET,
 		5, CH_IPIR_C_MET,
 		{ { 0 } }, { 0 }, { { { { 0 } } } } },
 	{6, PIN_S_OFFSET_SMET, 1, 0, PIN_S_MSG_SIZE_SMET,
@@ -194,11 +194,11 @@ struct mtk_mbox_pin_recv mcupm_mbox_pin_recv[] = {
 		PIN_R_MSG_SIZE_SUSPEND, 4,
 		CH_S_SUSPEND, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
-	{5, PIN_R_OFFSET_RMET, 0, 0, 1, 0,
+	{5, PIN_R_OFFSET_RMET, 0, 0, 1, 1,
 		PIN_R_MSG_SIZE_RMET, 5,
 		CH_IPIR_C_MET, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
-	{6, PIN_R_OFFSET_SMET, 0, 0, 1, 0,
+	{6, PIN_R_OFFSET_SMET, 1, 0, 1, 1,
 		PIN_R_MSG_SIZE_SMET, 6,
 		CH_IPIS_C_MET, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },

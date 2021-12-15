@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
+ * Copyright (c) 2021 MediaTek Inc.
+ * Author: Fred-YC Yu <fred-yc.yu@mediatek.com>
+ */
 #ifndef __MCUPM_IPI_ID_H__
 #define __MCUPM_IPI_ID_H__
 
