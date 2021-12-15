@@ -31,23 +31,35 @@ module_param(mtk_v4l2_dbg_level, int, 0644);
 module_param(mtk_vcodec_dbg, bool, 0644);
 module_param(mtk_vcodec_perf, bool, 0644);
 module_param(mtk_vcodec_vcp, int, 0644);
-module_param(mtk_vdec_property, charp, 0644);
 char mtk_vdec_property_prev[1024];
 char mtk_vdec_vcp_log_prev[1024];
 module_param(mtk_vdec_sw_mem_sec, int, 0644);
 
 static struct mtk_vcodec_dev *dev_ptr;
+
 static int mtk_vcodec_vcp_log_write(const char *val, const struct kernel_param *kp)
 {
 	pr_info("%s, val: %s, len: %d", __func__, val, strlen(val));
 	if (!(val == NULL || strlen(val) == 0))
-		mtk_vcodec_set_log(dev_ptr, val);
+		mtk_vcodec_set_log(dev_ptr, val, MTK_VCODEC_LOG_INDEX_LOG);
 	return 0;
 }
 static struct kernel_param_ops vcodec_vcp_log_param_ops = {
 	.set = mtk_vcodec_vcp_log_write,
 };
 module_param_cb(mtk_vdec_vcp_log, &vcodec_vcp_log_param_ops, &mtk_vdec_vcp_log, 0644);
+
+static int mtk_vcodec_vcp_property_write(const char *val, const struct kernel_param *kp)
+{
+	pr_info("%s, val: %s, len: %d", __func__, val, strlen(val));
+	if (!(val == NULL || strlen(val) == 0))
+		mtk_vcodec_set_log(dev_ptr, val, MTK_VCODEC_LOG_INDEX_PROP);
+	return 0;
+}
+static struct kernel_param_ops vcodec_vcp_prop_param_ops = {
+	.set = mtk_vcodec_vcp_property_write,
+};
+module_param_cb(mtk_vdec_property, &vcodec_vcp_prop_param_ops, &mtk_vdec_property, 0644);
 
 static int fops_vcodec_open(struct file *file)
 {
@@ -498,6 +510,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 #endif
 
 	INIT_LIST_HEAD(&dev->log_param_list);
+	INIT_LIST_HEAD(&dev->prop_param_list);
 	return 0;
 
 err_dec_reg:

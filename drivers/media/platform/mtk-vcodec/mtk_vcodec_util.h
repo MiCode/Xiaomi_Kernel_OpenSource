@@ -86,6 +86,11 @@ struct mtk_vcodec_log_param {
 	struct list_head list;
 };
 
+enum mtk_vcodec_log_index {
+	MTK_VCODEC_LOG_INDEX_LOG = 1,
+	MTK_VCODEC_LOG_INDEX_PROP = 1 << 1
+};
+
 struct mtk_vcodec_ctx;
 struct mtk_vcodec_dev;
 
@@ -258,6 +263,7 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_buf_attachment *attach, struct sg_table *sgt);
 #endif
 
-void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val);
+void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
+	enum mtk_vcodec_log_index log_index);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

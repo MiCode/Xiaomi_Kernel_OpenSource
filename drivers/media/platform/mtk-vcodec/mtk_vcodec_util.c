@@ -25,6 +25,8 @@
 #define MAX_SUPPORTED_LOG_PARAMS_COUNT 12
 char mtk_vdec_tmp_log[LOG_PROPERTY_SIZE];
 char mtk_venc_tmp_log[LOG_PROPERTY_SIZE];
+char mtk_vdec_tmp_prop[LOG_PROPERTY_SIZE];
+char mtk_venc_tmp_prop[LOG_PROPERTY_SIZE];
 
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
@@ -535,11 +537,21 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_free_mem);
 #endif
 
 static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
-	const char *param_key, const char *param_val)
+	const char *param_key, const char *param_val, enum mtk_vcodec_log_index index)
 {
 	struct mtk_vcodec_log_param *pram, *tmp;
+	struct list_head *plist;
 
-	list_for_each_entry(pram, &dev->log_param_list, list) {
+	if (index == MTK_VCODEC_LOG_INDEX_LOG)
+		plist = &dev->log_param_list;
+	else if (index == MTK_VCODEC_LOG_INDEX_PROP)
+		plist = &dev->prop_param_list;
+	else {
+		mtk_v4l2_err("invalid index: %d", index);
+		return;
+	}
+
+	list_for_each_entry(pram, plist, list) {
 		// find existed param, replace its value
 		if (strcmp(pram->param_key, param_key) == 0) {
 			mtk_v4l2_debug(8, "replace old key: %s, value: %s -> %s\n",
@@ -556,10 +568,10 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 	strncpy(pram->param_val, param_val, LOG_PARAM_INFO_SIZE - 1);
 	mtk_v4l2_debug(8, "add new key: %s, value: %s\n",
 		pram->param_key, pram->param_val);
-	list_add(&pram->list, &dev->log_param_list);
+	list_add(&pram->list, plist);
 
 	// remove disabled log param from list if value is empty
-	list_for_each_entry_safe(pram, tmp, &dev->log_param_list, list) {
+	list_for_each_entry_safe(pram, tmp, plist, list) {
 		if (strlen(pram->param_val) == 0) {
 			mtk_v4l2_debug(8, "remove deprecated key: %s, value: %s\n",
 				pram->param_key, pram->param_val);
@@ -569,36 +581,64 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 	}
 }
 
-static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev)
+static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
+	enum mtk_vcodec_log_index log_index)
 {
 	struct mtk_vcodec_log_param *pram;
+	struct list_head *plist;
+	char *vdec_temp_str;
+	char *venc_temp_str;
+
+	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
+		plist = &dev->log_param_list;
+		vdec_temp_str = mtk_vdec_tmp_log;
+		venc_temp_str = mtk_venc_tmp_log;
+	} else if (log_index == MTK_VCODEC_LOG_INDEX_PROP) {
+		plist = &dev->prop_param_list;
+		vdec_temp_str = mtk_vdec_tmp_prop;
+		venc_temp_str = mtk_venc_tmp_prop;
+	} else {
+		mtk_v4l2_err("invalid log_index: %d", log_index);
+		return;
+	}
 
 	if (dev->vfd_dec) {
-		memset(mtk_vdec_tmp_log, 0x00, 1024);
-		list_for_each_entry(pram, &dev->log_param_list, list) {
+		memset(vdec_temp_str, 0x00, 1024);
+		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
 
-			snprintf(mtk_vdec_tmp_log, LOG_PROPERTY_SIZE, "%s %s %s",
-				mtk_vdec_tmp_log, pram->param_key, pram->param_val);
+			snprintf(vdec_temp_str, LOG_PROPERTY_SIZE, "%s %s %s",
+				vdec_temp_str, pram->param_key, pram->param_val);
 		}
-		mtk_vdec_vcp_log = mtk_vdec_tmp_log;
-		mtk_v4l2_debug(8, "build mtk_vdec_vcp_log: %s\n", mtk_vdec_vcp_log);
+		if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
+			mtk_vdec_vcp_log = vdec_temp_str;
+			mtk_v4l2_debug(8, "build mtk_vdec_vcp_log: %s\n", mtk_vdec_vcp_log);
+		} else if (log_index == MTK_VCODEC_LOG_INDEX_PROP) {
+			mtk_vdec_property = vdec_temp_str;
+			mtk_v4l2_debug(8, "build mtk_vdec_property: %s\n", mtk_vdec_property);
+		}
 	} else {
-		memset(mtk_venc_tmp_log, 0x00, 1024);
-		list_for_each_entry(pram, &dev->log_param_list, list) {
+		memset(venc_temp_str, 0x00, 1024);
+		list_for_each_entry(pram, plist, list) {
 			mtk_v4l2_debug(8, "existed log param %s: %s\n",
 					pram->param_key, pram->param_val);
 
-			snprintf(mtk_venc_tmp_log, LOG_PROPERTY_SIZE, "%s %s %s",
-				mtk_venc_tmp_log, pram->param_key, pram->param_val);
+			snprintf(venc_temp_str, LOG_PROPERTY_SIZE, "%s %s %s",
+				venc_temp_str, pram->param_key, pram->param_val);
 		}
-		mtk_venc_vcp_log = mtk_venc_tmp_log;
-		mtk_v4l2_debug(8, "build mtk_venc_vcp_log: %s\n", mtk_venc_vcp_log);
+		if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
+			mtk_venc_vcp_log = venc_temp_str;
+			mtk_v4l2_debug(8, "build mtk_venc_vcp_log: %s\n", mtk_venc_vcp_log);
+		} else if (log_index == MTK_VCODEC_LOG_INDEX_PROP) {
+			mtk_venc_property = venc_temp_str;
+			mtk_v4l2_debug(8, "build mtk_venc_property: %s\n", mtk_venc_property);
+		}
 	}
 }
 
-void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
+void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
+	enum mtk_vcodec_log_index log_index)
 {
 	int i, argc = 0;
 	char argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2][LOG_PARAM_INFO_SIZE] = {0};
@@ -607,10 +647,10 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
 	long temp_val = 0;
 	char log[LOG_PROPERTY_SIZE] = {0};
 
-	if (val == NULL || strlen(val) == 0) {
-		mtk_v4l2_err("cannot set log due to input is null");
+	if (val == NULL || strlen(val) == 0)
 		return;
-	}
+
+	mtk_v4l2_debug(0, "val: %s, log_index: %d", val, log_index);
 
 	strncpy(log, val, LOG_PROPERTY_SIZE - 1);
 	temp = log;
@@ -636,17 +676,19 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val)
 		} else if (strcmp("-mtk_v4l2_dbg_level", argv[i]) == 0) {
 			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
 				mtk_v4l2_dbg_level = temp_val;
-		} else if (argv[i][0] == '-') {
-			mtk_vcodec_sync_log(dev, argv[i], argv[i+1]);
+		} else {
+			mtk_vcodec_sync_log(dev, argv[i], argv[i+1], log_index);
 		}
 	}
 
-	mtk_vcodec_build_log_string(dev);
+	mtk_vcodec_build_log_string(dev, log_index);
 
-	pr_info("----------------Debug Config ----------------\n");
-	pr_info("mtk_vcodec_dbg: %d\n", mtk_vcodec_dbg);
-	pr_info("mtk_vcodec_perf: %d\n", mtk_vcodec_perf);
-	pr_info("mtk_v4l2_dbg_level: %d\n", mtk_v4l2_dbg_level);
+	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
+		pr_info("----------------Debug Config ----------------\n");
+		pr_info("mtk_vcodec_dbg: %d\n", mtk_vcodec_dbg);
+		pr_info("mtk_vcodec_perf: %d\n", mtk_vcodec_perf);
+		pr_info("mtk_v4l2_dbg_level: %d\n", mtk_v4l2_dbg_level);
+	}
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_set_log);
 

@@ -62,7 +62,8 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 		mtk_v4l2_debug(3, "[%d] mtk_venc_property_prev %s",
 					ctx->id, mtk_venc_property_prev);
 
-		if (strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 &&
+		// set vcp log every time
+		if (/* strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 && */
 			strlen(enc_prm.set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
@@ -79,7 +80,8 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log %s", ctx->id, enc_prm.set_vcp_buf);
 		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log_prev %s", ctx->id, mtk_venc_vcp_log_prev);
 
-		if (strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 &&
+		// set vcp log every time
+		if (/* strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 && */
 			strlen(enc_prm.set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
@@ -550,7 +552,10 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->param_change |= MTK_ENCODE_PARAM_DUMMY_NAL;
 		break;
 	case V4L2_CID_MPEG_MTK_LOG:
-		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char);
+		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_LOG);
+		break;
+	case V4L2_CID_MPEG_MTK_VCP_PROP:
+		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP);
 		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
@@ -3329,6 +3334,18 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_STRING;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video Log";
+	cfg.min = 0;
+	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_VCP_PROP;
+	cfg.type = V4L2_CTRL_TYPE_STRING;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video VCP Property";
 	cfg.min = 0;
 	cfg.max = 255;
 	cfg.step = 1;
