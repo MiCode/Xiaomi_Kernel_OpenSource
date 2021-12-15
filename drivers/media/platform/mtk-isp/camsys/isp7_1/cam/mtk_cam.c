@@ -5952,8 +5952,11 @@ fail_release_buffer_pool:
 	mtk_cam_working_buf_pool_release(ctx);
 fail_uninit_composer:
 #if CCD_READY
-	isp_composer_uninit(ctx);
-	cam->composer_cnt--;
+	if (node->uid.pipe_id >= MTKCAM_SUBDEV_RAW_START &&
+		node->uid.pipe_id < MTKCAM_SUBDEV_RAW_END) {
+		isp_composer_uninit(ctx);
+		cam->composer_cnt--;
+	}
 fail_shutdown:
 	if (is_first_ctx) {
 		pm_runtime_mark_last_busy(cam->dev);
