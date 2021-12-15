@@ -1642,6 +1642,7 @@ static bool disp_aal_read_dre3(struct mtk_ddp_comp *comp,
 	for (hist_offset = aal_data->data->aal_dre_hist_start;
 		hist_offset <= aal_data->data->aal_dre_hist_end;
 			hist_offset += 4) {
+
 		read_value = readl(dre3_va + DISP_AAL_SRAM_RW_IF_3);
 
 		if (arry_offset >= AAL_DRE30_HIST_REGISTER_NUM)
@@ -1714,7 +1715,7 @@ static bool disp_aal_write_dre3(struct mtk_ddp_comp *comp)
 		if (arry_offset >= AAL_DRE30_GAIN_REGISTER_NUM)
 			return false;
 		write_value = g_aal_gain.dre30_gain[arry_offset++];
-
+		writel(gain_offset, dre3_va + DISP_AAL_SRAM_RW_IF_0);
 		writel(write_value, dre3_va + DISP_AAL_SRAM_RW_IF_1);
 	}
 	return true;
