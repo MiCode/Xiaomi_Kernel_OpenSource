@@ -307,13 +307,13 @@ static void disp_c3d_config_sram(struct mtk_ddp_comp *comp,
 		return;
 
 	// Write 3D LUT to SRAM
-	cmdq_pkt_write(*handle, comp->cmdq_base,
-		comp->regs_pa + C3D_SRAM_RW_IF_0, sram_offset, ~0);
 	for (sram_offset = c3d_data->data->c3d_sram_start_addr;
 		sram_offset <= c3d_data->data->c3d_sram_end_addr;
 			sram_offset += 4) {
 		write_value = cfg[sram_offset/4];
 
+		cmdq_pkt_write(*handle, comp->cmdq_base,
+			comp->regs_pa + C3D_SRAM_RW_IF_0, sram_offset, ~0);
 		cmdq_pkt_write(*handle, comp->cmdq_base,
 			comp->regs_pa + C3D_SRAM_RW_IF_1, write_value, ~0);
 	}
