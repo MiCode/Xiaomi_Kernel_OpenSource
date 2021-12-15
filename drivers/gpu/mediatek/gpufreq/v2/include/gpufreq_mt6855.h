@@ -9,7 +9,7 @@
 /**************************************************
  * GPUFREQ Local Config
  **************************************************/
-#define GPUFREQ_BRINGUP                 (1)
+#define GPUFREQ_BRINGUP                 (0)
 /*
  * 0 -> power on once then never off and disable DDK power on/off callback
  */
