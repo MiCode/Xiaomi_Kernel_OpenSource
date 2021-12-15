@@ -886,7 +886,6 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			size_t size)
 {
-	size_t unmapped = 0;
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	arm_lpae_iopte *ptep = data->pgd;
 	int lvl = ARM_LPAE_START_LVL(data);
@@ -894,27 +893,7 @@ static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	if (WARN_ON(iova >= (1ULL << data->iop.cfg.ias)))
 		return 0;
 
-	while (unmapped < size) {
-		size_t ret, size_to_unmap, remaining;
-
-		remaining = (size - unmapped);
-		size_to_unmap = iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova,
-						remaining);
-		size_to_unmap = size_to_unmap >= SZ_2M ?
-				size_to_unmap :
-				min_t(unsigned long, remaining,
-					(ALIGN(iova + 1, SZ_2M) - iova));
-		ret = __arm_lpae_unmap(data, iova, size_to_unmap, lvl, ptep);
-		if (ret == 0)
-			break;
-		unmapped += ret;
-		iova += ret;
-	}
-
-	if (unmapped)
-		io_pgtable_tlb_flush_all(&data->iop);
-
-	return unmapped;
+	return __arm_lpae_unmap(data, iova, size, lvl, ptep);
 }
 
 static int arm_lpae_iova_to_pte(struct arm_lpae_io_pgtable *data,

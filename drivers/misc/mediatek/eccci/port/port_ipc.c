@@ -76,7 +76,7 @@ int port_ipc_recv_match(struct port_t *port, struct sk_buff *skb)
 	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
 	struct ccci_ipc_ctrl *ipc_ctrl =
 		(struct ccci_ipc_ctrl *)port->private_data;
-	struct ipc_task_id_map *id_map;
+	struct ipc_task_id_map *id_map = NULL;
 
 	if (port->rx_ch != CCCI_IPC_RX)
 		return 1;
@@ -92,7 +92,9 @@ int port_ipc_recv_match(struct port_t *port, struct sk_buff *skb)
 	return 0;
 }
 
+#if MD_GENERATION <= (6295)
 static int send_new_time_to_md(int md_id, int tz);
+#endif
 int current_time_zone;
 
 long port_ipc_ioctl(struct file *file, unsigned int cmd,
@@ -132,7 +134,11 @@ long port_ipc_ioctl(struct file *file, unsigned int cmd,
 		CCCI_REPEAT_LOG(port->md_id, IPC,
 			"CCCI_IPC_UPDATE_TIME 0x%x\n", (unsigned int)arg);
 		current_time_zone = (int)arg;
+		#if MD_GENERATION <= (6295)
 		ret = send_new_time_to_md(port->md_id, (int)arg);
+		#else
+		ret = send_new_time_to_new_md(port->md_id, (int)arg);
+		#endif
 		break;
 
 	case CCCI_IPC_WAIT_TIME_UPDATE:
@@ -232,9 +238,9 @@ static int port_ipc_kernel_write(int md_id, struct ipc_ilm *in_ilm)
 	u32 task_id;
 	int count, actual_count, ret;
 	struct port_t *port;
-	struct ccci_header *ccci_h;
-	struct ccci_ipc_ilm *ilm;
-	struct sk_buff *skb;
+	struct ccci_header *ccci_h = NULL;
+	struct ccci_ipc_ilm *ilm = NULL;
+	struct sk_buff *skb = NULL;
 
 	/* src module id check */
 	task_id = in_ilm->src_mod_id & (~AP_UNIFY_ID_FLAG);
@@ -321,13 +327,13 @@ static int ccci_ipc_send_ilm_to_md1(struct ipc_ilm *in_ilm)
 static int port_ipc_kernel_thread(void *arg)
 {
 	struct port_t *port = arg;
-	struct sk_buff *skb;
-	struct ccci_header *ccci_h;
+	struct sk_buff *skb = NULL;
+	struct ccci_header *ccci_h = NULL;
 	unsigned long flags;
 	int ret = 0;
-	struct ccci_ipc_ilm *ilm;
+	struct ccci_ipc_ilm *ilm = NULL;
 	struct ipc_ilm out_ilm;
-	struct ipc_task_id_map *id_map;
+	struct ipc_task_id_map *id_map = NULL;
 
 	CCCI_DEBUG_LOG(port->md_id, IPC,
 		"port %s's thread running\n", port->name);
@@ -371,7 +377,9 @@ retry:
 			switch (id_map->task_id) {
 			case AP_IPC_WMT:
 #ifdef CONFIG_MTK_CONN_MD
+#ifndef CCCI_PLATFORM_MT6877
 				mtk_conn_md_bridge_send_msg(&out_ilm);
+#endif
 #endif
 				break;
 			case AP_IPC_PKTTRC:
@@ -405,7 +413,7 @@ retry:
 }
 int port_ipc_init(struct port_t *port)
 {
-	struct cdev *dev;
+	struct cdev *dev = NULL;
 	int ret = 0;
 	struct ccci_ipc_ctrl *ipc_ctrl =
 		kmalloc(sizeof(struct ccci_ipc_ctrl), GFP_KERNEL);
@@ -467,6 +475,7 @@ struct port_ops ipc_port_ops = {
 	.md_state_notify = &port_ipc_md_state_notify,
 };
 
+#if MD_GENERATION <= (6295)
 int send_new_time_to_md(int md_id, int tz)
 {
 	struct ipc_ilm in_ilm;
@@ -505,6 +514,7 @@ int send_new_time_to_md(int md_id, int tz)
 	CCCI_REPEAT_LOG(md_id, IPC, "Update success\n");
 	return 0;
 }
+#endif
 
 int ccci_get_emi_info(int md_id, struct ccci_emi_info *emi_info)
 {

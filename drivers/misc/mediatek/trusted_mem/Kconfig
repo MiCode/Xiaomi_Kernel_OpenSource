@@ -1,11 +1,21 @@
-# SPDX-License-Identifier: GPL-2.0
-#
 # Copyright (C) 2018 MediaTek Inc.
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
 
+#
+# Protect Memory configuration
+#
 config MTK_PROT_MEM_SUPPORT
-	bool "MTK Protect Memory Support"
+	tristate "MTK Protect Memory Support"
 	depends on MTK_GZ_KREE && MTK_CAM_SECURITY_SUPPORT
+	default y
 	help
 	  Enable the support of MediaTek protect memory driver.
 	  This driver is in charge of protect memory region require/release
@@ -15,9 +25,14 @@ config MTK_PROT_MEM_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
+#
+# SVP Secure Memory configuration
+#
 config MTK_SECURE_MEM_SUPPORT
-	bool "MTK SVP SECURE Memory Support"
-	depends on TRUSTONIC_TEE_SUPPORT || MICROTRUST_TEE_SUPPORT
+	tristate "MTK SVP SECURE Memory Support"
+	depends on TRUSTONIC_TEE_SUPPORT || MTK_TEE_GP_SUPPORT || \
+			  MTK_GZ_KREE && MTK_SVP_ON_MTEE_SUPPORT
+	default y
 	help
 	  Enable the support of MediaTek SVP secure memory driver.
 	  This driver is in charge of SVP secure memory region require/release
@@ -26,10 +41,13 @@ config MTK_SECURE_MEM_SUPPORT
 	  management.
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
-
+#
+# WFD Secure Memory configuration
+#
 config MTK_WFD_SMEM_SUPPORT
-	bool "MTK WFD SECURE Memory Support"
+	tristate "MTK WFD SECURE Memory Support"
 	depends on MTK_SECURE_MEM_SUPPORT && MTK_SEC_VIDEO_PATH_SUPPORT
+	default y
 	help
 	  Enable the support of MediaTek WFD secure memory driver.
 	  This driver is in charge of WFD secure memory region require/release
@@ -39,9 +57,13 @@ config MTK_WFD_SMEM_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
+#
+# HAPP Memory configuration
+#
 config MTK_HAPP_MEM_SUPPORT
-	bool "MTK MTEE Hypervisor App Memory Support"
+	tristate "MTK MTEE Hypervisor App Memory Support"
 	depends on MTK_GZ_KREE
+	default n
 	help
 	  Enable the support of MediaTek MTEE EL2 app memory driver.
 	  This driver is in charge of EL2 app memory region require/release
@@ -51,9 +73,13 @@ config MTK_HAPP_MEM_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
+#
+# SDSP Memory configuration
+#
 config MTK_SDSP_MEM_SUPPORT
-	bool "MTK MTEE SDSP Firmware Memory Support"
+	tristate "MTK MTEE SDSP Firmware Memory Support"
 	depends on MTK_GZ_KREE
+	default n
 	help
 	  Enable the support of MediaTek MTEE SDSP firmware memory driver.
 	  This driver is in charge of SDSP image memory region require/release
@@ -63,9 +89,13 @@ config MTK_SDSP_MEM_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
+#
+# VPU/MTEE/TEE Shared Memory configuration
+#
 config MTK_SDSP_SHARED_MEM_SUPPORT
-	bool "MTK SDSP Shared Memory Support"
+	tristate "MTK SDSP Shared Memory Support"
 	depends on MTK_GZ_KREE
+	default n
 	help
 	  Enable the support of MediaTek SDSP shared memory driver.
 	  This driver is in charge of SDSP shared memory region require/release
@@ -78,7 +108,7 @@ config MTK_SDSP_SHARED_MEM_SUPPORT
 choice
 	prompt "MTK VPU/MTEE/MTEE Shared Memory Support"
 	depends on MTK_SDSP_SHARED_MEM_SUPPORT
-	default MTK_SDSP_SHARED_PERM_VPU_TEE if (MACH_MT6779)
+	default MTK_SDSP_SHARED_PERM_VPU_TEE if (MACH_MT6771)
 	default MTK_SDSP_SHARED_PERM_MTEE_TEE if (MACH_MT6768)
 	default MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
 
@@ -107,11 +137,15 @@ config MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
 	  If unsure, say N.
 endchoice
 
+#
+# MTEE Multiple Chunk Memory configuration
+#
 config MTK_MTEE_MULTI_CHUNK_SUPPORT
-	bool "MTK MTEE Multiple Chunk Memory Support"
+	tristate "MTK MTEE Multiple Chunk Memory Support"
 	depends on MTK_HAPP_MEM_SUPPORT || MTK_SDSP_MEM_SUPPORT || \
 		   MTK_SDSP_SHARED_PERM_MTEE_TEE || \
 		   MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
+	default y
 	help
 	  Enable the support of MediaTek MTEE multiple chunks memory driver.
 	  This driver is in charge of multi-chunk memory region require/release
@@ -121,33 +155,25 @@ config MTK_MTEE_MULTI_CHUNK_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
-config HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
-	bool "HAVE MTK Trusted Memory Subsystem Support"
-	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
-		   MTK_MTEE_MULTI_CHUNK_SUPPORT || MTK_GZ_KREE
-	help
-	  Enable the support of MediaTek trusted memory subsystem driver.
-	  This option is been used to be auto selected by other option.
-	  Say Y if you would like to enable this feature.
-	  If unsure, say N.
-
+#
+# Trusted Memory Subsystem Configuration
+#
 config MTK_TRUSTED_MEMORY_SUBSYSTEM
 	tristate "MTK Trusted Memory Subsystem Support"
+	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
+		   MTK_MTEE_MULTI_CHUNK_SUPPORT || MTK_GZ_KREE
 	default y
-	depends on HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.
 	  This driver provide a general subsystem layer for trusted peer memory
 	  manager such as EL2 hypervisor or TEE. New type of trusted memory can
 	  be registered to this subsystem easily.
-	  Say Y if you would like to build it in kernel image.
-	  Say M if you would like to build it as a kernel module.
+	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
 config MTK_SSMR
 	tristate "MTK Shareable Secure Memory Region"
 	default y
-	depends on HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
 	select CMA
 	select DMA_CMA
 	select ZONE_MOVABLE_CMA

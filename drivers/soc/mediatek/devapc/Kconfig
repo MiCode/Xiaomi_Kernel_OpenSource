@@ -23,14 +23,53 @@ config DEVAPC_ARCH_V1
 	  architecture version 1.
 	  This architecture supports 1 Infra-peri.
 
-config DEVAPC_MT6779
-	tristate "Mediatek MT6779 Device APC driver"
-	depends on ARCH_MEDIATEK || COMPILE_TEST
-	select DEVAPC_ARCH_V1
-	select MTK_DEVAPC
+config DEVAPC_ARCH_V2
+	bool "Mediatek Device APC driver architecture v2"
 	help
-	  Say yes here to enable support Mediatek MT6779
-	  Device APC driver.
-	  This driver is combined with DEVAPC_ARCH_V1 for
-	  common handle flow.
+	  Say yes here to enable support Mediatek
+	  Device APC driver which is based on HW
+	  architecture version 2.
+	  This architecture supports multiple Infra AO.
 
+config DEVAPC_MMAP_DEBUG
+	bool "Mediatek Device APC memory map debug mode"
+	help
+	  Say yes here to enable support Mediatek
+	  Device APC driver to debug violation
+	  through catching illegal memory mapped
+	  range.
+
+config DEVAPC_SWP_SUPPORT
+	bool "Mediatek Device APC software watchpoint support"
+	help
+	  Say yes here to enable support Mediatek
+	  Device APC driver to debug violation
+	  through software watchpoint.
+	  Support read/write transaction separately.
+
+
+
+config DEVAPC_MT6833
+	bool "Mediatek MT6833 Device APC driver"
+	depends on MACH_MT6833 || COMPILE_TEST
+	select DEVAPC_ARCH_V2
+	select MTK_DEVAPC
+	select DEVAPC_MMAP_DEBUG
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
+	help
+	  Say yes here to enable support Mediatek MT6833
+	  Device APC driver.
+	  This driver is combined with DEVAPC_ARCH_V2 for
+	  common handle flow.
+config DEVAPC_MT6877
+	bool "Mediatek MT6877 Device APC driver"
+	depends on MACH_MT6877 || COMPILE_TEST
+	select DEVAPC_ARCH_V2
+	select MTK_DEVAPC
+	select DEVAPC_MMAP_DEBUG
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
+	help
+	  Say yes here to enable support Mediatek MT6877
+	  Device APC driver.
+	  This driver is combined with DEVAPC_ARCH_V2 for
+	  common handle flow.

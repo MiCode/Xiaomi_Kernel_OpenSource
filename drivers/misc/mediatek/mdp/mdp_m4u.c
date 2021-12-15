@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015 MediaTek Inc.
- */
+ * Copyright (c) 2019 MediaTek Inc.
+*/
 
 #include "mdp_m4u.h"
 #ifdef CONFIG_MTK_CMDQ_MBOX_EXT
@@ -22,9 +22,7 @@
 #include "mtk_iommu_ext.h"
 #endif
 
-#if defined(CONFIG_MTK_IOMMU_V2)
 static struct ion_client *g_mdp_ion_client;
-#endif
 
 int mdp_ion_get_mva(struct ion_handle *handle,
 	unsigned long *mva, unsigned long fixed_mva, int port)
@@ -83,14 +81,35 @@ struct ion_handle *mdp_ion_import_handle(int fd)
 		return NULL;
 	}
 
-	CMDQ_LOG("import ion handle fd=%d,hnd=0x%p\n", fd, handle);
+	CMDQ_MSG("import ion handle fd=%d,hnd=0x%p\n", fd, handle);
 #endif
 	return handle;
 }
 
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+void mdp_ion_import_sec_handle(int fd, ion_phys_addr_t *sec_handle)
+{
+	size_t size;
+	struct ion_handle *handle = NULL;
+	/* If no need Ion support, do nothing! */
+	if (fd <= 0)
+		CMDQ_ERR("NO NEED ion support, fd %d\n", fd);
+
+	if (!g_mdp_ion_client)
+		CMDQ_ERR("invalid ion client!\n");
+
+	handle = ion_import_dma_buf_fd(g_mdp_ion_client, fd);
+	ion_phys(g_mdp_ion_client, handle, sec_handle, &size);
+	if (size <= 0)
+		CMDQ_ERR("import ion handle fd=%d,hnd=0x%p\n", fd, sec_handle);
+
+	CMDQ_MSG("import ion handle fd=%d,0x%x,hnd=0x%p\n", fd, handle, *sec_handle);
+	ion_free(g_mdp_ion_client, handle);
+}
+#endif
+
 void mdp_ion_free_handle(struct ion_handle *handle)
 {
-#if defined(CONFIG_MTK_IOMMU_V2)
 	if (!g_mdp_ion_client) {
 		CMDQ_ERR("invalid ion client!\n");
 		return;
@@ -100,15 +119,14 @@ void mdp_ion_free_handle(struct ion_handle *handle)
 
 	ion_free(g_mdp_ion_client, handle);
 
-	CMDQ_LOG("free ion handle 0x%p\n", handle);
-#endif
+	CMDQ_MSG("free ion handle 0x%p\n", handle);
 }
 
 void mdp_ion_cache_flush(struct ion_handle *handle)
 {
 #if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_sys_data sys_data;
-	void *buffer_va;
+	void *buffer_va = NULL;
 
 	if (!g_mdp_ion_client || !handle)
 		return;
@@ -130,7 +148,6 @@ void mdp_ion_cache_flush(struct ion_handle *handle)
 
 void mdp_ion_create(const char *name)
 {
-#if defined(CONFIG_MTK_IOMMU_V2)
 	if (g_ion_device)
 		g_mdp_ion_client = ion_client_create(g_ion_device, name);
 	else
@@ -138,14 +155,10 @@ void mdp_ion_create(const char *name)
 
 	if (!g_mdp_ion_client)
 		CMDQ_ERR("create ion client failed!\n");
-
-#endif
 }
 
 void mdp_ion_destroy(void)
 {
-#if defined(CONFIG_MTK_IOMMU_V2)
 	if (g_mdp_ion_client && g_ion_device)
 		ion_client_destroy(g_mdp_ion_client);
-#endif
 }

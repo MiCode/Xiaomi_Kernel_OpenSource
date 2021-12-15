@@ -102,6 +102,7 @@ enum pageflags {
 	PG_young,
 	PG_idle,
 #endif
+	PG_iommu,
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -389,6 +390,7 @@ TESTCLEARFLAG(Young, young, PF_ANY)
 PAGEFLAG(Idle, idle, PF_ANY)
 #endif
 
+PAGEFLAG(Iommu, iommu, PF_ANY)
 /*
  * On an anonymous page mapped into a user virtual memory area,
  * page->mapping points to its anon_vma, not to a struct address_space;

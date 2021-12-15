@@ -73,7 +73,7 @@ static long usip_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			pr_info("no phy addr from ccci");
 			ret = -ENODEV;
 		} else if (copy_to_user((void __user *)arg, &size_for_spe,
-			   sizeof(size_for_spe))) {
+			sizeof(size_for_spe))) {
 			pr_warn("Fail copy to user Ptr:%p, r_sz:%zu",
 				(char *)&size_for_spe, sizeof(size_for_spe));
 			ret = -1;
@@ -120,7 +120,7 @@ static long usip_compat_ioctl(struct file *fp, unsigned int cmd,
 	ret = fp->f_op->unlocked_ioctl(fp, cmd, arg);
 	if (ret < 0)
 		pr_err("%s(), fail, ret %ld, cmd 0x%x, arg %lu\n",
-		       __func__, ret, cmd, arg);
+				__func__, ret, cmd, arg);
 	return ret;
 }
 #endif
@@ -352,9 +352,12 @@ static int __init usip_init(void)
 	usip.adsp_phone_call_enh_config = 0;
 #endif
 
-
 #ifdef CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT
+#ifdef AUDIO_DSP_V1
 	adsp_A_register_notify(&audio_call_notifier);
+#else
+	adsp_register_notify(&audio_call_notifier);
+#endif
 #endif
 
 	return ret;

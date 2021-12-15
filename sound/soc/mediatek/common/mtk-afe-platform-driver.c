@@ -18,7 +18,7 @@ int mtk_afe_combine_sub_dai(struct mtk_base_afe *afe)
 	struct mtk_base_afe_dai *dai;
 	size_t num_dai_drivers = 0, dai_idx = 0;
 
-	/* calcualte total dai driver size */
+	/* calculate total dai driver size */
 	list_for_each_entry(dai, &afe->sub_dais, list) {
 		num_dai_drivers += dai->num_dai_drivers;
 	}
@@ -211,15 +211,26 @@ EXPORT_SYMBOL_GPL(mtk_afe_pcm_ops);
 
 int mtk_afe_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
-	size_t size;
+	size_t size = 0;
 	struct snd_pcm *pcm = rtd->pcm;
 	struct snd_soc_component *component = snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	int ret = 0;
 
-	size = afe->mtk_afe_hardware->buffer_bytes_max;
-	return snd_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_DEV,
-						     afe->dev,
-						     size, size);
+	if (rtd->cpu_dai->id < afe->memif_size) { /* DL and UL memif pcm */
+		size = afe->mtk_afe_hardware->buffer_bytes_max;
+		ret = snd_pcm_lib_preallocate_pages_for_all(pcm,
+							    SNDRV_DMA_TYPE_DEV,
+							    afe->dev,
+							    size, size);
+	}
+
+	dev_info(afe->dev, "%s(), dai_link_name : %s, memif_id : %d, size : %zu, ret : %d\n",
+		 __func__,
+		 rtd->dai_link->name,
+		 rtd->cpu_dai->id,
+		 size, ret);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_afe_pcm_new);
 

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2019 MediaTek Inc.
+# Copyright (C) 2015 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,3 +10,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+
+MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
+$(info *MTK_GPU_VERSION 2 = $(word 2,$(MTK_GPU_VERSION)))
+
+obj-y += mali_$(word 2,$(MTK_GPU_VERSION))/

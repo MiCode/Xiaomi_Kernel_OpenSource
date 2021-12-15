@@ -46,6 +46,10 @@ void __attribute__((weak)) clk_buf_dump_dts_log(void)
 {
 }
 
+void __attribute__((weak)) clk_buf_dump_clkbuf_log(void)
+{
+}
+
 int __attribute__((weak)) clk_buf_fs_init(void)
 {
 	pr_info("%s: dummy func\n", __func__);
@@ -61,6 +65,10 @@ void __attribute__((weak)) clk_buf_init_pmic_swctrl(void)
 }
 
 void __attribute__((weak)) clk_buf_init_pmic_clkbuf(struct regmap *regmap)
+{
+}
+
+void __attribute__((weak)) clk_buf_init_pmic_clkbuf_legacy(void)
 {
 }
 
@@ -118,6 +126,15 @@ void clk_buf_save_afc_val(unsigned int afcdac)
 }
 
 /* Called by suspend driver to write afcdac into SPM register */
+void clk_buf_write_afcdac(void)
+{
+	if (!is_clkbuf_initiated)
+		return;
+
+	if (is_pmic_clkbuf)
+		return;
+}
+
 bool is_clk_buf_from_pmic(void)
 {
 	return true;
@@ -125,8 +142,8 @@ bool is_clk_buf_from_pmic(void)
 
 static int mtk_clk_buf_probe(struct platform_device *pdev)
 {
-	struct mt6397_chip *chip;
 
+	struct mt6397_chip *chip;
 	chip = dev_get_drvdata(pdev->dev.parent);
 
 	if (is_clkbuf_bringup()) {
@@ -151,7 +168,10 @@ static int mtk_clk_buf_probe(struct platform_device *pdev)
 	/* Co-TSX @PMIC */
 	if (is_clk_buf_from_pmic()) {
 		is_pmic_clkbuf = true;
+		if (chip)
 		clk_buf_init_pmic_clkbuf(chip->regmap);
+		else
+		clk_buf_init_pmic_clkbuf_legacy();
 		clk_buf_init_pmic_swctrl();
 		clk_buf_init_pmic_wrap();
 	}

@@ -336,7 +336,7 @@ static void trusty_virtio_stop(struct trusty_ctx *tctx, void *va, size_t sz)
 
 static int trusty_virtio_start(struct trusty_ctx *tctx, void *va, size_t sz)
 {
-	int ret, i = 0;
+	int ret, cpu;
 	u32 smcnr_virtio_start = MTEE_SMCNR(SMCF_SC_VIRTIO_START,
 					    tctx->trusty_dev);
 
@@ -351,9 +351,9 @@ static int trusty_virtio_start(struct trusty_ctx *tctx, void *va, size_t sz)
 	}
 
 	/* Send NOP to secure world to init per-cpu resource */
-	for (i = 0; i < num_possible_cpus(); i++) {
-		dev_dbg(tctx->dev, "%s: init per cpu %d\n", __func__, i);
-		trusty_enqueue_nop(tctx->trusty_dev, NULL, i);
+	for_each_online_cpu(cpu) {
+		dev_dbg(tctx->dev, "%s: init per cpu %d\n", __func__, cpu);
+		trusty_enqueue_nop(tctx->trusty_dev, NULL, cpu);
 	}
 
 	return 0;

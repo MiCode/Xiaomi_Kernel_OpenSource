@@ -10,6 +10,20 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+ifeq ($(CONFIG_MACH_MT6877),y)
+	USE_PPM_CPI = "true"
+else ifeq ($(CONFIG_MACH_MT6833),y)
+	USE_PPM_CPI = "true"
+else ifeq ($(CONFIG_MACH_MT6781),y)
+	USE_PPM_CPI = "true"
+else ifeq ($(CONFIG_MACH_MT6739),y)
+	USE_PPM_CPI = "true"
+else ifeq ($(CONFIG_MACH_MT6768),y)
+	USE_PPM_CPI = "true"
+else
+	USE_PPM_CPI = "false"
+endif
+
 
 ccflags-y += \
 	-I$(PPM_ROOT_DIR)/inc \
@@ -19,6 +33,21 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)	\
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include	\
 	-I$(srctree)/drivers/misc/mediatek/power_throttling       \
+
+ifeq ($(CONFIG_MACH_MT6877), y)
+ccflags-y += \
+	-I$(PPM_ROOT_DIR)/src/mach/mt6877\
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6877/include	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mt6877
+endif
+
+ifeq ($(CONFIG_MACH_MT6833),y)
+ccflags-y += \
+	-I$(PPM_ROOT_DIR)/src/mach/mt6833\
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mt6833\
+	-I$(srctree)/drivers/misc/mediatek/thermal/mt6833/inc/mach/
+endif
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += \
@@ -39,7 +68,10 @@ obj-y += mtk_ppm_profile.o
 obj-y += mtk_ppm_ipi.o
 
 # for CPI
-# obj-y += mtk_ppm_cpi.o
+ifeq ($(USE_PPM_CPI), "true")
+$(warning USE_PPM_CPI)
+obj-y += mtk_ppm_cpi.o
+endif
 
 # policies
 obj-y += mtk_ppm_policy_dlpt.o

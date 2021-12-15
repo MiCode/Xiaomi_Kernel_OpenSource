@@ -67,6 +67,12 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.start_virt = 0x0,
 		.size = 0x0,
 	},
+	{
+		.num = ULTRA_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x0,
+	},
 };
 
 

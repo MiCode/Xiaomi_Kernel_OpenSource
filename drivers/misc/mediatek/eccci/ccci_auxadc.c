@@ -21,18 +21,6 @@ static struct platform_device *md_adc_pdev;
 static int adc_num;
 static int adc_val;
 
-#ifdef CCCI_KMODULE_ENABLE
-/*
- * for debug log:
- * 0 to disable; 1 for print to ram; 2 for print to uart
- * other value to desiable all log
- */
-#ifndef CCCI_LOG_LEVEL /* for platform override */
-#define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
-#endif
-unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
-#endif
-
 static int ccci_get_adc_info(struct device *dev)
 {
 	int ret, val;
@@ -78,6 +66,7 @@ int ccci_get_adc_val(void)
 }
 EXPORT_SYMBOL(ccci_get_adc_val);
 
+#if 0
 signed int battery_get_bat_voltage(void)
 {
 	struct iio_channel *channel;
@@ -107,6 +96,7 @@ BAT_Fail:
 
 }
 EXPORT_SYMBOL(battery_get_bat_voltage);
+#endif
 
 int get_auxadc_probe(struct platform_device *pdev)
 {

@@ -60,23 +60,6 @@
 #endif
 #endif
 
-#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
-#include <m4u.h>
-#include <m4u_port.h>
-#include <kree/sdsp_m4u_mva.h>
-#include <gz-trusty/smcall.h>
-#include <linux/dma-mapping.h>
-#include <linux/dmapool.h>
-
-struct sg_table sg_sdsp_elf;
-struct m4u_client_t *m4u_gz_client;
-#endif
-
-#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
-uint32_t sdsp_elf_size[2] = { 0, 0 };
-uint64_t sdsp_elf_pa[2] = { 0, 0 };
-#endif
-
 //#define KREE_DEBUG(fmt...) pr_debug("[KREE]" fmt)
 #define KREE_DEBUG(fmt...) pr_info("[KREE]" fmt)
 #define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
@@ -427,12 +410,6 @@ int gz_get_cpuinfo_thread(void *data)
 #ifdef MTK_PPM_SUPPORT
 	struct cpufreq_policy curr_policy;
 #endif
-#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
-	int ret;
-	uint32_t sdsp_elf_buf_mva;
-	uint32_t sdsp_elf_buf_size;
-	struct sg_table *sg;
-#endif
 
 	if (platform_driver_register(&tz_system_driver))
 		KREE_ERR("%s driver register fail\n", __func__);
@@ -455,39 +432,6 @@ int gz_get_cpuinfo_thread(void *data)
 	KREE_INFO("%s, cluster [0]=%u-%u, [1]=%u-%u\n", __func__,
 		  cpus_cluster_freq[0].max_freq, cpus_cluster_freq[0].min_freq,
 		  cpus_cluster_freq[1].max_freq, cpus_cluster_freq[1].min_freq);
-#endif
-
-#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
-	if (!m4u_gz_client)
-		m4u_gz_client = m4u_create_client();
-	KREE_DEBUG("m4u_gz_client(%p)\n", m4u_gz_client);
-
-	sdsp_elf_buf_mva = SDSP_VPU0_ELF_MVA;
-	if ((sdsp_elf_size[1]) &&
-	    ((sdsp_elf_pa[0] + sdsp_elf_size[0]) == sdsp_elf_pa[1])) {
-		sdsp_elf_buf_size = sdsp_elf_size[0] + sdsp_elf_size[1];
-	} else {
-		sdsp_elf_buf_size = sdsp_elf_size[0];
-		KREE_ERR("vpu0,vpu1 pa/size(0x%llx/0x%x)(0x%llx/0x%x)\n",
-			 sdsp_elf_pa[0], sdsp_elf_size[0],
-			 sdsp_elf_pa[1], sdsp_elf_size[1]);
-	}
-	sg = &sg_sdsp_elf;
-	ret = sg_alloc_table(sg, 1, GFP_KERNEL);
-	KREE_DEBUG("%s elf sg_alloc_table %s(%d)\n",
-		   __func__, ret == 0 ? "done" : "fail", ret);
-	if (!ret) {
-		sg_dma_address(sg->sgl) = sdsp_elf_pa[0];
-		sg_dma_len(sg->sgl) = sdsp_elf_buf_size;
-		ret = m4u_alloc_mva(m4u_gz_client,
-				    M4U_PORT_VPU,
-				    0, sg, sdsp_elf_buf_size,
-				    M4U_PROT_READ | M4U_PROT_WRITE,
-				    M4U_FLAGS_START_FROM, &sdsp_elf_buf_mva);
-		KREE_INFO("%s elf m4u_alloc_mva(0x%x) %s(%d)\n",
-			  __func__, sdsp_elf_buf_mva,
-			  ret == 0 ? "done" : "fail", ret);
-	}
 #endif
 
 	perf_boost_cnt = 0;
@@ -514,151 +458,6 @@ int gz_get_cpuinfo_thread(void *data)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U) && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
-static int __init store_sdsp_fw1_setup(struct reserved_mem *rmem)
-{
-	KREE_DEBUG("%s %s base(0x%llx) size(0x%llx)\n",
-		   __func__, rmem->name, rmem->base, rmem->size);
-	sdsp_elf_pa[0] = rmem->base;
-	sdsp_elf_size[0] = rmem->size;
-	return 0;
-}
-
-static int __init store_sdsp_fw2_setup(struct reserved_mem *rmem)
-{
-	KREE_DEBUG("%s %s base(%pa) size(%pa)\n",
-		   __func__, rmem->name, &rmem->base, &rmem->size);
-	sdsp_elf_pa[1] = rmem->base;
-	sdsp_elf_size[1] = rmem->size;
-	return 0;
-}
-
-RESERVEDMEM_OF_DECLARE(store_sdsp_fw1, "mediatek,gz-sdsp1-fw",
-	store_sdsp_fw1_setup);
-RESERVEDMEM_OF_DECLARE(store_sdsp_fw2, "mediatek,gz-sdsp2-fw",
-	store_sdsp_fw2_setup);
-#endif
-
-#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
-#include <mtee_regions.h>
-struct gz_mva_map_table_t {
-	const uint32_t region_id;
-	const uint32_t mva;
-	KREE_SHAREDMEM_HANDLE handle;
-	uint32_t size;
-	void *pa;
-	struct sg_table sg;
-};
-
-#define MAX_GZ_MVA_MAP 1
-struct gz_mva_map_table_t gz_mva_map_table[MAX_GZ_MVA_MAP] = {
-	{
-#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)
-	 .region_id = MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE,
-#elif IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
-	 .region_id = MTEE_MCHUNKS_SDSP_SHARED_MTEE_TEE,
-#elif IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
-	 .region_id = MTEE_MCHUNKS_SDSP_SHARED_VPU_MTEE_TEE,
-#else
-	 .region_id = 0xFFFFFFFF,
-#endif
-	 .mva = SDSP_VPU0_DTA_MVA,
-	 .handle = 0,
-	 .size = 0,
-	 .pa = NULL}
-};
-
-int gz_do_m4u_map(KREE_SHAREDMEM_HANDLE handle, phys_addr_t pa, uint32_t size,
-	uint32_t region_id)
-{
-	uint32_t i;
-	uint32_t map_mva;
-	int ret;
-	struct sg_table *sg;
-
-	if (!m4u_gz_client) {
-		KREE_ERR("%s not create m4u_gz_client\n", __func__);
-		return -1;
-	}
-
-	for (i = 0; i < MAX_GZ_MVA_MAP; i++) {
-		if (gz_mva_map_table[i].region_id == region_id) {
-			if (gz_mva_map_table[i].handle != 0) {
-				KREE_ERR("%s region has been MAP\n", __func__);
-				return -1;
-			}
-			map_mva = gz_mva_map_table[i].mva;
-			sg = &(gz_mva_map_table[i].sg);
-			ret = sg_alloc_table(sg, 1, GFP_KERNEL);
-			if (ret) {
-				KREE_ERR("%s region%u alloc sg fail\n",
-				__func__, gz_mva_map_table[i].region_id);
-
-				return ret;
-			}
-			sg_dma_address(sg->sgl) = (dma_addr_t) pa;
-			sg_dma_len(sg->sgl) = size;
-			ret = m4u_alloc_mva(m4u_gz_client, M4U_PORT_VPU,
-					0, sg, size,
-					M4U_PROT_READ | M4U_PROT_WRITE,
-					M4U_FLAGS_START_FROM, &map_mva);
-			if (ret || map_mva != gz_mva_map_table[i].mva) {
-				KREE_ERR("%s mva alloc fail\n", __func__);
-				return -1;
-			}
-			gz_mva_map_table[i].handle = handle;
-			gz_mva_map_table[i].size = size;
-			gz_mva_map_table[i].pa = pa;
-			KREE_DEBUG("%s map pa(%p) size(%x) to mva(0x%x)\n",
-				__func__, gz_mva_map_table[i].pa,
-				gz_mva_map_table[i].size,
-				gz_mva_map_table[i].mva);
-			return 0;
-		}
-	}
-	return 0;
-}
-
-int gz_do_m4u_umap(KREE_SHAREDMEM_HANDLE handle)
-{
-	uint32_t i;
-	int ret;
-	struct sg_table *sg;
-
-	if (m4u_gz_client == NULL) {
-		KREE_ERR("%s not create m4u_gz_client\n", __func__);
-		return -1;
-	}
-
-	for (i = 0; i < MAX_GZ_MVA_MAP; i++) {
-		if (gz_mva_map_table[i].handle == handle) {
-			if (!gz_mva_map_table[i].handle) {
-				KREE_ERR("%s region no any MAP\n", __func__);
-				return -1;
-			}
-			ret = m4u_dealloc_mva(m4u_gz_client,
-					M4U_PORT_VPU,
-					gz_mva_map_table[i].mva);
-			if (ret) {
-				KREE_ERR("%s mva dealloc fail\n", __func__);
-				return ret;
-			}
-			sg = &(gz_mva_map_table[i].sg);
-			sg_free_table(sg);
-			KREE_DEBUG("%s ummap mva(0x%x) for region(%u)\n",
-				__func__, gz_mva_map_table[i].mva,
-				gz_mva_map_table[i].region_id);
-			gz_mva_map_table[i].handle = 0;
-			gz_mva_map_table[i].size = 0;
-			gz_mva_map_table[i].pa = 0;
-			return 0;
-		}
-	}
-
-	return 0;
-}
-#endif
-
 static int gz_dev_open(struct inode *inode, struct file *filp)
 {
 	return _init_session_info(filp);
@@ -678,7 +477,7 @@ static long tz_client_open_session(struct file *filep, void __user *arg)
 {
 	struct kree_session_cmd_param param;
 	unsigned long cret;
-	char uuid[40];
+	char uuid[MAX_UUID_LEN];
 	long len;
 	TZ_RESULT ret;
 	KREE_SESSION_HANDLE handle = 0;
@@ -751,7 +550,7 @@ _tz_client_close_session_end:
 static long tz_client_tee_service(struct file *file, void __user *arg,
 	unsigned int compat)
 {
-	struct kree_tee_service_cmd_param cparam;
+	struct kree_tee_service_cmd_param cparam = { 0 };
 	unsigned long cret;
 	uint32_t tmpTypes;
 	union MTEEC_PARAM param[4], oparam[4];

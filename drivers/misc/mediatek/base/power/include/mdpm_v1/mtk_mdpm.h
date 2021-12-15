@@ -12,6 +12,8 @@
 #include "mt6761/mtk_mdpm_platform.h"
 #elif defined(CONFIG_MACH_MT3967)
 #include "mt3967/mtk_mdpm_platform.h"
+#elif defined(CONFIG_MACH_MT6768)
+#include "mt6768/mtk_mdpm_platform.h"
 #endif
 
 #endif /* __MTK_MDPM_H__ */

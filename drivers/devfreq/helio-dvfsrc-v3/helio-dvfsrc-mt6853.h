@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+
+#ifndef __HELIO_DVFSRC_MT6853_H
+#define __HELIO_DVFSRC_MT6853_H
+
+#include <mach/upmu_hw.h>
+
+#define PMIC_VCORE_ADDR		PMIC_RG_BUCK_VCORE_VOSEL
+#define VCORE_BASE_UV		506250
+#define VCORE_STEP_UV		6250
+
+/* PMIC */
+#define __vcore_pmic_to_uv(pmic)	\
+	(((pmic) * VCORE_STEP_UV) + VCORE_BASE_UV)
+
+#define __vcore_uv_to_pmic(uv)	/* pmic >= uv */	\
+	((((uv) - VCORE_BASE_UV) + (VCORE_STEP_UV - 1)) / VCORE_STEP_UV)
+
+
+enum met_src_index {
+	SRC_MD2SPM_IDX = 0,
+	DDR_OPP_IDX,
+	DDR_SW_REQ1_SPM_IDX,
+	DDR_SW_REQ2_CM_IDX,
+	DDR_SW_REQ3_PMQOS_IDX,
+	DDR_QOS_BW_IDX,
+	DDR_EMI_TOTAL_IDX,
+	DDR_HRT_BW_IDX,
+	DDR_HIFI_IDX,
+	DDR_HIFI_LATENCY_IDX,
+	DDR_MD_LATENCY_IDX,
+	DDR_MD_DDR_IDX,
+	DDR_MD_SRCLK_IDX,
+	VCORE_OPP_IDX,
+	VCORE_SW_REQ3_PMQOS_IDX,
+	VCORE_SCP_IDX,
+	VCORE_HIFI_IDX,
+	VCORE_PCIE_IDX,
+	SRC_SCP_REQ_IDX,
+	SRC_PMQOS_TATOL_IDX,
+	SRC_PMQOS_BW0_IDX,
+	SRC_PMQOS_BW1_IDX,
+	SRC_PMQOS_BW2_IDX,
+	SRC_PMQOS_BW3_IDX,
+	SRC_PMQOS_BW4_IDX,
+	SRC_TOTAL_EMI_BW_IDX,
+	SRC_HRT_MD_BW_IDX,
+	SRC_HRT_DISP_BW_IDX,
+	SRC_HRT_ISP_BW_IDX,
+	SRC_MD_SCENARIO_IDX,
+	SRC_HIFI_SCENARIO_IDX,
+	SRC_MD_EMI_LATENCY_IDX,
+	SRC_MAX
+};
+extern u32 dvfsrc_ct_mode(void);
+extern u32 dvfsrc_vcore_mode(void);
+#endif /* __HELIO_DVFSRC_MT6853_H */
+

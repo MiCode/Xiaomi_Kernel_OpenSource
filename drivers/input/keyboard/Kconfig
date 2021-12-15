@@ -749,7 +749,7 @@ config KEYBOARD_BCM
 
 config KEYBOARD_MTK_PMIC
 	tristate "MediaTek PMIC keys support"
-	depends on MFD_MT6397
+	depends on MFD_MT6397 || MFD_MT6358
 	help
 	  Say Y here if you want to use the pmic keys (powerkey/homekey).
 	  If unuse, say N.
@@ -764,4 +764,5 @@ config KEYBOARD_MTK
 	  To compile this driver as a module, choose M here: the
 	  module will be called mtk-kpd.
 
+source "drivers/input/keyboard/mediatek/Kconfig"
 endif

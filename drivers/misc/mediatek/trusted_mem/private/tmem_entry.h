@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -15,6 +16,12 @@ int tmem_core_ssmr_release(enum TRUSTED_MEM_TYPE mem_type);
 int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle, u8 *owner,
 			  u32 id, u32 clean);
+int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			      u32 size, u32 *refcount, u32 *gz_handle,
+			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
+int tmem_query_sec_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			      u32 size, u32 *refcount, u32 *sec_handle,
+			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
 int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			       u32 size, u32 *refcount, u32 *sec_handle,
 			       u8 *owner, u32 id, u32 clean);

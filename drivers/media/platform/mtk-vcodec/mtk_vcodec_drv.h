@@ -18,6 +18,9 @@
 #include "mtk_vcodec_pm.h"
 
 #include "mtk-dma-contig.h"
+#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
+#include "mtkbuf-dma-cache-sg.h"
+#endif
 #ifdef CONFIG_MTK_SLBC
 #include "slbc_ops.h"
 #endif
@@ -87,6 +90,10 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_I_P_QP_DELTA = (1 << 20),
 	MTK_ENCODE_PARAM_QP_CONTROL_MODE = (1 << 21),
 	MTK_ENCODE_PARAM_FRAME_LEVEL_QP = (1 << 22),
+	MTK_ENCODE_PARAM_MAX_REFP_NUM = (1 << 23),
+	MTK_ENCODE_PARAM_REFP_DISTANCE = (1 << 24),
+	MTK_ENCODE_PARAM_REFP_FRMNUM = (1 << 25),
+	MTK_ENCODE_PARAM_DUMMY_NAL = (1 << 26),
 };
 
 /*
@@ -156,6 +163,12 @@ enum mtk_dec_param {
 	MTK_DEC_PARAM_FIXED_MAX_OUTPUT_BUFFER = (1 << 7),
 	MTK_DEC_PARAM_SEC_DECODE = (1 << 8),
 	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9)
+};
+
+enum venc_lock {
+	VENC_LOCK_NONE,
+	VENC_LOCK_NORMAL,
+	VENC_LOCK_SEC
 };
 
 struct mtk_dec_params {
@@ -234,6 +247,10 @@ struct mtk_enc_params {
 	unsigned int    i_p_qp_delta;
 	unsigned int    qp_control_mode;
 	unsigned int    frame_level_qp;
+	unsigned int    maxrefpnum;
+	unsigned int    refpdistance;
+	unsigned int    refpfrmnum;
+	unsigned int	dummynal;
 };
 
 /*
@@ -292,6 +309,11 @@ struct venc_enc_param {
 	unsigned int i_p_qp_delta;
 	unsigned int qp_control_mode;
 	unsigned int frame_level_qp;
+	unsigned int maxrefpnum;
+	unsigned int refpdistance;
+	unsigned int refpfrmnum;
+	char *log;
+	unsigned int dummynal;
 };
 
 /*
@@ -397,8 +419,8 @@ struct mtk_vcodec_ctx {
 	int input_driven;
 	int user_lock_hw;
 	/* for user lock HW case release check */
+	struct mutex hw_status;
 	int hw_locked[MTK_VDEC_HW_NUM];
-	int lock_abort;
 	int async_mode;
 	int oal_vcodec;
 
@@ -469,6 +491,9 @@ struct mtk_vcodec_dev {
 	void __iomem *dec_reg_base[NUM_MAX_VDEC_REG_BASE];
 	void __iomem *enc_reg_base[NUM_MAX_VENC_REG_BASE];
 
+	bool dec_is_power_on[MTK_VDEC_HW_NUM];
+	spinlock_t dec_power_lock[MTK_VDEC_HW_NUM];
+
 	unsigned long id_counter;
 
 	struct workqueue_struct *decode_workqueue;
@@ -497,6 +522,7 @@ struct mtk_vcodec_dev {
 
 	int dec_cnt;
 	int enc_cnt;
+	enum venc_lock enc_hw_locked[MTK_VENC_HW_NUM];
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)

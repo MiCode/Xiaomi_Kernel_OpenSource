@@ -26,3 +26,13 @@ config DEVMPU_MT6779
 	  SUB, ACP and EMI features of Device MPU in
 	  MT6779 platfom.
 
+config DEVMPU_MT6781
+	bool "Mediatek MT6781 Device MPU driver"
+	depends on ARCH_MEDIATEK
+	select MTK_DEVMPU
+	help
+	  Say yes here to enable support Mediatek MT6781
+	  Device MPU driver. This driver is combined with
+	  SUB, ACP and EMI features of Device MPU in
+	  MT6781 platfom.
+

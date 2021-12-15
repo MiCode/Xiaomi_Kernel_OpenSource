@@ -803,9 +803,10 @@ drm_atomic_get_plane_state(struct drm_atomic_state *state,
 	WARN_ON(!state->acquire_ctx);
 
 	/* the legacy pointers should never be set */
+	/* need fix later
 	WARN_ON(plane->fb);
 	WARN_ON(plane->old_fb);
-	WARN_ON(plane->crtc);
+	WARN_ON(plane->crtc);*/
 
 	plane_state = drm_atomic_get_existing_plane_state(state, plane);
 	if (plane_state)

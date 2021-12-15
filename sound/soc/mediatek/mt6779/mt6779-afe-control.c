@@ -11,7 +11,7 @@
 #include "../common/mtk-sram-manager.h"
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-#include "../audio_dsp/mtk-dsp-core.h"
+#include "../audio_dsp/v1/mtk-dsp-core.h"
 #endif
 
 /* don't use this directly if not necessary */

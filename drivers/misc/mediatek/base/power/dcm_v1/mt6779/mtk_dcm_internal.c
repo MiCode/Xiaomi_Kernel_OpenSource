@@ -12,6 +12,7 @@
 //#include <mt-plat/mtk_secure_api.h>
 
 #include <mtk_dcm_internal.h>
+#include <mtk_dcm_common.h>
 
 #define DEBUGLINE dcm_pr_info("%s %d\n", __func__, __LINE__)
 
@@ -54,10 +55,6 @@ unsigned long dcm_audio_base;
 unsigned long dcm_msdc1_base;
 
 
-struct DCM_BASE {
-	char *name;
-	unsigned long *base;
-};
 
 #define DCM_BASE_INFO(_name) \
 { \

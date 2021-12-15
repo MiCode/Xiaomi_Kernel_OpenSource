@@ -370,6 +370,17 @@ static ssize_t kcfg_setting_store(const char *buf, size_t count)
 
 CCCI_ATTR(kcfg_setting, 0444, &kcfg_setting_show, &kcfg_setting_store);
 
+
+static ssize_t ccci_pin_cfg_store(const char *buf, size_t count)
+{
+	unsigned int pin_val;
+
+	pin_val = buf[0] - '0';
+	inject_pin_status_event(pin_val, "RF_cable");
+	return count;
+}
+
+CCCI_ATTR(pincfg, 0220, NULL, &ccci_pin_cfg_store);
 /* Sys -- Add to group */
 static struct attribute *ccci_default_attrs[] = {
 	&ccci_attr_boot.attr,
@@ -382,6 +393,7 @@ static struct attribute *ccci_default_attrs[] = {
 	&ccci_attr_md_chn.attr,
 	&ccci_attr_ft_info.attr,
 	&ccci_attr_md1_postfix.attr,
+	&ccci_attr_pincfg.attr,
 	NULL
 };
 

@@ -19,12 +19,15 @@ $(info M4U platform folder:$(CONFIG_MTK_PLATFORM))
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
 #version code
-ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6765"))
+ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6765" "mt6739" "mt6768"))
     $(info M4U version:2.0)
     obj-y += 2.0/
 else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779"))
     $(info M4U version:3.2)
     obj-y += 3.2/
+else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6771"))
+    $(info M4U version:2.4)
+    obj-y += 2.4/
 else ifeq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt8173"))
     $(error M4U error: platform error)
 endif

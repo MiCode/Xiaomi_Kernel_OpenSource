@@ -339,6 +339,17 @@ static struct LCM_setting_table init_setting_vdo[] = {
 
 	{REGFLAG_DELAY, 20, {} },
 
+#if 0
+#ifndef LCM_SET_DISPLAY_ON_DELAY
+	{REGFLAG_DELAY, 150, {} },
+
+	{0xE9, 0x01, {0xC2} },
+	{0xB0, 0x01, {0x01} },
+	{0xE9, 0x01, {0x00} },
+
+	{0x29, 0, {} },
+	{REGFLAG_DELAY, 50, {} },
+#endif
 #endif
 };
 

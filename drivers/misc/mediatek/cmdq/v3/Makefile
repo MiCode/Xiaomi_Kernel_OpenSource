@@ -42,7 +42,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mdp/ \
              -I$(srctree)/drivers/iommu/ \
              -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+             -I$(srctree)/drivers/misc/mediatek/cmdq/bridge
 
 ifneq ($(filter mt8168,$(shell echo $(MTK_PLATFORM)|tr A-Z a-z)),)
 ccflags-y += -DCMDQ_TABLET_ENABLE

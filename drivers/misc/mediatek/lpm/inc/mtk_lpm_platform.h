@@ -37,4 +37,5 @@ extern int mtk_lpm_irqremain_get(struct mtk_lpm_irqremain **irqs);
 extern void mtk_lpm_irqremain_put(struct mtk_lpm_irqremain *irqs);
 extern void mtk_lpm_irqremain_list_release(void);
 
+int mtk_lpm_platform_trace_get(int type, struct MTK_LPM_PLAT_TRACE *trace);
 #endif

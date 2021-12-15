@@ -11,6 +11,7 @@
 extern int set_sram_flag_lastpc_valid(void);
 extern int set_sram_flag_dfd_valid(void);
 extern int set_sram_flag_etb_user(unsigned int etb_id, unsigned int user_id);
+extern int set_sram_flag_timestamp(void);
 
 #define ETB_USER_BIG_CORE       0x0
 #define ETB_USER_CM4            0x1

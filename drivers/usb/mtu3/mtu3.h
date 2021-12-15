@@ -30,6 +30,15 @@ struct mtu3_request;
 #include "mtu3_hw_regs.h"
 #include "mtu3_qmu.h"
 
+#if defined MTU3_USE_SPM_API
+#include "mtk_spm_resource_req.h"
+
+#else
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+
+#endif
+
 #define	MU3D_EP_TXCR0(epnum)	(U3D_TX1CSR0 + (((epnum) - 1) * 0x10))
 #define	MU3D_EP_TXCR1(epnum)	(U3D_TX1CSR1 + (((epnum) - 1) * 0x10))
 #define	MU3D_EP_TXCR2(epnum)	(U3D_TX1CSR2 + (((epnum) - 1) * 0x10))
@@ -151,6 +160,12 @@ enum mtu3_power_resource_mode {
 	MTU3_RESOURCE_ALL,
 	MTU3_RESOURCE_SUSPEND,
 	MTU3_RESOURCE_RESUME,
+};
+
+enum MTK_USB_SMC_CALL {
+	MTK_USB_SMC_INFRA_REQUEST = 0,
+	MTK_USB_SMC_INFRA_RELEASE,
+	MTK_USB_SMC_NUM
 };
 
 /**

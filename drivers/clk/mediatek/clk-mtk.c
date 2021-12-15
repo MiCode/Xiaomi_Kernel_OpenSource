@@ -20,10 +20,12 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/slab.h>
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
+#include "clk-fixup-div.h"
 
 struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num)
 {
@@ -50,6 +52,34 @@ err_out:
 	return NULL;
 }
 EXPORT_SYMBOL(mtk_alloc_clk_data);
+void mtk_clk_register_fixup_dividers(const struct mtk_clk_divider *mcds,
+			int num, void __iomem *base, spinlock_t *lock,
+				struct clk_onecell_data *clk_data)
+{
+	struct clk *clk;
+	int i;
+
+	for (i = 0; i < num; i++) {
+		const struct mtk_clk_divider *mcd = &mcds[i];
+
+		if (clk_data && !IS_ERR_OR_NULL(clk_data->clks[mcd->id]))
+			continue;
+
+		clk = mtk_clk_fixup_divider(mcd->name, mcd->parent_name,
+			mcd->flags, base + mcd->div_reg,
+			base + mcd->div_reg_fixup, mcd->div_shift,
+			mcd->div_width, mcd->clk_divider_flags, lock);
+
+		if (IS_ERR(clk)) {
+			pr_err("Failed to register clk %s: %ld\n",
+				mcd->name, PTR_ERR(clk));
+			continue;
+		}
+
+		if (clk_data)
+			clk_data->clks[mcd->id] = clk;
+	}
+}
 
 void mtk_clk_register_fixed_clks(const struct mtk_fixed_clk *clks,
 		int num, struct clk_onecell_data *clk_data)
@@ -104,6 +134,34 @@ void mtk_clk_register_factors(const struct mtk_fixed_factor *clks,
 	}
 }
 EXPORT_SYMBOL(mtk_clk_register_factors);
+
+#if defined(CONFIG_MACH_MT6739)
+void __init mtk_clk_register_factors_pdn(
+	const struct mtk_fixed_factor_pdn *clks,
+	int num, struct clk_onecell_data *clk_data, void __iomem *base)
+{
+	int i;
+	struct clk *clk;
+
+	for (i = 0; i < num; i++) {
+		const struct mtk_fixed_factor_pdn *ff = &clks[i];
+
+		clk = mtk_clk_register_fixed_factor_pdn(NULL, ff->name,
+			ff->parent_name,
+			CLK_SET_RATE_PARENT, ff->mult, ff->div,
+			ff->shift, ff->pd_reg, base);
+
+		if (IS_ERR(clk)) {
+			pr_debug("Failed to register clk %s: %ld\n",
+					ff->name, PTR_ERR(clk));
+			continue;
+		}
+
+		if (clk_data)
+			clk_data->clks[ff->id] = clk;
+	}
+}
+#endif
 
 int mtk_clk_register_gates(struct device_node *node,
 		const struct mtk_gate *clks,
@@ -301,6 +359,30 @@ void mtk_clk_register_dividers(const struct mtk_clk_divider *mcds,
 	}
 }
 EXPORT_SYMBOL(mtk_clk_register_dividers);
+
+
+int mtk_clk_simple_probe(struct platform_device *pdev)
+{
+	const struct mtk_clk_desc *mcd;
+	struct clk_onecell_data *clk_data;
+	struct device_node *node = pdev->dev.of_node;
+	int r;
+
+	mcd = of_device_get_match_data(&pdev->dev);
+	if (!mcd)
+		return -EINVAL;
+
+	clk_data = mtk_alloc_clk_data(mcd->num_clks);
+	if (!clk_data)
+		return -ENOMEM;
+
+	r = mtk_clk_register_gates(node, mcd->clks, mcd->num_clks, clk_data);
+	if (r)
+		return r;
+
+	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+}
+EXPORT_SYMBOL(mtk_clk_simple_probe);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek MTK");

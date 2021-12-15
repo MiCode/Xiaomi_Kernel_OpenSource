@@ -13,6 +13,12 @@ struct snd_soc_dai_ops;
 struct mtk_base_afe;
 struct mtk_base_afe_memif;
 struct mtk_base_irq_data;
+struct regmap;
+
+int mtk_regmap_update_bits(struct regmap *map, int reg,
+			   unsigned int mask,
+			   unsigned int val);
+int mtk_regmap_write(struct regmap *map, int reg, unsigned int val);
 
 int mtk_afe_fe_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai);

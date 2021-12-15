@@ -82,6 +82,13 @@ int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr);
 void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg);
 void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list);
 
+#ifdef CONFIG_MTK_IOMMU_V2
+void iommu_dma_dump_iovad(struct iommu_domain *domain,
+		unsigned long target);
+int iommu_dma_get_iovad_info(struct device *dev,
+	unsigned long *base, unsigned long *max);
+#endif
+
 int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
 			   u64 size);
 

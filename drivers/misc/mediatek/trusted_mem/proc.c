@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -84,6 +85,11 @@ static void trusted_mem_device_chunk_free(enum TRUSTED_MEM_TYPE mem_type)
 		g_common_mem_handle[mem_type] = 0;
 }
 
+static void trusted_mem_device_ion_alloc_free(enum TRUSTED_MEM_TYPE mem_type)
+{
+	pr_info("%d ion interface is not supported!\n", mem_type);
+}
+
 static void trusted_mem_device_common_operations(u64 cmd, u64 param1,
 						 u64 param2, u64 param3)
 {
@@ -98,28 +104,40 @@ static void trusted_mem_device_common_operations(u64 cmd, u64 param1,
 
 	switch (device_cmd) {
 	case TMEM_DEVICE_COMMON_OPERATION_SSMR_ALLOC:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_SSMR_ALLOC\n");
 		tmem_core_ssmr_allocate(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_SSMR_RELEASE:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_SSMR_RELEASE\n");
 		tmem_core_ssmr_release(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_SESSION_OPEN:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_SESSION_OPEN\n");
 		tmem_core_session_open(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_SESSION_CLOSE:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_SESSION_CLOSE\n");
 		tmem_core_session_close(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_REGION_ON:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_REGION_ON\n");
 		tmem_core_regmgr_online(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_REGION_OFF:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_REGION_OFF\n");
 		tmem_core_regmgr_offline(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_CHUNK_ALLOC:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_CHUNK_ALLOC\n");
 		trusted_mem_device_chunk_alloc(device_mem_type);
 		break;
 	case TMEM_DEVICE_COMMON_OPERATION_CHUNK_FREE:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_CHUNK_FREE\n");
 		trusted_mem_device_chunk_free(device_mem_type);
+		break;
+	case TMEM_DEVICE_COMMON_OPERATION_ION_ALLOC_FREE:
+		pr_info("TMEM_DEVICE_COMMON_OPERATION_ION_ALLOC_FREE\n");
+		trusted_mem_device_ion_alloc_free(device_mem_type);
 		break;
 	default:
 		pr_err("unsupported device cmd: %d, mem type: %d (user cmd:%lld)\n",
@@ -155,36 +173,43 @@ static void trusted_mem_manual_cmd_invoke(u64 cmd, u64 param1, u64 param2,
 
 	switch (cmd) {
 	case TMEM_REGION_STATUS_DUMP:
+		pr_info("TMEM_REGION_STATUS_DUMP\n");
 		trusted_mem_region_status_dump();
 		break;
 	case TMEM_SECMEM_SVP_DUMP_INFO:
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
+		pr_info("TMEM_SECMEM_SVP_DUMP_INFO\n");
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_svp_dump_info();
 #endif
 		break;
 	case TMEM_SECMEM_FR_DUMP_INFO:
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+		pr_info("TMEM_SECMEM_FR_DUMP_INFO\n");
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
+	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		secmem_fr_dump_info();
 #endif
 		break;
 	case TMEM_SECMEM_WFD_DUMP_INFO:
-#if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
+		pr_info("TMEM_SECMEM_WFD_DUMP_INFO\n");
+#if defined(CONFIG_MTK_WFD_SMEM_SUPPORT)
 		wfd_smem_dump_info();
 #endif
 		break;
 	case TMEM_SECMEM_DYNAMIC_DEBUG_ENABLE:
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
+		pr_info("TMEM_SECMEM_DYNAMIC_DEBUG_ENABLE\n");
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_dynamic_debug_control(true);
 #endif
 		break;
 	case TMEM_SECMEM_DYNAMIC_DEBUG_DISABLE:
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
+		pr_info("TMEM_SECMEM_DYNAMIC_DEBUG_DISABLE\n");
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_dynamic_debug_control(false);
 #endif
 		break;
 	case TMEM_SECMEM_FORCE_HW_PROTECTION:
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
+		pr_info("TMEM_SECMEM_FORCE_HW_PROTECTION\n");
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_force_hw_protection();
 #endif
 		break;
@@ -197,7 +222,7 @@ static ssize_t tmem_write(struct file *file, const char __user *buffer,
 			  size_t count, loff_t *data)
 {
 	char desc[32];
-	int len = 0;
+	unsigned int len = 0;
 	long cmd;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
@@ -226,7 +251,7 @@ static const struct file_operations tmem_fops = {
 	.open = tmem_open,
 	.release = tmem_release,
 	.unlocked_ioctl = NULL,
-#if IS_ENABLED(CONFIG_COMPAT)
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = NULL,
 #endif
 	.write = tmem_write,
@@ -238,12 +263,12 @@ static void trusted_mem_create_proc_entry(void)
 }
 
 #ifdef TCORE_UT_TESTS_SUPPORT
-#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
+#ifdef CONFIG_MTK_ENG_BUILD
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (900000)
-#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_8M)
+#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SIZE_8M)
 #else
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (5000)
-#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_2M)
+#define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SIZE_2M)
 #endif
 
 static unsigned int ut_multithread_wait_completion_timeout_ms =
@@ -342,5 +367,5 @@ static struct platform_driver trusted_mem_driver = {
 module_platform_driver(trusted_mem_driver);
 
 MODULE_AUTHOR("MediaTek Inc.");
+MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek Trusted Memory Driver");
-MODULE_LICENSE("GPL v2");

@@ -68,12 +68,12 @@ static void add_shm_list_node(struct KREE_SHM_RUNLENGTH_LIST **tail,
 }
 
 static struct KREE_SHM_RUNLENGTH_ENTRY *shmem_param_run_length_encoding(
-	int numOfPA, int *runLeng_arySize, uint64_t *ary)
+	int numOfPA, int *runLeng_arySize, int64_t *ary)
 {
 	int arySize = numOfPA + 1;
 	int i = 0;
-	uint64_t start;
-	uint64_t now, next;
+	int64_t start;
+	int64_t now, next;
 	uint32_t size = 1;
 	int xx = 0;
 	int idx = 0;
@@ -305,7 +305,7 @@ static TZ_RESULT kree_register_desc_shm(union MTEEC_PARAM *p,
 	TZ_RESULT ret = 0;
 	int numOfPA;
 	int i, idx = 0, p_idx = 0, offset = 0;
-	uint64_t *ary;
+	int64_t *ary;
 	int round = 0;
 	int runLeng_arySize = 0;
 #ifdef DBG_KREE_SHM
@@ -321,7 +321,7 @@ static TZ_RESULT kree_register_desc_shm(union MTEEC_PARAM *p,
 	/* init mtee param & other buffer */
 	init_shm_params(p, tmp_ary_entryNum);
 
-	ary = (uint64_t *) mapAry;
+	ary = (int64_t *) mapAry;
 	numOfPA = ary[0];
 	KREE_DEBUG("[%s] numOfPA = %d, MAX_MARY_SIZE = %lu\n", __func__,
 		numOfPA, MAX_MARY_SIZE);
@@ -337,7 +337,7 @@ static TZ_RESULT kree_register_desc_shm(union MTEEC_PARAM *p,
 #ifdef DBG_KREE_SHM
 	for (i = 0; i <= numOfPA; i++)
 		KREE_DEBUG("[%s] ====> mapAry[%d]= 0x%llx\n", __func__, i,
-		(uint64_t) ary[i]);
+		(int64_t) ary[i]);
 	for (idx = 0; idx <= runLeng_arySize; idx++)
 		KREE_DEBUG
 	    ("runLengAry[%d]. high = 0x%x, low=0x%x, size = 0x%x\n",
@@ -608,13 +608,27 @@ TZ_RESULT KREE_ZallocSecuremem(KREE_SESSION_HANDLE session,
 		alignment, size, "KREE_ZallocSecuremem");
 	return ret;
 }
+EXPORT_SYMBOL(KREE_ZallocSecuremem);
 
-TZ_RESULT KREE_ZallocSecurememWithTag(KREE_SESSION_HANDLE session,
-	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment, uint32_t size)
+TZ_RESULT KREE_AllocSecurememWithTag(KREE_SESSION_HANDLE session,
+	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment, uint32_t size,
+	const char *tag)
 {
 	TZ_RESULT ret;
 
-	ret = _allocFunc(TZCMD_MEM_SECUREMEM_ZALLOC, session, mem_handle,
+	ret = _allocFunc(TZCMD_MEM_SECUREMEM_ALLOC_WITH_TAG, session, mem_handle,
+		alignment, size, "KREE_ZallocSecurememWithTag");
+	return ret;
+}
+EXPORT_SYMBOL(KREE_AllocSecurememWithTag);
+
+TZ_RESULT KREE_ZallocSecurememWithTag(KREE_SESSION_HANDLE session,
+	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment, uint32_t size,
+	const char *tag)
+{
+	TZ_RESULT ret;
+
+	ret = _allocFunc(TZCMD_MEM_SECUREMEM_ZALLOC_WITH_TAG, session, mem_handle,
 		alignment, size, "KREE_ZallocSecurememWithTag");
 	return ret;
 }
@@ -835,35 +849,6 @@ TZ_RESULT KREE_UnreferenceSecureMultichunkmem(KREE_SESSION_HANDLE session,
 
 
 /*for ION */
-/*input mem_handle to get ION_Handle*/
-TZ_RESULT KREE_ION_QueryIONHandle(KREE_SESSION_HANDLE session,
-	KREE_SECUREMEM_HANDLE mem_handle, KREE_ION_HANDLE *IONHandle)
-{
-	TZ_RESULT ret;
-	union MTEEC_PARAM p[4];
-	uint32_t ION_Handle = 0;
-
-	if (!mem_handle) {
-		KREE_ERR("[%s] Fail.invalid parameters\n", __func__);
-		return TZ_RESULT_ERROR_BAD_PARAMETERS;
-	}
-
-	p[0].value.a = mem_handle;
-
-	ret = KREE_TeeServiceCall(session, TZCMD_MEM_Query_IONHandle,
-			TZ_ParamTypes2(TZPT_VALUE_INPUT,
-			TZPT_VALUE_OUTPUT), p);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("[%s] query ion_hd Fail(0x%x)\n", __func__, ret);
-		return ret;
-	}
-
-	*IONHandle = p[1].value.a;
-	KREE_DEBUG("[%s] ok(ION_Handle=0x%x)\n", __func__, ION_Handle);
-
-	return ret;
-}
-
 TZ_RESULT KREE_ION_AllocChunkmem(KREE_SESSION_HANDLE session,
 	KREE_SHAREDMEM_HANDLE chm_handle, KREE_SECUREMEM_HANDLE *secmHandle,
 	uint32_t alignment, uint32_t size)
@@ -1010,108 +995,6 @@ TZ_RESULT KREE_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 EXPORT_SYMBOL(KREE_QueryChunkmem_TEST);
 #endif
 
-#if API_NotSupport /*API_NOT_SUPPORT */
-
-TZ_RESULT KREE_ReleaseSecurechunkmem(KREE_SESSION_HANDLE session,
-	uint32_t *size)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_AppendSecurechunkmem(KREE_SESSION_HANDLE session)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-/*fix mtee sync*/
-TZ_RESULT KREE_AllocSecurememWithTag(KREE_SESSION_HANDLE session,
-	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment,
-	uint32_t size, const char *tag)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_AllocSecurechunkmem(KREE_SESSION_HANDLE session,
-	KREE_SECUREMEM_HANDLE *cm_handle, uint32_t alignment, uint32_t size)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_AllocSecurechunkmemWithTag(KREE_SESSION_HANDLE session,
-	KREE_SECUREMEM_HANDLE *cm_handle, uint32_t alignment,
-	uint32_t size, const char *tag)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_ReferenceSecurechunkmem(KREE_SESSION_HANDLE session,
-	KREE_SECURECM_HANDLE cm_handle)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_UnreferenceSecurechunkmem(KREE_SESSION_HANDLE session,
-	KREE_SECURECM_HANDLE cm_handle)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_ReadSecurechunkmem(KREE_SESSION_HANDLE session,
-	uint32_t offset, uint32_t size, void *buffer)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_WriteSecurechunkmem(KREE_SESSION_HANDLE session,
-	uint32_t offset, uint32_t size, void *buffer)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_GetSecurechunkReleaseSize(KREE_SESSION_HANDLE session,
-	uint32_t *size)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_StartSecurechunkmemSvc(KREE_SESSION_HANDLE session,
-	unsigned long start_pa, uint32_t size)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_StopSecurechunkmemSvc(KREE_SESSION_HANDLE session,
-	unsigned long *cm_pa, uint32_t *size)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_QuerySecurechunkmem(KREE_SESSION_HANDLE session,
-	unsigned long *cm_pa, uint32_t *size)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-TZ_RESULT KREE_GetTEETotalSize(KREE_SESSION_HANDLE session, uint32_t *size)
-{
-	KREE_DEBUG("[%s] not support!\n", __func__);
-	return TZ_RESULT_ERROR_NOT_SUPPORTED;
-}
-
-#endif /*API_NOT_SUPPORT */
 TZ_RESULT KREE_ConfigSecureMultiChunkMemInfo(KREE_SESSION_HANDLE session,
 	uint64_t pa, uint32_t size, uint32_t region_id)
 {

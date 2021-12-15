@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -19,8 +20,7 @@
 #include <linux/unistd.h>
 #include <linux/types.h>
 #include <linux/slab.h>
-#include <linux/sizes.h>
-#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+#if defined(CONFIG_MTK_GZ_KREE)
 #include <kree/system.h>
 #include <kree/mem.h>
 #include <kree/tz_mod.h>
@@ -85,7 +85,7 @@ static void mtee_destroy_session_data(struct MTEE_SESSION_DATA *sess_data)
 
 static int mtee_session_open(void **peer_data, void *dev_desc)
 {
-	int ret;
+	int ret = 0;
 	struct MTEE_SESSION_DATA *sess_data;
 	struct tmem_device_description *mtee_dev_desc =
 		(struct tmem_device_description *)dev_desc;
@@ -171,7 +171,12 @@ static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 					     sec_handle, alignment, size);
 	}
 
-	if (ret != 0) {
+	if (*sec_handle == 0) {
+		pr_err("%s:%d out of memory, ret=%d!\n", __func__, __LINE__,
+		       ret);
+		MTEE_SESSION_UNLOCK();
+		return -ENOMEM;
+	} else if (ret != 0) {
 		pr_err("[%d] MTEE alloc chunk memory failed:%d\n",
 		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
@@ -219,17 +224,7 @@ static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 	KREE_SHAREDMEM_PARAM mem_param;
 
-	if (sizeof(u64) == sizeof(void *)) {
-		mem_param.buffer = (void *)pa;
-	} else {
-		if (pa >= (SZ_2G * 2)) {
-			pr_err("[%d] PA out of range:0x%llx\n",
-			       mtee_dev_desc->kern_tmem_type, pa);
-			return TMEM_MTEE_PHYSICAL_ADDR_OUT_OF_SUPPORT_RANGE;
-		}
-		mem_param.buffer = (void *)(pa & 0xFFFFFFFF);
-	}
-
+	mem_param.buffer = (void *)pa;
 	mem_param.size = size;
 	mem_param.mapAry = NULL;
 	mem_param.region_id = mtee_dev_desc->mtee_chunks_id;
@@ -246,6 +241,9 @@ static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_APPEND_MEMORY_FAILED;
 	}
+
+	pr_debug("[%d] MTEE append reg mem PASS: PA=0x%lx, size=0x%lx\n",
+		       mtee_dev_desc->kern_tmem_type, pa, size);
 
 	if (mtee_dev_desc->notify_remote && mtee_dev_desc->notify_remote_fn) {
 		ret = mtee_dev_desc->notify_remote_fn(

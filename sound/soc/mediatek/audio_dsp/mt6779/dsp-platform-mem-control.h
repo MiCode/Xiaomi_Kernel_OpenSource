@@ -14,7 +14,7 @@
 #include <linux/string.h>
 #include <linux/types.h>
 
-#include "../mtk-base-dsp.h"
+#include "../v1/mtk-base-dsp.h"
 
 /* clk relate */
 #include "../../mt6779/mt6779-afe-clk.h"

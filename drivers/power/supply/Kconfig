@@ -807,4 +807,39 @@ config CHARGER_BQ25601
 	  It depends on
 	  the config MTK_CHARGER.
 
+if MACH_MT6768
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6739
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6771
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6877
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6781
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6833
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6893
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
 endif # POWER_SUPPLY

@@ -580,6 +580,15 @@ config REGULATOR_MT6311
 	  This driver supports the control of different power rails of device
 	  through regulator interface.
 
+config REGULATOR_MT6315
+	tristate "MediaTek MT6315 PMIC"
+	depends on MTK_MFD_SPMI_PMIC
+	help
+	  Say y here to select this option to enable the power regulator of
+	  MediaTek MT6315 PMIC.
+	  This driver supports the control of different power rails of device
+	  through regulator interface.
+
 config REGULATOR_MT6323
 	tristate "MediaTek MT6323 PMIC"
 	depends on MFD_MT6397
@@ -598,12 +607,30 @@ config REGULATOR_MT6357
 	  This driver supports the control of different power rails of device
 	  through regulator interface.
 
+config REGULATOR_MT6358
+	tristate "MediaTek MT6358 PMIC"
+	depends on MFD_MT6358
+	help
+	  Say y here to select this option to enable the power regulator of
+	  MediaTek MT6358 PMIC.
+	  This driver supports the control of different power rails of device
+	  through regulator interface.
+
 config REGULATOR_MT6359
 	tristate "MediaTek MT6359 PMIC"
 	depends on MFD_MT6397
 	help
 	  Say y here to select this option to enable the power regulator of
 	  MediaTek MT6359 PMIC.
+	  This driver supports the control of different power rails of device
+	  through regulator interface.
+
+config REGULATOR_MT6359P
+	tristate "MediaTek MT6359P PMIC"
+	depends on MFD_MT6358
+	help
+	  Say y here to select this option to enable the power regulator of
+	  MediaTek MT6359P PMIC.
 	  This driver supports the control of different power rails of device
 	  through regulator interface.
 
@@ -796,6 +823,20 @@ config REGULATOR_RT5033
 	  This adds support for voltage and current regulators in Richtek
 	  RT5033 PMIC. The device supports multiple regulators like
 	  current source, LDO and Buck.
+
+config REGULATOR_RT5133
+	tristate "Richtek RT5133 regulator driver"
+	depends on I2C && GPIOLIB
+	select REGMAP
+	select CRC8
+	select OF_GPIO
+	select REGULATOR_FIXED_VOLTAGE
+	help
+	  RT5133 is an integrated chip. It includes 8 LDOs and 3 GPIOs that
+	  can be used to drive output high/low purpose. The dependency of the
+	  GPIO block is internally LDO1 voltage. If LDO1 voltage output disabled,
+	  GPIO cannot be used to drive output high. It need to pay more
+	  attention on the usage.
 
 config REGULATOR_S2MPA01
 	tristate "Samsung S2MPA01 voltage regulator"

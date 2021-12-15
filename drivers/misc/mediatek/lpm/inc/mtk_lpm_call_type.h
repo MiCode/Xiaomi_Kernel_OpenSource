@@ -13,7 +13,8 @@ enum mtk_lpm_callee_spm_type {
 };
 
 enum mtk_lpm_callee_type {
-	MTK_LPM_CALLEE_SSPM,
+	MTK_LPM_CALLEE_PWR_GS = 0,
+	MTK_LPM_CALLEE_SSPM = 0,
 	MTK_LPM_CALLEE_SPM,
 	/* Maybe this method use no longer*/
 	MTK_LPM_CALLEE_EXTENSION,

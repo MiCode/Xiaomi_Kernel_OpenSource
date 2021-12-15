@@ -350,7 +350,6 @@ int check_rat_at_rt_setting(int md_id, char str[])
 }
 EXPORT_SYMBOL(check_rat_at_rt_setting);
 
-
 int set_soc_md_rt_rat_by_idx(int md_id, unsigned int wm_idx)
 {
 	unsigned int rat_bitmap, cap;
@@ -390,7 +389,8 @@ int set_soc_md_rt_rat_str(int md_id, char str[])
 	id = get_rat_id_by_bitmap(cap);
 
 	if (id == 0) {
-		pr_info("CCCI: %s: should not run to here. MD cap not in support list!\n");
+		pr_info("CCCI: %s: should not run to here.MD cap not in support list!\n",
+			__func__);
 		return -1;
 	}
 

@@ -12,7 +12,7 @@ config MTK_TINYSYS_SCP_SUPPORT
 config MTK_TINYSYS_SCP_CM4_SUPPORT
 	tristate "Specify micro processor CM4 supported by SCP"
 	depends on MTK_TINYSYS_SCP_SUPPORT
-	default MTK_TINYSYS_SCP_SUPPORT
+	default n
 	help
 	  CM4 is one uP supported by SCP which designed by ARM corp.
 	  Set Y to enable this feature.
@@ -28,3 +28,10 @@ config MTK_TINYSYS_SCP_LOGGER_SUPPORT
 	  Set Y to enable this feature.
 	  Set N to disable this feature.
 	  If unsure, Set Y to have debug log.
+
+config MTK_TINYSYS_SCP_RV_SUPPORT
+	tristate "Specify micro processor RV supported by SCP"
+	depends on MTK_TINYSYS_SCP_SUPPORT
+	default n
+	help
+	  MTK_TINYSYS_SCP_VERSION define which scp version will be used

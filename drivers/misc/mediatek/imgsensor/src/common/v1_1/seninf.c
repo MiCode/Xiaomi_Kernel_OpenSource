@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
  */
 
 #include <linux/init.h>
@@ -156,37 +156,46 @@ static int seninf_dfs_ctrl(struct seninf_dfs_ctx *ctx,
 }
 #endif
 
-#ifdef DUMP_SENINF_REG
+extern MUINT32 Switch_Tg_For_Stagger(MUINT16 camtg)
+{
+#ifdef _CAM_MUX_SWITCH
+	return _switch_tg_for_stagger(camtg, &gseninf);
+#else
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(Switch_Tg_For_Stagger);
+
 MINT32 seninf_dump_reg(void)
 {
 	int i = 0;
 	int k = 0;
-	pr_info("- E.");
+	PK_PR_ERR("- E.");
 	/*Sensor interface Top mux and Package counter */
-	pr_info(
+	PK_PR_ERR(
 	"seninf_top: SENINF_TOP_MUX_CTROL_0(0x%x) SENINF_TOP_MUX_CTROL_1(0x%x)\n",
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0010),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0014));
 
-	pr_info(
+	PK_PR_ERR(
 	"seninf_cam_mux: SENINF_CAM_MUX_CTRL1(0x%x) SENINF_CAM_MUX_CTRL2(0x%x) SENINF_CAM_MUX_IRQ_EN(0x%x) SENINF_CAM_MUX_IRQ_STATUS(0x%x)\n",
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0404),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0408),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x04A0),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x04A8));
-	pr_info(
+	PK_PR_ERR(
 	"seninf_cam_mux: SENINF_CAM_MUX0_CHK_RES(0x%x) SENINF_CAM_MUX1_CHK_RES(0x%x) SENINF_CAM_MUX2_CHK_RES(0x%x) SENINF_CAM_MUX3_CHK_RES(0x%x)\n",
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0508),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0518),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0528),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0538));
-	pr_info(
+	PK_PR_ERR(
 	"seninf_cam_mux: SENINF_CAM_MUX4_CHK_RES(0x%x) SENINF_CAM_MUX5_CHK_RES(0x%x) SENINF_CAM_MUX6_CHK_RES(0x%x) SENINF_CAM_MUX7_CHK_RES(0x%x)\n",
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0548),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0558),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0568),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0578));
-	pr_info(
+	PK_PR_ERR(
 	"seninf_cam_mux: SENINF_CAM_MUX8_CHK_RES(0x%x) SENINF_CAM_MUX9_CHK_RES(0x%x) SENINF_CAM_MUX10_CHK_RES(0x%x)\n",
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0588),
 	     SENINF_RD32(gseninf.pseninf_base[0] + 0x0598),
@@ -202,7 +211,7 @@ MINT32 seninf_dump_reg(void)
 			i + 1,
 			SENINF_RD32(gseninf.pseninf_base[i] + 0x0210));
 
-		pr_info(
+		PK_DBG(
 		"seninf%d_csi2: SENINF%d_CSI2_EN(0x%x) SENINF%d_CSI2_IRQ_STATUS(0x%x) SENINF%d_CSI2_PACKET_CNT_STATUS(0x%x)\n",
 			i + 1,
 			i + 1,
@@ -213,7 +222,7 @@ MINT32 seninf_dump_reg(void)
 			SENINF_RD32(gseninf.pseninf_base[i] + 0x0ADC));
 		SENINF_WR32(gseninf.pseninf_base[i] + 0x0AC8, 0xFFFFFFFF);
 
-		pr_info(
+		PK_DBG(
 		"seninf%d_mux: SENINF%d_MUX_CTRL_0(0x%x) SENINF%d_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x)\n",
 			i + 1,
 			i + 1,
@@ -230,13 +239,15 @@ MINT32 seninf_dump_reg(void)
 
 	return 0;
 }
-#endif
 
 static irqreturn_t seninf_irq(MINT32 Irq, void *DeviceId)
 {
-#ifdef DUMP_SENINF_REG
+#ifdef SENINF_IRQ
+	_seninf_irq(Irq, DeviceId, &gseninf);
+#else
 	seninf_dump_reg();
 #endif
+
 	return IRQ_HANDLED;
 }
 
@@ -253,7 +264,7 @@ static MINT32 seninf_open(struct inode *pInode, struct file *pFile)
 	if (atomic_inc_return(&pseninf->seninf_open_cnt) == 1)
 		seninf_clk_open(&pseninf->clk);
 
-	pr_info("%s %d\n", __func__,
+	PK_DBG("%s %d\n", __func__,
 	       atomic_read(&pseninf->seninf_open_cnt));
 
 	mutex_unlock(&pseninf->seninf_mutex);
@@ -276,12 +287,15 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 		imgsensor_dfs_ctrl(DFS_RELEASE, NULL);
 #endif
-	pr_info("%s %d\n", __func__,
+
+#if SENINF_CLK_CONTROL
+	PK_DBG("%s %d\n", __func__,
 	       atomic_read(&pseninf->seninf_open_cnt));
 	mutex_unlock(&pseninf->seninf_mutex);
 
 #ifdef SENINF_USE_RPM
 	pm_runtime_put_sync(pseninf->dev);
+#endif
 #endif
 
 	return 0;
@@ -306,7 +320,7 @@ static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	switch (pfn) {
 	case SENINF_MAP_BASE_REG:
 		if (length > SENINF_MAP_LENGTH_REG) {
-			pr_info(
+			PK_PR_ERR(
 			"mmap range error :module(0x%lx),length(0x%lx),SENINF_BASE_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_REG);
 			return -EINVAL;
@@ -314,7 +328,7 @@ static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 		break;
 	case SENINF_MAP_BASE_ANA:
 		if (length > SENINF_MAP_LENGTH_ANA) {
-			pr_info(
+			PK_PR_ERR(
 			"mmap range error :module(0x%lx),length(0x%lx),MIPI_RX_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_ANA);
 			return -EINVAL;
@@ -322,14 +336,14 @@ static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 		break;
 	case SENINF_MAP_BASE_GPIO:
 		if (length > SENINF_MAP_LENGTH_GPIO) {
-			pr_info(
+			PK_PR_ERR(
 			"mmap range error :module(0x%lx),length(0x%lx),GPIO_RX_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_GPIO);
 			return -EINVAL;
 		}
 		break;
 	default:
-		pr_info("Illegal starting HW addr for mmap!\n");
+		PK_PR_ERR("Illegal starting HW addr for mmap!\n");
 		return -EINVAL;
 
 	}
@@ -442,7 +456,12 @@ static long seninf_ioctl(struct file *pfile,
 			ret = ERROR_TEE_CA_TA_FAIL;
 		break;
 #endif
-
+	case KDSENINFIOC_SET_CAM_MUX_FOR_SWITCH:
+#ifdef _CAM_MUX_SWITCH
+		ret = _seninf_set_tg_for_switch(
+			(*(unsigned int *)pbuff) >> 16, (*(unsigned int *)pbuff) & 0xFFFF);
+#endif
+		break;
 	default:
 		PK_DBG("No such command %d\n", cmd);
 		ret = -EPERM;
@@ -462,6 +481,7 @@ SENINF_IOCTL_EXIT:
 		kfree(pbuff);
 		pbuff = NULL;
 	}
+
 	return ret;
 }
 
@@ -512,13 +532,13 @@ static inline MINT32 seninf_reg_char_dev(struct SENINF *pseninf)
 
 	ret = alloc_chrdev_region(&pseninf->dev_no, 0, 1, SENINF_DEV_NAME);
 	if (ret < 0) {
-		pr_info("alloc_chrdev_region failed, %d\n", ret);
+		PK_PR_ERR("alloc_chrdev_region failed, %d\n", ret);
 		return ret;
 	}
 	/* Allocate driver */
 	pseninf->pchar_dev = cdev_alloc();
 	if (pseninf->pchar_dev == NULL) {
-		pr_info("error: cdev_alloc failed\n");
+		PK_PR_ERR("cdev_alloc failed\n");
 		ret = -ENOMEM;
 		goto EXIT;
 	}
@@ -528,7 +548,7 @@ static inline MINT32 seninf_reg_char_dev(struct SENINF *pseninf)
 	pseninf->pchar_dev->owner = THIS_MODULE;
 	/* Add to system */
 	if (cdev_add(pseninf->pchar_dev, pseninf->dev_no, 1) < 0) {
-		pr_info("error: Attatch file operation failed, %d\n", ret);
+		PK_PR_ERR("Attatch file operation failed, %d\n", ret);
 		goto EXIT;
 	}
 
@@ -536,7 +556,7 @@ static inline MINT32 seninf_reg_char_dev(struct SENINF *pseninf)
 	pseninf->pclass = class_create(THIS_MODULE, SENINF_DEV_NAME);
 	if (IS_ERR(pseninf->pclass)) {
 		ret = PTR_ERR(pseninf->pclass);
-		pr_info("error: Unable to create class, err = %d\n", ret);
+		PK_PR_ERR("Unable to create class, err = %d\n", ret);
 		goto EXIT;
 	}
 
@@ -547,7 +567,7 @@ static inline MINT32 seninf_reg_char_dev(struct SENINF *pseninf)
 						SENINF_DEV_NAME);
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
-		pr_info("Failed to create device: /dev/%s, err = %d",
+		dev_err(dev, "Failed to create device: /dev/%s, err = %d",
 			SENINF_DEV_NAME, ret);
 		goto EXIT;
 	}
@@ -597,7 +617,7 @@ static MINT32 seninf_probe(struct platform_device *pDev)
 				"interrupts",
 				irq_info,
 				ARRAY_SIZE(irq_info))) {
-			pr_info("get irq flags from DTS fail!!\n");
+			dev_err(&pDev->dev, "get irq flags from DTS fail!!\n");
 			return -ENODEV;
 		}
 
@@ -607,7 +627,7 @@ static MINT32 seninf_probe(struct platform_device *pDev)
 						"SENINF",
 						NULL);
 		if (ret) {
-			pr_info("request_irq fail\n");
+			dev_err(&pDev->dev, "request_irq fail\n");
 			return ret;
 		}
 
@@ -629,7 +649,7 @@ static MINT32 seninf_remove(struct platform_device *pDev)
 	seninf_dfs_exit(&pseninf->dfs_ctx);
 #endif
 
-#if SENINF_CLK_CONTROL
+#if SENINF_CLK_CONTROL && defined(HAVE_SENINF_CLK_EXIT)
 	seninf_clk_exit(&pseninf->clk);
 #endif
 
@@ -689,20 +709,17 @@ static inline MINT32 seninf_reg_of_dev(struct SENINF *pseninf)
 		snprintf(pdev_name, 64, "mediatek,seninf%d", i + 1);
 		node = of_find_compatible_node(NULL, NULL, pdev_name);
 		if (!node) {
-			pr_info(
-			"error: find mediatek,seninf%d node failed!!!\n",
+			PK_PR_ERR("find mediatek,seninf%d node failed!!!\n",
 			i + 1);
 			return -ENODEV;
 		}
 		pseninf->pseninf_base[i] = of_iomap(node, 0);
 		if (!pseninf->pseninf_base[i]) {
-			pr_info(
-			"error: unable to map SENINF%d_BASE registers!!!\n",
+			PK_PR_ERR("unable to map SENINF%d_BASE registers!!!\n",
 			i + 1);
 			return -ENODEV;
 		}
-		pr_debug(
-			"SENINF%d_BASE: %p\n", i + 1, pseninf->pseninf_base[i]);
+		PK_DBG("SENINF%d_BASE: %p\n", i + 1, pseninf->pseninf_base[i]);
 	}
 
 	return 0;
@@ -711,7 +728,7 @@ static inline MINT32 seninf_reg_of_dev(struct SENINF *pseninf)
 static int __init seninf_init(void)
 {
 	if (platform_driver_register(&gseninf_platform_driver) < 0) {
-		pr_info("platform_driver_register fail");
+		PK_PR_ERR("platform_driver_register fail");
 		return -ENODEV;
 	}
 

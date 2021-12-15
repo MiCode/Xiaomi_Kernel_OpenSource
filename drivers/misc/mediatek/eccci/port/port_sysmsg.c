@@ -8,7 +8,7 @@
 #include <linux/sched/clock.h> /* local_clock() */
 #include <linux/kthread.h>
 #include <linux/kernel.h>
-
+//#include <mt-plat/mtk_battery.h> fixme
 #include "ccci_auxadc.h"
 
 #include "ccci_config.h"
@@ -96,7 +96,7 @@ int register_ccci_sys_call_back(int md_id, unsigned int id,
 	ccci_sys_cb_func_t func)
 {
 	int ret = 0;
-	struct ccci_sys_cb_func_info *info_ptr;
+	struct ccci_sys_cb_func_info *info_ptr = NULL;
 
 	if (md_id >= MAX_MD_NUM) {
 		CCCI_ERROR_LOG(md_id, SYS,
@@ -131,7 +131,7 @@ void exec_ccci_sys_call_back(int md_id, int cb_id, int data)
 {
 	ccci_sys_cb_func_t func;
 	int id;
-	struct ccci_sys_cb_func_info *curr_table;
+	struct ccci_sys_cb_func_info *curr_table = NULL;
 
 	if (md_id >= MAX_MD_NUM) {
 		CCCI_ERROR_LOG(md_id, SYS,
@@ -185,10 +185,20 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 {
 	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
 	int md_id = port->md_id;
+	unsigned long rem_nsec;
+	u64 ts_nsec, ref;
 
 	CCCI_NORMAL_LOG(md_id, SYS, "system message (%x %x %x %x)\n",
 		ccci_h->data[0], ccci_h->data[1],
 		ccci_h->channel, ccci_h->reserved);
+
+	ts_nsec = sched_clock();
+	ref = ts_nsec;
+	rem_nsec = do_div(ts_nsec, 1000000000);
+	CCCI_HISTORY_LOG(md_id, SYS, "[%5lu.%06lu]sysmsg-%08x %08x %04x\n",
+			(unsigned long)ts_nsec, rem_nsec / 1000,
+			ccci_h->data[1], ccci_h->reserved, ccci_h->seq_num);
+
 	switch (ccci_h->data[1]) {
 	case MD_WDT_MONITOR:
 		/* abandoned */
@@ -203,7 +213,8 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 #endif
 #ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
 	case SIM_LOCK_RANDOM_PATTERN:
-		/* Fall through */
+		fsm_monitor_send_message(md_id, CCCI_MD_MSG_RANDOM_PATTERN, 0);
+		break;
 #endif
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	case CCISM_SHM_INIT_ACK:
@@ -233,6 +244,16 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 		break;
 	};
 	ccci_free_skb(skb);
+
+	ts_nsec = sched_clock();
+#ifdef __LP64__
+	rem_nsec = (unsigned long)((ts_nsec - ref) / 1000);
+#else
+	ts_nsec = ts_nsec - ref;
+	rem_nsec = do_div(ts_nsec, 1000LL);
+#endif
+
+	CCCI_HISTORY_LOG(md_id, SYS, "cost: %lu us\n", rem_nsec);
 }
 
 static int port_sys_init(struct port_t *port)

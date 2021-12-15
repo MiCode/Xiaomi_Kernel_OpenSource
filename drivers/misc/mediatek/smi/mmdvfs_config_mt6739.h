@@ -1,12 +1,20 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2020 MediaTek Inc.
- */
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+
 #ifndef __MMDVFS_CONFIG_MT6739_H__
 #define __MMDVFS_CONFIG_MT6739_H__
 
 #include "mmdvfs_config_util.h"
+#ifdef VCORE_READY
 #include "mtk_vcorefs_manager.h"
+#else
+#define OPP_0 0
+#define OPP_1 1
+#define OPP_2 2
+#define OPP_3 3
+#endif
 
 /* Part I MMSVFS HW Configuration (OPP)*/
 /* Define the number of mmdvfs, vcore and mm clks opps */
@@ -39,7 +47,7 @@ struct mmdvfs_clk_source_desc mt6739_clk_sources[MT6739_CLK_SOURCE_NUM] = {
  *     b. MMDVFS_CLK_CONFIG_PLL
  *     c. MMDVFS_CLK_CONFIG_NONE
  * 2. pll_id: PLL ID, please set -1 if PLL hopping is not used
- * 3. clk mux desc {handle, name}, plz set -1
+ * 3. clk mux desc {hanlde, name}, plz set -1
  *       and it will be initialized by driver automaticlly
  * 4. total step: the number of the steps supported by this sub sys
  * 5. hopping dss of each steps: please set -1 if it is not used
@@ -51,7 +59,7 @@ struct mmdvfs_clk_hw_map mt6739_mmdvfs_clk_hw_map[MMDVFS_CLK_MUX_NUM] = {
 			{-1, -1},
 			{-1, -1}
 		},
-		{ MMDVFS_CLK_CONFIG_BY_MUX,
+		{ MMDVFS_CLK_CONFIG_NONE,
 			{ NULL, "MMDVFS_CLK_TOP_MMPLL_CK"}, -1, 2,
 			{-1, -1},
 			{MT6739_MMDVFS_CLK_TOP_VENCPLL_CK,

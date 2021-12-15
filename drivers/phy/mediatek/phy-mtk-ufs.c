@@ -68,7 +68,7 @@ static void mphy_clr_bit(struct ufs_mtk_phy *phy, u32 reg, u32 bit)
 
 static struct ufs_mtk_phy *get_ufs_mtk_phy(struct phy *generic_phy)
 {
-	return (struct ufs_mtk_phy *)phy_get_drvdata(generic_phy);
+	return (struct ufs_mtk_phy *) phy_get_drvdata(generic_phy);
 }
 
 static int ufs_mtk_phy_clk_init(struct ufs_mtk_phy *phy)
@@ -77,14 +77,14 @@ static int ufs_mtk_phy_clk_init(struct ufs_mtk_phy *phy)
 
 	phy->unipro_clk = devm_clk_get(dev, "unipro");
 	if (IS_ERR(phy->unipro_clk)) {
-		dev_err(dev, "failed to get clock: unipro");
-		return PTR_ERR(phy->unipro_clk);
+		dev_info(dev, "unipro clock is not found, ignored.");
+		phy->unipro_clk = NULL;
 	}
 
 	phy->mp_clk = devm_clk_get(dev, "mp");
 	if (IS_ERR(phy->mp_clk)) {
-		dev_err(dev, "failed to get clock: mp");
-		return PTR_ERR(phy->mp_clk);
+		dev_info(dev, "mp clock is not found, ignored.");
+		phy->mp_clk = NULL;
 	}
 
 	return 0;
@@ -145,18 +145,24 @@ static void ufs_mtk_phy_set_deep_hibern(struct ufs_mtk_phy *phy)
 	mphy_clr_bit(phy, MP_GLB_DIG_8C, PLL_PWR_ON);
 }
 
+#define ufs_mtk_phy_clk_prepare_enable(clk) \
+	clk ? clk_prepare_enable(clk) : 0
+
+#define ufs_mtk_phy_clk_disable_unprepare(clk) \
+	clk ? clk_disable_unprepare(clk) : 0
+
 static int ufs_mtk_phy_power_on(struct phy *generic_phy)
 {
 	struct ufs_mtk_phy *phy = get_ufs_mtk_phy(generic_phy);
 	int ret;
 
-	ret = clk_prepare_enable(phy->unipro_clk);
+	ret = ufs_mtk_phy_clk_prepare_enable(phy->unipro_clk);
 	if (ret) {
 		dev_err(phy->dev, "unipro_clk enable failed %d\n", ret);
 		goto out;
 	}
 
-	ret = clk_prepare_enable(phy->mp_clk);
+	ret = ufs_mtk_phy_clk_prepare_enable(phy->mp_clk);
 	if (ret) {
 		dev_err(phy->dev, "mp_clk enable failed %d\n", ret);
 		goto out_unprepare_unipro_clk;
@@ -167,7 +173,7 @@ static int ufs_mtk_phy_power_on(struct phy *generic_phy)
 	return 0;
 
 out_unprepare_unipro_clk:
-	clk_disable_unprepare(phy->unipro_clk);
+	ufs_mtk_phy_clk_disable_unprepare(phy->unipro_clk);
 out:
 	return ret;
 }
@@ -178,8 +184,8 @@ static int ufs_mtk_phy_power_off(struct phy *generic_phy)
 
 	ufs_mtk_phy_set_deep_hibern(phy);
 
-	clk_disable_unprepare(phy->unipro_clk);
-	clk_disable_unprepare(phy->mp_clk);
+	ufs_mtk_phy_clk_disable_unprepare(phy->unipro_clk);
+	ufs_mtk_phy_clk_disable_unprepare(phy->mp_clk);
 
 	return 0;
 }
@@ -211,17 +217,23 @@ static int ufs_mtk_phy_probe(struct platform_device *pdev)
 	phy->dev = dev;
 
 	ret = ufs_mtk_phy_clk_init(phy);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "%s mtk phy clk init fail: %d\n", __func__, ret);
 		return ret;
+	}
 
 	generic_phy = devm_phy_create(dev, NULL, &ufs_mtk_phy_ops);
-	if (IS_ERR(generic_phy))
+	if (IS_ERR(generic_phy)) {
+		dev_err(dev, "%s mtk phy clk create fail: %d\n", __func__, PTR_ERR(generic_phy));
 		return PTR_ERR(generic_phy);
+	}
 
 	phy_set_drvdata(generic_phy, phy);
 
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
-
+	if (IS_ERR(phy_provider)) {
+		dev_err(dev, "%s mtk phy clk register fail: %d\n", __func__, PTR_ERR(phy_provider));
+	}
 	return PTR_ERR_OR_ZERO(phy_provider);
 }
 

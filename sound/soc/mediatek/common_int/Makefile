@@ -18,42 +18,66 @@ subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 obj-y += mtk-auddrv-devtree-parser.o
-# obj-y += mtk-auddrv-underflow-mach.o
+#obj-y += mtk-auddrv-underflow-mach.o
+
+ifeq ($(CONFIG_MTK_SND_SOC_NEW_ARCH),)
+# MTK Codec Chip Support
+MTK_CODEC := $(subst ",,$(CONFIG_MTK_SND_SOC_CODEC))
+# PMIC include path
+ifneq  ($(MTK_CODEC),)
+obj-y += mtk-auddrv-gpio.o
+endif
+endif
 
 obj-$(CONFIG_MTK_HDMI_TDM) += mtk-soc-pcm-hdmi.o
 
-#offload
 # Feature support
-ifeq ($(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/mp3
-obj-y += mtk-soc-offload-common.o
 ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
-subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp/
+ifeq ($(CONFIG_MACH_MT6779),y)
+subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp/v1
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v1/framework
+else
+subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp/v2
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v2/framework
+endif
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp/$(MTK_PLATFORM)
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
+obj-y += mtk-soc-offload-common.o
 endif
 ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
 endif
-endif
+
 
 # New kernel architecture
 ifeq ($(CONFIG_MTK_SND_SOC_NEW_ARCH),y)
 
+# Feature support
+ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
+ifeq ($(CONFIG_MACH_MT6779),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v1/framework
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v2/framework
+endif
+endif
 
 # MENU Governor Predict(low power)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
 
 # Feature support
 ifeq ($(CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/spkprotect
+ifeq ($(CONFIG_MACH_MT6779),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v1/framework
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v1/tasks/spkprotect
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v2/framework
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v2/tasks/spkprotect
+endif
 endif
 # Common object
 obj-y += mtk-soc-speaker-amp.o
 obj-y += mtk-auddrv-afe.o mtk-auddrv-gpio.o
 obj-y += mtk-soc-afe-control.o mtk-soc-pcm-common.o
+obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += mtk-soc-offload-common.o
 obj-$(CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT) += mtk-soc-spkprotect-common.o mtk-soc-pcm-dl1-scpspk.o mtk-soc-pcm-voice-scp.o
 obj-y += mtk-soc-pcm-capture.o mtk-soc-pcm-dl1.o mtk-soc-pcm-dummy.o mtk-soc-pcm-routing.o mtk-soc-pcm-capture2.o mtk-soc-pcm-i2s2-adc2.o
 obj-y += mtk-soc-pcm-voice-md1.o mtk-soc-pcm-voice-md2.o mtk-soc-pcm-voice-md1-bt.o mtk-soc-pcm-voice-md2-bt.o

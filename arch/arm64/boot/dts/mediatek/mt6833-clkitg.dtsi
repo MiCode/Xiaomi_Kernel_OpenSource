@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+
+&clkitg {
+	status = "okay";
+	bring-up {
+		compatible = "mediatek,clk-bring-up";
+		clocks =
+			<&clk26m>;
+	};
+};

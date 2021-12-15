@@ -101,7 +101,6 @@ static struct dentry *mt_sco_audio_debugfs;
 
 static int mt_soc_ana_debug_open(struct inode *inode, struct file *file)
 {
-	pr_debug("%s()\n", __func__);
 	return 0;
 }
 
@@ -124,8 +123,6 @@ static ssize_t mt_soc_ana_debug_read(struct file *file, char __user *buf,
 	audckbufEnable(true);
 
 	n = Ana_Debug_Read(buffer, size);
-
-	pr_debug("%s(), len = %d\n", __func__, n);
 
 	audckbufEnable(false);
 	AudDrv_Clk_Off();
@@ -158,7 +155,6 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 	AudDrv_Clk_On();
 
 	n = AudDrv_Reg_Dump(buffer, size);
-	pr_debug("%s(), len = %d\n", __func__, n);
 
 	AudDrv_Clk_Off();
 
@@ -215,7 +211,7 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 	temp = str_begin;
 
 	pr_debug(
-		"copy_from_user, count = %zu, temp = %s, pointer = %p\n",
+		"copy_from_user count = %zu, temp = %s, pointer = %p\n",
 		count, str_begin, str_begin);
 	token1 = strsep(&temp, delim);
 	token2 = strsep(&temp, delim);
@@ -546,7 +542,7 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
 	},
 #endif
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_AUDIO_DSP
 	{
 		.name = "OFFLOAD",
 		.stream_name = MT_SOC_OFFLOAD_STREAM_NAME,
@@ -772,8 +768,6 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 		DEBUG_ANA_FS_NAME, S_IFREG | 0444, NULL,
 		(void *)DEBUG_ANA_FS_NAME, &mtaudio_ana_debug_ops);
 #endif
-
-	dev_info(&pdev->dev, "%s(), done\n", __func__);
 	return ret;
 }
 

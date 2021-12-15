@@ -112,9 +112,6 @@ static bool SetVoipDAIBTAttribute(int sample_rate)
 
 static void StartAudioBtDaiHardware(struct snd_pcm_substream *substream)
 {
-	pr_debug("StartAudioBtDaiHardware period_size = %d\n",
-		(unsigned int)(substream->runtime->period_size));
-
 	/* here to set interrupt */
 	irq_add_user(substream,
 		     irq_request_number(Soc_Aud_Digital_Block_MEM_DAI),
@@ -141,16 +138,11 @@ static void StartAudioBtDaiHardware(struct snd_pcm_substream *substream)
 
 static int mtk_bt_dai_pcm_prepare(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_bt_dai_pcm_prepare substream->rate = %d  substream->channels = %d\n",
-		substream->runtime->rate, substream->runtime->channels);
 	return 0;
 }
 
 static int mtk_bt_dai_alsa_stop(struct snd_pcm_substream *substream)
 {
-	/* struct afe_block_t *Dai_Block = &(Bt_Dai_Control_context->rBlock); */
-	pr_debug("mtk_bt_dai_alsa_stop\n");
-
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DAI, false);
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_DAI_BT, false);
@@ -168,11 +160,6 @@ mtk_bt_dai_pcm_pointer(struct snd_pcm_substream *substream)
 	struct afe_block_t *Dai_Block = &(Bt_Dai_Control_context->rBlock);
 	kal_uint32 Frameidx = 0;
 
-#if defined(AUD_DEBUG_LOG)
-	pr_debug(
-		"mtk_bt_dai_pcm_pointer Dai_Block->u4DMAReadIdx;= 0x%x\n",
-		Dai_Block->u4WriteIdx);
-#endif
 	/* get total bytes to copy */
 	Frameidx = audio_bytes_to_frame(substream, Dai_Block->u4WriteIdx);
 	return Frameidx;
@@ -185,25 +172,23 @@ static int mtk_bt_dai_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	int ret = 0;
 
-	pr_debug("mtk_bt_dai_pcm_hw_params\n");
-
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
 
 	if (Bt_Dai_Capture_dma_buf->area) {
-		pr_debug("mtk_bt_dai_pcm_hw_params Bt_Dai_Capture_dma_buf->area\n");
+		pr_debug("Bt_Dai_Capture_dma_buf->area\n");
 		runtime->dma_bytes = params_buffer_bytes(hw_params);
 		runtime->dma_area = Bt_Dai_Capture_dma_buf->area;
 		runtime->dma_addr = Bt_Dai_Capture_dma_buf->addr;
 		SetHighAddr(Soc_Aud_Digital_Block_MEM_DAI, true,
 			    runtime->dma_addr);
 	} else {
-		pr_debug("mtk_bt_dai_pcm_hw_params snd_pcm_lib_malloc_pages\n");
+		pr_debug("snd_pcm_lib_malloc_pages\n");
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(hw_params));
 	}
-	pr_debug("mtk_bt_dai_pcm_hw_params dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
+	pr_debug("dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
 		runtime->dma_bytes, runtime->dma_area, (long)runtime->dma_addr);
 
 	set_mem_block(substream, hw_params, Bt_Dai_Control_context,
@@ -216,7 +201,6 @@ static int mtk_bt_dai_pcm_hw_params(struct snd_pcm_substream *substream,
 
 static int mtk_bt_dai_capture_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_bt_dai_capture_pcm_hw_free\n");
 	AudDrv_Emi_Clk_Off();
 
 	if (Bt_Dai_Capture_dma_buf->area)
@@ -235,7 +219,7 @@ static int mtk_bt_dai_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	int ret = 0;
 
-	pr_debug("mtk_bt_dai_pcm_open, stream %d\n", substream->stream);
+	pr_debug("stream %d\n", substream->stream);
 
 	Bt_Dai_Control_context =
 		Get_Mem_ControlT(Soc_Aud_Digital_Block_MEM_DAI);
@@ -248,7 +232,7 @@ static int mtk_bt_dai_pcm_open(struct snd_pcm_substream *substream)
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 
 	if (ret < 0)
-		pr_debug("snd_pcm_hw_constraint_integer failed\n");
+		pr_debug("failed\n");
 
 	AudDrv_Clk_On();
 
@@ -257,11 +241,10 @@ static int mtk_bt_dai_pcm_open(struct snd_pcm_substream *substream)
 	runtime->hw.info |= SNDRV_PCM_INFO_NONINTERLEAVED;
 
 	if (ret < 0) {
-		pr_err("mtk_bt_dai_pcm_close\n");
+		pr_err("bt_dai_pcm_close\n");
 		mtk_bt_dai_pcm_close(substream);
 		return ret;
 	}
-	pr_debug("mtk_bt_dai_pcm_open return\n");
 	return 0;
 }
 
@@ -273,7 +256,6 @@ static int mtk_bt_dai_pcm_close(struct snd_pcm_substream *substream)
 
 static int mtk_bt_dai_alsa_start(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_bt_dai_alsa_start\n");
 	SetMemifSubStream(Soc_Aud_Digital_Block_MEM_DAI, substream);
 	StartAudioBtDaiHardware(substream);
 	return 0;
@@ -295,7 +277,7 @@ static int mtk_bt_dai_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 static bool CheckNullPointer(void *pointer)
 {
 	if (pointer == NULL) {
-		pr_err("CheckNullPointer pointer = NULL");
+		pr_err("%s(), pointer = NULL\n", __func__);
 		return true;
 	}
 	return false;

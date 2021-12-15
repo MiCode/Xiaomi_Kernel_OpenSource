@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0
+
+source "drivers/misc/mediatek/sensor/2.0/mtk_nanohub/Kconfig"
+source "drivers/misc/mediatek/sensor/2.0/sensorhub/Kconfig"
+source "drivers/misc/mediatek/sensor/2.0/test/Kconfig"
+source "drivers/misc/mediatek/sensor/2.0/lsm6dsm_secondary/Kconfig"

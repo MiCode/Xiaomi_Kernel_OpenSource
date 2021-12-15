@@ -1,0 +1,63 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+/* TOUCH start */
+&spi4 {
+	status = "okay";
+
+	 touchscreen@0 {
+		compatible = "novatek,nf_nt36525b";
+		reg = <0>; //Same as CS ID
+		chip-name = "NF_NT36525B";
+		status = "ok";
+
+		spi-max-frequency = <9600000>;
+		interrupt-parent = <&pio>;
+		interrupts = <14 IRQ_TYPE_EDGE_FALLING 14 0>;
+		irq-gpio = <&pio 14 0x2002>;
+		reset-gpio = <&pio 15 0>;
+
+		platform_support_project = <20015 20016 20651 20652 20653 20654>;
+		platform_support_project_dir = <20015 20016 20651 20652 20653 20654>;
+		platform_support_project_commandline = "default_commandline",\
+"default_commandline","default_commandline","default_commandline",\
+"default_commandline","default_commandline";
+		fw_update_in_probe_with_headfile;
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <18 32>;
+		touchpanel,panel-coords = <720 1600>;
+		touchpanel,display-coords = <720 1600>;
+		touchpanel,touchmajor-limit = <0 54>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ctp_novatek_spi_mode>;
+		incell_screen;
+		irq_need_dev_resume_ok;
+		fw_edge_limit_support;
+		black_gesture_support;
+		charger_pump_support;
+		headset_pump_support;
+		esd_handle_support;
+		black_gesture_test_support;
+		game_switch_support;
+		noflash_support;
+		lcd_trigger_load_tp_fw_support;
+		smart_gesture_support;
+		pressure_report_support;
+		fw_update_app_support;
+		touchpanel,button-type = <4>;
+	};
+};
+
+&pio {
+	ctp_novatek_spi_mode:ctp_novatek_spi_mode{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_SPI4_MI>,
+				<PINMUX_GPIO13__FUNC_SPI4_MO>,
+				<PINMUX_GPIO97__FUNC_SPI4_CLK>,
+				<PINMUX_GPIO98__FUNC_SPI4_CSB>;
+			drive-strength = <4>;
+		};
+	};
+};
+/* TOUCH end */

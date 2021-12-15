@@ -179,7 +179,7 @@ EXPORT_SYMBOL_GPL(cm_mgr_enable_fn);
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 /* FIXME: */
-#if defined(USE_SSPM_VER_V2)
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2)
 int cm_mgr_to_sspm_command(u32 cmd, int val)
 {
 	unsigned int ret = 0;

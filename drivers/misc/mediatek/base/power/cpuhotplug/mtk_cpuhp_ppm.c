@@ -69,6 +69,8 @@ static int ppm_thread_fn(void *data)
 
 		/* process the request of up each CPUs from PPM */
 		for_each_possible_cpu(i) {
+
+
 			request_cpu_up = cpumask_test_cpu(i, &ppm_cpus_req);
 
 			if (request_cpu_up && cpu_is_offline(i)) {
@@ -103,6 +105,7 @@ Retry_ON:
 				pr_debug_ratelimited("CPU%d: ppm-request=%d, online->powerdown\n",
 					 i, request_cpu_up);
 Retry_OFF:
+
 				rc = CPU_DOWN(i);
 				if (rc) {
 					if (retry > HPS_RETRY) {

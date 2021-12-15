@@ -58,6 +58,7 @@ static int fops_vcodec_open(struct file *file)
 		init_waitqueue_head(&ctx->queue[i]);
 	mutex_init(&ctx->buf_lock);
 	mutex_init(&ctx->worker_lock);
+	mutex_init(&ctx->hw_status);
 
 	ctx->type = MTK_INST_DECODER;
 	ret = mtk_vcodec_dec_ctrls_setup(ctx);
@@ -296,8 +297,11 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_res;
 
-	for (i = 0; i < MTK_VDEC_HW_NUM; i++)
+	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 		sema_init(&dev->dec_sem[i], 1);
+		spin_lock_init(&dev->dec_power_lock[i]);
+		dev->dec_is_power_on[i] = false;
+	}
 	mutex_init(&dev->dev_mutex);
 	mutex_init(&dev->dec_dvfs_mutex);
 	spin_lock_init(&dev->irqlock);
@@ -370,6 +374,9 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+#ifdef DEC_TF_CALLBACK
+	mtk_vdec_translation_fault_callback_setting(dev);
+#endif
 #endif
 	mtk_v4l2_debug(0, "decoder registered as /dev/video%d",
 				   vfd_dec->num);
@@ -405,6 +412,11 @@ static const struct of_device_id mtk_vcodec_match[] = {
 	{.compatible = "mediatek,mt6873-vcodec-dec",},
 	{.compatible = "mediatek,mt6853-vcodec-dec",},
 	{.compatible = "mediatek,mt6779-vcodec-dec",},
+	{.compatible = "mediatek,mt6833-vcodec-dec",},
+	{.compatible = "mediatek,mt6877-vcodec-dec",},
+	{.compatible = "mediatek,mt6781-vcodec-dec",},
+	{.compatible = "mediatek,mt6768-vcodec-dec",},
+	{.compatible = "mediatek,vdec_gcon",},
 	{},
 };
 

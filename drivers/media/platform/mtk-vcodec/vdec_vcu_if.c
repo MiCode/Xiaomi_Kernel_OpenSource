@@ -19,7 +19,6 @@
 #include "vdec_drv_if.h"
 #include "smi_public.h"
 
-
 static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)
 {
 	struct vdec_vcu_inst *vcu = (struct vdec_vcu_inst *)
@@ -225,6 +224,12 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 		return 1;
 	}
 
+	if (vcu->daemon_pid != current->tgid) {
+		pr_info("%s, vcu->daemon_pid:%d != current %d\n",
+			__func__, vcu->daemon_pid, current->tgid);
+		return 1;
+	}
+
 	vsi = (struct vdec_vsi *)vcu->vsi;
 	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
 		msg->msg_id, msg->status);
@@ -353,6 +358,28 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 				vsi->dec.bs_fd, vsi->dec.index,
 				vsi->dec.vdec_fb_va,
 				vsi->dec.fb_dma[0], vsi->dec.fb_dma[1]);
+
+#if 0
+			if (vcu->ctx->dec_params.svp_mode == 0 &&
+				vcu->ctx->dev->dec_irq != 0) {
+				ret = devm_request_irq(
+					&vcu->ctx->dev->plat_dev->dev,
+					vcu->ctx->dev->dec_irq,
+					mtk_vcodec_dec_irq_handler, 0,
+					vcu->ctx->dev->plat_dev->name,
+					vcu->ctx->dev);
+				vcu->ctx->dev->reqst_irq = true;
+				mtk_vcodec_debug(vcu, "Requset irq:%d ok,rqst_irq:%d",
+					vcu->ctx->dev->dec_irq,
+					vcu->ctx->dev->reqst_irq);
+				if (ret) {
+					mtk_vcodec_err(vcu, "Failed to install dev->dec_irq %d (%d)",
+					vcu->ctx->dev->dec_irq,
+					ret);
+					return -EINVAL;
+				}
+			}
+#endif
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_PUT_FRAME_BUFFER:
@@ -503,7 +530,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	msg.msg_id = AP_IPIMSG_DEC_INIT;
 	msg.ap_inst_addr = (unsigned long)vcu;
 
-	if (vcu->ctx->dec_params.svp_mode == 1)
+	if (vcu->ctx->dec_params.svp_mode)
 		msg.reserved = vcu->ctx->dec_params.svp_mode;
 
 	mtk_vcodec_debug(vcu, "vdec_inst=%p svp_mode=%d", vcu, msg.reserved);

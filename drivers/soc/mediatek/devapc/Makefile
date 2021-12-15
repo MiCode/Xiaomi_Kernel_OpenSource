@@ -5,6 +5,7 @@ GCOV_PROFILE := y
 endif
 
 LOCAL_PATH := $(srctree)/drivers/soc/mediatek/devapc
+subdir-ccflags-$(CONFIG_MTK_ENG_BUILD) += -DDBG_ENABLE
 
 ifneq ($(wildcard $(LOCAL_PATH)/$(MTK_PLATFORM)/Makefile),)
   obj-$(CONFIG_DEVAPC_LEGACY) += $(MTK_PLATFORM)/
@@ -14,5 +15,6 @@ else
   obj-$(CONFIG_DEVAPC_ARCH_V2) += devapc-mtk-multi-ao.o
 
   # SoC
-  obj-$(CONFIG_DEVAPC_MT6779) += devapc-mt6779.o
+  obj-$(CONFIG_DEVAPC_MT6833) += devapc-mt6833.o
+  obj-$(CONFIG_DEVAPC_MT6877) += devapc-mt6877.o
 endif

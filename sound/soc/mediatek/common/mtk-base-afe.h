@@ -77,8 +77,8 @@ struct snd_pcm_substream;
 struct snd_soc_dai;
 struct snd_soc_dai_driver;
 typedef int (*mtk_sp_copy_f)(struct snd_pcm_substream *substream,
-			     int channel, unsigned long hwoff,
-			     void *buf, unsigned long bytes);
+				 int channel, unsigned long hwoff,
+				 void *buf, unsigned long bytes);
 
 struct mtk_base_afe {
 	void __iomem *base_addr;
@@ -129,25 +129,30 @@ struct mtk_base_afe {
 };
 
 struct mtk_base_afe_memif {
-	unsigned int phys_buf_addr;
-	int buffer_size;
+	unsigned char *dma_area;
+	dma_addr_t dma_addr;
+	size_t dma_bytes;
+
 	struct snd_pcm_substream *substream;
 	const struct mtk_base_memif_data *data;
 	int irq_usage;
 	int const_irq;
+	unsigned int phys_buf_addr;
+	int buffer_size;
 
 	int using_sram;
 	int use_dram_only;
-	unsigned char *dma_area;
-	dma_addr_t dma_addr;
-	size_t dma_bytes;
 	int use_adsp_share_mem;
-#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+
 	bool vow_bargein_enable;
-#endif
+
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	bool scp_spk_enable;
 #endif
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	bool scp_ultra_enable;
+#endif
+	int use_mmap_share_mem;  // 1 : dl   2 : ul
 
 	bool ack_enable;
 	int (*ack)(struct snd_pcm_substream *substream);

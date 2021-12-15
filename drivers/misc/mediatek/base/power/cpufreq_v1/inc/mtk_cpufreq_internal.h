@@ -31,7 +31,7 @@
 #include <linux/suspend.h>
 #include <linux/topology.h>
 #include <mt-plat/sync_write.h>
-//#include <mt-plat/mtk_io.h>
+#include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
 
 #ifdef CONFIG_OF
@@ -88,13 +88,18 @@ extern unsigned int func_lv_mask;
 #define tag_pr_notice(fmt, args...)	pr_notice(TAG fmt, ##args)
 #define tag_pr_info(fmt, args...)	pr_info(TAG fmt, ##args)
 #define tag_pr_debug(fmt, args...)	pr_debug(TAG fmt, ##args)
-
+#define tag_pr_deferred(fmt, args...)   printk_deferred(TAG fmt, ##args)
 #define cpufreq_ver(fmt, args...)		\
 do {						\
 	if (func_lv_mask)			\
 		tag_pr_info(fmt, ##args);	\
 } while (0)
 
+#define cpufreq_deferred(fmt, args...)		\
+	do {						\
+			if (0)			\
+				tag_pr_deferred(fmt, ##args);	\
+	} while (0)
 
 #define GEN_DB_ON(condition, fmt, args...)			\
 ({								\
@@ -293,6 +298,10 @@ extern int dvfs_disable_flag;
 extern ktime_t now[NR_SET_V_F];
 extern ktime_t delta[NR_SET_V_F];
 extern ktime_t max[NR_SET_V_F];
+
+extern u32 get_devinfo_with_index(u32 index);
+extern unsigned int dvfs_init_flag;
+
 
 extern cpuVoltsampler_func g_pCpuVoltSampler;
 extern int is_in_suspend(void);

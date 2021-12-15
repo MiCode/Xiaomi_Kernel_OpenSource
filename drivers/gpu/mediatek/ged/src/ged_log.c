@@ -24,6 +24,7 @@
 #include "ged_debugFS.h"
 #endif
 #include "ged_hashtable.h"
+#include "ged_sysfs.h"
 
 enum {
 	/* 0x00 - 0xff reserved for internal buffer type */
@@ -100,6 +101,9 @@ static GED_HASHTABLE_HANDLE ghHashTable;
 
 unsigned int ged_log_trace_enable;
 unsigned int ged_log_perf_trace_enable;
+
+static struct kobject *gpu_debug_kobj;
+static unsigned int gpu_debug_log_enable;
 
 //-----------------------------------------------------------------------------
 //
@@ -281,7 +285,10 @@ static int __ged_log_buf_write(struct GED_LOG_BUF *psGEDLogBuf,
 
 	cnt = (i32Count >= 256) ? 255 : i32Count;
 
-	ged_copy_from_user(buf, pszBuffer, cnt);
+	if (ged_copy_from_user(buf, pszBuffer, cnt) != 0) {
+		GED_LOGE("Fail to ged_copy_from_user\n");
+		return 0;
+	}
 
 	buf[cnt] = 0;
 
@@ -990,6 +997,40 @@ static const struct seq_operations gsGEDLogReadOps = {
 	.show = ged_log_buf_seq_show,
 };
 #endif /* GED_DEBUG_FS */
+
+//-----------------------------------------------------------------------------
+unsigned int is_gpu_ged_log_enable(void)
+{
+	return gpu_debug_log_enable;
+}
+
+static ssize_t gpu_debug_log_store(struct kobject *kobj, struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value < 0)
+					i32Value = 0;
+				gpu_debug_log_enable = i32Value;
+			}
+		}
+	}
+
+	return count;
+}
+
+static ssize_t gpu_debug_log_show(struct kobject *kobj, struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "gpu_debug_log(%d)\n", gpu_debug_log_enable);
+}
+
+static KOBJ_ATTR_RW(gpu_debug_log);
+
 //-----------------------------------------------------------------------------
 GED_ERROR ged_log_system_init(void)
 {
@@ -1031,6 +1072,19 @@ GED_ERROR ged_log_system_init(void)
 	ged_log_trace_enable = 0;
 	ged_log_perf_trace_enable = 0;
 
+	err = ged_sysfs_create_dir(NULL, "gpu_debug", &gpu_debug_kobj);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create gpu_debug dir!\n");
+		goto ERROR;
+	}
+
+	err = ged_sysfs_create_file(gpu_debug_kobj, &kobj_attr_gpu_debug_log);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create gpu_debug_log entry!\n");
+		goto ERROR;
+	}
+	gpu_debug_log_enable = 0;
+
 	return err;
 
 ERROR:
@@ -1047,6 +1101,9 @@ void ged_log_system_exit(void)
 	ged_debugFS_remove_entry_dir(gpsGEDLogBufsDir);
 	ged_debugFS_remove_entry(gpsGEDLogEntry);
 #endif
+
+	ged_sysfs_remove_file(gpu_debug_kobj, &kobj_attr_gpu_debug_log);
+	ged_sysfs_remove_dir(&gpu_debug_kobj);
 }
 //-----------------------------------------------------------------------------
 int ged_log_buf_write(GED_LOG_BUF_HANDLE hLogBuf,

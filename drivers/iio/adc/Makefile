@@ -49,7 +49,20 @@ obj-$(CONFIG_MCP320X) += mcp320x.o
 obj-$(CONFIG_MCP3422) += mcp3422.o
 obj-$(CONFIG_MEDIATEK_MT635X_AUXADC) += mt635x-auxadc.o
 obj-$(CONFIG_MEDIATEK_MT6360_ADC) += mt6360-adc.o
+obj-$(CONFIG_MT635X_AUXADC) += mt635x-auxadc_v1.o
+ifeq ($(CONFIG_MACH_MT6833),y)
+obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc_v1.o
+else ifeq ($(CONFIG_MACH_MT6739),y)
+obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc_v1.o
+else ifeq ($(CONFIG_MACH_MT6781),y)
+obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc_v1.o
+else ifeq ($(CONFIG_MACH_MT6877),y)
+obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc_v1.o
+else ifeq ($(CONFIG_MACH_MT6768),y)
+obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc_v1.o
+else
 obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc.o
+endif
 obj-$(CONFIG_MEN_Z188_ADC) += men_z188_adc.o
 obj-$(CONFIG_MESON_SARADC) += meson_saradc.o
 obj-$(CONFIG_MXS_LRADC_ADC) += mxs-lradc-adc.o

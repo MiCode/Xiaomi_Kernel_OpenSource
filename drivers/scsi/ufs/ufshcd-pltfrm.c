@@ -114,6 +114,13 @@ static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 			goto out;
 		}
 
+		/* skip vendor clk, vendor clk shall be handled by vops */
+		if (strstr(name, "vendor")) {
+			dev_info(dev, "%s: vendor clk %s is found and skipped\n",
+				 __func__, name);
+			continue;
+		}
+
 		clki->min_freq = clkfreq[i];
 		clki->max_freq = clkfreq[i+1];
 		clki->name = kstrdup(name, GFP_KERNEL);

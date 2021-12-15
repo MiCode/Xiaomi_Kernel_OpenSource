@@ -9,6 +9,7 @@
 #include <linux/cpufreq.h>
 #include "mtk_cpufreq_config.h"
 #define NR_FREQ		16
+#define IMAX_EN_RATIO_TBL_NUM 2
 #define ARRAY_COL_SIZE	4
 
 /* Table Define */
@@ -18,7 +19,7 @@
 }
 
 struct mt_cpu_freq_info {
-	const unsigned int cpufreq_khz;
+	unsigned int cpufreq_khz;
 	unsigned int cpufreq_volt;
 };
 
@@ -33,8 +34,8 @@ struct opp_tbl_info {
 }
 
 struct mt_cpu_freq_method {
-	const char pos_div;
-	const char clk_div;
+	char pos_div;
+	char clk_div;
 };
 
 struct opp_tbl_m_info {

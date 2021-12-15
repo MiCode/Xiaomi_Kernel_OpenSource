@@ -9,6 +9,7 @@
 #include <linux/wait.h>
 #include <linux/module.h>
 #include <linux/poll.h>
+#include <linux/kmemleak.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -58,6 +59,20 @@
 #define MD_META_PAGE_NUM (8)
 
 #define AP_META_PAGE_SIZE (63*1024)
+
+/*kernel 4.14 diff kernel 4.19
+kernel4.14中
+MT6765-----GEN93
+MT6833-----GEN97
+MT6853 (MT6877)------GEN97
+#define AP_META_PAGE_SIZE (65*1024)
+
+其他部分
+#define AP_META_PAGE_SIZE (63*1024)
+kernel4.19中
+#define AP_META_PAGE_SIZE (63*1024)
+*/
+
 #define AP_META_PAGE_NUM (8)
 
 struct ccci_ccb_config ccb_configs[] = {
@@ -113,6 +128,82 @@ struct ccci_ccb_config ccb_configs[] = {
 };
 unsigned int ccb_configs_len =
 			sizeof(ccb_configs)/sizeof(struct ccci_ccb_config);
+			
+			
+#ifdef DEBUG_FOR_CCB
+static struct buffer_header *s_ccb_ctl_head_tbl;
+static unsigned int *s_dl_last_w;
+static unsigned int s_dl_active_bitmap;
+
+static unsigned int dl_active_scan(void)
+{
+	unsigned int i;
+	struct buffer_header *ptr = NULL;
+	unsigned int bit_mask;
+
+	if (!s_ccb_ctl_head_tbl)
+		return 0;
+	if (!s_dl_last_w)
+		return 0;
+	ptr = s_ccb_ctl_head_tbl;
+	bit_mask = 0;
+
+	for (i = 0; i < ccb_configs_len; i++) {
+		if ((s_dl_last_w[i] != ptr[i].dl_write_index) ||
+			(ptr[i].dl_read_index != ptr[i].dl_write_index)) {
+			bit_mask |= 1 << i;
+			s_dl_last_w[i] = ptr[i].dl_write_index;
+		}
+	}
+	return bit_mask;
+}
+
+static inline int append_ccb_str(char buf[], int offset, int size,
+				unsigned int id, unsigned int w, unsigned int r)
+{
+	int ret;
+
+	if (!buf)
+		return 0;
+
+	ret = snprintf(&buf[offset], size - offset, "[%u]w:%u-r:%u,", id, w, r);
+	if (ret > 0)
+		return ret + offset;
+	return 0;
+}
+
+static void ccb_fifo_peek(struct buffer_header *ptr)
+{
+	unsigned int i, r, w, wakeup_map = 0;
+	int offset = 0;
+	char *out_buf;
+
+	out_buf = kmalloc(4096, GFP_ATOMIC);
+
+	for (i = 0; i < ccb_configs_len; i++) {
+		if (ptr[i].dl_read_index != ptr[i].dl_write_index) {
+			r = ptr[i].dl_read_index;
+			w = ptr[i].dl_write_index;
+			wakeup_map |= 1 << i;
+			offset = append_ccb_str(out_buf, offset, 4096, i, w, r);
+		}
+	}
+
+	if (out_buf) {
+		CCCI_NORMAL_LOG(0, "CCB", "Wakeup peek:0x%x %s\r\n", wakeup_map,
+				out_buf);
+		kfree(out_buf);
+	} else
+		CCCI_NORMAL_LOG(0, "CCB", "Wakeup peek bitmap: 0x%x\r\n",
+					wakeup_map);
+}
+
+void mtk_ccci_ccb_info_peek(void)
+{
+	if (s_ccb_ctl_head_tbl)
+		ccb_fifo_peek(s_ccb_ctl_head_tbl);
+}
+#endif
 
 static enum hrtimer_restart smem_tx_timer_func(struct hrtimer *timer)
 {
@@ -127,7 +218,7 @@ static enum hrtimer_restart smem_tx_timer_func(struct hrtimer *timer)
 static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 {
 	unsigned int i, j, len, curr_size;
-	struct ccci_smem_region *prev, *curr;
+	struct ccci_smem_region *prev = NULL, *curr = NULL;
 
 	if (md_id != MD_SYS1)
 		return;
@@ -178,7 +269,7 @@ static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 	/* refresh all CCB users' address, except the first one,
 	 * because user's size has been re-calculated above
 	 */
-	if (SMEM_USER_CCB_END - SMEM_USER_CCB_START >= 1)
+	if (SMEM_USER_CCB_END - SMEM_USER_CCB_START >= 1) {
 		for (i = SMEM_USER_CCB_START + 1;
 			 i <= SMEM_USER_CCB_END; i++) {
 			curr = ccci_md_get_smem_by_user_id(md_id, i);
@@ -198,6 +289,14 @@ static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 				(unsigned int)curr->base_md_view_phy);
 			}
 		}
+#ifdef DEBUG_FOR_CCB
+		curr = ccci_md_get_smem_by_user_id(md_id,
+						SMEM_USER_RAW_CCB_CTRL);
+		if (curr)
+			s_ccb_ctl_head_tbl =
+				(struct buffer_header *)curr->base_ap_view_vir;
+#endif
+	}
 }
 
 int port_smem_tx_nofity(struct port_t *port, unsigned int user_data)
@@ -337,6 +436,7 @@ int port_smem_rx_wakeup(struct port_t *port)
 	__pm_wakeup_event(port->rx_wakelock, jiffies_to_msecs(HZ));
 	CCCI_DEBUG_LOG(md_id, TAG, "wakeup port.\n");
 #ifdef DEBUG_FOR_CCB
+	s_dl_active_bitmap |= dl_active_scan();
 	smem_port->last_rx_wk_time = local_clock();
 #endif
 	wake_up_all(&smem_port->rx_wq);
@@ -353,11 +453,13 @@ void __iomem *get_smem_start_addr(int md_id,
 	if (smem_region) {
 		addr = smem_region->base_ap_view_vir;
 
+		#if (MD_GENERATION < 6297)
 		/* dbm addr returned to user should
 		 * step over Guard pattern header
 		 */
 		if (user_id == SMEM_USER_RAW_DBM)
 			addr += CCCI_SMEM_SIZE_DBM_GUARD;
+		#endif
 
 		if (size_o)
 			*size_o = smem_region->size;
@@ -401,7 +503,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 	struct ccci_smem_region *ccb_ctl =
 		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_CCB_CTRL);
 	struct ccb_ctrl_info ctrl_info;
-	struct port_t *s_port;
+	struct port_t *s_port = NULL;
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
 
@@ -608,8 +710,8 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
 	int md_id = port->md_id;
-	int len, ret;
-	unsigned long pfn;
+	int ret;
+	unsigned long pfn, len;
 	struct ccci_smem_region *ccb_ctl =
 		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_CCB_CTRL);
 
@@ -622,15 +724,20 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 			"remap control addr:0x%llx len:%d  map-len:%lu\n",
 			(unsigned long long)ccb_ctl->base_ap_view_phy,
 			ccb_ctl->size, vma->vm_end - vma->vm_start);
-		if ((vma->vm_end - vma->vm_start) > ccb_ctl->size) {
+		if (vma->vm_end < vma->vm_start) {
+			CCCI_ERROR_LOG(md_id, CHAR,
+				"vm_end:%lu < vm_start:%lu request from %s\n",
+				vma->vm_end, vma->vm_start, port->name);
+			return -EINVAL;
+		}
+		len = vma->vm_end - vma->vm_start;
+		if (len > ccb_ctl->size) {
 			CCCI_ERROR_LOG(md_id, CHAR,
 				"invalid mm size request from %s\n",
 				port->name);
 			return -EINVAL;
 		}
 
-		len = (vma->vm_end - vma->vm_start) < ccb_ctl->size ?
-			vma->vm_end - vma->vm_start : ccb_ctl->size;
 		pfn = ccb_ctl->base_ap_view_phy;
 		pfn >>= PAGE_SHIFT;
 		/* ensure that memory does not get swapped to disk */
@@ -660,17 +767,20 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 			(unsigned long long)smem_port->addr_phy,
 			smem_port->length,
 			vma->vm_end - vma->vm_start);
-		if ((vma->vm_end - vma->vm_start) > smem_port->length) {
+		if (vma->vm_end < vma->vm_start) {
+			CCCI_ERROR_LOG(md_id, CHAR,
+				"vm_end:%lu < vm_start:%lu request from %s\n",
+				vma->vm_end, vma->vm_start, port->name);
+			return -EINVAL;
+		}
+		len = vma->vm_end - vma->vm_start;
+		if (len > smem_port->length) {
 			CCCI_ERROR_LOG(md_id, CHAR,
 				"invalid mm size request from %s\n",
 				port->name);
 			return -EINVAL;
 		}
 
-		len =
-			(vma->vm_end - vma->vm_start) <
-			smem_port->length ? vma->vm_end - vma->vm_start :
-			smem_port->length;
 		pfn = smem_port->addr_phy;
 		pfn >>= PAGE_SHIFT;
 		/* ensure that memory does not get swapped to disk */
@@ -711,17 +821,25 @@ static const struct file_operations smem_dev_fops = {
 
 int port_smem_init(struct port_t *port)
 {
-	struct cdev *dev;
+	struct cdev *dev = NULL;
 	int ret = 0;
 	int md_id = port->md_id;
-	struct ccci_smem_port *smem_port;
+	struct ccci_smem_port *smem_port = NULL;
 	struct ccci_smem_region *smem_region =
 		ccci_md_get_smem_by_user_id(md_id, port->minor);
 
+#if (MD_GENERATION < 6293)
+	if (!smem_region) {
+		CCCI_ERROR_LOG(md_id, CHAR,
+			"smem port %d not available\n", port->minor);
+		return -CCCI_ERR_INVALID_LOGIC_CHANNEL_ID;
+	}
+#endif
 	/*Set SMEM MINOR base*/
 	port->minor += CCCI_SMEM_MINOR_BASE;
 	if (port->flags & PORT_F_WITH_CHAR_NODE) {
 		dev = kmalloc(sizeof(struct cdev), GFP_KERNEL);
+		kmemleak_ignore(dev);
 		if (unlikely(!dev)) {
 			CCCI_ERROR_LOG(port->md_id, CHAR,
 				"alloc smem char dev fail!!\n");
@@ -739,6 +857,12 @@ int port_smem_init(struct port_t *port)
 
 	port->private_data = smem_port =
 		kzalloc(sizeof(struct ccci_smem_port), GFP_KERNEL);
+	if (smem_port == NULL) {
+		CCCI_ERROR_LOG(port->md_id, CHAR,
+			"alloc ccci_smem_port fail\n");
+		return -1;
+	}
+	kmemleak_ignore(smem_port);
 	/*user ID is from 0*/
 	smem_port->user_id = port->minor - CCCI_SMEM_MINOR_BASE;
 	spin_lock_init(&smem_port->write_lock);
@@ -762,7 +886,14 @@ int port_smem_init(struct port_t *port)
 		(struct buffer_header *)ccb_ctl->base_ap_view_vir;
 	smem_port->poll_save_idx = 0;
 }
-
+	s_dl_last_w = kmalloc(sizeof(int) * ccb_configs_len, GFP_KERNEL);
+	if (!s_dl_last_w) {
+		CCCI_ERROR_LOG(port->md_id, CHAR,
+			"%s:kmalloc s_dl_last_w fail\n",
+			__func__);
+		return -1;
+	}
+	kmemleak_ignore(s_dl_last_w);
 #endif
 
 	return 0;
@@ -850,6 +981,9 @@ static void port_smem_dump_info(struct port_t *port, unsigned int flag)
 			smem_port->last_out[idx + 2].w_id);
 		idx += 3;
 	}
+	CCCI_NORMAL_LOG(0, "CCB", "CCB active bitmap:0x%x\r\n",
+			s_dl_active_bitmap);
+	s_dl_active_bitmap = 0;
 }
 #endif
 

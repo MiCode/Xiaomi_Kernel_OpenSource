@@ -370,9 +370,12 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
 #ifndef CONFIG_FPGA_EARLY_PORTING
+#if defined(CONFIG_MACH_MT6781)
+	scp_resource_req(SCP_REQ_RELEASE);
+#else
 	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_RELEASE);
-
-#endif	// CONFIG_FPGA_EARLY_PORTING
+#endif
+#endif  // CONFIG_FPGA_EARLY_PORTING
 	/* register scp dvfs*/
 	msleep(2000);
 	__pm_relax(scp_reset_lock);
@@ -1525,7 +1528,11 @@ void scp_sys_reset_ws(struct work_struct *ws)
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* keep 26Mhz */
+#if defined(CONFIG_MACH_MT6781)
+	scp_resource_req(SCP_REQ_26M);
+#else
 	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_CK_26M);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 	/*request pll clock before turn off scp */
 	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
@@ -1931,7 +1938,11 @@ static int __init scp_init(void)
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* keep 26Mhz */
+#if defined(CONFIG_MACH_MT6781)
+	scp_resource_req(SCP_REQ_26M);
+#else
 	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_CK_26M);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
 	if (platform_driver_register(&mtk_scp_device)) {

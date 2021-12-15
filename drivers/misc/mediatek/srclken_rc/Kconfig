@@ -1,0 +1,11 @@
+config MTK_SRCLKEN_RC
+	tristate "MediaTek SRCLKEN RC Support"
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek SRCLKEN RC
+	  driver, which supports debug interface for monitoring XO 26M/
+	  DCXO/Vcore/LDO/Buck state with all subsys such as suspend/
+	  dpidle/MD/RF/BT/SCP...etc.
+	  It would also inform other subsystem/module to run suitable
+	  sw setting for srclken-rc driver.
+

@@ -1,5 +1,6 @@
 config MTK_CAM_CAL
 	bool "MTK camera cal driver"
+	default n
 	help
 	  CONFIG_MTK_CAM_CAL define if the camera cal driver should be
 	  built in or not. If you want to use EEPROM for sensor. You have

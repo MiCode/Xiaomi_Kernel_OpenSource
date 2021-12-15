@@ -7,7 +7,7 @@
 #define __SCP_IPI_H
 
 #include "scp_reg.h"
-#include <include/scp.h>
+#include "scp.h"
 
 #define SHARE_BUF_SIZE 288
 /* scp awake timeout count definition*/

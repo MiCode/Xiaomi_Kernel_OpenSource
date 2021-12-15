@@ -118,8 +118,8 @@ static uint32_t _kree_session_handle_idx;
 
 #define TIPC_PORT_START_ID		(1000)
 #define TIPC_PORT_END_ID		(0xFFFFFFFF)
-#define MAX_SRV_NAME_LEN		(256)
-#define MAX_SRV_SIZE			(4)
+#define MAX_SRV_NAME_LEN		(64)
+#define MAX_SRV_NAME_CNT		(4)
 
 /* After sending a command to GZ, GZ binds the HA on specific CPU and the HA can
  * only execute on that CPU. So that, it needs to ensure only one command can
@@ -129,16 +129,11 @@ struct tipc_k_port {
 	struct mutex lock;
 	struct kref refcount;
 	int id;
-	int srv_cnt;
-	char srv_name[MAX_SRV_SIZE][MAX_SRV_NAME_LEN];
+	size_t srv_name_cnt;
+	char srv_name[MAX_SRV_NAME_CNT][MAX_SRV_NAME_LEN];
 };
 
 DEFINE_IDR(port_idr);
-
-static inline struct tipc_k_port *lookup_port_by_id(int id)
-{
-	return idr_find(&port_idr, id);
-}
 
 static void _free_port(struct kref *kref)
 {
@@ -146,13 +141,35 @@ static void _free_port(struct kref *kref)
 
 	port = container_of(kref, struct tipc_k_port, refcount);
 
-	KREE_DEBUG("%s: Release tipc_k_port srv %s, id %d\n",
-		   __func__, port->srv_name[0], port->id);
-
 	mutex_lock(&port_mutex);
-	idr_remove(&port_idr, port->id);
-	kfree(port);
+	if (kref_read(kref) < 1) {
+		KREE_DEBUG("%s: Release tipc_k_port srv %s, id %d\n",
+			   __func__, port->srv_name[0], port->id);
+		idr_remove(&port_idr, port->id);
+		kfree(port);
+	}
 	mutex_unlock(&port_mutex);
+}
+
+static inline void port_lock(struct tipc_k_port *port)
+{
+	if (port) {
+		kref_get(&port->refcount);
+		mutex_lock(&port->lock);
+	}
+}
+
+static inline void port_unlock(struct tipc_k_port *port)
+{
+	if (port) {
+		mutex_unlock(&port->lock);
+		kref_put(&port->refcount, _free_port);
+	}
+}
+
+static inline struct tipc_k_port *lookup_port_by_id(int id)
+{
+	return idr_find(&port_idr, id);
 }
 
 static struct tipc_k_port *lookup_port_by_name(const char *srv_name)
@@ -160,62 +177,61 @@ static struct tipc_k_port *lookup_port_by_name(const char *srv_name)
 	struct tipc_k_port *port, *ret = NULL;
 	int id = 0, i;
 
-	mutex_lock(&port_mutex);
 	idr_for_each_entry(&port_idr, port, id) {
-		for (i = 0; i < port->srv_cnt; i++) {
-			if (strncmp(port->srv_name[i], srv_name,
-				    MAX_SRV_NAME_LEN) == 0) {
-				ret = port;
-				break;
-			}
+		for (i = 0; i < port->srv_name_cnt; i++) {
+			if (strncmp(port->srv_name[i], srv_name, MAX_SRV_NAME_LEN) == 0)
+				return port;
 		}
-		if (ret)
-			break;
 	}
-	mutex_unlock(&port_mutex);
 
 	return ret;
 }
 
 static TZ_RESULT port_append_srv(struct tipc_k_port *port, const char *srv_name)
 {
-	if ((port->srv_cnt < 0) || (port->srv_cnt + 1 > MAX_SRV_SIZE)) {
-		KREE_ERR("%s: Failed to append srv_name %s for port[%d] %s\n",
-			 __func__, srv_name, port->srv_cnt, port->srv_name[0]);
+	if (port->srv_name_cnt + 1 > MAX_SRV_NAME_CNT) {
+		KREE_ERR("%s: Failed to append srv_name %s for port %s\n",
+			 __func__, srv_name, port->srv_name[0]);
 		return TZ_RESULT_ERROR_EXCESS_DATA;
 	}
 
-	strncpy(port->srv_name[port->srv_cnt], srv_name, MAX_SRV_NAME_LEN - 1);
-	port->srv_name[port->srv_cnt][MAX_SRV_NAME_LEN - 1] = '\0';
-
-	port->srv_cnt += 1;
+	strncpy(port->srv_name[port->srv_name_cnt], srv_name, MAX_SRV_NAME_LEN - 1);
+	port->srv_name[port->srv_name_cnt][MAX_SRV_NAME_LEN - 1] = '\0';
+	port->srv_name_cnt += 1;
 
 	return TZ_RESULT_SUCCESS;
 }
 
-static struct tipc_k_port *create_port(const char *srv_name)
+static struct tipc_k_port *create_port_locked(const char *srv_name)
 {
 	struct tipc_k_port *port;
-	int ret;
 
 	port = lookup_port_by_name(srv_name);
-	if (port)
+	if (port) {
+		kref_get(&port->refcount);
 		return port;
+	}
 
 	port = kzalloc(sizeof(*port), GFP_KERNEL);
 	if (!port) {
-		ret = -ENOMEM;
-		return ERR_PTR(ret);
+		return ERR_PTR(-ENOMEM);
 	}
 
-	mutex_lock(&port_mutex);
 	mutex_init(&port->lock);
 	kref_init(&port->refcount);
 	port->id = idr_alloc(&port_idr, port, TIPC_PORT_START_ID,
 			     TIPC_PORT_END_ID, GFP_KERNEL);
 	port_append_srv(port, srv_name);
-	mutex_unlock(&port_mutex);
+	return port;
+}
 
+static struct tipc_k_port *create_port(const char *srv_name)
+{
+	struct tipc_k_port *port;
+
+	mutex_lock(&port_mutex);
+	port = create_port_locked(srv_name);
+	mutex_unlock(&port_mutex);
 	return port;
 }
 
@@ -296,7 +312,7 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
 	}
 
-	mutex_lock(&port->lock);
+	port_lock(port);
 	do {
 		if (unlikely(IS_RESTARTSYS_ERROR(rc))) {
 			struct tipc_dn_chan *dn = h->dn;
@@ -305,7 +321,7 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 				KREE_DEBUG(
 					"%s: channel is connected already!\n",
 					__func__);
-				mutex_unlock(&port->lock);
+				port_unlock(port);
 				return 0;
 			}
 			KREE_DEBUG("%s: disconnect and retry!\n", __func__);
@@ -314,12 +330,11 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 		rc = tipc_k_connect(h, port_name);
 		retry++;
 	} while (_tipc_retry_check_and_wait(rc, retry, 2));
-	mutex_unlock(&port->lock);
+	port_unlock(port);
 
-	if (rc == 0) {
-		kref_get(&port->refcount);
+	if (rc == 0)
 		h->dn->port_id = port->id;
-	} else
+	else
 		kref_put(&port->refcount, _free_port);
 
 	return rc;
@@ -390,7 +405,10 @@ int32_t _HandleToFd(struct tipc_k_handle h)
 	return _setSessionHandle(h);
 }
 
-#define _HandleToChanInfo(x) (x?(struct tipc_dn_chan *)(x->dn):0)
+static inline struct tipc_dn_chan *_HandleToChanInfo(struct tipc_k_handle *handle)
+{
+	return handle ? (struct tipc_dn_chan *)(handle->dn) : NULL;
+}
 
 TZ_RESULT KREE_SessionToTID(KREE_SESSION_HANDLE session, enum tee_id_t *o_tid)
 {
@@ -412,7 +430,13 @@ void KREE_SESSION_LOCK(int32_t handle)
 {
 	struct tipc_dn_chan *chan_p = _HandleToChanInfo(_FdToHandle(handle));
 
-	if (chan_p != NULL && handle != _sys_service_Fd[chan_p->tee_id])
+	if (!chan_p)
+		return;
+
+	if (!is_tee_id(chan_p->tee_id))
+		return;
+
+	if (handle != _sys_service_Fd[chan_p->tee_id])
 		mutex_lock(&chan_p->sess_lock);
 }
 
@@ -420,7 +444,13 @@ void KREE_SESSION_UNLOCK(int32_t handle)
 {
 	struct tipc_dn_chan *chan_p = _HandleToChanInfo(_FdToHandle(handle));
 
-	if (chan_p != NULL && handle != _sys_service_Fd[chan_p->tee_id])
+	if (!chan_p)
+		return;
+
+	if (!is_tee_id(chan_p->tee_id))
+		return;
+
+	if (handle != _sys_service_Fd[chan_p->tee_id])
 		mutex_unlock(&chan_p->sess_lock);
 }
 
@@ -446,7 +476,6 @@ static TZ_RESULT KREE_OpenSysFd(uint32_t tee_id)
 
 static TZ_RESULT KREE_OpenFd(const char *port, int32_t *Fd)
 {
-
 	struct tipc_k_handle h = {.dn = NULL};
 	TZ_RESULT ret = TZ_RESULT_SUCCESS;
 	int32_t tmp;
@@ -503,9 +532,9 @@ static TZ_RESULT KREE_CloseFd(int32_t Fd)
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
 	}
 
-	mutex_lock(&port->lock);
+	port_lock(port);
 	rc = tipc_k_disconnect(h);
-	mutex_unlock(&port->lock);
+	port_unlock(port);
 	if (rc) {
 		KREE_ERR("%s: tipc_k_disconnect failed\n", __func__);
 		ret = TZ_RESULT_ERROR_COMMUNICATION;
@@ -552,6 +581,7 @@ int _gz_client_wait_ret(int32_t Fd, struct gz_syscall_cmd_param *data)
 		return -1;
 	}
 
+	KREE_DEBUG(" ===> %s: tipc_k_read\n", __func__);
 	rc = _tipc_k_read_retry(handle, (void *)data,
 				sizeof(struct gz_syscall_cmd_param), O_RDWR);
 	size = data->payload_size;
@@ -608,7 +638,7 @@ static void report_param_byte(struct gz_syscall_cmd_param *param)
 static void report_param(struct gz_syscall_cmd_param *param)
 {
 	int i;
-	union MTEEC_PARAM *param_p = param->param;
+	union MTEEC_PARAM *param_p = (union MTEEC_PARAM *) param->param;
 
 	KREE_DEBUG("session: 0x%x, command: 0x%x\n", param->handle,
 		   param->command);
@@ -732,7 +762,7 @@ void GZ_RewriteParamMemAddr(struct gz_syscall_cmd_param *param)
 {
 	uint32_t type, size, offset = 0;
 	int i;
-	union MTEEC_PARAM *param_p = param->param;
+	union MTEEC_PARAM *param_p = (union MTEEC_PARAM *) param->param;
 
 	KREE_DEBUG("RPMA: head of param: %p\n", param_p);
 
@@ -1009,7 +1039,7 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 	int rc, copied = 0;
 	KREE_SESSION_HANDLE session;
 	struct tipc_dn_chan *chan_p;
-	struct gz_syscall_cmd_param *ree_param;
+	struct gz_syscall_cmd_param ree_param = {0};
 
 	/* get session from Fd */
 	chan_p = _HandleToChanInfo(_FdToHandle(Fd));
@@ -1043,28 +1073,23 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 		return TZ_RESULT_ERROR_COMMUNICATION;
 	}
 
-	ree_param = kmalloc(sizeof(*ree_param), GFP_KERNEL);
-	if (!ree_param) {
-		KREE_ERR("==>ree_param kmalloc fail. Stop.\n");
-		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
-	}
 	/* keeps serving REE call until ends */
 	while (1) {
-		rc = _gz_client_wait_ret(Fd, ree_param);
+		rc = _gz_client_wait_ret(Fd, &ree_param);
 		if (rc < 0) {
 			KREE_ERR("%s: wait ret failed(%d)\n", __func__, rc);
 			ret = TZ_RESULT_ERROR_COMMUNICATION;
 			break;
 		}
 		KREE_DEBUG("=====> %s, ree service %d\n", __func__,
-			   ree_param->ree_service);
+			   ree_param.ree_service);
 
 		/* TODO: ret = ree_param.ret */
 
 		/* check if REE service */
-		if (ree_param->ree_service == 0) {
+		if (ree_param.ree_service == 0) {
 			KREE_DEBUG("=====> %s, general return!!!!\n", __func__);
-			memcpy(param, ree_param, sizeof(*param));
+			memcpy(param, &ree_param, sizeof(*param));
 			recover_64_params(param->param, origin,
 					  param->paramTypes);
 
@@ -1074,33 +1099,33 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 				ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
 			}
 			break;
-		} else if (ree_param->ree_service != 1) {
+		} else if (ree_param.ree_service != 1) {
 			KREE_ERR("invalid ree_service value\n");
 			break;
 		}
 
 		/* REE service main function */
-		GZ_RewriteParamMemAddr(ree_param);
-		_Gz_KreeServiceCall_body(ree_param->handle, ree_param->command,
-					 ree_param->paramTypes,
-					 ree_param->param);
+		GZ_RewriteParamMemAddr(&ree_param);
+		_Gz_KreeServiceCall_body(ree_param.handle, ree_param.command,
+					 ree_param.paramTypes,
+					 ree_param.param);
 
 		/* return param to GZ */
-		copied = GZ_CopyMemToBuffer(ree_param);
+		copied = GZ_CopyMemToBuffer(&ree_param);
 		if (copied < 0) {
 			KREE_ERR(" invalid gp params\n");
 			break;
 		}
-		ree_param->payload_size = copied;
+		ree_param.payload_size = copied;
 
-		make_64_params_local(ree_param->param, ree_param->paramTypes);
+		make_64_params_local(ree_param.param, ree_param.paramTypes);
 #ifdef DYNAMIC_TIPC_LEN
-		rc = _gz_client_cmd(Fd, session, 0, ree_param,
+		rc = _gz_client_cmd(Fd, session, 0, &ree_param,
 				    GZ_MSG_HEADER_LEN
-					    + ree_param->payload_size);
+					    + ree_param.payload_size);
 #else
-		rc = _gz_client_cmd(Fd, session, 0, ree_param,
-				    sizeof(*ree_param));
+		rc = _gz_client_cmd(Fd, session, 0, &ree_param,
+				    sizeof(ree_param));
 #endif
 		if (rc < 0) {
 			KREE_ERR("%s: gz client cmd failed\n", __func__);
@@ -1111,7 +1136,6 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 		KREE_DEBUG("=========> %s _GzRounter done\n", __func__);
 	}
 
-	kfree(ree_param);
 	return ret;
 }
 
@@ -1131,13 +1155,14 @@ static void kree_perf_boost(int enable)
 		}
 		perf_boost_cnt++;
 	} else {
-		perf_boost_cnt--;
-		if (perf_boost_cnt == 0) {
+		if (perf_boost_cnt == 1) {
 			KREE_DEBUG("%s wake_unlock\n", __func__);
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 			__pm_relax(TeeServiceCall_wake_lock); /*4.19*/
 #endif
 		}
+		if (perf_boost_cnt > 0)
+			perf_boost_cnt--;
 	}
 
 	mutex_unlock(&perf_boost_lock);
@@ -1190,7 +1215,7 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 	}
 
 	p[0].mem.buffer = (void *)ta_uuid;
-	p[0].mem.size = (uint32_t)(strlen(ta_uuid) + 1);
+	p[0].mem.size = (uint32_t)(strnlen(ta_uuid, MAX_UUID_LEN) + 1);
 	ret = KREE_TeeServiceCall(
 		_sys_service_Fd[tee_id], TZCMD_SYS_SESSION_CREATE,
 		TZ_ParamTypes2(TZPT_MEM_INPUT, TZPT_VALUE_OUTPUT), p);
@@ -1212,44 +1237,6 @@ create_session_out:
 	return ret;
 }
 EXPORT_SYMBOL(KREE_CreateSession);
-
-/*fix mtee sync*/
-TZ_RESULT KREE_CreateSessionWithTag(const char *ta_uuid,
-				    KREE_SESSION_HANDLE *pHandle,
-				    const char *tag)
-{
-#if debugFg
-	uint32_t paramTypes;
-	union MTEEC_PARAM param[4];
-	TZ_RESULT ret;
-
-	if (!ta_uuid || !pHandle)
-		return TZ_RESULT_ERROR_BAD_PARAMETERS;
-
-	param[0].mem.buffer = (char *)ta_uuid;
-	param[0].mem.size = strlen(ta_uuid) + 1;
-	param[1].mem.buffer = (char *)tag;
-	if (tag != NULL && strlen(tag) != 0)
-		param[1].mem.size = strlen(tag) + 1;
-	else
-		param[1].mem.size = 0;
-	paramTypes = TZ_ParamTypes3(TZPT_MEM_INPUT,
-					TZPT_MEM_INPUT,
-					TZPT_VALUE_OUTPUT);
-
-	ret = KREE_TeeServiceCall(
-			(KREE_SESSION_HANDLE) MTEE_SESSION_HANDLE_SYSTEM,
-			TZCMD_SYS_SESSION_CREATE_WITH_TAG, paramTypes, param);
-
-	if (ret == TZ_RESULT_SUCCESS)
-		*pHandle = (KREE_SESSION_HANDLE)param[2].value.a;
-
-	return ret;
-#endif
-	KREE_DEBUG(" ===> %s: not support!\n", __func__);
-	return -1;
-}
-EXPORT_SYMBOL(KREE_CreateSessionWithTag);
 
 TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle)
 {
@@ -1275,7 +1262,7 @@ TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle)
 	}
 
 	tee_id = chan_p->tee_id;
-	if (_sys_service_Fd[tee_id] < 0) {
+	if (!is_tee_id(tee_id) || _sys_service_Fd[tee_id] < 0) {
 		KREE_ERR("%s: sys service fd is not open.\n", __func__);
 		ret = TZ_RESULT_ERROR_GENERIC;
 		goto close_session_out;
@@ -1348,13 +1335,13 @@ TZ_RESULT KREE_TeeServiceCallPlus(KREE_SESSION_HANDLE handle, uint32_t command,
 		mutex_lock(&servicecall_lock);
 
 	KREE_SESSION_LOCK(Fd);
-	mutex_lock(&port->lock);
+	port_lock(port);
 	kree_perf_boost(1);
 
 	iret = _GzServiceCall_body(Fd, command, &cparam, param);
 
 	kree_perf_boost(0);
-	mutex_unlock(&port->lock);
+	port_unlock(port);
 	KREE_SESSION_UNLOCK(Fd);
 
 	if (cpumask == -1)
@@ -1403,7 +1390,7 @@ u32 KREE_GetSystemCntFrq(void)
 
 static int tz_system_probe(struct platform_device *pdev)
 {
-	struct tipc_k_port *port;
+	struct tipc_k_port *port = NULL;
 	int ret = 0;
 
 	KREE_DEBUG("%s\n", __func__);
@@ -1424,10 +1411,12 @@ static int tz_system_probe(struct platform_device *pdev)
 
 	/* create gz sys port */
 	port = create_port(GZ_SYS_SERVICE_NAME_TRUSTY);
-	port_append_srv(port, GZ_MEM_SERVICE_NAME_TRUSTY);
+	if (!PTR_ERR_OR_ZERO(port))
+		port_append_srv(port, GZ_MEM_SERVICE_NAME_TRUSTY);
 
 	port = create_port(GZ_SYS_SERVICE_NAME_NEBULA);
-	port_append_srv(port, GZ_MEM_SERVICE_NAME_NEBULA);
+	if (!PTR_ERR_OR_ZERO(port))
+		port_append_srv(port, GZ_MEM_SERVICE_NAME_NEBULA);
 
 	return ret;
 }
@@ -1439,7 +1428,7 @@ static int tz_system_remove(struct platform_device *pdev)
 	KREE_DEBUG("%s\n", __func__);
 
 	idr_for_each_entry(&port_idr, port, id) {
-		kref_put(&port->refcount, _free_port);
+		_free_port(&port->refcount);
 	}
 
 	return 0;

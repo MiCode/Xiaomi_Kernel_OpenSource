@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+#include "mediatek/cust_mt6885_camera.dtsi"
+&kd_camera_hw1 {
+	cam2_enable_sensor = "s5k3m5sx_mipi_raw s5kjd1_mipi_raw";
+	cam4_enable_sensor = "imx481_mipi_raw";
+};

@@ -60,6 +60,11 @@ struct last_reboot_reason {
 	uint64_t kaslr_offset;
 	uint64_t oops_in_progress_addr;
 
+	uint32_t kick;
+	uint32_t check;
+	uint64_t wdk_ktime;
+	uint64_t wdk_systimer_cnt;
+
 	uint32_t last_irq_enter[CPU_NUMS];
 	uint64_t jiffies_last_irq_enter[CPU_NUMS];
 
@@ -792,6 +797,38 @@ void aee_rr_rec_kaslr_offset(uint64_t offset)
 		return;
 	LAST_RR_SET(kaslr_offset, offset);
 }
+
+void aee_rr_rec_kick(uint32_t kick_bit)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(kick, kick_bit);
+}
+EXPORT_SYMBOL(aee_rr_rec_kick);
+
+void aee_rr_rec_check(uint32_t check_bit)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(check, check_bit);
+}
+EXPORT_SYMBOL(aee_rr_rec_check);
+
+void aee_rr_rec_wdk_ktime(u64 val)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(wdk_ktime, val);
+}
+EXPORT_SYMBOL(aee_rr_rec_wdk_ktime);
+
+void aee_rr_rec_wdk_systimer_cnt(u64 val)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(wdk_systimer_cnt, val);
+}
+EXPORT_SYMBOL(aee_rr_rec_wdk_systimer_cnt);
 
 /* composite api */
 void aee_rr_rec_last_irq_enter(int cpu, int irq, u64 jiffies)
@@ -2255,9 +2292,31 @@ void aee_rr_show_oops_in_progress_addr(struct seq_file *m)
 		       oops_in_progress_addr);
 }
 
+void aee_rr_show_kick_check(struct seq_file *m)
+{
+	uint32_t kick_bit = LAST_RRR_VAL(kick);
+	uint32_t check_bit = LAST_RRR_VAL(check);
+
+	seq_printf(m, "kick=0x%x,check=0x%x\n", kick_bit, check_bit);
+}
+
 void aee_rr_show_last_irq_enter(struct seq_file *m, int cpu)
 {
 	seq_printf(m, "  irq: enter(%d, ", LAST_RRR_VAL(last_irq_enter[cpu]));
+}
+
+void aee_rr_show_wdk_ktime(struct seq_file *m)
+{
+	uint64_t ktime = LAST_RRR_VAL(wdk_ktime);
+
+	seq_printf(m, "wdk_ktime=%lld\n", ktime);
+}
+
+void aee_rr_show_wdk_systimer_cnt(struct seq_file *m)
+{
+	uint64_t systimer_cnt = LAST_RRR_VAL(wdk_systimer_cnt);
+
+	seq_printf(m, "wdk_systimer_cnt=%lld\n", systimer_cnt);
 }
 
 void aee_rr_show_jiffies_last_irq_enter(struct seq_file *m, int cpu)
@@ -3161,6 +3220,9 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_exp_type,
 	aee_rr_show_kaslr_offset,
 	aee_rr_show_oops_in_progress_addr,
+	aee_rr_show_kick_check,
+	aee_rr_show_wdk_ktime,
+	aee_rr_show_wdk_systimer_cnt,
 	aee_rr_show_last_pc,
 	aee_rr_show_last_bus,
 	aee_rr_show_mcdi,

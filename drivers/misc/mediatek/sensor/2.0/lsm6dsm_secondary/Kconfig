@@ -1,0 +1,7 @@
+config MTK_HF_LSM6DSM_SECONDARY
+	bool "lsm6dsm for MediaTek package"
+	help
+	  It support lsm6dsm secondary gyroscope sensor.
+	  If this option is set,
+	  it will support
+	  lsm6dsm secondary gyroscope sensor.

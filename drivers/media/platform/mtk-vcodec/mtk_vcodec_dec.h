@@ -15,6 +15,13 @@
 #define MTK_VDEC_MAX_W  2048U
 #define MTK_VDEC_MAX_H  1088U
 
+#define V4L2_TYPE_IS_VALID_CROP(type)				\
+	((type) == V4L2_BUF_TYPE_VIDEO_CAPTURE			\
+	 || (type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE		\
+	 || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT		\
+	 || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE	\
+	 || (type) == V4L2_BUF_TYPE_VIDEO_OVERLAY)
+
 /**
  * struct vdec_fb  - decoder frame buffer
  * @fb_base     : frame buffer plane memory info

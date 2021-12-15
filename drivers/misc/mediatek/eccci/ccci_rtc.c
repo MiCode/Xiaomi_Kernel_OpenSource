@@ -20,17 +20,6 @@
 
 static int g_ccci_rtc_val;
 
-#ifdef CCCI_KMODULE_ENABLE
-/*
- * for debug log:
- * 0 to disable; 1 for print to ram; 2 for print to uart
- * other value to desiable all log
- */
-#ifndef CCCI_LOG_LEVEL /* for platform override */
-#define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
-#endif
-unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
-#endif
 
 int mtk_crystal_exist_status(void)
 {

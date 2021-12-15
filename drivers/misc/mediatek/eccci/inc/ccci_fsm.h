@@ -21,5 +21,7 @@ enum MD_STATE_FOR_USER ccci_fsm_get_md_state_for_user(int md_id);
 
 extern void mdee_set_ex_time_str(unsigned char md_id, unsigned int type,
 	char *str);
+int ccci_fsm_is_normal_mdee(void);
+int ccci_fsm_increase_devapc_dump_counter(void);
 #endif /* __CCCI_FSM_H__ */
 

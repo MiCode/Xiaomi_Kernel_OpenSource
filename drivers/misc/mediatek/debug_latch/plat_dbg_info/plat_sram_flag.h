@@ -64,6 +64,7 @@ struct plat_sram_flag {
 int set_sram_flag_lastpc_valid(void);
 int set_sram_flag_dfd_valid(void);
 int set_sram_flag_etb_user(unsigned int utb_id, unsigned int user_id);
+int set_sram_flag_timestamp(void);
 
 extern void __iomem *get_dbg_info_base(unsigned int key);
 extern unsigned int get_dbg_info_size(unsigned int key);

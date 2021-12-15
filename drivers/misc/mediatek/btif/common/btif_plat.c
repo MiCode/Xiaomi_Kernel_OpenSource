@@ -108,31 +108,32 @@ static int btif_tx_thr_set(struct _MTK_BTIF_INFO_STR_ *p_btif,
 			   unsigned int thr_count);
 #endif
 
-static int btif_dump_array(const char *string, const char *p_buf, int len)
+int btif_dump_array(const char *string, const char *p_buf, int len)
 {
+#define BTIF_LENGTH_PER_LINE 32
 	unsigned int idx = 0;
-	unsigned char str[30];
+	unsigned char str[BTIF_LENGTH_PER_LINE * 3 + 2];
 	unsigned char *p_str = NULL;
 
-	pr_debug("========dump %s start <length:%d>========\n", string, len);
+	pr_info("========dump %s start <length:%d>========\n", string, len);
 	p_str = &str[0];
 	for (idx = 0; idx < len; idx++, p_buf++) {
 		if (sprintf(p_str, "%02x ", *p_buf) < 0)
 			return -1;
 		p_str += 3;
-		if (7 == (idx % 8)) {
+		if ((BTIF_LENGTH_PER_LINE - 1) == (idx % BTIF_LENGTH_PER_LINE)) {
 			*p_str++ = '\n';
 			*p_str = '\0';
-			pr_debug("%s", str);
+			pr_info("%s", str);
 			p_str = &str[0];
 		}
 	}
-	if (len % 8) {
+	if (len % BTIF_LENGTH_PER_LINE) {
 		*p_str++ = '\n';
 		*p_str = '\0';
-		pr_debug("%s", str);
+		pr_info("%s", str);
 	}
-	pr_debug("========dump %s end========\n", string);
+	pr_info("========dump %s end========\n", string);
 	return 0;
 }
 

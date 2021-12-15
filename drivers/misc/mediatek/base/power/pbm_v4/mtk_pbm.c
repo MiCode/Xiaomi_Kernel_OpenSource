@@ -21,7 +21,6 @@
 #include <mtk_pbm.h>
 #include <mtk_pbm_common.h>
 #include <mtk_pbm_data.h>
-#include <mtk_dynamic_loading_throttling.h>
 #include <linux/power_supply.h>
 
 #ifndef DISABLE_PBM_FEATURE
@@ -29,6 +28,7 @@
 #include <mtk_gpufreq.h>
 #include <mach/mtk_thermal.h>
 #include <mtk_ppm_api.h>
+#include <mtk_dynamic_loading_throttling.h>
 #endif
 
 #ifndef DISABLE_PBM_FEATURE

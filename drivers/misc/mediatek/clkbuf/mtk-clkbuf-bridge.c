@@ -69,46 +69,39 @@ enum clk_buf_ret_type clk_buf_set_by_flightmode(bool on)
 }
 EXPORT_SYMBOL(clk_buf_set_by_flightmode);
 
-enum clk_buf_ret_type clk_buf_control_bblpm(bool on)
+void clk_buf_control_bblpm(bool on)
 {
-
 	if (unlikely(!bridge.set_bblpm_cb)) {
 		pr_info("set bblpm not registered\n");
-		return CLK_BUF_NOT_SUPPORT;
+		return;
 	}
 
-	if (bridge.set_bblpm_cb(on) == 0)
-		return CLK_BUF_OK;
-
-	return CLK_BUF_FAIL;
-
+	bridge.set_bblpm_cb(on);
 }
 EXPORT_SYMBOL(clk_buf_control_bblpm);
 
-enum clk_buf_ret_type clk_buf_dump_clkbuf_log(void)
+void clk_buf_dump_clkbuf_log(void)
 {
 	if (unlikely(!bridge.dump_log_cb)) {
 		pr_info("dump log not registered\n");
-		return CLK_BUF_NOT_SUPPORT;
+		return;
 	}
 
 	bridge.dump_log_cb();
-
-	return CLK_BUF_OK;
 }
 EXPORT_SYMBOL(clk_buf_dump_clkbuf_log);
 
-enum clk_buf_ret_type clk_buf_get_xo_en_sta(enum xo_id id)
+u8 clk_buf_get_xo_en_sta(enum xo_id id)
 {
 	if (unlikely(!bridge.get_xo_ctrl_cb)) {
 		pr_info("get xo ctrl not registered\n");
-		return CLK_BUF_NOT_SUPPORT;
+		return 0;
 	}
 
 	if (bridge.get_xo_ctrl_cb(id))
-		return CLK_BUF_ENABLE;
+		return 1;
 
-	return CLK_BUF_DISABLE;
+	return 0;
 
 }
 EXPORT_SYMBOL(clk_buf_get_xo_en_sta);

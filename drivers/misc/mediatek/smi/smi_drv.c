@@ -25,7 +25,9 @@
 #include <smi_public.h>
 #include <smi_pmqos.h>
 #include <mmdvfs_pmqos.h>
-#if IS_ENABLED(CONFIG_MTK_EMI)
+#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+#include <memory/mediatek/emi.h>
+#elif IS_ENABLED(CONFIG_MTK_EMI)
 #include <plat_debug_api.h>
 #elif IS_ENABLED(CONFIG_MTK_EMI_BWL)
 #include <emi_mbw.h>
@@ -60,7 +62,16 @@
 
 #define SMIDBG(string, args...) pr_debug(string, ##args)
 
-#if IS_ENABLED(CONFIG_MTK_CMDQ)
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#include <cmdq-util.h>
+#define SMIWRN(cmdq, string, args...) \
+	do { \
+		if (cmdq != 0) \
+			cmdq_util_msg(string, ##args); \
+		else \
+			pr_info(string, ##args); \
+	} while (0)
+#elif IS_ENABLED(CONFIG_MTK_CMDQ)
 #include <cmdq_helper_ext.h>
 #define SMIWRN(cmdq, string, args...) \
 	do { \
@@ -169,6 +180,12 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	} else if (id < SMI_LARB_NUM) {
 		smi_clk_record(id, true, user);
 	}
+
+	if (!smi_dev[id]) {
+		SMIERR("SMI %s: %d is not ready.\n", __func__, id);
+		return -EPROBE_DEFER;
+	}
+
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	switch (id) {
 	case 0:
@@ -229,6 +246,11 @@ static inline void smi_unit_disable_unprepare(const u32 id)
 
 s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 {
+	if (!smi_dev[id]) {
+		SMIERR("SMI %s: %d is not ready.\n", __func__, id);
+		return -EPROBE_DEFER;
+	}
+
 	if (id >= SMI_DEV_NUM) {
 		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u, user=%s\n",
 			id, SMI_DEV_NUM, user);
@@ -291,7 +313,6 @@ smi_bwl_update(const u32 id, const u32 bwl, const bool soft, const char *user)
 			id, SMI_COMM_MASTER_NUM);
 		return;
 	}
-
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	comm = id >> 16;
 #endif
@@ -314,6 +335,13 @@ void smi_ostd_update(const struct plist_head *head, const char *user)
 
 	if (plist_head_empty(head))
 		return;
+#if defined (CONFIG_MACH_MT6833)
+// TODO Migration
+	if (smi_dev[larb] == NULL){
+                 pr_notice("[SMI 6833] ERROR smi_ostd_update larb not ready \n");
+		return;
+	}
+#endif
 
 	plist_for_each_entry(req, head, owner_node) {
 		larb = SMI_PMQOS_LARB_DEC(req->master_id);
@@ -470,15 +498,21 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 {
 	u32 time = 5, busy[SMI_DEV_NUM] = {0};
 	s32 i, j, ret = 0;
-
 #if IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MTK_EMI_BWL)
-	dump_emi_outstanding();
+	// TODO-419
+	// dump_emi_outstanding();
 #endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	//mtk_dump_reg_for_hang_issue();
 #elif IS_ENABLED(CONFIG_MTK_M4U)
 	//m4u_dump_reg_for_smi_hang_issue();
 #endif
+
+	if (!smi_dev[0]) {
+		SMIERR("SMI %s: %d is not ready.\n", __func__);
+		return 0;
+	}
+
 	for (i = 0; i < time; i++) {
 		for (j = 0; j < SMI_LARB_NUM; j++)
 			busy[j] += ((ATOMR_CLK(j) > 0 &&
@@ -943,6 +977,8 @@ static const struct file_operations smi_file_opers = {
 
 static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 {
+/*
+TODO-419
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 	struct smi_ipi_data_s ipi_data;
 	s32 ackdata;
@@ -966,6 +1002,7 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 	} while (ackdata);
 #endif
 #endif
+*/
 }
 
 static void smi_subsys_after_on(enum subsys_id sys)
@@ -1171,6 +1208,8 @@ static inline void smi_mmp_init(void)
 
 static inline void smi_dram_init(void)
 {
+/*
+TODO-419
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 	phys_addr_t phys = sspm_reserve_mem_get_phys(SMI_MEM_ID);
 	struct smi_ipi_data_s ipi_data;
@@ -1214,6 +1253,7 @@ static inline void smi_dram_init(void)
 		&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
 #endif
 #endif
+*/
 	smi_dram.node = debugfs_create_file(
 		"smi_mon", 0444, NULL, (void *)0, &smi_dram_file_opers);
 	if (IS_ERR(smi_dram.node))
@@ -1246,6 +1286,8 @@ int smi_dram_dump_get(char *buf, const struct kernel_param *kp)
 
 int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 {
+/*
+TODO-419
 	s32 arg = 0, ret;
 
 	ret = kstrtoint(val, 0, &arg);
@@ -1270,6 +1312,8 @@ int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 #endif
 	SMIDBG("arg=%d, dump=%u\n", arg, smi_dram.dump);
 	return ret;
+*/
+return 0;
 }
 
 static struct kernel_param_ops smi_dram_dump_ops = {

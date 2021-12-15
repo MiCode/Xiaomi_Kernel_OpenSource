@@ -23,6 +23,11 @@
 #define CMDQ_CPR_TPR_MASK		0x8000
 #define CMDQ_CPR_DISP_CNT		0x8001
 #define CMDQ_EVENT_MAX			0x3FF
+#define CMDQ_CPR_DDR_USR_CNT		0x8002
+#define CMDQ_CPR_SLP_GPR_MAX		0x8003
+
+#define CMDQ_GPR_CNT_ID			32
+#define CMDQ_CPR_STRAT_ID		0x8000
 #define SUBSYS_NO_SUPPORT		99
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
@@ -32,6 +37,7 @@
 #define CMDQ_TICK_TO_US(_t)		(do_div(_t, 26))
 
 extern int gce_shift_bit;
+
 
 #define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> gce_shift_bit)
 #define CMDQ_REG_REVERT_ADDR(addr)	((addr) << gce_shift_bit)
@@ -82,7 +88,7 @@ enum gce_event {
 	CMDQ_TOKEN_SECURE_THR_EOF = 647,
 	CMDQ_TOKEN_TPR_LOCK = 652,
 
-	/* GPR timer token, 994 to 994+23 */
+	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
 	CMDQ_EVENT_GPR_TIMER = 994,
 };
 
@@ -218,9 +224,15 @@ u64 *cmdq_pkt_get_va_by_offset(struct cmdq_pkt *pkt, size_t offset);
 
 dma_addr_t cmdq_pkt_get_pa_by_offset(struct cmdq_pkt *pkt, u32 offset);
 
+dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt);
+
+void *cmdq_pkt_get_curr_buf_va(struct cmdq_pkt *pkt);
+
 s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	u16 arg_a, u8 s_op, u8 arg_c_type, u8 arg_b_type, u8 arg_a_type,
 	enum cmdq_code code);
+
+s32 cmdq_pkt_move(struct cmdq_pkt *pkt, u16 reg_idx, u64 value);
 
 s32 cmdq_pkt_read(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t src_addr, u16 dst_reg_idx);
@@ -247,6 +259,9 @@ s32 cmdq_pkt_store_value(struct cmdq_pkt *pkt, u16 indirect_dst_reg_idx,
 
 s32 cmdq_pkt_store_value_reg(struct cmdq_pkt *pkt, u16 indirect_dst_reg_idx,
 	u16 dst_addr_low, u16 indirect_src_reg_idx, u32 mask);
+
+s32 cmdq_pkt_store64_value_reg(struct cmdq_pkt *pkt,
+	u16 indirect_dst_reg_idx, u16 indirect_src_reg_idx);
 
 s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u16 src_reg_idx, u32 mask);
@@ -276,7 +291,7 @@ s32 cmdq_pkt_logic_command(struct cmdq_pkt *pkt, enum CMDQ_LOGIC_ENUM s_op,
 
 s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset);
 
-s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, u32 addr);
+s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, dma_addr_t addr);
 
 s32 cmdq_pkt_cond_jump_abs(struct cmdq_pkt *pkt,
 	u16 addr_reg_idx,
@@ -389,7 +404,7 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	u32 offset, void *inst);
 
 void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
-	dma_addr_t cur_pa, const char *info);
+	dma_addr_t cur_pa, const char *info, void *chan);
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
 

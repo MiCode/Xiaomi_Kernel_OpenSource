@@ -1256,7 +1256,7 @@ static inline void RSC_Prepare_Enable_ccf_clock(void)
 	int ret;
 	/* open order:CG_SCP_SYS_MM0>CG_MM_SMI_COMMON>CG_SCP_SYS_ISP>RSC clk */
 #ifdef CONFIG_MTK_SMI_EXT
-	smi_bus_prepare_enable(SMI_LARB8_REG_INDX, "camera_rsc", true);
+	smi_bus_prepare_enable(SMI_LARB8, "camera_rsc");
 #endif
 	ret = clk_prepare_enable(rsc_clk.CG_IPESYS_RSC);
 	if (ret)
@@ -1269,7 +1269,7 @@ static inline void RSC_Disable_Unprepare_ccf_clock(void)
 	/* close order:RSC clk>CG_SCP_SYS_ISP>CG_MM_SMI_COMMON>CG_SCP_SYS_MM0 */
 	clk_disable_unprepare(rsc_clk.CG_IPESYS_RSC);
 #ifdef CONFIG_MTK_SMI_EXT
-	smi_bus_disable_unprepare(SMI_LARB8_REG_INDX, "camera_rsc", true);
+	smi_bus_disable_unprepare(SMI_LARB8, "camera_rsc");
 #endif
 }
 #endif

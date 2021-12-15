@@ -54,6 +54,7 @@ struct lbat_thd_t {
 	struct list_head list;
 };
 
+#if 0
 struct lbat_user {
 	char name[USER_NAME_MAXLEN];
 	struct lbat_thd_t *hv_thd;
@@ -69,6 +70,7 @@ struct lbat_user {
 	struct timer_list deb_timer;
 	struct work_struct deb_work;
 };
+#endif
 
 struct reg_t {
 	unsigned int addr;

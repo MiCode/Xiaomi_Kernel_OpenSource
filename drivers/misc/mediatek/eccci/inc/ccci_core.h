@@ -92,6 +92,7 @@ struct ccb_ctrl_info {
 
 extern unsigned int ccb_configs_len;
 extern struct ccci_ccb_config ccb_configs[];
+extern void mtk_ccci_ccb_info_peek(void);
 
 
 /* ======================================================================= */
@@ -480,11 +481,36 @@ enum CCCI_CH {
 	CCCI_UDC_RX			= 177,
 	CCCI_UDC_TX			= 178,
 
+	CCCI_MIPI_CHANNEL_RX	= 179,
+	CCCI_MIPI_CHANNEL_TX	= 180,
+
 	CCCI_TCHE_RX			= 181,
 	CCCI_TCHE_TX			= 182,
 	CCCI_DISP_RX			= 183,
 	CCCI_DISP_TX			= 184,
+	CCCI_WIFI_RX			= 187,
+	CCCI_WIFI_TX			= 188,
+	CCCI_VTS_RX			= 189,
+	CCCI_VTS_TX			= 190,
 
+	CCCI_IKERAW_RX			= 191,
+	CCCI_IKERAW_TX			= 192,
+
+	CCCI_MD_DIRC_RX			= 200,
+	CCCI_MD_DIRC_TX			= 201,
+	CCCI_TIME_RX			= 202,
+	CCCI_TIME_TX			= 203,
+	CCCI_GARB_RX			= 204,
+	CCCI_GARB_TX			= 205,
+
+	CCCI_EPDG1_RX			= 236,
+	CCCI_EPDG1_TX			= 237,
+	CCCI_EPDG2_RX			= 238,
+	CCCI_EPDG2_TX			= 239,
+	CCCI_EPDG3_RX			= 240,
+	CCCI_EPDG3_TX			= 241,
+	CCCI_EPDG4_RX			= 242,
+	CCCI_EPDG4_TX			= 243,
 
 	CCCI_C2K_PPP_DATA, /* data ch for c2k */
 

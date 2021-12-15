@@ -4,6 +4,7 @@
  */
 
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 #include <media/v4l2-mem2mem.h>
 #include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
@@ -38,12 +39,12 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 	if (data == NULL)
 		return;
 	switch (msg->id) {
-	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
+	case VENC_GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
 		size = sizeof(struct mtk_video_fmt);
 		memcpy((void *)msg->ap_data_addr, data,
 			size * MTK_MAX_ENC_CODECS_SUPPORT);
 		break;
-	case GET_PARAM_CAPABILITY_FRAME_SIZES:
+	case VENC_GET_PARAM_CAPABILITY_FRAME_SIZES:
 		size = sizeof(struct mtk_codec_framesizes);
 		memcpy((void *)msg->ap_data_addr, data,
 			size * MTK_MAX_ENC_CODECS_SUPPORT);
@@ -73,6 +74,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	unsigned long flags;
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
+	int lock = -1;
 
 	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_init) > SHARE_BUF_SIZE);
 	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_query_cap) > SHARE_BUF_SIZE);
@@ -105,6 +107,12 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		return 1;
 	}
 
+	if (vcu->daemon_pid != current->tgid) {
+		pr_info("%s, vcu->daemon_pid:%d != current %d\n",
+			__func__, vcu->daemon_pid, current->tgid);
+		return 1;
+	}
+
 	mtk_vcodec_debug(vcu, "msg_id %x inst %p status %d",
 					 msg->msg_id, vcu, msg->status);
 
@@ -125,11 +133,24 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	case VCU_IPIMSG_ENC_DEINIT_DONE:
 		break;
 	case VCU_IPIMSG_ENC_POWER_ON:
+		vcu_get_gce_lock(vcu->dev, VCU_VENC);
+		while (lock != 0) {
+			lock = venc_lock(ctx, 0, true);
+			if (lock != 0) {
+				vcu_put_gce_lock(vcu->dev, VCU_VENC);
+				usleep_range(1000, 2000);
+				vcu_get_gce_lock(vcu->dev, VCU_VENC);
+			}
+		}
 		venc_encode_prepare(ctx, 0, &flags);
+		vcu_put_gce_lock(vcu->dev, VCU_VENC);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_POWER_OFF:
+		vcu_get_gce_lock(vcu->dev, VCU_VENC);
 		venc_encode_unprepare(ctx, 0, &flags);
+		venc_unlock(ctx, 0);
+		vcu_put_gce_lock(vcu->dev, VCU_VENC);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_QUERY_CAP_ACK:
@@ -404,7 +425,6 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->nonrefpfreq;
 		break;
-
 	case VENC_SET_PARAM_DETECTED_FRAMERATE:
 		out.data_item = 1;
 		out.data[0] = enc_param->detectframerate;
@@ -459,6 +479,22 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 	case VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP:
 		out.data_item = 1;
 		out.data[0] = enc_param->frame_level_qp;
+		break;
+	case VENC_SET_PARAM_MAX_REFP_NUM:
+		out.data_item = 1;
+		out.data[0] = enc_param->maxrefpnum;
+		break;
+	case VENC_SET_PARAM_REFP_DISTANCE:
+		out.data_item = 1;
+		out.data[0] = enc_param->refpdistance;
+		break;
+	case VENC_SET_PARAM_REFP_FRMNUM:
+		out.data_item = 1;
+		out.data[0] = enc_param->refpfrmnum;
+		break;
+	case VENC_SET_PARAM_ENABLE_DUMMY_NAL:
+		out.data_item = 1;
+		out.data[0] = enc_param->dummynal;
 		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);

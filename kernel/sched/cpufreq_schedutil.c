@@ -526,9 +526,9 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 {
 	struct sugov_cpu *sg_cpu = container_of(hook, struct sugov_cpu, update_util);
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+/*#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 	struct cpufreq_policy *policy = sg_policy->policy;
-#endif
+/*#endif */
 	int cid = arch_cpu_cluster_id(policy->cpu);
 	unsigned long util, max;
 	unsigned int next_f;

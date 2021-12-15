@@ -18,6 +18,20 @@ config MTK_LPM_MODULE_NAME
 	   name if the MTK_LPM_MODULE_NAME didn't
 	   set before.
 
+config MTK_LPM_GS_DUMP_SUPPORT
+	bool "Meditaek Low Power golden setting checker"
+	help
+	  Select MTK_LPM_GS_DUMP_SUPPORT then Mediatek low module
+	  golden setting dump mechanism enable.
+	  Set Y to select this feature for power setting dump .
+	  If unsure, set N to disable.
+
+config MTK_LPM_GS_DUMP_VERSION
+	string "Meditaek Low Power golden setting checker version"
+	default "v1"
+	help
+	  Set MTK_LPM_GS_DUMP_VERSION for Mediatek low modu
+
 config MTK_LPM_MT6779
 	tristate "Specify Mediatek LPM Platform is MT6779"
 	depends on MTK_LOW_POWER_MODULE
@@ -28,3 +42,13 @@ config MTK_LPM_MT6779
 	  Set Y to select this feature for specific platform-mt6779.
 	  If unsure, set N to disable.
 
+config MTK_LPM_MT6833
+	tristate "Specify Mediatek LPM Platform is MT6833"
+	depends on MTK_LOW_POWER_MODULE
+	select MTK_LPM_DBG_COMMON
+	select MTK_LPM_GS_DUMP_SUPPORT
+	help
+	  Select MediaTek Low Power Module Platform is MT6833
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6833.
+	  If unsure, set N to disable.

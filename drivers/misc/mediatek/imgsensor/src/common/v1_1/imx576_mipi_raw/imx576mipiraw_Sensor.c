@@ -589,6 +589,36 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	return gain;
 }	/*	set_gain  */
 
+#if 0
+static void set_mirror_flip(kal_uint8 image_mirror)
+{
+	kal_uint8 itemp;
+
+	LOG_INF("image_mirror = %d\n", image_mirror);
+	itemp = read_cmos_sensor_8(0x0101);
+	itemp &= ~0x03;
+
+	switch (image_mirror) {
+
+	case IMAGE_NORMAL:
+	write_cmos_sensor_8(0x0101, itemp);
+	break;
+
+	case IMAGE_V_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x02);
+	break;
+
+	case IMAGE_H_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x01);
+	break;
+
+	case IMAGE_HV_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x03);
+	break;
+	}
+}
+#endif
+
 /*************************************************************************
  * FUNCTION
  *	night_mode
@@ -1991,7 +2021,8 @@ static kal_uint32 set_video_mode(UINT16 framerate)
 
 static kal_uint32 set_auto_flicker_mode(kal_bool enable, UINT16 framerate)
 {
-	LOG_INF("enable = %d, framerate = %d\n", enable, framerate);
+	if (enable != imgsensor.autoflicker_en)
+		LOG_INF("enable = %d, framerate = %d\n", enable, framerate);
 	spin_lock(&imgsensor_drv_lock);
 	if (enable) /* enable auto flicker */
 		imgsensor.autoflicker_en = KAL_TRUE;
@@ -2376,7 +2407,6 @@ static void imx576_set_lsc_reg_setting(
 	#endif
 	write_cmos_sensor_8(0x0B00, 0x00); /*lsc disable*/
 
-
 }
 
 static void set_imx576_ATR(
@@ -2418,6 +2448,14 @@ static kal_uint32 imx576_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 	bgain_32 = (pSetSensorAWB->ABS_GAIN_B + 1) >> 1;
 	gbgain_32 = (pSetSensorAWB->ABS_GAIN_GB + 1) >> 1;
 
+#if 0
+	LOG_INF("ABS_GAIN_GR:%d,ABS_GAIN_R:%d,ABS_GAIN_B:%d,ABS_GAIN_GB:%d\n",
+		pSetSensorAWB->ABS_GAIN_GR,
+		pSetSensorAWB->ABS_GAIN_R,
+		pSetSensorAWB->ABS_GAIN_B,
+		pSetSensorAWB->ABS_GAIN_GB);
+#endif
+
 	write_cmos_sensor_8(0x0104, 0x01);
 
 	write_cmos_sensor_8(0x0b8e, (grgain_32 >> 8) & 0xFF);
@@ -2434,15 +2472,32 @@ static kal_uint32 imx576_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 	return ERROR_NONE;
 }
 
+static void check_stream_is_on(void)
+{
+	int i = 0;
+	UINT32 framecnt;
+	int timeout = (10000/imgsensor.current_fps)+1;
+
+	for (i = 0; i < timeout; i++) {
+
+		framecnt = read_cmos_sensor_8(0x0005);
+		if (framecnt != 0xFF) {
+			pr_debug("IMX576 stream is on, %d \\n", framecnt);
+			break;
+		}
+		pr_debug("IMX576 stream is not on %d \\n", framecnt);
+		mdelay(1);
+	}
+}
+
 static kal_uint32 streaming_control(kal_bool enable)
 {
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
-	if (enable)
+	if (enable) {
 		write_cmos_sensor_8(0x0100, 0x01);
-	else
+		check_stream_is_on();
+	} else
 		write_cmos_sensor_8(0x0100, 0x00);
-
-	mdelay(10);
 	return ERROR_NONE;
 }
 
@@ -2538,6 +2593,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			break;
 		}
 		break;
+#ifdef IMGSENSOR_MT6885
+	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
+		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1500000;
+		break;
+#endif
 	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
@@ -2750,6 +2810,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				   (UINT16)*(feature_data+2));
 		break;
 	case SENSOR_FEATURE_GET_VC_INFO:
+	#if 0
+		LOG_INF("SENSOR_FEATURE_GET_VC_INFO %d\n",
+			(UINT16) *feature_data);
+	#endif
 		pvcinfo =
 	     (struct SENSOR_VC_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
 		switch (*feature_data_32) {
@@ -2790,6 +2854,15 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		imx576_set_lsc_reg_setting(index, feature_data_16,
 					  (*feature_para_len)/sizeof(UINT16));
 		}
+		break;
+	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
+		/*
+		 * 1, if driver support new sw frame sync
+		 * set_shutter_frame_length() support third para auto_extend_en
+		 */
+		*(feature_data + 1) = 1;
+		/* margin info by scenario */
+		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_GET_SENSOR_HDR_CAPACITY:
 		/*

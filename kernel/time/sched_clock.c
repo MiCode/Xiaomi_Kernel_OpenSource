@@ -113,6 +113,32 @@ unsigned long long notrace sched_clock(void)
 }
 
 /*
+ * alternative sched_clock to get arch_timer cycle as well
+ */
+unsigned long long notrace sched_clock_get_cyc(unsigned long long *cyc_ret)
+{
+	u64 cyc, cyc_cur, res;
+	unsigned long seq;
+	struct clock_read_data *rd;
+
+	do {
+		seq = raw_read_seqcount(&cd.seq);
+		rd = cd.read_data + (seq & 1);
+
+		cyc_cur = rd->read_sched_clock();
+
+		cyc = (cyc_cur - rd->epoch_cyc) &
+		      rd->sched_clock_mask;
+		res = rd->epoch_ns + cyc_to_ns(cyc, rd->mult, rd->shift);
+	} while (read_seqcount_retry(&cd.seq, seq));
+
+	if (cyc_ret)
+		*cyc_ret = cyc_cur;
+
+	return res;
+}
+
+/*
  * Updating the data required to read the clock.
  *
  * sched_clock() will never observe mis-matched data even if called from

@@ -24,7 +24,7 @@
 #include <linux/uaccess.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-
+#include <linux/pm_qos.h>
 /* #include <linux/xlog.h> */
 
 #include <linux/io.h>
@@ -1693,8 +1693,8 @@ static int jpeg_probe(struct platform_device *pdev)
 
 	/* Support QoS */
 	mtk_pm_qos_add_request(&jpgenc_qos_request,
-		MTK_PM_QOS_MEMORY_BANDWIDTH,
-		MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+		PM_QOS_MEMORY_BANDWIDTH,
+		PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 
 #else
 	gJpegqDev.encRegBaseVA = (0L | 0xF7003000);

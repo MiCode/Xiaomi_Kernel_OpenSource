@@ -96,7 +96,7 @@ static void ccci_md_battery_percent_cb(BATTERY_PERCENT_LEVEL level)
 }
 #endif
 
-static int ccci_platform_init(struct ccci_modem *md)
+int ccci_platform_init(struct ccci_modem *md)
 {
 	struct device_node *node;
 	/* Get infra cfg ao base */

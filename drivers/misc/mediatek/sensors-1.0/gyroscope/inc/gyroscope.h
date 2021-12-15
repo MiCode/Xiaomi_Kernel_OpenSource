@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/workqueue.h>
+#include <linux/pinctrl/consumer.h>
 #include <sensors_io.h>
 
 #include "gyro_factory.h"

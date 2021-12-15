@@ -10,6 +10,10 @@
 
 #include "spm_v4/mtk_spm_reg_mt6763.h"
 
+#elif defined(CONFIG_MACH_MT6739)
+
+#include "spm_v4/mtk_spm_reg_mt6739.h"
+
 #endif
 
 #endif /* __MT_SPM_REG_H___ */

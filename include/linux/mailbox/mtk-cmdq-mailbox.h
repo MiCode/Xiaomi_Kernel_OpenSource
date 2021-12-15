@@ -14,13 +14,22 @@
 #if !IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
 #define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
+#define cmdq_util_user_msg(chan, f, args...) cmdq_util_msg(f, ##args)
+#define cmdq_util_user_err(chan, f, args...) cmdq_util_err(f, ##args)
 #endif
 
 /* see also gce platform binding header */
 #define CMDQ_NO_TIMEOUT			0xffffffff
 #define CMDQ_TIMEOUT_DEFAULT		1000
 
+#if IS_ENABLED(CONFIG_MACH_MT8173) || IS_ENABLED(CONFIG_MACH_MT8168) || \
+		IS_ENABLED(CONFIG_MACH_MT6739) || IS_ENABLED(CONFIG_MACH_MT6761) || \
+		IS_ENABLED(CONFIG_MACH_MT6765) || IS_ENABLED(CONFIG_MACH_MT6768) || \
+		IS_ENABLED(CONFIG_MACH_MT6771)
+#define CMDQ_THR_MAX_COUNT		16
+#else
 #define CMDQ_THR_MAX_COUNT		24
+#endif
 #define CMDQ_INST_SIZE			8 /* instruction is 64-bit */
 #define CMDQ_SUBSYS_SHIFT		16
 #define CMDQ_OP_CODE_SHIFT		24
@@ -138,6 +147,10 @@ struct cmdq_pkt {
 #endif
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 	bool			task_alloc;
+#if defined(CONFIG_MTK_MT6382_BDG)
+	void			*bdg_data;
+	bool			reuse;
+#endif
 };
 
 struct cmdq_thread {
@@ -153,6 +166,7 @@ struct cmdq_thread {
 	bool			occupied;
 	bool			dirty;
 	u64			timer_mod;
+	atomic_t		user_usage;
 };
 
 extern int mtk_cmdq_log;
@@ -177,48 +191,46 @@ do { \
 
 /* CMDQ FTRACE */
 #define cmdq_trace_begin(fmt, args...) do { \
-	preempt_disable(); \
-	event_trace_printk(cmdq_get_tracing_mark(), \
-		"B|%d|"fmt"\n", current->tgid, ##args); \
-	preempt_enable();\
+	char buf[MAX_INPUT]; \
+	s32 len = snprintf( \
+		buf, sizeof(buf), "B|%d|"fmt"\n", current->tgid, ##args); \
+	if (len >= MAX_INPUT) \
+		buf[MAX_INPUT - 1] = '\n'; \
+	tracing_mark_write(buf); \
 } while (0)
 
 #define cmdq_trace_end() do { \
-	preempt_disable(); \
-	event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
-	preempt_enable(); \
+	tracing_mark_write("E\n"); \
+} while (0)
+
+#define cmdq_trace_c(fmt, args...) do { \
+	char buf[MAX_INPUT]; \
+	s32 len = snprintf( \
+		buf, sizeof(buf), "C|"fmt, ##args); \
+	if (len >= MAX_INPUT) \
+		buf[MAX_INPUT - 1] = '\n'; \
+	tracing_mark_write(buf); \
 } while (0)
 
 extern int cmdq_trace;
 #define cmdq_trace_ex_begin(fmt, args...) do { \
-	if (cmdq_trace) { \
-		preempt_disable(); \
-		event_trace_printk(cmdq_get_tracing_mark(), \
-			"B|%d|"fmt"\n", current->tgid, ##args); \
-		preempt_enable();\
-	} \
+	if (cmdq_trace) \
+		cmdq_trace_begin(fmt, ##args); \
 } while (0)
 
-#define cmdq_trace_ex_end() do { \
-	if (cmdq_trace) { \
-		preempt_disable(); \
-		event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
-		preempt_enable(); \
-	} \
-} while (0)
-
-#define cmdq_trace_c(fmt, args...) do { \
-	preempt_disable(); \
-	event_trace_printk(cmdq_get_tracing_mark(), \
-		"C|"fmt, ##args); \
-	preempt_enable(); \
+#define cmdq_trace_ex_end(fmt, args...) do { \
+	if (cmdq_trace) \
+		cmdq_trace_end(fmt, ##args); \
 } while (0)
 
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
 dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread);
 void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val);
+void cmdq_init_cmds(void *dev_cmdq);
 void cmdq_mbox_channel_stop(struct mbox_chan *chan);
 void cmdq_dump_core(struct mbox_chan *chan);
+void cmdq_pkt_poll_gpr_check(
+	struct cmdq_pkt *pkt, const u16 gpr_idx, const s32 start);
 void cmdq_thread_dump_spr(struct cmdq_thread *thread);
 void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 **inst_out, dma_addr_t *pc_out);
@@ -250,6 +262,7 @@ void cmdq_set_event(void *chan, u16 event_id);
 void cmdq_clear_event(void *chan, u16 event_id);
 u32 cmdq_get_event(void *chan, u16 event_id);
 void cmdq_event_verify(void *chan, u16 event_id);
+void tracing_mark_write(const char *buf);
 unsigned long cmdq_get_tracing_mark(void);
 u32 cmdq_thread_timeout_backup(struct cmdq_thread *thread, const u32 ms);
 void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);

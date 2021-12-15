@@ -34,6 +34,9 @@
 #ifndef EARLY_PORTING_SPOWER
 #include "mtk_common_static_power.h"
 #endif
+#ifdef CONFIG_MTK_STATIC_POWER
+#include <mtk_common_static_power.h>
+#endif
 
 #ifdef UPOWER_USE_QOS_IPI
 #if UPOWER_ENABLE_TINYSYS_SSPM

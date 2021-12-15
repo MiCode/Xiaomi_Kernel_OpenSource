@@ -532,7 +532,7 @@ static int mtk_voice_usb_open(struct snd_pcm_substream *substream)
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 
 	if (ret < 0) {
-		pr_warn("mtk_voice_usb_close\n");
+		pr_warn("voice_usb_close\n");
 		mtk_voice_usb_close(substream);
 		return ret;
 	}
@@ -656,17 +656,6 @@ static int mtk_voice_usb_hw_params(struct snd_pcm_substream *substream,
 
 	runtime->dma_bytes = params_buffer_bytes(hw_params);
 
-#if 0
-	if (AllocateAudioSram(&runtime->dma_addr,
-			      &runtime->dma_area,
-			      runtime->dma_bytes,
-			      substream,
-			      params_format(hw_params), false) == 0) {
-		usb_use_dram[stream] = false;
-		SetHighAddr(usb_mem_blk[stream], false,
-			    substream->runtime->dma_addr);
-	} else {
-#endif
 	ret = snd_pcm_lib_malloc_pages(substream, runtime->dma_bytes);
 	if (ret < 0) {
 		pr_err("%s(), allocate dram fail, ret %d\n", __func__, ret);
@@ -770,9 +759,9 @@ mtk_voice_usb_pointer_play(struct snd_pcm_substream *substream)
 
 	spin_lock_irqsave(&mem_ctl->substream_lock, flags);
 	/*
-	pr_debug("%s(), Afe_Block->u4DMAReadIdx = 0x%x\n", __func__,
-		 Afe_Block->u4DMAReadIdx);
-	*/
+	 *pr_debug("%s(), Afe_Block->u4DMAReadIdx = 0x%x\n", __func__,
+	 *	 Afe_Block->u4DMAReadIdx);
+	 */
 
 	if (GetMemoryPathEnable(usb_mem_blk[stream]) == true) {
 		HW_Cur_ReadIdx = Afe_Get_Reg(AFE_DL2_CUR);
@@ -801,11 +790,11 @@ mtk_voice_usb_pointer_play(struct snd_pcm_substream *substream)
 		spin_unlock_irqrestore(&mem_ctl->substream_lock, flags);
 
 		/*
-		pr_debug("%s(),Rdx %x, Re%x, Cur%x, index %x, consum %x\n",
-			__func__, Afe_Block->u4DMAReadIdx,
-			Afe_Block->u4DataRemained, HW_Cur_ReadIdx,
-			HW_memory_index, Afe_consumed_bytes);
-		*/
+		 * pr_debug("%s(),Rdx %x, Re%x, Cur%x, index %x, consum %x\n",
+		 *	__func__, Afe_Block->u4DMAReadIdx,
+		 *	Afe_Block->u4DataRemained, HW_Cur_ReadIdx,
+		 *	HW_memory_index, Afe_consumed_bytes);
+		 */
 
 		Frameidx = audio_bytes_to_frame(substream,
 						Afe_Block->u4DMAReadIdx);
@@ -828,9 +817,9 @@ mtk_voice_usb_pointer_cap(struct snd_pcm_substream *substream)
 		&Get_Mem_ControlT(usb_mem_blk[stream])->rBlock;
 
 	/*
-	pr_debug("%s(), Awb_Block->u4WriteIdx = 0x%x\n", __func__,
-		Awb_Block->u4WriteIdx);
-	*/
+	 * pr_debug("%s(), Awb_Block->u4WriteIdx = 0x%x\n", __func__,
+	 *	Awb_Block->u4WriteIdx);
+	 */
 	if (GetMemoryPathEnable(usb_mem_blk[stream]) == true) {
 		/* sram (device memory) need 8 byte algin for arm64*/
 		HW_Cur_ReadIdx = word_size_align(Afe_Get_Reg(AFE_AWB_CUR));
@@ -852,11 +841,11 @@ mtk_voice_usb_pointer_cap(struct snd_pcm_substream *substream)
 		Awb_Block->u4DataRemained += Hw_Get_bytes;
 
 		/*
-		pr_debug("%s RIdx=%x WIdx =%x Remain=%x Size=%x,bytes=%x\n",
-			__func__, Awb_Block->u4DMAReadIdx,
-			Awb_Block->u4WriteIdx, Awb_Block->u4DataRemained,
-			Awb_Block->u4BufferSize, Hw_Get_bytes);
-		*/
+		 * pr_debug("%s RIdx=%x WIdx =%x Remain=%x Size=%x,bytes=%x\n",
+		 *	__func__, Awb_Block->u4DMAReadIdx,
+		 *	Awb_Block->u4WriteIdx, Awb_Block->u4DataRemained,
+		 *	Awb_Block->u4BufferSize, Hw_Get_bytes);
+		 */
 
 		/* buffer overflow */
 		if (Awb_Block->u4DataRemained > Awb_Block->u4BufferSize) {
@@ -868,9 +857,9 @@ mtk_voice_usb_pointer_cap(struct snd_pcm_substream *substream)
 		}
 
 		/*
-		pr_debug("%s(), HW_Cur_ReadIdx 0x%x, HW_memory_index 0x%x\n",
-			__func__, HW_Cur_ReadIdx, HW_memory_index);
-		*/
+		 * pr_debug("%s(), HW_Cur_ReadIdx 0x%x, HW_memory_index 0x%x\n",
+		 *	__func__, HW_Cur_ReadIdx, HW_memory_index);
+		 */
 
 		if (usb_debug_enable & USB_DBG_ASSERT_AT_STOP) {
 			struct timespec time;

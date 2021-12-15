@@ -18,10 +18,10 @@
 #endif
 
 #include "dsp-platform-mem-control.h"
-#include "../mtk-dsp-mem-control.h"
+#include "../v1/mtk-dsp-mem-control.h"
 #include "mt6779-afe-common.h"
-#include "../mtk-base-dsp.h"
-#include "../mtk-dsp-common.h"
+#include "../v1/mtk-base-dsp.h"
+#include "../v1/mtk-dsp-common.h"
 
 /*
  * todo: let user space decide this

@@ -50,7 +50,7 @@ void fsm_md_bootup_timeout_handler(struct ccci_fsm_ee *ee_ctl)
 		return;
 	}
 	CCCI_NORMAL_LOG(ee_ctl->md_id, FSM,
-		"Dump MD image memory\n");
+		"Dump MD image not support\n");
 	ccci_mem_dump(ee_ctl->md_id,
 		(void *)mem_layout->md_bank0.base_ap_view_vir,
 		MD_IMG_DUMP_SIZE);
@@ -62,7 +62,7 @@ void fsm_md_bootup_timeout_handler(struct ccci_fsm_ee *ee_ctl)
 		"Dump queue 0 & 1\n");
 	ccci_md_dump_info(ee_ctl->md_id,
 		(DUMP_FLAG_QUEUE_0_1 | DUMP_MD_BOOTUP_STATUS
-		| DUMP_FLAG_REG | DUMP_FLAG_CCIF_REG), NULL, 0);
+		| DUMP_FLAG_REG | DUMP_FLAG_CCIF_REG | DUMP_FLAG_IRQ_STATUS |DUMP_FLAG_CCIF), NULL, 0);
 	CCCI_NORMAL_LOG(ee_ctl->md_id, FSM,
 		"Dump MD ee boot failed info\n");
 
@@ -383,7 +383,13 @@ int fsm_ee_init(struct ccci_fsm_ee *ee_ctl)
 	ee_ctl->md_id = ctl->md_id;
 	spin_lock_init(&ee_ctl->ctrl_lock);
 	if (ee_ctl->md_id == MD_SYS1) {
+#if (MD_GENERATION >= 6297)
+		ret = mdee_dumper_v5_alloc(ee_ctl);
+#elif (MD_GENERATION >= 6292)
 		ret = mdee_dumper_v3_alloc(ee_ctl);
+#elif (MD_GENERATION == 6291)
+		ret = mdee_dumper_v2_alloc(ee_ctl);
+#endif
 	} else if (ee_ctl->md_id == MD_SYS3) {
 		ret = mdee_dumper_v1_alloc(ee_ctl);
 	}

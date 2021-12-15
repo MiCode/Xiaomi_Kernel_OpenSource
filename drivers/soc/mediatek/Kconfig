@@ -27,7 +27,6 @@ config MTK_INFRACFG
 config MTK_DVFSRC
 	tristate "MediaTek DVFSRC Support"
 	depends on ARCH_MEDIATEK
-	default ARCH_MEDIATEK
 	help
 	  Say yes here to add support for the MediaTek DVFSRC (dynamic voltage
 	  and frequency scaling resource collector) found
@@ -73,6 +72,24 @@ config MTK_MMDVFS
 	  driver. The MMDVFS is used to set clk for Mediatek multimedia hardwares
 	  , such as display, camera, mdp and video codec. Say no if your device
 	  does not need to do DVFS for Multimedia hardwares.
+
+config MTK_IPI
+	tristate "MediaTek IPI Support"
+	depends on RPMSG_MTK
+	help
+	  Say yes here to add support for the MediaTek IPI between tinysys.
+	  MTK IPI consists of APIs to do Linux to/from uP/DSP communication
+	  based on rpmsg. Synchronization among tasks is also handled by
+	  this layer. If uP/DSP drivers handle by themselves, they can use
+	  rpmsg directly.
+
+config MTK_MBOX
+	tristate "MediaTek Mbox Support"
+	help
+	  Say yes here to add support for the MediaTek Mbox driver.
+	  MTK MBOX is a physical H/W which consists of configurable 128
+	  or 256 bytes SRAM and 32 bit irq. The driver does read/write
+	  SRAM and IRQ handling.
 
 config MTK_LPM
 	bool "MediaTek Low Power Manager"

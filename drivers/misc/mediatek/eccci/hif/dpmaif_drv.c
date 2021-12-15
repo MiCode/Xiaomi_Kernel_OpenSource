@@ -5,6 +5,7 @@
 
 #include "dpmaif_drv.h"
 #include "ccci_hif_dpmaif.h"
+#include "ccci_config.h"
 
 #define TAG "dpmaif"
 /* =======================================================
@@ -13,7 +14,7 @@
  *
  * =======================================================
  */
- #if defined(_E1_SB_SW_WORKAROUND_)
+ #if defined(_E1_SB_SW_WORKAROUND_) || defined(MT6297)
 
 static void drv_dpmaif_dl_pit_only_update_enable_bit_done(unsigned char q_num)
 {
@@ -32,8 +33,8 @@ static void drv_dpmaif_dl_pit_only_update_enable_bit_done(unsigned char q_num)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG,
 				"DPMAIF_PD_DL_PIT_INIT ready failed\n");
-			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
-				DUMP_FLAG_REG, NULL, -1);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
 			count = 0;
 			return;
 		}
@@ -44,8 +45,8 @@ static void drv_dpmaif_dl_pit_only_update_enable_bit_done(unsigned char q_num)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG,
 				"DPMAIF_PD_DL_PIT_INIT not ready failed\n");
-			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
-				DUMP_FLAG_REG, NULL, -1);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
 			count = 0;
 			break;
 		}
@@ -71,8 +72,8 @@ static void drv_dpmaif_check_dl_fifo_idle(void)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG,
 				"DPMAIF_AO_DL_PIT_STA3 failed\n");
-			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
-				DUMP_FLAG_REG, NULL, -1);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
 			count = 0;
 			return;
 		}
@@ -89,7 +90,9 @@ static void drv_dpmaif_check_dl_fifo_idle(void)
 		}
 	}
 }
+#endif
 
+#if defined(_E1_SB_SW_WORKAROUND_)
 static unsigned int dpmaif_rx_chk_pit_type(unsigned int chk_aidx)
 {
 	struct dpmaifq_normal_pit *pkt_inf_t =
@@ -212,8 +215,8 @@ static int drv_dpmaif_dl_set_idle(bool set_en)
 			if (++count1 >= 1600000) {
 				CCCI_ERROR_LOG(0, TAG,
 					"DPMAIF_AO_DL_PIT_STA3 failed\n");
-				dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
-					DUMP_FLAG_REG, NULL, -1);
+				dpmaif_ctrl->ops->dump_status(
+					DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
 				count1 = 0;
 				ret = HW_REG_CHK_FAIL;
 				break;
@@ -254,8 +257,16 @@ int drv_dpmaif_dl_add_frg_bat_cnt(unsigned char q_num,
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_ADD, dl_bat_update);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s cost too long\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
 	}
 
+	#ifndef MT6297
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_ADD) &
 		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
 		if (++count >= 1600000) {
@@ -265,6 +276,7 @@ int drv_dpmaif_dl_add_frg_bat_cnt(unsigned char q_num,
 			break;
 		}
 	}
+	#endif
 
 	return 0;
 }
@@ -301,8 +313,16 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_ADD, dl_bat_update);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s cost too long\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
 	}
 
+	#ifndef MT6297
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_ADD) &
 		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
 		if (++count >= 1600000) {
@@ -312,6 +332,7 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 			break;
 		}
 	}
+	#endif
 #if defined(_E1_SB_SW_WORKAROUND_)
 	drv_dpmaif_dl_set_idle(false);
 #endif
@@ -322,6 +343,7 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 		unsigned short pit_remain_cnt)
 {
 	unsigned int dl_update;
+	int count = 0;
 #if defined(_E1_SB_SW_WORKAROUND_)
 	int ret = 0;
 
@@ -339,11 +361,27 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_ADD, dl_update);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"1st DPMAIF_PD_DL_PIT_ADD read fail\n");
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			count = 0;
+			return HW_REG_TIME_OUT;
+		}
 	}
-
+	count = 0;
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_ADD) &
-		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY)
-		;
+		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				 "2nd DPMAIF_PD_DL_PIT_ADD read fail\n");
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			count = 0;
+			return HW_REG_TIME_OUT;
+		}
+	}
 #if defined(_E1_SB_SW_WORKAROUND_)
 	drv_dpmaif_dl_set_idle(false);
 	return ret;
@@ -413,6 +451,15 @@ void drv_dpmaif_mask_dl_interrupt(unsigned char q_num)
 #ifndef DPMAIF_NOT_ACCESS_HW
 	unsigned int ui_que_done_mask;
 
+#ifdef MT6297
+	/* set mask register: bit1s */
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, (
+#ifdef _E1_SB_SW_WORKAROUND_
+		DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
+		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
+#endif
+		DPMAIF_DL_INT_QDONE_MSK));
+#else /*MT6297*/
 	/* set mask register: bit1s */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMSR0, (
 #ifdef _E1_SB_SW_WORKAROUND_
@@ -420,6 +467,7 @@ void drv_dpmaif_mask_dl_interrupt(unsigned char q_num)
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
 #endif
 		DPMAIF_DL_INT_QDONE_MSK));
+#endif /*MT6297*/
 
 	ui_que_done_mask = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES);
 	ui_que_done_mask |= DPMAIF_DL_INT_QDONE_MSK;
@@ -440,6 +488,15 @@ void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num)
 {
 	unsigned int ui_que_done_mask = DPMAIF_DL_INT_QDONE_MSK;
 
+#ifdef MT6297
+	/* set unmask/clear_mask register: bit0s */
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, (
+#ifdef _E1_SB_SW_WORKAROUND_
+		DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
+		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
+#endif
+		DPMAIF_DL_INT_QDONE_MSK));
+#else /*MT6297*/
 	/* set unmask/clear_mask register: bit0s */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMCR0, (
 #ifdef _E1_SB_SW_WORKAROUND_
@@ -447,6 +504,7 @@ void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num)
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
 #endif
 		DPMAIF_DL_INT_QDONE_MSK));
+#endif /*MT6297*/
 
 	ui_que_done_mask = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES);
 	ui_que_done_mask &= ~DPMAIF_DL_INT_QDONE_MSK;
@@ -515,10 +573,11 @@ void dpmaif_mask_batcnt_len_error_intr(unsigned char q_num)
 
 #endif
 
-void drv_dpmaif_dl_all_queue_en(bool enable)
+int drv_dpmaif_dl_all_queue_en(bool enable)
 {
 	unsigned long dl_bat_init = 0;
 	unsigned long value;
+	int count = 0;
 
 	value = DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1);
 
@@ -538,11 +597,27 @@ void drv_dpmaif_dl_all_queue_en(bool enable)
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT, dl_bat_init);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"1st DPMAIF_PD_DL_BAT_INIT read/write fail\n");
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
 	}
+	count = 0;
 	/*wait HW updating*/
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
-		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY)
-		;
+		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+			"2nd DPMAIF_PD_DL_BAT_INIT read fail\n");
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
+	return 0;
 }
 
 unsigned int drv_dpmaif_dl_idle_check(void)
@@ -572,7 +647,11 @@ void drv_dpmaif_mask_ul_que_interrupt(unsigned char q_num)
 
 	ui_que_done_mask = DPMAIF_UL_INT_DONE(q_num) & DPMAIF_UL_INT_QDONE_MSK;
 
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ui_que_done_mask);
+#else
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISR0, ui_que_done_mask);
+#endif
 
 	/* check mask sts */
 	/* while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TIMR0) &
@@ -587,7 +666,12 @@ void drv_dpmaif_unmask_ul_interrupt(unsigned char q_num)
 	unsigned int ui_que_done_mask;
 
 	ui_que_done_mask = DPMAIF_UL_INT_DONE(q_num) & DPMAIF_UL_INT_QDONE_MSK;
+
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMCR0, ui_que_done_mask);
+#else
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TICR0, ui_que_done_mask);
+#endif
 
 	/*check mask sts*/
 	/* while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TIMR0) &
@@ -599,9 +683,30 @@ unsigned int drv_dpmaif_ul_get_ridx(unsigned char q_num)
 {
 	unsigned int ridx;
 
+#ifdef MT6297
+	ridx = (DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(q_num)) >> 16) & 0x0000ffff;
+#else
 	ridx = DPMA_READ_PD_UL(DPMAIF_ULQ_STA0_n(q_num)) & 0x0000ffff;
+#endif
+	return ridx;
+}
+
+unsigned int drv_dpmaif_ul_get_rwidx(unsigned char q_num)
+{
+	unsigned int ridx;
+
+	ridx = DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(q_num));
 
 	return ridx;
+}
+
+unsigned int drv_dpmaif_ul_get_hw_widx_01(void)
+{
+	unsigned int widx;
+
+	widx = DPMA_READ_PD_UL(DPMAIF_PD_UL_CH_WIDX01);
+
+	return widx;
 }
 
 int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
@@ -622,8 +727,8 @@ int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG, "drb_add rdy poll fail: 0x%x\n",
 				DPMA_READ_PD_UL(DPMAIF_PD_UL_DBG_STA2));
-			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
-				DUMP_FLAG_REG, NULL, -1);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
 			return HW_REG_CHK_FAIL;
 		}
 	}
@@ -661,10 +766,10 @@ void drv_dpmaif_clear_ip_busy(void)
  * ========================================================
  */
 
-void drv_dpmaif_dl_bat_init_done(unsigned char q_num, bool frg_en)
+int drv_dpmaif_dl_bat_init_done(unsigned char q_num, bool frg_en)
 {
 	unsigned int dl_bat_init = 0;
-
+	int count = 0;
 	if (frg_en == true)
 		dl_bat_init |= DPMAIF_DL_BAT_FRG_INIT;
 	/* update  all bat settings. */
@@ -677,17 +782,33 @@ void drv_dpmaif_dl_bat_init_done(unsigned char q_num, bool frg_en)
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT, dl_bat_init);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 1s fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
 	}
 
+	count = 0;
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
-		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY)
-		;
-
+		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 2nd fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
+	return 0;
 }
 
 void drv_dpmaif_dl_pit_init_done(unsigned char q_num)
 {
 	unsigned int dl_pit_init = 0;
+	int count = 0;
 
 	dl_pit_init |= DPMAIF_DL_PIT_INIT_ALLSET;
 	dl_pit_init |= DPMAIF_DL_PIT_INIT_EN;
@@ -698,11 +819,26 @@ void drv_dpmaif_dl_pit_init_done(unsigned char q_num)
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT, dl_pit_init);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 1st fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return;
+		}
 	}
 
+	count = 0;
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_INIT) &
-		DPMAIF_DL_PIT_INIT_NOT_READY) == DPMAIF_DL_PIT_INIT_NOT_READY)
-		;
+		DPMAIF_DL_PIT_INIT_NOT_READY) == DPMAIF_DL_PIT_INIT_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 2nd fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return;
+		}
+	}
 }
 
 void drv_dpmaif_dl_set_bat_base_addr(unsigned char q_num,
@@ -782,6 +918,23 @@ void drv_dpmaif_dl_set_pit_size(unsigned char q_num, unsigned int size)
 
 	DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT_CON1, value);
 }
+
+#ifdef _HW_REORDER_SW_WORKAROUND_
+void drv_dpmaif_dl_set_apit_idx(unsigned char q_num, unsigned int idx)
+{
+	unsigned int value;
+
+	value = DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_INIT_CON3);
+
+	value &= ~((DPMAIF_DL_PIT_WRIDX_MSK) << 16);
+	value |= ((idx & DPMAIF_DL_PIT_WRIDX_MSK) << 16);
+
+	DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT_CON3, value);
+	/*notify MD idx*/
+	DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW,
+			(idx|DPMAIF_MD_DUMMYPIT_EN));
+}
+#endif
 
 void drv_dpmaif_dl_pit_en(unsigned char q_num, bool enable)
 {
@@ -950,10 +1103,11 @@ void drv_dpmaif_dl_set_ao_frg_bat_bufsz(unsigned char q_num,
 
 }
 
-void drv_dpmaif_dl_all_frg_queue_en(bool enable)
+int drv_dpmaif_dl_all_frg_queue_en(bool enable)
 {
 	unsigned long dl_bat_init = 0;
 	unsigned long value;
+	int count = 0;
 
 	value = DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1);
 
@@ -973,11 +1127,27 @@ void drv_dpmaif_dl_all_frg_queue_en(bool enable)
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT, dl_bat_init);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 1st fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
 	}
+	count = 0;
 	/*wait HW updating*/
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_INIT) &
-		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY)
-		;
+		DPMAIF_DL_BAT_INIT_NOT_READY) == DPMAIF_DL_BAT_INIT_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 2nd fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
+	return 0;
 }
 #endif
 
@@ -996,6 +1166,149 @@ void drv_dpmaif_dl_set_ao_chksum_en(unsigned char q_num, bool enable)
 }
 #endif
 
+#ifdef MT6297
+void drv_dpmaif_dl_set_performance(void)
+{
+	unsigned int value;
+
+	/*BAT cache enable*/
+	value = DPMA_READ_PD_DL(NRL2_DPMAIF_DL_BAT_INIT_CON1);
+	value |= (1<<22);
+	DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_BAT_INIT_CON1, value);
+
+	/*PIT burst en*/
+	value = DPMA_READ_AO_DL(NRL2_DPMAIF_AO_DL_RDY_CHK_THRES);
+	value |= (1<<13);
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES, value);
+}
+
+void drv_dpmaif_dl_set_wdma(void)
+{
+	unsigned int value;
+
+	/*Set WDMA OSTD*/
+	value = DPMA_READ_WDMA(NRL2_DPMAIF_WDMA_WR_CHNL_CMD_CON3);
+	value &=
+		~(DPMAIF_DL_WDMA_CTRL_OSTD_MSK<<DPMAIF_DL_WDMA_CTRL_OSTD_OFST);
+	value |=
+	(DPMAIF_DL_WDMA_CTRL_OSTD_VALUE<<DPMAIF_DL_WDMA_CTRL_OSTD_OFST);
+	DPMA_WRITE_WDMA(NRL2_DPMAIF_WDMA_WR_CHNL_CMD_CON3, value);
+
+	/*Set CTRL_INTVAL/INTAL_MIN*/
+	value = DPMA_READ_WDMA(NRL2_DPMAIF_WDMA_WR_CMD_CON0);
+	value &= (0xFFFF0000);
+	DPMA_WRITE_WDMA(NRL2_DPMAIF_WDMA_WR_CMD_CON0, value);
+}
+
+void drv_dpmaif_dl_set_chk_rbnum(unsigned char q_num, unsigned int cnt)
+{
+	unsigned int value;
+
+	/* bit0~7: chk rb pit number */
+	value = DPMA_READ_AO_DL(DPMAIF_AO_DL_PKTINFO_CONO);
+
+	value &= ~(DPMAIF_CHK_RB_PITNUM_MSK);
+	value |= ((cnt) & DPMAIF_CHK_RB_PITNUM_MSK);
+
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_PKTINFO_CONO, value);
+}
+
+void drv_dpmaif_common_hw_init(void)
+{
+	/*Set HW CG dis*/
+	DPMA_WRITE_PD_MISC(NRL2_DPMAIF_AP_MISC_CG_EN, 0x7F);
+	/*Set Wdma performance*/
+	drv_dpmaif_dl_set_wdma();
+	drv_dpmaif_md_hw_bus_remap();
+
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L1TIMR0,
+				((1<<9)|(1<<10)|(1<<15)|(1<<16)));
+
+    /*Set Power on/off flag*/
+	DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW, 0xff);
+}
+
+void drv_dpmaif_md_hw_bus_remap(void)
+{
+	unsigned int value;
+	phys_addr_t md_base_at_ap;
+	unsigned int tmp_val;
+
+	/*DPMAIF MD Domain setting:MD domain:1,AP domain:0*/
+	value = (((DP_DOMAIN_ID&DPMAIF_AWDOMAIN_BIT_MSK)
+		<<DPMAIF_AWDOMAIN_BIT_OFT)|
+		((DP_DOMAIN_ID&DPMAIF_ARDOMAIN_BIT_MSK)
+		<<DPMAIF_ARDOMAIN_BIT_OFT));
+
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_DOMAIN, value);
+	/*DPMAIF MD bank setting*/
+	value = (((DP_BANK0_ID&DPMAIF_CACHE_BANK0_BIT_MSK)
+		<<DPMAIF_CACHE_BANK0_BIT_OFT)|
+		((DP_BANK1_ID&DPMAIF_CACHE_BANK1_BIT_MSK)
+		<<DPMAIF_CACHE_BANK1_BIT_OFT));
+
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_CACHE, value);
+	get_md_resv_mem_info(MD_SYS1, &md_base_at_ap, NULL, NULL, NULL);
+	tmp_val = (unsigned int)md_base_at_ap;
+
+	/*Remap and Remap enable for address*/
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-A-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPA, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-B-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPB, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-C-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPC, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-D-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK0_MAPD, value);
+
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1A-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPA, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1B-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPB, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1C-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPC, value);
+	tmp_val += 0x2000000 * 2;
+	value = ((tmp_val >> 24) & 0xFF) +
+				(((tmp_val + 0x2000000) >> 8) & 0xFF0000);
+	value |= ((1 << 16) | 1);
+	CCCI_BOOTUP_LOG(0, TAG, "[remap]-1D-0x%08x\r\n", value);
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_REMAP_BANK1_MAPD, value);
+
+	/*Enable DPMAIF HW remap*/
+	value = DPMA_READ_AO_MD_DL(NRL2_DPMAIF_MISC_AO_CFG1);
+	value |= DPMAIF_MD_AO_REMAP_ENABLE;
+	DPMA_WRITE_AO_MD_DL(NRL2_DPMAIF_MISC_AO_CFG1, value);
+}
+
+#endif
+
 /* =======================================================
  *
  * Descriptions: State part (1/3): Init(RX) -- tx hw init
@@ -1007,6 +1320,15 @@ void drv_dpmaif_init_ul_intr(void)
 {
 	/* 1. clear dummy sts*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, 0xFFFFFFFF);
+#ifdef MT6297
+	/* 2. set interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMCR0, AP_UL_L2INTR_En_Msk);
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ~(AP_UL_L2INTR_En_Msk));
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
+	/* 2. set IP busy unmask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_DL_UL_IP_BUSY_MASK, 0);
+#else
 	/* 2. set interrupt enable mask*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TICR0, AP_UL_L2INTR_En_Msk);
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISR0, ~(AP_UL_L2INTR_En_Msk));
@@ -1014,6 +1336,7 @@ void drv_dpmaif_init_ul_intr(void)
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
 	/* 2. set IP busy unmask*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DLUL_IP_BUSY_MASK, 0);
+#endif
 }
 
 #define DPMAIF_UL_DRBSIZE_ADDRH_n(q_num)   \
@@ -1021,7 +1344,16 @@ void drv_dpmaif_init_ul_intr(void)
 void drv_dpmaif_ul_update_drb_size(unsigned char q_num, unsigned int size)
 {
 	unsigned int old_size, set_size;
+#ifdef MT6297
+	/* 1. bit 15~0: DRB count, in word(4 bytes) curr: 512*8/4 */
+	set_size = size/4;
+	old_size = DPMA_READ_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num));
 
+	old_size &= ~DPMAIF_DRB_SIZE_MSK;
+	old_size |= (set_size & DPMAIF_DRB_SIZE_MSK);
+
+	DPMA_WRITE_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_size);
+#else
 	/* 1. bit 15~0: DRB count, in word(4 bytes) curr: 512*8/4 */
 	set_size = size/4;
 	old_size = DPMA_READ_PD_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num));
@@ -1030,6 +1362,7 @@ void drv_dpmaif_ul_update_drb_size(unsigned char q_num, unsigned int size)
 	old_size |= (set_size & DPMAIF_DRB_SIZE_MSK);
 
 	DPMA_WRITE_PD_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_size);
+#endif
 }
 
 void drv_dpmaif_ul_update_drb_base_addr(unsigned char q_num,
@@ -1037,6 +1370,17 @@ void drv_dpmaif_ul_update_drb_base_addr(unsigned char q_num,
 {
 	unsigned int old_addr;
 
+#ifdef MT6297
+	/* 2 bit 31~0: drb base addr low 32bits, curr: lb_addr */
+	DPMA_WRITE_AO_UL(DPMAIF_ULQSAR_n(q_num), lb_addr);
+
+	old_addr = DPMA_READ_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num));
+
+	old_addr &= ~DPMAIF_DRB_ADDRH_MSK;
+	old_addr |= ((hb_addr<<24) & DPMAIF_DRB_ADDRH_MSK);
+	/* 2. bit 31~24: drb base addr high 8bits, curr: hb_addr */
+	DPMA_WRITE_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_addr);
+#else
 	/* 2 bit 31~0: drb base addr low 32bits, curr: lb_addr */
 	DPMA_WRITE_PD_UL(DPMAIF_ULQSAR_n(q_num), lb_addr);
 
@@ -1046,6 +1390,7 @@ void drv_dpmaif_ul_update_drb_base_addr(unsigned char q_num,
 	old_addr |= ((hb_addr<<24) & DPMAIF_DRB_ADDRH_MSK);
 	/* 2. bit 31~24: drb base addr high 8bits, curr: hb_addr */
 	DPMA_WRITE_PD_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_addr);
+#endif
 }
 
 
@@ -1053,41 +1398,66 @@ void drv_dpmaif_ul_rdy_en(unsigned char q_num, bool ready)
 {
 	unsigned int ul_rdy_en;
 
+#ifdef MT6297
+	ul_rdy_en = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0);
+#else
 	ul_rdy_en = DPMA_READ_PD_UL(DPMAIF_PD_UL_CHNL_ARB0);
+#endif
 
 	if (ready == true)
 		ul_rdy_en |= (1<<q_num);
 	else
 		ul_rdy_en &= ~(1<<q_num);
 
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0, ul_rdy_en);
+#else
 	DPMA_WRITE_PD_UL(DPMAIF_PD_UL_CHNL_ARB0, ul_rdy_en);
+#endif
 }
 
 void drv_dpmaif_ul_arb_en(unsigned char q_num, bool enable)
 {
 	unsigned int ul_arb_en;
 
+#ifdef MT6297
+	ul_arb_en = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0);
+#else
 	ul_arb_en = DPMA_READ_PD_UL(DPMAIF_PD_UL_CHNL_ARB0);
+#endif
 
 	if (enable == true)
 		ul_arb_en |= (1<<(q_num+8));
 	else
 		ul_arb_en &= ~(1<<(q_num+8));
 
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0, ul_arb_en);
+#else
 	DPMA_WRITE_PD_UL(DPMAIF_PD_UL_CHNL_ARB0, ul_arb_en);
+#endif
 }
 
 void drv_dpmaif_ul_all_queue_en(bool enable)
 {
 	unsigned long ul_arb_en;
 
+#ifdef MT6297
+	ul_arb_en = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0);
+#else
 	ul_arb_en = DPMA_READ_PD_UL(DPMAIF_PD_UL_CHNL_ARB0);
+#endif
 
 	if (enable == true)
 		ul_arb_en |= DPMAIF_UL_ALL_QUE_ARB_EN;
 	else
 		ul_arb_en &= ~DPMAIF_UL_ALL_QUE_ARB_EN;
+
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0, ul_arb_en);
+#else
 	DPMA_WRITE_PD_UL(DPMAIF_PD_UL_CHNL_ARB0, ul_arb_en);
+#endif
 }
 
 unsigned int drv_dpmaif_ul_idle_check(void)
@@ -1100,6 +1470,7 @@ unsigned int drv_dpmaif_ul_idle_check(void)
 			DPMAIF_UL_IDLE_STS_MSK);
 
 	if (idle_sts == DPMAIF_UL_IDLE_STS)
+		/*k4.14 ret = 0;need review*/
 		ret = 1;
 	else
 		ret = 0;
@@ -1113,8 +1484,59 @@ unsigned int drv_dpmaif_ul_idle_check(void)
  *
  * ========================================================
  */
-void drv_dpmaif_intr_hw_init(void)
+int drv_dpmaif_intr_hw_init(void)
 {
+	int count = 0;
+#ifdef MT6297
+
+	/* UL/TX interrupt init */
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, 0xFFFFFFFF);
+	/* 2. set interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMCR0, AP_UL_L2INTR_En_Msk);
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0,
+				 ~(AP_UL_L2INTR_En_Msk));
+
+	/* 3. check mask sts*/
+	while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0) &
+		AP_UL_L2INTR_En_Msk) == AP_UL_L2INTR_En_Msk) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 1st fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
+
+	/*Set DL/RX interrupt*/
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, 0xFFFFFFFF);
+	/* 2. clear interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, AP_DL_L2INTR_En_Msk);
+	/*set interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0,
+			~(AP_DL_L2INTR_En_Msk));
+	drv_dpmaif_set_dl_interrupt_mask(~(AP_DL_L2INTR_En_Msk));
+	/* 3. check mask sts*/
+	count = 0;
+	while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0) &
+		AP_DL_L2INTR_En_Msk) == AP_DL_L2INTR_En_Msk) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 2nd fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
+
+	/* Set AP IP busy */
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
+	/* 2. set IP busy unmask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_DL_UL_IP_BUSY_MASK, 0);
+#else
 	/* UL/TX interrupt init */
 	/* 1. clear dummy sts*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, 0xFFFFFFFF);
@@ -1123,9 +1545,17 @@ void drv_dpmaif_intr_hw_init(void)
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISR0, ~(AP_UL_L2INTR_En_Msk));
 
 	/* 3. check mask sts*/
+	count = 0;
 	while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TIMR0) &
-		AP_UL_L2INTR_En_Msk) == AP_UL_L2INTR_En_Msk)
-		;
+		AP_UL_L2INTR_En_Msk) == AP_UL_L2INTR_En_Msk) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 3rd fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
 
 	/*Set DL/RX interrupt*/
 	/* 1. clear dummy sts*/
@@ -1136,15 +1566,25 @@ void drv_dpmaif_intr_hw_init(void)
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMSR0, ~(AP_DL_L2INTR_En_Msk));
 	drv_dpmaif_set_dl_interrupt_mask(~(AP_DL_L2INTR_En_Msk));
 	/* 3. check mask sts*/
+	count = 0;
 	while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_DL_L2TIMR0) &
-		AP_DL_L2INTR_En_Msk) == AP_DL_L2INTR_En_Msk)
-		;
+		AP_DL_L2INTR_En_Msk) == AP_DL_L2INTR_En_Msk) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s 4th fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
 
 	/* Set AP IP busy */
 	/* 1. clear dummy sts*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
 	/* 2. set IP busy unmask*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DLUL_IP_BUSY_MASK, 0);
+#endif
+	return 0;
 }
 
 /* =======================================================
@@ -1162,19 +1602,31 @@ bool drv_dpmaif_check_power_down(void)
 	unsigned char ret;
 	unsigned int check_value;
 
+
+#ifdef MT6297
+	check_value = DPMA_READ_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW);
+#else
 	check_value = DPMA_READ_PD_UL(DPMAIF_ULQSAR_n(0));
+#endif
 
 	if (check_value == 0)
 		ret = true;
 	else
 		ret = false;
 
+#ifdef MT6297
+	/*re-fill power flag*/
+	if (ret == true)
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW, 0xff);
+#endif
+
 	return ret;
 #endif
 }
 
-void drv_dpmaif_dl_restore(unsigned int mask)
+int drv_dpmaif_dl_restore(unsigned int mask)
 {
+	int count = 0;
 #ifdef USE_AO_RESTORE_PD_DL
 	unsigned int value;
 
@@ -1184,8 +1636,15 @@ void drv_dpmaif_dl_restore(unsigned int mask)
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMSR0, (value));
 	/* 3. check mask sts: not */
 	while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_DL_L2TIMR0) &
-		value) != value)
-		;
+		value) != value) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
 #else
 	/*Set DL/RX interrupt*/
 	/* 2. clear interrupt enable mask*/
@@ -1195,8 +1654,183 @@ void drv_dpmaif_dl_restore(unsigned int mask)
 	drv_dpmaif_set_dl_interrupt_mask((mask));
 	/* 3. check mask sts*/
 	while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_DL_L2TIMR0) &
-		mask) != mask)
-		;
+		mask) != mask) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"%s fail\n", __func__);
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+			return HW_REG_TIME_OUT;
+		}
+	}
 #endif
+
+#ifdef _HW_REORDER_SW_WORKAROUND_
+	/*Restore MD idx*/
+	DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW,
+		((dpmaif_ctrl->rxq[0].pit_dummy_idx)|DPMAIF_MD_DUMMYPIT_EN));
+#endif
+	return 0;
 }
 
+#ifdef _HW_REORDER_SW_WORKAROUND_
+static int drv_dpmaif_set_dl_idle(bool set_en)
+{
+	int ret = 0;
+	int count = 0, count1 = 0;
+
+	if (set_en == true) {
+		while (1) {
+			drv_dpmaif_dl_pit_en(0, false);
+			drv_dpmaif_dl_pit_only_update_enable_bit_done(0);
+			while (drv_dpmaif_dl_idle_check() != 0) {
+				if (++count >= 1600000) {
+					CCCI_MEM_LOG_TAG(0, TAG,
+						"drv_dpmaif_dl_idle poll\n");
+					count = 0;
+					ret = HW_REG_CHK_FAIL;
+					break;
+				}
+			}
+			count = 0;
+			if ((DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA3)&0x01)
+				== 0) {
+				while (drv_dpmaif_dl_idle_check() != 0) {
+					if (++count >= 1600000) {
+						CCCI_MEM_LOG_TAG(0, TAG,
+						"drv_dpmaif_dl_idle poll\n");
+						count = 0;
+						ret = HW_REG_CHK_FAIL;
+						break;
+					}
+				}
+				drv_dpmaif_check_dl_fifo_idle();
+				break;
+			}
+			if (++count1 >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG,
+					"DPMAIF_AO_DL_PIT_STA3 failed\n");
+				dpmaif_ctrl->ops->dump_status(
+					DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				count1 = 0;
+				ret = HW_REG_CHK_FAIL;
+				break;
+			}
+		}
+	} else {
+		drv_dpmaif_dl_pit_en(0, true);
+		drv_dpmaif_dl_pit_only_update_enable_bit_done(0);
+	}
+	return ret;
+}
+
+int drv_dpmaif_dl_add_apit_num(unsigned short ap_entry_cnt)
+{
+	int count = 0, ret = 0;
+	unsigned int ridx = 0, aidx = 0, size = 0, widx = 0;
+	unsigned int chk_num, new_aidx;
+	unsigned int dl_pit_init = 0;
+	unsigned long md_cnt = 0;
+
+	/*Diasbale FROCE EN*/
+	DPMA_WRITE_MD_MISC_DL(NRL2_DPMAIF_PD_MD_DL_RB_PIT_INIT, 0);
+
+	count = drv_dpmaif_set_dl_idle(true);
+	if (count < 0)
+		return count;
+	count = 0;
+
+	/*check DL all index*/
+	ridx = ((DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA2)>>16) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	widx = (DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA2) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	aidx = ((DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA3)>>16) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	size = (DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA1) &
+		DPMAIF_DL_PIT_WRIDX_MSK);
+
+	/*check enough pit entry to add for dummy reorder*/
+	if (ridx <= aidx)
+		chk_num = size - aidx + ridx;
+	else
+		chk_num = ridx - aidx;
+
+	if ((ap_entry_cnt + DPMAIF_HW_CHK_PIT_NUM) < chk_num) {
+		/*cal new aidx*/
+		new_aidx = aidx + ap_entry_cnt;
+		if (new_aidx >= size)
+			new_aidx -= size;
+		/*restore all r/w/a/base/size/en */
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON0,
+				DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA0));
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON1,
+				DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA1));
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON2,
+				DPMA_READ_AO_DL(DPMAIF_AO_DL_PIT_STA2));
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_PIT_INIT_CON3,
+				((new_aidx & DPMAIF_DL_PIT_WRIDX_MSK)
+				<< 16)|DPMAIF_PIT_EN_MSK);
+
+		dl_pit_init |= DPMAIF_DL_PIT_INIT_ALLSET;
+		dl_pit_init |= DPMAIF_DL_PIT_INIT_EN;
+		dl_pit_init |= ((widx & DPMAIF_DL_PIT_WRIDX_MSK) << 4);
+
+		while (1) {
+			if ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_INIT) &
+				DPMAIF_DL_PIT_INIT_NOT_READY) == 0) {
+				DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT,
+						dl_pit_init);
+				break;
+			}
+			if (++count >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG,
+					"DPMAIF_PD_DL_PIT_INIT ready failed\n");
+				dpmaif_ctrl->ops->dump_status(
+					DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				count = 0;
+				ret = HW_REG_CHK_FAIL;
+				return ret;
+			}
+		}
+
+		while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_INIT) &
+			DPMAIF_DL_PIT_INIT_NOT_READY) ==
+				DPMAIF_DL_PIT_INIT_NOT_READY) {
+			if (++count >= 1600000) {
+				CCCI_ERROR_LOG(0, TAG,
+					"DPMAIF_PD_DL_PIT_INIT not ready failed\n");
+				dpmaif_ctrl->ops->dump_status(
+					DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				count = 0;
+				ret = HW_REG_CHK_FAIL;
+				return ret;
+			}
+		}
+
+		/*Notify SW update dummt count*/
+		md_cnt = DPMA_READ_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW);
+		md_cnt &= ~DPMAIF_MD_DUMMYPIT_EN;
+		md_cnt += ap_entry_cnt;
+		if (md_cnt >= DPMAIF_DUMMY_PIT_MAX_NUM)
+			md_cnt -= DPMAIF_DUMMY_PIT_MAX_NUM;
+		DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_RW,
+				(md_cnt|DPMAIF_MD_DUMMYPIT_EN));
+		DPMA_WRITE_PD_UL(NRL2_DPMAIF_UL_RESERVE_AO_RW, 0xff);
+		/* Notify to MD */
+		DPMA_WRITE_MD_MISC_DL(NRL2_DPMAIF_PD_MD_MISC_MD_L1TIMSR0,
+					(1<<0));
+		ret = ap_entry_cnt;
+	} else {
+		drv_dpmaif_set_dl_idle(false);
+		ret = 0;
+	}
+	/*Enable Force EN*/
+	DPMA_WRITE_MD_MISC_DL(NRL2_DPMAIF_PD_MD_DL_RB_PIT_INIT, (1<<7));
+	return ret;
+}
+
+#endif /*_HW_REORDER_SW_WORKAROUND_*/

@@ -47,6 +47,18 @@ void mt_ppm_dlpt_kick_PBM(struct ppm_cluster_status *cluster_status,
 {
 }
 
+void ppm_cobra_update_core_limit(unsigned int cluster, int limit)
+{
+	
+}
+void ppm_cobra_dump_tbl(struct seq_file *m)
+{
+	
+}
+void ppm_cobra_update_freq_limit(unsigned int cluster, int limit)
+{
+	
+}
 /* Thermal policy */
 void mt_ppm_cpu_thermal_protect(unsigned int limited_power)
 {
@@ -61,17 +73,36 @@ unsigned int mt_ppm_thermal_get_max_power(void)
 {
 	return 0;
 }
-
+unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,unsigned int cluster_num, unsigned int percentage)
+{
+	return 0;
+}
 unsigned int mt_ppm_thermal_get_cur_power(void)
 {
 	return 0;
 }
+int ppm_get_max_pwr_idx(void)
+{
+	return 0;
+}
+int ppm_get_min_pwr_idx(void)
+{
+	return 0;
+}
+void ppm_update_req_by_pwr(struct ppm_policy_req *req)
+{
+	
+}
 
+extern void ppm_cobra_lookup_get_result(struct seq_file *m, enum ppm_cobra_lookup_type type)
+{
+	
+}
 int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 {
 	return 0;
 }
-
+struct ppm_cobra_lookup cobra_lookup_data;
 
 /* User limit policy */
 unsigned int mt_ppm_userlimit_cpu_core(unsigned int cluster_num,

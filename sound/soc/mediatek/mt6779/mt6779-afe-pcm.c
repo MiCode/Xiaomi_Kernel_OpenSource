@@ -24,7 +24,7 @@
 #include "mt6779-interconnection.h"
 
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#include "../audio_dsp/mtk-dsp-common.h"
+#include "../audio_dsp/v1/mtk-dsp-common.h"
 #endif
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 #include "../scp_spk/mtk-scp-spk-common.h"

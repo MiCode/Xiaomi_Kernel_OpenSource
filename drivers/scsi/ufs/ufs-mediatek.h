@@ -7,7 +7,10 @@
 #define _UFS_MEDIATEK_H
 
 #include <linux/bitops.h>
+#include <linux/pm_qos.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
+
 #include "ufshcd.h"
 
 /*
@@ -34,10 +37,10 @@
 /*
  * Vendor specific pre-defined parameters
  */
-#define UFS_MTK_LIMIT_NUM_LANES_RX  1
-#define UFS_MTK_LIMIT_NUM_LANES_TX  1
-#define UFS_MTK_LIMIT_HSGEAR_RX     UFS_HS_G3
-#define UFS_MTK_LIMIT_HSGEAR_TX     UFS_HS_G3
+#define UFS_MTK_LIMIT_NUM_LANES_RX  2
+#define UFS_MTK_LIMIT_NUM_LANES_TX  2
+#define UFS_MTK_LIMIT_HSGEAR_RX     UFS_HS_G4
+#define UFS_MTK_LIMIT_HSGEAR_TX     UFS_HS_G4
 #define UFS_MTK_LIMIT_PWMGEAR_RX    UFS_PWM_G4
 #define UFS_MTK_LIMIT_PWMGEAR_TX    UFS_PWM_G4
 #define UFS_MTK_LIMIT_RX_PWR_PWM    SLOW_MODE
@@ -82,7 +85,18 @@ enum ufs_mtk_host_quirks {
 	/*
 	 * Auto-hibern8 shall be disabled while doorbell is not empty
 	 */
-	UFS_MTK_HOST_QUIRK_BROKEN_AUTO_HIBERN8    = 1 << 0,
+	UFS_MTK_HOST_QUIRK_BROKEN_AUTO_HIBERN8 = BIT(0),
+
+	/*
+	 * This quirk needs to be enabled if we apply performance heuristic
+	 * to UFS host.
+	 */
+	UFS_MTK_HOST_QUIRK_UFS_HCI_PERF_HEURISTIC = BIT(1),
+
+	/*
+	 * This quirk needs to be enabled if VCC drop slow
+	 */
+	UFS_MTK_HOST_QUIRK_UFS_VCC_ALWAYS_ON = BIT(2),
 };
 
 /*
@@ -110,8 +124,23 @@ enum {
 	REF_CLK_HW_MODE         = 2
 };
 
+/*
+ * perf control mode
+ */
+enum perf_mode {
+	PERF_FORCE_DISABLE   = 0,
+	PERF_FORCE_ENABLE    = 1,
+	PERF_AUTO            = 2,
+};
+
 struct ufs_mtk_host_cfg {
 	enum ufs_mtk_host_quirks quirks;
+};
+
+struct ufs_mtk_hw_ver {
+	u8 step;
+	u8 minor;
+	u8 major;
 };
 
 struct ufs_mtk_host {
@@ -122,6 +151,7 @@ struct ufs_mtk_host {
 	struct reset_control *hci_reset;
 	struct reset_control *unipro_reset;
 	struct reset_control *crypto_reset;
+	struct ufs_mtk_hw_ver hw_ver;
 	bool mphy_powered_on;
 	bool unipro_lpm;
 	bool ref_clk_enabled;
@@ -129,6 +159,21 @@ struct ufs_mtk_host {
 	u16 ref_clk_ungating_wait_us;
 	u16 ref_clk_gating_wait_us;
 	u32 refclk_ctrl;
+
+	bool pm_qos_init;
+	struct pm_qos_request req_cpu_dma_latency;
+
+	/* performance mode */
+	enum perf_mode perf_mode;
+	bool perf_enable;
+	int crypto_vcore_opp;
+	struct clk *crypto_clk_mux;
+	struct clk *crypto_parent_clk_normal;
+	struct clk *crypto_parent_clk_perf;
+	struct mtk_pm_qos_request *req_vcore;
+
+	/* vufs regulator lpm */
+	bool vreg_lpm_supported;
 
 	/*
 	 * RPMB device
@@ -144,6 +189,8 @@ struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev(void);
 void ufs_mtk_rpmb_add(struct ufs_hba *hba, struct scsi_device *sdev_rpmb);
 void ufs_mtk_rpmb_remove(struct ufs_hba *hba);
 void ufs_mtk_rpmb_quiesce(struct ufs_hba *hba);
-int ufs_mtk_ioctl_rpmb(struct ufs_hba *hba, void __user *buf_user);
+int ufs_mtk_ioctl_rpmb(struct ufs_hba *hba, const void __user *buf_user);
+bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host);
+int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf);
 
 #endif /* !_UFS_MEDIATEK_H */

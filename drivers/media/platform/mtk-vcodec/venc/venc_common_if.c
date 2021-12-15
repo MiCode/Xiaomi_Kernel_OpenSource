@@ -414,26 +414,34 @@ static int venc_get_param(unsigned long handle,
 	inst->vcu_inst.ctx = inst->ctx;
 
 	switch (type) {
-	case GET_PARAM_CAPABILITY_FRAME_SIZES:
-	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
+	case VENC_GET_PARAM_CAPABILITY_FRAME_SIZES:
+	case VENC_GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
 		vcu_enc_query_cap(&inst->vcu_inst, type, out);
 		break;
-	case GET_PARAM_FREE_BUFFERS:
+	case VENC_GET_PARAM_FREE_BUFFERS:
 		if (inst->vsi == NULL)
 			return -EINVAL;
 		venc_get_free_buffers(inst, &inst->vsi->list_free, out);
 		break;
-	case GET_PARAM_ROI_RC_QP: {
+	case VENC_GET_PARAM_ROI_RC_QP: {
 		if (inst->vsi == NULL || out == NULL)
 			return -EINVAL;
 		*(int *)out = inst->vsi->config.roi_rc_qp;
 		break;
 	}
-	case GET_PARAM_RESOLUTION_CHANGE:
+	case VENC_GET_PARAM_RESOLUTION_CHANGE:
 		if (inst->vsi == NULL)
 			return -EINVAL;
 		venc_get_resolution_change(inst, &inst->vsi->config, out);
 		break;
+
+	case VENC_GET_PARAM_REFBUF_FRAME_NUM: {
+		if (inst->vsi == NULL || out == NULL)
+			return -EINVAL;
+		*(int *)out = inst->vsi->config.maxrefbufFrameNum;
+		break;
+	}
+
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);
 		ret = -EINVAL;
@@ -490,12 +498,14 @@ static int venc_set_param(unsigned long handle,
 			inst->vsi->config.frame_level_qp =
 				enc_prm->frame_level_qp;
 		}
+		inst->vsi->config.dummynal = enc_prm->dummynal;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,
 				enc_prm->color_desc,
 				sizeof(struct mtk_color_desc));
 		}
+		inst->vsi->config.maxrefpnum = enc_prm->maxrefpnum;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {
@@ -537,6 +547,8 @@ static int venc_set_param(unsigned long handle,
 			sizeof(struct mtk_color_desc));
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
 		break;
+	case VENC_SET_PARAM_LOG:
+		vcu_set_log(enc_prm->log);
 	default:
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
 		inst->ctx->async_mode = !(inst->vsi->sync_mode);

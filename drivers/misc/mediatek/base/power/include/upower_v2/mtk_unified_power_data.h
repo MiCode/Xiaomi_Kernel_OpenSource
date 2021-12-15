@@ -16,6 +16,14 @@
 #include "mtk_unified_power_data_mt6765.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6877)
+#include "mtk_unified_power_data_mt6877.h"
+#endif
+
+#if defined(CONFIG_MACH_MT6739)
+#include "mtk_unified_power_data_mt6739.h"
+#endif
+
 #if defined(CONFIG_MACH_MT6761)
 #include "mtk_unified_power_data_mt6761.h"
 #endif
@@ -28,4 +36,15 @@
 #include "mtk_unified_power_data_mt6779.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6781)
+#include "mtk_unified_power_data_mt6781.h"
+#endif
+
+#if defined(CONFIG_MACH_MT6768)
+#include "mtk_unified_power_data_mt6768.h"
+#endif
+
+#if defined(CONFIG_MACH_MT6833)
+#include "mtk_unified_power_data_mt6833.h"
+#endif
 #endif /* UNIFIED_POWER_DATA_H */

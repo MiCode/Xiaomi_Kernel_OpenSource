@@ -25,10 +25,10 @@
 #include <linux/uidgid.h>
 #include <ap_thermal_limit.h>
 #ifdef ATM_USES_PPM
-#ifdef CONFIG_MTK_PPM
+//#if defined(CONFIG_MTK_PPM) || defined(CONFIG_MACH_MT6781)
 #include "mtk_ppm_api.h"
 #include "mtk_ppm_platform.h"
-#endif
+
 #else
 #include "mt_cpufreq.h"
 #endif
@@ -484,6 +484,14 @@ mt_get_uartlog_status(void)
 {
 	return 0;
 }
+
+#if CLATM_USE_MIN_CPU_OPP
+int  __attribute__ ((weak))
+ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
+{
+	return 0;
+}
+#endif
 
 /*=============================================================*/
 

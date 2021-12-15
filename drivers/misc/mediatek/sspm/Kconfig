@@ -1,5 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+
 config MTK_TINYSYS_SSPM_SUPPORT
 	tristate "Specify Interface Support SSPM"
+	default n
 	help
 	  SSPM is a MediaTek in-house hardware for power management under
 	  secure world.
@@ -7,13 +10,36 @@ config MTK_TINYSYS_SSPM_SUPPORT
 	  If unsure, set N to stay with legancy feature.
 
 config MTK_TINYSYS_SSPM_PLT_SUPPORT
-	tristate "Specify Interface of SSPM on Platform"
+	bool "Specify Interface of SSPM on Platform"
+	default n
 	help
 	  SSPM is a MediaTek in-house hardware for power management based
 	  on platform.
 	  Set Y to enable this feature for specific platform.
 	  If unsure, set N to stay with legancy feature.
 
+config MTK_TINYSYS_SSPM_V2
+	bool "Specify Interface SSPM Version2"
+	help
+	  Set Interface SSPM Version as V2.
+	  V2 is based on Tinysys IPI mechanism.
+	  Set Y to enable this feature.
+	  If unsure, set N to stay with original feature.
+
+config MTK_TINYSYS_SSPM_V3
+	bool "Specify Interface SSPM Version3"
+	help
+	  Set Interface SSPM Version as V3.
+	  V3 is based on SCMI mechanism.
+	  Set Y to enable this feature.
+	  If unsure, set N to stay with original feature.
+
 config MTK_MET_MEM_ALLOC
 	bool "Using dynamic allocate memory for MET"
 
+config MTK_TINYSYS_SSPM_VERSION
+	string "Support MTK SSPM Driver Version"
+	depends on MTK_TINYSYS_SSPM_SUPPORT
+	default ""
+	help
+	  MTK_TINYSYS_SSPM_VERSION define which sspm version will be used

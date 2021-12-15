@@ -380,7 +380,6 @@ static int st7789v_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, ctx);
 	ctx->spi = spi;
 
-	drm_panel_init(&ctx->panel);
 	ctx->panel.dev = &spi->dev;
 	ctx->panel.funcs = &st7789v_drm_funcs;
 
@@ -420,6 +419,7 @@ static int st7789v_remove(struct spi_device *spi)
 {
 	struct st7789v *ctx = spi_get_drvdata(spi);
 
+	drm_panel_detach(&ctx->panel);
 	drm_panel_remove(&ctx->panel);
 
 	if (ctx->backlight)

@@ -263,8 +263,3 @@ void cldma_plat_resume(unsigned char md_id)
 	}
 }
 
-
-
-
-
-

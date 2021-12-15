@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
+
 /*****************************************************************************
  *
  * Filename:
@@ -191,7 +192,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] = {
 	{1600, 1200, 0, 0, 1600, 1200, 1600, 1200,
 		0000, 0000, 1600, 1200, 0, 0, 1600, 1200},	/* video */
 	{1600, 1200, 0, 0, 1600, 1200, 1600, 1200,
-		0000, 0000, 1600, 1200, 0, 0, 1600, 1200},/*hight speed video*/
+		0000, 0000, 1600, 1200, 0, 0, 1600, 1200},	/* hight speed video */
 	{1600, 1200, 160, 240, 1280, 720, 1280,
 		720, 0000, 0000, 1280, 720, 0, 0, 1280, 720}
 };				/* slim video */
@@ -394,8 +395,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 		temp = iReg;
 		write_cmos_sensor(0xb1, temp >> 6);
 		write_cmos_sensor(0xb2, (temp << 2) & 0xfc);
-		LOG_INF(
-		"GC2365MIPI analogic gain 1x, GC2365MIPI add pregain = %d\n",
+		LOG_INF("GC2365MIPI analogic gain 1x, GC2365MIPI add pregain = %d\n",
 			temp);
 	} else if ((iReg >= ANALOG_GAIN_2) && (iReg < ANALOG_GAIN_3)) {
 		write_cmos_sensor(0xfe, 0x00);
@@ -405,8 +405,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 		temp = 64 * iReg / ANALOG_GAIN_2;
 		write_cmos_sensor(0xb1, temp >> 6);
 		write_cmos_sensor(0xb2, (temp << 2) & 0xfc);
-		LOG_INF(
-		"GC2365MIPI analogic gain 1.375x , GC2365MIPI add pregain = %d\n",
+		LOG_INF("GC2365MIPI analogic gain 1.375x , GC2365MIPI add pregain = %d\n",
 			temp);
 	} else if ((iReg >= ANALOG_GAIN_3) && (iReg < ANALOG_GAIN_4)) {
 		write_cmos_sensor(0xfe, 0x00);
@@ -416,8 +415,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 		temp = 64 * iReg / ANALOG_GAIN_3;
 		write_cmos_sensor(0xb1, temp >> 6);
 		write_cmos_sensor(0xb2, (temp << 2) & 0xfc);
-		LOG_INF(
-		 "GC2365MIPI analogic gain 1.891x , GC2365MIPI add pregain = %d\n",
+		LOG_INF("GC2365MIPI analogic gain 1.891x , GC2365MIPI add pregain = %d\n",
 			temp);
 	} else if ((iReg >= ANALOG_GAIN_4) && (iReg < ANALOG_GAIN_5)) {
 		write_cmos_sensor(0xfe, 0x00);
@@ -437,8 +435,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 		temp = 64 * iReg / ANALOG_GAIN_5;
 		write_cmos_sensor(0xb1, temp >> 6);
 		write_cmos_sensor(0xb2, (temp << 2) & 0xfc);
-		LOG_INF(
-                  "GC2365MIPI analogic gain 3.734x , GC2365MIPI add pregain = %d\n",
+		LOG_INF("GC2365MIPI analogic gain 3.734x , GC2365MIPI add pregain = %d\n",
 			temp);
 	} else if ((iReg >= ANALOG_GAIN_6) && (iReg < ANALOG_GAIN_7)) {
 		write_cmos_sensor(0xfe, 0x00);
@@ -448,8 +445,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 		temp = 64 * iReg / ANALOG_GAIN_6;
 		write_cmos_sensor(0xb1, temp >> 6);
 		write_cmos_sensor(0xb2, (temp << 2) & 0xfc);
-		LOG_INF(
-                  "GC2365MIPI analogic gain 5.250x , GC2365MIPI add pregain = %d\n",
+		LOG_INF("GC2365MIPI analogic gain 5.250x , GC2365MIPI add pregain = %d\n",
 			temp);
 	} else {
 		write_cmos_sensor(0xfe, 0x00);
@@ -459,8 +455,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 		temp = 64 * iReg / ANALOG_GAIN_7;
 		write_cmos_sensor(0xb1, temp >> 6);
 		write_cmos_sensor(0xb2, (temp << 2) & 0xfc);
-		LOG_INF(
-                  "GC2365MIPI analogic gain 7.516x , GC2365MIPI add pregain = %d\n",
+		LOG_INF("GC2365MIPI analogic gain 7.516x , GC2365MIPI add pregain = %d\n",
 			temp);
 	}
 	return gain;
@@ -881,13 +876,11 @@ static kal_uint32 open(void)
 		do {
 			sensor_id = return_sensor_id();
 			if (sensor_id == imgsensor_info.sensor_id) {
-				LOG_INF(
-                                  "i2c write id: 0x%x, sensor id: 0x%x\n",
+				LOG_INF("i2c write id: 0x%x, sensor id: 0x%x\n",
 					imgsensor.i2c_write_id, sensor_id);
 				break;
 			}
-			LOG_INF(
-                          "Read sensor id fail, write id: 0x%x, id: 0x%x\n",
+			LOG_INF("Read sensor id fail, write id: 0x%x, id: 0x%x\n",
 				imgsensor.i2c_write_id, sensor_id);
 			retry--;
 		} while (retry > 0);
@@ -1017,8 +1010,8 @@ static kal_uint32 capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		imgsensor.autoflicker_en = KAL_FALSE;
 	} else {
 		if (imgsensor.current_fps != imgsensor_info.cap.max_framerate)
-			LOG_INF(
-                  "Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n",
+			LOG_INF
+			    ("Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n",
 			    imgsensor.current_fps,
 				imgsensor_info.cap.max_framerate / 10);
 		imgsensor.pclk = imgsensor_info.cap.pclk;
@@ -1360,7 +1353,7 @@ static kal_uint32 set_max_framerate_by_scenario(
 			    imgsensor_info.cap1.framelength) ? (frame_length -
 				imgsensor_info.cap1.framelength) : 0;
 			imgsensor.frame_length =
-			 imgsensor_info.cap1.framelength + imgsensor.dummy_line;
+			    imgsensor_info.cap1.framelength + imgsensor.dummy_line;
 			imgsensor.min_frame_length = imgsensor.frame_length;
 			spin_unlock(&imgsensor_drv_lock);
 		} else {
@@ -1368,8 +1361,7 @@ static kal_uint32 set_max_framerate_by_scenario(
 				imgsensor_info.cap.max_framerate)
 				LOG_INF(
 					"Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n",
-				framerate,
-				imgsensor_info.cap.max_framerate / 10);
+				    framerate, imgsensor_info.cap.max_framerate / 10);
 			frame_length =
 			    imgsensor_info.cap.pclk / framerate * 10 /
 			    imgsensor_info.cap.linelength;
@@ -1379,7 +1371,7 @@ static kal_uint32 set_max_framerate_by_scenario(
 			    imgsensor_info.cap.framelength) ? (frame_length -
 				imgsensor_info.cap.framelength) : 0;
 			imgsensor.frame_length =
-			  imgsensor_info.cap.framelength + imgsensor.dummy_line;
+			    imgsensor_info.cap.framelength + imgsensor.dummy_line;
 			imgsensor.min_frame_length = imgsensor.frame_length;
 			spin_unlock(&imgsensor_drv_lock);
 		}

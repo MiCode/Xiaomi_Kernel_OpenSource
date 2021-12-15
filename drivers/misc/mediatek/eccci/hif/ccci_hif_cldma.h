@@ -448,6 +448,10 @@ static inline int ccci_cldma_hif_set_wakeup_src(unsigned char hif_id,
 		return -1;
 
 }
+int md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir);
+int cldma_stop_for_ee(unsigned char hif_id);
+int md_cldma_allQreset_work(unsigned char hif_id);
+int md_cldma_clear(unsigned char hif_id);
 
 extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);

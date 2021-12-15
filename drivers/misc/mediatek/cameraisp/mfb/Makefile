@@ -22,6 +22,19 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
+ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
-obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += $(MTK_PLATFORM)/camera_mfb.o
+obj-y := camera_mfb_dummy.o
+
+ifeq ($(CONFIG_MACH_MT6833),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 3
+endif
+
+subdir-ccflags-y += -DMTK_MFB_REG_VERSION=$(MTK_MFB_REG_VERSION)
+
+#obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += $(MTK_PLATFORM)/camera_mfb.o
 

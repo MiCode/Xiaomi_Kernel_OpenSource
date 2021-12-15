@@ -26,7 +26,7 @@
 #define MMC_STATE_DOING_BKOPS	(1<<5)		/* card is doing BKOPS */
 #define MMC_STATE_SUSPENDED	(1<<6)		/* card is suspended */
 
-#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 #define MMC_STATE_CMDQ		(1<<12)         /* card is in cmd queue mode */
 #endif
 
@@ -48,7 +48,7 @@
 #define mmc_card_set_suspended(c) ((c)->state |= MMC_STATE_SUSPENDED)
 #define mmc_card_clr_suspended(c) ((c)->state &= ~MMC_STATE_SUSPENDED)
 
-#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 #define mmc_card_cmdq(c)       ((c) && ((c)->state & MMC_STATE_CMDQ))
 #define mmc_card_set_cmdq(c)           ((c)->state |= MMC_STATE_CMDQ)
 #define mmc_card_clr_cmdq(c)           ((c)->state &= ~MMC_STATE_CMDQ)

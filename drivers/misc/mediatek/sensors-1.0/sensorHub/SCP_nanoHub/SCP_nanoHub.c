@@ -145,6 +145,10 @@ void __attribute__((weak)) scp_register_feature(enum feature_id id)
 {
 }
 
+void __attribute__((weak)) scp_A_unregister_notify(struct notifier_block *nb)
+{
+}
+
 /* arch counter is 13M, mult is 161319385, shift is 21 */
 static inline uint64_t arch_counter_to_ns(uint64_t cyc)
 {

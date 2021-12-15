@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -41,7 +42,9 @@ struct secmem_param {
 #define CMD_SEC_MEM_FORCE_HW_PROTECTION 104
 #define CMD_SEC_MEM_SET_MCHUNKS_REGION 105
 #define CMD_2D_FR_SMEM_DUMP_MEM_INFO 106
-#define CMD_SEC_MEM_INVOKE_CMD_END 106
+#define CMD_SEC_MEM_SET_SVP_REGION 107
+#define CMD_SEC_MEM_SET_WFD_REGION 108
+#define CMD_SEC_MEM_INVOKE_CMD_END 108
 #define CMD_SEC_MEM_DUMP_INFO 255
 #define CMD_SEC_MEM_INVALID (0xFFFFFFFF)
 

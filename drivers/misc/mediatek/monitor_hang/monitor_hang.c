@@ -411,12 +411,8 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	if (cmd == HANG_SET_REBOOT) {
 		reboot_flag = true;
-#ifdef CONFIG_MTK_ENG_BUILD
-		hang_detect_counter = 3;
-#else
-		hang_detect_counter = 1;
-#endif
-		hd_timeout = 3;
+		hang_detect_counter = 5;
+		hd_timeout = 5;
 		hd_detect_enabled = true;
 		pr_info("hang_detect: %s set reboot command.\n", current->comm);
 		return ret;

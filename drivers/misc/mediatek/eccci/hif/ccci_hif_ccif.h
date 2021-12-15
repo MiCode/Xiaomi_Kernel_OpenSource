@@ -10,12 +10,21 @@
 #include <linux/dmapool.h>
 #include <linux/atomic.h>
 #include "mt-plat/mtk_ccci_common.h"
+#include "ccci_config.h"
 #include "ccci_ringbuf.h"
 #include "ccci_core.h"
 #include "ccci_modem.h"
 #include "ccci_hif_internal.h"
 
+#if (MD_GENERATION >= 6295)
 #define QUEUE_NUM   16
+#else
+#define QUEUE_NUM   8
+#endif
+
+/* speciall for user: ccci_fsd data[0] */
+#define CCCI_FS_AP_CCCI_WAKEUP (0x40000000)
+#define CCCI_FS_REQ_SEND_AGAIN 0x80000000
 
 /*#define FLOW_CTRL_ENABLE*/
 #define FLOW_CTRL_HEAD		0x464C4F57	/*FLOW*/
@@ -98,12 +107,14 @@ struct md_ccif_ctrl {
 	void __iomem *ccif_md_base;
 	void __iomem *md_pcore_pccif_base;
 	void __iomem *md_ccif4_base;
+	void __iomem *md_ccif5_base;
 	unsigned int ap_ccif_irq0_id;
 	unsigned int ap_ccif_irq1_id;
 	unsigned long ap_ccif_irq0_flags;
 	unsigned long ap_ccif_irq1_flags;
 	atomic_t ccif_irq_enabled;
 	atomic_t ccif_irq1_enabled;
+	unsigned long wakeup_ch;
 	atomic_t wakeup_src;
 	unsigned int wakeup_count;
 
@@ -119,6 +130,7 @@ struct md_ccif_ctrl {
 	struct ccci_hif_ops *ops;
 	struct platform_device *plat_dev;
 	struct ccci_hif_ccif_val plat_val;
+	unsigned long long isr_cnt[CCIF_CH_NUM];
 };
 
 static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,
@@ -241,10 +253,21 @@ static inline int ccci_ccif_hif_set_wakeup_src(unsigned char hif_id, int value)
 {
 	struct md_ccif_ctrl *md_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	unsigned int ccif_rx_ch = 0;
 
-	if (md_ctrl)
+	if (md_ctrl) {
+
+		if (md_ctrl->ccif_ap_base)
+			ccif_rx_ch = ccif_read32(md_ctrl->ccif_ap_base,
+					APCCIF_RCHNUM);
+		CCCI_NORMAL_LOG(0, "WK", "CCIF RX bitmap:0x%x\r\n",
+				ccif_rx_ch);
+#if (MD_GENERATION >= 6297)
+		if (ccif_rx_ch & AP_MD_CCB_WAKEUP)
+			mtk_ccci_ccb_info_peek();
+#endif
 		return atomic_set(&md_ctrl->wakeup_src, value);
-	else
+	} else
 		return -1;
 }
 
@@ -281,15 +304,12 @@ void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start);
 void ccif_polling_ready(unsigned char hif_id, int step);
 
 void md_ccif_sram_reset(unsigned char hif_id);
-//int md_ccif_ring_buf_init(unsigned char hif_id);
+int md_ccif_ring_buf_init(unsigned char hif_id);
 void md_ccif_switch_ringbuf(unsigned char hif_id, enum ringbuf_id rb_id);
 void ccci_reset_ccif_hw(unsigned char md_id,
 			int ccif_id, void __iomem *baseA,
 			void __iomem *baseB,
 			struct md_ccif_ctrl *md_ctrl);
-
-
-//int md_ccif_send(unsigned char hif_id, int channel_id);
 
 /* always keep this in mind:
  * what if there are more than 1 modems using CLDMA...

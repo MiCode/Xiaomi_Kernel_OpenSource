@@ -144,12 +144,12 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 	.slim_video = {/*data rate 1836 Mbps/lane */
 		.pclk = 580000000,
-		.linelength = 2560,
-		.framelength = 7552,
+		.linelength = 5120,
+		.framelength = 3776,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 1920,
-		.grabwindow_height = 1080,
+		.grabwindow_width = 2328,
+		.grabwindow_height = 1746,
 		.mipi_data_lp2hs_settle_dc = 85,
 		.mipi_pixel_rate = 734400000,
 		.max_framerate = 300,
@@ -245,8 +245,27 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	0000, 0000, 4656, 2608, 0, 0, 4656, 2608},	/*Video*/
 	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
 	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*hs-video*/
-	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
-	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*slim video*/
+	{4656, 3496, 0, 0, 4656, 3496, 2328, 1748,
+	0000, 0000, 2328, 1748, 0, 0, 2328, 1746},	/*slim video*/
+};
+
+static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
+	/* Preview mode setting */
+	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x0918, 0x06d2, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0000, 0x0000},
+	/* Capture mode setting */
+	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x1230, 0x0da4, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0000, 0x0000},
+	/* Video mode setting */
+	{0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x1230, 0x0a30, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0000, 0x0000},
+	/* hs & slim mode setting */
+	{0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x780, 0x438, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0000, 0x0000}
 };
 
 static kal_uint16 read_cmos_sensor(kal_uint32 addr)
@@ -608,6 +627,29 @@ static kal_uint16 set_gain(kal_uint16 gain)
 
 	return gain;
 } /* set_gain */
+
+#if 0
+static void set_mirror_flip(kal_uint8 image_mirror)
+{
+	switch (image_mirror) {
+	case IMAGE_NORMAL:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+
+	case IMAGE_V_MIRROR:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+
+	case IMAGE_H_MIRROR:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+
+	case IMAGE_HV_MIRROR:
+		write_cmos_sensor(0x0101, image_mirror);
+		break;
+	}
+}
+#endif
 
 /************************************************************************
  * FUNCTION
@@ -1183,20 +1225,20 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0x0113, 0x0A,
 	0x0114, 0x03,
 	/* Line Length PCK Setting */
-	0x0342, 0x0A,
+	0x0342, 0x14,
 	0x0343, 0x00,
 	/* Frame Length Lines Setting */
-	0x0340, 0x1D,
-	0x0341, 0x80,
+	0x0340, 0x0E,
+	0x0341, 0xC0,
 	/* ROI Setting */
 	0x0344, 0x00,
 	0x0345, 0x00,
-	0x0346, 0x02,
-	0x0347, 0x98,
+	0x0346, 0x00,
+	0x0347, 0x00,
 	0x0348, 0x12,
 	0x0349, 0x2F,
-	0x034A, 0x0B,
-	0x034B, 0x07,
+	0x034A, 0x0D,
+	0x034B, 0xA7,
 	/* Mode Setting */
 	0x0381, 0x01,
 	0x0383, 0x01,
@@ -1206,21 +1248,21 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0x0901, 0x22,
 	0x0902, 0x0A,
 	0x3F4C, 0x01,
-	0x3F4D, 0x01,
+	0x3F4D, 0x03,
 	/* Digital Crop & Scaling */
 	0x0408, 0x00,
-	0x0409, 0xCC,
+	0x0409, 0x00,
 	0x040A, 0x00,
 	0x040B, 0x00,
-	0x040C, 0x07,
-	0x040D, 0x80,
-	0x040E, 0x04,
-	0x040F, 0x38,
+	0x040C, 0x09,
+	0x040D, 0x18,
+	0x040E, 0x06,
+	0x040F, 0xD4,
 	/* Output Size Setting */
-	0x034C, 0x07,
-	0x034D, 0x80,
-	0x034E, 0x04,
-	0x034F, 0x38,
+	0x034C, 0x09,
+	0x034D, 0x18,
+	0x034E, 0x06,
+	0x034F, 0xD4,
 	/* Clock Setting */
 	0x0301, 0x06,
 	0x0303, 0x02,
@@ -1238,9 +1280,9 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0x3E3B, 0x00,
 	/* Other Setting */
 	0x3F78, 0x02,
-	0x3F79, 0xA8,
+	0x3F79, 0x0A,
 	0x3FFE, 0x00,
-	0x3FFF, 0x88,
+	0x3FFF, 0x0F,
 	0x5F0A, 0xB2,
 	0xA828, 0x02,
 	0xA829, 0x02,
@@ -1249,8 +1291,8 @@ kal_uint16 addr_data_pair_slim_video_imx481[] = {
 	0xB2DF, 0x12,
 	0xB2E5, 0x06,
 	/* Integration Setting */
-	0x0202, 0x1D,
-	0x0203, 0x6E,
+	0x0202, 0x0E,
+	0x0203, 0xAE,
 	/* Gain Setting */
 	0x0204, 0x00,
 	0x0205, 0x00,
@@ -2098,12 +2140,31 @@ static kal_uint32 get_sensor_temperature(void)
 	return temperature_convert;
 }
 
+static void check_stream_is_on(void)
+{
+	int i = 0;
+	UINT32 framecnt;
+	int timeout = (10000/imgsensor.current_fps)+1;
+
+	for (i = 0; i < timeout; i++) {
+
+		framecnt = read_cmos_sensor(0x0005);
+		if (framecnt != 0xFF) {
+			pr_debug("IMX481 stream is on, %d \\n", framecnt);
+			break;
+		}
+		pr_debug("IMX481 stream is not on %d \\n", framecnt);
+		mdelay(1);
+	}
+}
+
 static kal_uint32 streaming_control(kal_bool enable)
 {
 	pr_debug("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
-	if (enable)
+	if (enable) {
 		write_cmos_sensor(0x0100, 0X01);
-	else
+		check_stream_is_on();
+	} else
 		write_cmos_sensor(0x0100, 0x00);
 	return ERROR_NONE;
 }
@@ -2117,7 +2178,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	UINT32 *feature_data_32 = (UINT32 *) feature_para;
 	INT32 *feature_return_para_i32 = (INT32 *) feature_para;
 	unsigned long long *feature_data = (unsigned long long *)feature_para;
-
+	struct SENSOR_VC_INFO_STRUCT *pvcinfo;
 	struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
 	struct SET_SENSOR_AWB_GAIN *pSetSensorAWB =
 		(struct SET_SENSOR_AWB_GAIN *) feature_para;
@@ -2173,6 +2234,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			break;
 		}
 		break;
+#ifdef IMGSENSOR_MT6885
+	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
+		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1500000;
+		break;
+#endif
 	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
@@ -2276,6 +2342,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
+	#if 0
+		pr_debug("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
+			(UINT32) *feature_data);
+	#endif
+
 		wininfo =
 	(struct SENSOR_WINSIZE_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
 
@@ -2386,7 +2457,34 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		/* margin info by scenario */
 		*(feature_data + 2) = imgsensor_info.margin;
 		break;
+	case SENSOR_FEATURE_GET_VC_INFO:
+		pr_info("SENSOR_FEATURE_GET_VC_INFO %d\n",
+			(UINT16) (*feature_data));
 
+		pvcinfo =
+	    (struct SENSOR_VC_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
+
+		switch (*feature_data_32) {
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[1],
+			       sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[2],
+			       sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[3],
+			       sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_SLIM_VIDEO:
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+		default:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
+			       sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		}
+		break;
 	default:
 		break;
 	}

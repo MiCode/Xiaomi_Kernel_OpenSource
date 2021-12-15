@@ -16,9 +16,22 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #endif
+#include <memory/mediatek/emi.h>
+#include "ccci_config.h"
+#if (MD_GENERATION >= 6297)
+#include <mt-plat/mtk_ccci_common.h>
+#include "modem_secure_base.h"
+#endif
+
+#ifdef CCCI_PLATFORM_MT6781
+#include "modem_sys.h"
+#include "md_sys1_platform.h"
+#include "modem_reg_base.h"
+#endif
 
 #include "ccci_fsm_internal.h"
 #include "ccci_platform.h"
+
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -29,6 +42,22 @@ static void fsm_finish_event(struct ccci_fsm_ctl *ctl,
 
 static int needforcestop;
 
+static int s_is_normal_mdee;
+static int s_devapc_dump_counter;
+
+static void (*s_md_state_cb)(enum MD_STATE old_state,
+				enum MD_STATE new_state);
+
+int mtk_ccci_register_md_state_cb(
+		void (*md_state_cb)(
+			enum MD_STATE old_state,
+			enum MD_STATE new_state))
+{
+	s_md_state_cb = md_state_cb;
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_ccci_register_md_state_cb);
 
 int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 {
@@ -42,7 +71,7 @@ int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 			__func__);
 		return -1;
 	}
-	needforcestop = 1;
+
 	ret = fsm_append_command(ctl, CCCI_COMMAND_STOP, 0);
 	CCCI_NORMAL_LOG(monitor_ctl->md_id, FSM,
 			"force md stop\n");
@@ -92,6 +121,8 @@ static struct ccci_fsm_command *fsm_check_for_ee(struct ccci_fsm_ctl *ctl,
 static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 	enum MD_STATE state)
 {
+	enum MD_STATE old_state;
+
 	if (unlikely(ctl->md_state != BOOT_WAITING_FOR_HS2 && state == READY)) {
 		CCCI_NORMAL_LOG(ctl->md_id, FSM,
 		"ignore HS2 when md_state=%d\n",
@@ -100,8 +131,10 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 	}
 
 	CCCI_NORMAL_LOG(ctl->md_id, FSM,
-	"md_state change from %d to %d\n",
-	ctl->md_state, state);
+			"md_state change from %d to %d\n",
+			ctl->md_state, state);
+
+	old_state = ctl->md_state;
 	ctl->md_state = state;
 
 	/* update to port first,
@@ -112,6 +145,11 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	schedule_work(&ctl->scp_ctl.scp_md_state_sync_work);
 #endif
+
+	if (old_state != state &&
+		s_md_state_cb != NULL)
+		s_md_state_cb(old_state, state);
+
 	return 0;
 }
 
@@ -145,6 +183,23 @@ static void fsm_routine_zombie(struct ccci_fsm_ctl *ctl)
 	}
 	spin_unlock_irqrestore(&ctl->event_lock, flags);
 
+}
+
+
+
+int ccci_fsm_is_normal_mdee(void)
+{
+	return s_is_normal_mdee;
+}
+
+int ccci_fsm_increase_devapc_dump_counter(void)
+{
+	return (++ s_devapc_dump_counter);
+}
+
+void __weak mtk_clear_md_violation(void)
+{
+	CCCI_ERROR_LOG(-1, FSM, "[%s] is not supported!\n", __func__);
 }
 
 /* cmd is not NULL only when reason is ordinary EE */
@@ -207,6 +262,11 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		 */
 		ccci_md_exception_handshake(ctl->md_id,
 			MD_EX_CCIF_TIMEOUT);
+#if (MD_GENERATION >= 6297)
+#ifndef MTK_EMI_MPU_DISABLE
+		mtk_clear_md_violation();
+#endif
+#endif
 		count = 0;
 		while (count < MD_EX_REC_OK_TIMEOUT/EVENT_POLL_INTEVAL) {
 			spin_lock_irqsave(&ctl->event_lock, flags);
@@ -258,6 +318,21 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		fsm_finish_command(ctl, cmd, 1);
 }
 
+#if (MD_GENERATION >= 6297)
+static void fsm_dump_boot_status(int md_id)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL,
+		MD_POWER_CONFIG, MD_BOOT_STATUS,
+		0, 0, 0, 0, 0, &res);
+
+	CCCI_NORMAL_LOG(md_id, FSM,
+		"[%s] AP: boot_ret=%lu, boot_status_0=%lX, boot_status_1=%lX\n",
+		__func__, res.a0, res.a1, res.a2);
+}
+#endif
+
 static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd)
 {
@@ -280,8 +355,8 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	__pm_stay_awake(ctl->wakelock);
 	/* 2. poll for critical users exit */
 	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
-		if ((ccci_port_check_critical_user(ctl->md_id) == 0) ||
-			ccci_port_critical_user_only_fsd(ctl->md_id)) {
+		if (ccci_port_check_critical_user(ctl->md_id) == 0 ||
+				ccci_port_critical_user_only_fsd(ctl->md_id)) {
 			user_exit = 1;
 			break;
 		}
@@ -309,6 +384,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	/* 3. action and poll event queue */
 	ccci_md_pre_start(ctl->md_id);
 	fsm_broadcast_state(ctl, BOOT_WAITING_FOR_HS1);
+
 	ret = ccci_md_start(ctl->md_id);
 	if (ret)
 		goto fail;
@@ -321,6 +397,9 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 						struct ccci_fsm_event, entry);
 			if (event->event_id == CCCI_EVENT_HS1) {
 				hs1_got = 1;
+#if (MD_GENERATION >= 6297)
+				fsm_dump_boot_status(ctl->md_id);
+#endif
 				fsm_broadcast_state(ctl, BOOT_WAITING_FOR_HS2);
 
 				if (event->length
@@ -423,6 +502,7 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 		fsm_routine_zombie(ctl);
 		return;
 	}
+	__pm_stay_awake(ctl->wakelock);
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_STOPPING;
 	/* 2. pre-stop: polling MD for infinit sleep mode */
@@ -460,6 +540,7 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 		fsm_finish_event(ctl, event);
 	}
 	spin_unlock_irqrestore(&ctl->event_lock, flags);
+	__pm_relax(ctl->wakelock);
 	/* 6. always end in stopped state */
 success:
 	needforcestop = 0;
@@ -493,6 +574,11 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 		= ccci_md_get_smem_by_user_id(ctl->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
 	int ret;
+#ifdef CCCI_PLATFORM_MT6781
+			struct ccci_modem *md = NULL;
+			struct md_sys1_info *md_info = NULL;
+			struct md_pll_reg *md_reg = NULL;
+#endif
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
 	if (node) {
@@ -508,10 +594,44 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 			"[%s] error: not found the mediatek,mddriver\n",
 			__func__);
 
+#ifdef CCCI_PLATFORM_MT6781
+	md = ccci_md_get_modem_by_id(ctl->md_id);
+	if (md)
+		md_info = (struct md_sys1_info *)md->private_data;
+	else {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md fail\n", __func__);
+		return;
+	}
+	if (md_info)
+		md_reg = md_info->md_pll_base;
+	else {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md private_data fail\n", __func__);
+		return;
+	}
+	if (!md_reg) {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md_reg fail\n", __func__);
+		return;
+	}
+	if (!md_reg->md_l2sram_base) {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s: get md_l2sram_base fail\n", __func__);
+		return;
+	}
+#endif
+
 	if (ctl->md_id == MD_SYS1)
+#ifdef CCCI_PLATFORM_MT6781
+		is_epon_set =
+			*((int *)(md_reg->md_l2sram_base
+				+ CCCI_EE_OFFSET_EPON_MD1)) == 0xBAEBAE10;
+#else
 		is_epon_set =
 			*((int *)(mdss_dbg->base_ap_view_vir
 				+ offset_apon_md1)) == 0xBAEBAE10;
+#endif
 	else if (ctl->md_id == MD_SYS3)
 		is_epon_set = *((int *)(mdss_dbg->base_ap_view_vir
 			+ CCCI_EE_OFFSET_EPON_MD3))
@@ -545,10 +665,14 @@ static int fsm_main_thread(void *data)
 	struct ccci_fsm_ctl *ctl = (struct ccci_fsm_ctl *)data;
 	struct ccci_fsm_command *cmd = NULL;
 	unsigned long flags;
+	int ret;
 
-	while (1) {
-		wait_event(ctl->command_wq,
+	while (!kthread_should_stop()) {
+		ret = wait_event_interruptible(ctl->command_wq,
 			!list_empty(&ctl->command_queue));
+		if (ret == -ERESTARTSYS)
+			continue;
+
 		spin_lock_irqsave(&ctl->command_lock, flags);
 		cmd = list_first_entry(&ctl->command_queue,
 			struct ccci_fsm_command, entry);
@@ -560,6 +684,10 @@ static int fsm_main_thread(void *data)
 
 		CCCI_NORMAL_LOG(ctl->md_id, FSM,
 			"command %d process\n", cmd->cmd_id);
+
+		s_is_normal_mdee = 0;
+		s_devapc_dump_counter = 0;
+
 		switch (cmd->cmd_id) {
 		case CCCI_COMMAND_START:
 			fsm_routine_start(ctl, cmd);
@@ -571,6 +699,7 @@ static int fsm_main_thread(void *data)
 			fsm_routine_wdt(ctl, cmd);
 			break;
 		case CCCI_COMMAND_EE:
+			s_is_normal_mdee = 1;
 			fsm_routine_exception(ctl, cmd, EXCEPTION_EE);
 			break;
 		case CCCI_COMMAND_MD_HANG:
@@ -593,6 +722,7 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd = NULL;
 	int result = 0;
 	unsigned long flags;
+	int ret;
 
 	if (cmd_id <= CCCI_COMMAND_INVALID
 			|| cmd_id >= CCCI_COMMAND_MAX) {
@@ -628,12 +758,19 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 	 */
 	wake_up(&ctl->command_wq);
 	if (flag & FSM_CMD_FLAG_WAIT_FOR_COMPLETE) {
-		wait_event(cmd->complete_wq, cmd->complete != 0);
-		if (cmd->complete != 1)
-			result = -1;
-		spin_lock_irqsave(&ctl->cmd_complete_lock, flags);
-		kfree(cmd);
-		spin_unlock_irqrestore(&ctl->cmd_complete_lock, flags);
+		while (1) {
+			ret = wait_event_interruptible(cmd->complete_wq,
+				cmd->complete != 0);
+			if (ret == -ERESTARTSYS)
+				continue;
+
+			if (cmd->complete != 1)
+				result = -1;
+			spin_lock_irqsave(&ctl->cmd_complete_lock, flags);
+			kfree(cmd);
+			spin_unlock_irqrestore(&ctl->cmd_complete_lock, flags);
+			break;
+		}
 	}
 	return result;
 }

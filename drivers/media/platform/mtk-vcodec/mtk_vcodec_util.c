@@ -12,6 +12,11 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 #include "mtk_vcodec_dec.h"
+#include "vdec_drv_if.h"
+#include "venc_drv_if.h"
+
+#define LOG_INFO_SIZE 64
+#define MAX_SUPPORTED_LOG_PARAMS_COUNT 12
 
 /* For encoder, this will enable logs in venc/*/
 bool mtk_vcodec_dbg;
@@ -161,8 +166,13 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 		mutex_lock(&ctx->buf_lock);
 		for (i = 0; i < dst_vb2_v4l2->vb2_buf.num_planes; i++) {
 			pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
+#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
+			pfb->fb_base[i].dma_addr =
+				mtk_vb2_dma_contig_plane_dma_addr(dst_buf, i);
+#else
 			pfb->fb_base[i].dma_addr =
 				vb2_dma_contig_plane_dma_addr(dst_buf, i);
+#endif
 			pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
 			pfb->fb_base[i].length = dst_buf->planes[i].length;
 			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
@@ -222,4 +232,93 @@ void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 	v4l2_m2m_buf_queue(m2m_ctx, vbuf);
 }
 EXPORT_SYMBOL(v4l2_m2m_buf_queue_check);
+
+void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, char *val)
+{
+	int i, argc = 0, ret = 0, argcMex = 0;
+	//char argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2][LOG_INFO_SIZE] = {0};
+	char *argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2];
+	char *temp = NULL;
+	char *token = NULL;
+	int max_cpy_len = 0;
+	long temp_val = 0;
+	char vcu_log[LOG_INFO_SIZE] = {0};
+	struct venc_enc_param enc_prm;
+
+	pr_info("%s: %s", __func__, val);
+
+	if (val == NULL) {
+		mtk_v4l2_err("cannot set log due to input is null");
+		return;
+	}
+
+	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++)
+		argv[i] = kzalloc(LOG_INFO_SIZE, GFP_KERNEL);
+
+	temp = val;
+	for (token = strsep(&temp, " "); token != NULL; token = strsep(&temp, " ")) {
+		max_cpy_len = strnlen(token, LOG_INFO_SIZE - 1);
+		if (argc >= 0 && argv[argc]) {
+			argcMex = (LOG_INFO_SIZE-1 > max_cpy_len) ?
+				max_cpy_len : (LOG_INFO_SIZE-2);
+			strncpy(argv[argc], token, argcMex);
+			argv[argc][argcMex+1] = '\0';
+		}
+		argc++;
+		if (argc >= MAX_SUPPORTED_LOG_PARAMS_COUNT * 2)
+			break;
+	}
+
+	argcMex = (argc >= MAX_SUPPORTED_LOG_PARAMS_COUNT * 2
+			? MAX_SUPPORTED_LOG_PARAMS_COUNT * 2 : argc);
+	for (i = 0; i < argcMex; i++) {
+		if (argv[i] != NULL)
+			argv[i][LOG_INFO_SIZE-1] = '\0';
+		else
+			continue;
+		if ((i < argcMex-1) && strcmp("-mtk_vcodec_dbg", argv[i]) == 0) {
+			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+				mtk_vcodec_dbg = temp_val;
+		} else if ((i < argcMex-1) && strcmp("-mtk_vcodec_perf", argv[i]) == 0) {
+			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+				mtk_vcodec_perf = temp_val;
+		} else if ((i < argcMex-1) && strcmp("-mtk_v4l2_dbg_level", argv[i]) == 0) {
+			if (kstrtol(argv[++i], 0, &temp_val) == 0)
+				mtk_v4l2_dbg_level = temp_val;
+		} else if (i < argcMex-1) {
+			memset(vcu_log, 0x00, LOG_INFO_SIZE);
+			if (argv[i+1] != NULL) {
+				argv[i+1][LOG_INFO_SIZE-1] = '\0';
+				ret = snprintf(vcu_log, LOG_INFO_SIZE, "%s %s", argv[i], argv[i+1]);
+			} else {
+				pr_info("[MTK_V4L2] vcu_log input arg[%d] error: Null value", i+1);
+				break;
+			}
+			if (ret < 0) {
+				pr_info("[MTK_V4L2] vcu_log snprintf error: %d", ret);
+				break;
+			}
+			if (ctx->type == MTK_INST_DECODER) {
+				vdec_if_init(ctx, V4L2_CID_MPEG_MTK_LOG);
+				vdec_if_set_param(ctx, SET_PARAM_DEC_LOG, vcu_log);
+			} else {
+				memset(&enc_prm, 0, sizeof(enc_prm));
+				enc_prm.log = vcu_log;
+				venc_if_init(ctx, V4L2_CID_MPEG_MTK_LOG);
+				venc_if_set_param(ctx, VENC_SET_PARAM_LOG, &enc_prm);
+			}
+			i++;
+		}
+	}
+
+	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++) {
+		if (argv[i] != NULL)
+			kfree(argv[i]);
+	}
+
+	pr_info("----------------Debug Config ----------------\n");
+	pr_info("mtk_vcodec_dbg: %d\n", mtk_vcodec_dbg);
+	pr_info("mtk_vcodec_perf: %d\n", mtk_vcodec_perf);
+	pr_info("mtk_v4l2_dbg_level: %d\n", mtk_v4l2_dbg_level);
+}
 

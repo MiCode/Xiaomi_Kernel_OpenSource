@@ -21,13 +21,13 @@
 #define pr_fmt(fmt)	"io-pgtable: " fmt
 
 #include <linux/bug.h>
-#include <linux/io-pgtable.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/iommu.h>
 #include <linux/debugfs.h>
 #include <linux/atomic.h>
 #include <linux/module.h>
+#include "io-pgtable.h"
 
 static const struct io_pgtable_init_fns *
 io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
@@ -54,16 +54,23 @@ struct io_pgtable_ops *alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 	struct io_pgtable *iop;
 	const struct io_pgtable_init_fns *fns;
 
-	if (fmt >= IO_PGTABLE_NUM_FMTS)
+	if (fmt >= IO_PGTABLE_NUM_FMTS) {
+		pr_notice("%s, %d, err fmt:0x%x, IO_PGTABLE_NUM_FMTS:0x%x\n",
+			__func__, __LINE__, fmt, IO_PGTABLE_NUM_FMTS);
 		return NULL;
+	}
 
 	fns = io_pgtable_init_table[fmt];
-	if (!fns)
+	if (!fns) {
+		pr_notice("%s, %d, err fns\n", __func__, __LINE__);
 		return NULL;
+	}
 
 	iop = fns->alloc(cfg, cookie);
-	if (!iop)
+	if (!iop) {
+		pr_notice("%s, %d, err iop\n", __func__, __LINE__);
 		return NULL;
+	}
 
 	iop->fmt	= fmt;
 	iop->cookie	= cookie;

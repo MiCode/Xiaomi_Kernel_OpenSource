@@ -101,5 +101,6 @@ void vdec_decode_prepare(void *ctx_prepare,
 	unsigned int hw_id);
 void vdec_decode_unprepare(void *ctx_unprepare,
 	unsigned int hw_id);
+void vdec_check_release_lock(void *ctx_check);
 
 #endif

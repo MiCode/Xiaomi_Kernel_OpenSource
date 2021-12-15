@@ -10,12 +10,18 @@
 #ifdef CONFIG_OF
 extern struct musb *mtk_musb;
 
+#ifdef USB2_PHY_V2
+#define USB_PHY_OFFSET 0x300
+#else
+#define USB_PHY_OFFSET 0x800
+#endif
+
 #define USBPHY_READ8(offset) \
 	readb((void __iomem *)\
 		(((unsigned long)\
-		mtk_musb->xceiv->io_priv)+0x800+offset))
+		mtk_musb->xceiv->io_priv)+USB_PHY_OFFSET+offset))
 #define USBPHY_WRITE8(offset, value)  writeb(value, (void __iomem *)\
-		(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
+		(((unsigned long)mtk_musb->xceiv->io_priv)+USB_PHY_OFFSET+offset))
 #define USBPHY_SET8(offset, mask) \
 	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) | (mask))
 #define USBPHY_CLR8(offset, mask) \
@@ -23,10 +29,10 @@ extern struct musb *mtk_musb;
 
 #define USBPHY_READ32(offset) \
 	readl((void __iomem *)(((unsigned long)\
-		mtk_musb->xceiv->io_priv)+0x800+offset))
+		mtk_musb->xceiv->io_priv)+USB_PHY_OFFSET+offset))
 #define USBPHY_WRITE32(offset, value) \
 	writel(value, (void __iomem *)\
-		(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
+		(((unsigned long)mtk_musb->xceiv->io_priv)+USB_PHY_OFFSET+offset))
 #define USBPHY_SET32(offset, mask) \
 	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) | (mask))
 #define USBPHY_CLR32(offset, mask) \

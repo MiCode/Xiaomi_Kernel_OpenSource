@@ -9,7 +9,7 @@
 
 #include "spm_v2/mtk_spm_vcore_dvfs_mt6757.h"
 
-#elif defined(CONFIG_MACH_MT6763)
+#elif defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6739)
 
 #include "spm_v4/mtk_spm_vcore_dvfs.h"
 

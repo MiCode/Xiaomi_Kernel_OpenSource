@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -45,7 +46,7 @@ struct profile_entry_string profile_entry_str[] = {
 #define GET_START_TIME() do_gettimeofday(&start_time)
 #define GET_END_TIME() do_gettimeofday(&end_time)
 
-#define SEC_TO_US(s) (s * 1000000)
+#define SEC_TO_US(s) (s*1000000)
 
 #include <asm/div64.h>
 static inline u64 u64_div(u64 n, u64 base)
@@ -56,6 +57,12 @@ static inline u64 u64_div(u64 n, u64 base)
 static inline u64 us_to_ms(u64 us)
 {
 	return u64_div(us, 1000);
+}
+
+static bool is_valid_profile_entry(enum PROFILE_ENTRY_TYPE entry)
+{
+	return ((entry >= PROFILE_ENTRY_SSMR_GET)
+		&& (entry < PROFILE_ENTRY_MAX));
 }
 
 void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device)
@@ -94,6 +101,9 @@ void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device)
 static void increase_enter_count(enum PROFILE_ENTRY_TYPE entry,
 				 struct profile_data_context *data)
 {
+	if (!is_valid_profile_entry(entry))
+		return;
+
 	mutex_lock(&data->item[entry].lock);
 	data->item[entry].count++;
 	mutex_unlock(&data->item[entry].lock);
@@ -105,6 +115,9 @@ static void add_exec_time(enum PROFILE_ENTRY_TYPE entry,
 {
 	int time_diff_sec = GET_TIME_DIFF_SEC_P(start, end);
 	int time_diff_usec = GET_TIME_DIFF_USEC_P(start, end);
+
+	if (!is_valid_profile_entry(entry))
+		return;
 
 	mutex_lock(&data->item[entry].lock);
 

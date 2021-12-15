@@ -51,9 +51,6 @@
 #include <sound/compress_driver.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include "scp_helper.h"
-#endif
 #include <audio_task_manager.h>
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "mtk-dsp-mem-control.h"
@@ -61,6 +58,9 @@
 #include "mtk-dsp-common.h"
 #include "mtk-dsp-platform-driver.h"
 #endif
+
+#define MP3_IPIMSG_TIMEOUT            25
+#define MP3_WAITCHECK_INTERVAL_MS      1
 
 enum {
 	OFFLOAD_STATE_INIT = 0x1,
@@ -70,9 +70,6 @@ enum {
 	OFFLOAD_STATE_PAUSED = 0x5,
 	OFFLOAD_STATE_DRAIN = 0x6
 };
-
-#define MP3_IPIMSG_TIMEOUT            50
-#define MP3_WAITCHECK_INTERVAL_MS      1
 
 enum audio_drain_type {
 	AUDIO_DRAIN_ALL,  /* returns when all data has been played */
@@ -96,7 +93,6 @@ struct afe_offload_service_t {
 	bool drain;
 	bool ipiwait;
 	bool needdata;
-	bool ipiresult;
 	bool decode_error;
 	unsigned int pcmdump;
 	unsigned int volume;
@@ -112,8 +108,7 @@ enum ipi_received_offload {
 	OFFLOAD_NEEDDATA = 21,
 	OFFLOAD_PCMCONSUMED = 22,
 	OFFLOAD_DRAINDONE = 23,
-	OFFLOAD_PCMDUMP_OK = 24,
-	OFFLOAD_DECODE_ERROR = 25,
+	OFFLOAD_DECODE_ERROR = 24,
 };
 
 enum ipi_send_offload {
@@ -124,7 +119,6 @@ enum ipi_send_offload {
 	OFFLOAD_VOLUME,
 	OFFLOAD_WRITEIDX,
 	OFFLOAD_TSTAMP,
-	OFFLOAD_PCMDUMP_ON,
 	OFFLOAD_SCENE,
 	OFFLOAD_CODEC_INFO,
 };

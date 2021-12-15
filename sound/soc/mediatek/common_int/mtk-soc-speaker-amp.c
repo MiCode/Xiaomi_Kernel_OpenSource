@@ -20,6 +20,9 @@
 #ifdef CONFIG_SND_SOC_MT6660
 #include "../../codecs/mt6660.h"
 #endif /* CONFIG_SND_SOC_MT6660 */
+#if defined(CONFIG_SND_SOC_TAS5782M)
+#include "../../codecs/tas5782m.h"
+#endif
 
 static unsigned int mtk_spk_type;
 static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
@@ -34,6 +37,14 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.i2c_shutdown = rt5509_i2c_shutdown,
 		.codec_dai_name = "rt5509-aif1",
 		.codec_name = "RT5509_MT_0",
+	},
+#endif
+#if defined(CONFIG_SND_SOC_TAS5782M)
+	[MTK_SPK_TI_TAS5782M] = {
+		.i2c_probe = tas5782m_speaker_amp_probe,
+		.i2c_remove = tas5782m_speaker_amp_remove,
+		.codec_dai_name = "tas5782m-amplifier",
+		.codec_name = "tas5782m",
 	},
 #endif
 #ifdef CONFIG_SND_SOC_MT6660

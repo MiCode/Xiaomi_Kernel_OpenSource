@@ -46,6 +46,10 @@
 
 #include "../mt6799/mtk_udi.h"
 
+#elif defined(CONFIG_MACH_MT6768)
+
+#include "udi_v2/mtk_udi_mt6768.h"
+
 #else
 
 #error NO corresponding project of mtk_udi.h header file can be found!!!

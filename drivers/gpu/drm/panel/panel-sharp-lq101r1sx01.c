@@ -96,7 +96,10 @@ static int sharp_panel_disable(struct drm_panel *panel)
 	if (!sharp->enabled)
 		return 0;
 
-	backlight_disable(sharp->backlight);
+	if (sharp->backlight) {
+		sharp->backlight->props.power = FB_BLANK_POWERDOWN;
+		backlight_update_status(sharp->backlight);
+	}
 
 	sharp->enabled = false;
 
@@ -260,7 +263,10 @@ static int sharp_panel_enable(struct drm_panel *panel)
 	if (sharp->enabled)
 		return 0;
 
-	backlight_enable(sharp->backlight);
+	if (sharp->backlight) {
+		sharp->backlight->props.power = FB_BLANK_UNBLANK;
+		backlight_update_status(sharp->backlight);
+	}
 
 	sharp->enabled = true;
 
@@ -318,7 +324,8 @@ MODULE_DEVICE_TABLE(of, sharp_of_match);
 
 static int sharp_panel_add(struct sharp_panel *sharp)
 {
-	struct device *dev = &sharp->link1->dev;
+	struct device_node *np;
+	int err;
 
 	sharp->mode = &default_mode;
 
@@ -326,22 +333,39 @@ static int sharp_panel_add(struct sharp_panel *sharp)
 	if (IS_ERR(sharp->supply))
 		return PTR_ERR(sharp->supply);
 
-	sharp->backlight = devm_of_find_backlight(dev);
+	np = of_parse_phandle(sharp->link1->dev.of_node, "backlight", 0);
+	if (np) {
+		sharp->backlight = of_find_backlight_by_node(np);
+		of_node_put(np);
 
-	if (IS_ERR(sharp->backlight))
-		return PTR_ERR(sharp->backlight);
+		if (!sharp->backlight)
+			return -EPROBE_DEFER;
+	}
 
 	drm_panel_init(&sharp->base);
 	sharp->base.funcs = &sharp_panel_funcs;
 	sharp->base.dev = &sharp->link1->dev;
 
-	return drm_panel_add(&sharp->base);
+	err = drm_panel_add(&sharp->base);
+	if (err < 0)
+		goto put_backlight;
+
+	return 0;
+
+put_backlight:
+	if (sharp->backlight)
+		put_device(&sharp->backlight->dev);
+
+	return err;
 }
 
 static void sharp_panel_del(struct sharp_panel *sharp)
 {
 	if (sharp->base.dev)
 		drm_panel_remove(&sharp->base);
+
+	if (sharp->backlight)
+		put_device(&sharp->backlight->dev);
 
 	if (sharp->link2)
 		put_device(&sharp->link2->dev);
@@ -418,6 +442,7 @@ static int sharp_panel_remove(struct mipi_dsi_device *dsi)
 	if (err < 0)
 		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n", err);
 
+	drm_panel_detach(&sharp->base);
 	sharp_panel_del(sharp);
 
 	return 0;

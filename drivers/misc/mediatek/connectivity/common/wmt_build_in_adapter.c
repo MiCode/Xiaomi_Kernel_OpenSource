@@ -5,6 +5,14 @@
 #include <linux/kernel.h>
 
 #include "wmt_build_in_adapter.h"
+#include <linux/string.h>
+#include <linux/printk.h>
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include <linux/proc_fs.h>
+#include <linux/ctype.h>
+#include <linux/cdev.h>
 
 /*device tree mode*/
 #ifdef CONFIG_OF
@@ -15,6 +23,7 @@
 #endif
 
 #include <linux/interrupt.h>
+#include <linux/ratelimit.h>
 
 #define CONNADP_LOG_LOUD    4
 #define CONNADP_LOG_DBG     3
@@ -53,11 +62,116 @@ do { \
 		pr_info("[E]%s(%d):"  fmt, __func__, __LINE__, ##arg); \
 } while (0)
 
+/* device node related macro */
+#define CONN_DBG_DEV_NUM 1
+#define CONN_DBG_DRVIER_NAME "conn_dbg_drv"
+#define CONN_DBG_DEVICE_NAME "conn_dbg_dev"
+#define CONN_DBG_DEV_MAJOR 156
+
+/* device node related */
+static int gConnDbgMajor = CONN_DBG_DEV_MAJOR;
+static struct class *pConnDbgClass;
+static struct device *pConnDbgDev;
+static struct cdev gConnDbgdev;
 
 /*******************************************************************************
  * Bridging from platform -> wmt_drv.ko
  ******************************************************************************/
 static struct wmt_platform_bridge bridge;
+
+ssize_t conn_dbg_dev_write(struct file *filp, const char __user *buffer,
+				size_t count, loff_t *f_pos)
+{
+	if (bridge.debug_write_cb)
+		return bridge.debug_write_cb(filp, buffer, count, f_pos);
+
+	return 0;
+}
+
+ssize_t conn_dbg_dev_read(struct file *filp, char __user *buffer,
+				size_t count, loff_t *f_pos)
+{
+	if (bridge.debug_read_cb)
+		return bridge.debug_read_cb(filp, buffer, count, f_pos);
+
+	return 0;
+}
+
+const struct file_operations gConnDbgDevFops = {
+	.write = conn_dbg_dev_write,
+	.read = conn_dbg_dev_read,
+};
+
+static int conn_dbg_dev_init(void)
+{
+	dev_t dev_id = MKDEV(gConnDbgMajor, 0);
+	int ret = 0;
+
+	ret = register_chrdev_region(dev_id, CONN_DBG_DEV_NUM, CONN_DBG_DRVIER_NAME);
+	if (ret) {
+		pr_info("%s fail to register chrdev.(%d)\n", __func__, ret);
+		return -1;
+	}
+
+	cdev_init(&gConnDbgdev, &gConnDbgDevFops);
+	gConnDbgdev.owner = THIS_MODULE;
+
+	ret = cdev_add(&gConnDbgdev, dev_id, CONN_DBG_DEV_NUM);
+	if (ret) {
+		pr_info("cdev_add() fails (%d)\n", ret);
+		goto err1;
+	}
+
+	pConnDbgClass = class_create(THIS_MODULE, CONN_DBG_DEVICE_NAME);
+	if (IS_ERR(pConnDbgClass)) {
+		pr_info("class create fail, error code(%ld)\n", PTR_ERR(pConnDbgClass));
+		goto err2;
+	}
+
+	pConnDbgDev = device_create(pConnDbgClass, NULL, dev_id, NULL, CONN_DBG_DEVICE_NAME);
+	if (IS_ERR(pConnDbgDev)) {
+		pr_info("device create fail, error code(%ld)\n", PTR_ERR(pConnDbgDev));
+		goto err3;
+	}
+
+	return 0;
+err3:
+
+	pr_info("[%s] err3", __func__);
+	if (pConnDbgClass) {
+		class_destroy(pConnDbgClass);
+		pConnDbgClass = NULL;
+	}
+err2:
+	pr_info("[%s] err2", __func__);
+	cdev_del(&gConnDbgdev);
+
+err1:
+	pr_info("[%s] err1", __func__);
+	unregister_chrdev_region(dev_id, CONN_DBG_DEV_NUM);
+
+	return -1;
+}
+
+static int conn_dbg_dev_deinit(void)
+{
+	dev_t dev_id = MKDEV(gConnDbgMajor, 0);
+
+	if (pConnDbgDev) {
+		device_destroy(pConnDbgClass, dev_id);
+		pConnDbgDev = NULL;
+	}
+
+	if (pConnDbgClass) {
+		class_destroy(pConnDbgClass);
+		pConnDbgClass = NULL;
+	}
+
+	cdev_del(&gConnDbgdev);
+	unregister_chrdev_region(dev_id, CONN_DBG_DEV_NUM);
+
+	return 0;
+}
 
 void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 {
@@ -66,12 +180,23 @@ void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 	bridge.thermal_query_cb = cb->thermal_query_cb;
 	bridge.trigger_assert_cb = cb->trigger_assert_cb;
 	bridge.clock_fail_dump_cb = cb->clock_fail_dump_cb;
+	bridge.conninfra_reg_readable_cb = cb->conninfra_reg_readable_cb;
+	bridge.conninfra_reg_is_bus_hang_cb = cb->conninfra_reg_is_bus_hang_cb;
+
+	if (cb->debug_write_cb != NULL && cb->debug_read_cb != NULL) {
+		bridge.debug_write_cb = cb->debug_write_cb;
+		bridge.debug_read_cb = cb->debug_read_cb;
+		conn_dbg_dev_init();
+	}
+
 	CONNADP_INFO_FUNC("\n");
 }
 EXPORT_SYMBOL(wmt_export_platform_bridge_register);
 
 void wmt_export_platform_bridge_unregister(void)
 {
+	if (bridge.debug_write_cb && bridge.debug_read_cb)
+		conn_dbg_dev_deinit();
 	memset(&bridge, 0, sizeof(struct wmt_platform_bridge));
 	CONNADP_INFO_FUNC("\n");
 }
@@ -106,6 +231,30 @@ void mtk_wcn_cmb_stub_clock_fail_dump(void)
 		CONNADP_WARN_FUNC("Clock fail dump not registered\n");
 	else
 		bridge.clock_fail_dump_cb();
+}
+
+int mtk_wcn_conninfra_reg_readable(void)
+{
+	static DEFINE_RATELIMIT_STATE(_rs, 5*HZ, 1);
+
+	if (unlikely(!bridge.conninfra_reg_readable_cb)) {
+		if (__ratelimit(&_rs))
+			CONNADP_WARN_FUNC("reg_readable not registered\n");
+		return -1;
+	} else
+		return bridge.conninfra_reg_readable_cb();
+}
+
+int mtk_wcn_conninfra_is_bus_hang(void)
+{
+	static DEFINE_RATELIMIT_STATE(_rs, 5*HZ, 1);
+
+	if (unlikely(!bridge.conninfra_reg_is_bus_hang_cb)) {
+		if (__ratelimit(&_rs))
+			CONNADP_WARN_FUNC("is_bus_hang not registered\n");
+		return -1;
+	} else
+		return bridge.conninfra_reg_is_bus_hang_cb();
 }
 
 /*******************************************************************************

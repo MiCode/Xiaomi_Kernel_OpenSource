@@ -510,21 +510,29 @@ static int mtu3_gadget_set_self_powered(struct usb_gadget *gadget,
 static void mtu3_gadget_set_ready(struct usb_gadget *gadget)
 {
 	struct mtu3 *mtu = gadget_to_mtu3(gadget);
-	struct of_changeset chgset;
-	struct property *prop;
+	struct device_node *np = mtu->dev->of_node;
+	struct property *prop = NULL;
+	int ret = 0;
 
 	dev_info(mtu->dev, "update gadget-ready property\n");
 
-	prop = kzalloc(sizeof(*prop), GFP_KERNEL);
-	if (!prop)
-		return;
+	prop = of_find_property(np, "gadget-ready", NULL);
+	if (!prop) {
+		dev_info(mtu->dev, "no gadget-ready node\n");
 
-	prop->name = "gadget-ready";
+		prop = kzalloc(sizeof(*prop), GFP_KERNEL);
+		if (!prop) {
+			pr_err("kzalloc failed\n");
+			return;
+		}
 
-	of_changeset_init(&chgset);
-	of_changeset_update_property(&chgset, mtu->dev->of_node, prop);
-	of_changeset_apply(&chgset);
-	of_changeset_destroy(&chgset);
+		prop->name = "gadget-ready";
+		ret = of_add_property(np, prop);
+		if (ret) {
+			pr_err("add prop failed\n");
+			return;
+		}
+	}
 
 	mtu->is_gadget_ready = 1;
 }

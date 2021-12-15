@@ -386,12 +386,12 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 #if SCP_RECOVERY_SUPPORT
 	/* L1C support? */
 	if ((int)(scp_region_info_copy.ap_dram_size) <= 0) {
-		scp_dump_size = sizeof(struct MemoryDump);
+		scp_dump_size = sizeof(struct MemoryDump) + CRASH_MEMORY_LENGTH;
 	} else {
 
 		dram_start = scp_region_info_copy.ap_dram_start;
 		dram_size = scp_region_info_copy.ap_dram_size;
-		scp_dump_size = sizeof(struct MemoryDump) +
+		scp_dump_size = sizeof(struct MemoryDump) + CRASH_MEMORY_LENGTH +
 			roundup(dram_size, 4);
 	}
 #else
@@ -537,7 +537,7 @@ static void scp_prepare_aed_dump(char *aed_str,
 	} else {
 		pr_debug("[SCP AEE]scp A dump ptr:%p\n", scp_dump_ptr);
 		pMemoryDump = (struct MemoryDump *) scp_dump_ptr;
-		memset(pMemoryDump, 0x0, sizeof(*pMemoryDump));
+		memset(pMemoryDump, 0x0, sizeof(*pMemoryDump) + CRASH_MEMORY_LENGTH);
 		memory_dump_size = scp_crash_dump(pMemoryDump, SCP_A_ID);
 	}
 	/* scp_dump_buffer_set */
@@ -746,12 +746,12 @@ int scp_excep_init(void)
 		return -1;
 
 	scp_A_dump_buffer = vmalloc(sizeof(struct MemoryDump) +
-		roundup(dram_size, 4));
+		CRASH_MEMORY_LENGTH + roundup(dram_size, 4));
 	if (!scp_A_dump_buffer)
 		goto _err;
-
+	
 	scp_A_dump_buffer_last = vmalloc(sizeof(struct MemoryDump) +
-		roundup(dram_size, 4));
+		CRASH_MEMORY_LENGTH + roundup(dram_size, 4));
 	if (!scp_A_dump_buffer_last)
 		goto _err1;
 

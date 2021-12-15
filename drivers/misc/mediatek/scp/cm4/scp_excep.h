@@ -62,7 +62,7 @@ struct TaskContextType {
 #define CRASH_SUMMARY_LENGTH 12
 #define CRASH_MEMORY_HEADER_SIZE  (8 * 1024)
 #define CRASH_MEMORY_OFFSET  (0x800)
-#define CRASH_MEMORY_LENGTH  (512 * 1024 - CRASH_MEMORY_OFFSET)
+#define CRASH_MEMORY_LENGTH  (SCP_A_TCM_SIZE - CRASH_MEMORY_OFFSET)
 
 #define CRASH_REG_SIZE  (9 * 32)
 
@@ -185,10 +185,12 @@ struct MemoryDump {
 	 * must be fixed at CRASH_MEMORY_HEADER_SIZE
 	 */
 	struct scp_dump_header_list scp_dump_header;
-	/*scp sram*/
-	char memory[CRASH_MEMORY_LENGTH];
 	/*scp reg*/
 	struct scp_reg_dump_list scp_reg_dump;
+	/* scp sram, don't move it, variable array,
+	 * size is CRASH_MEMORY_LENGTH.
+	 */
+	char memory[0];
 };
 
 

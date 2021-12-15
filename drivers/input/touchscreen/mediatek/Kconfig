@@ -1,0 +1,195 @@
+#
+# Touchscreen driver configuration
+#
+menuconfig INPUT_TOUCHSCREEN
+	bool "Touchscreens"
+	help
+	  Say Y here, and a list of supported touchscreens will be displayed.
+	  This option doesn't affect the kernel.
+
+	  If unsure, say Y.
+
+if INPUT_TOUCHSCREEN
+
+config TOUCHSCREEN_MTK
+	bool "MediaTek Touch Panel Driver"
+	help
+	  Say Y here if you have MediaTek touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
+	bool "MediaTek Touch Panel Rotation With LCM"
+	default y
+	help
+	  Say N here if touch panel is not physical rotated as LCM does.
+	  Physically rotated means that this driver will map
+	  the reported coordination to diagonal position.
+
+	  If unsure, say Y.
+config TOUCHSCREEN_MTK_SOLOMON
+	bool "SOLOMON for Mediatek package"
+	default n
+	help
+	  Say Y here if you have SOLOMON touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+
+config TOUCHSCREEN_MTK_FOCALTECH_TS
+	bool "FOCALTECH_TS for Mediatek package"
+	default n
+	help
+	  Say Y here if you have focaltech_touch touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/focaltech_touch/Kconfig"
+
+config TOUCHSCREEN_MTK_GT1151
+	bool "GT1151 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT1151 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT1151/Kconfig"
+
+config TOUCHSCREEN_MTK_GSLX680
+	bool "gslX680 for Mediatek package"
+	help
+	  Say Y here if you have gslX680 touch panel.
+
+	  If unsure, say N.
+
+	  you can config it if you want to use MTK9XX_LM for
+	  touch panel.
+
+config TOUCHSCREEN_MTK_NT36xxx
+	bool "NT36xxx for Mediatek package"
+	default n
+	help
+	  Say Y here if you have NT36xxx touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/NT36xxx/Kconfig"
+
+config TOUCHSCREEN_MTK_GT9XX_LM
+	bool "GT9XX_LM for Mediatek package"
+	help
+	  Say Y here if you have GT9XX_LM touch panel.
+
+	  If unsure, say N.
+
+	  you can config it if you want to use MTK9XX_LM for
+	  touch panel.
+
+source "drivers/input/touchscreen/mediatek/GT9XX_LM/Kconfig"
+
+config TOUCHSCREEN_FT5X26
+	bool "FT5X26 for Mediatek package"
+	help
+	  Say Y here if you have FT5X26 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_FT5X26_WUXGA
+	bool "FT5X26 WUXGA for Mediatek package"
+	help
+	  Say Y here if you have FT5X26 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/FT5X26/Kconfig"
+
+config TOUCHSCREEN_MTK_GT5688
+	bool "GT1151 for Mediatek package"
+	help
+	  Say Y here if you have GT5688 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT5688/Kconfig"
+source "drivers/input/touchscreen/mediatek/hxchipset/Kconfig"
+
+config TOUCHSCREEN_HIMAX_CHIPSET_8789P1_8185P3
+	bool "hxchipset for Mediatek 8789p1 and 8185p3 package"
+	default n
+	help
+	  Say Y here if you have hxchipset touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/hxchipset_8789p1_8185p3/Kconfig"
+
+config TOUCHSCREEN_MTK_GT911
+	bool "GT911 for Mediatek package"
+	help
+	  Say Y here if you have GT911 touch panel.
+
+	  If unsure, say N.
+	  this is a GT911 touch driver config, you can use it
+	  if you want.
+
+source "drivers/input/touchscreen/mediatek/GT911/Kconfig"
+
+config TOUCHSCREEN_MTK_FOCALTECH_FHD
+	bool "Focaltech FHD Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have Focaltech touch panel.
+	  If unsure, say N.
+
+config TOUCHSCREEN_MTK_GT9157
+	bool "GT9157 for Mediatek package"
+	help
+	  Say Y here if you have GT9157 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called
+
+source "drivers/input/touchscreen/mediatek/GT9157/Kconfig"
+
+config TOUCHSCREEN_HIMAX_CHIPSET
+	bool "Himax touchpanel CHIPSET"
+	depends on SPI
+	help
+	Say Y here if you have a Himax CHIPSET touchscreen.
+	HIMAX controllers are multi touch controllers which can
+	report 10 touches at a time.
+
+	If unsure, say N.
+source "drivers/input/touchscreen/mediatek/hxchipset_hx83102p/Kconfig"
+
+endif

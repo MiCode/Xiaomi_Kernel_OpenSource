@@ -27,6 +27,9 @@
 #include <linux/types.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/sched/debug.h>
+#ifdef DBG_ENABLE
+#include <linux/arm-smccc.h>
+#endif
 
 #ifdef CONFIG_MTK_HIBERNATION
 #include <mtk_hibernate_dpm.h>
@@ -836,6 +839,14 @@ static int devapc_resume(struct platform_device *dev)
 }
 
 #ifdef DBG_ENABLE
+
+#ifndef mt_secure_call
+#define mt_secure_call(x1, x2, x3, x4, x5) ({\
+	struct arm_smccc_res res;\
+	arm_smccc_smc(x1, x2, x3, x4, x5, 0, 0, 0, &res);\
+	res.a0; })
+#endif
+
 static ssize_t devapc_dbg_read(struct file *file, char __user *buffer,
 	size_t count, loff_t *ppos)
 {

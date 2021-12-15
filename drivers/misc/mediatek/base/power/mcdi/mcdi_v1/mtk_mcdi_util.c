@@ -11,6 +11,7 @@
 #include <mtk_mcdi_util.h>
 #include <mtk_mcdi_plat.h>
 #include <mtk_mcdi_reg.h>
+#include <mtk_mcdi_mcupm.h>
 
 /* #include <mt-plat/mtk_secure_api.h> */
 
@@ -46,12 +47,24 @@ static inline int mcdi_sspm_ready(void)
 
 static inline unsigned int mcdi_mcupm_read(int id)
 {
+#if defined(CONFIG_MACH_MT6739)
+	if (mcdi_mcupm_sram_is_ready())
+		return mcdi_read((uintptr_t)(MCDI_MBOX + (4 * id)));
+#else
 	return mcdi_read((uintptr_t)id);
+#endif
+	return 0;
+
 }
 
 static inline void mcdi_mcupm_write(int id, unsigned int val)
 {
+#if defined(CONFIG_MACH_MT6739)
+	if (mcdi_mcupm_sram_is_ready())
+		mcdi_write((uintptr_t)(MCDI_MBOX + (4 * id)), val);
+#else
 	mcdi_write((uintptr_t)id, val);
+#endif
 }
 
 static inline int mcdi_mcupm_ready(void)

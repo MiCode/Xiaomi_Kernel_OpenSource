@@ -77,7 +77,7 @@ unsigned int ccci_get_md_debug_mode(struct ccci_modem *md);
 void ccci_get_platform_version(char *ver);
 
 int ccci_plat_common_init(void);
-//int ccci_platform_init(struct ccci_modem *md);
+int ccci_platform_init(struct ccci_modem *md);
 void ccci_platform_common_init(struct ccci_modem *md);
 
 void ccci_platform_init_6761(struct ccci_modem *md);

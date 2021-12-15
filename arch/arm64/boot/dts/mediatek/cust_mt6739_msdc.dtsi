@@ -1,0 +1,135 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+
+/**********************************************
+ *MT6739 MSDC DTSI File
+ ********************************************/
+&msdc0 {
+	index = /bits/ 8 <0>;
+	clk_src = /bits/ 8 <MSDC0_CLKSRC_400MHZ>;
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	cap-mmc-highspeed;
+	msdc-sys-suspend;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	non-removable;
+	pinctl = <&msdc0_pins_default>;
+	pinctl_hs400 = <&msdc0_pins_default>;
+	pinctl_hs200 = <&msdc0_pins_default>;
+	register_setting = <&msdc0_register_setting_default>;
+	host_function = /bits/ 8 <MSDC_EMMC>;
+	status = "okay";
+	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
+	clocks = <&infracfg_ao CLK_INFRA_MSDC0_SRC>,
+		<&infracfg_ao CLK_INFRA_MSDC0>;
+	clock-names = "msdc0-clock", "msdc0-hclock";
+	hw_dvfs = /bits/ 8 <0>;
+};
+&msdc1 {
+	index = /bits/ 8 <1>;
+	clk_src = /bits/ 8 <MSDC1_CLKSRC_200MHZ>;
+	bus-width = <4>;
+	max-frequency = <200000000>;
+	msdc-sys-suspend;
+	cap-sd-highspeed;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	sd-uhs-ddr50;
+	pinctl = <&msdc1_pins_default>;
+	pinctl_sdr104 = <&msdc1_pins_sdr104>;
+	pinctl_sdr50 = <&msdc1_pins_sdr50>;
+	pinctl_ddr50 = <&msdc1_pins_ddr50>;
+	register_setting = <&msdc1_register_setting_default>;
+	host_function = /bits/ 8 <MSDC_SD>;
+	cd_level = /bits/ 8 <MSDC_CD_LOW>;
+	cd-gpios = <&pio 15 0>;
+	status = "okay";
+	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
+	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
+	clocks = <&infracfg_ao CLK_INFRA_MSDC1_SRC>,
+		<&infracfg_ao CLK_INFRA_MSDC1>;
+	clock-names = "msdc1-clock", "msdc1-hclock";
+	hw_dvfs = /bits/ 8 <0>;
+};
+&msdc0 {
+	msdc0_pins_default: msdc0@default {
+		pins_cmd {
+			drive-strength = /bits/ 8 <4>;
+		};
+		pins_dat {
+			drive-strength = /bits/ 8 <4>;
+		};
+		pins_clk {
+			drive-strength = /bits/ 8 <4>;
+		};
+		pins_rst {
+			drive-strength = /bits/ 8 <4>;
+		};
+		pins_ds {
+			drive-strength = /bits/ 8 <4>;
+		};
+	};
+	msdc0_register_setting_default: msdc0@register_default {
+		cmd_edge = /bits/ 8 <MSDC_SMPL_RISING>;
+		rdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
+		wdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
+	};
+};
+&msdc1 {
+	msdc1_pins_default: msdc1@default {
+		pins_cmd {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_dat {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_clk {
+			drive-strength = /bits/ 8 <3>;
+		};
+	};
+	msdc1_pins_sdr104: msdc1@sdr104 {
+		pins_cmd {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_dat {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_clk {
+			drive-strength = /bits/ 8 <3>;
+		};
+	};
+	msdc1_pins_sdr50: msdc1@sdr50 {
+		pins_cmd {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_dat {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_clk {
+			drive-strength = /bits/ 8 <3>;
+		};
+	};
+	msdc1_pins_ddr50: msdc1@ddr50 {
+		pins_cmd {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_dat {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_clk {
+			drive-strength = /bits/ 8 <3>;
+		};
+	};
+	msdc1_register_setting_default: msdc1@register_default {
+		cmd_edge = /bits/ 8 <MSDC_SMPL_RISING>;
+		rdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
+		wdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
+	};
+};
+

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2019 MediaTek Inc.
- */
+* Copyright (C) 2021 MediaTek Inc.
+*/
 
 #ifndef _MT_PMIC_COMMON_H_
 #define _MT_PMIC_COMMON_H_
@@ -10,6 +10,41 @@
 #if defined(CONFIG_MACH_MT8173)
 #include <mach/upmu_sw.h>
 #include <mach/upmu_hw.h>
+#endif
+
+#if defined(CONFIG_MACH_MT6739)
+#include <mach/upmu_sw.h>
+#include <mach/upmu_hw.h>
+#endif
+
+#if defined(CONFIG_MACH_MT6768)
+#include <mach/upmu_sw.h>
+#include <mach/upmu_hw.h>
+#endif
+
+#if defined(CONFIG_MACH_MT6771)
+#include <mach/upmu_sw.h>
+#include <mach/upmu_hw.h>
+#endif
+
+#if defined(CONFIG_MACH_MT6781)
+#include <mach/upmu_sw.h>
+#include <mach/upmu_hw.h>
+#endif
+
+#if defined(CONFIG_MACH_MT6877)
+#include <mach/upmu_sw.h>
+#include <mach/upmu_hw.h>
+#endif
+
+#if defined(CONFIG_MACH_MT6833)
+#include <mach/upmu_sw.h>
+#include <mach/upmu_hw.h>
+#endif
+
+#if defined(CONFIG_MACH_MT6893)
+#include "mt6885/include/mach/upmu_sw.h"
+#include "mt6885/include/mach/upmu_hw.h"
 #endif
 
 #define MAX_DEVICE      32
@@ -175,8 +210,8 @@ extern void pmic_enable_interrupt(unsigned int intNo,
 				  char *str);
 extern void pmic_mask_interrupt(unsigned int intNo, char *str);
 extern void pmic_unmask_interrupt(unsigned int intNo, char *str);
-//extern void pmic_register_interrupt_callback(unsigned int intNo
-//				, void (EINT_FUNC_PTR)(void));
+extern void pmic_register_interrupt_callback(unsigned int intNo
+				, void (EINT_FUNC_PTR)(void));
 
 extern unsigned short is_battery_remove_pmic(void);
 

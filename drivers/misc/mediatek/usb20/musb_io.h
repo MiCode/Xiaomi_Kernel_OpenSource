@@ -8,7 +8,7 @@
 
 #include <linux/io.h>
 #include <linux/spinlock.h>
-#include <mt6765/usb20.h>
+#include <usb20.h>
 #include <musb_debug.h>
 
 extern bool mtk_usb_power;

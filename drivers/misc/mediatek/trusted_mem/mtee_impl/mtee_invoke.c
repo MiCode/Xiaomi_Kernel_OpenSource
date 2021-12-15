@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -20,7 +21,7 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/mutex.h>
-#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+#if defined(CONFIG_MTK_GZ_KREE)
 #include <tz_cross/ta_mem.h>
 #endif
 

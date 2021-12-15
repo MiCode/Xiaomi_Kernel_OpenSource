@@ -366,7 +366,7 @@ static int mtk_capture_pcm_hw_params(struct snd_pcm_substream *substream,
 		mCaptureUseSram = true;
 		AudDrv_Emi_Clk_On();
 	} else {
-		pr_info("mtk_capture_pcm_hw_params snd_pcm_lib_malloc_pages\n");
+		pr_info("capture_pcm_hw_params snd_pcm_lib_malloc_pages\n");
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(hw_params));
 	}
@@ -383,9 +383,6 @@ static int mtk_capture_pcm_hw_params(struct snd_pcm_substream *substream,
 
 static int mtk_capture_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-#if defined(AUD_DEBUG_LOG)
-	pr_debug("mtk_capture_pcm_hw_free\n");
-#endif
 	if (Capture_dma_buf->area) {
 		if (mCaptureUseSram == true) {
 			AudDrv_Emi_Clk_Off();
@@ -429,13 +426,11 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 
 	if (ret < 0) {
-		pr_err("mtk_capture_pcm_close\n");
+		pr_err("capture_pcm_close\n");
 		mtk_capture_pcm_close(substream);
 		return ret;
 	}
-#if defined(AUD_DEBUG_LOG)
-	pr_debug("mtk_capture_pcm_open return\n");
-#endif
+
 	return 0;
 }
 
@@ -508,9 +503,6 @@ static int mtk_capture_alsa_start(struct snd_pcm_substream *substream)
 
 static int mtk_capture_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
-#if defined(AUD_DEBUG_LOG)
-	pr_debug("mtk_capture_pcm_trigger cmd = %d\n", cmd);
-#endif
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:

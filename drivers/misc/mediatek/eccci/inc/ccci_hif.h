@@ -42,8 +42,6 @@ enum ccci_hif_debug_flg {
 #define MD1_NORMAL_HIF		CCIF_HIF_ID
 #endif
 
-int ccci_hif_init(unsigned char md_id, unsigned int hif_flag);
-int ccci_hif_late_init(unsigned char md_id, unsigned int hif_flag);
 int ccci_hif_send_skb(unsigned char hif_id, int tx_qno, struct sk_buff *skb,
 	int from_pool, int blocking);
 int ccci_hif_write_room(unsigned char hif_id, unsigned char qno);
@@ -64,12 +62,6 @@ void ccci_hif_suspend(unsigned char md_id, unsigned int hif_flag);
 int ccci_hif_send_data(unsigned char hif_id, int tx_qno);
 int ccci_hif_start(unsigned char hif_id);
 int ccci_hif_stop(unsigned char hif_id);
-int ccci_hif_stop_for_ee(unsigned int hif_flag);
 int ccci_hif_all_q_reset(unsigned int hif_flag);
-int ccci_hif_clear_all_queue(unsigned int hif_flag, enum DIRECTION dir);
-int ccci_hif_clear(unsigned int hif_flag);
-void ccci_hif_set_clk_cg(unsigned int hif_flag,
-		unsigned char md_id, unsigned int on);
-void ccci_hif_hw_reset(unsigned int hif_flag, unsigned char md_id);
 
 #endif

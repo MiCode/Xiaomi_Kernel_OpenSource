@@ -1,4 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0
+
 ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+
+obj-$(CONFIG_MTK_TINYSYS_SSPM_V2) += v2/
+
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+
+obj-y += $(subst ",,$(CONFIG_MTK_TINYSYS_SSPM_VERSION))/
+
+else
 
 # Common
 obj-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += sspm.o
@@ -16,6 +28,10 @@ ccflags-$(CONFIG_MTK_EMI_LEGACY) += -I$(srctree)/drivers/misc/mediatek/emi/$(CON
 
 ccflags-$(CONFIG_MTK_ENG_BUILD) += -DDEBUG
 
+endif
+
 else
+
 obj-y +=  dummy.o
+
 endif

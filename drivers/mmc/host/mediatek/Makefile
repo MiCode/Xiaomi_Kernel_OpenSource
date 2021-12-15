@@ -17,6 +17,12 @@
 
 #add kernel source code path as head file search path
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+MTK_PLATFORM := mt6833
+MMC_FOLDER := mt6833
+else
+MMC_FOLDER := $(MTK_PLATFORM)
+endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
@@ -50,6 +56,12 @@ endif
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
 ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA
 ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/mt6765
+obj-$(CONFIG_MMC_MTK_PRO) += ComboA/
+endif
+
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6739")
+ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA
+ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/mt6739
 obj-$(CONFIG_MMC_MTK_PRO) += ComboA/
 endif
 

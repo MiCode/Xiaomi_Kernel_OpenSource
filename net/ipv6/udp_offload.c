@@ -118,8 +118,10 @@ static struct sk_buff *udp6_gro_receive(struct list_head *head,
 					struct sk_buff *skb)
 {
 	struct udphdr *uh = udp_gro_udphdr(skb);
+	struct sk_buff *pp;
+	struct sock *sk;
 
-	if (unlikely(!uh))
+	if (unlikely(!uh) || !static_branch_unlikely(&udpv6_encap_needed_key))
 		goto flush;
 
 	/* Don't bother verifying checksum if we're going to flush anyway. */
@@ -135,7 +137,11 @@ static struct sk_buff *udp6_gro_receive(struct list_head *head,
 
 skip:
 	NAPI_GRO_CB(skb)->is_ipv6 = 1;
-	return udp_gro_receive(head, skb, uh, udp6_lib_lookup_skb);
+	rcu_read_lock();
+	sk = static_branch_unlikely(&udp_encap_needed_key) ? udp6_lib_lookup_skb(skb, uh->source, uh->dest) : NULL;
+	pp = udp_gro_receive(head, skb, uh, sk);
+	rcu_read_unlock();
+	return pp;
 
 flush:
 	NAPI_GRO_CB(skb)->flush = 1;
@@ -147,13 +153,9 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
 	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
 	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
 
-	if (uh->check) {
-		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
+	if (uh->check)
 		uh->check = ~udp_v6_check(skb->len - nhoff, &ipv6h->saddr,
 					  &ipv6h->daddr, 0);
-	} else {
-		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
-	}
 
 	return udp_gro_complete(skb, nhoff, udp6_lib_lookup_skb);
 }

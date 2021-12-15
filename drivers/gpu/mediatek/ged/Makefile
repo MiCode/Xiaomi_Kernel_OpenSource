@@ -24,7 +24,7 @@ ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
 ccflags-y += -DMTK_GPUFREQ_V1
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6739" "mt6758" "mt6775" "mt6771" "mt6765" "mt6761" "mt3967" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6739" "mt6758" "mt6775" "mt6771" "mt6765" "mt6761" "mt3967" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873" "mt6833" "mt6853"))
 #ccflags-y += -DGED_KPI_MET_DEBUG
 ccflags-y += -DMTK_GED_KPI
 ccflags-y += -DGED_KPI_CPU_BOOST
@@ -50,6 +50,11 @@ ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 endif
 
+ifeq ($(CONFIG_MACH_MT6781),y)
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+endif
+endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6775" "mt6771"))
 #ccflags-y += -DGED_KPI_CPU_INFO
@@ -103,10 +108,11 @@ ccflags-y += \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/dispsys \
 	     -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
 	     -I$(srctree)/drivers/misc/mediatek/dfrc/ \
-	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
+	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6757" "mt8167" "kiboplus"))
 ccflags-y += \

@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+*/
+
+&mt6315_6_regulator {
+	compatible = "mediatek,mt6315_6-regulator";
+	interrupt-controller;
+	#interrupt-cells = <2>;
+
+	mt6315_6_vbuck1: 6_vbuck1 {
+		regulator-name = "6_vbuck1";
+		regulator-min-microvolt = <300000>;
+		regulator-max-microvolt = <1193750>;
+		regulator-enable-ramp-delay = <256>;
+	};
+	mt6315_6_vbuck3: 6_vbuck3 {
+		regulator-name = "6_vbuck3";
+		regulator-min-microvolt = <300000>;
+		regulator-max-microvolt = <1193750>;
+		regulator-enable-ramp-delay = <256>;
+	};
+	mt6315_6_vbuck4: 6_vbuck4 {
+		regulator-name = "6_vbuck4";
+		regulator-min-microvolt = <300000>;
+		regulator-max-microvolt = <1193750>;
+		regulator-enable-ramp-delay = <256>;
+	};
+};

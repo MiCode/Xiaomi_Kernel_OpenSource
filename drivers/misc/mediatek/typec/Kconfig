@@ -20,4 +20,13 @@ config MTK_USB_TYPEC_U3_MUX
 	  Say Y to enable TYPEC USB3.0 Mux
 	  If unsure, say N.
 
+config MTK_USB_TYPEC_U3_MUX_V2
+	bool "Mediatek USB TYPE-C USB 3.0 Mux V2"
+	select MTK_USB_TYPEC_U3_MUX
+	help
+	  Enable to support Mediatek Type-c mux driver v2 version.
+	  The v2 version depends on v1 version configration.
+	  It is more easily for customer to manager and add mux
+	  module driver.
+
 source "drivers/misc/mediatek/typec/tcpc/Kconfig"

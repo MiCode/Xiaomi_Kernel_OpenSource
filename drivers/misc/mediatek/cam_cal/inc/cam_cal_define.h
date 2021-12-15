@@ -11,6 +11,10 @@
 #include <linux/compat.h>
 #endif
 
+struct CAM_CAL_SENSOR_INFO {
+	u32 sensor_id;
+};
+
 struct stCAM_CAL_INFO_STRUCT {
 	u32 u4Offset;
 	u32 u4Length;

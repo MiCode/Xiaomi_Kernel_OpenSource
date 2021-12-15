@@ -18,34 +18,62 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
-#include "mtk_spm_resource_req.h"
+#ifdef MTU3_USE_SPM_API
+void ssusb_spm_request(struct ssusb_mtk *ssusb, int mode)
+{
+        switch (mode) {
+        case MTU3_RESOURCE_ALL:
+        case MTU3_RESOURCE_RESUME:
+                dev_info(ssusb->dev, "RESOURCE_ALL\n");
+                spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
+                break;
+        case MTU3_RESOURCE_NONE:
+                dev_info(ssusb->dev, "RESOURCE_NONE\n");
+                spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+                        SPM_RESOURCE_RELEASE);
+                break;
+        case MTU3_RESOURCE_SUSPEND:
+                dev_info(ssusb->dev, "RESOURCE_SUSPEND\n");
+                spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+                        SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
+                        SPM_RESOURCE_AXI_BUS);
+                break;
+        default:
+                dev_info(ssusb->dev, "%s not support mode\n", __func__);
+                break;
+        }
+
+}
+
+#else
+
+void ssusb_smc_request(struct ssusb_mtk *ssusb, int mode)
+{
+	struct arm_smccc_res res;
+	int op;
+
+	switch (mode) {
+	case MTU3_RESOURCE_SUSPEND:
+		op = MTK_USB_SMC_INFRA_REQUEST;
+		break;
+	case MTU3_RESOURCE_RESUME:
+		op = MTK_USB_SMC_INFRA_RELEASE;
+		break;
+	default:
+		dev_info(ssusb->dev, "%s not support mode\n", __func__);
+		return;
+	}
+	dev_info(ssusb->dev, "%s operation = %d\n", __func__, op);
+	arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL, op, 0, 0, 0, 0, 0, 0, &res);
+}
 #endif
 
 int ssusb_set_power_resource(struct ssusb_mtk *ssusb, int mode)
 {
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
-	switch (mode) {
-	case MTU3_RESOURCE_ALL:
-	case MTU3_RESOURCE_RESUME:
-		dev_info(ssusb->dev, "RESOURCE_ALL\n");
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
-		break;
-	case MTU3_RESOURCE_NONE:
-		dev_info(ssusb->dev, "RESOURCE_NONE\n");
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-			SPM_RESOURCE_RELEASE);
-		break;
-	case MTU3_RESOURCE_SUSPEND:
-		dev_info(ssusb->dev, "RESOURCE_SUSPEND\n");
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
-			SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
-			SPM_RESOURCE_AXI_BUS);
-		break;
-	default:
-		dev_info(ssusb->dev, "%s not support mode\n", __func__);
-		break;
-	}
+#if defined MTU3_USE_SPM_API
+	ssusb_spm_request(ssusb, mode);
+#else
+	ssusb_smc_request(ssusb, mode);
 #endif
 	return 0;
 }

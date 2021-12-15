@@ -24,6 +24,13 @@
 #define DB_OPT_FTRACE   (0)	/* Dummy macro define to avoid build error */
 #endif
 
+int __weak Is_MD_EMI_voilation(void)
+{
+	CCCI_ERROR_LOG(-1, FSM,
+		"%s:weak function\n", __func__);
+	return 1;
+}
+
 static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	char *aed_str, int db_opt)
 {

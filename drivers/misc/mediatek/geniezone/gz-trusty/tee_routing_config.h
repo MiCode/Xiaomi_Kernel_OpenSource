@@ -7,7 +7,6 @@
 #ifndef _TEE_ROUTING_CONFIG_H_
 #define _TEE_ROUTING_CONFIG_H_
 
-#include <linux/types.h>
 #include <gz-trusty/trusty.h>
 
 #define MAX_TEE_ROUTING_SRV_NAME (16)
@@ -34,7 +33,6 @@ struct tee_routing_obj {
 	 */
 	char srv_name[MAX_TEE_ROUTING_SRV_NAME];
 	enum tee_id_t tee_id;
-	struct hlist_node node;
 };
 
 /**

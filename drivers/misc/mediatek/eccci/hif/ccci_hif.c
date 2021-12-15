@@ -10,124 +10,12 @@
 #include "ccci_core.h"
 #include "ccci_hif_cldma.h"
 #include "ccci_hif_dpmaif.h"
+#include "ccci_config.h"
 
 #define TAG "hif"
 
 void *ccci_hif[CCCI_HIF_NUM];
 struct ccci_hif_ops *ccci_hif_op[CCCI_HIF_NUM];
-
-
-void ccci_hif_set_clk_cg(unsigned int hif_flag,
-		unsigned char md_id, unsigned int on)
-{
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] &&
-				ccci_hif_op[CLDMA_HIF_ID]->set_clk_cg)
-			ccci_hif_op[CLDMA_HIF_ID]->set_clk_cg(md_id, on);
-	}
-
-}
-
-void ccci_hif_hw_reset(unsigned int hif_flag, unsigned char md_id)
-{
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] &&
-				ccci_hif_op[CLDMA_HIF_ID]->hw_reset)
-			ccci_hif_op[CLDMA_HIF_ID]->hw_reset(md_id);
-	}
-
-}
-
-int ccci_hif_clear(unsigned int hif_flag)
-{
-	int ret = 0;
-
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] && ccci_hif_op[CLDMA_HIF_ID]->clear)
-			ret |= ccci_hif_op[CLDMA_HIF_ID]->clear(CLDMA_HIF_ID);
-	}
-
-	return ret;
-}
-
-int ccci_hif_init(unsigned char md_id, unsigned int hif_flag)
-{
-	int ret = 0;
-
-	CCCI_INIT_LOG(-1, TAG, "%s flag = 0x%x\n", __func__, hif_flag);
-
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] && ccci_hif_op[CLDMA_HIF_ID]->init)
-			ret |=
-			ccci_hif_op[CLDMA_HIF_ID]->init(CLDMA_HIF_ID, md_id);
-	}
-
-	return ret;
-}
-
-int ccci_hif_late_init(unsigned char md_id, unsigned int hif_flag)
-{
-	int ret = 0;
-
-	CCCI_INIT_LOG(-1, TAG, "ccci_hif_init flag = 0x%x\n", hif_flag);
-
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] &&
-			ccci_hif_op[CLDMA_HIF_ID]->late_init)
-			ret |= ccci_hif_op[CLDMA_HIF_ID]->late_init(CLDMA_HIF_ID);
-	}
-
-	return ret;
-}
-
-int ccci_hif_clear_all_queue(unsigned int hif_flag, enum DIRECTION dir)
-{
-	int ret = 0;
-
-	CCCI_INIT_LOG(-1, TAG,
-		"[%s] flag = 0x%x\n", __func__, hif_flag);
-
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] &&
-			ccci_hif_op[CLDMA_HIF_ID]->clear_all_queue)
-			ret |= ccci_hif_op[CLDMA_HIF_ID]->clear_all_queue(
-						CLDMA_HIF_ID, dir);
-	}
-
-	return ret;
-}
-
-int ccci_hif_all_q_reset(unsigned int hif_flag)
-{
-	int ret = 0;
-
-	CCCI_INIT_LOG(-1, TAG,
-		"[%s] flag = 0x%x\n", __func__, hif_flag);
-
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] &&
-				ccci_hif_op[CLDMA_HIF_ID]->all_q_reset)
-			ret |= ccci_hif_op[CLDMA_HIF_ID]->all_q_reset(CLDMA_HIF_ID);
-	}
-
-	return ret;
-}
-
-int ccci_hif_stop_for_ee(unsigned int hif_flag)
-{
-	int ret = 0;
-
-	CCCI_INIT_LOG(-1, TAG,
-		"[%s] flag = 0x%x\n", __func__, hif_flag);
-
-	if (hif_flag & (1 << CLDMA_HIF_ID)) {
-		if (ccci_hif[CLDMA_HIF_ID] &&
-				ccci_hif_op[CLDMA_HIF_ID]->stop_for_ee)
-			ret |= ccci_hif_op[CLDMA_HIF_ID]->stop_for_ee(CLDMA_HIF_ID);
-	}
-
-	return ret;
-}
 
 int ccci_hif_dump_status(unsigned int hif_flag,
 		enum MODEM_DUMP_FLAG dump_flag,
@@ -321,7 +209,7 @@ void ccci_md_add_log_history(struct ccci_hif_traffic *tinfo,
 			= is_droped;
 		tinfo->tx_history_ptr[queue_index]++;
 		tinfo->tx_history_ptr[queue_index]
-		&= (PACKET_HISTORY_DEPTH - 1);
+		&= (unsigned int)(PACKET_HISTORY_DEPTH - 1);
 	}
 	if (dir == IN) {
 		memcpy(&tinfo->rx_history[queue_index][
@@ -422,11 +310,6 @@ int ccci_hif_start(unsigned char hif_id)
 	if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->start)
 		ret |= ccci_hif_op[hif_id]->start(hif_id);
 
-	//if (ccci_hif[CCIF_HIF_ID] && ccci_hif_op[CCIF_HIF_ID]->start)
-	//	ret |= ccci_hif_op[CCIF_HIF_ID]->start(CCIF_HIF_ID);
-	//if (ccci_hif[DPMAIF_HIF_ID] && ccci_hif_op[DPMAIF_HIF_ID]->start)
-	//	ret |= ccci_hif_op[DPMAIF_HIF_ID]->start(DPMAIF_HIF_ID);
-
 	return ret;
 }
 
@@ -437,15 +320,11 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 	switch (state) {
 	case BOOT_WAITING_FOR_HS1:
 		ccci_hif_start(CCIF_HIF_ID);
+#if MD_GENERATION >= (6295)
 		ccci_hif_start(DPMAIF_HIF_ID);
-
-		ccci_hif_late_init(md_id, 1 << CLDMA_HIF_ID);
-		ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md_id, 1);
-		ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
-		ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
-		ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md_id);
+#else
 		ccci_hif_start(CLDMA_HIF_ID);
-
+#endif
 		break;
 	case READY:
 		break;

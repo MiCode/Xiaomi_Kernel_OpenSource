@@ -11,4 +11,8 @@
 # GNU General Public License for more details.
 #
 
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6781) $(CONFIG_MACH_MT6833) $(CONFIG_MACH_MT6877) $(CONFIG_MACH_MT6893)))
+obj-y += v1/
+else
 obj-y += $(MTK_PLATFORM)/
+endif

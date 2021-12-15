@@ -40,10 +40,13 @@
 #include <linux/of.h>
 
 #include <linux/of.h>
+#include <linux/of_fdt.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/debugfs.h>
+#include <linux/sched/clock.h>
+#include <asm/arch_timer.h>
 
 #if ENABLE_GZ_TRACE_DUMP
 #if IS_BUILTIN(CONFIG_MTK_GZ_LOG)
@@ -52,7 +55,6 @@
 	#include "gz_trace_module.h"
 #endif
 #include <linux/vmalloc.h>
-#include <linux/sched/clock.h>
 
 struct gz_trace_dump_t {
 	u64 ktime_base;
@@ -114,25 +116,37 @@ struct gz_log_context {
 	void *virt;
 	struct page *pages;
 	size_t size;
-	enum {DYNAMIC, STATIC} flag;
-
+	enum {DYNAMIC, STATIC_MAP, STATIC_NOMAP} flag;
 	struct gz_log_state *gls;
 };
 
-static struct gz_log_context glctx;
+static struct gz_log_context glctx = {
+	.paddr = 0,
+	.virt = NULL,
+	.size = 0,
+	.flag = DYNAMIC,
+};
 
 #if IS_BUILTIN(CONFIG_MTK_GZ_LOG)
 static int __init gz_log_context_init(struct reserved_mem *rmem)
 {
+	unsigned long node;
+
 	if (!rmem) {
 		pr_info("[%s] ERROR: invalid reserved memory\n", __func__);
 		return -EFAULT;
 	}
 	glctx.paddr = rmem->base;
 	glctx.size = rmem->size;
-	glctx.flag = STATIC;
-	pr_info("[%s] rmem:%s base(0x%llx) size(0x%zx)\n",
-		__func__, rmem->name, glctx.paddr, glctx.size);
+
+	node = rmem->fdt_node;
+	if (!of_get_flat_dt_prop(node, "no-map", NULL))
+		glctx.flag = STATIC_MAP;
+	else
+		glctx.flag = STATIC_NOMAP;
+
+	pr_info("[%s] rmem:%s base(0x%llx) size(0x%zx) flag(%u)\n",
+		__func__, rmem->name, glctx.paddr, glctx.size, glctx.flag);
 	return 0;
 }
 RESERVEDMEM_OF_DECLARE(gz_log, "mediatek,gz-log", gz_log_context_init);
@@ -140,8 +154,7 @@ RESERVEDMEM_OF_DECLARE(gz_log, "mediatek,gz-log", gz_log_context_init);
 static void gz_log_find_mblock(void)
 {
 	struct device_node *mblock_root = NULL, *gz_node = NULL;
-	struct resource r;
-	int ret;
+	struct reserved_mem *rmem;
 
 	mblock_root = of_find_node_by_path("/reserved-memory");
 	if (!mblock_root) {
@@ -155,17 +168,21 @@ static void gz_log_find_mblock(void)
 		return;
 	}
 
-	ret = of_address_to_resource(gz_node, 0, &r);
-	if (ret) {
+	rmem = of_reserved_mem_lookup(gz_node);
+	if (!rmem) {
 		pr_info("[%s] ERROR: not found address\n", __func__);
 		return;
 	}
 
-	glctx.paddr = r.start;
-	glctx.size = resource_size(&r);
-	glctx.flag = STATIC;
-	pr_info("[%s] rmem:%s base(0x%llx) size(0x%zx)\n",
-		__func__, gz_node->name, glctx.paddr, glctx.size);
+	glctx.paddr = rmem->base;
+	glctx.size = rmem->size;
+	if (!of_find_property(gz_node, "no-map", NULL))
+		glctx.flag = STATIC_MAP;
+	else
+		glctx.flag = STATIC_NOMAP;
+
+	pr_info("[%s] rmem:%s base(0x%llx) size(0x%zx) flag(%u)\n",
+		__func__, gz_node->name, glctx.paddr, glctx.size, glctx.flag);
 }
 #endif
 
@@ -178,20 +195,15 @@ static int gz_log_page_init(void)
 	gz_log_find_mblock();
 #endif
 
-	if (glctx.flag == STATIC) {
-		glctx.virt = memremap(glctx.paddr, glctx.size, MEMREMAP_WB);
+	if (glctx.flag >= STATIC_MAP) {
+		if (glctx.flag == STATIC_MAP)
+			glctx.virt = phys_to_virt(glctx.paddr);
+		else
+			glctx.virt = memremap(glctx.paddr, glctx.size, MEMREMAP_WB);
+	}
 
-		if (!glctx.virt) {
-			pr_info("[%s] ERROR: ioremap failed, use dynamic\n",
-				__func__);
-			glctx.flag = DYNAMIC;
-			goto dynamic_alloc;
-		}
-
-		pr_info("[%s] set by static, virt addr:%p, sz:0x%zx\n",
-			__func__, glctx.virt, glctx.size);
-	} else {
-dynamic_alloc:
+	if (!glctx.virt) {
+		glctx.flag = DYNAMIC;
 		glctx.size = TRUSTY_LOG_SIZE;
 		glctx.virt = kzalloc(glctx.size, GFP_KERNEL);
 
@@ -199,9 +211,13 @@ dynamic_alloc:
 			return -ENOMEM;
 
 		glctx.paddr = virt_to_phys(glctx.virt);
-		pr_info("[%s] set by dynamic, virt:%p, sz:0x%zx\n",
-			__func__, glctx.virt, glctx.size);
 	}
+
+	pr_info("[%s] set by %s, virt addr:%p, sz:0x%zx\n",
+		__func__,
+		glctx.flag == STATIC_NOMAP ? "static_nomap" :
+		glctx.flag == STATIC_MAP ? "static_map" : "dynamic",
+		glctx.virt, glctx.size);
 
 	return 0;
 }
@@ -730,6 +746,32 @@ static const struct file_operations proc_gz_log_fops = {
 	.poll = gz_log_poll,
 };
 
+static int trusty_gz_send_ktime(struct platform_device *pdev)
+{
+	uint64_t current_ktime = 0;
+	uint64_t current_cnt = 0;
+	uint64_t diff_all;
+	uint32_t diff_msb;
+	uint32_t diff_lsb;
+
+	current_ktime = sched_clock();
+	current_cnt = arch_counter_get_cntvct();
+	diff_all = current_cnt - div64_u64((13 * current_ktime), 1000);
+	diff_msb = (diff_all >> 32);
+	diff_lsb = (diff_all & U32_MAX);
+
+	trusty_fast_call32(pdev->dev.parent,
+		MTEE_SMCNR(MT_SMCF_FC_KTIME_ALIGN, pdev->dev.parent),
+		diff_msb, diff_lsb, 0);
+
+	return 0;
+}
+
+static int trusty_gz_log_resume(struct platform_device *pdev)
+{
+	return trusty_gz_send_ktime(pdev);
+}
+
 static int trusty_gz_log_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -741,6 +783,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	int cpu;
 #endif
 
+	trusty_gz_send_ktime(pdev);
 
 	if (!trusty_supports_logging(pdev->dev.parent))
 		return -ENXIO;
@@ -896,9 +939,9 @@ error_callback_notifier:
 			  MTEE_SMCNR(SMCF_SC_SHARED_LOG_RM, gls->trusty_dev),
 			  (u32)glctx.paddr, (u32)((u64)glctx.paddr >> 32), 0);
 error_std_call:
-	if (glctx.flag == STATIC)
+	if (glctx.flag == STATIC_NOMAP)
 		memunmap(glctx.virt);
-	else
+	else if (glctx.flag == DYNAMIC)
 		kfree(glctx.virt);
 error_alloc_log:
 	mutex_destroy(&gls->lock);
@@ -934,9 +977,9 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 	if (ret)
 		pr_info("std call(GZ_SHARED_LOG_RM) failed: %d\n", ret);
 
-	if (glctx.flag == STATIC)
+	if (glctx.flag == STATIC_NOMAP)
 		memunmap(glctx.virt);
-	else
+	else if (glctx.flag == DYNAMIC)
 		kfree(glctx.virt);
 
 	mutex_destroy(&gls->lock);
@@ -953,6 +996,7 @@ static const struct of_device_id trusty_gz_of_match[] = {
 
 static struct platform_driver trusty_gz_log_driver = {
 	.probe = trusty_gz_log_probe,
+	.resume = trusty_gz_log_resume,
 	.remove = trusty_gz_log_remove,
 	.driver = {
 		.name = "trusty-gz-log",

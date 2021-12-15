@@ -6,6 +6,11 @@
 #ifndef __MFD_MT6357_REGISTERS_H__
 #define __MFD_MT6357_REGISTERS_H__
 
+#define PMU_FLAG_TABLE_ENTRY struct pmu_flag_table_entry_t
+#define PMU_FLAGS_LIST_ENUM enum PMU_FLAGS_LIST
+
+#define MT6357_PMIC_REG_BASE			((unsigned int)(0x0))
+
 /* PMIC Registers */
 #define MT6357_TOP0_ID                       0x0
 #define MT6357_TOP0_REV0                     0x2

@@ -84,6 +84,12 @@ config PINCTRL_MT2712
 	depends on ARM64 || COMPILE_TEST
 	select PINCTRL_MTK
 
+config PINCTRL_MT6739
+	bool "Mediatek MT6739 pin control"
+	default n
+	depends on MACH_MT6739
+	select PINCTRL_MTK_PARIS
+
 config PINCTRL_MT6761
 	tristate "Mediatek MT6761 pin control"
 	depends on OF || COMPILE_TEST
@@ -92,6 +98,18 @@ config PINCTRL_MT6761
 config PINCTRL_MT6765
 	tristate "Mediatek MT6765 pin control"
 	depends on OF || COMPILE_TEST
+	select PINCTRL_MTK_PARIS
+
+config PINCTRL_MT6877
+	bool "Mediatek MT6877 pin control"
+	default n
+	depends on MACH_MT6877
+	select PINCTRL_MTK_PARIS
+
+config PINCTRL_MT6833
+	bool "Mediatek MT6833 pin control"
+	default n
+	depends on MACH_MT6833
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT6779
@@ -103,6 +121,12 @@ config PINCTRL_MT6797
 	bool "Mediatek MT6797 pin control"
 	depends on OF
 	depends on ARM64 || COMPILE_TEST
+	select PINCTRL_MTK_PARIS
+
+config PINCTRL_MT6885
+	bool "Mediatek MT6885 pin control"
+	default n
+	depends on MACH_MT6885 || MACH_MT6893
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT7622
@@ -130,5 +154,17 @@ config PINCTRL_MT6397
 	depends on OF
 	default MFD_MT6397
 	select PINCTRL_MTK
+
+config PINCTRL_MT6768
+	bool "Mediatek MT6768 pin control"
+	default n
+	depends on MACH_MT6768
+	select PINCTRL_MTK_PARIS
+
+config PINCTRL_MT6781
+	bool "Mediatek MT6781 pin control"
+	default n
+	depends on MACH_MT6781
+	select PINCTRL_MTK_PARIS
 
 endmenu

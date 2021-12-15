@@ -11,22 +11,39 @@ struct seq_file;
 #define clk_setl(addr, val)	clk_writel(addr, clk_readl(addr) | (val))
 #define clk_clrl(addr, val)	clk_writel(addr, clk_readl(addr) & ~(val))
 
+enum PWR_STA_TYPE {
+	PWR_STA,
+	PWR_STA2,
+	XPU_PWR_STA,
+	XPU_PWR_STA2,
+	OTHER_PWR_STA,
+	STA_NUM,
+};
+
+
+
 enum FMETER_TYPE {
 	FT_NULL,
 	ABIST,
-	CKGEN
+	CKGEN,
+	ABIST_2,
+	SUBSYS,
 };
 
 struct fmeter_clk {
 	enum FMETER_TYPE type;
 	u32 id;
 	const char *name;
+	u32 ofs;
+	u32 pdn;
+	u32 grp;
 };
 
 struct regbase {
 	u32 phys;
 	void __iomem *virt;
 	const char *name;
+	const char *pg;
 };
 
 struct regname {
@@ -53,6 +70,7 @@ struct provider_clk {
 	u32 idx;
 	struct clk *ck;
 	u32 pwr_mask;
+	u32 sta_type;
 };
 
 struct clkdbg_ops {
@@ -64,6 +82,9 @@ struct clkdbg_ops {
 	const char * const *(*get_all_clk_names)(void);
 	const char * const *(*get_pwr_names)(void);
 	void (*setup_provider_clk)(struct provider_clk *pvdck);
+	u32 (*get_spm_pwr_status)(void);
+	u32 *(*get_spm_pwr_status_array)(void);
+	bool (*is_pwr_on)(struct provider_clk *pvdck);
 };
 
 void set_clkdbg_ops(const struct clkdbg_ops *ops);

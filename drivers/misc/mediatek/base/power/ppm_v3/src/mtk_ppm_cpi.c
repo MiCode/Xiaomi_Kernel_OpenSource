@@ -71,6 +71,11 @@ static struct perf_event_attr pmu_e8_event_attr = {
 static unsigned long long stall_val[4];
 static int stall_val_dbg;
 
+int ppm_perf_event_read_local(struct perf_event *ev, u64 *value)
+{
+	return perf_event_read_local(ev, value, NULL, NULL);
+}
+
 static unsigned int ppm_cpi_get_cpu_cycle_count(int cpu)
 {
 	unsigned long long new = 0;
@@ -100,7 +105,7 @@ static unsigned int ppm_cpi_get_inst_count(int cpu)
 	unsigned int diff = 0;
 
 	if (event && event->state == PERF_EVENT_STATE_ACTIVE) {
-		perf_event_read_local(event, &new);
+		ppm_perf_event_read_local(event, &new);
 		if (new > old)
 			diff = (unsigned int)(new - old);
 
@@ -121,7 +126,7 @@ static unsigned long long ppm_cpi_get_pmu_e1_count(int cpu)
 	unsigned long long diff = 0;
 
 	if (event && event->state == PERF_EVENT_STATE_ACTIVE) {
-		perf_event_read_local(event, &new);
+		ppm_perf_event_read_local(event, &new);
 		if (new > old)
 			diff = new - old;
 
@@ -142,7 +147,7 @@ static unsigned long long ppm_cpi_get_pmu_e7_count(int cpu)
 	unsigned long long diff = 0;
 
 	if (event && event->state == PERF_EVENT_STATE_ACTIVE) {
-		perf_event_read_local(event, &new);
+		ppm_perf_event_read_local(event, &new);
 		if (new > old)
 			diff = new - old;
 
@@ -163,7 +168,7 @@ static unsigned long long ppm_cpi_get_pmu_e8_count(int cpu)
 	unsigned long long diff = 0;
 
 	if (event && event->state == PERF_EVENT_STATE_ACTIVE) {
-		perf_event_read_local(event, &new);
+		ppm_perf_event_read_local(event, &new);
 		if (new > old)
 			diff = new - old;
 
@@ -195,15 +200,16 @@ static void ppm_cpi_get_pmu_val(void *val)
 static void ppm_cpi_enable_cycle_cnt(void *info)
 {
 	int cpu = smp_processor_id();
-	unsigned int enset;
 	unsigned long long prev = per_cpu(cpu_cycle_count, cpu);
 
 #ifdef CONFIG_ARM64
+	unsigned long enset;
 	asm volatile("mrs %0, pmcntenset_el0" : "=r" (enset));
 	asm volatile("msr pmcntenset_el0, %0" :: "r"
-		((unsigned int)((1 << 31) | enset)));
+		((unsigned long)((1 << 31) | enset)));
 	asm volatile("msr pmccntr_el0, %0" :: "r" (prev));
 #else
+	unsigned int enset;
 	asm volatile("mrc p15, 0, %0, c9, c12, 1" : "=r"(enset));
 	asm volatile("mcr p15, 0, %0, c9, c12, 1" : : "r"
 		((unsigned int)((1 << 31) | enset)));
@@ -213,13 +219,14 @@ static void ppm_cpi_enable_cycle_cnt(void *info)
 
 static void ppm_cpi_disable_cycle_cnt(void *info)
 {
-	unsigned int enset;
 
 #ifdef CONFIG_ARM64
+	unsigned long enset;
 	asm volatile("mrs %0, pmcntenset_el0" : "=r" (enset));
 	asm volatile("msr pmcntenset_el0, %0" :: "r"
-		((unsigned int)(enset & ~(1 << 31))));
+		((unsigned long)(enset & ~(1 << 31))));
 #else
+	unsigned int enset;
 	asm volatile("mrc p15, 0, %0, c9, c12, 1" : "=r"(enset));
 	asm volatile("mcr p15, 0, %0, c9, c12, 1" : : "r"
 		((unsigned int)(enset & ~(1 << 31))));
@@ -238,7 +245,7 @@ static void ppm_cpi_pmu_enable_locked(int cpu, int enable)
 					 NULL, 1);
 		if (i_event) {
 			perf_event_enable(i_event);
-			perf_event_read_local(i_event,
+			ppm_perf_event_read_local(i_event,
 					      &per_cpu(inst_count, cpu));
 		}
 		if (p1_event)

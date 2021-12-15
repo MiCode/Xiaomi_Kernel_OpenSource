@@ -33,25 +33,14 @@
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
 
-#define aud_wake_lock_init(ws, name) wakeup_source_init(ws, name)
-#define aud_wake_lock_destroy(ws) wakeup_source_trash(ws)
-#define aud_wake_lock(ws) __pm_stay_awake(ws)
-#define aud_wake_unlock(ws) __pm_relax(ws)
-
-#if defined(CONFIG_SND_SOC_MTK_AUDIODSP)
 #include "mtk-dsp-common_define.h"
-#endif
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 #include "adsp_feature_define.h"
-#endif
+#include "adsp_helper.h"
 
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 #include <audio_task_manager.h>
-#include <audio_ipi_client_playback.h>
 #include <audio_ipi_dma.h>
-#endif
 
-#define DEBUG_VERBOSE
+//#define DEBUG_VERBOSE
 
 /**************************************************
   * Variable Definition
@@ -62,6 +51,12 @@
 #define FILL_BUFFERING             (USE_PERIODS_MAX << 3) /* 64K */
 #define RESERVE_DRAMPLAYBACKSIZE   (USE_PERIODS_MAX << 2) /* 32 K*/
 #define ID AUDIO_TASK_OFFLOAD_ID
+#define GENPOOL_ID AUDIO_DSP_AFE_SHARE_MEM_ID
+
+#define aud_wake_lock_init(dev, name) wakeup_source_register(dev, name)
+#define aud_wake_lock_destroy(ws) wakeup_source_destroy(ws)
+#define aud_wake_lock(ws) __pm_stay_awake(ws)
+#define aud_wake_unlock(ws) __pm_relax(ws)
 
 enum {
 	TASK_SCENE_OFFLOAD_MP3,
@@ -78,7 +73,6 @@ static struct afe_offload_service_t afe_offload_service = {
 	.drain           = false,
 	.ipiwait         = false,
 	.needdata        = false,
-	.ipiresult       = true,
 	.decode_error    = false,
 	.volume          = 0x10000,
 	.scene           = TASK_SCENE_PLAYBACK_MP3,
@@ -112,20 +106,16 @@ static unsigned long long ringbufbridge_writebk;
 
 #ifdef use_wake_lock
 static DEFINE_SPINLOCK(offload_lock);
-struct wakeup_source Offload_suspend_lock;
+struct wakeup_source* Offload_suspend_lock;
 #endif
-#ifdef CONFIG_SND_SOC_MTK_AUDIO_DSP
-struct mtk_base_dsp *dsp;
+static struct mtk_base_dsp *dsp;
 
-#endif
 /*
  * Function  Declaration
  */
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg);
 static void offloadservice_task_unloaded_handling(void);
 static bool OffloadService_IPICmd_Wait(unsigned int id);
-#endif
 static int offloadservice_copydatatoram(void __user *buf, size_t count);
 #ifdef use_wake_lock
 static void mtk_compr_offload_int_wakelock(bool enable);
@@ -152,13 +142,11 @@ static int offloadservice_setvolume(struct snd_kcontrol *kcontrol,
 {
 	afe_offload_service.volume =
 		(unsigned int)ucontrol->value.integer.value[0];
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 			 AUDIO_IPI_MSG_ONLY,
 			 AUDIO_IPI_MSG_BYPASS_ACK,
 			 OFFLOAD_VOLUME, afe_offload_service.volume,
 			 afe_offload_service.volume, NULL);
-#endif
 	return 0;
 }
 
@@ -166,44 +154,6 @@ static int offloadservice_getvolume(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = afe_offload_service.volume;
-	return 0;
-}
-
-static int offloadservice_set_pcmdump(struct snd_kcontrol *kcontrol,
-				      struct snd_ctl_elem_value *ucontrol)
-{
-	afe_offload_service.pcmdump
-		= (unsigned int)ucontrol->value.integer.value[0];
-
-	if (afe_offload_service.pcmdump > 0) {
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-		playback_open_dump_file();
-#endif
-	}
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-			 AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
-			 OFFLOAD_PCMDUMP_ON,
-			 0, afe_offload_service.pcmdump,
-			 0);
-#endif
-	pr_debug("%s, PCMDUMP = %d\n", __func__, afe_offload_service.pcmdump);
-	afe_offload_service.ipiwait = true;
-	/* dsp dump closed */
-	if (afe_offload_service.pcmdump == 0) {
-		OffloadService_IPICmd_Wait(OFFLOAD_PCMDUMP_OK);
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-		playback_close_dump_file();
-#endif
-	}
-
-	return 0;
-}
-
-static int offloadservice_get_pcmdump(struct snd_kcontrol *kcontrol,
-				      struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] = afe_offload_service.pcmdump;
 	return 0;
 }
 
@@ -229,8 +179,6 @@ static int offloadservice_getformat(struct snd_kcontrol *kcontrol,
 static const struct snd_kcontrol_new Audio_snd_dloffload_controls[] = {
 	SOC_SINGLE_EXT("offload digital volume", SND_SOC_NOPM, 0, 0x1000000, 0,
 	offloadservice_getvolume, offloadservice_setvolume),
-	SOC_SINGLE_EXT("offload set dump", SND_SOC_NOPM, 0, 0xF, 0,
-	offloadservice_get_pcmdump, offloadservice_set_pcmdump),
 	SOC_SINGLE_EXT("offload set format", SND_SOC_NOPM, 0,
 	TASK_SCENE_PLAYBACK_MP3, 0,
 	offloadservice_getformat, offloadservice_setformat),
@@ -246,9 +194,9 @@ static void mtk_compr_offload_int_wakelock(bool enable)
 	spin_lock(&offload_lock);
 	if (enable ^ afe_offload_block.wakelock) {
 		if (enable)
-			aud_wake_lock(&Offload_suspend_lock);
+			aud_wake_lock(Offload_suspend_lock);
 		else
-			aud_wake_unlock(&Offload_suspend_lock);
+			aud_wake_unlock(Offload_suspend_lock);
 		afe_offload_block.wakelock = enable;
 	}
 	spin_unlock(&offload_lock);
@@ -293,36 +241,35 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 
 	int silence_length = 0;
 
-	afe_offload_block.state = OFFLOAD_STATE_DRAIN;
-	afe_offload_block.drain_state = AUDIO_DRAIN_EARLY_NOTIFY;
+	if (afe_offload_block.state != OFFLOAD_STATE_DRAIN) {
+		if (ringbuf->pRead >= ringbuf->pWrite)
+			silence_length = ringbuf->pRead - ringbuf->pWrite;
+		else
+			silence_length = ringbuf->pBufEnd - ringbuf->pWrite;
+		if (silence_length > (USE_PERIODS_MAX))
+			silence_length = USE_PERIODS_MAX;
+		memset(ringbuf->pWrite, 0, silence_length);
+		RingBuf_update_writeptr(ringbuf, silence_length);
+		RingBuf_Bridge_update_writeptr(buf_bridge, silence_length);
+		ringbuf_writebk = (unsigned long)ringbuf->pWrite;
+		ringbufbridge_writebk = buf_bridge->pWrite;
+		afe_offload_service.needdata = false;
 
-	if (ringbuf->pRead >= ringbuf->pWrite)
-		silence_length = ringbuf->pRead - ringbuf->pWrite;
-	else
-		silence_length = ringbuf->pBufEnd - ringbuf->pWrite;
-	if (silence_length > (USE_PERIODS_MAX))
-		silence_length = USE_PERIODS_MAX;
-	memset(ringbuf->pWrite, 0, silence_length);
-	RingBuf_update_writeptr(ringbuf, silence_length);
-	RingBuf_Bridge_update_writeptr(buf_bridge, silence_length);
-	ringbuf_writebk = (unsigned long)ringbuf->pWrite;
-	ringbufbridge_writebk = buf_bridge->pWrite;
-	afe_offload_service.needdata = false;
-
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-	pr_info("%s, OFFLOAD_DRAIN", __func__);
-	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-			 AUDIO_IPI_PAYLOAD,
-			 AUDIO_IPI_MSG_NEED_ACK,
-			 OFFLOAD_DRAIN,
-			 sizeof(buf_bridge->pWrite),
-			 0,
-			 (void *)&buf_bridge->pWrite);
-#endif
+		pr_info("%s, OFFLOAD_DRAIN", __func__);
+		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+			AUDIO_IPI_PAYLOAD,
+			AUDIO_IPI_MSG_NEED_ACK,
+			OFFLOAD_DRAIN,
+			sizeof(buf_bridge->pWrite),
+			0,
+			(void *)&buf_bridge->pWrite);
+		afe_offload_block.state = OFFLOAD_STATE_DRAIN;
+		afe_offload_block.drain_state = AUDIO_DRAIN_EARLY_NOTIFY;
+	}
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
-
+	pr_info("%s-", __func__);
 	return 1;  /* make compress driver drain failed */
 }
 
@@ -330,15 +277,9 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 
 static int mtk_compr_offload_open(struct snd_compr_stream *stream)
 {
+	int ret = 0;
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(true);
-#endif
-
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	adsp_register_feature(OFFLOAD_FEATURE_ID);
-#else
-	scp_register_feature(MP3_FEATURE_ID);
 #endif
 
 	mtk_scp_ipi_send(TASK_SCENE_PLAYBACK_MP3,
@@ -348,10 +289,38 @@ static int mtk_compr_offload_open(struct snd_compr_stream *stream)
 			 0,
 			 0,
 			 NULL);
-#endif
 	offload_stream = stream;
-	pr_debug("%s OFFLOAD_TYPE = %d\n", __func__, OFFLOAD_TYPE);
 
+	if (dsp == NULL) {
+		dsp = (struct mtk_base_dsp *)get_dsp_base();
+		pr_debug("get_dsp_base again\n");
+	}
+	/* gen pool related */
+	dsp->dsp_mem[ID].gen_pool_buffer =
+			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
+	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			gen_pool_avail(
+				dsp->dsp_mem[ID].gen_pool_buffer),
+			gen_pool_size(
+				dsp->dsp_mem[ID].gen_pool_buffer));
+
+		/* allocate ring buffer wioth share memory*/
+		ret = mtk_adsp_genpool_allocate_sharemem_ring(
+			      &dsp->dsp_mem[ID],
+			      OFFLOAD_SIZE_BYTES,
+			      ID);
+
+		if (ret < 0) {
+			pr_debug("%s err\n", __func__);
+			return -1;
+		}
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			 gen_pool_avail(
+			 dsp->dsp_mem[ID].gen_pool_buffer),
+			 gen_pool_size(
+			 dsp->dsp_mem[ID].gen_pool_buffer));
+	}
 	return 0;
 }
 
@@ -366,18 +335,11 @@ static int mtk_compr_offload_free(struct snd_compr_stream *stream)
 {
 	pr_debug("%s()\n", __func__);
 	offloadservice_setwriteblocked(false);
+	if (dsp)
+		mtk_adsp_genpool_free_sharemem_ring(&dsp->dsp_mem[ID], ID);
 	afe_offload_block.state = OFFLOAD_STATE_INIT;
-	//SetOffloadEnableFlag(false);
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
-#endif
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	adsp_deregister_feature(OFFLOAD_FEATURE_ID);
-#else
-	scp_deregister_feature(MP3_FEATURE_ID);
-#endif
-
 #endif
 	return 0;
 }
@@ -387,53 +349,22 @@ static int mtk_compr_offload_set_params(struct snd_compr_stream *stream,
 {
 	struct snd_codec codec;
 	struct audio_hw_buffer *audio_hwbuf;
+	struct mtk_base_dsp_mem *audio_dsp_mem;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
 	int ret = 0;
 
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	audio_task_register_callback(
 			 TASK_SCENE_PLAYBACK_MP3,
 			 offloadservice_ipicmd_received,
 			 offloadservice_task_unloaded_handling);
-#endif
 
 	codec = params->codec;
-	afe_offload_block.samplerate = codec.sample_rate; //check this
+	afe_offload_block.samplerate = codec.sample_rate;
 
 	//set shared Dram meme
-	dsp = (struct mtk_base_dsp *)get_dsp_base();
 	audio_hwbuf = &dsp->dsp_mem[ID].adsp_buf;
-
-	/* gen pool related */
-	dsp->dsp_mem[ID].gen_pool_buffer = mtk_get_adsp_dram_gen_pool(
-							   ID);
-	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			gen_pool_avail(
-				dsp->dsp_mem[ID].gen_pool_buffer),
-			gen_pool_size(
-				dsp->dsp_mem[ID].gen_pool_buffer));
-
-		/* allocate ring buffer wioth share memory*/
-		ret = mtk_adsp_genpool_allocate_sharemem_ring(
-			      &dsp->dsp_mem[ID],
-			      gen_pool_avail(dsp->
-			      dsp_mem[ID].gen_pool_buffer),
-			      ID);
-
-		if (ret < 0) {
-			pr_warn("%s err\n", __func__);
-			return -1;
-		}
-
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			 gen_pool_avail(
-			 dsp->dsp_mem[ID].gen_pool_buffer),
-			 gen_pool_size(
-			 dsp->dsp_mem[ID].gen_pool_buffer));
-	}
+	audio_dsp_mem = &dsp->dsp_mem[ID];
 	dump_audio_dsp_dram(&dsp->dsp_mem[ID].dsp_ring_share_buf);
-	// set_audiobuffer_attribute
 	//set codec info
 	afe_offload_codec_info.codec_samplerate = codec.sample_rate;
 	afe_offload_codec_info.codec_bitrate = codec.bit_rate;
@@ -488,7 +419,7 @@ static int mtk_compr_offload_set_params(struct snd_compr_stream *stream,
 	return ret;
 
 ERROR:
-	pr_err("%s err\n", __func__);
+	pr_debug("%s err\n", __func__);
 	return -1;
 }
 
@@ -551,8 +482,7 @@ static void mtk_dsp_mp3_dl_handler(struct mtk_base_dsp *dsp,
 	struct RingBuf *ringbuf = &(dsp->dsp_mem[ID].ring_buf);
 	struct ringbuf_bridge *buf_bridge =
 		&(dsp->dsp_mem[ID].adsp_buf.aud_buffer.buf_bridge);
-    //unsigned long ringbuf_writebk = (unsigned long)ringbuf->pWrite;
-
+	char *readidx = NULL;
 
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s(__func__, &dsp->dsp_mem[id].ring_buf);
@@ -565,9 +495,14 @@ static void mtk_dsp_mp3_dl_handler(struct mtk_base_dsp *dsp,
 		       sizeof(struct audio_hw_buffer));
 		ringbuf->pWrite = (char *)ringbuf_writebk;
 		buf_bridge->pWrite = ringbufbridge_writebk;
-		sync_ringbuf_readidx(
-			&dsp_mem->ring_buf,
-			&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+		readidx = ringbuf->pBufBase +
+			  (buf_bridge->pRead - buf_bridge->pBufBase);
+		if (readidx != ringbuf->pRead) {
+			sync_ringbuf_readidx(
+				&dsp_mem->ring_buf,
+				&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+			pr_debug("%s update read ptr!", __func__);
+		}
 	}
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s(__func__, &dsp->dsp_mem[id].ring_buf);
@@ -586,11 +521,12 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 	}
 
 	if (dsp == NULL) {
-		pr_warn("%s dsp == NULL\n", __func__);
+		pr_debug("%s dsp == NULL\n", __func__);
 		return;
 	}
 
 	id = get_dspdaiid_by_dspscene(ipi_msg->task_scene);
+	afe_offload_service.ipiwait = false;
 
 	if (id < 0)
 		return;
@@ -604,21 +540,12 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		break;
 	case OFFLOAD_PCMCONSUMED:
 		afe_offload_block.copied_total = ipi_msg->param1;
-		afe_offload_service.ipiwait = false;
-		afe_offload_service.ipiresult = true;
 		break;
 	case OFFLOAD_DRAINDONE:
 		pr_info("%s mtk_compr_offload_draindone\n", __func__);
 		afe_offload_block.drain_state = AUDIO_DRAIN_ALL;
 		mtk_compr_offload_draindone();
-		afe_offload_service.ipiwait = false;
-		afe_offload_service.ipiresult = true;
 		break;
-	case OFFLOAD_PCMDUMP_OK:
-		afe_offload_service.ipiwait = false;
-		playback_dump_message(ipi_msg);
-		break;
-
 	case OFFLOAD_DECODE_ERROR:
 		afe_offload_service.decode_error = true;
 		pr_info("%s decode_error\n", __func__);
@@ -659,7 +586,9 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 	struct RingBuf *ringbuf = &(dsp->dsp_mem[ID].ring_buf);
 	struct ringbuf_bridge *buf_bridge =
 		&(dsp->dsp_mem[ID].adsp_buf.aud_buffer.buf_bridge);
+	struct audio_dsp_dram *dsp_dram;
 
+	dsp_dram = &dsp->dsp_mem[ID].msg_atod_share_buf;
 	copy_size = count;
 	availsize = RingBuf_getFreeSpace(ringbuf);
 #ifdef DEBUG_VERBOSE
@@ -675,6 +604,8 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		RingBuf_copyFromUserLinear(ringbuf, buf, copy_size);
 		RingBuf_Bridge_update_writeptr(buf_bridge, copy_size);
 		afe_offload_block.transferred += count;
+		ringbuf_writebk = (unsigned long)ringbuf->pWrite;
+		ringbufbridge_writebk = buf_bridge->pWrite;
 	} else {
 		//Liang: checked below, should not happened
 		pr_debug("%s fail copy_size = %d availsize = %d\n", __func__,
@@ -688,7 +619,6 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 			buf_bridge->pWrite;
 		afe_offload_service.needdata = false;
 		u4round = 1;
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
@@ -696,7 +626,6 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 				sizeof(afe_offload_block.write_blocked_idx),
 				0,
 				(void *)&afe_offload_block.write_blocked_idx);
-#endif
 #ifdef use_wake_lock
 		mtk_compr_offload_int_wakelock(false);
 #endif
@@ -717,7 +646,6 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		if (transferred >=
 		    (32 * USE_PERIODS_MAX) * u4round) {
 			/* notify writeIDX to SCP each 256K*/
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 			mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
@@ -725,7 +653,6 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 				sizeof(buf_bridge->pWrite),
 				0,
 				(void *)&buf_bridge->pWrite);
-#endif
 			u4round++;
 		}
 	}
@@ -733,10 +660,8 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		((afe_offload_block.transferred >= 8 * USE_PERIODS_MAX) ||
 			(afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 			afe_offload_block.state == OFFLOAD_STATE_DRAIN))) {
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 		/* send audio_hw_buffer to SCP side, get writeIndx*/
-		ipi_audio_buf = (void *)dsp->
-		dsp_mem[ID].msg_atod_share_buf.va_addr;
+		ipi_audio_buf = (void *)dsp_dram->va_addr;
 		memcpy((void *)ipi_audio_buf,
 			(void *)&dsp->dsp_mem[ID].adsp_buf,
 			sizeof(struct audio_hw_buffer));
@@ -755,18 +680,15 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 				__func__, copy_size,
 				RingBuf_getFreeSpace(ringbuf));
 #endif
-#endif
 			pr_debug("%s(),MSG_DECODER_START, TRANSFERRED %lld\n",
 				 __func__,
 				 afe_offload_block.transferred);
 			afe_offload_block.state = OFFLOAD_STATE_RUNNING;
 			u4round = 1;
 	}
-	ringbuf_writebk = (unsigned long)ringbuf->pWrite;
-	ringbufbridge_writebk = buf_bridge->pWrite;
 	return count;
 Error:
-	pr_warn("%s copy failed\n", __func__);
+	pr_debug("%s copy failed\n", __func__);
 	return -1;
 }
 
@@ -775,12 +697,10 @@ static int mtk_compr_offload_pointer(struct snd_compr_stream *stream,
 {
 	int ret = 0;
 
-	if (!afe_offload_service.ipiwait) {
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
+	if (!afe_offload_service.ipiwait && !offload_playback_pause) {
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 				 AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
 				 OFFLOAD_TSTAMP, 0, 0, NULL);
-#endif
 		afe_offload_service.ipiwait = true;
 	}
 	if (afe_offload_block.state == OFFLOAD_STATE_INIT ||
@@ -810,7 +730,6 @@ static int mtk_compr_offload_pointer(struct snd_compr_stream *stream,
 	if (offload_playback_pause) {
 		tstamp->copied_total =
 			afe_offload_block.transferred;
-		offload_playback_pause = false;
 	}
 	tstamp->sampling_rate = afe_offload_block.samplerate;
 	tstamp->pcm_io_frames = afe_offload_block.copied_total >>
@@ -829,9 +748,14 @@ static int mtk_compr_offload_pointer(struct snd_compr_stream *stream,
   */
 static int mtk_compr_offload_start(struct snd_compr_stream *stream)
 {
+	int ret = 0;
 	afe_offload_block.state = OFFLOAD_STATE_PREPARE;
+	offload_playback_pause = false;
 	//SetOffloadEnableFlag(true);
 	afe_offload_block.drain_state = AUDIO_DRAIN_NONE;
+	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID), AUDIO_IPI_MSG_ONLY,
+			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_START,
+			       1, 0, NULL);
 	return 0;
 }
 
@@ -839,7 +763,6 @@ static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 {
 	int ret = 0;
 
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	if ((afe_offload_block.transferred > 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
@@ -853,8 +776,6 @@ static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 		if (afe_offload_block.drain_state != AUDIO_DRAIN_EARLY_NOTIFY)
 			afe_offload_block.state = OFFLOAD_STATE_RUNNING;
 	}
-#endif
-	//SetOffloadEnableFlag(true);
 	offloadservice_releasewriteblocked();
 
 	offload_playback_pause = false;
@@ -870,7 +791,6 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	if ((afe_offload_block.transferred > 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
@@ -882,7 +802,6 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 					1, 0, NULL);
 		pr_debug("%s > transferred\n", __func__);
 	}
-#endif
 	offload_playback_pause = true;
 	offload_playback_resume = false;
 	return 0;
@@ -895,13 +814,11 @@ static int mtk_compr_offload_stop(struct snd_compr_stream *stream)
 	afe_offload_block.state = OFFLOAD_STATE_IDLE;
 	//SetOffloadEnableFlag(false);
 	/* stop hw */
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-						 AUDIO_IPI_MSG_ONLY,
-						 AUDIO_IPI_MSG_NEED_ACK,
-						 AUDIO_DSP_TASK_STOP, 1,
-						 0, NULL);
-#endif
+	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+				 AUDIO_IPI_MSG_ONLY,
+				 AUDIO_IPI_MSG_NEED_ACK,
+				 AUDIO_DSP_TASK_STOP, 1,
+				 0, NULL);
 	afe_offload_block.transferred       = 0;
 	afe_offload_block.copied_total      = 0;
 	afe_offload_block.write_blocked_idx = 0;
@@ -911,6 +828,7 @@ static int mtk_compr_offload_stop(struct snd_compr_stream *stream)
 	offloadservice_releasewriteblocked();
 	clear_audiobuffer_hw(&dsp->dsp_mem[ID].adsp_buf);
 	RingBuf_Reset(&dsp->dsp_mem[ID].ring_buf);
+
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
@@ -977,17 +895,17 @@ static struct snd_soc_component_driver mtk_dloffload_soc_component = {
 	.probe      = mtk_afe_dloffload_component_probe,
 };
 
-static int mtk_dloffload_probe(struct snd_soc_component *component)
+static int mtk_dloffload_probe(struct platform_device *pdev)
 {
-	if (component->dev.of_node)
-		dev_set_name(&component->dev, "%s", "mt_soc_offload_common");
-	component->name = component->dev.kobj.name;
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", "mt_soc_offload_common");
+	pdev->name = pdev->dev.kobj.name;
 
-	pr_info("%s: dev name %s\n", __func__, dev_name(&component->dev));
+	pr_info("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 
-	offload_dev = &component->dev;
+	offload_dev = &pdev->dev;
 
-	return snd_soc_register_component(&component->dev,
+	return snd_soc_register_component(offload_dev,
 					  &mtk_dloffload_soc_component,
 					  NULL,
 					  0);
@@ -1033,12 +951,8 @@ static int __init mtk_offloadplayback_soc_platform_init(void)
 	}
 #endif
 	ret = platform_driver_register(&mtk_offloadplayback_driver);
-
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-	audio_ipi_client_playback_init();
-#endif
 #ifdef use_wake_lock
-	aud_wake_lock_init(&Offload_suspend_lock, "Offload wakelock");
+	Offload_suspend_lock = aud_wake_lock_init(NULL, "Offload wakelock");
 #endif
 
 	return ret;
@@ -1050,12 +964,8 @@ static void __exit mtk_offloadplayback_soc_platform_exit(void)
 {
 	pr_debug("%s\n", __func__);
 	platform_driver_unregister(&mtk_offloadplayback_driver);
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
-	audio_ipi_client_playback_deinit();
-#endif
-
 #ifdef use_wake_lock
-	aud_wake_lock_destroy(&Offload_suspend_lock);
+	aud_wake_lock_destroy(Offload_suspend_lock);
 #endif
 }
 

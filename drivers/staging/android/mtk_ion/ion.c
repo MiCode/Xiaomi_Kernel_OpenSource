@@ -1127,8 +1127,13 @@ struct ion_dma_buf_attachment {
 	struct list_head list;
 };
 
+#ifdef	CONFIG_MTK_PSEUDO_M4U
+static int ion_dma_buf_attach(struct dma_buf *dmabuf,
+			      struct dma_buf_attachment *attachment)
+#else
 static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 			      struct dma_buf_attachment *attachment)
+#endif
 {
 	struct ion_dma_buf_attachment *a;
 	struct sg_table *table;
@@ -1162,7 +1167,11 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 	}
 
 	a->table = table;
+#ifdef	CONFIG_MTK_PSEUDO_M4U
+	a->dev = attachment->dev;
+#else
 	a->dev = dev;
+#endif
 	INIT_LIST_HEAD(&a->list);
 
 	attachment->priv = a;

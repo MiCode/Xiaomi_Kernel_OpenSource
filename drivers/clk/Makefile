@@ -1,4 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
+
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+subdir-ccflags-y += -I$(srctree)/drivers/devfreq/
+
 # common clock types
 obj-$(CONFIG_HAVE_CLK)		+= clk-devres.o clk-bulk.o
 obj-$(CONFIG_CLKDEV_LOOKUP)	+= clkdev.o

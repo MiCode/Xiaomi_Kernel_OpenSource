@@ -229,6 +229,11 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 	.margin = 16,
 	.min_shutter = 1,
+	.min_gain = 64, /*1x gain*/
+	.max_gain = 1024, /*16x gain*/
+	.min_gain_iso = 100,
+	.gain_step = 2,
+	.gain_type = 2,
 	.max_frame_length = 0xffff,
 	.ae_shut_delay_frame = 0,
 	.ae_sensor_gain_delay_frame = 0,
@@ -2051,6 +2056,18 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	 */
 
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_gain;
+		*(feature_data + 2) = imgsensor_info.max_gain;
+		break;
+	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
+		*(feature_data + 0) = imgsensor_info.min_gain_iso;
+		*(feature_data + 1) = imgsensor_info.gain_step;
+		*(feature_data + 2) = imgsensor_info.gain_type;
+		break;
+	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_shutter;
+		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
@@ -2486,6 +2503,23 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		if (*feature_data != 0)
 			set_shutter(*feature_data);
 		streaming_control(KAL_TRUE);
+		break;
+	case SENSOR_FEATURE_GET_BINNING_TYPE:
+		switch (*(feature_data + 1)) {
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+			*feature_return_para_32 = 1; /*BINNING_NONE*/
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
+		case MSDK_SCENARIO_ID_SLIM_VIDEO:
+		default:
+			*feature_return_para_32 = 2; /*BINNING_AVERAGED*/
+			break;
+		}
+		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
+			*feature_return_para_32);
+		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_GET_MIPI_PIXEL_RATE:
 		fps = (MUINT32)(*(feature_data + 2));

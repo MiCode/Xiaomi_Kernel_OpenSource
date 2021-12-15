@@ -60,5 +60,3 @@ config MTK_PBM
 	  This kernel config can be used to enable power budget management.
 	  When enable this option, pbm will allocate limit power budget to
 	  CPU and GPU when battery voltage is low.
-	  If unsure, say N.
-

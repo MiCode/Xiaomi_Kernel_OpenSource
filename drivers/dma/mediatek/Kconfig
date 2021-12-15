@@ -1,3 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MEDIATEK_CQDMA
+        tristate "MediaTek Command-Queue DMA controller support"
+        select DMA_ENGINE
+        select DMA_VIRTUAL_CHANNELS
+        select ASYNC_TX_ENABLE_CHANNEL_SWITCH
+        help
+          Enable support for Command-Queue DMA controller on MediaTek
+          SoCs.
+
+          This controller provides the channels which is dedicated to
+          memory-to-memory transfer to offload from CPU.
 
 config MTK_HSDMA
 	tristate "MediaTek High-Speed DMA controller support"

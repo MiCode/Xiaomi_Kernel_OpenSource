@@ -190,6 +190,26 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 		}
 	}
 
+	index = of_property_match_string(np,
+					"switch-names", "fusb340");
+	if (index >= 0) {
+		typec_switch->fusb_2 = devm_kzalloc(dev,
+			sizeof(*typec_switch->fusb_2), GFP_KERNEL);
+
+		if (!typec_switch->fusb_2) {
+			dev_err(dev, "fusb alloc fail\n");
+			kfree(typec_switch);
+			return -ENOMEM;
+		}
+
+		typec_switch->fusb_2->dev = dev;
+
+		if (fusb340_init(typec_switch->fusb_2)) {
+			devm_kfree(dev, typec_switch->fusb_2);
+			dev_err(dev, "fusb340 init fail\n");
+		}
+	}
+
 	sw_desc.drvdata = typec_switch;
 	sw_desc.fwnode = dev->fwnode;
 	sw_desc.set = mtk_typec_switch_set;

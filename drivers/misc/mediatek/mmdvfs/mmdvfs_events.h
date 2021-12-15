@@ -83,6 +83,22 @@ TRACE_EVENT(mmqos__update_qosbw,
 		(s32)__entry->bw)
 );
 
+TRACE_EVENT(mmqos__update_qoslarb,
+	TP_PROTO(u32 larb_id, s32 bw),
+	TP_ARGS(larb_id, bw),
+	TP_STRUCT__entry(
+		__field(u32, larb_id)
+		__field(s32, bw)
+	),
+	TP_fast_assign(
+		__entry->larb_id = larb_id;
+		__entry->bw = bw;
+	),
+	TP_printk("larb_%u=%d",
+		(u32)__entry->larb_id,
+		(s32)__entry->bw)
+);
+
 #endif /* _TRACE_MMDVFS_EVENTS_H */
 
 #undef TRACE_INCLUDE_FILE

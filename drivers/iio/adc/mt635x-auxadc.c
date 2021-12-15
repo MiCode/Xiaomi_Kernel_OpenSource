@@ -374,6 +374,29 @@ static void auxadc_timeout_handler(struct mt635x_auxadc_device *adc_dev,
 }
 #endif
 
+#if 0
+int get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
+			  const struct auxadc_channels *auxadc_chan, int *val);
+
+int auxadc_priv_read_channel(struct device *dev, int channel)
+{
+	const struct auxadc_channels *auxadc_chan;
+	struct iio_dev *indio_dev;
+	struct mt635x_auxadc_device *adc_dev;
+	int val, ret;
+
+	auxadc_chan = &auxadc_chans[channel];
+	indio_dev = platform_get_drvdata(to_platform_device(dev));
+	adc_dev = iio_priv(indio_dev);
+
+	ret = get_auxadc_out(adc_dev, auxadc_chan, &val);
+	val = val * auxadc_chan->r_ratio[0] * VOLT_FULL;
+	val = (val / auxadc_chan->r_ratio[1]) >> auxadc_chan->res;
+
+	return val;
+}
+#endif
+
 static inline int auxadc_conv_imp_vbat(struct mt635x_auxadc_device *adc_dev)
 {
 	int vbat;
@@ -747,7 +770,7 @@ static int auxadc_get_uisoc(void)
 		 auxadc channel
  * @val:	 pointer to output value
  */
-static int get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
+int get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
 			  const struct auxadc_channels *auxadc_chan, int *val)
 {
 	int ret;
@@ -902,7 +925,7 @@ static void mt6357_vbif_conv(struct mt635x_auxadc_device *adc_dev,
 				   MT6357_BATON_TDET_EN, MT6357_BATON_TDET_EN);
 }
 
-static int auxadc_priv_read_channel(struct mt635x_auxadc_device *adc_dev,
+int auxadc_priv_read_channel(struct mt635x_auxadc_device *adc_dev,
 				    int channel)
 {
 	const struct auxadc_channels *auxadc_chan;

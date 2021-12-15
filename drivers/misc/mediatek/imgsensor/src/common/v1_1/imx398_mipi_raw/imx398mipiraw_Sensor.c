@@ -3581,6 +3581,9 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	sensor_info->SensorHightSampling = 0;	/* 0 is default 1x */
 	sensor_info->SensorPacketECCOrder = 1;
 
+	sensor_info->FrameTimeDelayFrame =
+		imgsensor_info.frame_time_delay_frame;
+
 	switch (scenario_id) {
 	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		sensor_info->SensorGrabStartX = imgsensor_info.pre.startx;
@@ -4418,11 +4421,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
 		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
 			*(feature_data + 0) =
-				sizeof(ana_gain_table_8x)/sizeof(char);
+				sizeof(ana_gain_table_8x);
 		} else {
 			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
 			(void *)ana_gain_table_8x,
-			sizeof(ana_gain_table_8x)/sizeof(char));
+			sizeof(ana_gain_table_8x));
 		}
 		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:

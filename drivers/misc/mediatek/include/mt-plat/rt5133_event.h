@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ */
+
+#ifndef __RT5133_EVENT_H
+#define __RT5133_EVENT_H
+
+enum RT5133_IRQ_NUM {
+	RT5133_IRQ_LDO1_OC,
+	RT5133_IRQ_LDO1_PGB,
+	RT5133_IRQ_LDO2_OC,
+	RT5133_IRQ_LDO2_PGB,
+	RT5133_IRQ_LDO3_OC,
+	RT5133_IRQ_LDO3_PGB,
+	RT5133_IRQ_LDO4_OC,
+	RT5133_IRQ_LDO4_PGB,
+	RT5133_IRQ_LDO5_OC,
+	RT5133_IRQ_LDO5_PGB,
+	RT5133_IRQ_LDO6_OC,
+	RT5133_IRQ_LDO6_PGB,
+	RT5133_IRQ_LDO7_OC,
+	RT5133_IRQ_LDO7_PGB,
+	RT5133_IRQ_LDO8_OC,
+	RT5133_IRQ_LDO8_PGB,
+	RT5133_IRQ_MAX,
+};
+
+typedef void (*RT5133_IRQ_FUNC_PTR)(void);
+
+extern void rt5133_register_interrupt_callback(enum RT5133_IRQ_NUM intno,
+					       RT5133_IRQ_FUNC_PTR IRQ_FUNC_PTR);
+
+extern void rt5133_enable_interrupt(enum RT5133_IRQ_NUM intno, int en);
+
+#endif /* __RT5133_EVENT_H */

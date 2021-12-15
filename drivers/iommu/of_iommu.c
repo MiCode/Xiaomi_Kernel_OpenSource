@@ -150,8 +150,10 @@ const struct iommu_ops *of_iommu_configure(struct device *dev,
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	int err = NO_IOMMU;
 
-	if (!master_np)
+	if (!master_np) {
+		pr_notice("%s, %d, err master np\n", __func__, __LINE__);
 		return NULL;
+	}
 
 	if (fwspec) {
 		if (fwspec->ops)

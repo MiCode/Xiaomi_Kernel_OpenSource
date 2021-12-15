@@ -153,8 +153,8 @@ typedef void (*MTK_BTIF_RX_NOTIFY) (void);
 
 struct _btif_log_buf_t_ {
 	unsigned int len;
-	struct timeval timer;
-	struct timespec ts;
+	struct timespec64 timer;
+	struct timespec64 ts;
 	unsigned char buffer[BTIF_LOG_SZ];
 };
 
@@ -321,5 +321,9 @@ int btif_rx_data_path_unlock(struct _mtk_btif_ *p_btif);
 int btif_rx_buf_has_pending_data(struct _mtk_btif_ *p_btif);
 int btif_rx_dma_has_pending_data(struct _mtk_btif_ *p_btif);
 int btif_tx_dma_has_pending_data(struct _mtk_btif_ *p_btif);
+void btif_dump_dma_vfifo(struct _mtk_btif_ *p_btif);
+bool btif_is_tx_complete(struct _mtk_btif_ *p_btif);
 struct task_struct *btif_rx_thread_get(struct _mtk_btif_ *p_btif);
+void btif_do_gettimeofday(struct timespec64 *tv);
+int btif_dump_array(const char *string, const char *p_buf, int len);
 #endif /*__MTK_BTIF_H_*/

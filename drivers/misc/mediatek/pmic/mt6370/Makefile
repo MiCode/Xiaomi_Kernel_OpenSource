@@ -1,3 +1,8 @@
+ifeq ($(CONFIG_MACH_MT6768),y)
+obj-y += v1/
+else ifeq ($(CONFIG_MACH_MT6781),y)
+obj-y += v1/
+else
 subdir-ccflags-y := -Wall -Werror $(call cc-disable-warning, unused-but-set-variable)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc
@@ -13,3 +18,4 @@ obj-$(CONFIG_MT6370_PMU_FLED)		+= mt6370_pmu_fled.o
 obj-$(CONFIG_MT6370_PMU_BLED)		+= mt6370_pmu_bled.o
 obj-$(CONFIG_MT6370_PMU_RGBLED)		+= mt6370_pmu_rgbled.o
 obj-$(CONFIG_MT6370_PMU_CHARGER)	+= mt6370_pmu_charger.o
+endif

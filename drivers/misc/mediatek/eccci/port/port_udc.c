@@ -13,7 +13,45 @@ extern atomic_t udc_status;
 #define MAX_QUEUE_LENGTH 16
 
 #define Min(a, b) (a < b ? a : b)
-#define MAX_PACKET_SIZE 2555872 /* 2.4375*1024*1024 -32 */
+#if (MD_GENERATION >= 6295)
+#define MAX_PACKET_SIZE 1277936 /* (2.4375*1024*1024 -32)/2 */
+#define COMP_DATA_OFFSET (0xC00000 + 32)
+#define RW_INDEX_OFFSET 0xC00000
+#define UDC_UNCMP_CACHE_BUF_SZ 0x64000 /* 400k */
+#define rslt_entry 2048
+#elif (MD_GENERATION == 6293)
+#define MAX_PACKET_SIZE 1048576 /* 2*1024*1024/2 */
+#define COMP_DATA_OFFSET 0x570000
+#define RW_INDEX_OFFSET 0x568000
+#define UDC_UNCMP_CACHE_BUF_SZ 0xC000 /* 48k */
+#define rslt_entry 1024
+#endif
+/*kernel 4.14 diff kernel 4.19
+
+In kernel4.19:
+GEN93 : MT6761 MT6765
+GEN95 : MT6779
+
+#define MAX_PACKET_SIZE 2555872 // 2.4375*1024*1024 -32
+#define COMP_DATA_OFFSET (0x500000+32)
+#define RW_INDEX_OFFSET 0x500000
+#define UDC_UNCMP_CACHE_BUF_SZ 0xC000 // 48k
+
+In kernel4.14:
+#if (MD_GENERATION >= 6295)
+#define MAX_PACKET_SIZE 1277936 // (2.4375*1024*1024 -32)/2
+#define COMP_DATA_OFFSET (0xC00000 + 32)
+#define RW_INDEX_OFFSET 0xC00000
+#define UDC_UNCMP_CACHE_BUF_SZ 0x64000 // 400k
+#define rslt_entry 2048
+#elif (MD_GENERATION == 6293)
+#define MAX_PACKET_SIZE 1048576 // 2*1024*1024/2
+#define COMP_DATA_OFFSET 0x570000
+#define RW_INDEX_OFFSET 0x568000
+#define UDC_UNCMP_CACHE_BUF_SZ 0xC000 // 48k
+#define rslt_entry 1024
+#endif
+*/
 
 struct ap_md_rw_index *rw_index;
 unsigned char *comp_data_buf_base, *uncomp_data_buf_base;
@@ -633,7 +671,7 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	struct udc_comp_rslt_t *rslt_des = NULL, *rslt_des_base = NULL;
 	unsigned int uncomp_len, comp_len = 0;
 	unsigned int remain_len;
-	unsigned char *uncomp_data;
+	unsigned char *uncomp_data = NULL;
 	/* reserved 8k for reduce memcpy op */
 	unsigned int rsvd_len = MAX_PACKET_SIZE - 8*1024;
 
@@ -668,10 +706,9 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	}
 	/* req_des table is only 4kb */
 	req_des = req_des_base + ap_read;
-	if (!req_des) {
-		CCCI_ERROR_LOG(md_id, UDC,
-			"inst_id is error\n");
-		return -1;
+	if (req_des == NULL) {
+		CCCI_ERROR_LOG(md_id, UDC, "invalid req_des");
+		return -CMP_INST_ID_ERR;
 	}
 	/* dump req_des */
 	CCCI_NORMAL_LOG(md_id, UDC,
@@ -880,7 +917,7 @@ void udc_cmd_handler(struct port_t *port, struct sk_buff *skb)
 			uncomp_data_buf_base = (unsigned char *)
 				region->base_ap_view_vir;
 			comp_data_buf_base = (unsigned char *)
-				(region->base_ap_view_vir + 0x500000+32);
+				(region->base_ap_view_vir + COMP_DATA_OFFSET);
 			rw_index = (struct ap_md_rw_index *)
 				(region->base_ap_view_vir + 0x500000);
 			comp_data = comp_data_buf_base;
@@ -902,13 +939,13 @@ void udc_cmd_handler(struct port_t *port, struct sk_buff *skb)
 				(unsigned char *)region->base_ap_view_vir;
 			/* cmp_req and cmp_rslt offset:48k */
 			req_des_0_base = (struct udc_comp_req_t *)
-				(region->base_ap_view_vir + 0xC000);
+				(region->base_ap_view_vir + UDC_UNCMP_CACHE_BUF_SZ);
 			rslt_des_0_base = (struct udc_comp_rslt_t *)
-				(region->base_ap_view_vir + 0xC000 + 0x1000);
+				(region->base_ap_view_vir + UDC_UNCMP_CACHE_BUF_SZ + 0x1000);
 			req_des_1_base = (struct udc_comp_req_t *)
-				(region->base_ap_view_vir + 0xC000 + 0x2000);
+				(region->base_ap_view_vir + UDC_UNCMP_CACHE_BUF_SZ + 0x2000);
 			rslt_des_1_base = (struct udc_comp_rslt_t *)
-				(region->base_ap_view_vir + 0xC000 + 0x3000);
+				(region->base_ap_view_vir + UDC_UNCMP_CACHE_BUF_SZ + 0x3000);
 			CCCI_NORMAL_LOG(md_id, UDC, "uncomp_cache_base:%p\n",
 				uncomp_cache_data_base);
 		} else

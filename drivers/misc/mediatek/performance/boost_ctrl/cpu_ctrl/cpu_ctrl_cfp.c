@@ -102,7 +102,10 @@ static void set_cfp_ppm(struct ppm_limit_data *desired_freq, int headroom_opp)
 #ifdef CONFIG_TRACING
 	perfmgr_trace_count(cc_is_ceiled, "cfp_ceiled");
 #endif
+#if !defined (CONFIG_MACH_MT6833)
+ //TODO Lokesh
 	mt_ppm_userlimit_cpu_freq(perfmgr_clusters, cfp_freq);
+#endif
 }
 
 static void cfp_lt_callback(int loading)

@@ -11,6 +11,28 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
+# mt6893&mt6885 co-platform config
+# mt6853&mt6877 co-platform config
+# mt6781&mt6785 co-platform config
+
+$(info CONFIG_MTK_PLATFORM_CCCI := $(subst ",,$(CONFIG_MTK_PLATFORM)))
+$(info CONFIG_MTK_PLATFORM_CCCI := $(CONFIG_MTK_PLATFORM))
+$(info MTK_PLATFORM_CCCI := $(MTK_PLATFORM))
+
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6877)))
+MTK_PLATFORM := mt6853
+subdir-ccflags-y += -DCCCI_PLATFORM_MT6877
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6781)))
+MTK_PLATFORM := mt6785
+subdir-ccflags-y += -DCCCI_PLATFORM_MT6781
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
+MTK_PLATFORM := mt6885
+else ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+MTK_PLATFORM := mt6833
+else
+MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
+endif
+
 ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
 CCCI_OBJ=y
 else ifeq ($(CONFIG_MTK_ECCCI_DRIVER), m)
@@ -65,6 +87,7 @@ ccci_md_all-$(CCCI_OBJ) += port/port_cfg.o \
 		port/port_ipc.o \
 		port/port_net.o \
 		port/port_poller.o \
+		port/port_misc.o \
 		port/port_proxy.o \
 		port/port_rpc.o \
 		port/port_smem.o \
@@ -126,10 +149,6 @@ ccci_md_all-$(CCCI_OBJ) += $(MTK_PLATFORM)/ccci_platform.o $(core_obj) $(mach_ob
 		$(MTK_PLATFORM)/md_sys1_platform.o
 # plat end
 
-ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
-ccci_md_all-$(CCCI_OBJ) += modem_sys3.o
-endif
-
 # ccci_ccif.ko
 ccci_ccif-y := hif/ccci_ringbuf.o hif/ccci_hif_ccif.o
 obj-$(CCCI_OBJ) += ccci_ccif.o
@@ -146,10 +165,6 @@ ccci_all-$(CCCI_OBJ) := ccci_core.o ccci_bm.o ccci_modem.o ccci_rtc.o modem_sys1
 
 ifeq  ($(CONFIG_MEDIATEK_MT6577_AUXADC), y)
 ccci_all-$(CCCI_OBJ) += ccci_auxadc.o
-endif
-
-ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
-ccci_all-$(CCCI_OBJ) += modem_sys3.o
 endif
 
 # sub modules

@@ -217,13 +217,13 @@ struct md_hw_info {
 };
 
 
-//int ccci_modem_remove(struct platform_device *dev);
-//void ccci_modem_shutdown(struct platform_device *dev);
-//int ccci_modem_suspend(struct platform_device *dev, pm_message_t state);
-//int ccci_modem_resume(struct platform_device *dev);
-//int ccci_modem_pm_suspend(struct device *device);
-//int ccci_modem_pm_resume(struct device *device);
-//int ccci_modem_pm_restore_noirq(struct device *device);
+int ccci_modem_remove(struct platform_device *dev);
+void ccci_modem_shutdown(struct platform_device *dev);
+int ccci_modem_suspend(struct platform_device *dev, pm_message_t state);
+int ccci_modem_resume(struct platform_device *dev);
+int ccci_modem_pm_suspend(struct device *device);
+int ccci_modem_pm_resume(struct device *device);
+int ccci_modem_pm_restore_noirq(struct device *device);
 //int md_cd_power_on(struct ccci_modem *md);
 //int md_cd_power_off(struct ccci_modem *md, unsigned int timeout);
 //int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode);

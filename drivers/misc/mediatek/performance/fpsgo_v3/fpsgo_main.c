@@ -18,6 +18,10 @@
 #include "fps_composer.h"
 #include "xgf.h"
 
+#ifdef CONFIG_DRM_MEDIATEK
+#include "mtk_drm_arr.h"
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/fpsgo.h>
 

@@ -30,7 +30,8 @@
 
 /*Can be clean when MD is invalid*/
 #define PORT_F_CLEAN            (1<<9)
-
+/*Dump pkt of ccmni*/
+#define PORT_F_NET_DUMP         (1<<10)
 enum {
 	PORT_DBG_DUMP_RILD = 0,
 	PORT_DBG_DUMP_AUDIO,
@@ -96,6 +97,8 @@ struct port_t {
 	 * Rx list to hold packets.
 	 */
 	struct sk_buff_head rx_skb_list;
+	/* add high prio rx list for udc */
+	struct sk_buff_head rx_skb_list_hp;
 	unsigned char skb_from_pool;
 	spinlock_t rx_req_lock;
 	wait_queue_head_t rx_wq;	/* for uplayer user */
@@ -109,6 +112,9 @@ struct port_t {
 	unsigned int rx_drop_cnt;
 	unsigned int tx_pkg_cnt;
 	port_skb_handler skb_handler;
+	struct sk_buff_head port_rx_list;
+	atomic_t is_up; /*for ccmni status*/
+	spinlock_t flag_lock;
 };
 /****************************************************************************/
 /* API Region called by ccci port object */
@@ -151,5 +157,8 @@ long port_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 long port_dev_compat_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg);
 #endif
+int port_dev_mmap(struct file *fp, struct vm_area_struct *vma);
 
+int find_port_by_channel(int channel, struct port_t **port);
+int send_new_time_to_new_md(int md_id, int tz);
 #endif /* __PORT_T_H__ */

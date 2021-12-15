@@ -27,3 +27,4 @@ obj-y += mtk_mcdi_main.o
 obj-y += mtk_mcdi_util.o
 obj-y += mtk_mcdi_profile.o
 obj-y += mtk_mcdi_cpc.o
+obj-y += mtk_mcdi_mcupm.o

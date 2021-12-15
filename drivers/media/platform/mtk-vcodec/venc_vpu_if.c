@@ -158,6 +158,10 @@ int vpu_enc_set_param(struct venc_vpu_inst *vpu,
 		out.data_item = 1;
 		out.data[0] = enc_param->nonrefp;
 		break;
+	case VENC_SET_PARAM_ENABLE_DUMMY_NAL:
+		out.data_item = 1;
+		out.data[0] = enc_param->dummynal;
+		break;
 	default:
 		mtk_vcodec_err(vpu, "id %d not supported", id);
 		return -EINVAL;

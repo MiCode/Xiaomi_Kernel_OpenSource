@@ -35,31 +35,6 @@ static unsigned int cmd_hist_ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
 static struct cmd_hist_struct *cmd_hist;
 static char ufs_aee_buffer[UFS_AEE_BUFFER_SIZE];
 
-static void ufsdbg_print_err_hist(char **buff, unsigned long *size,
-				  struct seq_file *m,
-				  struct ufs_err_reg_hist *err_hist,
-				  char *err_name)
-{
-	int i;
-	bool found = false;
-
-	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
-		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
-
-		if (err_hist->tstamp[p] == 0)
-			continue;
-		SPREAD_PRINTF(buff, size, m,
-			      "%s[%d] = 0x%x at %lld us\n", err_name, p,
-			      err_hist->reg[p],
-			      ktime_to_us(err_hist->tstamp[p]));
-		found = true;
-	}
-
-	if (!found)
-		SPREAD_PRINTF(buff, size, m,
-			      "No record of %s errors\n", err_name);
-}
-
 void ufsdbg_print_info(char **buff, unsigned long *size, struct seq_file *m)
 {
 	struct ufs_hba *hba = ufs_mtk_get_hba();
@@ -134,35 +109,7 @@ void ufsdbg_print_info(char **buff, unsigned long *size, struct seq_file *m)
 		      hba->dev_info.model);
 
 	/* Error history */
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.pa_err, "pa_err");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.dl_err, "dl_err");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.nl_err, "nl_err");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.tl_err, "tl_err");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.dme_err, "dme_err");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.auto_hibern8_err,
-			      "auto_hibern8_err");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.fatal_err, "fatal_err");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.link_startup_err,
-			      "link_startup_fail");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.resume_err, "resume_fail");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.suspend_err,
-			      "suspend_fail");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.dev_reset, "dev_reset");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.host_reset, "host_reset");
-	ufsdbg_print_err_hist(buff, size, m,
-			      &hba->ufs_stats.task_abort, "task_abort");
+	ufshcd_print_all_evt_hist(hba, m, buff, size);
 }
 
 static int cmd_hist_advance_ptr(void)
@@ -203,6 +150,32 @@ static void cmd_hist_init_common_info(int ptr)
 	cmd_hist[ptr].time = sched_clock();
 }
 
+#if BITS_PER_LONG == 32
+#define ufshcd_update_evt_hist_perf_warn(cmd, op, len) \
+do { \
+	struct ufs_hba *h = ufs_mtk_get_hba(); \
+	if (h && (cmd).duration >= 1000000000) { \
+		ufshcd_update_evt_hist(h, UFS_EVT_PERF_WARN, \
+				(u32) ((op << 24) | \
+					(((len >> 12) & 0xFF) << 16) | \
+					(div_u64((cmd).duration, 1000000)) \
+				)); \
+	} \
+} while(0)
+#else
+#define ufshcd_update_evt_hist_perf_warn(cmd, op, len) \
+do { \
+	struct ufs_hba *h = ufs_mtk_get_hba(); \
+	if (h && (cmd).duration >= 1000000000) { \
+		ufshcd_update_evt_hist(h, UFS_EVT_PERF_WARN, \
+			    (u32) ((op << 24) | \
+					(((len >> 12) & 0xFF) << 16) | \
+					((cmd).duration / 1000000) \
+				));\
+	} \
+} while (0)
+#endif
+
 static void probe_ufshcd_command(void *data, const char *dev_name,
 				 const char *str, unsigned int tag,
 				 u32 doorbell, int transfer_len, u32 intr,
@@ -228,6 +201,8 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 		event = CMD_DEV_COMPLETED;
 	else if (!strcmp(str, "abort"))
 		event = CMD_ABORTING;
+	else if (!strcmp(str, "perf_mode"))
+		event = CMD_PERF_MODE;
 	else
 		event = CMD_GENERIC;
 
@@ -254,6 +229,8 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 			if (cmd_hist_ptr_is_wraparound(ptr))
 				break;
 		}
+		/* Over 1 second, record performance warning */
+		ufshcd_update_evt_hist_perf_warn(cmd_hist[cmd_hist_ptr], opcode, transfer_len);
 	}
 
 	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
@@ -302,6 +279,8 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 			if (cmd_hist_ptr_is_wraparound(ptr))
 				break;
 		}
+		/* Over 1 second, record performance warning */
+		ufshcd_update_evt_hist_perf_warn(cmd_hist[cmd_hist_ptr], cmd, arg2);
 	}
 	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
 		cmd_hist_cnt++;
@@ -396,17 +375,7 @@ int cmd_hist_enable(void)
 	int ret = 0;
 
 	spin_lock_irqsave(&cmd_hist_lock, flags);
-
-	if (!cmd_hist) {
-		cmd_hist = kcalloc(MAX_CMD_HIST_ENTRY_CNT,
-				   sizeof(struct cmd_hist_struct), GFP_NOFS);
-		if (!cmd_hist) {
-			ret = -ENOMEM;
-			goto out_unlock;
-		}
-	}
 	cmd_hist_enabled = true;
-out_unlock:
 	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 
 	return ret;
@@ -427,7 +396,19 @@ static void cmd_hist_cleanup(void)
 {
 	cmd_hist_disable();
 	vfree(cmd_hist);
+	cmd_hist = NULL;
 }
+
+void ufs_mtk_dbg_add_trace(const char *dev_name,
+				 const char *str, unsigned int tag,
+				 u32 doorbell, int transfer_len, u32 intr,
+				 u64 lba, u8 opcode,
+				 u8 crypt_en, u8 crypt_keyslot) {
+	probe_ufshcd_command(NULL, dev_name, str, tag,
+			doorbell, transfer_len, intr, lba, opcode,
+			crypt_en, crypt_keyslot);
+}
+EXPORT_SYMBOL_GPL(ufs_mtk_dbg_add_trace);
 
 #define CLK_GATING_STATE_MAX (4)
 
@@ -648,9 +629,92 @@ static int ufs_debug_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, ufs_debug_proc_show, inode->i_private);
 }
 
+static int ufs_perf_proc_show(struct seq_file *m, void *v)
+{
+	struct ufs_mtk_host *host = NULL;
+	struct ufs_hba *hba = ufs_mtk_get_hba();
+
+	if (hba) {
+		host = ufshcd_get_variant(hba);
+	}
+
+	if (!host) {
+		seq_puts(m, "UFS Performance Mode\n");
+		seq_puts(m, "UFS instance is invalid\n");
+		return 0;
+	}
+
+	seq_puts(m, "UFS Performance Mode\n");
+	seq_printf(m, "  - supported: %d\n", ufs_mtk_perf_is_supported(host));
+	seq_printf(m, "  - enabled: %d\n", host->perf_enable);
+	seq_printf(m, "  - mode: %d\n", host->perf_mode);
+	seq_printf(m, "  - crypto_vcore_opp: %d\n", host->crypto_vcore_opp);
+
+	return 0;
+}
+
+static ssize_t ufs_perf_proc_write(struct file *file, const char *ubuf,
+				   size_t count, loff_t *data)
+{
+	struct ufs_mtk_host *host = NULL;
+	unsigned long op;
+	char cmd[16] = {0};
+	loff_t buff_pos = 0;
+	int ret = 0;
+	int last_mode;
+	struct ufs_hba *hba = ufs_mtk_get_hba();
+
+	if (hba)
+		host = ufshcd_get_variant(hba);
+
+	if (!host)
+		return 0;
+
+	ret = simple_write_to_buffer(cmd, 16, &buff_pos, ubuf, count);
+	if (ret < 0) {
+		dev_info(host->hba->dev, "%s: failed to read user data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	cmd[ret] = '\0';
+	if (kstrtoul(cmd, 10, &op))
+		return -EINVAL;
+	last_mode = host->perf_mode;
+	if (op == PERF_AUTO) {
+		host->perf_mode = op;
+		ret = 0;
+	} else if (op == PERF_FORCE_ENABLE &&
+			host->perf_mode != PERF_FORCE_ENABLE) {
+		host->perf_mode = PERF_FORCE_ENABLE;
+		ret = ufs_mtk_perf_setup_crypto_clk(host, true);
+	} else if (op == PERF_FORCE_DISABLE &&
+			host->perf_mode != PERF_FORCE_DISABLE) {
+		host->perf_mode = PERF_FORCE_DISABLE;
+		ret = ufs_mtk_perf_setup_crypto_clk(host, false);
+	} else
+		return -EINVAL;
+	if (ret)
+		host->perf_mode = last_mode;
+	return count;
+}
+
+static int ufs_perf_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufs_perf_proc_show, inode->i_private);
+}
+
 static const struct file_operations ufs_debug_proc_fops = {
 	.open = ufs_debug_proc_open,
 	.write = ufs_debug_proc_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static const struct file_operations ufs_debug_perf_fops = {
+	.open = ufs_perf_proc_open,
+	.write = ufs_perf_proc_write,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
@@ -673,6 +737,14 @@ int ufsdbg_init_procfs(void)
 		proc_set_user(prEntry, uid, gid);
 	else
 		pr_info("%s: failed to create ufs_debugn", __func__);
+
+	/* Create ufs_perf for performance mode*/
+	prEntry = proc_create("ufs_perf", 0660, NULL, &ufs_debug_perf_fops);
+
+	if (prEntry)
+		proc_set_user(prEntry, uid, gid);
+	else
+		pr_info("%s: failed to create /proc/ufs_perf\n", __func__);
 
 	return 0;
 }
@@ -704,9 +776,8 @@ int ufsdbg_register(struct device *dev)
 	FOR_EACH_INTEREST(i) {
 		if (interests[i].tp == NULL) {
 			pr_info("Error: %s not found\n", interests[i].name);
-			/* Unload previously loaded */
-			ufsdbg_cleanup();
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 
 		tracepoint_probe_register(interests[i].tp, interests[i].func,
@@ -718,11 +789,19 @@ int ufsdbg_register(struct device *dev)
 	ret = ufsdbg_init_procfs();
 
 	/* Enable command history feature by default */
-	if (!ret)
-		cmd_hist_enable();
-	else
-		ufsdbg_cleanup();
-
+	if (ret) {
+		goto out;
+	}
+	cmd_hist = kcalloc(MAX_CMD_HIST_ENTRY_CNT,
+				sizeof(struct cmd_hist_struct), GFP_NOFS);
+	if (!cmd_hist) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	cmd_hist_enable();
+	return ret;
+out:
+	ufsdbg_cleanup();
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ufsdbg_register);

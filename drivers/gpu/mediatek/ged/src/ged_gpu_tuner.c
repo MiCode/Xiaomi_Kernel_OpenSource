@@ -28,15 +28,22 @@ static int debug = DEBUG_OFF;
 #define GPU_TUNER_INFO(fmt, args...) pr_info(GPU_TUNER_TAG fmt, ##args)
 #define GPU_TUNER_ERROR(fmt, args...) pr_info(GPU_TUNER_TAG fmt, ##args)
 
-static void _tolower_s(
+static GED_ERROR _tolower_s(
 		char *p)
 {
+	GED_ERROR ret = GED_OK;
 	const int tolower = 'a' - 'A';
+
+	int str_len = strlen(p);
+
+	if (*(p + str_len) != '\0')
+		return GED_ERROR_INVALID_PARAMS;
 
 	for ( ; *p; ++p) {
 		if (*p >= 'A' && *p <= 'Z')
 			*p += tolower;
 	}
+	return ret;
 }
 
 static GED_ERROR _translateCmdToFeature(
@@ -121,11 +128,14 @@ static struct GED_GPU_TUNER_ITEM *_ged_gpu_tuner_find_item_by_package_name(
 		struct list_head *listentry;
 		struct GED_GPU_TUNER_ITEM *item;
 		char *p = packagename;
+		GED_ERROR err = GED_OK;
 
 		if (!packagename)
 			return NULL;
 
-		_tolower_s(p);
+		err = _tolower_s(p);
+		if (err != GED_OK)
+			return NULL;
 		list_for_each(listentry, &gItemList) {
 
 			item = list_entry(listentry,
@@ -335,6 +345,7 @@ GED_ERROR ged_gpu_get_stauts_by_packagename(
 {
 	struct GED_GPU_TUNER_ITEM *item = NULL;
 	char *p = packagename;
+	GED_ERROR err = GED_OK;
 
 	if (!status || !packagename) {
 		GPU_TUNER_ERROR("[%s] invalid parameter\n", __func__);
@@ -343,7 +354,9 @@ GED_ERROR ged_gpu_get_stauts_by_packagename(
 
 	GPU_TUNER_DEBUG("[%s][IN] name(%s)\n", __func__, packagename);
 
-	_tolower_s(p);
+	err = _tolower_s(p);
+	if (err != GED_OK)
+		return err;
 	if (!strncmp(packagename, global_packagename,
 		strlen(global_packagename)))
 		status->status.feature |= gpu_tuner_status.status.feature;
@@ -382,7 +395,9 @@ GED_ERROR ged_gpu_tuner_hint_set(
 	GPU_TUNER_DEBUG("[%s][IN] name(%s) feature(%08x)\n",
 	__func__, packagename, eFeature);
 
-	_tolower_s(p);
+	err = _tolower_s(p);
+	if (err != GED_OK)
+		return err;
 	if (!strncmp(packagename, global_packagename,
 		strlen(global_packagename))) {
 		mutex_lock(&gsGPUTunerLock);
@@ -458,7 +473,9 @@ GED_ERROR ged_gpu_tuner_hint_restore(
 	GPU_TUNER_DEBUG("[%s][IN] name(%s) feature(%08x)\n",
 	__func__, packagename, eFeature);
 
-	_tolower_s(p);
+	err = _tolower_s(p);
+	if (err != GED_OK)
+		return err;
 	if (!strncmp(packagename, global_packagename,
 	strlen(global_packagename))) {
 		mutex_lock(&gsGPUTunerLock);
@@ -584,6 +601,7 @@ int ged_bridge_gpu_tuner_status(
 	GPU_TUNER_DEBUG("[%s][IN] name(%s)\n", __func__, in->name);
 
 	item.status.feature = 0;
+	in->name[sizeof(in->name)-1] = '\0';
 	err = ged_gpu_get_stauts_by_packagename(in->name, &item);
 	if (err == GED_OK) {
 		out->feature = item.status.feature;

@@ -16,7 +16,7 @@ scp-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += $(SCP_VERSION_PATH)/scp_scpctl.o
 # include mtk_spm_resource_req
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 # include emi_mpu.h
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule

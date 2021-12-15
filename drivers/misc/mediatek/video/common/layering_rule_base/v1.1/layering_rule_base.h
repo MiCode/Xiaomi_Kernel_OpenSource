@@ -147,6 +147,9 @@ struct layering_rule_ops {
 				    int disp_idx);
 	bool (*adaptive_dc_enabled)(void);
 	bool (*rollback_all_to_GPU_for_idle)(void);
+	bool (*adjust_hrt_level)(struct disp_layer_info
+			*disp_info);
+	void (*adjust_hrt_scen)(struct disp_layer_info *disp_info);
 	void (*clear_layer)(struct disp_layer_info *disp_info);
 };
 

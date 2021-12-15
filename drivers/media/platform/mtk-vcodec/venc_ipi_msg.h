@@ -46,16 +46,17 @@ enum venc_ipi_msg_id {
 
 /* enum venc_get_param_type - The type of set parameter used in
  *                            venc_if_get_param()
- * GET_PARAM_CAPABILITY_SUPPORTED_FORMATS: get codec supported format capability
- * GET_PARAM_CAPABILITY_FRAME_SIZES:
+ * VENC_GET_PARAM_CAPABILITY_SUPPORTED_FORMATS: get codec supported format capability
+ * VENC_GET_PARAM_CAPABILITY_FRAME_SIZES:
  *         get codec supported frame size & alignment info
  */
 enum venc_get_param_type {
-	GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
-	GET_PARAM_CAPABILITY_FRAME_SIZES,
-	GET_PARAM_FREE_BUFFERS,
-	GET_PARAM_ROI_RC_QP,
-	GET_PARAM_RESOLUTION_CHANGE,
+	VENC_GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
+	VENC_GET_PARAM_CAPABILITY_FRAME_SIZES,
+	VENC_GET_PARAM_FREE_BUFFERS,
+	VENC_GET_PARAM_ROI_RC_QP,
+	VENC_GET_PARAM_RESOLUTION_CHANGE,
+	VENC_GET_PARAM_REFBUF_FRAME_NUM,
 };
 
 /*
@@ -73,6 +74,7 @@ enum venc_get_param_type {
  * @VENC_SET_PARAM_TS_MODE: set VP8 temporal scalability mode
  * @VENC_SET_PARAM_SCENARIO: set encoder scenario mode for different RC control
  * @VENC_SET_PARAM_NONREFP: set encoder non reference P period
+ * @VENC_SET_PARAM_LOG: set encoder log
  */
 enum venc_set_param_type {
 	VENC_SET_PARAM_ENC,
@@ -101,6 +103,11 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_ADJUST_MIN_QP,
 	VENC_SET_PARAM_ADJUST_I_P_QP_DELTA,
 	VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP,
+	VENC_SET_PARAM_MAX_REFP_NUM,
+	VENC_SET_PARAM_REFP_DISTANCE,
+	VENC_SET_PARAM_REFP_FRMNUM,
+	VENC_SET_PARAM_LOG,
+	VENC_SET_PARAM_ENABLE_DUMMY_NAL,
 };
 
 /**
@@ -407,6 +414,7 @@ struct venc_vcu_config {
 	__u32 frame_level_qp;
 	__u32 maxrefpnum;
 	__u32 maxrefbufFrameNum;
+	__u32 dummynal;
 };
 
 /**

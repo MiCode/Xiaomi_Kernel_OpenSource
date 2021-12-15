@@ -44,7 +44,6 @@
 #include "mmdvfs_events.h"
 
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
-#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <dvfsrc-exp.h>
 
 #ifdef MMDVFS_MMP
@@ -52,9 +51,15 @@
 #include "mmprofile_function.h"
 #endif
 
+#if defined (CONFIG_MACH_MT6833)
+#include <helio-dvfsrc-opp.h>
+#endif
+
 #ifdef QOS_BOUND_DETECT
 #include "mtk_qos_bound.h"
 #endif
+
+#include "swpm_me.h"
 
 #include <linux/regulator/consumer.h>
 static struct regulator *vcore_reg_id;
@@ -447,6 +452,9 @@ static void mm_apply_clk_for_all(u32 pm_qos_class, s32 src_mux_id,
 		freq[i] = set_freq_for_log(
 			freq[i], all_freqs[i]->current_step, i);
 	}
+	set_swpm_me_freq(all_freqs[3]->step_config[step].freq_step,
+			all_freqs[2]->step_config[step].freq_step,
+			all_freqs[1]->step_config[step].freq_step);
 	first_log = (pm_qos_class << 16) | step;
 
 #ifdef MMDVFS_MMP
@@ -706,6 +714,8 @@ static s32 channel_disp_hrt_cnt[MAX_COMM_NUM][MAX_CH_COUNT] = {};
 
 #define MULTIPLY_BW_THRESH_HIGH(value) ((value)*1/2)
 #define MULTIPLY_BW_THRESHOLD_LOW(value) ((value)*2/5)
+#define MULTIPLY_RATIO(value) ((value)*1000)
+#define DIVIDE_RATIO(value) ((value)/1000)
 static s32 current_hrt_bw;
 static u32 camera_max_bw;
 static s32 get_cam_hrt_bw(void)
@@ -752,7 +762,7 @@ static s32 get_io_width(void)
 	s32 ddr_type = mtk_dramc_get_ddr_type();
 
 	if (ddr_type == TYPE_LPDDR4 || ddr_type == TYPE_LPDDR4X
-	    || ddr_type == TYPE_LPDDR4P)
+	    || ddr_type == TYPE_LPDDR4P || ddr_type == TYPE_LPDDR5)
 		io_width = 2;
 	else
 		io_width = 4;
@@ -1023,6 +1033,11 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 	u32 comm, comm_port;
 	struct mm_qos_request *enum_req = NULL;
 	bool hrt_port = false;
+#if defined(USE_MEDIATEK_EMI)
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+	s32 ddr_type = mtk_dramc_get_ddr_type();
+#endif
+#endif
 
 	if (!req)
 		return -EINVAL;
@@ -1152,7 +1167,16 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 		if (larb_req[larb].is_max_ostd)
 			req->ostd = max_ostd;
 	}
-
+#if defined(USE_MEDIATEK_EMI)
+#if IS_ENABLED(CONFIG_MACH_MT6877)
+	if (ddr_type == TYPE_LPDDR5) {
+		if (larb == 16 && port == 15)
+			req->ostd = 4;
+		if (larb == 17 && port == 15)
+			req->ostd = 4;
+	}
+#endif
+#endif
 	list_for_each_entry(enum_req, &(req->port_node), port_node)
 		enum_req->ostd = req->ostd;
 
@@ -2056,6 +2080,7 @@ static int __init mmdvfs_pmqos_late_init(void)
 	pr_notice("force flip step0 when late_init\n");
 #endif
 	total_hrt_bw = get_total_hrt_bw();
+	init_me_swpm();
 	return 0;
 }
 
@@ -2196,6 +2221,11 @@ int mmdvfs_qos_force_step(int step)
 		return -EINVAL;
 	}
 	force_step = step;
+#if defined(CONFIG_MACH_MT6785)
+#if (defined(CONFIG_MTK_MT6382_BDG) && defined(CONFIG_MTK_MT6382_VDO_MODE))
+	force_step = 0;
+#endif
+#endif
 	update_step(PM_QOS_NUM_CLASSES, -1);
 	return 0;
 }

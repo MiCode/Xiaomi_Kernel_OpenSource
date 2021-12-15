@@ -9,4 +9,6 @@
 extern struct ccmni_dev_ops ccmni_ops;
 
 extern int mbim_start_xmit(struct sk_buff *skb, int ifid);
+extern int mtk_ccci_request_port(char *name);
+extern int hif_empty_query(int qno);
 #endif /*__PORT_NET_H__*/

@@ -57,7 +57,7 @@ extern int mrdump_modules_info(unsigned char *buffer, size_t sz_buf);
 /* for WDT timeout case : dump timer/schedule/irq/softirq etc...
  * debug information
  */
-#if IS_ENABLED(CONFIG_SCHED_DEBUG)
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 extern void sysrq_sched_debug_show_at_AEE(void);
 #endif
 #if IS_ENABLED(CONFIG_MTK_WQ_DEBUG)

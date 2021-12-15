@@ -137,6 +137,10 @@ struct ccmni_instance {
 #endif
 	struct timespec    flush_time;
 	void               *priv_data;
+
+	/* For queue packet before ready */
+	struct workqueue_struct *worker;
+	struct delayed_work pkt_queue_work;
 };
 
 struct ccmni_ccci_ops {
@@ -152,6 +156,8 @@ struct ccmni_ccci_ops {
 	int (*napi_poll)(int md_id, int ccmni_idx,
 			struct napi_struct *napi, int weight);
 	int (*get_ccmni_ch)(int md_id, int ccmni_idx, struct ccmni_ch *channel);
+	void (*ccci_net_init)(char *name);
+	int (*ccci_handle_port_list)(int status, char *name);
 };
 
 struct ccmni_ctl_block {

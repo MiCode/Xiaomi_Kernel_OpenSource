@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_SENSOR_SUPPORT
+	tristate "MTK SENSOR SUPPORT"
+	help
+	  Sensor config for sensor feature in project.
+	  Please say Y here if you want to support and sensors
+	  with mediatek sensor architecture.
+	  If unsure, say N.
+
+#source "drivers/misc/mediatek/sensor/1.0/Kconfig"
+source "drivers/misc/mediatek/sensor/2.0/Kconfig"

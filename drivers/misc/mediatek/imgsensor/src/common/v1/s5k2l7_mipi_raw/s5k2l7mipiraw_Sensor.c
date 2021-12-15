@@ -2043,6 +2043,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	UINT32 *feature_data_32 = (UINT32 *) feature_para;
 	unsigned long long *feature_data = (unsigned long long *)feature_para;
 	UINT32 fps = 0;
+	int ret = 0;
 
 	struct SET_PD_BLOCK_INFO_T *PDAFinfo;
 	struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
@@ -2375,18 +2376,39 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_PDAF_TYPE:
 		*feature_para = pdaf_sensor_mode;
 		if (pdaf_sensor_mode == 1) {
-			if (sprintf(feature_para, "configure S5K2L7 as mode 1") < 0)
-				pr_debug("sprintf configure S5K2L7 as mode 1 error\n");
+			ret = sprintf(feature_para,
+			"configure S5K2L7 as mode 1");
+			if (ret < 0) {
+				pr_info("Error! sprintf allocate 0, ret = %d",
+				ret);
+				return ret;
+			}
 		} else if (pdaf_sensor_mode == 2) {
-			if (sprintf(feature_para, "configure S5K2L7 as mode 2") < 0)
-				pr_debug("sprintf configure S5K2L7 as mode 2 error\n");
+			ret = sprintf(feature_para,
+			"configure S5K2L7 as mode 2");
+			if (ret < 0) {
+				pr_info("Error! sprintf allocate 0, ret = %d",
+				ret);
+				return ret;
+			}
 		} else if (pdaf_sensor_mode == 3) {
-			if (sprintf(feature_para, "configure S5K2L7 as mode 3") < 0)
-				pr_debug("sprintf configure S5K2L7 as mode 3 error\n");
+			ret = sprintf(feature_para,
+			"configure S5K2L7 as mode 3");
+			if (ret < 0) {
+				pr_info("Error! sprintf allocate 0, ret = %d",
+				ret);
+				return ret;
+			}
 		} else {
-			if (sprintf(feature_para, "configure S5K2L7 as unknown mode") < 0)
-				pr_debug("sprintf configure S5K2L7 as unknown mode error\n");
+			ret = sprintf(
+			feature_para, "configure S5K2L7 as unknown mode");
+			if (ret < 0) {
+				pr_info("Error! sprintf allocate 0, ret = %d",
+				ret);
+				return ret;
+			}
 		}
+
 		pr_debug("get PDAF type = %d\n", pdaf_sensor_mode);
 		break;
 

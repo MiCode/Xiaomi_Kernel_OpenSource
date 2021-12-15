@@ -291,6 +291,7 @@ int force_md_stop(struct ccci_fsm_monitor *monitor_ctl);
 extern int mdee_dumper_v1_alloc(struct ccci_fsm_ee *mdee);
 extern int mdee_dumper_v2_alloc(struct ccci_fsm_ee *mdee);
 extern int mdee_dumper_v3_alloc(struct ccci_fsm_ee *mdee);
+extern int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee);
 extern void inject_md_status_event(int md_id, int event_type, char reason[]);
 #ifdef SET_EMI_STEP_BY_STAGE
 extern void ccci_set_mem_access_protection_second_stage(int md_id);

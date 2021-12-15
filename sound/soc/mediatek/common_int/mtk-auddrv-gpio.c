@@ -94,47 +94,49 @@ struct audio_gpio_attr {
 };
 
 static struct audio_gpio_attr aud_gpios[GPIO_NUM] = {
-		[GPIO_AUD_CLK_MOSI_OFF] = {"aud_clk_mosi_off", false, NULL},
-		[GPIO_AUD_CLK_MOSI_ON] = {"aud_clk_mosi_on", false, NULL},
-		[GPIO_AUD_DAT_MISO_OFF] = {"aud_dat_miso_off", false, NULL},
-		[GPIO_AUD_DAT_MISO_ON] = {"aud_dat_miso_on", false, NULL},
-		[GPIO_AUD_DAT_MOSI_OFF] = {"aud_dat_mosi_off", false, NULL},
-		[GPIO_AUD_DAT_MOSI_ON] = {"aud_dat_mosi_on", false, NULL},
-		[GPIO_AUD_DAT_MISO2_OFF] = {"aud_dat_miso2_off", false, NULL},
-		[GPIO_AUD_DAT_MISO2_ON] = {"aud_dat_miso2_on", false, NULL},
-		[GPIO_AUD_DAT_MOSI2_OFF] = {"aud_dat_mosi2_off", false, NULL},
-		[GPIO_AUD_DAT_MOSI2_ON] = {"aud_dat_mosi2_on", false, NULL},
-		[GPIO_VOW_DAT_MISO_OFF] = {"vow_dat_miso_off", false, NULL},
-		[GPIO_VOW_DAT_MISO_ON] = {"vow_dat_miso_on", false, NULL},
-		[GPIO_VOW_CLK_MISO_OFF] = {"vow_clk_miso_off", false, NULL},
-		[GPIO_VOW_CLK_MISO_ON] = {"vow_clk_miso_on", false, NULL},
+	[GPIO_AUD_CLK_MOSI_OFF] = {"aud_clk_mosi_off", false, NULL},
+	[GPIO_AUD_CLK_MOSI_ON] = {"aud_clk_mosi_on", false, NULL},
+	[GPIO_AUD_DAT_MISO_OFF] = {"aud_dat_miso_off", false, NULL},
+	[GPIO_AUD_DAT_MISO_ON] = {"aud_dat_miso_on", false, NULL},
+	[GPIO_AUD_DAT_MOSI_OFF] = {"aud_dat_mosi_off", false, NULL},
+	[GPIO_AUD_DAT_MOSI_ON] = {"aud_dat_mosi_on", false, NULL},
+	[GPIO_AUD_DAT_MISO2_OFF] = {"aud_dat_miso2_off", false, NULL},
+	[GPIO_AUD_DAT_MISO2_ON] = {"aud_dat_miso2_on", false, NULL},
+	[GPIO_AUD_DAT_MOSI2_OFF] = {"aud_dat_mosi2_off", false, NULL},
+	[GPIO_AUD_DAT_MOSI2_ON] = {"aud_dat_mosi2_on", false, NULL},
+	[GPIO_VOW_DAT_MISO_OFF] = {"vow_dat_miso_off", false, NULL},
+	[GPIO_VOW_DAT_MISO_ON] = {"vow_dat_miso_on", false, NULL},
+	[GPIO_VOW_CLK_MISO_OFF] = {"vow_clk_miso_off", false, NULL},
+	[GPIO_VOW_CLK_MISO_ON] = {"vow_clk_miso_on", false, NULL},
 
-		[GPIO_SMARTPA_RESET] = {"aud_smartpa_reset", false, NULL},
-		[GPIO_SMARTPA_ON] = {"aud_smartpa_on", false, NULL},
-		[GPIO_SMARTPA_OFF] = {"aud_smartpa_off", false, NULL},
-		[GPIO_TDM_MODE0] = {"aud_tdm_mode0", false, NULL},
-		[GPIO_TDM_MODE1] = {"aud_tdm_mode1", false, NULL},
+	[GPIO_SMARTPA_RESET] = {"aud_smartpa_reset", false, NULL},
+	[GPIO_SMARTPA_ON] = {"aud_smartpa_on", false, NULL},
+	[GPIO_SMARTPA_OFF] = {"aud_smartpa_off", false, NULL},
+	[GPIO_TDM_MODE0] = {"aud_tdm_mode0", false, NULL},
+	[GPIO_TDM_MODE1] = {"aud_tdm_mode1", false, NULL},
 
 #if MT6755_PIN
-		/* [GPIO_DEFAULT] = {"default", false, NULL}, */
-		[GPIO_PMIC_MODE0] = {"audpmicclk-mode0", false, NULL},
-		[GPIO_PMIC_MODE1] = {"audpmicclk-mode1", false, NULL},
-		[GPIO_I2S_MODE0] = {"audi2s1-mode0", false, NULL},
-		[GPIO_I2S_MODE1] = {"audi2s1-mode1", false, NULL},
-		[GPIO_EXTAMP_HIGH] = {"extamp-pullhigh", false, NULL},
-		[GPIO_EXTAMP_LOW] = {"extamp-pulllow", false, NULL},
-		[GPIO_EXTAMP2_HIGH] = {"extamp2-pullhigh", false, NULL},
-		[GPIO_EXTAMP2_LOW] = {"extamp2-pulllow", false, NULL},
-		[GPIO_RCVSPK_HIGH] = {"rcvspk-pullhigh", false, NULL},
-		[GPIO_RCVSPK_LOW] = {"rcvspk-pulllow", false, NULL},
+	/* [GPIO_DEFAULT] = {"default", false, NULL}, */
+	[GPIO_PMIC_MODE0] = {"audpmicclk-mode0", false, NULL},
+	[GPIO_PMIC_MODE1] = {"audpmicclk-mode1", false, NULL},
+	[GPIO_I2S_MODE0] = {"audi2s1-mode0", false, NULL},
+	[GPIO_I2S_MODE1] = {"audi2s1-mode1", false, NULL},
+	[GPIO_EXTAMP_HIGH] = {"extamp-pullhigh", false, NULL},
+	[GPIO_EXTAMP_LOW] = {"extamp-pulllow", false, NULL},
+	[GPIO_EXTAMP2_HIGH] = {"extamp2-pullhigh", false, NULL},
+	[GPIO_EXTAMP2_LOW] = {"extamp2-pulllow", false, NULL},
+	[GPIO_RCVSPK_HIGH] = {"rcvspk-pullhigh", false, NULL},
+	[GPIO_RCVSPK_LOW] = {"rcvspk-pulllow", false, NULL},
 #endif
 
-		[GPIO_HPDEPOP_HIGH] = {"hpdepop-pullhigh", false, NULL},
-		[GPIO_HPDEPOP_LOW] = {"hpdepop-pulllow", false, NULL},
-		[GPIO_AUD_CLK_MOSI_HIGH] = {"aud_clk_mosi_pull_high", false,
-					    NULL},
-		[GPIO_AUD_CLK_MOSI_LOW] = {"aud_clk_mosi_pull_low", false,
-					   NULL},
+	[GPIO_HPDEPOP_HIGH] = {"hpdepop-pullhigh", false, NULL},
+	[GPIO_HPDEPOP_LOW] = {"hpdepop-pulllow", false, NULL},
+	[GPIO_AUD_CLK_MOSI_HIGH] = {"aud_clk_mosi_pull_high", false,
+		NULL
+	},
+	[GPIO_AUD_CLK_MOSI_LOW] = {"aud_clk_mosi_pull_low", false,
+		NULL
+	},
 };
 
 static unsigned int extbuck_fan53526_exist;
@@ -162,9 +164,11 @@ void AudDrv_GPIO_probe(void *dev)
 		extbuck_fan53526_exist);
 	if (extbuck_fan53526_exist) { /* is e2 */
 		struct audio_gpio_attr gpio_hpdepop_high = {
-			"hpdepop-pullhigh_e2", false, NULL};
+			"hpdepop-pullhigh_e2", false, NULL
+		};
 		struct audio_gpio_attr gpio_hpdepop_low = {"hpdepop-pulllow_e2",
-							   false, NULL};
+			false, NULL
+		};
 
 		aud_gpios[GPIO_HPDEPOP_HIGH] = gpio_hpdepop_high;
 		aud_gpios[GPIO_HPDEPOP_LOW] = gpio_hpdepop_low;

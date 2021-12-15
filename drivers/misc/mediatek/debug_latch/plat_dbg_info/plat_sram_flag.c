@@ -10,7 +10,12 @@
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
+#include <linux/sched/clock.h>
+#include "archcounter_timesync.h"
 #include "plat_sram_flag.h"
+#ifdef CONFIG_MTK_BUS_TRACER
+#include <asm/arch_timer.h>
+#endif
 
 static struct plat_sram_flag *plat;
 
@@ -81,6 +86,30 @@ int set_sram_flag_etb_user(unsigned int etb_id, unsigned int user_id)
 	return 0;
 }
 EXPORT_SYMBOL(set_sram_flag_etb_user);
+
+#ifdef CONFIG_MTK_BUS_TRACER
+int set_sram_flag_timestamp(void)
+{
+	u64 tick, ts, boot_time;
+	if (check_sram_base() < 0)
+		return -1;
+	ts = sched_clock_get_cyc(&tick);
+	pr_notice("%s: tick=0x%llx, ts=%llu\n", __func__, tick, ts);
+	ts = sched_clock();
+	boot_time = mtk_get_archcounter_time(arch_counter_get_cntvct());
+	boot_time -= ts;
+#if BITS_PER_LONG == 32
+	boot_time = div_u64((boot_time*13), 1000);
+#else
+	boot_time = (boot_time*13)/1000;
+#endif
+	plat->plat_sram_flag0 = boot_time;
+	pr_notice("%s: kernel_start_tick = 0x%x\n", __func__,
+			plat->plat_sram_flag0);
+	return 0;
+}
+EXPORT_SYMBOL(set_sram_flag_timestamp);
+#endif
 
 /* return negative integer if fails */
 int set_sram_flag_dfd_valid(void)

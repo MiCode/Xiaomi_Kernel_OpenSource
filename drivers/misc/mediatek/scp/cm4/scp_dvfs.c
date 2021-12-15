@@ -45,6 +45,19 @@
 #include "dvfsrc-exp.h"
 #include "mtk_spm_resource_req.h"
 
+#if (defined(CONFIG_MACH_MT6781)  \
+	||defined(CONFIG_MACH_MT6768))
+#include <mt-plat/upmu_common.h>
+//#include <mt-plat/mtk_secure_api.h>
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#include "mtk_pmic_info.h"
+#include "mtk_pmic_api_buck.h"
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
+
+#endif
+#endif
+
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
@@ -57,6 +70,10 @@
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 static int scp_dvfs_flag = 1;
+
+#define SCP_DVFS_DTSNO_GPIO_CONFIG   -1
+#define SCP_DVFS_DTSNO_PMIC_CONFIG   -2
+int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
 
 /*
  * 0: SCP Sleep: OFF,
@@ -73,7 +90,9 @@ static int g_scp_dvfs_init_flag = -1;
 
 static struct dvfs_data *dvfs;
 
+
 static struct regulator *reg_vcore, *reg_vsram;
+
 
 static struct mtk_pm_qos_request dvfsrc_scp_vcore_req;
 
@@ -90,12 +109,46 @@ const char subsys_name[SYS_NUM][15] = {
 	"pmic",
 };
 
-bool __attribute__((weak))
+/*bool __attribute__((weak))
 spm_resource_req(unsigned int user, unsigned int req_mask)
 {
 	pr_err("ERROR: %s is not linked\n", __func__);
 	return true;
+}*/
+
+
+#if defined(CONFIG_MACH_MT6781)
+#define ADR_GPIO_DIR6 (gpio_base + 0x060)
+#define BIT_GPIO_DIR6_GPIO200 8
+#define MAK_GPIO_DIR6_GPIO200 0x1
+
+/* GPIO200=Lo:   SCP uses VASRAM_CORE  */
+/* GPIO200=High: SCP uses VASRAM_OTHERS  */
+#define ADR_GPIO_DIN6 (gpio_base + 0x260)
+#define BIT_GPIO_DIN6_GPIO200 8
+#define MAK_GPIO_DIN6_GPIO200 0x1
+
+#define USE_VSRAM_CORE		1
+#define USE_VSRAM_OTHERS	2
+int Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+
+int scp_resource_req(unsigned int req_type)
+{
+	unsigned long ret = 0;
+	struct arm_smccc_res res = {0};
+/*
+	ret = mt_secure_call(MTK_SIP_KERNEL_SCP_DVFS_CTRL,
+			req_type,
+			0, 0, 0);
+*/
+	arm_smccc_smc(MTK_SIP_KERNEL_SCP_DVFS_CTRL,
+					req_type,
+					0, 0, 0, 0, 0, 0, &res);
+	ret = res.a0;
+	return ret;
 }
+EXPORT_SYMBOL(scp_resource_req);
+#endif
 
 static int scp_get_sub_feature_idx(enum subsys_enum sys_e,
 		enum sub_feature_enum comp_e)
@@ -106,6 +159,10 @@ static int scp_get_sub_feature_idx(enum subsys_enum sys_e,
 		(comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
 		return -EINVAL;
 
+	if(!sd[sys_e].regmap || !sd[sys_e].fd) {
+		pr_err("cannot find feature index\n");
+		return -EINVAL;
+	}
 	for (i = 0; i < sd[sys_e].num; i++) {
 		if (!strcmp(sd[sys_e].fd[i].name,
 				sub_feature_name[comp_e]))
@@ -215,13 +272,17 @@ static int scp_set_sub_register_cfg(enum subsys_enum sys_e,
 		enum sub_feature_enum comp_e, bool on)
 {
 	struct regmap *regmap = sd[sys_e].regmap;
-	struct sub_feature_data *fd;
+	struct sub_feature_data *fd = NULL;
 	int ret = 0;
 	int i;
 
 	if ((sys_e < 0 || sys_e >= SYS_NUM) ||
 		(comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
 		return -EINVAL;
+	if (!regmap) {
+		pr_err("scp_dvfs: %d regmap is NULL\n", sys_e);
+		return  -EINVAL;
+	}
 
 	fd = scp_get_sub_feature(sys_e, comp_e);
 	if (!fd) {
@@ -274,20 +335,29 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 	if (idx >= 0 && idx < dvfs->scp_opp_num) {
 		unsigned int vcore;
 		unsigned int uv = dvfs->opp[idx].uv_idx;
+	#if !defined(CONFIG_MACH_MT6768) \
+		&& !defined(CONFIG_MACH_MT6781)
 		int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
 		int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
-
+	#endif
 		if (uv != 0xff)
 			vcore = mtk_dvfsrc_vcore_uv_table(uv);
 		else
 			vcore = dvfs->opp[idx].vcore;
 
 		/* vcore MAX_uV set to highest opp + 100mV */
+
+	#if (defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6781))
+		ret_vc = pmic_scp_set_vcore(vcore);
+		ret_vs = pmic_scp_set_vsram_vcore(dvfs->opp[idx].vsram);
+	#else
 		ret_vc = regulator_set_voltage(reg_vcore, vcore,
 				max_vcore);
 
 		ret_vs = regulator_set_voltage(reg_vsram, dvfs->opp[idx].vsram,
 				max_vsram);
+	#endif
 	} else {
 		ret = -2;
 		pr_err("cur_freq=%d is not supported\n", cur_freq);
@@ -428,10 +498,14 @@ int scp_request_freq(void)
 
 		/* Request SPM not to turn off mainpll/26M/infra */
 		/* because SCP may park in it during DFS process */
+		#if defined(CONFIG_MACH_MT6781)
+		scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR | SCP_REQ_SYSPLL1);
+		#else
 		spm_resource_req(SPM_RESOURCE_USER_SCP,
 						SPM_RESOURCE_MAINPLL |
 						SPM_RESOURCE_CK_26M |
 						SPM_RESOURCE_AXI_BUS);
+		#endif
 
 		/*  turn on PLL if necessary */
 		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
@@ -468,17 +542,30 @@ int scp_request_freq(void)
 		/* do DVS after DFS if decreasing frequency */
 		if (is_increasing_freq == 0)
 			scp_vcore_request(scp_expected_freq);
-
+	#ifndef CONFIG_MACH_MT6768
 		if (scp_expected_freq == MAINPLL_273M)
+			#if defined(CONFIG_MACH_MT6781)
+			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR | SCP_REQ_SYSPLL1);
+			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 						SPM_RESOURCE_MAINPLL);
+			#endif
+    #endif
 		else if (scp_expected_freq == UNIVPLL_416M)
+			#if defined(CONFIG_MACH_MT6781)
+			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR);
+			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 						SPM_RESOURCE_CK_26M |
 						SPM_RESOURCE_AXI_BUS);
+			#endif
 		else
+			#if defined(CONFIG_MACH_MT6781)
+			scp_resource_req(SCP_REQ_RELEASE);
+			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 							 SPM_RESOURCE_RELEASE);
+			#endif
 	}
 
 	__pm_relax(scp_suspend_lock);
@@ -526,7 +613,10 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 	}
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
-		if (pre_pll_sel != MAINPLL_273M &&
+		if (
+		#ifndef CONFIG_MACH_MT6768
+			pre_pll_sel != MAINPLL_273M &&
+		#endif
 			pre_pll_sel != UNIVPLL_416M) {
 			ret = clk_prepare_enable(mt_scp_pll->clk_mux);
 			if (ret) {
@@ -551,16 +641,17 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 		}
 
 		if (ret) {
-			pr_err("clk_set_parent() failed, opp=%d\n",
-					pll_sel);
+			pr_err("clk_set_parent() failed, opp=%d\n", pll_sel);
 			WARN_ON(1);
 		}
 
 		if (pre_pll_sel != pll_sel)
 			pre_pll_sel = pll_sel;
-	} else if ((pll_ctrl_flag == PLL_DISABLE) &&
-			   (pll_sel != MAINPLL_273M &&
-			    pll_sel != UNIVPLL_416M)) {
+	} else if ((pll_ctrl_flag == PLL_DISABLE) &&(
+		#ifndef CONFIG_MACH_MT6768
+			pll_sel != MAINPLL_273M &&
+		#endif
+			pll_sel != UNIVPLL_416M)) {
 		clk_disable_unprepare(mt_scp_pll->clk_mux);
 		/*pr_debug("clk_disable_unprepare()\n");*/
 	} else {
@@ -575,7 +666,7 @@ void scp_pll_ctrl_handler(int id, void *data, unsigned int len)
 	unsigned int *pll_ctrl_flag = (unsigned int *)data;
 	unsigned int *pll_sel =  (unsigned int *) (data + 1);
 
-	scp_pll_ctrl_set(*pll_ctrl_flag, *pll_sel);
+	scp_pll_ctrl_set (*pll_ctrl_flag, *pll_sel);
 }
 
 void mt_scp_dvfs_state_dump(void)
@@ -948,7 +1039,7 @@ static int __init mt_scp_regmap_init(struct platform_device *pdev,
 		dev_err(&pdev->dev,
 			"Get gpio regmap fail: %ld\n",
 			PTR_ERR(regmap));
-		goto fail;
+		goto fail_gpio;
 	}
 
 	sd[SYS_GPIO].regmap = regmap;
@@ -958,34 +1049,37 @@ static int __init mt_scp_regmap_init(struct platform_device *pdev,
 			subsys_name[SYS_PMIC], 0);
 	if (!pmic_node) {
 		dev_notice(&pdev->dev, "fail to find pmic node\n");
-		goto fail;
+		goto fail_pmic;
 	}
+
 
 	pmic_pdev = of_find_device_by_node(pmic_node);
 	if (!pmic_pdev) {
-		dev_err(&pdev->dev, "fail to find pmic device\n");
-		goto fail;
+		dev_err(&pdev->dev, "fail to find pmic device or some project no pmic config \n");
+		goto fail_pmic;
 	}
 
 	chip = dev_get_drvdata(&(pmic_pdev->dev));
 	if (!chip) {
 		dev_err(&pdev->dev, "fail to find pmic drv data\n");
-		goto fail;
+		goto fail_pmic;
 	}
 
 	regmap =  chip->regmap;
 	if (IS_ERR_VALUE(regmap)) {
 		sd[SYS_PMIC].regmap = NULL;
 		dev_err(&pdev->dev, "get pmic regmap fail\n");
-		goto fail;
+		goto fail_pmic;
 	}
 
 	sd[SYS_PMIC].regmap = regmap;
 
 	return 0;
-fail:
+fail_gpio:
 	WARN_ON(1);
-	return -1;
+	return SCP_DVFS_DTSNO_GPIO_CONFIG;
+fail_pmic:
+	return SCP_DVFS_DTSNO_PMIC_CONFIG;
 }
 
 static  int __init mt_scp_sub_feature_init_internal(struct device_node *node,
@@ -1162,10 +1256,119 @@ fail:
 
 	return ret;
 }
+#if defined(CONFIG_MACH_MT6781)
 
+static void mt_pmic_sshub_init_for_mt6781(void)
+{
+	pmic_scp_set_vcore(600000);
+	pmic_scp_set_vcore_sleep(600000);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN, 1);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN, 0);
+
+	if (Scp_Vsram_Ldo_usage == USE_VSRAM_OTHERS)
+		pr_notice("SCP VSRAM: VSRAM_OTHERS\n");
+	else if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE)
+		pr_notice("SCP VSRAM: VSRAM_CORE\n");
+	else {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+		pr_notice("ERROR: unknown VSRAM LDO usage before PMIC setting\n");
+		WARN_ON(1);
+	}
+
+	pmic_scp_set_vsram_vcore(850000);
+	pmic_scp_set_vsram_vcore_sleep(850000);
+
+	if (Scp_Vsram_Ldo_usage == USE_VSRAM_CORE) {
+		pmic_set_register_value(
+			PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN, 0);
+	} else {
+		pmic_set_register_value(
+			PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN, 1);
+
+	}
+
+	pmic_set_register_value(
+			PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN, 0);
+
+	/*  Workaround once force BUCK in NML mode */
+	pmic_set_register_value(PMIC_RG_SRCVOLTEN_LP_EN, 1);
+	return ;
+}
+#endif
+#if defined(CONFIG_MACH_MT6768)
+static void mt_pmic_sshub_init_for_mt6768(void)
+{
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	unsigned int val[8];
+
+	val[0] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN);
+	val[1] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL);
+	val[2] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN);
+	val[3] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL_SLEEP);
+	val[4] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN);
+	val[5] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL);
+	val[6] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN);
+	val[7] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SLEEP);
+	pr_debug(
+	"Before: vcore=(0x%x,0x%x,0x%x,0x%x), vsram=(0x%x,0x%x,0x%x,0x%x)\n",
+	val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
+
+	pmic_scp_set_vcore(650000);
+	pmic_scp_set_vcore_sleep(650000);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN, 1);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN, 0);
+	pmic_scp_set_vsram_vcore(900000);
+	pmic_scp_set_vsram_vcore_sleep(900000);
+	pmic_set_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN, 1);
+	pmic_set_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN, 0);
+
+	val[0] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN);
+	val[1] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL);
+	val[2] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN);
+	val[3] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL_SLEEP);
+	val[4] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN);
+	val[5] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL);
+	val[6] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN);
+	val[7] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SLEEP);
+	pr_debug(
+	"After: vcore=(0x%x,0x%x,0x%x,0x%x), vsram=(0x%x,0x%x,0x%x,0x%x)\n",
+	val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
+
+	/*  Workaround once force BUCK in NML mode */
+	pmic_set_register_value(PMIC_RG_SRCVOLTEN_LP_EN, 1);
+#endif
+}
+#endif
 static void __init mt_pmic_sshub_init(void)
 {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_MACH_MT6768)
+	mt_pmic_sshub_init_for_mt6768();
+#elif defined(CONFIG_MACH_MT6781)
+	mt_pmic_sshub_init_for_mt6781();
+#else
 	int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
 	int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
 
@@ -1203,6 +1406,7 @@ static void __init mt_pmic_sshub_init(void)
 	if (regulator_enable(reg_vsram) != 0)
 		pr_notice("Enable vsram failed!!!\n");
 #endif
+#endif
 }
 
 static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
@@ -1213,7 +1417,9 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	char *buf;
 	int i;
 	int ret = 0;
-
+#if defined(CONFIG_MACH_MT6781)
+	int gpio_idx, gpio_val;
+#endif
 	/* find device tree node of scp_dvfs */
 	node = of_find_matching_node(NULL, scpdvfs_of_ids);
 	if (!node) {
@@ -1225,6 +1431,7 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	sd = kcalloc(SYS_NUM, sizeof(*sd), GFP_KERNEL);
 	if (!sd)
 		return -ENOMEM;
+	memset(sd, 0 ,sizeof(*sd) * SYS_NUM);
 
 	/* init temp buf */
 	buf = kzalloc(sizeof(char) * 15, GFP_KERNEL);
@@ -1259,9 +1466,10 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		kfree(sd);
 		return -ENOMEM;
 	}
+
 	/* init regmap */
 	ret = mt_scp_regmap_init(pdev, node);
-	if (ret)
+	if (ret == SCP_DVFS_DTSNO_GPIO_CONFIG)
 		goto fail;
 
 	/* init gpio/pmic feature data */
@@ -1319,6 +1527,21 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 
 		kfree(gpio_mode);
 	}
+
+#if defined(CONFIG_MACH_MT6781)
+	/* get GPIO value by GPIO API */
+	/* get high/low level of gpio pin */
+	gpio_idx = of_get_named_gpio(pdev->dev.of_node, "vsram_chk_gpio", 0);
+	gpio_val = gpio_get_value(gpio_idx);
+	pr_notice("vsram_chk_gpio value: %d\n", gpio_val);
+	if (gpio_val == 0) {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_CORE;
+		pr_notice("VSRAM LDO: VSRAM_CORE\n");
+	} else {
+		Scp_Vsram_Ldo_usage = USE_VSRAM_OTHERS;
+		pr_notice("VSRAM LDO: VSRAM_OTHERS\n");
+	}
+#endif
 
 	/* get each dvfs opp data from dts node */
 	for (i = 0; i < dvfs->scp_opp_num; i++) {
@@ -1385,10 +1608,15 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 
 	if (dvfs->dvfsrc_opp_num == 0) {
 		pr_notice("dvfsrc table has zero opp count\n");
-		goto pmic_cfg;
 	}
 
-pmic_cfg:
+#if (defined (CONFIG_MACH_MT6768) \
+	||defined(CONFIG_MACH_MT6781))
+	pr_notice("mt6768  6781 no pmic config in dts\n");
+	mt_pmic_sshub_init();
+	goto pass;
+#endif
+
 	/* get Vcore/Vsram Regulator */
 	reg_vcore = devm_regulator_get_optional(&pdev->dev, "sshub-vcore");
 	if (IS_ERR(reg_vcore) || !reg_vcore) {
@@ -1403,6 +1631,7 @@ pmic_cfg:
 		ret = PTR_ERR(reg_vsram);
 		goto pass;
 	}
+
 
 	mt_pmic_sshub_init();
 pass:

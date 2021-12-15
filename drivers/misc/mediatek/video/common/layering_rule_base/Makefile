@@ -11,6 +11,7 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
+
 # remove this after k79 config CONFIG_MACH_MT6779 & CONFIG_MTK_PLATFORM in defconfig
 ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
 	CONFIG_MACH_MT6779 := y

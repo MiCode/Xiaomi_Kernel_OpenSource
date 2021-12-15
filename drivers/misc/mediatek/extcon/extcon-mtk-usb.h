@@ -49,3 +49,8 @@ enum {
 	DUAL_PROP_DR_DEVICE,
 	DUAL_PROP_DR_NONE,
 };
+
+#if defined ADAPT_PSY_V1
+extern void mt_usb_connect_v1(void);
+extern void mt_usb_disconnect_v1(void);
+#endif //ADAPT_PSY_V1

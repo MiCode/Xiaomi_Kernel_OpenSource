@@ -2507,7 +2507,8 @@ static void write_cmos_sensor_8(kal_uint16 addr, kal_uint8 para)
 	iWriteRegI2C(pusendcmd, 3, imgsensor.i2c_write_id);
 }
 
-static void write_cmos_sensor(kal_uint16 addr, kal_uint8 para)
+
+static void write_cmos_sensor(kal_uint16 addr, kal_uint16 para)
 {
 	char pusendcmd[4] = {
 		(char)(addr >> 8),
@@ -2577,23 +2578,57 @@ static kal_uint16 table_write_cmos_sensor(kal_uint16 *para, kal_uint32 len)
 #endif
 	}
 
+#if 0 /*for debug*/
+	for (int i = 0; i < len/2; i++)
+		LOG_INF("readback addr(0x%x)=0x%x\n",
+			para[2*i], read_cmos_sensor(para[2*i]));
+#endif
 	return 0;
 }
 
 static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[3] = {
 	/* Preview mode setting */
 	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
-	0x00, 0x2b, 0x0660, 0x04c8, 0x00, 0x00, 0x0000, 0x0000,
-	0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
+	 0x00, 0x2b, 0x0660, 0x04c8, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
 	/* Capture mode setting */
 	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
-	0x00, 0x2b, 0x0CC0, 0x0990, 0x00, 0x00, 0x0000, 0x0000,
-	0x00, 0x36, 0x0FF0, 0x0001, 0x00, 0x00, 0x0000, 0x0000},
+	 0x00, 0x2b, 0x0CC0, 0x0990, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x36, 0x0FF0, 0x0001, 0x00, 0x00, 0x0000, 0x0000},
 	/* Video mode setting */
 	{0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,
-	0x00, 0x2b, 0x0CC0, 0x0730, 0x00, 0x00, 0x0000, 0x0000,
-	0x00, 0x36, 0x0FF0, 0x0001, 0x00, 0x00, 0x0000, 0x0000}
+	 0x00, 0x2b, 0x0CC0, 0x0730, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x36, 0x0FF0, 0x0001, 0x00, 0x00, 0x0000, 0x0000}
 };
+#if 0
+static void set_mirror_flip(kal_uint8 image_mirror)
+{
+	kal_uint8 itemp;
+
+	LOG_INF("image_mirror = %d\n", image_mirror);
+	itemp = read_cmos_sensor_8(0x0101);
+	itemp &= ~0x03;
+
+	switch (image_mirror) {
+
+	case IMAGE_NORMAL:
+	write_cmos_sensor_8(0x0101, itemp);
+	break;
+
+	case IMAGE_V_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x02);
+	break;
+
+	case IMAGE_H_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x01);
+	break;
+
+	case IMAGE_HV_MIRROR:
+	write_cmos_sensor_8(0x0101, itemp | 0x03);
+	break;
+	}
+}
+#endif
 
 static kal_uint16 gain2reg(const kal_uint16 gain)
 {
@@ -4274,6 +4309,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_GET_PDAF_DATA:
 		LOG_INF("SENSOR_FEATURE_GET_PDAF_DATA\n");
+		#if 0
+		read_3P8_eeprom((kal_uint16)(*feature_data),
+				(char *)(uintptr_t)(*(feature_data+1)),
+				(kal_uint32)(*(feature_data+2)));
+		#endif
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		set_test_pattern_mode((BOOL)*feature_data);
@@ -4365,7 +4405,19 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+			#if 0
+			memcpy((void *)PDAFinfo,
+				(void *)&imgsensor_pd_info,
+				sizeof(struct SET_PD_BLOCK_INFO_T));
+			#endif
+			break;
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+			#if 0
+			memcpy((void *)PDAFinfo,
+				(void *)&imgsensor_pd_info_16_9,
+				sizeof(struct SET_PD_BLOCK_INFO_T));
+			#endif
+			break;
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 		case MSDK_SCENARIO_ID_SLIM_VIDEO:
 		default:
@@ -4459,6 +4511,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_SET_HDR_SHUTTER:
 		LOG_INF("SENSOR_FEATURE_SET_HDR_SHUTTER LE=%d, SE=%d\n",
 			(UINT16)*feature_data, (UINT16)*(feature_data+1));
+		#if 0
+		ihdr_write_shutter((UINT16)*feature_data,
+				   (UINT16)*(feature_data+1));
+		#endif
 		break;
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
 		LOG_INF("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
@@ -4578,6 +4634,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				sizeof(struct SENSOR_VC_INFO_STRUCT));
 			break;
 		default:
+			#if 0
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			#endif
 			break;
 		}
 	default:

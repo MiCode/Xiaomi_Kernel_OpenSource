@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -27,7 +28,7 @@
 #include "private/tmem_dev_desc.h"
 #include "tee_impl/tee_ops.h"
 #include "tee_impl/tee_gp_def.h"
-#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+#if defined(CONFIG_MTK_GZ_KREE)
 #include "mtee_impl/mtee_invoke.h"
 #endif
 #include "tee_client_api.h"
@@ -334,6 +335,9 @@ int tee_mem_reg_add(u64 pa, u32 size, void *tee_data, void *dev_desc)
 			return TMEM_TEE_NOTIFY_MEM_ADD_CFG_TO_MTEE_FAILED;
 		}
 	}
+
+	pr_debug("[%d] TEE append reg mem PASS: PA=0x%lx, size=0x%lx\n",
+		       tee_dev_desc->mtee_chunks_id, pa, size);
 
 	return TMEM_OK;
 }

@@ -53,7 +53,7 @@ static int hal_log_print(const char *str, ...)
 	va_end(args);
 
 	if (ret > 0)
-		pr_debug("%s", temp_sring);
+		pr_info("%s", temp_sring);
 
 	return ret;
 }

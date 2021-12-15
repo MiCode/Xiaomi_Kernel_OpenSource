@@ -17,4 +17,4 @@ config CUSTOM_KERNEL_MAGNETOMETER
 
 source "drivers/misc/mediatek/sensors-1.0/magnetometer/maghub/Kconfig"
 #source "drivers/misc/mediatek/sensors-1.0/magnetometer/akm09915/Kconfig"
-#source "drivers/misc/mediatek/sensors-1.0/magnetometer/akm09918/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/magnetometer/akm09918/Kconfig"

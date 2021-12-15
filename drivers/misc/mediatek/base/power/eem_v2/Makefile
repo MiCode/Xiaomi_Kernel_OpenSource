@@ -11,5 +11,24 @@
 # GNU General Public License for more details.
 #
 export EEM_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/eem_v2
+ifeq ($(CONFIG_MACH_MT6739),y)
+obj-y += mt6739/
+else
+ifeq ($(CONFIG_MACH_MT6768),y)
+obj-y += mt6768/
+else
+ifeq ($(CONFIG_MACH_MT6833),y)
+obj-y += mt6833/
+else
+ifeq ($(CONFIG_MACH_MT6877),y)
+obj-y += mt6877/
+else
+ifeq ($(CONFIG_MACH_MT6781),y)
+obj-y += mt6781/
+else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-
+endif
+endif
+endif
+endif
+endif

@@ -347,9 +347,6 @@ static int ion_mm_heap_allocate(struct ion_heap *heap,
 	struct ion_mm_buffer_info *buffer_info = NULL;
 	unsigned long long start, end;
 	unsigned long user_va = 0;
-#ifdef CONFIG_MTK_PSEUDO_M4U
-	struct page *page;
-#endif
 
 	INIT_LIST_HEAD(&pages);
 

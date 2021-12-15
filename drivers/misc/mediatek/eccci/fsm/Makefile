@@ -33,6 +33,9 @@ ccci_fsm_all-y := ccci_fsm.o \
 			ccci_fsm_sys.o \
 			mdee_dumper_v1.o \
 			mdee_dumper_v2.o \
-			mdee_dumper_v3.o
+			mdee_dumper_v3.o \
+			mdee_dumper_v5.o
 
+else
+obj-  := dummy.o # avoid build error
 endif

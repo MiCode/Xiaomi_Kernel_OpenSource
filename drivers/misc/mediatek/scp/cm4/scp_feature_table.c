@@ -68,6 +68,30 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.enable      = 0,
 		.sub_feature = 0,
 	},
+	{
+		.feature     = VOW_VENDOR_M_FEATURE_ID,
+		.freq        = 43,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
+	{
+		.feature     = VOW_VENDOR_A_FEATURE_ID,
+		.freq        = 43,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
+	{
+		.feature     = VOW_VENDOR_G_FEATURE_ID,
+		.freq        = 22,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
+	{
+		.feature     = ULTRA_FEATURE_ID,
+		.freq        = 200,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
 };
 
 

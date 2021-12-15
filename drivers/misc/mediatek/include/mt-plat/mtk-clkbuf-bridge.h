@@ -14,6 +14,8 @@ enum clk_buf_ret_type {
 };
 
 /* clk_buf_id: users of clock buffer */
+#ifndef _clk_buf_id_
+#define _clk_buf_id_
 enum clk_buf_id {
 	CLK_BUF_BB_MD		= 0,
 	CLK_BUF_CONN,
@@ -22,8 +24,10 @@ enum clk_buf_id {
 	CLK_BUF_UFS		= 6,
 	CLK_BUF_INVALID
 };
-
+#endif
 /* xo_id: clock buffer list */
+#ifndef _xo_id_
+#define _xo_id_
 enum xo_id {
 	XO_SOC	= 0,
 	XO_WCN,
@@ -34,7 +38,7 @@ enum xo_id {
 	XO_EXT,		/* UFS */
 	XO_NUMBER
 };
-
+#endif
 enum {
 	BBLPM_SKIP = (1 << 0),
 	BBLPM_WCN = (1 << XO_WCN),
@@ -67,9 +71,9 @@ void clk_buf_export_platform_bridge_register(struct clk_buf_bridge *cb);
 void clk_buf_export_platform_bridge_unregister(void);
 extern enum clk_buf_ret_type clk_buf_ctrl(enum clk_buf_id id, bool onoff);
 extern enum clk_buf_ret_type clk_buf_set_by_flightmode(bool on);
-extern enum clk_buf_ret_type clk_buf_control_bblpm(bool on);
-extern enum clk_buf_ret_type clk_buf_dump_clkbuf_log(void);
-extern enum clk_buf_ret_type clk_buf_get_xo_en_sta(enum xo_id id);
+extern void clk_buf_control_bblpm(bool on);
+extern void clk_buf_dump_clkbuf_log(void);
+extern u8 clk_buf_get_xo_en_sta(enum xo_id id);
 extern u32 clk_buf_bblpm_enter_cond(void);
 
 #endif

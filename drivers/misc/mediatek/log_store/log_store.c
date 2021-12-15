@@ -40,7 +40,8 @@ static u32 last_boot_phase;
 #define LOG_BLOCK_SIZE (512)
 #define EXPDB_LOG_SIZE (2*1024*1024)
 
-#ifdef CONFIG_MTK_PMIC_COMMON
+#if 0
+def CONFIG_MTK_PMIC_COMMON
 u32 set_pmic_boot_phase(u32 boot_phase)
 {
 	u32 ret;
@@ -94,7 +95,8 @@ void set_boot_phase(u32 step)
 	int file_size = 0;
 	struct log_emmc_header pEmmc;
 
-#ifdef CONFIG_MTK_PMIC_COMMON
+#if 0
+def CONFIG_MTK_PMIC_COMMON
 	if (sram_header->reserve[SRAM_PMIC_BOOT_PHASE] == FLAG_ENABLE) {
 		set_pmic_boot_phase(step);
 		if (last_boot_phase == 0)

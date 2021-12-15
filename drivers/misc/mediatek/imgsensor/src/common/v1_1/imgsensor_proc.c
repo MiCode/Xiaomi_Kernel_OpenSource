@@ -111,7 +111,6 @@ static ssize_t CAMERA_HW_Reg_Debug(struct file *file,
 			ret = IMGSENSOR_RETURN_ERROR;
 			return ret;
 		}
-
 	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
 		imgsensor_sensor_feature_control(psensor,
 						SENSOR_FEATURE_GET_REGISTER,
@@ -170,7 +169,6 @@ static ssize_t CAMERA_HW_Reg_Debug2(struct file *file, const char *buffer,
 			ret = IMGSENSOR_RETURN_ERROR;
 			return ret;
 		}
-
 	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
 		imgsensor_sensor_feature_control(psensor,
 						SENSOR_FEATURE_GET_REGISTER,
@@ -245,7 +243,6 @@ static ssize_t CAMERA_HW_Reg_Debug3(struct file *file, const char *buffer,
 			return ret;
 		}
 	}
-
 	return count;
 }
 
@@ -307,6 +304,236 @@ static ssize_t CAMERA_HW_Reg_Debug4(struct file *file, const char *buffer,
 	return count;
 }
 
+static ssize_t CAMERA_HW_Reg_Debug5(struct file *file, const char *buffer,
+					size_t count, loff_t *data)
+{
+	char regBuf[64] = { '\0' };
+	int ret = 0;
+	u32 u4CopyBufSize =
+		(count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
+	struct IMGSENSOR_SENSOR *psensor =
+		&gimgsensor.sensor[IMGSENSOR_SENSOR_IDX_MAIN3];
+
+	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
+
+	memset(&sensorReg, 0, sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+
+	if (psensor == NULL || copy_from_user(regBuf, buffer, u4CopyBufSize))
+		return -EFAULT;
+
+	if (sscanf(regBuf, "%x %x",
+			&sensorReg.RegAddr, &sensorReg.RegData) == 2) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_SET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("write addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr,
+			sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			 sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
+					sensorReg.RegAddr, sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	}
+
+	return count;
+}
+
+static ssize_t CAMERA_HW_Reg_Debug6(struct file *file, const char *buffer,
+					size_t count, loff_t *data)
+{
+	char regBuf[64] = { '\0' };
+	int ret = 0;
+	u32 u4CopyBufSize =
+		(count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
+	struct IMGSENSOR_SENSOR *psensor =
+		&gimgsensor.sensor[IMGSENSOR_SENSOR_IDX_SUB3];
+
+	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
+
+	memset(&sensorReg, 0, sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+
+	if (psensor == NULL || copy_from_user(regBuf, buffer, u4CopyBufSize))
+		return -EFAULT;
+
+	if (sscanf(regBuf, "%x %x",
+			&sensorReg.RegAddr, &sensorReg.RegData) == 2) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_SET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("write addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr,
+			sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			 sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
+					sensorReg.RegAddr, sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	}
+	return count;
+}
+
+static ssize_t CAMERA_HW_Reg_Debug7(struct file *file, const char *buffer,
+					size_t count, loff_t *data)
+{
+	char regBuf[64] = { '\0' };
+	int ret = 0;
+	u32 u4CopyBufSize =
+		(count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
+	struct IMGSENSOR_SENSOR *psensor =
+		&gimgsensor.sensor[IMGSENSOR_SENSOR_IDX_MAIN4];
+
+	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
+
+	memset(&sensorReg, 0, sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+
+	if (psensor == NULL || copy_from_user(regBuf, buffer, u4CopyBufSize))
+		return -EFAULT;
+
+	if (sscanf(regBuf, "%x %x",
+			&sensorReg.RegAddr, &sensorReg.RegData) == 2) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_SET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("write addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr,
+			sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			 sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
+					sensorReg.RegAddr, sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	}
+
+	return count;
+}
+
+static ssize_t CAMERA_HW_Reg_Debug8(struct file *file, const char *buffer,
+					size_t count, loff_t *data)
+{
+	char regBuf[64] = { '\0' };
+	int ret = 0;
+	u32 u4CopyBufSize =
+		(count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
+	struct IMGSENSOR_SENSOR *psensor =
+		&gimgsensor.sensor[IMGSENSOR_SENSOR_IDX_SUB4];
+
+	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
+
+	memset(&sensorReg, 0, sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+
+	if (psensor == NULL || copy_from_user(regBuf, buffer, u4CopyBufSize))
+		return -EFAULT;
+
+	if (sscanf(regBuf, "%x %x",
+			&sensorReg.RegAddr, &sensorReg.RegData) == 2) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_SET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("write addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr,
+			sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			 sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
+		imgsensor_sensor_feature_control(psensor,
+						SENSOR_FEATURE_GET_REGISTER,
+						(MUINT8 *) &sensorReg,
+			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
+					sensorReg.RegAddr, sensorReg.RegData);
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+			"addr = 0x%08x, data = 0x%08x\n",
+			sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
+	}
+
+	return count;
+}
 
 /* Camera information */
 static int subsys_camera_info_read(struct seq_file *m, void *v)
@@ -388,6 +615,33 @@ static const struct file_operations fcamera_proc_fops4 = {
 	.write = CAMERA_HW_Reg_Debug4
 };
 
+static const struct file_operations fcamera_proc_fops5 = {
+	.owner = THIS_MODULE,
+	.read = seq_read,
+	.open = proc_camsensor_open,
+	.write = CAMERA_HW_Reg_Debug5
+};
+
+static const struct file_operations fcamera_proc_fops6 = {
+	.owner = THIS_MODULE,
+	.read = seq_read,
+	.open = proc_camsensor_open,
+	.write = CAMERA_HW_Reg_Debug6
+};
+
+static const struct file_operations fcamera_proc_fops7 = {
+	.owner = THIS_MODULE,
+	.read = seq_read,
+	.open = proc_camsensor_open,
+	.write = CAMERA_HW_Reg_Debug7
+};
+
+static const struct file_operations fcamera_proc_fops8 = {
+	.owner = THIS_MODULE,
+	.read = seq_read,
+	.open = proc_camsensor_open,
+	.write = CAMERA_HW_Reg_Debug8
+};
 
 static const struct file_operations fcamera_proc_fops_set_pdaf_type = {
 	.owner = THIS_MODULE,
@@ -410,6 +664,10 @@ enum IMGSENSOR_RETURN imgsensor_proc_init(void)
 	proc_create("driver/camsensor2", 0000, NULL, &fcamera_proc_fops2);
 	proc_create("driver/camsensor3", 0000, NULL, &fcamera_proc_fops3);
 	proc_create("driver/camsensor4", 0000, NULL, &fcamera_proc_fops4);
+	proc_create("driver/camsensor5", 0000, NULL, &fcamera_proc_fops5);
+	proc_create("driver/camsensor6", 0000, NULL, &fcamera_proc_fops6);
+	proc_create("driver/camsensor7", 0000, NULL, &fcamera_proc_fops7);
+	proc_create("driver/camsensor8", 0000, NULL, &fcamera_proc_fops8);
 	proc_create("driver/pdaf_type", 0000, NULL,
 				&fcamera_proc_fops_set_pdaf_type);
 	proc_create("driver/imgsensor_status_info", 0000, NULL,

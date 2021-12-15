@@ -1,0 +1,55 @@
+config MTK_CLK_BUFFER
+	tristate "MediaTek Clock Buffer Support"
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek Clock Buffer
+	  driver, which support interface for  PMIC 26Mhz output to
+	  other HW component such as BB_MD/WCN/NFC/RF/UFS.
+	  It could also control FPM/LPM mode switch state.
+
+config MTK_CLKBUF_BBLPM
+	bool "MediaTek Clock Buffer BBLPM Mode Support"
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek Clock Buffer
+	  BBLPM, which support PMIC 26Mhz output transfer to low
+	  power mode, less accurate with power consumption.
+	  But with restrict condition for some of  XO_BUFFER need to
+	  be disabled.
+
+config MTK_CLKBUF_NFC
+	bool "MediaTek Clock Buffer NFC Support"
+	select REGMAP
+	help
+	  Say yes here to support for MediaTek Clock Buffer XO_NFC,
+	  which support PMIC 26Mhz output to NFC HW component. If
+	  this config is not set, XO_NFC will be disabled when
+	  driver is probed.
+
+config MTK_CLKBUF
+	tristate "Mediatek Clock Buffer Driver Support"
+	select REGMAP
+	help
+	  Select yes for Mediatek Clock Buffer driver support. The
+	  driver support for SW debug control to DCXO which output
+	  26MHz to other HW module such as BB_MD/WCN/NFC/RF/UFS etc.
+	  Moreover, the driver also allowed user control FPM, BBLPM,
+	  LPM DCXO mode.
+
+config MTK_CLKBUF_V1
+	bool "Mediatek Clock Buffer V1 Driver Support"
+	depends on MTK_CLKBUF
+	help
+	  Select yes for Mediatek Clock Buffer driver V1 support.
+	  The driver support for SW debug control for DCXO related
+	  interfaces which control connsys, nfc interface for 26M
+	  output.
+
+config MTK_SRCLKEN_RC_V1
+	bool "Mediatek SRCLKEN RC Support"
+	depends on MTK_CLKBUF
+	help
+	  Select yes for Mediatek SRCLKEN RC HW module support. The
+	  HW module for central manager control of DCXO HW output.
+	  Moreover, it support finer control of DCXO to several
+	  module such as Connsys can be divided to Wifi, BT, GPS etc.

@@ -48,7 +48,7 @@ enum CAMERA_DUAL_CAMERA_SENSOR_ENUM senDevId, MUINT8 *valid, MUINT32 *temp)
 /* If RESERVED_TZS is changed,
  * please adjust corresponding proc macro FOPS and PROC_FOPS_RW in this file
  */
-#define RESERVED_TZS (8)
+#define RESERVED_TZS (20)
 #define MTK_IMGS_TEMP_CRIT 120000	/* 120.000 degree Celsius */
 
 #define mtk_imgs_dprintk(fmt, args...)   \
@@ -705,6 +705,18 @@ PROC_FOPS_RW(4);
 PROC_FOPS_RW(5);
 PROC_FOPS_RW(6);
 PROC_FOPS_RW(7);
+PROC_FOPS_RW(8);
+PROC_FOPS_RW(9);
+PROC_FOPS_RW(10);
+PROC_FOPS_RW(11);
+PROC_FOPS_RW(12);
+PROC_FOPS_RW(13);
+PROC_FOPS_RW(14);
+PROC_FOPS_RW(15);
+PROC_FOPS_RW(16);
+PROC_FOPS_RW(17);
+PROC_FOPS_RW(18);
+PROC_FOPS_RW(19);
 
 static const struct file_operations *thz_fops[RESERVED_TZS] = {
 	FOPS(0),
@@ -715,6 +727,18 @@ static const struct file_operations *thz_fops[RESERVED_TZS] = {
 	FOPS(5),
 	FOPS(6),
 	FOPS(7),
+	FOPS(8),
+	FOPS(9),
+	FOPS(10),
+	FOPS(11),
+	FOPS(12),
+	FOPS(13),
+	FOPS(14),
+	FOPS(15),
+	FOPS(16),
+	FOPS(17),
+	FOPS(18),
+	FOPS(19)
 };
 /*=============================================================
  * Cooler

@@ -284,13 +284,15 @@ struct md_check_header_v6 {
 	unsigned int  size;
 };
 
-
+extern char *ccci_get_ap_platform(void);
 extern int ccci_common_sysfs_init(void);
 extern void ccci_log_init(void);
 extern int __init ccci_util_fo_init(void);
 extern void ccci_timer_for_md_init(void);
 extern const char *ld_md_errno_to_str(int errno);
 extern int ccci_util_broadcast_init(void);
+extern int ccci_sib_init(void);
+extern int ccci_util_pin_broadcast_init(void);
 
 #define MAX_MD_NUM_AT_LK	(4)
 

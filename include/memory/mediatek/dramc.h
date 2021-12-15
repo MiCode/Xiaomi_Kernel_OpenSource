@@ -31,7 +31,13 @@ struct fmeter_dev_t {
 	struct reg_ctrl_t ckdiv4[2];
 	struct reg_ctrl_t cldiv2[2];
 	struct reg_ctrl_t fbksel[2];
+    #ifdef CONFIG_MEDIATEK_DRAMC
+	struct reg_ctrl_t dqsopen[2];
+    #endif
 	struct reg_ctrl_t dqopen[2];
+    #ifdef CONFIG_MEDIATEK_DRAMC
+	struct reg_ctrl_t ckdiv4_ca[2];
+    #endif
 };
 
 struct mr4_dev_t {
@@ -65,8 +71,14 @@ enum DRAM_TYPE {
 	TYPE_PCDDR3,
 	TYPE_LPDDR4,
 	TYPE_LPDDR4X,
-	TYPE_LPDDR4P
+	TYPE_LPDDR4P,
+	TYPE_LPDDR5
 };
+
+#ifdef CONFIG_MEDIATEK_DRAMC
+#define DPM_IRQ_CHA	0
+#define DPM_IRQ_CHB	1
+#endif
 
 int mtk_dramc_get_steps_freq(unsigned int step);
 unsigned int mtk_dramc_get_ddr_type(void);

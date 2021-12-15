@@ -3,6 +3,10 @@
 ccflags-$(CONFIG_USB_MTU3_DEBUG)	+= -DDEBUG
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6785)))
+ccflags-y += -DMTU3_USE_SPM_API
+endif
+
 # define_trace.h needs to know how to find our header
 CFLAGS_mtu3_trace.o	:= -I$(src)
 

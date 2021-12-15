@@ -1889,6 +1889,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 	bool is_end = false, is_test_pass = false;
 	struct layer_config *input_config;
 
+	disp_id = 0;
 	pos = 0;
 	test_case = -1;
 	oldfs = get_fs();

@@ -107,6 +107,59 @@ config ARCH_MEDIATEK
 	  This enables support for MediaTek MT27xx, MT65xx, MT76xx
 	  & MT81xx ARMv8 SoCs
 
+config MACH_MT6739
+	bool "MediaTek MT6739"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select EXT4_FS
+	select EXT4_FS_ENCRYPTION
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select GENERIC_SCHED_CLOCK
+	select MTK_SYS_CIRQ
+	select MTK_GIC_TARGET_ALL
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT6739
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_SYSTRACKER_V2
+	select MTK_GIC_V3_EXT
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select ARM64_ERRATUM_845719
+	select MTK_CQDMA
+	select MTK_SYSIRQ
+	select MTK_FIQ_CACHE
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_TIMER_APXGPT
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select DEVAPC_LEGACY
+	select OVERLAY_FS
+	select MTK_SECURITY_SW_SUPPORT
+	help
+	  This enables support for MediaTek MT6739.
+	  It enables all necessary feature for MP including
+	  GIC, ERRATA, debug utilities.
+	  Say Y to enable this option.
+	  Say N to disable.
+
 config MACH_MT6761
 	bool "MediaTek MT6761"
 	select GENERIC_TIME
@@ -143,10 +196,12 @@ config MACH_MT6761
 	select MTK_PLAT_SRAM_FLAG
 	select MTK_SYSTRACKER_V2
 	select MTK_L2C_PARITY_CHECK
+	select MTK_DVFSRC
 	select MTK_PMQOS
 	select ARM_MTK_ARCH_CPUIDLE
 	select DEVAPC_LEGACY
-        select MTK_AVB20_SUPPORT
+	select MTK_AVB20_SUPPORT
+	select MTK_TINYSYS_SCP_CM4_SUPPORT
 	help
 	  This enables support for MediaTek MT6761. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
@@ -193,16 +248,126 @@ config MACH_MT6765
 	select ARM_CRYPTO
 	select CRYPTO_SHA2_ARM_CE
 	select CRYPTO_AES_ARM_CE
+	select MTK_DVFSRC
 	select MTK_PMQOS
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select DEVAPC_LEGACY
-        select MTK_SECURITY_SW_SUPPORT
-        select MTK_AVB20_SUPPORT
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_AVB20_SUPPORT
+	select MTK_TINYSYS_SCP_CM4_SUPPORT
 	help
 	  This enables support for MediaTek MT6765
 	  Highly power-efficient, performance-oriented 4G LTE processor
 	  for premium, thin-design smartphones. MT6765 also offers significant
 	  multitasking and multimedia improvements.
+
+config MACH_MT6768
+	bool "MediaTek MT6768"
+	select ARCH_MEDIATEK
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select PINCTRL
+	select PINCTRL_MT6768
+	select MFD_SYSCON
+	select CPU_IDLE
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select MTK_PID_MAP
+	select MTK_SYSIRQ
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_EMI_LEGACY
+	select MTK_DRAMC
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select SDCARD_FS
+	select MTK_SYSTRACKER_V2
+	select MTK_CACHE_PARITY_CHECK
+	select MTK_LASTBUS_INTERFACE
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_DBGTOP
+	select MTK_DEBUG_LATCH
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_GIC_TARGET_ALL
+	select MTK_SYS_CIRQ
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_ION_CACHE_OPTIMIZATION
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_TIMER_SYSTIMER
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_SECURITY_SW_SUPPORT
+	select DEVAPC_MT6768
+	select OVERLAY_FS
+	select MTK_IGNORE_SSBS
+	select MTK_SSMR
+	select MTK_TINYSYS_SCP_CM4_SUPPORT
+	select MFD_MT6358
+	select MTK_PMQOS
+	help
+	  This enables support for MediaTek MT6768
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6768 related projects
+	  Support for mt6768 related projects
+
+config MACH_MT6771
+	bool "MediaTek MT6771"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select MTK_PID_MAP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select MFD_SYSCON
+	select MTK_DRAMC
+	select CPU_IDLE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_SYSIRQ
+	select MTK_EMI
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_GIC_TARGET_ALL
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_TIMER_APXGPT
+	select DEVAPC_LEGACY
+	select OVERLAY_FS
+	select MTK_SYSTRACKER_V2
+	select MTK_SECURITY_SW_SUPPORT
+	help
+	  This enables support for MediaTek MT6771
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6771 related projects
+	  Support for mt6771 related projects
 
 config MACH_MT6779
 	bool "MediaTek MT6779"
@@ -222,13 +387,432 @@ config MACH_MT6779
 	select MTK_SYS_CIRQ
 	select FAST_CIRQ_CLONE_FLUSH
 	select MTK_DRAMC_LEGACY
-        select MTK_SECURITY_SW_SUPPORT
-        select MTK_AVB20_SUPPORT
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_AVB20_SUPPORT
+	select MTK_DVFSRC
+	select MTK_TINYSYS_SCP_CM4_SUPPORT
+
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
 	  thin-design smartphones.
 	  Support for aarch64 Architecture
+
+config MACH_MT6781
+	bool "MediaTek MT6781"
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select ARM_DSU_PMU
+	select MTK_TIMER_SYSTIMER
+	select IRQ_DOMAIN
+	select MFD_SYSCON
+	select SDCARD_FS
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_LPM_MT6781
+	select MTK_SPMTWAM
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select CPU_IDLE
+	select MTK_BASE_POWER
+	select MTK_CPU_MSSV
+	select PM_DEVFREQ
+	select DEVAPC_MT6781
+	select PINCTRL
+	select PINCTRL_MT6781
+	select MTK_DEBUG_LATCH
+	select MTK_SYSTRACKER_V2
+	select MTK_CACHE_PARITY_CHECK
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_UNIFIED_DEBUG_INTERFACE
+	select PM_DEVFREQ
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_DBGTOP
+	select MTK_LASTBUS_INTERFACE
+	select MTK_GIC_V3_EXT
+	select MTK_GIC_TARGET_ALL
+	select MTK_CPU_KORO
+	select DEVMPU_MT6781
+	select MEDIATEK_EMI
+	select MTK_DRAMC
+	select MTK_SECURITY_SW_SUPPORT
+	select MEDIATEK_CQDMA
+	select MTK_TINYSYS_SCP_CM4_SUPPORT
+	select MTK_PMQOS
+	help
+	  This enables support for MediaTek MT6781
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6781 related projects
+	  Support for mt6781 related projects
+
+config MACH_MT6833
+	bool "MediaTek MT6833"
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
+	select CPU_V7
+	select HAVE_SMP
+	select HIE
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6833
+	select CPU_IDLE
+	select MTK_BASE_POWER
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MFD_SYSCON
+	select MEDIATEK_MC if MEMORY
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_TIMER_SYSTIMER
+	select MTK_LPM_MT6833
+	select MTK_SPMTWAM
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select PM_DEVFREQ
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_SYSTRACKER_V2
+	select MTK_CPU_MSSV
+	select MTK_UNIFIED_DEBUG_INTERFACE
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_CACHE_PARITY_CHECK
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select DEVAPC_MT6833
+	select DEVMPU_MT6833
+	select MTK_DBGTOP
+	select MTK_PID_MAP
+	select MTK_CPU_KORO
+	select MTK_SDA
+	select MTK_BUS_PARITY_CHECK
+	select MEDIATEK_EMI
+	select MTK_TINYSYS_SCP_RV_SUPPORT
+	select MTK_PMQOS
+	help
+	  This enables support for MediaTek MT6833
+	  Support for aarch64 Architecture
+	  Support for fpga6833 related projects
+	  Support for mt6833 related projects
+
+config MACH_MT6853
+	bool "MediaTek MT6853"
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6853
+	select CPU_IDLE
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MFD_SYSCON
+	select MEDIATEK_MC if MEMORY
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_SPMTWAM
+	select MTK_LPM_MT6853
+	select MTK_SWPM if !FPGA_EARLY_PORTING
+	select MTK_TIMER_SYSTIMER
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select MTK_BASE_POWER
+	select PM_DEVFREQ
+	select DEVAPC_MT6853
+	select DEVMPU_MT6853
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_SYSTRACKER_V2
+	select MTK_DBGTOP
+	select MTK_CPU_MSSV
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_CACHE_PARITY_CHECK
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_UNIFIED_DEBUG_INTERFACE
+	select MTK_CPU_KORO
+	select MTK_DRAMC_WA
+	select MTK_PID_MAP
+	select MTK_PMQOS
+	help
+	  This enables support for MediaTek MT6853
+	  Support for aarch64 Architecture
+	  Support for fpga6853 related projects
+	  Support for mt6853 related projects
+
+config MACH_MT6873
+	bool "MediaTek MT6873"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_LPM_MT6873
+	select MTK_SWPM if !FPGA_EARLY_PORTING
+	select MTK_PID_MAP
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6873
+	select MFD_SYSCON
+	select COMMON_CLK_MT6873
+	select CPU_IDLE
+	select PM_DEVFREQ
+	select ARM_DSU_PMU
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_TIMER_SYSTIMER
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select MTK_BASE_POWER
+	select DEVAPC_MT6873
+	select DEVMPU_MT6873
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select MTK_DBGTOP
+	select MTK_CPU_MSSV
+	select MTK_SYSTRACKER_V2
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_CACHE_PARITY_CHECK
+	select MTK_DRAMC_WA
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_CPU_KORO
+	select MTK_PMQOS
+	help
+	  This enables support for MediaTek MT6873
+	  Support for aarch64 Architecture
+	  Support for mt6873 related projects
+	  If you need support for MediaTek MT6873, say Y here.
+
+config MACH_MT6877
+	bool "MediaTek MT6877"
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARM_AMBA
+	select ARM_DSU_PMU
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select MTK_CACHE_PARITY_CHECK
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6877
+	select CPU_IDLE
+	select MTK_BASE_POWER
+	select ARM64_CRYPTO
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select MFD_SYSCON
+	select MEDIATEK_MC if MEMORY
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_PID_MAP
+	select MTK_TIMER_SYSTIMER
+	select MTK_SPMTWAM
+	select MTK_PMSR
+	select MTK_LPM_MT6877
+	select MTK_SWPM if !FPGA_EARLY_PORTING
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select MTK_CPU_MSSV
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select PM_DEVFREQ
+	select DEVAPC_MT6877
+	select MTK_CPU_KORO
+	select MTK_UNIFIED_DEBUG_INTERFACE
+	select MTK_DBGTOP
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_SYSTRACKER_V2
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_SDA
+	select MTK_BUS_PARITY_CHECK
+	select DEVMPU_MT6877
+	select MEDIATEK_CQDMA
+	select MTK_TINYSYS_SCP_RV_SUPPORT
+	select MEDIATEK_EMI
+	select MTK_PMQOS
+	help
+	  This enables support for MediaTek MT6877
+	  Support for aarch64 Architecture
+	  Support for fpga6877 related projects
+	  Support for mt6877 related projects
+
+config MACH_MT6893
+	bool "MediaTek MT6893"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6885
+	select MFD_SYSCON
+	select CPU_IDLE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select ARM64_CRYPTO
+	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
+	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
+	select CRYPTO_SHA2_ARM64_CE
+	select CRYPTO_AES_ARM64_CE_BLK
+	select PM_DEVFREQ
+	select MTK_ES_REG
+	select MEDIATEK_CQDMA
+	select MTK_DBGTOP
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_TIMER_SYSTIMER
+	select MTK_BASE_POWER
+	select ARM_MTK_NEW_ARCH_CPUIDLE
+	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
+	select MTK_LPM_MT6885
+	#select MTK_SWPM if !FPGA_EARLY_PORTING
+	select COMMON_CLK_MT6885
+	select DEVAPC_MT6885
+	select DEVMPU_MT6885
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
+	select DM_BOW
+	select MTK_CPU_MSSV
+	select MTK_SYSTRACKER_V2
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_PID_MAP
+	select MTK_CACHE_PARITY_CHECK
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
+	select ARM64_ERRATUM_1542418
+	select MTK_CPU_KORO
+	select MTK_DEBUG_TRACER
+	select MTK_BUS_TRACER
+	select MTK_PMQOS
+	select MTK_TINYSYS_SCP_RV_SUPPORT
+        help
+	  This enables support for MediaTek MT6893
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6893 related projects
+	  Support for mt6893 related projects
 
 config MACH_MT8173
 	bool "MediaTek MT8173"

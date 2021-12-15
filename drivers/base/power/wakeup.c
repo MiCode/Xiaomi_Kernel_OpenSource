@@ -1046,6 +1046,8 @@ static struct dentry *wakeup_sources_stats_dentry;
  * @m: seq_file to print the statistics into.
  * @ws: Wakeup source object to print the statistics for.
  */
+#if !defined (CONFIG_MACH_MT6833)
+  //TODO Temp block
 static int print_wakeup_source_stats(struct seq_file *m,
 				     struct wakeup_source *ws)
 {
@@ -1088,7 +1090,7 @@ static int print_wakeup_source_stats(struct seq_file *m,
 
 	return 0;
 }
-
+#endif
 static void *wakeup_sources_stats_seq_start(struct seq_file *m,
 					loff_t *pos)
 {
@@ -1141,10 +1143,12 @@ static void wakeup_sources_stats_seq_stop(struct seq_file *m, void *v)
  */
 static int wakeup_sources_stats_seq_show(struct seq_file *m, void *v)
 {
-	struct wakeup_source *ws = v;
+#if !defined (CONFIG_MACH_MT6833)
+  //TODO Temp block
+  struct wakeup_source *ws = v;
 
 	print_wakeup_source_stats(m, ws);
-
+#endif
 	return 0;
 }
 

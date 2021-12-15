@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015 MediaTek Inc.
- */
+ * Copyright (c) 2019 MediaTek Inc.
+*/
 
 #ifndef __MDP_DEF_EX_H__
 #define __MDP_DEF_EX_H__
@@ -147,6 +147,14 @@ struct mdp_readback {
 	uint32_t start_id;
 };
 
+struct mdp_simulate {
+	cmdqU32Ptr_t metas;
+	uint32_t meta_count;
+	cmdqU32Ptr_t commands;
+	uint32_t command_size;
+	cmdqU32Ptr_t result_size;
+};
+
 #define CMDQ_IOCTL_MAGIC_NUMBER 'x'
 
 #define CMDQ_IOCTL_ASYNC_EXEC _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 20, \
@@ -160,5 +168,8 @@ struct mdp_readback {
 	struct mdp_readback)
 #define CMDQ_IOCTL_READ_READBACK_SLOTS _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 24, \
 	struct mdp_read_readback)
+
+#define CMDQ_IOCTL_SIMULATE _IOR(CMDQ_IOCTL_MAGIC_NUMBER, 25, \
+	struct mdp_simulate)
 
 #endif	/* __MDP_DEF_EX_H__ */

@@ -24,6 +24,9 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT36672AH_HDP_DSI_VDO_TCL_CSOT)
 	&nt36672ah_hdp_dsi_vdo_tcl_csot_lcm_drv,
 #endif
+#if defined(ES6311_ANX6585_ZIGZAG_WXGA)
+	&es6311_anx6585_zigzag_wxga_lcm_drv,
+#endif
 #if defined(NT36672AH_HDP_DSI_VDO_TCL_CSOT_FWVPLUS)
 	&nt36672ah_hdp_dsi_vdo_tcl_csot_fwvplus_lcm_drv,
 #endif
@@ -1149,6 +1152,9 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #ifndef CONFIG_MACH_MT6761
 #if defined(NT36672_FHDP_DSI_VDO_AUO_LANESWAP)
 	&nt36672_fhdp_dsi_vdo_auo_laneswap_lcm_drv,
+#endif
+#if defined(NT35521_HD_DSI_VDO_TRULY_NT50358)
+	&nt35521_hd_dsi_vdo_truly_nt50358_lcm_drv,
 #endif
 #endif
 

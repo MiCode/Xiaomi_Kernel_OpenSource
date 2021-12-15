@@ -125,6 +125,7 @@ struct SENINF_CLK {
 };
 
 enum SENINF_RETURN seninf_clk_init(struct SENINF_CLK *pclk);
+#define HAVE_SENINF_CLK_EXIT
 void seninf_clk_exit(struct SENINF_CLK *pclk);
 int seninf_clk_set(
 	struct SENINF_CLK *pclk, struct ACDK_SENSOR_MCLK_STRUCT *pmclk);

@@ -96,7 +96,8 @@ struct ccci_util_bc_user_ctlb {
 };
 
 static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
-	int md_id, struct timeval *ev_rtime, int event_type, char reason[])
+	int md_id, const struct timeval *ev_rtime,
+	int event_type, char reason[])
 {
 	int ret = 0;
 
@@ -135,7 +136,7 @@ static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 }
 
 static void save_last_md_status(int md_id,
-		struct timeval *time_stamp, int event_type, char reason[])
+		const struct timeval *time_stamp, int event_type, char reason[])
 {
 	/* MD_STA_EV_HS1 = 9
 	 * ignore events before MD_STA_EV_HS1
@@ -183,7 +184,7 @@ static void send_last_md_status_to_user(int md_id,
 void inject_md_status_event(int md_id, int event_type, char reason[])
 {
 	struct timeval time_stamp;
-	struct ccci_util_bc_user_ctlb *user_ctlb;
+	struct ccci_util_bc_user_ctlb *user_ctlb = NULL;
 	unsigned int md_mark;
 	int i;
 	unsigned long flag;
@@ -225,7 +226,7 @@ int get_lock_rst_user_list(int md_id, char list_buff[], int size)
 {
 	int cpy_size;
 	int total_size = 0;
-	struct ccci_util_bc_user_ctlb *user_ctlb;
+	struct ccci_util_bc_user_ctlb *user_ctlb = NULL;
 	unsigned long flag;
 
 	if (list_buff == NULL) {
@@ -352,7 +353,7 @@ static int read_out_event(struct ccci_util_bc_user_ctlb *user_ctlb,
 	struct md_status_event *event)
 {
 	int ret;
-	struct md_status_event *src_event;
+	struct md_status_event *src_event = NULL;
 	unsigned long flag;
 
 	spin_lock_irqsave(&s_event_update_lock, flag);
@@ -454,7 +455,7 @@ static long ccci_util_bc_ioctl(struct file *filp, unsigned int cmd,
 	struct ccci_util_bc_user_ctlb *user_ctlb;
 	struct bc_ctl_block_t *bc_dev;
 	int lock_cnt, cpy_size;
-	char *buf;
+	char *buf = NULL;
 	int md_id;
 
 	user_ctlb = filp->private_data;
@@ -629,7 +630,7 @@ int ccci_util_broadcast_init(void)
 		if (i == 0)
 			s_bc_ctl_tbl[i]->md_bit_mask = 0x7;
 		else
-			s_bc_ctl_tbl[i]->md_bit_mask = (1<<(i-1));
+			s_bc_ctl_tbl[i]->md_bit_mask = (1U << (i-1));
 	}
 
 	spin_lock_init(&s_event_update_lock);

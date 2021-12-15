@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -13,7 +14,9 @@
 #include <linux/uaccess.h>
 #include <linux/unistd.h>
 #include <linux/mutex.h>
+#if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 #include <memory_ssmr.h>
+#endif
 
 #include "private/tmem_utils.h"
 #include "private/tmem_error.h"
@@ -21,6 +24,7 @@
 
 static int tmem_ssmr_get(u64 *pa, u32 *size, u32 feat, void *dev_desc)
 {
+#if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 	phys_addr_t ssmr_pa;
 	unsigned long ssmr_size;
 
@@ -41,12 +45,16 @@ static int tmem_ssmr_get(u64 *pa, u32 *size, u32 feat, void *dev_desc)
 	pr_debug("ssmr offline passed! feat:%d, pa: 0x%llx, sz: 0x%x\n", feat,
 		 *pa, *size);
 	return TMEM_OK;
+#else
+	pr_err("%s:%d operation is not implemented yet!\n", __func__, __LINE__);
+	return TMEM_OPERATION_NOT_IMPLEMENTED;
+#endif
 }
 
 static int tmem_ssmr_put(u32 feat, void *dev_desc)
 {
 	UNUSED(dev_desc);
-
+#if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 	if (ssmr_online(feat)) {
 		pr_err("ssmr online failed (feat:%d)!\n", feat);
 		return TMEM_SSMR_ONLINE_FAILED;
@@ -54,6 +62,10 @@ static int tmem_ssmr_put(u32 feat, void *dev_desc)
 
 	pr_debug("ssmr online passed!\n");
 	return TMEM_OK;
+#else
+	pr_err("%s:%d operation is not implemented yet!\n", __func__, __LINE__);
+	return TMEM_OPERATION_NOT_IMPLEMENTED;
+#endif
 }
 
 static struct ssmr_operations tmem_ssmr_ops = {

@@ -1,0 +1,9 @@
+config MTK_MDDP_SUPPORT
+	tristate "Support Mediatek MD Direct Path"
+	depends on MTK_ECCCI_DRIVER
+	help
+	  This config is used to enable or disable direct path
+	  between Mediatek Modem and WiFi dirver,
+	  so applications in Modem can send/receive IP
+	  packets to/from WiFi directly.
+

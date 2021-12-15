@@ -17,6 +17,9 @@
 #define FIQ_SMP_CALL_SGI	13
 #endif
 
+#define GIC_IIDR                    0x8
+#define GICD_V3_IIDR_GIC600         0x2
+#define GICD_V3_IIDR_PROD_ID_SHIFT  24
 
 #include <linux/irq.h>
 typedef void (*fiq_isr_handler) (void *arg, void *regs, void *svc_sp);
@@ -77,10 +80,10 @@ void irq_raise_softirq(const struct cpumask *mask, unsigned int irq);
 void gic_set_primask(void);
 /* restore the priority mask value */
 void gic_clear_primask(void);
-int add_cpu_to_prefer_schedule_domain(unsigned long cpu);
-int remove_cpu_from_prefer_schedule_domain(unsigned long cpu);
+int add_cpu_to_prefer_schedule_domain(unsigned int cpu);
+int remove_cpu_from_prefer_schedule_domain(unsigned int cpu);
 
-#ifdef CONFIG_ARCH_MEDIATEK
+#ifdef CONFIG_MTK_SYSIRQ
 static inline struct irq_data *get_gic_irq_data(struct irq_data *d)
 {
 	return d->parent_data;
@@ -90,7 +93,7 @@ static inline struct irq_data *get_gic_irq_data(struct irq_data *d)
 
 static inline unsigned int gic_irq(struct irq_data *d)
 {
-#ifdef CONFIG_ARCH_MEDIATEK
+#ifdef CONFIG_MTK_SYSIRQ
 	d = get_gic_irq_data(d);
 #endif
 	return d->hwirq;

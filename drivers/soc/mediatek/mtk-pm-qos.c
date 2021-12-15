@@ -300,6 +300,118 @@ static struct mtk_pm_qos_object vmdla_opp_pm_qos = {
 	.name = "vmdla_opp",
 };
 
+static BLOCKING_NOTIFIER_HEAD(cpu_memory_bandwidth_notifier);
+static struct pm_qos_constraints cpu_memory_bw_constraints = {
+	.list = PLIST_HEAD_INIT(cpu_memory_bw_constraints.list),
+	.target_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &cpu_memory_bandwidth_notifier,
+};
+static struct mtk_pm_qos_object cpu_memory_bandwidth_pm_qos = {
+	.constraints = &cpu_memory_bw_constraints,
+	.req_list = LIST_HEAD_INIT(cpu_memory_bandwidth_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(cpu_memory_bandwidth_pm_qos.qos_lock),
+	.name = "cpu_memory_bandwidth",
+};
+
+static BLOCKING_NOTIFIER_HEAD(gpu_memory_bandwidth_notifier);
+static struct pm_qos_constraints gpu_memory_bw_constraints = {
+	.list = PLIST_HEAD_INIT(gpu_memory_bw_constraints.list),
+	.target_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &gpu_memory_bandwidth_notifier,
+};
+static struct mtk_pm_qos_object gpu_memory_bandwidth_pm_qos = {
+	.constraints = &gpu_memory_bw_constraints,
+	.req_list = LIST_HEAD_INIT(gpu_memory_bandwidth_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(gpu_memory_bandwidth_pm_qos.qos_lock),
+	.name = "gpu_memory_bandwidth",
+};
+
+static BLOCKING_NOTIFIER_HEAD(other_memory_bandwidth_notifier);
+static struct pm_qos_constraints other_memory_bw_constraints = {
+	.list = PLIST_HEAD_INIT(other_memory_bw_constraints.list),
+	.target_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &other_memory_bandwidth_notifier,
+};
+static struct mtk_pm_qos_object other_memory_bandwidth_pm_qos = {
+	.constraints = &other_memory_bw_constraints,
+	.req_list = LIST_HEAD_INIT(other_memory_bandwidth_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(other_memory_bandwidth_pm_qos.qos_lock),
+	.name = "other_memory_bandwidth",
+};
+
+static BLOCKING_NOTIFIER_HEAD(power_model_ddr_req_notifier);
+static struct pm_qos_constraints power_model_ddr_req_constraints = {
+	.list = PLIST_HEAD_INIT(power_model_ddr_req_constraints.list),
+	.target_value = MTK_PM_QOS_POWER_MODEL_DDR_REQUEST_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_POWER_MODEL_DDR_REQUEST_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_POWER_MODEL_DDR_REQUEST_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &power_model_ddr_req_notifier,
+};
+static struct mtk_pm_qos_object power_model_ddr_req_pm_qos = {
+	.constraints = &power_model_ddr_req_constraints,
+	.req_list = LIST_HEAD_INIT(power_model_ddr_req_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(power_model_ddr_req_pm_qos.qos_lock),
+	.name = "power_model_ddr_req",
+};
+
+static BLOCKING_NOTIFIER_HEAD(power_model_vcore_req_notifier);
+static struct pm_qos_constraints power_model_vcore_req_constraints = {
+	.list = PLIST_HEAD_INIT(power_model_vcore_req_constraints.list),
+	.target_value = MTK_PM_QOS_POWER_MODEL_VCORE_REQUEST_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_POWER_MODEL_VCORE_REQUEST_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_POWER_MODEL_VCORE_REQUEST_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &power_model_vcore_req_notifier,
+};
+static struct mtk_pm_qos_object power_model_vcore_req_pm_qos = {
+	.constraints = &power_model_vcore_req_constraints,
+	.req_list = LIST_HEAD_INIT(power_model_vcore_req_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(power_model_vcore_req_pm_qos.qos_lock),
+	.name = "power_model_vcore_req",
+};
+
+static BLOCKING_NOTIFIER_HEAD(vcore_dvfs_force_opp_notifier);
+static struct pm_qos_constraints vcore_dvfs_force_opp_constraints = {
+	.list = PLIST_HEAD_INIT(vcore_dvfs_force_opp_constraints.list),
+	.target_value = MTK_PM_QOS_VCORE_DVFS_FORCE_OPP_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_VCORE_DVFS_FORCE_OPP_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_VCORE_DVFS_FORCE_OPP_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &vcore_dvfs_force_opp_notifier,
+};
+static struct mtk_pm_qos_object vcore_dvfs_force_opp_pm_qos = {
+	.constraints = &vcore_dvfs_force_opp_constraints,
+	.req_list = LIST_HEAD_INIT(vcore_dvfs_force_opp_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(vcore_dvfs_force_opp_pm_qos.qos_lock),
+	.name = "vcore_dvfs_force_opp",
+};
+
+static BLOCKING_NOTIFIER_HEAD(memory_bandwidth_test_notifier);
+static struct pm_qos_constraints memory_bw_test_constraints = {
+	.list = PLIST_HEAD_INIT(memory_bw_test_constraints.list),
+	.target_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &memory_bandwidth_test_notifier,
+};
+static struct mtk_pm_qos_object memory_bandwidth_test_pm_qos = {
+	.constraints = &memory_bw_test_constraints,
+	.req_list = LIST_HEAD_INIT(memory_bandwidth_test_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(memory_bandwidth_test_pm_qos.qos_lock),
+	.name = "memory_bandwidth_tst",
+};
+
 static struct mtk_pm_qos_object *mtk_pm_qos_array[] = {
 	[MTK_PM_QOS_RESERVED] = &null_mtk_pm_qos,
 
@@ -322,6 +434,14 @@ static struct mtk_pm_qos_object *mtk_pm_qos_array[] = {
 
 	[PM_QOS_MM0_BANDWIDTH_LIMITER] = &mm0_bandwidth_limiter,
 	[PM_QOS_MM1_BANDWIDTH_LIMITER] = &mm1_bandwidth_limiter,
+
+	[MTK_PM_QOS_CPU_MEMORY_BANDWIDTH] = &cpu_memory_bandwidth_pm_qos,
+	[MTK_PM_QOS_GPU_MEMORY_BANDWIDTH] = &gpu_memory_bandwidth_pm_qos,
+	[MTK_PM_QOS_OTHER_MEMORY_BANDWIDTH] = &other_memory_bandwidth_pm_qos,
+	[MTK_PM_QOS_POWER_MODEL_DDR_REQUEST] = &power_model_ddr_req_pm_qos,
+	[MTK_PM_QOS_POWER_MODEL_VCORE_REQUEST] = &power_model_vcore_req_pm_qos,
+	[MTK_PM_QOS_VCORE_DVFS_FORCE_OPP] = &vcore_dvfs_force_opp_pm_qos,
+	[MTK_PM_QOS_MEMORY_BANDWIDTH_TEST] = &memory_bandwidth_test_pm_qos,
 };
 
 /* unlocked internal variant */

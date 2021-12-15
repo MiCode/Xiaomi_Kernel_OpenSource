@@ -100,6 +100,19 @@ static struct imgsensor_info_struct imgsensor_info = {
 		 .mipi_data_lp2hs_settle_dc = 85,	/* unit , ns */
 		 .max_framerate = 150,
 		 },
+#if 0
+	.cap2 = {
+		 .pclk = 415200000,
+		 .linelength = 5352,
+		 .framelength = 3228,
+		 .startx = 0,
+		 .starty = 0,
+		 .grabwindow_width = 4208,
+		 .grabwindow_height = 3120,
+		 .mipi_data_lp2hs_settle_dc = 85,	/* unit , ns */
+		 .max_framerate = 240,
+		 },
+#endif
 	.normal_video = {
 			 .pclk = 518400000,
 			 .linelength = 5352,
@@ -707,7 +720,8 @@ static void set_shutter(kal_uint16 shutter)
 
 
 static void set_shutter_frame_length(
-				kal_uint16 shutter, kal_uint16 frame_length)
+				kal_uint16 shutter, kal_uint16 frame_length,
+				kal_bool auto_extend_en)
 {
 	unsigned long flags;
 	kal_uint16 realtime_fps = 0;
@@ -775,7 +789,10 @@ static void set_shutter_frame_length(
 
 	/* Update Shutter */
 	write_cmos_sensor(0x0104, 0x01);
-	write_cmos_sensor(0x0350, 0x00);	/* Disable auto extend */
+	if (auto_extend_en)
+		write_cmos_sensor(0x0350, 0x01); /* Enable auto extend */
+	else
+		write_cmos_sensor(0x0350, 0x00); /* Disable auto extend */
 	write_cmos_sensor(0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor(0x0203, shutter & 0xFF);
 	write_cmos_sensor(0x0104, 0x00);
@@ -795,6 +812,10 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
 	for (i = 0; i < IMX258MIPI_MaxGainIndex; i++) {
 		if (gain <= IMX258MIPI_sensorGainMapping[i][0])
 			break;
+	}
+	if (i >= IMX258MIPI_MaxGainIndex) {
+		pr_debug("warning! use max sensor gain");
+		return IMX258MIPI_sensorGainMapping[IMX258MIPI_MaxGainIndex - 1][1];
 	}
 	if (gain != IMX258MIPI_sensorGainMapping[i][0])
 		LOG_INF("Gain mapping don't correctly:%d %d\n", gain,
@@ -1870,6 +1891,211 @@ static void capture_setting(kal_uint16 curretfps, kal_uint8 pdaf_mode)
 	}
 }
 
+#if 0
+/*static void PIP24fps_capture_setting()*/
+static void PIP24fps_capture_setting(kal_uint16 curretfps, kal_uint8 pdaf_mode)
+{
+	LOG_INF("PIP24fps capture E\n");
+	write_cmos_sensor(0x0100, 0x00);
+	mdelay(10);
+
+	write_cmos_sensor(0x0112, 0x0A);
+	write_cmos_sensor(0x0113, 0x0A);
+	write_cmos_sensor(0x0114, 0x03);
+
+	write_cmos_sensor(0x0301, 0x05);
+	write_cmos_sensor(0x0303, 0x02);
+	write_cmos_sensor(0x0305, 0x04);
+	write_cmos_sensor(0x0306, 0x00);
+	write_cmos_sensor(0x0307, 0xAD);
+	write_cmos_sensor(0x0309, 0x0A);
+	write_cmos_sensor(0x030B, 0x01);
+	write_cmos_sensor(0x030D, 0x02);
+	write_cmos_sensor(0x030E, 0x00);
+	write_cmos_sensor(0x030F, 0xD8);
+	write_cmos_sensor(0x0310, 0x00);
+	write_cmos_sensor(0x0820, 0x10);
+	write_cmos_sensor(0x0821, 0x38);
+	write_cmos_sensor(0x0822, 0x00);
+	write_cmos_sensor(0x0823, 0x00);
+
+	write_cmos_sensor(0x0342, 0x14);
+	write_cmos_sensor(0x0343, 0xE8);
+
+	write_cmos_sensor(0x0340, 0x0C);
+	write_cmos_sensor(0x0341, 0x9C);
+
+	write_cmos_sensor(0x0344, 0x00);
+	write_cmos_sensor(0x0345, 0x00);
+	write_cmos_sensor(0x0346, 0x00);
+	write_cmos_sensor(0x0347, 0x00);
+	write_cmos_sensor(0x0348, 0x10);
+	write_cmos_sensor(0x0349, 0x6F);
+	write_cmos_sensor(0x034A, 0x0C);
+	write_cmos_sensor(0x034B, 0x2F);
+
+	write_cmos_sensor(0x0381, 0x01);
+	write_cmos_sensor(0x0383, 0x01);
+	write_cmos_sensor(0x0385, 0x01);
+	write_cmos_sensor(0x0387, 0x01);
+	write_cmos_sensor(0x0900, 0x00);
+	write_cmos_sensor(0x0901, 0x11);
+	write_cmos_sensor(0x0902, 0x00);
+
+	write_cmos_sensor(0x0401, 0x00);
+	write_cmos_sensor(0x0404, 0x00);
+	write_cmos_sensor(0x0405, 0x10);
+	write_cmos_sensor(0x0408, 0x00);
+	write_cmos_sensor(0x0409, 0x00);
+	write_cmos_sensor(0x040A, 0x00);
+	write_cmos_sensor(0x040B, 0x00);
+	write_cmos_sensor(0x040C, 0x10);
+	write_cmos_sensor(0x040D, 0x70);
+	write_cmos_sensor(0x040E, 0x0C);
+	write_cmos_sensor(0x040F, 0x30);
+	write_cmos_sensor(0x3038, 0x00);
+	write_cmos_sensor(0x303A, 0x00);
+	write_cmos_sensor(0x303B, 0x10);
+	write_cmos_sensor(0x300D, 0x00);
+
+	write_cmos_sensor(0x034C, 0x10);
+	write_cmos_sensor(0x034D, 0x70);
+	write_cmos_sensor(0x034E, 0x0C);
+	write_cmos_sensor(0x034F, 0x30);
+
+	write_cmos_sensor(0x0202, 0x0C);
+	write_cmos_sensor(0x0203, 0x92);
+
+	write_cmos_sensor(0x0204, 0x00);
+	write_cmos_sensor(0x0205, 0x00);
+	write_cmos_sensor(0x020E, 0x01);
+	write_cmos_sensor(0x020F, 0x00);
+
+	write_cmos_sensor(0x94DC, 0x20);
+	write_cmos_sensor(0x94DD, 0x20);
+	write_cmos_sensor(0x94DE, 0x20);
+	write_cmos_sensor(0x95DC, 0x20);
+	write_cmos_sensor(0x95DD, 0x20);
+	write_cmos_sensor(0x95DE, 0x20);
+	write_cmos_sensor(0x7FB0, 0x00);
+	write_cmos_sensor(0x9010, 0x3E);
+
+	if (pdaf_mode == 1) {
+		write_cmos_sensor(0x3030, 0x01);	/*pdaf enable */
+		write_cmos_sensor(0x3032, 0x01);	/*0:raw10, 1:BYTE2 */
+		LOG_INF("0x3030=%d, 0x3032=%d\n", read_cmos_sensor(0x3030),
+			read_cmos_sensor(0x3032));
+	} else {
+		write_cmos_sensor(0x3030, 0x00);
+		write_cmos_sensor(0x3032, 0x00);
+		LOG_INF("0x3030=%d, 0x3032=%d\n", read_cmos_sensor(0x3030),
+			read_cmos_sensor(0x3032));
+	}
+	write_cmos_sensor(0x0220, 0x00);
+	write_cmos_sensor(0x0350, 0x01);	/* Enable auto extend */
+	write_cmos_sensor(0x0100, 0x01);
+	mdelay(10);
+
+}
+#endif
+#if 0
+static void PIP15fps_capture_setting(void)
+{
+	LOG_INF("PIP15fps capture E\n");
+	write_cmos_sensor(0x0100, 0x00);
+	mdelay(10);
+
+	write_cmos_sensor(0x0112, 0x0A);
+	write_cmos_sensor(0x0113, 0x0A);
+	write_cmos_sensor(0x0114, 0x03);
+
+	write_cmos_sensor(0x0301, 0x05);
+	write_cmos_sensor(0x0303, 0x02);
+	write_cmos_sensor(0x0305, 0x04);
+	write_cmos_sensor(0x0306, 0x00);
+	write_cmos_sensor(0x0307, 0x6C);
+	write_cmos_sensor(0x0309, 0x0A);
+	write_cmos_sensor(0x030B, 0x01);
+	write_cmos_sensor(0x030D, 0x02);
+	write_cmos_sensor(0x030E, 0x00);
+	write_cmos_sensor(0x030F, 0xD8);
+	write_cmos_sensor(0x0310, 0x00);
+	write_cmos_sensor(0x0820, 0x0A);
+	write_cmos_sensor(0x0821, 0x20);
+	write_cmos_sensor(0x0822, 0x00);
+	write_cmos_sensor(0x0823, 0x00);
+
+	write_cmos_sensor(0x0342, 0x14);
+	write_cmos_sensor(0x0343, 0xE8);
+
+	write_cmos_sensor(0x0340, 0x0C);
+	write_cmos_sensor(0x0341, 0x9C);
+
+	write_cmos_sensor(0x0344, 0x00);
+	write_cmos_sensor(0x0345, 0x00);
+	write_cmos_sensor(0x0346, 0x00);
+	write_cmos_sensor(0x0347, 0x00);
+	write_cmos_sensor(0x0348, 0x10);
+	write_cmos_sensor(0x0349, 0x6F);
+	write_cmos_sensor(0x034A, 0x0C);
+	write_cmos_sensor(0x034B, 0x2F);
+
+	write_cmos_sensor(0x0381, 0x01);
+	write_cmos_sensor(0x0383, 0x01);
+	write_cmos_sensor(0x0385, 0x01);
+	write_cmos_sensor(0x0387, 0x01);
+	write_cmos_sensor(0x0900, 0x00);
+	write_cmos_sensor(0x0901, 0x11);
+	write_cmos_sensor(0x0902, 0x00);
+
+	write_cmos_sensor(0x0401, 0x00);
+	write_cmos_sensor(0x0404, 0x00);
+	write_cmos_sensor(0x0405, 0x10);
+	write_cmos_sensor(0x0408, 0x00);
+	write_cmos_sensor(0x0409, 0x00);
+	write_cmos_sensor(0x040A, 0x00);
+	write_cmos_sensor(0x040B, 0x00);
+	write_cmos_sensor(0x040C, 0x10);
+	write_cmos_sensor(0x040D, 0x70);
+	write_cmos_sensor(0x040E, 0x0C);
+	write_cmos_sensor(0x040F, 0x30);
+	write_cmos_sensor(0x3038, 0x00);
+	write_cmos_sensor(0x303A, 0x00);
+	write_cmos_sensor(0x303B, 0x10);
+	write_cmos_sensor(0x300D, 0x00);
+
+	write_cmos_sensor(0x034C, 0x10);
+	write_cmos_sensor(0x034D, 0x70);
+	write_cmos_sensor(0x034E, 0x0C);
+	write_cmos_sensor(0x034F, 0x30);
+
+	write_cmos_sensor(0x0202, 0x0C);
+	write_cmos_sensor(0x0203, 0x92);
+
+	write_cmos_sensor(0x0204, 0x00);
+	write_cmos_sensor(0x0205, 0x00);
+	write_cmos_sensor(0x020E, 0x01);
+	write_cmos_sensor(0x020F, 0x00);
+
+	write_cmos_sensor(0x94DC, 0x20);
+	write_cmos_sensor(0x94DD, 0x20);
+	write_cmos_sensor(0x94DE, 0x20);
+	write_cmos_sensor(0x95DC, 0x20);
+	write_cmos_sensor(0x95DD, 0x20);
+	write_cmos_sensor(0x95DE, 0x20);
+	write_cmos_sensor(0x7FB0, 0x00);
+	write_cmos_sensor(0x9010, 0x3E);
+
+	write_cmos_sensor(0x3030, 0x00);
+	LOG_INF("0x3030=%d", read_cmos_sensor(0x3030));
+	write_cmos_sensor(0x3032, 0x00);
+	write_cmos_sensor(0x0220, 0x00);
+	write_cmos_sensor(0x0350, 0x01);	/* Enable auto extend */
+	write_cmos_sensor(0x0100, 0x01);
+	mdelay(10);
+
+}
+#endif
 static void normal_video_setting(kal_uint16 currefps, kal_uint8 pdaf_mode)
 {
 	LOG_INF("normal video E\n");
@@ -3625,7 +3851,19 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
 		set_shutter_frame_length(
-			(UINT16) *feature_data, (UINT16) *(feature_data + 1));
+			(UINT16) (*feature_data),
+			(UINT16) (*(feature_data + 1)),
+			(BOOL) (*(feature_data + 2)));
+		break;
+
+	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
+		/*
+		 * 1, if driver support new sw frame sync
+		 * set_shutter_frame_length() support third para auto_extend_en
+		 */
+		*(feature_data + 1) = 1;
+		/* margin info by scenario */
+		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 
 	case SENSOR_FEATURE_GET_TEMPERATURE_VALUE:

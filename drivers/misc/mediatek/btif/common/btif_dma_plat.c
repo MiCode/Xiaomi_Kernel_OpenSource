@@ -750,8 +750,8 @@ int hal_tx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 	unsigned int left_len = 0;
 	unsigned long base = p_dma_info->base;
 	static int flush_irq_counter;
-	static struct timeval start_timer;
-	static struct timeval end_timer;
+	static struct timespec64 start_timer;
+	static struct timespec64 end_timer;
 	unsigned long flag = 0;
 
 	spin_lock_irqsave(&(g_clk_cg_spinlock), flag);
@@ -770,12 +770,12 @@ int hal_tx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 	valid_size = BTIF_READ32(TX_DMA_VFF_VALID_SIZE(base));
 	left_len = BTIF_READ32(TX_DMA_VFF_LEFT_SIZE(base));
 	if (flush_irq_counter == 0)
-		do_gettimeofday(&start_timer);
+		btif_do_gettimeofday(&start_timer);
 	if ((valid_size > 0) && (valid_size < 8)) {
 		i_ret = _tx_dma_flush(p_dma_info);
 		flush_irq_counter++;
 		if (flush_irq_counter >= MAX_CONTINUOUS_TIMES) {
-			do_gettimeofday(&end_timer);
+			btif_do_gettimeofday(&end_timer);
 /*
  * when btif tx fifo cannot accept any data and counts of bytes left
  * in tx vfifo < 8 for a while
@@ -794,8 +794,8 @@ int hal_tx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 			BTIF_ERR_FUNC(
 			     "Tx happened %d times, between %ld.%ld and %ld.%ld\n",
 			     MAX_CONTINUOUS_TIMES, start_timer.tv_sec,
-			     start_timer.tv_usec, end_timer.tv_sec,
-			     end_timer.tv_usec);
+			     start_timer.tv_nsec, end_timer.tv_sec,
+			     end_timer.tv_nsec);
 		}
 	} else if (vff_len == left_len) {
 		flush_irq_counter = 0;
@@ -1317,6 +1317,21 @@ int hal_dma_dump_reg(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 	return i_ret;
 }
 
+void hal_dma_dump_vfifo(struct _MTK_DMA_INFO_STR_ *p_dma_info)
+{
+	struct _DMA_VFIFO_ *p_vfifo;
+
+	if (!p_dma_info)
+		return;
+
+	p_vfifo = p_dma_info->p_vfifo;
+	if (!p_vfifo || !p_vfifo->p_vir_addr)
+		return;
+
+	btif_dump_array(p_dma_info->dir == DMA_DIR_RX ? "RX" : "TX",
+		p_vfifo->p_vir_addr, p_vfifo->vfifo_size);
+}
+
 static int _tx_dma_flush(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 {
 	unsigned int i_ret = -1;
@@ -1511,8 +1526,7 @@ int hal_rx_dma_lock(bool enable)
 	if (enable) {
 		if (!spin_trylock_irqsave(&g_clk_cg_spinlock, flag))
 			return E_BTIF_FAIL;
-	}
-	else
+	} else
 		spin_unlock_irqrestore(&g_clk_cg_spinlock, flag);
 	return 0;
 }

@@ -24,4 +24,3 @@
 bool mtk_get_speech_status(void);
 
 #endif
-

@@ -143,8 +143,6 @@ static int mtk_capture2_pcm_prepare(struct snd_pcm_substream *substream)
 
 static int mtk_capture2_alsa_stop(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_capture_alsa_stop\n");
-
 	irq_remove_user(
 		substream,
 		irq_request_number(Soc_Aud_Digital_Block_MEM_VUL_DATA2));
@@ -184,8 +182,6 @@ static int mtk_capture2_pcm_hw_params(struct snd_pcm_substream *substream,
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(hw_params));
 	}
-	pr_debug("mtk_capture2_pcm_hw_params dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
-		runtime->dma_bytes, runtime->dma_area, (long)runtime->dma_addr);
 
 	set_mem_block(substream, hw_params, VUL2_Control_context,
 		      Soc_Aud_Digital_Block_MEM_VUL_DATA2);
@@ -197,8 +193,6 @@ static int mtk_capture2_pcm_hw_params(struct snd_pcm_substream *substream,
 
 static int mtk_capture2_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_capture2_pcm_hw_free\n");
-
 	AudDrv_Emi_Clk_Off();
 
 	if (Capture2_dma_buf->area)
@@ -241,11 +235,10 @@ static int mtk_capture2_pcm_open(struct snd_pcm_substream *substream)
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 
 	if (ret < 0) {
-		pr_warn("mtk_capture2_pcm_close\n");
+		pr_warn("capture2_pcm_close\n");
 		mtk_capture2_pcm_close(substream);
 		return ret;
 	}
-	pr_debug("mtk_capture2_pcm_open return\n");
 	return 0;
 }
 
@@ -310,8 +303,6 @@ static int mtk_capture2_alsa_start(struct snd_pcm_substream *substream)
 static int mtk_capture2_pcm_trigger(struct snd_pcm_substream *substream,
 				    int cmd)
 {
-	pr_debug("mtk_capture2_pcm_trigger cmd = %d\n", cmd);
-
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:

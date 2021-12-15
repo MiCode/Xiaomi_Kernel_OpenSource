@@ -16,6 +16,7 @@
 #define MMSYS_HW_DCM_1ST_DIS_SET0	(0x124)
 #define MMSYS_HW_DCM_2ND_DIS0	(0x130)
 #define MMSYS_SW0_RST_B		(0x140)
+#define DISP_GALS_DBG(x)	(0x520 + ((x) << 2))
 #define MMSYS_GALS_DBG(x)	(0x914 + ((x) << 2))
 
 /* COMM */
@@ -43,10 +44,24 @@
 #define SMI_COMMON_CLAMP_EN_CLR		(0x3c8)
 
 #define SMI_DEBUG_S(slave)	(0x400 + ((slave) << 2))
+#define SMI_DEBUG_EXT(slave)	(0x420 + ((slave) << 2))
 #define SMI_DEBUG_M0		(0x430)
 #define SMI_DEBUG_M1		(0x434)
+#define SMI_DEBUG_EXT4		(0x438)
+#define SMI_DEBUG_EXT5		(0x43c)
 #define SMI_DEBUG_MISC		(0x440)
 #define SMI_DUMMY		(0x444)
+#define SMI_DEBUG_EXT6		(0x448)
+#define SMI_DEBUG_EXT7		(0x44c)
+
+#define SMI_AST_EN	(0x700)
+#define SMI_AST_CLR	(0x704)
+#define SMI_SW_TRIG	(0x708)
+#define SMI_AST_COND	(0x70c)
+#define SMI_TIMEOUT	(0x710)
+#define SMI_TIMEOUT_CNT	(0x714)
+#define SMI_AST_STA	(0x718)
+#define SMI_AST_STA_CLR	(0x71c)
 
 /* LARB */
 #define SMI_LARB_STAT			(0x0)
@@ -98,4 +113,41 @@
 #define INT_SMI_LARB_DBG_CON		(0x500 + (SMI_LARB_DBG_CON))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 
+/* RSI */
+#define RSI_INTLV_CON			(0x0)
+#define RSI_DCM_CON			(0x4)
+#define RSI_DS_PM_CON			(0x8)
+#define RSI_MISC_CON			(0xc)
+#define RSI_STA				(0x10)
+
+#define RSI_AWOSTD_S			(0x80)
+#define RSI_AWOSTD_M0			(0x84)
+#define RSI_AWOSTD_M1			(0x88)
+#define RSI_AWOSTD_PSEUDO		(0x8c)
+
+#define RSI_WOSTD_S			(0x90)
+#define RSI_WOSTD_M0			(0x94)
+#define RSI_WOSTD_M1			(0x98)
+#define RSI_WOSTD_PSEUDO		(0x9c)
+
+#define RSI_AROSTD_S			(0xa0)
+#define RSI_AROSTD_M0			(0xa4)
+#define RSI_AROSTD_M1			(0xa8)
+#define RSI_AROSTD_PSEUDO		(0xac)
+
+#define RSI_WLAST_OWE_CNT_S		(0xb0)
+#define RSI_WLAST_OWE_CNT_M0		(0xb4)
+#define RSI_WLAST_OWE_CNT_M1		(0xb8)
+
+#define RSI_WDAT_CNT_S			(0xc0)
+#define RSI_WDAT_CNT_M0			(0xc4)
+#define RSI_WDAT_CNT_M1			(0xc8)
+
+#define RSI_RDAT_CNT_S			(0xd0)
+#define RSI_RDAT_CNT_M0			(0xd4)
+#define RSI_RDAT_CNT_M1			(0xd8)
+
+#define RSI_AXI_DBG_S			(0xf0)
+#define RSI_AXI_DBG_M0			(0xf4)
+#define RSI_AXI_DBG_M1			(0xf8)
 #endif

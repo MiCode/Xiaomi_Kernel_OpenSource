@@ -23,7 +23,15 @@ FSTB_TOP = $(FPSGO_TOP)/fstb
 
 ccflags-y += -DNR_FREQ_CPU=16
 
+ifeq ($(CONFIG_MACH_MT6781),y)
+obj-y += platform/mt6781/fbt_cpu_platform.o
+else ifeq ($(CONFIG_MACH_MT6877),y)
+obj-y += platform/mt6877/fbt_cpu_platform.o
+else ifeq ($(CONFIG_MACH_MT6893),y)
+obj-y += platform/mt6893/fbt_cpu_platform.o
+else
 obj-y += platform/$(MTK_PLATFORM)/fbt_cpu_platform.o
+endif
 
 obj-y += \
 	src/fbt_cpu.o \

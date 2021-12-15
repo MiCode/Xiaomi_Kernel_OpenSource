@@ -39,6 +39,7 @@ struct port_proxy {
 	struct list_head exp_ports;
 	unsigned long long latest_rx_thread_time;
 };
+
 /****************************************************************************/
 /* External API Region called by port proxy object */
 /****************************************************************************/
@@ -46,5 +47,7 @@ extern int port_get_cfg(int md_id, struct port_t **ports);
 extern int port_ipc_write_check_id(struct port_t *port, struct sk_buff *skb);
 extern int ccci_get_ccmni_channel(int md_id, int ccmni_idx,
 	struct ccmni_ch *channel);
+extern int mtk_ccci_request_port(char *name);
+int mtk_ccci_send_data(int index, const char *buf, int size);
 extern void inject_md_status_event(int md_id, int event_type, char reason[]);
 #endif /* __PORT_PROXY_H__ */
