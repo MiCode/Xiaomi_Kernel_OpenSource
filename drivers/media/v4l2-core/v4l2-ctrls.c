@@ -1012,6 +1012,7 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_JPEG_COMPRESSION_QUALITY:	return "Compression Quality";
 	case V4L2_CID_JPEG_ACTIVE_MARKER:	return "Active Markers";
 	case V4L2_CID_JPEG_ENABLE_EXIF:		return "Enable Exif";
+	case V4L2_CID_JPEG_DST_OFFSET:		return "Dst Offset";
 
 	/* Image source controls */
 	/* Keep the order of the 'case's the same as in v4l2-controls.h! */

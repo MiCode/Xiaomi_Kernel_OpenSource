@@ -28,7 +28,7 @@ u32 mtk_jpeg_enc_get_int_status(void __iomem *base)
 	return ret;
 }
 
-u32 mtk_jpeg_enc_get_file_size(void __iomem *base) //for dst size
+u32 mtk_jpeg_enc_get_file_size(const void __iomem *base) //for dst size
 {
 	return readl(base + JPGENC_DMA_ADDR0) - readl(base + JPGENC_DST_ADDR0);
 }
@@ -36,12 +36,17 @@ u32 mtk_jpeg_enc_get_file_size(void __iomem *base) //for dst size
 u32 mtk_jpeg_enc_enum_result(void __iomem *base, u32 irq_status, u32 *fileSize)
 {
 	*fileSize = mtk_jpeg_enc_get_file_size(base);
-	if (irq_status & JPEG_DRV_ENC_INT_STATUS_DONE)
+
+	if (irq_status & JPEG_DRV_ENC_INT_STATUS_DONE) {
+		pr_info("irq status done file size %d\n", *fileSize);
 		return 0;
-	else if (irq_status & JPEG_DRV_ENC_INT_STATUS_STALL)
+	} else if (irq_status & JPEG_DRV_ENC_INT_STATUS_STALL) {
+		pr_info("irq status stall\n");
 		return 1;
-	else if (irq_status & JPEG_DRV_ENC_INT_STATUS_VCODEC_IRQ)
+	} else if (irq_status & JPEG_DRV_ENC_INT_STATUS_VCODEC_IRQ) {
+		pr_info("irq status vcodec irq\n");
 		return 2;
+	}
 	return 3;
 }
 
@@ -116,6 +121,9 @@ static void mtk_jpeg_enc_set_dst_buf(void __iomem *base, u32 dst_addr,
 			u32 stall_size, u32 init_offset, u32 offset_mask)
 {
 
+	pr_info("%s dst_addr 0x%x  stall_size %d init_offset 0x%x\n", __func__,
+		dst_addr, stall_size, init_offset);
+
 	writel((init_offset & (~0xF)), base + JPGENC_OFFSET_ADDR);
 	writel((offset_mask & 0xF), base + JPGENC_BYTE_OFFSET_MASK);
 	writel((dst_addr & (~0xF)), base + JPGENC_DST_ADDR0);
@@ -178,6 +186,10 @@ void mtk_jpeg_enc_start(void __iomem *base)
 
 	u4Value = readl(base + JPGENC_CTRL);
 	u4Value |= (JPEG_ENC_CTRL_INT_EN_BIT | JPEG_ENC_CTRL_ENABLE_BIT);
+	u4Value |= JPEG_ENC_CTRL_RDMA_PADDING_EN;
+	u4Value |= JPEG_ENC_CTRL_RDMA_RIGHT_PADDING_EN;
+	u4Value &= ~JPEG_ENC_CTRL_RDMA_PADDING_0_EN;
+
 	writel((u4Value), base + JPGENC_CTRL);
 }
 
@@ -188,8 +200,29 @@ void mtk_jpeg_enc_set_config(void __iomem *base,
 {
 	mtk_jpeg_enc_set_src_img(base, config->enc_w, config->enc_h,
 				config->enc_format, config->total_encdu);
-	mtk_jpeg_enc_set_src_buf(base, config->img_stride, config->mem_stride,
-	fb->fb_addr[0].dma_addr, fb->fb_addr[1].dma_addr);
+
+
+	if (((config->enc_format == JPEG_YUV_FORMAT_NV12) ||
+		(config->enc_format == JPEG_YUV_FORMAT_NV21)) &&
+		fb->num_planes == 1) {
+
+		pr_info("%s set 2 plane by add offset w %d h %d\n", __func__,
+			config->img_stride, config->align_h);
+
+		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
+			 config->mem_stride,
+			 fb->fb_addr[0].dma_addr,
+			 fb->fb_addr[0].dma_addr +
+			 config->align_h*config->mem_stride);
+	} else {
+		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
+			 config->mem_stride,
+			 fb->fb_addr[0].dma_addr,
+			 fb->fb_addr[1].dma_addr);
+	}
+
+
+
 	mtk_jpeg_enc_set_dst_buf(base, bs->dma_addr, bs->size,
 				bs->dma_addr_offset, bs->dma_addr_offsetmask);
 	mtk_jpeg_enc_set_ctrl_cfg(base, config->enable_exif,

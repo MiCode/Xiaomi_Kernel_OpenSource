@@ -7,9 +7,12 @@
 #define _MTK_JPEG_CORE_H
 
 #include <linux/interrupt.h>
+#include <linux/semaphore.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
+#include "mmdvfs_pmqos.h"
+
 
 #define MTK_JPEG_NAME		"mtk-jpeg"
 
@@ -23,13 +26,22 @@
 
 #define MTK_JPEG_MIN_WIDTH	32
 #define MTK_JPEG_MIN_HEIGHT	32
-#define MTK_JPEG_MAX_WIDTH	8192
-#define MTK_JPEG_MAX_HEIGHT	8192
+#define MTK_JPEG_MAX_WIDTH	65536
+#define MTK_JPEG_MAX_HEIGHT	65536
 
 #define MTK_JPEG_DEFAULT_SIZEIMAGE	(1 * 1024 * 1024)
 
 #define MTK_JPEG_ENCODE		0
 #define MTK_JPEG_DECODE		1
+
+#define MTK_JPEG_MAX_NCORE       2
+
+#define MTK_JPEG_PORT_INDEX_YRDMA  0
+#define MTK_JPEG_PORT_INDEX_CRDMA  1
+#define MTK_JPEG_PORT_INDEX_QTBLE  2
+#define MTK_JPEG_PORT_INDEX_BSDMA  3
+
+
 
 /**
  * enum mtk_jpeg_ctx_state - contex state of jpeg
@@ -55,29 +67,39 @@ enum jpeg_enc_yuv_fmt {
 	JPEG_YUV_FORMAT_YUYV = 0,
 	JPEG_YUV_FORMAT_YVYU = 1,
 	JPEG_YUV_FORMAT_NV12 = 2,
-	JEPG_YUV_FORMAT_NV21 = 3,
+	JPEG_YUV_FORMAT_NV21 = 3,
 };
 
 /**
  * enum JPEG_ENCODE_QUALITY_ENUM - number of jpeg encoder quality
  */
 enum JPEG_ENCODE_QUALITY_ENUM {
-	JPEG_ENCODE_QUALITY_Q60 = 0x0,
-	JPEG_ENCODE_QUALITY_Q80 = 0x1,
-	JPEG_ENCODE_QUALITY_Q90 = 0x2,
+	JPEG_ENCODE_QUALITY_Q38 = 0x0,
+	JPEG_ENCODE_QUALITY_Q60 = 0x1,
+	JPEG_ENCODE_QUALITY_Q85 = 0x2,
 	JPEG_ENCODE_QUALITY_Q95 = 0x3,
-	JPEG_ENCODE_QUALITY_Q39 = 0x4,
-	JPEG_ENCODE_QUALITY_Q68 = 0x5,
-	JPEG_ENCODE_QUALITY_Q84 = 0x6,
-	JPEG_ENCODE_QUALITY_Q92 = 0x7,
-	JPEG_ENCODE_QUALITY_Q48 = 0x8,
-	JPEG_ENCODE_QUALITY_Q74 = 0xA,
-	JPEG_ENCODE_QUALITY_Q87 = 0xB,
-	JPEG_ENCODE_QUALITY_Q34 = 0xC,
-	JPEG_ENCODE_QUALITY_Q64 = 0xE,
-	JPEG_ENCODE_QUALITY_Q82 = 0xF,
+	JPEG_ENCODE_QUALITY_Q30 = 0x4,
+	JPEG_ENCODE_QUALITY_Q66 = 0x5,
+	JPEG_ENCODE_QUALITY_Q78 = 0x6,
+	JPEG_ENCODE_QUALITY_Q90 = 0x7,
+	JPEG_ENCODE_QUALITY_Q34 = 0x8,
+	JPEG_ENCODE_QUALITY_Q52 = 0xA,
+	JPEG_ENCODE_QUALITY_Q82 = 0xB,
+	JPEG_ENCODE_QUALITY_Q24 = 0xC,
+	JPEG_ENCODE_QUALITY_Q44 = 0xE,
+	JPEG_ENCODE_QUALITY_Q72 = 0xF,
 	JPEG_ENCODE_QUALITY_Q97 = 0x10,
 	JPEG_ENCODE_QUALITY_ALL = 0xFFFFFFFF
+};
+
+/**
+ * mtk_jpeg_variant - mtk jpeg driver variant
+ * @is_encoder:		driver mode is jpeg encoder
+ * @clk_names:		clock names
+ * @num_clocks:		numbers of clock
+ */
+struct mtk_jpeg_variant {
+	unsigned int jpeg_mode;
 };
 
 /**
@@ -98,17 +120,33 @@ enum JPEG_ENCODE_QUALITY_ENUM {
  */
 struct mtk_jpeg_dev {
 	struct mutex		lock;
-	spinlock_t		hw_lock;
+	struct semaphore    sem;
+	spinlock_t		hw_lock[MTK_JPEG_MAX_NCORE];
 	struct workqueue_struct	*workqueue;
 	struct device		*dev;
 	struct v4l2_device	v4l2_dev;
 	struct v4l2_m2m_dev	*m2m_dev;
 	void			*alloc_ctx;
 	struct video_device	*vfd_jpeg;
-	void __iomem		*reg_base;
-	struct clk		*clk_jpeg;
+	void __iomem		*reg_base[MTK_JPEG_MAX_NCORE];
+	struct clk		*clk_jpeg[MTK_JPEG_MAX_NCORE];
 	struct clk		*clk_jpeg_smi;
+	struct device		*larb[MTK_JPEG_MAX_NCORE];
 	enum mtk_jpeg_mode  mode;
+	u32			larb_id[MTK_JPEG_MAX_NCORE];
+	u32			ncore;
+	u32         isused[MTK_JPEG_MAX_NCORE];
+	u32         port_y_rdma[MTK_JPEG_MAX_NCORE];
+	u32         port_c_rdma[MTK_JPEG_MAX_NCORE];
+	u32         port_qtbl[MTK_JPEG_MAX_NCORE];
+	u32         port_bsdma[MTK_JPEG_MAX_NCORE];
+	int         irq[MTK_JPEG_MAX_NCORE];
+	struct plist_head jpegenc_rlist;
+	struct mm_qos_request jpeg_y_rdma;
+	struct mm_qos_request jpeg_c_rdma;
+	struct mm_qos_request jpeg_qtbl;
+	struct mm_qos_request jpeg_bsdma;
+	const struct mtk_jpeg_variant *variant;
 };
 
 /**
@@ -146,6 +184,7 @@ struct mtk_jpeg_q_data {
 	u32			h;
 	u32			bytesperline[VIDEO_MAX_PLANES];
 	u32			sizeimage[VIDEO_MAX_PLANES];
+	u32			align_h;
 };
 
 /**
@@ -158,6 +197,7 @@ struct jpeg_enc_param {
 	u32 enable_exif;
 	u32 enc_quality;
 	u32 restart_interval;
+	u32 dst_offset;
 };
 
 /**
@@ -182,6 +222,7 @@ struct mtk_jpeg_enc_param {
 	u32 img_stride;
 	u32 mem_stride;
 	u32 total_encdu;
+	u32 align_h;
 };
 /**
  * mtk_jpeg_ctx - the device context data
@@ -210,6 +251,7 @@ struct mtk_jpeg_ctx {
 	enum v4l2_ycbcr_encoding ycbcr_enc;
 	enum v4l2_quantization quantization;
 	enum v4l2_xfer_func xfer_func;
+	u32  coreid;
 };
 
 #endif /* _MTK_JPEG_CORE_H */
