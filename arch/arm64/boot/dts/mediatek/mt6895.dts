@@ -5255,7 +5255,7 @@
 			reset-names = "unipro_rst", "crypto_rst", "hci_rst";
 
 			bootmode = <&chosen>;
-			mediatek,ufs-disable-ah8;
+
 			mediatek,ufs-qos;
 		};
 
