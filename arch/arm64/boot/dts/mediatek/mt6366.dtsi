@@ -400,18 +400,17 @@
 			regulator-enable-ramp-delay = <60>;
 		};
 		mt_pmic_vrf12_ldo_reg: ldo_vrf12 {
-			compatible = "regulator-fixed";
 			regulator-name = "vrf12";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-enable-ramp-delay = <120>;
 		};
 		mt_pmic_vio18_ldo_reg: ldo_vio18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vio18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-enable-ramp-delay = <2700>;
+			regulator-always-on;
 		};
 		mt_pmic_vusb_ldo_reg: ldo_vusb {
 			regulator-name = "vusb";
@@ -420,14 +419,12 @@
 			regulator-enable-ramp-delay = <270>;
 		};
 		mt_pmic_vcn18_ldo_reg: ldo_vcn18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vcn18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-enable-ramp-delay = <270>;
 		};
 		mt_pmic_vfe28_ldo_reg: ldo_vfe28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vfe28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
@@ -440,7 +437,6 @@
 			regulator-enable-ramp-delay = <240>;
 		};
 		mt_pmic_vcn28_ldo_reg: ldo_vcn28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vcn28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
@@ -465,7 +461,6 @@
 			regulator-enable-ramp-delay = <240>;
 		};
 		mt_pmic_vxo22_ldo_reg: ldo_vxo22 {
-			compatible = "regulator-fixed";
 			regulator-name = "vxo22";
 			regulator-min-microvolt = <2200000>;
 			regulator-max-microvolt = <2200000>;
@@ -478,7 +473,6 @@
 			regulator-enable-ramp-delay = <270>;
 		};
 		mt_pmic_vaux18_ldo_reg: ldo_vaux18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vaux18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -491,7 +485,6 @@
 			regulator-enable-ramp-delay = <60>;
 		};
 		mt_pmic_vbif28_ldo_reg: ldo_vbif28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vbif28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
@@ -510,21 +503,19 @@
 			regulator-enable-ramp-delay = <60>;
 		};
 		mt_pmic_vio28_ldo_reg: ldo_vio28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vio28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
 			regulator-enable-ramp-delay = <270>;
 		};
 		mt_pmic_va12_ldo_reg: ldo_va12 {
-			compatible = "regulator-fixed";
 			regulator-name = "va12";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-enable-ramp-delay = <270>;
+			regulator-always-on;
 		};
 		mt_pmic_vrf18_ldo_reg: ldo_vrf18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vrf18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -549,7 +540,6 @@
 			regulator-enable-ramp-delay = <60>;
 		};
 		mt_pmic_vaud28_ldo_reg: ldo_vaud28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vaud28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
@@ -562,7 +552,6 @@
 			regulator-enable-ramp-delay = <540>;
 		};
 		mt_pmic_va09_ldo_reg: ldo_va09 {
-			compatible = "regulator-fixed";
 			regulator-name = "va09";
 			regulator-min-microvolt = <900000>;
 			regulator-max-microvolt = <900000>;
