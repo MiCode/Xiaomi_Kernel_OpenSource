@@ -62,7 +62,7 @@ int get_turbo_feats(void)
 	return task_turbo_feats;
 }
 
-inline bool sub_feat_enable(int type)
+bool sub_feat_enable(int type)
 {
 	return get_turbo_feats() & type;
 }
