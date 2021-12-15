@@ -662,6 +662,14 @@
 		#size-cells = <2>;
 		ranges;
 
+		reserve-memory-vcp_share {
+			compatible = "mediatek,reserve-memory-vcp_share";
+			no-map;
+			size = <0 0x00201000>; /* 2MB */
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
+
 		ssmr_cma_mem: ssmr-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -3262,7 +3270,7 @@
 
 		vcp: vcp@1ec00000 {
 			compatible = "mediatek,vcp";
-			vcp-support = <1>;
+			vcp-support = <0>;
 			status = "okay";
 			reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 			      <0 0x1ec24000 0 0x1000>, /* cfg */
@@ -3340,7 +3348,7 @@
 
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_256MB1>;
-			//mediatek,smi = <&smi_sub_comm0>;
+			mediatek,smi = <&smi_mdp_subcommon0>;
 
 			core_0 = "enable";
 			vcp_sramSize = <0x00040000>;
@@ -3394,21 +3402,21 @@
 		};
 
 		vcp_iommu_vdec {
-			vcp-support = <2>;
+			vcp-support = <0>;
 			compatible =  "mediatek,vcp-io-vdec";
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_512MB1>;
 		};
 
 		vcp_iommu_venc {
-			vcp-support = <3>;
+			vcp-support = <0>;
 			compatible =  "mediatek,vcp-io-venc";
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_512MB2>;
 		};
 
 		vcp_iommu_work {
-			vcp-support = <4>;
+			vcp-support = <0>;
 			compatible = "mediatek,vcp-io-work";
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_256MB2>;
@@ -3418,7 +3426,7 @@
 			compatible = "mediatek-vcu";
 			mediatek,vcuid = <0>;
 			mediatek,vcuname = "vcu";
-			mediatek,vcu-off = <1>;
+			mediatek,vcu-off = <0>;
 			reg = <0 0x16000000 0 0x40000>,	    /* VDEC_BASE */
 				 <0 0x17020000 0 0x10000>,  /* VENC_BASE */
 				 <0 0x17820000 0 0x10000>,  /* VENC_C1_BASE */
@@ -3518,7 +3526,7 @@
 				"M4U_PORT_VDEC_AVC_MV",
 				"M4U_PORT_VDEC_RG_CTRL_DMA",
 				"M4U_PORT_VDEC_UFO_ENC";
-			//mediatek,larbs = <&smi_larb4>;
+			mediatek,larbs = <&smi_larb4>;
 			interrupts = <GIC_SPI 561 IRQ_TYPE_LEVEL_HIGH 0>;
 			//dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
@@ -3553,7 +3561,7 @@
 				<&disp_iommu M4U_LARB7_PORT10>,
 				<&disp_iommu M4U_LARB7_PORT11>,
 				<&disp_iommu M4U_LARB7_PORT12>;
-			//mediatek,larbs = <&smi_larb7>;
+			mediatek,larbs = <&smi_larb7>;
 			interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH 0>;
 			//dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
