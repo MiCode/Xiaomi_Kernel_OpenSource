@@ -1,13 +1,12 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
- * Author: Owen Chen <owen.chen@mediatek.com>
  */
 
-#ifndef __DRV_CLKDBG_MT6885_H
-#define __DRV_CLKDBG_MT6885_H
+#ifndef __DRV_CLKCHK_MT6893_H
+#define __DRV_CLKCHK_MT6893_H
 
-enum dbg_sys_id {
+enum chk_sys_id {
 	topckgen,
 	infracfg,
 	scpsys,
@@ -34,13 +33,21 @@ enum dbg_sys_id {
 	ipu2,
 	infracfg_dbg,
 	scp_par,
-	dbg_sys_num,
+	chk_sys_num,
 };
 
-extern void subsys_if_on(void);
 extern const char * const *get_mt6893_all_clk_names(void);
+extern struct regbase *get_mt6893_all_reg_bases(void);
+extern struct regname *get_mt6893_all_reg_names(void);
+
+/*ram console api*/
+#ifdef CONFIG_MTK_RAM_CONSOLE
+extern void aee_rr_rec_clk(int id, u32 val);
+#endif
+
 extern void print_enabled_clks_once(void);
-extern void print_subsys_reg(enum dbg_sys_id id);
+extern void print_subsys_reg(enum chk_sys_id id);
 extern int get_sw_req_vcore_opp(void);
 
-#endif	/* __DRV_CLKDBG_MT6758_H */
+#endif	/* __DRV_CLKCHK_MT6893_H */
+

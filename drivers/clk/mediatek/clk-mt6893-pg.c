@@ -19,8 +19,8 @@
 #include <dt-bindings/clock/mt6893-clk.h>
 
 #include "clk-mt6893-pg.h"
-#include "clkdbg-mt6893.h"
-//#include <mt-plat/aee.h>
+#include "clkchk.h"
+#include "clkchk-mt6893.h"
 
 #define MT_CCF_DEBUG	0
 #define MT_CCF_BRINGUP	0
@@ -94,7 +94,7 @@ void __iomem *clk_apu_conn_base;
 #define APU_VCORE_CG_CLR	(clk_apu_vcore_base + 0x0008)
 #define APU_CONN_CG_CLR		(clk_apu_conn_base + 0x0008)
 #define MFG_MISC_CON		INFRACFG_REG(0x0600)
-#define MFG_DFD_TRIGGER (1<<19)
+#define MFG_DFD_TRIGGER		(1<<19)
 #endif
 
 /*
@@ -1023,7 +1023,7 @@ static void ram_console_update(void)
 
 		log_dump = true;
 
-		print_enabled_clks_once();
+		dump_enabled_clks_once();
 
 		for (i = 0; i < ARRAY_SIZE(data); i++)
 			pr_notice("%s: data[%i]=%08x\n", __func__, i, data[i]);
@@ -1140,6 +1140,61 @@ static void ram_console_update(void)
 
 	if (log_over_cnt && log_timeout)
 		BUG_ON(1);
+}
+
+static void enable_subsys_hwcg(enum subsys_id id)
+{
+	if (id == SYS_MDP) {
+		/* SMI0, SMI1, SMI2, APMCU_GALS */
+		clk_writel(MDP_CG_CLR1, 0x1112);
+	} else if (id == SYS_DIS) {
+		/* SMI_COMMON, SMI_GALS, SMI_INFRA, SMI_IOMMU */
+		clk_writel(DISP_CG_CLR1, 0x88880000);
+	} else if (id == SYS_ISP) {
+		/* LARB9_CGPDN */
+		clk_writel(IMG1_CG_CLR, 0x1);
+	} else if (id == SYS_ISP2) {
+		/* LARB11_CGPDN */
+		clk_writel(IMG2_CG_CLR, 0x1);
+	} else if (id == SYS_IPE) {
+		/* LARB19_CGPDN, LARB20_CGPDN, IPE_SMI_SUBCOM_CGPDN */
+		clk_writel(IPE_CG_CLR, 0x7);
+	} else if (id == SYS_VDE) {
+		/* VDEC_CKEN, LAT_CKEN */
+		/* LARB1_CKEN */
+		clk_writel(VDEC_SOC_CKEN_SET, 0x1);
+		clk_writel(VDEC_SOC_LAT_CKEN_SET, 0x1);
+		clk_writel(VDEC_SOC_LARB1_CKEN_SET, 0x1);
+		//print_subsys_reg(vdec_soc_sys);
+	} else if (id == SYS_VDE2) {
+		/* VDEC_CKEN, LAT_CKEN */
+		clk_writel(VDEC_CKEN_SET, 0x1);
+		clk_writel(VDEC_LAT_CKEN_SET, 0x1);
+		clk_writel(VDEC_LARB1_CKEN_SET, 0x1);
+		//print_subsys_reg(vdec_soc_sys);
+		//print_subsys_reg(vdecsys);
+	} else if (id == SYS_VEN) {
+		/* SET1_VENC */
+		clk_writel(VENC_CG_SET, 0x4);
+	} else if (id == SYS_VEN_CORE1) {
+		/* SET1_VENC */
+		clk_writel(VENC_C1_CG_SET, 0x4);
+	} else if (id == SYS_CAM) {
+		/* LARB13_CGPDN, LARB14_CGPDN, LARB15_CGPDN */
+		clk_writel(CAMSYS_CG_CLR, 0xD);
+	} else if (id == SYS_CAM_RAWA) {
+		/* LARBX_CGPDN */
+		clk_writel(CAMSYS_RAWA_CG_CLR, 0x1);
+	} else if (id == SYS_CAM_RAWB) {
+		/* LARBX_CGPDN */
+		clk_writel(CAMSYS_RAWB_CG_CLR, 0x1);
+	} else if (id == SYS_CAM_RAWC) {
+		/* LARBX_CGPDN */
+		clk_writel(CAMSYS_RAWC_CG_CLR, 0x1);
+	} else if (id == SYS_VPU) {
+		clk_writel(APU_VCORE_CG_CLR, 0xFFFFFFFF);
+		clk_writel(APU_CONN_CG_CLR, 0xFFFFFFFF);
+	}
 }
 
 /* auto-gen begin, 0724 */
@@ -5098,61 +5153,6 @@ static int iomap_mm(void)
 	return 0;
 }
 #endif
-
-void enable_subsys_hwcg(enum subsys_id id)
-{
-	if (id == SYS_MDP) {
-		/* SMI0, SMI1, SMI2, APMCU_GALS */
-		clk_writel(MDP_CG_CLR1, 0x1112);
-	} else if (id == SYS_DIS) {
-		/* SMI_COMMON, SMI_GALS, SMI_INFRA, SMI_IOMMU */
-		clk_writel(DISP_CG_CLR1, 0x88880000);
-	} else if (id == SYS_ISP) {
-		/* LARB9_CGPDN */
-		clk_writel(IMG1_CG_CLR, 0x1);
-	} else if (id == SYS_ISP2) {
-		/* LARB11_CGPDN */
-		clk_writel(IMG2_CG_CLR, 0x1);
-	} else if (id == SYS_IPE) {
-		/* LARB19_CGPDN, LARB20_CGPDN, IPE_SMI_SUBCOM_CGPDN */
-		clk_writel(IPE_CG_CLR, 0x7);
-	} else if (id == SYS_VDE) {
-		/* VDEC_CKEN, LAT_CKEN */
-		/* LARB1_CKEN */
-		clk_writel(VDEC_SOC_CKEN_SET, 0x1);
-		clk_writel(VDEC_SOC_LAT_CKEN_SET, 0x1);
-		clk_writel(VDEC_SOC_LARB1_CKEN_SET, 0x1);
-		//print_subsys_reg(vdec_soc_sys);
-	} else if (id == SYS_VDE2) {
-		/* VDEC_CKEN, LAT_CKEN */
-		clk_writel(VDEC_CKEN_SET, 0x1);
-		clk_writel(VDEC_LAT_CKEN_SET, 0x1);
-		clk_writel(VDEC_LARB1_CKEN_SET, 0x1);
-		//print_subsys_reg(vdec_soc_sys);
-		//print_subsys_reg(vdecsys);
-	} else if (id == SYS_VEN) {
-		/* SET1_VENC */
-		clk_writel(VENC_CG_SET, 0x4);
-	} else if (id == SYS_VEN_CORE1) {
-		/* SET1_VENC */
-		clk_writel(VENC_C1_CG_SET, 0x4);
-	} else if (id == SYS_CAM) {
-		/* LARB13_CGPDN, LARB14_CGPDN, LARB15_CGPDN */
-		clk_writel(CAMSYS_CG_CLR, 0xD);
-	} else if (id == SYS_CAM_RAWA) {
-		/* LARBX_CGPDN */
-		clk_writel(CAMSYS_RAWA_CG_CLR, 0x1);
-	} else if (id == SYS_CAM_RAWB) {
-		/* LARBX_CGPDN */
-		clk_writel(CAMSYS_RAWB_CG_CLR, 0x1);
-	} else if (id == SYS_CAM_RAWC) {
-		/* LARBX_CGPDN */
-		clk_writel(CAMSYS_RAWC_CG_CLR, 0x1);
-	} else if (id == SYS_VPU) {
-		clk_writel(APU_VCORE_CG_CLR, 0xFFFFFFFF);
-		clk_writel(APU_CONN_CG_CLR, 0xFFFFFFFF);
-	}
-}
 
 static int clk_mt6893_scpsys_probe(struct platform_device *pdev)
 {

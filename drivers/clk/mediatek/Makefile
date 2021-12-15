@@ -110,7 +110,7 @@ obj-$(CONFIG_COMMON_CLK_MT6877_MSDC) += clk-mt6877-msdc.o
 obj-$(CONFIG_COMMON_CLK_MT6877_SCP_ADSP) += clk-mt6877-scp_par.o
 obj-$(CONFIG_COMMON_CLK_MT6877_VDE) += clk-mt6877-vde.o
 obj-$(CONFIG_COMMON_CLK_MT6877_VEN) += clk-mt6877-ven.o
-obj-$(CONFIG_COMMON_CLK_MT6893) += clk-mt6893.o clk-mt6893-pg.o
+obj-$(CONFIG_COMMON_CLK_MT6893) += clk-mt6893.o clk-mt6893-pg.o clkchk-mt6893.o clk-fmeter-mt6893.o
 obj-$(CONFIG_COMMON_CLK_MT6893_APU) += clk-mt6893-apu.o
 obj-$(CONFIG_COMMON_CLK_MT6893_AUDIOSYS) += clk-mt6893-audsys.o
 obj-$(CONFIG_COMMON_CLK_MT6893_CAM) += clk-mt6893-cam.o
@@ -140,7 +140,7 @@ obj-$(CONFIG_COMMON_CLK_MT6761) += clkchk-mt6761.o
 endif
 obj-$(CONFIG_COMMON_CLK_MT6765) += clkdbg_mt6765.o clkchk-mt6765.o
 obj-$(CONFIG_COMMON_CLK_MT6779) += clkdbg-mt6779.o clkchk-mt6779.o
-obj-$(CONFIG_COMMON_CLK_MT6893) += clkdbg-mt6893.o clkchk-mt6893.o clk-fmeter-mt6893.o
+obj-$(CONFIG_COMMON_CLK_MT6893) += clkdbg-mt6893.o
 endif
 obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl.o
 fhctl-y += clk-fhctl.o
