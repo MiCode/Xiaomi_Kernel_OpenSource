@@ -2246,6 +2246,18 @@ static int musb_gadget_vbus_draw
 	return usb_phy_set_power(musb->xceiv, mA);
 }
 
+static void musb_gadget_set_ready(struct usb_gadget *gadget)
+{
+	struct musb *musb = gadget_to_musb(gadget);
+	struct device_node *np = musb->glue->dev->of_node;
+
+	dev_info(musb->controller, "remove cdp-block property\n");
+
+	of_remove_property(np, of_find_property(np, "cdp-block", NULL));
+
+	musb->is_gadget_ready = 1;
+}
+
 static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct musb *musb = gadget_to_musb(gadget);
@@ -2284,6 +2296,9 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	}
 
 	spin_unlock_irqrestore(&musb->lock, flags);
+
+	if (!musb->is_gadget_ready && is_on)
+		musb_gadget_set_ready(gadget);
 
 	pm_runtime_put(musb->controller);
 

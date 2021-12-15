@@ -493,6 +493,9 @@ struct musb {
 	/* host suspend */
 	bool host_suspend;
 	bool usb_connected;
+
+	unsigned is_gadget_ready:1;
+
 };
 
 static inline struct musb *gadget_to_musb(struct usb_gadget *g)
