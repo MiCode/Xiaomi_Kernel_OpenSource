@@ -1080,7 +1080,10 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 	dsi->data_rate = data_rate;
 
 	DDPDBG("set mipitx's data rate: %lu Hz\n", mipi_tx_rate);
-	ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
+
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+		ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
+
 	return ret;
 }
 
@@ -1094,13 +1097,13 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	if (++dsi->clk_refcnt != 1)
 		return 0;
 
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
-		ret = mtk_dsi_set_data_rate(dsi);
-		if (ret < 0) {
-			dev_err(dev, "Failed to set data rate: %d\n", ret);
-			goto err_refcount;
-		}
+	ret = mtk_dsi_set_data_rate(dsi);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set data rate: %d\n", ret);
+		goto err_refcount;
+	}
 
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		if (dsi->ext) {
 			if (dsi->ext->params->is_cphy)
 				if (priv->data->mmsys_id == MMSYS_MT6983 ||
@@ -2630,16 +2633,6 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	struct drm_crtc *crtc = encoder->crtc;
 	int index = drm_crtc_index(crtc);
 	int data = MTK_DISP_BLANK_POWERDOWN;
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
-
-	//Temp workaround for MT6855 suspend/resume issue
-	switch (priv->data->mmsys_id) {
-	case MMSYS_MT6855:
-		DDPMSG("%s force return\n", __func__);
-		return;
-	default:
-		break;
-	}
 
 	CRTC_MMP_EVENT_START(index, dsi_suspend,
 			(unsigned long)crtc, index);

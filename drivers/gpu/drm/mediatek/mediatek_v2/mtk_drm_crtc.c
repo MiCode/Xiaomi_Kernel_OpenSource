@@ -6451,16 +6451,6 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
-
-	//Temp workaround for MT6855 suspend/resume issue
-	switch (priv->data->mmsys_id) {
-	case MMSYS_MT6855:
-		DDPMSG("%s force return\n", __func__);
-		return;
-	default:
-		break;
-	}
 
 	CRTC_MMP_EVENT_START(index, suspend,
 			mtk_crtc->enabled, 0);
