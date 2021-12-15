@@ -68,6 +68,12 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI0");
 	g_DRM_MMP_Events.dsi1 =
 		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI1");
+	g_DRM_MMP_Events.aal =
+		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "AAL");
+	g_DRM_MMP_Events.aal0 =
+		mmprofile_register_event(g_DRM_MMP_Events.aal, "AAL0");
+	g_DRM_MMP_Events.aal1 =
+		mmprofile_register_event(g_DRM_MMP_Events.aal, "AAL1");
 	g_DRM_MMP_Events.pmqos =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "PMQOS");
 	g_DRM_MMP_Events.hrt_bw =
@@ -272,11 +278,13 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "mode_switch");
 		g_CRTC_MMP_Events[i].ddp_clk = mmprofile_register_event(
 			crtc_mmp_root, "ddp_clk");
-		/*DRE30 MMP MARK*/
-		g_CRTC_MMP_Events[i].aal_sof_irq = mmprofile_register_event(
-			crtc_mmp_root, "aal_sof_irq");
-		g_CRTC_MMP_Events[i].aal_sof_rw = mmprofile_register_event(
-			crtc_mmp_root, "aal_sof_rw");
+		/*AAL MMP MARK*/
+		g_CRTC_MMP_Events[i].aal_sof_thread = mmprofile_register_event(
+			crtc_mmp_root, "aal_sof_thread");
+		g_CRTC_MMP_Events[i].aal_dre30_rw = mmprofile_register_event(
+			crtc_mmp_root, "aal_dre30_rw");
+		g_CRTC_MMP_Events[i].aal_dre20_rh = mmprofile_register_event(
+			crtc_mmp_root, "aal_dre20_rh");
 	}
 }
 void drm_mmp_init(void)

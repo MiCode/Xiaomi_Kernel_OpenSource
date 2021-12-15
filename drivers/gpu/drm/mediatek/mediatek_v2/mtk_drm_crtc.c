@@ -1396,7 +1396,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		goto err;
 	}
 
-	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 0);
+	CRTC_MMP_MARK(index, user_cmd, comp->id, cmd);
 	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 1);
 
