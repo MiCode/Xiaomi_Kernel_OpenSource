@@ -2579,7 +2579,8 @@ static unsigned int resizing_rule(struct drm_device *dev,
 }
 
 static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
-	struct mtk_drm_private *priv, struct mml_frame_info *mml_info)
+	struct mtk_drm_private *priv, struct mml_frame_info *mml_info,
+	uint32_t l_count)
 {
 	enum mml_mode mode = MML_MODE_UNKNOWN;
 	enum MTK_LAYERING_CAPS ret = MTK_MML_DISP_NOT_SUPPORT;
@@ -2609,10 +2610,13 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 			DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
 
 			// temp patch for CMD mode not in MML IR
-			if (mode == MML_MODE_RACING)
-				if ((mtk_crtc_is_frame_trigger_mode(crtc) &&
+			if (mode == MML_MODE_RACING) {
+				if ((l_count >= 2))
+					mode = MML_MODE_MDP_DECOUPLE;
+				else if ((mtk_crtc_is_frame_trigger_mode(crtc) &&
 					!mtk_crtc->mml_cmd_ir))
 					mode = MML_MODE_MML_DECOUPLE;
+			}
 
 			DDPDBG("%s, final mml mode:%d\n", __func__, mode);
 		} else
@@ -2667,53 +2671,30 @@ static void check_is_mml_layer(const int disp_idx,
 	int i = 0;
 	struct drm_mtk_layer_config *c = NULL;
 	struct mml_frame_info *mml_info = NULL;
-	uint32_t mml_ir_n = 0, mml_dc_n = 0, first_ir_layer = -1;
+	uint32_t l_count = 0;
 
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 		c = &disp_info->input_config[disp_idx][i];
-		if (MTK_MML_OVL_LAYER & c->layer_caps) {
-			mml_info = &(disp_info->mml_cfg[disp_idx][i]);
-			c->layer_caps |= query_MML(dev, dev->dev_private, mml_info);
+		mml_info = &(disp_info->mml_cfg[disp_idx][i]);
+		if (MTK_MML_OVL_LAYER & c->layer_caps)
+			l_count++;
+	}
 
-			// we only let the button layer do MML IR
+	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+		c = &disp_info->input_config[disp_idx][i];
+		mml_info = &(disp_info->mml_cfg[disp_idx][i]);
+		if (MTK_MML_OVL_LAYER & c->layer_caps) {
+			c->layer_caps |= query_MML(dev, dev->dev_private, mml_info, l_count);
 			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 				if (i >= DISP_MML_LAYER_LIMIT) {
 					c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
-					c->layer_caps |= MTK_MML_DISP_DECOUPLE_LAYER;
+					c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
 				}
 			}
-
-			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
-				mml_ir_n++;
-				if (first_ir_layer == -1)
-					first_ir_layer = i;
-			} else if (MTK_MML_DISP_DECOUPLE_LAYER & c->layer_caps)
-				mml_dc_n++;
-		}
-	}
-
-	if ((mml_ir_n + mml_dc_n) >= 2) {
-		// if has IR mode layer, we let other MML_IR or MML_DC to MDP
-		if (mml_ir_n) {
-			for (i = first_ir_layer + 1; i < disp_info->layer_num[disp_idx]; i++) {
-				c = &disp_info->input_config[disp_idx][i];
-				if (MTK_MML_OVL_LAYER & c->layer_caps) {
-					if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps)
-						c->layer_caps &=
-							~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
-					else if (MTK_MML_DISP_DECOUPLE_LAYER & c->layer_caps)
-						c->layer_caps &= ~MTK_MML_DISP_DECOUPLE_LAYER;
-					c->layer_caps &= MTK_MML_DISP_MDP_LAYER;
-				}
-			}
-		}
-	}
-
-	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
-		c = &disp_info->input_config[disp_idx][i];
-		if (MTK_MML_OVL_LAYER & c->layer_caps) {
-			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
-				// if layer can use MML inline rotate handle, we don't use DISP RSZ
+			if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
+				MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
+				// if layer can use MML direct link or inline rotate handle,
+				// we don't use DISP RSZ
 				c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 
 				if (is_force_mml_scen(dev))
