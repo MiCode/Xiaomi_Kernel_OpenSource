@@ -4039,7 +4039,11 @@ int mtk_drm_disp_test_show(struct drm_crtc *crtc, bool enable)
 #ifndef DRM_CMDQ_DISABLE
 	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
 #endif
+
+#ifdef MTK_DRM_CMDQ_ASYNC
 	cmdq_pkt_wait_complete(cmdq_handle);
+#endif
+
 	cmdq_pkt_destroy(cmdq_handle);
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
