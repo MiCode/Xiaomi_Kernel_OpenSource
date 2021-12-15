@@ -11,6 +11,7 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 #include <linux/sched/clock.h>
+#include <linux/sync_file.h>
 
 #include <drm/mediatek_drm.h>
 
@@ -829,15 +830,17 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	mutex_unlock(&layer_info->sync_lock);
 
 	if (buf_info->buf_hnd)
-		DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p\n",
+		DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p/pt0x%lx\n",
 			 mtk_fence_session_mode_spy(session_id),
 			 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-			 buf_info->fence, buf_info->buf_hnd);
+			 buf_info->fence, buf_info->buf_hnd,
+			 (unsigned long)sync_file_get_fence(buf_info->fence));
 	else
-		DDPFENCE("P+/%s%d/L%d/id%d/fd%d\n",
+		DDPFENCE("P+/%s%d/L%d/id%d/fd%d/pt0x%lx\n",
 			 mtk_fence_session_mode_spy(session_id),
 			 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-			 buf_info->fence);
+			 buf_info->fence,
+			 (unsigned long)sync_file_get_fence(buf_info->fence));
 
 	return buf_info;
 }
