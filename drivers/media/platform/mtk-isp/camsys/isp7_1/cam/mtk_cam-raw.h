@@ -368,6 +368,8 @@ void stagger_enable(struct mtk_raw_device *dev);
 
 void stagger_disable(struct mtk_raw_device *dev);
 
+void dbload_force(struct mtk_raw_device *dev);
+
 void toggle_db(struct mtk_raw_device *dev);
 
 void enable_tg_db(struct mtk_raw_device *dev, int en);

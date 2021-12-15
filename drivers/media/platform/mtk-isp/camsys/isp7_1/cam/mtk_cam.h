@@ -427,7 +427,7 @@ struct mtk_cam_ctx {
 	atomic_t enqueued_frame_seq_no;
 	unsigned int composed_frame_seq_no;
 	unsigned int dequeued_frame_seq_no;
-
+	unsigned int component_dequeued_frame_seq_no;
 	/* mstream */
 	unsigned int enqueued_request_cnt;
 	unsigned int next_sof_mask_frame_seq_no;

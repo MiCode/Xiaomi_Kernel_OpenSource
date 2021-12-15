@@ -1153,6 +1153,19 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 	wmb(); /* TBC */
 }
 
+/*stagger case seamless switch case*/
+void dbload_force(struct mtk_raw_device *dev)
+{
+	u32 val;
+
+	val = readl_relaxed(dev->base + REG_CTL_MISC);
+	writel_relaxed(val | CTL_DB_LOAD_FORCE, dev->base + REG_CTL_MISC);
+	writel_relaxed(val | CTL_DB_LOAD_FORCE, dev->base_inner + REG_CTL_MISC);
+	wmb(); /* TBC */
+	dev_info(dev->dev, "%s: 0x%x->0x%x\n", __func__,
+		val, val | CTL_DB_LOAD_FORCE);
+}
+
 void apply_cq(struct mtk_raw_device *dev,
 	      int initial, dma_addr_t cq_addr,
 	      unsigned int cq_size, unsigned int cq_offset,
@@ -2245,7 +2258,6 @@ static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev);
 static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no);
-
 static void raw_handle_error(struct mtk_raw_device *raw_dev,
 			     struct mtk_camsys_irq_info *data)
 {

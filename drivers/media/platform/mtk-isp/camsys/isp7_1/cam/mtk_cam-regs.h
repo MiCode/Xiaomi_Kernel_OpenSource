@@ -100,7 +100,8 @@
 #define REG_CTL_RAWI_TRIG				0x00C0
 
 #define REG_CTL_MISC					0x0060
-#define CTL_DB_EN						BIT(4) //
+#define CTL_DB_EN					BIT(4)
+#define CTL_DB_LOAD_FORCE				BIT(5)
 
 #define REG_CTL_SW_CTL					0x00C4
 
@@ -317,7 +318,6 @@
 #define WCNT_BIT_MASK				0xFF00
 #define CNT_BIT_MASK				0xFF0000
 #define TG_FULLSEL_BIT_MASK			0x8000
-
 /* ORIDMA */
 /* CAMSYS_RAW 0x1a03 */
 #define REG_IMGO_R1_BASE       0x4880
@@ -326,7 +326,6 @@
 #define REG_PDO_R1_BASE        0x4a90
 #define REG_AAO_R1_BASE        0x4a40
 #define REG_AFO_R1_BASE        0x4bf0
-
 /* CAMSYS_YUV 0x1a05 */
 #define REG_YUVO_R1_BASE       0x4200
 #define REG_YUVBO_R1_BASE      0x42b0

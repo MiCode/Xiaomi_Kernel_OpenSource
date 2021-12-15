@@ -11,6 +11,7 @@
 
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
+
 #include "mtk_cam-ctrl.h"
 #include "mtk_cam-debug.h"
 #include "mtk_cam-dvfs_qos.h"
@@ -18,6 +19,7 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
+#include "mtk_cam-raw_debug.h"
 #include "mtk_cam-sv-regs.h"
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-tg-flash.h"
@@ -41,7 +43,7 @@
 #define INITIAL_DROP_FRAME_CNT 1
 /*stagger sensor stability option for camsys*/
 #define STAGGER_CQ_LAST_SOF 1
-#define STAGGER_DYNAMIC_SWITCH 1
+#define STAGGER_SEAMLESS_DBLOAD_FORCE 1
 
 enum MTK_CAMSYS_STATE_RESULT {
 	STATE_RESULT_TRIGGER_CQ = 0,
@@ -1084,6 +1086,7 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		state_transition(&req_stream_data->state,
 				E_STATE_OUTER, E_STATE_CAMMUX_OUTER);
 	}
+
 	return 0;
 }
 
@@ -1120,6 +1123,8 @@ static int mtk_cam_hdr_switch_toggle(struct mtk_cam_ctx *ctx, int raw_feature)
 	struct device *dev_sv;
 	int sv_main_id, sv_sub_id;
 
+	if (STAGGER_SEAMLESS_DBLOAD_FORCE)
+		return 0;
 	node = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
 	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 	sv_main_id = get_main_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
@@ -1178,6 +1183,7 @@ static inline bool is_sensor_switch(struct mtk_cam_request_stream_data *s_data)
 
 	return false;
 }
+
 static void
 mtk_cam_set_sensor_subspl(struct mtk_cam_request_stream_data *s_data,
 		   struct mtk_camsys_sensor_ctrl *sensor_ctrl)
@@ -1924,29 +1930,11 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			if (switch_type &&
 				req_stream_data->feature.switch_done == 0 &&
 				!mtk_cam_feature_change_is_mstream(switch_type)) {
-				int res = 0;
-
-				if (STAGGER_DYNAMIC_SWITCH) {
-					mtk_cam_exp_sensor_switch(ctx, req_stream_data);
+				mtk_cam_exp_sensor_switch(ctx, req_stream_data);
 					state_transition(state_rec[0], E_STATE_READY,
 							E_STATE_SENSOR);
-					*current_state = state_rec[0];
-					res = STATE_RESULT_TRIGGER_CQ;
-				} else {
-					/* trigger sensor switch and cam mux switch when*/
-					if (req_stream_data->feature.switch_prev_frame_done) {
-						mtk_cam_exp_sensor_switch(ctx, req_stream_data);
-						state_transition(state_rec[0], E_STATE_READY,
-							 E_STATE_SENSOR);
-						*current_state = state_rec[0];
-						res = STATE_RESULT_TRIGGER_CQ;
-					} else {
-						dev_info(raw_dev->dev, "[switch] prev not done :%lu\n",
-							irq_info->ts_ns / 1000);
-						res = STATE_RESULT_PASS_CQ_SW_DELAY;
-					}
-				}
-				return res;
+				*current_state = state_rec[0];
+				return STATE_RESULT_TRIGGER_CQ;
 			}
 		}
 		if (working_req_found && state_rec[0]) {
@@ -2611,6 +2599,55 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			dev_info(raw_dev->dev, "mraw apply next buffer failed");
 	}
 }
+static void seamless_switch_check_bad_frame(
+		struct mtk_cam_ctx *ctx, unsigned int frame_seq_no)
+
+{
+	struct mtk_cam_request *req, *req_bad, *req_cq;
+	struct mtk_cam_request_stream_data *s_data, *s_data_bad, *s_data_cq;
+	struct mtk_raw_device *raw_dev;
+	struct mtk_cam_working_buf_entry *buf_entry;
+	int switch_type;
+	dma_addr_t base_addr;
+	int raw_pipe_done = 0;
+	/*check if switch request 's previous frame was done, */
+	/*if yes , fine.*/
+	/*if no, switch bad frame handling : may trigger frame done also */
+	req = mtk_cam_get_req(ctx, frame_seq_no);
+	if (req) {
+		s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		switch_type = s_data->feature.switch_feature_type;
+		if (switch_type &&
+			!mtk_cam_feature_change_is_mstream(switch_type)) {
+			req_bad = mtk_cam_get_req(ctx, frame_seq_no - 1);
+			raw_pipe_done = req_bad->done_status & (1 << ctx->pipe->id);
+			if (req_bad && raw_pipe_done == 0) {
+				raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+				s_data_bad = mtk_cam_req_get_s_data(req_bad, ctx->stream_id, 0);
+				dev_info(ctx->cam->dev,
+				"[SWD-error] switch req:%d type:%d, bad req:%d,done_status:0x%x,used:0x%x\n",
+				s_data->frame_seq_no, switch_type,
+				s_data_bad->frame_seq_no, req_bad->done_status, req_bad->pipe_used);
+				reset(raw_dev);
+				dev_info(ctx->cam->dev,
+				"[SWD-error] reset (FBC accumulated due to force dbload)\n");
+				req_cq = mtk_cam_get_req(ctx, frame_seq_no + 1);
+				if (req_cq) {
+					s_data_cq = mtk_cam_req_get_s_data(req_cq,
+							ctx->stream_id, 0);
+					buf_entry = s_data_cq->working_buf;
+					base_addr = buf_entry->buffer.iova;
+					apply_cq(raw_dev, 0, base_addr,
+							buf_entry->cq_desc_size,
+							buf_entry->cq_desc_offset,
+							buf_entry->sub_cq_desc_size,
+							buf_entry->sub_cq_desc_offset);
+				}
+				debug_dma_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
+			}
+		}
+	}
+}
 
 static int mtk_cam_hdr_last_frame_switch_check(
 		struct mtk_camsys_ctrl_state *state,
@@ -2639,9 +2676,12 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 {
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_cam_request_stream_data *s_data;
+	struct mtk_camsv_device *camsv_dev;
+	struct device *dev_sv;
 	dma_addr_t base_addr;
 	bool is_apply = false;
 	unsigned int dequeued_frame_seq_no = irq_info->frame_idx_inner;
+	int sv_main_id;
 
 	/*hd last sof trigger setting enable*/
 	if (STAGGER_CQ_LAST_SOF == 0)
@@ -2654,6 +2694,16 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 				"[SOF-noDBLOAD] HW delay outer_no:%d, inner_idx:%d <= processing_idx:%d\n",
 				irq_info->frame_idx, dequeued_frame_seq_no,
 				atomic_read(&ctx->sensor_ctrl.isp_request_seq_no));
+			sv_main_id = get_main_sv_pipe_id(ctx->cam, ctx->pipe->enabled_raw);
+			dev_sv = ctx->cam->sv.devs[sv_main_id - MTKCAM_PIPE_CAMSV_0];
+			camsv_dev = dev_get_drvdata(dev_sv);
+			if (ctx->component_dequeued_frame_seq_no > irq_info->frame_idx_inner) {
+				mtk_cam_sv_write_rcnt(ctx, sv_main_id);
+				dev_info(raw_dev->dev,
+				"[SOF-noDBLOAD] camsv_id:%d rcnt++ (sv/raw inner: %d/%d)\n",
+				sv_main_id, ctx->component_dequeued_frame_seq_no,
+				irq_info->frame_idx_inner);
+			}
 			return 0;
 		}
 	}
@@ -2779,16 +2829,6 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 	if (!raw_dev->stagger_en && !state_switch) {
 		mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
 		return 0;
-	}
-	/* trigger sensor switch and cam mux switch when*/
-	if (state_switch && STAGGER_DYNAMIC_SWITCH == 0) {
-		req = mtk_cam_ctrl_state_get_req(state_switch);
-		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		if (req_stream_data->feature.switch_prev_frame_done == 0) {
-			dev_info(raw_dev->dev, "[%s] prev not done :%lu\n",
-			__func__, irq_info->ts_ns / 1000);
-			return 0;
-		}
 	}
 	/*HDR to Normal cam mux switch case timing will be at last sof*/
 	if (state_switch) {
@@ -3151,6 +3191,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 					else if (type == EXPOSURE_CHANGE_1_to_2 ||
 						type == EXPOSURE_CHANGE_1_to_3)
 						stagger_enable(raw_dev);
+					if (STAGGER_SEAMLESS_DBLOAD_FORCE)
+						dbload_force(raw_dev);
 					if (toggle_db_check)
 						mtk_cam_hdr_switch_toggle(ctx, feature);
 					dev_dbg(raw_dev->dev,
@@ -3667,6 +3709,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	int feature;
 
 	if (mtk_cam_is_stagger(ctx) && is_raw_subdev(pipe_id)) {
+		/*check if switch request 's previous frame done may trigger tg db toggle */
 		req = mtk_cam_get_req(ctx, frame_seq_no + 1);
 		if (req) {
 			req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
@@ -3684,6 +3727,7 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 					switch_type);
 			}
 		}
+		seamless_switch_check_bad_frame(ctx, frame_seq_no);
 	}
 
 	/* Initial request readout will be delayed 1 frame*/
@@ -4161,6 +4205,12 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 				dev_dbg(camsv_dev->dev, "dcif/offline stagger raw last sof:%d\n",
 						raw_dev->sof_count);
 				mtk_cam_hdr_last_frame_start(raw_dev, ctx, irq_info);
+			}
+		}
+		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+			if (camsv_dev->pipeline->exp_order == 0) {
+				ctx->component_dequeued_frame_seq_no =
+					irq_info->frame_idx_inner;
 			}
 		}
 		// time sharing - camsv write DRAM mode
