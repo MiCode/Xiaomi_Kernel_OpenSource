@@ -146,6 +146,21 @@ void mml_clock_unlock(struct mml_dev *mml);
  */
 void mml_lock_wake_lock(struct mml_dev *mml, bool lock);
 
+/*
+ * mml_record_track - record mml task behavior for debug print
+ *
+ * @mml: The mml driver instance
+ * @task: The mml task to record
+ */
+void mml_record_track(struct mml_dev *mml, struct mml_task *task);
+
+/*
+ * mml_record_dump - dump records to log
+ *
+ * @mml: The mml driver instance
+ */
+void mml_record_dump(struct mml_dev *mml);
+
 s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	int subcomponent, struct mml_comp *comp);
 s32 mml_register_comp(struct device *master, struct mml_comp *comp);

@@ -308,6 +308,8 @@ struct mml_file_buf {
 	u8 cnt;
 	struct dma_fence *fence;
 	u32 usage;
+	u64 map_time;
+	u64 unmap_time;
 
 	bool flush:1;
 	bool invalid:1;

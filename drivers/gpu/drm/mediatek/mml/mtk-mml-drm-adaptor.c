@@ -566,6 +566,7 @@ static void task_frame_done(struct mml_task *task)
 	} else {
 		/* works fine, safe to move */
 		task_move_to_idle(task);
+		mml_record_track(mml, task);
 	}
 
 	if (cfg->done_task_cnt > mml_max_cache_task) {

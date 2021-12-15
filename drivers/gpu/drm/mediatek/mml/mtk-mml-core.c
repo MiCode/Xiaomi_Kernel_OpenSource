@@ -1181,6 +1181,7 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 		mml_err("dump smi");
 	}
 
+	mml_record_dump(task->config->mml);
 	mml_err("error dump %d end", cnt);
 
 	call_dbg_op(path->mmlsys, reset, task, pipe);

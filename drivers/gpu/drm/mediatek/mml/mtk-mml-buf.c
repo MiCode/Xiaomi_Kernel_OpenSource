@@ -8,6 +8,7 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-heap.h>
 #include <linux/scatterlist.h>
+#include <linux/sched/clock.h>
 #include <mtk_heap.h>
 
 #include "mtk-mml.h"
@@ -104,6 +105,7 @@ int mml_buf_iova_get(struct device *dev, struct mml_file_buf *buf)
 		if (ret < 0)
 			return ret;
 	}
+	buf->map_time = sched_clock();
 
 	return 0;
 }
@@ -145,6 +147,7 @@ void mml_buf_put(struct mml_file_buf *buf)
 			dmabuf_iova_free(&buf->dma[i]);
 		dma_buf_put(buf->dma[i].dmabuf);
 	}
+	buf->unmap_time = sched_clock();
 }
 
 void mml_buf_flush(struct mml_file_buf *buf)

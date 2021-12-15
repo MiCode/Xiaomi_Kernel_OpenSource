@@ -15,6 +15,7 @@
 #include <linux/math64.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/debugfs.h>
 
 #include <soc/mediatek/smi.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -25,6 +26,31 @@
 #include "mtk-mml-pq-core.h"
 #include "mtk-mml-sys.h"
 #include "mtk-mml-mmp.h"
+
+struct mml_record {
+	u32 jobid;
+
+	u64 src_iova[MML_MAX_PLANES];
+	u64 dest_iova[MML_MAX_PLANES];
+
+	u32 src_size[MML_MAX_PLANES];
+	u32 dest_size[MML_MAX_PLANES];
+
+	u32 src_plane_offset[MML_MAX_PLANES];
+	u32 dest_plane_offset[MML_MAX_PLANES];
+
+	u64 src_iova_map_time;
+	u64 dest_iova_map_time;
+	u64 src_iova_unmap_time;
+	u64 dest_iova_unmap_time;
+};
+
+/* 512 records
+ * note that (MML_RECORD_NUM - 1) will use as mask during track,
+ * so change this variable by 1 << N
+ */
+#define MML_RECORD_NUM		(1 << 9)
+#define MML_RECORD_NUM_MASK	(MML_RECORD_NUM - 1)
 
 struct mml_dev {
 	struct platform_device *pdev;
@@ -58,6 +84,12 @@ struct mml_dev {
 	struct wakeup_source *wake_lock;
 	s32 wake_ref;
 	struct mutex wake_ref_mutex;
+
+	/* mml record to tracking task */
+	struct dentry *record_entry;
+	struct mml_record records[MML_RECORD_NUM];
+	struct mutex record_mutex;
+	u16 record_idx;
 };
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
@@ -794,6 +826,161 @@ void mml_unregister_comp(struct device *master, struct mml_comp *comp)
 }
 EXPORT_SYMBOL_GPL(mml_unregister_comp);
 
+void mml_record_track(struct mml_dev *mml, struct mml_task *task)
+{
+	const struct mml_frame_config *cfg = task->config;
+	const struct mml_task_buffer *buf = &task->buf;
+	struct mml_record *record;
+	u32 i;
+
+	mutex_lock(&mml->record_mutex);
+
+	record = &mml->records[mml->record_idx];
+
+	record->jobid = task->job.jobid;
+	for (i = 0; i < MML_MAX_PLANES; i++) {
+		buf = &task->buf;
+
+		record->src_iova[i] = buf->src.dma[i].iova;
+		record->dest_iova[i] = buf->dest[0].dma[i].iova;
+		record->src_size[i] = buf->src.size[i];
+		record->dest_size[i] = buf->dest[0].size[i];
+		record->src_plane_offset[i] = cfg->info.src.plane_offset[i];
+		record->dest_plane_offset[i] = cfg->info.dest[0].data.plane_offset[i];
+	}
+	record->src_iova_map_time = buf->src.map_time;
+	record->dest_iova_map_time = buf->dest[0].map_time;
+	record->src_iova_unmap_time = buf->src.unmap_time;
+	record->dest_iova_unmap_time = buf->dest[0].unmap_time;
+
+	mml->record_idx = (mml->record_idx + 1) & MML_RECORD_NUM_MASK;
+
+	mutex_unlock(&mml->record_mutex);
+}
+
+#define REC_TITLE "Index,Job ID," \
+	"src map time,src unmap time,src,src size,plane 0,plane 1, plane 2," \
+	"dest map time,dest unmap time,dest,dest size,plane 0,plane 1, plane 2"
+
+static int mml_record_print(struct seq_file *seq, void *data)
+{
+	struct mml_dev *mml = (struct mml_dev *)seq->private;
+	struct mml_record *record;
+	u32 i, idx;
+
+	/* Protect only index part, since it is ok to print race data,
+	 * but not good to hurt performance of mml_record_track.
+	 */
+	mutex_lock(&mml->record_mutex);
+	idx = mml->record_idx;
+	mutex_unlock(&mml->record_mutex);
+
+	seq_puts(seq, REC_TITLE ",\n");
+	for (i = 0; i < ARRAY_SIZE(mml->records); i++) {
+		record = &mml->records[idx];
+		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,\n",
+			idx,
+			record->jobid,
+			record->src_iova_map_time,
+			record->src_iova_unmap_time,
+			record->src_iova[0],
+			record->src_size[0],
+			record->src_plane_offset[0],
+			record->src_plane_offset[1],
+			record->src_plane_offset[2],
+			record->dest_iova_map_time,
+			record->dest_iova_unmap_time,
+			record->dest_iova[0],
+			record->dest_size[0],
+			record->dest_plane_offset[0],
+			record->dest_plane_offset[1],
+			record->dest_plane_offset[2]);
+		idx = (idx + 1) & MML_RECORD_NUM_MASK;
+	}
+
+	return 0;
+}
+
+void mml_record_dump(struct mml_dev *mml)
+{
+	struct mml_record *record;
+	u32 i, idx;
+	/* dump 10 records only */
+	const u32 dump_count = 10;
+
+	/* Protect only index part, since it is ok to print race data,
+	 * but not good to hurt performance of mml_record_track.
+	 */
+	mutex_lock(&mml->record_mutex);
+	idx = (mml->record_idx + MML_RECORD_NUM - dump_count - 1) & MML_RECORD_NUM_MASK;
+	mutex_unlock(&mml->record_mutex);
+
+	mml_err(REC_TITLE);
+	for (i = 0; i < dump_count; i++) {
+		record = &mml->records[idx];
+		mml_err("%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u",
+			idx,
+			record->jobid,
+			record->src_iova_map_time,
+			record->src_iova_unmap_time,
+			record->src_iova[0],
+			record->src_size[0],
+			record->src_plane_offset[0],
+			record->src_plane_offset[1],
+			record->src_plane_offset[2],
+			record->dest_iova_map_time,
+			record->dest_iova_unmap_time,
+			record->dest_iova[0],
+			record->dest_size[0],
+			record->dest_plane_offset[0],
+			record->dest_plane_offset[1],
+			record->dest_plane_offset[2]);
+		idx = (idx + 1) & MML_RECORD_NUM_MASK;
+	}
+}
+
+static int mml_record_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mml_record_print, inode->i_private);
+}
+
+static const struct file_operations mml_record_fops = {
+	.owner = THIS_MODULE,
+	.open = mml_record_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static void mml_record_init(struct mml_dev *mml)
+{
+	struct dentry *dir;
+	bool exists = false;
+
+	mutex_init(&mml->record_mutex);
+
+	dir = debugfs_lookup("mml", NULL);
+	if (!dir) {
+		dir = debugfs_create_dir("mml", NULL);
+		if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
+			mml_err("debugfs_create_dir mml failed:%ld", PTR_ERR(dir));
+			return;
+		}
+	} else
+		exists = true;
+
+	mml->record_entry = debugfs_create_file(
+		"mml-record", 0444, dir, mml, &mml_record_fops);
+	if (IS_ERR(mml->record_entry)) {
+		mml_err("debugfs_create_file mml-record failed:%ld",
+			PTR_ERR(mml->record_entry));
+		mml->record_entry = NULL;
+	}
+
+	if (exists)
+		dput(dir);
+}
+
 static int sys_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_dev *mml = dev_get_drvdata(dev);
@@ -891,6 +1078,7 @@ static int mml_probe(struct platform_device *pdev)
 	dbg_probed = true;
 
 	mml->wake_lock = wakeup_source_register(dev, "mml_pm_lock");
+	mml_record_init(mml);
 	return 0;
 
 err_mbox_create:
@@ -994,7 +1182,6 @@ static int __init mml_driver_init(void)
 	mml_mmp_init();
 
 	ret = mml_pq_core_init();
-
 	if (ret)
 		mml_err("failed to init mml pq core: %d", ret);
 
