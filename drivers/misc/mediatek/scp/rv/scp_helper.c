@@ -551,9 +551,11 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		scp_ready[SCP_A_ID] = 1;
 
 #if SCP_DVFS_INIT_ENABLE
-		sync_ulposc_cali_data_to_scp();
-		/* release pll clock after scp ulposc calibration */
-		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+		if (scp_dvfs_feature_enable()) {
+			sync_ulposc_cali_data_to_scp();
+			/* release pll clock after scp ulposc calibration */
+			scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+		}
 #endif
 
 		scp_dvfs_cali_ready = 1;
@@ -566,7 +568,9 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
 
 #if SCP_DVFS_INIT_ENABLE
-	scp_resource_req(SCP_REQ_RELEASE);
+	/* request pll clock before turn on scp */
+	if (scp_dvfs_feature_enable())
+		scp_resource_req(SCP_REQ_RELEASE);
 #endif
 	/* register scp dvfs*/
 	msleep(2000);
@@ -748,7 +752,8 @@ int reset_scp(int reset)
 	scp_extern_notify(SCP_EVENT_STOP);
 #if SCP_DVFS_INIT_ENABLE
 	/* request pll clock before turn on scp */
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	if (scp_dvfs_feature_enable())
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
 #endif
 	if (reset & 0x0f) { /* do reset */
 		/* make sure scp is in idle state */
@@ -1472,7 +1477,8 @@ static void scp_control_feature(enum feature_id id, bool enable)
 
 	feature_table[id].enable = enable;
 #if SCP_DVFS_INIT_ENABLE
-	scp_expected_freq = scp_get_freq();
+	if (scp_dvfs_feature_enable())
+		scp_expected_freq = scp_get_freq();
 #endif
 
 	scp_current_freq = readl(CURRENT_FREQ_REG);
@@ -1490,7 +1496,8 @@ static void scp_control_feature(enum feature_id id, bool enable)
 		if (scp_current_freq != scp_expected_freq) {
 			/* set scp freq. */
 #if SCP_DVFS_INIT_ENABLE
-			ret = scp_request_freq();
+			if (scp_dvfs_feature_enable())
+				ret = scp_request_freq();
 #endif
 			if (ret == -1) {
 				pr_notice("[SCP] %s: req_freq fail\n", __func__);
@@ -1754,8 +1761,8 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/* wake lock AP*/
 	__pm_stay_awake(scp_reset_lock);
 #if SCP_DVFS_INIT_ENABLE
-	/* keep Univpll */
-	scp_resource_req(SCP_REQ_26M);
+	if (scp_dvfs_feature_enable())
+		scp_resource_req(SCP_REQ_26M);
 #endif
 
 	/* print_clk and scp_aed before pll enable to keep ori CLK_SEL */
@@ -1769,10 +1776,12 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/* logger disable must after scp_aed() */
 	scp_logger_init_set(0);
 
-	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
 	/*request pll clock before turn off scp */
 #if SCP_DVFS_INIT_ENABLE
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	if (scp_dvfs_feature_enable()) {
+		pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	}
 #endif
 	pr_notice("[SCP] %s(): scp_reset_type %d\n", __func__, scp_reset_type);
 	/* scp reset by CMD, WDT or awake fail */
@@ -2543,10 +2552,12 @@ static int __init scp_init(void)
 	scp_dvfs_init();
 	wait_scp_dvfs_init_done();
 
-	/* pll maybe gate, request pll before access any scp reg/sram */
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-	/* keep Univpll */
-	scp_resource_req(SCP_REQ_26M);
+	if (scp_dvfs_feature_enable()) {
+		/* pll maybe gate, request pll before access any scp reg/sram */
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+		/* keep Univpll */
+		scp_resource_req(SCP_REQ_26M);
+	}
 #endif /* SCP_DVFS_INIT_ENABLE */
 
 	if (platform_driver_register(&mtk_scp_device))
@@ -2640,14 +2651,16 @@ static int __init scp_init(void)
 
 #if SCP_DVFS_INIT_ENABLE
 	/* remember to release pll */
-	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	if (scp_dvfs_feature_enable())
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
 
 	driver_init_done = true;
 	reset_scp(SCP_ALL_ENABLE);
 
 #if SCP_DVFS_INIT_ENABLE
-	scp_init_vcore_request();
+	if (scp_dvfs_feature_enable())
+		scp_init_vcore_request();
 #endif /* SCP_DVFS_INIT_ENABLE */
 
 	register_3way_semaphore_notifier(&scp_semaphore_init_notifier);
@@ -2655,9 +2668,11 @@ static int __init scp_init(void)
 	return ret;
 err:
 #if SCP_DVFS_INIT_ENABLE
-	/* remember to release pll */
-	scp_resource_req(SCP_REQ_RELEASE);
-	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	/* remember to release scp_dvfs resource */
+	if (scp_dvfs_feature_enable()) {
+		scp_resource_req(SCP_REQ_RELEASE);
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	}
 	scp_dvfs_exit();
 #endif
 	return -1;

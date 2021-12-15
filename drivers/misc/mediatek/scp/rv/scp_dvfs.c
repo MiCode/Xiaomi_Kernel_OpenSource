@@ -100,6 +100,7 @@ static int scp_resrc_current_req = -1;
 static struct mt_scp_pll_t mt_scp_pll;
 static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
+static int g_scp_dvfs_enable; /* feature enabled? */
 
 static struct scp_dvfs_hw dvfs;
 
@@ -2091,6 +2092,70 @@ static int __init mt_scp_dts_get_cali_hw_regs(struct device_node *node,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_PM)
+static int mt_scp_dump_sleep_count(void)
+{
+	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
+
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
+
+	ipi_data.arg1 = SCP_SLEEP_GET_COUNT;
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+	if (ret != IPI_ACTION_DONE) {
+		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
+			__func__, __LINE__, ret);
+		goto FINISH;
+	}
+
+	if (dvfs.core_nums < 2) {
+		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d\n",
+			__func__, __LINE__, scp_ipi_ackdata0);
+		goto FINISH;
+	}
+
+	/* if there are 2 cores */
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
+	if (ret != IPI_ACTION_DONE) {
+		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
+			__func__, __LINE__, ret);
+		goto FINISH;
+	}
+
+	pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d, scp_sleep_cnt_1 = %d\n",
+		__func__, __LINE__, scp_ipi_ackdata0, scp_ipi_ackdata1);
+
+FINISH:
+	return 0;
+}
+
+static int scp_pm_event(struct notifier_block *notifier,
+		unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+	case PM_POST_SUSPEND:
+		mt_scp_dvfs_state_dump();
+		mt_scp_dump_sleep_count();
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block scp_pm_notifier_func = {
+	.notifier_call = scp_pm_event,
+};
+#endif /* IS_ENABLED(CONFIG_PM) */
+
 static int __init mt_scp_dts_init_scp_clk_hw(struct device_node *node)
 {
 	const char *str = NULL;
@@ -2405,6 +2470,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 {
 	struct device_node *node;
 	int ret = 0;
+	bool is_scp_dvfs_disable;
 
 	/* find device tree node of scp_dvfs */
 	node = pdev->dev.of_node;
@@ -2412,6 +2478,15 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "fail to find SCPDVFS node\n");
 		return -ENODEV;
 	}
+
+	/* used to replace 'SCP_DVFS_INIT_ENABLE' compile flag */
+	is_scp_dvfs_disable = of_property_read_bool(node, "scp-dvfs-disable");
+	if (is_scp_dvfs_disable) {
+		g_scp_dvfs_enable = 0;
+		pr_notice("SCP DVFS is disabled, so bypass its init\n");
+		return 0;
+	}
+	g_scp_dvfs_enable = 1;
 
 	/*
 	* if set, no VCORE DVS is needed & PMIC setting should
@@ -2556,6 +2631,12 @@ DTS_FAILED:
 	return ret;
 }
 
+/* used to replace 'SCP_DVFS_INIT_ENABLE' compile flag */
+int scp_dvfs_feature_enable(void)
+{
+	return g_scp_dvfs_enable;
+}
+
 static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2565,6 +2646,12 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		pr_notice("[%s]: dts init failed with err: %d\n",
 			__func__, ret);
 		goto DTS_INIT_FAILED;
+	}
+
+	if (!scp_dvfs_feature_enable()) {
+		g_scp_dvfs_init_flag = 1;
+		pr_notice("bypass scp dvfs init\n");
+		return 0;
 	}
 
 	/* check gpio setting */
@@ -2579,6 +2666,24 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	/* do ulposc calibration */
 	mt_scp_dvfs_do_ulposc_cali_process();
 	kfree(dvfs.ulposc_hw.cali_configs);
+
+	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
+
+#if IS_ENABLED(CONFIG_PM)
+	ret = register_pm_notifier(&scp_pm_notifier_func);
+	if (ret) {
+		pr_notice("[%s]: failed to register PM notifier.\n", __func__);
+		WARN_ON(1);
+	}
+#endif /* IS_ENABLED(CONFIG_PM) */
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	/* init proc */
+	if (mt_scp_dvfs_create_procfs()) {
+		pr_notice("mt_scp_dvfs_create_procfs fail..\n");
+		WARN_ON(1);
+	}
+#endif /* CONFIG_PROC_FS */
 
 	g_scp_dvfs_init_flag = 1;
 	pr_notice("[%s]: scp_dvfs probe done\n", __func__);
@@ -2599,6 +2704,11 @@ DTS_INIT_FAILED:
  ****************************************/
 static int mt_scp_dvfs_pdrv_remove(struct platform_device *pdev)
 {
+	if (!scp_dvfs_feature_enable()) {
+		pr_notice("bypass scp dvfs pdrv remove\n");
+		return 0;
+	}
+
 	kfree(dvfs.opp);
 	kfree(dvfs.ulposc_hw.cali_val_ext);
 	kfree(dvfs.ulposc_hw.cali_val);
@@ -2607,70 +2717,6 @@ static int mt_scp_dvfs_pdrv_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-#if IS_ENABLED(CONFIG_PM)
-static int mt_scp_dump_sleep_count(void)
-{
-	int ret = 0;
-	struct ipi_tx_data_t ipi_data;
-
-	if (!dvfs.sleep_init_done)
-		slp_ipi_init();
-
-	ipi_data.arg1 = SCP_SLEEP_GET_COUNT;
-	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
-		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
-	if (ret != IPI_ACTION_DONE) {
-		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
-			__func__, __LINE__, ret);
-		goto FINISH;
-	}
-
-	if (dvfs.core_nums < 2) {
-		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d\n",
-			__func__, __LINE__, scp_ipi_ackdata0);
-		goto FINISH;
-	}
-
-	/* if there are 2 cores */
-	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
-		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
-	if (ret != IPI_ACTION_DONE) {
-		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
-			__func__, __LINE__, ret);
-		goto FINISH;
-	}
-
-	pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d, scp_sleep_cnt_1 = %d\n",
-		__func__, __LINE__, scp_ipi_ackdata0, scp_ipi_ackdata1);
-
-FINISH:
-	return 0;
-}
-
-static int scp_pm_event(struct notifier_block *notifier,
-		unsigned long pm_event, void *unused)
-{
-	switch (pm_event) {
-	case PM_HIBERNATION_PREPARE:
-		return NOTIFY_DONE;
-	case PM_RESTORE_PREPARE:
-		return NOTIFY_DONE;
-	case PM_POST_HIBERNATION:
-		return NOTIFY_DONE;
-	case PM_SUSPEND_PREPARE:
-	case PM_POST_SUSPEND:
-		mt_scp_dvfs_state_dump();
-		mt_scp_dump_sleep_count();
-		return NOTIFY_DONE;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block scp_pm_notifier_func = {
-	.notifier_call = scp_pm_event,
-};
-#endif /* IS_ENABLED(CONFIG_PM) */
 
 static struct platform_driver mt_scp_dvfs_pdrv __refdata = {
 	.probe = mt_scp_dvfs_pdrv_probe,
@@ -2691,29 +2737,11 @@ int __init scp_dvfs_init(void)
 
 	pr_debug("%s\n", __func__);
 
-#ifdef CONFIG_PROC_FS
-	/* init proc */
-	if (mt_scp_dvfs_create_procfs()) {
-		pr_notice("mt_scp_dvfs_create_procfs fail..\n");
-		goto fail;
-	}
-#endif /* CONFIG_PROC_FS */
-
 	ret = platform_driver_register(&mt_scp_dvfs_pdrv);
 	if (ret) {
 		pr_notice("fail to register scp dvfs driver @ %s()\n", __func__);
 		goto fail;
 	}
-
-	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
-
-#if IS_ENABLED(CONFIG_PM)
-	ret = register_pm_notifier(&scp_pm_notifier_func);
-	if (ret) {
-		pr_notice("[%s]: failed to register PM notifier.\n", __func__);
-		return ret;
-	}
-#endif /* IS_ENABLED(CONFIG_PM) */
 
 	pr_notice("[%s]: scp_dvfs init done\n", __func__);
 	return 0;
