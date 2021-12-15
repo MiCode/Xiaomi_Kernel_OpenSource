@@ -628,6 +628,18 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 }
 
 static inline int
+mtk_cam_s_data_get_res_feature(struct mtk_cam_request_stream_data *s_data)
+{
+	if (s_data == NULL)
+		return 0;
+
+	if (!is_raw_subdev(s_data->pipe_id))
+		return 0;
+
+	return s_data->req->raw_pipe_data[s_data->pipe_id].res.raw_res.feature;
+}
+
+static inline int
 mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 			    int node_id)
 {

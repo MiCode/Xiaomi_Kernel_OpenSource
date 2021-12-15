@@ -3008,7 +3008,7 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 	return selected;
 }
 
-int mtk_cam_s_data_raw_stagger_select(struct mtk_cam_request_stream_data *s_data,
+static int mtk_cam_s_data_raw_stagger_select(struct mtk_cam_request_stream_data *s_data,
 			    int raw_status)
 {
 	struct mtk_cam_ctx *ctx;
@@ -3018,11 +3018,17 @@ int mtk_cam_s_data_raw_stagger_select(struct mtk_cam_request_stream_data *s_data
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
 
 
-	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
-	result = &s_raw_pipe_data->stagger_select;
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	pipe = ctx->pipe;
 
+	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	if (!s_raw_pipe_data) {
+		dev_info(ctx->cam->dev, "%s: failed to get raw_pipe_data (pipe:%d, seq:%d)\n",
+			 __func__, s_data->pipe_id, s_data->frame_seq_no);
+		return -EINVAL;
+	}
+
+	result = &s_raw_pipe_data->stagger_select;
 	selected = raw_stagger_select(ctx,
 				raw_status,
 				pipe->hw_mode,
@@ -3040,26 +3046,20 @@ int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
 {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
-	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
 	struct mtk_raw_pipeline *pipe;
 	int raw_status = 0;
 	bool selected = false;
-	//int pipe_enable_dev = pipe->enabled_raw;
-	//int pipe_enable_raw = 0;
-	//int i;
+	int feature;
 
-	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	feature = mtk_cam_s_data_get_res_feature(s_data);
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	cam = ctx->cam;
 	pipe = ctx->pipe;
 
-	//for (int i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++)
-	//	pipe_enable_raw |= pipe->enabled_raw & (1 << i);
-
 	raw_status = mtk_raw_available_resource(pipe->raw);
 	raw_status &= ~pipe->enabled_raw;
 
-	if (mtk_cam_feature_is_stagger(s_raw_pipe_data->res.raw_res.feature))
+	if (mtk_cam_feature_is_stagger(feature))
 		selected = mtk_cam_s_data_raw_stagger_select(s_data, raw_status);
 
 	mtk_raw_available_resource(pipe->raw);

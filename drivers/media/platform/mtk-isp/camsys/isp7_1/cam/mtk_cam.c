@@ -2066,7 +2066,8 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	if (raw_pipe->sensor_mode_update)
 		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1;
 
-	raw_pipe_data->res = raw_pipe->user_res;
+	if (raw_pipe_data)
+		raw_pipe_data->res = raw_pipe->user_res;
 	mtk_cam_tg_flash_req_update(raw_pipe, s_data);
 
 	return 0;
@@ -2962,9 +2963,9 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 	struct mtk_cam_video_device *node;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *req_stream_data, *req_stream_data_mstream;
-	struct mtk_cam_req_raw_pipe_data *raw_pipe_data;
 	int i, ctx_cnt;
 	int raw_feature;
+	int res_feature;
 	int ret;
 
 	dev_dbg(cam->dev, "update request:%s\n", req->req.debug_str);
@@ -3074,9 +3075,9 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 
 		ctx = &cam->ctxs[i];
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(req_stream_data);
+		res_feature = mtk_cam_s_data_get_res_feature(req_stream_data);
 
-		if (mtk_cam_feature_is_time_shared(raw_pipe_data->res.raw_res.feature))
+		if (mtk_cam_feature_is_time_shared(res_feature))
 			check_timeshared_buffer(cam, ctx, req);
 
 		if (mtk_cam_feature_is_mstream(req_stream_data->feature.raw_feature) ||
@@ -4415,8 +4416,8 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtk_cam_buffer *meta1_buf;
 	struct mtk_mraw_device *mraw_dev;
 	struct mtk_cam_resource *res_user;
-	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
 	int i;
+	int res_feature;
 
 	req_stream_data = mtk_cam_req_work_get_s_data(req_work);
 	if (!req_stream_data) {
@@ -4455,7 +4456,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	}
 	spin_unlock(&ctx->streaming_lock);
 
-	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(req_stream_data);
+	res_feature = mtk_cam_s_data_get_res_feature(req_stream_data);
 
 	/* Send CAM_CMD_CONFIG if the sink pad fmt is changed */
 	if (req->ctx_link_update & 1 << ctx->stream_id ||
@@ -4466,7 +4467,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		mtk_cam_s_data_sv_dev_config(req_stream_data);
 
 	/* handle stagger 1,2,3 exposure */
-	if (mtk_cam_feature_is_stagger(s_raw_pipe_data->res.raw_res.feature))
+	if (mtk_cam_feature_is_stagger(res_feature))
 		check_stagger_buffer(cam, ctx, req);
 
 	memset(&event, 0, sizeof(event));
@@ -4570,9 +4571,9 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	frame_data = (struct mtkcam_ipi_frame_param *)buf_entry->msg_buffer.va;
 	session->frame_no = req_stream_data->frame_seq_no;
 
-	if (mtk_cam_feature_is_stagger(s_raw_pipe_data->res.raw_res.feature) ||
-		mtk_cam_feature_is_mstream(s_raw_pipe_data->res.raw_res.feature) ||
-		mtk_cam_feature_is_mstream_m2m(s_raw_pipe_data->res.raw_res.feature))
+	if (mtk_cam_feature_is_stagger(res_feature) ||
+		mtk_cam_feature_is_mstream(res_feature) ||
+		mtk_cam_feature_is_mstream_m2m(res_feature))
 		dev_dbg(cam->dev, "[%s:vhdr-req:%d] ctx:%d type:%d (ipi)hwscene:%d/expN:%d/prev_expN:%d\n",
 			__func__, req_stream_data->frame_seq_no, ctx->stream_id,
 			req_stream_data->feature.switch_feature_type,
@@ -4713,6 +4714,12 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 
 	req = mtk_cam_s_data_get_req(s_data);
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	if (!s_raw_pipe_data) {
+		dev_info(cam->dev, "%s: failed to get raw_pipe_data (pipe:%d, seq:%d)\n",
+			 __func__, s_data->pipe_id, s_data->frame_seq_no);
+		return;
+	}
+
 	feature = s_raw_pipe_data->res.raw_res.feature;
 	feature_first_req = s_data->feature.raw_feature;
 
@@ -5185,6 +5192,12 @@ mtk_cam_s_data_raw_pipeline_config(struct mtk_cam_request_stream_data *s_data,
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	if (!s_raw_pipe_data) {
+		dev_info(ctx->cam->dev, "%s: failed to get raw_pipe_data (pipe:%d, seq:%d)\n",
+			 __func__, s_data->pipe_id, s_data->frame_seq_no);
+		return -EINVAL;
+	}
+
 	pipe = ctx->pipe;
 	raw = pipe->raw;
 
@@ -5208,10 +5221,16 @@ void mtk_cam_apply_pending_dev_config(struct mtk_cam_request_stream_data *s_data
 	struct mtk_cam_ctx *ctx;
 	char *debug_str = mtk_cam_s_data_get_dbg_str(s_data);
 
-	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
-
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	ctx->pipe->feature_active = ctx->pipe->user_res.raw_res.feature;
+
+	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	if (!s_raw_pipe_data) {
+		dev_info(ctx->cam->dev, "%s: failed to get raw_pipe_data (pipe:%d, seq:%d)\n",
+			 __func__, s_data->pipe_id, s_data->frame_seq_no);
+		return;
+	}
+
 	ctx->pipe->stagger_path = s_raw_pipe_data->stagger_select.stagger_path;
 	ctx->pipe->enabled_raw = s_raw_pipe_data->enabled_raw;
 	ctx->used_raw_dev = s_raw_pipe_data->enabled_raw;
@@ -5253,6 +5272,12 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 	raw = pipe->raw;
 	mf = &pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	if (!s_raw_pipe_data) {
+		dev_info(cam->dev, "%s: failed to get raw_pipe_data (pipe:%d, seq:%d)\n",
+			 __func__, s_data->pipe_id, s_data->frame_seq_no);
+		return -EINVAL;
+	}
+
 	feature = s_raw_pipe_data->res.raw_res.feature;
 
 	memset(&config_param, 0, sizeof(config_param));
@@ -5386,6 +5411,12 @@ int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data)
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	cam = ctx->cam;
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	if (!s_raw_pipe_data) {
+		dev_info(cam->dev, "%s: failed to get raw_pipe_data (pipe:%d, seq:%d)\n",
+			 __func__, s_data->pipe_id, s_data->frame_seq_no);
+		return -EINVAL;
+	}
+
 	feature = s_raw_pipe_data->res.raw_res.feature;
 
 	/* check exposure number */
