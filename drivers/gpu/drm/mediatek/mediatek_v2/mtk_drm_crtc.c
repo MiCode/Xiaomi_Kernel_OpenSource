@@ -9266,9 +9266,9 @@ static int mtk_drm_pf_release_thread(void *data)
 	struct mtk_drm_private *private;
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
-	ktime_t pf_time;
 	unsigned int crtc_idx;
 #ifndef DRM_CMDQ_DISABLE
+	ktime_t pf_time;
 	unsigned int fence_idx = 0;
 #endif
 
@@ -9282,8 +9282,8 @@ static int mtk_drm_pf_release_thread(void *data)
 				 atomic_read(&mtk_crtc->pf_event));
 		atomic_set(&mtk_crtc->pf_event, 0);
 
-		pf_time = mtk_check_preset_fence_timestamp(crtc);
 #ifndef DRM_CMDQ_DISABLE
+		pf_time = mtk_check_preset_fence_timestamp(crtc);
 		mutex_lock(&private->commit.lock);
 		if (private->power_state == false) {
 			mtk_release_present_fence(private->session_id[crtc_idx],
