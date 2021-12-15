@@ -312,6 +312,16 @@ struct mtk_yuv_device {
 	struct notifier_block pm_notifier;
 #endif
 };
+
+/* AE information */
+struct mtk_ae_debug_data {
+	u64 OBC_R1_Sum[4];
+	u64 OBC_R2_Sum[4];
+	u64 OBC_R3_Sum[4];
+	u64 AA_Sum[4];
+	u64 LTM_Sum[4];
+};
+
 /*
  * struct mtk_raw - the raw information
  *
@@ -365,6 +375,9 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 		signed int hw_scene);
 
 void reset(struct mtk_raw_device *dev);
+
+void dump_aa_info(struct mtk_cam_ctx *ctx,
+				 struct mtk_ae_debug_data *ae_info);
 
 int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);

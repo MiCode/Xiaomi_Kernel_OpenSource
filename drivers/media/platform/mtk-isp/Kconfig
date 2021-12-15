@@ -44,6 +44,14 @@ config VIDEO_MTK_ISP_CAMSYS
 	    capture application such as video recording and still image
 	    capture.
 
+config VIDEO_MTK_ISP_CAMSYS_DUBUG
+	tristate "Mediatek camsys debug function"
+	help
+	    Camsys driver controls 3A (autofocus, exposure,
+	    and white balance) with tuning feature and output
+	    the first capture image buffer in Mediatek's camera system.
+	    This configuration provides more debug information.
+
 config VIDEO_MTK_ISP_HCP
 	tristate "Mediatek hcp processing function"
 	help

@@ -53,6 +53,14 @@
 #endif
 #include "mtk_cam-timesync.h"
 
+#ifdef CONFIG_VIDEO_MTK_ISP_CAMSYS_DUBUG
+static unsigned int debug_ae = 1;
+#else
+static unsigned int debug_ae;
+#endif
+module_param(debug_ae, uint, 0644);
+MODULE_PARM_DESC(debug_ae, "activates debug ae info");
+
 /* FIXME for CIO pad id */
 #define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
 #define MTK_CAM_CIO_PAD_SINK		MTK_RAW_SINK
@@ -702,6 +710,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream;
 	struct mtk_cam_request_stream_data *deq_s_data[18];
+	struct mtk_raw_pipeline *pipe = ctx->pipe;
 	/* consider running_job_list depth and mstream(2 s_data): 3*3*2 */
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	int feature, buf_state;
@@ -709,6 +718,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	bool del_job, del_req;
 	bool unreliable = false;
 	void *vaddr = NULL;
+	struct mtk_ae_debug_data ae_data;
 
 	dequeue_cnt = 0;
 	s_data_cnt = 0;
@@ -781,12 +791,32 @@ STOP_SCAN:
 		if (is_raw_subdev(pipe_id))
 			vaddr = mtk_cam_get_vbuf_va(ctx, s_data, MTK_RAW_META_OUT_0);
 
-		dev_info(ctx->cam->dev,
-			"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),del_req(%d), meta out va(0x%llx)\n",
-			__func__, req->req.debug_str, ctx->stream_id, pipe_id,
-			dequeued_frame_seq_no, s_data->frame_seq_no, req->done_status,
-			req->pipe_used, ctx->streaming_pipe, ctx->cam->streaming_pipe,
-			del_job, del_req, vaddr);
+		if (is_raw_subdev(pipe_id) && debug_ae) {
+			dump_aa_info(ctx, &ae_data);
+			dev_info(ctx->cam->dev,
+				"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),del_req(%d),metaout va(0x%llx),size(%d,%d),AA(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)\n",
+				__func__, req->req.debug_str, ctx->stream_id, pipe_id,
+				dequeued_frame_seq_no, s_data->frame_seq_no, req->done_status,
+				req->pipe_used, ctx->streaming_pipe, ctx->cam->streaming_pipe,
+				del_job, del_req, vaddr,
+				pipe->res_config.sink_fmt.width, pipe->res_config.sink_fmt.height,
+				ae_data.OBC_R1_Sum[0], ae_data.OBC_R1_Sum[1],
+				ae_data.OBC_R1_Sum[2], ae_data.OBC_R1_Sum[3],
+				ae_data.OBC_R2_Sum[0], ae_data.OBC_R2_Sum[1],
+				ae_data.OBC_R2_Sum[2], ae_data.OBC_R2_Sum[3],
+				ae_data.OBC_R3_Sum[0], ae_data.OBC_R3_Sum[1],
+				ae_data.OBC_R3_Sum[2], ae_data.OBC_R3_Sum[3],
+				ae_data.AA_Sum[0], ae_data.AA_Sum[1],
+				ae_data.AA_Sum[2], ae_data.AA_Sum[3],
+				ae_data.LTM_Sum[0], ae_data.LTM_Sum[1],
+				ae_data.LTM_Sum[2], ae_data.LTM_Sum[3]);
+		} else
+			dev_info(ctx->cam->dev,
+				"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),del_req(%d),metaout va(0x%llx)\n",
+				__func__, req->req.debug_str, ctx->stream_id, pipe_id,
+				dequeued_frame_seq_no, s_data->frame_seq_no, req->done_status,
+				req->pipe_used, ctx->streaming_pipe, ctx->cam->streaming_pipe,
+				del_job, del_req, vaddr);
 
 		spin_unlock(&req->done_status_lock);
 

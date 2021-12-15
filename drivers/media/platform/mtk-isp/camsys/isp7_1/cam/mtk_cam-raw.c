@@ -1348,6 +1348,85 @@ static void reset_reg(struct mtk_raw_device *dev)
 			 readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
 }
 
+void dump_aa_info(struct mtk_cam_ctx *ctx,
+					struct mtk_ae_debug_data *ae_info)
+{
+	struct mtk_raw_device *raw_dev = NULL;
+	struct mtk_raw_pipeline *pipe = ctx->pipe;
+	int i;
+
+	for (i = 0; i < ctx->cam->num_raw_drivers; i++) {
+		if (pipe->enabled_raw & (1 << i)) {
+			struct device *dev = ctx->cam->raw.devs[i];
+
+			raw_dev = dev_get_drvdata(dev);
+			ae_info->OBC_R1_Sum[0] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_L);
+			ae_info->OBC_R2_Sum[0] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_L);
+			ae_info->OBC_R3_Sum[0] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_L);
+			ae_info->LTM_Sum[0] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_R_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_R_LSB);
+			ae_info->AA_Sum[0] +=
+				((u64)readl(raw_dev->base + REG_AA_R_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_R_SUM_L);
+
+			ae_info->OBC_R1_Sum[1] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_L);
+			ae_info->OBC_R2_Sum[1] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_L);
+			ae_info->OBC_R3_Sum[1] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_L);
+			ae_info->LTM_Sum[1] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_B_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_B_LSB);
+			ae_info->AA_Sum[1] +=
+				((u64)readl(raw_dev->base + REG_AA_B_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_B_SUM_L);
+
+			ae_info->OBC_R1_Sum[2] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_L);
+			ae_info->OBC_R2_Sum[2] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_L);
+			ae_info->OBC_R3_Sum[2] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_L);
+			ae_info->LTM_Sum[2] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_LSB);
+			ae_info->AA_Sum[2] +=
+				((u64)readl(raw_dev->base + REG_AA_GR_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_GR_SUM_L);
+
+			ae_info->OBC_R1_Sum[3] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_L);
+			ae_info->OBC_R2_Sum[3] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_L);
+			ae_info->OBC_R3_Sum[3] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_L);
+			ae_info->LTM_Sum[3] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_LSB);
+			ae_info->AA_Sum[3] +=
+				((u64)readl(raw_dev->base + REG_AA_GB_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_GB_SUM_L);
+		}
+	}
+}
+
 static int reset_msgfifo(struct mtk_raw_device *dev)
 {
 	atomic_set(&dev->is_fifo_overflow, 0);

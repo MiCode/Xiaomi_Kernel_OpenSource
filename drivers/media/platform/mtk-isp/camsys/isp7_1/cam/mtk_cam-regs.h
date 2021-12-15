@@ -242,6 +242,62 @@
 #define CAMCTL_CQ_THR0_DONE_ST				BIT(0)
 #define CTL_CQ_THR0_START					BIT(0)
 
+/* AE debug info */
+/* CAMSYS_RAW 0x1a03 */
+#define OFFSET_OBC_R1_R_SUM_L          0x1178
+#define OFFSET_OBC_R1_R_SUM_H          0x117c
+#define OFFSET_OBC_R1_B_SUM_L          0x1180
+#define OFFSET_OBC_R1_B_SUM_H          0x1184
+#define OFFSET_OBC_R1_GR_SUM_L         0x1188
+#define OFFSET_OBC_R1_GR_SUM_H         0x118c
+#define OFFSET_OBC_R1_GB_SUM_L         0x1190
+#define OFFSET_OBC_R1_GB_SUM_H         0x1194
+#define OFFSET_OBC_R1_ACT_WIN_X        0x1198
+#define OFFSET_OBC_R1_ACT_WIN_Y        0x119c
+
+#define OFFSET_OBC_R2_R_SUM_L          0x1438
+#define OFFSET_OBC_R2_R_SUM_H          0x143c
+#define OFFSET_OBC_R2_B_SUM_L          0x1440
+#define OFFSET_OBC_R2_B_SUM_H          0x1444
+#define OFFSET_OBC_R2_GR_SUM_L         0x1448
+#define OFFSET_OBC_R2_GR_SUM_H         0x144c
+#define OFFSET_OBC_R2_GB_SUM_L         0x1450
+#define OFFSET_OBC_R2_GB_SUM_H         0x1454
+#define OFFSET_OBC_R2_ACT_WIN_X        0x1458
+#define OFFSET_OBC_R2_ACT_WIN_Y        0x145c
+
+#define OFFSET_OBC_R3_R_SUM_L          0x16f8
+#define OFFSET_OBC_R3_R_SUM_H          0x16fc
+#define OFFSET_OBC_R3_B_SUM_L          0x1700
+#define OFFSET_OBC_R3_B_SUM_H          0x1704
+#define OFFSET_OBC_R3_GR_SUM_L         0x1708
+#define OFFSET_OBC_R3_GR_SUM_H         0x170c
+#define OFFSET_OBC_R3_GB_SUM_L         0x1710
+#define OFFSET_OBC_R3_GB_SUM_H         0x1714
+#define OFFSET_OBC_R3_ACT_WIN_X        0x1718
+#define OFFSET_OBC_R3_ACT_WIN_Y        0x171c
+
+#define REG_LTM_AE_DEBUG_B_MSB         0x23f0
+#define REG_LTM_AE_DEBUG_B_LSB         0x23f4
+#define REG_LTM_AE_DEBUG_GB_MSB        0x23f8
+#define REG_LTM_AE_DEBUG_GB_LSB        0x23fc
+#define REG_LTM_AE_DEBUG_GR_MSB        0x2400
+#define REG_LTM_AE_DEBUG_GR_LSB        0x2404
+#define REG_LTM_AE_DEBUG_R_MSB         0x2408
+#define REG_LTM_AE_DEBUG_R_LSB         0x240c
+#define REG_LTMS_ACT_WIN_X             0x2578
+#define REG_LTMS_ACT_WIN_Y             0x257c
+
+#define REG_AA_R_SUM_L                 0x2a1c
+#define REG_AA_R_SUM_H                 0x2a20
+#define REG_AA_B_SUM_L                 0x2a24
+#define REG_AA_B_SUM_H                 0x2a28
+#define REG_AA_GR_SUM_L                0x2a2c
+#define REG_AA_GR_SUM_H                0x2a30
+#define REG_AA_GB_SUM_L                0x2a34
+#define REG_AA_GB_SUM_H                0x2a30
+#define REG_AA_ACT_WIN_X               0x2a3c
+#define REG_AA_ACT_WIN_Y               0x2a40
 
 #define DMA_OFFSET_CON0        0x020
 #define DMA_OFFSET_CON1        0x024
