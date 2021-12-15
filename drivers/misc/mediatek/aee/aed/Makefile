@@ -16,9 +16,9 @@ GCOV_PROFILE := y
 endif
 
 obj-$(CONFIG_MTK_AEE_AED)	+= aee_aed.o
+obj-$(CONFIG_MTK_AEE_UT)	+= aed-debug.o
 aee_aed-y	+= \
 	aed-main.o \
-	aed-debug.o \
 	aee-common.o \
 	reboot-reason.o
 

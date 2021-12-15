@@ -28,3 +28,11 @@ config MTK_AEE_IPANIC
 	  MTK, which is the enhancement of kernel defaut panic flow, and
 	  combined with aee. It will do some hook function and get some
 	  kernel panic information for debug.
+
+config MTK_AEE_UT
+	tristate "control AED debug file"
+	help
+	  MTK_AEE_UT is the kernel config of aed-debug.c
+	  aed-debug.c is AEE UT test case file, just for generate some vendor
+	  exception to test AEE dump flow, include in KE, HWT, HW_reboot, EE,
+	  and kernelAPI exception
