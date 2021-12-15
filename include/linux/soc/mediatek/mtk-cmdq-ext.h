@@ -248,9 +248,15 @@ struct cmdq_flush_completion {
 };
 
 struct cmdq_reuse {
+	enum cmdq_code op;
 	u64 *va;
 	u32 val;
 	u32 offset;
+};
+
+struct cmdq_poll_reuse {
+	struct cmdq_reuse jump_to_begin;
+	struct cmdq_reuse jump_to_end;
 };
 
 u32 cmdq_subsys_id_to_base(struct cmdq_base *cmdq_base, int id);
@@ -285,7 +291,9 @@ void cmdq_vcp_enable(bool en);
 void *cmdq_get_vcp_buf(enum CMDQ_VCP_ENG_ENUM engine, dma_addr_t *pa_out);
 u32 cmdq_pkt_vcp_reuse_val(enum CMDQ_VCP_ENG_ENUM engine, u32 buf_offset, u16 size);
 s32 cmdq_pkt_readback(struct cmdq_pkt *pkt, enum CMDQ_VCP_ENG_ENUM engine,
-	u32 buf_offset, u16 size, u16 reg_gpr, u64 **curr_buf_va);
+	u32 buf_offset, u16 size, u16 reg_gpr,
+	struct cmdq_reuse *reuse,
+	struct cmdq_poll_reuse *poll_reuse);
 
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit);
 void cmdq_mbox_pool_create(struct cmdq_client *cl);
@@ -360,16 +368,18 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 	u32 value, u32 mask);
 
 s32 cmdq_pkt_assign_command_reuse(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
-	u64 **curr_buf_va, u32 *inst_offset);
+	struct cmdq_reuse *reuse);
 
 s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
-	u16 src_reg_idx, u32 mask, u64 **curr_buf_va, u32 *inst_offset);
+	u16 src_reg_idx, u32 mask, struct cmdq_reuse *reuse);
 
 s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
-	u32 value, u32 mask, u64 **curr_buf_va, u32 *inst_offset);
+	u32 value, u32 mask, struct cmdq_reuse *reuse);
 
 void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
 	const u32 count);
+
+void cmdq_pkt_reuse_poll(struct cmdq_pkt *pkt, struct cmdq_poll_reuse *poll_reuse);
 
 void cmdq_reuse_refresh(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse, u32 cnt);
 
@@ -460,7 +470,8 @@ int cmdq_pkt_timer_en(struct cmdq_pkt *pkt);
  * Return 0 for success; else the error code is returned
  */
 s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr);
-
+s32 cmdq_pkt_poll_timeout_reuse(struct cmdq_pkt *pkt, u32 value, u8 subsys,
+	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr, struct cmdq_poll_reuse *poll_reuse);
 s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr);
 
