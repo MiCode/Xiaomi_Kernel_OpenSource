@@ -669,6 +669,8 @@ struct mtk_vcodec_dev {
  **/
 	struct list_head log_param_list;
 	struct list_head prop_param_list;
+	struct mutex log_param_mutex;
+	struct mutex prop_param_mutex;
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)

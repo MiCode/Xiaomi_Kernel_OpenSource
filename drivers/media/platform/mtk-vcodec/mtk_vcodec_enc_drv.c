@@ -294,7 +294,6 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
-	dev_ptr = dev;
 	INIT_LIST_HEAD(&dev->ctx_list);
 	dev->plat_dev = pdev;
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
@@ -521,6 +520,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&dev->log_param_list);
 	INIT_LIST_HEAD(&dev->prop_param_list);
+	dev_ptr = dev;
 
 	return 0;
 

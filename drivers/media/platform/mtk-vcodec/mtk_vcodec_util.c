@@ -541,15 +541,20 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 {
 	struct mtk_vcodec_log_param *pram, *tmp;
 	struct list_head *plist;
+	struct mutex *plist_mutex;
 
-	if (index == MTK_VCODEC_LOG_INDEX_LOG)
+	if (index == MTK_VCODEC_LOG_INDEX_LOG) {
 		plist = &dev->log_param_list;
-	else if (index == MTK_VCODEC_LOG_INDEX_PROP)
+		plist_mutex = &dev->log_param_mutex;
+	} else if (index == MTK_VCODEC_LOG_INDEX_PROP) {
 		plist = &dev->prop_param_list;
-	else {
+		plist_mutex = &dev->prop_param_mutex;
+	} else {
 		mtk_v4l2_err("invalid index: %d", index);
 		return;
 	}
+
+	mutex_lock(plist_mutex);
 
 	list_for_each_entry(pram, plist, list) {
 		// find existed param, replace its value
@@ -558,6 +563,7 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 				pram->param_key, pram->param_val, param_val);
 			memset(pram->param_val, 0x00, LOG_PARAM_INFO_SIZE);
 			strncpy(pram->param_val, param_val, LOG_PARAM_INFO_SIZE - 1);
+			mutex_unlock(plist_mutex);
 			return;
 		}
 	}
@@ -579,6 +585,7 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 			kfree(pram);
 		}
 	}
+	mutex_unlock(plist_mutex);
 }
 
 static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
@@ -586,21 +593,26 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 {
 	struct mtk_vcodec_log_param *pram;
 	struct list_head *plist;
+	struct mutex *plist_mutex;
 	char *vdec_temp_str;
 	char *venc_temp_str;
 
 	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 		plist = &dev->log_param_list;
+		plist_mutex = &dev->log_param_mutex;
 		vdec_temp_str = mtk_vdec_tmp_log;
 		venc_temp_str = mtk_venc_tmp_log;
 	} else if (log_index == MTK_VCODEC_LOG_INDEX_PROP) {
 		plist = &dev->prop_param_list;
+		plist_mutex = &dev->prop_param_mutex;
 		vdec_temp_str = mtk_vdec_tmp_prop;
 		venc_temp_str = mtk_venc_tmp_prop;
 	} else {
 		mtk_v4l2_err("invalid log_index: %d", log_index);
 		return;
 	}
+
+	mutex_lock(plist_mutex);
 
 	if (dev->vfd_dec) {
 		memset(vdec_temp_str, 0x00, 1024);
@@ -635,6 +647,7 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 			mtk_v4l2_debug(8, "build mtk_venc_property: %s\n", mtk_venc_property);
 		}
 	}
+	mutex_unlock(plist_mutex);
 }
 
 void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
