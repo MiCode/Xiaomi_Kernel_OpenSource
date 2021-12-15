@@ -28,6 +28,7 @@ struct mvpu_plat_drv {
 	unsigned int sw_preemption_level;
 };
 
+int mvpu_plat_info_init(struct platform_device *pdev);
 int mvpu_plat_init(struct platform_device *pdev);
 const struct of_device_id *mvpu_plat_get_device(void);
 int mvpu_config_init(struct mtk_apu *apu);
