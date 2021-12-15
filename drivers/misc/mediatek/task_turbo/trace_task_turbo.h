@@ -41,6 +41,7 @@ TRACE_EVENT(turbo_inherit_start,
 		__field(int, fprio)
 		__field(unsigned int, f_turbo)
 		__field(unsigned int, f_inherit_types)
+		__field(pid_t, tpid)
 		__field(int, tprio)
 		__field(unsigned int, t_turbo)
 		__field(unsigned int, t_inherit_types)
@@ -50,6 +51,7 @@ TRACE_EVENT(turbo_inherit_start,
 		__entry->fprio		 = from->prio;
 		__entry->f_turbo	 = from->turbo;
 		__entry->f_inherit_types = atomic_read(&from->inherit_types);
+		__entry->tpid		 = to->pid;
 		__entry->tprio		 = to->prio;
 		__entry->t_turbo	 = to->turbo;
 		__entry->t_inherit_types = atomic_read(&to->inherit_types);
@@ -59,6 +61,7 @@ TRACE_EVENT(turbo_inherit_start,
 		__entry->fprio,
 		__entry->f_turbo,
 		__entry->f_inherit_types,
+		__entry->tpid,
 		__entry->tprio,
 		__entry->t_turbo,
 		__entry->t_inherit_types)
