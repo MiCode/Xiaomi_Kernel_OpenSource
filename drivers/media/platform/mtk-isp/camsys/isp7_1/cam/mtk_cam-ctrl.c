@@ -2870,6 +2870,10 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 		s_data->seninf_fmt.format.height,
 		s_data->seninf_fmt.format.code);
 
+	if (mtk_cam_req_frame_sync_start(req))
+		dev_dbg(cam->dev, "%s:%s:ctx(%d): sensor ctrl with frame sync - start\n",
+			__func__, req->req.debug_str, ctx->stream_id);
+
 	if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) {
 		v4l2_ctrl_request_setup(&req->req, s_data->sensor->ctrl_handler);
 		time_after_sof =
@@ -2880,6 +2884,10 @@ static void mtk_cam_seamless_switch_work(struct work_struct *work)
 			s_data->frame_seq_no, time_after_sof);
 
 	}
+
+	if (mtk_cam_req_frame_sync_end(req))
+		dev_dbg(cam->dev, "%s:ctx(%d): sensor ctrl with frame sync - stop\n",
+			__func__, ctx->stream_id);
 
 	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	fmt.pad = PAD_SINK;
