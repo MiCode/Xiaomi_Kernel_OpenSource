@@ -34,6 +34,9 @@
 #include <linux/arm-smccc.h>
 #include <asm/barrier.h>
 #include <soc/mediatek/smi.h>
+#if IS_ENABLED(CONFIG_MTK_SMI)
+#include <../misc/mediatek/smi/mtk-smi-dbg.h>
+#endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 #include <../misc/mediatek/iommu/iommu_debug.h>
 #endif
@@ -295,6 +298,7 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 static LIST_HEAD(m4ulist);	/* List all the M4U HWs */
 static LIST_HEAD(mm_iommu_list);	/* List apu iommu HWs */
 static LIST_HEAD(apu_iommu_list);	/* List mm iommu HWs */
+static bool share_pgtable;
 
 #define for_each_m4u(data, head)  list_for_each_entry(data, head, list)
 
@@ -801,8 +805,6 @@ static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
 	}
 }
 
-static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data);
-
 static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 {
 	u32 tlb_en = readl_relaxed(data->base + REG_MMU_INVALIDATE);
@@ -813,7 +815,6 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 	if (range && (tlb_en & F_MMU_INV_RANGE)) {
 		pr_warn("%s, TLB flush Range timed out, need to extend time!!(%d, %d)\n", __func__,
 			data->plat_data->iommu_type, data->plat_data->iommu_id);
-		__mtk_dump_reg_for_hang_issue(data);
 		mtk_smi_dbg_hang_detect("iommu");
 		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
 			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
@@ -822,7 +823,6 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 	} else if (!range && (tlb_en & F_ALL_INVLD)) {
 		pr_warn("%s, TLB flush All timed out, need to extend time!!(%d, %d)\n", __func__,
 			data->plat_data->iommu_type, data->plat_data->iommu_id);
-		__mtk_dump_reg_for_hang_issue(data);
 		mtk_smi_dbg_hang_detect("iommu");
 		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
 			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
@@ -937,8 +937,9 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
 						tmp, tmp != 0, 10, 1000);
 		if (ret) {
-			pr_warn("Partial TLB flush timed out, (%d, %d)\n",
-				data->plat_data->iommu_type, data->plat_data->iommu_id);
+			pr_warn("Partial TLB flush timed out, (%d, %d), iova:0x%llx,0x%x\n",
+				data->plat_data->iommu_type, data->plat_data->iommu_id,
+				iova, size);
 			if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN))
 				mtk_iommu_tlb_flush_check(data, true);
 			else
@@ -1968,6 +1969,19 @@ static int mtk_iommu_pd_callback(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int mtk_iommu_dbg_hang_cb(struct notifier_block *nb,
+				 unsigned long action, void *data)
+{
+	mtk_iommu_dbg_hang_detect(MM_IOMMU, DISP_IOMMU);
+	mtk_iommu_dbg_hang_detect(MM_IOMMU, MDP_IOMMU);
+	return NOTIFY_OK;
+}
+
+static int register_dbg_notifier;
+static struct notifier_block mtk_iommu_dbg_hang_nb = {
+		.notifier_call = mtk_iommu_dbg_hang_cb,
+};
+
 /********** mtk iommu MAU start **********/
 static inline void iommu_set_field_by_mask(void __iomem *m4u_base,
 					   unsigned int reg,
@@ -2633,6 +2647,7 @@ skip_smi:
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, SHARE_PGTABLE)) {
 		list_add_tail(&data->list, &m4ulist);
 		data->hw_list = &m4ulist;
+		share_pgtable = true;
 	} else {
 		list_add_tail(&data->list, data->plat_data->hw_list);
 		data->hw_list = data->plat_data->hw_list;
@@ -2678,6 +2693,15 @@ skip_smi:
 		if (r)
 			pr_info("%s notifier err, dev:%s\n", __func__, dev_name(dev));
 	}
+
+#if IS_ENABLED(CONFIG_MTK_SMI)
+	if (data->plat_data->iommu_type == MM_IOMMU) {
+		if (register_dbg_notifier != 1) {
+			mtk_smi_dbg_register_notifier(&mtk_iommu_dbg_hang_nb);
+			register_dbg_notifier = 1;
+		}
+	}
+#endif
 
 	mtk_iommu_isr_pause_timer_init(data);
 
@@ -2871,7 +2895,7 @@ static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
 }
 #endif
 
-static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
+static void mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 {
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 	int cnt, ret, i;
@@ -2931,47 +2955,45 @@ static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 		data->plat_data->iommu_id);
 }
 
-void mtk_dump_reg_for_hang_issue(enum mtk_iommu_type type, int	id)
+void mtk_iommu_dbg_hang_detect(enum mtk_iommu_type type, int id)
 {
 	struct list_head *hw_list;
 	struct mtk_iommu_data *data;
 
-	pr_info("%s start, (%d,%d)\n", __func__, type, id);
-	switch (type) {
-	case MM_IOMMU:
-		hw_list = &mm_iommu_list;
-		break;
-	case APU_IOMMU:
-		hw_list = &apu_iommu_list;
-		break;
-	default:
-		pr_err("%s failed, type is invalid, %d\n", type);
-		return;
+	if (!share_pgtable) {
+		switch (type) {
+		case MM_IOMMU:
+			hw_list = &mm_iommu_list;
+			break;
+		case APU_IOMMU:
+			hw_list = &apu_iommu_list;
+			break;
+		default:
+			pr_err("%s failed, type is invalid, %d\n", type);
+			return;
+		}
+	} else {
+		hw_list = &m4ulist;
 	}
 
 	for_each_m4u(data, hw_list) {
 		if (data->plat_data->iommu_type == type && data->plat_data->iommu_id == id) {
-			bool has_pm = !!data->dev->pm_domain;
-
-			if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
-				if ((data->plat_data->iommu_type == MM_IOMMU &&
-					pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
-					(data->plat_data->iommu_type != MM_IOMMU &&
-					pm_runtime_get_if_in_use(data->dev) <= 0)) {
-					continue;
-				}
+			if (!mtk_iommu_power_get(data)) {
+				pr_notice("%s, iommu:(%d,%d) power off dev:%s\n",
+					  __func__, type, id, dev_name(data->dev));
+				return;
 			}
 
-			__mtk_dump_reg_for_hang_issue(data);
+			mtk_dump_reg_for_hang_issue(data);
 
-			if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
-				data->plat_data->iommu_type != MM_IOMMU)
-				pm_runtime_put(data->dev);
+			mtk_iommu_power_put(data);
+			return;
 		}
 	}
 
+	pr_info("%s, (%d,%d) no dump\n", __func__, type, id);
 }
-EXPORT_SYMBOL_GPL(mtk_dump_reg_for_hang_issue);
+EXPORT_SYMBOL_GPL(mtk_iommu_dbg_hang_detect);
 
 static const struct dev_pm_ops mtk_iommu_pm_ops = {
 	SET_RUNTIME_PM_OPS(mtk_iommu_runtime_suspend, mtk_iommu_runtime_resume, NULL)
