@@ -3287,7 +3287,7 @@ static ssize_t mt6855_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 			       "memif[%d], irq_usage %d\n",
 			       i, afe->memif[i].irq_usage);
 	}
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if 0
 	regmap_read(afe_priv->topckgen, CLK_CFG_6, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_6 = 0x%x\n", value);
