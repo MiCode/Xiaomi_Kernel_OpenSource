@@ -81,8 +81,9 @@ static void do_mminfra_bkrs(bool is_restore)
 	if (mminfra_check_scmi_status()) {
 		err = scmi_tinysys_common_set(tinfo->ph, feature_id,
 				2, (is_restore)?0:1, 0, 0, 0);
-		pr_notice("%s: call scmi_tinysys_common_set(%d) err=%d\n",
-			__func__, is_restore, err);
+		if (err)
+			pr_notice("%s: call scmi_tinysys_common_set(%d) err=%d\n",
+				__func__, is_restore, err);
 	}
 }
 
