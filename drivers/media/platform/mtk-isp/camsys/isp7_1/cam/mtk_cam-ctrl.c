@@ -684,7 +684,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 			dev_info(cam->dev, "%s: pipe(%d): update BW for %s\n",
 				 __func__, stream_id, req_stream_data->seninf_new->name);
 
-			mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas);
+			mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas, false);
 		}
 	}
 
@@ -2578,7 +2578,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		/* req_stream_data of req_cq*/
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
 		/* update qos bw */
-		mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas);
+		mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas, false);
 
 		/* Transit state from Sensor -> CQ */
 		if (ctx->sensor) {
@@ -2628,6 +2628,11 @@ static void seamless_switch_check_bad_frame(
 	if (req) {
 		s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		switch_type = s_data->feature.switch_feature_type;
+		/* update qos bw */
+		if (switch_type == EXPOSURE_CHANGE_1_to_2 ||
+			switch_type == EXPOSURE_CHANGE_1_to_3)
+			mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, true);
+
 		if (switch_type &&
 			!mtk_cam_feature_change_is_mstream(switch_type)) {
 			req_bad = mtk_cam_get_req(ctx, frame_seq_no - 1);
@@ -2693,6 +2698,7 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 	bool is_apply = false;
 	unsigned int dequeued_frame_seq_no = irq_info->frame_idx_inner;
 	int sv_main_id;
+	int switch_type;
 
 	/*hd last sof trigger setting enable*/
 	if (STAGGER_CQ_LAST_SOF == 0)
@@ -2765,7 +2771,10 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 		/* req_stream_data of req_cq*/
 
 		/* update qos bw */
-		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas);
+		switch_type = s_data->feature.switch_feature_type;
+		if (switch_type == EXPOSURE_CHANGE_2_to_1 ||
+			switch_type == EXPOSURE_CHANGE_3_to_1)
+			mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, true);
 
 		/* Transit state from Sensor -> CQ */
 		if (ctx->sensor) {

@@ -4296,7 +4296,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		}
 
 		/* mmqos update */
-		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas);
+		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, false);
 
 		apply_cq(raw_dev, 1, buf_entry->buffer.iova,
 			 buf_entry->cq_desc_size,
