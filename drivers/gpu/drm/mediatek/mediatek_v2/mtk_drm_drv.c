@@ -3119,7 +3119,7 @@ static const struct mtk_mmsys_driver_data mt6895_mmsys_driver_data = {
 	.sodi_config = mt6895_mtk_sodi_config,
 	.has_smi_limitation = false,
 	.doze_ctrl_pmic = true,
-	.can_compress_rgb565 = false,
+	.can_compress_rgb565 = true,
 	.bypass_infra_ddr_control = true,
 };
 
