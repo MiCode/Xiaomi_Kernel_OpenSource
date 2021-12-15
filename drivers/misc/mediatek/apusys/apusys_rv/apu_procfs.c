@@ -104,14 +104,14 @@ static const struct proc_ops coredump_file_ops = {
 	.proc_open		= coredump_sqopen,
 	.proc_read		= seq_read,
 	.proc_lseek		= seq_lseek,
-	.proc_release	= seq_release
+	.proc_release	= single_release
 };
 
 static const struct proc_ops xfile_file_ops = {
 	.proc_open		= xfile_sqopen,
 	.proc_read		= seq_read,
 	.proc_lseek		= seq_lseek,
-	.proc_release	= seq_release
+	.proc_release	= single_release
 };
 
 static const struct proc_ops regdump_file_ops = {
