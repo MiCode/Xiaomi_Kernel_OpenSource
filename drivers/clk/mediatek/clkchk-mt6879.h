@@ -52,7 +52,8 @@ enum chk_sys_id {
 	hfrp = 41,
 	mminfra_smi = 42,
 	sspm = 43,
-	chk_sys_num = 44,
+	sspm_cfg = 44,
+	chk_sys_num = 45,
 };
 
 #ifdef CONFIG_MTK_DVFSRC_HELPER

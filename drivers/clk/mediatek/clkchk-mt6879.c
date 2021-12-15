@@ -100,6 +100,7 @@ static struct regbase rb[] = {
 	[hfrp] = REGBASE_V(0x1EC24000, hfrp, MT6879_POWER_DOMAIN_MM_PROC_DORMANT, CLK_NULL),
 	[mminfra_smi] = REGBASE_V(0x1E801000, mminfra_smi, MT6879_POWER_DOMAIN_MM_INFRA, CLK_NULL),
 	[sspm] = REGBASE_V(0x1C342000, sspm, PD_NULL, CLK_NULL),
+	[sspm_cfg] = REGBASE_V(0x1C343000, sspm, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -400,6 +401,7 @@ static struct regname rn[] = {
 	REGNAME(sspm, 0x0174, INTC_IRQ_GRP2_STA1),
 	REGNAME(sspm, 0x01C0, INTC_IRQ_GRP7_STA0),
 	REGNAME(sspm, 0x01C4, INTC_IRQ_GRP7_STA1),
+	REGNAME(sspm_cfg, 0x0018, SSPM_WFI),
 	{},
 };
 
@@ -728,7 +730,6 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
 	u32 val[7];
 
-	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
 	regmap_read(regmap, HWV_PLL_SET, &val[0]);
 	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
 	regmap_read(regmap, HWV_PLL_STA, &val[2]);
@@ -738,6 +739,7 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 	regmap_read(regmap, HWV_PLL_CLR_STA, &val[6]);
 
 	print_subsys_reg_mt6879(sspm);
+	print_subsys_reg_mt6879(sspm_cfg);
 	print_subsys_reg_mt6879(apmixed);
 	pr_notice("[%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x\n",
 			HWV_PLL_SET, val[0],
@@ -747,6 +749,10 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 			HWV_PLL_DONE, val[4],
 			HWV_PLL_SET_STA, val[5],
 			HWV_PLL_CLR_STA, val[6]);
+
+	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+
+	mdelay(100);
 
 	BUG_ON(1);
 }
