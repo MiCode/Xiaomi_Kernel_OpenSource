@@ -2288,7 +2288,9 @@ static int btif_rx_thread(void *p_data)
 
 
 	while (1) {
-		wait_for_completion_interruptible(&p_btif->rx_comp);
+		if (wait_for_completion_interruptible(&p_btif->rx_comp))
+			BTIF_WARN_FUNC("wait_for_completion is interrupted");
+
 		if (mutex_lock_killable(&(p_btif->rx_thread_mtx))) {
 			BTIF_ERR_FUNC(
 				"mutex lock(rx_thread_mtx) return failed\n");
