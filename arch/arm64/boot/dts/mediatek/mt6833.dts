@@ -5,6 +5,7 @@
 
 /dts-v1/;
 #include <dt-bindings/clock/mt6833-clk.h>
+#include <dt-bindings/gce/mt6833-gce.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
@@ -322,6 +323,45 @@
 		dma-requests = <4>;
 		#dma-cells = <1>;
 		dma-bits = <34>;
+	};
+
+	gce: gce_mbox@10228000 {
+		compatible = "mediatek,mt6833-gce";
+		reg = <0 0x10228000 0 0x4000>;
+		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>;
+		#mbox-cells = <3>;
+		#gce-event-cells = <1>;
+		#gce-subsys-cells = <2>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_GCE>,
+			 <&infracfg_ao_clk CLK_IFRAO_GCE_26M>;
+		clock-names = "gce", "gce-timer";
+	};
+
+	gce_sec: gce_mbox_sec@10228000 {
+		compatible = "mediatek,mailbox-gce-sec";
+		reg = <0 0x10228000 0 0x4000>;
+		#mbox-cells = <3>;
+		mboxes = <&gce 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_GCE>;
+		clock-names = "gce";
+	};
+
+	cmdq-test {
+		compatible = "mediatek,cmdq-test";
+		mediatek,gce = <&gce>;
+		// mmsys_config = <&dispsys_config>;
+		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
+		mboxes = <&gce 23 0 CMDQ_THR_PRIO_1>,
+			 <&gce 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
 
 	apuart0: serial@11002000 {
