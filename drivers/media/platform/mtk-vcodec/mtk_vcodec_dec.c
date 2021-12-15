@@ -1126,6 +1126,10 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	case V4L2_DEC_CMD_STOP:
 		src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
+		if (ctx->state == MTK_STATE_INIT)
+			mtk_vdec_queue_error_event(ctx);
+
 		if (!vb2_is_streaming(src_vq)) {
 			mtk_v4l2_debug(1, "Output stream is off. No need to flush.");
 			return 0;
@@ -1431,6 +1435,8 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 				buf->bytesused,
 				buf->length, vb,
 				timeval_to_ns(&buf->timestamp));
+			if (ctx->state == MTK_STATE_INIT)
+				mtk_vdec_queue_error_event(ctx);
 		} else if (buf->flags & V4L2_BUF_FLAG_LAST) {
 			mtkbuf->lastframe = EOS_WITH_DATA;
 			mtk_v4l2_debug(1, "[%d] id=%d EarlyEos BS(%d,%d) vb=%p pts=%llu",

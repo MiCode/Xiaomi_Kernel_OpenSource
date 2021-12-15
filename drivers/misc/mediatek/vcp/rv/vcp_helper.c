@@ -777,6 +777,10 @@ void vcp_disable_pm_clk(enum feature_id id)
 		vcp_wait_ready_sync(id);
 		vcp_disable_irqs();
 
+		/* trigger halt isr, force vcp enter wfi */
+		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
+		wait_vcp_wdt_irq_done();
+
 		flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
 		vcp_logger_uninit();
@@ -785,9 +789,6 @@ void vcp_disable_pm_clk(enum feature_id id)
 #if VCP_RECOVERY_SUPPORT
 		flush_workqueue(vcp_reset_workqueue);
 #endif
-		/* trigger halt isr, force vcp enter wfi */
-		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
-		wait_vcp_wdt_irq_done();
 		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x\n", VCP_BUS_DEBUG_OUT,
 			readl(VCP_BUS_DEBUG_OUT));
 		vcp_ready[VCP_A_ID] = 0;
@@ -825,6 +826,10 @@ static int vcp_pm_event(struct notifier_block *notifier
 			vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
 
+			/* trigger halt isr, force vcp enter wfi */
+			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
+			wait_vcp_wdt_irq_done();
+
 			flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
 			vcp_logger_uninit();
@@ -833,9 +838,6 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_RECOVERY_SUPPORT
 			flush_workqueue(vcp_reset_workqueue);
 #endif
-			/* trigger halt isr, force vcp enter wfi */
-			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
-			wait_vcp_wdt_irq_done();
 			vcp_ready[VCP_A_ID] = 0;
 #if VCP_BOOT_TIME_OUT_MONITOR
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
