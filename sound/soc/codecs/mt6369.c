@@ -2984,9 +2984,11 @@ static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("mt6369_vant18", SUPPLY_SEQ_LDO_VANT18,
 			      MT6369_LDO_VANT18_CON0,
 			      RG_LDO_VANT18_EN_SFT, 0, NULL, 0),
-	SND_SOC_DAPM_SUPPLY_S("mt6369_vaud28", SUPPLY_SEQ_LDO_VAUD28,
-			      MT6369_LDO_VAUD28_CON0,
-			      RG_LDO_VAUD28_EN_SFT, 0, NULL, 0),
+
+	/* SND_SOC_DAPM_SUPPLY_S("mt6369_vaud28", SUPPLY_SEQ_LDO_VAUD28,
+	 *		      MT6369_LDO_VAUD28_CON0,
+	 *		      RG_LDO_VAUD28_EN_SFT, 0, NULL, 0),
+	 */
 	SND_SOC_DAPM_SUPPLY_S("AUDGLB", SUPPLY_SEQ_AUD_GLB,
 			      MT6369_AUDDEC_ANA_CON24,
 			      RG_AUDGLB_PWRDN_VA28_SFT, 1, NULL, 0),
@@ -3426,7 +3428,7 @@ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
 	/* Capture */
 	{"AIFTX_Supply", NULL, "CLK_BUF"},
 	{"AIFTX_Supply", NULL, "mt6369_vant18"},
-	{"AIFTX_Supply", NULL, "mt6369_vaud28"},
+	// {"AIFTX_Supply", NULL, "mt6369_vaud28"},
 	{"AIFTX_Supply", NULL, "AUDGLB"},
 	{"AIFTX_Supply", NULL, "CLKSQ Audio"},
 	{"AIFTX_Supply", NULL, "AUD_CK"},
@@ -3538,7 +3540,7 @@ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
 	/* DL Supply */
 	{"DL Power Supply", NULL, "CLK_BUF"},
 	{"DL Power Supply", NULL, "mt6369_vant18"},
-	{"DL Power Supply", NULL, "mt6369_vaud28"},
+	// {"DL Power Supply", NULL, "mt6369_vaud28"},
 	{"DL Power Supply", NULL, "AUDGLB"},
 	{"DL Power Supply", NULL, "CLKSQ Audio"},
 	{"DL Power Supply", NULL, "AUDNCP_CK"},
@@ -3629,7 +3631,7 @@ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
 	{"VOW TX", NULL, "VOW_UL_SRC_MUX"},
 	{"VOW TX", NULL, "CLK_BUF"},
 	{"VOW TX", NULL, "mt6369_vant18"},
-	{"VOW TX", NULL, "mt6369_vaud28"},
+	// {"VOW TX", NULL, "mt6369_vaud28"},
 	{"VOW TX", NULL, "AUDGLB"},
 	//{"VOW TX", NULL, "AUDGLB_VOW", mt_vow_amic_connect},
 	{"VOW TX", NULL, "AUD_CK", mt_vow_amic_connect},
@@ -3853,9 +3855,10 @@ static void enable_trim_circuit(struct mt6369_priv *priv, bool enable)
 				   RG_AUDHPTRIM_EN_VAUDP15_MASK_SFT,
 				   0 << RG_AUDHPTRIM_EN_VAUDP15_SFT);
 
-		regmap_update_bits(priv->regmap, MT6369_LDO_VAUD28_CON0,
-				   RG_LDO_VAUD28_EN_MASK_SFT,
-				   0 << RG_LDO_VAUD28_EN_SFT);
+		/* regmap_update_bits(priv->regmap, MT6369_LDO_VAUD28_CON0,
+		 *		   RG_LDO_VAUD28_EN_MASK_SFT,
+		 *		   0 << RG_LDO_VAUD28_EN_SFT);
+		 */
 
 		regmap_update_bits(priv->regmap, MT6369_LDO_VANT18_CON0,
 				   RG_LDO_VANT18_EN_MASK_SFT,
