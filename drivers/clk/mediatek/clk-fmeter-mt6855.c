@@ -14,6 +14,7 @@
 
 #define FM_TIMEOUT		30
 #define SUBSYS_PLL_NUM		4
+#define VLP_FM_WAIT_TIME		40	/* ~= 38.64ns * 1023 */
 
 static DEFINE_SPINLOCK(meter_lock);
 #define fmeter_lock(flags)   spin_lock_irqsave(&meter_lock, flags)
@@ -199,6 +200,38 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK(ABIST_2, FM_APLL_I2S2_M_CK, "fm_apll_i2s2_m_ck", 1),
 	FMCLK(ABIST_2, FM_APLL_I2S1_M_CK, "fm_apll_i2s1_m_ck", 1),
 	FMCLK(ABIST_2, FM_APLL_I2S0_M_CK, "fm_apll_i2s0_m_ck", 1),
+	/* VLPCK Part */
+	FMCLK2(VLPCK, FM_SCP_CK, "fm_scp_ck", 0x0008, 7, 1),
+	FMCLK2(VLPCK, FM_PWRAP_ULPOSC_CK, "fm_pwrap_ulposc_ck", 0x0008, 15, 1),
+	FMCLK2(VLPCK, FM_DXCC_CK_2, "fm_dxcc_ck_2", 0x0008, 23, 1),
+	FMCLK2(VLPCK, FM_SPMI_P_CK, "fm_spmi_p_ck", 0x0008, 31, 1),
+	FMCLK2(VLPCK, FM_SPMI_M_CK, "fm_spmi_m_ck", 0x0014, 7, 1),
+	FMCLK2(VLPCK, FM_DVFSRC_CK, "fm_dvfsrc_ck", 0x0014, 15, 1),
+	FMCLK2(VLPCK, FM_PWM_VLP_CK, "fm_pwm_vlp_ck", 0x0014, 23, 1),
+	FMCLK2(VLPCK, FM_AXI_VLP_CK, "fm_axi_vlp_ck", 0x0014, 31, 1),
+	FMCLK2(VLPCK, FM_DBGAO_26M_CK, "fm_dbgao_26m_ck", 0x0020, 7, 1),
+	FMCLK2(VLPCK, FM_SYSTIMER_26M_CK, "fm_systimer_26m_ck", 0x0020, 15, 1),
+	FMCLK2(VLPCK, FM_SSPM_CK, "fm_sspm_ck", 0x0020, 23, 1),
+	FMCLK2(VLPCK, FM_SSPM_F26M_CK, "fm_sspm_f26m_ck", 0x0020, 31, 1),
+	FMCLK2(VLPCK, FM_SRCK_CK_2, "fm_srck_ck_2", 0x002C, 7, 1),
+	FMCLK2(VLPCK, FM_SRAMRC_CK, "fm_sramrc_ck", 0x002C, 15, 1),
+	FMCLK2(VLPCK, FM_SCP_SPI_CK, "fm_scp_spi_ck", 0x002C, 23, 1),
+	FMCLK2(VLPCK, FM_SCP_IIC_CK, "fm_scp_iic_ck", 0x002C, 31, 1),
+	FMCLK(VLPCK, FM_SPM_CK, "fm_spm_ck", 1),
+	FMCLK(VLPCK, FM_SEJ_26M_CK, "fm_sej_26m_ck", 1),
+	FMCLK(VLPCK, FM_MD_BUCK_26M_CK, "fm_md_buck_26m_ck", 1),
+	FMCLK(VLPCK, FM_SSPM_ULPOSC_CK, "fm_sspm_ulposc_ck", 1),
+	FMCLK(VLPCK, FM_DBGAO_66M_CK, "fm_dbgao_66m_ck", 1),
+	FMCLK(VLPCK, FM_ULPOSC_CORE_CK, "fm_ulposc_core_ck", 1),
+	FMCLK(VLPCK, FM_ULPOSC_CK, "fm_ulposc_ck", 1),
+	FMCLK(VLPCK, FM_VLP_F26M_COM_CK, "fm_vlp_f26m_com_ck", 1),
+	FMCLK(VLPCK, FM_VLP_F32K_COM_CK, "fm_vlp_f32k_com_ck", 1),
+	FMCLK(VLPCK, FM_RTC32K_NO_SCAN, "fm_rtc32k_no_scan", 1),
+	FMCLK(VLPCK, FM_SYS26M_NO_SCAN, "fm_sys26m_no_scan", 1),
+	FMCLK(VLPCK, FM_OSC26M_NO_SCAN, "fm_osc26m_no_scan", 1),
+	FMCLK(VLPCK, FM_MD_OSC26M_VLP_CK, "fm_md_osc26m_vlp_ck", 1),
+	FMCLK(VLPCK, FM_F32K_VLP_CK, "fm_f32k_vlp_ck", 1),
+	FMCLK(VLPCK, FM_F32K_VCORE_CK_2, "fm_f32k_vcore_ck_2", 1),
 	{},
 };
 
@@ -208,7 +241,9 @@ static const struct fmeter_clk fclks[] = {
 #define CLK26CALI_0		_CKGEN(0x220)
 #define CLK26CALI_1		_CKGEN(0x224)
 #define _APMIXED(x)		(apmixed_base + (x))
-#define AP_PLLGP1_CON0		_APMIXED(0x200)
+#define _VLP_CK(x)		(vlp_ck_base + (x))
+#define VLP_CK_CON0		_VLP_CK(0x230)
+#define VLP_CK_CON1		_VLP_CK(0x234)
 
 static void __iomem *topck_base;
 static void __iomem *apmixed_base;
@@ -286,10 +321,150 @@ static unsigned int get_clk_div(unsigned int type, unsigned int ID)
 	return fclks[i].ck_div;
 }
 
-/* need implement ckgen&abist api here */
+static int __mt_get_freq(unsigned int ID, int type)
+{
+	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
+	unsigned int clk_div = 1, post_div = 1;
+	unsigned long flags;
+	int output = 0, i = 0;
 
-/* implement done */
+	fmeter_lock(flags);
 
+	if (type == CKGEN && check_pdn(topck_base, CKGEN, ID)) {
+		pr_notice("ID-%d: MUX PDN, return 0.\n", ID);
+		fmeter_unlock(flags);
+		return 0;
+	}
+
+	while (clk_readl(CLK26CALI_0) & 0x10) {
+		udelay(10);
+		i++;
+		if (i > FM_TIMEOUT)
+			break;
+	}
+
+	/* CLK26CALI_0[15]: rst 1 -> 0 */
+	clk_writel(CLK26CALI_0, (clk_readl(CLK26CALI_0) & 0xFFFF7FFF));
+	/* CLK26CALI_0[15]: rst 0 -> 1 */
+	clk_writel(CLK26CALI_0, (clk_readl(CLK26CALI_0) | 0x00008000));
+
+	if (type == CKGEN) {
+		clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
+		clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFFF80FC) | (ID << 8) | (0x1));
+	} else if (type == ABIST) {
+		clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
+		clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFF80FFFC) | (ID << 16));
+	} else if (type == ABIST_2) {
+		clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
+		clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xC0FFFFFC) | (ID << 24) | (0x2));
+	} else {
+		fmeter_unlock(flags);
+		return 0;
+	}
+
+	clk_misc_cfg_0 = clk_readl(CLK_MISC_CFG_0);
+	clk_writel(CLK_MISC_CFG_0, (clk_misc_cfg_0 & 0x00FFFFFF) | (3 << 24));
+
+	clk26cali_1 = clk_readl(CLK26CALI_1);
+	clk_writel(CLK26CALI_0, 0x9000);
+	clk_writel(CLK26CALI_0, 0x9010);
+
+	/* wait frequency meter finish */
+	i = 0;
+	do {
+		udelay(10);
+		i++;
+		if (i > FM_TIMEOUT)
+			break;
+	} while (clk_readl(CLK26CALI_0) & 0x10);
+
+	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
+
+	if (type == ABIST)
+		post_div = get_post_div(type, ID);
+
+	clk_div = get_clk_div(type, ID);
+
+	output = (temp * 26000) / 1024 * clk_div / post_div;
+
+	clk_writel(CLK_DBG_CFG, clk_dbg_cfg);
+	clk_writel(CLK_MISC_CFG_0, clk_misc_cfg_0);
+	/*clk_writel(CLK26CALI_0, clk26cali_0);*/
+	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
+
+	clk_writel(CLK26CALI_0, 0x8000);
+	fmeter_unlock(flags);
+
+	if (i > FM_TIMEOUT)
+		return 0;
+
+	if ((output * 4) < 1000) {
+		pr_notice("%s(%d): CLK_DBG_CFG = 0x%x, CLK_MISC_CFG_0 = 0x%x, CLK26CALI_0 = 0x%x, CLK26CALI_1 = 0x%x\n",
+			__func__,
+			ID,
+			clk_readl(CLK_DBG_CFG),
+			clk_readl(CLK_MISC_CFG_0),
+			clk_readl(CLK26CALI_0),
+			clk_readl(CLK26CALI_1));
+	}
+
+	return (output * 4);
+}
+
+static int __mt_get_freq2(void __iomem *con0, void __iomem *con1,
+		unsigned int id, int type)
+{
+	unsigned int temp;
+	unsigned long flags;
+	int output = 0, i = 0;
+
+	fmeter_lock(flags);
+
+	/* PLL4H_FQMTR_CON1[15]: rst 1 -> 0 */
+	clk_writel(con0, clk_readl(con0) & 0xFFFF7FFF);
+	/* PLL4H_FQMTR_CON1[15]: rst 0 -> 1 */
+	clk_writel(con0, clk_readl(con0) | 0x8000);
+
+	/* sel fqmtr_cksel */
+	if (type == SUBSYS)
+		clk_writel(con0, (clk_readl(con0) & 0x00FFFFF8) | (id << 0));
+	else if (type == VLPCK)
+		clk_writel(con0, (clk_readl(con0) & 0xFFE0FFF8) | (id << 16));
+	/* set ckgen_load_cnt to 1024 */
+	clk_writel(con1, (clk_readl(con1) & 0xFC00FFFF) | (0x3FF << 16));
+
+	/* sel fqmtr_cksel and set ckgen_k1 to 0(DIV4) */
+	clk_writel(con0, (clk_readl(con0) & 0x00FFFFFF) | (3 << 24));
+
+	/* fqmtr_en set to 1, fqmtr_exc set to 0, fqmtr_start set to 0 */
+	clk_writel(con0, (clk_readl(con0) & 0xFFFF8007) | 0x1000);
+	/*fqmtr_start set to 1 */
+	clk_writel(con0, clk_readl(con0) | 0x10);
+
+	/* wait frequency meter finish */
+	if (type == VLPCK) {
+		udelay(VLP_FM_WAIT_TIME);
+	} else {
+		while (clk_readl(con0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 30) {
+				pr_notice("[%d]con0: 0x%x, con1: 0x%x\n",
+					id, clk_readl(con0), clk_readl(con1));
+				break;
+			}
+		}
+	}
+
+	temp = clk_readl(con1) & 0xFFFF;
+	output = ((temp * 26000)) / 1024; // Khz
+
+	clk_writel(con0, 0x8000);
+
+	fmeter_unlock(flags);
+
+	return output * 4;
+}
 static unsigned int mt6855_get_ckgen_freq(unsigned int ID)
 {
 	return __mt_get_freq(ID, CKGEN);
@@ -303,6 +478,109 @@ static unsigned int mt6855_get_abist_freq(unsigned int ID)
 static unsigned int mt6855_get_abist2_freq(unsigned int ID)
 {
 	return __mt_get_freq(ID, ABIST_2);
+}
+
+static unsigned int mt6855_get_vlpck_freq(unsigned int ID)
+{
+	return __mt_get_freq2(VLP_CK_CON0, VLP_CK_CON1, ID, VLPCK);
+}
+
+static unsigned int mt6855_get_subsys_freq(unsigned int ID)
+{
+	int output = 0;
+	unsigned long flags;
+	void __iomem *base, *con0, *con1;
+	unsigned int id;
+	unsigned int subsys_idx;
+
+	subsys_fmeter_lock(flags);
+	if (check_pdn(spm_base, SUBSYS, ID)) {
+		pr_notice("ID-%d: PDN, return 0.\n", ID);
+		subsys_fmeter_unlock(flags);
+		return 0;
+	}
+
+	id = FM_ID(ID);
+	subsys_idx = FM_SYS(ID) * 4 + id;
+	if (subsys_idx >= (SUBSYS_PLL_NUM * FM_SYS_NUM) || subsys_idx < 0) {
+		subsys_fmeter_unlock(flags);
+		return 0;
+	}
+
+	base = fm_sub_clks[subsys_idx].base;
+	con0 = base + fm_sub_clks[subsys_idx].con0;
+	con1 = base + fm_sub_clks[subsys_idx].con1;
+
+	pr_notice("subsys ID: %d\n", ID);
+	__mt_get_freq2(con0, con1, id, SUBSYS);
+
+	subsys_fmeter_unlock(flags);
+
+	return output * 4;
+}
+
+static unsigned int mt6855_get_fmeter_freq(unsigned int id, enum  FMETER_TYPE type)
+{
+	if (type == CKGEN)
+		return mt6855_get_ckgen_freq(id);
+	else if (type == ABIST)
+		return mt6855_get_abist_freq(id);
+	else if (type == ABIST_2)
+		return mt6855_get_abist2_freq(id);
+	else if (type == SUBSYS)
+		return mt6855_get_subsys_freq(id);
+	else if (type == VLPCK)
+		return mt6855_get_vlpck_freq(id);
+
+	return FT_NULL;
+}
+
+static int mt6855_subsys_freq_register(struct fm_subsys *fm, unsigned int size)
+{
+	unsigned int all_idx, sub_idx;
+	int i;
+
+	fm_sub_clks = kcalloc(FM_SYS_NUM * SUBSYS_PLL_NUM,
+			sizeof(*fm_all_clks), GFP_KERNEL);
+	if (!fm_sub_clks)
+		return -ENOMEM;
+
+	for (i = 0; i < size; i++, fm++) {
+		unsigned int sys = FM_SYS(fm->id);
+		unsigned int id = FM_ID(fm->id);
+
+		if (sys >= FM_SYS_NUM || id >= SUBSYS_PLL_NUM)
+			continue;
+
+		sub_idx = (sys * 4) + id;
+		all_idx = fm_clk_cnt;
+
+		fm_all_clks[all_idx].id = fm->id;
+		fm_all_clks[all_idx].type = SUBSYS;
+		fm_all_clks[all_idx].name = fm->name;
+		fm_all_clks[all_idx].ofs = fm->pwr_sta.ofs;
+		fm_all_clks[all_idx].pdn = fm->pwr_sta.msk;
+
+		fm_sub_clks[sub_idx].base = fm->base;
+		fm_sub_clks[sub_idx].con0 = fm->con0;
+		fm_sub_clks[sub_idx].con1 = fm->con1;
+
+		fm_clk_cnt++;
+	}
+
+	return 0;
+}
+
+static int mt6855_get_fmeter_id(enum FMETER_ID fid)
+{
+	if (fid == FID_DISP_PWM)
+		return FM_DISP_PWM_CK;
+	//else if (fid == FID_ULPOSC1)
+	//	return FM_ULPOSC_CK_2;
+	//else if (fid == FID_ULPOSC2)
+	//	return FM_ULPOSC_CORE_CK_2;
+
+	return FID_NULL;
 }
 
 static void __iomem *get_base_from_comp(const char *comp)
@@ -327,8 +605,20 @@ static void __iomem *get_base_from_comp(const char *comp)
 	return ERR_PTR(-EINVAL);
 }
 
+/*
+ * init functions
+ */
+
+static struct fmeter_ops fm_ops = {
+	.get_fmeter_clks = mt6855_get_fmeter_clks,
+	.get_fmeter_freq = mt6855_get_fmeter_freq,
+	.subsys_freq_register = mt6855_subsys_freq_register,
+	.get_fmeter_id = mt6855_get_fmeter_id,
+};
 static int clk_fmeter_mt6855_probe(struct platform_device *pdev)
 {
+	int i;
+
 	topck_base = get_base_from_comp("mediatek,mt6855-topckgen");
 	if (IS_ERR(topck_base))
 		goto ERR;
@@ -340,6 +630,22 @@ static int clk_fmeter_mt6855_probe(struct platform_device *pdev)
 	spm_base = get_base_from_comp("mediatek,mt6855-scpsys");
 	if (IS_ERR(spm_base))
 		goto ERR;
+
+	vlp_ck_base = get_base_from_comp("mediatek,mt6855-vlp_cksys");
+	if (IS_ERR(vlp_ck_base))
+		goto ERR;
+
+	fm_all_clks = kcalloc(FM_SYS_NUM * 4 + ARRAY_SIZE(fclks),
+			sizeof(*fm_all_clks), GFP_KERNEL);
+	if (!fm_all_clks)
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(fclks) - 1; i++) {
+		fm_all_clks[i] = fclks[i];
+		fm_clk_cnt++;
+	}
+
+	fmeter_set_ops(&fm_ops);
 
 	return 0;
 ERR:

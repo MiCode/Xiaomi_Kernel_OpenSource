@@ -166,11 +166,42 @@
 #define FM_APLL_I2S2_M_CK			29
 #define FM_APLL_I2S1_M_CK			30
 #define FM_APLL_I2S0_M_CK			31
+/* VLPCK Part */
+#define FM_SCP_CK				1
+#define FM_PWRAP_ULPOSC_CK			2
+#define FM_DXCC_CK_2				3
+#define FM_SPMI_P_CK				4
+#define FM_SPMI_M_CK				5
+#define FM_DVFSRC_CK				6
+#define FM_PWM_VLP_CK				7
+#define FM_AXI_VLP_CK				8
+#define FM_DBGAO_26M_CK				9
+#define FM_SYSTIMER_26M_CK			10
+#define FM_SSPM_CK				11
+#define FM_SSPM_F26M_CK				12
+#define FM_SRCK_CK_2				13
+#define FM_SRAMRC_CK				14
+#define FM_SCP_SPI_CK				15
+#define FM_SCP_IIC_CK				16
+#define FM_SPM_CK				17
+#define FM_SEJ_26M_CK				18
+#define FM_MD_BUCK_26M_CK			19
+#define FM_SSPM_ULPOSC_CK			20
+#define FM_DBGAO_66M_CK				21
+#define FM_ULPOSC_CORE_CK			22
+#define FM_ULPOSC_CK				23
+#define FM_VLP_F26M_COM_CK			24
+#define FM_VLP_F32K_COM_CK			25
+#define FM_RTC32K_NO_SCAN			26
+#define FM_SYS26M_NO_SCAN			27
+#define FM_OSC26M_NO_SCAN			28
+#define FM_MD_OSC26M_VLP_CK			29
+#define FM_F32K_VLP_CK				30
+#define FM_F32K_VCORE_CK_2			31
 
 enum fm_sys_id {
 	FM_GPU_PLL_CTRL = 0,
-	FM_APU_PLL_CTRL = 1,
-	FM_SYS_NUM = 2,
+	FM_SYS_NUM = 1,
 };
 
 #endif /* _CLK_MT6855_FMETER_H */
