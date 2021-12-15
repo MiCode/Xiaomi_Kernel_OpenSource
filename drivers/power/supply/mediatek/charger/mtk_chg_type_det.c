@@ -558,6 +558,10 @@ static int mt_charger_probe(struct platform_device *pdev)
 	#ifdef CONFIG_EXTCON_USB_CHG
 	struct usb_extcon_info *info;
 	#endif
+	struct device *dev = NULL;
+	struct device_node *boot_node = NULL;
+	struct tag_bootmode *tag = NULL;
+	int boot_mode = 11;//UNKNOWN_BOOT
 
 	pr_info("%s\n", __func__);
 
@@ -633,11 +637,22 @@ static int mt_charger_probe(struct platform_device *pdev)
 		goto err_get_tcpc_dev;
 	}
 
-// workaround for mt6768
-	ret = 0;
+	dev = &(pdev->dev);
+	if (dev != NULL) {
+		boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
+		if (!boot_node) {
+			chr_err("%s: failed to get boot mode phandle\n", __func__);
+		} else {
+			tag = (struct tag_bootmode *)of_get_property(boot_node, "atag,boot", NULL);
+			if (!tag)
+				chr_err("%s: failed to get atag,boot\n", __func__);
+			else
+				boot_mode = tag->bootmode;
+		}
+	}
 //	ret = get_boot_mode();
-	if (ret == KERNEL_POWER_OFF_CHARGING_BOOT ||
-	    ret == LOW_POWER_OFF_CHARGING_BOOT)
+	if (boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT ||
+	    boot_mode == LOW_POWER_OFF_CHARGING_BOOT)
 		cti->tcpc_kpoc = true;
 	pr_info("%s KPOC(%d)\n", __func__, cti->tcpc_kpoc);
 

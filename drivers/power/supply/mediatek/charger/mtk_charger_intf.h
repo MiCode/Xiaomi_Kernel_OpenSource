@@ -462,11 +462,15 @@ enum usb_state_enum {
 	USB_CONFIGURED
 };
 
+#if defined(CONFIG_MACH_MT6877)
+bool is_usb_rdy(struct device *dev);
+#else
 bool __attribute__((weak)) is_usb_rdy(void)
 {
 	pr_info("%s is not defined\n", __func__);
 	return false;
 }
+#endif
 
 /* procfs */
 #define PROC_FOPS_RW(name)						\

@@ -18,6 +18,7 @@
 #include <linux/wait.h>
 #include <linux/kthread.h>
 #include <linux/of.h>
+#include <linux/phy/phy.h>
 
 #include "../inc/mt6360_pmu.h"
 #include "../inc/mt6360_pmu_chg.h"
@@ -30,6 +31,8 @@
 #include <mt-plat/mtk_boot.h>
 
 #define MT6360_PMU_CHG_DRV_VERSION	"1.0.8_MTK"
+#define PHY_MODE_BC11_SET 1
+#define PHY_MODE_BC11_CLR 2
 
 struct tag_bootmode {
 	u32 size;
@@ -436,15 +439,47 @@ static int mt6360_psy_chg_type_changed(struct mt6360_pmu_chg_info *mpci)
 }
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
 
+#if defined(CONFIG_MACH_MT6877)
+static int DPDM_Switch_TO_CHG_upstream(struct mt6360_pmu_chg_info *mpci,
+						bool switch_to_chg)
+{
+	struct phy *phy;
+	int mode = 0;
+	int ret;
+
+	mode = switch_to_chg ? PHY_MODE_BC11_SET : PHY_MODE_BC11_CLR;
+	phy = phy_get(mpci->dev, "usb2-phy");
+	if (IS_ERR_OR_NULL(phy)) {
+		dev_info(mpci->dev, "phy_get fail\n");
+		return -EINVAL;
+	}
+
+	ret = phy_set_mode_ext(phy, PHY_MODE_USB_DEVICE, mode);
+	if (ret)
+		dev_info(mpci->dev, "phy_set_mode_ext fail\n");
+
+	phy_put(phy);
+
+	return 0;
+}
+#endif
+
 static int mt6360_set_usbsw_state(struct mt6360_pmu_chg_info *mpci, int state)
 {
 	dev_info(mpci->dev, "%s: state = %d\n", __func__, state);
 
 	/* Switch D+D- to AP/MT6360 */
+#if defined(CONFIG_MACH_MT6877)
+	if (state == MT6360_USBSW_CHG)
+		DPDM_Switch_TO_CHG_upstream(mpci, true);
+	else
+		DPDM_Switch_TO_CHG_upstream(mpci, false);
+#else
 	if (state == MT6360_USBSW_CHG)
 		Charger_Detect_Init();
 	else
 		Charger_Detect_Release();
+#endif
 
 	return 0;
 }
@@ -473,6 +508,23 @@ static int __maybe_unused mt6360_is_dcd_tout_enable(
 }
 #endif
 
+#if defined(CONFIG_MACH_MT6877)
+bool is_usb_rdy(struct device *dev)
+{
+	struct device_node *node;
+	bool ready = false;
+
+	node = of_parse_phandle(dev->of_node, "usb", 0);
+	if (node) {
+		ready = of_property_read_bool(node, "gadget-ready");
+		dev_info(dev, "gadget-ready=%d\n", ready);
+	} else
+		dev_info(dev, "usb node missing or invalid\n");
+
+	return ready;
+}
+#endif
+
 static int __mt6360_enable_usbchgen(struct mt6360_pmu_chg_info *mpci, bool en)
 {
 	int i, ret = 0;
@@ -495,8 +547,13 @@ static int __mt6360_enable_usbchgen(struct mt6360_pmu_chg_info *mpci, bool en)
 #endif /* CONFIG_MT6360_DCDTOUT_SUPPORT */
 		/* Workaround for CDP port */
 		for (i = 0; i < max_wait_cnt; i++) {
+#if defined(CONFIG_MACH_MT6877)
+			if (is_usb_rdy(mpci->dev))
+				break;
+#else
 			if (is_usb_rdy())
 				break;
+#endif
 			dev_info(mpci->dev, "%s: CDP block\n", __func__);
 #ifndef CONFIG_TCPC_CLASS
 			/* Check vbus */
@@ -577,7 +634,6 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 				boot_mode = tag->bootmode;
 		}
 	}
-	
 	if (attach && (boot_mode == 1)) {
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(mpci->dev, "%s: force Standard USB Host in meta\n",
