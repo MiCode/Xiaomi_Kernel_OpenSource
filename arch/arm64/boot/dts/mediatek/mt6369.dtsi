@@ -219,6 +219,7 @@
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <240>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 			mt6369_vant18: VANT18 {
 				regulator-compatible = "VANT18";
