@@ -16,6 +16,7 @@
 #define SPARE_DBG_REG14		0x438	// mbox4_dummy14
 #define SPARE_DBG_REG15		0x43C	// mbox4_dummy15
 #define SPARE_DBG_REG16		0x440	// mbox4_dummy16
+#define SPARE_DBG_REG17		0x444	// mbox4_dummy17
 
 #define ACX0_LIMIT_OPP_REG      SPARE_DBG_REG10
 #define ACX1_LIMIT_OPP_REG      SPARE_DBG_REG11
@@ -25,6 +26,8 @@
 #define DRV_CFG_SYNC_REG	SPARE_DBG_REG15
 
 #define PWR_FLOW_SYNC_REG	SPARE_DBG_REG16
+
+#define PWR_DBG_REG		SPARE_DBG_REG17
 
 enum {
 	APUPWR_DBG_DEV_CTL = 0,
@@ -53,27 +56,16 @@ struct plat_cfg_data {
 };
 
 struct device_opp_limit {
-	int8_t vpu_max:4,
-	       vpu_min:4;
-	int8_t dla_max:4,
-	       dla_min:4;
-	int8_t lmt_type; // limit reason
+	int32_t vpu_max:6,
+		vpu_min:6,
+		dla_max:6,
+		dla_min:6,
+		lmt_type:8; // limit reason
 };
 
 struct cluster_dev_opp_info {
 	uint32_t opp_lmt_reg;
 	struct device_opp_limit dev_opp_lmt;
-};
-
-struct hw_resource_status {
-	int32_t vapu_opp:4,
-		vsram_opp:4,
-		vcore_opp:4,
-		fconn_opp:4,
-		fvpu_opp:4,
-		fdla_opp:4,
-		fup_opp:4,
-		reserved:4;
 };
 
 /*

@@ -61,18 +61,19 @@ static void _opp_limiter(int vpu_max, int vpu_min, int dla_max, int dla_min,
 			vpu_max, vpu_min, dla_max, dla_min);
 #endif
 	for (i = 0 ; i < CLUSTER_NUM ; i++) {
-		opp_limit_tbl[i].dev_opp_lmt.vpu_max = vpu_max & 0xf;
-		opp_limit_tbl[i].dev_opp_lmt.vpu_min = vpu_min & 0xf;
-		opp_limit_tbl[i].dev_opp_lmt.dla_max = dla_max & 0xf;
-		opp_limit_tbl[i].dev_opp_lmt.dla_min = dla_min & 0xf;
+		opp_limit_tbl[i].dev_opp_lmt.vpu_max = vpu_max & 0x3f;
+		opp_limit_tbl[i].dev_opp_lmt.vpu_min = vpu_min & 0x3f;
+		opp_limit_tbl[i].dev_opp_lmt.dla_max = dla_max & 0x3f;
+		opp_limit_tbl[i].dev_opp_lmt.dla_min = dla_min & 0x3f;
 		opp_limit_tbl[i].dev_opp_lmt.lmt_type = type & 0xff;
 
 		reg_data = 0x0;
-		reg_data = ((vpu_max & 0xf) |		// [3:0]
-			((vpu_min & 0xf) << 4) |	// [7:4]
-			((dla_max & 0xf) << 8) |	// [b:8]
-			((dla_min & 0xf) << 12) |	// [f:c]
-			((type & 0xff) << 16));		// dedicate 1 byte
+		reg_data = (
+			((vpu_max & 0x3f) << 0) |	// [5:0]
+			((vpu_min & 0x3f) << 6) |	// [11:6]
+			((dla_max & 0x3f) << 12) |	// [17:12]
+			((dla_min & 0x3f) << 18) |	// [23:18]
+			((type & 0xff) << 24));		// dedicate 1 byte
 
 		reg_offset = opp_limit_tbl[i].opp_lmt_reg;
 
@@ -295,7 +296,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	}
 
 	for (i = 0 ; i < BUCK_NUM ; i++) {
-		seq_printf(s, "%s : opp %d , %d(mV)\n",
+		seq_printf(s, "%s : opp %d , %d(uV)\n",
 				buck_name[i],
 				info.buck_opp[i],
 				info.buck_volt[i]);
