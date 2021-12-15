@@ -253,7 +253,7 @@ void mt6368_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 	regmap_update_bits(priv->regmap, MT6368_AUDIO_DIG_CFG0,
 			   RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_MASK_SFT,
 			   1 << RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_SFT);
-	regmap_update_bits(priv->regmap, MT6368_AUDIO_DIG_CFG1,
+	regmap_update_bits(priv->regmap, MT6368_AUDIO_DIG_CFG2,
 			   RG_AUD_PAD_TOP_DAT_MISO3_LOOPBACK_MASK_SFT,
 			   1 << RG_AUD_PAD_TOP_DAT_MISO3_LOOPBACK_SFT);
 }
