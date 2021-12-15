@@ -33,6 +33,7 @@
 #include <gpufreq_common.h>
 #include <gpufreq_mt6855.h>
 #include <gpudfd_mt6855.h>
+#include <gpueb_debug.h>
 #include <mtk_gpu_utility.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
@@ -657,17 +658,19 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpufreq_hw_dcm_control();
 		__gpufreq_footprint_power_step(0x07);
 
+		/* disable RGX secure protect */
+		gpu_set_rgx_bus_secure();
+		__gpufreq_footprint_power_step(0x08);
+
 		/* free DVFS when power on */
 		g_dvfs_state &= ~DVFS_POWEROFF;
-
-		__gpufreq_footprint_power_step(0x08);
-	} else if (power == POWER_OFF && g_gpu.power_count == 0) {
 		__gpufreq_footprint_power_step(0x09);
+	} else if (power == POWER_OFF && g_gpu.power_count == 0) {
+		__gpufreq_footprint_power_step(0x0A);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
-
-		__gpufreq_footprint_power_step(0x0A);
+		__gpufreq_footprint_power_step(0x0B);
 
 		/* control clock */
 		ret = __gpufreq_clock_control(POWER_OFF);
@@ -676,7 +679,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x0B);
+		__gpufreq_footprint_power_step(0x0C);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -685,7 +688,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x0C);
+		__gpufreq_footprint_power_step(0x0D);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -694,11 +697,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x0D);
+		__gpufreq_footprint_power_step(0x0E);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(POWER_OFF);
-		__gpufreq_footprint_power_step(0x0E);
+		__gpufreq_footprint_power_step(0x0F);
 	}
 
 	/* return power count if successfully control power */

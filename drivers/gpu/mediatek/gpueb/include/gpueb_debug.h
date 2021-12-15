@@ -66,6 +66,7 @@
  **************************************************/
 void gpueb_debug_init(struct platform_device *pdev);
 void gpueb_trigger_wdt(const char *name);
+void gpu_set_rgx_bus_secure(void);
 void gpueb_dump_status(void);
 
 #endif /* __GPUEB_DEBUG_H__ */
