@@ -5014,6 +5014,9 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				queue_work(ctx->composer_wq, &frame_work->work);
 			}
 
+			if (watchdog_scenario(ctx) && initial_frame)
+				mtk_ctx_watchdog_start(ctx, 4);
+
 			dev_dbg(cam->dev, "%s:ctx:%d:req:%d(%s) enqueue ctx_used:0x%x,streaming_ctx:0x%x,job cnt:%d, running(%d)\n",
 				__func__, stream_id, req_stream_data->frame_seq_no,
 				req->req.debug_str, req->ctx_used, cam->streaming_ctx,
@@ -6434,9 +6437,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		}
 	}
 
-	if (watchdog_scenario(ctx))
-		mtk_ctx_watchdog_start(ctx, 4);
-
 	dev_dbg(cam->dev, "streamed on camsys ctx:%d\n", ctx->stream_id);
 
 	if (raw_dev)
@@ -7054,7 +7054,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 					if (int_en == 0)
 						aee_kernel_warning_api(
 							__FILE__, __LINE__, DB_OPT_DEFAULT,
-							"Camsys: Request release timeout",
+							"Camsys: 1st CQ done timeout",
 							"watchdog timeout");
 					else
 						aee_kernel_warning_api(

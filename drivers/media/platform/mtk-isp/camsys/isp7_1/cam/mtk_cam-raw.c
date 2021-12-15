@@ -1162,9 +1162,14 @@ void apply_cq(struct mtk_raw_device *dev,
 
 	MTK_CAM_TRACE_FUNC_BEGIN(BASIC);
 
-	dev_dbg(dev->dev,
-		"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
-		dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset);
+	if (initial)
+		dev_info(dev->dev,
+			"apply 1st raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
+			dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset);
+	else
+		dev_dbg(dev->dev,
+			"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
+			dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset);
 
 	if (!dev->pipeline->res_config.enable_hsf_raw) {
 		main = cq_addr + cq_offset;
