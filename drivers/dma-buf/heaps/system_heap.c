@@ -259,11 +259,6 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 		/* mapped before, return saved table */
 		ret = copy_sg_table(buffer->mapped_table[tab_id][dom_id], table);
 
-		/* update device info */
-		buffer->dev_info[tab_id][dom_id].dev = attachment->dev;
-		buffer->dev_info[tab_id][dom_id].direction = direction;
-		buffer->dev_info[tab_id][dom_id].map_attrs = attr;
-
 		mutex_unlock(&buffer->map_lock);
 		if (ret)
 			return ERR_PTR(-EINVAL);
@@ -364,16 +359,6 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		}
 	}
 
-	if (skip_cache_sync) {
-		spin_lock(&dmabuf->name_lock);
-		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
-				    __func__, dma_heap_get_name(buffer->heap),
-				    file_inode(dmabuf->file)->i_ino,
-				    dmabuf->name?:"NULL", direction,
-				    "skip cache sync because no iova");
-		spin_unlock(&dmabuf->name_lock);
-	}
-
 	mutex_unlock(&buffer->lock);
 
 	return 0;
@@ -399,16 +384,6 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 			dma_sync_sgtable_for_device(a->dev, a->table, direction);
 			skip_cache_sync = 0;
 		}
-	}
-
-	if (skip_cache_sync) {
-		spin_lock(&dmabuf->name_lock);
-		pr_info_ratelimited("%s [%s]: inode:%lu name:%s dir:%d %s\n",
-				    __func__, dma_heap_get_name(buffer->heap),
-				    file_inode(dmabuf->file)->i_ino,
-				    dmabuf->name?:"NULL", direction,
-				    "skip cache sync because no iova");
-		spin_unlock(&dmabuf->name_lock);
 	}
 
 	mutex_unlock(&buffer->lock);
@@ -591,14 +566,14 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 		}
 	}
 
+	/* free buffer memory */
+	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
+
 	if (atomic64_sub_return(buffer->len, &dma_heap_normal_total) < 0) {
 		pr_info("warn: %s, total memory underflow, 0x%lx!!, reset as 0\n",
 			__func__, atomic64_read(&dma_heap_normal_total));
 		atomic64_set(&dma_heap_normal_total, 0);
 	}
-
-	/* free buffer memory */
-	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
 }
 
 static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
@@ -608,13 +583,13 @@ static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 
 	dmabuf_release_check(dmabuf);
 
+	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
+
 	if (atomic64_sub_return(buffer->len, &dma_heap_normal_total) < 0) {
 		pr_info("warn: %s, total memory underflow, 0x%lx!!, reset as 0\n",
 			__func__, atomic64_read(&dma_heap_normal_total));
 		atomic64_set(&dma_heap_normal_total, 0);
 	}
-
-	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
 }
 
 static int system_heap_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
