@@ -2345,8 +2345,7 @@
 		};
 
 		emiisu {
-			compatible = "mediatek,mt6983-emiisu",
-				     "mediatek,common-emiisu";
+			compatible = "mediatek,mt6983-emiisu";
 			ctrl_intf = <1>;
 		};
 
