@@ -373,14 +373,14 @@ static void cat_register(char *buf)
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = ACCDET_AUXADC_SEL_ADDR;
 	end_addr = ACCDET_MON_FLAG_EN_ADDR;
-	for (addr = st_addr; addr <= end_addr; addr += 8) {
+	for (addr = st_addr; addr <= end_addr; addr += 4) {
 		idx = addr;
 		ret = sprintf(accdet_log_buf,
 			"(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
 			idx, accdet_read(idx),
+			idx+1, accdet_read(idx+1),
 			idx+2, accdet_read(idx+2),
-			idx+4, accdet_read(idx+4),
-			idx+6, accdet_read(idx+6));
+			idx+3, accdet_read(idx+3));
 		if (ret < 0)
 			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
@@ -391,14 +391,14 @@ static void cat_register(char *buf)
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = RG_AUDPREAMPLON_ADDR;
 	end_addr = RG_CLKSQ_EN_ADDR;
-	for (addr = st_addr; addr <= end_addr; addr += 8) {
+	for (addr = st_addr; addr <= end_addr; addr += 4) {
 		idx = addr;
 		ret = sprintf(accdet_log_buf,
 			"(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
 			idx, accdet_read(idx),
+			idx+1, accdet_read(idx+1),
 			idx+2, accdet_read(idx+2),
-			idx+4, accdet_read(idx+4),
-			idx+6, accdet_read(idx+6));
+			idx+3, accdet_read(idx+3));
 		if (ret < 0)
 			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
@@ -1261,11 +1261,12 @@ static u32 adjust_moisture_analog_setting(u32 eintID)
 		pr_info("%s efuse=0x%x,vref2val=0x%x, vref2hi=0x%x\n",
 			__func__, efuseval, vref2val, vref2hi);
 		/* voltage 880~1330mV */
-		accdet_update_bit(RG_ACCDETSPARE_H_ADDR, 7);
+		/*accdet_update_bit(RG_ACCDETSPARE_H_ADDR, 7);
 		accdet_update_bits(RG_EINTCOMPVTH_ADDR,
 			6, 0x3, (vref2val & 0xc) >> 2);
 		accdet_update_bits(RG_ACCDETSPARE_H_ADDR,
 			5, 0x3, (vref2val & 0x3));
+		*/
 		/* golden setting
 		 * accdet_update_bits(RG_ACCDETSPARE_ADDR,
 		 * 3, 0x1f, 0x1e);
@@ -2119,17 +2120,19 @@ static u32 config_moisture_detect_2_1_1(void)
 		accdet_dts.moisture_comp_vth);
 
 	/* EINTVTH1K/5K/10K efuse */
-	ret = nvmem_device_read(accdet->accdet_efuse, 96*2, 2, &efuseval);
+	/* RG_MOISTURE0[3:2] to 0x252F bit[7:6] */
+	/* RG_MOISTURE0[1:0] to 0x2534 bit[6:5] */
+	ret = nvmem_device_read(accdet->accdet_efuse, 98*2, 2, &efuseval);
 	eintvth = (int)(efuseval & ACCDET_CALI_MASK0);
-	pr_info("%s moisture_eint0 efuse=0x%x,eintvth=0x%x\n",
-		__func__, efuseval, eintvth);
+	pr_info("%s RG_MOISTURE0 efuseval=0x%x eintvth=0x%x\n", __func__, efuseval, eintvth);
 	/* set moisture reference voltage MVTH */
 	if (eintvth == 0) {
 		pr_info("%s vref_1v = 0x81\n", __func__);
 		accdet_write(RG_ACCDETSPARE_H_ADDR, 0x81);
 	} else {
-		pr_info("%s vref_1v = 0x%x\n", __func__, eintvth);
-		accdet_write(RG_ACCDETSPARE_H_ADDR, eintvth);
+		accdet_update_bits(RG_ACCDETSPARE_H_ADDR, 7, 0x1, ((eintvth >> 4) & 0x1));
+		accdet_update_bits(RG_EINTCOMPVTH_ADDR, 6, 0x3, ((eintvth >> 2) & 0x3));
+		accdet_update_bits(RG_ACCDETSPARE_H_ADDR, 5, 0x3, (eintvth & 0x3));
 	}
 	return 0;
 }
