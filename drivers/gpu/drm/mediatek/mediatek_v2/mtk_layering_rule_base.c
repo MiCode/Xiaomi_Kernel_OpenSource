@@ -2059,14 +2059,20 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 
 	layer_num = l_info->layer_num[disp_idx];
 	layer_size = sizeof(struct drm_mtk_layer_config) * layer_num;
-	l_info->input_config[disp_idx] = kzalloc(layer_size, GFP_KERNEL);
-	mml_cfg_size = sizeof(struct mml_frame_info) * layer_num;
-	l_info->mml_cfg[disp_idx] = kzalloc(mml_cfg_size, GFP_KERNEL);
-
+	l_info->input_config[disp_idx] = vzalloc(layer_size);
 	if (l_info->input_config[disp_idx] == NULL) {
 		DDPPR_ERR("%s:%d invalid input_config[%d]:0x%p\n",
 			__func__, __LINE__,
 			disp_idx, l_info->input_config[disp_idx]);
+		return -ENOMEM;
+	}
+
+	mml_cfg_size = sizeof(struct mml_frame_info) * layer_num;
+	l_info->mml_cfg[disp_idx] = vzalloc(mml_cfg_size);
+	if (l_info->mml_cfg[disp_idx] == NULL) {
+		DDPPR_ERR("%s:%d invalid mml_cfg[%d]:0x%p\n",
+			__func__, __LINE__,
+			disp_idx, l_info->mml_cfg[disp_idx]);
 		return -ENOMEM;
 	}
 
@@ -2145,8 +2151,8 @@ _copy_layer_info_by_disp(struct drm_mtk_layering_info *disp_info_user,
 				__LINE__);
 			ret = -EFAULT;
 		}
-		kfree(l_info->input_config[disp_idx]);
-		kfree(l_info->mml_cfg[disp_idx]);
+		vfree(l_info->input_config[disp_idx]);
+		vfree(l_info->mml_cfg[disp_idx]);
 	}
 
 	return ret;
@@ -3147,7 +3153,7 @@ static int load_hrt_test_data(struct drm_mtk_layering_info *disp_info,
 					sizeof(struct drm_mtk_layer_config) *
 					layer_num;
 				disp_info->input_config[disp_id] =
-					kzalloc(layer_size, GFP_KERNEL);
+					vzalloc(layer_size);
 			}
 			disp_info->layer_num[disp_id] = layer_num;
 
@@ -3170,8 +3176,8 @@ static int load_hrt_test_data(struct drm_mtk_layering_info *disp_info,
 			layering_rule_start(disp_info, 1, dev);
 			is_test_pass = true;
 		} else if (strncmp(line_buf, "[test_end]", 10) == 0) {
-			kfree(disp_info->input_config[0]);
-			kfree(disp_info->input_config[1]);
+			vfree(disp_info->input_config[0]);
+			vfree(disp_info->input_config[1]);
 			memset(disp_info, 0x0,
 			       sizeof(struct drm_mtk_layering_info));
 			is_end = true;
@@ -3351,7 +3357,7 @@ static int gen_hrt_pattern(struct drm_device *dev)
 	disp_info.gles_head[0] = 3;
 	disp_info.gles_tail[0] = 5;
 	disp_info.input_config[0] =
-		kzalloc(sizeof(struct drm_mtk_layer_config) * 5, GFP_KERNEL);
+		vzalloc(sizeof(struct drm_mtk_layer_config) * 5);
 	layer_info = disp_info.input_config[0];
 	for (i = 0; i < disp_info.layer_num[0]; i++)
 		layer_info[i].src_fmt = DRM_FORMAT_ARGB8888;
@@ -3385,7 +3391,7 @@ static int gen_hrt_pattern(struct drm_device *dev)
 	disp_info.gles_tail[1] = -1;
 
 	DDPMSG("free test pattern\n");
-	kfree(disp_info.input_config[0]);
+	vfree(disp_info.input_config[0]);
 	msleep(50);
 #endif
 	return 0;
