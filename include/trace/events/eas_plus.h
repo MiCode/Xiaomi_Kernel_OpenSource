@@ -234,25 +234,3 @@ TRACE_EVENT(sched_isolate,
 		  __entry->time, __entry->isolate)
 );
 #endif /* CONFIG_MTK_SCHED_EXTENSION */
-#ifdef CONFIG_MTK_TASK_TURBO
-TRACE_EVENT(sched_set_user_nice,
-	TP_PROTO(struct task_struct *task, int prio, int is_turbo),
-	TP_ARGS(task, prio, is_turbo),
-	TP_STRUCT__entry(
-		__field(int, pid)
-		__array(char, comm, TASK_COMM_LEN)
-		__field(int, prio)
-		__field(int, is_turbo)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->comm, task->comm, TASK_COMM_LEN);
-		__entry->pid	  = task->pid;
-		__entry->prio	  = prio;
-		__entry->is_turbo = is_turbo;
-	),
-
-	TP_printk("comm=%s pid=%d prio=%d is_turbo=%d",
-		__entry->comm, __entry->pid, __entry->prio, __entry->is_turbo)
-)
-#endif

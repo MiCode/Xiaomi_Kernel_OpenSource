@@ -13,5 +13,4 @@ enum {
 	END_INHERIT,
 };
 
-extern sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
 #endif

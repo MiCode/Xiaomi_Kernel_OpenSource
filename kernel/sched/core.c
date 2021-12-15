@@ -25,9 +25,6 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
-#ifdef CONFIG_MTK_TASK_TURBO
-#include <mt-plat/turbo_common.h>
-#endif
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
@@ -3058,11 +3055,9 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	 * Make sure we do not leak PI boosting priority to the child.
 	 */
 	p->prio = current->normal_prio;
-#ifdef CONFIG_MTK_TASK_TURBO
-	if (unlikely(is_turbo_task(current)))
-		set_user_nice(p, current->nice_backup);
-#endif
+
 	uclamp_fork(p);
+
 	/*
 	 * Revert to default priority/policy on fork if requested.
 	 */
@@ -3089,13 +3084,8 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 		return -EAGAIN;
 	else if (rt_prio(p->prio))
 		p->sched_class = &rt_sched_class;
-	else {
+	else
 		p->sched_class = &fair_sched_class;
-#ifdef CONFIG_MTK_TASK_TURBO
-		/* prio and backup should be aligned */
-		p->nice_backup = PRIO_TO_NICE(p->prio);
-#endif
-	}
 
 	init_entity_runnable_average(&p->se);
 
@@ -4569,20 +4559,6 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
 	struct rq_flags rf;
 	struct rq *rq;
 
-#ifdef CONFIG_MTK_TASK_TURBO
-	/* if rt boost, recover prio with backup */
-	if (unlikely(is_turbo_task(p))) {
-		if (!dl_prio(p->prio) && !rt_prio(p->prio)) {
-			int backup = p->nice_backup;
-
-			if (backup >= MIN_NICE && backup <= MAX_NICE) {
-				p->static_prio = NICE_TO_PRIO(backup);
-				p->prio = p->normal_prio = __normal_prio(p);
-				set_load_weight(p);
-			}
-		}
-	}
-#endif
 	/* XXX used to be waiter->prio, not waiter->task->prio */
 	prio = __rt_effective_prio(pi_task, p->normal_prio);
 
@@ -4699,10 +4675,6 @@ static inline int rt_effective_prio(struct task_struct *p, int prio)
 }
 #endif
 
-#ifdef CONFIG_MTK_TASK_TURBO
-#define task_turbo_nice(nice) (nice == 0xbeef || nice == 0xbeee)
-#endif
-
 void set_user_nice(struct task_struct *p, long nice)
 {
 	bool queued, running;
@@ -4710,32 +4682,14 @@ void set_user_nice(struct task_struct *p, long nice)
 	struct rq_flags rf;
 	struct rq *rq;
 
-#ifdef CONFIG_MTK_TASK_TURBO
-	if ((nice < MIN_NICE || nice > MAX_NICE) && !task_turbo_nice(nice))
-		return;
-#else
 	if (task_nice(p) == nice || nice < MIN_NICE || nice > MAX_NICE)
 		return;
-#endif
 	/*
 	 * We have to be careful, if called from sys_setpriority(),
 	 * the task might be in the middle of scheduling on another CPU.
 	 */
 	rq = task_rq_lock(p, &rf);
 	update_rq_clock(rq);
-
-#ifdef CONFIG_MTK_TASK_TURBO
-	/* for general use, backup it */
-	if (!task_turbo_nice(nice))
-		p->nice_backup = nice;
-
-	if (is_turbo_task(p))
-		nice = rlimit_to_nice(task_rlimit(p, RLIMIT_NICE));
-	else
-		nice = p->nice_backup;
-
-	trace_sched_set_user_nice(p, nice, is_turbo_task(p));
-#endif
 
 	/*
 	 * The RT priorities are set via sched_setscheduler(), but we still
@@ -4957,15 +4911,8 @@ static void __setscheduler(struct rq *rq, struct task_struct *p,
 		p->sched_class = &dl_sched_class;
 	else if (rt_prio(p->prio))
 		p->sched_class = &rt_sched_class;
-#ifdef CONFIG_MTK_TASK_TURBO
-	else {
-		p->sched_class = &fair_sched_class;
-		p->nice_backup = PRIO_TO_NICE(p->prio);
-	}
-#else
 	else
 		p->sched_class = &fair_sched_class;
-#endif
 }
 
 /*

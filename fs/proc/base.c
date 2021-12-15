@@ -2952,9 +2952,8 @@ static int proc_turbo_task_show(struct seq_file *m, struct pid_namespace *ns,
 	task_lock(p);
 	is_turbo = p->turbo;
 	is_inherit_turbo = atomic_read(&p->inherit_types);
-	seq_printf(m, "tid=%d turbo = %d,inherit turbo = %d prio=%d bk_prio=%d\n",
-			p->pid, is_turbo, is_inherit_turbo,
-			p->prio, NICE_TO_PRIO(p->nice_backup));
+	seq_printf(m, "tid=%d turbo = %d,inherit turbo = %d\n",
+			p->pid, is_turbo, is_inherit_turbo);
 	task_unlock(p);
 	return 0;
 }
