@@ -2082,15 +2082,35 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 
 void mhal_DPTx_SSCOnOffSetting(struct mtk_dp *mtk_dp, bool bENABLE)
 {
-	DPTXMSG("SSC enable = %d\n", bENABLE);
+	DPTXMSG("SSC_enable = %d\n", bENABLE);
 
-	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0), BITMASK(0:1));
+	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0), BITMASK(1:0));
+
+	msWrite4ByteMask(mtk_dp, 0x1014, 0x0, BIT(3));
+
+	//delta1 = 0.05% and delta=0.05%
+	// HBR3 8.1G
+	msWrite4ByteMask(mtk_dp, 0x10D4, 79 << 16, BITMASK(31:16)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10DC, 49 << 16, BITMASK(31:16)); //delta
+
+	// HBR2 5.4G
+	msWrite4ByteMask(mtk_dp, 0x10D4, 105, BITMASK(15:0)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10DC, 65, BITMASK(15:0)); //delta
+
+	// HBR 2.7G
+	msWrite4ByteMask(mtk_dp, 0x10D0, 105 << 16, BITMASK(31:16)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10D8, 65 << 16, BITMASK(31:16)); //delta
+
+	// RBR 1.62G
+	msWrite4ByteMask(mtk_dp, 0x10D0, 63, BITMASK(15:0)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10D8, 39, BITMASK(15:0)); //delta
+
 	if (bENABLE)
 		msWrite4ByteMask(mtk_dp, 0x1014, BIT(3), BIT(3));
 	else
 		msWrite4ByteMask(mtk_dp, 0x1014, 0x0, BIT(3));
 
-	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0)|BIT(1), BITMASK(0:1));
+	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0)|BIT(1), BITMASK(1:0));
 
 	udelay(50);
 }
