@@ -23,7 +23,7 @@ int ccd_ipi_register(struct platform_device *pdev,
 	struct mtk_ccd *ccd = platform_get_drvdata(pdev);
 
 	if (!ccd) {
-		dev_dbg(&pdev->dev, "ccd device is not ready\n");
+		dev_info(&pdev->dev, "ccd device is not ready\n");
 		return -EPROBE_DEFER;
 	}
 
@@ -73,6 +73,8 @@ int rpmsg_ccd_ipi_send(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 
 	if (atomic_read(&mept->worker_read_rdy))
 		wake_up(&mept->worker_readwq);
+	else
+		dev_info(ccd->dev, "worker_read_rdy is not ready\n");
 
 	dev_dbg(ccd->dev, "%s: ccd: %p id: %d\n",
 		 __func__, ccd, mept->mchinfo.id);
@@ -178,7 +180,7 @@ void ccd_master_listen(struct mtk_ccd *ccd,
 			 (atomic_read(&mtk_subdev->listen_obj_rdy) ==
 			 CCD_LISTEN_OBJECT_READY));
 		if (ret != 0) {
-			dev_dbg(ccd->dev,
+			dev_info(ccd->dev,
 				"master listen wait error: %d\n", ret);
 			return;
 		}
@@ -217,14 +219,14 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	mutex_lock(&mtk_subdev->endpoints_lock);
 	srcmdev = idr_find(&mtk_subdev->endpoints, read_obj->src);
 	if (!srcmdev) {
-		dev_dbg(ccd->dev, "src ept is not exist\n");
+		dev_info(ccd->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
 	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
-		dev_dbg(ccd->dev, "src ept is not ready\n");
+		dev_info(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		goto err_put;
 	}
@@ -251,10 +253,13 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 
 		atomic_set(&mept->worker_read_rdy, 0);
 		if (ret != 0) {
-			dev_dbg(ccd->dev,
+			dev_info(ccd->dev,
 				"worker read wait error: %d\n", ret);
 			goto err_ret;
 		}
+	} else {
+		dev_info(ccd->dev, "ccd_cmd_sent is not null(%d)\n",
+			atomic_read(&mept->ccd_cmd_sent));
 	}
 
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
@@ -302,14 +307,14 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 
 	srcmdev = idr_find(&mtk_subdev->endpoints, write_obj->src);
 	if (!srcmdev) {
-		dev_dbg(ccd->dev, "src ept is not exist\n");
+		dev_info(ccd->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
 	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
-		dev_dbg(ccd->dev, "src ept is not ready\n");
+		dev_info(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		goto err_put;
 	}

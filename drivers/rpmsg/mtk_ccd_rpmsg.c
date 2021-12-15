@@ -487,7 +487,7 @@ static int ccd_msgdev_cb(struct rpmsg_device *rpdev, void *data,
 	mutex_lock(&mtk_subdev->endpoints_lock);
 	srcmdev = idr_find(&mtk_subdev->endpoints, src);
 	if (!srcmdev) {
-		dev_dbg(&mtk_subdev->pdev->dev, "src ept is not exist\n");
+		dev_info(&mtk_subdev->pdev->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return -1;
 	}
