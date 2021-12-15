@@ -19,6 +19,7 @@
 
 #define GT9772B_NAME				"gt9772b"
 #define GT9772B_MAX_FOCUS_POS			1023
+#define GT9772B_ORIGIN_FOCUS_POS		0
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -34,9 +35,8 @@
  * uniformly adjusted for gradual lens movement, with desired
  * number of control steps.
  */
-#define GT9772B_MOVE_STEPS			16
-#define GT9772B_MOVE_DELAY_US			8400
-#define GT9772B_STABLE_TIME_US			20000
+#define GT9772B_MOVE_STEPS			100
+#define GT9772B_MOVE_DELAY_US			5000
 
 /* gt9772b device structure */
 struct gt9772b_device {
@@ -77,9 +77,20 @@ static int gt9772b_set_position(struct gt9772b_device *gt9772b, u16 val)
 static int gt9772b_release(struct gt9772b_device *gt9772b)
 {
 	int ret, val;
+	int diff_dac = 0;
+	int nStep_count = 0;
+	int i = 0;
 
-	for (val = round_down(gt9772b->focus->val, GT9772B_MOVE_STEPS);
-	     val >= 0; val -= GT9772B_MOVE_STEPS) {
+	diff_dac = GT9772B_ORIGIN_FOCUS_POS - gt9772b->focus->val;
+
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
+		GT9772B_MOVE_STEPS;
+
+	val = gt9772b->focus->val;
+
+	for (i = 0; i < nStep_count; ++i) {
+		val += (diff_dac < 0 ? (GT9772B_MOVE_STEPS*(-1)) : GT9772B_MOVE_STEPS);
+
 		ret = gt9772b_set_position(gt9772b, val);
 		if (ret) {
 			LOG_INF("%s I2C failure: %d",
@@ -90,12 +101,15 @@ static int gt9772b_release(struct gt9772b_device *gt9772b)
 			     GT9772B_MOVE_DELAY_US + 1000);
 	}
 
-	/*
-	 * Wait for the motor to stabilize after the last movement
-	 * to prevent the motor from shaking.
-	 */
-	usleep_range(GT9772B_STABLE_TIME_US - GT9772B_MOVE_DELAY_US,
-		     GT9772B_STABLE_TIME_US - GT9772B_MOVE_DELAY_US + 1000);
+	// last step to origin
+	ret = gt9772b_set_position(gt9772b, GT9772B_ORIGIN_FOCUS_POS);
+	if (ret) {
+		LOG_INF("%s I2C failure: %d",
+			__func__, ret);
+		return ret;
+	}
+
+	LOG_INF("-\n");
 
 	return 0;
 }

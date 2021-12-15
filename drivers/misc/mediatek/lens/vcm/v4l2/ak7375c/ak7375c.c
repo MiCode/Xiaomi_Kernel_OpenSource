@@ -19,6 +19,7 @@
 
 #define AK7375C_NAME				"ak7375c"
 #define AK7375C_MAX_FOCUS_POS			1023
+#define AK7375C_ORIGIN_FOCUS_POS		0
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -34,9 +35,8 @@
  * uniformly adjusted for gradual lens movement, with desired
  * number of control steps.
  */
-#define AK7375C_MOVE_STEPS			16
-#define AK7375C_MOVE_DELAY_US			8400
-#define AK7375C_STABLE_TIME_US			20000
+#define AK7375C_MOVE_STEPS			100
+#define AK7375C_MOVE_DELAY_US			5000
 
 /* ak7375c device structure */
 struct ak7375c_device {
@@ -77,10 +77,21 @@ static int ak7375c_set_position(struct ak7375c_device *ak7375c, u16 val)
 static int ak7375c_release(struct ak7375c_device *ak7375c)
 {
 	int ret, val;
+	int diff_dac = 0;
+	int nStep_count = 0;
+	int i = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(&ak7375c->sd);
 
-	for (val = round_down(ak7375c->focus->val, AK7375C_MOVE_STEPS);
-	     val >= 0; val -= AK7375C_MOVE_STEPS) {
+	diff_dac = AK7375C_ORIGIN_FOCUS_POS - ak7375c->focus->val;
+
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
+		AK7375C_MOVE_STEPS;
+
+	val = ak7375c->focus->val;
+
+	for (i = 0; i < nStep_count; ++i) {
+		val += (diff_dac < 0 ? (AK7375C_MOVE_STEPS*(-1)) : AK7375C_MOVE_STEPS);
+
 		ret = ak7375c_set_position(ak7375c, val);
 		if (ret) {
 			LOG_INF("%s I2C failure: %d",
@@ -91,15 +102,17 @@ static int ak7375c_release(struct ak7375c_device *ak7375c)
 			     AK7375C_MOVE_DELAY_US + 1000);
 	}
 
-	i2c_smbus_write_byte_data(client, 0x02, 0x20);
-	msleep(20);
+	// last step to origin
+	ret = ak7375c_set_position(ak7375c, AK7375C_ORIGIN_FOCUS_POS);
+	if (ret) {
+		LOG_INF("%s I2C failure: %d",
+			__func__, ret);
+		return ret;
+	}
 
-	/*
-	 * Wait for the motor to stabilize after the last movement
-	 * to prevent the motor from shaking.
-	 */
-	usleep_range(AK7375C_STABLE_TIME_US - AK7375C_MOVE_DELAY_US,
-		     AK7375C_STABLE_TIME_US - AK7375C_MOVE_DELAY_US + 1000);
+	i2c_smbus_write_byte_data(client, 0x02, 0x20);
+
+	LOG_INF("-\n");
 
 	return 0;
 }
