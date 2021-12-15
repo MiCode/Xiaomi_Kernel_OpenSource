@@ -130,13 +130,15 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		return -EIO;
 	}
 
-	while (inst->ctx->dev->is_codec_suspending == 1) {
-		suspend_block_cnt++;
-		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-			mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
-			suspend_block_cnt = 0;
+	if (!is_ack) {
+		while (inst->ctx->dev->is_codec_suspending == 1) {
+			suspend_block_cnt++;
+			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+				mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
+				suspend_block_cnt = 0;
+			}
+			usleep_range(10000, 20000);
 		}
-		usleep_range(10000, 20000);
 	}
 
 	memset(&obj, 0, sizeof(obj));
