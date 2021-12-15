@@ -1318,10 +1318,6 @@ struct task_struct {
 
 	ANDROID_KABI_RESERVE(7);
 	ANDROID_KABI_RESERVE(8);
-#ifdef CONFIG_MTK_TASK_TURBO
-	unsigned char turbo:1;
-	unsigned char render:1;
-#endif
 
 	/*
 	 * New fields for task_struct should be added above here, so that

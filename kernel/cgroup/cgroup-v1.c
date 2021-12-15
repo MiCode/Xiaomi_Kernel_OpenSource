@@ -15,9 +15,6 @@
 #include <linux/cgroupstats.h>
 
 #include <trace/events/cgroup.h>
-#ifdef CONFIG_MTK_TASK_TURBO
-#include <mt-plat/turbo_common.h>
-#endif
 
 /*
  * pidlists linger the following amount before being destroyed.  The goal
@@ -540,10 +537,6 @@ static ssize_t __cgroup1_procs_write(struct kernfs_open_file *of,
 		goto out_finish;
 
 	ret = cgroup_attach_task(cgrp, task, threadgroup);
-#ifdef CONFIG_MTK_TASK_TURBO
-	if (!ret)
-		cgroup_set_turbo_task(task);
-#endif
 
 out_finish:
 	cgroup_procs_write_finish(task);

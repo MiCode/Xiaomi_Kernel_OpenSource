@@ -419,7 +419,6 @@ config MTK_PERFORMANCE_MODULE
 
 source "drivers/misc/mediatek/perf_common/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
-source "drivers/misc/mediatek/task_turbo/Kconfig"
 endmenu # PPT
 
 menu "TinySys"

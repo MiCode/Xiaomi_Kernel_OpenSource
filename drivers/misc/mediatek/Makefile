@@ -179,7 +179,6 @@ obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
 obj-$(CONFIG_MTK_SYS_CIRQ) += cirq/
 obj-$(CONFIG_MTK_SECURITY_SW_SUPPORT) += masp/
 obj-y += rps/
-obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
 ifeq ($(CONFIG_MACH_MT6768),y)
 obj-y += spi_slave_drv/
 endif
