@@ -130,7 +130,7 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 bool check_module_and_portID(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 {
 	if (IS_MT6853(g_cam_qos_platform_id)) {
-		if (ISP_IRQ_TYPE_INT_CAM_C_ST)
+		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
 			return false;
 	}
 
@@ -650,7 +650,7 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 {
 	if (IS_MT6853(g_cam_qos_platform_id)) {
-		if (ISP_IRQ_TYPE_INT_CAM_C_ST)
+		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
 			return;
 	}
 
