@@ -333,6 +333,19 @@ static const struct mtk_iommu_iova_region mt8192_multi_dom[] = {
 	#endif
 };
 
+/* use the same data as mt6853 */
+static const struct mtk_iommu_iova_region mt6833_multi_dom[] = {
+	{ .iova_base = SZ_4K, .size = SZ_4G - SZ_4K},	      /* disp : 0 ~ 4G */
+	{ .iova_base = SZ_4G, .size = SZ_4G},     /* vdec : 4G ~ 8G */
+	{ .iova_base = SZ_4G * 2, .size = SZ_4G}, /* CAM/MDP: 8G ~ 12G */
+	{ .iova_base = 0x240000000ULL, .size = 0x4000000}, /* CCU0 */
+	{ .iova_base = 0x244000000ULL, .size = 0x4000000}, /* CCU1 */
+	{ .iova_base = SZ_4G * 3, .size = SZ_4G}, /* APU DATA */
+	{ .iova_base = 0x304000000ULL, .size = 0x4000000}, /* APU VLM */
+	{ .iova_base = 0x310000000ULL, .size = 0x10000000}, /* APU VPU */
+	{ .iova_base = 0x370000000ULL, .size = 0x12600000}, /* APU REG */
+};
+
 /*
  * 0.NORMAL: total: 14.04GB
  *	-NORMAL: 0x1000~0x1FFF_FFFF(512MB)
@@ -3025,6 +3038,20 @@ static const struct mtk_iommu_plat_data mt6779_data = {
 	.larbid_remap  = {{0}, {1}, {2}, {3}, {5}, {7, 8}, {10}, {9}},
 };
 
+/* use the same data as mt6853 */
+static const struct mtk_iommu_plat_data mt6833_data = {
+	.m4u_plat = M4U_MT6833,
+	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
+			 HAS_BCLK | NOT_STD_AXI_MODE | IOVA_34_EN | SHARE_PGTABLE,
+	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
+	.iommu_id	= DISP_IOMMU,
+	.iommu_type     = MM_IOMMU,
+	.iova_region    = mt6833_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6833_multi_dom),
+	.larbid_remap = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
+			 {0, 14, 16}, {0, 13, 18, 17}},
+};
+
 /* copy the mtk_iommu_plat_data form the mt6873 because
  * the mt6853 almost uset the same data as mt6873.
  * but only add the IOVA_34_EN flag.
@@ -3417,6 +3444,7 @@ static const struct mtk_iommu_plat_data mt8192_data = {
 static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt2712-m4u", .data = &mt2712_data},
 	{ .compatible = "mediatek,mt6779-m4u", .data = &mt6779_data},
+	{ .compatible = "mediatek,mt6833-m4u", .data = &mt6833_data},
 	{ .compatible = "mediatek,mt6853-m4u", .data = &mt6853_data},
 	{ .compatible = "mediatek,mt6855-disp-iommu", .data = &mt6855_data_disp},
 	{ .compatible = "mediatek,mt6873-m4u", .data = &mt6873_data},
