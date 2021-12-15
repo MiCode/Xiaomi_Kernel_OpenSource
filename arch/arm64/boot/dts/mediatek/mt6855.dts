@@ -1793,6 +1793,9 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&pio 0 0 206>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			mediatek,eint = <&eint>;
 		};
 
 		eint: apirq@1000d000 {
