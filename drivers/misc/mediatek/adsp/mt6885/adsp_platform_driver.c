@@ -387,7 +387,7 @@ int adsp_core1_resume(void)
 void adsp_logger_init0_cb(struct work_struct *ws)
 {
 	int ret;
-	unsigned int info[6];
+	uint64_t info[6];
 
 	info[0] = adsp_get_reserve_mem_phys(ADSP_A_LOGGER_MEM_ID);
 	info[1] = adsp_get_reserve_mem_size(ADSP_A_LOGGER_MEM_ID);
@@ -410,7 +410,7 @@ void adsp_logger_init0_cb(struct work_struct *ws)
 void adsp_logger_init1_cb(struct work_struct *ws)
 {
 	int ret;
-	unsigned int info[6];
+	uint64_t info[6];
 
 	info[0] = adsp_get_reserve_mem_phys(ADSP_B_LOGGER_MEM_ID);
 	info[1] = adsp_get_reserve_mem_size(ADSP_B_LOGGER_MEM_ID);

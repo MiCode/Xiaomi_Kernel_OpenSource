@@ -1535,7 +1535,7 @@ static inline unsigned int get_sram_addr(unsigned int phyAdd)
 int RingBuf_Map_RingBuf_bridge(struct ringbuf_bridge *buf_bridge,
 			       struct RingBuf *pRingBuf)
 {
-	unsigned long phyaddr;
+	uint64_t phyaddr;
 
 	if (buf_bridge == NULL) {
 		AUD_LOG_D("%s buf_bridge == NULL\n", __func__);
@@ -1545,12 +1545,12 @@ int RingBuf_Map_RingBuf_bridge(struct ringbuf_bridge *buf_bridge,
 		AUD_LOG_D("%s RingBuf == NULL\n", __func__);
 		return -1;
 	}
-	phyaddr = (unsigned long)buf_bridge->pBufBase;
+	phyaddr = buf_bridge->pBufBase;
 
 	if (phyaddr > 0x20000000)
 		pRingBuf->pBufBase = (char *)ap_to_scp(phyaddr);
 	else
-		pRingBuf->pBufBase = (char *)get_sram_addr(phyaddr);
+		pRingBuf->pBufBase = (char *)get_sram_addr((uint32_t)phyaddr);
 
 	pRingBuf->bufLen = buf_bridge->bufLen;
 	pRingBuf->pBufEnd = pRingBuf->pBufBase + pRingBuf->bufLen;

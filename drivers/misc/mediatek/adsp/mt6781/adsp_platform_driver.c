@@ -241,14 +241,14 @@ int adsp_core0_resume(void)
 void adsp_logger_init0_cb(struct work_struct *ws)
 {
 	int ret;
-	unsigned int info[6];
+	uint64_t info[6];
 
 	info[0] = adsp_get_reserve_mem_phys(ADSP_A_LOGGER_MEM_ID);
-	info[1] = adsp_get_reserve_mem_size(ADSP_A_LOGGER_MEM_ID);
+	info[1] = (uint64_t)adsp_get_reserve_mem_size(ADSP_A_LOGGER_MEM_ID);
 	info[2] = adsp_get_reserve_mem_phys(ADSP_A_CORE_DUMP_MEM_ID);
-	info[3] = adsp_get_reserve_mem_size(ADSP_A_CORE_DUMP_MEM_ID);
+	info[3] = (uint64_t)adsp_get_reserve_mem_size(ADSP_A_CORE_DUMP_MEM_ID);
 	info[4] = adsp_get_reserve_mem_phys(ADSP_A_DEBUG_DUMP_MEM_ID);
-	info[5] = adsp_get_reserve_mem_size(ADSP_A_DEBUG_DUMP_MEM_ID);
+	info[5] = (uint64_t)adsp_get_reserve_mem_size(ADSP_A_DEBUG_DUMP_MEM_ID);
 
 	_adsp_register_feature(ADSP_A_ID, ADSP_LOGGER_FEATURE_ID, 0);
 
