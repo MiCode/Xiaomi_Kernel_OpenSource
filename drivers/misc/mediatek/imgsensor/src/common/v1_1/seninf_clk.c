@@ -294,7 +294,7 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 	idx_freq = i + SENINF_CLK_IDX_FREQ_MIN_NUM;
 
 	if (pmclk->on) {
-		if (!IS_MT6853(pclk->g_platform_id)) {
+		if (IS_MT6893(pclk->g_platform_id) || IS_MT6885(pclk->g_platform_id)) {
 			/* Workaround for timestamp: TG1 always ON */
 			if (pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]
 				!= NULL) {
@@ -344,7 +344,7 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 			}
 		}
 
-		if (!IS_MT6853(pclk->g_platform_id)) {
+		if (IS_MT6893(pclk->g_platform_id) || IS_MT6885(pclk->g_platform_id)) {
 			/* Workaround for timestamp: TG1 always ON */
 			if (pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG] != NULL) {
 				if (atomic_read(

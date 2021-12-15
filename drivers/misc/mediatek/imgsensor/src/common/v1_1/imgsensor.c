@@ -569,7 +569,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 	imgsensor_mutex_init(psensor_inst);
 	if (IS_MT6853(phw->g_platform_id))
 		imgsensor_i2c_init(&psensor_inst->i2c_cfg,
-		imgsensor_custom_config_mt6853[
+		imgsensor_custom_config_for_mipi_switch[
 		(unsigned int)psensor_inst->sensor_idx].i2c_dev);
 	else
 		imgsensor_i2c_init(&psensor_inst->i2c_cfg,
@@ -591,7 +591,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 #endif
 
 				if (!imgsensor_check_is_alive(psensor)) {
-					PK_INFO(
+					PK_DBG(
 					"[%s] :[%d][%s]\n",
 					__func__,
 					psensor_inst->sensor_idx,
@@ -600,12 +600,12 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 					break;
 				}
 			} else {
-				PK_PR_ERR(
+				PK_DBG(
 					"ERROR:NULL g_pInvokeSensorFunc[%d]\n",
 					psensor_inst->sensor_idx);
 			}
 		} else {
-			PK_PR_ERR("ERROR:NULL sensor list\n");
+			PK_DBG("ERROR:NULL sensor list\n");
 		}
 
 		i++;
@@ -2331,7 +2331,7 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 	pdevice->of_node =
 		of_find_compatible_node(NULL, NULL, "mediatek,imgsensor");
 	if (!pdevice->of_node) {
-		PK_PR_ERR("Get cust camera node failed!\n");
+		PK_DBG("Get cust camera node failed!\n");
 		return -ENODEV;
 	}
 

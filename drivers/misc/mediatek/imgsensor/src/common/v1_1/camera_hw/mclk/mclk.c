@@ -30,7 +30,7 @@ static enum IMGSENSOR_RETURN mclk_init(
 
 	pinst->ppinctrl = devm_pinctrl_get(&pcommon->pplatform_device->dev);
 	if (IS_ERR(pinst->ppinctrl)) {
-		PK_DBG("%s : Cannot find camera pinctrl!\n", __func__);
+		PK_DBG("ERROR: %s, Cannot find camera pinctrl!\n", __func__);
 		/* ret = IMGSENSOR_RETURN_ERROR; */
 		return IMGSENSOR_RETURN_ERROR;
 	}
@@ -45,21 +45,23 @@ static enum IMGSENSOR_RETURN mclk_init(
 					"cam%d_mclk_%s",
 					i,
 					mclk_pinctrl[j].ppinctrl_names);
-				if (ret_snprintf < 0) {
-					pr_info(
-					"snprintf alloc error!, ret = %d", ret_snprintf);
-					return IMGSENSOR_RETURN_ERROR;
-				}
+				if (ret_snprintf < 0)
+					PK_DBG("NOTICE: %s, snprintf err, %d\n",
+						__func__, ret_snprintf);
+
 				pinst->ppinctrl_state[i][j] =
-					pinctrl_lookup_state(pinst->ppinctrl,
+					pinctrl_lookup_state(
+						pinst->ppinctrl,
 						str_pinctrl_name);
 
 				mutex_lock(pinst->pmclk_mutex);
-				if (IS_ERR(pinst->ppinctrl_state[i][j]))
-					pr_debug("%s : pinctrl err, %s\n",
+				if (pinst->ppinctrl_state[i][j] == NULL ||
+					IS_ERR(pinst->ppinctrl_state[i][j])) {
+					PK_DBG("NOTICE: %s, pinctrl err, %s\n",
 						__func__,
 						str_pinctrl_name);
-				else {
+					pinst->ppinctrl_state[i][j] = NULL;
+				} else {
 					if (j == MCLK_STATE_DISABLE) {
 						pinctrl_select_state(
 							pinst->ppinctrl,
@@ -111,7 +113,7 @@ static enum IMGSENSOR_RETURN __mclk_set_drive_current(
 	 */
 	if (_TO_MCLK_STATE(target_current) < MCLK_STATE_ENABLE_2MA ||
 		_TO_MCLK_STATE(target_current) > MCLK_STATE_ENABLE_8MA) {
-		pr_debug("%s : sensor_idx %d, drive_current %d, set as 4mA\n",
+		PK_DBG("%s : sensor_idx %d, drive_current %d, set as 4mA\n",
 			__func__,
 			sensor_idx,
 			_TO_MCLK_STATE(target_current));
@@ -161,11 +163,10 @@ static enum IMGSENSOR_RETURN mclk_set(
 
 		mutex_lock(pinst->pmclk_mutex);
 
-		if (!IS_ERR(ppinctrl_state))
+		if (ppinctrl_state != NULL && !IS_ERR(ppinctrl_state))
 			pinctrl_select_state(pinst->ppinctrl, ppinctrl_state);
 		else
-			PK_DBG(
-				"%s : sensor_idx %d pinctrl, PinIdx %d, Val %d, drive current %d\n",
+			PK_DBG("%s : sensor_idx %d pinctrl, PinIdx %d, Val %d, drive current %d\n",
 				__func__,
 				sensor_idx,
 				pin,

@@ -18,9 +18,7 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			{PDN, Vol_Low, 0},
 			{RST, Vol_Low, 1},
 			{AVDD, Vol_2800, 3},
-// #if IS_ENABLED(CONFIG_REGULATOR_RT5133)
-			// {AVDD1, Vol_1800, 0},
-// #endif
+			{AVDD1, Vol_1800, 0},
 			{AFVDD, Vol_2800, 3},
 			{DVDD, Vol_1100, 4},
 			{DOVDD, Vol_1800, 1},
@@ -53,9 +51,7 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			{RST, Vol_Low, 1},
 			{DOVDD, Vol_1800, 1},
 			{AVDD, Vol_2800, 0},
-// #if IS_ENABLED(CONFIG_REGULATOR_RT5133)
-			// {AVDD1, Vol_1800, 0},
-// #endif
+			{AVDD1, Vol_1800, 0},
 			{AFVDD, Vol_2800, 0},
 			{DVDD, Vol_1100, 0},
 			{SensorMCLK, Vol_High, 1},
