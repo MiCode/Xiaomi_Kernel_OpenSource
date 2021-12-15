@@ -40,6 +40,7 @@ enum FPSGO_NOTIFIER_PUSH_TYPE {
 	FPSGO_NOTIFIER_BQID				= 0x04,
 	FPSGO_NOTIFIER_VSYNC				= 0x05,
 	FPSGO_NOTIFIER_SWAP_BUFFER          = 0x06,
+	FPSGO_NOTIFIER_SBE_RESCUE           = 0x07,
 };
 
 /* TODO: use union*/
@@ -61,6 +62,8 @@ struct FPSGO_NOTIFIER_PUSH_TAG {
 	int create;
 
 	int dfrc_fps;
+
+	int enhance;
 
 	struct list_head queue_list;
 };
@@ -109,6 +112,14 @@ static void fpsgo_notifier_wq_cb_swap_buffer(int pid)
 		return;
 
 	fpsgo_update_swap_buffer(pid);
+}
+
+static void fpsgo_notifier_wq_cb_sbe_rescue(int pid, int start, int enhance)
+{
+	FPSGO_LOGI("[FPSGO_CB] sbe_rescue: %d\n", pid);
+	if (!fpsgo_is_enable())
+		return;
+	fpsgo_sbe_rescue_traverse(pid, start, enhance);
 }
 
 static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
@@ -276,6 +287,9 @@ static void fpsgo_notifier_wq_cb(void)
 		break;
 	case FPSGO_NOTIFIER_SWAP_BUFFER:
 		fpsgo_notifier_wq_cb_swap_buffer(vpPush->pid);
+		break;
+	case FPSGO_NOTIFIER_SBE_RESCUE:
+		fpsgo_notifier_wq_cb_sbe_rescue(vpPush->pid, vpPush->enable, vpPush->enhance);
 		break;
 	default:
 		FPSGO_LOGE("[FPSGO_CTRL] unhandled push type = %d\n",
@@ -483,6 +497,37 @@ void fpsgo_notify_swap_buffer(int pid)
 
 	vpPush->ePushType = FPSGO_NOTIFIER_SWAP_BUFFER;
 	vpPush->pid = pid;
+
+	fpsgo_queue_work(vpPush);
+}
+
+void fpsgo_notify_sbe_rescue(int pid, int start, int enhance)
+{
+	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush;
+
+	FPSGO_LOGI("[FPSGO_CTRL] sbe_rescue\n");
+
+	if (!fpsgo_is_enable())
+		return;
+
+	vpPush = (struct FPSGO_NOTIFIER_PUSH_TAG *)
+		fpsgo_alloc_atomic(sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+
+	if (!vpPush) {
+		FPSGO_LOGE("[FPSGO_CTRL] OOM\n");
+		return;
+	}
+
+	if (!kfpsgo_tsk) {
+		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
+		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+		return;
+	}
+
+	vpPush->ePushType = FPSGO_NOTIFIER_SBE_RESCUE;
+	vpPush->pid = pid;
+	vpPush->enable = start;
+	vpPush->enhance = enhance;
 
 	fpsgo_queue_work(vpPush);
 }
@@ -815,6 +860,8 @@ fail_reg_cpu_frequency_entry:
 	fpsgo_notify_bqid_fp = fpsgo_notify_bqid;
 
 	fpsgo_notify_swap_buffer_fp = fpsgo_notify_swap_buffer;
+	fpsgo_notify_sbe_rescue_fp = fpsgo_notify_sbe_rescue;
+
 	fpsgo_get_fps_fp = fpsgo_get_fps;
 	fpsgo_get_cmd_fp = fpsgo_get_cmd;
 	fpsgo_get_fstb_active_fp = fpsgo_get_fstb_active;

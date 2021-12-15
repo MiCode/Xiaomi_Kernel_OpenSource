@@ -172,6 +172,7 @@ struct _CPUQOS_V3_PACKAGE {
 #define FPSGO_GBE_GET_CMD            _IOW('g', 19, struct _FPSGO_PACKAGE)
 #define FPSGO_GET_FSTB_ACTIVE        _IOW('g', 20, struct _FPSGO_PACKAGE)
 #define FPSGO_WAIT_FSTB_ACTIVE       _IOW('g', 21, struct _FPSGO_PACKAGE)
+#define FPSGO_SBE_RESCUE             _IOW('g', 22, struct _FPSGO_PACKAGE)
 
 #define EARA_NN_BEGIN               _IOW('g', 1, struct _EARA_NN_PACKAGE)
 #define EARA_NN_END                 _IOW('g', 2, struct _EARA_NN_PACKAGE)

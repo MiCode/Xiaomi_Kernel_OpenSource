@@ -19,6 +19,7 @@ static struct icc_path *bw_path;
 static struct device_node *node;
 static unsigned int peak_bw;
 static int plat_gcc_enable;
+static int plat_sbe_rescue_enable;
 static int plat_cpu_limit;
 
 void fbt_notify_CM_limit(int reach_limit)
@@ -30,6 +31,7 @@ void fbt_notify_CM_limit(int reach_limit)
 }
 
 static int generate_cpu_mask(void);
+static int generate_sbe_rescue_enable(void);
 static int platform_fpsgo_probe(struct platform_device *pdev)
 {
 	int ret = 0, retval = 0;
@@ -61,6 +63,7 @@ static int platform_fpsgo_probe(struct platform_device *pdev)
 		plat_cpu_limit = retval;
 
 	generate_cpu_mask();
+	generate_sbe_rescue_enable();
 
 	return 0;
 }
@@ -218,6 +221,20 @@ static int generate_cpu_mask(void)
 	return ret;
 }
 
+static int generate_sbe_rescue_enable(void)
+{
+	int ret = 0, retval = 0;
+
+	ret = of_property_read_u32(node,
+		 "sbe_resceue_enable", &retval);
+	if (!ret)
+		plat_sbe_rescue_enable = retval;
+	else
+		FPSGO_LOGE("%s unable to get plat_sbe_rescue_enable\n", __func__);
+
+	return ret;
+}
+
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 {
 	long ret = 0;
@@ -303,6 +320,11 @@ int fbt_get_default_qr_enable(void)
 int fbt_get_default_gcc_enable(void)
 {
 	return plat_gcc_enable;
+}
+
+int fbt_get_default_sbe_rescue_enable(void)
+{
+	return plat_sbe_rescue_enable;
 }
 
 int fbt_get_l_min_bhropp(void)

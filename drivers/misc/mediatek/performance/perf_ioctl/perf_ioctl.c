@@ -40,6 +40,9 @@ void (*fpsgo_get_nn_ttime_fp)(unsigned int pid, unsigned long long mid,
 void (*fpsgo_notify_swap_buffer_fp)(int pid);
 EXPORT_SYMBOL_GPL(fpsgo_notify_swap_buffer_fp);
 
+void (*fpsgo_notify_sbe_rescue_fp)(int pid, int start, int enhance);
+EXPORT_SYMBOL_GPL(fpsgo_notify_sbe_rescue_fp);
+
 void (*rsu_getusage_fp)(__s32 *devusage, __u32 *bwusage, __u32 pid);
 void (*rsu_getstate_fp)(int *throttled);
 
@@ -741,6 +744,10 @@ static long device_ioctl(struct file *filp,
 		if (fpsgo_wait_fstb_active_fp)
 			fpsgo_wait_fstb_active_fp();
 		break;
+	case FPSGO_SBE_RESCUE:
+		if (fpsgo_notify_sbe_rescue_fp)
+			fpsgo_notify_sbe_rescue_fp(msgKM->tid, msgKM->start, msgKM->value2);
+		break;
 
 #else
 	case FPSGO_TOUCH:
@@ -766,6 +773,8 @@ static long device_ioctl(struct file *filp,
 	case FPSGO_GET_FSTB_ACTIVE:
 		[[fallthrough]];
 	case FPSGO_WAIT_FSTB_ACTIVE:
+		[[fallthrough]];
+	case FPSGO_SBE_RESCUE:
 		break;
 #endif
 
