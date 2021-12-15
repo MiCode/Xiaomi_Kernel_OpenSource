@@ -21,77 +21,125 @@ MODULE_LICENSE("GPL");
  */
 DEFINE_PER_CPU(unsigned long, max_freq_scale) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, min_freq) = 0;
+DEFINE_PER_CPU(unsigned int, policy_id_for_cpu) = 0;
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
 static struct notifier_block *freq_limit_max_notifier, *freq_limit_min_notifier;
+static int policy_num;
 
 static int freq_limit_max_notifier_call(struct notifier_block *nb,
-					 unsigned long event, void *ptr)
+					 unsigned long freq_limit_max, void *ptr)
 {
-	int cpu = nb - freq_limit_max_notifier;
-	int freq_limit_max = event;
+	int cpu, policy_idx = nb - freq_limit_max_notifier;
 	int idx_max;
 	unsigned long cap;
 	struct cpufreq_policy *policy;
 
-	policy = cpufreq_cpu_get(cpu);
-	if (!policy) {
-		pr_info("cpu=%d: cpufreq_cpu_get failed\n", cpu);
+	if (policy_idx < 0 || policy_idx >= policy_num) {
+		pr_info("freq_limit_max_notifier_call: policy_idx over-index\n");
 		return -1;
 	}
 
-	idx_max = cpufreq_frequency_table_target(policy, freq_limit_max,
-			CPUFREQ_RELATION_H);
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(policy_id_for_cpu, cpu) == policy_idx) {
+			policy = cpufreq_cpu_get(cpu);
+			if (policy)
+				break;
+		}
+	}
+
+	if (!policy) {
+		pr_info("policy_idx=%d: cpufreq_cpu_get failed\n", policy_idx);
+		return -1;
+	}
+
+	if (policy->freq_table_sorted == CPUFREQ_TABLE_SORTED_ASCENDING)
+		idx_max = cpufreq_table_find_index_ah(policy, freq_limit_max);
+	else
+		idx_max = cpufreq_table_find_index_dh(policy, freq_limit_max);
+
 	cpufreq_cpu_put(policy);
 
 	if (idx_max < 0) {
-		pr_info("cpu=%d: mapping cpu frequency index failed\n", cpu);
+		pr_info("policy_idx=%d: mapping cpu frequency index failed\n", policy_idx);
 		return -1;
 	}
 
-	cap = pd_get_opp_capacity(cpu, idx_max);
-
-	per_cpu(max_freq_scale, cpu) = cap;
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(policy_id_for_cpu, cpu) == policy_idx) {
+			cap = pd_get_opp_capacity(cpu, idx_max);
+			per_cpu(max_freq_scale, cpu) = cap;
+		}
+	}
 
 	return 0;
 }
 
 static int freq_limit_min_notifier_call(struct notifier_block *nb,
-					 unsigned long event, void *ptr)
+					 unsigned long freq_limit_min, void *ptr)
 {
-	int cpu = nb - freq_limit_min_notifier;
-	int freq_limit_min = event;
+	int cpu, policy_idx = nb - freq_limit_min_notifier;
 
-	per_cpu(min_freq, cpu) = freq_limit_min;
+	if (policy_idx < 0 || policy_idx >= policy_num) {
+		pr_info("freq_limit_min_notifier_call: policy_idx over-index\n");
+		return -1;
+	}
+
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(policy_id_for_cpu, cpu) == policy_idx)
+			per_cpu(min_freq, cpu) = freq_limit_min;
+	}
 
 	return 0;
 }
 
 void mtk_freq_limit_notifier_register(void)
 {
-	int cpu, num = 0, cpu_num = 0;
 	struct cpufreq_policy *policy;
+	int cpu, cpu_idx, policy_idx = 0, ret;
 
-	for_each_possible_cpu(cpu)
-		cpu_num++;
-
-	freq_limit_max_notifier = kcalloc(cpu_num, sizeof(struct notifier_block), GFP_KERNEL);
-	freq_limit_min_notifier = kcalloc(cpu_num, sizeof(struct notifier_block), GFP_KERNEL);
-
+	policy_num = 0;
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
-		if (policy != NULL) {
-			freq_limit_max_notifier[num].notifier_call = freq_limit_max_notifier_call;
-			freq_limit_min_notifier[num].notifier_call = freq_limit_min_notifier_call;
-			freq_qos_add_notifier(&policy->constraints, FREQ_QOS_MAX,
-			freq_limit_max_notifier + num);
-			freq_qos_add_notifier(&policy->constraints, FREQ_QOS_MIN,
-			freq_limit_min_notifier + num);
+		if (policy) {
+			for_each_cpu(cpu_idx, policy->related_cpus)
+				per_cpu(policy_id_for_cpu, cpu_idx) = policy_num;
+			policy_num++;
+			cpu = cpumask_last(policy->related_cpus);
 			cpufreq_cpu_put(policy);
-		} else {
-			pr_info("CPU%d %s failed\n", cpu, __func__);
 		}
-		num++;
+	}
+
+	freq_limit_max_notifier = kcalloc(policy_num, sizeof(struct notifier_block), GFP_KERNEL);
+	freq_limit_min_notifier = kcalloc(policy_num, sizeof(struct notifier_block), GFP_KERNEL);
+
+	for_each_possible_cpu(cpu) {
+		if (policy_idx >= policy_num) {
+			pr_info("mtk_freq_limit_notifier_register: policy_idx over-index\n");
+			break;
+		}
+		policy = cpufreq_cpu_get(cpu);
+
+		if (policy) {
+			freq_limit_max_notifier[policy_idx].notifier_call
+				= freq_limit_max_notifier_call;
+			freq_limit_min_notifier[policy_idx].notifier_call
+				= freq_limit_min_notifier_call;
+
+			ret = freq_qos_add_notifier(&policy->constraints, FREQ_QOS_MAX,
+				freq_limit_max_notifier + policy_idx);
+			if (ret)
+				pr_info("freq_qos_add_notifier freq_limit_max_notifier failed\n");
+
+			ret = freq_qos_add_notifier(&policy->constraints, FREQ_QOS_MIN,
+				freq_limit_min_notifier + policy_idx);
+			if (ret)
+				pr_info("freq_qos_add_notifier freq_limit_min_notifier failed\n");
+
+			policy_idx++;
+			cpu = cpumask_last(policy->related_cpus);
+			cpufreq_cpu_put(policy);
+		}
 	}
 }
 
