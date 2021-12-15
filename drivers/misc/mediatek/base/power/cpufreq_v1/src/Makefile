@@ -44,15 +44,21 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM) \
-	-I$(srctree)/drivers/misc/mediatek/base/power/include
+	-I$(srctree)/drivers/misc/mediatek/base/power/include      \
+	-I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)/
 #sspm
 
 ifeq ($(CONFIG_MACH_MT6781),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+	ccflags-y += -DUSE_SSPM_VER_V2
 else ifeq ($(CONFIG_MACH_MT6877),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/mt6853/
 else ifeq ($(CONFIG_MACH_MT6833),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifeq ($(CONFIG_MACH_MT6768),y)
+	ccflags-y += -DUSE_SSPM_VER_V1
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 else
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
