@@ -845,6 +845,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 void mtk_cam_apply_pending_dev_config(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 	bool streaming, bool config_pipe);
+int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data);
 
 int mtk_cam_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,

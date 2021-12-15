@@ -4458,6 +4458,9 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	    req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE)
 		mtk_cam_s_data_dev_config(req_stream_data, true, true);
 
+	if (req->ctx_link_update & 1 << ctx->stream_id)
+		mtk_cam_s_data_sv_dev_config(req_stream_data);
+
 	/* handle stagger 1,2,3 exposure */
 	if (mtk_cam_feature_is_stagger(s_raw_pipe_data->res.raw_res.feature))
 		check_stagger_buffer(cam, ctx, req);
@@ -5274,6 +5277,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		idle_pipes = get_available_sv_pipes(cam, hw_scen, req_amount, master, 0);
 		/* cached used sv pipes */
 		s_raw_pipe_data->enabled_raw |= idle_pipes;
+		ctx->pipe->enabled_raw |= idle_pipes;
 		if (idle_pipes == 0) {
 			dev_info(cam->dev, "no available sv pipes(scen:%d/req_amount:%d)",
 				hw_scen, req_amount);
@@ -5326,6 +5330,70 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 	dev_dbg(dev, "raw %d %s done\n", raw_dev->id, __func__);
 
 	return 0;
+}
+
+int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_cam_request *req;
+	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_device *cam;
+	int i, j, ret = 0, used_pipes, src_pad_idx, exp_no, feature;
+	unsigned int hw_scen;
+	bool bDcif;
+
+	req = mtk_cam_s_data_get_req(s_data);
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	cam = ctx->cam;
+	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
+	feature = s_raw_pipe_data->res.raw_res.feature;
+
+	/* check exposure number */
+	if (mtk_cam_feature_is_2_exposure(feature))
+		exp_no = 2;
+	else if (mtk_cam_feature_is_3_exposure(feature))
+		exp_no = 3;
+	else
+		exp_no = 1;
+
+	/* check hardware scenario */
+	if (s_raw_pipe_data->stagger_select.stagger_path == STAGGER_ON_THE_FLY) {
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+		bDcif = false;
+	} else if (s_raw_pipe_data->stagger_select.stagger_path == STAGGER_DCIF) {
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+		bDcif = true;
+	} else if (s_raw_pipe_data->stagger_select.stagger_path == STAGGER_OFFLINE) {
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
+		bDcif = false;
+	} else {
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
+		bDcif = false;
+	}
+
+	used_pipes = s_raw_pipe_data->enabled_raw;
+	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
+		for (j = 0; j < MAX_STAGGER_EXP_AMOUNT; j++) {
+			if (cam->sv.pipelines[i -
+				MTKCAM_SUBDEV_CAMSV_START].hw_cap &
+				(1 << (j + CAMSV_EXP_ORDER_SHIFT))) {
+				src_pad_idx = PAD_SRC_RAW0 + j;
+				break;
+			}
+		}
+		if (used_pipes & (1 << i)) {
+			ret = mtk_cam_sv_dev_config
+				(ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
+				 (bDcif && (src_pad_idx == exp_no)) ?
+				 2 : src_pad_idx - PAD_SRC_RAW0);
+			if (ret) {
+				dev_info(cam->dev, "%s failed(pipe:%d)", __func__, i);
+				return ret;
+			}
+		}
+	}
+
+	return ret;
 }
 
 /* FIXME: modified from v5: should move to raw */

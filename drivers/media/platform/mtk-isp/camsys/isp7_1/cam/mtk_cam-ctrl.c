@@ -434,19 +434,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 	/* stagger mode - use sv to output data to DRAM - online mode */
 	if (mtk_cam_is_stagger(ctx)) {
 		int used_pipes, src_pad_idx;
-		unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
-		bool bDcif;
-
-		/* check exposure number */
-		if (mtk_cam_feature_is_2_exposure(feature_first_req))
-			exp_no = 2;
-		else if (mtk_cam_feature_is_3_exposure(feature_first_req))
-			exp_no = 3;
-		else
-			exp_no = 1;
-
-		/* check stagger mode */
-		bDcif = (ctx->pipe->stagger_path == STAGGER_DCIF) ? true : false;
 
 		used_pipes = ctx->pipe->enabled_raw;
 		for (i = MTKCAM_SUBDEV_CAMSV_START ; i < MTKCAM_SUBDEV_CAMSV_END ; i++) {
@@ -459,12 +446,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 				}
 			}
 			if (used_pipes & (1 << i)) {
-				//HSF control
-				if (mtk_cam_is_hsf(ctx)) {
-					dev_info(cam->dev, "error: un-support hsf stagger mode\n");
-					goto fail_switch_stop;
-				}
-
 				mtk_cam_call_seninf_set_pixelmode(ctx, s_data->seninf_new,
 								  src_pad_idx,
 								  tgo_pxl_mode);
@@ -478,12 +459,6 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 					 src_pad_idx, i,
 					 cam->sv.pipelines[
 						i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
-				ret = mtk_cam_sv_dev_config
-					(ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
-					 (bDcif && (src_pad_idx == exp_no)) ?
-					 2 : src_pad_idx - PAD_SRC_RAW0);
-				if (ret)
-					goto fail_switch_stop;
 			}
 		}
 	} else if (mtk_cam_is_time_shared(ctx)) {
@@ -551,12 +526,16 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		if (ctx->pipe->stagger_path == STAGGER_ON_THE_FLY) {
 			int seninf_pad;
 
-			if (mtk_cam_feature_is_2_exposure(feature_first_req))
+			if (mtk_cam_feature_is_2_exposure(feature_first_req)) {
 				seninf_pad = PAD_SRC_RAW1;
-			else if (mtk_cam_feature_is_3_exposure(feature_first_req))
+				exp_no = 2;
+			} else if (mtk_cam_feature_is_3_exposure(feature_first_req)) {
 				seninf_pad = PAD_SRC_RAW2;
-			else
+				exp_no = 3;
+			} else {
 				seninf_pad = PAD_SRC_RAW0;
+				exp_no = 1;
+			}
 
 			/* todo: backend support one pixel mode only */
 			mtk_cam_call_seninf_set_pixelmode(ctx,
