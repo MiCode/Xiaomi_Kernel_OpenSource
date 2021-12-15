@@ -179,7 +179,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	unsigned int freq = policy->cpuinfo.max_freq;
 	unsigned long next_freq = 0;
 
-	mtk_map_util_freq((void *)sg_policy, util, freq, max, &next_freq);
+	mtk_map_util_freq((void *)sg_policy, util, freq, policy->related_cpus, &next_freq);
 	if (next_freq) {
 		freq = next_freq;
 	} else {

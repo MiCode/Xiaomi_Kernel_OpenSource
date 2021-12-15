@@ -259,10 +259,10 @@ unsigned int get_sched_capacity_margin_dvfs(void)
 EXPORT_SYMBOL_GPL(get_sched_capacity_margin_dvfs);
 
 void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
-				unsigned long cap, unsigned long *next_freq)
+				struct cpumask *cpumask, unsigned long *next_freq)
 {
 	int i, j;
-	int cpu;
+	int cpu, cap;
 	struct pd_capacity_info *info;
 	struct em_perf_domain *pd;
 	unsigned long temp_util;
@@ -276,9 +276,9 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 
 	for (i = 0; i < pd_count; i++) {
 		info = &pd_capacity_tbl[i];
-		if (abs(cap - info->caps[0]) > 1)
+		if (!cpumask_equal(cpumask, &info->cpus))
 			continue;
-
+		cap = info->caps[0];
 		util = min(util, info->caps[0]);
 		cpu = cpumask_first(&info->cpus);
 		pd = em_cpu_get(cpu);

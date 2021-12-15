@@ -232,7 +232,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	scale_cpu = arch_scale_cpu_capacity(cpu);
 	ps = &pd->table[pd->nr_perf_states - 1];
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
-	mtk_map_util_freq(NULL, max_util, ps->frequency, scale_cpu, &freq);
+	mtk_map_util_freq(NULL, max_util, ps->frequency, to_cpumask(pd->cpus), &freq);
 #else
 	freq = map_util_freq(max_util, ps->frequency, scale_cpu);
 #endif
