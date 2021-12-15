@@ -1801,6 +1801,12 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		 */
 		temp_bw = (unsigned long long)pending->width * pending->height;
 		temp_bw *= mtk_get_format_bpp(fmt);
+
+		/* COMPRESS ratio */
+		if (pending->prop_val[PLANE_PROP_COMPRESS]) {
+			temp_bw *= 7;
+			do_div(temp_bw, 10);
+		}
 		do_div(temp_bw, 1000);
 		temp_bw *= ratio_tmp;
 		do_div(temp_bw, 100);
