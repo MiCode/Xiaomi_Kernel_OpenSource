@@ -836,6 +836,18 @@ error:
 void vcp_logger_uninit(void)
 {
 	char *tmp = vcp_A_last_log;
+	int i = 0;
+
+	while (!vcp_A_logger_inited || !VCP_A_log_ctl->enable) {
+		pr_info("[VCP] wait logger status %d, %d\n",
+			vcp_A_logger_inited, VCP_A_log_ctl->enable);
+		i += 5;
+		mdelay(5);
+		if (i > VCP_SYNC_TIMEOUT_MS) {
+			pr_info("[VCP] wait logger status timeout\n");
+			break;
+		}
+	}
 
 	vcp_A_logger_inited = 0;
 	vcp_A_last_log = NULL;
