@@ -849,7 +849,7 @@ static void mtk_imgsys_desc_iova(struct mtk_imgsys_pipe *pipe,
 
 			dmabuf = (struct dma_buf *)fparams->bufs[i].buf.planes[j].reserved[0];
 			if (IS_ERR_OR_NULL(dmabuf)) {
-				pr_info("%s bad dmabuf(0x%llx)", __func__,
+				pr_debug("%s bad dmabuf(0x%llx)", __func__,
 									dmabuf);
 				continue;
 			}
