@@ -160,9 +160,9 @@
 
 &odm {
 	xiaomi_touch: xiaomi_touch {
-		compatible = "xiaomi-touch";
+		compatible = "xxx-touch";
 		status = "ok";
-		touch,name = "xiaomi-touch";
+		touch,name = "xxx-touch";
 	};
 };
 /* TOUCH end */

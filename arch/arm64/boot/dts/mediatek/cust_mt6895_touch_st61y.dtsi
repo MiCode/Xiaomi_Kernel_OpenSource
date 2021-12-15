@@ -161,9 +161,9 @@
 
 &odm {
 	xiaomi_touch: xiaomi_touch {
-		compatible = "tc8sp-touch";
+		compatible = "xxx-touch";
 		status = "ok";
-		touch,name = "tc8sp-touch";
+		touch,name = "xxx-touch";
 	};
 };
 /* TOUCH end */
