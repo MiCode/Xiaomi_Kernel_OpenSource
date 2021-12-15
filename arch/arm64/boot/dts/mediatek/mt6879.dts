@@ -352,7 +352,7 @@
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
 			vmalloc=400M swiotlb=noforce \
-			cma=64M \
+			cma=64M transparent_hugepage=never \
 			firmware_class.path=/vendor/firmware pelt=8 ";
 		kaslr-seed = <0 0>;
 	};
