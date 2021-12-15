@@ -812,7 +812,7 @@ static int mtk_compr_offload_start(struct snd_compr_stream *stream)
 static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 {
 	int ret = 0;
-	if ((afe_offload_block.transferred > 8 * USE_PERIODS_MAX) ||
+	if ((afe_offload_block.transferred >= 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
 	      (afe_offload_block.state == OFFLOAD_STATE_DRAIN)))) {
@@ -842,7 +842,7 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
-	if ((afe_offload_block.transferred > 8 * USE_PERIODS_MAX) ||
+	if ((afe_offload_block.transferred >= 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
 	      (afe_offload_block.state == OFFLOAD_STATE_DRAIN)))) {
