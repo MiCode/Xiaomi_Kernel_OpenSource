@@ -3011,6 +3011,10 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		goodix_fp: fingerprint {
+			compatible = "mediatek,goodix-fp";
+		};
+
 		mmc0: mmc@11230000 {
 			compatible = "mediatek,common-mmc-v2";
 			reg = <0 0x11230000 0 0x1000>,
