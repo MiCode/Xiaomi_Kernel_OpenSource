@@ -1430,7 +1430,9 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	user_cmd_cnt++;
 
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
-		if (comp->id == DDP_COMPONENT_CCORR0 && cmd == 0) {
+		if (((comp->id == DDP_COMPONENT_CCORR1) ||
+			((drm_ccorr_caps.ccorr_linear & 0x1) &&
+			(comp->id == DDP_COMPONENT_CCORR0))) && cmd == 0) {
 			ccorr_config = params;
 			if (ccorr_config->silky_bright_flag == 1 &&
 				ccorr_config->FinalBacklight != sb_backlight) {
@@ -10015,6 +10017,7 @@ int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
 	struct mtk_drm_pq_caps_info *pq_info = data;
 
 	mtk_set_ccorr_caps(&pq_info->ccorr_caps);
+	memcpy(&drm_ccorr_caps, &pq_info->ccorr_caps, sizeof(drm_ccorr_caps));
 	return 0;
 }
 
