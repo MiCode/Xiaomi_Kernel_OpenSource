@@ -5,7 +5,6 @@
  */
 
 #include <linux/sched.h>
-#include <uapi/linux/sched/types.h>
 #include <mtk_drm_drv.h>
 
 #include "mtk-mml-dle-adaptor.h"
@@ -666,8 +665,6 @@ static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
 {
 	struct mml_dle_ctx *ctx;
 	struct task_struct *taskdone_task;
-	struct sched_param kt_param = { .sched_priority = MAX_RT_PRIO - 1 };
-	int ret;
 
 	mml_msg("[dle]%s on dev %p", __func__, mml);
 
@@ -684,9 +681,6 @@ static struct mml_dle_ctx *dle_ctx_create(struct mml_dev *mml,
 		return ERR_PTR(-EIO);
 	}
 	ctx->kt_done_task = taskdone_task;
-	ret = sched_setscheduler(ctx->kt_done_task, SCHED_FIFO, &kt_param);
-	if (ret < 0)
-		mml_log("[dle]%s set kt done prio fail %d", __func__, ret);
 
 	INIT_LIST_HEAD(&ctx->configs);
 	mutex_init(&ctx->config_mutex);
