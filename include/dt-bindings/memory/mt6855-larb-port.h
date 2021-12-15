@@ -224,8 +224,14 @@
 
 /* larb18--dummy */
 /* larb19--dummy */
-/* larb20--dummy */
 
+/* larb20 */
+#define M4U_LARB20_PORT0			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 0)
+#define M4U_LARB20_PORT1			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 1)
+#define M4U_LARB20_PORT2			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 2)
+#define M4U_LARB20_PORT3			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 3)
+#define M4U_LARB20_PORT4			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 4)
+#define M4U_LARB20_PORT5			MTK_M4U_DOM_ID(NORMAL_DOM, 20, 5)
 
 /* fake larb32 */
 #define M4U_LARB32_GCE_DM			MTK_M4U_DOM_ID(NORMAL_DOM, 32, 1)
