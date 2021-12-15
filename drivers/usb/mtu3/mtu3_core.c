@@ -788,7 +788,10 @@ static int mtu3_hw_init(struct mtu3 *mtu)
 	value = mtu3_readl(mtu->ippc_base, U3D_SSUSB_IP_TRUNK_VERS);
 	mtu->hw_version = IP_TRUNK_VERS(value);
 	mtu->gen2cp = !!(mtu->hw_version >= MTU3_TRUNK_VERS_1003);
-
+#if defined(CONFIG_MACH_MT6877)
+	mtu->gen2cp = 0;
+	dev_info(mtu->dev, "force gen2cp to be 0 ");
+#endif
 	value = mtu3_readl(mtu->ippc_base, U3D_SSUSB_IP_DEV_CAP);
 	mtu->is_u3_ip = !!SSUSB_IP_DEV_U3_PORT_NUM(value);
 

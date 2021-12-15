@@ -217,10 +217,17 @@ int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 		goto dma_clk_err;
 	}
 
+	ret = clk_prepare_enable(ssusb->host_clk);
+	if (ret) {
+		dev_info(ssusb->dev, "failed to enable host_clk\n");
+		goto host_clk_err;
+	}
+
 	ssusb->clk_on = true;
 
 	return 0;
-
+host_clk_err:
+	clk_disable_unprepare(ssusb->dma_clk);
 dma_clk_err:
 	clk_disable_unprepare(ssusb->mcu_clk);
 mcu_clk_err:
@@ -233,6 +240,7 @@ sys_clk_err:
 
 void ssusb_clks_disable(struct ssusb_mtk *ssusb)
 {
+	clk_disable_unprepare(ssusb->host_clk);
 	clk_disable_unprepare(ssusb->dma_clk);
 	clk_disable_unprepare(ssusb->mcu_clk);
 	clk_disable_unprepare(ssusb->ref_clk);
@@ -334,6 +342,10 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	ssusb->dma_clk = devm_clk_get_optional(dev, "dma_ck");
 	if (IS_ERR(ssusb->dma_clk))
 		return PTR_ERR(ssusb->dma_clk);
+
+	ssusb->host_clk = devm_clk_get_optional(dev, "host_ck");
+	if (IS_ERR(ssusb->host_clk))
+		return PTR_ERR(ssusb->host_clk);
 
 	ssusb->num_phys = of_count_phandle_with_args(node,
 			"phys", "#phy-cells");

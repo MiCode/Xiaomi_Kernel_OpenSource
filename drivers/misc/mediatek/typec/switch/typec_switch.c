@@ -55,6 +55,11 @@ static int mtk_typec_switch_set(struct typec_switch *sw,
 	if (ret)
 		dev_err(typec_switch->dev, "ptn36241g set fail %d\n", ret);
 
+	if (typec_switch->fusb_2)
+		ret = fusb340_set_conf(typec_switch->fusb_2, orientation);
+	if (ret)
+		dev_info(typec_switch->dev, "fusb340 set fail %d\n", ret);
+
 	typec_switch->orientation = orientation;
 
 	mutex_unlock(&typec_switch->lock);
@@ -193,6 +198,7 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 	index = of_property_match_string(np,
 					"switch-names", "fusb340");
 	if (index >= 0) {
+		struct platform_device *fusb340 = NULL;
 		typec_switch->fusb_2 = devm_kzalloc(dev,
 			sizeof(*typec_switch->fusb_2), GFP_KERNEL);
 
@@ -201,8 +207,18 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 			kfree(typec_switch);
 			return -ENOMEM;
 		}
+		np = of_find_node_by_name(NULL, "fusb340");
+		if (!np) {
+			dev_info(dev, "%s find node fusb340 fail\n", __func__);
+			return -ENODEV;
+		}
+		fusb340 = of_find_device_by_node(np);
+		if (!fusb340) {
+			dev_info(dev, "failed to get fusb340 pdev\n");
+			return -EINVAL;
+		}
 
-		typec_switch->fusb_2->dev = dev;
+		typec_switch->fusb_2->dev = &fusb340->dev;
 
 		if (fusb340_init(typec_switch->fusb_2)) {
 			devm_kfree(dev, typec_switch->fusb_2);
