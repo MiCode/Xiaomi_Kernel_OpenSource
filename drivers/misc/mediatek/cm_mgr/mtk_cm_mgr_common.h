@@ -95,5 +95,7 @@ extern struct icc_path *cm_mgr_set_bw_path(struct icc_path *bw_path);
 extern void cm_mgr_perf_set_status(int enable);
 extern void cm_mgr_register_hook(struct cm_mgr_hook *hook);
 extern void cm_mgr_unregister_hook(struct cm_mgr_hook *hook);
+extern void cm_mgr_set_dram_opp_ceiling(int opp);
+extern void cm_mgr_set_dram_opp_floor(int opp);
 
 #endif	/* __MTK_CM_MGR_H__ */

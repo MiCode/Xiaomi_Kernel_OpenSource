@@ -385,6 +385,19 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 EXPORT_SYMBOL_GPL(cm_mgr_to_sspm_command);
 #endif /* CONFIG_MTK_CM_IPI */
 
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+void cm_mgr_set_dram_opp_ceiling(int opp)
+{
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_OPP_CEILING, opp);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_dram_opp_ceiling);
+
+void cm_mgr_set_dram_opp_floor(int opp)
+{
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_OPP_FLOOR, opp);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_dram_opp_floor);
+#endif
 int __weak dbg_cm_mgr_platform_show(char *buff) { return 0; }
 
 void __weak dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
