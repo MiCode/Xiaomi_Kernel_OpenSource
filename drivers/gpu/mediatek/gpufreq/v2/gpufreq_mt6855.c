@@ -942,26 +942,14 @@ void __gpufreq_dump_infra_status(void)
 			g_gpu.cur_volt, g_gpu.cur_vsram);
 	}
 
-	/* 0x13FBF000, 0x13F90000 */
-	if (g_mfg_top_base && g_mfg_rpc_base) {
-		/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
-		val = readl(g_mfg_top_base + 0xB4);
-		val |= (1UL << 0);
-		writel(val, g_mfg_top_base + 0xB4);
-		/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
-		val = readl(g_mfg_top_base + 0x170);
-		val |= (1UL << 0);
-		val |= (1UL << 1);
-		writel(val, g_mfg_top_base + 0x170);
-
-		/* MFG_DEBUG_SEL */
-		/* MFG_DEBUG_TOP */
+	/* 0x13F90000, 0x13000000 */
+	if (g_mfg_rpc_base && g_rgx_base) {
 		/* MFG_GPU_EB_SPM_RPC_SLP_PROT_EN_STA */
-		GPUFREQ_LOGI("%-7s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		/* RGX_CR_SYS_BUS_SECURE */
+		GPUFREQ_LOGI("%-7s (0x%x): 0x%08x, (0x%x): 0x%08x",
 			"[MFG]",
-			(0x13FBF000 + 0x170), readl(g_mfg_top_base + 0x170),
-			(0x13FBF000 + 0x178), readl(g_mfg_top_base + 0x178),
-			(0x13F90000 + 0x1048), readl(g_mfg_rpc_base + 0x1048));
+			(0x13F90000 + 0x1048), readl(g_mfg_rpc_base + 0x1048),
+			(0x13000000 + 0xA100), readl(g_rgx_base + 0xA100));
 	}
 
 	/* 0x1021C000, 0x10270000 */
@@ -1008,11 +996,14 @@ void __gpufreq_dump_infra_status(void)
 
 	/* 0x1C001000 */
 	if (g_sleep) {
-		/* MFG0_PWR_CON - MFG2_PWR_CON */
-		GPUFREQ_LOGI("%-7s (0x%x-%x): 0x%08x 0x%08x 0x%08x",
-			"[SPM]", (0x1C001000 + 0xEB8), 0xEC0,
-			readl(g_sleep + 0xEB8), readl(g_sleep + 0xEBC),
-			readl(g_sleep + 0xEC0));
+		/* MFG0_PWR_CON */
+		/* MFG1_PWR_CON */
+		/* MFG2_PWR_CON */
+		GPUFREQ_LOGI("%-7s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+			"[SPM]",
+			(0x1C001000 + 0xEB8), readl(g_sleep + 0xEB8),
+			(0x1C001000 + 0xEBC), readl(g_sleep + 0xEBC),
+			(0x1C001000 + 0xEC0), readl(g_sleep + 0xEC0));
 		/* XPU_PWR_STATUS */
 		/* XPU_PWR_STATUS_2ND */
 		GPUFREQ_LOGI("%-7s (0x%x): 0x%08x, (0x%x): 0x%08x",
@@ -2996,6 +2987,13 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	of_property_read_u32(gpufreq_dev->of_node, "aging-load", &g_aging_load);
 	of_property_read_u32(gpufreq_dev->of_node, "mcl50-load", &g_mcl50_load);
 	of_property_read_u32(of_wrapper, "gpueb-support", &g_gpueb_support);
+
+	/* 0x13000000 */
+	g_rgx_base = __gpufreq_of_ioremap("mediatek,rgx", 0);
+	if (unlikely(!g_rgx_base)) {
+		GPUFREQ_LOGE("fail to ioremap RGX");
+		goto done;
+	}
 
 	/* 0x13FBF000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_top_config");
