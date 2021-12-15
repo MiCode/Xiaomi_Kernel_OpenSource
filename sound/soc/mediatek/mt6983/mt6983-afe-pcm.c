@@ -3258,8 +3258,8 @@ static irqreturn_t mt6983_afe_irq_handler(int irq_id, void *dev)
 	int i;
 	struct timespec64 ts64;
 	unsigned long long t1, t2;
-	/* one interrupt period = 5ms */
-	unsigned long long timeout_limit = 5000000;
+	/* one interrupt period = 1ms */
+	unsigned long long timeout_limit = 1000000;
 
 	/* get irq that is sent to MCU */
 	regmap_read(afe->regmap, AFE_IRQ_MCU_EN, &mcu_en);
