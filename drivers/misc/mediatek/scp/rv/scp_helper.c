@@ -1429,7 +1429,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 #if ENABLE_SCP_EMI_PROTECTION
 void set_scp_mpu(void)
 {
-#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+#if IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MEDIATEK_EMI)
 	struct emimpu_region_t md_region;
 
 	mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
