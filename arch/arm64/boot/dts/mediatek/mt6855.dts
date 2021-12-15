@@ -424,13 +424,13 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0000>;
 			performance-domains = <&performance 0>;
-			/*enable-method = "psci";*/
+			enable-method = "psci";
 			clock-frequency = <2000000000>;
 			capacity-dmips-domains = <430>;
 			#cooling-cells = <2>;
 		};
 
-		/*cpu1: cpu@001 {
+		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
 			reg = <0x0100>;
@@ -506,13 +506,13 @@
 			capacity-dmips-domains = <1024>;
 			#cooling-cells = <2>;
 		};
-*/
+
 		cpu-map {
 			cluster0 {
 				core0 {
 					cpu = <&cpu0>;
 				};
-				/*core1 {
+				core1 {
 					cpu = <&cpu1>;
 				};
 				core2 {
@@ -527,8 +527,8 @@
 				core5 {
 					cpu = <&cpu5>;
 				};
-*/			};
-			/*cluster1 {
+			};
+			cluster1 {
 				core0 {
 					cpu = <&cpu6>;
 				};
@@ -536,7 +536,7 @@
 					cpu = <&cpu7>;
 				};
 			};
-*/		};
+		};
 	};
 
 	psci {
