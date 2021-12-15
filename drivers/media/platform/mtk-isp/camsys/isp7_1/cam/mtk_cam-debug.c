@@ -987,7 +987,6 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 	if (!ctx->cam->debug_fs)
 		return false;
 
-	// TODO(mstream): support dump mstream_working_buf
 	switch (dump_flag) {
 	case MTK_CAM_REQ_DUMP_FORCE:
 		if (!ctx->cam->debug_fs->force_dump ||

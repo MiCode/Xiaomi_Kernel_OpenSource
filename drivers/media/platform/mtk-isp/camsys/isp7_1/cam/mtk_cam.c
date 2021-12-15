@@ -3137,6 +3137,12 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 
 	atomic_set(&ctx->enqueued_frame_seq_no, req_stream_data->frame_seq_no);
 
+	/* sensor switch update s_data state */
+	if (req->ctx_link_update & (1 << ctx->stream_id)) {
+		req_stream_data->state.estate = E_STATE_READY;
+		req_stream_data_mstream->state.estate = E_STATE_SENINF;
+	}
+
 	pr_info("%s: frame_seq:%d, frame_mstream_seq:%d\n",
 		__func__, req_stream_data->frame_seq_no,
 		req_stream_data_mstream->frame_seq_no);
@@ -3433,7 +3439,8 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 				s_data_flags = s_data->flags;
 
 				/* mstream: re-init the s_data */
-				if (mtk_cam_feature_change_is_mstream(feature_change))
+				if (mtk_cam_feature_change_is_mstream(feature_change) ||
+						(req->ctx_link_update & (1 << ctx->pipe->id)))
 					mstream_seamless_buf_update(ctx, req, i,
 								    previous_feature);
 
@@ -4167,8 +4174,19 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 
 	req = mtk_cam_s_data_get_req(s_data);
 	if (req->flags & MTK_CAM_REQ_FLAG_SENINF_IMMEDIATE_UPDATE &&
-	    (req->ctx_link_update & (1 << s_data->pipe_id)))
-		is_mux_change_with_apply_cq = true;
+			(req->ctx_link_update & (1 << s_data->pipe_id))) {
+		if (mtk_cam_is_mstream(ctx)) {
+			struct mtk_cam_request_stream_data *mstream_1st_data;
+
+			mstream_1st_data =  mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+			if (ipi_msg->cookie.frame_no == mstream_1st_data->frame_seq_no) {
+				is_mux_change_with_apply_cq = true;
+				ctx->is_first_cq_done = 0;
+			}
+		} else {
+			is_mux_change_with_apply_cq = true;
+		}
+	}
 
 	buf_entry->cq_desc_offset =
 		ipi_msg->ack_data.frame_result.cq_desc_offset;
@@ -4718,6 +4736,16 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 				}
 			}
 		} else {
+			if (mtk_cam_is_mstream(ctx)) {
+				struct mtk_cam_request_stream_data *mstream_2nd_data;
+
+				mstream_2nd_data = mtk_cam_req_get_s_data(req, stream_id, 0);
+				if (mstream_2nd_data->seninf_new) {
+					s_data->sensor = mstream_2nd_data->sensor;
+					s_data->seninf_new = mstream_2nd_data->seninf_new;
+					s_data->seninf_old = mstream_2nd_data->seninf_old;
+				}
+			}
 			// stream_on(raw_dev, 0);
 			dev_info(ctx->cam->dev, "%s: Disable cammux: %s\n", __func__,
 				 s_data->seninf_old->name);
@@ -4770,6 +4798,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 
 	/* apply sensor setting if needed */
 	mtk_cam_set_sensor_full(s_data, &ctx->sensor_ctrl);
+
 	/* keep the sof_count to restore it after reinit */
 	sof_count = raw_dev->sof_count;
 
@@ -4862,8 +4891,8 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 
 			if (req_stream_data->frame_seq_no == 1 ||
-				((mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) &&
-					req_stream_data->frame_seq_no == 2))
+					((mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) &&
+					(req_stream_data->frame_seq_no == 2)))
 				initial_frame = 1;
 
 			frame_work = &req_stream_data->frame_work;
@@ -4911,7 +4940,18 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				}
 			}
 
-			handle_immediate_switch(ctx, req_stream_data, i);
+			if (mtk_cam_is_mstream(ctx)) {
+				if (req->ctx_link_update & (1 << stream_id)) {
+					struct mtk_cam_request_stream_data *s_data;
+
+					s_data = mtk_cam_req_get_s_data(req, stream_id, 1);
+					ctx->sensor_ctrl.ctx = ctx;
+					s_data->ctx = ctx;
+					handle_immediate_switch(ctx, s_data, i);
+				}
+			} else {
+				handle_immediate_switch(ctx, req_stream_data, i);
+			}
 
 			/* Prepare CQ compose work */
 			if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
@@ -6006,13 +6046,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		 * TODO: validate pad's setting of each pipes
 		 * return -EPIPE if failed
 		 */
-		if (ctx->pipe->dynamic_exposure_num_max > 1 ||
-		    mtk_cam_feature_is_switchable_hdr(feature_active))
-			ret = mtk_cam_img_working_buf_pool_init(ctx,
-				2 + mtk_cam_feature_is_3_exposure(feature_active));
-		if (mtk_cam_feature_is_time_shared(feature_active))
-			ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
-
+		ret = mtk_cam_img_working_buf_pool_init(ctx, CAM_IMG_BUF_NUM);
 		if (ret) {
 			dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
 			goto fail_img_buf_release;
