@@ -82,7 +82,7 @@ ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6895.c),)
 obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6895.o
 endif
 
-ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6895.c),)
+ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6855.c),)
 obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6855.o
 endif
 
