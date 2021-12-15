@@ -53,7 +53,7 @@ static void sched_task_util_hook(void *data, struct sched_entity *se)
 		p = container_of(se, struct task_struct, se);
 		sa = &se->avg;
 
-		trace_sched_task_util(p->pid, p->comm,
+		trace_sched_task_util(p->pid,
 				sa->util_avg, sa->util_est.enqueued, sa->util_est.ewma);
 	}
 }
