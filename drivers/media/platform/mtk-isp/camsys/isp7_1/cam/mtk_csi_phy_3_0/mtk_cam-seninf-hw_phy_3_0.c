@@ -18,6 +18,7 @@
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csi0-cphy.h"
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csi0-dphy.h"
 
+#include "mtk_cam-seninf-route.h"
 #include "imgsensor-user.h"
 #define __SMT 0
 #define SENINF_CK 273000000
@@ -1283,9 +1284,15 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[ctx->port];
 	int settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
-	int bit_per_pixel;
+	int bit_per_pixel = 10;
 	u64 data_rate;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
 
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
 
 	if (ctx->is_cphy) {
 		settle_delay_dt = ctx->csi_param.cphy_settle
@@ -1365,8 +1372,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		    RG_DPHY_RX_LD3_HS_TRAIL_PARAMETER, hs_trail);
 
 	if (!ctx->is_cphy) {
-		/* TODO */
-		bit_per_pixel = 10;
+
 		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 		do_div(data_rate, ctx->num_data_lanes);
 		hs_trail_en = data_rate < SENINF_HS_TRAIL_EN_CONDITION;
@@ -1413,6 +1419,15 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 {
 	void *pSeninf_csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
 	int csi_en;
+	int bit_per_pixel = 10;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
+
 
 	SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DBG_CTRL,
 		    RG_CSI2_DBG_PACKET_CNT_EN, 1);
@@ -1424,7 +1439,7 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 	csi_en = (1 << ctx->num_data_lanes) - 1;
 
 	if (!ctx->is_cphy) { //Dphy
-		int bit_per_pixel = 10;
+
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 		u64 cycles = 64;
 
@@ -1456,7 +1471,6 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 	} else { //Cphy
 		u8 map_hdr_len[] = {0, 1, 2, 4, 5};
 		u64 cycles = 64;
-		int bit_per_pixel = 10;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
 		cycles *= SENINF_CK;
@@ -1934,15 +1948,23 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 static int csirx_phyA_setting(struct seninf_ctx *ctx)
 {
 	void *base, *baseA, *baseB;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	int bit_per_pixel = 10;
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
 
 	base = ctx->reg_ana_csi_rx[ctx->port];
 	baseA = ctx->reg_ana_csi_rx[ctx->portA];
 	baseB = ctx->reg_ana_csi_rx[ctx->portB];
 
+
 	//dev_info(ctx->dev, "port %d A %d B %d\n", ctx->port, ctx->portA, ctx->portB);
 
 	if (!ctx->is_cphy) { //Dphy
-		int bit_per_pixel = 10;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
 		do_div(data_rate, ctx->num_data_lanes);
@@ -2181,7 +2203,6 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 
 		}
 	} else { //Cphy
-		int bit_per_pixel = 10;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
 		data_rate *= 7;
@@ -2683,9 +2704,16 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 				      RG_DPHY_RX_LD0_HS_TRAIL_EN),
 		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 				      RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER));
-		SHOW(buf, len, "resync cycle 0x%04x\n",
-		     SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
-				      RG_CSI2_RESYNC_DMY_CYCLE));
+		SHOW(buf, len,
+			"resync dmy cycle 0x%04x, cycle cnt 0x%04x, dmy cnt 0x%04x, dmy en 0x%04x\n",
+			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				      RG_CSI2_RESYNC_DMY_CYCLE),
+			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				      RG_CSI2_RESYNC_CYCLE_CNT),
+			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				      RG_CSI2_RESYNC_DMY_CNT),
+			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				      RG_CSI2_RESYNC_DMY_EN));
 
 		SHOW(buf, len, "data_not_enough_cnt : <%d>",
 			ctx->data_not_enough_cnt);

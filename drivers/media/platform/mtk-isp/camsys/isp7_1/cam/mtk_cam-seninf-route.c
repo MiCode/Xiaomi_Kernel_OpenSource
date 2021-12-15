@@ -516,6 +516,44 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
 		vc->exp_vsize = fd.entry[i].bus.csi2.vsize;
 
+		switch (vc->dt) {
+		case 0x28:
+			vc->bit_depth = 6;
+			break;
+		case 0x29:
+			vc->bit_depth = 7;
+			break;
+		case 0x2A:
+		case 0x1E:
+		case 0x1C:
+		case 0x1A:
+		case 0x18:
+			vc->bit_depth = 8;
+			break;
+		case 0x2B:
+		case 0x1F:
+		case 0x19:
+		case 0x1D:
+			vc->bit_depth = 10;
+			break;
+		case 0x2C:
+			vc->bit_depth = 12;
+			break;
+		case 0x2D:
+			vc->bit_depth = 14;
+			break;
+		case 0x2E:
+			vc->bit_depth = 16;
+			break;
+		case 0x2F:
+			vc->bit_depth = 20;
+			break;
+		default:
+			vc->bit_depth = 8;
+			break;
+		}
+
+
 		/* update pad fotmat */
 		if (vc->exp_hsize && vc->exp_vsize) {
 			ctx->fmt[vc->out_pad].format.width = vc->exp_hsize;
