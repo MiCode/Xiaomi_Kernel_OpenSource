@@ -410,6 +410,7 @@ void *mtk_ccd_get_buffer(struct mtk_ccd *ccd,
 		dev_info(ccd_memory->dev,
 			"%s: Failed: buffer len = %u num_buffers = %d !!\n",
 			 __func__, mem_buff_data->len, buffers);
+		mutex_unlock(&ccd_memory->mmap_lock);
 		return ERR_PTR(-EINVAL);
 	}
 
