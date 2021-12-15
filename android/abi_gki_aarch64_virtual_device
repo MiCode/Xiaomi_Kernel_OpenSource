@@ -520,11 +520,6 @@
 # required by failover.ko
   netdev_master_upper_dev_link
   rtnl_is_locked
-  vlan_uses_dev
-  vlan_vid_add
-  vlan_vid_del
-  vlan_vids_add_by_dev
-  vlan_vids_del_by_dev
 
 # required by goldfish_address_space.ko
   memremap
@@ -659,6 +654,11 @@
   netdev_lower_state_changed
   netdev_pick_tx
   pci_bus_type
+  vlan_uses_dev
+  vlan_vid_add
+  vlan_vid_del
+  vlan_vids_add_by_dev
+  vlan_vids_del_by_dev
 
 # required by psmouse.ko
   bus_register_notifier
