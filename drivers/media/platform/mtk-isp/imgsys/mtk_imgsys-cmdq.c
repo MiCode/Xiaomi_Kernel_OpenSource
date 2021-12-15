@@ -439,6 +439,8 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			#if IMGSYS_QOS_SET_REAL
 			mtk_imgsys_mmqos_ts_cal(imgsys_dev, cb_param, hw_comb);
 			mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
+			#elif IMGSYS_QOS_SET_BY_SCEN
+			mtk_imgsys_mmqos_set_by_scen(imgsys_dev, cb_param->frm_info, 0);
 			#endif
 			#endif
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
@@ -689,6 +691,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	mtk_imgsys_mmdvfs_set(imgsys_dev, frm_info, 1);
 	#if IMGSYS_QOS_SET_REAL
 	mtk_imgsys_mmqos_set(imgsys_dev, frm_info, 1);
+	#elif IMGSYS_QOS_SET_BY_SCEN
+	mtk_imgsys_mmqos_set_by_scen(imgsys_dev, frm_info, 1);
 	#endif
 	#endif
 	mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
@@ -1417,6 +1421,81 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 	#endif
 }
 
+void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet)
+{
+	struct mtk_imgsys_qos *qos_info = &imgsys_dev->qos_info;
+	u32 hw_comb = 0;
+	u64 pixel_sz = 0;
+	u32 fps = 0;
+	u32 frm_num = 0;
+	u64 bw_final[MTK_IMGSYS_QOS_GROUP] = {0};
+
+	frm_num = frm_info->total_frmnum;
+	hw_comb = frm_info->user_info[frm_num-1].hw_comb;
+	pixel_sz = frm_info->user_info[frm_num-1].pixel_bw;
+	fps = frm_info->fps;
+
+	if (is_stream_off == 0) {
+		if (isSet == 1) {
+			if ((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
+				(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) {
+				if (fps == 30) {
+					if (pixel_sz > IMGSYS_QOS_4K_SIZE) {
+						bw_final[0] = IMGSYS_QOS_4K_30_BW_0;
+						bw_final[1] = IMGSYS_QOS_4K_30_BW_1;
+					} else if (pixel_sz > IMGSYS_QOS_FHD_SIZE) {
+						bw_final[0] = IMGSYS_QOS_FHD_30_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_30_BW_1;
+					} else {
+						bw_final[0] = IMGSYS_QOS_FHD_30_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_30_BW_1;
+					}
+				} else if (fps == 60) {
+					if (pixel_sz > IMGSYS_QOS_4K_SIZE) {
+						bw_final[0] = IMGSYS_QOS_4K_60_BW_0;
+						bw_final[1] = IMGSYS_QOS_4K_60_BW_1;
+					} else if (pixel_sz > IMGSYS_QOS_FHD_SIZE) {
+						bw_final[0] = IMGSYS_QOS_FHD_60_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_60_BW_1;
+					} else {
+						bw_final[0] = IMGSYS_QOS_FHD_60_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_60_BW_1;
+					}
+				} else {
+					return;
+				}
+				bw_final[0] = (bw_final[0] * imgsys_qos_factor)/10;
+				bw_final[1] = (bw_final[1] * imgsys_qos_factor)/10;
+				if (qos_info->qos_path[IMGSYS_L9_COMMON_0].bw != bw_final[0]) {
+					dev_info(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = bw_final[0];
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = bw_final[1];
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					0);
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					0);
+				}
+			}
+		}
+	}
+}
+
 void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 dvfs_idx = 0, qos_idx = 0;
@@ -1424,6 +1503,8 @@ void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev)
 
 	qos_info = &imgsys_dev->qos_info;
 
+	qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = 0;
+	qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = 0;
 	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_0].path, 0, 0);
 	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_1].path, 0, 0);
 
