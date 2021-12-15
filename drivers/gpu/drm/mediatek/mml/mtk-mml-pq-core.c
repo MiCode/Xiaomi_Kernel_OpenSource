@@ -524,7 +524,7 @@ static int set_sub_task(struct mml_task *task,
 	if (!atomic_fetch_add_unless(&sub_task->queued, 1, 1)) {
 		if (is_dup_check)
 			mml_pq_check_dup_node(chan, sub_task);
-		WARN_ON(atomic_read(&sub_task->result_ref));
+		//WARN_ON(atomic_read(&sub_task->result_ref));
 		atomic_set(&sub_task->result_ref, 0);
 		kref_get(&pq_task->ref);
 		memcpy(&sub_task->frame_data.pq_param, task->pq_param,

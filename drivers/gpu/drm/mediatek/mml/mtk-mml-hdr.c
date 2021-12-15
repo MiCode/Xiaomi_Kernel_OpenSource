@@ -231,8 +231,10 @@ static s32 hdr_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__,
 		   ccfg->pipe, comp->id);
+	mml_pq_trace_ex_begin("%s", __func__);
 	if (dest->pq_config.en_hdr)
 		ret = mml_pq_set_comp_config(task);
+	mml_pq_trace_ex_end();
 
 	return ret;
 }
