@@ -393,7 +393,7 @@ static void adsp_A_trax_done_handler(int id, void *data, unsigned int len)
 static void adsp_logger_init_ws(struct work_struct *ws)
 {
 	enum adsp_ipi_status ret;
-	unsigned int mem_info[6];
+	uint64_t mem_info[6];
 
 	memset(adsp_get_reserve_mem_virt(ADSP_A_CORE_DUMP_MEM_ID), 0,
 		adsp_get_reserve_mem_size(ADSP_A_CORE_DUMP_MEM_ID));
@@ -406,11 +406,11 @@ static void adsp_logger_init_ws(struct work_struct *ws)
 	mem_info[3] = adsp_get_reserve_mem_size(ADSP_A_CORE_DUMP_MEM_ID);
 	mem_info[4] = adsp_get_reserve_mem_phys(ADSP_A_DEBUG_DUMP_MEM_ID);
 	mem_info[5] = adsp_get_reserve_mem_size(ADSP_A_DEBUG_DUMP_MEM_ID);
-	pr_info("[ADSP] logger addr 0x%x, size 0x%x\n",
+	pr_info("[ADSP] logger addr 0x%llx, size 0x%llx\n",
 			mem_info[0], mem_info[1]);
-	pr_info("[ADSP] coredump addr 0x%x, size 0x%x\n",
+	pr_info("[ADSP] coredump addr 0x%llx, size 0x%llx\n",
 			mem_info[2], mem_info[3]);
-	pr_info("[ADSP] debugdump addr 0x%x, size 0x%x\n",
+	pr_info("[ADSP] debugdump addr 0x%llx, size 0x%llx\n",
 			mem_info[4], mem_info[5]);
 
 	adsp_register_feature(ADSP_LOGGER_FEATURE_ID);

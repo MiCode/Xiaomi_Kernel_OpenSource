@@ -393,6 +393,7 @@ int audio_ipi_dma_init_dsp(const uint32_t dsp_id)
 	struct ipi_msg_t ipi_msg;
 	int ret = 0;
 	uint8_t task = TASK_SCENE_INVALID;
+	uint64_t payload[2];
 
 	if (dsp_id >= NUM_OPENDSP_TYPE) {
 		pr_info("dsp_id(%u) invalid!!!", dsp_id);
@@ -414,17 +415,19 @@ int audio_ipi_dma_init_dsp(const uint32_t dsp_id)
 	if (is_audio_use_adsp(dsp_id))
 		adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
+	payload[0] = g_dma[dsp_id]->base_phy.addr_val;
+	payload[1] = (uint64_t)g_dma[dsp_id]->size;
 
 	ret = audio_send_ipi_msg(
 		      &ipi_msg,
 		      task,
 		      AUDIO_IPI_LAYER_TO_DSP,
-		      AUDIO_IPI_MSG_ONLY,
+		      AUDIO_IPI_PAYLOAD,
 		      AUDIO_IPI_MSG_DIRECT_SEND,
 		      AUD_CTL_MSG_A2D_DMA_INIT,
-		      g_dma[dsp_id]->base_phy.addr_val,
-		      g_dma[dsp_id]->size,
-		      NULL);
+		      sizeof(payload),
+		      0,
+		      &payload);
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 	if (is_audio_use_adsp(dsp_id))
