@@ -722,10 +722,18 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 		flags |= KGSL_MEMFLAGS_SECURE;
 
 	if (!(desc->flags & HFI_MEMFLAG_GFX_ACC)) {
-		entry->md = gen7_reserve_gmu_kernel_block(gmu, 0,
-				desc->size,
-				(desc->flags & HFI_MEMFLAG_GMU_CACHEABLE) ?
-				GMU_CACHE : GMU_NONCACHED_KERNEL);
+		if (desc->mem_kind == HFI_MEMKIND_MMIO_IPC_CORE)
+			entry->md = gen7_reserve_gmu_kernel_block_fixed(gmu, 0,
+					desc->size,
+					(desc->flags & HFI_MEMFLAG_GMU_CACHEABLE) ?
+					GMU_CACHE : GMU_NONCACHED_KERNEL,
+					"qcom,ipc-core", get_attrs(desc->flags));
+		else
+			entry->md = gen7_reserve_gmu_kernel_block(gmu, 0,
+					desc->size,
+					(desc->flags & HFI_MEMFLAG_GMU_CACHEABLE) ?
+					GMU_CACHE : GMU_NONCACHED_KERNEL);
+
 		if (IS_ERR(entry->md)) {
 			int ret = PTR_ERR(entry->md);
 
