@@ -1281,6 +1281,8 @@
 			qcom,target-dev = <&qcom_l3_dcvs_hw>;
 			qcom,sampling-path = <&l3_dcvs_sp>;
 			qcom,miss-ev = <0x17>;
+			qcom,wb-ev = <0x18>;
+			qcom,access-ev = <0x2B>;
 
 			silver {
 				compatible = "qcom,memlat-mon";
