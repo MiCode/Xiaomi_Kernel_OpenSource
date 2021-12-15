@@ -635,9 +635,8 @@ struct mtk_cam_uapi_pd_stats {
 	struct	mtk_cam_uapi_meta_hw_buf pdo_buf;
 };
 
-#define MTK_CAM_UAPI_TIMESTAMP_SIZE (64*16)
 struct mtk_cam_uapi_timestamp {
-	struct mtk_cam_uapi_meta_hw_buf timestamp_buf;
+	__u64 timestamp_buf[128];
 };
 
 /**
@@ -859,7 +858,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 2
-#define MTK_CAM_META_VERSION_MINOR 2
+#define MTK_CAM_META_VERSION_MINOR 3
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt6895"
 
