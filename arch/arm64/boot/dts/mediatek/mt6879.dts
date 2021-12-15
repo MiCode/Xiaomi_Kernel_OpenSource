@@ -2992,7 +2992,7 @@
 		};
 
 		ssusb: usb0@11201000 {
-			compatible = "mediatek,mtu3";
+			compatible = "mediatek,mtu3", "mediatek,mt6879-mtu3";
 			reg = <0 0x11201000 0 0x2e00>,
 				<0 0x11203e00 0 0x0100>;
 			reg-names = "mac", "ippc";
