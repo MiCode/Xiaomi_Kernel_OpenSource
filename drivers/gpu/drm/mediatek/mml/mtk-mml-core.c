@@ -1178,7 +1178,7 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 	mml_record_dump(task->config->mml);
 	mml_err("error dump %d end", cnt);
 
-	call_dbg_op(path->mmlsys, reset, task, pipe);
+	call_dbg_op(path->mmlsys, reset, task->config, pipe);
 
 	mml_err("error %d engine reset end", cnt);
 	mml_cmdq_err = 0;
@@ -1205,10 +1205,19 @@ static const cmdq_async_flush_cb dump_cbs[MML_PIPE_CNT] = {
 
 static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bool force)
 {
+	const struct mml_topology_path *path = cfg->path[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
 	if (force) {
 		/* call cmdq to stop hardware thread directly */
 		cmdq_mbox_channel_stop(cfg->path[pipe]->clt->chan);
 		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+
+		for (i = 0; i < path->node_cnt; i++) {
+			comp = path->nodes[i].comp;
+			call_dbg_op(comp, reset, cfg, pipe);
+		}
 	} else {
 		if (cmdq_mbox_get_usage(cfg->path[pipe]->clt->chan) <= 0)
 			return;

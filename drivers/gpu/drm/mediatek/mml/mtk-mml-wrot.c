@@ -2092,8 +2092,21 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	}
 }
 
+static void wrot_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe)
+{
+	const struct mml_topology_path *path = cfg->path[pipe];
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+	if (cfg->info.mode == MML_MODE_RACING) {
+		cmdq_clear_event(path->clt->chan, wrot->event_bufa);
+		cmdq_clear_event(path->clt->chan, wrot->event_bufb);
+		cmdq_clear_event(path->clt->chan, wrot->event_buf_next);
+	}
+}
+
 static const struct mml_comp_debug_ops wrot_debug_ops = {
 	.dump = &wrot_debug_dump,
+	.reset = &wrot_reset,
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
