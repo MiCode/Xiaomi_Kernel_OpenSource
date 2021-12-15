@@ -6072,8 +6072,10 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->used_raw_num = 0;
 	ctx->used_sv_num = 0;
 	ctx->used_mraw_num = 0;
-	ctx->pipe->enabled_raw = 0;
-	ctx->pipe->enabled_dmas = 0;
+	if (ctx->pipe) {
+		ctx->pipe->enabled_raw = 0;
+		ctx->pipe->enabled_dmas = 0;
+	}
 
 	INIT_LIST_HEAD(&ctx->using_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->composed_buffer_list.list);
