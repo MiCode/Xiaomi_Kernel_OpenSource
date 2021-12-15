@@ -220,6 +220,10 @@ static int get_devinfo(void)
 		return 0;
 	}
 	pdev = of_device_alloc(node, NULL, NULL);
+	if (!pdev) {
+		eem_error("%s fail to create device node\n", __func__);
+		return 0;
+	}
 	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
 
 	if (IS_ERR(nvmem_dev)) {
