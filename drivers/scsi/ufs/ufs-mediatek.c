@@ -56,11 +56,14 @@ static int ufs_abort_aee_count;
 #define ufs_mtk_device_reset_ctrl(high, res) \
 	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_RESET, res, high)
 
-#define ufs_mtk_host_pwr_ctrl(on, ufs_version, res) \
-	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, res, on, ufs_version)
+#define ufs_mtk_host_pwr_ctrl(on, res) \
+	ufs_mtk_smc(UFS_MTK_SIP_HOST_PWR_CTRL, res, on)
 
 #define ufs_mtk_get_vcc_info(res) \
 	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_INFO, res)
+
+#define ufs_mtk_device_pwr_ctrl(on, ufs_version, res) \
+	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_PWR_CTRL, res, on, ufs_version)
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
@@ -1555,6 +1558,27 @@ out:
 	return ret;
 }
 
+static void ufs_mtk_ctrl_dev_pwr(struct ufs_hba *hba, bool vcc_on, bool is_init)
+{
+	struct arm_smccc_res res;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	u64 ufs_version;
+
+	/* Transfer the ufs version to tf-a */
+	ufs_version = (u64)hba->dev_info.wspecversion;
+
+	/*
+	 * If VCC kept always-on, we do not use smc call to avoid
+	 * non-essential time consumption.
+	 *
+	 * We don't need to control VS buck (the upper layer of VCCQ/VCCQ2)
+	 * to enter LPM, because UFS device may be active when VCC
+	 * is always-on.
+	 */
+	if (!(host->caps & UFS_MTK_CAP_BROKEN_VCC) || is_init)
+		ufs_mtk_device_pwr_ctrl(vcc_on, ufs_version, res);
+}
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -1941,7 +1965,6 @@ static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
-	u64 ufs_version;
 	struct arm_smccc_res res;
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -1965,9 +1988,9 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ufshcd_is_link_off(hba))
 		ufs_mtk_device_reset_ctrl(0, res);
 
-	/* Transfer the ufs version to tfa */
-	ufs_version = (u64)hba->dev_info.wspecversion;
-	ufs_mtk_host_pwr_ctrl(false, ufs_version, res);
+	ufs_mtk_host_pwr_ctrl(false, res);
+
+	ufs_mtk_ctrl_dev_pwr(hba, false, false);
 
 	return 0;
 fail:
@@ -1983,12 +2006,11 @@ fail:
 static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
-	u64 ufs_version;
 	struct arm_smccc_res res;
 
-	/* Transfer the ufs version to tfa */
-	ufs_version = (u64)hba->dev_info.wspecversion;
-	ufs_mtk_host_pwr_ctrl(true, ufs_version, res);
+	ufs_mtk_host_pwr_ctrl(true, res);
+
+	ufs_mtk_ctrl_dev_pwr(hba, true, false);
 
 	err = ufs_mtk_mphy_power_on(hba, true);
 	if (err)
@@ -2322,6 +2344,14 @@ skip_reset:
 		cpumask_set_cpu(3, &imask);
 		irq_set_affinity_hint(hba->irq, &imask);
 	}
+
+	/*
+	 * Because the default power setting of VSx (the upper layer of
+	 * VCCQ/VCCQ2) is HWLP, we need to prevent VCCQ/VCCQ2 from
+	 * entering LPM.
+	 */
+	ufs_mtk_ctrl_dev_pwr(hba, true, true);
+
 out:
 
 	of_node_put(reset_node);
