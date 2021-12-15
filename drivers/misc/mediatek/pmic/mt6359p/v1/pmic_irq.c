@@ -98,13 +98,10 @@ void pmic_enable_interrupt(enum PMIC_IRQ_ENUM intNo, unsigned int en, char *str)
 		pr_notice(PMICTAG "[%s] fail intNo=%d\n", __func__, intNo);
 		return;
 	}
-//TODO MIgration
-#if defined (CONFIG_MACH_MT6893)
-//Need do alternate handling
-#else
+
 	name = mt6358_irq_get_name(pmic_dev->parent, intNo);
 	IRQLOG("mt6358_irq_get_name: %s............\n", name);
-#endif
+
 	if (name == NULL) {
 		pr_notice(PMICTAG "[%s] no irq name at intNo=%d\n",
 			__func__, intNo);
