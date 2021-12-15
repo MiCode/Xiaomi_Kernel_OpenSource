@@ -627,7 +627,7 @@
 	camera_af_main@0c {
 		compatible = "mediatek,dw9800v";
 		reg = <0x0c>;
-
+		vin-supply = <&fan53870_l6>;
 		port {
 			main_af_cam0: endpoint {
 				remote-endpoint = <&main_af_cam0_endpoint>;
