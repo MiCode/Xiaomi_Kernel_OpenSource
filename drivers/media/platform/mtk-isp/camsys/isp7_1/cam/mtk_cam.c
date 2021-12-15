@@ -5697,6 +5697,8 @@ static int mtk_cam_runtime_resume(struct device *dev)
 	if (dvfs_info->reg_vmm)
 		regulator_enable(dvfs_info->reg_vmm);
 
+	mtk_cam_timesync_init(true);
+
 	return 0;
 }
 
