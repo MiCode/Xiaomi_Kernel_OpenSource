@@ -1760,12 +1760,31 @@ static bool arm_smmu_free_sme(struct arm_smmu_device *smmu, int idx)
 	return true;
 }
 
+static struct device_node *arm_smmu_get_of_node(struct device *dev)
+{
+	struct device_node *np;
+
+	if (!dev->of_node)
+		return NULL;
+
+	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
+	return np ? np : dev->of_node;
+}
+
+static bool dev_defer_smr_configuration(struct device *dev)
+{
+	struct device_node *np = arm_smmu_get_of_node(dev);
+
+	return of_property_read_bool(np, "qcom,iommu-defer-smr-config");
+}
+
 static int arm_smmu_master_alloc_smes(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
 	struct arm_smmu_device *smmu = cfg->smmu;
 	struct arm_smmu_smr *smrs = smmu->smrs;
+	bool config_smrs = !dev_defer_smr_configuration(dev);
 	int i, idx, ret;
 
 	mutex_lock(&smmu->stream_map_mutex);
@@ -1787,7 +1806,11 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 		if (smrs && smmu->s2crs[idx].count == 0) {
 			smrs[idx].id = sid;
 			smrs[idx].mask = mask;
-			smrs[idx].valid = true;
+			smrs[idx].valid = config_smrs;
+		} else if (smrs) {
+			WARN_ON(smrs[idx].valid != config_smrs);
+			ret = -EINVAL;
+			goto out_err;
 		}
 		smmu->s2crs[idx].count++;
 		cfg->smendx[i] = (s16)idx;
@@ -1854,17 +1877,6 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 	return 0;
 }
 
-static struct device_node *arm_iommu_get_of_node(struct device *dev)
-{
-	struct device_node *np;
-
-	if (!dev->of_node)
-		return NULL;
-
-	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
-	return np ? np : dev->of_node;
-}
-
 static int arm_smmu_setup_default_domain(struct device *dev,
 					 struct iommu_domain *domain)
 {
@@ -1874,7 +1886,7 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	u32 val;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	np = arm_iommu_get_of_node(dev);
+	np = arm_smmu_get_of_node(dev);
 	if (!np)
 		return 0;
 
@@ -2615,14 +2627,12 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 		return 0;
 
 	smmu = cfg->smmu;
+	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
-		if (dir == SID_RELEASE) {
-			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
-			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
-		} else {
-			arm_smmu_write_sme(smmu, idx);
-		}
+		smmu->smrs[idx].valid = dir == SID_ACQUIRE;
+		arm_smmu_write_sme(smmu, idx);
 	}
+	mutex_unlock(&smmu->stream_map_mutex);
 	return 0;
 }
 
