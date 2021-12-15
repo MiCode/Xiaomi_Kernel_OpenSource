@@ -112,8 +112,9 @@ phys_addr_t vcp_mem_base_phys;
 phys_addr_t vcp_mem_base_virt;
 phys_addr_t vcp_mem_size;
 struct vcp_regs vcpreg;
+struct clk *vcpsel;
 struct clk *vcpclk;
-struct clk *vcppll;
+struct clk *vcp26m;
 
 unsigned char *vcp_send_buff[VCP_CORE_TOTAL];
 unsigned char *vcp_recv_buff[VCP_CORE_TOTAL];
@@ -736,12 +737,13 @@ void vcp_enable_pm_clk(enum feature_id id)
 		ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
-		ret = clk_prepare_enable(vcpclk);
+		ret = clk_prepare_enable(vcpsel);
 		if (ret)
 			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
-		ret = clk_prepare_enable(vcppll);
+		ret = clk_prepare_enable(vcp26m);
 		if (ret)
-			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+			pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+		clk_set_parent(vcpsel, vcpclk);
 
 		vcp_enable_dapc();
 		vcp_enable_irqs();
@@ -795,8 +797,8 @@ void vcp_disable_pm_clk(enum feature_id id)
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
 		vcp_disable_dapc();
-		clk_disable_unprepare(vcppll);
-		clk_disable_unprepare(vcpclk);
+		clk_disable_unprepare(vcpsel);
+		clk_disable_unprepare(vcp26m);
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
@@ -841,8 +843,8 @@ static int vcp_pm_event(struct notifier_block *notifier
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
 			vcp_disable_dapc();
-			clk_disable_unprepare(vcppll);
-			clk_disable_unprepare(vcpclk);
+			clk_disable_unprepare(vcpsel);
+			clk_disable_unprepare(vcp26m);
 			retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
@@ -862,12 +864,13 @@ static int vcp_pm_event(struct notifier_block *notifier
 			retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
-			retval = clk_prepare_enable(vcpclk);
+			retval = clk_prepare_enable(vcpsel);
 			if (retval)
 				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
-			retval	= clk_prepare_enable(vcppll);
+			retval = clk_prepare_enable(vcp26m);
 			if (retval)
-				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+				pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+			clk_set_parent(vcpsel, vcpclk);
 
 			vcp_enable_dapc();
 			vcp_enable_irqs();
@@ -2333,19 +2336,27 @@ static int vcp_device_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	ret = of_property_read_string_index(
 				pdev->dev.of_node, "clock-names", 0, &clk_name);
-	vcpclk = devm_clk_get(&pdev->dev, clk_name);
-	if (IS_ERR(vcpclk)) {
+	vcpsel = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcpsel)) {
 		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
 			0, clk_name);
-		return PTR_ERR(vcpclk);
+		return PTR_ERR(vcpsel);
 	}
 	ret = of_property_read_string_index(
 				pdev->dev.of_node, "clock-names", 1, &clk_name);
-	vcppll = devm_clk_get(&pdev->dev, clk_name);
-	if (IS_ERR(vcppll)) {
+	vcpclk = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcpclk)) {
 		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
 			1, clk_name);
-		return PTR_ERR(vcppll);
+		return PTR_ERR(vcpclk);
+	}
+	ret = of_property_read_string_index(
+				pdev->dev.of_node, "clock-names", 2, &clk_name);
+	vcp26m = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcp26m)) {
+		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
+			2, clk_name);
+		return PTR_ERR(vcp26m);
 	}
 
 	pr_info("[VCP] %s done\n", __func__);
