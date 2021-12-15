@@ -63,7 +63,7 @@
 /**************************************************
  * Power Domain Setting
  **************************************************/
-#define GPUFREQ_HWAPM_ENABLE            (0)
+#define GPUFREQ_HWAPM_ENABLE            (1)
 #define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (1)
 #define PWR_STATUS_OFS                  (0xF3C)
 #define PWR_STATUS_2ND_OFS              (0xF40)
