@@ -25,8 +25,8 @@
 #include <dt-bindings/reset/ti-syscon.h>
 
 / {
-	model = "mt6779";
-	compatible = "mediatek,mt6779";
+	model = "MT6779";
+	compatible = "mediatek,MT6779";
 	interrupt-parent = <&sysirq>;
 	#address-cells = <2>;
 	#size-cells = <2>;
