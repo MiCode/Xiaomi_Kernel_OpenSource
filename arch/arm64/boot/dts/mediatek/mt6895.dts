@@ -1928,11 +1928,12 @@
 				<GIC_SPI 532 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 533 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 534 IRQ_TYPE_LEVEL_HIGH 0>;
-		emi-connac-ver = <2>;
-		emi-addr = <0>;
-		emi-size = <0x100000>;
-		emi-alignment = <0x100000>;
-		emi-max-addr = <0xc0000000>;
+			emi-connac-ver = <0 2>;
+			emi-addr = <0 0>;
+			emi-size = <0 0x100000>;
+			emi-alignment = <0 0x100000>;
+			emi-min-addr = <0 0>;
+			emi-max-addr = <0 0xc0000000>;
 		};
 
 		watchdog: watchdog@1c007000 {
