@@ -170,8 +170,6 @@
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV_CK_PERI>,
 			<&pericfg_ao_clk CLK_PERAO_AUDIO_MST_CK_PERI>,
 			<&pericfg_ao_clk CLK_PERAO_INTBUS_CK_PERI>,
-			<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGPLL>,
-			<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGSCPLL>,
 			<&imgsys1_clk CLK_IMGSYS1_LARB9>,
 			<&imgsys1_clk CLK_IMGSYS1_LARB10>,
 			<&imgsys1_clk CLK_IMGSYS1_DIP>,
@@ -428,15 +426,4 @@
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_CSI_RX>;
 	};
-
-	bring-up-pd-mfg1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MFG1>;
-	};
-
-	bring-up-pd-mfg2 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MFG2>;
-	};
-
 };
