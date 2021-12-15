@@ -356,7 +356,8 @@ static int conn_md_thread(void *p_data)
 	struct ipc_ilm *p_cur_ilm = NULL;
 
 	while (1) {
-		wait_for_completion_interruptible(&p_conn_md->tx_comp);
+		if (wait_for_completion_interruptible(&p_conn_md->tx_comp))
+			CONN_MD_WARN_FUNC("wait_for_completion is interrupted.\n");
 
 		if (kthread_should_stop()) {
 			CONN_MD_WARN_FUNC("conn-md-thread stopping ...\n");
