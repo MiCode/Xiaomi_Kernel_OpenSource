@@ -4797,7 +4797,10 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		mtk_cam_mraw_dev_stream_on(ctx, i, 0, 0);
 
 	/* apply sensor setting if needed */
-	mtk_cam_set_sensor_full(s_data, &ctx->sensor_ctrl);
+	if ((s_data->frame_seq_no == 1) &&
+	    (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) &&
+	    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_COMPLETE))
+		mtk_cam_set_sensor_full(s_data, &ctx->sensor_ctrl);
 
 	/* keep the sof_count to restore it after reinit */
 	sof_count = raw_dev->sof_count;
@@ -4891,8 +4894,9 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 
 			if (req_stream_data->frame_seq_no == 1 ||
-					((mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) &&
-					(req_stream_data->frame_seq_no == 2)))
+			    ((mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) &&
+			    (req_stream_data->frame_seq_no == 2)) ||
+			    (req->ctx_link_update & (1 << stream_id)))
 				initial_frame = 1;
 
 			frame_work = &req_stream_data->frame_work;
