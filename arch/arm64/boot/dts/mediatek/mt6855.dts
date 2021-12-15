@@ -5598,6 +5598,12 @@
 			block_size = <0x1000>;
 		};
 
+		snd_scp_ultra: snd_scp_ultra {
+			compatible = "mediatek,snd_scp_ultra";
+			scp_ultra_dl_memif_id = <0x7>;
+			scp_ultra_ul_memif_id = <0xf>;
+		};
+
 		sound: sound {
 			compatible = "mediatek,mt6855-mt6369-sound";
 			/* mediatek,headset-codec = <&mt6368_accdet>; */
