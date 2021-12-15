@@ -35,7 +35,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6781
 endif
 

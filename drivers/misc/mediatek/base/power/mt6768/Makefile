@@ -43,7 +43,6 @@ ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 obj-$(CONFIG_MACH_MT6768) += mtk_gpufreq_core.o
 obj-$(CONFIG_MACH_MT6768) += mtk_gpu_log.o
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/devfreq/

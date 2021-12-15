@@ -17,15 +17,21 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/cpuidle_v2/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/cpuidle_v3/
 endif
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/mcdi_v1/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-#for mt6768
-ifeq ($(CONFIG_MACH_MT6768),y))
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 endif
+endif
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/mcdi_v1/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/$(CONFIG_MTK_PLATFORM)/
 
 obj-y += mtk_mcdi_main.o

@@ -38,15 +38,17 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
 ccflags-y  += -I$(srctree)/drivers/power/mediatek/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v1/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dfrc/
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v1
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V2), y)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 else
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(PDIR)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 endif
 endif
+
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
 else

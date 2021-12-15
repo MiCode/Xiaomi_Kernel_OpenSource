@@ -12,6 +12,16 @@ obj-$(CONFIG_ARM_EXYNOS_BUS_DEVFREQ)	+= exynos-bus.o
 obj-$(CONFIG_ARM_RK3399_DMC_DEVFREQ)	+= rk3399_dmc.o
 obj-$(CONFIG_ARM_TEGRA_DEVFREQ)		+= tegra-devfreq.o
 
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+endif
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/spm/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
@@ -19,12 +29,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
 ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
-#for mt6768
-ifeq ($(CONFIG_MACH_MT6768),y))
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
-else
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/

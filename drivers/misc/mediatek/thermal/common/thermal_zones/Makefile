@@ -41,28 +41,28 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(PDIR)
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+endif
+endif
+
+
 ifeq ($(CONFIG_MACH_MT6781),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/$(PDIR)/inc/
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
-#ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V2), y)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v2
-else
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(PDIR)
-endif
-endif
-ifeq ($(CONFIG_MACH_MT6877),y)
+else ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
 else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(PDIR)
 endif
-endif
 
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/mt6853/
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V2), y)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v2
-endif
 endif
 
 ifneq (,$(filter $(CONFIG_MTK_LEGACY_THERMAL_PLATFORM), "mt6779"))

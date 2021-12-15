@@ -49,10 +49,16 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/thermal/mt6833/inc/mach/
 endif
 
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-ccflags-y += \
-	-I$(srctree)/drivers/misc/mediatek/sspm/	\
-	-I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+endif
 endif
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)

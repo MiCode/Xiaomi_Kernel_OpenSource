@@ -19,7 +19,7 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(MTK_PLATFORM)/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/pmic/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 

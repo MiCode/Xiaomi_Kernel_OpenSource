@@ -24,8 +24,18 @@ ifeq ($(CONFIG_MACH_MT6781),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/mt6785/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
+
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
+endif
+endif
+
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/mt6877
 else ifeq($(CONFIG_MACH_MT6781),y)
