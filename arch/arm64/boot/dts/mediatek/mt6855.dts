@@ -3690,122 +3690,121 @@
 			clocks = <&clk13m>;
 		};
 
-		mdpsys_config@1f000000 {
+		mdpsys_config: mdpsys_config@1f000000 {
 			compatible = "mediatek,mdpsys_config";
 			reg = <0 0x1f000000 0 0x1000>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&disp_iommu M4U_LARB2_PORT0>,
+				<&disp_iommu M4U_LARB2_PORT2>,
+				<&disp_iommu M4U_LARB2_PORT3>;
+			dma_mask_bit = <35>;
 		};
 
-		mdp_mutex0@1f001000 {
+		mdp: mdp@1f000000 {
+			compatible = "mediatek,mdp";
+			reg = <0 0x1f000000 0 0x1000>;
+			thread_count = <24>;
+			mboxes = <&gce_m 16 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 17 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 18 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 19 0 CMDQ_THR_PRIO_1>;
+			mmsys_config = <&mdpsys_config>;
+			mm_mutex   = <&mdp_mutex0>;
+			mdp_rdma0  = <&mdp_rdma0>;
+			mdp_rsz0   = <&mdp_rsz0>;
+			mdp_rsz2   = <&mdp_rsz2>;
+			mdp_wrot0  = <&mdp_wrot0>;
+			mdp_wrot2  = <&mdp_wrot2>;
+			mdp_tdshp0 = <&mdp_tdshp0>;
+			mdp_aal0   = <&mdp_aal0>;
+			mdp_hdr0   = <&mdp_hdr0>;
+			mediatek,larb = <&smi_larb2>;
+			mdp_rdma0_sof = <CMDQ_EVENT_MDPSYS_MDP_RDMA0_SOF>;
+			mdp_aal_sof = <CMDQ_EVENT_MDPSYS_MDP_AAL0_SOF>;
+			mdp_hdr0_sof = <CMDQ_EVENT_MDPSYS_MDP_HDR0_SOF>;
+			mdp_rsz0_sof = <CMDQ_EVENT_MDPSYS_MDP_RSZ0_SOF>;
+			//mdp_rsz2_sof = <262>;
+			mdp_wrot0_sof = <CMDQ_EVENT_MDPSYS_MDP_WROT0_SOF>;
+			//mdp_wrot2_sof = <264>;
+			mdp_tdshp_sof = <CMDQ_EVENT_MDPSYS_MDP_TDSHP0_SOF>;
+			//img_dl_relay_sof = <267>;
+			//img_dl_relay1_sof = <268>;
+			mdp_wrot2_write_frame_done = <CMDQ_EVENT_MDPSYS_MDP_WROT2_FRAME_DONE>;
+			mdp_wrot0_write_frame_done = <CMDQ_EVENT_MDPSYS_MDP_WROT0_FRAME_DONE>;
+			mdp_tdshp_frame_done = <CMDQ_EVENT_MDPSYS_MDP_TDSHP0_FRAME_DONE>;
+			mdp_rsz2_frame_done = <CMDQ_EVENT_MDPSYS_MDP_RSZ2_FRAME_DONE>;
+			mdp_rsz0_frame_done = <CMDQ_EVENT_MDPSYS_MDP_RSZ0_FRAME_DONE>;
+			mdp_rdma0_frame_done = <CMDQ_EVENT_MDPSYS_MDP_RDMA0_FRAME_DONE>;
+			mdp_hdr0_frame_done = <CMDQ_EVENT_MDPSYS_MDP_HDR0_FRAME_DONE>;
+			mdp_aal_frame_done = <CMDQ_EVENT_MDPSYS_MDP_AAL0_FRAME_DONE>;
+			stream_done_0 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_0>;
+			stream_done_1 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_1>;
+			stream_done_2 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_2>;
+			stream_done_3 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_3>;
+			stream_done_4 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_4>;
+			stream_done_5 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_5>;
+			stream_done_6 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_6>;
+			stream_done_7 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_7>;
+			stream_done_8 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_8>;
+			stream_done_9 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_9>;
+			stream_done_10 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_10>;
+			stream_done_11 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_11>;
+			stream_done_12 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_12>;
+			stream_done_13 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_13>;
+			stream_done_14 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_14>;
+			stream_done_15 = <CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_15>;
+			mdp_wrot2_rst_done = <CMDQ_EVENT_MDPSYS_MDP_WROT2_SW_RST_DONE_ENG_EVENT>;
+			mdp_wrot0_rst_done = <CMDQ_EVENT_MDPSYS_MDP_WROT0_SW_RST_DONE_ENG_EVENT>;
+			mdp_rdma0_rst_done = <CMDQ_EVENT_MDPSYS_MDP_RDMA0_SW_RST_DONE_ENG_EVENT>;
+			dre30_hist_sram_start = <1536>;
+		};
+
+		mdp_mutex0: mdp_mutex0@1f001000 {
 			compatible = "mediatek,mdp_mutex0";
 			reg = <0 0x1f001000 0 0x1000>;
 		};
 
-		smi_larb0@1f002000 {
-			compatible = "mediatek,smi_larb0";
-			reg = <0 0x1f002000 0 0x1000>;
-		};
-
-		mdp_rdma0@1f003000 {
+		mdp_rdma0: mdp_rdma0@1f003000 {
 			compatible = "mediatek,mdp_rdma0";
 			reg = <0 0x1f003000 0 0x1000>;
 		};
 
-		mdp_rdma1@1f004000 {
-			compatible = "mediatek,mdp_rdma1";
-			reg = <0 0x1f004000 0 0x1000>;
-		};
-
-		mdp_hdr0@1f005000 {
+		mdp_hdr0: mdp_hdr0@1f005000 {
 			compatible = "mediatek,mdp_hdr0";
 			reg = <0 0x1f005000 0 0x1000>;
 		};
 
-		mdp_hdr1@1f006000 {
-			compatible = "mediatek,mdp_hdr1";
-			reg = <0 0x1f006000 0 0x1000>;
-		};
-
-		mdp_aal0@1f007000 {
+		mdp_aal0: mdp_aal0@1f007000 {
 			compatible = "mediatek,mdp_aal0";
 			reg = <0 0x1f007000 0 0x1000>;
 		};
 
-		mdp_aal1@1f008000 {
-			compatible = "mediatek,mdp_aal1";
-			reg = <0 0x1f008000 0 0x1000>;
-		};
-
-		mdp_rsz0@1f009000 {
+		mdp_rsz0: mdp_rsz0@1f009000 {
 			compatible = "mediatek,mdp_rsz0";
 			reg = <0 0x1f009000 0 0x1000>;
 		};
 
-		mdp_rsz1@1f00a000 {
-			compatible = "mediatek,mdp_rsz1";
-			reg = <0 0x1f00a000 0 0x1000>;
-		};
-
-		mdp_tdshp0@1f00b000 {
+		mdp_tdshp0: mdp_tdshp0@1f00b000 {
 			compatible = "mediatek,mdp_tdshp0";
 			reg = <0 0x1f00b000 0 0x1000>;
 		};
 
-		mdp_tdshp1@1f00c000 {
-			compatible = "mediatek,mdp_tdshp1";
-			reg = <0 0x1f00c000 0 0x1000>;
-		};
-
-		mdp_color0@1f00d000 {
-			compatible = "mediatek,mdp_color0";
-			reg = <0 0x1f00d000 0 0x1000>;
-		};
-
-		mdp_color1@1f00e000 {
-			compatible = "mediatek,mdp_color1";
-			reg = <0 0x1f00e000 0 0x1000>;
-		};
-
-		mdp_wrot0@1f00f000 {
+		mdp_wrot0: mdp_wrot0@1f00f000 {
 			compatible = "mediatek,mdp_wrot0";
 			reg = <0 0x1f00f000 0 0x1000>;
 		};
 
-		mdp_wrot1@1f010000 {
-			compatible = "mediatek,mdp_wrot1";
-			reg = <0 0x1f010000 0 0x1000>;
-		};
-
-		mdp_fg0@1f011000 {
-			compatible = "mediatek,mdp_fg0";
-			reg = <0 0x1f011000 0 0x1000>;
-		};
-
-		mdp_fg1@1f012000 {
-			compatible = "mediatek,mdp_fg1";
-			reg = <0 0x1f012000 0 0x1000>;
-		};
-
-		mdp_rsz2@1f013000 {
+		mdp_rsz2: mdp_rsz2@1f013000 {
 			compatible = "mediatek,mdp_rsz2";
 			reg = <0 0x1f013000 0 0x1000>;
 		};
 
-		mdp_rsz3@1f014000 {
-			compatible = "mediatek,mdp_rsz3";
-			reg = <0 0x1f014000 0 0x1000>;
-		};
-
-		mdp_wrot2@1f015000 {
+		mdp_wrot2: mdp_wrot2@1f015000 {
 			compatible = "mediatek,mdp_wrot2";
 			reg = <0 0x1f015000 0 0x1000>;
 		};
 
-		mdp_wrot3@1f016000 {
-			compatible = "mediatek,mdp_wrot3";
-			reg = <0 0x1f016000 0 0x1000>;
-		};
-
-		hre_top_mdpsys@1f017000 {
+		hre_top_mdpsys: hre_top_mdpsys@1f017000 {
 			compatible = "mediatek,hre_top_mdpsys";
 			reg = <0 0x1f017000 0 0x1000>;
 		};
