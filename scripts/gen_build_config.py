@@ -86,7 +86,11 @@ def main(**args):
     build_config = ''
     ext_modules = ''
     kernel_dir = ''
-    (special_defconfig, build_config, ext_modules) = get_config_in_defconfig(project_defconfig, os.path.basename(abs_kernel_dir))
+    if project_defconfig_name == 'gki_defconfig':
+        build_config = 'build.config.mtk.aarch64'
+        mode_config = ''
+    else:
+        (special_defconfig, build_config, ext_modules) = get_config_in_defconfig(project_defconfig, os.path.basename(abs_kernel_dir))
     build_config = '%s/%s' % (abs_kernel_dir, build_config)
     file_text = []
     if os.path.exists(build_config):
