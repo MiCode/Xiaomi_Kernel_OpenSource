@@ -17,24 +17,26 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 		switch (thread) {
 		case 0 ... 9:
 			return "DISP";
-		case 16 ... 19:
+		case 28 ... 29:
 			return "MML";
-		case 22 ... 23:
-			return "MDP";
 		default:
 			return "CMDQ";
 		}
 	} else if (gce_pa == GCE_M_PA) {
 		switch (thread) {
-		case 0 ... 5:
-		case 10 ... 11:
-		case 16 ... 21:
+		case 0 ... 4:
+		case 11:
 			return "ISP";
 		case 6 ... 7:
+		case 29:
 			return "VFMT";
 		case 12:
 		case 22 ... 23:
 			return "VENC";
+		case 10:
+		case 16 ... 19:
+		case 26 ... 27:
+			return "MDP";
 		default:
 			return "CMDQ";
 		}
