@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2019 MediaTek Inc.
-*/
+ *
+ */
 /dts-v1/;
 /plugin/;
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -310,15 +311,15 @@
 /* FINGERPRINT end */
 
 /* fix me
-&mt6360_pmu {
-	mt6360,intr_gpio_num = <24>; // direct defined GPIO num //
-	mt6360,intr_gpio = <&pio 24 0x0>;
-};
-
-&mt6360_pmic {
-	pwr_off_seq = [04 00 02 02];
-};
-*/
+ *&mt6360_pmu {
+ *	mt6360,intr_gpio_num = <24>; // direct defined GPIO num //
+ *	mt6360,intr_gpio = <&pio 24 0x0>;
+ *};
+ *
+ *&mt6360_pmic {
+ *	pwr_off_seq = [04 00 02 02];
+ *};
+ */
 
 &mt6360_typec {
 	mt6360pd,intr_gpio_num = <25>; /* direct defined GPIO num */
@@ -571,5 +572,5 @@
 
 #include "mediatek/cust_mt6893_touch.dtsi"
 #include "mediatek/cust_mt6885_camera.dtsi"
-#include <k6893v1_64/cust.dtsi>
+#include <k6893v1_64_k419/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
