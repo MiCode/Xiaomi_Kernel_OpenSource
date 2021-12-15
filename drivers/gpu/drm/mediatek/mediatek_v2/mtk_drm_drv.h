@@ -222,6 +222,17 @@ struct tag_videolfb {
 	char lcmname[1]; /* this is the minimum size */
 };
 
+struct mtk_drm_disp_sec_cb {
+	int (*cb)(int value, struct cmdq_pkt *handle, resource_size_t dummy_larb);
+};
+
+enum DISP_SEC_SIGNAL {
+	DISP_SEC_START = 0,
+	DISP_SEC_STOP,
+	DISP_SEC_ENABLE,
+	DISP_SEC_DISABLE,
+};
+
 struct disp_iommu_device *disp_get_iommu_dev(void);
 
 extern struct platform_driver mtk_ddp_driver;
@@ -256,6 +267,7 @@ extern struct platform_driver mtk_disp_dlo_async_driver;
 extern struct platform_driver mtk_disp_dli_async_driver;
 extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
+extern struct mtk_drm_disp_sec_cb disp_sec_cb;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
@@ -288,5 +300,6 @@ void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para);
 void **mtk_aod_scp_ipi_init(void);
 void mtk_free_mml_submit(struct mml_submit *temp);
 int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst);
+void **mtk_drm_disp_sec_cb_init(void);
 
 #endif /* MTK_DRM_DRV_H */

@@ -75,6 +75,7 @@ bool g_profile_log;
 
 EXPORT_SYMBOL(g_mobile_log);
 EXPORT_SYMBOL(g_msync_debug);
+EXPORT_SYMBOL(g_detail_log);
 bool g_irq_log;
 bool g_trace_log;
 bool g_mml_debug;
