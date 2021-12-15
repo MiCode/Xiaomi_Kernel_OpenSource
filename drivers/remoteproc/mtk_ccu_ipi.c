@@ -343,8 +343,9 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	LOG_DBG_IPI("[%u] ft(%d), msgId(%d)\n",
-		(uint32_t)arch_timer_read_counter(), featureType, msgId);
+	if (featureType == MTK_CCU_FEATURE_SYSCTRL)
+		LOG_DBG_IPI("[%u] ft(%d), msgId(%d)\n",
+			(uint32_t)arch_timer_read_counter(), featureType, msgId);
 
 	if ((inDataSize) && (!inDataPtr)) {
 		dev_err(ccu->dev, "inDataPtr is NULL\n");
