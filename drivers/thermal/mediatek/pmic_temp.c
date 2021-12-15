@@ -392,7 +392,7 @@ static int mt6369_get_cali_data(struct device *dev, struct pmic_tz_data *tz_data
 
 	if (IS_ERR(efuse_buff))
 		return PTR_ERR(efuse_buff);
-	if (len != 8)
+	if (len != 10)
 		return -EINVAL;
 
 	tz_data->adc_cali_en = (efuse_buff[0] & BIT(6)) >> 6;
