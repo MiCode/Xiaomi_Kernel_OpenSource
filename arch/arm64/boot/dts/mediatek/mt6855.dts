@@ -4638,32 +4638,24 @@
 			compatible = "mediatek,mt6855-sound";
 			reg = <0 0x11050000 0 0x2000>;
 			interrupts = <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH 0>;
-#if 0
 			topckgen = <&topckgen_clk>;
 			apmixedsys = <&apmixedsys_clk>;
-			infracfg = <&infracfg_ao_clk>;
-			power-domains = <&scpsys MT6879_POWER_DOMAIN_AUDIO>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_AUDIO>;
 
 			clocks = <&afe_clk CLK_AFE_AFE>,
 				<&afe_clk CLK_AFE_DAC>,
 				<&afe_clk CLK_AFE_DAC_PREDIS>,
 				<&afe_clk CLK_AFE_ADC>,
-				<&afe_clk CLK_AFE_ADDA6_ADC>,
 				<&afe_clk CLK_AFE_22M>,
 				<&afe_clk CLK_AFE_24M>,
 				<&afe_clk CLK_AFE_APLL_TUNER>,
 				<&afe_clk CLK_AFE_APLL2_TUNER>,
 				<&afe_clk CLK_AFE_TDM>,
-				<&afe_clk CLK_AFE_ADDA6_ADC>,
+				<&afe_clk CLK_AFE_TML>,
 				<&afe_clk CLK_AFE_NLE>,
 				<&afe_clk CLK_AFE_DAC_HIRES>,
 				<&afe_clk CLK_AFE_ADC_HIRES>,
 				<&afe_clk CLK_AFE_ADC_HIRES_TML>,
-				<&afe_clk CLK_AFE_ADDA6_ADC_HIRES>,
-				<&afe_clk CLK_AFE_3RD_DAC>,
-				<&afe_clk CLK_AFE_3RD_DAC_PREDIS>,
-				<&afe_clk CLK_AFE_3RD_DAC_TML>,
-				<&afe_clk CLK_AFE_3RD_DAC_HIRES>,
 				<&topckgen_clk CLK_TOP_AUDIO_SEL>,
 				<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
 				<&topckgen_clk CLK_TOP_MAINPLL_D4_D4>,
@@ -4681,10 +4673,6 @@
 				<&topckgen_clk CLK_TOP_APLL_I2S3_MCK_SEL>,
 				<&topckgen_clk CLK_TOP_APLL_I2S4_MCK_SEL>,
 				<&topckgen_clk CLK_TOP_APLL_I2S5_MCK_SEL>,
-				<&topckgen_clk CLK_TOP_APLL_I2S6_MCK_SEL>,
-				<&topckgen_clk CLK_TOP_APLL_I2S7_MCK_SEL>,
-				<&topckgen_clk CLK_TOP_APLL_I2S8_MCK_SEL>,
-				<&topckgen_clk CLK_TOP_APLL_I2S9_MCK_SEL>,
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIV0>,
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIV1>,
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIV2>,
@@ -4692,10 +4680,6 @@
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIV4>,
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIVB>,
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIV5>,
-				<&topckgen_clk CLK_TOP_APLL12_CK_DIV6>,
-				<&topckgen_clk CLK_TOP_APLL12_CK_DIV7>,
-				<&topckgen_clk CLK_TOP_APLL12_CK_DIV8>,
-				<&topckgen_clk CLK_TOP_APLL12_CK_DIV9>,
 				<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
 				<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
 
@@ -4703,7 +4687,6 @@
 				"aud_dac_clk",
 				"aud_dac_predis_clk",
 				"aud_adc_clk",
-				"aud_adda6_adc_clk",
 				"aud_apll22m_clk",
 				"aud_apll24m_clk",
 				"aud_apll1_tuner_clk",
@@ -4714,11 +4697,6 @@
 				"aud_dac_hires_clk",
 				"aud_adc_hires_clk",
 				"aud_adc_hires_tml",
-				"aud_adda6_adc_hires_clk",
-				"aud_3rd_dac_clk",
-				"aud_3rd_dac_predis_clk",
-				"aud_3rd_dac_tml",
-				"aud_3rd_dac_hires_clk",
 				"top_mux_audio",
 				"top_mux_audio_int",
 				"top_mainpll_d4_d4",
@@ -4736,10 +4714,6 @@
 				"top_i2s3_m_sel",
 				"top_i2s4_m_sel",
 				"top_i2s5_m_sel",
-				"top_i2s6_m_sel",
-				"top_i2s7_m_sel",
-				"top_i2s8_m_sel",
-				"top_i2s9_m_sel",
 				"top_apll12_div0",
 				"top_apll12_div1",
 				"top_apll12_div2",
@@ -4747,10 +4721,6 @@
 				"top_apll12_div4",
 				"top_apll12_divb",
 				"top_apll12_div5",
-				"top_apll12_div6",
-				"top_apll12_div7",
-				"top_apll12_div8",
-				"top_apll12_div9",
 				"top_mux_audio_h",
 				"top_clk26m_clk";
 
@@ -4790,7 +4760,6 @@
 			pinctrl-15 = <&aud_gpio_i2s0_on>;
 			pinctrl-16 = <&aud_gpio_i2s3_off>;
 			pinctrl-17 = <&aud_gpio_i2s3_on>;
-#endif
 		};
 
 		audio_sram@11052000 {
