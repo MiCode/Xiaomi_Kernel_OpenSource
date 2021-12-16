@@ -528,6 +528,7 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 			 */
 			break;
 		}
+		s->cached_temp = INT_MIN;
 	}
 	TSENS_DBG_1(priv, "%s: irq[%d] exit", __func__, irq);
 
@@ -564,7 +565,6 @@ static int tsens_set_trips(void *_sensor, int low, int high)
 
 	tsens_read_irq_state(priv, hw_id, s, &d);
 
-	s->cached_temp = INT_MIN;
 	/* Write the new thresholds and clear the status */
 	regmap_field_write(priv->rf[LOW_THRESH_0 + hw_id], low_val);
 	regmap_field_write(priv->rf[UP_THRESH_0 + hw_id], high_val);
