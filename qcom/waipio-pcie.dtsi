@@ -113,6 +113,7 @@
 		qcom,boot-option = <0x1>;
 		qcom,aux-clk-freq = <20>; /* 19.2 MHz */
 		qcom,drv-supported;
+		qcom,no-l0s-supported;
 		qcom,drv-l1ss-timeout-us = <5000>;
 		qcom,l1-2-th-scale = <2>;
 		qcom,l1-2-th-value = <150>;
