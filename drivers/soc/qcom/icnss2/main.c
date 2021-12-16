@@ -1307,7 +1307,8 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	if (priv->force_err_fatal)
 		ICNSS_ASSERT(0);
 
-	if (priv->device_id == WCN6750_DEVICE_ID) {
+	if (priv->device_id == WCN6750_DEVICE_ID &&
+	    !IS_ERR(priv->smp2p_info.smem_state)) {
 		priv->smp2p_info.seq = 0;
 		if (qcom_smem_state_update_bits(
 				priv->smp2p_info.smem_state,
@@ -3912,7 +3913,7 @@ static inline void  icnss_get_smp2p_info(struct icnss_priv *priv)
 					    "wlan-smp2p-out",
 					    &priv->smp2p_info.smem_bit);
 	if (IS_ERR(priv->smp2p_info.smem_state)) {
-		icnss_pr_smp2p("Failed to get smem state %d",
+		icnss_pr_err("Failed to get smem state %d",
 			     PTR_ERR(priv->smp2p_info.smem_state));
 	}
 
