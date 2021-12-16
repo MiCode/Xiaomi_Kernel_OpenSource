@@ -310,6 +310,7 @@ enum cnss_driver_state {
 	CNSS_QMI_DMS_CONNECTED = 20,
 	CNSS_DAEMON_CONNECTED,
 	CNSS_PCI_PROBE_DONE,
+	CNSS_DRIVER_REGISTER,
 };
 
 struct cnss_recovery_data {

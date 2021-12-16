@@ -2638,18 +2638,32 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 	container_of(work, struct cnss_plat_data, wlan_reg_driver_work.work);
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 	struct cnss_cal_info *cal_info;
+	unsigned int timeout;
 
 	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
 		goto reg_driver;
 	} else {
-		cnss_pr_err("Timeout waiting for calibration to complete\n");
-		del_timer(&plat_priv->fw_boot_timer);
 		if (plat_priv->charger_mode) {
 			cnss_pr_err("Ignore calibration timeout in charger mode\n");
 			return;
 		}
-		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
+		if (!test_bit(CNSS_IN_COLD_BOOT_CAL,
+			      &plat_priv->driver_state)) {
+			timeout = cnss_get_timeout(plat_priv,
+						   CNSS_TIMEOUT_CALIBRATION);
+			cnss_pr_dbg("File system not ready to start calibration. Wait for %ds..\n",
+				    timeout / 1000);
+			schedule_delayed_work(&plat_priv->wlan_reg_driver_work,
+					      msecs_to_jiffies(timeout));
+			return;
+		}
+
+		del_timer(&plat_priv->fw_boot_timer);
+		if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state) &&
+		    !test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+			cnss_pr_err("Timeout waiting for calibration to complete\n");
 			CNSS_ASSERT(0);
+		}
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 		if (!cal_info)
 			return;
@@ -2713,6 +2727,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 			    pci_priv->device_id);
 		return -ENODEV;
 	}
+	set_bit(CNSS_DRIVER_REGISTER, &plat_priv->driver_state);
 
 	if (!plat_priv->cbc_enabled ||
 	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
