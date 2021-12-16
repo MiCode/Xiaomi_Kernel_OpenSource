@@ -15,6 +15,7 @@
 #include <linux/types.h>
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
+#include <linux/usb/dwc3-msm.h>
 #include <linux/usb/repeater.h>
 
 #define EUSB2_3P0_VOL_MIN			3075000 /* uV */
@@ -82,6 +83,13 @@
 
 #define EUSB2_TUNE_EUSB_HS_COMP_CUR	0x5B
 #define TUNE_EUSB_HS_COMP_CUR_MASK	0x03
+
+/* Force Enable registers */
+#define EUSB2_FORCE_EN_5		0xE8
+#define F_CLK_19P2M_EN			BIT(6)
+
+#define EUSB2_FORCE_VAL_5		0xED
+#define V_CLK_19P2M_EN			BIT(6)
 
 struct eusb2_repeater {
 	struct usb_repeater	ur;
@@ -353,6 +361,17 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 	if (er->eusb_hs_comp_current && er->eusb_hs_comp_current <= 0x3)
 		eusb2_repeater_masked_write(er, EUSB2_TUNE_EUSB_HS_COMP_CUR,
 			TUNE_EUSB_HS_COMP_CUR_MASK, er->eusb_hs_comp_current);
+	/*
+	 * CM.Lx is prohibited when repeater is already into Lx state as
+	 * per eUSB 1.2 Spec. Below implement software workaround until
+	 * PHY and controller is fixing seen observation.
+	 */
+	if (ur->flags & PHY_HOST_MODE) {
+		eusb2_repeater_masked_write(er, EUSB2_FORCE_EN_5,
+			F_CLK_19P2M_EN, F_CLK_19P2M_EN);
+		eusb2_repeater_masked_write(er, EUSB2_FORCE_VAL_5,
+			V_CLK_19P2M_EN, V_CLK_19P2M_EN);
+	}
 
 	/* read eUSB2 repeater status */
 	eusb2_repeater_reg_read(er, &status, EUSB2_RPTR_STATUS, 1);
