@@ -47,3 +47,4 @@ dwc3-msm.ko
 cqhci.ko
 sdhci-msm.ko
 core_hang_detect.ko
+kryo_arm64_edac.ko
