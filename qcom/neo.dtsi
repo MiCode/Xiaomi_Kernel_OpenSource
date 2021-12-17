@@ -508,6 +508,13 @@
 		};
 	};
 
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		label = "core";
+		qcom,threshold-arr = <0x17800058 0x17810058 0x17820058 0x17830058>;
+		qcom,config-arr = <0x17800060 0x17810060 0x17820060 0x17830060>;
+	};
+
 	clk_virt: interconnect@0 {
 		compatible = "qcom,neo-clk_virt";
 		#interconnect-cells = <1>;
