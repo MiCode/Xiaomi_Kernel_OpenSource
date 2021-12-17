@@ -29,6 +29,7 @@
 		mmc0 = &sdhc_1; /*SDC1 eMMC slot*/
 		mmc1 = &sdhc_2; /* SDC2 SD card slot */
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
+		serial0 = &qupv3_se3_2uart;
 	};
 
 	firmware: firmware {};
@@ -966,6 +967,11 @@
 	status = "ok";
 };
 
+#include "parrot-qupv3.dtsi"
 #include "parrot-pinctrl.dtsi"
 #include "parrot-dma-heaps.dtsi"
 #include "msm-arm-smmu-parrot.dtsi"
+
+&qupv3_se3_2uart {
+	status = "ok";
+};
