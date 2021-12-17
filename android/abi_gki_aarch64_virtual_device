@@ -366,7 +366,7 @@
   usb_register_driver
   usb_submit_urb
   usb_unanchor_urb
-  usleep_range
+  usleep_range_state
   vabits_actual
   vfree
   virtio_check_driver_offered_feature
