@@ -1217,8 +1217,8 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 		tcr->sh = ARM_LPAE_TCR_SH_IS;
 		tcr->irgn = ARM_LPAE_TCR_RGN_WBWA;
 		tcr->orgn = ARM_LPAE_TCR_RGN_WBWA;
-		if (cfg->quirks & (IO_PGTABLE_QUIRK_ARM_OUTER_WBWA |
-				   IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA))
+		if (WARN_ON(cfg->quirks & (IO_PGTABLE_QUIRK_ARM_OUTER_WBWA |
+					   IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA)))
 			goto out_free_data;
 	} else {
 		tcr->sh = ARM_LPAE_TCR_SH_OS;
