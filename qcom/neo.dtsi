@@ -30,6 +30,8 @@
 		bootargs = " console=ttyMSM0,115200n8 loglevel=8";
 	};
 
+	firmware: firmware { };
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -192,6 +194,12 @@
 
 	soc: soc { };
 
+};
+
+&firmware {
+	qcom_scm {
+		compatible = "qcom,scm";
+	};
 };
 
 #include "neo-stub-regulator.dtsi"
