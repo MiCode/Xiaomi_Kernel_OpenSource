@@ -46,3 +46,4 @@ phy-qcom-emu.ko
 dwc3-msm.ko
 cqhci.ko
 sdhci-msm.ko
+core_hang_detect.ko
