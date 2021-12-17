@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2022, The Linux Foundation. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -2782,7 +2782,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 
 	remote_arg64_t *rpra = ctx->lrpra;
 	int i, inbufs, outbufs, handles;
-	int err = 0;
+	int err = 0, perfErr = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
@@ -2826,9 +2826,12 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	if (ctx->crc && crclist && rpra)
 		K_COPY_TO_USER(err, kernel, ctx->crc,
 			crclist, M_CRCLIST*sizeof(uint32_t));
-	if (ctx->perf_dsp && perf_dsp_list)
-		K_COPY_TO_USER_WITHOUT_ERR(kernel, ctx->perf_dsp,
+	if (ctx->perf_dsp && perf_dsp_list) {
+		K_COPY_TO_USER(perfErr, kernel, ctx->perf_dsp,
 			perf_dsp_list, M_DSP_PERF_LIST*sizeof(uint64_t));
+		if (perfErr)
+			ADSPRPC_WARN("failed to copy perf data err %d\n", perfErr);
+	}
 
  bail:
 	return err;
@@ -3195,7 +3198,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 {
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ioctl_invoke *invoke = &inv->inv;
-	int err = 0, interrupted = 0, cid = -1;
+	int err = 0, interrupted = 0, cid = -1, perfErr = 0;
 	struct timespec64 invoket = {0};
 	uint64_t *perf_counter = NULL;
 	bool isasyncinvoke = false, isworkdone = false;
@@ -3325,9 +3328,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 			ctx->perf->copy, ctx->perf->link, ctx->perf->getargs,
 			ctx->perf->putargs, ctx->perf->invargs,
 			ctx->perf->invoke, ctx->perf->tid);
-			if (ctx->perf_kernel)
-				K_COPY_TO_USER_WITHOUT_ERR(kernel, ctx->perf_kernel,
+			if (ctx->perf_kernel) {
+				K_COPY_TO_USER(perfErr, kernel, ctx->perf_kernel,
 				ctx->perf, M_KERNEL_PERF_LIST*sizeof(uint64_t));
+				if (perfErr)
+					ADSPRPC_WARN("failed to copy perf data err %d\n", perfErr);
+			}
 		}
 		context_free(ctx);
 		trace_fastrpc_msg("context_free: end");
@@ -3347,7 +3353,7 @@ static int fastrpc_wait_on_async_queue(
 			struct fastrpc_ioctl_async_response *async_res,
 			struct fastrpc_file *fl)
 {
-	int err = 0, ierr = 0, interrupted = 0;
+	int err = 0, ierr = 0, interrupted = 0, perfErr = 0;
 	struct smq_invoke_ctx *ctx = NULL, *ictx = NULL, *n = NULL;
 	unsigned long flags;
 	uint64_t *perf_counter = NULL;
@@ -3414,9 +3420,12 @@ bail:
 			ctx->perf->copy, ctx->perf->link, ctx->perf->getargs,
 			ctx->perf->putargs, ctx->perf->invargs,
 			ctx->perf->invoke, ctx->perf->tid);
-			if (ctx->perf_kernel)
-				K_COPY_TO_USER_WITHOUT_ERR(0, ctx->perf_kernel,
+			if (ctx->perf_kernel) {
+				K_COPY_TO_USER(perfErr, 0, ctx->perf_kernel,
 				ctx->perf, M_KERNEL_PERF_LIST*sizeof(uint64_t));
+				if (perfErr)
+					ADSPRPC_WARN("failed to copy perf data err %d\n", perfErr);
+			}
 		}
 		context_free(ctx);
 	}
