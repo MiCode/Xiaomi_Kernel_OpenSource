@@ -38,7 +38,7 @@ static void set_swap_cache(void *data, gfp_t *flag)
 	*flag |= __GFP_CMA;
 }
 
-static void __oom_panic_defer(void *data, struct oom_control *oc, int *val)
+static void __maybe_unused __oom_panic_defer(void *data, struct oom_control *oc, int *val)
 {
 	int ret = 0;
 	struct task_struct *p;
@@ -95,13 +95,6 @@ static int __init init_mem_hooks(void)
 		return ret;
 	}
 
-	ret = register_trace_android_vh_oom_check_panic(__oom_panic_defer,
-							NULL);
-	if (ret) {
-		pr_err("Failed to register oom_check_panic hooks\n");
-		return ret;
-	}
-
 	if (IS_ENABLED(CONFIG_QCOM_BALANCE_ANON_FILE_RECLAIM)) {
 		ret = register_trace_android_rvh_set_balance_anon_file_reclaim(balance_reclaim,
 							NULL);
@@ -113,14 +106,7 @@ static int __init init_mem_hooks(void)
 	return 0;
 }
 
-void exit_mem_hooks(void)
-{
-	unregister_trace_android_vh_oom_check_panic(
-			__oom_panic_defer, NULL);
-}
-
 module_init(init_mem_hooks);
-module_exit(exit_mem_hooks);
 
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Memory Trace Hook Call-Back Registration");
 MODULE_LICENSE("GPL v2");
