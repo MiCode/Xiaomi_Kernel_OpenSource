@@ -36,6 +36,7 @@
 #define LPM_SELECT_STATE_RESIDENCY_UNMET	2
 #define LPM_SELECT_STATE_PRED			3
 #define LPM_SELECT_STATE_IPI_PENDING		4
+#define LPM_SELECT_STATE_SCHED_BIAS		5
 #define LPM_SELECT_STATE_MAX			7
 
 #define UPDATE_REASON(i, u)			(BIT(u) << (MAX_LPM_CPUS * i))
@@ -604,8 +605,10 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	}
 
 done:
-	if ((!cpu_gov->last_idx) && cpu_gov->bias)
+	if ((!cpu_gov->last_idx) && cpu_gov->bias) {
 		biastimer_start(cpu_gov->bias);
+		reason |= UPDATE_REASON(i, LPM_SELECT_STATE_SCHED_BIAS);
+	}
 
 	trace_lpm_gov_select(i, latency_req, duration_ns, reason);
 	trace_gov_pred_select(cpu_gov->predicted, cpu_gov->predicted, htime);
