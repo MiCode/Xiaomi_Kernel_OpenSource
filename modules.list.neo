@@ -50,3 +50,4 @@ core_hang_detect.ko
 kryo_arm64_edac.ko
 gcc-neo.ko
 gdsc-regulator.ko
+dispcc-neo.ko
