@@ -2102,12 +2102,13 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 {
 
 	int rc = 0;
-	const struct firmware *fw_entry = NULL, *fw_entry00 = NULL, *fw_entry07 = NULL;
+	const struct firmware *fw_entry = NULL, *fw_entry00 = NULL, *fw_entrylast = NULL;
 	char fw_name[MAX_APP_NAME_SIZE] = "\0";
 	int num_images = 0, phi = 0;
 	unsigned char app_arch = 0;
 	u8 *img_data_ptr = NULL;
-	size_t offset[8], bufferOffset = 0, phdr_table_offset = 0;
+	size_t bufferOffset = 0, phdr_table_offset = 0;
+	size_t *offset = NULL;
 	Elf32_Phdr phdr32;
 	Elf64_Phdr phdr64;
 	struct elf32_hdr *ehdr = NULL;
@@ -2125,15 +2126,13 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 	app_arch = *(unsigned char *)(fw_entry00->data + EI_CLASS);
 
 	/*Get the offsets for split images header*/
-	offset[0] = 0;
 	if (app_arch == ELFCLASS32) {
 
 		ehdr = (struct elf32_hdr *)fw_entry00->data;
 		num_images = ehdr->e_phnum;
-		if (num_images != 8) {
-			pr_err("Number of images :%d is not valid\n", num_images);
+		offset = kcalloc(num_images, sizeof(size_t), GFP_KERNEL);
+		if (offset == NULL)
 			goto release_fw_entry00;
-		}
 		phdr_table_offset = (size_t) ehdr->e_phoff;
 		for (phi = 1; phi < num_images; ++phi) {
 			bufferOffset = phdr_table_offset + phi * sizeof(Elf32_Phdr);
@@ -2145,10 +2144,9 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 
 		ehdr64 = (struct elf64_hdr *)fw_entry00->data;
 		num_images = ehdr64->e_phnum;
-		if (num_images != 8) {
-			pr_err("Number of images :%d is not valid\n", num_images);
+		offset = kcalloc(num_images, sizeof(size_t), GFP_KERNEL);
+		if (offset == NULL)
 			goto release_fw_entry00;
-		}
 		phdr_table_offset = (size_t) ehdr64->e_phoff;
 		for (phi = 1; phi < num_images; ++phi) {
 			bufferOffset = phdr_table_offset + phi * sizeof(Elf64_Phdr);
@@ -2164,23 +2162,22 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 
 	/*Find the size of last split bin image*/
 	snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", appname, num_images-1);
-	rc = firmware_request_nowarn(&fw_entry07, fw_name, class_dev);
+	rc = firmware_request_nowarn(&fw_entrylast, fw_name, class_dev);
 	if (rc) {
 		pr_err("Failed to locate blob %s\n", fw_name);
 		goto release_fw_entry00;
 	}
 
 	/*Total size of image will be the offset of last image + the size of last split image*/
-	*fw_size = fw_entry07->size + offset[num_images-1];
+	*fw_size = fw_entrylast->size + offset[num_images-1];
 
 	/*Allocate memory for the buffer that will hold the split image*/
 	rc = qtee_shmbridge_allocate_shm((*fw_size), shm);
 	if (rc) {
 		pr_err("smbridge alloc failed for size: %zu\n", *fw_size);
-		goto release_fw_entry07;
+		goto release_fw_entrylast;
 	}
 	img_data_ptr = shm->vaddr;
-
 	/*
 	 * Copy contents of split bins to the buffer
 	 */
@@ -2192,18 +2189,19 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 			pr_err("Failed to locate blob %s\n", fw_name);
 			qtee_shmbridge_free_shm(shm);
 			img_data_ptr = NULL;
-			goto release_fw_entry07;
+			goto release_fw_entrylast;
 		}
 		memcpy(img_data_ptr + offset[phi], fw_entry->data, fw_entry->size);
 		release_firmware(fw_entry);
 		fw_entry = NULL;
 	}
-	memcpy(img_data_ptr + offset[phi], fw_entry07->data, fw_entry07->size);
+	memcpy(img_data_ptr + offset[phi], fw_entrylast->data, fw_entrylast->size);
 
-release_fw_entry07:
-	release_firmware(fw_entry07);
+release_fw_entrylast:
+	release_firmware(fw_entrylast);
 release_fw_entry00:
 	release_firmware(fw_entry00);
+	kfree(offset);
 	return img_data_ptr;
 }
 EXPORT_SYMBOL(firmware_request_from_smcinvoke);
