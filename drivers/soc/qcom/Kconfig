@@ -537,7 +537,7 @@ config QCOM_SOCINFO
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
-	depends on ARCH_QCOM && DEBUG_FS || COMPILE_TEST
+	depends on ARCH_QCOM || COMPILE_TEST
 	help
 	  Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver to read
 	  the shared memory exported by the remote processor related to
