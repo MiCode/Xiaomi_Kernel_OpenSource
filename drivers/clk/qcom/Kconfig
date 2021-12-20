@@ -863,4 +863,14 @@ config SM_GPUCC_PARROT
 	  PARROT devices.
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
+
+config SXR_DISPCC_NEO
+	tristate "NEO Display Clock Controller"
+	select SXR_GCC_NEO
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  NEO devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif
