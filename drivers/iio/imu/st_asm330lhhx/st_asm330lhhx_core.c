@@ -1182,8 +1182,11 @@ static int st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 	if (ret < 0)
 		return ret;
 
-	/* wait at least 2 ODRs to be sure */
-	delay = 2 * (1000000 / sensor->odr);
+	/*
+	 * wait at least onr ODRs plus 10 % to be sure to fetch new
+	 * sample data
+	 */
+	delay = 1000000 / sensor->odr;
 
 	/* power up, wait 100 ms for stable output */
 	msleep(100);
@@ -1192,7 +1195,7 @@ static int st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 	for (i = 0; i < 5; i++) {
 		try_count = 0;
 		while (try_count < 3) {
-			usleep_range(delay, 2 * delay);
+			usleep_range(delay, delay + delay/10);
 			ret = st_asm330lhhx_read_locked(sensor->hw,
 						ST_ASM330LHHX_REG_STATUS_ADDR,
 						&status, sizeof(status));
@@ -1242,7 +1245,7 @@ static int st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 	for (i = 0; i < 5; i++) {
 		try_count = 0;
 		while (try_count < 3) {
-			usleep_range(delay, 2 * delay);
+			usleep_range(delay, delay + delay/10);
 			ret = st_asm330lhhx_read_locked(sensor->hw,
 						ST_ASM330LHHX_REG_STATUS_ADDR,
 						&status, sizeof(status));
@@ -1310,7 +1313,7 @@ static ssize_t st_asm330lhhx_sysfs_start_selftest(struct device *dev,
 	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
 	enum st_asm330lhhx_sensor_id id = sensor->id;
 	struct st_asm330lhhx_hw *hw = sensor->hw;
-	int ret, test;
+	int ret, test, odr, uodr;
 	u8 drdy_reg;
 	u32 gain;
 
@@ -1350,16 +1353,20 @@ static ssize_t st_asm330lhhx_sysfs_start_selftest(struct device *dev,
 		goto restore_regs;
 
 	ret = st_asm330lhhx_write_with_mask_locked(hw, drdy_reg,
-					   ST_ASM330LHHX_REG_FIFO_TH_MASK,
-					   0);
+				ST_ASM330LHHX_REG_FIFO_TH_MASK, 0);
 	if (ret < 0)
 		goto restore_regs;
 
 	gain = sensor->gain;
+	odr = sensor->odr;
+	uodr = sensor->uodr;
+
 	if (id == ST_ASM330LHHX_ID_ACC) {
 		/* set BDU = 1, FS = 4 g, ODR = 52 Hz */
 		st_asm330lhhx_set_full_scale(sensor, IIO_G_TO_M_S_2(61));
 		st_asm330lhhx_set_odr(sensor, 52, 0);
+		sensor->odr = 52;
+		sensor->uodr = 0;
 		st_asm330lhhx_selftest_sensor(sensor, test);
 
 		/* restore full scale after test */
@@ -1368,11 +1375,16 @@ static ssize_t st_asm330lhhx_sysfs_start_selftest(struct device *dev,
 		/* set BDU = 1, ODR = 208 Hz, FS = 2000 dps */
 		st_asm330lhhx_set_full_scale(sensor, IIO_DEGREE_TO_RAD(70000));
 		st_asm330lhhx_set_odr(sensor, 208, 0);
+		sensor->odr = 208;
+		sensor->uodr = 0;
 		st_asm330lhhx_selftest_sensor(sensor, test);
 
 		/* restore full scale after test */
 		st_asm330lhhx_set_full_scale(sensor, gain);
 	}
+
+	sensor->odr = odr;
+	sensor->uodr = uodr;
 
 restore_regs:
 	st_asm330lhhx_restore_regs(hw);
