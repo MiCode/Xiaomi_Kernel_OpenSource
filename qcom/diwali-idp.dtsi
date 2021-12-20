@@ -55,6 +55,25 @@
 		novatek,trusted-touch-vm-gpio-list = <&tlmm 0 0 &tlmm 1 0 &tlmm 2 0
 						&tlmm 3 0 &tlmm 17 0 &tlmm 51 0x2008>;
 	};
+
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <51 0x2008>;
+		focaltech,reset-gpio = <&tlmm 17 0x00>;
+		focaltech,irq-gpio = <&tlmm 51 0x2008>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+		focaltech,touch-type = "primary";
+
+		vdd-supply = <&L3C>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+	};
 };
 
 &qupv3_se9_i2c {
