@@ -1327,9 +1327,13 @@ static ssize_t st_asm330lhhx_sysfs_start_selftest(struct device *dev,
 	if (test == ARRAY_SIZE(st_asm330lhhx_selftest_table))
 		return -EINVAL;
 
-	ret = iio_device_claim_direct_mode(iio_dev);
+	ret = iio_device_claim_direct_mode(hw->iio_devs[ST_ASM330LHHX_ID_ACC]);
 	if (ret)
 		return ret;
+
+	ret = iio_device_claim_direct_mode(hw->iio_devs[ST_ASM330LHHX_ID_GYRO]);
+	if (ret)
+		goto release_acc;
 
 	/* self test mode unavailable if sensor enabled */
 	if (hw->enable_mask & BIT(id)) {
@@ -1374,41 +1378,12 @@ restore_regs:
 	st_asm330lhhx_restore_regs(hw);
 
 out_claim:
-	iio_device_release_direct_mode(iio_dev);
+	iio_device_release_direct_mode(hw->iio_devs[ST_ASM330LHHX_ID_GYRO]);
+
+release_acc:
+	iio_device_release_direct_mode(hw->iio_devs[ST_ASM330LHHX_ID_ACC]);
 
 	return size;
-}
-static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw);
-static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw);
-
-ssize_t st_asm330lhhx_debug_suspend_resume(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t size)
-{
-	struct iio_dev *iio_dev = dev_get_drvdata(dev);
-	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
-	struct st_asm330lhhx_hw *hw = sensor->hw;
-	int err, val;
-
-	err = iio_device_claim_direct_mode(iio_dev);
-	if (err)
-		return err;
-
-	err = kstrtoint(buf, 10, &val);
-	if (err < 0)
-		goto out;
-
-	if (val == 0)
-		err = _st_asm330lhhx_suspend(hw);
-	else if (val == 1)
-		err = _st_asm330lhhx_resume(hw);
-	else
-		err = -EINVAL;
-
-out:
-	iio_device_release_direct_mode(iio_dev);
-
-	return err < 0 ? err : size;
 }
 
 static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(st_asm330lhhx_sysfs_sampling_frequency_avail);
@@ -1435,9 +1410,6 @@ static IIO_DEVICE_ATTR(power_mode, 0644,
 		       st_asm330lhhx_get_power_mode,
 		       st_asm330lhhx_set_power_mode, 0);
 
-static IIO_DEVICE_ATTR(suspend_resume, 0200, NULL,
-		       st_asm330lhhx_debug_suspend_resume, 0);
-
 static struct attribute *st_asm330lhhx_acc_attributes[] = {
 	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_in_accel_scale_available.dev_attr.attr,
@@ -1447,7 +1419,6 @@ static struct attribute *st_asm330lhhx_acc_attributes[] = {
 	&iio_dev_attr_power_mode.dev_attr.attr,
 	&iio_dev_attr_selftest_available.dev_attr.attr,
 	&iio_dev_attr_selftest.dev_attr.attr,
-	&iio_dev_attr_suspend_resume.dev_attr.attr,
 	NULL,
 };
 
