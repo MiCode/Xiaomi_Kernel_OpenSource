@@ -310,6 +310,10 @@
 				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
 				  <FAST_PATH_TCS 1>;
 		power-domains = <&CLUSTER_PD>;
+
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
 	};
 
 	cluster-device {
@@ -564,36 +568,55 @@
 
 	clk_virt: interconnect@0 {
 		compatible = "qcom,neo-clk_virt";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	mc_virt: interconnect@1 {
 		compatible = "qcom,neo-mc_virt";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	config_noc: interconnect@1500000 {
+		reg = <0x1500000 0x10>;
 		compatible = "qcom,neo-config_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	system_noc: interconnect@1680000 {
+		reg = <0x1680000 0x29080>;
 		compatible = "qcom,neo-system_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	pcie_noc: interconnect@16c0000 {
+		reg = <0x16c0000 0xA080>;
 		compatible = "qcom,neo-pcie_anoc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	mmss_noc: interconnect@1740000 {
+		reg = <0x1740000 0x1F100>;
 		compatible = "qcom,neo-mmss_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	gem_noc: interconnect@19100000 {
+		reg = <0x19100000 0xA2080>;
 		compatible = "qcom,neo-gem_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
@@ -604,12 +627,18 @@
 	};
 
 	nsp_noc: interconnect@320C0000 {
+		reg = <0x320C0000 0x10>;
 		compatible = "qcom,neo-nsp_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	lpass_ag_noc: interconnect@3c40000 {
+		reg = <0x3c40000 0x10>;
 		compatible = "qcom,neo-lpass_ag_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
