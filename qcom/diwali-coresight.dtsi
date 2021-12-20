@@ -3239,6 +3239,17 @@
 		clock-names = "apb_pclk";
 	};
 
+	dl_lpass_cti: cti@10c4a000  {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x10c4a000  0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-dl_lpass_cti";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
 	gpu_isdb_cti: cti@10961000 {
 		compatible = "arm,coresight-cti", "arm,primecell";
 		reg = <0x10961000 0x1000>;
