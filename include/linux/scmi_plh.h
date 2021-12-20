@@ -15,27 +15,32 @@
 
 #define SCMI_PROTOCOL_PLH      0x81
 
+enum plh_features {
+	PERF_LOCK_SCROLL,
+	PERF_LOCK_LAUNCH
+};
+
 struct scmi_protocol_handle;
 
 /**
  * struct scmi_plh_vendor_ops - represents the various operations provided
  *	by SCMI PLH Protocol
  *
- * @init_splh_ipc_freq_tbl: initialize scroll plh ipc freq voting table in rimps
- * @start_splh: starts scroll plh in rimps
- * @stop_splh: stops scroll plh in rimps
- * @set_splh_sample_ms: configure the sampling duration of scroll plh in rimps
- * @set_splh_log_level: configure the supported log_level of scroll plh in rimps
+ * @init_plh_ipc_freq_tbl: initialize plh ipc freq voting table in rimps
+ * @start_plh: starts plh in rimps
+ * @stop_plh: stops plh in rimps
+ * @set_plh_sample_ms: configure the sampling duration of plh in rimps
+ * @set_plh_log_level: configure the supported log_level of plh in rimps
  */
 struct scmi_plh_vendor_ops {
-	int (*init_splh_ipc_freq_tbl)(const struct scmi_protocol_handle *ph,
-				u16 *p_init_args, u16 init_len);
-	int (*start_splh)(const struct scmi_protocol_handle *ph, u16 fps);
-	int (*stop_splh)(const struct scmi_protocol_handle *ph);
-	int (*set_splh_sample_ms)(const struct scmi_protocol_handle *ph,
-				u16 sample_ms);
-	int (*set_splh_log_level)(const struct scmi_protocol_handle *ph,
-				u16 log_level);
+	int (*init_plh_ipc_freq_tbl)(const struct scmi_protocol_handle *ph,
+				u16 *p_init_args, u16 init_len, enum plh_features feature);
+	int (*start_plh)(const struct scmi_protocol_handle *ph, u16 fps, enum plh_features feature);
+	int (*stop_plh)(const struct scmi_protocol_handle *ph, enum plh_features feature);
+	int (*set_plh_sample_ms)(const struct scmi_protocol_handle *ph,
+				u16 sample_ms, enum plh_features feature);
+	int (*set_plh_log_level)(const struct scmi_protocol_handle *ph,
+				u16 log_level, enum plh_features feature);
 };
 
 #endif
