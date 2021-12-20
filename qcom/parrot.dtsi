@@ -282,6 +282,9 @@
 				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
 				  <FAST_PATH_TCS 1>;
 
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
 	};
 
 	pdc: interrupt-controller@b220000 {
@@ -733,61 +736,95 @@
 
 	clk_virt: interconnect@0 {
 		compatible = "qcom,parrot-clk_virt";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	mc_virt: interconnect@1 {
 		compatible = "qcom,parrot-mc_virt";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	cnoc2: interconnect@1500000 {
+		reg = <0x1500000 0x1000>;
 		compatible = "qcom,parrot-cnoc2";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	cnoc3: interconnect@1502000 {
+		reg = <0x1502000 0x1000>;
 		compatible = "qcom,parrot-cnoc3";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	system_noc: interconnect@1680000 {
+		reg = <0x1680000 0x1E200>;
 		compatible = "qcom,parrot-system_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	pcie_noc: interconnect@16c0000 {
+		reg = <0x16C0000 0xE280>;
 		compatible = "qcom,parrot-pcie_anoc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	aggre1_noc: interconnect@16e0000 {
+		reg = <0x16e0000 0x1C080>;
 		compatible = "qcom,parrot-aggre1_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	aggre2_noc: interconnect@1700000 {
+		reg = <0x1700000 0x31080>;
 		compatible = "qcom,parrot-aggre2_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	mmss_noc: interconnect@1740000 {
+		reg = <0x1740000 0x1f080>;
 		compatible = "qcom,parrot-mmss_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	gem_noc: interconnect@19100000 {
+		reg = <0x19100000 0xBB800>;
 		compatible = "qcom,parrot-gem_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	nsp_noc: interconnect@320C0000 {
+		reg = <0x320C0000 0x10000>;
 		compatible = "qcom,parrot-nsp_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	lpass_ag_noc: interconnect@3c40000 {
+		reg = <0x3c40000 0x17200>;
 		compatible = "qcom,parrot-lpass_ag_noc";
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
