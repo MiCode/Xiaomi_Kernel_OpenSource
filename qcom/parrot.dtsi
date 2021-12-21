@@ -932,6 +932,11 @@
 		qcom,config-arr = <0x17800060 0x17810060 0x17820060 0x17830060
 				0x17840060 0x17850060 0x17860060 0x17870060>;
 	};
+
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
 
 #include "diwali-gdsc.dtsi"
