@@ -2226,6 +2226,7 @@
 			  "cdsp", "slpi", "slpi_island",
 			  "apss";
 		mboxes = <&qmp_aop 0>;
+		ddr-freq-update;
 	};
 
 	subsystem-sleep-stats {
