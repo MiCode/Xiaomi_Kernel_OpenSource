@@ -179,6 +179,11 @@ enum hfi_mem_kind {
 	HFI_MEMKIND_USER_PROFILE_IBS,
 	/** @MEMKIND_CMD_BUFFER: Used for composing ringbuffer content */
 	HFI_MEMKIND_CMD_BUFFER,
+	/**
+	 *@MEMKIND_MMIO_IPC_CORE: Used for IPC_core region mapping to GMU space
+	 * for EVA to GPU communication.
+	 */
+	HFI_MEMKIND_MMIO_IPC_CORE,
 	HFI_MEMKIND_MAX,
 };
 
@@ -200,6 +205,8 @@ static const char * const hfi_memkind_strings[] = {
 	[HFI_MEMKIND_PROFILE] = "GMU KERNEL PROFILING",
 	[HFI_MEMKIND_USER_PROFILE_IBS] = "GMU USER PROFILING",
 	[HFI_MEMKIND_CMD_BUFFER] = "GMU CMD BUFFER",
+	[HFI_MEMKIND_MMIO_IPC_CORE] = "GMU MMIO IPC",
+	[HFI_MEMKIND_MAX] = "GMU UNKNOWN",
 };
 
 /* CP/GFX pipeline can access */

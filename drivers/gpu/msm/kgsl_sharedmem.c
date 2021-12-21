@@ -1642,43 +1642,50 @@ int kgsl_allocate_kernel(struct kgsl_device *device,
 	return 0;
 }
 
+int kgsl_memdesc_init_fixed(struct kgsl_device *device,
+		struct platform_device *pdev, const char *resource,
+		struct kgsl_memdesc *memdesc)
+{
+	u32 entry[2];
+
+	if (of_property_read_u32_array(pdev->dev.of_node,
+		resource, entry, 2))
+		return -ENODEV;
+
+	kgsl_memdesc_init(device, memdesc, 0);
+	memdesc->physaddr = entry[0];
+	memdesc->size = entry[1];
+
+	return kgsl_memdesc_sg_dma(memdesc, entry[0], entry[1]);
+}
+
 struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
 		const char *resource, const char *name)
 {
-	struct kgsl_global_memdesc *md;
-	u32 entry[2];
+	struct kgsl_global_memdesc *gmd = kzalloc(sizeof(*gmd), GFP_KERNEL);
 	int ret;
 
-	if (of_property_read_u32_array(device->pdev->dev.of_node,
-		resource, entry, 2))
-		return ERR_PTR(-ENODEV);
-
-	md = kzalloc(sizeof(*md), GFP_KERNEL);
-	if (!md)
+	if (!gmd)
 		return ERR_PTR(-ENOMEM);
 
-	kgsl_memdesc_init(device, &md->memdesc, 0);
-	md->memdesc.priv = KGSL_MEMDESC_GLOBAL;
-	md->memdesc.physaddr = entry[0];
-	md->memdesc.size = entry[1];
-
-	ret = kgsl_memdesc_sg_dma(&md->memdesc, entry[0], entry[1]);
+	ret = kgsl_memdesc_init_fixed(device, device->pdev, resource,
+			&gmd->memdesc);
 	if (ret) {
-		kfree(md);
+		kfree(gmd);
 		return ERR_PTR(ret);
 	}
 
-	md->name = name;
+	gmd->memdesc.priv = KGSL_MEMDESC_GLOBAL;
+	gmd->name = name;
 
 	/*
 	 * No lock here, because this function is only called during probe/init
 	 * while the caller is holding the mutex
 	 */
-	list_add_tail(&md->node, &device->globals);
+	list_add_tail(&gmd->node, &device->globals);
+	kgsl_mmu_map_global(device, &gmd->memdesc, 0);
 
-	kgsl_mmu_map_global(device, &md->memdesc, 0);
-
-	return &md->memdesc;
+	return &gmd->memdesc;
 }
 
 static struct kgsl_memdesc *
