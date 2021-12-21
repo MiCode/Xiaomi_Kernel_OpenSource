@@ -42,3 +42,4 @@ sdhci-msm.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
+debug-regulator.ko
