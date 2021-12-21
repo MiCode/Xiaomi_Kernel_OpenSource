@@ -923,6 +923,15 @@
 	qcom,mem-buf-msgq {
 		compatible = "qcom,mem-buf-msgq";
 	};
+
+	 qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		label = "core";
+		qcom,threshold-arr = <0x17800058 0x17810058 0x17820058 0x17830058
+				0x17840058 0x17850058 0x17860058 0x17870058>;
+		qcom,config-arr = <0x17800060 0x17810060 0x17820060 0x17830060
+				0x17840060 0x17850060 0x17860060 0x17870060>;
+	};
 };
 
 #include "diwali-gdsc.dtsi"
