@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <uapi/linux/sched/types.h>
@@ -890,11 +891,18 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	struct kgsl_process_private *private = container_of(kref,
 			struct kgsl_process_private, refcount);
 
+	/*
+	 * While removing sysfs entries, kernfs_mutex is held by sysfs apis. Since
+	 * it is a global fs mutex, sometimes it takes longer for kgsl to get hold
+	 * of the lock. Meanwhile, kgsl open thread may exhaust all its re-tries
+	 * and open can fail. To avoid this, remove sysfs entries inside process
+	 * mutex to avoid wasting re-tries when kgsl is waiting for kernfs mutex.
+	 */
+	mutex_lock(&kgsl_driver.process_mutex);
+
 	debugfs_remove_recursive(private->debug_root);
 	kobject_put(&private->kobj_memtype);
 	kobject_put(&private->kobj);
-
-	mutex_lock(&kgsl_driver.process_mutex);
 
 	/* When using global pagetables, do not detach global pagetable */
 	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
