@@ -119,6 +119,7 @@ struct walt_rq {
 	bool			high_irqload;
 	u64			last_cc_update;
 	u64			cycles;
+	int			num_mvp_tasks;
 	struct list_head	mvp_tasks;
 };
 

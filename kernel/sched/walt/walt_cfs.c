@@ -1046,14 +1046,17 @@ static void walt_cfs_insert_mvp_task(struct walt_rq *wrq, struct walt_task_struc
 	}
 
 	list_add(&wts->mvp_list, pos->prev);
+	wrq->num_mvp_tasks++;
 }
 
-static void walt_cfs_deactivate_mvp_task(struct task_struct *p)
+static void walt_cfs_deactivate_mvp_task(struct rq *rq, struct task_struct *p)
 {
+	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	list_del_init(&wts->mvp_list);
 	wts->mvp_prio = WALT_NOT_MVP;
+	wrq->num_mvp_tasks--;
 }
 
 /*
@@ -1103,13 +1106,14 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 
 	limit = walt_cfs_mvp_task_limit(curr);
 	if (wts->total_exec > limit) {
-		walt_cfs_deactivate_mvp_task(curr);
+		walt_cfs_deactivate_mvp_task(rq, curr);
 		trace_walt_cfs_deactivate_mvp_task(curr, wts, limit);
 		return;
 	}
 
 	/* slice expired. re-queue the task */
 	list_del(&wts->mvp_list);
+	wrq->num_mvp_tasks--;
 	walt_cfs_insert_mvp_task(wrq, wts, false);
 }
 
@@ -1120,7 +1124,7 @@ static void walt_cfs_mvp_do_sched_yield(void *unused, struct rq *rq)
 
 	lockdep_assert_held(&rq->lock);
 	if (!list_empty(&wts->mvp_list) && wts->mvp_list.next)
-		walt_cfs_deactivate_mvp_task(curr);
+		walt_cfs_deactivate_mvp_task(rq, curr);
 }
 
 void walt_cfs_enqueue_task(struct rq *rq, struct task_struct *p)
@@ -1158,7 +1162,7 @@ void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p)
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (!list_empty(&wts->mvp_list) && wts->mvp_list.next)
-		walt_cfs_deactivate_mvp_task(p);
+		walt_cfs_deactivate_mvp_task(rq, p);
 
 	/*
 	 * Reset the exec time during sleep so that it starts
