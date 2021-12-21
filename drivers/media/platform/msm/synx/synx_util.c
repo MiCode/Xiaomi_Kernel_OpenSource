@@ -231,6 +231,7 @@ int synx_util_init_handle(struct synx_client *client,
 	synx_data->handle = h_synx;
 	synx_data->synx_obj = synx_obj;
 	kref_init(&synx_data->internal_refcount);
+	synx_data->rel_count = 1;
 	mutex_unlock(&client->synx_table_lock[idx]);
 
 	*new_synx = h_synx;
@@ -569,6 +570,9 @@ struct synx_handle_coredata *synx_util_acquire_handle(
 			client->id, h_synx);
 	} else if (synx_data->handle != h_synx) {
 		pr_err("[sess: %u] stale object handle %d\n",
+			client->id, h_synx);
+	} else if (synx_data->rel_count == 0) {
+		pr_err("[sess: %u] released object handle %d\n",
 			client->id, h_synx);
 	} else if (!kref_read(&synx_data->internal_refcount)) {
 		pr_err("[sess: %u] destroyed object handle %d\n",
