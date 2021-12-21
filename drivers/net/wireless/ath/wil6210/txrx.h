@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: ISC */
 /*
  * Copyright (c) 2012-2016 Qualcomm Atheros, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef WIL6210_TXRX_H
@@ -608,6 +608,13 @@ static inline u8 *wil_skb_get_sa(struct sk_buff *skb)
 	struct ethhdr *eth = (void *)skb->data;
 
 	return eth->h_source;
+}
+
+static inline __be16 wil_skb_get_protocol(struct sk_buff *skb)
+{
+	struct ethhdr *eth = (void *)skb->data;
+
+	return eth->h_proto;
 }
 
 static inline bool wil_need_txstat(struct sk_buff *skb)
