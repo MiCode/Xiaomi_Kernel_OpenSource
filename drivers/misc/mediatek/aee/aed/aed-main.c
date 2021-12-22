@@ -38,8 +38,10 @@
 #include <linux/workqueue.h>
 #include <linux/rwsem.h>
 
-#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER)
+#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER) || IS_ENABLED(CONFIG_MTK_LCM)
 #include <disp_assert_layer.h>
+#elif IS_ENABLED(CONFIG_DRM_MEDIATEK)
+#include <mtk_drm_assert_ext.h>
 #endif
 #include <mt-plat/aee.h>
 
@@ -1643,7 +1645,8 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		/* Try to prevent overrun */
 		dal_show->msg[sizeof(dal_show->msg) - 1] = 0;
-#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER)
+#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER) || IS_ENABLED(CONFIG_DRM_MEDIATEK) \
+		|| IS_ENABLED(CONFIG_MTK_LCM)
 		pr_debug("AEE CALL DAL_Printf now\n");
 		DAL_Printf("%s", dal_show->msg);
 #endif
@@ -1659,7 +1662,8 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		dal_setcolor.foreground = 0x00ff00;	/*green */
 		dal_setcolor.background = 0xff0000;	/*red */
 
-#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER)
+#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER) || IS_ENABLED(CONFIG_DRM_MEDIATEK) \
+		|| IS_ENABLED(CONFIG_MTK_LCM)
 		pr_debug("AEE CALL DAL_SetColor now\n");
 		DAL_SetColor(dal_setcolor.foreground,
 				dal_setcolor.background);
@@ -1680,7 +1684,8 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = -EFAULT;
 			goto EXIT;
 		}
-#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER)
+#if IS_ENABLED(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER) || IS_ENABLED(CONFIG_DRM_MEDIATEK) \
+		|| IS_ENABLED(CONFIG_MTK_LCM)
 		pr_debug("AEE CALL DAL_SetColor now\n");
 		DAL_SetColor(dal_setcolor.foreground,
 				dal_setcolor.background);

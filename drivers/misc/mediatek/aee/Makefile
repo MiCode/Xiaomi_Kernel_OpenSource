@@ -30,6 +30,10 @@ ifdef CONFIG_MTK_ION
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion
 endif
 
+ifdef CONFIG_DRM_MEDIATEK
+subdir-ccflags-y += -I$(srctree)/drivers/gpu/drm/mediatek/
+endif
+
 obj-$(CONFIG_MTK_AEE_FEATURE)	+= aed/
 obj-$(CONFIG_MTK_AEE_FEATURE)	+= mrdump/
 obj-$(CONFIG_MTK_AEE_HANGDET)	+= hangdet/
