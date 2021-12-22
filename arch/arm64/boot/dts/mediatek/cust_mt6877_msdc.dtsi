@@ -24,6 +24,7 @@
 	hs400-ds-delay = <0x12814>;
 	mediatek,cqhci;
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
+	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
 
 };
 
