@@ -5642,7 +5642,10 @@ static int mt6368_codec_probe(struct snd_soc_component *cmpnt)
 
 static void mt6368_codec_remove(struct snd_soc_component *cmpnt)
 {
-	snd_soc_component_exit_regmap(cmpnt);
+	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	cmpnt->regmap = NULL;
+	dev_info(priv->dev, "%s(), codec removed\n", __func__);
 }
 
 static const struct snd_soc_component_driver mt6368_soc_component_driver = {
