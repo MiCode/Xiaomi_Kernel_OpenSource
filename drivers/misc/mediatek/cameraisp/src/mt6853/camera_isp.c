@@ -433,7 +433,7 @@ static unsigned int sec_on;
 static unsigned int cq_recovery[ISP_IRQ_TYPE_AMOUNT];
 
 #ifdef CONFIG_PM_SLEEP
-struct wakeup_source isp_wake_lock;
+struct wakeup_source *isp_wake_lock;
 #endif
 static int g_WaitLockCt;
 
@@ -4623,7 +4623,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				} else {
 #ifdef CONFIG_PM_SLEEP
-					__pm_stay_awake(&isp_wake_lock);
+					__pm_stay_awake(isp_wake_lock);
 #endif
 					g_WaitLockCt++;
 
@@ -4641,7 +4641,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				} else {
 #ifdef CONFIG_PM_SLEEP
-					__pm_relax(&isp_wake_lock);
+					__pm_relax(isp_wake_lock);
 #endif
 					LOG_DBG("wakelock disable!! cnt(%d)\n",
 						g_WaitLockCt);
@@ -6923,7 +6923,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	if (g_WaitLockCt) {
 		LOG_INF("wakelock disable!! cnt(%d)\n", g_WaitLockCt);
 #ifdef CONFIG_PM_SLEEP
-		__pm_relax(&isp_wake_lock);
+		__pm_relax(isp_wake_lock);
 #endif
 		g_WaitLockCt = 0;
 	}
@@ -7475,7 +7475,7 @@ static int ISP_probe(struct platform_device *pDev)
 		}
 
 #ifdef CONFIG_PM_SLEEP
-		wakeup_source_init(&isp_wake_lock, "isp_lock_wakelock");
+		isp_wake_lock = wakeup_source_register(&pDev->dev, "isp_lock_wakelock");
 #endif
 
 #if (ISP_BOTTOMHALF_WORKQ == 1)
