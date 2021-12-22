@@ -32,5 +32,5 @@ enum MD_REG_ID {
 
 extern void md_io_remap_internal_dump_register(struct ccci_modem *md);
 void internal_md_dump_debug_register(unsigned int md_index);
-
+void md_dump_register_6877(unsigned int md_index);
 #endif

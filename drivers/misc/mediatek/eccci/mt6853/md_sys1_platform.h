@@ -87,36 +87,18 @@ int ccci_modem_resume(struct platform_device *dev);
 int ccci_modem_pm_suspend(struct device *device);
 int ccci_modem_pm_resume(struct device *device);
 int ccci_modem_pm_restore_noirq(struct device *device);
-int md_start_platform(struct ccci_modem *md);
-int md_cd_power_on(struct ccci_modem *md);
-int md_cd_power_off(struct ccci_modem *md, unsigned int timeout);
-int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode);
-int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode);
-int md_cd_let_md_go(struct ccci_modem *md);
-void md_cd_lock_cldma_clock_src(int locked);
-void md_cd_lock_modem_clock_src(int locked);
-int md_cd_bootup_cleanup(struct ccci_modem *md, int success);
 int md_cd_low_power_notify(struct ccci_modem *md,
 	enum LOW_POEWR_NOTIFY_TYPE type, int level);
 int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info);
-int md_cd_io_remap_md_side_register(struct ccci_modem *md);
-void md_cd_dump_debug_register(struct ccci_modem *md);
-void md_cd_dump_md_bootup_status(struct ccci_modem *md);
-void md_cd_get_md_bootup_status(struct ccci_modem *md,
-	unsigned int *buff, int length);
-void md_cd_check_emi_state(struct ccci_modem *md, int polling);
-void md_cldma_hw_reset(unsigned char md_id);
 int md_cd_pccif_send(struct ccci_modem *md, int channel_id);
 void md_cd_dump_pccif_reg(struct ccci_modem *md);
 
 /* ADD_SYS_CORE */
-//int ccci_modem_syssuspend(void);
-//void ccci_modem_sysresume(void);
-void ccci_set_clk_by_id(int id, unsigned int on);
+int ccci_modem_plt_syssuspend(void);
+void ccci_modem_plt_sysresume(void);
 
 extern unsigned long infra_ao_base;
-extern unsigned long pericfg_base;
 extern unsigned long infra_ao_mem_base;
 extern unsigned int devapc_check_flag;
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);

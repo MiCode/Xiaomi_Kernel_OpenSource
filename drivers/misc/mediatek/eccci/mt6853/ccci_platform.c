@@ -38,7 +38,6 @@ int Is_MD_EMI_voilation(void)
 	return 1;
 }
 
-unsigned long pericfg_base;
 unsigned long infra_ao_base;
 unsigned long infra_ao_mem_base;
 
@@ -202,26 +201,18 @@ int ccci_platform_init(struct ccci_modem *md)
 	}
 	CCCI_INIT_LOG(-1, TAG, "infra_ao_base:0x%p\n", (void *)infra_ao_base);
 
-	/*Get pericfg base(0x1000 3000) for ccif5*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,pericfg");
-	pericfg_base = (unsigned long)of_iomap(node, 0);
-	if (!pericfg_base) {
-		CCCI_ERROR_LOG(md->index, TAG,
-			"%s: pericfg_base of_iomap failed\n", node->full_name);
-		return -1;
-	}
-	CCCI_INIT_LOG(-1, TAG, "pericfg_base:0x%p\n", (void *)pericfg_base);
-
 	node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao_mem");
-	infra_ao_mem_base = (unsigned long)of_iomap(node, 0);
-	if (!infra_ao_mem_base) {
-		CCCI_ERROR_LOG(md->index, TAG,
-			"%s: infra_ao_mem_base of_iomap failed\n",
-			node->full_name);
-		return -1;
+	if (node) {
+		infra_ao_mem_base = (unsigned long)of_iomap(node, 0);
+		if (!infra_ao_mem_base) {
+			CCCI_ERROR_LOG(md->index, TAG,
+				"%s: infra_ao_mem_base of_iomap failed\n",
+				node->full_name);
+			return -1;
+		}
+		CCCI_INIT_LOG(-1, TAG, "infra_ao_mem_base:0x%p\n",
+				(void *)infra_ao_mem_base);
 	}
-	CCCI_INIT_LOG(-1, TAG, "infra_ao_mem_base:0x%p\n",
-			(void *)infra_ao_mem_base);
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC) && !IS_ENABLED(CONFIG_DEVAPC_LEGACY)
 	ccci_md_devapc_register_cb();

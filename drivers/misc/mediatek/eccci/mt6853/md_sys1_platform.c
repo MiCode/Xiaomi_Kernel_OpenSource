@@ -13,7 +13,8 @@
 #include <linux/of_address.h>
 #include "ccci_config.h"
 #include <linux/clk.h>
-#include <mach/mtk_pbm.h>
+#include <mtk_pbm.h>
+
 #ifdef FEATURE_CLK_BUF
 #include <mtk_clkbuf_ctl.h>
 #endif
@@ -33,7 +34,7 @@
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
 #endif
-#include <clk-mt6853-pg.h>
+#include <clk-mt6877-pg.h>
 #include "ccci_core.h"
 #include "ccci_platform.h"
 
@@ -50,16 +51,6 @@
 
 static struct ccci_clk_node clk_table[] = {
 	{ NULL, "scp-sys-md1-main"},
-	{ NULL, "infra-dpmaif-clk"},
-	{ NULL, "infra-dpmaif-blk-clk"},
-	{ NULL, "infra-ccif-ap"},
-	{ NULL, "infra-ccif-md"},
-	{ NULL, "infra-ccif1-ap"},
-	{ NULL, "infra-ccif1-md"},
-	{ NULL, "infra-ccif2-ap"},
-	{ NULL, "infra-ccif2-md"},
-	{ NULL, "infra-ccif4-md"},
-	{ NULL, "infra-ccif5-md"},
 };
 
 extern unsigned int devapc_check_flag;
@@ -71,6 +62,38 @@ extern spinlock_t devapc_flag_lock;
 #define RAnd2W(a, b, c)  ccci_write32(a, b, (ccci_read32(a, b)&c))
 #define RabIsc(a, b, c) ((ccci_read32(a, b)&c) != c)
 
+static int md_cd_io_remap_md_side_register(struct ccci_modem *md);
+static void md_cd_dump_debug_register(struct ccci_modem *md);
+static void md_cd_dump_md_bootup_status(struct ccci_modem *md);
+static void md_cd_get_md_bootup_status(struct ccci_modem *md,
+	unsigned int *buff, int length);
+static void md_cd_check_emi_state(struct ccci_modem *md, int polling);
+static int md_start_platform(struct ccci_modem *md);
+static int md_cd_power_on(struct ccci_modem *md);
+static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout);
+static int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode);
+static int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode);
+static int md_cd_let_md_go(struct ccci_modem *md);
+static void md_cd_lock_cldma_clock_src(int locked);
+static void md_cd_lock_modem_clock_src(int locked);
+
+static struct ccci_plat_ops md_cd_plat_ptr = {
+	.md_dump_reg = &md_dump_register_6877,
+	.remap_md_reg = &md_cd_io_remap_md_side_register,
+	.lock_cldma_clock_src = &md_cd_lock_cldma_clock_src,
+	.lock_modem_clock_src = &md_cd_lock_modem_clock_src,
+	.dump_md_bootup_status = &md_cd_dump_md_bootup_status,
+	.get_md_bootup_status = &md_cd_get_md_bootup_status,
+	.debug_reg = &md_cd_dump_debug_register,
+	.check_emi_state = &md_cd_check_emi_state,
+	.soft_power_off = &md_cd_soft_power_off,
+	.soft_power_on = &md_cd_soft_power_on,
+	.start_platform = &md_start_platform,
+	.power_on = &md_cd_power_on,
+	.let_md_go = &md_cd_let_md_go,
+	.power_off = &md_cd_power_off,
+	.vcore_config = NULL,
+};
 static int s_md_start_completed;
 
 int ccif_read32(void *b, unsigned long a)
@@ -86,16 +109,11 @@ int ccif_read32(void *b, unsigned long a)
 	return ret;
 }
 
-void md_cldma_hw_reset(unsigned char md_id)
-{
-
-}
-
 void md1_subsys_debug_dump(enum subsys_id sys)
 {
 	struct ccci_modem *md = NULL;
 
-	if (sys != SYS_MD1)
+	if (sys != 0)
 		return;
 		/* add debug dump */
 
@@ -265,9 +283,9 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		hw_info->md_boot_slave_En = MD_BOOT_VECTOR_EN;
 		of_property_read_u32(dev_ptr->dev.of_node,
 			"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
-		node_infrao = of_find_compatible_node(NULL, NULL,
+		node = of_find_compatible_node(NULL, NULL,
 			"mediatek,infracfg_ao");
-		md_cd_plat_val_ptr.infra_ao_base = of_iomap(node_infrao, 0);
+		md_cd_plat_val_ptr.infra_ao_base = of_iomap(node, 0);
 
 		hw_info->plat_ptr = &md_cd_plat_ptr;
 		hw_info->plat_val = &md_cd_plat_val_ptr;
@@ -286,7 +304,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			}
 		}
 
-		if (clk_table[0].clk_ref) {
+		if (!IS_ERR(clk_table[0].clk_ref)) {
 			CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
 				"dummy md sys clk\n");
 			retval = clk_prepare_enable(clk_table[0].clk_ref);
@@ -384,95 +402,6 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 
 	register_pg_callback(&md1_subsys_handle);
 	return 0;
-}
-
-/* md1 sys_clk_cg no need set in this API*/
-#if 0
-void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
-{
-	struct md_hw_info *hw_info = md->hw_info;
-	int idx = 0;
-	int ret = 0;
-	unsigned long flags;
-
-	CCCI_NORMAL_LOG(md->index, TAG, "%s: on=%d\n", __func__, on);
-
-	/* Clean MD_PCCIF5_SW_READY and MD_PCCIF5_PWR_ON */
-	if (!on)
-#ifdef CCCI_PLATFORM_MT6877
-		ccif_write32(pericfg_base, 0x200, 0x0);
-#else
-		ccif_write32(pericfg_base, 0x30C, 0x0);
-#endif
-
-	for (idx = 3; idx < ARRAY_SIZE(clk_table); idx++) {
-		if (clk_table[idx].clk_ref == NULL)
-			continue;
-		if (on) {
-			ret = clk_prepare_enable(clk_table[idx].clk_ref);
-			if (ret)
-				CCCI_ERROR_LOG(md->index, TAG,
-					"%s: on=%d,ret=%d\n",
-					__func__, on, ret);
-			spin_lock_irqsave(&devapc_flag_lock, flags);
-			devapc_check_flag = 1;
-			spin_unlock_irqrestore(&devapc_flag_lock, flags);
-		} else {
-			if (strcmp(clk_table[idx].clk_name, "infra-ccif4-md")
-				== 0) {
-				udelay(1000);
-				CCCI_NORMAL_LOG(md->index, TAG,
-					"ccif4 %s: after 1ms, set 0x%p + 0x14 = 0xFF\n",
-					__func__, hw_info->md_ccif4_base);
-				ccci_write32(hw_info->md_ccif4_base, 0x14,
-					0xFF); /* special use ccci_write32 */
-			}
-			if (strcmp(clk_table[idx].clk_name, "infra-ccif5-md")
-				== 0) {
-				udelay(1000);
-				CCCI_NORMAL_LOG(md->index, TAG,
-					"ccif5 %s: after 1ms, set 0x%p + 0x14 = 0xFF\n",
-					__func__, hw_info->md_ccif5_base);
-				ccci_write32(hw_info->md_ccif5_base, 0x14,
-					0xFF); /* special use ccci_write32 */
-			}
-
-			spin_lock_irqsave(&devapc_flag_lock, flags);
-			devapc_check_flag = 0;
-			spin_unlock_irqrestore(&devapc_flag_lock, flags);
-			clk_disable_unprepare(clk_table[idx].clk_ref);
-		}
-	}
-	/* Set MD_PCCIF5_PWR_ON */
-	if (on) {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"ccif5 current base_addr %s:  0x%lx, val:0x%x\n",
-			__func__, (unsigned long)pericfg_base,
-#ifdef CCCI_PLATFORM_MT6877
-			ccif_read32((void *)pericfg_base, 0x200));
-#else
-			ccif_read32((void *)pericfg_base, 0x30C));
-#endif
-	}
-}
-#endif
-
-void ccci_set_clk_by_id(int idx, unsigned int on)
-{
-	int ret = 0;
-
-	if (idx >= ARRAY_SIZE(clk_table))
-		return;
-	else if (clk_table[idx].clk_ref == NULL)
-		return;
-	else if (on) {
-		ret = clk_prepare_enable(clk_table[idx].clk_ref);
-		if (ret)
-			CCCI_ERROR_LOG(-1, TAG,
-				"%s: idx = %d, on=%d,ret=%d\n",
-				__func__, idx, on, ret);
-	} else
-		clk_disable_unprepare(clk_table[idx].clk_ref);
 }
 
 int md_cd_io_remap_md_side_register(struct ccci_modem *md)
@@ -1108,7 +1037,7 @@ void ccci_modem_restore_reg(struct ccci_modem *md)
 	ccci_hif_resume(md->index, md->hif_flag);
 }
 
-int ccci_modem_syssuspend(void)
+int ccci_modem_plt_suspend(void)
 {
 	struct ccci_modem *md;
 
@@ -1119,7 +1048,7 @@ int ccci_modem_syssuspend(void)
 	return 0;
 }
 
-void ccci_modem_sysresume(void)
+void ccci_modem_plt_resume(void)
 {
 	struct ccci_modem *md;
 

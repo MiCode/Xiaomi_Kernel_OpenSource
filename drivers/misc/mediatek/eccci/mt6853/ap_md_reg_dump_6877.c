@@ -682,5 +682,9 @@ void internal_md_dump_debug_register(unsigned int md_index)
 		"Dump mcore peri dbus2: [0]0x0D144800\n");
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(USIP + 0x00040400), 0xB0);
+}
 
+void md_dump_register_6877(unsigned int md_index)
+{
+	internal_md_dump_debug_register(md_index);
 }
