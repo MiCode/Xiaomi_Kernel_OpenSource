@@ -605,6 +605,11 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	} else if (!mml_racing_enable(mml))
 		goto decouple;
 
+	/* skip all racing mode check if use prefer dc */
+	if (info->mode == MML_MODE_MML_DECOUPLE ||
+		info->mode == MML_MODE_MDP_DECOUPLE)
+		goto decouple_user;
+
 	/* TODO: should REMOVE after inlinerot resize ready */
 	if (unlikely(!mml_racing_rsz) && tp_need_resize(info))
 		goto decouple;
@@ -662,6 +667,8 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 
 decouple:
 	return MML_MODE_MML_DECOUPLE;
+decouple_user:
+	return info->mode;
 }
 
 static struct cmdq_client *get_racing_clt(struct mml_topology_cache *cache, u32 pipe)
