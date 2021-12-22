@@ -873,7 +873,7 @@ static void trusty_poll_work(struct kthread_work *work)
 		int cpu;
 
 		for_each_online_cpu(cpu) {
-			if (cpu_mask & (1 << cpu)) {
+			if ((cpu < 32) && (cpu_mask & (1 << cpu))) {
 				trusty_info(s->dev, "%s send nop for cpu %d\n",
 						__func__, cpu);
 				trusty_enqueue_nop(s->dev, NULL, cpu);
