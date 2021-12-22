@@ -516,6 +516,16 @@
 		compatible = "mediatek,mt6781-mdpsys", "mediatek,mdpsys_config", "syscon";
 		reg = <0 0x1b000000 0 0x1000>;
 		#clock-cells=<1>;
+		clocks = <&mdpsys_config CLK_MDP_IMG_DL_ASYNC0>,
+			<&mdpsys_config CLK_MDP_IMG_DL_ASYNC1>,
+			<&mdpsys_config CLK_MDP_IMG_DL_RELAY0_ASYNC0>,
+			<&mdpsys_config CLK_MDP_IMG_DL_RELAY1_ASYNC1>,
+			<&mdpsys_config CLK_MDP_APB_BUS>;
+		clock-names = "MDP_IMG_DL_ASYNC0",
+			"MDP_IMG_DL_ASYNC1",
+			"MDP_IMG_DL_RELAY0_ASYNC0",
+			"MDP_IMG_DL_RELAY1_ASYNC1",
+			"MDP_APB_BUS";
 	};
 
 	vdec_gcon: vdec_gcon@1602f000 {
