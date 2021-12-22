@@ -104,7 +104,7 @@ EXPORT_SYMBOL(conn_pwr_enable);
 
 int conn_pwr_send_msg(enum conn_pwr_drv_type drv, enum conn_pwr_msg_type msg, void *data)
 {
-	struct conn_pwr_update_info info;
+	struct conn_pwr_update_info info = {0};
 
 	if (drv < 0 || drv >= CONN_PWR_DRV_MAX || msg < 0 || msg > CONN_PWR_MSG_MAX) {
 		pr_info("%s, invalid parameter. drv (%d), msg(%d)", __func__, drv, msg);
@@ -240,7 +240,7 @@ int conn_pwr_get_plat_level(enum conn_pwr_plat_type type, int *data)
 
 int conn_pwr_set_customer_level(enum conn_pwr_drv_type type, enum conn_pwr_low_battery_level level)
 {
-	struct conn_pwr_update_info info;
+	struct conn_pwr_update_info info = {0};
 	int i;
 	int updated = 0;
 	unsigned long long sec;
