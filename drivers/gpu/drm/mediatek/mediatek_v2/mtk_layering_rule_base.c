@@ -1694,6 +1694,7 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 			     c->src_height != c->dst_height) &&
 			    !mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER)) {
 				c->layer_caps &= ~MTK_DISP_CLIENT_CLEAR_LAYER;
+				mtk_rollback_layer_to_GPU(disp_info, di, top);
 				DDPMSG("%s:remove clear(rsz), caps:0x%08x\n",
 				       __func__, c->layer_caps);
 			}
