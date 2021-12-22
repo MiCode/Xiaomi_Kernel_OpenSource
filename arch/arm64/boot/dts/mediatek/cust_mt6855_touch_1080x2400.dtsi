@@ -35,8 +35,8 @@
 		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
 		goodix,power-on-delay-us = <10000>; /*10ms*/
 		goodix,power-off-delay-us = <5000>;
-		goodix,firmware-version = "6893v03";
-		goodix,config-version = "6893v03";
+		goodix,firmware-version = "6855v01";
+		goodix,config-version = "6855v01";
 		/*goodix,swap-axis;*/
 		goodix,x2x;
 		goodix,y2y;
