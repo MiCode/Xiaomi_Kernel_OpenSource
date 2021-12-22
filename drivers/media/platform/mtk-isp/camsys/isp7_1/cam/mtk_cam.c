@@ -983,6 +983,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 	int i, num_s_data, s_data_cnt, handled_cnt;
 	bool need_clean_req;
 
+	mutex_lock(&cam->queue_lock);
 	mtk_cam_dev_req_clean_pending(cam, pipe_id, buf_state);
 
 	s_data_cnt = 0;
@@ -1013,6 +1014,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 	}
 STOP_SCAN:
 	spin_unlock(&cam->running_job_lock);
+	mutex_unlock(&cam->queue_lock);
 
 	for (handled_cnt = 0; handled_cnt < s_data_cnt; handled_cnt++) {
 		s_data = clean_s_data[handled_cnt];

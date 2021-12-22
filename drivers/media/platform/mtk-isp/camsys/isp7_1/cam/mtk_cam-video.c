@@ -330,9 +330,7 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		/* Moreover, must clean bit mask before req cleanup       */
 		/* Otherwise, would cause req not removed in pending list */
 		cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
-		mutex_lock(&cam->queue_lock);
 		mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id, VB2_BUF_STATE_ERROR);
-		mutex_unlock(&cam->queue_lock);
 	}
 
 	/* all bufs of node should be return by per requests */
