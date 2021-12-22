@@ -284,6 +284,8 @@ static const struct snd_kcontrol_new mtk_i2s3_ch1_mix[] = {
 				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN0,
 				    I_PCM_2_CAP_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_3_OUT_CH1", AFE_CONN0_2,
+				    I_SRC_3_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_i2s3_ch2_mix[] = {
@@ -313,6 +315,8 @@ static const struct snd_kcontrol_new mtk_i2s3_ch2_mix[] = {
 				    I_PCM_1_CAP_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH2", AFE_CONN1,
 				    I_PCM_2_CAP_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_3_OUT_CH2", AFE_CONN1_2,
+				    I_SRC_3_OUT_CH2, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_i2s1_ch1_mix[] = {
@@ -910,6 +914,9 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 
 	{"I2S3_CH1", "DL8_CH1", "DL8"},
 	{"I2S3_CH2", "DL8_CH2", "DL8"},
+
+	{"I2S3_CH1", "HW_SRC_3_OUT_CH1", "HW_SRC_3_Out"},
+	{"I2S3_CH2", "HW_SRC_3_OUT_CH2", "HW_SRC_3_Out"},
 
 	{"I2S3", NULL, "I2S3_CH1"},
 	{"I2S3", NULL, "I2S3_CH2"},
