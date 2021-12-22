@@ -423,6 +423,12 @@ static long ion_sys_cache_sync(struct ion_client *client,
 		return -EINVAL;
 	}
 
+	if (kernel_handle->buffer->size < param->size) {
+		IONMSG("%s error, sync size is larger than buf_sz:%zu\n",
+		       __func__, kernel_handle->buffer->size);
+		goto err;
+	}
+
 	buffer = kernel_handle->buffer;
 	sync_size = param->size;
 
@@ -430,41 +436,46 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_CLEAN_BY_RANGE:
 	case ION_CACHE_INVALID_BY_RANGE:
 	case ION_CACHE_FLUSH_BY_RANGE:
+
 		sync_va = (unsigned long)param->va;
+
 		if (sync_size == 0 || sync_va == 0) {
 			/* whole buffer cache sync
 			 * get sync_va and sync_size here
 			 */
 			sync_size = buffer->size;
-			from_kernel = 1;
-			if (buffer->kmap_cnt != 0) {
-				sync_va = (unsigned long)buffer->vaddr;
-			} else {
-				/* Do kernel map and do cache sync
-				 * 32bit project, vmap space is small,
-				 *    4MB as a boundary for mapping.
-				 * 64bit vmap space is huge
-				 */
+
+			/* Do kernel map and do cache sync
+			 * 32bit project, vmap space is small,
+			 *    4MB as a boundary for mapping.
+			 * 64bit vmap space is huge
+			 */
 #ifdef CONFIG_ARM64
-				sync_va = (unsigned long)
-					  ion_map_kernel(client, kernel_handle);
-				ion_need_unmap_flag = 1;
+			sync_va = (unsigned long)ion_map_kernel(client,
+								kernel_handle);
+			from_kernel = 1;
+			ion_need_unmap_flag = 1;
 #else
-				if (sync_size <= SZ_4M) {
-					sync_va = (unsigned long)
-					ion_map_kernel(client, kernel_handle);
-					ion_need_unmap_flag = 1;
-				} else {
-					ret =
-					ion_sys_cache_sync_buf(client,
-							       sync_type,
-							       kernel_handle);
-					goto out;
-				}
+			if (sync_size <= SZ_4M) {
+				sync_va = (unsigned long)
+				ion_map_kernel(client, kernel_handle);
+				from_kernel = 1;
+				ion_need_unmap_flag = 1;
+			} else {
+				ret =
+				ion_sys_cache_sync_buf(client, sync_type,
+						       kernel_handle);
+				goto out;
+			}
 #endif
+			if (IS_ERR_OR_NULL(ERR_PTR((long)sync_va))) {
+				IONMSG("%s #%d: map failed\n", __func__,
+				       __LINE__);
+				ret = -ENOMEM;
+				goto err;
 			}
 		}
-			break;
+		break;
 
 	/* range PA(means mva) mode, need map
 	 * NOTICE: m4u_mva_map_kernel only support m4u0
