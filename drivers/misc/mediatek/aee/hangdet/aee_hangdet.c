@@ -87,6 +87,8 @@ static unsigned long long wk_lasthpg_t[16] = { 0 };	/* max cpu 16 */
 static unsigned int cpuid_t[16] = { 0 };	/* max cpu 16 */
 static unsigned long long lastsuspend_t;
 static unsigned long long lastresume_t;
+static unsigned long long lastsuspend_syst;
+static unsigned long long lastresume_syst;
 static struct notifier_block wdt_pm_nb;
 static unsigned long g_nxtKickTime;
 static int g_hang_detected;
@@ -344,11 +346,12 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%x,%d,%d,%lld,%x,%lld,%lld,[%lld,%ld] %d\n",
+	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%ld,[%lld,%ld] %d\n",
 	 cpu, original_kicker, local_bit, get_check_bit(),
 	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
-	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t,
-	 lastresume_t, wk_tsk_kick_time[cpu], curInterval, r_counter);
+	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t / 1000000,
+	 lastsuspend_syst / 1000000, lastresume_t / 1000000, lastresume_syst / 1000000,
+	 wk_tsk_kick_time[cpu], curInterval, r_counter);
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		msg_buf[5] = 'k';
@@ -390,7 +393,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			mt_irq_dump_status(systimer_irq);
 #endif
 		dump_wdk_bind_info();
-#if IS_ENABLED(CONFIG_MTK_SCHED_EXTENSION)
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 		sysrq_sched_debug_show_at_AEE();
 #endif
 
@@ -398,8 +401,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
 			pr_info("SYST0 CON%x VAL%x affin time %lld\n",
 				ioread32(systimer_base + SYST0_CON),
-				ioread32(systimer_base + SYST0_VAL),
-				systimer_set_affin_time);
+				ioread32(systimer_base + SYST0_VAL));
 #else
 			pr_info("SYST0 CON%x VAL%x\n",
 				ioread32(systimer_base + SYST0_CON),
@@ -434,6 +436,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 		}
 #endif
+		preempt_disable();
 		for (i = 0; i < CHG_TMO_DLY; i++) {
 			mdelay(1);
 			spin_lock(&lock);
@@ -463,21 +466,21 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			if (p_mt_aee_dump_irq_info)
 				p_mt_aee_dump_irq_info();
 #endif
-#if IS_ENABLED(CONFIG_MTK_SCHED_EXTENSION)
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 			sysrq_sched_debug_show_at_AEE();
 #endif
-
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 			/* trigger HWT */
-			aee_rr_rec_exp_type(AEE_EXP_TYPE_HWT);
 			crash_setup_regs(&saved_regs, NULL);
-			mrdump_common_die(0, AEE_REBOOT_MODE_WDT, "HWT", &saved_regs);
+			mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT, AEE_REBOOT_MODE_WDT,
+					  "HWT", &saved_regs);
 		} else {
 			spin_lock(&lock);
 			g_change_tmo = 0;
 			spin_unlock(&lock);
 			iowrite32(tmo_len | WDT_LENGTH_KEY, toprgu_base + WDT_LENGTH);
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
+			preempt_enable();
 		}
 	}
 }
@@ -629,17 +632,37 @@ static void wdk_work_callback(struct work_struct *work)
 static int wdt_pm_notify(struct notifier_block *notify_block,
 			unsigned long mode, void *unused)
 {
+	uint64_t cnt = 0;
+
+	if (systimer_base) {
+		uint32_t low = 0;
+
+		cnt = sched_clock();
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+		aee_rr_rec_wdk_ktime(cnt);
+#endif
+
+		low = readl(systimer_base + SYSTIMER_CNTCV_L);
+		cnt = readl(systimer_base + SYSTIMER_CNTCV_H);
+		cnt = cnt << 32 | low;
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+		aee_rr_rec_wdk_systimer_cnt(cnt);
+#endif
+	}
+
 	switch (mode) {
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
 	case PM_RESTORE_PREPARE:
 		lastsuspend_t = sched_clock();
+		lastsuspend_syst = cnt;
 		break;
 
 	case PM_POST_SUSPEND:
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 		lastresume_t = sched_clock();
+		lastresume_syst = cnt;
 		break;
 	}
 
@@ -729,7 +752,6 @@ static int __init hangdet_init(void)
 	wdt_pm_nb.notifier_call = wdt_pm_notify;
 	register_pm_notifier(&wdt_pm_nb);
 
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	if (systimer_base) {
 		uint64_t cnt;
 		uint32_t low;
@@ -737,15 +759,17 @@ static int __init hangdet_init(void)
 		low = readl(systimer_base + SYSTIMER_CNTCV_L);
 		cnt = readl(systimer_base + SYSTIMER_CNTCV_H);
 		cnt = cnt << 32 | low;
-
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		aee_rr_rec_wdk_systimer_cnt(cnt);
+#endif
 		pr_info("%s systimer_cnt %lld\n", __func__, cnt);
 
 		cnt = sched_clock();
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		aee_rr_rec_wdk_ktime(cnt);
+#endif
 		pr_info("%s set wdk_ktime %lld\n", __func__, cnt);
 	}
-#endif
 
 	return 0;
 }
