@@ -3252,8 +3252,6 @@ bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc)
 	if (comp->id == DDP_COMPONENT_DP_INTF0 ||
 		comp->id == DDP_COMPONENT_DPI0 ||
 		comp->id == DDP_COMPONENT_DPI1) {
-		DDPPR_ERR("%s(%d-%d) is vdo mode\n", __func__,
-			comp->id, DDP_COMPONENT_DPI0);
 		return false;
 	}
 
