@@ -55,6 +55,8 @@ enum ufsdbg_cmd_type {
 	UFSDBG_HEALTH_DUMP      = 2,
 	UFSDBG_CMD_LIST_ENABLE  = 3,
 	UFSDBG_CMD_LIST_DISABLE = 4,
+	UFS_CMD_QOS_ON          = 5,
+	UFS_CMD_QOS_OFF         = 6,
 	UFSDBG_UNKNOWN
 };
 

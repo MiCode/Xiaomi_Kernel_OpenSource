@@ -71,6 +71,8 @@
 int ufsdbg_perf_dump = 0;
 static struct ufs_hba *ufs_mtk_hba;
 
+static bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd, bool isolation);
+
 static const struct ufs_mtk_host_cfg ufs_mtk_mt8183_cfg = {
 	.quirks = UFS_MTK_HOST_QUIRK_BROKEN_AUTO_HIBERN8
 	#if defined(CONFIG_MACH_MT6877)
@@ -98,6 +100,24 @@ struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev()
 	struct ufs_mtk_host *host = ufshcd_get_variant(ufs_mtk_hba);
 
 	return host->rawdev_ufs_rpmb;
+}
+
+static bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd, bool isolation)
+{
+	char cmd_op = cmd->cmnd[0];
+
+	if (cmd_op == WRITE_10 || cmd_op == READ_10 ||
+	    cmd_op == WRITE_16 || cmd_op == READ_16 ||
+	    cmd_op == WRITE_6 || cmd_op == READ_6)
+		return true;
+
+	if (isolation) {
+		if ((cmd->sc_data_direction == DMA_FROM_DEVICE) ||
+		    (cmd->sc_data_direction == DMA_TO_DEVICE))
+			return true;
+	}
+
+	return false;
 }
 
 /* Read Geometry Descriptor for RPMB initialization */
@@ -541,6 +561,9 @@ static void ufs_mtk_parse_dt(struct ufs_mtk_host *host)
 		host->vreg_lpm_supported = FALSE;
 	else
 		host->vreg_lpm_supported = tmp ? TRUE : FALSE;
+
+	host->qos_allowed = true;
+	host->qos_enabled = true;
 }
 
 void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
@@ -1118,11 +1141,15 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 				phy_power_off(mphy);
 			}
 		}
+		if (host && host->qos_enabled)
+			ufs_mtk_biolog_clk_gating(true);
 	} else if (on && status == POST_CHANGE) {
 		phy_power_on(mphy);
 		ufs_mtk_setup_ref_clk(hba, on);
 		ufs_mtk_pm_qos(hba, on);
 		ufs_mtk_perf_setup(host, true);
+		if (host && host->qos_enabled)
+			ufs_mtk_biolog_clk_gating(false);
 	}
 
 out:
@@ -1204,6 +1231,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 			   PM_QOS_DEFAULT_VALUE);
 	host->pm_qos_init = true;
 
+	ufs_mtk_biolog_init(host->qos_allowed);
 
 	ufsdbg_register(hba->dev);
 
@@ -1720,6 +1748,19 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
 				   bool is_scsi_cmd)
 {
+	struct ufshcd_lrb *lrbp;
+	struct scsi_cmnd *cmd;
+
+	if (is_scsi_cmd) {
+		lrbp = &hba->lrb[tag];
+		cmd = lrbp->cmd;
+
+		if (!ufs_mtk_is_data_cmd(cmd, false))
+			return;
+
+		ufs_mtk_biolog_send_command(tag, cmd);
+		ufs_mtk_biolog_check(hba->outstanding_reqs | (1 << tag));
+	}
 	if (!ufs_mtk_has_broken_auto_hibern8(hba))
 		return;
 	ufs_mtk_handle_broken_auto_hibern8(hba, hba->outstanding_reqs, false);
@@ -1729,6 +1770,22 @@ static void ufs_mtk_compl_xfer_req(struct ufs_hba *hba, int tag,
 				   unsigned long completed_reqs,
 				   bool is_scsi_cmd)
 {
+	struct ufshcd_lrb *lrbp;
+	struct scsi_cmnd *cmd;
+	unsigned long req_mask;
+
+	if (is_scsi_cmd) {
+		lrbp = &hba->lrb[tag];
+		cmd = lrbp->cmd;
+
+		if (!ufs_mtk_is_data_cmd(cmd, false))
+			return;
+
+		req_mask = hba->outstanding_reqs &
+			   ~(1 << tag);
+		ufs_mtk_biolog_transfer_req_compl(tag, req_mask);
+		ufs_mtk_biolog_check(req_mask);
+	}
 	if (!ufs_mtk_has_broken_auto_hibern8(hba))
 		return;
 	ufs_mtk_handle_broken_auto_hibern8(hba,
@@ -1823,8 +1880,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 {
 	int err;
 	struct device *dev = &pdev->dev;
-
-	ufs_mtk_biolog_init();
 
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);

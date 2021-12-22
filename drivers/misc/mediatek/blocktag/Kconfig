@@ -7,8 +7,6 @@ comment "Storage Block Tag"
 config MTK_BLOCK_TAG
 	bool "Storage Block Tag"
 	depends on BLOCK
-	depends on (MTK_GMO_RAM_OPTIMIZE && MTK_ENG_BUILD) || \
-		   !MTK_GMO_RAM_OPTIMIZE
 	default y
 	help
 	  Enable block tagging at block driver, tag requester pid to

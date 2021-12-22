@@ -7,13 +7,16 @@
 
 #include <linux/debugfs.h>
 #include <linux/blkdev.h>
+#include <linux/cgroup.h>
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/cpumask.h>
 #include <linux/sched/cputime.h>
 #include <linux/tick.h>
+#include <linux/kernel.h>
 #include <linux/kernel_stat.h>
 #include <linux/sched.h>
+#include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
@@ -24,14 +27,16 @@
 #include <linux/module.h>
 #include <linux/vmstat.h>
 #include <linux/types.h>
+#include <trace/events/block.h>
+#include <trace/events/ufs.h>
+#include <trace/events/writeback.h>
+#include <asm/div64.h>
 
-#define BLOCKIO_MIN_VER	"3.09"
-
-#ifdef CONFIG_MTK_USE_RESERVED_EXT_MEM
-#include <linux/exm_driver.h>
-#endif
+#define BLOCKIO_MIN_VER	"3.10"
+#define TAG "[BLOCK TAG]"
 
 #include <mt-plat/mtk_blocktag.h>
+#include <mt-plat/mtk_boot.h>
 
 /*
  * snprintf may return a value of size or "more" to indicate
@@ -63,12 +68,12 @@ do { \
 #define mtk_btag_pidlog_max_entry() \
 	(mtk_btag_system_dram_size >> PAGE_SHIFT)
 
-#define mtk_btag_pidlog_entry(idx) \
-	(((struct page_pid_logger *)mtk_btag_pagelogger) + idx)
+#define mtk_btag_pidlog_entry(pidlogger, idx) \
+	(((struct page_pid_logger *)pidlogger) + idx)
 
 /* max dump size is 300KB whitch can be adjusted */
 #define BLOCKIO_AEE_BUFFER_SIZE (300 * 1024)
-char blockio_aee_buffer[BLOCKIO_AEE_BUFFER_SIZE];
+char __rcu *blockio_aee_buffer;
 
 /* procfs dentries */
 struct proc_dir_entry *btag_proc_root;
@@ -77,9 +82,9 @@ static int mtk_btag_init_procfs(void);
 
 /* mini context for major embedded storage only */
 #define MICTX_PROC_CMD_BUF_SIZE (1)
-static struct mtk_btag_mictx_struct *mtk_btag_mictx;
-static bool mtk_btag_mictx_ready;
-static bool mtk_btag_mictx_debug;
+static struct mtk_blocktag *btag_bootdev;
+static bool mtk_btag_mictx_self_test;
+static bool mtk_btag_mictx_data_dump;
 
 /* blocktag */
 static DEFINE_MUTEX(mtk_btag_list_lock);
@@ -108,14 +113,24 @@ static struct mtk_blocktag *mtk_btag_find_locked(const char *name)
 
 /* pid logger: page loger*/
 unsigned long long mtk_btag_system_dram_size;
-struct page_pid_logger *mtk_btag_pagelogger;
+static DEFINE_SPINLOCK(mtk_btag_lock);
+static struct page_pid_logger __rcu *mtk_btag_pagelogger;
+static bool mtk_btag_enable;
+
+static bool mtk_btag_allocate_pidlogger(void);
+static void mtk_btag_destroy_pidlogger(void);
+static bool mtk_btag_allocate_aee_buffer(void);
+static void mtk_btag_destroy_aee_buffer(void);
 
 static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 	struct seq_file *seq)
 {
 	size_t size_l = 0;
+	struct page_pid_logger *pagelogger;
 
-	if (!IS_ERR_OR_NULL(mtk_btag_pagelogger)) {
+	rcu_read_lock();
+	pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	if (mtk_btag_enable && !IS_ERR_OR_NULL(pagelogger)) {
 		size_l = (sizeof(struct page_pid_logger)
 			* (mtk_btag_system_dram_size >> PAGE_SHIFT));
 		SPREAD_PRINTF(buff, size, seq,
@@ -124,6 +139,7 @@ static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 			sizeof(struct page_pid_logger),
 			size_l);
 	}
+	rcu_read_unlock();
 	return size_l;
 }
 
@@ -176,25 +192,35 @@ void mtk_mq_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
 }
 EXPORT_SYMBOL_GPL(mtk_mq_btag_pidlog_insert);
 
-static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
-	unsigned short pid, __u32 len)
+static int mtk_btag_get_storage_type(struct bio *bio)
 {
-	int write = bio_data_dir(bio);
 	int major = bio->bi_disk ? MAJOR(bio_dev(bio)) : 0;
 
-	if (pid != 0xFFFF && major) {
-#ifdef CONFIG_MTK_UFS_BLOCK_IO_LOG
-		if (major == SCSI_DISK0_MAJOR || major == BLOCK_EXT_MAJOR) {
-			mtk_btag_pidlog_add_ufs(q, pid, len, write);
+	if (major == SCSI_DISK0_MAJOR || major == BLOCK_EXT_MAJOR)
+		return BTAG_STORAGE_UFS;
+	else if (major == MMC_BLOCK_MAJOR)
+		return BTAG_STORAGE_MMC;
+	else
+		return BTAG_STORAGE_UNKNOWN;
+}
+
+static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
+	short pid, __u32 len)
+{
+	int type;
+
+	type = mtk_btag_get_storage_type(bio);
+
+	if (pid) {
+		if (type == BTAG_STORAGE_UFS) {
+			mtk_btag_pidlog_add_ufs(q, pid, len,
+						bio_data_dir(bio));
+			return;
+		} else if (type == BTAG_STORAGE_MMC) {
+			mtk_btag_pidlog_add_mmc(q, pid, len,
+						bio_data_dir(bio));
 			return;
 		}
-#endif
-#ifdef CONFIG_MMC_BLOCK_IO_LOG
-		if (major == MMC_BLOCK_MAJOR) {
-			mtk_btag_pidlog_add_mmc(q, pid, len, write);
-			return;
-		}
-#endif
 	}
 }
 
@@ -202,54 +228,312 @@ static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
  * pidlog: hook function for __blk_bios_map_sg()
  * rw: 0=read, 1=write
  */
-void mtk_btag_pidlog_map_sg(struct request_queue *q, struct bio *bio,
-	struct bio_vec *bvec)
+void mtk_btag_pidlog_commit_bio(struct page_pid_logger *pagelogger,
+	struct request_queue *q, struct bio *bio, struct bio_vec *bvec)
 {
 	struct page_pid_logger *ppl, tmp;
 	unsigned long idx;
 
-	if (!mtk_btag_pagelogger || !bio || !bvec)
-		return;
-
+	rcu_read_lock();
 	idx = mtk_btag_pidlog_index(bvec->bv_page);
-	ppl = mtk_btag_pidlog_entry(idx);
+	ppl = mtk_btag_pidlog_entry(pagelogger, idx);
 
 	tmp.pid = ppl->pid;
-	ppl->pid = 0xFFFF;
+	ppl->pid = 0;
 
 	mtk_btag_pidlog_add(q, bio, tmp.pid, bvec->bv_len);
+	rcu_read_unlock();
 }
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_map_sg);
+EXPORT_SYMBOL_GPL(mtk_btag_pidlog_commit_bio);
 
-static void _mtk_btag_pidlog_set_pid(struct page *p, int mode)
+static inline
+struct mtk_btag_mictx_struct *mtk_btag_mictx_get_ctx(void)
 {
+	if (btag_bootdev)
+		return &btag_bootdev->mictx;
+	else
+		return NULL;
+}
+
+static void mtk_btag_mictx_reset(
+	struct mtk_btag_mictx_struct *ctx,
+	__u64 window_begin)
+{
+	if (!window_begin)
+		window_begin = sched_clock();
+	ctx->window_begin = window_begin;
+
+	if (!ctx->q_depth)
+		ctx->idle_begin = ctx->window_begin;
+	else
+		ctx->idle_begin = 0;
+
+	ctx->idle_total = 0;
+	ctx->tp_min_time = ctx->tp_max_time = 0;
+	ctx->weighted_qd = 0;
+	memset(&ctx->tp, 0, sizeof(struct mtk_btag_throughput));
+	memset(&ctx->req, 0, sizeof(struct mtk_btag_req));
+}
+
+#if IS_ENABLED(CONFIG_SCHED_TUNE)
+static int mtk_btag_get_schedtune_cgrp_id(struct task_struct *t)
+{
+	struct cgroup *grp;
+
+	rcu_read_lock();
+	grp = task_cgroup(t, schedtune_cgrp_id);
+	rcu_read_unlock();
+
+	return grp->id;
+}
+
+#define TOP_APP_GROUP_ID (4)
+static bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned long page_idx)
+{
+	struct task_struct *t_tgid = NULL;
+	int cid, cid_tgid;
+
+	cid = mtk_btag_get_schedtune_cgrp_id(task);
+
+	if (cid == TOP_APP_GROUP_ID)
+		return true;
+
+	if (task->tgid && task->tgid != task->pid) {
+		rcu_read_lock();
+		t_tgid = find_task_by_vpid(task->tgid);
+		rcu_read_unlock();
+		if (t_tgid) {
+			cid_tgid =
+				mtk_btag_get_schedtune_cgrp_id(t_tgid);
+			if (cid_tgid == TOP_APP_GROUP_ID)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static struct miscdevice earaio_obj;
+static void mtk_btag_earaio_uevt_worker(struct work_struct *work)
+{
+	struct mtk_btag_mictx_struct *ctx;
+	unsigned long flags;
+	int string_size = 10;
+	char event_string[string_size];
+	char *envp[2];
+	bool boost, restart, quit;
+	int ret;
+
+	ctx = container_of(work, struct mtk_btag_mictx_struct,
+			   uevt_work);
+
+	envp[0] = event_string;
+	envp[1] = NULL;
+
+start:
+	boost = quit = restart = false;
+	spin_lock_irqsave(&ctx->lock, flags);
+	if (ctx->uevt_state != ctx->uevt_req)
+		boost = ctx->uevt_req;
+	else
+		quit = true;
+	spin_unlock_irqrestore(&ctx->lock, flags);
+
+	if (quit)
+		return;
+
+	ret = snprintf(event_string,
+		string_size, "boost=%d", boost ? 1 : 0);
+	if (!ret)
+		return;
+
+	ret = kobject_uevent_env(
+			&earaio_obj.this_device->kobj,
+			KOBJ_CHANGE, envp);
+	if (ret) {
+		pr_info("[BLOCK_TAG] send uevt fail:%d", ret);
+	} else {
+		ctx->uevt_state = boost;
+		if (mtk_btag_mictx_data_dump) {
+			pr_info("[BLOCK_TAG] uevt %s sent",
+				event_string);
+		}
+	}
+
+	spin_lock_irqsave(&ctx->lock, flags);
+	if (ctx->uevt_state != ctx->uevt_req)
+		restart = true;
+	spin_unlock_irqrestore(&ctx->lock, flags);
+
+	if (restart)
+		goto start;
+}
+
+static bool mtk_btag_earaio_send_uevt(struct mtk_btag_mictx_struct *ctx,
+				      bool boost)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->lock, flags);
+	ctx->uevt_req = boost;
+	queue_work(ctx->uevt_workq, &ctx->uevt_work);
+	spin_unlock_irqrestore(&ctx->lock, flags);
+
+	return true;
+}
+
+#define EARAIO_UEVT_THRESHOLD_BYTES (32 * 1024 * 1024)
+void mtk_btag_earaio_boost(bool boost)
+{
+	struct mtk_btag_mictx_struct *ctx;
+	unsigned long flags;
+	bool changed = false;
+
+	ctx = mtk_btag_mictx_get_ctx();
+	if (!ctx || !ctx->enabled || !ctx->earaio_enabled)
+		return;
+
+	/* Use earaio_obj.minor to indicate if obj is existed */
+	if (!(boost ^ ctx->boosted) || unlikely(!earaio_obj.minor))
+		return;
+
+	if (boost) {
+		if (mtk_btag_mictx_data_dump) {
+			pr_info("[BLOCK_TAG] boost-chk: size-top:%llu,%llu, fuse-top: %u,%u, boosted: %d\n",
+				ctx->req.r.size_top, ctx->req.w.size_top,
+				ctx->top_r_pages, ctx->top_w_pages,
+				ctx->boosted);
+		}
+
+		/* Establish threshold to avoid lousy uevents */
+		if ((ctx->req.r.size_top >= EARAIO_UEVT_THRESHOLD_BYTES) ||
+			(ctx->req.w.size_top >= EARAIO_UEVT_THRESHOLD_BYTES))
+			changed = mtk_btag_earaio_send_uevt(ctx, true);
+	} else {
+		changed = mtk_btag_earaio_send_uevt(ctx, false);
+	}
+
+	if (changed)
+		ctx->boosted = boost;
+
+	if (!ctx->boosted) {
+		spin_lock_irqsave(&ctx->lock, flags);
+		if ((sched_clock() - ctx->window_begin) > 1000000000) {
+			mtk_btag_mictx_reset(ctx, 0);
+			ctx->top_r_pages = ctx->top_w_pages = 0;
+		}
+		spin_unlock_irqrestore(&ctx->lock, flags);
+	}
+}
+
+static int mtk_btag_earaio_init(void)
+{
+	int ret = 0;
+
+	earaio_obj.name = "eara-io";
+	earaio_obj.minor = MISC_DYNAMIC_MINOR;
+	ret = misc_register(&earaio_obj);
+	if (ret) {
+		pr_info("[BLOCK_TAG] register earaio obj error:%d\n",
+			ret);
+		earaio_obj.minor = 0;
+		return ret;
+	}
+
+	ret = kobject_uevent(
+			&earaio_obj.this_device->kobj, KOBJ_ADD);
+	if (ret) {
+		misc_deregister(&earaio_obj);
+		pr_info("[BLOCK_TAG] add uevent fail:%d\n", ret);
+		earaio_obj.minor = 0;
+		return ret;
+	}
+
+	return ret;
+
+}
+#else
+static inline bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned long page_idx)
+{
+	return false;
+}
+
+static inline bool mtk_btag_earaio_init(void)
+{
+	return true;
+}
+#endif
+
+static void _mtk_btag_pidlog_set_pid(struct page_pid_logger *pagelogger,
+		struct page *p, int mode, bool write)
+{
+	struct mtk_btag_mictx_struct *ctx;
 	struct page_pid_logger *ppl;
+	short pid = current->pid;
 	unsigned long idx;
+	bool top;
 
 	idx = mtk_btag_pidlog_index(p);
-	ppl = mtk_btag_pidlog_entry(idx);
-
 	if (idx >= mtk_btag_pidlog_max_entry())
 		return;
+	rcu_read_lock();
+	ppl = mtk_btag_pidlog_entry(pagelogger, idx);
+
+	/* Using negative pid for taks with "TOP_APP" schedtune cgroup */
+	top = mtk_btag_is_top_task(current, mode, idx);
+	pid = (top) ? -pid : pid;
 
 	/* we do lockless operation here to favor performance */
 
-	if (mode == PIDLOG_MODE_BLK_SUBMIT_BIO) {
-		/*
-		 * do not overwrite the real owner set by
-		 * mm or file system layer
-		 */
-		if (ppl->pid == 0xFFFF)
-			ppl->pid = current->pid;
+	if (mode == PIDLOG_MODE_FS_FUSE) {
+		/* Do not record pid because this is not the real user */
+		if (top) {
+			ctx = mtk_btag_mictx_get_ctx();
+			if (!ctx || !ctx->enabled)
+				goto out;
+
+			if (write)
+				ctx->top_w_pages++;
+			else
+				ctx->top_r_pages++;
+		}
+	} else if (mode == PIDLOG_MODE_MM_MARK_DIRTY) {
+		/* keep real requester anyway */
+		ppl->pid = pid;
 	} else {
-		/* the latest owner will be counted */
-		ppl->pid = current->pid;
+		/* do not overwrite the real owner set before */
+		if (ppl->pid == 0)
+			ppl->pid = pid;
 	}
+out:
+	rcu_read_unlock();
+}
+
+int mtk_btag_pidlog_get_mode(struct page *p)
+{
+	unsigned long idx;
+	short mode;
+	struct page_pid_logger *ppl;
+	struct page_pid_logger *pagelogger;
+
+	idx = mtk_btag_pidlog_index(p);
+	if (idx >= mtk_btag_pidlog_max_entry())
+		return -1;
+	rcu_read_lock();
+	pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	if (unlikely(!pagelogger)) {
+		rcu_read_unlock();
+		return -1;
+	}
+	ppl = mtk_btag_pidlog_entry(pagelogger, idx);
+	mode = ppl->mode;
+	rcu_read_unlock();
+	return mode;
 }
 
 void mtk_btag_pidlog_copy_pid(struct page *src, struct page *dst)
 {
-	struct page_pid_logger *ppl_src, *ppl_dst;
+	struct page_pid_logger *ppl_src, *ppl_dst, *pagelogger;
 	unsigned long idx_src, idx_dst;
 
 	idx_src = mtk_btag_pidlog_index(src);
@@ -261,37 +545,56 @@ void mtk_btag_pidlog_copy_pid(struct page *src, struct page *dst)
 
 	if (idx_dst >= mtk_btag_pidlog_max_entry())
 		return;
-
-	ppl_src = mtk_btag_pidlog_entry(idx_src);
-	ppl_dst = mtk_btag_pidlog_entry(idx_dst);
-	ppl_dst->pid = ppl_src->pid;
-}
-
-/* pidlog: hook function for submit_bio() */
-void mtk_btag_pidlog_submit_bio(struct bio *bio)
-{
-	struct bio_vec bvec;
-	struct bvec_iter iter;
-
-	if (!mtk_btag_pagelogger)
+	rcu_read_lock();
+	pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	if (unlikely(!pagelogger)) {
+		rcu_read_unlock();
 		return;
-
-	bio_for_each_segment(bvec, bio, iter) {
-		if (bvec.bv_page)
-			_mtk_btag_pidlog_set_pid(bvec.bv_page,
-				PIDLOG_MODE_BLK_SUBMIT_BIO);
 	}
+	ppl_src = mtk_btag_pidlog_entry(pagelogger, idx_src);
+	ppl_dst = mtk_btag_pidlog_entry(pagelogger, idx_dst);
+	ppl_dst->pid = ppl_src->pid;
+	rcu_read_unlock();
 }
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_submit_bio);
 
-void mtk_btag_pidlog_set_pid(struct page *p)
+void mtk_btag_pidlog_set_pid(struct page *page, int mode, bool write)
 {
-	if (!mtk_btag_pagelogger || !p)
+	struct page_pid_logger *pagelogger;
+
+	if (unlikely(!page))
 		return;
 
-	_mtk_btag_pidlog_set_pid(p, PIDLOG_MODE_MM_FS);
+	rcu_read_lock();
+	pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	if (unlikely(!pagelogger)) {
+		rcu_read_unlock();
+		return;
+	}
+	_mtk_btag_pidlog_set_pid(pagelogger, page, mode, write);
+	rcu_read_unlock();
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_set_pid);
+
+void mtk_btag_pidlog_set_pid_pages(struct page **page, int page_cnt,
+				   int mode, bool write)
+{
+	int i;
+	struct page_pid_logger *pagelogger;
+
+	if (unlikely(!page))
+		return;
+
+	rcu_read_lock();
+	pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	if (unlikely(!pagelogger)) {
+		rcu_read_unlock();
+		return;
+	}
+	for (i = 0; i < page_cnt; i++)
+		_mtk_btag_pidlog_set_pid(pagelogger, page[i], mode, write);
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL_GPL(mtk_btag_pidlog_set_pid_pages);
 
 /* evaluate vmstat trace from global_node_page_state() */
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm)
@@ -333,12 +636,13 @@ void mtk_btag_mictx_dump(void)
 		return;
 	}
 
-	pr_info("[BLOCK_TAG] Mictx: %llu|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u\n",
-		iostat.duration, iostat.q_depth, iostat.wl,
+	pr_info("[BLOCK_TAG] Mictx: d:%llu|qd:%u|tp-req:%u,%u|tp-all:%u,%u|rc:%u,%u|rs:%u,%u|wl:%u|top:%u\n",
+		iostat.duration, iostat.q_depth,
 		iostat.tp_req_r, iostat.tp_req_w,
 		iostat.tp_all_r, iostat.tp_all_w,
 		iostat.reqcnt_r, iostat.reqcnt_w,
-		iostat.reqsize_r, iostat.reqsize_w);
+		iostat.reqsize_r, iostat.reqsize_w,
+		iostat.wl, iostat.top);
 }
 /* evaluate pidlog trace from context */
 void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
@@ -358,7 +662,7 @@ void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 		memset(&ctx_pl->info[0], 0, size);
 	}
 
-	if (mtk_btag_mictx_debug)
+	if (mtk_btag_mictx_self_test)
 		mtk_btag_mictx_dump();
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_eval);
@@ -776,9 +1080,13 @@ static size_t mtk_btag_seq_sub_show_usedmem(char **buff, unsigned long *size,
 		used_mem += size_l;
 	}
 
+	if (mtk_btag_enable)
+		size_l = BLOCKIO_AEE_BUFFER_SIZE;
+	else
+		size_l = 0;
 	SPREAD_PRINTF(buff, size, seq, "%s aee buffer: %d bytes\n", btag->name,
-			BLOCKIO_AEE_BUFFER_SIZE);
-	used_mem += BLOCKIO_AEE_BUFFER_SIZE;
+			size_l);
+	used_mem += size_l;
 
 	SPREAD_PRINTF(buff, size, seq,
 		"%s sub-total: %zu KB\n", btag->name, used_mem >> 10);
@@ -790,11 +1098,39 @@ static ssize_t mtk_btag_main_write(struct file *file, const char __user *ubuf,
 	size_t count, loff_t *ppos)
 {
 	struct mtk_blocktag *btag, *n;
+	int ret;
+	char cmd[MICTX_PROC_CMD_BUF_SIZE];
+
+	if (count == 0)
+		goto err;
+	else if (count > MICTX_PROC_CMD_BUF_SIZE)
+		count = MICTX_PROC_CMD_BUF_SIZE;
+
+	ret = copy_from_user(cmd, ubuf, count);
+
+	if (ret < 0)
+		goto err;
+
+	if (cmd[0] == '1') {
+		if (!mtk_btag_enable) {
+			mtk_btag_enable = mtk_btag_allocate_pidlogger();
+			if (mtk_btag_enable)
+				mtk_btag_allocate_aee_buffer();
+		}
+	} else if (cmd[0] == '2') {
+		if (mtk_btag_enable) {
+			mtk_btag_destroy_pidlogger();
+			mtk_btag_destroy_aee_buffer();
+			mtk_btag_enable = false;
+		}
+	} else if (cmd[0] != '0')
+		pr_info(TAG " %s: cmd[%c] is not supported\n", __func__, cmd[0]);
 
 	mutex_lock(&mtk_btag_list_lock);
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		mtk_btag_clear_trace(&btag->rt);
 	mutex_unlock(&mtk_btag_list_lock);
+err:
 	return count;
 }
 
@@ -846,9 +1182,9 @@ static int mtk_btag_seq_sub_show(struct seq_file *seq, void *v)
 
 	if (btag) {
 		mtk_btag_seq_debug_show_ringtrace(NULL, NULL, seq, btag);
-		if (btag->seq_show) {
+		if (btag->vops->seq_show) {
 			seq_printf(seq, "<%s: context info>\n", btag->name);
-			btag->seq_show(NULL, NULL, seq);
+			btag->vops->seq_show(NULL, NULL, seq);
 		}
 		mtk_btag_seq_sub_show_usedmem(NULL, NULL, seq, btag);
 	}
@@ -915,9 +1251,13 @@ static ssize_t mtk_btag_mictx_sub_write(struct file *file,
 	else if (cmd[0] == '2')
 		mtk_btag_mictx_enable(0);
 	else if (cmd[0] == '3')
-		mtk_btag_mictx_debug = 1;
+		mtk_btag_mictx_self_test = 1;
 	else if (cmd[0] == '4')
-		mtk_btag_mictx_debug = 0;
+		mtk_btag_mictx_self_test = 0;
+	else if (cmd[0] == '5')
+		mtk_btag_mictx_data_dump = 1;
+	else if (cmd[0] == '6')
+		mtk_btag_mictx_data_dump = 0;
 	else {
 		pr_info("[pidmap] invalid arg: 0x%x\n", cmd[0]);
 		goto err;
@@ -930,15 +1270,21 @@ err:
 }
 static int mtk_btag_mctx_sub_show(struct seq_file *s, void *data)
 {
+	int ready = 0;
+
+	if (btag_bootdev && btag_bootdev->mictx.enabled)
+		ready = 1;
+
 	seq_puts(s, "<MTK Blocktag Mini Context>\n");
 	seq_puts(s, "Status:\n");
-	seq_printf(s, "  Ready: %d\n", mtk_btag_mictx_ready);
-	seq_printf(s, "  Mictx Instance: %p\n", mtk_btag_mictx);
+	seq_printf(s, "  Ready: %d\n", ready);
 	seq_puts(s, "Commands:\n");
-	seq_puts(s, "  Enable Mini Context : echo 1 > blocktag_mictx\n");
-	seq_puts(s, "  Disable Mini Context: echo 2 > blocktag_mictx\n");
-	seq_puts(s, "  Enable Self-Test    : echo 3 > blocktag_mictx\n");
-	seq_puts(s, "  Disable Self-Test   : echo 4 > blocktag_mictx\n");
+	seq_puts(s, "  Enable Mini Context : echo 1 > blockio_mictx\n");
+	seq_puts(s, "  Disable Mini Context: echo 2 > blockio_mictx\n");
+	seq_puts(s, "  Enable Self-Test    : echo 3 > blockio_mictx\n");
+	seq_puts(s, "  Disable Self-Test   : echo 4 > blockio_mictx\n");
+	seq_puts(s, "  Enable Data Dump    : echo 5 > blockio_mictx\n");
+	seq_puts(s, "  Disable Data Dump   : echo 6 > blockio_mictx\n");
 	return 0;
 }
 
@@ -956,86 +1302,6 @@ static const struct file_operations mtk_btag_mictx_sub_fops = {
 	.write		= mtk_btag_mictx_sub_write,
 };
 
-struct mtk_blocktag *mtk_btag_alloc(const char *name,
-	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
-	mtk_btag_seq_f seq_show)
-{
-	struct mtk_blocktag *btag;
-
-	if (!name || !ringtrace_count || !ctx_size || !ctx_count)
-		return NULL;
-
-	btag = mtk_btag_find(name);
-	if (btag) {
-		pr_notice("[BLOCK_TAG] %s: blocktag %s already exists.\n",
-			__func__, name);
-		return NULL;
-	}
-
-	btag = kmalloc(sizeof(struct mtk_blocktag), GFP_NOFS);
-	if (!btag)
-		return NULL;
-
-	memset(btag, 0, sizeof(struct mtk_blocktag));
-	btag->seq_show = seq_show;
-	btag->used_mem = sizeof(struct mtk_blocktag) +
-		(sizeof(struct mtk_btag_trace) * ringtrace_count) +
-		(ctx_count * ctx_size);
-
-	/* ringtrace */
-	btag->rt.index = 0;
-	btag->rt.max = ringtrace_count;
-	spin_lock_init(&btag->rt.lock);
-	btag->rt.trace = kmalloc_array(ringtrace_count,
-		sizeof(struct mtk_btag_trace), GFP_NOFS);
-	if (!btag->rt.trace) {
-		kfree(btag);
-		return NULL;
-	}
-	memset(btag->rt.trace, 0,
-		(sizeof(struct mtk_btag_trace) * ringtrace_count));
-	strncpy(btag->name, name, BLOCKTAG_NAME_LEN-1);
-	spin_lock_init(&btag->rt.lock);
-
-	/* context */
-	btag->ctx.count = ctx_count;
-	btag->ctx.size = ctx_size;
-	btag->ctx.priv = kmalloc_array(ctx_count, ctx_size, GFP_NOFS);
-	if (!btag->ctx.priv) {
-		kfree(btag->rt.trace);
-		kfree(btag);
-		return NULL;
-	}
-	memset(btag->ctx.priv, 0, ctx_size * ctx_count);
-
-	/* procfs dentries */
-	mtk_btag_init_procfs();
-	btag->dentry.droot = proc_mkdir(name, btag_proc_root);
-
-	if (IS_ERR(btag->dentry.droot))
-		goto out;
-
-	btag->dentry.dlog = proc_create("blockio", S_IFREG | 0444,
-		btag->dentry.droot, &mtk_btag_sub_fops);
-
-	if (IS_ERR(btag->dentry.dlog))
-		goto out;
-
-	btag->dentry.dlog_mictx = proc_create("blockio_mictx",
-		S_IFREG | 0444,
-		btag->dentry.droot, &mtk_btag_mictx_sub_fops);
-
-	if (IS_ERR(btag->dentry.dlog_mictx))
-		goto out;
-
-out:
-	spin_lock_init(&btag->prbuf.lock);
-	list_add(&btag->list, &mtk_btag_list);
-
-	return btag;
-}
-EXPORT_SYMBOL_GPL(mtk_btag_alloc);
-
 void mtk_btag_free(struct mtk_blocktag *btag)
 {
 	if (!btag)
@@ -1048,7 +1314,7 @@ void mtk_btag_free(struct mtk_blocktag *btag)
 }
 EXPORT_SYMBOL_GPL(mtk_btag_free);
 
-static int __init mtk_btag_early_memory_info(void)
+static int mtk_btag_init_memory(void)
 {
 	phys_addr_t start, end;
 
@@ -1056,31 +1322,94 @@ static int __init mtk_btag_early_memory_info(void)
 	end = memblock_end_of_DRAM();
 	mtk_btag_system_dram_size = (unsigned long long)(end - start);
 	pr_debug("[BLOCK_TAG] DRAM: %pa - %pa, size: 0x%llx\n", &start,
-		&end, (unsigned long long)(end - start));
+		&end, mtk_btag_system_dram_size);
 	return 0;
 }
-fs_initcall(mtk_btag_early_memory_info);
 
-static void mtk_btag_pidlogger_init(void)
+static bool mtk_btag_allocate_pidlogger(void)
 {
+	struct page_pid_logger *old_pagelogger, *new_pagelogger;
 	unsigned long count = mtk_btag_system_dram_size >> PAGE_SHIFT;
 	unsigned long size = count * sizeof(struct page_pid_logger);
 
-	if (mtk_btag_pagelogger)
-		goto init;
+	new_pagelogger = vmalloc(size);
 
-#ifdef CONFIG_MTK_USE_RESERVED_EXT_MEM
-	mtk_btag_pagelogger = extmem_malloc_page_align(size);
-#else
-	mtk_btag_pagelogger = vmalloc(size);
-#endif
+	if (new_pagelogger) {
+		memset(new_pagelogger, 0, size);
+		spin_lock(&mtk_btag_lock);
+		old_pagelogger = rcu_dereference_protected(mtk_btag_pagelogger,
+			lockdep_is_held(&mtk_btag_lock));
+		rcu_assign_pointer(mtk_btag_pagelogger, new_pagelogger);
+		spin_unlock(&mtk_btag_lock);
+		synchronize_rcu();
+		if (old_pagelogger)
+			vfree(old_pagelogger);
+		pr_info(TAG " blockio: new page logger is allocated\n");
+		return true;
+	}
+	pr_info(TAG " blockio: fail to allocate mtk_btag_pagelogger\n");
+	return false;
+}
 
-init:
-	if (mtk_btag_pagelogger)
-		memset(mtk_btag_pagelogger, -1, size);
-	else
-		pr_info(
-		"[BLOCK_TAG] blockio: fail to allocate mtk_btag_pagelogger\n");
+static void mtk_btag_destroy_pidlogger(void)
+{
+	struct page_pid_logger *old_pagelogger;
+
+	spin_lock(&mtk_btag_lock);
+	old_pagelogger = rcu_dereference_protected(mtk_btag_pagelogger,
+		lockdep_is_held(&mtk_btag_lock));
+	rcu_assign_pointer(mtk_btag_pagelogger, NULL);
+	spin_unlock(&mtk_btag_lock);
+	synchronize_rcu();
+	if (old_pagelogger)
+		vfree(old_pagelogger);
+}
+
+static bool mtk_btag_allocate_aee_buffer(void)
+{
+	char *aee_buffer;
+	char *old_aee_buffer;
+
+	aee_buffer = kmalloc(BLOCKIO_AEE_BUFFER_SIZE, GFP_KERNEL);
+	if (aee_buffer) {
+		memset(aee_buffer, 0, BLOCKIO_AEE_BUFFER_SIZE);
+		spin_lock(&mtk_btag_lock);
+		old_aee_buffer = rcu_dereference_protected(blockio_aee_buffer,
+			lockdep_is_held(&mtk_btag_lock));
+		rcu_assign_pointer(blockio_aee_buffer, aee_buffer);
+		spin_unlock(&mtk_btag_lock);
+		synchronize_rcu();
+		kfree(old_aee_buffer);
+		pr_info(TAG " aeebuffer: new aee buffer is allocated\n");
+		return true;
+	}
+	pr_info(TAG " aeebuffer: fail to allocate blockio_aee_buffer\n");
+	return false;
+}
+
+static void mtk_btag_destroy_aee_buffer(void)
+{
+	char *old_aee_buffer;
+
+	spin_lock(&mtk_btag_lock);
+	old_aee_buffer = rcu_dereference_protected(blockio_aee_buffer,
+		lockdep_is_held(&mtk_btag_lock));
+	rcu_assign_pointer(blockio_aee_buffer, NULL);
+	spin_unlock(&mtk_btag_lock);
+	synchronize_rcu();
+	kfree(old_aee_buffer);
+}
+
+static bool mtk_btag_init_pidlogger(void)
+{
+	bool rs;
+
+	if (!mtk_btag_enable)
+		return false;
+	rs = mtk_btag_allocate_pidlogger();
+	if (rs)
+		mtk_btag_allocate_aee_buffer();
+	return rs;
 }
 
 static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
@@ -1096,10 +1425,10 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 
 	SPREAD_PRINTF(buff, size, seq, "[Info]\n");
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
-		if (btag->seq_show) {
+		if (btag->vops->seq_show) {
 			SPREAD_PRINTF(buff, size, seq, "<%s: context info>\n",
 					btag->name);
-			btag->seq_show(buff, size, seq);
+			btag->vops->seq_show(buff, size, seq);
 		}
 
 	SPREAD_PRINTF(buff, size, seq, "[Memory Usage]\n");
@@ -1113,6 +1442,11 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 
 	SPREAD_PRINTF(buff, size, seq, "--------------------------------\n");
 	SPREAD_PRINTF(buff, size, seq, "Total: %zu KB\n", used_mem >> 10);
+	// useage
+	SPREAD_PRINTF(buff, size, seq, "<Usage>\n");
+	SPREAD_PRINTF(buff, size, seq, "Reset blocktag  : echo 0 > blockio\n");
+	SPREAD_PRINTF(buff, size, seq, "Enable blocktag : echo 1 > blockio\n");
+	SPREAD_PRINTF(buff, size, seq, "Disable blocktag: echo 2 > blockio\n");
 }
 
 static int mtk_btag_seq_main_show(struct seq_file *seq, void *v)
@@ -1126,11 +1460,19 @@ void get_blockio_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	unsigned long free_size = BLOCKIO_AEE_BUFFER_SIZE;
 	char *buff;
 
-	buff = blockio_aee_buffer;
-	mtk_btag_seq_main_info(&buff, &free_size, NULL);
-	/* retrun start location */
-	*vaddr = (unsigned long)blockio_aee_buffer;
-	*size = BLOCKIO_AEE_BUFFER_SIZE - free_size;
+	rcu_read_lock();
+	buff = rcu_dereference(blockio_aee_buffer);
+	if (buff) {
+		/* FIXME aee buffer is exposed to external module without rcu read lock. */
+		*vaddr = (unsigned long) buff;
+		mtk_btag_seq_main_info(&buff, &free_size, NULL);
+		/* retrun start location */
+		*size = BLOCKIO_AEE_BUFFER_SIZE - free_size;
+	} else {
+		*vaddr = 0;
+		*size = 0;
+	}
+	rcu_read_unlock();
 }
 EXPORT_SYMBOL(get_blockio_aee_buffer);
 
@@ -1180,27 +1522,17 @@ static int mtk_btag_init_procfs(void)
 	return 0;
 }
 
-
-static inline
-struct mtk_btag_mictx_struct *mtk_btag_mictx_get_ctx(void)
-{
-	if (mtk_btag_mictx_ready)
-		return mtk_btag_mictx;
-	else
-		return NULL;
-}
-
 void mtk_btag_mictx_eval_tp(
+	struct mtk_blocktag *btag,
 	unsigned int write, __u64 usage, __u32 size)
 {
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *ctx = &btag->mictx;
 	struct mtk_btag_throughput_rw *tprw;
 	unsigned long flags;
 	__u64 cur_time = sched_clock();
 	__u64 req_begin_time;
 
-	ctx = mtk_btag_mictx_get_ctx();
-	if (!ctx)
+	if (!ctx->enabled)
 		return;
 
 	tprw = (write) ? &ctx->tp.w : &ctx->tp.r;
@@ -1221,31 +1553,33 @@ void mtk_btag_mictx_eval_tp(
 }
 
 void mtk_btag_mictx_eval_req(
-	unsigned int write, __u32 cnt, __u32 size)
+	struct mtk_blocktag *btag,
+	unsigned int write, __u32 cnt, __u32 size, bool top)
 {
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *ctx = &btag->mictx;
 	struct mtk_btag_req_rw *reqrw;
 	unsigned long flags;
 
-	ctx = mtk_btag_mictx_get_ctx();
-	if (!ctx)
+	if (!ctx->enabled)
 		return;
 
 	reqrw = (write) ? &ctx->req.w : &ctx->req.r;
 	spin_lock_irqsave(&ctx->lock, flags);
 	reqrw->count += cnt;
 	reqrw->size += size;
+	if (top)
+		reqrw->size_top += size;
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
 
 void mtk_btag_mictx_update_ctx(
+	struct mtk_blocktag *btag,
 	__u32 q_depth)
 {
-	struct mtk_btag_mictx_struct *ctx;
+	struct mtk_btag_mictx_struct *ctx = &btag->mictx;
 	unsigned long flags;
 
-	ctx = mtk_btag_mictx_get_ctx();
-	if (!ctx)
+	if (!ctx->enabled)
 		return;
 
 	spin_lock_irqsave(&ctx->lock, flags);
@@ -1263,34 +1597,17 @@ void mtk_btag_mictx_update_ctx(
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
 
-static void mtk_btag_mictx_reset(
-	struct mtk_btag_mictx_struct *ctx,
-	__u64 window_begin)
-{
-	if (!window_begin)
-		window_begin = sched_clock();
-	ctx->window_begin = window_begin;
-
-	if (!ctx->q_depth)
-		ctx->idle_begin = ctx->window_begin;
-	else
-		ctx->idle_begin = 0;
-
-	ctx->idle_total = 0;
-	ctx->tp_min_time = ctx->tp_max_time = 0;
-	memset(&ctx->tp, 0, sizeof(struct mtk_btag_throughput));
-	memset(&ctx->req, 0, sizeof(struct mtk_btag_req));
-}
-
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_iostat_struct *iostat)
 {
 	struct mtk_btag_mictx_struct *ctx;
-	__u64 time_cur, dur, tp_dur;
+	struct mtk_blocktag *btag;
+	u64 time_cur, dur, tp_dur;
 	unsigned long flags;
+	u64 top;
 
 	ctx = mtk_btag_mictx_get_ctx();
-	if (!ctx || !iostat)
+	if (!ctx || !ctx->enabled || !iostat)
 		return -1;
 
 	spin_lock_irqsave(&ctx->lock, flags);
@@ -1327,8 +1644,74 @@ int mtk_btag_mictx_get_data(
 	iostat->wl = 100 -
 		((__u32)((ctx->idle_total >> 10) * 100) / (__u32)(dur >> 10));
 
+	if (mtk_btag_mictx_self_test) {
+		pr_info("[BLOCK_TAG] Mictx: fuse-top: %d, %d\n",
+			ctx->top_r_pages, ctx->top_w_pages);
+	}
+
+	/* calculate top ratio */
+	if (ctx->req.r.size || ctx->req.w.size) {
+		unsigned long comp;
+
+		ctx->req.r.size >>= 12;
+		ctx->req.w.size >>= 12;
+		ctx->req.r.size_top >>= 12;
+		ctx->req.w.size_top >>= 12;
+
+		if (ctx->top_r_pages) {
+			ctx->top_r_pages -= ctx->req.r.size_top;
+
+			if (ctx->top_r_pages > 0) {
+				comp = ctx->req.r.size - ctx->req.r.size_top;
+				comp = min_t(int, comp, ctx->top_r_pages);
+				ctx->top_r_pages -= comp;
+				ctx->req.r.size_top += comp;
+			}
+
+			if (ctx->top_r_pages < 0)
+				ctx->top_r_pages = 0;
+		}
+
+		if (ctx->top_w_pages) {
+			ctx->top_w_pages -= ctx->req.w.size_top;
+
+			if (ctx->top_w_pages > 0) {
+				comp = ctx->req.w.size - ctx->req.w.size_top;
+				comp = min_t(int, comp, ctx->top_w_pages);
+				ctx->top_w_pages -= comp;
+				ctx->req.w.size_top += comp;
+			}
+
+			if (ctx->top_w_pages < 0)
+				ctx->top_w_pages = 0;
+		}
+
+		top = ctx->req.r.size_top + ctx->req.w.size_top;
+		top = top * 100;
+		do_div(top, (ctx->req.r.size + ctx->req.w.size));
+	} else {
+		top = 0;
+	}
+
+	iostat->top = top;
+
 	/* fill-in cmdq depth */
-	iostat->q_depth = ctx->q_depth;
+	btag = btag_bootdev;
+	if (btag && btag->vops->mictx_eval_wqd) {
+		btag->vops->mictx_eval_wqd(ctx, time_cur);
+		iostat->q_depth =
+			DIV_ROUND_UP((u32)(ctx->weighted_qd >> 10),
+				     (u32)(dur >> 10));
+	} else
+		iostat->q_depth = ctx->q_depth;
+
+	if (mtk_btag_mictx_self_test || mtk_btag_mictx_data_dump) {
+		pr_info("[BLOCK_TAG] Mictx: sz:%llu,%llu, sz-top:%llu,%llu,%llu, fuse-top: %u,%u, qd:%hu, wl:%hu\n",
+			ctx->req.r.size, ctx->req.w.size,
+			ctx->req.r.size_top, ctx->req.w.size_top, top,
+			ctx->top_r_pages, ctx->top_w_pages,
+			iostat->q_depth, iostat->wl);
+	}
 
 	/* everything was provided, now we can reset the ctx */
 	mtk_btag_mictx_reset(ctx, time_cur);
@@ -1337,50 +1720,283 @@ int mtk_btag_mictx_get_data(
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_btag_mictx_get_data);
 
 void mtk_btag_mictx_enable(int enable)
 {
-	if (enable && mtk_btag_mictx)
+	struct mtk_btag_mictx_struct *ctx;
+	unsigned long flags;
+
+	ctx = mtk_btag_mictx_get_ctx();
+	if (!ctx)
 		return;
 
-	if (enable) {
-		mtk_btag_mictx =
-			kzalloc(sizeof(struct mtk_btag_mictx_struct), GFP_NOFS);
-		if (!mtk_btag_mictx) {
-			pr_info("[BLOCK_TAG] mtk_btag_mictx allocation fail, disabled.\n");
-			return;
-		}
-
-		spin_lock_init(&mtk_btag_mictx->lock);
-		mtk_btag_mictx_reset(mtk_btag_mictx, 0);
-		mtk_btag_mictx_ready = 1;
-
-	} else {
-		if (!mtk_btag_mictx)
-			return;
-
-		mtk_btag_mictx_ready = 0;
-		kfree(mtk_btag_mictx);
-		mtk_btag_mictx = NULL;
+	spin_lock_irqsave(&ctx->lock, flags);
+	if (enable == ctx->enabled) {
+		spin_unlock_irqrestore(&ctx->lock, flags);
+		return;
 	}
+	ctx->enabled = enable;
+	if (enable)
+		mtk_btag_mictx_reset(ctx, 0);
+	spin_unlock_irqrestore(&ctx->lock, flags);
+}
+
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+
+static int btag_get_boot_type(void)
+{
+	struct tag_bootmode *tags = NULL;
+	struct device_node *node = NULL;
+	unsigned long size = 0;
+	int ret = BOOTDEV_UFS;
+
+	node = of_find_node_by_path("/chosen");
+	if (!node)
+		node = of_find_node_by_path("/chosen@0");
+
+	if (node) {
+		tags = (struct tag_bootmode *)of_get_property(node,
+				"atag,boot", (int *)&size);
+	} else
+		pr_notice("[%s] of_chosen not found\n", __func__);
+
+	if (tags) {
+		ret = tags->boottype;
+		if ((ret > 2) || (ret < 0))
+			ret = BOOTDEV_SDMMC;
+	} else {
+		pr_notice("[%s] 'atag,boot' is not found\n", __func__);
+	}
+
+	return ret;
+}
+
+static void mtk_btag_mictx_init(const char *name,
+				struct mtk_blocktag *btag,
+				struct mtk_btag_vops *vops)
+{
+	char wq_name[sizeof("mtk_btag_uevt_00")];
+	unsigned int boot_type;
+
+	boot_type = btag_get_boot_type();
+	if ((boot_type == BOOTDEV_UFS && !strcmp("ufs", name)) ||
+		(boot_type == BOOTDEV_SDMMC && !strcmp("mmc", name))) {
+		btag_bootdev = btag;
+		spin_lock_init(&btag->mictx.lock);
+
+		/* Enable mictx by default for EARA-IO */
+		if (vops->earaio_enabled) {
+			if (!snprintf(wq_name, ARRAY_SIZE(wq_name),
+				"mtk_btag_uevt_%d", boot_type))
+				return;
+			mtk_btag_mictx_enable(1);
+			btag->mictx.earaio_enabled = true;
+			btag->mictx.uevt_workq =
+				alloc_ordered_workqueue(wq_name,
+				WQ_MEM_RECLAIM);
+			INIT_WORK(&btag->mictx.uevt_work,
+				  mtk_btag_earaio_uevt_worker);
+			rs_index_init(btag, btag_proc_root);
+		}
+	}
+}
+
+struct mtk_blocktag *mtk_btag_alloc(const char *name,
+	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
+	struct mtk_btag_vops *vops)
+{
+	struct mtk_blocktag *btag;
+
+	if (!name || !ringtrace_count || !ctx_size || !ctx_count)
+		return NULL;
+
+	btag = mtk_btag_find(name);
+	if (btag) {
+		pr_notice("[BLOCK_TAG] %s: blocktag %s already exists.\n",
+			__func__, name);
+		return NULL;
+	}
+
+	btag = kmalloc(sizeof(struct mtk_blocktag), GFP_NOFS);
+	if (!btag)
+		return NULL;
+
+	memset(btag, 0, sizeof(struct mtk_blocktag));
+	btag->used_mem = sizeof(struct mtk_blocktag) +
+		(sizeof(struct mtk_btag_trace) * ringtrace_count) +
+		(ctx_count * ctx_size);
+
+	/* ringtrace */
+	btag->rt.index = 0;
+	btag->rt.max = ringtrace_count;
+	spin_lock_init(&btag->rt.lock);
+	btag->rt.trace = kmalloc_array(ringtrace_count,
+		sizeof(struct mtk_btag_trace), GFP_NOFS);
+	if (!btag->rt.trace) {
+		kfree(btag);
+		return NULL;
+	}
+	memset(btag->rt.trace, 0,
+		(sizeof(struct mtk_btag_trace) * ringtrace_count));
+	strncpy(btag->name, name, BLOCKTAG_NAME_LEN-1);
+	spin_lock_init(&btag->rt.lock);
+
+	/* context */
+
+	btag->ctx.size = ctx_size;
+	btag->ctx.priv = kmalloc_array(ctx_count, ctx_size, GFP_NOFS);
+	if (!btag->ctx.priv) {
+		kfree(btag->rt.trace);
+		kfree(btag);
+		return NULL;
+	}
+	memset(btag->ctx.priv, 0, ctx_size * ctx_count);
+
+	/* vops */
+	btag->vops = vops;
+
+	/* procfs dentries */
+	mtk_btag_init_procfs();
+	btag->dentry.droot = proc_mkdir(name, btag_proc_root);
+
+	if (IS_ERR(btag->dentry.droot))
+		goto out;
+
+	btag->dentry.dlog = proc_create("blockio", S_IFREG | 0444,
+		btag->dentry.droot, &mtk_btag_sub_fops);
+
+	if (IS_ERR(btag->dentry.dlog))
+		goto out;
+
+	btag->dentry.dlog_mictx = proc_create("blockio_mictx",
+		S_IFREG | 0444,
+		btag->dentry.droot, &mtk_btag_mictx_sub_fops);
+
+	if (IS_ERR(btag->dentry.dlog_mictx))
+		goto out;
+
+	mtk_btag_mictx_init(name, btag, vops);
+out:
+	spin_lock_init(&btag->prbuf.lock);
+	list_add(&btag->list, &mtk_btag_list);
+
+	return btag;
+}
+EXPORT_SYMBOL_GPL(mtk_btag_alloc);
+
+static void btag_trace_block_rq_insert(void *data,
+				struct request_queue *q,
+				struct request *rq)
+{
+	struct page_pid_logger *pagelogger;
+	struct bio *bio = rq->bio;
+	struct bvec_iter iter;
+	struct bio_vec bvec;
+	int type;
+
+	rcu_read_lock();
+	pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	if (unlikely(!pagelogger) || !bio)
+		goto out;
+
+	if (bio_op(bio) != REQ_OP_READ && bio_op(bio) != REQ_OP_WRITE)
+		goto out;
+
+	type = mtk_btag_get_storage_type(bio);
+	if (type == BTAG_STORAGE_UNKNOWN)
+		goto out;
+
+	for_each_bio(bio) {
+		bio_for_each_segment(bvec, bio, iter) {
+			if (bvec.bv_page) {
+				_mtk_btag_pidlog_set_pid(pagelogger, bvec.bv_page,
+					PIDLOG_MODE_BLK_RQ_INSERT,
+					(bio_op(bio) == REQ_OP_WRITE) ?
+					true : false);
+			}
+		}
+	}
+out:
+	rcu_read_unlock();
+}
+
+void mtk_btag_commit_req(struct request *rq)
+{
+	struct request_queue *q = rq->q;
+	struct bio *bio = rq->bio;
+	struct bvec_iter iter;
+	struct bio_vec bvec;
+	struct page_pid_logger *pagelogger;
+
+	rcu_read_lock();
+	pagelogger = rcu_dereference(mtk_btag_pagelogger);
+	if (unlikely(!pagelogger) || !bio)
+		goto out;
+
+	if (bio_op(bio) != REQ_OP_READ && bio_op(bio) != REQ_OP_WRITE)
+		goto out;
+
+	for_each_bio(bio) {
+		bio_for_each_segment(bvec, bio, iter) {
+			if (bvec.bv_page)
+				mtk_btag_pidlog_commit_bio(pagelogger, q, bio, &bvec);
+		}
+	}
+out:
+	rcu_read_unlock();
+}
+
+static void btag_trace_writeback_dirty_page(void *data,
+					struct page *page,
+					struct address_space *mapping)
+{
+	/*
+	 * Dirty pages may be written by writeback thread later.
+	 * To get real requester of this page, we shall keep it
+	 * before writeback takes over.
+	 */
+	mtk_btag_pidlog_set_pid(page, PIDLOG_MODE_MM_MARK_DIRTY, true);
 }
 
 static int __init mtk_btag_init(void)
 {
-	mtk_btag_pidlogger_init();
+	mtk_btag_enable = true; // default is true
 	mtk_btag_init_procfs();
+	mtk_btag_init_memory();
+	mtk_btag_init_pidlogger();
+
+	register_trace_block_rq_insert(
+		btag_trace_block_rq_insert, NULL);
+
+	register_trace_writeback_dirty_page(
+		btag_trace_writeback_dirty_page, NULL);
+
+	mtk_btag_earaio_init();
+
 	return 0;
 }
 
 static void __exit mtk_btag_exit(void)
 {
 	proc_remove(btag_proc_root);
+
+	unregister_trace_block_rq_insert(
+		btag_trace_block_rq_insert, NULL);
+	unregister_trace_writeback_dirty_page(
+		btag_trace_writeback_dirty_page, NULL);
 }
 
 module_init(mtk_btag_init);
 module_exit(mtk_btag_exit);
 
 MODULE_AUTHOR("Perry Hsu <perry.hsu@mediatek.com>");
+MODULE_AUTHOR("Stanley Chu <stanley.chu@mediatek.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Storage Block Tag Trace");
 

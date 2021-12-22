@@ -49,6 +49,8 @@
 #include <trace/events/ext4.h>
 #include <trace/events/android_fs.h>
 
+#include <mt-plat/mtk_blocktag.h>
+
 #define MPAGE_DA_EXTENT_TAIL 0x01
 
 static __u32 ext4_inode_csum(struct inode *inode, struct ext4_inode *raw,
@@ -1395,6 +1397,7 @@ retry_journal:
 		return ret;
 	}
 	*pagep = page;
+	mtk_btag_pidlog_set_pid(page, PIDLOG_MODE_FS_WRITE_BEGIN, true);
 	return ret;
 }
 

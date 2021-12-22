@@ -12,26 +12,23 @@
 
 #if defined(CONFIG_MTK_UFS_BLOCK_IO_LOG)
 
-int ufs_mtk_biolog_init(void);
+int ufs_mtk_biolog_init(bool qos_allowed);
 int ufs_mtk_biolog_exit(void);
 
-void ufs_mtk_biolog_queue_command(unsigned int taski_id, struct scsi_cmnd *cmd);
-void ufs_mtk_biolog_send_command(unsigned int taski_id);
-void ufs_mtk_biolog_transfer_req_compl(unsigned int taski_id);
-void ufs_mtk_biolog_scsi_done_start(unsigned int taski_id);
-void ufs_mtk_biolog_scsi_done_end(unsigned int taski_id);
+void ufs_mtk_biolog_send_command(unsigned int task_id,
+				 struct scsi_cmnd *cmd);
+void ufs_mtk_biolog_transfer_req_compl(unsigned int taski_id,
+				       unsigned long req_mask);
 void ufs_mtk_biolog_check(unsigned long req_mask);
+void ufs_mtk_biolog_clk_gating(bool gated);
 
 #define UFS_BIOLOG_RINGBUF_MAX    120
 #define UFS_BIOLOG_CONTEXT_TASKS  32
 #define UFS_BIOLOG_CONTEXTS       1
 
 enum {
-	tsk_request_start = 0,
-	tsk_send_cmd,
+	tsk_send_cmd = 0,
 	tsk_req_compl,
-	tsk_scsi_done_start,
-	tsk_scsi_done_end,
 	tsk_max
 };
 
@@ -50,6 +47,7 @@ struct ufs_mtk_bio_context {
 	pid_t pid;
 	__u16 qid;
 	__u16 q_depth;
+	__u16 q_depth_top;
 	spinlock_t lock;
 	uint64_t busy_start_t;
 	uint64_t period_start_t;
@@ -65,12 +63,10 @@ struct ufs_mtk_bio_context {
 
 #define ufs_mtk_biolog_init(...)
 #define ufs_mtk_biolog_exit(...)
-#define ufs_mtk_biolog_queue_command(...)
 #define ufs_mtk_biolog_send_command(...)
 #define ufs_mtk_biolog_transfer_req_compl(...)
-#define ufs_mtk_biolog_scsi_done_start(...)
-#define ufs_mtk_biolog_scsi_done_end(...)
 #define ufs_mtk_biolog_check(...)
+#define ufs_mtk_biolog_clk_gating(...)
 
 #endif
 
