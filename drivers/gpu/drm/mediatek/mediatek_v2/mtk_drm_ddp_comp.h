@@ -447,6 +447,58 @@ struct mtk_ddp_comp_funcs {
 	int (*is_busy)(struct mtk_ddp_comp *comp);
 };
 
+#define MTK_IRQ_TS_MAX 20
+#define MTK_IRQ_WORK_MAX 3
+
+struct mtk_irq_ts {
+	unsigned long long ts;
+	int line;
+};
+
+#define IF_DEBUG_IRQ_TS(debug, irq_time, i) \
+	{ \
+		if (debug == true && i < MTK_IRQ_TS_MAX) { \
+			irq_time[i].ts = sched_clock(); \
+			irq_time[i++].line = __LINE__; \
+		} \
+	}
+
+#define If_FIND_WORK(debug, ts_works, work_id, find_work, i) \
+	{ \
+		if (debug == true) \
+			for (i = 0; i < MTK_IRQ_WORK_MAX; i++) { \
+				if (!ts_works[work_id].is_busy) { \
+					ts_works[work_id].number = work_id; \
+					find_work = true; \
+					break; \
+				} \
+				work_id = (work_id + 1) % MTK_IRQ_WORK_MAX; \
+			} \
+	}
+
+#define IF_QUEUE_WORK(find_work, ddp_comp, work_id, i) \
+	{ \
+		if (find_work == true && i > 0 && \
+			(ddp_comp.ts_works[work_id].irq_time[i - 1].ts \
+				- ddp_comp.ts_works[work_id].irq_time[0].ts >= 500000ULL)) { \
+			if (i < MTK_IRQ_TS_MAX) { \
+				ddp_comp.ts_works[work_id].irq_time[i].ts = 0;	\
+				ddp_comp.ts_works[work_id].irq_time[i].line = 0; \
+			} \
+			ddp_comp.ts_works[work_id].comp_id = ddp_comp.id; \
+			queue_work(ddp_comp.wq, &ddp_comp.ts_works[work_id].work); \
+			work_id = (work_id + 1) % MTK_IRQ_WORK_MAX; \
+		} \
+	}
+
+struct mtk_irq_ts_debug_workqueue {
+	struct work_struct work;
+	struct mtk_irq_ts irq_time[MTK_IRQ_TS_MAX];
+	int number;
+	int comp_id;
+	bool is_busy;
+};
+
 struct mtk_ddp_comp {
 	struct clk *clk;
 	void __iomem *regs;
@@ -468,6 +520,9 @@ struct mtk_ddp_comp {
 	struct icc_path *qos_req;
 	struct icc_path *fbdc_qos_req;
 	struct icc_path *hrt_qos_req;
+	struct workqueue_struct *wq;
+	struct mtk_irq_ts_debug_workqueue ts_works[MTK_IRQ_WORK_MAX];
+	bool irq_debug;
 	bool blank_mode;
 	u32 qos_bw;
 	u32 last_qos_bw;
@@ -685,6 +740,7 @@ void mt6855_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option);
+int mtk_ddp_comp_create_workqueue(struct mtk_ddp_comp *ddp_comp);
 
 void mtk_ddp_comp_pm_enable(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp);

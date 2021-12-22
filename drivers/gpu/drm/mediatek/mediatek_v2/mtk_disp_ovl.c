@@ -751,25 +751,26 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, ovl->regs_pa, val);
 
 	mtk_crtc = ovl->mtk_crtc;
 
 	if (ovl->id == DDP_COMPONENT_OVL0)
-		DRM_MMP_MARK(ovl0, val, 0);
+		DRM_MMP_MARK(ovl0, ovl->regs_pa, val);
 	else if (ovl->id == DDP_COMPONENT_OVL1)
-		DRM_MMP_MARK(ovl1, val, 0);
+		DRM_MMP_MARK(ovl1, ovl->regs_pa, val);
 	else if (ovl->id == DDP_COMPONENT_OVL0_2L)
-		DRM_MMP_MARK(ovl0_2l, val, 0);
+		DRM_MMP_MARK(ovl0_2l, ovl->regs_pa, val);
 	else if (ovl->id == DDP_COMPONENT_OVL1_2L)
-		DRM_MMP_MARK(ovl1_2l, val, 0);
+		DRM_MMP_MARK(ovl1_2l, ovl->regs_pa, val);
 	else if (ovl->id == DDP_COMPONENT_OVL2_2L)
-		DRM_MMP_MARK(ovl2_2l, val, 0);
+		DRM_MMP_MARK(ovl2_2l, ovl->regs_pa, val);
 	else if (ovl->id == DDP_COMPONENT_OVL3_2L)
-		DRM_MMP_MARK(ovl3_2l, val, 0);
+		DRM_MMP_MARK(ovl3_2l, ovl->regs_pa, val);
+	else
+		DRM_MMP_MARK(IRQ, ovl->regs_pa, val);
 
 	if (val & 0x1e0)
-		DRM_MMP_MARK(abnormal_irq, val, ovl->id);
+		DRM_MMP_MARK(abnormal_irq, ovl->regs_pa, val);
 
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(ovl), val);
 

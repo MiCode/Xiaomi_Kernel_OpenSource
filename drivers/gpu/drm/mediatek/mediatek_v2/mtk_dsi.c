@@ -368,6 +368,7 @@ struct mtk_dsi_driver_data {
 	bool need_bypass_shadow;
 	bool need_wait_fifo;
 	bool dsi_buffer;
+	bool dsi_irq_ts_debug;
 	u32 max_vfp;
 	unsigned int (*mmclk_by_datarate)(struct mtk_dsi *dsi,
 		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
@@ -1865,28 +1866,43 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	bool doze_enabled = 0;
 	unsigned int doze_wait = 0;
 	static unsigned int cnt;
+	int i = 0, j = 0;
+	bool find_work = false;
+	static int work_id;
 
+	If_FIND_WORK(dsi->ddp_comp.irq_debug,
+		dsi->ddp_comp.ts_works, work_id, find_work, j)
+	IF_DEBUG_IRQ_TS(find_work,
+		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 	if (IS_ERR_OR_NULL(dsi))
 		return IRQ_NONE;
+	IF_DEBUG_IRQ_TS(find_work,
+		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 
 	if (mtk_drm_top_clk_isr_get("dsi_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
 		return IRQ_NONE;
 	}
 
+	IF_DEBUG_IRQ_TS(find_work,
+		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 	status = readl(dsi->regs + DSI_INTSTA);
 	if (!status) {
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, dsi->ddp_comp.regs_pa, status);
-
+	IF_DEBUG_IRQ_TS(find_work,
+		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 	mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
-		DRM_MMP_MARK(dsi0, status, 0);
+		DRM_MMP_MARK(dsi0,  dsi->ddp_comp.regs_pa, status);
 	else if (dsi->ddp_comp.id == DDP_COMPONENT_DSI1)
-		DRM_MMP_MARK(dsi1, status, 0);
+		DRM_MMP_MARK(dsi1, dsi->ddp_comp.regs_pa, status);
+	else
+		DRM_MMP_MARK(IRQ, dsi->ddp_comp.regs_pa, status);
+	IF_DEBUG_IRQ_TS(find_work,
+		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(&dsi->ddp_comp), status);
 	/*
@@ -1897,6 +1913,10 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	status &= 0xffde;
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
+
+		IF_DEBUG_IRQ_TS(find_work,
+			dsi->ddp_comp.ts_works[work_id].irq_time, i)
+
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
 
@@ -1985,20 +2005,32 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
 			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
-							   MTK_DRM_OPT_HBM))
+							   MTK_DRM_OPT_HBM)){
+				IF_DEBUG_IRQ_TS(find_work,
+					dsi->ddp_comp.ts_works[work_id].irq_time, i)
 				wakeup_dsi_wq(&dsi->frame_done);
+				IF_DEBUG_IRQ_TS(find_work,
+					dsi->ddp_comp.ts_works[work_id].irq_time, i)
+			}
 
 			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-				mtk_crtc && mtk_crtc->vblank_en)
+				mtk_crtc && mtk_crtc->vblank_en){
+				IF_DEBUG_IRQ_TS(find_work,
+					dsi->ddp_comp.ts_works[work_id].irq_time, i)
 				mtk_crtc_vblank_irq(&mtk_crtc->base);
+				IF_DEBUG_IRQ_TS(find_work,
+					dsi->ddp_comp.ts_works[work_id].irq_time, i)
+			}
 		}
 	}
-
 	ret = IRQ_HANDLED;
 
 out:
 	mtk_drm_top_clk_isr_put("dsi_irq");
 
+	IF_DEBUG_IRQ_TS(find_work,
+		dsi->ddp_comp.ts_works[work_id].irq_time, i)
+	IF_QUEUE_WORK(find_work, dsi->ddp_comp, work_id, i)
 	return ret;
 }
 
@@ -6973,7 +7005,6 @@ static const struct mtk_ddp_comp_funcs mtk_dsi_funcs = {
 	.io_cmd = mtk_dsi_io_cmd,
 	.is_busy = mtk_dsi_is_busy,
 };
-
 static int mtk_dsi_bind(struct device *dev, struct device *master, void *data)
 {
 	int ret;
@@ -7115,6 +7146,7 @@ static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
 	.dsi_buffer = true,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
+	.dsi_irq_ts_debug = true,
 };
 
 static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
@@ -7354,7 +7386,6 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		ret = comp_id;
 		goto error;
 	}
-
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &dsi->ddp_comp, comp_id,
 				&mtk_dsi_funcs);
 	if (ret) {
@@ -7426,6 +7457,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	if (dsi->driver_data->dsi_irq_ts_debug)
+		mtk_ddp_comp_create_workqueue(&dsi->ddp_comp);
+
 	DDPINFO("%s-\n", __func__);
 	return ret;
 
@@ -7442,6 +7476,9 @@ static int mtk_dsi_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &mtk_dsi_component_ops);
 
 	mtk_ddp_comp_pm_disable(&dsi->ddp_comp);
+
+	if (!IS_ERR_OR_NULL(dsi->ddp_comp.wq))
+		destroy_workqueue(dsi->ddp_comp.wq);
 
 	return 0;
 }

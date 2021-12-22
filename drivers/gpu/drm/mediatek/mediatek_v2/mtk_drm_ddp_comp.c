@@ -519,6 +519,67 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_MML_WROT2, MTK_MML_WROT, 2, NULL, 0},
 	{DDP_COMPONENT_MML_WROT3, MTK_MML_WROT, 3, NULL, 0},
 };
+void mtk_irq_time_handle(struct work_struct *data)
+{
+	struct mtk_irq_ts_debug_workqueue *mtk_irq_work =
+		container_of(data, struct mtk_irq_ts_debug_workqueue, work);
+	int i = 0;
+
+	mtk_irq_work->is_busy = true;
+
+	DDPINFO("%s > 500 us, [%d]:\n",
+		mtk_dump_comp_str_id(mtk_irq_work->comp_id), mtk_irq_work->number);
+	for (i = 0; i < MTK_IRQ_TS_MAX && mtk_irq_work->irq_time[i].line != 0; i++)
+		DDPINFO("[%d]%llu ns\n",
+		mtk_irq_work->irq_time[i].line, mtk_irq_work->irq_time[i].ts);
+
+	if (i > 0)
+		DDPINFO("total : %llu ns\n",
+		mtk_irq_work->irq_time[i - 1].ts - mtk_irq_work->irq_time[0].ts);
+
+	for (i = 0; i < MTK_IRQ_TS_MAX; i++) {    //clean
+		mtk_irq_work->irq_time[i].ts = 0;
+		mtk_irq_work->irq_time[i].line = 0;
+	}
+
+	mtk_irq_work->is_busy = false;
+
+}
+
+static int mtk_ddp_comp_irq_work_init(struct mtk_ddp_comp *ddp_comp, int index)
+{
+	int i;
+
+	INIT_WORK(&ddp_comp->ts_works[index].work, mtk_irq_time_handle);
+	ddp_comp->ts_works[index].number = 0;
+	ddp_comp->ts_works[index].is_busy = FALSE;
+	for (i = 0; i < MTK_IRQ_TS_MAX; i++) {
+		ddp_comp->ts_works[index].irq_time[i].ts = 0;
+		ddp_comp->ts_works[index].irq_time[i].line = 0;
+	}
+	return 0;
+}
+
+int mtk_ddp_comp_create_workqueue(struct mtk_ddp_comp *ddp_comp)
+{
+	int i = 0;
+	char wq_buf[64] = {0};
+
+	memset(wq_buf, 0, sizeof(wq_buf));
+	snprintf(wq_buf, sizeof(wq_buf), "mtk_%s_wq", mtk_dump_comp_str_id(ddp_comp->id));
+	DDPMSG("begin mtk_ddp_comp_create %d: %s\n", ddp_comp->id, wq_buf);
+
+	ddp_comp->wq = create_singlethread_workqueue(wq_buf);
+	if (IS_ERR_OR_NULL(ddp_comp->wq)) {
+		DDPPR_ERR("Failed to create dsi workqueue\n");
+		ddp_comp->irq_debug = false;
+		return -ENOMEM;
+	}
+	for (i = 0; i < MTK_IRQ_WORK_MAX; i++)
+		mtk_ddp_comp_irq_work_init(ddp_comp, i);
+	ddp_comp->irq_debug = true;
+	return 0;
+}
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 {

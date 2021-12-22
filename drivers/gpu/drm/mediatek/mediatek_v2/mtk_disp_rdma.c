@@ -232,6 +232,7 @@ struct mtk_disp_rdma_data {
 	bool has_greq_urg_num;
 	bool is_support_34bits;
 	bool dsi_buffer;
+	bool rdma_irq_ts_debug;
 };
 
 struct mtk_rdma_backup_info {
@@ -277,6 +278,14 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
+	int i = 0, j = 0;
+	bool find_work = false;
+	static int work_id;
+
+	If_FIND_WORK(priv->ddp_comp.irq_debug,
+		priv->ddp_comp.ts_works, work_id, find_work, j)
+	IF_DEBUG_IRQ_TS(find_work,
+		priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
@@ -289,28 +298,35 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		DDPIRQ("%s, top clk off\n", __func__);
 		return IRQ_NONE;
 	}
+	IF_DEBUG_IRQ_TS(find_work,
+		priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 	val = readl(rdma->regs + DISP_REG_RDMA_INT_STATUS);
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, rdma->regs_pa, val);
+	IF_DEBUG_IRQ_TS(find_work,
+		priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 	mtk_crtc = rdma->mtk_crtc;
 
 	if (rdma->id == DDP_COMPONENT_RDMA0)
-		DRM_MMP_MARK(rdma0, val, 0);
+		DRM_MMP_MARK(rdma0, rdma->regs_pa, val);
 	else if (rdma->id == DDP_COMPONENT_RDMA1)
-		DRM_MMP_MARK(rdma1, val, 0);
+		DRM_MMP_MARK(rdma1, rdma->regs_pa, val);
 	else if (rdma->id == DDP_COMPONENT_RDMA2)
-		DRM_MMP_MARK(rdma2, val, 0);
+		DRM_MMP_MARK(rdma2, rdma->regs_pa, val);
 	else if (rdma->id == DDP_COMPONENT_RDMA3)
-		DRM_MMP_MARK(rdma3, val, 0);
+		DRM_MMP_MARK(rdma3, rdma->regs_pa, val);
 	else if (rdma->id == DDP_COMPONENT_RDMA4)
-		DRM_MMP_MARK(rdma4, val, 0);
+		DRM_MMP_MARK(rdma4, rdma->regs_pa, val);
 	else if (rdma->id == DDP_COMPONENT_RDMA5)
-		DRM_MMP_MARK(rdma5, val, 0);
+		DRM_MMP_MARK(rdma5, rdma->regs_pa, val);
+	else
+		DRM_MMP_MARK(IRQ, rdma->regs_pa, val);
+	IF_DEBUG_IRQ_TS(find_work,
+		priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 	if (val & 0x18)
 		DRM_MMP_MARK(abnormal_irq,
@@ -321,6 +337,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(rdma), val);
 
 	writel(~val, rdma->regs + DISP_REG_RDMA_INT_STATUS);
+	IF_DEBUG_IRQ_TS(find_work,
+		priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 	if (val & (1 << 0))
 		DDPIRQ("[IRQ] %s: reg update done!\n", mtk_dump_comp_str(rdma));
@@ -329,10 +347,14 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		//set_swpm_disp_work(); /* counting fps for swpm */
 		if (rdma->id == DDP_COMPONENT_RDMA0)
 			DRM_MMP_EVENT_END(rdma0, val, 0);
+		IF_DEBUG_IRQ_TS(find_work,
+			priv->ddp_comp.ts_works[work_id].irq_time, i)
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
 		if (mtk_crtc) {
 			if (mtk_crtc->esd_ctx)
 				atomic_set(&mtk_crtc->esd_ctx->target_time, 0);
+			IF_DEBUG_IRQ_TS(find_work,
+				priv->ddp_comp.ts_works[work_id].irq_time, i)
 			if (rdma->id == DDP_COMPONENT_RDMA0) {
 				unsigned long long rdma_end_time = sched_clock();
 
@@ -342,12 +364,20 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 				(rdma->id == DDP_COMPONENT_RDMA0 ||
 					rdma->id == DDP_COMPONENT_RDMA3)) {
+				IF_DEBUG_IRQ_TS(find_work,
+					priv->ddp_comp.ts_works[work_id].irq_time, i)
 				mtk_crtc->pf_time = ktime_get();
 				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
 				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
+				IF_DEBUG_IRQ_TS(find_work,
+					priv->ddp_comp.ts_works[work_id].irq_time, i)
 			}
 		}
+		IF_DEBUG_IRQ_TS(find_work,
+			priv->ddp_comp.ts_works[work_id].irq_time, i)
 		mtk_drm_refresh_tag_end(&priv->ddp_comp);
+		IF_DEBUG_IRQ_TS(find_work,
+			priv->ddp_comp.ts_works[work_id].irq_time, i)
 	}
 
 	if (val & (1 << 1)) {
@@ -355,14 +385,20 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			DRM_MMP_EVENT_START(rdma0, val, 0);
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
+		IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
 		MMPathTraceDRM(rdma);
+		IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			if (rdma->id == DDP_COMPONENT_RDMA0) {
 				atomic_set(&mtk_crtc->pf_event, 1);
 				wake_up_interruptible(&mtk_crtc->present_fence_wq);
+				IF_DEBUG_IRQ_TS(find_work,
+					priv->ddp_comp.ts_works[work_id].irq_time, i)
 			}
+			IF_DEBUG_IRQ_TS(find_work,
+				priv->ddp_comp.ts_works[work_id].irq_time, i)
 		}
 	}
 
@@ -414,6 +450,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			}
 			atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 		}
+		IF_DEBUG_IRQ_TS(find_work,
+			priv->ddp_comp.ts_works[work_id].irq_time, i)
 	}
 
 	/* TODO: check if this is not necessary */
@@ -423,6 +461,10 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 out:
 	mtk_drm_top_clk_isr_put("rdma_irq");
+	IF_DEBUG_IRQ_TS(find_work,
+		priv->ddp_comp.ts_works[work_id].irq_time, i)
+
+	IF_QUEUE_WORK(find_work, priv->ddp_comp, work_id, i)
 
 	return ret;
 }
@@ -1551,6 +1593,8 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
+	if (priv->data->rdma_irq_ts_debug)
+		mtk_ddp_comp_create_workqueue(&priv->ddp_comp);
 
 	DDPINFO("%s-\n", __func__);
 
@@ -1563,6 +1607,9 @@ static int mtk_disp_rdma_remove(struct platform_device *pdev)
 
 	component_del(&pdev->dev, &mtk_disp_rdma_component_ops);
 	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
+
+	if (!IS_ERR_OR_NULL(priv->ddp_comp.wq))
+		destroy_workqueue(priv->ddp_comp.wq);
 
 	return 0;
 }
@@ -1639,6 +1686,7 @@ static const struct mtk_disp_rdma_data mt6895_rdma_driver_data = {
 	.has_greq_urg_num = true,
 	.is_support_34bits = true,
 	.dsi_buffer = true,
+	.rdma_irq_ts_debug = true,
 };
 
 static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
