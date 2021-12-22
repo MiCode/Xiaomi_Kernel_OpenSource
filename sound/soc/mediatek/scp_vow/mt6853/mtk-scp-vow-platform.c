@@ -3,10 +3,9 @@
 // Copyright (C) 2019 MediaTek Inc.
 
 #include "mtk-scp-vow-platform.h"
-
-#include "mt6877-afe-common.h"
+#include "mt6853-afe-common.h"
 
 int get_scp_vow_memif_platform_id(void)
 {
-	return MT6877_MEMIF_AWB;
+	return MT6853_MEMIF_AWB;
 }
