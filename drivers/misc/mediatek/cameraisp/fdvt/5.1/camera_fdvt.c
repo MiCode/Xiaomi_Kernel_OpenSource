@@ -286,7 +286,7 @@ static struct tasklet_table fdvt_tasklet[FDVT_IRQ_TYPE_AMOUNT] = {
 
 //struct wake_lock fdvt_wake_lock;
 #ifdef CONFIG_PM_SLEEP
-struct wakeup_source fdvt_wake_lock;
+//struct wakeup_source fdvt_wake_lock;
 #endif /* CONFIG_PM_SLEEP */
 
 static DEFINE_MUTEX(fdvt_mutex);
@@ -3977,7 +3977,7 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		INIT_WORK(&fdvt_info.schedule_fdvt_work, fdvt_schedule_work);
 
 #ifdef CONFIG_PM_SLEEP
-		wakeup_source_init(&fdvt_wake_lock, "fdvt_lock_wakelock");
+		//wakeup_source_init(&fdvt_wake_lock, "fdvt_lock_wakelock");
 #endif
 		// wake_lock_init(
 		// &fdvt_wake_lock, WAKE_LOCK_SUSPEND, "fdvt_lock_wakelock");
