@@ -3750,7 +3750,7 @@
 			emi-addr = <0>;
 			emi-size = <0x100000>;
 			emi-alignment = <0x100000>;
-			emi-max-addr = <0xc0000000>;
+			emi-max-addr = <0x80000000>;
 		};
 
 		watchdog: watchdog@1c007000 {
