@@ -155,6 +155,10 @@ static int __cg_enable_hwv(struct clk_hw *hw, bool inv)
 
 	profile_time[2] = 0;
 	profile_time[3] = 0;
+
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(cg->hwv_regmap, cg->hwv_set_ofs, &val);
+
 	regmap_write(cg->hwv_regmap, cg->hwv_set_ofs,
 			BIT(cg->bit));
 	profile_time[0] = sched_clock();
@@ -238,6 +242,9 @@ static void mtk_cg_disable_hwv(struct clk_hw *hw)
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val;
 	int i = 0;
+
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(cg->hwv_regmap, cg->hwv_clr_ofs, &val);
 
 	regmap_write(cg->hwv_regmap, cg->hwv_clr_ofs, BIT(cg->bit));
 

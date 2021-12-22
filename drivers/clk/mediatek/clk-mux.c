@@ -122,6 +122,10 @@ static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 
 	profile_time[2] = 0;
 	profile_time[3] = 0;
+
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(mux->hwv_regmap, mux->data->hwv_set_ofs, &val);
+
 	regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
 			BIT(mux->data->gate_shift));
 	profile_time[0] = sched_clock();
@@ -190,6 +194,9 @@ static void mtk_clk_hwv_mux_disable(struct clk_hw *hw)
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 val;
 	int i = 0;
+
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(mux->hwv_regmap, mux->data->hwv_clr_ofs, &val);
 
 	regmap_write(mux->hwv_regmap, mux->data->hwv_clr_ofs,
 			BIT(mux->data->gate_shift));
