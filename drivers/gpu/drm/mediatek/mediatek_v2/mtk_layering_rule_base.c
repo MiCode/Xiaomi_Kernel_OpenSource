@@ -2620,7 +2620,9 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 				if ((l_count >= 2))
 					mode = MML_MODE_MDP_DECOUPLE;
 				else if ((mtk_crtc_is_frame_trigger_mode(crtc) &&
-					!mtk_crtc->mml_cmd_ir))
+					!mtk_crtc->mml_cmd_ir &&
+					!mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_MML_SUPPORT_CMD_MODE)))
 					mode = MML_MODE_MML_DECOUPLE;
 			}
 
