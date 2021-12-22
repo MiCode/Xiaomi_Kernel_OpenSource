@@ -485,7 +485,7 @@ static int mtk_scp_ultra_pcm_start(struct snd_pcm_substream *substream)
 	struct mtk_base_afe_irq *irqs_ul = &afe->irqs[irq_id_ul];
 	const struct mtk_base_irq_data *irq_data_ul = irqs_ul->irq_data;
 	int counter;
-	int fs;
+
 	/* Set dl&ul irq target to scp */
 	set_afe_dl_irq_target(true);
 	set_afe_ul_irq_target(true);
@@ -496,20 +496,6 @@ static int mtk_scp_ultra_pcm_start(struct snd_pcm_substream *substream)
 			irq_data_dl->irq_cnt_maskbit
 			<< irq_data_dl->irq_cnt_shift,
 			counter << irq_data_dl->irq_cnt_shift);
-
-	/* set dl irq fs */
-	fs = afe->irq_fs(substream, param_config.rate_out);
-	if (fs < 0) {
-		dev_info(scp_ultra->dev, "%s() dl fs fail, rate=%d, fs=%d\n",
-			 __func__,
-			 param_config.rate_out,
-			 fs);
-		return -EINVAL;
-	}
-	regmap_update_bits(afe->regmap, irq_data_dl->irq_fs_reg,
-			irq_data_dl->irq_fs_maskbit
-			<< irq_data_dl->irq_fs_shift,
-			fs << irq_data_dl->irq_fs_shift);
 
 	/* start dl memif */
 	regmap_update_bits(afe->regmap,
@@ -523,20 +509,6 @@ static int mtk_scp_ultra_pcm_start(struct snd_pcm_substream *substream)
 			   irq_data_ul->irq_cnt_maskbit
 			   << irq_data_ul->irq_cnt_shift,
 			   counter << irq_data_ul->irq_cnt_shift);
-
-	/* set ul irq fs */
-	fs = afe->irq_fs(substream, param_config.rate_in);
-	if (fs < 0) {
-		dev_info(scp_ultra->dev, "%s() ul fs fail, rate=%d, fs=%d\n",
-			 __func__,
-			 param_config.rate_out,
-			 fs);
-		return -EINVAL;
-	}
-	regmap_update_bits(afe->regmap, irq_data_ul->irq_fs_reg,
-			  irq_data_ul->irq_fs_maskbit
-			  << irq_data_ul->irq_fs_shift,
-			  fs << irq_data_ul->irq_fs_shift);
 
 	/* Start ul memif */
 	regmap_update_bits(afe->regmap,
@@ -666,7 +638,6 @@ static int mtk_scp_ultra_pcm_hw_trigger(struct snd_pcm_substream *substream,
 
 static int mtk_scp_ultra_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
-	int ret = 0;
 	struct snd_soc_component *component =
 		snd_soc_rtdcom_lookup(rtd, ULTRA_PCM_NAME);
 	struct mtk_base_scp_ultra *scp_ultra =
@@ -678,15 +649,13 @@ static int mtk_scp_ultra_pcm_new(struct snd_soc_pcm_runtime *rtd)
 				      ultra_platform_kcontrols,
 				      ARRAY_SIZE(ultra_platform_kcontrols));
 
-	ultra_ipi_register(ultra_ipi_rx_internal, ultra_ipi_rceive_ack);
-	audio_ipi_client_ultra_init();
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 	scp_A_register_notify(&usnd_scp_recover_notifier);
 #endif
 	ultra_suspend_lock = aud_wake_lock_init(NULL, "ultra wakelock");
 	pcm_dump_switch = false;
 	scp_ultra->usnd_state = SCP_ULTRA_STATE_IDLE;
-	return ret;
+	return 0;
 }
 
 static const struct snd_pcm_ops mtk_scp_ultra_pcm_ops = {
@@ -705,6 +674,13 @@ const struct snd_soc_component_driver mtk_scp_ultra_pcm_platform = {
 };
 EXPORT_SYMBOL_GPL(mtk_scp_ultra_pcm_platform);
 
+static int ultra_ipi_init(void)
+{
+	ultra_ipi_register(ultra_ipi_rx_internal, ultra_ipi_rceive_ack);
+	audio_ipi_client_ultra_init();
+	return 0;
+}
+late_initcall(ultra_ipi_init);
 
 MODULE_DESCRIPTION("Mediatek scp ultra platform driver");
 MODULE_AUTHOR("Youwei Dong <Youwei.Dong@mediatek.com>");
