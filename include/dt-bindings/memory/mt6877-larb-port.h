@@ -272,23 +272,12 @@
 #define MTK_PHYS_ADDR_BITS			34
 #endif
 
-/* +++ please Pay attention +++ */
-// for earily migration to bypass the build error
-// force to define MTK_IOMMU_M4U_COUNT as 2
-#define MTK_IOMMU_M4U_COUNT                                    2
-#if defined(CONFIG_FPGA_EARLY_PORTING) || defined(CONFIG_MTK_APUSYS_SUPPORT)
-#define MTK_IOMMU_M4U_COUNT                                    1                      
-#endif
-
-// once drivers/misc/mediatek/apusys/ apusys is ready. when there will be a build error.
-// please return to the original define as following
 /* the total number of iommu(include mm and vpu) */
-//#if defined(CONFIG_FPGA_EARLY_PORTING) || !defined(CONFIG_MTK_APUSYS_SUPPORT)
-//#define MTK_IOMMU_M4U_COUNT			1
-//#else
-//#define MTK_IOMMU_M4U_COUNT			2
-//#endif
-/* --- please Pay attention --- */
+#if defined(CONFIG_FPGA_EARLY_PORTING) || !defined(CONFIG_MTK_APUSYS_SUPPORT)
+#define MTK_IOMMU_M4U_COUNT			1
+#else
+#define MTK_IOMMU_M4U_COUNT			2
+#endif
 
 /* iommu hw register define */
 #define MTK_IOMMU_DEBUG_REG_NR			(6)
