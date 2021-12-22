@@ -5036,7 +5036,9 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				queue_work(ctx->composer_wq, &frame_work->work);
 			}
 
-			if (watchdog_scenario(ctx) && initial_frame)
+			if (watchdog_scenario(ctx) &&
+			    initial_frame &&
+			    !(req->ctx_link_update & (1 << stream_id)))
 				mtk_ctx_watchdog_start(ctx, 4);
 
 			dev_dbg(cam->dev, "%s:ctx:%d:req:%d(%s) enqueue ctx_used:0x%x,streaming_ctx:0x%x,job cnt:%d, running(%d)\n",
