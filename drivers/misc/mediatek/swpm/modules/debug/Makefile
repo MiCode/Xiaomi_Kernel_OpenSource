@@ -5,6 +5,9 @@ obj-$(CONFIG_MTK_SWPM_MODULE) += v1/
 ifeq ($(CONFIG_MTK_SWPM_MT6853),m)
 obj-$(CONFIG_MTK_SWPM_MT6853) += v6853/
 endif
+ifeq ($(CONFIG_MTK_SWPM_MT6855),m)
+obj-$(CONFIG_MTK_SWPM_MT6855) += v6855/
+endif
 ifeq ($(CONFIG_MTK_SWPM_MT6873),m)
 obj-$(CONFIG_MTK_SWPM_MT6873) += v6873/
 endif
