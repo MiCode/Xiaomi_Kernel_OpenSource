@@ -303,6 +303,15 @@ page_owner=on loop.max_part=7";
 		};
 	};
 
+	regulator_vibrator {
+		compatible = "regulator-vibrator";
+		min-volt = <2300000>;
+		max-volt = <3200000>;
+		min-limit = <15>;
+		max-limit = <15000>;
+		vib-supply = <&mt_pmic_vibr_ldo_reg>;
+	};
+
 	mtk_lpm: mtk_lpm {
 		compatible = "mediatek,mtk-lpm";
 		#address-cells = <2>;
