@@ -133,4 +133,4 @@ obj-$(CONFIG_MACH_MT6768) += cm_mgr_v1/
 
 
 endif
-# obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
+obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/

@@ -22,8 +22,12 @@ ifeq (true, $(QOS_BOUND_DETECT))
 ccflags-y += -DQOS_BOUND_DETECT
 endif
 endif
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
+
+ifneq (,$(filter $(CONFIG_MACH_MT6781), y))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/mt6781/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
+endif
 
 ifeq ($(CONFIG_MEDIATEK_EMI),y)
 ccflags-y += -DUSE_MEDIATEK_EMI

@@ -26,7 +26,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
+ifneq (,$(filter $(CONFIG_MACH_MT6781), y))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/mt6781/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
+endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/
 ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include/
 ccflags-y += -I$(srctree)/include/memory/mediatek/
