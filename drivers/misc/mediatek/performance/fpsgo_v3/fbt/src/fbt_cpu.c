@@ -582,6 +582,9 @@ static struct fbt_thread_loading *fbt_list_loading_add(int pid,
 	atomic_t *loading_cl;
 	int i, err_exit = 0;
 
+	if (cluster_num <= 0)
+		return NULL;
+
 	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
 	if (!obj) {
 		FPSGO_LOGE("ERROR OOM\n");
@@ -4006,6 +4009,9 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 
 	spin_lock_irqsave(&loading_slock, flags2);
 	list_for_each_entry_safe(pos, next, &loading_list, entry) {
+		if (pos == NULL || pos->loading_cl == NULL)
+			continue;
+
 		if (atomic_read(&pos->last_cb_ts) != 0) {
 			loading_result =
 				fbt_est_loading(new_ts,
@@ -4033,7 +4039,8 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 				goto SKIP;
 
 			for (i = 0; i < cluster_num; i++) {
-				if (clus_status[i])
+				if (clus_status[i] || pos->lastest_loading_cl[idx] == NULL ||
+					pos->lastest_obv_cl[idx] == NULL)
 					continue;
 
 				loading_result =
@@ -4956,6 +4963,9 @@ struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
 	unsigned long flags;
 	atomic_t *loading_cl;
 	int i, err_exit = 0;
+
+	if (cluster_num <= 0)
+		return NULL;
 
 	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
 	if (!obj) {
