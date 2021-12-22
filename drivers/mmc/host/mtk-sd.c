@@ -46,6 +46,7 @@
 #endif
 
 #include "cqhci.h"
+#include "../../misc/mediatek/include/mt-plat/mtk_boot_common.h"
 
 #define MAX_BD_NUM          1024
 
@@ -473,6 +474,13 @@ struct msdc_host {
 	struct msdc_tune_para def_tune_para; /* default tune setting */
 	struct msdc_tune_para saved_tune_para; /* tune result of CMD21/CMD19 */
 	struct cqhci_host *cq_host;
+};
+
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
 };
 
 #ifdef CONFIG_MACH_MT8173
@@ -2560,6 +2568,34 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 #endif
 }
 
+static int check_boot_type(struct platform_device *pdev)
+{
+	struct tag_bootmode *tags = NULL;
+	struct device_node *node = NULL;
+	unsigned long size = 0;
+	int ret = BOOTDEV_UFS;
+
+	node = of_find_node_by_path("/chosen");
+	if (!node)
+		node = of_find_node_by_path("/chosen@0");
+
+	if (node) {
+		tags = (struct tag_bootmode *)of_get_property(node,
+				"atag,boot", (int *)&size);
+	} else
+		dev_info(&pdev->dev, "of_chosen not found\n");
+
+	if (tags) {
+		ret = tags->boottype;
+		if ((ret > 2) || (ret < 0))
+			ret = BOOTDEV_SDMMC;
+	} else {
+		dev_info(&pdev->dev, "atag,boot is not found\n");
+	}
+
+	return ret;
+}
+
 static int msdc_drv_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -2569,6 +2605,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	struct arm_smccc_res smccc_res;
 #endif
 	int ret;
+	int boot_type = 0;
+	int host_index = -1;
 
 #ifdef CONFIG_MACH_MT8173
 	if (msdc_top_lock_inited == false) {
@@ -2579,6 +2617,17 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No DT found\n");
 		return -EINVAL;
+	}
+
+	/* Add check_boot_type check and return ENODEV if not eMMC boot */
+	if (device_property_read_u32(&pdev->dev, "index", &host_index) < 0) {
+		dev_info(&pdev->dev, "index property is missing \n");
+		host_index = -1;
+	}
+	boot_type = check_boot_type(pdev);
+	if ((boot_type != BOOTDEV_SDMMC) && (host_index == 0)) {
+		dev_info(&pdev->dev, "no eMMC boot\n");
+		return -ENODEV;
 	}
 
 	/* Allocate MMC host for this device */
