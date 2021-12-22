@@ -32,6 +32,12 @@ static const struct mtk_gate_regs vde21_cg_regs = {
 };
 
 static const struct mtk_gate_regs vde22_cg_regs = {
+	.set_ofs = 0x200,
+	.clr_ofs = 0x204,
+	.sta_ofs = 0x200,
+};
+
+static const struct mtk_gate_regs vde23_cg_regs = {
 	.set_ofs = 0x8,
 	.clr_ofs = 0xC,
 	.sta_ofs = 0x8,
@@ -64,6 +70,15 @@ static const struct mtk_gate_regs vde22_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
 	}
 
+#define GATE_VDE23(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &vde23_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+	}
+
 static const struct mtk_gate vde2_clks[] = {
 	/* VDE20 */
 	GATE_VDE20(CLK_VDE2_VDEC_CKEN, "vde2_vdec_cken",
@@ -76,7 +91,12 @@ static const struct mtk_gate vde2_clks[] = {
 	GATE_VDE21(CLK_VDE2_MINI_MDP_CKEN_CFG_RG, "vde2_mini_mdp",
 			"vdec_ck"/* parent */, 0),
 	/* VDE22 */
-	GATE_VDE22(CLK_VDE2_LARB1_CKEN, "vde2_larb1_cken",
+	GATE_VDE22(CLK_VDE2_LAT_CKEN, "vde2_lat_cken",
+			"vdec_ck"/* parent */, 0),
+	GATE_VDE22(CLK_VDE2_LAT_CKEN_ENG, "vde2_lat_cken_eng",
+			"vdec_ck"/* parent */, 8),
+	/* VDE23 */
+	GATE_VDE23(CLK_VDE2_LARB1_CKEN, "vde2_larb1_cken",
 			"vdec_ck"/* parent */, 0),
 };
 
