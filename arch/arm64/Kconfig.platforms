@@ -479,6 +479,7 @@ config MACH_MT6833
 	select CRYPTO_SHA2_ARM64_CE
 	select CRYPTO_AES_ARM64_CE_BLK
 	select MFD_SYSCON
+	select MTK_TIMER
 	select MEDIATEK_MC if MEMORY
 	select MTK_ES_REG
 	select MTK_CQDMA
