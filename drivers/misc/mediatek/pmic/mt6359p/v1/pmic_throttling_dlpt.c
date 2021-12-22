@@ -810,7 +810,7 @@ int do_ptim_internal(bool isSuspend, unsigned int *bat,
 	unsigned int vbat_reg = 0;
 	unsigned int count_adc_imp = 0;
 	int ret = 0;
-#if !(defined (CONFIG_MACH_MT6833) || defined (CONFIG_MACH_MT6877) || defined (CONFIG_MACH_MT6893))
+#if !(defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877))
 	unsigned char *r_ratio = NULL;
 #endif
 
@@ -833,7 +833,7 @@ int do_ptim_internal(bool isSuspend, unsigned int *bat,
 	pmic_set_hk_reg_value(PMIC_AUXADC_IMP_EN, 0);
 
 //TODO MIgration
-#if defined (CONFIG_MACH_MT6833) || defined (CONFIG_MACH_MT6877) || defined (CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877)
 	*bat = (vbat_reg * 3 * 18000) / 32768;
 #else
 	r_ratio = auxadc_get_r_ratio(AUXADC_BATADC);
