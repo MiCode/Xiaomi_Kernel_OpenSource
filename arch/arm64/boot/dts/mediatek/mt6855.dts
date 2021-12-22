@@ -3570,7 +3570,7 @@
 				"M4U_PORT_VDEC_RG_CTRL_DMA",
 				"M4U_PORT_VDEC_UFO_ENC";
 			mediatek,larbs = <&smi_larb4>;
-			interrupts = <GIC_SPI 561 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 488 IRQ_TYPE_LEVEL_HIGH 0>;
 			//dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_VDE0>;
@@ -3605,7 +3605,7 @@
 				<&disp_iommu M4U_LARB7_PORT11>,
 				<&disp_iommu M4U_LARB7_PORT12>;
 			mediatek,larbs = <&smi_larb7>;
-			interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 494 IRQ_TYPE_LEVEL_HIGH 0>;
 			//dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_VEN0>;
