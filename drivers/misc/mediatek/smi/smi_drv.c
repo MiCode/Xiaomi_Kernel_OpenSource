@@ -335,7 +335,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u, user=%s\n",
 			id, SMI_DEV_NUM, user);
 		return -EINVAL;
-	} else if (id >= SMI_LARB_NUM) {
+	} else if (id == SMI_LARB_NUM) {
 		smi_unit_disable_unprepare(id);
 		return 0;
 	} else if (id < SMI_LARB_NUM) {
