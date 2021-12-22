@@ -26,7 +26,18 @@
 #ifndef DISABLE_PBM_FEATURE
 #include <linux/iio/consumer.h>
 #include <mtk_gpufreq.h>
-//#include <mach/mtk_thermal.h> //TODO: include mtk_thermal.h later
+#if (defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6833))
+//#include <mach/upmu_sw.h>
+//#include <mt-plat/upmu_common.h>
+#include <mt-plat/mtk_auxadc_intf.h>
+#include <mtk_cpufreq_api.h>
+#ifdef CONFIG_THERMAL
+#include <mach/mtk_thermal.h>
+#endif
+#endif
 #include <mtk_ppm_api.h>
 #include <mtk_dynamic_loading_throttling.h>
 #endif
@@ -34,6 +45,12 @@
 #ifndef DISABLE_PBM_FEATURE
 static bool mt_pbm_debug;
 static int g_pbm_stop;
+
+static int mt_pbm_log_divisor;
+static int mt_pbm_log_counter;
+
+
+
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -123,6 +140,25 @@ mt_gpufreq_set_power_limit_by_pbm(unsigned int limited_power)
 	pr_warn_ratelimited("%s not ready\n", __func__);
 }
 
+#if (defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6833))
+u32 __attribute__ ((weak))
+spm_vcorefs_get_MD_status(void)
+{
+	pr_notice("%s not ready\n", __func__);
+	return 0;
+}
+
+static int get_battery_volt(void)
+{
+	return pmic_get_auxadc_value(AUXADC_LIST_BATADC);
+	/* return 3900; */
+}
+
+
+#else
 static int get_battery_volt(void)
 {
 	union power_supply_propval prop;
@@ -144,7 +180,7 @@ static int get_battery_volt(void)
 
 	return prop.intval / 1000;
 }
-
+#endif
 unsigned int ma_to_mw(unsigned int val)
 {
 	unsigned int bat_vol = 0;
@@ -265,6 +301,16 @@ static void pbm_allocate_budget_manager(void)
 		mutex_unlock(&pbm_table_lock);
 	}
 
+	if (mt_pbm_log_divisor) {
+		mt_pbm_log_counter = (mt_pbm_log_counter + 1) %
+			mt_pbm_log_divisor;
+
+		if (mt_pbm_log_counter == 1)
+			mt_pbm_debug = 1;
+		else
+			mt_pbm_debug = 0;
+	}
+
 	/* no any resource can allocate */
 	if (dlpt == 0) {
 		if (mt_pbm_debug)
@@ -322,28 +368,37 @@ static void pbm_allocate_budget_manager(void)
 	hpf_ctrl.to_gpu_budget = togpu;
 
 	if (mt_pbm_debug) {
-		pr_info
-("(C/G)=%d,%d=>(D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d(Multi:%d),%d\n",
-cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu,
-multiple, cpu_lower_bound);
+		pr_info("(C/G)=%d,%d=>(D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d(Multi:%d),%d\n",
+			cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu,
+			multiple, cpu_lower_bound);
 	} else {
+	#if (defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6833))
+		if (((abs(pre_tocpu - tocpu) >= 100) && cpu > tocpu) ||
+			((abs(pre_togpu - togpu) >= 30) && gpu > togpu)) {
+	#else
 		if (((abs(pre_tocpu - tocpu) >= 10) && cpu > tocpu) ||
 			((abs(pre_togpu - togpu) >= 10) && gpu > togpu)) {
+	#endif
 			pr_info_ratelimited
-("(C/G)=%d,%d=>(D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d(Multi:%d),%d\n",
-cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu,
-multiple, cpu_lower_bound);
+			("(C/G)=%d,%d=>(D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d(Multi:%d),%d\n",
+				cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu,
+				multiple, cpu_lower_bound);
 			pre_tocpu = tocpu;
 			pre_togpu = togpu;
 		} else if ((cpu > tocpu) || (gpu > togpu)) {
 			pr_warn_ratelimited
-("(C/G)=%d,%d => (D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d (Multi:%d),%d\n",
-cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu, multiple, cpu_lower_bound);
+				("(C/G)=%d,%d => (D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d (Multi:%d),%d\n",
+				cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu,
+				multiple, cpu_lower_bound);
 		} else {
 			pre_tocpu = tocpu;
 			pre_togpu = togpu;
 		}
 	}
+
 }
 
 static bool pbm_func_enable_check(void)
@@ -693,6 +748,57 @@ static ssize_t mt_pbm_debug_proc_write
 
 	return count;
 }
+#if (defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6833))
+static int mt_pbm_debug_log_reduc_proc_show(struct seq_file *m, void *v)
+{
+	if (mt_pbm_log_divisor) {
+		seq_puts(m, "pbm debug enabled\n");
+		seq_printf(m, "The divisor number is :%d\n",
+			mt_pbm_log_divisor);
+	} else {
+		seq_puts(m, "Log reduction disabled\n");
+	}
+
+	return 0;
+}
+
+static ssize_t mt_pbm_debug_log_reduc_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int len = 0;
+	int debug = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	/* if (sscanf(desc, "%d", &debug) == 1) { */
+	if (kstrtoint(desc, 10, &debug) == 0) {
+		if (debug == 0) {
+			mt_pbm_log_divisor = 0;
+			mt_pbm_debug = 0;
+		} else if (debug > 0) {
+			mt_pbm_log_divisor = debug;
+			mt_pbm_debug = 1;
+			mt_pbm_log_counter = 0;
+		} else {
+			pr_notice("Should be >=0 [0:disable,other:enable]\n");
+		}
+	} else
+		pr_notice("Should be >=0 [0:disable,other:enable]\n");
+
+	return count;
+}
+
+
+#endif
+
+
 
 static int mt_pbm_stop_proc_show(struct seq_file *m, void *v)
 {
@@ -721,8 +827,11 @@ static ssize_t mt_pbm_stop_proc_write
 		g_pbm_stop = debug;
 		if (debug == 0)
 			g_pbm_stop = 0;
+
 		else if (debug == 1)
+
 			g_pbm_stop = 1;
+
 		else
 			pr_notice("Should be [0:enable pbm, 1:stop pbm]\n");
 	} else
@@ -812,7 +921,12 @@ static const struct file_operations mt_ ## name ## _proc_fops = {	\
 PROC_FOPS_RW(pbm_debug);
 
 PROC_FOPS_RW(pbm_stop);
-
+#if (defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6833))
+PROC_FOPS_RW(pbm_debug_log_reduc);
+#endif
 PROC_FOPS_RW(pbm_manual_mode);
 
 static int mt_pbm_create_procfs(void)
@@ -828,6 +942,12 @@ static int mt_pbm_create_procfs(void)
 	const struct pentry entries[] = {
 		PROC_ENTRY(pbm_debug),
 		PROC_ENTRY(pbm_stop),
+#if (defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6833))
+	PROC_ENTRY(pbm_debug_log_reduc),
+#endif
 		PROC_ENTRY(pbm_manual_mode),
 	};
 

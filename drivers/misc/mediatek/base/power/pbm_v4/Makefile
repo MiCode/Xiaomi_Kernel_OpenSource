@@ -41,6 +41,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/pbm_v4/$(PDIR
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(PDIR)/inc/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
-obj-y += mtk_pbm.o
+obj-$(CONFIG_MTK_PBM) += mtk_pbm.o
 
 endif
