@@ -93,14 +93,10 @@ struct subsys {
 };
 
 static DEFINE_SPINLOCK(clk_ops_lock);
-static DEFINE_SPINLOCK(mtcmos_ops_lock);
 
 #define mtk_clk_lock(flags)	spin_lock_irqsave(&clk_ops_lock, flags)
 #define mtk_clk_unlock(flags)	\
 	spin_unlock_irqrestore(&clk_ops_lock, flags)
-#define mtk_mtcmos_lock(flags)	spin_lock_irqsave(&mtcmos_ops_lock, flags)
-#define mtk_mtcmos_unlock(flags)	\
-	spin_unlock_irqrestore(&mtcmos_ops_lock, flags)
 
 /*static struct subsys_ops general_sys_ops;*/
 

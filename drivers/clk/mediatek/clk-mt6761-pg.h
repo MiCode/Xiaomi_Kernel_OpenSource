@@ -7,6 +7,12 @@
 #ifndef __DRV_CLK_MT6761_PG_H
 #define __DRV_CLK_MT6761_PG_H
 
+static DEFINE_SPINLOCK(mtcmos_ops_lock);
+
+#define mtk_mtcmos_lock(flags)	spin_lock_irqsave(&mtcmos_ops_lock, flags)
+#define mtk_mtcmos_unlock(flags)	\
+	spin_unlock_irqrestore(&mtcmos_ops_lock, flags)
+
 enum subsys_id {
 	SYS_MD1 = 0,
 	SYS_CONN = 1,
