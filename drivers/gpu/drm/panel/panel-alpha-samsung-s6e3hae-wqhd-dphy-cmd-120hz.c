@@ -176,7 +176,7 @@ module_exit(_lcm_i2c_exit);
 #define HACT_FHDP		1080
 #define VACT_FHDP		2400
 
-static char bl_tb0[] = {0x51, 0x3, 0xff};
+static atomic_t current_backlight;
 
 #define SUPPORT_RES_SWITCH 1
 #define PANEL_2K 1
@@ -505,6 +505,9 @@ static void push_table(struct lcm *ctx, struct LCM_setting_table *table, unsigne
 
 static void lcm_panel_init(struct lcm *ctx)
 {
+	char bl_tb[] = {0x51, 0x07, 0xff};
+	unsigned int level = 0;
+
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->reset_gpio)) {
@@ -512,6 +515,7 @@ static void lcm_panel_init(struct lcm *ctx)
 			__func__, PTR_ERR(ctx->reset_gpio));
 		return;
 	}
+
 	gpiod_set_value(ctx->reset_gpio, 0);
 	udelay(15 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
@@ -529,6 +533,11 @@ static void lcm_panel_init(struct lcm *ctx)
 		push_table(ctx, mode_fhdp_setting,
 			sizeof(mode_fhdp_setting) / sizeof(struct LCM_setting_table));
 
+	level = atomic_read(&current_backlight);
+	bl_tb[1] = (level >> 8) & 0x7;
+	bl_tb[2] = level & 0xFF;
+	lcm_dcs_write(ctx, bl_tb, ARRAY_SIZE(bl_tb));
+
 	if (ctx->dynamic_fps == 60) {
 		push_table(ctx, mode_60hz_setting,
 			sizeof(mode_60hz_setting) / sizeof(struct LCM_setting_table));
@@ -537,8 +546,8 @@ static void lcm_panel_init(struct lcm *ctx)
 			sizeof(mode_120hz_setting) / sizeof(struct LCM_setting_table));
 	}
 
-
-	pr_info("%s-\n", __func__);
+	pr_info("%s- wqhd:%d,mode:%u,bl:%u\n",
+		__func__, ctx->wqhd_en, ctx->dynamic_fps, level);
 }
 
 static int lcm_disable(struct drm_panel *panel)
@@ -1015,16 +1024,15 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 {
 	char bl_tb[] = {0x51, 0x07, 0xff};
 
-	if (level) {
-		bl_tb0[1] = (level >> 8) & 0xFF;
-		bl_tb0[2] = level & 0xFF;
-	}
-	bl_tb[1] = (level >> 8) & 0xFF;
+	bl_tb[1] = (level >> 8) & 0x7;
 	bl_tb[2] = level & 0xFF;
 	if (!cb)
 		return -1;
-	pr_info("%s %d %d %d\n", __func__, level, bl_tb[1], bl_tb[2]);
 	cb(dsi, handle, bl_tb, ARRAY_SIZE(bl_tb));
+
+	atomic_set(&current_backlight, level);
+
+	pr_info("%s %d %d %d\n", __func__, level, bl_tb[1], bl_tb[2]);
 	return 0;
 }
 
@@ -1332,6 +1340,8 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		}
 		devm_gpiod_put(dev, ctx->bias_neg);
 	}
+
+	atomic_set(&current_backlight, 4095);
 	ctx->prepared = true;
 	ctx->enabled = true;
 	ctx->dynamic_fps = 120;

@@ -42,7 +42,7 @@
 #include <linux/i2c.h>
 //#include "lcm_i2c.h"
 
-static char bl_tb0[] = {0x51, 0x3, 0xff};
+static atomic_t current_backlight;
 
 //TO DO: You have to do that remove macro BYPASSI2C and solve build error
 //otherwise voltage will be unstable
@@ -318,7 +318,7 @@ static struct LCM_setting_table init_setting[] = {
 	{0xB0, 01, {0x0D}},
 	{0x94, 01, {0x60}},
 	{0x53, 01, {0x28}},
-	{0x51, 02, {0x03, 0xFF}},
+	{0x51, 02, {0x0, 0x0}},
 	{0xF7, 01, {0x0F}},
 	{0xF0, 02, {0xA5, 0xA5}},
 
@@ -357,6 +357,9 @@ static void push_table(struct s6e3hae_lcm *ctx, struct LCM_setting_table *table,
 
 static void lcm_panel_init(struct s6e3hae_lcm *ctx)
 {
+	char bl_tb[] = {0x51, 0x07, 0xff};
+	unsigned int level = 0;
+
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->reset_gpio)) {
@@ -364,6 +367,7 @@ static void lcm_panel_init(struct s6e3hae_lcm *ctx)
 			__func__, PTR_ERR(ctx->reset_gpio));
 		return;
 	}
+
 	gpiod_set_value(ctx->reset_gpio, 0);
 	udelay(15 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
@@ -375,7 +379,13 @@ static void lcm_panel_init(struct s6e3hae_lcm *ctx)
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 	push_table(ctx, init_setting, sizeof(init_setting) / sizeof(struct LCM_setting_table));
-	pr_info("%s-\n", __func__);
+
+	level = atomic_read(&current_backlight);
+	bl_tb[1] = (level >> 8) & 0x7;
+	bl_tb[2] = level & 0xFF;
+	lcm_dcs_write(ctx, bl_tb, ARRAY_SIZE(bl_tb));
+
+	pr_info("%s-, bl:%u\n", __func__, level);
 }
 
 static int s6e3hae_lcm_disable(struct drm_panel *panel)
@@ -562,11 +572,11 @@ static const struct drm_display_mode performence_mode_fhdp = {
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 680,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = 70200,
@@ -613,11 +623,11 @@ static struct mtk_panel_params ext_params = {
 static struct mtk_panel_params ext_params_120hz = {
 	.pll_clk = 680,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = 70200,
@@ -665,11 +675,11 @@ static struct mtk_panel_params ext_params_120hz = {
 static struct mtk_panel_params ext_params_fhdp = {
 	.pll_clk = 420,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = 70200,
@@ -717,11 +727,11 @@ static struct mtk_panel_params ext_params_fhdp = {
 static struct mtk_panel_params ext_params_120hz_fhdp = {
 	.pll_clk = 680,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = 70200,
@@ -837,17 +847,16 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 {
 	char bl_tb[] = {0x51, 0x07, 0xff};
 
-	if (level) {
-		bl_tb0[1] = (level >> 8) & 0xFF;
-		bl_tb0[2] = level & 0xFF;
-	}
-	bl_tb[1] = (level >> 8) & 0xFF;
+	bl_tb[1] = (level >> 8) & 0x7;
 	bl_tb[2] = level & 0xFF;
 
 	if (!cb)
 		return -1;
-	pr_info("%s %d %d %d\n", __func__, level, bl_tb[1], bl_tb[2]);
 	cb(dsi, handle, bl_tb, ARRAY_SIZE(bl_tb));
+
+	atomic_set(&current_backlight, level);
+
+	pr_info("%s %d %d %d\n", __func__, level, bl_tb[1], bl_tb[2]);
 	return 0;
 }
 
@@ -1212,6 +1221,8 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		}
 		devm_gpiod_put(dev, ctx->bias_neg);
 	}
+
+	atomic_set(&current_backlight, 4095);
 	ctx->prepared = true;
 	ctx->enabled = true;
 
