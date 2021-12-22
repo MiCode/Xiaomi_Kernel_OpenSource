@@ -48,12 +48,15 @@ enum chk_sys_id {
 	mminfra_config = 37,
 	mdp = 38,
 	bcrm_ifr_ao = 39,
-	bcrm_ifr_pdn = 40,
-	hfrp = 41,
-	mminfra_smi = 42,
-	sspm = 43,
-	sspm_cfg = 44,
-	chk_sys_num = 45,
+	bcrm_ifr_ao1 = 40,
+	bcrm_ifr_pdn = 41,
+	bcrm_ifr_pdn1 = 42,
+	hfrp = 43,
+	mminfra_smi = 44,
+	sspm = 45,
+	sspm_cfg = 46,
+	infracfg1 = 47,
+	chk_sys_num = 48,
 };
 
 #ifdef CONFIG_MTK_DVFSRC_HELPER
@@ -61,5 +64,7 @@ extern int get_sw_req_vcore_opp(void);
 #endif
 
 extern void print_subsys_reg_mt6879(enum chk_sys_id id);
+extern void set_subsys_reg_dump_mt6879(enum chk_sys_id id[]);
+extern void get_subsys_reg_dump_mt6879(void);
 #endif	/* __DRV_CLKCHK_MT6879_H */
 

@@ -50,7 +50,7 @@
  * clkchk dump_regs
  */
 
-#define REGBASE_V(_phys, _id_name, _pg, _pn) { .phys = _phys,	\
+#define REGBASE_V(_phys, _id_name, _pg, _pn) { .phys = _phys, .id = _id_name,	\
 		.name = #_id_name, .pg = _pg, .pn = _pn}
 
 static struct regbase rb[] = {
@@ -96,16 +96,19 @@ static struct regbase rb[] = {
 		CLK_NULL),
 	[mdp] = REGBASE_V(0x1f000000, mdp, MT6879_POWER_DOMAIN_DISP, CLK_NULL),
 	[bcrm_ifr_ao] = REGBASE_V(0x10022000, bcrm_ifr_ao, PD_NULL, CLK_NULL),
+	[bcrm_ifr_ao1] = REGBASE_V(0x1002A000, bcrm_ifr_ao1, PD_NULL, CLK_NULL),
 	[bcrm_ifr_pdn] = REGBASE_V(0x10215000, bcrm_ifr_pdn, PD_NULL, CLK_NULL),
+	[bcrm_ifr_pdn1] = REGBASE_V(0x1027200, bcrm_ifr_pdn1, PD_NULL, CLK_NULL),
 	[hfrp] = REGBASE_V(0x1EC24000, hfrp, MT6879_POWER_DOMAIN_MM_PROC_DORMANT, CLK_NULL),
 	[mminfra_smi] = REGBASE_V(0x1E801000, mminfra_smi, MT6879_POWER_DOMAIN_MM_INFRA, CLK_NULL),
 	[sspm] = REGBASE_V(0x1C342000, sspm, PD_NULL, CLK_NULL),
 	[sspm_cfg] = REGBASE_V(0x1C343000, sspm, PD_NULL, CLK_NULL),
+	[infracfg1] = REGBASE_V(0x10001000, infracfg1, PD_NULL, CLK_NULL),
 	{},
 };
 
 #define REGNAME(_base, _ofs, _name)	\
-	{ .base = &rb[_base], .ofs = _ofs, .name = #_name }
+	{ .base = &rb[_base], .id = _base, .ofs = _ofs, .name = #_name }
 
 static struct regname rn[] = {
 	/* TOPCKGEN register */
@@ -141,7 +144,6 @@ static struct regname rn[] = {
 	REGNAME(ifrao, 0xC8, MODULE_CG_3),
 	REGNAME(ifrao, 0xE8, MODULE_CG_4),
 	/* INFRACFG_AO_BUS register */
-	REGNAME(infracfg, 0x0230, INFRA_APB_ASYNC_STA),
 	REGNAME(infracfg, 0x0C90, MCU_CONNSYS_PROTECT_EN_0),
 	REGNAME(infracfg, 0x0C9C, MCU_CONNSYS_PROTECT_RDY_STA_0),
 	REGNAME(infracfg, 0x0C50, INFRASYS_PROTECT_EN_1),
@@ -367,11 +369,33 @@ static struct regname rn[] = {
 	/* MDPSYS_CONFIG register */
 	REGNAME(mdp, 0x100, MDPSYS_CG_0),
 	/* bus latency debug */
-	REGNAME(bcrm_ifr_ao, 0x0020, VDNR_DCM_TOP_INFRA_PAR_BUS),
+	REGNAME(infracfg1, 0x0230, INFRA_APB_ASYNC_STA),
 	REGNAME(bcrm_ifr_ao, 0x0024, SI18_CTRL_0),
 	REGNAME(bcrm_ifr_ao, 0x0028, SI18_CTRL_1),
 	REGNAME(bcrm_ifr_ao, 0x002C, SI18A_CTRL_0),
+	REGNAME(bcrm_ifr_ao1, 0x0000, SI18C_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x0054, SIP9_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x00B8, SI8_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x00E8, SI7_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x015C, SIP9_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x0164, ASL2A_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x01C0, SI17_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x01C4, SI17_CTRL_1),
+	REGNAME(bcrm_ifr_pdn, 0x01C8, SI17_CTRL_2),
+	REGNAME(bcrm_ifr_pdn, 0x01CC, SI17B_CTRL_0),
+	REGNAME(bcrm_ifr_pdn, 0x01D0, SI17B_CTRL_1),
+	REGNAME(bcrm_ifr_pdn, 0x01D4, SI17B_CTRL_2),
 	REGNAME(bcrm_ifr_pdn, 0x02b8, INFRA_QAXI_BUS_DOM8),
+	REGNAME(bcrm_ifr_pdn1, 0x0034, SI19_CTRL_0),
+	REGNAME(bcrm_ifr_pdn1, 0x0038, SI19_CTRL_1),
+	REGNAME(bcrm_ifr_pdn1, 0x003C, SI19B_CTRL_0),
+	REGNAME(bcrm_ifr_pdn1, 0x0040, SI19B_CTRL_1),
+	REGNAME(bcrm_ifr_pdn1, 0x0044, SI19B_CTRL_2),
+	REGNAME(bcrm_ifr_pdn1, 0x0048, SI19B_CTRL_3),
+	REGNAME(bcrm_ifr_pdn1, 0x004C, SI19B_CTRL_4),
+	REGNAME(bcrm_ifr_pdn1, 0x0050, SI19B_CTRL_5),
+	REGNAME(bcrm_ifr_pdn1, 0x0054, SI19B_CTRL_6),
+	REGNAME(bcrm_ifr_pdn1, 0x0058, SI19C_CTRL_0),
 	/* mm proc debug */
 	REGNAME(hfrp, 0x0150, BUS_DBG_OUT),
 	/* mminfra debug */
@@ -595,6 +619,55 @@ static int get_vcore_opp(void)
 #endif
 }
 
+static unsigned int reg_dump_addr[ARRAY_SIZE(rn) - 1];
+static unsigned int reg_dump_val[ARRAY_SIZE(rn) - 1];
+static bool reg_dump_valid[ARRAY_SIZE(rn) - 1];
+
+void set_subsys_reg_dump_mt6879(enum chk_sys_id id[])
+{
+	const struct regname *rns = &rn[0];
+	int i, j;
+
+	if (rns == NULL)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
+		if (!is_valid_reg(ADDR(rns)))
+			continue;
+
+		for (j = 0; id[j] != chk_sys_num; j++) {
+			/* filter out the subsys that we don't want */
+			if (rns->id == id[j])
+				break;
+		}
+
+		if (id[j] == chk_sys_num)
+			continue;
+
+		reg_dump_addr[i] = PHYSADDR(rns);
+		reg_dump_val[i] = clk_readl(ADDR(rns));
+		/* record each register dump index validation */
+		reg_dump_valid[i] = true;
+	}
+}
+EXPORT_SYMBOL(set_subsys_reg_dump_mt6879);
+
+void get_subsys_reg_dump_mt6879(void)
+{
+	const struct regname *rns = &rn[0];
+	int i;
+
+	if (rns == NULL)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
+		if (reg_dump_valid[i])
+			pr_info("%-18s: [0x%08x] = 0x%08x\n",
+					rns->name, reg_dump_addr[i], reg_dump_val[i]);
+	}
+}
+EXPORT_SYMBOL(get_subsys_reg_dump_mt6879);
+
 void print_subsys_reg_mt6879(enum chk_sys_id id)
 {
 	struct regbase *rb_dump;
@@ -626,16 +699,22 @@ void print_subsys_reg_mt6879(enum chk_sys_id id)
 EXPORT_SYMBOL(print_subsys_reg_mt6879);
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
+static enum chk_sys_id devapc_dump_id[] = {
+	spm,
+	top,
+	infracfg,
+	apmixed,
+	mfg_ao,
+	apu_ao,
+	vlpcfg,
+	vlp_ck,
+	chk_sys_num,
+};
+
 static void devapc_dump(void)
 {
-	print_subsys_reg_mt6879(spm);
-	print_subsys_reg_mt6879(top);
-	print_subsys_reg_mt6879(infracfg);
-	print_subsys_reg_mt6879(apmixed);
-	print_subsys_reg_mt6879(mfg_ao);
-	print_subsys_reg_mt6879(apu_ao);
-	print_subsys_reg_mt6879(vlpcfg);
-	print_subsys_reg_mt6879(vlp_ck);
+	set_subsys_reg_dump_mt6879(devapc_dump_id);
+	get_subsys_reg_dump_mt6879();
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -714,17 +793,37 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, addr[i], val[i]);
 }
 
+static enum chk_sys_id bus_dump_id[] = {
+	infracfg1,
+	bcrm_ifr_ao,
+	bcrm_ifr_ao1,
+	bcrm_ifr_pdn,
+	bcrm_ifr_pdn1,
+	chk_sys_num,
+};
+
+static void get_bus_reg(void)
+{
+	set_subsys_reg_dump_mt6879(bus_dump_id);
+}
+
 static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 {
-	print_subsys_reg_mt6879(infracfg);
-	print_subsys_reg_mt6879(bcrm_ifr_ao);
-	print_subsys_reg_mt6879(bcrm_ifr_pdn);
-
+	get_subsys_reg_dump_mt6879();
+	set_subsys_reg_dump_mt6879(bus_dump_id);
+	get_subsys_reg_dump_mt6879();
 	/* sspm need some time to run isr */
 	mdelay(1000);
 
 	BUG_ON(1);
 }
+
+static enum chk_sys_id hwv_pll_dump_id[] = {
+	sspm,
+	sspm_cfg,
+	apmixed,
+	chk_sys_num,
+};
 
 static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
@@ -738,9 +837,10 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 	regmap_read(regmap, HWV_PLL_SET_STA, &val[5]);
 	regmap_read(regmap, HWV_PLL_CLR_STA, &val[6]);
 
-	print_subsys_reg_mt6879(sspm);
-	print_subsys_reg_mt6879(sspm_cfg);
-	print_subsys_reg_mt6879(apmixed);
+	set_subsys_reg_dump_mt6879(hwv_pll_dump_id);
+
+	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+
 	pr_notice("[%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x\n",
 			HWV_PLL_SET, val[0],
 			HWV_PLL_CLR, val[1],
@@ -750,7 +850,7 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 			HWV_PLL_SET_STA, val[5],
 			HWV_PLL_CLR_STA, val[6]);
 
-	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+	get_subsys_reg_dump_mt6879();
 
 	mdelay(100);
 
@@ -780,6 +880,7 @@ static struct clkchk_ops clkchk_mt6879_ops = {
 	.get_vcore_opp = get_vcore_opp,
 	.devapc_dump = devapc_dump,
 	.dump_hwv_history = dump_hwv_history,
+	.get_bus_reg = get_bus_reg,
 	.dump_bus_reg = dump_bus_reg,
 	.dump_hwv_pll_reg = dump_hwv_pll_reg,
 	.is_cg_chk_pwr_on = is_cg_chk_pwr_on,

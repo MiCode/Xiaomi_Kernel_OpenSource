@@ -400,21 +400,26 @@ static bool is_in_pd_list(unsigned int id)
 	return false;
 }
 
+static enum chk_sys_id debug_dump_id[] = {
+	spm,
+	top,
+	infracfg,
+	apmixed,
+	mfg_ao,
+	apu_ao,
+	vlpcfg,
+	vlp_ck,
+	chk_sys_num,
+};
+
 static void debug_dump(unsigned int id, unsigned int pwr_sta)
 {
 	int i;
 
-	print_subsys_reg_mt6879(spm);
-	print_subsys_reg_mt6879(top);
-	print_subsys_reg_mt6879(infracfg);
-	print_subsys_reg_mt6879(apmixed);
-	print_subsys_reg_mt6879(mfg_ao);
-	print_subsys_reg_mt6879(apu_ao);
-	print_subsys_reg_mt6879(vlpcfg);
-	print_subsys_reg_mt6879(vlp_ck);
-
 	if (id >= MT6879_POWER_DOMAIN_NR)
 		return;
+
+	set_subsys_reg_dump_mt6879(debug_dump_id);
 
 	if (id == MT6879_POWER_DOMAIN_MM_PROC_DORMANT)
 		print_subsys_reg_mt6879(hfrp);
@@ -428,8 +433,17 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 		}
 	}
 
+	get_subsys_reg_dump_mt6879();
+
 	BUG_ON(1);
 }
+
+static enum chk_sys_id log_dump_id[] = {
+	infracfg,
+	spm,
+	vlpcfg,
+	chk_sys_num,
+};
 
 static void log_dump(unsigned int id, unsigned int pwr_sta)
 {
@@ -437,9 +451,8 @@ static void log_dump(unsigned int id, unsigned int pwr_sta)
 		return;
 
 	if (id == MT6879_POWER_DOMAIN_MD) {
-		print_subsys_reg_mt6879(infracfg);
-		print_subsys_reg_mt6879(spm);
-		print_subsys_reg_mt6879(vlpcfg);
+		set_subsys_reg_dump_mt6879(log_dump_id);
+		get_subsys_reg_dump_mt6879();
 	}
 }
 
