@@ -2181,7 +2181,7 @@
 
 			pmif = <&spmi 0>;
 			srclken_rc = <&srclken_rc>;
-			// consys = <&consys>;
+			consys = <&consys>;
 			// pcie = <&pcie_ckm_xtal_ck>;
 		};
 
