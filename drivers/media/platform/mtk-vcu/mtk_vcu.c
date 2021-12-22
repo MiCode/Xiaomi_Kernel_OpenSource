@@ -2392,9 +2392,11 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		vcu->clt_venc[i] =
 			cmdq_mbox_create(dev, i + vcu->gce_th_num[VCU_VDEC]);
 
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	vcu->clt_venc_sec[0] =
 		cmdq_mbox_create(dev,
 		vcu->gce_th_num[VCU_VDEC] + vcu->gce_th_num[VCU_VENC]);
+#endif
 
 	if (IS_ERR_OR_NULL(vcu->clt_vdec[0]))
 		goto err_device;

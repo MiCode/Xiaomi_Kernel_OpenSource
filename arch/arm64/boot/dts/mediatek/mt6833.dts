@@ -4594,8 +4594,10 @@ page_owner=on loop.max_part=7";
 		mediatek,enc_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
 
 		mboxes = <&gce_mbox 7 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox_sec 12 0 CMDQ_THR_PRIO_1>;
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+			<&gce_mbox_sec 12 0 CMDQ_THR_PRIO_1>,
+#endif
+			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>;
 		gce-event-names = "venc_eof",
 			"venc_cmdq_pause_done",
 			"venc_mb_done",
