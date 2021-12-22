@@ -1512,4 +1512,275 @@ static int mt6895_scen_priority[SCENARIO_NUM] = {
 	S_4G_5G_POS_URGENT
 };
 
+static struct tx_power mt6855_mdpm_tx_pwr[TX_DBM_NUM] = {
+	[TX_2G_DBM] = {
+		.dbm_name = "2G",
+		.shm_dbm_idx = {M_2G_DBM_TABLE, M_2G_DBM_1_TABLE},
+		.shm_sec_idx = {M_2G_SECTION_LEVEL, M_2G_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6855[TX_2G_DBM],
+	},
+
+	[TX_3G_DBM] = {
+		.dbm_name = "3G",
+		.shm_dbm_idx = {M_3G_DBM_TABLE, M_3G_DBM_1_TABLE},
+		.shm_sec_idx = {M_3G_SECTION_LEVEL, M_3G_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6855[TX_3G_DBM],
+	},
+
+	[TX_3GTDD_DBM] = {
+		.dbm_name = "3GTDD",
+		.shm_dbm_idx = {M_TDD_DBM_TABLE, M_TDD_DBM_1_TABLE},
+		.shm_sec_idx = {M_TDD_SECTION_LEVEL, M_TDD_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6855[TX_3GTDD_DBM],
+	},
+
+	[TX_4G_CC0_DBM] = {
+		.dbm_name = "4G_CC0",
+		.shm_dbm_idx = {M_4G_DBM_TABLE, M_4G_DBM_2_TABLE},
+		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
+		.rfhw = &rfhw_6855[TX_4G_CC0_DBM],
+	},
+
+	[TX_4G_CC1_DBM] = {
+		.dbm_name = "4G_CC1",
+		.shm_dbm_idx = {M_4G_DBM_1_TABLE, M_4G_DBM_3_TABLE},
+		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
+		.rfhw = &rfhw_6855[TX_4G_CC1_DBM],
+	},
+
+	[TX_C2K_DBM] = {
+		.dbm_name = "C2K",
+		.shm_dbm_idx = {M_C2K_DBM_1_TABLE, M_C2K_DBM_2_TABLE},
+		.shm_sec_idx = {M_C2K_SECTION_1_LEVEL, M_C2K_SECTION_2_LEVEL},
+		.rfhw = &rfhw_6855[TX_C2K_DBM],
+	},
+
+	[TX_NR_CC0_DBM] = {
+		.dbm_name = "NR_CC0",
+		.shm_dbm_idx = {M_NR_DBM_TABLE, M_NR_DBM_1_TABLE},
+		.shm_sec_idx = {M_NR_SECTION_LEVEL, M_NR_SECTION_1_LEVEL},
+		.rfhw = &rfhw_6855[TX_NR_CC0_DBM],
+	},
+
+	[TX_NR_CC1_DBM] = {
+		.dbm_name = "NR_CC1",
+		.shm_dbm_idx = {M_NR_DBM_2_TABLE, M_NR_DBM_3_TABLE},
+		.shm_sec_idx = {M_NR_SECTION_2_LEVEL, M_NR_SECTION_3_LEVEL},
+		.rfhw = &rfhw_6855[TX_NR_CC1_DBM],
+	}
+};
+
+static struct mdpm_scenario mt6855_mdpm_scen[SCENARIO_NUM] = {
+	[S_STANDBY] = {
+		.scenario_reg = 0,
+		.scenario_name = "S_STANDBY",
+		.scenario_power = &md_scen_power_6855[S_STANDBY],
+		.tx_power_rat = {0, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_2G_IDLE] = {
+		.scenario_reg = 1 << 2,
+		.scenario_name = "S_2G_IDLE",
+		.scenario_power = &md_scen_power_6855[S_2G_IDLE],
+		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_2G_NON_IDLE] = {
+		.scenario_reg = 1 << 3,
+		.scenario_name = "S_2G_NON_IDLE",
+		.scenario_power = &md_scen_power_6855[S_2G_NON_IDLE],
+		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_C2K_DATALINK] = {
+		.scenario_reg = 1 << 5,
+		.scenario_name = "S_C2K_DATALINK",
+		.scenario_power = &md_scen_power_6855[S_C2K_DATALINK],
+		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_C2K_SHDR] = {
+		.scenario_reg = 1 << 6,
+		.scenario_name = "S_C2K_SHDR",
+		.scenario_power = &md_scen_power_6855[S_C2K_SHDR],
+		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_C2K_1X_TRAFFIC] = {
+		.scenario_reg = 1 << 4,
+		.scenario_name = "S_C2K_1X_TRAFFIC",
+		.scenario_power = &md_scen_power_6855[S_C2K_1X_TRAFFIC],
+		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_TDD_PAGING] = {
+		.scenario_reg = 1 << 7,
+		.scenario_name = "S_3G_TDD_PAGING",
+		.scenario_power = &md_scen_power_6855[S_3G_TDD_PAGING],
+		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_TDD_TALKING] = {
+		.scenario_reg = 1 << 8,
+		.scenario_name = "S_3G_TDD_TALKING",
+		.scenario_power = &md_scen_power_6855[S_3G_TDD_TALKING],
+		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_TDD_DATALINK] = {
+		.scenario_reg = 1 << 9,
+		.scenario_name = "S_3G_TDD_DATALINK",
+		.scenario_power = &md_scen_power_6855[S_3G_TDD_DATALINK],
+		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_IDLE] = {
+		.scenario_reg = 1 << 1,
+		.scenario_name = "S_3G_IDLE",
+		.scenario_power = &md_scen_power_6855[S_3G_IDLE],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_WCDMA_TALKING] = {
+		.scenario_reg = 1 << 10,
+		.scenario_name = "S_3G_WCDMA_TALKING",
+		.scenario_power = &md_scen_power_6855[S_3G_WCDMA_TALKING],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_1C] = {
+		.scenario_reg = 1 << 11,
+		.scenario_name = "S_3G_1C",
+		.scenario_power = &md_scen_power_6855[S_3G_1C],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_3G_2C] = {
+		.scenario_reg = 1 << 12,
+		.scenario_name = "S_3G_2C",
+		.scenario_power = &md_scen_power_6855[S_3G_2C],
+		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_0D0U] = {
+		.scenario_reg = 1 << 13,
+		.scenario_name = "S_4G_0D0U",
+		.scenario_power = &md_scen_power_6855[S_4G_0D0U],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_1CC] = {
+		.scenario_reg = 1 << 14,
+		.scenario_name = "S_4G_1CC",
+		.scenario_power = &md_scen_power_6855[S_4G_1CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_2CC] = {
+		.scenario_reg = 1 << 15,
+		.scenario_name = "S_4G_2CC",
+		.scenario_power = &md_scen_power_6855[S_4G_2CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_3CC] = {
+		.scenario_reg = 1 << 16,
+		.scenario_name = "S_4G_3CC",
+		.scenario_power = &md_scen_power_6855[S_4G_3CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_4CC] = {
+		.scenario_reg = 1 << 17,
+		.scenario_name = "S_4G_4CC",
+		.scenario_power = &md_scen_power_6855[S_4G_4CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_4G_5CC] = {
+		.scenario_reg = 1 << 18,
+		.scenario_name = "S_4G_5CC",
+		.scenario_power = &md_scen_power_6855[S_4G_5CC],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_1CC_2CC] = {
+		.scenario_reg = 1 << 21,
+		.scenario_name = "S_5G_1CC_2CC",
+		.scenario_power = &md_scen_power_6855[S_5G_1CC_2CC],
+		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	},
+
+	[S_5G_1CC_2CC_4G_4CC] = {
+		.scenario_reg = 1 << 21 | 1 << 17,
+		.scenario_name = "S_5G_1CC_2CC_4G_4CC",
+		.scenario_power = &md_scen_power_6855[S_5G_1CC_2CC_4G_4CC],
+		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+	[S_5G_1CC_2CC_4G_1CC] = {
+		.scenario_reg = 1 << 21 | 1 << 14,
+		.scenario_name = "S_5G_1CC_2CC_4G_1CC",
+		.scenario_power = &md_scen_power_6855[S_5G_1CC_2CC_4G_1CC],
+		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
+		.tx_power_rat_sum = true,
+	},
+
+
+	[S_4G_POS_URGENT] = {
+		.scenario_reg = 1 << 31,
+		.scenario_name = "S_4G_POS_URGENT",
+		.scenario_power = &md_scen_power_6855[S_4G_POS_URGENT],
+		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
+		.tx_power_rat_sum = false,
+	}
+};
+
+static int mt6855_scen_priority[SCENARIO_NUM] = {
+	S_5G_1CC_2CC_4G_1CC,
+	S_5G_1CC_2CC_4G_4CC,
+	S_5G_1CC_2CC,
+	S_4G_5CC,
+	S_4G_4CC,
+	S_4G_3CC,
+	S_4G_2CC,
+	S_4G_1CC,
+	S_3G_2C,
+	S_3G_1C,
+	S_3G_WCDMA_TALKING,
+	S_C2K_SHDR,
+	S_3G_TDD_DATALINK,
+	S_3G_TDD_TALKING,
+	S_C2K_DATALINK,
+	S_C2K_1X_TRAFFIC,
+	S_2G_NON_IDLE,
+	S_4G_0D0U,
+	S_3G_TDD_PAGING,
+	S_3G_IDLE,
+	S_2G_IDLE,
+	S_STANDBY,
+	S_4G_POS_URGENT
+};
+
 #endif /* _MTK_MDPM_PLATFORM_TABLE_H_ */
