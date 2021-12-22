@@ -1308,6 +1308,12 @@
 		clock-names = "auxadc-main";
 	};
 
+	md_auxadc:md_auxadc {
+		compatible = "mediatek,md_auxadc";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "md-channel";
+	};
+
 	apuart0: apuart0@11002000 {
 		cell-index = <0>;
 		compatible = "mediatek,mtk-uart";
