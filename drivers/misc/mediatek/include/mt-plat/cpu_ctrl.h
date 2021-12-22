@@ -21,6 +21,14 @@ enum {
 	CPU_MAX_KIR
 };
 
+enum {
+	CPU_ISO_KIR_PERF_CORE = 0,
+	CPU_ISO_KIR_PERF_ISO,
+	CPU_ISO_KIR_FPSGO,
+	CPU_ISO_KIR_CPU_CTRL,
+	CPU_ISO_MAX_KIR
+};
+
 struct cpu_ctrl_data {
 	int min;
 	int max;
