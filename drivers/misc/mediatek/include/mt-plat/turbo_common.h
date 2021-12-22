@@ -27,6 +27,6 @@ void rwsem_stop_turbo_inherit(struct rw_semaphore *sem);
 void binder_stop_turbo_inherit(struct task_struct *p);
 bool binder_start_turbo_inherit(struct task_struct *from,
 				struct task_struct *to);
-inline bool sub_feat_enable(int type);
+bool sub_feat_enable(int type);
 
 #endif /* _TURBO_COMMON_H_ */
