@@ -9,6 +9,7 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/list_sort.h>
+#include <linux/vmalloc.h>
 #ifdef CONFIG_PM_SLEEP
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>

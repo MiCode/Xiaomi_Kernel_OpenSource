@@ -63,6 +63,34 @@ static void mdw_sched_met_end(struct mdw_apu_sc *sc, struct mdw_dev_info *d,
 static void mdw_sched_trace(struct mdw_apu_sc *sc,
 	struct mdw_dev_info *d, struct apusys_cmd_hnd *h, int ret, int done)
 {
+	struct mdw_tag_pack {
+		union {
+			uint64_t val;
+			struct {
+				uint16_t sc_idx;
+				uint16_t num_sc;
+				uint16_t dev_type;
+				uint16_t dev_idx;
+			} __packed s;
+			struct {
+				uint32_t pack_id;
+				uint32_t multi_num;
+			} __packed m;
+			struct {
+				uint16_t prio;
+				uint16_t soft_limit;
+				uint16_t hard_limit;
+				uint16_t suggest_time;
+			} __packed e;
+			struct {
+				uint16_t ctx;
+				uint16_t vlm_ctx;
+				uint16_t vlm_usage;
+				uint16_t tcm_real_size;
+			} __packed t;
+		};
+	};
+	struct mdw_tag_pack sc_info, multi_info, exec_info, tcm_info;
 	char state[16];
 
 	/* prefix */
@@ -145,31 +173,35 @@ static void mdw_sched_trace(struct mdw_apu_sc *sc,
 			ret);
 	}
 
+	/* encode info for 12 args limitation */
+	sc_info.s.sc_idx = sc->idx;
+	sc_info.s.num_sc = sc->parent->hdr->num_sc;
+	sc_info.s.dev_type = d->type;
+	sc_info.s.dev_idx = d->idx;
+
+	multi_info.m.pack_id = sc->hdr->pack_id;
+	multi_info.m.multi_num = sc->multi_total;
+
+	exec_info.e.prio = sc->parent->hdr->priority;
+	exec_info.e.soft_limit = sc->parent->hdr->soft_limit;
+	exec_info.e.hard_limit = sc->parent->hdr->hard_limit;
+	exec_info.e.suggest_time = sc->hdr->suggest_time;
+
+	tcm_info.t.ctx = sc->ctx;
+	tcm_info.t.vlm_ctx = sc->hdr->mem_ctx;
+	tcm_info.t.vlm_usage = sc->hdr->tcm_usage;
+	tcm_info.t.tcm_real_size = sc->real_tcm_usage;
+
 	/* trace cmd end */
 	trace_mdw_cmd(done,
 		sc->parent->pid,
 		sc->parent->tgid,
-		sc->parent->hdr->uid,
 		sc->parent->kid,
-		sc->idx,
-		sc->parent->hdr->num_sc,
-		d->type,
+		sc_info.val,
 		d->name,
-		d->idx,
-		sc->hdr->pack_id,
-		h->multicore_idx,
-		sc->multi_total,
-		sc->multi_bmp,
-		sc->parent->hdr->priority,
-		sc->parent->hdr->soft_limit,
-		sc->parent->hdr->hard_limit,
-		sc->hdr->ip_time,
-		sc->hdr->suggest_time,
-		0,//sc->par_cmd->power_save,
-		sc->ctx,
-		sc->hdr->tcm_force,
-		sc->hdr->tcm_usage,
-		sc->real_tcm_usage,
+		multi_info.val,
+		exec_info.val,
+		tcm_info.val,
 		h->boost_val,
 		h->ip_time,
 		ret);
@@ -346,7 +378,7 @@ static int mdw_sched_get_type(uint64_t bmp)
 	unsigned long tmp[BITS_TO_LONGS(APUSYS_DEVICE_MAX)];
 
 	memset(&tmp, 0, sizeof(tmp));
-	bitmap_from_u32array(tmp, APUSYS_DEVICE_MAX, (const uint32_t *)&bmp, 2);
+	bitmap_from_arr32(tmp, (const uint32_t *)&bmp, APUSYS_DEVICE_MAX);
 
 	return find_last_bit((unsigned long *)&tmp, APUSYS_DEVICE_MAX);
 }

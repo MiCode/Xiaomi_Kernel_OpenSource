@@ -22,19 +22,16 @@ enum mdw_tag_type {
 	MDW_TAG_CMD,
 };
 
-/* The parameters must aligned with trace_mdw_cmd() */
+/* The parameters must aligned with trace_mdw_ap_cmd() */
 static void
 probe_mdw_cmd(void *data, uint32_t done, pid_t pid, pid_t tgid,
-		uint64_t uid, uint64_t cmd_id,  int sc_idx,
-		uint32_t num_sc, int type, char *dev_name, int dev_idx,
-		uint32_t pack_id,
-		uint32_t multicore_idx, uint32_t exec_core_num,
-		uint64_t exec_core_bitmap, unsigned char priority,
-		uint32_t soft_limit, uint32_t hard_limit,
-		uint32_t exec_time, uint32_t suggest_time,
-		unsigned char power_save, uint32_t ctx_id,
-		unsigned char tcm_force, uint32_t tcm_usage,
-		uint32_t tcm_real_usage, uint32_t boost, uint32_t ip_time,
+		uint64_t cmd_id,
+		uint64_t sc_info,
+		char *dev_name,
+		uint64_t multi_info,
+		uint64_t exec_info,
+		uint64_t tcm_info,
+		uint32_t boost, uint32_t ip_time,
 		int ret)
 {
 	struct mdw_tag t;
@@ -46,27 +43,12 @@ probe_mdw_cmd(void *data, uint32_t done, pid_t pid, pid_t tgid,
 	t.d.cmd.done = done;
 	t.d.cmd.pid = pid;
 	t.d.cmd.tgid = tgid;
-	t.d.cmd.uid = uid;
 	t.d.cmd.cmd_id = cmd_id;
-	t.d.cmd.sc_idx = sc_idx;
-	t.d.cmd.num_sc = num_sc;
-	t.d.cmd.type = type;
+	t.d.cmd.sc_info = sc_info;
 	strncpy(t.d.cmd.dev_name, dev_name, (MDW_DEV_NAME_SIZE - 1));
-	t.d.cmd.dev_idx = dev_idx;
-	t.d.cmd.pack_id = pack_id;
-	t.d.cmd.multicore_idx = multicore_idx;
-	t.d.cmd.exec_core_num = exec_core_num;
-	t.d.cmd.exec_core_bitmap = exec_core_bitmap;
-	t.d.cmd.priority = priority;
-	t.d.cmd.soft_limit = soft_limit;
-	t.d.cmd.hard_limit = hard_limit;
-	t.d.cmd.exec_time = exec_time;
-	t.d.cmd.suggest_time = suggest_time;
-	t.d.cmd.power_save = power_save;
-	t.d.cmd.ctx_id = ctx_id;
-	t.d.cmd.tcm_force = tcm_force;
-	t.d.cmd.tcm_usage = tcm_usage;
-	t.d.cmd.tcm_real_usage = tcm_real_usage;
+	t.d.cmd.multi_info = multi_info;
+	t.d.cmd.exec_info = exec_info;
+	t.d.cmd.tcm_info = tcm_info;
 	t.d.cmd.boost = boost;
 	t.d.cmd.ip_time = ip_time;
 	t.d.cmd.ret = ret;
@@ -86,20 +68,14 @@ static void mdw_tag_seq_cmd(struct seq_file *s, struct mdw_tag *t)
 			return;
 	}
 	seq_printf(s, "%s,", status);
-	seq_printf(s, "pid=%d,tgid=%d,cmd_uid=0x%llx,cmd_id=0x%llx,sc_idx=%d,total_sc=%u,",
-		t->d.cmd.pid, t->d.cmd.tgid, t->d.cmd.uid,
-		t->d.cmd.cmd_id, t->d.cmd.sc_idx, t->d.cmd.num_sc);
-	seq_printf(s, "dev_type=%d,dev_name=%s,dev_idx=%d,pack_id=0x%x,mc_idx=%u,mc_num=%u,mc_bitmap=0x%llx,",
-		t->d.cmd.type, t->d.cmd.dev_name, t->d.cmd.dev_idx,
-		t->d.cmd.pack_id, t->d.cmd.multicore_idx,
-		t->d.cmd.exec_core_num, t->d.cmd.exec_core_bitmap);
-	seq_printf(s, "priority=%d,soft_limit=%u,hard_limit=%u,exec_time=%u,suggest_time=%u,power_save=%d,",
-		t->d.cmd.priority, t->d.cmd.soft_limit,
-		t->d.cmd.hard_limit, t->d.cmd.exec_time,
-		t->d.cmd.suggest_time, t->d.cmd.power_save);
-	seq_printf(s, "mem_ctx=%u,tcm_force=%d,tcm_usage=0x%x,tcm_teal_usage=0x%x,boost=%u,ip_time=%u,ret=%d\n",
-		t->d.cmd.ctx_id, t->d.cmd.tcm_force, t->d.cmd.tcm_usage,
-		t->d.cmd.tcm_real_usage, t->d.cmd.boost,
+	seq_printf(s, "pid=%d,tgid=%d,cmd_id=0x%llx,sc_info=0x%llx,",
+		t->d.cmd.pid, t->d.cmd.tgid,
+		t->d.cmd.cmd_id, t->d.cmd.sc_info);
+	seq_printf(s, "dev_name=%s,multi_info=0x%llx,exec_info=0x%llx,tcm_info=0x%llx,",
+		t->d.cmd.dev_name, t->d.cmd.multi_info,
+		t->d.cmd.exec_info, t->d.cmd.tcm_info);
+	seq_printf(s, "boost=%u,ip_time=%u,ret=%d\n",
+		t->d.cmd.boost,
 		t->d.cmd.ip_time, t->d.cmd.ret);
 }
 

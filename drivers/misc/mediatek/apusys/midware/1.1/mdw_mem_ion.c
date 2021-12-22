@@ -5,13 +5,10 @@
 
 #include <linux/slab.h>
 
-#include <ion.h>
-#include <mtk/ion_drv.h>
-#include <mtk/mtk_ion.h>
-#ifdef CONFIG_MTK_M4U
-#include <m4u.h>
-#else
-#include <mt_iommu.h>
+#include "ion_drv.h"
+#ifdef CONFIG_MTK_IOMMU_V2
+#include "mt_iommu.h"
+#include "pseudo_m4u.h"
 #endif
 
 #include <linux/dma-mapping.h>
@@ -30,7 +27,7 @@ struct mdw_mem_ion_ma {
 
 static struct mdw_mem_ion_ma ion_ma;
 
-//#define APUSYS_IOMMU_PORT M4U_PORT_VPU
+#ifdef CONFIG_MTK_IOMMU_V2
 #define APUSYS_IOMMU_PORT M4U_PORT_L21_APU_FAKE_DATA
 
 /* check argument */
@@ -61,9 +58,13 @@ static int mdw_mem_ion_check(struct apusys_kmem *mem)
 
 	return ret;
 }
+#endif
 
 static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 {
+#if !defined(CONFIG_MTK_IOMMU_V2)
+	int ret = -ENODEV;
+#else
 	void *buffer = NULL;
 	struct ion_handle *ion_hnd = NULL;
 	int ret = 0;
@@ -103,11 +104,15 @@ fail_map_kernel:
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 	ion_free(ion_ma.client, ion_hnd);
+#endif
 	return ret;
 }
 
 static int mdw_mem_ion_map_iova(struct apusys_kmem *mem)
 {
+#if !defined(CONFIG_MTK_IOMMU_V2)
+	int ret = -ENODEV;
+#else
 	int ret = 0;
 	struct ion_handle *ion_hnd = NULL;
 	struct ion_mm_data mm_data;
@@ -155,11 +160,15 @@ free_import:
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 	ion_free(ion_ma.client, ion_hnd);
+#endif
 	return ret;
 }
 
 static int mdw_mem_ion_unmap_iova(struct apusys_kmem *mem)
 {
+#if !defined(CONFIG_MTK_IOMMU_V2)
+		int ret = -ENODEV;
+#else
 	int ret = 0;
 	struct ion_handle *ion_hnd = NULL;
 
@@ -180,12 +189,15 @@ static int mdw_mem_ion_unmap_iova(struct apusys_kmem *mem)
 			mem->iova_size, mem->khandle, mem->kva);
 
 	ion_free(ion_ma.client, ion_hnd);
-
+#endif
 	return ret;
 }
 
 static int mdw_mem_ion_unmap_kva(struct apusys_kmem *mem)
 {
+#if !defined(CONFIG_MTK_IOMMU_V2)
+	int ret = -ENODEV;
+#else
 	struct ion_handle *ion_hnd = NULL;
 	int ret = 0;
 
@@ -208,7 +220,7 @@ static int mdw_mem_ion_unmap_kva(struct apusys_kmem *mem)
 	ion_unmap_kernel(ion_ma.client, ion_hnd);
 
 	ion_free(ion_ma.client, ion_hnd);
-
+#endif
 	return ret;
 }
 
@@ -224,6 +236,9 @@ static int mdw_mem_ion_free(struct apusys_kmem *mem)
 
 static int mdw_mem_ion_flush(struct apusys_kmem *mem)
 {
+#if !defined(CONFIG_MTK_IOMMU_V2)
+	int ret = -ENODEV;
+#else
 	int ret = 0;
 	struct ion_sys_data sys_data;
 	void *va = NULL;
@@ -251,12 +266,15 @@ static int mdw_mem_ion_flush(struct apusys_kmem *mem)
 		ret = -EINVAL;
 	}
 	ion_unmap_kernel(ion_ma.client, ion_hnd);
-
+#endif
 	return ret;
 }
 
 static int mdw_mem_ion_invalidate(struct apusys_kmem *mem)
 {
+#if !defined(CONFIG_MTK_IOMMU_V2)
+	int ret = -ENODEV;
+#else
 	int ret = 0;
 	struct ion_sys_data sys_data;
 	void *va = NULL;
@@ -283,22 +301,26 @@ static int mdw_mem_ion_invalidate(struct apusys_kmem *mem)
 		ret = -EINVAL;
 	}
 	ion_unmap_kernel(ion_ma.client, ion_hnd);
-
+#endif
 	return ret;
 }
 
 static void mdw_mem_ion_destroy(void)
 {
+#if defined(CONFIG_MTK_IOMMU_V2)
 	ion_client_destroy(ion_ma.client);
 	memset(&ion_ma, 0, sizeof(ion_ma));
+#endif
 }
 
 struct mdw_mem_ops *mdw_mem_ion_init(void)
 {
 	memset(&ion_ma, 0, sizeof(ion_ma));
 
+#if defined(CONFIG_MTK_IOMMU_V2)
 	/* create ion client */
 	ion_ma.client = ion_client_create(g_ion_device, "apusys midware");
+#endif
 	if (IS_ERR_OR_NULL(ion_ma.client))
 		return NULL;
 

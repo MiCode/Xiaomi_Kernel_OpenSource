@@ -27,7 +27,9 @@ endif
 
 UTIL_DIR = ../util
 
-ccflags-y += -I$(srctree)/drivers/staging/android/ion
+ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/
+ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/mtk/
+ccflags-y += -I$(srctree)/drivers/staging/android/ion/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(PDIR)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(PDIR)/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(PDIR)/include/mach

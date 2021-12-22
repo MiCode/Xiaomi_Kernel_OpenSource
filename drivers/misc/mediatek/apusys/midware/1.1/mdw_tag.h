@@ -18,27 +18,12 @@ struct mdw_tag {
 			uint32_t done;
 			pid_t pid;
 			pid_t tgid;
-			uint64_t uid;
 			uint64_t cmd_id;
-			int sc_idx;
-			uint32_t num_sc;
-			int type;
+			uint64_t sc_info;
 			char dev_name[MDW_DEV_NAME_SIZE];
-			int dev_idx;
-			uint32_t pack_id;
-			uint32_t multicore_idx;
-			uint32_t exec_core_num;
-			uint64_t exec_core_bitmap;
-			unsigned char priority;
-			uint32_t soft_limit;
-			uint32_t hard_limit;
-			uint32_t exec_time;
-			uint32_t suggest_time;
-			unsigned char power_save;
-			uint32_t ctx_id;
-			unsigned char tcm_force;
-			uint32_t tcm_usage;
-			uint32_t tcm_real_usage;
+			uint64_t multi_info;
+			uint64_t exec_info;
+			uint64_t tcm_info;
 			uint32_t boost;
 			uint32_t ip_time;
 			int ret;
@@ -46,7 +31,7 @@ struct mdw_tag {
 	} d;
 };
 
-#ifdef CONFIG_MTK_APUSYS_DEBUG
+#if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
 int mdw_tag_init(void);
 void mdw_tag_exit(void);
 void mdw_tag_show(struct seq_file *s);

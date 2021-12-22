@@ -11,6 +11,7 @@
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
 #include <linux/bitmap.h>
+#include <linux/vmalloc.h>
 
 #include "mdw_cmn.h"
 #include "mdw_cmd.h"

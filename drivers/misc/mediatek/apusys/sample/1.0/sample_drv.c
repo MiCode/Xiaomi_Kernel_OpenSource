@@ -10,6 +10,7 @@
 #include <linux/delay.h>
 #include <linux/jiffies.h>
 #include <linux/platform_device.h>
+#include <linux/fs.h>
 
 #include <linux/init.h>
 #include <linux/io.h>
