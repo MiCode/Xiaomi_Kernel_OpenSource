@@ -2426,13 +2426,19 @@
 					<0 0x10274000 0 0x1000>, /* Infra1 pdn */
 					<0 0x11020000 0 0x1000>, /* Peri pdn */
 					<0 0x1c01c000 0 0x1000>, /* vlp pdn */
+					<0 0x1e826000 0 0x1000>, /* fake adsp pdn */
+					<0 0x1e826000 0 0x1000>, /* mminfra pdn */
 					<0 0x10030000 0 0x1000>, /* Infra ao */
 					<0 0x1c018000 0 0x1000>, /* vlp ao */
+					<0 0x1e820000 0 0x1000>, /* fake adsp ao */
+					<0 0x1e820000 0 0x1000>, /* mminfra ao*/
 					<0 0x1020e000 0 0x1000>, /* Infra cfg pdn*/
 					<0 0x10033000 0 0x1000>, /* swp */
 					<0 0x0010c000 0 0x1000>; /* Sramrom */
 			interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>, /* infra,peri */
-					<GIC_SPI 542 IRQ_TYPE_LEVEL_HIGH 0>; /* vlp */
+					<GIC_SPI 542 IRQ_TYPE_LEVEL_HIGH 0>, /* vlp */
+					<GIC_SPI 653 IRQ_TYPE_LEVEL_HIGH 0>, /* fake adsp */
+					<GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH 0>; /* mminfra */
 		};
 
 		bus_dbg@10208000 {
