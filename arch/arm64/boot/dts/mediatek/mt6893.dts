@@ -516,7 +516,7 @@ page_owner=on loop.max_part=7";
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
-		consys-reserve-memory {
+		consys_mem: consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
 			size = <0 0x450000>;
@@ -5996,6 +5996,7 @@ page_owner=on loop.max_part=7";
 			<0 0x1800f000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_CONN>;
 		clock-names = "conn";
+		memory-region = <&consys_mem>;
 	};
 
 	ccu@1a101000 {
