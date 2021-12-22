@@ -35,7 +35,6 @@
 #define MTK_WAIT_HWV_PLL_VOTE_US		2
 #define MTK_WAIT_HWV_PLL_DONE_CNT		10000
 #define MTK_WAIT_HWV_PLL_DONE_US		10
-#define MTK_WAIT_HWV_PLL_RETRY_CNT		100
 
 static bool hwv_pll_prepared = true;
 static bool is_registered;
@@ -389,6 +388,8 @@ static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 
 	i = 0;
 
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(pll->hwv_regmap, pll->data->hwv_set_ofs, &val);
 	regmap_write(pll->hwv_regmap, pll->data->hwv_set_ofs, BIT(pll->data->hwv_shift));
 
 	do {
@@ -412,15 +413,6 @@ static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 			udelay(MTK_WAIT_HWV_PLL_DONE_US);
 		else
 			goto err_hwv_done;
-
-		if ((i % MTK_WAIT_HWV_PLL_RETRY_CNT  == 0) && i != 0) {
-			regmap_read(pll->hwv_regmap, pll->data->hwv_set_ofs, &val);
-			if ((val & BIT(31)) == BIT(31))
-				regmap_write(pll->hwv_regmap, pll->data->hwv_clr_ofs, BIT(31));
-			else
-				regmap_write(pll->hwv_regmap, pll->data->hwv_set_ofs, BIT(31));
-			pr_notice("pll timeout for %dms\n", i * MTK_WAIT_HWV_PLL_DONE_US / 1000);
-		}
 
 		i++;
 	} while (1);
@@ -466,6 +458,8 @@ static void mtk_hwv_pll_unprepare(struct clk_hw *hw)
 
 	i = 0;
 
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(pll->hwv_regmap, pll->data->hwv_clr_ofs, &val);
 	regmap_write(pll->hwv_regmap, pll->data->hwv_clr_ofs, BIT(pll->data->hwv_shift));
 
 	do {
@@ -491,15 +485,6 @@ static void mtk_hwv_pll_unprepare(struct clk_hw *hw)
 			udelay(MTK_WAIT_HWV_PLL_DONE_US);
 		else
 			goto err_hwv_done;
-
-		if ((i % MTK_WAIT_HWV_PLL_RETRY_CNT  == 0) && i != 0) {
-			regmap_read(pll->hwv_regmap, pll->data->hwv_set_ofs, &val);
-			if ((val & BIT(31)) == BIT(31))
-				regmap_write(pll->hwv_regmap, pll->data->hwv_clr_ofs, BIT(31));
-			else
-				regmap_write(pll->hwv_regmap, pll->data->hwv_set_ofs, BIT(31));
-			pr_notice("pll timeout for %dms\n", i * MTK_WAIT_HWV_PLL_DONE_US / 1000);
-		}
 
 		i++;
 	} while (1);
