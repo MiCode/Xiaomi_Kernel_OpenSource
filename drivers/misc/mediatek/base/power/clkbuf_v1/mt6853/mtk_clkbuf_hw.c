@@ -873,6 +873,32 @@ bool clk_buf_ctrl(enum clk_buf_id id, bool onoff)
 }
 EXPORT_SYMBOL(clk_buf_ctrl);
 
+void clk_buf_disp_ctrl(bool onoff)
+{
+	if (onoff) {
+		pmic_config_interface(PMIC_DCXO_CW00_CLR,
+			      PMIC_XO_EXTBUF3_MODE_MASK,
+			      PMIC_XO_EXTBUF3_MODE_MASK,
+			      PMIC_XO_EXTBUF3_MODE_SHIFT);
+		pmic_config_interface(PMIC_DCXO_CW00_SET,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_SHIFT);
+		pmic_clk_buf_swctrl[XO_NFC] = 1;
+	} else {
+		pmic_config_interface(PMIC_DCXO_CW00_CLR,
+			PMIC_XO_EXTBUF3_MODE_MASK,
+			PMIC_XO_EXTBUF3_MODE_MASK,
+			PMIC_XO_EXTBUF3_MODE_SHIFT);
+		pmic_config_interface(PMIC_DCXO_CW00_CLR,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_MASK,
+			PMIC_XO_EXTBUF3_EN_M_SHIFT);
+		pmic_clk_buf_swctrl[XO_NFC] = 0;
+	}
+}
+EXPORT_SYMBOL(clk_buf_disp_ctrl);
+
 void clk_buf_dump_dts_log(void)
 {
 	pr_info("%s: CLK_BUF?_STATUS=%d %d %d %d %d %d %d\n", __func__,
@@ -1771,11 +1797,13 @@ void clk_buf_post_init(void)
 #endif
 #endif
 
-#ifndef CONFIG_MTK_NFC_CLKBUF_ENABLE
-	/* no need to use XO_NFC if no NFC */
+//6382 use NFC GPIO as RST, so can't disable clk for 6382 project
+/*#ifndef CONFIG_MTK_NFC_CLKBUF_ENABLE
 	clk_buf_ctrl_internal(CLK_BUF_NFC, CLK_BUF_FORCE_OFF);
 	CLK_BUF3_STATUS = CLOCK_BUFFER_DISABLE;
 #endif
+*/
+
 #ifdef CLKBUF_USE_BBLPM
 	if (bblpm_switch == 2) {
 		clk_buf_ctrl_bblpm_mask(CLK_BUF_BB_MD, true);
