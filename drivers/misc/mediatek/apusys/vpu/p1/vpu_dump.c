@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
+#include <linux/seq_file.h>
 #include <apusys_dbg.h>
 #include "vpu_cfg.h"
 #include "vpu_debug.h"

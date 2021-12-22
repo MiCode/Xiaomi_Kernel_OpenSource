@@ -167,6 +167,7 @@ vpu_map_sg_to_iova(
 	struct platform_device *pdev, struct scatterlist *sg,
 	unsigned int nents, size_t len, dma_addr_t given_iova)
 {
+	struct device *dev = &pdev->dev;
 	dma_addr_t mask;
 	dma_addr_t iova = 0;
 	bool dyn_alloc = false;
@@ -181,23 +182,32 @@ vpu_map_sg_to_iova(
 		mask = (VPU_IOVA_END - 1) | VPU_IOVA_BANK;
 		given_iova |= VPU_IOVA_BANK;
 		vpu_mem_debug("%s: dev: %p, len: %zx, given_iova mask: %llx (dynamic alloc)\n",
-			__func__, &pdev->dev,
-			len, (u64)given_iova);
+			__func__, dev, len, (u64)given_iova);
 	} else {
 		mask = (given_iova + len - 1) | VPU_IOVA_BANK;
 		given_iova |= VPU_IOVA_BANK;
 		vpu_mem_debug("%s: dev: %p, len: %zx, given_iova start ~ end(mask): %llx ~ %llx\n",
-			__func__, &pdev->dev,
-			len, (u64)given_iova, (u64)mask);
+			__func__, dev, len, (u64)given_iova, (u64)mask);
 	}
 
-	dma_set_mask_and_coherent(&pdev->dev, mask);
+	dma_set_mask_and_coherent(dev, mask);
 
-	ret = dma_map_sg_attrs(&pdev->dev, sg, nents,
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+	}
+
+	if (dev->dma_parms) {
+		ret = dma_set_max_seg_size(dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
+
+	ret = dma_map_sg_attrs(dev, sg, nents,
 		DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 
 	if (ret <= 0) {
-		dev_info(&pdev->dev,
+		dev_info(dev,
 			"%s: dma_map_sg_attrs: failed with %d\n",
 			__func__, ret);
 		return 0;
@@ -208,7 +218,7 @@ vpu_map_sg_to_iova(
 	if (given_iova == iova)
 		match = true;
 
-	dev_info(&pdev->dev,
+	dev_info(dev,
 		"%s: sg_dma_address: size: %lx, mapped iova: 0x%llx %s\n",
 		__func__, len, (u64)iova,
 		dyn_alloc ? "(dynamic alloc)" :

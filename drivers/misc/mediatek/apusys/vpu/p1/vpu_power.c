@@ -291,21 +291,35 @@ static void vpu_pwr_off(struct work_struct *work)
 static void vpu_pwr_wake_lock(struct vpu_device *vd)
 {
 #ifdef CONFIG_PM_SLEEP
-	__pm_stay_awake(&vd->pw_wake_lock);
+	//__pm_stay_awake(&vd->pw_wake_lock);
+	__pm_stay_awake(vd->pw_wake_lock);
 #endif
 }
 
 static void vpu_pwr_wake_unlock(struct vpu_device *vd)
 {
 #ifdef CONFIG_PM_SLEEP
-	__pm_relax(&vd->pw_wake_lock);
+	//__pm_relax(&vd->pw_wake_lock);
+	__pm_relax(vd->pw_wake_lock);
 #endif
 }
 
 static void vpu_pwr_wake_init(struct vpu_device *vd)
 {
 #ifdef CONFIG_PM_SLEEP
-	wakeup_source_init(&vd->pw_wake_lock, vd->name);
+	//wakeup_source_init(&vd->pw_wake_lock, vd->name);
+	vd->pw_wake_lock = wakeup_source_register(vd->dev, vd->name);
+	if (!vd->pw_wake_lock)
+		pr_info("%s: vpu%d: wakeup_source_register fail\n",
+		__func__, vd->id);
+
+#endif
+}
+
+static void vpu_pwr_wake_deinit(struct vpu_device *vd)
+{
+#ifdef CONFIG_PM_SLEEP
+	wakeup_source_unregister(vd->pw_wake_lock);
 #endif
 }
 
@@ -335,6 +349,7 @@ int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 void vpu_exit_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 {
 	cancel_delayed_work(&vd->pw_off_work);
+	vpu_pwr_wake_deinit(vd);
 	apu_device_power_off(adu(vd->id));
 	apu_power_device_unregister(adu(vd->id));
 }

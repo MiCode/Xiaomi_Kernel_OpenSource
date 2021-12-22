@@ -4,18 +4,19 @@
  */
 
 #include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 
-static struct pm_qos_request ddr_opp_req;
+static struct mtk_pm_qos_request ddr_opp_req;
 
 void secure_perf_init(void)
 {
-	pm_qos_add_request(&ddr_opp_req, PM_QOS_DDR_OPP,
-						PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&ddr_opp_req, MTK_PM_QOS_DDR_OPP,
+						MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 }
 
 void secure_perf_remove(void)
 {
-	pm_qos_remove_request(&ddr_opp_req);
+	mtk_pm_qos_remove_request(&ddr_opp_req);
 }
 
 void secure_perf_raise(void)

@@ -612,6 +612,6 @@ int vpu_init_dev_met(struct platform_device *pdev,
 void vpu_exit_dev_met(struct platform_device *pdev,
 	struct vpu_device *vd)
 {
-	cancel_work(&vd->met.work);
+	cancel_work_sync(&vd->met.work);
 }
 

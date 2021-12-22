@@ -186,7 +186,8 @@ struct vpu_device {
 	uint64_t pw_off_latency;   /* ms, 0 = always on */
 	atomic_t pw_boost;         /* current boost */
 #ifdef CONFIG_PM_SLEEP
-	struct wakeup_source pw_wake_lock;
+	//struct wakeup_source pw_wake_lock;
+	struct wakeup_source *pw_wake_lock;
 #endif
 
 	/* iova settings */
