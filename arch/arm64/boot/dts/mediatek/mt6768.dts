@@ -3316,11 +3316,16 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		memory-region = <&wifi_mem>;
 	};
 
-	camsys: camsys@1a000000 {
+	camsys: camsys@1a000000  {
+		compatible = "mediatek,mt6768-camsys", "syscon";
+		reg = <0 0x1a000000  0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys1: camsysisp@1a000000  {
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000  0 0x1000>;
 		#clock-cells = <1>;
-
 	};
 
 	smi_larb3: smi_larb3@1a002000 {
@@ -3441,7 +3446,12 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		<&topckgen CLK_TOP_UNIVPLL2_D8>,
 		<&topckgen CLK_TOP_USB20_192M_D8>,
 		<&clk26m>,
+		<&camsys CLK_CAM>,
+		<&camsys CLK_CAMTG>,
 		<&camsys CLK_CAM_SENINF>,
+		<&camsys CLK_CAMSV0>,
+		<&camsys CLK_CAMSV1>,
+		<&camsys CLK_CAMSV2>,
 		<&apmixed CLK_APMIXED_MIPIC0_26M>,
 		<&apmixed CLK_APMIXED_MIPIC1_26M>,
 		<&mipi_rx_ana_csi0a CLK_MIPI0A_CSR_CSI_EN_0A>,

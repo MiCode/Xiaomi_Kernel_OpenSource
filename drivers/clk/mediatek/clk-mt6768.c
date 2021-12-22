@@ -3444,10 +3444,10 @@ static const struct of_device_id of_match_clk_mt6768[] = {
 		.compatible = "mediatek,pericfg",
 		.data = mtk_pericfg_init,
 	},{
-		.compatible = "mediatek,audio",     
-		.data = mtk_audio_init,   	  
+		.compatible = "mediatek,audio",
+		.data = mtk_audio_init,
 	},{
-		.compatible = "mediatek,camsys",
+		.compatible = "mediatek,mt6768-camsys",
 		.data = mtk_camsys_init,
 	},{
 		.compatible = "mediatek,mt6768-imgsys",
