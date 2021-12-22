@@ -1634,8 +1634,9 @@ int mtk_cam_mraw_top_disable(struct mtk_mraw_device *dev)
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN)) {
 		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_VF_CON,
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN, 0);
-		mraw_reset(dev);
 	}
+
+	mraw_reset(dev);
 
 	MRAW_WRITE_BITS(dev->base + REG_MRAW_M_MRAWCTL_MISC,
 		MRAW_CTL_MISC, MRAWCTL_DB_EN, 0);

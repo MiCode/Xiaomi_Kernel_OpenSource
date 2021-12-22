@@ -1199,6 +1199,9 @@ int mtk_cam_sv_top_enable(struct mtk_camsv_device *dev)
 	mtk_cam_sv_toggle_db(dev);
 	mtk_cam_sv_toggle_tg_db(dev);
 
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_FBC_IMGO_CTL1,
+		CAMSV_FBC_IMGO_CTL1, FBC_DB_EN, 1);
+
 	dev_info(dev->dev, "%s FBC_IMGO_CTRL1/2:0x%x/0x%x\n",
 		__func__,
 		CAMSV_READ_REG(dev->base + REG_CAMSV_FBC_IMGO_CTL1),
@@ -1267,8 +1270,10 @@ int mtk_cam_sv_top_disable(struct mtk_camsv_device *dev)
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_VF_CON,
 			CAMSV_TG_VF_CON, VFDATA_EN, 0);
 		mtk_cam_sv_toggle_tg_db(dev);
-		sv_reset(dev);
 	}
+
+	sv_reset(dev);
+
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
 		CAMSV_MODULE_EN, DB_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_MODULE_EN, 0);
@@ -1387,8 +1392,8 @@ int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 	cfg_in_param.fmt = fmt.Raw;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
-	cfg_in_param.in_crop.s.w = ALIGN(img_fmt->fmt.pix_mp.width, 4);
-	cfg_in_param.in_crop.s.h = ALIGN(img_fmt->fmt.pix_mp.height, 4);
+	cfg_in_param.in_crop.s.w = img_fmt->fmt.pix_mp.width;
+	cfg_in_param.in_crop.s.h = img_fmt->fmt.pix_mp.height;
 	cfg_in_param.pixel_mode = 3;
 
 	pxl = ((cfg_in_param.in_crop.s.w + cfg_in_param.in_crop.p.x) << 16) |
