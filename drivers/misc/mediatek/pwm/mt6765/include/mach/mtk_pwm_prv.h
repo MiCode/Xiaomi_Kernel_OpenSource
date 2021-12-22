@@ -19,7 +19,7 @@ extern void __iomem *pwm_infracfg_base;
  * 1. change 8G DRAM enable from PERICFG domain to PWM internal register
  * 2. change 26M clock source to use INFRA domain control
  */
-//#define PWM_HW_V_1_0
+#define PWM_HW_V_1_0
 /***********************************
  * PWM register address
  ************************************/
