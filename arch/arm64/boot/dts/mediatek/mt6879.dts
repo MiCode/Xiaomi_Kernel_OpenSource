@@ -5173,6 +5173,11 @@
 			iommus = <&disp_iommu M4U_LARB0_PORT0>;
 		};
 
+		mml-ait {
+			compatible = "mediatek,mml-ait";
+			mediatek,mml = <&mmlsys_config>;
+		};
+
 		mml-test {
 			compatible = "mediatek,mml-test";
 			mediatek,mml = <&mmlsys_config>;
