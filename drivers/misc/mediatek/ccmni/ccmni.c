@@ -62,6 +62,8 @@ long int gro_flush_timer;
 
 static unsigned long timeout_flush_num, clear_flush_num;
 
+static u64 g_cur_dl_speed;
+
 /*
  * Register the sysctl to set tcp_pacing_shift.
  */
@@ -110,6 +112,13 @@ void set_ccmni_rps(unsigned long value)
 		set_rps_map(ctlb->ccmni_inst[i]->dev->_rx, value);
 }
 EXPORT_SYMBOL(set_ccmni_rps);
+
+
+void ccmni_set_cur_speed(u64 cur_dl_speed)
+{
+	g_cur_dl_speed = cur_dl_speed;
+}
+EXPORT_SYMBOL(ccmni_set_cur_speed);
 
 
 /********************internal function*********************/
@@ -254,18 +263,23 @@ static inline int arp_reply(int md_id, struct net_device *dev,
 static int is_skb_gro(struct sk_buff *skb)
 {
 	u32 packet_type;
+	u32 protocol = 0xFFFFFFFF;
 
 	packet_type = skb->data[0] & 0xF0;
-	if (packet_type == IPV4_VERSION &&
-		(ip_hdr(skb)->protocol == IPPROTO_TCP ||
-		ip_hdr(skb)->protocol == IPPROTO_UDP))
+
+	if (packet_type == IPV4_VERSION)
+		protocol = ip_hdr(skb)->protocol;
+	else if (packet_type == IPV6_VERSION)
+		protocol = ipv6_hdr(skb)->nexthdr;
+
+	if (protocol == IPPROTO_TCP) {
 		return 1;
-	else if (packet_type == IPV6_VERSION &&
-		(ipv6_hdr(skb)->nexthdr == IPPROTO_TCP ||
-		ipv6_hdr(skb)->nexthdr == IPPROTO_UDP))
-		return 1;
-	else
-		return 0;
+	} else if (protocol == IPPROTO_UDP) {
+		if (g_cur_dl_speed > 500000000LL) //>500M
+			return 1;
+	}
+
+	return 0;
 }
 
 void ccmni_clr_flush_timer(void)

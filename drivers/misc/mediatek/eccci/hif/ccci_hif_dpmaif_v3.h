@@ -513,4 +513,6 @@ extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 extern void mt_irq_dump_status(unsigned int irq);
 #endif
 
+extern void ccmni_set_cur_speed(u64 cur_dl_speed);
+
 #endif				/* __MODEM_DPMA_H__ */
