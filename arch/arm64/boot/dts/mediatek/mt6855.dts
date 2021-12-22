@@ -1504,7 +1504,6 @@
 
 	low_battery_throttling {
 		compatible = "mediatek,low_battery_throttling";
-		status = "disabled";
 		hv_thd_volt = <3300>;
 		lv1_thd_volt = <3150>;
 		lv2_thd_volt = <3000>;
@@ -1512,31 +1511,26 @@
 
 	pbm: pbm {
 		compatible = "mediatek,pbm";
-		status = "disabled";
 	};
 
 	mdpm: mdpm {
 		compatible = "mediatek,mt6855-mdpm";
-		status = "disabled";
 	};
 
 	cpu_power_throttling: cpu_power_throttling {
 		compatible = "mediatek,cpu-power-throttling";
-		status = "disabled";
 		lbat_cpu_limit = <900000 900000 1300000>;
 		oc_cpu_limit = <900000 900000 1300000>;
 	};
 
 	md_power_throttling: md_power_throttling {
 		compatible = "mediatek,md-power-throttling";
-		status = "disabled";
 		lbat_md_reduce_tx = <6>;
 		oc_md_reduce_tx = <6>;
 	};
 
 	bp_thl: bp_thl {
 		compatible = "mediatek,mtk-bp-thl";
-		status = "disabled";
 		soc_limit = <15>;
 		soc_limit_ext = <20>;
 		soc_limit_ext_release = <25>;
@@ -7515,6 +7509,24 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	};
 };
 
+&spmi {
+	pmic@4 {
+		mt6363_dynamic_loading_throttling: mtk_dynamic_loading_throttling {
+			compatible = "mediatek,mt6363-dynamic_loading_throttling";
+			/* charger: mtk_charger_thread */
+			mediatek,charger = <&lk_charger>;
+			/* 2000~2900mV, one gear per 100mV */
+			uvlo-level = <2600>;
+			io-channels = <&mt6375_auxadc MT6375_AUXADC_IMP>,
+			<&mt6375_auxadc MT6375_AUXADC_IMIX_R>,
+			<&mt6375_auxadc MT6375_AUXADC_BATSNS>;
+			io-channel-names = "pmic_ptim",
+			"pmic_imix_r",
+			"pmic_batadc";
+		};
+	};
+};
+
 &i2c5 {
 	clock-frequency = <1000000>;
 	mt6375: mt6375@34 {
@@ -7794,7 +7806,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		};
 		mt6375_batoc_throttle: mtk_battery_oc_throttling {
 			compatible = "mediatek,mt6375-battery_oc_throttling";
-			status = "disabled";
 			interrupts-extended = <&mtk_gauge MT6375_IRQ_FG_CUR_H>,
 					      <&mtk_gauge MT6375_IRQ_FG_CUR_L>;
 			interrupt-names = "fg_cur_h", "fg_cur_l";
