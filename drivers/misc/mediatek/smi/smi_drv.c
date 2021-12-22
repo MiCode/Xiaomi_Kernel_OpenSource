@@ -49,6 +49,7 @@
 #include <sspm_define.h>
 //#include <sspm_reservedmem_define.h>
 #if IS_ENABLED(CONFIG_MACH_MT6761)
+#include <clk-mt6761-pg.h>
 #include <sspm_reservedmem_define_mt6761.h>
 #elif IS_ENABLED(CONFIG_MACH_MT6779)
 #include <sspm_reservedmem_define_mt6779.h>
@@ -434,6 +435,9 @@ static s32 smi_debug_dumper(const bool gce, const bool off, const u32 id)
 	void __iomem *base;
 	u32 nr_debugs, *debugs, temp[MAX_INPUT];
 	s32 i, j;
+#if IS_ENABLED(CONFIG_MACH_MT6761)
+	unsigned long flags = 0;
+#endif
 
 	if (id > SMI_DEV_NUM) {
 		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u\n", id, SMI_DEV_NUM);
@@ -459,8 +463,14 @@ static s32 smi_debug_dumper(const bool gce, const bool off, const u32 id)
 		return 0;
 	}
 
+#if IS_ENABLED(CONFIG_MACH_MT6761)
+	mtk_mtcmos_lock(flags);
+#endif
 	for (i = 0; i < nr_debugs && ATOMR_CLK(j) > 0; i++)
 		temp[i] = readl(base + debugs[i]);
+#if IS_ENABLED(CONFIG_MACH_MT6761)
+	mtk_mtcmos_unlock(flags);
+#endif
 	if (i < nr_debugs) {
 		SMIWRN(gce, "======== %s%u OFF ========\n", name, id);
 		return 0;
@@ -498,6 +508,10 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 {
 	u32 time = 5, busy[SMI_DEV_NUM] = {0};
 	s32 i, j, ret = 0;
+#if IS_ENABLED(CONFIG_MACH_MT6761)
+	unsigned long flags = 0;
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MTK_EMI_BWL)
 	// TODO-419
 	// dump_emi_outstanding();
@@ -514,9 +528,16 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 	}
 
 	for (i = 0; i < time; i++) {
-		for (j = 0; j < SMI_LARB_NUM; j++)
+		for (j = 0; j < SMI_LARB_NUM; j++) {
+#if IS_ENABLED(CONFIG_MACH_MT6761)
+			mtk_mtcmos_lock(flags);
+#endif
 			busy[j] += ((ATOMR_CLK(j) > 0 &&
 			readl(smi_dev[j]->base + SMI_LARB_STAT)) ? 1 : 0);
+#if IS_ENABLED(CONFIG_MACH_MT6761)
+			mtk_mtcmos_unlock(flags);
+#endif
+		}
 		/* COMM */
 		for (j = SMI_LARB_NUM; j < SMI_DEV_NUM; j++)
 			busy[j] += ((ATOMR_CLK(j) > 0 &&
