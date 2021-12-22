@@ -2766,6 +2766,7 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 	struct mtk_iommu_data *data = dev_get_drvdata(dev);
 	struct mtk_iommu_suspend_reg *reg = &data->reg;
 	void __iomem *base = data->base;
+	unsigned long flags;
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PM_OPS_SKIP))
 		return 0;
@@ -2773,6 +2774,15 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 	/* skip read register when hw_init is not finish. */
 	if (!data->m4u_dom) {
 		clk_disable_unprepare(data->bclk);
+		return 0;
+	}
+
+	spin_lock_irqsave(&data->tlb_lock, flags);
+	if (!mtk_iommu_power_get(data)) {
+		pr_notice("%s, iommu:(%d,%d) power off dev:%s\n",
+			  __func__, data->plat_data->iommu_type, data->plat_data->iommu_id,
+			  dev_name(data->dev));
+		spin_unlock_irqrestore(&data->tlb_lock, flags);
 		return 0;
 	}
 
@@ -2795,6 +2805,9 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 		mtk_iommu_mau_reg_backup(data);
 #endif
 
+	mtk_iommu_power_put(data);
+	spin_unlock_irqrestore(&data->tlb_lock, flags);
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_pm_trace(dev, false);
 #endif
@@ -2809,6 +2822,7 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	struct mtk_iommu_suspend_reg *reg = &data->reg;
 	struct mtk_iommu_domain *m4u_dom = data->m4u_dom;
 	void __iomem *base = data->base;
+	unsigned long flags;
 	int ret;
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PM_OPS_SKIP))
@@ -2826,6 +2840,15 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	 */
 	if (!m4u_dom)
 		return 0;
+
+	spin_lock_irqsave(&data->tlb_lock, flags);
+	if (!mtk_iommu_power_get(data)) {
+		pr_notice("%s, iommu:(%d,%d) power off dev:%s\n",
+			  __func__, data->plat_data->iommu_type, data->plat_data->iommu_id,
+			  dev_name(data->dev));
+		spin_unlock_irqrestore(&data->tlb_lock, flags);
+		return 0;
+	}
 
 	writel_relaxed(reg->tbw_id, base + REG_MMU_TBW_ID);
 	writel_relaxed(reg->wr_len_ctrl, base + REG_MMU_WR_LEN_CTRL);
@@ -2846,6 +2869,9 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_MAU_EN))
 		mtk_iommu_mau_reg_restore(data);
 #endif
+
+	mtk_iommu_power_put(data);
+	spin_unlock_irqrestore(&data->tlb_lock, flags);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_pm_trace(dev, true);
