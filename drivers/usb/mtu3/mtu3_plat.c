@@ -78,6 +78,14 @@ int ssusb_set_power_resource(struct ssusb_mtk *ssusb, int mode)
 	return 0;
 }
 
+void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb)
+{
+	/* set noise still transfer */
+	if (ssusb->noise_still_tr)
+		mtu3_setbits(ssusb->mac_base, U3D_USB_BUS_PERFORMANCE,
+			NOISE_STILL_TRANSFER);
+}
+
 /* u2-port0 should be powered on and enabled; */
 int ssusb_check_clocks(struct ssusb_mtk *ssusb, u32 ex_clks)
 {
@@ -374,6 +382,8 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
 	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
 	ssusb->spm_mgr = of_property_read_bool(node, "mediatek,spm-mgr");
+	ssusb->noise_still_tr =
+		of_property_read_bool(node, "mediatek,noise-still-tr");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)

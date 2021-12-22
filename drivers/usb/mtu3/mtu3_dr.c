@@ -190,6 +190,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	case MTU3_ID_GROUND:
 		switch_port_to_host(ssusb);
 		ssusb_set_vbus(otg_sx, 1);
+		ssusb_set_noise_still_tr(ssusb);
 		ssusb->is_host = true;
 		otg_sx->sw_state |= MTU3_SW_ID_GROUND;
 		break;
