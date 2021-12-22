@@ -1,5 +1,7 @@
 clk-dummy.ko
 clk-qcom.ko
+gcc-parrot.ko
+gdsc-regulator.ko
 pinctrl-parrot.ko
 qnoc-parrot.ko
 qcom_wdt_core.ko
