@@ -39,11 +39,11 @@ endif
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
-include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+include $(srctree)/drivers/tee/teei/Makefile.include
 endif
 
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+include $(srctree)/drivers/tee/gud/Makefile.include
 endif
 
 ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
