@@ -4116,12 +4116,12 @@ u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 	static u32 *mdp_base;
 
 	if (!count && !mdp_base) {
-		count = cmdq_mdp_get_func()->getEngineBaseCount();
-		mdp_base = cmdq_mdp_get_func()->getEngineBase();
+		count = mdp_engine_base_count();
+		mdp_base = mdp_engine_base_get();
 	}
 
 	if (!count || !mdp_base) {
-		CMDQ_ERR("%s count:%u base:%p\n", __func__, count, mdp_base);
+		CMDQ_ERR("%s count:%u base:%x\n", __func__, count, mdp_base);
 		return 0;
 	}
 
@@ -4147,8 +4147,8 @@ u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
 	u16 reg_msb_offset;
 
 	if (!count && !mdp_base) {
-		count = cmdq_mdp_get_func()->getEngineBaseCount();
-		mdp_base = cmdq_mdp_get_func()->getEngineBase();
+		count = mdp_engine_base_count();
+		mdp_base = mdp_engine_base_get();
 	}
 
 	if (!count || !mdp_base) {

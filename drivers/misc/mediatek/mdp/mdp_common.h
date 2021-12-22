@@ -337,4 +337,7 @@ void cmdq_mdp_platform_function_setting(void);
 
 long cmdq_mdp_get_module_base_VA_MDP_WROT0(void);
 
+extern u32 *mdp_engine_base_get(void);
+extern u32 mdp_engine_base_count(void);
+
 #endif				/* __MDP_COMMON_H__ */

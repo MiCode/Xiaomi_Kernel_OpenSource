@@ -2853,12 +2853,12 @@ static const char *const mdp_get_engine_group_name(void)
 	return (const char *const)engineGroupName;
 }
 
-static u32 *mdp_engine_base_get(void)
+u32 *mdp_engine_base_get(void)
 {
 	return (u32 *)mdp_base;
 }
 
-static u32 mdp_engine_base_count(void)
+u32 mdp_engine_base_count(void)
 {
 	return (u32)ENGBASE_COUNT;
 }
