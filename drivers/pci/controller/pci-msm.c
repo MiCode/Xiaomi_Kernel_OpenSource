@@ -6303,29 +6303,30 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 {
 	struct pcie_drv_sta *pcie_drv = container_of(work, struct pcie_drv_sta,
 						     drv_connect);
-	struct msm_pcie_dev_t *pcie_dev = pcie_drv->msm_pcie_dev;
+	struct msm_pcie_dev_t *pcie_itr, *pcie_dev = pcie_drv->msm_pcie_dev;
 	int i;
 
 	/* rpmsg probe hasn't happened yet */
 	if (!pcie_drv->rpdev)
 		return;
 
-	for (i = 0; i < MAX_RC_NUM; i++, pcie_dev++) {
-		struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
+	pcie_itr = pcie_dev;
+	for (i = 0; i < MAX_RC_NUM; i++, pcie_itr++) {
+		struct msm_pcie_drv_info *drv_info = pcie_itr->drv_info;
 
 		/* does not support DRV or has not been probed yet */
 		if (!drv_info || drv_info->ep_connected)
 			continue;
 
-		msm_pcie_notify_client(pcie_dev,
+		msm_pcie_notify_client(pcie_itr,
 				       MSM_PCIE_EVENT_DRV_CONNECT);
 
-		mutex_lock(&pcie_dev->drv_pc_lock);
+		mutex_lock(&pcie_itr->drv_pc_lock);
 		drv_info->ep_connected = true;
 
-		if (pcie_dev->drv_disable_pc_vote)
-			queue_work(mpcie_wq, &pcie_dev->drv_disable_pc_work);
-		mutex_unlock(&pcie_dev->drv_pc_lock);
+		if (pcie_itr->drv_disable_pc_vote)
+			queue_work(mpcie_wq, &pcie_itr->drv_disable_pc_work);
+		mutex_unlock(&pcie_itr->drv_pc_lock);
 	}
 
 	pcie_drv->notifier = qcom_register_ssr_notifier(pcie_dev->drv_name,
