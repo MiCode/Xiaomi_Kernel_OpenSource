@@ -2046,9 +2046,79 @@
 			reg = <0 0x1000c000 0 0xe00>;
 		};
 
-		fhctl@1000ce00 {
-			compatible = "mediatek,fhctl";
-			reg = <0 0x1000ce00 0 0x200>;
+		fhctl: fhctl@1000ce00 {
+			compatible = "mediatek,mt6855-fhctl";
+			reg = <0 0x1000ce00 0 0x200>, //AP FHCTL base
+				  <0 0x1000c000 0 0xe00>, //APMIX base
+
+				  <0 0x13fa0e00 0 0x200>, //GPU EN
+				  <0 0x13fa0000 0 0x100>; //GPU APMIX
+
+			map0 {
+				domain = "top";
+				method = "fhctl-mcupm";
+				armpll_ll {
+					fh-id = <0>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
+				armpll_bl {
+					fh-id = <1>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
+				armpll_b {
+					fh-id = <2>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
+				ccipll {
+					fh-id = <3>;
+					pll-id = <999>;
+					perms = <0x18>;
+				};
+				mpll {
+					fh-id = <6>;
+					pll-id = <CLK_APMIXED_MPLL>;
+				};
+				mmpll {
+					fh-id = <7>;
+					pll-id = <CLK_APMIXED_MMPLL>;
+				};
+				mainpll {
+					fh-id = <8>;
+					pll-id = <CLK_APMIXED_MAINPLL>;
+				};
+				msdcpll {
+					fh-id = <9>;
+					pll-id = <CLK_APMIXED_MSDCPLL>;
+				};
+				adsppll {
+					fh-id = <10>;
+					pll-id = <999>;
+				};
+				imgpll {
+					fh-id = <11>;
+					pll-id = <CLK_APMIXED_IMGPLL>;
+				};
+				tvdpll {
+					fh-id = <12>;
+					pll-id = <CLK_APMIXED_TVDPLL>;
+				};
+			};
+
+			map1 {
+				domain = "gpu";
+				method = "fhctl-ap";
+				mfgpll0 {
+					fh-id = <0>;
+					pll-id = <CLK_MFG_AO_MFGPLL>;
+				};
+				mfgpll3 {
+					fh-id = <3>;
+					pll-id = <CLK_MFG_AO_MFGSCPLL>;
+				};
+			};
 		};
 
 		pwrap@1000d000 {
