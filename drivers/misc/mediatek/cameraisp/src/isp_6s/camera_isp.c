@@ -4634,18 +4634,28 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 			unsigned int vf, module = ISP_IRQ_TYPE_INT_CAM_A_ST;
 			unsigned int cam_dmao = 0;
+			unsigned int dev_node_idx = DebugFlag[1];
 
-			if (DebugFlag[1] < ISP_CAMSYS_CONFIG_IDX ||
-			    DebugFlag[1] > ISP_CAMSV7_IDX) {
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id) &&
+				(dev_node_idx >= ISP_CAMSV_START_IDX) &&
+				(dev_node_idx <= ISP_CAMSV_END_IDX)) {
 
-				LOG_NOTICE("CAM Index is out of range:%d",
-					   DebugFlag[1]);
+				dev_node_idx += 2;
+				LOG_NOTICE("camsv node idx shift 2: (%d, %d)",
+					   DebugFlag[1], dev_node_idx);
+			}
+
+			if (dev_node_idx < ISP_CAMSYS_CONFIG_IDX ||
+			    dev_node_idx > ISP_CAMSV7_IDX) {
+
+				LOG_NOTICE("CAM Index is out of range: %d, %d",
+					   DebugFlag[1], dev_node_idx);
 
 				Ret = -EFAULT;
 				break;
 			}
 
-			switch (DebugFlag[1]) {
+			switch (dev_node_idx) {
 			case ISP_CAM_A_IDX:
 				module = ISP_IRQ_TYPE_INT_CAM_A_ST;
 				break;
@@ -4681,12 +4691,12 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				break;
 			}
 
-			switch (DebugFlag[1]) {
+			switch (dev_node_idx) {
 			case ISP_CAM_A_IDX:
 			case ISP_CAM_B_IDX:
 			case ISP_CAM_C_IDX:
 				/*0x3b04 */
-				vf = ISP_RD32(CAM_REG_TG_VF_CON(DebugFlag[1]));
+				vf = ISP_RD32(CAM_REG_TG_VF_CON(dev_node_idx));
 				break;
 			case ISP_CAMSV0_IDX:
 			case ISP_CAMSV1_IDX:
@@ -4698,20 +4708,20 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			case ISP_CAMSV7_IDX:
 				/*0x0134 */
 				vf = ISP_RD32(
-					CAMSV_REG_TG_VF_CON(DebugFlag[1]));
+					CAMSV_REG_TG_VF_CON(dev_node_idx));
 				break;
 			default:
-				vf = ISP_RD32(CAM_REG_TG_VF_CON(DebugFlag[1]));
+				vf = ISP_RD32(CAM_REG_TG_VF_CON(dev_node_idx));
 			}
 
 			switch (DebugFlag[0]) {
 			case 1: {
 				if (sec_on) {
 					cam_dmao = lock_reg.CAM_REG_CTL_DMA_EN
-							   [DebugFlag[1]];
+							   [dev_node_idx];
 				} else {
 					cam_dmao = ISP_RD32(CAM_REG_CTL_DMA_EN(
-						DebugFlag[1]));
+						dev_node_idx));
 				}
 				irq3a_print_vf_off[module] = 0;
 				LOG_INF(
@@ -4724,7 +4734,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						module);
 				} else {
 					ISP_WR32(
-						CAM_REG_TG_VF_CON(DebugFlag[1]),
+						CAM_REG_TG_VF_CON(dev_node_idx),
 						(vf + 0x1));
 					/*For RAWI DMA Err debug*/
 					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX),
@@ -4736,7 +4746,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				}
 				/*SCQ does not support CQ covery */
 				cq_recovery[module] = (((ISP_RD32(CAM_REG_CAMCQ_CQ_EN(
-						DebugFlag[1])) >> 20)
+						dev_node_idx)) >> 20)
 						& 0x1) ? 0 : 1);
 
 #if (TIMESTAMP_QUEUE_EN == 1)
@@ -4777,7 +4787,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				if (vf & 0x1) {
 					ISP_WR32(
-						CAM_REG_TG_VF_CON(DebugFlag[1]),
+						CAM_REG_TG_VF_CON(dev_node_idx),
 						(vf - 0x1));
 					cq_recovery[module] = 0;
 				} else {
@@ -4790,25 +4800,25 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			/* CAMSV */
 			case 11: {
 				LOG_INF("CAMSV_%d viewFinder is ON\n",
-					(DebugFlag[1] - ISP_CAMSV_START_IDX));
+					(dev_node_idx - ISP_CAMSV_START_IDX));
 
 				cam_dmao = (ISP_RD32(CAMSV_REG_MODULE_EN(
-						    DebugFlag[1])) &
+						    dev_node_idx)) &
 					    0x10);
 
 				LOG_DBG("CAMSV_%d:[DMA_EN]:0x%x\n", module,
 					cam_dmao);
 
 				vf = ISP_RD32(
-					CAMSV_REG_TG_VF_CON(DebugFlag[1]));
+					CAMSV_REG_TG_VF_CON(dev_node_idx));
 
 				if (vf & 0x1) {
 					LOG_NOTICE(
 					"CAMSV_%d: vf already enabled\n",
-					(DebugFlag[1] - ISP_CAMSV_START_IDX));
+					(dev_node_idx - ISP_CAMSV_START_IDX));
 				} else {
 					ISP_WR32(CAMSV_REG_TG_VF_CON(
-							 DebugFlag[1]),
+							 dev_node_idx),
 						 (vf + 0x1));
 				}
 
@@ -4824,19 +4834,19 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			case 10: {
 				LOG_INF("CAMSV_%d viewFinder is OFF\n",
-					(DebugFlag[1] - ISP_CAMSV_START_IDX));
+					(dev_node_idx - ISP_CAMSV_START_IDX));
 
 				vf = ISP_RD32(
-					CAMSV_REG_TG_VF_CON(DebugFlag[1]));
+					CAMSV_REG_TG_VF_CON(dev_node_idx));
 
 				if (vf & 0x1) {
 					ISP_WR32(CAMSV_REG_TG_VF_CON(
-							 DebugFlag[1]),
+							 dev_node_idx),
 						 (vf - 0x1));
 				} else {
 					LOG_NOTICE(
 					"CAMSV_%d: vf already disalbed\n",
-					(DebugFlag[1] - ISP_CAMSV_START_IDX));
+					(dev_node_idx - ISP_CAMSV_START_IDX));
 				}
 				break;
 			}
@@ -4847,17 +4857,17 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			case 0:
 			case 1:
 				LOG_NOTICE("CAM_%d_REG_TG_VF_CON 0x%08x\n",
-					   (DebugFlag[1] - ISP_CAM_A_IDX),
+					   (dev_node_idx - ISP_CAM_A_IDX),
 					   ISP_RD32(CAM_REG_TG_VF_CON(
-						   DebugFlag[1])));
+						   dev_node_idx)));
 				break;
 			/* CAMSV */
 			case 10:
 			case 11:
 				LOG_NOTICE("CAMSV_%d_REG_TG_VF_CON 0x%08x\n",
-					   (DebugFlag[1] - ISP_CAMSV_START_IDX),
+					   (dev_node_idx - ISP_CAMSV_START_IDX),
 					   ISP_RD32(CAMSV_REG_TG_VF_CON(
-						   DebugFlag[1])));
+						   dev_node_idx)));
 				break;
 			default:
 				LOG_NOTICE("No support this debugFlag[0] %d",
@@ -5520,33 +5530,43 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 		if (copy_from_user(&pwrctl, (void *)Param,
 			sizeof(unsigned int) * 2) == 0) {
-			if ((pwrctl[0] >= ISP_DEV_NODE_NUM) ||
-				(pwrctl[0] < ISP_CAM_A_IDX)) {
+
+			unsigned int dev_node_idx = pwrctl[0];
+
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_idx >= ISP_CAMSV_START_IDX) &&
+					(dev_node_idx <= ISP_CAMSV_END_IDX))
+					dev_node_idx += 2;
+			}
+
+			if ((dev_node_idx >= ISP_DEV_NODE_NUM) ||
+				(dev_node_idx < ISP_CAM_A_IDX)) {
 				LOG_NOTICE(
-					"module index is invalid module(%d)!", pwrctl[0]);
+					"module index is invalid module(%d, %d)!",
+					pwrctl[0], dev_node_idx);
 				Ret = -EFAULT;
 				break;
 			}
 
 			LOG_NOTICE("isp pwr_ctrl(%d,%d) enableClkCnt(%d)\n",
-				pwrctl[0], pwrctl[1], G_u4EnableClockCount[pwrctl[0]]);
+				dev_node_idx, pwrctl[1], G_u4EnableClockCount[dev_node_idx]);
 
 			if (pwrctl[1]) {
 				/* Enable clock */
-				ISP_EnableClock(pwrctl[0], MTRUE);
+				ISP_EnableClock(dev_node_idx, MTRUE);
 
 				spin_lock(&(IspInfo.SpinLockClock));
-				if (G_u4EnableClockCount[pwrctl[0]] == 1) {
+				if (G_u4EnableClockCount[dev_node_idx] == 1) {
 					spin_unlock(&(IspInfo.SpinLockClock));
-					ISP_ConfigDMAControl(pwrctl[0]);
+					ISP_ConfigDMAControl(dev_node_idx);
 				} else {
 					spin_unlock(&(IspInfo.SpinLockClock));
 				}
 			} else {
-				if (pwrctl[0] >= ISP_CAMSV_START_IDX)
-					ISP_StopSVHW(pwrctl[0]);
-				else if (pwrctl[0] <= ISP_CAM_C_IDX)
-					ISP_StopHW(pwrctl[0]);
+				if (dev_node_idx >= ISP_CAMSV_START_IDX)
+					ISP_StopSVHW(dev_node_idx);
+				else if (dev_node_idx <= ISP_CAM_C_IDX)
+					ISP_StopHW(dev_node_idx);
 
 				/* Disable clock.
 				 *  1. clkmgr: G_u4EnableClockCount=0, call clk_enable/disable
@@ -5554,10 +5574,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				 *     -> when IspInfo.UserCount, disable all ISP clk
 				 */
 				spin_lock(&(IspInfo.SpinLockClock));
-				i = G_u4EnableClockCount[pwrctl[0]];
+				i = G_u4EnableClockCount[dev_node_idx];
 				spin_unlock(&(IspInfo.SpinLockClock));
 				while (i > 0) {
-					ISP_EnableClock(pwrctl[0], MFALSE);
+					ISP_EnableClock(dev_node_idx, MFALSE);
 					i--;
 				}
 			}

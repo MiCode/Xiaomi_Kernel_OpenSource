@@ -54,6 +54,7 @@
 					IS_MT6877(id) ||	\
 					IS_MT6873(id))
 
+#define IS_CAMSV_TOP0_NOT_AVAILABLE(id)	(!(IS_CAMSV_TOP0_AVAILABLE(id)))
 
 /* =============================================================================
  * Must add the platform id in the one of the following isp6s version macro.
