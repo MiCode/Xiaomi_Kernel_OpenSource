@@ -2718,6 +2718,8 @@ static int tfa98xx_probe(struct snd_soc_component *codec)
 
 	pr_info("entry\n");
 
+	snd_soc_component_init_regmap(codec, tfa98xx->regmap);
+
 	/* setup work queue, will be used to initial DSP on first boot up */
 	tfa98xx->tfa98xx_wq = create_singlethread_workqueue("tfa98xx");
 	if (!tfa98xx->tfa98xx_wq)
@@ -2741,7 +2743,7 @@ static int tfa98xx_probe(struct snd_soc_component *codec)
 	return ret;
 }
 
-static int tfa98xx_remove(struct snd_soc_component *codec)
+static void tfa98xx_remove(struct snd_soc_component *codec)
 {
 	struct tfa98xx *tfa98xx = snd_soc_component_get_drvdata(codec);
 
@@ -2756,22 +2758,13 @@ static int tfa98xx_remove(struct snd_soc_component *codec)
 	if (tfa98xx->tfa98xx_wq)
 		destroy_workqueue(tfa98xx->tfa98xx_wq);
 
-	return 0;
-}
-
-static struct regmap *tfa98xx_get_regmap(struct device *dev)
-{
-	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
-
-	return tfa98xx->regmap;
+	return;
 }
 
 static struct snd_soc_component_driver soc_codec_dev_tfa98xx = {
 	.probe =	tfa98xx_probe,
 	.remove =	tfa98xx_remove,
-	.get_regmap = tfa98xx_get_regmap,
 };
-
 
 static bool tfa98xx_writeable_register(struct device *dev, unsigned int reg)
 {
