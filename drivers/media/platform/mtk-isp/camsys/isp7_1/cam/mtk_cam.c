@@ -114,6 +114,12 @@ static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
 		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_RAWI_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_RAWI_R5,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM2_AAI_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
 		mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM3_YUVO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
@@ -162,6 +168,12 @@ static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
 		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_RAWI_R3,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_RAWI_R5,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L27_CAM2_AAI_R1,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
 		mtk_iommu_register_fault_callback(M4U_PORT_L29_CAM3_YUVO_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
@@ -208,6 +220,12 @@ static void mtk_cam_register_iommu_tf_callback(struct mtk_raw_device *raw)
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
 		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_RAWI_R3,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_RAWI_R5,
+			mtk_cam_translation_fault_callback, (void *)raw, false);
+
+		mtk_iommu_register_fault_callback(M4U_PORT_L28_CAM2_AAI_R1,
 			mtk_cam_translation_fault_callback, (void *)raw, false);
 
 		mtk_iommu_register_fault_callback(M4U_PORT_L30_CAM3_YUVO_R1,
