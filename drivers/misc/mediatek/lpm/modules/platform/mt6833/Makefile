@@ -15,5 +15,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/power_gs_v1
 obj-y += mt6833.o
 obj-y += mtk_lp_plat_apmcu.o
 obj-y += mtk_lp_plat_apmcu_mbox.o
-
+obj-y += idles/mt6833_mcusys.o
 obj-y += suspend/mt6833_suspend.o

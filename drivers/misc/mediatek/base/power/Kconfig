@@ -69,3 +69,16 @@ config MTK_PBM
 	  This kernel config can be used to enable power budget management.
 	  When enable this option, pbm will allocate limit power budget to
 	  CPU and GPU when battery voltage is low.
+
+config MTK_QOS_V2
+	bool "MTK QOS Framework Ver 2.0"
+	default y if MACH_MT6853
+	default y if MACH_MT6833
+	default y if MACH_MT6877
+	default y if MACH_MT6781
+	select MTK_QOS_FRAMEWORK
+	help
+	  This version support QOS version 2.0 feature sets.
+	  It supports BW prediction, BW bound detection, and BW limiter.
+	  It is also mapped with sspm qos v2.
+	  If unsure, say N.
