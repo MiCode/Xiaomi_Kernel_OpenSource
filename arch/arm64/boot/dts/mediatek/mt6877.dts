@@ -453,7 +453,7 @@
 			alignment = <0 0x1000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
-		consys-reserve-memory {
+		consys_mem: consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
 			size = <0 0x780000>;
@@ -4644,6 +4644,7 @@
 			<0 0x1802e000 0 0x4c>;  /* 16. conn_bcrm_on */
 		clocks = <&scpsys SCP_SYS_CONN>;
 		clock-names = "conn";
+		memory-region = <&consys_mem>;
 	};
 
 	apu_conn2_clk: syscon@19020000 {
