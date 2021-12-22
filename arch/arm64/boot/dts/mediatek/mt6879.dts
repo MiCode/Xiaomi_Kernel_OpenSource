@@ -9163,8 +9163,9 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 
 	cam_yuv_a@1a050000 {
 		compatible = "mediatek,cam-yuv";
-		reg = <0 0x1a050000 0 0x8000>;
-		reg-names = "base";
+		reg = <0 0x1a050000 0 0x8000>,
+			  <0 0x1a058000 0 0x8000>;
+		reg-names = "base", "inner_base";
 		mediatek,cam-id = <0>;
 		mediatek,larbs = <&smi_larb17>;
 		interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -9320,8 +9321,9 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 
 	cam_yuv_b@1a090000 {
 		compatible = "mediatek,cam-yuv";
-		reg = <0 0x1a090000 0 0x8000>;
-		reg-names = "base";
+		reg = <0 0x1a090000 0 0x8000>,
+			  <0 0x1a098000 0 0x8000>;
+		reg-names = "base", "inner_base";
 		mediatek,cam-id = <1>;
 		mediatek,larbs = <&smi_larb29>;
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH 0>;
