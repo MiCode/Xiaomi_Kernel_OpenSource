@@ -349,7 +349,6 @@ enum {
 #define I2S_EN_MASK                                    0x1
 #define I2S_EN_MASK_SFT                                (0x1 << 0)
 
-
 /* AFE_ASRC_2CH_CON2 */
 #define CHSET_O16BIT_SFT                               19
 #define CHSET_O16BIT_MASK                              0x1
@@ -366,9 +365,9 @@ enum {
 #define CHSET_IIR_STAGE_SFT                            8
 #define CHSET_IIR_STAGE_MASK                           0x7
 #define CHSET_IIR_STAGE_MASK_SFT                       (0x7 << 8)
-#define ASRC_CON2_CHSET_STR_CLR_SFT                                     5
-#define ASRC_CON2_CHSET_STR_CLR_MASK                                    0x1
-#define ASRC_CON2_CHSET_STR_CLR_MASK_SFT                                (0x1 << 5)
+#define ASRC_CON2_CHSET_STR_CLR_SFT                    5
+#define ASRC_CON2_CHSET_STR_CLR_MASK                   0x1
+#define ASRC_CON2_CHSET_STR_CLR_MASK_SFT               (0x1 << 5)
 #define CHSET_ON_SFT                                   2
 #define CHSET_ON_MASK                                  0x1
 #define CHSET_ON_MASK_SFT                              (0x1 << 2)
@@ -2169,6 +2168,12 @@ enum {
 #define MTKAIF_RXIF_DATA_MODE_MASK_SFT                 (0x1 << 0)
 
 /* GENERAL_ASRC_MODE */
+#define GENERAL3_ASRCOUT_MODE_SFT                      20
+#define GENERAL3_ASRCOUT_MODE_MASK                     0xf
+#define GENERAL3_ASRCOUT_MODE_MASK_SFT                 (0xf << 20)
+#define GENERAL3_ASRCIN_MODE_SFT                       16
+#define GENERAL3_ASRCIN_MODE_MASK                      0xf
+#define GENERAL3_ASRCIN_MODE_MASK_SFT                  (0xf << 16)
 #define GENERAL2_ASRCOUT_MODE_SFT                      12
 #define GENERAL2_ASRCOUT_MODE_MASK                     0xf
 #define GENERAL2_ASRCOUT_MODE_MASK_SFT                 (0xf << 12)
@@ -2183,6 +2188,9 @@ enum {
 #define GENERAL1_ASRCIN_MODE_MASK_SFT                  (0xf << 0)
 
 /* GENERAL_ASRC_EN_ON */
+#define GENERAL3_ASRC_EN_ON_SFT                        2
+#define GENERAL3_ASRC_EN_ON_MASK                       0x1
+#define GENERAL3_ASRC_EN_ON_MASK_SFT                   (0x1 << 2)
 #define GENERAL2_ASRC_EN_ON_SFT                        1
 #define GENERAL2_ASRC_EN_ON_MASK                       0x1
 #define GENERAL2_ASRC_EN_ON_MASK_SFT                   (0x1 << 1)
@@ -2191,50 +2199,50 @@ enum {
 #define GENERAL1_ASRC_EN_ON_MASK_SFT                   (0x1 << 0)
 
 /* AFE_GENERAL1_ASRC_2CH_CON0 */
-#define GSRC_CON0_CHSET_STR_CLR_SFT                               4
-#define GSRC_CON0_CHSET_STR_CLR_MASK                              0x1
-#define GSRC_CON0_CHSET_STR_CLR_MASK_SFT                          (0x1 << 4)
-#define CHSET_ON_SFT                                   2
-#define CHSET_ON_MASK                                  0x1
-#define CHSET_ON_MASK_SFT                              (0x1 << 2)
-#define COEFF_SRAM_CTRL_SFT                            1
-#define COEFF_SRAM_CTRL_MASK                           0x1
-#define COEFF_SRAM_CTRL_MASK_SFT                       (0x1 << 1)
-#define ASM_ON_SFT                                     0
-#define ASM_ON_MASK                                    0x1
-#define ASM_ON_MASK_SFT                                (0x1 << 0)
+#define G_SRC_CHSET_STR_CLR_SFT                               4
+#define G_SRC_CHSET_STR_CLR_MASK                              0x1
+#define G_SRC_CHSET_STR_CLR_MASK_SFT                          (0x1 << 4)
+#define G_SRC_CHSET_ON_SFT                                    2
+#define G_SRC_CHSET_ON_MASK                                   0x1
+#define G_SRC_CHSET_ON_MASK_SFT                               (0x1 << 2)
+#define G_SRC_COEFF_SRAM_CTRL_SFT                             1
+#define G_SRC_COEFF_SRAM_CTRL_MASK                            0x1
+#define G_SRC_COEFF_SRAM_CTRL_MASK_SFT                        (0x1 << 1)
+#define G_SRC_ASM_ON_SFT                                      0
+#define G_SRC_ASM_ON_MASK                                     0x1
+#define G_SRC_ASM_ON_MASK_SFT                                 (0x1 << 0)
 
 /* AFE_GENERAL1_ASRC_2CH_CON2 */
-#define CHSET_O16BIT_SFT                               19
-#define CHSET_O16BIT_MASK                              0x1
-#define CHSET_O16BIT_MASK_SFT                          (0x1 << 19)
-#define CHSET_CLR_IIR_HISTORY_SFT                      17
-#define CHSET_CLR_IIR_HISTORY_MASK                     0x1
-#define CHSET_CLR_IIR_HISTORY_MASK_SFT                 (0x1 << 17)
-#define CHSET_IS_MONO_SFT                              16
-#define CHSET_IS_MONO_MASK                             0x1
-#define CHSET_IS_MONO_MASK_SFT                         (0x1 << 16)
-#define CHSET_IIR_EN_SFT                               11
-#define CHSET_IIR_EN_MASK                              0x1
-#define CHSET_IIR_EN_MASK_SFT                          (0x1 << 11)
-#define CHSET_IIR_STAGE_SFT                            8
-#define CHSET_IIR_STAGE_MASK                           0x7
-#define CHSET_IIR_STAGE_MASK_SFT                       (0x7 << 8)
+#define G_SRC_CHSET_O16BIT_SFT                               19
+#define G_SRC_CHSET_O16BIT_MASK                              0x1
+#define G_SRC_CHSET_O16BIT_MASK_SFT                          (0x1 << 19)
+#define G_SRC_CHSET_CLR_IIR_HISTORY_SFT                      17
+#define G_SRC_CHSET_CLR_IIR_HISTORY_MASK                     0x1
+#define G_SRC_CHSET_CLR_IIR_HISTORY_MASK_SFT                 (0x1 << 17)
+#define G_SRC_CHSET_IS_MONO_SFT                              16
+#define G_SRC_CHSET_IS_MONO_MASK                             0x1
+#define G_SRC_CHSET_IS_MONO_MASK_SFT                         (0x1 << 16)
+#define G_SRC_CHSET_IIR_EN_SFT                               11
+#define G_SRC_CHSET_IIR_EN_MASK                              0x1
+#define G_SRC_CHSET_IIR_EN_MASK_SFT                          (0x1 << 11)
+#define G_SRC_CHSET_IIR_STAGE_SFT                            8
+#define G_SRC_CHSET_IIR_STAGE_MASK                           0x7
+#define G_SRC_CHSET_IIR_STAGE_MASK_SFT                       (0x7 << 8)
 
 /* AFE_GENERAL1_ASRC_2CH_CON3 */
-#define ASM_FREQ_4_SFT                                 0
-#define ASM_FREQ_4_MASK                                0xffffff
-#define ASM_FREQ_4_MASK_SFT                            (0xffffff << 0)
+#define G_SRC_ASM_FREQ_4_SFT                                  0
+#define G_SRC_ASM_FREQ_4_MASK                                 0xffffff
+#define G_SRC_ASM_FREQ_4_MASK_SFT                             (0xffffff << 0)
 
 /* AFE_GENERAL1_ASRC_2CH_CON4 */
-#define ASM_FREQ_5_SFT                                 0
-#define ASM_FREQ_5_MASK                                0xffffff
-#define ASM_FREQ_5_MASK_SFT                            (0xffffff << 0)
+#define G_SRC_ASM_FREQ_5_SFT                                  0
+#define G_SRC_ASM_FREQ_5_MASK                                 0xffffff
+#define G_SRC_ASM_FREQ_5_MASK_SFT                             (0xffffff << 0)
 
 /* AFE_GENERAL1_ASRC_2CH_CON13 */
-#define COEFF_SRAM_ADR_SFT                             0
-#define COEFF_SRAM_ADR_MASK                            0x3f
-#define COEFF_SRAM_ADR_MASK_SFT                        (0x3f << 0)
+#define G_SRC_COEFF_SRAM_ADR_SFT                              0
+#define G_SRC_COEFF_SRAM_ADR_MASK                             0x3f
+#define G_SRC_COEFF_SRAM_ADR_MASK_SFT                         (0x3f << 0)
 
 /* AFE_ADDA_DL_SDM_AUTO_RESET_CON */
 #define SDM_AUTO_RESET_TEST_ON_SFT                     31
@@ -2261,6 +2269,7 @@ enum {
 #define ASM_ON_SFT                                     0
 #define ASM_ON_MASK                                    0x1
 #define ASM_ON_MASK_SFT                                (0x1 << 0)
+
 
 /* AFE_ASRC_2CH_CON5 */
 #define FREQ_CALI_CYCLE_SFT                            16
@@ -3043,6 +3052,19 @@ enum {
 #define AFE_VUL7_2_END                    0x12d8
 #define AFE_CM1_CON0                      0x12f0
 #define AFE_CM1_MON                       0x12f4
+#define AFE_GENERAL3_ASRC_2CH_CON0        0x1300
+#define AFE_GENERAL3_ASRC_2CH_CON1        0x1304
+#define AFE_GENERAL3_ASRC_2CH_CON2        0x1308
+#define AFE_GENERAL3_ASRC_2CH_CON3        0x130c
+#define AFE_GENERAL3_ASRC_2CH_CON4        0x1310
+#define AFE_GENERAL3_ASRC_2CH_CON5        0x1314
+#define AFE_GENERAL3_ASRC_2CH_CON6        0x1318
+#define AFE_GENERAL3_ASRC_2CH_CON7        0x131c
+#define AFE_GENERAL3_ASRC_2CH_CON8        0x1320
+#define AFE_GENERAL3_ASRC_2CH_CON9        0x1324
+#define AFE_GENERAL3_ASRC_2CH_CON10       0x1328
+#define AFE_GENERAL3_ASRC_2CH_CON12       0x1330
+#define AFE_GENERAL3_ASRC_2CH_CON13       0x1334
 #define AFE_PROXIMITY_CON0                0x1370
 #define AFE_CONN80_1                      0x13f0
 #define AFE_CONN81_1                      0x13f4

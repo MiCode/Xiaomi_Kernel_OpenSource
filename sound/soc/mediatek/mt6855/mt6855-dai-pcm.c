@@ -124,6 +124,8 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch1_mix[] = {
 				    I_DL2_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN17_1,
 				    I_DL4_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_1_OUT_CH1", AFE_CONN17_1,
+				    I_SRC_1_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_pcm_2_playback_ch2_mix[] = {
@@ -137,6 +139,8 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch2_mix[] = {
 				    I_DL2_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN18_1,
 				    I_DL4_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_1_OUT_CH2", AFE_CONN18_1,
+				    I_SRC_1_OUT_CH2, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_pcm_2_playback_ch3_mix[] = {
@@ -157,6 +161,8 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch4_mix[] = {
 				    I_I2S2_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN24_1,
 				    I_DL4_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_3_OUT_CH1", AFE_CONN24_2,
+				    I_SRC_3_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_pcm_2_playback_ch5_mix[] = {
@@ -168,6 +174,8 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch5_mix[] = {
 				    I_I2S2_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN25_1,
 				    I_DL4_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_3_OUT_CH2", AFE_CONN25_2,
+				    I_SRC_3_OUT_CH2, 1, 0),
 };
 
 static int mtk_pcm_en_event(struct snd_soc_dapm_widget *w,
@@ -250,6 +258,8 @@ static const struct snd_soc_dapm_route mtk_dai_pcm_routes[] = {
 	{"PCM_1_PB_CH4", "DL1_CH1", "DL1"},
 	{"PCM_2_PB_CH1", "DL2_CH1", "DL2"},
 	{"PCM_2_PB_CH2", "DL2_CH2", "DL2"},
+	{"PCM_2_PB_CH1", "HW_SRC_1_OUT_CH1", "HW_SRC_1_Out"},
+	{"PCM_2_PB_CH2", "HW_SRC_1_OUT_CH2", "HW_SRC_1_Out"},
 	{"PCM_2_PB_CH4", "DL1_CH1", "DL1"},
 
 	{"PCM_1_PB_CH1", "DL4_CH1", "DL4"},
@@ -260,10 +270,12 @@ static const struct snd_soc_dapm_route mtk_dai_pcm_routes[] = {
 	{"PCM_2_PB_CH4", "DL4_CH1", "DL4"},
 	{"PCM_1_PB_CH4", "I2S0_CH1", "I2S0"},
 	{"PCM_2_PB_CH4", "I2S2_CH1", "I2S2"},
+	{"PCM_2_PB_CH4", "HW_SRC_3_OUT_CH1", "HW_SRC_3_Out"},
 	{"PCM_2_PB_CH5", "DL1_CH2", "DL1"},
 	{"PCM_2_PB_CH5", "DL4_CH2", "DL4"},
 	{"PCM_2_PB_CH5", "I2S0_CH2", "I2S0"},
 	{"PCM_2_PB_CH5", "I2S2_CH2", "I2S2"},
+	{"PCM_2_PB_CH5", "HW_SRC_3_OUT_CH2", "HW_SRC_3_Out"},
 };
 
 /* dai ops */

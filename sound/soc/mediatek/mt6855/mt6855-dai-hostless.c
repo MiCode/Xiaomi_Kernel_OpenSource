@@ -78,6 +78,8 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"I2S5_CH1", "PCM_2_CAP_CH1", "Hostless Speech DL"},
 	{"I2S5_CH2", "PCM_2_CAP_CH1", "Hostless Speech DL"},
 	{"I2S5_CH2", "PCM_2_CAP_CH2", "Hostless Speech DL"},
+	{"HW_SRC_3_IN_CH1", "PCM_2_CAP_CH1", "Hostless Speech DL"},
+	{"HW_SRC_3_IN_CH2", "PCM_2_CAP_CH1", "Hostless Speech DL"},
 	{"PCM_1_PB_CH1", "ADDA_UL_CH1", "Hostless Speech DL"},
 	{"PCM_1_PB_CH2", "ADDA_UL_CH2", "Hostless Speech DL"},
 	{"PCM_2_PB_CH1", "ADDA_UL_CH1", "Hostless Speech DL"},
@@ -87,6 +89,10 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"PCM_2_PB_CH2", "ADDA_UL_CH2", "Hostless Speech DL"},
 	{"PCM_2_PB_CH2", "ADDA_UL_CH3", "Hostless Speech DL"},
 	{"PCM_2_PB_CH3", "ADDA_UL_CH3", "Hostless Speech DL"},
+	{"PCM_2_PB_CH1", "HW_SRC_1_OUT_CH1", "Hostless Speech DL"},
+	{"PCM_2_PB_CH2", "HW_SRC_1_OUT_CH2", "Hostless Speech DL"},
+	{"HW_SRC_3_OUT_CH1", "PCM_2_PB_CH4", "Hostless Speech DL"},
+	{"HW_SRC_3_OUT_CH2", "PCM_2_PB_CH5", "Hostless Speech DL"},
 
 	{"Hostless Speech UL", NULL, "PCM 1 Capture"},
 	{"Hostless Speech UL", NULL, "PCM 2 Capture"},
@@ -143,10 +149,21 @@ static const struct snd_soc_dapm_route mtk_dai_hostless_routes[] = {
 	{"I2S3", NULL, "Hostless_ADDA_DL_I2S_OUT DL"},
 	{"I2S5", NULL, "Hostless_ADDA_DL_I2S_OUT DL"},
 
-	/* Hostless_SRC */
+	/* Hostless SRC 1 */
 	{"ADDA_DL_CH1", "SRC_1_OUT_CH1", "Hostless_SRC_1_DL"},
 	{"ADDA_DL_CH2", "SRC_1_OUT_CH2", "Hostless_SRC_1_DL"},
+	{"HW_SRC_1_IN_CH1", "ADDA_UL_CH1", "Hostless_SRC_1_DL"},
+	{"HW_SRC_1_IN_CH2", "ADDA_UL_CH2", "Hostless_SRC_1_DL"},
 	{"Hostless_SRC_1_UL", NULL, "HW_SRC_1_Out"},
+
+	/* Hostless SRC 3 */
+	{"HW_SRC_3_IN_CH1", "PCM_2_CAP_CH1", "Hostless_SRC_3_DL"},
+	{"HW_SRC_3_IN_CH2", "PCM_2_CAP_CH1", "Hostless_SRC_3_DL"},
+	{"HW_SRC_3_IN_CH1", "DL1_CH1", "Hostless_SRC_3_DL"},
+	{"HW_SRC_3_IN_CH2", "DL1_CH2", "Hostless_SRC_3_DL"},
+	{"HW_SRC_3_IN_CH1", "DL4_CH1", "Hostless_SRC_3_DL"},
+	{"HW_SRC_3_IN_CH2", "DL4_CH2", "Hostless_SRC_3_DL"},
+	{"Hostless_SRC_3_UL", NULL, "HW_SRC_3_Out"},
 
 	/* Hostless_SRC_bargein */
 	{"HW_SRC_1_IN_CH1", "I2S0_CH1", "Hostless_SRC_Bargein_DL"},
@@ -323,6 +340,25 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 		},
 		.capture = {
 			.stream_name = "Hostless_SRC_1_UL",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
+		.ops = &mtk_dai_hostless_ops,
+	},
+	{
+		.name = "Hostless_SRC_3_DAI",
+		.id = MT6855_DAI_HOSTLESS_SRC_3,
+		.playback = {
+			.stream_name = "Hostless_SRC_3_DL",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = MTK_HOSTLESS_RATES,
+			.formats = MTK_HOSTLESS_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Hostless_SRC_3_UL",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = MTK_HOSTLESS_RATES,
