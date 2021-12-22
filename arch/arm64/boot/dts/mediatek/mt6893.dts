@@ -2295,9 +2295,6 @@ page_owner=on loop.max_part=7";
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		charger = <&mt6360_chg>;
-		vbus-supply = <&otg_vbus>;
-		vbus-voltage = <5000000>;
-		vbus-current = <1800000>;
 		dev-conn = <&ssusb>;
 		mediatek,bypss-typec-sink = <1>;
 	};
