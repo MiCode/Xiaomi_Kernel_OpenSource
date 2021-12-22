@@ -165,10 +165,14 @@ static int _enable_acc(enum DVFS_VOLTAGE_DOMAIN domain, bool enable)
 #ifdef APUPWR_SECURE
 	int ret = 0;
 	size_t value = 0;
+	struct arm_smccc_res res;
 
-	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_ACC_TOGGLE,
-			(size_t)domain, (size_t)enable, 0, &value);
+			(size_t)domain, (size_t)enable, 0, 0, 0, 0, &res);
+
+	ret = res.a0;
+	value = res.a1;
 	LOG_DBG("[%s] domain@%d, enable(%d) ACC: 0x%lx\n", __func__, domain, enable, value);
 
 	if (ret) {
@@ -260,11 +264,13 @@ static void _init_acc(enum DVFS_VOLTAGE_DOMAIN domain)
 {
 #ifdef APUPWR_SECURE
 	int ret = 0;
+	struct arm_smccc_res res;
 
-	ret = mt_secure_call_ret1(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_ACC_INIT,
-			(size_t)domain, 0, 0);
+			(size_t)domain, 0, 0, 0, 0, 0, &res);
 
+	ret = res.a0;
 	if (ret)
 		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, domain, ret);
 
@@ -458,11 +464,13 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
 #ifdef APUPWR_SECURE
 	int ret = 0;
+	struct arm_smccc_res res;
 
-	ret = mt_secure_call_ret1(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_ACC_SET_PARENT,
-			(size_t)freq, (size_t)domain, 0);
+			(size_t)freq, (size_t)domain, 0, 0, 0, 0, &res);
 
+	ret = res.a0;
 	if (ret) {
 		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, domain, ret);
 		return -1;
@@ -592,14 +600,16 @@ int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	enum DVFS_FREQ_POSTDIV posdiv_power = 0;
 	unsigned int dds;
 	bool div2;
+	struct arm_smccc_res res;
 
 	posdiv_power = apu_get_posdiv_power(freq, domain);
 	dds = apu_get_dds(freq, domain);
 	div2 = apu_get_div2(freq, domain);
-	ret = mt_secure_call_ret1(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_PLL_SET_RATE,
-			(size_t)freq, (size_t)div2, (size_t)domain);
+			(size_t)freq, (size_t)div2, (size_t)domain, 0, 0, 0, &res);
 
+	ret = res.a0;
 	if (ret) {
 		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, domain, ret);
 		return -1;
@@ -732,6 +742,7 @@ unsigned int pll_freqmeter_get(unsigned int pll_sel)
 #ifdef APUPWR_SECURE
 	int ret = 0;
 	size_t value = 0;
+	struct arm_smccc_res res;
 #else
 	unsigned int pll4h_fqmtr_con0, pll4h_fqmtr_con1;
 #endif
@@ -748,10 +759,12 @@ unsigned int pll_freqmeter_get(unsigned int pll_sel)
 	fmeter_lock(flags);
 
 #ifdef APUPWR_SECURE
-	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_FMETER_CTL,
-			FMETER_PLL, FMETER_STEP1, pll_sel, &value);
+			FMETER_PLL, FMETER_STEP1, pll_sel, 0, 0, 0, &res);
 
+	ret = res.a0;
+	value = res.a1;
 	if (ret) {
 		LOG_ERR("[%s] Fail in pll_sel:%u (step1)\n",
 						__func__, pll_sel);
@@ -794,9 +807,12 @@ unsigned int pll_freqmeter_get(unsigned int pll_sel)
 	}
 
 #ifdef APUPWR_SECURE
-	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_FMETER_CTL,
-			FMETER_PLL, FMETER_STEP3, pll_sel, &value);
+			FMETER_PLL, FMETER_STEP3, pll_sel, 0, 0, 0, &res);
+
+	ret = res.a0;
+	value = res.a1;
 	if (ret) {
 		LOG_ERR("[%s] Fail in pll_sel:%u (step3)\n",
 						__func__, pll_sel);
@@ -832,6 +848,7 @@ unsigned int acc_freqmeter_get(unsigned int acc_sel)
 #ifdef APUPWR_SECURE
 	int ret = 0;
 	size_t value = 0;
+	struct arm_smccc_res res;
 #else
 	void *confg_clr = APU_ACC_FM_CONFG_CLR;
 #endif
@@ -844,9 +861,12 @@ unsigned int acc_freqmeter_get(unsigned int acc_sel)
 	fmeter_lock(flags);
 
 #ifdef APUPWR_SECURE
-	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_FMETER_CTL,
-			FMETER_ACC, FMETER_STEP1, acc_sel, &value);
+			FMETER_ACC, FMETER_STEP1, acc_sel, 0, 0, 0, &res);
+
+	ret = res.a0;
+	value = res.a1;
 #else
 	/* reset */
 	DRV_WriteReg32(fm_sel, 0x0);
@@ -877,9 +897,12 @@ unsigned int acc_freqmeter_get(unsigned int acc_sel)
 	}
 
 #ifdef APUPWR_SECURE
-	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_FMETER_CTL,
-			FMETER_ACC, FMETER_STEP3, acc_sel, &value);
+			FMETER_ACC, FMETER_STEP3, acc_sel, 0, 0, 0, &res);
+
+	ret = res.a0;
+	value = res.a1;
 #else
 	DRV_WriteReg32(confg_clr, BIT(D_FM_FM_DONE));
 	DRV_WriteReg32(confg_clr, BIT(D_FM_FUN_EN));

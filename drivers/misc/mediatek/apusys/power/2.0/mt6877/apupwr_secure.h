@@ -7,6 +7,7 @@
 #define __APUPWR_SECURE_H__
 
 #include <mt-plat/mtk_secure_api.h>
+#include <linux/arm-smccc.h>
 
 #define APUPWR_SECURE
 
