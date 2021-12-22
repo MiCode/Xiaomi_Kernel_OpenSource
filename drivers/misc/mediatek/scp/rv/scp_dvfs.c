@@ -126,6 +126,7 @@ const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
 	[MT6853] = "mediatek,mt6853",
 	[MT6873] = "mediatek,mt6873",
 	[MT6893] = "mediatek,mt6893",
+	[MT6833] = "mediatek,mt6833",
 };
 
 struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
@@ -204,6 +205,11 @@ struct scp_pmic_regs scp_pmic_hw_regs[MAX_SCP_DVFS_CHIP_HW] = {
 		REG_DEFINE_WITH_INIT(sshub_buck_en, 0x15aa, 0x1, 0, 1, 0)
 		REG_DEFINE_WITH_INIT(sshub_ldo_en, 0x1f28, 0x1, 0, 0, 0)
 		REG_DEFINE_WITH_INIT(pmrc_en, 0x1ac, 0x1, 2, 0, 1)
+	},
+	[MT6833] = {
+		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x1520, 0x1, 11, 0, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
 	},
 };
 
@@ -354,6 +360,10 @@ static int scp_set_pmic_vcore(unsigned int cur_freq)
 
 	idx = scp_get_freq_idx(cur_freq);
 	if (idx >= 0 && idx < dvfs.scp_opp_nums) {
+		ret = scp_get_vcore_table(dvfs.opp[idx].dvfsrc_opp);
+		if (ret > 0)
+			dvfs.opp[idx].tuned_vcore = ret;
+
 		ret_vc = regulator_set_voltage(reg_vcore,
 				dvfs.opp[idx].tuned_vcore,
 				dvfs.opp[dvfs.scp_opp_nums - 1].vcore + 100000);
@@ -1794,7 +1804,7 @@ static void turn_onoff_ulposc2(enum ulposc_onoff_enum on)
 {
 	if (on) {
 		/* turn on ulposc */
-		if (dvfs.vlp_support) {
+		if (dvfs.secure_access_scp) {
 			// In case we can't directly access dvfs.clk_hw->scp_clk_regmap
 			smc_turn_on_ulposc2();
 		} else {
@@ -1811,7 +1821,7 @@ static void turn_onoff_ulposc2(enum ulposc_onoff_enum on)
 		}
 	} else {
 		/* turn off ulposc */
-		if (dvfs.vlp_support) {
+		if (dvfs.secure_access_scp) {
 			// In case we can't directly access dvfs.clk_hw->scp_clk_regmap
 			smc_turn_off_ulposc2();
 		} else {
@@ -2471,6 +2481,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 	struct device_node *node;
 	int ret = 0;
 	bool is_scp_dvfs_disable;
+	const char *str = NULL;
 
 	/* find device tree node of scp_dvfs */
 	node = pdev->dev.of_node;
@@ -2622,6 +2633,18 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 			goto PASS;
 		}
 	}
+
+	/* get secure_access_scp node */
+	if (dvfs.vlp_support)
+		dvfs.secure_access_scp = 1;
+	else {
+		dvfs.secure_access_scp = 0;
+		of_property_read_string(node, "secure_access", &str);
+		if (str && strcmp(str, "enable") == 0)
+			dvfs.secure_access_scp = 1;
+	}
+	pr_notice("secure_access_scp: %s\n", dvfs.secure_access_scp?"enable":"disable");
+
 PASS:
 	return 0;
 
