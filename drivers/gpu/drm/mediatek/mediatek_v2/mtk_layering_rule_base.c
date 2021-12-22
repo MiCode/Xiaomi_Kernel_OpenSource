@@ -1679,6 +1679,8 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		else
 			c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
 
+/* Clear layer with RPO should check more condition since dual pipe enable */
+#ifdef IF_ZERO
 		if ((c->src_width < c->dst_width &&
 		     c->src_height < c->dst_height) &&
 		     get_layering_opt(LYE_OPT_RPO) &&
@@ -1686,7 +1688,9 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		    di == HRT_PRIMARY) {
 			c->layer_caps |= MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = ONE_SCALING;
-		} else {
+		} else
+#endif
+		{
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = NONE;
 
