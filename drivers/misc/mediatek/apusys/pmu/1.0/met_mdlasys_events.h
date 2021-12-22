@@ -16,7 +16,7 @@
 
 TRACE_EVENT(mdla_polling,
 	TP_PROTO(int core,
-		u32 c[MDLA_PMU_COUNTERS]),
+		u32 *c),
 	TP_ARGS(core, c),
 	TP_STRUCT__entry(
 		__field(int, core)

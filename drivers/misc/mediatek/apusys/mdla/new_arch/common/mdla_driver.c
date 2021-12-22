@@ -18,11 +18,7 @@
 
 #include <utilities/mdla_profile.h>
 #include <utilities/mdla_util.h>
-#ifdef IS_KERNEL_4_14
 #include <linux/dma-mapping.h>
-#else
-#include <linux/dma-direct.h>
-#endif
 
 
 static struct apusys_device *apusys_dev_mdla;
@@ -216,11 +212,7 @@ int mdla_drv_create_device_node(struct device *dev)
 	}
 
 	/* 4. Init DMA from of */
-#ifdef IS_KERNEL_4_14
-	of_dma_configure(mdlactl_device, NULL);
-#else
 	of_dma_configure(mdlactl_device, NULL, true);
-#endif
 
 	/* 5. Set DMA mask */
 	ret = dma_get_mask(mdlactl_device);

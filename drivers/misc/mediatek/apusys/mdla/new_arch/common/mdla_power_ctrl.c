@@ -65,15 +65,6 @@ static struct mdla_pwr_ops mdla_power = {
 	.wake_unlock        = mdla_pwr_dummy_lock,
 };
 
-#ifdef IS_KERNEL_4_14
-static void mdla_pwr_timeup(unsigned long data)
-{
-	struct mdla_pwr_ctrl *pwr_ctrl;
-
-	pwr_ctrl = mdla_get_device(data)->power;
-	schedule_work(&pwr_ctrl->power_off_work);
-}
-#else
 static void mdla_pwr_timeup(struct timer_list *timer)
 {
 	struct mdla_pwr_ctrl *pwr_ctrl;
@@ -81,7 +72,7 @@ static void mdla_pwr_timeup(struct timer_list *timer)
 	pwr_ctrl = container_of(timer, struct mdla_pwr_ctrl, power_off_timer);
 	schedule_work(&pwr_ctrl->power_off_work);
 }
-#endif
+
 static void mdla_pwr_off(struct work_struct *work)
 {
 	struct mdla_pwr_ctrl *pwr_ctrl;

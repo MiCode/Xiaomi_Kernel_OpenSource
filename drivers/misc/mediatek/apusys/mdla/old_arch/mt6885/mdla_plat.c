@@ -16,7 +16,6 @@
 #endif
 #include "mdla.h"
 #include "mdla_hw_reg.h"
-#include "mdla_ion.h"
 #include "mdla_trace.h"
 #include "mdla_debug.h"
 #include "mdla_util.h"
@@ -267,7 +266,7 @@ void mdla_reset(unsigned int core, int res)
 	/*TODO, 0x0 after verification*/
 	mdla_reg_write_with_mdlaid(core, cfg_eng11, MREG_TOP_ENG11);
 
-#ifdef CONFIG_MTK_MDLA_ION
+#ifndef CONFIG_MTK_MDLA_IOMMU_DISABLE
 	mdla_cfg_set_with_mdlaid(core, MDLA_AXI_CTRL_MASK, MDLA_AXI_CTRL);
 	mdla_cfg_set_with_mdlaid(core, MDLA_AXI_CTRL_MASK, MDLA_AXI1_CTRL);
 #endif

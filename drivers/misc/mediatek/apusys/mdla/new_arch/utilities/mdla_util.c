@@ -560,11 +560,11 @@ void mdla_util_io_set_addr(struct mdla_reg_ctl *reg_ctl)
 	io_ops.cmde.read       = mdla_reg_read;
 	io_ops.cmde.write      = mdla_reg_write;
 	io_ops.cmde.set_b      = mdla_reg_set_b;
-	io_ops.cmde.clr_b      = mdla_biu_clr_b;
+	io_ops.cmde.clr_b      = mdla_reg_clr_b;
 	io_ops.biu.read        = mdla_biu_read;
 	io_ops.biu.write       = mdla_biu_write;
 	io_ops.biu.set_b       = mdla_biu_set_b;
-	io_ops.biu.clr_b       = mdla_reg_clr_b;
+	io_ops.biu.clr_b       = mdla_biu_clr_b;
 }
 
 void mdla_util_io_set_extra_addr(int type,
