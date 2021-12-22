@@ -2215,7 +2215,7 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 	struct of_phandle_args irq;
 
 	pr_info("%s\n", __func__);
-#if IS_ENABLED(CONFIG_MTK_GPIO) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
+#if (!IS_ENABLED(CONFIG_MTK_GPIO)) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
 	ret = of_get_named_gpio(np, "mt6360pd,intr_gpio", 0);
 	if (ret < 0) {
 		dev_err(dev, "%s no intr_gpio info(gpiolib)\n", __func__);
