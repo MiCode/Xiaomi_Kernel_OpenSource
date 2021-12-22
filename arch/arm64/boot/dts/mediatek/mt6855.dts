@@ -536,7 +536,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <407>;
+			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -547,7 +547,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <407>;
+			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -558,7 +558,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <407>;
+			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -569,7 +569,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <407>;
+			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -580,7 +580,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <407>;
+			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -591,7 +591,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <407>;
+			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -601,8 +601,8 @@
 			reg = <0x0600>;
 			performance-domains = <&performance 1>;
 			enable-method = "psci";
-			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <1024>;
+			clock-frequency = <2200000000>;
+			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
 		};
 
@@ -612,8 +612,8 @@
 			reg = <0x0700>;
 			performance-domains = <&performance 1>;
 			enable-method = "psci";
-			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <1024>;
+			clock-frequency = <2200000000>;
+			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
 		};
 
@@ -1910,7 +1910,7 @@
 			proc2-supply = <&mt6363_vbuck2>; //B
 			proc3-supply = <&mt6363_vbuck1>; //DSU
 			/* regulator step value */
-			proc3 = <6250>; //B
+			proc2 = <6250>; //B
 		};
 
 		topckgen@10000000 {
