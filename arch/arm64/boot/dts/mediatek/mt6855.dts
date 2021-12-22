@@ -3242,7 +3242,7 @@
 
 		gpueb: gpueb@13c00000 {
 			compatible = "mediatek,gpueb";
-			gpueb-support = <0>;
+			gpueb-support = <1>;
 			gpueb-logger-support = <0>;
 			mbox_count = <1>;
 			mbox_size = <160>; /* slots */
