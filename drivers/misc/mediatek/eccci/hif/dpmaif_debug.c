@@ -24,7 +24,9 @@ static u32 s_buf_pkg_count;
 static wait_queue_head_t *g_rx_wq;
 
 
+//#define ENABLE_DEBUG_LOG
 
+#ifdef ENABLE_DEBUG_LOG
 static inline int add_data_to_buf(struct dpmaif_debug_header *hdr,
 		u32 len, void *data)
 {
@@ -92,9 +94,11 @@ static void dpmaif_push_data_to_stack(int is_md_ee)
 alloc_fail:
 	s_mem_buf_len = 0;
 }
+#endif
 
 void dpmaif_debug_add(struct dpmaif_debug_header *hdr, void *data)
 {
+#ifdef ENABLE_DEBUG_LOG
 	unsigned long flags;
 
 	if (!hdr || s_mem_buf_size <= 0)
@@ -108,6 +112,7 @@ void dpmaif_debug_add(struct dpmaif_debug_header *hdr, void *data)
 	}
 
 	spin_unlock_irqrestore(&s_mem_buf_lock, flags);
+#endif
 }
 
 void dpmaif_debug_update_rx_chn_idx(int chn_idx)
@@ -117,7 +122,9 @@ void dpmaif_debug_update_rx_chn_idx(int chn_idx)
 
 static void dpmaif_md_ee_cb(void)
 {
+#ifdef ENABLE_DEBUG_LOG
 	dpmaif_push_data_to_stack(1);
+#endif
 }
 
 void dpmaif_debug_late_init(wait_queue_head_t *rx_wq)
