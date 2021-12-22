@@ -753,6 +753,9 @@ struct cleartoken_info_t {
 #define REQ_FD_MAX 65536
 struct reqfd_cbinfo_t {
 	int req_fd;
+	int req_no;
+	int frm_no;
+	uint64_t frm_owner;
 	int exp_cnt;
 	int cur_cnt;
 };
