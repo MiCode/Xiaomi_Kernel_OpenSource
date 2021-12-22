@@ -3617,8 +3617,32 @@
 		};
 
 		jpgenc@17030000 {
-			compatible = "mediatek,jpgenc";
+			compatible = "mediatek,mtk-jpgenc";
 			reg = <0 0x17030000 0 0x10000>;
+			interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>;
+			clock-names = "jpgenc";
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_VEN0>;
+			mediatek,larb = <&smi_larb7>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&disp_iommu M4U_LARB7_PORT9>,
+				 <&disp_iommu M4U_LARB7_PORT10>,
+				 <&disp_iommu M4U_LARB7_PORT11>,
+				 <&disp_iommu M4U_LARB7_PORT12>;
+			interconnects = <&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT9)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT10)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT11)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT12)
+				&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "path_jpegenc_y_rdma",
+				"path_jpegenc_c_rmda",
+				"path_jpegenc_q_table",
+				"path_jpegenc_bsdma";
+			operating-points-v2 = <&opp_table_venc>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		mbist@17060000 {
@@ -3629,11 +3653,6 @@
 		smi_larb8@17810000 {
 			compatible = "mediatek,smi_larb8";
 			reg = <0 0x17810000 0 0x10000>;
-		};
-
-		jpgenc@17830000 {
-			compatible = "mediatek,jpgenc";
-			reg = <0 0x17830000 0 0x10000>;
 		};
 
 		jpgdec@17840000 {
