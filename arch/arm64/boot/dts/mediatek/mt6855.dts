@@ -3091,9 +3091,29 @@
 			reg = <0 0x0c400000 0 0x40000>;
 		};
 
-		dfd@0c600000 {
-			compatible = "mediatek,dfd";
-			reg = <0 0x0c600000 0 0x100000>;
+		dfd_mcu: dfd_mcu@0c530000 {
+			compatible = "mediatek,dfd_mcu";
+			enabled = <1>;
+			hw_version = <30>;
+			sw_version = <1>;
+			dfd_timeout = <0x190>;
+			buf_length = <0x280000>;
+			buf_addr_align = <0x1000000>;
+			nr_max_core = <8>;
+			nr_big_core = <2>;
+			nr_rs_entry_little = <6>;
+			nr_rs_entry_big = <2>;
+			nr_header_row = <0>;
+			chip_id_offset = <0x18>;
+			check_pattern_offset = <0x0>;
+			/* dfd_disable_efuse = <25 12>; */
+			dfd_disable_efuse = <(-1) (-1)>;
+			dfd_cache: dfd_cache {
+				enabled = <0>;
+				dfd_timeout = <0x1770>;
+				buf_length = <0x2000000>;
+				tap_en = <0x43ff>;
+			};
 		};
 
 		dbg_cti@0d020000 {
