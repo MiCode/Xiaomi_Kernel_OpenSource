@@ -68,6 +68,9 @@ ifeq  ($(CONFIG_MEDIATEK_MT6577_AUXADC), y)
 obj-$(CCCI_OBJ) += ccci_auxadc.o
 endif
 
+obj-$(CCCI_OBJ) += ccci_auxadc.o
+
+
 obj-$(CCCI_OBJ) += ccci_md_all.o
 ccci_md_all-$(CCCI_OBJ) := ccci_core.o ccci_bm.o ccci_modem.o modem_sys1.o \
 		udc/udc.o \

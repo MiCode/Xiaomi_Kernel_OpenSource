@@ -66,38 +66,6 @@ int ccci_get_adc_val(void)
 }
 EXPORT_SYMBOL(ccci_get_adc_val);
 
-#if 0
-signed int battery_get_bat_voltage(void)
-{
-	struct iio_channel *channel;
-	int ret, val, number;
-
-	if (!md_adc_pdev)
-		return -1;
-	channel = iio_channel_get(&md_adc_pdev->dev, "md-battery");
-
-	ret = IS_ERR(channel);
-	if (ret) {
-		CCCI_ERROR_LOG(-1, TAG, "fail to get iio channel 1 (%d)", ret);
-		goto BAT_Fail;
-	}
-	number = channel->channel->channel;
-	ret = iio_read_channel_processed(channel, &val);
-	iio_channel_release(channel);
-	if (ret < 0) {
-		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_processed fail");
-		goto BAT_Fail;
-	}
-	CCCI_NORMAL_LOG(0, TAG, "md_battery = %d, val = %d", number, val);
-
-	return val;
-BAT_Fail:
-	return -1;
-
-}
-EXPORT_SYMBOL(battery_get_bat_voltage);
-#endif
-
 int get_auxadc_probe(struct platform_device *pdev)
 {
 	int ret;

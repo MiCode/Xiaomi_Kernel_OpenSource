@@ -91,7 +91,8 @@ static int get_md_adc_val(__attribute__((unused))unsigned int num)
 #ifdef CONFIG_MEDIATEK_MT6577_AUXADC
 	return ccci_get_adc_val();
 #endif
-	CCCI_ERROR_LOG(0, RPC, "ERR:CONFIG AUXADC and IIO not ready");
+	CCCI_ERROR_LOG(0, RPC, "%s:ERR:CONFIG AUXADC and IIO not ready",
+		__func__);
 	return -1;
 }
 
@@ -111,7 +112,9 @@ static int get_md_adc_info(__attribute__((unused))char *adc_name,
 #ifdef CONFIG_MEDIATEK_MT6577_AUXADC
 	return ccci_get_adc_num();
 #endif
-	CCCI_ERROR_LOG(0, RPC, "ERR:CONFIG AUXADC and IIO not ready");
+
+	CCCI_ERROR_LOG(0, RPC, "%s:ERR:CONFIG AUXADC and IIO not ready",
+		__func__);
 	return -1;
 }
 
