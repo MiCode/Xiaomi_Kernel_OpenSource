@@ -196,6 +196,26 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		ssmr_cma_mem: ssmr-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x1000000>;
+		};
+	};
+
+	memory_ssmr_features: memory-ssmr-features {
+		compatible = "mediatek,memory-ssmr-features";
+		svp-region-based-size = <0 0x6000000>;
+		tui-size = <0 0x4000000>;
+		wfd-region-based-size = <0 0x4000000>;
+		prot-region-based-size = <0 0x8000000>;
+	};
+
+	ssmr {
+		compatible = "mediatek,trusted_mem";
+		memory-region = <&ssmr_cma_mem>;
 	};
 
 	gic: interrupt-controller {
