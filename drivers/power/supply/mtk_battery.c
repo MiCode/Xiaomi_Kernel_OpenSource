@@ -919,6 +919,7 @@ int gauge_get_property(enum gauge_property gp,
 	struct mtk_gauge *gauge;
 	struct power_supply *psy;
 	struct mtk_gauge_sysfs_field_info *attr;
+	static struct mtk_battery *gm;
 	int ret = 0;
 
 	psy = power_supply_get_by_name("mtk-gauge");
@@ -926,8 +927,14 @@ int gauge_get_property(enum gauge_property gp,
 		return -ENODEV;
 
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
-	attr = gauge->attr;
+	gm = gauge->gm;
+	if (gm != NULL && gm->disableGM30) {
+		bm_err("%s disable GM30", __func__);
+		return -EOPNOTSUPP;
+	}
+	bm_err("%s enable GM30", __func__);
 
+	attr = gauge->attr;
 	if (attr == NULL) {
 		bm_err("%s attr =NULL\n", __func__);
 		return -ENODEV;
@@ -3367,7 +3374,8 @@ void mtk_power_misc_init(struct mtk_battery *gm)
 		power_misc_kthread_fgtimer_func);
 	init_waitqueue_head(&gm->sdc.wait_que);
 
-	kthread_run(power_misc_routine_thread, gm, "power_misc_thread");
+	if (!gm->disableGM30)
+		kthread_run(power_misc_routine_thread, gm, "power_misc_thread");
 
 	gm->sdc.psy_nb.notifier_call = mtk_power_misc_psy_event;
 	power_supply_reg_notifier(&gm->sdc.psy_nb);
@@ -3529,8 +3537,9 @@ int battery_init(struct platform_device *pdev)
 		sw_uisoc_timer_callback);
 	INIT_WORK(&gm->sw_uisoc_timer_work, sw_uisoc_timer_work_handler);
 
+	if (!gm->disableGM30)
+		kthread_run(battery_update_routine, gm, "battery_thread");
 
-	kthread_run(battery_update_routine, gm, "battery_thread");
 	gm->pm_nb.notifier_call = system_pm_notify;
 	ret = register_pm_notifier(&gm->pm_nb);
 	if (ret)
