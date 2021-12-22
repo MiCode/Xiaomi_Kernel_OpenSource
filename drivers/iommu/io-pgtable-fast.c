@@ -585,7 +585,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 		tcr->sh = AV8L_FAST_TCR_SH_IS;
 		tcr->irgn = AV8L_FAST_TCR_RGN_WBWA;
 		tcr->orgn = AV8L_FAST_TCR_RGN_WBWA;
-		if (cfg->quirks & IO_PGTABLE_QUIRK_ARM_OUTER_WBWA)
+		if (WARN_ON(cfg->quirks & IO_PGTABLE_QUIRK_ARM_OUTER_WBWA))
 			goto out_free_data;
 	} else {
 		tcr->sh = AV8L_FAST_TCR_SH_OS;
