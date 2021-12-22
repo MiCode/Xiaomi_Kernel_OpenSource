@@ -206,7 +206,7 @@ static int _tipc_k_connect_retry(struct tipc_k_handle *h, const char *port_name)
 		retry++;
 	} while (_tipc_retry_check_and_wait(rc, retry, 2));
 
-	if (rc != 0)
+	if (rc != 0 && h)
 		tipc_k_disconnect(h);
 
 	return rc;
