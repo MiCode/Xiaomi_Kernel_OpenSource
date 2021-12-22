@@ -35,10 +35,8 @@ static void pmif_mpu_writel(struct pmif_mpu *arb, u32 val, enum pmif_mpu_regs re
 	writel(val, arb->base + arb->data->regs[reg]);
 }
 
-static struct pmif_mpu_data mt6983_pmif_mpu_arb[] = {
-	{
-		.regs = mt6983_pmif_mpu_regs,
-	},
+static const struct pmif_mpu_data mt6983_pmif_mpu_arb = {
+	.regs = mt6983_pmif_mpu_regs,
 };
 
 static int mtk_spmi_pmif_mpu_probe(struct platform_device *pdev)
