@@ -772,7 +772,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
-		if (!CMDQ_BUF_ADDR(buf))
+		if (!pkt->dev || !buf->va_base || !CMDQ_BUF_ADDR(buf))
 			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
 			pkt, &buf->pa_base, &buf->iova_base);
 		if (buf->use_pool) {
