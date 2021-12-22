@@ -1309,11 +1309,12 @@ static int venc_vcp_set_param(unsigned long handle,
 	int i;
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
+	unsigned int fmt = inst->ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 
 	if (inst == NULL)
 		return -EINVAL;
 
-	mtk_vcodec_debug(inst, "->type=%d, codec_id=%d", type, inst->vcu_inst.id);
+	mtk_vcodec_debug(inst, "->type=%d, fmt=%d", type, fmt);
 
 	switch (type) {
 	case VENC_SET_PARAM_ENC:
@@ -1359,18 +1360,17 @@ static int venc_vcp_set_param(unsigned long handle,
 				sizeof(struct mtk_color_desc));
 		}
 
-		if (inst->vcu_inst.id == VENC_H264 ||
-			inst->vcu_inst.id == VENC_HYBRID_H264) {
+		if (fmt == V4L2_PIX_FMT_H264) {
 			inst->vsi->config.profile = enc_prm->profile;
 			inst->vsi->config.level = enc_prm->level;
-		} else if (inst->vcu_inst.id == VENC_H265 ||
-				inst->vcu_inst.id == VENC_HEIF) {
+		} else if (fmt == V4L2_PIX_FMT_H265 ||
+				fmt == V4L2_PIX_FMT_HEIF) {
 			inst->vsi->config.profile =
 				venc_h265_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =
 				venc_h265_get_level(inst, enc_prm->level,
 					enc_prm->tier);
-		} else if (inst->vcu_inst.id == VENC_MPEG4) {
+		} else if (fmt == V4L2_PIX_FMT_MPEG4) {
 			inst->vsi->config.profile =
 				venc_mpeg4_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =
