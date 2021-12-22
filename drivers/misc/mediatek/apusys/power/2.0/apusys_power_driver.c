@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/workqueue.h>
 #include <linux/sched/clock.h>
+#include <linux/of.h>
 
 #include "apu_log.h"
 #include "apusys_power_ctl.h"
@@ -26,13 +27,13 @@
 #include "apu_power_api.h"
 #include "pmic_api_buck.h"
 #include "apusys_power_rule_check.h"
-#include "apusys_dbg.h"
+// #include "apusys_dbg.h"
 #include "apusys_power.h"
 #ifdef APUPWR_TAG_TP
 #include "apu_power_tag.h"
 #endif
 
-int g_pwr_log_level = APUSYS_PWR_LOG_ERR;
+int g_pwr_log_level = APUSYS_PWR_LOG_VERBOSE;
 int g_pm_procedure;
 int power_on_off_stress;
 static int apu_power_counter;
@@ -95,27 +96,29 @@ static DECLARE_WORK(d_work_power_init, d_work_power_init_func);
 struct delayed_work d_work_power;
 
 #ifdef CONFIG_PM_SLEEP
-struct wakeup_source pwr_wake_lock;
+struct wakeup_source *pwr_wake_lock;
 #endif
 
 static void apu_pwr_wake_lock(void)
 {
 #ifdef CONFIG_PM_SLEEP
-	__pm_stay_awake(&pwr_wake_lock);
+	__pm_stay_awake(pwr_wake_lock);
 #endif
 }
 
 static void apu_pwr_wake_unlock(void)
 {
 #ifdef CONFIG_PM_SLEEP
-	__pm_relax(&pwr_wake_lock);
+	__pm_relax(pwr_wake_lock);
 #endif
 }
 
 static void apu_pwr_wake_init(void)
 {
 #ifdef CONFIG_PM_SLEEP
-	wakeup_source_init(&pwr_wake_lock, "apupwr_wakelock");
+	pwr_wake_lock = wakeup_source_register(NULL, "apupwr_wakelock");
+	if (IS_ERR_OR_NULL(pwr_wake_lock))
+		pr_info("%s: wakeup_source_register fail\n", __func__);
 #endif
 }
 
@@ -371,7 +374,7 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 	if (ret) {
 		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
 #ifndef APUSYS_POWER_BRINGUP
-		apusys_reg_dump();
+		// apusys_reg_dump();
 #endif
 		apu_aee_warn("APUPWR_OFF_FAIL", "user:%d, is_suspend:%d\n",
 							user, is_suspend);
@@ -474,7 +477,7 @@ int apu_device_power_on(enum DVFS_USER user)
 	if (ret) {
 		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
 #ifndef APUSYS_POWER_BRINGUP
-		apusys_reg_dump();
+		// apusys_reg_dump();
 #endif
 		apu_aee_warn("APUPWR_ON_FAIL", "user:%d\n", user);
 		return -ENODEV;

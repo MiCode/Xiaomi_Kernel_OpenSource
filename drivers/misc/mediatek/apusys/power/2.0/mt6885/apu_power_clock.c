@@ -908,8 +908,6 @@ void dump_frequency(struct apu_power_info *info)
 		ipuif_freq = mt_get_ckgen_freq(21);
 	}
 
-	check_vpu_clk_sts();
-
 	if (info->dump_div > 0)
 		dump_div = info->dump_div;
 
