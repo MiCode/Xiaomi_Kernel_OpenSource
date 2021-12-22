@@ -3302,7 +3302,7 @@
 						"mbox0_send",
 						"mbox0_recv";
 
-			interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH 0>;
 			interrupt-names = "mbox0";
 
 			gpueb_mem_table =
