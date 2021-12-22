@@ -173,6 +173,14 @@ struct mtk_smi_larb { /* larb: local arbiter */
 #define MAX_COMMON_FOR_CLAMP		(3)
 #define MAX_LARB_FOR_CLAMP		(6)
 #define RESET_CELL_NUM			(2)
+
+struct mtk_smi_pd_log {
+	u8 power_status;
+	ktime_t time;
+	u32 clamp_status[MAX_COMMON_FOR_CLAMP];
+	u32 reset_status[MAX_LARB_FOR_CLAMP];
+};
+
 struct mtk_smi_pd {
 	struct device			*dev;
 	struct device			*smi_common_dev[MAX_COMMON_FOR_CLAMP];
@@ -182,6 +190,7 @@ struct mtk_smi_pd {
 	u32				power_reset_value[MAX_LARB_FOR_CLAMP];
 	struct notifier_block nb;
 	bool	is_main;
+	struct mtk_smi_pd_log	last_pd_log;
 };
 
 static u32 log_level;
@@ -195,6 +204,10 @@ enum smi_log_level {
 static struct mtk_smi *init_power_on_dev[MAX_INIT_POWER_ON_DEV];
 static unsigned int init_power_on_num;
 
+#define MAX_PD_CTRL_NUM	(8)
+static struct mtk_smi_pd *smi_pd_ctrl[MAX_PD_CTRL_NUM];
+static unsigned int smi_pd_ctrl_num;
+
 static void power_reset_imp(struct mtk_smi_pd *smi_pd)
 {
 	int i;
@@ -202,6 +215,7 @@ static void power_reset_imp(struct mtk_smi_pd *smi_pd)
 	for (i = 0; (i < MAX_LARB_FOR_CLAMP) && smi_pd->power_reset_reg[i]; i++) {
 		writel(smi_pd->power_reset_value[i], smi_pd->power_reset_reg[i]);
 		writel(0, smi_pd->power_reset_reg[i]);
+		smi_pd->last_pd_log.reset_status[i] = readl(smi_pd->power_reset_reg[i]);
 	}
 }
 
@@ -230,7 +244,11 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 						writel(1 << j, common->base + SMI_CLAMP_EN_SET);
 				}
 			}
+			smi_pd->last_pd_log.clamp_status[i] = readl(common->base + SMI_CLAMP_EN);
 		}
+		smi_pd->last_pd_log.power_status = GENPD_NOTIFY_ON;
+		smi_pd->last_pd_log.time = ktime_get();
+
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
 		if (smi_pd->is_main)
 			return NOTIFY_OK;
@@ -245,7 +263,10 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 				if ((smi_pd->set_comm_port_range[i] >> j) & 1)
 					writel(1 << j, common->base + SMI_CLAMP_EN_SET);
 			}
+			smi_pd->last_pd_log.clamp_status[i] = readl(common->base + SMI_CLAMP_EN);
 		}
+		smi_pd->last_pd_log.power_status = GENPD_NOTIFY_PRE_OFF;
+		smi_pd->last_pd_log.time = ktime_get();
 	}
 
 	return NOTIFY_OK;
@@ -329,6 +350,34 @@ void mtk_smi_init_power_off(void)
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_init_power_off);
+
+void mtk_smi_dump_last_pd(const char *user)
+{
+	int i, j;
+	struct mtk_smi_pd *smi_pd;
+
+	pr_info("%s: check caller:%s\n", __func__, user);
+	for (i = 0; i < smi_pd_ctrl_num; i++) {
+		smi_pd = smi_pd_ctrl[i];
+		dev_notice(smi_pd->dev, "power status = %d\n", smi_pd->last_pd_log.power_status);
+		dev_notice(smi_pd->dev, "time = %18llu\n", smi_pd->last_pd_log.time);
+		for (j = 0; j < MAX_COMMON_FOR_CLAMP; j++) {
+			if (!smi_pd->smi_common_dev[j])
+				break;
+			dev_notice(smi_pd->dev, "%s: clamp status = %#x\n"
+						, dev_name(smi_pd->smi_common_dev[j])
+						, smi_pd->last_pd_log.clamp_status[j]);
+		}
+		if (!smi_pd->is_main) {
+			for (j = 0; (j < MAX_LARB_FOR_CLAMP) && smi_pd->power_reset_reg[j]; j++) {
+				dev_notice(smi_pd->dev, "reset status: %#x = %#x\n"
+							, smi_pd->power_reset_pa[j]
+							, smi_pd->last_pd_log.reset_status[j]);
+			}
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_smi_dump_last_pd);
 
 static int mtk_smi_clk_enable(const struct mtk_smi *smi)
 {
@@ -2664,6 +2713,8 @@ static int mtk_smi_pd_probe(struct platform_device *pdev)
 	smi_pd->nb.notifier_call = mtk_smi_pd_callback;
 	ret = dev_pm_genpd_add_notifier(dev, &smi_pd->nb);
 	pm_runtime_enable(dev);
+
+	smi_pd_ctrl[smi_pd_ctrl_num++] = smi_pd;
 
 	return 0;
 }
