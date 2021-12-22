@@ -13,6 +13,8 @@
 
 ifeq ($(CONFIG_MACH_MT6833),y)
 	PDIR = mt6833
+else ifeq ($(CONFIG_MACH_MT6893),y)
+	PDIR = mt6893
 else ifeq ($(CONFIG_MACH_MT6781),y)
 	PDIR = mt6781
 else ifeq ($(CONFIG_MACH_MT6768),y)
@@ -27,6 +29,7 @@ endif
 
 THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(PDIR)
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/power/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/dramc/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
@@ -239,6 +242,31 @@ obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_btsnrpa.o
 
 obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBankv2.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
+obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
+
+
+ifneq ($(CONFIG_MTK_COMBO_WIFI),)
+    obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
+endif
+
+obj-$(CONFIG_THERMAL) += mtk_tsAll.o
+obj-$(CONFIG_THERMAL) += mtk_ts_imgsensor.o
+endif
+
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
+
+obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
+
+obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
+obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_btsnrpa.o
+
+obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o

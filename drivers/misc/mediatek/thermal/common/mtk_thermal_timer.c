@@ -12,6 +12,11 @@
 #include <linux/string.h>
 #include "mach/mtk_thermal.h"
 #include <mt-plat/aee.h>
+#include <tscpu_settings.h>
+
+#include <linux/cpu_pm.h>
+#include <linux/cpumask.h>
+#include <linux/spinlock.h>
 /*
  * mtk_thermal_timer.c is an interface to collect all thermal timer functions
  * It exports two common functions for Suspend, SODI, Deep idle scenarios
@@ -228,3 +233,86 @@ void mtkTTimer_start_timer(void)
 	}
 	spin_unlock(&tTimer_lock);
 }
+
+#if defined(LVTS_CPU_PM_NTFY_CALLBACK)
+static struct cpumask mt_cpu_pdn_mask;
+static DEFINE_SPINLOCK(mt_thermal_timer_locker);
+static int mtk_thermal_cpu_pm_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	unsigned long flags;
+#if defined(LVTS_CPU_PM_NTFY_PROFILE)
+	ktime_t start, end;
+	s64 time_us;
+#endif
+	if (action == CPU_PM_ENTER) {
+		spin_lock_irqsave(&mt_thermal_timer_locker, flags);
+		cpumask_set_cpu(smp_processor_id(), &mt_cpu_pdn_mask);
+
+		if (cpumask_equal(&mt_cpu_pdn_mask, cpu_online_mask)) {
+			/* previous all cores power down */
+#if defined(LVTS_CPU_PM_NTFY_PROFILE)
+			start = ktime_get();
+#endif
+			//mtkTTimer_cancel_timer();
+
+#if defined(LVTS_CPU_PM_NTFY_PROFILE)
+			end = ktime_get();
+			time_us = ktime_to_us(ktime_sub(end, start));
+			pr_notice("PROF2 CT2:%d\n", time_us);
+#endif
+		}
+		spin_unlock_irqrestore(&mt_thermal_timer_locker, flags);
+	} else if (action == CPU_PM_EXIT) {
+		spin_lock_irqsave(&mt_thermal_timer_locker, flags);
+		if (cpumask_equal(&mt_cpu_pdn_mask, cpu_online_mask)) {
+			/* resume when first cpu power on */
+#if defined(LVTS_CPU_PM_NTFY_PROFILE)
+			start = ktime_get();
+#endif
+			//mtkTTimer_start_timer();
+#if defined(CFG_THERM_SODI3_RELEASE)
+			lvts_sodi3_release_thermal_controller();
+#endif
+#if defined(LVTS_CPU_PM_NTFY_PROFILE)
+			end = ktime_get();
+			time_us = ktime_to_us(ktime_sub(end, start));
+			pr_notice("PROF2 ST2:%d\n", time_us);
+#endif
+		}
+		cpumask_clear_cpu(smp_processor_id(), &mt_cpu_pdn_mask);
+		spin_unlock_irqrestore(&mt_thermal_timer_locker, flags);
+	}
+	return NOTIFY_OK;
+}
+
+struct notifier_block mtk_thermal_pm = {
+	.notifier_call = mtk_thermal_cpu_pm_notifier,
+};
+
+
+static void __exit mtk_thermal_pm_exit(void)
+{
+	cpu_pm_unregister_notifier(&mtk_thermal_pm);
+}
+
+static int __init mtk_thermal_pm_init(void)
+{
+	int ret = 0;
+
+	ret = cpu_pm_register_notifier(&mtk_thermal_pm);
+
+	pr_notice("[Thermal timer][%s:%d] - Registry thermal pm notify (%d)\n",
+		__func__, __LINE__, ret);
+
+	return 0;
+}
+
+module_init(mtk_thermal_pm_init);
+module_exit(mtk_thermal_pm_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Low Power FileSystem");
+MODULE_AUTHOR("MediaTek Inc.");
+#endif
+

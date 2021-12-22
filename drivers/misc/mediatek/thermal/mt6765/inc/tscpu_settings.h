@@ -195,6 +195,8 @@
 #else
 #define CONFIG_THERMAL_AEE_RR_REC (0)
 #endif
+
+#define CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR (0)
 /*=============================================================
  *REG ACCESS
  *=============================================================

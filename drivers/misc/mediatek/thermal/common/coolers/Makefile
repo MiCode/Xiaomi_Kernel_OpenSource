@@ -13,6 +13,8 @@
 
 ifeq ($(CONFIG_MACH_MT6833),y)
 	PDIR = mt6833
+else ifeq ($(CONFIG_MACH_MT6893),y)
+	PDIR = mt6893
 else ifeq ($(CONFIG_MACH_MT6781),y)
 	PDIR = mt6781
 else ifeq ($(CONFIG_MACH_MT6877),y)
@@ -60,7 +62,7 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
-ifeq ($(CONFIG_MACH_MT6781),y)
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6781) $(CONFIG_MACH_MT6893)))
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/ppm_v3/src/mach/$(PDIR)
 else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/ppm_v3/src/mach/$(PDIR)
@@ -160,4 +162,26 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
+ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
+    obj-$(CONFIG_THERMAL) += mtk_cooler_mutt_gen97.o
+endif
+
+ifeq ($(CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT),y)
+	obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
+else
+	ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
+		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
+		ifeq ($(CONFIG_MTK_DUAL_CHARGER_SUPPORT),y)
+			obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
+		endif
+	else
+		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct.o
+	endif
+endif
+obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 endif

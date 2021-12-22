@@ -692,7 +692,8 @@ static int mtk_ts_pmic_probe(struct platform_device *pdev)
 	 *				"Need to checking this !!!!!\n");
 	 */
 #if (defined(CONFIG_MACH_MT6739)  \
-     ||defined(CONFIG_MACH_MT6877))
+	|| defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6893))
 	mtktspmic_cali_prepare();
 #else
 	mtktspmic_cali_prepare(chip->regmap);

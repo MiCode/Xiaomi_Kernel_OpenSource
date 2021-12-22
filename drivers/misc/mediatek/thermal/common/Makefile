@@ -13,6 +13,8 @@
 
 ifeq ($(CONFIG_MACH_MT6833),y)
 	PDIR = mt6833
+else ifeq ($(CONFIG_MACH_MT6893),y)
+	PDIR = mt6893
 else ifeq ($(CONFIG_MACH_MT6781),y)
 	PDIR = mt6781
 else ifeq ($(CONFIG_MACH_MT6768),y)
@@ -45,8 +47,6 @@ obj-$(CONFIG_THERMAL) += mtk_thermal_platform.o
 obj-$(CONFIG_THERMAL) += ap_thermal_limit.o
 #obj-$(CONFIG_THERMAL) += mtk_change_policy.o
 
-obj-y += mtk_thermal_platform.o
-obj-y += ap_thermal_limit.o
 
 obj-y += thermal_zones/
 obj-y += coolers/
