@@ -13,7 +13,7 @@ enum {
 	POLICY_CNT
 };
 
-extern void sched_max_util_task(int *cpu, int *pid, int *util, int *boost);
+extern void sched_max_util_task(int *util);
 extern void arch_get_cluster_cpus(struct cpumask *cpus, int package_id);
 extern int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 				unsigned int *dn_avg,
