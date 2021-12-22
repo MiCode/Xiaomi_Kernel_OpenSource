@@ -7508,7 +7508,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async)
 		ufsf_tw_init(&hba->ufsf);
 		ufsf_hpb_init(&hba->ufsf);
 #endif
-		scsi_scan_host(hba->host);
 #if defined(CONFIG_SCSI_SKHPB)
 		if (hba->dev_info.wmanufacturerid == UFS_VENDOR_SKHYNIX)
 				schedule_delayed_work(&hba->skhpb_init_work, 0);
