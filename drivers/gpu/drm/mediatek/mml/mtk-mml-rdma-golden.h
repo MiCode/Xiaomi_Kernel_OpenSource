@@ -8,11 +8,13 @@
 
 #include "mtk-mml.h"
 
-#define GOLDEN_PIXEL_FHD	(2560 * 1080)
-#define GOLDEN_PIXEL_4K		(3840 * 2160)
+#define GOLDEN_PIXEL_FHD	(2560 * 1088)
+#define GOLDEN_PIXEL_2K		(2750 * 1440)
+#define GOLDEN_PIXEL_4K		(3840 * 2176)
 
 enum rdma_golden_res {
 	RDMA_GOLDEN_FHD = 0,
+	RDMA_GOLDEN_2K,
 	RDMA_GOLDEN_4K,
 	RDMA_GOLDEN_TOTAL
 };
@@ -34,28 +36,53 @@ struct rdma_golden {
 
 /* Folling part is mt6983 racing mode golden settings */
 
-/* 4K60 ARGB */
-#define MT6983_ARGB_4K_PREULTRA		(1079 << 16 | 1037)
-#define MT6983_ARGB_4K_ULTRA		(1037 << 16 | 954)
-#define MT6983_ARGB_4K_URGENT		(498 << 16 | 457)
-/* FHD60 ARGB */
-#define MT6983_ARGB_FHD_PREULTRA	(360 << 16 | 346)
-#define MT6983_ARGB_FHD_ULTRA		(346 << 16 | 318)
-#define MT6983_ARGB_FHD_URGENT		(166 << 16 | 153)
-/* 4K60 YUV420 */
-#define MT6983_YUV420_4K_PREULTRA_0	(180 << 16 | 173)
-#define MT6983_YUV420_4K_ULTRA_0	(173 << 16 | 159)
-#define MT6983_YUV420_4K_URGENT_0	(83 << 16 | 76)
-#define MT6983_YUV420_4K_PREULTRA_1	(91 << 16 | 87)
-#define MT6983_YUV420_4K_ULTRA_1	(87 << 16 | 80)
-#define MT6983_YUV420_4K_URGENT_1	(42 << 16 | 39)
-/* FHD60 YUV420 */
-#define MT6983_YUV420_FHD_PREULTRA_0	(60 << 16 | 58)
-#define MT6983_YUV420_FHD_ULTRA_0	(58 << 16 | 53)
-#define MT6983_YUV420_FHD_URGENT_0	(28 << 16 | 26)
-#define MT6983_YUV420_FHD_PREULTRA_1	(31 << 16 | 30)
-#define MT6983_YUV420_FHD_ULTRA_1	(30 << 16 | 27)
-#define MT6983_YUV420_FHD_URGENT_1	(14 << 16 | 13)
+/* 4K60 ARGB/YUYV 1 plane 4 bpp */
+#define MT6983_ARGB_4K_PREULTRA		(828 << 16 | 736)
+#define MT6983_ARGB_4K_ULTRA		(644 << 16 | 552)
+#define MT6983_ARGB_4K_URGENT		(460 << 16 | 368)
+/* 4K60 RGB 1 plane 3 bpp */
+#define MT6983_RGB_4K_PREULTRA		(621 << 16 | 552)
+#define MT6983_RGB_4K_ULTRA		(483 << 16 | 414)
+#define MT6983_RGB_4K_URGENT		(345 << 16 | 276)
+/* 4K60 YUV420 2 plane 1/0.5 bpp */
+#define MT6983_YUV420_4K_PREULTRA_0	(207 << 16 | 184)
+#define MT6983_YUV420_4K_ULTRA_0	(161 << 16 | 138)
+#define MT6983_YUV420_4K_URGENT_0	(115 << 16 | 92)
+#define MT6983_YUV420_4K_PREULTRA_1	(104 << 16 | 92)
+#define MT6983_YUV420_4K_ULTRA_1	(80 << 16 | 69)
+#define MT6983_YUV420_4K_URGENT_1	(57 << 16 | 46)
+
+/* 2K120 ARGB/YUYV 1 plane 4 bpp */
+#define MT6983_ARGB_2K_PREULTRA		(792 << 16 | 704)
+#define MT6983_ARGB_2K_ULTRA		(616 << 16 | 528)
+#define MT6983_ARGB_2K_URGENT		(440 << 16 | 352)
+/* 2K120 RGB 1 plane 3 bpp */
+#define MT6983_RGB_2K_PREULTRA		(594 << 16 | 528)
+#define MT6983_RGB_2K_ULTRA		(462 << 16 | 396)
+#define MT6983_RGB_2K_URGENT		(330 << 16 | 264)
+/* 2K120 YUV420 2 plane 1/0.5 bpp */
+#define MT6983_YUV420_2K_PREULTRA_0	(198 << 16 | 176)
+#define MT6983_YUV420_2K_ULTRA_0	(154 << 16 | 132)
+#define MT6983_YUV420_2K_URGENT_0	(110 << 16 | 88)
+#define MT6983_YUV420_2K_PREULTRA_1	(99 << 16 | 88)
+#define MT6983_YUV420_2K_ULTRA_1	(77 << 16 | 66)
+#define MT6983_YUV420_2K_URGENT_1	(55 << 16 | 44)
+
+/* FHD120 ARGB/YUYV 1 plane 4 bpp */
+#define MT6983_ARGB_FHD_PREULTRA	(576 << 16 | 512)
+#define MT6983_ARGB_FHD_ULTRA		(448 << 16 | 384)
+#define MT6983_ARGB_FHD_URGENT		(320 << 16 | 256)
+/* FHD120 RGB 1 plane 3 bpp */
+#define MT6983_RGB_FHD_PREULTRA		(432 << 16 | 384)
+#define MT6983_RGB_FHD_ULTRA		(336 << 16 | 288)
+#define MT6983_RGB_FHD_URGENT		(240 << 16 | 192)
+/* FHD120 YUV420 2 plane 1/0.5 bpp */
+#define MT6983_YUV420_FHD_PREULTRA_0	(144 << 16 | 128)
+#define MT6983_YUV420_FHD_ULTRA_0	(112 << 16 | 96)
+#define MT6983_YUV420_FHD_URGENT_0	(80 << 16 | 64)
+#define MT6983_YUV420_FHD_PREULTRA_1	(72 << 16 | 64)
+#define MT6983_YUV420_FHD_ULTRA_1	(56 << 16 | 48)
+#define MT6983_YUV420_FHD_URGENT_1	(40 << 16 | 32)
 
 static const struct golden_setting th_argb_mt6983[RDMA_GOLDEN_TOTAL] = {
 	[RDMA_GOLDEN_FHD] = {
@@ -65,6 +92,16 @@ static const struct golden_setting th_argb_mt6983[RDMA_GOLDEN_TOTAL] = {
 				.preultra	= MT6983_ARGB_FHD_PREULTRA,
 				.ultra		= MT6983_ARGB_FHD_ULTRA,
 				.urgent		= MT6983_ARGB_FHD_URGENT,
+			},
+		},
+	},
+	[RDMA_GOLDEN_2K] = {
+		.pixel = GOLDEN_PIXEL_2K,
+		.plane = {
+			[0] = {
+				.preultra	= MT6983_ARGB_2K_PREULTRA,
+				.ultra		= MT6983_ARGB_2K_ULTRA,
+				.urgent		= MT6983_ARGB_2K_URGENT,
 			},
 		},
 	},
@@ -79,6 +116,40 @@ static const struct golden_setting th_argb_mt6983[RDMA_GOLDEN_TOTAL] = {
 		},
 	},
 };
+
+static const struct golden_setting th_rgb_mt6983[RDMA_GOLDEN_TOTAL] = {
+	[RDMA_GOLDEN_FHD] = {
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			[0] = {
+				.preultra	= MT6983_RGB_FHD_PREULTRA,
+				.ultra		= MT6983_RGB_FHD_ULTRA,
+				.urgent		= MT6983_RGB_FHD_URGENT,
+			},
+		},
+	},
+	[RDMA_GOLDEN_2K] = {
+		.pixel = GOLDEN_PIXEL_2K,
+		.plane = {
+			[0] = {
+				.preultra	= MT6983_RGB_2K_PREULTRA,
+				.ultra		= MT6983_RGB_2K_ULTRA,
+				.urgent		= MT6983_RGB_2K_URGENT,
+			},
+		},
+	},
+	[RDMA_GOLDEN_4K] = {
+		.pixel = GOLDEN_PIXEL_4K,
+		.plane = {
+			[0] = {
+				.preultra	= MT6983_RGB_4K_PREULTRA,
+				.ultra		= MT6983_RGB_4K_ULTRA,
+				.urgent		= MT6983_RGB_4K_URGENT,
+			},
+		},
+	},
+};
+
 
 static const struct golden_setting th_yuv420_mt6983[RDMA_GOLDEN_TOTAL] = {
 	[RDMA_GOLDEN_FHD] = {
@@ -96,18 +167,33 @@ static const struct golden_setting th_yuv420_mt6983[RDMA_GOLDEN_TOTAL] = {
 			},
 		},
 	},
+	[RDMA_GOLDEN_2K] = {
+		.pixel = GOLDEN_PIXEL_2K,
+		.plane = {
+			[0] = {
+				.preultra	= MT6983_YUV420_2K_PREULTRA_0,
+				.ultra		= MT6983_YUV420_2K_ULTRA_0,
+				.urgent		= MT6983_YUV420_2K_URGENT_0,
+			},
+			[1] = {
+				.preultra	= MT6983_YUV420_2K_PREULTRA_1,
+				.ultra		= MT6983_YUV420_2K_ULTRA_1,
+				.urgent		= MT6983_YUV420_2K_URGENT_1,
+			},
+		},
+	},
 	[RDMA_GOLDEN_4K] = {
 		.pixel = GOLDEN_PIXEL_4K,
 		.plane = {
 			[0] = {
-				.preultra	= MT6983_YUV420_FHD_PREULTRA_1,
-				.ultra		= MT6983_YUV420_FHD_PREULTRA_1,
-				.urgent		= MT6983_YUV420_FHD_PREULTRA_1,
+				.preultra	= MT6983_YUV420_4K_PREULTRA_0,
+				.ultra		= MT6983_YUV420_4K_ULTRA_0,
+				.urgent		= MT6983_YUV420_4K_URGENT_0,
 			},
 			[1] = {
 				.preultra	= MT6983_YUV420_4K_PREULTRA_1,
-				.ultra		= MT6983_YUV420_4K_PREULTRA_1,
-				.urgent		= MT6983_YUV420_4K_PREULTRA_1,
+				.ultra		= MT6983_YUV420_4K_ULTRA_1,
+				.urgent		= MT6983_YUV420_4K_URGENT_1,
 			},
 		},
 	},

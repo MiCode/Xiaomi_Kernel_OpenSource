@@ -26,6 +26,7 @@
 #include "mtk-mml-pq-core.h"
 #include "mtk-mml-sys.h"
 #include "mtk-mml-mmp.h"
+#include "mtk-mml-color.h"
 
 struct mml_record {
 	u32 jobid;
@@ -169,14 +170,14 @@ static void mml_qos_init(struct mml_dev *mml)
 	}
 }
 
-void mml_qos_update_tput(struct mml_dev *mml)
+u32 mml_qos_update_tput(struct mml_dev *mml)
 {
 	struct mml_topology_cache *tp = mml_topology_get_cache(mml);
 	u32 tput = 0, i;
 	int volt, ret;
 
 	if (!tp || !tp->reg)
-		return;
+		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(tp->path_clts); i++) {
 		/* select max one across clients */
@@ -187,14 +188,16 @@ void mml_qos_update_tput(struct mml_dev *mml)
 		if (tput <= tp->opp_speeds[i])
 			break;
 	}
-	volt = tp->opp_volts[min(i, tp->opp_cnt - 1)];
+	i = min(i, tp->opp_cnt - 1);
+	volt = tp->opp_volts[i];
 	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
 	if (ret)
 		mml_err("%s fail to set volt %d", __func__, volt);
 	else
 		mml_msg("%s volt %d (%u) tput %u", __func__, volt, i, tput);
-}
 
+	return tp->opp_speeds[i];
+}
 
 static void create_dev_topology_locked(struct mml_dev *mml)
 {
@@ -640,24 +643,35 @@ static u32 mml_calc_bw_hrt(u32 datasize)
 	 *
 	 * the 1.25 separate to * 10 / 8
 	 * and width * height * bpp = datasize in bytes
+	 * so div_u64((u64)(datasize * 120 * 10 * 4) >> 3, 3 * 1000000)
 	 */
-	return (u32)div_u64((u64)(datasize * 60 * 10) >> 2, 1000000);
+	return (u32)div_u64((u64)datasize, 5000);
+}
+
+static u32 mml_calc_bw_peak(u32 tput_up_bound, u32 bpp)
+{
+	return (u32)div_u64((u64)(tput_up_bound * bpp * 4) >> 3, 3);
 }
 
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
-	struct mml_comp_config *ccfg, u32 throughput)
+	struct mml_comp_config *ccfg, u32 throughput, u32 tput_up)
 {
 	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
-	u32 bandwidth, datasize;
+	u32 format, bandwidth, datasize, bw_peak = 0;
 	bool hrt;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
 	if (task->config->info.mode == MML_MODE_RACING) {
 		hrt = true;
 		bandwidth = mml_calc_bw_hrt(datasize);
-
-		if (mml_racing_urgent)
+		format = comp->hw_ops->qos_format_get(task, ccfg);
+		if (!MML_FMT_BLOCK(format))
+			bw_peak = mml_calc_bw_peak(tput_up, MML_FMT_BITS_PER_PIXEL(format));
+		else
+			bw_peak = bandwidth;
+		if (unlikely(mml_racing_urgent))
 			bandwidth = U32_MAX;
+		bw_peak = max(bandwidth, bw_peak);
 	} else {
 		hrt = false;
 		bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
@@ -666,10 +680,10 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	/* store for debug log */
 	task->pipe[ccfg->pipe].bandwidth = bandwidth;
 	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth),
-		hrt ? MBps_to_icc(bandwidth) : 0);
+		hrt ? MBps_to_icc(bw_peak) : 0);
 
-	mml_msg("%s comp %u %s qos bw %u by throughput %u pixel %u size %u%s",
-		__func__, comp->id, comp->name, bandwidth,
+	mml_msg("%s comp %u %s qos bw %u(%u) by throughput %u pixel %u size %u%s",
+		__func__, comp->id, comp->name, bandwidth, bw_peak,
 		throughput, cache->max_pixel, datasize,
 		hrt ? " hrt" : "");
 }

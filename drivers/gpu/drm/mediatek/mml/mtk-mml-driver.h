@@ -42,8 +42,10 @@ static inline int of_mml_read_comp_id_index(const struct device_node *np,
  * mml_qos_update_tput - scan throughputs in all path client and update the max one
  *
  * @mml: The mml driver instance
+ *
+ * Return: throughput upper bound from opp table
  */
-void mml_qos_update_tput(struct mml_dev *mml);
+u32 mml_qos_update_tput(struct mml_dev *mml);
 
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp);
 
@@ -54,7 +56,7 @@ s32 mml_comp_clk_enable(struct mml_comp *comp);
 s32 mml_comp_clk_disable(struct mml_comp *comp);
 
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
-	struct mml_comp_config *ccfg, u32 throughput);
+	struct mml_comp_config *ccfg, u32 throughput, u32 tput_up);
 void mml_comp_qos_clear(struct mml_comp *comp);
 
 /*

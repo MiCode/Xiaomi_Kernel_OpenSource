@@ -12,7 +12,6 @@
 #include <cmdq-util.h>
 #include <linux/sched/clock.h>
 
-
 #include "mtk-mml-core.h"
 #include "mtk-mml-buf.h"
 #include "mtk-mml-tile.h"
@@ -574,7 +573,7 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
-static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput)
+static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput, u32 tput_up)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
@@ -583,7 +582,7 @@ static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput)
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
-		call_hw_op(comp, qos_set, task, &cache->cfg[i], throughput);
+		call_hw_op(comp, qos_set, task, &cache->cfg[i], throughput, tput_up);
 	}
 }
 
@@ -647,7 +646,7 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_tmp;
 	struct timespec64 curr_time;
-	u32 throughput;
+	u32 throughput, tput_up;
 	u32 max_pixel = task->config->cache[pipe].max_pixel;
 	u64 duration = 0;
 
@@ -715,12 +714,12 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	mml_trace_begin("%u_%llu", throughput, duration);
 
 	path_clt->throughput = throughput;
-	mml_qos_update_tput(task->config->mml);
+	tput_up = mml_qos_update_tput(task->config->mml);
 
 	/* note the running task not always current begin task */
 	task_pipe_tmp = list_first_entry_or_null(&path_clt->tasks,
 		typeof(*task_pipe_tmp), entry_clt);
-	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput);
+	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput, tput_up);
 
 	mml_trace_end();
 
@@ -738,7 +737,7 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_cur, *task_pipe_tmp;
 	struct timespec64 curr_time;
-	u32 throughput = 0, max_pixel = 0, bandwidth = 0;
+	u32 throughput = 0, tput_up, max_pixel = 0, bandwidth = 0;
 	bool racing_mode = true;
 	bool overdue = false;
 
@@ -828,9 +827,9 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 
 done:
 	path_clt->throughput = throughput;
-	mml_qos_update_tput(task->config->mml);
+	tput_up = mml_qos_update_tput(task->config->mml);
 	if (throughput) {
-		mml_core_qos_set(task_pipe_cur->task, pipe, throughput);
+		mml_core_qos_set(task_pipe_cur->task, pipe, throughput, tput_up);
 		bandwidth = task_pipe_cur->bandwidth;
 	}
 keep:

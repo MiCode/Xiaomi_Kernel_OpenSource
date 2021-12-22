@@ -1954,12 +1954,18 @@ u32 wrot_datasize_get(struct mml_task *task, struct mml_comp_config *ccfg)
 	return wrot_frm->datasize;
 }
 
+u32 wrot_format_get(struct mml_task *task, struct mml_comp_config *ccfg)
+{
+	return task->config->info.dest[ccfg->node->out_idx].data.format;
+}
+
 static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
 	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
-	.qos_datasize_get = wrot_datasize_get,
+	.qos_datasize_get = &wrot_datasize_get,
+	.qos_format_get = &wrot_format_get,
 	.qos_set = &mml_comp_qos_set,
 	.qos_clear = &mml_comp_qos_clear,
 };

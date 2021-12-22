@@ -437,8 +437,10 @@ struct mml_comp_hw_ops {
 	s32 (*clk_disable)(struct mml_comp *comp);
 	u32 (*qos_datasize_get)(struct mml_task *task,
 				struct mml_comp_config *ccfg);
+	u32 (*qos_format_get)(struct mml_task *task,
+			      struct mml_comp_config *ccfg);
 	void (*qos_set)(struct mml_comp *comp, struct mml_task *task,
-			struct mml_comp_config *ccfg, u32 throughput);
+			struct mml_comp_config *ccfg, u32 throughput, u32 tput_up);
 	void (*qos_clear)(struct mml_comp *comp);
 	void (*task_done)(struct mml_comp *comp, struct mml_task *task,
 			  struct mml_comp_config *ccfg);
