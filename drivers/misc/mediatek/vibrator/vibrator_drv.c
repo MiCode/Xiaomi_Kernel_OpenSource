@@ -78,11 +78,11 @@ static void vibrator_enable(unsigned int dur, unsigned int activate)
 	unsigned long flags;
 	struct vibrator_hw *hw = mt_get_cust_vibrator_hw();
 
-	spin_lock_irqsave(&g_mt_vib->vibr_lock, flags);
 	hrtimer_cancel(&g_mt_vib->vibr_timer);
-	cancel_work_sync(&g_mt_vib->vibr_onwork);
 	pr_info(VIB_TAG "cancel hrtimer, cust:%dms, value:%u, activate:%d, shutdown:%d\n",
 			hw->vib_timer, dur, activate, g_mt_vib->shutdown_flag);
+	cancel_work_sync(&g_mt_vib->vibr_onwork);
+	spin_lock_irqsave(&g_mt_vib->vibr_lock, flags);
 
 	if (activate == 0 || g_mt_vib->shutdown_flag == 1) {
 		atomic_set(&g_mt_vib->vibr_state, 0);
