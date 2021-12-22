@@ -15,7 +15,6 @@
 #include <dt-bindings/clock/mt6893-clk.h>
 #include <dt-bindings/mmc/mt6885-msdc.h>
 #include <dt-bindings/spmi/spmi.h>
-#include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/phy/phy.h>
 #include <generated/autoconf.h>
 
@@ -928,28 +927,16 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10006500 0 0x1000>;
 	};
 
-	watchdog: watchdog@10007000 {
-		compatible = "mediatek,mt6893-wdt",
-			      "mediatek,mt6589-wdt",
-			      "syscon", "simple-mfd";
-		reg = <0 0x10007000 0 0x100>;
-		reboot-mode {
-			compatible = "syscon-reboot-mode";
-			offset = <0x24>;
-			mask = <0xf>;
-			mode-charger = <BOOT_CHARGER>;
-			mode-recovery = <BOOT_RECOVERY>;
-			mode-bootloader = <BOOT_BOOTLOADER>;
-			mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
-			mode-kpoc = <BOOT_KPOC>;
-			mode-ddr-reserve = <BOOT_DDR_RSVD>;
-			mode-meta = <BOOT_META>;
-			mode-rpmbpk = <BOOT_RPMBPK>;
-		};
+	toprgu: toprgu@10007000 {
+		compatible = "mediatek,toprgu";
+		reg = <0 0x10007000 0 0x1000>;
+		interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	toprgu: toprgu@10007000 {
-		apwdt_en = <0>;
+	apxgpt@10008000 {
+		compatible = "mediatek,apxgpt";
+		reg = <0 0x10008000 0 0x1000>;
+		interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	hacc@1000a000 {
@@ -1241,11 +1228,11 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10016000 0 0x1000>;
 	};
 
-	systimer: systimer@10017000 {
-		compatible = "mediatek,mt6893-timer",
-			      "mediatek,mt6765-timer";
+	sys_timer@10017000 {
+		compatible = "mediatek,sys_timer";
 		reg = <0 0x10017000 0 0x1000>;
-		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH 0>;
+		reg-names = "sys_timer_base";
+		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk13m>;
 	};
 
