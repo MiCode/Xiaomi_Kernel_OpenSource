@@ -585,7 +585,7 @@
 
 	lastbus: lastbus {
 		compatible = "mediatek,lastbus";
-		enabled = <0>;
+		enabled = <1>;
 		sw_version = <1>;
 		timeout_ms = <10>;
 		timeout_type = <0>;
