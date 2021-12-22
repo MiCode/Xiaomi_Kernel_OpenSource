@@ -1,0 +1,12 @@
+#
+# Touchscreen driver configuration
+#
+menu "NT36672C support"
+	depends on INPUT_TOUCHSCREEN
+
+config TOUCH_FW_MP_ONE
+	bool "TOUCH_FW_MP_ONE to determine novatek fw bin"
+	help
+	  To determine the novatek_firmware bin corresponding
+	  to lcm_name.
+endmenu

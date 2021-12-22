@@ -11,6 +11,8 @@ menuconfig INPUT_TOUCHSCREEN
 
 source "drivers/input/touchscreen/mediatek/Kconfig"
 
+source "drivers/input/touchscreen/NT36672C/Kconfig"
+
 if INPUT_TOUCHSCREEN
 
 config TOUCHSCREEN_PROPERTIES
