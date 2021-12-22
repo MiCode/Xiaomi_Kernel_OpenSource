@@ -1259,7 +1259,7 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	atomic_set(&sensor_ctrl->sensor_request_seq_no, s_data->frame_seq_no);
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 
-	if (is_sensor_switch(s_data)) {
+	if (is_sensor_switch(s_data) && s_data->frame_seq_no > 1) {
 		dev_info(sensor_ctrl->ctx->cam->dev,
 			 "[TimerIRQ] switch type:%d request:%d - pass sensor\n",
 			 s_data->feature.switch_feature_type,
@@ -3135,6 +3135,10 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 	if (raw_dev->sof_count == 0) {
 		sensor_ctrl->initial_cq_done = 1;
 		req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, 1);
+		type = req_stream_data->feature.switch_feature_type;
+		if (type == EXPOSURE_CHANGE_2_to_1 || type == EXPOSURE_CHANGE_3_to_1)
+			mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
+
 		if (req_stream_data->state.estate >= E_STATE_SENSOR ||
 			!ctx->sensor) {
 			mtk_cam_stream_on(raw_dev, ctx);
