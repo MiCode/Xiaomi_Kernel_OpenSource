@@ -56,7 +56,7 @@
 			batoc_notify = <0>;
 			charger = <&mt6360_chg>;
 			bc12_sel = <0>;
-#if !defined (CONFIG_MACH_MT6893) && !defined (CONFIG_MACH_MT6833)
+#if !defined (CONFIG_MACH_MT6833)
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			phy-names = "usb2-phy";
 			usb = <&ssusb>;
