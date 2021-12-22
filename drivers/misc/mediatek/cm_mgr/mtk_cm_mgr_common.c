@@ -945,6 +945,9 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 	struct cpufreq_policy *policy = NULL;
 	unsigned int idx = 0;
 
+	if (!cm_mgr_cpu_map_dram_enable)
+		return;
+
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
 		return;
