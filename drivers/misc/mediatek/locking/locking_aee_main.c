@@ -32,7 +32,9 @@ static const char * const critical_lock_list[] = {
 	/* stacktrace */
 	"depot_lock",
 	/* console */
-	"&(&port->lock)->rlock"
+	"&(&port->lock)->rlock",
+	/* try_to_wake_up */
+	"&p->pi_lock",
 };
 
 static int is_critical_lock_held(void)
