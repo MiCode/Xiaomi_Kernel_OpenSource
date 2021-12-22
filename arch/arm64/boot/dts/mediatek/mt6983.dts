@@ -1629,6 +1629,7 @@
 				"JOB",
 				"EVENT",
 				"PWR";
+			system-coherency = <0>;
 			protected-memory-allocator = <&gpu_protected_memory_allocator>;
 			operating-points-v2 = <&gpu_mali_opp>;
 			#cooling-cells = <2>;
