@@ -9124,7 +9124,8 @@
 		};
 
 		mml_tdshp0: mml_tdshp0@1f80b000 {
-			compatible = "mediatek,mt6895-mml_tdshp";
+			compatible = "mediatek,mt6895-mml_tdshp",
+				"mediatek,mml-tuning-mml_tdshp";
 			reg = <0 0x1f80b000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_TDSHP0>;
 			clock-names = "tdshp0";
@@ -9133,7 +9134,8 @@
 		};
 
 		mml_tdshp1: mml_tdshp1@1f80c000 {
-			compatible = "mediatek,mt6895-mml_tdshp";
+			compatible = "mediatek,mt6895-mml_tdshp",
+				"mediatek,mml-tuning-mml_tdshp";
 			reg = <0 0x1f80c000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_TDSHP1>;
 			clock-names = "tdshp1";
@@ -9142,7 +9144,8 @@
 		};
 
 		mml_color0: mml_color0@1f80d000 {
-			compatible = "mediatek,mt6895-mml_color";
+			compatible = "mediatek,mt6895-mml_color",
+				"mediatek,mml-tuning-mml_color";
 			reg = <0 0x1f80d000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_COLOR0>;
 			clock-names = "color0";
@@ -9151,7 +9154,8 @@
 		};
 
 		mml_color1: mml_color1@1f80e000 {
-			compatible = "mediatek,mt6895-mml_color";
+			compatible = "mediatek,mt6895-mml_color",
+				"mediatek,mml-tuning-mml_color";
 			reg = <0 0x1f80e000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_COLOR1>;
 			clock-names = "color1";
