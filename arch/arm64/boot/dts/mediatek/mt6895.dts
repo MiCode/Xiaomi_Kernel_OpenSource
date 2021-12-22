@@ -5406,6 +5406,7 @@
 					  <12 100 1>,	/* vow dual mic barge in */
 					  <13 200 0>;	/* ultrasound */
 
+			debug_timeout_reset = "enable"; /* enable timeout debug*/
 			secure_dump = "enable";   /* enable dump via secure world*/
 			secure_dump_size = <0x300000>;
 
