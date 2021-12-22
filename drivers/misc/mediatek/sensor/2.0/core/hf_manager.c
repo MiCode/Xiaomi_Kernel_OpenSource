@@ -1131,7 +1131,7 @@ int hf_client_poll_sensor_timeout(struct hf_client *client,
 
 	/* ret must be long to fill timeout(MAX_SCHEDULE_TIMEOUT) */
 	ret = wait_event_interruptible_timeout(hf_fifo->wait,
-		hf_fifo->head != hf_fifo->tail, timeout);
+		READ_ONCE(hf_fifo->head) != READ_ONCE(hf_fifo->tail), timeout);
 
 	if (!ret)
 		return -ETIMEDOUT;
@@ -1139,7 +1139,7 @@ int hf_client_poll_sensor_timeout(struct hf_client *client,
 		return ret;
 
 	for (;;) {
-		if (hf_fifo->head == hf_fifo->tail)
+		if (READ_ONCE(hf_fifo->head) == READ_ONCE(hf_fifo->tail))
 			return 0;
 		if (count == 0)
 			break;
@@ -1198,7 +1198,7 @@ static ssize_t hf_manager_read(struct file *filp,
 		return -EINVAL;
 
 	for (;;) {
-		if (hf_fifo->head == hf_fifo->tail)
+		if (READ_ONCE(hf_fifo->head) == READ_ONCE(hf_fifo->tail))
 			return 0;
 		if (count == 0)
 			break;
@@ -1242,7 +1242,7 @@ static unsigned int hf_manager_poll(struct file *filp,
 
 	poll_wait(filp, &hf_fifo->wait, wait);
 
-	if (hf_fifo->head != hf_fifo->tail)
+	if (READ_ONCE(hf_fifo->head) != READ_ONCE(hf_fifo->tail))
 		mask |= POLLIN | POLLRDNORM;
 
 	return mask;
