@@ -4312,9 +4312,10 @@ static signed int MFB_probe(struct platform_device *pDev)
 			create_singlethread_workqueue("MSF-CMDQ-WQ");
 		if (!MFBInfo.wkqueueMsf)
 			LOG_ERR("NULL MSF-CMDQ-WQ\n");
-
+#ifdef WAKE_UP
 		wakeup_source_init(&MSS_wake_lock, "mss_lock_wakelock");
 		wakeup_source_init(&MSF_wake_lock, "msf_lock_wakelock");
+#endif
 		INIT_WORK(&logWork, logPrint);
 
 		for (i = 0; i < MFB_IRQ_TYPE_AMOUNT; i++)
