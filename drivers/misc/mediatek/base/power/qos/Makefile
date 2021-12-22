@@ -24,15 +24,13 @@ ifeq ($(CONFIG_MACH_MT6781),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/mt6785/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
-endif
+
 
 ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)$(CONFIG_MTK_TINYSYS_SSPM_PLT_SUPPORT)),)
 ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
-obj-y += mtk_qos_ipi_v2.o
 else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
-obj-y += mtk_qos_ipi.o
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 endif
@@ -46,5 +44,5 @@ else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM)
 endif
 
-obj-y += mtk_qos_main.o mtk_qos_bound.o mtk_qos_sram.o  mtk_qos_sysfs.o
-obj-y += $(MTK_PLATFORM)/
+obj-y += mtk_qos_main.o mtk_qos_bound.o mtk_qos_sram.o mtk_qos_ipi.o mtk_qos_sysfs.o
+# obj-y += $(MTK_PLATFORM)/

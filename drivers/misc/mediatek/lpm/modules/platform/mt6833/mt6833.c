@@ -7,7 +7,7 @@
 #include <mtk_lp_plat_apmcu.h>
 
 #include "mt6833.h"
-#include <idles/mt6833_mcusys.h>
+
 #include <suspend/mt6833_suspend.h>
 
 static unsigned int mt6833_lp_pwr_state;
@@ -51,7 +51,6 @@ int mt6833_do_mcusys_prepare_on_ex(unsigned int clr_status)
 static int __init mt6833_init(void)
 {
 	mtk_lp_plat_apmcu_init();
-	mt6833_model_mcusys_init();
 	mt6833_model_suspend_init();
 	return 0;
 }

@@ -1,6 +1,4 @@
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785" "mt6768" "mt6853" "mt6739"))
 
-else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += mtk_qos.o
@@ -14,5 +12,4 @@ endif
 ifneq ($(CONFIG_MACH_MT6765),)
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += mtk_qos_legacy.o
 mtk_qos_legacy-objs := qos-v61.o
-endif
 endif
