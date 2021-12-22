@@ -9,6 +9,7 @@
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
 #include <linux/highmem.h>
+#include <linux/kmemleak.h>
 #include <asm/mman.h>
 
 #include "reviser_cmn.h"
