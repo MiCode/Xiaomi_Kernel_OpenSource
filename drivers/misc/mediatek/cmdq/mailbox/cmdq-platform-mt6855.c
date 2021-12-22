@@ -57,8 +57,8 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		return "DISP";
 	case CMDQ_SYNC_TOKEN_IMGSYS_POOL_1
 		... CMDQ_SYNC_TOKEN_IMGSYS_POOL_100:
-	case CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS
-		... CMDQ_SYNC_TOKEN_IPESYS_ME:
+	case CMDQ_SYNC_TOKEN_MSS
+		... CMDQ_SYNC_TOKEN_MSF:
 		return "IMGSYS";
 
 	case CMDQ_EVENT_GPR_TIMER ... CMDQ_EVENT_GPR_TIMER + 32:
@@ -84,7 +84,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 			... CMDQ_EVENT_GCE_SMI_ALL_EVENT_2:
 			return "SMI";
 		case CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_0
-			... CMDQ_EVENT_IMG1_EVENT_25:
+			... CMDQ_EVENT_IMG1_MSS_DONE_LINK_MISC:
 			return "IMG";
 		case CMDQ_EVENT_CAM_EVENT_0
 			... CMDQ_EVENT_CAM_SENINF_CAM14_FIFO_FULL:
