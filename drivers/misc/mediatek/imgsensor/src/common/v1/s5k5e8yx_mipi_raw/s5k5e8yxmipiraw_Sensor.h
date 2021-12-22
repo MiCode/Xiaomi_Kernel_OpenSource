@@ -61,7 +61,7 @@ struct imgsensor_struct {
 
 	kal_uint16 current_fps;
 	kal_bool   autoflicker_en;
-	kal_bool test_pattern;
+	kal_uint32 test_pattern;
 	enum MSDK_SCENARIO_ID_ENUM current_scenario_id;
 	kal_uint8  ihdr_en;
 

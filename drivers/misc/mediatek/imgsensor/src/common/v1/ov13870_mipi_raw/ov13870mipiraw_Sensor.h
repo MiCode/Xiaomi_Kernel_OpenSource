@@ -52,7 +52,7 @@ struct imgsensor_struct {
 	kal_uint16 dummy_line;   /* current dummline */
 	kal_uint16 current_fps;  /* current max fps */
 	kal_bool autoflicker_en; /* record autoflicker enable or disable */
-	kal_bool test_pattern;   /* record test pattern mode or not */
+	kal_uint32 test_pattern;   /* record test pattern mode or not */
 	/* current scenario id */
 	enum MSDK_SCENARIO_ID_ENUM current_scenario_id;
 	kal_uint8 hdr_mode; /* HDR mODE: 0:disable HDR, 1:IHDR, 2:HDR, 9:ZHDR */

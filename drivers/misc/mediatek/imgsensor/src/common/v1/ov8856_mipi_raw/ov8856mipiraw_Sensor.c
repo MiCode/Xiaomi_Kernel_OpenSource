@@ -150,8 +150,8 @@ static struct imgsensor_struct imgsensor = {
 	.dummy_line = 0,			/*current dummyline*/
 	.current_fps = 30,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
-	.current_scenario_id = MSDK_SCENARIO_ID_CAMERA_PREVIEW,
+	.test_pattern = 0,
+	.current_scenario_id = MSDK_SCENARIO_ID_CAMERA_PREVIEW,/*current scenario id*/
 	.ihdr_en = 0, /*sensor need support LE, SE with HDR feature*/
 	.i2c_write_id = 0x42,/*record current sensor's i2c write id*/
 };
@@ -1212,7 +1212,7 @@ static kal_uint32 open(void)
 	imgsensor.dummy_pixel = 0;
 	imgsensor.dummy_line = 0;
 	imgsensor.ihdr_en = 0;
-	imgsensor.test_pattern = KAL_FALSE;
+	imgsensor.test_pattern = 0;
 	imgsensor.current_fps = imgsensor_info.pre.max_framerate;
 	spin_unlock(&imgsensor_drv_lock);
 
@@ -1692,21 +1692,42 @@ static kal_uint32 get_default_framerate_by_scenario(
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(kal_bool enable)
+static kal_uint32 set_test_pattern_mode(kal_uint32 modes)
 {
-	LOG_INF("enable: %d\n", enable);
+	LOG_INF("modes: %d\n", modes);
 
-	if (enable) {
+	if (modes == 2) {
 		write_cmos_sensor(0x5000, 0x57);
 		write_cmos_sensor(0x5001, 0x02);
 		write_cmos_sensor(0x5e00, 0x80);
-	} else {
+	} else if (modes == 5) {
+		LOG_INF("make sure no need to store 0x5004: 0x%x\n",
+			read_cmos_sensor(0x5004));
+		// r5004[4]=0 r5004[1]=1
+		write_cmos_sensor(0x5004, ((read_cmos_sensor(0x5004) & 0xEF) | 0x02));
+		LOG_INF("make sure no need to store d_gain: 0x%2x%2x\n",
+			read_cmos_sensor(0x350a), read_cmos_sensor(0x350b));
+		//set dgain as 0
+		//write_cmos_sensor(0x350a, 0x00);
+		//write_cmos_sensor(0x350b, 0x00);
+		write_cmos_sensor(0x3019, 0xf0);
+		write_cmos_sensor(0x4308, 0x01);
+	}
+	if ((modes != 2) && (imgsensor.test_pattern == 2)) {//colorbar off
 		write_cmos_sensor(0x5000, 0x77);
 		write_cmos_sensor(0x5001, 0x0a);
 		write_cmos_sensor(0x5e00, 0x00);
+	} else if (modes != 5 && (imgsensor.test_pattern == 5)) {
+		LOG_INF("0x5004: 0x%x\n",
+			read_cmos_sensor(0x5004));
+		//write_cmos_sensor(0x350a, 0x01);
+		//write_cmos_sensor(0x350b, 0x00);
+		write_cmos_sensor(0x3019, 0xd2);
+		write_cmos_sensor(0x4308, 0x00);
 	}
+
 	spin_lock(&imgsensor_drv_lock);
-	imgsensor.test_pattern = enable;
+	imgsensor.test_pattern = modes;
 	spin_unlock(&imgsensor_drv_lock);
 	return ERROR_NONE;
 }
@@ -1787,7 +1808,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			(MUINT32 *)(uintptr_t)(*(feature_data+1)));
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode((BOOL)*feature_data);
+		set_test_pattern_mode((UINT32)*feature_data);
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE: /*for factory mode auto testing*/
 		*feature_return_para_32 = imgsensor_info.checksum_value;
