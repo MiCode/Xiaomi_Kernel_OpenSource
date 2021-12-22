@@ -299,6 +299,9 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 			SENINF_CAM_MUX_PCSR_CTRL, CAM_MUX_PCSR_NEXT_SRC_SEL, 0x1f);
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
+			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_SRC_SEL, 0x1f);
+
+	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 0);
 
 #if LOG_MORE
@@ -314,11 +317,13 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 
 static int mtk_cam_seninf_disable_all_cammux(struct seninf_ctx *ctx)
 {
+	int i = 0;
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
 
-	SENINF_WRITE_REG(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN, 0);
+	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++)
+		mtk_cam_seninf_disable_cammux(ctx, i);
 
-	dev_info(ctx->dev, "%s all cam_mux %d EN 0x%x\n",
+	dev_info(ctx->dev, "%s all SENINF_CAM_MUX_GCSR_MUX_EN 0x%x\n",
 	__func__,
 	SENINF_READ_REG(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN));
 
