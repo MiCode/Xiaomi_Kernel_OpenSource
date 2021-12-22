@@ -2305,6 +2305,8 @@
 
 		/* regulator vufs lpm */
 		mediatek,vreg_vufs_lpm = <1>;
+
+		mediatek,ufs-qos;
 	};
 
 	msdc1_ins:msdc1_ins {
