@@ -7,6 +7,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/of_device.h>
+#include <linux/dma-buf.h>
+#include <uapi/linux/dma-buf.h>
 
 #include "apusys_device.h"
 #include "mdw_cmn.h"
@@ -165,6 +167,25 @@ static int mdw_mem_alloc_internal(struct mdw_mem *m)
 	}
 
 	return ret;
+}
+
+long mdw_mem_set_name(struct mdw_mem *m, const char *buf)
+{
+	char *name = NULL;
+
+	if (IS_ERR_OR_NULL(m->dbuf))
+		return -EINVAL;
+
+	name = kstrndup(buf, DMA_BUF_NAME_LEN, GFP_KERNEL);
+	if (IS_ERR(name))
+		return PTR_ERR(name);
+
+	spin_lock(&m->dbuf->name_lock);
+	kfree(m->dbuf->name);
+	m->dbuf->name = name;
+	spin_unlock(&m->dbuf->name_lock);
+
+	return 0;
 }
 
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
