@@ -4391,7 +4391,7 @@ static void DIP_EnableClock(bool En)
 
 #else/*CCF*/
 		/*LOG_INF("CCF:prepare_enable clk");*/
-		Prepare_Enable_ccf_clock(); /* !!cannot be used in spinlock!! */
+		//Prepare_Enable_ccf_clock(); /* !!cannot be used in spinlock!! */
 		spin_lock(&(IspInfo.SpinLockClock));
 		G_u4DipEnClkCnt++;
 		spin_unlock(&(IspInfo.SpinLockClock));
@@ -4419,7 +4419,7 @@ static void DIP_EnableClock(bool En)
 		spin_unlock(&(IspInfo.SpinLockClock));
 #else
 		/*LOG_INF("CCF:disable_unprepare clk\n");*/
-		Disable_Unprepare_ccf_clock();
+		//Disable_Unprepare_ccf_clock();
 		spin_lock(&(IspInfo.SpinLockClock));
 		G_u4DipEnClkCnt--;
 		spin_unlock(&(IspInfo.SpinLockClock));
