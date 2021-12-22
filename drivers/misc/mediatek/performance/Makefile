@@ -21,7 +21,7 @@ obj-y += base/
 
 obj-$(CONFIG_MTK_PERF_OBSERVER) += observer/
 obj-$(CONFIG_MTK_RESYM) += resym/
-#obj-$(CONFIG_MTK_GBE) += gbe/
+obj-$(CONFIG_MTK_GBE) += gbe/
 obj-y += syslimiter/
 
 #ifeq (,$(findstring mt8,$(CONFIG_MTK_PLATFORM)))

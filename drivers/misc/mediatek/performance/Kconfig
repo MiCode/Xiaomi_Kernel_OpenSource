@@ -59,3 +59,13 @@ config MTK_EARA_THERMAL
 	  EARA_THERMAL persuades FPS performance when thermal throttling.
 	  This function depends on MTK_FPSGO_V3.
 	  If you are not sure about this, please set n.
+
+config MTK_GBE
+	bool "MTK GBE support"
+	depends on MTK_FPSGO_V3
+	help
+	  MTK_GBE is the kernel config of GBE mechanism.
+	  GBE stands for Game Boost Engine. GBE is a mechanism to
+	  boost Game Engine while gaming for better gaming experience
+	  This function depends on MTK_FPSGO_V3.
+	  If you are not sure about this, please set n.
