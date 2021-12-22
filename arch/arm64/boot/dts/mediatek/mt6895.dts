@@ -5606,6 +5606,10 @@
 			mediatek,larb = <&smi_larb0>;
 			fake-engine = <&smi_larb0 M4U_LARB0_PORT15>,
 					<&smi_larb1 M4U_LARB1_PORT7>;
+
+			nvmem-cells = <&efuse_segment>;
+			nvmem-cell-names = "efuse_seg_disp_cell";
+
 			#clock-cells = <1>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_DISP>;
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_MUTEX0>,
