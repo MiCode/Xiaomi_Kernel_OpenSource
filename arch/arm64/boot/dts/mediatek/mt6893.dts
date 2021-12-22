@@ -13,7 +13,6 @@
 #include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/clock/mt6893-clk.h>
-#include <dt-bindings/mmc/mt6885-msdc.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/phy/phy.h>
 #include <generated/autoconf.h>
@@ -878,28 +877,6 @@ page_owner=on loop.max_part=7";
 		#interrupt-cells = <4>;
 		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-	};
-
-	msdc0: msdc@11230000 {
-		compatible = "mediatek,msdc";
-		reg = <0 0x11230000 0 0x10000>;
-		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	msdc1: msdc@11240000{
-		compatible = "mediatek,msdc";
-		reg = <0 0x11240000 0 0x1000>;
-		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	msdc0_top@11f50000 {
-		compatible = "mediatek,msdc0_top";
-		reg = <0 0x11f50000 0 0x1000>;
-	};
-
-	msdc1_top@11e10000 {
-		compatible = "mediatek,msdc1_top";
-		reg = <0 0x11e10000 0 0x1000>;
 	};
 
 	sleep@10006000 {
@@ -2288,14 +2265,28 @@ page_owner=on loop.max_part=7";
 	};
 
 	mmc0: mmc@11230000 {
-	      compatible = "mediatek,mt6885-mmc";
-	      reg = <0 0x11230000 0 0x1000>;
-	      interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
-	      clocks = <&clk12m>,
-		       <&clk12m>,
-		       <&clk12m>;
-	      clock-names = "source", "hclk", "source_cg";
-	      status = "disabled";
+		compatible = "mediatek,mt6779-mmc";
+		reg = <0 0x11230000 0 0x10000>,
+		      <0 0x11f50000 0 0x1000>;
+		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&topckgen_clk CLK_TOP_MSDC50_0_HCLK>,
+			 <&topckgen_clk CLK_TOP_MSDC50_0>,
+			 <&infracfg_ao_clk CLK_IFRAO_MSDC0>,
+			 <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>;
+		clock-names = "bus_clk", "source", "hclk", "source_cg";
+		status = "disabled";
+	};
+
+	mmc1: mmc@11240000 {
+		compatible = "mediatek,mt6779-mmc";
+		reg = <0 0x11240000 0 0x1000>,
+		      <0 0x11e10000 0 0x1000>;
+		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
+			 <&infracfg_ao_clk CLK_IFRAO_MSDC1>,
+			 <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>;
+		clock-names = "source", "hclk", "source_cg";
+		status = "disabled";
 	};
 
 	mmc_fixed_3v3: fixedregulator@0 {

@@ -1,42 +1,39 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
-
-&msdc0 {
-	index = /bits/ 8 <0>;
-	clk_src = /bits/ 8 <MSDC0_CLKSRC_400MHZ>;
+ * Copyright (c) 2020 MediaTek Inc.
+ */
+/********************************************
+ * MT6893 MSDC DTSI File
+ ********************************************/
+#include <dt-bindings/gpio/gpio.h>
+&mmc0 {
+	host-index = <0>;
+	status = "okay";
+	pinctrl-names = "default", "state_uhs";
+	pinctrl-0 = <&mmc0_pins_default>;
+	pinctrl-1 = <&mmc0_pins_uhs>;
 	bus-width = <8>;
 	max-frequency = <200000000>;
 	cap-mmc-highspeed;
-	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	no-sd;
+	//cap-mmc-hw-reset;
 	no-sdio;
-	non-removable;
-	pinctl = <&msdc0_pins_default>;
-	pinctl_hs400 = <&msdc0_pins_hs400>;
-	pinctl_hs200 = <&msdc0_pins_hs200>;
-	register_setting = <&msdc0_register_setting_default>;
-	host_function = /bits/ 8 <MSDC_EMMC>;
-	bootable;
-	status = "okay";
-
-#ifndef CONFIG_FPGA_EARLY_PORTING
+	no-sd;
+	hs400-ds-delay = <0x12814>;
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
-	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
-	clocks = <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>,
-		<&infracfg_ao_clk CLK_IFRAO_MSDC0>,
-		<&infracfg_ao_clk CLK_IFRAO_AES>;
-	clock-names = "msdc0-clock", "msdc0-hclock", "msdc0-aes-clock";
-#endif
+	non-removable;
+	supports-cqe;
+//	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	req-vcore = <650000>;
 };
 
-
-&msdc1 {
-	index = /bits/ 8 <1>;
-	clk_src = /bits/ 8 <MSDC1_CLKSRC_200MHZ>;
+&mmc1 {
+	host-index = <1>;
+	status = "okay";
+	pinctrl-names = "default", "state_uhs";
+	pinctrl-0 = <&mmc1_pins_default>;
+	pinctrl-1 = <&mmc1_pins_uhs>;
 	bus-width = <4>;
 	max-frequency = <200000000>;
 	cap-sd-highspeed;
@@ -45,144 +42,106 @@
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
-	no-mmc;
-	no-sdio;
-
-	pinctl = <&msdc1_pins_default>;
-	pinctl_sdr104 = <&msdc1_pins_sdr104>;
-	pinctl_sdr50 = <&msdc1_pins_sdr50>;
-	pinctl_ddr50 = <&msdc1_pins_ddr50>;
-	register_setting = <&msdc1_register_setting_default>;
-
-	host_function = /bits/ 8 <MSDC_SD>;
-
-	cd_level = /bits/ 8 <MSDC_CD_LOW>;
-	cd-gpios = <&pio 23 0>;
-
-	status = "okay";
-
-#ifndef CONFIG_FPGA_EARLY_PORTING
+	cd-debounce-delay-ms = <0>;
+	cd-gpios = <&pio 23 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
-
-	clocks = <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>,
-			<&infracfg_ao_clk CLK_IFRAO_MSDC1>;
-	clock-names = "msdc1-clock", "msdc1-hclock";
-#endif
+	no-mmc;
+	no-sdio;
 };
 
 &pio {
-	msdc0_pins_default: msdc0@default {
-		pins_cmd {
-			drive-strength = /bits/ 8 <4>;
-		};
-		pins_dat {
-			drive-strength = /bits/ 8 <4>;
+	mmc0_pins_default: mmc0default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO184__FUNC_MSDC0_DAT0>,
+				<PINMUX_GPIO188__FUNC_MSDC0_DAT1>,
+				<PINMUX_GPIO185__FUNC_MSDC0_DAT2>,
+				<PINMUX_GPIO193__FUNC_MSDC0_DAT3>,
+				<PINMUX_GPIO186__FUNC_MSDC0_DAT4>,
+				<PINMUX_GPIO189__FUNC_MSDC0_DAT5>,
+				<PINMUX_GPIO187__FUNC_MSDC0_DAT6>,
+				<PINMUX_GPIO190__FUNC_MSDC0_DAT7>,
+				<PINMUX_GPIO183__FUNC_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 		pins_clk {
-			drive-strength = /bits/ 8 <4>;
+			pinmux = <PINMUX_GPIO192__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 		pins_rst {
-			drive-strength = /bits/ 8 <4>;
-		};
-		pins_ds {
-			drive-strength = /bits/ 8 <4>;
+			pinmux = <PINMUX_GPIO194__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
-
-	msdc0_pins_hs400: msdc0@hs400 {
-		pins_cmd {
-			drive-strength = /bits/ 8 <4>;
-		};
-		pins_dat {
-			drive-strength = /bits/ 8 <4>;
+	mmc0_pins_uhs: mmc0@0{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO184__FUNC_MSDC0_DAT0>,
+				<PINMUX_GPIO188__FUNC_MSDC0_DAT1>,
+				<PINMUX_GPIO185__FUNC_MSDC0_DAT2>,
+				<PINMUX_GPIO193__FUNC_MSDC0_DAT3>,
+				<PINMUX_GPIO186__FUNC_MSDC0_DAT4>,
+				<PINMUX_GPIO189__FUNC_MSDC0_DAT5>,
+				<PINMUX_GPIO187__FUNC_MSDC0_DAT6>,
+				<PINMUX_GPIO190__FUNC_MSDC0_DAT7>,
+				<PINMUX_GPIO183__FUNC_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 		pins_clk {
-			drive-strength = /bits/ 8 <4>;
+			pinmux = <PINMUX_GPIO192__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+		};
+		pins_ds {
+			pinmux = <PINMUX_GPIO191__FUNC_MSDC0_DSL>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 		pins_rst {
-			drive-strength = /bits/ 8 <4>;
-		};
-		pins_ds {
-			drive-strength = /bits/ 8 <4>;
+			pinmux = <PINMUX_GPIO194__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
+	mmc1_pins_default: mmc1default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO54__FUNC_MSDC1_DAT0>,
+				<PINMUX_GPIO56__FUNC_MSDC1_DAT1>,
+				<PINMUX_GPIO55__FUNC_MSDC1_DAT2>,
+				<PINMUX_GPIO53__FUNC_MSDC1_DAT3>,
+				<PINMUX_GPIO52__FUNC_MSDC1_CMD>;
+			input-enable;
+			drive-strength = <3>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+		};
 
-	msdc0_pins_hs200: msdc0@hs200 {
-		pins_cmd {
-			drive-strength = /bits/ 8 <4>;
-		};
-		pins_dat {
-			drive-strength = /bits/ 8 <4>;
-		};
 		pins_clk {
-			drive-strength = /bits/ 8 <4>;
-		};
-		pins_rst {
-			drive-strength = /bits/ 8 <4>;
-		};
-		pins_ds {
-			drive-strength = /bits/ 8 <4>;
+			pinmux = <PINMUX_GPIO51__FUNC_MSDC1_CLK>;
+			drive-strength = <3>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
 	};
-
-	msdc0_register_setting_default: msdc0@register_default {
-		cmd_edge = /bits/ 8 <MSDC_SMPL_RISING>;
-		rdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
-		wdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
-	};
-
-	msdc1_pins_default: msdc1@default {
-		pins_cmd {
-			drive-strength = /bits/ 8 <3>;
+	mmc1_pins_uhs: mmc1@0{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO54__FUNC_MSDC1_DAT0>,
+				<PINMUX_GPIO56__FUNC_MSDC1_DAT1>,
+				<PINMUX_GPIO55__FUNC_MSDC1_DAT2>,
+				<PINMUX_GPIO53__FUNC_MSDC1_DAT3>,
+				<PINMUX_GPIO52__FUNC_MSDC1_CMD>;
+			input-enable;
+			drive-strength = <3>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
-		pins_dat {
-			drive-strength = /bits/ 8 <3>;
-		};
+
 		pins_clk {
-			drive-strength = /bits/ 8 <3>;
+			pinmux = <PINMUX_GPIO51__FUNC_MSDC1_CLK>;
+			drive-strength = <3>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
 		};
-	};
-
-	msdc1_pins_sdr104: msdc1@sdr104 {
-		pins_cmd {
-			drive-strength = /bits/ 8 <3>;
-		};
-		pins_dat {
-			drive-strength = /bits/ 8 <3>;
-		};
-		pins_clk {
-			drive-strength = /bits/ 8 <3>;
-		};
-	};
-
-	msdc1_pins_sdr50: msdc1@sdr50 {
-		pins_cmd {
-			drive-strength = /bits/ 8 <3>;
-		};
-		pins_dat {
-			drive-strength = /bits/ 8 <3>;
-		};
-		pins_clk {
-			drive-strength = /bits/ 8 <3>;
-		};
-	};
-
-	msdc1_pins_ddr50: msdc1@ddr50 {
-		pins_cmd {
-			drive-strength = /bits/ 8 <3>;
-		};
-		pins_dat {
-			drive-strength = /bits/ 8 <3>;
-		};
-		pins_clk {
-			drive-strength = /bits/ 8 <3>;
-		};
-	};
-
-	msdc1_register_setting_default: msdc1@register_default {
-		cmd_edge = /bits/ 8 <MSDC_SMPL_RISING>;
-		rdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
-		wdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
 	};
 };
