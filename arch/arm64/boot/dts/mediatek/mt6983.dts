@@ -6932,6 +6932,20 @@
 		clock-names = "clk0", "clk1", "clk2", "clk3";
 	};
 
+	ktf-mmdvfs-test {
+		compatible = "mediatek,ktf-mmdvfs-test";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL0_0)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL0_0)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL0_0)
+					&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "DDP_COMPONENT_OVL1_qos",
+					"DDP_COMPONENT_OVL1_fbdc_qos",
+					"DDP_COMPONENT_OVL1_hrt_qos";
+	};
+
 	mmdvfs-debug {
 		compatible = "mediatek,mmdvfs-debug";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
