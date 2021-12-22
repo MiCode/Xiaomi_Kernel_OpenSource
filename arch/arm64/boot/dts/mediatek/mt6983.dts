@@ -1437,7 +1437,7 @@
 			interconnect-names = "icc-bw";
 			required-opps = <&dvfsrc_freq_opp0>;
 			usb-audio;
-			small-core = <800000>;
+			small-core = <1250000>;
 		};
 
 		drm:drm@11ff0000 {
