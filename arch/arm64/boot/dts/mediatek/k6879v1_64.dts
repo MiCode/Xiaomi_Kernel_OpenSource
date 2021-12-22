@@ -252,6 +252,7 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
+	switch_fps = <0>;
 	panel1@0 {
 		compatible = "jdi,nt36672e,vdo,120hz,hfp";
 		reg = <0>;
@@ -265,6 +266,21 @@
 			};
 		};
 	};
+
+	panel2@0 {
+		compatible = "jdi,nt36672e,vdo,144hz,hfp";
+		reg = <1>;
+		pm-enable-gpios = <&pio 163 0>;
+		reset-gpios = <&pio 97 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+
 	ports {
 		port {
 			dsi_out: endpoint {
