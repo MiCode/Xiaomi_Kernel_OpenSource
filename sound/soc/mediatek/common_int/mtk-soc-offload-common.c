@@ -205,13 +205,11 @@ static void mtk_compr_offload_int_wakelock(bool enable)
 
 static int mtk_compr_offload_draindone(void)
 {
-	if (afe_offload_block.drain_state == AUDIO_DRAIN_ALL) {
+	if (afe_offload_block.state == OFFLOAD_STATE_DRAIN) {
+		pr_info("%s\n", __func__);
 		/* gapless mode clear vars */
-		afe_offload_block.transferred       = 0;
-		afe_offload_block.copied_total      = 0;
 		afe_offload_block.write_blocked_idx = 0;
-		afe_offload_block.drain_state       = AUDIO_DRAIN_NONE;
-		afe_offload_block.state = OFFLOAD_STATE_PREPARE;
+		afe_offload_block.drain_state       = AUDIO_DRAIN_ALL;
 		/* for gapless */
 		offloadservice_setwriteblocked(false);
 		offloadservice_releasewriteblocked();
@@ -240,15 +238,33 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 		&(dsp->dsp_mem[ID].adsp_buf.aud_buffer.buf_bridge);
 
 	int silence_length = 0;
+	int ret;
+	void *ipi_audio_buf; /* dsp <-> audio data struct */
+	struct audio_dsp_dram *dsp_dram;
 
+	dsp_dram = &dsp->dsp_mem[ID].msg_atod_share_buf;
 	if (afe_offload_block.state != OFFLOAD_STATE_DRAIN) {
-		if (ringbuf->pRead >= ringbuf->pWrite)
-			silence_length = ringbuf->pRead - ringbuf->pWrite;
-		else
-			silence_length = ringbuf->pBufEnd - ringbuf->pWrite;
-		if (silence_length > (USE_PERIODS_MAX))
-			silence_length = USE_PERIODS_MAX;
-		memset(ringbuf->pWrite, 0, silence_length);
+		if ((afe_offload_block.state != OFFLOAD_STATE_RUNNING) &&
+			(afe_offload_block.transferred < 8 * USE_PERIODS_MAX)) {
+			/* send audio_hw_buffer to SCP side, get writeIndx*/
+			ipi_audio_buf = (void *)dsp_dram->va_addr;
+			memcpy((void *)ipi_audio_buf,
+					(void *)&dsp->dsp_mem[ID].adsp_buf,
+					sizeof(struct audio_hw_buffer));
+			ret = mtk_scp_ipi_send(
+					get_dspscene_by_dspdaiid(ID),
+					AUDIO_IPI_PAYLOAD,
+					AUDIO_IPI_MSG_BYPASS_ACK,
+					AUDIO_DSP_TASK_DLCOPY,
+					sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+					0,
+					(char *)
+					&dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
+			pr_debug("%s(),MSG_DECODER_START, Update the final data, TRANSFERRED %lld\n",
+					__func__, afe_offload_block.transferred);
+		}
+
+		silence_length = 0;
 		RingBuf_update_writeptr(ringbuf, silence_length);
 		RingBuf_Bridge_update_writeptr(buf_bridge, silence_length);
 		ringbuf_writebk = (unsigned long)ringbuf->pWrite;
@@ -256,7 +272,7 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 		afe_offload_service.needdata = false;
 
 		pr_info("%s, OFFLOAD_DRAIN", __func__);
-		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 			AUDIO_IPI_PAYLOAD,
 			AUDIO_IPI_MSG_NEED_ACK,
 			OFFLOAD_DRAIN,
@@ -270,14 +286,13 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 	mtk_compr_offload_int_wakelock(false);
 #endif
 	pr_info("%s-", __func__);
-	return 1;  /* make compress driver drain failed */
+	//return -1;  /* make compress driver drain failed if use write_wait */
+	return 0;
+
 }
-
-
 
 static int mtk_compr_offload_open(struct snd_compr_stream *stream)
 {
-	int ret = 0;
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(true);
 #endif
@@ -294,32 +309,6 @@ static int mtk_compr_offload_open(struct snd_compr_stream *stream)
 	if (dsp == NULL) {
 		dsp = (struct mtk_base_dsp *)get_dsp_base();
 		pr_debug("get_dsp_base again\n");
-	}
-	/* gen pool related */
-	dsp->dsp_mem[ID].gen_pool_buffer =
-			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
-	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			gen_pool_avail(
-				dsp->dsp_mem[ID].gen_pool_buffer),
-			gen_pool_size(
-				dsp->dsp_mem[ID].gen_pool_buffer));
-
-		/* allocate ring buffer wioth share memory*/
-		ret = mtk_adsp_genpool_allocate_sharemem_ring(
-			      &dsp->dsp_mem[ID],
-			      OFFLOAD_SIZE_BYTES,
-			      ID);
-
-		if (ret < 0) {
-			pr_debug("%s err\n", __func__);
-			return -1;
-		}
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			 gen_pool_avail(
-			 dsp->dsp_mem[ID].gen_pool_buffer),
-			 gen_pool_size(
-			 dsp->dsp_mem[ID].gen_pool_buffer));
 	}
 	return 0;
 }
@@ -352,6 +341,7 @@ static int mtk_compr_offload_set_params(struct snd_compr_stream *stream,
 	struct mtk_base_dsp_mem *audio_dsp_mem;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
 	int ret = 0;
+	unsigned int offload_buffer_size;
 
 	audio_task_register_callback(
 			 TASK_SCENE_PLAYBACK_MP3,
@@ -360,6 +350,42 @@ static int mtk_compr_offload_set_params(struct snd_compr_stream *stream,
 
 	codec = params->codec;
 	afe_offload_block.samplerate = codec.sample_rate;
+	offload_buffer_size = codec.reserved[1];
+
+	if (offload_buffer_size < 262144) { // 256K
+		pr_debug("%s err offload_buffer_size = %u\n", __func__, offload_buffer_size);
+		return -1;
+	}
+
+	/* gen pool related */
+	if (dsp)
+		mtk_adsp_genpool_free_sharemem_ring(&dsp->dsp_mem[ID], ID);
+	dsp->dsp_mem[ID].gen_pool_buffer =
+			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
+	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			gen_pool_avail(
+				dsp->dsp_mem[ID].gen_pool_buffer),
+			gen_pool_size(
+				dsp->dsp_mem[ID].gen_pool_buffer));
+
+		/* allocate ring buffer wioth share memory*/
+		ret = mtk_adsp_genpool_allocate_sharemem_ring(
+			      &dsp->dsp_mem[ID],
+			      offload_buffer_size,
+			      ID);
+		pr_debug("%s() allocate offload bufsize = %u\n", __func__, offload_buffer_size);
+
+		if (ret < 0) {
+			pr_debug("%s err\n", __func__);
+			return -1;
+		}
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			 gen_pool_avail(
+			 dsp->dsp_mem[ID].gen_pool_buffer),
+			 gen_pool_size(
+			 dsp->dsp_mem[ID].gen_pool_buffer));
+	}
 
 	//set shared Dram meme
 	audio_hwbuf = &dsp->dsp_mem[ID].adsp_buf;
@@ -422,8 +448,6 @@ ERROR:
 	pr_debug("%s err\n", __func__);
 	return -1;
 }
-
-
 
 static int mtk_compr_offload_get_params(struct snd_compr_stream *stream,
 					struct snd_codec *params)
@@ -798,7 +822,7 @@ static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 {
 	int ret = 0;
 
-	if ((afe_offload_block.transferred > 8 * USE_PERIODS_MAX) ||
+	if ((afe_offload_block.transferred >= 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
 	      (afe_offload_block.state == OFFLOAD_STATE_DRAIN)))) {
@@ -827,7 +851,7 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
-	if ((afe_offload_block.transferred > 8 * USE_PERIODS_MAX) ||
+	if ((afe_offload_block.transferred >= 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
 	      (afe_offload_block.state == OFFLOAD_STATE_DRAIN)))) {
