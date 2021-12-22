@@ -4708,6 +4708,15 @@ static ssize_t bus_vote_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(bus_vote);
 
+static struct attribute *dwc3_msm_attrs[] = {
+	&dev_attr_orientation.attr,
+	&dev_attr_mode.attr,
+	&dev_attr_speed.attr,
+	&dev_attr_bus_vote.attr,
+	NULL
+};
+ATTRIBUTE_GROUPS(dwc3_msm);
+
 static int dwc_dpdm_cb(struct notifier_block *nb, unsigned long evt, void *p)
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, dpdm_nb);
@@ -5442,11 +5451,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_ext_event_notify(mdwc);
 	}
 
-	device_create_file(&pdev->dev, &dev_attr_orientation);
-	device_create_file(&pdev->dev, &dev_attr_mode);
-	device_create_file(&pdev->dev, &dev_attr_speed);
-	device_create_file(&pdev->dev, &dev_attr_bus_vote);
-
 	dwc3_msm_kretprobe_init();
 	return 0;
 
@@ -5470,9 +5474,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	usb_role_switch_unregister(mdwc->role_switch);
 	of_node_put(mdwc->ss_redriver_node);
-	device_remove_file(&pdev->dev, &dev_attr_mode);
-	device_remove_file(&pdev->dev, &dev_attr_speed);
-	device_remove_file(&pdev->dev, &dev_attr_bus_vote);
 
 	if (mdwc->dpdm_nb.notifier_call) {
 		regulator_unregister_notifier(mdwc->dpdm_reg, &mdwc->dpdm_nb);
@@ -6297,6 +6298,7 @@ static struct platform_driver dwc3_msm_driver = {
 		.name	= "msm-dwc3",
 		.pm	= &dwc3_msm_dev_pm_ops,
 		.of_match_table	= of_dwc3_matach,
+		.dev_groups =	dwc3_msm_groups,
 	},
 };
 
