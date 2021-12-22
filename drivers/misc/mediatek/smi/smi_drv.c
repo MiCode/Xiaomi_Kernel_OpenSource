@@ -187,44 +187,115 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 		return -EPROBE_DEFER;
 	}
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
+	if (id == 6 || id == 10 || id == 12) {
+		SMIDBG("Invalid id:%u user:%s\n", id, user);
+		return -EINVAL;
+	}
+
 	switch (id) {
 	case 0:
 	case 1:
+	case 5:
 	case 7:
 	case 14:
 	case 17:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM); // disp
+		ret = smi_unit_prepare_enable(21); // disp
 		if (ret)
 			return ret;
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // sysram
+		ret = smi_unit_prepare_enable(24); // disp-subcom
 		if (ret)
 			return ret;
-		break;
-	case 5:
-	case 11:
-	case 19:
-	case 20:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM); // disp
+		ret = smi_unit_prepare_enable(25); // disp-subcom1
 		if (ret)
 			return ret;
 		break;
 	case 2:
 	case 3:
+	case 4:
 	case 8:
+	case 9:
 	case 13:
 	case 16:
 	case 18:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 1); // mdp
+		ret = smi_unit_prepare_enable(22); // mdp
 		if (ret)
 			return ret;
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 2); // sysram
+		ret = smi_unit_prepare_enable(26); // mdp-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(27); // mdp-subcom1
 		if (ret)
 			return ret;
 		break;
-	case 4:
-	case 9:
-		ret = smi_unit_prepare_enable(SMI_LARB_NUM + 1); // mdp
+	case 11:
+	case 19:
+	case 20:
+		ret = smi_unit_prepare_enable(21); // disp
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(24); // disp-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(25); // disp-subcom1
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(22); // mdp
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(26); // mdp-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(27); // mdp-subcom1
+		if (ret)
+			return ret;
+		break;
+	}
+
+	switch (id) {
+	case 2:
+	case 3:
+	case 7:
+	case 8:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		break;
+	case 13:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(29); // cam-subcom
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(31); // cam-subcom2
+		if (ret)
+			return ret;
+		break;
+	case 14:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(30); // cam-subcom1
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(31); // cam-subcom2
+		if (ret)
+			return ret;
+		break;
+	case 16:
+	case 17:
+	case 18:
+		ret = smi_unit_prepare_enable(23); // sysram
+		if (ret)
+			return ret;
+		ret = smi_unit_prepare_enable(31); // cam-subcom2
+		if (ret)
+			return ret;
+		break;
+	case 19:
+	case 20:
+		ret = smi_unit_prepare_enable(28); // ipe-subcom
 		if (ret)
 			return ret;
 		break;
@@ -234,6 +305,14 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	if (ret || id == SMI_LARB_NUM)
 		return ret;
 
+#endif
+
+#if IS_ENABLED(SMI_5G)
+	if (id == 4) {
+		ret = smi_unit_prepare_enable(5);
+		if (ret)
+			return ret;
+	}
 #endif
 	return smi_unit_prepare_enable(id);
 }
@@ -265,36 +344,81 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 
 	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT))
 		SMIWRN(1, "LARB%u OFF by %s but busy\n", id, user);
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
+	if (id == 6 || id == 10 || id == 12) {
+		SMIDBG("Invalid id:%u user:%s\n", id, user);
+		return -EINVAL;
+	}
+#endif
 	smi_unit_disable_unprepare(id);
+#if IS_ENABLED(SMI_5G)
+	if (id == 4)
+		smi_unit_disable_unprepare(5);
+#endif
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
+	switch (id) {
+	case 2:
+	case 3:
+	case 7:
+	case 8:
+		smi_unit_disable_unprepare(23); // sysram
+		break;
+	case 13:
+		smi_unit_disable_unprepare(31); // cam-subcom2
+		smi_unit_disable_unprepare(29); // cam-subcom
+		smi_unit_disable_unprepare(23); // sysram
+		break;
+	case 14:
+		smi_unit_disable_unprepare(31); // cam-subcom2
+		smi_unit_disable_unprepare(30); // cam-subcom1
+		smi_unit_disable_unprepare(23); // sysram
+		break;
+	case 16:
+	case 17:
+	case 18:
+		smi_unit_disable_unprepare(31); // cam-subcom2
+		smi_unit_disable_unprepare(23); // sysram
+		break;
+	case 19:
+	case 20:
+		smi_unit_disable_unprepare(28); // ipe-subcom
+		break;
+	}
+
 	switch (id) {
 	case 0:
 	case 1:
+	case 5:
 	case 7:
 	case 14:
 	case 17:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // sysram
-		smi_unit_disable_unprepare(SMI_LARB_NUM); // disp
-		break;
-	case 5:
-	case 11:
-	case 19:
-	case 20:
-		smi_unit_disable_unprepare(SMI_LARB_NUM); // disp
+		smi_unit_disable_unprepare(25); // disp-subcom1
+		smi_unit_disable_unprepare(24); // disp-subcom
+		smi_unit_disable_unprepare(21); // disp
 		break;
 	case 2:
 	case 3:
+	case 4:
 	case 8:
+	case 9:
 	case 13:
 	case 16:
 	case 18:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 2); // sysram
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 1); // mdp
+		smi_unit_disable_unprepare(27); // mdp-subcom1
+		smi_unit_disable_unprepare(26); // mdp-subcom
+		smi_unit_disable_unprepare(22); // mdp
 		break;
-	case 4:
-	case 9:
-		smi_unit_disable_unprepare(SMI_LARB_NUM + 1); // mdp
+	case 11:
+	case 19:
+	case 20:
+		smi_unit_disable_unprepare(27); // mdp-subcom1
+		smi_unit_disable_unprepare(26); // mdp-subcom
+		smi_unit_disable_unprepare(22); // mdp
+
+		smi_unit_disable_unprepare(25); // disp-subcom1
+		smi_unit_disable_unprepare(24); // disp-subcom
+		smi_unit_disable_unprepare(21); // disp
 		break;
 	}
 #else // !CONFIG_MACH_MT6885
@@ -314,7 +438,7 @@ smi_bwl_update(const u32 id, const u32 bwl, const bool soft, const char *user)
 			id, SMI_COMM_MASTER_NUM);
 		return;
 	}
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	comm = id >> 16;
 #endif
 	val = (soft ? 0x1000 : 0x3000) | SMI_PMQOS_BWL_MASK(bwl);
@@ -371,7 +495,7 @@ EXPORT_SYMBOL_GPL(smi_ostd_update);
 
 s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
 {
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	u32 larb = MTK_IOMMU_TO_LARB(master_id);
 	u32 port = MTK_IOMMU_TO_PORT(master_id);
 	u32 ostd[2], val;
@@ -383,6 +507,7 @@ s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
 		aee_kernel_exception(user,
 			"%s set larb%u port%u sysram %d failed ostd:%u %u\n",
 			user, larb, port, enable, ostd[0], ostd[1]);
+		smi_bus_disable_unprepare(larb, user);
 		return (ostd[1] << 16) | ostd[0];
 	}
 
