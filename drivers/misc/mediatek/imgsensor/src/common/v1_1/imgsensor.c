@@ -221,7 +221,8 @@ MINT32 imgsensor_sensor_open(struct IMGSENSOR_SENSOR *psensor)
 		    (char *)(psensor_inst->psensor_list->name);
 		pi2c_client = psensor_inst->i2c_cfg.pinst->pi2c_client;
 		if (pi2c_client)
-			ccuSensorInfo.i2c_id = pi2c_client->adapter->nr;
+			ccuSensorInfo.i2c_id = (((struct mt_i2c *)
+				i2c_get_adapdata(pi2c_client->adapter))->id);
 		else
 			ccuSensorInfo.i2c_id = -1;
 		ccu_set_sensor_info(sensor_idx, &ccuSensorInfo);
@@ -563,18 +564,13 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 	int ret = -EIO;
 	unsigned int i = 0;
 	struct IMGSENSOR             *pimgsensor   = &gimgsensor;
-	struct IMGSENSOR_HW          *phw          = &pimgsensor->hw;
 	struct IMGSENSOR_SENSOR_INST *psensor_inst = &psensor->inst;
 
 	imgsensor_mutex_init(psensor_inst);
-	if (IS_MT6853(phw->g_platform_id))
-		imgsensor_i2c_init(&psensor_inst->i2c_cfg,
-		imgsensor_custom_config_for_mipi_switch[
-		(unsigned int)psensor_inst->sensor_idx].i2c_dev);
-	else
-		imgsensor_i2c_init(&psensor_inst->i2c_cfg,
-		imgsensor_custom_config[
-		(unsigned int)psensor_inst->sensor_idx].i2c_dev);
+
+	imgsensor_i2c_init(&psensor_inst->i2c_cfg,
+		imgsensor_custom_config[(unsigned int)psensor_inst->sensor_idx].i2c_dev);
+
 	imgsensor_i2c_filter_msg(&psensor_inst->i2c_cfg, true);
 
 	while (pimgsensor->psensor_list[i] && i < MAX_NUM_OF_SUPPORT_SENSOR) {

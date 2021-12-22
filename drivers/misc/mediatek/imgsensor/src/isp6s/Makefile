@@ -99,5 +99,5 @@ endif
 
 subdir-ccflags-y += -DNO_I2C_MTK -DNO_CLK_METER -DSENINF_USE_RPM -DDFS_CTRL_BY_OPP
 
-# $(info imgsensor_isp6s-objs : $(imgsensor_isp6s-objs))
-# $(info imgsensor subdir-ccflags-y : $(subdir-ccflags-y))
+$(info imgsensor_isp6s-objs : $(imgsensor_isp6s-objs))
+$(info imgsensor_isp6s subdir-ccflags-y : $(subdir-ccflags-y))

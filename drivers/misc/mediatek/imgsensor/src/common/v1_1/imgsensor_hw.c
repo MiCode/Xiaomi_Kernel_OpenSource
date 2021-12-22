@@ -50,10 +50,9 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	/* update the imgsensor_custom_cfg by dts */
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		PK_DBG("IMGSENSOR_SENSOR_IDX: %d\n", i);
-		if (IS_MT6853(phw->g_platform_id))
-			pcust_pwr_cfg = imgsensor_custom_config_for_mipi_switch;
-		else
-			pcust_pwr_cfg = imgsensor_custom_config;
+
+		pcust_pwr_cfg = imgsensor_custom_config;
+
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
 			pcust_pwr_cfg++;
@@ -61,6 +60,50 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 		if (pcust_pwr_cfg->sensor_idx == IMGSENSOR_SENSOR_IDX_NONE)
 			continue;
 
+		/* i2c_dev */
+		switch (i) {
+		case IMGSENSOR_SENSOR_IDX_MAIN2:
+			{
+				if (IS_MT6877(phw->g_platform_id) ||
+					IS_MT6833(phw->g_platform_id) ||
+					IS_MT6789(phw->g_platform_id) ||
+					IS_MT6781(phw->g_platform_id) ||
+					IS_MT6779(phw->g_platform_id))
+					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_1;
+				else
+					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_2;
+			}
+			break;
+		case IMGSENSOR_SENSOR_IDX_SUB2:
+			{
+				if (IS_MT6785(phw->g_platform_id) ||
+					IS_MT6779(phw->g_platform_id) ||
+					IS_MT6768(phw->g_platform_id))
+					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_1;
+				else
+					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_3;
+			}
+			break;
+		case IMGSENSOR_SENSOR_IDX_MAIN3:
+			{
+				if (IS_MT6853(phw->g_platform_id) ||
+					IS_MT6785(phw->g_platform_id) ||
+					IS_MT6779(phw->g_platform_id))
+					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_1;
+				else if (IS_MT6893(phw->g_platform_id) ||
+					IS_MT6885(phw->g_platform_id) ||
+					IS_MT6873(phw->g_platform_id) ||
+					IS_MT6855(phw->g_platform_id))
+					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_4;
+				else
+					pcust_pwr_cfg->i2c_dev = IMGSENSOR_I2C_DEV_2;
+			}
+			break;
+		default:
+			break;
+		}
+
+		/* pwr_info */
 		ppwr_info = pcust_pwr_cfg->pwr_info;
 		while (ppwr_info->pin != IMGSENSOR_HW_PIN_NONE) {
 			memset(str_prop_name, 0, sizeof(str_prop_name));
@@ -107,10 +150,8 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		psensor_pwr = &phw->sensor_pwr[i];
 
-		if (IS_MT6853(phw->g_platform_id))
-			pcust_pwr_cfg = imgsensor_custom_config_for_mipi_switch;
-		else
-			pcust_pwr_cfg = imgsensor_custom_config;
+		pcust_pwr_cfg = imgsensor_custom_config;
+
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
 			pcust_pwr_cfg++;
@@ -295,12 +336,19 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 		ret = IMGSENSOR_RETURN_ERROR;
 		return ret;
 	}
-	if (IS_MT6853(phw->g_platform_id))
+	if (IS_MT6873(phw->g_platform_id) || IS_MT6853(phw->g_platform_id))
 		imgsensor_hw_power_sequence(
 				phw,
 				sensor_idx,
 				pwr_status,
 				platform_power_sequence_for_mipi_switch,
+				str_index);
+	else if (IS_MT6833(phw->g_platform_id))
+		imgsensor_hw_power_sequence(
+				phw,
+				sensor_idx,
+				pwr_status,
+				platform_power_sequence_for_mt6833,
 				str_index);
 	else
 		imgsensor_hw_power_sequence(
