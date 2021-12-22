@@ -389,8 +389,10 @@ void blk_cleanup_queue(struct request_queue *q)
 	blk_queue_flag_set(QUEUE_FLAG_DEAD, q);
 
 	blk_sync_queue(q);
-	if (queue_is_mq(q))
+	if (queue_is_mq(q)) {
+		blk_mq_cancel_work_sync(q);
 		blk_mq_exit_queue(q);
+	}
 
 	/*
 	 * In theory, request pool of sched_tags belongs to request queue.
@@ -887,10 +889,8 @@ static noinline_for_stack bool submit_bio_checks(struct bio *bio)
 	if (unlikely(!current->io_context))
 		create_task_io_context(current, GFP_ATOMIC, q->node);
 
-	if (blk_throtl_bio(bio)) {
-		blkcg_bio_issue_init(bio);
+	if (blk_throtl_bio(bio))
 		return false;
-	}
 
 	blk_cgroup_bio_start(bio);
 	blkcg_bio_issue_init(bio);

@@ -56,6 +56,7 @@
 #include <trace/events/printk.h>
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/printk.h>
+#include <trace/hooks/logbuf.h>
 
 #include "printk_ringbuffer.h"
 #include "console_cmdline.h"
@@ -2163,6 +2164,7 @@ int vprintk_store(int facility, int level,
 				prb_commit(&e);
 			}
 
+			trace_android_vh_logbuf_pr_cont(&r, text_len);
 			ret = text_len;
 			goto out;
 		}
@@ -2202,6 +2204,7 @@ int vprintk_store(int facility, int level,
 	else
 		prb_final_commit(&e);
 
+	trace_android_vh_logbuf(prb, &r);
 	ret = text_len + trunc_msg_len;
 out:
 	printk_exit_irqrestore(recursion_ptr, irqflags);
@@ -3258,6 +3261,11 @@ void defer_console_output(void)
 	__this_cpu_or(printk_pending, PRINTK_PENDING_OUTPUT);
 	irq_work_queue(this_cpu_ptr(&wake_up_klogd_work));
 	preempt_enable();
+}
+
+void printk_trigger_flush(void)
+{
+	defer_console_output();
 }
 
 int vprintk_deferred(const char *fmt, va_list args)

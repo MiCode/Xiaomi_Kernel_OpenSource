@@ -461,10 +461,8 @@ struct usb_bus {
 
 	unsigned resuming_ports;	/* bit array: resuming root-hub ports */
 
-#if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
 	struct mon_bus *mon_bus;	/* non-null when associated */
 	int monitored;			/* non-zero when monitored */
-#endif
 };
 
 struct usb_dev_state;

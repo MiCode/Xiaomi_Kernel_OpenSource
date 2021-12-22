@@ -74,7 +74,8 @@
 #define SMB_ECHO_INTERVAL_MAX 600
 #define SMB_ECHO_INTERVAL_DEFAULT 60
 
-/* dns resolution interval in seconds */
+/* dns resolution intervals in seconds */
+#define SMB_DNS_RESOLVE_INTERVAL_MIN     120
 #define SMB_DNS_RESOLVE_INTERVAL_DEFAULT 600
 
 /* maximum number of PDUs in one compound */
@@ -591,6 +592,7 @@ struct TCP_Server_Info {
 	struct list_head pending_mid_q;
 	bool noblocksnd;		/* use blocking sendmsg */
 	bool noautotune;		/* do not autotune send buf sizes */
+	bool nosharesock;
 	bool tcp_nodelay;
 	unsigned int credits;  /* send no more requests at once */
 	unsigned int max_credits; /* can override large 32000 default at mnt */

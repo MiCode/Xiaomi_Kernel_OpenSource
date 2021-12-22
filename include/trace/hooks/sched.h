@@ -57,6 +57,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_rtmutex_prepare_setprio,
 	TP_PROTO(struct task_struct *p, struct task_struct *pi_task),
 	TP_ARGS(p, pi_task), 1);
 
+DECLARE_RESTRICTED_HOOK(android_rvh_rto_next_cpu,
+	TP_PROTO(int rto_cpu, struct cpumask *rto_mask, int *cpu),
+	TP_ARGS(rto_cpu, rto_mask, cpu), 1);
+
 DECLARE_RESTRICTED_HOOK(android_rvh_set_user_nice,
 	TP_PROTO(struct task_struct *p, long *nice, bool *allowed),
 	TP_ARGS(p, nice, allowed), 1);
@@ -109,8 +113,8 @@ DECLARE_HOOK(android_vh_set_sugov_sched_attr,
 	TP_PROTO(struct sched_attr *attr),
 	TP_ARGS(attr));
 DECLARE_RESTRICTED_HOOK(android_rvh_set_iowait,
-	TP_PROTO(struct task_struct *p, int *should_iowait_boost),
-	TP_ARGS(p, should_iowait_boost), 1);
+	TP_PROTO(struct task_struct *p, struct rq *rq, int *should_iowait_boost),
+	TP_ARGS(p, rq, should_iowait_boost), 1);
 struct sugov_policy;
 DECLARE_RESTRICTED_HOOK(android_rvh_set_sugov_update,
 	TP_PROTO(struct sugov_policy *sg_policy, unsigned int next_freq, bool *should_update),
@@ -174,7 +178,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_account_irq,
 
 struct sched_entity;
 DECLARE_RESTRICTED_HOOK(android_rvh_place_entity,
-	TP_PROTO(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial, u64 vruntime),
+	TP_PROTO(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial, u64 *vruntime),
 	TP_ARGS(cfs_rq, se, initial, vruntime), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_build_perf_domains,
@@ -267,6 +271,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_check_preempt_wakeup,
 	TP_ARGS(rq, p, preempt, nopreempt, wake_flags, se, pse, next_buddy_marked,
 			granularity), 1);
 
+DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_ptr_locked,
+	TP_PROTO(const struct cpumask *cpu_valid_mask, const struct cpumask *new_mask,
+		 unsigned int *dest_cpu),
+	TP_ARGS(cpu_valid_mask, new_mask, dest_cpu), 1);
+
 DECLARE_HOOK(android_vh_free_task,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p));
@@ -301,6 +310,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_enqueue_task_fair,
 DECLARE_RESTRICTED_HOOK(android_rvh_dequeue_task_fair,
 	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
 	TP_ARGS(rq, p, flags), 1);
+
+DECLARE_HOOK(android_vh_em_dev_register_pd,
+	TP_PROTO(bool *cond),
+	TP_ARGS(cond));
 
 #endif /* _TRACE_HOOK_SCHED_H */
 /* This part must be outside protection */

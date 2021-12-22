@@ -1141,8 +1141,15 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
 	case CHIP_RAVEN:
 	case CHIP_RENOIR:
 		init_data.flags.gpu_vm_support = true;
-		if (ASICREV_IS_GREEN_SARDINE(adev->external_rev_id))
+		switch (adev->dm.dmcub_fw_version) {
+		case 0: /* development */
+		case 0x1: /* linux-firmware.git hash 6d9f399 */
+		case 0x01000000: /* linux-firmware.git hash 9a0b0f4 */
+			init_data.flags.disable_dmcu = false;
+			break;
+		default:
 			init_data.flags.disable_dmcu = true;
+		}
 		break;
 	case CHIP_VANGOGH:
 	case CHIP_YELLOW_CARP:
@@ -2206,6 +2213,8 @@ static int dm_resume(void *handle)
 	if (amdgpu_in_reset(adev)) {
 		dc_state = dm->cached_dc_state;
 
+		amdgpu_dm_outbox_init(adev);
+
 		r = dm_dmub_hw_init(adev);
 		if (r)
 			DRM_ERROR("DMUB interface failed to initialize: status=%d\n", r);
@@ -2217,8 +2226,8 @@ static int dm_resume(void *handle)
 
 		for (i = 0; i < dc_state->stream_count; i++) {
 			dc_state->streams[i]->mode_changed = true;
-			for (j = 0; j < dc_state->stream_status->plane_count; j++) {
-				dc_state->stream_status->plane_states[j]->update_flags.raw
+			for (j = 0; j < dc_state->stream_status[i].plane_count; j++) {
+				dc_state->stream_status[i].plane_states[j]->update_flags.raw
 					= 0xffffffff;
 			}
 		}
@@ -3839,6 +3848,9 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
 		} else if (dc_link_detect(link, DETECT_REASON_BOOT)) {
 			amdgpu_dm_update_connector_after_detect(aconnector);
 			register_backlight_device(dm, link);
+
+			if (dm->num_of_edps)
+				update_connector_ext_caps(aconnector);
 			if (amdgpu_dc_feature_mask & DC_PSR_MASK)
 				amdgpu_dm_set_psr_caps(link);
 		}

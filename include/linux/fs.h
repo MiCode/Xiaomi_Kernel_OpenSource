@@ -41,6 +41,7 @@
 #include <linux/stddef.h>
 #include <linux/mount.h>
 #include <linux/cred.h>
+#include <linux/android_kabi.h>
 
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
@@ -2498,6 +2499,8 @@ enum file_time_flags {
 
 extern bool atime_needs_update(const struct path *, struct inode *);
 extern void touch_atime(const struct path *);
+int inode_update_time(struct inode *inode, struct timespec64 *time, int flags);
+
 static inline void file_accessed(struct file *file)
 {
 	if (!(file->f_flags & O_NOATIME))
@@ -2733,6 +2736,7 @@ extern long do_sys_open(int dfd, const char __user *filename, int flags,
 			umode_t mode);
 extern struct file *file_open_name(struct filename *, int, umode_t);
 extern struct file *filp_open(const char *, int, umode_t);
+extern struct file *filp_open_block(const char *, int, umode_t);
 extern struct file *file_open_root(const struct path *,
 				   const char *, int, umode_t);
 static inline struct file *file_open_root_mnt(struct vfsmount *mnt,

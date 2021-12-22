@@ -124,7 +124,6 @@ struct usb_hcd {
 #define HCD_FLAG_RH_RUNNING		5	/* root hub is running? */
 #define HCD_FLAG_DEAD			6	/* controller has died? */
 #define HCD_FLAG_INTF_AUTHORIZED	7	/* authorize interfaces? */
-#define HCD_FLAG_DEFER_RH_REGISTER	8	/* Defer roothub registration */
 
 	/* The flags can be tested using these macros; they are likely to
 	 * be slightly faster than test_bit().
@@ -135,7 +134,6 @@ struct usb_hcd {
 #define HCD_WAKEUP_PENDING(hcd)	((hcd)->flags & (1U << HCD_FLAG_WAKEUP_PENDING))
 #define HCD_RH_RUNNING(hcd)	((hcd)->flags & (1U << HCD_FLAG_RH_RUNNING))
 #define HCD_DEAD(hcd)		((hcd)->flags & (1U << HCD_FLAG_DEAD))
-#define HCD_DEFER_RH_REGISTER(hcd) ((hcd)->flags & (1U << HCD_FLAG_DEFER_RH_REGISTER))
 
 	/*
 	 * Specifies if interfaces are authorized by default
@@ -699,8 +697,6 @@ static inline void usb_hcd_resume_root_hub(struct usb_hcd *hcd)
 
 /*-------------------------------------------------------------------------*/
 
-#if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
-
 struct usb_mon_operations {
 	void (*urb_submit)(struct usb_bus *bus, struct urb *urb);
 	void (*urb_submit_error)(struct usb_bus *bus, struct urb *urb, int err);
@@ -732,16 +728,6 @@ static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb,
 
 int usb_mon_register(const struct usb_mon_operations *ops);
 void usb_mon_deregister(void);
-
-#else
-
-static inline void usbmon_urb_submit(struct usb_bus *bus, struct urb *urb) {}
-static inline void usbmon_urb_submit_error(struct usb_bus *bus, struct urb *urb,
-    int error) {}
-static inline void usbmon_urb_complete(struct usb_bus *bus, struct urb *urb,
-		int status) {}
-
-#endif /* CONFIG_USB_MON || CONFIG_USB_MON_MODULE */
 
 /*-------------------------------------------------------------------------*/
 

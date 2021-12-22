@@ -115,7 +115,7 @@ static int reconn_set_ipaddr_from_hostname(struct TCP_Server_Info *server)
 			 * To make sure we don't use the cached entry, retry 1s
 			 * after expiry.
 			 */
-			ttl = (expiry - now + 1);
+			ttl = max_t(unsigned long, expiry - now, SMB_DNS_RESOLVE_INTERVAL_MIN) + 1;
 	}
 	rc = !rc ? -1 : 0;
 
@@ -794,7 +794,6 @@ static void clean_demultiplex_info(struct TCP_Server_Info *server)
 		 */
 	}
 
-	kfree(server->hostname);
 	kfree(server);
 
 	length = atomic_dec_return(&tcpSesAllocCount);
@@ -1221,6 +1220,10 @@ static int match_server(struct TCP_Server_Info *server, struct smb3_fs_context *
 	if (ctx->nosharesock)
 		return 0;
 
+	/* this server does not share socket */
+	if (server->nosharesock)
+		return 0;
+
 	/* If multidialect negotiation see if existing sessions match one */
 	if (strcmp(ctx->vals->version_string, SMB3ANY_VERSION_STRING) == 0) {
 		if (server->vals->protocol_id < SMB30_PROT_ID)
@@ -1233,6 +1236,9 @@ static int match_server(struct TCP_Server_Info *server, struct smb3_fs_context *
 		return 0;
 
 	if (!net_eq(cifs_net_ns(server), current->nsproxy->net_ns))
+		return 0;
+
+	if (strcasecmp(server->hostname, ctx->server_hostname))
 		return 0;
 
 	if (!match_address(server, addr,
@@ -1336,6 +1342,7 @@ cifs_put_tcp_session(struct TCP_Server_Info *server, int from_reconnect)
 	kfree(server->session_key.response);
 	server->session_key.response = NULL;
 	server->session_key.len = 0;
+	kfree(server->hostname);
 
 	task = xchg(&server->tsk, NULL);
 	if (task)
@@ -1361,14 +1368,18 @@ cifs_get_tcp_session(struct smb3_fs_context *ctx)
 		goto out_err;
 	}
 
+	tcp_ses->hostname = kstrdup(ctx->server_hostname, GFP_KERNEL);
+	if (!tcp_ses->hostname) {
+		rc = -ENOMEM;
+		goto out_err;
+	}
+
+	if (ctx->nosharesock)
+		tcp_ses->nosharesock = true;
+
 	tcp_ses->ops = ctx->ops;
 	tcp_ses->vals = ctx->vals;
 	cifs_set_net_ns(tcp_ses, get_net(current->nsproxy->net_ns));
-	tcp_ses->hostname = extract_hostname(ctx->UNC);
-	if (IS_ERR(tcp_ses->hostname)) {
-		rc = PTR_ERR(tcp_ses->hostname);
-		goto out_err_crypto_release;
-	}
 
 	tcp_ses->conn_id = atomic_inc_return(&tcpSesNextId);
 	tcp_ses->noblockcnt = ctx->rootfs;
@@ -1497,8 +1508,7 @@ out_err_crypto_release:
 
 out_err:
 	if (tcp_ses) {
-		if (!IS_ERR(tcp_ses->hostname))
-			kfree(tcp_ses->hostname);
+		kfree(tcp_ses->hostname);
 		if (tcp_ses->ssocket)
 			sock_release(tcp_ses->ssocket);
 		kfree(tcp_ses);

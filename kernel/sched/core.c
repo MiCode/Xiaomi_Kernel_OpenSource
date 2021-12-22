@@ -1931,7 +1931,7 @@ static void __init init_uclamp_rq(struct rq *rq)
 		};
 	}
 
-	rq->uclamp_flags = 0;
+	rq->uclamp_flags = UCLAMP_FLAG_IDLE;
 }
 
 static void __init init_uclamp(void)
@@ -2305,8 +2305,8 @@ struct set_affinity_pending {
  * So we race with normal scheduler movements, but that's OK, as long
  * as the task is no longer on this CPU.
  */
-static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
-				 struct task_struct *p, int dest_cpu)
+struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
+			  struct task_struct *p, int dest_cpu)
 {
 	/* Affinity changed (again). */
 	if (!is_cpu_allowed(p, dest_cpu))
@@ -2317,6 +2317,7 @@ static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 
 	return rq;
 }
+EXPORT_SYMBOL_GPL(__migrate_task);
 
 /*
  * migration_cpu_stop - this will be executed by a highprio stopper thread
@@ -2843,6 +2844,8 @@ static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
 	 * immediately required to distribute the tasks within their new mask.
 	 */
 	dest_cpu = cpumask_any_and_distribute(cpu_valid_mask, new_mask);
+	trace_android_rvh_set_cpus_allowed_ptr_locked(cpu_valid_mask, new_mask, &dest_cpu);
+
 	if (dest_cpu >= nr_cpu_ids) {
 		ret = -EINVAL;
 		goto out;
@@ -3350,7 +3353,7 @@ EXPORT_SYMBOL_GPL(kick_process);
  * select_task_rq() below may allow selection of !active CPUs in order
  * to satisfy the above rules.
  */
-static int select_fallback_rq(int cpu, struct task_struct *p)
+int select_fallback_rq(int cpu, struct task_struct *p)
 {
 	int nid = cpu_to_node(cpu);
 	const struct cpumask *nodemask = NULL;
@@ -3424,6 +3427,7 @@ out:
 
 	return dest_cpu;
 }
+EXPORT_SYMBOL_GPL(select_fallback_rq);
 
 /*
  * The caller (fork, wakeup) owns p->pi_lock, ->cpus_ptr is stable.
@@ -3749,6 +3753,9 @@ EXPORT_SYMBOL_GPL(wake_up_if_idle);
 
 bool cpus_share_cache(int this_cpu, int that_cpu)
 {
+	if (this_cpu == that_cpu)
+		return true;
+
 	return per_cpu(sd_llc_id, this_cpu) == per_cpu(sd_llc_id, that_cpu);
 }
 
@@ -4384,8 +4391,6 @@ int sysctl_schedstats(struct ctl_table *table, int write, void *buffer,
  */
 int sched_fork(unsigned long clone_flags, struct task_struct *p)
 {
-	unsigned long flags;
-
 	trace_android_rvh_sched_fork(p);
 
 	__sched_fork(clone_flags, p);
@@ -4435,24 +4440,6 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	init_entity_runnable_average(&p->se);
 	trace_android_rvh_finish_prio_fork(p);
 
-	/*
-	 * The child is not yet in the pid-hash so no cgroup attach races,
-	 * and the cgroup is pinned to this child due to cgroup_fork()
-	 * is ran before sched_fork().
-	 *
-	 * Silence PROVE_RCU.
-	 */
-	raw_spin_lock_irqsave(&p->pi_lock, flags);
-	rseq_migrate(p);
-	/*
-	 * We're setting the CPU for the first time, we don't migrate,
-	 * so use __set_task_cpu().
-	 */
-	__set_task_cpu(p, smp_processor_id());
-	if (p->sched_class->task_fork)
-		p->sched_class->task_fork(p);
-	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-
 #ifdef CONFIG_SCHED_INFO
 	if (likely(sched_info_on()))
 		memset(&p->sched_info, 0, sizeof(p->sched_info));
@@ -4468,8 +4455,29 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	return 0;
 }
 
-void sched_post_fork(struct task_struct *p)
+void sched_post_fork(struct task_struct *p, struct kernel_clone_args *kargs)
 {
+	unsigned long flags;
+#ifdef CONFIG_CGROUP_SCHED
+	struct task_group *tg;
+#endif
+
+	raw_spin_lock_irqsave(&p->pi_lock, flags);
+#ifdef CONFIG_CGROUP_SCHED
+	tg = container_of(kargs->cset->subsys[cpu_cgrp_id],
+			  struct task_group, css);
+	p->sched_task_group = autogroup_task_group(p, tg);
+#endif
+	rseq_migrate(p);
+	/*
+	 * We're setting the CPU for the first time, we don't migrate,
+	 * so use __set_task_cpu().
+	 */
+	__set_task_cpu(p, smp_processor_id());
+	if (p->sched_class->task_fork)
+		p->sched_class->task_fork(p);
+	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+
 	uclamp_post_fork(p);
 }
 
@@ -6732,11 +6740,11 @@ static int __init setup_preempt_mode(char *str)
 	int mode = sched_dynamic_mode(str);
 	if (mode < 0) {
 		pr_warn("Dynamic Preempt: unsupported mode: %s\n", str);
-		return 1;
+		return 0;
 	}
 
 	sched_dynamic_update(mode);
-	return 0;
+	return 1;
 }
 __setup("preempt=", setup_preempt_mode);
 
@@ -7085,7 +7093,6 @@ int idle_cpu(int cpu)
 
 	return 1;
 }
-EXPORT_SYMBOL_GPL(idle_cpu);
 
 /**
  * available_idle_cpu - is a given CPU idle for enqueuing work.
@@ -7103,6 +7110,7 @@ int available_idle_cpu(int cpu)
 
 	return 1;
 }
+EXPORT_SYMBOL_GPL(available_idle_cpu);
 
 /**
  * idle_task - return the idle task for a given CPU.
@@ -7376,6 +7384,10 @@ recheck:
 
 		/* Normal users shall not reset the sched_reset_on_fork flag: */
 		if (p->sched_reset_on_fork && !reset_on_fork)
+			return -EPERM;
+
+		/* Can't change util-clamps */
+		if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP)
 			return -EPERM;
 	}
 
@@ -8708,9 +8720,6 @@ void __init init_idle(struct task_struct *idle, int cpu)
 	idle->flags |= PF_IDLE | PF_KTHREAD | PF_NO_SETAFFINITY;
 	kthread_set_per_cpu(idle, cpu);
 
-	scs_task_reset(idle);
-	kasan_unpoison_task_stack(idle);
-
 #ifdef CONFIG_SMP
 	/*
 	 * It's possible that init_idle() gets called multiple times on a task,
@@ -8866,9 +8875,26 @@ void idle_task_exit(void)
 		finish_arch_post_lock_switch();
 	}
 
-	scs_task_reset(current);
 	/* finish_cpu(), as ran on the BP, will clean up the active_mm state */
 }
+
+struct task_struct *pick_migrate_task(struct rq *rq)
+{
+	const struct sched_class *class;
+	struct task_struct *next;
+
+	for_each_class(class) {
+		next = class->pick_next_task(rq);
+		if (next) {
+			next->sched_class->put_prev_task(rq, next);
+			return next;
+		}
+	}
+
+	/* The idle class should always have a runnable task */
+	BUG();
+}
+EXPORT_SYMBOL_GPL(pick_migrate_task);
 
 static int __balance_push_cpu_stop(void *arg)
 {
@@ -9795,6 +9821,22 @@ static void sched_free_group(struct task_group *tg)
 	kmem_cache_free(task_group_cache, tg);
 }
 
+static void sched_free_group_rcu(struct rcu_head *rcu)
+{
+	sched_free_group(container_of(rcu, struct task_group, rcu));
+}
+
+static void sched_unregister_group(struct task_group *tg)
+{
+	unregister_fair_sched_group(tg);
+	unregister_rt_sched_group(tg);
+	/*
+	 * We have to wait for yet another RCU grace period to expire, as
+	 * print_cfs_stats() might run concurrently.
+	 */
+	call_rcu(&tg->rcu, sched_free_group_rcu);
+}
+
 /* allocate runqueue etc for a new task group */
 struct task_group *sched_create_group(struct task_group *parent)
 {
@@ -9838,25 +9880,35 @@ void sched_online_group(struct task_group *tg, struct task_group *parent)
 }
 
 /* rcu callback to free various structures associated with a task group */
-static void sched_free_group_rcu(struct rcu_head *rhp)
+static void sched_unregister_group_rcu(struct rcu_head *rhp)
 {
 	/* Now it should be safe to free those cfs_rqs: */
-	sched_free_group(container_of(rhp, struct task_group, rcu));
+	sched_unregister_group(container_of(rhp, struct task_group, rcu));
 }
 
 void sched_destroy_group(struct task_group *tg)
 {
 	/* Wait for possible concurrent references to cfs_rqs complete: */
-	call_rcu(&tg->rcu, sched_free_group_rcu);
+	call_rcu(&tg->rcu, sched_unregister_group_rcu);
 }
 
-void sched_offline_group(struct task_group *tg)
+void sched_release_group(struct task_group *tg)
 {
 	unsigned long flags;
 
-	/* End participation in shares distribution: */
-	unregister_fair_sched_group(tg);
-
+	/*
+	 * Unlink first, to avoid walk_tg_tree_from() from finding us (via
+	 * sched_cfs_period_timer()).
+	 *
+	 * For this to be effective, we have to wait for all pending users of
+	 * this task group to leave their RCU critical section to ensure no new
+	 * user will see our dying task group any more. Specifically ensure
+	 * that tg_unthrottle_up() won't add decayed cfs_rq's to it.
+	 *
+	 * We therefore defer calling unregister_fair_sched_group() to
+	 * sched_unregister_group() which is guarantied to get called only after the
+	 * current RCU grace period has expired.
+	 */
 	spin_lock_irqsave(&task_group_lock, flags);
 	list_del_rcu(&tg->list);
 	list_del_rcu(&tg->siblings);
@@ -9976,7 +10028,7 @@ static void cpu_cgroup_css_released(struct cgroup_subsys_state *css)
 {
 	struct task_group *tg = css_tg(css);
 
-	sched_offline_group(tg);
+	sched_release_group(tg);
 }
 
 static void cpu_cgroup_css_free(struct cgroup_subsys_state *css)
@@ -9986,7 +10038,7 @@ static void cpu_cgroup_css_free(struct cgroup_subsys_state *css)
 	/*
 	 * Relies on the RCU grace period between css_released() and this.
 	 */
-	sched_free_group(tg);
+	sched_unregister_group(tg);
 }
 
 /*

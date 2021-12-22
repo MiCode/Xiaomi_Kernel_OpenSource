@@ -118,9 +118,6 @@ struct fscrypt_operations {
 	 */
 	bool (*empty_dir)(struct inode *inode);
 
-	/* The filesystem's maximum ciphertext filename length, in bytes */
-	unsigned int max_namelen;
-
 	/*
 	 * Check whether the filesystem's inode numbers and UUID are stable,
 	 * meaning that they will never be changed even by offline operations
@@ -171,6 +168,11 @@ struct fscrypt_operations {
 	 */
 	void (*get_devices)(struct super_block *sb,
 			    struct request_queue **devs);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 static inline struct fscrypt_info *fscrypt_get_info(const struct inode *inode)
