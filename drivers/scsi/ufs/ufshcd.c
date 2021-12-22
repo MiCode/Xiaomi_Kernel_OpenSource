@@ -2673,7 +2673,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (hba->dev_info.wmanufacturerid != UFS_VENDOR_SAMSUNG)
 		goto send_orig_cmd;
 
-	if (ufshcd_vops_has_ufshci_perf_heuristic(hba))
+	if ((hba->quirks & UFS_MTK_HOST_QUIRK_UFS_HCI_PERF_HEURISTIC))
 		goto send_orig_cmd;
 
 	add_tag = ufsf_hpb_prepare_pre_req(&hba->ufsf, cmd, lun);
@@ -2732,6 +2732,14 @@ send_orig_cmd:
 	wmb();
 
 #if defined(CONFIG_SCSI_UFS_FEATURE) && defined(CONFIG_SCSI_UFS_HPB)
+		if (!pre_req_err)
+			ufs_mtk_biolog_send_command(add_tag, add_lrbp->cmd);
+#endif
+		ufs_mtk_biolog_send_command(tag, lrbp->cmd);
+
+spin_lock_irqsave(hba->host->host_lock, flags);
+
+#if defined(CONFIG_SCSI_UFS_FEATURE) && defined(CONFIG_SCSI_UFS_HPB)
 	if (!pre_req_err) {
 		ufshcd_vops_setup_xfer_req(hba, add_tag,
 			(add_lrbp->cmd ? true : false));
@@ -2743,7 +2751,6 @@ send_orig_cmd:
 #endif
 
 	/* issue command to the controller */
-	spin_lock_irqsave(hba->host->host_lock, flags);
 	ufshcd_vops_setup_xfer_req(hba, tag, (lrbp->cmd ? true : false));
 	ufshcd_send_command(hba, tag);
 out_unlock:
@@ -7520,6 +7527,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async)
 
 out:
 
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+		ufsf_hpb_reset(&hba->ufsf);
+		ufsf_tw_reset(&hba->ufsf);
+#endif
+
 	trace_ufshcd_init(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
@@ -7555,7 +7567,7 @@ out:
 	}
 }
 
-#if defined(CONFIG_UFSFEATURE)
+#if defined(CONFIG_SCSI_UFS_FEATURE)
 int ufsf_query_ioctl(struct ufsf_feature *ufsf, unsigned int lun,
 		void __user *buffer,
 		struct ufs_ioctl_query_data_hpb *ioctl_data, u8 selector);
