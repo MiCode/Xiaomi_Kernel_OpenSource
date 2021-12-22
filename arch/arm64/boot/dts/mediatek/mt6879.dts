@@ -115,6 +115,21 @@
 		compatible = "mediatek,tfa_debug";
 	};
 
+	cache-parity {
+		compatible = "mediatek,mt6873-cache-parity";
+		ecc-irq-support = <1>;
+		arm_dsu_ecc_hwirq = <32>;
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
 	topckgen_clk: syscon@10000000 {
 		compatible = "mediatek,mt6879-topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
