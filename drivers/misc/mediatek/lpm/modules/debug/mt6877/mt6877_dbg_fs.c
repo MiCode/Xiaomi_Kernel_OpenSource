@@ -18,6 +18,9 @@ static void __exit mt6877_dbg_exit(void)
 	mt6877_dbg_lpm_fs_deinit();
 	mt6877_dbg_spm_fs_deinit();
 	mt6877_dbg_lpm_deinit();
+#ifdef MTK_LPM_DBG_COMMON
+	mtk_dbg_common_fs_exit();
+#endif
 #ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
 	mt6877_power_gs_deinit();
 #endif
@@ -28,6 +31,9 @@ static int __init mt6877_dbg_init(void)
 	mt6877_dbg_lpm_init();
 	mt6877_dbg_lpm_fs_init();
 	mt6877_dbg_spm_fs_init();
+#ifdef MTK_LPM_DBG_COMMON
+	mtk_dbg_common_fs_init();
+#endif
 #ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
 	mt6877_power_gs_init();
 #endif

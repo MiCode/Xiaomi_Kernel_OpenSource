@@ -19,7 +19,7 @@
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_ipi_id.h>
 #include <sspm_define.h>
-#include <v2/sspm_reservedmem.h>
+#include <sspm_reservedmem.h>
 #endif
 
 #include <mtk_lpm_module.h>

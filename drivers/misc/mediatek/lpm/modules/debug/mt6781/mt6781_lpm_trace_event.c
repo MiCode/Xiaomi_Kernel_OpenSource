@@ -18,7 +18,7 @@ struct timer_list spm_resource_req_timer;
 u32 spm_resource_req_timer_is_enabled;
 u32 spm_resource_req_timer_ms;
 
-static void spm_resource_req_timer_fn(unsigned long data)
+/* static void spm_resource_req_timer_fn(unsigned long data)
 {
 	u32 req_sta_0, req_sta_1, req_sta_4;
 	u32 src_req;
@@ -67,7 +67,7 @@ static void spm_resource_req_timer_fn(unsigned long data)
 static void spm_resource_req_timer_en(u32 enable, u32 timer_ms)
 {
 	if (enable) {
-		/* if spm resource request timer doesn't init */
+
 		if (spm_resource_req_timer.function == NULL) {
 			init_timer(&spm_resource_req_timer);
 			spm_resource_req_timer.function =
@@ -89,7 +89,7 @@ static void spm_resource_req_timer_en(u32 enable, u32 timer_ms)
 		spm_resource_req_timer_is_enabled = false;
 	}
 }
-
+ */
 ssize_t get_spm_resource_req_timer_enable(char *ToUserBuf
 		, size_t sz, void *priv)
 {
@@ -109,7 +109,7 @@ ssize_t set_spm_resource_req_timer_enable(char *ToUserBuf
 		return -EINVAL;
 
 	if (sscanf(ToUserBuf, "%d %d", &is_enable, &timer_ms) == 2) {
-		spm_resource_req_timer_en(is_enable, timer_ms);
+		//spm_resource_req_timer_en(is_enable, timer_ms);
 		return sz;
 	}
 

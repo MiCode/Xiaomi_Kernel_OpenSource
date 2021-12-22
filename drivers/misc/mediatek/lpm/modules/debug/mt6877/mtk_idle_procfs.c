@@ -8,7 +8,7 @@
 
 #include <mtk_lp_plat_reg.h>
 #include <mtk_lpm.h>
-
+#include <mt6877_spm_comm.h>
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
 #include "mtk_idle_procfs.h"

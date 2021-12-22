@@ -14,20 +14,20 @@ int mt6877_pwr_gs_set(unsigned int type, const struct mtk_lpm_data *val)
 {
 	int ret = 0;
 
-	if (val->d.v_u32 & GS_PMIC)
+	if (val->d.u32 & GS_PMIC)
 		ret = mtk_lpm_pwr_gs_compare(MTK_LPM_GS_CMP_PMIC, type);
 
 	if (ret)
 		return ret;
 
 #ifdef MTK_LPM_GS_PLAT_CLK_DUMP_SUPPORT
-	if (val->d.v_u32 & GS_DCM)
+	if (val->d.u32 & GS_DCM)
 		ret = mtk_lpm_pwr_gs_compare_by_type(
 			MTK_LPM_GS_CMP_CLK, type, GS_DCM);
 	if (ret)
 		return ret;
 
-	if (val->d.v_u32 & GS_CG)
+	if (val->d.u32 & GS_CG)
 		ret = mtk_lpm_pwr_gs_compare_by_type(
 			MTK_LPM_GS_CMP_CLK, type, GS_CG);
 #endif

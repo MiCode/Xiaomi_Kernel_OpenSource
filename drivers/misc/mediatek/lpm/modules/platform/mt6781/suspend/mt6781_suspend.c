@@ -25,7 +25,7 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 
-
+#include <mt6781_spm_comm.h>
 #include <mtk_lpm.h>
 #include <mtk_lpm_module.h>
 #include <mtk_lpm_call.h>

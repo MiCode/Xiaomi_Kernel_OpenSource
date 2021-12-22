@@ -768,7 +768,7 @@ static int mt6781_logger_nb_func(struct notifier_block *nb,
 			struct mtk_lpm_callee_simple *callee = NULL;
 			struct mtk_lpm_data val;
 
-			val.d.v_u32 = mt6781_log_gs_info.dump_type;
+			val.d.u32 = mt6781_log_gs_info.dump_type;
 			if (!mtk_lpm_callee_get(MTK_LPM_CALLEE_PWR_GS, &callee))
 				callee->set(MTK_LPM_PWR_GS_TYPE_VCORELP_26M, &val);
 

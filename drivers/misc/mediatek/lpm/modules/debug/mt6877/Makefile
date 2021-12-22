@@ -1,3 +1,4 @@
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/power_gs_v1
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/inc/

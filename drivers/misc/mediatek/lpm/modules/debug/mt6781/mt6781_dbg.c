@@ -15,6 +15,9 @@
 
 static void __exit mt6781_dbg_exit(void)
 {
+#ifdef MTK_LPM_DBG_COMMON
+	mtk_dbg_common_fs_exit();
+#endif
 	mt6781_dbg_lpm_fs_deinit();
 	mt6781_dbg_spm_fs_deinit();
 	mt6781_dbg_lpm_deinit();
@@ -25,6 +28,9 @@ static void __exit mt6781_dbg_exit(void)
 
 static int __init mt6781_dbg_init(void)
 {
+#ifdef MTK_LPM_DBG_COMMON
+	mtk_dbg_common_fs_init();
+#endif
 	mt6781_dbg_lpm_init();
 	mt6781_dbg_lpm_fs_init();
 	mt6781_dbg_spm_fs_init();

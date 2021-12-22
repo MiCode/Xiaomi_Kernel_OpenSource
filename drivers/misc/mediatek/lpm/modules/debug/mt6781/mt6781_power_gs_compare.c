@@ -14,7 +14,7 @@ int mt6781_pwr_gs_set(unsigned int type, const struct mtk_lpm_data *val)
 {
 	int ret = 0;
 
-	if (val->d.v_u32 & GS_PMIC)
+	if (val->d.u32 & GS_PMIC)
 		ret = mtk_lpm_pwr_gs_compare(MTK_LPM_GS_CMP_PMIC, type);
 
 	if (ret)
