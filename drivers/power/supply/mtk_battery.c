@@ -929,10 +929,9 @@ int gauge_get_property(enum gauge_property gp,
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 	gm = gauge->gm;
 	if (gm != NULL && gm->disableGM30) {
-		bm_err("%s disable GM30", __func__);
+		bm_debug("%s disable GM30", __func__);
 		return -EOPNOTSUPP;
 	}
-	bm_err("%s enable GM30", __func__);
 
 	attr = gauge->attr;
 	if (attr == NULL) {
