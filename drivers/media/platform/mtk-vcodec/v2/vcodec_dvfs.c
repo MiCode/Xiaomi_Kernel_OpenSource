@@ -379,9 +379,13 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 			/* Undefined priority + op_rate combination & max op rate behavior */
 			dflt_op_rate = find_dflt_op_rate(inst, dev);
 
-			if (inst->priority < 0)
+			if (inst->priority < 0) {
 				inst->op_rate = 30;
-			else
+				if (inst->codec_fmt == 808996950) {
+					/* performance class WA for VP8 */
+					inst->op_rate = 60;
+				}
+			} else
 				inst->op_rate = dflt_op_rate;
 
 			mtk_v4l2_debug(6, "[VDVFS] VDEC w:%u x h:%u priority %d, new oprate %u",
