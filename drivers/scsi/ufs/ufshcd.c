@@ -2113,6 +2113,32 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	}
 	/* Make sure that doorbell is committed immediately */
 	wmb();
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (!(ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL) &
+		(1 << task_tag))) {
+
+		ktime_t timeout_ms = ktime_add_ms(ktime_get(), 100);
+		bool timedout = false;
+
+		/* Check if DBR is cleared or not set */
+		while (test_bit(task_tag, &hba->outstanding_reqs)) {
+			if (ktime_after(ktime_get(), timeout_ms)) {
+				timedout = true;
+				break;
+			}
+		}
+
+		if (timedout) {
+			dev_err(hba->dev,
+			    "task_tag=%d, dbr=0x%x outstanding_reqs:0x%x\n",
+			    task_tag,
+			    ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL),
+			    hba->outstanding_reqs);
+			ufshcd_print_evt_hist(hba);
+		}
+	}
+#endif
 }
 
 /**
