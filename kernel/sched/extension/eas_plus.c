@@ -280,6 +280,10 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 	int i, iter_domain, domain_cnt = 0;
 	int iter_cpu;
 	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
+#ifdef CONFIG_MTK_TASK_TURBO
+	unsigned long spare_cap, max_spare_cap = 0;
+	int max_spare_cpu = -1;
+#endif
 
 	task_prefer = cpu_prefer(p);
 
@@ -295,6 +299,12 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 		iter_domain = (task_prefer == SCHED_PREFER_BIG) ?
 				domain_cnt-i-1 : i;
 		domain = tmp_domain[iter_domain];
+
+#ifdef CONFIG_MTK_TASK_TURBO
+		/* check fastest domain for turbo task*/
+		if (is_turbo_task(p) && i != 0)
+			break;
+#endif
 
 		if (cpumask_test_cpu(new_cpu, &domain->possible_cpus)
 			&& !cpu_isolated(new_cpu))
@@ -313,10 +323,23 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 			 */
 			if (idle_cpu(iter_cpu))
 				return iter_cpu;
+#ifdef CONFIG_MTK_TASK_TURBO
+			if (is_turbo_task(p)) {
+				spare_cap = capacity_spare_without(iter_cpu, p);
 
+				if (spare_cap > max_spare_cap) {
+					max_spare_cap = spare_cap;
+					max_spare_cpu = iter_cpu;
+				}
+			}
+#endif
 		}
 	}
 
+#ifdef CONFIG_MTK_TASK_TURBO
+	if (is_turbo_task(p) && (max_spare_cpu > 0))
+		return max_spare_cpu;
+#endif
 	return new_cpu;
 }
 
