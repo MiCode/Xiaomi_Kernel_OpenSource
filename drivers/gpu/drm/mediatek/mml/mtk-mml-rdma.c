@@ -1523,6 +1523,14 @@ static void rdma_debug_dump(struct mml_comp *comp)
 	value[1] = readl(base + RDMA_RESET);
 	value[2] = readl(base + RDMA_SRC_CON);
 	value[3] = readl(base + RDMA_COMP_CON);
+	/* for afbc case enable more debug info */
+	if (value[3] & BIT(22)) {
+		u32 debug_con = readl(base + RDMA_DEBUG_CON);
+
+		debug_con |= 0xe000;
+		writel(debug_con, base + RDMA_DEBUG_CON);
+	}
+
 	value[4] = readl(base + RDMA_MF_BKGD_SIZE_IN_BYTE);
 	value[5] = readl(base + RDMA_MF_BKGD_SIZE_IN_PXL);
 	value[6] = readl(base + RDMA_MF_SRC_SIZE);

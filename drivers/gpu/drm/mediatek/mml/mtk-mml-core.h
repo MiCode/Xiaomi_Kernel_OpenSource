@@ -533,6 +533,7 @@ struct mml_frm_dump_data {
 	const char *prefix;
 	char name[50];
 	void *frame;
+	u32 bufsize;
 	u32 size;
 };
 
