@@ -3540,7 +3540,7 @@
 		imgsys_config: imgsys_config@15020000 {
 			compatible = "mediatek,imgsys", "syscon";
 			reg = <0 0x15020000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			mediatek,larb = <&smi_larb9>, <&smi_larb11>;
 			clocks =
 					<&imgsys1_clk CLK_IMGSYS1_LARB9>,
@@ -5018,7 +5018,7 @@
 			reg = <0 0x1b001000 0 0x1000>;
 			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_IPE>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			clocks = <&ipesys_clk CLK_IPE_FD>,
 					 <&ipesys_clk CLK_IPE_LARB20>;
 			clock-names = "aie",
@@ -5036,7 +5036,7 @@
 			compatible = "mediatek,rsc";
 			mediatek,larb = <&smi_larb20>;
 			reg = <0 0x1b003000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_IPE>;
 			iommus = <&disp_iommu M4U_LARB20_PORT4>,
 					 <&disp_iommu M4U_LARB20_PORT5>;
@@ -5768,7 +5768,7 @@
 
 		cam_mem {
 			compatible = "mediatek,cam_mem";
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 
 			iommus = /* imgsys_config, msf_b and wpe */
 				<&disp_iommu M4U_LARB9_PORT0>,
@@ -5877,7 +5877,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,camisp_legacy";
 			reg = <0 0x1a000000 0 0x10000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_MAIN>;
 			mediatek,larbs = <&smi_larb13 &smi_larb14>;
 			mediatek,platform = "mt6855";
@@ -5922,7 +5922,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,cam1_legacy";
 			reg = <0 0x1a030000 0 0x8000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_SUBA>;
 			mediatek,larb = <&smi_larb16>;
@@ -5945,7 +5945,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,cam2_legacy";
 			reg = <0 0x1a050000 0 0x8000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_SUBB>;
 			mediatek,larb = <&smi_larb17>;
@@ -5990,7 +5990,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,camsv2_legacy";
 			reg = <0 0x1a092000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
@@ -5998,7 +5998,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,camsv3_legacy";
 			reg = <0 0x1a093000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
@@ -6006,7 +6006,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,camsv4_legacy";
 			reg = <0 0x1a094000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
@@ -6014,7 +6014,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,camsv5_legacy";
 			reg = <0 0x1a095000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
@@ -6022,7 +6022,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,camsv6_legacy";
 			reg = <0 0x1a096000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
@@ -6030,7 +6030,7 @@
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,camsv7_legacy";
 			reg = <0 0x1a097000 0 0x1000>;
-			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
