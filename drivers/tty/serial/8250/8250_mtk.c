@@ -461,9 +461,11 @@ static int mtk8250_handle_irq(struct uart_port *port)
 	serial8250_rpm_get(up);
 
 #ifndef CONFIG_FIQ_DEBUGGER
+#ifdef CONFIG_MTK_ENG_BUILD
 #ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
 	if (uart_console(port) && (serial_port_in(port, UART_LSR) & 0x01))
 		mt_enable_uart();
+#endif
 #endif
 #endif
 
