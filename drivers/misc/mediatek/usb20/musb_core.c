@@ -3262,28 +3262,43 @@ bool usb_prepare_clock(bool enable)
 	mutex_lock(&prepare_lock);
 
 	if (IS_ERR_OR_NULL(glue->sys_clk) ||
-			IS_ERR_OR_NULL(glue->ref_clk) ||
-			IS_ERR(glue->src_clk)) {
+			IS_ERR(glue->ref_clk) ||
+			IS_ERR(glue->src_clk) ||
+			IS_ERR(glue->dma_clk) ||
+			IS_ERR(glue->phy_clk) ||
+			IS_ERR(glue->mcu_clk)) {
 		DBG(0, "clk not ready\n");
 		mutex_unlock(&prepare_lock);
 		return 0;
 	}
 
 	if (enable) {
-		if (clk_prepare(glue->sys_clk)) {
+		if (clk_prepare(glue->sys_clk))
 			DBG(0, "musb sys_clk prepare fail\n");
-		} else {
-			if (clk_set_parent(glue->sys_clk,
-						glue->ref_clk))
-				DBG(0, "musb sys_clk set_parent fail\n");
-		}
+
+		if (clk_prepare(glue->ref_clk))
+			DBG(0, "musb ref_clk prepare fail\n");
+
 		if (clk_prepare(glue->src_clk))
 			DBG(0, "musb src_clk prepare fail\n");
+
+		if (clk_prepare(glue->dma_clk))
+			DBG(0, "musb dma_clk prepare fail\n");
+
+		if (clk_prepare(glue->phy_clk))
+			DBG(0, "musb phy_clk prepare fail\n");
+
+		if (clk_prepare(glue->mcu_clk))
+			DBG(0, "musb mcu_clk prepare fail\n");
 
 		atomic_inc(&clk_prepare_cnt);
 	} else {
 		clk_unprepare(glue->sys_clk);
+		clk_unprepare(glue->ref_clk);
 		clk_unprepare(glue->src_clk);
+		clk_unprepare(glue->dma_clk);
+		clk_unprepare(glue->phy_clk);
+		clk_unprepare(glue->mcu_clk);
 
 		atomic_dec(&clk_prepare_cnt);
 	}
@@ -3329,10 +3344,43 @@ bool usb_enable_clock(bool enable)
 			goto exit;
 		}
 
+		if (clk_enable(glue->ref_clk)) {
+			DBG(0, "musb ref_clk enable fail\n");
+			clk_disable(glue->sys_clk);
+			goto exit;
+		}
+
 		if (clk_enable(glue->src_clk)) {
 			DBG(0, "musb src_clk enable fail\n");
 			clk_disable(glue->sys_clk);
+			clk_disable(glue->ref_clk);
 			goto exit;
+		}
+
+		if (clk_enable(glue->dma_clk)) {
+			DBG(0, "musb dma_clk enable fail\n");
+			clk_disable(glue->sys_clk);
+			clk_disable(glue->ref_clk);
+			clk_disable(glue->src_clk);
+			goto exit;
+		}
+
+		if (clk_enable(glue->phy_clk)) {
+			DBG(0, "musb phy_clk enable fail\n");
+			clk_disable(glue->sys_clk);
+			clk_disable(glue->ref_clk);
+			clk_disable(glue->src_clk);
+			clk_disable(glue->dma_clk);
+			goto exit;
+		}
+
+		if (clk_enable(glue->mcu_clk)) {
+			DBG(0, "musb mcu_clk enable fail\n");
+			clk_disable(glue->sys_clk);
+			clk_disable(glue->ref_clk);
+			clk_disable(glue->src_clk);
+			clk_disable(glue->dma_clk);
+			clk_disable(glue->phy_clk);
 		}
 
 		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
@@ -3340,7 +3388,11 @@ bool usb_enable_clock(bool enable)
 
 	} else if (!enable && count == 1) {
 		clk_disable(glue->sys_clk);
+		clk_disable(glue->ref_clk);
 		clk_disable(glue->src_clk);
+		clk_disable(glue->dma_clk);
+		clk_disable(glue->phy_clk);
+		clk_disable(glue->mcu_clk);
 
 		usb_hal_dpidle_request(USB_DPIDLE_ALLOWED);
 		real_disable++;
@@ -4323,16 +4375,33 @@ static int musb_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	glue->ref_clk =
-		devm_clk_get(&pdev->dev, "ref_clk");
+	glue->ref_clk = devm_clk_get_optional(&pdev->dev, "ref_clk");
 	if (IS_ERR(glue->ref_clk)) {
 		DBG(0, "cannot get musb ref_clk\n");
 		goto err2;
 	}
 
-	glue->src_clk = devm_clk_get_optional(&pdev->dev, "src_ref");
+	glue->src_clk = devm_clk_get_optional(&pdev->dev, "src_clk");
 	if (IS_ERR(glue->src_clk)) {
 		DBG(0, "cannot get musb src_clk\n");
+		goto err2;
+	}
+
+	glue->dma_clk = devm_clk_get_optional(&pdev->dev, "dma_clk");
+	if (IS_ERR(glue->dma_clk)) {
+		DBG(0, "cannot get musb dma_clk\n");
+		goto err2;
+	}
+
+	glue->phy_clk = devm_clk_get_optional(&pdev->dev, "phy_clk");
+	if (IS_ERR(glue->phy_clk)) {
+		DBG(0, "cannot get musb phy_clk\n");
+		goto err2;
+	}
+
+	glue->mcu_clk = devm_clk_get_optional(&pdev->dev, "mcu_clk");
+	if (IS_ERR(glue->mcu_clk)) {
+		DBG(0, "cannot get musb mcu_clk\n");
 		goto err2;
 	}
 

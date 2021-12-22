@@ -28,9 +28,12 @@ struct mt_usb_glue {
 	struct musb *mtk_musb;
 	/* common power & clock */
 	struct clk *sys_clk;
+	/* optional clock */
 	struct clk *ref_clk;
-	/* optional clock*/
 	struct clk *src_clk;
+	struct clk *dma_clk;
+	struct clk *phy_clk;
+	struct clk *mcu_clk;
 #if IS_ENABLED(CONFIG_PHY_MTK_TPHY)
 	struct platform_device *usb_phy;
 	struct phy *phy;
