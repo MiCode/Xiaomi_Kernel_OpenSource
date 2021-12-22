@@ -490,9 +490,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 
 		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
-	ctx->shutter_for_timeout = ctx->exposure->val;
-	if (ctx->cur_mode->fine_intg_line)
-		ctx->shutter_for_timeout /= 1000;
+
 	ctx->exposure->val = ae_ctrl->exposure.le_exposure;
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;
@@ -629,8 +627,9 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_SOF_TIMEOUT_VALUE:
 		if (ctx->shutter_for_timeout != 0) {
-			ctrl->val =
-				(mode->linetime_in_ns / 1000) * ctx->shutter_for_timeout;
+			u64 tmp = mode->linetime_in_ns * ctx->shutter_for_timeout;
+
+			ctrl->val = tmp / 1000;
 		}
 		dev_info(ctx->dev, "[%s] sof timeout value in us %d|%llu|%d|%d\n",
 			__func__,
@@ -832,6 +831,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VSYNC_NOTIFY:
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
 		notify_fsync_vsync(ctx);
+
+		/* update timeout value upon vsync*/
+		ctx->shutter_for_timeout = ctx->exposure->val;
+		if (ctx->cur_mode->fine_intg_line)
+			ctx->shutter_for_timeout /= 1000;
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
 		para.u64[0] = ctrl->val;
