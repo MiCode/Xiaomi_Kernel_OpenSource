@@ -18,12 +18,18 @@ static const struct mtk_device_num mtk6855_devices_num[] = {
 	{SLAVE_TYPE_VLP, VIO_SLAVE_NUM_VLP, IRQ_TYPE_VLP},
 #if ENABLE_DEVAPC_ADSP
 	{SLAVE_TYPE_ADSP, VIO_SLAVE_NUM_ADSP, IRQ_TYPE_ADSP},
+#else
+	{-1, 0, -1},
 #endif
 #if ENABLE_DEVAPC_MMINFRA
 	{SLAVE_TYPE_MMINFRA, VIO_SLAVE_NUM_MMINFRA, IRQ_TYPE_MMINFRA},
+#else
+	{-1, 0, -1},
 #endif
 #if ENABLE_DEVAPC_MMUP
 	{SLAVE_TYPE_MMUP, VIO_SLAVE_NUM_MMUP, IRQ_TYPE_MMUP},
+#else
+	{-1, 0, -1},
 #endif
 };
 
@@ -290,19 +296,33 @@ static const char *mt6855_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 #endif
 #if ENABLE_DEVAPC_MMINFRA
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
-		if (domain == 0x4)
-			return "GCE";
-		/* mmup */
+		/* MMUP slave */
 		if ((vio_addr >= MMUP_START_ADDR) && (vio_addr <= MMUP_END_ADDR)) {
 			if (domain < ARRAY_SIZE(mminfra_domain))
 				return mminfra_domain[domain];
 			return NULL;
+
+		/* CODEC slave*/
+		} else if ((vio_addr >= CODEC_START_ADDR) && (vio_addr <= CODEC_END_ADDR)) {
+			if ((bus_id & 0x1) == 0x0)
+				return "MMUP";
+			else
+				return infra_mi_trans(bus_id >> 4);
+
+		/* DISP / MDP / DMDP slave*/
+		} else if (((vio_addr >= DISP_START_ADDR) && (vio_addr <= DISP_END_ADDR)) ||
+			((vio_addr >= MDP_START_ADDR) && (vio_addr <= MDP_END_ADDR))) {
+			if ((bus_id & 0x1) == 0x0)
+				return "GCED";
+			else
+				return infra_mi_trans(bus_id >> 4);
+		/* other mminfra slave*/
+		} else {
+			if ((bus_id & 0x7) == 0x0)
+				return infra_mi_trans(bus_id >> 3);
+			else
+				return mminfra_mi_trans(bus_id);
 		}
-		/* mminfra */
-		if ((bus_id & 0x7) == 0x0)
-			return infra_mi_trans(bus_id >> 3);
-		else
-			return mminfra_mi_trans(bus_id);
 #endif
 #if ENABLE_DEVAPC_MMUP
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
@@ -487,15 +507,9 @@ static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_INFRA1",
 	"SLAVE_TYPE_PERI_PAR",
 	"SLAVE_TYPE_VLP",
-#if ENABLE_DEVAPC_ADSP
 	"SLAVE_TYPE_ADSP",
-#endif
-#if ENABLE_DEVAPC_MMINFRA
 	"SLAVE_TYPE_MMINFRA",
-#endif
-#if ENABLE_DEVAPC_MMUP
 	"SLAVE_TYPE_MMUP",
-#endif
 	"WRONG_SLAVE_TYPE",
 };
 
@@ -504,15 +518,9 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_INFRA1,
 	VIO_MASK_STA_NUM_PERI_PAR,
 	VIO_MASK_STA_NUM_VLP,
-#if ENABLE_DEVAPC_ADSP
 	VIO_MASK_STA_NUM_ADSP,
-#endif
-#if ENABLE_DEVAPC_MMINFRA
 	VIO_MASK_STA_NUM_MMINFRA,
-#endif
-#if ENABLE_DEVAPC_MMUP
 	VIO_MASK_STA_NUM_MMUP,
-#endif
 };
 
 static struct mtk_devapc_vio_info mt6855_devapc_vio_info = {
