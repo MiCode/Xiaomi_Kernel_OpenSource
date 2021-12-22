@@ -14,6 +14,15 @@ config MTK_PTPOD
 	  changed which will depended on chip.
 	  If unsure, say N.
 
+config MTK_PTPOD_GPU
+	bool "MTK PTPOD GPU"
+	default n
+	help
+	  This kernel config can be used to enable gpu PTPOD.
+	  When enable this option, gpu voltage will be
+	  changed which will depended on chip.
+	  If unsure, say N.
+
 config MTK_STATIC_POWER
 	bool "MTK STATIC POWER"
 	help

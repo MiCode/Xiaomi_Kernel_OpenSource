@@ -27,7 +27,7 @@ obj-$(CONFIG_MTK_CPU_FREQ) += cpufreq_v1/
 obj-$(CONFIG_MACH_MT6739) += cpufreq_v2/
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 obj-$(CONFIG_MTK_PTPOD) += eem_v2/
-
+obj-$(CONFIG_MTK_PTPOD_GPU) += eemgpu_v2/
 endif
 ifeq ($(CONFIG_MTK_UNIFY_POWER), y)
 obj-$(CONFIG_MACH_MT6833) += upower_v2/
