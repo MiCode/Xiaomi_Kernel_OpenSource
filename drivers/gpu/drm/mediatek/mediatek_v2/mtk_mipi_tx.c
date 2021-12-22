@@ -349,6 +349,7 @@ struct mtk_mipitx_data {
 	unsigned int (*dsi_get_pcw)(unsigned long data_rate, unsigned int pcw_ratio);
 	void (*backup_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
 	void (*refill_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
+	void (*pll_rate_switch_gce)(struct phy *phy, void *handle, unsigned long rate);
 };
 
 static inline struct mtk_mipi_tx *mtk_mipi_tx_from_clk_hw(struct clk_hw *hw)
@@ -2801,26 +2802,102 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 
 	DDPINFO("%s+ %lu\n", __func__, rate);
 
+	if (mipi_tx->driver_data->pll_rate_switch_gce) {
+		mipi_tx->driver_data->pll_rate_switch_gce(phy, handle, rate);
+	} else {
+		/* parameter rate should be MHz */
+		if (rate >= 2000) {
+			txdiv = 1;
+			txdiv0 = 0;
+			txdiv1 = 0;
+		} else if (rate >= 1000) {
+			txdiv = 2;
+			txdiv0 = 1;
+			txdiv1 = 0;
+		} else if (rate >= 500) {
+			txdiv = 4;
+			txdiv0 = 2;
+			txdiv1 = 0;
+		} else if (rate > 250) {
+			txdiv = 8;
+			txdiv0 = 3;
+			txdiv1 = 0;
+		} else if (rate >= 125) {
+			txdiv = 16;
+			txdiv0 = 4;
+			txdiv1 = 0;
+		} else {
+			return;
+		}
+		tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
+
+		cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON0, tmp, ~0);
+
+		reg_val = readl(mipi_tx->regs + MIPITX_PLL_CON1);
+
+		reg_val = ((reg_val & ~FLD_RG_DSI_PLL_POSDIV) |
+			((txdiv0 << 8) & FLD_RG_DSI_PLL_POSDIV));
+
+		reg_val = (reg_val & ~(mipi_tx->driver_data->dsi_pll_sdm_pcw_chg)) |
+			(0 & mipi_tx->driver_data->dsi_pll_sdm_pcw_chg);
+
+		cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+				mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+		reg_val = (reg_val & ~(mipi_tx->driver_data->dsi_pll_sdm_pcw_chg)) |
+			(1 & mipi_tx->driver_data->dsi_pll_sdm_pcw_chg);
+
+		cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+				mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+		reg_val = (reg_val & ~(mipi_tx->driver_data->dsi_pll_sdm_pcw_chg)) |
+			(0 & mipi_tx->driver_data->dsi_pll_sdm_pcw_chg);
+
+		cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+				mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+	}
+
+	DDPINFO("%s-\n", __func__);
+}
+
+void mtk_mipi_tx_pll_rate_switch_gce_mt6895(struct phy *phy,
+		void *handle, unsigned long rate)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int txdiv, txdiv0, txdiv1, tmp;
+	u32 reg_val;
+
+	DDPINFO("%s+ %lu\n", __func__, rate);
+
 	/* parameter rate should be MHz */
-	if (rate >= 2000) {
+	if (rate >= 6000) {
 		txdiv = 1;
 		txdiv0 = 0;
+		txdiv1 = 0;
+	} else if (rate >= 3000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+	} else if (rate >= 2000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+	} else if (rate >= 1500) {
+		txdiv = 4;
+		txdiv0 = 2;
 		txdiv1 = 0;
 	} else if (rate >= 1000) {
 		txdiv = 2;
 		txdiv0 = 1;
 		txdiv1 = 0;
-	} else if (rate >= 500) {
-		txdiv = 4;
-		txdiv0 = 2;
-		txdiv1 = 0;
-	} else if (rate > 250) {
+	} else if (rate >= 750) {
 		txdiv = 8;
 		txdiv0 = 3;
 		txdiv1 = 0;
-	} else if (rate >= 125) {
-		txdiv = 16;
-		txdiv0 = 4;
+	} else if (rate >= 510) {
+		txdiv = 4;
+		txdiv0 = 2;
 		txdiv1 = 0;
 	} else {
 		return;
@@ -2855,6 +2932,7 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 
 	DDPINFO("%s-\n", __func__);
 }
+
 
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 				       unsigned long *prate)
@@ -3523,6 +3601,7 @@ static const struct mtk_mipitx_data mt6895_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
+	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6895,
 };
 
 static const struct mtk_mipitx_data mt6983_mipitx_cphy_data = {
