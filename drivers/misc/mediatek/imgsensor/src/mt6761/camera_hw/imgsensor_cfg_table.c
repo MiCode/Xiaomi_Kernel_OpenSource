@@ -144,7 +144,7 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 /* GC */
 #if defined(GC5035_MIPI_RAW)
 	{
-		SENSOR_DRVNAME_GC5035MIPI_RAW,
+		SENSOR_DRVNAME_GC5035_MIPI_RAW,
 		{
 			{PDN, Vol_High, 0},
 			{RST, Vol_Low, 0},
