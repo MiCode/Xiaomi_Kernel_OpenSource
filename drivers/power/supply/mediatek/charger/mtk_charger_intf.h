@@ -462,7 +462,7 @@ enum usb_state_enum {
 	USB_CONFIGURED
 };
 
-#if defined(CONFIG_MACH_MT6877)
+#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893)
 bool is_usb_rdy(struct device *dev);
 #else
 bool __attribute__((weak)) is_usb_rdy(void)
