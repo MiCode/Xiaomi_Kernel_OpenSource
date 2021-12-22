@@ -256,8 +256,7 @@ static void swpm_sp_timer_init(void)
 {
 	swpm_sp_timer.expires =
 		jiffies + msecs_to_jiffies(update_interval_ms);
-	timer_setup(&swpm_timer,swpm_sp_routine,0);
-	add_timer(&swpm_sp_timer);
+	timer_setup(&swpm_sp_timer, swpm_sp_routine, 0);
 }
 
 #if SWPM_INTERNAL_TEST
