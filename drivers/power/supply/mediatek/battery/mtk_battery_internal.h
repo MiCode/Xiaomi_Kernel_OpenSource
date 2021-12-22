@@ -1065,6 +1065,9 @@ extern int gauge_enable_interrupt(int intr_number, int en);
 int en_intr_VBATON_UNDET(int en);
 int reg_VBATON_UNDET(void (*callback)(void));
 
+/* boot mode */
+int battery_get_boot_mode(void);
+
 /* zcvf */
 int zcv_filter_add(struct zcv_filter *zf);
 void zcv_filter_dump(struct zcv_filter *zf);
