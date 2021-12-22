@@ -351,6 +351,8 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 	}
 
+	plane_state->base.crtc = NULL;
+
 #ifdef MTK_DRM_FB_LEAK
 	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
 	cmdq_pkt_wait_complete(cmdq_handle);
@@ -392,6 +394,8 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	} else {
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 	}
+
+	plane_state->base.crtc = NULL;
 }
 
 int DAL_Clean(void)

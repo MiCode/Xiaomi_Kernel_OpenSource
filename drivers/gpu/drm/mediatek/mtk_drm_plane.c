@@ -193,10 +193,6 @@ mtk_plane_duplicate_state(struct drm_plane *plane)
 	state->pending = old_state->pending;
 	state->comp_state = old_state->comp_state;
 	state->crtc = old_state->crtc;
-	if ((&state->base)->fb)
-		(&state->base)->crtc = (&old_state->base)->crtc;
-	else
-		(&state->base)->crtc = NULL;
 
 	return &state->base;
 }

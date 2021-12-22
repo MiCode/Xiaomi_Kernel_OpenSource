@@ -7435,7 +7435,6 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 					     : DRM_PLANE_TYPE_OVERLAY;
 		ret = mtk_plane_init(drm_dev, &mtk_crtc->planes[zpos], zpos,
 				     BIT(pipe), type);
-		mtk_crtc->planes[zpos].base.crtc = &mtk_crtc->base;
 		if (ret)
 			return ret;
 	}
