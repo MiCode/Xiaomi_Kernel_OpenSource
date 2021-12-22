@@ -452,6 +452,7 @@ GED_ERROR check_eb_config(void)
 	if (!fdvfs_node) {
 		GED_LOGE("No fdvfs node.");
 		g_ged_fdvfs_support = 0;
+		g_ged_gpueb_support = 0;
 	} else {
 		of_property_read_u32(fdvfs_node, "fdvfs-policy-support",
 				&g_ged_fdvfs_support);
