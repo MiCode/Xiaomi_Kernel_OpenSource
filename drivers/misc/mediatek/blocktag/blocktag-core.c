@@ -1851,6 +1851,18 @@ static struct tracepoints_table interests[] = {
 		.name = "sys_exit",
 		.func = fscmd_trace_sys_exit
 	},
+	{
+		.name = "f2fs_write_checkpoint",
+		.func = fscmd_trace_f2fs_write_checkpoint
+	},
+		{
+		.name = "f2fs_gc_begin",
+		.func = fscmd_trace_f2fs_gc_begin
+	},
+		{
+		.name = "f2fs_gc_end",
+		.func = fscmd_trace_f2fs_gc_end
+	},
 #endif
 };
 
