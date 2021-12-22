@@ -293,7 +293,7 @@ static void mdw_dmabuf_release(struct dma_buf *dbuf)
 
 	mdw_mem_dma_free_sgt(&mdbuf->sgt);
 	vunmap(mdbuf->vaddr);
-	kvfree(mdbuf->buf);
+	vfree(mdbuf->buf);
 	kfree(mdbuf);
 	m->release(m);
 }
@@ -393,7 +393,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 		goto free_mdw_dbuf;
 	}
 
-	kva = kvzalloc(mdbuf->dma_size, GFP_KERNEL);
+	kva = vzalloc(mdbuf->dma_size);
 	if (!kva) {
 		ret = -ENOMEM;
 		goto free_mdw_dbuf;
