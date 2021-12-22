@@ -41,6 +41,14 @@
 #include "mtk_clkbuf_ctl.h"
 #endif
 
+#if defined(CONFIG_UFSHPB)
+#include "ufshpb.h"
+#endif
+
+u32  ufs_mtk_qcmd_r_cmd_cnt;
+u32  ufs_mtk_qcmd_w_cmd_cnt;
+static bool ufs_mtk_is_data_write_cmd(char cmd_op, bool isolation);
+static bool ufs_mtk_is_data_cmd(char cmd_op, bool isolation);
 
 #define ufs_mtk_smc(cmd, val, res) \
 	arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
@@ -71,8 +79,6 @@
 int ufsdbg_perf_dump = 0;
 static struct ufs_hba *ufs_mtk_hba;
 
-static bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd, bool isolation);
-
 static const struct ufs_mtk_host_cfg ufs_mtk_mt8183_cfg = {
 	.quirks = UFS_MTK_HOST_QUIRK_BROKEN_AUTO_HIBERN8
 	#if defined(CONFIG_MACH_MT6877)
@@ -100,24 +106,6 @@ struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev()
 	struct ufs_mtk_host *host = ufshcd_get_variant(ufs_mtk_hba);
 
 	return host->rawdev_ufs_rpmb;
-}
-
-static bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd, bool isolation)
-{
-	char cmd_op = cmd->cmnd[0];
-
-	if (cmd_op == WRITE_10 || cmd_op == READ_10 ||
-	    cmd_op == WRITE_16 || cmd_op == READ_16 ||
-	    cmd_op == WRITE_6 || cmd_op == READ_6)
-		return true;
-
-	if (isolation) {
-		if ((cmd->sc_data_direction == DMA_FROM_DEVICE) ||
-		    (cmd->sc_data_direction == DMA_TO_DEVICE))
-			return true;
-	}
-
-	return false;
 }
 
 /* Read Geometry Descriptor for RPMB initialization */
@@ -916,6 +904,89 @@ static int ufs_mtk_host_clk_get(struct device *dev, const char *name,
 		*clk_out = clk;
 
 	return err;
+}
+static bool ufs_mtk_is_data_write_cmd(char cmd_op, bool isolation)
+{
+	if (cmd_op == WRITE_10 || cmd_op == WRITE_16 || cmd_op == WRITE_6)
+		return true;
+
+	if (isolation) {
+		if ((cmd_op == WRITE_BUFFER) ||
+			(cmd_op == UNMAP) ||
+			(cmd_op == FORMAT_UNIT) ||
+			(cmd_op == SECURITY_PROTOCOL_OUT))
+			return true;
+	}
+
+#if defined(CONFIG_SCSI_UFS_HPB) || defined(CONFIG_SCSI_SKHPB)
+	/* All data out operation need check */
+	if (isolation) {
+		if (cmd_op == UFSHPB_WRITE_BUFFER)
+			return true;
+		}
+#endif
+	return false;
+}
+
+static bool ufs_mtk_is_data_cmd(char cmd_op, bool isolation)
+{
+	if (cmd_op == WRITE_10 || cmd_op == READ_10 ||
+		cmd_op == WRITE_16 || cmd_op == READ_16 ||
+		cmd_op == WRITE_6 || cmd_op == READ_6)
+		return true;
+	if (isolation) {
+		if ((cmd_op == WRITE_BUFFER) ||
+			(cmd_op == UNMAP) ||
+			(cmd_op == FORMAT_UNIT) ||
+			(cmd_op == SECURITY_PROTOCOL_OUT))
+			return true;
+		}
+#if defined(CONFIG_SCSI_UFS_HPB) || defined(CONFIG_SCSI_SKHPB)
+		if (cmd_op == UFSHPB_READ_BUFFER || cmd_op == UFSHPB_WRITE_BUFFER)
+			return true;
+#endif
+	return false;
+}
+
+int ufs_mtk_perf_heurisic_if_allow_cmd(struct ufs_hba *hba, struct scsi_cmnd *cmd)
+{
+	if (!(hba->quirks & UFS_MTK_HOST_QUIRK_UFS_HCI_PERF_HEURISTIC))
+		return 0;
+
+	/* Check rw commands only and allow all other commands. */
+	if (ufs_mtk_is_data_cmd(cmd->cmnd[0], true)) {
+		if (!hba->ufs_mtk_qcmd_r_cmd_cnt &&
+			!hba->ufs_mtk_qcmd_w_cmd_cnt) {
+			/* Case: no on-going r or w commands. */
+			if (ufs_mtk_is_data_write_cmd(cmd->cmnd[0], true))
+				hba->ufs_mtk_qcmd_w_cmd_cnt++;
+			else
+				hba->ufs_mtk_qcmd_r_cmd_cnt++;
+		} else {
+			if (ufs_mtk_is_data_write_cmd(cmd->cmnd[0], true)) {
+				if (hba->ufs_mtk_qcmd_r_cmd_cnt)
+					return 1;
+				hba->ufs_mtk_qcmd_w_cmd_cnt++;
+			} else {
+				if (hba->ufs_mtk_qcmd_w_cmd_cnt)
+					return 1;
+				hba->ufs_mtk_qcmd_r_cmd_cnt++;
+			}
+		}
+	}
+	return 0;
+}
+
+void ufs_mtk_perf_heurisic_req_done(struct ufs_hba *hba, struct scsi_cmnd *cmd)
+{
+	if (!(hba->quirks & UFS_MTK_HOST_QUIRK_UFS_HCI_PERF_HEURISTIC))
+		return;
+	if (ufs_mtk_is_data_cmd(cmd->cmnd[0], true)) {
+		if (ufs_mtk_is_data_write_cmd(cmd->cmnd[0], true))
+			hba->ufs_mtk_qcmd_w_cmd_cnt--;
+		else
+			hba->ufs_mtk_qcmd_r_cmd_cnt--;
+	}
 }
 
 bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host)

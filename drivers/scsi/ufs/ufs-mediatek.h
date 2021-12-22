@@ -195,5 +195,7 @@ void ufs_mtk_rpmb_quiesce(struct ufs_hba *hba);
 int ufs_mtk_ioctl_rpmb(struct ufs_hba *hba, const void __user *buf_user);
 bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host);
 int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf);
+int ufs_mtk_perf_heurisic_if_allow_cmd(struct ufs_hba *hba, struct scsi_cmnd *cmd);
+void ufs_mtk_perf_heurisic_req_done(struct ufs_hba *hba, struct scsi_cmnd *cmd);
 
 #endif /* !_UFS_MEDIATEK_H */
