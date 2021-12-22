@@ -367,7 +367,7 @@ struct mtk_dsi_driver_data {
 	bool need_wait_fifo;
 	bool dsi_buffer;
 	u32 max_vfp;
-	void (*mmclk_by_datarate)(struct mtk_dsi *dsi,
+	unsigned int (*mmclk_by_datarate)(struct mtk_dsi *dsi,
 		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
 };
 
@@ -453,6 +453,13 @@ enum DSI_MODE_CON {
 	MODE_CON_SYNC_PULSE_VDO,
 	MODE_CON_SYNC_EVENT_VDO,
 	MODE_CON_BURST_VDO,
+};
+
+enum DSI_SET_MMCLK_TYPE {
+	SET_MMCLK_TYPE_DISABLE = 0,
+	SET_MMCLK_TYPE_ENABLE,
+	SET_MMCLK_TYPE_ONLY_CALCULATE,
+	SET_MMCLK_TYPE_END,
 };
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
@@ -5426,7 +5433,7 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
  * CPHY     | data_rate x (16/7) x lane_num x compress_ratio / bpp
  * DPHY     | data_rate x lane_num x compress_ratio / bpp
  ******************************************************************************/
-void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
+unsigned int mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
@@ -5446,7 +5453,7 @@ void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
 					__func__);
-		return;
+		return pixclk;
 	}
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
@@ -5454,14 +5461,14 @@ void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 
 	if (!dsi->ext) {
 		DDPPR_ERR("DSI panel ext is NULL\n");
-		return;
+		return pixclk;
 	}
 
 	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 
 	if (!data_rate) {
 		DDPPR_ERR("DSI data_rate is NULL\n");
-		return;
+		return pixclk;
 	}
 	//If DSI mode is vdo mode
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -5497,7 +5504,9 @@ void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 
 	DDPMSG("%s, data_rate =%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
 			data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
-	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+	if (en != SET_MMCLK_TYPE_ONLY_CALCULATE)
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+	return pixclk;
 }
 
 /******************************************************************************
@@ -5519,7 +5528,7 @@ void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
  *			Keep HS
  *			Keep HS + Dummy Cycle
  ******************************************************************************/
-void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
+unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
@@ -5541,7 +5550,7 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
 					__func__);
-		return;
+		return pixclk;
 	}
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
@@ -5549,14 +5558,14 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 
 	if (!dsi->ext) {
 		DDPPR_ERR("DSI panel ext is NULL\n");
-		return;
+		return pixclk;
 	}
 
 	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 
 	if (!data_rate) {
 		DDPPR_ERR("DSI data_rate is NULL\n");
-		return;
+		return pixclk;
 	}
 
 	/* RDMA BUFFER */
@@ -5598,7 +5607,6 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 
 		DDPMSG("%s, data_rate=%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
 				data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
-		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 	} else {
 	/* DSI BUFFER */
 		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -5756,8 +5764,10 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 
 		DDPMSG("%s, data_rate=%d, mmclk=%u dual=%u\n", __func__,
 				data_rate, pixclk,  mtk_crtc->is_dual_pipe);
-		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 	}
+	if (en != SET_MMCLK_TYPE_ONLY_CALCULATE)
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+	return pixclk;
 }
 
 /******************************************************************************
@@ -5958,9 +5968,9 @@ skip_change_mipi:
 static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
+	unsigned int pixclk = cb_data->misc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(cb_data->crtc);
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
-	struct mtk_dsi *dsi;
 	struct mtk_drm_private *priv =
 		mtk_crtc->base.dev->dev_private;
 
@@ -5970,11 +5980,7 @@ static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
 		MTK_DRM_OPT_MMDVFS_SUPPORT)) {
 		if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
 			comp->id == DDP_COMPONENT_DSI1)) {
-			dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-			DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-			if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
-				dsi->driver_data->mmclk_by_datarate(dsi, mtk_crtc, 1);
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 		}
 	}
 
@@ -6002,6 +6008,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 	/*Msync 2.0*/
 	unsigned int vfp_early_stop_value = 0;
 	struct mtk_drm_private *priv = (mtk_crtc->base).dev->dev_private;
+	unsigned int pixclk = 0;
 
 	DDPINFO("%s+\n", __func__);
 
@@ -6117,8 +6124,20 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
 	}
 
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_MMDVFS_SUPPORT)) {
+		if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
+			comp->id == DDP_COMPONENT_DSI1)) {
+			dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+			if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
+				pixclk = dsi->driver_data->mmclk_by_datarate(dsi, mtk_crtc,
+						SET_MMCLK_TYPE_ONLY_CALCULATE);
+		}
+	}
+
 	cb_data->cmdq_handle = handle;
 	cb_data->crtc = &mtk_crtc->base;
+	cb_data->misc = pixclk;
 	if (cmdq_pkt_flush_threaded(handle,
 		mtk_dsi_dy_fps_cmdq_cb, cb_data) < 0)
 		DDPPR_ERR("failed to flush dsi_dy_fps\n");
