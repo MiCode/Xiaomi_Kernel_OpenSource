@@ -394,10 +394,8 @@ static void mt6338_set_capture_gpio(struct mt6338_priv *priv)
 	 * [3:0] 1: AUD_DAT_MISO0 (O)	2: TDMOUT_DATA0 (O)
 	 * [6:4] 1: AUD_CLK_MOSI (I) 2: TDMOUT_BCK (I)
 	 */
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x11);
 #else
-	regmap_write(priv->regmap, MT6338_GPIO_MODE3_CLR, 0xff);
 	regmap_write(priv->regmap, MT6338_GPIO_MODE3_SET, 0x22);
 	/*
 	 * [3:0] 1: TDMOUT_LRCK (I) 2: AUD_CLK_MISO (O)
@@ -2832,9 +2830,8 @@ static void mtk_hp_disable(struct mt6338_priv *priv)
 
 static int mtk_hp_impedance_enable(struct mt6338_priv *priv)
 {
-	/* 0:normal path */
-	regmap_update_bits(priv->regmap, MT6338_AFE_TOP_DEBUG0,
-		0x3 << 0x6, 0x0 << 0x6);
+	/* 0:normal path & bypass HWgain1/2 */
+	regmap_write(priv->regmap, MT6338_AFE_TOP_DEBUG0, 0x4);
 
 	/* Enable AUD_CLK */
 	mt6338_set_decoder_clk(priv, true, true);
@@ -6526,11 +6523,11 @@ static int mt_hp_ana_trim_event(struct snd_soc_dapm_widget *w,
 		/* set hp r trim */
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON13,
 			RG_AUDHPRFINETRIM_VAUDP18_MASK_SFT,
-			trim->hp_trim_l <<
+			trim->hp_trim_r <<
 			RG_AUDHPRFINETRIM_VAUDP18_SFT);
 		regmap_update_bits(priv->regmap, MT6338_AUDDEC_PMU_CON13,
 			RG_AUDHPRFINETRIM_VAUDP18_MASK_SFT,
-			trim->hp_fine_trim_l <<
+			trim->hp_fine_trim_r <<
 			RG_AUDHPRFINETRIM_VAUDP18_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -10651,10 +10648,7 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	/* this will trigger widget "DC trim" power down event */
 	enable_trim_buf(priv, true);
 
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 5;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 5;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] = 5;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4] = 5;
+	regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON71, 0x0);
 
 	return 0;
 }
