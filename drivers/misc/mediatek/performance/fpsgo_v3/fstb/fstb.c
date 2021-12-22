@@ -88,6 +88,7 @@ static int fstb_fps_klog_on;
 static int fstb_enable, fstb_active, fstb_active_dbncd, fstb_idle_cnt;
 static int fstb_self_ctrl_fps_enable = 1;
 static int fstb_is_cam_active;
+static int tfps_to_powerhal_enable;
 static long long last_update_ts;
 
 static void reset_fps_level(void);
@@ -1932,7 +1933,11 @@ void fstb_cal_powerhal_fps(void)
 	memset(powerfps_arrray, 0, 64 * sizeof(struct FSTB_POWERFPS_LIST));
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		powerfps_arrray[i].pid = iter->proc_id;
-		powerfps_arrray[i].fps = iter->queue_fps > 0 ? iter->queue_fps : -1;
+		if (tfps_to_powerhal_enable)
+			powerfps_arrray[i].fps = iter->target_fps_v2 > 0 ? iter->target_fps_v2 : -1;
+		else
+			powerfps_arrray[i].fps = iter->queue_fps > 0 ? iter->queue_fps : -1;
+
 		i++;
 		if (i >= 64) {
 			i = 63;
@@ -2867,6 +2872,35 @@ static ssize_t fstb_self_ctrl_fps_enable_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(fstb_self_ctrl_fps_enable);
 
+static ssize_t tfps_to_powerhal_enable_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", tfps_to_powerhal_enable);
+}
+
+static ssize_t tfps_to_powerhal_enable_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&fstb_lock);
+				tfps_to_powerhal_enable = !!arg;
+				mutex_unlock(&fstb_lock);
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(tfps_to_powerhal_enable);
+
 int mtk_fstb_init(void)
 {
 	mtk_fstb_dprintk_always("init\n");
@@ -2913,6 +2947,8 @@ int mtk_fstb_init(void)
 				&kobj_attr_fstb_self_ctrl_fps_enable);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_render_no_ctrl);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_tfps_to_powerhal_enable);
 	}
 
 	reset_fps_level();
@@ -2976,6 +3012,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_fstb_self_ctrl_fps_enable);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_render_no_ctrl);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_tfps_to_powerhal_enable);
 
 	fpsgo_sysfs_remove_dir(&fstb_kobj);
 
