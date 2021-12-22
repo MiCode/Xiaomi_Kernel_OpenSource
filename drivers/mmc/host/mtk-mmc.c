@@ -1588,6 +1588,10 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		break;
 	case MMC_POWER_ON:
+		if (mmc->supply.vqmmc == NULL || IS_ERR(mmc->supply.vqmmc)) {
+			dev_info(host->dev, "vqmmc is null, not set!\n");
+			break;
+		}
 		if (!IS_ERR(mmc->supply.vqmmc) && !host->vqmmc_enabled) {
 			ret = regulator_enable(mmc->supply.vqmmc);
 			if (ret)
@@ -1597,6 +1601,10 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		break;
 	case MMC_POWER_OFF:
+		if (mmc->supply.vmmc == NULL  || IS_ERR(mmc->supply.vmmc)) {
+			dev_info(host->dev, "vmmc is null, not set!\n");
+			break;
+		}
 		devm_regulator_unregister_notifier(mmc->supply.vmmc,
 			&host->sd_oc.nb);
 		if (!IS_ERR(mmc->supply.vmmc))
@@ -2808,10 +2816,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	if (host->id == MSDC_SDIO) {
 		ret = request_sdio_eint_irq(host);
-		if (ret) {
+		if (ret)
 			dev_info(host->dev, "failed to register sdio eint irq!\n");
-			goto release;
-		}
 	}
 
 	cpu_latency_qos_add_request(&host->pm_qos_req, PM_QOS_DEFAULT_VALUE);
