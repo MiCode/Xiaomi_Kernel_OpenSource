@@ -380,7 +380,6 @@
 	kd_camera_hw1:kd_camera_hw1@1a004000 {
 		compatible = "mediatek,imgsensor";
 	};
-
 	pd_adapter: pd_adapter {
 		compatible = "mediatek,pd_adapter";
 		boot_mode = <&chosen>;
@@ -395,6 +394,323 @@
 		bc12 = <&mt6360_chg>;
 		bc12_sel = <0>;
 	};
+	cam_qos_legacy {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,cam_qos_legacy";
+			operating-points-v2 = <&opp_table_cam>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+
+			l13_cam_mrawi = <M4U_PORT_L13_CAM_MRAWI>;
+			l13_cam_mrawo0 = <M4U_PORT_L13_CAM_MRAWO0>;
+			l13_cam_mrawo1 = <M4U_PORT_L13_CAM_MRAWO1>;
+			l13_cam_camsv4 = <M4U_PORT_L13_CAM_CAMSV4>;
+			l13_cam_camsv5 = <M4U_PORT_L13_CAM_CAMSV5>;
+			l13_cam_camsv6 = <M4U_PORT_L13_CAM_CAMSV6>;
+
+			l16_cam_imgo_r1_a  = <M4U_PORT_L16_CAM_IMGO_R1_A>;
+			l16_cam_rrzo_r1_a  = <M4U_PORT_L16_CAM_RRZO_R1_A>;
+			l16_cam_cqi_r1_a   = <M4U_PORT_L16_CAM_CQI_R1_A>;
+			l16_cam_bpci_r1_a  = <M4U_PORT_L16_CAM_BPCI_R1_A>;
+			l16_cam_yuvo_r1_a  = <M4U_PORT_L16_CAM_YUVO_R1_A>;
+			l16_cam_ufdi_r2_a  = <M4U_PORT_L16_CAM_UFDI_R2_A>;
+			l16_cam_rawi_r2_a  = <M4U_PORT_L16_CAM_RAWI_R2_A>;
+			l16_cam_rawi_r3_a  = <M4U_PORT_L16_CAM_RAWI_R3_A>;
+			l16_cam_aao_r1_a   = <M4U_PORT_L16_CAM_AAO_R1_A>;
+			l16_cam_afo_r1_a   = <M4U_PORT_L16_CAM_AFO_R1_A>;
+			l16_cam_flko_r1_a  = <M4U_PORT_L16_CAM_FLKO_R1_A>;
+			l16_cam_lceso_r1_a = <M4U_PORT_L16_CAM_LCESO_R1_A>;
+			l16_cam_crzo_r1_a  = <M4U_PORT_L16_CAM_CRZO_R1_A>;
+			l16_cam_ltmso_r1_a = <M4U_PORT_L16_CAM_LTMSO_R1_A>;
+			l16_cam_rsso_r1_a  = <M4U_PORT_L16_CAM_RSSO_R1_A>;
+			l16_cam_aaho_r1_a  = <M4U_PORT_L16_CAM_AAHO_R1_A>;
+			l16_cam_lsci_r1_a  = <M4U_PORT_L16_CAM_LSCI_R1_A>;
+
+			l17_cam_imgo_r1_b  = <M4U_PORT_L17_CAM_IMGO_R1_B>;
+			l17_cam_rrzo_r1_b  = <M4U_PORT_L17_CAM_RRZO_R1_B>;
+			l17_cam_cqi_r1_b   = <M4U_PORT_L17_CAM_CQI_R1_B>;
+			l17_cam_bpci_r1_b  = <M4U_PORT_L17_CAM_BPCI_R1_B>;
+			l17_cam_yuvo_r1_b  = <M4U_PORT_L17_CAM_YUVO_R1_B>;
+			l17_cam_ufdi_r2_b  = <M4U_PORT_L17_CAM_UFDI_R2_B>;
+			l17_cam_rawi_r2_b  = <M4U_PORT_L17_CAM_RAWI_R2_B>;
+			l17_cam_rawi_r3_b  = <M4U_PORT_L17_CAM_RAWI_R3_B>;
+			l17_cam_aao_r1_b   = <M4U_PORT_L17_CAM_AAO_R1_B>;
+			l17_cam_afo_r1_b   = <M4U_PORT_L17_CAM_AFO_R1_B>;
+			l17_cam_flko_r1_b  = <M4U_PORT_L17_CAM_FLKO_R1_B>;
+			l17_cam_lceso_r1_b = <M4U_PORT_L17_CAM_LCESO_R1_B>;
+			l17_cam_crzo_r1_b  = <M4U_PORT_L17_CAM_CRZO_R1_B>;
+			l17_cam_ltmso_r1_b = <M4U_PORT_L17_CAM_LTMSO_R1_B>;
+			l17_cam_rsso_r1_b  = <M4U_PORT_L17_CAM_RSSO_R1_B>;
+			l17_cam_aaho_r1_b  = <M4U_PORT_L17_CAM_AAHO_R1_B>;
+			l17_cam_lsci_r1_b  = <M4U_PORT_L17_CAM_LSCI_R1_B>;
+		};
+
+		cam_mem {
+			compatible = "mediatek,cam_mem";
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+
+			iommus = /* imgsys_config, msf_b and wpe */
+				<&iommu0 M4U_PORT_L9_IMG_IMGI_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_IMGBI_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_DMGI_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_DEPI_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_ICE_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_SMTI_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_SMTO_D2>,
+				<&iommu0 M4U_PORT_L9_IMG_SMTO_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_CRZO_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_IMG3O_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_VIPI_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_SMTI_D5>,
+				<&iommu0 M4U_PORT_L9_IMG_TIMGO_D1>,
+				<&iommu0 M4U_PORT_L9_IMG_UFBC_W0>,
+				<&iommu0 M4U_PORT_L9_IMG_UFBC_R0>,
+				<&iommu0 M4U_PORT_L9_IMG_WPE_RDMA1>,
+				<&iommu0 M4U_PORT_L9_IMG_WPE_RDMA0>,
+				<&iommu0 M4U_PORT_L9_IMG_WPE_WDMA>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_RDMA0>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_RDMA1>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_RDMA2>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_RDMA3>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_RDMA4>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_RDMA5>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_WDMA0>,
+				<&iommu0 M4U_PORT_L9_IMG_MFB_WDMA1>,
+
+				<&iommu0 M4U_PORT_L11_IMG_IMGI_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_IMGBI_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_DMGI_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_DEPI_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_ICE_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTI_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTO_D2>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTO_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_CRZO_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_IMG3O_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_VIPI_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_SMTI_D5>,
+				<&iommu0 M4U_PORT_L11_IMG_TIMGO_D1>,
+				<&iommu0 M4U_PORT_L11_IMG_UFBC_W0>,
+				<&iommu0 M4U_PORT_L11_IMG_UFBC_R0>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA1>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_RDMA0>,
+				<&iommu0 M4U_PORT_L11_IMG_WPE_WDMA>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA0>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA1>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA2>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA3>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA4>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA5>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0>,
+				<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1>,
+
+				/* mraw */
+				<&iommu0 M4U_PORT_L13_CAM_MRAWI>,
+				<&iommu0 M4U_PORT_L13_CAM_MRAWO0>,
+				<&iommu0 M4U_PORT_L13_CAM_MRAWO1>,
+
+				/* camsv */
+				<&iommu0 M4U_PORT_L13_CAM_CAMSV4>,
+				<&iommu0 M4U_PORT_L13_CAM_CAMSV5>,
+				<&iommu0 M4U_PORT_L13_CAM_CAMSV6>,
+
+				/* isp p1 */
+				<&iommu0 M4U_PORT_L16_CAM_IMGO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_RRZO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_CQI_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_BPCI_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_YUVO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_UFDI_R2_A>,
+				<&iommu0 M4U_PORT_L16_CAM_RAWI_R2_A>,
+				<&iommu0 M4U_PORT_L16_CAM_RAWI_R3_A>,
+				<&iommu0 M4U_PORT_L16_CAM_AAO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_AFO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_FLKO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_LCESO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_CRZO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_LTMSO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_RSSO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_AAHO_R1_A>,
+				<&iommu0 M4U_PORT_L16_CAM_LSCI_R1_A>,
+
+				<&iommu0 M4U_PORT_L17_CAM_IMGO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_RRZO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_CQI_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_BPCI_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_YUVO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_UFDI_R2_B>,
+				<&iommu0 M4U_PORT_L17_CAM_RAWI_R2_B>,
+				<&iommu0 M4U_PORT_L17_CAM_RAWI_R3_B>,
+				<&iommu0 M4U_PORT_L17_CAM_AAO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_AFO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_FLKO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_LCESO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_CRZO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_LTMSO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_RSSO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_AAHO_R1_B>,
+				<&iommu0 M4U_PORT_L17_CAM_LSCI_R1_B>;
+		};
+
+		camisp_legacy: camisp_legacy@1a000000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camisp_legacy";
+			reg = <0 0x1a000000 0 0x10000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM>;
+			mediatek,larbs = <&smi_larb13 &smi_larb14>;
+			mediatek,platform = "mt6833";
+
+			#clock-cells = <1>;
+			/* Camera CCF */
+			clocks = <&camsys_main_clk CLK_CAM_M_CAM>,
+				 <&camsys_main_clk CLK_CAM_M_CAMTG>,
+				 <&camsys_main_clk CLK_CAM_M_CAMSV1>,
+				 <&camsys_main_clk CLK_CAM_M_CAMSV2>,
+				 <&camsys_main_clk CLK_CAM_M_CAMSV3>,
+				 <&camsys_main_clk CLK_CAM_M_LARB13>,
+				 <&camsys_main_clk CLK_CAM_M_LARB14>,
+				 <&camsys_main_clk CLK_CAM_M_SENINF>,
+				 <&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
+				 <&camsys_rawa_clk CLK_CAM_RA_LARBX>,
+				 <&camsys_rawa_clk CLK_CAM_RA_CAM>,
+				 <&camsys_rawa_clk CLK_CAM_RA_CAMTG>,
+				 <&camsys_rawb_clk CLK_CAM_RB_LARBX>,
+				 <&camsys_rawb_clk CLK_CAM_RB_CAM>,
+				 <&camsys_rawb_clk CLK_CAM_RB_CAMTG>,
+				 <&topckgen_clk CLK_TOP_CAMTM_SEL>;
+			clock-names = "CAMSYS_CAM_CGPDN",
+				      "CAMSYS_CAMTG_CGPDN",
+				      "CAMSYS_CAMSV1_CGPDN",
+				      "CAMSYS_CAMSV2_CGPDN",
+				      "CAMSYS_CAMSV3_CGPDN",
+				      "CAMSYS_LARB13_CGPDN",
+				      "CAMSYS_LARB14_CGPDN",
+				      "CAMSYS_SENINF_CGPDN",
+				      "CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
+				      "CAMSYS_RAWALARB16_CGPDN",
+				      "CAMSYS_RAWACAM_CGPDN",
+				      "CAMSYS_RAWATG_CGPDN",
+				      "CAMSYS_RAWBLARB17_CGPDN",
+				      "CAMSYS_RAWBCAM_CGPDN",
+				      "CAMSYS_RAWBTG_CGPDN",
+				      "TOPCKGEN_TOP_MUX_CAMTM";
+		};
+
+		cam1_legacy: cam1_legacy@1a030000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,cam1_legacy";
+			reg = <0 0x1a030000 0 0x8000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM_RAWA>;
+			mediatek,larb = <&smi_larb16>;
+		};
+
+		cam1_inner_legacy@1a038000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,cam1_inner_legacy";
+			reg = <0 0x1a038000 0 0x8000>;
+		};
+
+		camsys_rawa_legacy: camsys_rawa_legacy@1a04f000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsys_rawa_legacy";
+			reg = <0 0x1a04f000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		cam2_legacy: cam2_legacy@1a050000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,cam2_legacy";
+			reg = <0 0x1a050000 0 0x8000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM_RAWB>;
+			mediatek,larb = <&smi_larb17>;
+		};
+
+		cam2_inner_legacy@1a058000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,cam2_inner_legacy";
+			reg = <0 0x1a058000 0 0x8000>;
+		};
+
+		camsys_rawb_legacy: camsys_rawb_legacy@1a06f000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsys_rawb_legacy";
+			reg = <0 0x1a06f000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		/* Dummy */
+		cam3_legacy: cam3_legacy@1a070000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,cam3_legacy";
+			reg = <0 0x1a070000 0 0x8000>;
+		};
+
+		/* Dummy */
+		cam3_inner_legacy@1a078000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,cam3_inner_legacy";
+			reg = <0 0x1a078000 0 0x8000>;
+		};
+
+		/* Dummy */
+		camsys_rawc_legacy: camsys_rawc_legacy@1a08f000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsys_rawc_legacy";
+			reg = <0 0x1a08f000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		camsv2_legacy: camsv2_legacy@1a092000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsv2_legacy";
+			reg = <0 0x1a092000 0 0x1000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		camsv3_legacy: camsv3_legacy@1a093000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsv3_legacy";
+			reg = <0 0x1a093000 0 0x1000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		camsv4_legacy: camsv4_legacy@1a094000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsv4_legacy";
+			reg = <0 0x1a094000 0 0x1000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		camsv5_legacy: camsv5_legacy@1a095000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsv5_legacy";
+			reg = <0 0x1a095000 0 0x1000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		camsv6_legacy: camsv6_legacy@1a096000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsv6_legacy";
+			reg = <0 0x1a096000 0 0x1000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		camsv7_legacy: camsv7_legacy@1a097000 {
+			/* non-v4l2 legacy camera */
+			compatible = "mediatek,camsv7_legacy";
+			reg = <0 0x1a097000 0 0x1000>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			interrupts = <GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
 
 	subpmic_pmu_eint:subpmic_pmu_eint {
 	};
