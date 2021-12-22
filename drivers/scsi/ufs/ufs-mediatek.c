@@ -2166,10 +2166,9 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 
-	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON) {
+	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON)
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
-		dev_info->hpb_enabled = false;
-	}
+
 
 	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
 		/*
