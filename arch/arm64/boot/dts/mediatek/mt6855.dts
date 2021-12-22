@@ -22,7 +22,6 @@
 #include <dt-bindings/power/mt6375-gauge.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
-
 / {
 	model = "MT6855";
 	compatible = "mediatek,MT6855";
@@ -3581,6 +3580,68 @@
 			clock-names =
 				"CORE_MT_CG_VDEC0";
 			mediatek,clock-parents = <4 3>;
+			operating-points-v2 = <&opp_table_vdec>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects = <&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT0)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT1)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT2)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT3)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT4)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT5)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT6)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT7)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT8)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT9)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT10)
+						&mmqos SLAVE_COMMON(0)>,
+					<&mmqos SLAVE_LARB(4) &mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "path_vdec_mc", "path_vdec_ufo",
+						"path_vdec_pp", "path_vdec_pred_rd",
+						"path_vdec_pred_wr", "path_vdec_ppwrap",
+						"path_vdec_tile", "path_vdec_vld",
+						"path_vdec_vld2", "path_vdec_avc_mv",
+						"path_vdec_ufo_c",
+						"path_larb4";
+			interconnect-num = <12>;
+			throughput-op-rate-thresh = <120>;
+			throughput-min = <218000000>;
+			throughput-normal-max = <416000000>;
+			throughput-table =
+				<877088845 0 417 417>, /* MPEG4 */
+				<826757197 0 417 417>, /* MPEG1 */
+				<843534413 0 417 417>, /* MPEG2 */
+				<859189832 0 417 417>, /* H.263 */
+				<875967048 0 722 722>, /* H.264 */
+				<826496577 0 722 722>, /* H.264 */
+				<1129727304 0 722 722>, /* HEVC */
+				<892744264 0 722 722>, /* H.265 */
+				<1179206984 0 722 722>, /* HEIF */
+				<808996950 0 417 417>, /* VP8 */
+				<809062486 0 722 722>, /* VP9 */
+				<808539713 0 722 722>; /* AV1 */
+			bandwidth-table =
+				<3 1100>,
+				<3 144>,
+				<2 550>,
+				<5 10>,
+				<5 10>,
+				<5 0>,
+				<5 0>,
+				<0 26>,
+				<0 26>,
+				<5 26>,
+				<5 20>,
+				<6 4>;
 		};
 
 		venc@17000000 {
@@ -3614,6 +3675,69 @@
 			clocks = <&venc_gcon_clk CLK_VEN1_CKE1_VENC>;
 			clock-names =
 				"MT_CG_VENC0";
+			operating-points-v2 = <&opp_table_venc>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		interconnects = <&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT0)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT2)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT3)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT4)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT5)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT6)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT7)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB7_PORT8)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos SLAVE_LARB(7) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "path_venc_rcpu", "path_venc_rec",
+				"path_venc_bsdma",
+				"path_venc_sv_comv", "path_venc_rd_comv",
+				"path_venc_cur_luma",
+				"path_venc_cur_chroma", "venc_ref_luma",
+				"path_venc_ref_chroma", "path_larb7";
+		interconnect-num = <10>;
+		throughput-op-rate-thresh = <120>;
+		throughput-min = <250000000>;
+		throughput-normal-max = <458000000>;
+		throughput-config-offset = <2>;
+		throughput-table =
+			<875967048 4 860 1415>, /* H.264 */
+			<875967048 5 766 1151>,
+			<875967048 12 413 512>,
+			<1129727304 2 2484 3703>, /* HEVC low power*/
+			<1129727304 4 1780 2889>,
+			<1129727304 9 1314 1595>,
+			<1179206984 2 2484 3703>, /* HEIF */
+			<1179206984 4 1780 2889>,
+			<1179206984 9 1314 1595>;
+		config-table =
+			<875967048 243000 4 4>, /* H.264 */
+			<875967048 486000 5 5>,
+			<875967048 972000 12 12>,
+			<1129727304 243000 2 0>, /* HEVC*/
+			<1129727304 486000 4 1>,
+			<1129727304 972000 9 7>,
+			<1179206984 243000 2 0>, /* HEIF */
+			<1179206984 486000 4 1>,
+			<1179206984 972000 9 7>;
+		bandwidth-table =
+			<4 10>,
+			<3 291>,
+			<0 20>,
+			<5 4>,
+			<5 16>,
+			<1 194>,
+			<2 97>,
+			<1 776>,
+			<2 388>,
+			<6 7>;
 		};
 
 		jpgenc@17030000 {
