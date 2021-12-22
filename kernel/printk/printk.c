@@ -445,6 +445,10 @@ static struct __conwrite_stat_struct conwrite_stat_struct = {
 unsigned long rem_nsec_con_write_ttyS;
 bool console_status_detected;
 
+unsigned long long printk_irq_t0;
+unsigned long long printk_irq_t1;
+int wake_up_type;
+
 void set_printk_uart_status(int value)
 {
 	printk_uart_status = value;
@@ -2117,6 +2121,15 @@ asmlinkage int vprintk_emit(int facility, int level,
 	bool in_sched = false;
 	unsigned long flags;
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	unsigned long long t0;
+	unsigned long long t1;
+	unsigned long long t2;
+	bool thread_status = in_task();
+
+	if (!thread_status)
+		t0 = local_clock();
+#endif
 	/* Suppress unimportant messages after panic happens */
 	if (unlikely(suppress_printk))
 		return 0;
@@ -2131,8 +2144,22 @@ asmlinkage int vprintk_emit(int facility, int level,
 
 	/* This stops the holder of console_sem just where we want him */
 	logbuf_lock_irqsave(flags);
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	if (!thread_status)
+		t1 = local_clock();
+#endif
 	printed_len = vprintk_store(facility, level, dev_info, fmt, args);
 	logbuf_unlock_irqrestore(flags);
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	if (!thread_status) {
+		t2 = local_clock();
+		if (t2 - t0 > 1000000) {
+			printk_irq_t0 = t1 - t0;
+			printk_irq_t1 = t2 - t1;
+			wake_up_type = 0x04;
+		}
+	}
+#endif
 
 	/* If called from the scheduler, we can not call up(). */
 	if (!in_sched) {
@@ -3195,10 +3222,6 @@ late_initcall(printk_late_init);
 static DEFINE_PER_CPU(int, printk_pending);
 
 #ifdef CONFIG_MTK_PRINTK_DEBUG
-unsigned long long printk_irq_t0;
-unsigned long long printk_irq_t1;
-int wake_up_type;
-
 int get_printk_wake_up_time(unsigned long long *t0, unsigned long long *t1)
 {
 	*t0 = printk_irq_t0;
