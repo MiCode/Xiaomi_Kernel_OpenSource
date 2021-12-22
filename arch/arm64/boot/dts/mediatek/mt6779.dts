@@ -786,6 +786,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 		infracfg_ao: clock-reset-controller@10001000 {
 			compatible = "mediatek,common-infracfg_ao",
+				     "mediatek,infracfg_ao",
 				     "mediatek,mt6779-infracfg_ao", "syscon", "simple-mfd";
 			reg = <0 0x10001000 0 0x1000>;
 			#clock-cells = <1>;
