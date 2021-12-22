@@ -3071,10 +3071,6 @@ __EXIT_FUN:
 		txq->drb_rd_idx, txq->drb_rel_rd_idx);
 #endif
 	atomic_set(&txq->tx_processing, 0);
-	if (ret == HW_REG_CHK_FAIL)
-		ccci_md_force_assert(dpmaif_ctrl->md_id,
-			MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED,
-			"TX", 3);
 	return ret;
 }
 

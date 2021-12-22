@@ -155,12 +155,12 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 		/* 1. Copy tag */
 		memcpy_fromio(&tag, curr, sizeof(union u_tag));
 		if (s_g_lk_info_tag_version >= CCCI_LK_INFO_VER_V2) {
-			snprintf(tag_name, 64, "%s", tag.v2.tag_name);
+			scnprintf(tag_name, 64, "%s", tag.v2.tag_name);
 			data_offset = tag.v2.data_offset;
 			data_size = tag.v2.data_size;
 			next_tag_offset = tag.v2.next_tag_offset;
 		} else {
-			snprintf(tag_name, 64, "%s", tag.v1.tag_name);
+			scnprintf(tag_name, 64, "%s", tag.v1.tag_name);
 			data_offset = tag.v1.data_offset;
 			data_size = tag.v1.data_size;
 			next_tag_offset = tag.v1.next_tag_offset;
@@ -1021,7 +1021,7 @@ static void dump_retrieve_info(void)
 	CCCI_UTIL_INF_MSG("retrieve number is %d.\n", retrieve_num);
 
 	for (i = 0; i < retrieve_num; i++) {
-		snprintf(buf, 32, "retrieve%d", i);
+		scnprintf(buf, 32, "retrieve%d", i);
 		if (find_ccci_tag_inf(buf,
 				(char *)&array, sizeof(array))) {
 			CCCI_UTIL_INF_MSG(
@@ -1568,7 +1568,7 @@ static void cal_md_settings_v2(struct device_node *node)
 
 	/* MD*_SMEM_SIZE */
 	for (i = 0; i < MAX_MD_NUM_AT_LK; i++) {
-		snprintf(tmp_buf, 30, "mediatek,md%d-smem-size", i+1);
+		scnprintf(tmp_buf, 30, "mediatek,md%d-smem-size", i+1);
 		if (!of_property_read_u32(node, tmp_buf, &tmp)) {
 			CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);
 			md_resv_smem_size[MD_SYS1+i] = tmp;
@@ -1578,7 +1578,7 @@ static void cal_md_settings_v2(struct device_node *node)
 	}
 
 	/* MD1MD3_SMEM_SIZE*/
-	snprintf(tmp_buf, 30, "mediatek,md1md3-smem-size");
+	scnprintf(tmp_buf, 30, "mediatek,md1md3-smem-size");
 	if (!of_property_read_u32(node, tmp_buf, &tmp)) {
 		CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);
 		md1md3_resv_smem_size = tmp;
@@ -1587,7 +1587,7 @@ static void cal_md_settings_v2(struct device_node *node)
 			tmp_buf, md1md3_resv_smem_size);
 
 	/* CFG version */
-	snprintf(tmp_buf, 30, "mediatek,version");
+	scnprintf(tmp_buf, 30, "mediatek,version");
 	tmp = 0;
 	of_property_read_u32(node, tmp_buf, &tmp);
 	CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);

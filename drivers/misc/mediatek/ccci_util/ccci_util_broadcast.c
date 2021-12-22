@@ -153,9 +153,9 @@ static void save_last_md_status(int md_id,
 	last_md_status[md_id].event_type = event_type;
 
 	if (reason != NULL)
-		snprintf(last_md_status[md_id].reason, 32, "%s", reason);
+		scnprintf(last_md_status[md_id].reason, 32, "%s", reason);
 	else
-		snprintf(last_md_status[md_id].reason, 32, "%s", "----");
+		scnprintf(last_md_status[md_id].reason, 32, "%s", "----");
 }
 
 static void send_last_md_status_to_user(int md_id,
