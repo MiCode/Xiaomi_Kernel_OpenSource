@@ -2509,7 +2509,8 @@ page_owner=on loop.max_part=7";
 				  <1 0x4E300>, /* vow */
 			      <2 0x100000>, /* sensor */
 			      <3 0x180000>, /* logger */
-			      <4 0x19000>; /* audio */
+			      <4 0x19000>, /* audio */
+			      <7 0x19000>; /* ultrasound*/
 
 		memorydump =
 		<0x100000>, /* l2tcm */
