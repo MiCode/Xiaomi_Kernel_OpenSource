@@ -2016,6 +2016,13 @@
 			#size-cells = <0>;
 		};
 
+		spmi_pmif_mpu: spmi_pmif_mpu@1c804900 {
+			compatible = "mediatek,mt6895-spmi_pmif_mpu";
+			reg = <0 0x1c804900 0 0x000500>;
+			reg-names = "pmif_mpu";
+			mediatek,pmic_all_rgn_en = <0x60400>;
+		};
+
 		sleep@10006000 {
 			compatible = "mediatek,sleep";
 			reg = <0 0x10006000 0 0x1000>;
