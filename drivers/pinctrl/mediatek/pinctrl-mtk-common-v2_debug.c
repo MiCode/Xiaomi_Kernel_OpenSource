@@ -77,7 +77,7 @@ int gpio_get_tristate_input(unsigned int pin)
 		return -EINVAL;
 	}
 
-	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin - hw->chip.base];
+	desc = (const struct mtk_pin_desc *)&hw->soc->pins[pin];
 	ret = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_MODE, &val);
 	if (ret)
 		return ret;
@@ -93,7 +93,7 @@ int gpio_get_tristate_input(unsigned int pin)
 	if (pullen == 0 ||  pullen == MTK_PUPD_SET_R1R0_00) {
 		pr_notice(FUN_3STATE ":GPIO%d not pullen, skip floating test\n",
 			pin);
-		return gpio_get_value(pin);
+		return gpio_get_value(pin+hw->chip.base);
 	}
 	if (pullen > MTK_PUPD_SET_R1R0_00)
 		pull_type = 1;
@@ -107,7 +107,7 @@ int gpio_get_tristate_input(unsigned int pin)
 	if (ret)
 		goto out;
 	mdelay(PULL_DELAY);
-	val_up = gpio_get_value(pin);
+	val_up = gpio_get_value(pin+hw->chip.base);
 	pr_notice(FUN_3STATE ":GPIO%d input %d\n", pin, val_up);
 
 	/* set pullsel as pull-down and get input value */
@@ -117,7 +117,7 @@ int gpio_get_tristate_input(unsigned int pin)
 	if (ret)
 		goto out;
 	mdelay(PULL_DELAY);
-	val_down = gpio_get_value(pin);
+	val_down = gpio_get_value(pin+hw->chip.base);
 	pr_notice(FUN_3STATE ":GPIO%d input %d\n", pin, val_down);
 
 	if (val_up && val_down)
