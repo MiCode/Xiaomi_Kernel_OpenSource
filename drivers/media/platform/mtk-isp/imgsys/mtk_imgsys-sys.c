@@ -1819,7 +1819,7 @@ static int mtk_imgsys_hw_flush_pipe_jobs(struct mtk_imgsys_pipe *pipe)
 		frame_no = req->img_fparam.frameparam.frame_no;
 		mtk_imgsys_pipe_job_finish(req, VB2_BUF_STATE_ERROR);
 
-		dev_dbg(pipe->imgsys_dev->dev,
+		dev_info(pipe->imgsys_dev->dev,
 			"%s:%s: not run job, id(%d), no(%d), state(%d), job cnt(%d)\n",
 			__func__, pipe->desc->name, req_id,
 			frame_no,
