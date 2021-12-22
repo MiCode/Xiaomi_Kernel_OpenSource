@@ -121,6 +121,7 @@ struct system_data {
 	const char *name;
 	u32 smem_item;
 	u32 pid;
+	bool not_present;
 };
 
 static struct system_data subsystem_stats[] = {
@@ -221,6 +222,9 @@ bool has_subsystem_slept(void)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(subsystem_stats); i++) {
+		if (subsystem_stats[i].not_present)
+			continue;
+
 		if ((b_subsystem_stats[i].count == a_subsystem_stats[i].count) &&
 			(a_subsystem_stats[i].last_exited_at >
 				a_subsystem_stats[i].last_entered_at)) {
@@ -507,15 +511,21 @@ static int subsystem_stats_remove(struct platform_device *pdev)
 static int subsytem_stats_suspend(struct device *dev)
 {
 	struct sleep_stats_data *stats_data = dev_get_drvdata(dev);
+	int ret;
 	int i;
 
 	if (!subsystem_stats_debug_on)
 		return 0;
 
 	mutex_lock(&sleep_stats_mutex);
-	for (i = 0; i < ARRAY_SIZE(subsystem_stats); i++)
-		subsystem_sleep_stats(stats_data, b_subsystem_stats,
+	for (i = 0; i < ARRAY_SIZE(subsystem_stats); i++) {
+		ret = subsystem_sleep_stats(stats_data, b_subsystem_stats,
 					subsystem_stats[i].pid, subsystem_stats[i].smem_item);
+		if (ret == -ENODEV)
+			subsystem_stats[i].not_present = true;
+		else
+			subsystem_stats[i].not_present = false;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(system_stats); i++)
 		subsystem_sleep_stats(stats_data, b_system_stats,
