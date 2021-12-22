@@ -703,13 +703,12 @@ int reset_vcp(int reset)
 	return 0;
 }
 
-void vcp_wait_ready_sync(enum feature_id id)
+uint32_t vcp_wait_ready_sync(enum feature_id id)
 {
 	int i = 0;
 	int j = 0;
 
 	while (!is_vcp_ready(VCP_A_ID)) {
-		pr_info("[VCP] wait ready id %d\n", id);
 		i += 5;
 		mdelay(5);
 		if (i > VCP_SYNC_TIMEOUT_MS) {
@@ -722,6 +721,8 @@ void vcp_wait_ready_sync(enum feature_id id)
 			break;
 		}
 	}
+
+	return i;
 }
 
 extern unsigned int mt_get_fmeter_freq(unsigned int id, enum FMETER_TYPE type);
@@ -739,15 +740,15 @@ void vcp_enable_pm_clk(enum feature_id id)
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (pwclkcnt == 0) {
-		ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
-		if (ret)
-			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
-		ret = clk_prepare_enable(vcpsel);
-		if (ret)
-			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 		ret = clk_prepare_enable(vcp26m);
 		if (ret)
 			pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+		ret = clk_prepare_enable(vcpsel);
+		if (ret)
+			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+		ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
+		if (ret)
+			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
 
 		vcp_enable_dapc();
 		vcp_enable_irqs();
@@ -767,6 +768,7 @@ void vcp_disable_pm_clk(enum feature_id id)
 {
 	int ret = 0;
 	int i = 0;
+	uint32_t waitCnt = 0;
 
 	if (!vcp_support)
 		return;
@@ -781,7 +783,7 @@ void vcp_disable_pm_clk(enum feature_id id)
 		pwclkcnt, is_vcp_ready(VCP_A_ID));
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
-		vcp_wait_ready_sync(id);
+		waitCnt = vcp_wait_ready_sync(id);
 		vcp_disable_irqs();
 
 		/* trigger halt isr, force vcp enter wfi */
@@ -796,18 +798,18 @@ void vcp_disable_pm_clk(enum feature_id id)
 #if VCP_RECOVERY_SUPPORT
 		flush_workqueue(vcp_reset_workqueue);
 #endif
-		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x\n", VCP_BUS_DEBUG_OUT,
-			readl(VCP_BUS_DEBUG_OUT));
+		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x, waitCnt=%u\n", VCP_BUS_DEBUG_OUT,
+			readl(VCP_BUS_DEBUG_OUT), waitCnt);
 		vcp_ready[VCP_A_ID] = 0;
 #if VCP_BOOT_TIME_OUT_MONITOR
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
 		vcp_disable_dapc();
-		clk_disable_unprepare(vcpsel);
-		clk_disable_unprepare(vcp26m);
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
+		clk_disable_unprepare(vcpsel);
+		clk_disable_unprepare(vcp26m);
 	}
 	if (pwclkcnt < 0) {
 		for (i = 0; i < NUM_FEATURE_ID; i++)
@@ -823,14 +825,15 @@ EXPORT_SYMBOL_GPL(vcp_disable_pm_clk);
 static int vcp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
-	int retval;
+	int retval = 0;
+	uint32_t waitCnt = 0;
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		mutex_lock(&vcp_pw_clk_mutex);
 		pr_debug("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
-			vcp_wait_ready_sync(RTOS_FEATURE_ID);
+			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
 
 			/* trigger halt isr, force vcp enter wfi */
@@ -850,11 +853,11 @@ static int vcp_pm_event(struct notifier_block *notifier
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
 			vcp_disable_dapc();
-			clk_disable_unprepare(vcpsel);
-			clk_disable_unprepare(vcp26m);
 			retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
+			clk_disable_unprepare(vcpsel);
+			clk_disable_unprepare(vcp26m);
 		}
 		is_suspending = true;
 		mutex_unlock(&vcp_pw_clk_mutex);
@@ -862,28 +865,28 @@ static int vcp_pm_event(struct notifier_block *notifier
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
 		// 0, 0, 0, 0, 0, 0, &res);
-		pr_debug("[VCP] PM_SUSPEND_PREPARE ok\n");
+		pr_debug("[VCP] PM_SUSPEND_PREPARE ok, waitCnt=%u\n", waitCnt);
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
 		mutex_lock(&vcp_pw_clk_mutex);
 		if (is_suspending && pwclkcnt) {
-			retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
-			if (retval)
-				pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
-			retval = clk_prepare_enable(vcpsel);
-			if (retval)
-				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 			retval = clk_prepare_enable(vcp26m);
 			if (retval)
 				pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+			retval = clk_prepare_enable(vcpsel);
+			if (retval)
+				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+			retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
+			if (retval)
+				pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
 
 			vcp_enable_dapc();
 			vcp_enable_irqs();
 #if VCP_RECOVERY_SUPPORT
 			cpuidle_pause_and_lock();
 			reset_vcp(VCP_ALL_ENABLE);
-			vcp_wait_ready_sync(RTOS_FEATURE_ID);
+			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			cpuidle_resume_and_unlock();
 #endif
 		}
@@ -893,7 +896,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
 		// 0, 0, 0, 0, 0, 0, &res);
-		pr_debug("[VCP] PM_POST_SUSPEND ok\n");
+		pr_debug("[VCP] PM_POST_SUSPEND ok, waitCnt=%u\n", waitCnt);
 
 		return NOTIFY_OK;
 	case PM_POST_HIBERNATION:
