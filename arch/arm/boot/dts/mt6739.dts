@@ -296,6 +296,12 @@
 		clock-frequency = <26000000>;
 	};
 
+	clk13m: clk13m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <13000000>;
+		};
+
 	topckgen: topckgen@10000000 {
 		compatible = "mediatek,topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>,
@@ -610,6 +616,7 @@
 			"sysram_base";
 		interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
 		mediatek,sysram-size = <0x14>;
+		clocks = <&clk13m>;
 	};
 
 	modem_temp_share@10018000 {
