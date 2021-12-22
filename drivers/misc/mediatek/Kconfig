@@ -337,6 +337,7 @@ source "drivers/misc/mediatek/audio_ipi/Kconfig"
 source "drivers/misc/mediatek/adsp/Kconfig"
 source "drivers/misc/mediatek/uart/Kconfig"
 source "drivers/misc/mediatek/accdet/Kconfig"
+source "drivers/misc/mediatek/auxadc/Kconfig"
 source "drivers/misc/mediatek/rtc/Kconfig"
 endmenu # Other Peripheral
 

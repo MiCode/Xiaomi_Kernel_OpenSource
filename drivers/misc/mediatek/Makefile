@@ -23,6 +23,7 @@ endif
 
 obj-$(CONFIG_MTK_RTC)	+= rtc/
 obj-$(CONFIG_MTK_ACCDET) += accdet/
+obj-$(CONFIG_MTK_AUXADC) += auxadc/
 obj-$(CONFIG_MTK_PMIC_NEW_ARCH)	+= pmic/
 obj-$(CONFIG_MTK_PMIC_WRAP_HAL) += pmic_wrap/
 obj-y += devinfo/
