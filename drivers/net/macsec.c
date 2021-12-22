@@ -11,16 +11,18 @@
 #include <linux/module.h>
 #include <crypto/aead.h>
 #include <linux/etherdevice.h>
+#include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/refcount.h>
 #include <net/genetlink.h>
 #include <net/sock.h>
 #include <net/gro_cells.h>
+#include <net/macsec.h>
 #include <linux/if_arp.h>
+#include <linux/phy.h>
+#include <linux/byteorder/generic.h>
 
 #include <uapi/linux/if_macsec.h>
-
-typedef u64 __bitwise sci_t;
 
 #define MACSEC_SCI_LEN 8
 
@@ -59,8 +61,6 @@ struct macsec_eth_header {
 #define GCM_AES_IV_LEN 12
 #define DEFAULT_ICV_LEN 16
 
-#define MACSEC_NUM_AN 4 /* 2 bits for the association number */
-
 #define for_each_rxsc(secy, sc)				\
 	for (sc = rcu_dereference_bh(secy->rx_sc);	\
 	     sc;					\
@@ -70,55 +70,22 @@ struct macsec_eth_header {
 	     sc;					\
 	     sc = rtnl_dereference(sc->next))
 
+#define pn_same_half(pn1, pn2) (!(((pn1) >> 31) ^ ((pn2) >> 31)))
+
+struct gcm_iv_xpn {
+	union {
+		u8 short_secure_channel_id[4];
+		ssci_t ssci;
+	};
+	__be64 pn;
+} __packed;
+
 struct gcm_iv {
 	union {
 		u8 secure_channel_id[8];
 		sci_t sci;
 	};
 	__be32 pn;
-};
-
-/**
- * struct macsec_key - SA key
- * @id: user-provided key identifier
- * @tfm: crypto struct, key storage
- */
-struct macsec_key {
-	u8 id[MACSEC_KEYID_LEN];
-	struct crypto_aead *tfm;
-};
-
-struct macsec_rx_sc_stats {
-	__u64 InOctetsValidated;
-	__u64 InOctetsDecrypted;
-	__u64 InPktsUnchecked;
-	__u64 InPktsDelayed;
-	__u64 InPktsOK;
-	__u64 InPktsInvalid;
-	__u64 InPktsLate;
-	__u64 InPktsNotValid;
-	__u64 InPktsNotUsingSA;
-	__u64 InPktsUnusedSA;
-};
-
-struct macsec_rx_sa_stats {
-	__u32 InPktsOK;
-	__u32 InPktsInvalid;
-	__u32 InPktsNotValid;
-	__u32 InPktsNotUsingSA;
-	__u32 InPktsUnusedSA;
-};
-
-struct macsec_tx_sa_stats {
-	__u32 OutPktsProtected;
-	__u32 OutPktsEncrypted;
-};
-
-struct macsec_tx_sc_stats {
-	__u64 OutPktsProtected;
-	__u64 OutPktsEncrypted;
-	__u64 OutOctetsProtected;
-	__u64 OutOctetsEncrypted;
 };
 
 struct macsec_dev_stats {
@@ -132,123 +99,7 @@ struct macsec_dev_stats {
 	__u64 InPktsOverrun;
 };
 
-/**
- * struct macsec_rx_sa - receive secure association
- * @active:
- * @next_pn: packet number expected for the next packet
- * @lock: protects next_pn manipulations
- * @key: key structure
- * @stats: per-SA stats
- */
-struct macsec_rx_sa {
-	struct macsec_key key;
-	spinlock_t lock;
-	u32 next_pn;
-	refcount_t refcnt;
-	bool active;
-	struct macsec_rx_sa_stats __percpu *stats;
-	struct macsec_rx_sc *sc;
-	struct rcu_head rcu;
-};
-
-struct pcpu_rx_sc_stats {
-	struct macsec_rx_sc_stats stats;
-	struct u64_stats_sync syncp;
-};
-
-/**
- * struct macsec_rx_sc - receive secure channel
- * @sci: secure channel identifier for this SC
- * @active: channel is active
- * @sa: array of secure associations
- * @stats: per-SC stats
- */
-struct macsec_rx_sc {
-	struct macsec_rx_sc __rcu *next;
-	sci_t sci;
-	bool active;
-	struct macsec_rx_sa __rcu *sa[MACSEC_NUM_AN];
-	struct pcpu_rx_sc_stats __percpu *stats;
-	refcount_t refcnt;
-	struct rcu_head rcu_head;
-};
-
-/**
- * struct macsec_tx_sa - transmit secure association
- * @active:
- * @next_pn: packet number to use for the next packet
- * @lock: protects next_pn manipulations
- * @key: key structure
- * @stats: per-SA stats
- */
-struct macsec_tx_sa {
-	struct macsec_key key;
-	spinlock_t lock;
-	u32 next_pn;
-	refcount_t refcnt;
-	bool active;
-	struct macsec_tx_sa_stats __percpu *stats;
-	struct rcu_head rcu;
-};
-
-struct pcpu_tx_sc_stats {
-	struct macsec_tx_sc_stats stats;
-	struct u64_stats_sync syncp;
-};
-
-/**
- * struct macsec_tx_sc - transmit secure channel
- * @active:
- * @encoding_sa: association number of the SA currently in use
- * @encrypt: encrypt packets on transmit, or authenticate only
- * @send_sci: always include the SCI in the SecTAG
- * @end_station:
- * @scb: single copy broadcast flag
- * @sa: array of secure associations
- * @stats: stats for this TXSC
- */
-struct macsec_tx_sc {
-	bool active;
-	u8 encoding_sa;
-	bool encrypt;
-	bool send_sci;
-	bool end_station;
-	bool scb;
-	struct macsec_tx_sa __rcu *sa[MACSEC_NUM_AN];
-	struct pcpu_tx_sc_stats __percpu *stats;
-};
-
 #define MACSEC_VALIDATE_DEFAULT MACSEC_VALIDATE_STRICT
-
-/**
- * struct macsec_secy - MACsec Security Entity
- * @netdev: netdevice for this SecY
- * @n_rx_sc: number of receive secure channels configured on this SecY
- * @sci: secure channel identifier used for tx
- * @key_len: length of keys used by the cipher suite
- * @icv_len: length of ICV used by the cipher suite
- * @validate_frames: validation mode
- * @operational: MAC_Operational flag
- * @protect_frames: enable protection for this SecY
- * @replay_protect: enable packet number checks on receive
- * @replay_window: size of the replay window
- * @tx_sc: transmit secure channel
- * @rx_sc: linked list of receive secure channels
- */
-struct macsec_secy {
-	struct net_device *netdev;
-	unsigned int n_rx_sc;
-	sci_t sci;
-	u16 key_len;
-	u16 icv_len;
-	enum macsec_validation_type validate_frames;
-	bool operational;
-	bool protect_frames;
-	bool replay_protect;
-	u32 replay_window;
-	struct macsec_tx_sc tx_sc;
-	struct macsec_rx_sc __rcu *rx_sc;
-};
 
 struct pcpu_secy_stats {
 	struct macsec_dev_stats stats;
@@ -261,6 +112,7 @@ struct pcpu_secy_stats {
  * @real_dev: pointer to underlying netdevice
  * @stats: MACsec device stats
  * @secys: linked list of SecY's on the underlying device
+ * @offload: status of offloading on the MACsec device
  */
 struct macsec_dev {
 	struct macsec_secy secy;
@@ -268,6 +120,7 @@ struct macsec_dev {
 	struct pcpu_secy_stats __percpu *stats;
 	struct list_head secys;
 	struct gro_cells gro_cells;
+	enum macsec_offload offload;
 };
 
 /**
@@ -388,11 +241,13 @@ static struct macsec_cb *macsec_skb_cb(struct sk_buff *skb)
 #define MACSEC_PORT_ES (htons(0x0001))
 #define MACSEC_PORT_SCB (0x0000)
 #define MACSEC_UNDEF_SCI ((__force sci_t)0xffffffffffffffffULL)
+#define MACSEC_UNDEF_SSCI ((__force ssci_t)0xffffffff)
 
 #define MACSEC_GCM_AES_128_SAK_LEN 16
 #define MACSEC_GCM_AES_256_SAK_LEN 32
 
 #define DEFAULT_SAK_LEN MACSEC_GCM_AES_128_SAK_LEN
+#define DEFAULT_XPN false
 #define DEFAULT_SEND_SCI true
 #define DEFAULT_ENCRYPT false
 #define DEFAULT_ENCODING_SA 0
@@ -481,8 +336,58 @@ static void macsec_set_shortlen(struct macsec_eth_header *h, size_t data_len)
 		h->short_length = data_len;
 }
 
-/* validate MACsec packet according to IEEE 802.1AE-2006 9.12 */
-static bool macsec_validate_skb(struct sk_buff *skb, u16 icv_len)
+/* Checks if a MACsec interface is being offloaded to an hardware engine */
+static bool macsec_is_offloaded(struct macsec_dev *macsec)
+{
+	if (macsec->offload == MACSEC_OFFLOAD_PHY)
+		return true;
+
+	return false;
+}
+
+/* Checks if underlying layers implement MACsec offloading functions. */
+static bool macsec_check_offload(enum macsec_offload offload,
+				 struct macsec_dev *macsec)
+{
+	if (!macsec || !macsec->real_dev)
+		return false;
+
+	if (offload == MACSEC_OFFLOAD_PHY)
+		return macsec->real_dev->phydev &&
+		       macsec->real_dev->phydev->macsec_ops;
+
+	return false;
+}
+
+static const struct macsec_ops *__macsec_get_ops(enum macsec_offload offload,
+						 struct macsec_dev *macsec,
+						 struct macsec_context *ctx)
+{
+	if (ctx) {
+		memset(ctx, 0, sizeof(*ctx));
+		ctx->offload = offload;
+
+		if (offload == MACSEC_OFFLOAD_PHY)
+			ctx->phydev = macsec->real_dev->phydev;
+	}
+
+	return macsec->real_dev->phydev->macsec_ops;
+}
+
+/* Returns a pointer to the MACsec ops struct if any and updates the MACsec
+ * context device reference if provided.
+ */
+static const struct macsec_ops *macsec_get_ops(struct macsec_dev *macsec,
+					       struct macsec_context *ctx)
+{
+	if (!macsec_check_offload(macsec->offload, macsec))
+		return NULL;
+
+	return __macsec_get_ops(macsec->offload, macsec, ctx);
+}
+
+/* validate MACsec packet according to IEEE 802.1AE-2018 9.12 */
+static bool macsec_validate_skb(struct sk_buff *skb, u16 icv_len, bool xpn)
 {
 	struct macsec_eth_header *h = (struct macsec_eth_header *)skb->data;
 	int len = skb->len - 2 * ETH_ALEN;
@@ -507,8 +412,8 @@ static bool macsec_validate_skb(struct sk_buff *skb, u16 icv_len)
 	if (h->unused)
 		return false;
 
-	/* rx.pn != 0 (figure 10-5) */
-	if (!h->packet_number)
+	/* rx.pn != 0 if not XPN (figure 10-5 with 802.11AEbw-2013 amendment) */
+	if (!h->packet_number && !xpn)
 		return false;
 
 	/* length check, f) g) h) i) */
@@ -519,6 +424,15 @@ static bool macsec_validate_skb(struct sk_buff *skb, u16 icv_len)
 
 #define MACSEC_NEEDED_HEADROOM (macsec_extra_len(true))
 #define MACSEC_NEEDED_TAILROOM MACSEC_STD_ICV_LEN
+
+static void macsec_fill_iv_xpn(unsigned char *iv, ssci_t ssci, u64 pn,
+			       salt_t salt)
+{
+	struct gcm_iv_xpn *gcm_iv = (struct gcm_iv_xpn *)iv;
+
+	gcm_iv->ssci = ssci ^ salt.ssci;
+	gcm_iv->pn = cpu_to_be64(pn) ^ salt.pn;
+}
 
 static void macsec_fill_iv(unsigned char *iv, sci_t sci, u32 pn)
 {
@@ -533,20 +447,38 @@ static struct macsec_eth_header *macsec_ethhdr(struct sk_buff *skb)
 	return (struct macsec_eth_header *)skb_mac_header(skb);
 }
 
-static u32 tx_sa_update_pn(struct macsec_tx_sa *tx_sa, struct macsec_secy *secy)
+static void __macsec_pn_wrapped(struct macsec_secy *secy,
+				struct macsec_tx_sa *tx_sa)
 {
-	u32 pn;
+	pr_debug("PN wrapped, transitioning to !oper\n");
+	tx_sa->active = false;
+	if (secy->protect_frames)
+		secy->operational = false;
+}
+
+void macsec_pn_wrapped(struct macsec_secy *secy, struct macsec_tx_sa *tx_sa)
+{
+	spin_lock_bh(&tx_sa->lock);
+	__macsec_pn_wrapped(secy, tx_sa);
+	spin_unlock_bh(&tx_sa->lock);
+}
+EXPORT_SYMBOL_GPL(macsec_pn_wrapped);
+
+static pn_t tx_sa_update_pn(struct macsec_tx_sa *tx_sa,
+			    struct macsec_secy *secy)
+{
+	pn_t pn;
 
 	spin_lock_bh(&tx_sa->lock);
-	pn = tx_sa->next_pn;
 
-	tx_sa->next_pn++;
-	if (tx_sa->next_pn == 0) {
-		pr_debug("PN wrapped, transitioning to !oper\n");
-		tx_sa->active = false;
-		if (secy->protect_frames)
-			secy->operational = false;
-	}
+	pn = tx_sa->next_pn_halves;
+	if (secy->xpn)
+		tx_sa->next_pn++;
+	else
+		tx_sa->next_pn_halves.lower++;
+
+	if (tx_sa->next_pn == 0)
+		__macsec_pn_wrapped(secy, tx_sa);
 	spin_unlock_bh(&tx_sa->lock);
 
 	return pn;
@@ -659,7 +591,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
 	struct macsec_tx_sa *tx_sa;
 	struct macsec_dev *macsec = macsec_priv(dev);
 	bool sci_present;
-	u32 pn;
+	pn_t pn;
 
 	secy = &macsec->secy;
 	tx_sc = &secy->tx_sc;
@@ -701,12 +633,12 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
 	memmove(hh, eth, 2 * ETH_ALEN);
 
 	pn = tx_sa_update_pn(tx_sa, secy);
-	if (pn == 0) {
+	if (pn.full64 == 0) {
 		macsec_txsa_put(tx_sa);
 		kfree_skb(skb);
 		return ERR_PTR(-ENOLINK);
 	}
-	macsec_fill_sectag(hh, secy, pn, sci_present);
+	macsec_fill_sectag(hh, secy, pn.lower, sci_present);
 	macsec_set_shortlen(hh, unprotected_len - 2 * ETH_ALEN);
 
 	skb_put(skb, secy->icv_len);
@@ -737,7 +669,10 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
 		return ERR_PTR(-ENOMEM);
 	}
 
-	macsec_fill_iv(iv, secy->sci, pn);
+	if (secy->xpn)
+		macsec_fill_iv_xpn(iv, tx_sa->ssci, pn.full64, tx_sa->key.salt);
+	else
+		macsec_fill_iv(iv, secy->sci, pn.lower);
 
 	sg_init_table(sg, ret);
 	ret = skb_to_sgvec(skb, sg, 0, skb->len);
@@ -789,13 +724,14 @@ static bool macsec_post_decrypt(struct sk_buff *skb, struct macsec_secy *secy, u
 	u32 lowest_pn = 0;
 
 	spin_lock(&rx_sa->lock);
-	if (rx_sa->next_pn >= secy->replay_window)
-		lowest_pn = rx_sa->next_pn - secy->replay_window;
+	if (rx_sa->next_pn_halves.lower >= secy->replay_window)
+		lowest_pn = rx_sa->next_pn_halves.lower - secy->replay_window;
 
 	/* Now perform replay protection check again
 	 * (see IEEE 802.1AE-2006 figure 10-5)
 	 */
-	if (secy->replay_protect && pn < lowest_pn) {
+	if (secy->replay_protect && pn < lowest_pn &&
+	    (!secy->xpn || pn_same_half(pn, lowest_pn))) {
 		spin_unlock(&rx_sa->lock);
 		u64_stats_update_begin(&rxsc_stats->syncp);
 		rxsc_stats->stats.InPktsLate++;
@@ -844,8 +780,15 @@ static bool macsec_post_decrypt(struct sk_buff *skb, struct macsec_secy *secy, u
 		}
 		u64_stats_update_end(&rxsc_stats->syncp);
 
-		if (pn >= rx_sa->next_pn)
-			rx_sa->next_pn = pn + 1;
+		// Instead of "pn >=" - to support pn overflow in xpn
+		if (pn + 1 > rx_sa->next_pn_halves.lower) {
+			rx_sa->next_pn_halves.lower = pn + 1;
+		} else if (secy->xpn &&
+			   !pn_same_half(pn, rx_sa->next_pn_halves.lower)) {
+			rx_sa->next_pn_halves.upper++;
+			rx_sa->next_pn_halves.lower = pn + 1;
+		}
+
 		spin_unlock(&rx_sa->lock);
 	}
 
@@ -932,6 +875,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
 	unsigned char *iv;
 	struct aead_request *req;
 	struct macsec_eth_header *hdr;
+	u32 hdr_pn;
 	u16 icv_len = secy->icv_len;
 
 	macsec_skb_cb(skb)->valid = false;
@@ -951,7 +895,21 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
 	}
 
 	hdr = (struct macsec_eth_header *)skb->data;
-	macsec_fill_iv(iv, sci, ntohl(hdr->packet_number));
+	hdr_pn = ntohl(hdr->packet_number);
+
+	if (secy->xpn) {
+		pn_t recovered_pn = rx_sa->next_pn_halves;
+
+		recovered_pn.lower = hdr_pn;
+		if (hdr_pn < rx_sa->next_pn_halves.lower &&
+		    !pn_same_half(hdr_pn, rx_sa->next_pn_halves.lower))
+			recovered_pn.upper++;
+
+		macsec_fill_iv_xpn(iv, rx_sa->ssci, recovered_pn.full64,
+				   rx_sa->key.salt);
+	} else {
+		macsec_fill_iv(iv, sci, hdr_pn);
+	}
 
 	sg_init_table(sg, ret);
 	ret = skb_to_sgvec(skb, sg, 0, skb->len);
@@ -1030,8 +988,10 @@ static struct macsec_rx_sc *find_rx_sc_rtnl(struct macsec_secy *secy, sci_t sci)
 	return NULL;
 }
 
-static void handle_not_macsec(struct sk_buff *skb)
+static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 {
+	/* Deliver to the uncontrolled port by default */
+	enum rx_handler_result ret = RX_HANDLER_PASS;
 	struct macsec_rxh_data *rxd;
 	struct macsec_dev *macsec;
 
@@ -1046,7 +1006,8 @@ static void handle_not_macsec(struct sk_buff *skb)
 		struct sk_buff *nskb;
 		struct pcpu_secy_stats *secy_stats = this_cpu_ptr(macsec->stats);
 
-		if (macsec->secy.validate_frames == MACSEC_VALIDATE_STRICT) {
+		if (!macsec_is_offloaded(macsec) &&
+		    macsec->secy.validate_frames == MACSEC_VALIDATE_STRICT) {
 			u64_stats_update_begin(&secy_stats->syncp);
 			secy_stats->stats.InPktsNoTag++;
 			u64_stats_update_end(&secy_stats->syncp);
@@ -1065,9 +1026,17 @@ static void handle_not_macsec(struct sk_buff *skb)
 			secy_stats->stats.InPktsUntagged++;
 			u64_stats_update_end(&secy_stats->syncp);
 		}
+
+		if (netif_running(macsec->secy.netdev) &&
+		    macsec_is_offloaded(macsec)) {
+			ret = RX_HANDLER_EXACT;
+			goto out;
+		}
 	}
 
+out:
 	rcu_read_unlock();
+	return ret;
 }
 
 static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
@@ -1082,7 +1051,7 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
 	struct macsec_dev *macsec;
 	unsigned int len;
 	sci_t sci;
-	u32 pn;
+	u32 hdr_pn;
 	bool cbit;
 	struct pcpu_rx_sc_stats *rxsc_stats;
 	struct pcpu_secy_stats *secy_stats;
@@ -1093,12 +1062,8 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
 		goto drop_direct;
 
 	hdr = macsec_ethhdr(skb);
-	if (hdr->eth.h_proto != htons(ETH_P_MACSEC)) {
-		handle_not_macsec(skb);
-
-		/* and deliver to the uncontrolled port */
-		return RX_HANDLER_PASS;
-	}
+	if (hdr->eth.h_proto != htons(ETH_P_MACSEC))
+		return handle_not_macsec(skb);
 
 	skb = skb_unshare(skb, GFP_ATOMIC);
 	*pskb = skb;
@@ -1157,7 +1122,7 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
 	secy_stats = this_cpu_ptr(macsec->stats);
 	rxsc_stats = this_cpu_ptr(rx_sc->stats);
 
-	if (!macsec_validate_skb(skb, secy->icv_len)) {
+	if (!macsec_validate_skb(skb, secy->icv_len, secy->xpn)) {
 		u64_stats_update_begin(&secy_stats->syncp);
 		secy_stats->stats.InPktsBadTag++;
 		u64_stats_update_end(&secy_stats->syncp);
@@ -1189,13 +1154,16 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
 	}
 
 	/* First, PN check to avoid decrypting obviously wrong packets */
-	pn = ntohl(hdr->packet_number);
+	hdr_pn = ntohl(hdr->packet_number);
 	if (secy->replay_protect) {
 		bool late;
 
 		spin_lock(&rx_sa->lock);
-		late = rx_sa->next_pn >= secy->replay_window &&
-		       pn < (rx_sa->next_pn - secy->replay_window);
+		late = rx_sa->next_pn_halves.lower >= secy->replay_window &&
+		       hdr_pn < (rx_sa->next_pn_halves.lower - secy->replay_window);
+
+		if (secy->xpn)
+			late = late && pn_same_half(rx_sa->next_pn_halves.lower, hdr_pn);
 		spin_unlock(&rx_sa->lock);
 
 		if (late) {
@@ -1224,7 +1192,7 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
 		return RX_HANDLER_CONSUMED;
 	}
 
-	if (!macsec_post_decrypt(skb, secy, pn))
+	if (!macsec_post_decrypt(skb, secy, hdr_pn))
 		goto drop;
 
 deliver:
@@ -1344,6 +1312,7 @@ static int init_rx_sa(struct macsec_rx_sa *rx_sa, char *sak, int key_len,
 		return PTR_ERR(rx_sa->key.tfm);
 	}
 
+	rx_sa->ssci = MACSEC_UNDEF_SSCI;
 	rx_sa->active = false;
 	rx_sa->next_pn = 1;
 	refcount_set(&rx_sa->refcnt, 1);
@@ -1442,6 +1411,7 @@ static int init_tx_sa(struct macsec_tx_sa *tx_sa, char *sak, int key_len,
 		return PTR_ERR(tx_sa->key.tfm);
 	}
 
+	tx_sa->ssci = MACSEC_UNDEF_SSCI;
 	tx_sa->active = false;
 	refcount_set(&tx_sa->refcnt, 1);
 	spin_lock_init(&tx_sa->lock);
@@ -1483,6 +1453,16 @@ static int nla_put_sci(struct sk_buff *skb, int attrtype, sci_t value,
 		       int padattr)
 {
 	return nla_put_u64_64bit(skb, attrtype, (__force u64)value, padattr);
+}
+
+static ssci_t nla_get_ssci(const struct nlattr *nla)
+{
+	return (__force ssci_t)nla_get_u32(nla);
+}
+
+static int nla_put_ssci(struct sk_buff *skb, int attrtype, ssci_t value)
+{
+	return nla_put_u32(skb, attrtype, (__force u64)value);
 }
 
 static struct macsec_tx_sa *get_txsa_from_nl(struct net *net,
@@ -1589,6 +1569,7 @@ static const struct nla_policy macsec_genl_policy[NUM_MACSEC_ATTR] = {
 	[MACSEC_ATTR_IFINDEX] = { .type = NLA_U32 },
 	[MACSEC_ATTR_RXSC_CONFIG] = { .type = NLA_NESTED },
 	[MACSEC_ATTR_SA_CONFIG] = { .type = NLA_NESTED },
+	[MACSEC_ATTR_OFFLOAD] = { .type = NLA_NESTED },
 };
 
 static const struct nla_policy macsec_genl_rxsc_policy[NUM_MACSEC_RXSC_ATTR] = {
@@ -1599,12 +1580,53 @@ static const struct nla_policy macsec_genl_rxsc_policy[NUM_MACSEC_RXSC_ATTR] = {
 static const struct nla_policy macsec_genl_sa_policy[NUM_MACSEC_SA_ATTR] = {
 	[MACSEC_SA_ATTR_AN] = { .type = NLA_U8 },
 	[MACSEC_SA_ATTR_ACTIVE] = { .type = NLA_U8 },
-	[MACSEC_SA_ATTR_PN] = { .type = NLA_U32 },
+	[MACSEC_SA_ATTR_PN] = { .type = NLA_MIN_LEN, .len = 4 },
 	[MACSEC_SA_ATTR_KEYID] = { .type = NLA_BINARY,
 				   .len = MACSEC_KEYID_LEN, },
 	[MACSEC_SA_ATTR_KEY] = { .type = NLA_BINARY,
 				 .len = MACSEC_MAX_KEY_LEN, },
+	[MACSEC_SA_ATTR_SSCI] = { .type = NLA_U32 },
+	[MACSEC_SA_ATTR_SALT] = { .type = NLA_BINARY,
+				  .len = MACSEC_SALT_LEN, },
 };
+
+static const struct nla_policy macsec_genl_offload_policy[NUM_MACSEC_OFFLOAD_ATTR] = {
+	[MACSEC_OFFLOAD_ATTR_TYPE] = { .type = NLA_U8 },
+};
+
+/* Offloads an operation to a device driver */
+static int macsec_offload(int (* const func)(struct macsec_context *),
+			  struct macsec_context *ctx)
+{
+	int ret;
+
+	if (unlikely(!func))
+		return 0;
+
+	if (ctx->offload == MACSEC_OFFLOAD_PHY)
+		mutex_lock(&ctx->phydev->lock);
+
+	/* Phase I: prepare. The drive should fail here if there are going to be
+	 * issues in the commit phase.
+	 */
+	ctx->prepare = true;
+	ret = (*func)(ctx);
+	if (ret)
+		goto phy_unlock;
+
+	/* Phase II: commit. This step cannot fail. */
+	ctx->prepare = false;
+	ret = (*func)(ctx);
+	/* This should never happen: commit is not allowed to fail */
+	if (unlikely(ret))
+		WARN(1, "MACsec offloading commit failed (%d)\n", ret);
+
+phy_unlock:
+	if (ctx->offload == MACSEC_OFFLOAD_PHY)
+		mutex_unlock(&ctx->phydev->lock);
+
+	return ret;
+}
 
 static int parse_sa_config(struct nlattr **attrs, struct nlattr **tb_sa)
 {
@@ -1638,7 +1660,8 @@ static bool validate_add_rxsa(struct nlattr **attrs)
 	if (nla_get_u8(attrs[MACSEC_SA_ATTR_AN]) >= MACSEC_NUM_AN)
 		return false;
 
-	if (attrs[MACSEC_SA_ATTR_PN] && nla_get_u32(attrs[MACSEC_SA_ATTR_PN]) == 0)
+	if (attrs[MACSEC_SA_ATTR_PN] &&
+	    *(u64 *)nla_data(attrs[MACSEC_SA_ATTR_PN]) == 0)
 		return false;
 
 	if (attrs[MACSEC_SA_ATTR_ACTIVE]) {
@@ -1660,6 +1683,7 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_rx_sc *rx_sc;
 	struct macsec_rx_sa *rx_sa;
 	unsigned char assoc_num;
+	int pn_len;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
 	int err;
@@ -1692,6 +1716,29 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 		return -EINVAL;
 	}
 
+	pn_len = secy->xpn ? MACSEC_XPN_PN_LEN : MACSEC_DEFAULT_PN_LEN;
+	if (nla_len(tb_sa[MACSEC_SA_ATTR_PN]) != pn_len) {
+		pr_notice("macsec: nl: add_rxsa: bad pn length: %d != %d\n",
+			  nla_len(tb_sa[MACSEC_SA_ATTR_PN]), pn_len);
+		rtnl_unlock();
+		return -EINVAL;
+	}
+
+	if (secy->xpn) {
+		if (!tb_sa[MACSEC_SA_ATTR_SSCI] || !tb_sa[MACSEC_SA_ATTR_SALT]) {
+			rtnl_unlock();
+			return -EINVAL;
+		}
+
+		if (nla_len(tb_sa[MACSEC_SA_ATTR_SALT]) != MACSEC_SALT_LEN) {
+			pr_notice("macsec: nl: add_rxsa: bad salt length: %d != %d\n",
+				  nla_len(tb_sa[MACSEC_SA_ATTR_SALT]),
+				  MACSEC_SA_ATTR_SALT);
+			rtnl_unlock();
+			return -EINVAL;
+		}
+	}
+
 	rx_sa = rtnl_dereference(rx_sc->sa[assoc_num]);
 	if (rx_sa) {
 		rtnl_unlock();
@@ -1714,20 +1761,54 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 
 	if (tb_sa[MACSEC_SA_ATTR_PN]) {
 		spin_lock_bh(&rx_sa->lock);
-		rx_sa->next_pn = nla_get_u32(tb_sa[MACSEC_SA_ATTR_PN]);
+		rx_sa->next_pn = nla_get_u64(tb_sa[MACSEC_SA_ATTR_PN]);
 		spin_unlock_bh(&rx_sa->lock);
 	}
 
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		rx_sa->active = !!nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
-	nla_memcpy(rx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
 	rx_sa->sc = rx_sc;
+
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			err = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.rx_sa = rx_sa;
+		ctx.secy = secy;
+		memcpy(ctx.sa.key, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
+		       MACSEC_KEYID_LEN);
+
+		err = macsec_offload(ops->mdo_add_rxsa, &ctx);
+		if (err)
+			goto cleanup;
+	}
+
+	if (secy->xpn) {
+		rx_sa->ssci = nla_get_ssci(tb_sa[MACSEC_SA_ATTR_SSCI]);
+		nla_memcpy(rx_sa->key.salt.bytes, tb_sa[MACSEC_SA_ATTR_SALT],
+			   MACSEC_SALT_LEN);
+	}
+
+	nla_memcpy(rx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
 	rcu_assign_pointer(rx_sc->sa[assoc_num], rx_sa);
 
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	kfree(rx_sa);
+	rtnl_unlock();
+	return err;
 }
 
 static bool validate_add_rxsc(struct nlattr **attrs)
@@ -1750,6 +1831,9 @@ static int macsec_add_rxsc(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_rx_sc *rx_sc;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
+	struct macsec_secy *secy;
+	bool was_active;
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1767,6 +1851,7 @@ static int macsec_add_rxsc(struct sk_buff *skb, struct genl_info *info)
 		return PTR_ERR(dev);
 	}
 
+	secy = &macsec_priv(dev)->secy;
 	sci = nla_get_sci(tb_rxsc[MACSEC_RXSC_ATTR_SCI]);
 
 	rx_sc = create_rx_sc(dev, sci);
@@ -1775,12 +1860,36 @@ static int macsec_add_rxsc(struct sk_buff *skb, struct genl_info *info)
 		return PTR_ERR(rx_sc);
 	}
 
+	was_active = rx_sc->active;
 	if (tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE])
 		rx_sc->active = !!nla_get_u8(tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE]);
+
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.rx_sc = rx_sc;
+		ctx.secy = secy;
+
+		ret = macsec_offload(ops->mdo_add_rxsc, &ctx);
+		if (ret)
+			goto cleanup;
+	}
 
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	rx_sc->active = was_active;
+	rtnl_unlock();
+	return ret;
 }
 
 static bool validate_add_txsa(struct nlattr **attrs)
@@ -1816,7 +1925,9 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_tx_sc *tx_sc;
 	struct macsec_tx_sa *tx_sa;
 	unsigned char assoc_num;
+	int pn_len;
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	bool was_operational;
 	int err;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
@@ -1847,6 +1958,29 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 		return -EINVAL;
 	}
 
+	pn_len = secy->xpn ? MACSEC_XPN_PN_LEN : MACSEC_DEFAULT_PN_LEN;
+	if (nla_len(tb_sa[MACSEC_SA_ATTR_PN]) != pn_len) {
+		pr_notice("macsec: nl: add_txsa: bad pn length: %d != %d\n",
+			  nla_len(tb_sa[MACSEC_SA_ATTR_PN]), pn_len);
+		rtnl_unlock();
+		return -EINVAL;
+	}
+
+	if (secy->xpn) {
+		if (!tb_sa[MACSEC_SA_ATTR_SSCI] || !tb_sa[MACSEC_SA_ATTR_SALT]) {
+			rtnl_unlock();
+			return -EINVAL;
+		}
+
+		if (nla_len(tb_sa[MACSEC_SA_ATTR_SALT]) != MACSEC_SALT_LEN) {
+			pr_notice("macsec: nl: add_txsa: bad salt length: %d != %d\n",
+				  nla_len(tb_sa[MACSEC_SA_ATTR_SALT]),
+				  MACSEC_SA_ATTR_SALT);
+			rtnl_unlock();
+			return -EINVAL;
+		}
+	}
+
 	tx_sa = rtnl_dereference(tx_sc->sa[assoc_num]);
 	if (tx_sa) {
 		rtnl_unlock();
@@ -1867,23 +2001,57 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 		return err;
 	}
 
-	nla_memcpy(tx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
-
 	spin_lock_bh(&tx_sa->lock);
-	tx_sa->next_pn = nla_get_u32(tb_sa[MACSEC_SA_ATTR_PN]);
+	tx_sa->next_pn = nla_get_u64(tb_sa[MACSEC_SA_ATTR_PN]);
 	spin_unlock_bh(&tx_sa->lock);
 
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		tx_sa->active = !!nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
+	was_operational = secy->operational;
 	if (assoc_num == tx_sc->encoding_sa && tx_sa->active)
 		secy->operational = true;
 
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			err = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.tx_sa = tx_sa;
+		ctx.secy = secy;
+		memcpy(ctx.sa.key, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
+		       MACSEC_KEYID_LEN);
+
+		err = macsec_offload(ops->mdo_add_txsa, &ctx);
+		if (err)
+			goto cleanup;
+	}
+
+	if (secy->xpn) {
+		tx_sa->ssci = nla_get_ssci(tb_sa[MACSEC_SA_ATTR_SSCI]);
+		nla_memcpy(tx_sa->key.salt.bytes, tb_sa[MACSEC_SA_ATTR_SALT],
+			   MACSEC_SALT_LEN);
+	}
+
+	nla_memcpy(tx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
 	rcu_assign_pointer(tx_sc->sa[assoc_num], tx_sa);
 
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	secy->operational = was_operational;
+	kfree(tx_sa);
+	rtnl_unlock();
+	return err;
 }
 
 static int macsec_del_rxsa(struct sk_buff *skb, struct genl_info *info)
@@ -1896,6 +2064,7 @@ static int macsec_del_rxsa(struct sk_buff *skb, struct genl_info *info)
 	u8 assoc_num;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1919,12 +2088,36 @@ static int macsec_del_rxsa(struct sk_buff *skb, struct genl_info *info)
 		return -EBUSY;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.rx_sa = rx_sa;
+		ctx.secy = secy;
+
+		ret = macsec_offload(ops->mdo_del_rxsa, &ctx);
+		if (ret)
+			goto cleanup;
+	}
+
 	RCU_INIT_POINTER(rx_sc->sa[assoc_num], NULL);
 	clear_rx_sa(rx_sa);
 
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	rtnl_unlock();
+	return ret;
 }
 
 static int macsec_del_rxsc(struct sk_buff *skb, struct genl_info *info)
@@ -1935,6 +2128,7 @@ static int macsec_del_rxsc(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_rx_sc *rx_sc;
 	sci_t sci;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1961,10 +2155,32 @@ static int macsec_del_rxsc(struct sk_buff *skb, struct genl_info *info)
 		return -ENODEV;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.rx_sc = rx_sc;
+		ctx.secy = secy;
+		ret = macsec_offload(ops->mdo_del_rxsc, &ctx);
+		if (ret)
+			goto cleanup;
+	}
+
 	free_rx_sc(rx_sc);
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	rtnl_unlock();
+	return ret;
 }
 
 static int macsec_del_txsa(struct sk_buff *skb, struct genl_info *info)
@@ -1976,6 +2192,7 @@ static int macsec_del_txsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_tx_sa *tx_sa;
 	u8 assoc_num;
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -1996,19 +2213,45 @@ static int macsec_del_txsa(struct sk_buff *skb, struct genl_info *info)
 		return -EBUSY;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.tx_sa = tx_sa;
+		ctx.secy = secy;
+
+		ret = macsec_offload(ops->mdo_del_txsa, &ctx);
+		if (ret)
+			goto cleanup;
+	}
+
 	RCU_INIT_POINTER(tx_sc->sa[assoc_num], NULL);
 	clear_tx_sa(tx_sa);
 
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	rtnl_unlock();
+	return ret;
 }
 
 static bool validate_upd_sa(struct nlattr **attrs)
 {
 	if (!attrs[MACSEC_SA_ATTR_AN] ||
 	    attrs[MACSEC_SA_ATTR_KEY] ||
-	    attrs[MACSEC_SA_ATTR_KEYID])
+	    attrs[MACSEC_SA_ATTR_KEYID] ||
+	    attrs[MACSEC_SA_ATTR_SSCI] ||
+	    attrs[MACSEC_SA_ATTR_SALT])
 		return false;
 
 	if (nla_get_u8(attrs[MACSEC_SA_ATTR_AN]) >= MACSEC_NUM_AN)
@@ -2034,6 +2277,11 @@ static int macsec_upd_txsa(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_tx_sa *tx_sa;
 	u8 assoc_num;
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	bool was_operational, was_active;
+	pn_t prev_pn;
+	int ret = 0;
+
+	prev_pn.full64 = 0;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -2053,20 +2301,64 @@ static int macsec_upd_txsa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (tb_sa[MACSEC_SA_ATTR_PN]) {
+		int pn_len;
+
+		pn_len = secy->xpn ? MACSEC_XPN_PN_LEN : MACSEC_DEFAULT_PN_LEN;
+		if (nla_len(tb_sa[MACSEC_SA_ATTR_PN]) != pn_len) {
+			pr_notice("macsec: nl: upd_txsa: bad pn length: %d != %d\n",
+				  nla_len(tb_sa[MACSEC_SA_ATTR_PN]), pn_len);
+			rtnl_unlock();
+			return -EINVAL;
+		}
+
 		spin_lock_bh(&tx_sa->lock);
-		tx_sa->next_pn = nla_get_u32(tb_sa[MACSEC_SA_ATTR_PN]);
+		prev_pn = tx_sa->next_pn_halves;
+		tx_sa->next_pn = nla_get_u64(tb_sa[MACSEC_SA_ATTR_PN]);
 		spin_unlock_bh(&tx_sa->lock);
 	}
 
+	was_active = tx_sa->active;
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		tx_sa->active = nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
+	was_operational = secy->operational;
 	if (assoc_num == tx_sc->encoding_sa)
 		secy->operational = tx_sa->active;
+
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.tx_sa = tx_sa;
+		ctx.secy = secy;
+
+		ret = macsec_offload(ops->mdo_upd_txsa, &ctx);
+		if (ret)
+			goto cleanup;
+	}
 
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	if (tb_sa[MACSEC_SA_ATTR_PN]) {
+		spin_lock_bh(&tx_sa->lock);
+		tx_sa->next_pn_halves = prev_pn;
+		spin_unlock_bh(&tx_sa->lock);
+	}
+	tx_sa->active = was_active;
+	secy->operational = was_operational;
+	rtnl_unlock();
+	return ret;
 }
 
 static int macsec_upd_rxsa(struct sk_buff *skb, struct genl_info *info)
@@ -2079,6 +2371,11 @@ static int macsec_upd_rxsa(struct sk_buff *skb, struct genl_info *info)
 	u8 assoc_num;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
 	struct nlattr *tb_sa[MACSEC_SA_ATTR_MAX + 1];
+	bool was_active;
+	pn_t prev_pn;
+	int ret = 0;
+
+	prev_pn.full64 = 0;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -2101,16 +2398,58 @@ static int macsec_upd_rxsa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (tb_sa[MACSEC_SA_ATTR_PN]) {
+		int pn_len;
+
+		pn_len = secy->xpn ? MACSEC_XPN_PN_LEN : MACSEC_DEFAULT_PN_LEN;
+		if (nla_len(tb_sa[MACSEC_SA_ATTR_PN]) != pn_len) {
+			pr_notice("macsec: nl: upd_rxsa: bad pn length: %d != %d\n",
+				  nla_len(tb_sa[MACSEC_SA_ATTR_PN]), pn_len);
+			rtnl_unlock();
+			return -EINVAL;
+		}
+
 		spin_lock_bh(&rx_sa->lock);
-		rx_sa->next_pn = nla_get_u32(tb_sa[MACSEC_SA_ATTR_PN]);
+		prev_pn = rx_sa->next_pn_halves;
+		rx_sa->next_pn = nla_get_u64(tb_sa[MACSEC_SA_ATTR_PN]);
 		spin_unlock_bh(&rx_sa->lock);
 	}
 
+	was_active = rx_sa->active;
 	if (tb_sa[MACSEC_SA_ATTR_ACTIVE])
 		rx_sa->active = nla_get_u8(tb_sa[MACSEC_SA_ATTR_ACTIVE]);
 
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.sa.assoc_num = assoc_num;
+		ctx.sa.rx_sa = rx_sa;
+		ctx.secy = secy;
+
+		ret = macsec_offload(ops->mdo_upd_rxsa, &ctx);
+		if (ret)
+			goto cleanup;
+	}
+
 	rtnl_unlock();
 	return 0;
+
+cleanup:
+	if (tb_sa[MACSEC_SA_ATTR_PN]) {
+		spin_lock_bh(&rx_sa->lock);
+		rx_sa->next_pn_halves = prev_pn;
+		spin_unlock_bh(&rx_sa->lock);
+	}
+	rx_sa->active = was_active;
+	rtnl_unlock();
+	return ret;
 }
 
 static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
@@ -2120,6 +2459,9 @@ static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
 	struct macsec_secy *secy;
 	struct macsec_rx_sc *rx_sc;
 	struct nlattr *tb_rxsc[MACSEC_RXSC_ATTR_MAX + 1];
+	unsigned int prev_n_rx_sc;
+	bool was_active;
+	int ret;
 
 	if (!attrs[MACSEC_ATTR_IFINDEX])
 		return -EINVAL;
@@ -2137,6 +2479,8 @@ static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
 		return PTR_ERR(rx_sc);
 	}
 
+	was_active = rx_sc->active;
+	prev_n_rx_sc = secy->n_rx_sc;
 	if (tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE]) {
 		bool new = !!nla_get_u8(tb_rxsc[MACSEC_RXSC_ATTR_ACTIVE]);
 
@@ -2146,9 +2490,131 @@ static int macsec_upd_rxsc(struct sk_buff *skb, struct genl_info *info)
 		rx_sc->active = new;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.rx_sc = rx_sc;
+		ctx.secy = secy;
+
+		ret = macsec_offload(ops->mdo_upd_rxsc, &ctx);
+		if (ret)
+			goto cleanup;
+	}
+
 	rtnl_unlock();
 
 	return 0;
+
+cleanup:
+	secy->n_rx_sc = prev_n_rx_sc;
+	rx_sc->active = was_active;
+	rtnl_unlock();
+	return ret;
+}
+
+static bool macsec_is_configured(struct macsec_dev *macsec)
+{
+	struct macsec_secy *secy = &macsec->secy;
+	struct macsec_tx_sc *tx_sc = &secy->tx_sc;
+	int i;
+
+	if (secy->n_rx_sc > 0)
+		return true;
+
+	for (i = 0; i < MACSEC_NUM_AN; i++)
+		if (tx_sc->sa[i])
+			return true;
+
+	return false;
+}
+
+static int macsec_upd_offload(struct sk_buff *skb, struct genl_info *info)
+{
+	struct nlattr *tb_offload[MACSEC_OFFLOAD_ATTR_MAX + 1];
+	enum macsec_offload offload, prev_offload;
+	int (*func)(struct macsec_context *ctx);
+	struct nlattr **attrs = info->attrs;
+	struct net_device *dev;
+	const struct macsec_ops *ops;
+	struct macsec_context ctx;
+	struct macsec_dev *macsec;
+	int ret;
+
+	if (!attrs[MACSEC_ATTR_IFINDEX])
+		return -EINVAL;
+
+	if (!attrs[MACSEC_ATTR_OFFLOAD])
+		return -EINVAL;
+
+	if (nla_parse_nested_deprecated(tb_offload, MACSEC_OFFLOAD_ATTR_MAX,
+					attrs[MACSEC_ATTR_OFFLOAD],
+					macsec_genl_offload_policy, NULL))
+		return -EINVAL;
+
+	dev = get_dev_from_nl(genl_info_net(info), attrs);
+	if (IS_ERR(dev))
+		return PTR_ERR(dev);
+	macsec = macsec_priv(dev);
+
+	offload = nla_get_u8(tb_offload[MACSEC_OFFLOAD_ATTR_TYPE]);
+	if (macsec->offload == offload)
+		return 0;
+
+	/* Check if the offloading mode is supported by the underlying layers */
+	if (offload != MACSEC_OFFLOAD_OFF &&
+	    !macsec_check_offload(offload, macsec))
+		return -EOPNOTSUPP;
+
+	/* Check if the net device is busy. */
+	if (netif_running(dev))
+		return -EBUSY;
+
+	rtnl_lock();
+
+	prev_offload = macsec->offload;
+	macsec->offload = offload;
+
+	/* Check if the device already has rules configured: we do not support
+	 * rules migration.
+	 */
+	if (macsec_is_configured(macsec)) {
+		ret = -EBUSY;
+		goto rollback;
+	}
+
+	ops = __macsec_get_ops(offload == MACSEC_OFFLOAD_OFF ? prev_offload : offload,
+			       macsec, &ctx);
+	if (!ops) {
+		ret = -EOPNOTSUPP;
+		goto rollback;
+	}
+
+	if (prev_offload == MACSEC_OFFLOAD_OFF)
+		func = ops->mdo_add_secy;
+	else
+		func = ops->mdo_del_secy;
+
+	ctx.secy = &macsec->secy;
+	ret = macsec_offload(func, &ctx);
+	if (ret)
+		goto rollback;
+
+	rtnl_unlock();
+	return 0;
+
+rollback:
+	macsec->offload = prev_offload;
+
+	rtnl_unlock();
+	return ret;
 }
 
 static int copy_tx_sa_stats(struct sk_buff *skb,
@@ -2370,10 +2836,10 @@ static int nla_put_secy(struct macsec_secy *secy, struct sk_buff *skb)
 
 	switch (secy->key_len) {
 	case MACSEC_GCM_AES_128_SAK_LEN:
-		csid = MACSEC_DEFAULT_CIPHER_ID;
+		csid = secy->xpn ? MACSEC_CIPHER_ID_GCM_AES_XPN_128 : MACSEC_DEFAULT_CIPHER_ID;
 		break;
 	case MACSEC_GCM_AES_256_SAK_LEN:
-		csid = MACSEC_CIPHER_ID_GCM_AES_256;
+		csid = secy->xpn ? MACSEC_CIPHER_ID_GCM_AES_XPN_256 : MACSEC_CIPHER_ID_GCM_AES_256;
 		break;
 	default:
 		goto cancel;
@@ -2412,12 +2878,13 @@ static noinline_for_stack int
 dump_secy(struct macsec_secy *secy, struct net_device *dev,
 	  struct sk_buff *skb, struct netlink_callback *cb)
 {
-	struct macsec_rx_sc *rx_sc;
+	struct macsec_dev *macsec = netdev_priv(dev);
 	struct macsec_tx_sc *tx_sc = &secy->tx_sc;
 	struct nlattr *txsa_list, *rxsc_list;
-	int i, j;
-	void *hdr;
+	struct macsec_rx_sc *rx_sc;
 	struct nlattr *attr;
+	void *hdr;
+	int i, j;
 
 	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
 			  &macsec_fam, NLM_F_MULTI, MACSEC_CMD_GET_TXSC);
@@ -2428,6 +2895,13 @@ dump_secy(struct macsec_secy *secy, struct net_device *dev,
 
 	if (nla_put_u32(skb, MACSEC_ATTR_IFINDEX, dev->ifindex))
 		goto nla_put_failure;
+
+	attr = nla_nest_start_noflag(skb, MACSEC_ATTR_OFFLOAD);
+	if (!attr)
+		goto nla_put_failure;
+	if (nla_put_u8(skb, MACSEC_OFFLOAD_ATTR_TYPE, macsec->offload))
+		goto nla_put_failure;
+	nla_nest_end(skb, attr);
 
 	if (nla_put_secy(secy, skb))
 		goto nla_put_failure;
@@ -2456,6 +2930,8 @@ dump_secy(struct macsec_secy *secy, struct net_device *dev,
 	for (i = 0, j = 1; i < MACSEC_NUM_AN; i++) {
 		struct macsec_tx_sa *tx_sa = rtnl_dereference(tx_sc->sa[i]);
 		struct nlattr *txsa_nest;
+		u64 pn;
+		int pn_len;
 
 		if (!tx_sa)
 			continue;
@@ -2466,9 +2942,18 @@ dump_secy(struct macsec_secy *secy, struct net_device *dev,
 			goto nla_put_failure;
 		}
 
+		if (secy->xpn) {
+			pn = tx_sa->next_pn;
+			pn_len = MACSEC_XPN_PN_LEN;
+		} else {
+			pn = tx_sa->next_pn_halves.lower;
+			pn_len = MACSEC_DEFAULT_PN_LEN;
+		}
+
 		if (nla_put_u8(skb, MACSEC_SA_ATTR_AN, i) ||
-		    nla_put_u32(skb, MACSEC_SA_ATTR_PN, tx_sa->next_pn) ||
+		    nla_put(skb, MACSEC_SA_ATTR_PN, pn_len, &pn) ||
 		    nla_put(skb, MACSEC_SA_ATTR_KEYID, MACSEC_KEYID_LEN, tx_sa->key.id) ||
+		    (secy->xpn && nla_put_ssci(skb, MACSEC_SA_ATTR_SSCI, tx_sa->ssci)) ||
 		    nla_put_u8(skb, MACSEC_SA_ATTR_ACTIVE, tx_sa->active)) {
 			nla_nest_cancel(skb, txsa_nest);
 			nla_nest_cancel(skb, txsa_list);
@@ -2541,6 +3026,8 @@ dump_secy(struct macsec_secy *secy, struct net_device *dev,
 		for (i = 0, k = 1; i < MACSEC_NUM_AN; i++) {
 			struct macsec_rx_sa *rx_sa = rtnl_dereference(rx_sc->sa[i]);
 			struct nlattr *rxsa_nest;
+			u64 pn;
+			int pn_len;
 
 			if (!rx_sa)
 				continue;
@@ -2570,9 +3057,18 @@ dump_secy(struct macsec_secy *secy, struct net_device *dev,
 			}
 			nla_nest_end(skb, attr);
 
+			if (secy->xpn) {
+				pn = rx_sa->next_pn;
+				pn_len = MACSEC_XPN_PN_LEN;
+			} else {
+				pn = rx_sa->next_pn_halves.lower;
+				pn_len = MACSEC_DEFAULT_PN_LEN;
+			}
+
 			if (nla_put_u8(skb, MACSEC_SA_ATTR_AN, i) ||
-			    nla_put_u32(skb, MACSEC_SA_ATTR_PN, rx_sa->next_pn) ||
+			    nla_put(skb, MACSEC_SA_ATTR_PN, pn_len, &pn) ||
 			    nla_put(skb, MACSEC_SA_ATTR_KEYID, MACSEC_KEYID_LEN, rx_sa->key.id) ||
+			    (secy->xpn && nla_put_ssci(skb, MACSEC_SA_ATTR_SSCI, rx_sa->ssci)) ||
 			    nla_put_u8(skb, MACSEC_SA_ATTR_ACTIVE, rx_sa->active)) {
 				nla_nest_cancel(skb, rxsa_nest);
 				nla_nest_cancel(skb, rxsc_nest);
@@ -2694,6 +3190,12 @@ static const struct genl_ops macsec_genl_ops[] = {
 		.doit = macsec_upd_rxsa,
 		.flags = GENL_ADMIN_PERM,
 	},
+	{
+		.cmd = MACSEC_CMD_UPD_OFFLOAD,
+		.validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
+		.doit = macsec_upd_offload,
+		.flags = GENL_ADMIN_PERM,
+	},
 };
 
 static struct genl_family macsec_fam __ro_after_init = {
@@ -2715,6 +3217,11 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
 	struct macsec_secy *secy = &macsec->secy;
 	struct pcpu_secy_stats *secy_stats;
 	int ret, len;
+
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		skb->dev = macsec->real_dev;
+		return dev_queue_xmit(skb);
+	}
 
 	/* 10.5 */
 	if (!secy->protect_frames) {
@@ -2829,6 +3336,23 @@ static int macsec_dev_open(struct net_device *dev)
 			goto clear_allmulti;
 	}
 
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(macsec)) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			err = -EOPNOTSUPP;
+			goto clear_allmulti;
+		}
+
+		ctx.secy = &macsec->secy;
+		err = macsec_offload(ops->mdo_dev_open, &ctx);
+		if (err)
+			goto clear_allmulti;
+	}
+
 	if (netif_carrier_ok(real_dev))
 		netif_carrier_on(dev);
 
@@ -2848,6 +3372,18 @@ static int macsec_dev_stop(struct net_device *dev)
 	struct net_device *real_dev = macsec->real_dev;
 
 	netif_carrier_off(dev);
+
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(macsec)) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(macsec, &ctx);
+		if (ops) {
+			ctx.secy = &macsec->secy;
+			macsec_offload(ops->mdo_dev_stop, &ctx);
+		}
+	}
 
 	dev_mc_unsync(real_dev, dev);
 	dev_uc_unsync(real_dev, dev);
@@ -3071,9 +3607,19 @@ static int macsec_changelink_common(struct net_device *dev,
 		case MACSEC_CIPHER_ID_GCM_AES_128:
 		case MACSEC_DEFAULT_CIPHER_ID:
 			secy->key_len = MACSEC_GCM_AES_128_SAK_LEN;
+			secy->xpn = false;
 			break;
 		case MACSEC_CIPHER_ID_GCM_AES_256:
 			secy->key_len = MACSEC_GCM_AES_256_SAK_LEN;
+			secy->xpn = false;
+			break;
+		case MACSEC_CIPHER_ID_GCM_AES_XPN_128:
+			secy->key_len = MACSEC_GCM_AES_128_SAK_LEN;
+			secy->xpn = true;
+			break;
+		case MACSEC_CIPHER_ID_GCM_AES_XPN_256:
+			secy->key_len = MACSEC_GCM_AES_256_SAK_LEN;
+			secy->xpn = true;
 			break;
 		default:
 			return -EINVAL;
@@ -3087,6 +3633,11 @@ static int macsec_changelink(struct net_device *dev, struct nlattr *tb[],
 			     struct nlattr *data[],
 			     struct netlink_ext_ack *extack)
 {
+	struct macsec_dev *macsec = macsec_priv(dev);
+	struct macsec_tx_sc tx_sc;
+	struct macsec_secy secy;
+	int ret;
+
 	if (!data)
 		return 0;
 
@@ -3096,7 +3647,41 @@ static int macsec_changelink(struct net_device *dev, struct nlattr *tb[],
 	    data[IFLA_MACSEC_PORT])
 		return -EINVAL;
 
-	return macsec_changelink_common(dev, data);
+	/* Keep a copy of unmodified secy and tx_sc, in case the offload
+	 * propagation fails, to revert macsec_changelink_common.
+	 */
+	memcpy(&secy, &macsec->secy, sizeof(secy));
+	memcpy(&tx_sc, &macsec->secy.tx_sc, sizeof(tx_sc));
+
+	ret = macsec_changelink_common(dev, data);
+	if (ret)
+		return ret;
+
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(macsec)) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+		int ret;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (!ops) {
+			ret = -EOPNOTSUPP;
+			goto cleanup;
+		}
+
+		ctx.secy = &macsec->secy;
+		ret = macsec_offload(ops->mdo_upd_secy, &ctx);
+		if (ret)
+			goto cleanup;
+	}
+
+	return 0;
+
+cleanup:
+	memcpy(&macsec->secy.tx_sc, &tx_sc, sizeof(tx_sc));
+	memcpy(&macsec->secy, &secy, sizeof(secy));
+
+	return ret;
 }
 
 static void macsec_del_dev(struct macsec_dev *macsec)
@@ -3138,6 +3723,18 @@ static void macsec_dellink(struct net_device *dev, struct list_head *head)
 	struct macsec_dev *macsec = macsec_priv(dev);
 	struct net_device *real_dev = macsec->real_dev;
 	struct macsec_rxh_data *rxd = macsec_data_rtnl(real_dev);
+
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(macsec)) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(netdev_priv(dev), &ctx);
+		if (ops) {
+			ctx.secy = &macsec->secy;
+			macsec_offload(ops->mdo_del_secy, &ctx);
+		}
+	}
 
 	macsec_common_dellink(dev, head);
 
@@ -3212,6 +3809,7 @@ static int macsec_add_dev(struct net_device *dev, sci_t sci, u8 icv_len)
 	secy->validate_frames = MACSEC_VALIDATE_DEFAULT;
 	secy->protect_frames = true;
 	secy->replay_protect = false;
+	secy->xpn = DEFAULT_XPN;
 
 	secy->sci = sci;
 	secy->tx_sc.active = true;
@@ -3246,6 +3844,9 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
 	dev->priv_flags |= IFF_MACSEC;
 
 	macsec->real_dev = real_dev;
+
+	/* MACsec offloading is off by default */
+	macsec->offload = MACSEC_OFFLOAD_OFF;
 
 	if (data && data[IFLA_MACSEC_ICV_LEN])
 		icv_len = nla_get_u8(data[IFLA_MACSEC_ICV_LEN]);
@@ -3344,6 +3945,8 @@ static int macsec_validate_attr(struct nlattr *tb[], struct nlattr *data[],
 	switch (csid) {
 	case MACSEC_CIPHER_ID_GCM_AES_128:
 	case MACSEC_CIPHER_ID_GCM_AES_256:
+	case MACSEC_CIPHER_ID_GCM_AES_XPN_128:
+	case MACSEC_CIPHER_ID_GCM_AES_XPN_256:
 	case MACSEC_DEFAULT_CIPHER_ID:
 		if (icv_len < MACSEC_MIN_ICV_LEN ||
 		    icv_len > MACSEC_STD_ICV_LEN)
@@ -3417,10 +4020,10 @@ static int macsec_fill_info(struct sk_buff *skb,
 
 	switch (secy->key_len) {
 	case MACSEC_GCM_AES_128_SAK_LEN:
-		csid = MACSEC_DEFAULT_CIPHER_ID;
+		csid = secy->xpn ? MACSEC_CIPHER_ID_GCM_AES_XPN_128 : MACSEC_DEFAULT_CIPHER_ID;
 		break;
 	case MACSEC_GCM_AES_256_SAK_LEN:
-		csid = MACSEC_CIPHER_ID_GCM_AES_256;
+		csid = secy->xpn ? MACSEC_CIPHER_ID_GCM_AES_XPN_256 : MACSEC_CIPHER_ID_GCM_AES_256;
 		break;
 	default:
 		goto nla_put_failure;
