@@ -219,14 +219,14 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	mutex_lock(&mtk_subdev->endpoints_lock);
 	srcmdev = idr_find(&mtk_subdev->endpoints, read_obj->src);
 	if (!srcmdev) {
-		dev_info(ccd->dev, "src ept is not exist\n");
+		dev_dbg(ccd->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
 	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
-		dev_info(ccd->dev, "src ept is not ready\n");
+		dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		goto err_put;
 	}
@@ -253,7 +253,7 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 
 		atomic_set(&mept->worker_read_rdy, 0);
 		if (ret != 0) {
-			dev_info(ccd->dev,
+			dev_dbg(ccd->dev,
 				"worker read wait error: %d\n", ret);
 			goto err_ret;
 		}
