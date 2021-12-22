@@ -2181,7 +2181,7 @@ static bool color_get_MML_TDSHP0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_tdshp");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_tdshp");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2278,7 +2278,7 @@ static bool color_get_MML_COLOR0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_color");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_color");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -3285,23 +3285,26 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 					if (color_get_DISP_C3D1_REG(&res))
 						pa1 =  res.start + offset;
 				}
-
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					pa, wParams->val, wParams->mask);
+				if (pa) {
+					cmdq_pkt_write(handle, comp->cmdq_base,
+						pa, wParams->val, wParams->mask);
+				}
 				DDPINFO("dual pipe write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
 					pa, (long)va, wParams->val, wParams->mask);
-
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					pa1, wParams->val, wParams->mask);
+				if (pa1) {
+					cmdq_pkt_write(handle, comp->cmdq_base,
+						pa1, wParams->val, wParams->mask);
+				}
 				DDPINFO("dual pipe write pa1:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
 					pa1, (long)va, wParams->val, wParams->mask);
 			} while (0);
 		} else {
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				pa, wParams->val, wParams->mask);
-
-			DDPINFO("write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n", pa, (long)va,
-			wParams->val, wParams->mask);
+			if (pa) {
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					pa, wParams->val, wParams->mask);
+			}
+			DDPINFO("single pipe write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
+				pa, (long)va, wParams->val, wParams->mask);
 		}
 	}
 	break;
