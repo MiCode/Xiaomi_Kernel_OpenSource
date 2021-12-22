@@ -13,7 +13,7 @@
 #include "apu_log.h"
 #include "apusys_power_ctl.h"
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include "mtk_freqhopping_drv.h"
+//#include "mtk_freqhopping_drv.h"
 #endif
 #include "apupwr_secure.h"
 
