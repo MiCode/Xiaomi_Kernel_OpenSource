@@ -632,6 +632,90 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.pixelformat = V4L2_PIX_FMT_SRGGB10P,
 		},
 	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR14,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG14,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG14,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB10,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB12,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB14,
+		},
+	},
 };
 
 #define MTK_CAMSV_TOTAL_CAPTURE_QUEUES 1
@@ -828,18 +912,30 @@ unsigned int mtk_cam_sv_format_sel(unsigned int pixel_fmt)
 	case V4L2_PIX_FMT_SGBRG10P:
 	case V4L2_PIX_FMT_SGRBG10P:
 	case V4L2_PIX_FMT_SRGGB10P:
+	case V4L2_PIX_FMT_SBGGR10:
+	case V4L2_PIX_FMT_SGBRG10:
+	case V4L2_PIX_FMT_SGRBG10:
+	case V4L2_PIX_FMT_SRGGB10:
 		fmt.Bits.TG1_FMT = SV_TG_FMT_RAW10;
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR12:
 	case V4L2_PIX_FMT_MTISP_SGBRG12:
 	case V4L2_PIX_FMT_MTISP_SGRBG12:
 	case V4L2_PIX_FMT_MTISP_SRGGB12:
+	case V4L2_PIX_FMT_SBGGR12:
+	case V4L2_PIX_FMT_SGBRG12:
+	case V4L2_PIX_FMT_SGRBG12:
+	case V4L2_PIX_FMT_SRGGB12:
 		fmt.Bits.TG1_FMT = SV_TG_FMT_RAW12;
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR14:
 	case V4L2_PIX_FMT_MTISP_SGBRG14:
 	case V4L2_PIX_FMT_MTISP_SGRBG14:
 	case V4L2_PIX_FMT_MTISP_SRGGB14:
+	case V4L2_PIX_FMT_SBGGR14:
+	case V4L2_PIX_FMT_SGBRG14:
+	case V4L2_PIX_FMT_SGRBG14:
+	case V4L2_PIX_FMT_SRGGB14:
 		fmt.Bits.TG1_FMT = SV_TG_FMT_RAW14;
 		break;
 	default:
@@ -881,6 +977,20 @@ unsigned int mtk_cam_sv_pak_sel(unsigned int pixel_fmt,
 	case V4L2_PIX_FMT_MTISP_SRGGB12:
 		pak.Bits.PAK_MODE = 130;
 		break;
+	/* for unpak fmt */
+	case V4L2_PIX_FMT_SBGGR10:
+	case V4L2_PIX_FMT_SGBRG10:
+	case V4L2_PIX_FMT_SGRBG10:
+	case V4L2_PIX_FMT_SRGGB10:
+		pak.Bits.PAK_MODE = 145;
+		break;
+	case V4L2_PIX_FMT_SBGGR12:
+	case V4L2_PIX_FMT_SGBRG12:
+	case V4L2_PIX_FMT_SGRBG12:
+	case V4L2_PIX_FMT_SRGGB12:
+		pak.Bits.PAK_MODE = 146;
+		break;
+
 	default:
 		break;
 	}
@@ -924,6 +1034,17 @@ unsigned int mtk_cam_sv_xsize_cal(struct mtkcam_ipi_input_param *cfg_in_param)
 	case V4L2_PIX_FMT_MTISP_SGRBG14:
 	case V4L2_PIX_FMT_MTISP_SRGGB14:
 		size = (cfg_in_param->in_crop.s.w * 14) / 8;
+		break;
+	/* for unpak fmt */
+	case V4L2_PIX_FMT_SBGGR10:
+	case V4L2_PIX_FMT_SGBRG10:
+	case V4L2_PIX_FMT_SGRBG10:
+	case V4L2_PIX_FMT_SRGGB10:
+	case V4L2_PIX_FMT_SBGGR12:
+	case V4L2_PIX_FMT_SGBRG12:
+	case V4L2_PIX_FMT_SGRBG12:
+	case V4L2_PIX_FMT_SRGGB12:
+		size = (cfg_in_param->in_crop.s.w * 16) / 8;
 		break;
 	default:
 		break;
