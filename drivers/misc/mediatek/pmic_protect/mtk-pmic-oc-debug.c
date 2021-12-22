@@ -39,6 +39,41 @@ struct oc_debug_info {
 	.md_data = _md_data,		\
 }
 
+static struct oc_debug_t mt6855_oc_debug[] = {
+	MD_REG_OC_DEBUG(mt6363_vcn15, BIT(5)),
+	REG_OC_DEBUG(mt6363_vcn13),
+	MD_REG_OC_DEBUG(mt6363_vrf09, BIT(2)),
+	REG_OC_DEBUG(mt6363_vrf12),
+	MD_REG_OC_DEBUG(mt6363_vrf13, BIT(3)),
+	MD_REG_OC_DEBUG(mt6363_vrf18, BIT(4)),
+	REG_OC_DEBUG(mt6363_vrfio18),
+	REG_OC_DEBUG(mt6363_vsram_mdfe),
+	REG_OC_DEBUG(mt6363_vtref18),
+	REG_OC_DEBUG(mt6363_vsram_apu),
+	REG_OC_DEBUG(mt6363_vaux18),
+	REG_OC_DEBUG(mt6363_vemc),
+	REG_OC_DEBUG(mt6363_vufs12),
+	REG_OC_DEBUG(mt6363_vufs18),
+	REG_OC_DEBUG(mt6363_vio18),
+	REG_OC_DEBUG(mt6363_vio075),
+	REG_OC_DEBUG(mt6363_va12_1),
+	REG_OC_DEBUG(mt6363_va12_2),
+	REG_OC_DEBUG(mt6363_va15),
+	REG_OC_DEBUG(mt6369_vibr),
+	REG_OC_DEBUG(mt6369_vio28),
+	REG_OC_DEBUG(mt6369_vfp),
+	REG_OC_DEBUG(mt6369_vtp),
+	REG_OC_DEBUG(mt6369_vusb),
+	REG_OC_DEBUG(mt6369_vaud28),
+	REG_OC_DEBUG(mt6369_vcn33_1),
+	REG_OC_DEBUG(mt6369_vcn33_2),
+	REG_OC_DEBUG(mt6369_vefuse),
+	REG_OC_DEBUG(mt6369_vmch),
+	REG_OC_DEBUG(mt6369_vmc),
+	REG_OC_DEBUG(mt6369_vant18),
+	REG_OC_DEBUG(mt6369_vaux18),
+};
+
 static struct oc_debug_t mt6879_oc_debug[] = {
 	MD_REG_OC_DEBUG(mt6363_vcn15, BIT(5)),
 	REG_OC_DEBUG(mt6363_vcn13),
@@ -117,6 +152,11 @@ static struct oc_debug_t mt6983_oc_debug[] = {
 	REG_OC_DEBUG(mt6373_vio28),
 	REG_OC_DEBUG(mt6373_vfp),
 	REG_OC_DEBUG(mt6373_vtp),
+};
+
+static struct oc_debug_info mt6855_debug_info = {
+	.oc_debug = mt6855_oc_debug,
+	.oc_debug_num = ARRAY_SIZE(mt6855_oc_debug),
 };
 
 static struct oc_debug_info mt6879_debug_info = {
@@ -268,7 +308,9 @@ static int vio18_switch(struct platform_device *pdev, struct oc_debug_info *info
 	if (!vio18_ctrl->main_regmap)
 		return -EINVAL;
 
-	if (info == &mt6879_debug_info)
+	if (info == &mt6855_debug_info)
+		vio18_ctrl->second_switch = 0x56;
+	else if (info == &mt6879_debug_info)
 		vio18_ctrl->second_switch = 0x57;
 	else if (info == &mt6983_debug_info)
 		vio18_ctrl->second_switch = 0x58;
@@ -332,6 +374,9 @@ static int pmic_oc_debug_probe(struct platform_device *pdev)
 
 static const struct of_device_id pmic_oc_debug_of_match[] = {
 	{
+		.compatible = "mediatek,mt6855-oc-debug",
+		.data = &mt6855_debug_info,
+	}, {
 		.compatible = "mediatek,mt6879-oc-debug",
 		.data = &mt6879_debug_info,
 	}, {
