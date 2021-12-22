@@ -17,4 +17,5 @@ else
   # SoC
   obj-$(CONFIG_DEVAPC_MT6833) += devapc-mt6833.o
   obj-$(CONFIG_DEVAPC_MT6877) += devapc-mt6877.o
+  obj-$(CONFIG_DEVAPC_MT6885) += devapc-mt6885.o
 endif
