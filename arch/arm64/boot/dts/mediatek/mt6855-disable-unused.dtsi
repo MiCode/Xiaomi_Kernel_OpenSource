@@ -161,6 +161,8 @@
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
 			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
+			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN>,
+			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN_ENG>,
 			<&vdec_gcon_base_clk CLK_VDE2_MINI_MDP_CKEN_CFG_RG>,
 			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
 			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>,
@@ -304,6 +306,10 @@
 			<&pericfg_ao_clk CLK_PERAOP_SPI6_BCLK>,
 			<&pericfg_ao_clk CLK_PERAOP_SPI7_BCLK>,
 			<&pericfg_ao_clk CLK_PERAOP_APDMA>,
+			<&pericfg_ao_clk CLK_PERAOP_USB_PHY>,
+			<&pericfg_ao_clk CLK_PERAOP_USB_SYS>,
+			<&pericfg_ao_clk CLK_PERAOP_USB_DMA_BUS>,
+			<&pericfg_ao_clk CLK_PERAOP_USB_MCU_BUS>,
 			<&pericfg_ao_clk CLK_PERAOP_MSDC1>,
 			<&pericfg_ao_clk CLK_PERAOP_MSDC1_HCLK>,
 			<&pericfg_ao_clk CLK_PERAOP_FMSDC50>,
@@ -585,25 +591,5 @@
 	disable-unused-pd-csi_rx {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_CSI_RX>;
-	};
-
-	disable-unused-pd-mfg0_shutdown {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MFG0_SHUTDOWN>;
-	};
-
-	disable-unused-pd-mfg0_dormant {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MFG0_DORMANT>;
-	};
-
-	disable-unused-pd-mfg1 {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MFG1>;
-	};
-
-	disable-unused-pd-mfg2 {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MFG2>;
 	};
 };
