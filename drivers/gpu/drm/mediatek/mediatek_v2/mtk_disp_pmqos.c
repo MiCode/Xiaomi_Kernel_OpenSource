@@ -117,6 +117,64 @@ void __mtk_disp_set_module_hrt(struct icc_path *request,
 		mtk_icc_set_bw(request, 0, MBps_to_icc(bandwidth));
 }
 
+static bool mtk_disp_check_segment(struct mtk_drm_crtc *mtk_crtc,
+				struct mtk_drm_private *priv)
+{
+	bool ret = true;
+	int hact = 0;
+	int vact = 0;
+	int vrefresh = 0;
+
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s, mtk_crtc is NULL\n", __func__);
+		return ret;
+	}
+
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, private is NULL\n", __func__);
+		return ret;
+	}
+
+	hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+	vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+
+	switch (priv->seg_id) {
+	case 1:
+		if (hact >= 1440)
+			ret = false;
+		else if (hact >= 1080 && vrefresh > 168)
+			ret = false;
+		break;
+	case 2:
+		if (hact >= 1440 && vrefresh > 120)
+			ret = false;
+		else if (hact >= 1080 && vrefresh > 168)
+			ret = false;
+		break;
+	case 3:
+		if (hact >= 1440 && vrefresh > 120)
+			ret = false;
+		else if (hact >= 1080 && vrefresh > 180)
+			ret = false;
+		break;
+	default:
+		ret = true;
+		break;
+	}
+
+/*
+ *	DDPMSG("%s, segment:%d, mode(%d, %d, %d)\n",
+ *			__func__, priv->seg_id, hact, vact, vrefresh);
+ */
+
+	if (ret == false)
+		DDPPR_ERR("%s, check sement fail: segment:%d, mode(%d, %d, %d)\n",
+			__func__, priv->seg_id, hact, vact, vrefresh);
+
+	return ret;
+}
+
 int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
@@ -143,6 +201,11 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 
 	if (ret == RDMA_REQ_HRT)
 		tmp = mtk_drm_primary_frame_bw(crtc);
+
+	if (priv->data->mmsys_id == MMSYS_MT6895) {
+		if (mtk_disp_check_segment(mtk_crtc, priv) == false)
+			tmp = 1;
+	}
 
 	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
 	DRM_MMP_MARK(hrt_bw, 0, tmp);

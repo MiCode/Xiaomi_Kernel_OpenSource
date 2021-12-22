@@ -179,6 +179,8 @@ struct mtk_drm_private {
 	struct mml_drm_ctx *mml_ctx;
 	atomic_t mml_job_done;
 	wait_queue_head_t signal_mml_job_done_wq;
+
+	unsigned int seg_id;
 };
 
 struct mtk_drm_property {

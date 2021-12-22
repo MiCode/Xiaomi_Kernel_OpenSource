@@ -68,6 +68,10 @@
 #include "slbc_ops.h"
 #include <linux/syscalls.h>
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
+
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
@@ -5372,6 +5376,52 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 	return &disp_iommu;
 }
 
+static int mtk_drm_get_segment_id(struct platform_device *pdev,
+	struct mtk_drm_private *private)
+{
+	int ret = 0;
+	unsigned int segment_id = 0;
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+#endif
+
+	if (IS_ERR_OR_NULL(private)) {
+		DDPPR_ERR("%s, private is NULL\n", __func__);
+		ret = EFAULT;
+		return ret;
+	}
+
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_seg_disp_cell");
+	if (IS_ERR(efuse_cell)) {
+		DDPPR_ERR("%s, fail to get efuse_segment_cell (%ld)\n",
+			__func__, PTR_ERR(efuse_cell));
+		ret = PTR_ERR(efuse_cell);
+		goto done;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		DDPPR_ERR("%s, fail to get efuse_buf (%ld)\n",
+			__func__, PTR_ERR(efuse_buf));
+		ret = PTR_ERR(efuse_buf);
+		goto done;
+	}
+
+	segment_id = (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+#endif
+
+done:
+	DDPINFO("%s, segment_id: %d", __func__, segment_id);
+
+	private->seg_id = segment_id;
+	return ret;
+}
+
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -5417,6 +5467,11 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		disp_helper_set_stage(DISP_HELPER_STAGE_NORMAL);
 	else
 		disp_helper_set_stage(DISP_HELPER_STAGE_BRING_UP);
+
+	if (private->data->mmsys_id == MMSYS_MT6895) {
+		if (mtk_drm_get_segment_id(pdev, private))
+			DDPPR_ERR("%s, segment get fail\n", __func__);
+	}
 
 	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
 	if (ranges)
