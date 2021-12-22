@@ -10444,8 +10444,9 @@
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_MMUP_SEL>,
-			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D3>;
-		clock-names = "mmup-clk", "mmup-pll";
+			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D3>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
+		clock-names = "mmup-sel", "mmup-clk", "mmup-26m";
 	};
 
 	vcp_io2: vcp_iommu_vdec {
