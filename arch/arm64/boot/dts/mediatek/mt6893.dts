@@ -3306,8 +3306,11 @@ page_owner=on loop.max_part=7";
 		mediatek,cali-ge-bit = <10>;
 		/* 3. Auxadc cali oe bits shift */
 		mediatek,cali-oe-bit = <0>;
-		/* 4. Auxadc cali efuse index */
-		mediatek,cali-efuse-index = <113>;
+		/* 4. Auxadc cali efuse reg offset */
+		mediatek,cali-efuse-reg-offset = <0x1c4>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		#interconnect-cells = <1>;
 	};
 
 	mali: mali@13000000 {

@@ -1891,8 +1891,11 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mediatek,cali-ge-bit = <10>;
 		/* 3. Auxadc cali oe bits shift */
 		mediatek,cali-oe-bit = <0>;
-		/* 4. Auxadc cali efuse index */
-		mediatek,cali-efuse-index = <106>;
+		/* 4. Auxadc cali efuse reg offset */
+		mediatek,cali-efuse-reg-offset = <0x1a8>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		#interconnect-cells = <1>;
 	};
 
 	apdma: dma-controller@11000980 {
