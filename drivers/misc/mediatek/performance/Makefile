@@ -19,8 +19,10 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/performance/perf_ioctl/ \
 obj-y += perfmgr_main.o
 obj-y += base/
 
-#obj-$(CONFIG_MTK_PERF_OBSERVER) += observer/
-#obj-$(CONFIG_MTK_RESYM) += resym/
+obj-$(CONFIG_MTK_PERF_OBSERVER) += observer/
+obj-$(CONFIG_MTK_RESYM) += resym/
+#obj-$(CONFIG_MTK_GBE) += gbe/
+obj-y += syslimiter/
 
 #ifeq (,$(findstring mt8,$(CONFIG_MTK_PLATFORM)))
 obj-y += boost_ctrl/
@@ -28,7 +30,22 @@ obj-y += tchbst/
 #endif
 
 obj-y += perf_ioctl/
+
+ifeq ($(CONFIG_MACH_MT6893),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6877),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6781),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6739),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6833),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6768),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
+endif
 
 ifneq (,$(filter $(CONFIG_MTK_LEGACY_THERMAL_PLATFORM), "mt6779"))
 		obj-$(CONFIG_MTK_EARA_THERMAL) += eara_thermal/

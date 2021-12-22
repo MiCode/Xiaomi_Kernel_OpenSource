@@ -8,7 +8,6 @@
 #include <linux/proc_fs.h>
 #include <mt-plat/fpsgo_common.h>
 
-
 #include "tchbst.h"
 #include "fstb.h"
 #include "mtk_perfmgr_internal.h"
@@ -23,11 +22,15 @@ static struct hrtimer hrt1;
 static int usrtch_dbg;
 static int  touch_boost_value;
 static int touch_boost_opp; /* boost freq of touch boost */
+static int *cluster_opp;
 static struct cpu_ctrl_data *target_freq, *reset_freq;
 static int touch_boost_duration;
 static long long active_time;
+static int time_to_last_touch;
+static int deboost_when_render;
 static int usrtch_debug;
 static int touch_event;/*touch down:1 */
+static ktime_t last_touch_time;
 
 void switch_usrtch(int enable)
 {
@@ -36,27 +39,54 @@ void switch_usrtch(int enable)
 	mutex_unlock(&notify_lock);
 }
 
+void switch_eas_boost(int boost_value)
+{
+	touch_boost_value = boost_value;
+}
+
 void switch_init_opp(int boost_opp)
 {
 	int i;
 
 	touch_boost_opp = boost_opp;
 	for (i = 0; i < perfmgr_clusters; i++)
-#ifdef CONFIG_MTK_CPU_FREQ
 		target_freq[i].min =
 			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
-#else
-		target_freq[i].min = -1;
-#endif
+}
+
+void switch_cluster_opp(int id, int boost_opp)
+{
+	if (id < 0 || id >= perfmgr_clusters || boost_opp < -2)
+		return;
+
+	cluster_opp[id] = boost_opp;
+
+	if (boost_opp == -2) /* don't boost */
+		target_freq[id].min = -1;
+	else if (boost_opp == -1) /* use touch_boost_opp */
+		target_freq[id].min = mt_cpufreq_get_freq_by_idx(id, touch_boost_opp);
+	else /* use boost_opp */
+		target_freq[id].min = mt_cpufreq_get_freq_by_idx(id, boost_opp);
 }
 
 void switch_init_duration(int duration)
 {
 	touch_boost_duration = duration;
 }
+
 void switch_active_time(int duration)
 {
 	active_time = duration;
+}
+
+void switch_time_to_last_touch(int duration)
+{
+	time_to_last_touch = duration;
+}
+
+void switch_deboost_when_render(int enable)
+{
+	deboost_when_render = !!enable;
 }
 
 /*--------------------TIMER------------------------*/
@@ -86,52 +116,66 @@ static enum hrtimer_restart mt_touch_timeout(struct hrtimer *timer)
 }
 
 /*--------------------FRAME HINT OP------------------------*/
-static int notify_touch(int action)
+int notify_touch(int action)
 {
 	int ret = 0;
 	int isact = 0;
-	/* lock is mandatory*/
-	WARN_ON(!mutex_is_locked(&notify_lock));
-	isact = is_fstb_active(active_time);
+	ktime_t now, delta;
 
-	perfmgr_trace_count(isact, "isact");
-
-	if (is_fstb_active(active_time) || usrtch_dbg)
+	if (!deboost_when_render && action == 3)
 		return ret;
 
+	if (action != 3) {
+		now = ktime_get();
+		delta = ktime_sub(now, last_touch_time);
+		last_touch_time = now;
+
+		/* lock is mandatory*/
+		WARN_ON(!mutex_is_locked(&notify_lock));
+		isact = is_fstb_active(active_time);
+
+		perfmgr_trace_count(isact, "isact");
+
+		if ((isact && ktime_to_ms(delta) < time_to_last_touch) ||
+				usrtch_dbg)
+			return ret;
+	}
+
 	/*action 1: touch down 2: touch up*/
+	/* -> 3: fpsgo active*/
 	if (action == 1) {
 		disable_touch_boost_timer();
 		enable_touch_boost_timer();
 
 		/* boost */
-#ifdef CONFIG_MTK_SCHED_EXTENSION
 		update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH,
 				CGROUP_TA, touch_boost_value);
-#endif
 		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
 				perfmgr_clusters, target_freq);
 		if (usrtch_debug)
 			pr_debug("touch down\n");
 		perfmgr_trace_count(1, "touch");
 		touch_event = 1;
+	} else if (touch_event == 1 && action == 3) {
+		disable_touch_boost_timer();
+		update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH, CGROUP_TA, 0);
+		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
+			perfmgr_clusters, reset_freq);
+		perfmgr_trace_count(3, "touch");
+		touch_event = 2;
+		if (usrtch_debug)
+			pr_debug("touch timeout\n");
 	}
 
 	return ret;
 }
 
-void switch_init_boost(int boost_value)
-{
-	touch_boost_value = boost_value;
-}
 
 static void notify_touch_up_timeout(struct work_struct *work)
 {
 	mutex_lock(&notify_lock);
 
-#ifdef CONFIG_MTK_SCHED_EXTENSION
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH, CGROUP_TA, 0);
-#endif
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
 	perfmgr_trace_count(0, "touch");
 	touch_event = 2;
@@ -146,9 +190,10 @@ static ssize_t device_write(struct file *filp, const char *ubuf,
 		size_t cnt, loff_t *data)
 {
 	char buf[32], cmd[32];
-	int arg;
+	int arg1, arg2;
 
-	arg = 0;
+	arg1 = 0;
+	arg2 = -1;
 
 	if (cnt >= sizeof(buf))
 		return -EINVAL;
@@ -157,33 +202,51 @@ static ssize_t device_write(struct file *filp, const char *ubuf,
 		return -EFAULT;
 	buf[cnt] = '\0';
 
-	if (sscanf(buf, "%31s %d", cmd, &arg) != 2)
+	if (sscanf(buf, "%31s %d %d", cmd, &arg1, &arg2) < 2)
 		return -EFAULT;
 
 	if (strncmp(cmd, "enable", 6) == 0)
-		switch_usrtch(arg);
-	else if (strncmp(cmd, "init", 4) == 0)
-		switch_init_boost(arg);
+		switch_usrtch(arg1);
+	else if (strncmp(cmd, "eas_boost", 4) == 0)
+		switch_eas_boost(arg1);
 	else if (strncmp(cmd, "touch_opp", 9) == 0) {
-		if (arg >= 0 && arg <= 15)
-			switch_init_opp(arg);
+		if (arg1 >= 0 && arg1 <= 15)
+			switch_init_opp(arg1);
+	} else if (strncmp(cmd, "cluster_opp", 11) == 0) {
+		if (arg1 >= 0 && arg1 < perfmgr_clusters && arg2 >= -2 && arg2 <= 15)
+			switch_cluster_opp(arg1, arg2);
 	} else if (strncmp(cmd, "duration", 8) == 0) {
-		switch_init_duration(arg);
+		switch_init_duration(arg1);
 	} else if (strncmp(cmd, "active_time", 11) == 0) {
-		if (arg > 0)
-			switch_active_time(arg);
+		if (arg1 >= 0)
+			switch_active_time(arg1);
+	} else if (strncmp(cmd, "time_to_last_touch", 18) == 0) {
+		if (arg1 >= 0)
+			switch_time_to_last_touch(arg1);
+	} else if (strncmp(cmd, "deboost_when_render", 19) == 0) {
+		if (arg1 >= 0)
+			switch_deboost_when_render(arg1);
 	}
 	return cnt;
 }
 
 static int device_show(struct seq_file *m, void *v)
 {
+	int i;
+
 	seq_puts(m, "-----------------------------------------------------\n");
 	seq_printf(m, "enable:\t%d\n", !usrtch_dbg);
-	seq_printf(m, "init:\t%d\n", touch_boost_value);
+	seq_printf(m, "eas_boost:\t%d\n", touch_boost_value);
 	seq_printf(m, "touch_opp:\t%d\n", touch_boost_opp);
-	seq_printf(m, "duration:\t%d\n", touch_boost_duration);
-	seq_printf(m, "active_time:\t%d\n", (int)active_time);
+
+	for (i = 0; i < perfmgr_clusters; i++)
+		seq_printf(m, "cluster_opp[%d]:\t%d\n",
+		i, cluster_opp[i]);
+
+	seq_printf(m, "duration(ns):\t%d\n", touch_boost_duration);
+	seq_printf(m, "active_time(us):\t%d\n", (int)active_time);
+	seq_printf(m, "time_to_last_touch(ms):\t%d\n", time_to_last_touch);
+	seq_printf(m, "deboost_when_render:\t%d\n", deboost_when_render);
 	seq_printf(m, "touch_event:\t%d\n", touch_event);
 	seq_puts(m, "-----------------------------------------------------\n");
 	return 0;
@@ -285,16 +348,21 @@ int init_utch(struct proc_dir_entry *parent)
 	touch_boost_opp = TOUCH_BOOST_OPP;
 	touch_boost_duration = TOUCH_TIMEOUT_NSEC;
 	active_time = TOUCH_FSTB_ACTIVE_US;
+	time_to_last_touch = TOUCH_TIME_TO_LAST_TOUCH_MS;
+	last_touch_time = ktime_get();
 
 	target_freq = kcalloc(perfmgr_clusters,
 			sizeof(struct cpu_ctrl_data), GFP_KERNEL);
 	reset_freq = kcalloc(perfmgr_clusters,
 			sizeof(struct cpu_ctrl_data), GFP_KERNEL);
+	cluster_opp = kcalloc(perfmgr_clusters,
+			sizeof(int), GFP_KERNEL);
 
 	for (i = 0; i < perfmgr_clusters; i++) {
 		target_freq[i].min =
 			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
 		target_freq[i].max = reset_freq[i].min = reset_freq[i].max = -1;
+		cluster_opp[i] = -1; /* depend on touch_boost_opp */
 	}
 	mutex_init(&notify_lock);
 

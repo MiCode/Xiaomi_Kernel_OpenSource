@@ -1,7 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
+ * Copyright (C) 2020 MediaTek Inc.
+ */
 
 #define pr_fmt(fmt) "pob_qos: " fmt
 #include <linux/notifier.h>
@@ -24,6 +24,8 @@
 #include <trace/events/pob.h>
 
 #include "helio-dvfsrc.h"
+#include "mtk_qos_sram.h"
+
 
 #ifdef CONFIG_MTK_DRAMC
 #include <mtk_dramc.h>
@@ -33,6 +35,10 @@ __weak int dram_steps_freq(unsigned int step) { return 0; }
 
 #include "pob_int.h"
 #include "obpfm_qos_bound.h"
+
+#define QOS_TOTAL_BW_BUF(idx)	(idx * 4)
+#define QOS_TOTAL_BW_BUF_SIZE	8
+#define QOS_TOTAL_BW_BUF_LAST 0x4C
 
 static BLOCKING_NOTIFIER_HEAD(qos_bound_chain_head);
 
@@ -291,10 +297,12 @@ void pob_qos_tracker(u64 wallclock)
 	_pob_qos_tracker(wallclock, diff);
 }
 
+
 struct qos_bound *get_qos_bound(void)
 {
 	return &bound;
 }
+
 
 unsigned short get_qos_bound_idx(void)
 {
@@ -312,6 +320,7 @@ int get_qos_bound_bw_threshold(int state)
 
 	return 0;
 }
+
 
 int register_qos_notifier(struct notifier_block *nb)
 {

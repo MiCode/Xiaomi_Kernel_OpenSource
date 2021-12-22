@@ -26,6 +26,7 @@
 #define TOUCH_BOOST_EAS 80
 #define TOUCH_BOOST_OPP 2
 #define TOUCH_FSTB_ACTIVE_US 100000
+#define TOUCH_TIME_TO_LAST_TOUCH_MS 600000
 
 /*touch boost parent*/
 int init_tchbst(struct proc_dir_entry *parent);
@@ -34,6 +35,7 @@ int init_tchbst(struct proc_dir_entry *parent);
 void switch_usrtch(int enable);
 long usrtch_ioctl(unsigned int cmd, unsigned long arg);
 int init_utch(struct proc_dir_entry *parent);
+int notify_touch(int action);
 
 /*kernel*/
 int init_ktch(struct proc_dir_entry *parent);

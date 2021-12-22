@@ -26,6 +26,11 @@ struct mtk_dram_ctrl {
 struct proc_dir_entry *dram_proc_parent;
 static struct mtk_pm_qos_request ddr_request;
 
+void dram_ctl_update_dfrc_fps(int fps)
+{
+
+}
+
 static ssize_t ddr_ctrl_proc_write(struct file *filp, const char *ubuf,
 		size_t cnt, loff_t *data)
 {
