@@ -86,6 +86,10 @@
 			};
 		};
 
+		mt6369_consys: mt6369-consys {
+			compatible = "mediatek,mt6369-consys";
+		};
+
 		mt6369codec: mt6369codec {
 			compatible = "mediatek,mt6369-sound";
 			mediatek,dmic-mode = <0>;
