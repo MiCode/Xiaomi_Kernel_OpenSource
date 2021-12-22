@@ -27,12 +27,17 @@
 #include "mt_cpufreq.h"
 #endif
 #if defined(THERMAL_VPU_SUPPORT)
-#if defined(CONFIG_MTK_VPU_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "vpu_dvfs.h"
 #endif
 #endif
+
 #if defined(THERMAL_MDLA_SUPPORT)
-#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "mdla_dvfs.h"
 #endif
 #endif
@@ -239,10 +244,18 @@ struct apthermolmt_user *handle, unsigned int limit)
 	apthermolmt_curr_vpu_pwr_lim = final_limit;
 
 	if (apthermolmt_prev_vpu_pwr_lim != apthermolmt_curr_vpu_pwr_lim) {
-#if defined(CONFIG_MTK_VPU_SUPPORT)
 		int opp = 0;
 
 		if (final_limit != 0x7FFFFFFF) {
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+			for (opp = 0; opp < APU_OPP_NUM - 1; opp++) {
+				if (final_limit >= vpu_power_table[opp].power)
+					break;
+			}
+			apusys_thermal_en_throttle_cb(VPU0, opp);
+		} else
+			apusys_thermal_dis_throttle_cb(VPU0);
+#else
 			for (opp = 0; opp < VPU_OPP_NUM - 1; opp++) {
 				if (final_limit >= vpu_power_table[opp].power)
 					break;
@@ -282,10 +295,17 @@ struct apthermolmt_user *handle, unsigned int limit)
 	apthermolmt_curr_mdla_pwr_lim = final_limit;
 
 	if (apthermolmt_prev_mdla_pwr_lim != apthermolmt_curr_mdla_pwr_lim) {
-#if defined(CONFIG_MTK_MDLA_SUPPORT)
 		int opp = 0;
-
 		if (final_limit != 0x7FFFFFFF) {
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+			for (opp = 0; opp < APU_OPP_NUM - 1; opp++) {
+				if (final_limit >= mdla_power_table[opp].power)
+					break;
+			}
+			apusys_thermal_en_throttle_cb(MDLA0, opp);
+		} else
+			apusys_thermal_dis_throttle_cb(MDLA0);
+#else
 			for (opp = 0; opp < MDLA_OPP_NUM - 1; opp++) {
 				if (final_limit >= mdla_power_table[opp].power)
 					break;

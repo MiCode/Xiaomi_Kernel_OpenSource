@@ -56,8 +56,12 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
 else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(PDIR)
 endif
+ifeq ($(CONFIG_MTK_APUSYS_SUPPORT),y)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(MTK_PLATFORM)
+else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
+endif
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/

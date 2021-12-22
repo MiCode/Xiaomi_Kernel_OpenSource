@@ -52,12 +52,16 @@
 #include "linux/delay.h"
 #endif
 #if defined(THERMAL_VPU_SUPPORT)
-#if defined(CONFIG_MTK_VPU_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "vpu_dvfs.h"
 #endif
 #endif
 #if defined(THERMAL_MDLA_SUPPORT)
-#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "mdla_dvfs.h"
 #endif
 #endif

@@ -24,13 +24,18 @@
 #include <ap_thermal_limit.h>
 
 #include <linux/uidgid.h>
+
 #if defined(THERMAL_VPU_SUPPORT)
-#if defined(CONFIG_MTK_VPU_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "vpu_dvfs.h"
 #endif
 #endif
 #if defined(THERMAL_MDLA_SUPPORT)
-#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include "apu_power_table.h"
+#else
 #include "mdla_dvfs.h"
 #endif
 #endif
@@ -38,7 +43,7 @@
  *Local variable definition
  *=============================================================
  */
-#if defined(THERMAL_VPU_SUPPORT)
+#if defined(THERMAL_VPU_SUPPORT) || defined(THERMAL_MDLA_SUPPORT)
 static kuid_t uid = KUIDT_INIT(0);
 static kgid_t gid = KGIDT_INIT(1000);
 #endif
@@ -308,14 +313,17 @@ static ssize_t clvpu_opp_proc_write
 		return -EFAULT;
 
 	if (kstrtoint(tmp, 10, &vpu_upper_opp) == 0) {
-#if defined(CONFIG_MTK_VPU_SUPPORT)
 		if (vpu_upper_opp == -1)
 			vpu_power = 0;
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		else if (vpu_upper_opp >= APU_OPP_0 &&
+			vpu_upper_opp < APU_OPP_NUM)
+#else
 		else if (vpu_upper_opp >= VPU_OPP_0 &&
 			vpu_upper_opp < VPU_OPP_NUM)
+#endif
 			vpu_power = vpu_power_table[vpu_upper_opp].power;
 		else
-#endif
 			vpu_power = 0;
 
 		set_static_vpu_power_limit(vpu_power);
@@ -384,14 +392,17 @@ struct file *filp, const char __user *buf, size_t len, loff_t *data)
 		return -EFAULT;
 
 	if (kstrtoint(tmp, 10, &mdla_upper_opp) == 0) {
-#if defined(CONFIG_MTK_MDLA_SUPPORT)
 		if (mdla_upper_opp == -1)
 			mdla_power = 0;
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		else if (mdla_upper_opp >= APU_OPP_0 &&
+			mdla_upper_opp < APU_OPP_NUM)
+#else
 		else if (mdla_upper_opp >= MDLA_OPP_0 &&
 			mdla_upper_opp < MDLA_OPP_NUM)
+#endif
 			mdla_power = mdla_power_table[mdla_upper_opp].power;
 		else
-#endif
 			mdla_power = 0;
 
 		set_static_mdla_power_limit(mdla_power);

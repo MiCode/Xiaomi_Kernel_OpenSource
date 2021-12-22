@@ -38,8 +38,12 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
 ccflags-y  += -I$(srctree)./drivers/misc/mediatek/thermal/$(PDIR)/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v1/inc/
+ifeq ($(CONFIG_MTK_APUSYS_SUPPORT),y)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(MTK_PLATFORM)
+else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
+endif
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
 
