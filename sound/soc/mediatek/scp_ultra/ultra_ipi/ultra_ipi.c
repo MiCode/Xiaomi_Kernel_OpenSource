@@ -9,11 +9,7 @@
  *****************************************************************************/
 #include <linux/delay.h>
 #include "ultra_ipi.h"
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include <mt-plat/mtk_tinysys_ipi.h>
-#include "scp_ipi_pin.h"
-#include "scp_mbox_layout.h"  /* for IPI mbox size */
-#endif
+#include "scp.h"
 
 static int ultra_ipi_recv_handler(unsigned int id,
 				 void *prdata,

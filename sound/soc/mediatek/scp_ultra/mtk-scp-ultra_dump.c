@@ -41,7 +41,7 @@
 
 #define DUMP_ULTRA_PCM_DATA_PATH "/data/vendor/audiohal/audio_dump"
 #define FRAME_BUF_SIZE (8192)
-static struct wakeup_source wakelock_ultra_dump_lock;
+static struct wakeup_source *wakelock_ultra_dump_lock;
 
 enum { /* dump_data_t */
 	DUMP_PCM_IN = 0,
@@ -101,7 +101,7 @@ int ultra_start_engine_thread(void)
 	int ret = 0;
 
 	/* only enable when debug pcm dump on */
-	aud_wake_lock(&wakelock_ultra_dump_lock);
+	aud_wake_lock(wakelock_ultra_dump_lock);
 
 	pr_debug("%s(),b_enable_stread  0546= %d", __func__, b_enable_stread);
 	if (true == b_enable_stread)
@@ -144,7 +144,7 @@ void ultra_stop_engine_thread(void)
 	kfree(dump_queue);
 	dump_queue = NULL;
 	ultra_close_dump_file();
-	aud_wake_unlock(&wakelock_ultra_dump_lock);
+	aud_wake_unlock(wakelock_ultra_dump_lock);
 }
 
 int ultra_open_dump_file(void)
@@ -157,7 +157,7 @@ int ultra_open_dump_file(void)
 	char path_dataout_pcm[64];
 
 	/* only enable when debug pcm dump on */
-	//aud_wake_lock(&wakelock_ultra_dump_lock);
+	//aud_wake_lock(wakelock_ultra_dump_lock);
 	getnstimeofday(&curr_tm);
 	if (true == b_enable_dump) {
 		pr_info("ultra dump is alread opend\n");
@@ -438,7 +438,7 @@ void audio_ipi_client_ultra_init(void)
 		pr_info("%s() ultra_dump_mem.start_virt:%p", __func__,
 			ultra_dump_mem.start_virt);
 	}
-	aud_wake_lock_init(&wakelock_ultra_dump_lock, "ultradump lock");
+	wakelock_ultra_dump_lock = aud_wake_lock_init(NULL, "ultradump lock");
 
 	dump_workqueue[DUMP_PCM_IN] = create_workqueue("dump_ultra_pcm_in");
 	if (dump_workqueue[DUMP_PCM_IN] == NULL) {
@@ -477,5 +477,5 @@ void audio_ipi_client_ultra_deinit(void)
 			dump_workqueue[i] = NULL;
 		}
 	}
-	aud_wake_lock_destroy(&wakelock_ultra_dump_lock);
+	aud_wake_lock_destroy(wakelock_ultra_dump_lock);
 }

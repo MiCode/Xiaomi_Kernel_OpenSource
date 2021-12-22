@@ -86,8 +86,8 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 		pr_debug("%s(), pdev->dev.of_node NULL!!!\n", __func__);
 	}
 
-	ret = snd_soc_register_platform(&pdev->dev,
-			&mtk_scp_ultra_pcm_platform);
+	ret = snd_soc_register_component(&pdev->dev,
+			&mtk_scp_ultra_pcm_platform, NULL, 0);
 	if (ret) {
 		dev_warn(&pdev->dev, "err_platform\n");
 		goto err_platform;
@@ -97,7 +97,7 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 	return 0;
 
 err_platform:
-	snd_soc_unregister_platform(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 
 	return ret;
 }
