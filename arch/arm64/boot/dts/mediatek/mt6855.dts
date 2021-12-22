@@ -6536,10 +6536,14 @@
 			reg = <0 0x11210000 0 0x10000>,
 				<0 0x11e40000 0 0x10000>;
 			interrupts = <GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH  0>;
-			clocks =  <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
-				<&topckgen_clk CLK_TOP_UNIVPLL_D5_D4>;
+			clocks =  <&pericfg_ao_clk CLK_PERAOP_USB_SYS>,
+				<&pericfg_ao_clk CLK_PERAOP_USB_PHY>,
+				<&pericfg_ao_clk CLK_PERAOP_USB_MCU_BUS>,
+				<&pericfg_ao_clk CLK_PERAOP_USB_DMA_BUS>;
 			clock-names = "sys_clk",
-				"ref_clk";
+				"phy_clk",
+				"mcu_clk",
+				"dma_clk";
 			phys = <&u2port0 PHY_TYPE_USB2>;
 			mode = <2>;
 			multipoint = <1>;

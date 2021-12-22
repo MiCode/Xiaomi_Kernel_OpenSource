@@ -2220,7 +2220,7 @@
 			<&apmixedsys_clk CLK_APMIXED_USBPLL>;
 		clock-names = "sys_clk",
 			"ref_clk",
-			"src_ref";
+			"src_clk";
 		phys = <&u2port0 PHY_TYPE_USB2>;
 		mode = <2>;
 		multipoint = <1>;
