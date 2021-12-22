@@ -370,6 +370,7 @@ struct mtk_csi_param {
 	__u8 dphy_data_settle;
 	__u8 dphy_clk_settle;
 	__u8 cphy_settle;
+	__u32 reg1;
 };
 
 

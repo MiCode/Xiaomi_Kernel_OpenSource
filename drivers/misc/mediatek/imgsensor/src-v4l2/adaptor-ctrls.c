@@ -698,6 +698,7 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			csi_param->dphy_clk_settle = mode->csi_param.dphy_clk_settle;
 			csi_param->dphy_data_settle = mode->csi_param.dphy_data_settle;
 			csi_param->dphy_trail = mode->csi_param.dphy_trail;
+			csi_param->reg1 = mode->csi_param.reg1;
 		}
 	}
 		break;
