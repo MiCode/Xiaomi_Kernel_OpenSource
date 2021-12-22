@@ -3381,6 +3381,105 @@
 			reg = <0 0x14024000 0 0x1000>;
 		};
 
+		imgsys_config: imgsys_config@15020000 {
+			compatible = "mediatek,imgsys", "syscon";
+			reg = <0 0x15020000 0 0x1000>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			mediatek,larb = <&smi_larb9>, <&smi_larb11>;
+			clocks =
+					<&imgsys1_clk CLK_IMGSYS1_LARB9>,
+					<&imgsys1_clk CLK_IMGSYS1_DIP>,
+					<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+					<&imgsys2_clk CLK_IMGSYS2_MSS>,
+					<&imgsys2_clk CLK_IMGSYS2_MFB>;
+			clock-names =
+					"DIP_CG_IMG_LARB9",
+					"DIP_CG_IMG_DIP",
+					"DIP_CG_IMG_LARB11",
+					"DIP_CG_IMG_DIP_MSS",
+					"DIP_CG_IMG_MFB_DIP";
+		};
+
+		dip_a0@15021000 {
+			compatible = "mediatek,dip1";
+			reg = <0 0x15021000 0 0xc000>;
+			interrupts = <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		dip_a1@15022000 {
+			compatible = "mediatek,dip_a1";
+			reg = <0 0x15022000 0 0x1000>;
+		};
+
+		dip_a2@15023000 {
+			compatible = "mediatek,dip_a2";
+			reg = <0 0x15023000 0 0x1000>;
+		};
+
+		dip_a3@15024000 {
+			compatible = "mediatek,dip_a3";
+			reg = <0 0x15024000 0 0x1000>;
+		};
+
+		dip_a4@15025000 {
+			compatible = "mediatek,dip_a4";
+			reg = <0 0x15025000 0 0x1000>;
+		};
+
+		dip_a5@15026000 {
+			compatible = "mediatek,dip_a5";
+			reg = <0 0x15026000 0 0x1000>;
+		};
+
+		dip_a6@15027000 {
+			compatible = "mediatek,dip_a6";
+			reg = <0 0x15027000 0 0x1000>;
+		};
+
+		dip_a7@15028000 {
+			compatible = "mediatek,dip_a7";
+			reg = <0 0x15028000 0 0x1000>;
+		};
+
+		dip_a8@15029000 {
+			compatible = "mediatek,dip_a8";
+			reg = <0 0x15029000 0 0x1000>;
+		};
+
+		dip_a9@1502a000 {
+			compatible = "mediatek,dip_a9";
+			reg = <0 0x1502a000 0 0x1000>;
+		};
+
+
+		mssdl@15812000 {
+			compatible = "mediatek,mssdl";
+			reg = <0 0x15812000 0 0x1000>;
+			interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		msfdl@15810000 {
+			compatible = "mediatek,msfdl";
+			reg = <0 0x15810000 0 0x1000>;
+			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		msf@15810000 {
+			compatible = "mediatek,msf";
+			reg = <0 0x15810000 0 0x1000>;
+			interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH 0>;
+			mboxes = <&gce 18 0 CMDQ_THR_PRIO_1>;
+			mediatek,larb = <&smi_larb11>, <&smi_larb9>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+		};
+
+		mss@15812000 {
+			compatible = "mediatek,mss";
+			reg = <0 0x15812000 0 0x1000>;
+			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
+			mboxes = <&gce 17 0 CMDQ_THR_PRIO_1>;
+		};
+
 		vcp: vcp@1ec00000 {
 			compatible = "mediatek,vcp";
 			vcp-support = <0>;
