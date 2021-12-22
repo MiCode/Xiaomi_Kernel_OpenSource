@@ -51,7 +51,7 @@
 #include "mmprofile_function.h"
 #endif
 
-#if defined (CONFIG_MACH_MT6833)
+#if !(defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6779))
 #include <helio-dvfsrc-opp.h>
 #endif
 

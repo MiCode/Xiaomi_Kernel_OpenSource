@@ -90,17 +90,6 @@ enum vcore_opp {
 };
 #endif
 
-#if defined(CONFIG_MACH_MT6739)
-enum vcore_opp {
-	VCORE_OPP_0,
-	VCORE_OPP_1,
-	VCORE_OPP_2,
-	VCORE_OPP_3,
-	VCORE_OPP_UNREQ = MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE,	
-};
-
-#endif
-
 struct mtk_pm_qos_request {
 	struct list_head list_node;
 	struct plist_node node;

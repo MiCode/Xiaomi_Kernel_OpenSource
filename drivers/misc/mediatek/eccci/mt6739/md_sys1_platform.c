@@ -34,7 +34,8 @@
 //#include <mt-plat/upmu_common.h>
 //#include <mtk_spm_sleep.h>
 //#include <linux/pm_qos.h>
-#include <linux/soc/mediatek/mtk-pm-qos.h>
+#include <drivers/devfreq/helio-dvfsrc-opp.h>
+
 
 #include "ccci_core.h"
 #include "ccci_platform.h"
