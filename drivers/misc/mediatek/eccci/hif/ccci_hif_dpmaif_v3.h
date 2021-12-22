@@ -47,18 +47,14 @@
 #define DPMAIF_HW_CHK_PIT_NUM      (DPMAIF_HW_CHK_BAT_NUM*2)
 #define DPMAIF_HW_CHK_RB_PIT_NUM   64
 
-#define DPMAIF_DL_BAT_ENTRY_SIZE  16384 /* <- 1024 <- 128 */
 
 /* 2048*/ /* 256, 100pkts*2*10ms=2000*12B=>24k */
-#define DPMAIF_DL_PIT_ENTRY_SIZE  (DPMAIF_DL_BAT_ENTRY_SIZE * 2)
 #define DPMAIF_UL_DRB_ENTRY_SIZE  2048 /* from 512 */
 
 #define DPMAIF_DL_PIT_BYTE_SIZE   16
 #define DPMAIF_DL_BAT_BYTE_SIZE   8
 #define DPMAIF_UL_DRB_BYTE_SIZE  8
 
-#define DPMAIF_DL_PIT_SIZE (DPMAIF_DL_PIT_ENTRY_SIZE*DPMAIF_DL_PIT_BYTE_SIZE)
-#define DPMAIF_DL_BAT_SIZE (DPMAIF_DL_BAT_ENTRY_SIZE*DPMAIF_DL_BAT_BYTE_SIZE)
 #define DPMAIF_UL_DRB_SIZE (DPMAIF_UL_DRB_ENTRY_SIZE*DPMAIF_UL_DRB_BYTE_SIZE)
 
 
@@ -401,6 +397,11 @@ struct hif_dpmaif_ctrl {
 
 	int hw_reset_ver;
 	void __iomem *dpmaif_reset_pd_base;
+
+	unsigned int dl_bat_entry_size;
+	unsigned int dl_pit_entry_size;
+	unsigned int dl_bat_size;
+	unsigned int dl_pit_size;
 };
 
 #ifndef CCCI_KMODULE_ENABLE

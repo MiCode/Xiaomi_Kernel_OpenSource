@@ -2696,24 +2696,24 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 	int ret = 0;
 
 	/* PIT buffer init */
-	rxq->pit_size_cnt = DPMAIF_DL_PIT_ENTRY_SIZE;
+	rxq->pit_size_cnt = dpmaif_ctrl->dl_pit_entry_size;
 	/* alloc buffer for HW && AP SW */
 #ifndef PIT_USING_CACHE_MEM
-#if (DPMAIF_DL_PIT_SIZE > PAGE_SIZE)
-	rxq->pit_base = dma_alloc_coherent(
-		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-		(rxq->pit_size_cnt * sizeof(struct dpmaifq_normal_pit)),
-		&rxq->pit_phy_addr, GFP_KERNEL);
+	if (dpmaif_ctrl->dl_pit_size > PAGE_SIZE) {
+		rxq->pit_base = dma_alloc_coherent(
+			ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+			(rxq->pit_size_cnt * sizeof(struct dpmaifq_normal_pit)),
+			&rxq->pit_phy_addr, GFP_KERNEL);
 #ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(-1, TAG, "pit dma_alloc_coherent\n");
+		CCCI_HISTORY_LOG(-1, TAG, "pit dma_alloc_coherent\n");
 #endif
-#else
-	rxq->pit_base = dma_pool_alloc(dpmaif_ctrl->rx_pit_dmapool,
-		GFP_KERNEL, &rxq->pit_phy_addr);
+	} else {
+		rxq->pit_base = dma_pool_alloc(dpmaif_ctrl->rx_pit_dmapool,
+			GFP_KERNEL, &rxq->pit_phy_addr);
 #ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(-1, TAG, "pit dma_pool_alloc\n");
+		CCCI_HISTORY_LOG(-1, TAG, "pit dma_pool_alloc\n");
 #endif
-#endif
+	}
 	if (rxq->pit_base == NULL) {
 		CCCI_ERROR_LOG(-1, TAG, "pit request fail\n");
 		return LOW_MEMORY_PIT;
@@ -2728,7 +2728,7 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 	}
 	rxq->pit_phy_addr = virt_to_phys(rxq->pit_base);
 #endif
-	memset(rxq->pit_base, 0, DPMAIF_DL_PIT_SIZE);
+	memset(rxq->pit_base, 0, dpmaif_ctrl->dl_pit_size);
 	/* dpmaif_pit_init(rxq->pit_base, rxq->pit_size_cnt); */
 
 #ifdef DPMAIF_DEBUG_LOG
@@ -2993,15 +2993,16 @@ static int dpmaif_late_init(unsigned char hif_id)
 	dpmaif_disable_irq(dpmaif_ctrl);
 
 	/* rx rx */
-#if !(DPMAIF_DL_PIT_SIZE > PAGE_SIZE)
-	dpmaif_ctrl->rx_pit_dmapool = dma_pool_create("dpmaif_pit_req_DMA",
-		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-		(DPMAIF_DL_PIT_ENTRY_SIZE*sizeof(struct dpmaifq_normal_pit)),
-		64, 0);
+	if (dpmaif_ctrl->dl_pit_size <= PAGE_SIZE) {
+		dpmaif_ctrl->rx_pit_dmapool = dma_pool_create(
+				"dpmaif_pit_req_DMA",
+				ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+				(dpmaif_ctrl->dl_pit_entry_size*
+				sizeof(struct dpmaifq_normal_pit)), 64, 0);
 #ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG, "pit dma pool\n");
+		CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG, "pit dma pool\n");
 #endif
-#endif
+	}
 	for (i = 0; i < DPMAIF_RXQ_NUM; i++) {
 		rx_q = &dpmaif_ctrl->rxq[i];
 		rx_q->index = i;
@@ -3125,7 +3126,7 @@ static int dpmaif_start(unsigned char hif_id)
 		rxq->index = i;
 		dpmaif_rx_hw_init(rxq);
 
-		rxq->budget = DPMAIF_DL_BAT_ENTRY_SIZE - 1;
+		rxq->budget = dpmaif_ctrl->dl_bat_entry_size - 1;
 	}
 
 	ccci_dpmaif_bat_hw_init_v3();
@@ -3752,7 +3753,7 @@ static int dpmaif_init_cap(struct device *dev)
 	else
 		dpmaif_ctrl->enable_pit_debug = -1;
 
-	CCCI_NORMAL_LOG(-1, TAG,
+	CCCI_INIT_LOG(-1, TAG,
 		"[%s] dpmaif_cap: %x; support_lro: %u; pit_debug: %d\n",
 		__func__, dpmaif_cap, dpmaif_ctrl->support_lro,
 		dpmaif_ctrl->enable_pit_debug);
@@ -3776,10 +3777,24 @@ static int dpmaif_init_cap(struct device *dev)
 		dpmaif_ctrl->dpmaif_reset_pd_base = of_iomap(node, 0);
 	}
 
-	CCCI_NORMAL_LOG(-1, TAG,
+	CCCI_INIT_LOG(-1, TAG,
 		"[%s] hw_reset_ver: %d; dpmaif_reset_pd_base: %p\n",
 		__func__, dpmaif_ctrl->hw_reset_ver,
 		dpmaif_ctrl->dpmaif_reset_pd_base);
+
+	if (of_property_read_u32(dev->of_node, "dl_bat_entry_size",
+					&dpmaif_ctrl->dl_bat_entry_size))
+		dpmaif_ctrl->dl_bat_entry_size = 16384;
+
+	CCCI_INIT_LOG(-1, TAG,
+		"[%s] dl_bat_entry_size: %u\n",
+		__func__, dpmaif_ctrl->dl_bat_entry_size);
+
+	dpmaif_ctrl->dl_pit_entry_size = dpmaif_ctrl->dl_bat_entry_size * 2;
+	dpmaif_ctrl->dl_pit_size =
+		dpmaif_ctrl->dl_pit_entry_size * DPMAIF_DL_PIT_BYTE_SIZE;
+	dpmaif_ctrl->dl_bat_size =
+		dpmaif_ctrl->dl_bat_entry_size * DPMAIF_DL_BAT_BYTE_SIZE;
 
 	return 0;
 }
