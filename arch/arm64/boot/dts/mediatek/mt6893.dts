@@ -931,6 +931,7 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
 		interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
+		apwdt_en = <0>;
 	};
 
 	apxgpt@10008000 {
