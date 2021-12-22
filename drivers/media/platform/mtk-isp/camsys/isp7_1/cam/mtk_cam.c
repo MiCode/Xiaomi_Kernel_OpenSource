@@ -4609,6 +4609,8 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		mraw_buf_entry->ctx = ctx;
 		mraw_buf_entry->ts_raw = 0;
 		mraw_buf_entry->ts_mraw = 0;
+		mraw_buf_entry->is_stagger =
+			mtk_cam_feature_is_stagger(res_feature) ? 1 : 0;
 		atomic_set(&mraw_buf_entry->is_apply, 0);
 
 		/* align master pipe's sequence number */
@@ -4741,12 +4743,14 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *ctx_stream_data;
 	struct mtk_cam_request_stream_data *pipe_stream_data;
 	struct mtk_camsv_working_buf_entry *buf_entry;
+	int res_feature;
 	bool ret = true;
 
 	if (ctx->used_sv_num == 0)
 		return ret;
 
 	ctx_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, idx);
+	res_feature = mtk_cam_s_data_get_res_feature(ctx_stream_data);
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		pipe_id = ctx->sv_pipe[i]->id;
 		buf_entry = mtk_cam_sv_working_buf_get(ctx);
@@ -4759,6 +4763,8 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 		pipe_stream_data->ctx = ctx;
 		buf_entry->ts_raw = 0;
 		buf_entry->ts_sv = 0;
+		buf_entry->is_stagger =
+			(mtk_cam_feature_is_stagger(res_feature)) ? 1 : 0;
 		atomic_set(&buf_entry->is_apply, 0);
 
 		mtk_cam_req_dump_work_init(pipe_stream_data);

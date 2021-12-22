@@ -1694,15 +1694,18 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 				struct mtk_camsv_working_buf_entry, list_entry);
 		if (mtk_cam_sv_is_vf_on(camsv_dev) &&
 			(ctx->used_raw_num != 0)) {
-			if ((buf_entry->ts_sv == 0) ||
-				(atomic_read(&buf_entry->is_apply) == 0) ||
-				((buf_entry->ts_sv < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
-				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
-					__func__, ctx->sv_pipe[i]->id,
-					buf_entry->ts_raw, buf_entry->ts_sv);
-				spin_unlock(&ctx->sv_using_buffer_list[i].lock);
-				continue;
+			if (buf_entry->is_stagger == 0 ||
+				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0)) {
+				if ((buf_entry->ts_sv == 0) ||
+					((buf_entry->ts_sv < buf_entry->ts_raw) &&
+					((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
+					dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld is_apply:%d",
+						__func__, ctx->sv_pipe[i]->id,
+						buf_entry->ts_raw, buf_entry->ts_sv,
+						atomic_read(&buf_entry->is_apply));
+					spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+					continue;
+				}
 			}
 		}
 		list_del(&buf_entry->list_entry);
