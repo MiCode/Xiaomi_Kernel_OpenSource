@@ -45,7 +45,7 @@ const unsigned int mtk_imgsys_wpe_base_ofst[] = {0x0, 0x300000, 0x400000};
 #define WPE_REG_DBG_PORT    (0x4C)
 #define WPE_REG_CQ_THR0_CTL (0xB08)
 #define WPE_REG_CQ_THR1_CTL (0xB18)
-
+#define WPE_REG_DEC_CTL1    (0x784)
 
 const struct mtk_imgsys_init_array
 			mtk_imgsys_wpe_init_ary[] = {
@@ -411,6 +411,33 @@ void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 }
 EXPORT_SYMBOL(imgsys_wpe_set_hw_initial_value);
 
+void imgsys_wpe_debug_ufo_dump(struct mtk_imgsys_dev *imgsys_dev,
+							void __iomem *wpeRegBA)
+{
+	unsigned int i;
+	unsigned int debug_value[55] = {0x0};
+	unsigned int sel_value = 0x0;
+
+	writel((0xB<<12), (wpeRegBA + WPE_REG_DBG_SET));
+	sel_value = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET));
+	for (i = 0; i < 55; i++) {
+		writel((i + 0xC00), (wpeRegBA + WPE_REG_DEC_CTL1));
+		debug_value[i] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT));
+	}
+
+	dev_info(imgsys_dev->dev,
+	  "%s: [0x%x]dbg_sel: 0x%X, [0x%x]dec_ctrl1 [0x%x]ufo_st",
+	  __func__, WPE_REG_DBG_SET, sel_value, WPE_REG_DEC_CTL1, WPE_REG_DBG_PORT);
+
+	for (i = 0; i <= 10; i++) {
+		dev_info(imgsys_dev->dev,
+		  "%s: [0x%x] 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X",
+		  __func__, (unsigned int)(0xC00+i*5),
+		  debug_value[i*5+0], debug_value[i*5+1], debug_value[i*5+2],
+		  debug_value[i*5+3], debug_value[i*5+4]);
+	}
+}
+
 void imgsys_wpe_debug_dl_dump(struct mtk_imgsys_dev *imgsys_dev,
 							void __iomem *wpeRegBA)
 {
@@ -574,6 +601,10 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 				(unsigned int)ioread32((void *)(wpeRegBA + i + 0xC)));
 			}
 		}
+
+		//UFO
+		if (ctl_en & 0x400)
+			imgsys_wpe_debug_ufo_dump(imgsys_dev, wpeRegBA);
 
 	}
 	//
