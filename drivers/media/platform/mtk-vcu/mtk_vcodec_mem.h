@@ -12,7 +12,7 @@
 #include <asm/cacheflush.h>
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
+#include <mailbox/cmdq-sec.h>
 
 #ifndef CONFIG_ARM64
 #include "mm/dma.h"
