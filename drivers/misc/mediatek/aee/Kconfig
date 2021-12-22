@@ -36,3 +36,11 @@ config MTK_AEE_UT
 	  aed-debug.c is AEE UT test case file, just for generate some vendor
 	  exception to test AEE dump flow, include in KE, HWT, HW_reboot, EE,
 	  and kernelAPI exception
+
+config MTK_AEE_HANGDET
+	tristate "Enable AEE Kernel Hang Detector"
+	depends on MTK_AEE_FEATURE
+	help
+	  MTK_AEE_HANGDET is the kernel config of hang detector feature
+	  designed by MTK, which is the mechanism to check if each cpu
+	  is alived. When cpu hang is detected, raise excetpion.
