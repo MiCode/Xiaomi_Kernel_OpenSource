@@ -756,7 +756,7 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 	handle_ret = ion_handle_get_check_overflow(handle);
 	if (IS_ERR(handle_ret)) {
 		mutex_unlock(&client->lock);
-		WARN(1, "%s: handle get fail %d.\n", __func__,
+		WARN(1, "%s: handle get fail %ld.\n", __func__,
 		     PTR_ERR(handle_ret));
 		return handle_ret;
 	}
