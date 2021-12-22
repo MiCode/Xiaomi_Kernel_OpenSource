@@ -187,6 +187,77 @@
 		#clock-cells = <1>;
 	};
 
+	msf@15810000 {
+		compatible = "mediatek,msf";
+		reg = <0 0x15810000 0 0x1000>;
+		interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH 0>;
+		mboxes = <&gce_m 4 0 CMDQ_THR_PRIO_1>;
+		msf_frame_done =
+		/bits/ 16 <CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
+		msf_token =
+		/bits/ 16 <CMDQ_SYNC_TOKEN_MSF>;
+		mediatek,larb = <&smi_larb11>, <&smi_larb9>;
+		power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>,
+				<&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
+		clocks =
+			<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+			<&imgsys2_clk CLK_IMGSYS2_MSS>,
+			<&imgsys2_clk CLK_IMGSYS2_MFB>,
+			<&imgsys2_clk CLK_IMGSYS2_GALS>,
+			<&imgsys1_clk CLK_IMGSYS1_GALS>;
+		clock-names =
+			"MFB_CG_IMG_0",
+			"MFB_CG_IMG_1",
+			"MFB_CG_IMG_2",
+			"MFB_CG_IMG_3",
+			"MFB_CG_IMG_4";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT18)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT19)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT20)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT21)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT22)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT23)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT24)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB11_PORT25)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"mfb_qos_rdma0",
+			"mfb_qos_rdma1",
+			"mfb_qos_rdma2",
+			"mfb_qos_rdma3",
+			"mfb_qos_rdma4",
+			"mfb_qos_rdma5",
+			"mfb_qos_wdma0",
+			"mfb_qos_wdma1";
+		operating-points-v2 = <&opp_table_img>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	};
+
+	mss@15812000 {
+		compatible = "mediatek,mss";
+		reg = <0 0x15812000 0 0x1000>;
+		interrupts = <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH 0>;
+		mboxes = <&gce_m 3 0 CMDQ_THR_PRIO_1>;
+		mss_frame_done =
+		/bits/ 16 <CMDQ_EVENT_IMG2_MSS_DONE_LINK_MISC>;
+		mss_token =
+		/bits/ 16 <CMDQ_SYNC_TOKEN_MSS>;
+	};
+
+	imgsys_mfb@15820000 {
+		compatible = "mediatek,imgsys_mfb";
+		reg = <0 0x15820000 0 0x1000>;
+	};
+
 	imgsys2_clk: syscon@15820000 {
 		compatible = "mediatek,mt6855-imgsys2", "syscon";
 		reg = <0 0x15820000 0 0x1000>;
@@ -3478,22 +3549,6 @@
 			compatible = "mediatek,msfdl";
 			reg = <0 0x15810000 0 0x1000>;
 			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
-		};
-
-		msf@15810000 {
-			compatible = "mediatek,msf";
-			reg = <0 0x15810000 0 0x1000>;
-			interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH 0>;
-			mboxes = <&gce 18 0 CMDQ_THR_PRIO_1>;
-			mediatek,larb = <&smi_larb11>, <&smi_larb9>;
-			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-		};
-
-		mss@15812000 {
-			compatible = "mediatek,mss";
-			reg = <0 0x15812000 0 0x1000>;
-			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH 0>;
-			mboxes = <&gce 17 0 CMDQ_THR_PRIO_1>;
 		};
 
 		vcp: vcp@1ec00000 {
