@@ -437,6 +437,7 @@
 		interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
 		core_1 = "enable";
 		scp_sramSize = <0x00080000>;
+		scp_mpuRegionId = <28>;
 	};
 
 	scp_dvfs {

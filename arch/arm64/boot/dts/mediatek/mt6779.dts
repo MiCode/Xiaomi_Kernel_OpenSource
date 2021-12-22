@@ -1658,6 +1658,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			interrupts = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
 			core_1 = "enable";
 			scp_sramSize = <0x00080000>;
+			scp_mpuRegionId = <6>;
 			scp_feature_tbl = <0 47>,   /* vow */
 					  <1 356>,  /* dsp */
 					  <2 62>,   /* sensor */

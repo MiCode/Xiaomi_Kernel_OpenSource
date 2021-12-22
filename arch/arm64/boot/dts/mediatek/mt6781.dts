@@ -1117,6 +1117,7 @@
 		interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
 		core_1 = "enable";
 		scp_sramSize = <0x000c0000>;
+		scp_mpuRegionId = <7>;
 		scp_feature_tbl = <0 5>,   /* vow */
 				<1 356>,  /* dsp */
 				<2 62>,   /* sensor */
