@@ -6,6 +6,7 @@
 #ifndef _MMC_MEDIATEK_TRACER_H
 #define _MMC_MEDIATEK_TRACER_H
 
+#include <linux/cpufreq.h>
 #include <linux/types.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/mmc.h>
@@ -19,6 +20,15 @@
 #define MMC_MTK_BIO_TRACE_LATENCY ((unsigned long long)(1000000000))
 
 #define MMC_DATA_DIR(x)		(((x) & 1) << 12)
+
+#define MAX_CPU_CLUSTER 3
+static int s_final_cpu_freq[MAX_CPU_CLUSTER] = {2000000, 2000000, 1500000};
+static int s_free_cpu_freq[MAX_CPU_CLUSTER] = {-1, -1, -1};
+static unsigned int s_cluster_num;
+static unsigned int s_cluster_freq_rdy;
+static int *s_target_freq;
+static struct freq_qos_request *s_tchbst_rq;
+static bool mmc_qos_enable;
 
 enum {
 	tsk_send_cmd = 0,
@@ -52,6 +62,7 @@ struct mmc_mtk_bio_context {
 	uint64_t period_start_t;
 	uint64_t period_end_t;
 	uint64_t period_usage;
+	uint32_t last_workload_percent;
 	struct mmc_mtk_bio_context_task task[MMC_BIOLOG_CONTEXT_TASKS];
 	struct mtk_btag_workload workload;
 	struct mtk_btag_throughput throughput;

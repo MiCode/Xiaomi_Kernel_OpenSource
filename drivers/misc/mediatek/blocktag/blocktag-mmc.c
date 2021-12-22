@@ -13,9 +13,10 @@
 #include <linux/tick.h>
 #include <linux/time.h>
 #include <linux/vmalloc.h>
+#include "blocktag-mmc.h"
 #include "queue.h"
 #include "mtk_blocktag.h"
-#include "blocktag-mmc.h"
+#include "mtk-mmc.h"
 
 /* ring trace for debugfs, eMMC & SD */
 struct mtk_blocktag *mmc_mtk_btag;
@@ -286,6 +287,7 @@ static void mmc_mtk_bio_context_eval(struct mmc_mtk_bio_context *ctx)
 		ctx->workload.percent =
 			(__u32)ctx->workload.usage / (__u32)period;
 	}
+	ctx->last_workload_percent = ctx->workload.percent;
 	mtk_btag_throughput_eval(&ctx->throughput);
 }
 
@@ -336,6 +338,116 @@ static void mmc_mtk_bio_ctx_count_usage(struct mmc_mtk_bio_context *ctx,
 	ctx->period_usage += busy_in_period;
 }
 
+/* CPU frequency adjust relate */
+static void cpu_cluster_freq_tbl_init(void)
+{
+	unsigned int i;
+	int cpu;
+	struct cpufreq_policy *policy = NULL;
+
+	/* query policy number */
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+
+		if (policy) {
+			s_cluster_num++;
+			cpu = cpumask_last(policy->related_cpus);
+		}
+	}
+
+	if (s_cluster_num == 0) {
+		pr_info("%s: spd: no policy for cpu", __func__);
+		return;
+	}
+	s_tchbst_rq = kcalloc(s_cluster_num,
+		sizeof(struct freq_qos_request), GFP_KERNEL);
+	if (s_tchbst_rq == NULL)
+		return;
+
+	s_target_freq = kcalloc(s_cluster_num, sizeof(int), GFP_KERNEL);
+	if (s_target_freq)
+		for (i = 0; i < s_cluster_num; i++)
+			s_target_freq[i] = -1;
+	else {
+		pr_info("%s: spd: s_target_freq fail\n", __func__);
+		kfree(s_tchbst_rq);
+		return;
+	}
+
+	i = 0;
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			continue;
+		if (i >= s_cluster_num) {
+			pr_info("%s: spd: fail:i >= s_cluster_num\n", __func__);
+			kfree(s_tchbst_rq);
+			return;
+		}
+		freq_qos_add_request(&policy->constraints,
+			&(s_tchbst_rq[i]), FREQ_QOS_MIN, 0);
+		cpu = cpumask_last(policy->related_cpus);
+		i++;
+	}
+
+	s_cluster_freq_rdy = 1;
+}
+
+void mtk_mmc_qos_cpu_cluster_freq_update(int freq[], unsigned int num)
+{
+	unsigned int min_num = s_cluster_num > num ? num : s_cluster_num;
+	unsigned int i;
+	char buf[256];
+	int ret = 0;
+	int ret_t[8];
+	int update = 0;
+
+	if (!s_cluster_freq_rdy) {
+		pr_info("%s: spd: cpu cluster frequency not ready\n", __func__);
+		return;
+	}
+
+	for (i = 0; i < min_num; i++) {
+		ret_t[i] = 0;
+		if (s_target_freq[i] != freq[i]) {
+			s_target_freq[i] = freq[i];
+			ret_t[i] =
+				freq_qos_update_request(&s_tchbst_rq[i], s_target_freq[i]);
+			update = 1;
+		}
+		ret += scnprintf(&buf[ret], sizeof(buf) - ret,
+				"%d(%d),", freq[i], ret_t[i]);
+	}
+	if (update)
+		pr_info("%s: spd: %s [%u:%u]\n", __func__, buf, num, min_num);
+}
+
+void set_mmc_perf_mode(struct mmc_host *mmc, bool boost)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+
+	if ((mmc->caps2 & MMC_CAP2_NO_SD) || !host->qos_enable)
+		return;
+
+	if ((boost && mmc_qos_enable) || (!boost && !mmc_qos_enable))
+		return;
+
+	if (boost) {
+		if (host->bw_path)
+			icc_set_bw(host->bw_path, 0, host->peak_bw);
+		mtk_mmc_qos_cpu_cluster_freq_update(s_final_cpu_freq,
+			MAX_CPU_CLUSTER);
+		mmc_qos_enable = true;
+	} else {
+		if (host->bw_path)
+			icc_set_bw(host->bw_path, 0, 0);
+		mtk_mmc_qos_cpu_cluster_freq_update(s_free_cpu_freq,
+			MAX_CPU_CLUSTER);
+		mmc_qos_enable = false;
+	}
+}
+EXPORT_SYMBOL_GPL(set_mmc_perf_mode);
+
 /* Check requests after set/clear mask. */
 void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask)
 {
@@ -357,6 +469,13 @@ void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask)
 		return;
 
 	end_time = sched_clock();
+
+	/* when io loading is heavy,enable mmc performance mode */
+	if (ctx->last_workload_percent >= 90 && req_mask) {
+		if (!s_cluster_freq_rdy)
+			cpu_cluster_freq_tbl_init();
+		set_mmc_perf_mode(mmc, true);
+	}
 
 	spin_lock_irqsave(&ctx->lock, flags);
 
