@@ -49,6 +49,10 @@ struct mtk_imgsys_cb_param {
 	struct task_timestamp taskTs;
 	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx, bool isLastTaskInReq);
 	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx, bool isHWhang);
+	int req_fd;
+	int req_no;
+	int frm_no;
+	u32 hw_comb;
 	s32 err;
 	u32 frm_idx;
 	u32 frm_num;

@@ -347,8 +347,11 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 
 	if (cb_param->err != 0)
 		pr_info(
-			"%s: [ERROR] cb(%p) error(%d) gid(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d) ofst(0x%x) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
-			__func__, cb_param, cb_param->err, cb_param->group_id,
+			"%s: [ERROR] cb(%p) req fd/no(%d/%d) frame no(%d) error(%d) gid(%d) clt(0x%x) hw_comb(0x%x) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d) ofst(0x%x) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
+			__func__, cb_param, cb_param->req_fd,
+			cb_param->req_no, cb_param->frm_no,
+			cb_param->err, cb_param->group_id,
+			cb_param->clt, cb_param->hw_comb,
 			cb_param->frm_idx, cb_param->frm_num,
 			cb_param->blk_idx, cb_param->blk_num,
 			cb_param->isBlkLast, cb_param->isFrmLast,
@@ -561,8 +564,11 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 		}
 		real_frm_idx = cb_param->frm_idx - (cb_param->task_cnt - 1) + err_idx;
 		pr_info(
-			"%s: [ERROR] cb(%p) error(%d) gid(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d/%d) earlycb(%d) ofst(0x%x) erridx(%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
-			__func__, cb_param, cb_param->err, cb_param->group_id,
+			"%s: [ERROR] cb(%p) req fd/no(%d/%d) frame no(%d) error(%d) gid(%d) clt(0x%x) hw_comb(0x%x) for frm(%d/%d) blk(%d/%d) lst(%d/%d/%d) earlycb(%d) ofst(0x%x) erridx(%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
+			__func__, cb_param, cb_param->req_fd,
+			cb_param->req_no, cb_param->frm_no,
+			cb_param->err, cb_param->group_id,
+			cb_param->clt, cb_param->hw_comb,
 			cb_param->frm_idx, cb_param->frm_num,
 			cb_param->blk_idx, cb_param->blk_num,
 			cb_param->isBlkLast, cb_param->isFrmLast, cb_param->isTaskLast,
@@ -665,6 +671,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	u32 cmd_num = 0;
 	u32 cmd_idx = 0;
 	u32 blk_idx = 0; /* For Vss block cnt */
+	u32 blk_num = 0;
 	u32 thd_idx = 0;
 	u32 hw_comb = 0;
 	int ret = 0, ret_flush = 0;
@@ -749,6 +756,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		cmd_num = cmd_buf->curr_length / sizeof(struct Command);
 		cmd = (struct Command *)((unsigned long)(frm_info->user_info[frm_idx].g_swbuf) +
 			(unsigned long)(cmd_buf->cmd_offset));
+		blk_num = cmd_buf->frame_block;
 		hw_comb = frm_info->user_info[frm_idx].hw_comb;
 
 		if (isPack == 0) {
@@ -807,7 +815,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			frm_info->user_info[frm_idx].hw_comb, frm_info->sync_id, thd_idx, clt);
 
 		cmd_idx = 0;
-		for (blk_idx = 0; blk_idx < cmd_buf->frame_block; blk_idx++) {
+		for (blk_idx = 0; blk_idx < blk_num; blk_idx++) {
 			tsReqStart = ktime_get_boottime_ns()/1000;
 			if (isPack == 0) {
 				/* create pkt and hook clt as pkt's private data */
@@ -886,11 +894,15 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				task_num++;
 				cb_param->pkt = pkt;
 				cb_param->frm_info = frm_info;
+				cb_param->req_fd = frm_info->request_fd;
+				cb_param->req_no = frm_info->request_no;
+				cb_param->frm_no = frm_info->frame_no;
+				cb_param->hw_comb = hw_comb;
 				cb_param->frm_idx = frm_idx;
 				cb_param->frm_num = frm_num;
 				cb_param->user_cmdq_cb = cmdq_cb;
 				cb_param->user_cmdq_err_cb = cmdq_err_cb;
-				if ((blk_idx + 1) == cmd_buf->frame_block)
+				if ((blk_idx + 1) == blk_num)
 					cb_param->isBlkLast = 1;
 				else
 					cb_param->isBlkLast = 0;
@@ -899,7 +911,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				else
 					cb_param->isFrmLast = 0;
 				cb_param->blk_idx = blk_idx;
-				cb_param->blk_num = cmd_buf->frame_block;
+				cb_param->blk_num = blk_num;
 				cb_param->is_earlycb = frm_info->user_info[frm_idx].is_earlycb;
 				cb_param->group_id = frm_info->group_id;
 				cb_param->cmdqTs.tsReqStart = tsReqStart;
@@ -952,7 +964,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 					frm_info->user_info[frm_idx].subfrm_idx,
 					frm_info->user_info[frm_idx].hw_comb,
 					frm_info->frm_owner, cb_param, frm_idx, frm_num,
-					blk_idx, cmd_buf->frame_block);
+					blk_idx, blk_num);
 
 				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb,
 								(void *)cb_param);
