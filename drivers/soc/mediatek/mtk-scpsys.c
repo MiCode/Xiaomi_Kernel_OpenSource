@@ -923,6 +923,9 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_hwv_prepare;
 
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_set_ofs, &val);
+
 	val = BIT(scpd->data->hwv_shift);
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_set_ofs, val);
 	do {
@@ -983,6 +986,9 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 			MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
 	if (ret < 0)
 		goto err_hwv_prepare;
+
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_clr_ofs, &val);
 
 	val = BIT(scpd->data->hwv_shift);
 	regmap_write(scp->hwv_regmap, scpd->data->hwv_clr_ofs, val);
