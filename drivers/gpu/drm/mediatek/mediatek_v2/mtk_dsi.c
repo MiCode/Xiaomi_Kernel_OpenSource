@@ -180,6 +180,8 @@
 #define DSI_WMEM_CONTI 0x3C
 
 #define DSI_TIME_CON0 0xA0
+#define DSI_RESERVED 0xF0
+#define DSI_VDE_BLOCK_ULTRA BIT(29)
 
 #define DSI_PHY_LCPAT 0x100
 #define DSI_PHY_LCCON 0x104
@@ -1459,6 +1461,9 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 			DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 	mtk_dsi_mask(dsi, DSI_BUF_CON1, 0x7fff, tmp);
 	mtk_dsi_mask(dsi, DSI_DEBUG_SEL, MM_RST_SEL, MM_RST_SEL);
+
+	/* enable ultra signal between SOF to VACT */
+	mtk_dsi_mask(dsi, DSI_RESERVED, DSI_VDE_BLOCK_ULTRA, 0);
 
 	fill_rate = mmsys_clk * 3 / 18;
 	tmp = readl(dsi->regs + DSI_BUF_CON1) >> 16;
