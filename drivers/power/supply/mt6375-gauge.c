@@ -184,7 +184,7 @@
 
 #define HTOL_THRESHOLD_MAX			20
 #define HTOL_THRESHOLD_MIN			5
-#define HTOL_CALI_MAX				120
+#define HTOL_CALI_MAX				267
 
 /* mt6359 610.352 uA */
 #define UNIT_FGCURRENT				610352
