@@ -562,8 +562,10 @@ static void ufs_mtk_parse_dt(struct ufs_mtk_host *host)
 	else
 		host->vreg_lpm_supported = tmp ? TRUE : FALSE;
 
-	host->qos_allowed = true;
-	host->qos_enabled = true;
+	if (of_property_read_bool(dev->of_node, "mediatek,ufs-qos")) {
+		host->qos_allowed = true;
+		host->qos_enabled = true;
+	}
 }
 
 void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
