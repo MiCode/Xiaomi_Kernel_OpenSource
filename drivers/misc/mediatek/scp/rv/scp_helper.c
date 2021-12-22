@@ -62,6 +62,7 @@
 /* scp ready timeout definition */
 #define SCP_READY_TIMEOUT (3 * HZ) /* 30 seconds*/
 #define SCP_A_TIMER 0
+unsigned int debug_timeout_reset_flag;
 
 /* scp ipi message buffer */
 uint32_t msg_scp_ready0, msg_scp_ready1;
@@ -776,7 +777,10 @@ int reset_scp(int reset)
 		dsb(SY); /* may take lot of time */
 		}
 #if SCP_BOOT_TIME_OUT_MONITOR
-		scp_ready_timer[SCP_A_ID].tl.expires = jiffies + SCP_READY_TIMEOUT;
+		if (debug_timeout_reset_flag)
+			scp_ready_timer[SCP_A_ID].tl.expires = jiffies + SCP_READY_TIMEOUT * 10;
+		else
+			scp_ready_timer[SCP_A_ID].tl.expires = jiffies + SCP_READY_TIMEOUT;
 		add_timer(&scp_ready_timer[SCP_A_ID].tl);
 #endif
 	}
@@ -1867,7 +1871,10 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	}
 	atomic_set(&scp_reset_status, RESET_STATUS_START_KICK);
 #if SCP_BOOT_TIME_OUT_MONITOR
-	mod_timer(&scp_ready_timer[SCP_A_ID].tl, jiffies + SCP_READY_TIMEOUT);
+	if (debug_timeout_reset_flag == 1)
+		mod_timer(&scp_ready_timer[SCP_A_ID].tl, jiffies + SCP_READY_TIMEOUT * 10);
+	else
+		mod_timer(&scp_ready_timer[SCP_A_ID].tl, jiffies + SCP_READY_TIMEOUT);
 #endif
 	/* clear scp reset by cmd flag*/
 	scp_reset_by_cmd = 0;
@@ -2206,6 +2213,8 @@ static int scp_device_probe(struct platform_device *pdev)
 	const char *scp_hwvoter = NULL;
 	const char *secure_dump = NULL;
 	const char *debug_dumptimeout = NULL;
+	const char *debug_timeout_reset = NULL;
+
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 
@@ -2337,6 +2346,15 @@ static int scp_device_probe(struct platform_device *pdev)
 		if (!strncmp(debug_dumptimeout, "enable", strlen("enable"))) {
 			pr_notice("[SCP] debug dump timeout enabled\n");
 			debug_dumptimeout_flag = 1;
+		}
+	}
+
+	debug_timeout_reset_flag = 0;
+	if (!of_property_read_string(pdev->dev.of_node,
+			"debug_timeout_reset", &debug_timeout_reset)) {
+		if (!strncmp(debug_timeout_reset, "enable", strlen("enable"))) {
+			pr_notice("[SCP] debug timeout reset enabled\n");
+			debug_timeout_reset_flag = 1;
 		}
 	}
 	scpreg.irq0 = platform_get_irq_byname(pdev, "ipc0");
