@@ -685,7 +685,7 @@ static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 }
 
 
-int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type)
+int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, bool no_need_put)
 {
 	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
@@ -759,7 +759,7 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type)
 		}
 
 		mtk_vdec_queue_stop_play_event(ctx);
-	} else {
+	} else if (no_need_put == false) {
 		if (!ctx->input_driven)
 			dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 		clean_display_buffer(ctx,
@@ -882,7 +882,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			drain_fb.status = FB_ST_EOS;
 		vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
 
-		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER);
+		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER, false);
 		v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		src_buf_info->lastframe = NON_EOS;
 		clean_free_bs_buffer(ctx, NULL);
@@ -956,7 +956,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	}
 
 	if (!ctx->input_driven)
-		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER);
+		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER, false);
 
 	if (ret < 0 || mtk_vcodec_unsupport) {
 		mtk_v4l2_err(

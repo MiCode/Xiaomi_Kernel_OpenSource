@@ -372,7 +372,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_PUT_FRAME_BUFFER:
-			mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK);
+			mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK, msg->reserved != 0);
 			ret = 1;
 			break;
 		default:

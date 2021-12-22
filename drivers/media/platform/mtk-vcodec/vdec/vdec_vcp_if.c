@@ -586,7 +586,7 @@ int vcp_dec_ipi_handler(void *arg)
 				wake_up(&vcu->wq);
 				break;
 			case VCU_IPIMSG_DEC_PUT_FRAME_BUFFER:
-				mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK);
+				mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK, msg->reserved != 0);
 				msg->msg_id = AP_IPIMSG_DEC_PUT_FRAME_BUFFER_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				break;
