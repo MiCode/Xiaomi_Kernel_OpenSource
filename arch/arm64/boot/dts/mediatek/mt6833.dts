@@ -285,6 +285,78 @@
 		#clock-cells = <1>;
 	};
 
+	seninf1@1a004000 {
+		compatible = "mediatek,seninf1";
+		reg = <0 0x1a004000 0 0x1000>;
+	};
+
+	seninf2@1a005000 {
+		compatible = "mediatek,seninf2";
+		reg = <0 0x1a005000 0 0x1000>;
+	};
+
+	seninf3@1a006000 {
+		compatible = "mediatek,seninf3";
+		reg = <0 0x1a006000 0 0x1000>;
+	};
+
+	seninf4@1a007000 {
+		compatible = "mediatek,seninf4";
+		reg = <0 0x1a007000 0 0x1000>;
+	};
+
+	seninf5@1a008000 {
+		compatible = "mediatek,seninf5";
+		reg = <0 0x1a008000 0 0x1000>;
+	};
+
+	seninf6@1a009000 {
+		compatible = "mediatek,seninf6";
+		reg = <0 0x1a009000 0 0x1000>;
+	};
+
+	seninf_top:seninf_top@1a004000 {
+		compatible = "mediatek,seninf_top";
+		reg = <0 0x1a004000 0 0x1000>;
+		power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM>;
+		mediatek,platform = "mt6833";
+		mediatek,seninf_max_num = "6";
+		clocks = <&camsys_main_clk CLK_CAM_M_SENINF>,
+			<&topckgen_clk CLK_TOP_SENINF_SEL>,
+			<&topckgen_clk CLK_TOP_SENINF1_SEL>,
+			<&topckgen_clk CLK_TOP_SENINF2_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG2_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
+			<&topckgen_clk CLK_TOP_CAMTG5_SEL>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D8>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_D6_D8>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D4>,
+			<&topckgen_clk CLK_TOP_F26M_CK_D2>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D16>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>;
+		clock-names = "CAMSYS_SENINF_CGPDN",
+			"TOP_MUX_SENINF",
+			"TOP_MUX_SENINF1",
+			"TOP_MUX_SENINF2",
+			"TOP_MUX_CAMTG",
+			"TOP_MUX_CAMTG2",
+			"TOP_MUX_CAMTG3",
+			"TOP_MUX_CAMTG4",
+			"TOP_MUX_CAMTG5",
+			"TOP_CLK26M",
+			"TOP_UNIVP_192M_D8",
+			"TOP_UNIVPLL_D6_D8",
+			"TOP_UNIVP_192M_D4",
+			"TOP_F26M_CK_D2",
+			"TOP_UNIVP_192M_D16",
+			"TOP_UNIVP_192M_D32";
+		operating-points-v2 = <&opp_table_cam>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	};
+
 	kd_camera_hw1:kd_camera_hw1@1a004000 {
 		compatible = "mediatek,imgsensor";
 	};
