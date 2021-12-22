@@ -577,15 +577,21 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 		//spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
 	//}
 	spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
-
+/*
+ *	if (*enabled) {
+ *		if (g_aal_fo->mtk_dre30_support) {
+ *			struct drm_crtc *crtc = private->crtc[0];
+ *			mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
+ *			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+ *		} else {
+ *			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+ *		}
+ *	}
+ */
 	if (*enabled) {
-//		if (g_aal_fo->mtk_dre30_support) {
-//			struct drm_crtc *crtc = private->crtc[0];
-//			mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
-//			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
-//		} else {
-			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
-//		}
+		mtk_drm_idlemgr_kick(__func__,
+			&default_comp->mtk_crtc->base, 1);
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
 	}
 
 	return ret;
