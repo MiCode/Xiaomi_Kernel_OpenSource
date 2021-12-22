@@ -230,8 +230,6 @@ struct dpmaif_rx_queue {
 	unsigned int pit_dp;
 
 	struct dpmaif_rx_lro_info lro_info;
-
-	struct dpmaif_debug_data_t dbg_data;
 };
 
 /****************************************************************************
@@ -510,5 +508,9 @@ extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+extern void mt_irq_dump_status(unsigned int irq);
+#endif
 
 #endif				/* __MODEM_DPMA_H__ */

@@ -219,10 +219,11 @@ static inline int get_speed_hint(u64 speed, int curr_idx,
 	middle_speed = (ref[new_idx].speed + ref[new_idx - 1].speed);
 	middle_speed = middle_speed >> 1;
 
-	pr_info("ccci : spd: speed: %lld; middle_speed :%lld\n", speed, middle_speed);
-
 	if (speed >= middle_speed)
 		return -1;
+
+	pr_info("ccci : spd: speed: %lld; middle_speed :%lld\n",
+			speed, middle_speed);
 
 	return new_idx;
 }

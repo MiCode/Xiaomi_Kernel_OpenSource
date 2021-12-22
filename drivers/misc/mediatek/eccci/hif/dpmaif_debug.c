@@ -5,82 +5,140 @@
 
 #include "dpmaif_debug.h"
 #include "net_pool.h"
+#include "ccci_port.h"
+#include "ccci_hif.h"
 
 #define TAG "dbg"
 
 
 
-void dpmaif_debug_init_data(struct dpmaif_debug_data_t *dbg_data,
-		u8 type, u8 verion, u8 qidx)
+static char *s_mem_buf_ptr;
+static u32   s_mem_buf_size;
+static u32   s_mem_buf_len;
+static int   s_chn_idx = -1;
+
+static spinlock_t s_mem_buf_lock;
+
+
+static u32 s_buf_pkg_count;
+static wait_queue_head_t *g_rx_wq;
+
+
+
+static inline int add_data_to_buf(struct dpmaif_debug_header *hdr,
+		u32 len, void *data)
 {
-	struct dpmaif_debug_header *dbg_header;
+	if (!data)
+		len = 0;
 
-	memset(dbg_data, 0, sizeof(struct dpmaif_debug_data_t));
-	dbg_data->iph = (struct iphdr *)(dbg_data->data);
-	dbg_data->iph->version = 0;
-	dbg_data->iph->saddr = 0;
-	dbg_data->iph->daddr = dbg_data->iph->saddr;
+	if ((s_mem_buf_len + sizeof(struct dpmaif_debug_header) + len)
+				<= s_mem_buf_size) {
+		memcpy(s_mem_buf_ptr + s_mem_buf_len, hdr,
+				sizeof(struct dpmaif_debug_header));
+		s_mem_buf_len += sizeof(struct dpmaif_debug_header);
 
-	dbg_header = (struct dpmaif_debug_header *)(dbg_data->data +
-			sizeof(struct iphdr));
-	dbg_header->type = type;
-	dbg_header->version = verion;
-	dbg_header->qidx = qidx;
+		if (len > 0) {
+			memcpy(s_mem_buf_ptr + s_mem_buf_len, data, len);
+			s_mem_buf_len += len;
+		}
 
-	dbg_data->pdata = (void *)(dbg_data->data) + DEBUG_HEADER_LEN;
+		return 0;
+	}
+
+	return -1;
 }
 
-inline int dpmaif_debug_push_data(
-		struct dpmaif_debug_data_t *dbg_data,
-		u32 qno, unsigned int chn_idx)
+static void dpmaif_push_data_to_stack(int is_md_ee)
 {
 	struct lhif_header *lhif_h;
 	struct sk_buff *skb;
+	struct iphdr *iph;
+	int ret;
 
-	if (dbg_data->idx == 0)
-		return 0;
+	if (s_mem_buf_len == 0 || s_chn_idx < 0)
+		goto alloc_fail;
 
-	skb = __dev_alloc_skb(DEBUG_HEADER_LEN + MAX_DEBUG_BUFFER_LEN,
-					GFP_ATOMIC);
+	skb = __dev_alloc_skb(IPV4_HEADER_LEN + s_mem_buf_size, GFP_ATOMIC);
 	if (!skb)
-		return -1;
+		goto alloc_fail;
 
 	skb->len = 0;
 	skb_reset_tail_pointer(skb);
 	skb->ip_summed = 0;
 
-	dbg_data->iph->ihl = (sizeof(struct iphdr) >> 2);
-	dbg_data->iph->tot_len = htons(DEBUG_HEADER_LEN + dbg_data->idx);
+	iph = (struct iphdr *)(skb->data);
+	iph->version = 0;
+	iph->saddr = 0;
+	iph->daddr = 0;
+	iph->ihl = (sizeof(struct iphdr) >> 2);
+	iph->tot_len = htons(IPV4_HEADER_LEN + s_mem_buf_len);
 
-	memcpy(skb->data, dbg_data->data, DEBUG_HEADER_LEN + dbg_data->idx);
-	skb_put(skb, DEBUG_HEADER_LEN + dbg_data->idx);
+	memcpy(skb->data + IPV4_HEADER_LEN, s_mem_buf_ptr, s_mem_buf_len);
+	skb_put(skb, IPV4_HEADER_LEN + s_mem_buf_len);
 
-	lhif_h = (struct lhif_header *)(skb_push(skb,
-					sizeof(struct lhif_header)));
-	lhif_h->netif = chn_idx;
+	lhif_h = (struct lhif_header *)(skb_push(skb, sizeof(struct lhif_header)));
+	lhif_h->netif = s_chn_idx;
 
-	ccci_dl_enqueue(qno, skb);
+	if (is_md_ee) {
+		if (g_rx_wq)
+			wake_up_all(g_rx_wq);
 
-	dbg_data->idx = 0;
-	return 0;
+		ret = ccci_port_recv_skb(0, DPMAIF_HIF_ID, skb, CLDMA_NET_DATA);
+		if (ret)
+			ccci_free_skb(skb);
+	} else
+		ccci_dl_enqueue(0, skb);
+
+alloc_fail:
+	s_mem_buf_len = 0;
 }
 
-inline int dpmaif_debug_add_data(struct dpmaif_debug_data_t *dbg_data,
-		void *sdata, int len)
+void dpmaif_debug_add(struct dpmaif_debug_header *hdr, void *data)
 {
-	unsigned int *time;
+	unsigned long flags;
 
-	if ((dbg_data->idx + 4 + len) > MAX_DEBUG_BUFFER_LEN)
-		return -1;
+	if (!hdr || s_mem_buf_size <= 0)
+		return;
 
-	time = (unsigned int *)(dbg_data->pdata + dbg_data->idx);
-	(*time) = (unsigned int)(local_clock() / 1000000);
-	dbg_data->idx += 4;
+	spin_lock_irqsave(&s_mem_buf_lock, flags);
 
-	memcpy(dbg_data->pdata + dbg_data->idx, sdata, len);
-	dbg_data->idx += len;
+	if (add_data_to_buf(hdr, hdr->len, data)) {
+		dpmaif_push_data_to_stack(0);
+		add_data_to_buf(hdr, hdr->len, data);
+	}
 
-	return 0;
+	spin_unlock_irqrestore(&s_mem_buf_lock, flags);
 }
 
+void dpmaif_debug_update_rx_chn_idx(int chn_idx)
+{
+	s_chn_idx = chn_idx;
+}
 
+static void dpmaif_md_ee_cb(void)
+{
+	dpmaif_push_data_to_stack(1);
+}
+
+void dpmaif_debug_late_init(wait_queue_head_t *rx_wq)
+{
+	g_rx_wq = rx_wq;
+}
+
+void dpmaif_debug_init(void)
+{
+	spin_lock_init(&s_mem_buf_lock);
+
+	s_mem_buf_size = MAX_DEBUG_BUFFER_LEN;
+	s_mem_buf_len  = 0;
+	s_buf_pkg_count = 0;
+
+	s_mem_buf_ptr = vmalloc(s_mem_buf_size);
+	if (!s_mem_buf_ptr) {
+		s_mem_buf_size = 0;
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: vmalloc fail\n", __func__);
+	}
+
+	ccci_set_dpmaif_debug_cb(dpmaif_md_ee_cb);
+}

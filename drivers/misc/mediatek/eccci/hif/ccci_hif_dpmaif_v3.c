@@ -64,6 +64,7 @@
 #include "net_pool.h"
 #include "md_spd_dvfs_method.h"
 #include "md_spd_dvfs_fn.h"
+#include "dpmaif_debug.h"
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -869,10 +870,10 @@ static int dpmaif_dump_status(unsigned char hif_id,
 	if (flag & DUMP_FLAG_REG)
 		dpmaif_dump_register(hif_ctrl, CCCI_DUMP_REGISTER);
 
-	if (flag & DUMP_FLAG_IRQ_STATUS) {
-		CCCI_NORMAL_LOG(hif_ctrl->md_id, TAG,
-			"Dump AP DPMAIF IRQ status not support\n");
-	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+	CCCI_NORMAL_LOG(hif_ctrl->md_id, TAG, "Dump AP DPMAIF IRQ status\n");
+	mt_irq_dump_status(hif_ctrl->dpmaif_irq_id);
+#endif
 	if (flag & DUMP_FLAG_TOGGLE_NET_SPD)
 		return mtk_ccci_net_spd_cfg(1);
 
@@ -1223,9 +1224,10 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 	struct dpmaif_bat_skb_t *cur_skb_info = ((struct dpmaif_bat_skb_t *)
 		dpmaif_ctrl->bat_req->bat_skb_ptr + skb_idx);
 	struct sk_buff *base_skb = cur_skb_info->skb;
+	unsigned int buffer_id = pkt_inf_t->buffer_id |
+				((pkt_inf_t->h_bid) << 13);
 	struct dpmaif_bat_page_t *cur_page_info = ((struct dpmaif_bat_page_t *)
-		dpmaif_ctrl->bat_frag->bat_skb_ptr +
-			(pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13)));
+		dpmaif_ctrl->bat_frag->bat_skb_ptr + buffer_id);
 	struct page *page = cur_page_info->page;
 #ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
@@ -1241,8 +1243,7 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 		DMA_FROM_DEVICE);
 	if (!page) {
 		CCCI_ERROR_LOG(-1, TAG, "frag check fail: 0x%x, 0x%x",
-			pkt_inf_t->buffer_id | ((pkt_inf_t->h_bid) << 13),
-			skb_idx);
+			buffer_id, skb_idx);
 
 		return DATA_CHECK_FAIL;
 	}
@@ -1524,14 +1525,6 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		pkt_inf_t = (struct dpmaifq_normal_pit *)rxq->pit_base +
 			cur_pit;
 #endif
-		if ((dpmaif_ctrl->enable_pit_debug > 0) &&
-			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
-				sizeof(struct dpmaifq_normal_pit)) < 0) {
-			dpmaif_debug_push_data(&rxq->dbg_data,
-				rxq->index, rxq->cur_chn_idx);
-			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
-				sizeof(struct dpmaifq_normal_pit));
-		}
 
 		if (pkt_inf_t->packet_type == DES_PT_MSG) {
 			dpmaif_rx_msg_pit(rxq,
@@ -1547,6 +1540,21 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		} else if (pkt_inf_t->packet_type == DES_PT_PD) {
 			buffer_id = (pkt_inf_t->buffer_id |
 					((pkt_inf_t->h_bid) << 13));
+
+			if (dpmaif_ctrl->enable_pit_debug >= 0) {
+				dpmaif_debug_update_rx_chn_idx(rxq->cur_chn_idx);
+
+				if (dpmaif_ctrl->enable_pit_debug > 0)
+					DPMAIF_DEBUG_ADD(DEBUG_TYPE_RX_DONE,
+					DEBUG_VERION_V3,
+					rxq->index, pkt_inf_t->data_len,
+					rxq->pit_rd_idx, rxq->pit_wr_idx,
+					(unsigned short)buffer_id,
+					dpmaif_ctrl->bat_req->bat_wr_idx,
+					(unsigned int)(local_clock() / 1000000),
+					NULL);
+			}
+
 #ifdef HW_FRG_FEATURE_ENABLE
 			if ((pkt_inf_t->buffer_type == PKT_BUF_FRAG)
 					&& rxq->skb_idx < 0) {
@@ -1847,6 +1855,16 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 		if (cur_drb->dtyp == DES_DTYP_PD && cur_drb->c_bit == 0) {
 			CCCI_DEBUG_LOG(dpmaif_ctrl->md_id, TAG,
 				"rxq%d release tx drb %d\n", q_num, cur_idx);
+
+			if (dpmaif_ctrl->enable_pit_debug > 0) {
+				DPMAIF_DEBUG_ADD(DEBUG_TYPE_TX_RELS, DEBUG_VERION_V3,
+					txq->index, 0,
+					txq->drb_rd_idx, txq->drb_wr_idx,
+					cur_idx, txq->drb_rel_rd_idx,
+					(unsigned int)(local_clock() / 1000000),
+					NULL);
+			}
+
 			cur_drb_skb =
 				((struct dpmaif_drb_skb *)txq->drb_skb_base +
 				cur_idx);
@@ -2425,6 +2443,16 @@ retry:
 
 		set_drb_payload(txq->index, cur_idx, phy_addr, data_len,
 			is_last_one);
+
+		if (dpmaif_ctrl->enable_pit_debug > 0) {
+			DPMAIF_DEBUG_ADD(DEBUG_TYPE_TX_SEND, DEBUG_VERION_V3,
+				txq->index, 0,
+				txq->drb_rd_idx, txq->drb_wr_idx,
+				cur_idx, data_len,
+				(unsigned int)(local_clock() / 1000000),
+				NULL);
+		}
+
 		record_drb_skb(txq->index, cur_idx, skb, 0, is_frag,
 			is_last_one, phy_addr, data_len);
 		cur_idx = ringbuf_get_next_idx(txq->drb_size_cnt, cur_idx, 1);
@@ -2830,10 +2858,6 @@ static int dpmaif_rxq_init(struct dpmaif_rx_queue *queue)
 				queue, "dpmaif_rx_push");
 	spin_lock_init(&queue->rx_lock);
 
-	if (dpmaif_ctrl->enable_pit_debug >= 0)
-		dpmaif_debug_init_data(&queue->dbg_data, DEBUG_TYPE_RX_DONE,
-			DEBUG_VERION_v3, queue->index);
-
 	return 0;
 }
 
@@ -3056,6 +3080,7 @@ static int dpmaif_late_init(unsigned char hif_id)
 #else
 	CCCI_DEBUG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
 #endif
+	dpmaif_debug_late_init(&(dpmaif_ctrl->rxq[0].rx_wq));
 	return 0;
 }
 
@@ -3725,9 +3750,10 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.empty_query = dpmaif_empty_query_v3,
 };
 
-static void dpmaif_total_spd_cb(u64 total_speed)
+static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 {
-	if (total_speed < MAX_SPEED_THRESHOLD)
+	if ((total_ul_speed < UL_SPEED_THRESHOLD) &&
+		(total_dl_speed < DL_SPEED_THRESHOLD))
 		dpmaif_ctrl->enable_pit_debug = 1;
 	else
 		dpmaif_ctrl->enable_pit_debug = 0;
@@ -3758,8 +3784,10 @@ static int dpmaif_init_cap(struct device *dev)
 		__func__, dpmaif_cap, dpmaif_ctrl->support_lro,
 		dpmaif_ctrl->enable_pit_debug);
 
-	if (dpmaif_ctrl->enable_pit_debug > -1)
-		mtk_ccci_register_dl_speed_1s_callback(dpmaif_total_spd_cb);
+	if (dpmaif_ctrl->enable_pit_debug > -1) {
+		mtk_ccci_register_speed_1s_callback(dpmaif_total_spd_cb);
+		dpmaif_debug_init();
+	}
 
 	ret = of_property_read_u32(dev->of_node, "hw_reset_ver",
 			&dpmaif_ctrl->hw_reset_ver);

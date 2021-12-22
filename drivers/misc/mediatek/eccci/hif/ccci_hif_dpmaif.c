@@ -65,6 +65,7 @@
 #include "net_pool.h"
 #include "md_spd_dvfs_method.h"
 #include "md_spd_dvfs_fn.h"
+#include "dpmaif_debug.h"
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
@@ -1119,14 +1120,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		pkt_inf_t = (struct dpmaifq_normal_pit *)rxq->pit_base +
 			cur_pit;
 #endif
-		if ((dpmaif_ctrl->enable_pit_debug > 0) &&
-			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
-				sizeof(struct dpmaifq_normal_pit)) < 0) {
-			dpmaif_debug_push_data(&rxq->dbg_data,
-				rxq->index, rxq->cur_chn_idx);
-			dpmaif_debug_add_data(&rxq->dbg_data, pkt_inf_t,
-				sizeof(struct dpmaifq_normal_pit));
-		}
+
 #ifdef _HW_REORDER_SW_WORKAROUND_
 		if (pkt_inf_t->ig == 0) {
 #endif
@@ -1137,6 +1131,20 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 				rxq->pit_dp =
 				((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
 			} else if (pkt_inf_t->packet_type == DES_PT_PD) {
+				if (dpmaif_ctrl->enable_pit_debug >= 0) {
+					dpmaif_debug_update_rx_chn_idx(rxq->cur_chn_idx);
+
+					if (dpmaif_ctrl->enable_pit_debug > 0)
+						DPMAIF_DEBUG_ADD(DEBUG_TYPE_RX_DONE,
+						DEBUG_VERION_V2,
+						rxq->index, pkt_inf_t->data_len,
+						rxq->pit_rd_idx, rxq->pit_wr_idx,
+						(unsigned short)pkt_inf_t->buffer_id,
+						dpmaif_ctrl->bat_req->bat_wr_idx,
+						(unsigned int)(local_clock() / 1000000),
+						NULL);
+				}
+
 #ifdef HW_FRG_FEATURE_ENABLE
 				if (pkt_inf_t->buffer_type == PKT_BUF_FRAG
 					&& rxq->skb_idx < 0) {
@@ -2507,10 +2515,6 @@ static int dpmaif_rxq_init(struct dpmaif_rx_queue *queue)
 				queue, "dpmaif_rx_push");
 	spin_lock_init(&queue->rx_lock);
 
-	if (dpmaif_ctrl->enable_pit_debug >= 0)
-		dpmaif_debug_init_data(&queue->dbg_data, DEBUG_TYPE_RX_DONE,
-			DEBUG_VERION_v2, queue->index);
-
 	return 0;
 }
 
@@ -2732,6 +2736,7 @@ int dpmaif_late_init(unsigned char hif_id)
 #else
 	CCCI_DEBUG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
 #endif
+	dpmaif_debug_late_init(&(dpmaif_ctrl->rxq[0].rx_wq));
 	return 0;
 }
 
@@ -3297,9 +3302,10 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.empty_query = dpmaif_empty_query_v2,
 };
 
-static void dpmaif_total_spd_cb(u64 total_speed)
+static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 {
-	if (total_speed < MAX_SPEED_THRESHOLD)
+	if ((total_ul_speed < UL_SPEED_THRESHOLD) &&
+		(total_dl_speed < DL_SPEED_THRESHOLD))
 		dpmaif_ctrl->enable_pit_debug = 1;
 	else
 		dpmaif_ctrl->enable_pit_debug = 0;
@@ -3327,9 +3333,10 @@ static void dpmaif_init_cap(struct device *dev)
 		__func__, dpmaif_cap,
 		dpmaif_ctrl->enable_pit_debug);
 
-	if (dpmaif_ctrl->enable_pit_debug > -1)
-		mtk_ccci_register_dl_speed_1s_callback(dpmaif_total_spd_cb);
-
+	if (dpmaif_ctrl->enable_pit_debug > -1) {
+		mtk_ccci_register_speed_1s_callback(dpmaif_total_spd_cb);
+		dpmaif_debug_init();
+	}
 }
 
 /* =======================================================

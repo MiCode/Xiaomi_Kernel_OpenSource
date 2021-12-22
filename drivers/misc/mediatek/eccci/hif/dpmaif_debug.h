@@ -21,44 +21,63 @@
 
 
 #define DEBUG_TYPE_RX_DONE 1
+#define DEBUG_TYPE_RX_SKB  2
 #define DEBUG_TYPE_TX_SEND 20
+#define DEBUG_TYPE_TX_RELS 21
+#define DEBUG_TYPE_BAT_REORDER 30
 
-#define DEBUG_VERION_v2 2
-#define DEBUG_VERION_v3 3
+
+#define DEBUG_VERION_V2 2
+#define DEBUG_VERION_V3 3
 
 struct dpmaif_debug_header {
-	u32 type:8;
-	u32 version:8;
-	u32 qidx:8;
-	u32 reserve:8;
+	u32 type:6;
+	u32 vers:4;
+	u32 qidx:6;
+	u32 len :16;
+	u32 rd_idx :16;
+	u32 wr_idx :16;
+	u32 reserve1 :16;
+	u32 reserve2 :16;
+	u32 time;
 };
 
 
+#define IPV4_HEADER_LEN (20)
 #define MAX_DEBUG_BUFFER_LEN (4000)
 
-/* < (1024 * 1024 * 200 = 2097152 = 200MB) */
-#define MAX_SPEED_THRESHOLD  (2097152LL)
-
-#define DEBUG_HEADER_LEN (20 + sizeof(struct dpmaif_debug_header))
-
-
-
-struct dpmaif_debug_data_t {
-	unsigned char data[DEBUG_HEADER_LEN + MAX_DEBUG_BUFFER_LEN];
-	struct iphdr *iph;
-	void         *pdata;
-	unsigned int  idx;
-};
+/* < (1024 * 1024 * 100 = 104857600 = 100MB) */
+#define UL_SPEED_THRESHOLD  (104857600LL)
+/* < (1024 * 1024 * 200 = 209715200 = 200MB) */
+#define DL_SPEED_THRESHOLD  (209715200LL)
 
 
-void dpmaif_debug_init_data(struct dpmaif_debug_data_t *dbg_data,
-		u8 type, u8 verion, u8 qidx);
+void dpmaif_debug_update_rx_chn_idx(int chn_idx);
 
-inline int dpmaif_debug_add_data(struct dpmaif_debug_data_t *dbg_data,
-		void *sdata, int len);
+void dpmaif_debug_init(void);
+void dpmaif_debug_late_init(wait_queue_head_t *rx_wq);
 
-inline int dpmaif_debug_push_data(
-		struct dpmaif_debug_data_t *dbg_data,
-		u32 qno, unsigned int chn_idx);
+void dpmaif_debug_add(struct dpmaif_debug_header *hdr, void *data);
+
+
+#define DPMAIF_DEBUG_ADD(type1, vers1, qidx1, len1, rdidx1, wridx1, resv1, resv2, time1, data1)  \
+do { \
+	struct dpmaif_debug_header hdr;  \
+							\
+	hdr.type   = type1;		\
+	hdr.vers   = vers1;		\
+	hdr.qidx   = qidx1;		\
+	hdr.len    = len1;		\
+	hdr.rd_idx = rdidx1;	\
+	hdr.wr_idx = wridx1;	\
+	hdr.reserve1 = resv1;	\
+	hdr.reserve2 = resv2;	\
+	hdr.time     = time1;	\
+							\
+	dpmaif_debug_add(&hdr, data1);  \
+} while (0)
+
+
+extern void ccci_set_dpmaif_debug_cb(void (*dpmaif_debug_cb)(void));
 
 #endif /* __MODEM_DPMA_DEBUG_H__ */

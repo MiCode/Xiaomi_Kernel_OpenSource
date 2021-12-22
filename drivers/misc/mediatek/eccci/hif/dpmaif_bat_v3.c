@@ -32,7 +32,7 @@
 #include "ccci_hif_dpmaif_v3.h"
 #include "dpmaif_drv_v3.h"
 #include "dpmaif_bat_v3.h"
-
+#include "dpmaif_debug.h"
 
 #define MAX_ALLOC_BAT_CNT (100000)
 
@@ -399,6 +399,33 @@ static inline int alloc_bat_skb(
 	return 0;
 }
 
+static inline void dpmaif_calc_bat_reorder(
+		struct dpmaif_bat_request *bat, u16 alloc_cnt, int is_frag)
+{
+	u16 reorder_cnt = 0;
+
+	if (bat->bat_rd_idx > bat->bat_wr_idx)
+		reorder_cnt = bat->bat_rd_idx - bat->bat_wr_idx - 1;
+	else
+		reorder_cnt = bat->bat_size_cnt - bat->bat_wr_idx
+					+ bat->bat_rd_idx;
+
+	if (reorder_cnt > 8000) {
+		if (dpmaif_ctrl->enable_pit_debug > 0)
+			DPMAIF_DEBUG_ADD(DEBUG_TYPE_BAT_REORDER,
+			DEBUG_VERION_V3, is_frag, alloc_cnt,
+			bat->bat_rd_idx, bat->bat_wr_idx,
+			0, reorder_cnt,
+			(unsigned int)(local_clock() / 1000000),
+			NULL);
+
+		CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
+			"Bat-REQ: [%llu] is_frag:%d; all_cnt:%u; rd:%u; wr:%u; reorder:%u\n",
+			local_clock(), is_frag, alloc_cnt, bat->bat_rd_idx,
+			bat->bat_wr_idx, reorder_cnt);
+	}
+}
+
 static int dpmaif_alloc_bat_req(int update_bat_cnt,
 		int request_cnt, atomic_t *paused, int blocking)
 {
@@ -470,6 +497,9 @@ alloc_end:
 		if (update_bat_cnt)
 			ccci_dpmaif_skb_wakeup_thread();
 	}
+
+	if (update_bat_cnt)
+		dpmaif_calc_bat_reorder(bat_req, (u16)count, 0);
 
 	return ret;
 }
@@ -576,6 +606,9 @@ alloc_end:
 		if (update_bat_cnt)
 			ccci_dpmaif_skb_wakeup_thread();
 	}
+
+	if (update_bat_cnt)
+		dpmaif_calc_bat_reorder(bat_req, (u16)count, 1);
 
 	return ret;
 }
