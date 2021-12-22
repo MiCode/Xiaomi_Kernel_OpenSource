@@ -7165,6 +7165,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		interrupt-names = "LVSYS_R", "LVSYS_F";
 		status = "okay";
 	};
+
+	drm_wv: drm_wv {
+		compatible = "mediatek,drm_wv";
+		status = "okay";
+	};
 };
 
 /* AUDIO GPIO standardization start */
