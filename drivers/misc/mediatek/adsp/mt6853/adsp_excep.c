@@ -11,7 +11,9 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
 #include <linux/pm_wakeup.h>
+#endif
 #include <mt-plat/aee.h>
 #include "adsp_reg.h"
 #include "adsp_core.h"
@@ -223,7 +225,9 @@ void adsp_aed_worker(struct work_struct *ws)
 	int cid = 0, ret = 0, retry = 0;
 
 	/* wake lock AP*/
-	__pm_stay_awake(&ctrl->wakeup_lock);
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+	__pm_stay_awake(ctrl->wakeup_lock);
+#endif
 
 	/* stop adsp, set reset state */
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
@@ -269,8 +273,9 @@ void adsp_aed_worker(struct work_struct *ws)
 
 	adsp_extern_notify_chain(ADSP_EVENT_READY);
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
-
-	__pm_relax(&ctrl->wakeup_lock);
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+	__pm_relax(ctrl->wakeup_lock);
+#endif
 }
 
 bool adsp_aed_dispatch(enum adsp_excep_id type, void *data)
@@ -285,19 +290,17 @@ bool adsp_aed_dispatch(enum adsp_excep_id type, void *data)
 	return queue_work(ctrl->workq, &ctrl->aed_work);
 }
 
-/*
-static void adsp_wdt_counter_reset(unsigned long data)
+static void adsp_wdt_counter_reset(struct timer_list *t)
 {
 	excep_ctrl.wdt_counter = 0;
 	pr_info("[ADSP] %s\n", __func__);
 }
-*/
-
 
 /*
  * init a work struct
  */
-int init_adsp_exception_control(struct workqueue_struct *workq,
+int init_adsp_exception_control(struct device *dev,
+				struct workqueue_struct *workq,
 				struct wait_queue_head *waitq)
 {
 	struct adsp_exception_control *ctrl = &excep_ctrl;
@@ -309,8 +312,10 @@ int init_adsp_exception_control(struct workqueue_struct *workq,
 	mutex_init(&ctrl->lock);
 	init_completion(&ctrl->done);
 	INIT_WORK(&ctrl->aed_work, adsp_aed_worker);
-	//wakeup_source_init(&ctrl->wakeup_lock, "adsp wakelock");
-	//setup_timer(&ctrl->wdt_timer, adsp_wdt_counter_reset, 0);
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+	ctrl->wakeup_lock = wakeup_source_register(dev, "adsp wakelock");
+#endif
+	timer_setup(&ctrl->wdt_timer, adsp_wdt_counter_reset, 0);
 
 	return 0;
 }

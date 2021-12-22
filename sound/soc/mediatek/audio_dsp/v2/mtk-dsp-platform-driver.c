@@ -1712,7 +1712,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 			pr_info("+%s flag[%llx] task_id[%d] task_value[%lu]\n",
 			__func__, *pdtoa, task_id, task_value);
 #endif
-			clear_bit(dsp_scene, pdtoa);
+			*pdtoa &= ~(1 << dsp_scene);
 			/* read dram data need mb()  */
 			mb();
 			if (task_id >= 0)

@@ -44,7 +44,7 @@ struct adsp_exception_control {
 	struct workqueue_struct *workq;
 	struct wait_queue_head *waitq;
 	struct work_struct aed_work;
-	struct wakeup_source wakeup_lock;
+	struct wakeup_source *wakeup_lock;
 	struct completion done;
 
 	struct timer_list wdt_timer;
@@ -53,7 +53,8 @@ struct adsp_exception_control {
 
 void adsp_wdt_handler(int irq, void *data, int cid);
 bool adsp_aed_dispatch(enum adsp_excep_id type, void *data);
-int init_adsp_exception_control(struct workqueue_struct *wq,
+int init_adsp_exception_control(struct device *dev,
+				struct workqueue_struct *wq,
 				struct wait_queue_head *waitq);
 
 #endif

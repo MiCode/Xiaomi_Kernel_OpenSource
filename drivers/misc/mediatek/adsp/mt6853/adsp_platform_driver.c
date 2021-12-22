@@ -84,7 +84,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 	adsp_update_mpu_memory_info(pdata);
 
 	/* exception init & irq */
-	init_adsp_exception_control(adsp_wq, &adsp_waitq);
+	init_adsp_exception_control(pdata->dev, adsp_wq, &adsp_waitq);
 	adsp_irq_registration(pdata->id, ADSP_IRQ_WDT_ID, adsp_wdt_handler,
 			      pdata);
 
