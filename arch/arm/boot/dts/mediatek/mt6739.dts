@@ -2199,6 +2199,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 	mt6357_gauge {
 		compatible = "mediatek,mt6357_gauge";
+		bootmode = <&chosen>;
 		gauge_name = "gauge";
 		alias_name = "mt6357";
 	};

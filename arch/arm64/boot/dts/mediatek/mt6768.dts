@@ -1520,6 +1520,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	mt6358_gauge {
 		compatible = "mediatek,mt6358_gauge";
+		bootmode = <&chosen>;
 		gauge_name = "gauge";
 		alias_name = "MT6358";
 	};
