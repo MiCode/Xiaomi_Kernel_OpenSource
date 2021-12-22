@@ -2249,20 +2249,22 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 			   struct mt6360_tcpc_platform_data *pdata)
 {
-	struct device_node *np = dev->of_node;
+	struct device_node *np;
 	struct resource *res;
 	int res_cnt, ret;
 
 	pr_info("%s\n", __func__);
 
-#if defined(CONFIG_MACH_MT6877)
-	np = of_find_node_by_name(NULL, "type_c_port0");
-	if (!np) {
-		dev_info(dev, "%s find node fail\n", __func__);
-		return -ENODEV;
+	if (of_device_is_compatible(dev->of_node, "mediatek,usb_type_c"))
+		np = dev->of_node;
+	else {
+		np = of_find_node_by_name(NULL, "type_c_port0");
+		if (!np) {
+			dev_info(dev, "%s find node fail\n", __func__);
+			return -ENODEV;
+		}
+		dev->of_node = np;
 	}
-	dev->of_node = np;
-#endif
 
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
 	ret = of_get_named_gpio(np, "mt6360pd,intr_gpio", 0);
