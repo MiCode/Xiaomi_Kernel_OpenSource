@@ -97,6 +97,16 @@ uint64_t *mtk_cam_get_timestamp_addr(void *vaddr)
 }
 EXPORT_SYMBOL(mtk_cam_get_timestamp_addr);
 
+bool mtk_cam_support_AFO_independent(unsigned long fps)
+{
+	if (!plat_fp) {
+		pr_info("%s platform fp is NULL ", __func__);
+		return 0;
+	}
+	return plat_fp->support_AFO_independent(fps);
+}
+EXPORT_SYMBOL(mtk_cam_support_AFO_independent);
+
 static int __init util_module_init(void)
 {
 	pr_info("platform util init\n");

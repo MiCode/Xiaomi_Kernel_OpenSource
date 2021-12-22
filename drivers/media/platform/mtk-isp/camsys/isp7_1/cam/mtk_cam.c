@@ -2987,6 +2987,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 	int raw_feature;
 	int res_feature;
 	int ret;
+	unsigned long fps;
 
 	dev_dbg(cam->dev, "update request:%s\n", req->req.debug_str);
 
@@ -3026,8 +3027,21 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		}
 
 		/* TODO: AFO independent supports TWIN */
-		if (ctx->used_raw_num && ctx->pipe->res_config.raw_num_used == 1)
-			req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT;
+		if (ctx->used_raw_num && node->desc.id == MTK_RAW_META_OUT_1) {
+			fps = ctx->pipe->user_res.sensor_res.interval.denominator /
+				ctx->pipe->user_res.sensor_res.interval.numerator;
+
+			if (ctx->pipe->res_config.raw_num_used == 1 &&
+			    mtk_cam_support_AFO_independent(fps)) {
+				req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT;
+			} else {
+				dev_dbg(cam->dev,
+					"%s:%s: disable AFO independent, raw_num_used(%d), fps(%lu), support_AFO_independent(%d)\n",
+					__func__, req->req.debug_str,
+					ctx->pipe->res_config.raw_num_used, fps,
+					mtk_cam_support_AFO_independent(fps));
+			}
+		}
 
 		if (req_stream_data->seninf_new)
 			ctx->seninf = req_stream_data->seninf_new;
