@@ -128,8 +128,6 @@
 			qcom,bus-freq = <2>;
 			qcom,bus-min = <1>;
 			qcom,bus-max = <6>;
-
-			qcom,acd-level = <0x882f5ffd>;
 		};
 
 		qcom,gpu-pwrlevel@10 {
