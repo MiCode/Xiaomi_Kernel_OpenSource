@@ -12227,7 +12227,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 
 			node_53 = "SSPM_SWPM_DRAM__MEM_IDX",
 				"read_bw_0,read_bw_1,write_bw_0,write_bw_1,",
-				"srr_pct,pdir_pct_0,pdir_pct_1,",
+				"srr_pct,ssr_pct,pdir_pct_0,pdir_pct_1,",
 				"phr_pct_0,phr_pct_1,acc_util_0,acc_util_1,",
 				"trans_0,trans_1,mr4,ddr_freq";
 
