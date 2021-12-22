@@ -7331,23 +7331,18 @@ static signed int DIP_probe(struct platform_device *pDev)
 
 		if (IS_ERR(dip_clk.DIP_IMG_LARB9)) {
 			LOG_ERR("cannot get DIP_IMG_LARB9 clock\n");
-			return PTR_ERR(dip_clk.DIP_IMG_LARB9);
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_DIP)) {
 			LOG_ERR("cannot get DIP_IMG_DIP clock\n");
-			return PTR_ERR(dip_clk.DIP_IMG_DIP);
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_DIP_MSS)) {
 			LOG_ERR("cannot get DIP_IMG_DIP_MSS clock\n");
-			return PTR_ERR(dip_clk.DIP_IMG_DIP_MSS);
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_MFB_DIP)) {
 			LOG_ERR("cannot get DIP_IMG_MFB_DIP clock\n");
-			return PTR_ERR(dip_clk.DIP_IMG_MFB_DIP);
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_LARB11)) {
 			LOG_ERR("cannot get DIP_IMG_LARB11 clock\n");
-			return PTR_ERR(dip_clk.DIP_IMG_LARB11);
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_DIP2)) {
 			dip_clk.DIP_IMG_DIP2 = NULL;
