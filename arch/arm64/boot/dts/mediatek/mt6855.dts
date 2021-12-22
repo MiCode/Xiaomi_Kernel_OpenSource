@@ -465,7 +465,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <430>;
+			capacity-dmips-domains = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -476,7 +476,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <430>;
+			capacity-dmips-domains = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -487,7 +487,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <430>;
+			capacity-dmips-domains = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -498,7 +498,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <430>;
+			capacity-dmips-domains = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -509,7 +509,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <430>;
+			capacity-dmips-domains = <407>;
 			#cooling-cells = <2>;
 		};
 
@@ -520,7 +520,7 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
-			capacity-dmips-domains = <430>;
+			capacity-dmips-domains = <407>;
 			#cooling-cells = <2>;
 		};
 
