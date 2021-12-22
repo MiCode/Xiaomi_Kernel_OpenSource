@@ -69,6 +69,10 @@ obj-$(CONFIG_MTK_CMDQ_TAB) += mdp/
 obj-$(CONFIG_MTK_VDEC_FMT) += vdec_fmt/
 obj-$(CONFIG_MTK_LCM) += lcm/
 obj-$(CONFIG_MTK_LCM) += ext_disp/
+ifeq (,$(filter $(CONFIG_MTK_PLATFORM_NAME), "mt6768" "mt6785"))
+obj-y += spi_slave_drv/
+endif
+obj-$(CONFIG_MTK_MT6382_BDG) += hifi4dsp_spi/
 obj-$(CONFIG_MTK_FB) += video/
 obj-$(CONFIG_MTK_SYNC) += sync/
 obj-${CONFIG_MTK_ATF_LOGGER} += atf/

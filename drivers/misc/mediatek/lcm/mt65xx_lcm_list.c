@@ -1196,8 +1196,24 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_tianma_lcm_drv,
 #endif
 
+#if defined(NT36672C_FHDP_DSI_VDO_60HZ_WO_DSC_SHENCHAO)
+	&nt36672c_fhdp_dsi_vdo_60hz_wo_dsc_shenchao_lcm_drv,
+#endif
+
 #if defined(OPPO_TIANMA_TD4310_FHDP_DSI_VDO_RT5081)
 	&oppo_tianma_td4310_fhdp_dsi_vdo_rt5081_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_60HZ_SHENCHAO)
+	&nt36672c_fhdp_dsi_vdo_60hz_shenchao_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_90HZ_SHENCHAO)
+	&nt36672c_fhdp_dsi_vdo_90hz_shenchao_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_90HZ_SHENCHAO_6382)
+	&nt36672c_fhdp_dsi_vdo_90hz_shenchao_6382_lcm_drv,
 #endif
 };
 

@@ -232,6 +232,14 @@ bool cmdq_virtual_is_disp_scenario(const enum CMDQ_SCENARIO_ENUM scenario)
 #endif
 		dispScenario = true;
 		break;
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	case CMDQ_BDG_SCENARIO_DISP_TEST:
+	case CMDQ_BDG_SCENARIO_DISP_TEST2:
+	/* TODO */
+		dispScenario = true;
+		break;
+
+#endif
 	default:
 		break;
 	}
@@ -274,6 +282,9 @@ bool cmdq_virtual_should_enable_prefetch(enum CMDQ_SCENARIO_ENUM scenario)
 		 * Also, since thread 0/1 shares one prefetch buffer,
 		 * we allow only PRIMARY path to use prefetch.
 		 */
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	/* TODO */
+#endif
 		shouldPrefetch = true;
 		break;
 	default:
@@ -333,6 +344,14 @@ int cmdq_virtual_disp_thread(enum CMDQ_SCENARIO_ENUM scenario)
 		return 7;
 	case CMDQ_SCENARIO_TRIGGER_LOOP_SUB:
 		return 5;
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	case CMDQ_BDG_SCENARIO_DISP_TEST:
+		return BIT(5) | 20;
+	case CMDQ_BDG_SCENARIO_DISP_TEST2:
+		return BIT(5) | 21;
+	/* TODO */
+#endif
+
 	default:
 		/* freely dispatch */
 		return CMDQ_INVALID_THREAD;
@@ -440,7 +459,11 @@ enum CMDQ_HW_THREAD_PRIORITY_ENUM cmdq_virtual_priority_from_scenario(
 
 	case CMDQ_SCENARIO_LOWP_TRIGGER_LOOP:
 		return CMDQ_THR_PRIO_SUPERLOW;
-
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	case CMDQ_BDG_SCENARIO_DISP_TEST:
+		return CMDQ_THR_PRIO_DISPLAY_ESD;
+	/* TODO */
+#endif
 	default:
 		/* other cases need exta logic, see below. */
 		break;
@@ -936,6 +959,9 @@ u64 cmdq_virtual_flag_from_scenario(enum CMDQ_SCENARIO_ENUM scn)
 	case CMDQ_SCENARIO_RDMA1_DISP:
 		flag = ((1LL << CMDQ_ENG_DISP_RDMA1));
 		break;
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	/* TODO */
+#endif
 	default:
 		flag = 0LL;
 		break;

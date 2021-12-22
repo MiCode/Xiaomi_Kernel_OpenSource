@@ -1,6 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #define LOG_TAG "LCM"
@@ -34,7 +42,7 @@
 #  define LCM_LOGD(fmt, args...)  pr_debug("[KERNEL/"LOG_TAG"]"fmt, ##args)
 #endif
 
-#define LCM_ID_HX83112B 0x83
+#define LCM_ID_nt36672c 0x83
 static struct LCM_UTIL_FUNCS lcm_util;
 
 #define SET_RESET_PIN(v)	(lcm_util.set_reset_pin((v)))
@@ -74,7 +82,7 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #include "lcm_i2c.h"
 
 #define FRAME_WIDTH			(1080)
-#define FRAME_HEIGHT			(2160)
+#define FRAME_HEIGHT			(2400)
 
 /* physical size in um */
 #define LCM_PHYSICAL_WIDTH		(64500)
@@ -94,7 +102,6 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #ifndef FALSE
 #define FALSE 0
 #endif
-
 
 /* i2c control start */
 
@@ -164,26 +171,25 @@ static int _lcm_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
+// static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
+// {
+	// int ret = 0;
+	// struct i2c_client *client = _lcm_i2c_client;
+	// char write_data[2] = { 0 };
 
-static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
-{
-	int ret = 0;
-	struct i2c_client *client = _lcm_i2c_client;
-	char write_data[2] = { 0 };
+	// if (client == NULL) {
+		// pr_debug("ERROR!! _lcm_i2c_client is null\n");
+		// return 0;
+	// }
 
-	if (client == NULL) {
-		pr_debug("ERROR!! _lcm_i2c_client is null\n");
-		return 0;
-	}
+	// write_data[0] = addr;
+	// write_data[1] = value;
+	// ret = i2c_master_send(client, write_data, 2);
+	// if (ret < 0)
+		// pr_info("[LCM][ERROR] _lcm_i2c write data fail !!\n");
 
-	write_data[0] = addr;
-	write_data[1] = value;
-	ret = i2c_master_send(client, write_data, 2);
-	if (ret < 0)
-		pr_info("[LCM][ERROR] _lcm_i2c write data fail !!\n");
-
-	return ret;
-}
+	// return ret;
+// }
 
 /*
  * module load/unload record keeping
@@ -220,138 +226,144 @@ static struct LCM_setting_table lcm_suspend_setting[] = {
 };
 
 static struct LCM_setting_table init_setting_vdo[] = {
-	{0xB9, 0x03, {0x83, 0x11, 0x2B} },
-	{0xB1, 0x0A, {0xF8, 0x29, 0x29, 0x00, 0x00, 0x0F, 0x14, 0x0F,
-		      0x14, 0x33} },
-	{0xD2, 0x02, {0x2C, 0x2C} },
-	{0xB2, 0x0B, {0x80, 0x02, 0x00, 0x80, 0x70, 0x00, 0x08, 0x1C,
-		      0x05, 0x01, 0x04} },
-	{0xE9, 0x01, {0xD1} },
-	{0xB2, 0x02, {0x00, 0x08} },
-	{0xE9, 0x01, {0x00} },
-	{0xE9, 0x01, {0xCE} },
-	{0xB2, 0x01, {0xA3} },
-	{0xE9, 0x01, {0x00} },
-	{0xBD, 0x01, {0x02} },
-	{0xB2, 0x02, {0xB5, 0x0A} },
-	{0xBD, 0x01, {0x00} },
-	{0xDD, 0x08, {0x00, 0x00, 0x08, 0x1C, 0x09, 0x34, 0x34, 0x8B} },
-	{0xB4, 0x18, {0x01, 0xD3, 0x00, 0x00, 0x00, 0x00, 0x03, 0xD0,
-		      0x00, 0x00, 0x0F, 0xCB, 0x01, 0x00, 0x00, 0x13,
-		      0x00, 0x2E, 0x08, 0x01, 0x12, 0x00, 0x00, 0x2E} },
-	{0xBD, 0x01, {0x02} },
-	{0xB4, 0x01, {0x92} },
-	{0xBD, 0x01, {0x00} },
-	{0xB6, 0x03, {0x81, 0x81, 0xE3} },
-	{0xC0, 0x01, {0x44} },
-	{0xCC, 0x01, {0x08} },
-	{0xBD, 0x01, {0x03} },
-	{0xC1, 0x39, {0xFF, 0xFA, 0xF6, 0xF3, 0xEF, 0xEB, 0xE7, 0xE0,
-		      0xDC, 0xD9, 0xD6, 0xD2, 0xCF, 0xCB, 0xC7, 0xC3,
-		      0xBF, 0xBB, 0xB7, 0xB0, 0xA8, 0xA1, 0x9A, 0x92,
-		      0x89, 0x81, 0x7A, 0x73, 0x6B, 0x63, 0x5A, 0x51,
-		      0x48, 0x40, 0x38, 0x31, 0x29, 0x20, 0x16, 0x0D,
-		      0x09, 0x07, 0x05, 0x02, 0x00, 0x08, 0x2E, 0xF6,
-		      0x20, 0x18, 0x94, 0xF8, 0x6F, 0x59, 0x18, 0xFC,
-		      0x00} },
-	{0xBD, 0x01, {0x02} },
-	{0xC1, 0x39, {0xFF, 0xFA, 0xF6, 0xF3, 0xEF, 0xEB, 0xE7, 0xE0,
-		      0xDC, 0xD9, 0xD6, 0xD2, 0xCF, 0xCB, 0xC7, 0xC3,
-		      0xBF, 0xBB, 0xB7, 0xB0, 0xA8, 0xA1, 0x9A, 0x92,
-		      0x89, 0x81, 0x7A, 0x73, 0x6B, 0x63, 0x5A, 0x51,
-		      0x48, 0x40, 0x38, 0x31, 0x29, 0x20, 0x16, 0x0D,
-		      0x09, 0x07, 0x05, 0x02, 0x00, 0x08, 0x2E, 0xF6,
-		      0x20, 0x18, 0x94, 0xF8, 0x6F, 0x59, 0x18, 0xFC,
-		      0x00} },
-	{0xBD, 0x01, {0x01} },
-	{0xC1, 0x39, {0xFF, 0xFA, 0xF6, 0xF3, 0xEF, 0xEB, 0xE7, 0xE0,
-		      0xDC, 0xD9, 0xD6, 0xD2, 0xCF, 0xCB, 0xC7, 0xC3,
-		      0xBF, 0xBB, 0xB7, 0xB0, 0xA8, 0xA1, 0x9A, 0x92,
-		      0x89, 0x81, 0x7A, 0x73, 0x6B, 0x63, 0x5A, 0x51,
-		      0x48, 0x40, 0x38, 0x31, 0x29, 0x20, 0x16, 0x0D,
-		      0x09, 0x07, 0x05, 0x02, 0x00, 0x08, 0x2E, 0xF6,
-		      0x20, 0x18, 0x94, 0xF8, 0x6F, 0x59, 0x18, 0xFC,
-		      0x00} },
-	{0xBD, 0x01, {0x00} },
-	{0xC1, 0x01, {0x01} },
-	{0xD3, 0x16, {0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x0A,
-		      0x0A, 0x07, 0x00, 0x00, 0x08, 0x09, 0x09, 0x09,
-		      0x09, 0x32, 0x10, 0x09, 0x00, 0x09} },
-	{0xE9, 0x01, {0xE3} },
-	{0xD3, 0x03, {0x05, 0x08, 0x86} },
-	{0xE9, 0x01, {0x00} },
-	{0xBD, 0x01, {0x01} },
-	{0xE9, 0x01, {0xC8} },
-	{0xD3, 0x01, {0x81} },
-	{0xE9, 0x01, {0x00} },
-	{0xBD, 0x01, {0x00} },
-	{0xD5, 0x30, {0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-		      0x31, 0x31, 0x30, 0x30, 0x2F, 0x2F, 0x31, 0x31,
-		      0x30, 0x30, 0x2F, 0x2F, 0xC0, 0x18, 0x40, 0x40,
-		      0x01, 0x00, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02,
-		      0x21, 0x20, 0x18, 0x18, 0x19, 0x19, 0x18, 0x18,
-		      0x03, 0x03, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18} },
-	{0xD6, 0x30, {0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-		      0x31, 0x31, 0x30, 0x30, 0x2F, 0x2F, 0x31, 0x31,
-		      0x30, 0x30, 0x2F, 0x2F, 0xC0, 0x18, 0x40, 0x40,
-		      0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x00, 0x01,
-		      0x20, 0x21, 0x18, 0x18, 0x18, 0x18, 0x19, 0x19,
-		      0x20, 0x20, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18} },
-	{0xD8, 0x18, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00} },
-	{0xBD, 0x01, {0x01} },
-	{0xD8, 0x18, {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
-		      0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
-		      0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA} },
-	{0xBD, 0x01, {0x02} },
-	{0xD8, 0x0C, {0xAF, 0xFF, 0xFA, 0xAA, 0xBA, 0xAA, 0xAA, 0xFF,
-		      0xFA, 0xAA, 0xBA, 0xAA} },
-	{0xBD, 0x01, {0x03} },
-	{0xD8, 0x18, {0xAA, 0xAA, 0xAB, 0xAA, 0xAE, 0xAA, 0xAA, 0xAA,
-		      0xAB, 0xAA, 0xAE, 0xAA, 0xAA, 0xFF, 0xFA, 0xAA,
-		      0xBA, 0xAA, 0xAA, 0xFF, 0xFA, 0xAA, 0xBA, 0xAA} },
-	{0xBD, 0x01, {0x00} },
-	{0xE7, 0x19, {0x09, 0x09, 0x00, 0x07, 0xE6, 0x00, 0x27, 0x00,
-		      0x07, 0x00, 0x00, 0xE6, 0x2A, 0x00, 0xE6, 0x00,
-		      0x0A, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x12,
-		      0x04} },
-	{0xE9, 0x01, {0xE4} },
-	{0xE7, 0x02, {0x17, 0x69} },
-	{0xE9, 0x01, {0x00} },
-	{0xBD, 0x01, {0x01} },
-	{0xE7, 0x09, {0x02, 0x00, 0x01, 0x20, 0x01, 0x0E, 0x08, 0xEE,
-		      0x09} },
-	{0xBD, 0x01, {0x02} },
-	{0xE7, 0x03, {0x20, 0x20, 0x00} },
-	{0xBD, 0x01, {0x03} },
-	{0xE7, 0x06, {0x00, 0x08, 0x01, 0x00, 0x00, 0x20} },
-	{0xE9, 0x01, {0xC9} },
-	{0xE7, 0x02, {0x2E, 0xCB} },
-	{0xE9, 0x01, {0x00} },
-	{0xBD, 0x01, {0x00} },
-	{0xD1, 0x01, {0x27} },
-	{0xBC, 0x01, {0x07} },
-	{0xBD, 0x01, {0x01} },
-	{0xE9, 0x01, {0xC2} },
-	{0xCB, 0x01, {0x27} },
-	{0xE9, 0x01, {0x00} },
-	{0xBD, 0x01, {0x00} },
-	{0x51, 0x02, {0x0F, 0xFF} },
-	{0x53, 0x01, {0x24} },
-	{0x55, 0x01, {0x00} },
-	{0x35, 0x01, {0x00} },
-	{0x44, 0x02, {0x08, 0x66} }, /* set TE event @ line 0x866(2150) */
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	//DSC on
+	{0xC0, 1, {0x03} },
+	{0xC1, 16,
+		{0x89, 0x28, 0x00, 0x08, 0x00, 0xAA, 0x02, 0x0E,
+		 0x00, 0x2B, 0x00, 0x07, 0x0D, 0xB7, 0x0C, 0xB7} },
+	{0xC2, 2, {0x1B, 0xA0} },
 
+	{0xFF, 1, {0x20} },
+	{0xFB, 1, {0x01} },
+	{0x01, 1, {0x66} },
+	{0x32, 1, {0x4D} },
+	{0x69, 1, {0xD1} },
+	{0xF2, 1, {0x64} },
+	{0xF4, 1, {0x64} },
+	{0xF6, 1, {0x64} },
+	{0xF9, 1, {0x64} },
+
+	{0xFF, 1, {0x26} },
+	{0xFB, 1, {0x01} },
+	{0x81, 1, {0x0E} },
+	{0x84, 1, {0x03} },
+	{0x86, 1, {0x03} },
+	{0x88, 1, {0x07} },
+
+	{0xFF, 1, {0x27} },
+	{0xFB, 1, {0x01} },
+	{0xE3, 1, {0x01} },
+	{0xE4, 1, {0xEC} },
+	{0xE5, 1, {0x02} },
+	{0xE6, 1, {0xE3} },
+	{0xE7, 1, {0x01} },
+	{0xE8, 1, {0xEC} },
+	{0xE9, 1, {0x02} },
+	{0xEA, 1, {0x22} },
+	{0xEB, 1, {0x03} },
+	{0xEC, 1, {0x32} },
+	{0xED, 1, {0x02} },
+	{0xEE, 1, {0x22} },
+
+	{0xFF, 1, {0x2A} },
+	{0xFB, 1, {0x01} },
+	{0x0C, 1, {0x04} },
+	{0x0F, 1, {0x01} },
+	{0x11, 1, {0xE0} },
+	{0x15, 1, {0x0E} },
+	{0x16, 1, {0x78} },
+	{0x19, 1, {0x0D} },
+	{0x1A, 1, {0xF4} },
+	{0x37, 1, {0x6E} },
+	{0x88, 1, {0x76} },
+
+	{0xFF, 1, {0x2C} },
+	{0xFB, 1, {0x01} },
+	{0x4D, 1, {0x1E} },
+	{0x4E, 1, {0x04} },
+	{0x4F, 1, {0x00} },
+	{0x9D, 1, {0x1E} },
+	{0x9E, 1, {0x04} },
+
+	{0xFF, 1, {0xF0} },
+	{0xFB, 1, {0x01} },
+	{0x5A, 1, {0x00} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x02} },
+	{0x4E, 1, {0x02} },
+	{0x85, 1, {0x02} },
+
+	{0xFF, 1, {0xD0} },
+	{0xFB, 1, {0x01} },
+	{0X09, 1, {0xAD} },
+
+	{0xFF, 1, {0X20} },
+	{0xFB, 1, {0x01} },
+	{0XF8, 1, {0x64} },
+
+	{0xFF, 1, {0x2A} },
+	{0xFB, 1, {0x01} },
+	{0X1A, 1, {0xF0} },
+	{0x30, 1, {0x5E} },
+	{0x31, 1, {0xCA} },
+	{0x34, 1, {0xFE} },
+	{0x35, 1, {0x35} },
+	{0x36, 1, {0xA2} },
+
+	{0x36, 1, {0xA2} },
+	{0x37, 1, {0xF8} },
+	{0x38, 1, {0x37} },
+	{0x39, 1, {0xA0} },
+	{0x3A, 1, {0x5E} },
+	{0x53, 1, {0xD7} },
+	{0x88, 1, {0x72} },
+	{0x88, 1, {0x72} },
+
+	{0xFF, 1, {0x24} },
+	{0xFB, 1, {0x01} },
+	{0xC6, 1, {0xC0} },
+
+	{0xFF, 1, {0xE0} },
+	{0xFB, 1, {0x01} },
+	{0x25, 1, {0x00} },
+	{0x4E, 1, {0x02} },
+	{0x35, 1, {0x82} },
+	{0xFF, 1, {0xC0} },
+
+	{0xFF, 1, {0xC0} },
+	{0xFB, 1, {0x01} },
+	{0x9C, 1, {0x11} },
+	{0x9D, 1, {0x11} },
+	//60HZ VESA DSC
+	{0xFF, 1, {0x25} },
+	{0xFB, 1, {0x01} },
+	{0x18, 1, {0x22} },
+
+	//CCMRUN
+	{0xFF, 1, {0x10} },
+	{0xFB, 1, {0x01} },
+	{0xC0, 1, {0x03} },
+	{0x51, 1, {0x00} },
+	{0x35, 1, {0x00} },
+	{0x53, 1, {0x24} },
+#ifdef DSC_ENABLE
+	{0xC0, 1, {0x03} },
+#else
+	{0xC0, 1, {0x00} },
+#endif
+	{0x53, 1, {0x24} },
+	{0x55, 1, {0x00} },
+	{0xFF, 1, {0x10} },
 	{0x11, 0, {} },
+#ifndef LCM_SET_DISPLAY_ON_DELAY
 	{REGFLAG_DELAY, 120, {} },
-
-	{0xE9, 0x01, {0xC2} },
-	{0xB0, 0x01, {0x01} },
-	{0xE9, 0x01, {0x00} },
-
+	/* Display On*/
 	{0x29, 0, {} },
-	{REGFLAG_DELAY, 20, {} },
+#endif
 };
 
 static struct LCM_setting_table
@@ -374,6 +386,18 @@ static struct LCM_setting_table bl_level[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {} }
 };
 
+// static struct dynamic_fps_info lcm_dynamic_fps_setting[] = {
+	// {60, 20},
+	// {50, 458},
+	// {40, 1115},
+	// {30, 2210},
+// #if 0
+	// {60, 20, 50},
+	// {50, 458, 60},
+	// {40, 115, 75},
+	// {30, 2210, 100},
+// #endif
+// };
 static void push_table(void *cmdq, struct LCM_setting_table *table,
 		       unsigned int count, unsigned char force_update)
 {
@@ -397,6 +421,8 @@ static void push_table(void *cmdq, struct LCM_setting_table *table,
 		default:
 			dsi_set_cmdq_V22(cmdq, cmd, table[i].count,
 					 table[i].para_list, force_update);
+			if (table[i].count > 1)
+				MDELAY(1);
 			break;
 		}
 	}
@@ -407,8 +433,39 @@ static void lcm_set_util_funcs(const struct LCM_UTIL_FUNCS *util)
 	memcpy(&lcm_util, util, sizeof(struct LCM_UTIL_FUNCS));
 }
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
+{
+	struct dfps_info *dfps_params = dsi->dfps_params;
+	dsi->dfps_enable = 1;
+	dsi->dfps_default_fps = 9000;/*real fps * 100, to support float*/
+	dsi->dfps_def_vact_tim_fps = 9000;/*real vact timing fps * 100*/
+	/* traversing array must less than DFPS_LEVELS */
+	/* DPFS_LEVEL0 */
+	dfps_params[0].level = DFPS_LEVEL0;
+	dfps_params[0].fps = 6000;/*real fps * 100, to support float*/
+	dfps_params[0].vact_timing_fps = 9000;/*real vact timing fps * 100*/
+	/* if mipi clock solution */
+	dfps_params[0].PLL_CLOCK = 500;
+	dfps_params[0].vertical_frontporch = 2480;
+	/* dfps_params[0].data_rate = xx; */
+	/* DPFS_LEVEL1 */
+	dfps_params[1].level = DFPS_LEVEL1;
+	dfps_params[1].fps = 9000;/*real fps * 100, to support float*/
+	dfps_params[1].vact_timing_fps = 9000;/*real vact timing fps * 100*/
+	/* if mipi clock solution */
+	dfps_params[1].PLL_CLOCK = 500;
+	dfps_params[1].vertical_frontporch = 800;
+	/* dfps_params[1].data_rate = xx; */
+	dsi->dfps_num = 2;
+}
+#endif
+
 static void lcm_get_params(struct LCM_PARAMS *params)
 {
+	// unsigned int i = 0;
+	// unsigned int dynamic_fps_levels = 0;
+
 	memset(params, 0, sizeof(struct LCM_PARAMS));
 
 	params->type = LCM_TYPE_DSI;
@@ -421,12 +478,11 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->physical_height_um = LCM_PHYSICAL_HEIGHT;
 	params->density = LCM_DENSITY;
 
-	params->dsi.mode = CMD_MODE;
-	params->dsi.switch_mode = SYNC_PULSE_VDO_MODE;
-	lcm_dsi_mode = CMD_MODE;
+	params->dsi.mode = SYNC_PULSE_VDO_MODE;
+	params->dsi.switch_mode = CMD_MODE;
+	lcm_dsi_mode = SYNC_PULSE_VDO_MODE;
 	LCM_LOGI("%s: lcm_dsi_mode %d\n", __func__, lcm_dsi_mode);
 	params->dsi.switch_mode_enable = 0;
-
 	/* DSI */
 	/* Command mode setting */
 	params->dsi.LANE_NUM = LCM_FOUR_LANE;
@@ -442,21 +498,30 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 
 	params->dsi.PS = LCM_PACKED_PS_24BIT_RGB888;
 
-	params->dsi.vertical_sync_active = 2;
-	params->dsi.vertical_backporch = 8;
-	params->dsi.vertical_frontporch = 40;
-	params->dsi.vertical_frontporch_for_low_power = 620;
+	params->dsi.vertical_sync_active = 10;
+	params->dsi.vertical_backporch = 22;
+	params->dsi.vertical_frontporch = 800;
+	//params->dsi.vertical_frontporch_for_low_power = 750;
 	params->dsi.vertical_active_line = FRAME_HEIGHT;
 
-	params->dsi.horizontal_sync_active = 10;
-	params->dsi.horizontal_backporch = 20;
-	params->dsi.horizontal_frontporch = 40;
+	params->dsi.horizontal_sync_active = 22;
+	params->dsi.horizontal_backporch = 22;
+	params->dsi.horizontal_frontporch = 165;
 	params->dsi.horizontal_active_pixel = FRAME_WIDTH;
 	params->dsi.ssc_disable = 1;
+	params->dsi.bdg_ssc_disable = 1;
+	params->dsi.dsc_enable = 0;
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* this value must be in MTK suggested table */
-	params->dsi.PLL_CLOCK = 480;
-	params->dsi.PLL_CK_VDO = 440;
+#ifdef DSC_ENABLE
+	params->dsi.bdg_dsc_enable = 1;
+	params->dsi.PLL_CLOCK = 220; //with dsc
+//	params->dsi.PLL_CLOCK = 300; //with dsc
+#else
+	params->dsi.bdg_dsc_enable = 0;
+	params->dsi.PLL_CLOCK = 500; //without dsc
+#endif
+	params->dsi.PLL_CK_CMD = 480;
 #else
 	params->dsi.pll_div1 = 0;
 	params->dsi.pll_div2 = 0;
@@ -464,40 +529,73 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 #endif
 	params->dsi.CLK_HS_POST = 36;
 	params->dsi.clk_lp_per_line_enable = 0;
-	params->dsi.esd_check_enable = 1;
+	params->dsi.esd_check_enable = 0;
 	params->dsi.customization_esd_check_enable = 0;
 	params->dsi.lcm_esd_check_table[0].cmd = 0x0a;
 	params->dsi.lcm_esd_check_table[0].count = 1;
 	params->dsi.lcm_esd_check_table[0].para_list[0] = 0x9d;
 
-	/* mipi hopping part sample */
-	params->dsi.dynamic_switch_mipi = 1;
-	//params->dsi.vertical_backporch_dyn = 12;
-	params->dsi.data_rate_dyn = 1029;
-
 	/* for ARR 2.0 */
-	params->max_refresh_rate = 60;
-	params->min_refresh_rate = 45;
+	// params->max_refresh_rate = 60;
+	// params->min_refresh_rate = 45;
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-	params->round_corner_en = 1;
+	params->round_corner_en = 0;
 	params->corner_pattern_height = ROUND_CORNER_H_TOP;
 	params->corner_pattern_height_bot = ROUND_CORNER_H_BOT;
 	params->corner_pattern_tp_size = sizeof(top_rc_pattern);
 	params->corner_pattern_lt_addr = (void *)top_rc_pattern;
+#endif
+	// /*ARR setting*/
+	// params->dsi.dynamic_fps_levels = 4;
+	// params->max_refresh_rate = 60;
+	// params->min_refresh_rate = 30;
+#if 0
+	/*vertical_frontporch should be related to the max fps*/
+	//params->dsi.vertical_frontporch = 20;
+	/*vertical_frontporch_for_low_power
+	 *should be related to the min fps
+	 */
+	params->dsi.vertical_frontporch_for_low_power = 750;
+#endif
+
+	// dynamic_fps_levels =
+		// sizeof(lcm_dynamic_fps_setting)/sizeof(struct dynamic_fps_info);
+
+	// dynamic_fps_levels =
+		// params->dsi.dynamic_fps_levels <
+		// dynamic_fps_levels
+		// ? params->dsi.dynamic_fps_levels
+		// : dynamic_fps_levels;
+
+	// for (i = 0; i < dynamic_fps_levels; i++) {
+		// params->dsi.dynamic_fps_table[i].fps =
+			// lcm_dynamic_fps_setting[i].fps;
+		// params->dsi.dynamic_fps_table[i].vfp =
+			// lcm_dynamic_fps_setting[i].vfp;
+		// params->dsi.dynamic_fps_table[i].idle_check_interval =
+		 // lcm_dynamic_fps_setting[i].idle_check_interval;
+	// }
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/****DynFPS start****/
+	lcm_dfps_int(&(params->dsi));
+	/****DynFPS end****/
 #endif
 }
 
 /* turn on gate ic & control voltage to 5.5V */
 static void lcm_init_power(void)
 {
+	display_bias_enable();
+/*
 	if (lcm_util.set_gpio_lcd_enp_bias) {
 		lcm_util.set_gpio_lcd_enp_bias(1);
 
 		_lcm_i2c_write_bytes(0x0, 0xf);
 		_lcm_i2c_write_bytes(0x1, 0xf);
-	}	else
+	} else
 		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
+*/
 }
 
 static void lcm_suspend_power(void)
@@ -529,7 +627,7 @@ static void lcm_init(void)
 	MDELAY(10);
 
 	push_table(NULL, init_setting_vdo, ARRAY_SIZE(init_setting_vdo), 1);
-	LCM_LOGI("hx83112b_fhdp----tps6132----lcm mode = vdo mode :%d----\n",
+	LCM_LOGI("nt36672c_fhdp----tps6132----lcm mode = vdo mode :%d----\n",
 		 lcm_dsi_mode);
 }
 
@@ -575,7 +673,7 @@ static unsigned int lcm_ata_check(unsigned char *buffer)
 
 static void lcm_setbacklight_cmdq(void *handle, unsigned int level)
 {
-	LCM_LOGI("%s,hx83112b backlight: level = %d\n", __func__, level);
+	LCM_LOGI("%s,nt36672c backlight: level = %d\n", __func__, level);
 
 	bl_level[0].para_list[0] = level;
 
@@ -618,7 +716,6 @@ static void lcm_update(unsigned int x, unsigned int y, unsigned int width,
 	data_array[0] = 0x002c3909;
 	dsi_set_cmdq(data_array, 1, 0);
 }
-
 static unsigned int lcm_compare_id(void)
 {
 	unsigned int id = 0;
@@ -638,16 +735,17 @@ static unsigned int lcm_compare_id(void)
 	read_reg_v2(0xDA, buffer, 1);
 	id = buffer[0];     /* we only need ID */
 
-	LCM_LOGI("%s,hx83112b id = 0x%08x\n", __func__, id);
+	LCM_LOGI("%s,nt36672c id = 0x%08x\n", __func__, id);
 
-	if (id == LCM_ID_HX83112B)
+	if (id == LCM_ID_nt36672c)
 		return 1;
 	else
 		return 0;
 
 }
-struct LCM_DRIVER hx83112b_fhdp_dsi_cmd_auo_rt4801_lcm_drv = {
-	.name = "hx83112b_fhdp_dsi_cmd_auo_rt4801_drv",
+
+struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_60hz_wo_dsc_shenchao_lcm_drv = {
+	.name = "nt36672c_fhdp_dsi_vdo_60hz_wo_dsc_shenchao_lcm_drv",
 	.set_util_funcs = lcm_set_util_funcs,
 	.get_params = lcm_get_params,
 	.init = lcm_init,
@@ -661,4 +759,3 @@ struct LCM_DRIVER hx83112b_fhdp_dsi_cmd_auo_rt4801_lcm_drv = {
 	.ata_check = lcm_ata_check,
 	.update = lcm_update,
 };
-

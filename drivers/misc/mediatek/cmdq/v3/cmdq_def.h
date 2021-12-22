@@ -29,7 +29,11 @@
 
 #define CMDQ_INVALID_THREAD		(-1)
 
+#if IS_ENABLED(CONFIG_MTK_MT6382_DBG)
+#define CMDQ_MAX_THREAD_COUNT		(BIT(5) | 24)
+#else
 #define CMDQ_MAX_THREAD_COUNT		(24)
+#endif
 #define CMDQ_MAX_TASK_IN_THREAD		(16)
 #define CMDQ_MAX_READ_SLOT_COUNT	(4)
 #define CMDQ_INIT_FREE_TASK_COUNT	(8)
@@ -251,6 +255,9 @@ enum CMDQ_SCENARIO_ENUM {
 
 	CMDQ_MAX_SCENARIO_COUNT	/* ALWAYS keep at the end */
 };
+
+#define CMDQ_BDG_TASK(thread) \
+	(((thread) & BIT(5)) ? true : false)
 
 /* General Purpose Register */
 enum cmdq_gpr_reg {
