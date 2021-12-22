@@ -542,7 +542,9 @@ static uint32_t _reviser_ctrl_reg_read(void *drvinfo, uint32_t offset)
 	struct reviser_dev_info *reviser_device = NULL;
 	int ret = 0;
 	size_t value = 0;
-
+#if APUSYS_SECURE
+	struct arm_smccc_res res;
+#endif
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
 		return ret;
@@ -551,9 +553,12 @@ static uint32_t _reviser_ctrl_reg_read(void *drvinfo, uint32_t offset)
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 #if APUSYS_SECURE
 
-	ret = mt_secure_call_ret2(MTK_SIP_APUSYS_CONTROL,
-			MTK_APUSYS_KERNEL_OP_REVISER_CHK_VALUE,
-			offset, 0, 0, &value);
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
+		MTK_APUSYS_KERNEL_OP_REVISER_CHK_VALUE,
+		offset, 0, 0, 0, 0, 0, &res);
+
+	ret = res.a0;
+	value = res.a1;
 	if (ret) {
 		LOG_ERR("invalid argument %.8x\n", offset);
 		ret = 0;
@@ -796,6 +801,7 @@ int reviser_set_remap_table(void *drvinfo,
 	int ret = 0;
 #if APUSYS_SECURE
 	uint32_t value = 0;
+	struct arm_smccc_res res;
 #endif
 	DEBUG_TAG;
 
@@ -838,9 +844,10 @@ int reviser_set_remap_table(void *drvinfo,
 	value = _reviser_get_remap_table_reg(valid,
 			ID, src_page, dst_page);
 
-	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 			MTK_APUSYS_KERNEL_OP_REVISER_SET_REMAP_TABLE,
-			offset, valid, value);
+		offset, valid, value, 0, 0, 0, &res);
+	ret = res.a0;
 	if (ret) {
 		LOG_ERR("Set HW RemapTable Fail\n");
 		return -1;
@@ -858,6 +865,7 @@ int reviser_set_boundary(void *drvinfo,
 	APUSYS_ATTR_USE uint32_t offset;
 #if APUSYS_SECURE
 	uint32_t value = 0;
+	struct arm_smccc_res res;
 #endif
 	DEBUG_TAG;
 
@@ -882,30 +890,22 @@ int reviser_set_boundary(void *drvinfo,
 
 	switch (type) {
 	case REVISER_DEVICE_MDLA:
-
-		mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+		arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 				MTK_APUSYS_KERNEL_OP_REVISER_SET_BOUNDARY,
-				value,
-				BOUNDARY_ALL_NO_CHANGE,
-				BOUNDARY_ALL_NO_CHANGE
-				);
+				value, BOUNDARY_ALL_NO_CHANGE,
+				BOUNDARY_ALL_NO_CHANGE, 0, 0, 0, &res);
 		break;
 	case REVISER_DEVICE_VPU:
-		mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+		arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 				MTK_APUSYS_KERNEL_OP_REVISER_SET_BOUNDARY,
-				BOUNDARY_ALL_NO_CHANGE,
-				value,
-				BOUNDARY_ALL_NO_CHANGE
-				);
+				BOUNDARY_ALL_NO_CHANGE, value,
+				BOUNDARY_ALL_NO_CHANGE, 0, 0, 0, &res);
 		break;
 	case REVISER_DEVICE_EDMA:
-
-		mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+		arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 				MTK_APUSYS_KERNEL_OP_REVISER_SET_BOUNDARY,
 				BOUNDARY_ALL_NO_CHANGE,
-				BOUNDARY_ALL_NO_CHANGE,
-				value
-				);
+				BOUNDARY_ALL_NO_CHANGE, value, 0, 0, 0, &res);
 		break;
 	default:
 		LOG_ERR("invalid argument\n");
@@ -929,7 +929,9 @@ int reviser_set_context_ID(void *drvinfo,
 {
 	uint32_t offset = 0;
 	int ret = 0;
-
+#if APUSYS_SECURE
+	struct arm_smccc_res res;
+#endif
 	DEBUG_TAG;
 
 	if (ID >= VLM_CTXT_CTX_ID_MAX) {
@@ -948,9 +950,10 @@ int reviser_set_context_ID(void *drvinfo,
 		return -1;
 	}
 #if APUSYS_SECURE
-	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 			MTK_APUSYS_KERNEL_OP_REVISER_SET_CONTEXT_ID,
-			offset, ID, 0);
+			offset, ID, 0, 0, 0, 0, &res);
+	ret = res.a0;
 	if (ret) {
 		LOG_ERR("Set HW CtxID Fail\n");
 		return -1;
@@ -968,20 +971,32 @@ static void _reviser_set_default_iova(void *drvinfo,
 		uint32_t iova)
 {
 	struct reviser_dev_info *reviser_device = NULL;
-
-
+#if APUSYS_SECURE
+	int ret = 0;
+	struct arm_smccc_res res;
+#endif
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
 		return;
 	}
 
 	reviser_device = (struct reviser_dev_info *)drvinfo;
+#if APUSYS_SECURE
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
+			MTK_APUSYS_KERNEL_OP_REVISER_SET_DEFAULT_IOVA,
+			iova, 0, 0, 0, 0, 0, &res);
+	ret = res.a0;
+	if (ret) {
+		LOG_ERR("Set IOVA Fail\n");
+		return;
+	}
 
+#else
 	_reviser_reg_clr(reviser_device->pctrl_top,
 			VLM_DEFAULT_MVA, REVISER_DEFAULT);
 	_reviser_reg_set(reviser_device->pctrl_top,
 			VLM_DEFAULT_MVA, iova);
-
+#endif
 }
 
 int reviser_get_interrupt_offset(void *drvinfo)
@@ -990,6 +1005,7 @@ int reviser_get_interrupt_offset(void *drvinfo)
 	int ret = 0;
 #if APUSYS_SECURE
 	size_t reg_value;
+	struct arm_smccc_res res;
 #endif
 	struct reviser_dev_info *reviser_device = NULL;
 
@@ -1036,9 +1052,11 @@ int reviser_get_interrupt_offset(void *drvinfo)
 
 	if (offset > 0) {
 #if APUSYS_SECURE
-		ret = mt_secure_call_ret2(MTK_SIP_APUSYS_CONTROL,
-			MTK_APUSYS_KERNEL_OP_REVISER_GET_INTERRUPT_STATUS,
-			offset, 0, 0, &reg_value);
+		arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
+				MTK_APUSYS_KERNEL_OP_REVISER_GET_INTERRUPT_STATUS,
+				offset, 0, 0, 0, 0, 0, &res);
+		ret = res.a0;
+		reg_value = res.a1;
 #else
 		_reviser_reg_set(reviser_device->pctrl_top,
 				offset, 1);
@@ -1051,16 +1069,18 @@ int reviser_get_interrupt_offset(void *drvinfo)
 int reviser_set_default_iova(void *drvinfo)
 {
 	int ret = 0;
-
+#if APUSYS_SECURE
+	struct arm_smccc_res res;
+#endif
 	if (g_mem_sys.iova == 0) {
 		LOG_ERR("invalid iova\n");
 		return -1;
 	}
 #if APUSYS_SECURE
-	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 			MTK_APUSYS_KERNEL_OP_REVISER_SET_DEFAULT_IOVA,
-			g_mem_sys.iova, 0, 0);
-
+			g_mem_sys.iova, 0, 0, 0, 0, 0, &res);
+	ret = res.a0;
 	if (ret) {
 		LOG_ERR("Set IOVA Fail\n");
 		return -1;
@@ -1078,12 +1098,15 @@ int reviser_set_default_iova(void *drvinfo)
 int reviser_init_ip(void)
 {
 	int ret = 0;
+#if APUSYS_SECURE
+	struct arm_smccc_res res;
+#endif
 
 #if APUSYS_SECURE
-	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
 			MTK_APUSYS_KERNEL_OP_REVISER_INIT_IP,
-			0, 0, 0);
-
+			0, 0, 0, 0, 0, 0, &res);
+	ret = res.a0;
 	if (ret) {
 		if (ret == -EIO)
 			LOG_ERR("Unsupported secure monitor call\n");

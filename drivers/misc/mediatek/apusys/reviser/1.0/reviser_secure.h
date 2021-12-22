@@ -7,6 +7,7 @@
 #define __APUSYS_REVISER_SECURE_H__
 
 #include <mt-plat/mtk_secure_api.h>
+#include <linux/arm-smccc.h>
 
 #define APUSYS_SECURE 1
 #define BOUNDARY_ALL_NO_CHANGE (0xFFFFFFFF)
