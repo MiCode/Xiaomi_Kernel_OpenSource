@@ -75,6 +75,7 @@ CONFIG_MT6370_PMU_FLED=y
 CONFIG_MT6370_PMU_BLED=y
 CONFIG_MT6370_PMU_LDO=y
 CONFIG_MT6370_PMU_DSV=y
+CONFIG_MTK_PMIC_WRAP_HAL=y
 CONFIG_CUSTOM_KERNEL_IMGSENSOR="imx519_mipi_raw s5k2t7sp_mipi_raw s5k2p7_mipi_raw ov8856_mipi_raw imx386_mipi_raw imx398_mipi_raw s5k2l7_mipi_raw"
 CONFIG_MTK_LCM=y
 CONFIG_CUSTOM_KERNEL_LCM="hx83112b_fhdp_dsi_cmd_auo_rt5081 otm1911a_fhdp_dsi_vdo_truly_rt5081"
