@@ -12,7 +12,7 @@
 #include "clkdbg-mt6833.h"
 
 #define TAG			"[clkchk] "
-#define	BUG_ON_CHK_ENABLE	1
+#define	BUG_ON_CHK_ENABLE	0
 
 const char * const *get_mt6833_all_clk_names(void)
 {
