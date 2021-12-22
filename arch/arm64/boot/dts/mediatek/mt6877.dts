@@ -1458,28 +1458,24 @@
 			<0 0x1022D000 0 0x1000>, /*PD_UL*/
 			<0 0x1022C000 0 0x1000>, /*PD_MD_MISC*/
 			<0 0x1022E000 0 0x1000>; /*SRAM*/
-		interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>; /*157/221/285*/
+		interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
 		mediatek,dpmaif_capability = <14>;
 		/*clocks = ; clock-names = ; set in mddriver node */
+		clocks = <&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
+			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>;
+		clock-names = "infra-dpmaif-clk",
+			"infra-dpmaif-blk-clk";
 	};
 
-	mddriver:mddriver {
-		compatible = "mediatek,mddriver";
-		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
-		mediatek,md_id = <0>;
-		mediatek,cldma_capability = <14>;
+	ccifdriver:ccifdriver@10209000 {
+		compatible = "mediatek,ccci_ccif";
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
-		interrupts = <GIC_SPI 110 IRQ_TYPE_EDGE_RISING>,
-				/*MDWDT 14/78/142*/
-			     <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH>,
-				/*CCIF0 142/206/270*/
+		mediatek,sram_size = <512>;
+		/*CCIF0 238, CCIF0 239*/
+		interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;
-				/*CCIF0 143/207/271*/
-		clocks = <&scpsys SCP_SYS_MD>,
-			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
-			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_CCIF_AP>,
+		clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF1_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF1_MD>,
@@ -1487,10 +1483,7 @@
 			<&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>;
-		clock-names = "scp-sys-md1-main",
-			"infra-dpmaif-clk",
-			"infra-dpmaif-blk-clk",
-			"infra-ccif-ap",
+		clock-names = "infra-ccif-ap",
 			"infra-ccif-md",
 			"infra-ccif1-ap",
 			"infra-ccif1-md",
@@ -1498,6 +1491,24 @@
 			"infra-ccif2-md",
 			"infra-ccif4-md",
 			"infra-ccif5-md";
+	};
+
+	mddriver:mddriver {
+		compatible = "mediatek,mddriver", "mediatek,mddriver-mt6833";
+		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
+		mediatek,md_id = <0>;
+		mediatek,ap_plat_info = <6877>;
+		mediatek,md_generation = <6297>;
+		mediatek,offset_apon_md1 = <0x2844>;
+		mediatek,cldma_capability = <14>;
+		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
+			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
+		interrupts = <GIC_SPI 110 IRQ_TYPE_EDGE_RISING>,	/*MDWDT*/
+			     <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH>,	/*CCIF0 238*/
+			     <GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;	/*CCIF0 239*/
+		clocks = <&scpsys SCP_SYS_MD>;
+		clock-names = "scp-sys-md1-main";
+		ccci-infracfg = <&infracfg_ao_clk>;
 	};
 
 	apcldmain_ao@10014000 {

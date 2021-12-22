@@ -1022,34 +1022,46 @@
 		clock-names = "infra-dpmaif-clk";
 	};
 
-	mddriver:mddriver {
-		compatible = "mediatek,mddriver";
-		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
-		mediatek,md_id = <0>;
-		mediatek,cldma_capability = <6>;
+	ccifdriver:ccifdriver@10209000 {
+		compatible = "mediatek,ccci_ccif";
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
-		interrupts = <GIC_SPI 75 IRQ_TYPE_EDGE_RISING>, /*MDWDT*/
-			     <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>, /*CCIF0 GIC Interrupt ID 196-32*/
-			     <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>; /*CCIF0 GIC Interrupt ID 197-32*/
-		clocks = <&scpsys SCP_SYS_MD1>,
-			<&infracfg_ao INFRACFG_AO_DPMAIF_CK>,
-			<&infracfg_ao INFRACFG_AO_CCIF_AP_CG>,
+		mediatek,sram_size = <512>;
+		/*CCIF_IRQ0 164, CCIF_IRQ1 165*/
+		interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_CCIF_AP_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF_MD_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF1_AP_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF1_MD_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF2_AP_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF2_MD_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF4_MD_CG>;
-		clock-names = "scp-sys-md1-main",
-			"infra-dpmaif-clk",
-			"infra-ccif-ap",
+		clock-names = "infra-ccif-ap",
 			"infra-ccif-md",
 			"infra-ccif1-ap",
 			"infra-ccif1-md",
 			"infra-ccif2-ap",
 			"infra-ccif2-md",
-			"infra-ccif4-md";
+			"infra-ccif4-md",
+			"infra-ccif5-md";
+	};
+
+	mddriver:mddriver {
+		compatible = "mediatek,mddriver";
+		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
+		mediatek,md_id = <0>;
+		mediatek,ap_plat_info = <6781>;
+		mediatek,md_generation = <6295>;
+		mediatek,cldma_capability = <6>;
+		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
+			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
+		interrupts = <GIC_SPI 75 IRQ_TYPE_EDGE_RISING>, /*MDWDT*/
+			     <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>, /*CCIF0 GIC Interrupt ID 196-32*/
+			     <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>; /*CCIF0 GIC Interrupt ID 197-32*/
+		clocks = <&scpsys SCP_SYS_MD1>;
+		clock-names = "scp-sys-md1-main";
+		ccci-infracfg = <&infracfg_ao>;
 	};
 
 	radio_md_cfg:radio_md_cfg {
