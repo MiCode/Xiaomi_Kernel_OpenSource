@@ -15,7 +15,7 @@
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/memory/mt6833-larb-port.h>
-
+#include <dt-bindings/reset/ti-syscon.h>
 
 / {
 	model = "MT6833";
@@ -231,6 +231,26 @@
 		compatible = "mediatek,mt6833-infracfg_ao", "syscon";
 		reg = <0 0x10001000 0 0x1000>;
 		#clock-cells = <1>;
+
+		infracfg_rst: reset-controller {
+			compatible = "ti,syscon-reset";
+			#reset-cells = <1>;
+
+			ti,reset-bits = <
+				0x120 0 0x124 0 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: lvts_ap */
+				0x730 12 0x734 12 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 1: lvts_mcu */
+
+				/* ufs reset */
+				0x130 15 0x134 15 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 2: ufshci */
+				0x140  7 0x144  7 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 3: unipro */
+				0x150 21 0x154 21 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 4: ufs-crypto */
+				>;
+		};
 	};
 
 	sleep_sram@1001e000 {
@@ -603,15 +623,14 @@
 		reg = <0 0x11270000 0 0x2300>;
 		interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH 0>;
 
-	#if  0
 		clocks =
-			<&infracfg_ao CLK_IFRAO_UFS>,
-			<&infracfg_ao CLK_IFRAO_UNIPRO_SYSCLK>,
-			<&infracfg_ao CLK_IFRAO_UFS_MP_SAP_BCLK>,
-			<&infracfg_ao CLK_IFRAO_AES>,
-			<&topckgen CLK_TOP_AES_UFSFDE_SEL>,
-			<&topckgen CLK_TOP_UNIVPLL_D6>,
-			<&topckgen CLK_TOP_MAINPLL_D4>;
+			<&infracfg_ao_clk CLK_IFRAO_UFS>,
+			<&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
+			<&infracfg_ao_clk CLK_IFRAO_U_SAP_BCLK>,
+			<&infracfg_ao_clk CLK_IFRAO_U_AES>,
+			<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_D6>,
+			<&topckgen_clk CLK_TOP_MAINPLL_D4>;
 		clock-names =
 			"ufs-clk",
 			"ufs-unipro-clk",
@@ -632,11 +651,10 @@
 		resets = <&infracfg_rst 2>, <&infracfg_rst 3>,
 			 <&infracfg_rst 4>;
 		reset-names = "hci_rst", "unipro_rst", "crypto_rst";
-
+		vcc-supply = <&mt6359p_vemc_reg>;
 		mediatek,ufs-boost-crypt;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		boost-crypt-vcore-min = <600000>;
-	#endif
 		/* Reference clock control mode */
 		/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
 		mediatek,refclk_ctrl = <1>;
