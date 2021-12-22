@@ -4752,8 +4752,14 @@ void set_user_nice(struct task_struct *p, long nice)
 	if (!task_turbo_nice(nice))
 		p->nice_backup = nice;
 
-	if (is_turbo_task(p))
+	if (is_turbo_task(p)) {
 		nice = rlimit_to_nice(task_rlimit(p, RLIMIT_NICE));
+		if (unlikely(nice > MAX_NICE)) {
+			printk_deferred("[name:task-turbo&]pid=%d RLIMIT_NICE=%ld is not set\n",
+				p->pid, nice);
+			nice = p->nice_backup;
+		}
+	}
 	else
 		nice = p->nice_backup;
 
