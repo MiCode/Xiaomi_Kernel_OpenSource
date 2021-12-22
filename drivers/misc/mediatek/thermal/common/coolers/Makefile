@@ -88,7 +88,7 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_ISP.o
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761" "mt6785"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761"))
 ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
     obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
 endif
@@ -96,6 +96,21 @@ endif
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
+ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
+    obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
+endif
+
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
+
+obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v2.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
@@ -126,7 +141,7 @@ ifeq ($(CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT),y)
 	obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
 else
 	ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
-		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
+		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v2.o
 		ifeq ($(CONFIG_MTK_DUAL_CHARGER_SUPPORT),y)
 			obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
 		endif
@@ -147,10 +162,10 @@ ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
 endif
 
 ifeq ($(CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT),y)
-	obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
+	obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v2.o
 else
 	ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
-		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
+		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v2.o
 		ifeq ($(CONFIG_MTK_DUAL_CHARGER_SUPPORT),y)
 			obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
 		endif

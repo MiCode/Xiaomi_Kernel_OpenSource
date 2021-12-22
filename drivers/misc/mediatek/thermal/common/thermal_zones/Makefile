@@ -103,7 +103,7 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_pmic1.o
-obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+obj-$(CONFIG_THERMAL) += mtk_ts_charger_v1.o
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
@@ -131,7 +131,7 @@ obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
-obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+obj-$(CONFIG_THERMAL) += mtk_ts_charger_v1.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
 
@@ -245,7 +245,7 @@ obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBankv2.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
-obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+obj-$(CONFIG_THERMAL) += mtk_ts_charger_v1.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
 
