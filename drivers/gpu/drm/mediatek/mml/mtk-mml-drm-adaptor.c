@@ -10,6 +10,7 @@
 #include <linux/sync_file.h>
 #include <linux/time64.h>
 #include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <mtk_sync.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
@@ -47,6 +48,7 @@ struct mml_drm_ctx {
 	struct kthread_worker kt_done;
 	struct task_struct *kt_done_task;
 	struct sync_timeline *timeline;
+	bool kt_priority;
 	bool disp_dual;
 	bool disp_vdo;
 	void (*submit_cb)(void *cb_param);
@@ -984,12 +986,28 @@ static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pip
 	return &((struct mml_drm_ctx *)task->ctx)->tile_cache[pipe];
 }
 
+static void kt_setsched(void *adaptor_ctx)
+{
+	struct mml_drm_ctx *ctx = adaptor_ctx;
+	struct sched_param kt_param = { .sched_priority = MAX_RT_PRIO - 1 };
+	int ret;
+
+	if (ctx->kt_priority)
+		return;
+
+	ret = sched_setscheduler(ctx->kt_done_task, SCHED_FIFO, &kt_param);
+	mml_log("[drm]%s set kt done priority %d ret %d",
+		__func__, kt_param.sched_priority, ret);
+	ctx->kt_priority = true;
+}
+
 const static struct mml_task_ops drm_task_ops = {
 	.queue = task_queue,
 	.submit_done = task_submit_done,
 	.frame_done = task_frame_done,
 	.dup_task = dup_task,
 	.get_tile_cache = task_get_tile_cache,
+	.kt_setsched = kt_setsched,
 };
 
 static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,

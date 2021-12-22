@@ -1430,6 +1430,9 @@ static void core_config_task(struct mml_task *task)
 	mml_msg("%s begin task %p config %p job %u",
 		__func__, task, cfg, jobid);
 
+	/* always set priority */
+	task->config->task_ops->kt_setsched(task->ctx);
+
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
 		dump_inout(task);
