@@ -669,6 +669,7 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 		cmdq_pkt_destroy(handle);
 
 #ifndef DRM_CMDQ_DISABLE
+		cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
 		mtk_crtc_stop_trig_loop(crtc);
 #endif
 
@@ -771,6 +772,11 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 static void pq_bypass_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
+#ifndef DRM_CMDQ_DISABLE
+	struct cmdq_client *client = to_mtk_crtc(cb_data->crtc)->gce_obj.client[CLIENT_DSI_CFG];
+
+	cmdq_mbox_disable(client->chan); /* GCE clk refcnt - 1 */
+#endif
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
@@ -785,6 +791,10 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 	struct mtk_cmdq_cb_data *cb_data;
 	int i, j;
 	unsigned int bypass = 0;
+
+#ifndef DRM_CMDQ_DISABLE
+	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+#endif
 
 	DDPINFO("%s+: new crtc state = %d, old crtc state = %d, stage = %d\n", __func__,
 		crtc->state->active, old_state, stage);
@@ -829,6 +839,10 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 		mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
+
+#ifndef DRM_CMDQ_DISABLE
+	cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
+#endif
 
 	if (mtk_crtc_is_frame_trigger_mode(crtc))
 		cmdq_pkt_wait_no_clear(cmdq_handle,
