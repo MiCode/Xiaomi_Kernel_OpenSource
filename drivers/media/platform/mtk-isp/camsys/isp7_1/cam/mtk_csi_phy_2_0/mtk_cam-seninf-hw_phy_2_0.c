@@ -17,6 +17,7 @@
 #include "mtk_csi_phy_2_0/mtk_cam-seninf-csi0-cphy.h"
 #include "mtk_csi_phy_2_0/mtk_cam-seninf-csi0-dphy.h"
 #include "imgsensor-user.h"
+#include "mtk_cam-seninf-route.h"
 
 #define DEBUG_CAM_MUX_SWITCH 0
 #define LOG_MORE 0
@@ -1391,8 +1392,15 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[ctx->port];
 	int settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
-	int bit_per_pixel;
-	u64 data_rate;
+	int bit_per_pixel = 10;
+	u64 data_rate = 0;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
 
 	settle_delay_dt = ctx->is_cphy ? ctx->cphy_settle_delay_dt :
 		ctx->dphy_settle_delay_dt;
@@ -1445,9 +1453,11 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 
 	if (!ctx->is_cphy) {
 		/* TODO */
-		bit_per_pixel = 10;
 		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 		do_div(data_rate, ctx->num_data_lanes);
+#if LOG_MORE
+		dev_info(ctx->dev, "mipi data rate = %llu bps\n", data_rate);
+#endif
 		hs_trail_en = data_rate < 800000000;
 
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
@@ -1458,6 +1468,14 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 			    RG_DPHY_RX_LD2_HS_TRAIL_EN, hs_trail_en);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_DPHY_RX_LD3_HS_TRAIL_EN, hs_trail_en);
+#if LOG_MORE
+		dev_info(ctx->dev, "Csi%d_Dphy_Top: DATA_LANE0_HS(0x%x) DATA_LANE1_HS(0x%x) DATA_LANE2_HS(0x%x) DATA_LANE3_HS(0x%x)\n",
+			ctx->port,
+			SENINF_READ_REG(base, DPHY_RX_DATA_LANE0_HS_PARAMETER),
+			SENINF_READ_REG(base, DPHY_RX_DATA_LANE1_HS_PARAMETER),
+			SENINF_READ_REG(base, DPHY_RX_DATA_LANE2_HS_PARAMETER),
+			SENINF_READ_REG(base, DPHY_RX_DATA_LANE3_HS_PARAMETER));
+#endif
 	}
 
 	return 0;
@@ -1650,9 +1668,79 @@ static int csirx_seninf_top_setting(struct seninf_ctx *ctx)
 	return 0;
 }
 
+static int getEQPara(struct seninf_ctx *ctx, unsigned int *bw_val, unsigned int *dg0_en_val,
+	unsigned int *dg1_en_val, unsigned int *sr_val, unsigned int *cdr_ck_delay)
+{
+#define DATA_RATE_2_9G 2900000000
+#define DATA_RATE_2_5G 2500000000
+	u64 data_rate = 0;
+	int bit_per_pixel = 10;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	unsigned int BW_val = 0x3;
+	unsigned int DG0_EN_val = 0x1;
+	unsigned int DG1_EN_val = 0x1;
+	unsigned int SR_val = 0x1;
+	unsigned int CDR_CK_DELAY = 0x0;
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
+
+	if (!ctx->is_cphy) { //Dphy
+		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+		do_div(data_rate, ctx->num_data_lanes);
+		if (data_rate < DATA_RATE_2_9G) {
+			BW_val = 0x1;
+			DG0_EN_val = 0x0;
+			DG1_EN_val = 0x0;
+			SR_val = 0x0;
+		}
+#if LOG_MORE
+		dev_info(ctx->dev, "mipi data rate = %llu bps\n", data_rate);
+#endif
+	} else { //Cphy
+		DG0_EN_val = 0x1;
+		DG1_EN_val = 0x0;
+		SR_val = 0x3;
+		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+		data_rate *= 7;
+		do_div(data_rate, ctx->num_data_lanes*16);
+		if (data_rate < DATA_RATE_2_5G) {
+			SR_val = 0x0;
+			CDR_CK_DELAY = 0x4;
+		}
+#if LOG_MORE
+		dev_info(ctx->dev, "mipi symbol rate = %llu sps\n", data_rate);
+#endif
+	}
+
+	/* Assign value */
+	if (bw_val)
+		*bw_val = BW_val;
+	if (dg0_en_val)
+		*dg0_en_val = DG0_EN_val;
+	if (dg1_en_val)
+		*dg1_en_val = DG1_EN_val;
+	if (sr_val)
+		*sr_val = SR_val;
+	if (cdr_ck_delay)
+		*cdr_ck_delay = CDR_CK_DELAY;
+
+	return 0;
+}
+
 static int csirx_phyA_setting(struct seninf_ctx *ctx)
 {
 	void *base, *baseA, *baseB;
+	unsigned int BW_val = 0;
+	unsigned int DG0_EN_val = 0;
+	unsigned int DG1_EN_val = 0;
+	unsigned int SR_val = 0;
+	unsigned int CDR_CK_DELAY = 0;
+
+	getEQPara(ctx, &BW_val, &DG0_EN_val, &DG1_EN_val, &SR_val, &CDR_CK_DELAY);
 
 	base = ctx->reg_ana_csi_rx[ctx->port];
 	baseA = ctx->reg_ana_csi_rx[ctx->portA];
@@ -1705,34 +1793,39 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 				    RG_CSI0_DPHY_L2_CKMODE_EN, 0);
 
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_BW, 0x3);
+				    RG_CSI0_CDPHY_EQ_BW, BW_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_IS, 0x1);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_LATCH_EN, 0x1);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG0_EN, DG0_EN_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG1_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG1_EN, DG1_EN_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_SR0, 0x1);
+				    RG_CSI0_CDPHY_EQ_SR0, SR_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_BW, 0x3);
+				    RG_CSI0_CDPHY_EQ_BW, BW_val);
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_IS, 0x1);
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_LATCH_EN, 0x1);
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG0_EN, DG0_EN_val);
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG1_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG1_EN, DG1_EN_val);
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_SR0, 0x1);
+				    RG_CSI0_CDPHY_EQ_SR0, SR_val);
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
+#if LOG_MORE
+			dev_info(ctx->dev, "4D1C mipiPort A CDPHY_RX_ANA_5(0x%x) B CDPHY_RX_ANA_5(0x%x)\n",
+				SENINF_READ_REG(baseA, CDPHY_RX_ANA_5),
+				SENINF_READ_REG(baseB, CDPHY_RX_ANA_5));
+#endif
 		} else {
 			SENINF_BITS(base, CDPHY_RX_ANA_0,
 				    RG_CSI0_CPHY_EN, 0);
@@ -1759,19 +1852,23 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 				    RG_CSI0_DPHY_L2_CKMODE_EN, 0);
 
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_BW, 0x3);
+				    RG_CSI0_CDPHY_EQ_BW, BW_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_IS, 0x1);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_LATCH_EN, 0x1);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG0_EN, DG0_EN_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG1_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG1_EN, DG1_EN_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_SR0, 0x1);
+				    RG_CSI0_CDPHY_EQ_SR0, SR_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
+#if LOG_MORE
+			dev_info(ctx->dev, "2D1C mipiPort CDPHY_RX_ANA_5(0x%x)\n",
+				SENINF_READ_REG(base, CDPHY_RX_ANA_5));
+#endif
 		}
 	} else { //Cphy
 		if (ctx->is_4d1c) {
@@ -1781,56 +1878,89 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 				    RG_CSI0_CPHY_EN, 1);
 
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_BW, 0x3);
+				    RG_CSI0_CDPHY_EQ_BW, BW_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_IS, 0x1);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_LATCH_EN, 0x1);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG0_EN, DG0_EN_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
+				    RG_CSI0_CDPHY_EQ_DG1_EN, DG1_EN_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_SR0, 0x3);
+				    RG_CSI0_CDPHY_EQ_SR0, SR_val);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 
-			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_BW, 0x3);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+				    RG_CSI0_CDPHY_EQ_BW, BW_val);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_IS, 0x1);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_LATCH_EN, 0x1);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_SR0, 0x3);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+				    RG_CSI0_CDPHY_EQ_DG0_EN, DG0_EN_val);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+				    RG_CSI0_CDPHY_EQ_DG1_EN, DG1_EN_val);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+				    RG_CSI0_CDPHY_EQ_SR0, SR_val);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
+
+			if (CDR_CK_DELAY) {
+				SENINF_BITS(baseA, CDPHY_RX_ANA_6,
+					RG_CSI0_CPHY_T0_CDR_CK_DELAY, CDR_CK_DELAY);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_7,
+					RG_CSI0_CPHY_T1_CDR_CK_DELAY, CDR_CK_DELAY);
+				SENINF_BITS(baseB, CDPHY_RX_ANA_6,
+					RG_CSI0_CPHY_T0_CDR_CK_DELAY, CDR_CK_DELAY);
+				SENINF_BITS(baseB, CDPHY_RX_ANA_7,
+					RG_CSI0_CPHY_T1_CDR_CK_DELAY, CDR_CK_DELAY);
+			}
+#if LOG_MORE
+			dev_info(ctx->dev, "cphy mipiPort A CDPHY_RX_ANA_5(0x%x) CDPHY_RX_ANA_6(0x%x) CDPHY_RX_ANA_7(0x%x)\n",
+				SENINF_READ_REG(baseA, CDPHY_RX_ANA_5),
+				SENINF_READ_REG(baseA, CDPHY_RX_ANA_6),
+				SENINF_READ_REG(baseA, CDPHY_RX_ANA_7));
+			dev_info(ctx->dev, "cphy mipiPort B CDPHY_RX_ANA_5(0x%x) CDPHY_RX_ANA_6(0x%x) CDPHY_RX_ANA_7(0x%x)\n",
+				SENINF_READ_REG(baseB, CDPHY_RX_ANA_5),
+				SENINF_READ_REG(baseB, CDPHY_RX_ANA_6),
+				SENINF_READ_REG(baseB, CDPHY_RX_ANA_7));
+#endif
 		} else {
 			SENINF_BITS(base, CDPHY_RX_ANA_0,
 				    RG_CSI0_CPHY_EN, 1);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_BW, 0x3);
+				    RG_CSI0_CDPHY_EQ_BW, BW_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_IS, 0x1);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_LATCH_EN, 0x1);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
+				    RG_CSI0_CDPHY_EQ_DG0_EN, DG0_EN_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
+				    RG_CSI0_CDPHY_EQ_DG1_EN, DG1_EN_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
-				    RG_CSI0_CDPHY_EQ_SR0, 0x3);
+				    RG_CSI0_CDPHY_EQ_SR0, SR_val);
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
+
+			if (CDR_CK_DELAY) {
+				SENINF_BITS(base, CDPHY_RX_ANA_6,
+					RG_CSI0_CPHY_T0_CDR_CK_DELAY, CDR_CK_DELAY);
+				SENINF_BITS(base, CDPHY_RX_ANA_7,
+					RG_CSI0_CPHY_T1_CDR_CK_DELAY, CDR_CK_DELAY);
+			}
+#if LOG_MORE
+			dev_info(ctx->dev, "2trio mipiPort CDPHY_RX_ANA_5(0x%x) CDPHY_RX_ANA_6(0x%x) CDPHY_RX_ANA_7(0x%x)\n",
+				SENINF_READ_REG(base, CDPHY_RX_ANA_5),
+				SENINF_READ_REG(base, CDPHY_RX_ANA_6),
+				SENINF_READ_REG(base, CDPHY_RX_ANA_7));
+#endif
 		}
 	}
 
 	/* phyA power on */
-
 	if (ctx->is_4d1c) {
 		csirx_phyA_power_on(ctx, ctx->portA, 1);
 		csirx_phyA_power_on(ctx, ctx->portB, 1);
@@ -2265,11 +2395,11 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned long debug_ft = 33;//FIXME
 	unsigned long debug_vb = 1;//FIXME
 
-	for (j = CSI_PORT_0A; j < CSI_PORT_3A; j++) {
+	for (j = CSI_PORT_0A; j <= CSI_PORT_3B; j++) {
 		base_ana = ctx->reg_ana_csi_rx[j];
 		dev_info(ctx->dev,
 			"MipiRx_ANA%d: CDPHY_RX_ANA_0(0x%x) ANA_2(0x%x) ANA_4(0x%x) ANA_5(0x%x) ANA_8(0x%x)\n",
-			j - 3,
+			j - CSI_PORT_0A,
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_0),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_2),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_4),
@@ -2277,13 +2407,13 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_8));
 		dev_info(ctx->dev,
 			"MipiRx_ANA%d: CDPHY_RX_ANA_AD_0(0x%x) AD_HS_0(0x%x) AD_HS_1(0x%x)\n",
-			j - 3,
+			j - CSI_PORT_0A,
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_0),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_HS_0),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_HS_1));
 	}
 
-	for (j = CSI_PORT_0; j < CSI_PORT_3; j++) {
+	for (j = CSI_PORT_0; j <= CSI_PORT_3; j++) {
 		base_cphy = ctx->reg_ana_cphy_top[j];
 		base_dphy = ctx->reg_ana_dphy_top[j];
 
