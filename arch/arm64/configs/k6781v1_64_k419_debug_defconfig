@@ -83,6 +83,7 @@ CONFIG_MT6370_PMU_FLED=y
 CONFIG_MT6370_PMU_BLED=y
 CONFIG_MT6370_PMU_LDO=y
 CONFIG_MT6370_PMU_DSV=y
+CONFIG_MTK_PMIC_WRAP_HAL=y
 CONFIG_CUSTOM_KERNEL_IMGSENSOR="imx586_mipi_raw ov48b_mipi_raw s5k3p9sp_mipi_raw s5k3m5sx_mipi_raw imx481_mipi_raw imx519_mipi_raw imx398_mipi_raw imx350_mipi_raw s5k2l7_mipi_raw imx386_mipi_raw imx386_mipi_mono s5k2t7sp_mipi_raw imx499_mipi_raw s5k2lqsx_mipi_raw s5k4h7_mipi_raw"
 CONFIG_MTK_SYNC=y
 CONFIG_MTK_LCM_PHYSICAL_ROTATION="0"

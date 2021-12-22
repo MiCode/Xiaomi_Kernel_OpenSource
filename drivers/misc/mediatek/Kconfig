@@ -198,6 +198,7 @@ source "drivers/misc/mediatek/ppm_v3/Kconfig"
 source "drivers/misc/mediatek/apusys/Kconfig"
 source "drivers/misc/mediatek/base/power/Kconfig"
 source "drivers/misc/mediatek/pmic/Kconfig"
+source "drivers/misc/mediatek/pmic_wrap/Kconfig"
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
