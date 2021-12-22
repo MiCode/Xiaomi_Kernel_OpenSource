@@ -14,6 +14,7 @@ PROPERTIES
 		    below SoC specific compatible must be specified.
 		    - "qcom,sys-pm-lahaina"
 		    - "qcom,sys-pm-waipio"
+		    - "qcom,sys-pm-diwali"
 
 - reg:
 	Usage: required
