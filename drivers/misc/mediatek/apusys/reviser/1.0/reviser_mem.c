@@ -85,6 +85,16 @@ static dma_addr_t __reviser_get_iova(struct device *dev,
 
 	dma_set_mask_and_coherent(dev, mask);
 
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+	}
+	if (dev->dma_parms) {
+		ret = dma_set_max_seg_size(dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
+
 	ret = dma_map_sg_attrs(dev, sg, nents,
 		DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 
