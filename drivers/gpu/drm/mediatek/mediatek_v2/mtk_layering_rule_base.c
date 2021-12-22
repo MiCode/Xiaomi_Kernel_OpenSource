@@ -2639,7 +2639,10 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 		ret = MTK_MML_DISP_DIRECT_LINK_LAYER;
 		break;
 	case MML_MODE_RACING:
-		ret = MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
+		if (mtk_crtc_alloc_sram(mtk_crtc))
+			ret = MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
+		else
+			ret = MTK_MML_DISP_DECOUPLE_LAYER;
 		break;
 	case MML_MODE_MML_DECOUPLE:
 		ret = MTK_MML_DISP_DECOUPLE_LAYER;
