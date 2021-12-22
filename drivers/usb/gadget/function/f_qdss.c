@@ -833,7 +833,6 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	req->length = d_req->length;
 	req->sg = d_req->sg;
 	req->num_sgs = d_req->num_sgs;
-	req->num_mapped_sgs = d_req->num_mapped_sgs;
 	reinit_completion(&qreq->write_done);
 	if (req->sg)
 		qdss_log("%s: req:%pK req->num_sgs:0x%x\n",
