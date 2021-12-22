@@ -455,6 +455,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 		int dst_y = plane_state->dst.y1;
 		int dst_w = drm_rect_width(&plane_state->dst);
 		int dst_h = drm_rect_height(&plane_state->dst);
+		int tmp_w = 0, tmp_h = 0;
 		int idx;
 
 		if (!plane_state->crtc)
@@ -469,9 +470,16 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 
 		if (comp_state[drm_crtc_index(crtc)][idx].layer_caps
 			& MTK_DISP_RSZ_LAYER) {
+			if (dst_w != 0)
+				tmp_w = ((dst_x * src_w * 10) / dst_w + 5) / 10;
+			else
+				tmp_w = 0;
+			if (dst_h != 0)
+				tmp_h = ((dst_y * src_h * 10) / dst_h + 5) / 10;
+			else
+				tmp_h = 0;
 			mtk_rect_make(&src_layer_roi,
-				((dst_x * src_w * 10) / dst_w + 5) / 10,
-				((dst_y * src_h * 10) / dst_h + 5) / 10,
+				tmp_w, tmp_h,
 				src_w, src_h);
 			mtk_rect_make(&dst_layer_roi,
 				dst_x, dst_y,
