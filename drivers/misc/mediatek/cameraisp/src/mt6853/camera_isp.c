@@ -3228,7 +3228,7 @@ static int ISP_WriteRegToHw(struct ISP_REG_STRUCT *pReg, unsigned int Count)
 		if (((regBase + pReg[i].Addr) < (regBase + ispRange))) {
 			ISP_WR32(regBase + pReg[i].Addr, pReg[i].Val);
 		} else {
-			LOG_NOTICE("wrong address >= 0x%lx\n", ispRange);
+			LOG_NOTICE("wrong address >= 0x%x\n", ispRange);
 			Ret = -EFAULT;
 		}
 	}
@@ -3570,6 +3570,7 @@ static int ISP_REGISTER_IRQ_USERKEY(char *userName)
 			if (strcmp((void *)IrqUserKey_UserInfo[i].userName,
 				"DefaultUserNametoAllocMem") != 0) {
 				LOG_INF("userName was not initialized.\n");
+				spin_unlock((spinlock_t *)(&SpinLock_UserKey));
 				return key;
 			}
 
@@ -5337,7 +5338,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	} break;
 	case ISP_GET_CUR_ISP_CLOCK: {
 		struct ISP_GET_CLK_INFO getclk;
-		unsigned int clk[2];
+		unsigned int clk[2] = {0};
 
 		ISP_SetPMQOS(E_CLK_CUR, ISP_IRQ_TYPE_INT_CAM_A_ST, clk);
 		getclk.curClk = clk[0];
@@ -7937,7 +7938,7 @@ static int ISP_resume(struct platform_device *pDev)
 	ISP_EnableClock(module, MTRUE);
 
 	if (SuspnedRecord[module]) {
-		LOG_INF("%s_resume,enable VF,wakelock:%d,clk:%d,devct:%d\n",
+		LOG_INF("%s_resume,enable VF,wakelock:%d,clk:0x%x,devct:%d\n",
 			moduleName, g_WaitLockCt, G_u4EnableClockCount,
 			atomic_read(&G_u4DevNodeCt));
 
@@ -7950,7 +7951,7 @@ static int ISP_resume(struct platform_device *pDev)
 		regVal = ISP_RD32(CAMX_REG_TG_VF_CON(module));
 		ISP_WR32(CAMX_REG_TG_VF_CON(module), (regVal | 0x01));
 	} else {
-		LOG_INF("%s_resume,wakelock:%d,clk:%d,devct:%d\n", moduleName,
+		LOG_INF("%s_resume,wakelock:%d,clk:0x%x,devct:%d\n", moduleName,
 			g_WaitLockCt, G_u4EnableClockCount,
 			atomic_read(&G_u4DevNodeCt));
 	}
@@ -12186,8 +12187,10 @@ irqreturn_t ISP_Irq_CAM(
 			(unsigned int)ISP_RD32(
 				CAM_REG_CQ_THR0_BASEADDR(reg_module)));
 
-			snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
-			snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN, "\\");
+			if (snprintf(gPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
+				LOG_NOTICE("[%s] Error : snprintf failed!", __func__);
+			if (snprintf(gLostPass1doneLog[module]._str, P1DONE_STR_LEN, "\\") < 0)
+				LOG_NOTICE("[%s] Error : snprintf failed!", __func__);
 
 #ifdef ENABLE_STT_IRQ_LOG /*STT addr */
 			IRQ_LOG_KEEPER(
@@ -12766,7 +12769,7 @@ static void ISP_BH_Switch_Workqueue(struct work_struct *pWork)
 	}
 
 	/* 5. CQ immediate trigger */
-	LOG_NOTICE("CAMCQ_CQ_EN:0x%x", CAM_REG_CAMCQ_CQ_EN(reg_module));
+	LOG_NOTICE("CAMCQ_CQ_EN:%p", CAM_REG_CAMCQ_CQ_EN(reg_module));
 	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR0_CTL(
 		reg_module));
 
