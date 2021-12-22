@@ -631,6 +631,69 @@
 		scp_sramSize = <0x000c0000>;
 	};
 
+	scp_clk_ctrl: scp_clk_ctrl@10721000 {
+		compatible = "mediatek,scp_clk_ctrl", "syscon";
+		reg = <0 0x10721000 0 0x1000>;
+	};
+
+	scp_dvfs {
+		compatible = "mediatek,scp_dvfs";
+		/*scp-dvfs-disable;*/
+		clocks =
+			<&topckgen_clk CLK_TOP_SCP_SEL>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_D4>,
+			<&topckgen_clk CLK_TOP_NPUPLL>,
+			<&topckgen_clk CLK_TOP_MAINPLL_D6>,
+			<&topckgen_clk CLK_TOP_UNIVPLL_D6>,
+			<&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
+			<&topckgen_clk CLK_TOP_MAINPLL_D4>,
+			<&topckgen_clk CLK_TOP_MAINPLL_D7>;
+
+		clock-names =
+			"clk_mux",
+			"clk_pll_0",
+			"clk_pll_1",
+			"clk_pll_2",
+			"clk_pll_3",
+			"clk_pll_4",
+			"clk_pll_5",
+			"clk_pll_6",
+			"clk_pll_7";
+
+		dvfs-opp =
+		/* vcore vsram dvfsrc spm   freq  mux resource */
+		<550000 750000	 0    0x10   250   0    0>,
+		<600000 750000	 1    0x108  330   7	0>,
+		<650000 750000	 2    0x204  400   3	0>,
+		<725000 750000	 3    0x302  624   1	0x3>;
+
+		gpio-base = <&pio>;
+		gpio-vreq-mode = <1>;
+		gpio-vreq = <0x420 0x7 4>;
+
+		scp-cores = <1>;
+		pmic = <&pmic>;
+		dvfsrc-vscp-supply = <&dvfsrc_vscp>;
+
+		do-ulposc-cali;
+		fmeter_clksys = <&topckgen_clk>;
+		ulposc_clksys = <&apmixedsys_clk>;
+		scp_clk_ctrl = <&scp_clk_ctrl>;
+		scp-clk-hw-ver = "v1";
+		ulposc-cali-ver = "v1";
+		ulposc-cali-num = <3>;
+		ulposc-cali-target = <250 330 400>;
+		ulposc-cali-config =
+			/* con0		con1		con2 */
+			<0x38a940	0x2900		0x41>,
+			<0x52a940	0x2900		0x41>,
+			<0x5ea940	0x2900		0x41>;
+		clk-dbg-ver = "v1";
+		ccf-fmeter-support;
+		secure_access = "enable"; /* enable: need to secure access scp */
+	};
+
 	imp_iic_wrap_c_clk: syscon@11007000 {
 		compatible = "mediatek,mt6833-imp_iic_wrap_c", "syscon";
 		reg = <0 0x11007000 0 0x1000>;
