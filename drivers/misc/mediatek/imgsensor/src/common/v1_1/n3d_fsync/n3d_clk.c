@@ -35,9 +35,20 @@ void n3d_clk_init(struct SENINF_N3D_CLK *pclk)
 		}
 	}
 #ifdef CONFIG_PM_SLEEP
-	wakeup_source_init(&pclk->n3d_wake_lock, "seninf_lock_wakelock");
+	pclk->n3d_wake_lock = wakeup_source_register(
+			NULL, "n3d_lock_wakelock");
+	if (!pclk->n3d_wake_lock)
+		LOG_E("failed to get n3d_wake_lock\n");
 #endif
 	atomic_set(&pclk->wakelock_cnt, 0);
+}
+
+void n3d_clk_exit(struct SENINF_N3D_CLK *pclk)
+{
+#ifdef CONFIG_PM_SLEEP
+	if (pclk->n3d_wake_lock)
+		wakeup_source_unregister(pclk->n3d_wake_lock);
+#endif
 }
 
 void n3d_clk_open(struct SENINF_N3D_CLK *pclk)
@@ -48,7 +59,8 @@ void n3d_clk_open(struct SENINF_N3D_CLK *pclk)
 
 	if (atomic_inc_return(&pclk->wakelock_cnt) == 1) {
 #ifdef CONFIG_PM_SLEEP
-		__pm_stay_awake(&pclk->n3d_wake_lock);
+		if (pclk->n3d_wake_lock)
+			__pm_stay_awake(pclk->n3d_wake_lock);
 #endif
 	}
 
@@ -82,7 +94,8 @@ void n3d_clk_release(struct SENINF_N3D_CLK *pclk)
 
 	if (atomic_dec_and_test(&pclk->wakelock_cnt)) {
 #ifdef CONFIG_PM_SLEEP
-		__pm_relax(&pclk->n3d_wake_lock);
+		if (pclk->n3d_wake_lock)
+			__pm_relax(pclk->n3d_wake_lock);
 #endif
 	}
 }

@@ -34,11 +34,12 @@ struct SENINF_N3D_CLK {
 	atomic_t wakelock_cnt;
 
 #ifdef CONFIG_PM_SLEEP
-	struct wakeup_source n3d_wake_lock;
+	struct wakeup_source *n3d_wake_lock;
 #endif
 };
 
 void n3d_clk_init(struct SENINF_N3D_CLK *pclk);
+void n3d_clk_exit(struct SENINF_N3D_CLK *pclk);
 void n3d_clk_open(struct SENINF_N3D_CLK *pclk);
 void n3d_clk_release(struct SENINF_N3D_CLK *pclk);
 

@@ -630,6 +630,9 @@ static int n3d_remove(struct platform_device *pDev)
 	struct SENINF_N3D *pn3d = &gn3d;
 
 	LOG_D("- E.");
+
+	n3d_clk_exit(&pn3d->clk);
+
 	/* unregister char driver. */
 	n3d_unreg_char_dev(pn3d);
 
