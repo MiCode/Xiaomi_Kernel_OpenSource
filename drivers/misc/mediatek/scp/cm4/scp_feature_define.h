@@ -35,7 +35,6 @@
 /* emi mpu define, depends on legacy emi config option */
 #define ENABLE_SCP_EMI_PROTECTION	(1)
 
-#define MPU_REGION_ID_SCP_SMEM		(6)
 #define MPU_DOMAIN_D0                    0
 #define MPU_DOMAIN_D3                    3
 
