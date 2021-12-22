@@ -630,7 +630,8 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
 			// FMT cores share the same MTCMOS/CLK,
 			// pwr/clock on/off only when there's 0 job on both pipes
-			fmt_end_dvfs_emi_bw(fmt, identifier);
+			for (i = 0; i < fmt->gce_th_num; i++)
+				fmt_end_dvfs_emi_bw(fmt, i);
 			fmt_debug(0, "Both pipe job cnt = 0, pwr/clock off");
 			ret = fmt_clock_off(fmt);
 				if (ret != 0L) {
@@ -670,7 +671,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 static int fmt_gce_wait_callback(unsigned long arg)
 {
-	int ret;
+	int ret, i;
 	unsigned int identifier, taskid;
 	unsigned char *user_data_addr = NULL;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
@@ -713,7 +714,8 @@ static int fmt_gce_wait_callback(unsigned long arg)
 		+ atomic_read(&fmt->gce_job_cnt[1])) == 0) {
 		// FMT cores share the same MTCMOS/CLK,
 		// pwr/clock on/off only when there's 0 job on both pipes
-		fmt_end_dvfs_emi_bw(fmt, identifier);
+		for (i = 0; i < fmt->gce_th_num; i++)
+			fmt_end_dvfs_emi_bw(fmt, i);
 		fmt_debug(1, "Both pipe job cnt = 0, pwr/clock off");
 		ret = fmt_clock_off(fmt);
 			if (ret != 0L) {
@@ -1168,10 +1170,6 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 
 	fmt_init_pm(fmt);
 
-	ret = fmt_sync_device_init();
-	if (ret != 0)
-		fmt_debug(0, "fmt_sync init failed");
-
 	larbnode = of_parse_phandle(dev->of_node, "mediatek,larbs", 0);
 	if (!larbnode) {
 		fmt_debug(0, "fail to get larbnode");
@@ -1260,5 +1258,28 @@ static struct platform_driver vdec_fmt_driver = {
 	},
 };
 
-module_platform_driver(vdec_fmt_driver);
+static int __init fmt_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&vdec_fmt_driver);
+	if (ret) {
+		fmt_err("failed to init fmt_device");
+		return ret;
+	}
+
+	ret = fmt_sync_device_init();
+	if (ret != 0)
+		fmt_debug(0, "fmt_sync init failed");
+	return 0;
+}
+static void __init fmt_exit(void)
+{
+	platform_driver_unregister(&vdec_fmt_driver);
+}
+
+module_init(fmt_init);
+module_exit(fmt_exit);
+
+
 MODULE_LICENSE("GPL");
