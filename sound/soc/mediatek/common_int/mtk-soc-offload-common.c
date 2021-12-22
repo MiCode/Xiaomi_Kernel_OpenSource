@@ -71,7 +71,7 @@ static struct afe_offload_service_t afe_offload_service = {
 	.write_blocked   = false,
 	.enable          = false,
 	.drain           = false,
-	.ipiwait         = false,
+	.tswait          = false,
 	.needdata        = false,
 	.decode_error    = false,
 	.volume          = 0x10000,
@@ -115,7 +115,7 @@ static struct mtk_base_dsp *dsp;
  */
 static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg);
 static void offloadservice_task_unloaded_handling(void);
-static bool OffloadService_IPICmd_Wait(unsigned int id);
+static bool offloadservice_tswait(unsigned int id);
 static int offloadservice_copydatatoram(void __user *buf, size_t count);
 #ifdef use_wake_lock
 static void mtk_compr_offload_int_wakelock(bool enable);
@@ -526,8 +526,6 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 	}
 
 	id = get_dspdaiid_by_dspscene(ipi_msg->task_scene);
-	afe_offload_service.ipiwait = false;
-
 	if (id < 0)
 		return;
 
@@ -540,6 +538,12 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		break;
 	case OFFLOAD_PCMCONSUMED:
 		afe_offload_block.copied_total = ipi_msg->param1;
+		afe_offload_block.time_pcm = ktime_get();
+		afe_offload_block.time_pcm_delay_ms = ipi_msg->param2;
+		mutex_lock(&afe_offload_service.ts_lock);
+		afe_offload_service.tswait = false;
+		wake_up_interruptible(&afe_offload_service.ts_wq);
+		mutex_unlock(&afe_offload_service.ts_lock);
 		break;
 	case OFFLOAD_DRAINDONE:
 		pr_info("%s mtk_compr_offload_draindone\n", __func__);
@@ -550,10 +554,21 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		afe_offload_service.decode_error = true;
 		pr_info("%s decode_error\n", __func__);
 		break;
+	case OFFLOAD_CODEC_INFO:
+		if (ipi_msg->param1) {
+			afe_offload_codec_info.codec_bitrate =  ipi_msg->param1;
+			pr_info("%s update bir_rate[%u]\n", __func__, ipi_msg->param1);
+		}
+		if (ipi_msg->param2) {
+			afe_offload_codec_info.codec_samplerate = ipi_msg->param2;
+			pr_info("%s sample_rate[%u]\n", __func__, ipi_msg->param2);
+		}
 	default:
 		break;
 	}
-	pr_debug("%s msg_id :  %d\n", __func__, ipi_msg->msg_id);
+#ifdef DEBUG_VERBOSE
+	pr_debug("%s msg_id:%d\n", __func__, ipi_msg->msg_id);
+#endif
 }
 
 
@@ -562,19 +577,18 @@ static void offloadservice_task_unloaded_handling(void)
 	pr_debug("%s()\n", __func__);
 }
 
-static bool OffloadService_IPICmd_Wait(unsigned int id)
+static bool offloadservice_tswait(unsigned int id)
 {
-	int timeout = 0;
+	int retval;
 
-	while (afe_offload_service.ipiwait) {
-		msleep(MP3_WAITCHECK_INTERVAL_MS);
-		if (timeout++ >= MP3_IPIMSG_TIMEOUT) {
-			pr_debug("Error: IPI MSG timeout:id_%x\n", id);
-			afe_offload_service.ipiwait = false;
-			return false;
-		}
-	}
-	return true;
+	retval = wait_event_interruptible_timeout(
+		 afe_offload_service.ts_wq,
+		 !afe_offload_service.tswait,
+		 msecs_to_jiffies(OFFLOAD_IPIMSG_TIMEOUT));
+	if (!retval)
+		pr_info("%s time out\n", __func__);
+
+	return retval;
 }
 
 static int offloadservice_copydatatoram(void __user *buf, size_t count)
@@ -691,17 +705,26 @@ Error:
 	return -1;
 }
 
+static int mtk_compr_send_query_tstamp(void)
+{
+	mutex_lock(&afe_offload_service.ts_lock);
+	if (!afe_offload_service.tswait && !offload_playback_pause) {
+		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+		AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
+		OFFLOAD_TSTAMP, 0, 0, NULL);
+		afe_offload_service.tswait = true;
+	}
+	mutex_unlock(&afe_offload_service.ts_lock);
+	return 0;
+}
 static int mtk_compr_offload_pointer(struct snd_compr_stream *stream,
 				     struct snd_compr_tstamp *tstamp)
 {
 	int ret = 0;
+	u64 pcm_compensate = 0;
 
-	if (!afe_offload_service.ipiwait && !offload_playback_pause) {
-		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-				 AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
-				 OFFLOAD_TSTAMP, 0, 0, NULL);
-		afe_offload_service.ipiwait = true;
-	}
+	mtk_compr_send_query_tstamp();
+
 	if (afe_offload_block.state == OFFLOAD_STATE_INIT ||
 	    afe_offload_block.state == OFFLOAD_STATE_IDLE ||
 	    afe_offload_block.state == OFFLOAD_STATE_PREPARE) {
@@ -711,9 +734,8 @@ static int mtk_compr_offload_pointer(struct snd_compr_stream *stream,
 		return 0;
 	}
 
-	if (afe_offload_block.state == OFFLOAD_STATE_RUNNING &&
-	    afe_offload_service.write_blocked)
-		OffloadService_IPICmd_Wait(OFFLOAD_PCMCONSUMED);
+	if (afe_offload_block.state == OFFLOAD_STATE_RUNNING)
+		offloadservice_tswait(OFFLOAD_PCMCONSUMED);
 
 	if (!afe_offload_service.needdata) {
 		tstamp->copied_total  =
@@ -730,10 +752,24 @@ static int mtk_compr_offload_pointer(struct snd_compr_stream *stream,
 		tstamp->copied_total =
 			afe_offload_block.transferred;
 	}
-	tstamp->sampling_rate = afe_offload_block.samplerate;
-	tstamp->pcm_io_frames = afe_offload_block.copied_total >>
-				2;  /* DSP return 16bit data */
+	if (afe_offload_block.samplerate != afe_offload_codec_info.codec_samplerate)
+		tstamp->sampling_rate = afe_offload_codec_info.codec_samplerate;
+	else
+		tstamp->sampling_rate = afe_offload_block.samplerate;
+	// check for if pcm_delay should < 100ms
+	if (afe_offload_block.state == OFFLOAD_STATE_DRAIN ||
+	    afe_offload_block.state == OFFLOAD_STATE_RUNNING) {
+		if ((afe_offload_block.time_pcm_delay_ms > 0) &&
+		    (afe_offload_block.time_pcm_delay_ms < 100) &&
+		    (afe_offload_block.copied_total > 0)) {
+			pcm_compensate = afe_offload_block.samplerate *
+					 afe_offload_block.time_pcm_delay_ms / 1000;
+		}
+	}
+	tstamp->pcm_io_frames = (afe_offload_block.copied_total >> 2)
+				+ pcm_compensate; /* DSP return 16bit data */
 	tstamp->pcm_io_frames = tstamp->pcm_io_frames&0Xffffff80;
+
 	return ret;
 }
 
@@ -750,8 +786,8 @@ static int mtk_compr_offload_start(struct snd_compr_stream *stream)
 	int ret = 0;
 	afe_offload_block.state = OFFLOAD_STATE_PREPARE;
 	offload_playback_pause = false;
-	//SetOffloadEnableFlag(true);
 	afe_offload_block.drain_state = AUDIO_DRAIN_NONE;
+	memset(&afe_offload_block.time_pcm, 0, sizeof(ktime_t));
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_DIRECT_SEND, AUDIO_DSP_TASK_START,
 			       1, 0, NULL);
@@ -776,9 +812,10 @@ static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 			afe_offload_block.state = OFFLOAD_STATE_RUNNING;
 	}
 	offloadservice_releasewriteblocked();
-
 	offload_playback_pause = false;
 	offload_playback_resume = true;
+	memset(&afe_offload_block.time_pcm, 0, sizeof(ktime_t));
+	mtk_compr_send_query_tstamp();
 	return 0;
 }
 
@@ -806,6 +843,20 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 	return 0;
 }
 
+static int mtk_compr_deinit_offload_service(struct afe_offload_service_t *service)
+{
+	if (!service)
+		return -1;
+	service->write_blocked = false;
+	service->enable = false;
+	service->drain = false;
+	service->tswait = false;
+	service->needdata = false;
+	service->decode_error = false;
+	service->pcmdump = false;
+	return 0;
+}
+
 static int mtk_compr_offload_stop(struct snd_compr_stream *stream)
 {
 	int ret = 0;
@@ -822,7 +873,7 @@ static int mtk_compr_offload_stop(struct snd_compr_stream *stream)
 	afe_offload_block.copied_total      = 0;
 	afe_offload_block.write_blocked_idx = 0;
 	afe_offload_block.drain_state       = AUDIO_DRAIN_NONE;
-	memset(&afe_offload_service, 0, sizeof(afe_offload_service));
+	mtk_compr_deinit_offload_service(&afe_offload_service);
 	offloadservice_setwriteblocked(false);
 	offloadservice_releasewriteblocked();
 	clear_audiobuffer_hw(&dsp->dsp_mem[ID].adsp_buf);
@@ -894,6 +945,13 @@ static struct snd_soc_component_driver mtk_dloffload_soc_component = {
 	.probe      = mtk_afe_dloffload_component_probe,
 };
 
+static int mtk_offload_init(void)
+{
+	mutex_init(&afe_offload_service.ts_lock);
+	init_waitqueue_head(&afe_offload_service.ts_wq);
+	return 0;
+}
+
 static int mtk_dloffload_probe(struct platform_device *pdev)
 {
 	if (pdev->dev.of_node)
@@ -903,7 +961,7 @@ static int mtk_dloffload_probe(struct platform_device *pdev)
 	pr_info("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 
 	offload_dev = &pdev->dev;
-
+	mtk_offload_init();
 	return snd_soc_register_component(offload_dev,
 					  &mtk_dloffload_soc_component,
 					  NULL,
