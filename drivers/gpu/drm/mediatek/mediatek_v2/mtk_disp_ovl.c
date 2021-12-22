@@ -1539,7 +1539,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					BIT(sec_bit), BIT(sec_bit));
 			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + aid_sel_offset,
+					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
 		}
 
