@@ -501,7 +501,7 @@
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
-		gps-reserve-memory {
+		gps_mem: gps-reserve-memory {
 			compatible = "mediatek,gps-reserve-memory";
 			no-map;
 			size = <0 0x100000>;
@@ -4722,6 +4722,7 @@
 			<GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 475 IRQ_TYPE_LEVEL_HIGH>;
+		memory-region = <&gps_mem>;
 	};
 
 	apusys_vcore_clk: syscon@19029000 {
