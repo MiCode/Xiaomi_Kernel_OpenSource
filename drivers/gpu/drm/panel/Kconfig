@@ -349,6 +349,17 @@ config DRM_PANEL_TIANMA_R66451_CMD_120HZ
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
 
+config DRM_PANEL_TIANMA_R66451_CMD_120HZ_6382
+         tristate "TIANMA  FHD+ cmd mode panel"
+         depends on OF
+         depends on DRM_MIPI_DSI
+         depends on BACKLIGHT_CLASS_DEVICE
+         help
+           Say Y here if you want to enable support for TIANMA R66451 CMD
+           mode 120HZ Full HD Plus panel. The panel has a 1080x2340 resolution
+           and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+           to host.
+
 config DRM_PANEL_K6885V1_64_ALPHA_VDO_01
 	tristate "K6885V1 alpha phone vdo mode panel"
 	depends on OF
@@ -625,6 +636,17 @@ config DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_VFP
 	  vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
+
+config DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_VFP_6382
+         tristate "TIANMA FHD+ vdo mode 120 HZ VFP 6382 panel"
+         depends on OF
+         depends on DRM_MIPI_DSI
+         depends on BACKLIGHT_CLASS_DEVICE
+         help
+           Say Y here if you want to enable support for TIANMA DPHY
+           vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+           resolution and uses 24-bits RGB per pixel. It provides a
+           MIPI DSI interface to host.
 
 config DRM_PANEL_K6853V1_64_ALPHA_VDO_01
 	tristate "K6853V1 alpha phone vdo mode panel"
