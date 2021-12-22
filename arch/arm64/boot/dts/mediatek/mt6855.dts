@@ -3254,14 +3254,78 @@
 			status = "disabled";
 		};
 
+		ufs_ao_cfg: ufs_ao_cfg@112b8000 {
+			compatible = "mediatek,ufs_ao_cfg", "syscon", "simple-mfd";
+			reg = <0 0x112b8000 0 0x1000>;
+
+			ufsaocfg_rst: reset-controller {
+				compatible = "ti,syscon-reset";
+				#reset-cells = <1>;
+
+				ti,reset-bits = <
+					/* ufs unipro reset */
+					0x44  1 0x48  1 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: unipro */
+					>;
+			};
+		};
+
+		ufs_pdn_cfg: ufs_pdn_cfg@112bc000 {
+			compatible = "mediatek,ufs_pdn_cfg", "syscon", "simple-mfd";
+			reg = <0 0x112bc000 0 0x1000>;
+
+			ufspdncfg_rst: reset-controller {
+				compatible = "ti,syscon-reset";
+				#reset-cells = <1>;
+
+				ti,reset-bits = <
+					/* ufs crypto/ufshci reset */
+					0x44  0 0x48  0 0 0 /* 0: ufs-crypto */
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE)
+					0x44  1 0x48  1 0 0 /* 1: ufshci */
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE)
+					>;
+			};
+		};
+
 		ufshci: ufshci@112b0000 {
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x112b0000 0 0x2300>;
 			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH 0>;
 
+			clocks =
+				<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
+				<&topckgen_clk CLK_TOP_U_SEL>;
+
+			clock-names =
+				"aes_ufsfde_ck",
+				"ufs_ck";
+
+			freq-table-hz =
+				<0 0>,
+				<0 0>;
+
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_UFS0_SHUTDOWN>;
+
+			/* no buck on mt6855 */
+			vcc-supply = <&mt6363_vemc>;
+
+			/* porting vccq/vccq2 to disable unused vufs */
+			vccq-supply = <&mt6363_vufs12>;
+			vccq2-supply = <&mt6363_vufs18>;
+
+			resets =
+				<&ufsaocfg_rst 0>,
+				<&ufspdncfg_rst 0>,
+				<&ufspdncfg_rst 1>;
+
+			reset-names =
+				"unipro_rst",
+				"crypto_rst",
+				"hci_rst";
+
 			bootmode = <&chosen>;
 
-			mediatek,ufs-disable-ah8;
 			mediatek,ufs-qos;
 		};
 
@@ -7493,18 +7557,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 };
 
 &mt6363_vaux18 {
-	regulator-always-on;
-};
-
-&mt6363_vemc {
-	regulator-always-on;
-};
-
-&mt6363_vufs18 {
-	regulator-always-on;
-};
-
-&mt6363_vufs12 {
 	regulator-always-on;
 };
 

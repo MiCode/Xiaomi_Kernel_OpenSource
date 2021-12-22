@@ -230,11 +230,6 @@
 			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>;
 	};
 
-	bring-up-pd-ufs0_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_UFS0_SHUTDOWN>;
-	};
-
 	bring-up-pd-audio {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_AUDIO>;
