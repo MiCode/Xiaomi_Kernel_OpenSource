@@ -4559,6 +4559,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 		mraw_buf_entry->ctx = ctx;
 		mraw_buf_entry->ts_raw = 0;
 		mraw_buf_entry->ts_mraw = 0;
+		atomic_set(&mraw_buf_entry->is_apply, 0);
 
 		/* align master pipe's sequence number */
 		req_stream_data_mraw->frame_seq_no = req_stream_data->frame_seq_no;
@@ -4708,6 +4709,8 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 		pipe_stream_data->ctx = ctx;
 		buf_entry->ts_raw = 0;
 		buf_entry->ts_sv = 0;
+		atomic_set(&buf_entry->is_apply, 0);
+
 		mtk_cam_req_dump_work_init(pipe_stream_data);
 		mtk_cam_req_work_init(&pipe_stream_data->sv_work, pipe_stream_data);
 		INIT_WORK(&pipe_stream_data->sv_work.work, mtk_cam_sv_work);
@@ -4719,7 +4722,8 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
 	}
 	if (ctx_stream_data->frame_seq_no == 1) {
-		mtk_cam_sv_apply_all_buffers(ctx, ktime_get_boottime_ns());
+		mtk_cam_sv_update_all_buffer_ts(ctx, ktime_get_boottime_ns());
+		mtk_cam_sv_apply_all_buffers(ctx);
 		if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
 			ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
 			if (ctx_stream_data->state.estate == E_STATE_READY ||

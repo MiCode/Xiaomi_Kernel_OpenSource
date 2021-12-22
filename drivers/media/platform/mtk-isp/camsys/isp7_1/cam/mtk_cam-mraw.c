@@ -1085,7 +1085,28 @@ void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
 	frame_param->mraw_param[0].crop_size_h = mraw_pipline->res_config.height;
 }
 
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
+int mtk_cam_mraw_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns)
+{
+	struct mtk_mraw_working_buf_entry *buf_entry;
+	int i;
+
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		spin_lock(&ctx->mraw_composed_buffer_list[i].lock);
+		if (list_empty(&ctx->mraw_composed_buffer_list[i].list)) {
+			spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
+			return 0;
+		}
+		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
+							struct mtk_mraw_working_buf_entry,
+							list_entry);
+		buf_entry->ts_raw = ts_ns;
+		spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
+	}
+
+	return 1;
+}
+
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_mraw_working_buf_entry *buf_entry, *buf_entry_prev;
 	struct mtk_mraw_device *mraw_dev;
@@ -1101,8 +1122,8 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 		}
 		list_for_each_entry_safe(buf_entry, buf_entry_prev,
 			&ctx->mraw_composed_buffer_list[i].list, list_entry) {
-			if (buf_entry->ts_raw == 0) {
-				buf_entry->ts_raw = ts_ns;
+			if (atomic_read(&buf_entry->is_apply) == 0) {
+				atomic_set(&buf_entry->is_apply, 1);
 				break;
 			}
 		}
@@ -1113,6 +1134,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 			buf_entry->s_data->req->pipe_used &
 			(1 << ctx->mraw_pipe[i]->id)) {
 			if ((buf_entry->ts_mraw == 0) ||
+				(atomic_read(&buf_entry->is_apply) == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld",
@@ -1164,6 +1186,7 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 								list_entry);
 			buf_entry->ts_mraw = ts_ns;
 			if ((buf_entry->ts_raw == 0) ||
+				(atomic_read(&buf_entry->is_apply) == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld",

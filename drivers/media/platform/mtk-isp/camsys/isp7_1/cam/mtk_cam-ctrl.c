@@ -2477,6 +2477,12 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	bool is_apply = false;
 
+	/* update sv/mraw's ts */
+	if (mtk_cam_sv_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
+		dev_dbg(raw_dev->dev, "sv update all buffer ts failed");
+	if (mtk_cam_mraw_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
+		dev_dbg(raw_dev->dev, "mraw update all buffer ts failed");
+
 	/*touch watchdog*/
 	if (watchdog_scenario(ctx))
 		mtk_ctx_watchdog_kick(ctx);
@@ -2602,12 +2608,12 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
 	}
 	if (ctx->used_sv_num && is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx, irq_info->ts_ns) == 0)
-			dev_info(raw_dev->dev, "sv apply next buffer failed");
+		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+			dev_info(raw_dev->dev, "sv apply all buffers failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx, irq_info->ts_ns) == 0)
-			dev_info(raw_dev->dev, "mraw apply next buffer failed");
+		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 	}
 }
 static void seamless_switch_check_bad_frame(
@@ -2788,12 +2794,12 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 			dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
 	}
 	if (ctx->used_sv_num && is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx, irq_info->ts_ns) == 0)
-			dev_info(raw_dev->dev, "sv apply next buffer failed");
+		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+			dev_info(raw_dev->dev, "sv apply all buffers failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx, irq_info->ts_ns) == 0)
-			dev_info(raw_dev->dev, "mraw apply next buffer failed");
+		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 	}
 
 	return 0;
@@ -3979,6 +3985,13 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_sv_event_frame_sync(camsv_dev, dequeued_frame_seq_no);
 
+	/* check frame done */
+	if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
+		ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
+		mtk_camsys_camsv_check_frame_done(ctx, dequeued_frame_seq_no,
+			ctx->stream_id);
+	}
+
 	if (ctx->sensor &&
 		(ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
 		ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END)) {
@@ -3997,8 +4010,6 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 			req_stream_data->timestamp = ktime_get_boottime_ns();
 			req_stream_data->timestamp_mono = ktime_get_ns();
 		}
-		mtk_camsys_camsv_check_frame_done(ctx, dequeued_frame_seq_no,
-			ctx->stream_id + MTKCAM_SUBDEV_CAMSV_START);
 	}
 
 	/* apply next buffer */
