@@ -254,11 +254,19 @@ unsigned long ged_query_info(GED_INFO eType)
 	case GED_CUR_FREQ_IDX:
 		return ged_get_cur_oppidx();
 	case GED_MAX_FREQ_IDX:
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		return ged_get_min_oppidx();
+#else
 		return ged_get_max_oppidx();
+#endif
 	case GED_MAX_FREQ_IDX_FREQ:
 		return g_maxfreq;
 	case GED_MIN_FREQ_IDX:
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		return ged_get_max_oppidx();
+#else
 		return ged_get_min_oppidx();
+#endif
 	case GED_MIN_FREQ_IDX_FREQ:
 		return g_minfreq;
 	case GED_3D_FENCE_DONE_TIME:
