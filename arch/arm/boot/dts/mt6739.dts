@@ -599,7 +599,7 @@
 	};
 
 	sys_timer@10017000 {
-		compatible = "mediatek,sys_timer";
+		compatible = "mediatek,mt6765-timer";
 		reg =
 			/* system timer register base */
 			<0 0x10017000 0 0x1000>,
