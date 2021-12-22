@@ -315,7 +315,6 @@ config MACH_MT6768
 	select DEVAPC_MT6768
 	select OVERLAY_FS
 	select MTK_IGNORE_SSBS
-	select MTK_SSMR
 	select MTK_TINYSYS_SCP_CM4_SUPPORT
 	select MFD_MT6358
 	select MTK_PMQOS
