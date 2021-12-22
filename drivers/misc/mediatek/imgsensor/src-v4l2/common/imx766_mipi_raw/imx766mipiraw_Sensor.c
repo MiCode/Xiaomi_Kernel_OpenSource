@@ -4831,7 +4831,7 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	csi_param->cphy_settle = 0x21;
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_CUSTOM4:
-		csi_param->legacy_phy = 0;
+		csi_param->legacy_phy = 1;
 		break;
 	default:
 		break;
