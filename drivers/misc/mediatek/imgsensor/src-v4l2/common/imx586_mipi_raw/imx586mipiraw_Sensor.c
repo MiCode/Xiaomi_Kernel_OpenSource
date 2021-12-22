@@ -5669,6 +5669,23 @@ static int init_ctx(struct subdrv_ctx *ctx,
 	ctx->i2c_write_id = i2c_write_id;
 	return 0;
 }
+static int get_csi_param(struct subdrv_ctx *ctx,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+	struct mtk_csi_param *csi_param)
+{
+	csi_param->legacy_phy = 1;
+	csi_param->not_fixed_trail_settle = 1;
+
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		csi_param->legacy_phy = 0;
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
 
 static int get_temp(struct subdrv_ctx *ctx, int *temp)
 {
@@ -5689,6 +5706,7 @@ static struct subdrv_ops ops = {
 	.get_frame_desc = get_frame_desc,
 #endif
 	.get_temp = get_temp,
+	.get_csi_param = get_csi_param,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {

@@ -3338,6 +3338,8 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
+	csi_param->legacy_phy = 1;
+	csi_param->not_fixed_trail_settle = 1;
 	csi_param->cphy_settle = 0x12;
 	return 0;
 }
