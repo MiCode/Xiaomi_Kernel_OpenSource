@@ -11,7 +11,7 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM),  "mt6785" "mt6853" "mt6768" "mt6885"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM),  "mt6785" "mt6853" "mt6768" "mt6885" "mt6893"))
 ifdef CONFIG_MTK_PLATFORM
 ifeq ($(CONFIG_MACH_MT6781),y)
 MTK_PLATFORM := mt6781

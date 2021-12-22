@@ -16,6 +16,7 @@ u32 qos_sram_read(u32 offset)
 
 	return readl(qos_sram_base + offset);
 }
+EXPORT_SYMBOL(qos_sram_read);
 
 void qos_sram_write(u32 offset, u32 val)
 {
@@ -24,6 +25,7 @@ void qos_sram_write(u32 offset, u32 val)
 
 	writel(val, qos_sram_base + offset);
 }
+EXPORT_SYMBOL(qos_sram_write);
 
 void qos_sram_init(void __iomem *regs)
 {
