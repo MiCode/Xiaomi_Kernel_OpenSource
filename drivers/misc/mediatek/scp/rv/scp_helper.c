@@ -2588,11 +2588,15 @@ static int __init scp_init(void)
 	}
 #endif /* SCP_DVFS_INIT_ENABLE */
 
-	if (platform_driver_register(&mtk_scp_device))
+	if (platform_driver_register(&mtk_scp_device)) {
 		pr_notice("[SCP] scp probe fail\n");
+		goto err;
+	}
 
-	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe))
+	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe)) {
 		pr_notice("[SCP] scpsys probe fail\n");
+		goto err;
+	}
 
 	/* skip initial if dts status = "disable" */
 	if (!scp_enable[SCP_A_ID]) {
