@@ -52,10 +52,10 @@
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
 			earlycon=uart8250,mmio32,0x11002000 \
-			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
+			vmalloc=400M swiotlb=noforce \
 			firmware_class.path=/vendor/firmware \
-			androidboot.hardware=mt6833 \
-			page_owner=on";
+			androidboot.hardware=mt6833";
+		kaslr-seed = <0 0>;
 	};
 
 	clkitg: clkitg {
