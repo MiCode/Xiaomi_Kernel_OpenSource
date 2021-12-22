@@ -2356,7 +2356,9 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	unsigned int _idle_timeout = 50;/*ms*/
 	int en = 1;
 	struct mtk_ddp_comp *output_comp;
-
+#ifdef CONFIG_MTK_MT6382_BDG
+	unsigned int crtc_id = 0;
+#endif
 	/* Check if disp_mode_idx change */
 	if (old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] ==
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX])
@@ -2429,6 +2431,10 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	mtk_drm_trace_end();
+#ifdef CONFIG_MTK_MT6382_BDG
+	crtc_id = drm_crtc_index(crtc);
+	CRTC_MMP_EVENT_END(crtc_id, mode_switch, 0, 0);
+#endif
 }
 
 bool already_free;

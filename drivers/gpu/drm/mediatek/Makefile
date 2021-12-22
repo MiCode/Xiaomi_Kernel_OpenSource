@@ -69,6 +69,7 @@ endif
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
 
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
+obj-$(CONFIG_MTK_MT6382_BDG) += mtk_disp_bdg.o
 
 mediatek-drm-hdmi-objs := mtk_cec.o \
 			  mtk_hdmi.o \
@@ -83,15 +84,18 @@ obj-$(CONFIG_DRM_MEDIATEK_HDMI) += mediatek-drm-hdmi.o \
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\
              -I$(srctree)/drivers/misc/mediatek/mmp/			\
+	     -I$(srctree)/drivers/misc/mediatek/spi_slave_drv/          \
+	     -I$(srctree)/drivers/misc/mediatek/base/power/include/     \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/			\
              -I$(srctree)/drivers/misc/mediatek/pmic/			\
              -I$(srctree)/drivers/iommu/				\
              -I$(srctree)/drivers/devfreq/				\
              -I$(srctree)/drivers/gpu/drm/				\
-             -I$(srctree)/drivers/misc/mediatek/include/mt-plat \
-             -I$(srctree)/drivers/misc/mediatek/leds/ \
-             -I$(srctree)/drivers/misc/mediatek/leds/$(MTK_PLATFORM) \
-             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat		\
+             -I$(srctree)/drivers/misc/mediatek/leds/			\
+             -I$(srctree)/drivers/misc/mediatek/leds/$(MTK_PLATFORM)	\
+             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/		\
+	     -I$(srctree)/drivers/misc/mediatek/cmdq/bridge
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include/mach/
 else

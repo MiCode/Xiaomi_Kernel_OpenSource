@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
-*/
+ */
 
 #include <linux/string.h>
 #include <linux/time.h>
@@ -39,6 +39,9 @@
 #endif
 #include "mtk_drm_arr.h"
 #include "mtk_drm_graphics_base.h"
+#ifdef CONFIG_MTK_MT6382_BDG
+#include "mtk_disp_bdg.h"
+#endif
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -1805,6 +1808,80 @@ static void process_dbg_opt(const char *opt)
 			mtk_drm_crtc_analysis(crtc);
 			mtk_drm_crtc_dump(crtc);
 		}
+#ifdef CONFIG_MTK_MT6382_BDG
+	} else if (strncmp(opt, "bdg_dump", 8) == 0) {
+		bdg_dsi_dump_reg(DISP_BDG_DSI0);
+	} else if (strncmp(opt, "set_data_rate:", 14) == 0) {
+		unsigned int data_rate = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "set_data_rate:%d\n",
+			&data_rate);
+		if (ret != 1) {
+			DDPMSG("[error]%d error to parse set_data_rate cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		set_bdg_data_rate(data_rate);
+
+	} else if (!strncmp(opt, "set_mask_spi:", 13)) {
+		unsigned int addr = 0, val = 0, mask = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "set_mask_spi:addr=0x%x,mask=0x%x,val=0x%x\n",
+			&addr, &mask, &val);
+		if (ret != 3) {
+			DDPMSG("[error]%d error to parse set_mt6382_spi cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		ret = mtk_spi_mask_write(addr, mask, val);
+		if (ret < 0) {
+			DDPMSG("[error]write mt6382 fail,addr:0x%x, val:0x%x\n",
+				addr, val);
+			return;
+		}
+	} else if (!strncmp(opt, "set_mt6382_spi:", 15)) {
+		unsigned int addr = 0, val = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "set_mt6382_spi:addr=0x%x,val=0x%x\n",
+			&addr, &val);
+		if (ret != 2) {
+			DDPMSG("[error]%d error to parse set_mt6382_spi cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		ret = mtk_spi_write(addr, val);
+		if (ret < 0) {
+			DDPMSG("[error]write mt6382 fail,addr:0x%x, val:0x%x\n",
+				addr, val);
+			return;
+		}
+
+	} else if (!strncmp(opt, "read_mt6382_spi:", 16)) {
+		unsigned int addr = 0, val = 0;
+		int ret = -1;
+
+		ret = sscanf(opt, "read_mt6382_spi:addr=0x%x\n", &addr);
+		if (ret != 1) {
+			DDPMSG("[error]%d error to parse read_mt6382_spi cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		val = mtk_spi_read(addr);
+		DDPMSG("mt6382 read addr:0x%08x, val:0x%08x\n", addr, val);
+
+	} else if (strncmp(opt, "check", 5) == 0) {
+		if (check_stopstate(NULL) == 0)
+			bdg_tx_start(DISP_BDG_DSI0, NULL);
+		mdelay(100);
+		return;
+#endif
 	} else if (strncmp(opt, "repaint", 7) == 0) {
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, drm_dev);
 	} else if (strncmp(opt, "dalprintf", 9) == 0) {

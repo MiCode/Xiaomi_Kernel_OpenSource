@@ -27,6 +27,12 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_fbdev.h"
 #include "mtk_drm_trace.h"
+#include "mtk_dump.h"
+
+#ifdef CONFIG_MTK_MT6382_BDG
+#include "mtk_disp_bdg.h"
+#include "mtk_dsi.h"
+#endif
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
@@ -136,18 +142,30 @@ static void esd_cmdq_timeout_cb(struct cmdq_cb_data data)
 	struct drm_crtc *crtc = data.data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+#ifdef CONFIG_MTK_MT6382_BDG
+	struct mtk_ddp_comp *output_comp = NULL;
+#endif
 
 	if (!crtc) {
 		DDPMSG("%s find crtc fail\n", __func__);
 		return;
 	}
-
-	DDPMSG("read flush fail\n");
+	DDPMSG("[error]%s cmdq timeout out\n", __func__);
 	esd_ctx->chk_sta = 0xff;
+#ifndef CONFIG_MTK_MT6382_BDG
 	mtk_drm_crtc_analysis(crtc);
 	mtk_drm_crtc_dump(crtc);
+#else
+	if (mtk_crtc) {
+		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+		if (output_comp) {
+			mtk_dump_analysis(output_comp);
+			mtk_dump_reg(output_comp);
+		}
+	}
+	bdg_dsi_dump_reg(DISP_BDG_DSI0);
+#endif
 }
-
 
 int _mtk_esd_check_read(struct drm_crtc *crtc)
 {
@@ -401,6 +419,9 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
 	int ret = 0;
+#ifdef CONFIG_MTK_MT6382_BDG
+	struct mtk_dsi *dsi = NULL;
+#endif
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
 	if (crtc->state && !crtc->state->active) {
@@ -418,6 +439,9 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_DISABLE, NULL);
+#ifdef CONFIG_MTK_MT6382_BDG
+	bdg_common_deinit(DISP_BDG_DSI0, NULL);
+#endif
 
 	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);
@@ -431,6 +455,10 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	mtk_drm_crtc_enable(crtc);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 3);
 
+#ifdef CONFIG_MTK_MT6382_BDG
+	dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+	mtk_output_bdg_enable(dsi, false);
+#endif
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_ENABLE, NULL);
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 4);

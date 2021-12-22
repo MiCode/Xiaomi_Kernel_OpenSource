@@ -60,6 +60,10 @@
 #include "include/pmic_api_buck.h"
 #endif
 
+#ifdef CONFIG_MTK_MT6382_BDG
+#include "mtk_disp_bdg.h"
+#endif
+
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
@@ -3094,6 +3098,10 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		goto err_kms_helper_poll_fini;
 
 	mtk_drm_first_enable(drm);
+
+#ifdef CONFIG_MTK_MT6382_BDG
+	bdg_first_init();
+#endif
 
 	return 0;
 err_kms_helper_poll_fini:

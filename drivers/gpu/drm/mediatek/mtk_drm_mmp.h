@@ -101,6 +101,10 @@ struct CRTC_MMP_Events {
 	mmp_event lcm;
 	mmp_event cwbBmpDump;
 	mmp_event cwb_dump;
+	mmp_event mode_switch;
+#ifdef CONFIG_MTK_MT6382_BDG
+	mmp_event bdg_gce_irq;
+#endif
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

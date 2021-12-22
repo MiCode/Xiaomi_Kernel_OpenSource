@@ -122,6 +122,7 @@ enum FPS_CHANGE_INDEX {
 
 struct mtk_panel_dsc_params {
 	unsigned int enable;
+	unsigned int bdg_dsc_enable;
 	unsigned int ver; /* [7:4] major [3:0] minor */
 	unsigned int slice_mode;
 	unsigned int rgb_swap;
@@ -212,6 +213,7 @@ struct mtk_panel_params {
 	unsigned int esd_check_enable;
 	struct esd_check_item lcm_esd_check_table[ESD_CHECK_NUM];
 	unsigned int ssc_disable;
+	unsigned int bdg_ssc_disable;
 	unsigned int ssc_range;
 	int lcm_color_mode;
 	unsigned int min_luminance;
