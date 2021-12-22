@@ -33,7 +33,7 @@ endif
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mailbox/
 obj-$(CONFIG_MTK_MT6382_BDG) += bridge/
 # mdp_sw_sync
-ifeq (,$(filter $(CMDQ_PLATFORM), "mt6885" "mt6873" "mt6853" "mt6893" "mt6833" "mt6877" "mt6781" "mt6779"))
+ifeq (,$(filter $(CMDQ_PLATFORM), "mt6885" "mt6873" "mt6853" "mt6893" "mt6833" "mt6877" "mt6781"))
 	obj-y += mdp_sync/
 endif
 # EOF
