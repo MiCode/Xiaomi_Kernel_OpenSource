@@ -4932,13 +4932,25 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 {
 	struct ufs_hba *hba = shost_priv(sdev->host);
 	struct request_queue *q = sdev->request_queue;
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+	struct ufsf_feature *ufsf = &hba->ufsf;
 
+	if (ufsf_is_valid_lun(sdev->lun)) {
+		ufsf->sdev_ufs_lu[sdev->lun] = sdev;
+		ufsf->slave_conf_cnt++;
+	}
+#endif
 	blk_queue_update_dma_pad(q, PRDT_DATA_BYTE_COUNT_PAD - 1);
 	blk_queue_max_segment_size(q, PRDT_DATA_BYTE_COUNT_MAX);
 
 	if (ufshcd_is_rpm_autosuspend_allowed(hba))
 		sdev->rpm_autosuspend = 1;
-
+#if defined(CONFIG_SCSI_SKHPB)
+		if (hba->dev_info.wmanufacturerid == UFS_VENDOR_SKHYNIX) {
+			if (sdev->lun < UFS_UPIU_MAX_GENERAL_LUN)
+				hba->sdev_ufs_lu[sdev->lun] = sdev;
+		}
+#endif
 	ufshcd_crypto_setup_rq_keyslot_manager(hba, q);
 
 	return 0;
@@ -5543,7 +5555,9 @@ static void ufshcd_exception_event_handler(struct work_struct *work)
 
 	if (status & MASK_EE_URGENT_BKOPS)
 		ufshcd_bkops_exception_event_handler(hba);
-
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+	ufsf_tw_ee_handler(&hba->ufsf);
+#endif
 out:
 	ufshcd_scsi_unblock_requests(hba);
 	/*
@@ -7491,8 +7505,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async)
 	}
 #if defined(CONFIG_SCSI_UFS_FEATURE)
 		ufsf_device_check(hba);
-		ufsf_hpb_init(&hba->ufsf);
 		ufsf_tw_init(&hba->ufsf);
+		ufsf_hpb_init(&hba->ufsf);
 #endif
 		scsi_scan_host(hba->host);
 #if defined(CONFIG_SCSI_SKHPB)
@@ -7551,7 +7565,11 @@ out:
 	}
 }
 
-
+#if defined(CONFIG_UFSFEATURE)
+int ufsf_query_ioctl(struct ufsf_feature *ufsf, unsigned int lun,
+		void __user *buffer,
+		struct ufs_ioctl_query_data_hpb *ioctl_data, u8 selector);
+#endif
 int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 {
 	struct ufs_ioctl_query_data *idata;
@@ -7563,7 +7581,9 @@ int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 	u32 att = 0;
 	u8 *desc = NULL;
 	u8 read_desc, read_attr, write_attr, read_flag;
-
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+	u8 selector;
+#endif
 	idata = kzalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
 	if (!idata) {
 		err = -ENOMEM;
@@ -7579,6 +7599,20 @@ int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 			__func__, err);
 		goto out_release_mem;
 	}
+#if defined(CONFIG_SCSI_UFS_FEATURE)
+		if (hba->dev_info.wmanufacturerid == UFS_VENDOR_SAMSUNG ||
+			hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+			selector = UFSFEATURE_SELECTOR;
+		else
+			selector = 0;
+
+		if (ufsf_check_query(idata->opcode)) {
+			err = ufsf_query_ioctl(&hba->ufsf, lun, buf_user,
+					(struct ufs_ioctl_query_data_hpb *)idata,
+					selector);
+			goto out_release_mem;
+		}
+#endif
 
 	user_buf_ptr = idata->buf_ptr;
 
