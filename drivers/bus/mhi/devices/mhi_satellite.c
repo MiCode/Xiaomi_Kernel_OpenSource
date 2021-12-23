@@ -238,7 +238,7 @@ enum mhi_sat_state {
 	SAT_DISABLED, /* no further processing: wait for device removal */
 };
 
-#define MHI_SAT_MAX_DEVICES 5
+#define MHI_SAT_MAX_DEVICES 4
 #define MHI_SAT_ACTIVE(cntrl) (cntrl->state == SAT_RUNNING)
 #define MHI_SAT_IN_ERROR_STATE(cntrl) (cntrl->state >= SAT_FATAL_DETECT)
 #define MHI_SAT_ALLOW_CONNECTION(cntrl) (cntrl->state == SAT_READY || \
