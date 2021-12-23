@@ -105,6 +105,13 @@ static const char * const drv_names_waipio[] = {
 	""
 };
 
+static const char * const drv_names_diwali[] = {
+	"TZ", "L3", "HLOS", "HYP", "SECPROC", "AUDIO", "SENSOR", "AOP",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW",
+	"WPSS", "MDM SW", "MDM HW", "WLAN RF", "DDR AUX", "ARC CPRF",
+	""
+};
+
 static ssize_t debug_time_ms_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -382,6 +389,8 @@ static const struct of_device_id drv_match_table[] = {
 	  .data = drv_names_lahaina },
 	{ .compatible = "qcom,sys-pm-waipio",
 	  .data = drv_names_waipio },
+	{ .compatible = "qcom,sys-pm-diwali",
+	  .data = drv_names_diwali },
 	{ }
 };
 
