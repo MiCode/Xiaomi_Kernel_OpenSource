@@ -948,19 +948,20 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 	return ret;
 }
 
-static int a6xx_complete_rpmh_votes(struct adreno_device *adreno_dev)
+static int a6xx_complete_rpmh_votes(struct adreno_device *adreno_dev,
+		unsigned int timeout)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret = 0;
 
 	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS0_DRV0_STATUS,
-			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
+			BIT(0), timeout, BIT(0));
 	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS1_DRV0_STATUS,
-			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
+			BIT(0), timeout, BIT(0));
 	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS2_DRV0_STATUS,
-			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
+			BIT(0), timeout, BIT(0));
 	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS3_DRV0_STATUS,
-			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
+			BIT(0), timeout, BIT(0));
 
 	return ret;
 }
@@ -1672,7 +1673,7 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 	/* Disconnect GPU from BUS is not needed if CX GDSC goes off later */
 
 	/* Check no outstanding RPMh voting */
-	a6xx_complete_rpmh_votes(adreno_dev);
+	a6xx_complete_rpmh_votes(adreno_dev, GPU_RESET_TIMEOUT);
 
 	/* Clear the WRITEDROPPED fields and set fence to allow mode */
 	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_STATUS_CLR, 0x7);
@@ -2808,6 +2809,8 @@ int a6xx_halt_gbif(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+#define RPMH_VOTE_TIMEOUT		2 /* ms */
+
 static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -2819,6 +2822,10 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 
 	/* Wait for the lowest idle level we requested */
 	ret = a6xx_gmu_wait_for_lowest_idle(adreno_dev);
+	if (ret)
+		goto error;
+
+	ret = a6xx_complete_rpmh_votes(adreno_dev, RPMH_VOTE_TIMEOUT);
 	if (ret)
 		goto error;
 
