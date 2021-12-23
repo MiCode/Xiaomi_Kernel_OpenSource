@@ -24,8 +24,10 @@ enum thermal_pause_levels {
 };
 
 #define THERMAL_PAUSE_RETRY_COUNT 5
+
+/* minimum 160mS of time to allow for retry mechanism */
 #define DELAYED_WORK_TICKS 2
-#define THERMAL_PAUSE_DELAYED_RETRY_COUNT 13
+#define THERMAL_PAUSE_DELAYED_RETRY_COUNT 20
 
 struct thermal_pause_cdev {
 	struct list_head		node;
