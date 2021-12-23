@@ -829,8 +829,8 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			kevt.evt.u.exec_v2_done.exec_result =
 				exe_rsp_pkt->header.status;
 			kevt.evt.u.exec_v2_done.stats_buf_size = stats_size;
-			kevt.reserved[0] = (uint64_t)network->stats_buf;
-			kevt.reserved[1] = (uint64_t)network->stats_buf_u;
+			kevt.stats_buf = network->stats_buf;
+			kevt.stats_buf_u = network->stats_buf_u;
 			if (npu_queue_event(network->client, &kevt))
 				pr_err("queue npu event failed\n");
 		} else {
