@@ -338,6 +338,9 @@ EXPORT_SYMBOL(qcom_glink_spss_register);
 
 void qcom_glink_spss_unregister(struct qcom_glink *glink)
 {
+	if (!glink)
+		return;
+
 	qcom_glink_native_remove(glink);
 	qcom_glink_native_unregister(glink);
 }
