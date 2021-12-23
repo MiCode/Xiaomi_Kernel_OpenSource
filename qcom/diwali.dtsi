@@ -828,6 +828,11 @@
 		mboxes = <&rimps 0>;
 		mbox-names = "tx";
 		shmem = <&cpu_scp_lpri>;
+
+		scmi_plh: protocol@81 {
+			reg = <0x81>;
+			#clock-cells = <1>;
+		};
 	};
 
 	rimps_log: qcom,rimps_log@17d09c00 {
