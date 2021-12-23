@@ -103,6 +103,7 @@
 	limit-rx-hs-gear = <1>;
 	limit-rate = <2>; /* HS Rate-B */
 
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
 	vdd-hba-fixed-regulator;
 
 	vcc-supply = <&L24B>;
@@ -128,4 +129,11 @@
 
 &qupv3_se3_2uart {
 	qcom,rumi_platform;
+};
+
+&gcc {
+	clocks = <&bi_tcxo>, <&sleep_clk>,
+		<&pcie_0_pipe_clk>, <&ufs_phy_rx_symbol_0_clk>,
+		<&ufs_phy_rx_symbol_1_clk>, <&ufs_phy_tx_symbol_0_clk>,
+		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
 };
