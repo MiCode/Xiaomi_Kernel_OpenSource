@@ -375,22 +375,22 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 	if (IS_ERR(qp->regmap))
 		return PTR_ERR(qp->regmap);
 
+	qp->num_clks = devm_clk_bulk_get_all(qp->dev, &qp->clks);
+	if (qp->num_clks < 0)
+		return qp->num_clks;
+
 	ret = icc_provider_add(provider);
 	if (ret) {
 		dev_err(&pdev->dev, "error adding interconnect provider\n");
 		return ret;
 	}
 
-	qp->num_clks = devm_clk_bulk_get_all(qp->dev, &qp->clks);
-	if (qp->num_clks < 0)
-		return qp->num_clks;
-
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
 
 	ret = enable_qos_deps(qp);
 	if (ret)
-		return ret;
+		goto provider_del;
 
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
@@ -449,7 +449,7 @@ err:
 
 	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 	clk_bulk_put_all(qp->num_clks, qp->clks);
-
+provider_del:
 	icc_provider_del(provider);
 
 	return ret;
