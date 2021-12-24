@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  */
 
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
 #if IS_ENABLED(CONFIG_MSM_QMP)
@@ -42,7 +45,7 @@
 #define DDR_STATS_COUNT_ADDR		0x4
 #define DDR_STATS_DURATION_ADDR		0x8
 
-#if IS_ENABLED(CONFIG_QCOM_SMEM)
+#if IS_ENABLED(CONFIG_DEBUG_FS) && IS_ENABLED(CONFIG_QCOM_SMEM)
 struct subsystem_data {
 	const char *name;
 	u32 smem_item;
@@ -98,6 +101,7 @@ struct appended_stats {
 struct ddr_stats_g_data {
 	bool read_vote_info;
 	void __iomem *ddr_reg;
+	u32 freq_count;
 	u32 entry_count;
 	struct mutex ddr_stats_lock;
 	struct mbox_chan *stats_mbox_ch;
@@ -106,6 +110,9 @@ struct ddr_stats_g_data {
 
 struct ddr_stats_g_data *ddr_gdata;
 #endif
+
+bool ddr_freq_update;
+ktime_t send_msg_time;
 
 static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 {
@@ -126,7 +133,7 @@ static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 
 static int subsystem_sleep_stats_show(struct seq_file *s, void *d)
 {
-#if IS_ENABLED(CONFIG_QCOM_SMEM)
+#if IS_ENABLED(CONFIG_DEBUG_FS) && IS_ENABLED(CONFIG_QCOM_SMEM)
 	struct subsystem_data *subsystem = s->private;
 	struct sleep_stats *stat;
 
@@ -192,8 +199,30 @@ static void  print_ddr_stats(struct seq_file *s, int *count,
 			return;
 
 		seq_printf(s,
-		"Freq %dMhz:\tCP IDX:%u\tcount:%u\tDuration (ticks):%ld (~%d%%)\n",
-			name, cp_idx, data->count, data->duration, duration);
+		"Freq %dMhz:\tCP IDX:%u\tDuration (ticks):%ld (~%d%%)\n",
+			name, cp_idx, data->duration, duration);
+	}
+}
+
+static bool ddr_stats_is_freq_overtime(struct stats_entry *data)
+{
+	if ((data->count == 0) && (ddr_freq_update))
+		return true;
+
+	return false;
+}
+
+static void ddr_stats_fill_data(void __iomem *reg, u32 entry_count,
+					struct stats_entry *data, u64 *accumulated_duration)
+{
+	int i;
+
+	for (i = 0; i < entry_count; i++) {
+		data[i].count = readl_relaxed(reg + DDR_STATS_COUNT_ADDR);
+		data[i].name = readl_relaxed(reg + DDR_STATS_NAME_ADDR);
+		data[i].duration = readq_relaxed(reg + DDR_STATS_DURATION_ADDR);
+		*accumulated_duration += data[i].duration;
+		reg += sizeof(struct stats_entry);
 	}
 }
 
@@ -212,26 +241,121 @@ static int ddr_stats_show(struct seq_file *s, void *d)
 	}
 
 	reg += DDR_STATS_NUM_MODES_ADDR + 0x4;
+	ddr_stats_fill_data(reg, DDR_STATS_NUM_MODES_ADDR, data, &accumulated_duration);
+	for (i = 0; i < DDR_STATS_NUM_MODES_ADDR; i++)
+		print_ddr_stats(s, &lpm_count, &data[i], accumulated_duration);
 
-	for (i = 0; i < entry_count; i++) {
+	accumulated_duration = 0;
+	reg += sizeof(struct stats_entry) * 0x4;
+	for (i = DDR_STATS_NUM_MODES_ADDR; i < entry_count; i++) {
 		data[i].count = readl_relaxed(reg + DDR_STATS_COUNT_ADDR);
-
+		if (ddr_stats_is_freq_overtime(&data[i])) {
+			seq_puts(s, "ddr_stats: Freq update failed.\n");
+			return 0;
+		}
 		data[i].name = readl_relaxed(reg + DDR_STATS_NAME_ADDR);
-
 		data[i].duration = readq_relaxed(reg + DDR_STATS_DURATION_ADDR);
-
 		accumulated_duration += data[i].duration;
 		reg += sizeof(struct stats_entry);
 	}
 
-	for (i = 0; i < entry_count; i++)
+	for (i = DDR_STATS_NUM_MODES_ADDR; i < entry_count; i++)
 		print_ddr_stats(s, &lpm_count, &data[i], accumulated_duration);
 
 	return 0;
 }
 
 DEFINE_SHOW_ATTRIBUTE(ddr_stats);
+
 #if IS_ENABLED(CONFIG_MSM_QMP)
+int ddr_stats_freq_sync_send_msg(void)
+{
+	char buf[MAX_MSG_LEN] = {};
+	struct qmp_pkt pkt;
+	int ret = 0;
+
+	mutex_lock(&ddr_gdata->ddr_stats_lock);
+	ret = scnprintf(buf, MAX_MSG_LEN, "{class: ddr, action: freqsync}");
+	pkt.size = (ret + 0x3) & ~0x3;
+	pkt.data = buf;
+
+	ret = mbox_send_message(ddr_gdata->stats_mbox_ch, &pkt);
+	if (ret < 0) {
+		pr_err("Error sending mbox message: %d\n", ret);
+		mutex_unlock(&ddr_gdata->ddr_stats_lock);
+		return ret;
+	}
+	mutex_unlock(&ddr_gdata->ddr_stats_lock);
+
+	send_msg_time = ktime_get_boottime();
+
+	return ret;
+}
+EXPORT_SYMBOL(ddr_stats_freq_sync_send_msg);
+
+int ddr_stats_get_freq_count(void)
+{
+	if (!ddr_gdata)
+		return -ENODEV;
+
+	return ddr_gdata->freq_count;
+}
+EXPORT_SYMBOL(ddr_stats_get_freq_count);
+
+int ddr_stats_get_residency(int freq_count, struct ddr_freq_residency *data)
+{
+	void __iomem *reg;
+	u32 name;
+	int i, j, num;
+	uint64_t duration = 0;
+	ktime_t now;
+	struct stats_entry stats_data[DDR_STATS_MAX_NUM_MODES];
+
+	if (freq_count < 0 || !data || !ddr_gdata || !ddr_gdata->ddr_reg)
+		return -EINVAL;
+
+	if (!ddr_gdata->entry_count)
+		return -EINVAL;
+
+	now = ktime_get_boottime();
+	while (now < send_msg_time) {
+		udelay(500);
+		now = ktime_get_boottime();
+	}
+
+	mutex_lock(&ddr_gdata->ddr_stats_lock);
+	num = freq_count > ddr_gdata->freq_count ? ddr_gdata->freq_count : freq_count;
+	reg = ddr_gdata->ddr_reg + DDR_STATS_NUM_MODES_ADDR + 0x4;
+
+	ddr_stats_fill_data(reg, ddr_gdata->entry_count, stats_data, &duration);
+
+	/* Before get ddr residency, check ddr freq's count. */
+	for (i = 0; i < ddr_gdata->entry_count; i++) {
+		name = stats_data[i].name;
+		if ((((name >> 8) & 0xFF) == 0x1) &&
+				ddr_stats_is_freq_overtime(&stats_data[i])) {
+			pr_err("ddr_stats: Freq update failed\n");
+			mutex_unlock(&ddr_gdata->ddr_stats_lock);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0, j = 0; i < ddr_gdata->entry_count; i++) {
+		name = stats_data[i].name;
+		if (((name >> 8) & 0xFF) == 0x1) {
+			data[j].freq = name >> 16;
+			data[j].residency = stats_data[i].duration;
+			if (++j > num)
+				break;
+		}
+		reg += sizeof(struct stats_entry);
+	}
+
+	mutex_unlock(&ddr_gdata->ddr_stats_lock);
+
+	return j;
+}
+EXPORT_SYMBOL(ddr_stats_get_residency);
 
 int ddr_stats_get_ss_count(void)
 {
@@ -293,6 +417,7 @@ int ddr_stats_get_ss_vote_info(int ss_count,
 EXPORT_SYMBOL(ddr_stats_get_ss_vote_info);
 #endif
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *create_debugfs_entries(void __iomem *reg,
 					     void __iomem *ddr_reg,
 					     struct stats_prv_data *prv_data,
@@ -338,7 +463,6 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 				break;
 			}
 		}
-
 	}
 
 	if (!ddr_reg)
@@ -352,18 +476,22 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 exit:
 	return root;
 }
+#endif
 
 static int soc_sleep_stats_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *reg, *ddr_reg = NULL;
+	void __iomem *reg_base, *reg, *ddr_reg = NULL;
 	void __iomem *offset_addr;
 	phys_addr_t stats_base;
 	resource_size_t stats_size;
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *root;
+#endif
 	const struct stats_config *config;
 	struct stats_prv_data *prv_data;
 	int i;
+	u32 name;
 
 	config = device_get_match_data(&pdev->dev);
 	if (!config)
@@ -381,8 +509,8 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	stats_size = resource_size(res);
 	iounmap(offset_addr);
 
-	reg = devm_ioremap(&pdev->dev, stats_base, stats_size);
-	if (!reg)
+	reg_base = devm_ioremap(&pdev->dev, stats_base, stats_size);
+	if (!reg_base)
 		return -ENOMEM;
 
 	prv_data = devm_kzalloc(&pdev->dev, config->num_records *
@@ -424,6 +552,17 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 		goto skip_ddr_stats;
 	}
 
+	reg = ddr_gdata->ddr_reg + DDR_STATS_NUM_MODES_ADDR + 0x4;
+
+	for (i = 0; i < ddr_gdata->entry_count; i++) {
+		name = readl_relaxed(reg + DDR_STATS_NAME_ADDR);
+		name = (name >> 8) & 0xFF;
+		if (name == 0x1)
+			ddr_gdata->freq_count++;
+
+		reg += sizeof(struct stats_entry);
+	}
+
 	ddr_gdata->stats_mbox_cl.dev = &pdev->dev;
 	ddr_gdata->stats_mbox_cl.tx_block = true;
 	ddr_gdata->stats_mbox_cl.tx_tout = 1000;
@@ -436,19 +575,26 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	ddr_gdata->read_vote_info = true;
 #endif
 
+	ddr_freq_update = of_property_read_bool(pdev->dev.of_node,
+							"ddr-freq-update");
+
 skip_ddr_stats:
-	root = create_debugfs_entries(reg, ddr_reg,  prv_data,
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	root = create_debugfs_entries(reg_base, ddr_reg, prv_data,
 				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
+#endif
 
 	return 0;
 }
 
 static int soc_sleep_stats_remove(struct platform_device *pdev)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *root = platform_get_drvdata(pdev);
 
 	debugfs_remove_recursive(root);
+#endif
 
 	return 0;
 }
