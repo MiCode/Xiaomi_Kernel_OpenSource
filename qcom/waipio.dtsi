@@ -3048,8 +3048,8 @@
 		<7500 1600000>,
 		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
 		<30000 1600000>,
-		/* high: 240-1200 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
-		<100000 1600000>,
+		/* high: 240-1200 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
+		<100000 3200000>,
 		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 1555 MHz */
 		<175000 6448000>,
 		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */
