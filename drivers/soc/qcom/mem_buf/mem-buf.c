@@ -14,6 +14,7 @@
 #include <linux/of.h>
 
 #include "mem-buf-gh.h"
+#include "mem-buf-ids.h"
 
 #define MEM_BUF_MAX_DEVS 1
 static dev_t mem_buf_dev_no;

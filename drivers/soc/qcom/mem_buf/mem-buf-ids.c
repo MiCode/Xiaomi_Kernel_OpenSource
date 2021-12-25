@@ -9,6 +9,7 @@
 #include <linux/xarray.h>
 #include <soc/qcom/secure_buffer.h>
 #include "mem-buf-dev.h"
+#include "mem-buf-ids.h"
 
 #define DEVNAME "mem_buf_vm"
 #define NUM_MEM_BUF_VM_MINORS 128
