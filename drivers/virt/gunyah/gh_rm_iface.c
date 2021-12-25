@@ -182,9 +182,9 @@ gh_rm_vm_get_id(gh_vmid_t vmid, u32 *n_entries)
 	struct gh_vm_get_id_req_payload req_payload = {
 		.vmid = vmid
 	};
-	struct gh_vm_get_id_resp_entry *resp_entries;
-	size_t resp_payload_size, resp_entries_size;
-	int err, reply_err_code;
+	struct gh_vm_get_id_resp_entry *resp_entries, *temp_entry;
+	size_t resp_payload_size, resp_entries_size = 0;
+	int err, reply_err_code, i;
 
 	if (!n_entries)
 		return ERR_PTR(-EINVAL);
@@ -200,19 +200,19 @@ gh_rm_vm_get_id(gh_vmid_t vmid, u32 *n_entries)
 	}
 
 	/* The response payload should contain all the resource entries */
-	if (resp_payload_size < sizeof(*n_entries) ||
-		(sizeof(*n_entries) > (U32_MAX -
-		(resp_payload->n_id_entries * sizeof(*resp_entries)))) ||
-		resp_payload_size != sizeof(*n_entries) +
-		(resp_payload->n_id_entries * sizeof(*resp_entries))) {
-		pr_err("%s: Invalid size received for GET_ID: %u\n",
-			__func__, resp_payload_size);
+	temp_entry = resp_payload->resp_entries;
+	for (i = 0; i < resp_payload->n_id_entries; i++) {
+		resp_entries_size +=
+			sizeof(*temp_entry) + round_up(temp_entry->id_size, 4);
+		temp_entry = (void *)temp_entry + sizeof(*temp_entry) +
+			     round_up(temp_entry->id_size, 4);
+	}
+	if (resp_entries_size != resp_payload_size - sizeof(*n_entries)) {
+		pr_err("%s: Invalid size received for GET_ID: %u expect %u\n",
+		       __func__, resp_payload_size, resp_entries_size);
 		resp_entries = ERR_PTR(-EINVAL);
 		goto out;
 	}
-
-	resp_entries_size = sizeof(*resp_entries) *
-				resp_payload->n_id_entries;
 	resp_entries = kmemdup(resp_payload->resp_entries, resp_entries_size,
 			       GFP_KERNEL);
 	if (!resp_entries) {
