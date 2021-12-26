@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2019-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #define pr_fmt(fmt) "PM8008: %s: " fmt, __func__
 
@@ -30,13 +31,22 @@
 #define VSET_STEP_MV			8
 #define VSET_STEP_UV			(VSET_STEP_MV * 1000)
 
+#define REVID_BASE			0x100
 #define MISC_BASE			0x900
+#define MBG_BASE			0x2c00
+
+#define REVID_PERPH_SUBTYPE		(REVID_BASE + 0x5)
+#define PM8010_REV_v1_0		0x10
+#define PM8010_PERPH_SUBTYPE		0x41
 
 #define MISC_CHIP_ENABLE_REG		(MISC_BASE + 0x50)
 #define CHIP_ENABLE_BIT			BIT(0)
 
 #define MISC_SHUTDOWN_CTRL_REG		(MISC_BASE + 0x59)
 #define IGNORE_LDO_OCP_SHUTDOWN		BIT(3)
+
+#define MBG_MODE_CTRL_REG		(MBG_BASE + 0x44)
+#define FORCE_MBG_OK_BIT		BIT(1)
 
 #define LDO_ENABLE_REG(base)		(base + 0x46)
 #define ENABLE_BIT			BIT(7)
@@ -87,6 +97,7 @@ struct pm8008_chip {
 	bool			framework_enabled;
 	bool			aggr_enabled;
 	bool			suspended;
+	bool			force_mbg_ok;
 };
 
 struct reg_init_data {
@@ -229,6 +240,20 @@ static int pm8008_chip_aggregate(struct pm8008_chip *chip)
 
 	chip->aggr_enabled = enable;
 	pm8008_debug(chip, "chip %s\n", enable ? "enabled" : "disabled");
+
+	/*
+	 * Force MBG_OK for PM8010 v1.0 chip to prevent its LDOs from being
+	 * disabled due to transients from other regulators.
+	 */
+
+	if (chip->force_mbg_ok) {
+		rc = pm8008_masked_write(chip->regmap, MBG_MODE_CTRL_REG,
+			FORCE_MBG_OK_BIT, enable ? FORCE_MBG_OK_BIT : 0);
+		if (rc < 0) {
+			pm8008_err(chip, "Failed to write 0x2c44 register rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	return 0;
 }
@@ -1038,6 +1063,7 @@ static irqreturn_t pm8008_ocp_irq(int irq, void *_chip)
 static int pm8008_chip_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+	u8 subtype, rev1;
 	struct pm8008_chip *chip;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
@@ -1058,6 +1084,21 @@ static int pm8008_chip_probe(struct platform_device *pdev)
 		pr_err("Failed to register chip enable regulator rc=%d\n", rc);
 		return rc;
 	}
+
+	rc = pm8008_read(chip->regmap, REVID_BASE, &rev1, 1);
+	if (rc < 0) {
+		pm8008_err(chip, "failed to get chip version rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = pm8008_read(chip->regmap, REVID_PERPH_SUBTYPE, &subtype, 1);
+	if (rc < 0) {
+		pm8008_err(chip, "failed to get chip subtype rc=%d\n", rc);
+		return rc;
+	}
+
+	if (subtype == PM8010_PERPH_SUBTYPE && rev1 == PM8010_REV_v1_0)
+		chip->force_mbg_ok = true;
 
 	chip->ocp_irq = of_irq_get_byname(chip->dev->of_node, "ocp");
 	if (chip->ocp_irq < 0) {
