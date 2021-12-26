@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2018, Linaro Limited
+// Copyright (c) 2020, The Linux Foundation
 
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -46,42 +47,6 @@ static const struct segdist_code {
 	{192,	8,	0xc08,	 0x007},
 	{364,	4,	0xc04,	 0x003},
 	{768,	2,	0xc02,	 0x001},
-};
-
-/*
- * Presence Rate table for all Natural Frequencies
- * The Presence rate of a constant bitrate stream is mean flow rate of the
- * stream expressed in occupied Segments of that Data Channel per second.
- * Table 66 from SLIMbus 2.0 Specs
- *
- * Index of the table corresponds to Presence rate code for the respective rate
- * in the table.
- */
-static const int slim_presence_rate_table[] = {
-	0, /* Not Indicated */
-	12000,
-	24000,
-	48000,
-	96000,
-	192000,
-	384000,
-	768000,
-	0, /* Reserved */
-	110250,
-	220500,
-	441000,
-	882000,
-	176400,
-	352800,
-	705600,
-	4000,
-	8000,
-	16000,
-	32000,
-	64000,
-	128000,
-	256000,
-	512000,
 };
 
 /**
@@ -179,14 +144,49 @@ static int slim_deactivate_remove_channel(struct slim_stream_runtime *stream,
 
 static int slim_get_prate_code(int rate)
 {
-	int i;
+	int ratem, ratefam, pr, exp = 0;
+	bool done = false, exact = true;
 
-	for (i = 0; i < ARRAY_SIZE(slim_presence_rate_table); i++) {
-		if (rate == slim_presence_rate_table[i])
-			return i;
+	ratem = ((rate == SLIM_FREQ_441) || (rate == SLIM_FREQ_882)) ?
+			(rate/SLIM_BASE_FREQ_11) : (rate/SLIM_BASE_FREQ_4);
+
+	ratefam = ((rate == SLIM_FREQ_441) || (rate == SLIM_FREQ_882)) ?
+			2 : 1;
+
+	while (!done) {
+		while ((ratem & 0x1) != 0x1) {
+			ratem >>= 1;
+			exp++;
+		}
+		if (ratem > 3) {
+			ratem++;
+			exact = false;
+		} else {
+			done = true;
+		}
 	}
 
-	return -EINVAL;
+	if (ratefam == 1) {
+		if (ratem == 1) {
+			pr = 0x10;
+		} else {
+			pr = 0;
+			exp++;
+		}
+	} else {
+		pr = 8;
+		exp++;
+	}
+
+	if (exp <= 7) {
+		pr |= exp;
+		if (exact)
+			pr |= 0x80;
+	} else {
+		pr = 0;
+	}
+
+	return pr;
 }
 
 /**

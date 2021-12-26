@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2011-2017, The Linux Foundation
+ * Copyright (c) 2011-2017, 2020, The Linux Foundation
  */
 
 #ifndef _DRIVERS_SLIMBUS_H
@@ -87,6 +87,15 @@
 #define SLIM_LA_MANAGER 0xFF
 
 #define SLIM_MAX_TIDS			256
+
+/* slimbus supported frequency values */
+#define	SLIM_FREQ_441	44100
+#define	SLIM_FREQ_882	88200
+
+/* slimbus base frequency values */
+#define	SLIM_BASE_FREQ_11	11025
+#define	SLIM_BASE_FREQ_4	4000
+
 /**
  * struct slim_framer - Represents SLIMbus framer.
  * Every controller may have multiple framers. There is 1 active framer device
@@ -295,6 +304,7 @@ struct slim_port {
  *	Table 47 of SLIMbus 2.0 specs.
  * @SLIM_PROTO_ISO: Isochronous Protocol, no flow control as data rate match
  *		channel rate flow control embedded in the data.
+ * @SLIM_RESERVED: Reserved protocol bit specific to satellite driver.
  * @SLIM_PROTO_PUSH: Pushed Protocol, includes flow control, Used to carry
  *		data whose rate	is equal to, or lower than the channel rate.
  * @SLIM_PROTO_PULL: Pulled Protocol, similar usage as pushed protocol
@@ -307,6 +317,7 @@ struct slim_port {
  */
 enum slim_transport_protocol {
 	SLIM_PROTO_ISO = 0,
+	SLIM_RESERVED,
 	SLIM_PROTO_PUSH,
 	SLIM_PROTO_PULL,
 	SLIM_PROTO_LOCKED,
@@ -314,6 +325,18 @@ enum slim_transport_protocol {
 	SLIM_PROTO_ASYNC_HALF_DUP,
 	SLIM_PROTO_EXT_SMPLX,
 	SLIM_PROTO_EXT_HALF_DUP,
+};
+
+/*
+ * enum slim_ch_control: Channel control.
+ * Activate will schedule channel and/or group of channels in the TDM frame.
+ * Suspend will keep the schedule but data-transfer won't happen.
+ * Remove will remove the channel/group from the TDM frame.
+ */
+enum slim_ch_control {
+	SLIM_CH_ACTIVATE,
+	SLIM_CH_SUSPEND,
+	SLIM_CH_REMOVE,
 };
 
 /**
