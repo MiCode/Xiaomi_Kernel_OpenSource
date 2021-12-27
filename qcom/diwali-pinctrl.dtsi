@@ -1958,7 +1958,7 @@
 		usb3phy_portselect_default: usb3phy_portselect_default {
 			mux {
 				pins = "gpio122";
-				function = "usb_phy";
+				function = "usb0_phy";
 			};
 
 			config {
