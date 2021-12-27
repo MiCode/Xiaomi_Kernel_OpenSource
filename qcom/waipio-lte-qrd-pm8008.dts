@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "waipio-lte.dtsi"
+#include "waipio-qrd.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio LTE QRD with PM8008";
+	compatible = "qcom,waipio-qrd", "qcom,waipio", "qcom,qrd";
+	qcom,board-id = <11 0>;
+};
