@@ -74,6 +74,30 @@
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
 	};
+
+	synaptics_dsx@22 {
+		compatible = "synaptics,dsx-i2c";
+		reg = <0x22>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <51 0x2008>;
+		avdd-supply = <&L3C>;
+		vdd-supply = <&L12C>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,pwr-reg-name = "avdd";
+		synaptics,bus-reg-name = "vdd";
+		synaptics,ub-i2c-addr = <0x22>;
+		synaptics,max-y-for-2d = <1859>;
+		synaptics,irq-gpio = <&tlmm 51 0x2008>;
+		synaptics,reset-gpio = <&tlmm 17 0x00>;
+		synaptics,irq-on-state = <0>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+	};
 };
 
 &qupv3_se9_i2c {
