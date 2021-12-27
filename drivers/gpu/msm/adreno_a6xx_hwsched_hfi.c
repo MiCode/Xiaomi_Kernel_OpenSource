@@ -981,6 +981,13 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	if (adreno_dev->lsr_enabled) {
+		ret = a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_LSR,
+				1, 0);
+		if (ret)
+			goto err;
+	}
+
 	/* Enable the long ib timeout detection */
 	if (adreno_long_ib_detect(adreno_dev)) {
 		ret = a6xx_hfi_send_feature_ctrl(adreno_dev,
