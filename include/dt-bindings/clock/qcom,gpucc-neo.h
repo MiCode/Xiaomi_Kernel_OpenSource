@@ -31,5 +31,18 @@
 #define GPU_CC_SLEEP_CLK					21
 #define GPU_CC_XO_CLK_SRC					22
 #define GPU_CC_XO_DIV_CLK_SRC					23
+#define GPU_CC_GX_GMU_CLK					24
+
+/*GPU_CC resets */
+#define GPUCC_GPU_CC_ACD_BCR                                    0
+#define GPUCC_GPU_CC_CB_BCR                                     1
+#define GPUCC_GPU_CC_CX_BCR                                     2
+#define GPUCC_GPU_CC_FAST_HUB_BCR                               3
+#define GPUCC_GPU_CC_FF_BCR                                     4
+#define GPUCC_GPU_CC_GFX3D_AON_BCR                              5
+#define GPUCC_GPU_CC_GMU_BCR                                    6
+#define GPUCC_GPU_CC_GX_BCR                                     7
+#define GPUCC_GPU_CC_RBCPR_BCR                                  8
+#define GPUCC_GPU_CC_XO_BCR                                     9
 
 #endif
