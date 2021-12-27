@@ -2073,7 +2073,7 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 				MHI_DEV_CH_STATE_DISABLED;
 	mhi->ch[ch_id].state = MHI_DEV_CH_STOPPED;
 
-	if (mhi->use_mhi_dma)
+	if (MHI_USE_DMA(mhi))
 		host_addr.host_pa =
 			mhi->ch_ctx_shadow.host_pa +
 			(sizeof(struct mhi_dev_ch_ctx) * ch_id);
