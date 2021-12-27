@@ -1,3 +1,5 @@
+gh_virt_wdt.ko
+qcom_wdt_core.ko
 clk-dummy.ko
 clk-qcom.ko
 gcc-parrot.ko
