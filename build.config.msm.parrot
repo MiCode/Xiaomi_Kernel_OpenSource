@@ -6,8 +6,8 @@
 ################################################################################
 ## Variant setup
 MSM_ARCH=parrot
-VARIANTS=(gki consolidate)
-[ -z "${VARIANT}" ] && VARIANT=gki
+VARIANTS=(consolidate gki)
+[ -z "${VARIANT}" ] && VARIANT=consolidate
 
 if [ -e "${ROOT_DIR}/msm-kernel" -a "${KERNEL_DIR}" = "common" ]; then
 	KERNEL_DIR="msm-kernel"
