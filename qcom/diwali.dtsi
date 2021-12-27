@@ -1846,6 +1846,22 @@
 			qcom,entry-name = "wlan";
 			#qcom,smem-state-cells = <1>;
 		};
+
+		smp2p_wlan_2_in: qcom,smp2p-wlan-2-in {
+			qcom,entry-name = "wlan_soc_wake";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		smp2p_wlan_2_out: qcom,smp2p-wlan-2-out {
+			qcom,entry-name = "wlan_soc_wake";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		smp2p_wlan_3_out: qcom,smp2p-wlan-3-out {
+			qcom,entry-name = "wlan_ep_power_save";
+			#qcom,smem-state-cells = <1>;
+		};
 	};
 
 	qcom,glinkpkt {
@@ -2263,8 +2279,13 @@
 		qcom,vdd-1.8-xo-config = <1872000 2040000 0 0 0>;
 		vdd-1.3-rfa-supply = <&S8B>;
 		qcom,vdd-1.3-rfa-config = <1256000 1500000 0 0 0>;
-		qcom,smem-states = <&smp2p_wlan_1_out 0>;
-		qcom,smem-state-names = "wlan-smp2p-out";
+
+		qcom,smem-states = <&smp2p_wlan_1_out 0>,
+				   <&smp2p_wlan_2_out 0>,
+				   <&smp2p_wlan_3_out 0>;
+		qcom,smem-state-names = "wlan-smp2p-out",
+					"wlan-soc-wake-smp2p-out",
+					"wlan-ep-powersave-smp2p-out";
 
 		icnss_cdev_apss: qcom,icnss_cdev1 {
 			#cooling-cells = <2>;
@@ -2279,6 +2300,11 @@
 					      <&smp2p_wlan_1_in 1 0>;
 			interrupt-names = "qcom,smp2p-force-fatal-error",
 					  "qcom,smp2p-early-crash-ind";
+		};
+
+		qcom,smp2p_map_wlan_2_in {
+			interrupts-extended = <&smp2p_wlan_2_in 0 0>;
+			interrupt-names = "qcom,smp2p-soc-wake-ack";
 		};
 	};
 
