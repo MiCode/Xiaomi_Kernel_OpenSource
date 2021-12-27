@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +28,7 @@
 enum field_width {
 	BYTE	= 1,
 	WORD	= 2,
+	DWORD   = 4,
 };
 
 struct desc_field_offset {
@@ -870,6 +872,59 @@ static const struct file_operations ufsdbg_host_regs_fops = {
 	.read		= seq_read,
 };
 
+static int ufsdbg_dump_health_desc_show(struct seq_file *file, void *data)
+{
+	int err = 0;
+	int buff_len = QUERY_DESC_HEALTH_DEF_SIZE;
+	u8 desc_buf[QUERY_DESC_HEALTH_DEF_SIZE];
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+
+	struct desc_field_offset health_desc_field_name[] = {
+		{"bLength",		0x00, BYTE},
+		{"bDescriptorType",	0x01, BYTE},
+		{"bPreEOLInfo",		0x02, BYTE},
+		{"bDeviceLifeTimeEstA",	0x03, BYTE},
+		{"bDeviceLifeTimeEstB",	0x04, BYTE},
+	};
+
+	pm_runtime_get_sync(hba->dev);
+	err = ufshcd_read_health_desc(hba, desc_buf, buff_len);
+	pm_runtime_put_sync(hba->dev);
+
+
+	if (!err) {
+		int i;
+		struct desc_field_offset *tmp;
+
+		for (i = 0; i < ARRAY_SIZE(health_desc_field_name); ++i) {
+			tmp = &health_desc_field_name[i];
+
+			if (tmp->width_byte == BYTE) {
+				seq_printf(file,
+					   "Device Descriptor[Byte offset 0x%x]: %s = 0x%x\n",
+					   tmp->offset,
+					   tmp->name,
+					   (u8)desc_buf[tmp->offset]);
+			} else if (tmp->width_byte == WORD) {
+				seq_printf(file,
+					   "Device Descriptor[Byte offset 0x%x]: %s = 0x%x\n",
+					   tmp->offset,
+					   tmp->name,
+					   *(u16 *)&desc_buf[tmp->offset]);
+			} else {
+				seq_printf(file,
+				"Device Descriptor[offset 0x%x]: %s. Wrong Width = %d",
+				tmp->offset, tmp->name, tmp->width_byte);
+			}
+		}
+	} else {
+		seq_printf(file, "Reading Device Descriptor failed. err = %d\n",
+			   err);
+	}
+
+	return err;
+}
+
 static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 {
 	int err = 0;
@@ -904,7 +959,15 @@ static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 		{"bUD0BaseOffset",	0x1A, BYTE},
 		{"bUDConfigPLength",	0x1B, BYTE},
 		{"bDeviceRTTCap",	0x1C, BYTE},
-		{"wPeriodicRTCUpdate",	0x1D, WORD}
+		{"wPeriodicRTCUpdate",	0x1D, WORD},
+		{"bUFSFeaturesSupport", 0x1F, BYTE},
+		{"bFFUTimeout", 0x20, BYTE},
+		{"bQueueDepth", 0x21, BYTE},
+		{"wDeviceVersion", 0x22, WORD},
+		{"bNumSecureWpArea", 0x24, BYTE},
+		{"dPSAMaxDataSize", 0x25, DWORD},
+		{"bPSAStateTimeout", 0x29, BYTE},
+		{"iProductRevisionLevel", 0x2A, BYTE},
 	};
 
 	pm_runtime_get_sync(hba->dev);
@@ -930,7 +993,13 @@ static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 					   tmp->offset,
 					   tmp->name,
 					   *(u16 *)&desc_buf[tmp->offset]);
-			} else {
+			} else if (tmp->width_byte == DWORD) {
+				seq_printf(file,
+					   "Device Descriptor[Byte offset 0x%x]: %s = 0x%x\n",
+					   tmp->offset,
+					   tmp->name,
+					   *(u32 *)&desc_buf[tmp->offset]);
+			}else {
 				seq_printf(file,
 				"Device Descriptor[offset 0x%x]: %s. Wrong Width = %d",
 				tmp->offset, tmp->name, tmp->width_byte);
@@ -941,6 +1010,15 @@ static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 			   err);
 	}
 
+	return err;
+}
+
+static int ufsdbg_string_desc_serial_show(struct seq_file *file, void *data)
+{
+	int err = 0;
+	char *serial = ufs_get_serial();
+
+	seq_printf(file, "serial:%s\n", serial);
 	return err;
 }
 
@@ -1042,6 +1120,29 @@ static int ufsdbg_dump_device_desc_open(struct inode *inode, struct file *file)
 
 static const struct file_operations ufsdbg_dump_device_desc = {
 	.open		= ufsdbg_dump_device_desc_open,
+	.read		= seq_read,
+};
+
+static int ufsdbg_string_desc_serial_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			ufsdbg_string_desc_serial_show, inode->i_private);
+}
+
+static const struct file_operations ufsdbg_dump_string_desc_serial = {
+	.open		= ufsdbg_string_desc_serial_open,
+	.read		= seq_read,
+};
+
+
+static int ufsdbg_dump_health_desc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			   ufsdbg_dump_health_desc_show, inode->i_private);
+}
+
+static const struct file_operations ufsdbg_dump_health_desc = {
+	.open		= ufsdbg_dump_health_desc_open,
 	.read		= seq_read,
 };
 
@@ -1553,10 +1654,14 @@ DEFINE_DEBUGFS_ATTRIBUTE(ufsdbg_err_state,
 
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
+	char root_name[sizeof("ufshcd00")];
 	if (!hba) {
 		pr_err("%s: NULL hba, exiting\n", __func__);
 		return;
 	}
+
+	snprintf(root_name, ARRAY_SIZE(root_name), "%s%d", UFSHCD,
+		hba->host->host_no);
 
 	hba->debugfs_files.debugfs_root = debugfs_create_dir(dev_name(hba->dev),
 							     NULL);
@@ -1573,6 +1678,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 			"%s: NULL debugfs root directory, exiting\n", __func__);
 		goto err_no_root;
 	}
+
+	debugfs_create_symlink(root_name, NULL, dev_name(hba->dev));
 
 	hba->debugfs_files.stats_folder = debugfs_create_dir("stats",
 					hba->debugfs_files.debugfs_root);
@@ -1636,12 +1743,32 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.dump_dev_desc =
-		debugfs_create_file("dump_device_desc", 0400,
+		debugfs_create_file("dump_device_desc", S_IRUGO,
 				    hba->debugfs_files.debugfs_root, hba,
 				    &ufsdbg_dump_device_desc);
 	if (!hba->debugfs_files.dump_dev_desc) {
 		dev_err(hba->dev,
 			"%s:  NULL dump_device_desc file, exiting\n", __func__);
+		goto err;
+	}
+
+	hba->debugfs_files.dump_string_desc_serial =
+		debugfs_create_file("dump_string_desc_serial", S_IRUGO,
+					hba->debugfs_files.debugfs_root, hba,
+					&ufsdbg_dump_string_desc_serial);
+	if (!hba->debugfs_files.dump_string_desc_serial) {
+		dev_err(hba->dev,
+			"%s:  NULL dump_device_desc file, exiting", __func__);
+		goto err;
+	}
+
+	hba->debugfs_files.dump_heatlth_desc =
+		debugfs_create_file("dump_health_desc", S_IRUGO,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_dump_health_desc);
+	if (!hba->debugfs_files.dump_heatlth_desc) {
+		dev_err(hba->dev,
+			"%s:  NULL dump_health_desc file, exiting", __func__);
 		goto err;
 	}
 

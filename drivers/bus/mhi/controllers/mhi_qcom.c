@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <asm/arch_timer.h>
 #include <linux/debugfs.h>
@@ -569,7 +570,6 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 			mhi_runtime_resume(dev);
 		}
 		pm_runtime_put(dev);
-		mhi_arch_mission_mode_enter(mhi_cntrl);
 		break;
 	default:
 		MHI_CNTRL_LOG("Unhandled cb:0x%x\n", reason);
@@ -701,7 +701,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->of_node = of_node;
 
 	mhi_cntrl->iova_start = memblock_start_of_DRAM();
-	mhi_cntrl->iova_stop = memblock_end_of_DRAM();
+	mhi_cntrl->iova_stop = memblock_end_of_DRAM();	
 
 	/* setup host support for SFR retreival */
 	if (of_property_read_bool(of_node, "mhi,sfr-support"))

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _NPU_MGR_H
@@ -191,7 +192,6 @@ int npu_host_update_power(struct npu_device *npu_dev);
 int32_t npu_host_set_perf_mode(struct npu_client *client, uint32_t network_hdl,
 	uint32_t perf_mode);
 int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl);
-void npu_host_suspend(struct npu_device *npu_dev);
 void npu_dump_debug_info(struct npu_device *npu_dev);
 void npu_dump_ipc_packet(struct npu_device *npu_dev, void *cmd_ptr);
 

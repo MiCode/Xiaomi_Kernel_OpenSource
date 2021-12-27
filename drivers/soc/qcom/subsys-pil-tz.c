@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/kernel.h>
@@ -24,6 +25,7 @@
 
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <linux/signal.h>
 
 #include "peripheral-loader.h"
 
@@ -609,6 +611,8 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	unsigned long attrs = 0;
 	struct device dev = {0};
 	struct scm_desc desc = {0};
+	sigset_t new_sigset;
+	sigset_t old_sigset;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
@@ -621,8 +625,16 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	dev.coherent_dma_mask =
 		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 	attrs |= DMA_ATTR_STRONGLY_ORDERED;
+	/* initialize the new signal mask with all signals*/
+	sigfillset(&new_sigset);
+
+	/* block all signals */
+	sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
+
 	mdata_buf = dma_alloc_attrs(&dev, size, &mdata_phys, GFP_KERNEL,
 					attrs);
+	/* restore signal mask */
+	sigprocmask(SIG_SETMASK, &old_sigset, NULL);
 	if (!mdata_buf) {
 		pr_err("scm-pas: Allocation for metadata failed.\n");
 		scm_pas_disable_bw();

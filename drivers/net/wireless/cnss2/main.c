@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/delay.h>
 #include <linux/jiffies.h>
@@ -38,7 +39,7 @@
 #define CNSS_MHI_TIMEOUT_DEFAULT	0
 #endif
 #define CNSS_MHI_M2_TIMEOUT_DEFAULT	25
-#define CNSS_QMI_TIMEOUT_DEFAULT	10000
+#define CNSS_QMI_TIMEOUT_DEFAULT	20000
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
 #define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
 
@@ -64,6 +65,9 @@ struct cnss_driver_event {
 	int ret;
 	void *data;
 };
+
+static bool disable_nv_mac;
+module_param(disable_nv_mac, bool, 0444);
 
 static void cnss_set_plat_priv(struct platform_device *plat_dev,
 			       struct cnss_plat_data *plat_priv)
@@ -1097,6 +1101,7 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	return 0;
 
 self_recovery:
+	cnss_pr_dbg("Going for self recovery\n");
 	cnss_bus_dev_shutdown(plat_priv);
 	cnss_bus_dev_powerup(plat_priv);
 
@@ -2360,6 +2365,10 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 				  "cnss-daemon-support"))
 		plat_priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
 
+	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "cnss-enable-self-recovery"))
+		plat_priv->ctrl_params.quirks |= BIT(LINK_DOWN_SELF_RECOVERY);
+
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.mhi_m2_timeout = CNSS_MHI_M2_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
@@ -2448,7 +2457,11 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->plat_dev = plat_dev;
 	plat_priv->device_id = device_id->driver_data;
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
-	plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
+	if (disable_nv_mac) {
+		plat_priv->use_nv_mac = false;
+	} else {
+		plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
+	}
 	plat_priv->use_fw_path_with_prefix =
 		cnss_use_fw_path_with_prefix(plat_priv);
 	cnss_set_plat_priv(plat_dev, plat_priv);

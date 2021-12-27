@@ -1,0 +1,28 @@
+#
+# Focaltech Touchscreen driver configuration
+#
+
+config TOUCHSCREEN_FOCALTECH
+    tristate "Focaltech Touchscreen"
+    default n
+    help
+      Say Y here if you have Focaltech touch panel.
+
+      If unsure, say N.
+
+      To compile this driver as a module, choose M here: the
+      module will be called focaltech_touch.
+
+config TOUCHSCREEN_FTS_DIRECTORY
+    string "Focaltech ts directory name"
+    default "focaltech_touch"
+    depends on TOUCHSCREEN_FTS
+
+
+config TOUCHSCREEN_SUPPORT_NEW_GAME_MODE
+    tristate "Touch Support New Game Mode"
+    default n
+    help
+      Say Y here if the device support new game mode
+
+      If not support, say N.

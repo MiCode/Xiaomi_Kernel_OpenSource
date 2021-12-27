@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /* -------------------------------------------------------------------------
@@ -3103,11 +3104,4 @@ int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl)
 	mutex_unlock(&host_ctx->lock);
 
 	return param_val;
-}
-
-void npu_host_suspend(struct npu_device *npu_dev)
-{
-	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-
-	flush_delayed_work(&host_ctx->disable_fw_work);
 }

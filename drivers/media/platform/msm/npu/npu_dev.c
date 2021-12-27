@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 /* -------------------------------------------------------------------------
@@ -108,8 +109,8 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 static int npu_pwrctrl_init(struct npu_device *npu_dev);
 static int npu_probe(struct platform_device *pdev);
 static int npu_remove(struct platform_device *pdev);
-static int npu_pm_suspend(struct device *dev);
-static int npu_pm_resume(struct device *dev);
+static int npu_suspend(struct platform_device *dev, pm_message_t state);
+static int npu_resume(struct platform_device *dev);
 static int __init npu_init(void);
 static void __exit npu_exit(void);
 static uint32_t npu_notify_cdsprm_cxlimit_corner(struct npu_device *npu_dev,
@@ -188,17 +189,17 @@ static const struct of_device_id npu_dt_match[] = {
 	{}
 };
 
-static const struct dev_pm_ops npu_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(npu_pm_suspend, npu_pm_resume)
-};
-
 static struct platform_driver npu_driver = {
 	.probe = npu_probe,
 	.remove = npu_remove,
+#if defined(CONFIG_PM)
+	.suspend = npu_suspend,
+	.resume = npu_resume,
+#endif
 	.driver = {
 		.name = "msm_npu",
 		.of_match_table = npu_dt_match,
-		.pm = &npu_pm_ops,
+		.pm = NULL,
 	},
 };
 
@@ -2448,7 +2449,7 @@ static int npu_probe(struct platform_device *pdev)
 	npu_dev->pdev = pdev;
 	mutex_init(&npu_dev->dev_lock);
 
-	dev_set_drvdata(&pdev->dev, npu_dev);
+	platform_set_drvdata(pdev, npu_dev);
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "core");
 	if (!res) {
@@ -2676,7 +2677,6 @@ error_class_create:
 	unregister_chrdev_region(npu_dev->dev_num, 1);
 	npu_mbox_deinit(npu_dev);
 error_get_dev_num:
-	dev_set_drvdata(&pdev->dev, NULL);
 	return rc;
 }
 
@@ -2695,7 +2695,7 @@ static int npu_remove(struct platform_device *pdev)
 	device_destroy(npu_dev->class, npu_dev->dev_num);
 	class_destroy(npu_dev->class);
 	unregister_chrdev_region(npu_dev->dev_num, 1);
-	dev_set_drvdata(&pdev->dev, NULL);
+	platform_set_drvdata(pdev, NULL);
 	npu_mbox_deinit(npu_dev);
 	msm_bus_scale_unregister_client(npu_dev->bwctrl.bus_client);
 
@@ -2708,28 +2708,17 @@ static int npu_remove(struct platform_device *pdev)
  * Suspend/Resume
  * -------------------------------------------------------------------------
  */
-static int npu_pm_suspend(struct device *dev)
+#if defined(CONFIG_PM)
+static int npu_suspend(struct platform_device *dev, pm_message_t state)
 {
-	struct npu_device *npu_dev;
-
-	npu_dev = dev_get_drvdata(dev);
-	if (!npu_dev) {
-		NPU_ERR("invalid NPU dev\n");
-		return -EINVAL;
-	}
-
-	NPU_DBG("suspend npu\n");
-	npu_host_suspend(npu_dev);
-
 	return 0;
 }
 
-static int npu_pm_resume(struct device *dev)
+static int npu_resume(struct platform_device *dev)
 {
-	NPU_DBG("resume npu\n");
 	return 0;
 }
-
+#endif
 /* -------------------------------------------------------------------------
  * Module Entry Points
  * -------------------------------------------------------------------------

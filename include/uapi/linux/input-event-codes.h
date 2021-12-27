@@ -418,6 +418,7 @@
 #define BTN_WHEEL		0x150
 #define BTN_GEAR_DOWN		0x150
 #define BTN_GEAR_UP		0x151
+#define BTN_INFO 0x152
 
 #define KEY_OK			0x160
 #define KEY_SELECT		0x161

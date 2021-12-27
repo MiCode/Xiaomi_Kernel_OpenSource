@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/err.h>
@@ -71,6 +72,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_SECURE_CARVEOUT_HEAP_ID,
 		.name	= ION_SECURE_CARVEOUT_HEAP_NAME,
+	},
+	{
+		.id = ION_CAMERA_HEAP_ID,
+		.name = ION_CAMERA_HEAP_NAME,
 	}
 };
 #endif
@@ -92,6 +97,7 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
 	MAKE_HEAP_TYPE_MAPPING(SYSTEM_SECURE),
 	MAKE_HEAP_TYPE_MAPPING(HYP_CMA),
+	MAKE_HEAP_TYPE_MAPPING(CAMERA),
 };
 
 static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,

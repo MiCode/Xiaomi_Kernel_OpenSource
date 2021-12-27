@@ -72,7 +72,15 @@ obj-$(CONFIG_TEST_IRQ_REQUESTER) += irq_requester.o
 obj-$(CONFIG_OKL4_USER_VIPC)    += okl4-vipc.o
 obj-$(CONFIG_OKL4_GUEST)        += okl4-panic.o
 obj-$(CONFIG_OKL4_LINK_SHBUF)    += okl4-link-shbuf.o
+obj-$(CONFIG_SPI_XIAOMI_TP) += spi-xiaomi-tp.o
 obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
 obj-$(CONFIG_QTI_MAXIM_FAN_CONTROLLER) += max31760.o
 obj-$(CONFIG_QTI_XR_SMRTVWR_MISC) += qxr-stdalonevwr.o
+obj-y	+= perf_helper.o
+obj-$(CONFIG_GPIO_TESTING_MODE)	+= gpio-testing-mode.o
+
+obj-y                           +=drv8846.o
+obj-y                           +=akm09970.o
+
 obj-$(CONFIG_FPR_FPC)		+= fpr_FingerprintCard/
+obj-$(CONFIG_GPIO_TESTING_MODE)	+= gpio-testing-mode.o

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -1915,6 +1916,7 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 				  int ctxt)
 {
 	unsigned long flags;
+
 	int peripheral = -1, type = -1;
 	int num = -1, hdlc_ctxt = -1;
 	struct diag_apps_data_t *temp = NULL;

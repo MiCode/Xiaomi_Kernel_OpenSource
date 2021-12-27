@@ -1089,6 +1089,12 @@ config SCHED_CORE_CTL
 
 	  If unsure, say N here.
 
+config PERF_HUMANTASK
+       bool "enable feature humantask"
+       default n
+       help
+         support switch on/off of sched humantask.
+
 menuconfig NAMESPACES
 	bool "Namespaces support" if EXPERT
 	depends on MULTIUSER

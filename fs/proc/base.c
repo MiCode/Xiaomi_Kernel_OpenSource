@@ -3,6 +3,7 @@
  *  linux/fs/proc/base.c
  *
  *  Copyright (C) 1991, 1992 Linus Torvalds
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  *  proc base directory handling functions
  *
@@ -98,6 +99,10 @@
 #include <trace/events/oom.h>
 #include "internal.h"
 #include "fd.h"
+
+#ifdef CONFIG_TASK_DELAY_ACCT
+#include <linux/delayacct.h>
+#endif
 
 #include "../../lib/kstrtox.h"
 
@@ -771,6 +776,57 @@ static const struct file_operations proc_single_file_operations = {
 	.release	= single_release,
 };
 
+#ifdef CONFIG_TASK_DELAY_ACCT
+struct delay_struct {
+	u64 version;
+	u64 blkio_delay;      /* wait for sync block io completion */
+	u64 swapin_delay;     /* wait for swapin block io completion */
+	u64 freepages_delay;  /* wait for memory reclaim */
+	u64 cpu_runtime;
+	u64 cpu_run_delay;
+	u64 binder_delay;     /* wait for binder transaction */
+	u64 mem_sp_delay;
+};
+
+static ssize_t delay_read(struct file *file, char __user *buf,
+			  size_t count, loff_t *ppos)
+{
+	struct task_struct *task = get_proc_task(file_inode(file));
+	struct delay_struct d = {};
+	unsigned long flags;
+	u64 blkio_delay, swapin_delay, freepages_delay, binder_delay, slowpath_delay;
+	loff_t dummy_pos = 0;
+	if (!task)
+		return -ESRCH;
+
+	raw_spin_lock_irqsave(&task->delays->lock, flags);
+	blkio_delay = task->delays->blkio_delay;
+	swapin_delay = task->delays->swapin_delay;
+	freepages_delay = task->delays->freepages_delay;
+	binder_delay = task->delays->binder_delay;
+	slowpath_delay = task->delays->mem_sp_delay;
+	raw_spin_unlock_irqrestore(&task->delays->lock, flags);
+
+	d.version = 2;
+	d.blkio_delay = blkio_delay;
+	d.swapin_delay = swapin_delay;
+	d.freepages_delay = freepages_delay;
+	d.binder_delay = binder_delay;
+	d.mem_sp_delay = slowpath_delay;
+
+	if (likely(sched_info_on())) {
+		d.cpu_runtime = task->se.sum_exec_runtime;
+		d.cpu_run_delay = task->sched_info.run_delay;
+	}
+
+	put_task_struct(task);
+	return simple_read_from_buffer(buf, count, &dummy_pos, &d, sizeof(struct delay_struct));
+}
+
+static const struct file_operations proc_delay_file_operations = {
+	.read = delay_read,
+};
+#endif
 
 struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode)
 {
@@ -2706,6 +2762,89 @@ static const struct file_operations proc_pid_set_timerslack_ns_operations = {
 	.release	= single_release,
 };
 
+static int top_app_show(struct seq_file *m, void *v)
+{
+	struct inode *inode = m->private;
+	struct task_struct *p;
+	int err = 0;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+
+		if (!capable(CAP_SYS_NICE)) {
+			err = -EPERM;
+			goto out;
+		}
+		err = security_task_getscheduler(p);
+		if (err)
+			goto out;
+	}
+
+	task_lock(p);
+	seq_printf(m, "%u\n", p->top_app);
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return err;
+}
+
+static int top_app_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, top_app_show, inode);
+}
+
+static ssize_t top_app_write(struct file *file, const char __user *buf,
+                                        size_t count, loff_t *offset)
+{
+	struct inode *inode = file_inode(file);
+	struct task_struct *p;
+	unsigned int top_app;
+	int err;
+
+	err = kstrtouint_from_user(buf, count, 10, &top_app);
+	if (err < 0)
+		return err;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	if (p != current) {
+		if (!capable(CAP_SYS_NICE)) {
+			count = -EPERM;
+			goto out;
+		}
+
+		err = security_task_setscheduler(p);
+		if (err) {
+			count = err;
+			goto out;
+		}
+	}
+
+	task_lock(p);
+	p->top_app = top_app;
+	task_unlock(p);
+
+out:
+	put_task_struct(p);
+
+	return count;
+}
+
+static const struct file_operations proc_pid_set_top_app_operations = {
+	.open		= top_app_open,
+	.read		= seq_read,
+	.write		= top_app_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 static struct dentry *proc_pident_instantiate(struct dentry *dentry,
 	struct task_struct *task, const void *ptr)
 {
@@ -3330,6 +3469,64 @@ static const struct file_operations proc_setgroups_operations = {
 };
 #endif /* CONFIG_USER_NS */
 
+#ifdef CONFIG_PERF_HUMANTASK
+static ssize_t human_task_read(struct file *file, char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	struct task_struct *task = get_proc_task(file_inode(file));
+	char buffer[PROC_NUMBUF];
+	unsigned int human_task = 0;
+	size_t len;
+
+	if (!task)
+		return -ESRCH;
+	human_task = task->human_task;
+	put_task_struct(task);
+	len = snprintf(buffer, sizeof(buffer), "%d\n", human_task);
+	return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
+static ssize_t human_task_write(struct file *file, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char buffer[PROC_NUMBUF];
+	unsigned int human_task = 0;
+	struct task_struct *task;
+	int err;
+
+	memset(buffer, 0, sizeof(buffer));
+	if (count > sizeof(buffer) - 1)
+		count = sizeof(buffer) - 1;
+	if (copy_from_user(buffer, buf, count)) {
+		err = -EFAULT;
+		goto out;
+	}
+
+	err = kstrtoint(strstrip(buffer), 0, &human_task);
+	if (err)
+		goto out;
+	if (human_task <  0 || human_task > 1000) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	task  = get_proc_task(file_inode(file));
+	if (!task)
+		return -ESRCH;
+	task_lock(task);
+	task->human_task = human_task;
+	task_unlock(task);
+out:
+	return err < 0 ? err : count;
+}
+
+static const struct file_operations proc_tid_set_human_task_operations = {
+	.read		= human_task_read,
+	.write		= human_task_write,
+	.llseek		= default_llseek,
+};
+#endif
+
 static int proc_pid_personality(struct seq_file *m, struct pid_namespace *ns,
 				struct pid *pid, struct task_struct *task)
 {
@@ -3405,7 +3602,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("mountinfo",  S_IRUGO, proc_mountinfo_operations),
 	REG("mountstats", S_IRUSR, proc_mountstats_operations),
 #ifdef CONFIG_PROCESS_RECLAIM
-	REG("reclaim", 0222, proc_reclaim_operations),
+	REG("reclaim", S_IWUSR|S_IWGRP|S_IWOTH, proc_reclaim_operations),
 #endif
 #ifdef CONFIG_PROC_PAGE_MONITOR
 	REG("clear_refs", S_IWUSR, proc_clear_refs_operations),
@@ -3465,6 +3662,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("timers",	  S_IRUGO, proc_timers_operations),
 #endif
 	REG("timerslack_ns", S_IRUGO|S_IWUGO, proc_pid_set_timerslack_ns_operations),
+	REG("top_app", S_IRUGO|S_IWUGO, proc_pid_set_top_app_operations),
 #ifdef CONFIG_LIVEPATCH
 	ONE("patch_state",  S_IRUSR, proc_pid_patch_state),
 #endif
@@ -3826,6 +4024,9 @@ static const struct pid_entry tid_base_stuff[] = {
 #ifdef CONFIG_SCHED_INFO
 	ONE("schedstat", S_IRUGO, proc_pid_schedstat),
 #endif
+#ifdef CONFIG_TASK_DELAY_ACCT
+	REG("delay",      S_IRUGO, proc_delay_file_operations),
+#endif
 #ifdef CONFIG_LATENCYTOP
 	REG("latency",  S_IRUGO, proc_lstats_operations),
 #endif
@@ -3864,6 +4065,10 @@ static const struct pid_entry tid_base_stuff[] = {
 #endif
 #ifdef CONFIG_CPU_FREQ_TIMES
 	ONE("time_in_state", 0444, proc_time_in_state_show),
+#endif
+	REG("top_app", S_IRUGO|S_IWUGO, proc_pid_set_top_app_operations),
+#ifdef CONFIG_PERF_HUMANTASK
+        REG("human_task", S_IRUGO|S_IWUGO, proc_tid_set_human_task_operations),
 #endif
 };
 

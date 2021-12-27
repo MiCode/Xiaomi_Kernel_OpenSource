@@ -72,6 +72,9 @@ obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
 obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
 obj-$(CONFIG_QCOM_GLINK_PKT) += glink_pkt.o
 obj-$(CONFIG_QCOM_SMP2P_SLEEPSTATE) += smp2p_sleepstate.o
+ifeq (y, $(CONFIG_SMP2P_SLEEPSTATE_TIME_100MS))
+ccflags-y += -D CONFIG_SMP2P_SLEEPSTATE_TIME_100MS
+endif
 obj-$(CONFIG_QCOM_QDSS_BRIDGE) += qdss_bridge.o
 obj-$(CONFIG_MSM_QBT_HANDLER) += qbt_handler.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o

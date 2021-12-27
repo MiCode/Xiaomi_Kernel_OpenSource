@@ -126,4 +126,12 @@ source "drivers/staging/axis-fifo/Kconfig"
 
 source "drivers/staging/erofs/Kconfig"
 
+source "drivers/staging/misysinfofreader/Kconfig"
+
+source "drivers/staging/kperfevents/Kconfig"
+
+source "drivers/staging/mi-reclaim/Kconfig"
+
+source "drivers/staging/cam-reclaim/Kconfig"
+
 endif # STAGING

@@ -1,0 +1,8 @@
+config XIAOMI_KEYBOARD
+	bool "xiaomi keyboard control-driver"
+	depends on INPUT
+	default n
+	help
+	  Say Y here, compile xiaomi keyboard control driver.
+
+	  If unsure, say N.

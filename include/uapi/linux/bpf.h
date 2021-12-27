@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -92,6 +93,7 @@ enum bpf_cmd {
 	BPF_OBJ_GET,
 	BPF_PROG_ATTACH,
 	BPF_PROG_DETACH,
+	BPF_GET_COMM_HASH,
 	BPF_PROG_TEST_RUN,
 	BPF_PROG_GET_NEXT_ID,
 	BPF_MAP_GET_NEXT_ID,
@@ -411,6 +413,11 @@ union bpf_attr {
 		__u64		probe_offset;	/* output: probe_offset */
 		__u64		probe_addr;	/* output: probe_addr */
 	} task_fd_query;
+
+	struct { /* anonymous struct used by BPF_GET_COMM_HASH/DETACH commands */
+		__aligned_u64	hash;	/* the hash of process comm */
+		__u32		pid;	/* the pid of the process */;
+	};
 } __attribute__((aligned(8)));
 
 /* The description below is an attempt at providing documentation to eBPF
@@ -1403,6 +1410,14 @@ union bpf_attr {
  * 		is returned (note that **overflowuid** might also be the actual
  * 		UID value for the socket).
  *
+ *
+ * u64 bpf_get_comm_hash_from_sk(skb)
+ *	Description
+ *		Get the comm hash of the socket process stored inside *skb*.
+ *	Return
+ *		The comm hash of the socket owner on success or 0 if the socket
+ *		pointer inside sk_buff is NULL
+ *
  * u32 bpf_set_hash(struct sk_buff *skb, u32 hash)
  * 	Description
  * 		Set the full hash for *skb* (set the field *skb*\ **->hash**)
@@ -2193,6 +2208,7 @@ union bpf_attr {
 	FN(probe_read_str),		\
 	FN(get_socket_cookie),		\
 	FN(get_socket_uid),		\
+	FN(get_comm_hash_from_sk),	\
 	FN(set_hash),			\
 	FN(setsockopt),			\
 	FN(skb_adjust_room),		\
@@ -2300,6 +2316,12 @@ enum bpf_lwt_encap_mode {
 	BPF_LWT_ENCAP_SEG6,
 	BPF_LWT_ENCAP_SEG6_INLINE
 };
+
+#define __bpf_md_ptr(type, name)	\
+union {					\
+	type name;			\
+	__u64 :64;			\
+} __attribute__((aligned(8)))
 
 /* user accessible mirror of in-kernel sk_buff.
  * new fields can only be added to the end of this structure
@@ -2593,6 +2615,12 @@ struct bpf_sock_ops {
 	__u32 sk_txhash;
 	__u64 bytes_received;
 	__u64 bytes_acked;
+	__bpf_md_ptr(struct bpf_sock *, sk);
+	// XIAOMI: Add by zhoulei8 --start
+	__u32 sk_uid;
+	__u32 voip_daddr;
+	__u32 voip_dport;
+	// XIAOMI: Add by zhoulei8 --end
 };
 
 /* Definitions for bpf_sock_ops_cb_flags */
@@ -2654,6 +2682,10 @@ enum {
 	BPF_SOCK_OPS_TCP_LISTEN_CB,	/* Called on listen(2), right after
 					 * socket transition to LISTEN state.
 					 */
+	BPF_SOCK_OPS_RTT_CB,		/* Called on every RTT.
+					 */
+	// XIAOMI: Add by zhoulei8
+	BPF_SOCK_OPS_VOIP_CB,		/* Called on every udp states. */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect

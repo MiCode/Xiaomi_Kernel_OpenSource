@@ -635,6 +635,11 @@ config CHARGER_RT9455
 	help
 	  Say Y to enable support for Richtek RT9455 battery charger.
 
+config ARCH_CAS_QCOM
+	tristate "supprort cas qcom"
+	help
+	  supprort cas qcom
+
 config CHARGER_CROS_USBPD
 	tristate "ChromeOS EC based USBPD charger"
 	depends on MFD_CROS_EC
@@ -646,5 +651,8 @@ config CHARGER_CROS_USBPD
 	  that into power_supply properties.
 
 source "drivers/power/supply/qcom/Kconfig"
+source "drivers/power/supply/ti/Kconfig"
+source "drivers/power/supply/maxim/Kconfig"
+source "drivers/power/supply/cas_qcom/Kconfig"
 
 endif # POWER_SUPPLY

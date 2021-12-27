@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/atomic.h>
@@ -270,7 +271,7 @@ static int msm_rtb_probe(struct platform_device *pdev)
 		msm_rtb.size = size;
 	}
 
-	if (msm_rtb.size <= 0 || msm_rtb.size > SZ_1M)
+	if (msm_rtb.size <= 0 || msm_rtb.size > SZ_4M)
 		return -EINVAL;
 
 	msm_rtb.rtb = dma_alloc_coherent(&pdev->dev, msm_rtb.size,

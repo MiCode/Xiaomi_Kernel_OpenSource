@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define KMSG_COMPONENT "QDSS diag bridge"
@@ -27,6 +28,7 @@
 static struct class *mhi_class;
 static enum mhi_dev_state dev_state = INIT_STATUS;
 static enum mhi_ch curr_chan;
+static struct qdss_bridge_drvdata *bridge_drvdata;
 
 static const char * const str_mhi_curr_chan[] = {
 		[QDSS]			= "QDSS",
@@ -150,7 +152,8 @@ static int qdss_check_entry(struct qdss_bridge_drvdata *drvdata)
 	int ret = 0;
 
 	list_for_each_entry(entry, &drvdata->buf_tbl, link) {
-		if (atomic_read(&entry->available) == 0) {
+		if (atomic_read(&entry->available) == 0
+			&& atomic_read(&entry->used) == 1) {
 			ret = 1;
 			return ret;
 		}
@@ -198,6 +201,7 @@ static void qdss_buf_tbl_remove(struct qdss_bridge_drvdata *drvdata,
 		if (entry->buf != buf)
 			continue;
 		atomic_set(&entry->available, 1);
+		atomic_set(&entry->used, 0);
 		spin_unlock_bh(&drvdata->lock);
 		return;
 	}
@@ -366,6 +370,7 @@ static int usb_write(struct qdss_bridge_drvdata *drvdata,
 
 	entry->usb_req->buf = buf;
 	entry->usb_req->length = len;
+	atomic_set(&entry->used, 1);
 	ret = usb_qdss_write(drvdata->usb_ch, entry->usb_req);
 
 	return ret;
@@ -489,7 +494,6 @@ static int mhi_ch_open(struct qdss_bridge_drvdata *drvdata)
 		spin_unlock_bh(&drvdata->lock);
 		return -ERESTARTSYS;
 	}
-	drvdata->opened = ENABLE;
 	spin_unlock_bh(&drvdata->lock);
 
 	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
@@ -500,9 +504,6 @@ static int mhi_ch_open(struct qdss_bridge_drvdata *drvdata)
 
 	return 0;
 err:
-	spin_lock_bh(&drvdata->lock);
-	drvdata->opened = DISABLE;
-	spin_unlock_bh(&drvdata->lock);
 	return ret;
 }
 
@@ -528,9 +529,9 @@ static void qdss_bridge_open_work_fn(struct work_struct *work)
 		goto err;
 	}
 
+	drvdata->opened = ENABLE;
 	return;
 err:
-	drvdata->opened = DISABLE;
 	mhi_unprepare_from_transfer(drvdata->mhi_dev);
 	mhi_ch_close(drvdata);
 err_open:
@@ -754,9 +755,7 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 {
 	int ret = -EIO;
 	struct qdss_mhi_buf_tbl_t *buf_itr, *tmp;
-	struct qdss_bridge_drvdata *drvdata = container_of(inode->i_cdev,
-					struct qdss_bridge_drvdata,
-					cdev);
+	struct qdss_bridge_drvdata *drvdata = bridge_drvdata;
 
 	spin_lock_bh(&drvdata->lock);
 	if (drvdata->opened) {
@@ -839,9 +838,9 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 		spin_unlock_bh(&drvdata->lock);
 
 	device_remove_file(drvdata->dev, &dev_attr_mode);
-	device_destroy(mhi_class, drvdata->cdev.dev);
-	cdev_del(&drvdata->cdev);
-	unregister_chrdev_region(drvdata->cdev.dev, 1);
+	device_destroy(mhi_class, drvdata->cdev->dev);
+	unregister_chrdev_region(drvdata->cdev->dev, 1);
+	cdev_del(drvdata->cdev);
 }
 
 int qdss_mhi_init(struct qdss_bridge_drvdata *drvdata)
@@ -908,22 +907,26 @@ static int qdss_mhi_probe(struct mhi_device *mhi_dev,
 		return ret;
 	}
 
+	drvdata->cdev = cdev_alloc();
+	if (!drvdata->cdev) {
+		ret = -ENOMEM;
+		return ret;
+	}
 	ret = alloc_chrdev_region(&dev, baseminor, count, "mhi_qdss");
 	if (ret < 0) {
 		pr_err("alloc_chrdev_region failed %d\n", ret);
 		return ret;
 	}
-	cdev_init(&drvdata->cdev, &mhidev_fops);
 
-	drvdata->cdev.owner = THIS_MODULE;
-	drvdata->cdev.ops = &mhidev_fops;
+	drvdata->cdev->owner = THIS_MODULE;
+	drvdata->cdev->ops = &mhidev_fops;
 
-	ret = cdev_add(&drvdata->cdev, dev, 1);
+	ret = cdev_add(drvdata->cdev, dev, 1);
 	if (ret)
 		goto exit_unreg_chrdev_region;
 
 	drvdata->dev = device_create(mhi_class, NULL,
-			       drvdata->cdev.dev, drvdata,
+			       drvdata->cdev->dev, drvdata,
 			       "mhi_qdss");
 	if (IS_ERR(drvdata->dev)) {
 		pr_err("class_device_create failed %d\n", ret);
@@ -954,16 +957,17 @@ static int qdss_mhi_probe(struct mhi_device *mhi_dev,
 		goto remove_sysfs_exit;
 	}
 	queue_work(drvdata->mhi_wq, &drvdata->open_work);
+	bridge_drvdata = drvdata;
 	return 0;
 
 remove_sysfs_exit:
 	device_remove_file(drvdata->dev, &dev_attr_mode);
 exit_destroy_device:
-	device_destroy(mhi_class, drvdata->cdev.dev);
+	device_destroy(mhi_class, drvdata->cdev->dev);
 exit_cdev_add:
-	cdev_del(&drvdata->cdev);
+	cdev_del(drvdata->cdev);
 exit_unreg_chrdev_region:
-	unregister_chrdev_region(drvdata->cdev.dev, 1);
+	unregister_chrdev_region(drvdata->cdev->dev, 1);
 	return ret;
 
 }

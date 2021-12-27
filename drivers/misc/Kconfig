@@ -4,6 +4,13 @@
 
 menu "Misc devices"
 
+config SPI_XIAOMI_TP
+        bool
+        depends on SPI
+        default y if TOUCHSCREEN_NT36xxx_HOSTDL_SPI
+        help
+        Say Y if want use xiaomi touch panel.
+
 config SENSORS_LIS3LV02D
 	tristate
 	depends on INPUT
@@ -577,6 +584,16 @@ config OKL4_RINGBUF
 	  Say Y here if you want to test communication between OKL4 guests
 	  using virtual interrupts and shared memory.
 
+config MOTOR_DRV8846
+        default n
+        help
+          Say Y here if you want to enable TI-drv8846 Stepper motor.
+
+config HALL_AKM09970
+        default n
+        help
+          Say Y here if you want to enable AKM09970 HALL sensor driver.
+
 config TEST_IRQ_REQUESTER
 	tristate "Receive interrupt notifications in user-space"
 	depends on DEBUG_FS
@@ -622,6 +639,17 @@ config QTI_MAXIM_FAN_CONTROLLER
 	  Also, this driver initializes the power for the fan controller
 	  and exposes sysfs node to control different speeds of fan.
 
+config PERF_HELPER
+	default y
+	help
+	  this module support record perf lock history and other perf messages.
+
+config GPIO_TESTING_MODE
+	tristate "A simple GPIO testing mode driver for sar controler"
+	default n
+	help
+	  Enable driver for a simple testing mode detection
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -657,3 +685,9 @@ config OKL4_LINK_SHBUF
 	      transport. This driver presents the link to Linux as a character device
 	      which can be written to or read from to access the shared memory. An ioctl
 	      on the device is used to send a virtual interrupt to the partner cell.
+
+config GPIO_TESTING_MODE
+	tristate "A simple GPIO testing mode driver"
+	default n
+	help
+	  Enable driver for a simple testing mode detection

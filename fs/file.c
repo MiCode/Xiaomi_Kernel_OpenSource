@@ -3,6 +3,7 @@
  *  linux/fs/file.c
  *
  *  Copyright (C) 1998-1999, Stephen Tweedie and Bill Hawes
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *
  *  Manage the dynamic fd arrays in the process files_struct.
  */
@@ -539,6 +540,12 @@ static int alloc_fd(unsigned start, unsigned flags)
 {
 	return __alloc_fd(current->files, start, rlimit(RLIMIT_NOFILE), flags);
 }
+
+int get_unused_fd_start_flags(unsigned start, unsigned flags)
+{
+	return __alloc_fd(current->files, start, rlimit(RLIMIT_NOFILE), flags);
+}
+EXPORT_SYMBOL(get_unused_fd_start_flags);
 
 int get_unused_fd_flags(unsigned flags)
 {

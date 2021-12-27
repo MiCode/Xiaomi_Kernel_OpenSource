@@ -1,0 +1,25 @@
+@echo off
+
+REM To run this batch file, please rename this file from nvt_run_mp_tests_get_samples.txt to nvt_run_mp_tests_get_samples.bat
+
+FOR /F "tokens=1-3 delims=/ " %%a IN ("%date%") DO (SET _MyDate=%%a%%b%%c)
+FOR /F "tokens=1-4 delims=:." %%a IN ("%time%") DO (SET _MyTime=%%a%%b%%c)
+SET _MyTime=%_MyTime: =0%
+
+echo ====== Run MP Self-Testing ... ======
+adb shell cat /proc/nvt_selftest
+echo ====== Run MP Self-Test Done ======
+set myDIR=Samples
+IF not exist %myDIR% (mkdir %myDIR%)
+adb pull /data/local/tmp/ShortTest.csv .\Samples\ShortTest_"%_MyDate%%_MyTime%".csv
+adb pull /data/local/tmp/OpenTest.csv .\Samples\OpenTest_"%_MyDate%%_MyTime%".csv
+adb pull /data/local/tmp/FWMutualTest.csv .\Samples\FWMutualTest_"%_MyDate%%_MyTime%".csv
+adb pull /data/local/tmp/FWCCTest.csv .\Samples\FWCCTest_"%_MyDate%%_MyTime%".csv
+adb pull /data/local/tmp/NoiseTest.csv .\Samples\NoiseTest_"%_MyDate%%_MyTime%".csv
+adb pull /data/local/tmp/PenFWRawTest.csv .\Samples\PenFWRawTest_"%_MyDate%%_MyTime%".csv
+adb pull /data/local/tmp/PenNoiseTest.csv .\Samples\PenNoiseTest_"%_MyDate%%_MyTime%".csv
+adb shell dmesg > .\Samples\dmesg_"%_MyDate%%_MyTime%".txt
+
+echo ====== Get MP Self-Test data files finished ======
+echo Press any key to exit...
+pause

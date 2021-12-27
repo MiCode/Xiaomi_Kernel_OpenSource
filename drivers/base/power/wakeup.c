@@ -2,6 +2,7 @@
  * drivers/base/power/wakeup.c - System wakeup events framework
  *
  * Copyright (c) 2010 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -121,7 +122,6 @@ static void wakeup_source_record(struct wakeup_source *ws)
 	unsigned long flags;
 
 	spin_lock_irqsave(&deleted_ws.lock, flags);
-
 	if (ws->event_count) {
 		deleted_ws.total_time =
 			ktime_add(deleted_ws.total_time, ws->total_time);
@@ -1040,6 +1040,31 @@ void pm_wakep_autosleep_enabled(bool set)
 #endif /* CONFIG_PM_AUTOSLEEP */
 
 static struct dentry *wakeup_sources_stats_dentry;
+
+#ifdef CONFIG_XM_POWER_DEBUG
+void global_print_active_locks_debug(struct wakeup_source *ws)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ws->lock, flags);
+
+	if (ws->active) {
+		printk("active wake lock : %s,last_time:%lld\n", ws->name,ktime_to_ms(ws->last_time));
+	}
+	spin_unlock_irqrestore(&ws->lock, flags);
+}
+
+void global_print_active_locks(void)
+{
+	struct wakeup_source *ws;
+	int srcuidx;
+	srcuidx = srcu_read_lock(&wakeup_srcu);
+	list_for_each_entry_rcu(ws, &wakeup_sources, entry)
+		global_print_active_locks_debug(ws);
+	srcu_read_unlock(&wakeup_srcu, srcuidx);
+
+}
+#endif
 
 /**
  * print_wakeup_source_stats - Print wakeup source statistics information.

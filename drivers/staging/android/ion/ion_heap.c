@@ -3,12 +3,14 @@
  * drivers/staging/android/ion/ion_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/err.h>
 #include <linux/freezer.h>
 #include <linux/kthread.h>
 #include <linux/mm.h>
+#include <linux/swap.h>
 #include <linux/rtmutex.h>
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
@@ -298,6 +300,11 @@ static unsigned long ion_heap_shrink_scan(struct shrinker *shrinker,
 
 	if (heap->ops->shrink)
 		freed += heap->ops->shrink(heap, sc->gfp_mask, to_scan);
+
+	if (current->reclaim_state) {
+		current->reclaim_state->reclaimed_slab += (unsigned long)freed;
+	}
+
 	return freed;
 }
 
@@ -347,6 +354,11 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 	case (enum ion_heap_type)ION_HEAP_TYPE_SECURE_CARVEOUT:
 		heap = ion_secure_carveout_heap_create(heap_data);
 		break;
+#ifdef CONFIG_ION_CAMERA_HEAP
+	case (enum ion_heap_type)ION_HEAP_TYPE_CAMERA:
+		heap = ion_camera_heap_create(heap_data);
+		break;
+#endif
 	default:
 		pr_err("%s: Invalid heap type %d\n", __func__,
 		       heap_data->type);

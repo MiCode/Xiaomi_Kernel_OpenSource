@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/dma-mapping.h>
@@ -146,6 +147,7 @@ static const struct mhi_device_id mhi_driver_match_table[] = {
 	{ .chan = "IP_HW_MHIP_0" }, /* for rndis/Wifi teth pipes */
 	{ .chan = "IP_HW_MHIP_1" }, /* for MHIP rmnet */
 	{ .chan = "IP_HW_ADPL" }, /* ADPL/ODL DL pipe */
+	{},
 };
 
 static const char *ipa_mpm_mhip_chan_str[IPA_MPM_MHIP_CH_ID_MAX] = {

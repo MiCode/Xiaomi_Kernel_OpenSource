@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _QDSS_BRIDGE_H
@@ -11,6 +12,7 @@ struct qdss_buf_tbl_lst {
 	unsigned char *buf;
 	struct qdss_request *usb_req;
 	atomic_t available;
+	atomic_t used;
 };
 
 struct qdss_mhi_buf_tbl_t {
@@ -45,7 +47,7 @@ struct qdss_bridge_drvdata {
 	enum mhi_transfer_mode mode;
 	spinlock_t lock;
 	struct device *dev;
-	struct cdev cdev;
+	struct cdev *cdev;
 	struct mhi_device *mhi_dev;
 	struct work_struct read_work;
 	struct work_struct read_done_work;

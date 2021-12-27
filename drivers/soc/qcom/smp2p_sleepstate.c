@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/module.h>
 #include <linux/suspend.h>
@@ -13,6 +14,7 @@
 #include <linux/pm_wakeup.h>
 
 #define PROC_AWAKE_ID 12 /* 12th bit */
+#define SMP2P_SLEEPSTATE_TIME 100
 #define AWAKE_BIT BIT(PROC_AWAKE_ID)
 static struct qcom_smem_state *state;
 static struct wakeup_source *notify_ws;
@@ -49,7 +51,7 @@ static struct notifier_block sleepstate_pm_nb = {
 
 static irqreturn_t smp2p_sleepstate_handler(int irq, void *ctxt)
 {
-	__pm_wakeup_event(notify_ws, 200);
+	__pm_wakeup_event(notify_ws, SMP2P_SLEEPSTATE_TIME);
 	return IRQ_HANDLED;
 }
 

@@ -477,6 +477,13 @@ config BACKLIGHT_BD6107
 	help
 	  If you have a Rohm BD6107 say Y to enable the backlight driver.
 
+config BACKLIGHT_KTZ8866
+	tristate "KTZ8866 Backlight"
+	depends on I2C && BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a KTZ8866 say Y to enable the backlight driver.
+
 config BACKLIGHT_ARCXCNN
 	tristate "Backlight driver for the Arctic Sands ARCxCnnnn family"
 	depends on I2C
@@ -489,6 +496,12 @@ config BACKLIGHT_RAVE_SP
 	depends on RAVE_SP_CORE
 	help
 	  Support for backlight control on RAVE SP device.
+
+config THERMAL_DIMMING
+	bool "thermal dimming enabled"
+	default n
+	help
+	  Support for thermal backlight dimming.
 
 endif # BACKLIGHT_CLASS_DEVICE
 

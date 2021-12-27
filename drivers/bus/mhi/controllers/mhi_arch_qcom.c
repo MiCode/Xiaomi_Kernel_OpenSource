@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <asm/dma-iommu.h>
 #include <linux/async.h>
@@ -17,6 +18,12 @@
 #include <linux/slab.h>
 #include <linux/suspend.h>
 #include <linux/mhi.h>
+
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+
 #include "mhi_qcom.h"
 
 struct arch_info {
@@ -301,6 +308,65 @@ static void mhi_arch_esoc_ops_mdm_error(void *priv)
 	mhi_control_error(mhi_cntrl);
 }
 
+#define SERIAL_NUM_LEN 64
+static char sdx55m_cpuid[SERIAL_NUM_LEN]={"\0"};
+static char sdx55m_fuse[64]={"\0"};
+
+
+static int secureboot_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", sdx55m_cpuid);
+	return 0;
+}
+
+static int sdx55m_cpuid_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, secureboot_proc_show, NULL);
+}
+
+static const struct file_operations proc_sdx55m_cpuid_operations = {
+	.open		= sdx55m_cpuid_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static int __init proc_sdx55m_cpuid_init(void)
+{
+	proc_create("sdx55m_cpuid", 0, NULL, &proc_sdx55m_cpuid_operations);
+	return 0;
+}
+fs_initcall(proc_sdx55m_cpuid_init);
+
+
+static int fuse_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", sdx55m_fuse);
+	return 0;
+}
+
+static int sdx55m_fuse_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, fuse_proc_show, NULL);
+}
+
+static const struct file_operations proc_sdx55m_fuse_operations = {
+	.open		= sdx55m_fuse_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static int __init proc_sdx55m_fuse_init(void)
+{
+	proc_create("sdx55m_secureboot", 0, NULL, &proc_sdx55m_fuse_operations);
+	return 0;
+}
+fs_initcall(proc_sdx55m_fuse_init);
+
+
+
+
 static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
 			 struct mhi_result *mhi_result)
 {
@@ -308,10 +374,26 @@ static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	char *buf = mhi_result->buf_addr;
+	char *const_serial_number = "0x00786134 = ";
+	char *const_sdx55m_fuse = "Secure Boot: ";
+	char *pSerial_number = NULL;
+
 	char *token, *delim = "\n";
 
 	/* force a null at last character */
 	buf[mhi_result->bytes_xferd - 1] = 0;
+
+	pSerial_number = strstr(buf,const_serial_number);
+	if( pSerial_number != NULL )
+	{
+		strncpy(sdx55m_cpuid, pSerial_number + strlen(const_serial_number), strlen("0x3de665bd"));
+	}
+
+	pSerial_number = strstr(buf,const_sdx55m_fuse);
+	if( pSerial_number != NULL )
+	{
+		strncpy(sdx55m_fuse, pSerial_number + strlen(const_sdx55m_fuse), strlen("Off"));
+	}
 
 	if (mhi_result->bytes_xferd >= MAX_MSG_SIZE) {
 		do {
@@ -339,23 +421,6 @@ static void mhi_bl_remove(struct mhi_device *mhi_device)
 	arch_info->boot_dev = NULL;
 	ipc_log_string(arch_info->boot_ipc_log,
 		       HLOG "Received Remove notif.\n");
-}
-
-void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	struct arch_info *arch_info = mhi_dev->arch_info;
-	struct mhi_device *boot_dev = arch_info->boot_dev;
-
-	ipc_log_string(arch_info->boot_ipc_log,
-		       HLOG "Device entered mission mode\n");
-
-	/* disable boot logger channel */
-	if (boot_dev)
-		mhi_unprepare_from_transfer(boot_dev);
-
-	if (!mhi_dev->drv_supported || arch_info->drv_connected)
-		pm_runtime_allow(&mhi_dev->pci_dev->dev);
 }
 
 static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,

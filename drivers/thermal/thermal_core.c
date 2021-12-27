@@ -23,6 +23,10 @@
 #include <net/genetlink.h>
 #include <linux/suspend.h>
 
+#ifdef CONFIG_DRM
+#include <drm/drm_notifier_mi.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/thermal.h>
 
@@ -306,7 +310,7 @@ static void thermal_zone_device_set_polling(struct workqueue_struct *queue,
 		mod_delayed_work(queue, &tz->poll_queue,
 				 msecs_to_jiffies(delay));
 	else
-		cancel_delayed_work(&tz->poll_queue);
+		cancel_delayed_work_sync(&tz->poll_queue);
 }
 
 static void monitor_thermal_zone(struct thermal_zone_device *tz)
@@ -1438,7 +1442,7 @@ void thermal_zone_device_unregister(struct thermal_zone_device *tz)
 
 	mutex_unlock(&thermal_list_lock);
 
-	cancel_delayed_work_sync(&tz->poll_queue);
+	thermal_zone_device_set_polling(NULL, tz, 0);
 
 	thermal_set_governor(tz, NULL);
 
@@ -1650,6 +1654,9 @@ static int __init thermal_init(void)
 	if (result)
 		pr_warn("Thermal: Can not register suspend notifier, return %d\n",
 			result);
+
+#ifdef CONFIG_DRM
+#endif
 
 	return 0;
 

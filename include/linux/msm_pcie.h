@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #ifndef __MSM_PCIE_H
 #define __MSM_PCIE_H
@@ -21,6 +22,7 @@ enum msm_pcie_pm_opt {
 	MSM_PCIE_RESUME,
 	MSM_PCIE_DISABLE_PC,
 	MSM_PCIE_ENABLE_PC,
+	MSM_PCIE_HANDLE_LINKDOWN,
 };
 
 enum msm_pcie_event {

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,7 @@
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-qcom-ufs.h>
 #include <linux/clk/qcom.h>
+#include <linux/bitfield.h>
 
 #ifdef CONFIG_QCOM_BUS_SCALING
 #include <linux/msm-bus.h>
@@ -1266,8 +1268,12 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		 */
 		if (enable) {
 			if (host->hba->dev_info.quirks &
-			    UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE)
-				usleep_range(50, 60);
+			    UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE) {
+				if (!oops_in_progress)
+					usleep_range(50, 60);
+				else
+					udelay(50);
+			}
 			else
 				udelay(1);
 		}
@@ -1468,6 +1474,40 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 	//hba->quirks |= UFSHCD_QUIRK_BROKEN_CRYPTO;
 }
 
+/*
+ * Disable to enter in h8 if state = HIBERN8_EXITED
+ * 1.exit h8 mode
+ * 2.disable low power mode
+ *
+ */
+void ufs_enter_h8_disable(struct Scsi_Host *shost)
+{
+	struct ufs_hba *hba;
+	struct ufs_qcom_host *host;
+
+	if (shost == NULL)
+		return;
+
+	hba = shost_priv(shost);
+	host = ufshcd_get_variant(hba);
+
+	printk(KERN_ERR "Long Press :Disable UFS enter in h8 state=%d and hba->caps =%x!", hba->hibern8_on_idle.state, hba->caps);
+
+	if (hba->hibern8_on_idle.state != HIBERN8_EXITED) {
+		return;
+	}
+
+	hba->caps &= ~UFSHCD_CAP_CLK_GATING;
+	hba->caps &= ~UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
+	hba->caps &= ~UFSHCD_CAP_CLK_SCALING;
+	hba->caps &= ~UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8;
+
+	hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 0);
+	__raw_writel(__cpu_to_le32(hba->ahit), hba->mmio_base + REG_AUTO_HIBERNATE_IDLE_TIMER);
+	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+	hba->hibern8_on_idle.state = HIBERN8_EXITED;
+}
+
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -1609,7 +1649,7 @@ static void ufs_qcom_pm_qos_req_start(struct ufs_hba *hba, struct request *req)
 
 	group = &host->pm_qos.groups[ufs_qcom_cpu_to_group(host, req->cpu)];
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	if (!host->pm_qos.is_enabled)
 		goto out;
 
@@ -1620,7 +1660,7 @@ static void ufs_qcom_pm_qos_req_start(struct ufs_hba *hba, struct request *req)
 		queue_work(host->pm_qos.workq, &group->vote_work);
 	}
 out:
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
 /* hba->host->host_lock is assumed to be held by caller */
@@ -1651,10 +1691,10 @@ static void ufs_qcom_pm_qos_req_end(struct ufs_hba *hba, struct request *req,
 		return;
 
 	if (should_lock)
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	__ufs_qcom_pm_qos_req_end(ufshcd_get_variant(hba), req->cpu);
 	if (should_lock)
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
 static void ufs_qcom_pm_qos_vote_work(struct work_struct *work)
@@ -1664,15 +1704,15 @@ static void ufs_qcom_pm_qos_vote_work(struct work_struct *work)
 	struct ufs_qcom_host *host = group->host;
 	unsigned long flags;
 
-	spin_lock_irqsave(host->hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(host->hba->host->host_lock, flags);
 
 	if (!host->pm_qos.is_enabled || !group->active_reqs) {
-		spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 		return;
 	}
 
 	group->state = PM_QOS_VOTED;
-	spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 
 	pm_qos_update_request(&group->req, group->latency_us);
 }
@@ -1688,15 +1728,15 @@ static void ufs_qcom_pm_qos_unvote_work(struct work_struct *work)
 	 * Check if new requests were submitted in the meantime and do not
 	 * unvote if so.
 	 */
-	spin_lock_irqsave(host->hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(host->hba->host->host_lock, flags);
 
 	if (!host->pm_qos.is_enabled || group->active_reqs) {
-		spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 		return;
 	}
 
 	group->state = PM_QOS_UNVOTED;
-	spin_unlock_irqrestore(host->hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(host->hba->host->host_lock, flags);
 
 	pm_qos_update_request_timeout(&group->req,
 		group->latency_us, UFS_QCOM_PM_QOS_UNVOTE_TIMEOUT_US);
@@ -1730,22 +1770,22 @@ static ssize_t ufs_qcom_pm_qos_enable_store(struct device *dev,
 	 * Must take the spinlock and save irqs before changing the enabled
 	 * flag in order to keep correctness of PM QoS release.
 	 */
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	if (enable == host->pm_qos.is_enabled) {
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 		return count;
 	}
 	host->pm_qos.is_enabled = enable;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (!enable)
 		for (i = 0; i < host->pm_qos.num_groups; i++) {
 			cancel_work_sync(&host->pm_qos.groups[i].vote_work);
 			cancel_work_sync(&host->pm_qos.groups[i].unvote_work);
-			spin_lock_irqsave(hba->host->host_lock, flags);
+			ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 			host->pm_qos.groups[i].state = PM_QOS_UNVOTED;
 			host->pm_qos.groups[i].active_reqs = 0;
-			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 			pm_qos_update_request(&host->pm_qos.groups[i].req,
 				PM_QOS_DEFAULT_VALUE);
 		}
@@ -1805,9 +1845,9 @@ static ssize_t ufs_qcom_pm_qos_latency_store(struct device *dev,
 		if (ret)
 			break;
 
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 		host->pm_qos.groups[i].latency_us = value;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
 	kfree(strbuf_copy);
@@ -2541,7 +2581,7 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	if (!host)
 		return -EINVAL;
 	hba = host->hba;
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	switch (host->testbus.select_major) {
 	case TSTBUS_UAWM:
 		reg = UFS_TEST_BUS_CTRL_0;
@@ -2602,12 +2642,12 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	if (offset < 0) {
 		dev_err(hba->dev, "%s: Bad offset: %d\n", __func__, offset);
 		ret = -EINVAL;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 		goto out;
 	}
 	mask <<= offset;
 
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 	if (reg) {
 		ufshcd_rmwl(host->hba, TEST_BUS_SEL,
 		    (u32)host->testbus.select_major << testbus_sel_offset,
@@ -2690,15 +2730,30 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba, bool no_sleep)
 		return;
 
 	/* sleep a bit intermittently as we are dumping too much data */
-	usleep_range(1000, 1100);
+	if (!oops_in_progress)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_testbus_read(hba);
-	usleep_range(1000, 1100);
+	if (!oops_in_progress)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_print_unipro_testbus(hba);
-	usleep_range(1000, 1100);
+	if (!oops_in_progress)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_print_utp_hci_testbus(hba);
-	usleep_range(1000, 1100);
+	if (!oops_in_progress)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 	ufs_qcom_phy_dbg_register_dump(phy);
-	usleep_range(1000, 1100);
+	if (!oops_in_progress)
+		usleep_range(1000, 1100);
+	else
+		udelay(1000);
 }
 
 static u32 ufs_qcom_get_user_cap_mode(struct ufs_hba *hba)

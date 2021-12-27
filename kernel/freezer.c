@@ -10,6 +10,9 @@
 #include <linux/syscalls.h>
 #include <linux/freezer.h>
 #include <linux/kthread.h>
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+#include "../include/linux/millet.h"
+#endif
 
 /* total number of freezing conditions in effect */
 atomic_t system_freezing_cnt = ATOMIC_INIT(0);
@@ -57,6 +60,31 @@ bool freezing_slow_path(struct task_struct *p)
 }
 EXPORT_SYMBOL(freezing_slow_path);
 
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+bool freezing_slow_path_millet(struct task_struct *p)
+{
+	if (p->flags & (PF_NOFREEZE | PF_SUSPEND_TASK))
+		return false;
+
+	if (test_tsk_thread_flag(p, TIF_MEMDIE))
+		return false;
+
+	if (pm_nosig_freezing)
+		return true;
+	if (judge_millet_freeze_switch()) {
+		if (p->pkg.millet_freeze_flag)
+			return false;
+	}
+	if (cgroup_freezing(p))
+		return true;
+
+	if (pm_freezing && !(p->flags & PF_KTHREAD))
+		return true;
+
+	return false;
+}
+#endif
+
 /* Refrigerator is place where frozen processes are stored :-). */
 bool __refrigerator(bool check_kthr_stop)
 {
@@ -72,7 +100,11 @@ bool __refrigerator(bool check_kthr_stop)
 
 		spin_lock_irq(&freezer_lock);
 		current->flags |= PF_FROZEN;
+#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+		if (!freezing_millet(current) ||
+#else
 		if (!freezing(current) ||
+#endif
 		    (check_kthr_stop && kthread_should_stop()))
 			current->flags &= ~PF_FROZEN;
 		spin_unlock_irq(&freezer_lock);

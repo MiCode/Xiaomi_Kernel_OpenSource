@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,16 +155,5 @@ struct ufs_dev_fix {
  * instead of the default delay.
  */
 #define UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE	(1 << 11)
-
-
-/*
- * Few samsung UFS device models advertise PA_HIBERN8TIME as
- * 200us during handshaking in link establishment b/w host and device but
- * which may not be enough for the UFS device.
- * To workaround this issue, host should set its PA_HIBERN8TIME time to
- * 300us even if device advertises PA_HIBERN8TIME of 200us.
- */
-#define UFS_DEVICE_QUIRK_PA_HIBER8TIME   (1 << 12)
-
 
 #endif /* UFS_QUIRKS_H_ */

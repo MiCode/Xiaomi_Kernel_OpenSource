@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -1013,6 +1014,19 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 	case MHI_EV_CC_DB_MODE:
 		MHI_VERB("DB_MODE chan %d.\n", mhi_chan->chan);
 		mhi_chan->db_cfg.db_mode = true;
+
+	        /*
+                * on RSC channel IPA HW has a minimum credit requirement before
+                * switching to DB mode
+                */
+                if (mhi_chan->xfer_type == MHI_XFER_RSC_DMA) {
+                    n_free_tre = mhi_get_no_free_descriptors(
+                    mhi_chan->mhi_dev, DMA_FROM_DEVICE);
+                    n_queued_tre = tre_ring->elements - n_free_tre;
+                    if (n_queued_tre < MHI_RSC_MIN_CREDITS)
+                        ring_db = false;
+                }
+
 		mhi_chan->mode_change++;
 
 		read_lock_irqsave(&mhi_cntrl->pm_lock, rflags);

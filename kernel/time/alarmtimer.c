@@ -8,6 +8,7 @@
  * interface.
  *
  * Copyright (C) 2010 IBM Corperation
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: John Stultz <john.stultz@linaro.org>
  *
@@ -34,7 +35,6 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/alarmtimer.h>
-
 /**
  * struct alarm_base - Alarm timer bases
  * @lock:		Lock for syncrhonized access to the base
@@ -277,7 +277,7 @@ static int alarmtimer_suspend(struct device *dev)
 		if (!next)
 			continue;
 		delta = ktime_sub(next->expires, base->gettime());
-		if (!min || (delta < min)) {
+		if (!min || (delta < min)) {			
 			expires = next->expires;
 			min = delta;
 			type = i;
@@ -895,6 +895,7 @@ static int __init alarmtimer_init(void)
 		error = PTR_ERR(pdev);
 		goto out_drv;
 	}
+	
 	return 0;
 
 out_drv:

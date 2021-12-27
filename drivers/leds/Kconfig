@@ -799,7 +799,21 @@ config LEDS_QPNP_VIBRATOR_LDO
 	  peripheral found on Qualcomm Technologies, Inc. QPNP PMICs.
 	  The vibrator-ldo peripheral is capable of driving ERM vibrators.
 
+config LEDS_AW2015
+	tristate "LED Support for AW2015"
+	depends on LEDS_CLASS && I2C
+	help
+	  this option enables support for the AW2015 RGB LED connected
+	  through I2C. Say Y to enable support for the AW2015 LED.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
+
+config LEDS_AW22XXX
+	tristate "LED Support for AW22XXX"
+	depends on LEDS_CLASS && I2C
+	help
+	  this option enables support for the AW 22XXX RGB LED connected
+	  through I2C. Say Y to enable support for the AW 22XXX LED
 
 endif # NEW_LEDS

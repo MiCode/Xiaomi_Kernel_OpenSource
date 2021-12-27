@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013-2017 ARM Limited, All Rights Reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -371,7 +372,8 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
 
-		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+        //pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		pr_warn("%s: %d triggered %s (hwirq %d)\n", __func__, irq, name, i);
 	}
 }
 
