@@ -1737,6 +1737,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	 */
 	if (test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes)) {
 		smmu_domain->rpm_always_on = true;
+		/* During device shutdown, if non atomic client is doing the register
+		 * space access, it experiencing the unclocked access error becaue of
+		 * force suspend from the device remove path, to avoid such case
+		 * adding smmu atomic refcount, to know is there any atomic client or
+		 * not, if there is no atomic client it will skip the force suspend and
+		 * power off.
+		 */
+		smmu->atomic_pwr_refcount++;
 		arm_smmu_rpm_get(smmu);
 	}
 
@@ -1783,8 +1791,10 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 * Matches with call to arm_smmu_rpm_get in
 	 * arm_smmu_init_domain_contxt.
 	 */
-	if (smmu_domain->rpm_always_on)
+	if (smmu_domain->rpm_always_on) {
+		smmu->atomic_pwr_refcount--;
 		arm_smmu_rpm_put(smmu);
+	}
 
 	/*
 	 * Disable the context bank and free the page tables before freeing
@@ -4078,10 +4088,12 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sCR0, ARM_SMMU_sCR0_CLIENTPD);
 	arm_smmu_rpm_put(smmu);
 
-	if (pm_runtime_enabled(smmu->dev))
-		pm_runtime_force_suspend(smmu->dev);
-	else
-		arm_smmu_power_off(smmu, smmu->pwr);
+	if (smmu->atomic_pwr_refcount > 0) {
+		if (pm_runtime_enabled(smmu->dev))
+			pm_runtime_force_suspend(smmu->dev);
+		else
+			arm_smmu_power_off(smmu, smmu->pwr);
+	}
 
 	return 0;
 }
