@@ -70,6 +70,7 @@
 | laurel-r-oss | Mi A3 | Android R | LA.UM.9.11.r1-02100-NICOBAR.0 | [laurel-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/laurel-r-oss) | 
 | libra-l-oss | Mi 4S, Mi 4C, Mi Note Pro | Android L | LA.BF64.1.2.1.c1-05310-8x92.0 | [libra-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/libra-l-oss) |
 | libra-n-oss | Mi 4S, Mi 4C, Mi Note Pro | Android N | LA.BF64.1.2.3-01110-8x94.0 | [libra-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/libra-n-oss) |
+| lisa-r-oss | Mi 11 LE | Android R | LA.UM.9.14.r1-16700-LAHAINA.0 | [lisa-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lisa-r-oss) |
 | lmi-q-oss | Redmi K30 Pro| Android Q | LA.UM.8.12.r1-06000-sm8250.0 | [lmi-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lmi-q-oss) |
 | lotus-o-oss | Mi Play | Android O | MTK | [lotus-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lotus-o-oss) |
 | lime-q-oss | Redmi Note 9 4G,Redmi POCO M3 | Android Q | LA.UM.8.15.r1-06600-KAMORTA.0 | [lime-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/lime-q-oss) |
@@ -103,6 +104,7 @@
 | pisces-kk-oss | Mi 3 China Mobile | Android KK | tegra-17r18-android-4.2 | [pisces-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pisces-kk-oss) |
 | platina-o-oss | MI 8 Lite | Android O | LA.UM.6.2.r1-07400-sdm660.0 | [platina-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/platina-o-oss) |
 | polaris-o-oss | Mi MIX 2S | Android O | LA.UM.6.3.r1_r00455 | [polaris-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/polaris-o-oss) |
+| psyche-r-oss | Mi 12X | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [psyche-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/psyche-r-oss) |
 | pyxis-p-oss | MI CC 9, MI CC 9 Meitu Edition | Android P | LA.UM.7.8.r1-04400-SDM710.0 | [pyxis-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pyxis-p-oss) |
 | raphael-p-oss | Redmi K20 Pro | Android P | LA.UM.7.1.r1-12100-sm8150.0 | [raphael-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/raphael-p-oss) |
 | riva-n-oss | Redmi 4A, Redmi 5, Redmi 5A | Android N | LA.UM.5.6.r1-05900-89xx.0 | [riva-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/riva-n-oss) |
@@ -147,3 +149,4 @@
 | willow-p-oss | Redmi Note 8T | Android P | LA.UM.7.11.r1-02700-NICOBAR.0 | [willow-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/willow-p-oss) |
 | ysl-o-oss | Redmi S2 | Android O | LA.UM.6.6.r1-06200-89xx.0 | [ysl-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-o-oss) |
 | ysl-p-oss | Redmi S2 | Android P | LA.UM.7.6.r1-03900-89xx.0 | [ysl-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-p-oss) |
+| zeus-s-oss | Mi 12, Mi 12 Pro | Android S | LA.VENDOR.1.0.r1-09100-r1.0.r1 | [zeus-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zeus-s-oss) |
