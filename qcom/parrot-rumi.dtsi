@@ -1,3 +1,4 @@
+#include <dt-bindings/clock/qcom,gcc-parrot.h>
 #include <dt-bindings/gpio/gpio.h>
 
 &soc {
@@ -136,4 +137,8 @@
 		<&pcie_0_pipe_clk>, <&ufs_phy_rx_symbol_0_clk>,
 		<&ufs_phy_rx_symbol_1_clk>, <&ufs_phy_tx_symbol_0_clk>,
 		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+};
+
+&camcc {
+	clocks = <&bi_tcxo>, <&gcc GCC_CAMERA_AHB_CLK>;
 };
