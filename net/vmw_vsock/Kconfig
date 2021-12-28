@@ -38,6 +38,16 @@ config VSOCKETS_LOOPBACK
 	  To compile this driver as a module, choose M here: the module
 	  will be called vsock_loopback. If unsure, say N.
 
+config GUNYAH_VSOCKETS
+	tristate "Gunyah transport for Virtual Sockets"
+	depends on VSOCKETS && GUNYAH_DRIVERS
+	help
+	  This module implements a Gunyah transport for Virtual Sockets. Enable
+	  this transport if the virtual machine runs on Gunyah hypervisor.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called gh_vsock. If unsure, say N.
+
 config VMWARE_VMCI_VSOCKETS
 	tristate "VMware VMCI transport for Virtual Sockets"
 	depends on VSOCKETS && VMWARE_VMCI
