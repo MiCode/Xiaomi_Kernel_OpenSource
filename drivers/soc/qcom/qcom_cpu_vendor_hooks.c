@@ -119,6 +119,17 @@ static void print_undefinstr(void *unused,
 	}
 }
 
+static void print_ptrauth_fault(void *unused, struct pt_regs *regs,
+			unsigned int esr, bool user)
+{
+	if (!user) {
+		dump_instr("PC", regs->pc);
+		dump_instr("LR", ptrauth_strip_insn_pac(regs->regs[30]));
+		printk(KERN_EMERG "ESR value: 0x%08x", esr);
+		show_regs_min(regs);
+	}
+}
+
 #if IS_ENABLED(CONFIG_DEBUG_SPINLOCK) && \
    (IS_ENABLED(CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG) || IS_ENABLED(CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG))
 static int entry_spin_bug(struct kretprobe_instance *ri, struct pt_regs *regs)
@@ -238,6 +249,10 @@ static int cpu_vendor_hooks_driver_probe(struct platform_device *pdev)
 	ret = register_trace_android_rvh_do_undefinstr(print_undefinstr, NULL);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to android_rvh_do_undefinstr hook\n");
+
+	ret = register_trace_android_rvh_do_ptrauth_fault(print_ptrauth_fault, NULL);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to android_rvh_do_ptrauth_fault hook\n");
 
 	register_spinlock_bug_hook(pdev);
 
