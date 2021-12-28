@@ -12,7 +12,6 @@
 #include <linux/uaccess.h>
 #include <linux/regmap.h>
 #include <linux/ctype.h>
-#include <linux/usb/ucsi_glink.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/usb/redriver.h>
@@ -88,8 +87,6 @@ struct ssusb_redriver {
 	int orientation_gpio;
 	enum plug_orientation typec_orientation;
 	enum operation_mode op_mode;
-
-	struct notifier_block ucsi_nb;
 
 	u8	chan_mode[CHANNEL_NUM];
 
@@ -453,67 +450,6 @@ int redriver_orientation_get(struct device_node *node)
 }
 EXPORT_SYMBOL(redriver_orientation_get);
 
-static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
-		unsigned long action, void *data)
-{
-	struct ssusb_redriver *redriver =
-			container_of(nb, struct ssusb_redriver, ucsi_nb);
-	struct ucsi_glink_constat_info *info = data;
-	enum operation_mode op_mode;
-	int ret;
-
-	if (info->connect && !info->partner_change)
-		return NOTIFY_DONE;
-
-	if (!info->connect) {
-		if (info->partner_usb || info->partner_alternate_mode)
-			dev_err(redriver->dev, "set partner when no connection\n");
-		op_mode = OP_MODE_NONE;
-	} else if (info->partner_usb && info->partner_alternate_mode) {
-		/*
-		 * when connect a DP only cable,
-		 * ucsi set usb flag first, then set usb and alternate mode
-		 * after dp start link training.
-		 * it should only set alternate_mode flag ???
-		 */
-		if (redriver->op_mode == OP_MODE_DP)
-			return NOTIFY_OK;
-		op_mode = OP_MODE_USB_AND_DP;
-	} else if (info->partner_usb) {
-		if (redriver->op_mode == OP_MODE_DP)
-			return NOTIFY_OK;
-		op_mode = OP_MODE_USB;
-	} else if (info->partner_alternate_mode) {
-		op_mode = OP_MODE_DP;
-	} else
-		op_mode = OP_MODE_NONE;
-
-	if (redriver->op_mode == op_mode)
-		return NOTIFY_OK;
-
-	dev_dbg(redriver->dev, "op mode %s -> %s\n",
-		OPMODESTR(redriver->op_mode), OPMODESTR(op_mode));
-	redriver->op_mode = op_mode;
-
-	if (redriver->op_mode == OP_MODE_USB ||
-			redriver->op_mode == OP_MODE_USB_AND_DP) {
-		ssusb_redriver_read_orientation(redriver);
-
-		dev_dbg(redriver->dev, "orientation %s\n",
-			redriver->typec_orientation == ORIENTATION_CC1 ?
-			"CC1" : "CC2");
-	}
-
-	ret = ssusb_redriver_channel_update(redriver);
-	if (ret) {
-		dev_dbg(redriver->dev, "i2c bus may not resume(%d)\n", ret);
-		return NOTIFY_DONE;
-	}
-	ssusb_redriver_gen_dev_set(redriver);
-
-	return NOTIFY_OK;
-}
-
 int redriver_notify_connect(struct device_node *node)
 {
 	struct ssusb_redriver *redriver;
@@ -714,9 +650,6 @@ static int redriver_i2c_probe(struct i2c_client *client,
 
 	ssusb_redriver_orientation_gpio_init(redriver);
 
-	redriver->ucsi_nb.notifier_call = ssusb_redriver_ucsi_notifier;
-	register_ucsi_glink_notifier(&redriver->ucsi_nb);
-
 	ssusb_redriver_debugfs_entries(redriver);
 
 	return 0;
@@ -727,7 +660,6 @@ static int redriver_i2c_remove(struct i2c_client *client)
 	struct ssusb_redriver *redriver = i2c_get_clientdata(client);
 
 	debugfs_remove(redriver->debug_root);
-	unregister_ucsi_glink_notifier(&redriver->ucsi_nb);
 
 	return 0;
 }
