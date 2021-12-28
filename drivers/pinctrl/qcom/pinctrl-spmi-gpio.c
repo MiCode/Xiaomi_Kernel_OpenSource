@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2014, 2016-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/gpio/driver.h>
@@ -987,6 +988,106 @@ static void *pmic_gpio_populate_parent_fwspec(struct gpio_chip *chip,
 	return fwspec;
 }
 
+#if 0
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+/* add ifdef CONFIG_MI_POWER_INFO_MODULE start */
+struct gpio_dbg_device {
+	struct list_head list;
+	char *name;
+	void (*gpiolib_dbg_info_print)(struct gpio_chip *chip);
+	struct gpio_chip *chip;
+};
+
+extern void gpiochip_add_dbg_device(struct gpio_dbg_device *dev);
+
+static void pmic_gpio_config_dbg_print(struct pinctrl_dev *pctldev, unsigned pin)
+{
+	struct pmic_gpio_state *state = pinctrl_dev_get_drvdata(pctldev);
+	struct pmic_gpio_pad *pad;
+	int ret, val, function;
+
+	static const char *const biases[] = {
+		"pull-up 30uA", "pull-up 1.5uA", "pull-up 31.5uA",
+		"pull-up 1.5uA + 30uA boost", "pull-down 10uA", "no pull"
+	};
+	static const char *const buffer_types[] = {
+		"push-pull", "open-drain", "open-source"
+	};
+	static const char *const strengths[] = {
+		"no", "high", "medium", "low"
+	};
+
+	pad = pctldev->desc->pins[pin].drv_data;
+
+	printk(KERN_INFO " gpio%-2d:", pin + PMIC_GPIO_PHYSICAL_OFFSET);
+
+	val = pmic_gpio_read(state, pad, PMIC_GPIO_REG_EN_CTL);
+
+	if (val < 0 || !(val >> PMIC_GPIO_REG_MASTER_EN_SHIFT)) {
+		printk(KERN_CONT " ---");
+	} else {
+		if (pad->input_enabled) {
+			ret = pmic_gpio_read(state, pad, PMIC_MPP_REG_RT_STS);
+			if (ret < 0)
+				return;
+
+			ret &= PMIC_MPP_REG_RT_STS_VAL_MASK;
+			pad->out_value = ret;
+		}
+		/*
+		 * For the non-LV/MV subtypes only 2 special functions are
+		 * available, offsetting the dtest function values by 2.
+		 */
+		function = pad->function;
+		if (!pad->lv_mv_type &&
+				pad->function >= PMIC_GPIO_FUNC_INDEX_FUNC3)
+			function += PMIC_GPIO_FUNC_INDEX_DTEST1 -
+				PMIC_GPIO_FUNC_INDEX_FUNC3;
+
+		if (pad->analog_pass)
+			printk(KERN_CONT " analog-pass");
+		else
+			printk(KERN_CONT " %-4s",
+					pad->output_enabled ? "out" : "in");
+		printk(KERN_CONT " %-4s", pad->out_value ? "high" : "low");
+		printk(KERN_CONT " %-7s", pmic_gpio_functions[function]);
+		printk(KERN_CONT " vin-%d", pad->power_source);
+		printk(KERN_CONT " %-27s", biases[pad->pullup]);
+		printk(KERN_CONT " %-10s", buffer_types[pad->buffer_type]);
+		printk(KERN_CONT " %-7s", strengths[pad->strength]);
+		printk(KERN_CONT " atest-%d", pad->atest);
+		printk(KERN_CONT " dtest-%d", pad->dtest_buffer);
+	}
+}
+
+void pmic_gpio_dbg_info_print(struct gpio_chip *chip)
+{
+	struct pmic_gpio_state *state = gpiochip_get_data(chip);
+	unsigned i;
+
+	for (i = 0; i < chip->ngpio; i++) {
+		pmic_gpio_config_dbg_print(state->ctrl, i);
+	}
+}
+
+struct gpio_dbg_device pmic_gpio_dbg_device = {
+	.name = "pmic-gpio",
+	.gpiolib_dbg_info_print = pmic_gpio_dbg_info_print,
+};
+
+void msm_pmic_gpio_dbg_register(struct gpio_chip *chip)
+{
+    if (chip == NULL)
+       return;
+
+	pmic_gpio_dbg_device.chip = chip;
+	gpiochip_add_dbg_device(&pmic_gpio_dbg_device);
+
+}
+/* add ifdef CONFIG_MI_POWER_INFO_MODULE end */
+#endif // end of CONFIG_MI_POWER_INFO_MODULE
+#endif
+
 static int pmic_gpio_probe(struct platform_device *pdev)
 {
 	struct irq_domain *parent_domain;
@@ -1123,6 +1224,13 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 			goto err_range;
 		}
 	}
+
+#if 0
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+    /* add ifdef CONFIG_MI_POWER_INFO_MODULE  */
+    msm_pmic_gpio_dbg_register(&state->chip);
+#endif // end of CONFIG_MI_POWER_INFO_MODULE
+#endif
 
 	return 0;
 

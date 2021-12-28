@@ -707,8 +707,9 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -EINVAL)
 		return ret;
 
-	if (desc->minidump_id)
-		ops = &adsp_minidump_ops;
+	//delete it for ssr minidump by xiaomi
+	//if (desc->minidump_id)
+	//	ops = &adsp_minidump_ops;
 
 	rproc = rproc_alloc(&pdev->dev, pdev->name, ops, fw_name, sizeof(*adsp));
 

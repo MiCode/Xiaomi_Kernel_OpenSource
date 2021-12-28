@@ -141,6 +141,7 @@ static int _block2mtd_write(struct block2mtd_dev *dev, const u_char *buf,
 	int offset = to & ~PAGE_MASK;	// page offset
 	int cpylen;
 
+	printk(KERN_ERR "_block2mtd_write: start len = %d, mapping_index= %d \n",len,index);
 	while (len) {
 		if ((offset+len) > PAGE_SIZE)
 			cpylen = PAGE_SIZE - offset;	// multiple pages
@@ -168,6 +169,8 @@ static int _block2mtd_write(struct block2mtd_dev *dev, const u_char *buf,
 		offset = 0;
 		index++;
 	}
+
+	printk(KERN_ERR "_block2mtd_write: finish all \n");
 	return 0;
 }
 
@@ -183,6 +186,7 @@ static int block2mtd_write(struct mtd_info *mtd, loff_t to, size_t len,
 	mutex_unlock(&dev->write_mutex);
 	if (err > 0)
 		err = 0;
+	dev->mtd._sync(mtd);
 	return err;
 }
 
@@ -213,16 +217,34 @@ static void block2mtd_free_device(struct block2mtd_dev *dev)
 }
 
 
+int delSubStr(char * src, char * sub,char * result)
+{
+	int i,find = 0;
+	int len_src = strlen(src);
+	int len_sub = strlen(sub);
+	for( i = 0 ; i <= len_src - len_sub; i++){
+		if(strncmp(src+i, sub, len_sub)==0){
+			strncpy(result,src,i);
+			strncpy(result+i,src+i+len_sub,len_src-i-len_sub);
+			find =1;
+			break;
+		}
+	}
+	return find;
+}
+
+
 static struct block2mtd_dev *add_device(char *devname, int erase_size,
 		int timeout)
 {
-#ifndef MODULE
+//#ifndef MODULE
 	int i;
-#endif
+//#endif
 	const fmode_t mode = FMODE_READ | FMODE_WRITE | FMODE_EXCL;
 	struct block_device *bdev;
 	struct block2mtd_dev *dev;
 	char *name;
+	char name_for_find_devt[80]={0};
 
 	if (!devname)
 		return NULL;
@@ -234,11 +256,14 @@ static struct block2mtd_dev *add_device(char *devname, int erase_size,
 	/* Get a handle on the device */
 	bdev = blkdev_get_by_path(devname, mode, dev);
 
-#ifndef MODULE
+//#ifndef MODULE
 	/*
 	 * We might not have the root device mounted at this point.
 	 * Try to resolve the device name by other means.
 	 */
+	if(!delSubStr(devname, "block/",name_for_find_devt))
+		return NULL;
+
 	for (i = 0; IS_ERR(bdev) && i <= timeout; i++) {
 		dev_t devt;
 
@@ -251,12 +276,12 @@ static struct block2mtd_dev *add_device(char *devname, int erase_size,
 			msleep(1000);
 		wait_for_device_probe();
 
-		devt = name_to_dev_t(devname);
+		devt = name_to_dev_t(name_for_find_devt);
 		if (!devt)
 			continue;
 		bdev = blkdev_get_by_dev(devt, mode, dev);
 	}
-#endif
+//#endif
 
 	if (IS_ERR(bdev)) {
 		pr_err("error: cannot open device %s\n", devname);
@@ -307,6 +332,8 @@ static struct block2mtd_dev *add_device(char *devname, int erase_size,
 		dev->mtd.index,
 		dev->mtd.name + strlen("block2mtd: "),
 		dev->mtd.erasesize >> 10, dev->mtd.erasesize);
+
+	pr_err("block2mtd: add device sucess \n");
 	return dev;
 
 err_destroy_mutex:

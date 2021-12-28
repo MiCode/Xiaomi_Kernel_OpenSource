@@ -1,0 +1,67 @@
+config MILLET_CGROUP
+	tristate "frozen framework cgroup"
+	depends on MIHW
+	default n
+	help
+	  Mi frozen function
+
+config MILLET_SIG
+	tristate "frozen framework signal"
+	depends on MIHW
+	default n
+	help
+	  Mi frozen function
+
+config MILLET_BINDER
+	tristate "frozen framework binder"
+	depends on MIHW
+	default n
+	help
+	  Mi frozen function
+
+config MILLET_PKG
+	tristate "frozen framework pkg"
+	depends on MIHW
+	default n
+	help
+	  Mi frozen function
+
+config MILLET_BINDER_GKI
+	tristate "frozen framework binder gki"
+	depends on MIHW
+	default n
+	help
+	  Mi frozen function
+
+config MILLET_CORE
+	tristate "frozen framework core"
+	depends on MIHW
+	default n
+	help
+	  Mi frozen function
+
+config MILLET_HS
+	tristate "frozen framework hs"
+	depends on MIHW
+	default n
+	help
+	  Mi frozen function
+
+config MI_SCHED
+        tristate "schedule policy defined by xiaomi"
+	depends on MIHW && MI_SCHED_WALT
+        default n
+        help
+          This option can show package runtime info in sup/big/little core.
+
+config MIGT
+	tristate "mi game turbo"
+	depends on MI_SCHED && SCHED_WALT && MIGT_WALT
+	help
+	  Improve game peformance and power.
+
+config TURBO_SCHED
+	tristate "mi turbo sched"
+	depends on MIHW && MI_SCHED
+	help
+	  Tuning mi-scheduler policy

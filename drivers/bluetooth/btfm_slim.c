@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/init.h>
@@ -25,6 +26,7 @@
 #define SLIM_PROD_CODE		0x221
 
 static bool btfm_is_port_opening_delayed = true;
+static int btfm_num_ports_open;
 
 int btfm_slim_write(struct btfmslim *btfmslim,
 		uint16_t reg, uint8_t reg_val, uint8_t pgd)
@@ -143,13 +145,9 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		1. for 8k, feedback channel
 		2. 44.1k, 88.2k rxports
 	*/
-	if ((((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
+	if (((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
 		(rxport == 1 && (rates == 44100 || rates == 88200))) &&
-		btfm_slim_is_sb_reset_needed(chipset_ver)) ||
-		chipset_ver == QCA_HSP_SOC_ID_0200 ||
-		chipset_ver == QCA_HSP_SOC_ID_0210 ||
-		chipset_ver == QCA_HSP_SOC_ID_1201 ||
-		chipset_ver == QCA_HSP_SOC_ID_1211) {
+		btfm_slim_is_sb_reset_needed(chipset_ver)) {
 
 		BTFMSLIM_INFO("btfm_is_port_opening_delayed %d",
 					btfm_is_port_opening_delayed);
@@ -179,7 +177,11 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		BTFMSLIM_ERR("slim_stream_enable failed = %d", ret);
 		goto error;
 	}
+
+	if (ret == 0)
+		btfm_num_ports_open++;
 error:
+	BTFMSLIM_INFO("btfm_num_ports_open: %d", btfm_num_ports_open);
 	kfree(chan->dai.sconfig.chs);
 	return ret;
 }
@@ -199,10 +201,30 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 
 	btfm_is_port_opening_delayed = false;
 
+	if (rxport && (btfmslim->sample_rate == 44100 ||
+		btfmslim->sample_rate == 88200)) {
+		BTFMSLIM_INFO("disconnecting the ports, removing the channel");
+		/* disconnect the ports of the stream */
+		ret = slim_stream_unprepare_disconnect_port(ch->dai.sruntime,
+				true, false);
+		if (ret != 0)
+			BTFMSLIM_ERR("slim_stream_unprepare failed %d", ret);
+	}
+
 	ret = slim_stream_disable(ch->dai.sruntime);
-	if (ret != 0)
+	if (ret != 0) {
 		BTFMSLIM_ERR("slim_stream_disable failed returned val = %d", ret);
-	ret = slim_stream_unprepare(ch->dai.sruntime);
+		if ((btfmslim->sample_rate != 44100) && (btfmslim->sample_rate != 88200)) {
+			/* disconnect the ports of the stream */
+			ret = slim_stream_unprepare_disconnect_port(ch->dai.sruntime,
+					true, false);
+			if (ret != 0)
+				BTFMSLIM_ERR("slim_stream_unprepare failed %d", ret);
+		}
+	}
+
+	/* free the ports allocated to the stream */
+	ret = slim_stream_unprepare_disconnect_port(ch->dai.sruntime, false, true);
 	if (ret != 0)
 		BTFMSLIM_ERR("slim_stream_unprepare failed returned val = %d", ret);
 
@@ -219,6 +241,10 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	}
 	ch->dai.sconfig.port_mask = 0;
 	kfree(ch->dai.sconfig.chs);
+
+	if (btfm_num_ports_open > 0)
+		btfm_num_ports_open--;
+	BTFMSLIM_INFO("btfm_num_ports_open: %d", btfm_num_ports_open);
 	return ret;
 }
 
@@ -381,6 +407,14 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 			"IFD Enum Addr: manu id:%.02x prod code:%.02x dev idx:%.02x instance:%.02x",
 			slim_ifd->e_addr.manf_id, slim_ifd->e_addr.prod_code,
 			slim_ifd->e_addr.dev_index, slim_ifd->e_addr.instance);
+
+	if (btfm_num_ports_open == 0 && (chipset_ver == QCA_HSP_SOC_ID_0200 ||
+		chipset_ver == QCA_HSP_SOC_ID_0210 ||
+		chipset_ver == QCA_HSP_SOC_ID_1201 ||
+		chipset_ver == QCA_HSP_SOC_ID_1211)) {
+		BTFMSLIM_INFO("SB reset needed before getting LA, sleeping");
+		msleep(DELAY_FOR_PORT_OPEN_MS);
+	}
 
 	/* Assign Logical Address for PGD (Ported Generic Device)
 	 * enumeration address

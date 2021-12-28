@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/debugfs.h>
@@ -102,6 +103,12 @@ struct appended_stats {
 };
 
 struct ddr_stats_g_data *ddr_gdata;
+
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+/*add  CONFIG_MI_POWER_INFO_MODULE */
+//#include "../../misc/mi-power/mi_power.h"
+extern void soc_sleep_stats_dbg_register(struct stats_prv_data *prv_data);
+#endif // end of CONFIG_MI_POWER_INFO_MODULE
 
 static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 {
@@ -430,6 +437,11 @@ skip_ddr_stats:
 	root = create_debugfs_entries(reg, ddr_gdata->ddr_reg,  prv_data,
 				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
+
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+	/*add  CONFIG_MI_POWER_INFO_MODULE  register */
+	soc_sleep_stats_dbg_register(prv_data);
+#endif // end of CONFIG_MI_POWER_INFO_MODULE
 
 	return 0;
 }

@@ -2202,7 +2202,6 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	return glink;
 }
 EXPORT_SYMBOL(qcom_glink_native_probe);
-
 int qcom_glink_native_start(struct qcom_glink *glink)
 {
 	struct device *dev = glink->dev;

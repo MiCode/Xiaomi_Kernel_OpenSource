@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+
+header-y += msm_sde_rotator.h
+header-y += mmm_color_fmt.h

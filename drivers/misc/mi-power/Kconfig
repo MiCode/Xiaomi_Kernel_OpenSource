@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Mi power info
+#
+
+
+config MI_POWER_INFO
+	tristate "Power debug info"
+	default n
+	help
+	  This adds support for mi power debug info.

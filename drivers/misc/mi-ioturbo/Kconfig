@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Mi ioturbo info
+#
+
+
+config MI_IOTURBO_SUPPORT
+	tristate "xiaomi ioturbo function"
+	default n
+	help
+	  This adds supprot for mi ioturbo function.

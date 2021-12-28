@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <trace/hooks/sched.h>
@@ -10,6 +11,10 @@
 #include "trace.h"
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
+
+#ifdef CONFIG_MIGT_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+#endif
 
 static void create_util_to_cost_pd(struct em_perf_domain *pd)
 {
@@ -154,12 +159,33 @@ static inline bool walt_target_ok(int target_cpu, int order_index)
 		 (target_cpu == cpumask_first(&cpu_array[order_index][0])));
 }
 
+#ifdef CONFIG_MIGT_WALT
+mi_walt_get_indicies order_index_modify_func = NULL;
+
+void register_mi_walt_get_indicies(mi_walt_get_indicies f)
+{
+	pr_info("%s now\n",  __FUNCTION__);
+	order_index_modify_func = f;
+}
+EXPORT_SYMBOL_GPL(register_mi_walt_get_indicies);
+
+void unregister_mi_walt_get_indicies(void)
+{
+	pr_info("%s now\n",  __FUNCTION__);
+	order_index_modify_func = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_mi_walt_get_indicies);
+#endif
+
 #define MIN_UTIL_FOR_ENERGY_EVAL	52
 static void walt_get_indicies(struct task_struct *p, int *order_index,
 		int *end_index, int per_task_boost, bool is_uclamp_boosted,
 		bool *energy_eval_needed)
 {
 	int i = 0;
+#ifdef CONFIG_MIGT_WALT
+	bool check_return = false;
+#endif
 
 	*order_index = 0;
 	*end_index = 0;
@@ -181,6 +207,16 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 			*end_index = 1;
 		return;
 	}
+
+#ifdef CONFIG_MIGT_WALT
+	if(order_index_modify_func)
+		order_index_modify_func(p, order_index, end_index, num_sched_clusters,
+				&check_return);
+	if(check_return) {
+		*energy_eval_needed = false;
+		return;
+	}
+#endif
 
 	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
@@ -729,6 +765,24 @@ static inline bool select_cpu_same_energy(int cpu, int best_cpu, int prev_cpu)
 	return true;
 }
 
+#ifdef CONFIG_MIGT_WALT
+mi_find_energy_efficient_cpu wake_render_func = NULL;
+
+void register_mi_find_energy_efficient_cpu(mi_find_energy_efficient_cpu f)
+{
+	pr_info("%s now\n",  __FUNCTION__);
+	wake_render_func = f;
+}
+EXPORT_SYMBOL_GPL(register_mi_find_energy_efficient_cpu);
+
+void unregister_mi_find_energy_efficient_cpu(void)
+{
+	pr_info("%s now\n",  __FUNCTION__);
+	wake_render_func = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_mi_find_energy_efficient_cpu);
+#endif
+
 static inline unsigned int capacity_spare_of(int cpu)
 {
 	return capacity_orig_of(cpu) - cpu_util(cpu);
@@ -756,6 +810,10 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	bool energy_eval_needed = true;
 	struct compute_energy_output output;
 
+#ifdef CONFIG_MIGT_WALT
+	if(wake_render_func)
+		wake_render_func(p, &need_idle);
+#endif
 	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
 			cpumask_test_cpu(prev_cpu, &p->cpus_mask))
 		return prev_cpu;
@@ -909,12 +967,15 @@ fail:
 	return -EPERM;
 }
 
+
 static void
 walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 				int sd_flag, int wake_flags, int *target_cpu)
 {
 	int sync;
 	int sibling_count_hint;
+
+
 
 	if (unlikely(walt_disabled))
 		return;
@@ -1141,7 +1202,7 @@ void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	if (!list_empty(&wts->mvp_list))
+	if (!list_empty(&wts->mvp_list) && wts->mvp_list.next)
 		walt_cfs_deactivate_mvp_task(p);
 
 	/*
@@ -1164,7 +1225,7 @@ void walt_cfs_tick(struct rq *rq)
 
 	raw_spin_lock(&rq->lock);
 
-	if (list_empty(&wts->mvp_list))
+	if (list_empty(&wts->mvp_list) || (wts->mvp_list.next == NULL))
 		goto out;
 
 	walt_cfs_account_mvp_runtime(rq, rq->curr);
@@ -1198,8 +1259,8 @@ static void walt_cfs_check_preempt_wakeup(void *unused, struct rq *rq, struct ta
 	if (unlikely(walt_disabled))
 		return;
 
-	p_is_mvp = !list_empty(&wts_p->mvp_list);
-	curr_is_mvp = !list_empty(&wts_c->mvp_list);
+	p_is_mvp = !list_empty(&wts_p->mvp_list) && wts_p->mvp_list.next;
+	curr_is_mvp = !list_empty(&wts_c->mvp_list) && wts_c->mvp_list.next;
 
 	/*
 	 * current is not MVP, so preemption decision

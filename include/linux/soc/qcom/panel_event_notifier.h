@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 
@@ -23,6 +24,8 @@ enum panel_event_notifier_client {
 	PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH,
 	PANEL_EVENT_NOTIFIER_CLIENT_SECONDARY_TOUCH,
 	PANEL_EVENT_NOTIFIER_CLIENT_ECM,
+	PANEL_EVENT_NOTIFIER_CLIENT_THERMAL,
+	PANEL_EVENT_NOTIFIER_CLIENT_CHARGE,
 	PANEL_EVENT_NOTIFIER_CLIENT_MAX
 };
 

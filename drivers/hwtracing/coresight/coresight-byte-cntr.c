@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -58,9 +59,25 @@ static long tmc_etr_flush_remaining_bytes(struct tmc_drvdata *tmcdrvdata, loff_t
 			char **bufpp)
 {
 	long rwp_offset, req_size, actual = 0;
-	struct etr_buf *etr_buf = tmcdrvdata->sysfs_buf;
+        struct etr_buf *etr_buf;
+        struct device *dev;
+        int rc = 0;
+ 
+        if (!tmcdrvdata)
+               return -EINVAL;
+
+        etr_buf = tmcdrvdata->sysfs_buf;
+        dev = &tmcdrvdata->csdev->dev;
+ 
+        rc = pm_runtime_get_sync(dev->parent);
+        if (rc < 0) {
+               pm_runtime_put_noidle(dev->parent);
+               return rc;
+        }
+
 
 	rwp_offset = tmc_get_rwp_offset(tmcdrvdata);
+	pm_runtime_put(dev->parent);
 	req_size = ((rwp_offset < *ppos) ? tmcdrvdata->size : 0) +
 		rwp_offset - *ppos;
 

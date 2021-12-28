@@ -40,7 +40,7 @@
 
 #define AID_VENDOR_QRTR	KGIDT_INIT(2906)
 
-#if defined(CONFIG_RPMSG_QCOM_GLINK_NATIVE)
+#if defined(CONFIG_RPMSG_QCOM_GLINK)
 extern bool glink_resume_pkt;
 #endif
 
@@ -268,7 +268,7 @@ static void qrtr_log_tx_msg(struct qrtr_node *node, struct qrtr_hdr_v1 *hdr,
 	}
 }
 
-#if defined(CONFIG_RPMSG_QCOM_GLINK_NATIVE)
+#if defined(CONFIG_RPMSG_QCOM_GLINK)
 static void qrtr_log_resume_pkt(struct qrtr_cb *cb, u64 pl_buf)
 {
 	int service_id;
@@ -305,7 +305,7 @@ static void qrtr_log_rx_msg(struct qrtr_node *node, struct sk_buff *skb)
 			  skb->len, cb->confirm_rx, cb->src_node, cb->src_port,
 			  cb->dst_node, cb->dst_port,
 			  (unsigned int)pl_buf, (unsigned int)(pl_buf >> 32));
-#if defined(CONFIG_RPMSG_QCOM_GLINK_NATIVE)
+#if defined(CONFIG_RPMSG_QCOM_GLINK)
 		qrtr_log_resume_pkt(cb, pl_buf);
 #endif
 	} else {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2021, Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/acpi.h>
@@ -529,6 +530,14 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	 * so that the ice hardware will be re-initialized properly in the
 	 * later part of the UFS host controller reset.
 	 */
+	ufs_qcom_ice_disable(host);
+
+	/*
+	* The ice registers are also reset to default values after a ufs
+	* host controller reset. Reset the ice internal software flags here
+	* so that the ice hardware will be re-initialized properly in the
+	* later part of the UFS host controller reset.
+	*/
 	ufs_qcom_ice_disable(host);
 
 	if (reenable_intr) {

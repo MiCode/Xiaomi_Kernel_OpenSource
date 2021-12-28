@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
@@ -49,7 +52,7 @@
 #define MAX_FIRMWARE_NAME_LEN		40
 #define FW_V2_NUMBER                    2
 #define POWER_ON_RETRY_MAX_TIMES        3
-#define POWER_ON_RETRY_DELAY_MS         200
+#define POWER_ON_RETRY_DELAY_MS         500
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -103,6 +106,7 @@ struct cnss_pinctrl_info {
 	struct pinctrl_state *wlan_en_sleep;
 	int bt_en_gpio;
 	int xo_clk_gpio; /*qca6490 only */
+	int sw_ctrl_gpio;
 };
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
@@ -403,6 +407,7 @@ enum cnss_ce_index {
 
 struct cnss_dms_data {
 	u32 mac_valid;
+	u8 nv_mac_not_prov;
 	u8 mac[QMI_WLFW_MAC_ADDR_SIZE_V01];
 };
 
@@ -518,6 +523,7 @@ struct cnss_plat_data {
 	const char *vreg_ol_cpr, *vreg_ipa;
 	bool adsp_pc_enabled;
 	u64 feature_list;
+	u8 charger_mode;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
@@ -591,4 +597,5 @@ int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
 			  enum cnss_feature_v01 feature);
 int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
 			  u64 *feature_list);
+int cnss_get_input_gpio_value(struct cnss_plat_data *plat_priv, int gpio_num);
 #endif /* _CNSS_MAIN_H */

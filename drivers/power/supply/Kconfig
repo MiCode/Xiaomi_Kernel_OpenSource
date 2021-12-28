@@ -788,6 +788,24 @@ config RN5T618_POWER
 	  This driver can also be built as a module. If so, the module will be
 	  called rn5t618_power.
 
+config BQ_FG_2S
+	tristate "2s battery fuel gauge support"
+	help
+	  Say Y here to have support for 2s battery fuel gauge.
+
+config MI_WIRELESS
+	tristate "mi wirless config"
+	help
+	  Say Y here to enable mi wireless
+config BQ_FUEL_GAUGE
+	tristate "BQ fuel gauge config"
+	help
+	  Say y here to enable Bq fuel gauge
+config DUAL_FUEL_GAUGE
+	tristate "BQ fuel gauge config"
+	help
+	  Say y here to enable Bq fuel gauge
+
 source "drivers/power/supply/qcom/Kconfig"
 
 endif # POWER_SUPPLY

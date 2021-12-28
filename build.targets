@@ -1,4 +1,7 @@
 build.config.msm.waipio
 build.config.msm.waipio.tuivm
+build.config.msm.zeus
+build.config.msm.zeus.tuivm
+build.config.msm.cupid
+build.config.msm.cupid.tuivm
 build.config.neo
-

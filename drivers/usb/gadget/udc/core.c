@@ -3,6 +3,7 @@
  * udc.c - Core UDC Framework
  *
  * Copyright (C) 2010 Texas Instruments
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Felipe Balbi <balbi@ti.com>
  */
 
@@ -1180,6 +1181,22 @@ static inline void usb_gadget_udc_set_speed(struct usb_udc *udc,
 		gadget->ops->udc_set_ssp_rate(gadget, gadget->max_ssp_rate);
 	else if (gadget->ops->udc_set_speed)
 		gadget->ops->udc_set_speed(gadget, s);
+}
+
+static inline void usb_gadget_enable_async_callbacks(struct usb_udc *udc)
+{
+        struct usb_gadget *gadget = udc->gadget;
+
+        if (gadget->ops->udc_async_callbacks)
+                gadget->ops->udc_async_callbacks(gadget, true);
+}
+
+static inline void usb_gadget_disable_async_callbacks(struct usb_udc *udc)
+{
+        struct usb_gadget *gadget = udc->gadget;
+
+        if (gadget->ops->udc_async_callbacks)
+                gadget->ops->udc_async_callbacks(gadget, false);
 }
 
 /**

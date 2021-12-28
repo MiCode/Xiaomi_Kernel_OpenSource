@@ -34,8 +34,10 @@
 static bool download_mode = IS_ENABLED(CONFIG_QCOM_SCM_DOWNLOAD_MODE_DEFAULT);
 module_param(download_mode, bool, 0);
 
-static unsigned int pas_shutdown_retry_delay = 5000;
-module_param(pas_shutdown_retry_delay, uint, 0644);
+static unsigned int pas_shutdown_retry_interval = 100;
+module_param(pas_shutdown_retry_interval, uint, 0644);
+static unsigned int pas_shutdown_retry_max = 50;
+module_param(pas_shutdown_retry_max, uint, 0644);
 
 #define SCM_HAS_CORE_CLK	BIT(0)
 #define SCM_HAS_IFACE_CLK	BIT(1)
@@ -685,17 +687,21 @@ EXPORT_SYMBOL(qcom_scm_pas_shutdown);
 int qcom_scm_pas_shutdown_retry(u32 peripheral)
 {
 	int ret;
+	int retry_num = 0;
 
 	ret = qcom_scm_pas_shutdown(peripheral);
 	if (!ret)
 		return ret;
 
 	pr_err("PAS Shutdown: First call to shutdown failed with error: %d\n", ret);
-	pr_err("PAS Shutdown: Sleeping for: %u\n", pas_shutdown_retry_delay);
-	msleep(pas_shutdown_retry_delay);
+	while (retry_num < pas_shutdown_retry_max && ret) {
+		retry_num++;
+		msleep(pas_shutdown_retry_interval);
+		ret = qcom_scm_pas_shutdown(peripheral);
+	}
+	pr_err("PAS Shutdown: Attempting to shutdown peripheral %d time(s)\n", retry_num);
 
-	pr_err("PAS Shutdown: Attempting to shutdown peripheral again\n");
-	return qcom_scm_pas_shutdown(peripheral);
+	return ret;
 }
 EXPORT_SYMBOL(qcom_scm_pas_shutdown_retry);
 

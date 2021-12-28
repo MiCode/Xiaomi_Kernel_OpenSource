@@ -41,6 +41,7 @@ int qcom_glink_smem_start(struct qcom_glink *glink)
 struct qcom_glink *qcom_glink_spss_register(struct device *parent,
 					    struct device_node *node);
 void qcom_glink_spss_unregister(struct qcom_glink *glink);
+int qcom_glink_spss_start(struct qcom_glink *glink);
 
 #else
 
@@ -52,7 +53,10 @@ qcom_glink_spss_register(struct device *parent,
 }
 
 static inline void qcom_glink_spss_unregister(struct qcom_glink *glink) {}
-
+int qcom_glink_spss_start(struct qcom_glink *glink)
+{
+	return -ENXIO;
+}
 #endif
 
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2021 XiaoMi, Inc. */
 
 #include <linux/err.h>
 #include <linux/seq_file.h>
@@ -846,6 +847,14 @@ static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 #else
 static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 {
+#ifdef CONFIG_WIFI_THREE_ANTENNA
+	/* Create reg read/write for non-debug build as well */
+	struct dentry *root_dentry = plat_priv->root_dentry;
+	debugfs_create_file("reg_read", 0600, root_dentry, plat_priv,
+			    &cnss_reg_read_debug_fops);
+	debugfs_create_file("reg_write", 0600, root_dentry, plat_priv,
+			    &cnss_reg_write_debug_fops);
+#endif
 	return 0;
 }
 #endif
