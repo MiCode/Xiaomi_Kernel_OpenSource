@@ -248,6 +248,8 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 
 	BTFMSLIM_INFO("btfm_num_ports_open: %d", btfm_num_ports_open);
 
+	chipset_ver = btpower_get_chipset_version();
+
 	if (btfm_num_ports_open == 0 && (chipset_ver == QCA_HSP_SOC_ID_0200 ||
 		chipset_ver == QCA_HSP_SOC_ID_0210 ||
 		chipset_ver == QCA_HSP_SOC_ID_1201 ||
