@@ -228,6 +228,7 @@ static u32 get_margin(struct adaptor_ctx *ctx)
 	subdrv_call(ctx, feature_control,
 		    SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO,
 		    para.u8, &len);
+	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 
 	if (!g_stagger_info(ctx, ctx->cur_mode->id, &info))
 		mode_exp_cnt = info.count;
@@ -490,9 +491,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 
 		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
-	ctx->shutter_for_timeout = ctx->exposure->val;
-	if (ctx->cur_mode->fine_intg_line)
-		ctx->shutter_for_timeout /= 1000;
+
 	ctx->exposure->val = ae_ctrl->exposure.le_exposure;
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;
@@ -551,7 +550,7 @@ void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 
 		return;
 	}
-
+	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 	/* for hdr-exp settings, e.g. STG sensor */
 	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
 	if (!ret) {
@@ -629,8 +628,9 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_SOF_TIMEOUT_VALUE:
 		if (ctx->shutter_for_timeout != 0) {
-			ctrl->val =
-				(mode->linetime_in_ns / 1000) * ctx->shutter_for_timeout;
+			u64 tmp = mode->linetime_in_ns * ctx->shutter_for_timeout;
+
+			ctrl->val = tmp / 1000;
 		}
 		dev_info(ctx->dev, "[%s] sof timeout value in us %d|%llu|%d|%d\n",
 			__func__,
@@ -643,7 +643,22 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			ctrl->val = 10000000 / mode->max_framerate;
 		break;
 	case V4L2_CID_VBLANK:
-		ctrl->val = mode->fll - mode->height;
+		if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
+			ctrl->val = mode->fll - (mode->height *
+				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
+				(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0)));
+			dev_info(ctx->dev, "[%s] V4L2_CID_VBLANK %d|%d|%d|%d|%d\n",
+				__func__,
+				ctrl->val,
+				mode->linetime_in_ns_readout,
+				mode->linetime_in_ns,
+				mode->fll,
+				(mode->height *
+				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
+			(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0))));
+		} else {
+			ctrl->val = mode->fll - mode->height;
+		}
 		break;
 	case V4L2_CID_HBLANK:
 		ctrl->val =
@@ -683,6 +698,8 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			csi_param->dphy_clk_settle = mode->csi_param.dphy_clk_settle;
 			csi_param->dphy_data_settle = mode->csi_param.dphy_data_settle;
 			csi_param->dphy_trail = mode->csi_param.dphy_trail;
+			csi_param->legacy_phy = mode->csi_param.legacy_phy;
+			csi_param->not_fixed_trail_settle = mode->csi_param.not_fixed_trail_settle;
 		}
 	}
 		break;
@@ -753,7 +770,15 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 						para.u8, &len);
 
 			info->fps = val / 10;
-			info->vblank = mode->fll - mode->height;
+
+			if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
+				info->vblank = mode->fll - mode->height *
+				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
+				(mode->linetime_in_ns_readout % mode->linetime_in_ns) ? 1 : 0);
+			} else {
+				info->vblank = mode->fll - mode->height;
+			}
+
 			info->hblank =
 				(((mode->linetime_in_ns_readout *
 					mode->mipi_pixel_rate)/1000000000) - mode->width);
@@ -765,7 +790,7 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 			info->cust_pixelrate = mode->cust_pixel_rate;
 		}
 
-		dev_info(ctx->dev,
+		dev_dbg(ctx->dev,
 				"%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d cust_pixel_rate: %d\n",
 				__func__, info->scenario_id, info->fps, info->vblank,
 				info->hblank, info->pixelrate, info->cust_pixelrate);
@@ -808,6 +833,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VSYNC_NOTIFY:
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
 		notify_fsync_vsync(ctx);
+
+		/* update timeout value upon vsync*/
+		ctx->shutter_for_timeout = ctx->exposure->val;
+		if (ctx->cur_mode->fine_intg_line)
+			ctx->shutter_for_timeout /= 1000;
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
 		para.u64[0] = ctrl->val;
@@ -1121,7 +1151,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 #endif
 	case V4L2_CID_MTK_SENSOR_POWER:
-		dev_info(dev, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
+		dev_dbg(dev, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
 		if (ctrl->val)
 			adaptor_hw_power_on(ctx);
 		else
@@ -1200,7 +1230,10 @@ static const struct v4l2_ctrl_ops ctrl_ops = {
 static const char * const test_pattern_menu[] = {
 	"Disabled",
 	"Solid Color",
-	"Colour Bars",
+	"COLOR_BARS",
+	"COLOR_BARS_FADE_TO_GRAY",
+	"PN9",
+	"BLACK",
 };
 
 #ifdef V4L2_CID_PD_PIXEL_REGION

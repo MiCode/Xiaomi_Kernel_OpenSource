@@ -959,7 +959,7 @@ static void cmdq_test_mbox_reuse_buf_va(struct cmdq_test *test)
 			cmdq_pkt_write(pkt, NULL, pa, i, ~0);
 		else {
 			cmdq_pkt_write_value_addr_reuse(
-				pkt, pa, i, ~0, &reuse[j].va, &reuse[j].offset);
+				pkt, pa, i, ~0, &reuse[j]);
 			reuse[j].val = i;
 			cmdq_msg("%s: reuse:%d va:%p val:%#x inst:%#llx",
 				__func__, j,
@@ -1179,7 +1179,10 @@ static void cmdq_test_mbox_vcp(struct cmdq_test *test, const bool reuse)
 {
 	struct cmdq_pkt	*pkt1 = cmdq_pkt_create(test->clt);
 	struct cmdq_pkt	*pkt2 = cmdq_pkt_create(test->loop);
+	struct cmdq_pkt	*pkt1_reuse;
+	struct cmdq_pkt	*pkt2_reuse;
 	struct cmdq_reuse reuse1, reuse2;
+	struct cmdq_poll_reuse poll_reuse1, poll_reuse2;
 	dma_addr_t iova;
 	void *va = cmdq_get_vcp_buf(CMDQ_VCP_ENG_MDP_HDR0, &iova);
 	u32 val[4], i, j;
@@ -1191,25 +1194,43 @@ static void cmdq_test_mbox_vcp(struct cmdq_test *test, const bool reuse)
 	for (i = 0; i < 4; i++) {
 		if (!i) {
 			cmdq_pkt_readback(pkt1, CMDQ_VCP_ENG_MDP_HDR0, 0, 0,
-				CMDQ_GPR_DEBUG_DUMMY, &reuse1.va);
+				CMDQ_GPR_DEBUG_DUMMY, &reuse1, &poll_reuse1);
 			cmdq_pkt_readback(pkt2, CMDQ_VCP_ENG_MDP_HDR1, 4, 0,
-				CMDQ_GPR_DEBUG_TIMER, &reuse2.va);
+				CMDQ_GPR_DEBUG_TIMER, &reuse2, &poll_reuse2);
 		} else {
+			pkt1_reuse = cmdq_pkt_create(test->clt);
+			cmdq_pkt_copy(pkt1_reuse, pkt1);
+			reuse1.va = cmdq_pkt_get_va_by_offset(pkt1_reuse, reuse1.offset);
 			reuse1.val = cmdq_pkt_vcp_reuse_val(
 				CMDQ_VCP_ENG_MDP_HDR0, 0, i);
-			cmdq_pkt_reuse_buf_va(pkt1, &reuse1, 1);
-
+			cmdq_pkt_reuse_buf_va(pkt1_reuse, &reuse1, 1);
+			cmdq_pkt_reuse_poll(pkt1_reuse, &poll_reuse1);
+			pkt2_reuse = cmdq_pkt_create(test->loop);
+			cmdq_pkt_copy(pkt2_reuse, pkt2);
+			reuse2.va = cmdq_pkt_get_va_by_offset(pkt2_reuse, reuse2.offset);
 			reuse2.val = cmdq_pkt_vcp_reuse_val(
 				CMDQ_VCP_ENG_MDP_HDR1, 4, i);
-			cmdq_pkt_reuse_buf_va(pkt2, &reuse2, 1);
+			cmdq_pkt_reuse_buf_va(pkt2_reuse, &reuse2, 1);
+			cmdq_pkt_reuse_poll(pkt2_reuse, &poll_reuse2);
 		}
 
 		if (reuse) {
-			cmdq_pkt_refinalize(pkt1);
-			cmdq_pkt_flush(pkt1);
+			if (!i) {
+				cmdq_pkt_dump_buf(pkt1, 0);
+				cmdq_pkt_dump_buf(pkt2, 0);
+				cmdq_pkt_flush(pkt1);
+				cmdq_pkt_flush(pkt2);
+			} else {
+				cmdq_pkt_refinalize(pkt1_reuse);
+				cmdq_pkt_dump_buf(pkt1_reuse, 0);
+				cmdq_pkt_flush(pkt1_reuse);
+				cmdq_pkt_destroy(pkt1_reuse);
 
-			cmdq_pkt_refinalize(pkt2);
-			cmdq_pkt_flush(pkt2);
+				cmdq_pkt_refinalize(pkt2_reuse);
+				cmdq_pkt_dump_buf(pkt2_reuse, 0);
+				cmdq_pkt_flush(pkt2_reuse);
+				cmdq_pkt_destroy(pkt2_reuse);
+			}
 
 			for (j = 0; j < 4; j++)
 				val[j] = readl(va + j * 4);

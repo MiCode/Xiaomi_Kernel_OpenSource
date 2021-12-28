@@ -12,6 +12,7 @@
 #include <linux/dma-fence.h>
 #include <linux/file.h>
 #include <linux/kref.h>
+#include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/mailbox_controller.h>
@@ -55,18 +56,25 @@ do { \
 
 /* mml ftrace */
 extern int mml_trace;
-#define mml_trace_begin(fmt, args...) do { \
-	preempt_disable(); \
-	tracing_mark_write( \
-		"B|%d|" fmt "\n", current->tgid, ##args); \
-	preempt_enable();\
-} while (0)
 
-#define mml_trace_end() do { \
-	preempt_disable(); \
-	tracing_mark_write("E\n"); \
-	preempt_enable(); \
-} while (0)
+#define MML_TTAG_OVERDUE	"mml_endtime_overdue"
+#define MML_TID_IRQ		0	/* trace on <idle>-0 process */
+
+#define mml_trace_begin_tid(tid, fmt, args...) \
+	tracing_mark_write("B|%d|" fmt "\n", tid, ##args)
+
+#define mml_trace_begin(fmt, args...) \
+	mml_trace_begin_tid(current->tgid, fmt, ##args)
+
+#define mml_trace_end() \
+	tracing_mark_write("E\n")
+
+#define mml_trace_c(tag, c) \
+	tracing_mark_write("C|%d|%s|%d\n", current->tgid, tag, c)
+
+#define mml_trace_tag_start(tag) mml_trace_c(tag, 1)
+
+#define mml_trace_tag_end(tag) mml_trace_c(tag, 0)
 
 #define mml_trace_ex_begin(fmt, args...) do { \
 	if (mml_trace) \
@@ -117,6 +125,7 @@ struct mml_task_ops {
 	void (*frame_err)(struct mml_task *task);
 	s32 (*dup_task)(struct mml_task *task, u32 pipe);
 	struct mml_tile_cache *(*get_tile_cache)(struct mml_task *task, u32 pipe);
+	void (*kt_setsched)(void *adaptor_ctx);
 };
 
 struct mml_cap {
@@ -255,12 +264,14 @@ struct mml_frame_config {
 	u8 done_task_cnt;
 	/* mutex to join operations of task pipes, like buffer flush */
 	struct mutex pipe_mutex;
+	struct kref ref;
 
 	/* display parameter */
 	bool disp_dual;
 	bool disp_vdo;
 
 	/* platform driver */
+	void *ctx;
 	struct mml_dev *mml;
 
 	/* adaptor */
@@ -269,8 +280,11 @@ struct mml_frame_config {
 	/* core */
 	const struct mml_task_ops *task_ops;
 
-	/* workqueue for handling task done */
+	/* workqueue for handling slow part of task done */
 	struct workqueue_struct *wq_done;
+
+	/* kthread worker for task done, assign from ctx */
+	struct kthread_worker *ctx_kt_done;
 
 	/* use on context wq_destroy */
 	struct work_struct work_destroy;
@@ -306,6 +320,8 @@ struct mml_file_buf {
 	u8 cnt;
 	struct dma_fence *fence;
 	u32 usage;
+	u64 map_time;
+	u64 unmap_time;
 
 	bool flush:1;
 	bool invalid:1;
@@ -362,9 +378,10 @@ struct mml_task {
 	/* make command cache labels for reuse command */
 	struct mml_task_reuse reuse[MML_PIPE_CNT];
 
-	/* workqueue */
+	/* config and done on thread */
 	struct work_struct work_config[MML_PIPE_CNT];
-	struct work_struct work_done[MML_PIPE_CNT];
+	struct work_struct wq_work_done;
+	struct kthread_work kt_work_done;
 	atomic_t pipe_done;
 
 	/* mml pq task */
@@ -421,8 +438,10 @@ struct mml_comp_hw_ops {
 	s32 (*clk_disable)(struct mml_comp *comp);
 	u32 (*qos_datasize_get)(struct mml_task *task,
 				struct mml_comp_config *ccfg);
+	u32 (*qos_format_get)(struct mml_task *task,
+			      struct mml_comp_config *ccfg);
 	void (*qos_set)(struct mml_comp *comp, struct mml_task *task,
-			struct mml_comp_config *ccfg, u32 throughput);
+			struct mml_comp_config *ccfg, u32 throughput, u32 tput_up);
 	void (*qos_clear)(struct mml_comp *comp);
 	void (*task_done)(struct mml_comp *comp, struct mml_task *task,
 			  struct mml_comp_config *ccfg);
@@ -430,7 +449,7 @@ struct mml_comp_hw_ops {
 
 struct mml_comp_debug_ops {
 	void (*dump)(struct mml_comp *comp);
-	void (*reset)(struct mml_comp *comp, struct mml_task *task, u32 pipe);
+	void (*reset)(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe);
 };
 
 struct mml_comp {
@@ -517,6 +536,7 @@ struct mml_frm_dump_data {
 	const char *prefix;
 	char name[50];
 	void *frame;
+	u32 bufsize;
 	u32 size;
 };
 

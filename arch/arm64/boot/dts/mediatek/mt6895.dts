@@ -458,16 +458,10 @@
 		};
 	};
 
-	pmu-ca55 {
+	pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupt-parent = <&gic>;
-		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
-	};
-
-	pmu-ca78 {
-		compatible = "arm,armv8-pmuv3";
-		interrupt-parent = <&gic>;
-		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster1>;
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
 	psci {
@@ -1151,7 +1145,8 @@
 			compatible = "mediatek,cpufreq-hybrid";
 			reg = <0 0x00114400 0 0xc00>,
 				<0 0x0011bc00 0 0x1400>,
-				<0 0x00112400 0 0x1800>;
+				<0 0x00112400 0 0x1800>,
+				<0 0x00114F40 0 0xc0>;
 			reg-names = "USRAM", "CSRAM", "ESRAM";
 			cslog-range = <0x03d0>, <0x0fa0>;
 			tbl-off = <4>, <76>, <148>, <220>;
@@ -1170,6 +1165,9 @@
 			proc4-supply = <&mt6319_7_vbuck3>; //DSU
 			/* regulator step value */
 			proc3 = <6250>; //B
+			/* leakage info */
+			nvmem-cells = <&lkginfo>;
+			nvmem-cell-names = "lkginfo";
 		};
 
 		cqdma: cq_dma@10212000 {
@@ -1595,11 +1593,11 @@
 					"mbox0_irq";
 
 			up_code_buf_sz = <0x100000>;
-			up_coredump_buf_sz = <0x200000>;
+			up_coredump_buf_sz = <0x180000>;
 			regdump_buf_sz = <0x10000>;
-			mdla_coredump_buf_sz = <0x20000>;
-			mvpu_coredump_buf_sz = <0x20000>;
-			mvpu_sec_coredump_buf_sz = <0x20000>;
+			mdla_coredump_buf_sz = <0x0>;
+			mvpu_coredump_buf_sz = <0x0>;
+			mvpu_sec_coredump_buf_sz = <0x0>;
 
 			apu_ctrl {
 				compatible = "mediatek,apu-ctrl-rpmsg";
@@ -1928,11 +1926,11 @@
 				<GIC_SPI 532 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 533 IRQ_TYPE_LEVEL_HIGH 0>,
 				<GIC_SPI 534 IRQ_TYPE_LEVEL_HIGH 0>;
-		emi-connac-ver = <2>;
-		emi-addr = <0>;
-		emi-size = <0x100000>;
-		emi-alignment = <0x100000>;
-		emi-max-addr = <0xc0000000>;
+			emi-connac-ver = <2>;
+			emi-addr = <0>;
+			emi-size = <0x100000>;
+			emi-alignment = <0x100000>;
+			emi-max-addr = <0x80000000>;
 		};
 
 		watchdog: watchdog@1c007000 {
@@ -5585,6 +5583,10 @@
 			mediatek,larb = <&smi_larb0>;
 			fake-engine = <&smi_larb0 M4U_LARB0_PORT15>,
 					<&smi_larb1 M4U_LARB1_PORT7>;
+
+			nvmem-cells = <&efuse_segment>;
+			nvmem-cell-names = "efuse_seg_disp_cell";
+
 			#clock-cells = <1>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_DISP>;
 			clocks = <&mmsys0_config_clk CLK_MM0_DISP_MUTEX0>,
@@ -7785,6 +7787,21 @@
 		throughput-op-rate-thresh = <120>;
 		throughput-min = <218000000>;
 		throughput-normal-max = <416000000>;
+		profile-duration = <60 2000>;
+		profile-target = <15 25 30 50 60 90 120 150 180 240>;
+		max-op-rate-table =
+			<877088845 921600 120 3686400 60 8847360 15 35389440 5>, /* MPEG4 */
+			<826757197 921600 120 3686400 60 8847360 15 35389440 5>, /* MPEG1 */
+			<843534413 921600 120 3686400 60 8847360 15 35389440 5>, /* MPEG2 */
+			<859189832 921600 120 3686400 60 8847360 15 35389440 5>, /* H.263 */
+			<875967048 921600 180 3686400 120 8847360 60 35389440 5>, /* H.264 */
+			<826496577 921600 180 3686400 120 8847360 60 35389440 5>, /* H.264 */
+			<1129727304 921600 180 3686400 120 8847360 60 35389440 5>, /* HEVC */
+			<892744264 921600 180 3686400 120 8847360 60 35389440 5>, /* H.265 */
+			<1179206984 262144 550 2097152 550 8847360 60 35389440 5>, /* HEIF */
+			<808996950 921600 120 3686400 60 8847360 15 35389440 5>, /* VP8 */
+			<809062486 921600 180 3686400 120 8847360 60 35389440 5>, /* VP9 */
+			<808539713 921600 180 3686400 120 8847360 60 35389440 5>; /* AV1 */
 		throughput-table =
 			<877088845 0 445 445>, /* MPEG4 */
 			<826757197 0 445 445>, /* MPEG1 */
@@ -8471,8 +8488,9 @@
 
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOP_MMUP_SEL>,
-			<&topckgen_clk CLK_TOP_MAINPLL_D3>;
-		clock-names = "mmup-clk", "mmup-pll";
+			<&topckgen_clk CLK_TOP_MAINPLL_D3>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
+		clock-names = "mmup-sel", "mmup-clk", "mmup-26m";
 	};
 
 	vcp_io2: vcp_iommu_vdec {
@@ -8613,7 +8631,6 @@
 			operating-points-v2 = <&opp_table_mdp0>;
 			mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			dre30_hist_sram_start = <1536>;
-			vcp_pq_readback;
 		};
 
 		mdpsys_config_clk: syscon@1f000000 {
@@ -9082,7 +9099,8 @@
 		};
 
 		mml_tdshp0: mml_tdshp0@1f80b000 {
-			compatible = "mediatek,mt6895-mml_tdshp";
+			compatible = "mediatek,mt6895-mml_tdshp",
+				"mediatek,mml-tuning-mml_tdshp";
 			reg = <0 0x1f80b000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_TDSHP0>;
 			clock-names = "tdshp0";
@@ -9091,7 +9109,8 @@
 		};
 
 		mml_tdshp1: mml_tdshp1@1f80c000 {
-			compatible = "mediatek,mt6895-mml_tdshp";
+			compatible = "mediatek,mt6895-mml_tdshp",
+				"mediatek,mml-tuning-mml_tdshp";
 			reg = <0 0x1f80c000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_TDSHP1>;
 			clock-names = "tdshp1";
@@ -9100,7 +9119,8 @@
 		};
 
 		mml_color0: mml_color0@1f80d000 {
-			compatible = "mediatek,mt6895-mml_color";
+			compatible = "mediatek,mt6895-mml_color",
+				"mediatek,mml-tuning-mml_color";
 			reg = <0 0x1f80d000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_COLOR0>;
 			clock-names = "color0";
@@ -9109,7 +9129,8 @@
 		};
 
 		mml_color1: mml_color1@1f80e000 {
-			compatible = "mediatek,mt6895-mml_color";
+			compatible = "mediatek,mt6895-mml_color",
+				"mediatek,mml-tuning-mml_color";
 			reg = <0 0x1f80e000 0 0x1000>;
 			clocks = <&mdpsys1_config_clk CLK_MDP1_MDP_COLOR1>;
 			clock-names = "color1";
@@ -9258,6 +9279,8 @@
 			mediatek,hw-req-ctrl;
 			mediatek,noise-still-tr;
 			mediatek,gen1-txdeemph;
+			mediatek,syscon-wakeup = <&pericfg_ao_clk 0x200 103>;
+			wakeup-source;
 			usb-role-switch;
 			cdp-block;
 			port {
@@ -9336,7 +9359,7 @@
 				mediatek,efuse-intr = <0x26>;
 				mediatek,eye-vrt = <2>;
 				mediatek,eye-vrt-host = <2>;
-				mediatek,discth= <0x9>;
+				mediatek,discth= <0xb>;
 			};
 
 			u3port0: usb3-phy0@11e43000 {
@@ -9364,7 +9387,7 @@
 				mediatek,efuse-intr = <0x26>;
 				mediatek,eye-vrt = <2>;
 				mediatek,eye-vrt-host = <2>;
-				mediatek,discth= <0x9>;
+				mediatek,discth= <0xb>;
 			};
 		};
 
@@ -10632,6 +10655,10 @@
 		};
 		lvts_e_data3: data3 {
 			reg = <0x2d4 0x14>;
+		};
+
+		lkginfo: lkg {
+			reg = <0x218 0x18>;
 		};
 	};
 

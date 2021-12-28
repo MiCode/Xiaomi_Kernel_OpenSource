@@ -67,6 +67,8 @@
 
 #include "slbc_ops.h"
 #include <linux/syscalls.h>
+#define CLKBUF_COMMON_H
+#include <mtk_clkbuf_ctl.h>
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -115,6 +117,16 @@ void **mtk_aod_scp_ipi_init(void)
 	return (void **)&aod_scp_ipi.send_ipi;
 }
 EXPORT_SYMBOL(mtk_aod_scp_ipi_init);
+
+struct mtk_drm_disp_sec_cb disp_sec_cb;
+EXPORT_SYMBOL(disp_sec_cb);
+
+void **mtk_drm_disp_sec_cb_init(void)
+{
+	DDPMSG("%s+\n", __func__);
+	return (void **)&disp_sec_cb.cb;
+}
+EXPORT_SYMBOL(mtk_drm_disp_sec_cb_init);
 
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
@@ -730,11 +742,13 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 				}
 			//pmic_ldo_vio18_lp(SRCLKEN0, 0, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 0, 1, HW_LP);
+			clk_buf_voter_ctrl_by_id(12, SW_BBLPM);
 		} else if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]
 				&& !prepare) {
 			DDPMSG("exit AOD, enable PMIC LPMODE\n");
 			//pmic_ldo_vio18_lp(SRCLKEN0, 1, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 1, 1, HW_LP);
+			clk_buf_voter_ctrl_by_id(12, SW_OFF);
 		}
 	}
 	if (!mtk_state->doze_changed ||
@@ -767,6 +781,9 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 	struct mtk_cmdq_cb_data *cb_data;
 	int i, j;
 	unsigned int bypass = 0;
+
+	/* skip this stage avoid cmdq_mbox control abnormal */
+	return;
 
 	DDPINFO("%s+: new crtc state = %d, old crtc state = %d, stage = %d\n", __func__,
 		crtc->state->active, old_state, stage);

@@ -407,7 +407,9 @@ u32 cmdq_pkt_vcp_reuse_val(enum CMDQ_VCP_ENG_ENUM engine, u32 buf_offset, u16 si
 EXPORT_SYMBOL(cmdq_pkt_vcp_reuse_val);
 
 s32 cmdq_pkt_readback(struct cmdq_pkt *pkt, enum CMDQ_VCP_ENG_ENUM engine,
-	u32 buf_offset, u16 size, u16 reg_gpr, u64 **curr_buf_va)
+	u32 buf_offset, u16 size, u16 reg_gpr,
+	struct cmdq_reuse *reuse,
+	struct cmdq_poll_reuse *poll_reuse)
 {
 	s32 err = 0;
 	dma_addr_t addr;
@@ -420,15 +422,17 @@ s32 cmdq_pkt_readback(struct cmdq_pkt *pkt, enum CMDQ_VCP_ENG_ENUM engine,
 		return -1;
 
 	cmdq_pkt_write(pkt, NULL, addr, value, ~0);
-	if (curr_buf_va) /* reuse va */
-		*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	if (reuse) {
+		reuse->op = CMDQ_CODE_WRITE_S;
+		reuse->va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+		reuse->offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	}
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	/* vcp irq B_GIPC2_SETCLR_0 */
 	cmdq_pkt_write(pkt, NULL, VCP_TO_SPM_REG_PA, B_GIPC2_SETCLR_0, B_GIPC2_SETCLR_0);
 #endif
-	/* timeout 360ms = 12us * 30000 */
-	cmdq_pkt_poll_timeout(pkt, 0, SUBSYS_NO_SUPPORT,
-		addr, ~0, 30000, reg_gpr);
+	cmdq_pkt_poll_timeout_reuse(pkt, 0, SUBSYS_NO_SUPPORT,
+		addr, ~0, U16_MAX, reg_gpr, poll_reuse);
 
 	return err;
 }
@@ -1152,28 +1156,26 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 	err = cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
 		value, mask);
 
-	if (gce_insert_dummy && (addr > (dma_addr_t)gce_mminfra))
-		cmdq_pkt_read_addr(pkt, addr, CMDQ_SPR_FOR_TEMP);
-
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr);
 
 s32 cmdq_pkt_assign_command_reuse(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
-	u64 **curr_buf_va, u32 *inst_offset)
+	struct cmdq_reuse *reuse)
 {
 	s32 err;
 
 	err = cmdq_pkt_assign_command(pkt, reg_idx, value);
 
-	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
-	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	reuse->op = CMDQ_CODE_LOGIC;
+	reuse->va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	reuse->offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_assign_command_reuse);
 
 s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
-	u16 src_reg_idx, u32 mask, u64 **curr_buf_va, u32 *inst_offset)
+	u16 src_reg_idx, u32 mask, struct cmdq_reuse *reuse)
 {
 	s32 err;
 	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
@@ -1186,14 +1188,15 @@ s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
 	err = cmdq_pkt_store_value_reg(pkt, dst_reg_idx,
 		CMDQ_GET_ADDR_LOW(addr), src_reg_idx, mask);
 
-	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
-	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	reuse->op = CMDQ_CODE_WRITE_S;
+	reuse->va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	reuse->offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_reg_addr_reuse);
 
 s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
-	u32 value, u32 mask, u64 **curr_buf_va, u32 *inst_offset)
+	u32 value, u32 mask, struct cmdq_reuse *reuse)
 {
 	s32 err;
 	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
@@ -1207,13 +1210,34 @@ s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
 	err = cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
 		value, mask);
 
-	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
-	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	reuse->op = CMDQ_CODE_WRITE_S;
+	reuse->va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	reuse->offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 	cmdq_log("%s: curr_buf_va:%p idx:%u",
-		__func__, *curr_buf_va, *inst_offset);
+		__func__, reuse->va, reuse->offset);
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr_reuse);
+
+
+void cmdq_pkt_reuse_jump(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse)
+{
+	struct cmdq_instruction *inst;
+	dma_addr_t cmd_pa;
+	u32 shift_pa;
+
+	cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, reuse->val);
+	shift_pa = CMDQ_REG_SHIFT_ADDR(cmd_pa);
+	inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
+		pkt, reuse->offset);
+	inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
+	inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+}
+
+void cmdq_pkt_reuse_value(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse)
+{
+	*reuse->va = (*reuse->va & GENMASK(63, 32)) | reuse->val;
+}
 
 void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
 	const u32 count)
@@ -1221,12 +1245,43 @@ void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
 	s32 i;
 
 	for (i = 0; i < count; i++) {
-		*reuse[i].va = (*reuse[i].va & GENMASK(63, 32)) | reuse[i].val;
-		cmdq_log("%s:curr reuse:%d va:%p val:%#x inst:%#llx",
-			__func__, i, reuse[i].va, reuse[i].val, *reuse[i].va);
+		switch (reuse[i].op) {
+		case CMDQ_CODE_READ:
+		case CMDQ_CODE_MOVE:
+		case CMDQ_CODE_WRITE:
+		case CMDQ_CODE_POLL:
+		case CMDQ_CODE_WFE:
+		case CMDQ_CODE_SET_TOKEN:
+		case CMDQ_CODE_WAIT_NO_CLEAR:
+		case CMDQ_CODE_CLEAR_TOKEN:
+		case CMDQ_CODE_READ_S:
+		case CMDQ_CODE_WRITE_S:
+		case CMDQ_CODE_WRITE_S_W_MASK:
+		case CMDQ_CODE_LOGIC:
+			cmdq_pkt_reuse_value(pkt, &reuse[i]);
+			break;
+		case CMDQ_CODE_JUMP:
+		case CMDQ_CODE_JUMP_C_ABSOLUTE:
+		case CMDQ_CODE_JUMP_C_RELATIVE:
+			cmdq_pkt_reuse_jump(pkt, &reuse[i]);
+			break;
+		default:
+			cmdq_err("idx:%d, invalid op:%#x, va:%p val:%#x inst:%#llx",
+			i, reuse[i].op, reuse[i].va, reuse[i].val, *reuse[i].va);
+			break;
+		}
+		cmdq_log("%s:curr reuse:%d op:%#x va:%p val:%#x inst:%#llx",
+			__func__, i, reuse[i].op, reuse[i].va, reuse[i].val, *reuse[i].va);
 	}
 }
 EXPORT_SYMBOL(cmdq_pkt_reuse_buf_va);
+
+void cmdq_pkt_reuse_poll(struct cmdq_pkt *pkt, struct cmdq_poll_reuse *poll_reuse)
+{
+	cmdq_pkt_reuse_buf_va(pkt, &poll_reuse->jump_to_begin, 1);
+	cmdq_pkt_reuse_buf_va(pkt, &poll_reuse->jump_to_end, 1);
+}
+EXPORT_SYMBOL(cmdq_pkt_reuse_poll);
 
 void cmdq_reuse_refresh(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse, u32 cnt)
 {
@@ -1726,8 +1781,8 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 }
 EXPORT_SYMBOL(cmdq_pkt_sleep);
 
-s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
-	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr)
+s32 cmdq_pkt_poll_timeout_reuse(struct cmdq_pkt *pkt, u32 value, u8 subsys,
+	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr, struct cmdq_poll_reuse *poll_reuse)
 {
 	const u16 reg_tmp = CMDQ_SPR_FOR_TEMP;
 	const u16 reg_val = CMDQ_THR_SPR_IDX1;
@@ -1737,17 +1792,6 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	dma_addr_t cmd_pa;
 	struct cmdq_operand lop, rop;
 	struct cmdq_instruction *inst;
-	bool absolute = true;
-
-	if (pkt->avail_buf_size > PAGE_SIZE)
-		absolute = false;
-
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#ifdef CMDQ_SECURE_SUPPORT
-	if (pkt->sec_data)
-		absolute = false;
-#endif
-#endif
 
 	/* assign compare value as compare target later */
 	cmdq_pkt_assign_command(pkt, reg_val, value);
@@ -1757,7 +1801,8 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 
 	/* mark begin offset of this operation */
 	begin_mark = pkt->cmd_buf_size;
-
+	if (poll_reuse)
+		poll_reuse->jump_to_begin.val = pkt->cmd_buf_size;
 	/* read target address */
 	if (subsys != SUBSYS_NO_SUPPORT)
 		cmdq_pkt_read_reg(pkt, subsys, CMDQ_GET_REG_OFFSET(addr),
@@ -1782,36 +1827,30 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
 			return -ENOMEM;
 	end_addr_mark = pkt->cmd_buf_size;
+	if (poll_reuse) {
+		poll_reuse->jump_to_end.op = CMDQ_CODE_JUMP_C_ABSOLUTE;
+		poll_reuse->jump_to_end.offset = pkt->cmd_buf_size;
+	}
 	cmdq_pkt_assign_command(pkt, reg_tmp, 0);
 
 	/* compare and jump to end if equal
-	 * note that end address will fill in later into last instruction
-	 */
+	* note that end address will fill in later into last instruction
+	*/
 	lop.reg = true;
 	lop.idx = reg_poll;
 	rop.reg = true;
 	rop.idx = reg_val;
-	if (absolute)
-		cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
-	else
-		cmdq_pkt_cond_jump(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
+
+	cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
 
 	/* check if timeup and inc counter */
 	if (count != U16_MAX) {
-		if (!absolute) {
-			cnt_end_addr_mark = pkt->cmd_buf_size;
-			cmdq_pkt_assign_command(pkt, reg_tmp, 0);
-		}
 		lop.reg = true;
 		lop.idx = reg_counter;
 		rop.reg = false;
 		rop.value = count;
-		if (absolute)
-			cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop,
-				CMDQ_GREATER_THAN_AND_EQUAL);
-		else
-			cmdq_pkt_cond_jump(pkt, reg_tmp, &lop, &rop,
-				CMDQ_GREATER_THAN_AND_EQUAL);
+		cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop,
+			CMDQ_GREATER_THAN_AND_EQUAL);
 	}
 
 	/* always inc counter */
@@ -1822,33 +1861,31 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
 		&rop);
 
-	if (!of_property_read_bool(pkt->dev->of_node, "skip-poll-sleep"))
+	if (!skip_poll_sleep)
 		cmdq_pkt_sleep(pkt, CMDQ_POLL_TICK, reg_gpr);
 
 	/* loop to begin */
-	if (absolute) {
-		cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, begin_mark);
-		cmdq_pkt_jump_addr(pkt, cmd_pa);
-	} else {
-		/* jump relative back to begin mark */
-		cmdq_pkt_jump(pkt, -(s32)(pkt->cmd_buf_size - begin_mark));
+	if (poll_reuse) {
+		poll_reuse->jump_to_begin.op = CMDQ_CODE_JUMP;
+		poll_reuse->jump_to_begin.offset = pkt->cmd_buf_size;
 	}
+	cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, begin_mark);
+	cmdq_pkt_jump_addr(pkt, cmd_pa);
 
 	/* read current buffer pa as end mark and fill preview assign */
 	cmd_pa = cmdq_pkt_get_curr_buf_pa(pkt);
+	if (poll_reuse)
+		poll_reuse->jump_to_end.val = pkt->cmd_buf_size;
 	inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
 		pkt, end_addr_mark);
 	/* instruction may hit boundary case,
-	 * check if op code is jump and get next instruction if necessary
-	 */
+	* check if op code is jump and get next instruction if necessary
+	*/
 	if (inst->op == CMDQ_CODE_JUMP)
 		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
 			pkt, end_addr_mark + CMDQ_INST_SIZE);
-	if (absolute)
-		shift_pa = CMDQ_REG_SHIFT_ADDR(cmd_pa);
-	else
-		shift_pa = CMDQ_REG_SHIFT_ADDR(
-			pkt->cmd_buf_size - end_addr_mark - CMDQ_INST_SIZE);
+	shift_pa = CMDQ_REG_SHIFT_ADDR(cmd_pa);
+
 	inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
 	inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
 
@@ -1867,6 +1904,14 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	}
 
 	return 0;
+}
+EXPORT_SYMBOL(cmdq_pkt_poll_timeout_reuse);
+
+s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
+	phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr)
+{
+	return cmdq_pkt_poll_timeout_reuse(pkt, value, subsys,
+		addr, mask, count, reg_gpr, NULL);
 }
 EXPORT_SYMBOL(cmdq_pkt_poll_timeout);
 
@@ -2064,6 +2109,9 @@ s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 {
 	struct cmdq_pkt_buffer *buf;
 	struct cmdq_instruction *inst;
+
+	if (!cmdq_pkt_is_finalized(pkt))
+		return 0;
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	inst = buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size - CMDQ_INST_SIZE;

@@ -1679,13 +1679,18 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		else
 			c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
 
+/* Clear layer with RPO should check more condition since dual pipe enable */
+#ifdef IF_ZERO
 		if ((c->src_width < c->dst_width &&
 		     c->src_height < c->dst_height) &&
 		     get_layering_opt(LYE_OPT_RPO) &&
-		    top < disp_info->gles_tail[di]) {
+		    top < disp_info->gles_tail[di] &&
+		    di == HRT_PRIMARY) {
 			c->layer_caps |= MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = ONE_SCALING;
-		} else {
+		} else
+#endif
+		{
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = NONE;
 
@@ -1693,6 +1698,7 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 			     c->src_height != c->dst_height) &&
 			    !mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER)) {
 				c->layer_caps &= ~MTK_DISP_CLIENT_CLEAR_LAYER;
+				mtk_rollback_layer_to_GPU(disp_info, di, top);
 				DDPMSG("%s:remove clear(rsz), caps:0x%08x\n",
 				       __func__, c->layer_caps);
 			}
@@ -2610,11 +2616,15 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 			DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
 
 			// temp patch for CMD mode not in MML IR
-			if (mode == MML_MODE_RACING)
-				if ((mtk_crtc_is_frame_trigger_mode(crtc) &&
-					!mtk_crtc->mml_cmd_ir) ||
-					(l_count >= 2))
+			if (mode == MML_MODE_RACING) {
+				if ((l_count >= 2))
+					mode = MML_MODE_MDP_DECOUPLE;
+				else if ((mtk_crtc_is_frame_trigger_mode(crtc) &&
+					!mtk_crtc->mml_cmd_ir &&
+					!mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_MML_SUPPORT_CMD_MODE)))
 					mode = MML_MODE_MML_DECOUPLE;
+			}
 
 			DDPDBG("%s, final mml mode:%d\n", __func__, mode);
 		} else

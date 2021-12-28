@@ -64,6 +64,8 @@ struct FrameSyncDynamicPara {
 
 	/* per-frame status variables */
 	int master_idx;
+	int ref_m_idx_magic_num;
+	unsigned int ask_for_chg;       // if finally ask FS DRV switch to master
 	unsigned int chg_master;        // if request to change to master
 	long long adj_diff_m;
 	long long adj_diff_s;
@@ -947,7 +949,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u/chg:%u, adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -963,6 +965,10 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		fs_inst[idx].hdr_exp.readout_len_lc,
 		fs_inst[idx].hdr_exp.read_margin_lc,
 		fs_inst[idx].lineTimeInNs,
+		fs_sa_inst.dynamic_paras[idx].target_min_fl_us,
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			fs_sa_inst.dynamic_paras[idx].target_min_fl_us),
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[0],
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[1],
 		fs_sa_inst.dynamic_paras[idx].ts_bias_us,
@@ -972,6 +978,8 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].delta,
 		fs_inst[idx].fl_active_delay,
 		fs_sa_inst.dynamic_paras[idx].master_idx,
+		fs_sa_inst.dynamic_paras[idx].ref_m_idx_magic_num,
+		fs_sa_inst.dynamic_paras[idx].ask_for_chg,
 		fs_sa_inst.dynamic_paras[idx].chg_master,
 		fs_sa_inst.dynamic_paras[idx].adj_diff_s,
 		fs_sa_inst.dynamic_paras[idx].adj_or_not,
@@ -1451,6 +1459,9 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 	unsigned int f_cell_s = get_valid_frame_cell_size(s_idx);
 
 
+	p_para_s->ref_m_idx_magic_num = p_para_m->magic_num;
+
+
 	/* calculate/get current receive timestamp diff */
 	fs_alg_sa_calc_m_s_ts_diff(p_para_m, p_para_s,
 		&ts_diff_m, &ts_diff_s);
@@ -1487,7 +1498,7 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 	}
 
 
-	/* check adjust diff is reasonable */
+	/* check if adjust diff is reasonable */
 	if (adjust_diff_s > (p_para_m->stable_fl_us * f_cell_m)) {
 		adjust_or_not = 0;
 
@@ -1510,6 +1521,7 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 	p_para_s->adj_diff_s = adjust_diff_s;
 	p_para_s->adj_or_not = adjust_or_not;
 	p_para_s->chg_master = request_switch_master;
+	p_para_s->ask_for_chg = request_switch_master || (!adjust_or_not);
 
 
 	LOG_INF(
@@ -1806,16 +1818,25 @@ void fs_alg_set_extend_framelength(unsigned int idx,
 
 void fs_alg_seamless_switch(unsigned int idx)
 {
+#if !defined(FS_UT)
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
+#endif // !FS_UT
 
 	LOG_MUST(
+#if !defined(FS_UT)
 		"[%u] ID:%#x(sidx:%u), sensor seamless switch %llu|%llu\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
 		time_boot,
 		time_mono);
+#else
+		"[%u] ID:%#x(sidx:%u), sensor seamless switch\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx);
+#endif // !FS_UT
 
 
 	/* 1. clear/exit extend framelength stage */

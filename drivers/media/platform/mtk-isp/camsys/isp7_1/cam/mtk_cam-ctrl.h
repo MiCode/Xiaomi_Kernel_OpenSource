@@ -113,6 +113,7 @@ struct mtk_camsys_sensor_ctrl {
 	atomic_t sensor_request_seq_no;
 	atomic_t isp_request_seq_no;
 	atomic_t isp_enq_seq_no;
+	atomic_t isp_update_timer_seq_no;
 	atomic_t last_drained_seq_no;
 	int initial_cq_done;
 	atomic_t initial_drop_frame_cnt;
@@ -160,6 +161,7 @@ void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *req,
 void mtk_cam_req_ctrl_setup(struct mtk_raw_pipeline *raw_pipe,
 			    struct mtk_cam_request *req);
 int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */
+void mtk_camsys_ctrl_update(struct mtk_cam_ctx *ctx, int sensor_ctrl_factor);
 void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx); /* ctx_stream_off */
 void mtk_cam_req_seninf_change(struct mtk_cam_request *req);
 void mtk_cam_frame_done_work(struct work_struct *work);
@@ -168,5 +170,15 @@ void mtk_cam_meta1_done_work(struct work_struct *work);
 void mtk_cam_sv_work(struct work_struct *work);
 void mtk_cam_m2m_enter_cq_state(struct mtk_camsys_ctrl_state *ctrl_state);
 bool is_first_request_sync(struct mtk_cam_ctx *ctx);
+void
+mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
+			struct mtk_camsys_sensor_ctrl *sensor_ctrl);
+
+void state_transition(struct mtk_camsys_ctrl_state *state_entry,
+		      enum MTK_CAMSYS_STATE_IDX from,
+		      enum MTK_CAMSYS_STATE_IDX to);
+void
+mtk_cam_set_sensor_switch(struct mtk_cam_request_stream_data *s_data,
+			  struct mtk_camsys_sensor_ctrl *sensor_ctrl);
 
 #endif

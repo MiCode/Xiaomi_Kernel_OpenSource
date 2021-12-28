@@ -45,6 +45,7 @@
 #include "vcp_vcpctl.h"
 #include "vcp_status.h"
 #include "vcp.h"
+#include "clk-fmeter.h"
 
 #if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 #include <linux/of_reserved_mem.h>
@@ -112,8 +113,9 @@ phys_addr_t vcp_mem_base_phys;
 phys_addr_t vcp_mem_base_virt;
 phys_addr_t vcp_mem_size;
 struct vcp_regs vcpreg;
+struct clk *vcpsel;
 struct clk *vcpclk;
-struct clk *vcppll;
+struct clk *vcp26m;
 
 unsigned char *vcp_send_buff[VCP_CORE_TOTAL];
 unsigned char *vcp_recv_buff[VCP_CORE_TOTAL];
@@ -679,6 +681,9 @@ int reset_vcp(int reset)
 		 */
 		writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
+		clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
+		clk_set_parent(vcpsel, vcpclk);
+
 		arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
 				0, 0, 0, 0, 0, 0, &res);
@@ -698,13 +703,12 @@ int reset_vcp(int reset)
 	return 0;
 }
 
-void vcp_wait_ready_sync(enum feature_id id)
+uint32_t vcp_wait_ready_sync(enum feature_id id)
 {
 	int i = 0;
 	int j = 0;
 
 	while (!is_vcp_ready(VCP_A_ID)) {
-		pr_info("[VCP] wait ready id %d\n", id);
 		i += 5;
 		mdelay(5);
 		if (i > VCP_SYNC_TIMEOUT_MS) {
@@ -717,8 +721,11 @@ void vcp_wait_ready_sync(enum feature_id id)
 			break;
 		}
 	}
+
+	return i;
 }
 
+extern unsigned int mt_get_fmeter_freq(unsigned int id, enum FMETER_TYPE type);
 void vcp_enable_pm_clk(enum feature_id id)
 {
 	int ret = 0;
@@ -733,15 +740,15 @@ void vcp_enable_pm_clk(enum feature_id id)
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (pwclkcnt == 0) {
+		ret = clk_prepare_enable(vcp26m);
+		if (ret)
+			pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+		ret = clk_prepare_enable(vcpsel);
+		if (ret)
+			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 		ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
-		ret = clk_prepare_enable(vcpclk);
-		if (ret)
-			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
-		ret = clk_prepare_enable(vcppll);
-		if (ret)
-			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 
 		vcp_enable_dapc();
 		vcp_enable_irqs();
@@ -750,7 +757,8 @@ void vcp_enable_pm_clk(enum feature_id id)
 			reset_vcp(VCP_ALL_ENABLE);
 	}
 	pwclkcnt++;
-	pr_notice("[VCP] %s id %d done %d\n", __func__, id, pwclkcnt);
+	pr_notice("[VCP] %s id %d done %d clk %d\n", __func__, id,
+		pwclkcnt, mt_get_fmeter_freq(10, CKGEN));
 	mutex_unlock(&vcp_pw_clk_mutex);
 
 }
@@ -760,6 +768,7 @@ void vcp_disable_pm_clk(enum feature_id id)
 {
 	int ret = 0;
 	int i = 0;
+	uint32_t waitCnt = 0;
 
 	if (!vcp_support)
 		return;
@@ -774,8 +783,12 @@ void vcp_disable_pm_clk(enum feature_id id)
 		pwclkcnt, is_vcp_ready(VCP_A_ID));
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
-		vcp_wait_ready_sync(id);
+		waitCnt = vcp_wait_ready_sync(id);
 		vcp_disable_irqs();
+
+		/* trigger halt isr, force vcp enter wfi */
+		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
+		wait_vcp_wdt_irq_done();
 
 		flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
@@ -785,21 +798,18 @@ void vcp_disable_pm_clk(enum feature_id id)
 #if VCP_RECOVERY_SUPPORT
 		flush_workqueue(vcp_reset_workqueue);
 #endif
-		/* trigger halt isr, force vcp enter wfi */
-		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
-		wait_vcp_wdt_irq_done();
-		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x\n", VCP_BUS_DEBUG_OUT,
-			readl(VCP_BUS_DEBUG_OUT));
+		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x, waitCnt=%u\n", VCP_BUS_DEBUG_OUT,
+			readl(VCP_BUS_DEBUG_OUT), waitCnt);
 		vcp_ready[VCP_A_ID] = 0;
 #if VCP_BOOT_TIME_OUT_MONITOR
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
 		vcp_disable_dapc();
-		clk_disable_unprepare(vcppll);
-		clk_disable_unprepare(vcpclk);
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
+		clk_disable_unprepare(vcpsel);
+		clk_disable_unprepare(vcp26m);
 	}
 	if (pwclkcnt < 0) {
 		for (i = 0; i < NUM_FEATURE_ID; i++)
@@ -815,15 +825,20 @@ EXPORT_SYMBOL_GPL(vcp_disable_pm_clk);
 static int vcp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
-	int retval;
+	int retval = 0;
+	uint32_t waitCnt = 0;
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		mutex_lock(&vcp_pw_clk_mutex);
 		pr_debug("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
-			vcp_wait_ready_sync(RTOS_FEATURE_ID);
+			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
+
+			/* trigger halt isr, force vcp enter wfi */
+			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
+			wait_vcp_wdt_irq_done();
 
 			flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
@@ -833,19 +848,16 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_RECOVERY_SUPPORT
 			flush_workqueue(vcp_reset_workqueue);
 #endif
-			/* trigger halt isr, force vcp enter wfi */
-			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
-			wait_vcp_wdt_irq_done();
 			vcp_ready[VCP_A_ID] = 0;
 #if VCP_BOOT_TIME_OUT_MONITOR
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
 			vcp_disable_dapc();
-			clk_disable_unprepare(vcppll);
-			clk_disable_unprepare(vcpclk);
 			retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
+			clk_disable_unprepare(vcpsel);
+			clk_disable_unprepare(vcp26m);
 		}
 		is_suspending = true;
 		mutex_unlock(&vcp_pw_clk_mutex);
@@ -853,28 +865,28 @@ static int vcp_pm_event(struct notifier_block *notifier
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
 		// 0, 0, 0, 0, 0, 0, &res);
-		pr_debug("[VCP] PM_SUSPEND_PREPARE ok\n");
+		pr_debug("[VCP] PM_SUSPEND_PREPARE ok, waitCnt=%u\n", waitCnt);
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
 		mutex_lock(&vcp_pw_clk_mutex);
 		if (is_suspending && pwclkcnt) {
+			retval = clk_prepare_enable(vcp26m);
+			if (retval)
+				pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+			retval = clk_prepare_enable(vcpsel);
+			if (retval)
+				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 			retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
-			retval = clk_prepare_enable(vcpclk);
-			if (retval)
-				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
-			retval	= clk_prepare_enable(vcppll);
-			if (retval)
-				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
 
 			vcp_enable_dapc();
 			vcp_enable_irqs();
 #if VCP_RECOVERY_SUPPORT
 			cpuidle_pause_and_lock();
 			reset_vcp(VCP_ALL_ENABLE);
-			vcp_wait_ready_sync(RTOS_FEATURE_ID);
+			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			cpuidle_resume_and_unlock();
 #endif
 		}
@@ -884,7 +896,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
 		// 0, 0, 0, 0, 0, 0, &res);
-		pr_debug("[VCP] PM_POST_SUSPEND ok\n");
+		pr_debug("[VCP] PM_POST_SUSPEND ok, waitCnt=%u\n", waitCnt);
 
 		return NOTIFY_OK;
 	case PM_POST_HIBERNATION:
@@ -1531,6 +1543,15 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		dev_info(&pdev->dev, "64-bit DMA enable failed\n");
 		return ret;
 	}
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(64));
+		if (ret)
+			dev_info(&pdev->dev, "Failed to set DMA segment size\n");
+	}
 
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		vcp_reserve_mblock[id].start_virt =
@@ -1802,6 +1823,9 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	/* Setup dram reserved address and size for vcp*/
 	writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 	writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
+	clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
+	clk_set_parent(vcpsel, vcpclk);
+
 	/* start vcp */
 	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 			MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
@@ -2092,6 +2116,15 @@ static int vcp_io_device_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "64-bit DMA enable failed\n");
 		return ret;
 	}
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(64));
+		if (ret)
+			dev_info(&pdev->dev, "Failed to set DMA segment size\n");
+	}
 
 	// VCP iommu devices
 	vcp_io_devs[vcp_support-1] = dev;
@@ -2333,19 +2366,27 @@ static int vcp_device_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	ret = of_property_read_string_index(
 				pdev->dev.of_node, "clock-names", 0, &clk_name);
-	vcpclk = devm_clk_get(&pdev->dev, clk_name);
-	if (IS_ERR(vcpclk)) {
+	vcpsel = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcpsel)) {
 		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
 			0, clk_name);
-		return PTR_ERR(vcpclk);
+		return PTR_ERR(vcpsel);
 	}
 	ret = of_property_read_string_index(
 				pdev->dev.of_node, "clock-names", 1, &clk_name);
-	vcppll = devm_clk_get(&pdev->dev, clk_name);
-	if (IS_ERR(vcppll)) {
+	vcpclk = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcpclk)) {
 		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
 			1, clk_name);
-		return PTR_ERR(vcppll);
+		return PTR_ERR(vcpclk);
+	}
+	ret = of_property_read_string_index(
+				pdev->dev.of_node, "clock-names", 2, &clk_name);
+	vcp26m = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(vcp26m)) {
+		pr_info("[VCP] Unable to devm_clk_get id: %d, name: %s\n",
+			2, clk_name);
+		return PTR_ERR(vcp26m);
 	}
 
 	pr_info("[VCP] %s done\n", __func__);

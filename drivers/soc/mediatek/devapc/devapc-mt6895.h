@@ -819,7 +819,7 @@ static const struct mtk_device_info mt6895_devices_infra1[] = {
 	{-1, -1, 226, "OOB_way_en", true},
 	{-1, -1, 227, "OOB_way_en", true},
 	{-1, -1, 228, "OOB_way_en", true},
-	{-1, -1, 229, "OOB_way_en", false},
+	{-1, -1, 229, "OOB_way_en", true},
 
 	{-1, -1, 230, "OOB_way_en", true},
 	{-1, -1, 231, "OOB_way_en", true},

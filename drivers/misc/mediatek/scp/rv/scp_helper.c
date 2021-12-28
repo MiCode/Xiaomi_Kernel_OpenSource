@@ -551,9 +551,25 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		scp_ready[SCP_A_ID] = 1;
 
 #if SCP_DVFS_INIT_ENABLE
-		sync_ulposc_cali_data_to_scp();
-		/* release pll clock after scp ulposc calibration */
-		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+		if (scp_dvfs_feature_enable()) {
+			sync_ulposc_cali_data_to_scp();
+
+			/*
+			 * Calling sync_ulposc_cali_data_to_scp() will resets the frequency request
+			 * so we need to request freq again in recovery flow.
+			 */
+			if (atomic_read(&scp_reset_status) != RESET_STATUS_STOP) {
+				scp_expected_freq = scp_get_freq();
+				scp_current_freq = readl(CURRENT_FREQ_REG);
+				if (scp_request_freq()) {
+					pr_notice("[SCP] %s: req_freq fail\n", __func__);
+					WARN_ON(1);
+				}
+			}
+
+			/* release pll clock after scp ulposc calibration */
+			scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+		}
 #endif
 
 		scp_dvfs_cali_ready = 1;
@@ -566,7 +582,9 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
 
 #if SCP_DVFS_INIT_ENABLE
-	scp_resource_req(SCP_REQ_RELEASE);
+	/* request pll clock before turn on scp */
+	if (scp_dvfs_feature_enable())
+		scp_resource_req(SCP_REQ_RELEASE);
 #endif
 	/* register scp dvfs*/
 	msleep(2000);
@@ -748,7 +766,8 @@ int reset_scp(int reset)
 	scp_extern_notify(SCP_EVENT_STOP);
 #if SCP_DVFS_INIT_ENABLE
 	/* request pll clock before turn on scp */
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	if (scp_dvfs_feature_enable())
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
 #endif
 	if (reset & 0x0f) { /* do reset */
 		/* make sure scp is in idle state */
@@ -1325,15 +1344,19 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 	scp_mem_base_phys = (phys_addr_t) rmem->base;
 	scp_mem_size = (phys_addr_t) rmem->size;
 
-	pr_notice("[SCP] %s is called, 0x%x, 0x%x",
+	pr_notice("[SCP] %s is called, 0x%llx, 0x%x",
 		__func__,
-		(unsigned int)scp_mem_base_phys,
+		scp_mem_base_phys,
 		(unsigned int)scp_mem_size);
 
-	if ((scp_mem_base_phys >= (0x90000000ULL)) ||
-			 (scp_mem_base_phys <= 0x0)) {
-		/* The scp remapped region is fixed, only
+	if (!(((scp_mem_base_phys >= (0x40000000ULL)) && (scp_mem_base_phys < (0xA0000000ULL))) ||
+	     ((scp_mem_base_phys >= (0x150000000ULL)) && (scp_mem_base_phys < (0x1A0000000ULL))) ||
+	     ((scp_mem_base_phys >= (0x250000000ULL)) && (scp_mem_base_phys < (0x2A0000000ULL))))
+			 || (scp_mem_base_phys <= 0x0)) {
+		/*
+		 * The scp remapped region is fixed, only
 		 * 0x4000_0000ULL ~ 0x8FFF_FFFFULL is accessible.
+		 * Embed-remap supports for high dram (5.25GB~6.5GB)(9.25GB~10.5GB).
 		 */
 		pr_notice("[SCP] Error: Wrong Address (0x%llx)\n",
 			    (uint64_t)scp_mem_base_phys);
@@ -1472,7 +1495,8 @@ static void scp_control_feature(enum feature_id id, bool enable)
 
 	feature_table[id].enable = enable;
 #if SCP_DVFS_INIT_ENABLE
-	scp_expected_freq = scp_get_freq();
+	if (scp_dvfs_feature_enable())
+		scp_expected_freq = scp_get_freq();
 #endif
 
 	scp_current_freq = readl(CURRENT_FREQ_REG);
@@ -1490,9 +1514,10 @@ static void scp_control_feature(enum feature_id id, bool enable)
 		if (scp_current_freq != scp_expected_freq) {
 			/* set scp freq. */
 #if SCP_DVFS_INIT_ENABLE
-			ret = scp_request_freq();
+			if (scp_dvfs_feature_enable())
+				ret = scp_request_freq();
 #endif
-			if (ret == -1) {
+			if (ret < 0) {
 				pr_notice("[SCP] %s: req_freq fail\n", __func__);
 				WARN_ON(1);
 			}
@@ -1754,8 +1779,8 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/* wake lock AP*/
 	__pm_stay_awake(scp_reset_lock);
 #if SCP_DVFS_INIT_ENABLE
-	/* keep Univpll */
-	scp_resource_req(SCP_REQ_26M);
+	if (scp_dvfs_feature_enable())
+		scp_resource_req(SCP_REQ_26M);
 #endif
 
 	/* print_clk and scp_aed before pll enable to keep ori CLK_SEL */
@@ -1769,10 +1794,12 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/* logger disable must after scp_aed() */
 	scp_logger_init_set(0);
 
-	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
 	/*request pll clock before turn off scp */
 #if SCP_DVFS_INIT_ENABLE
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	if (scp_dvfs_feature_enable()) {
+		pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	}
 #endif
 	pr_notice("[SCP] %s(): scp_reset_type %d\n", __func__, scp_reset_type);
 	/* scp reset by CMD, WDT or awake fail */
@@ -1906,15 +1933,22 @@ void scp_region_info_init(void) {}
 void scp_recovery_init(void)
 {
 #if SCP_RECOVERY_SUPPORT
+	uint64_t ap_loader_start = scp_region_info_copy.ap_loader_start;
+
 	/*create wq for scp reset*/
 	scp_reset_workqueue = create_singlethread_workqueue("SCP_RESET_WQ");
 	/*init reset work*/
 	INIT_WORK(&scp_sys_reset_work.work, scp_sys_reset_ws);
 
-	scp_loader_virt = ioremap_wc(
-		scp_region_info_copy.ap_loader_start,
-		scp_region_info_copy.ap_loader_size);
-	pr_notice("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
+	if (ap_loader_start & SCP_DRAM_RESV_EMBED)
+		scp_loader_virt = ioremap_wc(
+			SCP_DRAM_RESV_NO_EMBED(scp_region_info_copy.ap_loader_start),
+			scp_region_info_copy.ap_loader_size);
+	else
+		scp_loader_virt = ioremap_wc(
+			scp_region_info_copy.ap_loader_start,
+			scp_region_info_copy.ap_loader_size);
+	pr_debug("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
 		(uint64_t)(phys_addr_t)scp_loader_virt,
 		(uint64_t)(phys_addr_t)scp_loader_virt +
 		(phys_addr_t)scp_region_info_copy.ap_loader_size);
@@ -1935,12 +1969,11 @@ void scp_recovery_init(void)
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		/*if l1c enable, map it (include backup) */
 		scp_ap_dram_virt = ioremap_wc(
-		scp_region_info_copy.ap_dram_start,
-		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
-
-	pr_debug("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
-		scp_region_info_copy.ap_dram_start,
-		scp_region_info_copy.ap_dram_size);
+				scp_region_info_copy.ap_dram_start,
+				ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
+		pr_notice("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
+				scp_region_info_copy.ap_dram_start,
+				scp_region_info_copy.ap_dram_size);
 	}
 #endif
 }
@@ -2543,10 +2576,12 @@ static int __init scp_init(void)
 	scp_dvfs_init();
 	wait_scp_dvfs_init_done();
 
-	/* pll maybe gate, request pll before access any scp reg/sram */
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-	/* keep Univpll */
-	scp_resource_req(SCP_REQ_26M);
+	if (scp_dvfs_feature_enable()) {
+		/* pll maybe gate, request pll before access any scp reg/sram */
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+		/* keep Univpll */
+		scp_resource_req(SCP_REQ_26M);
+	}
 #endif /* SCP_DVFS_INIT_ENABLE */
 
 	if (platform_driver_register(&mtk_scp_device))
@@ -2640,14 +2675,16 @@ static int __init scp_init(void)
 
 #if SCP_DVFS_INIT_ENABLE
 	/* remember to release pll */
-	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	if (scp_dvfs_feature_enable())
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
 
 	driver_init_done = true;
 	reset_scp(SCP_ALL_ENABLE);
 
 #if SCP_DVFS_INIT_ENABLE
-	scp_init_vcore_request();
+	if (scp_dvfs_feature_enable())
+		scp_init_vcore_request();
 #endif /* SCP_DVFS_INIT_ENABLE */
 
 	register_3way_semaphore_notifier(&scp_semaphore_init_notifier);
@@ -2655,9 +2692,11 @@ static int __init scp_init(void)
 	return ret;
 err:
 #if SCP_DVFS_INIT_ENABLE
-	/* remember to release pll */
-	scp_resource_req(SCP_REQ_RELEASE);
-	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	/* remember to release scp_dvfs resource */
+	if (scp_dvfs_feature_enable()) {
+		scp_resource_req(SCP_REQ_RELEASE);
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	}
 	scp_dvfs_exit();
 #endif
 	return -1;

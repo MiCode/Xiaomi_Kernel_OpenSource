@@ -194,6 +194,7 @@ struct vdec_vcu_ipi_ack {
 	__u64 ap_inst_addr;
 #endif
 	__s32 codec_id;
+	__u32 reserved;
 };
 
 /**

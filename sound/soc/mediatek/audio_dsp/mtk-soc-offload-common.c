@@ -227,9 +227,8 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 					AUDIO_IPI_PAYLOAD,
 					AUDIO_IPI_MSG_BYPASS_ACK,
 					AUDIO_DSP_TASK_DLCOPY,
-					sizeof(unsigned int),
-					(unsigned int)
-					dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+					sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+					0,
 					(char *)
 					&dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 			pr_debug("%s(),MSG_DECODER_START, Update the final data, TRANSFERRED %lld\n",
@@ -245,8 +244,12 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 
 		pr_info("%s, OFFLOAD_DRAIN", __func__);
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-			AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_NEED_ACK,
-			OFFLOAD_DRAIN, buf_bridge->pWrite, 0, NULL);
+			AUDIO_IPI_PAYLOAD,
+			AUDIO_IPI_MSG_NEED_ACK,
+			OFFLOAD_DRAIN,
+			sizeof(buf_bridge->pWrite),
+			0,
+			(void *)&buf_bridge->pWrite);
 
 		afe_offload_block.state = OFFLOAD_STATE_DRAIN;
 		afe_offload_block.drain_state = AUDIO_DRAIN_EARLY_NOTIFY;
@@ -421,9 +424,8 @@ static int mtk_compr_offload_set_params(struct snd_soc_component *component,
 	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 			 AUDIO_IPI_PAYLOAD,
 			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_HWPARAM,
-			 sizeof(unsigned int),
-			 (unsigned int)
-			 dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+			 sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+			 0,
 			 (char *)
 			 &dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 
@@ -572,6 +574,10 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		break;
 	case OFFLOAD_DECODE_ERROR:
 		afe_offload_service.decode_error = true;
+		if (afe_offload_block.state == OFFLOAD_STATE_DRAIN) {
+			offloadservice_setwriteblocked(false);
+			offloadservice_releasewriteblocked();
+		}
 		pr_info("%s decode_error\n", __func__);
 		break;
 	case OFFLOAD_CODEC_INFO:
@@ -648,11 +654,12 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		afe_offload_service.needdata = false;
 		u4round = 1;
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-				AUDIO_IPI_MSG_ONLY,
+				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
 				OFFLOAD_SETWRITEBLOCK,
-				afe_offload_block.write_blocked_idx,
-				0, NULL);
+				sizeof(afe_offload_block.write_blocked_idx),
+				0,
+				(void *)&afe_offload_block.write_blocked_idx);
 #ifdef use_wake_lock
 		mtk_compr_offload_int_wakelock(false);
 #endif
@@ -674,11 +681,12 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		    (32 * USE_PERIODS_MAX) * u4round) {
 			/* notify writeIDX to SCP each 256K*/
 			mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-				AUDIO_IPI_MSG_ONLY,
+				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
 				OFFLOAD_WRITEIDX,
-				buf_bridge->pWrite,
-				0, NULL);
+				sizeof(buf_bridge->pWrite),
+				0,
+				(void *)&buf_bridge->pWrite);
 			u4round++;
 		}
 	}
@@ -696,9 +704,8 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
 				AUDIO_DSP_TASK_DLCOPY,
-				sizeof(unsigned int),
-				(unsigned int)
-				dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+				sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+				0,
 				(char *)
 				&dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 #ifdef DEBUG_VERBOSE

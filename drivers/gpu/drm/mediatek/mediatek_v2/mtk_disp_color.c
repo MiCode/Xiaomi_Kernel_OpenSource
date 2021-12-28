@@ -55,7 +55,8 @@ static int g_color_bypass[DISP_COLOR_TOTAL];
 static DEFINE_MUTEX(g_color_reg_lock);
 static struct DISPLAY_COLOR_REG g_color_reg;
 static int g_color_reg_valid;
-
+//for DISP_COLOR_TUNING
+static unsigned int g_width;
 #define C1_OFFSET (0)
 #define color_get_offset(module) (0)
 #define is_color1_module(module) (0)
@@ -2110,8 +2111,10 @@ static void mtk_color_config(struct mtk_ddp_comp *comp,
 	int id = index_of_color(comp->id);
 	unsigned int width;
 
-	if (comp->mtk_crtc->is_dual_pipe)
+	if (comp->mtk_crtc->is_dual_pipe) {
 		width = cfg->w / 2;
+		g_width = width;
+	}
 	else
 		width = cfg->w;
 
@@ -2178,7 +2181,7 @@ static bool color_get_MML_TDSHP0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_tdshp");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_tdshp");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2275,7 +2278,7 @@ static bool color_get_MML_COLOR0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_color");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_color");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -3153,6 +3156,41 @@ static void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
 	 */
 }
 
+void disp_color_write_pos_main_for_dual_pipe(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, struct DISP_WRITE_REG *wParams,
+	unsigned int pa, unsigned int pa1)
+{
+	unsigned int pos_x, pos_y, val, val1, mask;
+
+	val = wParams->val;
+	mask = wParams->mask;
+	pos_x = (wParams->val & 0xffff);
+	pos_y = ((wParams->val & (0xffff0000)) >> 16);
+	DDPINFO("write POS_MAIN: pos_x[%d] pos_y[%d]\n",
+		pos_x, pos_y);
+	if (pos_x < g_width) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa, val, mask);
+		DDPINFO("dual pipe write pa:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa, val, mask);
+		val1 = ((pos_x + g_width) | ((pos_y << 16)));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa1, val1, mask);
+		DDPINFO("dual pipe write pa1:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa1, val1, mask);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa, val, mask);
+		DDPINFO("dual pipe write pa:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa, val, mask);
+		val1 = ((pos_x - g_width) | ((pos_y << 16)));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa1, val1, mask);
+		DDPINFO("dual pipe write pa1:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa1, val1, mask);
+	}
+}
+
 static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, unsigned int cmd, void *data)
 {
@@ -3206,52 +3244,67 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 		void __iomem *va = 0;
 		unsigned int pa = (unsigned int)wParams->reg;
 
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			pa, wParams->val, wParams->mask);
-
-		DDPINFO("write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n", pa, (long)va,
-			wParams->val, wParams->mask);
 		if (comp->mtk_crtc->is_dual_pipe) {
 			int tablet_index = -1;
 			unsigned int offset = 0;
 			struct resource res;
+			unsigned int pa1 = 0;
 
 			tablet_index = get_tuning_reg_table_idx_and_offset(comp, pa, &offset);
+			do {
+				if (tablet_index == TUNING_DISP_COLOR) {
+					if (color_get_DISP_COLOR1_REG(&res))
+						pa1 =  res.start + offset;
+					if (offset == DISP_COLOR_POS_MAIN) {
+						disp_color_write_pos_main_for_dual_pipe(comp,
+							handle, wParams, pa, pa1);
+						break;
+					}
+				} else if (tablet_index == TUNING_DISP_CCORR) {
+					if (color_get_DISP_CCORR2_REG(&res))
+						pa1 = res.start + offset;
+					else if (color_get_DISP_CCORR1_REG(&res))
+						pa1 =  res.start + offset;
 
-			if (tablet_index == TUNING_DISP_COLOR) {
-				if (color_get_DISP_COLOR1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_AAL) {
+					if (color_get_DISP_AAL1_REG(&res))
+						pa1 =  res.start + offset;
 
-			} else if (tablet_index == TUNING_DISP_CCORR) {
-				if (color_get_DISP_CCORR2_REG(&res))
-					pa = res.start + offset;
-				else if (color_get_DISP_CCORR1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_GAMMA) {
+					if (color_get_DISP_GAMMA1_REG(&res))
+						pa1 =  res.start + offset;
 
-			} else if (tablet_index == TUNING_DISP_AAL) {
-				if (color_get_DISP_AAL1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_DITHER) {
+					if (color_get_DISP_DITHER1_REG(&res))
+						pa1 =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_TDSHP) {
+					if (color_get_DISP_TDSHP1_REG(&res))
+						pa1 =  res.start + offset;
 
-			} else if (tablet_index == TUNING_DISP_GAMMA) {
-				if (color_get_DISP_GAMMA1_REG(&res))
-					pa =  res.start + offset;
-
-			} else if (tablet_index == TUNING_DISP_DITHER) {
-				if (color_get_DISP_DITHER1_REG(&res))
-					pa =  res.start + offset;
-			} else if (tablet_index == TUNING_DISP_TDSHP) {
-				if (color_get_DISP_TDSHP1_REG(&res))
-					pa =  res.start + offset;
-
-			} else if (tablet_index == TUNING_DISP_C3D) {
-				if (color_get_DISP_C3D1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_C3D) {
+					if (color_get_DISP_C3D1_REG(&res))
+						pa1 =  res.start + offset;
+				}
+				if (pa) {
+					cmdq_pkt_write(handle, comp->cmdq_base,
+						pa, wParams->val, wParams->mask);
+				}
+				DDPINFO("dual pipe write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
+					pa, (long)va, wParams->val, wParams->mask);
+				if (pa1) {
+					cmdq_pkt_write(handle, comp->cmdq_base,
+						pa1, wParams->val, wParams->mask);
+				}
+				DDPINFO("dual pipe write pa1:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
+					pa1, (long)va, wParams->val, wParams->mask);
+			} while (0);
+		} else {
+			if (pa) {
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					pa, wParams->val, wParams->mask);
 			}
-
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				pa, wParams->val, wParams->mask);
-			DDPINFO("dual pipe pa:0x%x(va:0x%lx) = 0x%x (0x%x) comp->regs_pa:(0x%x)\n",
-					pa, (long)va, wParams->val, wParams->mask, comp->regs_pa);
+			DDPINFO("single pipe write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
+				pa, (long)va, wParams->val, wParams->mask);
 		}
 	}
 	break;

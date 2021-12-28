@@ -15,6 +15,7 @@
 #include <linux/math64.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/debugfs.h>
 
 #include <soc/mediatek/smi.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -25,6 +26,32 @@
 #include "mtk-mml-pq-core.h"
 #include "mtk-mml-sys.h"
 #include "mtk-mml-mmp.h"
+#include "mtk-mml-color.h"
+
+struct mml_record {
+	u32 jobid;
+
+	u64 src_iova[MML_MAX_PLANES];
+	u64 dest_iova[MML_MAX_PLANES];
+
+	u32 src_size[MML_MAX_PLANES];
+	u32 dest_size[MML_MAX_PLANES];
+
+	u32 src_plane_offset[MML_MAX_PLANES];
+	u32 dest_plane_offset[MML_MAX_PLANES];
+
+	u64 src_iova_map_time;
+	u64 dest_iova_map_time;
+	u64 src_iova_unmap_time;
+	u64 dest_iova_unmap_time;
+};
+
+/* 512 records
+ * note that (MML_RECORD_NUM - 1) will use as mask during track,
+ * so change this variable by 1 << N
+ */
+#define MML_RECORD_NUM		(1 << 9)
+#define MML_RECORD_NUM_MASK	(MML_RECORD_NUM - 1)
 
 struct mml_dev {
 	struct platform_device *pdev;
@@ -58,6 +85,12 @@ struct mml_dev {
 	struct wakeup_source *wake_lock;
 	s32 wake_ref;
 	struct mutex wake_ref_mutex;
+
+	/* mml record to tracking task */
+	struct dentry *record_entry;
+	struct mml_record records[MML_RECORD_NUM];
+	struct mutex record_mutex;
+	u16 record_idx;
 };
 
 struct platform_device *mml_get_plat_device(struct platform_device *pdev)
@@ -137,14 +170,14 @@ static void mml_qos_init(struct mml_dev *mml)
 	}
 }
 
-void mml_qos_update_tput(struct mml_dev *mml)
+u32 mml_qos_update_tput(struct mml_dev *mml)
 {
 	struct mml_topology_cache *tp = mml_topology_get_cache(mml);
 	u32 tput = 0, i;
 	int volt, ret;
 
 	if (!tp || !tp->reg)
-		return;
+		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(tp->path_clts); i++) {
 		/* select max one across clients */
@@ -155,14 +188,16 @@ void mml_qos_update_tput(struct mml_dev *mml)
 		if (tput <= tp->opp_speeds[i])
 			break;
 	}
-	volt = tp->opp_volts[min(i, tp->opp_cnt - 1)];
+	i = min(i, tp->opp_cnt - 1);
+	volt = tp->opp_volts[i];
 	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
 	if (ret)
 		mml_err("%s fail to set volt %d", __func__, volt);
 	else
 		mml_msg("%s volt %d (%u) tput %u", __func__, volt, i, tput);
-}
 
+	return tp->opp_speeds[i];
+}
 
 static void create_dev_topology_locked(struct mml_dev *mml)
 {
@@ -608,24 +643,35 @@ static u32 mml_calc_bw_hrt(u32 datasize)
 	 *
 	 * the 1.25 separate to * 10 / 8
 	 * and width * height * bpp = datasize in bytes
+	 * so div_u64((u64)(datasize * 120 * 10 * 4) >> 3, 3 * 1000000)
 	 */
-	return (u32)div_u64((u64)(datasize * 60 * 10) >> 2, 1000000);
+	return (u32)div_u64((u64)datasize, 5000);
+}
+
+static u32 mml_calc_bw_peak(u32 tput_up_bound, u32 bpp)
+{
+	return (u32)div_u64((u64)(tput_up_bound * bpp * 4) >> 3, 3);
 }
 
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
-	struct mml_comp_config *ccfg, u32 throughput)
+	struct mml_comp_config *ccfg, u32 throughput, u32 tput_up)
 {
 	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
-	u32 bandwidth, datasize;
+	u32 format, bandwidth, datasize, bw_peak = 0;
 	bool hrt;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
 	if (task->config->info.mode == MML_MODE_RACING) {
 		hrt = true;
 		bandwidth = mml_calc_bw_hrt(datasize);
-
-		if (mml_racing_urgent)
+		format = comp->hw_ops->qos_format_get(task, ccfg);
+		if (!MML_FMT_BLOCK(format))
+			bw_peak = mml_calc_bw_peak(tput_up, MML_FMT_BITS_PER_PIXEL(format));
+		else
+			bw_peak = bandwidth;
+		if (unlikely(mml_racing_urgent))
 			bandwidth = U32_MAX;
+		bw_peak = max(bandwidth, bw_peak);
 	} else {
 		hrt = false;
 		bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
@@ -634,10 +680,10 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	/* store for debug log */
 	task->pipe[ccfg->pipe].bandwidth = bandwidth;
 	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth),
-		hrt ? MBps_to_icc(bandwidth) : 0);
+		hrt ? MBps_to_icc(bw_peak) : 0);
 
-	mml_msg("%s comp %u %s qos bw %u by throughput %u pixel %u size %u%s",
-		__func__, comp->id, comp->name, bandwidth,
+	mml_msg("%s comp %u %s qos bw %u(%u) by throughput %u pixel %u size %u%s",
+		__func__, comp->id, comp->name, bandwidth, bw_peak,
 		throughput, cache->max_pixel, datasize,
 		hrt ? " hrt" : "");
 }
@@ -794,6 +840,161 @@ void mml_unregister_comp(struct device *master, struct mml_comp *comp)
 }
 EXPORT_SYMBOL_GPL(mml_unregister_comp);
 
+void mml_record_track(struct mml_dev *mml, struct mml_task *task)
+{
+	const struct mml_frame_config *cfg = task->config;
+	const struct mml_task_buffer *buf = &task->buf;
+	struct mml_record *record;
+	u32 i;
+
+	mutex_lock(&mml->record_mutex);
+
+	record = &mml->records[mml->record_idx];
+
+	record->jobid = task->job.jobid;
+	for (i = 0; i < MML_MAX_PLANES; i++) {
+		buf = &task->buf;
+
+		record->src_iova[i] = buf->src.dma[i].iova;
+		record->dest_iova[i] = buf->dest[0].dma[i].iova;
+		record->src_size[i] = buf->src.size[i];
+		record->dest_size[i] = buf->dest[0].size[i];
+		record->src_plane_offset[i] = cfg->info.src.plane_offset[i];
+		record->dest_plane_offset[i] = cfg->info.dest[0].data.plane_offset[i];
+	}
+	record->src_iova_map_time = buf->src.map_time;
+	record->dest_iova_map_time = buf->dest[0].map_time;
+	record->src_iova_unmap_time = buf->src.unmap_time;
+	record->dest_iova_unmap_time = buf->dest[0].unmap_time;
+
+	mml->record_idx = (mml->record_idx + 1) & MML_RECORD_NUM_MASK;
+
+	mutex_unlock(&mml->record_mutex);
+}
+
+#define REC_TITLE "Index,Job ID," \
+	"src map time,src unmap time,src,src size,plane 0,plane 1, plane 2," \
+	"dest map time,dest unmap time,dest,dest size,plane 0,plane 1, plane 2"
+
+static int mml_record_print(struct seq_file *seq, void *data)
+{
+	struct mml_dev *mml = (struct mml_dev *)seq->private;
+	struct mml_record *record;
+	u32 i, idx;
+
+	/* Protect only index part, since it is ok to print race data,
+	 * but not good to hurt performance of mml_record_track.
+	 */
+	mutex_lock(&mml->record_mutex);
+	idx = mml->record_idx;
+	mutex_unlock(&mml->record_mutex);
+
+	seq_puts(seq, REC_TITLE ",\n");
+	for (i = 0; i < ARRAY_SIZE(mml->records); i++) {
+		record = &mml->records[idx];
+		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,\n",
+			idx,
+			record->jobid,
+			record->src_iova_map_time,
+			record->src_iova_unmap_time,
+			record->src_iova[0],
+			record->src_size[0],
+			record->src_plane_offset[0],
+			record->src_plane_offset[1],
+			record->src_plane_offset[2],
+			record->dest_iova_map_time,
+			record->dest_iova_unmap_time,
+			record->dest_iova[0],
+			record->dest_size[0],
+			record->dest_plane_offset[0],
+			record->dest_plane_offset[1],
+			record->dest_plane_offset[2]);
+		idx = (idx + 1) & MML_RECORD_NUM_MASK;
+	}
+
+	return 0;
+}
+
+void mml_record_dump(struct mml_dev *mml)
+{
+	struct mml_record *record;
+	u32 i, idx;
+	/* dump 10 records only */
+	const u32 dump_count = 10;
+
+	/* Protect only index part, since it is ok to print race data,
+	 * but not good to hurt performance of mml_record_track.
+	 */
+	mutex_lock(&mml->record_mutex);
+	idx = (mml->record_idx + MML_RECORD_NUM - dump_count - 1) & MML_RECORD_NUM_MASK;
+	mutex_unlock(&mml->record_mutex);
+
+	mml_err(REC_TITLE);
+	for (i = 0; i < dump_count; i++) {
+		record = &mml->records[idx];
+		mml_err("%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u",
+			idx,
+			record->jobid,
+			record->src_iova_map_time,
+			record->src_iova_unmap_time,
+			record->src_iova[0],
+			record->src_size[0],
+			record->src_plane_offset[0],
+			record->src_plane_offset[1],
+			record->src_plane_offset[2],
+			record->dest_iova_map_time,
+			record->dest_iova_unmap_time,
+			record->dest_iova[0],
+			record->dest_size[0],
+			record->dest_plane_offset[0],
+			record->dest_plane_offset[1],
+			record->dest_plane_offset[2]);
+		idx = (idx + 1) & MML_RECORD_NUM_MASK;
+	}
+}
+
+static int mml_record_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mml_record_print, inode->i_private);
+}
+
+static const struct file_operations mml_record_fops = {
+	.owner = THIS_MODULE,
+	.open = mml_record_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static void mml_record_init(struct mml_dev *mml)
+{
+	struct dentry *dir;
+	bool exists = false;
+
+	mutex_init(&mml->record_mutex);
+
+	dir = debugfs_lookup("mml", NULL);
+	if (!dir) {
+		dir = debugfs_create_dir("mml", NULL);
+		if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
+			mml_err("debugfs_create_dir mml failed:%ld", PTR_ERR(dir));
+			return;
+		}
+	} else
+		exists = true;
+
+	mml->record_entry = debugfs_create_file(
+		"mml-record", 0444, dir, mml, &mml_record_fops);
+	if (IS_ERR(mml->record_entry)) {
+		mml_err("debugfs_create_file mml-record failed:%ld",
+			PTR_ERR(mml->record_entry));
+		mml->record_entry = NULL;
+	}
+
+	if (exists)
+		dput(dir);
+}
+
 static int sys_bind(struct device *dev, struct device *master, void *data)
 {
 	struct mml_dev *mml = dev_get_drvdata(dev);
@@ -891,6 +1092,7 @@ static int mml_probe(struct platform_device *pdev)
 	dbg_probed = true;
 
 	mml->wake_lock = wakeup_source_register(dev, "mml_pm_lock");
+	mml_record_init(mml);
 	return 0;
 
 err_mbox_create:
@@ -994,7 +1196,6 @@ static int __init mml_driver_init(void)
 	mml_mmp_init();
 
 	ret = mml_pq_core_init();
-
 	if (ret)
 		mml_err("failed to init mml pq core: %d", ret);
 

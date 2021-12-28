@@ -148,13 +148,41 @@
 
 struct hdr_data {
 	u32 min_tile_width;
+	u16 cpr[MML_PIPE_CNT];
 	u16 gpr[MML_PIPE_CNT];
+	bool vcp_readback;
 };
 
-static const struct hdr_data hdr10_hdr_data = {
+static const struct hdr_data mt6893_hdr_data = {
 	.min_tile_width = 16,
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.vcp_readback = false,
 };
+
+static const struct hdr_data mt6983_hdr_data = {
+	.min_tile_width = 16,
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.vcp_readback = false,
+};
+
+static const struct hdr_data mt6879_hdr_data = {
+	.min_tile_width = 16,
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.vcp_readback = false,
+};
+
+static const struct hdr_data mt6895_hdr_data = {
+	.min_tile_width = 16,
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.vcp_readback = true,
+};
+
+
+
 
 struct mml_comp_hdr {
 	struct mtk_ddp_comp ddp_comp;
@@ -169,6 +197,7 @@ struct hdr_frame_data {
 	u32 cut_pos_x;
 	u32 begin_offset;
 	u32 condi_offset;
+	struct cmdq_poll_reuse polling_reuse;
 	u16 labels[HDR_CURVE_NUM + HDR_REG_NUM + CMDQ_GPR_UPDATE];
 	bool is_hdr_need_readback;
 };
@@ -202,8 +231,10 @@ static s32 hdr_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d]", __func__,
 		   ccfg->pipe, comp->id);
+	mml_pq_trace_ex_begin("%s", __func__);
 	if (dest->pq_config.en_hdr)
 		ret = mml_pq_set_comp_config(task);
+	mml_pq_trace_ex_end();
 
 	return ret;
 }
@@ -492,12 +523,60 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
-			   struct mml_comp_config *ccfg)
+static void hdr_readback_vcp(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg)
+{
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
+	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+	u8 pipe = ccfg->pipe;
+	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
+
+
+	u32 gpr = hdr->data->gpr[ccfg->pipe];
+	u32 engine = CMDQ_VCP_ENG_MML_HDR0 + pipe;
+
+	mml_pq_rb_msg("%s hdr_hist[%p] pipe[%d]", __func__,
+		task->pq_task->hdr_hist[pipe], pipe);
+
+	if (!(task->pq_task->hdr_hist[pipe])) {
+		task->pq_task->hdr_hist[pipe] =
+			kzalloc(sizeof(struct mml_pq_readback_buffer), GFP_KERNEL);
+
+		if (unlikely(!task->pq_task->hdr_hist[pipe])) {
+			mml_pq_err("%s not enough mem for hdr_hist", __func__);
+			return;
+		}
+
+		task->pq_task->hdr_hist[pipe]->va =
+			cmdq_get_vcp_buf(engine, &(task->pq_task->hdr_hist[pipe]->pa));
+
+		mml_pq_rb_msg("%s hdr_hist[%p] pipe[%d] hdr_hist_va[%p] hdr_hist_pa[%llx]",
+			__func__, task->pq_task->hdr_hist[pipe], pipe,
+			task->pq_task->hdr_hist[pipe]->va,
+			task->pq_task->hdr_hist[pipe]->pa);
+	}
+
+	mml_pq_get_vcp_buf_offset(task, MML_PQ_HDR0+pipe, task->pq_task->hdr_hist[pipe]);
+
+	cmdq_vcp_enable(true);
+
+	cmdq_pkt_readback(pkt, engine, task->pq_task->hdr_hist[pipe]->va_offset,
+		HDR_HIST_NUM, gpr,
+		&(reuse->labels[reuse->label_idx]),
+		&(hdr_frm->polling_reuse));
+
+	hdr_frm->labels[HDR_CURVE_NUM + HDR_REG_NUM] = reuse->label_idx;
+	reuse->labels[reuse->label_idx].val = task->pq_task->hdr_hist[pipe]->va_offset;
+	reuse->label_idx++;
+
+}
+
+static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
+			      struct mml_comp_config *ccfg)
 {
 	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
-	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	struct mml_frame_config *cfg = task->config;
@@ -512,19 +591,15 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 
 	const u16 idx_counter = CMDQ_THR_SPR_IDX1;
 	const u16 idx_val = CMDQ_THR_SPR_IDX2;
-	const u16 idx_out = hdr->data->gpr[ccfg->pipe] + CMDQ_GPR_CNT_ID;
-	const u16 idx_out64 = (hdr->data->gpr[ccfg->pipe] >> 1) +
-			      CMDQ_GPR_P0 + CMDQ_GPR_CNT_ID;
-
-	if (!dest->pq_config.en_hdr)
-		goto exit;
+	const u16 idx_out = hdr->data->cpr[ccfg->pipe];
+	const u16 idx_out64 = CMDQ_CPR_TO_CPR64(idx_out);
 
 	mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->hdr_hist[pipe]));
 
 	if (unlikely(!task->pq_task->hdr_hist[pipe])) {
 		mml_pq_err("%s job_id[%d] hdr_hist is null", __func__,
 			task->job.jobid);
-		goto comp_config_put;
+		return;
 	}
 
 	pa = task->pq_task->hdr_hist[pipe]->pa;
@@ -542,9 +617,9 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 	hdr_frm->begin_offset = pkt->cmd_buf_size;
 	begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
 
-	/* read to value gpr */
+	/* read to value cpr */
 	cmdq_pkt_read_addr(pkt, base_pa + HDR_HIST_DATA, idx_val);
-	/* write value spr to dst gpr */
+	/* write value spr to dst cpr */
 	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	/* jump forward end if match, if spr1 >= 57 - 1	*/
@@ -577,9 +652,9 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
-	/* read to value gpr */
+	/* read to value cpr */
 	cmdq_pkt_read_addr(pkt, base_pa + HDR_LBOX_DET_4, idx_val);
-	/* write value spr to dst gpr */
+	/* write value spr to dst cpr */
 	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p]",
@@ -589,9 +664,27 @@ static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_rb_msg("%s end job_id[%d] condi:offset[%u] inst[%p], begin:offset[%u] pa[%08x]",
 		__func__, task->job.jobid, hdr_frm->condi_offset, condi_inst,
 		hdr_frm->begin_offset, begin_pa);
+}
 
-comp_config_put:
-	mml_pq_put_comp_config_result(task);
+
+static s32 hdr_config_post(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
+{
+	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
+	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
+	bool vcp = hdr->data->vcp_readback;
+
+	mml_pq_msg("%s vcp[%d] en_hdr[%d]", __func__,
+		vcp, dest->pq_config.en_hdr);
+
+	if (!dest->pq_config.en_hdr)
+		goto exit;
+
+	if (vcp)
+		hdr_readback_vcp(comp, task, ccfg);
+	else
+		hdr_readback_cmdq(comp, task, ccfg);
+
 exit:
 	return 0;
 
@@ -648,44 +741,74 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
+	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	bool vcp = hdr->data->vcp_readback;
 	dma_addr_t begin_pa;
 	u32 *condi_inst;
 	u8 pipe = ccfg->pipe;
+	u32 engine = CMDQ_VCP_ENG_MML_HDR0 + pipe;
 
 	if (!dest->pq_config.en_hdr)
 		goto exit;
 
-	mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->hdr_hist[pipe]));
+	if (vcp) {
+		if (!(task->pq_task->hdr_hist[pipe])) {
+			task->pq_task->hdr_hist[pipe] =
+				kzalloc(sizeof(struct mml_pq_readback_buffer), GFP_KERNEL);
 
-	if (unlikely(!task->pq_task->hdr_hist[pipe])) {
-		mml_pq_err("%s job_id[%d] hdr_hist is null", __func__,
-			task->job.jobid);
-		goto comp_config_put;
+			if (unlikely(!task->pq_task->hdr_hist[pipe])) {
+				mml_pq_err("%s not enough mem for hdr_hist", __func__);
+				goto comp_config_put;
+			}
+			mml_pq_log("%s Aaron_1 hdr_hist[%p] pipe[%d]", __func__,
+				task->pq_task->hdr_hist[pipe], pipe);
+
+			task->pq_task->hdr_hist[pipe]->va =
+				cmdq_get_vcp_buf(engine, &(task->pq_task->hdr_hist[pipe]->pa));
+		}
+		cmdq_vcp_enable(true);
+		mml_pq_get_vcp_buf_offset(task, MML_PQ_HDR0 + pipe,
+			task->pq_task->hdr_hist[pipe]);
+
+		reuse->labels[hdr_frm->labels[HDR_CURVE_NUM + HDR_REG_NUM]].val =
+			cmdq_pkt_vcp_reuse_val(engine,
+			task->pq_task->hdr_hist[pipe]->va_offset,
+			HDR_HIST_NUM);
+		cmdq_pkt_reuse_poll(pkt, &(hdr_frm->polling_reuse));
+
+	} else {
+		mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->hdr_hist[pipe]));
+
+		if (unlikely(!task->pq_task->hdr_hist[pipe])) {
+			mml_pq_err("%s job_id[%d] hdr_hist is null", __func__,
+				task->job.jobid);
+			goto comp_config_put;
+		}
+
+		mml_update(reuse, hdr_frm->labels[HDR_CURVE_NUM+HDR_REG_NUM],
+			(u32)task->pq_task->hdr_hist[pipe]->pa);
+		mml_update(reuse, hdr_frm->labels[HDR_CURVE_NUM+HDR_REG_NUM+1],
+			(u32)(task->pq_task->hdr_hist[pipe]->pa >> 32));
+
+		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
+		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, hdr_frm->condi_offset);
+		if (unlikely(!condi_inst))
+			mml_pq_err("%s wrong offset %u\n", __func__, hdr_frm->condi_offset);
+
+		*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
+
+		mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p] ",
+			__func__, task->job.jobid, comp->id, task->pq_task->hdr_hist[pipe]->va,
+			task->pq_task->hdr_hist[pipe]->pa, pkt);
+
+		mml_pq_rb_msg("%s end job_id[%d]condi:offset[%u]inst[%p],begin:offset[%u]pa[%08x]",
+			__func__, task->job.jobid, hdr_frm->condi_offset, condi_inst,
+			hdr_frm->begin_offset, begin_pa);
 	}
-
-	mml_update(reuse, hdr_frm->labels[HDR_CURVE_NUM+HDR_REG_NUM],
-		(u32)task->pq_task->hdr_hist[pipe]->pa);
-	mml_update(reuse, hdr_frm->labels[HDR_CURVE_NUM+HDR_REG_NUM+1],
-		(u32)(task->pq_task->hdr_hist[pipe]->pa >> 32));
-
-	begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
-	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, hdr_frm->condi_offset);
-	if (unlikely(!condi_inst))
-		mml_pq_err("%s wrong offset %u\n", __func__, hdr_frm->condi_offset);
-
-	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
-
-	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%08x] pkt[%p] ",
-		__func__, task->job.jobid, comp->id, task->pq_task->hdr_hist[pipe]->va,
-		task->pq_task->hdr_hist[pipe]->pa, pkt);
-
-	mml_pq_rb_msg("%s end job_id[%d] condi:offset[%u] inst[%p], begin:offset[%u] pa[%08x]",
-		__func__, task->job.jobid, hdr_frm->condi_offset, condi_inst,
-		hdr_frm->begin_offset, begin_pa);
 
 comp_config_put:
 	mml_pq_put_comp_config_result(task);
@@ -708,10 +831,14 @@ static const struct mml_comp_config_ops hdr_cfg_ops = {
 static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 					 struct mml_comp_config *ccfg)
 {
+	struct mml_comp_hdr *hdr = comp_to_hdr(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	u8 pipe = ccfg->pipe;
+	u32 engine = MML_PQ_HDR0 + pipe;
+	bool vcp = hdr->data->vcp_readback;
+	u32 offset = 0;
 
 
 	mml_pq_trace_ex_begin("%s", __func__);
@@ -736,29 +863,32 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_hdr_readback(task, ccfg->pipe, phist);
 	}
 
-	mml_pq_rb_msg("%s job_id[%d] id[%d] pipe[%d] en_hdr[%d] va[%p] pa[%08x]",
+	offset = vcp ? task->pq_task->hdr_hist[pipe]->va_offset : 0;
+
+	mml_pq_msg("%s job_id[%d] id[%d] pipe[%d] en_hdr[%d] va[%p] pa[%08x]",
 		__func__, task->job.jobid, comp->id, ccfg->pipe,
 		dest->pq_config.en_hdr, task->pq_task->hdr_hist[pipe]->va,
 		task->pq_task->hdr_hist[pipe]->pa);
 
 	mml_pq_rb_msg("%s job_id[%d] hist[0~4]={%08x, %08x, %08x, %08x, %08x} hist[57]=[%08x]",
 		__func__, task->job.jobid,
-		task->pq_task->hdr_hist[pipe]->va[0],
-		task->pq_task->hdr_hist[pipe]->va[1],
-		task->pq_task->hdr_hist[pipe]->va[2],
-		task->pq_task->hdr_hist[pipe]->va[3],
-		task->pq_task->hdr_hist[pipe]->va[4],
-		task->pq_task->hdr_hist[pipe]->va[57]);
+		task->pq_task->hdr_hist[pipe]->va[offset/4+0],
+		task->pq_task->hdr_hist[pipe]->va[offset/4+1],
+		task->pq_task->hdr_hist[pipe]->va[offset/4+2],
+		task->pq_task->hdr_hist[pipe]->va[offset/4+3],
+		task->pq_task->hdr_hist[pipe]->va[offset/4+4],
+		task->pq_task->hdr_hist[pipe]->va[offset/4+57]);
 
 	if (hdr_frm->is_hdr_need_readback) {
-		mml_pq_hdr_readback(task, ccfg->pipe, task->pq_task->hdr_hist[pipe]->va);
+		mml_pq_hdr_readback(task, ccfg->pipe,
+			&(task->pq_task->hdr_hist[pipe]->va[offset/4]));
 		if (mml_pq_rb_msg) {
 			u32 i = 0, sum = 0;
 			u32 expect_value = 0;
 			u32 letter_up = 0, letter_down = 0, letter_height = 0;
 
 			for (i = 0; i < HDR_HIST_CNT; i++)
-				sum = sum + task->pq_task->hdr_hist[pipe]->va[i];
+				sum = sum + task->pq_task->hdr_hist[pipe]->va[offset/4+i];
 
 			letter_up = ((task->pq_task->hdr_hist[pipe]->va[57] &
 				0x0000FFFF) >> 0);
@@ -783,7 +913,11 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 				letter_up);
 		}
 	}
-	mml_pq_put_readback_buffer(task, pipe, task->pq_task->hdr_hist[pipe]);
+	if (vcp) {
+		mml_pq_put_vcp_buf_offset(task, engine, task->pq_task->hdr_hist[pipe]);
+		cmdq_vcp_enable(false);
+	} else
+		mml_pq_put_readback_buffer(task, pipe, task->pq_task->hdr_hist[pipe]);
 exit:
 	mml_pq_trace_ex_end();
 }
@@ -940,19 +1074,19 @@ static int remove(struct platform_device *pdev)
 const struct of_device_id mml_hdr_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6983-mml_hdr",
-		.data = &hdr10_hdr_data,
+		.data = &mt6983_hdr_data,
 	},
 	{
 		.compatible = "mediatek,mt6893-mml_hdr",
-		.data = &hdr10_hdr_data,
+		.data = &mt6893_hdr_data,
 	},
 	{
 		.compatible = "mediatek,mt6879-mml_hdr",
-		.data = &hdr10_hdr_data,
+		.data = &mt6879_hdr_data,
 	},
 	{
 		.compatible = "mediatek,mt6895-mml_hdr",
-		.data = &hdr10_hdr_data,
+		.data = &mt6895_hdr_data,
 	},
 	{},
 };

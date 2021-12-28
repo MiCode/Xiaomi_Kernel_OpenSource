@@ -384,10 +384,12 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	ctrl->p_new.p = &fd;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev, "%s get_ctrl ret:%d num_entries:%d type:%d\n", __func__,
-		ret, fd.num_entries, fd.type);
-	if (ret || fd.type != MTK_MBUS_FRAME_DESC_TYPE_CSI2 || !fd.num_entries)
+
+	if (ret || fd.type != MTK_MBUS_FRAME_DESC_TYPE_CSI2 || !fd.num_entries) {
+		dev_info(ctx->dev, "%s get_ctrl ret:%d num_entries:%d type:%d\n", __func__,
+			ret, fd.num_entries, fd.type);
 		return get_vcinfo_by_pad_fmt(ctx);
+	}
 
 	vcinfo->cnt = 0;
 	grp = 0;
@@ -513,6 +515,44 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 
 		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
 		vc->exp_vsize = fd.entry[i].bus.csi2.vsize;
+
+		switch (vc->dt) {
+		case 0x28:
+			vc->bit_depth = 6;
+			break;
+		case 0x29:
+			vc->bit_depth = 7;
+			break;
+		case 0x2A:
+		case 0x1E:
+		case 0x1C:
+		case 0x1A:
+		case 0x18:
+			vc->bit_depth = 8;
+			break;
+		case 0x2B:
+		case 0x1F:
+		case 0x19:
+		case 0x1D:
+			vc->bit_depth = 10;
+			break;
+		case 0x2C:
+			vc->bit_depth = 12;
+			break;
+		case 0x2D:
+			vc->bit_depth = 14;
+			break;
+		case 0x2E:
+			vc->bit_depth = 16;
+			break;
+		case 0x2F:
+			vc->bit_depth = 20;
+			break;
+		default:
+			vc->bit_depth = 8;
+			break;
+		}
+
 
 		/* update pad fotmat */
 		if (vc->exp_hsize && vc->exp_vsize) {
@@ -707,11 +747,13 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 
 	return 0;
 }
-int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, bool disable_last)
+int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
+					int pad_id, int camtg, bool from_set_camtg)
 {
 	int vc_en, old_camtg;
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vc *vc;
+	bool disable_last = from_set_camtg;
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT)
 		return -EINVAL;
@@ -719,6 +761,11 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, boo
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc)
 		return -EINVAL;
+
+	if (!from_set_camtg && !ctx->streaming) {
+		dev_info(ctx->dev, "%s !from_set_camtg && !ctx->streaming\n", __func__);
+		return -EINVAL;
+	}
 
 	ctx->pad2cam[pad_id] = camtg;
 
@@ -839,12 +886,16 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 	struct seninf_ctx *ctx;
 	int index = 0;
 
+
 	if (param != NULL && param->num == 1) {
 		sd = param->settings[0].seninf;
 		pad_id = param->settings[0].source;
 		camtg = param->settings[0].camtg;
-
-		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, true);
+		ctx = container_of(sd, struct seninf_ctx, subdev);
+		//_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, true);
+		dev_info(ctx->dev,
+			"%s error, should use mtk_cam_seninf_set_camtg directly!!!\n"
+			, __func__);
 
 	} else if (param != NULL && param->num > 1) {
 		sd = param->settings[0].seninf;

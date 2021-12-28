@@ -716,6 +716,15 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+		dev_dbg(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
+			fmt->pad,
+			fmt->format.code,
+			fmt->format.width,
+			fmt->format.height,
+			fmt->which,
+			format->code,
+			format->width,
+			format->height);
 	} else {
 		/* NOTE: update vcinfo once the SINK format changed */
 		if (fmt->pad == PAD_SINK)
@@ -727,17 +736,17 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 
 		if (bSinkFormatChanged && !ctx->is_test_model)
 			mtk_cam_seninf_get_vcinfo(ctx);
-	}
 
-	dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
-		 fmt->pad,
-		fmt->format.code,
-		fmt->format.width,
-		fmt->format.height,
-		fmt->which,
-		format->code,
-		format->width,
-		format->height);
+		dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
+			fmt->pad,
+			fmt->format.code,
+			fmt->format.width,
+			fmt->format.height,
+			fmt->which,
+			format->code,
+			format->width,
+			format->height);
+	}
 
 	return 0;
 }

@@ -130,13 +130,15 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		return -EIO;
 	}
 
-	while (inst->ctx->dev->is_codec_suspending == 1) {
-		suspend_block_cnt++;
-		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-			mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
-			suspend_block_cnt = 0;
+	if (!is_ack) {
+		while (inst->ctx->dev->is_codec_suspending == 1) {
+			suspend_block_cnt++;
+			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+				mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
+				suspend_block_cnt = 0;
+			}
+			usleep_range(10000, 20000);
 		}
-		usleep_range(10000, 20000);
 	}
 
 	memset(&obj, 0, sizeof(obj));
@@ -305,12 +307,12 @@ static void handle_vdec_mem_alloc(struct vdec_vcu_ipi_mem_op *msg)
 		if (IS_ERR_OR_NULL(vcu))
 			return;
 
-		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
-			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
-
 		inst = container_of(vcu, struct vdec_inst, vcu);
 		dev = get_dev_by_mem_type(inst, &msg->mem);
 		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev, &attach, &sgt);
+
+		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
+			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 	}
 
 	/* check memory bound */
@@ -584,7 +586,7 @@ int vcp_dec_ipi_handler(void *arg)
 				wake_up(&vcu->wq);
 				break;
 			case VCU_IPIMSG_DEC_PUT_FRAME_BUFFER:
-				mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK);
+				mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK, msg->reserved != 0);
 				msg->msg_id = AP_IPIMSG_DEC_PUT_FRAME_BUFFER_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				break;

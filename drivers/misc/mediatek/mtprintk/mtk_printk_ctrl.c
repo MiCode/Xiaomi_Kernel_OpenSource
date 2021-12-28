@@ -109,6 +109,8 @@ static void *log_much;
 static int log_much_len = 1 << (CONFIG_LOG_BUF_SHIFT + 1);
 struct proc_dir_entry *logmuch_entry;
 static u32 log_count;
+static bool detect_count_after_effect_flag;
+static int detect_count_after;
 DECLARE_WAIT_QUEUE_HEAD(logmuch_thread_exit);
 void mt_print_much_log(void)
 {
@@ -143,8 +145,16 @@ void set_logtoomuch_disable(void)
 void set_detect_count(int val)
 {
 	pr_info("set log_much detect value %d.\n", val);
-	if (val > 0)
-		detect_count = val;
+	if (val > 0) {
+		if (val >= detect_count) {
+			detect_count_after_effect_flag = false;
+			detect_count = val;
+		} else {
+			detect_count_after_effect_flag = true;
+			detect_count_after = val;
+		}
+
+	}
 }
 EXPORT_SYMBOL_GPL(set_detect_count);
 
@@ -191,8 +201,12 @@ static int logmuch_dump_thread(void *arg)
 		old = sched_clock();
 		kmsg_dump_rewind(&dumper);
 		last_seq = dumper.next_seq;
+		if ((detect_count_after_effect_flag == true) && (detect_count_after > 0)) {
+			detect_count_after_effect_flag = false;
+			detect_count = detect_count_after;
+		}
 		wait_event_interruptible_timeout(logmuch_thread_exit, logmuch_exit == 1, 5 * HZ);
-		if (logmuch_enable == false)
+		if (logmuch_enable == false || detect_count <= 0)
 			continue;
 
 		now = sched_clock();

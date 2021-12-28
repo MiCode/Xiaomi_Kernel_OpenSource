@@ -124,13 +124,15 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		return -EIO;
 	}
 
-	while (inst->ctx->dev->is_codec_suspending == 1) {
-		suspend_block_cnt++;
-		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-			mtk_v4l2_debug(4, "VENC blocked by suspend\n");
-			suspend_block_cnt = 0;
+	if (!is_ack) {
+		while (inst->ctx->dev->is_codec_suspending == 1) {
+			suspend_block_cnt++;
+			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+				mtk_v4l2_debug(4, "VENC blocked by suspend\n");
+				suspend_block_cnt = 0;
+			}
+			usleep_range(10000, 20000);
 		}
-		usleep_range(10000, 20000);
 	}
 
 	if (!is_ack)
@@ -202,11 +204,12 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 		if (IS_ERR_OR_NULL(vcu))
 			return;
 
-		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
-			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 		inst = container_of(vcu, struct venc_inst, vcu_inst);
 		dev = get_dev_by_mem_type(inst, &msg->mem);
 		msg->status = mtk_vcodec_alloc_mem(&msg->mem, dev, &attach, &sgt);
+
+		mtk_vcodec_debug(vcu, "va 0x%llx pa 0x%llx iova 0x%llx len %d type %d\n",
+			msg->mem.va, msg->mem.pa, msg->mem.iova, msg->mem.len, msg->mem.type);
 	}
 
 	/* check memory bound */

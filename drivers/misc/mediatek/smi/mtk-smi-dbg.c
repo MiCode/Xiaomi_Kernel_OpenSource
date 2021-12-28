@@ -830,6 +830,8 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 			mtk_smi_dbg_print(smi, true, true, i, false);
 	}
 
+	mtk_smi_dump_last_pd(user);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);

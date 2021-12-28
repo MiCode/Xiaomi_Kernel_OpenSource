@@ -778,7 +778,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->dummy_pixel = 0;
 	ctx->dummy_line = 0;
 	ctx->ihdr_mode = 0;
-	ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 
 	return ERROR_NONE;
@@ -1229,17 +1229,35 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	if (enable)
-		write_cmos_sensor_16(ctx, 0x0600, 0x0002);
-	else if (ctx->test_pattern)
-		write_cmos_sensor_16(ctx, 0x0600, 0x0000);
-	else
-		return ERROR_NONE;
+	DEBUG_LOG(ctx, "mode: %d\n", mode);
 
-	DEBUG_LOG(ctx, "enable: %d\n", enable);
-	ctx->test_pattern = enable;
+	if (mode)
+		write_cmos_sensor_16(ctx, 0x0600, mode); /*100% Color bar*/
+	else if (ctx->test_pattern)
+		write_cmos_sensor_16(ctx, 0x0600, 0x0000); /*No pattern*/
+
+	ctx->test_pattern = mode;
+	return ERROR_NONE;
+}
+
+static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
+{
+
+	pr_debug("test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n", ctx->test_pattern,
+		data->Channel_R >> 22, data->Channel_Gr >> 22,
+		data->Channel_Gb >> 22, data->Channel_B >> 22);
+
+	set_cmos_sensor_16(ctx, 0x0602, (data->Channel_R >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0603, (data->Channel_R >> 22) & 0xff);
+	set_cmos_sensor_16(ctx, 0x0604, (data->Channel_Gr >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0605, (data->Channel_Gr >> 22) & 0xff);
+	set_cmos_sensor_16(ctx, 0x0606, (data->Channel_B >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0607, (data->Channel_B >> 22) & 0xff);
+	set_cmos_sensor_16(ctx, 0x0608, (data->Channel_Gb >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0609, (data->Channel_Gb >> 22) & 0xff);
+	commit_write_sensor(ctx);
 	return ERROR_NONE;
 }
 
@@ -1423,7 +1441,10 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			(MUINT32 *)(uintptr_t)(*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode(ctx, (BOOL)*feature_data);
+		set_test_pattern_mode(ctx, (UINT32)*feature_data);
+		break;
+	case SENSOR_FEATURE_SET_TEST_PATTERN_DATA:
+		set_test_pattern_data(ctx, (struct mtk_test_pattern_data *)feature_data);
 		break;
 	/*for factory mode auto testing*/
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
@@ -1735,6 +1756,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
+	csi_param->legacy_phy = 1;
+	csi_param->not_fixed_trail_settle = 1;
+
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		csi_param->dphy_trail = 0x20;

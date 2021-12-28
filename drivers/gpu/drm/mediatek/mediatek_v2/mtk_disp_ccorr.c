@@ -800,14 +800,16 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		}
 	} else {
 		if (id == 0) {
-			if (bypass_color0 == false) {
+			if ((bypass_color0 == false) && (disp_ccorr_number == 1)
+				&& (!(disp_ccorr_linear & 0x01))) {
 				struct mtk_ddp_comp *comp_color0 =
 					priv->ddp_comp[DDP_COMPONENT_COLOR0];
 				ddp_color_bypass_color(comp_color0, true, handle);
 				bypass_color0 = true;
 			}
 		} else if (id == 1 || id == 2) {
-			if (bypass_color1 == false) {
+			if ((bypass_color1 == false) && (disp_ccorr_number == 1)
+				&& (!(disp_ccorr_linear & 0x01))) {
 				struct mtk_ddp_comp *comp_color1 =
 					priv->ddp_comp[DDP_COMPONENT_COLOR1];
 				ddp_color_bypass_color(comp_color1, true, handle);

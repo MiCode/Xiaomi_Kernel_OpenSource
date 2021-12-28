@@ -2823,7 +2823,7 @@ void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
-	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
+	struct cmdq_pkt *cevent_cmdq_handle, *cmdq_handle, *sevent_cmdq_handle;
 	struct mtk_ddp_config cfg;
 	struct mtk_ddp_comp *comp;
 	struct mtk_ddp_comp *output_comp;
@@ -2853,21 +2853,25 @@ void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), mode_switch, 0, 1);
 
-	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+	mtk_crtc_pkt_create(&cevent_cmdq_handle, &mtk_crtc->base,
 				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	/* 1. wait frame done & wait DSI not busy */
-	cmdq_pkt_wait_no_clear(cmdq_handle,
+	cmdq_pkt_wait_no_clear(cevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 	/* Clear stream block to prevent trigger loop start */
-	cmdq_pkt_clear_event(cmdq_handle,
+	cmdq_pkt_clear_event(cevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-	cmdq_pkt_wfe(cmdq_handle,
+	cmdq_pkt_wfe(cevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-	cmdq_pkt_clear_event(cmdq_handle,
+	cmdq_pkt_clear_event(cevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-	cmdq_pkt_wfe(cmdq_handle,
+	cmdq_pkt_wfe(cevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	cmdq_pkt_flush(cevent_cmdq_handle);
+	cmdq_pkt_destroy(cevent_cmdq_handle);
 
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	mtk_crtc_load_round_corner_pattern(&mtk_crtc->base, cmdq_handle);
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
@@ -2914,16 +2918,16 @@ void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 	CRTC_MMP_MARK(drm_crtc_index(crtc), mode_switch, 0, 3);
 
 	/* set frame done */
-	mtk_crtc_pkt_create(&cmdq_handle2, &mtk_crtc->base,
+	mtk_crtc_pkt_create(&sevent_cmdq_handle, &mtk_crtc->base,
 				mtk_crtc->gce_obj.client[CLIENT_CFG]);
-	cmdq_pkt_set_event(cmdq_handle2,
+	cmdq_pkt_set_event(sevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-	cmdq_pkt_set_event(cmdq_handle2,
+	cmdq_pkt_set_event(sevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-	cmdq_pkt_set_event(cmdq_handle2,
+	cmdq_pkt_set_event(sevent_cmdq_handle,
 		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-	cmdq_pkt_flush(cmdq_handle2);
-	cmdq_pkt_destroy(cmdq_handle2);
+	cmdq_pkt_flush(sevent_cmdq_handle);
+	cmdq_pkt_destroy(sevent_cmdq_handle);
 }
 
 static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,

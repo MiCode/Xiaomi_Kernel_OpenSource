@@ -114,22 +114,36 @@ void write_mpam_partid(int partid)
 	case DEF_PARTID:
 		asm volatile (
 			"mrs x0, s3_0_c10_c5_1\n\t"
-			"bic x0, x0, #(0xffffffff)\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
 			"msr s3_0_c10_c5_1, x0\n\t"
 			"mrs x0, s3_0_c10_c5_0\n\t"
-			"bic x0, x0, #(0xffffffff)\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
+			"msr s3_0_c10_c5_0, x0\n\t"
+			: : : "memory");
+		break;
+	case SECURE_PARTID:
+		asm volatile (
+			"mrs x0, s3_0_c10_c5_1\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
+			"orr x0, x0, #(0x1<<16)\n\t"
+			"orr x0, x0, #(0x2)\n\t"
+			"msr s3_0_c10_c5_1, x0\n\t"
+			"mrs x0, s3_0_c10_c5_0\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
+			"orr x0, x0, #(0x1<<16)\n\t"
+			"orr x0, x0, #(0x2)\n\t"
 			"msr s3_0_c10_c5_0, x0\n\t"
 			: : : "memory");
 		break;
 	case CT_PARTID:
 		asm volatile (
 			"mrs x0, s3_0_c10_c5_1\n\t"
-			"bic x0, x0, #(0xffffffff)\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
 			"orr x0, x0, #(0x2<<16)\n\t"
 			"orr x0, x0, #(0x2)\n\t"
 			"msr s3_0_c10_c5_1, x0\n\t"
 			"mrs x0, s3_0_c10_c5_0\n\t"
-			"bic x0, x0, #(0xffffffff)\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
 			"orr x0, x0, #(0x2<<16)\n\t"
 			"orr x0, x0, #(0x2)\n\t"
 			"msr s3_0_c10_c5_0, x0\n\t"
@@ -138,12 +152,12 @@ void write_mpam_partid(int partid)
 	case NCT_PARTID:
 		asm volatile (
 			"mrs x0, s3_0_c10_c5_1\n\t"
-			"bic x0, x0, #(0xffffffff)\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
 			"orr x0, x0, #(0x3<<16)\n\t"
 			"orr x0, x0, #(0x2)\n\t"
 			"msr s3_0_c10_c5_1, x0\n\t"
 			"mrs x0, s3_0_c10_c5_0\n\t"
-			"bic x0, x0, #(0xffffffff)\n\t"
+			"bic x0, x0, #(0xffffffffffff)\n\t"
 			"orr x0, x0, #(0x3<<16)\n\t"
 			"orr x0, x0, #(0x2)\n\t"
 			"msr s3_0_c10_c5_0, x0\n\t"
@@ -233,9 +247,6 @@ out:
  */
 static void mpam_write_partid(int partid)
 {
-	if (partid == this_cpu_read(mpam_local_partid))
-		return;
-
 	this_cpu_write(mpam_local_partid, partid);
 
 	/* Write to e.g. MPAM0_EL1.PARTID_D here */
@@ -249,15 +260,21 @@ static void mpam_sync_task(struct task_struct *p)
 {
 	struct cgroup_subsys_state *css;
 	int old_partid = this_cpu_read(mpam_local_partid);
+	u64 v1, v2;
 
 	rcu_read_lock();
 	css = task_css(p, cpuqos_subsys_id);
 	rcu_read_unlock();
 
 	mpam_write_partid(mpam_map_task_partid(p));
+
+	__asm__ volatile ("mrs %0, s3_0_c10_c5_1" : "=r" (v1));
+	__asm__ volatile ("mrs %0, s3_0_c10_c5_0" : "=r" (v2));
+
 	trace_cpuqos_cpu_partid(smp_processor_id(), p->pid,
 				css->id, old_partid,
 				this_cpu_read(mpam_local_partid),
+				v1, v2,
 				get_task_rank(p),
 				cpuqos_perf_mode);
 

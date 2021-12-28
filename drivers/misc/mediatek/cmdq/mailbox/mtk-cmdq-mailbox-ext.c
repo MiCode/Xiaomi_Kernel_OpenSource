@@ -123,8 +123,8 @@ EXPORT_SYMBOL(gce_shift_bit);
 int gce_mminfra;
 EXPORT_SYMBOL(gce_mminfra);
 
-bool gce_insert_dummy;
-EXPORT_SYMBOL(gce_insert_dummy);
+bool skip_poll_sleep;
+EXPORT_SYMBOL(skip_poll_sleep);
 
 /* CMDQ log flag */
 int mtk_cmdq_log;
@@ -2232,8 +2232,8 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	gce_shift_bit = plat_data->shift;
 	gce_mminfra = plat_data->mminfra;
-	if (of_property_read_bool(dev->of_node, "insert-dummy"))
-		gce_insert_dummy = true;
+	if (!of_property_read_bool(dev->of_node, "skip-poll-sleep"))
+		skip_poll_sleep = true;
 
 	dev_notice(dev,
 		"cmdq thread:%u shift:%u mminfra:%#x base:0x%lx pa:0x%lx\n",

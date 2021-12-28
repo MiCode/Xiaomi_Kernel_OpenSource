@@ -866,23 +866,10 @@ static void mtk_cam_mraw_copy_user_input_param(
 	struct device *dev,
 	struct mtk_cam_uapi_meta_mraw_stats_cfg *mraw_meta_in_buf,
 	struct mtkcam_ipi_frame_param *frame_param,
-	struct mtk_mraw_pipeline *mraw_pipline, int mraw_param_num)
+	struct mtk_mraw_pipeline *mraw_pipline)
 {
 	/* Set tg/crp param from kernel info. */
-	frame_param->mraw_param[mraw_param_num].tg_pos_x = 0;
-	frame_param->mraw_param[mraw_param_num].tg_pos_y = 0;
-	frame_param->mraw_param[mraw_param_num].tg_size_w
-		= mraw_pipline->res_config.width;
-	frame_param->mraw_param[mraw_param_num].tg_size_h
-		= mraw_pipline->res_config.height;
-	frame_param->mraw_param[mraw_param_num].tg_fmt
-		= mraw_pipline->res_config.img_fmt;
-	frame_param->mraw_param[mraw_param_num].crop_pos_x = 0;
-	frame_param->mraw_param[mraw_param_num].crop_pos_y = 0;
-	frame_param->mraw_param[mraw_param_num].crop_size_w
-		= mraw_pipline->res_config.width;
-	frame_param->mraw_param[mraw_param_num].crop_size_h
-		= mraw_pipline->res_config.height;
+	mtk_cam_mraw_update_param(frame_param, mraw_pipline);
 
 	/* Set mraw res_config */
 	mraw_pipline->res_config.mqe_en = mraw_meta_in_buf->mqe_enable;
@@ -1032,7 +1019,7 @@ void mtk_cam_mraw_handle_enque(struct vb2_buffer *vb)
 		meta_in->uid.id = dma_port;
 		meta_in->uid.pipe_id = node->uid.pipe_id;
 		mtk_cam_mraw_copy_user_input_param(cam->dev, mraw_meta_in_buf,
-			frame_param, mraw_pipline, 0);
+			frame_param, mraw_pipline);
 		mraw_pipline->res_config.enque_num++;
 		break;
 	case MTKCAM_IPI_MRAW_META_STATS_0:
@@ -1082,7 +1069,42 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 	return 0;
 }
 
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
+void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
+	struct mtk_mraw_pipeline *mraw_pipline)
+{
+	frame_param->mraw_param[0].tg_pos_x = 0;
+	frame_param->mraw_param[0].tg_pos_y = 0;
+	frame_param->mraw_param[0].tg_size_w = mraw_pipline->res_config.width;
+	frame_param->mraw_param[0].tg_size_h = mraw_pipline->res_config.height;
+	frame_param->mraw_param[0].tg_fmt = mraw_pipline->res_config.img_fmt;
+	frame_param->mraw_param[0].crop_pos_x = 0;
+	frame_param->mraw_param[0].crop_pos_y = 0;
+	frame_param->mraw_param[0].crop_size_w = mraw_pipline->res_config.width;
+	frame_param->mraw_param[0].crop_size_h = mraw_pipline->res_config.height;
+}
+
+int mtk_cam_mraw_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns)
+{
+	struct mtk_mraw_working_buf_entry *buf_entry;
+	int i;
+
+	for (i = 0; i < ctx->used_mraw_num; i++) {
+		spin_lock(&ctx->mraw_composed_buffer_list[i].lock);
+		if (list_empty(&ctx->mraw_composed_buffer_list[i].list)) {
+			spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
+			return 0;
+		}
+		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
+							struct mtk_mraw_working_buf_entry,
+							list_entry);
+		buf_entry->ts_raw = ts_ns;
+		spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
+	}
+
+	return 1;
+}
+
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_mraw_working_buf_entry *buf_entry, *buf_entry_prev;
 	struct mtk_mraw_device *mraw_dev;
@@ -1098,8 +1120,8 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 		}
 		list_for_each_entry_safe(buf_entry, buf_entry_prev,
 			&ctx->mraw_composed_buffer_list[i].list, list_entry) {
-			if (buf_entry->ts_raw == 0) {
-				buf_entry->ts_raw = ts_ns;
+			if (atomic_read(&buf_entry->is_apply) == 0) {
+				atomic_set(&buf_entry->is_apply, 1);
 				break;
 			}
 		}
@@ -1109,14 +1131,18 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 		if (mtk_cam_mraw_is_vf_on(mraw_dev) &&
 			buf_entry->s_data->req->pipe_used &
 			(1 << ctx->mraw_pipe[i]->id)) {
-			if ((buf_entry->ts_mraw == 0) ||
-				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
-				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld",
-					__func__, ctx->mraw_pipe[i]->id,
-					buf_entry->ts_raw, buf_entry->ts_mraw);
-				spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
-				continue;
+			if (buf_entry->is_stagger == 0 ||
+				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0)) {
+				if ((buf_entry->ts_mraw == 0) ||
+					((buf_entry->ts_mraw < buf_entry->ts_raw) &&
+					((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
+					dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld is_apply:%d",
+						__func__, ctx->mraw_pipe[i]->id,
+						buf_entry->ts_raw, buf_entry->ts_mraw,
+						atomic_read(&buf_entry->is_apply));
+					spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
+					continue;
+				}
 			}
 		}
 		list_del(&buf_entry->list_entry);
@@ -1161,6 +1187,7 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 								list_entry);
 			buf_entry->ts_mraw = ts_ns;
 			if ((buf_entry->ts_raw == 0) ||
+				(atomic_read(&buf_entry->is_apply) == 0) ||
 				((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 				((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_mraw:%lld",
@@ -1629,8 +1656,9 @@ int mtk_cam_mraw_top_disable(struct mtk_mraw_device *dev)
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN)) {
 		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_VF_CON,
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN, 0);
-		mraw_reset(dev);
 	}
+
+	mraw_reset(dev);
 
 	MRAW_WRITE_BITS(dev->base + REG_MRAW_M_MRAWCTL_MISC,
 		MRAW_CTL_MISC, MRAWCTL_DB_EN, 0);
@@ -1725,8 +1753,7 @@ int mtk_cam_find_mraw_dev_index(
 
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx,
-	unsigned int idx,
-	unsigned int stag_en)
+	unsigned int idx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1781,8 +1808,7 @@ int mtk_cam_mraw_dev_config(
 int mtk_cam_mraw_dev_stream_on(
 	struct mtk_cam_ctx *ctx,
 	unsigned int idx,
-	unsigned int streaming,
-	unsigned int stag_en)
+	unsigned int streaming)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1809,8 +1835,11 @@ int mtk_cam_mraw_dev_stream_on(
 		ret = mtk_cam_mraw_cq_enable(ctx, mraw_dev) ||
 			mtk_cam_mraw_top_enable(mraw_dev);
 	else {
-		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
-			mtk_cam_mraw_cq_disable(mraw_dev) ||
+		/* reset enqueued status */
+		mraw_dev->is_enqueued = 0;
+
+		ret = mtk_cam_mraw_cq_disable(mraw_dev) ||
+			mtk_cam_mraw_top_disable(mraw_dev) ||
 			mtk_cam_mraw_fbc_disable(mraw_dev) ||
 			mtk_cam_mraw_dma_disable(mraw_dev) ||
 			mtk_cam_mraw_tg_disable(mraw_dev);

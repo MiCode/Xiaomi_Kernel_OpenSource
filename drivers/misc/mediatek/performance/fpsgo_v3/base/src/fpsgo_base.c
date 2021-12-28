@@ -38,6 +38,7 @@
 #include "sched/sched.h"
 
 #define TIME_1S  1000000000ULL
+#define TIME_100MS  100000000ULL
 #define TRAVERSE_PERIOD  300000000000ULL
 
 #define event_trace(ip, fmt, args...) \
@@ -723,7 +724,7 @@ void fpsgo_clear_uclamp_boost(void)
 void fpsgo_check_thread_status(void)
 {
 	unsigned long long ts = fpsgo_get_time();
-	unsigned long long expire_ts;
+	unsigned long long expire_ts_non_hwui, expire_ts_hwui, expire_ts;
 	int delete = 0;
 	int check_max_blc = 0;
 	int has_bypass = 0;
@@ -733,10 +734,11 @@ void fpsgo_check_thread_status(void)
 	int temp_max_pid = 0;
 	unsigned long long temp_max_bufid = 0;
 
-	if (ts < TIME_1S)
+	if (ts < TIME_100MS)
 		return;
 
-	expire_ts = ts - TIME_1S;
+	expire_ts_non_hwui = ts - TIME_1S;
+	expire_ts_hwui = ts - TIME_100MS;
 
 	fpsgo_render_tree_lock(__func__);
 	fpsgo_base2fbt_get_max_blc_pid(&temp_max_pid, &temp_max_bufid);
@@ -746,6 +748,8 @@ void fpsgo_check_thread_status(void)
 		iter = rb_entry(n, struct render_info, render_key_node);
 
 		fpsgo_thread_lock(&iter->thr_mlock);
+		expire_ts = iter->hwui == RENDER_INFO_HWUI_TYPE ?
+		 expire_ts_hwui : expire_ts_non_hwui;
 
 		if (iter->t_enqueue_start < expire_ts) {
 			if (iter->pid == temp_max_pid &&

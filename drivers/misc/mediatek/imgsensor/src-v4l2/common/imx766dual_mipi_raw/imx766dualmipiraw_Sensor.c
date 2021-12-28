@@ -1339,12 +1339,27 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 
 static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n",
-		enable);
+	LOG_INF(
+		"streaming_enable(0=Sw Standby,1=streaming): %d, 0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x\n",
+		enable,
+		read_cmos_sensor_8(ctx, 0x0808),
+		read_cmos_sensor_8(ctx, 0x084E),
+		read_cmos_sensor_8(ctx, 0x084F),
+		read_cmos_sensor_8(ctx, 0x0850),
+		read_cmos_sensor_8(ctx, 0x0851),
+		read_cmos_sensor_8(ctx, 0x0852),
+		read_cmos_sensor_8(ctx, 0x0853),
+		read_cmos_sensor_8(ctx, 0x0854),
+		read_cmos_sensor_8(ctx, 0x0855),
+		read_cmos_sensor_8(ctx, 0x0858),
+		read_cmos_sensor_8(ctx, 0x0859));
+
 	if (enable)
 		write_cmos_sensor_8(ctx, 0x0100, 0X01);
-	else
+	else {
 		write_cmos_sensor_8(ctx, 0x0100, 0x00);
+		write_cmos_sensor_8(ctx, 0x0808, 0x00);
+	}
 	return ERROR_NONE;
 }
 
@@ -2104,7 +2119,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->dummy_pixel = 0;
 	ctx->dummy_line = 0;
 	ctx->ihdr_mode = 0;
-	ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 
 	return ERROR_NONE;
@@ -3076,16 +3091,35 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "enable: %d\n", enable);
+	DEBUG_LOG(ctx, "mode: %d\n", mode);
 
-	if (enable)
-		write_cmos_sensor_8(ctx, 0x0601, 0x0002); /*100% Color bar*/
-	else
+	if (mode)
+		write_cmos_sensor_8(ctx, 0x0601, mode); /*100% Color bar*/
+	else if (ctx->test_pattern)
 		write_cmos_sensor_8(ctx, 0x0601, 0x0000); /*No pattern*/
 
-	ctx->test_pattern = enable;
+	ctx->test_pattern = mode;
+	return ERROR_NONE;
+}
+
+static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
+{
+
+	pr_debug("test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n", ctx->test_pattern,
+		data->Channel_R >> 22, data->Channel_Gr >> 22,
+		data->Channel_Gb >> 22, data->Channel_B >> 22);
+
+	set_cmos_sensor_8(ctx, 0x0602, (data->Channel_R >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0603, (data->Channel_R >> 22) & 0xff);
+	set_cmos_sensor_8(ctx, 0x0604, (data->Channel_Gr >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0605, (data->Channel_Gr >> 22) & 0xff);
+	set_cmos_sensor_8(ctx, 0x0606, (data->Channel_B >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0607, (data->Channel_B >> 22) & 0xff);
+	set_cmos_sensor_8(ctx, 0x0608, (data->Channel_Gb >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0609, (data->Channel_Gb >> 22) & 0xff);
+	commit_write_sensor(ctx);
 	return ERROR_NONE;
 }
 
@@ -3453,6 +3487,9 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		set_test_pattern_mode(ctx, (BOOL)*feature_data);
+		break;
+	case SENSOR_FEATURE_SET_TEST_PATTERN_DATA:
+		set_test_pattern_data(ctx, (struct mtk_test_pattern_data *)feature_data);
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		/* for factory mode auto testing */
@@ -4763,7 +4800,7 @@ static const struct subdrv_ctx defctx = {
 	.dummy_line = 0,	/* current dummyline */
 	.current_fps = 300,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
+	.test_pattern = 0,
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x34, /* record current sensor's i2c write id */
@@ -4792,7 +4829,23 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
+	csi_param->legacy_phy = 1;
+	csi_param->not_fixed_trail_settle = 1;
 	csi_param->cphy_settle = 0x21;
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_CUSTOM4:
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		csi_param->cphy_settle = 0x14;
+		csi_param->legacy_phy = 0;
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		csi_param->cphy_settle = 0x14;
+		csi_param->legacy_phy = 0;
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 

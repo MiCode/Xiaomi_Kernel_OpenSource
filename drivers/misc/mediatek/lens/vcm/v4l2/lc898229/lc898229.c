@@ -18,6 +18,7 @@
 
 #define LC898229_NAME				"lc898229"
 #define LC898229_MAX_FOCUS_POS			1023
+#define LC898229_ORIGIN_FOCUS_POS		0
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -35,7 +36,6 @@
  */
 #define LC898229_MOVE_STEPS			16
 #define LC898229_MOVE_DELAY_US			8400
-#define LC898229_STABLE_TIME_US			20000
 
 /* lc898229 device structure */
 struct lc898229_device {
@@ -75,9 +75,20 @@ static int lc898229_set_position(struct lc898229_device *lc898229, u16 val)
 static int lc898229_release(struct lc898229_device *lc898229)
 {
 	int ret, val;
+	int diff_dac = 0;
+	int nStep_count = 0;
+	int i = 0;
 
-	for (val = round_down(lc898229->focus->val, LC898229_MOVE_STEPS);
-	     val >= 0; val -= LC898229_MOVE_STEPS) {
+	diff_dac = LC898229_ORIGIN_FOCUS_POS - lc898229->focus->val;
+
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
+		LC898229_MOVE_STEPS;
+
+	val = lc898229->focus->val;
+
+	for (i = 0; i < nStep_count; ++i) {
+		val += (diff_dac < 0 ? (LC898229_MOVE_STEPS*(-1)) : LC898229_MOVE_STEPS);
+
 		ret = lc898229_set_position(lc898229, val);
 		if (ret) {
 			LOG_INF("%s I2C failure: %d",
@@ -88,12 +99,15 @@ static int lc898229_release(struct lc898229_device *lc898229)
 			     LC898229_MOVE_DELAY_US + 1000);
 	}
 
-	/*
-	 * Wait for the motor to stabilize after the last movement
-	 * to prevent the motor from shaking.
-	 */
-	usleep_range(LC898229_STABLE_TIME_US - LC898229_MOVE_DELAY_US,
-		     LC898229_STABLE_TIME_US - LC898229_MOVE_DELAY_US + 1000);
+	// last step to origin
+	ret = lc898229_set_position(lc898229, LC898229_ORIGIN_FOCUS_POS);
+	if (ret) {
+		LOG_INF("%s I2C failure: %d",
+			__func__, ret);
+		return ret;
+	}
+
+	LOG_INF("-\n");
 
 	return 0;
 }

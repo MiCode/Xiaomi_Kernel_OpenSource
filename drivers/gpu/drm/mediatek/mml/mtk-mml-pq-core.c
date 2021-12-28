@@ -47,7 +47,10 @@ struct mml_pq_mbox {
 static struct mml_pq_mbox *pq_mbox;
 static struct mutex rb_buf_list_mutex;
 static struct list_head rb_buf_list;
-static uint32_t buffer_num;
+static u32 buffer_num;
+static u32 rb_buf_pool[TOTAL_RB_BUF_NUM];
+static struct mutex rb_buf_pool_mutex;
+
 
 static void init_pq_chan(struct mml_pq_chan *chan)
 {
@@ -144,6 +147,31 @@ void mml_pq_comp_config_clear(struct mml_task *task)
 		}
 		mutex_unlock(&chan->job_lock);
 	}
+}
+
+static s32 remove_sub_task(struct mml_pq_chan *chan, u64 job_id)
+{
+	struct mml_pq_sub_task *sub_task = NULL, *tmp = NULL;
+	s32 ret = 0;
+
+	mml_pq_trace_ex_begin("%s", __func__);
+	mml_pq_msg("%s chan[%p] job_id[%d]", __func__, chan, job_id);
+
+	mutex_lock(&chan->job_lock);
+	list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
+		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]",
+			__func__, sub_task, chan->job_list, sub_task->job_id);
+		if (sub_task->job_id == job_id) {
+			mml_pq_msg("%s find sub_task:%p id:%llx",
+				__func__, sub_task, job_id);
+			list_del(&sub_task->mbox_list);
+			break;
+		}
+	}
+	mutex_unlock(&chan->job_lock);
+
+	mml_pq_trace_ex_end();
+	return ret;
 }
 
 static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
@@ -279,6 +307,50 @@ static void release_pq_task(struct kref *ref)
 	mml_pq_trace_ex_end();
 }
 
+void mml_pq_get_vcp_buf_offset(struct mml_task *task, u32 engine,
+			       struct mml_pq_readback_buffer *hist)
+{
+	s32 engine_start = engine*MAX_ENG_RB_BUF;
+
+	mml_pq_rb_msg("%s get offset job_id[%d] engine_start[%d]",
+				__func__, task->job.jobid, engine_start);
+	mutex_lock(&rb_buf_pool_mutex);
+	while (engine_start < (engine+1)*MAX_ENG_RB_BUF) {
+		if (rb_buf_pool[engine_start] != INVALID_OFFSET_ADDR) {
+			hist->va_offset = rb_buf_pool[engine_start];
+			rb_buf_pool[engine_start] = INVALID_OFFSET_ADDR;
+			 mml_pq_rb_msg("%s get offset job_id[%d]engine[%d]offset[%d]eng_start[%d]",
+				__func__, task->job.jobid, engine, hist->va_offset, engine_start);
+			break;
+		}
+		engine_start++;
+	}
+	mutex_unlock(&rb_buf_pool_mutex);
+
+	mml_pq_rb_msg("%s all end job_id[%d] engine[%d] hist_va[%p] hist_pa[%llx]",
+		__func__, task->job.jobid, engine, hist->va, hist->pa);
+}
+
+void mml_pq_put_vcp_buf_offset(struct mml_task *task, u32 engine,
+			       struct mml_pq_readback_buffer *hist)
+{
+	s32 engine_start = engine*MAX_ENG_RB_BUF;
+
+	mml_pq_rb_msg("%s start job_id[%d] hist_va[%p] engine_start[%08x] offset[%d]",
+		__func__, task->job.jobid, hist->va, engine_start, hist->va_offset);
+
+	mutex_lock(&rb_buf_pool_mutex);
+	while (engine_start < (engine+1)*MAX_ENG_RB_BUF) {
+		if (rb_buf_pool[engine_start] == INVALID_OFFSET_ADDR) {
+			rb_buf_pool[engine_start] = hist->va_offset;
+			hist->va_offset = INVALID_OFFSET_ADDR;
+			break;
+		}
+		engine_start++;
+	}
+	mutex_unlock(&rb_buf_pool_mutex);
+}
+
 void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 				 struct mml_pq_readback_buffer **hist)
 {
@@ -317,14 +389,14 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 		temp_buffer->va = (u32 *)cmdq_mbox_buf_alloc(clt, &temp_buffer->pa);
 		mutex_unlock(&task->pq_task->buffer_mutex);
 	}
-	mml_pq_rb_msg("%s job_id[%d] va[%p] pa[%08x] buffer_num[%d]", __func__,
+	mml_pq_rb_msg("%s job_id[%d] va[%p] pa[%llx] buffer_num[%d]", __func__,
 			task->job.jobid, temp_buffer->va, temp_buffer->pa, buffer_num);
 }
 
 void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,
 				 struct mml_pq_readback_buffer *hist)
 {
-	mml_pq_rb_msg("%s all end job_id[%d] hist_va[%p] hist_pa[%08x]",
+	mml_pq_rb_msg("%s all end job_id[%d] hist_va[%p] hist_pa[%llx]",
 		__func__, task->job.jobid, hist->va, hist->pa);
 	mutex_lock(&rb_buf_list_mutex);
 	list_add_tail(&hist->buffer_list, &rb_buf_list);
@@ -383,10 +455,49 @@ static void dump_pq_param(struct mml_pq_param *pq_param)
 	mml_pq_dump(" user=%u", pq_param->user_info);
 }
 
+static void mml_pq_check_dup_node(struct mml_pq_chan *chan, struct mml_pq_sub_task *sub_task)
+{
+	struct mml_pq_sub_task *tmp_sub_task = NULL, *tmp = NULL;
+	u64 job_id = sub_task->job_id;
+
+	mutex_lock(&chan->msg_lock);
+	if (!list_empty(&chan->msg_list)) {
+		list_for_each_entry_safe(tmp_sub_task, tmp, &chan->msg_list, mbox_list) {
+			mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]",
+				__func__, tmp_sub_task, chan->msg_list, tmp_sub_task->job_id);
+			if (tmp_sub_task->job_id == job_id) {
+				mml_pq_msg("%s find sub_task:%p id:%llx",
+					__func__, tmp_sub_task, job_id);
+				list_del(&tmp_sub_task->mbox_list);
+				atomic_dec_if_positive(&chan->msg_cnt);
+				break;
+			}
+		}
+	}
+	mutex_unlock(&chan->msg_lock);
+
+	mutex_lock(&chan->job_lock);
+	if (!list_empty(&chan->job_list)) {
+		list_for_each_entry_safe(tmp_sub_task, tmp, &chan->job_list, mbox_list) {
+			mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]",
+				__func__, tmp_sub_task, chan->job_list, tmp_sub_task->job_id);
+			if (tmp_sub_task->job_id == job_id) {
+				mml_pq_msg("%s find sub_task:%p id:%llx",
+					__func__, tmp_sub_task, job_id);
+				list_del(&tmp_sub_task->mbox_list);
+				break;
+			}
+		}
+	}
+	mutex_unlock(&chan->job_lock);
+
+}
+
 static int set_sub_task(struct mml_task *task,
 			struct mml_pq_sub_task *sub_task,
 			struct mml_pq_chan *chan,
-			struct mml_pq_param *pq_param)
+			struct mml_pq_param *pq_param,
+			bool is_dup_check)
 {
 	struct mml_pq_task *pq_task = task->pq_task;
 
@@ -411,7 +522,9 @@ static int set_sub_task(struct mml_task *task,
 	mutex_unlock(&sub_task->lock);
 
 	if (!atomic_fetch_add_unless(&sub_task->queued, 1, 1)) {
-		WARN_ON(atomic_read(&sub_task->result_ref));
+		if (is_dup_check)
+			mml_pq_check_dup_node(chan, sub_task);
+		//WARN_ON(atomic_read(&sub_task->result_ref));
 		atomic_set(&sub_task->result_ref, 0);
 		kref_get(&pq_task->ref);
 		memcpy(&sub_task->frame_data.pq_param, task->pq_param,
@@ -442,8 +555,9 @@ static int get_sub_task_result(struct mml_pq_task *pq_task,
 		mml_pq_msg("%s already handled or not queued", __func__);
 
 	mml_pq_msg("begin wait for result");
-	ret = wait_event_timeout(sub_task->wq, !atomic_read(&sub_task->queued),
-				 msecs_to_jiffies(timeout_ms));
+	ret = wait_event_timeout(sub_task->wq,
+				(!atomic_read(&sub_task->queued)) && (sub_task->result),
+				msecs_to_jiffies(timeout_ms));
 	mml_pq_msg("wait for result: %d", ret);
 	mutex_lock(&sub_task->lock);	/* To wait unlock of handle thread */
 	atomic_inc(&sub_task->result_ref);
@@ -520,7 +634,7 @@ int mml_pq_set_tile_init(struct mml_task *task)
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s called, job_id[%d]", __func__, task->job.jobid);
 	ret = set_sub_task(task, &pq_task->tile_init, chan,
-			   &task->pq_param[0]);
+			   &task->pq_param[0], false);
 	mml_pq_trace_ex_end();
 	return ret;
 }
@@ -585,7 +699,7 @@ int mml_pq_set_comp_config(struct mml_task *task)
 	mml_pq_msg("%s called, job_id[%d] sub_task[%p]", __func__,
 		task->job.jobid, &pq_task->comp_config);
 	ret = set_sub_task(task, &pq_task->comp_config, chan,
-			   &task->pq_param[0]);
+			   &task->pq_param[0], false);
 	mml_pq_trace_ex_end();
 	return ret;
 }
@@ -650,7 +764,7 @@ int mml_pq_aal_readback(struct mml_task *task, u8 pipe, u32 *phist)
 	}
 
 	if (set_hist(sub_task, task->config->dual, pipe, phist, MML_PQ_AAL))
-		ret = set_sub_task(task, sub_task, chan, &task->pq_param[0]);
+		ret = set_sub_task(task, sub_task, chan, &task->pq_param[0], true);
 
 	mml_pq_msg("%s end", __func__);
 	mml_pq_trace_ex_end();
@@ -672,7 +786,7 @@ int mml_pq_hdr_readback(struct mml_task *task, u8 pipe, u32 *phist)
 	dump_pq_param(&task->pq_param[0]);
 
 	if (set_hist(sub_task, task->config->dual, pipe, phist, MML_PQ_HDR))
-		ret = set_sub_task(task, sub_task, chan, &task->pq_param[0]);
+		ret = set_sub_task(task, sub_task, chan, &task->pq_param[0], true);
 
 	mml_pq_msg("%s end\n", __func__);
 	return ret;
@@ -685,8 +799,9 @@ int mml_pq_rsz_callback(struct mml_task *task)
 	struct mml_pq_chan *chan = &pq_mbox->rsz_callback_chan;
 	int ret = 0;
 
+
 	mml_pq_msg("%s second outoput done.\n", __func__);
-	ret = set_sub_task(task, sub_task, chan, &task->pq_param[1]);
+	ret = set_sub_task(task, sub_task, chan, &task->pq_param[1], true);
 	mml_pq_msg("%s end\n", __func__);
 	return ret;
 }
@@ -903,7 +1018,7 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 
 	new_sub_task = wait_next_sub_task(chan);
 	if (!new_sub_task) {
-		mml_pq_log("%s Get sub task failed", __func__);
+		mml_pq_msg("%s Get sub task failed", __func__);
 		return -ERESTARTSYS;
 	}
 
@@ -1158,7 +1273,7 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 
 	new_sub_task = wait_next_sub_task(chan);
 	if (!new_sub_task) {
-		mml_pq_log("%s Get sub task failed", __func__);
+		mml_pq_msg("%s Get sub task failed", __func__);
 		return -ERESTARTSYS;
 	}
 
@@ -1202,7 +1317,6 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 {
 	struct mml_pq_chan *chan = &pq_mbox->aal_readback_chan;
 	struct mml_pq_sub_task *new_sub_task = NULL;
-	struct mml_pq_sub_task *sub_task = NULL;
 	struct mml_pq_task *new_pq_task = NULL;
 	struct mml_pq_aal_readback_job *job;
 	struct mml_pq_aal_readback_job *user_job;
@@ -1239,9 +1353,6 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 		kfree(readback);
 		return -EINVAL;
 	}
-
-	if (job->result_job_id)
-		ret = find_sub_task(chan, job->result_job_id, &sub_task);
 
 	new_sub_task = wait_next_sub_task(chan);
 	if (!new_sub_task) {
@@ -1317,6 +1428,7 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 	}
 
 	atomic_dec_if_positive(&new_sub_task->queued);
+	remove_sub_task(chan, new_sub_task->job_id);
 
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
@@ -1325,6 +1437,7 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 
 wake_up_aal_readback_task:
 	atomic_dec_if_positive(&new_sub_task->queued);
+	remove_sub_task(chan, new_sub_task->job_id);
 	kfree(readback);
 	kfree(job);
 	cancel_sub_task(new_sub_task);
@@ -1336,7 +1449,6 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 {
 	struct mml_pq_chan *chan = &pq_mbox->hdr_readback_chan;
 	struct mml_pq_sub_task *new_sub_task = NULL;
-	struct mml_pq_sub_task *sub_task = NULL;
 	struct mml_pq_task *new_pq_task = NULL;
 	struct mml_pq_hdr_readback_job *job;
 	struct mml_pq_hdr_readback_job *user_job;
@@ -1375,15 +1487,12 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 		return -EINVAL;
 	}
 
-	if (job->result_job_id)
-		ret = find_sub_task(chan, job->result_job_id, &sub_task);
-
 	new_sub_task = wait_next_sub_task(chan);
 
 	if (!new_sub_task) {
 		kfree(job);
 		kfree(readback);
-		mml_pq_log("%s Get sub task failed", __func__);
+		mml_pq_msg("%s Get sub task failed", __func__);
 		return -ERESTARTSYS;
 	}
 
@@ -1448,6 +1557,7 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 	}
 
 	atomic_dec_if_positive(&new_sub_task->queued);
+	remove_sub_task(chan, new_sub_task->job_id);
 
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
@@ -1456,6 +1566,7 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 
 wake_up_hdr_readback_task:
 	atomic_dec_if_positive(&new_sub_task->queued);
+	remove_sub_task(chan, new_sub_task->job_id);
 	kfree(job);
 	kfree(readback);
 	cancel_sub_task(new_sub_task);
@@ -1467,7 +1578,6 @@ static int mml_pq_rsz_callback_ioctl(unsigned long data)
 {
 	struct mml_pq_chan *chan = &pq_mbox->rsz_callback_chan;
 	struct mml_pq_sub_task *new_sub_task = NULL;
-	struct mml_pq_sub_task *sub_task = NULL;
 	struct mml_pq_task *new_pq_task = NULL;
 	struct mml_pq_rsz_callback_job *job;
 	struct mml_pq_rsz_callback_job *user_job;
@@ -1490,14 +1600,11 @@ static int mml_pq_rsz_callback_ioctl(unsigned long data)
 		return -EINVAL;
 	}
 
-	if (job->result_job_id)
-		ret = find_sub_task(chan, job->result_job_id, &sub_task);
-
 	new_sub_task = wait_next_sub_task(chan);
 
 	if (!new_sub_task) {
 		kfree(job);
-		mml_pq_log("%s Get sub task failed", __func__);
+		mml_pq_msg("%s Get sub task failed", __func__);
 		return -ERESTARTSYS;
 	}
 
@@ -1521,6 +1628,7 @@ static int mml_pq_rsz_callback_ioctl(unsigned long data)
 	}
 
 	atomic_dec_if_positive(&new_sub_task->queued);
+	remove_sub_task(chan, new_sub_task->job_id);
 
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
@@ -1528,6 +1636,7 @@ static int mml_pq_rsz_callback_ioctl(unsigned long data)
 
 wake_up_rsz_callback_task:
 	atomic_dec_if_positive(&new_sub_task->queued);
+	remove_sub_task(chan, new_sub_task->job_id);
 	kfree(job);
 	cancel_sub_task(new_sub_task);
 	mml_pq_msg("%s end %d\n", __func__, ret);
@@ -1579,9 +1688,12 @@ static struct miscdevice mml_pq_dev = {
 int mml_pq_core_init(void)
 {
 	s32 ret;
+	s32 buf_idx = 0;
+
 
 	INIT_LIST_HEAD(&rb_buf_list);
 	mutex_init(&rb_buf_list_mutex);
+	mutex_init(&rb_buf_pool_mutex);
 
 	pq_mbox = kzalloc(sizeof(*pq_mbox), GFP_KERNEL);
 	if (unlikely(!pq_mbox))
@@ -1592,6 +1704,9 @@ int mml_pq_core_init(void)
 	init_pq_chan(&pq_mbox->hdr_readback_chan);
 	init_pq_chan(&pq_mbox->rsz_callback_chan);
 	buffer_num = 0;
+
+	for (buf_idx = 0; buf_idx < TOTAL_RB_BUF_NUM; buf_idx++)
+		rb_buf_pool[buf_idx] = buf_idx*4096;
 
 	ret = misc_register(&mml_pq_dev);
 	mml_pq_log("%s result: %d", __func__, ret);

@@ -1190,6 +1190,11 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 	struct mml_test *test = (struct mml_test *)filp->f_inode->i_private;
 	struct mml_test_case cur;
 
+	if (count > sizeof(cur)) {
+		mml_err("buf count not match %zu %zu", count, sizeof(cur));
+		return -EFAULT;
+	}
+
 	if (copy_from_user(&cur, buf, count)) {
 		mml_err("copy_from_user failed len:%zu", count);
 		return -EFAULT;
@@ -1291,6 +1296,7 @@ static int probe(struct platform_device *pdev)
 {
 	struct mml_test *test;
 	struct dentry *dir;
+	bool exists = false;
 
 	mml_log("mml-test %s begin", __func__);
 	test = devm_kzalloc(&pdev->dev, sizeof(*test), GFP_KERNEL);
@@ -1299,11 +1305,15 @@ static int probe(struct platform_device *pdev)
 	test->pdev = pdev;
 	test->dev = &pdev->dev;
 
-	dir = debugfs_create_dir("mml", NULL);
-	if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
-		mml_err("debugfs_create_dir mml failed:%ld", PTR_ERR(dir));
-		return PTR_ERR(dir);
-	}
+	dir = debugfs_lookup("mml", NULL);
+	if (!dir) {
+		dir = debugfs_create_dir("mml", NULL);
+		if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
+			mml_err("debugfs_create_dir mml failed:%ld", PTR_ERR(dir));
+			return PTR_ERR(dir);
+		}
+	} else
+		exists = true;
 
 	test->fs = debugfs_create_file(
 		"mml-test", 0444, dir, test, &test_fops);
@@ -1330,6 +1340,9 @@ static int probe(struct platform_device *pdev)
 	if (IS_ERR(test->fs_frame_out))
 		mml_err("debugfs_create_file mml-frame-dump-out failed:%ld",
 			PTR_ERR(test->fs_frame_out));
+
+	if (exists)
+		dput(dir);
 
 	platform_set_drvdata(pdev, test);
 	mml_log("debugfs_create_file mml-test success");

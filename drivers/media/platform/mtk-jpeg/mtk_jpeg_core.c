@@ -1281,9 +1281,6 @@ static irqreturn_t mtk_jpeg_enc_irq(int irq, void *priv)
 	if (irq_status & JPEG_ENC_INT_STATUS_STALL)
 		pr_info("irq stall need to check output buffer size");
 
-	if (!(irq_status & JPEG_ENC_INT_STATUS_DONE))
-		return ret;
-
 	ret = mtk_jpeg_enc_done(jpeg);
 	return ret;
 }
@@ -1583,7 +1580,15 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	snprintf(jpeg->vdev->name, sizeof(jpeg->vdev->name),
 		 "%s", jpeg->variant->dev_name);
 
-
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+		devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			v4l2_err(&jpeg->v4l2_dev, "Failed to set DMA segment size\n");
+	}
 	mtk_jpeg_prepare_dvfs(jpeg);
 	mtk_jpeg_prepare_bw_request(jpeg);
 

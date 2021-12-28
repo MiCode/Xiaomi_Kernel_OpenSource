@@ -1334,7 +1334,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->dummy_pixel = 0;
 	ctx->dummy_line = 0;
 	//ctx->ihdr_en = 0;
-	ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 
 	imgsensor_info.xtalk_flag = KAL_FALSE;
@@ -2121,24 +2121,57 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 modes)
 {
-	DEBUG_LOG(ctx, "Test_Pattern enable: %d\n", enable);
-	if (enable) {
-		write_cmos_sensor_8(ctx, 0x5000, 0x81);
-		write_cmos_sensor_8(ctx, 0x5001, 0x00);
-		write_cmos_sensor_8(ctx, 0x5002, 0x92);
-		write_cmos_sensor_8(ctx, 0x5081, 0x01);
-	} else {
-		if (ctx->test_pattern) {
-			write_cmos_sensor_8(ctx, 0x5000, 0xCB);
-			write_cmos_sensor_8(ctx, 0x5001, 0x43);
-			write_cmos_sensor_8(ctx, 0x5002, 0x9E);
-			write_cmos_sensor_8(ctx, 0x5081, 0x00);
-		}
+	DEBUG_LOG(ctx, "Test_Pattern modes: %d\n", modes);
+	memset(_i2c_data, 0x0, sizeof(_i2c_data));
+	_size_to_write = 0;
+	if (modes == 2) {
+		_i2c_data[_size_to_write++] = 0x5000;
+		_i2c_data[_size_to_write++] = 0x81;//10000001
+		_i2c_data[_size_to_write++] = 0x5001;
+		_i2c_data[_size_to_write++] = 0x00;
+		_i2c_data[_size_to_write++] = 0x5002;
+		_i2c_data[_size_to_write++] = 0x92;//10010010
+		/* need check with vendor */
+		//_i2c_data[_size_to_write++] = 0x5081;
+		//_i2c_data[_size_to_write++] = 0x01;
+	} else if (modes == 5) { //black
+		//@@ Solid color BLACK - on
+		//6c 3019 f0; d2
+		//6c 4308 01 ;
+		_i2c_data[_size_to_write++] = 0x3019;
+		_i2c_data[_size_to_write++] = 0xf0;
+		_i2c_data[_size_to_write++] = 0x4308;
+		_i2c_data[_size_to_write++] = 0x01;
 	}
-
-	ctx->test_pattern = enable;
+	//check if it is off or changed
+	if ((modes != 2) && (ctx->test_pattern == 2)) {
+		_i2c_data[_size_to_write++] = 0x5000;
+		_i2c_data[_size_to_write++] = 0xCB;//11001011
+		_i2c_data[_size_to_write++] = 0x5001;
+		_i2c_data[_size_to_write++] = 0x43;//01000011
+		_i2c_data[_size_to_write++] = 0x5002;
+		_i2c_data[_size_to_write++] = 0x9E;//10011110
+		/* need check with vendor */
+		//_i2c_data[_size_to_write++] = 0x5081;
+		//_i2c_data[_size_to_write++] = 0x0;
+	} else if ((modes != 5) && (ctx->test_pattern == 5)) {
+		//@@ Solid color BLACK - off
+		//6c 3019 d2
+		//6c 4308 00
+		_i2c_data[_size_to_write++] = 0x3019;
+		_i2c_data[_size_to_write++] = 0xd2;
+		_i2c_data[_size_to_write++] = 0x4308;
+		_i2c_data[_size_to_write++] = 0x00;
+	}
+	if (_size_to_write > 0) {
+		table_write_cmos_sensor(ctx,
+			_i2c_data,
+			_size_to_write);
+	}
+	DEBUG_LOG(ctx, "Test_Pattern modes: %d -> %d\n", ctx->test_pattern, modes);
+	ctx->test_pattern = modes;
 	return ERROR_NONE;
 }
 
@@ -2615,7 +2648,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			(MUINT32 *)(uintptr_t)(*(feature_data+1)));
 	break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode(ctx, (BOOL)*feature_data);
+		set_test_pattern_mode(ctx, (UINT32)*feature_data);
 	break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 	    *feature_return_para_32 = imgsensor_info.checksum_value;
@@ -3280,7 +3313,7 @@ static const struct subdrv_ctx defctx = {
 	.dummy_line = 0,
 	.current_fps = 300,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
+	.test_pattern = 0,
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	//.ihdr_en = 0,
 	.i2c_write_id = 0x20,
@@ -3305,6 +3338,8 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
+	csi_param->legacy_phy = 1;
+	csi_param->not_fixed_trail_settle = 1;
 	csi_param->cphy_settle = 0x12;
 	return 0;
 }

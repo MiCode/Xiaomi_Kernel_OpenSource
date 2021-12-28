@@ -43,6 +43,7 @@ struct seninf_vc {
 	u8 enable;
 	u16 exp_hsize;
 	u16 exp_vsize;
+	u8 bit_depth;
 };
 
 struct seninf_vcinfo {

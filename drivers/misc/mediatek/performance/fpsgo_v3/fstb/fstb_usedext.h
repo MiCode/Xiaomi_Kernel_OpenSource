@@ -62,6 +62,12 @@ struct FSTB_FRAME_INFO {
 	int target_fps_diff;
 	int target_fps_notifying;
 	int sbe_state; /* -1: no chase, 0: free run, 1: max_fps*/
+	/*set ui control: 1, otherswise: 0
+	 *  HWUI & 1-> sbe_state: 0,1
+	 *  HWUI & 0-> sbe_state: -1
+	 *  non-HWUI-> 0
+	 */
+	int sbe_fpsgo_ctrl;
 
 	long long cpu_time;
 	long long gpu_time;

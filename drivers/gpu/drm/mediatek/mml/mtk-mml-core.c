@@ -10,6 +10,7 @@
 #include <linux/of.h>
 #include <soc/mediatek/smi.h>
 #include <cmdq-util.h>
+#include <linux/sched/clock.h>
 
 #include "mtk-mml-core.h"
 #include "mtk-mml-buf.h"
@@ -70,8 +71,19 @@ do { \
 } while (0)
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+/* Assign bit to dump in/out buffer frame
+ * bit 0: dump input
+ * bit 1: dump output
+ */
+enum mml_bufdump_opt {
+	MML_DUMPBUF_IN = 0x1,
+	MML_DUMPBUF_OUT = 0x2,
+};
 int mml_frame_dump;
 module_param(mml_frame_dump, int, 0644);
+static bool mml_timeout_dump = true;
+static DEFINE_MUTEX(mml_dump_mutex);
+
 static struct mml_frm_dump_data mml_frm_dumps[2] = {
 	{.prefix = "in", },
 	{.prefix = "out", },
@@ -416,7 +428,7 @@ static void dump_inout(struct mml_task *task)
 	u32 i;
 
 	get_frame_str(frame, sizeof(frame), &cfg->info.src);
-	mml_log("in:%s plane:%hhu%s%s job %hu mode %hhu",
+	mml_log("in:%s plane:%hhu%s%s job %u mode %hhu",
 		frame,
 		task->buf.src.cnt,
 		task->buf.src.fence ? " fence" : "",
@@ -561,7 +573,7 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 	return 0;
 }
 
-static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput)
+static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput, u32 tput_up)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
@@ -570,7 +582,7 @@ static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput)
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
-		call_hw_op(comp, qos_set, task, &cache->cfg[i], throughput);
+		call_hw_op(comp, qos_set, task, &cache->cfg[i], throughput, tput_up);
 	}
 }
 
@@ -593,7 +605,7 @@ static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rh
 	return div_u64((u64)delta.tv_sec * 1000000000 + delta.tv_nsec, 1000);
 }
 
-static void mml_core_calc_tput_racing(struct mml_task *task, u32 pixel, u32 pipe)
+static u32 mml_core_calc_tput_racing(struct mml_task *task, u32 pixel, u32 pipe)
 {
 	u32 act_time_us = div_u64(task->config->info.act_time, 1000);
 
@@ -603,9 +615,11 @@ static void mml_core_calc_tput_racing(struct mml_task *task, u32 pixel, u32 pipe
 	 * giving act time, thus calc tput by act_time directly.
 	 */
 	task->pipe[pipe].throughput = div_u64(pixel, act_time_us);
+
+	return act_time_us;
 }
 
-static void mml_core_calc_tput(struct mml_task *task, u32 pixel, u32 pipe,
+static u64 mml_core_calc_tput(struct mml_task *task, u32 pixel, u32 pipe,
 	const struct timespec64 *end, const struct timespec64 *start)
 {
 	u64 duration = time_dur_us(end, start);
@@ -615,6 +629,8 @@ static void mml_core_calc_tput(struct mml_task *task, u32 pixel, u32 pipe,
 
 	/* truoughput by end time */
 	task->pipe[pipe].throughput = (u32)div_u64(pixel, duration);
+
+	return duration;
 }
 
 static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe)
@@ -630,8 +646,9 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_tmp;
 	struct timespec64 curr_time;
-	u32 throughput;
+	u32 throughput, tput_up;
 	u32 max_pixel = task->config->cache[pipe].max_pixel;
+	u64 duration = 0;
 
 	mml_trace_ex_begin("%s", __func__);
 	mutex_lock(&path_clt->clt_mutex);
@@ -666,11 +683,11 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 		/* racing mode uses different calculation since start time
 		 * consistent with disp
 		 */
-		mml_core_calc_tput_racing(task, max_pixel, pipe);
+		duration = mml_core_calc_tput_racing(task, max_pixel, pipe);
 
 	} else if (timespec64_compare(&task->submit_time, &task->end_time) < 0) {
 		/* calculate remaining time to complete pixels */
-		mml_core_calc_tput(task, max_pixel, pipe,
+		duration = mml_core_calc_tput(task, max_pixel, pipe,
 			&task->end_time, &task->submit_time);
 	}
 
@@ -694,13 +711,17 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	/* now append at tail, this order should same as cmdq exec order */
 	list_add_tail(&task->pipe[pipe].entry_clt, &path_clt->tasks);
 
+	mml_trace_begin("%u_%llu", throughput, duration);
+
 	path_clt->throughput = throughput;
-	mml_qos_update_tput(task->config->mml);
+	tput_up = mml_qos_update_tput(task->config->mml);
 
 	/* note the running task not always current begin task */
 	task_pipe_tmp = list_first_entry_or_null(&path_clt->tasks,
 		typeof(*task_pipe_tmp), entry_clt);
-	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput);
+	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput, tput_up);
+
+	mml_trace_end();
 
 	mml_msg_qos("task dvfs begin %p pipe %u throughput %u (%u) bandwidth %u pixel %u",
 		task, pipe, throughput, task_pipe_tmp->throughput,
@@ -716,8 +737,9 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_cur, *task_pipe_tmp;
 	struct timespec64 curr_time;
-	u32 throughput = 0, max_pixel = 0, bandwidth = 0;
+	u32 throughput = 0, tput_up, max_pixel = 0, bandwidth = 0;
 	bool racing_mode = true;
+	bool overdue = false;
 
 	mml_trace_ex_begin("%s", __func__);
 	mutex_lock(&path_clt->clt_mutex);
@@ -728,6 +750,11 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
 		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000),
 		task->config->path[pipe]->clt_id);
+
+	if (timespec64_compare(&curr_time, &task->end_time) > 0) {
+		overdue = true;
+		mml_trace_tag_start(MML_TTAG_OVERDUE);
+	}
 
 	if (list_empty(&task->pipe[pipe].entry_clt)) {
 		/* task may already removed from other config (thread),
@@ -800,9 +827,9 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 
 done:
 	path_clt->throughput = throughput;
-	mml_qos_update_tput(task->config->mml);
+	tput_up = mml_qos_update_tput(task->config->mml);
 	if (throughput) {
-		mml_core_qos_set(task_pipe_cur->task, pipe, throughput);
+		mml_core_qos_set(task_pipe_cur->task, pipe, throughput, tput_up);
 		bandwidth = task_pipe_cur->bandwidth;
 	}
 keep:
@@ -810,6 +837,8 @@ keep:
 		racing_mode ? "racing" : "update",
 		task_pipe_cur ? task_pipe_cur->task : NULL, throughput, bandwidth, max_pixel);
 exit:
+	if (overdue)
+		mml_trace_tag_end(MML_TTAG_OVERDUE);
 	mutex_unlock(&path_clt->clt_mutex);
 	mml_trace_ex_end();
 }
@@ -854,17 +883,34 @@ static void core_buffer_unmap(struct mml_task *task)
 }
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+static void core_dump_alloc(struct mml_file_buf *buf, struct mml_frm_dump_data *frm)
+{
+	u32 size = 0, i;
+
+	for (i = 0; i < MML_MAX_PLANES; i++)
+		size += buf->size[i];
+
+	/* for better performance, reuse buffer if size ok */
+	if (frm->bufsize < size) {
+		vfree(frm->frame);
+		frm->bufsize = 0;
+		frm->size = 0;
+
+		frm->frame = vmalloc(size);
+		if (!frm->frame)
+			return;
+
+		/* assign real size of this buffer */
+		frm->bufsize = size;
+	}
+
+	frm->size = size;
+}
+
 static void core_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 	struct mml_file_buf *buf, struct mml_frm_dump_data *frm)
 {
-	u32 size = 0, i;
-	void *frame;
 	int ret;
-
-	/* always free previous data */
-	vfree(frm->frame);
-	frm->frame = NULL;
-	frm->size = 0;
 
 	/* support only out0 for now, maybe support multi out later */
 	ret = snprintf(frm->name, sizeof(frm->name), "%u_%s_%#x_%u_%u_%u",
@@ -872,24 +918,18 @@ static void core_dump_buf(struct mml_task *task, struct mml_frame_data *data,
 		data->width, data->height, data->y_stride);
 	if (ret >= sizeof(frm->name))
 		frm->name[sizeof(frm->name)-1] = 0;
-	for (i = 0; i < MML_MAX_PLANES; i++)
-		size += buf->size[i];
-	mml_log("%s size %u name %s", __func__, size, frm->name);
 
-	frame = vmalloc(size);
-	if (!frame)
-		return;
+	core_dump_alloc(buf, frm);
+	mml_log("%s size %u name %s", __func__, frm->size, frm->name);
 
 	/* support only plane 0 for now, maybe support multi plane later */
 	if (mml_buf_va_get(buf) < 0 || !buf->dma[0].va) {
 		mml_err("%s dump fail %s no va", __func__, frm->name);
-		vfree(frame);
+		frm->size = 0;	/* keep buf for reuse, only mark content empty */
 		return;
 	}
 
-	memcpy(frame, buf->dma[0].va, size);
-	frm->frame = frame;
-	frm->size = size;
+	memcpy(frm->frame, buf->dma[0].va, frm->size);
 	mml_log("%s copy frame %s", __func__, frm->name);
 }
 
@@ -916,63 +956,12 @@ char *mml_core_get_dump_inst(u32 *size)
 }
 #endif	/* CONFIG_MTK_MML_DEBUG */
 
-static void core_taskerr(struct mml_task *task, u32 pipe)
+static void core_taskdone_kt_work(struct kthread_work *work)
 {
-	u32 cnt;
+	struct mml_task *task = container_of(work, struct mml_task, kt_work_done);
+	u32 i;
 
 	mml_trace_begin("%s", __func__);
-
-	cnt = atomic_inc_return(&task->pipe_done);
-
-	mml_err("%s task %p cnt %d", __func__, task, cnt);
-
-	if (task->config->dual && cnt == 1)
-		goto done;
-
-	/* before clean up, signal buffer fence */
-	if (task->fence) {
-		dma_fence_signal(task->fence);
-		dma_fence_put(task->fence);
-		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
-			mmp_data2_fence(task->fence->context, task->fence->seqno));
-	}
-
-	mml_mmp(exec, MMPROFILE_FLAG_END, task->job.jobid, 0);
-
-	core_buffer_unmap(task);
-	if (task->config->task_ops->frame_err)
-		task->config->task_ops->frame_err(task);
-	else
-		task->config->task_ops->frame_done(task);
-
-done:
-	mml_trace_end();
-}
-
-static void core_taskdone(struct mml_task *task, u32 pipe)
-{
-	u32 cnt, i;
-	u32 *perf, hw_time = 0;
-
-	mml_trace_begin("%s", __func__);
-
-	/* do task ending for this pipe to make sure hw run on necessary freq
-	 * and must lock path clt to ensure tasks in list not handle by others
-	 *
-	 * and note we always lock pipe 0
-	 */
-
-	/* remove task in qos list and setup next */
-	if (task->pkts[pipe])
-		mml_core_dvfs_end(task, pipe);
-
-	cnt = atomic_inc_return(&task->pipe_done);
-
-	mml_msg("%s task %p cnt %d", __func__, task, cnt);
-
-	/* cnt can be 1 or 2, if dual on and count 2 means pipes done */
-	if (task->config->dual && cnt == 1)
-		goto done;
 
 	for (i = 0; i < task->buf.dest_cnt; i++) {
 		if (task->buf.dest[i].invalid) {
@@ -982,14 +971,6 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		}
 	}
 
-#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	if (mml_frame_dump == 2) {
-		core_dump_buf(task, &task->config->info.dest[0].data,
-			&task->buf.dest[0], &mml_frm_dumps[1]);
-		mml_frame_dump = 0;
-	}
-#endif
-
 	/* before clean up, signal buffer fence */
 	if (task->fence) {
 		dma_fence_signal(task->fence);
@@ -997,6 +978,35 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
 			mmp_data2_fence(task->fence->context, task->fence->seqno));
 	}
+
+	queue_work(task->config->wq_done, &task->wq_work_done);
+	mml_trace_end();
+}
+
+static void core_taskdone(struct work_struct *work)
+{
+	struct mml_task *task = container_of(work, struct mml_task, wq_work_done);
+	u32 *perf, hw_time = 0;
+
+	mml_trace_begin("%s", __func__);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_frame_dump) {
+		mutex_lock(&mml_dump_mutex);
+		if (mml_frame_dump & MML_DUMPBUF_OUT) {
+			core_dump_buf(task, &task->config->info.dest[0].data,
+				&task->buf.dest[0], &mml_frm_dumps[1]);
+			mml_frame_dump &= ~MML_DUMPBUF_OUT;
+		}
+		mutex_unlock(&mml_dump_mutex);
+	}
+#endif
+
+	/* remove task in qos list and setup next */
+	if (task->pkts[0])
+		mml_core_dvfs_end(task, 0);
+	if (task->config->dual && task->pkts[1])
+		mml_core_dvfs_end(task, 1);
 
 	if (mml_hw_perf && task->pkts[0]) {
 		perf = cmdq_pkt_get_perf_ret(task->pkts[0]);
@@ -1024,31 +1034,25 @@ static void core_taskdone(struct mml_task *task, u32 pipe)
 		core_buffer_unprepare(task, 1);
 
 	core_buffer_unmap(task);
-	task->config->task_ops->frame_done(task);
 
-done:
+	if (unlikely(task->config->task_ops->frame_err && !task->pkts[0] &&
+		(!task->config->dual || !task->pkts[1])))
+		task->config->task_ops->frame_err(task);
+	else
+		task->config->task_ops->frame_done(task);
+
 	mml_trace_end();
 }
 
-static void core_taskdone_pipe(struct work_struct *work, u32 pipe)
+static void core_taskdone_check(struct mml_task *task)
 {
-	struct mml_task *task;
+	struct mml_frame_config *cfg = task->config;
+	u32 cnt;
 
-	task = container_of(work, struct mml_task, work_done[pipe]);
-	if (task->pkts[pipe])
-		core_taskdone(task, pipe);
-	else
-		core_taskerr(task, pipe);
-}
-
-static void core_taskdone0_work(struct work_struct *work)
-{
-	core_taskdone_pipe(work, 0);
-}
-
-static void core_taskdone1_work(struct work_struct *work)
-{
-	core_taskdone_pipe(work, 1);
+	/* cnt can be 1 or 2, if dual on and count 2 means pipes done */
+	cnt = atomic_inc_return(&task->pipe_done);
+	if (!cfg->dual || cnt > 1)
+		kthread_queue_work(cfg->ctx_kt_done, &task->kt_work_done);
 }
 
 static void core_taskdone_cb(struct cmdq_cb_data data)
@@ -1067,13 +1071,16 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 		return;
 	}
 
+	mml_trace_begin_tid(MML_TID_IRQ, "mml_taskdone_cb_pipe%u", pipe);
+
 	if (data.err)
 		mml_mmp(irq_stop, MMPROFILE_FLAG_PULSE, task->job.jobid,
 			((data.err & GENMASK(15, 0)) << 16) | pipe);
 	else
 		mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
 
-	queue_work(task->config->wq_done, &task->work_done[pipe]);
+	core_taskdone_check(task);
+	mml_trace_end();
 }
 
 static s32 core_config(struct mml_task *task, u32 pipe)
@@ -1181,12 +1188,34 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 		mml_err("dump smi");
 	}
 
+	/* record current fail task and do dump
+	 * note: so this task maybe record multiple times due to error record
+	 * and frame done record
+	 */
+	mml_record_track(task->config->mml, task);
+	mml_record_dump(task->config->mml);
 	mml_err("error dump %d end", cnt);
 
-	call_dbg_op(path->mmlsys, reset, task, pipe);
+	call_dbg_op(path->mmlsys, reset, task->config, pipe);
 
 	mml_err("error %d engine reset end", cnt);
 	mml_cmdq_err = 0;
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_timeout_dump) {
+		u64 cost = sched_clock();
+
+		mutex_lock(&mml_dump_mutex);
+		mml_buf_invalid(&task->buf.src);
+		core_dump_buf(task, &task->config->info.src,
+			&task->buf.src, &mml_frm_dumps[0]);
+		cost = sched_clock() - cost;
+		mutex_unlock(&mml_dump_mutex);
+		mml_log("dump input frame cost %lluus", (u64)div_u64(cost, 1000));
+		mml_timeout_dump = false;
+	}
+#endif
+
 }
 
 static void core_taskdump0_cb(struct cmdq_cb_data data)
@@ -1210,10 +1239,19 @@ static const cmdq_async_flush_cb dump_cbs[MML_PIPE_CNT] = {
 
 static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bool force)
 {
+	const struct mml_topology_path *path = cfg->path[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
 	if (force) {
 		/* call cmdq to stop hardware thread directly */
 		cmdq_mbox_channel_stop(cfg->path[pipe]->clt->chan);
 		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+
+		for (i = 0; i < path->node_cnt; i++) {
+			comp = path->nodes[i].comp;
+			call_dbg_op(comp, reset, cfg, pipe);
+		}
 	} else {
 		if (cmdq_mbox_get_usage(cfg->path[pipe]->clt->chan) <= 0)
 			return;
@@ -1266,12 +1304,16 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	mutex_unlock(&task->config->pipe_mutex);
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	/* buffer dump always do in pipe 0 */
-	if (pipe == 0 && mml_frame_dump == 1) {
-		mml_buf_invalid(&task->buf.src);
-		core_dump_buf(task, &task->config->info.src,
-			&task->buf.src, &mml_frm_dumps[0]);
-		mml_frame_dump = 0;
+	if (mml_frame_dump) {
+		/* buffer dump always do in pipe 0 */
+		mutex_lock(&mml_dump_mutex);
+		if (pipe == 0 && (mml_frame_dump & MML_DUMPBUF_IN)) {
+			mml_buf_invalid(&task->buf.src);
+			core_dump_buf(task, &task->config->info.src,
+				&task->buf.src, &mml_frm_dumps[0]);
+			mml_frame_dump &= ~MML_DUMPBUF_IN;
+		}
+		mutex_unlock(&mml_dump_mutex);
 	}
 #endif
 
@@ -1321,7 +1363,7 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	if (err < 0) {
 		mml_err("config fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		queue_work(task->config->wq_done, &task->work_done[pipe]);
+		core_taskdone_check(task);
 		goto exit;
 	}
 
@@ -1335,14 +1377,14 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	if (err < 0) {
 		mml_err("command fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		queue_work(task->config->wq_done, &task->work_done[pipe]);
+		core_taskdone_check(task);
 		goto exit;
 	}
 	err = core_flush(task, pipe);
 	if (err < 0) {
 		mml_err("flush fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		queue_work(task->config->wq_done, &task->work_done[pipe]);
+		core_taskdone_check(task);
 	}
 
 	if (mml_pkt_dump == 1)
@@ -1394,6 +1436,9 @@ static void core_config_task(struct mml_task *task)
 
 	mml_msg("%s begin task %p config %p job %u",
 		__func__, task, cfg, jobid);
+
+	/* always set priority */
+	task->config->task_ops->kt_setsched(task->ctx);
 
 	/* topology */
 	if (task->state == MML_TASK_INITIAL) {
@@ -1453,8 +1498,9 @@ struct mml_task *mml_core_create_task(void)
 	INIT_LIST_HEAD(&task->pipe[1].entry_clt);
 	INIT_WORK(&task->work_config[0], core_config_task_work);
 	INIT_WORK(&task->work_config[1], core_config_pipe1_work);
-	INIT_WORK(&task->work_done[0], core_taskdone0_work);
-	INIT_WORK(&task->work_done[1], core_taskdone1_work);
+	INIT_WORK(&task->wq_work_done, core_taskdone);
+	kthread_init_work(&task->kt_work_done, core_taskdone_kt_work);
+
 	kref_init(&task->ref);
 	task->pipe[0].task = task;
 	task->pipe[1].task = task;
@@ -1588,8 +1634,7 @@ s32 mml_assign(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
 		return -ENOMEM;
 
 	cmdq_pkt_assign_command_reuse(pkt, reg_idx, value,
-		&reuse->labels[reuse->label_idx].va,
-		&reuse->labels[reuse->label_idx].offset);
+		&reuse->labels[reuse->label_idx]);
 
 	add_reuse_label(reuse, label_idx, value);
 	return 0;
@@ -1604,8 +1649,7 @@ s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
 		return -ENOMEM;
 
 	cmdq_pkt_write_value_addr_reuse(pkt, addr, value, mask,
-		&reuse->labels[reuse->label_idx].va,
-		&reuse->labels[reuse->label_idx].offset);
+		&reuse->labels[reuse->label_idx]);
 
 	add_reuse_label(reuse, label_idx, value);
 	return 0;

@@ -199,6 +199,7 @@ struct proc_dir_entry *dma_heap_proc_root;
 struct proc_dir_entry *dma_heaps_dir;
 struct proc_dir_entry *dma_heaps_all_entry;
 struct proc_dir_entry *dma_heaps_stats;
+struct proc_dir_entry *dma_heaps_stat_pid;
 #endif
 
 
@@ -1009,7 +1010,8 @@ int dmabuf_rbtree_dbg_add_cb(const struct dma_buf *dmabuf, void *priv)
 
 /* add 'noinline' to let it show in callstack */
 static noinline
-struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap, struct seq_file *s)
+struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
+					   struct seq_file *s, int pid)
 {
 	struct task_struct *p;
 	struct dump_fd_data *fddata;
@@ -1032,6 +1034,9 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap, struct seq_fil
 		int ret = 0;
 		int found_vma = 0;
 		int found_fd = 0;
+
+		if (pid > 0 && p->pid != pid)
+			continue;
 
 		if (fatal_signal_pending(p))
 			continue;
@@ -1203,7 +1208,8 @@ static void dmabuf_rbtree_dump_buf(struct dump_fd_data *fddata, unsigned long fl
 
 /* add 'noinline' to let it show in callstack */
 static noinline
-void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag, struct seq_file *s)
+void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag,
+			    struct seq_file *s, int pid)
 {
 	struct dump_fd_data *fddata;
 	unsigned long long time1, time2, time3;
@@ -1212,7 +1218,7 @@ void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag, struct se
 	debug_alloc_sz = 0;
 	time1 = get_current_time_ms();
 
-	fddata = dmabuf_rbtree_add_all(heap, s);
+	fddata = dmabuf_rbtree_add_all(heap, s, pid);
 	if (IS_ERR_OR_NULL(fddata)) {
 		dmabuf_dump(s, "[%s]err: no memory\n", __func__);
 		return;
@@ -1272,7 +1278,7 @@ pool_dump_done:
 		goto rb_dump_done;
 
 	dmabuf_dump(s, "\n");
-	dmabuf_rbtree_dump_all(heap, flag, s);
+	dmabuf_rbtree_dump_all(heap, flag, s, -1);
 rb_dump_done:
 
 	return;
@@ -1356,7 +1362,7 @@ static inline void mtk_dmabuf_dump_all(struct seq_file *s, int flag)
 
 static void mtk_dmabuf_stats_show(struct seq_file *s, int flag)
 {
-	dmabuf_rbtree_dump_all(NULL, flag | HEAP_DUMP_STATS, s);
+	dmabuf_rbtree_dump_all(NULL, flag | HEAP_DUMP_STATS, s, -1);
 }
 
 #if IS_ENABLED(CONFIG_PROC_FS)
@@ -1530,6 +1536,49 @@ static ssize_t heap_stats_proc_write(struct file *file, const char *buf,
 	return count;
 }
 
+static int g_stat_pid;
+static int heap_stat_pid_proc_show(struct seq_file *s, void *v)
+{
+	int pid = g_stat_pid;
+	unsigned long long time1, time2;
+
+	if (!s)
+		return -EINVAL;
+
+	if (pid > 0) {
+		g_stat_pid = 0;
+		time1 = get_current_time_ms();
+		dmabuf_rbtree_dump_all(NULL, HEAP_DUMP_STATS, s, pid);
+		time2 = get_current_time_ms();
+		pr_info("%s pid: %d time: %u ms\n", __func__, pid, time2-time1);
+	}
+
+	return 0;
+}
+
+
+static int heap_stat_pid_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, heap_stat_pid_proc_show, PDE_DATA(inode));
+}
+
+static ssize_t heap_stat_pid_proc_write(struct file *file, const char *buf,
+					size_t count, loff_t *data)
+{
+	int pid = 0;
+	char line[64] = {0};
+	size_t size = (count > sizeof(line)) ? sizeof(line) : count;
+
+	if (copy_from_user(line, buf, size))
+		return 0;
+
+	if (sscanf(line, "pid:%d\n", &pid) != 1)
+		return 0;
+
+	g_stat_pid = pid;
+	return count;
+}
+
 static const struct proc_ops dma_heap_proc_fops = {
 	.proc_open = dma_heap_proc_open,
 	.proc_read = seq_read,
@@ -1550,6 +1599,14 @@ static const struct proc_ops heap_stats_proc_fops = {
 	.proc_open = heap_stats_proc_open,
 	.proc_read = seq_read,
 	.proc_write = heap_stats_proc_write,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static const struct proc_ops heap_stat_pid_proc_fops = {
+	.proc_open = heap_stat_pid_proc_open,
+	.proc_read = seq_read,
+	.proc_write = heap_stat_pid_proc_write,
 	.proc_lseek = seq_lseek,
 	.proc_release = single_release,
 };
@@ -1646,6 +1703,18 @@ static int dma_buf_init_procfs(void)
 		return -1;
 	}
 	pr_info("create debug file for stats\n");
+
+	dma_heaps_stat_pid = proc_create_data("rss_pid",
+					      S_IFREG | 0666,
+					      dma_heap_proc_root,
+					      &heap_stat_pid_proc_fops,
+					      NULL);
+	if (!dma_heaps_stat_pid) {
+		pr_info("%s failed to create procfs rss_pid dir:%ld\n",
+			__func__, PTR_ERR(dma_heaps_stat_pid));
+		return -1;
+	}
+	pr_info("create debug file for stats_pid\n");
 
 	return ret;
 }

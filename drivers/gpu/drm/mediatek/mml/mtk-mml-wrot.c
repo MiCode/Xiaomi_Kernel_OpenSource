@@ -1096,6 +1096,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 				 wrot_frm, pkt, reuse, cache);
 		/* always turn off ready to wrot */
 		wrot_config_ready(wrot, cfg, wrot_frm, ccfg->pipe, pkt, false);
+
+		/* and clear inlinerot enable since last frame maybe racing mode */
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_IN_LINE_ROT, 0, U32_MAX);
 	}
 
 	/* Write frame related registers */
@@ -1951,12 +1954,18 @@ u32 wrot_datasize_get(struct mml_task *task, struct mml_comp_config *ccfg)
 	return wrot_frm->datasize;
 }
 
+u32 wrot_format_get(struct mml_task *task, struct mml_comp_config *ccfg)
+{
+	return task->config->info.dest[ccfg->node->out_idx].data.format;
+}
+
 static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
 	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
-	.qos_datasize_get = wrot_datasize_get,
+	.qos_datasize_get = &wrot_datasize_get,
+	.qos_format_get = &wrot_format_get,
 	.qos_set = &mml_comp_qos_set,
 	.qos_clear = &mml_comp_qos_clear,
 };
@@ -2072,7 +2081,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		(debug[2] >> 1) & 0x1, (debug[2] >> 2) & 0x1,
 		(debug[2] >> 3) & 0x1);
 	state = debug[2] & 0x1;
-	smi_req = (debug[18] >> 31) & 0x1;
+	smi_req = (debug[18] >> 30) & 0x1;
 	mml_err("WROT state: %#x (%s)", state, wrot_state(state));
 	mml_err("WROT x_cnt %u y_cnt %u",
 		debug[9] & 0xffff, (debug[9] >> 16) & 0xffff);
@@ -2089,8 +2098,21 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	}
 }
 
+static void wrot_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe)
+{
+	const struct mml_topology_path *path = cfg->path[pipe];
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+	if (cfg->info.mode == MML_MODE_RACING) {
+		cmdq_clear_event(path->clt->chan, wrot->event_bufa);
+		cmdq_clear_event(path->clt->chan, wrot->event_bufb);
+		cmdq_clear_event(path->clt->chan, wrot->event_buf_next);
+	}
+}
+
 static const struct mml_comp_debug_ops wrot_debug_ops = {
 	.dump = &wrot_debug_dump,
+	.reset = &wrot_reset,
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)

@@ -2897,6 +2897,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
+	csi_param->legacy_phy = 1;
+	csi_param->not_fixed_trail_settle = 1;
+
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:

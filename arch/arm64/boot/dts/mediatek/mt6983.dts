@@ -1015,7 +1015,8 @@
 			compatible = "mediatek,cpufreq-hybrid";
 			reg = <0 0x00114400 0 0xC00>,
 				<0 0x0011bc00 0 0x1400>,
-				<0 0x00112400 0 0x1800>;
+				<0 0x00112400 0 0x1800>,
+				<0 0x00114F40 0 0xc0>;
 			reg-names = "USRAM", "CSRAM", "ESRAM";
 			cslog-range = <0x03d0>, <0x0fa0>;
 			tbl-off = <4>, <76>, <148>, <220>;
@@ -1034,6 +1035,8 @@
 			proc4-supply = <&mt6373_vbuck9>; //DSU
 			/* regulator step value */
 			proc3 = <6250>; //B
+			nvmem-cells = <&lkginfo>;
+			nvmem-cell-names = "lkginfo";
 		};
 
 		regulator_vibrator {
@@ -1272,6 +1275,8 @@
 			mediatek,hw-req-ctrl;
 			mediatek,noise-still-tr;
 			mediatek,gen1-txdeemph;
+			mediatek,syscon-wakeup = <&pericfg_ao_clk 0x200 103>;
+			wakeup-source;
 			usb-role-switch;
 			cdp-block;
 			port {
@@ -4229,6 +4234,10 @@
 			csi_efuse5: csi_data5 {
 				reg = <0x1cc 0x4>;
 			};
+
+			lkginfo: lkg {
+				reg = <0x218 0x18>;
+			};
 	};
 
 	apu_iommu0_bank1: iommu@19011000 {
@@ -6880,6 +6889,13 @@
 		};
 	};
 
+	disp_sec {
+		compatible = "mediatek,disp_sec";
+		sw_sync_token_tzmp_disp_wait = <CMDQ_SYNC_TOKEN_TZMP_DISP_WAIT>;
+		sw_sync_token_tzmp_disp_set = <CMDQ_SYNC_TOKEN_TZMP_DISP_SET>;
+		mboxes = <&gce_sec 8 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_4>;
+	};
+
 	mmqos_wrapper {
 			compatible = "mediatek,mt6983-mmqos-wrapper";
 	};
@@ -9161,6 +9177,21 @@
 		throughput-op-rate-thresh = <120>;
 		throughput-min = <218000000>;
 		throughput-normal-max = <650000000>;
+		profile-duration = <60 2000>;
+		profile-target = <15 25 30 50 60 90 120 150 180 240 480>;
+		max-op-rate-table =
+			<877088845 921600 120 3686400 60 8847360 15 35389440 5>, /* MPEG4 */
+			<826757197 921600 120 3686400 60 8847360 15 35389440 5>, /* MPEG1 */
+			<843534413 921600 120 3686400 60 8847360 15 35389440 5>, /* MPEG2 */
+			<859189832 921600 120 3686400 60 8847360 15 35389440 5>, /* H.263 */
+			<875967048 921600 180 3686400 120 8847360 60 35389440 30>, /* H.264 */
+			<826496577 921600 180 3686400 120 8847360 60 35389440 30>, /* H.264 */
+			<1129727304 921600 180 3686400 120 8847360 60 35389440 30>, /* HEVC */
+			<892744264 921600 180 3686400 120 8847360 60 35389440 30>, /* H.265 */
+			<1179206984 262144 550 2097152 550 8847360 60 35389440 30>, /* HEIF */
+			<808996950 921600 120 3686400 60 8847360 15 35389440 5>, /* VP8 */
+			<809062486 921600 180 3686400 120 8847360 60 35389440 30>, /* VP9 */
+			<808539713 921600 180 3686400 120 8847360 60 35389440 30>; /* AV1 */
 		throughput-table =
 			<877088845 0 417 417>, /* MPEG4 */
 			<826757197 0 417 417>, /* MPEG1 */
@@ -9778,7 +9809,7 @@
 		emi-addr = <0>;
 		emi-size = <0x100000>;
 		emi-alignment = <0x100000>;
-		emi-max-addr = <0xc0000000>;
+		emi-max-addr = <0x80000000>;
 	};
 
 	watchdog: watchdog@1c007000 {
@@ -10416,8 +10447,9 @@
 
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_PROC_DORMANT>;
 		clocks = <&topckgen_clk CLK_TOPCKGEN_MMUP_SEL>,
-			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D3>;
-		clock-names = "mmup-clk", "mmup-pll";
+			<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D3>,
+			<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
+		clock-names = "mmup-sel", "mmup-clk", "mmup-26m";
 	};
 
 	vcp_io2: vcp_iommu_vdec {
@@ -11074,7 +11106,8 @@
 	};
 
 	mml_tdshp0: mml_tdshp0@1f80b000 {
-		compatible = "mediatek,mt6983-mml_tdshp";
+		compatible = "mediatek,mt6983-mml_tdshp",
+			"mediatek,mml-tuning-mml_tdshp";
 		reg = <0 0x1f80b000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_TDSHP0>;
 		clock-names = "tdshp0";
@@ -11083,7 +11116,8 @@
 	};
 
 	mml_tdshp1: mml_tdshp1@1f80c000 {
-		compatible = "mediatek,mt6983-mml_tdshp";
+		compatible = "mediatek,mt6983-mml_tdshp",
+			"mediatek,mml-tuning-mml_tdshp";
 		reg = <0 0x1f80c000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_TDSHP1>;
 		clock-names = "tdshp1";
@@ -11092,7 +11126,8 @@
 	};
 
 	mml_color0: mml_color0@1f80d000 {
-		compatible = "mediatek,mt6983-mml_color";
+		compatible = "mediatek,mt6983-mml_color",
+			"mediatek,mml-tuning-mml_color";
 		reg = <0 0x1f80d000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_COLOR0>;
 		clock-names = "color0";
@@ -11101,7 +11136,8 @@
 	};
 
 	mml_color1: mml_color1@1f80e000 {
-		compatible = "mediatek,mt6983-mml_color";
+		compatible = "mediatek,mt6983-mml_color",
+			"mediatek,mml-tuning-mml_color";
 		reg = <0 0x1f80e000 0 0x1000>;
 		clocks = <&mdpsys1_config_clk CLK_MDPSYS1_CONFIG_MDP_COLOR1>;
 		clock-names = "color1";

@@ -681,7 +681,7 @@ static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 }
 
 
-int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type)
+int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, bool no_need_put)
 {
 	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
@@ -755,7 +755,7 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type)
 		}
 
 		mtk_vdec_queue_stop_play_event(ctx);
-	} else {
+	} else if (no_need_put == false) {
 		if (!ctx->input_driven)
 			dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 		clean_display_buffer(ctx,
@@ -878,7 +878,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			drain_fb.status = FB_ST_EOS;
 		vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
 
-		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER);
+		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER, false);
 		v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		src_buf_info->lastframe = NON_EOS;
 		clean_free_bs_buffer(ctx, NULL);
@@ -952,7 +952,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	}
 
 	if (!ctx->input_driven)
-		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER);
+		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER, false);
 
 	if (ret < 0 || mtk_vcodec_unsupport) {
 		mtk_v4l2_err(
@@ -1046,6 +1046,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 			 * point, so call flush decode here
 			 */
 			mtk_vdec_reset_decoder(ctx, 1, NULL);
+			if (ctx->input_driven != NON_INPUT_DRIVEN)
+				*(ctx->ipi_blocked) = true;
 			/*
 			 * After all buffers containing decoded frames from
 			 * before the resolution change point ready to be
@@ -1120,6 +1122,10 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	case V4L2_DEC_CMD_STOP:
 		src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
+		if (ctx->state == MTK_STATE_INIT)
+			mtk_vdec_queue_error_event(ctx);
+
 		if (!vb2_is_streaming(src_vq)) {
 			mtk_v4l2_debug(1, "Output stream is off. No need to flush.");
 			return 0;
@@ -1425,6 +1431,8 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 				buf->bytesused,
 				buf->length, vb,
 				timeval_to_ns(&buf->timestamp));
+			if (ctx->state == MTK_STATE_INIT)
+				mtk_vdec_queue_error_event(ctx);
 		} else if (buf->flags & V4L2_BUF_FLAG_LAST) {
 			mtkbuf->lastframe = EOS_WITH_DATA;
 			mtk_v4l2_debug(1, "[%d] id=%d EarlyEos BS(%d,%d) vb=%p pts=%llu",
@@ -2414,6 +2422,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
+			ctx->state = MTK_STATE_ABORT;
 			mtk_vdec_queue_error_event(ctx);
 		} else if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
@@ -2650,6 +2659,9 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	//SET_PARAM_TOTAL_FRAME_BUFQ_COUNT for SW DEC
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (ctx->input_driven != NON_INPUT_DRIVEN)
+			*(ctx->ipi_blocked) = false;
+
 		total_frame_bufq_count = q->num_buffers;
 		if (vdec_if_set_param(ctx,
 			SET_PARAM_TOTAL_FRAME_BUFQ_COUNT,
@@ -2677,7 +2689,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
-;
+
 	ctx->input_max_ts = 0;
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {

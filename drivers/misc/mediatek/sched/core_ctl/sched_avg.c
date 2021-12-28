@@ -28,8 +28,7 @@ struct over_thres_stats {
 	int nr_over_up_thres;
 	int dn_thres;
 	int up_thres;
-	int max_task_pid;
-	unsigned long max_task_util;
+	atomic_long_t max_task_util;
 	u64 nr_over_dn_thres_prod_sum;
 	u64 nr_over_up_thres_prod_sum;
 	u64 dn_last_update_time;
@@ -53,9 +52,6 @@ static DEFINE_PER_CPU(spinlock_t, nr_over_thres_lock) = __SPIN_LOCK_UNLOCKED(nr_
  */
 static int init_thres;
 static int global_task_util;
-static int global_task_pid;
-static int global_task_cpu;
-static DEFINE_SPINLOCK(global_max_util_lock);
 
 /* pelt.h */
 #define OVER_THRES_SIZE			2
@@ -66,57 +62,35 @@ static int init_thres_table(void);
 static unsigned int over_thres[OVER_THRES_SIZE] = {80, 70};
 static struct cluster_over_thres_stats cluster_over_thres_table[MAX_CLUSTER_NR];
 
-void sched_max_util_task_tracking(void *data, struct rq *rq)
+void sched_max_util_task(int *util)
 {
 	int cpu;
 	struct over_thres_stats *cpu_over_thres;
 	int max_util = 0;
-	int max_cpu = 0;
-	int max_task_pid = 0;
-	ktime_t now = ktime_get();
-	unsigned long flag;
+	ktime_t now;
 	static ktime_t max_util_tracker_last_update;
 
-	spin_lock_irqsave(&global_max_util_lock, flag);
+	if (!util)
+		return;
+
+	now = ktime_get();
 	if (ktime_before(now, ktime_add_ms(
 		max_util_tracker_last_update, MAX_UTIL_TRACKER_PERIODIC_MS))) {
-		spin_unlock_irqrestore(&global_max_util_lock, flag);
+		*util = global_task_util;
 		return;
 	}
 
 	/* update last update time for tracker */
 	max_util_tracker_last_update = now;
-	spin_unlock_irqrestore(&global_max_util_lock, flag);
 
 	for_each_possible_cpu(cpu) {
-		spin_lock_irqsave(&per_cpu(nr_over_thres_lock, cpu), flag);
 		cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
-
-		if (cpu_online(cpu) &&
-			(cpu_over_thres->max_task_util > max_util)) {
-			max_util = cpu_over_thres->max_task_util;
-			max_task_pid = cpu_over_thres->max_task_pid;
-			max_cpu = cpu;
-		}
-
-		cpu_over_thres->max_task_util = 0;
-		cpu_over_thres->max_task_pid = 0;
-		spin_unlock_irqrestore(&per_cpu(nr_over_thres_lock, cpu), flag);
+		max_util = atomic_long_read(&cpu_over_thres->max_task_util);
+		if (cpu_online(cpu) && max_util > global_task_util)
+			global_task_util = max_util;
+		atomic_long_set(&cpu_over_thres->max_task_util, 0);
 	}
-
-	global_task_util = max_util;
-	global_task_pid = max_task_pid;
-	global_task_cpu = max_cpu;
-}
-
-void sched_max_util_task(int *cpu, int *pid, int *util, int *boost)
-{
-	if (cpu)
-		*cpu = global_task_cpu;
-	if (pid)
-		*pid = global_task_pid;
-	if (util)
-		*util = global_task_util;
+	*util = global_task_util;
 }
 EXPORT_SYMBOL(sched_max_util_task);
 
@@ -282,9 +256,8 @@ enum over_thres_type is_task_over_thres(struct task_struct *p)
 	/* track task with max utilization */
 	/* check 64-bit or not if mismatch 32bit platform */
 	if (cpumask_test_cpu(mismatch_cpu, p->cpus_ptr) &&
-	   (util > cpu_over_thres->max_task_util)) {
-		cpu_over_thres->max_task_util = util;
-		cpu_over_thres->max_task_pid = p->pid;
+	   (util > atomic_long_read(&cpu_over_thres->max_task_util))) {
+		atomic_long_set(&cpu_over_thres->max_task_util, util);
 	}
 
 	/* check if task is over threshold */
@@ -327,7 +300,7 @@ int sched_get_nr_over_thres_avg(unsigned int cluster_id,
 	/* cluster_id need reasonale. */
 	cluster_nr = arch_get_nr_clusters();
 	if (cluster_id < 0 || cluster_id >= cluster_nr) {
-		printk_deferred("%s: invalid cluster id %d\n", __func__, cluster_id);
+		printk_deferred_once("%s: invalid cluster id %d\n", __func__, cluster_id);
 		return -EINVAL;
 	}
 
@@ -430,7 +403,7 @@ static void over_thresh_chg_notify(void)
 		cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 
 		if (cid < 0 || cid >= cluster_nr) {
-			printk_deferred("%s: cid=%d is out of nr=%d\n",
+			printk_deferred_once("%s: cid=%d is out of nr=%d\n",
 			__func__, cid, cluster_nr);
 			continue;
 		}
@@ -498,28 +471,41 @@ static void over_thresh_chg_notify(void)
 
 void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_thres_nr_inc)
 {
-	s64 diff;
-	u64 curr_time;
 	unsigned long flags;
 	enum over_thres_type over_type = NO_OVER_THRES;
+	struct over_thres_stats *cpu_over_thres;
+	unsigned long util;
 
 	/* TODO: should be error handle ? */
 	if (!init_thres) {
-		printk_deferred("assertion failed at %s:%d\n",
+		printk_deferred_once("assertion failed at %s:%d\n",
 				__FILE__,
 				__LINE__);
 		return;
 	}
 
+	util = task_util(p);
 	spin_lock_irqsave(&per_cpu(nr_over_thres_lock, cpu), flags);
+	cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 
-	curr_time = sched_clock();
-	over_type = is_task_over_thres(p);
+	/* check if task is over threshold */
+	if (util >= cpu_over_thres->dn_thres) {
+		over_type = OVER_DN_THRES;
+		if (util >= cpu_over_thres->up_thres)
+			over_type = OVER_UP_THRES;
+	}
 
 	if (over_type) {
-		struct over_thres_stats *cpu_over_thres;
+		s64 diff;
+		u64 curr_time;
 
-		cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
+		/* track task with max utilization */
+		/* check 64-bit or not if mismatch 32bit platform */
+		if (cpumask_test_cpu(mismatch_cpu, p->cpus_ptr) &&
+		    (util > atomic_long_read(&cpu_over_thres->max_task_util)))
+			atomic_long_set(&cpu_over_thres->max_task_util, util);
+
+		curr_time = sched_clock();
 		if (over_type == OVER_UP_THRES) {
 			/* OVER_UP_THRES */
 			diff = (s64) (curr_time -
@@ -534,7 +520,7 @@ void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_th
 			}
 
 			diff = (s64) (curr_time -
-					cpu_over_thres->up_last_update_time);
+				cpu_over_thres->up_last_update_time);
 			/* update over_thres for upgrading threshold */
 			if (diff >= 0) {
 				cpu_over_thres->up_last_update_time = curr_time;
@@ -706,11 +692,9 @@ static int init_thres_table(void)
 	if (init_thres)
 		return 0;
 
-	printk_deferred("%s start.\n", __func__);
+	printk_deferred_once("%s start.\n", __func__);
 
 	global_task_util = 0;
-	global_task_pid = 0;
-	global_task_cpu = 0;
 
 	/* allocation for clustser information */
 	cluster_nr = arch_get_nr_clusters();
@@ -729,8 +713,7 @@ static int init_thres_table(void)
 		cid = arch_get_cluster_id(cpu);
 		cpu_over_thres->nr_over_dn_thres = 0;
 		cpu_over_thres->nr_over_up_thres = 0;
-		cpu_over_thres->max_task_util = 0;
-		cpu_over_thres->max_task_pid = 0;
+		atomic_long_set(&cpu_over_thres->max_task_util, 0);
 
 		if (cid < 0 || cid >= cluster_nr) {
 			pr_info("%s: cid=%d is out of nr=%d\n", __func__, cid, cluster_nr);
@@ -811,31 +794,17 @@ static ssize_t show_over_util(struct kobject *kobj,
 				i, over_thres[i]);
 	}
 	len += get_over_thres_stats(buf+len, max_len-len);
-
-	return len;
-}
-
-static ssize_t show_max_util(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	unsigned int len = 0;
-	unsigned int max_len = 4096;
-
+	/* show maximum task_utils */
 	len += snprintf(buf+len, max_len-len,
-			"maximum task_utils = %d, task_pid: = %d, task_cpu:%d\n",
-			global_task_util, global_task_pid, global_task_cpu);
+			"maximum task_utils = %d\n", global_task_util);
 	return len;
 }
-
-static struct kobj_attribute max_util_attr =
-__ATTR(max_util, 0400, show_max_util, NULL);
 
 static struct kobj_attribute over_util_attr =
 __ATTR(over_util, 0400, show_over_util, NULL);
 
 static struct attribute *sched_avg_attrs[] = {
 	&over_util_attr.attr,
-	&max_util_attr.attr,
 	NULL,
 };
 
@@ -913,13 +882,6 @@ int init_sched_avg(void)
 		goto failed_deprobe_prepare_update_load_avg_se;
 	}
 
-	ret = register_trace_android_vh_scheduler_tick(
-			sched_max_util_task_tracking, NULL);
-	if (ret) {
-		ret_error_line = __LINE__;
-		goto failed_deprob_eched_update_nr_running_tp;
-	}
-
 	/*
 	 * reset over_thress value to prevent mis-patch
 	 * condition after KO is ready to install.
@@ -927,9 +889,6 @@ int init_sched_avg(void)
 	over_thresh_chg_notify();
 	return 0;
 
-failed_deprob_eched_update_nr_running_tp:
-	unregister_trace_sched_update_nr_running_tp(
-			sched_update_nr_running_cb, NULL);
 failed_deprobe_prepare_update_load_avg_se:
 	unregister_trace_android_vh_prepare_update_load_avg_se(
 			dec_nr_over_thres_running_by_se, NULL);
@@ -953,5 +912,4 @@ void exit_sched_avg(void)
 	unregister_trace_android_vh_prepare_update_load_avg_se(
 				dec_nr_over_thres_running_by_se, NULL);
 	unregister_trace_sched_update_nr_running_tp(sched_update_nr_running_cb, NULL);
-	unregister_trace_android_vh_scheduler_tick(sched_max_util_task_tracking, NULL);
 }

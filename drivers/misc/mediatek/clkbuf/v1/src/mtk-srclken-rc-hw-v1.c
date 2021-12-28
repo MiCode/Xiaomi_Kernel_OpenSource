@@ -550,6 +550,7 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		enum CLKBUF_CTL_CMD cmd, enum SRCLKEN_RC_REQ rc_req)
 {
 	u32 val = 0;
+	u32 cfg6_val = 0;
 	int ret = 0;
 
 	ret = clk_buf_read_with_ofs(&rc_cfg.hw, &rc_cfg._m00_cfg,
@@ -558,6 +559,15 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		pr_notice("read srclken_rc subsys cfg failed\n");
 		return ret;
 	}
+
+	ret = clk_buf_read_with_ofs(&rc_cfg.hw, &rc_cfg._central_cfg6,
+			&cfg6_val, 0);
+	if (ret) {
+		pr_notice("read srclken_rc cfg6 failed\n");
+		return ret;
+	}
+	/* Reset previous CFG6 setting (Force subsys vote LPM) */
+	cfg6_val &= (~(1 << subsys->idx));
 
 	if (cmd <= CLKBUF_CMD_SW) {
 		val &= (~(SW_SRCLKEN_RC_EN_MASK << SW_SRCLKEN_RC_EN_SHIFT));
@@ -568,6 +578,10 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		} else if (rc_req == RC_FPM_REQ) {
 			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
 			val |= (SW_FPM_EN_MASK << SW_FPM_EN_SHIFT);
+		} else if (rc_req == RC_LPM_VOTE_REQ) {
+			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
+			val |= (SW_FPM_EN_MASK << SW_FPM_EN_SHIFT);
+			cfg6_val |= (1 << subsys->idx);
 		} else if (rc_req == RC_LPM_REQ) {
 			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
 		}
@@ -580,6 +594,11 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		val &= (~(SW_SRCLKEN_RC_EN_MASK << SW_SRCLKEN_RC_EN_SHIFT));
 		val |= (subsys->init_mode << SW_SRCLKEN_RC_EN_SHIFT);
 	}
+
+	ret = clk_buf_write_with_ofs(&rc_cfg.hw, &rc_cfg._central_cfg6,
+			cfg6_val, 0);
+	if (ret)
+		pr_notice("write srclken_rc cfg6 failed\n");
 
 	ret = clk_buf_write_with_ofs(&rc_cfg.hw, &rc_cfg._m00_cfg,
 			val, subsys->idx * 4);

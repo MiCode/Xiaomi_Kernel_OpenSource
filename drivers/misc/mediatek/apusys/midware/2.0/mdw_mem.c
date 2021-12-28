@@ -7,6 +7,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/of_device.h>
+#include <linux/dma-buf.h>
+#include <uapi/linux/dma-buf.h>
 
 #include "apusys_device.h"
 #include "mdw_cmn.h"
@@ -167,6 +169,25 @@ static int mdw_mem_alloc_internal(struct mdw_mem *m)
 	return ret;
 }
 
+long mdw_mem_set_name(struct mdw_mem *m, const char *buf)
+{
+	char *name = NULL;
+
+	if (IS_ERR_OR_NULL(m->dbuf))
+		return -EINVAL;
+
+	name = kstrndup(buf, DMA_BUF_NAME_LEN, GFP_KERNEL);
+	if (IS_ERR(name))
+		return PTR_ERR(name);
+
+	spin_lock(&m->dbuf->name_lock);
+	kfree(m->dbuf->name);
+	m->dbuf->name = name;
+	spin_unlock(&m->dbuf->name_lock);
+
+	return 0;
+}
+
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
 	uint32_t size, uint32_t align, uint64_t flags, bool need_handle)
 {
@@ -249,16 +270,16 @@ static void mdw_mem_map_release(struct kref *ref)
 	/* unmap device va */
 	mutex_lock(&m->mtx);
 	mdw_trace_begin("map release: detach|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 	dma_buf_unmap_attachment(map->attach,
 		map->sgt, DMA_BIDIRECTIONAL);
 	mdw_trace_end("map release: detach|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 	mdw_trace_begin("map release: unmap|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 	dma_buf_detach(m->dbuf, map->attach);
 	mdw_trace_end("map release: unmap|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 	m->device_va = 0;
 	m->dva_size = 0;
 	m->map = NULL;
@@ -314,31 +335,31 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	}
 
 	mdw_trace_begin("map create: attach|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 	map->attach = dma_buf_attach(m->dbuf, m->mdev);
 	if (IS_ERR(map->attach)) {
 		ret = PTR_ERR(map->attach);
 		mdw_drv_err("dma_buf_attach failed: %d\n", ret);
 		mdw_trace_end("map create: attach|size(%u) align(%u)",
-			__func__, m->size, m->align);
+			m->size, m->align);
 		goto free_map;
 	}
 	mdw_trace_end("map create: attach|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 
 	mdw_trace_begin("map create: map|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 	map->sgt = dma_buf_map_attachment(map->attach,
 		DMA_BIDIRECTIONAL);
 	if (IS_ERR(map->sgt)) {
 		ret = PTR_ERR(map->sgt);
 		mdw_drv_err("dma_buf_map_attachment failed: %d\n", ret);
 		mdw_trace_end("map create: map|size(%u) align(%u)",
-			__func__, m->size, m->align);
+			m->size, m->align);
 		goto detach_dbuf;
 	}
 	mdw_trace_end("map create: map|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		m->size, m->align);
 
 	m->device_va = sg_dma_address(map->sgt->sgl);
 	m->dva_size = sg_dma_len(map->sgt->sgl);

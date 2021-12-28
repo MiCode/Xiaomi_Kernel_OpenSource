@@ -30,8 +30,17 @@
 #define MTK_CCU_CLK_PWR_NUM 7
 #define MTK_CCU_MAILBOX_QUEUE_SIZE 8
 
+#define MTK_CCU_SRAM_LOG_OFFSET	 (0x1000)
 #define MTK_CCU_DRAM_LOG_BUF_CNT (4)
 #define MTK_CCU_DRAM_LOG_BUF_SIZE (1024 * 1024) //1MB
+#define MTK_CCU_SRAM_LOG_BUF_SIZE (4 * 1024)
+#define MTK_CCU_REG_LOG_BUF_SIZE (4 * 1024)
+#define MTK_CCU_EXTRA_REG_LOG_BUF_SIZE (0x100)
+#define MTK_CCU_EXTRA_REG_OFFSET (0x8000)
+#define MTK_CCU_MRDUMP_SRAM_BUF_SIZE (MTK_CCU_SRAM_LOG_BUF_SIZE + MTK_CCU_REG_LOG_BUF_SIZE)
+#define MTK_CCU_MRDUMP_BUF_DRAM_SIZE (128 * 1024)
+#define MTK_CCU_MRDUMP_BUF_SIZE (MTK_CCU_MRDUMP_SRAM_BUF_SIZE + 2 * MTK_CCU_MRDUMP_BUF_DRAM_SIZE)
+#define LOG_ENDEND 0xDDDDDDDD
 
 struct mtk_ccu_ipc_desc {
 	mtk_ccu_ipc_handle_t handler;
@@ -128,6 +137,7 @@ struct mtk_ccu {
 	struct clk *ccu_clk_pwr_ctrl[MTK_CCU_CLK_PWR_NUM];
 	struct mtk_ccu_mem_handle buffer_handle[MTK_CCU_BUF_MAX];
 	struct mtk_ccu_mem_handle ext_buf;
+	void *mrdump_buf;
 	struct mtk_ccu_mailbox *mb;
 	struct mtk_ccu_buffer log_info[MTK_CCU_DRAM_LOG_BUF_CNT];
 	wait_queue_head_t WaitQueueHead;

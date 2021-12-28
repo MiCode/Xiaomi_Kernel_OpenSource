@@ -384,6 +384,7 @@ static void audio_boost_work(struct work_struct *work_struct)
 	audio_boost_inst.request_func = __request_empty;
 	USB_BOOST_NOTICE("audio_boost, begin of work\n");
 	audio_core_hold();
+	audio_freq_hold();
 
 	while (1) {
 		int timeout;
@@ -399,6 +400,7 @@ static void audio_boost_work(struct work_struct *work_struct)
 	}
 
 	audio_core_release();
+	audio_freq_release();
 	audio_boost_inst.request_func = __request_audio;
 	USB_BOOST_NOTICE("audio_boost, end of work\n");
 }
@@ -639,7 +641,7 @@ static int create_sys_fs(void)
 
 		for (n = 0; n < _ATTR_MAXID; n++) {
 			boost_inst[i].attr[n].attr.name = attr_name[n];
-				boost_inst[i].attr[n].attr.mode = 0400;
+			boost_inst[i].attr[n].attr.mode = 0400;
 			boost_inst[i].attr[n].show = attr_show;
 			boost_inst[i].attr[n].store = attr_store;
 
@@ -655,6 +657,7 @@ static int create_sys_fs(void)
 		}
 
 	}
+
 	return 0;
 
 }

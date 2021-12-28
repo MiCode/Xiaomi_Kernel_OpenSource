@@ -79,6 +79,22 @@ int clk_buf_hw_ctrl(const char *xo_name, bool onoff)
 }
 EXPORT_SYMBOL(clk_buf_hw_ctrl);
 
+int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
+{
+	if (!clkbuf_ctl.init_done) {
+		pr_notice("clkbuf HW not init yet\n");
+		return -ENODEV;
+	}
+
+	if (rc_req > MAX_RC_REQ_NUM) {
+		pr_notice("rc_req exceeds MAX_RC_REQ_NUM!\n");
+		return -EINVAL;
+	}
+
+	return srclken_rc_subsys_ctrl(subsys_id, rc_req_list[rc_req]);
+}
+EXPORT_SYMBOL(clk_buf_voter_ctrl_by_id);
+
 static bool clk_buf_get_flightmode(void)
 {
 	return clkbuf_ctl.flightmode;

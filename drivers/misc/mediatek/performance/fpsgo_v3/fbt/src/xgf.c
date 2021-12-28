@@ -1529,7 +1529,12 @@ static int xgf_tid_overlap(int tid, int rpid, int uboost)
 	struct xgf_render *render_iter;
 	struct hlist_node *n;
 
-	if (!tid || tid < 0 || uboost)
+	if (!tid || tid < 0) {
+		ret = 1;
+		goto out;
+	}
+
+	if (rpid == tid)
 		goto out;
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
@@ -1704,6 +1709,8 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
 
+		xgf_add_pid2prev_dep(render_iter, pid);
+
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
 
@@ -1876,7 +1883,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			continue;
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
-		if (xgf_uboost_case(render_iter) && xgf_uboost)
+		if (xgf_r_uboost && xgf_uboost)
 			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
 
 		if (render_iter->spid)
@@ -1884,6 +1891,8 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
+
+		xgf_add_pid2prev_dep(render_iter, pid);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);

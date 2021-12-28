@@ -11,6 +11,8 @@
 #include "mtk_cam-video.h"
 #include "mtk_camera-v4l2-controls.h"
 
+struct mtk_cam_request_stream_data;
+
 #define RAW_PIPELINE_NUM 3
 #define SCQ_DEADLINE_MS  15 // ~1/2 frame length
 #define SCQ_DEFAULT_CLK_RATE 208 // default 208MHz
@@ -248,6 +250,7 @@ struct mtk_raw_pipeline {
 	struct v4l2_ctrl_handler ctrl_handler;
 	s64 feature_pending;
 	s64 feature_active;
+	int dynamic_exposure_num_max;
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */
 	struct mtk_cam_tg_flash_config tg_flash_config;
 	/* TODO: merge or integrate with mtk_cam_resource_config */
@@ -260,6 +263,7 @@ struct mtk_raw_pipeline {
 	struct mtk_cam_mstream_exposure mstream_exposure;
 	/* stagger */
 	enum hdr_scenario_id stagger_path;
+	enum hdr_scenario_id stagger_path_pending;
 	/* pde module */
 	struct mtk_raw_pde_config pde_config;
 	s64 hw_mode;
@@ -325,6 +329,11 @@ struct mtk_raw {
 	struct mtk_raw_pipeline pipelines[RAW_PIPELINE_NUM];
 };
 
+struct mtk_raw_stagger_select {
+	int stagger_path;
+	int enabled_raw;
+};
+
 static inline struct mtk_raw_pipeline*
 mtk_cam_ctrl_handler_to_raw_pipeline(struct v4l2_ctrl_handler *handler)
 {
@@ -355,6 +364,8 @@ void enable_tg_db(struct mtk_raw_device *dev, int en);
 void initialize(struct mtk_raw_device *dev, int is_slave);
 
 void stream_on(struct mtk_raw_device *dev, int on);
+
+void immediate_stream_off(struct mtk_raw_device *dev);
 
 void apply_cq(struct mtk_raw_device *dev,
 	      int initial, dma_addr_t cq_addr,
@@ -409,6 +420,7 @@ int
 mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 			     struct mtk_cam_resource *res_user,
 			     struct v4l2_mbus_framefmt *src);
+
 
 #ifdef CAMSYS_TF_DUMP_71_1
 int

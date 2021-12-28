@@ -1000,8 +1000,22 @@ static void imx586_set_lsc_reg_setting(struct subdrv_ctx *ctx,
  *************************************************************************/
 static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	pr_debug("streaming_enable(0=Sw Standby,1=streaming): %d\n",
-		enable);
+	pr_debug(
+		"%s streaming: %d x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x|0x%08x\n",
+		__func__,
+		enable,
+		read_cmos_sensor_8(ctx, 0x0808),
+		read_cmos_sensor_8(ctx, 0x084E),
+		read_cmos_sensor_8(ctx, 0x084F),
+		read_cmos_sensor_8(ctx, 0x0850),
+		read_cmos_sensor_8(ctx, 0x0851),
+		read_cmos_sensor_8(ctx, 0x0852),
+		read_cmos_sensor_8(ctx, 0x0853),
+		read_cmos_sensor_8(ctx, 0x0854),
+		read_cmos_sensor_8(ctx, 0x0855),
+		read_cmos_sensor_8(ctx, 0x0858),
+		read_cmos_sensor_8(ctx, 0x0859));
+
 	if (enable) {
 		if (read_cmos_sensor_8(ctx, 0x0350) != 0x01) {
 			pr_debug("single cam scenario enable auto-extend");
@@ -1013,6 +1027,8 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 		ctx->is_streaming = true;
 	} else {
 		write_cmos_sensor_8(ctx, 0x0100, 0x00);
+		write_cmos_sensor_8(ctx, 0x0808, 0x00);// set mipi timing back to auto
+
 		ctx->is_streaming = false;
 	}
 	return ERROR_NONE;
@@ -1353,6 +1369,7 @@ static kal_uint16 imx586_init_setting[] = {
 	0xF484, 0x20,
 	0xF485, 0x60,
 	0xF486, 0x80,
+	0x0808, 0x00
 #endif
 };
 
@@ -1553,6 +1570,19 @@ static kal_uint16 imx586_capture_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	/*224 UI*/
+	0x0808, 0x02,
+	0x084E, 0x00,
+	0x084F, 0x17,
+	0x0850, 0x00,
+	0x0851, 0x12,
+	0x0852, 0x00,
+	0x0853, 0x25,
+	0x0854, 0x00,
+	0x0855, 0x14,
+	0x0858, 0x00,
+	0x0859, 0x1F,
+
 #endif
 };
 
@@ -1970,6 +2000,18 @@ static kal_uint16 imx586_normal_video_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xF0,
+	/*224 UI*/
+	0x0808, 0x02,
+	0x084E, 0x00,
+	0x084F, 0x08,
+	0x0850, 0x00,
+	0x0851, 0x07,
+	0x0852, 0x00,
+	0x0853, 0x0E,
+	0x0854, 0x00,
+	0x0855, 0x14,
+	0x0858, 0x00,
+	0x0859, 0x1F,
 };
 
 static kal_uint16 imx586_hs_video_setting[] = {
@@ -2396,6 +2438,19 @@ static kal_uint16 imx586_custom4_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0x00,
+	/*224 UI*/
+	0x0808, 0x02,
+	0x084E, 0x00,
+	0x084F, 0x17,
+	0x0850, 0x00,
+	0x0851, 0x12,
+	0x0852, 0x00,
+	0x0853, 0x25,
+	0x0854, 0x00,
+	0x0855, 0x14,
+	0x0858, 0x00,
+	0x0859, 0x1F,
+
 };
 
 static kal_uint16 imx586_custom3_setting[] = {
@@ -2503,6 +2558,19 @@ static kal_uint16 imx586_custom3_setting[] = {
 	0x3E3B, 0x01,
 	0x4434, 0x01,
 	0x4435, 0xf0,
+	/*224 UI*/
+	0x0808, 0x02,
+	0x084E, 0x00,
+	0x084F, 0x17,
+	0x0850, 0x00,
+	0x0851, 0x12,
+	0x0852, 0x00,
+	0x0853, 0x25,
+	0x0854, 0x00,
+	0x0855, 0x14,
+	0x0858, 0x00,
+	0x0859, 0x1F,
+
 };
 
 static kal_uint16 imx586_custom5_setting[] = {
@@ -3567,7 +3635,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->dummy_pixel = 0;
 	ctx->dummy_line = 0;
 	ctx->ihdr_mode = 0;
-	ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 	pr_debug("%s -\n", __func__);
 
@@ -4515,16 +4583,35 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "enable: %d\n", enable);
+	DEBUG_LOG(ctx, "mode: %d\n", mode);
 
-	if (enable)
-		write_cmos_sensor_8(ctx, 0x0601, 0x0002); /*100% Color bar*/
-	else
+	if (mode)
+		write_cmos_sensor_8(ctx, 0x0601, mode); /*100% Color bar*/
+	else if (ctx->test_pattern)
 		write_cmos_sensor_8(ctx, 0x0601, 0x0000); /*No pattern*/
 
-	ctx->test_pattern = enable;
+	ctx->test_pattern = mode;
+	return ERROR_NONE;
+}
+
+static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
+{
+
+	pr_debug("test_patterndata R = %x, Gr = %x,Gb = %x,B = %x\n",
+		data->Channel_R >> 22, data->Channel_Gr >> 22,
+		data->Channel_Gb >> 22, data->Channel_B >> 22);
+
+	set_cmos_sensor_8(ctx, 0x0602, (data->Channel_R >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0603, (data->Channel_R >> 22) & 0xff);
+	set_cmos_sensor_8(ctx, 0x0604, (data->Channel_Gr >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0605, (data->Channel_Gr >> 22) & 0xff);
+	set_cmos_sensor_8(ctx, 0x0606, (data->Channel_B >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0607, (data->Channel_B >> 22) & 0xff);
+	set_cmos_sensor_8(ctx, 0x0608, (data->Channel_Gb >> 30) & 0x3);
+	set_cmos_sensor_8(ctx, 0x0609, (data->Channel_Gb >> 22) & 0xff);
+	commit_write_sensor(ctx);
 	return ERROR_NONE;
 }
 
@@ -4845,7 +4932,10 @@ static int feature_control(
 		pr_debug("SENSOR_FEATURE_GET_PDAF_DATA\n");
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode(ctx, (BOOL)*feature_data);
+		set_test_pattern_mode(ctx, (UINT32)*feature_data);
+		break;
+	case SENSOR_FEATURE_SET_TEST_PATTERN_DATA:
+		set_test_pattern_data(ctx, (struct mtk_test_pattern_data *)feature_data);
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		/* for factory mode auto testing */
@@ -5397,7 +5487,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 		},
 	},
 	{
-		.bus.csi2 = {
+			.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x34,
 			.hsize = 0x04d8,
@@ -5632,7 +5722,7 @@ static const struct subdrv_ctx defctx = {
 	.dummy_line = 0,	/* current dummyline */
 	.current_fps = 300,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
+	.test_pattern = 0,
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x34, /* record current sensor's i2c write id */
@@ -5645,6 +5735,29 @@ static int init_ctx(struct subdrv_ctx *ctx,
 	memcpy(ctx, &defctx, sizeof(*ctx));
 	ctx->i2c_client = i2c_client;
 	ctx->i2c_write_id = i2c_write_id;
+	return 0;
+}
+static int get_csi_param(struct subdrv_ctx *ctx,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+	struct mtk_csi_param *csi_param)
+{
+	csi_param->legacy_phy = 1;
+	csi_param->not_fixed_trail_settle = 1;
+
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		csi_param->legacy_phy = 0;
+		csi_param->cphy_settle = 0x15;
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+	case SENSOR_SCENARIO_ID_CUSTOM3:
+	case SENSOR_SCENARIO_ID_CUSTOM4:
+		csi_param->legacy_phy = 0;
+		csi_param->cphy_settle = 0x13;
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 
@@ -5667,6 +5780,7 @@ static struct subdrv_ops ops = {
 	.get_frame_desc = get_frame_desc,
 #endif
 	.get_temp = get_temp,
+	.get_csi_param = get_csi_param,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {

@@ -1381,7 +1381,7 @@ static int lcm_enable(struct drm_panel *panel)
 #define VSA (8)
 #define VBP (8)
 #define VACT (3216)
-#define PLL_CLOCK (834)
+#define PLL_CLOCK (686)
 
 #define HACT_FHD (1080)
 #define VACT_FHD (2412)

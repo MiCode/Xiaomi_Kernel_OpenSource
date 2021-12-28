@@ -37,5 +37,6 @@ obj-$(CONFIG_STM32_RPROC)		+= stm32_rproc.o
 obj-$(CONFIG_TI_K3_DSP_REMOTEPROC)	+= ti_k3_dsp_remoteproc.o
 obj-$(CONFIG_TI_K3_R5_REMOTEPROC)	+= ti_k3_r5_remoteproc.o
 obj-$(CONFIG_MTK_CCU_RPROC)		+= mtk_ccu.o
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/ \
+	-I$(srctree)/drivers/misc/mediatek/include
 mtk_ccu-objs += mtk_ccu_isp71.o mtk_ccu_common.o mtk_ccu_ipi.o
