@@ -24,6 +24,8 @@
 #define QRTR_EPH_PORT_RANGE \
 		XA_LIMIT(QRTR_MIN_EPH_SOCKET, QRTR_MAX_EPH_SOCKET)
 
+#define QRTR_PORT_CTRL_LEGACY 0xffff
+
 /* qrtr socket states */
 #define QRTR_STATE_MULTI	-2
 #define QRTR_STATE_INIT		-1
@@ -110,9 +112,9 @@ static unsigned int qrtr_local_nid = 1;
 static RADIX_TREE(qrtr_nodes, GFP_ATOMIC);
 static DEFINE_SPINLOCK(qrtr_nodes_lock);
 /* broadcast list */
-static LIST_HEAD(qrtr_all_nodes);
-/* lock for qrtr_all_nodes and node reference */
-static DECLARE_RWSEM(qrtr_node_lock);
+static LIST_HEAD(qrtr_all_epts);
+/* lock for qrtr_all_epts */
+static DECLARE_RWSEM(qrtr_epts_lock);
 
 /* local port allocation management */
 static DEFINE_XARRAY_ALLOC(qrtr_ports);
@@ -218,7 +220,7 @@ static void __qrtr_node_release(struct kref *kref)
 	spin_unlock_irqrestore(&qrtr_nodes_lock, flags);
 
 	list_del(&node->item);
-	up_write(&qrtr_node_lock);
+	up_write(&qrtr_epts_lock);
 
 	skb_queue_purge(&node->rx_queue);
 
@@ -244,7 +246,7 @@ static void qrtr_node_release(struct qrtr_node *node)
 {
 	if (!node)
 		return;
-	kref_put_rwsem_lock(&node->ref, __qrtr_node_release, &qrtr_node_lock);
+	kref_put_rwsem_lock(&node->ref, __qrtr_node_release, &qrtr_epts_lock);
 }
 
 /**
@@ -456,11 +458,13 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 {
 	unsigned long flags;
 
-	if (nid == QRTR_EP_NID_AUTO)
+	if (nid == node->nid || nid == QRTR_EP_NID_AUTO)
 		return;
 
 	spin_lock_irqsave(&qrtr_nodes_lock, flags);
-	radix_tree_insert(&qrtr_nodes, nid, node);
+	if (!radix_tree_lookup(&qrtr_nodes, nid))
+		radix_tree_insert(&qrtr_nodes, nid, node);
+
 	if (node->nid == QRTR_EP_NID_AUTO)
 		node->nid = nid;
 	spin_unlock_irqrestore(&qrtr_nodes_lock, flags);
@@ -541,6 +545,9 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 		goto err;
 	}
 
+	if (cb->dst_port == QRTR_PORT_CTRL_LEGACY)
+		cb->dst_port = QRTR_PORT_CTRL;
+
 	if (!size || len != ALIGN(size, 4) + hdrlen)
 		goto err;
 
@@ -569,8 +576,10 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 		qrtr_tx_resume(node, skb);
 	} else {
 		ipc = qrtr_port_lookup(cb->dst_port);
-		if (!ipc)
-			goto err;
+		if (!ipc) {
+			kfree_skb(skb);
+			return -ENODEV;
+		}
 
 		if (sock_queue_rcv_skb(&ipc->sk, skb)) {
 			qrtr_port_put(ipc);
@@ -646,9 +655,9 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int nid)
 
 	qrtr_node_assign(node, nid);
 
-	down_write(&qrtr_node_lock);
-	list_add(&node->item, &qrtr_all_nodes);
-	up_write(&qrtr_node_lock);
+	down_write(&qrtr_epts_lock);
+	list_add(&node->item, &qrtr_all_epts);
+	up_write(&qrtr_epts_lock);
 	ep->node = node;
 
 	return 0;
@@ -966,17 +975,18 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 {
 	struct sk_buff *skbn;
 
-	down_read(&qrtr_node_lock);
-	list_for_each_entry(node, &qrtr_all_nodes, item) {
+	down_read(&qrtr_epts_lock);
+	list_for_each_entry(node, &qrtr_all_epts, item) {
 		if (node->nid == QRTR_EP_NID_AUTO)
 			continue;
+
 		skbn = skb_clone(skb, GFP_KERNEL);
 		if (!skbn)
 			break;
 		skb_set_owner_w(skbn, skb->sk);
 		qrtr_node_enqueue(node, skbn, type, from, to);
 	}
-	up_read(&qrtr_node_lock);
+	up_read(&qrtr_epts_lock);
 
 	qrtr_local_enqueue(NULL, skb, type, from, to);
 
@@ -1109,8 +1119,10 @@ static int qrtr_send_resume_tx(struct qrtr_cb *cb)
 		return -EINVAL;
 
 	skb = qrtr_alloc_ctrl_packet(&pkt, GFP_KERNEL);
-	if (!skb)
+	if (!skb) {
+		qrtr_node_release(node);
 		return -ENOMEM;
+	}
 
 	pkt->cmd = cpu_to_le32(QRTR_TYPE_RESUME_TX);
 	pkt->client.node = cpu_to_le32(cb->dst_node);
@@ -1132,19 +1144,16 @@ static int qrtr_recvmsg(struct socket *sock, struct msghdr *msg,
 	struct qrtr_cb *cb;
 	int copied, rc;
 
-	lock_sock(sk);
 
-	if (sock_flag(sk, SOCK_ZAPPED)) {
-		release_sock(sk);
+	if (sock_flag(sk, SOCK_ZAPPED))
 		return -EADDRNOTAVAIL;
-	}
 
 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
 				flags & MSG_DONTWAIT, &rc);
-	if (!skb) {
-		release_sock(sk);
+	if (!skb)
 		return rc;
-	}
+
+	lock_sock(sk);
 	cb = (struct qrtr_cb *)skb->cb;
 
 	copied = skb->len;
