@@ -453,6 +453,7 @@ struct icnss_priv {
 	bool root_pd_shutdown;
 	struct mbox_client mbox_client_data;
 	struct mbox_chan *mbox_chan;
+	u32 wlan_en_delay_ms;
 };
 
 struct icnss_reg_info {
