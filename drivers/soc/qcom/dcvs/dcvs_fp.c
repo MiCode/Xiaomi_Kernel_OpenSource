@@ -52,7 +52,7 @@ struct ddrllcc_fp_data {
 };
 
 struct ddrllcc_fp_data		*ddrllcc_data;
-static DEFINE_SPINLOCK(ddrllcc_lock);
+static DEFINE_MUTEX(ddrllcc_lock);
 
 static int ddrllcc_fp_commit(struct dcvs_path *path, struct dcvs_freq *freqs,
 							u32 update_mask)
@@ -133,10 +133,10 @@ int setup_ddrllcc_fp_device(struct device *dev, struct dcvs_hw *hw,
 	if (hw->type != DCVS_DDR && hw->type != DCVS_LLCC)
 		return -EINVAL;
 
-	spin_lock(&ddrllcc_lock);
+	mutex_lock(&ddrllcc_lock);
 	if (!ddrllcc_data) {
 		dev_dbg(dev, "Probe deferred since FP not init yet\n");
-		spin_unlock(&ddrllcc_lock);
+		mutex_unlock(&ddrllcc_lock);
 		return -EPROBE_DEFER;
 	}
 	path->data = ddrllcc_data;
@@ -145,7 +145,7 @@ int setup_ddrllcc_fp_device(struct device *dev, struct dcvs_hw *hw,
 		ddrllcc_data->paths[DDR_IDX] = path;
 	else
 		ddrllcc_data->paths[LLCC_IDX] = path;
-	spin_unlock(&ddrllcc_lock);
+	mutex_unlock(&ddrllcc_lock);
 
 	return ret;
 }
@@ -159,7 +159,7 @@ static int qcom_dcvs_fp_probe(struct platform_device *pdev)
 	int i, ret = 0;
 	struct ddrllcc_fp_data *fp_data;
 
-	spin_lock(&ddrllcc_lock);
+	mutex_lock(&ddrllcc_lock);
 	if (ddrllcc_data) {
 		dev_err(dev, "Only one fast path client allowed\n");
 		ret = -EINVAL;
@@ -212,7 +212,7 @@ static int qcom_dcvs_fp_probe(struct platform_device *pdev)
 	}
 	ddrllcc_data = fp_data;
 out:
-	spin_unlock(&ddrllcc_lock);
+	mutex_unlock(&ddrllcc_lock);
 
 	return ret;
 }
