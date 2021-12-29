@@ -171,6 +171,7 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 
 #define DMA_RX_BUF_SIZE		(2048)
 #define UART_CONSOLE_RX_WM	(2)
+#define NUM_RX_BUF		4
 
 #define CREATE_TRACE_POINTS
 #include "serial_trace.h"
@@ -1541,11 +1542,11 @@ static void msm_geni_uart_rx_queue_dma_tre(int index, struct uart_port *uport)
 							 DMA_CTRL_ACK));
 	if (!msm_port->gsi->rx_desc) {
 		dev_err(uport->dev, "%s:Prep_slave_sg failed\n", __func__);
-		goto out;
+		return;
 	}
 	msm_port->gsi->rx_desc->callback = msm_geni_uart_gsi_rx_cb;
 	msm_port->gsi->rx_desc->callback_param = &msm_port->gsi->rx_cb;
-out:
+
 	rx_cookie = dmaengine_submit(msm_port->gsi->rx_desc);
 	dma_async_issue_pending(msm_port->gsi->rx_c);
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
@@ -1580,6 +1581,16 @@ static void msm_geni_uart_gsi_rx_cb(void *ptr)
 	msm_port->count = (msm_port->count + 1) % 4;
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 		     "%s: End\n", __func__);
+}
+
+static void msm_geni_deallocate_chan(struct uart_port *uport)
+{
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
+	dma_release_channel(msm_port->gsi->rx_c);
+	dma_release_channel(msm_port->gsi->tx_c);
+	msm_port->gsi->rx_c = NULL;
+	msm_port->gsi->tx_c = NULL;
 }
 
 static int msm_geni_allocate_chan(struct uart_port *uport)
@@ -1630,10 +1641,7 @@ static int msm_geni_allocate_chan(struct uart_port *uport)
 		ret = dmaengine_slave_config(msm_port->gsi->tx_c, NULL);
 		if (ret) {
 			dev_err(uport->dev, "Failed to Config Tx\n");
-			dma_release_channel(msm_port->gsi->rx_c);
-			dma_release_channel(msm_port->gsi->tx_c);
-			msm_port->gsi->rx_c = NULL;
-			msm_port->gsi->tx_c = NULL;
+			msm_geni_deallocate_chan(uport);
 			goto out;
 		}
 	}
@@ -1692,7 +1700,8 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 	} else {
 		dev_err(uport->dev, "%s:Failed to allocate memory\n",
 			__func__);
-		goto out;
+		msm_geni_deallocate_chan(uport);
+		return;
 	}
 	msm_port->gsi->tx_t.dword[0] =
 			MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(msm_port->tx_dma);
@@ -1715,12 +1724,11 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 	if (!msm_port->gsi->tx_desc) {
 		dev_err(uport->dev, "%s:TX descriptor prep failed\n",
 			__func__);
-		goto out;
+		goto exit_gsi_tx_xfer;
 	}
 
 	msm_port->gsi->tx_desc->callback = msm_geni_uart_gsi_tx_cb;
 	msm_port->gsi->tx_desc->callback_param = &msm_port->gsi->tx_cb;
-out:
 	tx_cookie = dmaengine_submit(msm_port->gsi->tx_desc);
 	reinit_completion(&msm_port->tx_xfer);
 	dma_async_issue_pending(msm_port->gsi->tx_c);
@@ -1730,6 +1738,14 @@ out:
 					      (POLL_WAIT_TIMEOUT_MSEC));
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 		     "%s: End\n", __func__);
+
+	return;
+exit_gsi_tx_xfer:
+	geni_se_common_iommu_unmap_buf(tx_dev, &msm_port->tx_dma,
+				       msm_port->xmit_size, DMA_TO_DEVICE);
+	msm_geni_deallocate_chan(uport);
+	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
+		     "%s: Failed to prep Tx descriptor", __func__);
 }
 
 static void msm_geni_uart_gsi_cancel_rx(struct work_struct *work)
@@ -1752,7 +1768,7 @@ static int msm_geni_uart_gsi_xfer_rx(struct uart_port *uport)
 	dma_cookie_t rx_cookie;
 	struct msm_gpi_tre *go_t = &msm_port->gsi->rx_go_t;
 	struct device *rx_dev = msm_port->wrapper_dev;
-	int i, index = 0;
+	int i, k, index = 0;
 
 	msm_geni_allocate_chan(uport);
 	sg_init_table(msm_port->gsi->rx_sg, 6);
@@ -1768,15 +1784,22 @@ static int msm_geni_uart_gsi_xfer_rx(struct uart_port *uport)
 	sg_set_buf(&msm_port->gsi->rx_sg[index++], go_t,
 		   sizeof(msm_port->gsi->rx_go_t));
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < NUM_RX_BUF; i++) {
 		msm_port->rx_gsi_buf[i] =
 				geni_se_common_iommu_alloc_buf(rx_dev,
 							       &msm_port->dma_addr[i],
 							       DMA_RX_BUF_SIZE);
+		if (IS_ERR_OR_NULL(msm_port->rx_gsi_buf[i])) {
+			for (k = i; k > 0; k--) {
+				geni_se_common_iommu_free_buf(rx_dev, &msm_port->dma_addr[k - 1],
+						msm_port->rx_gsi_buf[k - 1], DMA_RX_BUF_SIZE);
+			}
+			msm_geni_deallocate_chan(uport);
+			return -EIO;
+		}
 
 		msm_port->gsi->rx_t[i].dword[0] =
 			MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(msm_port->dma_addr[i]);
-
 		msm_port->gsi->rx_t[i].dword[1] =
 			MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(msm_port->dma_addr[i]);
 		msm_port->gsi->rx_t[i].dword[2] =
@@ -1794,16 +1817,22 @@ static int msm_geni_uart_gsi_xfer_rx(struct uart_port *uport)
 							 DMA_CTRL_ACK));
 	if (!msm_port->gsi->rx_desc) {
 		dev_err(uport->dev, "%s: Rx desc is failed\n", __func__);
-		goto out;
+		goto exit_gsi_xfer_rx;
 	}
 
 	msm_port->gsi->rx_desc->callback = msm_geni_uart_gsi_rx_cb;
 	msm_port->gsi->rx_desc->callback_param = &msm_port->gsi->rx_cb;
-out:
 	rx_cookie = dmaengine_submit(msm_port->gsi->rx_desc);
 	dma_async_issue_pending(msm_port->gsi->rx_c);
 
 	return 0;
+exit_gsi_xfer_rx:
+	for (i = 0; i < NUM_RX_BUF; i++) {
+		geni_se_common_iommu_free_buf(rx_dev, &msm_port->dma_addr[i],
+					      msm_port->rx_gsi_buf[i], DMA_RX_BUF_SIZE);
+	}
+	msm_geni_deallocate_chan(uport);
+	return -EIO;
 }
 
 static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
