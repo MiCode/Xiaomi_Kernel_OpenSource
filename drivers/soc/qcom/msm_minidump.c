@@ -189,6 +189,19 @@ bool msm_minidump_enabled(void)
 }
 EXPORT_SYMBOL(msm_minidump_enabled);
 
+int msm_minidump_get_available_region(void)
+{
+	int res;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mdt_lock, flags);
+	res = MAX_NUM_ENTRIES - minidump_table.num_regions;
+	spin_unlock_irqrestore(&mdt_lock, flags);
+
+	return res;
+}
+EXPORT_SYMBOL(msm_minidump_get_available_region);
+
 static inline int validate_region(const struct md_region *entry)
 {
 	if (!entry)
