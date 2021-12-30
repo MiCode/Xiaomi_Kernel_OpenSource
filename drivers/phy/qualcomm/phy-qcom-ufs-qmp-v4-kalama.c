@@ -14,7 +14,8 @@ static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 {
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 	struct device *dev = ufs_qcom_phy->dev;
-	bool is_g4, is_rate_B;
+	bool is_rate_B;
+	int submode;
 	int err;
 
 	err = reset_control_assert(ufs_qcom_phy->ufs_reset);
@@ -23,8 +24,8 @@ static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 		goto out;
 	}
 
-	/* For UFS PHY's submode, 1 = G4, 0 = non-G4 */
-	is_g4 = !!ufs_qcom_phy->submode;
+	/* For UFS PHY's submode, 2 = G5, 1 = G4, 0 = non-G4/G5 */
+	submode = ufs_qcom_phy->submode;
 	is_rate_B = (ufs_qcom_phy->mode == PHY_MODE_UFS_HS_B) ? true : false;
 
 	writel_relaxed(0x01, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
@@ -36,21 +37,25 @@ static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 	 * 2. Write 2nd lane configuration if needed.
 	 * 3. Write Rate-B calibration overrides
 	 */
-	if (is_g4) {
-		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
-				       ARRAY_SIZE(phy_cal_table_rate_A));
+	if (submode == UFS_QCOM_PHY_SUBMODE_G5) {
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_g5,
+				       ARRAY_SIZE(phy_cal_table_rate_A_g5));
 		if (ufs_qcom_phy->lanes_per_direction == 2)
 			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
 					phy_cal_table_2nd_lane,
 					ARRAY_SIZE(phy_cal_table_2nd_lane));
-	} else {
-		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_no_g4,
-				       ARRAY_SIZE(phy_cal_table_rate_A_no_g4));
+	} else if (submode == UFS_QCOM_PHY_SUBMODE_G4) {
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_g4,
+				       ARRAY_SIZE(phy_cal_table_rate_A_g4));
 		if (ufs_qcom_phy->lanes_per_direction == 2)
 			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
-				      phy_cal_table_2nd_lane_no_g4,
-				      ARRAY_SIZE(phy_cal_table_2nd_lane_no_g4));
+				      phy_cal_table_2nd_lane,
+				      ARRAY_SIZE(phy_cal_table_2nd_lane));
+	} else {
+		dev_err(dev, "%s: unsupported submode.\n");
+		return -EOPNOTSUPP;
 	}
+
 	if (is_rate_B)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));
