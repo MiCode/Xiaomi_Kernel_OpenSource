@@ -386,6 +386,35 @@ static int validate_lend_vmids(struct mem_buf_lend_kernel_arg *arg,
 	return 0;
 }
 
+/*
+ * Allow sharing buffers which are not mapped by either mmap, vmap, or dma.
+ * Also allow sharing mapped buffers if the new S2 permissions are at least
+ * as permissive as the old S2 permissions. Currently differences in
+ * executable permission are ignored, under the assumption the memory will
+ * not be used for this purpose.
+ */
+static bool validate_lend_mapcount(struct mem_buf_vmperm *vmperm,
+				   struct mem_buf_lend_kernel_arg *arg)
+{
+	int i;
+	int perms = PERM_READ | PERM_WRITE;
+
+	if (!vmperm->mapcount)
+		return true;
+
+	for (i = 0; i < arg->nr_acl_entries; i++) {
+		if (arg->vmids[i] == current_vmid &&
+		    (arg->perms[i] & perms) == perms)
+			return true;
+	}
+
+	pr_err_ratelimited("%s: dma-buf is pinned, dumping permissions!\n", __func__);
+	for (i = 0; i < arg->nr_acl_entries; i++)
+		pr_err_ratelimited("%s: VMID=%d PERM=%d\n", __func__,
+				    arg->vmids[i], arg->perms[i]);
+	return false;
+}
+
 static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 			struct mem_buf_lend_kernel_arg *arg,
 			int op)
@@ -393,9 +422,6 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	struct mem_buf_vmperm *vmperm;
 	struct sg_table *sgt;
 	int ret;
-
-	if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
-		return -EOPNOTSUPP;
 
 	if (!arg->nr_acl_entries || !arg->vmids || !arg->perms)
 		return -EINVAL;
@@ -431,8 +457,7 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 		return -EINVAL;
 	}
 
-	if (vmperm->mapcount) {
-		pr_err_ratelimited("dma-buf is pinned!\n");
+	if (!validate_lend_mapcount(vmperm, arg)) {
 		mutex_unlock(&vmperm->lock);
 		return -EINVAL;
 	}
@@ -561,12 +586,6 @@ int mem_buf_reclaim(struct dma_buf *dmabuf)
 
 	if (vmperm->flags & MEM_BUF_WRAPPER_FLAG_ACCEPT) {
 		pr_err_ratelimited("dma-buf not owned by current vm!\n");
-		mutex_unlock(&vmperm->lock);
-		return -EINVAL;
-	}
-
-	if (vmperm->mapcount) {
-		pr_err_ratelimited("dma-buf is pinned!\n");
 		mutex_unlock(&vmperm->lock);
 		return -EINVAL;
 	}

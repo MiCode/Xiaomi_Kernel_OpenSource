@@ -50,6 +50,12 @@ static struct mem_buf_vm vm_trusted_vm = {
 	.allowed_api = MEM_BUF_API_GUNYAH,
 };
 
+static struct mem_buf_vm vm_oemvm = {
+	.name = "qcom,oemvm",
+	.vmid = VMID_OEMVM,
+	.allowed_api = MEM_BUF_API_GUNYAH,
+};
+
 static struct mem_buf_vm vm_hlos = {
 	.name = "qcom,hlos",
 	.vmid = VMID_HLOS,
@@ -58,6 +64,7 @@ static struct mem_buf_vm vm_hlos = {
 
 struct mem_buf_vm *pdata_array[] = {
 	&vm_trusted_vm,
+	&vm_oemvm,
 	&vm_hlos,
 	&vm_cp_touch,
 	&vm_cp_bitstream,

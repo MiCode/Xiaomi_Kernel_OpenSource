@@ -21,34 +21,52 @@ EXPORT_SYMBOL(mem_buf_dev);
 unsigned char mem_buf_capability;
 EXPORT_SYMBOL(mem_buf_capability);
 
+int mem_buf_hyp_assign_table(struct sg_table *sgt, u32 *src_vmid, int source_nelems,
+			     int *dest_vmids, int *dest_perms, int dest_nelems)
+{
+	char *verb;
+	int ret;
+
+	if (!mem_buf_vm_uses_hyp_assign())
+		return 0;
+
+	verb = *src_vmid == current_vmid ? "Assign" : "Unassign";
+
+	pr_debug("%s memory to target VMIDs\n", verb);
+	ret = hyp_assign_table(sgt, src_vmid, source_nelems, dest_vmids, dest_perms, dest_nelems);
+	if (ret < 0)
+		pr_err("Failed to %s memory for rmt allocation rc: %d\n", verb, ret);
+	else
+		pr_debug("Memory %s to target VMIDs\n", verb);
+
+	return ret;
+}
+
 int mem_buf_assign_mem(int op, struct sg_table *sgt,
 		       struct mem_buf_lend_kernel_arg *arg)
 {
 	int src_vmid[] = {current_vmid};
 	int src_perms[] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-	int ret;
-	int use_gunyah;
+	int ret, ret2;
 
 	if (!sgt || !arg->nr_acl_entries || !arg->vmids || !arg->perms)
 		return -EINVAL;
 
-	use_gunyah = mem_buf_vm_uses_gunyah(arg->vmids, arg->nr_acl_entries);
-	if (use_gunyah < 0)
-		return -EINVAL;
+	ret = mem_buf_hyp_assign_table(sgt, src_vmid, ARRAY_SIZE(src_vmid), arg->vmids, arg->perms,
+					arg->nr_acl_entries);
+	if (ret)
+		return ret;
 
-	arg->memparcel_hdl = MEM_BUF_MEMPARCEL_INVALID;
-	if (use_gunyah > 0)
-		return mem_buf_assign_mem_gunyah(op, sgt, src_vmid, src_perms,
-						 ARRAY_SIZE(src_vmid), arg);
-
-	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
-	ret = hyp_assign_table(sgt, src_vmid, ARRAY_SIZE(src_vmid), arg->vmids, arg->perms,
-			       arg->nr_acl_entries);
-	if (ret < 0)
-		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: Memory assigned to target VMIDs\n", __func__);
+	ret = mem_buf_assign_mem_gunyah(op, sgt, arg);
+	if (ret) {
+		ret2 = mem_buf_hyp_assign_table(sgt, arg->vmids, arg->nr_acl_entries,
+					src_vmid, src_perms, ARRAY_SIZE(src_vmid));
+		if (ret2 < 0) {
+			pr_err("hyp_assign failed while recovering from another error: %d\n",
+			       ret2);
+			return -EADDRNOTAVAIL;
+		}
+	}
 
 	return ret;
 }
@@ -71,15 +89,8 @@ int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
 			return ret;
 	}
 
-	pr_debug("%s: Unassigning memory to HLOS\n", __func__);
-	ret = hyp_assign_table(sgt, src_vmids, nr_acl_entries,
+	ret = mem_buf_hyp_assign_table(sgt, src_vmids, nr_acl_entries,
 			       dst_vmid, dst_perm, ARRAY_SIZE(dst_vmid));
-	if (ret < 0)
-		pr_err("%s: failed to assign memory from rmt allocation rc: %d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: Unassigned memory to HLOS\n", __func__);
-
 	return ret;
 }
 EXPORT_SYMBOL(mem_buf_unassign_mem);
