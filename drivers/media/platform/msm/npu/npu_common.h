@@ -246,7 +246,8 @@ struct npu_device {
 struct npu_kevent {
 	struct list_head list;
 	struct msm_npu_event evt;
-	uint64_t reserved[4];
+	void *stats_buf;
+	void __user *stats_buf_u;
 };
 
 struct npu_client {

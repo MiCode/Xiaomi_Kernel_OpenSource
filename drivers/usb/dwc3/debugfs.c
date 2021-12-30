@@ -1023,8 +1023,10 @@ static void dwc3_debugfs_create_endpoint_files(struct dwc3_ep *dep,
 void dwc3_debugfs_create_endpoint_dir(struct dwc3_ep *dep)
 {
 	struct dentry		*dir;
+	struct dentry		*root;
 
-	dir = debugfs_create_dir(dep->name, dep->dwc->root);
+	root = debugfs_lookup(dev_name(dep->dwc->dev), usb_debug_root);
+	dir = debugfs_create_dir(dep->name, root);
 	if (!dir) {
 		pr_err("%s: failed to create dir %s\n", __func__, dep->name);
 		return;
@@ -1278,8 +1280,6 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 		return;
 	}
 
-	dwc->root = root;
-
 	debugfs_create_file("regdump", 0444, root, dwc, &dwc3_regdump_fops);
 
 	debugfs_create_file("lsp_dump", S_IRUGO | S_IWUSR, root, dwc,
@@ -1310,6 +1310,6 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 
 void dwc3_debugfs_exit(struct dwc3 *dwc)
 {
-	debugfs_remove_recursive(dwc->root);
+	debugfs_remove(debugfs_lookup(dev_name(dwc->dev), usb_debug_root));
 	kfree(dwc->regset);
 }

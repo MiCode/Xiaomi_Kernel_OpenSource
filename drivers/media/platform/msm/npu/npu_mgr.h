@@ -77,9 +77,9 @@ struct npu_host_ctx {
 	struct delayed_work fw_deinit_work;
 	atomic_t fw_deinit_work_cnt;
 	struct workqueue_struct *wq;
-	struct completion loopback_done;
+	struct completion misc_done;
 	struct completion fw_deinit_done;
-	struct completion property_done;
+	bool misc_pending;
 	void *prop_buf;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];

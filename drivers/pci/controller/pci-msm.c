@@ -5941,6 +5941,12 @@ static int msm_pcie_i2c_ctrl_init(struct msm_pcie_dev_t *pcie_dev)
 		PCIE_DBG(pcie_dev, "PCIe: RC%d: No i2c phandle found\n",
 			 pcie_dev->rc_idx);
 		return 0;
+	} else {
+		if (!i2c_ctrl->client) {
+			PCIE_DBG(pcie_dev, "PCIe: RC%d: No i2c probe yet\n",
+				 pcie_dev->rc_idx);
+			return -EPROBE_DEFER;
+		}
 	}
 
 	i2c_client_node = of_get_child_by_name(of_node, "pcie_i2c_ctrl");
@@ -6230,6 +6236,10 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, pcie_dev);
 
+	ret = msm_pcie_i2c_ctrl_init(pcie_dev);
+	if (ret)
+		goto decrease_rc_num;
+
 	ret = msm_pcie_get_resources(pcie_dev, pcie_dev->pdev);
 	if (ret)
 		goto decrease_rc_num;
@@ -6243,6 +6253,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		pcie_dev->rc_idx);
 	else
 		pcie_dev->use_pinctrl = true;
+
 
 	if (pcie_dev->use_pinctrl) {
 		pcie_dev->pins_default = pinctrl_lookup_state(pcie_dev->pinctrl,
@@ -6295,8 +6306,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				 "PCIe: RC%d: DRV: failed to setup DRV: ret: %d\n",
 				pcie_dev->rc_idx, ret);
 	}
-
-	msm_pcie_i2c_ctrl_init(pcie_dev);
 
 	msm_pcie_sysfs_init(pcie_dev);
 
@@ -7070,12 +7079,12 @@ static int pcie_i2c_ctrl_probe(struct i2c_client *client,
 
 	if (client_id == I2C_CLIENT_ID_NTN3) {
 		i2c_ctrl = &msm_pcie_dev[rc_index].i2c_ctrl;
-		i2c_ctrl->client = client;
 		i2c_ctrl->client_i2c_read = ntn3_i2c_read;
 		i2c_ctrl->client_i2c_write = ntn3_i2c_write;
 		i2c_ctrl->client_i2c_reset = ntn3_ep_reset_ctrl;
 		i2c_ctrl->client_i2c_dump_regs = ntn3_dump_regs;
 		i2c_ctrl->client_i2c_de_emphasis_wa = ntn3_de_emphasis_wa;
+		i2c_ctrl->client = client;
 	} else {
 		dev_err(&client->dev, "invalid client id %d\n", client_id);
 	}

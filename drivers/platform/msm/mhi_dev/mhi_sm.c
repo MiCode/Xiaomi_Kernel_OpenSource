@@ -1338,6 +1338,17 @@ int mhi_dev_notify_sm_event(enum mhi_dev_event event)
 	INIT_WORK(&state_change_event->work, mhi_sm_dev_event_manager);
 	atomic_inc(&mhi_sm_ctx->pending_device_events);
 	queue_work(mhi_sm_ctx->mhi_sm_wq, &state_change_event->work);
+
+	/*
+	 * Wait until M0 processing is completely done.
+	 * This ensures CHDB won't get processed while resume is in
+	 * progress thus avoids race between M0 and CHDB processing.
+	 */
+	if (event == MHI_DEV_EVENT_M0_STATE) {
+		MHI_SM_DBG("Got M0, wait until resume is done\n");
+		flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
+	}
+
 	res = 0;
 
 exit:

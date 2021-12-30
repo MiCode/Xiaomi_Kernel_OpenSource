@@ -695,7 +695,7 @@ static void mhi_dev_net_state_cb(struct mhi_dev_client_cb_data *cb_data)
 int mhi_dev_net_interface_init(void)
 {
 	int ret_val = 0, index = 0;
-	bool out_channel_started = false;
+	uint32_t info_out_ch = 0;
 	struct mhi_dev_net_client *mhi_net_client = NULL;
 
 	if (mhi_net_ctxt.client_handle) {
@@ -750,10 +750,7 @@ int mhi_dev_net_interface_init(void)
 	}
 	ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
 				mhi_net_client, MHI_CLIENT_IP_SW_4_OUT);
-	/* -EEXIST indicates success and channel is already open */
-	if (ret_val == -EEXIST)
-		out_channel_started = true;
-	else if (ret_val < 0)
+	if (ret_val < 0 && ret_val != -EEXIST)
 		goto register_state_cb_fail;
 
 	ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
@@ -770,13 +767,16 @@ int mhi_dev_net_interface_init(void)
 		 * with mhi_dev_net_open_chan_create_netif().
 		 */
 		ret_val = 0;
-		if (out_channel_started) {
-			ret_val = mhi_dev_net_open_chan_create_netif
-							(mhi_net_client);
-			if (ret_val < 0) {
-				mhi_dev_net_log(MHI_ERROR,
-					"Failed to open channels\n");
-				goto channel_open_fail;
+		if (!mhi_ctrl_state_info(mhi_net_client->out_chan,
+					&info_out_ch)) {
+			if (info_out_ch == MHI_STATE_CONNECTED) {
+				ret_val = mhi_dev_net_open_chan_create_netif
+					(mhi_net_client);
+				if (ret_val < 0) {
+					mhi_dev_net_log(MHI_ERROR,
+							"Failed to open channels\n");
+					goto channel_open_fail;
+				}
 			}
 		}
 	} else if (ret_val < 0) {
