@@ -487,6 +487,22 @@
 		#reset-cells = <1>;
 	};
 
+	sdhc1_opp_table: sdhc1-opp-table {
+		compatible = "operating-points-v2";
+
+		opp-100000000 {
+			opp-hz = /bits/ 64 <100000000>;
+			opp-peak-kBps = <500000 200000>;
+			opp-avg-kBps = <104000 0>;
+		};
+
+		opp-384000000 {
+			opp-hz = /bits/ 64 <384000000>;
+			opp-peak-kBps = <2500000 1000000>;
+			opp-avg-kBps = <400000 0>;
+		};
+	};
+
 	sdhc_1: sdhci@7C4000 {
 		status = "disabled";
 
@@ -510,12 +526,28 @@
 		mmc-hs400-1_8v;
 		mmc-hs400-enhanced-strobe;
 
+		cap-mmc-hw-reset;
+
 		clocks = <&gcc GCC_SDCC1_AHB_CLK>,
 			<&gcc GCC_SDCC1_APPS_CLK>,
 			<&gcc GCC_SDCC1_ICE_CORE_CLK>;
 		clock-names = "iface", "core", "ice_core";
 
 		qcom,ice-clk-rates = <300000000 100000000>;
+
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x000F442C 0x0 0x01
+					0x090106C0 0x80040868>;
+
+		/* Add dt entry for gcc hw reset */
+		resets = <&gcc GCC_SDCC1_BCR>;
+		reset-names = "core_reset";
+
+		interconnects = <&system_noc MASTER_SDCC_1 &mc_virt SLAVE_EBI1>,
+			      <&gem_noc MASTER_APPSS_PROC &config_noc
+			      SLAVE_SDCC_1>;
+		interconnect-names = "sdhc-ddr","cpu-sdhc";
+		operating-points-v2 = <&sdhc1_opp_table>;
 
 		qos0 {
 			mask = <0x0f>;
