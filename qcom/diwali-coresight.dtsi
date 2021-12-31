@@ -740,6 +740,7 @@
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 		qcom,cmb-msr-skip;
+		status = "disabled";
 		out-ports {
 			port {
 				tpdm_rdpm_out_funnel_dl_center_1: endpoint {
@@ -759,6 +760,7 @@
 		atid = <78>;
 		coresight-name = "coresight-tpdm-rdpm-mx";
 
+		status = "disabled";
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 		qcom,cmb-msr-skip;
