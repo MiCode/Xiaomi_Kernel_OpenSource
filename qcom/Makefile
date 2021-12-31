@@ -387,6 +387,13 @@ dtb-$(CONFIG_ARCH_QTI_VM) +=  \
 endif
 endif
 
+ifeq ($(CONFIG_ARCH_PARROT), y)
+ifeq ($(CONFIG_ARCH_QTI_VM), y)
+dtb-$(CONFIG_ARCH_QTI_VM) +=  \
+	parrot-vm-rumi.dtb
+endif
+endif
+
 always-y	:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo
