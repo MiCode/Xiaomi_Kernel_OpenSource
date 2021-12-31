@@ -414,7 +414,7 @@ int carveout_heap_remove_memory(char *heap_name,
 
 	base = page_to_phys(sg_page(sgt->sgl));
 	if (carveout_heap->base != base) {
-		ret = -EINVAL;
+		ret = 0;
 		goto unlock;
 	}
 
@@ -426,6 +426,7 @@ int carveout_heap_remove_memory(char *heap_name,
 
 	gen_pool_destroy(carveout_heap->pool);
 	carveout_heap->pool = NULL;
+	carveout_heap->base = 0;
 	carveout_heap->pool_refcount_priv = NULL;
 	carveout_heap->pool_refcount_get = NULL;
 	carveout_heap->pool_refcount_put = NULL;
