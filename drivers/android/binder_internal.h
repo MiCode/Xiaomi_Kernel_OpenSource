@@ -388,8 +388,23 @@ struct binder_priority {
  *                        (protected by binder_deferred_lock)
  * @deferred_work:        bitmap of deferred work to perform
  *                        (protected by binder_deferred_lock)
+ * @outstanding_txns:     number of transactions to be transmitted before
+ *                        processes in freeze_wait are woken up
+ *                        (protected by @inner_lock)
  * @is_dead:              process is dead and awaiting free
  *                        when outstanding transactions are cleaned up
+ *                        (protected by @inner_lock)
+ * @is_frozen:            process is frozen and unable to service
+ *                        binder transactions
+ *                        (protected by @inner_lock)
+ * @sync_recv:            process received sync transactions since last frozen
+ *                        bit 0: received sync transaction after being frozen
+ *                        bit 1: new pending sync transaction during freezing
+ *                        (protected by @inner_lock)
+ * @async_recv:           process received async transactions since last frozen
+ *                        (protected by @inner_lock)
+ * @freeze_wait:          waitqueue of processes waiting for all outstanding
+ *                        transactions to be processed
  *                        (protected by @inner_lock)
  * @todo:                 list of work for this process
  *                        (protected by @inner_lock)
@@ -431,7 +446,12 @@ struct binder_proc {
 	struct task_struct *tsk;
 	struct hlist_node deferred_work_node;
 	int deferred_work;
+	int outstanding_txns;
 	bool is_dead;
+	bool is_frozen;
+	bool sync_recv;
+	bool async_recv;
+	wait_queue_head_t freeze_wait;
 
 	struct list_head todo;
 	struct binder_stats stats;
@@ -448,6 +468,29 @@ struct binder_proc {
 	spinlock_t outer_lock;
 	struct dentry *binderfs_entry;
 };
+
+/**
+ * struct binder_proc_ext - binder process bookkeeping
+ * @proc:            element for binder_procs list
+ * @cred                  struct cred associated with the `struct file`
+ *                        in binder_open()
+ *                        (invariant after initialized)
+ *
+ * Extended binder_proc -- needed to add the "cred" field without
+ * changing the KMI for binder_proc.
+ */
+struct binder_proc_ext {
+	struct binder_proc proc;
+	const struct cred *cred;
+};
+
+static inline const struct cred *binder_get_cred(struct binder_proc *proc)
+{
+	struct binder_proc_ext *eproc;
+
+	eproc = container_of(proc, struct binder_proc_ext, proc);
+	return eproc->cred;
+}
 
 /**
  * struct binder_thread - binder thread bookkeeping
