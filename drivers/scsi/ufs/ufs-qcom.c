@@ -3763,6 +3763,9 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
 	if (!host->device_reset)
 		return -EOPNOTSUPP;
 
+	/* disable hba before device reset */
+	ufshcd_hba_stop(hba);
+
 	/*
 	 * The UFS device shall detect reset pulses of 1us, sleep for 10us to
 	 * be on the safe side.
