@@ -77,11 +77,15 @@ struct msm_watchdog_data;
  * @irq:            linux/virtual irq numer.
  * @total_count:    sum of irq occurrence count on all cpu's.
  * @irq_counter:    irq occurrence count on each cpu.
+ * @name:           action name of irq.
+ * @chipname:       chip name of irq.
  */
 struct qcom_irq_info {
 	unsigned int irq;
 	unsigned int total_count;
 	unsigned int irq_counter[NR_CPUS];
+	const char *name;
+	const char *chipname;
 };
 
 /** qcom_wdt_ops - The msm-watchdog-devices operations
