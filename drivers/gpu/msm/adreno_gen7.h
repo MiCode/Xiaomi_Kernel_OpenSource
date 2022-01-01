@@ -11,6 +11,11 @@
 #include "gen7_reg.h"
 #include "adreno_gen7_gmu.h"
 
+#define PIPE_NONE 0
+#define PIPE_BR 1
+#define PIPE_BV 2
+#define PIPE_LPAC 3
+
 extern const struct adreno_power_ops gen7_gmu_power_ops;
 extern const struct adreno_power_ops gen7_hwsched_power_ops;
 extern const struct adreno_perfcounters adreno_gen7_perfcounters;
@@ -337,11 +342,12 @@ void gen7_spin_idle_debug(struct adreno_device *adreno_dev,
  * @adreno_dev: An Adreno GPU handle
  * @reg: Perfcounter reg struct to add/remove to the list
  * @update_reg: true if the perfcounter needs to be programmed by the CPU
+ * @pipe: pipe id for CP aperture control
  *
  * Return: 0 on success or -EBUSY if the lock couldn't be taken
  */
 int gen7_perfcounter_update(struct adreno_device *adreno_dev,
-	struct adreno_perfcount_register *reg, bool update_reg);
+	struct adreno_perfcount_register *reg, bool update_reg, u32 pipe);
 
 /*
  * gen7_ringbuffer_init - Initialize the ringbuffers
