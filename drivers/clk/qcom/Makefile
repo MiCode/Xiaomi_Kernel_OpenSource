@@ -112,6 +112,7 @@ obj-$(CONFIG_SM_GPUCC_SHIMA) += gpucc-shima.o
 obj-$(CONFIG_SXR_GPUCC_NEO) += gpucc-neo.o
 obj-$(CONFIG_SM_VIDEOCC_DIWALI) += videocc-diwali.o
 obj-$(CONFIG_SM_VIDEOCC_SHIMA) += videocc-shima.o
+obj-$(CONFIG_SXR_VIDEOCC_NEO) += videocc-neo.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 obj-$(CONFIG_KPSS_XCC) += kpss-xcc.o
 obj-$(CONFIG_QCOM_HFPLL) += hfpll.o
