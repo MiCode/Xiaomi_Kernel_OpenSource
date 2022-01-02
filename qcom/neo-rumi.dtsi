@@ -129,3 +129,8 @@
 &cpufreq_hw {
 	clocks = <&bi_tcxo>, <&gcc GCC_GPLL0>;
 };
+
+&rpmhcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "rpmhcc_clocks";
+};
