@@ -1147,6 +1147,10 @@
 			};
 		};
 	};
+
+	vendor_hooks: qcom,cpu-vendor-hooks {
+		compatible = "qcom,cpu-vendor-hooks";
+	};
 };
 
 #include "diwali-gdsc.dtsi"
