@@ -26,7 +26,7 @@
 	chosen: chosen {
 		stdout-path = "/soc/qcom,qup_uart@994000:115200n8";
 
-		bootargs = "console=ttyMSM0,115200n8 loglevel=6 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none kpti=0 swiotlb=noforce cgroup.memory=nokmem,nosocket mem_offline.bypass_send_msg=1 cpufreq.default_governor=performance page_poison=on kswapd_per_node=2";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=6 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none kpti=0 swiotlb=noforce cgroup.memory=nokmem,nosocket cpufreq.default_governor=performance page_poison=on kswapd_per_node=2";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
