@@ -1217,6 +1217,14 @@
 		qcom,label = <0x11>;
 	};
 
+	qrtr-gunyah {
+		compatible = "qcom,qrtr-gunyah";
+		qcom,master;
+		gunyah-label = <3>;
+		peer-name = <2>;
+		shared-buffer = <&trust_ui_vm_qrtr>;
+	};
+
 	 qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		label = "core";
