@@ -954,6 +954,15 @@ config QCOM_LOGBUF_VENDOR_HOOKS
 	  debugging issues which are manifestation
 	  of failure during initial bootup.
 
+config MSM_QBT_HANDLER
+        tristate "Event Handler for QTI Ultrasonic Fingerprint Sensor"
+        help
+         This driver acts as a interrupt handler, where the interrupt is generated
+         by the QTI Ultrasonic Fingerprint Sensor. It queues the events for each
+         interrupt in an event queue and notifies the userspace to read the events
+         from the queue. It also creates an input device to send key events such as
+         KEY_POWER, KEY_HOME.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 
