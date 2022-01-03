@@ -2065,6 +2065,10 @@
 
 	thermal_zones: thermal-zones {
 	};
+
+	logbuf: qcom,logbuf-vendor-hooks {
+		compatible = "qcom,logbuf-vendor-hooks";
+	};
 };
 
 #include "diwali-gdsc.dtsi"
