@@ -36,6 +36,9 @@ on the Qualcomm ADSP Hexagon core.
 		    "qcom,cape-adsp-pas"
 		    "qcom,cape-cdsp-pas"
 		    "qcom,cape-modem-pas"
+		    "qcom,parrot-adsp-pas"
+		    "qcom,parrot-cdsp-pas"
+		    "qcom,parrot-modem-pas"
 
 
 - interrupts-extended:
