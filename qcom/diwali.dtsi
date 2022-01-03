@@ -2383,6 +2383,8 @@
 		reg = <0x16C0000 0xE280>;
 		compatible = "qcom,diwali-pcie_anoc";
 		#interconnect-cells = <1>;
+		clocks = <&gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
+			<&gcc GCC_CFG_NOC_PCIE_ANOC_AHB_CLK>;
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
