@@ -1,0 +1,21 @@
+* Helios Coprocessor Communication Driver
+
+helioscom_spi driver provides a set of apis to perform
+register, fifo, ahb read and write operations with helios
+over spi interface. It also reads helios status and
+sends events to the registered clients.
+
+Required properties:
+- compatible:	      Must be "qcom,helios-spi"
+
+Optional properties:
+- qcom,irq-gpio: IRQ used by the helios to inturrupt MSM.
+
+Example:
+	qcom,helios-spi {
+		compatible = "qcom,helios-spi";
+			compatible = "qcom,helios-spi";
+			interrupt-parent = <&tlmm>;
+			/* IRQ from helios */
+			qcom,irq-gpio = <&tlmm 41 1>;
+		};
