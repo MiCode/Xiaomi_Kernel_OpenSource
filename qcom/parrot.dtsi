@@ -1197,6 +1197,14 @@
 		compatible = "qcom,mem-buf-msgq";
 	};
 
+	qcom,guestvm_loader@e0b00000 {
+		compatible = "qcom,guestvm-loader";
+		qcom,pas-id = <28>;
+		qcom,vmid = <45>;
+		qcom,firmware-name = "trustedvm";
+		memory-region = <&trust_ui_vm_mem>;
+	};
+
 	 qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		label = "core";
