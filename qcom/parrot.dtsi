@@ -2069,6 +2069,11 @@
 	logbuf: qcom,logbuf-vendor-hooks {
 		compatible = "qcom,logbuf-vendor-hooks";
 	};
+
+	mini_dump_node {
+		compatible = "qcom,minidump";
+		status = "ok";
+	};
 };
 
 #include "diwali-gdsc.dtsi"
