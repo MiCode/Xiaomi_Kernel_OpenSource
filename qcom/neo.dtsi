@@ -673,6 +673,7 @@
 #include "neo-pinctrl.dtsi"
 #include "neo-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
+#include "msm-arm-smmu-neo.dtsi"
 
 &gcc_apcs_gdsc_vote_ctrl {
 	reg = <0x162200 0x4>;
