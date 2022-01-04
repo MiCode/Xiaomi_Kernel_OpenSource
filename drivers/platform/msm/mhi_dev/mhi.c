@@ -1876,7 +1876,7 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 				MHI_DEV_CH_STATE_DISABLED;
 	mhi->ch[ch_id].state = MHI_DEV_CH_STOPPED;
 
-	if (mhi->use_ipa)
+	if (MHI_USE_DMA(mhi))
 		host_addr.host_pa =
 			mhi->ch_ctx_shadow.host_pa +
 			(sizeof(struct mhi_dev_ch_ctx) * ch_id);
@@ -1977,7 +1977,7 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		mhi->ch[ch_id].ring = &mhi->ring[mhi->ch_ring_start + ch_id];
 		mhi->ch[ch_id].ch_type = mhi->ch_ctx_cache[ch_id].ch_type;
 
-		if (mhi->use_edma || mhi->use_ipa) {
+		if (MHI_USE_DMA(mhi)) {
 			uint32_t evnt_ring_idx = mhi->ev_ring_start +
 					mhi->ch_ctx_cache[ch_id].err_indx;
 			struct mhi_dev_ring *evt_ring =
@@ -2672,7 +2672,7 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 				mhi->data_base.host_pa - mhi->ctrl_base.host_pa;
 		}
 
-		if (!mhi->use_ipa || !mhi->use_edma) {
+		if (!MHI_USE_DMA(mhi)) {
 			mhi->ctrl_base.device_va =
 				(uintptr_t) devm_ioremap(&pdev->dev,
 				mhi->ctrl_base.device_pa,
