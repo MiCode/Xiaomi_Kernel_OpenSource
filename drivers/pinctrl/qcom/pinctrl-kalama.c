@@ -656,8 +656,8 @@ enum kalama_functions {
 	msm_mux_nav_gpio0,
 	msm_mux_nav_gpio1,
 	msm_mux_nav_gpio2,
-	msm_mux_pcie0_clk,
-	msm_mux_pcie1_clk,
+	msm_mux_pcie0_clk_req_n,
+	msm_mux_pcie1_clk_req_n,
 	msm_mux_phase_flag0,
 	msm_mux_phase_flag1,
 	msm_mux_phase_flag10,
@@ -1155,10 +1155,10 @@ static const char * const nav_gpio1_groups[] = {
 static const char * const nav_gpio2_groups[] = {
 	"gpio153",
 };
-static const char * const pcie0_clk_groups[] = {
+static const char * const pcie0_clk_req_n_groups[] = {
 	"gpio95",
 };
-static const char * const pcie1_clk_groups[] = {
+static const char * const pcie1_clk_req_n_groups[] = {
 	"gpio98",
 };
 static const char * const phase_flag0_groups[] = {
@@ -1761,8 +1761,8 @@ static const struct msm_function kalama_functions[] = {
 	FUNCTION(nav_gpio0),
 	FUNCTION(nav_gpio1),
 	FUNCTION(nav_gpio2),
-	FUNCTION(pcie0_clk),
-	FUNCTION(pcie1_clk),
+	FUNCTION(pcie0_clk_req_n),
+	FUNCTION(pcie1_clk_req_n),
 	FUNCTION(phase_flag0),
 	FUNCTION(phase_flag1),
 	FUNCTION(phase_flag10),
@@ -2077,12 +2077,12 @@ static const struct msm_pingroup kalama_groups[] = {
 	[93] = PINGROUP(93, sd_write_protect, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[94] = PINGROUP(94, phase_flag11, tmess_prng1, NA, NA, NA, NA, NA, NA,
 			NA, 0, -1),
-	[95] = PINGROUP(95, pcie0_clk, phase_flag10, tmess_prng2, NA, NA, NA,
+	[95] = PINGROUP(95, pcie0_clk_req_n, phase_flag10, tmess_prng2, NA, NA, NA,
 			NA, NA, NA, 0xD2010, 3),
 	[96] = PINGROUP(96, phase_flag9, tmess_prng3, NA, NA, NA, NA, NA, NA,
 			NA, 0xD2010, 4),
 	[97] = PINGROUP(97, phase_flag8, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[98] = PINGROUP(98, pcie1_clk, phase_flag7, NA, NA, NA, NA, NA, NA, NA, 0xD2010, 5),
+	[98] = PINGROUP(98, pcie1_clk_req_n, phase_flag7, NA, NA, NA, NA, NA, NA, NA, 0xD2010, 5),
 	[99] = PINGROUP(99, phase_flag6, NA, NA, NA, NA, NA, NA, NA, NA, 0xD2010, 6),
 	[100] = PINGROUP(100, cam_mclk, qdss_gpio11, NA, NA, NA, NA, NA, NA,
 			 NA, 0, -1),
