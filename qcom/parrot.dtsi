@@ -9,6 +9,7 @@
 #include <dt-bindings/clock/qcom,gcc-parrot.h>
 #include <dt-bindings/clock/qcom,gpucc-parrot.h>
 #include <dt-bindings/clock/qcom,videocc-parrot.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Parrot";
@@ -956,6 +957,114 @@
 	cpu_pmu: cpu-pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	adsp_pas: remoteproc-adsp@03000000 {
+		compatible = "qcom,parrot-adsp-pas";
+		reg = <0x03000000 0x10000>;
+		status = "ok";
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "xo";
+
+		cx-supply = <&VDD_LPI_CX_LEVEL>;
+		cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		mx-supply = <&VDD_LPI_MX_LEVEL>;
+		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		reg-names = "cx", "mx";
+
+		qcom,qmp = <&aoss_qmp>;
+		memory-region = <&adsp_mem>;
+
+		interrupts-extended = <&pdc 6 IRQ_TYPE_EDGE_RISING>,
+				      <&adsp_smp2p_in 0 0>,
+				      <&adsp_smp2p_in 2 0>,
+				      <&adsp_smp2p_in 1 0>,
+				      <&adsp_smp2p_in 3 0>;
+
+		interrupt-names = "wdog",
+				  "fatal",
+				  "handover",
+				  "ready",
+				  "stop-ack";
+
+		qcom,smem-states = <&adsp_smp2p_out 0>;
+		qcom,smem-state-names = "stop";
+
+	};
+
+	cdsp_pas: remoteproc-cdsp@32300000 {
+		compatible = "qcom,parrot-cdsp-pas";
+		reg = <0x32300000 0x10000>;
+		status = "ok";
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "xo";
+
+		cx-supply = <&VDD_CX_LEVEL>;
+		cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		mx-supply = <&VDD_MXA_LEVEL>;
+		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		reg-names = "cx","mx";
+
+		qcom,qmp = <&aoss_qmp>;
+		memory-region = <&cdsp_mem>;
+
+		/* Inputs from turing */
+		interrupts-extended = <&intc GIC_SPI 578 IRQ_TYPE_LEVEL_HIGH>,
+				      <&cdsp_smp2p_in 0 0>,
+				      <&cdsp_smp2p_in 2 0>,
+				      <&cdsp_smp2p_in 1 0>,
+				      <&cdsp_smp2p_in 3 0>;
+
+		interrupt-names = "wdog",
+				  "fatal",
+				  "handover",
+				  "ready",
+				  "stop-ack";
+
+		/* Outputs to turing */
+		qcom,smem-states = <&cdsp_smp2p_out 0>;
+		qcom,smem-state-names = "stop";
+
+	};
+
+	modem_pas: remoteproc-mss@04080000 {
+		compatible = "qcom,parrot-modem-pas";
+		reg = <0x4080000 0x10000>;
+		status = "ok";
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "xo";
+
+		cx-supply = <&VDD_CX_LEVEL>;
+		cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		mx-supply = <&VDD_MODEM_LEVEL>;
+		mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		reg-names = "cx", "mx";
+
+		qcom,qmp = <&aoss_qmp>;
+		memory-region = <&mpss_mem>;
+
+		/* Inputs from mss */
+		interrupts-extended = <&intc GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>,
+				      <&modem_smp2p_in 0 0>,
+				      <&modem_smp2p_in 2 0>,
+				      <&modem_smp2p_in 1 0>,
+				      <&modem_smp2p_in 3 0>,
+				      <&modem_smp2p_in 7 0>;
+
+		interrupt-names = "wdog",
+				  "fatal",
+				  "handover",
+				  "ready",
+				  "stop-ack",
+				  "shutdown-ack";
+
+		/* Outputs to mss */
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "stop";
+
 	};
 };
 
