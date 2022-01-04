@@ -118,6 +118,8 @@ Optional properties:
 				power off trigger during system shutdown case.
 - qcom,ps-hold-hard-reset-disable:	Boolean property to disable PS_HOLD
 				power off trigger during system hard reset case.
+- qcom,log-kpd-event:		Boolean property to enable logging of KPDPWR status
+				during driver INIT and runtime when key is pressed.
 
 Optional Sub-nodes:
 - qcom,pon_1 ... qcom,pon_n:	These PON child nodes correspond to features
