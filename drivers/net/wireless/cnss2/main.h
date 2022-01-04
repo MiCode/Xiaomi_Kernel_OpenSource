@@ -193,14 +193,12 @@ struct cnss_bus_bw_info {
  * struct cnss_interconnect_cfg - CNSS platform interconnect config
  * @list_head: List of interconnect path bandwidth configs
  * @path_count: Count of interconnect path configured in device tree
- * @current_bw_vote: WLAN driver provided bandwidth vote
  * @bus_bw_cfg_count: Number of bandwidth configs for voting. It is the array
  *                    size of struct cnss_bus_bw_info.cfg_table
  */
 struct cnss_interconnect_cfg {
 	struct list_head list_head;
 	u32 path_count;
-	int current_bw_vote;
 	u32 bus_bw_cfg_count;
 };
 
@@ -524,6 +522,8 @@ struct cnss_plat_data {
 	bool adsp_pc_enabled;
 	u64 feature_list;
 	u8 charger_mode;
+	/* WLAN driver provided bandwidth vote */
+	int current_bw_vote;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)

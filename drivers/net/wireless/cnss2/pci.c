@@ -842,7 +842,7 @@ static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
 		}
 	}
 	if (ret == 0 && save)
-		plat_priv->icc.current_bw_vote = bw;
+		plat_priv->current_bw_vote = bw;
 	return ret;
 }
 
@@ -3463,7 +3463,7 @@ int cnss_auto_resume(struct device *dev)
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 	mutex_unlock(&pci_priv->bus_lock);
 
-	cnss_request_bus_bandwidth(dev, plat_priv->icc.current_bw_vote);
+	cnss_request_bus_bandwidth(dev, plat_priv->current_bw_vote);
 
 	return 0;
 }
