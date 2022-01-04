@@ -1,13 +1,12 @@
 /dts-v1/;
-/plugin/;
 
+#include "diwalip.dtsi"
 #include "diwali-qrd.dtsi"
 #include "diwali-qrd-pm7250b.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Diwali QRD";
-	compatible = "qcom,diwali-qrd", "qcom,diwali", "qcom,qrd";
-	qcom,msm-id = <506 0x10000>, <547 0x10000>;
+	model = "Qualcomm Technologies, Inc. DiwaliP QRD";
+	compatible = "qcom,diwalip-qrd", "qcom,diwalip", "qcom,qrd";
 	qcom,board-id = <0x1000B 0>;
 	qcom,pmic-id-size = <9>;
 	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
