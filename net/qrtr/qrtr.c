@@ -531,7 +531,6 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 	int confirm_rx = 0;
 	long timeo;
 	long ret;
-	int cond;
 
 	/* Never set confirm_rx on non-data packets */
 	if (type != QRTR_TYPE_DATA)
@@ -596,10 +595,10 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 		}
 		mutex_unlock(&node->qrtr_tx_lock);
 
-		cond = (!node->ep || READ_ONCE(flow->tx_failed) ||
-			atomic_read(&flow->pending) < QRTR_TX_FLOW_HIGH);
 		ret = wait_event_interruptible_timeout(node->resume_tx,
-						       cond, timeo);
+				(!node->ep || READ_ONCE(flow->tx_failed) ||
+			atomic_read(&flow->pending) < QRTR_TX_FLOW_HIGH),
+			timeo);
 		if (ret < 0)
 			return ret;
 		if (!node->ep)
