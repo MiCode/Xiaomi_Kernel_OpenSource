@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2011-2017, The Linux Foundation
+ * Copyright (c) 2011-2017, 2021, The Linux Foundation
  */
 
 #include <linux/kernel.h>
@@ -426,9 +426,15 @@ EXPORT_SYMBOL_GPL(of_slim_get_device);
 static int slim_device_alloc_laddr(struct slim_device *sbdev,
 				   bool report_present)
 {
-	struct slim_controller *ctrl = sbdev->ctrl;
+	struct slim_controller *ctrl;
 	u8 laddr;
 	int ret;
+
+	ctrl = sbdev->ctrl;
+	if (!ctrl) {
+		pr_err("%s: slim_controller is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	mutex_lock(&ctrl->lock);
 	if (ctrl->get_laddr) {
