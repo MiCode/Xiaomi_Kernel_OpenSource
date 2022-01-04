@@ -34,6 +34,8 @@ qcom-scm.ko
 qnoc-qos.ko
 qrtr.ko
 smem.ko
+qcom_aoss.ko
+msm_qmp.ko
 socinfo.ko
 stub-regulator.ko
 msm-geni-se.ko
