@@ -418,7 +418,7 @@ unscale_bus:
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 free_metadata:
-	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata, ret);
+	qcom_mdt_free_metadata(adsp->pas_id, adsp->mdata, ret);
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;

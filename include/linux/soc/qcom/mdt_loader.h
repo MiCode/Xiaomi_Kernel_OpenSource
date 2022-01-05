@@ -32,6 +32,5 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 int qcom_mdt_load_no_free(struct device *dev, const struct firmware *fw, const char *firmware,
 		  int pas_id, void *mem_region, phys_addr_t mem_phys, size_t mem_size,
 		  phys_addr_t *reloc_base, struct qcom_mdt_metadata *metadata);
-void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
-			    int err);
+void qcom_mdt_free_metadata(int pas_id, struct qcom_mdt_metadata *mdata, int err);
 #endif
