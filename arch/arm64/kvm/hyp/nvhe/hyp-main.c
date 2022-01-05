@@ -351,7 +351,32 @@ static void handle_pvm_exit_dabt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *sh
 		   __vcpu_sys_reg(shadow_vcpu, SCTLR_EL1) & (SCTLR_ELx_EE | SCTLR_EL1_E0E));
 }
 
-static const shadow_entry_exit_handler_fn entry_shadow_handlers[] = {
+static void handle_vm_entry_generic(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
+{
+	unsigned long host_flags = READ_ONCE(host_vcpu->arch.flags);
+
+	shadow_vcpu->arch.flags &= ~(KVM_ARM64_PENDING_EXCEPTION |
+				     KVM_ARM64_EXCEPT_MASK);
+
+	if (host_flags & KVM_ARM64_PENDING_EXCEPTION) {
+		shadow_vcpu->arch.flags |= KVM_ARM64_PENDING_EXCEPTION;
+		shadow_vcpu->arch.flags |= host_flags & KVM_ARM64_EXCEPT_MASK;
+	} else if (host_flags & KVM_ARM64_INCREMENT_PC) {
+		shadow_vcpu->arch.flags |= KVM_ARM64_INCREMENT_PC;
+	}
+}
+
+static void handle_vm_exit_generic(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
+{
+	host_vcpu->arch.fault.esr_el2 = shadow_vcpu->arch.fault.esr_el2;
+}
+
+static void handle_vm_exit_abt(struct kvm_vcpu *host_vcpu, struct kvm_vcpu *shadow_vcpu)
+{
+	host_vcpu->arch.fault = shadow_vcpu->arch.fault;
+}
+
+static const shadow_entry_exit_handler_fn entry_pvm_shadow_handlers[] = {
 	[0 ... ESR_ELx_EC_MAX]		= NULL,
 	[ESR_ELx_EC_WFx]		= handle_pvm_entry_wfx,
 	[ESR_ELx_EC_HVC64]		= handle_pvm_entry_hvc64,
@@ -360,13 +385,23 @@ static const shadow_entry_exit_handler_fn entry_shadow_handlers[] = {
 	[ESR_ELx_EC_DABT_LOW]		= handle_pvm_entry_dabt,
 };
 
-static const shadow_entry_exit_handler_fn exit_shadow_handlers[] = {
+static const shadow_entry_exit_handler_fn exit_pvm_shadow_handlers[] = {
 	[0 ... ESR_ELx_EC_MAX]		= NULL,
 	[ESR_ELx_EC_WFx]		= handle_pvm_exit_wfx,
 	[ESR_ELx_EC_HVC64]		= handle_pvm_exit_hvc64,
 	[ESR_ELx_EC_SYS64]		= handle_pvm_exit_sys64,
 	[ESR_ELx_EC_IABT_LOW]		= handle_pvm_exit_iabt,
 	[ESR_ELx_EC_DABT_LOW]		= handle_pvm_exit_dabt,
+};
+
+static const shadow_entry_exit_handler_fn entry_vm_shadow_handlers[] = {
+	[0 ... ESR_ELx_EC_MAX]		= handle_vm_entry_generic,
+};
+
+static const shadow_entry_exit_handler_fn exit_vm_shadow_handlers[] = {
+	[0 ... ESR_ELx_EC_MAX]		= handle_vm_exit_generic,
+	[ESR_ELx_EC_IABT_LOW]		= handle_vm_exit_abt,
+	[ESR_ELx_EC_DABT_LOW]		= handle_vm_exit_abt,
 };
 
 static void flush_vgic_state(struct kvm_vcpu *host_vcpu,
@@ -460,7 +495,10 @@ static void flush_shadow_state(struct pkvm_loaded_state *state)
 		break;
 	case ARM_EXCEPTION_TRAP:
 		esr_ec = ESR_ELx_EC(kvm_vcpu_get_esr(shadow_vcpu));
-		ec_handler = entry_shadow_handlers[esr_ec];
+		if (state->is_protected)
+			ec_handler = entry_pvm_shadow_handlers[esr_ec];
+		else
+			ec_handler = entry_vm_shadow_handlers[esr_ec];
 
 		if (ec_handler)
 			ec_handler(host_vcpu, shadow_vcpu);
@@ -488,7 +526,10 @@ static void sync_shadow_state(struct pkvm_loaded_state *state, u32 exit_reason)
 		break;
 	case ARM_EXCEPTION_TRAP:
 		esr_ec = ESR_ELx_EC(kvm_vcpu_get_esr(shadow_vcpu));
-		ec_handler = exit_shadow_handlers[esr_ec];
+		if (state->is_protected)
+			ec_handler = exit_pvm_shadow_handlers[esr_ec];
+		else
+			ec_handler = exit_vm_shadow_handlers[esr_ec];
 
 		if (ec_handler)
 			ec_handler(host_vcpu, shadow_vcpu);
