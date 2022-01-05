@@ -408,8 +408,13 @@ static void sync_vgic_state(struct kvm_vcpu *host_vcpu,
 		host_cpu_if->vgic_lr[i] = shadow_cpu_if->vgic_lr[i];
 }
 
-static void flush_timer_state(struct kvm_vcpu *shadow_vcpu)
+static void flush_timer_state(struct pkvm_loaded_state *state)
 {
+	struct kvm_vcpu *shadow_vcpu = state->vcpu;
+
+	if (!state->is_protected)
+		return;
+
 	/*
 	 * A shadow vcpu has no offset, and sees vtime == ptime. The
 	 * ptimer is fully emulated by EL1 and cannot be trusted.
@@ -420,8 +425,13 @@ static void flush_timer_state(struct kvm_vcpu *shadow_vcpu)
 	write_sysreg_el0(__vcpu_sys_reg(shadow_vcpu, CNTV_CTL_EL0), SYS_CNTV_CTL);
 }
 
-static void sync_timer_state(struct kvm_vcpu *shadow_vcpu)
+static void sync_timer_state(struct pkvm_loaded_state *state)
 {
+	struct kvm_vcpu *shadow_vcpu = state->vcpu;
+
+	if (!state->is_protected)
+		return;
+
 	/*
 	 * Preserve the vtimer state so that it is always correct,
 	 * even if the host tries to make a mess.
@@ -430,8 +440,9 @@ static void sync_timer_state(struct kvm_vcpu *shadow_vcpu)
 	__vcpu_sys_reg(shadow_vcpu, CNTV_CTL_EL0) = read_sysreg_el0(SYS_CNTV_CTL);
 }
 
-static void flush_shadow_state(struct kvm_vcpu *shadow_vcpu)
+static void flush_shadow_state(struct pkvm_loaded_state *state)
 {
+	struct kvm_vcpu *shadow_vcpu = state->vcpu;
 	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 	u8 esr_ec;
 	shadow_entry_exit_handler_fn ec_handler;
@@ -440,7 +451,7 @@ static void flush_shadow_state(struct kvm_vcpu *shadow_vcpu)
 		pkvm_reset_vcpu(shadow_vcpu);
 
 	flush_vgic_state(host_vcpu, shadow_vcpu);
-	flush_timer_state(shadow_vcpu);
+	flush_timer_state(state);
 
 	switch (ARM_EXCEPTION_CODE(shadow_vcpu->arch.pkvm.exit_code)) {
 	case ARM_EXCEPTION_IRQ:
@@ -462,14 +473,15 @@ static void flush_shadow_state(struct kvm_vcpu *shadow_vcpu)
 	shadow_vcpu->arch.pkvm.exit_code = 0;
 }
 
-static void sync_shadow_state(struct kvm_vcpu *shadow_vcpu, u32 exit_reason)
+static void sync_shadow_state(struct pkvm_loaded_state *state, u32 exit_reason)
 {
+	struct kvm_vcpu *shadow_vcpu = state->vcpu;
 	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 	u8 esr_ec;
 	shadow_entry_exit_handler_fn ec_handler;
 
 	sync_vgic_state(host_vcpu, shadow_vcpu);
-	sync_timer_state(shadow_vcpu);
+	sync_timer_state(state);
 
 	switch (ARM_EXCEPTION_CODE(exit_reason)) {
 	case ARM_EXCEPTION_IRQ:
@@ -579,11 +591,11 @@ static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 	if (unlikely(is_protected_kvm_enabled())) {
 		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
 
-		flush_shadow_state(state->vcpu);
+		flush_shadow_state(state);
 
 		ret = __kvm_vcpu_run(state->vcpu);
 
-		sync_shadow_state(state->vcpu, ret);
+		sync_shadow_state(state, ret);
 
 		if (state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED) {
 			/*
