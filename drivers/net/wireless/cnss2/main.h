@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CNSS_MAIN_H
@@ -53,6 +53,7 @@
 #define FW_V2_NUMBER                    2
 #define POWER_ON_RETRY_MAX_TIMES        3
 #define POWER_ON_RETRY_DELAY_MS         500
+#define WLFW_MAX_HANG_EVENT_DATA_SIZE   384
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -524,6 +525,8 @@ struct cnss_plat_data {
 	u8 charger_mode;
 	/* WLAN driver provided bandwidth vote */
 	int current_bw_vote;
+	u16 hang_event_data_len;
+	u32 hang_data_addr_offset;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
