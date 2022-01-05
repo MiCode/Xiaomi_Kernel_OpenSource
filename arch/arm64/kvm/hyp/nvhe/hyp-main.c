@@ -26,6 +26,24 @@
 
 #include "../../sys_regs.h"
 
+struct pkvm_loaded_state {
+	/* loaded vcpu is HYP VA */
+	struct kvm_vcpu			*vcpu;
+	bool				is_protected;
+
+	/*
+	 * Host FPSIMD state. Written to when the guest accesses its
+	 * own FPSIMD state, and read when the guest state is live and
+	 * that it needs to be switched back to the host.
+	 *
+	 * Only valid when the KVM_ARM64_FP_ENABLED flag is set in the
+	 * shadow structure.
+	 */
+	struct user_fpsimd_state	host_fpsimd_state;
+};
+
+static DEFINE_PER_CPU(struct pkvm_loaded_state, loaded_state);
+
 DEFINE_PER_CPU(struct kvm_nvhe_init_params, kvm_init_params);
 
 struct kvm_iommu_ops kvm_iommu_ops;
@@ -475,24 +493,6 @@ static void sync_shadow_state(struct kvm_vcpu *shadow_vcpu, u32 exit_reason)
 	shadow_vcpu->arch.pkvm.exit_code = exit_reason;
 }
 
-struct pkvm_loaded_state {
-	/* loaded vcpu is HYP VA */
-	struct kvm_vcpu			*vcpu;
-	bool				is_shadow;
-
-	/*
-	 * Host FPSIMD state. Written to when the guest accesses its
-	 * own FPSIMD state, and read when the guest state is live and
-	 * that it needs to be switched back to the host.
-	 *
-	 * Only valid when the KVM_ARM64_FP_ENABLED flag is set in the
-	 * shadow structure.
-	 */
-	struct user_fpsimd_state	host_fpsimd_state;
-};
-
-static DEFINE_PER_CPU(struct pkvm_loaded_state, loaded_state);
-
 static void fpsimd_host_restore(void)
 {
 	sysreg_clear_set(cptr_el2, CPTR_EL2_TZ | CPTR_EL2_TFP, 0);
@@ -501,13 +501,11 @@ static void fpsimd_host_restore(void)
 	if (unlikely(is_protected_kvm_enabled())) {
 		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
 
-		if (state->is_shadow) {
-			__fpsimd_save_state(&state->vcpu->arch.ctxt.fp_regs);
-			__fpsimd_restore_state(&state->host_fpsimd_state);
+		__fpsimd_save_state(&state->vcpu->arch.ctxt.fp_regs);
+		__fpsimd_restore_state(&state->host_fpsimd_state);
 
-			state->vcpu->arch.flags &= ~KVM_ARM64_FP_ENABLED;
-			state->vcpu->arch.flags |= KVM_ARM64_FP_HOST;
-		}
+		state->vcpu->arch.flags &= ~KVM_ARM64_FP_ENABLED;
+		state->vcpu->arch.flags |= KVM_ARM64_FP_HOST;
 	}
 
 	if (system_supports_sve())
@@ -532,18 +530,23 @@ static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 
 	vcpu = kern_hyp_va(vcpu);
 
-	handle = vcpu->arch.pkvm.shadow_handle;
-	state->vcpu = get_shadow_vcpu(handle, vcpu->vcpu_idx) ?: vcpu;
-	state->is_shadow = state->vcpu != vcpu;
+	handle = READ_ONCE(vcpu->arch.pkvm.shadow_handle);
+	state->vcpu = get_shadow_vcpu(handle, vcpu->vcpu_idx);
 
-	if (state->is_shadow) {
-		state->vcpu->arch.host_fpsimd_state = &state->host_fpsimd_state;
-		state->vcpu->arch.flags |= KVM_ARM64_FP_HOST;
+	if (!state->vcpu)
+		return;
 
+	state->is_protected = state->vcpu->arch.pkvm.shadow_vm->arch.pkvm.enabled;
+
+	state->vcpu->arch.host_fpsimd_state = &state->host_fpsimd_state;
+	state->vcpu->arch.flags |= KVM_ARM64_FP_HOST;
+
+	if (state->is_protected) {
 		/* Propagate WFx trapping flags, trap ptrauth */
 		state->vcpu->arch.hcr_el2 &= ~(HCR_TWE | HCR_TWI |
 					       HCR_API | HCR_APK);
-		state->vcpu->arch.hcr_el2 |= vcpu->arch.hcr_el2 & (HCR_TWE | HCR_TWI);
+		state->vcpu->arch.hcr_el2 |= vcpu->arch.hcr_el2 & (HCR_TWE |
+								   HCR_TWI);
 	}
 }
 
@@ -554,8 +557,9 @@ static void handle___pkvm_vcpu_put(struct kvm_cpu_context *host_ctxt)
 	if (unlikely(is_protected_kvm_enabled())) {
 		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
 
-		if (state->vcpu && state->is_shadow &&
-		    state->vcpu->arch.pkvm.host_vcpu == kern_hyp_va(vcpu)) {
+		vcpu = kern_hyp_va(vcpu);
+
+		if (state->vcpu && state->vcpu->arch.pkvm.host_vcpu == vcpu) {
 			if (state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED)
 				fpsimd_host_restore();
 
@@ -575,13 +579,11 @@ static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 	if (unlikely(is_protected_kvm_enabled())) {
 		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
 
-		if (state->is_shadow)
-			flush_shadow_state(state->vcpu);
+		flush_shadow_state(state->vcpu);
 
 		ret = __kvm_vcpu_run(state->vcpu);
 
-		if (state->is_shadow)
-			sync_shadow_state(state->vcpu, ret);
+		sync_shadow_state(state->vcpu, ret);
 
 		if (state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED) {
 			/*
@@ -614,7 +616,7 @@ static void handle___pkvm_host_donate_guest(struct kvm_cpu_context *host_ctxt)
 
 	vcpu = kern_hyp_va(vcpu);
 	state = this_cpu_ptr(&loaded_state);
-	if (!state->vcpu || !state->is_shadow)
+	if (!state->vcpu)
 		goto out;
 
 	/* Topup shadow memcache with the host's */
@@ -639,7 +641,7 @@ static void handle___kvm_adjust_pc(struct kvm_cpu_context *host_ctxt)
 		 * must have a vcpu loaded when protected mode is
 		 * enabled.
 		 */
-		if (!state->vcpu || state->is_shadow || state->vcpu != vcpu)
+		if (!state->vcpu || state->is_protected)
 			return;
 	}
 
@@ -712,19 +714,10 @@ static struct vgic_v3_cpu_if *get_shadow_vgic_v3_cpu_if(struct vgic_v3_cpu_if *c
 		if (!state->vcpu)
 			return NULL;
 
-		if (state->is_shadow) {
-			host_vcpu = state->vcpu->arch.pkvm.host_vcpu;
+		host_vcpu = state->vcpu->arch.pkvm.host_vcpu;
 
-			if (&host_vcpu->arch.vgic_cpu.vgic_v3 != cpu_if)
-				return NULL;
-
-			return &state->vcpu->arch.vgic_cpu.vgic_v3;
-		} else {
-			if (&state->vcpu->arch.vgic_cpu.vgic_v3 != cpu_if)
-				return NULL;
-
-			return cpu_if;
-		}
+		if (&host_vcpu->arch.vgic_cpu.vgic_v3 != cpu_if)
+			return NULL;
 	}
 
 	return cpu_if;
