@@ -840,6 +840,11 @@
 			reg = <0x81>;
 			#clock-cells = <1>;
 		};
+
+		scmi_c1dcvs: protocol@87 {
+			reg = <0x87>;
+			#clock-cells = <1>;
+		};
 	};
 
 	rimps_log: qcom,rimps_log@17d09c00 {
