@@ -1,3 +1,5 @@
+#include <dt-bindings/clock/qcom,gcc-neo.h>
+
 &soc {
 	timer {
 		clock-frequency = <5000000>;
@@ -34,6 +36,22 @@
 	disp_rsc: rsc@af20000 {
 		status = "nok";
 	};
+
+	bi_tcxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	bi_tcxo_ao: bi_tcxo_ao {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <2>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
 };
 
 &sdhc_1 {
@@ -66,4 +84,16 @@
 		dr_mode = "peripheral";
 		maximum-speed = "high-speed";
 	};
+};
+
+&gcc {
+	clocks = <&bi_tcxo>, <&sleep_clk>,
+		<&pcie_0_pipe_clk>, <&pcie_1_pipe_clk>,
+		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+};
+
+&videocc {
+	clocks = <&bi_tcxo>,
+		<&sleep_clk>,
+		<&gcc GCC_VIDEO_AHB_CLK>;
 };
