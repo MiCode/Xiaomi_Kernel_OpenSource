@@ -734,8 +734,12 @@ static void handle___pkvm_host_donate_guest(struct kvm_cpu_context *host_ctxt)
 
 	/* Topup shadow memcache with the host's */
 	ret = pkvm_refill_memcache(state->vcpu, vcpu);
-	if (!ret)
-		ret = __pkvm_host_donate_guest(pfn, gfn, state->vcpu);
+	if (!ret) {
+		if (state->is_protected)
+			ret = __pkvm_host_donate_guest(pfn, gfn, state->vcpu);
+		else
+			ret = __pkvm_host_share_guest(pfn, gfn, state->vcpu);
+	}
 out:
 	cpu_reg(host_ctxt, 1) =  ret;
 }
