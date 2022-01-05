@@ -1115,10 +1115,10 @@ static void walt_cfs_account_mvp_runtime(struct rq *rq, struct task_struct *curr
 static void walt_cfs_mvp_do_sched_yield(void *unused, struct rq *rq)
 {
 	struct task_struct *curr = rq->curr;
-	int mvp_prio = walt_get_mvp_task_prio(curr);
+	struct walt_task_struct *wts = (struct walt_task_struct *) curr->android_vendor_data1;
 
 	lockdep_assert_held(&rq->lock);
-	if (mvp_prio != WALT_NOT_MVP)
+	if (!list_empty(&wts->mvp_list) && wts->mvp_list.next)
 		walt_cfs_deactivate_mvp_task(curr);
 }
 
