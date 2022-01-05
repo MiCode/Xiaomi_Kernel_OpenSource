@@ -197,9 +197,6 @@ static void kvm_shadow_destroy(struct kvm *kvm)
 	struct mm_struct *mm = current->mm;
 	struct list_head *ppages;
 
-	if (!kvm_vm_is_protected(kvm))
-		return;
-
 	if (kvm->arch.pkvm.shadow_handle)
 		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_shadow, kvm));
 
