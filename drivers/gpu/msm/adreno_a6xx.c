@@ -4,6 +4,7 @@
  */
 
 #include <linux/clk/qcom.h>
+#include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
@@ -526,6 +527,19 @@ static void a6xx_deassert_gbif_halt(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_RBBM_GPR0_CNTL, 0x0);
 	else
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_HALT, 0x0);
+}
+
+bool a6xx_gx_is_on(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	bool gdsc_on, clk_on;
+
+	clk_on = __clk_is_enabled(pwr->grp_clks[0]);
+
+	gdsc_on = regulator_is_enabled(pwr->gx_gdsc);
+
+	return (gdsc_on & clk_on);
 }
 
 /*
@@ -2666,6 +2680,7 @@ const struct adreno_gpudev adreno_a6xx_gpudev = {
 	.power_stats = a6xx_power_stats,
 	.setproperty = a6xx_setproperty,
 	.add_to_va_minidump = a6xx_dev_add_to_minidump,
+	.gx_is_on = a6xx_gx_is_on,
 };
 
 const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
@@ -2718,6 +2733,7 @@ const struct a6xx_gpudev adreno_a6xx_gmu_gpudev = {
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
 		.add_to_va_minidump = a6xx_gmu_add_to_minidump,
+		.gx_is_on = a6xx_gmu_gx_is_on,
 	},
 	.hfi_probe = a6xx_gmu_hfi_probe,
 	.handle_watchdog = a6xx_gmu_handle_watchdog,
@@ -2747,6 +2763,7 @@ const struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 	.power_stats = a6xx_power_stats,
 	.setproperty = a6xx_setproperty,
 	.add_to_va_minidump = a6xx_rgmu_add_to_minidump,
+	.gx_is_on = a6xx_rgmu_gx_is_on,
 };
 
 /* This is a non GMU/RGMU part */
@@ -2782,6 +2799,7 @@ const struct adreno_gpudev adreno_a619_holi_gpudev = {
 	.power_stats = a6xx_power_stats,
 	.setproperty = a6xx_setproperty,
 	.add_to_va_minidump = a6xx_dev_add_to_minidump,
+	.gx_is_on = a619_holi_gx_is_on,
 };
 
 const struct a6xx_gpudev adreno_a630_gpudev = {
@@ -2809,6 +2827,7 @@ const struct a6xx_gpudev adreno_a630_gpudev = {
 		.power_stats = a6xx_power_stats,
 		.setproperty = a6xx_setproperty,
 		.add_to_va_minidump = a6xx_gmu_add_to_minidump,
+		.gx_is_on = a6xx_gmu_gx_is_on,
 	},
 	.hfi_probe = a6xx_gmu_hfi_probe,
 	.handle_watchdog = a6xx_gmu_handle_watchdog,

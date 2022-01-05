@@ -214,7 +214,6 @@ struct kgsl_snapshot;
 struct gmu_dev_ops {
 	int (*oob_set)(struct kgsl_device *device, enum oob_request req);
 	void (*oob_clear)(struct kgsl_device *device, enum oob_request req);
-	bool (*gx_is_on)(struct kgsl_device *device);
 	int (*ifpc_store)(struct kgsl_device *device, unsigned int val);
 	unsigned int (*ifpc_show)(struct kgsl_device *device);
 	void (*cooperative_reset)(struct kgsl_device *device);
@@ -274,7 +273,6 @@ void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req);
 void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req);
-bool gmu_core_dev_gx_is_on(struct kgsl_device *device);
 int gmu_core_dev_ifpc_show(struct kgsl_device *device);
 int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val);
 int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device);

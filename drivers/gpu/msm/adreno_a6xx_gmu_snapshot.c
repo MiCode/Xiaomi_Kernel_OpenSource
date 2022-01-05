@@ -429,7 +429,7 @@ void a6xx_gmu_device_snapshot(struct kgsl_device *device,
 
 	snapshot_rscc_registers(adreno_dev, snapshot);
 
-	if (!a6xx_gmu_gx_is_on(device))
+	if (!a6xx_gmu_gx_is_on(adreno_dev))
 		goto dtcm;
 
 	/* Set fence to ALLOW mode so registers can be read */

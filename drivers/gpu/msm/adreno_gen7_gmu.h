@@ -142,12 +142,12 @@ int gen7_build_rpmh_tables(struct adreno_device *adreno_dev);
 
 /**
  * gen7_gmu_gx_is_on - Check if GX is on
- * @device: Pointer to KGSL device
+ * @adreno_dev: Pointer to the adreno device
  *
  * This function reads pwr status registers to check if GX
  * is on or off
  */
-bool gen7_gmu_gx_is_on(struct kgsl_device *device);
+bool gen7_gmu_gx_is_on(struct adreno_device *adreno_dev);
 
 /**
  * gen7_gmu_device_snapshot - GEN7 GMU snapshot function

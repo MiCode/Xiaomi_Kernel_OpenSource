@@ -131,16 +131,6 @@ void gmu_core_dev_cooperative_reset(struct kgsl_device *device)
 		ops->cooperative_reset(device);
 }
 
-bool gmu_core_dev_gx_is_on(struct kgsl_device *device)
-{
-	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->gx_is_on)
-		return ops->gx_is_on(device);
-
-	return true;
-}
-
 int gmu_core_dev_ifpc_show(struct kgsl_device *device)
 {
 	const struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
