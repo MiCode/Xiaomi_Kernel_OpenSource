@@ -11,7 +11,6 @@
 #define DEC_DVFS	1
 #define DEC_EMI_BW	1
 #define DEC_TF_CALLBACK	1
-#define VIDEO_USE_IOVA
 
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx);
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *dev);
