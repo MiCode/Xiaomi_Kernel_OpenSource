@@ -254,22 +254,6 @@
 #define MFGSCPLL_CON1				0x03C
 #define MFGSCPLL_CON2				0x040
 #define MFGSCPLL_CON3				0x044
-#define APUPLL_CON0				0x008
-#define APUPLL_CON1				0x00C
-#define APUPLL_CON2				0x010
-#define APUPLL_CON3				0x014
-#define NPUPLL_CON0				0x018
-#define NPUPLL_CON1				0x01C
-#define NPUPLL_CON2				0x020
-#define NPUPLL_CON3				0x024
-#define APUPLL1_CON0				0x028
-#define APUPLL1_CON1				0x02C
-#define APUPLL1_CON2				0x030
-#define APUPLL1_CON3				0x034
-#define APUPLL2_CON0				0x038
-#define APUPLL2_CON1				0x03C
-#define APUPLL2_CON2				0x040
-#define APUPLL2_CON3				0x044
 
 #define HWV_CLK_CFG_1_SET			0x010
 #define HWV_CLK_CFG_1_CLR			0x014
@@ -293,7 +277,6 @@
 enum subsys_id {
 	APMIXEDSYS = 0,
 	MFG_PLL_CTRL = 1,
-	APU_PLL_CTRL = 1,
 	PLL_SYS_NUM = 2,
 };
 
@@ -2399,33 +2382,6 @@ static const struct mtk_pll_data mfg_ao_plls[] = {
 		MFGSCPLL_CON1, 0, 22/*pcw*/),
 };
 
-static const struct mtk_pll_data apu_ao_plls[] = {
-	PLL(CLK_APU_AO_APUPLL, "apu_ao_apupll", APUPLL_CON0/*base*/,
-		APUPLL_CON0, 0, 0/*en*/,
-		APUPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APU_AO_NPUPLL, "apu_ao_npupll", NPUPLL_CON0/*base*/,
-		NPUPLL_CON0, 0, 0/*en*/,
-		NPUPLL_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		NPUPLL_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		NPUPLL_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APU_AO_APUPLL1, "apu_ao_apupll1", APUPLL1_CON0/*base*/,
-		APUPLL1_CON0, 0, 0/*en*/,
-		APUPLL1_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL1_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL1_CON1, 0, 22/*pcw*/),
-	PLL(CLK_APU_AO_APUPLL2, "apu_ao_apupll2", APUPLL2_CON0/*base*/,
-		APUPLL2_CON0, 0, 0/*en*/,
-		APUPLL2_CON3/*pwr*/, 0, BIT(0)/*rstb*/,
-		APUPLL2_CON1, 24/*pd*/,
-		0, 0, 0/*tuner*/,
-		APUPLL2_CON1, 0, 22/*pcw*/),
-};
-
 static int clk_mt6879_pll_registration(enum subsys_id id,
 		const struct mtk_pll_data *plls,
 		struct platform_device *pdev,
@@ -2478,12 +2434,6 @@ static int clk_mt6879_apmixed_probe(struct platform_device *pdev)
 {
 	return clk_mt6879_pll_registration(APMIXEDSYS, apmixed_plls,
 			pdev, ARRAY_SIZE(apmixed_plls));
-}
-
-static int clk_mt6879_apu_ao_probe(struct platform_device *pdev)
-{
-	return clk_mt6879_pll_registration(APU_PLL_CTRL, apu_ao_plls,
-			pdev, ARRAY_SIZE(apu_ao_plls));
 }
 
 static int clk_mt6879_mfg_ao_probe(struct platform_device *pdev)
@@ -2618,9 +2568,6 @@ static const struct of_device_id of_match_clk_mt6879[] = {
 	{
 		.compatible = "mediatek,mt6879-apmixedsys",
 		.data = clk_mt6879_apmixed_probe,
-	}, {
-		.compatible = "mediatek,mt6879-apu_pll_ctrl",
-		.data = clk_mt6879_apu_ao_probe,
 	}, {
 		.compatible = "mediatek,mt6879-mfg_pll_ctrl",
 		.data = clk_mt6879_mfg_ao_probe,
