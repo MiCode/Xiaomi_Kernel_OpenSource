@@ -26,10 +26,17 @@
 
 #include "flashlight-core.h"
 
+#if (defined(CONFIG_MACH_MT6877) \
+|| defined(CONFIG_MACH_MT6833) \
+|| defined(CONFIG_MACH_MT6781) \
+|| defined(CONFIG_MACH_MT6739))
+#include "mach/upmu_sw.h" /* PT */
+#else
 #ifdef CONFIG_MTK_FLASHLIGHT_PT
 #include "mtk_battery_oc_throttling.h"
 #include "mtk_low_battery_throttling.h"
 #include "mtk_battery_percentage_throttling.h"
+#endif
 #endif
 
 #ifdef CONFIG_MTK_FLASHLIGHT_DLPT
