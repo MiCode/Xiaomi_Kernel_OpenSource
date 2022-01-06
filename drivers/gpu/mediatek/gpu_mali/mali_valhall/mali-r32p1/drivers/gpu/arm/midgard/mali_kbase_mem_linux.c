@@ -53,7 +53,7 @@
 static DEFINE_MUTEX(ion_config_lock);
 #endif
 
-#if 0 // Qoo defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) && defined(CONFIG_MTK_GZ_KREE)
+#if defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) && defined(CONFIG_MTK_GZ_KREE)
 #include <trusted_mem_api.h>
 #include <mtk/ion_sec_heap.h>
 #endif
@@ -1218,7 +1218,7 @@ retry:
 		size_t j, pages = PFN_UP(sg_dma_len(s));
 		uint64_t phy_addr = 0;
 
-#if 0 //defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) && defined(CONFIG_MTK_GZ_KREE)
+#if defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) && defined(CONFIG_MTK_GZ_KREE)
 		if (reg->flags & KBASE_REG_PROTECTED) {
 			u32 sec_handle = sg_dma_address(s);
 			struct dma_buf *dma_buf = reg->gpu_alloc->imported.umm.dma_buf;
