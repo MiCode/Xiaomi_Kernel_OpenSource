@@ -2133,6 +2133,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 
 	pr_debug("[VCP] %s", __func__);
 
+	pm_runtime_enable(&pdev->dev);
 	of_property_read_u32(pdev->dev.of_node, "vcp-support",
 		 &vcp_support);
 	if (vcp_support == 0) {
@@ -2345,7 +2346,6 @@ static int vcp_device_probe(struct platform_device *pdev)
 		}
 	}
 
-	pm_runtime_enable(&pdev->dev);
 	ret = of_property_read_string_index(
 				pdev->dev.of_node, "clock-names", 0, &clk_name);
 	vcpsel = devm_clk_get(&pdev->dev, clk_name);
