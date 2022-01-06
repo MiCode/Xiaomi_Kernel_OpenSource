@@ -1106,8 +1106,6 @@ static void mtk_hp_enable(struct mt6359_priv *priv)
 	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x7703);
 	usleep_range(100, 120);
 
-	/* Enable AUD_CLK */
-	mt6359_set_decoder_clk(priv, true);
 
 	/* Enable Audio DAC  */
 	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x30ff);
@@ -1175,8 +1173,6 @@ static void mtk_hp_disable(struct mt6359_priv *priv)
 	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
 			   0x000f, 0x0000);
 
-	/* Disable AUD_CLK */
-	mt6359_set_decoder_clk(priv, false);
 
 	/* Short HP main output to HP aux output stage */
 	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x77c3);
@@ -1250,8 +1246,6 @@ static int mtk_hp_impedance_enable(struct mt6359_priv *priv)
 	/* Disable HP damping circuit & HPN 4K load */
 	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON10, 0x0000);
 
-	/* Enable AUD_CLK */
-	mt6359_set_decoder_clk(priv, true);
 
 	/* Enable Audio L channel DAC */
 	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x3009);
@@ -1279,8 +1273,6 @@ static int mtk_hp_impedance_disable(struct mt6359_priv *priv)
 	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
 			   0x000f, 0x0000);
 
-	/* Disable AUD_CLK */
-	mt6359_set_decoder_clk(priv, false);
 
 	/* Enable HPR/L STB enhance circuits for off state */
 	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
@@ -1396,8 +1388,6 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 		regmap_write(priv->regmap, MT6359_ZCD_CON3,
 			     priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL]);
 
-		/* Enable AUD_CLK */
-		mt6359_set_decoder_clk(priv, true);
 
 		/* Enable Audio DAC  */
 		regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x0009);
@@ -1416,8 +1406,6 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
 				   0x000f, 0x0000);
 
-		/* Disable AUD_CLK */
-		mt6359_set_decoder_clk(priv, false);
 
 		/* decrease HS gain to minimum gain step by step */
 		regmap_write(priv->regmap, MT6359_ZCD_CON3, DL_GAIN_N_40DB);
@@ -1480,8 +1468,6 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 		regmap_write(priv->regmap, MT6359_ZCD_CON1,
 			     priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL]);
 
-		/* Enable AUD_CLK */
-		mt6359_set_decoder_clk(priv, true);
 
 		/* Switch LOL MUX to audio DAC */
 		if (mux == LO_MUX_L_DAC) {
@@ -1524,8 +1510,6 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
 				   0x000f, 0x0000);
 
-		/* Disable AUD_CLK */
-		mt6359_set_decoder_clk(priv, false);
 
 		/* decrease LO gain to minimum gain step by step */
 		regmap_write(priv->regmap, MT6359_ZCD_CON1, DL_GAIN_N_40DB);
@@ -3042,6 +3026,12 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("DL Digital Clock CH_3", SND_SOC_NOPM,
 			    0, 0, NULL, 0),
 
+	/* AUDDEC */
+	SND_SOC_DAPM_SUPPLY_S("AUDDEC_CLK", SUPPLY_SEQ_DEC_CLK,
+				MT6359_AUDDEC_ANA_CON13,
+				RG_RSTB_DECODER_VA32_SFT, 0,
+				NULL, 0),
+
 	/* AFE ON */
 	SND_SOC_DAPM_SUPPLY_S("AFE_ON", SUPPLY_SEQ_AFE,
 			      MT6359_AFE_UL_DL_CON0, AFE_ON_SFT, 0,
@@ -3535,6 +3525,7 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"DL Power Supply", NULL, "vaud18"},
 	{"DL Power Supply", NULL, "AUDGLB"},
 	{"DL Power Supply", NULL, "CLKSQ Audio"},
+	{"DL Power Supply", NULL, "AUDDEC_CLK"},
 	{"DL Power Supply", NULL, "AUDNCP_CK"},
 	{"DL Power Supply", NULL, "ZCD13M_CK"},
 	{"DL Power Supply", NULL, "AUD_CK"},
