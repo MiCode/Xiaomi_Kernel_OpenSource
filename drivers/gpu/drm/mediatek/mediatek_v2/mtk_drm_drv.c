@@ -5681,17 +5681,18 @@ SKIP_SIDE_DISP:
 
 	platform_set_drvdata(pdev, private);
 
+	mtk_fence_init();
+
+	disp_dts_gpio_init(dev, private);
+
+	memcpy(&mydev, pdev, sizeof(mydev));
+
 	ret = component_master_add_with_match(dev, &mtk_drm_ops, match);
 	DDPINFO("%s- ret:%d\n", __func__, ret);
 	if (ret)
 		goto err_pm;
 
-	mtk_fence_init();
 	DDPINFO("%s-\n", __func__);
-
-	disp_dts_gpio_init(dev, private);
-
-	memcpy(&mydev, pdev, sizeof(mydev));
 
 	return 0;
 
