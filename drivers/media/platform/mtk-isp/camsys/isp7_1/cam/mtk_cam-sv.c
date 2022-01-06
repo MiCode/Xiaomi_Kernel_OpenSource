@@ -2853,10 +2853,10 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
+	disable_irq(camsv_dev->irq);
+
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-
-	disable_irq(camsv_dev->irq);
 
 	return 0;
 }

@@ -1660,6 +1660,7 @@ int mtk_cam_mraw_top_disable(struct mtk_mraw_device *dev)
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN)) {
 		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_VF_CON,
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN, 0);
+		mtk_cam_mraw_toggle_tg_db(dev);
 	}
 
 	mraw_reset(dev);
@@ -2630,11 +2631,11 @@ static int mtk_mraw_runtime_suspend(struct device *dev)
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	int i;
 
+	disable_irq(mraw_dev->irq);
+
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++)
 		clk_disable_unprepare(mraw_dev->clks[i]);
-
-	disable_irq(mraw_dev->irq);
 
 	return 0;
 }
