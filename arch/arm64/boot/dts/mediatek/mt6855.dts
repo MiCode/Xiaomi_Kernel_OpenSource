@@ -1811,8 +1811,6 @@
 		cpu_power_bcpu_weight_max = <100>;
 		cpu_power_bcpu_weight_min = <100>;
 
-		status = "disabled";
-
 		/* use_cpu_to_dram_map = "enable"; */
 		/* cm_mgr_cpu_opp_to_dram = <0 0 0 0 1 1 1 1 */
 					/* 1 2 2 2 2 2 2 2>; */
