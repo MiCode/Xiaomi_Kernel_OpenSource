@@ -5168,7 +5168,6 @@
 							  &smi_larb11 &smi_larb13 &smi_larb14
 							  &smi_larb16 &smi_larb17 &smi_larb20>;
 			mediatek,commons = <&smi_disp_common>;
-			disable-mmqos;
 			clocks = <&topckgen_clk CLK_TOP_MMINFRA_SEL>;
 			clock-names = "mm";
 			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
@@ -5635,7 +5634,7 @@
 			compatible = "mediatek,mmdvfs-debug";
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			force-step0 = <1>;
-			release-step0 = <0>;
+			release-step0 = <1>;
 		};
 
 		mmdvfs {
