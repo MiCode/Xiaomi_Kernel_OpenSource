@@ -13,7 +13,11 @@
 
 ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
+ifeq ($(CONFIG_MACH_MT6779),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v1/framework
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v2/framework
+endif
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vow
 
