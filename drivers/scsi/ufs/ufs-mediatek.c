@@ -41,7 +41,7 @@
 #include "mtk_clkbuf_ctl.h"
 #endif
 
-#if defined(CONFIG_UFSHPB)
+#if defined(CONFIG_SCSI_UFS_HPB)
 #include "ufshpb.h"
 #endif
 
