@@ -878,8 +878,9 @@ static struct mml_pq_sub_task *wait_next_sub_task(struct mml_pq_chan *chan)
 		ret = wait_event_interruptible(chan->msg_wq,
 			(atomic_read(&chan->msg_cnt) > 0));
 		if (ret) {
-			mml_pq_log("%s wakeup wait_result[%d], msg_cnt[%d]",
-				__func__, ret, atomic_read(&chan->msg_cnt));
+			if (ret != -ERESTARTSYS)
+				mml_pq_log("%s wakeup wait_result[%d], msg_cnt[%d]",
+					__func__, ret, atomic_read(&chan->msg_cnt));
 			break;
 		}
 
