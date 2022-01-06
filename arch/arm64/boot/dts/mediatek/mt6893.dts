@@ -2956,13 +2956,14 @@ page_owner=on loop.max_part=7";
 
 		/* feature, frequecy, coreid */
 		scp_feature_tbl = <0   5 1>, /* vow */
-				  <1  29 0>, /* sensor */
-				  <2  26 0>, /* flp */
-				  <3   0 0>, /* rtos */
-				  <4 200 1>, /* speaker */
-				  <5  77 0>, /* vcore */
-				  <6 200 1>, /* barge in */
-				  <7  10 1>; /* vow dump */
+				  <1  29 0>,  /* sensor */
+				  <2  26 0>,  /* flp */
+				  <3   0 0>,  /* rtos */
+				  <4 200 1>,  /* speaker */
+				  <5  77 0>,  /* vcore */
+				  <6 200 1>,  /* barge in */
+				  <7  10 1>,  /* vow dump */
+				  <13 200 0>; /* ultrasound */
 
 		secure_dump = "disable"; /* disabled in default */
 		secure_dump_size = <0>;
