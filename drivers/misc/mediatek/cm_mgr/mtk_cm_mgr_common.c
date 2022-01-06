@@ -681,6 +681,7 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 			hk.cm_mgr_perf_set_force_status(0);
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
 		cm_mgr_cpu_map_dram_enable = !!val_1;
+		cm_mgr_disable_fb = !val_1;
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_skip_cpu_opp")) {
 		cm_mgr_cpu_map_skip_cpu_opp = val_1;
 		cm_mgr_cpu_map_update_table();
