@@ -830,25 +830,7 @@ static void case_run_write_sram(struct mml_test *test, struct mml_test_case *cur
 	case_general_submit(test, cur, setup_write_sram);
 }
 
-/* setup_read_sram
- *
- * format in: MML_FMT_RGB888
- * format out: MML_FMT_RGB888
- */
-static void setup_read_sram(struct mml_submit *task, struct mml_test_case *cur)
-{
-	task->info.mode = MML_MODE_SRAM_READ;
-	task->buffer.src.flush = false;
-	task->buffer.src.invalid = false;
-	task->buffer.src.fd[0] = -1;
-}
-
-static void case_run_read_sram(struct mml_test *test, struct mml_test_case *cur)
-{
-	case_general_submit(test, cur, setup_read_sram);
-}
-
-/* case_config_wr_sram / case_run_wr_sram
+/* case_config_read_sram / setup_read_sram
  *
  * format in: MML_FMT_RGB888
  * format out: MML_FMT_RGB888
@@ -856,30 +838,14 @@ static void case_run_read_sram(struct mml_test *test, struct mml_test_case *cur)
 #define SRAM_HEIGHT	64
 #define SRAM_SIZE	(512 * 1024)
 
-static void case_config_wr_sram(void)
+static void case_config_read_sram(void)
 {
-	the_case.cfg_src_format = MML_FMT_RGB888;
+	the_case.cfg_src_format = mml_test_in_fmt;
 	the_case.cfg_src_w = mml_test_w;
 	the_case.cfg_src_h = mml_test_h;
-	the_case.cfg_dest_format = MML_FMT_YUYV;
-	the_case.cfg_dest_w = mml_test_out_w;
-	the_case.cfg_dest_h = SRAM_HEIGHT * 2;
-}
-
-static void setup_write_sram_crop(struct mml_submit *task, struct mml_test_case *cur)
-{
-	task->info.mode = MML_MODE_RACING;
-	task->info.dest[0].crop.r.left = 0;
-	task->info.dest[0].crop.r.top = 0;
-	task->info.dest[0].crop.r.width = mml_test_out_w;
-	task->info.dest[0].crop.r.height = mml_test_out_h;
-	if (mml_test_rot == 1 || mml_test_rot == 3)
-		swap(task->info.dest[0].crop.r.width, task->info.dest[0].crop.r.height);
-	task->buffer.dest[0].flush = false;
-	task->buffer.dest[0].invalid = false;
-	task->buffer.dest[0].fd[0] = -1;
-	task->info.dest[0].rotate = mml_test_rot;
-	task->info.dest[0].flip = mml_test_flip;
+	the_case.cfg_dest_format = mml_test_out_fmt;
+	the_case.cfg_dest_w = mml_test_w;
+	the_case.cfg_dest_h = mml_test_out_h;
 }
 
 static void setup_read_sram_bufa(struct mml_submit *task, struct mml_test_case *cur)
@@ -925,6 +891,70 @@ static void setup_read_sram_bufb(struct mml_submit *task, struct mml_test_case *
 	task->info.dest[0].data.plane_offset[0] = offset;
 	task->info.dest[0].data.plane_offset[1] = offset;
 	task->info.dest[0].data.plane_offset[2] = offset;
+}
+
+static void case_run_read_sram(struct mml_test *test, struct mml_test_case *cur)
+{
+	struct platform_device *mml_pdev;
+	struct device *dev;
+	struct mml_drm_ctx *mml_ctx;
+	struct mml_drm_param disp = {.vdo_mode = true};
+	void *mml;
+
+	/* create context */
+	mml_pdev = mml_get_plat_device(test->pdev);
+	mml_ctx = mml_drm_get_context(mml_pdev, &disp);
+
+	/* hold sram, for wrot out and rdma in */
+	dev = &mml_pdev->dev;
+	mml = dev_get_drvdata(dev);
+	mml_sram_get(mml);
+
+	msleep_interruptible(mml_test_interval);
+
+	/* correct the format in sram */
+	the_case.cfg_src_format = the_case.cfg_dest_format;
+	the_case.cfg_dest_h = SRAM_HEIGHT;
+
+	/* sram -> dram */
+	cur->fd_in = -1;
+	case_general_submit(test, cur, setup_read_sram_bufa);
+	case_general_submit(test, cur, setup_read_sram_bufb);
+
+	/* release */
+	mml_sram_put(mml);
+	mml_drm_put_context(mml_ctx);
+}
+
+/* case_config_wr_sram / case_run_wr_sram
+ *
+ * format in: MML_FMT_RGB888
+ * format out: MML_FMT_RGB888
+ */
+static void case_config_wr_sram(void)
+{
+	the_case.cfg_src_format = MML_FMT_RGB888;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
+	the_case.cfg_dest_format = MML_FMT_YUYV;
+	the_case.cfg_dest_w = mml_test_out_w;
+	the_case.cfg_dest_h = SRAM_HEIGHT * 2;
+}
+
+static void setup_write_sram_crop(struct mml_submit *task, struct mml_test_case *cur)
+{
+	task->info.mode = MML_MODE_RACING;
+	task->info.dest[0].crop.r.left = 0;
+	task->info.dest[0].crop.r.top = 0;
+	task->info.dest[0].crop.r.width = mml_test_out_w;
+	task->info.dest[0].crop.r.height = mml_test_out_h;
+	if (mml_test_rot == 1 || mml_test_rot == 3)
+		swap(task->info.dest[0].crop.r.width, task->info.dest[0].crop.r.height);
+	task->buffer.dest[0].flush = false;
+	task->buffer.dest[0].invalid = false;
+	task->buffer.dest[0].fd[0] = -1;
+	task->info.dest[0].rotate = mml_test_rot;
+	task->info.dest[0].flip = mml_test_flip;
 }
 
 static void case_run_wr_sram(struct mml_test *test, struct mml_test_case *cur)
@@ -1128,7 +1158,7 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 		.run = case_run_write_sram,
 	},
 	[MML_UT_READ_SRAM] = {
-		.config = case_config_rgb,
+		.config = case_config_read_sram,
 		.run = case_run_read_sram,
 	},
 	[MML_UT_WR_SRAM] = {
