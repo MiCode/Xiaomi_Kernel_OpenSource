@@ -684,7 +684,7 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 
 			dev_info(cam->dev,
 				 "%s: pipe(%d):seninf(%s):seninf_set_camtg, pad(%d) camtg(%d)",
-				 __func__, stream_id, req_stream_data->seninf_old->name,
+				 __func__, stream_id, req_stream_data->seninf_new->name,
 				 PAD_SRC_RAW0, PipeIDtoTGIDX(raw_dev->id));
 
 			mtk_cam_sensor_switch_start_hw(ctx, req_stream_data);
