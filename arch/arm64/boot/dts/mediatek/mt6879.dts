@@ -655,18 +655,6 @@
 				num_ports = <12>;
 				bus_freq_mhz = <156>;
 			};
-			monitor6 {
-				monitor_name = "debug_ctrl_ao_AUD_BUS_AO_PDN";
-				base = <0x1e015000>;
-				num_ports = <62>;
-				bus_freq_mhz = <750>;
-			};
-			monitor7 {
-				monitor_name = "debug_ctrl_ao_MM_AO";
-				base = <0x1e825000>;
-				num_ports = <25>;
-				bus_freq_mhz = <624>;
-			};
 		};
 	};
 
