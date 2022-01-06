@@ -116,7 +116,7 @@
 
 /* Thermal VPU throttling support */
 #ifdef CONFIG_MTK_APUSYS_VPU
-#define THERMAL_VPU_SUPPORT // TODO: remove mark
+#define THERMAL_VPU_SUPPORT
 #endif
 
 /* Thermal MDLA throttling support */

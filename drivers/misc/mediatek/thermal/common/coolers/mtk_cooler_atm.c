@@ -30,12 +30,7 @@
 #ifdef ATM_USES_PPM
 //#if defined(CONFIG_MTK_PPM) || defined(CONFIG_MACH_MT6781)
 #include "mtk_ppm_api.h"
-#if defined(CONFIG_MACH_MT6893) //  TODO: remove me later
-#define NR_PPM_CLUSTERS 3
-#else
 #include "mtk_ppm_platform.h"
-#endif
-
 #else
 #include "mt_cpufreq.h"
 #endif

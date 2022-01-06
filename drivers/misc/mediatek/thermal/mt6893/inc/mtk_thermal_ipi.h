@@ -8,15 +8,15 @@
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
-#define THERMAL_ENABLE_ONLY_TZ_SSPM (0) //  TODO: set to 1 if SSPM ready
-//#define THERMAL_SSPM_THERMAL_THROTTLE_SWITCH //  TODO: remove mark after SSPM ready
+#define THERMAL_ENABLE_ONLY_TZ_SSPM (1)
+#define THERMAL_SSPM_THERMAL_THROTTLE_SWITCH
 
 /*Only Big SW need to enable this definition
  *Big SW suspend/resume flow:
  *    suspend: kernel suspend => SSPM suspend
  *    resume: SSPM resume => kernel resume
  */
-//#define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY //  TODO: remove mark after SSPM ready
+#define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY
 #else
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
 #define THERMAL_ENABLE_ONLY_TZ_SSPM (0)
