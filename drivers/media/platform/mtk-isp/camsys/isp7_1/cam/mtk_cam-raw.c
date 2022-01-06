@@ -225,11 +225,6 @@ static const struct v4l2_mbus_framefmt mfmt_default = {
 	.quantization = V4L2_QUANTIZATION_DEFAULT,
 };
 
-static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
-				  struct mtk_cam_resource_config *res,
-				  s64 pixel_rate, int res_plan,
-				  int in_w, int in_h, int *out_w, int *out_h);
-
 static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_cam_resource *user_res;
@@ -253,35 +248,10 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(dev,
 			 "%s:pipe(%d): V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE: %d\n",
 			 __func__, pipeline->id, pipeline->sensor_mode_update);
-	} else if (ctrl->id >= V4L2_CID_MTK_CAM_USED_ENGINE_TRY &&
-		   ctrl->id <= V4L2_CID_MTK_CAM_FRZ_TRY) {
-		/**
-		 * Read the determined resource for the "try" format
-		 * negotiation result
-		 */
-		mutex_lock(&pipeline->try_res_config.resource_lock);
-		switch (ctrl->id) {
-		case V4L2_CID_MTK_CAM_USED_ENGINE_TRY:
-			ctrl->val = pipeline->try_res_config.raw_num_used;
-			break;
-		case V4L2_CID_MTK_CAM_BIN_TRY:
-			ctrl->val = pipeline->try_res_config.bin_enable;
-			break;
-		case V4L2_CID_MTK_CAM_FRZ_TRY:
-			ctrl->val = pipeline->try_res_config.frz_enable ?
-				    pipeline->try_res_config.frz_ratio : 100;
-			break;
-		default:
-			dev_info(dev,
-				 "%s:pipe(%d): unknown resource CID: %d\n",
-				 __func__, pipeline->id, ctrl->id);
-			break;
-		}
-		mutex_unlock(&pipeline->try_res_config.resource_lock);
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_SYNC_ID) {
 		mutex_lock(&pipeline->res_config.resource_lock);
 		*ctrl->p_new.p_s64 = pipeline->sync_id;
-		mutex_unlock(&pipeline->try_res_config.resource_lock);
+		mutex_unlock(&pipeline->res_config.resource_lock);
 	} else {
 		/**
 		 * Read the determined resource for the "set" format
@@ -381,23 +351,38 @@ mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 }
 
 int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
-			  struct mtk_cam_resource *res_user)
+			  struct mtk_cam_resource *res_user, char *dbg_str, bool log)
 {
 	struct device *dev = pipeline->raw->devs[pipeline->id];
 
-	dev_info(dev,
-		 "%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
-		 __func__, pipeline->id,
-		 res_user->sensor_res.hblank, res_user->sensor_res.vblank,
-		 res_user->sensor_res.pixel_rate,
-		 res_user->sensor_res.cust_pixel_rate,
-		 res_user->sensor_res.interval.denominator,
-		 res_user->sensor_res.interval.numerator,
-		 res_user->raw_res.feature, res_user->raw_res.bin,
-		 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
-		 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
-		 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-		 res_user->raw_res.throughput);
+	if (log)
+		dev_info(dev,
+			 "%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
+			 __func__, dbg_str, pipeline->id,
+			 res_user->sensor_res.hblank, res_user->sensor_res.vblank,
+			 res_user->sensor_res.pixel_rate,
+			 res_user->sensor_res.cust_pixel_rate,
+			 res_user->sensor_res.interval.denominator,
+			 res_user->sensor_res.interval.numerator,
+			 res_user->raw_res.feature, res_user->raw_res.bin,
+			 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
+			 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
+			 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
+			 res_user->raw_res.throughput);
+	else
+		dev_dbg(dev,
+			"%s:%s:pipe(%d): from user: sensor:%d/%d/%lld/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
+			__func__, dbg_str, pipeline->id,
+			res_user->sensor_res.hblank, res_user->sensor_res.vblank,
+			res_user->sensor_res.pixel_rate,
+			res_user->sensor_res.cust_pixel_rate,
+			res_user->sensor_res.interval.denominator,
+			res_user->sensor_res.interval.numerator,
+			res_user->raw_res.feature, res_user->raw_res.bin,
+			res_user->raw_res.path_sel, res_user->raw_res.raw_max,
+			res_user->raw_res.raw_min, res_user->raw_res.raw_used,
+			res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
+			res_user->raw_res.throughput);
 
 	/* check user value of sensor input parameters */
 	if (!mtk_cam_feature_is_pure_m2m(res_user->raw_res.feature) &&
@@ -406,8 +391,8 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 	    !res_user->sensor_res.interval.denominator ||
 	    !res_user->sensor_res.interval.numerator)) {
 		dev_info(dev,
-			 "%s:pipe(%d): sensor info MUST be provided (TEST_PATTERN case)\n",
-			 __func__, pipeline->id);
+			 "%s:%s:pipe(%d): sensor info MUST be provided (TEST_PATTERN case)\n",
+			 __func__, dbg_str, pipeline->id);
 		/*test pattern case resource default copy*/
 		pipeline->res_config.raw_num_used = 1;
 		pipeline->res_config.bin_enable = 0;
@@ -442,14 +427,24 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 	if (res_user->raw_res.path_sel == 0xFF)
 		res_user->raw_res.path_sel = 0;
 
-	dev_info(dev,
-		 "%s:pipe(%d): driver adjusted: raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
-		 __func__, pipeline->id,
-		 res_user->raw_res.feature, res_user->raw_res.bin,
-		 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
-		 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
-		 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
-		 res_user->raw_res.throughput);
+	if (log)
+		dev_info(dev,
+			 "%s:%s:pipe(%d): driver adjusted: raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
+			 __func__, dbg_str, pipeline->id,
+			 res_user->raw_res.feature, res_user->raw_res.bin,
+			 res_user->raw_res.path_sel, res_user->raw_res.raw_max,
+			 res_user->raw_res.raw_min, res_user->raw_res.raw_used,
+			 res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
+			 res_user->raw_res.throughput);
+	else
+		dev_dbg(dev,
+			"%s:%s:pipe(%d): driver adjusted: raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
+			__func__, dbg_str, pipeline->id,
+			res_user->raw_res.feature, res_user->raw_res.bin,
+			res_user->raw_res.path_sel, res_user->raw_res.raw_max,
+			res_user->raw_res.raw_min, res_user->raw_res.raw_used,
+			res_user->raw_res.strategy, res_user->raw_res.pixel_mode,
+			res_user->raw_res.throughput);
 
 	return 0;
 }
@@ -476,7 +471,8 @@ int
 mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 struct mtk_cam_resource *res_user,
 			 struct mtk_cam_resource_config *res_cfg,
-			 struct v4l2_mbus_framefmt *sink_fmt)
+			 struct v4l2_mbus_framefmt *sink_fmt,
+			 char *dbg_str, bool log)
 {
 	s64 prate = 0;
 	int width, height;
@@ -510,16 +506,18 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	/*worst case throughput prepare for stagger dynamic switch exposure num*/
 	if (mtk_cam_feature_is_stagger(res_cfg->raw_feature)) {
 		if (mtk_cam_feature_is_2_exposure(res_cfg->raw_feature)) {
-			dev_info(dev,
-			 "%s:pipe(%d): worst case stagger 2exp prate (0x%x):%lld->%lld\n",
-			 __func__, pipeline->id, res_cfg->raw_feature,
-			 prate, prate * 3);
+			if (log)
+				dev_info(dev,
+					 "%s:%s:pipe(%d): worst case stagger 2exp prate (0x%x):%lld->%lld\n",
+					 __func__, dbg_str, pipeline->id, res_cfg->raw_feature,
+					 prate, prate * 3);
 			prate = 2 * prate;
 		} else if (mtk_cam_feature_is_3_exposure(res_cfg->raw_feature)) {
-			dev_info(dev,
-			 "%s:pipe(%d): worst case stagger 3exp prate (0x%x):%lld->%lld\n",
-			 __func__, pipeline->id, res_cfg->raw_feature,
-			 prate, prate * 3);
+			if (log)
+				dev_info(dev,
+					 "%s:%s:pipe(%d): worst case stagger 3exp prate (0x%x):%lld->%lld\n",
+					 __func__, dbg_str, pipeline->id, res_cfg->raw_feature,
+					 prate, prate * 3);
 			prate = 3 * prate;
 		}
 	}
@@ -530,8 +528,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 
 	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
 		dev_info(dev,
-			 "%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
-			 __func__, pipeline->id,	res_user->raw_res.bin,
+			 "%s:%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
+			 __func__, dbg_str, pipeline->id, res_user->raw_res.bin,
 			 res_cfg->bin_enable);
 		return -EINVAL;
 	}
@@ -539,8 +537,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	if (res_cfg->raw_num_used > res_user->raw_res.raw_max ||
 	    res_cfg->raw_num_used < res_user->raw_res.raw_min) {
 		dev_info(dev,
-			 "%s:pipe(%d): res calc failed on raw used: user(%d/%d)/raw_num_used(%d)\n",
-			 __func__, pipeline->id, res_user->raw_res.raw_max,
+			 "%s:%s: pipe(%d): res calc failed on raw used: user(%d/%d)/raw_num_used(%d)\n",
+			 __func__, dbg_str, pipeline->id, res_user->raw_res.raw_max,
 			 res_user->raw_res.raw_min, res_cfg->raw_num_used);
 	}
 
@@ -552,11 +550,18 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 		res_user->raw_res.bin = res_cfg->bin_limit;
 	res_user->sensor_res.driver_buffered_pixel_rate = prate;
 
-	dev_info(dev,
-		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)/buffered_prate(%lld)\n",
-		 __func__, pipeline->id, res_user->raw_res.raw_used,
-		 res_user->raw_res.bin, res_user->raw_res.pixel_mode,
-		 res_user->raw_res.strategy, prate);
+	if (log)
+		dev_info(dev,
+			 "%s:%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)\n",
+			 __func__, dbg_str, pipeline->id, res_user->raw_res.raw_used,
+			 res_user->raw_res.bin, res_user->raw_res.pixel_mode,
+			 res_user->raw_res.strategy);
+	else
+		dev_dbg(dev,
+			"%s:%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)\n",
+			__func__, dbg_str, pipeline->id, res_user->raw_res.raw_used,
+			res_user->raw_res.bin, res_user->raw_res.pixel_mode,
+			res_user->raw_res.strategy);
 
 	/**
 	 * Other output not reveal to user now:
@@ -568,8 +573,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	 */
 	if (width != sink_fmt->width || height != sink_fmt->height) {
 		dev_info(dev,
-			 "%s:pipe(%d): size adjust info: raw: sink(%d,%d) res:(%d,%d)\n",
-			 __func__, pipeline->id, sink_fmt->width,
+			 "%s:%s:pipe(%d): size adjust info: raw: sink(%d,%d) res:(%d,%d)\n",
+			 __func__, dbg_str, pipeline->id, sink_fmt->width,
 			 sink_fmt->height, width, height);
 	}
 
@@ -589,20 +594,14 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 	dev = pipeline->raw->devs[pipeline->id];
 	res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
 
-	ret = mtk_cam_raw_res_store(pipeline, res_user);
+	ret = mtk_cam_raw_res_store(pipeline, res_user, "s_ctrl", true);
 	pipeline->user_res = *res_user;
 	if (pipeline->subdev.entity.stream_count) {
 		/* If the pipeline is streaming, pending the change */
-		dev_dbg(dev, "%s:pipe(%d): pending res calc has not been supported except bin\n",
+		dev_dbg(dev, "%s:pipe(%d): pending res calc\n",
 			__func__, pipeline->id);
 		return ret;
 	}
-
-	dev_dbg(dev,
-		"%s:pipe(%d):streaming(%d), feature_pending(0x%x), raw_res.feature(0x%x), feature_active(0x%x)\n",
-		__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-		pipeline->feature_pending, pipeline->user_res.raw_res.feature,
-		pipeline->feature_active);
 
 	ret = mtk_cam_res_copy_fmt_from_user(pipeline, res_user, &sink_fmt);
 	if (ret)
@@ -610,7 +609,8 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 
 	pipeline->res_config.sink_fmt = sink_fmt;
 	ret = mtk_cam_raw_try_res_ctrl(pipeline, res_user,
-				       &pipeline->res_config, &sink_fmt);
+				       &pipeline->res_config, &sink_fmt,
+				       "s_ctrl", true);
 
 	if (ret)
 		return -EINVAL;
@@ -645,20 +645,8 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 	case V4L2_CID_MTK_CAM_FRZ_LIMIT:
 		res_cfg->frz_limit = ctrl->val;
 		break;
-	case V4L2_CID_MTK_CAM_RESOURCE_PLAN_POLICY:
-		res_cfg->res_plan = ctrl->val;
-		break;
 	case V4L2_CID_MTK_CAM_RAW_PATH_SELECT:
 		res_cfg->raw_path = ctrl->val;
-		break;
-	case V4L2_CID_HBLANK:
-		res_cfg->hblank = ctrl->val;
-		break;
-	case V4L2_CID_VBLANK:
-		res_cfg->vblank = ctrl->val;
-		break;
-	case V4L2_CID_MTK_CAM_PIXEL_RATE:
-		res_cfg->sensor_pixel_rate = *ctrl->p_new.p_s64;
 		break;
 	case V4L2_CID_MTK_CAM_SYNC_ID:
 		pipeline->sync_id = *ctrl->p_new.p_s64;
@@ -696,7 +684,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC:
 		res_user = (struct mtk_cam_resource *)ctrl->p_new.p;
-		ret = mtk_cam_raw_res_store(pipeline, res_user);
+		ret = mtk_cam_raw_res_store(pipeline, res_user, "try_ctrl", false);
 		if (ret)
 			break;
 
@@ -710,21 +698,9 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 			break;
 		}
 
-		dev_dbg(dev, "%s:pipe(%d): res ctrl start\n", __func__,
-			pipeline->id);
 		ret = mtk_cam_raw_try_res_ctrl(pipeline, res_user, &res_cfg,
-					       &res_cfg.sink_fmt);
-		if (ret)
-			break;
-
-		dev_dbg(dev,
-				"%s:pipe(%d):streaming(%d), feature_pending(0x%x), feature_active(0x%x)\n",
-				__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-				pipeline->feature_pending, pipeline->feature_active);
-
-		dev_dbg(dev, "%s:pipe(%d): res ctrl end\n", __func__,
-			pipeline->id);
-			break;
+					       &res_cfg.sink_fmt, "try_ctrl", false);
+		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
 		dev_info(dev,
 			 "%s:pipe(%d): skip V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE: %d\n",
@@ -738,13 +714,15 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
 	case V4L2_CID_MTK_CAM_FEATURE:
 	case V4L2_CID_MTK_CAM_CAMSYS_HW_MODE:
+	case V4L2_CID_MTK_CAM_USED_ENGINE_LIMIT:
+	case V4L2_CID_MTK_CAM_BIN_LIMIT:
+	case V4L2_CID_MTK_CAM_FRZ_LIMIT:
+	case V4L2_CID_MTK_CAM_RAW_PATH_SELECT:
+	case V4L2_CID_MTK_CAM_SYNC_ID:
+	case V4L2_CID_MTK_CAM_HSF_EN:
 		ret = 0;
 		break;
 	default:
-		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
-					   ctrl,
-					   &pipeline->try_res_config,
-					   pipeline->id);
 		break;
 	}
 
@@ -1016,28 +994,6 @@ static const struct v4l2_ctrl_config frz_try = {
 	.max = 100,
 	.step = 1,
 	.def = 100,
-};
-
-static const struct v4l2_ctrl_config res_plan_policy = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_RESOURCE_PLAN_POLICY,
-	.name = "Resource planning policy",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 0,
-	.max = 10,
-	.step = 1,
-	.def = 1,
-};
-
-static const struct v4l2_ctrl_config res_pixel_rate = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_PIXEL_RATE,
-	.name = "Resource pixel rate",
-	.type = V4L2_CTRL_TYPE_INTEGER64,
-	.min = 0,
-	.max = 0xFFFFFFFF,
-	.step = 1,
-	.def = 0,
 };
 
 static const struct v4l2_ctrl_config frame_sync_id = {
@@ -2085,10 +2041,10 @@ static bool is_cbn_en(int bin_flag)
 	}
 }
 
-static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
-				  struct mtk_cam_resource_config *res,
-				  s64 pixel_rate, int res_plan,
-				  int in_w, int in_h, int *out_w, int *out_h)
+bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
+			   struct mtk_cam_resource_config *res,
+			   s64 pixel_rate, int res_plan,
+			   int in_w, int in_h, int *out_w, int *out_h)
 {
 	struct mtk_camsys_dvfs *clk = &cam->camsys_ctrl.dvfs_info;
 	u64 eq_throughput = clk->clklv[0];
@@ -4012,11 +3968,10 @@ mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 	struct mtk_raw *raw = pipe->raw;
 
 	if (v4l2_frame_interval_which(interval) == V4L2_SUBDEV_FORMAT_TRY) {
-		dev_dbg(raw->cam_dev, "%s:pipe(%d):try res: fps = %d/%d",
+		dev_dbg(raw->cam_dev, "%s:pipe(%d):try res: fps = %d/%d, not used\n",
 			__func__, pipe->id,
 			interval->interval.numerator,
 			interval->interval.denominator);
-		pipe->try_res_config.interval = interval->interval;
 	} else {
 		dev_dbg(raw->cam_dev, "%s:pipe(%d):current res: fps = %d/%d",
 			__func__, pipe->id,
@@ -5641,7 +5596,6 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 		return;
 	}
 	mutex_init(&pipe->res_config.resource_lock);
-	mutex_init(&pipe->try_res_config.resource_lock);
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hwn_limit, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
@@ -5675,10 +5629,6 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &bin_try, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	v4l2_ctrl_new_custom(ctrl_hdlr, &res_plan_policy, NULL);
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &res_pixel_rate, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frame_sync_id, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
@@ -5687,11 +5637,6 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
-
-	v4l2_ctrl_new_std(ctrl_hdlr, &cam_ctrl_ops,
-				    V4L2_CID_HBLANK, 0, 65535, 1, 0);
-	v4l2_ctrl_new_std(ctrl_hdlr, &cam_ctrl_ops,
-				    V4L2_CID_VBLANK, 0, 65535, 1, 0);
 
 	// PDE
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
@@ -5725,7 +5670,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->res_config.hwn_limit_max = hwn_limit.def;
 	pipe->res_config.frz_limit = frz_limit.def;
 	pipe->res_config.bin_limit = bin_limit.def;
-	pipe->res_config.res_plan = res_plan_policy.def;
+	pipe->res_config.res_plan = 1;
 	pipe->feature_pending = mtk_feature.def;
 	pipe->sync_id = frame_sync_id.def;
 	pipe->sensor_mode_update = cfg_res_update.def;

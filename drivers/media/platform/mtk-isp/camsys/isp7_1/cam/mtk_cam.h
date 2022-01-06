@@ -293,6 +293,7 @@ struct mtk_cam_frame_sync {
 
 struct mtk_cam_req_raw_pipe_data {
 	struct mtk_cam_resource res;
+	struct mtk_cam_resource_config res_config;
 	struct mtk_raw_stagger_select stagger_select;
 	int enabled_raw;
 };

@@ -256,7 +256,6 @@ struct mtk_raw_pipeline {
 	/* TODO: merge or integrate with mtk_cam_resource_config */
 	struct mtk_cam_resource user_res;
 	struct mtk_cam_resource_config res_config;
-	struct mtk_cam_resource_config try_res_config;
 	int sensor_mode_update;
 	s64 sync_id;
 	/* mstream */
@@ -428,7 +427,8 @@ int
 mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 struct mtk_cam_resource *res_user,
 			 struct mtk_cam_resource_config *res_cfg,
-			 struct v4l2_mbus_framefmt *sink_fmt);
+			 struct v4l2_mbus_framefmt *sink_fmt,
+			 char *dbg_str, bool log);
 int
 mtk_cam_res_copy_fmt_from_user(struct mtk_raw_pipeline *pipeline,
 			       struct mtk_cam_resource *res_user,
@@ -439,6 +439,10 @@ mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 			     struct mtk_cam_resource *res_user,
 			     struct v4l2_mbus_framefmt *src);
 
+bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
+			   struct mtk_cam_resource_config *res,
+			   s64 pixel_rate, int res_plan,
+			   int in_w, int in_h, int *out_w, int *out_h);
 
 #ifdef CAMSYS_TF_DUMP_71_1
 int

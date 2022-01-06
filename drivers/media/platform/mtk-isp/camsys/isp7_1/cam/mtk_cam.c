@@ -1973,15 +1973,101 @@ static void mtk_cam_req_set_sv_vfmt(struct mtk_cam_device *cam,
 	}
 }
 
+static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
+				    struct mtk_cam_resource_config *res_cfg,
+				    struct mtk_cam_resource *res_user,
+				    struct v4l2_mbus_framefmt *sink_fmt,
+				    int pipe_id)
+{
+	s64 prate = 0;
+	int width, height;
+
+	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
+	res_cfg->frz_limit = 0;
+	res_cfg->hwn_limit_max = res_user->raw_res.raw_max;
+	res_cfg->hwn_limit_min = res_user->raw_res.raw_min;
+	res_cfg->hblank = res_user->sensor_res.hblank;
+	res_cfg->vblank = res_user->sensor_res.vblank;
+	res_cfg->sensor_pixel_rate = res_user->sensor_res.pixel_rate;
+	res_cfg->res_plan = res_user->raw_res.strategy;
+	res_cfg->raw_feature = res_user->raw_res.feature;
+	res_cfg->raw_path = res_user->raw_res.path_sel;
+
+	if (res_user->sensor_res.cust_pixel_rate)
+		prate = res_user->sensor_res.cust_pixel_rate;
+	else
+		prate = mtk_cam_seninf_calc_pixelrate
+						(cam->dev, sink_fmt->width,
+						 sink_fmt->height,
+						 res_user->sensor_res.hblank,
+						 res_user->sensor_res.vblank,
+						 res_user->sensor_res.interval.denominator,
+						 res_user->sensor_res.interval.numerator,
+						 res_user->sensor_res.pixel_rate);
+	/*worst case throughput prepare for stagger dynamic switch exposure num*/
+	if (mtk_cam_feature_is_stagger(res_cfg->raw_feature)) {
+		if (mtk_cam_feature_is_2_exposure(res_cfg->raw_feature)) {
+			dev_info(cam->dev,
+				 "%s:pipe(%d): worst case stagger 2exp prate (0x%x):%lld->%lld\n",
+				 __func__, pipe_id, res_cfg->raw_feature,
+				 prate, prate * 2);
+			prate = 2 * prate;
+		} else if (mtk_cam_feature_is_3_exposure(res_cfg->raw_feature)) {
+			dev_info(cam->dev,
+				 "%s:pipe(%d): worst case stagger 3exp prate (0x%x):%lld->%lld\n",
+				 __func__, pipe_id, res_cfg->raw_feature,
+				 prate, prate * 3);
+			prate = 3 * prate;
+		}
+	}
+
+	mtk_raw_resource_calc(cam, res_cfg, prate, res_cfg->res_plan, sink_fmt->width,
+			      sink_fmt->height, &width, &height);
+
+	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
+		dev_info(cam->dev,
+			 "%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
+			 __func__, pipe_id, res_user->raw_res.bin,
+			 res_cfg->bin_enable);
+		return -EINVAL;
+	}
+
+	if (res_cfg->raw_num_used > res_user->raw_res.raw_max ||
+	    res_cfg->raw_num_used < res_user->raw_res.raw_min) {
+		dev_info(cam->dev,
+			 "%s:pipe(%d): res calc failed on raw used: user(%d/%d)/raw_num_used(%d)\n",
+			 __func__, pipe_id, res_user->raw_res.raw_max,
+			 res_user->raw_res.raw_min, res_cfg->raw_num_used);
+		return -EINVAL;
+	}
+
+	res_user->raw_res.pixel_mode = res_cfg->tgo_pxl_mode;
+	res_user->raw_res.raw_used = res_cfg->raw_num_used;
+	if (res_cfg->bin_limit == BIN_AUTO)
+		res_user->raw_res.bin = res_cfg->bin_enable;
+	else
+		res_user->raw_res.bin = res_cfg->bin_limit;
+
+	dev_info(cam->dev,
+		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)\n",
+		 __func__, pipe_id, res_user->raw_res.raw_used,
+		 res_user->raw_res.bin, res_user->raw_res.pixel_mode,
+		 res_user->raw_res.strategy);
+
+	return 0;
+}
+
 static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 			       struct mtk_cam_request *req)
 {
 	int pipe_id;
 	int pad;
 	struct mtk_cam_request_stream_data *stream_data;
+	struct mtk_cam_req_raw_pipe_data *raw_pipe_data;
 	struct v4l2_subdev *sd;
 	struct mtk_raw_pipeline *raw_pipeline;
 	struct mtk_camsv_pipeline *sv_pipeline;
+	struct v4l2_mbus_framefmt *sink_fmt;
 	int w, h;
 
 	dev_dbg(cam->dev, "%s:%s\n", __func__, req->req.debug_str);
@@ -2053,6 +2139,25 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 							raw_pipeline->cfg[pad].mbus_fmt;
 					}
 				}
+
+				raw_pipe_data =
+					mtk_cam_s_data_get_raw_pipe_data(stream_data);
+				if (raw_pipe_data) {
+					if (req->ctx_link_update & (1 << pipe_id)) {
+						sink_fmt =
+							&stream_data->pad_fmt[MTK_RAW_SINK].format;
+						mtk_cam_calc_pending_res(cam,
+									 &raw_pipeline->res_config,
+									 &raw_pipe_data->res,
+									 sink_fmt,
+									 pipe_id);
+					}
+					raw_pipe_data->res_config = raw_pipeline->res_config;
+				} else {
+					dev_info(cam->dev, "%s:no raw_pipe_data found!\n",
+						 __func__);
+				}
+
 			} else if (is_camsv_subdev(pipe_id)) {
 				stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
 				sv_pipeline =
@@ -5404,6 +5509,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 {
 	struct mtk_cam_request *req;
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
+	struct mtk_cam_resource_config *res_config;
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
 	struct device *dev;
@@ -5435,12 +5541,13 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 	}
 
 	feature = s_raw_pipe_data->res.raw_res.feature;
+	res_config = &s_raw_pipe_data->res_config;
 
 	memset(&config_param, 0, sizeof(config_param));
 
 	/* Update cfg_in_param */
 	cfg_in_param = &config_param.input;
-	cfg_in_param->pixel_mode = ctx->pipe->res_config.tgo_pxl_mode;
+	cfg_in_param->pixel_mode = res_config->tgo_pxl_mode;
 	cfg_in_param->subsample = mtk_cam_get_subsample_ratio(
 					ctx->pipe->feature_active);
 	/* TODO: data pattern from meta buffer per frame setting */
