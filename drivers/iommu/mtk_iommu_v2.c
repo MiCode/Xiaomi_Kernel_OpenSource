@@ -4563,10 +4563,11 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	if (total_iommu_cnt == 1)
 		register_pg_callback(&mtk_iommu_pg_handle);
 
+#ifndef CONFIG_MACH_MT6893
 	ret = mtk_iommu_power_switch(data, false, "iommu_probe");
 	if (ret)
 		pr_notice("%s, failed to power switch off\n", __func__);
-
+#endif
 #endif
 
 	pr_notice("%s-, %d,total=%d,m4u%d,base=0x%lx,protect=0x%pa\n",
