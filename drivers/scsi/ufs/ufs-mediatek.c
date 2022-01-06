@@ -1903,14 +1903,14 @@ static bool ufs_mtk_has_vcc_always_on(struct ufs_hba *hba) {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	return (host && host->cfg
-		&& (host->cfg->quirks | UFS_MTK_HOST_QUIRK_UFS_VCC_ALWAYS_ON));
+		&& (host->cfg->quirks & UFS_MTK_HOST_QUIRK_UFS_VCC_ALWAYS_ON));
 }
 
 static bool ufs_mtk_has_ufshci_perf_heuristic(struct ufs_hba *hba) {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	return (host && host->cfg
-		&& (host->cfg->quirks | UFS_MTK_HOST_QUIRK_UFS_HCI_PERF_HEURISTIC));
+		&& (host->cfg->quirks & UFS_MTK_HOST_QUIRK_UFS_HCI_PERF_HEURISTIC));
 }
 
 /**
