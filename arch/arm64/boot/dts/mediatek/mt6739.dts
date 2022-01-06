@@ -11,6 +11,7 @@
 #include <dt-bindings/gce/mt6739-gce.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/mfd/mt6357-irq.h>
+#include <dt-bindings/phy/phy.h>
 #include <generated/autoconf.h>
 
 / {
@@ -1502,7 +1503,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	usb0@11200000 {
+	usb: usb0@11200000 {
 		compatible = "mediatek,mt6739-usb20";
 		reg = <0 0x11200000 0 0x10000>,
 		      <0 0x11CC0000 0 0x10000>;
@@ -1516,6 +1517,26 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		clock-names = "usb0",
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll3_d4";
+		interrupt-names = "mc";
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		dr_mode = "otg";
+		usb-role-switch;
+	};
+
+	u2phy0: usb-phy@11cc0000 {
+		compatible = "mediatek,generic-tphy-v1";
+		reg = <0 0x11cc0000 0 0x800>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		status = "okay";
+		u2port0: usb-phy@11cc0000 {
+			reg = <0 0x11cc0800 0 0x100>;
+			clocks = <&clk26m>;
+			clock-names = "ref";
+			#phy-cells = <1>;
+			status = "okay";
+		};
 	};
 
 	pmic_codec: pmic_codec {
@@ -2302,6 +2323,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		recharge_offset = <150000>;
 		topoff_voltage = <4200000>;
 		chg_full_current = <150000>;
+	};
+
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+		dev-conn = <&usb>;
 	};
 
 	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
