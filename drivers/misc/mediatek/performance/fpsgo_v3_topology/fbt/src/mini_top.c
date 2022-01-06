@@ -22,6 +22,7 @@
 #include "fstb.h"
 #include "xgf.h"
 #include "mini_top.h"
+#include "sched/sched.h"
 
 
 /* 32 ms based */
@@ -49,6 +50,14 @@ static DEFINE_SPINLOCK(minitop_mwlock);
 static LIST_HEAD(minitop_mws);
 static struct minitop_work mwa[3];
 
+static unsigned long long last_queue_ts;
+static int __minitop_active;
+static struct hrtimer hrt;
+static struct workqueue_struct *wq;
+static void mini_top_stats(struct work_struct *work);
+static DECLARE_WORK(minitop_stats_work,
+		(void *) mini_top_stats);
+static DEFINE_MUTEX(minitop_qlock);
 
 static void minitop_trace(const char *fmt, ...)
 {
@@ -603,6 +612,86 @@ void fpsgo_sched_nominate(pid_t *tid, int *util)
 		minitop_put_work(mw);
 }
 
+static enum hrtimer_restart mt_mini_top(struct hrtimer *timer)
+{
+	if (wq)
+		queue_work(wq, &minitop_stats_work);
+
+	return HRTIMER_NORESTART;
+}
+
+void getMaxTaskUtil(int tasks[], int utils[])
+{
+	int cpu;
+	struct task_struct *p;
+	unsigned long task_util;
+	unsigned long flags;
+	unsigned long min_utils = 0;
+
+	for_each_possible_cpu(cpu) {
+
+		raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
+		utils[cpu] = 0;
+		min_utils = 0;
+		list_for_each_entry(p, &cpu_rq(cpu)->cfs_tasks, se.group_node) {
+			task_util  = p->se.avg.util_avg;
+			if (min_utils < task_util) {
+				utils[cpu] = task_util;
+				tasks[cpu] = p->pid;
+				min_utils = task_util;
+			}
+		}
+		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
+	}
+}
+
+static void enable_mini_top_timer(void)
+{
+	ktime_t ktime;
+
+	ktime = ktime_set(0,
+			32 * 1000000);
+	hrtimer_start(&hrt, ktime, HRTIMER_MODE_REL);
+}
+
+static void mini_top_stats(struct work_struct *work)
+{
+	pid_t *tasks;
+	int *utils;
+	unsigned long long cur_ts;
+
+	tasks = kcalloc(nr_cpus, sizeof(*tasks), GFP_KERNEL);
+	utils = kcalloc(nr_cpus, sizeof(*utils), GFP_KERNEL);
+
+	getMaxTaskUtil(tasks, utils);
+
+	fpsgo_sched_nominate(tasks, utils);
+
+	kfree(tasks);
+	kfree(utils);
+
+	cur_ts = fpsgo_get_time();
+
+	mutex_lock(&minitop_qlock);
+	if (cur_ts < last_queue_ts + 1000000000ULL)
+		enable_mini_top_timer();
+	else
+		__minitop_active = 0;
+	mutex_unlock(&minitop_qlock);
+}
+
+void fpsgo_comp2minitop_queue_update(unsigned long long ts)
+{
+	mutex_lock(&minitop_qlock);
+	last_queue_ts = ts;
+
+	if (!__minitop_active) {
+		__minitop_active = 1;
+		enable_mini_top_timer();
+	}
+	mutex_unlock(&minitop_qlock);
+}
+
 /**
  * FBT (Frame Budget Tunner) supports
  */
@@ -978,6 +1067,12 @@ int __init minitop_init(void)
 		fpsgo_sysfs_create_file(minitop_kobj, &kobj_attr_enable);
 	}
 
+	wq = create_singlethread_workqueue("mt_mini_top");
+	if (!wq)
+		goto err;
+
+	hrtimer_init(&hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrt.function = &mt_mini_top;
 
 	/* once everything is ready, hook into scheduler */
 #ifdef CONFIG_MTK_SCHED_RQAVG_KS
@@ -985,5 +1080,6 @@ int __init minitop_init(void)
 #endif
 
 	atomic_set(&__minitop_enable, 1);
+err:
 	return 0;
 }

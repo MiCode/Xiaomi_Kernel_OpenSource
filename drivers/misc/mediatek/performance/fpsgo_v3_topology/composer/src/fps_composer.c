@@ -25,6 +25,7 @@
 #include "fstb.h"
 #include "xgf.h"
 #include "uboost.h"
+#include "mini_top.h"
 
 #if defined(CONFIG_MTK_GBE)
 #include "gbe2.h"
@@ -368,6 +369,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 		fpsgo_comp2fstb_enq_end(f_render->pid,
 			f_render->buffer_id,
 			f_render->enqueue_length);
+		fpsgo_comp2minitop_queue_update(enqueue_end_time);
 #if defined(CONFIG_MTK_GBE)
 		fpsgo_comp2gbe_frame_update(f_render->pid, f_render->buffer_id);
 #endif
