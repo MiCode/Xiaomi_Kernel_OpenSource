@@ -3687,11 +3687,15 @@ void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper)
  */
 void kmsg_dump_rewind(struct kmsg_dumper *dumper)
 {
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	kmsg_dump_rewind_nolock(dumper);
+#else
 	unsigned long flags;
 
 	logbuf_lock_irqsave(flags);
 	kmsg_dump_rewind_nolock(dumper);
 	logbuf_unlock_irqrestore(flags);
+#endif
 }
 EXPORT_SYMBOL_GPL(kmsg_dump_rewind);
 
