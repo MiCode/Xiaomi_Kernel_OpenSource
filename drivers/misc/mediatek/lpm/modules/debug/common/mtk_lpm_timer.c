@@ -12,10 +12,7 @@
 static void mtk_lpm_timer_tm_func(struct timer_list *t)
 {
 	int ret = -EINVAL;
-	struct mt_lpm_timer *timer = NULL;
-
-	from_timer(timer, t, tm);
-
+	struct mt_lpm_timer *timer = from_timer(timer, t, tm);
 	if (timer && timer->timeout) {
 		unsigned long dur = jiffies - timer->cur;
 
@@ -44,7 +41,7 @@ int mtk_lpm_timer_init(struct mt_lpm_timer *timer, int type)
 {
 	if (!timer)
 		return -EINVAL;
-	__init_timer((&timer->tm), mtk_lpm_timer_tm_func,
+	timer_setup(&timer->tm, mtk_lpm_timer_tm_func,
 		     TIMER_DEFERRABLE);
 	timer->interval = 0;
 	timer->type = type;
