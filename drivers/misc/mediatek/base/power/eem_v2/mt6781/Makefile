@@ -39,7 +39,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/mt6781
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6781v1_64_mcl)
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6781v1_64_mcl_k419)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 

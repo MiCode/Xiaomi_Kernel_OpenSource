@@ -39,19 +39,19 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)/
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_mcl)
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_mcl_k419)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_77t_mcl)
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_77t_mcl_k419)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_120hz_vdo_dphy_mcl)
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_120hz_vdo_dphy_mcl_k419)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_6gb_mcl)
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6877v1_64_6gb_mcl_k419)
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
