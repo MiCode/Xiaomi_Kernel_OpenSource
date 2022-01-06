@@ -124,6 +124,9 @@ static inline void __free_hyp_memcache(struct kvm_hyp_memcache *mc,
 		free_fn(pop_hyp_memcache(mc, to_va), arg);
 }
 
+void free_hyp_memcache(struct kvm_hyp_memcache *mc);
+int topup_hyp_memcache(struct kvm_vcpu *vcpu);
+
 struct kvm_vmid {
 	/* The VMID generation used for the virt. memory system */
 	u64    vmid_gen;
