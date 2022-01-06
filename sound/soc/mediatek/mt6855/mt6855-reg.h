@@ -1596,6 +1596,32 @@ enum {
 #define VUL6_HD_MODE_MASK                              0x3
 #define VUL6_HD_MODE_MASK_SFT                          (0x3 << 0)
 
+/* AFE_VUL7_CON0 */
+#define VUL7_MODE_SFT                                  24
+#define VUL7_MODE_MASK                                 0xf
+#define VUL7_MODE_MASK_SFT                             (0xf << 24)
+#define VUL7_SW_CLEAR_BUF_FULL_SFT                     15
+#define VUL7_SW_CLEAR_BUF_FULL_MASK                    0x1
+#define VUL7_SW_CLEAR_BUF_FULL_MASK_SFT                (0x1 << 15)
+#define VUL7_R_MONO_SFT                                9
+#define VUL7_R_MONO_MASK                               0x1
+#define VUL7_R_MONO_MASK_SFT                           (0x1 << 9)
+#define VUL7_MONO_SFT                                  8
+#define VUL7_MONO_MASK                                 0x1
+#define VUL7_MONO_MASK_SFT                             (0x1 << 8)
+#define VUL7_WR_SIGN_SFT                               6
+#define VUL7_WR_SIGN_MASK                              0x1
+#define VUL7_WR_SIGN_MASK_SFT                          (0x1 << 6)
+#define VUL7_NORMAL_MODE_SFT                           5
+#define VUL7_NORMAL_MODE_MASK                          0x1
+#define VUL7_NORMAL_MODE_MASK_SFT                      (0x1 << 5)
+#define VUL7_HALIGN_SFT                                4
+#define VUL7_HALIGN_MASK                               0x1
+#define VUL7_HALIGN_MASK_SFT                           (0x1 << 4)
+#define VUL7_HD_MODE_SFT                               0
+#define VUL7_HD_MODE_MASK                              0x3
+#define VUL7_HD_MODE_MASK_SFT                          (0x3 << 0)
+
 /* AFE_VUL7_2_CON0 */
 #define VUL7_2_MODE_SFT                                24
 #define VUL7_2_MODE_MASK                               0xf
