@@ -875,6 +875,7 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, true);
 	platform_set_drvdata(pdev, priv);
 	priv->vbat0_ws = wakeup_source_register(&pdev->dev, "vbat0_ws");
+	lockdep_register_key(&priv->info_exist_key);
 	lockdep_set_class(&indio_dev->info_exist_lock, &priv->info_exist_key);
 
 	ret = mt6375_auxadc_parse_dt(priv);
@@ -931,6 +932,7 @@ static int mt6375_auxadc_remove(struct platform_device *pdev)
 {
 	struct mt6375_priv *priv = platform_get_drvdata(pdev);
 
+	lockdep_unregister_key(&priv->info_exist_key);
 	auxadc_del_irq_chip(priv);
 	return 0;
 }
