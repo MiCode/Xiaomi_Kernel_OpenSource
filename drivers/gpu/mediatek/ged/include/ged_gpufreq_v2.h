@@ -31,7 +31,7 @@ unsigned int ged_get_cur_limiter_floor(void);
 int ged_set_limit_ceil(int limiter, int ceil);
 int ged_set_limit_floor(int limiter, int floor);
 
-int ged_gpufreq_commit(int oppidx, int commit_type);
+int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited);
 
 unsigned int ged_gpufreq_bringup(void);
 void ged_gpufreq_print_tables(void);

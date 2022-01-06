@@ -348,7 +348,7 @@ int ged_set_limit_floor(int limiter, int floor)
 			LIMIT_FPSGO, GPUPPM_KEEP_IDX, floor);
 }
 
-int ged_gpufreq_commit(int oppidx, int commit_type)
+int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 {
 	int ret = GED_OK;
 	int oppidx_tar = 0;
@@ -400,7 +400,7 @@ int ged_gpufreq_commit(int oppidx, int commit_type)
 			mtk_gpueb_dvfs_dcs_commit(oppidx_tar, commit_type,
 				 g_virtual_table[oppidx].freq);
 		else
-			gpufreq_commit(TARGET_DEFAULT, oppidx_tar);
+			ged_dvfs_gpu_freq_commit_fp(TARGET_DEFAULT, oppidx_tar, bCommited);
 
 		dcs_set_core_mask(core_mask_tar, core_num_tar);
 	}
@@ -413,7 +413,7 @@ int ged_gpufreq_commit(int oppidx, int commit_type)
 		if (ged_is_fdvfs_support())
 			mtk_gpueb_dvfs_dcs_commit(oppidx, commit_type, freq);
 		else
-			gpufreq_commit(TARGET_DEFAULT, oppidx);
+			ged_dvfs_gpu_freq_commit_fp(oppidx, commit_type, bCommited);
 	}
 
 	/* TODO: return value handling */
