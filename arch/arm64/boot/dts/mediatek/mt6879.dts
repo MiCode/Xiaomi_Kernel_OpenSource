@@ -3751,7 +3751,7 @@
 			emi-size = <0x100000>;
 			emi-alignment = <0x100000>;
 			emi-max-addr = <0x80000000>;
-			b13b14-status-addr = <0x1c000000>;
+			b13b14-status-addr = <0x1c000008>;
 		};
 
 		watchdog: watchdog@1c007000 {
