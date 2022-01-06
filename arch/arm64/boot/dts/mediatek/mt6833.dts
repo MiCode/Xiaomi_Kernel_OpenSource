@@ -448,6 +448,52 @@
 		compatible = "mediatek,mt6833-scpsys", "syscon";
 		reg = <0 0x10006000 0 0x1000>;
 		#power-domain-cells = <1>;
+		clocks = <&topckgen_clk CLK_TOP_MFG_REF_SEL>,
+			<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
+			<&topckgen_clk CLK_TOP_IMG1_SEL>,
+			<&topckgen_clk CLK_TOP_IMG2_SEL>,
+			<&topckgen_clk CLK_TOP_IPE_SEL>,
+			<&topckgen_clk CLK_TOP_VDEC_SEL>,
+			<&topckgen_clk CLK_TOP_VENC_SEL>,
+			<&topckgen_clk CLK_TOP_MDP_SEL>,
+			<&topckgen_clk CLK_TOP_DISP_SEL>,
+			<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
+			<&topckgen_clk CLK_TOP_ADSP_SEL>,
+			<&topckgen_clk CLK_TOP_CAM_SEL>,
+			<&imgsys1_clk CLK_IMGSYS1_GALS>,
+			<&imgsys1_clk CLK_IMGSYS1_LARB9>,
+			<&imgsys2_clk CLK_IMGSYS2_GALS>,
+			<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+			<&imgsys2_clk CLK_IMGSYS2_LARB10>,
+			<&ipesys_clk CLK_IPE_SMI_SUBCOM>,
+			<&ipesys_clk CLK_IPE_GALS>,
+			<&ipesys_clk CLK_IPE_LARB19>,
+			<&ipesys_clk CLK_IPE_LARB20>,
+			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
+			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
+			<&venc_gcon_clk CLK_VEN1_CKE1_VENC>,
+			<&mdpsys_config_clk CLK_MDP_SMI0>,
+			<&dispsys_config_clk CLK_MM_SMI_INFRA>,
+			<&dispsys_config_clk CLK_MM_SMI_COMMON>,
+			<&dispsys_config_clk CLK_MM_SMI_GALS>,
+			<&dispsys_config_clk CLK_MM_SMI_IOMMU>,
+			<&infracfg_ao_clk CLK_IFRAO_AUDIO_26M_BCLK>,
+			<&infracfg_ao_clk CLK_IFRAO_AUDIO>,
+			<&camsys_main_clk CLK_CAM_M_LARB13>,
+			<&camsys_main_clk CLK_CAM_M_LARB14>,
+			<&camsys_main_clk CLK_CAM_M_CCU_GALS>,
+			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
+			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
+			<&camsys_rawb_clk CLK_CAM_RB_LARBX>;
+		clock-names = "mfg1", "mfg2", "isp", "isp2", "ipe",
+			"vdec", "venc", "mdp", "disp",
+			"audio", "adsp", "cam", "isp-0",
+			"isp-1", "isp2-0", "isp2-1", "isp2-2",
+			"ipe-0", "ipe-1", "ipe-2", "ipe-3",
+			"vdec-0", "vdec-1", "venc-0", "disp_lp-0",
+			"disp-0", "disp-1", "disp-2", "disp-3",
+			"audio-0", "audio-1", "cam-0", "cam-1",
+			"cam-2", "cam-3", "cam_rawa-0", "cam_rawb-0";
 		infracfg = <&infracfg_ao_clk>;
 	};
 
@@ -1454,8 +1500,8 @@
 		clocks =
 			<&infracfg_ao_clk CLK_IFRAO_UFS>,
 			<&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_U_SAP_BCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_U_AES>,
+			<&infracfg_ao_clk CLK_IFRAO_UFS_SAP_BCLK>,
+			<&infracfg_ao_clk CLK_IFRAO_UFS_AES>,
 			<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_D6>,
 			<&topckgen_clk CLK_TOP_MAINPLL_D4>;

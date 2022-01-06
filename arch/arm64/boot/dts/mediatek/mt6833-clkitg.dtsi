@@ -9,76 +9,6 @@
 	bring-up {
 		compatible = "mediatek,clk-bring-up";
 		clocks =
-			<&topckgen_clk CLK_TOP_SCP_SEL>,
-			<&topckgen_clk CLK_TOP_DISP_SEL>,
-			<&topckgen_clk CLK_TOP_MDP_SEL>,
-			<&topckgen_clk CLK_TOP_IMG1_SEL>,
-			<&topckgen_clk CLK_TOP_IMG2_SEL>,
-			<&topckgen_clk CLK_TOP_IPE_SEL>,
-			<&topckgen_clk CLK_TOP_DPE_SEL>,
-			<&topckgen_clk CLK_TOP_CAM_SEL>,
-			<&topckgen_clk CLK_TOP_CCU_SEL>,
-			<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
-			<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG2_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG5_SEL>,
-			<&topckgen_clk CLK_TOP_UART_SEL>,
-			<&topckgen_clk CLK_TOP_SPI_SEL>,
-			<&topckgen_clk CLK_TOP_MSDC50_0_HCLK_SEL>,
-			<&topckgen_clk CLK_TOP_MSDC50_0_SEL>,
-			<&topckgen_clk CLK_TOP_MSDC30_1_SEL>,
-			<&topckgen_clk CLK_TOP_AUDIO_SEL>,
-			<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
-			<&topckgen_clk CLK_TOP_PWRAP_ULPOSC_SEL>,
-			<&topckgen_clk CLK_TOP_ATB_SEL>,
-			<&topckgen_clk CLK_TOP_SCAM_SEL>,
-			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
-			<&topckgen_clk CLK_TOP_USB_TOP_SEL>,
-			<&topckgen_clk CLK_TOP_USB_XHCI_SEL>,
-			<&topckgen_clk CLK_TOP_I2C_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF1_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF2_SEL>,
-			<&topckgen_clk CLK_TOP_AUD_ENGEN1_SEL>,
-			<&topckgen_clk CLK_TOP_AUD_ENGEN2_SEL>,
-			<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
-			<&topckgen_clk CLK_TOP_U_SEL>,
-			<&topckgen_clk CLK_TOP_AUD_1_SEL>,
-			<&topckgen_clk CLK_TOP_AUD_2_SEL>,
-			<&topckgen_clk CLK_TOP_ADSP_SEL>,
-			<&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
-			<&topckgen_clk CLK_TOP_VENC_SEL>,
-			<&topckgen_clk CLK_TOP_VDEC_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
-			<&topckgen_clk CLK_TOP_PWM_SEL>,
-			<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
-			<&topckgen_clk CLK_TOP_AES_MSDCFDE_SEL>,
-			<&topckgen_clk CLK_TOP_SFLASH_SEL>,
-			<&topckgen_clk CLK_TOP_DSI_OCC_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S0_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S1_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S2_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S3_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S4_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S5_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S6_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S7_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S8_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL_I2S9_MCK_SEL>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV0>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV1>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV2>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV3>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV4>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIVB>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV5>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV6>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV7>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV8>,
-			<&topckgen_clk CLK_TOP_APLL12_CK_DIV9>,
 			<&infracfg_ao_clk CLK_IFRAO_PMIC_TMR>,
 			<&infracfg_ao_clk CLK_IFRAO_PMIC_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_GCE>,
@@ -120,12 +50,12 @@
 			<&infracfg_ao_clk CLK_IFRAO_SPI2>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI3>,
 			<&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_U_SAP_BCLK>,
+			<&infracfg_ao_clk CLK_IFRAO_UFS_SAP_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI4>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI5>,
 			<&infracfg_ao_clk CLK_IFRAO_CQ_DMA>,
 			<&infracfg_ao_clk CLK_IFRAO_UFS>,
-			<&infracfg_ao_clk CLK_IFRAO_U_AES>,
+			<&infracfg_ao_clk CLK_IFRAO_UFS_AES>,
 			<&infracfg_ao_clk CLK_IFRAO_USB_XHCI>,
 			<&infracfg_ao_clk CLK_IFRAO_AP_MSDC0>,
 			<&infracfg_ao_clk CLK_IFRAO_MD_MSDC0>,
@@ -155,10 +85,6 @@
 			<&apmixedsys_clk CLK_APMIXED_APLL2>,
 			<&apmixedsys_clk CLK_APMIXED_NPUPLL>,
 			<&apmixedsys_clk CLK_APMIXED_USBPLL>,
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPIC0_26M_EN>,
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPIC1_26M_EN>,
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPID26M_0_EN>,
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPID26M_1_EN>,
 			<&imp_iic_wrap_c_clk CLK_IMPC_I2C10_AP_CLOCK>,
 			<&imp_iic_wrap_c_clk CLK_IMPC_I2C11_AP_CLOCK>,
 			<&imp_iic_wrap_e_clk CLK_IMPE_I2C3_AP_CLOCK>,
@@ -174,116 +100,12 @@
 			<&mfg_top_config_clk CLK_MFGCFG_BG3D>,
 			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
 			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>,
-			<&dispsys_config_clk CLK_MM_DISP_MUTEX0>,
-			<&dispsys_config_clk CLK_MM_APB_BUS>,
-			<&dispsys_config_clk CLK_MM_DISP_OVL0>,
-			<&dispsys_config_clk CLK_MM_DISP_RDMA0>,
-			<&dispsys_config_clk CLK_MM_DISP_OVL0_2L>,
-			<&dispsys_config_clk CLK_MM_DISP_WDMA0>,
-			<&dispsys_config_clk CLK_MM_DISP_RSZ0>,
-			<&dispsys_config_clk CLK_MM_DISP_AAL0>,
-			<&dispsys_config_clk CLK_MM_DISP_CCORR0>,
-			<&dispsys_config_clk CLK_MM_DISP_COLOR0>,
-			<&dispsys_config_clk CLK_MM_SMI_INFRA>,
-			<&dispsys_config_clk CLK_MM_DISP_GAMMA0>,
-			<&dispsys_config_clk CLK_MM_DISP_POSTMASK0>,
-			<&dispsys_config_clk CLK_MM_DISP_DITHER0>,
-			<&dispsys_config_clk CLK_MM_SMI_COMMON>,
-			<&dispsys_config_clk CLK_MM_DSI0>,
-			<&dispsys_config_clk CLK_MM_DISP_FAKE_ENG0>,
-			<&dispsys_config_clk CLK_MM_DISP_FAKE_ENG1>,
-			<&dispsys_config_clk CLK_MM_SMI_GALS>,
-			<&dispsys_config_clk CLK_MM_SMI_IOMMU>,
-			<&dispsys_config_clk CLK_MM_DSI0_DSI_CK_DOMAIN>,
-			<&dispsys_config_clk CLK_MM_DISP_26M>,
-			<&mdpsys_config_clk CLK_MDP_RDMA0>,
-			<&mdpsys_config_clk CLK_MDP_TDSHP0>,
-			<&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC0>,
-			<&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC1>,
-			<&mdpsys_config_clk CLK_MDP_SMI0>,
-			<&mdpsys_config_clk CLK_MDP_APB_BUS>,
-			<&mdpsys_config_clk CLK_MDP_WROT0>,
-			<&mdpsys_config_clk CLK_MDP_RSZ0>,
-			<&mdpsys_config_clk CLK_MDP_HDR0>,
-			<&mdpsys_config_clk CLK_MDP_MUTEX0>,
-			<&mdpsys_config_clk CLK_MDP_WROT1>,
-			<&mdpsys_config_clk CLK_MDP_RSZ1>,
-			<&mdpsys_config_clk CLK_MDP_FAKE_ENG0>,
-			<&mdpsys_config_clk CLK_MDP_AAL0>,
-			<&mdpsys_config_clk CLK_MDP_IMG_DL_RELAY0_ASYNC0>,
-			<&mdpsys_config_clk CLK_MDP_IMG_DL_RELAY1_ASYNC1>,
-			<&imgsys1_clk CLK_IMGSYS1_LARB9>,
-			<&imgsys1_clk CLK_IMGSYS1_LARB10>,
-			<&imgsys1_clk CLK_IMGSYS1_DIP>,
-			<&imgsys1_clk CLK_IMGSYS1_GALS>,
-			<&imgsys2_clk CLK_IMGSYS2_LARB9>,
-			<&imgsys2_clk CLK_IMGSYS2_LARB10>,
-			<&imgsys2_clk CLK_IMGSYS2_MFB>,
-			<&imgsys2_clk CLK_IMGSYS2_WPE>,
-			<&imgsys2_clk CLK_IMGSYS2_MSS>,
-			<&imgsys2_clk CLK_IMGSYS2_GALS>,
-			<&ipesys_clk CLK_IPE_LARB19>,
-			<&ipesys_clk CLK_IPE_LARB20>,
-			<&ipesys_clk CLK_IPE_SMI_SUBCOM>,
-			<&ipesys_clk CLK_IPE_FD>,
-			<&ipesys_clk CLK_IPE_FE>,
-			<&ipesys_clk CLK_IPE_RSC>,
-			<&ipesys_clk CLK_IPE_DPE>,
-			<&ipesys_clk CLK_IPE_GALS>,
-			<&venc_gcon_clk CLK_VEN1_CKE0_LARB>,
-			<&venc_gcon_clk CLK_VEN1_CKE1_VENC>,
-			<&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>,
-			<&venc_gcon_clk CLK_VEN1_CKE5_GALS>,
-			<&afe_clk CLK_AFE_AFE>,
-			<&afe_clk CLK_AFE_22M>,
-			<&afe_clk CLK_AFE_24M>,
-			<&afe_clk CLK_AFE_APLL2_TUNER>,
-			<&afe_clk CLK_AFE_APLL_TUNER>,
-			<&afe_clk CLK_AFE_TDM>,
-			<&afe_clk CLK_AFE_ADC>,
-			<&afe_clk CLK_AFE_DAC>,
-			<&afe_clk CLK_AFE_DAC_PREDIS>,
-			<&afe_clk CLK_AFE_TML>,
-			<&afe_clk CLK_AFE_NLE>,
-			<&afe_clk CLK_AFE_I2S1_BCLK>,
-			<&afe_clk CLK_AFE_I2S2_BCLK>,
-			<&afe_clk CLK_AFE_I2S3_BCLK>,
-			<&afe_clk CLK_AFE_I2S4_BCLK>,
-			<&afe_clk CLK_AFE_CONNSYS_I2S_ASRC>,
-			<&afe_clk CLK_AFE_GENERAL1_ASRC>,
-			<&afe_clk CLK_AFE_GENERAL2_ASRC>,
-			<&afe_clk CLK_AFE_DAC_HIRES>,
-			<&afe_clk CLK_AFE_ADC_HIRES>,
-			<&afe_clk CLK_AFE_ADC_HIRES_TML>,
-			<&afe_clk CLK_AFE_ADDA6_ADC>,
-			<&afe_clk CLK_AFE_ADDA6_ADC_HIRES>,
-			<&afe_clk CLK_AFE_3RD_DAC>,
-			<&afe_clk CLK_AFE_3RD_DAC_PREDIS>,
-			<&afe_clk CLK_AFE_3RD_DAC_TML>,
-			<&afe_clk CLK_AFE_3RD_DAC_HIRES>,
-			<&afe_clk CLK_AFE_I2S5_BCLK>,
-			<&camsys_main_clk CLK_CAM_M_LARB13>,
-			<&camsys_main_clk CLK_CAM_M_DFP_VAD>,
-			<&camsys_main_clk CLK_CAM_M_LARB14>,
-			<&camsys_main_clk CLK_CAM_M_CAM>,
-			<&camsys_main_clk CLK_CAM_M_CAMTG>,
-			<&camsys_main_clk CLK_CAM_M_SENINF>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV1>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV2>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV3>,
-			<&camsys_main_clk CLK_CAM_M_CCU0>,
-			<&camsys_main_clk CLK_CAM_M_CCU1>,
-			<&camsys_main_clk CLK_CAM_M_MRAW0>,
-			<&camsys_main_clk CLK_CAM_M_FAKE_ENG>,
-			<&camsys_main_clk CLK_CAM_M_CCU_GALS>,
-			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
-			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAM>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAMTG>,
-			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAM>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>;
+			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>;
+	};
+
+	bring-up-pd-disp {
+		compatible = "mediatek,scpsys-bring-up";
+		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
 	};
 
 	bring-up-pd-mfg0 {
@@ -304,60 +126,5 @@
 	bring-up-pd-mfg3 {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_MFG3>;
-	};
-
-	bring-up-pd-isp {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_ISP>;
-	};
-
-	bring-up-pd-isp2 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_ISP2>;
-	};
-
-	bring-up-pd-ipe {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_IPE>;
-	};
-
-	bring-up-pd-vdec {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_VDEC>;
-	};
-
-	bring-up-pd-venc {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_VENC>;
-	};
-
-	bring-up-pd-disp {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
-	};
-
-	bring-up-pd-audio {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_AUDIO>;
-	};
-
-	bring-up-pd-cam {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM>;
-	};
-
-	bring-up-pd-cam_rawa {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM_RAWA>;
-	};
-
-	bring-up-pd-cam_rawb {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM_RAWB>;
-	};
-
-	bring-up-pd-apu {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_APU>;
 	};
 };

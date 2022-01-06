@@ -231,15 +231,6 @@
 			<&imp_iic_wrap_c_clk CLK_IMPC_I2C11_AP_CLOCK>;
 	};
 
-	disable-unused-clk-apmixedsys {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPIC0_26M_EN>,
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPIC1_26M_EN>,
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPID26M_0_EN>,
-			<&apmixedsys_clk CLK_APMIXED_PLL_MIPID26M_1_EN>;
-	};
-
 	disable-unused-clk-infracfg_ao {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
@@ -275,6 +266,7 @@
 			<&infracfg_ao_clk CLK_IFRAO_MSDC0_AES>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_DEBUGSYS>,
+			<&infracfg_ao_clk CLK_IFRAO_AUDIO>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_SSUSB>,
 			<&infracfg_ao_clk CLK_IFRAO_DISP_PWM>,
@@ -284,12 +276,12 @@
 			<&infracfg_ao_clk CLK_IFRAO_SPI2>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI3>,
 			<&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_U_SAP_BCLK>,
+			<&infracfg_ao_clk CLK_IFRAO_UFS_SAP_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI4>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI5>,
 			<&infracfg_ao_clk CLK_IFRAO_CQ_DMA>,
 			<&infracfg_ao_clk CLK_IFRAO_UFS>,
-			<&infracfg_ao_clk CLK_IFRAO_U_AES>,
+			<&infracfg_ao_clk CLK_IFRAO_UFS_AES>,
 			<&infracfg_ao_clk CLK_IFRAO_USB_XHCI>,
 			<&infracfg_ao_clk CLK_IFRAO_AP_MSDC0>,
 			<&infracfg_ao_clk CLK_IFRAO_MD_MSDC0>,
@@ -298,6 +290,7 @@
 			<&infracfg_ao_clk CLK_IFRAO_CCIF2_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_FBIST2FPC>,
 			<&infracfg_ao_clk CLK_IFRAO_DPMAIF_MAIN>,
+			<&infracfg_ao_clk CLK_IFRAO_CCIF4_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI6_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI7_CK>,
@@ -361,7 +354,7 @@
 			<&topckgen_clk CLK_TOP_AUD_ENGEN1_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_ENGEN2_SEL>,
 			<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
-			<&topckgen_clk CLK_TOP_U_SEL>,
+			<&topckgen_clk CLK_TOP_UFS_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_1_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_2_SEL>,
 			<&topckgen_clk CLK_TOP_ADSP_SEL>,
