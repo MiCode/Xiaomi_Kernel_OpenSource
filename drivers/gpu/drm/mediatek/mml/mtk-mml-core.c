@@ -403,10 +403,11 @@ static s32 command_reuse(struct mml_task *task, u32 pipe)
 
 static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *data)
 {
-	snprintf(frame, sz, "%u %u (%u %u) C%#010x%s%s%s%s%s%s%s%s P%hu",
+	snprintf(frame, sz, "(%u, %u)[%u %u] %#010x C%u%s%s%s%s%s%s%s P%hu%s",
 		data->width, data->height, data->y_stride,
 		MML_FMT_COMPRESS(data->format) ? data->vert_stride : data->uv_stride,
 		data->format,
+		MML_FMT_HW_FORMAT(data->format),
 		MML_FMT_SWAP(data->format) ? "s" : "",
 		MML_FMT_BLOCK(data->format) ? "b" : "",
 		MML_FMT_INTERLACED(data->format) ? "i" : "",
@@ -416,8 +417,8 @@ static void get_frame_str(char *frame, size_t sz, const struct mml_frame_data *d
 		MML_FMT_10BIT_LOOSE(data->format) ? "l" : "",
 		MML_FMT_10BIT_JUMP(data->format) ? "j" : "",
 		MML_FMT_COMPRESS(data->format) ? "c" : "",
-		data->secure ? " sec" : "",
-		data->profile);
+		data->profile,
+		data->secure ? " sec" : "");
 }
 
 static void dump_inout(struct mml_task *task)
@@ -425,10 +426,11 @@ static void dump_inout(struct mml_task *task)
 	const struct mml_frame_config *cfg = task->config;
 	const struct mml_frame_dest *dest;
 	char frame[60];
-	u32 i;
+	u32 i, sz = 0;
+	s32 ret;
 
 	get_frame_str(frame, sizeof(frame), &cfg->info.src);
-	mml_log("in:%s plane:%hhu%s%s job %u mode %hhu",
+	mml_log("in:%s plane:%hhu%s%s job:%u mode:%hhu",
 		frame,
 		task->buf.src.cnt,
 		task->buf.src.fence ? " fence" : "",
@@ -438,16 +440,16 @@ static void dump_inout(struct mml_task *task)
 	for (i = 0; i < cfg->info.dest_cnt; i++) {
 		dest = &cfg->info.dest[i];
 		get_frame_str(frame, sizeof(frame), &dest->data);
-		mml_log("out %u:%s r:%hu plane:%hhu%s%s%s%s",
+		mml_log("out %u:%s plane:%hhu r:%hu%s%s%s%s",
 			i,
 			frame,
-			dest->rotate,
 			task->buf.dest[i].cnt,
+			dest->rotate,
 			dest->flip ? " flip" : "",
 			task->buf.dest[i].fence ? " fence" : "",
 			task->buf.dest[i].flush ? " flush" : "",
 			task->buf.dest[i].invalid ? " invalid" : "");
-		mml_log("crop %u:%u %u %u %u compose %u %u %u %u",
+		mml_log("crop %u:(%u, %u, %u, %u) compose:(%u, %u, %u, %u)",
 			i,
 			dest->crop.r.left,
 			dest->crop.r.top,
@@ -458,6 +460,24 @@ static void dump_inout(struct mml_task *task)
 			dest->compose.width,
 			dest->compose.height);
 	}
+	for (i = 0; i < ARRAY_SIZE(cfg->dl_out); i++) {
+		if (!cfg->dl_out[i].width && !cfg->dl_out[i].height)
+			continue;
+		ret = snprintf(&frame[sz], sizeof(frame) - sz,
+			" %u:(%u, %u, %u, %u)",
+			i,
+			cfg->dl_out[i].left,
+			cfg->dl_out[i].top,
+			cfg->dl_out[i].width,
+			cfg->dl_out[i].height);
+		if (ret > 0) {
+			sz += ret;
+			if (sz >= sizeof(frame))
+				break;
+		}
+	}
+	if (sz)
+		mml_log("dl%s", frame);
 }
 
 static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
@@ -1061,11 +1081,11 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 	struct mml_task *task = (struct mml_task *)pkt->user_data;
 	u32 pipe;
 
-	if (pkt == task->pkts[0])
+	if (pkt == task->pkts[0]) {
 		pipe = 0;
-	else if (pkt == task->pkts[1])
+	} else if (pkt == task->pkts[1]) {
 		pipe = 1;
-	else {
+	} else {
 		mml_err("%s task %p pkt %p not match both pipe (%p and %p)",
 			__func__, task, pkt, task->pkts[0], task->pkts[1]);
 		return;

@@ -133,7 +133,7 @@ struct mml_sys {
 	struct mml_dle_ctx *dle_ctx;
 	struct mml_dle_param dle_param;
 	/* addon status */
-	bool ddp_connected[MML_PIPE_CNT];
+	const struct mml_topology_path *ddp_path[MML_PIPE_CNT];
 
 	/* racing mode pipe sync event */
 	u16 event_racing_pipe0;
@@ -713,6 +713,7 @@ static void ddp_command_make(struct mml_task *task, u32 pipe,
 	struct mml_comp *comp;
 	u32 i;
 
+	/* borrow task pkt pointer */
 	task->pkts[pipe] = pkt;
 
 	/* call all component init and frame op, include mmlsys and mutex */
@@ -728,6 +729,60 @@ static void ddp_command_make(struct mml_task *task, u32 pipe,
 		comp = path->nodes[i].comp;
 		call_cfg_op(comp, tile, task, &ccfg[i], 0);
 	}
+
+	/* return task pkt pointer */
+	task->pkts[pipe] = NULL;
+}
+
+static void sys_ddp_disable_locked(struct mml_sys *sys, u32 pipe)
+{
+	const struct mml_topology_path *path = sys->ddp_path[pipe];
+	struct mml_comp *comp;
+	u32 i;
+
+	mml_trace_ex_begin("%s_%s_%u", __func__, "clk", pipe);
+	for (i = 0; i < path->node_cnt; i++) {
+		if (i == path->mmlsys_idx || i == path->mutex_idx)
+			continue;
+		comp = path->nodes[i].comp;
+		call_hw_op(comp, clk_disable);
+	}
+
+	if (path->mutex)
+		call_hw_op(path->mutex, clk_disable);
+	if (path->mmlsys)
+		call_hw_op(path->mmlsys, clk_disable);
+	mml_trace_ex_end();
+
+	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_hw_op(comp, pw_disable);
+	}
+	mml_trace_ex_end();
+}
+
+static void sys_ddp_disable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
+{
+	const struct mml_topology_path *path = task->config->path[pipe];
+
+	mml_clock_lock(task->config->mml);
+
+	/* path disconnected */
+	if (!sys->ddp_path[pipe])
+		goto disabled;
+	/* check task path */
+	if (path != sys->ddp_path[pipe])
+		mml_log("[warn]%s task path found %p was not path connected %p",
+			__func__, path, sys->ddp_path[pipe]);
+
+	sys_ddp_disable_locked(sys, pipe);
+	sys->ddp_path[pipe] = NULL;
+
+disabled:
+	mml_clock_unlock(task->config->mml);
+
+	mml_msg("%s task %p pipe %u", __func__, task, pipe);
 }
 
 static void sys_ddp_enable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
@@ -740,9 +795,9 @@ static void sys_ddp_enable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
 
 	mml_clock_lock(task->config->mml);
 
-	if (sys->ddp_connected[pipe])
+	/* path connected */
+	if (path == sys->ddp_path[pipe])
 		goto enabled;
-	sys->ddp_connected[pipe] = true;
 
 	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
 	for (i = 0; i < path->node_cnt; i++) {
@@ -765,49 +820,15 @@ static void sys_ddp_enable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
 	}
 	mml_trace_ex_end();
 
+	/* disable old path */
+	if (sys->ddp_path[pipe])
+		sys_ddp_disable_locked(sys, pipe);
+	sys->ddp_path[pipe] = path;
+
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
 
 enabled:
 	mml_clock_unlock(task->config->mml);
-}
-
-static void sys_ddp_disable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
-{
-	const struct mml_topology_path *path = task->config->path[pipe];
-	struct mml_comp *comp;
-	u32 i;
-
-	mml_clock_lock(task->config->mml);
-
-	if (!sys->ddp_connected[pipe])
-		goto disabled;
-	sys->ddp_connected[pipe] = false;
-
-	mml_trace_ex_begin("%s_%s_%u", __func__, "clk", pipe);
-	for (i = 0; i < path->node_cnt; i++) {
-		if (i == path->mmlsys_idx || i == path->mutex_idx)
-			continue;
-		comp = path->nodes[i].comp;
-		call_hw_op(comp, clk_disable);
-	}
-
-	if (path->mutex)
-		call_hw_op(path->mutex, clk_disable);
-	if (path->mmlsys)
-		call_hw_op(path->mmlsys, clk_disable);
-	mml_trace_ex_end();
-
-	mml_trace_ex_begin("%s_%s_%u", __func__, "pw", pipe);
-	for (i = 0; i < path->node_cnt; i++) {
-		comp = path->nodes[i].comp;
-		call_hw_op(comp, pw_disable);
-	}
-	mml_trace_ex_end();
-
-disabled:
-	mml_clock_unlock(task->config->mml);
-
-	mml_msg("%s task %p pipe %u", __func__, task, pipe);
 }
 
 static const struct mml_submit bypass_submit = {
@@ -888,6 +909,9 @@ static void sys_calc_cfg(struct mtk_ddp_comp *ddp_comp,
 	if (!cfg->task || !cfg->task->config->tile_output[pipe_cnt - 1]) {
 		mml_err("%s no tiles for task %p pipe_cnt %d", __func__,
 			cfg->task, pipe_cnt);
+		/* avoid disp exception */
+		for (i = 0; i < pipe_cnt; i++)
+			cfg->mml_src_roi[i] = cfg->mml_dst_roi[i];
 		return;
 	}
 

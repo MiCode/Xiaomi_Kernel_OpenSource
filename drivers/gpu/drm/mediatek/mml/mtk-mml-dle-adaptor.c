@@ -389,7 +389,7 @@ static void task_frame_err(struct mml_task *task)
 
 	mml_trace_ex_begin("%s", __func__);
 
-	mml_log("[dle]config err task %p state %u job %u",
+	mml_msg("[dle]config err task %p state %u job %u",
 		task, task->state, task->job.jobid);
 
 	/* clean up */
@@ -602,7 +602,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 
 	/* no fence for dle task */
 	task->job.fence = -1;
-	mml_log("[dle]mml job %u task %p config %p mode %hhu",
+	mml_msg("[dle]mml job %u task %p config %p mode %hhu",
 		task->job.jobid, task, cfg, cfg->info.mode);
 
 	/* copy job content back */
