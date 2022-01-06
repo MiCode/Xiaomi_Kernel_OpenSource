@@ -307,6 +307,11 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 0);
 
+	SENINF_WRITE_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS,
+			 (1 << RO_SENINF_CAM_MUX_PCSR_HSIZE_ERR_IRQ_SHIFT) |
+			 (1 << RO_SENINF_CAM_MUX_PCSR_VSIZE_ERR_IRQ_SHIFT) |
+			 (1 << RO_SENINF_CAM_MUX_PCSR_VSYNC_IRQ_SHIFT));//clr irq
+
 #if LOG_MORE
 	dev_info(ctx->dev, "%s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
 	__func__,
@@ -2813,7 +2818,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 	struct media_link *link;
 	struct media_pad *pad;
 	struct mtk_cam_seninf_mux_meter meter;
-	void *csi2, *rx, *pmux, *pcammux;
+	void *csi2, *rx, *pmux, *pcammux, *base_ana;
 
 	core = dev_get_drvdata(dev);
 	len = 0;
@@ -2844,6 +2849,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 
 		csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
 		rx = ctx->reg_ana_dphy_top[ctx->port];
+		base_ana = ctx->reg_ana_csi_rx[ctx->port];
 		SHOW(buf, len, "csi2 irq_stat 0x%08x\n",
 		     SENINF_READ_REG(csi2, SENINF_CSI2_IRQ_STATUS));
 		SHOW(buf, len, "csi2 line_frame_num 0x%08x\n",
@@ -2864,15 +2870,10 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 				      RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER));
 		SHOW(buf, len,
-			"resync dmy cycle 0x%04x, cycle cnt 0x%04x, dmy cnt 0x%04x, dmy en 0x%04x\n",
-			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
-				      RG_CSI2_RESYNC_DMY_CYCLE),
-			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
-				      RG_CSI2_RESYNC_CYCLE_CNT),
-			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
-				      RG_CSI2_RESYNC_DMY_CNT),
-			SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
-				      RG_CSI2_RESYNC_DMY_EN));
+			"SENINF_CSI2_RESYNC_MERGE_CTRL 0x%08x CDPHY_RX_ANA_SETTING_1 0x%08x DPHY_RX_SPARE0 0x%08x\n",
+			SENINF_READ_REG(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_1),
+			SENINF_READ_REG(rx, DPHY_RX_SPARE0));
 
 		SHOW(buf, len, "data_not_enough_cnt : <%d>",
 			ctx->data_not_enough_cnt);
@@ -2977,13 +2978,17 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	for (j = CSI_PORT_0A; j <= CSI_PORT_5B; j++) {
 		base_ana = ctx->reg_ana_csi_rx[j];
 		dev_info(ctx->dev,
-			"MipiRx_ANA%d: CDPHY_RX_ANA_SETTING_1(0x%x) CDPHY_RX_ANA_0(0x%x) ANA_2(0x%x) ANA_4(0x%x) ANA_5(0x%x) ANA_8(0x%x)\n",
+			"MipiRx_ANA%d: CDPHY_RX_ANA_SETTING_1(0x%08x) CDPHY_RX_ANA_0(0x%08x) ANA_1(0x%08x) ANA_2(0x%08x) ANA_3(0x%08x) ANA_4(0x%08x) ANA_5(0x%08x) ANA_6(0x%08x) ANA_7(0x%08x) ANA_8(0x%08x)\n",
 			j - CSI_PORT_0A,
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_1),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_1),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_2),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_3),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_4),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_5),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_6),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_7),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_8));
 		dev_info(ctx->dev,
 			"MipiRx_ANA%d: CDPHY_RX_ANA_AD_0(0x%x) AD_HS_0(0x%x) AD_HS_1(0x%x)\n",
@@ -2998,10 +3003,14 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		base_dphy = ctx->reg_ana_dphy_top[j];
 
 		dev_info(ctx->dev,
-			"Csi%d_Dphy_Top: LANE_EN(0x%x) LANE_SELECT(0x%x) DATA_LANE0_HS(0x%x) DATA_LANE1_HS(0x%x) DATA_LANE2_HS(0x%x) DATA_LANE3_HS(0x%x) DPHY_RX_SPARE0(0x%x)\n",
+			"Csi%d_Dphy_Top: LANE_EN(0x%x) LANE_SELECT(0x%x) CLK_LANE0_HS(0x%x) CLK_LANE1_HS(0x%x) DATA_LANE0_HS(0x%x) DATA_LANE1_HS(0x%x) DATA_LANE2_HS(0x%x) DATA_LANE3_HS(0x%x) DPHY_RX_SPARE0(0x%x)\n",
 			j,
 			SENINF_READ_REG(base_dphy, DPHY_RX_LANE_EN),
 			SENINF_READ_REG(base_dphy, DPHY_RX_LANE_SELECT),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_CLOCK_LANE0_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_CLOCK_LANE1_HS_PARAMETER),
 			SENINF_READ_REG(base_dphy,
 					DPHY_RX_DATA_LANE0_HS_PARAMETER),
 			SENINF_READ_REG(base_dphy,
@@ -3012,6 +3021,19 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 					DPHY_RX_DATA_LANE3_HS_PARAMETER),
 			SENINF_READ_REG(base_dphy,
 					DPHY_RX_SPARE0));
+			dev_info(ctx->dev,
+			"Csi%d_Dphy_Top: DPHY_RX_DESKEW_CTRL(0x%08x) DPHY_RX_DESKEW_TIMING_CTRL(0x%08x) DPHY_RX_DESKEW_LANE0_CTRL(0x%08x) DPHY_RX_DESKEW_LANE1_CTRL(0x%08x) DPHY_RX_DESKEW_LANE2_CTRL(0x%08x) DPHY_RX_DESKEW_LANE3_CTRL(0x%08x)\n",
+			j,
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_CTRL),
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_TIMING_CTRL),
+				SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE0_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE1_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE2_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE3_CTRL));
 
 		dev_info(ctx->dev,
 			"Csi%d_Cphy_Top: CPHY_RX_CTRL(0x%x) CPHY_RX_DETECT_CTRL_POST(0x%x)\n",
@@ -3139,7 +3161,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			SENINF_READ_REG(base_mux, SENINF_MUX_ERR_SIZE),
 			SENINF_READ_REG(base_mux, SENINF_MUX_IMG_SIZE));
 
-		if (SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS) & 0x1) {
+		if ((SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0) & 0x1) &&
+			(SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS) & 0x1)) {
 			SENINF_WRITE_REG(base_mux, SENINF_MUX_IRQ_STATUS,
 					 0xffffffff);
 			mdelay(debug_ft);
