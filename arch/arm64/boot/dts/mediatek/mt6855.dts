@@ -6449,6 +6449,7 @@
 			reg = <0 0x1a092000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&smi_larb13>;
 		};
 
 		camsv3_legacy: camsv3_legacy@1a093000 {
@@ -6457,6 +6458,7 @@
 			reg = <0 0x1a093000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&smi_larb13>;
 		};
 
 		camsv4_legacy: camsv4_legacy@1a094000 {
@@ -6465,6 +6467,7 @@
 			reg = <0 0x1a094000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&smi_larb13>;
 		};
 
 		camsv5_legacy: camsv5_legacy@1a095000 {
@@ -6473,6 +6476,7 @@
 			reg = <0 0x1a095000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&smi_larb13>;
 		};
 
 		camsv6_legacy: camsv6_legacy@1a096000 {
@@ -6481,6 +6485,7 @@
 			reg = <0 0x1a096000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&smi_larb13>;
 		};
 
 		camsv7_legacy: camsv7_legacy@1a097000 {
@@ -6489,6 +6494,7 @@
 			reg = <0 0x1a097000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larb = <&smi_larb13>;
 		};
 
 		scp: scp@1c700000 {
