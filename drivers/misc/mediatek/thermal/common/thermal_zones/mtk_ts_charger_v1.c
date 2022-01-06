@@ -19,6 +19,7 @@
 #include "mach/mtk_thermal.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
+#include <linux/reboot.h>
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mt-plat/v1/mtk_charger.h>
 #else
@@ -373,7 +374,8 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		/* To trigger data abort to reset the system
 		 * for thermal protection.
 		 */
-		WARN_ON(1);
+		//BUG();
+		kernel_restart("Thermal reboot system");
 	}
 
 	return 0;
