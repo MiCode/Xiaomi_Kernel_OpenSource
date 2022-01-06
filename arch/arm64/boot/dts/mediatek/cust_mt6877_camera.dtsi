@@ -428,3 +428,12 @@
 	};
 };
 /* CAMERA EEPROM end */
+
+/* CAMERA AF */
+&camera_af_hw_node {
+	camaf_m1_pmic-supply = <&rt5133_ldo3>;
+	camaf_m2_pmic-supply = <&rt5133_ldo2>;
+	camaf_m3_pmic-supply = <&rt5133_gpio1>;
+	status = "okay";
+};
+/* CAMERA AF end */
