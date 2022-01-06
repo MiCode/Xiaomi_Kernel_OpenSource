@@ -1048,6 +1048,16 @@
 		compatible = "goodix,touch";
 	};
 
+	/* Microtrust SW IRQ number 87(119 - 32) ~ 88(120 - 32) */
+	utos: utos {
+		compatible = "microtrust,utos";
+		interrupts = <GIC_SPI 88 IRQ_TYPE_EDGE_RISING 0>;
+	};
+
+	utos_tester {
+		compatible = "microtrust,tester-v1";
+	};
+
 	disp_pwm: disp_pwm0@1100e000 {
 		compatible = "mediatek,disp_pwm0",
 				"mediatek,mt6833-disp-pwm";
