@@ -86,6 +86,6 @@ enum DISP_SESSION_ENUM {
 /* #define DISP_PLATFORM_HAS_SHADOW_REG */
 
 /* define MET ready to use*/
-#define CONFIG_MTK_MET
+//#define CONFIG_MTK_MET
 
 #endif				/* __DISP_DRV_PLATFORM_H__ */
