@@ -500,40 +500,7 @@ static struct platform_driver devmpu_drv = {
 	},
 };
 
-static int __init devmpu_init(void)
-{
-	int ret = 0;
-
-	ret = platform_driver_register(&devmpu_drv);
-	if (ret) {
-		pr_err("%s:%d failed to register devmpu driver, ret=%d\n",
-				__func__, __LINE__, ret);
-	}
-
-#if IS_ENABLED(CONFIG_MTK_DEVMPU_DEBUG)
-	ret = driver_create_file(&devmpu_drv.driver,
-			&driver_attr_devmpu_config);
-	if (ret) {
-		pr_err("%s:%d failed to create driver sysfs file, ret=%d\n",
-				__func__, __LINE__, ret);
-	}
-#endif
-
-	return ret;
-}
-
-static void __exit devmpu_exit(void)
-{
-#if IS_ENABLED(CONFIG_MTK_DEVMPU_DEBUG)
-	driver_remove_file(&devmpu_drv.driver,
-			&driver_attr_devmpu_config);
-#endif
-
-	platform_driver_unregister(&devmpu_drv);
-}
-
-module_init(devmpu_init);
-module_exit(devmpu_exit);
+module_platform_driver(devmpu_drv);
 
 MODULE_DESCRIPTION("Mediatek Device MPU Driver");
 MODULE_AUTHOR("Calvin Liao <calvin.liao@mediatek.com>");
