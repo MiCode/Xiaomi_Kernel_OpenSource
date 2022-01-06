@@ -1442,8 +1442,28 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	u32 tmp;
 
 	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~(P2C_FORCE_UART_EN);
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM1);
+	tmp &= ~P2C_RG_UART_EN;
+	writel(tmp, com + U3P_U2PHYDTM1);
+
+	tmp = readl(com + U3P_U2PHYACR4);
+	tmp &= ~P2C_U2_GPIO_CTR_MSK;
+	writel(tmp, com + U3P_U2PHYACR4);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_FORCE_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN | P2C_DTM0_PART_MASK);
 	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_BC11_SW_EN;
+	writel(tmp, com + U3P_USBPHYACR6);
 
 	/* OTG Enable */
 	tmp = readl(com + U3P_USBPHYACR6);
@@ -1456,8 +1476,11 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	writel(tmp, com + U3P_U2PHYDTM1);
 
 	tmp = readl(com + U3P_USBPHYACR6);
-	tmp &= ~PA6_RG_U2_PHY_REV1;
+	tmp &= ~PA6_RG_U2_PHY_REV6;
+	tmp |= PA6_RG_U2_PHY_REV6_VAL(1);
 	writel(tmp, com + U3P_USBPHYACR6);
+
+	udelay(800);
 
 	if (tphy->pdata->avoid_rx_sen_degradation && index) {
 		tmp = readl(com + U3D_U2PHYDCR0);
@@ -1480,9 +1503,20 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	u32 tmp;
 
 	tmp = readl(com + U3P_U2PHYDTM0);
-	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN);
-	tmp |= P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK2;
+	tmp &= ~(P2C_FORCE_UART_EN);
 	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM1);
+	tmp &= ~P2C_RG_UART_EN;
+	writel(tmp, com + U3P_U2PHYDTM1);
+
+	tmp = readl(com + U3P_U2PHYACR4);
+	tmp &= ~P2C_U2_GPIO_CTR_MSK;
+	writel(tmp, com + U3P_U2PHYACR4);
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_BC11_SW_EN;
+	writel(tmp, com + U3P_USBPHYACR6);
 
 	/* OTG Disable */
 	tmp = readl(com + U3P_USBPHYACR6);
@@ -1494,9 +1528,28 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	tmp |= P2C_RG_SESSEND;
 	writel(tmp, com + U3P_U2PHYDTM1);
 
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp |= P2C_RG_SUSPENDM | P2C_FORCE_SUSPENDM;
+	tmp = readl(com + U3P_U2PHYDTM0);
+
+	mdelay(2);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_DATAIN;
+	tmp |= (P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK);
+	tmp = readl(com + U3P_U2PHYDTM0);
+
 	tmp = readl(com + U3P_USBPHYACR6);
-	tmp |=  PA6_RG_U2_PHY_REV1;
+	tmp |= PA6_RG_U2_PHY_REV6_VAL(1);
 	writel(tmp, com + U3P_USBPHYACR6);
+
+	udelay(800);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_SUSPENDM;
+	tmp = readl(com + U3P_U2PHYDTM0);
+
+	udelay(1);
 
 	if (tphy->pdata->avoid_rx_sen_degradation && index) {
 		tmp = readl(com + U3P_U2PHYDTM0);
