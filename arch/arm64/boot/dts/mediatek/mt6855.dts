@@ -3759,6 +3759,18 @@
 				"infra_ao1_debug_ctrl",
 				"efuse",
 				"mfg_cpe_sensor";
+			clocks =
+				<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGPLL>,
+				<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGSCPLL>;
+			clock-names =
+				"clk_main_parent",
+				"clk_sub_parent";
+			power-domains =
+				<&scpsys MT6855_POWER_DOMAIN_MFG1>,
+				<&scpsys MT6855_POWER_DOMAIN_MFG2>;
+			power-domain-names =
+				"pd_mfg1",
+				"pd_mfg2";
 			_vgpu-supply = <&mt6363_vbuck5>;
 			_vsram-supply = <&mt6369_vsram_core>;
 			// fhctl-supply = <&fhctl>; /* TBD */
@@ -3769,7 +3781,7 @@
 			compatible = "mediatek,gpufreq_wrapper";
 			gpufreq-version = <2>;
 			dual-buck = <0>;
-			gpueb-support = <1>;
+			gpueb-support = <0>;
 		};
 
 		ged: ged {
@@ -8027,10 +8039,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 };
 
 &mt6363_vbuck4 {
-	regulator-always-on;
-};
-
-&mt6363_vbuck5 {
 	regulator-always-on;
 };
 
