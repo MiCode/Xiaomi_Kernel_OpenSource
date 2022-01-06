@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/interconnect.h>
@@ -48,8 +49,6 @@ static const char * const clocks[] = {
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, bool state,
 					int requested_state);
 static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, bool state);
-static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
-				unsigned int state);
 static int _isense_clk_set_rate(struct kgsl_pwrctrl *pwr, int level);
 static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
 				const char *name);
@@ -2159,7 +2158,7 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 	return status;
 }
 
-static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
+void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 				unsigned int state)
 {
 	trace_kgsl_pwr_set_state(device, state);
