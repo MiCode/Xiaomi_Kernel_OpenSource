@@ -1644,6 +1644,7 @@ static void imgsys_cleartoken_handler(void *data, unsigned int len, void *priv)
 	struct cleartoken_info_t *cleartoken_info = NULL;
 	int i = 0;
 	void *gce_virt = NULL;
+	int clear_tnum = 0;
 
 	if (!data) {
 		WARN_ONCE(!data, "%s: failed due to NULL data\n", __func__);
@@ -1663,7 +1664,17 @@ static void imgsys_cleartoken_handler(void *data, unsigned int len, void *priv)
 		return;
 	}
 
-	for (i = 0 ; i < cleartoken_info->clearnum ; i++) {
+	clear_tnum = cleartoken_info->clearnum;
+	if (clear_tnum < 0) {
+		pr_info("%s: clear_tnum(%d) less than 0\n", __func__, clear_tnum);
+		clear_tnum = 0;
+	}
+	if (clear_tnum > HWTOKEN_MAX) {
+		pr_info("%s: clear_tnum(%d) exceed HWTOKEN_MAX(%d)\n", __func__,
+			clear_tnum, HWTOKEN_MAX);
+		clear_tnum = HWTOKEN_MAX;
+	}
+	for (i = 0 ; i < clear_tnum ; i++) {
 		dev_info(imgsys_dev->dev,
 			"%s:force clear swevent(%d).\n",
 			__func__, cleartoken_info->token[i]);
