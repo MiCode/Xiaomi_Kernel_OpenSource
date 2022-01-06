@@ -599,6 +599,10 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 		}
 	}
 
+	if ((id >= MT6983_POWER_DOMAIN_CAM_MRAW) &&
+		(id <= MT6983_POWER_DOMAIN_CAM_SUBC))
+		print_subsys_reg_mt6983(cam_m);
+
 	BUG_ON(1);
 }
 

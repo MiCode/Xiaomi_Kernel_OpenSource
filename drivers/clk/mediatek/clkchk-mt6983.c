@@ -301,6 +301,8 @@ static struct regname rn[] = {
 	REGNAME(vlp_ck, 0x002C, VLP_CLK_CFG_3),
 	/* CAM_MAIN_R1A register */
 	REGNAME(cam_m, 0x0, CAM_MAIN_CG),
+	REGNAME(cam_m, 0xA0, CAM_MAIN_SW_RST),
+	REGNAME(cam_m, 0xA4, CAM_MAIN_SW_RST1),
 	/* CAMSYS_RAWA register */
 	REGNAME(cam_ra, 0x0, CAMSYS_RA_CG),
 	/* CAMSYS_YUVA register */
