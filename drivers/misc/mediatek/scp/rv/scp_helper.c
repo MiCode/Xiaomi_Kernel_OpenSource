@@ -2038,13 +2038,6 @@ static int scp_feature_table_probe(struct platform_device *pdev)
 			return -1;
 		}
 
-		if (feature_id != feature_table[i].feature) {
-			pr_notice("[SCP] %s: feature id don't match(%d:%d):line %d\n",
-				__func__, feature_id, feature_table[i].feature,
-				__LINE__);
-			return -1;
-		}
-
 		/* because feature_table data member is bit-field */
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 			"scp_feature_tbl",
@@ -2056,7 +2049,7 @@ static int scp_feature_table_probe(struct platform_device *pdev)
 				__func__, i, __LINE__);
 			return -1;
 		}
-		feature_table[i].freq = frequency;
+		feature_table[feature_id].freq = frequency;
 
 		ret = of_property_read_u32_index(pdev->dev.of_node,
 			"scp_feature_tbl",
@@ -2068,7 +2061,7 @@ static int scp_feature_table_probe(struct platform_device *pdev)
 				__func__, i, __LINE__);
 			return -1;
 		}
-		feature_table[i].sys_id = core_id;
+		feature_table[feature_id].sys_id = core_id;
 	}
 	return 0;
 }
