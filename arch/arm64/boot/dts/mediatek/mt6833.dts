@@ -1212,6 +1212,11 @@
 		reg = <0 0x10721000 0 0x1000>;
 	};
 
+	scp_gpio: scp_gpio@10005000 {
+		compatible = "mediatek,scp_gpio", "syscon";
+		reg = <0 0x10005000 0 0x1000>;
+	};
+
 	scp_dvfs {
 		compatible = "mediatek,scp_dvfs";
 		/*scp-dvfs-disable;*/
@@ -1244,7 +1249,7 @@
 		<650000 750000	 2    0x204  400   3	0>,
 		<725000 750000	 3    0x302  624   1	0x3>;
 
-		gpio-base = <&pio>;
+		gpio-base = <&scp_gpio>;
 		gpio-vreq-mode = <1>;
 		gpio-vreq = <0x420 0x7 4>;
 
