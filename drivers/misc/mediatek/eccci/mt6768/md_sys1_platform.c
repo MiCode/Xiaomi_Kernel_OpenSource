@@ -433,7 +433,7 @@ void md_cd_get_md_bootup_status(struct ccci_modem *md, unsigned int *buff,
 
 	CCCI_NOTICE_LOG(md->index, TAG, "md_boot_stats len %d\n", length);
 
-	if (length < 2) {
+	if (buff == NULL || length < 2) {
 		md_cd_dump_md_bootup_status(md);
 		return;
 	}
