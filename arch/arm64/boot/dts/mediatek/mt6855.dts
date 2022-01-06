@@ -5271,12 +5271,12 @@
 			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
-		smi_pd_isp_main: smi_pd_isp_main {
+		smi_pd_dip1: smi_pd_dip1 {
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_img_subcommon>;
 			mediatek,comm-port-range = <0x2>;
 			main-power;
-			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
 		};
 
 		smi_pd_cam_main: smi_pd_cam_main {
@@ -5287,11 +5287,11 @@
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_MAIN>;
 		};
 
-		smi_pd_dip1: smi_pd_dip1 {
+		smi_pd_isp_main: smi_pd_isp_main {
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_img_subcommon>;
 			mediatek,comm-port-range = <0x2>;
-			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>;
 			power-reset = <0x1502000c 2>,
 					<0x1582000c 0>;
 		};
