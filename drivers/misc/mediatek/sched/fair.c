@@ -682,10 +682,15 @@ static int mtk_active_load_balance_cpu_stop(void *data)
 	/* Is there any task to move? */
 	if (busiest_rq->nr_running <= 1)
 		goto out_unlock;
-	if (!per_cpu(cpufreq_idle_cpu, target_cpu) &&
-		is_task_latency_sensitive(target_task))
-		goto out_unlock;
 
+	spin_lock(&per_cpu(cpufreq_idle_cpu_lock, target_cpu));
+	if (!per_cpu(cpufreq_idle_cpu, target_cpu) &&
+		is_task_latency_sensitive(target_task)) {
+		spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, target_cpu));
+		goto out_unlock;
+	}
+
+	spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, target_cpu));
 	update_rq_clock(busiest_rq);
 	deactivate_task(busiest_rq, target_task, DEQUEUE_NOCLOCK);
 	set_task_cpu(target_task, target_cpu);
