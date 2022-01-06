@@ -447,5 +447,17 @@ static struct platform_driver clk_dbg_mt6833_drv = {
  * init functions
  */
 
-module_platform_driver(clk_dbg_mt6833_drv);
+static int __init clkdbg_mt6833_init(void)
+{
+	pr_notice("%s start\n", __func__);
+	return clk_dbg_driver_register(&clk_dbg_mt6833_drv, "clk-dbg-mt6833");
+}
+
+static void __exit clkdbg_mt6833_exit(void)
+{
+	platform_driver_unregister(&clk_dbg_mt6833_drv);
+}
+
+subsys_initcall(clkdbg_mt6833_init);
+module_exit(clkdbg_mt6833_exit);
 MODULE_LICENSE("GPL");

@@ -22,8 +22,8 @@
 
 /* bringup config */
 #define MT_CCF_BRINGUP		1
-#define MT_CCF_PLL_DISABLE	1
-#define MT_CCF_MUX_DISABLE	1
+#define MT_CCF_PLL_DISABLE	0
+#define MT_CCF_MUX_DISABLE	0
 
 /* Regular Number Definition */
 #define INV_OFS	-1
@@ -541,9 +541,9 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"clkrtc", 1, 1),
 	FACTOR(CLK_TOP_SYS_26M, "sys_26m_ck",
 			"clk26m", 1, 1),
-	FACTOR(CLK_TOP_U_SAP_CFG, "ufs_cfg_ck",
+	FACTOR(CLK_TOP_UFS_SAP_CFG, "ufs_cfg_ck",
 			"clk26m", 1, 1),
-	FACTOR(CLK_TOP_U_TICK1US, "f_u_tick1us_ck",
+	FACTOR(CLK_TOP_UFS_TICK1US, "f_u_tick1us_ck",
 			"clk26m", 1, 1),
 	FACTOR(CLK_TOP_I2C_PSEUDO, "i2c_pseudo_ck",
 			"ifrao_i2c_pseudo", 1, 1),
@@ -1300,7 +1300,7 @@ static const struct mtk_mux top_muxes[] = {
 		aes_ufsfde_parents/* parent */, CLK_CFG_12, CLK_CFG_12_SET,
 		CLK_CFG_12_CLR/* set parent */, 16/* lsb */, 3/* width */,
 		CLK_CFG_UPDATE1/* upd ofs */, TOP_MUX_AES_UFSFDE_SHIFT/* upd shift */),
-	MUX_CLR_SET_UPD(CLK_TOP_U_SEL/* dts */, "ufs_sel",
+	MUX_CLR_SET_UPD(CLK_TOP_UFS_SEL/* dts */, "ufs_sel",
 		ufs_parents/* parent */, CLK_CFG_12, CLK_CFG_12_SET,
 		CLK_CFG_12_CLR/* set parent */, 24/* lsb */, 3/* width */,
 		CLK_CFG_UPDATE1/* upd ofs */, TOP_MUX_UFS_SHIFT/* upd shift */),
@@ -1435,11 +1435,10 @@ static const struct mtk_mux top_muxes[] = {
 		CLK_CFG_4_CLR/* set parent */, 16/* lsb */, 2/* width */,
 		23/* pdn */, CLK_CFG_UPDATE/* upd ofs */,
 		TOP_MUX_MFG_REF_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_MFG_PLL_SEL/* dts */, "mfg_pll_sel",
+	MUX_CLR_SET_UPD(CLK_TOP_MFG_PLL_SEL/* dts */, "mfg_pll_sel",
 		mfg_pll_parents/* parent */, CLK_CFG_4, CLK_CFG_4_SET,
 		CLK_CFG_4_CLR/* set parent */, 18/* lsb */, 1/* width */,
-		None/* pdn */, INV_OFS/* upd ofs */,
-		INV_BIT/* upd shift */),
+		INV_OFS/* upd ofs */, INV_BIT/* upd shift */),
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_CAMTG_SEL/* dts */, "camtg_sel",
 		camtg_parents/* parent */, CLK_CFG_4, CLK_CFG_4_SET,
 		CLK_CFG_4_CLR/* set parent */, 24/* lsb */, 3/* width */,
@@ -1581,7 +1580,7 @@ static const struct mtk_mux top_muxes[] = {
 		CLK_CFG_12_CLR/* set parent */, 16/* lsb */, 3/* width */,
 		23/* pdn */, CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_AES_UFSFDE_SHIFT/* upd shift */),
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_U_SEL/* dts */, "ufs_sel",
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_UFS_SEL/* dts */, "ufs_sel",
 		ufs_parents/* parent */, CLK_CFG_12, CLK_CFG_12_SET,
 		CLK_CFG_12_CLR/* set parent */, 24/* lsb */, 3/* width */,
 		31/* pdn */, CLK_CFG_UPDATE1/* upd ofs */,
@@ -1744,37 +1743,6 @@ static const struct mtk_composite top_composites[] = {
 		"apll_i2s9_mck_sel"/* parent */, 0x0320/* pdn ofs */,
 		10/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* width */,
 		16/* lsb */),
-};
-
-static const struct mtk_gate_regs apmixed_cg_regs = {
-	.set_ofs = 0x14,
-	.clr_ofs = 0x14,
-	.sta_ofs = 0x14,
-};
-
-#define GATE_APMIXED(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &apmixed_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr_inv,	\
-	}
-
-static const struct mtk_gate apmixed_clks[] = {
-	GATE_APMIXED(CLK_APMIXED_PLL_MIPIC0_26M_EN, "mipic0",
-			"f26m_ck"/* parent */, 6),
-	GATE_APMIXED(CLK_APMIXED_PLL_MIPIC1_26M_EN, "mipic1",
-			"f26m_ck"/* parent */, 11),
-	GATE_APMIXED(CLK_APMIXED_PLL_MIPID26M_0_EN, "pll_mipid26m_0_en",
-			"f26m_ck"/* parent */, 16),
-	GATE_APMIXED(CLK_APMIXED_PLL_MIPID26M_1_EN, "pll_mipid26m_1_en",
-			"f26m_ck"/* parent */, 17),
-};
-
-static const struct mtk_clk_desc apmixed_mcd = {
-	.clks = apmixed_clks,
-	.num_clks = CLK_APMIXED_NR_CLK,
 };
 
 #define MT6833_PLL_FMAX		(3800UL * MHZ)

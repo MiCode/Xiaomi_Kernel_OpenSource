@@ -37,13 +37,13 @@ static const struct mtk_gate_regs imgsys1_cg_regs = {
 
 static const struct mtk_gate imgsys1_clks[] = {
 	GATE_IMGSYS1(CLK_IMGSYS1_LARB9, "imgsys1_larb9",
-			"img2_ck"/* parent */, 0),
+			"img1_ck"/* parent */, 0),
 	GATE_IMGSYS1(CLK_IMGSYS1_LARB10, "imgsys1_larb10",
-			"img2_ck"/* parent */, 1),
+			"img1_ck"/* parent */, 1),
 	GATE_IMGSYS1(CLK_IMGSYS1_DIP, "imgsys1_dip",
-			"img2_ck"/* parent */, 2),
+			"img1_ck"/* parent */, 2),
 	GATE_IMGSYS1(CLK_IMGSYS1_GALS, "imgsys1_gals",
-			"img2_ck"/* parent */, 12),
+			"img1_ck"/* parent */, 12),
 };
 
 static const struct mtk_clk_desc imgsys1_mcd = {
@@ -68,17 +68,17 @@ static const struct mtk_gate_regs imgsys2_cg_regs = {
 
 static const struct mtk_gate imgsys2_clks[] = {
 	GATE_IMGSYS2(CLK_IMGSYS2_LARB9, "imgsys2_larb9",
-			"img2_ck"/* parent */, 0),
+			"img1_ck"/* parent */, 0),
 	GATE_IMGSYS2(CLK_IMGSYS2_LARB10, "imgsys2_larb10",
-			"img2_ck"/* parent */, 1),
+			"img1_ck"/* parent */, 1),
 	GATE_IMGSYS2(CLK_IMGSYS2_MFB, "imgsys2_mfb",
-			"img2_ck"/* parent */, 6),
+			"img1_ck"/* parent */, 6),
 	GATE_IMGSYS2(CLK_IMGSYS2_WPE, "imgsys2_wpe",
-			"img2_ck"/* parent */, 7),
+			"img1_ck"/* parent */, 7),
 	GATE_IMGSYS2(CLK_IMGSYS2_MSS, "imgsys2_mss",
-			"img2_ck"/* parent */, 8),
+			"img1_ck"/* parent */, 8),
 	GATE_IMGSYS2(CLK_IMGSYS2_GALS, "imgsys2_gals",
-			"img2_ck"/* parent */, 12),
+			"img1_ck"/* parent */, 12),
 };
 
 static const struct mtk_clk_desc imgsys2_mcd = {
