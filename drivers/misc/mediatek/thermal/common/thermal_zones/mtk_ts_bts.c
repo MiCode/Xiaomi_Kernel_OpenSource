@@ -600,16 +600,9 @@ static int get_hw_bts_temp(void)
 	}
 
 #ifdef APPLY_PRECISE_BTS_TEMP
-#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877) || \
-	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6781)
 	ret = val * 100;
 #else
-	/*val * 1500 * 100 / 4096 = (val * 9375) >>  8 */
-	ret = (val * 9375) >> 8;
-#endif
-#else
-	/*val * 1500 / 4096*/
-	ret = (val * 1500) >> 12;
+	ret = val;
 #endif
 
 #else
@@ -673,12 +666,7 @@ static int get_hw_bts_temp(void)
 #else
 
 #ifdef APPLY_PRECISE_BTS_TEMP
-#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877) || \
-	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6781)
-	ret = val * 100;
-#else
-	ret = ret * 9375 >> 8;
-#endif
+	ret = (val * 9375) >>  8;
 #else
 	ret = ret * 1500 / 4096;
 #endif
