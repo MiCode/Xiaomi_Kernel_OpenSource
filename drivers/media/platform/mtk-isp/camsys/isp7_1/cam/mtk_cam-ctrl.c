@@ -2655,13 +2655,19 @@ static void seamless_switch_check_bad_frame(
 				if (req_cq) {
 					s_data_cq = mtk_cam_req_get_s_data(req_cq,
 							ctx->stream_id, 0);
-					buf_entry = s_data_cq->working_buf;
-					base_addr = buf_entry->buffer.iova;
-					apply_cq(raw_dev, 0, base_addr,
-							buf_entry->cq_desc_size,
-							buf_entry->cq_desc_offset,
-							buf_entry->sub_cq_desc_size,
-							buf_entry->sub_cq_desc_offset);
+					if (s_data_cq->state.estate >= E_STATE_OUTER) {
+						buf_entry = s_data_cq->working_buf;
+						base_addr = buf_entry->buffer.iova;
+						apply_cq(raw_dev, 0, base_addr,
+								buf_entry->cq_desc_size,
+								buf_entry->cq_desc_offset,
+								buf_entry->sub_cq_desc_size,
+								buf_entry->sub_cq_desc_offset);
+					} else {
+						dev_info(ctx->cam->dev,
+						"[SWD-error] w/o cq, req:%d state:0x%x\n",
+						s_data_cq->frame_seq_no, s_data_cq->state.estate);
+					}
 				}
 				debug_dma_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
 			}
@@ -2860,12 +2866,22 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		if (STAGGER_CQ_LAST_SOF == 1 &&
 			(req_stream_data->feature.switch_feature_type == EXPOSURE_CHANGE_2_to_1 ||
-			req_stream_data->feature.switch_feature_type == EXPOSURE_CHANGE_3_to_1))
-			mtk_cam_exp_switch_sensor(req_stream_data);
-		mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
-		dev_info(ctx->cam->dev,
-			"[%s] switch Req:%d / State:%d\n",
-			__func__, req_stream_data->frame_seq_no, state_switch->estate);
+			req_stream_data->feature.switch_feature_type == EXPOSURE_CHANGE_3_to_1)) {
+			/*if db load judgment*/
+			if (atomic_read(&ctx->sensor_ctrl.initial_drop_frame_cnt) == 0 &&
+				irq_info->frame_idx <= irq_info->frame_idx_inner) {
+				mtk_cam_exp_switch_sensor(req_stream_data);
+				mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
+				dev_info(ctx->cam->dev,
+				"[%s] switch Req:%d / State:%d\n",
+				__func__, req_stream_data->frame_seq_no, state_switch->estate);
+			} else {
+				dev_info(ctx->cam->dev,
+				"[%s] HW delay outer_no:%d, inner_idx:%d <= processing_idx:%d\n",
+				__func__, irq_info->frame_idx, irq_info->frame_idx_inner,
+				atomic_read(&ctx->sensor_ctrl.isp_request_seq_no));
+			}
+		}
 	}
 
 	/*dcif stagger*/
