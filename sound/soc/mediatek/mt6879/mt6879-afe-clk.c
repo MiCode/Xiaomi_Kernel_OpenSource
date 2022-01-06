@@ -55,6 +55,8 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_3RD_DAC_PREDIS] = "aud_3rd_dac_predis_clk",
 	[CLK_3RD_DAC_TML] = "aud_3rd_dac_tml",
 	[CLK_3RD_DAC_HIRES] = "aud_3rd_dac_hires_clk",
+	[CLK_APMIXED_APLL1] = "aud_clk_apmixed_apll1",
+	[CLK_APMIXED_APLL2] = "aud_clk_apmixed_apll2",
 	[CLK_MUX_AUDIO] = "top_mux_audio",
 	[CLK_MUX_AUDIOINTBUS] = "top_mux_audio_int",
 	[CLK_TOP_MAINPLL_D4_D4] = "top_mainpll_d4_d4",
@@ -717,6 +719,8 @@ int mt6879_init_clock(struct mtk_base_afe *afe)
 {
 	struct mt6879_afe_private *afe_priv = afe->platform_priv;
 	int i = 0;
+	int ret = 0;
+	unsigned int value = 0;
 
 	afe_priv->clk = devm_kcalloc(afe->dev, CLK_NUM, sizeof(*afe_priv->clk),
 				     GFP_KERNEL);
@@ -740,6 +744,27 @@ int mt6879_init_clock(struct mtk_base_afe *afe)
 		dev_err(afe->dev, "%s() Cannot find apmixedsys: %ld\n",
 			__func__, PTR_ERR(afe_priv->apmixed));
 		return PTR_ERR(afe_priv->apmixed);
+	}
+
+	ret = clk_set_rate(afe_priv->clk[CLK_APMIXED_APLL1], 180633601);
+	if (ret) {
+		dev_err(afe->dev, "%s(), clk_set_rate %s, rate 180633601, fail %d\n",
+			__func__, aud_clks[CLK_APMIXED_APLL1], ret);
+		return ret;
+	}
+	ret = clk_set_rate(afe_priv->clk[CLK_APMIXED_APLL1], 180633600);
+	if (ret) {
+		dev_err(afe->dev, "%s(), clk_set_rate %s, rate 180633600, fail %d\n",
+			__func__, aud_clks[CLK_APMIXED_APLL1], ret);
+		return ret;
+	}
+
+	if (afe_priv->apmixed != NULL) {
+		regmap_read(afe_priv->apmixed, APLL1_TUNER_CON0, &value);
+		dev_info(afe->dev, "%s() APLL1_TUNER_CON0 = 0x%x\n", __func__, value);
+
+		regmap_read(afe_priv->apmixed, APLL2_TUNER_CON0, &value);
+		dev_info(afe->dev, "%s() APLL2_TUNER_CON0 = 0x%x\n", __func__, value);
 	}
 
 	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(afe->dev->of_node,
