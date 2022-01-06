@@ -1950,29 +1950,60 @@
 			reg = <0 0x15020000 0 0x1000>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			mediatek,larb = <&smi_larb9>, <&smi_larb11>;
+			power-domains = <&scpsys MT6833_POWER_DOMAIN_ISP>,
+				<&scpsys MT6833_POWER_DOMAIN_ISP2>;
 			iommus = <&iommu0 M4U_PORT_L9_IMG_IMGI_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_IMGBI_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_DMGI_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_DEPI_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_ICE_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTI_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTO_D2>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTO_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_CRZO_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_IMG3O_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_VIPI_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_SMTI_D5>,
-				<&iommu0 M4U_PORT_L9_IMG_TIMGO_D1>,
-				<&iommu0 M4U_PORT_L9_IMG_UFBC_W0>,
-				<&iommu0 M4U_PORT_L9_IMG_UFBC_R0>;
+			<&iommu0 M4U_PORT_L9_IMG_IMGBI_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_DMGI_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_DEPI_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_ICE_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_SMTI_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_SMTO_D2>,
+			<&iommu0 M4U_PORT_L9_IMG_SMTO_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_CRZO_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_IMG3O_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_VIPI_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_SMTI_D5>,
+			<&iommu0 M4U_PORT_L9_IMG_TIMGO_D1>,
+			<&iommu0 M4U_PORT_L9_IMG_UFBC_W0>,
+			<&iommu0 M4U_PORT_L9_IMG_UFBC_R0>,
+			<&iommu0 M4U_PORT_L11_IMG_IMGI_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_IMGBI_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_DMGI_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_DEPI_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_ICE_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_SMTI_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_SMTO_D2>,
+			<&iommu0 M4U_PORT_L11_IMG_SMTO_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_CRZO_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_IMG3O_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_VIPI_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_SMTI_D5>,
+			<&iommu0 M4U_PORT_L11_IMG_TIMGO_D1>,
+			<&iommu0 M4U_PORT_L11_IMG_UFBC_W0>,
+			<&iommu0 M4U_PORT_L11_IMG_UFBC_R0>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA0>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA1>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA2>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA3>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA4>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_RDMA5>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA0>,
+			<&iommu0 M4U_PORT_L11_IMG_MFB_WDMA1>;
 
 			clocks =
 				<&imgsys1_clk CLK_IMGSYS1_LARB9>,
-				<&imgsys1_clk CLK_IMGSYS1_DIP>;
+				<&imgsys1_clk CLK_IMGSYS1_DIP>,
+				<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+				<&imgsys2_clk CLK_IMGSYS2_MSS>,
+				<&imgsys2_clk CLK_IMGSYS2_MFB>;
 
 			clock-names =
 				"DIP_CG_IMG_LARB9",
-				"DIP_CG_IMG_DIP";
+				"DIP_CG_IMG_DIP",
+				"DIP_CG_IMG_LARB11",
+				"DIP_CG_IMG_DIP_MSS",
+				"DIP_CG_IMG_MFB_DIP";
 		};
 
 		dip_a0@15021000 {
