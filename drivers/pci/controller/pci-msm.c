@@ -5880,6 +5880,13 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 				pcie_dev->rc_idx, pci_dev->bus->number,
 				PCI_SLOT(pci_dev->devfn),
 				PCI_FUNC(pci_dev->devfn));
+
+			PCIE_ERR(pcie_dev,
+				"PCIe: RC%d: dump PCIe registers\n",
+				pcie_dev->rc_idx);
+			pcie_parf_dump(pcie_dev);
+			pcie_dm_core_dump(pcie_dev);
+			pcie_phy_dump(pcie_dev);
 			ret = -EIO;
 			goto err;
 		}
