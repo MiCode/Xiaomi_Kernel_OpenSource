@@ -254,6 +254,28 @@
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
+	wpe_a@15811000 {
+			compatible = "mediatek,wpe_a";
+			reg = <0 0x15811000 0 0x1000>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+			mediatek,larb = <&smi_larb11>, <&smi_larb9>;
+			interrupts = <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>,
+				<&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
+			clocks =
+				<&imgsys2_clk CLK_IMGSYS2_LARB9>,
+				<&imgsys2_clk CLK_IMGSYS2_WPE>,
+				<&imgsys2_clk CLK_IMGSYS2_LARB9>;
+			clock-names =
+				"WPE_CLK_IMG_LARB9",
+				"WPE_CLK_IMG_WPE_A",
+				"WPE_CLK_IMG";
+			iommus =
+				<&disp_iommu M4U_LARB11_PORT15>,
+				<&disp_iommu M4U_LARB11_PORT16>,
+				<&disp_iommu M4U_LARB11_PORT17>;
+	};
+
 	mss@15812000 {
 		compatible = "mediatek,mss";
 		reg = <0 0x15812000 0 0x1000>;
