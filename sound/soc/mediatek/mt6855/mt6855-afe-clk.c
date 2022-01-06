@@ -87,6 +87,7 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_CLK26M] = "top_clk26m_clk",
 	[CLK_PERAO_AUDIO_SLV_CK_PERI] = "aud_slv_ck_peri",
 	[CLK_PERAO_AUDIO_MST_CK_PERI] = "aud_mst_ck_peri",
+	[CLK_PERAO_INTBUS_CK_PERI] = "aud_intbus_ck_peri",
 };
 
 int mt6855_set_audio_int_bus_parent(struct mtk_base_afe *afe,
@@ -237,6 +238,13 @@ int mt6855_afe_enable_clock(struct mtk_base_afe *afe)
 
 	dev_info(afe->dev, "%s()\n", __func__);
 
+	ret = clk_prepare_enable(afe_priv->clk[CLK_PERAO_INTBUS_CK_PERI]);
+	if (ret) {
+		dev_err(afe->dev, "%s() clk_prepare_enable %s fail %d\n",
+			__func__, aud_clks[CLK_PERAO_INTBUS_CK_PERI], ret);
+		goto CLK_PERAO_INTBUS_CK_PERI_ERR;
+	}
+
 	ret = clk_prepare_enable(afe_priv->clk[CLK_PERAO_AUDIO_SLV_CK_PERI]);
 	if (ret) {
 		dev_err(afe->dev, "%s() clk_prepare_enable %s fail %d\n",
@@ -303,6 +311,8 @@ CLK_PERAO_AUDIO_MST_CK_PERI_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_MST_CK_PERI]);
 CLK_PERAO_AUDIO_SLV_CK_PERI_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_SLV_CK_PERI]);
+CLK_PERAO_INTBUS_CK_PERI_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_INTBUS_CK_PERI]);
 
 	return ret;
 }
@@ -320,6 +330,7 @@ void mt6855_afe_disable_clock(struct mtk_base_afe *afe)
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
 	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_MST_CK_PERI]);
 	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_AUDIO_SLV_CK_PERI]);
+	clk_disable_unprepare(afe_priv->clk[CLK_PERAO_INTBUS_CK_PERI]);
 }
 
 int mt6855_afe_dram_request(struct device *dev)
