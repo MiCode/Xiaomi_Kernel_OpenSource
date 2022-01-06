@@ -2620,7 +2620,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	}
 
 	/* Add check_boot_type check and return ENODEV if not eMMC boot */
-	if (device_property_read_u32(&pdev->dev, "index", &host_index) < 0) {
+	if (device_property_read_u32(&pdev->dev, "host-index", &host_index) < 0) {
 		dev_info(&pdev->dev, "index property is missing \n");
 		host_index = -1;
 	}
