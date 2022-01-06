@@ -190,7 +190,7 @@ const char * const *get_mt6833_all_clk_names(void)
 		"ifrao_ccif4_md",
 		"ifrao_spi6_ck",
 		"ifrao_spi7_ck",
-		"p",
+		"ifrao_66mp_mclk_p",
 		"ifrao_infra_133m",
 		"ifrao_infra_66m",
 		"ifrao_peru_bus_133m",

@@ -74,15 +74,6 @@ static const struct mtk_gate_regs ifrao5_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
-#define GATE_IFRAO1_I(_id, _name, _parent, _shift) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &ifrao1_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr_inv,	\
-	}
-
 #define GATE_IFRAO2(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -168,7 +159,7 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 4),
 	GATE_IFRAO1(CLK_IFRAO_MSDC0_SRC, "ifrao_msdc0_clk",
 			"msdc50_0_ck"/* parent */, 6),
-	GATE_IFRAO1_I(CLK_IFRAO_AUXADC, "ifrao_auxadc",
+	GATE_IFRAO1(CLK_IFRAO_AUXADC, "ifrao_auxadc",
 			"f26m_ck"/* parent */, 10),
 	GATE_IFRAO1(CLK_IFRAO_CPUM, "ifrao_cpum",
 			"axi_ck"/* parent */, 11),
@@ -176,7 +167,7 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 12),
 	GATE_IFRAO1(CLK_IFRAO_CCIF1_MD, "ifrao_ccif1_md",
 			"axi_ck"/* parent */, 13),
-	GATE_IFRAO1_I(CLK_IFRAO_AUXADC_MD, "ifrao_auxadc_md",
+	GATE_IFRAO1(CLK_IFRAO_AUXADC_MD, "ifrao_auxadc_md",
 			"f26m_ck"/* parent */, 14),
 	GATE_IFRAO1(CLK_IFRAO_MSDC1_SRC, "ifrao_msdc1_clk",
 			"msdc30_1_ck"/* parent */, 16),
@@ -241,7 +232,7 @@ static const struct mtk_gate ifrao_clks[] = {
 	GATE_IFRAO3(CLK_IFRAO_SPI7_CK, "ifrao_spi7_ck",
 			"spi_ck"/* parent */, 31),
 	/* IFRAO4 */
-	GATE_IFRAO4(P, "p",
+	GATE_IFRAO4(CLK_IFRAO_66MP_BUS_MCLK_CK_P, "ifrao_66mp_mclk_p",
 			"axi_ck"/* parent */, 2),
 	GATE_IFRAO4(CLK_IFRAO_INFRA_FREE_DCM_133M, "ifrao_infra_133m",
 			"axi_ck"/* parent */, 3),
