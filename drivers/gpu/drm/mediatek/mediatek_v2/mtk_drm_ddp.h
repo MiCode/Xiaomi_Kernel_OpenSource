@@ -22,6 +22,45 @@
 #define DISP_MUTEX_INT_MSK                                                     \
 	((__DISP_MUTEX_INT_MSK << DISP_MUTEX_TOTAL) | __DISP_MUTEX_INT_MSK)
 
+/* CHIST path select*/
+#define DISP_CHIST0_FROM_RDMA0_POS 0
+#define DISP_CHIST1_FROM_RDMA0_POS 1
+#define DISP_CHIST0_FROM_POSTMASK0 2
+#define DISP_CHIST1_FROM_POSTMASK0 3
+#define DISP_CHIST0_FROM_DITHER0   4
+#define DISP_CHIST1_FROM_DITHER0   5
+
+#define MUTEX_SOF_SINGLE_MODE 0
+#define MUTEX_SOF_DSI0 1
+#define MUTEX_SOF_DSI1 2
+#define MUTEX_SOF_DPI0 3
+#define MUTEX_SOF_DPI1 4
+
+#define DISP_REG_MUTEX_EN(n) (0x20 + 0x20 * (n))
+#define DISP_REG_MUTEX(n) (0x24 + 0x20 * (n))
+#define DISP_REG_MUTEX_RST(n) (0x28 + 0x20 * (n))
+#define DISP_REG_MUTEX_SOF(data, n) (data->mutex_sof_reg + 0x20 * (n))
+#define DISP_REG_MUTEX_MOD(data, n) (data->mutex_mod_reg + 0x20 * (n))
+#define DISP_REG_MUTEX_MOD2(n) (0x34 + 0x20 * (n))
+
+#define SOF_FLD_MUTEX0_SOF REG_FLD(3, 0)
+#define SOF_FLD_MUTEX0_SOF_TIMING REG_FLD(2, 3)
+#define SOF_FLD_MUTEX0_SOF_WAIT REG_FLD(1, 5)
+#define SOF_FLD_MUTEX0_EOF REG_FLD(3, 6)
+#define SOF_FLD_MUTEX0_FOF_TIMING REG_FLD(2, 9)
+#define SOF_FLD_MUTEX0_EOF_WAIT REG_FLD(1, 11)
+
+enum mtk_ddp_mutex_sof_id {
+	DDP_MUTEX_SOF_SINGLE_MODE,
+	DDP_MUTEX_SOF_DSI0,
+	DDP_MUTEX_SOF_DSI1,
+	DDP_MUTEX_SOF_DPI0,
+	DDP_MUTEX_SOF_DPI1,
+	DDP_MUTEX_SOF_DSI2,
+	DDP_MUTEX_SOF_DSI3,
+	DDP_MUTEX_SOF_MAX,
+};
+
 struct regmap;
 struct device;
 struct mtk_disp_mutex;
@@ -60,6 +99,20 @@ struct mtk_ddp {
 	struct mtk_disp_mutex mutex[10];
 	const struct mtk_disp_ddp_data *data;
 	struct cmdq_base *cmdq_base;
+};
+
+struct mtk_mmsys_reg_data {
+	unsigned int ovl0_mout_en;
+	unsigned int rdma0_sout_sel_in;
+	unsigned int rdma0_sout_color0;
+	unsigned int rdma1_sout_sel_in;
+	unsigned int rdma1_sout_dpi0;
+	unsigned int rdma1_sout_dsi0;
+	unsigned int dpi0_sel_in;
+	unsigned int dpi0_sel_in_rdma1;
+	unsigned int *path_sel;
+	unsigned int path_sel_size;
+	const unsigned int *dispsys_map;
 };
 
 #define MT6983_DUMMY_REG_CNT 56
@@ -189,4 +242,6 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex);
 
 void mmsys_config_dump_analysis_mt6855(void __iomem *config_regs);
 void mutex_dump_analysis_mt6855(struct mtk_disp_mutex *mutex);
+
+char *mtk_ddp_get_mutex_sof_name(unsigned int regval);
 #endif /* MTK_DRM_DDP_H */

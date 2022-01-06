@@ -24,6 +24,8 @@
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
 #include "mtk_dp_api.h"
+#include "mtk_disp_dsc.h"
+#include "platform/mtk_drm_6789.h"
 
 #define DISP_REG_DSC_CON			0x0000
 	#define DSC_EN BIT(0)
@@ -102,13 +104,6 @@
 #define DSC_BYPASS_SHADOW	BIT(1)
 #define DSC_READ_WORKING	BIT(2)
 #define MT6983_DISP_REG_SHADOW_CTRL		0x0228
-
-struct mtk_disp_dsc_data {
-	bool support_shadow;
-	bool need_bypass_shadow;
-	bool need_obuf_sw;
-	bool dsi_buffer;
-};
 
 
 /**
@@ -830,6 +825,8 @@ static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	  .data = &mt6873_dsc_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-dsc",
 	  .data = &mt6853_dsc_driver_data},
+	{ .compatible = "mediatek,mt6789-disp-dsc",
+	  .data = &mt6789_dsc_driver_data},
 	{ .compatible = "mediatek,mt6879-disp-dsc",
 	  .data = &mt6879_dsc_driver_data},
 	{ .compatible = "mediatek,mt6855-disp-dsc",

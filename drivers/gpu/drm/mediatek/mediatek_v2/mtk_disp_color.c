@@ -23,6 +23,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_disp_color.h"
 #include "mtk_dump.h"
+#include "platform/mtk_drm_6789.h"
 
 #define UNUSED(expr) (void)(expr)
 #define index_of_color(module) ((module == DDP_COMPONENT_COLOR0) ? 0 : 1)
@@ -70,28 +71,6 @@ enum COLOR_IOCTL_CMD {
 	WRITE_REG,
 	BYPASS_COLOR,
 	PQ_SET_WINDOW
-};
-
-enum PQ_REG_TABLE_IDX {
-	TUNING_DISP_COLOR = 0,
-	TUNING_DISP_CCORR,	// 1
-	TUNING_DISP_AAL,	// 2
-	TUNING_DISP_GAMMA,	// 3
-	TUNING_DISP_DITHER,	// 4
-	TUNING_DISP_CCORR1,	// 5
-	TUNING_DISP_TDSHP,	// 6
-	TUNING_DISP_C3D,	// 7
-	TUNING_REG_MAX
-};
-
-struct mtk_disp_color_data {
-	unsigned int color_offset;
-	bool support_color21;
-	bool support_color30;
-	unsigned long reg_table[TUNING_REG_MAX];
-	unsigned int color_window;
-	bool support_shadow;
-	bool need_bypass_shadow;
 };
 
 static struct MDP_COLOR_CAP mdp_color_cap;
@@ -3641,6 +3620,8 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	 .data = &mt2701_color_driver_data},
 	{.compatible = "mediatek,mt6779-disp-color",
 	 .data = &mt6779_color_driver_data},
+	{.compatible = "mediatek,mt6789-disp-color",
+	 .data = &mt6789_color_driver_data},
 	{.compatible = "mediatek,mt6885-disp-color",
 	 .data = &mt6885_color_driver_data},
 	{.compatible = "mediatek,mt8173-disp-color",

@@ -40,6 +40,7 @@
 #include "mtk_disp_aal.h"
 #include "mtk_disp_color.h"
 #include "mtk_drm_mmp.h"
+#include "platform/mtk_drm_6789.h"
 
 #undef pr_fmt
 #define pr_fmt(fmt) "[disp_aal]" fmt
@@ -152,16 +153,6 @@ struct dre3_node {
 	void __iomem *va;
 	phys_addr_t pa;
 	struct clk *clk;
-};
-
-struct mtk_disp_aal_data {
-	bool support_shadow;
-	bool need_bypass_shadow;
-	int aal_dre_hist_start;
-	int aal_dre_hist_end;
-	int aal_dre_gain_start;
-	int aal_dre_gain_end;
-	int bitShift;
 };
 
 struct mtk_disp_aal {
@@ -2988,6 +2979,8 @@ static const struct mtk_disp_aal_data mt6855_aal_driver_data = {
 };
 
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
+	{ .compatible = "mediatek,mt6789-disp-aal",
+	  .data = &mt6789_aal_driver_data},
 	{ .compatible = "mediatek,mt6885-disp-aal",
 	  .data = &mt6885_aal_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-aal",

@@ -28,6 +28,8 @@
 #include "mtk_drm_fb.h"
 #include "mtk_layering_rule.h"
 #include "mtk_drm_trace.h"
+#include "mtk_disp_rdma.h"
+#include "platform/mtk_drm_6789.h"
 //#include "swpm_me.h"
 
 int disp_met_set(void *data, u64 val);
@@ -212,27 +214,6 @@ enum GS_RDMA_FLD {
 	GS_RDMA_RSZ_FIFO_SIZE,
 	GS_RDMA_LAYER_SMI_ID_EN,
 	GS_RDMA_FLD_NUM,
-};
-
-struct mtk_disp_rdma_data {
-	/* golden setting */
-	unsigned int fifo_size;
-	unsigned int pre_ultra_low_us;
-	unsigned int pre_ultra_high_us;
-	unsigned int ultra_low_us;
-	unsigned int ultra_high_us;
-	unsigned int urgent_low_us;
-	unsigned int urgent_high_us;
-
-	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
-			    struct cmdq_pkt *handle, void *data);
-	unsigned int shadow_update_reg;
-	bool support_shadow;
-	bool need_bypass_shadow;
-	bool has_greq_urg_num;
-	bool is_support_34bits;
-	bool dsi_buffer;
-	bool rdma_irq_ts_debug;
 };
 
 struct mtk_rdma_backup_info {
@@ -1792,6 +1773,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt6853_rdma_driver_data},
 	{.compatible = "mediatek,mt6833-disp-rdma",
 	 .data = &mt6833_rdma_driver_data},
+	{.compatible = "mediatek,mt6789-disp-rdma",
+	 .data = &mt6789_rdma_driver_data},
 	{.compatible = "mediatek,mt6879-disp-rdma",
 	 .data = &mt6879_rdma_driver_data},
 	{.compatible = "mediatek,mt6855-disp-rdma",

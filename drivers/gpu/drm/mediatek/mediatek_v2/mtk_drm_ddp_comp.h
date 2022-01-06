@@ -25,6 +25,57 @@ struct drm_crtc_state;
 
 #define ALIGN_TO(x, n)  (((x) + ((n) - 1)) & ~((n) - 1))
 
+#define MMSYS_MISC                                0xF0
+#define MMSYS_SODI_REQ_MASK                       0xF4
+#define MMSYS_EMI_REQ_CTL                         0xF8
+
+#define MMSYS_DUMMY0 0x0400
+#define DISP_REG_CONFIG_MMSYS_MISC                0x0F0
+
+#define SODI_HRT_FIFO_SEL                         REG_FLD_MSB_LSB(3, 0)
+	#define SODI_HRT_FIFO_SEL_DISP0_PD_MODE       REG_FLD_MSB_LSB(0, 0)
+	#define SODI_HRT_FIFO_SEL_DISP0_CG_MODE       REG_FLD_MSB_LSB(1, 1)
+	#define SODI_HRT_FIFO_SEL_DISP1_PD_MODE       REG_FLD_MSB_LSB(2, 2)
+	#define SODI_HRT_FIFO_SEL_DISP1_CG_MODE       REG_FLD_MSB_LSB(3, 3)
+
+#define SODI_REQ_SEL_APSRC				          REG_FLD_MSB_LSB(0, 0)
+#define SODI_REQ_SEL_DDREN				          REG_FLD_MSB_LSB(1, 1)
+
+#define SODI_REQ_SEL_ALL                          REG_FLD_MSB_LSB(11, 8)
+	#define SODI_REQ_SEL_RDMA0_PD_MODE            REG_FLD_MSB_LSB(8, 8)
+	#define SODI_REQ_SEL_RDMA0_CG_MODE            REG_FLD_MSB_LSB(9, 9)
+	#define SODI_REQ_SEL_RDMA1_PD_MODE            REG_FLD_MSB_LSB(10, 10)
+	#define SODI_REQ_SEL_RDMA1_CG_MODE            REG_FLD_MSB_LSB(11, 11)
+
+#define SODI_REQ_VAL_ALL                          REG_FLD_MSB_LSB(15, 12)
+	#define SODI_REQ_VAL_RDMA0_PD_MODE            REG_FLD_MSB_LSB(12, 12)
+	#define SODI_REQ_VAL_RDMA0_CG_MODE            REG_FLD_MSB_LSB(13, 13)
+	#define SODI_REQ_VAL_RDMA1_PD_MODE            REG_FLD_MSB_LSB(14, 14)
+	#define SODI_REQ_VAL_RDMA1_CG_MODE            REG_FLD_MSB_LSB(15, 15)
+
+#define HRT_URGENT_CTL_SEL_ALL                    REG_FLD_MSB_LSB(7, 0)
+	#define HRT_URGENT_CTL_SEL_RDMA0              REG_FLD_MSB_LSB(0, 0)
+	#define HRT_URGENT_CTL_SEL_WDMA0              REG_FLD_MSB_LSB(1, 1)
+	#define HRT_URGENT_CTL_SEL_RDMA1              REG_FLD_MSB_LSB(2, 2)
+	#define HRT_URGENT_CTL_SEL_WDMA1              REG_FLD_MSB_LSB(3, 3)
+	#define HRT_URGENT_CTL_SEL_RDMA4              REG_FLD_MSB_LSB(4, 4)
+	#define HRT_URGENT_CTL_SEL_RDMA5              REG_FLD_MSB_LSB(5, 5)
+	#define HRT_URGENT_CTL_SEL_MDP_RDMA4          REG_FLD_MSB_LSB(6, 6)
+
+#define HRT_URGENT_CTL_VAL_ALL                    REG_FLD_MSB_LSB(16, 9)
+	#define HRT_URGENT_CTL_VAL_RDMA0              REG_FLD_MSB_LSB(9, 9)
+	#define HRT_URGENT_CTL_VAL_WDMA0              REG_FLD_MSB_LSB(10, 10)
+	#define HRT_URGENT_CTL_VAL_RDMA4              REG_FLD_MSB_LSB(13, 13)
+	#define HRT_URGENT_CTL_VAL_MDP_RDMA4          REG_FLD_MSB_LSB(15, 15)
+
+#define DVFS_HALT_MASK_SEL_ALL                    REG_FLD_MSB_LSB(23, 18)
+	#define DVFS_HALT_MASK_SEL_RDMA0              REG_FLD_MSB_LSB(18, 18)
+	#define DVFS_HALT_MASK_SEL_RDMA1              REG_FLD_MSB_LSB(19, 19)
+	#define DVFS_HALT_MASK_SEL_RDMA4              REG_FLD_MSB_LSB(20, 20)
+	#define DVFS_HALT_MASK_SEL_RDMA5              REG_FLD_MSB_LSB(21, 21)
+	#define DVFS_HALT_MASK_SEL_WDMA0              REG_FLD_MSB_LSB(22, 22)
+	#define DVFS_HALT_MASK_SEL_WDMA1              REG_FLD_MSB_LSB(23, 23)
+
 enum mtk_ddp_comp_type {
 	MTK_DISP_OVL,
 	MTK_DISP_RDMA,

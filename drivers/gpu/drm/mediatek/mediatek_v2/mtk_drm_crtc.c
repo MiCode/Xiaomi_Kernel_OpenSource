@@ -57,6 +57,7 @@
 #include "cmdq-util.h"
 #include "mtk_disp_ccorr.h"
 #include "mtk_debug.h"
+#include "platform/mtk_drm_6789.h"
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -297,6 +298,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	case MMSYS_MT6873:
 	case MMSYS_MT6853:
 	case MMSYS_MT6833:
+	case MMSYS_MT6789:
 	case MMSYS_MT6879:
 	case MMSYS_MT6855:
 		mmsys_config_dump_reg_mt6879(mtk_crtc->config_regs);
@@ -463,6 +465,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6833:
 		mmsys_config_dump_analysis_mt6833(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6833(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6789:
+		mmsys_config_dump_analysis_mt6789(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6789(mtk_crtc->mutex[0]);
 		break;
 	case MMSYS_MT6879:
 		mmsys_config_dump_analysis_mt6879(mtk_crtc->config_regs);

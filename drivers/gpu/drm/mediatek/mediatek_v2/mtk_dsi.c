@@ -45,6 +45,8 @@
 #include "mtk_drm_arr.h"
 #include "mtk_panel_ext.h"
 #include "mtk_disp_notify.h"
+#include "mtk_dsi.h"
+#include "platform/mtk_drm_6789.h"
 
 /* ************ Panel Master ********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -353,102 +355,9 @@ static const char * const mtk_dsi_porch_str[] = {
 
 #define AS_UINT32(x) (*(u32 *)((void *)x))
 
-struct mtk_dsi_driver_data {
-	const u32 reg_cmdq0_ofs;
-	const u32 reg_cmdq1_ofs;
-	const u32 reg_vm_cmd_con_ofs;
-	const u32 reg_vm_cmd_data0_ofs;
-	const u32 reg_vm_cmd_data10_ofs;
-	const u32 reg_vm_cmd_data20_ofs;
-	const u32 reg_vm_cmd_data30_ofs;
-	s32 (*poll_for_idle)(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
-	irqreturn_t (*irq_handler)(int irq, void *dev_id);
-	char *esd_eint_compat;
-	bool support_shadow;
-	bool need_bypass_shadow;
-	bool need_wait_fifo;
-	bool dsi_buffer;
-	bool dsi_irq_ts_debug;
-	u32 max_vfp;
-	unsigned int (*mmclk_by_datarate)(struct mtk_dsi *dsi,
-		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
-};
-
-struct t_condition_wq {
-	wait_queue_head_t wq;
-	atomic_t condition;
-};
-
 struct mtk_dsi_mgr {
 	struct mtk_dsi *master;
 	struct mtk_dsi *slave;
-};
-
-struct mtk_dsi {
-	struct mtk_ddp_comp ddp_comp;
-	struct device *dev;
-	struct mipi_dsi_host host;
-	struct drm_encoder encoder;
-	struct drm_connector conn;
-	struct drm_panel *panel;
-	struct mtk_panel_ext *ext;
-	struct cmdq_pkt_buffer cmdq_buf;
-	struct drm_bridge *bridge;
-	struct phy *phy;
-	bool is_slave;
-	struct mtk_dsi *slave_dsi;
-	struct mtk_dsi *master_dsi;
-
-	void __iomem *regs;
-
-	struct clk *engine_clk;
-	struct clk *digital_clk;
-	struct clk *hs_clk;
-
-	u32 data_rate;
-	u32 d_rate;
-
-	unsigned long mode_flags;
-	enum mipi_dsi_pixel_format format;
-	unsigned int lanes;
-	struct videomode vm;
-	int clk_refcnt;
-	bool output_en;
-	bool doze_enabled;
-	u32 irq_data;
-	wait_queue_head_t irq_wait_queue;
-	struct mtk_dsi_driver_data *driver_data;
-
-	struct t_condition_wq enter_ulps_done;
-	struct t_condition_wq exit_ulps_done;
-	struct t_condition_wq te_rdy;
-	struct t_condition_wq frame_done;
-	unsigned int hs_trail;
-	unsigned int hs_prpr;
-	unsigned int hs_zero;
-	unsigned int lpx;
-	unsigned int ta_get;
-	unsigned int ta_sure;
-	unsigned int ta_go;
-	unsigned int da_hs_exit;
-	unsigned int cont_det;
-	unsigned int clk_zero;
-	unsigned int clk_hs_prpr;
-	unsigned int clk_hs_exit;
-	unsigned int clk_hs_post;
-
-	unsigned int vsa;
-	unsigned int vbp;
-	unsigned int vfp;
-	unsigned int hsa_byte;
-	unsigned int hbp_byte;
-	unsigned int hfp_byte;
-
-	bool mipi_hopping_sta;
-	bool panel_osc_hopping_sta;
-	unsigned int data_phy_cycle;
-	/* for Panel Master dcs read/write */
-	struct mipi_dsi_device *dev_for_PM;
 };
 
 enum DSI_MODE_CON {
@@ -466,7 +375,6 @@ enum DSI_SET_MMCLK_TYPE {
 };
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
-static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 
 static inline struct mtk_dsi *encoder_to_dsi(struct drm_encoder *e)
 {
@@ -1773,7 +1681,7 @@ static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 				  reg, mask, 0xFFFF, gpr);
 }
 
-static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
+s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
 {
 	unsigned int loop_cnt = 0;
 	s32 tmp;
@@ -1855,7 +1763,7 @@ void clear_dsi_underrun_event(void)
 	dsi_underrun_trigger = 1;
 }
 
-static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
+irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 {
 	struct mtk_dsi *dsi = dev_id;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
@@ -7269,6 +7177,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt6873-dsi", .data = &mt6873_dsi_driver_data},
 	{.compatible = "mediatek,mt6853-dsi", .data = &mt6853_dsi_driver_data},
 	{.compatible = "mediatek,mt6833-dsi", .data = &mt6833_dsi_driver_data},
+	{.compatible = "mediatek,mt6789-dsi", .data = &mt6789_dsi_driver_data},
 	{.compatible = "mediatek,mt6879-dsi", .data = &mt6879_dsi_driver_data},
 	{.compatible = "mediatek,mt6855-dsi", .data = &mt6855_dsi_driver_data},
 	{},

@@ -25,6 +25,7 @@
 #include "mtk_drm_graphics_base.h"
 #include "mtk_drm_helper.h"
 #include "mtk_drm_drv.h"
+#include "mtk_disp_ovl.h"
 #include "mtk_disp_pmqos.h"
 #ifdef IF_ZERO
 #include "mtk_iommu_ext.h"
@@ -32,6 +33,7 @@
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_gem.h"
+#include "platform/mtk_drm_6789.h"
 
 #include "slbc_ops.h"
 #include "../mml/mtk-mml.h"
@@ -242,7 +244,6 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_EL0_CLR(n) (0x390UL + 0x4 * (n))
 #define DISP_REG_OVL_ADDR_MT2701 0x0040
 #define DISP_REG_OVL_ADDR_MT6779 0x0f40
-#define DISP_REG_OVL_ADDR_BASE 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
 
@@ -413,43 +414,6 @@ enum mtk_ovl_transfer { DECLARE_MTK_OVL_TRANSFER(DECLARE_NUM) };
 
 static const char * const mtk_ovl_transfer_str[] = {
 	DECLARE_MTK_OVL_TRANSFER(DECLARE_STR)};
-
-struct compress_info {
-	/* naming rule: tech_version_MTK_sub-version,
-	 * i.e.: PVRIC_V3_1_MTK_1
-	 * sub-version is used when compression version is the same
-	 * but mtk decoder is different among platforms.
-	 */
-	const char name[25];
-
-	bool (*l_config)(struct mtk_ddp_comp *comp,
-			unsigned int idx, struct mtk_plane_state *state,
-			struct cmdq_pkt *handle);
-};
-
-struct mtk_disp_ovl_data {
-	unsigned int addr;
-	unsigned int el_addr_offset;
-	unsigned int el_hdr_addr;
-	unsigned int el_hdr_addr_offset;
-	bool fmt_rgb565_is_0;
-	unsigned int fmt_uyvy;
-	unsigned int fmt_yuyv;
-	const struct compress_info *compr_info;
-	bool support_shadow;
-	bool need_bypass_shadow;
-	/* golden setting */
-	unsigned int preultra_th_dc;
-	unsigned int fifo_size;
-	unsigned int issue_req_th_dl;
-	unsigned int issue_req_th_dc;
-	unsigned int issue_req_th_urg_dl;
-	unsigned int issue_req_th_urg_dc;
-	unsigned int greq_num_dl;
-	bool is_support_34bits;
-	unsigned int (*aid_sel_mapping)(struct mtk_ddp_comp *comp);
-	resource_size_t (*mmsys_mapping)(struct mtk_ddp_comp *comp);
-};
 
 #define MAX_LAYER_NUM 4
 struct mtk_ovl_backup_info {
@@ -2316,7 +2280,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	return 0;
 }
 
-static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
+bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 			unsigned int idx, struct mtk_plane_state *state,
 			struct cmdq_pkt *handle)
 {
@@ -4260,6 +4224,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6853_ovl_driver_data},
 	{.compatible = "mediatek,mt6833-disp-ovl",
 	 .data = &mt6833_ovl_driver_data},
+	{.compatible = "mediatek,mt6789-disp-ovl",
+	 .data = &mt6789_ovl_driver_data},
 	{.compatible = "mediatek,mt6879-disp-ovl",
 	 .data = &mt6879_ovl_driver_data},
 	{.compatible = "mediatek,mt6855-disp-ovl",

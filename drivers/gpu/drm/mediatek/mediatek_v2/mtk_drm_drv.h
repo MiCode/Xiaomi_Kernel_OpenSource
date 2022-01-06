@@ -235,6 +235,38 @@ enum DISP_SEC_SIGNAL {
 	DISP_SEC_DISABLE,
 };
 
+static const struct mtk_addon_module_data addon_rsz_data[] = {
+	{DISP_RSZ, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data addon_rsz_data_v2[] = {
+	{DISP_RSZ_v2, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
+};
+
+static const struct mtk_addon_module_data addon_rsz_data_v3[] = {
+	{DISP_RSZ_v3, ADDON_BETWEEN, DDP_COMPONENT_OVL1_2L},
+};
+
+static const struct mtk_addon_module_data addon_rsz_data_v4[] = {
+	{DISP_RSZ_v4, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
+};
+
+static const struct mtk_addon_module_data addon_rsz_data_v5[] = {
+	{DISP_RSZ_v5, ADDON_BETWEEN, DDP_COMPONENT_OVL1_2L},
+};
+
+static const struct mtk_addon_module_data addon_rsz_data_v6[] = {
+	{DISP_RSZ_v6, ADDON_BETWEEN, DDP_COMPONENT_OVL3_2L},
+};
+
+static const struct mtk_addon_module_data addon_wdma0_data[] = {
+	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_DITHER0},
+};
+
+static const struct mtk_addon_module_data addon_wdma1_data[] = {
+	{DISP_WDMA1, ADDON_AFTER, DDP_COMPONENT_DITHER1},
+};
+
 struct disp_iommu_device *disp_get_iommu_dev(void);
 
 extern struct platform_driver mtk_ddp_driver;

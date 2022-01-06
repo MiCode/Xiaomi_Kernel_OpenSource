@@ -20,6 +20,8 @@
 #include "mtk_drm_drv.h"
 #include "mtk_log.h"
 #include "mtk_dump.h"
+#include "mtk_disp_dither.h"
+#include "platform/mtk_drm_6789.h"
 
 #define DISP_DITHER_EN 0x0
 #define DISP_DITHER_INTEN 0x08
@@ -80,12 +82,6 @@ enum PURE_CLR_RGB_ENUM {
 	R_VALUE = 0,
 	B_VALUE,
 	G_VALUE,
-};
-
-
-struct mtk_disp_dither_data {
-	bool support_shadow;
-	bool need_bypass_shadow;
 };
 
 struct mtk_disp_dither {
@@ -875,6 +871,8 @@ static const struct mtk_disp_dither_data mt6855_dither_driver_data = {
 static const struct of_device_id mtk_disp_dither_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-dither",
 	  .data = &mt6779_dither_driver_data},
+	{ .compatible = "mediatek,mt6789-disp-dither",
+	  .data = &mt6789_dither_driver_data},
 	{ .compatible = "mediatek,mt6885-disp-dither",
 	  .data = &mt6885_dither_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-dither",

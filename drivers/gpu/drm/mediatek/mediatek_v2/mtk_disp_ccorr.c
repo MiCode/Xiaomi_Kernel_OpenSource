@@ -24,6 +24,7 @@
 #include "mtk_log.h"
 #include "mtk_dump.h"
 #include "mtk_drm_helper.h"
+#include "platform/mtk_drm_6789.h"
 
 #ifdef CONFIG_LEDS_MTK_MODULE
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -179,12 +180,6 @@ enum CCORR_IOCTL_CMD {
 	SET_CCORR = 0,
 	SET_INTERRUPT,
 	BYPASS_CCORR
-};
-
-struct mtk_disp_ccorr_data {
-	bool support_shadow;
-	bool need_bypass_shadow;
-	int single_pipe_ccorr_num;
 };
 
 struct mtk_disp_ccorr {
@@ -1526,6 +1521,8 @@ static const struct mtk_disp_ccorr_data mt6855_ccorr_driver_data = {
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-ccorr",
 	  .data = &mt6779_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6789-disp-ccorr",
+	  .data = &mt6789_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6885-disp-ccorr",
 	  .data = &mt6885_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-ccorr",
