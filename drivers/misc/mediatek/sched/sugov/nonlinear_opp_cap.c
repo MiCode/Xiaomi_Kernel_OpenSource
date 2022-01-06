@@ -45,31 +45,63 @@ static void free_capacity_table(void)
 	if (!pd_capacity_tbl)
 		return;
 
-	for (i = 0; i < pd_count; i++)
+	for (i = 0; i < pd_count; i++) {
 		kfree(pd_capacity_tbl[i].caps);
+		kfree(pd_capacity_tbl[i].util_opp);
+		kfree(pd_capacity_tbl[i].util_freq);
+	}
 	kfree(pd_capacity_tbl);
 	pd_capacity_tbl = NULL;
 }
 
 static int init_capacity_table(void)
 {
-	int i, j;
+	int i, j, cpu;
 	void __iomem *base = sram_base_addr;
 	int count = 0;
 	unsigned long offset = 0;
 	unsigned long cap;
 	unsigned long end_cap;
+	long next_cap, k;
 	struct pd_capacity_info *pd_info;
+	struct em_perf_domain *pd;
 
 	for (i = 0; i < pd_count; i++) {
 		pd_info = &pd_capacity_tbl[i];
+		cpu = cpumask_first(&pd_info->cpus);
+		pd = em_cpu_get(cpu);
+		if (!pd)
+			goto err;
 		for (j = 0; j < pd_info->nr_caps; j++) {
 			cap = ioread16(base + offset);
-
-			if (cap == 0)
+			next_cap = ioread16(base + offset + CAPACITY_ENTRY_SIZE);
+			if (cap == 0 || next_cap == 0)
 				goto err;
 
 			pd_info->caps[j] = cap;
+
+			if (!pd_info->util_opp) {
+				pd_info->util_opp = kcalloc(cap + 1, sizeof(unsigned int),
+										GFP_KERNEL);
+				if (!pd_info->util_opp)
+					goto nomem;
+			}
+
+			if (!pd_info->util_freq) {
+				pd_info->util_freq = kcalloc(cap + 1, sizeof(unsigned int),
+										GFP_KERNEL);
+				if (!pd_info->util_freq)
+					goto nomem;
+			}
+
+			if (j == pd_info->nr_caps - 1)
+				next_cap = -1;
+
+			for (k = cap; k > next_cap; k--) {
+				pd_info->util_opp[k] = j;
+				pd_info->util_freq[k] =
+					pd->table[pd->nr_perf_states - j - 1].frequency;
+			}
 
 			count += 1;
 			offset += CAPACITY_ENTRY_SIZE;
@@ -86,6 +118,9 @@ static int init_capacity_table(void)
 		goto err;
 
 	return 0;
+
+nomem:
+	pr_info("allocate util mapping table failed\n");
 err:
 	pr_info("count %d does not match entry_count %d\n", count, entry_count);
 
@@ -123,6 +158,9 @@ static int alloc_capacity_table(void)
 							GFP_KERNEL);
 		if (!pd_capacity_tbl[cur_tbl].caps)
 			goto nomem;
+
+		pd_capacity_tbl[cur_tbl].util_opp = NULL;
+		pd_capacity_tbl[cur_tbl].util_freq = NULL;
 
 		entry_count += nr_caps;
 
@@ -236,6 +274,7 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 	*scale = SCHED_CAPACITY_SCALE * cap / max_cap;
 }
 
+unsigned int util_scale = 1280;
 unsigned int sysctl_sched_capacity_margin_dvfs = 20;
 /*
  * set sched capacity margin for DVFS, Default = 20
@@ -246,6 +285,7 @@ int set_sched_capacity_margin_dvfs(unsigned int capacity_margin)
 		return -1;
 
 	sysctl_sched_capacity_margin_dvfs = capacity_margin;
+	util_scale = (SCHED_CAPACITY_SCALE * 100 / (100 - sysctl_sched_capacity_margin_dvfs));
 
 	return 0;
 }
@@ -261,18 +301,12 @@ EXPORT_SYMBOL_GPL(get_sched_capacity_margin_dvfs);
 void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 				struct cpumask *cpumask, unsigned long *next_freq)
 {
-	int i, j;
-	int cpu, cap;
+	int i, j, cap;
 	struct pd_capacity_info *info;
-	struct em_perf_domain *pd;
 	unsigned long temp_util;
-	unsigned long scale;
-	int start = 0, end = 0, mid = 0;
 
 	temp_util = util;
-
-	scale = (SCHED_CAPACITY_SCALE * 100 / (100 - sysctl_sched_capacity_margin_dvfs));
-	util = util * scale / SCHED_CAPACITY_SCALE;
+	util = (util * util_scale) >> SCHED_CAPACITY_SHIFT;
 
 	for (i = 0; i < pd_count; i++) {
 		info = &pd_capacity_tbl[i];
@@ -280,19 +314,8 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 			continue;
 		cap = info->caps[0];
 		util = min(util, info->caps[0]);
-		cpu = cpumask_first(&info->cpus);
-		pd = em_cpu_get(cpu);
-		end = info->nr_caps - 1;
-		while (start <= end) {
-			mid = (start + end) / 2;
-			if (info->caps[mid] >= util) {
-				start = mid + 1;
-				j = mid;
-			} else {
-				end = mid - 1;
-			}
-		}
-		*next_freq = pd->table[pd->nr_perf_states - j - 1].frequency;
+		j = info->util_opp[util];
+		*next_freq = info->util_freq[util];
 		break;
 	}
 
@@ -305,9 +328,9 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 			unsigned int min_freq, max_freq;
 
 			idx_min = cpufreq_frequency_table_target(policy, policy->min,
-			CPUFREQ_RELATION_L);
+						CPUFREQ_RELATION_L);
 			idx_max = cpufreq_frequency_table_target(policy, policy->max,
-			CPUFREQ_RELATION_H);
+						CPUFREQ_RELATION_H);
 			min_freq = policy->freq_table[idx_min].frequency;
 			max_freq = policy->freq_table[idx_max].frequency;
 			*next_freq = clamp_val(*next_freq, min_freq, max_freq);
