@@ -170,7 +170,7 @@ initcall_debug=1";
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "truly,ft8756,vdo";
+		compatible = "truly,td4330,cmd";
 		reg = <0>;
 		pm-enable-gpios = <&pio 136 0>;
 		reset-gpios = <&pio 86 0>;
@@ -183,10 +183,24 @@ initcall_debug=1";
 			};
 		};
 	};
+	panel2@0 {
+		compatible = "truly,ft8756,vdo";
+		reg = <1>;
+		pm-enable-gpios = <&pio 136 0>;
+		reset-gpios = <&pio 86 0>;
+		bias-gpios = <&pio 137 0>,
+			<&pio 138 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
 	ports {
 		port {
 			dsi_out: endpoint {
-				remote-endpoint = <&panel_in1>;
+				remote-endpoint = <&panel_in2>;
 			};
 		};
 	};
