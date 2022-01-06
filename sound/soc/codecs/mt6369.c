@@ -2075,8 +2075,17 @@ static int mt_vow_pll_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON1,
 				   RG_CLKSQ_EN_VOW_MASK_SFT,
 				   0x0 << RG_CLKSQ_EN_VOW_SFT);
+		/* For Yield */
+		regmap_update_bits(priv->regmap, MT6369_VOWPLL_ANA_CON4,
+				   RG_PLL_HPM_EN_MASK_SFT,
+				   0x1 << RG_PLL_HPM_EN_SFT);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		/* For Yield */
+		regmap_update_bits(priv->regmap, MT6369_VOWPLL_ANA_CON4,
+				   RG_PLL_HPM_EN_MASK_SFT,
+				   0x0 << RG_PLL_HPM_EN_SFT);
+		/* Enable VOW CLKSQ 3.25MHz */
 		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON1,
 				   RG_CLKSQ_EN_VOW_MASK_SFT,
 				   0x1 << RG_CLKSQ_EN_VOW_SFT);
@@ -6642,7 +6651,42 @@ static ssize_t mt6369_codec_read(struct mt6369_priv *priv, char *buffer, size_t 
 	n += scnprintf(buffer + n, size - n,
 		       "[0x%x] MT6369_AUDENC_ANA_CON34 = 0x%x\n",
 		       MT6369_AUDENC_ANA_CON34, value);
-
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON0 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON0, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON1 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON1, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON2 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON2, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON3, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON3 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON3, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON4, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON04 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON4, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON5, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON5 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON5, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON6, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON6 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON6, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON7, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON07 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON7, value);
+	regmap_read(priv->regmap, MT6369_VOWPLL_ANA_CON8, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "[0x%x] MT6369_VOWPLL_ANA_CON8 = 0x%x\n",
+		       MT6369_VOWPLL_ANA_CON8, value);
 	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "[0x%x] MT6369_AUDDEC_ANA_CON0 = 0x%x\n",
