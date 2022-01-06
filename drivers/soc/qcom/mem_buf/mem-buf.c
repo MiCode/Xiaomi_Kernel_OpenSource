@@ -126,7 +126,7 @@ struct mem_buf_xfer_mem {
 	u32 nr_acl_entries;
 	int *dst_vmids;
 	int *dst_perms;
-	u32 txn_id;
+	int obj_id;
 };
 
 /**
@@ -161,8 +161,9 @@ struct mem_buf_desc {
 	void *dst_data;
 	struct file *filp;
 	struct list_head entry;
-	struct mem_buf_txn txn;
+	int obj_id;
 };
+static DEFINE_IDR(mem_buf_obj_idr);
 
 struct mem_buf_xfer_dmaheap_mem {
 	char name[MEM_BUF_MAX_DMAHEAP_NAME_LEN];
@@ -225,6 +226,28 @@ static void mem_buf_destroy_txn(struct mem_buf_txn *txn)
 {
 	mutex_lock(&mem_buf_idr_mutex);
 	idr_remove(&mem_buf_txn_idr, txn->txn_id);
+	mutex_unlock(&mem_buf_idr_mutex);
+}
+
+static int mem_buf_alloc_obj_id(void)
+{
+	int ret;
+
+	mutex_lock(&mem_buf_idr_mutex);
+	ret = idr_alloc_cyclic(&mem_buf_obj_idr, NULL, 0, INT_MAX, GFP_KERNEL);
+	mutex_unlock(&mem_buf_idr_mutex);
+	if (ret < 0) {
+		pr_err("%s: failed to allocate obj id rc: %d\n",
+		       __func__, ret);
+		return ret;
+	}
+	return ret;
+}
+
+static void mem_buf_destroy_obj_id(int obj_id)
+{
+	mutex_lock(&mem_buf_idr_mutex);
+	idr_remove(&mem_buf_obj_idr, obj_id);
 	mutex_unlock(&mem_buf_idr_mutex);
 }
 
@@ -367,7 +390,11 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 	if (!xfer_mem)
 		return ERR_PTR(-ENOMEM);
 
-	xfer_mem->txn_id = req->hdr.txn_id;
+	xfer_mem->obj_id = mem_buf_alloc_obj_id();
+	if (xfer_mem->obj_id < 0) {
+		ret = xfer_mem->obj_id;
+		goto free_xfer_mem;
+	}
 	xfer_mem->size = req->size;
 	xfer_mem->mem_type = req->src_mem_type;
 	xfer_mem->nr_acl_entries = req->acl_desc.n_acl_entries;
@@ -377,22 +404,27 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 	if (ret) {
 		pr_err("%s failed to create VMID and permissions list: %d\n",
 		       __func__, ret);
-		kfree(xfer_mem);
-		return ERR_PTR(ret);
+		goto free_obj_id;
 	}
 	mem_type_data = mem_buf_alloc_xfer_mem_type_data(req->src_mem_type,
 							 arb_payload);
 	if (IS_ERR(mem_type_data)) {
 		pr_err("%s: failed to allocate mem type specific data: %d\n",
 		       __func__, PTR_ERR(mem_type_data));
-		kfree(xfer_mem->dst_vmids);
-		kfree(xfer_mem->dst_perms);
-		kfree(xfer_mem);
-		return ERR_CAST(mem_type_data);
+		ret = PTR_ERR(mem_type_data);
+		goto free_acl;
 	}
 	xfer_mem->mem_type_data = mem_type_data;
 	INIT_LIST_HEAD(&xfer_mem->entry);
 	return xfer_mem;
+free_acl:
+	kfree(xfer_mem->dst_vmids);
+	kfree(xfer_mem->dst_perms);
+free_obj_id:
+	mem_buf_destroy_obj_id(xfer_mem->obj_id);
+free_xfer_mem:
+	kfree(xfer_mem);
+	return ERR_PTR(ret);
 }
 
 static void mem_buf_free_xfer_mem(struct mem_buf_xfer_mem *xfer_mem)
@@ -401,6 +433,7 @@ static void mem_buf_free_xfer_mem(struct mem_buf_xfer_mem *xfer_mem)
 					xfer_mem->mem_type_data);
 	kfree(xfer_mem->dst_vmids);
 	kfree(xfer_mem->dst_perms);
+	mem_buf_destroy_obj_id(xfer_mem->obj_id);
 	kfree(xfer_mem);
 }
 
@@ -580,6 +613,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 		       __func__, ret);
 	} else {
 		resp_msg->hdl = xfer_mem->hdl;
+		resp_msg->obj_id = xfer_mem->obj_id;
 		resp_msg->gh_rm_trans_type = xfer_mem->gh_rm_trans_type;
 	}
 
@@ -614,12 +648,14 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	struct mem_buf_xfer_mem *xfer_mem_iter, *tmp, *xfer_mem = NULL;
 	struct mem_buf_rmt_msg *rmt_msg = to_rmt_msg(work);
 	struct mem_buf_alloc_relinquish *relinquish_msg = rmt_msg->msg;
+	struct mem_buf_alloc_relinquish resp_msg = {0};
+	int ret;
 
 	trace_receive_relinquish_msg(relinquish_msg);
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
 	list_for_each_entry_safe(xfer_mem_iter, tmp, &mem_buf_xfer_mem_list,
 				 entry)
-		if (xfer_mem_iter->txn_id == relinquish_msg->hdr.txn_id) {
+		if (xfer_mem_iter->obj_id == relinquish_msg->obj_id) {
 			xfer_mem = xfer_mem_iter;
 			list_del(&xfer_mem->entry);
 			break;
@@ -629,8 +665,19 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	if (xfer_mem)
 		mem_buf_cleanup_alloc_req(xfer_mem, relinquish_msg->hdl);
 	else
-		pr_err("%s: transferred memory with txn_id 0x%x not found\n",
-		       __func__, relinquish_msg->hdr.txn_id);
+		pr_err("%s: transferred memory with obj_id 0x%x not found\n",
+		       __func__, relinquish_msg->obj_id);
+
+	resp_msg.hdr.txn_id = relinquish_msg->hdr.txn_id;
+	resp_msg.hdr.msg_type = MEM_BUF_ALLOC_RELINQUISH_RESP;
+
+	trace_send_relinquish_resp_msg(&resp_msg);
+	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, &resp_msg, sizeof(resp_msg), 0);
+	if (ret < 0)
+		pr_err("%s failed to send memory relinquish resp message rc: %d\n",
+		       __func__, ret);
+	else
+		pr_debug("%s: relinquish resp message sent\n", __func__);
 
 	kfree(rmt_msg->msg);
 	kfree(rmt_msg);
@@ -654,12 +701,13 @@ static int mem_buf_decode_alloc_resp(void *buf, size_t size,
 	} else {
 		membuf->memparcel_hdl = alloc_resp->hdl;
 		membuf->gh_rm_trans_type = alloc_resp->gh_rm_trans_type;
+		membuf->obj_id = alloc_resp->obj_id;
 	}
 
 	return alloc_resp->ret;
 }
 
-static void __mem_buf_relinquish_mem(u32 txn_id, u32 memparcel_hdl);
+static void __mem_buf_relinquish_mem(int obj_id, u32 memparcel_hdl);
 
 static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 				       size_t size)
@@ -679,12 +727,35 @@ static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
 		 * it can be reclaimed.
 		 */
 		if (!mem_buf_decode_alloc_resp(buf, size, &tmp))
-			__mem_buf_relinquish_mem(hdr->txn_id, tmp.memparcel_hdl);
+			__mem_buf_relinquish_mem(tmp.obj_id, tmp.memparcel_hdl);
 	} else {
 		txn->txn_ret = mem_buf_decode_alloc_resp(buf, size,
 							 txn->resp_buf);
 		complete(&txn->txn_done);
 	}
+	mutex_unlock(&mem_buf_idr_mutex);
+}
+
+static void mem_buf_process_relinquish_resp(struct mem_buf_msg_hdr *hdr,
+					    void *buf, size_t size)
+{
+	struct mem_buf_txn *txn;
+	struct mem_buf_alloc_relinquish *relinquish_resp_msg = buf;
+
+	if (size != sizeof(*relinquish_resp_msg)) {
+		pr_err("%s response received is not of correct size\n",
+		       __func__);
+		return;
+	}
+	trace_receive_relinquish_resp_msg(relinquish_resp_msg);
+
+	mutex_lock(&mem_buf_idr_mutex);
+	txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
+	if (!txn)
+		pr_err("%s no txn associated with id: %d\n", __func__,
+		       hdr->txn_id);
+	else
+		complete(&txn->txn_done);
 	mutex_unlock(&mem_buf_idr_mutex);
 }
 
@@ -720,6 +791,10 @@ static void mem_buf_process_msg(void *buf, size_t size)
 			mem_buf_alloc_req_work : mem_buf_relinquish_work;
 		INIT_WORK(&rmt_msg->work, work_fn);
 		queue_work(mem_buf_wq, &rmt_msg->work);
+	} else if ((hdr->msg_type == MEM_BUF_ALLOC_RELINQUISH_RESP) &&
+		   (mem_buf_capability & MEM_BUF_CAP_CONSUMER)) {
+		mem_buf_process_relinquish_resp(hdr, buf, size);
+		kfree(buf);
 	} else {
 		pr_err("%s: received message of unknown type: %d\n", __func__,
 		       hdr->msg_type);
@@ -807,11 +882,16 @@ static void *mem_buf_construct_alloc_req(struct mem_buf_desc *membuf,
 
 static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 {
+	struct mem_buf_txn txn;
 	void *alloc_req_msg;
 	size_t msg_size;
 	int ret;
 
-	alloc_req_msg = mem_buf_construct_alloc_req(membuf, membuf->txn.txn_id,
+	ret = mem_buf_init_txn(&txn, membuf);
+	if (ret)
+		return ret;
+
+	alloc_req_msg = mem_buf_construct_alloc_req(membuf, txn.txn_id,
 						    &msg_size);
 	if (IS_ERR(alloc_req_msg)) {
 		ret = PTR_ERR(alloc_req_msg);
@@ -829,7 +909,7 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 	if (ret < 0)
 		goto out;
 
-	ret = mem_buf_txn_wait(&membuf->txn);
+	ret = mem_buf_txn_wait(&txn);
 	if (ret < 0)
 		goto out;
 
@@ -837,18 +917,25 @@ out:
 	return ret;
 }
 
-static void __mem_buf_relinquish_mem(u32 txn_id, gh_memparcel_handle_t memparcel_hdl)
+static void __mem_buf_relinquish_mem(int obj_id, gh_memparcel_handle_t memparcel_hdl)
 {
 	struct mem_buf_alloc_relinquish *msg;
+	struct mem_buf_txn txn;
 	int ret;
 
 	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 	if (!msg)
 		return;
 
-	msg->hdr.txn_id = txn_id;
+	if (mem_buf_init_txn(&txn, NULL) < 0) {
+		kfree(msg);
+		return;
+	}
+
+	msg->hdr.txn_id = txn.txn_id;
 	msg->hdr.msg_type = MEM_BUF_ALLOC_RELINQUISH;
 	msg->hdl = memparcel_hdl;
+	msg->obj_id = obj_id;
 
 	trace_send_relinquish_msg(msg);
 	ret = gh_msgq_send(mem_buf_gh_msgq_hdl, msg, sizeof(*msg), 0);
@@ -859,11 +946,17 @@ static void __mem_buf_relinquish_mem(u32 txn_id, gh_memparcel_handle_t memparcel
 	 */
 	kfree(msg);
 
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("%s failed to send memory relinquish message rc: %d\n",
 		       __func__, ret);
-	else
+		goto out;
+	} else {
 		pr_debug("%s: allocation relinquish message sent\n", __func__);
+	}
+
+	mem_buf_txn_wait(&txn);
+out:
+	mem_buf_destroy_txn(&txn);
 }
 
 /*
@@ -884,7 +977,7 @@ static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
 				return;
 		}
 
-		return __mem_buf_relinquish_mem(membuf->txn.txn_id,
+		return __mem_buf_relinquish_mem(membuf->obj_id,
 						membuf->memparcel_hdl);
 	}
 
@@ -903,7 +996,7 @@ static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
 		goto err_free_sgt;
 
 	membuf->memparcel_hdl = arg.memparcel_hdl;
-	__mem_buf_relinquish_mem(membuf->txn.txn_id, membuf->memparcel_hdl);
+	__mem_buf_relinquish_mem(membuf->obj_id, membuf->memparcel_hdl);
 err_free_sgt:
 	sg_free_table(sgt);
 	kfree(sgt);
@@ -1151,7 +1244,6 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 	mem_buf_relinquish_mem(membuf);
 
 out_free_mem:
-	mem_buf_destroy_txn(&membuf->txn);
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
 	kfree(membuf->sgl_desc);
@@ -1219,10 +1311,6 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 		goto err_alloc_dst_data;
 	}
 
-	ret = mem_buf_init_txn(&membuf->txn, membuf);
-	if (ret)
-		goto err_init_txn;
-
 	trace_mem_buf_alloc_info(membuf->size, membuf->src_mem_type,
 				 membuf->dst_mem_type, membuf->acl_desc);
 	ret = mem_buf_request_mem(membuf);
@@ -1272,8 +1360,6 @@ err_map_mem_s2:
 	mem_buf_relinquish_mem(membuf);
 	kfree(membuf->sgl_desc);
 err_mem_req:
-	mem_buf_destroy_txn(&membuf->txn);
-err_init_txn:
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 err_alloc_dst_data:
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);

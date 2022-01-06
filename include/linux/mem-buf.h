@@ -27,11 +27,13 @@
  * allocation request issued by the receiving VM
  * @MEM_BUF_ALLOC_RELINQUISH: The message is a notification from another VM
  * that the receiving VM can reclaim the memory.
+ * @MEM_BUF_ALLOC_RELINQUISH_RESP: Indicates completion of MEM_BUF_ALLOC_RELINQUISH.
  */
 enum mem_buf_msg_type {
 	MEM_BUF_ALLOC_REQ,
 	MEM_BUF_ALLOC_RESP,
 	MEM_BUF_ALLOC_RELINQUISH,
+	MEM_BUF_ALLOC_RELINQUISH_RESP,
 	MEM_BUF_ALLOC_REQ_MAX,
 };
 
@@ -90,6 +92,7 @@ struct mem_buf_alloc_resp {
 	struct mem_buf_msg_hdr hdr;
 	s32 ret;
 	u32 hdl;
+	int obj_id;
 	int gh_rm_trans_type;
 } __packed;
 
@@ -99,10 +102,12 @@ struct mem_buf_alloc_resp {
  * another VM.
  * @hdr: Message header
  * @hdl: The memparcel handle associated with the memory.
+ * @obj_id: Unique identifier for the memory object associated with handle.
  */
 struct mem_buf_alloc_relinquish {
 	struct mem_buf_msg_hdr hdr;
 	u32 hdl;
+	int obj_id;
 } __packed;
 
 /* Public definitions */
