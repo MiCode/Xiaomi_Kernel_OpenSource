@@ -801,6 +801,13 @@
 		};
 	};
 
+	swpm: swpm {
+		compatible = "mediatek,mtk-swpm";
+		pmu_boundary_num = <6>;
+		pmu_dsu_support = <0>;
+		pmu_dsu_type = <9>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
