@@ -235,6 +235,7 @@
 
 #define MTK_IOMMU_ISR_COUNT_MAX			5
 #define MTK_IOMMU_ISR_DISABLE_TIME		10
+#define MTK_IOMMU_TF_IOVA_DUMP_NUM		5
 
 #define MMU_MAU_REG_BACKUP_SIZE		(100 * sizeof(unsigned int))
 
@@ -510,6 +511,9 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom_apu[] = {
 	{ .iova_base = SZ_1G, .size = (SZ_1G * 3ULL), .type = NORMAL}, /* 2,APU_CODE:3GB */
 	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = NORMAL}, /* 3,LK_RESV:32MB */
 };
+
+static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
+					  dma_addr_t iova);
 
 uint64_t mtee_iova_to_phys(unsigned long iova, u32 tab_id, u32 *sr_info,
 				u64 *pa, u32 *type, u32 *lvl)
@@ -977,6 +981,38 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 #endif
 }
 
+static void mtk_iommu_dump_tf_iova(struct mtk_iommu_data *data,
+		enum iommu_bank bank, u64 fault_iova)
+{
+	u64 tf_iova_tmp, hw_pa[TAB_TYPE_NUM] = { 0 };
+	phys_addr_t fake_pa;
+	u32 sr_info[TAB_TYPE_NUM] = { 0 };
+	u32 pg_type[TAB_TYPE_NUM] = { 0 };
+	u32 lvl[TAB_TYPE_NUM] = { 0 };
+	int i;
+
+	for (i = 0, tf_iova_tmp = fault_iova; i < MTK_IOMMU_TF_IOVA_DUMP_NUM; i++) {
+		if (i > 0)
+			tf_iova_tmp -= SZ_4K;
+		fake_pa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
+		if (hypmmu_type2_en == true)
+			hw_pa[NS_TAB] = mtee_iova_to_phys(tf_iova_tmp,
+						data->plat_data->tab_id,
+						sr_info, hw_pa, pg_type, lvl);
+		pr_err("error, type2_en:%d, index:%d, lvl:%u, pg_type:0x%x, falut_iova:0x%lx, fault_pa:0x%llx ~ 0x%llx\n",
+			   hypmmu_type2_en, i, lvl[NS_TAB], pg_type[NS_TAB], tf_iova_tmp,
+			   (u64)fake_pa, hw_pa[NS_TAB]);
+		if (!fake_pa && i > 0)
+			break;
+	}
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	/* skip dump when fault iova = 0 */
+	if (fault_iova)
+		mtk_iova_map_dump(fault_iova, data->plat_data->tab_id);
+#endif
+}
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 static irqreturn_t mtk_iommu_dump_sec_bank(struct mtk_iommu_data *data,
 		uint32_t bank)
@@ -1018,10 +1054,11 @@ static irqreturn_t mtk_iommu_dump_sec_bank(struct mtk_iommu_data *data,
 
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
-	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 	pr_info("%s fault iova=0x%llx pa=0x%llx layer=%d %s\n",
 		dev_name(dev), fault_iova, fault_pa, layer,
 		write ? "write" : "read");
+	mtk_iommu_dump_tf_iova(data, bank, fault_iova);
+	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 
 	mtk_iommu_tlb_flush_all(data);
 
@@ -1210,11 +1247,10 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 	}
 }
 
-static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
-					  dma_addr_t iova);
 static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = dev_id;
+	struct mtk_iommu_domain *dom = data->m4u_dom;
 	void __iomem *base = data->base; /* bank0 base */
 	struct device *dev = data->dev; /* bank0 dev */
 	u32 int_state0, int_state1, regval, va34_32, pa34_32, table_base;
@@ -1224,15 +1260,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	int ret;
 #endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	int i;
 	int id = data->plat_data->iommu_id;
 	enum mtk_iommu_type type = data->plat_data->iommu_type;
-	u64 tf_iova_tmp, hw_pa[TAB_TYPE_NUM] = { 0 };
-	phys_addr_t fake_pa;
-	u32 sr_info[TAB_TYPE_NUM] = { 0 }, pg_type[TAB_TYPE_NUM] = { 0 }, lvl[TAB_TYPE_NUM] = { 0 };
-	#define TF_IOVA_DUMP_NUM	5
 #else
-	struct mtk_iommu_domain *dom = data->m4u_dom;
 	unsigned int fault_larb, fault_port, sub_comm = 0;
 #endif
 
@@ -1278,26 +1308,12 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		fault_pa |= (u64)pa34_32 << 32;
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-		for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
-			if (i > 0)
-				tf_iova_tmp -= SZ_4K;
-			fake_pa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
-			if (hypmmu_type2_en == true)
-				hw_pa[NS_TAB] = mtee_iova_to_phys(tf_iova_tmp,
-							data->plat_data->tab_id,
-							sr_info, hw_pa, pg_type, lvl);
-			pr_err("error, type2_en:%d, index:%d, lvl:%u, pg_type:0x%x, falut_iova:0x%lx, fault_pa:0x%llx ~ 0x%llx\n",
-			       hypmmu_type2_en, i, lvl[NS_TAB], pg_type[NS_TAB], tf_iova_tmp,
-			       (u64)fake_pa, hw_pa[NS_TAB]);
-			if (!fake_pa && i > 0)
-				break;
-		}
-		if (fault_iova) /* skip dump when fault iova = 0 */
-			mtk_iova_map_dump(fault_iova, data->plat_data->tab_id);
-		report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
-		pr_info("%s base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
+		pr_info("%s base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s, pgtable=0x%x, tfrp_pa=0x%llx, 0x114=0x%x\n",
 			dev_name(dev), table_base, int_state1, fault_iova, fault_pa,
-			layer, write ? "write" : "read");
+			layer, (write ? "write" : "read"), dom->cfg.arm_v7s_cfg.ttbr,
+			data->protect_base, readl_relaxed(base + REG_MMU_IVRP_PADDR));
+		mtk_iommu_dump_tf_iova(data, IOMMU_BK0, fault_iova);
+		report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 #else
 		fault_port = F_MMU_INT_ID_PORT_ID(regval);
 		if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_SUB_COMM)) {
