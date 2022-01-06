@@ -894,12 +894,11 @@ static void cmdq_pkt_destroy_work(struct work_struct *work_item)
 void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *client = pkt->cl;
-	unsigned long flags = 0L;
 	u64 start = sched_clock(), diff;
 
 	cmdq_log("%s pkt:%p ", __func__, pkt);
-	if (client && client->chan)
-		spin_lock_irqsave(&client->chan->lock, flags);
+	if (client)
+		mutex_lock(&client->chan_mutex);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (cmdq_pkt_is_exec(pkt)) {
 		if (client && client->chan) {
@@ -911,8 +910,8 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 		dump_stack();
 	}
 #endif
-	if (client && client->chan)
-		spin_unlock_irqrestore(&client->chan->lock, flags);
+	if (client)
+		mutex_unlock(&client->chan_mutex);
 
 	pkt->task_alive = false;
 
