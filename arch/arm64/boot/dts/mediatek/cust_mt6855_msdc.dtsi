@@ -14,6 +14,7 @@
 	pinctrl-1 = <&mmc0_pins_uhs>;
 	bus-width = <8>;
 	max-frequency = <200000000>;
+	ocr-voltage = <0x00030000>;
 	cap-mmc-highspeed;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
@@ -35,6 +36,7 @@
 	pinctrl-1 = <&mmc1_pins_uhs>;
 	bus-width = <4>;
 	max-frequency = <200000000>;
+	ocr-voltage = <0x00030000>;
 	cap-sd-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
