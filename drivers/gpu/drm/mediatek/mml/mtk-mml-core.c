@@ -64,12 +64,6 @@ module_param(mml_racing_wdone_eoc, int, 0644);
 int mml_hw_perf;
 module_param(mml_hw_perf, int, 0644);
 
-#define mml_msg_qos(fmt, args...) \
-do { \
-	if (mml_qos_log) \
-		pr_notice("[mml]" fmt "\n", ##args); \
-} while (0)
-
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 /* Assign bit to dump in/out buffer frame
  * bit 0: dump input
@@ -739,6 +733,8 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	/* note the running task not always current begin task */
 	task_pipe_tmp = list_first_entry_or_null(&path_clt->tasks,
 		typeof(*task_pipe_tmp), entry_clt);
+	/* clear so that qos set api report max bw */
+	task_pipe_tmp->bandwidth = 0;
 	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput, tput_up);
 
 	mml_trace_end();
@@ -849,13 +845,23 @@ done:
 	path_clt->throughput = throughput;
 	tput_up = mml_qos_update_tput(task->config->mml);
 	if (throughput) {
+		/* clear so that qos set api report max bw */
+		task_pipe_cur->bandwidth = 0;
 		mml_core_qos_set(task_pipe_cur->task, pipe, throughput, tput_up);
 		bandwidth = task_pipe_cur->bandwidth;
+	} else  if (racing_mode) {
+		/* racing mode skip clear qos when remove from list,
+		 * so here do final clear if no task anymore.
+		 */
+		mml_core_qos_clear(task, pipe);
+		bandwidth = 0;
 	}
 keep:
-	mml_msg_qos("task dvfs end %s new task %p throughput %u bandwidth %u pixel %u",
+	mml_msg_qos("task dvfs end %s %s task %p throughput %u bandwidth %u pixel %u",
 		racing_mode ? "racing" : "update",
-		task_pipe_cur ? task_pipe_cur->task : NULL, throughput, bandwidth, max_pixel);
+		task_pipe_cur ? "new" : "last",
+		task_pipe_cur ? task_pipe_cur->task : task,
+		throughput, bandwidth, max_pixel);
 exit:
 	if (overdue)
 		mml_trace_tag_end(MML_TTAG_OVERDUE);

@@ -32,8 +32,8 @@
 #include "mtk-mml-pq.h"
 
 extern int mtk_mml_msg;
-
 extern int mml_cmdq_err;
+extern int mml_qos_log;
 
 #define mml_msg(fmt, args...) \
 do { \
@@ -53,6 +53,12 @@ do { \
 	pr_notice("[mml][err]" fmt "\n", ##args); \
 	if (mml_cmdq_err) \
 		cmdq_util_error_save("[mml]"fmt"\n", ##args); \
+} while (0)
+
+#define mml_msg_qos(fmt, args...) \
+do { \
+	if (mml_qos_log) \
+		pr_notice("[mml]" fmt "\n", ##args); \
 } while (0)
 
 /* mml ftrace */
