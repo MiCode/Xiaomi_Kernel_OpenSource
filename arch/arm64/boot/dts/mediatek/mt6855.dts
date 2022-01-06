@@ -3665,7 +3665,9 @@
 				<4 0 9>,
 				<5 0 4>,
 				<6 0 6>,
-				<7 0 6>;
+				<7 0 6>,
+				<8 0 1>,
+				<9 0 6>;
 			send_name_table =
 				"IPI_ID_FAST_DVFS_EVENT",
 				"IPI_ID_GPUFREQ",
@@ -3674,7 +3676,9 @@
 				"IPI_ID_FHCTL",
 				"IPI_ID_CCF",
 				"IPI_ID_GPUMPU",
-				"IPI_ID_FAST_DVFS";
+				"IPI_ID_FAST_DVFS",
+				"IPI_ID_PLATFORM",
+				"IPI_ID_SECURE_GPU";
 
 			/* id, mbox, recv_size, recv_opt */
 			recv_table =
@@ -3685,7 +3689,9 @@
 				<4 0 1 1>,
 				<5 0 4 1>,
 				<6 0 1 1>,
-				<7 0 6 1>;
+				<7 0 6 1>,
+				<8 0 1 0>,
+				<9 0 6 1>;
 			recv_name_table =
 				"IPI_ID_FAST_DVFS_EVENT",
 				"IPI_ID_GPUFREQ",
@@ -3694,7 +3700,9 @@
 				"IPI_ID_FHCTL",
 				"IPI_ID_CCF",
 				"IPI_ID_GPUMPU",
-				"IPI_ID_FAST_DVFS";
+				"IPI_ID_FAST_DVFS",
+				"IPI_ID_PLATFORM",
+				"IPI_ID_SECURE_GPU";
 
 			reg = <0 0x13c40000 0 0x22000>,
 				<0 0x13c5fd80 0 0x280>,
