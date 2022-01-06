@@ -35,6 +35,7 @@ static const char * const critical_lock_list[] = {
 	"&(&port->lock)->rlock",
 	/* try_to_wake_up */
 	"&p->pi_lock",
+	"&sg_policy->update_lock",
 };
 
 static int is_critical_lock_held(void)
