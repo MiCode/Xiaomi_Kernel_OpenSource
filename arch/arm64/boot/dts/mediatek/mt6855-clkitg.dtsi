@@ -148,11 +148,6 @@
 			<&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 	};
 
-	bring-up-pd-audio {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_AUDIO>;
-	};
-
 	bring-up-pd-isp_main {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>;
