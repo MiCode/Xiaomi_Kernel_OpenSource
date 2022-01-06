@@ -5782,6 +5782,7 @@
 
 	mt_charger: mt_charger {
 		compatible = "mediatek,mt-charger";
+		bootmode = <&chosen>;
 	};
 
 	lk_charger: lk_charger {

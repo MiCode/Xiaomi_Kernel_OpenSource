@@ -2220,6 +2220,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 	mt_charger: mt_charger {
 		compatible = "mediatek,mt-charger";
+		bootmode = <&chosen>;
 	};
 
 	charger: charger {
@@ -2229,6 +2230,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		enable_pe_plus;
 		enable_pe_2;
 		enable_pe_3;
+		bootmode = <&chosen>;
 
 		/* common */
 		battery_cv = <4350000>;

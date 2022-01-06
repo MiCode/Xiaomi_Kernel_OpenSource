@@ -3589,6 +3589,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	mt_charger: mt_charger {
 		compatible = "mediatek,mt-charger";
+		bootmode = <&chosen>;
 	};
 
 	msdc1_ins: msdc1_ins {
