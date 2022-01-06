@@ -2550,13 +2550,12 @@ static int ufshcd_comp_devman_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 
 	if (likely(lrbp->cmd)) {
 #if defined(CONFIG_SCSI_UFS_FEATURE)
-		ufsf_hpb_change_lun(&hba->ufsf, lrbp);
+		if (hba->dev_info.wmanufacturerid != UFS_VENDOR_SKHYNIX)
+			ufsf_hpb_change_lun(&hba->ufsf, lrbp);
 		ufsf_tw_prep_fn(&hba->ufsf, lrbp);
-		ufsf_hpb_prep_fn(&hba->ufsf, lrbp);
+		if (hba->dev_info.wmanufacturerid != UFS_VENDOR_SKHYNIX)
+			ufsf_hpb_prep_fn(&hba->ufsf, lrbp);
 #endif
-		ufshcd_prepare_req_desc_hdr(lrbp, &upiu_flags,
-						lrbp->cmd->sc_data_direction);
-		ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 #if defined(CONFIG_SCSI_SKHPB)
 	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_SKHYNIX) {
 		if (hba->skhpb_state == SKHPB_PRESENT && hba->issue_ioctl == false) {
@@ -2564,6 +2563,9 @@ static int ufshcd_comp_devman_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		}
 	}
 #endif
+	ufshcd_prepare_req_desc_hdr(lrbp, &upiu_flags,
+								lrbp->cmd->sc_data_direction);
+	ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 	} else {
 		ret = -EINVAL;
 	}

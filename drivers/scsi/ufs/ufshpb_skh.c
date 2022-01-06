@@ -44,7 +44,7 @@ static int skhpb_set_map_req(struct skhpb_lu *hpb,
 		int region, int subregion, struct skhpb_map_ctx *mctx,
 		struct skhpb_rsp_info *rsp_info,
 		enum SKHPB_BUFFER_MODE flag);
-static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
+static int skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 		struct skhpb_rsp_info *rsp_info);
 static void skhpb_map_loading_trigger(struct skhpb_lu *hpb,
 		bool only_pinned, bool do_work_handler);
@@ -84,26 +84,20 @@ static void skhpb_ppn_prep(struct skhpb_lu *hpb,
 		struct ufshcd_lrb *lrbp, skhpb_t ppn,
 		unsigned int sector_len)
 {
-	unsigned char cmd[16] = { 0 };
+	unsigned char *cmd = lrbp->cmd->cmnd;
 
-	if (hpb->hba->skhpb_quirk & SKHPB_QUIRK_USE_READ_16_FOR_ENCRYPTION)
+	if (hpb->hpb_ver < 0x0200) {
 		cmd[0] = READ_16;
-	else
-		cmd[0] = SKHPB_READ;
-	cmd[2] = lrbp->cmd->cmnd[2];
-	cmd[3] = lrbp->cmd->cmnd[3];
-	cmd[4] = lrbp->cmd->cmnd[4];
-	cmd[5] = lrbp->cmd->cmnd[5];
+		cmd[1] = 0x0;
+		cmd[15] = 0x01; //NAND V5,V6 : Use Control field for HPB_READ
+	} else {
+		cmd[0] = READ_16;
+		cmd[1] = 0x5; // NAND V7 : Use reseved fields for HPB_READ
+		cmd[15] = 0x0;
+	}
 	put_unaligned(ppn, (u64 *)&cmd[6]);
-	cmd[14] = (u8)(sector_len >> skhpb_sects_per_blk_shift);	//Transfer length
-	if (hpb->hba->skhpb_quirk & SKHPB_QUIRK_USE_READ_16_FOR_ENCRYPTION)
-		cmd[15] = 0x01; 					//Control
-	else
-		cmd[15] = 0x00; 					//Control
-
-	memcpy(lrbp->cmd->cmnd, cmd, MAX_CDB_SIZE);
-	memcpy(lrbp->ucd_req_ptr->sc.cdb, cmd, MAX_CDB_SIZE);
-
+	cmd[14] = (u8)(sector_len >> skhpb_sects_per_blk_shift); //Transfer length
+	lrbp->cmd->cmd_len = MAX_CDB_SIZE;
 	//To verify the values within READ command
 	/* SKHPB_DRIVER_HEXDUMP("[HPB] HPB READ ", 16, 1, cmd, sizeof(cmd), 1); */
 }
@@ -331,6 +325,8 @@ void skhpb_prep_fn(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 
 	cmd = skhpb_get_cmd(lrbp);
 	if (cmd == SKHPB_CMD_OTHERS)
+		return;
+	if (blk_rq_is_scsi(lrbp->cmd->request))
 		return;
 	/*
 	 * TODO: check if ICE is not supported or not.
@@ -870,9 +866,9 @@ static int skhpb_set_map_req(struct skhpb_lu *hpb,
 					    struct skhpb_map_req,
 					    list_map_req);
 	if (!map_req) {
-		SKHPB_DRIVER_E("There is no map_req\n");
+		SKHPB_DRIVER_D("There is no map_req\n");
 		spin_unlock_irqrestore(&hpb->map_list_lock, flags);
-		return -ENOMEM;
+		return -EAGAIN;
 	}
 	list_del(&map_req->list_map_req);
 	spin_unlock_irqrestore(&hpb->map_list_lock, flags);
@@ -897,7 +893,6 @@ static int skhpb_set_map_req(struct skhpb_lu *hpb,
 		SKHPB_DRIVER_E("issue Failed!!!\n");
 		return -ENOMEM;
 	}
-
 	return 0;
 }
 
@@ -1140,7 +1135,7 @@ static inline struct skhpb_rsp_field *skhpb_get_hpb_rsp(
 	return (struct skhpb_rsp_field *)&lrbp->ucd_rsp_ptr->sr.sense_data_len;
 }
 
-static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
+static int skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 		struct skhpb_rsp_info *rsp_info)
 {
 	struct skhpb_region *cb;
@@ -1195,21 +1190,34 @@ static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 
 			if (!hpb->hba->sdev_ufs_lu[hpb->lun] ||
 				!hpb->hba->sdev_ufs_lu[hpb->lun]->request_queue)
-				return;
+				return -ENODEV;
 			ret = skhpb_set_map_req(hpb, region, subregion,
 									cp->mctx, rsp_info, R_BUFFER);
 			SKHPB_DRIVER_D("SEND READ_BUFFER - Region:%d, SubRegion:%d\n",
 						   region, subregion);
 			if (ret) {
+				if (ret == -EAGAIN) {
+					spin_lock_irqsave(&hpb->hpb_lock, flags);
+					cp->subregion_state = SKHPB_SUBREGION_DIRTY;
+					spin_unlock_irqrestore(&hpb->hpb_lock, flags);
+					rsp_info->inactive_cnt = 0;
+					if (iter) {
+						rsp_info->active_list.region[0]  = region;
+						rsp_info->active_list.subregion[0] = subregion;
+						rsp_info->active_cnt = 1;
+					}
+					return ret;
+				}
 				SKHPB_DRIVER_E("skhpb_set_map_req error %d\n", ret);
 				goto wakeup_ee_worker;
 			}
 		}
-	return;
+	return 0;
 
 wakeup_ee_worker:
 	hpb->hba->skhpb_state = SKHPB_FAILED;
 	schedule_work(&hpb->hba->skhpb_eh_work);
+	return -ENODEV;
 }
 
 /* routine : isr (ufs) */
@@ -1396,7 +1404,7 @@ static inline void skhpb_add_subregion_to_req_list(struct skhpb_lu *hpb,
 		struct skhpb_subregion *cp)
 {
 	list_add_tail(&cp->list_subregion, &hpb->lh_subregion_req);
-	cp->subregion_state = SKHPB_SUBREGION_ISSUED;
+	cp->subregion_state = SKHPB_SUBREGION_DIRTY;
 }
 
 static int skhpb_execute_req(struct skhpb_lu *hpb, unsigned char *cmd,
@@ -1603,30 +1611,25 @@ static void skhpb_delayed_rsp_work_handler(struct work_struct *work)
 	struct skhpb_lu *hpb = container_of(work, struct skhpb_lu, skhpb_rsp_work);
 	struct skhpb_rsp_info *rsp_info;
 	unsigned long flags;
+	int ret = 0;
 
 	SKHPB_DRIVER_D("rsp_work enter");
 
-	while (1) {
-		if (hpb->hba->clk_gating.is_suspended) {
-			SKHPB_DRIVER_D("rsp_work break");
-			break;
-		}
+	while (!hpb->hba->clk_gating.is_suspended) {
 		spin_lock_irqsave(&hpb->rsp_list_lock, flags);
 		rsp_info = list_first_entry_or_null(&hpb->lh_rsp_info,
 				struct skhpb_rsp_info, list_rsp_info);
+		spin_unlock_irqrestore(&hpb->rsp_list_lock, flags);
 		if (!rsp_info) {
-			spin_unlock_irqrestore(&hpb->rsp_list_lock, flags);
 			break;
 		}
-
 		SKHPB_RSP_TIME(rsp_info->RSP_start);
-
-		list_del_init(&rsp_info->list_rsp_info);
-		spin_unlock_irqrestore(&hpb->rsp_list_lock, flags);
 
 		switch (rsp_info->type) {
 		case SKHPB_RSP_REQ_REGION_UPDATE:
-			skhpb_rsp_map_cmd_req(hpb, rsp_info);
+			ret = skhpb_rsp_map_cmd_req(hpb, rsp_info);
+			if (ret)
+				return;
 			break;
 
 		case SKHPB_RSP_HPB_RESET:
@@ -1639,6 +1642,7 @@ static void skhpb_delayed_rsp_work_handler(struct work_struct *work)
 		}
 
 		spin_lock_irqsave(&hpb->rsp_list_lock, flags);
+		list_del_init(&rsp_info->list_rsp_info);
 		list_add_tail(&rsp_info->list_rsp_info, &hpb->lh_rsp_info_free);
 		spin_unlock_irqrestore(&hpb->rsp_list_lock, flags);
 	}
@@ -1823,36 +1827,40 @@ out:
 }
 
 static int skhpb_req_mempool_init(struct ufs_hba *hba,
-				struct skhpb_lu *hpb, int queue_depth)
+				struct skhpb_lu *hpb, int qd)
 {
 	struct skhpb_rsp_info *rsp_info = NULL;
 	struct skhpb_map_req *map_req = NULL;
-	int i;
+	int i, rec_qd;
 
-	if (!queue_depth) {
-		queue_depth = hba->nutrs;
-		SKHPB_DRIVER_E("lu_queue_depth is 0. we use device's queue info.\n");
-		SKHPB_DRIVER_E("hba->nutrs = %d\n", hba->nutrs);
-	}
+	if (!qd) {
+		qd = hba->nutrs;
+		SKHPB_DRIVER_D("hba->nutrs = %d\n", hba->nutrs);
+		}
+	if (hpb->hpb_ver >= 0x0200)
+		rec_qd = hpb->lu_max_active_regions;
+	else
+		rec_qd = qd;
+
 	INIT_LIST_HEAD(&hpb->lh_rsp_info_free);
 	INIT_LIST_HEAD(&hpb->lh_map_req_free);
 	INIT_LIST_HEAD(&hpb->lh_map_req_retry);
 
-	hpb->rsp_info = vzalloc(queue_depth * sizeof(struct skhpb_rsp_info));
+	hpb->rsp_info = vzalloc(rec_qd * sizeof(struct skhpb_rsp_info));
 	if (!hpb->rsp_info)
 		goto release_mem;
 
-	hpb->map_req = vzalloc(queue_depth * sizeof(struct skhpb_map_req));
+	hpb->map_req = vzalloc(qd * sizeof(struct skhpb_map_req));
 	if (!hpb->map_req)
 		goto release_mem;
 
-	for (i = 0; i < queue_depth; i++) {
+	for (i = 0; i < rec_qd; i++) {
 		rsp_info = hpb->rsp_info + i;
 		INIT_LIST_HEAD(&rsp_info->list_rsp_info);
 		list_add_tail(&rsp_info->list_rsp_info, &hpb->lh_rsp_info_free);
 	}
 
-	for (i = 0; i < queue_depth; i++) {
+	for (i = 0; i < qd; i++) {
 		map_req = hpb->map_req + i;
 		INIT_LIST_HEAD(&map_req->list_map_req);
 		list_add_tail(&map_req->list_map_req, &hpb->lh_map_req_free);
@@ -2179,14 +2187,6 @@ static void skhpb_quirk_setup(struct ufs_hba *hba,
 	if (hba->dev_quirks & SKHPB_QUIRK_PURGE_HINT_INFO_WHEN_SLEEP) {
 		hba->skhpb_quirk |= SKHPB_QUIRK_PURGE_HINT_INFO_WHEN_SLEEP;
 		SKHPB_DRIVER_I("QUIRK set PURGE_HINT_INFO_WHEN_SLEEP\n");
-	}
-	if (desc->hpb_ver >= 0x0101) {
-		hba->skhpb_quirk |= SKHPB_QUIRK_USE_READ_16_FOR_ENCRYPTION;
-		SKHPB_DRIVER_I("QUIRK set USE_READ_16_FOR_ENCRYPTION\n");
-	}
-	if (desc->hpb_ver == 0x0102) {
-		hba->skhpb_quirk |= SKHPB_QUIRK_ALWAYS_DEVICE_CONTROL_MODE;
-		SKHPB_DRIVER_I("QUIRK set ALWAYS_DEVICE_CONTROL_MODE\n");
 	}
 }
 
