@@ -204,6 +204,7 @@ static int mtk_ccu_run(struct mtk_ccu *ccu)
 	writel(ccu->log_taglevel, ccu_base + MTK_CCU_SPARE_REG05);
 
 #if defined(SECURE_CCU)
+	writel(CCU_GO_TO_RUN, ccu_base + MTK_CCU_SPARE_REG06);
 #ifdef CONFIG_ARM64
 	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u64) CCU_SMC_REQ_RUN, 0, 0, 0, 0, 0, 0, &res);
 #endif
@@ -429,6 +430,7 @@ static int mtk_ccu_stop(struct rproc *rproc)
 #endif
 
 #if defined(SECURE_CCU)
+	writel(CCU_GO_TO_STOP, ccu->ccu_base + MTK_CCU_SPARE_REG06);
 #ifdef CONFIG_ARM64
 	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u64) CCU_SMC_REQ_STOP,
 		0, 0, 0, 0, 0, 0, &res);

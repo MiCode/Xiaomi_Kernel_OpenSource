@@ -72,5 +72,7 @@
 
 #define CCU_STATUS_INIT_DONE              0xffff0000
 #define CCU_STATUS_INIT_DONE_2            0xffff00a5
+#define CCU_GO_TO_RUN                     0x17172ACE
+#define CCU_GO_TO_STOP                    0x8181DEAD
 
 #endif //__RPOC_MTK_CCU_IPS7_H
