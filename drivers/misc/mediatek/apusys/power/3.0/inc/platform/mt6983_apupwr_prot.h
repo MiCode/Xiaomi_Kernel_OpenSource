@@ -19,6 +19,8 @@
 #define SPARE_DBG_REG16		0x440	// mbox4_dummy16
 #define SPARE_DBG_REG17		0x444	// mbox4_dummy17
 
+#define VSRAM_VB_SYNC_REG	SPARE_DBG_REG17
+
 #define ACX0_LIMIT_OPP_REG      SPARE_DBG_REG10
 #define ACX1_LIMIT_OPP_REG      SPARE_DBG_REG11
 #define DEV_OPP_SYNC_REG        SPARE_DBG_REG12

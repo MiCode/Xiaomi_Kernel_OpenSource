@@ -1136,6 +1136,76 @@ out:
 #endif // !APU_PWR_SOC_PATH
 #endif // APU_POWER_BRING_UP
 
+#if SUPPORT_VSRAM_0P75_VB
+static int aputop_acquire_hw_sema(struct device *dev)
+{
+	static int timeout_cnt_max;
+	int timeout_cnt = 0;
+
+	pr_info("%s +\n", __func__);
+
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
+			SMC_RCX_PWR_HW_SEMA);
+	udelay(10);
+
+	while ((apu_readl(apupw.regs[sys_spm] + SPM_HW_SEMA_MASTER) & BIT(2))
+			!= BIT(2)) {
+
+		if (timeout_cnt++ >= HW_SEMA_TIMEOUT_CNT) {
+			pr_info("%s acquire timeout! (%d)\n",
+					__func__, timeout_cnt);
+			return -1;
+		}
+
+		apusys_pwr_smc_call(dev,
+				MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
+				SMC_RCX_PWR_HW_SEMA);
+		udelay(10);
+	}
+
+	if (timeout_cnt > timeout_cnt_max)
+		timeout_cnt_max = timeout_cnt;
+
+	pr_info("%s (timeout_cnt:%d, timeout_cnt_max:%d) -\n",
+			__func__, timeout_cnt, timeout_cnt_max);
+	return 0;
+}
+
+static int aputop_release_hw_sema(struct device *dev)
+{
+	static int timeout_cnt_max;
+	int timeout_cnt = 0;
+
+	pr_info("%s +\n", __func__);
+
+	apusys_pwr_smc_call(dev,
+			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
+			SMC_RCX_PWR_HW_SEMA);
+	udelay(10);
+
+	while ((apu_readl(apupw.regs[sys_spm] + SPM_HW_SEMA_MASTER) & BIT(2))
+			>> 2 != 0x0) {
+
+		if (timeout_cnt++ >= HW_SEMA_TIMEOUT_CNT) {
+			pr_info("%s release timeout! (%d)\n",
+					__func__, timeout_cnt);
+			return -1;
+		}
+
+		udelay(10);
+	}
+
+	if (timeout_cnt > timeout_cnt_max)
+		timeout_cnt_max = timeout_cnt;
+
+	pr_info("%s (timeout_cnt:%d, timeout_cnt_max:%d) -\n",
+			__func__, timeout_cnt, timeout_cnt_max);
+
+	return 0;
+}
+#endif
+
 static void aputop_dump_pcu_data(struct device *dev)
 {
 	apusys_pwr_smc_call(dev,
@@ -1148,6 +1218,13 @@ static int mt6983_apu_top_on(struct device *dev)
 	int ret = 0;
 
 	pr_info("%s +\n", __func__);
+
+#if SUPPORT_VSRAM_0P75_VB
+	if (aputop_acquire_hw_sema(dev)) {
+		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_WAKEUP_FAIL");
+		return -1;
+	}
+#endif
 
 #if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
@@ -1168,6 +1245,10 @@ static int mt6983_apu_top_on(struct device *dev)
 		are_dump_config(0);
 		are_dump_config(1);
 		are_dump_config(2);
+#endif
+
+#if SUPPORT_VSRAM_0P75_VB
+		aputop_release_hw_sema(dev);
 #endif
 		if (ret == -EIO)
 			apupw_aee_warn("APUSYS_POWER",
@@ -1246,6 +1327,10 @@ static int mt6983_apu_top_off(struct device *dev)
 		are_dump_config(1);
 		are_dump_config(2);
 #endif
+
+#if SUPPORT_VSRAM_0P75_VB
+		aputop_release_hw_sema(dev);
+#endif
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_SLEEP_TIMEOUT");
 		return -1;
 	}
@@ -1259,6 +1344,13 @@ static int mt6983_apu_top_off(struct device *dev)
 #if (ENABLE_SOC_CLK_MUX || ENABLE_SW_BUCK_CTL)
 	// FIXME: remove this since it should be auto ctl by RPC flow
 	plt_pwr_res_ctl(0);
+#endif
+
+#if SUPPORT_VSRAM_0P75_VB
+	if (aputop_release_hw_sema(dev)) {
+		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_SLEEP_TIMEOUT");
+		return -1;
+	}
 #endif
 	pr_info("%s -\n", __func__);
 	return 0;
@@ -1669,6 +1761,19 @@ static int mt6983_apu_top_func(struct platform_device *pdev,
 #if APUPW_DUMP_FROM_APMCU
 		are_dump_config(2);
 		are_dump_entry(2);
+#endif
+		break;
+	case APUTOP_FUNC_DBG_VSRAM_VB:
+#if SUPPORT_VSRAM_0P75_VB
+		pr_info("VSRAM_VB target : %d\n", aputop->param1);
+		if (aputop->param1 == 750)
+			apu_writel(750000,
+				apupw.regs[apu_md32_mbox] + VSRAM_VB_SYNC_REG);
+		else if (aputop->param1 == 700)
+			apu_writel(700000,
+				apupw.regs[apu_md32_mbox] + VSRAM_VB_SYNC_REG);
+		else
+			pr_info("VSRAM_VB over range ! plz enter 750 or 700\n");
 #endif
 		break;
 	default:
