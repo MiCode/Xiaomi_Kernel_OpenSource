@@ -78,7 +78,16 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 			return -ENOMEM;
 		}
 
-		usb_bam_alloc_fifos(usb_bam_type, idx);
+		ret = usb_bam_alloc_fifos(usb_bam_type, idx);
+		if (ret) {
+			pr_err("%s: usb_bam_alloc_fifos failed(%d)\n",
+								__func__, ret);
+			dma_unmap_resource(dev->parent, bam_info.qdss_bam_iova,
+						bam_info.qdss_bam_size,
+						DMA_BIDIRECTIONAL, 0);
+			return ret;
+		}
+
 		bam_info.data_fifo =
 			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
 		if (!bam_info.data_fifo) {
