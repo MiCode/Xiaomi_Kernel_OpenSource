@@ -261,6 +261,7 @@ int aed_get_status(void);
 int aee_is_printk_too_much(const char *module);
 void aee_sram_printk(const char *fmt, ...);
 int aee_is_enable(void);
+extern void aed_set_extra_func(int (*fn)(void));
 #else
 static inline void aee_kernel_exception_api_func(const char *file,
 		const int line, const int db_opt, const char *module,
@@ -319,6 +320,11 @@ static inline void aee_sram_printk(const char *fmt, ...)
 static inline int aee_is_enable(void)
 {
 	return 0;
+}
+
+static inline void aed_set_extra_func(int (*fn)(void))
+{
+
 }
 #endif
 #endif/* __AEE_H__ */

@@ -256,6 +256,7 @@ struct aee_siginfo {
 #define AEEIOCTL_SET_HANG_REBOOT _IO('p', 0x12)
 #define AEEIOCTL_GET_THREAD_RMS  _IOW('p', 0x13, struct unwind_info_rms)
 #define AEEIOCTL_GET_THREAD_STACK_RAW  _IOW('p', 0x14, struct unwind_info_stack)
+#define AEEIOCTL_SET_NOTIFY  _IOR('p', 0x15, int)
 
 
 #define AED_FILE_OPS(entry) \
