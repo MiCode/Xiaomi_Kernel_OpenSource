@@ -1020,9 +1020,11 @@ static int therm_intf_probe(struct platform_device *pdev)
 	thermal_csram_base = addr;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apu_mbox");
-	addr = ioremap(res->start, res->end - res->start + 1);
-	if (!IS_ERR_OR_NULL(addr))
-		thermal_apu_mbox_base = addr;
+	if (!res) {
+		addr = ioremap(res->start, res->end - res->start + 1);
+		if (!IS_ERR_OR_NULL(addr))
+			thermal_apu_mbox_base = addr;
+	}
 
 	/* get CPU cluster num */
 	for_each_possible_cpu(cpu) {
