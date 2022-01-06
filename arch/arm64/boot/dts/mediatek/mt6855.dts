@@ -539,6 +539,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu1: cpu@001 {
@@ -550,6 +551,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu2: cpu@002 {
@@ -561,6 +563,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu3: cpu@003 {
@@ -572,6 +575,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu4: cpu@004 {
@@ -583,6 +587,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu5: cpu@005 {
@@ -594,6 +599,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <407>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu6: cpu@100 {
@@ -605,6 +611,7 @@
 			clock-frequency = <2200000000>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu7: cpu@101 {
@@ -616,6 +623,7 @@
 			clock-frequency = <2200000000>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu-map {
@@ -646,6 +654,81 @@
 				core1 {
 					cpu = <&cpu7>;
 				};
+			};
+		};
+		idle-states {
+			entry-method = "arm,psci";
+				cpuoff_l: cpuoff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010001>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1600>;
+			};
+			cpuoff_b: cpuoff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010002>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1400>;
+			};
+			clusteroff_l: clusteroff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010101>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <2100>;
+			};
+			clusteroff_b: clusteroff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010102>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <1900>;
+			};
+			mcusysoff: mcusysoff {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010701>;
+				local-timer-stop;
+				entry-latency-us = <450>;
+				exit-latency-us = <600>;
+				min-residency-us = <4000>;
+			};
+			system_mem: system_mem {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f01>;
+				local-timer-stop;
+				entry-latency-us = <700>;
+				exit-latency-us = <850>;
+				min-residency-us = <4000>;
+			};
+			system_pll: system_pll {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f02>;
+				local-timer-stop;
+				entry-latency-us = <800>;
+				exit-latency-us = <950>;
+				min-residency-us = <4000>;
+			};
+			system_bus: system_bus {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010f03>;
+				local-timer-stop;
+				entry-latency-us = <1300>;
+				exit-latency-us = <2800>;
+				min-residency-us = <4000>;
+			};
+			s2idle: s2idle {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01011f01>;
+				local-timer-stop;
+				entry-latency-us = <10000>;
+				exit-latency-us = <10000>;
+				min-residency-us = <4294967295>;
 			};
 		};
 	};
@@ -2161,9 +2244,9 @@
 			mediatek,pmic_all_rgn_en = <0x60400>;
 		};
 
-		sleep@10006000 {
+		sleep@1c001000 {
 			compatible = "mediatek,sleep";
-			reg = <0 0x10006000 0 0x1000>;
+			reg = <0 0x1c001000 0 0x1000>;
 		};
 
 		toprgu@10007000 {
@@ -7096,7 +7179,7 @@
 			rc_cpu_buck_ldo: rc_cpu_buck_ldo{
 				rc-name = "cpu-buck-ldo";
 				id = <0x00000003>;
-				value = <0>;
+				value = <1>;
 				cond-info = <0>;
 			};
 		};
