@@ -122,6 +122,17 @@
 			"cpccfg_reg";
 	};
 
+	fpsgo: fpsgo {
+		compatible = "mediatek,fpsgo";
+		interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+		interconnect-names = "fpsgo-perf-bw";
+		required-opps = <&dvfsrc_freq_opp0>;
+
+		gcc_enable = <1>;
+		fbt_cpu_mask = <255 192 63 63>;
+		sbe_resceue_enable = <1>;
+	};
+
 	infracfg_ao_clk: syscon@10001000 {
 		compatible = "mediatek,mt6855-infracfg_ao", "syscon", "simple-mfd";
 		reg = <0 0x10001000 0 0x1000>;
