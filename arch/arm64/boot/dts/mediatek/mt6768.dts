@@ -706,6 +706,7 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 73 IRQ_TYPE_EDGE_FALLING>;
 		clocks = <&clk26m>;
 		clock-names = "kpd";
+		mediatek,boot_mode = <1>;
 	};
 
 	mrdump_ext_rst: mrdump_ext_rst {

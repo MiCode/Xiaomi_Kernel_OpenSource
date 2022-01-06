@@ -1471,6 +1471,7 @@
 		interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING>;
 		clocks = <&clk26m>;
 		clock-names = "kpd";
+		mediatek,boot_mode = <1>;
 	};
 
 	topmisc@10011000 {
