@@ -2494,15 +2494,15 @@ static int scp_device_probe(struct platform_device *pdev)
 static int scp_device_remove(struct platform_device *dev)
 {
 	if (scp_mbox_info) {
-		kfree(scp_mbox_info);
+		kvfree(scp_mbox_info);
 		scp_mbox_info = NULL;
 	}
 	if (scp_mbox_pin_recv) {
-		kfree(scp_mbox_pin_recv);
+		kvfree(scp_mbox_pin_recv);
 		scp_mbox_pin_recv = NULL;
 	}
 	if (scp_mbox_pin_send) {
-		kfree(scp_mbox_pin_send);
+		kvfree(scp_mbox_pin_send);
 		scp_mbox_pin_send = NULL;
 	}
 
