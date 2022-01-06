@@ -203,6 +203,14 @@
 			size = <0 0x10000000>;
 			alignment = <0 0x1000000>;
 		};
+
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
+			no-map;
+			size = <0 0x600000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
@@ -3345,6 +3353,13 @@
 		mediatek,speaker-codec {
 			sound-dai = <&speaker_amp>;
 		};
+	};
+
+	wifi: wifi@18000000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x18000000 0 0x100000>;
+		interrupts = <GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH 0>;
+		memory-region = <&wifi_mem>;
 	};
 };
 
