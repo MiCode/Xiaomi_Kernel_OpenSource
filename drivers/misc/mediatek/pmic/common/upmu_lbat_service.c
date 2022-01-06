@@ -280,7 +280,7 @@ struct lbat_user *lbat_user_register(const char *name,
 	void (*callback)(unsigned int thd_volt))
 {
 	int ret = 0;
-	struct lbat_user *user;
+	struct lbat_user *user = NULL;
 
 	mutex_lock(&lbat_mutex);
 	user = kzalloc(sizeof(*user), GFP_KERNEL);
