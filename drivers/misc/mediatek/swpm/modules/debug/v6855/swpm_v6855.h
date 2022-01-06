@@ -91,9 +91,9 @@ enum aphy_core_pwr_type {
 
 enum aphy_other_pwr_type {
 	/* APHY_VCORE, independent */
-	APHY_VDDQ_0P6V,
-	APHY_VM_0P75V,
-	APHY_VIO_1P2V,
+	APHY_VDDQ,
+	APHY_VM,
+	APHY_VIO,
 	/* APHY_VIO_1P8V, */
 
 	NR_APHY_OTHERS_PWR_TYPE
@@ -103,7 +103,7 @@ enum dram_pwr_type {
 	DRAM_VDD1_1P8V,
 	DRAM_VDD2H_1P05V,
 	DRAM_VDD2L_0P9V,
-	DRAM_VDDQ_0P6V,
+	DRAM_VDDQ_0P3V,
 
 	NR_DRAM_PWR_TYPE
 };
@@ -265,7 +265,8 @@ struct mem_swpm_index {
 	/* for calculation */
 	unsigned int read_bw[MAX_EMI_NUM];
 	unsigned int write_bw[MAX_EMI_NUM];
-	unsigned int srr_pct;			/* self refresh rate */
+	unsigned int srr_pct;			/* (s1) self refresh rate */
+	unsigned int ssr_pct;			/* (s0) self sleep rate */
 	unsigned int pdir_pct[MAX_EMI_NUM];	/* power-down idle rate */
 	unsigned int phr_pct[MAX_EMI_NUM];	/* page-hit rate */
 	unsigned int acc_util[MAX_EMI_NUM];	/* accumulate EMI utilization */
@@ -319,15 +320,22 @@ struct aphy_others_pwr {
 struct aphy_core_pwr_data {
 	struct aphy_core_pwr pwr[NR_DDR_FREQ];
 	unsigned short coef_idle[NR_DDR_FREQ];
+	unsigned short coef_srst[NR_DDR_FREQ];
+	unsigned short coef_ssr[NR_DDR_FREQ];
+	unsigned short volt[NR_DDR_FREQ];
 };
 
 struct aphy_others_pwr_data {
 	struct aphy_others_pwr pwr[NR_DDR_FREQ];
 	unsigned short coef_idle[NR_DDR_FREQ];
+	unsigned short coef_srst[NR_DDR_FREQ];
+	unsigned short coef_ssr[NR_DDR_FREQ];
+	unsigned short volt[NR_DDR_FREQ];
 };
 
 /* unit: uA */
 struct dram_pwr_conf {
+	/*unsigned int volt;*/
 	unsigned int i_dd0;
 	unsigned int i_dd2p;
 	unsigned int i_dd2n;
@@ -336,7 +344,6 @@ struct dram_pwr_conf {
 	unsigned int i_dd5;
 	unsigned int i_dd6;
 };
-
 /* numbers of unsigned int for cpu reserved memory */
 #define CPU_SWPM_RESERVED_SIZE (4)
 
@@ -360,7 +367,6 @@ struct mem_swpm_rec_data {
 	/* * ((16+16)(r/w_coef) * 9(opp) + 9(idle)) = 1782 bytes */
 	struct aphy_others_pwr_data
 		aphy_others_pwr_tbl[NR_APHY_OTHERS_PWR_TYPE];
-
 	/* 4(int) * 4(pwr_type) * 7 = 112 bytes */
 	struct dram_pwr_conf dram_conf[NR_DRAM_PWR_TYPE];
 };
