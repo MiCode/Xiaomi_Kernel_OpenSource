@@ -22,7 +22,11 @@
 #define SSPM_COREDUMP_SUPPORT       (0)
 #define SSPM_EMI_PROTECTION_SUPPORT (1)
 
+#if defined(CONFIG_MACH_MT6768)
+#define SSPM_TIMESYNC_SUPPORT       (0)
+#else
 #define SSPM_TIMESYNC_SUPPORT       (1)
+#endif
 
 #define TIMESYNC_TIMEOUT	(60 * 60 * HZ)
 
