@@ -722,6 +722,9 @@ struct SV_LOG_STR {
  */
 #define ISR_NO_PRINT (true)
 
+/* camsv_shift for non top0 platform */
+#define CAMSV_SHIFT (2)
+
 static void print_isr_log(unsigned int logtype, char *ptr)
 {
 	int i = 0;
@@ -3471,19 +3474,26 @@ static int ISP_REGISTER_IRQ_USERKEY(char *userName)
  ******************************************************************************/
 static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 {			     /* FIX to avoid build warning */
+	unsigned int dev_node_irqinfo_Type = irqinfo->Type;
 	unsigned long flags; /* old: unsigned int flags; */
+
+	if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+		if ((dev_node_irqinfo_Type >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+			(dev_node_irqinfo_Type <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+			dev_node_irqinfo_Type += CAMSV_SHIFT;
+	}
 
 	if (irqinfo->EventInfo.UserKey != 0)
 		LOG_INF("type(%d)userKey(%d)St_type(%d)St(0x%x)",
-			irqinfo->Type, irqinfo->EventInfo.UserKey,
+			dev_node_irqinfo_Type, irqinfo->EventInfo.UserKey,
 			irqinfo->EventInfo.St_type, irqinfo->EventInfo.Status);
 
 	if (irqinfo->EventInfo.UserKey == 1)
 		LOG_NOTICE("++FLUSH 3a waitirq cnt = %d\n", irq3a_wait_cnt);
 
-	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT ||
-	    irqinfo->Type < 0) {
-		LOG_NOTICE("FLUSH_IRQ: type error(%d)", irqinfo->Type);
+	if (dev_node_irqinfo_Type >= ISP_IRQ_TYPE_AMOUNT ||
+	    dev_node_irqinfo_Type < 0) {
+		LOG_NOTICE("FLUSH_IRQ: type error(%d)", dev_node_irqinfo_Type);
 		return -EFAULT;
 	}
 
@@ -3502,52 +3512,52 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 	}
 
 	/* 1. enable signal */
-	spin_lock_irqsave(&(IspInfo.SpinLockIrq[irqinfo->Type]), flags);
-	IspInfo.IrqInfo.Status[irqinfo->Type][irqinfo->EventInfo.St_type]
+	spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_irqinfo_Type]), flags);
+	IspInfo.IrqInfo.Status[dev_node_irqinfo_Type][irqinfo->EventInfo.St_type]
 			      [irqinfo->EventInfo.UserKey] |=
 		irqinfo->EventInfo.Status;
 
 	/* 1.2. For camsv FBC issue, enq may wait next SOF during */
 	/* camsviopipe stop(another thread) */
 	/* append camsv SOF in flush IRQ to wake up camsv enq thread */
-	if (irqinfo->Type >= ISP_IRQ_TYPE_INT_CAMSV_START_ST &&
-	    irqinfo->Type <= ISP_IRQ_TYPE_INT_CAMSV_END_ST) {
+	if (dev_node_irqinfo_Type >= ISP_IRQ_TYPE_INT_CAMSV_START_ST &&
+	    dev_node_irqinfo_Type <= ISP_IRQ_TYPE_INT_CAMSV_END_ST) {
 		if (irqinfo->EventInfo.St_type == SIGNAL_INT) {
 			if (irqinfo->EventInfo.Status == SV_SW_PASS1_DON_ST)
 				IspInfo.IrqInfo
-					.Status[irqinfo->Type]
+					.Status[dev_node_irqinfo_Type]
 					       [irqinfo->EventInfo.St_type]
 					       [irqinfo->EventInfo.UserKey] |=
 					SV_SOF_INT_ST;
 		}
 	}
 
-	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[irqinfo->Type]), flags);
+	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[dev_node_irqinfo_Type]), flags);
 
 	/* 2. force to wake up the user that are waiting for that signal */
-	if (ISP_CheckUseCamWaitQ(irqinfo->Type, irqinfo->EventInfo.St_type,
+	if (ISP_CheckUseCamWaitQ(dev_node_irqinfo_Type, irqinfo->EventInfo.St_type,
 				 irqinfo->EventInfo.Status)) {
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCam
-				 [ISP_GetWaitQCamIndex(irqinfo->Type)]
+				 [ISP_GetWaitQCamIndex(dev_node_irqinfo_Type)]
 				 [ISP_GetWaitQCamIrqIndex(
 					 irqinfo->EventInfo.St_type,
 					 irqinfo->EventInfo.Status)]);
-	} else if (ISP_CheckUseCamsvWaitQ(irqinfo->Type,
+	} else if (ISP_CheckUseCamsvWaitQ(dev_node_irqinfo_Type,
 					  irqinfo->EventInfo.St_type,
 					  irqinfo->EventInfo.Status)) {
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCamsv
-				 [ISP_GetWaitQCamsvIndex(irqinfo->Type)]
+				 [ISP_GetWaitQCamsvIndex(dev_node_irqinfo_Type)]
 				 [ISP_GetWaitQCamsvIrqIndex(
 					 irqinfo->EventInfo.St_type,
 					 irqinfo->EventInfo.Status)]);
 
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCamsv[ISP_GetWaitQCamsvIndex(
-				irqinfo->Type)][ISP_WAITQ_HEAD_IRQ_SV_SOF]);
+				dev_node_irqinfo_Type)][ISP_WAITQ_HEAD_IRQ_SV_SOF]);
 	} else {
-		wake_up_interruptible(&IspInfo.WaitQueueHead[irqinfo->Type]);
+		wake_up_interruptible(&IspInfo.WaitQueueHead[dev_node_irqinfo_Type]);
 	}
 
 	if (irqinfo->EventInfo.UserKey == 1)
@@ -3561,10 +3571,10 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
  ******************************************************************************/
 static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 {
-	int Ret = 0, Timeout = WaitIrq->EventInfo.Timeout;
 	/* FIX to avoid build warning */
 	unsigned long flags; /* old: unsigned int flags; */
-	unsigned int irqStatus;
+	int Ret = 0, Timeout = WaitIrq->EventInfo.Timeout;
+	unsigned int irqStatus, dev_node_WaitIrq_Type;
 
 	int idx = my_get_pow_idx(WaitIrq->EventInfo.Status);
 	struct timespec64 time_getrequest;
@@ -3573,9 +3583,16 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 	ktime_get_ts64(&time_getrequest);
 
-	if (WaitIrq->Type >= ISP_IRQ_TYPE_AMOUNT ||
-	    WaitIrq->Type < 0) {
-		LOG_NOTICE("WaitIrq: type error(%d)", WaitIrq->Type);
+	dev_node_WaitIrq_Type = WaitIrq->Type;
+
+	if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+		if ((dev_node_WaitIrq_Type >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+			(dev_node_WaitIrq_Type <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+			dev_node_WaitIrq_Type += CAMSV_SHIFT;
+	}
+	if (dev_node_WaitIrq_Type >= ISP_IRQ_TYPE_AMOUNT ||
+	    dev_node_WaitIrq_Type < 0) {
+		LOG_NOTICE("WaitIrq: type error(%d)", dev_node_WaitIrq_Type);
 		return -EFAULT;
 	}
 
@@ -3597,13 +3614,13 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	if (IspInfo.DebugMask & ISP_DBG_INT) {
 		if (WaitIrq->EventInfo.Status &
 		    IspInfo.IrqInfo
-			    .Mask[WaitIrq->Type][WaitIrq->EventInfo.St_type]) {
+			    .Mask[dev_node_WaitIrq_Type][WaitIrq->EventInfo.St_type]) {
 
 			if (WaitIrq->EventInfo.UserKey > 0) {
 				LOG_DBG(
 					"+WaitIrq Clear(%d), Type(%d), Status(0x%08X), Timeout(%d/%d),user(%d)\n",
 					WaitIrq->EventInfo.Clear,
-					WaitIrq->Type,
+					dev_node_WaitIrq_Type,
 					WaitIrq->EventInfo.Status,
 					Timeout, WaitIrq->EventInfo.Timeout,
 					WaitIrq->EventInfo.UserKey);
@@ -3614,26 +3631,26 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 	/* 1. wait type update */
 	if (WaitIrq->EventInfo.Clear == ISP_IRQ_CLEAR_STATUS) {
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+		spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 		IspInfo.IrqInfo
-			.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
+			.Status[dev_node_WaitIrq_Type][WaitIrq->EventInfo.St_type]
 			       [WaitIrq->EventInfo.UserKey] &=
 			(~WaitIrq->EventInfo.Status);
 
-		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]),
+		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]),
 				       flags);
 
 		return Ret;
 	}
 	{
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+		spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 		if (WaitIrq->EventInfo.Status &
-		    IspInfo.IrqInfo.MarkedFlag[WaitIrq->Type]
+		    IspInfo.IrqInfo.MarkedFlag[dev_node_WaitIrq_Type]
 					      [WaitIrq->EventInfo.St_type]
 					      [WaitIrq->EventInfo.UserKey]) {
 
 			spin_unlock_irqrestore(
-				&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+				&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 			/* force to be non_clear wait if marked before, */
 			/* and check the request wait timing */
@@ -3663,66 +3680,66 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			/*  */
 
 			freeze_passbysigcnt = !(ISP_GetIRQState(
-				WaitIrq->Type, WaitIrq->EventInfo.St_type,
+				dev_node_WaitIrq_Type, WaitIrq->EventInfo.St_type,
 				WaitIrq->EventInfo.UserKey,
 				WaitIrq->EventInfo.Status));
 		} else {
 			spin_unlock_irqrestore(
-				&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+				&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 			if (WaitIrq->EventInfo.Clear == ISP_IRQ_CLEAR_WAIT) {
 				spin_lock_irqsave(
-					&(IspInfo.SpinLockIrq[WaitIrq->Type]),
+					&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]),
 					flags);
 
 				if (IspInfo.IrqInfo.Status
-					    [WaitIrq->Type]
+					    [dev_node_WaitIrq_Type]
 					    [WaitIrq->EventInfo.St_type]
 					    [WaitIrq->EventInfo.UserKey] &
 				    WaitIrq->EventInfo.Status) {
 
 					IspInfo.IrqInfo.Status
-						[WaitIrq->Type]
+						[dev_node_WaitIrq_Type]
 						[WaitIrq->EventInfo.St_type]
 						[WaitIrq->EventInfo.UserKey] &=
 						(~WaitIrq->EventInfo.Status);
 				}
 
 				spin_unlock_irqrestore(
-					&(IspInfo.SpinLockIrq[WaitIrq->Type]),
+					&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]),
 					flags);
 
 			} else if (WaitIrq->EventInfo.Clear ==
 				   ISP_IRQ_CLEAR_ALL) {
 
 				spin_lock_irqsave(
-					&(IspInfo.SpinLockIrq[WaitIrq->Type]),
+					&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]),
 					flags);
 
 				IspInfo.IrqInfo
-					.Status[WaitIrq->Type]
+					.Status[dev_node_WaitIrq_Type]
 					       [WaitIrq->EventInfo.St_type]
 					       [WaitIrq->EventInfo.UserKey] = 0;
 
 				spin_unlock_irqrestore(
-					&(IspInfo.SpinLockIrq[WaitIrq->Type]),
+					&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]),
 					flags);
 			}
 		}
 	}
 
 	/* Store irqinfo status in here to redeuce time of spin_lock_irqsave */
-	spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+	spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 	irqStatus = IspInfo.IrqInfo
-			    .Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
+			    .Status[dev_node_WaitIrq_Type][WaitIrq->EventInfo.St_type]
 				   [WaitIrq->EventInfo.UserKey];
 
-	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 	if (WaitIrq->EventInfo.Clear == ISP_IRQ_CLEAR_NONE) {
 		if (IspInfo.IrqInfo
-			    .Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
+			    .Status[dev_node_WaitIrq_Type][WaitIrq->EventInfo.St_type]
 				   [WaitIrq->EventInfo.UserKey] &
 		    WaitIrq->EventInfo.Status) {
 #ifdef ENABLE_WAITIRQ_LOG
@@ -3730,7 +3747,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 				"Already have irq!!!: WaitIrq Timeout(%d) Clear(%d), Type(%d), StType(%d)",
 				", IrqStatus(0x%08X), WaitStatus(0x%08X), Timeout(%d), userKey(%d)\n",
 				WaitIrq->EventInfo.Timeout,
-				WaitIrq->EventInfo.Clear, WaitIrq->Type,
+				WaitIrq->EventInfo.Clear, dev_node_WaitIrq_Type,
 				WaitIrq->EventInfo.St_type, irqStatus,
 				WaitIrq->EventInfo.Status,
 				WaitIrq->EventInfo.Timeout,
@@ -3743,7 +3760,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	LOG_INF(
 		"before wait: Clear(%d) Type(%d) StType(%d) Sts(0x%08X) WaitSts(0x%08X) Timeout(%d) userKey(%d)\n",
 		WaitIrq->EventInfo.Clear,
-		WaitIrq->Type,
+		dev_node_WaitIrq_Type,
 		WaitIrq->EventInfo.St_type,
 		irqStatus,
 		WaitIrq->EventInfo.Status,
@@ -3753,11 +3770,11 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 	if (WaitIrq->EventInfo.UserKey == 1) {
 		irq3a_wait_cnt++;
-		if (irq3a_print_vf_off[WaitIrq->Type]) {
+		if (irq3a_print_vf_off[dev_node_WaitIrq_Type]) {
 			LOG_NOTICE(
 			"VF off IRQ 3A  irq3a_wait_cnt++ =%d Clear(%d) Type(%d) StType(%d) Status(0x%08X) WaitStatus(0x%08X) Timeout(%d) key(%d)\n",
 			irq3a_wait_cnt,
-			WaitIrq->EventInfo.Clear, WaitIrq->Type,
+			WaitIrq->EventInfo.Clear, dev_node_WaitIrq_Type,
 			WaitIrq->EventInfo.St_type, irqStatus,
 			WaitIrq->EventInfo.Status, WaitIrq->EventInfo.Timeout,
 			WaitIrq->EventInfo.UserKey);
@@ -3765,37 +3782,37 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	}
 
 	/* 2. start to wait signal */
-	if (ISP_CheckUseCamWaitQ(WaitIrq->Type, WaitIrq->EventInfo.St_type,
+	if (ISP_CheckUseCamWaitQ(dev_node_WaitIrq_Type, WaitIrq->EventInfo.St_type,
 				 WaitIrq->EventInfo.Status)) {
 		Timeout = wait_event_interruptible_timeout(
 			IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(
-				WaitIrq->Type)]
+				dev_node_WaitIrq_Type)]
 					    [ISP_GetWaitQCamIrqIndex(
 						    WaitIrq->EventInfo.St_type,
 						    WaitIrq->EventInfo.Status)],
-			ISP_GetIRQState(WaitIrq->Type,
+			ISP_GetIRQState(dev_node_WaitIrq_Type,
 					WaitIrq->EventInfo.St_type,
 					WaitIrq->EventInfo.UserKey,
 					WaitIrq->EventInfo.Status),
 			ISP_MsToJiffies(WaitIrq->EventInfo.Timeout));
-	} else if (ISP_CheckUseCamsvWaitQ(WaitIrq->Type,
+	} else if (ISP_CheckUseCamsvWaitQ(dev_node_WaitIrq_Type,
 					  WaitIrq->EventInfo.St_type,
 					  WaitIrq->EventInfo.Status)) {
 		Timeout = wait_event_interruptible_timeout(
 			IspInfo.WaitQHeadCamsv
-				[ISP_GetWaitQCamsvIndex(WaitIrq->Type)]
+				[ISP_GetWaitQCamsvIndex(dev_node_WaitIrq_Type)]
 				[ISP_GetWaitQCamsvIrqIndex(
 					WaitIrq->EventInfo.St_type,
 					WaitIrq->EventInfo.Status)],
-			ISP_GetIRQState(WaitIrq->Type,
+			ISP_GetIRQState(dev_node_WaitIrq_Type,
 					WaitIrq->EventInfo.St_type,
 					WaitIrq->EventInfo.UserKey,
 					WaitIrq->EventInfo.Status),
 			ISP_MsToJiffies(WaitIrq->EventInfo.Timeout));
 	} else {
 		Timeout = wait_event_interruptible_timeout(
-			IspInfo.WaitQueueHead[WaitIrq->Type],
-			ISP_GetIRQState(WaitIrq->Type,
+			IspInfo.WaitQueueHead[dev_node_WaitIrq_Type],
+			ISP_GetIRQState(dev_node_WaitIrq_Type,
 					WaitIrq->EventInfo.St_type,
 					WaitIrq->EventInfo.UserKey,
 					WaitIrq->EventInfo.Status),
@@ -3804,11 +3821,11 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 
 	if (WaitIrq->EventInfo.UserKey == 1) {
 		irq3a_wait_cnt--;
-		if (irq3a_print_vf_off[WaitIrq->Type]) {
+		if (irq3a_print_vf_off[dev_node_WaitIrq_Type]) {
 			LOG_NOTICE(
 			"VF off IRQ 3A  irq3a_wait_cnt-- =%d Clear(%d) Type(%d) StType(%d) Status(0x%08X) WaitStatus(0x%08X) Timeout(%d) key(%d)\n",
 			irq3a_wait_cnt,
-			WaitIrq->EventInfo.Clear, WaitIrq->Type,
+			WaitIrq->EventInfo.Clear, dev_node_WaitIrq_Type,
 			WaitIrq->EventInfo.St_type, irqStatus,
 			WaitIrq->EventInfo.Status, WaitIrq->EventInfo.Timeout,
 			WaitIrq->EventInfo.UserKey);
@@ -3816,13 +3833,13 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	}
 	/* check if user is interrupted by system signal */
 	if ((Timeout != 0) &&
-	    (!ISP_GetIRQState(WaitIrq->Type, WaitIrq->EventInfo.St_type,
+	    (!ISP_GetIRQState(dev_node_WaitIrq_Type, WaitIrq->EventInfo.St_type,
 			      WaitIrq->EventInfo.UserKey,
 			      WaitIrq->EventInfo.Status))) {
 
 		LOG_INF(
 			"interrupted by system signal,return value(%d),irq Type/User/Sts(0x%x/%d/0x%x)\n",
-			Timeout, WaitIrq->Type,
+			Timeout, dev_node_WaitIrq_Type,
 			WaitIrq->EventInfo.UserKey,
 			WaitIrq->EventInfo.Status);
 
@@ -3833,18 +3850,18 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	if (Timeout == 0) {
 		/* Store irqinfo status in here to */
 		/* redeuce time of spin_lock_irqsave */
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+		spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
-		irqStatus = IspInfo.IrqInfo.Status[WaitIrq->Type]
+		irqStatus = IspInfo.IrqInfo.Status[dev_node_WaitIrq_Type]
 						  [WaitIrq->EventInfo.St_type]
 						  [WaitIrq->EventInfo.UserKey];
 
-		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]),
+		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]),
 				       flags);
 
 		LOG_NOTICE(
 			"ERRRR WaitIrq Clear(%d) Type(%d) StType(%d) Status(0x%08X) WaitStatus(0x%08X) Timeout(%d) key(%d)\n",
-			WaitIrq->EventInfo.Clear, WaitIrq->Type,
+			WaitIrq->EventInfo.Clear, dev_node_WaitIrq_Type,
 			WaitIrq->EventInfo.St_type, irqStatus,
 			WaitIrq->EventInfo.Status, WaitIrq->EventInfo.Timeout,
 			WaitIrq->EventInfo.UserKey);
@@ -3856,19 +3873,19 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	else {
 		/* Store irqinfo status in here to   */
 		/* redeuce time of spin_lock_irqsave */
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+		spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
-		irqStatus = IspInfo.IrqInfo.Status[WaitIrq->Type]
+		irqStatus = IspInfo.IrqInfo.Status[dev_node_WaitIrq_Type]
 						  [WaitIrq->EventInfo.St_type]
 						  [WaitIrq->EventInfo.UserKey];
 
-		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]),
+		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]),
 				       flags);
 
 		LOG_INF(
 			"Done WaitIrq Clear(%d) Type(%d) StType(%d) Status(0x%08X) WaitStatus(0x%08X) Timeout(%d) key(%d)\n",
 			WaitIrq->EventInfo.Clear,
-			WaitIrq->Type,
+			dev_node_WaitIrq_Type,
 			WaitIrq->EventInfo.St_type,
 			irqStatus,
 			WaitIrq->EventInfo.Status,
@@ -3882,40 +3899,40 @@ NON_CLEAR_WAIT:
 	/*    that would be return to user */
 	ktime_get_ts64(&time_ready2return);
 
-	spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+	spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 	/* clear the status if someone get the irq */
-	IspInfo.IrqInfo.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
+	IspInfo.IrqInfo.Status[dev_node_WaitIrq_Type][WaitIrq->EventInfo.St_type]
 			      [WaitIrq->EventInfo.UserKey] &=
 		(~WaitIrq->EventInfo.Status);
 
-	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 EXIT:
 	/* 4. clear mark flag / reset marked time /  */
 	/*    reset time related infor and passedby signal count */
-	spin_lock_irqsave(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+	spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 	if (WaitIrq->EventInfo.Status &
 	    IspInfo.IrqInfo
-		    .MarkedFlag[WaitIrq->Type][WaitIrq->EventInfo.St_type]
+		    .MarkedFlag[dev_node_WaitIrq_Type][WaitIrq->EventInfo.St_type]
 			       [WaitIrq->EventInfo.UserKey]) {
 
 		IspInfo.IrqInfo
-			.MarkedFlag[WaitIrq->Type][WaitIrq->EventInfo.St_type]
+			.MarkedFlag[dev_node_WaitIrq_Type][WaitIrq->EventInfo.St_type]
 				   [WaitIrq->EventInfo.UserKey] &=
 			(~WaitIrq->EventInfo.Status);
 
-		IspInfo.IrqInfo.MarkedTime_usec[WaitIrq->Type][idx]
+		IspInfo.IrqInfo.MarkedTime_usec[dev_node_WaitIrq_Type][idx]
 					       [WaitIrq->EventInfo.UserKey] = 0;
 
-		IspInfo.IrqInfo.MarkedTime_sec[WaitIrq->Type][idx]
+		IspInfo.IrqInfo.MarkedTime_sec[dev_node_WaitIrq_Type][idx]
 					      [WaitIrq->EventInfo.UserKey] = 0;
 
-		IspInfo.IrqInfo.PassedBySigCnt[WaitIrq->Type][idx]
+		IspInfo.IrqInfo.PassedBySigCnt[dev_node_WaitIrq_Type][idx]
 					      [WaitIrq->EventInfo.UserKey] = 0;
 	}
-	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
+	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[dev_node_WaitIrq_Type]), flags);
 
 	return Ret;
 }
@@ -4327,21 +4344,32 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			LOG_NOTICE("get irq from user fail\n");
 			Ret = -EFAULT;
 		} else {
+			unsigned int dev_node_irq = DebugFlag[0];
 
-			if (DebugFlag[0] < ISP_IRQ_TYPE_INT_CAM_A_ST ||
-			    DebugFlag[0] > ISP_IRQ_TYPE_INT_CAMSV_END_ST) {
-				LOG_NOTICE("err TG(0x%x)\n", DebugFlag[0]);
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_irq >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+					(dev_node_irq <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+					dev_node_irq += CAMSV_SHIFT;
+			}
+			if (dev_node_irq >= (ISP_IRQ_TYPE_AMOUNT)) {
+				LOG_NOTICE("module error(%d)\n", dev_node_irq);
+				Ret = -EFAULT;
+				break;
+			}
+			if (dev_node_irq < ISP_IRQ_TYPE_INT_CAM_A_ST ||
+				dev_node_irq > ISP_IRQ_TYPE_INT_CAMSV_END_ST) {
+				LOG_NOTICE("err TG(0x%x)\n", dev_node_irq);
 				Ret = -EFAULT;
 				break;
 			}
 
-			spin_lock_irqsave(&(IspInfo.SpinLockIrq[DebugFlag[0]]),
+			spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_irq]),
 					  flags);
 
-			DebugFlag[1] = FrameStatus[DebugFlag[0]];
+			DebugFlag[1] = FrameStatus[dev_node_irq];
 
 			spin_unlock_irqrestore(
-				&(IspInfo.SpinLockIrq[DebugFlag[0]]), flags);
+				&(IspInfo.SpinLockIrq[dev_node_irq]), flags);
 
 			if (copy_to_user((void *)Param, &DebugFlag[1],
 					 sizeof(unsigned int)) != 0) {
@@ -4352,13 +4380,37 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 		break;
 	case ISP_GET_INT_ERR:
-		if (copy_to_user((void *)Param, (void *)g_ISPIntStatus,
-				 sizeof(struct ISP_RAW_INT_STATUS) *
-					 ISP_IRQ_TYPE_AMOUNT) != 0) {
-			LOG_NOTICE("get int err fail\n");
+		/* judge the platform to avoid buffer index overflow */
+		if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+			if (copy_to_user((void *)Param, (void *)g_ISPIntStatus,
+				sizeof(struct ISP_RAW_INT_STATUS) *
+				ISP_IRQ_TYPE_INT_CAMSV_START_ST) != 0) {
+				LOG_NOTICE("get int err fail\n");
+			} else {
+				memset((void *)g_ISPIntStatus, 0,
+					sizeof(g_ISPIntStatus));
+			}
+			if (copy_to_user((void *)((struct ISP_RAW_INT_STATUS *)Param
+				+ ISP_IRQ_TYPE_INT_CAMSV_START_ST),
+				(void *)((struct ISP_RAW_INT_STATUS *)g_ISPIntStatus
+				+ ISP_IRQ_TYPE_INT_CAMSV_2_ST),
+				sizeof(struct ISP_RAW_INT_STATUS) *
+				(ISP_IRQ_TYPE_INT_CAMSV_END_ST -
+				ISP_IRQ_TYPE_INT_CAMSV_1_ST)) != 0) {
+				LOG_NOTICE("get int err fail\n");
+			} else {
+				memset((void *)g_ISPIntStatus, 0,
+					sizeof(g_ISPIntStatus));
+			}
 		} else {
-			memset((void *)g_ISPIntStatus, 0,
-			       sizeof(g_ISPIntStatus));
+			if (copy_to_user((void *)Param, (void *)g_ISPIntStatus,
+				sizeof(struct ISP_RAW_INT_STATUS) *
+					ISP_IRQ_TYPE_AMOUNT) != 0) {
+				LOG_NOTICE("get int err fail\n");
+			} else {
+				memset((void *)g_ISPIntStatus, 0,
+					sizeof(g_ISPIntStatus));
+			}
 		}
 		break;
 	case ISP_GET_DMA_ERR:
@@ -4368,13 +4420,20 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			LOG_NOTICE("get module fail\n");
 			Ret = -EFAULT;
 		} else {
-			if (DebugFlag[0] >= (ISP_IRQ_TYPE_AMOUNT)) {
-				LOG_NOTICE("module error(%d)\n", DebugFlag[0]);
+			unsigned int dev_node_irq = DebugFlag[0];
+
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_irq >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+					(dev_node_irq <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+					dev_node_irq += CAMSV_SHIFT;
+			}
+			if (dev_node_irq >= (ISP_IRQ_TYPE_AMOUNT)) {
+				LOG_NOTICE("module error(%d)\n", dev_node_irq);
 				Ret = -EFAULT;
 				break;
 			}
 			if (copy_to_user((void *)Param,
-					 &g_DmaErr_CAM[DebugFlag[0]],
+					 &g_DmaErr_CAM[dev_node_irq],
 					 sizeof(unsigned int) * _cam_max_) != 0)
 				LOG_NOTICE("get dma_err fail\n");
 		}
@@ -4385,16 +4444,23 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			LOG_NOTICE("get cur sof from user fail\n");
 			Ret = -EFAULT;
 		} else {
-			if (DebugFlag[0] < ISP_IRQ_TYPE_INT_CAM_A_ST ||
-			    DebugFlag[0] >= ISP_IRQ_TYPE_AMOUNT) {
+			unsigned int dev_node_irqinfo_Type = DebugFlag[0];
+
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_irqinfo_Type >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+					(dev_node_irqinfo_Type <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+					dev_node_irqinfo_Type += CAMSV_SHIFT;
+			}
+			if (dev_node_irqinfo_Type < ISP_IRQ_TYPE_INT_CAM_A_ST ||
+			    dev_node_irqinfo_Type >= ISP_IRQ_TYPE_AMOUNT) {
 
 				LOG_NOTICE("cursof: error type(%d)\n",
-					   DebugFlag[0]);
+					  dev_node_irqinfo_Type);
 
 				Ret = -EFAULT;
 				break;
 			}
-			DebugFlag[1] = sof_count[DebugFlag[0]];
+			DebugFlag[1] = sof_count[dev_node_irqinfo_Type];
 		}
 		if (copy_to_user((void *)Param, &DebugFlag[1],
 				 sizeof(unsigned int)) != 0) {
@@ -4408,20 +4474,27 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			LOG_NOTICE("get hwmodule from user fail\n");
 			Ret = -EFAULT;
 		} else {
-			if ((module >= ISP_DEV_NODE_NUM) ||
-				(module < ISP_CAM_A_IDX)) {
+			unsigned int dev_node_module = module;
+
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_module >= ISP_CAMSV_START_IDX) &&
+					(dev_node_module <= ISP_CAMSV_END_IDX))
+					dev_node_module += CAMSV_SHIFT;
+			}
+			if ((dev_node_module >= ISP_DEV_NODE_NUM) ||
+				(dev_node_module < ISP_CAM_A_IDX)) {
 				LOG_NOTICE(
 				"ISP_RESET_BY_HWMODULE module is invalid\n");
 				Ret = -EFAULT;
 				break;
 			}
 			spin_lock(&(IspInfo.SpinLockClock));
-			if (G_u4EnableClockCount[module] != 0) {
+			if (G_u4EnableClockCount[dev_node_module] != 0) {
 				spin_unlock(&(IspInfo.SpinLockClock));
-				ISP_Reset(module);
+				ISP_Reset(dev_node_module);
 			} else {
 				spin_unlock(&(IspInfo.SpinLockClock));
-				LOG_NOTICE("module is power off(%d)\n", module);
+				LOG_NOTICE("module is power off(%d)\n", dev_node_module);
 			}
 		}
 		break;
@@ -4497,12 +4570,20 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_CLEAR_IRQ: {
 		if (copy_from_user(&ClearIrq, (void *)Param,
 				   sizeof(struct ISP_CLEAR_IRQ_STRUCT)) == 0) {
-			LOG_DBG("ISP_CLEAR_IRQ Type(%d)\n", ClearIrq.Type);
 
-			if ((ClearIrq.Type >= ISP_IRQ_TYPE_AMOUNT) ||
-			    (ClearIrq.Type < 0)) {
+			unsigned int dev_node_irq = ClearIrq.Type;
+
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_irq >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+					(dev_node_irq <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+					dev_node_irq += CAMSV_SHIFT;
+			}
+
+			LOG_DBG("ISP_CLEAR_IRQ Type(%d)\n", dev_node_irq);
+			if ((dev_node_irq >= ISP_IRQ_TYPE_AMOUNT) ||
+			    (dev_node_irq < 0)) {
 				Ret = -EFAULT;
-				LOG_NOTICE("invalid type(%d)\n", ClearIrq.Type);
+				LOG_NOTICE("invalid type(%d)\n", dev_node_irq);
 				goto EXIT;
 			}
 
@@ -4532,21 +4613,21 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 			LOG_DBG(
 			"ISP_CLEAR_IRQ:Type(%d),Status(0x%x),st_status(%d),IrqStatus(0x%x)\n",
-			ClearIrq.Type,
+			dev_node_irq,
 			ClearIrq.EventInfo.Status,
 			ClearIrq.EventInfo.St_type,
-	IspInfo.IrqInfo.Status[ClearIrq.Type][ClearIrq.EventInfo.St_type][i]);
+	IspInfo.IrqInfo.Status[dev_node_irq][ClearIrq.EventInfo.St_type][i]);
 
-			spin_lock_irqsave(&(IspInfo.SpinLockIrq[ClearIrq.Type]),
+			spin_lock_irqsave(&(IspInfo.SpinLockIrq[dev_node_irq]),
 					  flags);
 
-			IspInfo.IrqInfo.Status[ClearIrq.Type]
+			IspInfo.IrqInfo.Status[dev_node_irq]
 					      [ClearIrq.EventInfo.St_type]
 					      [ClearIrq.EventInfo.UserKey] &=
 				(~ClearIrq.EventInfo.Status);
 
 			spin_unlock_irqrestore(
-				&(IspInfo.SpinLockIrq[ClearIrq.Type]), flags);
+				&(IspInfo.SpinLockIrq[dev_node_irq]), flags);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
 			Ret = -EFAULT;
@@ -4631,7 +4712,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_VF_LOG:
 		if (copy_from_user(DebugFlag, (void *)Param,
 				   sizeof(unsigned int) * 2) == 0) {
-
 			unsigned int vf, module = ISP_IRQ_TYPE_INT_CAM_A_ST;
 			unsigned int cam_dmao = 0;
 			unsigned int dev_node_idx = DebugFlag[1];
@@ -4640,7 +4720,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				(dev_node_idx >= ISP_CAMSV_START_IDX) &&
 				(dev_node_idx <= ISP_CAMSV_END_IDX)) {
 
-				dev_node_idx += 2;
+				dev_node_idx += CAMSV_SHIFT;
 				LOG_NOTICE("camsv node idx shift 2: (%d, %d)",
 					   DebugFlag[1], dev_node_idx);
 			}
@@ -4886,22 +4966,28 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct S_START_T Tstp = {
 				0,
 			};
+		unsigned int dev_node_irq = DebugFlag[0];
 
+		if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+			if ((dev_node_irq >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+				(dev_node_irq <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+				dev_node_irq += CAMSV_SHIFT;
+		}
 #if (TIMESTAMP_QUEUE_EN == 1)
 			unsigned int dma_id = DebugFlag[1];
 
 			if (_cam_max_ == DebugFlag[1]) {
 				/* only for wait timestamp to ready */
-				Ret = ISP_WaitTimestampReady(DebugFlag[0],
+				Ret = ISP_WaitTimestampReady(dev_node_irq,
 							     DebugFlag[2]);
 
 				break;
 			}
 
-			switch (DebugFlag[0]) {
+			switch (dev_node_irq) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
-				if (ISP_PopBufTimestamp(DebugFlag[0], dma_id,
+				if (ISP_PopBufTimestamp(dev_node_irq, dma_id,
 							Tstp) != 0) {
 					LOG_NOTICE(
 						"Get Buf sof timestamp fail");
@@ -4915,12 +5001,12 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
 			case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
-				Tstp.sec = gSTime[DebugFlag[0]].sec;
-				Tstp.usec = gSTime[DebugFlag[0]].usec;
+				Tstp.sec = gSTime[dev_node_irq].sec;
+				Tstp.usec = gSTime[dev_node_irq].usec;
 				break;
 			default:
 				LOG_NOTICE("unsupported module:0x%x\n",
-					   DebugFlag[0]);
+					   dev_node_irq);
 
 				Ret = -EFAULT;
 				break;
@@ -4928,19 +5014,19 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			if (Ret != 0)
 				break;
 #else
-			if (DebugFlag[0] < ISP_IRQ_TYPE_INT_CAM_A_ST ||
-			    DebugFlag[0] > ISP_IRQ_TYPE_INT_CAMSV_7_ST) {
+			if (dev_node_irq < ISP_IRQ_TYPE_INT_CAM_A_ST ||
+			    dev_node_irq > ISP_IRQ_TYPE_INT_CAMSV_7_ST) {
 
 				LOG_NOTICE("unsupported module:0x%x",
-					   DebugFlag[0]);
+					   dev_node_irq);
 
 				Ret = -EFAULT;
 				break;
 			}
 
-			if (g1stSof[DebugFlag[0]] == MFALSE) {
-				Tstp.sec = gSTime[DebugFlag[0]].sec;
-				Tstp.usec = gSTime[DebugFlag[0]].usec;
+			if (g1stSof[dev_node_irq] == MFALSE) {
+				Tstp.sec = gSTime[dev_node_irq].sec;
+				Tstp.usec = gSTime[dev_node_irq].usec;
 			} else {
 				Tstp.sec = Tstp.usec = 0;
 			}
@@ -5109,6 +5195,14 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case SV_SET_PM_QOS:
 		if (copy_from_user(DebugFlag, (void *)Param,
 				   sizeof(unsigned int) * 2) == 0) {
+			unsigned int dev_node_irq = DebugFlag[1];
+
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_irq >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+					(dev_node_irq <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+					dev_node_irq += CAMSV_SHIFT;
+			}
+			DebugFlag[1] = dev_node_irq;
 			SV_SetPMQOS(E_BW_CLR, DebugFlag[1], DebugFlag);
 		} else {
 			LOG_NOTICE("ISP_SET_PM_QOS copy_from_user failed\n");
@@ -5121,6 +5215,15 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		if (copy_from_user(&pm_qos_info, (void *)Param,
 				   sizeof(struct ISP_PM_QOS_INFO_STRUCT)) ==
 		    0) {
+
+			unsigned int dev_node_module = pm_qos_info.module;
+
+			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
+				if ((dev_node_module >= ISP_IRQ_TYPE_INT_CAMSV_START_ST) &&
+					(dev_node_module <= ISP_IRQ_TYPE_INT_CAMSV_END_ST))
+					dev_node_module += CAMSV_SHIFT;
+			}
+			pm_qos_info.module = dev_node_module;
 			SV_SetPMQOS(E_BW_UPDATE, pm_qos_info.module,
 				    (unsigned int *)pm_qos_info.port_bw);
 		} else {
@@ -5536,7 +5639,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			if (IS_CAMSV_TOP0_NOT_AVAILABLE(g_platform_id)) {
 				if ((dev_node_idx >= ISP_CAMSV_START_IDX) &&
 					(dev_node_idx <= ISP_CAMSV_END_IDX))
-					dev_node_idx += 2;
+					dev_node_idx += CAMSV_SHIFT;
 			}
 
 			if ((dev_node_idx >= ISP_DEV_NODE_NUM) ||
