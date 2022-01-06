@@ -513,11 +513,15 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 
 	req->tstate.time_notifyStart = ktime_get_boottime_ns()/1000;
 
+	if (!pipe->streaming)
+		goto notify;
+
 	if (is_singledev_mode(req))
 		mtk_imgsys_iova_map_tbl_unmap_sd(req);
 	else if (is_desc_mode(req))
 		mtk_imgsys_iova_map_tbl_unmap(req);
 
+notify:
 	if (iparam->state != FRAME_STATE_HW_TIMEOUT)
 		vbf_state = VB2_BUF_STATE_DONE;
 	else
