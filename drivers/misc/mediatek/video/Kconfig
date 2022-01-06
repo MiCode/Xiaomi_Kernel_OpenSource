@@ -167,3 +167,11 @@ config MTK_DX_HDCP_DDP_SUPPORT
 	  If you want to use HDCP feature, first should make sure MTK_DX_HDCP_DDP_SUPPORT set as "yes".
 	  Then please make sure CONFIG_MTK_DX_HDCP_DDP_SUPPORT set as Y in xxx_defconfig.mk.
 	  If unsure, set N.
+
+config MTK_MT6382_VDO_MODE
+	bool "VDO LCM Support Bridge IC 6382"
+	help
+	  This config decide if Display is VDO mode with BridgeIC 6382.
+	  BridgeIC 6382 can support VESA-1.2 DSC, compressing display framedata
+	  Normal project will disable it first
+	  If you are not sure about this, do not set it to y

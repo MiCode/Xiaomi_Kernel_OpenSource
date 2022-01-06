@@ -515,14 +515,6 @@ config MTK_MT6382_BDG
 	  Normal project will disable it first
 	  If you are not sure about this, do not set it to y
 
-config MTK_MT6382_VDO_MODE
-	bool "VDO LCM Support Bridge IC 6382"
-	help
-	  This config decide if Display is VDO mode with BridgeIC 6382.
-	  BridgeIC 6382 can support VESA-1.2 DSC, compressing display framedata
-	  Normal project will disable it first
-	  If you are not sure about this, do not set it to y
-
 source "drivers/misc/mediatek/met_drv/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/aee/Kconfig"
