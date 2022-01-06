@@ -386,6 +386,39 @@
 		#clock-cells = <1>;
 	};
 
+	pda: pda@1a0b0000 {
+		compatible = "mediatek,camera-pda";
+		reg = <0 0x1a0b0000 0 0x1000>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks =
+			<&camsys_main_clk CLK_CAM_M_PDA>,
+			<&camsys_main_clk CLK_CAM_M_LARB13>,
+			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
+			<&camsys_main_clk CLK_CAM_M_CAM>;
+		clock-names =
+			"camsys_mraw_pda0",
+			"mraw_larbx",
+			"cam_main_cam2mm0_gals_cg_con",
+			"cam_main_cam_cg_con";
+		power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_MAIN>;
+		mediatek,larbs = <&smi_larb13>;
+		iommus = <&disp_iommu M4U_LARB13_PORT12>,
+			<&disp_iommu M4U_LARB13_PORT13>,
+			<&disp_iommu M4U_LARB13_PORT14>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT12)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT13)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB13_PORT14)
+				&mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"l13_pdai_a0",
+			"l13_pdai_a1",
+			"l13_pdao_a";
+	};
+
 	ipesys_clk: syscon@1b000000 {
 		compatible = "mediatek,mt6855-ipesys", "syscon";
 		reg = <0 0x1b000000 0 0x1000>;
