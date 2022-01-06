@@ -197,7 +197,50 @@ int ged_bridge_hint_force_mdp(
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
 
+//-----------------------------------------------------------------------------
+int ged_bridge_query_dvfs_freq_pred(
+	struct GED_BRIDGE_IN_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredIn,
+	struct GED_BRIDGE_OUT_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredOut)
+{
+	/* GiFT hint status to GED */
+	if (QueryDVFSFreqPredIn->hint) {
+		QueryDVFSFreqPredOut->eError =
+			ged_kpi_set_gift_status(QueryDVFSFreqPredIn->hint);
+	}
+	/* GiFT query gpu_freq info from GED */
+	else {
+		QueryDVFSFreqPredOut->eError = ged_kpi_query_dvfs_freq_pred(
+			&QueryDVFSFreqPredOut->gpu_freq_cur,
+			&QueryDVFSFreqPredOut->gpu_freq_max,
+			&QueryDVFSFreqPredOut->gpu_freq_dvfs_pred);
+	}
+	return 0;
+}
+
+//-----------------------------------------------------------------------------
+int ged_bridge_query_gpu_dvfs_info(
+	struct GED_BRIDGE_IN_QUERY_GPU_DVFS_INFO *QueryGPUDVFSInfoIn,
+	struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO *QueryGPUDVFSInfoOut)
+{
+	/* GiFT hint PID status to GED */
+	if (QueryGPUDVFSInfoIn->pid)
+		ged_kpi_set_gift_target_pid(QueryGPUDVFSInfoIn->pid);
+
+	/* GiFT hint status to GED */
+	if (QueryGPUDVFSInfoIn->hint) {
+		if (QueryGPUDVFSInfoIn->gift_ratio)
+			QueryGPUDVFSInfoOut->eError =
+				ged_kpi_set_gift_status(QueryGPUDVFSInfoIn->gift_ratio);
+		else
+			QueryGPUDVFSInfoOut->eError =
+				ged_kpi_set_gift_status(QueryGPUDVFSInfoIn->hint);
+	}
+	QueryGPUDVFSInfoOut->eError = ged_kpi_query_gpu_dvfs_info(
+			QueryGPUDVFSInfoOut);
+	return 0;
+}
+
+//-----------------------------------------------------------------------------
 module_param(ged_boost_enable, uint, 0644);
 module_param(ged_force_mdp_enable, int, 0644);

@@ -182,7 +182,7 @@ int mtk_common_device_init(struct kbase_device *kbdev)
 
 #if IS_ENABLED(CONFIG_MALI_MIDGARD_DVFS) && IS_ENABLED(CONFIG_MTK_GPU_COMMON_DVFS)
 #if IS_ENABLED(GED_ENABLE_DVFS_LOADING_MODE)
-	// ged_dvfs_cal_gpu_utilization_ex_fp = mtk_common_cal_gpu_utilization_ex;
+	ged_dvfs_cal_gpu_utilization_ex_fp = mtk_common_cal_gpu_utilization_ex;
 #else
 	ged_dvfs_cal_gpu_utilization_fp = mtk_common_cal_gpu_utilization;
 #endif
@@ -209,7 +209,7 @@ void mtk_common_device_term(struct kbase_device *kbdev)
 
 #if IS_ENABLED(CONFIG_MALI_MIDGARD_DVFS) && IS_ENABLED(CONFIG_MTK_GPU_COMMON_DVFS)
 #if IS_ENABLED(GED_ENABLE_DVFS_LOADING_MODE)
-	// ged_dvfs_cal_gpu_utilization_ex_fp = NULL;
+	ged_dvfs_cal_gpu_utilization_ex_fp = NULL;
 #else
 	ged_dvfs_cal_gpu_utilization_fp = NULL;
 #endif

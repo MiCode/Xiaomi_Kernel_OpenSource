@@ -27,7 +27,7 @@ extern void (*mtk_gpu_dvfs_set_mode_fp)(int eMode);
 
 extern unsigned int (*mtk_get_gpu_sub_loading_fp)(void);
 extern unsigned long (*mtk_get_vsync_based_target_freq_fp)(void);
-extern void (*mtk_GetGpuDVFSfromFp)(enum MTK_GPU_DVFS_TYPE *peType,
+extern void (*mtk_get_gpu_dvfs_from_fp)(enum MTK_GPU_DVFS_TYPE *peType,
 	unsigned long *pulFreq);
 
 extern unsigned long (*mtk_get_gpu_bottom_freq_fp)(void);

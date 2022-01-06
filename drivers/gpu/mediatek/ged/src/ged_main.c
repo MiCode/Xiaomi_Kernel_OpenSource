@@ -278,6 +278,14 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(HINT_FORCE_MDP);
 			ret = ged_bridge_hint_force_mdp(pvIn, pvOut);
 			break;
+		case GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED:
+			VALIDATE_ARG(QUERY_DVFS_FREQ_PRED);
+			ret = ged_bridge_query_dvfs_freq_pred(pvIn, pvOut);
+			break;
+		case GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO:
+			VALIDATE_ARG(QUERY_GPU_DVFS_INFO);
+			ret = ged_bridge_query_gpu_dvfs_info(pvIn, pvOut);
+			break;
 		case GED_BRIDGE_COMMAND_GE_ALLOC:
 			VALIDATE_ARG(GE_ALLOC);
 			ret = ged_bridge_ge_alloc(pvIn, pvOut);
@@ -517,10 +525,12 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 	gpufreq_ged_log = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
 
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 	err = ged_dvfs_init_opp_cost();
 	if (err) {
 		GED_LOGE("@%s: failed to probe ged driver (%d)\n", __func__, err);
 	}
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
 
 	GED_LOGI("@%s: ged driver probe done\n", __func__);
 

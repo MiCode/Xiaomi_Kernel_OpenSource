@@ -1019,7 +1019,8 @@ out:
 		break;
 	}
 
-	ged_kpi_set_target_FPS_margin(iter->bufid, eara_fps, tolerence_fps);
+	ged_kpi_set_target_FPS_margin(iter->bufid,
+		iter->target_fps, iter->target_fps_margin, iter->cpu_time);
 
 	fpsgo_systrace_c_fstb_man(pid, iter->bufid, (int)cpu_time_ns, "t_cpu");
 	fpsgo_systrace_c_fstb(pid, iter->bufid, (int)max_current_cap,

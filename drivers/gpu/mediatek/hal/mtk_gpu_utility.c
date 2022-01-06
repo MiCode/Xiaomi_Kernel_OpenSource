@@ -450,15 +450,16 @@ bool mtk_gpu_dvfs_clock_switch(bool bSwitch)
 EXPORT_SYMBOL(mtk_gpu_dvfs_clock_switch);
 
 //-----------------------------------------------------------------------------
-void (*mtk_GetGpuDVFSfromFp)(enum MTK_GPU_DVFS_TYPE *p, unsigned long *q) = 0;
-EXPORT_SYMBOL(mtk_GetGpuDVFSfromFp);
+void (*mtk_get_gpu_dvfs_from_fp)(enum MTK_GPU_DVFS_TYPE *p,
+	unsigned long *q) = NULL;
+EXPORT_SYMBOL(mtk_get_gpu_dvfs_from_fp);
 
 bool mtk_get_gpu_dvfs_from(enum MTK_GPU_DVFS_TYPE *peType,
 	unsigned long *pulFreq)
 {
-	if (mtk_GetGpuDVFSfromFp != NULL) {
+	if (mtk_get_gpu_dvfs_from_fp != NULL) {
 		if (peType && pulFreq) {
-			mtk_GetGpuDVFSfromFp(peType, pulFreq);
+			mtk_get_gpu_dvfs_from_fp(peType, pulFreq);
 			return true;
 		}
 	}

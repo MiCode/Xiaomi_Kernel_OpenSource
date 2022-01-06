@@ -7,6 +7,7 @@
 #define __GED_KPI_H__
 
 #include "ged_type.h"
+#include "ged_bridge_id.h"
 /* To-Do: EAS*/
 /*#include "eas_ctrl.h"*/
 #include <linux/sched.h>
@@ -49,11 +50,16 @@ void ged_kpi_set_game_hint(int mode);
 unsigned int ged_kpi_enabled(void);
 void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
-		int target_FPS_margin);
+	int target_FPS_margin, int cpu_time);
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	int *pT_gpu_target, unsigned long long *pullWnd);
 #endif
+GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
+	, int *gpu_freq_max, int *gpu_freq_pred);
+GED_ERROR ged_kpi_query_gpu_dvfs_info(struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO *out);
+GED_ERROR ged_kpi_set_gift_status(int mode);
+GED_ERROR ged_kpi_set_gift_target_pid(int pid);
 
 extern int linear_real_boost(int linear_boost);
 #ifdef GED_KPI_CPU_INFO

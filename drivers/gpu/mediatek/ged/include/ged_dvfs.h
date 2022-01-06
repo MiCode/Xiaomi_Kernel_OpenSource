@@ -87,11 +87,17 @@ struct GED_DVFS_BW_DATA {
 
 #define MAX_BW_PROFILE 5
 
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 /* unit 1us */
 struct GED_DVFS_OPP_STAT {
-	uint32_t *aTransition;
+	union {
+		uint32_t *aTrans;
+		uint32_t ui32Freq;
+	} uMem;
 	uint64_t ui64Active;
+	uint64_t ui64Idle;
 };
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
 
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 
@@ -140,15 +146,19 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback);
 GED_ERROR  ged_dvfs_probe_signal(int signo);
 
 void ged_dvfs_gpu_clock_switch_notify(bool bSwitch);
-
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 void ged_dvfs_reset_opp_cost(int oppsize);
 void ged_dvfs_update_opp_cost(unsigned int loading,
 	unsigned int TSDiff_us, unsigned long long cur_us, unsigned int idx);
-struct GED_DVFS_OPP_STAT *ged_dvfs_query_opp_cost(uint64_t reset_base_us, uint64_t curTs_us);
+#define OPP_STAT_DEINIT 0xdead5566
+#define OPP_STAT_QUERY 0x0
+int ged_dvfs_query_opp_cost(struct GED_DVFS_OPP_STAT *psReport,
+	int i32NumOpp, bool bStript);
+int ged_dvfs_init_opp_cost(void);
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
 
 GED_ERROR ged_dvfs_system_init(void);
 void ged_dvfs_system_exit(void);
-int ged_dvfs_init_opp_cost(void);
 unsigned long ged_dvfs_get_last_commit_idx(void);
 
 extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,
@@ -166,6 +176,11 @@ extern void (*mtk_get_gpu_dvfs_cal_freq_fp)(unsigned long *pulGpu_tar_freq,
 
 extern void mtk_gpu_ged_hint(int a, int b);
 int ged_dvfs_boost_value(void);
+
+#ifdef MTK_GPUFREQ_V1
+extern unsigned int mt_gpufreq_get_power_by_idx(int idx);
+extern int mt_gpufreq_get_opp_idx_by_freq(unsigned int freq);
+#endif /* MTK_GPUFREQ_V1 */
 
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 extern void (*mtk_dvfs_margin_value_fp)(int i32MarginValue);

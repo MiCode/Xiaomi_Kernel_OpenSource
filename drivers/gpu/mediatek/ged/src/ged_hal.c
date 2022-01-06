@@ -31,7 +31,9 @@
 #ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
 static struct dentry *gpsHALDir;
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 static struct dentry *gpsOppCostsEntry;
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
 #endif
 static struct kobject *hal_kobj;
 
@@ -67,6 +69,7 @@ int tokenizer(char *pcSrc, int i32len, int *pi32IndexArray, int i32NumToken)
 }
 
 /* -------------------------------------------------------------------------- */
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 #ifdef GED_DEBUG_FS
 uint64_t reset_base_us;
 static ssize_t ged_dvfs_opp_cost_write_entry
@@ -116,30 +119,35 @@ static int ged_dvfs_opp_cost_seq_show(struct seq_file *psSeqFile,
 			void *pvData)
 {
 	char acBuffer[32];
-	unsigned int len;
+	int len;
 
 	if (pvData != NULL) {
 		int i, j;
 		int cur_idx;
-		unsigned int ui32FqCount, ui32TotalTrans;
-		uint64_t curTS_us;
+		unsigned int ui32FqCount = 0;
+		unsigned int ui32TotalTrans;
 		struct GED_DVFS_OPP_STAT *report;
 
-		curTS_us = ged_get_time();
-		curTS_us = curTS_us >> 10;
-		report = ged_dvfs_query_opp_cost(reset_base_us, curTS_us);
-		if (report) {
-			ui32FqCount = 0;
-			ui32TotalTrans = 0;
-			mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
+		mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
+		report = NULL;
+
+		if (ui32FqCount) {
+			report =
+				vmalloc(sizeof(struct GED_DVFS_OPP_STAT) *
+					ui32FqCount);
+		}
+
+		if (!ged_dvfs_query_opp_cost(report, ui32FqCount, false)) {
+
 			cur_idx = mt_gpufreq_get_cur_freq_index();
+			ui32TotalTrans = 0;
 
 			seq_puts(psSeqFile, "     From  :   To\n");
 			seq_puts(psSeqFile, "           :");
 
 			for (i = 0; i < ui32FqCount; i++) {
-				len = scnprintf(acBuffer, 32,
-					"%10lu", 1000 * mt_gpufreq_get_freq_by_idx(i));
+				len = scnprintf(acBuffer, 32, "%10u",
+					1000 * mt_gpufreq_get_freq_by_idx(i));
 				acBuffer[len] = 0;
 				seq_puts(psSeqFile, acBuffer);
 			}
@@ -154,30 +162,34 @@ static int ged_dvfs_opp_cost_seq_show(struct seq_file *psSeqFile,
 					seq_puts(psSeqFile, " ");
 
 
-				len = scnprintf(acBuffer, 32, "%10lu",
+				len = scnprintf(acBuffer, 32, "%10u ",
 					1000 * mt_gpufreq_get_freq_by_idx(i));
 				acBuffer[len] = 0;
 				seq_puts(psSeqFile, acBuffer);
 
 				for (j = 0; j < ui32FqCount; j++) {
 					len = scnprintf(acBuffer, 32, "%10u",
-						report[i].aTransition[j]);
+						report[i].uMem.aTrans[j]);
 					acBuffer[len] = 0;
 					seq_puts(psSeqFile, acBuffer);
-					ui32TotalTrans += report[i].aTransition[j];
+					ui32TotalTrans +=
+						report[i].uMem.aTrans[j];
 				}
+
 				/* truncate to ms */
 				len = scnprintf(acBuffer, 32, "%10u\n",
-					(unsigned int)(report[i].ui64Active >> 10));
+				(unsigned int)(report[i].ui64Active) >> 10);
 				acBuffer[len] = 0;
 				seq_puts(psSeqFile, acBuffer);
 			}
-			len = scnprintf(acBuffer, 32, "Total transition : %u\n", ui32TotalTrans);
+
+			len = scnprintf(acBuffer, 32,
+				"Total transition : %u\n", ui32TotalTrans);
 			acBuffer[len] = 0;
 			seq_puts(psSeqFile, acBuffer);
 		} else
 			seq_puts(psSeqFile, "Not Supported.\n");
-
+		vfree(report);
 	}
 
 	return 0;
@@ -190,6 +202,56 @@ const struct seq_operations gsDvfsOppCostsReadOps = {
 	.show = ged_dvfs_opp_cost_seq_show,
 };
 #endif
+
+//-----------------------------------------------------------------------------
+static ssize_t opp_logs_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int len;
+	int i, j;
+	int cur_idx;
+	unsigned int ui32FqCount = 0;
+	struct GED_DVFS_OPP_STAT *report;
+
+	mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
+	report = NULL;
+
+	if (ui32FqCount) {
+		report =
+			vmalloc(sizeof(struct GED_DVFS_OPP_STAT) *
+			ui32FqCount);
+	}
+
+	if (!ged_dvfs_query_opp_cost(report, ui32FqCount, false)) {
+
+		cur_idx = mt_gpufreq_get_cur_freq_index();
+
+		len = sprintf(buf, "   time(ms)\n");
+
+
+		for (i = 0; i < ui32FqCount; i++) {
+			if (i == cur_idx)
+				len += sprintf(buf + len, "*");
+			else
+				len += sprintf(buf + len, " ");
+			len += sprintf(buf + len, "%10u",
+				1000 * mt_gpufreq_get_freq_by_idx(i));
+
+			/* truncate to ms */
+			len += sprintf(buf + len, "%10u\n",
+				(unsigned int)(report[i].ui64Active >> 10));
+		}
+	} else
+		len = sprintf(buf, "Not Supported.\n");
+
+	vfree(report);
+	return len;
+}
+
+static KOBJ_ATTR_RO(opp_logs);
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
+
 //-----------------------------------------------------------------------------
 static ssize_t total_gpu_freq_level_count_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -686,6 +748,7 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 	/* Report Opp Cost */
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 	err = ged_debugFS_create_entry(
 			"opp_logs",
 			gpsHALDir,
@@ -699,6 +762,7 @@ GED_ERROR ged_hal_init(void)
 		"ged: failed to create opp_logs entry!\n");
 		goto ERROR;
 	}
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
 #endif
 
 	err = ged_sysfs_create_dir(NULL, "hal", &hal_kobj);
@@ -753,6 +817,14 @@ GED_ERROR ged_hal_init(void)
 		GED_LOGE("Failed to create gpu_boost_level entry!\n");
 		goto ERROR;
 	}
+
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_opp_logs);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create opp_logs entry!\n");
+		goto ERROR;
+	}
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
 
 #ifdef MTK_GED_KPI
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_ged_kpi);
@@ -828,6 +900,9 @@ void ged_hal_exit(void)
 #ifdef MTK_GED_KPI
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_ged_kpi);
 #endif
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_opp_logs);
+#endif /* CONFIG_MTK_GPU_OPP_STATS_SUPPORT */
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_gpu_boost_level);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_gpu_utilization);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_previous_freqency);
