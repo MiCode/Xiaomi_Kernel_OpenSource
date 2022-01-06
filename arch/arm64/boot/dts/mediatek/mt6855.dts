@@ -3389,6 +3389,49 @@
 			dma-names = "tx", "rx";
 		};
 
+
+		pwm@11008000 {
+			compatible = "mediatek,pwm";
+			reg = <0 0x11008000 0 0x1000>;
+			interrupts = <GIC_SPI 469 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&pericfg_ao_clk CLK_PERAOP_PWM_FBCLK1>,
+				<&pericfg_ao_clk CLK_PERAOP_PWM_FBCLK2>,
+				<&pericfg_ao_clk CLK_PERAOP_PWM_FBCLK3>,
+				<&pericfg_ao_clk CLK_PERAOP_PWM_FBCLK4>,
+				<&pericfg_ao_clk CLK_PERAOP_PWM_HCLK>,
+				<&pericfg_ao_clk CLK_PERAOP_PWM_BCLK>;
+
+			clock-names = "PWM1-main",
+				"PWM2-main",
+				"PWM3-main",
+				"PWM4-main",
+				"PWM-HCLK-main",
+				"PWM-main";
+
+			/* 1. pwm periclk control reg offset */
+			mediatek,pwm-topclk-ctl-reg = <0x24>;
+			/* 2. pwm bclk sw ctrl offset */
+			mediatek,pwm-bclk-sw-ctrl-offset = <12>;
+			/* 3. pwm_x bclk sw ctrl offset */
+			mediatek,pwm1-bclk-sw-ctrl-offset = <20>;
+			mediatek,pwm2-bclk-sw-ctrl-offset = <18>;
+			mediatek,pwm3-bclk-sw-ctrl-offset = <16>;
+			mediatek,pwm4-bclk-sw-ctrl-offset = <14>;
+			/* 4. pwm clock all on off wa support */
+			mediatek,pwm-clk-all-on-off;
+			/* 5. pwm version */
+			mediatek,pwm-version = <0x2>;
+
+			pwmsrcclk = <&pericfg_ao_clk>;
+		};
+
+		irtx_pwm:irtx_pwm {
+			compatible = "mediatek,irtx-pwm";
+			pwm_ch = <0>;
+			pwm_data_invert = <0>;
+			pwm-supply = "mt6369_vio28";
+		};
+
 		spi0: spi0@11010000 {
 			compatible = "mediatek,mt6983-spi";
 			mediatek,pad-select = <0>;
