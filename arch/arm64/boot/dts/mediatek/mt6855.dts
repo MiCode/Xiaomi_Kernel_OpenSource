@@ -6128,7 +6128,8 @@
 	#if 0
 			interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_LOW>;
 	#endif
-			power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_MAIN>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_MAIN>,
+					<&scpsys MT6855_POWER_DOMAIN_CSI_RX>;
 			mediatek,platform = "mt6855";
 			mediatek,seninf_max_num = "8";
 			clocks = <&camsys_main_clk CLK_CAM_M_SENINF>,
@@ -6141,6 +6142,7 @@
 					<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
 					<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
 					<&topckgen_clk CLK_TOP_CAMTG5_SEL>,
+					<&topckgen_clk CLK_TOP_CAMTG6_SEL>,
 					<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
 					<&topckgen_clk CLK_TOP_UNIVPLL_192M_D8>,
 					<&topckgen_clk CLK_TOP_UNIVPLL_D6_D8>,
@@ -6158,6 +6160,7 @@
 					"TOP_MUX_CAMTG3",
 					"TOP_MUX_CAMTG4",
 					"TOP_MUX_CAMTG5",
+					"TOP_MUX_CAMTG6",
 					"TOP_CLK26M",
 					"TOP_UNIVP_192M_D8",
 					"TOP_UNIVPLL_D6_D8",
