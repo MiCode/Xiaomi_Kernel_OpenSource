@@ -124,6 +124,12 @@
 		mml_wrot3 = &mml_wrot3;
 		inlinerotate0 = &inlinerot0;
 		inlinerotate1 = &inlinerot1;
+		y2r0 = &disp_y2r0;
+		y2r1 = &disp_y2r1;
+		dlo_async3 = &disp_dlo_async3;
+		dlo_async7 = &disp_dlo_async7;
+		dli_async3 = &disp_dli_async3;
+		dli_async7 = &disp_dli_async7;
 	};
 
 	/* ATF logger */
@@ -7203,11 +7209,18 @@
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_WDMA1>;
 	};
 
-	disp_y2r: disp_y2r@14000000 {
+	disp_y2r0: disp_y2r@14000000 {
 		compatible = "mediatek,disp_y2r",
 					 "mediatek,mt6983-disp-y2r";
 		reg = <0 0x14000000 0 0x1000>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_Y2R0>;
+	};
+
+	disp_y2r1: disp_y2r@14400000 {
+		compatible = "mediatek,disp_y2r",
+					 "mediatek,mt6983-disp-y2r";
+		reg = <0 0x14400000 0 0x1000>;
+		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_Y2R0>;
 	};
 
 	disp_dlo_async3: disp_dlo_async3@14000000 {
@@ -7217,11 +7230,25 @@
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLO_ASYNC3>;
 	};
 
+	disp_dlo_async7: disp_dlo_async7@14400000 {
+		compatible = "mediatek,disp_dlo_async3",
+					 "mediatek,mt6983-disp-dlo-async3";
+		reg = <0 0x14400000 0 0x1000>;
+		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC3>;
+	};
+
 	disp_dli_async3: disp_dli_async3@14000000 {
 		compatible = "mediatek,disp_dli_async3",
 					 "mediatek,mt6983-disp-dli-async3";
 		reg = <0 0x14000000 0 0x1000>;
 		clocks = <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC3>;
+	};
+
+	disp_dli_async7: disp_dli_async7@14400000 {
+		compatible = "mediatek,disp_dli_async3",
+					 "mediatek,mt6983-disp-dli-async3";
+		reg = <0 0x14400000 0 0x1000>;
+		clocks = <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLI_ASYNC3>;
 	};
 
 	inlinerot0: inlinerot@14020000 {
