@@ -25,7 +25,7 @@ static inline int ion_history_init(void)
 	return 0;
 }
 
-void ion_history_count_kick(bool allc, size_t len)
+static inline void ion_history_count_kick(bool allc, size_t len)
 {
 	/*do nothing */
 }

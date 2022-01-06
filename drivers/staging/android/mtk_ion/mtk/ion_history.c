@@ -325,6 +325,11 @@ struct history_record *history_rec_create(unsigned int record_num,
 
 	size_align = record_num * record_size;
 	size_align = ALIGN(size_align, PAGE_SIZE);
+	if (!record_size) {
+		IONMSG("warning! record_size is 0\n");
+		return ERR_PTR(-EINVAL);
+	}
+
 	num_align = size_align / record_size;
 
 	bitmap_bytes = BITS_TO_LONGS(num_align) * sizeof(unsigned long);
@@ -567,7 +572,8 @@ static int ion_client_record_show(struct seq_file *seq, void *record,
 {
 	struct ion_client_record *client_record = record;
 
-	if (!client_record)
+	if (!client_record || !client_record->client_name ||
+	    !client_record->dbg_name)
 		return 0;
 
 	if (client_record->address > CLIENT_ADDRESS_FLAG_MAX) {
@@ -593,8 +599,9 @@ static int ion_client_record_show(struct seq_file *seq, void *record,
 
 		t = client_record->time;
 		rem_ns = do_div(t, 1000000000ULL);
-		seq_printf(seq, "time(%lld.%lld)\t%s %16zu\n", t, rem_ns, name,
-			   client_record->size);
+		seq_printf(seq,
+			   "\n======== time(%lld.%lld)\t%s:%16zu Bytes =======\n",
+			   t, rem_ns, name, client_record->size);
 	}
 
 	return 0;
@@ -638,6 +645,8 @@ static int ion_client_write_record(struct history_record *client_history,
 	} else {
 		/* total/orphan record: reuse name field */
 		record->time = local_clock();
+		record->client_name = string_hash_get("ion_history");
+		record->dbg_name = string_hash_get("ion_history");
 	}
 
 	history_rec_put_record(client_history, record);
@@ -657,9 +666,9 @@ static int write_mm_page_pool(int high, int order, int cache, size_t size)
 {
 	char name[50];
 
-	int name_length = snprintf(name, sizeof(name), "%smem order_%d pool",
-		 high ? "high" : "low", order);
-	if (name_length > 0 && size)
+	snprintf(name, sizeof(name), "----%s order_%d pool",
+		 high ? "HIGH" : "NORMAL", order);
+	if (size)
 		ion_client_write_record(g_client_history, name,
 					cache ? "cache" : "nocache", size,
 					CLIENT_ADDRESS_FLAG_MAX + 1);
@@ -674,6 +683,7 @@ static int ion_history_record(void *data)
 	size_t total_size = 0;
 	int heap_id = 0;
 	int ret = 0;
+	unsigned long long start = 0, end = 0;
 
 	while (1) {
 		if (kthread_should_stop()) {
@@ -713,13 +723,7 @@ static int ion_history_record(void *data)
 				continue;
 
 			if (g_client_history) {
-				int ret = -1;
-				/* record page pool info */
-				ret =
-				ion_mm_heap_for_each_pool(write_mm_page_pool);
-				if (ret < 0)
-					continue;
-
+				/* orphaned size with time stamp */
 				if (total_orphaned_size)
 					ion_client_write_record
 					    (g_client_history, NULL, NULL,
@@ -729,6 +733,8 @@ static int ion_history_record(void *data)
 				ion_client_write_record(g_client_history, NULL,
 							NULL, total_size,
 							CLIENT_ADDRESS_TOTAL);
+				/* record page pool info */
+				ion_mm_heap_for_each_pool(write_mm_page_pool);
 			}
 		}
 
@@ -737,12 +743,24 @@ static int ion_history_record(void *data)
 		/* == client == */
 		if (g_client_history) {
 			down_read(&dev->lock);
+			start = sched_clock();
 			for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
 				struct ion_client
 				*client = rb_entry(n, struct ion_client, node);
 				size_t size = 0;
 				struct rb_node *nh;
 
+				end = sched_clock();
+				if (end - start > 1000000000ULL) {/* 1s */
+					IONMSG("warn: ion history hold:%lluns from:%llu\n",
+					       end - start, start);
+					ion_client_write_record
+					    (g_client_history,
+					     "ion history hold lock too long time",
+					     "cancel dump", end - start,
+					     CLIENT_ADDRESS_FLAG_MAX + 1);
+					break;
+				}
 				mutex_lock(&client->lock);
 				for (nh = rb_first(&client->handles); nh;
 				     nh = rb_next(nh)) {

@@ -9,6 +9,7 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/sched/clock.h>
 
 #include "ion.h"
 #include "ion_priv.h"
@@ -114,19 +115,36 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_FREE:
 	{
 		struct ion_handle *handle;
+		unsigned long long time_s, time_e;
+		unsigned long long time_s_lock, time_e_lock;
+		struct task_struct *task = current->group_leader;
+		char task_comm[TASK_COMM_LEN];
+		pid_t pid;
 
+		get_task_comm(task_comm, task);
+		pid = task_pid_nr(task);
+		time_s_lock = sched_clock();
 		mutex_lock(&client->lock);
-		handle = ion_handle_get_by_id_nolock(client,
-						     data.handle.handle);
+		time_s = sched_clock();
+		handle = ion_handle_get_by_id_nolock(client, data.handle.handle);
 		if (IS_ERR(handle)) {
 			mutex_unlock(&client->lock);
-			ion_debug("ION_IOC_FREE handle is invalid. handle = %d, ret = %d.\n",
-				  data.handle.handle, ret);
+			IONDBG("ION_IOC_FREE handle is invalid. handle = %d, ret = %d.\n",
+			       data.handle.handle, ret);
 			return PTR_ERR(handle);
 		}
 		user_ion_free_nolock(client, handle);
 		ion_handle_put_nolock(handle);
+		time_e = sched_clock();
+		if ((time_e - time_s) > 100000000) //100ms
+			IONMSG("ion_free unlock warnning, time:%llu, task:%s (%d)\n",
+			       (time_e - time_s), task_comm, pid);
+
 		mutex_unlock(&client->lock);
+		time_e_lock = sched_clock();
+		if ((time_e_lock - time_s_lock) > 150000000) //150ms
+			IONMSG("ion_free warnning, time:%llu, task:%s (%d)\n",
+			       (time_e_lock - time_s_lock), task_comm, pid);
 		break;
 	}
 	case ION_IOC_SHARE:

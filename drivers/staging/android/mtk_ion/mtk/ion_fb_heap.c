@@ -128,6 +128,11 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	port_info.buf_size = buffer->size;
 	port_info.flags = 0;
 	domain_idx = ion_get_domain_id(1, &port_info.emoduleid);
+	if (domain_idx < 0 || domain_idx >= DOMAIN_NUM) {
+		IONMSG("%s, skip map iova, dom:%d, port:0x%x\n",
+		       __func__, domain_idx, port_info.emoduleid);
+		return 0;
+	}
 	/*Allocate MVA */
 	mutex_lock(&buffer_info->lock);
 	if (buffer_info->MVA[domain_idx] == 0) {
@@ -168,7 +173,10 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 	/*create fb buffer info for it */
 	buffer_info = kzalloc(sizeof(*buffer_info), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(buffer_info)) {
+		struct ion_fb_heap
+		*fb_heap = container_of(heap, struct ion_fb_heap, heap);
 		IONMSG(" %s: Error. Alloc ion_buffer failed.\n", __func__);
+		gen_pool_free(fb_heap->pool, paddr, size);
 		return -EFAULT;
 	}
 

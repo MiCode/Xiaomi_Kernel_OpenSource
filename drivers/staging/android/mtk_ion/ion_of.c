@@ -159,6 +159,7 @@ static int rmem_ion_device_init(struct reserved_mem *rmem, struct device *dev)
 static void rmem_ion_device_release(struct reserved_mem *rmem,
 				    struct device *dev)
 {
+	return;
 }
 
 static const struct reserved_mem_ops rmem_dma_ops = {

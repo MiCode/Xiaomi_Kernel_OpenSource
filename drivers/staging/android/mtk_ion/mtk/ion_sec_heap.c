@@ -423,11 +423,15 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 	refcount = 0;
 #endif
 
-	if (ret == -ENOMEM || sec_handle <= 0) {
+	if (ret == -ENOMEM) {
 		IONMSG("%s security out of memory, heap:%d\n",
-		       __func__, heap->id);
+			__func__, heap->id);
+		/* avoid recursive deadlock */
+		/* heap->debug_show(heap, NULL, NULL); */
+	}
+	if (sec_handle <= 0) {
 		IONMSG("%s alloc security memory failed, total size %zu\n",
-		       __func__, sec_heap_total_memory);
+			__func__, sec_heap_total_memory);
 		kfree(pbufferinfo);
 		caller_pid = 0;
 		caller_tid = 0;
@@ -791,7 +795,7 @@ static int ion_sec_heap_debug_show(struct ion_heap *heap,
 {
 	struct ion_device *dev = heap->dev;
 	struct rb_node *n;
-	int *secur_handle;
+	ion_phys_addr_t secur_handle;
 	struct ion_sec_buffer_info *bug_info;
 	bool has_orphaned = false;
 	size_t fr_size = 0;
@@ -822,21 +826,20 @@ static int ion_sec_heap_debug_show(struct ion_heap *heap,
 		*buffer = rb_entry(n, struct ion_buffer, node);
 		if (buffer->heap->type != heap->type)
 			continue;
-		secur_handle = (int *)buffer->priv_virt;
 		bug_info = (struct ion_sec_buffer_info *)buffer->priv_virt;
+		secur_handle = bug_info->priv_phys;
 
 		if ((int)buffer->heap->type ==
 			(int)ION_HEAP_TYPE_MULTIMEDIA_SEC) {
 			ION_DUMP(s,
-				 "0x%p %8zu %3d %3d %3d 0x%10.x %3lu %3d %3d %3d %s %s",
+				 "0x%p %8zu %3d %3d %3d %10lx %3lu %3d %3d %3d %s %s\n",
 				 buffer, buffer->size, buffer->kmap_cnt,
 				 atomic_read(&buffer->ref.refcount.refs),
-				 buffer->handle_count, *secur_handle,
+				 buffer->handle_count, secur_handle,
 				 buffer->flags, bug_info->module_id,
 				 buffer->heap->id,
 				 buffer->pid, buffer->task_comm,
 				 bug_info->dbg_info.dbg_name);
-			ION_DUMP(s, ")\n");
 
 			if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC)
 				sec_size += buffer->size;

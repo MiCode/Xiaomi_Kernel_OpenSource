@@ -96,7 +96,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) {
 		__free_pages(page, order);
 		if (atomic64_sub_return((1 << order), &page_sz_cnt) < 0) {
-			ION_DUMP(NULL, "underflow!, total[%ld]free[%lu]\n",
+			ION_DUMP(NULL, "[ION] underflow!, total[%ld]free[%lu]\n",
 				 atomic64_read(&page_sz_cnt),
 				 (unsigned long)(1 << order));
 			atomic64_set(&page_sz_cnt, 0);
@@ -404,6 +404,8 @@ static int ion_system_contig_heap_allocate(struct ion_heap *heap,
 	len = PAGE_ALIGN(len);
 	for (i = len >> PAGE_SHIFT; i < (1 << order); i++)
 		__free_page(page + i);
+	for (i = 0; i < (len >> PAGE_SHIFT); i++)
+		SetPageIommu(&page[i]);
 	atomic64_add_return((len >> PAGE_SHIFT), &page_sz_cnt);
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table) {

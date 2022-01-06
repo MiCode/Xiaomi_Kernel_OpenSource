@@ -63,6 +63,7 @@ struct ion_buffer {
 	struct ion_heap *heap;
 	unsigned long flags;
 	unsigned long private_flags;
+	unsigned long long timestamp;
 	size_t size;
 	void *priv_virt;
 	struct mutex lock; /* mutex */
@@ -70,12 +71,15 @@ struct ion_buffer {
 	void *vaddr;
 	int dmap_cnt;
 	struct sg_table *sg_table;
+	struct sg_table *sg_table_orig;
 	struct page **pages;
 	struct list_head vmas;
 	/* used to track orphaned buffers */
 	int handle_count;
 	char task_comm[TASK_COMM_LEN];
 	pid_t pid;
+	char thread_comm[TASK_COMM_LEN];
+	pid_t tid;
 	char alloc_dbg[ION_MM_DBG_NAME_LEN];
 #ifdef MTK_ION_DMABUF_SUPPORT
 	struct list_head attachments;
@@ -149,6 +153,10 @@ struct ion_client {
 	struct proc_dir_entry *proc_root;
 #endif
 	char dbg_name[ION_MM_DBG_NAME_LEN]; /* add by K for debug! */
+	atomic64_t total_size[HEAP_NUM];
+	int hnd_cnt;
+	int dbg_hnd_cnt;
+	unsigned long long threshold_size;
 };
 
 struct ion_handle_debug {
