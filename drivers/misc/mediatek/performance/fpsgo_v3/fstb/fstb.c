@@ -65,7 +65,7 @@ static int margin_mode_gpu_dbnc_a = 9;
 static int margin_mode_gpu_dbnc_b = 1;
 static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
 static int JUMP_CHECK_Q_PCT = DEFAULT_JUMP_CHECK_Q_PCT;
-static int adopt_low_fps;
+static int adopt_low_fps = 1;
 static int condition_get_fps;
 static int condition_fstb_active;
 
@@ -377,6 +377,76 @@ int switch_fps_range(int nr_level, struct fps_level *level)
 	else
 		return 1;
 }
+static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bufID,
+	int hwui_flag)
+{
+	struct task_struct *tsk = NULL, *gtsk = NULL;
+		struct FSTB_FRAME_INFO *new_frame_info;
+
+	new_frame_info = vmalloc(sizeof(*new_frame_info));
+	if (new_frame_info == NULL)
+		goto out;
+
+	new_frame_info->pid = pid;
+	new_frame_info->target_fps = max_fps_limit;
+	new_frame_info->target_fps_v2 = max_fps_limit;
+	new_frame_info->target_fps_margin_v2 = 0;
+	new_frame_info->target_fps_margin = 0;
+	new_frame_info->target_fps_margin_gpu = 0;
+	new_frame_info->target_fps_margin2 = 0;
+	new_frame_info->target_fps_margin_dbnc_a = margin_mode_dbnc_a;
+	new_frame_info->target_fps_margin_dbnc_b = margin_mode_dbnc_b;
+	new_frame_info->target_fps_margin_gpu_dbnc_a = margin_mode_gpu_dbnc_a;
+	new_frame_info->target_fps_margin_gpu_dbnc_b = margin_mode_gpu_dbnc_b;
+	new_frame_info->target_fps_diff = 0;
+	new_frame_info->target_fps_notifying = 0;
+	new_frame_info->queue_fps = max_fps_limit;
+	new_frame_info->bufid = bufID;
+	new_frame_info->queue_time_begin = 0;
+	new_frame_info->queue_time_end = 0;
+	new_frame_info->weighted_cpu_time_begin = 0;
+	new_frame_info->weighted_cpu_time_end = 0;
+	new_frame_info->weighted_gpu_time_begin = 0;
+	new_frame_info->weighted_gpu_time_end = 0;
+	new_frame_info->quantile_cpu_time = -1;
+	new_frame_info->quantile_gpu_time = -1;
+	new_frame_info->new_info = 1;
+	new_frame_info->fps_raise_flag = 0;
+	new_frame_info->vote_i = 0;
+	new_frame_info->render_idle_cnt = 0;
+	new_frame_info->hwui_flag = hwui_flag;
+	new_frame_info->sbe_fpsgo_ctrl = 0;
+	if (fstb_is_cam_active)
+		new_frame_info->sbe_state = 0;
+	else if (hwui_flag == RENDER_INFO_HWUI_TYPE)
+		new_frame_info->sbe_state = -1;
+	else
+		new_frame_info->sbe_state = 0;
+
+	rcu_read_lock();
+	tsk = find_task_by_vpid(pid);
+	if (tsk) {
+		get_task_struct(tsk);
+		gtsk = find_task_by_vpid(tsk->tgid);
+		put_task_struct(tsk);
+		if (gtsk)
+			get_task_struct(gtsk);
+	}
+	rcu_read_unlock();
+
+	if (gtsk) {
+		strncpy(new_frame_info->proc_name, gtsk->comm, 16);
+		new_frame_info->proc_name[15] = '\0';
+		new_frame_info->proc_id = gtsk->pid;
+		put_task_struct(gtsk);
+	} else {
+		new_frame_info->proc_name[0] = '\0';
+		new_frame_info->proc_id = 0;
+	}
+
+out:
+	return new_frame_info;
+}
 
 int switch_thread_max_fps(int pid, int set_max)
 {
@@ -410,32 +480,65 @@ int switch_thread_max_fps(int pid, int set_max)
 	return ret;
 }
 
-int switch_thread_no_ctrl(int pid, int set_no_ctrl)
+int switch_ui_ctrl(int pid, int set_ctrl)
 {
 	struct FSTB_FRAME_INFO *iter;
 	int ret = 0;
+	int found = 0;
 
 	mutex_lock(&fstb_lock);
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		if (iter->pid != pid)
 			continue;
+		found = 1;
+		iter->sbe_fpsgo_ctrl = set_ctrl;
 		switch (iter->sbe_state) {
 		case -1:
+			iter->sbe_state = set_ctrl ? 0 : -1;
 		case 0:
-			iter->sbe_state = set_no_ctrl ? -1 : 0;
+			iter->sbe_state = set_ctrl ? 0 : -1;
 			break;
 		case 1:
-			iter->sbe_state = set_no_ctrl ? -1 : 1;
+			iter->sbe_state = set_ctrl ? 1 : -1;
 			break;
 		default:
 			break;
 		}
 		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
-				set_no_ctrl, "sbe_set_no_ctrl");
+				set_ctrl, "sbe_set_ctrl");
 		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
 				iter->sbe_state, "sbe_state");
 	}
 
+	if (!found) {
+		struct FSTB_FRAME_INFO *new_frame_info;
+
+		new_frame_info = add_new_frame_info(pid, 0, RENDER_INFO_HWUI_TYPE);
+		if (new_frame_info == NULL)
+			goto out;
+
+		iter = new_frame_info;
+		iter->sbe_fpsgo_ctrl = set_ctrl;
+		switch (iter->sbe_state) {
+		case -1:
+			iter->sbe_state = set_ctrl ? 0 : -1;
+		case 0:
+			iter->sbe_state = set_ctrl ? 0 : -1;
+			break;
+		case 1:
+			iter->sbe_state = set_ctrl ? 1 : -1;
+			break;
+		default:
+			break;
+		}
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				set_ctrl, "sbe_set_ctrl");
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				iter->sbe_state, "sbe_state");
+		hlist_add_head(&iter->hlist, &fstb_frame_infos);
+	}
+
+out:
 	mutex_unlock(&fstb_lock);
 
 	return ret;
@@ -1296,7 +1399,6 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	struct FSTB_FRAME_INFO *iter;
 	ktime_t cur_time;
 	long long cur_time_us = 0;
-	struct task_struct *tsk = NULL, *gtsk = NULL;
 	int tmp_jump_check_num = 0;
 
 	mutex_lock(&fstb_lock);
@@ -1318,7 +1420,8 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	cur_time_us = ktime_to_us(cur_time);
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
-		if (iter->pid == pid && iter->bufid == bufID)
+		if (iter->pid == pid && (iter->bufid == bufID ||
+				iter->bufid == 0))
 			break;
 	}
 
@@ -1326,64 +1429,24 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	if (iter == NULL) {
 		struct FSTB_FRAME_INFO *new_frame_info;
 
-		new_frame_info = vmalloc(sizeof(*new_frame_info));
+		new_frame_info = add_new_frame_info(pid, bufID, hwui_flag);
 		if (new_frame_info == NULL)
 			goto out;
-
-		new_frame_info->pid = pid;
-		new_frame_info->target_fps = max_fps_limit;
-		new_frame_info->target_fps_v2 = max_fps_limit;
-		new_frame_info->target_fps_margin_v2 = 0;
-		new_frame_info->target_fps_margin = 0;
-		new_frame_info->target_fps_margin_gpu = 0;
-		new_frame_info->target_fps_margin2 = 0;
-		new_frame_info->target_fps_margin_dbnc_a = margin_mode_dbnc_a;
-		new_frame_info->target_fps_margin_dbnc_b = margin_mode_dbnc_b;
-		new_frame_info->target_fps_margin_gpu_dbnc_a = margin_mode_gpu_dbnc_a;
-		new_frame_info->target_fps_margin_gpu_dbnc_b = margin_mode_gpu_dbnc_b;
-		new_frame_info->target_fps_diff = 0;
-		new_frame_info->target_fps_notifying = 0;
-		new_frame_info->sbe_state = 0;
-		new_frame_info->queue_fps = max_fps_limit;
-		new_frame_info->bufid = bufID;
-		new_frame_info->queue_time_begin = 0;
-		new_frame_info->queue_time_end = 0;
-		new_frame_info->weighted_cpu_time_begin = 0;
-		new_frame_info->weighted_cpu_time_end = 0;
-		new_frame_info->weighted_gpu_time_begin = 0;
-		new_frame_info->weighted_gpu_time_end = 0;
-		new_frame_info->quantile_cpu_time = -1;
-		new_frame_info->quantile_gpu_time = -1;
-		new_frame_info->new_info = 1;
-		new_frame_info->fps_raise_flag = 0;
-		new_frame_info->vote_i = 0;
-		new_frame_info->render_idle_cnt = 0;
-		new_frame_info->hwui_flag = hwui_flag;
-
-		rcu_read_lock();
-		tsk = find_task_by_vpid(pid);
-		if (tsk) {
-			get_task_struct(tsk);
-			gtsk = find_task_by_vpid(tsk->tgid);
-			put_task_struct(tsk);
-			if (gtsk)
-				get_task_struct(gtsk);
-		}
-		rcu_read_unlock();
-
-		if (gtsk) {
-			strncpy(new_frame_info->proc_name, gtsk->comm, 16);
-			new_frame_info->proc_name[15] = '\0';
-			new_frame_info->proc_id = gtsk->pid;
-			put_task_struct(gtsk);
-		} else {
-			new_frame_info->proc_name[0] = '\0';
-			new_frame_info->proc_id = 0;
-		}
 
 		iter = new_frame_info;
 		hlist_add_head(&iter->hlist, &fstb_frame_infos);
 	}
+
+	if (iter->bufid == 0)
+		iter->bufid = bufID;
+
+	if (fstb_is_cam_active)
+		iter->sbe_state = 0;
+	else if (hwui_flag == RENDER_INFO_HWUI_TYPE) {
+		if (!iter->sbe_fpsgo_ctrl)
+			iter->sbe_state = -1;
+	} else
+		iter->sbe_state = 0;
 
 	if (iter->queue_time_begin < 0 ||
 			iter->queue_time_end < 0 ||
@@ -2129,14 +2192,14 @@ static void reset_fps_level(void)
 	set_soft_fps_level(1, level);
 }
 
-static ssize_t set_render_no_ctrl_show(struct kobject *kobj,
+static ssize_t set_ui_ctrl_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
 	return 0;
 }
 
-static ssize_t set_render_no_ctrl_store(struct kobject *kobj,
+static ssize_t set_ui_ctrl_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -2150,11 +2213,11 @@ static ssize_t set_render_no_ctrl_store(struct kobject *kobj,
 				goto out;
 			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
 			fpsgo_systrace_c_fstb_man(arg > 0 ? arg : -arg,
-				0, arg > 0, "force_no_ctrl");
+				0, arg > 0, "force_ctrl");
 			if (arg > 0)
-				ret = switch_thread_no_ctrl(arg, 1);
+				ret = switch_ui_ctrl(arg, 1);
 			else
-				ret = switch_thread_no_ctrl(-arg, 0);
+				ret = switch_ui_ctrl(-arg, 0);
 		}
 	}
 
@@ -2162,7 +2225,7 @@ out:
 	return count;
 }
 
-static KOBJ_ATTR_RW(set_render_no_ctrl);
+static KOBJ_ATTR_RW(set_ui_ctrl);
 
 static ssize_t set_render_max_fps_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -2946,7 +3009,7 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_self_ctrl_fps_enable);
 		fpsgo_sysfs_create_file(fstb_kobj,
-				&kobj_attr_set_render_no_ctrl);
+				&kobj_attr_set_ui_ctrl);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_tfps_to_powerhal_enable);
 	}
@@ -3011,7 +3074,7 @@ int __exit mtk_fstb_exit(void)
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_fstb_self_ctrl_fps_enable);
 	fpsgo_sysfs_remove_file(fstb_kobj,
-			&kobj_attr_set_render_no_ctrl);
+			&kobj_attr_set_ui_ctrl);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_tfps_to_powerhal_enable);
 
