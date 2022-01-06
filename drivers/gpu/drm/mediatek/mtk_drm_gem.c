@@ -819,6 +819,9 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 {
 	struct drm_mtk_sec_gem_hnd *args = data;
 	struct mtk_drm_gem_obj *mtk_gem_obj;
+#ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
+	int sec_buffer = 0;
+#endif
 
 	DDPDBG("%s:%d dev:0x%p, data:0x%p, priv:0x%p +\n",
 		  __func__, __LINE__,
@@ -835,7 +838,6 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 
 	mtk_gem_obj->sec = true;
 #ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
-	int sec_buffer = 0;
 	ion_fd2sec_type(args->sec_hnd/*ion_fd*/, &sec_buffer,
 			&mtk_gem_obj->sec_id, (ion_phys_addr_t *)&mtk_gem_obj->dma_addr);
 #else
