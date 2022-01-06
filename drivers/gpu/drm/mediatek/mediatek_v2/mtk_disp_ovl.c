@@ -164,6 +164,8 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_RDMA2_DBG (0x254UL)
 #define DISP_REG_OVL_RDMA3_DBG (0x258UL)
 #define DISP_REG_OVL_L0_CLR(n) (0x25cUL + 0x4 * (n))
+#define DISP_REG_OVL_LX_FBDC_CNST_CLR0(n) (0x810UL + 0x8 * (n))
+#define DISP_REG_OVL_LX_FBDC_CNST_CLR1(n) (0x814UL + 0x8 * (n))
 
 #define DISP_REG_OVL_LC_CON (0x280UL)
 #define DISP_REG_OVL_LC_SRCKEY (0x284UL)
@@ -242,6 +244,8 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_EL_TILE(n) (0x348UL + 0x20 * (n))
 #define DISP_REG_OVL_EL_CLIP(n) (0x34CUL + 0x20 * (n))
 #define DISP_REG_OVL_EL0_CLR(n) (0x390UL + 0x4 * (n))
+#define DISP_REG_OVL_ELX_FBDC_CNST_CLR0(n) (0x830UL + 0x8 * (n))
+#define DISP_REG_OVL_ELX_FBDC_CNST_CLR1(n) (0x834UL + 0x8 * (n))
 #define DISP_REG_OVL_ADDR_MT2701 0x0040
 #define DISP_REG_OVL_ADDR_MT6779 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
@@ -813,6 +817,13 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
 	if (compr_info && strncmp(compr_info->name, "PVRIC_V3_1", 10) == 0) {
 		val = FBDC_8XE_MODE | FBDC_FILTER_EN;
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_FBDC_CFG1, val, val);
+	}
+
+	/* In 6855 we need to set FBDC_FILTER_EN */
+	if (compr_info && strncmp(compr_info->name, "PVRIC_V4_1", 10) == 0) {
+		val = FBDC_FILTER_EN;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_FBDC_CFG1, val, val);
 	}
@@ -1965,6 +1976,22 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 						       src_y - src_h);
 	}
 
+	DDPINFO(
+		"%s, idx(%u,%u,%u), fmt:0x%x,%u, p(%u,%u), src(%u,%u,%u,%u)->(%u,%u,%u,%u), dst(%u,%u,%u,%u), clip(%u,%u,%u,%u):0x%x\n",
+		__func__, state->comp_state.comp_id, lye_idx, ext_lye_idx,
+		fmt, mtk_drm_format_plane_cpp(fmt, 0), pitch, vpitch,
+		src_x, src_y, src_w, src_h,
+		src_x_align, src_y_align, src_w_align, src_h_align,
+		pending->dst_x, pending->dst_y, pending->width, pending->height,
+		(src_x - src_x_align), (src_x_align + src_w_align - src_x - src_w),
+		(src_y - src_y_align), (src_y_align + src_h_align - src_y - src_h),
+		lx_clip);
+	DDPINFO(
+		"t_num:0x%x, h_off:0x%x, buf_addr:0x%x, t_off:0x%x, p(0x%x,0x%x,0x%x), addr(0x%llx,0x%llx,0x%llx)\n",
+		src_buf_tile_num, header_offset, buf_addr, tile_offset,
+		lx_pitch, lx_pitch_msb, lx_hdr_pitch,
+		(u64)addr, (u64)lx_hdr_addr, (u64)lx_addr);
+
 	if (ovl->data->mmsys_mapping)
 		mmsys_reg = ovl->data->mmsys_mapping(comp);
 
@@ -2007,6 +2034,19 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(ovl, id),
 			       lx_hdr_pitch, ~0);
+		/*
+		 * FBDC_CNST_CLR0/1 value must be consistent with GPU setting.
+		 * FBDC_CNST_CLR0: transparent const color.
+		 * FBDC_CNST_CLR1: opaque const color.
+		 * For current setting, ovl will be as opaque black const color for
+		 * black pixel.
+		 */
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_ELX_FBDC_CNST_CLR0(id),
+			       0x0, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_ELX_FBDC_CNST_CLR1(id),
+			       0x1000000, ~0);
 	} else {
 		if (mmsys_reg && aid_sel_offset) {
 			sec_bit = mtk_ovl_aid_bit(comp, false, lye_idx);
@@ -2039,6 +2079,21 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 			       comp->regs_pa +
 				       DISP_REG_OVL_LX_HDR_PITCH(lye_idx),
 			       lx_hdr_pitch, ~0);
+		/*
+		 * FBDC_CNST_CLR0/1 value must be consistent with GPU setting.
+		 * FBDC_CNST_CLR0: transparent const color.
+		 * FBDC_CNST_CLR1: opaque const color.
+		 * For current setting, ovl will be as opaque black const color for
+		 * black pixel.
+		 */
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa +
+				       DISP_REG_OVL_LX_FBDC_CNST_CLR0(lye_idx),
+			       0x0, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa +
+				       DISP_REG_OVL_LX_FBDC_CNST_CLR1(lye_idx),
+			       0x1000000, ~0);
 	}
 
 	return 0;
@@ -2920,7 +2975,7 @@ static dma_addr_t read_ext_layer_hdr_addr(struct mtk_ddp_comp *comp, int id)
 
 	if (ovl->data->is_support_34bits) {
 		layer_addr = readl(comp->regs + DISP_REG_OVL_EL_ADDR_MSB(id));
-		layer_addr += ((layer_addr & 0xf00) << 24);
+		layer_addr = ((layer_addr & 0xf00) << 24);
 	}
 
 	layer_addr += readl(comp->regs + DISP_REG_OVL_ELX_HDR_ADDR(ovl, id));
@@ -3378,6 +3433,9 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 
 		mtk_serial_dump_reg(baddr, 0x200, 4);
 		mtk_serial_dump_reg(baddr, 0x230, 4);
+		/* debug */
+		mtk_serial_dump_reg(baddr, 0x240, 4);
+		mtk_serial_dump_reg(baddr, 0x250, 4);
 		/* LC_CON */
 		mtk_serial_dump_reg(baddr, 0x280, 4);
 
@@ -3414,6 +3472,12 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 
 		/* FBDC */
 		mtk_serial_dump_reg(baddr, 0x800, 3);
+
+		/* Add FBDC */
+		mtk_serial_dump_reg(baddr, 0x810, 4);
+		mtk_serial_dump_reg(baddr, 0x820, 4);
+		mtk_serial_dump_reg(baddr, 0x830, 4);
+		mtk_serial_dump_reg(baddr, 0x840, 4);
 
 		/*SYSRAM*/
 		mtk_serial_dump_reg(baddr, 0x880, 4);
