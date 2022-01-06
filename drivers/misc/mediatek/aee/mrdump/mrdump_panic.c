@@ -171,10 +171,10 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 	}
 }
 
-static void (*p_show_task_backtrace)(void);
+static void (*p_show_task_info)(void);
 void mrdump_regist_hang_bt(void (*fn)(void))
 {
-	p_show_task_backtrace = fn;
+	p_show_task_info = fn;
 }
 EXPORT_SYMBOL_GPL(mrdump_regist_hang_bt);
 
@@ -250,6 +250,8 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 			/* Don't print anything */
 			break;
 		}
+		if (p_show_task_info && !strcmp(current->comm, "llkd"))
+			p_show_task_info();
 	case AEE_FIQ_STEP_COMMON_DIE_EMISC:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_EMISC);
 		mrdump_mini_add_extra_misc();

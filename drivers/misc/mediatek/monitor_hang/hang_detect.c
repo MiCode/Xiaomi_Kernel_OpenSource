@@ -577,6 +577,28 @@ static unsigned long nsec_low(unsigned long long nsec)
 	return do_div(nsec, 1000000);
 }
 
+void store_task_info(struct task_struct *p)
+{
+	unsigned int state;
+	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
+
+	state = p->state ? __ffs(p->state) + 1 : 0;
+
+	log_hang_info("%-15.15s %c ", p->comm,
+		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+	log_hang_info("%lld.%06ld %d %lu %lu 0x%x 0x%lx %d %d %d ",
+		nsec_high(p->se.sum_exec_runtime),
+		nsec_low(p->se.sum_exec_runtime),
+		task_pid_nr(p), p->nvcsw, p->nivcsw, p->flags,
+		(unsigned long)task_thread_info(p)->flags,
+		p->tgid,  task_pid_nr(rcu_dereference(p->real_parent)),
+		task_pid_nr(rcu_dereference(p->parent)));
+#if IS_ENABLED(CONFIG_SCHED_INFO)
+	log_hang_info("%llu", p->sched_info.last_arrival);
+#endif
+	log_hang_info("\n");
+}
+
 void show_thread_info(struct task_struct *p, bool dump_bt)
 {
 	unsigned int state;
@@ -1150,6 +1172,16 @@ static int run_callback()
 	return -1;
 }
 
+static void show_task_info(void)
+{
+	struct task_struct *p, *t;
+
+	rcu_read_lock();
+	for_each_process_thread(p, t)
+		store_task_info(t);
+	rcu_read_unlock();
+}
+
 static void show_task_backtrace(void)
 {
 	struct task_struct *p, *t, *system_server_task = NULL;
@@ -1466,7 +1498,7 @@ static int __init monitor_hang_init(void)
 		return err;
 	}
 	hang_detect_init();
-	mrdump_regist_hang_bt(show_task_backtrace);
+	mrdump_regist_hang_bt(show_task_info);
 
 #ifdef CONFIG_MTK_HANG_PROC
 	pe = proc_create("monitor_hang", 0660, NULL, &monitor_hang_fops);
