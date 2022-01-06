@@ -3511,13 +3511,16 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 		 * Expected usage is when there is a write
 		 * to the MHI core -> notify SM.
 		 */
+		mutex_lock(&mhi_ctx->mhi_lock);
 		mhi_log(MHI_MSG_CRITICAL, "Wakeup by chan:%d\n", ch->ch_id);
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_CORE_WAKEUP);
 		if (rc) {
 			pr_err("error sending core wakeup event\n");
+			mutex_unlock(&mhi_ctx->mhi_lock);
 			mutex_unlock(&mhi_ctx->mhi_write_test);
 			return rc;
 		}
+		mutex_unlock(&mhi_ctx->mhi_lock);
 	}
 
 	while (atomic_read(&mhi_ctx->is_suspended) &&
