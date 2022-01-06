@@ -303,6 +303,9 @@ static ssize_t local_ipi_write(struct file *fp, const char __user *userbuf,
 {
 	unsigned int *v = PDE_DATA(file_inode(fp));
 
+	if (v == NULL)
+		return -EFAULT;
+
 	if (kstrtou32_from_user(userbuf, count, 10, v))
 		return -EFAULT;
 
