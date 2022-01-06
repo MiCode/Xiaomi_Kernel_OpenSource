@@ -292,6 +292,9 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_priv->log_buf = ipc_log_context_create(MHI_IPC_LOG_PAGES,
 						   mhi_dev->name, 0);
+	if (!mhi_priv->log_buf)
+		MHI_ERR("%s:Failed to create MHI IPC logs\n", __func__);
+
 	mhi_priv->log_lvl = MHI_MISC_DEBUG_LEVEL;
 	mhi_priv->mhi_cntrl = mhi_cntrl;
 
