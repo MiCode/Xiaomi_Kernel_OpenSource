@@ -269,6 +269,21 @@ struct kbase_mmu_table {
 	struct kbase_context *kctx;
 };
 
+/**
+ * struct kbase_reg_zone - Information about GPU memory region zones
+ * @base_pfn: Page Frame Number in GPU virtual address space for the start of
+ *            the Zone
+ * @va_size_pages: Size of the Zone in pages
+ *
+ * Track information about a zone KBASE_REG_ZONE() and related macros.
+ * In future, this could also store the &rb_root that are currently in
+ * &kbase_context and &kbase_csf_device.
+ */
+struct kbase_reg_zone {
+	u64 base_pfn;
+	u64 va_size_pages;
+};
+
 #if MALI_USE_CSF
 #include "csf/mali_kbase_csf_defs.h"
 #else
@@ -1416,21 +1431,6 @@ struct kbase_sub_alloc {
 	struct list_head link;
 	struct page *page;
 	DECLARE_BITMAP(sub_pages, SZ_2M / SZ_4K);
-};
-
-/**
- * struct kbase_reg_zone - Information about GPU memory region zones
- * @base_pfn: Page Frame Number in GPU virtual address space for the start of
- *            the Zone
- * @va_size_pages: Size of the Zone in pages
- *
- * Track information about a zone KBASE_REG_ZONE() and related macros.
- * In future, this could also store the &rb_root that are currently in
- * &kbase_context
- */
-struct kbase_reg_zone {
-	u64 base_pfn;
-	u64 va_size_pages;
 };
 
 /**

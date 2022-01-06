@@ -353,6 +353,7 @@ static struct kbase_va_region *kbase_region_tracker_find_region_meeting_reqs(
 
 /**
  * Remove a region object from the global list.
+ * @kbdev: The kbase device
  * @reg: Region object to remove
  *
  * The region reg is removed, possibly by merging with other free and
@@ -360,7 +361,8 @@ static struct kbase_va_region *kbase_region_tracker_find_region_meeting_reqs(
  * region lock held. The associated memory is not released (see
  * kbase_free_alloced_region). Internal use only.
  */
-int kbase_remove_va_region(struct kbase_va_region *reg)
+void kbase_remove_va_region(struct kbase_device *kbdev,
+			    struct kbase_va_region *reg)
 {
 	struct rb_node *rbprev;
 	struct kbase_va_region *prev = NULL;
@@ -370,9 +372,11 @@ int kbase_remove_va_region(struct kbase_va_region *reg)
 
 	int merged_front = 0;
 	int merged_back = 0;
-	int err = 0;
 
 	reg_rbtree = reg->rbtree;
+
+	if (WARN_ON(RB_EMPTY_ROOT(reg_rbtree)))
+		return;
 
 	/* Try to merge with the previous block first */
 	rbprev = rb_prev(&(reg->rblink));
@@ -380,10 +384,14 @@ int kbase_remove_va_region(struct kbase_va_region *reg)
 		prev = rb_entry(rbprev, struct kbase_va_region, rblink);
 		if (prev->flags & KBASE_REG_FREE) {
 			/* We're compatible with the previous VMA, merge with
-			 * it
+			 * it, handling any gaps for robustness.
 			 */
+			u64 prev_end_pfn = prev->start_pfn + prev->nr_pages;
+
 			WARN_ON((prev->flags & KBASE_REG_ZONE_MASK) !=
 					    (reg->flags & KBASE_REG_ZONE_MASK));
+			if (!WARN_ON(reg->start_pfn < prev_end_pfn))
+				prev->nr_pages += reg->start_pfn - prev_end_pfn;
 			prev->nr_pages += reg->nr_pages;
 			rb_erase(&(reg->rblink), reg_rbtree);
 			reg = prev;
@@ -395,11 +403,17 @@ int kbase_remove_va_region(struct kbase_va_region *reg)
 	/* Note we do the lookup here as the tree may have been rebalanced. */
 	rbnext = rb_next(&(reg->rblink));
 	if (rbnext) {
-		/* We're compatible with the next VMA, merge with it */
 		next = rb_entry(rbnext, struct kbase_va_region, rblink);
 		if (next->flags & KBASE_REG_FREE) {
+			/* We're compatible with the next VMA, merge with it,
+			 * handling any gaps for robustness.
+			 */
+			u64 reg_end_pfn = reg->start_pfn + reg->nr_pages;
+
 			WARN_ON((next->flags & KBASE_REG_ZONE_MASK) !=
 					    (reg->flags & KBASE_REG_ZONE_MASK));
+			if (!WARN_ON(next->start_pfn < reg_end_pfn))
+				next->nr_pages += next->start_pfn - reg_end_pfn;
 			next->start_pfn = reg->start_pfn;
 			next->nr_pages += reg->nr_pages;
 			rb_erase(&(reg->rblink), reg_rbtree);
@@ -414,8 +428,8 @@ int kbase_remove_va_region(struct kbase_va_region *reg)
 	/* If we failed to merge then we need to add a new block */
 	if (!(merged_front || merged_back)) {
 		/*
-		 * We didn't merge anything. Add a new free
-		 * placeholder and remove the original one.
+		 * We didn't merge anything. Try to add a new free
+		 * placeholder, and in any case, remove the original one.
 		 */
 		struct kbase_va_region *free_reg;
 
@@ -423,14 +437,37 @@ int kbase_remove_va_region(struct kbase_va_region *reg)
 				reg->start_pfn, reg->nr_pages,
 				reg->flags & KBASE_REG_ZONE_MASK);
 		if (!free_reg) {
-			err = -ENOMEM;
+			/* In case of failure, we cannot allocate a replacement
+			 * free region, so we will be left with a 'gap' in the
+			 * region tracker's address range (though, the rbtree
+			 * will itself still be correct after erasing
+			 * 'reg').
+			 *
+			 * The gap will be rectified when an adjacent region is
+			 * removed by one of the above merging paths. Other
+			 * paths will gracefully fail to allocate if they try
+			 * to allocate in the gap.
+			 *
+			 * There is nothing that the caller can do, since free
+			 * paths must not fail. The existing 'reg' cannot be
+			 * repurposed as the free region as callers must have
+			 * freedom of use with it by virtue of it being owned
+			 * by them, not the region tracker insert/remove code.
+			 */
+			dev_warn(
+				kbdev->dev,
+				"Could not alloc a replacement free region for 0x%.16llx..0x%.16llx",
+				(unsigned long long)reg->start_pfn << PAGE_SHIFT,
+				(unsigned long long)(reg->start_pfn + reg->nr_pages) << PAGE_SHIFT);
+			rb_erase(&(reg->rblink), reg_rbtree);
+
 			goto out;
 		}
 		rb_replace_node(&(reg->rblink), &(free_reg->rblink), reg_rbtree);
 	}
 
- out:
-	return err;
+out:
+	return;
 }
 
 KBASE_EXPORT_TEST_API(kbase_remove_va_region);
@@ -458,6 +495,9 @@ static int kbase_insert_va_region_nolock(struct kbase_va_region *new_reg,
 	KBASE_DEBUG_ASSERT((start_pfn >= at_reg->start_pfn) && (start_pfn < at_reg->start_pfn + at_reg->nr_pages));
 	/* at least nr_pages from start_pfn should be contained within at_reg */
 	KBASE_DEBUG_ASSERT(start_pfn + nr_pages <= at_reg->start_pfn + at_reg->nr_pages);
+	/* having at_reg means the rb_tree should not be empty */
+	if (WARN_ON(RB_EMPTY_ROOT(reg_rbtree)))
+		return -ENOMEM;
 
 	new_reg->start_pfn = start_pfn;
 	new_reg->nr_pages = nr_pages;
@@ -864,6 +904,8 @@ static bool kbase_region_tracker_has_allocs(struct kbase_context *kctx)
 		unsigned long zone_bits = KBASE_REG_ZONE(zone_idx);
 		unsigned long reg_zone;
 
+		if (!kbase_is_ctx_reg_zone(zone_bits))
+			continue;
 		zone = kbase_ctx_reg_zone_get(kctx, zone_bits);
 		zone_base_addr = zone->base_pfn << PAGE_SHIFT;
 
@@ -1568,7 +1610,7 @@ bad_insert:
 				 reg->start_pfn, reg->nr_pages,
 				 kctx->as_nr);
 
-	kbase_remove_va_region(reg);
+	kbase_remove_va_region(kctx->kbdev, reg);
 
 	return err;
 }

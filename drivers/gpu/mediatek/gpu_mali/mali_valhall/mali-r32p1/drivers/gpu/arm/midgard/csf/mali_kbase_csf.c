@@ -141,7 +141,7 @@ static void gpu_munmap_user_io_pages(struct kbase_context *kctx,
 	WARN_ON(reg->flags & KBASE_REG_FREE);
 
 	mutex_lock(&kctx->kbdev->csf.reg_lock);
-	kbase_remove_va_region(reg);
+	kbase_remove_va_region(kctx->kbdev, reg);
 	mutex_unlock(&kctx->kbdev->csf.reg_lock);
 }
 
@@ -219,7 +219,7 @@ bad_insert_output_page:
 				 reg->start_pfn, 1, MCU_AS_NR);
 bad_insert:
 	mutex_lock(&kbdev->csf.reg_lock);
-	kbase_remove_va_region(reg);
+	kbase_remove_va_region(kbdev, reg);
 	mutex_unlock(&kbdev->csf.reg_lock);
 
 	return ret;
@@ -1103,7 +1103,7 @@ static int create_normal_suspend_buffer(struct kbase_context *const kctx,
 
 mmu_insert_failed:
 	mutex_lock(&kctx->kbdev->csf.reg_lock);
-	WARN_ON(kbase_remove_va_region(reg));
+	kbase_remove_va_region(kctx->kbdev, reg);
 	mutex_unlock(&kctx->kbdev->csf.reg_lock);
 
 add_va_region_failed:
@@ -1184,7 +1184,7 @@ static int create_protected_suspend_buffer(struct kbase_device *const kbdev,
 
 mmu_insert_failed:
 	mutex_lock(&kbdev->csf.reg_lock);
-	WARN_ON(kbase_remove_va_region(reg));
+	kbase_remove_va_region(kbdev, reg);
 	mutex_unlock(&kbdev->csf.reg_lock);
 
 add_va_region_failed:
@@ -1404,7 +1404,7 @@ static void term_normal_suspend_buffer(struct kbase_context *const kctx,
 	WARN_ON(s_buf->reg->flags & KBASE_REG_FREE);
 
 	mutex_lock(&kctx->kbdev->csf.reg_lock);
-	WARN_ON(kbase_remove_va_region(s_buf->reg));
+	kbase_remove_va_region(kctx->kbdev, s_buf->reg);
 	mutex_unlock(&kctx->kbdev->csf.reg_lock);
 
 	kbase_mem_pool_free_pages(
@@ -1437,7 +1437,7 @@ static void term_protected_suspend_buffer(struct kbase_device *const kbdev,
 	WARN_ON(s_buf->reg->flags & KBASE_REG_FREE);
 
 	mutex_lock(&kbdev->csf.reg_lock);
-	WARN_ON(kbase_remove_va_region(s_buf->reg));
+	kbase_remove_va_region(kbdev, s_buf->reg);
 	mutex_unlock(&kbdev->csf.reg_lock);
 
 	kbase_csf_protected_memory_free(kbdev, s_buf->pma, nr_pages);
