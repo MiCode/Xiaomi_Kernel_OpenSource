@@ -131,6 +131,7 @@ struct mml_sys {
 	struct device *master;
 	/* adaptor for display addon config */
 	struct mml_dle_ctx *dle_ctx;
+	struct mml_dle_param dle_param;
 	/* addon status */
 	bool ddp_connected[MML_PIPE_CNT];
 
@@ -683,14 +684,14 @@ static void sys_config_done_cb(struct mml_task *task, void *cb_param)
 	mml_msg("%s mml task:%p", __func__, cfg->task);
 }
 
-static struct mml_dle_ctx *sys_get_dle_ctx(struct mml_sys *sys)
+static struct mml_dle_ctx *sys_get_dle_ctx(struct mml_sys *sys,
+					   struct mml_dle_param *dl)
 {
-	struct mml_dle_param dl;
-
-	if (!sys->dle_ctx) {
-		dl.dual = false;
-		dl.config_cb = sys_config_done_cb;
-		sys->dle_ctx = mml_dle_get_context(sys->master, &dl);
+	if (dl && (!sys->dle_ctx ||
+	    memcmp(&sys->dle_param, dl, sizeof(*dl)))) {
+		mml_dle_put_context(sys->dle_ctx);
+		sys->dle_ctx = mml_dle_get_context(sys->master, dl);
+		sys->dle_param = *dl;
 	}
 	return sys->dle_ctx;
 }
@@ -848,6 +849,7 @@ static void sys_addon_connect(struct mml_sys *sys,
 			      struct cmdq_pkt *pkt)
 {
 	struct mml_dle_ctx *ctx;
+	struct mml_dle_param dl;
 	u32 pipe;
 	s32 ret;
 
@@ -861,7 +863,9 @@ static void sys_addon_connect(struct mml_sys *sys,
 	} else {
 		pipe = 0;
 
-		ctx = sys_get_dle_ctx(sys);
+		dl.dual = cfg->dual;
+		dl.config_cb = sys_config_done_cb;
+		ctx = sys_get_dle_ctx(sys, &dl);
 		if (IS_ERR(ctx)) {
 			mml_err("fail to get mml ctx for addon config");
 			return;
@@ -897,8 +901,8 @@ static void sys_addon_disconnect(struct mml_sys *sys,
 	} else {
 		pipe = 0;
 
-		ctx = sys_get_dle_ctx(sys);
-		if (IS_ERR(ctx)) {
+		ctx = sys_get_dle_ctx(sys, NULL);
+		if (IS_ERR_OR_NULL(ctx)) {
 			mml_err("fail to get mml ctx for addon config");
 			return;
 		}
@@ -938,10 +942,9 @@ static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
 static void sys_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
 {
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
-	struct mml_dle_ctx *ctx;
+	struct mml_dle_ctx *ctx = sys_get_dle_ctx(sys, NULL);
 
-	ctx = sys_get_dle_ctx(sys);
-	if (IS_ERR(ctx)) {
+	if (IS_ERR_OR_NULL(ctx)) {
 		mml_err("fail to get mml ctx for addon config");
 		return;
 	}
@@ -952,12 +955,11 @@ static void sys_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
 static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 {
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
-	struct mml_dle_ctx *ctx;
+	struct mml_dle_ctx *ctx = sys_get_dle_ctx(sys, NULL);
 	struct mml_task *task;
 
-	ctx = sys_get_dle_ctx(sys);
-	if (IS_ERR(ctx)) {
-		mml_err("fail to get mml ctx for addon config");
+	if (IS_ERR_OR_NULL(ctx)) {
+		mml_log("fail to get mml ctx for addon config");
 		return;
 	}
 
