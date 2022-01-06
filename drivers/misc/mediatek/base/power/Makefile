@@ -12,7 +12,7 @@ endif
 
 obj-$(CONFIG_MACH_MT8173) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6779) += drcc_v1/
-obj-$(CONFIG_MACH_MT6768) += drcc_v1/
+#obj-$(CONFIG_MACH_MT6768) += drcc_v1/
 obj-$(CONFIG_MACH_MT6765) += spm/
 obj-$(CONFIG_MACH_MT6761) += spm/
 obj-$(CONFIG_MACH_MT6768) += spm/
