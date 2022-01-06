@@ -5155,6 +5155,7 @@
 				"TOP_MAINPLL_D4_D2", "TOP_MAINPLL_D5",
 				"TOP_UNIVPLL_D4", "TOP_UNIVPLL_D4";
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			_vcore-supply = <&mt6363_vbuck2>;
 			clocks = <&topckgen_clk CLK_TOP_DISP0_SEL>,	/* 0 */
 				<&topckgen_clk CLK_TOP_DISP1_SEL>,	/* 1 */
 				<&topckgen_clk CLK_TOP_MMINFRA_SEL>,	/* 2 */
