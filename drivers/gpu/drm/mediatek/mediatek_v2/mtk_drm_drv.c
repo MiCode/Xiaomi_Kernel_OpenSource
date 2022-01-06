@@ -1911,7 +1911,7 @@ static const struct mtk_addon_module_data mt6855_addon_rsz_data[] = {
 	{DISP_RSZ, ADDON_BETWEEN, DDP_COMPONENT_OVL1_2L},
 };
 static const struct mtk_addon_module_data mt6855_addon_wdma0_data[] = {
-	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0_VIRTUAL},
+	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_DITHER0},
 };
 
 static const struct mtk_addon_module_data addon_mml_data[] = {

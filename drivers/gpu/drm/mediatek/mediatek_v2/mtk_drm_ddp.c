@@ -9462,6 +9462,10 @@ static int mtk_ddp_mout_en_MT6855(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_PQ0_VIRTUAL) {
 		*addr = MT6855_DISP_SPR0_MOUT_EN;
 		value = MT6855_DISP_SPR0_MOUT_TO_DISP_PQ0_SOUT;
+	} else if (cur == DDP_COMPONENT_DITHER0 &&
+		next == DDP_COMPONENT_WDMA0){
+		*addr = MT6855_DISP_SPR0_MOUT_EN;
+		value = MT6855_DISP_SPR0_MOUT_TO_DISP_WDMA0_SEL;
 	} else {
 		value = -1;
 	}
@@ -9534,6 +9538,10 @@ static int mtk_ddp_sel_in_MT6855(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_DSI0) {
 		*addr = MT6855_DISP_DSI0_SEL;
 		value = MT6855_DISP_DSI0_FROM_DISP_MAIN0_SOUT;
+	} else if (cur == DDP_COMPONENT_DITHER0 &&
+		next == DDP_COMPONENT_WDMA0) {
+		*addr = MT6855_DISP_WDMA0_SEL;
+		value = MT6855_DISP_WDMA0_FROM_DISP_SPR0_VIRTUAL;
 	} else {
 		value = -1;
 	}
