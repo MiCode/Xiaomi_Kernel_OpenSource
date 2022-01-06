@@ -137,7 +137,7 @@
 			<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI6_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI7_CK>,
-			<&infracfg_ao_clk P>,
+			<&infracfg_ao_clk CLK_IFRAO_66MP_BUS_MCLK_CK_P>,
 			<&infracfg_ao_clk CLK_IFRAO_INFRA_FREE_DCM_133M>,
 			<&infracfg_ao_clk CLK_IFRAO_INFRA_FREE_DCM_66M>,
 			<&infracfg_ao_clk CLK_IFRAO_PERU_BUS_DCM_133M>,
