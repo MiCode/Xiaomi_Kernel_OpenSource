@@ -2423,6 +2423,11 @@
 			reg = <0 0x1000d000 0 0x1000>;
 		};
 
+		usb_meta: usb_meta {
+			compatible = "mediatek,usb_meta";
+			udc = <&usb>;
+		};
+
 		devapc_ao_infra_peri@1000e000 {
 			compatible = "mediatek,devapc_ao_infra_peri";
 			reg = <0 0x1000e000 0 0x1000>;
