@@ -25,6 +25,8 @@
 		mt6360pd,intr_gpio_num = <24>;
 		mt6360pd,pcb_gpio = <&pio 5 0x0>;
 		mt6360pd,pcb_gpio_num = <5>;
+/* 0: gpio low as phone, 1: gpio high as phone */
+		mt6360pd,pcb_gpio_polarity = <0>;
 		interrupt-parent = <&subpmic_mtk>;
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
