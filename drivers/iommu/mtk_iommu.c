@@ -261,8 +261,6 @@ static bool pd_sta[MM_IOMMU_NUM];
 static spinlock_t tlb_locks[MM_IOMMU_NUM];
 static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
 static bool hypmmu_type2_en;
-static spinlock_t page_tab_locks[PGTBALE_NUM];
-static atomic_t init_once_flag = ATOMIC_INIT(0);
 
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 
@@ -1555,27 +1553,21 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct device *m4udev = data->dev;
-	int tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
-	unsigned long lock_flags;
 	int ret, domid;
 
 	domid = mtk_iommu_get_domain_id(dev, data->plat_data);
 	if (domid < 0)
 		return domid;
 
-	spin_lock_irqsave(&page_tab_locks[tab_id], lock_flags);
 	if (!dom->data) {
-		if (mtk_iommu_domain_finalise(dom, data, domid)) {
-			spin_unlock_irqrestore(&page_tab_locks[tab_id], lock_flags);
+		if (mtk_iommu_domain_finalise(dom, data, domid))
 			return -ENODEV;
-		}
 		dom->data = data;
 		dom->tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
 		pr_info("%s, set mtk_iommu_domain, data:(%d,%d), tab_id:%d\n",
 			__func__, data->plat_data->iommu_type,
 			data->plat_data->iommu_id, dom->tab_id);
 	}
-	spin_unlock_irqrestore(&page_tab_locks[tab_id], lock_flags);
 
 	if (!data->m4u_dom) { /* Initialize the M4U HW */
 		ret = pm_runtime_resume_and_get(m4udev);
@@ -2670,10 +2662,6 @@ skip_smi:
 		goto out_sysfs_remove;
 
 	spin_lock_init(&data->tlb_lock);
-
-	if (!atomic_cmpxchg(&init_once_flag, 0, 1))
-		for (i = 0; i < PGTBALE_NUM; i++)
-			spin_lock_init(&page_tab_locks[i]);
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, SHARE_PGTABLE)) {
 		list_add_tail(&data->list, &m4ulist);
