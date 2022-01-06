@@ -6,6 +6,7 @@
 
 &usb0 {
 	usb-role-switch;
+	extcon = <&eud>;
 
 	dwc3@a600000 {
 		usb-role-switch;

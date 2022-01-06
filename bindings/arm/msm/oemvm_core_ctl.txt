@@ -1,0 +1,9 @@
+Qualcomm Technologies, Inc. OEMVM Core Control for Hypervisor
+
+Required properties:
+- compatible: should be "qcom,oemvm-core-ctl"
+
+Example:
+	oemvm-core-ctl {
+		compatible = "qcom,oemvm-core-ctl";
+	};

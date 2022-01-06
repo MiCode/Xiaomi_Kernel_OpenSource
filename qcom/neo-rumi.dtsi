@@ -30,6 +30,10 @@
 			0x0010060 0x3c
 			0x0 0x4>;
 	};
+
+	disp_rsc: rsc@af20000 {
+		status = "nok";
+	};
 };
 
 &sdhc_1 {

@@ -1,39 +1,22 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-
 &soc {
 	kgsl_smmu: kgsl-smmu@3da0000 {
 		compatible = "qcom,qsmmu-v500", "qcom,adreno-smmu";
-		reg = <0x3da0000 0x20000>,
-			<0x3dd6000 0x20>;
+		reg = <0x3da0000 0x40000>,
+			<0x3de6000 0x20>;
 		reg-names = "base", "tcu-base";
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
 		qcom,num-context-banks-override = <0x6>;
 		qcom,num-smr-override = <0x6>;
+		status = "disabled";
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
 		ranges;
 		dma-coherent;
-
-		qcom,regulator-names = "vdd";
-		vdd-supply = <&gpu_cc_cx_gdsc>;
-
-		clocks = <&gpucc GPU_CC_CX_GMU_CLK>,
-			 <&gpucc GPU_CC_HUB_CX_INT_CLK>,
-			 <&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>,
-			 <&gcc GCC_GPU_MEMNOC_GFX_CLK>,
-			 <&gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
-			 <&gpucc GPU_CC_AHB_CLK>;
-		clock-names =
-			"gpu_cc_cx_gmu",
-			"gpu_cc_hub_cx_int",
-			"gpu_cc_hlos1_vote_gpu_smmu",
-			"gcc_gpu_memnoc_gfx",
-			"gcc_gpu_snoc_dvm_gfx",
-			"gpu_cc_ahb";
 
 		qcom,actlr =
 			/* All CBs of GFX: +15 deep PF */
@@ -49,20 +32,35 @@
 				<GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 574 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 575 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 576 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 577 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 659 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 661 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 664 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 665 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 666 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 668 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 669 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 699 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 700 IRQ_TYPE_LEVEL_HIGH>;
 
 		gfx_0_tbu: gfx_0_tbu@3de9000 {
 			compatible = "qcom,qsmmuv500-tbu";
-			reg = <0x3dd9000 0x1000>,
-				<0x3dd6200 0x8>;
+			reg = <0x3de9000 0x1000>,
+				<0x3de6200 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x0 0x400>;
 		};
 
 		gfx_1_tbu: gfx_1_tbu@3ded000 {
 			compatible = "qcom,qsmmuv500-tbu";
-			reg = <0x3ddd000 0x1000>,
-				<0x3dd6208 0x8>;
+			reg = <0x3ded000 0x1000>,
+				<0x3de6208 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x400 0x400>;
 		};
@@ -71,20 +69,22 @@
 	apps_smmu: apps-smmu@15000000 {
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x15000000 0x100000>,
-			<0x151ce000 0x20>;
+			<0x151da000 0x20>;
 		reg-names = "base", "tcu-base";
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
 		qcom,num-context-banks-override = <0x4e>;
 		qcom,num-smr-override = <0x78>;
-		qcom,handoff-smrs = <2>;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
 		ranges;
-		dma-coherent;
+
 		interrupts =	<GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 670 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 671 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
@@ -165,27 +165,20 @@
 				<GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 707 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 706 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 689 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 690 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 691 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 692 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 693 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 694 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 695 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 696 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 697 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 693 IRQ_TYPE_LEVEL_HIGH>;
 
-		interconnects = <&gem_noc MASTER_APPSS_PROC
-				&config_noc SLAVE_TCU>;
-
-		qcom,active-only;
 
 		qcom,actlr =
 			/* For display, camera +0 deep PF */
@@ -193,164 +186,86 @@
 			<0x2800 0x7ff 0x001>,
 
 			/* For video +3 deep PF */
-			<0x2180 0x41f 0x103>,
+			<0x2180 0x42f 0x103>;
 
-			/* For compute +15 deep PF */
-			<0x2160 0x41f 0x303>;
-
-		anoc_1_tbu: anoc_1_tbu@151d1000 {
-			compatible = "qcom,qsmmuv500-tbu";
-			reg = <0x151d1000 0x1000>,
-				<0x151ce200 0x8>;
-			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x0 0x400>;
-			interconnects = <&gem_noc MASTER_APPSS_PROC
-					&config_noc SLAVE_IMEM_CFG>;
-			qcom,active-only;
-			qcom,micro-idle;
-		};
-
-		anoc_2_tbu: anoc_2_tbu@151d5000 {
-			compatible = "qcom,qsmmuv500-tbu";
-			reg = <0x151d5000 0x1000>,
-				<0x151ce208  0x8>;
-			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x400 0x400>;
-			interconnects = <&gem_noc MASTER_APPSS_PROC
-					&config_noc SLAVE_IMEM_CFG>;
-			qcom,active-only;
-			qcom,micro-idle;
-		};
-
-		mnoc_hf_0_tbu: mnoc_hf_0_tbu@151d9000 {
-			compatible = "qcom,qsmmuv500-tbu";
-			reg = <0x151d9000 0x1000>,
-				<0x151ce210 0x8>;
-			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x800 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
-			interconnects = <&mmss_noc MASTER_CAMNOC_HF
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
-			qcom,micro-idle;
-		};
-
-		mnoc_hf_1_tbu: mnoc_hf_1_tbu@151dd000 {
+		anoc_1_tbu: anoc_1_tbu@151dd000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151dd000 0x1000>,
-				<0x151ce218 0x8>;
+				<0x151da200 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0xc00 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
-			interconnects = <&mmss_noc MASTER_CAMNOC_HF
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x0 0x400>;
 			qcom,micro-idle;
 		};
 
-		compute_1_tbu: compute_1_tbu@151e1000 {
+		anoc_2_tbu: anoc_2_tbu@151e1000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151e1000 0x1000>,
-				<0x151ce220 0x8>;
+				<0x151da208  0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x1000 0x400>;
-			interconnects = <&nsp_noc MASTER_CDSP_PROC
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x400 0x400>;
 			qcom,micro-idle;
 		};
 
-		compute_0_tbu: compute_0_tbu@151e5000 {
+		mnoc_hf_0_tbu: mnoc_hf_0_tbu@151e5000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151e5000 0x1000>,
-				<0x151ce228 0x8>;
+				<0x151da210 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x1400 0x400>;
-			interconnects = <&nsp_noc MASTER_CDSP_PROC
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x800 0x400>;
 			qcom,micro-idle;
 		};
 
-		lpass_tbu: lpass_tbu@151e9000 {
+		mnoc_hf_1_tbu: mnoc_hf_1_tbu@151e9000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151e9000 0x1000>,
-				<0x151ce230 0x8>;
+				<0x151da218 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x1800 0x400>;
-			interconnects = <&lpass_ag_noc MASTER_LPASS_PROC
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0xc00 0x400>;
 			qcom,micro-idle;
 		};
 
-		pcie_tbu: pcie_tbu@151ed000 {
+		compute_1_tbu: compute_1_tbu@151ed000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151ed000 0x1000>,
-				<0x151ce238 0x8>;
+				<0x151da220 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x1c00 0x400>;
-			interconnects = <&pcie_noc MASTER_PCIE_0
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x1000 0x400>;
 			qcom,micro-idle;
 		};
 
-		sf_0_tbu: sf_0_tbu@151f1000 {
+		compute_0_tbu: compute_0_tbu@151f1000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151f1000 0x1000>,
-				<0x151ce240 0x8>;
+				<0x151da228 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x2000 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc>;
-			interconnects = <&mmss_noc MASTER_CAMNOC_SF
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x1400 0x400>;
 			qcom,micro-idle;
 		};
 
-		sf_1_tbu: sf_1_tbu@151f5000 {
+		lpass_tbu: lpass_tbu@151f5000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151f5000 0x1000>,
-				<0x151ce248 0x8>;
+				<0x151da230 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x2400 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc>;
-			interconnects = <&mmss_noc MASTER_CAMNOC_SF
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x1800 0x400>;
 			qcom,micro-idle;
 		};
 
-		mnoc_hf_2_tbu: mnoc_hf_1_tbu@151f9000 {
+		pcie_tbu: pcie_tbu@151f9000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151f9000 0x1000>,
-				<0x151ce250 0x8>;
+				<0x151da238 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x2800 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
-			interconnects = <&mmss_noc MASTER_CAMNOC_HF
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x1c00 0x400>;
 			qcom,micro-idle;
 		};
 
-		mnoc_hf_3_tbu: mnoc_hf_3_tbu@151fd000 {
+		sf_0_tbu: sf_0_tbu@151fd000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x151fd000 0x1000>,
-				<0x151ce258 0x8>;
+				<0x151da240 0x8>;
 			reg-names = "base", "status-reg";
-			qcom,stream-id-range = <0x2c00 0x400>;
-			qcom,regulator-names = "vdd";
-			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
-			interconnects = <&mmss_noc MASTER_CAMNOC_HF
-					&mc_virt SLAVE_EBI1>;
-			qcom,active-only;
+			qcom,stream-id-range = <0x2000 0x400>;
 			qcom,micro-idle;
 		};
 	};
@@ -365,43 +280,30 @@
 
 		usecase0_apps {
 			compatible = "qcom,iommu-debug-usecase";
-			iommus = <&apps_smmu 0x400 0>;
+			iommus = <&apps_smmu 0x7e0 0>;
 		};
 
 		usecase1_apps_fastmap {
 			compatible = "qcom,iommu-debug-usecase";
-			iommus = <&apps_smmu 0x400 0>;
+			iommus = <&apps_smmu 0x7e0 0>;
 			qcom,iommu-dma = "fastmap";
 		};
 
 		usecase2_apps_atomic {
 			compatible = "qcom,iommu-debug-usecase";
-			iommus = <&apps_smmu 0x400 0>;
+			iommus = <&apps_smmu 0x7e0 0>;
 			qcom,iommu-dma = "atomic";
 		};
 
 		usecase3_apps_dma {
 			compatible = "qcom,iommu-debug-usecase";
-			iommus = <&apps_smmu 0x401 0>;
+			iommus = <&apps_smmu 0x7e1 0>;
 			dma-coherent;
 		};
 
-		usecase4_apps_secure {
-			compatible = "qcom,iommu-debug-usecase";
-			iommus = <&apps_smmu 0x400 0x0>;
-			qcom,iommu-dma = "atomic";
-			qcom,iommu-vmid = <0xA>; /* VMID_CP_PIXEL */
-		};
-
-		usecase5_kgsl {
+		usecase4_kgsl {
 			compatible = "qcom,iommu-debug-usecase";
 			iommus = <&kgsl_smmu 0x7 0x400>;
-		};
-
-		usecase6_kgsl_dma {
-			compatible = "qcom,iommu-debug-usecase";
-			iommus = <&kgsl_smmu 0x7 0x400>;
-			dma-coherent;
 		};
 	};
 };

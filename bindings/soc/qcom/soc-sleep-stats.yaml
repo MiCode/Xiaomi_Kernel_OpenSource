@@ -37,6 +37,11 @@ properties:
     Value type: Value type: <prop-encoded-array>
     Definition: List of QMP mailbox phandle and channel identifier tuples.
 
+  ddr-freq-update:
+    Usage: optional
+    Value type: <boolean>
+    Definition: Boolean property to support to get ddr freq distribution.
+
 required:
   - compatible
   - reg
@@ -57,5 +62,16 @@ examples:
     rpm-sleep-stats@4690000 {
       compatible = "qcom,rpm-sleep-stats";
       reg = <0 0x04690000 0 0x400>;
+    };
+  # Example of rpmh sleep stats that supports to get ddr freq distribution
+  - |
+    rpmh-sleep-stats@c3f0000 {
+      compatible = "qcom,rpmh-sleep-stats";
+      reg = <0 0xc3f0000 0 0x400>;
+      ss-name = "modem", "adsp", "adsp_island",
+                "cdsp", "slpi", "slpi_island",
+                "apss";
+      mboxes = <&qmp_aop 0>;
+      ddr-freq-update;
     };
 ...

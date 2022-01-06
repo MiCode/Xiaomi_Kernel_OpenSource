@@ -1,3 +1,4 @@
+#include <dt-bindings/clock/qcom,gcc-parrot.h>
 #include <dt-bindings/gpio/gpio.h>
 
 &soc {
@@ -31,6 +32,9 @@
 		     0x0 0x4>;
 	};
 
+	disp_rsc: rsc@af20000 {
+		status = "disabled";
+	};
 };
 
 &usb0 {
@@ -82,4 +86,59 @@
 	pinctrl-1 = <&sdc2_off>;
 
 	cd-gpios = <&tlmm 107 GPIO_ACTIVE_LOW>;
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&L5B>;
+	vdda-pll-supply = <&L17B>;
+	vdda-phy-max-microamp = <85800>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+	limit-rate = <2>; /* HS Rate-B */
+
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+
+	vcc-supply = <&L24B>;
+	vcc-max-microamp = <1200000>;
+
+	vccq-supply = <&L13B>;
+	vccq-max-microamp = <1200000>;
+
+	vccq2-supply = <&L19B>;
+	vccq2-max-microamp = <750000>;
+
+	qcom,vddp-ref-clk-supply = <&L13B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+
+	qcom,iommu-dma = "bypass";
+
+	status = "ok";
+};
+
+&qupv3_se3_2uart {
+	qcom,rumi_platform;
+};
+
+&gcc {
+	clocks = <&bi_tcxo>, <&sleep_clk>,
+		<&pcie_0_pipe_clk>, <&ufs_phy_rx_symbol_0_clk>,
+		<&ufs_phy_rx_symbol_1_clk>, <&ufs_phy_tx_symbol_0_clk>,
+		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+};
+
+&camcc {
+	clocks = <&bi_tcxo>, <&gcc GCC_CAMERA_AHB_CLK>;
 };

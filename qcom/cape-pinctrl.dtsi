@@ -1993,13 +1993,13 @@
 		qupv3_se15_i3c_sleep: qupv3_se15_i3c_sleep {
 			mux {
 				pins = "gpio56", "gpio57";
-				function = "gpio";
+				function = "ibi_i3c";
 			};
 
 			config {
 				pins = "gpio56", "gpio57";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-up;
 			};
 		};
 
@@ -2011,6 +2011,47 @@
 
 			config {
 				pins = "gpio56", "gpio57";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+
+	qupv3_se9_i3c_pins: qupv3_se9_i3c_pins {
+		qupv3_se9_i3c_active: qupv3_se9_i3c_active {
+			mux {
+				pins = "gpio32", "gpio33";
+				function = "ibi_i3c";
+			};
+
+			config {
+				pins = "gpio32", "gpio33";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		qupv3_se9_i3c_sleep: qupv3_se9_i3c_sleep {
+			mux {
+				pins = "gpio32", "gpio33";
+				function = "ibi_i3c";
+			};
+
+			config {
+				pins = "gpio32", "gpio33";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		qupv3_se9_i3c_disable: qupv3_se9_i3c_disable {
+			mux {
+				pins = "gpio32", "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio32", "gpio33";
 				drive-strength = <2>;
 				bias-disable;
 			};
@@ -2607,7 +2648,7 @@
 		};
 	};
 
-	cnss_pins {
+	cnss_pins: cnss_pins {
 		cnss_wlan_en_active: cnss_wlan_en_active {
 			mux {
 				pins = "gpio80";

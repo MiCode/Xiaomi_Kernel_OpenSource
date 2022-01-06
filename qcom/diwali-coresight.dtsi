@@ -740,6 +740,7 @@
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 		qcom,cmb-msr-skip;
+		status = "disabled";
 		out-ports {
 			port {
 				tpdm_rdpm_out_funnel_dl_center_1: endpoint {
@@ -759,6 +760,7 @@
 		atid = <78>;
 		coresight-name = "coresight-tpdm-rdpm-mx";
 
+		status = "disabled";
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 		qcom,cmb-msr-skip;
@@ -2220,7 +2222,7 @@
 							 <13 64>,
 							 <14 64>,
 							 <16 32>,
-							 <19 34>,
+							 <19 32>,
 							 <22 32>,
 							 <23 32>,
 							 <24 64>,
@@ -3149,6 +3151,10 @@
 		qcom,extended_cti;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
+		qcom,cti-gpio-trigout = <16>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_a>;
+
 	};
 
 	cti0: cti@10c2a000 {
@@ -3234,6 +3240,17 @@
 
 		arm,primecell-periphid = <0x000bb922>;
 		coresight-name = "coresight-cti-lpass_dl_cti";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+	};
+
+	dl_lpass_cti: cti@10c4a000  {
+		compatible = "arm,coresight-cti", "arm,primecell";
+		reg = <0x10c4a000  0x1000>;
+
+		arm,primecell-periphid = <0x000bb922>;
+		coresight-name = "coresight-cti-dl_lpass_cti";
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";

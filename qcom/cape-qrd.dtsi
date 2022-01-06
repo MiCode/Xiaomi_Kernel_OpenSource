@@ -202,11 +202,16 @@
 
 	#address-cells = <1>;
 	#size-cells = <0>;
-	eusb2_repeater@4f {
+	nxp_eusb2_repeater: eusb2_repeater@4f {
 		compatible = "nxp,eusb2-repeater";
 		reg = <0x4f>;
-		vdd12-supply = <&L10C>;
+		vdd18-supply = <&S10B>;
 		vdd3-supply = <&L2B>;
 		reset-gpio = <&pm8350c_gpios 7 GPIO_ACTIVE_LOW>;
 	};
+};
+
+&eusb2_phy0 {
+	dummy-supply = <&nxp_eusb2_repeater>;
+	usb-repeater = <&nxp_eusb2_repeater>;
 };

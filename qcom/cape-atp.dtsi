@@ -98,3 +98,22 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
 	};
 };
+
+&qupv3_se5_i2c {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	ti_eusb2_repeater: eusb2_repeater@3e {
+		compatible = "ti,eusb2-repeater";
+		reg = <0x3e>;
+		vdd18-supply = <&S10B>;
+		vdd3-supply = <&L2B>;
+		reset-gpio = <&pm8350c_gpios 7 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&eusb2_phy0 {
+	dummy-supply = <&ti_eusb2_repeater>;
+	usb-repeater = <&ti_eusb2_repeater>;
+};

@@ -1,12 +1,15 @@
-TI, eUSB2 Repeater
+eUSB2 i2c Repeater
 
 Required properties:
- - compatible: Should be "ti,eusb2-repeater"
+ - compatible: Should be "<vendor-name>,eusb2-repeater"
+   Required "vendor-name" examples are:
+   	"nxp" : for NXP eUSB2 repeater
+	"ti" : for TI eUSB2 repeater
  - reg: Address and length of the register set for the device
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd3" : 3.v supply for eUSB2 repeater
-	"vdd12" : 1.2v supply for eUSB2 repeater
+	"vdd18" : 1.8v supply for eUSB2 repeater
  - reset-gpio: A phandle and gpio specifier denoting the GPIO connected
         to the RESET pin of the eUSB2 repeater.
 
@@ -16,9 +19,9 @@ Optional properties:
 
 Example:
 	eusb2_repeater@fd00 {
-		compatible = "ti,eusb2-repeater";
+		compatible = "nxp,eusb2-repeater";
 		reg = <0xfd00 0xff>;
-		vdd12-supply = <&pm8841_s2_corner>;
+		vdd18-supply = <&pm8841_s2_corner>;
 		vdd3-supply = <&pm8941_l6>;
 		qcom,param-override-seq = <0x4 0x57>;
 		reset-gpio = <&pm8350_gpios 6 GPIO_ACTIVE_LOW>;

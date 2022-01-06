@@ -4,19 +4,47 @@
 	status = "disabled";
 };
 
-&bluetooth {
-	status = "disabled";
+&cnss_pins {
+	cnss_host_sol_default: cnss_host_sol_default {
+		mux {
+			pins = "gpio48";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio48";
+			drive-strength = <4>;
+			bias-pull-down;
+		};
+	};
+
+	cnss_dev_sol_default: cnss_dev_sol_default {
+		mux {
+			pins = "gpio50";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio50";
+			drive-strength = <4>;
+			bias-pull-down;
+		};
+	};
 };
 
 &soc {
-	wlan_kiwi: qcom,cnss-kiwi@b0000000 {
-		compatible = "qcom,cnss-kiwi";
+	wlan_wcn7850: qcom,cnss-wcn7850@b0000000 {
+		compatible = "qcom,cnss-wcn7850";
 		reg = <0xb0000000 0x10000>;
 		reg-names = "smmu_iova_ipa";
 		wlan-en-gpio = <&tlmm 80 0>;
-		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
+		wlan-host-sol-gpio = <&tlmm 48 0>;
+		wlan-dev-sol-gpio = <&tlmm 50 0>;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep",
+				"sol_default";
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		pinctrl-2 = <&cnss_host_sol_default &cnss_dev_sol_default>;
 		qcom,wlan;
 		qcom,wlan-rc-num = <1>;
 		qcom,wlan-ramdump-dynamic = <0x780000>;
@@ -29,13 +57,13 @@
 		vdd-wlan-supply = <&S3E>;
 		qcom,vdd-wlan-config = <1000000 1000000 0 0 0>;
 		vdd-wlan-aon-supply = <&S2E>;
-		qcom,vdd-wlan-aon-config = <980000 980000 0 0 0>;
+		qcom,vdd-wlan-aon-config = <980000 1040000 0 0 0>;
 		vdd-wlan-dig-supply = <&S11B>;
-		qcom,vdd-wlan-dig-config = <950000 950000 0 0 0>;
+		qcom,vdd-wlan-dig-config = <950000 1170000 0 0 0>;
 		vdd-wlan-rfa1-supply = <&S1C>;
-		qcom,vdd-wlan-rfa1-config = <1900000 1900000 0 0 0>;
+		qcom,vdd-wlan-rfa1-config = <1900000 2024000 0 0 0>;
 		vdd-wlan-rfa2-supply = <&S12B>;
-		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 0>;
+		qcom,vdd-wlan-rfa2-config = <1350000 2040000 0 0 0>;
 
 		interconnects =
 		<&pcie_noc MASTER_PCIE_1 &pcie_noc SLAVE_ANOC_PCIE_GEM_NOC>,
@@ -43,52 +71,47 @@
 		interconnect-names = "pcie_to_memnoc", "memnoc_to_ddr";
 
 		qcom,icc-path-count = <2>;
-		qcom,bus-bw-cfg-count = <7>;
+		qcom,bus-bw-cfg-count = <9>;
 		qcom,bus-bw-cfg =
 		/** ICC Path 1 **/
 		<0 0>, /* no vote */
 		/* idle: 0-18 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
-		<2250 390000>,
+		<2250 1600000>,
 		/* low: 18-60 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
-		<7500 390000>,
-		/* medium: 60-240 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
-		<30000 790000>,
-		/* high: 240-1080 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
-		<100000 790000>,
-		/* very high: > 1080 Mbps snoc/anoc: 403 Mhz ddr: 451.2 MHz */
-		<175000 1600000>,
+		<7500 1600000>,
+		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<30000 1600000>,
+		/* high: 240-1080 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<100000 6448000>,
+		/* very high: > 1080 Mbps snoc/anoc: 403 Mhz ddr: 1555 MHz */
+		<175000 6448000>,
+		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */
+		<175000 6448000>,
+		/* super high: DBS mode snoc/anoc: 533 Mhz ddr: 3.2GHz */
+		<175000 8528000>,
 		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz
 		 * ddr: 547.2 MHz
 		 */
-		<7500 390000>,
+		<7500 3200000>,
 
 		/** ICC Path 2 **/
 		<0 0>,
+		/* ddr: 451.2 MHz */
 		<2250 1804800>,
+		/* ddr: 451.2 MHz */
 		<7500 1804800>,
+		/* ddr: 451.2 MHz */
 		<30000 1804800>,
+		/* ddr: 451.2 MHz */
 		<100000 1804800>,
+		/* ddr: 1555 MHz */
 		<175000 6220800>,
+		/* ddr: 2092 MHz */
+		<175000 8368000>,
+		/* ddr: 3.2 GHz */
+		<175000 12800000>,
+		/* ddr: 547.2 MHz */
 		<7500 2188800>;
-	};
-
-	bt_hmt: bt_kiwi {
-		compatible = "qcom,kiwi";
-		pinctrl-names = "default";
-		pinctrl-0 = <&bt_en_sleep>;
-		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
-		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_EN */
-		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
-
-		qcom,bt-vdd-aon-supply = <&S11B>;
-		qcom,bt-vdd-dig-supply = <&S11B>;
-		qcom,bt-vdd-rfa1-supply = <&S1C>;
-		qcom,bt-vdd-rfa2-supply = <&S12B>;
-
-		qcom,bt-vdd-aon-config = <950000 950000 0 1>;
-		qcom,bt-vdd-dig-config = <950000 950000 0 1>;
-		qcom,bt-vdd-rfa1-config = <1900000 1900000 0 1>;
-		qcom,bt-vdd-rfa2-config = <1350000 1350000 0 1>;
 	};
 };
 

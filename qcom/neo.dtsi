@@ -8,6 +8,7 @@
 #include <dt-bindings/interconnect/qcom,icc.h>
 #include <dt-bindings/interconnect/qcom,neo.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
+#include <dt-bindings/soc/qcom,rpmh-rsc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. NEO";
@@ -29,6 +30,8 @@
 		bootargs = " console=ttyMSM0,115200n8 loglevel=8";
 	};
 
+	firmware: firmware { };
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -39,6 +42,9 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD0>;
+			power-domain-names = "psci";
 			L2_0: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -57,6 +63,9 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD1>;
+			power-domain-names = "psci";
 			L2_1: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -75,6 +84,9 @@
 			reg = <0x0 0x200>;
 			enable-method = "psci";
 			next-level-cache = <&L2_2>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD2>;
+			power-domain-names = "psci";
 			L2_2: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -93,6 +105,9 @@
 			reg = <0x0 0x300>;
 			enable-method = "psci";
 			next-level-cache = <&L2_3>;
+			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
+			power-domains = <&CPU_PD3>;
+			power-domain-names = "psci";
 			L2_3: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -126,8 +141,65 @@
 		};
 	};
 
+	idle-states {
+		entry-method = "psci";
+
+		LITTLE_CPU_OFF: silver-c3 {  /* C3 */
+			compatible = "arm,idle-state";
+			idle-state-name = "pc";
+			entry-latency-us = <549>;
+			exit-latency-us = <901>;
+			min-residency-us = <1774>;
+			arm,psci-suspend-param = <0x40000003>;
+			local-timer-stop;
+		};
+
+		LITTLE_CPU_RAIL_OFF: silver-c4 {  /* C4 */
+			compatible = "arm,idle-state";
+			idle-state-name = "rail-pc";
+			entry-latency-us = <702>;
+			exit-latency-us = <915>;
+			min-residency-us = <4001>;
+			arm,psci-suspend-param = <0x40000004>;
+			local-timer-stop;
+		};
+
+		CLUSTER_OFF: cluster-d4 { /* D4 */
+			compatible = "domain-idle-state";
+			idle-state-name = "l3-off";
+			entry-latency-us = <2752>;
+			exit-latency-us = <3048>;
+			min-residency-us = <6118>;
+			arm,psci-suspend-param = <0x41000044>;
+		};
+
+		CX_OFF: cx-off { /* Cx Off */
+			compatible = "domain-idle-state";
+			idle-state-name = "cx-off";
+			entry-latency-us = <3263>;
+			exit-latency-us = <4562>;
+			min-residency-us = <8467>;
+			arm,psci-suspend-param = <0x41002344>;
+		};
+
+		LLCC_OFF: cluster-e3 { /* E3 */
+			compatible = "domain-idle-state";
+			idle-state-name = "llcc-off";
+			entry-latency-us = <3638>;
+			exit-latency-us = <6562>;
+			min-residency-us = <9826>;
+			arm,psci-suspend-param = <0x4100C344>;
+		};
+	};
+
 	soc: soc { };
 
+};
+
+&firmware {
+	qcom_scm {
+		compatible = "qcom,scm";
+	};
 };
 
 #include "neo-stub-regulator.dtsi"
@@ -159,6 +231,31 @@
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
+
+		CPU_PD0: cpu-pd0 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CPU_PD1: cpu-pd1 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CPU_PD2: cpu-pd2 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CPU_PD3: cpu-pd3 {
+			#power-domain-cells = <0>;
+			power-domains = <&CLUSTER_PD>;
+		};
+
+		CLUSTER_PD: cluster-pd {
+			#power-domain-cells = <0>;
+			domain-idle-states = <&CLUSTER_OFF &CX_OFF &LLCC_OFF>;
+		};
 	};
 
 	intc: interrupt-controller@0x17200000 {
@@ -186,6 +283,54 @@
 			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
 		clock-frequency = <19200000>;
+	};
+
+	kryo-erp {
+		compatible = "arm,arm64-kryo-cpu-erp";
+		interrupts = <GIC_PPI 0 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "l1-l2-faultirq","l3-scu-faultirq";
+	};
+
+	apps_rsc: rsc@17a00000 {
+		label = "apps_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0x17a00000 0x10000>,
+		      <0x17a10000 0x10000>,
+		      <0x17a20000 0x10000>;
+		reg-names = "drv-0", "drv-1", "drv-2";
+		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,tcs-offset = <0xd00>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <ACTIVE_TCS    3>,
+				  <SLEEP_TCS     2>,
+				  <WAKE_TCS      2>,
+				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
+				  <FAST_PATH_TCS 1>;
+		power-domains = <&CLUSTER_PD>;
+	};
+
+	cluster-device {
+		compatible = "qcom,lpm-cluster-dev";
+		power-domains = <&CLUSTER_PD>;
+	};
+
+	disp_rsc: rsc@af20000 {
+		label = "disp_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0xaf20000 0x10000>;
+		reg-names = "drv-0";
+		interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
+		qcom,tcs-offset = <0x1c00>;
+		qcom,drv-id = <0>;
+		qcom,tcs-config = <ACTIVE_TCS    0>,
+				  <SLEEP_TCS     1>,
+				  <WAKE_TCS      1>,
+				  <CONTROL_TCS   0>,
+				  <FAST_PATH_TCS 0>;
 	};
 
 	memtimer: timer@17420000 {
@@ -342,6 +487,22 @@
 		#reset-cells = <1>;
 	};
 
+	sdhc1_opp_table: sdhc1-opp-table {
+		compatible = "operating-points-v2";
+
+		opp-100000000 {
+			opp-hz = /bits/ 64 <100000000>;
+			opp-peak-kBps = <500000 200000>;
+			opp-avg-kBps = <104000 0>;
+		};
+
+		opp-384000000 {
+			opp-hz = /bits/ 64 <384000000>;
+			opp-peak-kBps = <2500000 1000000>;
+			opp-avg-kBps = <400000 0>;
+		};
+	};
+
 	sdhc_1: sdhci@7C4000 {
 		status = "disabled";
 
@@ -365,6 +526,8 @@
 		mmc-hs400-1_8v;
 		mmc-hs400-enhanced-strobe;
 
+		cap-mmc-hw-reset;
+
 		clocks = <&gcc GCC_SDCC1_AHB_CLK>,
 			<&gcc GCC_SDCC1_APPS_CLK>,
 			<&gcc GCC_SDCC1_ICE_CORE_CLK>;
@@ -372,10 +535,31 @@
 
 		qcom,ice-clk-rates = <300000000 100000000>;
 
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x000F442C 0x0 0x01
+					0x090106C0 0x80040868>;
+
+		/* Add dt entry for gcc hw reset */
+		resets = <&gcc GCC_SDCC1_BCR>;
+		reset-names = "core_reset";
+
+		interconnects = <&system_noc MASTER_SDCC_1 &mc_virt SLAVE_EBI1>,
+			      <&gem_noc MASTER_APPSS_PROC &config_noc
+			      SLAVE_SDCC_1>;
+		interconnect-names = "sdhc-ddr","cpu-sdhc";
+		operating-points-v2 = <&sdhc1_opp_table>;
+
 		qos0 {
 			mask = <0x0f>;
 			vote = <44>;
 		};
+	};
+
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		label = "core";
+		qcom,threshold-arr = <0x17800058 0x17810058 0x17820058 0x17830058>;
+		qcom,config-arr = <0x17800060 0x17810060 0x17820060 0x17830060>;
 	};
 
 	clk_virt: interconnect@0 {
@@ -413,6 +597,12 @@
 		#interconnect-cells = <1>;
 	};
 
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
+	};
+
 	nsp_noc: interconnect@320C0000 {
 		compatible = "qcom,neo-nsp_noc";
 		#interconnect-cells = <1>;
@@ -423,6 +613,23 @@
 		#interconnect-cells = <1>;
 	};
 
+	tcsr_mutex_block: syscon@1f40000 {
+		compatible = "syscon";
+		reg = <0x1f40000 0x20000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	smem: qcom,smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
 	ipcc_mproc: qcom,ipcc@ed18000 {
 		compatible = "qcom,ipcc";
 		reg = <0xed18000 0x1000>;
@@ -430,6 +637,36 @@
 		interrupt-controller;
 		#interrupt-cells = <3>;
 		#mbox-cells = <2>;
+	};
+
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,pdc", "qcom,neo-pdc";
+		reg = <0xb220000 0x30000>, <0x174000f0 0x64>;
+		reg-names = "pdc-interrupt-base", "apss-shared-spi-cfg";
+		qcom,pdc-ranges = <0 480 94>, <94 609 31>, <125 63 1>, <126 716 12>;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
+
+	cpuss-sleep-stats@17800054 {
+		compatible = "qcom,cpuss-sleep-stats";
+		reg = <0x17800054 0x4>, <0x17810054 0x4>, <0x17820054 0x4>,
+		    <0x17830054 0x4>, <0x17880098 0x4>, <0x178C0000 0x10000>;
+		reg-names = "seq_lpm_cntr_cfg_cpu0", "seq_lpm_cntr_cfg_cpu1",
+			  "seq_lpm_cntr_cfg_cpu2", "seq_lpm_cntr_cfg_cpu3",
+			  "l3_seq_lpm_cntr_cfg", "apss_seq_mem_base";
+		num-cpus = <4>;
+	};
+
+	rpmh-sleep-stats@c3f0000 {
+		compatible = "qcom,rpmh-sleep-stats";
+		reg = <0xc3f0000 0x400>;
+	};
+
+	subsystem-sleep-stats@c3f0000 {
+		compatible = "qcom,subsystem-sleep-stats";
+		reg = <0xc3f0000 0x400>;
 	};
 };
 

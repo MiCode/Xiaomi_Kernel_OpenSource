@@ -48,7 +48,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_s7";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <430000>;
+		regulator-min-microvolt = <418000>;
 		regulator-max-microvolt = <1174000>;
 	};
 
@@ -66,7 +66,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_s9";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2156000>;
+		regulator-min-microvolt = <1710000>;
 		regulator-max-microvolt = <2200000>;
 	};
 
@@ -75,7 +75,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l1";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <470000>;
+		regulator-min-microvolt = <312000>;
 		regulator-max-microvolt = <650000>;
 	};
 
@@ -95,8 +95,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l3";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <640000>;
-		regulator-max-microvolt = <1050000>;
+		regulator-min-microvolt = <870000>;
+		regulator-max-microvolt = <970000>;
 	};
 
 	L4B:
@@ -113,8 +113,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l5";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <500000>;
-		regulator-max-microvolt = <1050000>;
+		regulator-min-microvolt = <830000>;
+		regulator-max-microvolt = <920000>;
 	};
 
 	L6B:
@@ -160,7 +160,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l10";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <840000>;
+		regulator-min-microvolt = <824000>;
 		regulator-max-microvolt = <950000>;
 	};
 
@@ -169,8 +169,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l11";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <360000>;
-		regulator-max-microvolt = <752000>;
+		regulator-min-microvolt = <348000>;
+		regulator-max-microvolt = <888000>;
 	};
 
 	L12B:
@@ -178,8 +178,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l12";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <1139000>;
-		regulator-max-microvolt = <1236000>;
+		regulator-min-microvolt = <1080000>;
+		regulator-max-microvolt = <1304000>;
 	};
 
 	L13B:
@@ -196,7 +196,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l14";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <1170000>;
+		regulator-min-microvolt = <1150000>;
 		regulator-max-microvolt = <1304000>;
 	};
 
@@ -205,7 +205,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l15";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <1080000>;
+		regulator-min-microvolt = <312000>;
 		regulator-max-microvolt = <1304000>;
 	};
 
@@ -214,8 +214,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l16";
 		qcom,hpm-min-load = <30000>;
-		regulator-min-microvolt = <1100000>;
-		regulator-max-microvolt = <1300000>;
+		regulator-min-microvolt = <1140000>;
+		regulator-max-microvolt = <1260000>;
 	};
 
 	L17B:
@@ -233,7 +233,7 @@
 		regulator-name = "pm6xxx_l18";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1504000>;
-		regulator-max-microvolt = <1980000>;
+		regulator-max-microvolt = <2000000>;
 	};
 
 	L19B:
@@ -241,8 +241,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l19";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1700000>;
-		regulator-max-microvolt = <1950000>;
+		regulator-min-microvolt = <1620000>;
+		regulator-max-microvolt = <1980000>;
 	};
 
 	L20B:
@@ -260,7 +260,7 @@
 		regulator-name = "pm6xxx_l21";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1504000>;
-		regulator-max-microvolt = <2000000>;
+		regulator-max-microvolt = <1950000>;
 	};
 
 	L22B:
@@ -277,8 +277,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l23";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1504000>;
-		regulator-max-microvolt = <1980000>;
+		regulator-min-microvolt = <1650000>;
+		regulator-max-microvolt = <1950000>;
 	};
 
 	L24B:
@@ -322,7 +322,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6xxx_l28";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1620000>;
+		regulator-min-microvolt = <2700000>;
 		regulator-max-microvolt = <3544000>;
 	};
 
@@ -353,7 +353,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_s8";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1850000>;
+		regulator-min-microvolt = <1700000>;
 		regulator-max-microvolt = <2040000>;
 	};
 
@@ -380,7 +380,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l5";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1650000>;
+		regulator-min-microvolt = <1504000>;
 		regulator-max-microvolt = <3544000>;
 	};
 
@@ -389,8 +389,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm6150l_l6";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1760000>;
-		regulator-max-microvolt = <1840000>;
+		regulator-min-microvolt = <1650000>;
+		regulator-max-microvolt = <3300000>;
 	};
 
 	L7E:

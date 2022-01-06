@@ -39,6 +39,12 @@
 		thermal-sensors = <&pm8450_tz>;
 
 		trips {
+			thermal-engine-config {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+
 			pm8450_trip0: trip0 {
 				temperature = <95000>;
 				hysteresis = <0>;
@@ -48,13 +54,13 @@
 			pm8450_trip1: trip1 {
 				temperature = <115000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 
 			pm8450_trip2: trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 		};
 	};
