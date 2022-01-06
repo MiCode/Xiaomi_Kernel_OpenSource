@@ -303,8 +303,10 @@ int battery_get_boot_mode(void)
 								"atag,boot", NULL);
 			if (!tag)
 				bm_err("%s: failed to get atag,boot\n", __func__);
-			else
+			else {
 				boot_mode = tag->bootmode;
+				gm.boot_mode = tag->bootmode;
+			}
 		}
 	}
 	bm_debug("%s: boot mode=%d\n", __func__, boot_mode);
@@ -473,6 +475,14 @@ static int battery_get_property(struct power_supply *psy,
 		val->intval = gm.bat_cycle;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
+		/* 6= ATE_factory_boot */
+		if (gm.boot_mode == 1 || gm.boot_mode == 4
+			|| gm.boot_mode == 5 || gm.boot_mode == 6) {
+			val->intval = 75;
+			break;
+		}
+
 		if (gm.fixed_uisoc != 0xffff)
 			val->intval = gm.fixed_uisoc;
 		else

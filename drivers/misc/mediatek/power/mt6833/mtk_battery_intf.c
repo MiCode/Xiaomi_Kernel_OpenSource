@@ -41,7 +41,8 @@ signed int battery_get_soc(void)
 
 signed int battery_get_uisoc(void)
 {
-	int boot_mode = 0; //Need check later get_boot_mode();
+	struct mtk_battery *gm = get_mtk_battery();
+	int boot_mode = gm->boot_mode;
 
 	if ((boot_mode == META_BOOT) ||
 		(boot_mode == ADVMETA_BOOT) ||
@@ -110,8 +111,8 @@ signed int battery_get_soc(void)
 
 signed int battery_get_uisoc(void)
 {
-	int boot_mode = 0; //TODO get_boot_mode();
 	struct mtk_battery *gm = get_mtk_battery();
+	int boot_mode = gm->boot_mode;
 
 	if ((boot_mode == META_BOOT) ||
 		(boot_mode == ADVMETA_BOOT) ||
