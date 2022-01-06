@@ -579,6 +579,7 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 	LOG_DBG("Load CCU binary start\n");
 
 #if defined(SECURE_CCU)
+	writel(CCU_GO_TO_LOAD, ccu->ccu_base + MTK_CCU_SPARE_REG06);
 #ifdef CONFIG_ARM64
 	arm_smccc_smc(MTK_SIP_KERNEL_CCU_CONTROL, (u64) CCU_SMC_REQ_LOAD,
 		0, 0, 0, 0, 0, 0, &res);
