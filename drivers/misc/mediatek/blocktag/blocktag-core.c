@@ -1322,8 +1322,10 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 	mtk_btag_blk_pm_show(buff, size, seq);
 #endif
 #if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
-	SPREAD_PRINTF(buff, size, seq, "[FS_CMD]\n");
-	mtk_fscmd_show(buff, size, seq);
+	if (!buff) {
+		SPREAD_PRINTF(buff, size, seq, "[FS_CMD]\n");
+		mtk_fscmd_show(buff, size, seq);
+	}
 #endif
 	SPREAD_PRINTF(buff, size, seq, "[Memory Usage]\n");
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
@@ -1851,6 +1853,18 @@ static struct tracepoints_table interests[] = {
 		.name = "sys_exit",
 		.func = fscmd_trace_sys_exit
 	},
+	{
+		.name = "f2fs_write_checkpoint",
+		.func = fscmd_trace_f2fs_write_checkpoint
+	},
+		{
+		.name = "f2fs_gc_begin",
+		.func = fscmd_trace_f2fs_gc_begin
+	},
+		{
+		.name = "f2fs_gc_end",
+		.func = fscmd_trace_f2fs_gc_end
+	},
 #endif
 };
 
@@ -1911,7 +1925,6 @@ static int __init mtk_btag_init(void)
 	mtk_btag_init_memory();
 	mtk_btag_init_pidlogger();
 	mtk_btag_init_procfs();
-	mtk_btag_install_tracepoints();
 	mtk_btag_earaio_init();
 #if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
 	mtk_fscmd_init();
@@ -1920,7 +1933,7 @@ static int __init mtk_btag_init(void)
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
 	mtk_btag_blk_pm_init();
 #endif
-
+	mtk_btag_install_tracepoints();
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_BLOCKIO, mtk_btag_get_aee_buffer);
 
 	return 0;
