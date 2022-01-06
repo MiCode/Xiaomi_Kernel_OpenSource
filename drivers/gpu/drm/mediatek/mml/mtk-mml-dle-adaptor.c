@@ -36,7 +36,6 @@ struct mml_dle_ctx {
 	struct workqueue_struct *wq_destroy;
 	struct kthread_worker kt_done;
 	struct task_struct *kt_done_task;
-	bool kt_priority;
 	bool dl_dual;
 	void (*config_cb)(struct mml_task *task, void *cb_param);
 	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
@@ -764,17 +763,7 @@ static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pip
 
 static void kt_setsched(void *adaptor_ctx)
 {
-	struct mml_dle_ctx *ctx = adaptor_ctx;
-	struct sched_param kt_param = { .sched_priority = MAX_RT_PRIO - 1 };
-	int ret;
-
-	if (ctx->kt_priority)
-		return;
-
-	ret = sched_setscheduler(ctx->kt_done_task, SCHED_FIFO, &kt_param);
-	mml_log("[dle]%s set kt done priority %d ret %d",
-		__func__, kt_param.sched_priority, ret);
-	ctx->kt_priority = true;
+	return;
 }
 
 const static struct mml_task_ops dle_task_ops = {
