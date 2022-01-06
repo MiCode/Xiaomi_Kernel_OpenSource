@@ -542,6 +542,10 @@
 
 		cap-mmc-hw-reset;
 
+		iommus = <&apps_smmu 0x160 0x0>;
+		dma-coherent;
+		qcom,iommu-dma = "fastmap";
+
 		clocks = <&gcc GCC_SDCC1_AHB_CLK>,
 			<&gcc GCC_SDCC1_APPS_CLK>,
 			<&gcc GCC_SDCC1_ICE_CORE_CLK>;
