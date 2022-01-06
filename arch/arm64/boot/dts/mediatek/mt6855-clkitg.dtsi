@@ -16,12 +16,6 @@
 			<&topckgen_clk CLK_TOP_MDP0_SEL>,
 			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,
 			<&topckgen_clk CLK_TOP_MMUP_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG2_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG5_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG6_SEL>,
 			<&topckgen_clk CLK_TOP_UART_SEL>,
 			<&topckgen_clk CLK_TOP_MSDC_0P_MACRO_SEL>,
 			<&topckgen_clk CLK_TOP_MSDC50_0_HCLK_SEL>,
@@ -34,10 +28,6 @@
 			<&topckgen_clk CLK_TOP_USB_TOP_SEL>,
 			<&topckgen_clk CLK_TOP_USB_XHCI_SEL>,
 			<&topckgen_clk CLK_TOP_I2C_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF1_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF2_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF3_SEL>,
 			<&topckgen_clk CLK_TOP_DXCC_SEL>,
 			<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
 			<&topckgen_clk CLK_TOP_U_SEL>,
@@ -55,8 +45,6 @@
 			<&topckgen_clk CLK_TOP_MCU_ACP_SEL>,
 			<&topckgen_clk CLK_TOP_IMG1_SEL>,
 			<&topckgen_clk CLK_TOP_IPE_SEL>,
-			<&topckgen_clk CLK_TOP_CAM_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
 			<&topckgen_clk CLK_TOP_MSDC_1P_RX_SEL>,
 			<&infracfg_ao_clk CLK_IFRAO_THERM>,
 			<&infracfg_ao_clk CLK_IFRAO_CQ_DMA_FPC>,
@@ -149,24 +137,6 @@
 			<&vlp_cksys_clk CLK_VLP_CK_SSPM_F26M_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_SRCK_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_SRAMRC_SEL>,
-			<&camsys_main_clk CLK_CAM_M_LARB13>,
-			<&camsys_main_clk CLK_CAM_M_DFP_VAD>,
-			<&camsys_main_clk CLK_CAM_M_LARB14>,
-			<&camsys_main_clk CLK_CAM_M_CAM>,
-			<&camsys_main_clk CLK_CAM_M_CAMTG>,
-			<&camsys_main_clk CLK_CAM_M_SENINF>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV0>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV1>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV2>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV3>,
-			<&camsys_main_clk CLK_CAM_M_CCU0>,
-			<&camsys_main_clk CLK_CAM_M_CCU1>,
-			<&camsys_main_clk CLK_CAM_M_MRAW0>,
-			<&camsys_main_clk CLK_CAM_M_FAKE_ENG>,
-			<&camsys_main_clk CLK_CAM_M_CCU_GALS>,
-			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV4>,
-			<&camsys_main_clk CLK_CAM_M_PDA>,
 			<&ipesys_clk CLK_IPE_LARB19>,
 			<&ipesys_clk CLK_IPE_LARB20>,
 			<&ipesys_clk CLK_IPE_SMI_SUBCOM>,
@@ -188,13 +158,7 @@
 			<&venc_gcon_clk CLK_VEN1_CKE0_LARB>,
 			<&venc_gcon_clk CLK_VEN1_CKE1_VENC>,
 			<&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>,
-			<&venc_gcon_clk CLK_VEN1_CKE5_GALS>,
-			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAM>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAMTG>,
-			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAM>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>;
+			<&venc_gcon_clk CLK_VEN1_CKE5_GALS>;
 	};
 
 	bring-up-pd-audio {
@@ -225,21 +189,6 @@
 	bring-up-pd-ven0 {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_VEN0>;
-	};
-
-	bring-up-pd-cam_main {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_MAIN>;
-	};
-
-	bring-up-pd-cam_suba {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_SUBA>;
-	};
-
-	bring-up-pd-cam_subb {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_SUBB>;
 	};
 
 	bring-up-pd-disp {
