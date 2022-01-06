@@ -257,6 +257,7 @@ enum MTK_TINYSYS_SCP_KERNEL_OP {
 	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_TBUF,
 	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_L2TCM,
 	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_REG,
+	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_RVBUS,
 	MTK_TINYSYS_SCP_KERNEL_OP_NUM,
 };
 
@@ -377,6 +378,16 @@ static inline unsigned long scp_do_reg_dump(void)
 
 	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
 			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_REG,
+			0, 0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+static inline unsigned long scp_do_rvbus_dump(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
+			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_RVBUS,
 			0, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
