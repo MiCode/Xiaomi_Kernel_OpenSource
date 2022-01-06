@@ -82,6 +82,7 @@ struct mt6375_priv {
 	struct work_struct vbat0_work;
 	atomic_t vbat0_flag;
 	struct wakeup_source *vbat0_ws;
+	struct lock_class_key info_exist_key;
 };
 
 #define VBAT0_POLL_TIME_SEC	5
@@ -874,6 +875,7 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, true);
 	platform_set_drvdata(pdev, priv);
 	priv->vbat0_ws = wakeup_source_register(&pdev->dev, "vbat0_ws");
+	lockdep_set_class(&indio_dev->info_exist_lock, &priv->info_exist_key);
 
 	ret = mt6375_auxadc_parse_dt(priv);
 	if (ret) {
