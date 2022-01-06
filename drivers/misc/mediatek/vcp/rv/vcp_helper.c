@@ -1543,6 +1543,15 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 		dev_info(&pdev->dev, "64-bit DMA enable failed\n");
 		return ret;
 	}
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(64));
+		if (ret)
+			dev_info(&pdev->dev, "Failed to set DMA segment size\n");
+	}
 
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		vcp_reserve_mblock[id].start_virt =
@@ -2106,6 +2115,15 @@ static int vcp_io_device_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_info(&pdev->dev, "64-bit DMA enable failed\n");
 		return ret;
+	}
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(64));
+		if (ret)
+			dev_info(&pdev->dev, "Failed to set DMA segment size\n");
 	}
 
 	// VCP iommu devices

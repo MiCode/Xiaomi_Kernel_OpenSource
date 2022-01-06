@@ -499,6 +499,15 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			dev_info(&pdev->dev, "Failed to set DMA segment size\n");
+	}
 #endif
 	mtk_v4l2_debug(0, "encoder registered as /dev/video%d",
 				   vfd_enc->num);
