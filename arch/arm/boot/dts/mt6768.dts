@@ -438,6 +438,24 @@
 		core_1 = "enable";
 		scp_sramSize = <0x00080000>;
 		scp_mpuRegionId = <28>;
+		scp_feature_tbl = <0 5>,   /* vow */
+				<1 356>,  /* dsp */
+				<2 62>,   /* sensor */
+				<3 47>,   /* mp3 */
+				<4 26>,   /* flp */
+				<5 0>,    /* rtos */
+				<6 110>,  /* speaker */
+				<7 0>,    /* vcore */
+				<8 141>,  /* barge in */
+				<9 10>,   /* vow dump */
+				<10 43>,  /* vow vendor_m */
+				<11 43>,  /* vow vendor_a */
+				<12 22>;  /* vow vendor_g */
+
+		scp_mem_key = "mediatek,reserve-memory-scp_share";
+		scp_mem_tbl = <1 0x100000>, /* sensor */
+				<3 0x001000>, /* flp */
+				<4 0x180000>; /* logger */
 	};
 
 	scp_dvfs {
