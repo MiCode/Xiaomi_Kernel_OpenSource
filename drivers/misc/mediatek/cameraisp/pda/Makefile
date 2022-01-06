@@ -24,6 +24,8 @@ else ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6879-larb-port.h)
 subdir-ccflags-y += -DPDA_TF_DUMP_71_2
 else ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6895-larb-port.h),)
 subdir-ccflags-y += -DPDA_TF_DUMP_71_3
+else ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6855-larb-port.h),)
+subdir-ccflags-y += -DPDA_TF_DUMP_6s_1
 endif
 
 # driver module
@@ -37,6 +39,10 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/isp_71/camera_pda_mt6895.c),)
 obj-$(CONFIG_MTK_CAMERA_ISP_PDA_SUPPORT) += pda_drv_mt6895.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/isp_6s/camera_pda_mt6855.c),)
+obj-$(CONFIG_MTK_CAMERA_ISP_PDA_SUPPORT) += pda_drv_mt6855.o
+endif
 
 pda_drv_mt6879-objs := isp_71/camera_pda_mt6879.o
 pda_drv_mt6895-objs := isp_71/camera_pda_mt6895.o
+pda_drv_mt6855-objs := isp_6s/camera_pda_mt6855.o
