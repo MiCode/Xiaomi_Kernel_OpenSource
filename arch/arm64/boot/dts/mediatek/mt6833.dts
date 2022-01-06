@@ -4033,9 +4033,6 @@
 		reg = <0 0x1400b000 0 0x1000>;
 		interrupts = <GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config_clk CLK_MM_DISP_CCORR0>;
-		ccorr_bit = <13>;
-		ccorr_num_per_pipe = <2>;
-		ccorr_linear_per_pipe = <0x10>;
 	};
 
 	disp_aal0: disp_aal0@1400c000 {
