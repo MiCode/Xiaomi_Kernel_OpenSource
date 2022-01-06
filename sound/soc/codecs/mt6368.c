@@ -4087,25 +4087,38 @@ static void enable_trim_buf(struct mt6368_priv *priv, bool enable)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static void enable_trim_circuit(struct mt6368_priv *priv, bool enable)
 {
-	if (enable) {
-		regmap_update_bits(priv->regmap, MT6368_LDO_VAUD18_CON0,
-				   RG_LDO_VAUD18_EN_MASK_SFT,
-				   1 << RG_LDO_VAUD18_EN_SFT);
+	int status = 0;
+	unsigned int value = 0;
 
+	if (enable) {
+		if (!IS_ERR(priv->reg_vaud18)) {
+			status = regulator_enable(priv->reg_vaud18);
+			if (status)
+				dev_err(priv->dev, "%s() failed to enable vaud18(%d)\n",
+					__func__, status);
+		}
 		regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON5,
 				   RG_AUDHPTRIM_EN_VAUDP32_MASK_SFT,
 				   1 << RG_AUDHPTRIM_EN_VAUDP32_SFT);
 
 	} else {
-
 		regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON5,
 				   RG_AUDHPTRIM_EN_VAUDP32_MASK_SFT,
 				   0 << RG_AUDHPTRIM_EN_VAUDP32_SFT);
 
-		regmap_update_bits(priv->regmap, MT6368_LDO_VAUD18_CON0,
-				   RG_LDO_VAUD18_EN_MASK_SFT,
-				   0 << RG_LDO_VAUD18_EN_SFT);
+		if (!IS_ERR(priv->reg_vaud18)) {
+			status = regulator_disable(priv->reg_vaud18);
+			if (status)
+				dev_err(priv->dev, "%s() failed to disable vaud18(%d)\n",
+					__func__, status);
+		}
 	}
+
+	regmap_read(priv->regmap, MT6368_LDO_VAUD18_CON0, &value);
+	dev_dbg(priv->dev, "%s(), enable(%d), 0x%x MT6368_LDO_VAUD18_CON0 = 0x%x\n",
+		__func__, enable, MT6368_LDO_VAUD18_CON0, value);
+
+
 }
 
 static void start_trim_hardware(struct mt6368_priv *priv)
@@ -5361,6 +5374,7 @@ static int mt6368_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	int status = 0;
 
 	/* receiver downlink */
 	mt6368_set_playback_gpio(priv);
@@ -5370,9 +5384,13 @@ static int mt6368_rcv_dcc_set(struct snd_kcontrol *kcontrol,
 #if IS_ENABLED(CONFIG_MT6685_AUDCLK)
 	mt6685_set_dcxo(true);
 #endif
-	regmap_update_bits(priv->regmap, MT6368_LDO_VAUD18_CON0,
-			   RG_LDO_VAUD18_EN_MASK_SFT,
-			   1 << RG_LDO_VAUD18_EN_SFT);
+
+	if (!IS_ERR(priv->reg_vaud18)) {
+		status = regulator_enable(priv->reg_vaud18);
+		if (status)
+			dev_err(priv->dev, "%s() failed to enable vaud18(%d)\n",
+				__func__, status);
+	}
 
 	/* audio clk source from internal dcxo */
 	regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON47,
@@ -7212,6 +7230,21 @@ static int mt6368_parse_dt(struct mt6368_priv *priv)
 				__func__, ret);
 		else
 			dev_err(dev, "%s() Get efuse failed (%d), will retry ...\n",
+				__func__, ret);
+
+		return ret;
+	}
+
+	/* get pmic regulator handler */
+	priv->reg_vaud18 = devm_regulator_get_optional(dev, "reg_vaud18");
+	ret = IS_ERR(priv->reg_vaud18);
+	if (ret) {
+		ret = PTR_ERR(priv->reg_vaud18);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "%s() Get regulator failed (%d)\n",
+				__func__, ret);
+		else
+			dev_err(dev, "%s() Get regulator failed (%d), will retry ...\n",
 				__func__, ret);
 
 		return ret;
