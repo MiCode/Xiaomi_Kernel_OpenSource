@@ -7,14 +7,14 @@
  * Header Files
  *****************************************************************************/
 #include <linux/delay.h>
+#include <linux/notifier.h>
 #include "ultra_ipi.h"
 #include "audio_messenger_ipi.h"
-#include "scp_ipi.h"
 #include "audio_task_manager.h"
 #include "audio_task.h"
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include <mt-plat/mtk_tinysys_ipi.h>
-#endif
+#include "scp.h"
+
+
 static void ultra_ipi_IPICmd_Received(struct ipi_msg_t *ipi_msg);
 static bool ultra_ipi_IPICmd_ReceiveAck(struct ipi_msg_t *ipi_msg);
 static void ultra_ipi_Unloaded_Handling(void);

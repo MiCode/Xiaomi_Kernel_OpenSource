@@ -12,7 +12,7 @@ ifeq ($(CONFIG_MTK_ULTRASND_PROXIMITY),y)
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/common
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/utility
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(AUDIO_PLATFORM)/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/cm4
 ifeq ($(CONFIG_MACH_MT6779),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v1/framework
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v1/utility
