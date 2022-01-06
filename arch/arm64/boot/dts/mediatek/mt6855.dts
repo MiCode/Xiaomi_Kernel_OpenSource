@@ -515,9 +515,8 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+		bootargs = "console=tty0  root=/dev/ram \
 			    loglevel=8 \
-			    earlycon=mtk8250,mmio32,0x11001000 \
 			    androidboot.hardware=mt6855 \
 			    initcall_debug=1 transparent_hugepage=never \
 			    vmalloc=400M swiotlb=noforce cma=64M \
