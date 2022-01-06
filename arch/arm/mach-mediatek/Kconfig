@@ -194,3 +194,56 @@ config MACH_MT6765
 	  for premium, thin-design smartphones. MT6765 also offers significant
 	  multitasking and multimedia improvements.
 
+config MACH_MT6768
+	bool "MediaTek MT6768 SoCs support"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select PINCTRL
+	select PINCTRL_MT6768
+	select MFD_SYSCON
+	select CPU_IDLE
+	select NEON
+	select VFP
+	select KERNEL_MODE_NEON
+	select MTK_GIC_V3_EXT
+	select ARM_GIC_V3
+	select MTK_SYSIRQ
+	select MTK_ES_REG
+	select MTK_CQDMA
+	select MTK_GIC_TARGET_ALL
+	select MTK_SYS_CIRQ
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_DEBUG_LATCH
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_SYSTRACKER_V2
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	select MTK_SYSTRACKER_V2
+	select MTK_LASTBUS_INTERFACE
+	select MTK_ION_CACHE_OPTIMIZATION
+	select MTK_TIMER_SYSTIMER
+	select MTK_EMI
+	select MTK_DRAMC
+	select MTK_BASE_POWER
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_CACHE_PARITY_CHECK
+	select MTK_DEBUG_LATCH
+	select MTK_SYSTRACKER_V2
+	select DEVAPC_LEGACY
+	select OVERLAY_FS
+	help
+	  This enables support for MediaTek MT6768
+	  Support for mt6768 related projects
+
