@@ -420,12 +420,12 @@ static int venc_set_param(unsigned long handle,
 	int i;
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
-	unsigned int fmt = inst->ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
+	unsigned int fmt = 0;
 
 	if (inst == NULL)
 		return -EINVAL;
 
-	mtk_vcodec_debug(inst, "->type=%d, fmt=%d", type, fmt);
+	mtk_vcodec_debug(inst, "->type=%d", type);
 
 	switch (type) {
 	case VENC_SET_PARAM_ENC:
@@ -469,6 +469,9 @@ static int venc_set_param(unsigned long handle,
 				enc_prm->color_desc,
 				sizeof(struct mtk_color_desc));
 		}
+
+		fmt = inst->ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
+		mtk_vcodec_debug(inst, "fmt:%u", fmt);
 
 		if (fmt == V4L2_PIX_FMT_H264) {
 			inst->vsi->config.profile = enc_prm->profile;
