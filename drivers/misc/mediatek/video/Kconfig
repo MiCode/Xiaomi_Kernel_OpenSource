@@ -158,3 +158,12 @@ config MTK_DISPLAY_LOW_MEMORY_DEBUG_SUPPORT
 	  If enable this option, display some debug buffer will be reduced or closed.
 	  If you want to use Meditek display low memory debug, please make sure it is Y in xxx_defconfig.mk.
 	  If unsure, set N.
+
+config MTK_DX_HDCP_DDP_SUPPORT
+	bool "enable display driver support HDCP"
+	default n
+	help
+	  define CONFIG_MTK_DX_HDCP_DDP_SUPPORT to enable display driver support HDCP.
+	  If you want to use HDCP feature, first should make sure MTK_DX_HDCP_DDP_SUPPORT set as "yes".
+	  Then please make sure CONFIG_MTK_DX_HDCP_DDP_SUPPORT set as Y in xxx_defconfig.mk.
+	  If unsure, set N.
