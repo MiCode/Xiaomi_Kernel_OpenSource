@@ -312,6 +312,7 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 		DDPPR_ERR("%s:allocate qos_ctx failed\n", __func__);
 		return -ENOMEM;
 	}
+	memset(mtk_crtc->qos_ctx, 0, sizeof(struct mtk_drm_qos_ctx));
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		mtk_mmqos_register_bw_throttle_notifier(&pmqos_hrt_notifier);

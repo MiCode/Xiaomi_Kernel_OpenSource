@@ -2979,9 +2979,11 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_LFR_SET, &en);
 	/* pull up mm clk if dst fps is higher than src fps */
 	if (output_comp && fps_dst >= fps_src
-		&& !mtk_crtc_is_frame_trigger_mode(crtc))
+		&& !mtk_crtc_is_frame_trigger_mode(crtc)) {
+		mtk_crtc->qos_ctx->last_mmclk_req_idx += 1;
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
+	}
 
 	if (mode_chg_index & MODE_DSI_RES)
 		mtk_crtc_mode_switch_config(mtk_crtc, old_state);

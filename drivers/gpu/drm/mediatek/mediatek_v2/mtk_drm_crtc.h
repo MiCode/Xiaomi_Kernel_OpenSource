@@ -832,6 +832,7 @@ struct mtk_cmdq_cb_data {
 	struct cmdq_pkt			*cmdq_handle;
 	struct drm_crtc			*crtc;
 	unsigned int misc;
+	unsigned int mmclk_req_idx;
 	unsigned int msync2_enable;
 	void __iomem *mutex_reg_va;
 	void __iomem *disp_reg_va;
