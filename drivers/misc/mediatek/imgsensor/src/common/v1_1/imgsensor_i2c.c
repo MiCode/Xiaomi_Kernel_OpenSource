@@ -449,78 +449,68 @@ void imgsensor_i2c_filter_msg(struct IMGSENSOR_I2C_CFG *pi2c_cfg, bool en)
 }
 
 #ifdef IMGSENSOR_LEGACY_COMPAT
-/*
 #ifdef SENSOR_PARALLEISM
-// #define _GNU_SOURCE
-#include <linux/syscalls.h>
-// #include <linux/types.h>
 #include <linux/unistd.h>
+#include <linux/syscalls.h>
 
 
 struct IMGSENSOR_I2C_CFG *pgi2c_cfg_legacy[IMGSENSOR_SENSOR_IDX_MAX_NUM];
 pid_t tid_mapping[IMGSENSOR_SENSOR_IDX_MAX_NUM];
-
-// static inline pid_t gettid(void)
-// {
-// 	pid_t tid = (pid_t)syscall(SYS_gettid);
-// 	return tid;
-// }
 #else
-*/
 struct IMGSENSOR_I2C_CFG *pgi2c_cfg_legacy;
-// #endif
+#endif
 
 void imgsensor_i2c_set_device(struct IMGSENSOR_I2C_CFG *pi2c_cfg)
 {
-// #ifdef SENSOR_PARALLEISM
-// 	int i = 0;
-// 	pid_t _tid = sys_gettid();
+#ifdef SENSOR_PARALLEISM
+	int i = 0;
+	pid_t _tid = sys_gettid();
 
-// 	mutex_lock(&i2c_resource_mutex);
-// 	if (pi2c_cfg == NULL) {
-// 		for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
-// 			if (tid_mapping[i] == _tid) {
-// 				pgi2c_cfg_legacy[i] = NULL;
-// 				tid_mapping[i] = 0;
-// 				break;
-// 			}
-// 		}
-// 	} else {
-// 		for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
-// 			if (tid_mapping[i] == 0) {
-// 				pgi2c_cfg_legacy[i] = pi2c_cfg;
-// 				tid_mapping[i] = _tid;
-// 				break;
-// 			}
-// 		}
-// 	}
-// 	mutex_unlock(&i2c_resource_mutex);
-// 	/* PK_DBG("set tid = %d i = %d pi2c_cfg %p\n", _tid, i, pi2c_cfg); */
-// #else
+	mutex_lock(&i2c_resource_mutex);
+	if (pi2c_cfg == NULL) {
+		for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
+			if (tid_mapping[i] == _tid) {
+				pgi2c_cfg_legacy[i] = NULL;
+				tid_mapping[i] = 0;
+				break;
+			}
+		}
+	} else {
+		for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
+			if (tid_mapping[i] == 0) {
+				pgi2c_cfg_legacy[i] = pi2c_cfg;
+				tid_mapping[i] = _tid;
+				break;
+			}
+		}
+	}
+	mutex_unlock(&i2c_resource_mutex);
+	/* PK_DBG("set tid = %d i = %d pi2c_cfg %p\n", _tid, i, pi2c_cfg); */
+#else
 	pgi2c_cfg_legacy = pi2c_cfg;
-// #endif
+#endif
 }
 
 struct IMGSENSOR_I2C_CFG *imgsensor_i2c_get_device(void)
 {
-// #ifdef SENSOR_PARALLEISM
-// 	int i = 0;
-// 	struct IMGSENSOR_I2C_CFG *pi2c_cfg = NULL;
-// 	pid_t _tid = sys_gettid();
-// 	/* mutex_lock(&i2c_resource_mutex); */
+#ifdef SENSOR_PARALLEISM
+	int i = 0;
+	struct IMGSENSOR_I2C_CFG *pi2c_cfg = NULL;
+	pid_t _tid = sys_gettid();
+	/* mutex_lock(&i2c_resource_mutex); */
 
-// 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
-// 		if (tid_mapping[i] == _tid) {
-// 			pi2c_cfg = pgi2c_cfg_legacy[i];
-// 			break;
-// 		}
-// 	}
-// 	/* mutex_unlock(&i2c_resource_mutex); */
-// 	/* PK_DBG("get tid %d, i =%d, pi2c_cfg %p\n",_tid, i,pi2c_cfg); */
-// 	return pi2c_cfg;
-// #else
+	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
+		if (tid_mapping[i] == _tid) {
+			pi2c_cfg = pgi2c_cfg_legacy[i];
+			break;
+		}
+	}
+	/* mutex_unlock(&i2c_resource_mutex); */
+	/* PK_DBG("get tid %d, i =%d, pi2c_cfg %p\n",_tid, i,pi2c_cfg); */
+	return pi2c_cfg;
+#else
 	return pgi2c_cfg_legacy;
-// #endif
+#endif
 }
 #endif
 

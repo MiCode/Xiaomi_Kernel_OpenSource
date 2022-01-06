@@ -65,7 +65,7 @@ endif
 subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/camera_hw
 
 # Enable parallelism
-subdir-ccflags-y += -DSENSOR_PARALLEISM
+# subdir-ccflags-y += -DSENSOR_PARALLEISM
 subdir-ccflags-y += -DSENINF_N3D_SUPPORT
 
 obj-y += seninf/
