@@ -926,7 +926,7 @@ void mml_record_dump(struct mml_dev *mml)
 	 * but not good to hurt performance of mml_record_track.
 	 */
 	mutex_lock(&mml->record_mutex);
-	idx = (mml->record_idx + MML_RECORD_NUM - dump_count - 1) & MML_RECORD_NUM_MASK;
+	idx = (mml->record_idx + MML_RECORD_NUM - dump_count) & MML_RECORD_NUM_MASK;
 	mutex_unlock(&mml->record_mutex);
 
 	mml_err(REC_TITLE);
