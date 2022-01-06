@@ -69,6 +69,29 @@ config SND_SOC_MT6797_MT6351
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT6833
+	tristate "ASoC support for Mediatek MT6833 chip"
+	depends on ARCH_MEDIATEK
+	select SND_SOC_MEDIATEK
+	select SND_SOC_MTK_SRAM
+	select SND_SOC_MTK_SMART_PHONE
+	select DMA_SHARED_BUFFER
+	help
+	  This adds ASoC driver for Mediatek MT6833 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6833_MT6359P
+	tristate "ASoc Audio driver for MT6833 with MT6359P codec"
+	depends on SND_SOC_MT6833
+	select SND_SOC_MT6359P
+	help
+	  This adds ASoC driver for Mediatek MT6833 boards
+	  with the MT6359P codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 config SND_SOC_MT6853
 	tristate "ASoC support for Mediatek MT6853 chip"
 	depends on ARCH_MEDIATEK
