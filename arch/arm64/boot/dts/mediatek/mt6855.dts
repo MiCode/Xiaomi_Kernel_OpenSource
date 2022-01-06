@@ -8074,6 +8074,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	regulator-always-on;
 };
 
+&mt6363_va15 {
+	/delete-property/ regulator-always-on;
+};
+
 &mt6363_vio075 {
 	/delete-property/ regulator-always-on;
 };
