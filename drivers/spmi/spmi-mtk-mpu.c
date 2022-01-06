@@ -44,6 +44,7 @@ static int mtk_spmi_pmif_mpu_probe(struct platform_device *pdev)
 	struct pmif_mpu *arb = NULL;
 	int err = 0;
 	u32 pmic_all_rgn_en = 0, rgn_en = 0;
+	u32 disable_pmif_mpu = 0;
 
 	arb = devm_kzalloc(&pdev->dev, sizeof(*arb), GFP_KERNEL);
 	if (!arb)
@@ -63,6 +64,14 @@ static int mtk_spmi_pmif_mpu_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, arb);
+
+	if (!of_property_read_u32(pdev->dev.of_node, "disable", &disable_pmif_mpu)) {
+		if (disable_pmif_mpu) {
+			pmif_mpu_writel(arb, 0, PMIF_PMIC_ALL_RGN_EN);
+			dev_info(&pdev->dev, "Disable PMIF MPU\n");
+			return 0;
+		}
+	}
 
 	rgn_en = pmif_mpu_readl(arb, PMIF_PMIC_ALL_RGN_EN);
 	dev_info(&pdev->dev, "PMIC_ALL_RGN_EN=0x%x\n", rgn_en);
