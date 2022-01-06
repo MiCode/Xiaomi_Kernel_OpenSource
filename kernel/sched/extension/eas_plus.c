@@ -4,6 +4,9 @@
  */
 #include "sched.h"
 #include <trace/events/sched.h>
+#ifdef CONFIG_MTK_TASK_TURBO
+#include <mt-plat/turbo_common.h>
+#endif
 
 DEFINE_PER_CPU(struct task_struct*, migrate_task);
 static int idle_pull_cpu_stop(void *data)
