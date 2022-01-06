@@ -1564,6 +1564,31 @@ static void mtk_iommu_domain_free(struct iommu_domain *domain)
 	kfree(to_mtk_domain(domain));
 }
 
+static int mtk_iommu_set_dev_dma(struct device *dev)
+{
+	int ret = 0;
+
+	if (!dev)
+		return -EINVAL;
+
+	if (!dev->dma_parms) {
+		dev->dma_parms = devm_kzalloc(dev,
+					      sizeof(*dev->dma_parms),
+					      GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+
+	ret = dma_set_max_seg_size(dev,
+				   (unsigned int)DMA_BIT_MASK(34));
+	if (ret) {
+		dev_info(dev, "Failed to set DMA segment size\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				   struct device *dev)
 {
@@ -1629,6 +1654,7 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	}
 
 	mtk_iommu_config(data, dev, true, domid);
+	mtk_iommu_set_dev_dma(dev);
 
 out_unlock:
 	mutex_unlock(&init_mutexs[tab_id]);
