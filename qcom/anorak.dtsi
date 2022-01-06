@@ -229,3 +229,5 @@
 		};
 	};
 };
+
+#include "anorak-usb.dtsi"
