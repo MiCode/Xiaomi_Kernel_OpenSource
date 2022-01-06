@@ -5819,7 +5819,7 @@
 				<0>, /*MTK_DRM_OPT_MML_PRIMARY*/
 				<0>, /*MTK_DRM_OPT_DUAL_TE*/
 				<0>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
-				<1>; /*MTK_DRM_OPT_RES_SWITCH*/
+				<0>; /*MTK_DRM_OPT_RES_SWITCH*/
 		};
 
 		disp_mutex0: disp_mutex0@14001000 {
