@@ -3122,8 +3122,7 @@ static const struct mtk_iommu_plat_data mt6855_data_disp = {
 	.m4u_plat	= M4U_MT6855,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | SHARE_PGTABLE | IOMMU_SEC_BK_EN |
-			  SKIP_CFG_PORT | IOVA_34_EN /*| HAS_BCLK | HAS_SMI_SUB_COMM*/ |
-			  IOMMU_CLK_AO_EN | IOMMU_EN_PRE,
+			  SKIP_CFG_PORT | IOVA_34_EN | HAS_BCLK | HAS_SMI_SUB_COMM,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
