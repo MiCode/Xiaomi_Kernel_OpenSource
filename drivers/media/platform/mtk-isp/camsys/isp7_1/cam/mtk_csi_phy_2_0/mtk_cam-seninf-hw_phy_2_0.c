@@ -2368,14 +2368,12 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 			dev_info(ctx->dev, \
 				"cam mux%u size mismatch!, recSize = 0x%x, expSize = 0x%x", \
 				_cam_mux, recSize, expSize); \
-			ret = -3; \
 		} \
 		if ((irq_status & \
 		     (3 << (SENINF_CAM_MUX##_cam_mux * 2))) != 0) { \
 			dev_info(ctx->dev, \
 				"cam mux%u size mismatch!, irq = 0x%x", \
 				_cam_mux, irq_status); \
-			ret = -3; \
 		} \
 	} \
 } while (0)
