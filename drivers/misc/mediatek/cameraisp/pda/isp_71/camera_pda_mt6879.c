@@ -1991,6 +1991,12 @@ EXIT_WITHOUT_FREE_IOVA:
 		LOG_INF("Exit\n");
 #endif
 
+		// reset flow
+		for (i = 0; i < g_PDA_quantity; i++) {
+			pda_reset(i);
+			pda_nontransaction_reset(i);
+		}
+
 #ifdef GET_PDA_TIME
 		// for compute pda process time
 		ktime_get_real_ts64(&total_time_end);
@@ -2053,16 +2059,6 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 
 static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
-	int i = 0;
-
-	if (g_u4EnableClockCount > 0) {
-		// reset flow
-		for (i = 0; i < g_PDA_quantity; i++) {
-			pda_reset(i);
-			pda_nontransaction_reset(i);
-		}
-	}
-
 #ifdef PDA_MMQOS
 	pda_mmqos_bw_reset();
 #endif
