@@ -1414,6 +1414,11 @@ static int usb_meta_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
+	if (meta_udc_name[0] == 'm') {
+		sprintf(meta_udc_name, "musb-hdrc");
+		pr_info("%s Rename udc name to musb-hdrc.\n", __func__);
+	}
+
 	android_usb_driver.gadget_driver.udc_name = meta_udc_name;
 	pr_info("%s: udc_name='%s'", __func__, android_usb_driver.gadget_driver.udc_name);
 
