@@ -8470,5 +8470,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN1)>;
 };
 
+#include "mediatek/mt6855-disable-unused.dtsi"
 #include "mediatek/bat_setting/mt6855_battery_prop.dtsi"
 #include "mediatek/trusty.dtsi"
