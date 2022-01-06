@@ -1442,6 +1442,28 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	u32 tmp;
 
 	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp |= P2C_FORCE_SUSPENDM;
+	tmp = readl(com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_SUSPENDM;
+	tmp = readl(com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp |= P2C_RG_SUSPENDM;
+	tmp = readl(com + U3P_U2PHYDTM0);
+
+	udelay(30);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_FORCE_SUSPENDM;
+	tmp = readl(com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_SUSPENDM;
+	tmp = readl(com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~(P2C_FORCE_UART_EN);
 	writel(tmp, com + U3P_U2PHYDTM0);
 
