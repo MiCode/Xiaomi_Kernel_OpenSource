@@ -8,7 +8,7 @@
 
 #define MDP_HW_CHECK
 
-static u32 mdp_base[ENGBASE_COUNT] = {
+static phys_addr_t mdp_base[ENGBASE_COUNT] = {
 	[ENGBASE_MMSYS_CONFIG] = 0x1f000000,
 	[ENGBASE_MDP_RDMA0] = 0x1f003000,
 	[ENGBASE_MDP_AAL0] = 0x1f005000,

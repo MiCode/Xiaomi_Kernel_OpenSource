@@ -2950,7 +2950,7 @@ static const char *const mdp_get_engine_group_name(void)
 	return NULL;
 }
 
-static u32 *mdp_get_engine_base_dummy(void)
+static phys_addr_t *mdp_get_engine_base_dummy(void)
 {
 	CMDQ_ERR("%s no platform\n", __func__);
 	return NULL;
@@ -4122,10 +4122,10 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 	return cmdq_mdp_get_func()->parseErrModByEngFlag(handle);
 }
 
-u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
+phys_addr_t cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 {
 	static u32 count;
-	static u32 *mdp_base;
+	static phys_addr_t *mdp_base;
 
 	if (!count && !mdp_base) {
 		count = mdp_engine_base_count();
@@ -4133,7 +4133,7 @@ u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 	}
 
 	if (!count || !mdp_base) {
-		CMDQ_ERR("%s count:%u base:%x\n", __func__, count, mdp_base);
+		CMDQ_ERR("%s count:%u base:%lx\n", __func__, count, mdp_base);
 		return 0;
 	}
 
@@ -4152,10 +4152,10 @@ u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 	return mdp_base[base] + offset;
 }
 
-u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
+phys_addr_t cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
 {
 	static u32 count;
-	static u32 *mdp_base;
+	static phys_addr_t *mdp_base;
 	u16 reg_msb_offset;
 
 	if (!count && !mdp_base) {
@@ -4164,7 +4164,7 @@ u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
 	}
 
 	if (!count || !mdp_base) {
-		CMDQ_ERR("%s count:%u base:%p\n", __func__, count, mdp_base);
+		CMDQ_ERR("%s count:%u base:%lx\n", __func__, count, mdp_base);
 		return 0;
 	}
 

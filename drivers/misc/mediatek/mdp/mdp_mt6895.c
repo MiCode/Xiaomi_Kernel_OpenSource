@@ -1701,9 +1701,9 @@ static const char *const mdp_get_engine_group_name(void)
 	return (const char *const)engineGroupName;
 }
 
-u32 *mdp_engine_base_get(void)
+phys_addr_t *mdp_engine_base_get(void)
 {
-	return (u32 *)mdp_base;
+	return (phys_addr_t *)mdp_base;
 }
 
 u32 mdp_engine_base_count(void)

@@ -113,7 +113,7 @@ typedef u32 (*MdpGetGroup) (void);
 
 typedef const char *const (*MdpGetEngineGroupName) (void);
 
-typedef u32 *(*MdpGetEngineBase) (void);
+typedef phys_addr_t *(*MdpGetEngineBase) (void);
 
 typedef u32 (*MdpGetEngineBaseCount) (void);
 
@@ -321,8 +321,8 @@ u32 cmdq_mdp_wdma_get_reg_offset_dst_addr(void);
 
 void testcase_clkmgr_mdp(void);
 
-u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset);
-u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset);
+phys_addr_t cmdq_mdp_get_hw_reg(u32 base, u16 offset);
+phys_addr_t cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset);
 u32 cmdq_mdp_get_hw_port(u32 base);
 s32 cmdq_mdp_get_rdma_idx(u32 base);
 u32 cmdq_mdp_vcp_pq_readback_support(void);
@@ -337,7 +337,7 @@ void cmdq_mdp_platform_function_setting(void);
 
 long cmdq_mdp_get_module_base_VA_MDP_WROT0(void);
 
-extern u32 *mdp_engine_base_get(void);
+extern phys_addr_t *mdp_engine_base_get(void);
 extern u32 mdp_engine_base_count(void);
 
 #endif				/* __MDP_COMMON_H__ */
