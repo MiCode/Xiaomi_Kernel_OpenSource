@@ -2221,7 +2221,7 @@ int mmdvfs_qos_force_step(int step)
 		return -EINVAL;
 	}
 	force_step = step;
-#if defined(CONFIG_MACH_MT6785)
+#if defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6768)
 #if (defined(CONFIG_MTK_MT6382_BDG) && defined(CONFIG_MTK_MT6382_VDO_MODE))
 	force_step = 0;
 #endif
