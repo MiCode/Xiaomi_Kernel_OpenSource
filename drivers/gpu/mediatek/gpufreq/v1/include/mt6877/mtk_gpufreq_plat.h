@@ -8,7 +8,6 @@
 
 #include <linux/module.h>
 #include <linux/clk.h>
-#include "mboot_params.h"
 
 #define MT_GPUFREQ_BRINGUP                      0
 #define MT_GPUFREQ_KICKER_PBM_READY             1
