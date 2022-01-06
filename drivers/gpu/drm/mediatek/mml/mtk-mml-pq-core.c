@@ -555,8 +555,9 @@ static int get_sub_task_result(struct mml_pq_task *pq_task,
 		mml_pq_msg("%s already handled or not queued", __func__);
 
 	mml_pq_msg("begin wait for result");
-	ret = wait_event_timeout(sub_task->wq, !atomic_read(&sub_task->queued),
-				 msecs_to_jiffies(timeout_ms));
+	ret = wait_event_timeout(sub_task->wq,
+				(!atomic_read(&sub_task->queued)) && (sub_task->result),
+				msecs_to_jiffies(timeout_ms));
 	mml_pq_msg("wait for result: %d", ret);
 	mutex_lock(&sub_task->lock);	/* To wait unlock of handle thread */
 	atomic_inc(&sub_task->result_ref);
