@@ -107,6 +107,7 @@ static int __gpufreq_clock_control(enum gpufreq_power_state power);
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
 static int __gpufreq_buck_control(enum gpufreq_power_state power);
 static void __gpufreq_aoc_control(enum gpufreq_power_state power);
+static void __gpufreq_transaction_control(enum gpufreq_transaction_mode mode);
 static void __gpufreq_hw_dcm_control(void);
 static void __gpufreq_hwapm_control(void);
 /* init function */
@@ -658,19 +659,23 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpufreq_hw_dcm_control();
 		__gpufreq_footprint_power_step(0x07);
 
+		/* control bus transaction mode */
+		__gpufreq_transaction_control(MERGER_LIGHT);
+		__gpufreq_footprint_power_step(0x08);
+
 		/* disable RGX secure protect */
 		gpu_set_rgx_bus_secure();
-		__gpufreq_footprint_power_step(0x08);
+		__gpufreq_footprint_power_step(0x09);
 
 		/* free DVFS when power on */
 		g_dvfs_state &= ~DVFS_POWEROFF;
-		__gpufreq_footprint_power_step(0x09);
-	} else if (power == POWER_OFF && g_gpu.power_count == 0) {
 		__gpufreq_footprint_power_step(0x0A);
+	} else if (power == POWER_OFF && g_gpu.power_count == 0) {
+		__gpufreq_footprint_power_step(0x0B);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
-		__gpufreq_footprint_power_step(0x0B);
+		__gpufreq_footprint_power_step(0x0C);
 
 		/* control clock */
 		ret = __gpufreq_clock_control(POWER_OFF);
@@ -679,7 +684,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x0C);
+		__gpufreq_footprint_power_step(0x0D);
 
 		/* control MTCMOS */
 		ret = __gpufreq_mtcmos_control(POWER_OFF);
@@ -688,7 +693,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x0D);
+		__gpufreq_footprint_power_step(0x0E);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_OFF);
@@ -697,11 +702,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 			ret = GPUFREQ_EINVAL;
 			goto done_unlock;
 		}
-		__gpufreq_footprint_power_step(0x0E);
+		__gpufreq_footprint_power_step(0x0F);
 
 		/* control AOC before MFG_0 off */
 		__gpufreq_aoc_control(POWER_OFF);
-		__gpufreq_footprint_power_step(0x0F);
+		__gpufreq_footprint_power_step(0x10);
 	}
 
 	/* return power count if successfully control power */
@@ -1994,6 +1999,52 @@ hw_semaphore_timeout:
 	GPUFREQ_LOGE("M6(0x1C0016B4): 0x%08x, M7(0x1C0016B8): 0x%08x",
 		readl(g_sleep + 0x6B4), readl(g_sleep + 0x6B8));
 	__gpufreq_abort(GPUFREQ_GPU_EXCEPTION, "acquire SPM_SEMA_M4 timeout");
+}
+
+/* Merge GPU transaction from 64byte to 128byte to maximize DRAM efficiency */
+static void __gpufreq_transaction_control(enum gpufreq_transaction_mode mode)
+{
+	if (mode == MERGER_OFF) {
+		/* merge_r */
+		writel(0x1818F780, g_mfg_top_base + 0x8A0);
+		/* merge_w */
+		writel(0x1818F780, g_mfg_top_base + 0x8B0);
+		/* QoS normal mode */
+		writel(0x00000000, g_mfg_top_base + 0x700);
+		/* ar_requestor */
+		writel(0xA0000020, g_mfg_top_base + 0x704);
+		/* aw_requestor */
+		writel(0xA0000020, g_mfg_top_base + 0x708);
+		/* QoS pre-ultra */
+		writel(0x00400400, g_mfg_top_base + 0x70C);
+
+		writel(0x00000000, g_mfg_top_base + 0x710);
+		writel(0x00000000, g_mfg_top_base + 0x714);
+		writel(0x00000000, g_mfg_top_base + 0x718);
+		writel(0x00000000, g_mfg_top_base + 0x71C);
+		writel(0x00000000, g_mfg_top_base + 0x720);
+		writel(0x00000000, g_mfg_top_base + 0x724);
+	} else if (mode == MERGER_LIGHT) {
+		/* merge_r */
+		writel(0x1818F783, g_mfg_top_base + 0x8A0);
+		/* merge_w */
+		writel(0x1818F783, g_mfg_top_base + 0x8B0);
+		/* QoS normal mode */
+		writel(0x00000000, g_mfg_top_base + 0x700);
+		/* ar_requestor */
+		writel(0xA0000020, g_mfg_top_base + 0x704);
+		/* aw_requestor */
+		writel(0xA0000020, g_mfg_top_base + 0x708);
+		/* QoS pre-ultra */
+		writel(0x00400400, g_mfg_top_base + 0x70C);
+
+		writel(0x00000000, g_mfg_top_base + 0x710);
+		writel(0x00000000, g_mfg_top_base + 0x714);
+		writel(0x00000000, g_mfg_top_base + 0x718);
+		writel(0x00000000, g_mfg_top_base + 0x71C);
+		writel(0x00000000, g_mfg_top_base + 0x720);
+		writel(0x00000000, g_mfg_top_base + 0x724);
+	}
 }
 
 static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)

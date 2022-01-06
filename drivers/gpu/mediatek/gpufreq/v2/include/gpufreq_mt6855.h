@@ -144,6 +144,11 @@ enum gpufreq_clk_src {
 	CLOCK_SUB,
 };
 
+enum gpufreq_transaction_mode {
+	MERGER_OFF = 0,
+	MERGER_LIGHT,
+};
+
 /**************************************************
  * Structure
  **************************************************/
