@@ -451,7 +451,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 free_sgt:
 	mdw_mem_dma_free_sgt(&mdbuf->sgt);
 free_buf:
-	kvfree(kva);
+	vfree(kva);
 free_mdw_dbuf:
 	kfree(mdbuf);
 out:
