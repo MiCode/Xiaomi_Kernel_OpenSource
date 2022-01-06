@@ -956,63 +956,11 @@ SET_PLL_END:
 
 }
 
-struct tag_chipid {
-	u32 size;
-	u32 hw_code;
-	u32 hw_subcod;
-	u32 hw_ver;
-	u32 sw_ver;
-};
-
-unsigned int get_chip_id_from_dts(void)
-{
-	struct device_node *np_chosen = NULL;
-	struct tag_chipid *tag = NULL;
-	static int ap_sw_chipid = -1;
-
-	if (ap_sw_chipid >= 0) {
-		CCCI_NORMAL_LOG(-1, TAG,
-			"[%s] ap_sw_chipid: 0x%x\n", __func__, ap_sw_chipid);
-		return ap_sw_chipid;
-	}
-
-	np_chosen = of_find_node_by_path("/chosen");
-	if (!np_chosen) {
-		CCCI_ERROR_LOG(-1, TAG, "warning: not find node: '/chosen'\n");
-
-		np_chosen = of_find_node_by_path("/chosen@0");
-		if (!np_chosen) {
-			CCCI_ERROR_LOG(-1, TAG,
-				"[%s] error: not find node: '/chosen@0'\n",
-				__func__);
-			return 0;
-		}
-	}
-
-	tag = (struct tag_chipid *)
-			of_get_property(np_chosen, "atag,chipid", NULL);
-	if (!tag) {
-		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: not find tag: 'atag,chipid';\n", __func__);
-		return 0;
-	}
-
-	ap_sw_chipid = tag->sw_ver;
-	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s] chip_id: 0x%x ap_sw_chipid: 0x%x\n",
-		__func__, tag->hw_code, tag->sw_ver);
-
-	return ap_sw_chipid;
-}
-
 static void md_pll_setting(struct ccci_modem *md)
 {
 	int ret = 0;
-	int chip_id = 0;
 
-	chip_id = get_chip_id_from_dts();
-	if (chip_id >= 0x0001 || //only e1 need it
-		!(md_cd_plat_val_ptr.power_flow_config & (1 << MD_PLL_SETTING)))
+	if (!(md_cd_plat_val_ptr.power_flow_config & (1 << MD_PLL_SETTING)))
 		return;
 
 	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] %s start\n", __func__);
