@@ -3420,6 +3420,180 @@
 		iommus = <&iommu0 M4U_PORT_L1_DISP_WDMA0>;
 	};
 
+	vcp: vcp@1ec00000 {
+		compatible = "mediatek,vcp";
+		vcp-support = <0>;
+		status = "okay";
+	};
+
+	vcu: vcu@16000000 {
+		compatible = "mediatek-vcu";
+		mediatek,vcuid = <0>;
+		mediatek,vcuname = "vcu";
+		mediatek,vcu-off  = <0>;
+		reg = <0 0x16000000 0 0x40000>,	/* VDEC_BASE */
+			 <0 0x17020000 0 0x10000>,	/* VENC_BASE */
+			 <0 0x17820000 0 0x10000>;	/* VENC_C1_BASE */
+		iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_UFO_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PP_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PRED_RD_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PRED_WR_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PPWRAP_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_TILE_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_VLD_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_VLD2_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_AVC_MV_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
+		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		mediatek,mailbox-gce = <&gce>;
+		mediatek,dec_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+		mediatek,enc_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+
+		mboxes = <&gce 7 0 CMDQ_THR_PRIO_1>,
+			<&gce 12 0 CMDQ_THR_PRIO_1>,
+			<&gce_sec 12 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "venc_eof",
+			"venc_cmdq_pause_done",
+			"venc_mb_done",
+			"venc_sps_done",
+			"venc_pps_done",
+			"venc_128B_cnt_done",
+			"vdec_pic_start",
+			"vdec_decode_done",
+			"vdec_pause",
+			"vdec_dec_error",
+			"vdec_mc_busy_overflow_timeout",
+			"vdec_all_dram_req_done",
+			"vdec_ini_fetch_rdy",
+			"vdec_process_flag",
+			"vdec_search_start_code_done",
+			"vdec_ref_reorder_done",
+			"vdec_wp_tble_done",
+			"vdec_count_sram_clr_done",
+			"vdec_gce_cnt_op_threshold";
+
+		gce-events =  <&gce CMDQ_EVENT_VENC_CMDQ_FRAME_DONE>,
+			<&gce CMDQ_EVENT_VENC_CMDQ_PAUSE_DONE>,
+			<&gce CMDQ_EVENT_VENC_CMDQ_MB_DONE>,
+			<&gce CMDQ_EVENT_VENC_CMDQ_SPS_DONE>,
+			<&gce CMDQ_EVENT_VENC_CMDQ_PPS_DONE>,
+			<&gce CMDQ_EVENT_VENC_CMDQ_128BYTE_CNT_DONE>,
+			<&gce CMDQ_EVENT_LINE_COUNT_THRESHOLD_INTERRUPT>,
+			<&gce CMDQ_EVENT_VDEC_INT>,
+			<&gce CMDQ_EVENT_VDEC_PAUSE>,
+			<&gce CMDQ_EVENT_VDEC_DEC_ERROR>,
+			<&gce CMDQ_EVENT_MDEC_TIMEOUT>,
+			<&gce CMDQ_EVENT_DRAM_ACCESS_DONE>,
+			<&gce CMDQ_EVENT_INI_FETCH_RDY>,
+			<&gce CMDQ_EVENT_PROCESS_FLAG>,
+			<&gce CMDQ_EVENT_SEARCH_START_CODE_DONE>,
+			<&gce CMDQ_EVENT_REF_REORDER_DONE>,
+			<&gce CMDQ_EVENT_WP_TBLE_DONE>,
+			<&gce CMDQ_EVENT_COUNT_SRAM_CLR_DONE>,
+			<&gce CMDQ_EVENT_GCE_CNT_OP_THRESHOLD>;
+
+		gce-gpr = <GCE_GPR_R10>, <GCE_GPR_R11>;
+	};
+
+	vdec@16000000 {
+		compatible = "mediatek,mt6833-vcodec-dec";
+		mediatek,platform = "platform:mt6833";
+		mediatek,ipm = <1>;
+		reg = <0 0x16000000 0 0x1000>,		/* VDEC_BASE */
+			<0 0x1602f000 0 0x1000>,	/* VDEC_SYS */
+			<0 0x16020000 0 0x1000>,	/* VDEC_VLD */
+			<0 0x16021000 0 0x1000>,	/* VDEC_MC */
+			<0 0x16023000 0 0x1000>,	/* VDEC_MV */
+			<0 0x16025000 0 0x4000>;	/* VDEC_MISC */
+		reg-names =
+			"VDEC_BASE",
+			"VDEC_SYS",
+			"VDEC_VLD",
+			"VDEC_MC",
+			"VDEC_MV",
+			"VDEC_MISC";
+		iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_UFO_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PP_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PRED_RD_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PRED_WR_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_PPWRAP_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_TILE_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_VLD_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_VLD2_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_AVC_MV_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
+			<&iommu0 M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
+		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		m4u-ports =
+			<M4U_PORT_L4_VDEC_MC_EXT>,
+			<M4U_PORT_L4_VDEC_UFO_EXT>,
+			<M4U_PORT_L4_VDEC_PP_EXT>,
+			<M4U_PORT_L4_VDEC_PRED_RD_EXT>,
+			<M4U_PORT_L4_VDEC_PRED_WR_EXT>,
+			<M4U_PORT_L4_VDEC_PPWRAP_EXT>,
+			<M4U_PORT_L4_VDEC_TILE_EXT>,
+			<M4U_PORT_L4_VDEC_VLD_EXT>,
+			<M4U_PORT_L4_VDEC_VLD2_EXT>,
+			<M4U_PORT_L4_VDEC_AVC_MV_EXT>,
+			<M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
+			<M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
+		m4u-port-names =
+			"M4U_PORT_VDEC_MC",
+			"M4U_PORT_VDEC_UFO",
+			"M4U_PORT_VDEC_PP",
+			"M4U_PORT_VDEC_PRED_RD",
+			"M4U_PORT_VDEC_PRED_WR",
+			"M4U_PORT_VDEC_PPWRAP",
+			"M4U_PORT_VDEC_TILE",
+			"M4U_PORT_VDEC_VLD",
+			"M4U_PORT_VDEC_VLD2",
+			"M4U_PORT_VDEC_AVC_MV",
+			"M4U_PORT_VDEC_RG_CTRL_DMA",
+			"M4U_PORT_VDEC_UFO_ENC";
+		mediatek,larbs = <&smi_larb4>;
+		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,vcu = <&vcu>;
+		clocks =
+			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>;
+		clock-names =
+			"CORE_MT_CG_VDEC0";
+	};
+
+	venc@17000000 {
+		compatible = "mediatek,mt6833-vcodec-enc";
+		mediatek,platform = "platform:mt6833";
+		mediatek,ipm = <1>;
+		reg = <0 0x17020000 0 0x2000>,
+			  <0 0x17820000 0 0x20000>;
+		reg-names =
+			"VENC_SYS",
+			"VENC_C1_SYS";
+		iommus = <&iommu0 M4U_PORT_L7_VENC_RCPU>,
+			<&iommu0 M4U_PORT_L7_VENC_REC>,
+			<&iommu0 M4U_PORT_L7_VENC_BSDMA>,
+			<&iommu0 M4U_PORT_L7_VENC_SV_COMV>,
+			<&iommu0 M4U_PORT_L7_VENC_RD_COMV>,
+			<&iommu0 M4U_PORT_L7_VENC_CUR_LUMA>,
+			<&iommu0 M4U_PORT_L7_VENC_CUR_CHROMA>,
+			<&iommu0 M4U_PORT_L7_VENC_REF_LUMA>,
+			<&iommu0 M4U_PORT_L7_VENC_REF_CHROMA>,
+			<&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA>,
+			<&iommu0 M4U_PORT_L7_JPGENC_C_RDMA>,
+			<&iommu0 M4U_PORT_L7_JPGENC_Q_TABLE>,
+			<&iommu0 M4U_PORT_L7_JPGENC_BSDMA>;
+		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		mediatek,larbs = <&smi_larb7>;
+		interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,vcu = <&vcu>;
+		clocks =
+			<&venc_gcon_clk CLK_VEN1_CKE1_VENC>;
+		clock-names =
+			"MT_CG_VENC0";
+	};
+
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		vbus-supply = <&otg_vbus>;
