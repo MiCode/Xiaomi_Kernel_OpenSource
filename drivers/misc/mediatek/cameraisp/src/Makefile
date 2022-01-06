@@ -41,7 +41,7 @@ ifeq ($(CONFIG_MACH_MT6885),y)
 endif
 
 ifeq ($(CONFIG_MACH_MT6893),y)
-#  obj-y += mt6885/
+  obj-y += mt6885/
 endif
 
 ifeq ($(CONFIG_MACH_MT6873),y)
