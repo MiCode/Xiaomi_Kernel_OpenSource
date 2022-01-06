@@ -33,8 +33,6 @@
 			<&topckgen_clk CLK_TOP_U_SEL>,
 			<&topckgen_clk CLK_TOP_U_MBIST_SEL>,
 			<&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
-			<&topckgen_clk CLK_TOP_VENC_SEL>,
-			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_MCUPM_SEL>,
 			<&topckgen_clk CLK_TOP_MEM_SUB_SEL>,
 			<&topckgen_clk CLK_TOP_MEM_SUBP_SEL>,
@@ -147,18 +145,7 @@
 			<&mminfra_config_clk CLK_MMINFRA_GCE_D>,
 			<&mminfra_config_clk CLK_MMINFRA_GCE_M>,
 			<&mminfra_config_clk CLK_MMINFRA_SMI>,
-			<&mminfra_config_clk CLK_MMINFRA_GCE_26M>,
-			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN_ENG>,
-			<&vdec_gcon_base_clk CLK_VDE2_MINI_MDP_CKEN_CFG_RG>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN_ENG>,
-			<&venc_gcon_clk CLK_VEN1_CKE0_LARB>,
-			<&venc_gcon_clk CLK_VEN1_CKE1_VENC>,
-			<&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>,
-			<&venc_gcon_clk CLK_VEN1_CKE5_GALS>;
+			<&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 	};
 
 	bring-up-pd-audio {
@@ -179,16 +166,6 @@
 	bring-up-pd-isp_ipe {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_IPE>;
-	};
-
-	bring-up-pd-vde0 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_VDE0>;
-	};
-
-	bring-up-pd-ven0 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_VEN0>;
 	};
 
 	bring-up-pd-disp {
