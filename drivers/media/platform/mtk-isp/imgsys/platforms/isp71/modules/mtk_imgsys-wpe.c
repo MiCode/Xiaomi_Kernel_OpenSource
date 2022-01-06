@@ -603,8 +603,10 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		}
 
 		//UFO
-		if (ctl_en & 0x400)
+		if (ctl_en & 0x400) {
 			imgsys_wpe_debug_ufo_dump(imgsys_dev, wpeRegBA);
+			imgsys_wpe_debug_ufo_dump(imgsys_dev, wpeRegBA); //twice
+		}
 
 	}
 	//
