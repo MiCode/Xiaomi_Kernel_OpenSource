@@ -305,6 +305,5 @@ void **mtk_aod_scp_ipi_init(void);
 void mtk_free_mml_submit(struct mml_submit *temp);
 int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst);
 void **mtk_drm_disp_sec_cb_init(void);
-void mtk_drm_top_clk_dump_freqs(struct drm_device *drm, unsigned int id);
 
 #endif /* MTK_DRM_DRV_H */

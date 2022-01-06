@@ -281,8 +281,6 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 			mtk_dump_reg(comp);
 		break;
 	case MMSYS_MT6895:
-		DDPDUMP("== DISP MMSYS Top Clock Frequency ==\n");
-		mtk_drm_top_clk_dump_freqs(crtc->dev, priv->top_clk_num);
 		DDPDUMP("== DISP pipe0 MMSYS_CONFIG REGS:0x%x ==\n",
 					mtk_crtc->config_regs_pa);
 		mmsys_config_dump_reg_mt6895(mtk_crtc->config_regs);

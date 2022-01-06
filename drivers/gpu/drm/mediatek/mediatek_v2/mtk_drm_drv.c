@@ -3509,67 +3509,6 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 			atomic_read(&top_isr_ref));
 }
 
-unsigned long mtk_drm_top_clk_get_freq(struct mtk_drm_private *priv,
-	unsigned int id, bool lock)
-{
-	unsigned long freq = 0, flags = 0;
-
-	if (id >= priv->top_clk_num)
-		return 0;
-
-	if (IS_ERR_OR_NULL(priv->top_clk[id])) {
-		DDPPR_ERR(">>> top clk%u invalid\n", id);
-		return 0;
-	}
-
-	if (lock)
-		spin_lock_irqsave(&top_clk_lock, flags);
-
-	if (atomic_read(&top_clk_ref) == 0)
-		goto end;
-
-	freq = clk_get_rate(priv->top_clk[id]);
-
-end:
-	if (lock)
-		spin_unlock_irqrestore(&top_clk_lock, flags);
-
-	return freq;
-}
-
-void mtk_drm_top_clk_dump_freqs(struct drm_device *drm, unsigned int id)
-{
-	struct mtk_drm_private *priv = NULL;
-	int i = 0;
-	unsigned long flags = 0, freq = 0;
-
-	if (IS_ERR_OR_NULL(drm))
-		return;
-
-	priv = drm->dev_private;
-	if (IS_ERR_OR_NULL(priv) || priv->top_clk_num == 0)
-		return;
-
-	spin_lock_irqsave(&top_clk_lock, flags);
-
-	if (id < priv->top_clk_num) {
-		freq = mtk_drm_top_clk_get_freq(priv, id, false);
-		DDPDUMP(">>> clk:%u freq:%luhz\n",
-				id, freq);
-		goto end;
-	}
-
-	DDPDUMP("top clock num:%u\n", priv->top_clk_num);
-	for (i = 0; i < priv->top_clk_num; i++) {
-		freq = mtk_drm_top_clk_get_freq(priv, i, false);
-		DDPDUMP(">>> clk:%u freq:%luhz\n",
-				i, freq);
-	}
-
-end:
-	spin_unlock_irqrestore(&top_clk_lock, flags);
-}
-
 bool mtk_drm_top_clk_isr_get(char *master)
 {
 	unsigned long flags = 0;
