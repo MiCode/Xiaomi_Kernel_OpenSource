@@ -172,6 +172,8 @@ struct cmdq_pkt {
 	struct cmdq_pkt_err	err_data;
 	cmdq_aee_cb		aee_cb;
 	u32			vcp_eng;
+
+	struct work_struct	destroy_work;
 };
 
 struct cmdq_thread {
