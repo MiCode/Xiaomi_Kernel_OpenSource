@@ -748,10 +748,10 @@ int mt6855_init_clock(struct mtk_base_afe *afe)
 
 	if (afe_priv->apmixed != NULL) {
 		regmap_read(afe_priv->apmixed, APLL1_TUNER_CON0, &value);
-		dev_info(afe->dev, "%s() APLL1_TUNER_CON0 = 0x%x\n", __func__, value);
+		dev_dbg(afe->dev, "%s() APLL1_TUNER_CON0 = 0x%x\n", __func__, value);
 
 		regmap_read(afe_priv->apmixed, APLL2_TUNER_CON0, &value);
-		dev_info(afe->dev, "%s() APLL2_TUNER_CON0 = 0x%x\n", __func__, value);
+		dev_dbg(afe->dev, "%s() APLL2_TUNER_CON0 = 0x%x\n", __func__, value);
 	}
 
 	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(afe->dev->of_node,

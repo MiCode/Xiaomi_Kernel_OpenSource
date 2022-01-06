@@ -122,8 +122,6 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch1_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN17,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN17,
-				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL2_CH1", AFE_CONN17,
 				    I_DL2_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN17_1,
@@ -137,19 +135,12 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch2_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN18,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN18,
-				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL2_CH2", AFE_CONN18,
 				    I_DL2_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN18_1,
 				    I_DL4_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_1_OUT_CH2", AFE_CONN18_1,
 				    I_SRC_1_OUT_CH2, 1, 0),
-};
-
-static const struct snd_kcontrol_new mtk_pcm_2_playback_ch3_mix[] = {
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN23,
-				    I_ADDA_UL_CH3, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_pcm_2_playback_ch4_mix[] = {
@@ -215,9 +206,6 @@ static const struct snd_soc_dapm_widget mtk_dai_pcm_widgets[] = {
 	SND_SOC_DAPM_MIXER("PCM_2_PB_CH2", SND_SOC_NOPM, 0, 0,
 			   mtk_pcm_2_playback_ch2_mix,
 			   ARRAY_SIZE(mtk_pcm_2_playback_ch2_mix)),
-	SND_SOC_DAPM_MIXER("PCM_2_PB_CH3", SND_SOC_NOPM, 0, 0,
-			   mtk_pcm_2_playback_ch3_mix,
-			   ARRAY_SIZE(mtk_pcm_2_playback_ch3_mix)),
 	SND_SOC_DAPM_MIXER("PCM_2_PB_CH4", SND_SOC_NOPM, 0, 0,
 			   mtk_pcm_2_playback_ch4_mix,
 			   ARRAY_SIZE(mtk_pcm_2_playback_ch4_mix)),
@@ -247,7 +235,6 @@ static const struct snd_soc_dapm_route mtk_dai_pcm_routes[] = {
 	{"PCM 1 Playback", NULL, "PCM_1_PB_CH4"},
 	{"PCM 2 Playback", NULL, "PCM_2_PB_CH1"},
 	{"PCM 2 Playback", NULL, "PCM_2_PB_CH2"},
-	{"PCM 2 Playback", NULL, "PCM_2_PB_CH3"},
 	{"PCM 2 Playback", NULL, "PCM_2_PB_CH4"},
 	{"PCM 2 Playback", NULL, "PCM_2_PB_CH5"},
 

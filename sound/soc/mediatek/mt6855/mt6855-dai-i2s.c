@@ -317,8 +317,6 @@ static const struct snd_kcontrol_new mtk_i2s3_ch1_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN0,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN0,
-				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN0,
 				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN0,
@@ -344,8 +342,6 @@ static const struct snd_kcontrol_new mtk_i2s3_ch2_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN1,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN1,
-				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN1,
 				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN1,
@@ -840,23 +836,15 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	/* i2s1 */
 	{"I2S1_CH1", "DL1_CH1", "DL1"},
 	{"I2S1_CH2", "DL1_CH2", "DL1"},
-	{"I2S1_TINYCONN_CH1_MUX", "DL1_CH1", "DL1"},
-	{"I2S1_TINYCONN_CH2_MUX", "DL1_CH2", "DL1"},
 
 	{"I2S1_CH1", "DL2_CH1", "DL2"},
 	{"I2S1_CH2", "DL2_CH2", "DL2"},
-	{"I2S1_TINYCONN_CH1_MUX", "DL2_CH1", "DL2"},
-	{"I2S1_TINYCONN_CH2_MUX", "DL2_CH2", "DL2"},
 
 	{"I2S1_CH1", "DL3_CH1", "DL3"},
 	{"I2S1_CH2", "DL3_CH2", "DL3"},
-	{"I2S1_TINYCONN_CH1_MUX", "DL3_CH1", "DL3"},
-	{"I2S1_TINYCONN_CH2_MUX", "DL3_CH2", "DL3"},
 
 	{"I2S1_CH1", "DL12_CH1", "DL12"},
 	{"I2S1_CH2", "DL12_CH2", "DL12"},
-	{"I2S1_TINYCONN_CH1_MUX", "DL12_CH1", "DL12"},
-	{"I2S1_TINYCONN_CH2_MUX", "DL12_CH2", "DL12"},
 
 	{"I2S1_CH1", "DL6_CH1", "DL6"},
 	{"I2S1_CH2", "DL6_CH2", "DL6"},
@@ -875,8 +863,6 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 
 	{"I2S1", NULL, "I2S1_CH1"},
 	{"I2S1", NULL, "I2S1_CH2"},
-	{"I2S1", NULL, "I2S3_TINYCONN_CH1_MUX"},
-	{"I2S1", NULL, "I2S3_TINYCONN_CH2_MUX"},
 
 
 	{"I2S1", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
@@ -927,23 +913,15 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	/* i2s3 */
 	{"I2S3_CH1", "DL1_CH1", "DL1"},
 	{"I2S3_CH2", "DL1_CH2", "DL1"},
-	{"I2S3_TINYCONN_CH1_MUX", "DL1_CH1", "DL1"},
-	{"I2S3_TINYCONN_CH2_MUX", "DL1_CH2", "DL1"},
 
 	{"I2S3_CH1", "DL2_CH1", "DL2"},
 	{"I2S3_CH2", "DL2_CH2", "DL2"},
-	{"I2S3_TINYCONN_CH1_MUX", "DL2_CH1", "DL2"},
-	{"I2S3_TINYCONN_CH2_MUX", "DL2_CH2", "DL2"},
 
 	{"I2S3_CH1", "DL3_CH1", "DL3"},
 	{"I2S3_CH2", "DL3_CH2", "DL3"},
-	{"I2S3_TINYCONN_CH1_MUX", "DL3_CH1", "DL3"},
-	{"I2S3_TINYCONN_CH2_MUX", "DL3_CH2", "DL3"},
 
 	{"I2S3_CH1", "DL12_CH1", "DL12"},
 	{"I2S3_CH2", "DL12_CH2", "DL12"},
-	{"I2S3_TINYCONN_CH1_MUX", "DL12_CH1", "DL12"},
-	{"I2S3_TINYCONN_CH2_MUX", "DL12_CH2", "DL12"},
 
 	{"I2S3_CH1", "DL6_CH1", "DL6"},
 	{"I2S3_CH2", "DL6_CH2", "DL6"},
@@ -962,8 +940,6 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 
 	{"I2S3", NULL, "I2S3_CH1"},
 	{"I2S3", NULL, "I2S3_CH2"},
-	{"I2S3", NULL, "I2S3_TINYCONN_CH1_MUX"},
-	{"I2S3", NULL, "I2S3_TINYCONN_CH2_MUX"},
 
 	{"I2S3", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
 	{"I2S3", NULL, "I2S1_EN", mtk_afe_i2s_share_connect},

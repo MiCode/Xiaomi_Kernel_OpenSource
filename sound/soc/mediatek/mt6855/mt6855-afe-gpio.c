@@ -38,14 +38,6 @@ static struct audio_gpio_attr aud_gpios[MT6855_AFE_GPIO_GPIO_NUM] = {
 	[MT6855_AFE_GPIO_I2S3_ON] = {"aud_gpio_i2s3_on", false, NULL},
 	[MT6855_AFE_GPIO_I2S5_OFF] = {"aud_gpio_i2s5_off", false, NULL},
 	[MT6855_AFE_GPIO_I2S5_ON] = {"aud_gpio_i2s5_on", false, NULL},
-	[MT6855_AFE_GPIO_I2S6_OFF] = {"aud_gpio_i2s6_off", false, NULL},
-	[MT6855_AFE_GPIO_I2S6_ON] = {"aud_gpio_i2s6_on", false, NULL},
-	[MT6855_AFE_GPIO_I2S7_OFF] = {"aud_gpio_i2s7_off", false, NULL},
-	[MT6855_AFE_GPIO_I2S7_ON] = {"aud_gpio_i2s7_on", false, NULL},
-	[MT6855_AFE_GPIO_I2S8_OFF] = {"aud_gpio_i2s8_off", false, NULL},
-	[MT6855_AFE_GPIO_I2S8_ON] = {"aud_gpio_i2s8_on", false, NULL},
-	[MT6855_AFE_GPIO_I2S9_OFF] = {"aud_gpio_i2s9_off", false, NULL},
-	[MT6855_AFE_GPIO_I2S9_ON] = {"aud_gpio_i2s9_on", false, NULL},
 	[MT6855_AFE_GPIO_VOW_DAT_OFF] = {"vow_dat_miso_off", false, NULL},
 	[MT6855_AFE_GPIO_VOW_DAT_ON] = {"vow_dat_miso_on", false, NULL},
 	[MT6855_AFE_GPIO_VOW_CLK_OFF] = {"vow_clk_miso_off", false, NULL},
@@ -68,6 +60,12 @@ int mt6855_afe_gpio_init(struct mtk_base_afe *afe)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(aud_gpios); i++) {
+		dev_dbg(afe->dev, "%s(), aud_gpios[%d]: %s\n", __func__, i, aud_gpios[i].name);
+		if (aud_gpios[i].name == NULL) {
+			dev_dbg(afe->dev, "%s(), aud_gpios[%d]: %s NULL, bypass\n",
+				 __func__, i, aud_gpios[i].name);
+			continue;
+		}
 		aud_gpios[i].gpioctrl = pinctrl_lookup_state(aud_pinctrl,
 					aud_gpios[i].name);
 		if (IS_ERR(aud_gpios[i].gpioctrl)) {
@@ -182,30 +180,6 @@ int mt6855_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S5_ON);
 		else
 			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S5_OFF);
-		break;
-	case MT6855_DAI_I2S_6:
-		if (enable)
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S6_ON);
-		else
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S6_OFF);
-		break;
-	case MT6855_DAI_I2S_7:
-		if (enable)
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S7_ON);
-		else
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S7_OFF);
-		break;
-	case MT6855_DAI_I2S_8:
-		if (enable)
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S8_ON);
-		else
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S8_OFF);
-		break;
-	case MT6855_DAI_I2S_9:
-		if (enable)
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S9_ON);
-		else
-			mt6855_afe_gpio_select(afe, MT6855_AFE_GPIO_I2S9_OFF);
 		break;
 	case MT6855_DAI_VOW:
 		if (enable) {
