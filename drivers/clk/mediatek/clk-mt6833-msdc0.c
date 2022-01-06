@@ -93,6 +93,6 @@ static int __init clk_mt6833_msdc0_platform_init(void)
 {
 	return platform_driver_register(&clk_mt6833_msdc0_drv);
 }
-arch_initcall_sync(clk_mt6833_msdc0_platform_init);
+arch_initcall(clk_mt6833_msdc0_platform_init);
 
 #endif	/* MT_CLKMGR_MODULE_INIT */

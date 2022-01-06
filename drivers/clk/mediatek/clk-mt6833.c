@@ -2609,5 +2609,5 @@ static int __init clk_mt6833_init(void)
 	return platform_driver_register(&clk_mt6833_drv);
 }
 
-arch_initcall_sync(clk_mt6833_init);
+postcore_initcall_sync(clk_mt6833_init);
 

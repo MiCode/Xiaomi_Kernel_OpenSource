@@ -4448,7 +4448,7 @@ static int __init clk_mt6833_scpsys_init(void)
 {
 	return platform_driver_register(&clk_mt6833_scpsys_drv);
 }
-arch_initcall_sync(clk_mt6833_scpsys_init);
+arch_initcall(clk_mt6833_scpsys_init);
 
 /* for suspend LDVT only */
 void mtcmos_force_off(void)

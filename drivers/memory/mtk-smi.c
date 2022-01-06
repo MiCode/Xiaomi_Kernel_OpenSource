@@ -830,7 +830,7 @@ late_initcall(mtk_smi_init_late);
 #endif
 #else
 #ifdef CONFIG_MACH_MT6833
-module_init(mtk_smi_init);
+arch_initcall_sync(mtk_smi_init);
 #else
 arch_initcall(mtk_smi_init);
 #endif
