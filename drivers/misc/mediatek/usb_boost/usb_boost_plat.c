@@ -241,7 +241,8 @@ int audio_freq_hold(void)
 		}
 	}
 
-	if (of_device_is_compatible(np, "mediatek,mt6983-usb_boost")) {
+	if (of_device_is_compatible(np, "mediatek,mt6983-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6895-usb_boost")) {
 		device_property_read_u32(gdev, "small-core", &(cpu_freq_audio[0]));
 		device_property_read_u32(gdev, "medium-core", &(cpu_freq_audio[1]));
 		device_property_read_u32(gdev, "big-core", &(cpu_freq_audio[2]));
@@ -279,23 +280,31 @@ int audio_freq_release(void)
 
 int audio_core_hold(void)
 {
-	USB_BOOST_NOTICE("\n");
+	struct device_node *np = gdev->of_node;
 
 	/*Disable MCDI to save around 100us
 	 *"Power ON CPU -> CPU context restore"
 	 */
-
-	cpu_latency_qos_update_request(&pm_qos_req, 50);
+	if (of_device_is_compatible(np, "mediatek,mt6983-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6895-usb_boost")) {
+		USB_BOOST_NOTICE("\n");
+		cpu_latency_qos_update_request(&pm_qos_req, 50);
+	}
 
 	return 0;
 }
 
 int audio_core_release(void)
 {
-	USB_BOOST_NOTICE("\n");
+	struct device_node *np = gdev->of_node;
 
 	/*Enable MCDI*/
-	cpu_latency_qos_update_request(&pm_qos_req, PM_QOS_DEFAULT_VALUE);
+	if (of_device_is_compatible(np, "mediatek,mt6983-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6895-usb_boost")) {
+		USB_BOOST_NOTICE("\n");
+		cpu_latency_qos_update_request(&pm_qos_req,
+			PM_QOS_DEFAULT_VALUE);
+	}
 
 	return 0;
 }
