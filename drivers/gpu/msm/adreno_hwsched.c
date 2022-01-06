@@ -10,6 +10,7 @@
 #include "adreno_sysfs.h"
 #include "adreno_trace.h"
 #include "kgsl_timeline.h"
+#include <linux/msm_kgsl.h>
 
 /* This structure represents inflight command object */
 struct cmd_list_obj {
@@ -1226,15 +1227,21 @@ static void adreno_hwsched_replay(struct adreno_device *adreno_dev)
 	}
 
 	if (hwsched->recurring_cmdobj) {
+		u32 event;
+
 		if (kgsl_context_invalid(
 			hwsched->recurring_cmdobj->base.context)) {
 			clear_bit(CMDOBJ_RECURRING_START,
 					&hwsched->recurring_cmdobj->priv);
 			set_bit(CMDOBJ_RECURRING_STOP,
 					&hwsched->recurring_cmdobj->priv);
+			event = GPU_SSR_FATAL;
+		} else {
+			event = GPU_SSR_END;
 		}
 		gpudev->send_recurring_cmdobj(adreno_dev,
 			hwsched->recurring_cmdobj);
+		srcu_notifier_call_chain(&device->nh, event, NULL);
 	}
 
 	/* Signal fences */
@@ -1378,6 +1385,9 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
 
 	if (device->state != KGSL_STATE_ACTIVE)
 		return;
+
+	if (hwsched->recurring_cmdobj)
+		srcu_notifier_call_chain(&device->nh, GPU_SSR_BEGIN, NULL);
 
 	/*
 	 * First, try to see if the faulted command object is marked

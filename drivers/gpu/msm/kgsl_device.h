@@ -310,6 +310,8 @@ struct kgsl_device {
 	bool l3_vote;
 	/** @pdev_loaded: Flag to test if platform driver is probed */
 	bool pdev_loaded;
+	/** @nh: Pointer to head of the SRCU notifier chain */
+	struct srcu_notifier_head nh;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \

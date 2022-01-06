@@ -1141,6 +1141,22 @@ int kgsl_gpu_frame_count(pid_t pid, u64 *frame_count)
 }
 EXPORT_SYMBOL(kgsl_gpu_frame_count);
 
+int kgsl_add_rcu_notifier(struct notifier_block *nb)
+{
+	struct kgsl_device *device = kgsl_get_device(0);
+
+	return srcu_notifier_chain_register(&device->nh, nb);
+}
+EXPORT_SYMBOL(kgsl_add_rcu_notifier);
+
+int kgsl_del_rcu_notifier(struct notifier_block *nb)
+{
+	struct kgsl_device *device = kgsl_get_device(0);
+
+	return srcu_notifier_chain_unregister(&device->nh, nb);
+}
+EXPORT_SYMBOL(kgsl_del_rcu_notifier);
+
 static int kgsl_close_device(struct kgsl_device *device)
 {
 	int result = 0;
