@@ -11,14 +11,14 @@
  *****************************************************************************/
 
 enum mt65xx_led_type {
-	TYPE_RED = 0,
-	TYPE_GREEN,
-	TYPE_BLUE,
-	TYPE_JOGBALL,
-	TYPE_KEYBOARD,
-	TYPE_BUTTON,
-	TYPE_LCD,
-	TYPE_TOTAL,
+	MT65XX_LED_TYPE_RED = 0,
+	MT65XX_LED_TYPE_GREEN,
+	MT65XX_LED_TYPE_BLUE,
+	MT65XX_LED_TYPE_JOGBALL,
+	MT65XX_LED_TYPE_KEYBOARD,
+	MT65XX_LED_TYPE_BUTTON,
+	MT65XX_LED_TYPE_LCD,
+	MT65XX_LED_TYPE_TOTAL,
 };
 
 enum mt65xx_led_mode {
