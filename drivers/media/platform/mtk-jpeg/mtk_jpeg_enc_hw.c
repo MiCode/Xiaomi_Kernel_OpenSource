@@ -37,10 +37,15 @@ void mtk_jpeg_enc_reset(void __iomem *base)
 	writel(0, base + JPEG_ENC_CODEC_SEL);
 }
 
-u32 mtk_jpeg_enc_get_file_size(void __iomem *base)
+u32 mtk_jpeg_enc_get_file_size(void __iomem *base, bool support_34bit)
 {
-	return readl(base + JPEG_ENC_DMA_ADDR0)*4 -
-	       readl(base + JPEG_ENC_DST_ADDR0);
+	if (support_34bit) {
+		return readl(base + JPEG_ENC_DMA_ADDR0)*4 -
+			readl(base + JPEG_ENC_DST_ADDR0);
+	} else {
+		return readl(base + JPEG_ENC_DMA_ADDR0) -
+			readl(base + JPEG_ENC_DST_ADDR0);
+	}
 }
 
 void mtk_jpeg_enc_start(void __iomem *base)
@@ -53,7 +58,7 @@ void mtk_jpeg_enc_start(void __iomem *base)
 }
 
 void mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,  void __iomem *base,
-			  struct vb2_buffer *src_buf)
+		bool support_34bit, struct vb2_buffer *src_buf)
 {
 	int i;
 	dma_addr_t dma_addr;
@@ -64,17 +69,19 @@ void mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,  void __iomem *base,
 		if (!i) {
 			pr_info("%s %d dma_addr %llx", __func__, __LINE__, dma_addr);
 			writel(dma_addr, base + JPEG_ENC_SRC_LUMA_ADDR);
-			writel(dma_addr >> 32, base + JPEG_ENC_SRC_LUMA_ADDR_EXT);
+			if (support_34bit)
+				writel(dma_addr >> 32, base + JPEG_ENC_SRC_LUMA_ADDR_EXT);
 		} else {
 			pr_info("%s %d dma_addr %llx", __func__, __LINE__, dma_addr);
 			writel(dma_addr, base + JPEG_ENC_SRC_CHROMA_ADDR);
-			writel(dma_addr >> 32, base + JPEG_ENC_SRC_CHROMA_ADDR_EXT);
+			if (support_34bit)
+				writel(dma_addr >> 32, base + JPEG_ENC_SRC_CHROMA_ADDR_EXT);
 		}
 	}
 }
 
 void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx, void __iomem *base,
-			  struct vb2_buffer *dst_buf)
+		bool support_34bit, struct vb2_buffer *dst_buf)
 {
 	dma_addr_t dma_addr;
 	size_t size;
@@ -92,9 +99,12 @@ void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx, void __iomem *base,
 	writel(dma_addr_offset & ~0xf, base + JPEG_ENC_OFFSET_ADDR);
 	writel(dma_addr_offsetmask & 0xf, base + JPEG_ENC_BYTE_OFFSET_MASK);
 	writel(dma_addr & ~0xf, base + JPEG_ENC_DST_ADDR0);
-	writel(dma_addr >> 32, base + JPEG_ENC_DEST_ADDR0_EXT);
+	if (support_34bit)
+		writel(dma_addr >> 32, base + JPEG_ENC_DEST_ADDR0_EXT);
 	writel((dma_addr + (size - ctx->dst_offset)) & ~0xf, base + JPEG_ENC_STALL_ADDR0);
-	writel(((dma_addr + (size - ctx->dst_offset))>>32), base + JPEG_ENC_STALL_ADDR0_EXT);
+	if (support_34bit)
+		writel(((dma_addr + (size - ctx->dst_offset))>>32),
+			base + JPEG_ENC_STALL_ADDR0_EXT);
 }
 
 void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
