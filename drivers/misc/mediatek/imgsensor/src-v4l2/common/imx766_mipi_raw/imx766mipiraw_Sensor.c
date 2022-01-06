@@ -1379,7 +1379,7 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 		write_cmos_sensor_8(ctx, 0x0100, 0X01);
 	else {
 		write_cmos_sensor_8(ctx, 0x0100, 0x00);
-		write_cmos_sensor_8(ctx, 0x0808, 0x00);
+		// write_cmos_sensor_8(ctx, 0x0808, 0x00);
 	}
 	return ERROR_NONE;
 }
@@ -1433,6 +1433,8 @@ static void sensor_init(struct subdrv_ctx *ctx)
 		sizeof(imx766_init_setting)/sizeof(kal_uint16));
 	/*enable temperature sensor, TEMP_SEN_CTL:*/
 	write_cmos_sensor_8(ctx, 0x0138, 0x01);
+	/* set MIPI auto ctrl */
+	write_cmos_sensor_8(ctx, 0x0808, 0x00);
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X\n");
 }
@@ -4841,21 +4843,41 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
-	csi_param->legacy_phy = 1;
+	csi_param->legacy_phy = 0;
 	csi_param->not_fixed_trail_settle = 1;
 	csi_param->cphy_settle = 0x21;
+
 	switch (scenario_id) {
-	case SENSOR_SCENARIO_ID_CUSTOM4:
-	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-		csi_param->cphy_settle = 0x14;
-		csi_param->legacy_phy = 0;
+	case SENSOR_SCENARIO_ID_CUSTOM2:
+	case SENSOR_SCENARIO_ID_CUSTOM8:
+	case SENSOR_SCENARIO_ID_CUSTOM9:
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+	case SENSOR_SCENARIO_ID_CUSTOM11:
+	case SENSOR_SCENARIO_ID_CUSTOM12:
+	case SENSOR_SCENARIO_ID_CUSTOM13:
+		csi_param->cphy_settle = 0x12;
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM3:
+	case SENSOR_SCENARIO_ID_CUSTOM5:
+	case SENSOR_SCENARIO_ID_CUSTOM6:
+		csi_param->cphy_settle = 0x13;
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+	case SENSOR_SCENARIO_ID_CUSTOM4:
+	case SENSOR_SCENARIO_ID_CUSTOM7:
 		csi_param->cphy_settle = 0x14;
-		csi_param->legacy_phy = 0;
+		break;
+	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+		csi_param->cphy_settle = 0x15;
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM1:
+		csi_param->cphy_settle = 0x17;
 		break;
 	default:
+		csi_param->legacy_phy = 1;
 		break;
 	}
 	return 0;
