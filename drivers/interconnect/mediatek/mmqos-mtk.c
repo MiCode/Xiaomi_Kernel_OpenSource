@@ -186,9 +186,12 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	list_for_each_entry(comm_port_node, &comm_node->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
 		avg_bw += comm_port_node->latest_avg_bw;
-		normalize_peak_bw = MULTIPLY_RATIO(comm_port_node->latest_peak_bw)
+		if (comm_port_node->hrt_type != HRT_NONE)
+			normalize_peak_bw = MULTIPLY_RATIO(comm_port_node->latest_peak_bw)
 						/ mtk_mmqos_get_hrt_ratio(
 						comm_port_node->hrt_type);
+		else
+			normalize_peak_bw = 0;
 		peak_bw += normalize_peak_bw;
 		mutex_unlock(&comm_port_node->bw_lock);
 	}
@@ -347,18 +350,26 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		if (chnn_id) {
 			chnn_id -= 1;
 			if (larb_port_node->is_write) {
-				chn_hrt_w_bw[comm_id][chnn_id] -= larb_port_node->old_peak_bw;
+				/* Do not count in display special peak BW */
+				if (!(src->peak_bw | MTK_MMQOS_MAX_BW)) {
+					chn_hrt_w_bw[comm_id][chnn_id] -=
+						larb_port_node->old_peak_bw;
+					chn_hrt_w_bw[comm_id][chnn_id] += src->peak_bw;
+					larb_port_node->old_peak_bw = src->peak_bw;
+				}
 				chn_srt_w_bw[comm_id][chnn_id] -= larb_port_node->old_avg_bw;
-				chn_hrt_w_bw[comm_id][chnn_id] += src->peak_bw;
 				chn_srt_w_bw[comm_id][chnn_id] += src->avg_bw;
-				larb_port_node->old_peak_bw = src->peak_bw;
 				larb_port_node->old_avg_bw = src->avg_bw;
 			} else {
-				chn_hrt_r_bw[comm_id][chnn_id] -= larb_port_node->old_peak_bw;
+				/* Do not count in display special peak BW */
+				if (!(src->peak_bw | MTK_MMQOS_MAX_BW)) {
+					chn_hrt_r_bw[comm_id][chnn_id] -=
+						larb_port_node->old_peak_bw;
+					chn_hrt_r_bw[comm_id][chnn_id] += src->peak_bw;
+					larb_port_node->old_peak_bw = src->peak_bw;
+				}
 				chn_srt_r_bw[comm_id][chnn_id] -= larb_port_node->old_avg_bw;
-				chn_hrt_r_bw[comm_id][chnn_id] += src->peak_bw;
 				chn_srt_r_bw[comm_id][chnn_id] += src->avg_bw;
-				larb_port_node->old_peak_bw = src->peak_bw;
 				larb_port_node->old_avg_bw = src->avg_bw;
 			}
 		}
@@ -434,8 +445,8 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	}
 	*agg_avg += avg_bw;
 
-	if (peak_bw == MTK_MMQOS_MAX_BW)
-		*agg_peak += 1000; /* for BWL soft mode */
+	if (peak_bw | MTK_MMQOS_MAX_BW)
+		*agg_peak |= MTK_MMQOS_MAX_BW;
 	else
 		*agg_peak += peak_bw;
 	return 0;
