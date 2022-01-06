@@ -196,6 +196,7 @@ config MACH_MT6765
 
 config MACH_MT6768
 	bool "MediaTek MT6768 SoCs support"
+	select ARCH_MEDIATEK
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
 	select ARCH_HAS_CPUFREQ
@@ -232,9 +233,11 @@ config MACH_MT6768
 	select CRYPTO_AES_ARM_CE
 	select MTK_SYSTRACKER_V2
 	select MTK_LASTBUS_INTERFACE
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_DBGTOP
 	select MTK_ION_CACHE_OPTIMIZATION
 	select MTK_TIMER_SYSTIMER
-	select MTK_EMI
+	select MTK_EMI_LEGACY
 	select MTK_DRAMC
 	select MTK_BASE_POWER
 	select MTK_SECURITY_SW_SUPPORT
@@ -243,6 +246,9 @@ config MACH_MT6768
 	select MTK_SYSTRACKER_V2
 	select DEVAPC_LEGACY
 	select OVERLAY_FS
+	select MTK_TINYSYS_SCP_CM4_SUPPORT
+	select MFD_MT6358
+	select MTK_PMQOS
 	help
 	  This enables support for MediaTek MT6768
 	  Support for mt6768 related projects
