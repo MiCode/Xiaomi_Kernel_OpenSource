@@ -208,7 +208,7 @@
 		/bits/ 16 <CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
 		msf_token =
 		/bits/ 16 <CMDQ_SYNC_TOKEN_MSF>;
-		mediatek,larb = <&smi_larb11>, <&smi_larb9>;
+		mediatek,larb = <&smi_larb9>, <&smi_larb11>;
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>,
 				<&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
 		clocks =
