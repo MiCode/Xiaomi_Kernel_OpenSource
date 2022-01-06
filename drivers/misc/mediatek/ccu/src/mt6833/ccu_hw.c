@@ -1074,7 +1074,7 @@ int ccu_load_segments(const struct firmware *fw, enum CCU_BIN_TYPE type)
 		switch (type) {
 		case CCU_DP_BIN:
 		{
-			if (da < CCU_CORE_DMEM_BASE && da > CCU_CACHE_BASE)
+			if (da < CCU_CORE_DMEM_BASE && da >= CCU_CACHE_BASE)
 				continue;
 			break;
 		}
