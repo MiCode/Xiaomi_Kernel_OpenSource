@@ -3651,6 +3651,16 @@ void mtk_cam_sv_work(struct work_struct *work)
 
 	s_data = mtk_cam_req_work_get_s_data(sv_work);
 	ctx = mtk_cam_s_data_get_ctx(s_data);
+
+	spin_lock(&ctx->streaming_lock);
+	if (!ctx->streaming) {
+		dev_info(ctx->cam->dev,
+			"%s:Ignore enque from workqueue after streaming off\n", __func__);
+		spin_unlock(&ctx->streaming_lock);
+		return;
+	}
+	spin_unlock(&ctx->streaming_lock);
+
 	dev_sv = ctx->cam->sv.devs[s_data->pipe_id - MTKCAM_SUBDEV_CAMSV_START];
 	camsv_dev = dev_get_drvdata(dev_sv);
 
