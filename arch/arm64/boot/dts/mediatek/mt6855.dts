@@ -2788,7 +2788,7 @@
 			mediatek,emi-reg = <&emicen>;
 			mediatek,miukp-reg = <&miu_kp>;
 			mediatek,miumpu-reg = <&miu_mpu>;
-			interrupts = <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH 0>;
 			sr_cnt = <48>;
 			aid_cnt = <256>;
 			aid_num_per_set = <32>;
