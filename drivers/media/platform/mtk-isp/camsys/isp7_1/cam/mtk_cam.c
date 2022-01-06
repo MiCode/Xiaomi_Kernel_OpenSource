@@ -1779,7 +1779,7 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 	int is_m2m = 0;
 	int feature;
 
-	desc_id = MTKCAM_IPI_RAW_IMGO - MTK_RAW_RAWI_2_IN;
+	desc_id = MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SOURCE_BEGIN;
 	in_node = MTKCAM_IPI_RAW_RAWI_2;
 	pipe_id = ctx->stream_id;
 
@@ -4498,6 +4498,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_mraw_working_buf_entry *mraw_buf_entry;
 	struct mtkcam_ipi_meta_output *meta_1_out;
+	struct mtkcam_ipi_img_output *imgo_out_fmt;
 	struct mtk_cam_buffer *meta1_buf;
 	struct mtk_mraw_device *mraw_dev;
 	struct mtk_cam_resource *res_user;
@@ -4659,15 +4660,19 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	frame_data = (struct mtkcam_ipi_frame_param *)buf_entry->msg_buffer.va;
 	session->frame_no = req_stream_data->frame_seq_no;
 
+	imgo_out_fmt = &req_stream_data->frame_params.img_outs[MTK_RAW_MAIN_STREAM_OUT -
+			MTK_RAW_SOURCE_BEGIN];
+
 	if (mtk_cam_feature_is_stagger(res_feature) ||
 		mtk_cam_feature_is_mstream(res_feature) ||
 		mtk_cam_feature_is_mstream_m2m(res_feature))
-		dev_dbg(cam->dev, "[%s:vhdr-req:%d] ctx:%d type:%d (ipi)hwscene:%d/expN:%d/prev_expN:%d\n",
+		dev_dbg(cam->dev, "[%s:vhdr-req:%d] ctx:%d type:%d (ipi)hwscene:%d/expN:%d/prev_expN:%d, imgo:0x%x\n",
 			__func__, req_stream_data->frame_seq_no, ctx->stream_id,
 			req_stream_data->feature.switch_feature_type,
 			req_stream_data->frame_params.raw_param.hardware_scenario,
 			req_stream_data->frame_params.raw_param.exposure_num,
-			req_stream_data->frame_params.raw_param.previous_exposure_num);
+			req_stream_data->frame_params.raw_param.previous_exposure_num,
+			imgo_out_fmt->buf[0][0].iova);
 
 	/* record mmqos (skip mstream 1exp) */
 	if (!(mtk_cam_is_mstream(ctx) &&
