@@ -355,7 +355,7 @@ static void frame_config_destroy_work(struct work_struct *work)
 static void frame_config_queue_destroy(struct kref *kref)
 {
 	struct mml_frame_config *cfg = container_of(kref, struct mml_frame_config, ref);
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)cfg->ctx;
+	struct mml_drm_ctx *ctx = cfg->ctx;
 
 	queue_work(ctx->wq_destroy, &cfg->work_destroy);
 }
@@ -445,7 +445,7 @@ static void task_move_to_running(struct mml_task *task)
 static void task_move_to_idle(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+	struct mml_drm_ctx *ctx = task->ctx;
 
 	/* Must lock ctx->config_mutex before call */
 	if (task->state == MML_TASK_INITIAL ||
@@ -491,7 +491,7 @@ static void task_move_to_destroy(struct kref *kref)
 
 static void task_submit_done(struct mml_task *task)
 {
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+	struct mml_drm_ctx *ctx = task->ctx;
 
 	mml_msg("[drm]%s task %p state %u", __func__, task, task->state);
 
@@ -561,7 +561,7 @@ static void task_frame_done(struct mml_task *task)
 {
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_config *tmp;
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+	struct mml_drm_ctx *ctx = task->ctx;
 	struct mml_dev *mml = cfg->mml;
 
 	mml_trace_ex_begin("%s", __func__);
@@ -915,10 +915,10 @@ EXPORT_SYMBOL_GPL(mml_drm_dump);
 static s32 dup_task(struct mml_task *task, u32 pipe)
 {
 	struct mml_frame_config *cfg = task->config;
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+	struct mml_drm_ctx *ctx = task->ctx;
 	struct mml_task *src;
 
-	if (task->pkts[pipe]) {
+	if (unlikely(task->pkts[pipe])) {
 		mml_err("[drm]%s task %p pipe %hhu already has pkt before dup",
 			__func__, task, pipe);
 		return -EINVAL;
@@ -990,7 +990,7 @@ dup_command:
 
 static void task_queue(struct mml_task *task, u32 pipe)
 {
-	struct mml_drm_ctx *ctx = (struct mml_drm_ctx *)task->ctx;
+	struct mml_drm_ctx *ctx = task->ctx;
 
 	queue_work(ctx->wq_config[pipe], &task->work_config[pipe]);
 }

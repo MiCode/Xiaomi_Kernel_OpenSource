@@ -844,41 +844,73 @@ static const struct mml_submit bypass_submit = {
 	},
 };
 
-static void sys_addon_connect(struct mml_sys *sys,
-			      struct mtk_addon_mml_config *cfg,
-			      struct cmdq_pkt *pkt)
+static void sys_calc_cfg(struct mtk_ddp_comp *ddp_comp,
+			 union mtk_addon_config *addon_config,
+			 struct cmdq_pkt *pkt)
 {
+	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
+	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
 	struct mml_dle_ctx *ctx;
 	struct mml_dle_param dl;
-	u32 pipe;
+	struct mml_dle_frame_info info = {0};
+	struct mml_tile_output **outputs;
+	s32 i, pipe_cnt = cfg->dual ? 2 : 1;
 	s32 ret;
+
+	mml_msg("%s module:%d", __func__, cfg->config_type.module);
 
 	if (!cfg->submit.info.src.width) {
 		/* set test submit */
 		cfg->submit = bypass_submit;
 	}
 
-	if (cfg->config_type.module == MML_RSZ_v2) {
-		pipe = 1;
-	} else {
-		pipe = 0;
+	dl.dual = cfg->dual;
+	dl.config_cb = sys_config_done_cb;
+	ctx = sys_get_dle_ctx(sys, &dl);
+	if (IS_ERR(ctx)) {
+		mml_err("%s fail to get mml ctx", __func__);
+		return;
+	}
 
-		dl.dual = cfg->dual;
-		dl.config_cb = sys_config_done_cb;
-		ctx = sys_get_dle_ctx(sys, &dl);
-		if (IS_ERR(ctx)) {
-			mml_err("fail to get mml ctx for addon config");
-			return;
-		}
-
-		ret = mml_dle_config(ctx, &cfg->submit, cfg);
-		if (ret) {
-			mml_err("%s config fail", __func__);
-			return;
-		}
+	for (i = 0; i < pipe_cnt; i++) {
+		info.dl_out[i].left = cfg->mml_dst_roi[i].x;
+		info.dl_out[i].top = cfg->mml_dst_roi[i].y;
+		info.dl_out[i].width = cfg->mml_dst_roi[i].width;
+		info.dl_out[i].height = cfg->mml_dst_roi[i].height;
+	}
+	ret = mml_dle_config(ctx, &cfg->submit, &info, cfg);
+	if (ret) {
+		mml_err("%s config fail", __func__);
+		return;
 	}
 
 	/* wait submit_done */
+	if (!cfg->task || !cfg->task->config->tile_output[pipe_cnt - 1]) {
+		mml_err("%s no tiles for task %p pipe_cnt %d", __func__,
+			cfg->task, pipe_cnt);
+		return;
+	}
+
+	outputs = cfg->task->config->tile_output;
+	for (i = 0; i < pipe_cnt; i++) {
+		cfg->mml_src_roi[i].x = outputs[i]->src_crop.left;
+		cfg->mml_src_roi[i].y = outputs[i]->src_crop.top;
+		cfg->mml_src_roi[i].width = outputs[i]->src_crop.width;
+		cfg->mml_src_roi[i].height = outputs[i]->src_crop.height;
+	}
+}
+
+static void sys_addon_connect(struct mml_sys *sys,
+			      struct mtk_addon_mml_config *cfg,
+			      struct cmdq_pkt *pkt)
+{
+	u32 pipe;
+
+	if (cfg->config_type.module == DISP_INLINE_ROTATE_1)
+		pipe = 1;
+	else
+		pipe = 0;
+
 	if (!cfg->task || !cfg->task->config->tile_output[pipe]) {
 		mml_err("%s no tile for task %p pipe %u", __func__,
 			cfg->task, pipe);
@@ -896,14 +928,14 @@ static void sys_addon_disconnect(struct mml_sys *sys,
 	struct mml_dle_ctx *ctx;
 	u32 pipe;
 
-	if (cfg->config_type.module == MML_RSZ_v2) {
+	if (cfg->config_type.module == DISP_INLINE_ROTATE_1) {
 		pipe = 1;
 	} else {
 		pipe = 0;
 
 		ctx = sys_get_dle_ctx(sys, NULL);
 		if (IS_ERR_OR_NULL(ctx)) {
-			mml_err("fail to get mml ctx for addon config");
+			mml_err("%s fail to get mml ctx", __func__);
 			return;
 		}
 
@@ -932,7 +964,7 @@ static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
 	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
 
-	mml_msg("%s %d", __func__, cfg->config_type.type);
+	mml_msg("%s type:%d", __func__, cfg->config_type.type);
 	if (cfg->config_type.type == ADDON_DISCONNECT)
 		sys_addon_disconnect(sys, cfg);
 	else
@@ -945,7 +977,7 @@ static void sys_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
 	struct mml_dle_ctx *ctx = sys_get_dle_ctx(sys, NULL);
 
 	if (IS_ERR_OR_NULL(ctx)) {
-		mml_err("fail to get mml ctx for addon config");
+		mml_err("%s fail to get mml ctx", __func__);
 		return;
 	}
 
@@ -959,7 +991,7 @@ static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 	struct mml_task *task;
 
 	if (IS_ERR_OR_NULL(ctx)) {
-		mml_log("fail to get mml ctx for addon config");
+		mml_log("%s fail to get mml ctx", __func__);
 		return;
 	}
 
@@ -975,6 +1007,7 @@ static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 }
 
 static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
+	.mml_calc_cfg = sys_calc_cfg,
 	.addon_config = sys_addon_config,
 	.start = sys_start,
 	.unprepare = sys_unprepare,
@@ -999,20 +1032,34 @@ static const struct mml_comp_tile_ops dli_tile_ops = {
 	.prepare = dli_tile_prepare,
 };
 
-static void dlo_config_left(struct mml_frame_dest *dest,
+static void dlo_config_left(struct mml_frame_config *cfg,
+			    struct mml_frame_dest *dest,
 			    struct dlo_tile_data *data)
 {
 	data->enable_x_crop = true;
 	data->crop_left = 0;
-	data->crop_width = dest->data.width >> 1;
+	data->crop_width = cfg->dl_out[0].width;
+	if (data->crop_width == 0 || data->crop_width >= dest->data.width ||
+	    cfg->dl_out[0].height != dest->data.height)
+		mml_err("dlo[0] (%u, %u, %u, %u) cannot match dest (%u, %u)",
+			data->crop_left, 0, data->crop_width, cfg->dl_out[0].height,
+			dest->data.width, dest->data.height);
 }
 
-static void dlo_config_right(struct mml_frame_dest *dest,
+static void dlo_config_right(struct mml_frame_config *cfg,
+			     struct mml_frame_dest *dest,
 			     struct dlo_tile_data *data)
 {
 	data->enable_x_crop = true;
-	data->crop_left = dest->data.width >> 1;
-	data->crop_width = dest->data.width - data->crop_left;
+	data->crop_left = cfg->dl_out[0].width;
+	data->crop_width = cfg->dl_out[1].width;
+	if (data->crop_left != cfg->dl_out[1].left - cfg->dl_out[0].left ||
+	    data->crop_width != dest->data.width - data->crop_left ||
+	    cfg->dl_out[1].height != dest->data.height)
+		mml_err("dlo[1] (%u, %u, %u, %u) cannot match dest (%u, %u) left %u",
+			data->crop_left, 0, data->crop_width, cfg->dl_out[1].height,
+			dest->data.width, dest->data.height,
+			cfg->dl_out[1].left - cfg->dl_out[0].left);
 }
 
 static s32 dlo_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -1020,13 +1067,14 @@ static s32 dlo_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			    struct tile_func_block *func,
 			    union mml_tile_data *data)
 {
-	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 
-	if (task->config->dual) {
+	if (cfg->dual) {
 		if (ccfg->pipe == 0)
-			dlo_config_left(dest, &data->dlo);
+			dlo_config_left(cfg, dest, &data->dlo);
 		else
-			dlo_config_right(dest, &data->dlo);
+			dlo_config_right(cfg, dest, &data->dlo);
 	}
 	func->full_size_x_in = dest->data.width;
 	func->full_size_y_in = dest->data.height;

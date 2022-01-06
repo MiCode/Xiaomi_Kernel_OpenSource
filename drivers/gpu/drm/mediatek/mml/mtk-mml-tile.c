@@ -25,54 +25,53 @@ static const struct mml_path_node *get_tile_node(
 }
 
 static void set_tile_in_region(struct mml_tile_region *region,
-			       struct tile_func_block *ptr_func)
+			       struct tile_func_block *func)
 {
-	region->xs = ptr_func->in_pos_xs;
-	region->xe = ptr_func->in_pos_xe;
-	region->ys = ptr_func->in_pos_ys;
-	region->ye = ptr_func->in_pos_ye;
+	region->xs = func->in_pos_xs;
+	region->xe = func->in_pos_xe;
+	region->ys = func->in_pos_ys;
+	region->ye = func->in_pos_ye;
 }
 
 static void set_tile_out_region(struct mml_tile_region *region,
-				struct tile_func_block *ptr_func)
+				struct tile_func_block *func)
 {
-	region->xs = ptr_func->out_pos_xs;
-	region->xe = ptr_func->out_pos_xe;
-	region->ys = ptr_func->out_pos_ys;
-	region->ye = ptr_func->out_pos_ye;
+	region->xs = func->out_pos_xs;
+	region->xe = func->out_pos_xe;
+	region->ys = func->out_pos_ys;
+	region->ye = func->out_pos_ye;
 }
 
 static void set_tile_luma(struct mml_tile_offset *offset,
-			  struct tile_func_block *ptr_func)
+			  struct tile_func_block *func)
 {
-	offset->x = ptr_func->bias_x;
-	offset->x_sub = ptr_func->offset_x;
-	offset->y = ptr_func->bias_y;
-	offset->y_sub = ptr_func->offset_y;
+	offset->x = func->bias_x;
+	offset->x_sub = func->offset_x;
+	offset->y = func->bias_y;
+	offset->y_sub = func->offset_y;
 }
 
 static void set_tile_chroma(struct mml_tile_offset *offset,
-			    struct tile_func_block *ptr_func)
+			    struct tile_func_block *func)
 {
-	offset->x = ptr_func->bias_x_c;
-	offset->x_sub = ptr_func->offset_x_c;
-	offset->y = ptr_func->bias_y_c;
-	offset->y_sub = ptr_func->offset_y_c;
+	offset->x = func->bias_x_c;
+	offset->x_sub = func->offset_x_c;
+	offset->y = func->bias_y_c;
+	offset->y_sub = func->offset_y_c;
 }
 
 static void set_tile_engine(const struct mml_path_node *engine,
 			    struct mml_tile_engine *tile_eng,
-			    struct tile_func_block *ptr_func)
+			    struct tile_func_block *func)
 {
 	tile_eng->comp_id = engine->id;
-	set_tile_in_region(&tile_eng->in, ptr_func);
-	set_tile_out_region(&tile_eng->out, ptr_func);
-	set_tile_luma(&tile_eng->luma, ptr_func);
-	set_tile_chroma(&tile_eng->chroma, ptr_func);
+	set_tile_in_region(&tile_eng->in, func);
+	set_tile_out_region(&tile_eng->out, func);
+	set_tile_luma(&tile_eng->luma, func);
+	set_tile_chroma(&tile_eng->chroma, func);
 }
 
-static void set_tile_config(struct mml_task *task,
-			    const struct mml_topology_path *path,
+static void set_tile_config(const struct mml_topology_path *path,
 			    struct mml_tile_config *tile,
 			    u32 tile_idx,
 			    struct func_description *tile_func)
@@ -82,9 +81,9 @@ static void set_tile_config(struct mml_task *task,
 
 	for (i = 0; i < eng_cnt; i++) {
 		const struct mml_path_node *e = get_tile_node(path, i);
-		struct tile_func_block *ptr_func = tile_func->func_list[i];
+		struct tile_func_block *func = tile_func->func_list[i];
 
-		set_tile_engine(e, &tile->tile_engines[i], ptr_func);
+		set_tile_engine(e, &tile->tile_engines[i], func);
 	}
 
 	tile->tile_no = tile_idx;
@@ -109,16 +108,16 @@ static s32 prepare_tile(struct mml_task *task,
 
 	for (i = 0; i < eng_cnt; i++) {
 		struct mml_comp *comp = get_tile_node(path, i)->comp;
-		struct tile_func_block *ptr_func = tile_func->func_list[i];
+		struct tile_func_block *func = tile_func->func_list[i];
 
-		if (unlikely(comp->id != ptr_func->func_num)) {
+		if (unlikely(comp->id != func->func_num)) {
 			mml_err("[tile]mismatched tile_func(%d) and comp(%d) at [%d]",
-				ptr_func->func_num, comp->id, i);
+				func->func_num, comp->id, i);
 			return -EINVAL;
 		}
 		ret = call_tile_op(comp, prepare, task,
 				   &cache->cfg[path->tile_engines[i]],
-				   ptr_func, &tile_datas[i]);
+				   func, &tile_datas[i]);
 		if (ret) {
 			mml_err("[tile]comp(%d) prepare fail %d", comp->id, ret);
 			return ret;
@@ -341,8 +340,8 @@ err_exit:
 	return ret;
 }
 
-static s32 calc_tile_loop(struct mml_task *task,
-	const struct mml_topology_path *path, struct tile_ctx *ctx)
+static s32 calc_tile_loop(const struct mml_topology_path *path,
+	struct tile_ctx *ctx)
 {
 	struct tile_reg_map *tile_reg_map = ctx->tile_reg_map;
 	struct func_description *tile_func = ctx->tile_func;
@@ -369,7 +368,7 @@ static s32 calc_tile_loop(struct mml_task *task,
 			goto err_tile;
 
 		/* tile result from param */
-		set_tile_config(task, path, &tiles[tile_cnt], tile_cnt, tile_func);
+		set_tile_config(path, &tiles[tile_cnt], tile_cnt, tile_func);
 		tile_cnt++;
 	}
 
@@ -388,17 +387,23 @@ err_tile:
 	return ret;
 }
 
-static s32 calc_frame_mode(struct mml_task *task,
-	const struct mml_topology_path *path, struct tile_ctx *ctx)
+static s32 calc_frame_mode(const struct mml_topology_path *path,
+	struct tile_ctx *ctx)
 {
-	struct mml_tile_config *tiles = ctx->output->tiles;
+	struct mml_tile_output *output = ctx->output;
+	struct mml_tile_config *tiles = output->tiles;
+	struct tile_func_block *func = ctx->tile_func->func_list[0];
 
 	/* tile result from param once */
-	set_tile_config(task, path, &tiles[0], 0, ctx->tile_func);
+	set_tile_config(path, &tiles[0], 0, ctx->tile_func);
 
-	ctx->output->tile_cnt = 1;
-	ctx->output->h_tile_cnt = 1;
-	ctx->output->v_tile_cnt = 1;
+	output->tile_cnt = 1;
+	output->h_tile_cnt = 1;
+	output->v_tile_cnt = 1;
+	output->src_crop.left = func->in_pos_xs;
+	output->src_crop.top = func->in_pos_ys;
+	output->src_crop.width = func->in_pos_xe - func->in_pos_xs + 1;
+	output->src_crop.height = func->in_pos_ye - func->in_pos_ys + 1;
 	return 0;
 }
 
@@ -438,9 +443,9 @@ s32 calc_tile(struct mml_task *task, u32 pipe, struct mml_tile_cache *tile_cache
 		goto err_tile;
 
 	if (task->config->framemode)
-		ret = calc_frame_mode(task, path, &ctx);
+		ret = calc_frame_mode(path, &ctx);
 	else
-		ret = calc_tile_loop(task, path, &ctx);
+		ret = calc_tile_loop(path, &ctx);
 	if (ret)
 		goto err_tile;
 

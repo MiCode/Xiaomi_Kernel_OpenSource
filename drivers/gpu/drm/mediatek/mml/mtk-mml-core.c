@@ -1579,6 +1579,9 @@ static void core_update_out(struct mml_frame_config *cfg)
 
 void mml_core_config_task(struct mml_frame_config *cfg, struct mml_task *task)
 {
+	/* reset to 0 in case reuse task */
+	atomic_set(&task->pipe_done, 0);
+
 	if (task->state == MML_TASK_INITIAL)
 		core_update_out(cfg);
 

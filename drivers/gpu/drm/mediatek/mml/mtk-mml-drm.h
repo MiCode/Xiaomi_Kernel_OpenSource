@@ -29,4 +29,6 @@ struct mml_mutex_ctl {
 	enum mml_mutex_timing eof_timing;
 };
 
+#define MML_DL_OUT_CNT	2
+
 #endif	/* __MTK_MML_DRM_H__ */
