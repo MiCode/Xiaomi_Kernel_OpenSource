@@ -92,6 +92,8 @@
 
 		mt6368codec: mt6368codec {
 			compatible = "mediatek,mt6368-sound";
+			mediatek,dmic-mode = <0>;
+			mediatek,mic-type = <3 3 3>;
 			io-channels = <&mt6368_adc AUXADC_HPOFS_CAL>;
 			io-channel-names = "pmic_hpofs_cal";
 			nvmem = <&mt6368_efuse>;
