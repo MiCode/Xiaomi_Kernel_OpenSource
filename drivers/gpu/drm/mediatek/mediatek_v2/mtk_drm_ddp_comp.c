@@ -1308,6 +1308,9 @@ void mt6855_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
 					1, SODI_REQ_VAL_RDMA0_PD_MODE);
 
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA0_CG_MODE);
+
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0xFF, MT6855_HRT_URGENT_CTL_SEL_ALL);
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
