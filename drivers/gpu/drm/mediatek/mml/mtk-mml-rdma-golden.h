@@ -8,11 +8,16 @@
 
 #include "mtk-mml.h"
 
-#define DMABUF_CON_CNT		4
-
 #define GOLDEN_PIXEL_FHD	(2560 * 1088)
 #define GOLDEN_PIXEL_2K		(2750 * 1440)
 #define GOLDEN_PIXEL_4K		(3840 * 2176)
+
+enum rdma_golden_res {
+	RDMA_GOLDEN_FHD = 0,
+	RDMA_GOLDEN_2K,
+	RDMA_GOLDEN_4K,
+	RDMA_GOLDEN_TOTAL
+};
 
 struct golden_setting {
 	u32 pixel;
@@ -20,7 +25,7 @@ struct golden_setting {
 		u32 preultra;
 		u32 ultra;
 		u32 urgent;
-	} plane[DMABUF_CON_CNT];
+	} plane[MML_MAX_PLANES];
 };
 
 struct rdma_golden {
@@ -79,29 +84,31 @@ struct rdma_golden {
 #define MT6983_YUV420_FHD_ULTRA_1	(56 << 16 | 48)
 #define MT6983_YUV420_FHD_URGENT_1	(40 << 16 | 32)
 
-static const struct golden_setting th_argb_mt6983[] = {
-	{
+static const struct golden_setting th_argb_mt6983[RDMA_GOLDEN_TOTAL] = {
+	[RDMA_GOLDEN_FHD] = {
 		.pixel = GOLDEN_PIXEL_FHD,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_ARGB_FHD_PREULTRA,
 				.ultra		= MT6983_ARGB_FHD_ULTRA,
 				.urgent		= MT6983_ARGB_FHD_URGENT,
 			},
 		},
-	}, {
+	},
+	[RDMA_GOLDEN_2K] = {
 		.pixel = GOLDEN_PIXEL_2K,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_ARGB_2K_PREULTRA,
 				.ultra		= MT6983_ARGB_2K_ULTRA,
 				.urgent		= MT6983_ARGB_2K_URGENT,
 			},
 		},
-	}, {
+	},
+	[RDMA_GOLDEN_4K] = {
 		.pixel = GOLDEN_PIXEL_4K,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_ARGB_4K_PREULTRA,
 				.ultra		= MT6983_ARGB_4K_ULTRA,
 				.urgent		= MT6983_ARGB_4K_URGENT,
@@ -110,29 +117,31 @@ static const struct golden_setting th_argb_mt6983[] = {
 	},
 };
 
-static const struct golden_setting th_rgb_mt6983[] = {
-	{
+static const struct golden_setting th_rgb_mt6983[RDMA_GOLDEN_TOTAL] = {
+	[RDMA_GOLDEN_FHD] = {
 		.pixel = GOLDEN_PIXEL_FHD,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_RGB_FHD_PREULTRA,
 				.ultra		= MT6983_RGB_FHD_ULTRA,
 				.urgent		= MT6983_RGB_FHD_URGENT,
 			},
 		},
-	}, {
+	},
+	[RDMA_GOLDEN_2K] = {
 		.pixel = GOLDEN_PIXEL_2K,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_RGB_2K_PREULTRA,
 				.ultra		= MT6983_RGB_2K_ULTRA,
 				.urgent		= MT6983_RGB_2K_URGENT,
 			},
 		},
-	}, {
+	},
+	[RDMA_GOLDEN_4K] = {
 		.pixel = GOLDEN_PIXEL_4K,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_RGB_4K_PREULTRA,
 				.ultra		= MT6983_RGB_4K_ULTRA,
 				.urgent		= MT6983_RGB_4K_URGENT,
@@ -141,41 +150,47 @@ static const struct golden_setting th_rgb_mt6983[] = {
 	},
 };
 
-static const struct golden_setting th_yuv420_mt6983[] = {
-	{
+
+static const struct golden_setting th_yuv420_mt6983[RDMA_GOLDEN_TOTAL] = {
+	[RDMA_GOLDEN_FHD] = {
 		.pixel = GOLDEN_PIXEL_FHD,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_YUV420_FHD_PREULTRA_0,
 				.ultra		= MT6983_YUV420_FHD_ULTRA_0,
 				.urgent		= MT6983_YUV420_FHD_URGENT_0,
-			}, {
+			},
+			[1] = {
 				.preultra	= MT6983_YUV420_FHD_PREULTRA_1,
 				.ultra		= MT6983_YUV420_FHD_ULTRA_1,
 				.urgent		= MT6983_YUV420_FHD_URGENT_1,
 			},
 		},
-	}, {
+	},
+	[RDMA_GOLDEN_2K] = {
 		.pixel = GOLDEN_PIXEL_2K,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_YUV420_2K_PREULTRA_0,
 				.ultra		= MT6983_YUV420_2K_ULTRA_0,
 				.urgent		= MT6983_YUV420_2K_URGENT_0,
-			}, {
+			},
+			[1] = {
 				.preultra	= MT6983_YUV420_2K_PREULTRA_1,
 				.ultra		= MT6983_YUV420_2K_ULTRA_1,
 				.urgent		= MT6983_YUV420_2K_URGENT_1,
 			},
 		},
-	}, {
+	},
+	[RDMA_GOLDEN_4K] = {
 		.pixel = GOLDEN_PIXEL_4K,
 		.plane = {
-			{
+			[0] = {
 				.preultra	= MT6983_YUV420_4K_PREULTRA_0,
 				.ultra		= MT6983_YUV420_4K_ULTRA_0,
 				.urgent		= MT6983_YUV420_4K_URGENT_0,
-			}, {
+			},
+			[1] = {
 				.preultra	= MT6983_YUV420_4K_PREULTRA_1,
 				.ultra		= MT6983_YUV420_4K_ULTRA_1,
 				.urgent		= MT6983_YUV420_4K_URGENT_1,

@@ -75,14 +75,8 @@ enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
 #define CMDQ_CPR_PREBUILT_PIPE(mod)	(0x8003 + (mod))
 #define CMDQ_CPR_PREBUILT(mod, pipe, index) \
 	(0x8010 + \
-	(mod) * CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_REG_CNT + \
-	(pipe) * CMDQ_CPR_PREBUILT_REG_CNT + (index))
-
-#define CMDQ_CPR_PREBUILT_EXT_REG_CNT	30
-#define CMDQ_CPR_PREBUILT_EXT(mod, pipe, index) \
-	(0x80b0 + \
-	(mod & 0x1) * CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_EXT_REG_CNT + \
-	(pipe) * CMDQ_CPR_PREBUILT_EXT_REG_CNT + (index))
+	(mod) * (CMDQ_CPR_PREBUILT_PIPE_CNT) * (CMDQ_CPR_PREBUILT_REG_CNT) + \
+	(pipe) * (CMDQ_CPR_PREBUILT_REG_CNT) + (index))
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
