@@ -129,9 +129,13 @@ void mml_pq_comp_config_clear(struct mml_task *task)
 	struct mml_pq_sub_task *sub_task = NULL, *tmp = NULL;
 	u64 job_id = task->pq_task->comp_config.job_id;
 
+	mml_pq_log("%s task_job_id[%d] job_id[%llx]",
+		__func__, task->job.jobid, job_id);
 	mutex_lock(&chan->msg_lock);
 	if (atomic_read(&chan->msg_cnt)) {
 		list_for_each_entry_safe(sub_task, tmp, &chan->msg_list, mbox_list) {
+			mml_pq_log("%s msg sub_task[%p] msg_list[%08x] sub_job_id[%llx]",
+				__func__, sub_task, &chan->msg_list, sub_task->job_id);
 			if (sub_task->job_id == job_id) {
 				list_del(&sub_task->mbox_list);
 				atomic_dec_if_positive(&chan->msg_cnt);
@@ -142,6 +146,8 @@ void mml_pq_comp_config_clear(struct mml_task *task)
 		mutex_unlock(&chan->msg_lock);
 		mutex_lock(&chan->job_lock);
 		list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
+			mml_pq_log("%s job sub_task[%p] job_list[%08x] sub_job_id[%llx]",
+				__func__, sub_task, &chan->job_list, sub_task->job_id);
 			if (sub_task->job_id == job_id)
 				list_del(&sub_task->mbox_list);
 		}
@@ -914,7 +920,8 @@ static void handle_tile_init_result(struct mml_pq_chan *chan,
 	mml_pq_log("%s called, %d", __func__, job->result_job_id);
 	ret = find_sub_task(chan, job->result_job_id, &sub_task);
 	if (unlikely(ret)) {
-		mml_pq_err("finish tile sub_task failed!: %d", ret);
+		mml_pq_err("finish tile sub_task failed!: %d id: %d", ret,
+			job->result_job_id);
 		return;
 	}
 
@@ -1076,7 +1083,8 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 	mml_pq_msg("%s called, %d", __func__, job->result_job_id);
 	ret = find_sub_task(chan, job->result_job_id, &sub_task);
 	if (unlikely(ret)) {
-		mml_pq_err("finish tile sub_task failed!: %d", ret);
+		mml_pq_err("finish comp sub_task failed!: %d id: %d", ret,
+			job->result_job_id);
 		return;
 	}
 	mml_pq_msg("%s end %d task=%p sub_task->id[%d]", __func__, ret,

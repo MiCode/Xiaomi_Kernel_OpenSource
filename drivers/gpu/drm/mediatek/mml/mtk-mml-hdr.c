@@ -764,8 +764,6 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 				mml_pq_err("%s not enough mem for hdr_hist", __func__);
 				goto comp_config_put;
 			}
-			mml_pq_log("%s Aaron_1 hdr_hist[%p] pipe[%d]", __func__,
-				task->pq_task->hdr_hist[pipe], pipe);
 
 			task->pq_task->hdr_hist[pipe]->va =
 				cmdq_get_vcp_buf(engine, &(task->pq_task->hdr_hist[pipe]->pa));
