@@ -70,6 +70,18 @@ static struct {
 	{LYE_OPT_CLEAR_LAYER, 0, "LYE_OPT_CLEAR_LAYER"},
 };
 
+struct debug_info_layer {
+	int hrt_calc_bw;
+	int user_cap;
+};
+
+struct debug_info_disp {
+	unsigned int max_bw_layers;
+	struct debug_info_layer layer[PRIMARY_SESSION_INPUT_LAYER_COUNT];
+};
+
+static struct debug_info_disp g_debug_info[HRT_DISP_TYPE_NUM];
+
 void mtk_set_layering_opt(enum LYE_HELPER_OPT opt, int value)
 {
 	if (opt >= LYE_OPT_NUM) {
@@ -396,7 +408,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 #define _HRT_FMT \
 	"HRT hrt_num:0x%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
 #define _L_FMT \
-	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/compr%d/secure%d\n"
+	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/u_cap0x%x" \
+	"/compr%d/secure%d/hrt_w:%d\n"
 
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
 		DDPMSG(_HRT_FMT,
@@ -433,8 +446,10 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 				       layer_info->dataspace,
 				       layer_info->ext_sel_layer,
 				       layer_info->layer_caps,
+				       g_debug_info[i].layer[j].user_cap,
 				       layer_info->compress,
-				       layer_info->secure);
+				       layer_info->secure,
+				       g_debug_info[i].layer[j].hrt_calc_bw);
 			}
 		}
 	} else {
@@ -472,8 +487,10 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 					layer_info->dataspace,
 					layer_info->ext_sel_layer,
 					layer_info->layer_caps,
+					g_debug_info[i].layer[j].user_cap,
 					layer_info->compress,
-					layer_info->secure);
+					layer_info->secure,
+					g_debug_info[i].layer[j].hrt_calc_bw);
 			}
 		}
 	}
@@ -550,6 +567,29 @@ print_disp_info_to_log_buffer(struct drm_mtk_layering_info *disp_info)
 	n += snprintf(status_buf + n, LOGGER_BUFFER_SIZE - n,
 		"Last hrt query data[end]\n");
 #endif
+}
+
+static void record_user_info(struct drm_mtk_layering_info *disp_info)
+{
+	int i = 0, j = 0;
+
+	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
+		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			struct drm_mtk_layer_config *layer_info;
+
+			layer_info = &disp_info->input_config[i][j];
+			g_debug_info[i].layer[j].user_cap = layer_info->layer_caps;
+		}
+	}
+}
+
+static void mmp_layering_rule_result(void)
+{
+	int i = 0;
+
+	for (i = 0; i < HRT_DISP_TYPE_NUM; i++)
+		if (g_debug_info[i].max_bw_layers)
+			CRTC_MMP_MARK(i, max_hrt_layers, g_debug_info[i].max_bw_layers, 0);
 }
 
 void mtk_rollback_layer_to_GPU(struct drm_mtk_layering_info *disp_info,
@@ -1006,7 +1046,7 @@ static int insert_entry(struct hrt_sort_entry **head,
 }
 
 static int add_layer_entry(struct drm_mtk_layer_config *l_info, bool sort_by_y,
-			   int overlap_w)
+			   int overlap_w, int l_idx)
 {
 	struct hrt_sort_entry *begin_t, *end_t;
 	struct hrt_sort_entry **p_entry;
@@ -1030,8 +1070,10 @@ static int add_layer_entry(struct drm_mtk_layer_config *l_info, bool sort_by_y,
 
 	begin_t->overlap_w = overlap_w;
 	begin_t->layer_info = l_info;
+	begin_t->idx = l_idx;
 	end_t->overlap_w = -overlap_w;
 	end_t->layer_info = l_info;
+	end_t->idx = l_idx;
 
 	if (*p_entry == NULL) {
 		*p_entry = begin_t;
@@ -1117,16 +1159,24 @@ static int free_all_layer_entry(bool sort_by_y)
 }
 
 static int scan_x_overlap(struct drm_mtk_layering_info *disp_info,
-			  int disp_index, int ovl_overlap_limit_w)
+			  int disp_index, int ovl_overlap_limit_w, uint32_t *max_layer)
 {
 	struct hrt_sort_entry *tmp_entry;
 	int overlap_w_sum, max_overlap;
+	uint32_t temp_layer = 0;
 
 	overlap_w_sum = 0;
 	max_overlap = 0;
 	tmp_entry = x_entry_list;
 	while (tmp_entry) {
 		overlap_w_sum += tmp_entry->overlap_w;
+
+		if (tmp_entry->overlap_w > 0)
+			temp_layer |= 1 << tmp_entry->idx;
+		else
+			temp_layer &= ~(1 << tmp_entry->idx);
+		if (overlap_w_sum > max_overlap)
+			*max_layer = temp_layer;
 		max_overlap = (overlap_w_sum > max_overlap) ? overlap_w_sum
 							    : max_overlap;
 		tmp_entry = tmp_entry->tail;
@@ -1135,10 +1185,11 @@ static int scan_x_overlap(struct drm_mtk_layering_info *disp_info,
 }
 
 static int scan_y_overlap(struct drm_mtk_layering_info *disp_info,
-			  int disp_index, int ovl_overlap_limit_w)
+			  int disp_index, int ovl_overlap_limit_w, uint32_t *max_layer)
 {
 	struct hrt_sort_entry *tmp_entry;
 	int overlap_w_sum, tmp_overlap, max_overlap;
+	uint32_t temp_layer = 0;
 
 	overlap_w_sum = 0;
 	tmp_overlap = 0;
@@ -1147,19 +1198,25 @@ static int scan_y_overlap(struct drm_mtk_layering_info *disp_info,
 	while (tmp_entry) {
 		overlap_w_sum += tmp_entry->overlap_w;
 		if (tmp_entry->overlap_w > 0) {
+			temp_layer |= 1 << tmp_entry->idx;
 			add_layer_entry(tmp_entry->layer_info, false,
-					tmp_entry->overlap_w);
+					tmp_entry->overlap_w, tmp_entry->idx);
 		} else {
+			temp_layer &= ~(1 << tmp_entry->idx);
 			remove_layer_entry(tmp_entry->layer_info, false);
 		}
 
 		if (overlap_w_sum > ovl_overlap_limit_w &&
 		    overlap_w_sum > max_overlap) {
+			temp_layer = 0;
 			tmp_overlap = scan_x_overlap(disp_info, disp_index,
-						     ovl_overlap_limit_w);
+						     ovl_overlap_limit_w, &temp_layer);
 		} else {
 			tmp_overlap = overlap_w_sum;
 		}
+
+		if (tmp_overlap > max_overlap)
+			*max_layer = temp_layer;
 
 		max_overlap =
 			(tmp_overlap > max_overlap) ? tmp_overlap : max_overlap;
@@ -1257,6 +1314,42 @@ static int get_layer_weight(int disp_idx,
 	return weight * bpp;
 }
 
+void calc_mml_ir_layer_weight(struct drm_device *dev,
+	struct drm_mtk_layering_info *disp_info,
+	int disp, int layer_idx, int *overlap_w)
+{
+	struct mml_frame_info *mml_info = NULL;
+	uint32_t src_size = 0, dst_size = 0;
+	unsigned int disp_w, disp_h;
+	struct drm_display_mode *mode;
+	struct drm_crtc *crtc;
+
+	mml_info = &(disp_info->mml_cfg[disp][layer_idx]);
+	src_size = mml_info->dest[0].crop.r.width * mml_info->dest[0].crop.r.height;
+
+	drm_for_each_crtc(crtc, dev)
+		if (drm_crtc_index(crtc) == 0)
+			break;
+
+	if (crtc) {
+		mode = mtk_drm_crtc_avail_disp_mode(crtc, disp_info->disp_mode_idx[0]);
+		if (mode) {
+			disp_w = mode->hdisplay;
+			disp_h = mode->vdisplay;
+		} else {
+			disp_w = crtc->state->adjusted_mode.hdisplay;
+			disp_h = crtc->state->adjusted_mode.vdisplay;
+		}
+		dst_size = disp_w * disp_h;
+	} else
+		dst_size = mml_info->dest[0].data.width * mml_info->dest[0].data.height;
+
+	if (src_size && dst_size)
+		*overlap_w = ((uint64_t)((uint64_t)*overlap_w) * src_size) / dst_size;
+	DDPINFO("%s:%d overlap_w:%d, src:%u, dst:%u\n",
+		__func__, __LINE__, *overlap_w, src_size, dst_size);
+}
+
 static int _calc_hrt_num(struct drm_device *dev,
 			 struct drm_mtk_layering_info *disp_info, int disp,
 			 int hrt_type, bool force_scan_y, bool has_dal_layer)
@@ -1297,12 +1390,7 @@ static int _calc_hrt_num(struct drm_device *dev,
 		int ovl_idx;
 
 		layer_info = &disp_info->input_config[disp][i];
-		if ((hrt_type == HRT_TYPE_EMI) &&
-			MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & layer_info->layer_caps) {
-			// Totally have no idea what larb is, and what it should do
-			// if layer is inline-rotate, buffer is come from SRAM
-			// so we don't have to calculate it
-		} else if (disp_info->gles_head[disp] == -1 ||
+		if (disp_info->gles_head[disp] == -1 ||
 		    (i < disp_info->gles_head[disp] ||
 		     i > disp_info->gles_tail[disp])) {
 			if (hrt_type != HRT_TYPE_EMI) {
@@ -1320,8 +1408,14 @@ static int _calc_hrt_num(struct drm_device *dev,
 					continue;
 			}
 			overlap_w = get_layer_weight(disp, layer_info);
+
+			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & layer_info->layer_caps)
+				calc_mml_ir_layer_weight(dev, disp_info, disp, i, &overlap_w);
+
 			sum_overlap_w += overlap_w;
-			add_layer_entry(layer_info, true, overlap_w);
+			add_layer_entry(layer_info, true, overlap_w, i);
+			g_debug_info[disp].layer[i].hrt_calc_bw = overlap_w;
+			g_debug_info[disp].max_bw_layers |= 1 << i;
 		} else if (i == disp_info->gles_head[disp]) {
 			/* Add GLES layer */
 			if (hrt_type != HRT_TYPE_EMI) {
@@ -1355,8 +1449,10 @@ static int _calc_hrt_num(struct drm_device *dev,
 	 */
 	if (sum_overlap_w > overlap_l_bound ||
 	    has_hrt_limit(disp_info, HRT_SECONDARY) || force_scan_y) {
+		g_debug_info[disp].max_bw_layers = 0;
 		sum_overlap_w =
-			scan_y_overlap(disp_info, disp, overlap_l_bound);
+			scan_y_overlap(disp_info, disp, overlap_l_bound,
+				&g_debug_info[disp].max_bw_layers);
 		/* Add overlap weight of Gles layer and Assert layer. */
 		if (has_gles)
 			sum_overlap_w += get_layer_weight(disp, NULL);
@@ -2861,6 +2957,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		return -EFAULT;
 	}
 
+	record_user_info(&layering_info);
 	print_disp_info_to_log_buffer(&layering_info);
 #ifdef HRT_DEBUG_LEVEL1
 	DDPMSG("[Input data]\n");
@@ -2949,7 +3046,10 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 					       ADJUST_LAYOUT_OVERLAP_CAL);
 	overlap_num = calc_hrt_num(dev, &layering_info);
 	layering_info.hrt_weight = overlap_num;
-	DDPINFO("overlap_num %u\n", layering_info.hrt_weight);
+	DDPINFO("overlap_num %u layers(0x%x, 0x%x, 0x%x)\n", layering_info.hrt_weight,
+		g_debug_info[HRT_PRIMARY].max_bw_layers,
+		g_debug_info[HRT_SECONDARY].max_bw_layers,
+		g_debug_info[HRT_THIRD].max_bw_layers);
 
 	if (l_rule_ops->fbdc_restore_layout)
 		l_rule_ops->fbdc_restore_layout(&layering_info,
@@ -3015,6 +3115,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 
 	DRM_MMP_EVENT_END(layering, (unsigned long)disp_info_user,
 			(unsigned long)dev);
+	mmp_layering_rule_result();
 
 	return ret;
 }

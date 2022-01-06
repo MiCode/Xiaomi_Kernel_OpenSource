@@ -1802,15 +1802,17 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
 			comp->id, temp_bw, vtotal, vact);
 
+		if (pending->mml_mode != MML_MODE_RACING) {
 #ifdef IF_ZERO
-		if (pending->prop_val[PLANE_PROP_COMPRESS])
-			comp->fbdc_bw += temp_bw;
-		else
-			comp->qos_bw += temp_bw;
+			if (pending->prop_val[PLANE_PROP_COMPRESS])
+				comp->fbdc_bw += temp_bw;
+			else
+				comp->qos_bw += temp_bw;
 #else
-		/* so far only report one qos BW, no need to separate FBDC or normal BW */
-		comp->qos_bw += temp_bw;
+			/* so far only report one qos BW, no need to separate FBDC or normal BW */
+			comp->qos_bw += temp_bw;
 #endif
+		}
 	}
 }
 

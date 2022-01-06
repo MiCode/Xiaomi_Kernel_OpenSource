@@ -289,6 +289,8 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "aal_dre30_rw");
 		g_CRTC_MMP_Events[i].aal_dre20_rh = mmprofile_register_event(
 			crtc_mmp_root, "aal_dre20_rh");
+		g_CRTC_MMP_Events[i].max_hrt_layers = mmprofile_register_event(
+			crtc_mmp_root, "max_hrt_layers");
 	}
 }
 void drm_mmp_init(void)
