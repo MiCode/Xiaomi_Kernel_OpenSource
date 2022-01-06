@@ -4278,7 +4278,6 @@
 		status = "disabled";
 	};
 
-#if defined(CONFIG_MTK_MT6382_BDG)
 	mt6382_nfc: mt6382_nfc {
 		compatible = "mediatek, mt6382_nfc-eint";
 		interrupt-parent = <&pio>;
@@ -4287,6 +4286,7 @@
 		status = "okay";
 	};
 
+#if defined(CONFIG_MTK_MT6382_BDG)
 	mt6382_eint: mt6382_eint {
 		compatible = "mediatek,mt6382_eint";
 		interrupt-parent = <&pio>;
