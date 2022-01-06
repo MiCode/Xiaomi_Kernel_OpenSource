@@ -109,6 +109,19 @@
 			};
 		};
 	};
+	panel2@0 {
+		compatible = "truly,td4330,cmd";
+		reg = <1>;
+		pm-enable-gpios = <&pio 161 0>;
+		reset-gpios = <&pio 95 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
 	ports {
 		port {
 			dsi_out: endpoint {
