@@ -32,17 +32,15 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 		.name = "md",
 		.sta_mask = BIT(0),
 		.ctl_offs = 0x300,
-		.caps = MTK_SCPD_MD_OPS,
 		.extb_iso_offs = 0x398,
 		.extb_iso_bits = 0x3,
-		.sram_pdn_bits = GENMASK(8, 8),
-		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6833_TOP_AXI_PROT_EN_INFRA_MD),
 			BUS_PROT_IGN(IFR_TYPE, 0x0B84, 0x0B88, 0x0B80, 0x0B90,
 				MT6833_TOP_AXI_PROT_EN_INFRA_VDNR_MD),
 		},
+		.caps = MTK_SCPD_MD_OPS | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6833_POWER_DOMAIN_CONN] = {
 		.name = "conn",
@@ -56,6 +54,7 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
 				MT6833_TOP_AXI_PROT_EN_INFRA_1_CONN),
 		},
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6833_POWER_DOMAIN_MFG0] = {
 		.name = "mfg0",
@@ -63,6 +62,7 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 		.ctl_offs = 0x308,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6833_POWER_DOMAIN_MFG1] = {
 		.name = "mfg1",
@@ -80,6 +80,7 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6833_TOP_AXI_PROT_EN_INFRA_2_MFG1_2ND),
 		},
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6833_POWER_DOMAIN_MFG2] = {
 		.name = "mfg2",
@@ -87,6 +88,7 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 		.ctl_offs = 0x310,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6833_POWER_DOMAIN_MFG3] = {
 		.name = "mfg3",
@@ -94,6 +96,7 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 		.ctl_offs = 0x314,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6833_POWER_DOMAIN_ISP] = {
 		.name = "isp",
@@ -216,12 +219,6 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 		.ctl_offs = 0x364,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-	},
-	[MT6833_POWER_DOMAIN_APU] = {
-		.name = "apu",
-		.sta_mask = GENMASK(31, 30),
-		.ctl_offs = 0x670,
-		.caps = MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6833_POWER_DOMAIN_APU] = {
 		.name = "apu",
