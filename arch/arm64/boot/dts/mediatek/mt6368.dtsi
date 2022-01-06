@@ -96,6 +96,7 @@
 			io-channel-names = "pmic_hpofs_cal";
 			nvmem = <&mt6368_efuse>;
 			nvmem-names = "pmic-hp-efuse";
+			reg_vaud18-supply = <&mt6368_vaud18>;
 		};
 
 		regulators {
