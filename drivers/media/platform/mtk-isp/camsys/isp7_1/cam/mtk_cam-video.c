@@ -1400,7 +1400,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	q->type = video->desc.buf_type;
 	q->io_modes = VB2_MMAP | VB2_DMABUF;
 
-	if (q->type == V4L2_BUF_TYPE_META_OUTPUT)
+	if (q->type == V4L2_BUF_TYPE_META_OUTPUT || video->desc.id == MTK_RAW_META_OUT_1)
 		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	else
 		/**
