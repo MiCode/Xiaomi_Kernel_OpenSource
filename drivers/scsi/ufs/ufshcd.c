@@ -2690,7 +2690,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (hba->dev_info.wmanufacturerid != UFS_VENDOR_SAMSUNG)
 		goto send_orig_cmd;
 
-	if ((hba->quirks & UFS_MTK_HOST_QUIRK_UFS_HCI_PERF_HEURISTIC))
+	if (ufshcd_vops_has_ufshci_perf_heuristic(hba))
 		goto send_orig_cmd;
 
 	add_tag = ufsf_hpb_prepare_pre_req(&hba->ufsf, cmd, lun);
