@@ -9865,25 +9865,22 @@ static signed int ISP_release(
 	 * reason of close vf is to make sure camera can serve regular after
 	 * previous abnormal exit
 	 */
-	pr_info("Start close CAMA view finder");
+
 	Reg = ISP_RD32(CAM_REG_TG_VF_CON(ISP_CAM_A_IDX));
 	Reg &= 0xfffffffE;/* close Vfinder */
 	ISP_WR32(CAM_REG_TG_VF_CON(ISP_CAM_A_IDX), Reg);
-	pr_info("End close CAMA view finder");
 
-	pr_info("Start close CAMB view finder");
 	Reg = ISP_RD32(CAM_REG_TG_VF_CON(ISP_CAM_B_IDX));
 	Reg &= 0xfffffffE;/* close Vfinder */
 	ISP_WR32(CAM_REG_TG_VF_CON(ISP_CAM_B_IDX), Reg);
-	pr_info("End close CAMB view finder");
 
-	/*
+
 	for (i = ISP_CAMSV0_IDX; i <= ISP_CAMSV3_IDX; i++) {
 		Reg = ISP_RD32(CAM_REG_TG_VF_CON(i));
 		Reg &= 0xfffffffE;
 		ISP_WR32(CAM_REG_TG_VF_CON(i), Reg);
 	}
-	*/
+
 
 	/* Set DMX_SEL = 0 when ISP_release.
 	 * Reson:
